@@ -16,8 +16,8 @@ type request struct {
 	resize *terminalv1.Size
 }
 
-// terminalStream is one kind of terminal stream, spoken in its own messages.
-type terminalStream interface {
+// callerReadWriter reads what a caller sends and writes back to it, in one service's messages.
+type callerReadWriter interface {
 	receive() (request, error)
 	sendReady() error
 	sendOutput(output []byte) error
@@ -39,15 +39,27 @@ func (s shellStream) receive() (request, error) {
 }
 
 func (s shellStream) sendReady() error {
-	return s.stream.Send(&terminalv1.ShellResponse{Message: &terminalv1.ShellResponse_Ready{Ready: &emptypb.Empty{}}})
+	if err := s.stream.Send(&terminalv1.ShellResponse{Message: &terminalv1.ShellResponse_Ready{Ready: &emptypb.Empty{}}}); err != nil {
+		return fmt.Errorf("failed to send ready: %w", err)
+	}
+
+	return nil
 }
 
 func (s shellStream) sendOutput(output []byte) error {
-	return s.stream.Send(&terminalv1.ShellResponse{Message: &terminalv1.ShellResponse_Output{Output: output}})
+	if err := s.stream.Send(&terminalv1.ShellResponse{Message: &terminalv1.ShellResponse_Output{Output: output}}); err != nil {
+		return fmt.Errorf("failed to send output: %w", err)
+	}
+
+	return nil
 }
 
 func (s shellStream) sendExit(code int32) error {
-	return s.stream.Send(&terminalv1.ShellResponse{Message: &terminalv1.ShellResponse_Exit{Exit: &terminalv1.Exit{Code: code}}})
+	if err := s.stream.Send(&terminalv1.ShellResponse{Message: &terminalv1.ShellResponse_Exit{Exit: &terminalv1.Exit{Code: code}}}); err != nil {
+		return fmt.Errorf("failed to send the exit status: %w", err)
+	}
+
+	return nil
 }
 
 // endInput types end of input, so a shell given piped input runs it and exits.
@@ -73,15 +85,27 @@ func (s attachStream) receive() (request, error) {
 }
 
 func (s attachStream) sendReady() error {
-	return s.stream.Send(&terminalv1.AttachResponse{Message: &terminalv1.AttachResponse_Ready{Ready: &emptypb.Empty{}}})
+	if err := s.stream.Send(&terminalv1.AttachResponse{Message: &terminalv1.AttachResponse_Ready{Ready: &emptypb.Empty{}}}); err != nil {
+		return fmt.Errorf("failed to send ready: %w", err)
+	}
+
+	return nil
 }
 
 func (s attachStream) sendOutput(output []byte) error {
-	return s.stream.Send(&terminalv1.AttachResponse{Message: &terminalv1.AttachResponse_Output{Output: output}})
+	if err := s.stream.Send(&terminalv1.AttachResponse{Message: &terminalv1.AttachResponse_Output{Output: output}}); err != nil {
+		return fmt.Errorf("failed to send output: %w", err)
+	}
+
+	return nil
 }
 
 func (s attachStream) sendExit(code int32) error {
-	return s.stream.Send(&terminalv1.AttachResponse{Message: &terminalv1.AttachResponse_Exit{Exit: &terminalv1.Exit{Code: code}}})
+	if err := s.stream.Send(&terminalv1.AttachResponse{Message: &terminalv1.AttachResponse_Exit{Exit: &terminalv1.Exit{Code: code}}}); err != nil {
+		return fmt.Errorf("failed to send the exit status: %w", err)
+	}
+
+	return nil
 }
 
 // endInput types nothing.

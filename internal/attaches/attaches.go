@@ -34,25 +34,25 @@ type agentGetter interface {
 	GetByID(ctx context.Context, id string) (*agentstore.Agent, error)
 }
 
-type viewTmux interface {
+type viewAttacher interface {
 	GetPaneOwner(pane string) string
 	OpenView(view, session, pane string) error
 	CountSessionClients(session string) (int, error)
 	KillSession(session string) error
-	AttachArgv(session string) []string
+	BuildAttachArgv(session string) []string
 }
 
 // NewAttachServiceParams is what the service is built over.
 type NewAttachServiceParams struct {
 	Agents  agentGetter
-	Tmux    viewTmux
+	Tmux    viewAttacher
 	Session string
 }
 
 // AttachService attaches terminals to the panes agents run in.
 type AttachService struct {
 	agents  agentGetter
-	tmux    viewTmux
+	tmux    viewAttacher
 	session string
 
 	mu      sync.Mutex
@@ -98,8 +98,8 @@ func (s *AttachService) Open(ctx context.Context, params OpenParams) (pty.Termin
 	}
 
 	session, err := pty.Start(ctx, pty.StartParams{
-		Argv: s.tmux.AttachArgv(view),
-		Env:  outsideTmux(os.Environ()),
+		Argv: s.tmux.BuildAttachArgv(view),
+		Env:  stripTmuxEnv(os.Environ()),
 		Size: params.Size,
 		Term: params.Term,
 	})
@@ -197,9 +197,8 @@ func (a *attached) Wait() (int, error) {
 	return code, err
 }
 
-// outsideTmux is an environment with the variables that would tell tmux it is already inside one
-// taken out.
-func outsideTmux(env []string) []string {
+// stripTmuxEnv removes the variables that tell tmux it is already inside one.
+func stripTmuxEnv(env []string) []string {
 	kept := make([]string, 0, len(env))
 	for _, entry := range env {
 		if strings.HasPrefix(entry, "TMUX=") || strings.HasPrefix(entry, "TMUX_PANE=") {

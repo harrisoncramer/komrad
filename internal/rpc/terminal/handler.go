@@ -60,7 +60,11 @@ func NewHandler(params NewHandlerParams) *Handler {
 		drain = defaultDrainAfterExit
 	}
 
-	return &Handler{shells: params.Shells, attaches: params.Attaches, drainAfterExit: drain}
+	return &Handler{
+		shells:         params.Shells,
+		attaches:       params.Attaches,
+		drainAfterExit: drain,
+	}
 }
 
 // Shell opens a shell from the stream's first message, carries input and resizes to it and its
@@ -121,7 +125,7 @@ func (h *Handler) Attach(ctx context.Context, stream *connect.BidiStream[termina
 
 // carry says the terminal is ready, carries the caller's input to it and its output back, and
 // ends with its exit status.
-func (h *Handler) carry(cancel context.CancelFunc, stream terminalStream, terminal pty.Terminal) *fail.Error {
+func (h *Handler) carry(cancel context.CancelFunc, stream callerReadWriter, terminal pty.Terminal) *fail.Error {
 	defer terminal.Close()
 
 	if err := stream.sendReady(); err != nil {
@@ -163,7 +167,7 @@ func (h *Handler) carry(cancel context.CancelFunc, stream terminalStream, termin
 	return nil
 }
 
-func sendOutput(stream terminalStream, terminal pty.Terminal) {
+func sendOutput(stream callerReadWriter, terminal pty.Terminal) {
 	buffer := make([]byte, 32*1024)
 	for {
 		n, err := terminal.Read(buffer)
@@ -183,7 +187,7 @@ func sendOutput(stream terminalStream, terminal pty.Terminal) {
 
 // receiveInput carries the caller's input to the terminal, ending the terminal's input the way
 // the stream says when the caller closes its side.
-func receiveInput(stream terminalStream, terminal pty.Terminal) error {
+func receiveInput(stream callerReadWriter, terminal pty.Terminal) error {
 	for {
 		request, err := stream.receive()
 		if errors.Is(err, io.EOF) {

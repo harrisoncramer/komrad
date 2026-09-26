@@ -47,8 +47,7 @@ type Fake struct {
 	Views map[string]string
 	// SessionClients is how many clients each session answers it has attached.
 	SessionClients map[string]int
-	KilledSessions []string
-	OpenViewErr    error
+	killedSessions []string
 	// AttachCommand is what an attach runs in place of tmux.
 	AttachCommand []string
 }
@@ -86,10 +85,6 @@ func (f *Fake) OpenView(view, _, pane string) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
-	if f.OpenViewErr != nil {
-		return f.OpenViewErr
-	}
-
 	f.Views[view] = pane
 
 	return nil
@@ -108,13 +103,13 @@ func (f *Fake) KillSession(session string) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
-	f.KilledSessions = append(f.KilledSessions, session)
+	f.killedSessions = append(f.killedSessions, session)
 
 	return nil
 }
 
-// AttachArgv answers AttachCommand.
-func (f *Fake) AttachArgv(string) []string {
+// BuildAttachArgv answers AttachCommand.
+func (f *Fake) BuildAttachArgv(string) []string {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
@@ -126,7 +121,7 @@ func (f *Fake) ReadKilledSessions() []string {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
-	return slices.Clone(f.KilledSessions)
+	return slices.Clone(f.killedSessions)
 }
 
 // SetGlobal records a global option.

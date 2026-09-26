@@ -14,6 +14,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+type attachment struct {
+	*exec.Cmd
+
+	done chan struct{}
+}
+
 // TestIntegrationViews covers a view session from being opened on a pane to being killed.
 func TestIntegrationViews(t *testing.T) {
 	client := testServer(t, "komrad")
@@ -69,17 +75,11 @@ func TestIntegrationViews(t *testing.T) {
 	})
 }
 
-type attachment struct {
-	*exec.Cmd
-
-	done chan struct{}
-}
-
-// attachTo attaches a terminal to a session with AttachArgv.
+// attachTo attaches a terminal to a session with BuildAttachArgv.
 func attachTo(t *testing.T, client *Client, session string) attachment {
 	t.Helper()
 
-	argv := client.AttachArgv(session)
+	argv := client.BuildAttachArgv(session)
 	command := exec.Command(argv[0], argv[1:]...) //nolint:gosec // the argv is tmux's own
 	for _, entry := range os.Environ() {
 		if !strings.HasPrefix(entry, "TMUX=") {

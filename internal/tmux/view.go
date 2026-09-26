@@ -55,7 +55,7 @@ func (c *Client) KillSession(session string) error {
 	return nil
 }
 
-// AttachArgv is the command that attaches a terminal to a session, detaching any other client.
-func (c *Client) AttachArgv(session string) []string {
+// BuildAttachArgv builds the command attaching a terminal to a session and detaching any other.
+func (c *Client) BuildAttachArgv(session string) []string {
 	return slices.Concat([]string{"tmux"}, c.server, []string{"attach-session", "-d", "-t", "=" + session})
 }

@@ -29,12 +29,41 @@ const (
 	lastRedialWait  = 5 * time.Second
 )
 
-var droppedCodes = []connect.Code{connect.CodeUnavailable, connect.CodeUnknown, connect.CodeDeadlineExceeded, connect.CodeAborted}
-
 var (
 	errEndedEarly = errors.New("the terminal ended without an exit status")
 	errNotReady   = errors.New("the engine did not say it was ready")
 )
+
+var droppedCodes = []connect.Code{connect.CodeUnavailable, connect.CodeUnknown, connect.CodeDeadlineExceeded, connect.CodeAborted}
+
+// received is one message from the engine, whichever kind of terminal it came from.
+type received struct {
+	ready  bool
+	output []byte
+	exit   *terminalv1.Exit
+}
+
+// terminalConn is one open terminal stream.
+type terminalConn interface {
+	sendInput(input []byte) error
+	sendResize(size *terminalv1.Size) error
+	closeInput() error
+	receive() (received, error)
+	close()
+}
+
+// dialFunc opens a terminal stream at a size and waits for the engine to say it is ready.
+type dialFunc func(ctx context.Context, size *terminalv1.Size) (terminalConn, error)
+
+// streamConn is a terminal stream spoken in one service's messages.
+type streamConn[Req, Res any] struct {
+	stream *connect.BidiStreamForClient[Req, Res]
+	input  func(input []byte) *Req
+	resize func(size *terminalv1.Size) *Req
+	read   func(response *Res) received
+
+	sending sync.Mutex
+}
 
 func terminalCmd(state *app) *cobra.Command {
 	var addr string
@@ -98,7 +127,11 @@ func dialAttach(client terminalv1connect.TerminalServiceClient, agentID, term st
 				return &terminalv1.AttachRequest{Message: &terminalv1.AttachRequest_Resize{Resize: size}}
 			},
 			read: func(response *terminalv1.AttachResponse) received {
-				return received{ready: response.GetReady() != nil, output: response.GetOutput(), exit: response.GetExit()}
+				return received{
+					ready:  response.GetReady() != nil,
+					output: response.GetOutput(),
+					exit:   response.GetExit(),
+				}
 			},
 		}
 
@@ -115,41 +148,12 @@ func dialAttach(client terminalv1connect.TerminalServiceClient, agentID, term st
 	}
 }
 
-// received is one message from the engine, whichever kind of terminal it came from.
-type received struct {
-	ready  bool
-	output []byte
-	exit   *terminalv1.Exit
-}
-
-// terminalConn is one open terminal stream.
-type terminalConn interface {
-	sendInput(input []byte) error
-	sendResize(size *terminalv1.Size) error
-	closeInput() error
-	receive() (received, error)
-	close()
-}
-
-// dialFunc opens a terminal stream at a size and waits for the engine to say it is ready.
-type dialFunc func(ctx context.Context, size *terminalv1.Size) (terminalConn, error)
-
-// streamConn is a terminal stream spoken in one service's messages.
-type streamConn[Req, Res any] struct {
-	stream *connect.BidiStreamForClient[Req, Res]
-	input  func(input []byte) *Req
-	resize func(size *terminalv1.Size) *Req
-	read   func(response *Res) received
-
-	sending sync.Mutex
-}
-
 // open sends the opening message and waits for ready.
 func (c *streamConn[Req, Res]) open(open *Req) error {
 	if err := c.send(open); err != nil && !errors.Is(err, io.EOF) {
 		c.close()
 
-		return err
+		return fmt.Errorf("failed to send the opening message: %w", err)
 	}
 
 	first, err := c.stream.Receive()
@@ -162,7 +166,7 @@ func (c *streamConn[Req, Res]) open(open *Req) error {
 	if !c.read(first).ready {
 		c.close()
 
-		return errNotReady
+		return fmt.Errorf("failed to open the terminal: %w", errNotReady)
 	}
 
 	return nil
@@ -240,7 +244,9 @@ func runConsole(ctx context.Context, params runConsoleParams) (int, error) {
 				return nil, fmt.Errorf("failed to put the terminal in raw mode: %w", err)
 			}
 
-			return func() { _ = term.Restore(fd, previous) }, nil //nolint:errcheck // the terminal is being handed back on the way out
+			return func() {
+				_ = term.Restore(fd, previous) //nolint:errcheck // the terminal is being handed back on the way out
+			}, nil
 		},
 	})
 }
@@ -263,13 +269,13 @@ func runTerminal(ctx context.Context, params runTerminalParams) (int, error) {
 
 	conn, err := params.Dial(ctx, params.Size())
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("failed to open the terminal: %w", err)
 	}
 	defer func() { conn.close() }()
 
 	restore, err := params.Ready()
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("failed to ready this terminal: %w", err)
 	}
 	defer restore()
 
@@ -277,18 +283,18 @@ func runTerminal(ctx context.Context, params runTerminalParams) (int, error) {
 	go readInput(ctx, params.In, inputs)
 
 	for {
-		code, err := carry(ctx, conn, params, inputs)
+		code, err := carry(ctx, carryParams{Conn: conn, Inputs: inputs, Terminal: params})
 		if err == nil {
 			return code, nil
 		}
 
 		if params.Redial == 0 || !isDropped(ctx, err) {
-			return 0, err
+			return 0, fmt.Errorf("failed to carry the terminal: %w", err)
 		}
 
 		next, err := redial(ctx, params)
 		if err != nil {
-			return 0, err
+			return 0, fmt.Errorf("failed to redial the terminal: %w", err)
 		}
 
 		conn.close()
@@ -296,21 +302,27 @@ func runTerminal(ctx context.Context, params runTerminalParams) (int, error) {
 	}
 }
 
+type carryParams struct {
+	Conn     terminalConn
+	Inputs   <-chan []byte
+	Terminal runTerminalParams
+}
+
 // carry runs one stream until the terminal exits or the stream fails.
-func carry(ctx context.Context, conn terminalConn, params runTerminalParams, inputs <-chan []byte) (int, error) {
+func carry(ctx context.Context, params carryParams) (int, error) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	go forward(ctx, conn, params, inputs)
+	go forward(ctx, params)
 
 	for {
-		message, err := conn.receive()
+		message, err := params.Conn.receive()
 		if err != nil {
-			return 0, err
+			return 0, fmt.Errorf("failed to receive from the terminal: %w", err)
 		}
 
 		if len(message.output) > 0 {
-			if _, err := params.Out.Write(message.output); err != nil {
+			if _, err := params.Terminal.Out.Write(message.output); err != nil {
 				return 0, fmt.Errorf("failed to draw the terminal: %w", err)
 			}
 		}
@@ -323,24 +335,25 @@ func carry(ctx context.Context, conn terminalConn, params runTerminalParams, inp
 
 // forward sends what is typed and each resize to one stream, closing its input when the typing
 // ends.
-func forward(ctx context.Context, conn terminalConn, params runTerminalParams, inputs <-chan []byte) {
+func forward(ctx context.Context, params carryParams) {
+	inputs := params.Inputs
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case <-params.Resized:
-			if err := conn.sendResize(params.Size()); err != nil {
+		case <-params.Terminal.Resized:
+			if err := params.Conn.sendResize(params.Terminal.Size()); err != nil {
 				return
 			}
 		case input, ok := <-inputs:
 			if !ok {
-				_ = conn.closeInput() //nolint:errcheck // a stream that failed is heard about by receive
+				_ = params.Conn.closeInput() //nolint:errcheck // a stream that failed is heard about by receive
 				inputs = nil
 
 				continue
 			}
 
-			if err := conn.sendInput(input); err != nil {
+			if err := params.Conn.sendInput(input); err != nil {
 				return
 			}
 		}

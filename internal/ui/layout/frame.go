@@ -68,6 +68,12 @@ type shown struct {
 	height int
 }
 
+// Guest is an agent whose terminal the stage shows.
+type Guest struct {
+	Agent string
+	Pane  string
+}
+
 // Option is a setting New takes beyond the geometry, so the common case names none of them.
 type Option func(*Frame)
 
@@ -491,12 +497,6 @@ func (f *Frame) ShellArgv(dir string) []string {
 // puts it where the panes it took the window from would have.
 func (f *Frame) IsSidebarOnRight() bool {
 	return f.spec.sidebarOnRight
-}
-
-// Guest is an agent whose terminal the stage shows.
-type Guest struct {
-	Agent string
-	Pane  string
 }
 
 // ShowGuest puts an agent's terminal in the stage, by moving its pane in when the engine is

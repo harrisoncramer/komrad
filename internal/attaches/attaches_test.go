@@ -32,7 +32,11 @@ func TestOpen(t *testing.T) {
 	fake.Owners["%7"] = archived.ID
 	fake.Owners["%6"] = deleting.ID
 
-	service := attaches.NewAttachService(attaches.NewAttachServiceParams{Agents: stores.Agents, Tmux: fake, Session: "komrad"})
+	service := attaches.NewAttachService(attaches.NewAttachServiceParams{
+		Agents:  stores.Agents,
+		Tmux:    fake,
+		Session: "komrad",
+	})
 
 	tests := []struct {
 		name     string
@@ -97,55 +101,76 @@ func TestRelease(t *testing.T) {
 	stores := storetest.Open(t)
 	agent := stores.SeedAgent(t, agentstore.Agent{Name: "live", Pane: "%9"})
 
-	open := func(t *testing.T, service *attaches.AttachService) pty.Terminal {
-		t.Helper()
-
-		terminal, err := service.Open(t.Context(), attaches.OpenParams{AgentID: agent.ID, Size: pty.Size{Rows: 24, Cols: 80}})
-		require.NoError(t, err)
-		t.Cleanup(func() { _ = terminal.Close() })
-
-		return terminal
+	tests := []struct {
+		name           string
+		attachCommand  []string
+		sessionClients int
+		attaches       int
+		waited         int
+		wantOpenErr    bool
+		wantKilled     []string
+	}{
+		{
+			name:          "an attach that cannot start lets its view go",
+			attachCommand: []string{"/nonexistent/tmux"},
+			attaches:      1,
+			wantOpenErr:   true,
+			wantKilled:    []string{"view-9"},
+		},
+		{
+			name:           "a view a client outside komrad is attached to is kept",
+			sessionClients: 1,
+			attaches:       1,
+			waited:         1,
+		},
+		{
+			name:     "a view another attach still holds is kept",
+			attaches: 2,
+			waited:   1,
+		},
+		{
+			name:       "the last attach to end kills the view",
+			attaches:   2,
+			waited:     2,
+			wantKilled: []string{"view-9"},
+		},
 	}
 
-	newService := func(fake *tmuxtest.Fake) *attaches.AttachService {
-		fake.Owners["%9"] = agent.ID
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fake := tmuxtest.NewFake()
+			fake.Owners["%9"] = agent.ID
+			fake.SessionClients["view-9"] = tt.sessionClients
+			if tt.attachCommand != nil {
+				fake.AttachCommand = tt.attachCommand
+			}
 
-		return attaches.NewAttachService(attaches.NewAttachServiceParams{Agents: stores.Agents, Tmux: fake, Session: "komrad"})
+			service := attaches.NewAttachService(attaches.NewAttachServiceParams{
+				Agents:  stores.Agents,
+				Tmux:    fake,
+				Session: "komrad",
+			})
+
+			terminals := make([]pty.Terminal, 0, tt.attaches)
+			for range tt.attaches {
+				terminal, err := service.Open(t.Context(), attaches.OpenParams{AgentID: agent.ID, Size: pty.Size{Rows: 24, Cols: 80}})
+				if tt.wantOpenErr {
+					require.Error(t, err)
+
+					continue
+				}
+
+				require.NoError(t, err)
+				t.Cleanup(func() { _ = terminal.Close() })
+				terminals = append(terminals, terminal)
+			}
+
+			for _, terminal := range terminals[:tt.waited] {
+				_, err := terminal.Wait()
+				require.NoError(t, err)
+			}
+
+			assert.Equal(t, tt.wantKilled, fake.ReadKilledSessions())
+		})
 	}
-
-	t.Run("the last attach to end kills the view", func(t *testing.T) {
-		fake := tmuxtest.NewFake()
-		service := newService(fake)
-
-		first := open(t, service)
-		second := open(t, service)
-
-		_, err := first.Wait()
-		require.NoError(t, err)
-		assert.Empty(t, fake.ReadKilledSessions(), "another attach still holds the view")
-
-		_, err = second.Wait()
-		require.NoError(t, err)
-		assert.Equal(t, []string{"view-9"}, fake.ReadKilledSessions())
-	})
-
-	t.Run("a view a client outside komrad is attached to is kept", func(t *testing.T) {
-		fake := tmuxtest.NewFake()
-		fake.SessionClients["view-9"] = 1
-		service := newService(fake)
-
-		_, err := open(t, service).Wait()
-		require.NoError(t, err)
-		assert.Empty(t, fake.ReadKilledSessions())
-	})
-
-	t.Run("an attach that cannot start lets its view go", func(t *testing.T) {
-		fake := tmuxtest.NewFake()
-		fake.AttachCommand = []string{"/nonexistent/tmux"}
-		service := newService(fake)
-
-		_, err := service.Open(t.Context(), attaches.OpenParams{AgentID: agent.ID, Size: pty.Size{Rows: 24, Cols: 80}})
-		require.Error(t, err)
-		assert.Equal(t, []string{"view-9"}, fake.ReadKilledSessions())
-	})
 }

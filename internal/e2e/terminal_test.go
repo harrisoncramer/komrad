@@ -20,6 +20,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+type attachStream struct {
+	stream *connect.BidiStreamForClient[terminalv1.AttachRequest, terminalv1.AttachResponse]
+	cancel context.CancelFunc
+	output strings.Builder
+}
+
 // TestIntegrationTerminalAttachesToAnAgent covers a person attaching to an agent's terminal over
 // the api, being bumped by a second attach, coming back, and leaving no view behind.
 func TestIntegrationTerminalAttachesToAnAgent(t *testing.T) {
@@ -77,12 +83,6 @@ func TestIntegrationTerminalAttachesToAnAgent(t *testing.T) {
 
 		assert.Equal(t, pane, instance.GetOwnedPane(agent.GetId()))
 	})
-}
-
-type attachStream struct {
-	stream *connect.BidiStreamForClient[terminalv1.AttachRequest, terminalv1.AttachResponse]
-	cancel context.CancelFunc
-	output strings.Builder
 }
 
 // openAttach attaches to an agent and waits for the engine to say it is ready.

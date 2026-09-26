@@ -106,7 +106,11 @@ func dialShell(client terminalv1connect.TerminalServiceClient, dir, term string)
 				return &terminalv1.ShellRequest{Message: &terminalv1.ShellRequest_Resize{Resize: size}}
 			},
 			read: func(response *terminalv1.ShellResponse) received {
-				return received{ready: response.GetReady() != nil, output: response.GetOutput(), exit: response.GetExit()}
+				return received{
+					ready:  response.GetReady() != nil,
+					output: response.GetOutput(),
+					exit:   response.GetExit(),
+				}
 			},
 		}
 

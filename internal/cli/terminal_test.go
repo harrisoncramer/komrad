@@ -84,18 +84,6 @@ func TestRunTerminal(t *testing.T) {
 		wantOpened int
 	}{
 		{
-			name:       "an attach carries the agent's terminal until it exits",
-			steps:      []attachStep{{output: "agent", exit: true}},
-			wantOut:    "agent",
-			wantOpened: 1,
-		},
-		{
-			name:       "a dropped attach is dialled again and resumes",
-			steps:      []attachStep{{output: "before "}, {output: "after", exit: true}},
-			wantOut:    "before after",
-			wantOpened: 2,
-		},
-		{
 			name:       "a refused attach is not dialled again",
 			steps:      []attachStep{{refuse: connect.NewError(connect.CodeNotFound, os.ErrNotExist)}},
 			wantCode:   connect.CodeNotFound,
@@ -107,6 +95,18 @@ func TestRunTerminal(t *testing.T) {
 			wantOut:    "before ",
 			wantCode:   connect.CodeFailedPrecondition,
 			wantOpened: 2,
+		},
+		{
+			name:       "a dropped attach is dialled again and resumes",
+			steps:      []attachStep{{output: "before "}, {output: "after", exit: true}},
+			wantOut:    "before after",
+			wantOpened: 2,
+		},
+		{
+			name:       "an attach carries the agent's terminal until it exits",
+			steps:      []attachStep{{output: "agent", exit: true}},
+			wantOut:    "agent",
+			wantOpened: 1,
 		},
 	}
 
