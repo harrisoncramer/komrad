@@ -3,15 +3,180 @@ import DocPage from "../../layouts/DocPage.astro";
 import IndexList from "../../components/reference/IndexList.astro";
 import Heading from "../../components/reference/Heading.astro";
 import JumpBar from "../../components/reference/JumpBar.astro";
+import { codeTheme } from "../../code-theme.mjs";
+import { Code } from "astro:components";
 import { api, prose } from "../../reference";
 import { link } from "../../site";
+
+const request = `POST /agent.v1.AgentService/GetAgent
+Content-Type: application/json
+X-Komrad-Agent-Id: 019991a5-3c4e-7b12-8f3a-1c2d3e4f5a6b
+X-Komrad-Session-Id: 3b438df1-9e00-4716-a74c-e1ed2292e091
+
+{ "id": "019991a5-3c4e-7b12-8f3a-1c2d3e4f5a6b" }`;
+
+const record = `{
+  "id": "019991a5-3c4e-7b12-8f3a-1c2d3e4f5a6b",
+  "name": "update-docs-language",
+  "created_at": "2026-09-26T22:56:41.128390Z",
+  "state_changed_at": "2026-09-26T23:14:02.551007Z"
+}`;
+
+const page = `{ "pagination": { "limit": 50, "cursor": "eyJpIjoiMDE5OTkxYTUtM2M0ZS03YjEyLThmM2EtMWMyZDNlNGY1YTZiIn0" } }`;
+
+const pageResponse = `{
+  "agents": [ ... ],
+  "next_page_token": "eyJpIjoiMDE5OTkxYTUtM2M0ZS03YjEyLThmM2EtMWMyZDNlNGY1YTZiIn0"
+}`;
+
+const failure = `HTTP/1.1 404 Not Found
+Content-Type: application/json
+X-Request-Id: 019991a6-8b0e-7c3d-9e1f-2a3b4c5d6e7f
+
+{ "code": "not_found", "message": "agent 019991a5-3c4e-7b12-8f3a-1c2d3e4f5a6b not found" }`;
 ---
 
 <DocPage
   title="API"
   description="Every endpoint the service answers, and how to reach it over Connect, from the CLI, and as an MCP tool."
 >
-  <JumpBar items={api.services.map((service) => ({ href: `#${service.slug}`, label: service.title }))} />
+  <JumpBar
+    items={[
+      { href: "#requests", label: "Requests" },
+      { href: "#responses", label: "Responses" },
+      { href: "#pagination", label: "Pagination" },
+      { href: "#errors", label: "Errors" },
+      ...api.services.map((service) => ({ href: `#${service.slug}`, label: service.title })),
+    ]}
+  />
+
+  <section class="convention">
+    <Heading id="requests">Requests</Heading>
+    <p>
+      The service listens on one loopback address, and every endpoint on it is a Connect RPC. Calling one is a JSON
+      <code>POST</code> to the path on its method page. This is the call for one agent by its id:
+    </p>
+    <Code code={request} lang="http" theme={codeTheme} />
+    <p>
+      The two <code>X-Komrad</code> headers are how an agent says who it is. The CLI and the MCP server add them from
+      the agent's environment, so an agent never sets them by hand, and a method that limits what an agent may do, such
+      as archiving only its own children, decides on them. A call without them comes from a person, and a person may do
+      anything.
+    </p>
+    <p>
+      The CLI command and the MCP tool make exactly this request, which is why each method page shows the same call
+      three ways. The service answers this machine only: a request carrying an <code>Origin</code> header from anywhere
+      else is refused.
+    </p>
+  </section>
+
+  <section class="convention">
+    <Heading id="responses">Responses</Heading>
+    <p>
+      What comes back is JSON following the protobuf JSON mapping, with every field spelled exactly as the tables on the
+      method pages spell it. The agent asked for above comes back like this:
+    </p>
+    <Code code={record} lang="json" theme={codeTheme} />
+    <p>
+      Every id is a UUID, and it is the one handle a record keeps for life, archived or not, which is why calls take ids
+      rather than names. A name is a label for people: an agent may be renamed, and two workflows may each hold an agent
+      of the same name, so a method that accepts one says what it does when the name is ambiguous. Every timestamp is
+      RFC 3339 in UTC.
+    </p>
+    <p>
+      A field the method page marks optional is left out when it has no value, never sent as null, so a merged pull
+      request carries a <code>merged_at</code> and an open one does not. That strictness runs both ways: a request
+      naming a field the method does not have is refused rather than having the field quietly dropped.
+    </p>
+  </section>
+
+  <section class="convention">
+    <Heading id="pagination">Pagination</Heading>
+    <p>
+      A list that can grow without bound comes back a page at a time. Ask for a page with a <code>pagination</code>
+      object holding a limit, which is 20 when left out and never more than 100, and a cursor, which is empty for the
+      first page:
+    </p>
+    <Code code={page} lang="json" theme={codeTheme} />
+    <p>
+      While there is more to read, the page comes back with a <code>next_page_token</code>. Hand it back as the cursor,
+      exactly as it came, and the next page follows on from where this one ended. A page without a token is the last
+      one. Each list says on its own page what order it comes back in.
+    </p>
+    <Code code={pageResponse} lang="json" theme={codeTheme} />
+  </section>
+
+  <section class="convention">
+    <Heading id="errors">Errors</Heading>
+    <p>
+      When a call cannot be answered, the response is a Connect error: a code saying what kind of thing went wrong, and
+      a message saying what, for this request. The same call as above, with an id that names nothing:
+    </p>
+    <Code code={failure} lang="http" theme={codeTheme} />
+    <table>
+      <thead>
+        <tr>
+          <th>Code</th>
+          <th>Meaning</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>
+            <code>invalid_argument</code>
+          </td>
+          <td>The request broke a rule on the method page, or named something in the wrong form.</td>
+        </tr>
+        <tr>
+          <td>
+            <code>not_found</code>
+          </td>
+          <td>An id named nothing.</td>
+        </tr>
+        <tr>
+          <td>
+            <code>already_exists</code>
+          </td>
+          <td>What the call would create is already there, and the message names it.</td>
+        </tr>
+        <tr>
+          <td>
+            <code>failed_precondition</code>
+          </td>
+          <td>The record exists but is not in a state the call can act on, such as an agent mid-turn.</td>
+        </tr>
+        <tr>
+          <td>
+            <code>permission_denied</code>
+          </td>
+          <td>The caller may not act on that record, such as a child mailing outside its family.</td>
+        </tr>
+        <tr>
+          <td>
+            <code>resource_exhausted</code>
+          </td>
+          <td>A limit was reached, such as the number of agents. Trying again will not help.</td>
+        </tr>
+        <tr>
+          <td>
+            <code>internal</code>
+          </td>
+          <td>The service failed rather than the request.</td>
+        </tr>
+      </tbody>
+    </table>
+    <p>
+      The <code>X-Request-Id</code> header is on every response, not only failures. It is the trace id the service
+      logged the call under, and <a href={link("/api/log/get-log-lines")}>get_log_lines</a> takes it to show what the
+      service did with the call.
+    </p>
+    <p>
+      A method that takes a list of ids, such as <a href={link("/api/agent/archive-agents")}>archive_agents</a>, treats
+      it as one request. If any id is unknown, or any one of them is refused, the call fails naming why and none of them
+      change.
+    </p>
+  </section>
+
   {api.services.map((service) => (
     <section class="service">
       <Heading id={service.slug}>

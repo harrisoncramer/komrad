@@ -69,14 +69,15 @@ func TestStrictJSONUnmarshal(t *testing.T) {
 	}
 }
 
-// TestStrictJSONMarshal pins that the codec still writes what connect's own JSON codec writes,
-// only the reading side of it being meant to differ.
+// TestStrictJSONMarshal pins that the codec spells a field the way the schema does rather than
+// in camelCase, and that what it writes it reads back.
 func TestStrictJSONMarshal(t *testing.T) {
 	codec := strictJSON{name: nameJSON}
-	message := &agentv1.ListMailRequest{Direction: agentv1.MailDirection_MAIL_DIRECTION_SENT}
+	message := &agentv1.CreateAgentRequest{Prompt: "read", WorkflowId: "w1"}
 
 	encoded, err := codec.Marshal(message)
 	require.NoError(t, err)
+	assert.JSONEq(t, `{"prompt":"read","workflow_id":"w1"}`, string(encoded))
 
 	appended, err := codec.MarshalAppend([]byte("head:"), message)
 	require.NoError(t, err)
@@ -84,7 +85,7 @@ func TestStrictJSONMarshal(t *testing.T) {
 
 	assert.False(t, codec.IsBinary())
 
-	var read agentv1.ListMailRequest
+	var read agentv1.CreateAgentRequest
 	require.NoError(t, codec.Unmarshal(encoded, &read))
 	assert.True(t, proto.Equal(message, &read))
 }

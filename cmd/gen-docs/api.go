@@ -136,7 +136,7 @@ func addMessage(doc apiDoc, notes comments, message protoreflect.MessageDescript
 		field := message.Fields().Get(i)
 
 		described := fieldDoc{
-			Name:        field.JSONName(),
+			Name:        string(field.Name()),
 			Repeated:    field.IsList(),
 			Map:         field.IsMap(),
 			Rules:       append([]string{}, rpcapi.DescribeRules(field)...),

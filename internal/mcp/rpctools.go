@@ -88,7 +88,7 @@ func messageSchema(message protoreflect.MessageDescriptor, enclosing map[protore
 			return nil, err
 		}
 
-		name := field.JSONName()
+		name := string(field.Name())
 		properties[name] = property
 		if rpcapi.IsRequired(field) {
 			required = append(required, name)

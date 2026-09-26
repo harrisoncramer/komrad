@@ -334,6 +334,16 @@
   text-decoration: none;
 }
 
+.doc-content section.convention {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.doc-content section.convention h2 {
+  margin-bottom: 0;
+}
+
 .doc-content div.service-description p {
   color: var(--color-app-gray-light);
 }

@@ -155,8 +155,8 @@ func TestInputSchema(t *testing.T) {
 	}{
 		{
 			method:       "CreateAgent",
-			wantFields:   map[string]map[string]any{"prompt": {"type": "string"}, "workflowId": {"type": "string"}},
-			wantRequired: []string{"prompt", "workflowId"},
+			wantFields:   map[string]map[string]any{"prompt": {"type": "string"}, "workflow_id": {"type": "string"}},
+			wantRequired: []string{"prompt", "workflow_id"},
 		},
 		{
 			method:     "ListAgents",

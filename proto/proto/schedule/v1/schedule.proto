@@ -216,7 +216,7 @@ service ScheduleService {
       cli: true
       mcp: true
       name: "list_schedules"
-      description: "List the recurring agent launches, most recently updated first, with each one's cron expression, prompt, workflow, next run time, and its latest run. Returns one page; pass the response's nextPageToken back as pagination.cursor for the next. The summary this returns by default holds only the opening of each schedule's prompt, marked by promptTruncated; get_schedule returns one whole, and view VIEW_FULL returns every prompt on the page."
+      description: "List the recurring agent launches, most recently updated first, with each one's cron expression, prompt, workflow, next run time, and its latest run. The summary this returns by default holds only the opening of each schedule's prompt, marked by prompt_truncated; get_schedule returns one whole, and view VIEW_FULL returns every prompt on the page."
       roles: [ROLE_ORCHESTRATOR]
     };
   }

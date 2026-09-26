@@ -103,7 +103,7 @@ func readOpenThreads(ctx context.Context, state *app, owner string) ([]*agentv1.
 	var resp agentv1.ListReviewThreadsResponse
 	if err := callHookRPC(ctx, state, hookRPC{
 		path:    agentv1connect.AgentServiceListReviewThreadsProcedure,
-		request: map[string]any{"agentId": owner},
+		request: map[string]any{"agent_id": owner},
 		into:    &resp,
 	}); err != nil {
 		return nil, err

@@ -218,7 +218,7 @@ service WorkflowService {
       cli: true
       mcp: true
       name: "list_workflows"
-      description: "List the workflows agents are grouped into, in alphabetical order, with each one\x27s shared context, the working directory and flags its agents start from, and the scripts hooked to moments in their agents\x27 lives. Archived workflows are excluded unless archived is set, which lists those and only those. Returns one page; pass the response\x27s nextPageToken back as pagination.cursor for the next. The summary this returns by default holds only the opening of each workflow\x27s context, marked by contextTruncated; get_workflow returns one whole, and view VIEW_FULL returns every context on the page."
+      description: "List the workflows agents are grouped into, in alphabetical order, with each one\x27s shared context, the working directory and flags its agents start from, and the scripts hooked to moments in their agents\x27 lives. Archived workflows are excluded unless archived is set, which lists those and only those. The summary this returns by default holds only the opening of each workflow\x27s context, marked by context_truncated; get_workflow returns one whole, and view VIEW_FULL returns every context on the page."
       roles: [
         ROLE_IMPLEMENTER,
         ROLE_REVIEWER,
