@@ -1,0 +1,68 @@
+---
+title: Workflows
+description: The templates agents are created from, and what each one decides for them.
+group: start
+order: 2
+---
+
+import Alert from "../../components/Alert.astro";
+import { link } from "../../site";
+
+Komrad agents run inside _workflows_. Every agent belongs to one workflow, which provides common, editable settings to every agent spawned within it.
+
+<Alert variant="warning" >
+    This guide assumes you have [installed komrad](../install/) already.
+</Alert>
+
+Think of a workflow as the container for agroup of agents that do the same kind of work.
+
+## Creating one
+
+Let's set up a dummy repository, so that the workflow can spawn agents into it:
+
+```sh
+mkdir ~/learning-komrad
+cd ~/learning-komrad
+git init
+```
+
+Then run `komrad open` and press `w` in the panel, name the workflow `learning-komrad` and submit it with `<C-s>` to create it.
+
+<figure>
+  <video autoplay loop muted playsinline poster={link("/guides/workflows/first-workflow.webp")} width="1382" height="958" aria-label="Making a git repository in a shell, opening komrad, and creating a workflow called learning-komrad that points at it.">
+    <source src={link("/guides/workflows/first-workflow.webm")} type="video/webm" />
+    <source src={link("/guides/workflows/first-workflow.mp4")} type="video/mp4" />
+  </video>
+</figure>
+
+## What a workflow decides
+
+Workflows control where agents start, which CLI they run, and what flags they are launched with, such as the model. When you spawn an agent you can override any of these for that one agent.
+
+Think of workflows of editable presets taht agents
+
+Changing a workflow only affects agents spawned afterwards.
+
+## Shared context
+
+A workflow can hold text that is added to every agent's system prompt. This is where you put what you would otherwise tell each agent by hand: how tests run, how branches are named, what to leave alone. It comes after komrad's own briefing and your [global context](../../config/#context), so it has the final word.
+
+## A checkout per agent
+
+Agents that write code need to stay out of each other's way. A workflow can give each agent its own git worktree, cut fresh from a base branch. The agent works on a branch of its own, and the worktree is removed when the agent is deleted. The workflow's directory has to be an ordinary clone for this to work.
+
+Worktrees go in [`worktrees.dir`](../../config/#worktrees.dir) unless the workflow names its own place. A new worktree is a clean checkout, so a workflow can list files to copy in, like a local environment file. For anything heavier, like installing dependencies, use a [hook](../hooks/).
+
+The base branch is worked out from your clone when you create the workflow. New worktrees are cut from it and an agent's work is measured against it. If the clone loses that branch, `komrad doctor` says so.
+
+A workflow can also list paths to leave out of the diff the panel shows, so generated code does not bury the parts worth reading.
+
+## Archiving and restoring
+
+Archiving a workflow puts it and every agent in it away together. Nothing is destroyed, and search still finds what the agents said. Restoring brings the whole workflow back with its agents stopped and ready to resume. A workflow a schedule still launches into cannot be archived until the schedule is.
+
+## Starting small
+
+A workflow with nothing but a name is a perfectly good folder. Add a directory once you are tired of typing it. Add context once you have told three agents the same thing. Turn on worktrees once agents start treading on each other.
+
+You have a workflow. Now spawn an [agent](../agents/) into it.
