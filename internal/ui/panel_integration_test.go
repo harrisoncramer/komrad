@@ -116,13 +116,13 @@ func TestIntegrationPanel(t *testing.T) {
 		for _, cmd := range unsettled {
 			served.harness.settle(cmd)
 		}
-		assert.Equal(t, 341, lipgloss.Width(served.harness.readRawFrame()), "and once told, the frame covers it")
+		assert.Equal(t, 341, lipgloss.Width(served.harness.readDrawn()), "and once told, the frame covers it")
 
 		served.harness.press("j")
 		served.harness.fireTimers()
 
 		require.Equal(t, share, readPaneWidth(t, served.instance, served.navPane), "the agent's own pane takes it back")
-		assert.LessOrEqual(t, lipgloss.Width(served.harness.readRawFrame()), share, "so nothing drawn runs past the pane and wraps")
+		assert.LessOrEqual(t, lipgloss.Width(served.harness.readDrawn()), share, "so nothing drawn runs past the pane and wraps")
 	})
 }
 
