@@ -146,18 +146,18 @@ func TestListingLandsWrites(t *testing.T) {
 		assert.Equal(t, "%9", harness.panel.ReadGuestPane())
 	})
 
-	t.Run("a write with nothing to do with an open log pane leaves it up", func(t *testing.T) {
+	t.Run("a write with nothing to do with an open info pane leaves it up", func(t *testing.T) {
 		t.Parallel()
 
-		harness := openLanding(t)
+		harness := openTerminal(t, panelHarnessParams{}, newStagedShellAgent(t.TempDir()))
 		harness.refuse(agentv1connect.AgentServiceUpdateAgentProcedure, connect.NewError(connect.CodeAlreadyExists, errors.New("name is taken")))
-		harness.press("l")
+		harness.press("T")
 		opened := len(harness.panel.ReadRespawns())
-		require.Positive(t, opened, "the log is paged into a pane")
+		require.Positive(t, opened, "the shell is opened into a pane")
 
 		harness.press("r", "x", "ctrl+s", "esc")
 
-		assert.Empty(t, harness.panel.ReadKilledPanes(), "the log's pane is left where it is")
+		assert.Empty(t, harness.panel.ReadKilledPanes(), "the shell's pane is left where it is")
 	})
 
 	t.Run("the archive cursor keeps its agent when a folder above it goes", func(t *testing.T) {

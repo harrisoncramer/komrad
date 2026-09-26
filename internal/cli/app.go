@@ -17,8 +17,6 @@ type app struct {
 	defaultHarness string
 	defaultFlags   map[string]string
 	usage          config.Usage
-	logViewer      string
-	processViewer  string
 	logLevel       string
 	layout         config.Layout
 	githubApp      config.GitHubApp

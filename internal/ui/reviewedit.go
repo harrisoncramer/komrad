@@ -246,3 +246,7 @@ func (p reviewPass) editorDesc() string {
 
 	return "open in your editor"
 }
+
+func shellQuote(value string) string {
+	return "'" + strings.ReplaceAll(value, "'", `'\''`) + "'"
+}

@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"komrad/internal/ui/layout"
+	"komrad/internal/ui/panel"
 
 	tea "charm.land/bubbletea/v2"
 )
@@ -51,7 +52,7 @@ func (m model) openTerminal() (tea.Model, tea.Cmd) {
 
 	up := m.info.kind == infoTerminal && m.frame.IsOpen(layout.RegionInfo)
 
-	agent, ok := m.logTarget()
+	agent, ok := m.terminalTarget()
 	if !ok {
 		// A row holding no directory of its own can only ask for the shell already there.
 		if up {
@@ -110,9 +111,19 @@ func (m model) terminalDesc() string {
 	}
 
 	// Pressing the key over an agent the shell is not rooted in moves it, so say so.
-	if agent, ok := m.logTarget(); ok && agent.Cwd != m.info.subject {
+	if agent, ok := m.terminalTarget(); ok && agent.Cwd != m.info.subject {
 		return "terminal here"
 	}
 
 	return "back to the terminal"
+}
+
+// terminalTarget is the agent the terminal key roots its shell in.
+func (m model) terminalTarget() (panel.Agent, bool) {
+	item, ok := m.agents.selectedAgent(m.shared())
+	if !ok {
+		return panel.Agent{}, false
+	}
+
+	return item.Agent, true
 }

@@ -244,7 +244,7 @@ func (a *agentsScreen) doc(s panelShared) string {
 	case item.Agent.HeldAt != nil:
 		return heldPlaceholder
 	case item.Agent.State.IsFailed():
-		return failedPlaceholder(s, item.Agent)
+		return failedPlaceholder(item.Agent)
 	default:
 		return dormantPlaceholder
 	}
@@ -298,18 +298,10 @@ func firstKey(keys []string, fallback string) string {
 
 const settingUpPlaceholder = "_setting up…_\n\nMaking this agent's worktree. It has no pane yet."
 
-func failedPlaceholder(s panelShared, agent panel.Agent) string {
-	// A create dies at the provisioner or at one of the pre-launch hooks after it, so the run
-	// that failed is the newest of either rather than the newest provision run.
-	label, moments := "setup", []string{config.TriggerProvision, config.HookPreLaunch}
-	// A delete dies either at a pre-teardown hook or at the deprovisioner after it, so the run
-	// that failed is the newest of the two.
+func failedPlaceholder(agent panel.Agent) string {
+	label := "setup"
 	if agent.State == panel.StateFailedToCleanup {
-		label, moments = "teardown", []string{config.HookPreTeardown, config.TriggerDeprovision}
-	}
-
-	if run, ok := latestRunLog(s.runLogsDir, agent.ID, moments); ok {
-		return fmt.Sprintf("_%s failed_\n\nPress \"l\" to see run %03d, which is the one that failed.", label, run.Number)
+		label = "teardown"
 	}
 
 	reason := agent.FailureReason

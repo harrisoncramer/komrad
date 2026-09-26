@@ -329,14 +329,14 @@ func (a *archiveScreen) doc(s panelShared) string {
 	case r.header:
 		return workflowContextMarkdown(r.workflow)
 	default:
-		return archiveDocument(s, r.item.Agent)
+		return archiveDocument(r.item.Agent)
 	}
 }
 
 // archiveDocument is what the panel draws beside an archived agent's row.
-func archiveDocument(s panelShared, agent panel.Agent) string {
+func archiveDocument(agent panel.Agent) string {
 	if agent.State.IsFailed() {
-		return failedPlaceholder(s, agent)
+		return failedPlaceholder(agent)
 	}
 
 	return archiveMarkdown(agent)

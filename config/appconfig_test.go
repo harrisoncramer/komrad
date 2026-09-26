@@ -672,10 +672,10 @@ func TestLoadMergesLayers(t *testing.T) {
 		},
 		{
 			name:  "a table merges key by key",
-			files: []string{"[log]\nlevel = \"warn\"\nviewer = \"less\"\n", "[log]\nlevel = \"debug\"\n"},
+			files: []string{"[debug]\nframes = true\nframe_history = 5\n", "[debug]\nframe_history = 9\n"},
 			check: func(t *testing.T, cfg *Config) {
-				assert.Equal(t, "debug", cfg.Log.Level, "the later layer wins the key it set")
-				assert.Equal(t, "less", cfg.Log.Viewer, "and leaves alone the key it did not mention")
+				assert.Equal(t, 9, cfg.Debug.FrameHistory, "the later layer wins the key it set")
+				assert.True(t, cfg.Debug.Frames, "and leaves alone the key it did not mention")
 			},
 		},
 		{

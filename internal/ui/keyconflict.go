@@ -168,8 +168,6 @@ func globalArms(s screen, keys config.Keybindings) []dispatchArm {
 
 	if s.opensInfoPane() {
 		arms = append(arms,
-			dispatchArm{describe: "the log", keys: keys.Logs.Open},
-			dispatchArm{describe: "the earlier log", keys: keys.Logs.Older},
 			dispatchArm{describe: "the terminal", keys: keys.Terminal.Open},
 		)
 	}

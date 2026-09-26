@@ -27,15 +27,6 @@ func tick() tea.Cmd {
 	return tea.Tick(tickInterval, func(at time.Time) tea.Msg { return tickMsg{at: at} })
 }
 
-// viewedDwell is how long a failed run's log has to be on screen before the panel counts it as read.
-const viewedDwell = time.Second
-
-// hoverState is the agent the cursor is sitting on and when it arrived.
-type hoverState struct {
-	agentID string
-	since   time.Time
-}
-
 // reportUnreachable says the server has stopped answering the first time it is found gone.
 func (m *model) reportUnreachable(err error) {
 	was := m.unreachable
@@ -138,82 +129,6 @@ type written struct {
 	harness string
 	// focus says the pane the write made is to be handed the keyboard once it is shown.
 	focus bool
-}
-
-// dwellRunsRead claims an agent's failed runs once its run log has been on screen long enough to
-// have been read.
-func (m model) dwellRunsRead(now time.Time) (model, tea.Cmd) {
-	agent, ok := m.runLogTarget()
-	if !ok {
-		m.runHover = hoverState{}
-
-		return m, nil
-	}
-
-	// The row is tracked whether or not it is marked, so a run that fails while the pane is
-	// already parked on the agent earns a look of its own rather than being claimed on arrival.
-	if m.runHover.agentID != agent.ID {
-		m.runHover = hoverState{agentID: agent.ID, since: now}
-
-		// The pane follows the cursor, so the run it shows is worked out again for the agent it
-		// has just reached rather than left at the position the last one opened on.
-		if at := m.runAt(agent.ID, m.failedRunLog(agent.ID)); at != m.info.run {
-			m.info.run = at
-			m.stageInfo()
-		}
-	}
-
-	if !m.isFailedRunShowing(agent.ID) {
-		m.runHover.since = now
-
-		return m, nil
-	}
-
-	if now.Sub(m.runHover.since) < viewedDwell {
-		return m, nil
-	}
-
-	// A hidden panel restarts the dwell, so coming back to it is a fresh look rather than a
-	// mark that was earned while nobody was watching.
-	if !m.session.IsShown() {
-		m.runHover.since = now
-
-		return m, nil
-	}
-
-	return m, m.markRunsReadCmd(agent.ID)
-}
-
-// runLogTarget is the agent whose runs the info pane is showing, and none while that pane is
-// showing anything else.
-func (m model) runLogTarget() (panel.Agent, bool) {
-	if m.info.kind != infoRunLog {
-		return panel.Agent{}, false
-	}
-
-	return m.logTarget()
-}
-
-// isFailedRunShowing reports whether the agent the run-log pane is on is still carrying a mark.
-func (m model) isFailedRunShowing(agentID string) bool {
-	for _, item := range m.listing.agents {
-		if item.Agent.ID == agentID {
-			return item.FailedRun
-		}
-	}
-
-	return false
-}
-
-// markRunsReadCmd claims an agent's failed runs without going through the write path.
-func (m model) markRunsReadCmd(id string) tea.Cmd {
-	clients := m.api
-
-	return func() tea.Msg {
-		_ = clients.markRunsRead(id) //nolint:errcheck // the next tick makes the call again
-
-		return nil
-	}
 }
 
 func (m *model) writeCmd(summary string, write func(api) error) tea.Cmd {

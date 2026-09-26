@@ -65,14 +65,14 @@ Komrad tells a hook about its agent through environment variables. `KOMRAD_AGENT
 
 ## When a hook fails
 
-Every run writes its own log. When a hook fails, the error says so and the agent is marked as never having launched. Move the cursor onto the agent and press `l` to read the hook's log beside it.
+Every run writes its own log. When a hook fails, the error says so and the agent is marked as never having launched. Move the cursor onto the agent to see why.
 
 Here the workflow's pre-launch hook tries to build Neovim with `cmake --build build`, which fails in a fresh worktree because nothing has configured the build yet.
 
 <figure>
   <img
     src={media("hook-failed.png")}
-    alt="An agent whose pre-launch hook failed, marked as never having launched, with the hook's log open beside it showing the build command was not found."
+    alt="An agent whose pre-launch hook failed, marked as never having launched, with the reason it failed beside it."
     width="1440"
     height="920"
   />

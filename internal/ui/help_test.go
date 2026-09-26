@@ -198,10 +198,6 @@ func buildDriftScreens() []driftScreen {
 		key:    "V",
 		reason: "select to nearest is named once the selection it needs is standing",
 	}
-	earlierRun := undrawn{
-		key:    "L",
-		reason: "the earlier run is named only while the pane is showing one",
-	}
 	wheelReason := "the mouse wheel presses it, and paging is the only scroll the diff names"
 
 	return []driftScreen{
@@ -216,7 +212,6 @@ func buildDriftScreens() []driftScreen {
 					reason: "on the root list this is the quit key by another name",
 				},
 				nearest,
-				earlierRun,
 			},
 		},
 		{
@@ -230,10 +225,7 @@ func buildDriftScreens() []driftScreen {
 
 				return harness
 			},
-			excused: []undrawn{
-				quit,
-				earlierRun,
-			},
+			excused: []undrawn{quit},
 		},
 		{
 			name:  "archive",

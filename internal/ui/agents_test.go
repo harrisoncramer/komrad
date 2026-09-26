@@ -1437,6 +1437,49 @@ func TestAgentsSearchAcrossSections(t *testing.T) {
 	})
 }
 
+// TestAgentsFailedPlaceholder covers what a failed agent's stage says about why it failed.
+func TestAgentsFailedPlaceholder(t *testing.T) {
+	tests := []struct {
+		name   string
+		state  agentv1.AgentState
+		reason string
+		want   []string
+	}{
+		{
+			name:   "a failed create says the reason inline",
+			state:  agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE,
+			reason: "failed to open a window: tmux refused",
+			want:   []string{"setup failed", "tmux refused"},
+		},
+		{
+			name:   "a failed delete names the teardown",
+			state:  agentv1.AgentState_AGENT_STATE_FAILED_TO_CLEANUP,
+			reason: "take-the-stack-down: docker refused",
+			want:   []string{"teardown failed", "docker refused"},
+		},
+		{
+			name:  "a failure with no reason says so",
+			state: agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE,
+			want:  []string{"no reason was recorded"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			failed := newAgent("a1", "old", "w1")
+			failed.State = tt.state
+			failed.FailureReason = tt.reason
+			harness := openAgents(t, newLiveWorkflow("w1", "api"), failed)
+			harness.press("j")
+
+			frame := harness.readFrame()
+			for _, want := range tt.want {
+				assert.Contains(t, frame, want)
+			}
+		})
+	}
+}
+
 // TestAgentsPause covers pausing an agent and letting it go again.
 func TestAgentsPause(t *testing.T) {
 	t.Run("pausing takes the agent and says nothing to it", func(t *testing.T) {

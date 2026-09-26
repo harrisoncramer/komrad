@@ -66,13 +66,6 @@ func (a api) renameAgent(agent panel.Agent, name string) error {
 	})
 }
 
-// markRunsRead claims the failed runs an agent is holding, which opening its run log counts as.
-func (a api) markRunsRead(id string) error {
-	return mutate(func(ctx context.Context) (any, error) {
-		return a.agents.MarkRunsRead(ctx, connect.NewRequest(&agentv1.MarkRunsReadRequest{Id: id}))
-	})
-}
-
 type createAgentParams struct {
 	Prompt           string
 	Title            string

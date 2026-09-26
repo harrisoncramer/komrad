@@ -424,27 +424,6 @@
           "sections": []
         },
         {
-          "path": "keybindings.logs",
-          "description": "The key that pages the service's log, shared by every screen since the log is\nabout the service rather than about anything a screen lists.",
-          "settings": [
-            {
-              "key": "open",
-              "path": "keybindings.logs.open",
-              "type": "array",
-              "description": "Cycle the hovered agent's logs in the info pane.",
-              "default": "[\"l\"]"
-            },
-            {
-              "key": "older",
-              "path": "keybindings.logs.older",
-              "type": "array",
-              "description": "Step back to the run before the one the info pane is showing.",
-              "default": "[\"L\"]"
-            }
-          ],
-          "sections": []
-        },
-        {
           "path": "keybindings.marks",
           "description": "The marks a person puts on rows to jump between them, as vim's own marks work.",
           "settings": [
@@ -1016,20 +995,6 @@
           "type": "string",
           "description": "How much is written, one of debug, info, warn, or error.",
           "default": "\"info\""
-        },
-        {
-          "key": "viewer",
-          "path": "log.viewer",
-          "type": "string",
-          "description": "The default log viewer. Switch with fzf, rg, etc.",
-          "default": "\"tail -n +1 -F \\\"$KOMRAD_LOG\\\" | grep --line-buffered \\\"$KOMRAD_AGENT_ID\\\" | less -R +F\""
-        },
-        {
-          "key": "process_viewer",
-          "path": "log.process_viewer",
-          "type": "string",
-          "description": "The viewer for a provisioner's or deprovisioner's own output, plain text rather than the\nstructured log's JSON lines.",
-          "default": "\"less -R -X \\\"$KOMRAD_LOG\\\"\""
         }
       ],
       "sections": []

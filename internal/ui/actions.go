@@ -27,8 +27,6 @@ const (
 	actionFilterOpen
 	actionFilterClear
 	actionFilterMatch
-	actionLogsOpen
-	actionLogsOlder
 	actionTerminal
 	actionQuit
 	actionAgentsBack
