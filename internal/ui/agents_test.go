@@ -2256,7 +2256,7 @@ func TestAgentsSetMark(t *testing.T) {
 			press: []string{"k", "m", "a"},
 			want: &agentv1.SetMarkRequest{
 				Target: &agentv1.SetMarkRequest_WorkflowId{WorkflowId: "w1"},
-				Mark:   proto.String("a"),
+				Letter: proto.String("a"),
 			},
 		},
 		{
@@ -2801,6 +2801,6 @@ func newMark(letter, agentID string) *agentv1.Mark {
 func newMarkAuthRequest(letter *string) *agentv1.SetMarkRequest {
 	return &agentv1.SetMarkRequest{
 		Target: &agentv1.SetMarkRequest_AgentId{AgentId: "auth"},
-		Mark:   letter,
+		Letter: letter,
 	}
 }

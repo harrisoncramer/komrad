@@ -430,8 +430,8 @@ message SetMarkRequest {
     string workflow_id = 2 [(buf.validate.field).string.min_len = 1];
   }
   // The letter to put on it, left out to take off whichever letter the row answers to.
-  optional string mark = 3 [(buf.validate.field).cel = {
-    id: "mark.letter"
+  optional string letter = 3 [(buf.validate.field).cel = {
+    id: "letter.lowercase"
     message: "a mark is one lowercase letter"
     expression: "this.matches('^[a-z]$')"
   }];
@@ -685,7 +685,7 @@ service AgentService {
       cli: true
       mcp: true
       name: "set_mark"
-      description: "Put a letter on an agent's or a workflow's row so a person can jump to it from the panel. Name one of agent_id or workflow_id. A letter belongs to one row at a time, so giving it to a new row takes it off the old one. Leave mark out to clear whatever letter the row holds. Marks are the person's own way around the panel, so only move one when asked."
+      description: "Put a letter on an agent's or a workflow's row so a person can jump to it from the panel. Name one of agent_id or workflow_id. A letter belongs to one row at a time, so giving it to a new row takes it off the old one. Leave letter out to clear whatever letter the row holds. Marks are the person's own way around the panel, so only move one when asked."
       destructive: false
       roles: [
         ROLE_IMPLEMENTER,

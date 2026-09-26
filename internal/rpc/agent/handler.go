@@ -338,7 +338,7 @@ func (s *Handler) SetMark(ctx context.Context, req *agentv1.SetMarkRequest) (*em
 		target = markstore.OnWorkflow(req.GetWorkflowId())
 	}
 
-	if req.Mark == nil {
+	if req.Letter == nil {
 		if _, err := s.marks.ClearMark(ctx, target); err != nil {
 			return nil, rpcerr.From(err, "failed to clear the mark")
 		}
@@ -346,7 +346,7 @@ func (s *Handler) SetMark(ctx context.Context, req *agentv1.SetMarkRequest) (*em
 		return &emptypb.Empty{}, nil
 	}
 
-	marked, err := s.marks.SetMark(ctx, req.GetMark(), target)
+	marked, err := s.marks.SetMark(ctx, req.GetLetter(), target)
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to set the mark")
 	}

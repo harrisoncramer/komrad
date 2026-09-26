@@ -147,7 +147,7 @@ func TestIntegrationTheWatchAndTheStoresAgree(t *testing.T) {
 			write: func(t *testing.T) {
 				_, err := instance.Agents.SetMark(ctx, connect.NewRequest(&agentv1.SetMarkRequest{
 					Target: &agentv1.SetMarkRequest_WorkflowId{WorkflowId: pipeline.ID},
-					Mark:   xptr.Ptr("a"),
+					Letter: xptr.Ptr("a"),
 				}))
 				require.NoError(t, err)
 			},

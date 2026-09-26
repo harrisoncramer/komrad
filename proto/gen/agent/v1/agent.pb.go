@@ -1962,7 +1962,7 @@ type SetMarkRequest struct {
 	//	*SetMarkRequest_WorkflowId
 	Target isSetMarkRequest_Target `protobuf_oneof:"target"`
 	// The letter to put on it, left out to take off whichever letter the row answers to.
-	Mark          *string `protobuf:"bytes,3,opt,name=mark,proto3,oneof" json:"mark,omitempty"`
+	Letter        *string `protobuf:"bytes,3,opt,name=letter,proto3,oneof" json:"letter,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2022,9 +2022,9 @@ func (x *SetMarkRequest) GetWorkflowId() string {
 	return ""
 }
 
-func (x *SetMarkRequest) GetMark() string {
-	if x != nil && x.Mark != nil {
-		return *x.Mark
+func (x *SetMarkRequest) GetLetter() string {
+	if x != nil && x.Letter != nil {
+		return *x.Letter
 	}
 	return ""
 }
@@ -3083,15 +3083,15 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\t_agent_idB\x0e\n" +
 	"\f_workflow_id\"9\n" +
 	"\x11ListMarksResponse\x12$\n" +
-	"\x05marks\x18\x01 \x03(\v2\x0e.agent.v1.MarkR\x05marks\"\xe3\x01\n" +
+	"\x05marks\x18\x01 \x03(\v2\x0e.agent.v1.MarkR\x05marks\"\xee\x01\n" +
 	"\x0eSetMarkRequest\x12$\n" +
 	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\aagentId\x12*\n" +
 	"\vworkflow_id\x18\x02 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\n" +
-	"workflowId\x12e\n" +
-	"\x04mark\x18\x03 \x01(\tBL\xbaHI\xba\x01F\n" +
-	"\vmark.letter\x12\x1ea mark is one lowercase letter\x1a\x17this.matches('^[a-z]$')H\x01R\x04mark\x88\x01\x01B\x0f\n" +
-	"\x06target\x12\x05\xbaH\x02\b\x01B\a\n" +
-	"\x05_mark\"C\n" +
+	"workflowId\x12n\n" +
+	"\x06letter\x18\x03 \x01(\tBQ\xbaHN\xba\x01K\n" +
+	"\x10letter.lowercase\x12\x1ea mark is one lowercase letter\x1a\x17this.matches('^[a-z]$')H\x01R\x06letter\x88\x01\x01B\x0f\n" +
+	"\x06target\x12\x05\xbaH\x02\b\x01B\t\n" +
+	"\a_letter\"C\n" +
 	"\x10SetHiddenRequest\x12\x17\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\x12\x16\n" +
 	"\x06hidden\x18\x02 \x01(\bR\x06hidden\"\xc1\x01\n" +
@@ -3156,7 +3156,7 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x16AGENT_ROLE_UNSPECIFIED\x10\x00\x12\x1a\n" +
 	"\x16AGENT_ROLE_IMPLEMENTER\x10\x01\x12\x17\n" +
 	"\x13AGENT_ROLE_REVIEWER\x10\x02\x12\x1b\n" +
-	"\x17AGENT_ROLE_ORCHESTRATOR\x10\x032ǿ\x01\n" +
+	"\x17AGENT_ROLE_ORCHESTRATOR\x10\x032ɿ\x01\n" +
 	"\fAgentService\x12\x81\x04\n" +
 	"\n" +
 	"ListAgents\x12\x1b.agent.v1.ListAgentsRequest\x1a\x1c.agent.v1.ListAgentsResponse\"\xb7\x03\x9a\xb5\x18\xaf\x03\b\x01\x10\x01\x1a\vlist_agents\"\x96\x03List the agents komrad is tracking. Start here when you need an agent's id or name for another call. Agents come back a page at a time, most recently updated first. Each carries its name, state, working directory, flags and workflow, plus the opening of its prompt. To read a prompt in full, fetch that agent with get_agent. Archived agents are left out unless archived is set, which then lists only those.B\x03\x01\x02\x03\x90\x02\x01\x12\xd0\x01\n" +
@@ -3165,8 +3165,8 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\rRequestReview\x12\x1e.agent.v1.RequestReviewRequest\x1a\x1f.agent.v1.RequestReviewResponse\"\xf3\x05\x9a\xb5\x18\xee\x05\b\x01\x10\x01\x1a\x0erequest_review\"\xd2\x05Ask for a review of an agent's work, usually your own. Commit first: the review is given against a snapshot of the checkout as it stands. This spawns a reviewer as a child of the agent being read, running in that agent's checkout and briefed to read rather than write. The prompt is the reviewer's whole briefing, so say what the change is meant to do and where you are unsure of it. One reviewer follows a change through every round, so call this once per change. Answering its threads with add_review_message is what tells it there is more to read, and asking again while it still owes an answer is refused as already_exists. Once the reviewer has approved it is finished, and the next change gets a reviewer of its own.(\x00B\x01\x01\x12\xb7\x04\n" +
 	"\x05Adopt\x12\x16.agent.v1.AdoptRequest\x1a\x17.agent.v1.AdoptResponse\"\xfc\x03\x9a\xb5\x18\xf7\x03\b\x01\x10\x01\x1a\x05adopt\"\xe4\x03Start an agent on a branch that already exists, such as one a person pushed by hand. Name the branch, not a pull request. The workflow decides the repository and must be one that provisions worktrees. Komrad puts the agent in a worktree on that branch, or in the checkout already holding it when one exists on disk. The branch stays the person's own: nothing here creates, resets or deletes it. A branch that already has an agent on it is refused as already_exists, naming that agent.(\x00B\x01\x03\x12\xeb\x01\n" +
 	"\tListMarks\x12\x16.google.protobuf.Empty\x1a\x1b.agent.v1.ListMarksResponse\"\xa8\x01\x9a\xb5\x18\xa0\x01\b\x01\x10\x01\x1a\n" +
-	"list_marks\"\x88\x01List every mark with the agent or workflow it jumps to. A mark is a single letter a person types in the panel to jump straight to a row.B\x03\x01\x02\x03\x90\x02\x01\x12\xbc\x03\n" +
-	"\aSetMark\x12\x18.agent.v1.SetMarkRequest\x1a\x16.google.protobuf.Empty\"\xfe\x02\x9a\xb5\x18\xf6\x02\b\x01\x10\x01\x1a\bset_mark\"\xde\x02Put a letter on an agent's or a workflow's row so a person can jump to it from the panel. Name one of agent_id or workflow_id. A letter belongs to one row at a time, so giving it to a new row takes it off the old one. Leave mark out to clear whatever letter the row holds. Marks are the person's own way around the panel, so only move one when asked.(\x00B\x03\x01\x02\x03\x90\x02\x02\x12\xe5\x02\n" +
+	"list_marks\"\x88\x01List every mark with the agent or workflow it jumps to. A mark is a single letter a person types in the panel to jump straight to a row.B\x03\x01\x02\x03\x90\x02\x01\x12\xbe\x03\n" +
+	"\aSetMark\x12\x18.agent.v1.SetMarkRequest\x1a\x16.google.protobuf.Empty\"\x80\x03\x9a\xb5\x18\xf8\x02\b\x01\x10\x01\x1a\bset_mark\"\xe0\x02Put a letter on an agent's or a workflow's row so a person can jump to it from the panel. Name one of agent_id or workflow_id. A letter belongs to one row at a time, so giving it to a new row takes it off the old one. Leave letter out to clear whatever letter the row holds. Marks are the person's own way around the panel, so only move one when asked.(\x00B\x03\x01\x02\x03\x90\x02\x02\x12\xe5\x02\n" +
 	"\tSetHidden\x12\x1a.agent.v1.SetHiddenRequest\x1a\x16.google.protobuf.Empty\"\xa3\x02\x9a\xb5\x18\x9b\x02\b\x01\x10\x01\x1a\x10set_agent_hidden\"\xfd\x01Hide an agent's row from the panel, or show it again with hidden false. The agent itself is untouched: it keeps running and every other call still returns it. What the person watching the panel sees is theirs to decide, so hide an agent only when asked.(\x00B\x01\x03\x90\x02\x02\x12\xf2\x02\n" +
 	"\x03Log\x12\x14.agent.v1.LogRequest\x1a\x16.google.protobuf.Empty\"\xbc\x02\x9a\xb5\x18\xb7\x02\b\x01\x10\x01\x1a\x03log\"\xa2\x02Write one line to komrad's log, tagged to an agent. A script komrad runs for an agent has nowhere else to say what it is doing, since its output is only read when it fails, so this is how a script leaves a trace on purpose. The line is filed under the calling agent unless id names another.(\x000\x00B\x03\x01\x02\x03\x12\x90\a\n" +
 	"\bSendMail\x12\x19.agent.v1.SendMailRequest\x1a\x1a.agent.v1.SendMailResponse\"\xcc\x06\x9a\xb5\x18\xc7\x06\b\x01\x10\x01\x1a\tsend_mail\"\xac\x06Send a message to another agent, addressed by id or by name. Mail is not typed into the recipient's terminal. It waits in the panel until the recipient reads it, which may be a while if that agent is busy or dormant, and the response warns you when nothing is running behind the recipient. Say who you are and what you need in the body, and set reply_to when answering so the exchange reads as a thread. A name is looked up among the live agents of your own workflow first, then everywhere, and a name held in more than one workflow is refused, so address that agent by id. Each pair of agents may exchange only so much mail in total, and a send past that limit is refused for good, so settle an exchange with an answer rather than another round. A child may mail only its parent and its parent's other children.(\x000\x00B\x03\x01\x02\x03\x12\xae\a\n" +

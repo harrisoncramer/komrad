@@ -135,7 +135,7 @@
             "orchestrator"
           ],
           "summary": "Put a letter on an agent's or a workflow's row so a person can jump to it from the panel.",
-          "description": "Put a letter on an agent's or a workflow's row so a person can jump to it from the panel. Name one of agent_id or workflow_id. A letter belongs to one row at a time, so giving it to a new row takes it off the old one. Leave mark out to clear whatever letter the row holds. Marks are the person's own way around the panel, so only move one when asked.",
+          "description": "Put a letter on an agent's or a workflow's row so a person can jump to it from the panel. Name one of agent_id or workflow_id. A letter belongs to one row at a time, so giving it to a new row takes it off the old one. Leave letter out to clear whatever letter the row holds. Marks are the person's own way around the panel, so only move one when asked.",
           "readOnly": false,
           "idempotent": true,
           "destructive": false,
@@ -4860,7 +4860,7 @@
           "description": "The workflow to mark."
         },
         {
-          "name": "mark",
+          "name": "letter",
           "type": "string",
           "ref": "",
           "repeated": false,
