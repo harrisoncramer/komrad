@@ -51,8 +51,10 @@ an agent's pane into a panel nobody is looking at.`,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if err := refuseNesting(state); err != nil {
-				return err
+			if !detach && !headless {
+				if err := refuseNesting(state); err != nil {
+					return err
+				}
 			}
 
 			if !detach && !headless && state.configStack.Engine == "" && term.IsTerminal(int(os.Stdin.Fd())) {

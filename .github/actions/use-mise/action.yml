@@ -35,7 +35,7 @@ runs:
       # These tools are local only and do not need to be installed in CI
       # We need to persist them to the github runner so that subsequent tools also pick them up
       run: |
-        echo "MISE_DISABLE_TOOLS=cargo:worktrunk,rust,kubectl,mc,aqua:junegunn/fzf,go:github.com/go-delve/delve/cmd/dlv,air,aqua:securego/gosec,aqua:aws/session-manager-plugin,conda:ffmpeg,aqua:charmbracelet/vhs" >> "$GITHUB_ENV"
+        echo "MISE_DISABLE_TOOLS=cargo:worktrunk,rust,kubectl,mc,aqua:junegunn/fzf,go:github.com/go-delve/delve/cmd/dlv,air,aqua:securego/gosec,aqua:aws/session-manager-plugin,conda:ffmpeg,conda:ttyd,aqua:charmbracelet/vhs" >> "$GITHUB_ENV"
 
     # Go's build and test results go to Namespace's remote Go cache instead of the volume.
     # The volume is saved whole when a job ends, and the last job to finish wins. A quick job
