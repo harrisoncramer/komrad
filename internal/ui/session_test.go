@@ -146,25 +146,25 @@ func TestSessionCycleKeys(t *testing.T) {
 	})
 }
 
-func (recorder *bindRecorder) GetSessionClient(string) string {
-	return recorder.client
+func (b *bindRecorder) GetSessionClient(string) string {
+	return b.client
 }
 
-func (recorder *bindRecorder) SetSessionOption(string, string, string) {}
+func (b *bindRecorder) SetSessionOption(string, string, string) {}
 
-func (recorder *bindRecorder) DetachSession(string) {}
+func (b *bindRecorder) DetachSession(string) {}
 
-func (recorder *bindRecorder) BindRootKey(key string, command ...string) {
-	if recorder.bound == nil {
-		recorder.bound = map[string][]string{}
+func (b *bindRecorder) BindRootKey(key string, command ...string) {
+	if b.bound == nil {
+		b.bound = map[string][]string{}
 	}
 
-	recorder.bound["root:"+key] = command
+	b.bound["root:"+key] = command
 }
 
-func (recorder *bindRecorder) UnbindRootKey(key string) {
-	delete(recorder.bound, "root:"+key)
-	recorder.unbound = append(recorder.unbound, key)
+func (b *bindRecorder) UnbindRootKey(key string) {
+	delete(b.bound, "root:"+key)
+	b.unbound = append(b.unbound, key)
 }
 
 func openFocus(t *testing.T) *panelHarness {
