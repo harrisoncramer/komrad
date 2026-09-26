@@ -13,8 +13,11 @@ import (
 	"charm.land/huh/v2"
 )
 
-func newWorkflowForm(h host) tea.Cmd {
+func newWorkflowForm(h host, s panelShared) tea.Cmd {
 	values := workflowFormValues{}
+	if len(s.listing.workflows) == 0 {
+		values.Cwd = h.getHostPath()
+	}
 
 	return openWorkflowConfigForm(h, &values, nil)
 }

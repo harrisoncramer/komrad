@@ -236,7 +236,7 @@ func (a *agentsScreen) doc(s panelShared) string {
 
 	switch {
 	case !ok:
-		return noAgentsMarkdown(s.keys)
+		return ""
 	case r.header && !held:
 		return workflowContextMarkdown(r.workflow)
 	case item.Agent.State == panel.StateSettingUp:
@@ -284,13 +284,16 @@ const dormantPlaceholder = "_dormant — not running_\n\nPress open to resume."
 
 const heldPlaceholder = "_paused_\n\nPress unpause to let it carry on, or unpause in silence to let it go without typing at it."
 
-func noAgentsMarkdown(keys config.Keybindings) string {
-	key := "w"
-	if len(keys.Workflows.New) > 0 {
-		key = keys.Workflows.New[0]
+func welcomeText(keys config.Keybindings) string {
+	return fmt.Sprintf("Welcome, komrad!\n\nPress '%s' to set up your first workflow", firstKey(keys.Workflows.New, "w"))
+}
+
+func firstKey(keys []string, fallback string) string {
+	if len(keys) == 0 {
+		return fallback
 	}
 
-	return fmt.Sprintf("# Agents\n\n_nothing here yet_\n\nPress %q to make a workflow and an agent in it.\n", key)
+	return keyLabel(keys[:1])
 }
 
 const settingUpPlaceholder = "_setting up…_\n\nMaking this agent's worktree. It has no pane yet."
@@ -320,6 +323,10 @@ func failedPlaceholder(s panelShared, agent panel.Agent) string {
 func (a *agentsScreen) view(s panelShared) string {
 	a.drawn = a.buildRows(s)
 	defer func() { a.drawn = nil }()
+
+	if len(s.listing.workflows) == 0 && len(s.listing.agents) == 0 {
+		return s.draw.welcomeView(a.listParams(s), welcomeText(s.keys))
+	}
 
 	return s.draw.columnListView(a.listParams(s))
 }

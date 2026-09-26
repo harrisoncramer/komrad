@@ -32,6 +32,7 @@ func TestFormsSubmit(t *testing.T) {
 	tests := []struct {
 		name      string
 		workflow  *workflowv1.Workflow
+		empty     bool
 		hostPath  string
 		press     []string
 		procedure string
@@ -88,6 +89,18 @@ func TestFormsSubmit(t *testing.T) {
 				Prompt:     "pick it up",
 				Harness:    "claude",
 				WorkflowId: "w1",
+			},
+		},
+		{
+			name:      "the first new-workflow form starts where tmux was invoked from",
+			empty:     true,
+			hostPath:  "/work/from-tmux",
+			press:     slices.Concat([]string{"w"}, spellKeys("web"), []string{"ctrl+s"}),
+			procedure: workflowv1connect.WorkflowServiceCreateWorkflowProcedure,
+			want: &workflowv1.CreateWorkflowRequest{
+				Name:     "web",
+				Cwd:      "/work/from-tmux",
+				Worktree: &workflowv1.WorktreeConfig{Enabled: true},
 			},
 		},
 		{
@@ -161,7 +174,12 @@ func TestFormsSubmit(t *testing.T) {
 			if workflow == nil {
 				workflow = newFormWorkflow()
 			}
-			harness := openForms(t, workflow, newFormAuthor())
+			var harness *panelHarness
+			if tt.empty {
+				harness = openAgents(t)
+			} else {
+				harness = openForms(t, workflow, newFormAuthor())
+			}
 			harness.panel.SetHostPath(tt.hostPath)
 
 			harness.press(tt.press...)

@@ -47,7 +47,7 @@ func (a *agentsScreen) modeActions() []screenAction {
 			id:   actionWorkflowNew,
 			keys: func(k config.Keybindings) []string { return k.Workflows.New },
 			when: list.isBrowsing,
-			run:  func(h host, _ panelShared, _ string) tea.Cmd { return newWorkflowForm(h) },
+			run:  func(h host, s panelShared, _ string) tea.Cmd { return newWorkflowForm(h, s) },
 		},
 		screenAction{
 			id:   actionAgentSearch,

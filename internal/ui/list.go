@@ -12,6 +12,7 @@ import (
 
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 )
 
@@ -489,6 +490,7 @@ type drawer interface {
 	// columnListView draws the list beside the screen's own block, or the list alone on a window
 	// that will not hold both.
 	columnListView(params screenListParams) string
+	welcomeView(params screenListParams, text string) string
 	listFitsTabs(params screenListParams) bool
 	listFitsDetails(params screenListParams) bool
 	listRecordRoom(params screenListParams) int
@@ -530,12 +532,30 @@ func (m model) columnListView(params screenListParams) string {
 	return m.columnView(func(m model) string { return m.screenListView(params) })
 }
 
+func (m model) welcomeView(params screenListParams, text string) string {
+	if m.paneMeasure > 0 {
+		return m.screenListView(params)
+	}
+
+	full := m.measuredAt(m.width)
+	header, below := full.listChrome(params)
+	lines := full.listLines(header, below)
+	centered := lipgloss.NewStyle().Align(lipgloss.Center).Render(text)
+
+	return headedBlockView(header, lipgloss.Place(m.width, lines, lipgloss.Center, lipgloss.Center, centered), lines, below)
+}
+
+func (m model) listChrome(params screenListParams) (string, string) {
+	header := m.tabbedHeader(params.title, params.tally)
+	record, help := m.detailsView(), m.renderHelp(m.listHelpOf(params), header)
+
+	return header, record + m.messagesRegion(record, help, header) + help
+}
+
 // screenListView draws a screen's list under its header with its record and its legend under
 // it.
 func (m model) screenListView(params screenListParams) string {
-	header := m.tabbedHeader(params.title, params.tally)
-	record, help := m.detailsView(), m.renderHelp(m.listHelpOf(params), header)
-	below := record + m.messagesRegion(record, help, header) + help
+	header, below := m.listChrome(params)
 
 	if params.lines != nil {
 		rows, cursor := params.lines(m.listPane(m.paneWidth()))
