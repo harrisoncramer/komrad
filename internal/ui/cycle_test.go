@@ -4,6 +4,8 @@ import (
 	"strings"
 	"testing"
 
+	"komrad/config"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -106,6 +108,28 @@ func TestViewCycle(t *testing.T) {
 		harness.press("f", "ctrl+a")
 
 		assert.NotEmpty(t, readRecordCursor(harness.readFrame()))
+	})
+
+	t.Run("a configured pair moves the keys and leaves the default pair to the panes", func(t *testing.T) {
+		keys := config.DefaultKeybindings()
+		keys.Cycle.Views = []string{"alt+n", "alt+p"}
+		harness := newPanelHarness(t, panelHarnessParams{keys: &keys})
+		answerWorktreeReads(harness)
+		harness.watch(buildSnapshot(buildFocusRows()...))
+
+		for _, key := range []string{"M-n", "M-p"} {
+			command, bound := harness.panel.ReadRootBinding(key)
+			require.True(t, bound, key)
+			assert.Equal(t, []string{"send-keys", "-t", sidebar, key}, command)
+		}
+		_, bound := harness.panel.ReadRootBinding("C-a")
+		assert.False(t, bound)
+
+		selected := len(harness.panel.ReadSelectedPanes())
+
+		harness.press("alt+n")
+
+		assert.Equal(t, []string{agent}, harness.panel.ReadSelectedPanes()[selected:])
 	})
 
 	t.Run("the legend names the pair as one row", func(t *testing.T) {

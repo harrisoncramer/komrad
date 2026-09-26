@@ -29,24 +29,10 @@ func TestIntegrationBindRootKeyTakesTheKeyFromThePanes(t *testing.T) {
 	assert.NotContains(t, keyTable(t, client, "root"), "F1", "unbinding gives the key back")
 }
 
-// TestIntegrationBindKeyStaysBehindThePrefix pins that an ordinary binding is only reachable after the prefix.
-func TestIntegrationBindKeyStaysBehindThePrefix(t *testing.T) {
-	client := testServer(t, "keys")
-
-	client.BindKey("F2", "display-message", "prefixed")
-
-	assert.Contains(t, keyTable(t, client, "prefix"), "F2")
-	assert.NotContains(t, keyTable(t, client, "root"), "F2")
-
-	client.UnbindKey("F2")
-
-	assert.NotContains(t, keyTable(t, client, "prefix"), "F2", "unbinding takes it out of the prefix table")
-}
-
-// TestIntegrationGetPrefixKeysReadsBackWhatWasBound pins that every key the listing names is handed back
+// TestIntegrationGetRootKeysReadsBackWhatWasBound pins that every key the listing names is handed back
 // as tmux takes it, the ones list-keys escapes or respells included, and pins how a command
 // holding a space is printed.
-func TestIntegrationGetPrefixKeysReadsBackWhatWasBound(t *testing.T) {
+func TestIntegrationGetRootKeysReadsBackWhatWasBound(t *testing.T) {
 	client := testServer(t, "keys")
 
 	keys := []struct {
@@ -104,47 +90,35 @@ func TestIntegrationGetPrefixKeysReadsBackWhatWasBound(t *testing.T) {
 	}
 
 	for _, tt := range keys {
-		client.BindKey(tt.typed, "display-message", "bound")
+		client.BindRootKey(tt.typed, "display-message", "bound")
 	}
 
-	client.BindKey("F9", "if-shell", "/usr/local/bin/komrad shown --config /etc/komrad.toml",
-		"run-shell -b 'hide'", "display-popup -T ' komrad ' -EE 'open'")
+	client.BindRootKey("F9", "if-shell", "/usr/local/bin/komrad attach --config /etc/komrad.toml",
+		"run-shell -b 'detach'", "display-message -d 0 'not attached'")
 
-	bound, err := client.GetPrefixKeys()
+	bound, err := client.GetRootKeys()
 	require.NoError(t, err)
 
 	for _, tt := range keys {
 		assert.Equal(t, "display-message bound", bound[tt.listed], tt.typed)
 	}
 
-	assert.Equal(t, `if-shell "/usr/local/bin/komrad shown --config /etc/komrad.toml" `+
-		`"run-shell -b 'hide'" "display-popup -T ' komrad ' -EE 'open'"`, bound["F9"],
+	assert.Equal(t, `if-shell "/usr/local/bin/komrad attach --config /etc/komrad.toml" `+
+		`"run-shell -b 'detach'" "display-message -d 0 'not attached'"`, bound["F9"],
 		"an argument holding a space is printed in double quotes")
 
 	for listed, command := range bound {
 		if command == "display-message bound" {
-			client.UnbindKey(listed)
+			client.UnbindRootKey(listed)
 		}
 	}
 
-	bound, err = client.GetPrefixKeys()
+	bound, err = client.GetRootKeys()
 	require.NoError(t, err)
 
 	for _, tt := range keys {
 		assert.NotContains(t, bound, tt.listed, "the key the listing named is the one unbind-key takes")
 	}
-}
-
-// TestIntegrationCheckedBindsReportWhatTmuxSaid pins the refusal reaching the caller.
-func TestIntegrationCheckedBindsReportWhatTmuxSaid(t *testing.T) {
-	client := testServer(t, "keys")
-
-	require.NoError(t, client.BindKeyChecked("F3", "display-message", "fine"))
-	assert.Contains(t, keyTable(t, client, "prefix"), "F3")
-
-	err := client.BindKeyChecked("F4", "no-such-tmux-command")
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "F4", "the refusal names the key that was refused")
 }
 
 func keyTable(t *testing.T, c *Client, table string) string {

@@ -215,7 +215,7 @@ func (m model) updateFilterInput(key tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, m.hide()
 	}
 
-	if m.isDetailsScreen() && isCycleKey(key.String()) {
+	if m.isDetailsScreen() && m.isCycleKey(key.String()) {
 		m.filter.typing = false
 
 		return m.cycleView(key.String(), m.readSidebarStop())

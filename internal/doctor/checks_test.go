@@ -78,6 +78,7 @@ func TestChecksMakesEveryCheckOnce(t *testing.T) {
 		"tmux version",
 		"config",
 		"keybindings",
+		"your tmux keys",
 		"server",
 		"forges",
 		"terminal glyphs",

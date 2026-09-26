@@ -21,7 +21,7 @@ Postgres is heavier than a file in your home directory, and you have to run it. 
 
 Komrad is designed for people who already work in a terminal. It is not a desktop app.
 
-Each agent is a real terminal in a real tmux server. Taking over from an agent means attaching to its pane. Any CLI that runs in a terminal works. The panel is a tmux popup, driven from the keyboard, and every key is configurable.
+Each agent is a real terminal in a real tmux server. Taking over from an agent means attaching to its pane. Any CLI that runs in a terminal works. The panel is a tmux session you attach to, driven from the keyboard, and every key is configurable.
 
 ## komrad is flexible
 

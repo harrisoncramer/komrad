@@ -71,14 +71,11 @@ type Settings struct {
 	DatabaseURL         string
 	ReadOnlyDatabaseURL string
 	Addr                string
-	// CycleKeys are the keys the panel binds in tmux's root table to move between views, which the
-	// keybindings check keeps free for it.
-	CycleKeys      []string
-	EngineIsRemote bool
-	Version        string
-	Commit         string
-	Term           string
-	ColorTerm      string
+	EngineIsRemote      bool
+	Version             string
+	Commit              string
+	Term                string
+	ColorTerm           string
 }
 
 // NewEnv is the env pointed at the machine this is running on.

@@ -28,7 +28,6 @@ type Environment struct {
 	StateDir         string
 	SSH              string
 	EngineTmuxSocket string
-	PanelKey         string
 	Exec             []string
 	Forward          []string
 	EngineUser       string

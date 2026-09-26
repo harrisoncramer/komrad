@@ -10,9 +10,9 @@ You have used every piece: [workflows](../workflows/), [agents](../agents/), [ho
 ## Two programs
 
 ```
-  your tmux                komrad's tmux
+  your terminal             komrad's tmux server
   +-------------+          +-------------------------------+
-  |  popup  ----+--------->|  panel   agent   agent   ...  |
+  |  attach ----+--------->|  panel   agent   agent   ...  |
   +-------------+          +-----+-------+-------+---------+
                                  |       |       |
                                  v       v       v
@@ -27,7 +27,7 @@ Komrad is a service and a panel. The service runs in the background. It owns the
 
 ## Agents live in tmux
 
-Each agent is a real terminal running Claude or Codex. Komrad runs them in a tmux server of its own, so they never get mixed up with your own windows. The panel lives there too. When you open it, your tmux shows a popup that attaches to komrad's session. Hiding the popup hides the panel and nothing else.
+Each agent is a real terminal running Claude or Codex. Komrad runs them in a tmux server of its own, so they never get mixed up with your own windows. The panel lives there too. When you open it, your terminal attaches to komrad's session. Closing the panel detaches that terminal and nothing else.
 
 This is also why you can upgrade komrad without losing your agents. The service restarts. The tmux server does not.
 

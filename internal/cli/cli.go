@@ -19,14 +19,14 @@ import (
 	"komrad/internal/logging"
 	"komrad/internal/tmux"
 	"komrad/internal/ui"
+	"komrad/lib/xslice"
 
 	"github.com/spf13/cobra"
 )
 
-// IsQuiet reports whether an error leaves main nothing to print, either because the command has
-// already had its say or because a non-zero exit is the answer it was asked for.
+// IsQuiet reports whether an error leaves main nothing to print.
 func IsQuiet(err error) bool {
-	return errors.Is(err, ErrLogged) || errors.Is(err, ErrReported) || errors.Is(err, ErrPanelHidden)
+	return errors.Is(err, ErrLogged) || errors.Is(err, ErrReported)
 }
 
 // NewRootCommand builds the komrad command tree, which opens the panel when run with no
@@ -49,9 +49,9 @@ database, answers the API and the MCP endpoint, and watches every pane. The pane
 is a client of it, which is why it can be closed and reopened without stopping
 anything. Every other command here is a client of the same service.
 
-The panel is normally reached through the tmux key binding rather than by name,
-and the commands below are for the times something has to be done by hand: check
-the machine, start or stop the service, or call an endpoint from a script.`,
+` + "`komrad open`" + ` brings the panel up in this terminal, and the other commands are
+for the times something has to be done by hand: check the machine, start or stop
+the service, or call an endpoint from a script.`,
 		Args:          cobra.NoArgs,
 		SilenceUsage:  true,
 		SilenceErrors: true,
@@ -111,7 +111,7 @@ the machine, start or stop the service, or call an endpoint from a script.`,
 
 			app.tmux = tmux.NewClient(env.TmuxSocket)
 
-			app.popup = ui.NewPopupWindow(app.tmux, agents.ManagerSession)
+			app.session = ui.NewSession(app.tmux, agents.ManagerSession, xslice.Map(cfg.Keybindings.Cycle.Views, tmux.SpellKey))
 			contextPath, err := cfg.GetContextFile()
 			if err != nil {
 				ctx := cmd.Context()
@@ -137,9 +137,6 @@ the machine, start or stop the service, or call an endpoint from a script.`,
 		panelCmd(app),
 		openCmd(app),
 		attachCmd(app),
-		hideCmd(app),
-		shownCmd(app),
-		tmuxCmd(app),
 		githubCmd(app),
 		forgeCmd(app),
 		prCmd(app),
@@ -206,7 +203,6 @@ func loadEnvironment(cfg *config.Config) (*config.Environment, error) {
 		CacheDir:            cfg.Connection.CacheDir,
 		SSH:                 cfg.Connection.SSH,
 		EngineTmuxSocket:    cfg.Connection.EngineTmuxSocket,
-		PanelKey:            cfg.Connection.PanelKey,
 		Exec:                cfg.Connection.Exec,
 		Forward:             cfg.Connection.Forward,
 		EngineUser:          cfg.Connection.EngineUser,

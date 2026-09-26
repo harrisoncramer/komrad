@@ -246,7 +246,6 @@ func (a *app) buildDoctorSettings() (doctor.Settings, error) {
 		DatabaseURL:         a.env.DatabaseURL,
 		ReadOnlyDatabaseURL: a.env.ReadOnlyDatabaseURL,
 		Addr:                a.env.Addr,
-		CycleKeys:           ui.CycleKeys,
 		EngineIsRemote:      a.engine().IsRemote(),
 		Version:             version.Version(),
 		Commit:              version.Commit(),

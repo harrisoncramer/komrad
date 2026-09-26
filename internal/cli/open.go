@@ -10,7 +10,6 @@ import (
 
 	"komrad/internal/agents"
 	"komrad/internal/tmux"
-	"komrad/internal/ui"
 	"komrad/internal/ui/enginepick"
 	"komrad/internal/version"
 	"komrad/lib/xslice"
@@ -27,8 +26,8 @@ func openCmd(state *app) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "open",
-		Short: "Open the panel popup, creating or attaching its persistent session",
-		Long: `Open the panel popup over the current tmux session.
+		Short: "Open the panel in this terminal, creating or attaching its persistent session",
+		Long: `Open the panel in this terminal.
 
 It creates the manager session if it is not there and attaches either way, so the
 panel keeps its place between opens rather than starting over. The manager session
@@ -37,13 +36,10 @@ lives on komrad's own tmux server, so it does not show up in ` + "`tmux ls`" + `
 With engine files under the config's engines directory and no --engine given, it
 first asks which komrad to open, this machine or one of them, and runs itself again
 on the one chosen. Closing that panel comes back to the question, and closing the
-question closes the popup. An engine running other code than this komrad cannot be
-chosen.
+question returns. An engine running other code than this komrad cannot be chosen.
 
-The tmux plugin runs this as the popup's command, so it blocks until the client
-detaches, which is what closes the popup. Pressing the panel key again runs
-` + "`komrad hide`" + `. Run by hand outside a popup it attaches the manager session in the
-terminal instead, which is the panel without the popup around it.
+It blocks until the client detaches. Run from inside tmux it nests the panel in the
+current pane.
 
 With --detach it creates the session and returns, which is what a script wants when
 it needs somewhere for agents to be put back into.
@@ -120,8 +116,6 @@ func openHere(ctx context.Context, state *app, detach, headless bool) error {
 	socket := tmux.SocketFromEnv(state.env.Tmux)
 	state.tmux.RecordHostSocket(socket)
 	state.tmux.RecordHostPath(hostPath(socket))
-
-	state.popup.BindHide(userPanelKey(state, socket))
 
 	return attachManagerSession(ctx, state)
 }
@@ -267,20 +261,6 @@ func (a *app) tmuxCommand(ctx context.Context, args ...string) *exec.Cmd {
 
 func envWithoutTmux() []string {
 	return xslice.Filter(os.Environ(), func(entry string) bool { return !strings.HasPrefix(entry, "TMUX=") })
-}
-
-// userPanelKey asks whichever server the user is at, this process's own when it is running in
-// tmux and otherwise the one the last open recorded, and takes the configured key over it.
-func userPanelKey(state *app, socket string) string {
-	if socket == "" {
-		socket = state.tmux.GetHostSocket()
-	}
-
-	if socket == "" {
-		return state.env.PanelKey
-	}
-
-	return ui.PanelKey(tmux.NewClientAtPath(socket), state.env.PanelKey)
 }
 
 // hostPath asks the user's own server where its client is sitting, which only a command running

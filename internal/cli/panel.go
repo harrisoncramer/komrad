@@ -35,7 +35,7 @@ func panelCmd(state *app) *cobra.Command {
 This is the command the manager tmux session runs, not the one to type. It starts
 the service if nothing is answering, then draws the panel and talks to that service
 over the API like any other client. Run by hand outside the manager session it will
-draw, but the popup and the key bindings around it will not be there.
+draw, but the key bindings around it will not be there.
 
 Use ` + "`komrad open`" + ` to bring the panel up.`,
 		Args:          cobra.NoArgs,
@@ -105,7 +105,7 @@ Use ` + "`komrad open`" + ` to bring the panel up.`,
 			worktreeClient := worktreev1connect.NewWorktreeServiceClient(httpClient, base)
 			watchClient := watchv1connect.NewWatchServiceClient(httpClient, base)
 
-			state.popup.SilenceStatus(agents.ManagerSession)
+			state.session.SilenceStatus(agents.ManagerSession)
 			state.tmux.EnableFocusEvents()
 
 			var binary ui.BinaryWatcher
@@ -114,7 +114,7 @@ Use ` + "`komrad open`" + ` to bring the panel up.`,
 			}
 
 			return ui.Run(cmd.Context(), ui.Deps{
-				PopupWindow:   state.popup,
+				Session:       state.session,
 				Tmux:          state.tmux,
 				Git:           reviewGit(remote),
 				Browser:       browser.NewDesktop(),

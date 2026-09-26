@@ -622,7 +622,7 @@ func TestIntegrationHostRecord(t *testing.T) {
 }
 
 // TestIntegrationClientAtPath checks a client addressed by socket path reaches the same server as one
-// addressed by name, which matters because tmux hands the popup only a path.
+// addressed by name, which matters because the TMUX variable carries only a path.
 func TestIntegrationClientAtPath(t *testing.T) {
 	socket := newTestServer(t, "path")
 

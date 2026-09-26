@@ -414,16 +414,6 @@ func (c *Client) KillWindow(pane string) {
 	}
 }
 
-// BindKey binds a key in the prefix table to a tmux command, replacing whatever it was bound to.
-func (c *Client) BindKey(key string, command ...string) {
-	c.run(append([]string{"bind-key", key}, command...)...)
-}
-
-// UnbindKey removes a key from the prefix table.
-func (c *Client) UnbindKey(key string) {
-	c.run("unbind-key", key)
-}
-
 // BindRootKey binds a key outside the prefix table, taking that key away from whatever is
 // running in the panes.
 func (c *Client) BindRootKey(key string, command ...string) {
@@ -433,15 +423,6 @@ func (c *Client) BindRootKey(key string, command ...string) {
 // UnbindRootKey gives a key bound outside the prefix table back to whatever is running in the panes.
 func (c *Client) UnbindRootKey(key string) {
 	c.run("unbind-key", "-n", key)
-}
-
-// BindKeyChecked binds a key and reports why tmux refused.
-func (c *Client) BindKeyChecked(key string, command ...string) error {
-	if _, err := c.query(append([]string{"bind-key", key}, command...)...); err != nil {
-		return fmt.Errorf("failed to bind %q: %w", key, err)
-	}
-
-	return nil
 }
 
 // SetGlobal sets a global tmux option.

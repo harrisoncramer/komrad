@@ -60,16 +60,6 @@ go_build_local() {
 	go build -ldflags "-X komrad/internal/version.stamped=$version -X komrad/internal/version.stampedCommit=$commit" -o "$out" .
 }
 
-bind_panel_key() {
-	local komrad="$1"
-
-	if [ -n "${KOMRAD_TMUX_SOCKET:-}" ] || [ "$(git rev-parse --git-common-dir)" != ".git" ]; then
-		return 0
-	fi
-
-	"$komrad" tmux --if-running
-}
-
 custom_gcl_sum() {
 	find tools/komradlint .custom-gcl.yml -type f -print0 | LC_ALL=C sort -z | xargs -0 git hash-object | git hash-object --stdin
 }

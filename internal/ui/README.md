@@ -1,6 +1,6 @@
 # The panel
 
-This is the terminal interface: one bubbletea program, drawn inside a tmux popup, that holds
+This is the terminal interface: one bubbletea program, drawn in its own tmux session, that holds
 no database connection and knows nothing the service has not told it. It is the largest
 package in the tree, so this is the map of it. For how the panel fits with the service and
 the two tmux servers, read docs/src/content/guides/how-it-works.md first.

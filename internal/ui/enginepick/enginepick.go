@@ -1,4 +1,4 @@
-// Package enginepick is the small picker the panel key opens when more than one komrad can be
+// Package enginepick is the small picker `komrad open` shows when more than one komrad can be
 // attached to: this machine, or an engine somewhere else.
 package enginepick
 

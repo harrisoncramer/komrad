@@ -104,30 +104,6 @@ func TestIntegrationBuildManagerSessionArgsCarriesTheConfigPath(t *testing.T) {
 	}
 }
 
-// TestIntegrationUserPanelKeyReadsTheServerTheUserIsAt covers the key the panel acts on coming off the
-// user's own server.
-func TestIntegrationUserPanelKeyReadsTheServerTheUserIsAt(t *testing.T) {
-	managerSocket := throwawaySocket(t)
-	panelSession(t, managerSocket)
-
-	hostSocket := throwawaySocket(t)
-	require.NoError(t, exec.Command("tmux", "-L", hostSocket, "-f", "/dev/null",
-		"new-session", "-d", "-s", "userland").Run())
-	require.NoError(t, exec.Command("tmux", "-L", hostSocket, "set-option", "-g", "@komrad_key", "w").Run())
-
-	hostPath := hostQuery(t, hostSocket, "display-message", "-p", "#{socket_path}")
-	state := hideState(t, managerSocket, "")
-
-	assert.Empty(t, userPanelKey(state, ""), "with no server to ask, the popup falls back to the built-in key")
-
-	assert.Equal(t, "w", userPanelKey(state, hostPath), "the popup reads the server it opened on")
-
-	state.tmux.RecordHostSocket(hostPath)
-
-	assert.Equal(t, "w", userPanelKey(state, ""),
-		"attaching from outside tmux still reads the server the panel was opened from")
-}
-
 // TestIntegrationBuildPanelWindowArgsOpensInTheSessionItAlreadyHas covers the repair path carrying everything
 // the session path does.
 func TestIntegrationBuildPanelWindowArgsOpensInTheSessionItAlreadyHas(t *testing.T) {
@@ -151,13 +127,13 @@ func TestIntegrationBuildPanelWindowArgsOpensInTheSessionItAlreadyHas(t *testing
 		args[len(args)-5:])
 }
 
-// TestIntegrationIsPanelRunningNeedsThePanelsOwnPane covers the question the panel key asks before it
+// TestIntegrationIsPanelRunningNeedsThePanelsOwnPane covers the question attach asks before it
 // decides there is a panel to attach.
 func TestIntegrationIsPanelRunningNeedsThePanelsOwnPane(t *testing.T) {
 	socket := throwawaySocket(t)
 	panelSession(t, socket)
 
-	state := hideState(t, socket, "")
+	state := panelState(t, socket)
 
 	assert.False(t, isPanelRunning(t.Context(), state), "no panel has recorded a pane yet")
 
@@ -209,7 +185,7 @@ func TestIntegrationEnsureManagerSessionLeavesTheCurrentWindowAlone(t *testing.T
 	socket := throwawaySocket(t)
 	panelSession(t, socket)
 
-	state := hideState(t, socket, "")
+	state := panelState(t, socket)
 
 	panelPane := hostQuery(t, socket, "display-message", "-p", "-t", agents.ManagerSession, "#{pane_id}")
 	state.tmux.RecordPanelPane(panelPane)
@@ -241,35 +217,6 @@ func TestIntegrationBuildManagerSessionArgsHeadlessHoldsNoPanel(t *testing.T) {
 		forwardedEnv(t, buildManagerSessionArgs(state, "/usr/local/bin/komrad", false)),
 		forwardedEnv(t, args),
 		"a headless session still carries what an agent launched into it needs")
-}
-
-// TestIntegrationUserPanelKeyPrefersTheConfiguredKey covers the key the panel hides on being the one the
-// binding was made with.
-func TestIntegrationUserPanelKeyPrefersTheConfiguredKey(t *testing.T) {
-	managerSocket := throwawaySocket(t)
-	panelSession(t, managerSocket)
-
-	hostSocket := throwawaySocket(t)
-	require.NoError(t, exec.Command("tmux", "-L", hostSocket, "-f", "/dev/null",
-		"new-session", "-d", "-s", "userland").Run())
-
-	hostPath := hostQuery(t, hostSocket, "display-message", "-p", "#{socket_path}")
-
-	state := hideState(t, managerSocket, "")
-	state.env.PanelKey = "w"
-
-	assert.Equal(t, "w", userPanelKey(state, hostPath),
-		"the config names the key the opener was bound on, so it names the one that hides too")
-
-	require.NoError(t, exec.Command("tmux", "-L", hostSocket, "set-option", "-g", "@komrad_key", "j").Run())
-
-	assert.Equal(t, "w", userPanelKey(state, hostPath),
-		"the opener takes the config over the tmux option, so the hide key cannot take the other")
-
-	state.env.PanelKey = ""
-
-	assert.Equal(t, "j", userPanelKey(state, hostPath),
-		"with no key configured the tmux option is still what both sides read")
 }
 
 // sleepingPanel is a stand-in for the komrad binary whose panel subcommand only sleeps.
@@ -318,7 +265,7 @@ func TestIntegrationEnsureManagerSessionReplacesAPanelFromAnotherBuild(t *testin
 			socket := throwawaySocket(t)
 			panelSession(t, socket)
 
-			state := hideState(t, socket, "")
+			state := panelState(t, socket)
 			state.self = sleepingPanel(t)
 
 			panelPane := hostQuery(t, socket, "display-message", "-p", "-t", agents.ManagerSession, "#{pane_id}")
@@ -335,7 +282,7 @@ func TestIntegrationEnsureManagerSessionReplacesAPanelFromAnotherBuild(t *testin
 			after := strings.Fields(hostQuery(t, socket, "list-panes", "-a", "-F", "#{pane_pid}"))
 
 			assert.Equal(t, !tt.replaced, slices.Contains(after, before),
-				"the process the panel key found is the one it re-shows")
+				"the process open found is the one it re-shows")
 			assert.Len(t, after, 1, "one panel is up either way")
 		})
 	}
@@ -367,7 +314,7 @@ func TestIntegrationEnsureManagerSessionReplacesAPanelHoldingAGuest(t *testing.T
 			socket := throwawaySocket(t)
 			panelSession(t, socket)
 
-			state := hideState(t, socket, "")
+			state := panelState(t, socket)
 			state.self = sleepingPanel(t)
 
 			panelPane := hostQuery(t, socket, "display-message", "-p", "-t", agents.ManagerSession, "#{pane_id}")
@@ -406,7 +353,7 @@ func TestIntegrationEnsureManagerSessionRepairsBesideAWindowNamedAfterTheSession
 	socket := throwawaySocket(t)
 	panelSession(t, socket)
 
-	state := hideState(t, socket, "")
+	state := panelState(t, socket)
 	state.self = sleepingPanel(t)
 
 	panelPane := hostQuery(t, socket, "display-message", "-p", "-t", agents.ManagerSession, "#{pane_id}")

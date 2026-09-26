@@ -142,6 +142,8 @@ type Keybindings struct {
 	Help HelpKeys `mapstructure:"help"`
 	// The git menu on the agents list, and the actions inside it.
 	Git GitKeys `mapstructure:"git"`
+	// The pair of keys that move between the sidebar, the staged agent and the details.
+	Cycle CycleKeys `mapstructure:"cycle"`
 	// The key that pages the service's log, shared by every screen since the log is
 	// about the service rather than about anything a screen lists.
 	Logs LogsKeys `mapstructure:"logs"`
@@ -169,6 +171,20 @@ type Keybindings struct {
 	Workflows WorkflowsKeys `mapstructure:"workflows"`
 	// The worktrees screen, which lists every directory komrad cut for an agent.
 	Worktrees WorktreesKeys `mapstructure:"worktrees"`
+}
+
+// CycleKeyChoices are the pairs the cycle keys may be set to, forward key first.
+var CycleKeyChoices = [][]string{
+	{"ctrl+a", "ctrl+q"},
+	{"alt+n", "alt+p"},
+	{"alt+j", "alt+k"},
+}
+
+// CycleKeys are the keys that move between the panel's views.
+type CycleKeys struct {
+	// Move to the next view, then the previous one. One of ["ctrl+a", "ctrl+q"],
+	// ["alt+n", "alt+p"] or ["alt+j", "alt+k"].
+	Views []string `mapstructure:"views" default:"ctrl+a,ctrl+q"`
 }
 
 // NavKeys are the shared navigation bindings every menu uses, so movement is the
@@ -553,11 +569,11 @@ type Context struct {
 	File string `mapstructure:"file"`
 }
 
-// Layout is how the panel divides the popup between its own list, the details under that
+// Layout is how the panel divides its window between its own list, the details under that
 // list, the stage beside them, and the info pane that opens under the stage. A size below
 // one is read as a share of what it divides, and one at or above it as a count of cells.
 type Layout struct {
-	// Which side of the popup the panel's sidebar sits on, "left" or "right".
+	// Which side of the window the panel's sidebar sits on, "left" or "right".
 	SidebarSide string `mapstructure:"sidebar_side"`
 	// How many columns wide the panel's sidebar opens at. Dragging the divider afterwards moves it, and the panel follows.
 	SidebarWidth int `mapstructure:"sidebar_width"`
@@ -791,10 +807,6 @@ type Connection struct {
 	// a destination. Left empty it is tmux_socket, which is right when both machines run a
 	// default komrad and wrong when this machine is also running an engine of its own.
 	EngineTmuxSocket string `mapstructure:"engine_tmux_socket"`
-	// The key, after your tmux prefix, that opens and hides the panel, and the picker between
-	// this machine and its engines once engine files exist. Left empty it is whatever
-	// @komrad_key says, and failing that g. An engine file may not set it.
-	PanelKey string `mapstructure:"panel_key"`
 	// How to run a command on the engine, as an argv, when ssh is not how you reach it.
 	// "{{command}}" is replaced with what komrad wants run there, and "{{command_json}}" with the
 	// same text escaped for embedding in JSON. It needs to allocate a terminal, since what it
@@ -818,7 +830,7 @@ type Config struct {
 	Harness        Harnesses `mapstructure:"harness"`
 	// How much agents may run and how large their conversations may grow.
 	Usage Usage `mapstructure:"usage"`
-	// Where the panel's sidebar, the stage beside it, and the info pane under the stage sit, and how much of the popup each takes.
+	// Where the panel's sidebar, the stage beside it, and the info pane under the stage sit, and how much of the window each takes.
 	Layout Layout `mapstructure:"layout"`
 	// Panel keybindings, scoped to the screen each binding acts in.
 	Keybindings Keybindings `mapstructure:"keybindings"`
@@ -934,6 +946,14 @@ func defaultKeys(field reflect.StructField) []string {
 	return strings.Split(tag, ",")
 }
 
+func validateCycleKeys(keys CycleKeys) error {
+	if slices.ContainsFunc(CycleKeyChoices, func(choice []string) bool { return slices.Equal(choice, keys.Views) }) {
+		return nil
+	}
+
+	return fmt.Errorf("keybindings.cycle.views: %q is not one of the pairs on offer: %q", keys.Views, CycleKeyChoices)
+}
+
 // validateLayout rejects a layout tmux could not lay the panes out at. Zero is how an omitted
 // size reads, so it falls back to the default rather than being called a mistake.
 func validateLayout(layout Layout) error {
@@ -986,6 +1006,9 @@ func (c Config) validate() error {
 		return err
 	}
 	if err := newKeyChecker().checkKeybindings(c.Keybindings); err != nil {
+		return err
+	}
+	if err := validateCycleKeys(c.Keybindings.Cycle); err != nil {
 		return err
 	}
 	if err := validateMail(c.Mail); err != nil {
@@ -1222,10 +1245,6 @@ func ResolveLayers(stack Stack) ([]Layer, error) {
 
 	overlay, err := EnginePath(stack.Engine)
 	if err != nil {
-		return nil, err
-	}
-
-	if err := requireEngineLayer(overlay); err != nil {
 		return nil, err
 	}
 

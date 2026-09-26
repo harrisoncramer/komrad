@@ -59,9 +59,9 @@ auto_compaction = 150000
 # children. 0 sets no limit of its own, leaving max_agents as the cap.
 max_children    = 0
 
-# Where the panel's sidebar, the stage beside it, and the info pane under the stage sit, and how much of the popup each takes.
+# Where the panel's sidebar, the stage beside it, and the info pane under the stage sit, and how much of the window each takes.
 [layout]
-# Which side of the popup the panel's sidebar sits on, "left" or "right".
+# Which side of the window the panel's sidebar sits on, "left" or "right".
 sidebar_side   = "left"
 # How many columns wide the panel's sidebar opens at. Dragging the divider afterwards moves it, and the panel follows.
 sidebar_width  = 30
@@ -167,6 +167,12 @@ open_pull_request = ["o"]
 # Bring the hovered agent's worktree up to date on the latest base, which asks first and
 # says what it would do to the branch and to the files.
 rebase            = ["r"]
+
+# The pair of keys that move between the sidebar, the staged agent and the details.
+[keybindings.cycle]
+# Move to the next view, then the previous one. One of ["ctrl+a", "ctrl+q"],
+# ["alt+n", "alt+p"] or ["alt+j", "alt+k"].
+views = ["ctrl+a", "ctrl+q"]
 
 # The key that pages the service's log, shared by every screen since the log is
 # about the service rather than about anything a screen lists.
@@ -446,10 +452,6 @@ ssh                   = ""
 # a destination. Left empty it is tmux_socket, which is right when both machines run a
 # default komrad and wrong when this machine is also running an engine of its own.
 engine_tmux_socket    = ""
-# The key, after your tmux prefix, that opens and hides the panel, and the picker between
-# this machine and its engines once engine files exist. Left empty it is whatever
-# @komrad_key says, and failing that g. An engine file may not set it.
-panel_key             = ""
 # How to run a command on the engine, as an argv, when ssh is not how you reach it.
 # "{{command}}" is replaced with what komrad wants run there, and "{{command_json}}" with the
 # same text escaped for embedding in JSON. It needs to allocate a terminal, since what it

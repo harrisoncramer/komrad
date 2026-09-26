@@ -50,7 +50,7 @@ func RenderStartupError(width int, err error, findings []Finding) string {
 	if errors.Is(err, ErrRebuilt) {
 		screen.Title = "komrad was rebuilt"
 		screen.Body = []string{
-			"The binary this panel was started from has changed, so this panel has stopped drawing. Nothing about your agents has changed, and none of them were stopped. The panel key opens a panel from the new build.",
+			"The binary this panel was started from has changed, so this panel has stopped drawing. Nothing about your agents has changed, and none of them were stopped. Run komrad open to start a panel from the new build.",
 		}
 	}
 

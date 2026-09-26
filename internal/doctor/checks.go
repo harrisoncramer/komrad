@@ -10,6 +10,7 @@ func HereChecks() []Check {
 		newTmuxVersionCheck(),
 		newConfigCheck(),
 		newKeybindingsCheck(),
+		newYourTmuxKeysCheck(),
 		newServerCheck(),
 		newForgesCheck(),
 		newTerminalGlyphCheck(),
