@@ -67,7 +67,10 @@ Use ` + "`komrad open`" + ` to bring the panel up.`,
 			remote := state.engine()
 			addr := state.env.Addr
 
-			var startupErr error
+			var (
+				startupErr   error
+				shellCommand []string
+			)
 
 			switch {
 			case remote.IsRemote():
@@ -82,6 +85,7 @@ Use ` + "`komrad open`" + ` to bring the panel up.`,
 
 				addr = tunnel.Local
 				startupErr = requireEngineBuild(cmd.Context(), addr)
+				shellCommand = append(append([]string{state.selfPath()}, configArgs(state.configStack)...), "shell", "--addr", addr)
 			case state.configErr == nil:
 				startupErr = ensureServer(cmd.Context(), ensureServerParams{
 					Addr:       addr,
@@ -128,6 +132,7 @@ Use ` + "`komrad open`" + ` to bring the panel up.`,
 				Watch:         watchClient,
 				Layout:        state.layout,
 				Engine:        remote,
+				ShellCommand:  shellCommand,
 				Binary:        binary,
 				Settings: ui.PanelSettings{
 					Addr:          addr,

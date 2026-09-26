@@ -13,6 +13,7 @@ import (
 	"komrad/internal/rpcerr"
 	"komrad/internal/schedules"
 	"komrad/internal/scripts"
+	"komrad/internal/shells"
 	"komrad/internal/store"
 
 	"connectrpc.com/connect"
@@ -72,6 +73,7 @@ func TestWrapCodes(t *testing.T) {
 		{agents.ErrUnknownHookEvent, connect.CodeInvalidArgument},
 		{mail.ErrNoticeKindMissing, connect.CodeInvalidArgument},
 		{agents.ErrBadDirectory, connect.CodeInvalidArgument},
+		{shells.ErrNoDirectory, connect.CodeInvalidArgument},
 		{agents.ErrAdoptNotABranch, connect.CodeInvalidArgument},
 		{agents.ErrHarnessUnknown, connect.CodeInvalidArgument},
 		{agents.ErrSpawnerUnknown, connect.CodeInvalidArgument},
@@ -95,6 +97,7 @@ func TestWrapCodes(t *testing.T) {
 		{reviews.ErrReviewOwnWork, connect.CodePermissionDenied},
 		{mail.ErrOutsideFamily, connect.CodePermissionDenied},
 		{agents.ErrOutsideWorkflow, connect.CodePermissionDenied},
+		{shells.ErrOutsideAgents, connect.CodePermissionDenied},
 	}
 
 	for _, tt := range tests {

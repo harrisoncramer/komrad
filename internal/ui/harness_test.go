@@ -179,6 +179,7 @@ type panelHarnessParams struct {
 	git           *gittest.Repo
 	settings      ui.PanelSettings
 	engine        engine.Remote
+	shellCommand  []string
 	harnessFrames ui.HarnessFrameReader
 	configErr     error
 	startupErr    error
@@ -262,6 +263,7 @@ func newPanelHarness(t *testing.T, params panelHarnessParams) *panelHarness {
 			Height:        height,
 			Settings:      params.settings,
 			Engine:        params.engine,
+			ShellCommand:  params.shellCommand,
 			HarnessFrames: params.harnessFrames,
 			ConfigErr:     params.configErr,
 			StartupErr:    params.startupErr,

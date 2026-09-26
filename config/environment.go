@@ -36,6 +36,10 @@ type Environment struct {
 	AgentID          string
 	SessionID        string
 	Editor           string
+	// Shell is the program a shell opened on this engine runs.
+	Shell string
+	// Term is the terminal type this process draws on.
+	Term string
 }
 
 // LayerPaths returns the config stack named by KOMRAD_CONFIG using the platform's path-list separator, the same convention used by PATH.
@@ -60,6 +64,11 @@ func LoadEnvironment(connection Environment) (*Environment, error) {
 		editor = "vi"
 	}
 
+	shell := os.Getenv("SHELL")
+	if shell == "" {
+		shell = "sh"
+	}
+
 	if connection.StateDir == "" {
 		stateDir, err := GetStateDir()
 		if err != nil {
@@ -74,6 +83,8 @@ func LoadEnvironment(connection Environment) (*Environment, error) {
 	connection.AgentID = os.Getenv("KOMRAD_AGENT_ID")
 	connection.SessionID = os.Getenv("KOMRAD_SESSION_ID")
 	connection.Editor = editor
+	connection.Shell = shell
+	connection.Term = os.Getenv("TERM")
 
 	return &connection, nil
 }

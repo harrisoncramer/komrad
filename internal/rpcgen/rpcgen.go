@@ -1,9 +1,8 @@
 // Package rpcgen writes the strict handler interface and the adapter for each service, which is
 // what keeps a failure's code decided by its type rather than by whoever wrote the handler.
 //
-// A unary method answers with a message and a failure. A server-streaming method is handed the
-// stream to write to and answers with a failure alone. A method that streams from the client
-// is refused.
+// A unary method answers with a message and a failure. A streaming method is handed its stream
+// and answers with a failure alone. A method that streams only from the client is refused.
 package rpcgen
 
 import (
@@ -50,8 +49,8 @@ func Generate(plugin *protogen.Plugin) error {
 func generateFile(plugin *protogen.Plugin, file *protogen.File) error {
 	for _, service := range file.Services {
 		for _, method := range service.Methods {
-			if method.Desc.IsStreamingClient() {
-				return fmt.Errorf("%s.%s streams from the client, which nothing in komrad serves", service.GoName, method.GoName)
+			if method.Desc.IsStreamingClient() && !method.Desc.IsStreamingServer() {
+				return fmt.Errorf("%s.%s streams only from the client, which nothing in komrad serves", service.GoName, method.GoName)
 			}
 		}
 	}
@@ -82,6 +81,7 @@ func generateService(out *protogen.GeneratedFile, service *protogen.Service) {
 	failure := out.QualifiedGoIdent(failPackage.Ident("Error"))
 
 	serverStream := out.QualifiedGoIdent(connectPackage.Ident("ServerStream"))
+	bidiStream := out.QualifiedGoIdent(connectPackage.Ident("BidiStream"))
 
 	out.P("// ", name, "Impl is the half of ", name, " a person writes, whose failures carry the kind")
 	out.P("// of failure they are rather than leaving it to be decided later.")
@@ -89,6 +89,12 @@ func generateService(out *protogen.GeneratedFile, service *protogen.Service) {
 	for _, method := range service.Methods {
 		input := out.QualifiedGoIdent(method.Input.GoIdent)
 		output := out.QualifiedGoIdent(method.Output.GoIdent)
+		if method.Desc.IsStreamingClient() {
+			out.P(method.GoName, "(", context, ", *", bidiStream, "[", input, ", ", output, "]) *", failure)
+
+			continue
+		}
+
 		if method.Desc.IsStreamingServer() {
 			out.P(method.GoName, "(", context, ", *", input, ", *", serverStream, "[", output, "]) *", failure)
 
@@ -115,6 +121,16 @@ func generateService(out *protogen.GeneratedFile, service *protogen.Service) {
 	for _, method := range service.Methods {
 		input := out.QualifiedGoIdent(method.Input.GoIdent)
 		output := out.QualifiedGoIdent(method.Output.GoIdent)
+
+		if method.Desc.IsStreamingClient() {
+			out.P("// ", method.GoName, " serves the stream as connect opens it.")
+			out.P("func (a ", name, "Adapter) ", method.GoName, "(ctx ", context, ", stream *", bidiStream, "[", input, ", ", output, "]) error {")
+			out.P("return ", answerStream, "(a.Impl.", method.GoName, "(ctx, stream))")
+			out.P("}")
+			out.P()
+
+			continue
+		}
 
 		if method.Desc.IsStreamingServer() {
 			out.P("// ", method.GoName, " serves the stream as connect opens it.")

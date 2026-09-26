@@ -1,0 +1,80 @@
+syntax = "proto3";
+
+package terminal.v1;
+
+import "annotation/v1/tool.proto";
+import "buf/validate/validate.proto";
+import "google/protobuf/empty.proto";
+
+option go_package = "komrad/proto/gen/terminal/v1;terminalv1";
+
+// Size is a terminal's size in character cells.
+message Size {
+  // The number of rows.
+  uint32 rows = 1 [(buf.validate.field).uint32 = {
+    gt: 0
+    lte: 65535
+  }];
+  // The number of columns.
+  uint32 cols = 2 [(buf.validate.field).uint32 = {
+    gt: 0
+    lte: 65535
+  }];
+}
+
+// OpenShell names the directory a shell starts in and the terminal it draws on.
+message OpenShell {
+  // The directory, absolute, which must be inside a live agent's directory.
+  string dir = 1 [(buf.validate.field).string.min_len = 1];
+  // The size the terminal starts at.
+  Size size = 2 [(buf.validate.field).required = true];
+  // The terminal type the shell is told it draws on, xterm-256color when empty.
+  string term = 3;
+}
+
+// ShellRequest is one message from the client: the opening, what was typed, or a resize.
+message ShellRequest {
+  // What the client sent.
+  oneof message {
+    option (buf.validate.oneof).required = true;
+
+    // The first message of every stream, and only the first.
+    OpenShell open = 1;
+    // Bytes typed into the terminal.
+    bytes input = 2;
+    // The terminal's new size.
+    Size resize = 3;
+  }
+}
+
+// Exit is how the program on the terminal ended.
+message Exit {
+  // The exit status, 128 plus the signal for a program a signal ended.
+  int32 code = 1;
+}
+
+// ShellResponse is one message from the engine: ready, output, or the exit.
+message ShellResponse {
+  // What the engine sent.
+  oneof message {
+    // The shell has started, sent once before any output.
+    google.protobuf.Empty ready = 1;
+    // Bytes the terminal drew.
+    bytes output = 2;
+    // The shell has ended, the last message of the stream.
+    Exit exit = 3;
+  }
+}
+
+// TerminalService serves terminals on the engine to a client somewhere else.
+service TerminalService {
+  // Shell runs a shell in a directory on the engine, carrying what is typed in and what it draws
+  // out until it exits or the client hangs up.
+  rpc Shell(stream ShellRequest) returns (stream ShellResponse) {
+    option (annotation.v1.surfaces) = {
+      cli: false
+      mcp: false
+      reason: "a terminal a person types into, which komrad shell opens"
+    };
+  }
+}

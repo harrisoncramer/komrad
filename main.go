@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 
@@ -20,6 +21,11 @@ func run() int {
 	err := cli.NewRootCommand().Execute()
 	if err == nil {
 		return 0
+	}
+
+	var exited *cli.ExitError
+	if errors.As(err, &exited) {
+		return exited.Code
 	}
 
 	if !cli.IsQuiet(err) {

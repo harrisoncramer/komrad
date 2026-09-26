@@ -15,6 +15,7 @@ import (
 	"komrad/config"
 	"komrad/internal/logging"
 	serverPkg "komrad/internal/server"
+	"komrad/lib/xhttp"
 	"komrad/lib/xsync"
 
 	"github.com/spf13/cobra"
@@ -192,6 +193,7 @@ func serve(ctx context.Context, params serveParams) error {
 		Handler:           server.Handler(),
 		ReadHeaderTimeout: 5 * time.Second,
 		ErrorLog:          slog.NewLogLogger(logger.Handler(), slog.LevelError),
+		Protocols:         xhttp.NewServerProtocols(),
 	}
 
 	served := make(chan error, 1)

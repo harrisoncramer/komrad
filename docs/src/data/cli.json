@@ -39,6 +39,7 @@
       "pr",
       "rpc",
       "serve",
+      "shell",
       "start",
       "stop",
       "version"
@@ -889,6 +890,42 @@
         "type": "string",
         "default": "",
         "usage": "listen address, defaulting to KOMRAD_ADDR"
+      }
+    ],
+    "inherited": [
+      {
+        "name": "config",
+        "shorthand": "",
+        "type": "stringArray",
+        "default": "[]",
+        "usage": "path to a config TOML, repeatable, later files win over earlier ones"
+      },
+      {
+        "name": "engine",
+        "shorthand": "",
+        "type": "string",
+        "default": "",
+        "usage": "engine to reach, named after a file in the config's engines directory, layered over the config"
+      }
+    ],
+    "children": []
+  },
+  {
+    "slug": "shell",
+    "path": "komrad shell",
+    "parent": "",
+    "usage": "komrad shell DIR [flags]",
+    "aliases": [],
+    "short": "Open a shell on the engine in a directory an agent works in",
+    "long": "Open a shell on the engine in a directory an agent works in.\n\nThe shell runs on the engine and is carried to this terminal over the engine's\napi, so it works the same whether the engine is this machine or another one. The\ndirectory has to be inside a live agent's directory. The shell's exit status is\nthis command's.",
+    "example": "",
+    "flags": [
+      {
+        "name": "addr",
+        "shorthand": "",
+        "type": "string",
+        "default": "",
+        "usage": "address of the engine's api, reached as it is rather than through a forward of its own"
       }
     ],
     "inherited": [
