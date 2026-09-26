@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"komrad/config"
 	"komrad/internal/engine"
 	"komrad/proto/gen/agent/v1/agentv1connect"
 	watchv1 "komrad/proto/gen/watch/v1"
@@ -42,8 +43,8 @@ func TestScreensStage(t *testing.T) {
 		assert.True(t, harness.panel.IsZoomed())
 		assert.Contains(t, frame, "always run the linter")
 		assert.Contains(t, readListRows(frame), "backend")
-		for _, line := range splitLines(frame) {
-			assert.Equal(t, 199, ansi.StringWidth(line), "every row of the frame is squared off inside its gutter")
+		for _, line := range splitLines(harness.readDrawn()) {
+			assert.Equal(t, 200, ansi.StringWidth(line), "every row of the frame is squared off")
 		}
 	})
 
@@ -191,6 +192,83 @@ func TestScreensDivider(t *testing.T) {
 		harness.send(tea.WindowSizeMsg{Width: 200, Height: defaultHarnessHeight})
 
 		assert.Equal(t, 47, measureListRule(harness.readFrame()))
+	})
+
+	t.Run("the edge facing the stage", func(t *testing.T) {
+		tests := []struct {
+			name  string
+			side  string
+			edge  func(string) string
+			plain string
+			rule  string
+		}{
+			{
+				name: "stands right of a sidebar on the left, past its gutter",
+				side: config.SidebarSideLeft,
+				edge: func(row string) string {
+					return string([]rune(row)[len([]rune(row))-2:])
+				},
+				plain: " │",
+				rule:  "─┤",
+			},
+			{
+				name: "stands left of a sidebar on the right, before its gutter",
+				side: config.SidebarSideRight,
+				edge: func(row string) string {
+					return string([]rune(row)[:2])
+				},
+				plain: "│ ",
+				rule:  "├─",
+			},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				harness := newPanelHarness(t, panelHarnessParams{width: 200, sidebarSide: tt.side})
+				answerWorktreeReads(harness)
+				harness.watch(buildSnapshot(newNotedWorkflow(), newRunning()))
+				harness.press("g", "g", "j")
+				harness.fireTimers()
+
+				rules := 0
+				for _, row := range splitLines(harness.readDrawn()) {
+					if strings.Contains(row, "──") {
+						rules++
+						assert.Equal(t, tt.rule, tt.edge(row), "a rule meets the edge in a junction")
+
+						continue
+					}
+					assert.Equal(t, tt.plain, tt.edge(row))
+				}
+				assert.Positive(t, rules)
+			})
+		}
+	})
+
+	t.Run("a gutter stands left of a sidebar on the left", func(t *testing.T) {
+		harness := openStaged(t, "g", "g", "j")
+
+		for _, row := range splitLines(harness.readDrawn()) {
+			assert.True(t, strings.HasPrefix(row, " "), row)
+		}
+	})
+
+	t.Run("a table in the document beside the list does not join the divider", func(t *testing.T) {
+		workflow := newNotedWorkflow()
+		workflow.Context = "| a | b |\n|---|---|\n| 1 | 2 |"
+		harness := newPanelHarness(t, panelHarnessParams{width: 200})
+		answerWorktreeReads(harness)
+		harness.watch(buildSnapshot(workflow, newRunning()))
+		harness.press("g", "g")
+		harness.fireTimers()
+
+		frame := harness.readDrawn()
+		require.Contains(t, frame, "┼", "the table's own separator is drawn")
+		for _, row := range splitLines(frame) {
+			if strings.Contains(row, "┼") {
+				assert.NotContains(t, row, "├", "the divider is not joined to the table")
+			}
+		}
 	})
 }
 

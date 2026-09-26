@@ -305,11 +305,21 @@ func (h *panelHarness) send(msg tea.Msg) {
 }
 
 func (h *panelHarness) readFrame() string {
-	return ansi.Strip(h.panel.ViewInside())
+	return ansi.Strip(h.readRawFrame())
+}
+
+func (h *panelHarness) readDrawn() string {
+	return ansi.Strip(h.panel.View())
 }
 
 func (h *panelHarness) readRawFrame() string {
-	return h.panel.ViewInside()
+	left, width := h.panel.Inside()
+	lines := strings.Split(h.panel.View(), "\n")
+	for i, line := range lines {
+		lines[i] = strings.TrimRight(emptyStyle.ReplaceAllString(ansi.Cut(line, left, left+width), ""), " ")
+	}
+
+	return strings.Join(lines, "\n")
 }
 
 func (h *panelHarness) assertSent(want ...request) {

@@ -437,7 +437,7 @@ func (c *Client) BlankBorders() {
 const GutterCells = 1
 
 // InsetPanelWindow keeps the panel's window a column narrower and a row shorter than each client
-// of the session shows it at, so the blank tmux fills the rest with runs past every pane.
+// of the session shows it at.
 func (c *Client) InsetPanelWindow(session string) {
 	resize := fmt.Sprintf(
 		"run-shell -C \"resize-window -t #{%s} -x #{e|-:#{client_width},%d} -y #{e|-:#{client_height},%d}\"",

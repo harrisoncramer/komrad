@@ -216,9 +216,10 @@ func (p *Panel) View() string {
 // SidebarCols is the columns the list is drawn in beside a block at the default sidebar width.
 const SidebarCols = config.DefaultSidebarWidth - dividerCols
 
-// ViewInside is the frame the panel draws inside its gutters.
-func (p *Panel) ViewInside() string {
-	return p.model.insideView()
+// Inside is the columns left of the frame the panel draws inside its gutter and edge, and how wide
+// that frame is.
+func (p *Panel) Inside() (int, int) {
+	return p.model.countInsetLeft(), p.model.width
 }
 
 // NewKeyPress is the press bubbletea delivers for a key as a binding spells it.

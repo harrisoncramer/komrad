@@ -92,8 +92,7 @@ func (m model) fitFrame(view string) string {
 	return view + strings.Repeat("\n"+blank, m.height-rows)
 }
 
-// gutter is the blank cells the panel keeps between what it draws and the edge of its pane on its
-// left, tmux keeping the rows above and below every pane and the column right of the window blank.
+// gutter is the blank cells left of what the panel draws.
 const gutter = 1
 
 // countInsetCols is the columns the gutter and the divider beside the stage take from the panel.
@@ -105,8 +104,7 @@ func (m model) countInsetCols() int {
 	return m.countSidebarChrome()
 }
 
-// countSidebarChrome is the columns the gutter and the divider take from a sidebar standing beside the
-// stage, the window's own edge standing in for the gutter on the side tmux keeps blank.
+// countSidebarChrome is the columns the gutter and the divider take from a sidebar beside the stage.
 func (m model) countSidebarChrome() int {
 	if m.frame.IsSidebarOnRight() {
 		return gutter + 1
@@ -142,9 +140,9 @@ func (m model) drawInset(view string) string {
 		left, right := pad, ""
 		switch {
 		case edged && onRight:
-			left = drawEdgeRow(isRuleEnd(line, false), true)
+			left = drawEdgeRow(isRule(line), true)
 		case edged:
-			right = drawEdgeRow(isRuleEnd(line, true), false)
+			right = drawEdgeRow(isRule(line), false)
 		}
 
 		lines[i] = left + line + right

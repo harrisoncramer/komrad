@@ -215,6 +215,11 @@ func (m *model) applySizeRead(msg sizeReadMsg) tea.Cmd {
 	if msg.size.Width == m.paneCols && msg.size.Height == m.height {
 		m.awaitingSize = false
 
+		if width := max(m.paneCols-m.countInsetCols(), 0); width != m.width {
+			m.width = width
+			*m = m.relayout(true)
+		}
+
 		return nil
 	}
 

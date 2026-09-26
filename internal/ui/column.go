@@ -11,8 +11,7 @@ import (
 )
 
 const (
-	// dividerCols is the columns the divider between the list and the block beside it takes, with
-	// the gutter on either side of it.
+	// dividerCols is the columns the divider between the list and the block beside it takes.
 	dividerCols = 2*gutter + 1
 	// dividerGlyph is what the divider is drawn with.
 	dividerGlyph = "│"
@@ -184,11 +183,6 @@ func (m *model) reconcileSolo() {
 
 	m.frame.Solo(want)
 	m.awaitingSize = true
-
-	if m.paneCols > 0 {
-		m.width = max(m.paneCols-m.countInsetCols(), 0)
-		*m = m.relayout(true)
-	}
 }
 
 // syncKeys puts the frame right about whether it still holds the window, which one focus report
@@ -234,7 +228,7 @@ func (m model) joinColumns(split columnSplit, sidebar, column string) string {
 	for i := range rows {
 		l := readLineAt(leftLines, i, leftWidth)
 		r := readLineAt(rightLines, i, rightWidth)
-		out[i] = l + drawDividerRow(isRuleEnd(l, true), isRuleEnd(r, false)) + r
+		out[i] = l + drawDividerRow(isRule(l), isRule(r)) + r
 	}
 
 	return strings.Join(out, "\n")
@@ -249,14 +243,11 @@ func readLineAt(lines []string, i, width int) string {
 	return strings.Repeat(" ", width)
 }
 
-// isRuleEnd reports whether a row is a rule running up to the divider on the given side of it.
-func isRuleEnd(line string, left bool) bool {
+// isRule reports whether a row is a rule across the whole of its half.
+func isRule(line string) bool {
 	plain := ansi.Strip(line)
-	if left {
-		return strings.HasSuffix(plain, "─")
-	}
 
-	return strings.HasPrefix(plain, "─")
+	return plain != "" && strings.Trim(plain, "─") == ""
 }
 
 // drawDividerRow is one row of the divider, joined to the rules that meet it from either side.
