@@ -58,6 +58,11 @@ func (s *ShellService) Open(ctx context.Context, params OpenParams) (pty.Termina
 		return nil, fmt.Errorf("%w: %s", ErrNoDirectory, params.Dir)
 	}
 
+	info, err := os.Stat(dir)
+	if err != nil || !info.IsDir() {
+		return nil, fmt.Errorf("%w: %s", ErrNoDirectory, params.Dir)
+	}
+
 	isInside, err := s.isInsideLiveAgent(ctx, dir)
 	if err != nil {
 		return nil, err

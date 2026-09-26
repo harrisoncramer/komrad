@@ -66,7 +66,10 @@ func Start(ctx context.Context, params StartParams) (*Session, error) {
 
 	polled, err := pollFile(file)
 	if err != nil {
-		return nil, errors.Join(err, command.Process.Kill())
+		killErr := command.Process.Kill()
+		_, waitErr := command.Process.Wait()
+
+		return nil, errors.Join(err, killErr, waitErr)
 	}
 
 	return &Session{command: command, file: polled}, nil

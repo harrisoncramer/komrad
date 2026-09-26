@@ -30,6 +30,8 @@ func TestOpen(t *testing.T) {
 		require.NoError(t, os.MkdirAll(dir, 0o755))
 	}
 	require.NoError(t, os.Symlink(live, link))
+	file := filepath.Join(live, "notes.txt")
+	require.NoError(t, os.WriteFile(file, nil, 0o600))
 
 	stores := storetest.Open(t)
 	workflowID := stores.SeedWorkflow(t, workflowstore.Config{Name: "flow"}).ID
@@ -49,6 +51,11 @@ func TestOpen(t *testing.T) {
 		{
 			name:    "a directory that does not exist is refused",
 			dir:     filepath.Join(root, "missing"),
+			wantErr: shells.ErrNoDirectory,
+		},
+		{
+			name:    "a file inside a live agent's directory is refused",
+			dir:     file,
 			wantErr: shells.ErrNoDirectory,
 		},
 		{

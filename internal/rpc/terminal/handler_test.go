@@ -219,22 +219,48 @@ func TestShellCarriesATerminal(t *testing.T) {
 	})
 }
 
-// TestShellHangsUpWhenTheCallerLeaves covers a caller closing its side before the shell ends.
-func TestShellHangsUpWhenTheCallerLeaves(t *testing.T) {
-	fake := newFakeTerminal()
-	client := serve(t, &fakeOpener{terminal: fake, opened: make(chan shells.OpenParams, 1)})
+// TestShellWhenTheCallerStops covers a caller that is done before the shell is.
+func TestShellWhenTheCallerStops(t *testing.T) {
+	open := func(t *testing.T) (*fakeTerminal, shellStream) {
+		t.Helper()
 
-	stream := client.Shell(t.Context())
-	require.NoError(t, stream.Send(openRequest("/work/tree")))
-	assert.NotNil(t, receive(t, stream).GetReady())
+		fake := newFakeTerminal()
+		client := serve(t, &fakeOpener{terminal: fake, opened: make(chan shells.OpenParams, 1)})
 
-	require.NoError(t, stream.CloseRequest())
+		stream := client.Shell(t.Context())
+		require.NoError(t, stream.Send(openRequest("/work/tree")))
+		assert.NotNil(t, receive(t, stream).GetReady())
 
-	select {
-	case <-fake.closed:
-	case <-time.After(5 * time.Second):
-		t.Fatal("the shell was not hung up when the caller left")
+		return fake, stream
 	}
 
-	fake.exit <- 129
+	t.Run("a caller closing its side ends the shell's input and hears it exit", func(t *testing.T) {
+		fake, stream := open(t)
+
+		require.NoError(t, stream.CloseRequest())
+
+		select {
+		case typed := <-fake.typed:
+			assert.Equal(t, []byte{0x04}, typed)
+		case <-fake.closed:
+			t.Fatal("the shell was hung up rather than told its input ended")
+		}
+
+		fake.exit <- 0
+		assert.Equal(t, int32(0), receive(t, stream).GetExit().GetCode())
+	})
+
+	t.Run("a caller leaving hangs the shell up", func(t *testing.T) {
+		fake, stream := open(t)
+
+		require.NoError(t, stream.CloseResponse())
+
+		select {
+		case <-fake.closed:
+		case <-time.After(5 * time.Second):
+			t.Fatal("the shell was not hung up when the caller left")
+		}
+
+		fake.exit <- 129
+	})
 }

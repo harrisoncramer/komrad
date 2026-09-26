@@ -146,6 +146,12 @@ func runShell(ctx context.Context, params runShellParams) (int, error) {
 
 		return stream.Send(request)
 	}
+	closeRequest := func() error {
+		sending.Lock()
+		defer sending.Unlock()
+
+		return stream.CloseRequest()
+	}
 
 	open := &terminalv1.ShellRequest{Message: &terminalv1.ShellRequest_Open{Open: &terminalv1.OpenShell{
 		Dir:  params.Dir,
@@ -172,7 +178,7 @@ func runShell(ctx context.Context, params runShellParams) (int, error) {
 	defer restore()
 
 	go forwardResizes(ctx, params, send)
-	go forwardInput(params.In, send)
+	go forwardInput(params.In, send, closeRequest)
 
 	for {
 		response, err := stream.Receive()
@@ -210,7 +216,8 @@ func forwardResizes(ctx context.Context, params runShellParams, send func(*termi
 	}
 }
 
-func forwardInput(in io.Reader, send func(*terminalv1.ShellRequest) error) {
+// forwardInput sends what is read from in, closing this side of the stream when in ends.
+func forwardInput(in io.Reader, send func(*terminalv1.ShellRequest) error, closeRequest func() error) {
 	buffer := make([]byte, 32*1024)
 	for {
 		n, err := in.Read(buffer)
@@ -219,6 +226,12 @@ func forwardInput(in io.Reader, send func(*terminalv1.ShellRequest) error) {
 			if sendErr := send(input); sendErr != nil {
 				return
 			}
+		}
+
+		if errors.Is(err, io.EOF) {
+			_ = closeRequest() //nolint:errcheck // a stream that failed is heard about by Receive
+
+			return
 		}
 
 		if err != nil {

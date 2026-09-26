@@ -3,6 +3,9 @@ package terminal
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"io"
 	"math"
 	"time"
 
@@ -18,6 +21,9 @@ import (
 
 // DrainAfterExit is how long output is still read after the shell ends.
 const DrainAfterExit = 250 * time.Millisecond
+
+// endOfInput is the byte a terminal reads as end of input, control-D.
+const endOfInput = 0x04
 
 var errNotOpened = fail.InvalidArgument("a shell stream opens with an open message")
 
@@ -75,7 +81,10 @@ func (h *Handler) Shell(ctx context.Context, stream *connect.BidiStream[terminal
 
 	ready := &terminalv1.ShellResponse{Message: &terminalv1.ShellResponse_Ready{Ready: &emptypb.Empty{}}}
 	if err := stream.Send(ready); err != nil {
-		return rpcerr.From(err, "failed to send ready")
+		cancel()
+		_, waitErr := terminal.Wait()
+
+		return rpcerr.From(errors.Join(err, waitErr), "failed to send ready")
 	}
 
 	drained := make(chan struct{})
@@ -84,9 +93,10 @@ func (h *Handler) Shell(ctx context.Context, stream *connect.BidiStream[terminal
 		sendOutput(stream, terminal)
 	}()
 	go func() {
-		defer cancel()
-		defer terminal.Close()
-		receiveInput(stream, terminal)
+		if err := receiveInput(stream, terminal); err != nil {
+			cancel()
+			_ = terminal.Close()
+		}
 	}()
 
 	code, err := terminal.Wait()
@@ -129,21 +139,31 @@ func sendOutput(stream *connect.BidiStream[terminalv1.ShellRequest, terminalv1.S
 	}
 }
 
-func receiveInput(stream *connect.BidiStream[terminalv1.ShellRequest, terminalv1.ShellResponse], terminal pty.Terminal) {
+// receiveInput carries the caller's input to the terminal, typing end of input when the caller
+// closes its side.
+func receiveInput(stream *connect.BidiStream[terminalv1.ShellRequest, terminalv1.ShellResponse], terminal pty.Terminal) error {
 	for {
 		request, err := stream.Receive()
+		if errors.Is(err, io.EOF) {
+			if _, err := terminal.Write([]byte{endOfInput}); err != nil {
+				return fmt.Errorf("failed to end the shell's input: %w", err)
+			}
+
+			return nil
+		}
+
 		if err != nil {
-			return
+			return fmt.Errorf("failed to hear from the caller: %w", err)
 		}
 
 		switch message := request.GetMessage().(type) {
 		case *terminalv1.ShellRequest_Input:
 			if _, err := terminal.Write(message.Input); err != nil {
-				return
+				return fmt.Errorf("failed to type into the shell: %w", err)
 			}
 		case *terminalv1.ShellRequest_Resize:
 			if err := terminal.Resize(toSize(message.Resize)); err != nil {
-				return
+				return fmt.Errorf("failed to resize the shell: %w", err)
 			}
 		case *terminalv1.ShellRequest_Open:
 		}

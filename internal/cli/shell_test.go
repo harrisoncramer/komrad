@@ -2,13 +2,16 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"sync"
 	"syscall"
 	"testing"
+	"time"
 
 	"komrad/lib/xhttp"
 	terminalv1 "komrad/proto/gen/terminal/v1"
@@ -26,6 +29,8 @@ type fakeTerminalService struct {
 	refuse   error
 	received chan *terminalv1.ShellRequest
 	respond  chan *terminalv1.ShellResponse
+	ended    chan struct{}
+	left     chan struct{}
 }
 
 func (f *fakeTerminalService) Shell(ctx context.Context, stream *connect.BidiStream[terminalv1.ShellRequest, terminalv1.ShellResponse]) error {
@@ -42,6 +47,10 @@ func (f *fakeTerminalService) Shell(ctx context.Context, stream *connect.BidiStr
 	go func() {
 		for {
 			request, err := stream.Receive()
+			if errors.Is(err, io.EOF) && f.ended != nil {
+				close(f.ended)
+			}
+
 			if err != nil {
 				return
 			}
@@ -52,6 +61,10 @@ func (f *fakeTerminalService) Shell(ctx context.Context, stream *connect.BidiStr
 	for {
 		select {
 		case <-ctx.Done():
+			if f.left != nil {
+				close(f.left)
+			}
+
 			return nil
 		case response := <-f.respond:
 			if err := stream.Send(response); err != nil {
@@ -186,6 +199,83 @@ func TestRunShellCarriesTheConsole(t *testing.T) {
 		assert.Equal(t, 3, run.code)
 		assert.Equal(t, "file.go\r\n", out.String())
 		<-restored
+	})
+}
+
+// TestRunShellWhenThisSideStops covers the client finishing before the shell does.
+func TestRunShellWhenThisSideStops(t *testing.T) {
+	start := func(ctx context.Context, t *testing.T, service *fakeTerminalService, in io.Reader) chan shellRun {
+		t.Helper()
+
+		service.respond <- &terminalv1.ShellResponse{Message: &terminalv1.ShellResponse_Ready{Ready: &emptypb.Empty{}}}
+
+		done := make(chan shellRun, 1)
+		go func() {
+			code, err := runShell(ctx, runShellParams{
+				Client: serveTerminals(t, service),
+				Dir:    "/work/tree",
+				In:     in,
+				Out:    io.Discard,
+				Size: func() *terminalv1.Size {
+					return &terminalv1.Size{Rows: 24, Cols: 80}
+				},
+				Resized: make(chan os.Signal),
+				Ready: func() (func(), error) {
+					return func() {}, nil
+				},
+			})
+			done <- shellRun{code: code, err: err}
+		}()
+
+		return done
+	}
+
+	t.Run("input that ends closes this side and the exit status still comes back", func(t *testing.T) {
+		service := &fakeTerminalService{
+			received: make(chan *terminalv1.ShellRequest, 8),
+			respond:  make(chan *terminalv1.ShellResponse, 8),
+			ended:    make(chan struct{}),
+		}
+		done := start(t.Context(), t, service, strings.NewReader("ls\n"))
+
+		assert.NotNil(t, (<-service.received).GetOpen())
+		assert.Equal(t, []byte("ls\n"), (<-service.received).GetInput())
+
+		select {
+		case <-service.ended:
+		case <-time.After(5 * time.Second):
+			t.Fatal("the engine was not told the input ended")
+		}
+
+		service.respond <- &terminalv1.ShellResponse{Message: &terminalv1.ShellResponse_Exit{Exit: &terminalv1.Exit{Code: 2}}}
+
+		run := <-done
+		require.NoError(t, run.err)
+		assert.Equal(t, 2, run.code)
+	})
+
+	t.Run("a cancelled caller hangs the shell up", func(t *testing.T) {
+		service := &fakeTerminalService{
+			received: make(chan *terminalv1.ShellRequest, 8),
+			respond:  make(chan *terminalv1.ShellResponse, 8),
+			left:     make(chan struct{}),
+		}
+		typed, typing := io.Pipe()
+		t.Cleanup(func() { _ = typing.Close() })
+
+		ctx, cancel := context.WithCancel(t.Context())
+		done := start(ctx, t, service, typed)
+		assert.NotNil(t, (<-service.received).GetOpen())
+
+		cancel()
+
+		select {
+		case <-service.left:
+		case <-time.After(5 * time.Second):
+			t.Fatal("the engine did not hear the caller leave")
+		}
+
+		assert.Error(t, (<-done).err)
 	})
 }
 

@@ -17,7 +17,8 @@ import (
 )
 
 // TestIntegrationShellOpensInAnAgentsDirectory covers a person opening a shell on the engine in
-// an agent's directory over the api, typing into it, and getting its exit status back.
+// an agent's directory over the api, typing into it, and getting its exit status back, whether it
+// exits on its own or because its input ran out.
 func TestIntegrationShellOpensInAnAgentsDirectory(t *testing.T) {
 	instance := komradtest.Start(t, komradtest.Params{})
 	ctx := t.Context()
@@ -60,6 +61,27 @@ func TestIntegrationShellOpensInAnAgentsDirectory(t *testing.T) {
 		assert.Equal(t, int32(5), exit.GetCode())
 		assert.Contains(t, string(output), dir+"\r\n")
 		assert.Contains(t, string(output), "30 100\r\n")
+	})
+
+	t.Run("a shell whose input runs out exits once it has run what it was given", func(t *testing.T) {
+		stream, err := openShell(t, instance, agent.GetCwd())
+		require.NoError(t, err)
+
+		require.NoError(t, stream.Send(&terminalv1.ShellRequest{Message: &terminalv1.ShellRequest_Input{Input: []byte("echo pi\"\"ped\n")}}))
+		require.NoError(t, stream.CloseRequest())
+
+		var output []byte
+		var exit *terminalv1.Exit
+		for exit == nil {
+			response, err := stream.Receive()
+			require.NoError(t, err)
+
+			output = append(output, response.GetOutput()...)
+			exit = response.GetExit()
+		}
+
+		assert.Equal(t, int32(0), exit.GetCode())
+		assert.Contains(t, string(output), "piped\r\n")
 	})
 }
 
