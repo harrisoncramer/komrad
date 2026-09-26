@@ -517,6 +517,24 @@ func TestSnapshotKinds(t *testing.T) {
 			},
 		},
 		{
+			name: "a workflow wears the mail waiting for its orchestrator",
+			row: agentRow{
+				header:   true,
+				workflow: panel.Workflow{ID: "w1", Name: "komrad"},
+				orchestrator: &panel.AgentRow{
+					Agent:      panel.Agent{ID: "o1", State: panel.StateIdle},
+					UnreadMail: true,
+				},
+			},
+			want: view.Row{
+				Key:        "workflow:w1",
+				Kind:       view.KindWorkflow,
+				Name:       "komrad",
+				Process:    view.ProcessNone,
+				UnreadMail: true,
+			},
+		},
+		{
 			name: "a workflow whose orchestrator failed to start still wears the failure",
 			row: agentRow{
 				header:       true,
