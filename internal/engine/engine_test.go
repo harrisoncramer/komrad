@@ -23,8 +23,37 @@ func TestIsRemoteIsWhetherADestinationWasGiven(t *testing.T) {
 func TestStringNamesTheEngine(t *testing.T) {
 	t.Parallel()
 
-	assert.Equal(t, "local", engine.Remote{}.String())
-	assert.Equal(t, "ubuntu@host", engine.Remote{Destination: "ubuntu@host"}.String())
+	tests := []struct {
+		name   string
+		remote engine.Remote
+		want   string
+	}{
+		{
+			name:   "a local engine",
+			remote: engine.Remote{},
+			want:   "local",
+		},
+		{
+			name: "an engine named by its destination",
+			remote: engine.Remote{
+				Destination: "ubuntu@host",
+			},
+			want: "ubuntu@host",
+		},
+		{
+			name:   "an engine named by its forward",
+			remote: ssmEngine(),
+			want:   `aws ssm start-session --target i-0abc --document-name AWS-StartPortForwardingSession --parameters {"portNumber":["{{remote_port}}"],"localPortNumber":["{{local_port}}"]}`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			assert.Equal(t, tt.want, tt.remote.String())
+		})
+	}
 }
 
 // TestTunnelArgvForwardsTheEnginesAddress covers the forward ssh is asked for.
@@ -140,20 +169,4 @@ func TestTunnelArgvFillsBothPorts(t *testing.T) {
 	assert.Equal(t, []string{"aws", "ssm", "start-session"}, argv[:3])
 	assert.Contains(t, parameters, `"portNumber":["8787"]`)
 	assert.Contains(t, parameters, `"localPortNumber":["19123"]`)
-}
-
-// TestSshIsStillTheShorthand covers the common case staying one line of config.
-func TestSshIsStillTheShorthand(t *testing.T) {
-	t.Parallel()
-
-	remote := engine.Remote{Destination: "komrad@host"}
-
-	assert.Equal(t, "ssh", remote.TunnelArgv("127.0.0.1:1", "127.0.0.1:2")[0])
-}
-
-// TestStringNamesTheTransport covers an error saying how the engine is reached.
-func TestStringNamesTheTransport(t *testing.T) {
-	t.Parallel()
-
-	assert.Contains(t, ssmEngine().String(), "aws ssm start-session")
 }
