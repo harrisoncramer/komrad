@@ -164,7 +164,11 @@ func (c *Client) PredictRebase(ctx context.Context, dir, ref string) (Prediction
 	// A base the branch already contains is not one to catch up to, whatever its content says:
 	// a branch that committed something and then reverted it holds the base's own tree, and
 	// replaying from its tip would drop both commits over a rebase git calls a no-op.
-	contained, err := isAncestor(ctx, dir, ref, "HEAD")
+	contained, err := isAncestor(ctx, IsAncestorParams{
+		Dir:           dir,
+		MaybeAncestor: ref,
+		Of:            "HEAD",
+	})
 	if err != nil || contained {
 		return prediction, err
 	}
@@ -338,8 +342,8 @@ func doesShareHistory(ctx context.Context, dir, left, right string) (bool, error
 }
 
 // isAncestor reports whether one commit is reachable from another.
-func isAncestor(ctx context.Context, dir, maybeAncestor, of string) (bool, error) {
-	_, err := Run(ctx, dir, "merge-base", "--is-ancestor", maybeAncestor, of)
+func isAncestor(ctx context.Context, params IsAncestorParams) (bool, error) {
+	_, err := Run(ctx, params.Dir, "merge-base", "--is-ancestor", params.MaybeAncestor, params.Of)
 	if err == nil {
 		return true, nil
 	}
@@ -350,7 +354,7 @@ func isAncestor(ctx context.Context, dir, maybeAncestor, of string) (bool, error
 		return false, nil
 	}
 
-	return false, fmt.Errorf("failed to test whether %s is contained in %s: %w", maybeAncestor, of, err)
+	return false, fmt.Errorf("failed to test whether %s is contained in %s: %w", params.MaybeAncestor, params.Of, err)
 }
 
 // countUnlanded counts the commits after cutoff that a rebase would actually move, which is

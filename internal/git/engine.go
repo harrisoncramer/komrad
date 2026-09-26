@@ -121,14 +121,14 @@ func (c *EngineClient) Replay(ctx context.Context, params ReplayParams) (*Replay
 }
 
 // IsAncestor reports whether one commit is reachable from another.
-func (c *EngineClient) IsAncestor(ctx context.Context, dir, maybeAncestor, of string) (bool, error) {
+func (c *EngineClient) IsAncestor(ctx context.Context, params IsAncestorParams) (bool, error) {
 	response, err := c.client.IsAncestor(ctx, connect.NewRequest(&gitv1.IsAncestorRequest{
-		Dir:           dir,
-		MaybeAncestor: maybeAncestor,
-		Of:            of,
+		Dir:           params.Dir,
+		MaybeAncestor: params.MaybeAncestor,
+		Of:            params.Of,
 	}))
 	if err != nil {
-		return false, fmt.Errorf("failed to ask whether %s is an ancestor of %s on the engine: %w", maybeAncestor, of, err)
+		return false, fmt.Errorf("failed to ask whether %s is an ancestor of %s on the engine: %w", params.MaybeAncestor, params.Of, err)
 	}
 
 	return response.Msg.GetIsAncestor(), nil

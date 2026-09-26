@@ -267,10 +267,10 @@ func (f *Repo) Replay(ctx context.Context, params git.ReplayParams) (*git.Replay
 }
 
 // IsAncestor is true unless the pair is in Rewritten.
-func (f *Repo) IsAncestor(ctx context.Context, _, maybeAncestor, of string) (bool, error) {
+func (f *Repo) IsAncestor(ctx context.Context, params git.IsAncestorParams) (bool, error) {
 	f.before(ctx, "git.IsAncestor")
 
-	return !f.Rewritten[NamePair(maybeAncestor, of)], nil
+	return !f.Rewritten[NamePair(params.MaybeAncestor, params.Of)], nil
 }
 
 // GetRoot answers Root, or the directory itself when Root is blank.

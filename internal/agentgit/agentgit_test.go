@@ -94,7 +94,11 @@ func TestEveryCallKeepsToTheAgentsDirectories(t *testing.T) {
 		{
 			name: "IsAncestor",
 			call: func(ctx context.Context, dir string) error {
-				_, err := service.IsAncestor(ctx, dir, "a", "b")
+				_, err := service.IsAncestor(ctx, git.IsAncestorParams{
+					Dir:           dir,
+					MaybeAncestor: "a",
+					Of:            "b",
+				})
 
 				return err
 			},

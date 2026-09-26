@@ -51,7 +51,17 @@ func (c *Client) Replay(ctx context.Context, params ReplayParams) (*Replayed, er
 	return &Replayed{Tree: tree, Conflicts: conflicts}, nil
 }
 
+// IsAncestorParams says which two commits to compare, and in which repository.
+type IsAncestorParams struct {
+	// Dir is anywhere inside the repository holding both commits.
+	Dir string
+	// MaybeAncestor is the commit looked for.
+	MaybeAncestor string
+	// Of is the commit it is looked for in.
+	Of string
+}
+
 // IsAncestor reports whether one commit is reachable from another.
-func (c *Client) IsAncestor(ctx context.Context, dir, maybeAncestor, of string) (bool, error) {
-	return isAncestor(ctx, dir, maybeAncestor, of)
+func (c *Client) IsAncestor(ctx context.Context, params IsAncestorParams) (bool, error) {
+	return isAncestor(ctx, params)
 }

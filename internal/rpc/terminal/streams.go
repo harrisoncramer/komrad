@@ -32,7 +32,7 @@ type shellStream struct {
 func (s shellStream) receive() (request, error) {
 	message, err := s.stream.Receive()
 	if err != nil {
-		return request{}, err //nolint:wrapcheck // the caller tells io.EOF apart
+		return request{}, fmt.Errorf("failed to read the caller's message: %w", err)
 	}
 
 	return request{input: message.GetInput(), resize: message.GetResize()}, nil
@@ -78,7 +78,7 @@ type attachStream struct {
 func (s attachStream) receive() (request, error) {
 	message, err := s.stream.Receive()
 	if err != nil {
-		return request{}, err //nolint:wrapcheck // the caller tells io.EOF apart
+		return request{}, fmt.Errorf("failed to read the caller's message: %w", err)
 	}
 
 	return request{input: message.GetInput(), resize: message.GetResize()}, nil

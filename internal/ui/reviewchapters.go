@@ -301,7 +301,11 @@ func replayChapters(ctx context.Context, params replayChaptersParams) []reviewCh
 // isBaseRewritten reports whether a chapter's start sits on a base its end cannot reach, and
 // says no when git cannot answer.
 func isBaseRewritten(ctx context.Context, params replayChaptersParams, chapter reviewChapter) bool {
-	reachable, err := params.Git.IsAncestor(ctx, params.Dir, chapter.FromBase, chapter.ToBase)
+	reachable, err := params.Git.IsAncestor(ctx, git.IsAncestorParams{
+		Dir:           params.Dir,
+		MaybeAncestor: chapter.FromBase,
+		Of:            chapter.ToBase,
+	})
 
 	return err == nil && !reachable
 }
