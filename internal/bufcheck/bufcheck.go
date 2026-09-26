@@ -28,6 +28,8 @@ const (
 	OneServiceRuleID = "SERVICE_ONE_PER_FILE"
 	// SurfacesRuleID is the rule requiring a method to say who reaches it, consistently.
 	SurfacesRuleID = "RPC_DECLARES_SURFACES"
+	// NotEmptyRuleID is the rule refusing a message that declares no fields.
+	NotEmptyRuleID = "MESSAGE_NOT_EMPTY"
 )
 
 var (
@@ -78,6 +80,13 @@ var (
 				Purpose: "Checks that a file declares at most one service.",
 				Type:    check.RuleTypeLint,
 				Handler: checkutil.NewServiceRuleHandler(checkOneService, checkutil.WithoutImports()),
+			},
+			{
+				ID:      NotEmptyRuleID,
+				Default: true,
+				Purpose: "Checks that a message declares at least one field, leaving google.protobuf.Empty to stand for nothing.",
+				Type:    check.RuleTypeLint,
+				Handler: checkutil.NewMessageRuleHandler(checkNotEmpty, checkutil.WithoutImports()),
 			},
 			{
 				ID:      TypesUniqueRuleID,
