@@ -2,17 +2,11 @@
 # meant for it names it: MISE_ENV=test mise run restart.
 #
 # Every checkout gets an instance of its own, so two agents testing at once never share a
-# database, a server or a tmux server. _test_env claims this checkout a numbered slot under
-# ~/.local/state/komrad-test/instances and exports the port, address, socket, compose project,
-# cache and worktrees directory that slot derives. `mise run test:down` takes it down and gives
-# the slot back, and the komrad-worktree-teardown hook does the same when an agent is deleted.
-#
-# These are environment variables rather than a config file because the environment beats the
-# file, so the isolation holds whatever a developer has written in ~/.config/komrad.
+# database, a server or a tmux server. tools/komradslot claims this checkout a numbered slot
+# under ~/.local/state/komrad-test/instances and prints the port, address, socket, compose
+# project, cache directory and config that slot derives, and _test_env exports them. The config
+# is komrad.test.toml with the slot's own worktrees directory added. `mise run test:down` takes
+# the instance down and gives the slot back, and the komrad-worktree-teardown hook does the same
+# when an agent is deleted.
 [env]
-# Its own config, so the throwaway instance is not reading the panel settings of the checkout
-# being developed against. Naming a file here replaces ~/.config/komrad/config.toml rather than
-# layering on top of it, which is the point.
-KOMRAD_CONFIG = "{{config_root}}/komrad.test.toml"
-
 _.source = "{{config_root}}/mise/tasks/_test_env"

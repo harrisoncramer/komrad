@@ -363,7 +363,7 @@ dir = ""
 # Where a workflow's generated worktree provisioner creates its worktrees.
 [worktrees]
 # Directory generated worktrees are created under, one subdirectory per agent.
-# Left empty this is ~/.local/state/komrad/worktrees. KOMRAD_WORKTREES_DIR overrides it.
+# Left empty this is ~/.local/state/komrad/worktrees.
 dir = ""
 
 # The GitHub App an engine fetches and pushes as.

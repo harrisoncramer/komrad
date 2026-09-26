@@ -1,4 +1,6 @@
-# The throwaway instance's config, pointed at by KOMRAD_CONFIG in mise.test.toml.
+# The throwaway instance's config. tools/komradslot copies it into the checkout's slot with the
+# slot's own [worktrees] table added, and points KOMRAD_CONFIG at the copy, so it names no
+# [worktrees] table itself.
 #
 # It is deliberately almost empty. The point of naming a config file here is not to configure
 # anything, it is to stop the test instance reading ~/.config/komrad and picking up the panel
@@ -6,8 +8,8 @@
 # is a built-in default, which is what you want when you are checking a build rather than
 # working in it.
 #
-# The connection settings that isolate this instance are in mise.test.toml as environment
-# variables, since the environment beats the file and mise cannot write one.
+# The connection settings that isolate this instance are exported as environment variables,
+# since the environment beats the file.
 
 [log]
 # Louder than the default, because the reason to open this instance is usually to watch it.

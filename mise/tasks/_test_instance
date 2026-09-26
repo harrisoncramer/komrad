@@ -1,225 +1,39 @@
 #!/usr/bin/env bash
-# The throwaway instance a checkout tests against, one numbered slot per checkout.
+# The throwaway instance a checkout tests against, run by tools/komradslot.
 #
-# Sourced for its functions, or run as `_test_instance down-root <checkout>` to take a checkout's
-# instance down without going through mise.
+# Sourced for require_test_instance, or run as `_test_instance down --root <checkout>` to take a
+# checkout's instance down without going through mise.
 
-test_instance_script="${BASH_SOURCE[0]}"
+test_instance_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
 
-test_instances_dir() {
-	echo "$HOME/.local/state/komrad-test/instances"
-}
+# komradslot runs the slot tool, building it first when its source is newer than the binary.
+komradslot() {
+	local bin="$test_instance_root/local/komradslot"
+	local src="$test_instance_root/tools/komradslot"
+	local tmp
 
-test_slot_max=50
-
-# test_slot_env prints every setting slot n derives, one NAME=value per line.
-test_slot_env() {
-	local n="$1"
-	local dir
-	dir="$(test_instances_dir)/$n"
-
-	echo "DB_PORT=$((5470 + n))"
-	echo "KOMRAD_DATABASE_URL=postgres://komrad_engine_default:komrad@localhost:$((5470 + n))/komrad?sslmode=disable"
-	echo "KOMRAD_OWNER_DATABASE_URL=postgres://komrad:komrad@localhost:$((5470 + n))/komrad?sslmode=disable"
-	echo "KOMRAD_READONLY_DATABASE_URL="
-	echo "KOMRAD_ADDR=127.0.0.1:$((8800 + n))"
-	echo "KOMRAD_TMUX_SOCKET=komrad-test-$n"
-	echo "COMPOSE_PROJECT_NAME=komrad-test-$n"
-	echo "KOMRAD_CACHE_DIR=$dir/cache"
-	echo "KOMRAD_WORKTREES_DIR=$dir/worktrees"
-}
-
-# test_slot_going_down succeeds while a live process is taking slot n down.
-test_slot_going_down() {
-	local owner
-	owner="$(cat "$(test_instances_dir)/$1/down" 2>/dev/null)" || return 1
-	[ -n "$owner" ] && kill -0 "$owner" 2>/dev/null
-}
-
-# test_slot_for_root prints the slot claimed for a checkout, failing when it holds none.
-test_slot_for_root() {
-	local root="$1"
-	local claim n
-
-	for claim in "$(test_instances_dir)"/*/root; do
-		[ -f "$claim" ] || continue
-		n="$(basename "$(dirname "$claim")")"
-		if [ "$(cat "$claim")" = "$root" ] && ! test_slot_going_down "$n"; then
-			echo "$n"
-			return 0
+	if [ ! -x "$bin" ] || [ -n "$(find "$src" -newer "$bin" -print -quit)" ]; then
+		mkdir -p "$test_instance_root/local"
+		tmp="$(mktemp "$bin.XXXXXX")"
+		if ! go build -C "$src" -o "$tmp" .; then
+			rm -f "$tmp"
+			return 1
 		fi
-	done
-
-	return 1
-}
-
-# test_locked runs a command while holding the registry's lock, which the kernel drops if it dies.
-test_locked() {
-	local lock
-	lock="$(test_instances_dir)/.lock"
-	mkdir -p "$(test_instances_dir)"
-
-	if command -v flock >/dev/null; then
-		flock -w 30 "$lock" "$@"
-	else
-		lockf -k -t 30 "$lock" "$@"
-	fi
-}
-
-# test_slot_pick prints the checkout's slot, claiming a free one, or prints "reclaim n" after
-# marking a stale slot for the caller to take down. It runs under the lock.
-test_slot_pick() {
-	local root="$1"
-	local owner="$2"
-	local n slot
-
-	if n="$(test_slot_for_root "$root")"; then
-		echo "$n"
-		return 0
+		mv -f "$tmp" "$bin"
 	fi
 
-	for n in $(seq 1 "$test_slot_max"); do
-		slot="$(test_instances_dir)/$n"
-		if mkdir "$slot" 2>/dev/null; then
-			echo "$root" >"$slot/root"
-			echo "$n"
-			return 0
-		fi
-	done
-
-	for n in $(seq 1 "$test_slot_max"); do
-		slot="$(test_instances_dir)/$n"
-		if [ ! -d "$(cat "$slot/root" 2>/dev/null)" ] && ! test_slot_going_down "$n"; then
-			echo "$owner" >"$slot/down"
-			echo "reclaim $n"
-			return 0
-		fi
-	done
-
-	echo "test instance: all $test_slot_max slots are held by checkouts that still exist" >&2
-	return 1
-}
-
-# test_slot_retire marks the checkout's slot as going down and prints it. It runs under the lock.
-test_slot_retire() {
-	local root="$1"
-	local owner="$2"
-	local n
-
-	n="$(test_slot_for_root "$root")" || return 0
-	echo "$owner" >"$(test_instances_dir)/$n/down"
-	echo "$n"
-}
-
-# test_slot_claim prints the checkout's slot, claiming one when it holds none.
-test_slot_claim() {
-	local root="$1"
-	local picked
-
-	for _ in 1 2 3; do
-		picked="$(test_locked "$test_instance_script" pick "$root" "$$")" || return 1
-
-		case "$picked" in
-		reclaim\ *)
-			test_slot_down "${picked#reclaim }" >&2 || return 1
-			;;
-		*)
-			echo "$picked"
-			return 0
-			;;
-		esac
-	done
-
-	echo "test instance: could not claim a slot for $root" >&2
-	return 1
-}
-
-# test_slot_down stops everything slot n runs and gives the slot back, keeping the claim when it
-# cannot finish.
-test_slot_down() {
-	local n="$1"
-	local socket="komrad-test-$n"
-	local addr="127.0.0.1:$((8800 + n))"
-	local dir
-
-	case "$n" in
-	'' | *[!0-9]*)
-		echo "test instance: $n is not a slot" >&2
-		return 1
-		;;
-	esac
-
-	if [ "$n" -lt 1 ] || [ "$n" -gt "$test_slot_max" ]; then
-		echo "test instance: $n is not a slot" >&2
-		return 1
-	fi
-
-	dir="$(test_instances_dir)"
-	echo "test instance: taking down slot $n"
-
-	tmux -L "$socket" kill-server 2>/dev/null || true
-	pkill -f "komrad serve --addr $addr( |\$)" 2>/dev/null || true
-
-	if ! docker info >/dev/null 2>&1; then
-		echo "test instance: docker is not reachable, so the database of slot $n cannot be taken down" >&2
-		rm -f "${dir:?}/${n:?}/down"
-		return 1
-	fi
-
-	if ! docker compose -p "$socket" down --volumes --remove-orphans; then
-		echo "test instance: could not take down the database of slot $n" >&2
-		rm -f "${dir:?}/${n:?}/down"
-		return 1
-	fi
-
-	rm -rf "${dir:?}/${n:?}"
+	"$bin" "$@"
 }
 
 # require_test_instance refuses to go on under MISE_ENV=test unless the environment is exactly the
 # one this checkout's slot derives.
 require_test_instance() {
-	local root n name want have
-
 	[ "${MISE_ENV:-}" = test ] || return 0
 
-	root="$(cd "$MISE_CONFIG_ROOT" && pwd -P)"
-	if ! n="$(test_slot_for_root "$root")"; then
-		echo "test instance: $root holds no slot, so there is no throwaway instance to run against" >&2
-		exit 1
-	fi
-
-	while IFS='=' read -r name want; do
-		have="${!name-}"
-		if [ "$have" != "$want" ]; then
-			echo "test instance: $name is '$have' but slot $n needs '$want'; refusing to run against it" >&2
-			exit 1
-		fi
-	done < <(test_slot_env "$n")
+	komradslot check --root "$test_instance_root" || exit 1
 }
 
 if [ "${BASH_SOURCE[0]}" = "$0" ]; then
 	set -euo pipefail
-
-	case "${1:-}" in
-	pick)
-		test_slot_pick "$2" "$3"
-		;;
-	retire)
-		test_slot_retire "$2" "$3"
-		;;
-	down-root)
-		root="$(cd "${2:?down-root needs a checkout}" && pwd -P)"
-		n="$(test_locked "$test_instance_script" retire "$root" "$$")"
-		if [ -z "$n" ]; then
-			echo "test instance: $root holds no slot"
-			exit 0
-		fi
-
-		test_slot_down "$n"
-		;;
-	*)
-		echo "usage: $0 down-root <checkout>" >&2
-		exit 1
-		;;
-	esac
+	komradslot "$@"
 fi

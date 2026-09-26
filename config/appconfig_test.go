@@ -22,7 +22,6 @@ func clearConnectionEnvironment(t *testing.T) {
 		"KOMRAD_ADDR",
 		"KOMRAD_TMUX_SOCKET",
 		"KOMRAD_CACHE_DIR",
-		"KOMRAD_WORKTREES_DIR",
 	} {
 		t.Setenv(name, "")
 	}
@@ -764,23 +763,6 @@ func TestLoadConnectionPrecedence(t *testing.T) {
 
 	assert.Equal(t, "127.0.0.3:3", cfg.Connection.Addr)
 	assert.Equal(t, SourceEnvironment, report.Sources["addr"])
-}
-
-// TestLoadWorktreesDirPrecedence pins the environment winning over the file.
-func TestLoadWorktreesDirPrecedence(t *testing.T) {
-	clearConnectionEnvironment(t)
-	path := filepath.Join(t.TempDir(), "config.toml")
-	require.NoError(t, os.WriteFile(path, []byte("[worktrees]\ndir = \"/from/file\"\n"), 0o644))
-
-	cfg, err := LoadStack(Stack{Paths: []string{path}})
-	require.NoError(t, err)
-	assert.Equal(t, "/from/file", cfg.Worktrees.Dir)
-
-	t.Setenv("KOMRAD_WORKTREES_DIR", "/from/env")
-
-	cfg, err = LoadStack(Stack{Paths: []string{path}})
-	require.NoError(t, err)
-	assert.Equal(t, "/from/env", cfg.Worktrees.Dir)
 }
 
 // TestLoadDerivesConnectionValuesAfterPrecedence pins that a derived value is worked out from

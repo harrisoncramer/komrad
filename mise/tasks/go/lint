@@ -27,7 +27,7 @@ done
 
 cd "$MISE_CONFIG_ROOT"
 
-MODULES=(. tools/komradlint tools/komradpkg)
+MODULES=(. tools/komradlint tools/komradpkg tools/komradslot)
 
 CONFIG="$MISE_CONFIG_ROOT/.golangci.yaml"
 BIN_PATH="$MISE_CONFIG_ROOT/local/custom-gcl"

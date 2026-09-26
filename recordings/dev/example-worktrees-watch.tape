@@ -1,5 +1,5 @@
 # The worktrees screen drawn from the watch. Before recording, create an empty directory
-# named zz-rec-probe under the instance's KOMRAD_WORKTREES_DIR a few seconds in. The size
+# named zz-rec-probe under the slot's worktrees directory a few seconds in. The size
 # loop records it within thirty seconds and the row arrives without the screen asking. The
 # delete then takes it off the screen as soon as it is queued.
 Source recordings/panel.tape

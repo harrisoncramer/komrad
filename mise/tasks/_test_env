@@ -4,14 +4,12 @@
 # shellcheck source=mise/tasks/_test_instance
 source "$(dirname "${BASH_SOURCE[0]}")/_test_instance"
 
-test_env_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
-
-if ! test_env_slot="$(test_slot_claim "$test_env_root")"; then
+if ! test_env_lines="$(komradslot env --root "$test_instance_root")"; then
 	exit 1
 fi
 
 while IFS= read -r test_env_line; do
 	export "${test_env_line?}"
-done < <(test_slot_env "$test_env_slot")
+done <<<"$test_env_lines"
 
-unset test_env_root test_env_slot test_env_line
+unset test_env_lines test_env_line
