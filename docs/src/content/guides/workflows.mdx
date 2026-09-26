@@ -39,17 +39,21 @@ Then run `komrad open` and press `w` in the panel, name the workflow `learning-k
 
 Workflows control where agents start, which CLI they run, and what flags they are launched with, such as the model. When you spawn an agent you can override any of these for that one agent.
 
-Think of workflows of editable presets taht agents
-
-Changing a workflow only affects agents spawned afterwards.
+Think of a workflow as an editable set of presets for every agent that spawns within it. Changing the workflow only affects agents spawned afterwards; existing agents are unaffected.
 
 ## Shared context
 
-A workflow can hold text that is added to every agent's system prompt. This is where you put what you would otherwise tell each agent by hand: how tests run, how branches are named, what to leave alone. It comes after komrad's own briefing and your [global context](../../config/#context), so it has the final word.
+Workflows can hold shared text that are included in every agent's system prompt. This is where you put what you would otherwise tell each agent by hand: how tests run, and how branches are named.
 
-## A checkout per agent
+It comes after komrad's own briefing and your [global context](../../config/#context).
 
-Agents that write code need to stay out of each other's way. A workflow can give each agent its own git worktree, cut fresh from a base branch. The agent works on a branch of its own, and the worktree is removed when the agent is deleted. The workflow's directory has to be an ordinary clone for this to work.
+<figure>
+    todo video showing how to create a workflow with some global context such as "Neovim is clearly the best editor" and then asking a spawned agent within it what the best agent is.
+</figure>
+
+## Worktrees
+
+Agents that write code need to stay out of each other's way. Komrad workflow can give each agent its own git worktree, cut fresh from a base branch. The agent works on a branch of its own, and the worktree is removed when the agent is deleted. The workflow's directory has to be an ordinary clone for this to work.
 
 Worktrees go in [`worktrees.dir`](../../config/#worktrees.dir) unless the workflow names its own place. A new worktree is a clean checkout, so a workflow can list files to copy in, like a local environment file. For anything heavier, like installing dependencies, use a [hook](../hooks/).
 
