@@ -106,6 +106,8 @@ func openHere(ctx context.Context, state *app, detach, headless bool) error {
 		return err
 	}
 
+	state.tmux.SetGlobal("pane-border-lines", "spaces")
+
 	if detach || headless {
 		return nil
 	}

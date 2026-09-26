@@ -234,6 +234,7 @@ type model struct {
 	screen          screen
 	height          int
 	width           int
+	paneCols        int
 
 	// sized is the size each agent's own window was last put at, keyed by pane, so a listing that
 	// has not moved costs no tmux calls.

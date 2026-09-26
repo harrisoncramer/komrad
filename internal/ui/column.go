@@ -34,6 +34,9 @@ func splitOf(width, rows, sidebar, floor int) (columnSplit, bool) {
 	}, true
 }
 
+// dividerCols is the columns the divider between the list and the block beside it takes.
+const dividerCols = 1
+
 // columnFloor is the narrowest a document is worth drawing beside a list at.
 const columnFloor = 40
 
@@ -93,7 +96,7 @@ func (m model) sidebarColumns() (int, columnSpec, bool) {
 	}
 
 	// Clamped so the fold and the draw are at one width.
-	return min(max(sidebar, 1), m.width-1), spec, true
+	return min(max(sidebar-dividerCols, 1), m.width-1-dividerCols), spec, true
 }
 
 // columnGeometry is how wide each half of the window is, and how many rows the block beside the
@@ -106,7 +109,7 @@ func (m model) columnGeometry() (columnSplit, bool) {
 
 	// The whole height, with the sidebar's chrome drawn inside the sidebar and no rows reserved
 	// here.
-	return splitOf(m.width, m.height, sidebar, spec.floor)
+	return splitOf(m.width-dividerCols, m.height, sidebar, spec.floor)
 }
 
 // columnSplit is the window the block is actually drawn in, being the geometry with whatever
@@ -195,7 +198,7 @@ func (m model) isOverColumn(x int) bool {
 		return x < split.column
 	}
 
-	return x >= split.sidebar
+	return x >= split.sidebar+dividerCols
 }
 
 // joinColumns lays the two halves of the window side by side, on the side the frame puts the
@@ -205,11 +208,13 @@ func (m model) joinColumns(split columnSplit, sidebar, column string) string {
 	sidebar = fitColumn(strings.TrimRight(sidebar, "\n"), split.sidebar)
 	column = fitColumn(column, split.column)
 
+	divider := strings.TrimSuffix(strings.Repeat(dimStyle.Render("│")+"\n", lipgloss.Height(sidebar)), "\n")
+
 	if m.frame.IsSidebarOnRight() {
-		return lipgloss.JoinHorizontal(lipgloss.Top, column, sidebar)
+		return lipgloss.JoinHorizontal(lipgloss.Top, column, divider, sidebar)
 	}
 
-	return lipgloss.JoinHorizontal(lipgloss.Top, sidebar, column)
+	return lipgloss.JoinHorizontal(lipgloss.Top, sidebar, divider, column)
 }
 
 // paneWidth is the column the panel draws its own list, record and legend in, which is the whole

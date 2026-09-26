@@ -184,10 +184,12 @@ func (m model) resizeTo(size tea.WindowSizeMsg) model {
 	// The transcript is wrapped into the column it is read in rather than into a pane that would
 	// fold it, so only a window that changed width has to wrap it again, and a preview that has
 	// never drawn is one the rows are still owed to.
-	rewrap := size.Width != m.width || len(m.search.preview.doc.rows) == 0
+	width := size.Width - m.edgeCols()
+	rewrap := width != m.width || len(m.search.preview.doc.rows) == 0
 
 	m.height = size.Height
-	m.width = size.Width
+	m.width = width
+	m.paneCols = size.Width
 	m.awaitingSize = false
 
 	if !m.isTabsDrawn() {
@@ -210,7 +212,7 @@ func (m model) resizeTo(size tea.WindowSizeMsg) model {
 // applySizeRead settles a size the frame read back, leaving a changed one to the resize the
 // terminal itself reports.
 func (m *model) applySizeRead(msg sizeReadMsg) tea.Cmd {
-	if msg.size.Width == m.width && msg.size.Height == m.height {
+	if msg.size.Width == m.paneCols && msg.size.Height == m.height {
 		m.awaitingSize = false
 
 		return nil
@@ -221,7 +223,7 @@ func (m *model) applySizeRead(msg sizeReadMsg) tea.Cmd {
 
 // applySizeFallback hands the renderer a read-back size the terminal never reported.
 func (m model) applySizeFallback(msg sizeFallbackMsg) tea.Cmd {
-	if msg.size.Width == m.width && msg.size.Height == m.height {
+	if msg.size.Width == m.paneCols && msg.size.Height == m.height {
 		return nil
 	}
 
