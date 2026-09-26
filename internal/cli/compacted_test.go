@@ -25,7 +25,7 @@ import (
 func TestCompactedHookRemindsTheAgent(t *testing.T) {
 	tests := []struct {
 		name             string
-		row              *agentv1.AgentRow
+		row              *agentv1.GetAgentResponse
 		threads          []*agentv1.ReviewThread
 		wantThreadsOwner string
 		wantText         []string
@@ -33,7 +33,7 @@ func TestCompactedHookRemindsTheAgent(t *testing.T) {
 	}{
 		{
 			name: "an implementer is handed its branch, pull request, open threads and task",
-			row: &agentv1.AgentRow{
+			row: &agentv1.GetAgentResponse{
 				Agent: &agentv1.Agent{
 					Id:     "agent-a",
 					Name:   "compaction",
@@ -65,7 +65,7 @@ func TestCompactedHookRemindsTheAgent(t *testing.T) {
 		},
 		{
 			name: "a reviewer is handed the threads on the work it reads",
-			row: &agentv1.AgentRow{Agent: &agentv1.Agent{
+			row: &agentv1.GetAgentResponse{Agent: &agentv1.Agent{
 				Id:            "agent-r",
 				Name:          "compaction-review",
 				Role:          agentv1.AgentRole_AGENT_ROLE_REVIEWER,
@@ -83,7 +83,7 @@ func TestCompactedHookRemindsTheAgent(t *testing.T) {
 		},
 		{
 			name: "an orchestrator has no diff, so no threads are read",
-			row: &agentv1.AgentRow{Agent: &agentv1.Agent{
+			row: &agentv1.GetAgentResponse{Agent: &agentv1.Agent{
 				Id:   "agent-o",
 				Name: "orchestrator",
 				Role: agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR,
@@ -93,7 +93,7 @@ func TestCompactedHookRemindsTheAgent(t *testing.T) {
 		},
 		{
 			name: "a long task is cut and says where the rest is",
-			row: &agentv1.AgentRow{Agent: &agentv1.Agent{
+			row: &agentv1.GetAgentResponse{Agent: &agentv1.Agent{
 				Id:     "agent-a",
 				Name:   "long",
 				Role:   agentv1.AgentRole_AGENT_ROLE_IMPLEMENTER,
@@ -115,7 +115,7 @@ func TestCompactedHookRemindsTheAgent(t *testing.T) {
 				var out []byte
 				switch r.URL.Path {
 				case agentv1connect.AgentServiceGetAgentProcedure:
-					out, err = protojson.Marshal(&agentv1.GetAgentResponse{Agent: tt.row})
+					out, err = protojson.Marshal(tt.row)
 				case agentv1connect.AgentServiceListReviewThreadsProcedure:
 					var req struct {
 						AgentID string `json:"agent_id"`

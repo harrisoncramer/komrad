@@ -71,7 +71,7 @@ func TestIntegrationAgentLifecycle(t *testing.T) {
 
 		got, err := instance.Agents.GetAgent(ctx, connect.NewRequest(&agentv1.GetAgentRequest{Id: agent.GetId()}))
 		require.NoError(t, err)
-		assert.Equal(t, "login-race", got.Msg.GetAgent().GetAgent().GetName())
+		assert.Equal(t, "login-race", got.Msg.GetAgent().GetName())
 	})
 
 	t.Run("a person holds the agent at rest and lets it go", func(t *testing.T) {

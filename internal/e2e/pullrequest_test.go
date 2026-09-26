@@ -86,13 +86,13 @@ func TestIntegrationPullRequestsReachTheRowFromEachForge(t *testing.T) {
 
 			listed, err := instance.Agents.GetAgent(ctx, connect.NewRequest(&agentv1.GetAgentRequest{Id: agentID}))
 			require.NoError(t, err)
-			standing := listed.Msg.GetAgent().GetPullRequest()
+			standing := listed.Msg.GetPullRequest()
 			assert.Equal(t, pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED, standing.GetState())
 			assert.Equal(t, int32(12), standing.GetNumber())
 			assert.Equal(t, "ship the widgets", standing.GetTitle())
 			assert.Contains(t, standing.GetUrl(), "/12")
 
-			onBranch := listed.Msg.GetAgent().GetPullRequests()
+			onBranch := listed.Msg.GetPullRequests()
 			require.Len(t, onBranch, 2)
 			assert.Equal(t, int32(12), onBranch[0].GetNumber())
 			assert.Equal(t, int32(9), onBranch[1].GetNumber())

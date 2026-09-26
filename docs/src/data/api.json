@@ -2513,13 +2513,83 @@
       "fields": [
         {
           "name": "agent",
-          "type": "AgentRow",
-          "ref": "agent.v1.AgentRow",
+          "type": "Agent",
+          "ref": "agent.v1.Agent",
           "repeated": false,
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The agent with what the panel draws beside it, its prompt whole."
+          "description": "The agent, its prompt whole."
+        },
+        {
+          "name": "mark",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The letter a person jumps to it by in the panel, if it holds one."
+        },
+        {
+          "name": "unread_mail",
+          "type": "bool",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "Whether mail is waiting that it has not taken."
+        },
+        {
+          "name": "pull_request",
+          "type": "PullRequestStanding",
+          "ref": "agent.v1.PullRequestStanding",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "Where the pull request opened from its branch stands."
+        },
+        {
+          "name": "pull_requests",
+          "type": "PullRequest",
+          "ref": "pullrequest.v1.PullRequest",
+          "repeated": true,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "Every pull request opened from its branch, the current one first."
+        },
+        {
+          "name": "local_review_rounds",
+          "type": "int32",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "How many rounds of local review its own work has been through."
+        },
+        {
+          "name": "local_review_verdict",
+          "type": "ReviewVerdict",
+          "ref": "agent.v1.ReviewVerdict",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "What the last released local review concluded about the agent's own work, UNSPECIFIED when none has concluded anything."
+        },
+        {
+          "name": "local_review_tree",
+          "type": "ReviewTreeStanding",
+          "ref": "agent.v1.ReviewTreeStanding",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "Where the agent's worktree stands against the round that verdict was given on."
         }
       ]
     },
@@ -3201,7 +3271,7 @@
       "description": "Mark is one letter a person types to jump to a row, held by one agent or one workflow.",
       "fields": [
         {
-          "name": "mark",
+          "name": "letter",
           "type": "string",
           "ref": "",
           "repeated": false,

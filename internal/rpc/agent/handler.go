@@ -303,7 +303,18 @@ func (s *Handler) GetAgent(ctx context.Context, req *agentv1.GetAgentRequest) (*
 		return nil, failure
 	}
 
-	return &agentv1.GetAgentResponse{Agent: resources[0].AgentRow}, nil
+	drawn := resources[0].AgentRow
+
+	return &agentv1.GetAgentResponse{
+		Agent:              drawn.GetAgent(),
+		Mark:               drawn.Mark,
+		UnreadMail:         drawn.GetUnreadMail(),
+		PullRequest:        drawn.GetPullRequest(),
+		PullRequests:       drawn.GetPullRequests(),
+		LocalReviewRounds:  drawn.GetLocalReviewRounds(),
+		LocalReviewVerdict: drawn.GetLocalReviewVerdict(),
+		LocalReviewTree:    drawn.GetLocalReviewTree(),
+	}, nil
 }
 
 // ListMarks is every mark, by letter.

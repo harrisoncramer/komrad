@@ -322,8 +322,23 @@ message GetAgentRequest {
 }
 
 message GetAgentResponse {
-  // The agent with what the panel draws beside it, its prompt whole.
-  AgentRow agent = 1;
+  // The agent, its prompt whole.
+  Agent agent = 1;
+  // The letter a person jumps to it by in the panel, if it holds one.
+  optional string mark = 2;
+  // Whether mail is waiting that it has not taken.
+  bool unread_mail = 3;
+  // Where the pull request opened from its branch stands.
+  PullRequestStanding pull_request = 4;
+  // Every pull request opened from its branch, the current one first.
+  repeated pullrequest.v1.PullRequest pull_requests = 5;
+  // How many rounds of local review its own work has been through.
+  int32 local_review_rounds = 6;
+  // What the last released local review concluded about the agent's own work, UNSPECIFIED
+  // when none has concluded anything.
+  ReviewVerdict local_review_verdict = 7;
+  // Where the agent's worktree stands against the round that verdict was given on.
+  ReviewTreeStanding local_review_tree = 8;
 }
 
 // PlanRebaseRequest asks what a rebase would do without doing it.
@@ -390,7 +405,7 @@ message RebaseWorktreeResponse {
 // Mark is one letter a person types to jump to a row, held by one agent or one workflow.
 message Mark {
   // The letter.
-  string mark = 1;
+  string letter = 1;
   // The agent it jumps to, unset when it is on a workflow.
   optional string agent_id = 2;
   // The workflow it jumps to, unset when it is on an agent.

@@ -82,7 +82,7 @@ func threadOwner(agent *agentv1.Agent) string {
 	}
 }
 
-func readOwnRow(ctx context.Context, state *app) (*agentv1.AgentRow, error) {
+func readOwnRow(ctx context.Context, state *app) (*agentv1.GetAgentResponse, error) {
 	var resp agentv1.GetAgentResponse
 	if err := callHookRPC(ctx, state, hookRPC{
 		path:    agentv1connect.AgentServiceGetAgentProcedure,
@@ -92,7 +92,7 @@ func readOwnRow(ctx context.Context, state *app) (*agentv1.AgentRow, error) {
 		return nil, err
 	}
 
-	return resp.GetAgent(), nil
+	return &resp, nil
 }
 
 func readOpenThreads(ctx context.Context, state *app, owner string) ([]*agentv1.ReviewThread, error) {
@@ -146,7 +146,7 @@ func callHookRPC(ctx context.Context, state *app, call hookRPC) error {
 	return nil
 }
 
-func renderCompactedRecord(row *agentv1.AgentRow, threads []*agentv1.ReviewThread) string {
+func renderCompactedRecord(row *agentv1.GetAgentResponse, threads []*agentv1.ReviewThread) string {
 	agent := row.GetAgent()
 
 	lines := []string{

@@ -1056,11 +1056,11 @@ func TestGetAgent(t *testing.T) {
 	got, err := newRowHandler(rows).GetAgent(t.Context(), connect.NewRequest(&agentv1.GetAgentRequest{Id: alphaID}))
 	require.NoError(t, err)
 
-	assert.Equal(t, "a", got.Msg.GetAgent().GetMark(), "the agent is drawn beside its surroundings")
-	require.Len(t, got.Msg.GetAgent().GetPullRequests(), 1)
-	assert.Equal(t, int32(740), got.Msg.GetAgent().GetPullRequests()[0].GetNumber(), "with every pull request on its branch")
+	assert.Equal(t, "a", got.Msg.GetMark(), "the agent is drawn beside its surroundings")
+	require.Len(t, got.Msg.GetPullRequests(), 1)
+	assert.Equal(t, int32(740), got.Msg.GetPullRequests()[0].GetNumber(), "with every pull request on its branch")
 
-	agent := got.Msg.GetAgent().GetAgent()
+	agent := got.Msg.GetAgent()
 	assert.Equal(t, "/repo", agent.GetCwd())
 	assert.Equal(t, agentv1.AgentState_AGENT_STATE_THINKING, agent.GetState())
 	assert.Equal(t, prompt, agent.GetPrompt(), "no view narrows a single agent")
@@ -1211,12 +1211,12 @@ func TestListMarks(t *testing.T) {
 	want := &agentv1.ListMarksResponse{Marks: []*agentv1.Mark{
 		{
 			Id:      "m1",
-			Mark:    "a",
+			Letter:  "a",
 			AgentId: xptr.Ptr(alphaID),
 		},
 		{
 			Id:         "m2",
-			Mark:       "b",
+			Letter:     "b",
 			WorkflowId: xptr.Ptr("wf-1"),
 		},
 	}}

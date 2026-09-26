@@ -111,7 +111,7 @@ func listMarks(t *testing.T, instance *komradtest.Instance) map[string]string {
 
 	marks := map[string]string{}
 	for _, mark := range listed.Msg.GetMarks() {
-		marks[mark.GetMark()] = mark.GetAgentId() + mark.GetWorkflowId()
+		marks[mark.GetLetter()] = mark.GetAgentId() + mark.GetWorkflowId()
 	}
 
 	return marks
