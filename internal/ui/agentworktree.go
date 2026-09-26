@@ -99,8 +99,7 @@ func worktreeHistoryFields(read worktreeInspection) []recordField {
 	return labelledRows("commits", cutRows(commitLines(read.commits), worktreeRowsShown))
 }
 
-// buildRemoteField is where the branch stands against its copy on origin, quiet where there is
-// nothing to push or what origin holds beyond the branch has already landed on the base.
+// buildRemoteField is where the branch stands against its copy on origin.
 func buildRemoteField(read worktreeInspection) recordField {
 	warning := paint.Panel.Style(paint.ToneWarning)
 	switch {
@@ -127,12 +126,16 @@ func buildRemoteField(read worktreeInspection) recordField {
 	unpushed := fmt.Sprintf("↑%d unpushed", read.unpushed)
 	unpulled := fmt.Sprintf("↓%d unpulled", read.unpulled)
 	if read.unpulledLanded {
-		landed := fmt.Sprintf("%s %s · landed on %s", unpushed, unpulled, strings.TrimPrefix(read.baseRef, "origin/"))
+		landed := fmt.Sprintf("%s · landed on %s", unpulled, strings.TrimPrefix(read.baseRef, "origin/"))
+		pushing := dimStyle
+		if read.ahead > 0 {
+			pushing = countStyle(read.unpushed, warning.Bold(true))
+		}
 
 		return recordField{
 			label:  "remote",
-			value:  landed,
-			styled: dimStyle.Render(landed),
+			value:  unpushed + " " + landed,
+			styled: pushing.Render(unpushed) + " " + dimStyle.Render(landed),
 		}
 	}
 

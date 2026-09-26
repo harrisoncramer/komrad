@@ -360,6 +360,18 @@ func TestIntegrationDoesBaseHoldRemote(t *testing.T) {
 		want   bool
 	}{
 		{
+			name: "a base that shares no history with the pushed work does not hold it",
+			change: func(t *testing.T, root string) {
+				run(t, root, "checkout", "-q", "--orphan", "unrelated")
+				run(t, root, "rm", "-rqf", ".")
+				write(t, root, "other.go", "package other\n")
+				run(t, root, "add", "-A")
+				run(t, root, "commit", "-q", "-m", "other")
+				run(t, root, "branch", "-f", "main", "unrelated")
+			},
+			want: false,
+		},
+		{
 			name: "a base without the pushed work does not hold it",
 			change: func(t *testing.T, root string) {
 				run(t, root, "checkout", "-q", "main")

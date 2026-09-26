@@ -7393,7 +7393,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whether the base already holds every commit counted in unpulled, as it does once a pull request from the branch was squash-merged."
+          "description": "Whether the base already holds every commit counted in unpulled."
         }
       ]
     },

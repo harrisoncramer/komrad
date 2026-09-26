@@ -800,15 +800,36 @@ func TestAgentsRecordEmphasis(t *testing.T) {
 		assert.Contains(t, harness.readRawFrame(), errui.Dim.Render("↓0 unpulled"))
 	})
 
-	t.Run("a remote whose unpulled commits landed on the base is dimmed whole", func(t *testing.T) {
-		read := buildWorktreeRead()
-		read.UnpulledLanded = true
-		harness := newPanelHarness(t, panelHarnessParams{})
-		harness.answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, answerWith(read))
-		harness.watch(buildSnapshot(buildRecorded()...))
-		harness.press(append([]string{"ctrl+a"}, widenListPresses...)...)
+	t.Run("a remote whose unpulled commits landed on the base dims what landed", func(t *testing.T) {
+		tests := []struct {
+			name  string
+			ahead int32
+			want  string
+		}{
+			{
+				name:  "a branch carrying work of its own keeps the warning on what it has not pushed",
+				ahead: 3,
+				want:  paint.Panel.Style(paint.ToneWarning).Bold(true).Render("↑2 unpushed") + " " + errui.Dim.Render("↓1 unpulled · landed on main"),
+			},
+			{
+				name:  "a branch carrying nothing of its own is dimmed whole",
+				ahead: 0,
+				want:  errui.Dim.Render("↑2 unpushed") + " " + errui.Dim.Render("↓1 unpulled · landed on main"),
+			},
+		}
 
-		assert.Contains(t, harness.readRawFrame(), errui.Dim.Render("↑2 unpushed ↓1 unpulled · landed on main"))
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				read := buildWorktreeRead()
+				read.UnpulledLanded, read.Ahead = true, tt.ahead
+				harness := newPanelHarness(t, panelHarnessParams{})
+				harness.answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, answerWith(read))
+				harness.watch(buildSnapshot(buildRecorded()...))
+				harness.press(append([]string{"ctrl+a"}, widenListPresses...)...)
+
+				assert.Contains(t, harness.readRawFrame(), tt.want)
+			})
+		}
 	})
 
 	t.Run("a search over a coloured value lights its match in the plain text", func(t *testing.T) {

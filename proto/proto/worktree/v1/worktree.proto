@@ -168,8 +168,7 @@ message GetWorktreeResponse {
   int32 unpushed = 17;
   // How many of origin's copy's commits the branch does not hold.
   int32 unpulled = 18;
-  // Whether the base already holds every commit counted in unpulled, as it does once a pull request
-  // from the branch was squash-merged.
+  // Whether the base already holds every commit counted in unpulled.
   bool unpulled_landed = 19;
 }
 

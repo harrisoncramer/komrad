@@ -706,8 +706,7 @@ type GetWorktreeResponse struct {
 	Unpushed int32 `protobuf:"varint,17,opt,name=unpushed,proto3" json:"unpushed,omitempty"`
 	// How many of origin's copy's commits the branch does not hold.
 	Unpulled int32 `protobuf:"varint,18,opt,name=unpulled,proto3" json:"unpulled,omitempty"`
-	// Whether the base already holds every commit counted in unpulled, as it does once a pull request
-	// from the branch was squash-merged.
+	// Whether the base already holds every commit counted in unpulled.
 	UnpulledLanded bool `protobuf:"varint,19,opt,name=unpulled_landed,json=unpulledLanded,proto3" json:"unpulled_landed,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache

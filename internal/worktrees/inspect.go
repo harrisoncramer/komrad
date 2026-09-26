@@ -33,7 +33,7 @@ type Inspection struct {
 	DiffStat *git.DiffStat
 	Remote   git.RemoteStanding
 	// RemoteLanded says the base already holds every commit origin's copy of the branch has that
-	// the branch does not, as it does once a pull request from it was squash-merged.
+	// the branch does not.
 	RemoteLanded bool
 	// Landed is how many of the branch's own commits the base already holds whole.
 	Landed             int

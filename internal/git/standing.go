@@ -163,9 +163,7 @@ type DoesBaseHoldRemoteParams struct {
 	Base   string
 }
 
-// DoesBaseHoldRemote reports whether the base already holds the whole of origin's copy of the
-// branch, as it does once a pull request from it was squash-merged, and false where the two share
-// no history.
+// DoesBaseHoldRemote reports whether the base already holds the whole of origin's copy of the branch.
 func (c *Client) DoesBaseHoldRemote(ctx context.Context, params DoesBaseHoldRemoteParams) (bool, error) {
 	ref := "refs/remotes/origin/" + params.Branch
 	related, err := doesShareHistory(ctx, params.Dir, params.Base, ref)
@@ -179,7 +177,7 @@ func (c *Client) DoesBaseHoldRemote(ctx context.Context, params DoesBaseHoldRemo
 
 	baseTree, err := getTree(ctx, local, params.Dir, params.Base)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("failed to read the tree of %s against origin's copy of %s: %w", params.Base, params.Branch, err)
 	}
 
 	held, err := doesHoldWhole(ctx, params.Dir, params.Base, baseTree, ref)
