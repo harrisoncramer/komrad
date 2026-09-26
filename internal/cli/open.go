@@ -52,7 +52,6 @@ With --headless it creates that session holding nothing but a placeholder, for a
 engine whose panel runs on somebody else's machine and which would otherwise swap
 an agent's pane into a panel nobody is looking at.`,
 		Args:          cobra.ArbitraryArgs,
-		Hidden:        true,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
@@ -288,7 +287,12 @@ func userPanelKey(state *app, socket string) string {
 // there can do.
 func hostPath(socket string) string {
 	if socket == "" {
-		return ""
+		dir, err := os.Getwd()
+		if err != nil {
+			return ""
+		}
+
+		return dir
 	}
 
 	return tmux.NewClientAtPath(socket).GetClientPath()

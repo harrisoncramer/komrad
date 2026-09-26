@@ -44,7 +44,6 @@ jobs:
               - '.custom-gcl.yml'
               - 'tools/komradlint/**'
               - 'tools/komradpkg/**'
-              - 'tools/komradrec/**'
               - '.github/workflows/ci.yml'
             shell:
               - 'mise/**'

@@ -1,6 +1,6 @@
 ---
 import { REPO_URL } from "../../consts";
-import { link } from "../../site";
+import { link, media } from "../../site";
 
 const WORDS = [
   "APIs",
@@ -19,9 +19,8 @@ const WORDS = [
 <figure class="splash">
   <div class="media">
     <picture>
-      <source media="(max-width: 767.98px)" srcset={link("/splash/splash-960.webp")} />
       <img
-        src={link("/splash/splash.webp")}
+        src={media("splash.png")}
         alt="The komrad panel: a list of agents grouped by project beside a live Claude session."
         width="1920"
         height="930"
@@ -35,8 +34,8 @@ const WORDS = [
       playsinline
       preload="none"
       aria-hidden="true"
-      data-webm={link("/splash/splash.webm")}
-      data-mp4={link("/splash/splash.mp4")}
+      data-webm={media("splash.webm")}
+      data-mp4={media("splash.mp4")}
     ></video>
     <div class="scrim" aria-hidden="true"></div>
   </div>

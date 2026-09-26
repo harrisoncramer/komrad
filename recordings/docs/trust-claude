@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+config="$HOME/.claude.json"
+trusted="$(mktemp)"
+
+jq --arg orchestrators "$HOME/.local/state/komrad/orchestrators" \
+	--arg worktrees "$HOME/.local/state/komrad-test/worktrees" \
+	--arg repository "$HOME/neovim" \
+	'.projects[$orchestrators].hasTrustDialogAccepted = true | .projects[$worktrees].hasTrustDialogAccepted = true | .projects[$repository].hasTrustDialogAccepted = true' \
+	"$config" >"$trusted"
+mv "$trusted" "$config"

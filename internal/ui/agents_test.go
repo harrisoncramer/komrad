@@ -11,6 +11,7 @@ import (
 
 	"komrad/config"
 	"komrad/internal/errui"
+	"komrad/internal/ui"
 	"komrad/internal/ui/paint"
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
@@ -180,13 +181,15 @@ func TestAgentsRows(t *testing.T) {
 		assert.Equal(t, readListRows(plain.readFrame()), readListRows(branched.readFrame()))
 	})
 
-	t.Run("an empty panel still draws its chrome and says where to start", func(t *testing.T) {
+	t.Run("an empty panel welcomes a newcomer and says where to start", func(t *testing.T) {
 		harness := openAgents(t)
 
 		frame := harness.readFrame()
 		assert.Contains(t, frame, agentsTitle)
-		assert.Contains(t, frame, "nothing here yet")
+		assert.Contains(t, frame, "Welcome, komrad!")
+		assert.Contains(t, frame, "Press 'w' to set up your first workflow")
 		assert.Empty(t, readListRows(frame))
+		ui.RequireGolden(t, "agents-welcome", harness.readRawFrame())
 	})
 }
 

@@ -26,6 +26,6 @@ shell_scripts() {
 # docs_install brings docs/node_modules in line with its lockfile, run from docs/.
 docs_install() {
 	if [ ! -f node_modules/.package-lock.json ] || [ package-lock.json -nt node_modules/.package-lock.json ]; then
-		npm ci
+		npm install
 	fi
 }

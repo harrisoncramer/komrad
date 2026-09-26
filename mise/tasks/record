@@ -1,33 +1,41 @@
 #!/usr/bin/env bash
 source "$MISE_CONFIG_ROOT/mise/tasks/_"
-#MISE description="Record the throwaway instance from a script of keypresses, one frame per step, to a gif."
+#MISE description="Record the throwaway instance from a VHS tape, to a video, a gif and a still."
 set -euo pipefail
 
 usage() {
-	echo "Usage: MISE_ENV=test mise run record <script> [--width 140] [--height 40] [--pause 1.5s] [--theme name] [--out dir]"
+	echo "Usage: MISE_ENV=test mise run record <tape> [--out dir]"
 	echo
-	echo "Drives the panel on tmux socket komrad-test by the keys in the script and takes"
-	echo "one frame after every step: the panel's window, splits included, drawn by a"
-	echo "client of the recorder's own at the width and height given. The frames, an"
-	echo "asciicast with a marker per step, and the gif agg renders from it land under"
-	echo "local/recordings/<script name>/ unless --out says otherwise. Each frame shows"
-	echo "for --pause. The gif takes its colours from ~/.alacritty.toml when that file"
-	echo "is there, else from --theme, an agg theme name such as kanagawa, else agg's"
-	echo "default."
+	echo "Runs the tape with VHS against the throwaway instance, after"
+	echo "recordings/settings.tape, which sets the size, the font and the docs site's"
+	echo "colours. recording.mp4, recording.webm, recording.gif and last.png, the final"
+	echo "frame, land under local/recordings/<tape name>/ unless --out says otherwise."
 	echo
-	echo "A script is one step per line: 'key j' sends tmux key names, 'type hello'"
-	echo "sends text, 'sleep 500ms' waits, and 'wait Claude' polls until some window"
-	echo "shows the text. Scripts live under recordings/."
+	echo "The tape runs in a bash of its own, with this checkout's komrad first on the"
+	echo "path. A tape that starts in a shell sources recordings/shell.tape, and one that"
+	echo "starts on the panel sources recordings/panel.tape. Tapes live under recordings/."
 	echo
-	echo "It needs the instance up, which 'MISE_ENV=test mise run restart' does, and it"
-	echo "refuses to run against any tmux socket but komrad-test."
+	echo "It needs the instance up, which 'MISE_ENV=test mise run restart' does, and ttyd,"
+	echo "which mise cannot install on macOS; install it with nix or Homebrew. It refuses"
+	echo "to run against any tmux socket but komrad-test."
 }
 
-for arg in "$@"; do
-	case "$arg" in
+TAPE=""
+OUT=""
+
+while [ $# -gt 0 ]; do
+	case "$1" in
 	-h | --help)
 		usage
 		exit 0
+		;;
+	--out)
+		OUT="${2:-}"
+		shift 2
+		;;
+	*)
+		TAPE="$1"
+		shift
 		;;
 	esac
 done
@@ -37,26 +45,56 @@ if [ "${KOMRAD_TMUX_SOCKET:-}" != "komrad-test" ]; then
 	exit 1
 fi
 
-if [ $# -eq 0 ]; then
+if [ -z "$TAPE" ]; then
 	usage >&2
 	exit 1
 fi
 
-script="$1"
-shift
+if ! command -v ttyd >/dev/null; then
+	echo "record: VHS needs ttyd, which mise cannot install on macOS; install it with nix or Homebrew" >&2
+	exit 1
+fi
 
-case "$script" in
+case "$TAPE" in
 /*) ;;
-*) script="$MISE_ORIGINAL_CWD/$script" ;;
+*) TAPE="$MISE_ORIGINAL_CWD/$TAPE" ;;
 esac
 
 cd "$MISE_CONFIG_ROOT"
 
-(cd tools/komradrec && go build -o "$MISE_CONFIG_ROOT/bin/komradrec" .)
-
-alacritty=()
-if [ -f "$HOME/.alacritty.toml" ]; then
-	alacritty=(--alacritty "$HOME/.alacritty.toml")
+if [ -z "$OUT" ]; then
+	OUT="local/recordings/$(basename "$TAPE" .tape)"
 fi
 
-exec "$MISE_CONFIG_ROOT/bin/komradrec" --socket "$KOMRAD_TMUX_SOCKET" "${alacritty[@]}" "$@" "$script"
+case "$OUT" in
+/*) ;;
+*) OUT="$MISE_CONFIG_ROOT/$OUT" ;;
+esac
+
+rm -rf "$OUT"
+mkdir -p "$OUT"
+
+cat >"$OUT/run.tape" <<TAPE
+Source "recordings/settings.tape"
+Source "$TAPE"
+Sleep 1s
+Screenshot "$OUT/last.png"
+TAPE
+
+env -u TMUX -u TMUX_PANE PATH="$MISE_CONFIG_ROOT/bin:$PATH" \
+	vhs --quiet \
+	--output "$OUT/recording.mp4" \
+	--output "$OUT/recording.webm" \
+	--output "$OUT/recording.gif" \
+	"$OUT/run.tape"
+
+if [ ! -s "$OUT/recording.mp4" ]; then
+	echo "record: VHS wrote no video for $TAPE" >&2
+	exit 1
+fi
+
+if [ ! -s "$OUT/last.png" ]; then
+	ffmpeg -v error -y -sseof -0.1 -i "$OUT/recording.mp4" -frames:v 1 "$OUT/last.png"
+fi
+
+gum log --level info "recorded $(basename "$TAPE" .tape) into $OUT"

@@ -1,0 +1,123 @@
+---
+title: Workflows
+description: The templates agents are created from, and what each one decides for them.
+group: start
+order: 2
+---
+
+import Alert from "../../components/Alert.astro";
+import { media } from "../../site";
+
+Komrad agents run inside _workflows_. Every agent belongs to one workflow, which provides common, editable settings to every agent spawned within it.
+
+<Alert variant="warning">This guide assumes you have [installed komrad](../install/) already.</Alert>
+
+Think of a workflow as the container for agroup of agents that do the same kind of work.
+
+## Creating one
+
+Let's clone a real repository to work in. This guide uses Neovim, and a shallow clone is enough:
+
+```sh
+git clone --depth 1 https://github.com/neovim/neovim ~/neovim
+cd ~/neovim
+```
+
+Then run `komrad open` and press `w` in the panel, name the workflow `neovim` and submit it with `<C-s>` to create it. The directory is filled in with the one you ran `komrad open` from.
+
+<figure>
+  <video
+    autoplay
+    loop
+    muted
+    playsinline
+    poster={media("first-workflow.png")}
+    width="1440"
+    height="920"
+    aria-label="Cloning neovim in a shell, opening komrad in it, and creating a workflow called neovim, whose orchestrator then looks around the repository."
+  >
+    <source src={media("first-workflow.webm")} type="video/webm" />
+    <source src={media("first-workflow.mp4")} type="video/mp4" />
+  </video>
+</figure>
+
+## The orchestrator
+
+Creating a workflow also starts its _orchestrator_. This is a Claude session that belongs to the workflow itself, and it opens beside the list whenever the workflow's row is selected. The first time, Claude asks whether to trust the folder it runs in. Move down to "Yes, I trust this folder" and press enter.
+
+The orchestrator writes no code of its own. You tell it what you want done, and it spawns agents into the workflow to do the work, passes messages between them, and gathers what they find. Its conversation lasts as long as the workflow does, so it remembers what happened in the workflow.
+
+<figure>
+  <video
+    autoplay
+    loop
+    muted
+    playsinline
+    poster={media("orchestrator.png")}
+    width="1440"
+    height="920"
+    aria-label="Opening the neovim workflow's orchestrator and asking it what the repository is and how it would help."
+  >
+    <source src={media("orchestrator.webm")} type="video/webm" />
+    <source src={media("orchestrator.mp4")} type="video/mp4" />
+  </video>
+</figure>
+
+You will learn more about the orchestrator and the other kinds of agent in the [agents](../agents/) guide.
+
+## What a workflow decides
+
+Workflows control where agents start, which CLI they run, and what flags they are launched with, such as the model. When you spawn an agent you can override any of these for that one agent.
+
+Think of a workflow as an editable set of presets for every agent that spawns within it. Changing the workflow only affects agents spawned afterwards; existing agents are unaffected.
+
+## Shared context
+
+Workflows can hold shared text that is included in every agent's system prompt. This is where you put what you would otherwise tell each agent by hand: how tests run, and how branches are named. For Neovim, that might be "Run make lint before committing any Lua change."
+
+It comes after komrad's own briefing and your [global context](../../config/#context).
+
+<figure>
+  <video
+    autoplay
+    loop
+    muted
+    playsinline
+    poster={media("shared-context.png")}
+    width="1440"
+    height="920"
+    aria-label="Creating a neovim workflow whose shared context says to run make lint before committing Lua changes, then spawning an agent and asking what to run after changing a Lua file."
+  >
+    <source src={media("shared-context.webm")} type="video/webm" />
+    <source src={media("shared-context.mp4")} type="video/mp4" />
+  </video>
+</figure>
+
+## Worktrees
+
+Agents that write code need to stay out of each other's way. Komrad can automatically create a worktree for each agent, which is cut fresh from a base branch. The agent works on a branch of its own, and the worktree is removed when the agent is deleted.
+
+The workflow's directory has to be an ordinary clone for this to work.
+
+Worktrees go in [`worktrees.dir`](../../config/#worktrees.dir) unless the workflow names its own location. Each worktree is a clean checkout, so a workflow can list files to copy in, like local environment files, or local packages. For anything heavier, like installing or networking configuration, use a [hook](../hooks/) instead.
+
+<Alert variant="info">
+  Agents do not have to create worktrees, but be careful: those that do not will run directly inside of the directory
+  specified.
+</Alert>
+
+The worktree's branch is worked out from your repository's clone when you create the workflow. New worktrees are cut from it and an agent's work is measured against it. If the clone loses that branch, `komrad doctor` says so.
+
+## Archiving and restoring
+
+Archiving a workflow puts it into cold storage: you can hard-delete it later, but for now, it'll be hidden from your workflow view.
+
+Nothing is destroyed, and search still finds what the agents said. However, the agents inside of the workflow will be shut down. Restoring brings the whole workflow back, along with its agents in a stopped state, and ready to resume.
+
+## Next Steps
+
+You don't have to build your entire workflow right away.
+
+Start with a directory and a worktree setting. Add context later. You can always have multiple workflows in the same directory, for instance, for different purposes like bugfixing or feature work.
+
+Next, the fun part: spawn a worker [agent](../agents/) into it.

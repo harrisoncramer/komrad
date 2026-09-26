@@ -1,72 +1,82 @@
 ---
 name: record-komrad
-description: Record the panel for a reviewer - drive the throwaway instance by keypresses from a script, take one frame of every window after each step, render the frames to a gif, and attach it to the pull request. Use when a change alters what the panel draws or does on a key, and a person reading the pull request could not otherwise see it.
+description: Record komrad with VHS - drive the throwaway instance from a tape, in the docs site's colours, to a video, a gif and a still, and attach the gif to a pull request or publish the video on the docs site. Use when a change alters what the panel draws or does on a key and a reviewer could not otherwise see it, or when a docs page needs a recording.
 ---
 
-# Recording komrad for a reviewer
+# Recording komrad
 
 A change to the panel lands as Go and goldens, and a diff of a screen does not show what the
-screen does. `mise run record` drives the throwaway instance from a script of keypresses and
-takes one frame after every step, so a reviewer opens the pull request and watches the change
-under the description instead of checking the branch out.
+screen does. `mise run record` runs a VHS tape against the throwaway instance: VHS starts a
+terminal of its own through ttyd, types what the tape says into it, and renders what it draws
+in a headless browser. Nothing is captured from your screen, so it records the same whether or
+not you are at the machine, and whatever you are doing meanwhile.
 
 The recorder only ever runs against the throwaway instance on tmux socket `komrad-test`. Every
 command here carries `MISE_ENV=test`; without it the task refuses to run. The live panel on
 socket `komrad` is never recorded.
 
+mise installs VHS and the ffmpeg it uses, and leaves both out of CI. VHS also needs ttyd, which
+mise cannot install on macOS, so install that with nix or Homebrew.
+
 ## Stand the instance up
 
     MISE_ENV=test mise run restart
 
-That builds this checkout and brings the throwaway server up with the panel and nothing else,
-which is the state a script should start from. Every agent there is dormant after a restart,
-so a script that presses enter on one starts a real CLI in the recording: that is slow, costs
-tokens, and draws differently every time. Prefer steps that stay in the panel unless the change
-is about what an agent's pane looks like.
+That builds this checkout and brings the throwaway server up with the panel and nothing else.
+To start from no workflows at all, drop its database first:
 
-## Write a script
+    MISE_ENV=test mise run docker:down -v
+    MISE_ENV=test mise run docker:up
+    MISE_ENV=test mise run restart
 
-Scripts live under `recordings/` and are committed, so the recording can be remade after the
-next push. One step per line; blank lines and `#` comments are skipped.
+## Write a tape
 
-    # move down the list, open what the cursor is on, come back, search, close
-    key j
-    key j
-    key Enter
-    wait Enter to confirm
-    key C-a
-    key s
-    type probe
-    sleep 500ms
-    key Escape
+Tapes live under `recordings/` and are committed, so the recording can be remade. They are
+[VHS tapes](https://github.com/charmbracelet/vhs), with two things the task adds:
 
-`key` presses tmux key names, so `Enter`, `Escape`, `C-c`, `Space` and `j` all work. A key the
-instance binds in its root table, such as the panel's `C-a` focus key, runs its binding the way
-it would from a keyboard, and any other key goes to the pane. `type` sends its text to the pane
-as typed. `sleep` waits. `wait` polls every window until one shows the text, giving up after
-thirty seconds. The keys the panel answers to are in `config.toml` under `[keybindings]`.
+- `recordings/settings.tape` is sourced ahead of every tape. It sets the size, the font and the
+  docs site's colours, so a tape does not set its own.
+- A tape starts by sourcing where it begins. `Source recordings/shell.tape` puts it in a clean
+  shell in the home directory, and `Source recordings/panel.tape` opens the panel out of shot.
+
+The tape runs in a bash whose `komrad` is this checkout's build. Keys a tape presses reach tmux
+the way they would from a keyboard, so the panel's `Ctrl+A` and `Ctrl+Q` cycle keys and a
+tmux prefix both work.
+
+    Source recordings/shell.tape
+    Type "komrad open"
+    Enter
+    Wait+Screen@30s /Welcome, komrad!/
+    Type "w"
+    Type "neovim"
+    Ctrl+S
+    Wait+Screen@4m /done \d+:\d+ [AP]M/
+
+- `Type` types text and `Enter`, `Escape`, `Down`, `Ctrl+S` and the like press keys.
+- `Sleep` waits and keeps recording.
+- `Wait+Screen@<timeout> /regex/` waits until the screen matches.
+- `Hide` and `Show` stop and start recording, for setup a viewer should not watch.
+
+A Claude session finishes a turn on a line like `Crunched for 4s · done 10:09 PM`, so waiting
+for `/done \d+:\d+ [AP]M/` waits out a reply. When one is already on screen, match the question
+first so only the new reply counts, as in `/work on it\?[\s\S]*done \d+:\d+ [AP]M/`. Keys sent
+to a Claude pane go to Claude, so a bare `Enter` on its folder-trust prompt picks "No, exit".
 
 ## Record
 
-    MISE_ENV=test mise run record recordings/tour.rec
+    MISE_ENV=test mise run record recordings/tour.tape
 
-The panel's window is drawn by a client of the recorder's own at 140 by 40, splits and the
-agent pane the panel has opened included, with the step written at the top right. That is the
-frame: what a person sees in the popup, and nothing beside it. The output lands under
-`local/recordings/tour/`, which is not tracked:
+The output lands under `local/recordings/tour/`, which is not tracked:
 
-    frames/NNN.txt   each frame, escapes and all, so `cat -v` shows what a step did
-    build.txt        the panel's build, from @komrad_panel_build
-    recording.cast   an asciicast with a marker per step, for `asciinema play`
-    recording.gif    what goes on the pull request
+    recording.mp4    the video
+    recording.webm   the same video for browsers that prefer it
+    recording.gif    for a pull request
+    last.png         the final frame
+    run.tape         what VHS ran: the settings, the tape and the closing screenshot
 
-`--width` and `--height` change the window size, `--pause` how long each frame shows (1.5s),
-`--theme` an agg theme name when the colours should not come from `~/.alacritty.toml`, and
-`--out` moves the output. When a step did not
-do what it meant, read its frame before changing the script, and read the one before it, since
-a frame is taken after the panel settles and a key that arrived too early shows there.
+`--out` moves it. When a step did not do what it meant, add a `Screenshot` after it and look.
 
-## Attach it to the pull request
+## Attach it to a pull request
 
 Keep the description in a file of your own, ending with a reference to the gif by its local
 path, and hand gh both every time. gh rewrites that reference to the upload, so the live body
@@ -81,8 +91,30 @@ holds an asset URL and a rerun from the same file replaces the gif rather than a
 
 Run that whole block again after every push, writing the file whole each time. Never build
 the file from `gh pr view` or append to it, since either carries the earlier reference along
-and a second gif appears under the first.
+and a second gif appears under the first. GitHub takes a gif up to 10 MB, so keep a tape meant
+for a pull request short.
 
-The gh pinned in `mise.toml` carries `--attach`; a gh older than 2.99.0 does not. GitHub takes a
-gif up to 10 MB, and the recorder says when one is over that, in which case the script is too
-long. The recording is never committed; the script that made it is.
+## Publish one on the docs site
+
+Recordings the docs pages show live under `recordings/docs/`, one tape per published name,
+and are never committed as media. A `<name>.before` script beside one runs against the fresh
+throwaway instance first, with this checkout's `komrad` on its PATH, to set up what the video
+should not show, such as a workflow made with `komrad rpc create-workflow`. A `<name>.after`
+script runs once the recording is done, to clear what it made.
+
+    mise run docs:recordings                           every docs recording
+    mise run docs:recordings orchestrator first-agent  just those
+    mise run infra:docs:recordings upload              publish local/docs-recordings
+
+`docs:recordings` drops the throwaway instance's database before each one and writes
+`<name>.mp4`, `<name>.webm` and `<name>.png` into `local/docs-recordings`. The png is the last
+frame, which is a video's poster or a still on its own. The upload syncs that directory to the
+`media/` prefix of the docs bucket and invalidates it, and a page reaches a file with
+`media("<name>.mp4")` from `docs/src/site.ts`:
+
+    <video autoplay loop muted playsinline poster={media("first-workflow.png")}>
+      <source src={media("first-workflow.webm")} type="video/webm" />
+      <source src={media("first-workflow.mp4")} type="video/mp4" />
+    </video>
+
+The names are fixed, so re-recording and uploading again replaces what the page shows.

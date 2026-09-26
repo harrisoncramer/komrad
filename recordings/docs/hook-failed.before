@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+hooks="$HOME/.config/komrad/hooks"
+if [ -e "$hooks/build-neovim" ]; then
+	echo "$hooks/build-neovim already exists, and the recording writes its own there" >&2
+	exit 1
+fi
+
+"$(dirname "$0")/fresh-neovim"
+
+mkdir -p "$hooks"
+cat >"$hooks/build-neovim" <<'HOOK'
+#!/usr/bin/env bash
+#KOMRAD description="build neovim before the agent starts"
+set -euo pipefail
+
+cmake --build build
+HOOK
+chmod +x "$hooks/build-neovim"
+
+komrad rpc create-workflow --name neovim --cwd "$HOME/neovim" --worktree.enabled \
+	--request-json '{"hooks":[{"event":"pre-launch","script":"build-neovim"}]}' >/dev/null

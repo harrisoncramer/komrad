@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+here="$(dirname "$0")"
+"$here/clear-neovim"
+"$here/trust-claude"
+"$here/clone-neovim"

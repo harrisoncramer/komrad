@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+hook="$HOME/.config/komrad/hooks/link-deps"
+if [ -e "$hook" ]; then
+	echo "$hook already exists, and the recording writes its own there" >&2
+	exit 1
+fi
+
+"$(dirname "$0")/neovim-workflow"

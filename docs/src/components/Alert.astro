@@ -1,0 +1,62 @@
+---
+type Props = {
+  title?: string;
+  subtitle?: string;
+  variant?: "info" | "warning" | "danger";
+};
+
+const { title, subtitle, variant = "info" } = Astro.props;
+---
+
+<aside class:list={["alert", variant]} role={variant === "info" ? "note" : "alert"}>
+  {title && <p class="alert-title">{title}</p>}
+  {subtitle && <p class="alert-subtitle">{subtitle}</p>}
+  <div class="alert-body">
+    <slot />
+  </div>
+</aside>
+
+<style>
+  .alert {
+    --alert-accent: var(--color-app-blue);
+    margin: 1.5rem 0;
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--color-app-background-medium);
+    border-left: 3px solid var(--alert-accent);
+    border-radius: 8px;
+    background: var(--color-app-background-medium-dark);
+    color: var(--color-app-gray);
+  }
+
+  .warning {
+    --alert-accent: #f5c26b;
+  }
+
+  .danger {
+    --alert-accent: #ff8a8a;
+  }
+
+  .alert-title {
+    margin: 0;
+    color: var(--alert-accent);
+    font-weight: 600;
+  }
+
+  .alert-subtitle {
+    margin: 0.15rem 0 0;
+    color: var(--color-app-gray-light);
+    font-size: 0.9em;
+  }
+
+  :is(.alert-title, .alert-subtitle) + .alert-body:not(:empty) {
+    margin-top: 0.5rem;
+  }
+
+  .alert-body :global(p) {
+    margin: 0;
+  }
+
+  .alert-body :global(p + p) {
+    margin-top: 0.5rem;
+  }
+</style>
