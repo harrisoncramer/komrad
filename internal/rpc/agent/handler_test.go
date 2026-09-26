@@ -1091,7 +1091,7 @@ func TestGetAgent(t *testing.T) {
 }
 
 // TestGetAgentResponseMirrorsAgentRow pins that every field AgentRow draws beside an agent is
-// declared on GetAgentResponse the same way, so a field added to one cannot be missed on the other.
+// declared on GetAgentResponse the same way.
 func TestGetAgentResponseMirrorsAgentRow(t *testing.T) {
 	t.Parallel()
 
