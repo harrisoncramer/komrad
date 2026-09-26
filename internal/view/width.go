@@ -37,7 +37,7 @@ const indentColumns = 2
 // precedes it.
 func trailingColumns(line Line) int {
 	columns := 0
-	for _, cell := range []Cell{line.Held, line.Hidden, line.Mail, line.Alert, line.Schedule} {
+	for _, cell := range []Cell{line.Held, line.Hidden, line.Document, line.Mail, line.Alert, line.Schedule} {
 		if !cell.IsBlank() {
 			columns += plainColumns + spaceColumns
 		}

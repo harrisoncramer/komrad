@@ -156,7 +156,9 @@ type Row struct {
 	HeldWorking bool
 	UnreadMail  bool
 	FailedRun   bool
-	Scheduled   bool
+	// Documents says the agent has written something for a person to read.
+	Documents bool
+	Scheduled bool
 	// HiddenCount is how many rows this one stands in for while they are out of sight.
 	HiddenCount int
 }

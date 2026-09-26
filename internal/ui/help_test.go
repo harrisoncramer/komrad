@@ -293,6 +293,18 @@ func buildDriftScreens() []driftScreen {
 				nearest,
 			},
 		},
+		{
+			name:  "documents",
+			title: documentsTitle,
+			open: func(t *testing.T) *panelHarness {
+				t.Helper()
+
+				harness, _ := openDocuments(t, "author")
+
+				return harness
+			},
+			excused: []undrawn{quit},
+		},
 	}
 }
 
@@ -316,6 +328,7 @@ func buildDriftAgent() []proto.Message {
 	agent.PaneId = "%9"
 	agent.Cwd = "/repo"
 	agent.Alive = proto.Bool(true)
+	agent.Documents = 1
 
 	return []proto.Message{
 		&workflowv1.Workflow{

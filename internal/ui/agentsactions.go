@@ -76,6 +76,19 @@ func (a *agentsScreen) modeActions() []screenAction {
 			},
 		},
 		screenAction{
+			id:   actionDocumentsOpen,
+			keys: func(k config.Keybindings) []string { return k.Documents.Open },
+			when: a.hasDocuments,
+			run: func(h host, s panelShared, _ string) tea.Cmd {
+				id := a.hoveredAgentID(s)
+				if id == "" {
+					return nil
+				}
+
+				return h.enter(screenDocuments, screenTarget{agentID: id})
+			},
+		},
+		screenAction{
 			id:   actionMarkJump,
 			keys: func(k config.Keybindings) []string { return k.Marks.Jump },
 			when: list.isBrowsing,
@@ -395,6 +408,11 @@ func (a *agentsScreen) browsingLegend() []screenLegendRow {
 			of:   []actionID{actionWorktreesOpen},
 			desc: func(panelShared) string { return "worktrees" },
 			show: a.isBrowsing,
+		},
+		{
+			of:   []actionID{actionDocumentsOpen},
+			desc: func(panelShared) string { return "documents" },
+			show: a.hasDocuments,
 		},
 		{
 			of:   []actionID{actionFilterOpen},

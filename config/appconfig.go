@@ -133,6 +133,8 @@ type Keybindings struct {
 	// The details under whichever list is on screen: the key that hands them the
 	// cursor, and the key that copies the field it lands on.
 	Details DetailsKeys `mapstructure:"details"`
+	// The documents screen, which reads what the hovered agent has written for a person.
+	Documents DocumentsKeys `mapstructure:"documents"`
 	// The filter over whichever list is on screen, shared by every screen that
 	// draws one. The key that opens it is "/" and is not configured.
 	Filter FilterKeys `mapstructure:"filter"`
@@ -356,6 +358,18 @@ type WorkflowsKeys struct {
 	New []string `mapstructure:"new" default:"w"`
 	// Rename the workflow under the cursor.
 	Rename []string `mapstructure:"rename" default:"r"`
+}
+
+// DocumentsKeys are the bindings for the documents screen, which lists the documents one
+// agent has written and draws the one under the cursor beside the list.
+type DocumentsKeys struct {
+	// Leave the documents screen for the agents list.
+	Back []string `mapstructure:"back" default:"esc"`
+	// Open the documents screen from the agents list, on the hovered agent's documents, or
+	// its orchestrator's on a workflow's row.
+	Open []string `mapstructure:"open" default:"i"`
+	// Quit the panel.
+	Quit []string `mapstructure:"quit" default:"ctrl+c"`
 }
 
 // WorktreesKeys are the bindings for the worktrees screen.

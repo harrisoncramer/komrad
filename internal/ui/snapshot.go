@@ -69,6 +69,7 @@ func snapshotRow(r agentRow, params snapshotParams) view.Row {
 		row.Scheduled = params.scheduled[r.workflow.ID]
 		row.Archived = r.workflow.ArchivedAt != nil
 		row.UnreadMail = r.orchestrator != nil && r.orchestrator.UnreadMail
+		row.Documents = r.orchestrator != nil && r.orchestrator.Documents > 0
 
 		// A workflow's bar is its orchestrator's, and one with no orchestrator running behind it
 		// draws no bar at all.
@@ -107,6 +108,7 @@ func agentFacts(row view.Row, item panel.AgentRow) view.Row {
 	row.HeldWorking = row.Held && isHeldWorking(item)
 	row.UnreadMail = item.UnreadMail
 	row.FailedRun = item.FailedRun
+	row.Documents = item.Documents > 0
 	row.Scheduled = item.Agent.ScheduleID != nil
 
 	return row

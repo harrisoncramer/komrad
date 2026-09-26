@@ -371,6 +371,14 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 		m.applyWorktreeInspection(msg)
 
 		return m, nil, true
+	case documentsListedMsg:
+		cmd := m.applyDocumentsListed(msg)
+
+		return m, cmd, true
+	case documentReadMsg:
+		m.applyDocumentRead(msg)
+
+		return m, nil, true
 	case urlOpenedMsg:
 		m.applyURLOpened(msg)
 

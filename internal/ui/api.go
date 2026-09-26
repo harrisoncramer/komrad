@@ -438,3 +438,25 @@ func (a api) deleteWorktrees(dirs []string) error {
 		return a.worktrees.DeleteWorktrees(ctx, connect.NewRequest(&worktreev1.DeleteWorktreesRequest{Dirs: dirs}))
 	})
 }
+
+func (a api) listDocuments(agentID string) ([]*agentv1.Document, error) {
+	return call(requestTimeout, func(ctx context.Context) ([]*agentv1.Document, error) {
+		resp, err := a.agents.ListDocuments(ctx, connect.NewRequest(&agentv1.ListDocumentsRequest{AgentId: &agentID}))
+		if err != nil {
+			return nil, fmt.Errorf("failed to list the documents of agent %q: %w", agentID, err)
+		}
+
+		return resp.Msg.GetDocuments(), nil
+	})
+}
+
+func (a api) getDocument(id string) (*agentv1.Document, error) {
+	return call(requestTimeout, func(ctx context.Context) (*agentv1.Document, error) {
+		resp, err := a.agents.GetDocument(ctx, connect.NewRequest(&agentv1.GetDocumentRequest{Id: id}))
+		if err != nil {
+			return nil, fmt.Errorf("failed to read document %q: %w", id, err)
+		}
+
+		return resp.Msg.GetDocument(), nil
+	})
+}

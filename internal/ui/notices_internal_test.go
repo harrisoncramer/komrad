@@ -72,6 +72,11 @@ func TestAgentNotices(t *testing.T) {
 			want: []string{hiddenNotice},
 		},
 		{
+			name: "documents written",
+			row:  buildNoticeRow(panel.AgentRow{Documents: 2}),
+			want: []string{documentsNotice},
+		},
+		{
 			name: "mail waiting",
 			row:  buildNoticeRow(panel.AgentRow{UnreadMail: true}),
 			want: []string{unreadMailNotice},
@@ -99,8 +104,9 @@ func TestAgentNotices(t *testing.T) {
 				},
 				UnreadMail: true,
 				FailedRun:  true,
+				Documents:  1,
 			}),
-			want: []string{failedToCleanupNotice, failedRunNotice, unreadMailNotice, worktreeRemovedNotice, hiddenNotice},
+			want: []string{failedToCleanupNotice, failedRunNotice, unreadMailNotice, worktreeRemovedNotice, hiddenNotice, documentsNotice},
 		},
 		{
 			name: "approved on this tree",
@@ -222,6 +228,7 @@ func TestAgentNoticesWearTheGlyphTheRowDraws(t *testing.T) {
 		Alive:        true,
 		UnreadMail:   true,
 		FailedRun:    true,
+		Documents:    3,
 		LocalVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED,
 		LocalTree:    git.StandingMoved,
 	}
@@ -231,6 +238,7 @@ func TestAgentNoticesWearTheGlyphTheRowDraws(t *testing.T) {
 	want := map[string]view.Cell{
 		failedRunNotice:          line.Alert,
 		unreadMailNotice:         line.Mail,
+		documentsNotice:          line.Document,
 		sequenceNotice:           line.Columns[0],
 		heldPromptedNotice:       line.Held,
 		localChangesPushedNotice: line.Columns[1],
