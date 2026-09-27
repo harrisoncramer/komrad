@@ -118,9 +118,15 @@ func (m model) terminalDesc() string {
 	return "back to the terminal"
 }
 
-// terminalTarget is the agent the terminal key roots its shell in.
+// terminalTarget is the agent the terminal key roots its shell in, which for a workflow is its
+// orchestrator.
 func (m model) terminalTarget() (panel.Agent, bool) {
-	item, ok := m.agents.selectedAgent(m.shared())
+	row, ok := m.agents.hoveredRow(m.shared())
+	if !ok {
+		return panel.Agent{}, false
+	}
+
+	item, ok := row.paneItem()
 	if !ok {
 		return panel.Agent{}, false
 	}

@@ -86,7 +86,7 @@ func TestTerminal(t *testing.T) {
 		assert.Equal(t, []string{infoPane, infoPane}, harness.panel.ReadSelectedPanes())
 	})
 
-	t.Run("the key over a workflow header keeps the shell", func(t *testing.T) {
+	t.Run("the key over a workflow with no orchestrator keeps the shell", func(t *testing.T) {
 		dir := t.TempDir()
 		harness := openTerminal(t, panelHarnessParams{}, newStagedShellAgent(dir))
 
@@ -116,12 +116,23 @@ func TestTerminal(t *testing.T) {
 		assert.Contains(t, harness.readFrame(), terminalRefuse)
 	})
 
-	t.Run("a workflow header opens no shell", func(t *testing.T) {
+	t.Run("a workflow with no orchestrator opens no shell", func(t *testing.T) {
 		harness := openTerminal(t, panelHarnessParams{}, newStagedShellAgent(t.TempDir()))
 
 		harness.press("k", "T")
 
 		assert.Empty(t, harness.panel.ReadRespawns())
+	})
+
+	t.Run("a workflow opens the shell in its orchestrator's directory", func(t *testing.T) {
+		workflowDir, agentDir := t.TempDir(), t.TempDir()
+		orchestrator := newOrchestrator()
+		orchestrator.Cwd = workflowDir
+		harness := openTerminal(t, panelHarnessParams{}, orchestrator, newShellAgent("a2", agentDir))
+
+		harness.press("k", "T", "j", "T")
+
+		assert.Equal(t, []string{workflowDir, agentDir}, readShellDirs(harness))
 	})
 
 	t.Run("a remote engine with no way to reach it opens no shell", func(t *testing.T) {
