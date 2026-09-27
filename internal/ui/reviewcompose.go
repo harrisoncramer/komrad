@@ -18,11 +18,7 @@ import (
 
 // compose opens the editor on the line under the cursor, replying in the thread already there
 // or opening a new one, writing prose alone rather than editing the round.
-func (r *reviewScreen) compose(h host, s panelShared) tea.Cmd {
-	if r.pass.mode != modeReviewing {
-		return r.enterWriting(h, s, intentComment)
-	}
-
+func (r *reviewScreen) compose(s panelShared) tea.Cmd {
 	thread, replying := r.diff.threadAtCursor()
 
 	// A thread whose code is gone has no line to anchor a new thread to, but replying to it is
@@ -77,40 +73,9 @@ func (r *reviewScreen) openInput(s panelShared, params newReviewInputParams) tea
 	return cmd
 }
 
-// enterWriting moves from reading to writing, keeping the reader on the line they pressed the
-// key on, and refuses when that line is in a round the whole change does not draw.
-func (r *reviewScreen) enterWriting(h host, s panelShared, intent passIntent) tea.Cmd {
-	if said, history := r.isHistory(); history {
-		r.refuseHistory(h, s, said)
-
-		return nil
-	}
-
-	if _, ok := r.diff.view.GetAnchor(r.diff.cursor); !ok {
-		if _, replying := r.diff.threadAtCursor(); !replying {
-			r.refuseLine()
-
-			return nil
-		}
-	}
-
-	return r.startPass(h, s, intent)
-}
-
 // refuseLine says why nothing opened on a row that is not a line of code.
 func (r *reviewScreen) refuseLine() {
 	r.notice = "put the cursor on a line of the diff to comment on it"
-}
-
-// leaveWriting puts the pass down, keeping whatever has been written and letting the agent go.
-func (r *reviewScreen) leaveWriting(h host, s panelShared) tea.Cmd {
-	// Comments already written are held by the panel rather than by the pass, so leaving keeps
-	// them and says so.
-	if r.threads.holdsUnsent() {
-		r.notice = label.Counted(r.threads.unsentCount(), "comment") + " kept, still unsent"
-	}
-
-	return r.endPass(h, s, abandonedSaid)
 }
 
 func (r *reviewScreen) updateComposer(h host, s panelShared, key tea.KeyPressMsg) tea.Cmd {
@@ -423,15 +388,6 @@ func (r *reviewScreen) send(s panelShared, interrupt bool) tea.Cmd {
 	})
 }
 
-// abandonedSaid is what an agent is told when a pass ends without a review.
-const abandonedSaid = "I paused you while I read your work and have let you go now. " +
-	"Nothing was sent, so there is nothing of mine to answer."
-
-// sentSaid is what an agent is told when the pass ended by sending it a review.
-const sentSaid = "I paused you while I reviewed your work and have let you go now. " +
-	"My comments are pinned to your work as it stood when I started, so read them against " +
-	"the worktree as it is rather than assuming the lines still match."
-
 // closeRelease puts the release panel away, sent or not.
 func (t *reviewThreads) closeRelease() {
 	t.editor = reviewInput{}
@@ -450,18 +406,18 @@ func releasedNotice(count int32, interrupt bool) string {
 
 // writeCmd runs one write on the review.
 func (r reviewScreen) writeCmd(s panelShared, notice string, write func(context.Context) error) tea.Cmd {
-	return r.writeMsgCmd(s, false, func(ctx context.Context) (string, error) {
+	return r.writeMsgCmd(s, func(ctx context.Context) (string, error) {
 		return notice, write(ctx)
 	})
 }
 
 // sendCmd is the write that releases a review.
 func (r reviewScreen) sendCmd(s panelShared, write func(context.Context) (string, error)) tea.Cmd {
-	return r.writeMsgCmd(s, true, write)
+	return r.writeMsgCmd(s, write)
 }
 
 // writeMsgCmd runs one write, marking whose answer it is, and reads an archived agent's threads back.
-func (r reviewScreen) writeMsgCmd(s panelShared, sent bool, write func(context.Context) (string, error)) tea.Cmd {
+func (r reviewScreen) writeMsgCmd(s panelShared, write func(context.Context) (string, error)) tea.Cmd {
 	agents, agentID := s.api.agents, r.agentID
 	_, live := r.agentRow(s)
 
@@ -474,7 +430,6 @@ func (r reviewScreen) writeMsgCmd(s panelShared, sent bool, write func(context.C
 			agentID: agentID,
 			notice:  notice,
 			err:     err,
-			sent:    sent,
 		}
 		if err != nil || live {
 			return wrote

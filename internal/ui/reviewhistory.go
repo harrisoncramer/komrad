@@ -3,8 +3,6 @@ package ui
 import (
 	"time"
 
-	"komrad/internal/assemble"
-	"komrad/lib/dates"
 	agentv1 "komrad/proto/gen/agent/v1"
 )
 
@@ -83,54 +81,6 @@ func findLastHumanReview(reviews []*agentv1.Review, ordinal int32) *agentv1.Revi
 	}
 
 	return last
-}
-
-// findLastOwedReview is the review the person released last while it is still owed an answer,
-// nil once nothing is.
-func findLastOwedReview(reviews []*agentv1.Review) *agentv1.Review {
-	var last *agentv1.Review
-	for _, review := range reviews {
-		if review.GetAuthorKind() != agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN {
-			continue
-		}
-		if review.GetReleasedAt() == "" {
-			continue
-		}
-		if last == nil || dates.Parse(review.GetReleasedAt()).After(dates.Parse(last.GetReleasedAt())) {
-			last = review
-		}
-	}
-
-	if last.GetOpenThreads() == 0 {
-		return nil
-	}
-
-	return last
-}
-
-// findOwedReview is the id of the review the person released last on an agent while a thread it
-// opened is unsettled, empty once none is.
-func findOwedReview(w assemble.World, agentID string) string {
-	var last *agentv1.WatchedReview
-	for _, review := range w.Reviews {
-		if review.GetAgentId() != agentID || review.GetAuthorKind() != agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN {
-			continue
-		}
-		if review.GetReleasedAt() == "" {
-			continue
-		}
-		if last == nil || dates.Parse(review.GetReleasedAt()).After(dates.Parse(last.GetReleasedAt())) {
-			last = review
-		}
-	}
-
-	for _, thread := range w.ReviewThreads {
-		if last != nil && thread.GetReviewId() == last.GetId() && thread.GetResolvedAt() == "" {
-			return last.GetId()
-		}
-	}
-
-	return ""
 }
 
 // releasedAtOf is the clock time the person last released a review, which the screen says

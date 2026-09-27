@@ -3,7 +3,6 @@ package ui
 import (
 	"fmt"
 
-	"komrad/internal/ui/paint"
 	agentv1 "komrad/proto/gen/agent/v1"
 
 	tea "charm.land/bubbletea/v2"
@@ -106,10 +105,9 @@ func (r *reviewScreen) scrollThread(s panelShared, delta int) {
 
 // threadMax is how far up the conversation the sidebar can be scrolled.
 func (r reviewScreen) threadMax(s panelShared) int {
-	help, record := s.draw.renderHelp(r.help(s)), s.draw.detailsView()
-	lines := s.draw.listLines(help, record, r.headView(s, reviewOwedRoom(s.draw.listLines(help, record))))
+	lines := r.layoutSidebarAsDrawn(s).threadLines
 
-	return max(paint.CountLines(r.restView(s))-max(lines-1, 1), 0)
+	return max(len(splitConversation(r.restView(s)))-max(lines-1, 1), 0)
 }
 
 // refuseWrite says why a key that would write to the agent did nothing.
@@ -138,20 +136,6 @@ func (r *reviewScreen) refuseViewed(h host, s panelShared) {
 		"diff here than it is in the whole of it and a mark taken on it would say you had read " +
 		"something else. Press " + keyLabel(s.keys.Review.BaseForward) + " until the whole change " +
 		"is on screen, then mark it there."
-
-	h.reportBrief(summary, detail)
-	r.notice = summary
-}
-
-// refuseAwaiting says why a write did not happen while the review already sent is still
-// unanswered, and names both ways out of it.
-func (r *reviewScreen) refuseAwaiting(h host, s panelShared) {
-	summary := reviewOwedSaid(r.owedComments())
-	detail := "You may not leave more comments until this review is settled. Reviews are settled " +
-		"when all comments are addressed. Press " + keyLabel(s.keys.Review.NextOpenThread) +
-		" to walk to the next unresolved comment, and reply with " +
-		keyLabel(s.keys.Review.Compose) + " or press " + keyLabel(s.keys.Review.Resolve) +
-		" to resolve it."
 
 	h.reportBrief(summary, detail)
 	r.notice = summary

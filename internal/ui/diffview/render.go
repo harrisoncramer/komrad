@@ -39,6 +39,8 @@ const (
 	OpenMark = readMark
 	// settledMark is a thread that has been settled.
 	settledMark = "✓"
+	// SettledMark is what a settled comment wears away from the diff.
+	SettledMark = settledMark
 	// unsentMark is a thread holding a comment nobody has released yet.
 	unsentMark = "◇"
 	// viewedMark heads the header of a file that has been read and folded away.

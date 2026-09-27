@@ -46,7 +46,7 @@ func (r reviewScreen) isWriting() bool {
 
 // isBusy reports whether the reader is part way through something a restart would lose.
 func (r reviewScreen) isBusy() bool {
-	return r.isWriting() || r.pass.mode != modeWatching || r.pass.atEditor
+	return r.isWriting() || r.pass.isHeld()
 }
 
 // isThreadTaken reports whether the reader has taken the keys onto a conversation the cursor is

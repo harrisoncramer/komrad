@@ -45,9 +45,6 @@ type reviewLoadedMsg struct {
 	// pinned says the diff is the snapshot the reader's unsent comments were written against
 	// rather than the work as it now stands.
 	pinned bool
-	// owed is the id of the reader's last released review while it still holds comments nobody
-	// has settled, empty once a second review would be allowed.
-	owed string
 	// chapters are the rounds of the review as the reader can step through them, oldest first.
 	chapters []reviewChapter
 	rounds   []*agentv1.ReviewRound
@@ -73,9 +70,6 @@ type reviewWroteMsg struct {
 	readBack bool
 	threads  []*agentv1.ReviewThread
 	readErr  error
-	// sent says this is the answer to a released review rather than to any of the other writes
-	// this screen makes, which all come back the same way.
-	sent bool
 }
 
 // open puts the review on an agent's diff and reads it.
@@ -114,8 +108,8 @@ func (r *reviewScreen) abandon(h host, s panelShared, err error) tea.Cmd {
 	return letGo
 }
 
-// drop puts the reader back on the row they opened the review from, letting go of an agent the
-// pass stopped.
+// drop puts the reader back on the row they opened the review from, letting go of an agent
+// stopped for the editor.
 func (r *reviewScreen) drop(h host, s panelShared) tea.Cmd {
 	letGo := r.endPass(h, s, abandonedSaid)
 
@@ -301,7 +295,6 @@ func loadReviewCmd(s panelShared, params loadReviewCmdParams) tea.Cmd {
 			earlier:    earlier,
 			earlierAt:  releasedAtOf(reviews, round),
 			pinned:     pinned,
-			owed:       findLastOwedReview(reviews).GetId(),
 			chapters:   chapters,
 			rounds:     rounds,
 			replayed:   compared.Replayed,
@@ -427,7 +420,6 @@ func (r *reviewScreen) applyLoaded(h host, s panelShared, msg reviewLoadedMsg) t
 	r.root = msg.patch.Root
 	r.round = msg.round
 	r.diff.load(msg, s.isDark)
-	r.threads.owed = msg.owed
 	r.threads.set(msg.threads)
 
 	r.scrollToCursor(s)
@@ -520,8 +512,6 @@ func (r *reviewScreen) applyWrote(h host, s panelShared, msg reviewWroteMsg) tea
 	}
 
 	if msg.err != nil {
-		// A send that did not land leaves the pass standing, so the reader keeps their comments
-		// and keeps the agent stopped rather than being put back to watching with neither.
 		h.report("Could not write on "+r.agentName, msg.err)
 
 		return nil
@@ -537,13 +527,7 @@ func (r *reviewScreen) applyWrote(h host, s panelShared, msg reviewWroteMsg) tea
 		r.applyThreads(s, msg.threads)
 	}
 
-	if !msg.sent {
-		return nil
-	}
-
-	// The comments are in the agent's hands now, and answering them is the next thing it does, so
-	// this is what lets it go.
-	return r.endPass(h, s, sentSaid)
+	return nil
 }
 
 // applyThreads draws the review as it now stands, keeping the reader where they were.
@@ -585,6 +569,16 @@ func (d *reviewDiff) keepCursor(place diffview.Place, ok bool) {
 // reload reads the worktree again, holding the place the cursor is standing so the diff comes
 // back under it.
 func (r *reviewScreen) reload(s panelShared) tea.Cmd {
+	return r.load(s, false)
+}
+
+// reloadFresh reads the worktree as it stands, even where unsent comments hold the diff to the
+// round they were written on.
+func (r *reviewScreen) reloadFresh(s panelShared) tea.Cmd {
+	return r.load(s, true)
+}
+
+func (r *reviewScreen) load(s panelShared, fresh bool) tea.Cmd {
 	if r.diff.view == nil {
 		return nil
 	}
@@ -602,7 +596,7 @@ func (r *reviewScreen) reload(s panelShared) tea.Cmd {
 		Base:    r.diff.base,
 		Head:    r.diff.head,
 		Answer:  r.diff.answer,
-		Fresh:   r.pass.mode == modeReviewing,
+		Fresh:   fresh,
 	})
 }
 

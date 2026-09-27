@@ -11,13 +11,17 @@ import (
 	"connectrpc.com/connect"
 )
 
-// reviewPass is a pass over the work: whether one is under way, what it did to the agent, and
-// the editor it holds open.
+// abandonedSaid is what an agent is told when it was stopped for an editor that never opened.
+const abandonedSaid = "I paused you to open your worktree in my editor and have let you go now " +
+	"without opening it."
+
+// editedSaid is what an agent is told when the reader's editor on its worktree closes.
+const editedSaid = "I paused you while I had your worktree open in my editor and have let you go now."
+
+// reviewPass is the hold the reader takes on the agent while their editor is open on its
+// worktree: whether it is stopped, what stopped it, and the files the editor was opened on.
 type reviewPass struct {
-	// mode is which of the two things the screen is doing: watching the work, or making a pass
-	// over it in which both writing keys are available.
-	mode reviewMode
-	// paused says the agent is stopped for the pass, whoever stopped it.
+	// paused says the agent is stopped for the editor, whoever stopped it.
 	paused bool
 	// pausing is set while the panel is asking for the agent to stop.
 	pausing bool
@@ -35,16 +39,17 @@ type reviewPass struct {
 	editorPane string
 }
 
-// end puts the pass down, leaving an editor it holds open where it is, and says whether it was
-// this pass that stopped the agent and which files the reader opened while it was.
+// isHeld reports whether the pass has the agent, or is asking for it.
+func (p reviewPass) isHeld() bool {
+	return p.paused || p.pausing || p.atEditor
+}
+
+// end puts the pass down, and says whether it was this pass that stopped the agent and which
+// files the reader opened while it was.
 func (p *reviewPass) end() (bool, []string) {
 	ours, touched := p.ourPause, p.touched
 
-	p.mode = modeWatching
-	p.paused = false
-	p.pausing = false
-	p.ourPause = false
-	p.touched = nil
+	*p = reviewPass{}
 
 	return ours, touched
 }
@@ -59,63 +64,33 @@ func (p *reviewPass) openEditor(path, pane string) {
 	}
 }
 
-// closeEditor gives the stage back, staying in the pass.
-func (p *reviewPass) closeEditor() {
-	p.atEditor = false
-	p.editingPath = ""
-	p.editorPane = ""
-}
-
-// passIntent is what the reader pressed.
-type passIntent uint8
-
-const (
-	// intentComment opens the composer on the line under the cursor.
-	intentComment passIntent = iota
-	// intentEdit opens the reader's editor on the file under the cursor.
-	intentEdit
-)
-
 // reviewPausedMsg is the agent having stopped, or having refused to.
 type reviewPausedMsg struct {
 	agentID string
-	intent  passIntent
 	err     error
 }
 
-// startPass stops the agent and opens the pass on what the reader pressed, and is a no-op for a
-// pass already under way.
-func (r *reviewScreen) startPass(h host, s panelShared, intent passIntent) tea.Cmd {
+// startPass stops the agent and opens the editor once it has.
+func (r *reviewScreen) startPass(h host, s panelShared) tea.Cmd {
 	if _, dead := r.isReadOnly(s); dead {
-		r.pass.mode = modeReviewing
-
-		return r.openPass(h, s, intent)
+		return r.editFile(h, s)
 	}
 
-	// An agent the person stopped themselves is already where the pass needs it, and letting it
-	// go at the end of the pass is not this screen's to do.
+	// An agent the person stopped themselves is already where the editor needs it, and letting it
+	// go when the editor closes is not this screen's to do.
 	if item, ok := r.agentRow(s); ok && item.Agent.HeldAt != nil {
-		r.pass.mode = modeReviewing
 		r.pass.paused = true
-		r.pass.ourPause = false
 
-		return r.openPass(h, s, intent)
+		return r.editFile(h, s)
 	}
 
-	r.pass.mode = modeReviewing
 	r.pass.pausing = true
 
-	stopping := r.holdAgentCmd(s, intent)
-
-	if intent == intentEdit {
-		return stopping
-	}
-
-	return tea.Batch(stopping, r.openPass(h, s, intent))
+	return r.holdAgentCmd(s)
 }
 
 // holdAgentCmd asks for the agent to stop and reports what came back.
-func (r reviewScreen) holdAgentCmd(s panelShared, intent passIntent) tea.Cmd {
+func (r reviewScreen) holdAgentCmd(s panelShared) tea.Cmd {
 	agents, agentID := s.api.agents, r.agentID
 
 	return func() tea.Msg {
@@ -126,13 +101,12 @@ func (r reviewScreen) holdAgentCmd(s panelShared, intent passIntent) tea.Cmd {
 
 		return reviewPausedMsg{
 			agentID: agentID,
-			intent:  intent,
 			err:     err,
 		}
 	}
 }
 
-// applyPaused opens the pass the reader asked for, or gives it up when the agent would not stop.
+// applyPaused opens the editor, or gives it up when the agent would not stop.
 func (r *reviewScreen) applyPaused(h host, s panelShared, msg reviewPausedMsg) tea.Cmd {
 	if msg.agentID != r.agentID {
 		return nil
@@ -141,11 +115,6 @@ func (r *reviewScreen) applyPaused(h host, s panelShared, msg reviewPausedMsg) t
 	r.pass.pausing = false
 
 	if msg.err != nil {
-		// A comment written against a snapshot the agent is free to write past is the collision
-		// the pass exists to prevent, so the composer goes with the pass rather than standing on
-		// without one.
-		r.threads.cancelMessage()
-		r.pass.mode = modeWatching
 		h.report("Could not pause "+r.agentName, msg.err)
 
 		return nil
@@ -154,16 +123,11 @@ func (r *reviewScreen) applyPaused(h host, s panelShared, msg reviewPausedMsg) t
 	r.pass.paused = true
 	r.pass.ourPause = true
 
-	// The composer was opened when the key was pressed, so there is nothing left to open here.
-	if msg.intent == intentComment {
-		return nil
-	}
-
-	return r.openPass(h, s, msg.intent)
+	return r.editFile(h, s)
 }
 
 func (m model) isPassing(agentID string) bool {
-	return m.screen == screenReview && m.review.agentID == agentID && m.review.pass.mode == modeReviewing
+	return m.screen == screenReview && m.review.agentID == agentID && m.review.pass.pausing
 }
 
 func (m *model) releaseAbandonedPause(msg reviewPausedMsg) tea.Cmd {
@@ -179,19 +143,7 @@ func (m *model) releaseAbandonedPause(msg reviewPausedMsg) tea.Cmd {
 	return m.releaseCmd("Could not let "+item.Agent.Name+" go", item.Agent, abandonedSaid)
 }
 
-// openPass does the thing the pass was opened for.
-func (r *reviewScreen) openPass(h host, s panelShared, intent passIntent) tea.Cmd {
-	switch intent {
-	case intentEdit:
-		return r.editFile(h, s)
-	case intentComment:
-	}
-
-	return r.compose(h, s)
-}
-
-// endPass goes back to watching and lets the agent go, telling it what the reader did while it
-// was stopped.
+// endPass lets the agent go, telling it which files the reader opened while it was stopped.
 func (r *reviewScreen) endPass(h host, s panelShared, said string) tea.Cmd {
 	agentID := r.agentID
 	ours, touched := r.pass.end()

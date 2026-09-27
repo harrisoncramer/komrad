@@ -40,7 +40,7 @@ func (r reviewScreen) findMovedRound(s panelShared) string {
 
 // doesFollowLive reports whether the diff on screen is meant to keep up with the agent.
 func (r reviewScreen) doesFollowLive(s panelShared) bool {
-	if r.pass.mode != modeWatching || r.diff.view == nil || r.loading {
+	if r.pass.isHeld() || r.diff.view == nil || r.loading {
 		return false
 	}
 

@@ -112,12 +112,8 @@ func TestRebuilt(t *testing.T) {
 				press: []string{"ctrl+s"},
 			},
 			{
-				name:  "a pass over an agent's work",
-				press: []string{"c", "o", "k", "ctrl+s"},
-			},
-			{
-				name:  "an editor left open after its pass was sent",
-				press: []string{"e", "ctrl+s", "ctrl+s"},
+				name:  "an editor open over an agent's work",
+				press: []string{"e"},
 			},
 		}
 

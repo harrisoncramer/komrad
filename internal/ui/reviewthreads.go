@@ -21,10 +21,6 @@ type reviewThreads struct {
 	// delivery is how many of the conversation's comments stand in each delivery state.
 	delivery [reviewDeliveryStates]int
 
-	// owed is the id of the last released review while it still holds comments nobody has
-	// settled, empty once a second review would be allowed.
-	owed string
-
 	// focus is set while the keys are on the conversation in the sidebar rather than on the
 	// diff.
 	focus bool
@@ -37,11 +33,6 @@ type reviewThreads struct {
 	// editing is the thread a composed message is going into, empty when it will open a new
 	// thread on the line under the cursor.
 	editing string
-}
-
-// isOwedAnAnswer reports whether a comment the reader released is still open.
-func (t reviewThreads) isOwedAnAnswer() bool {
-	return t.owed != ""
 }
 
 // set holds the conversation and its delivery counts together.
@@ -68,8 +59,6 @@ func (r *reviewScreen) followThreads(s panelShared) {
 	if _, live := r.agentRow(s); !live {
 		return
 	}
-
-	r.threads.owed = findOwedReview(s.listing.world, r.agentID)
 
 	threads := assemble.ReviewThreads(s.listing.world, r.agentID)
 	if slices.EqualFunc(threads, r.threads.list, isSameThread) {
