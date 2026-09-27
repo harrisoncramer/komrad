@@ -109,9 +109,9 @@ The worktree's branch is worked out from your repository's clone when you create
 
 ## Archiving and restoring
 
-Archiving a workflow puts it into cold storage: you can hard-delete it later, but for now, it'll be hidden from your workflow view.
+Archiving a workflow puts it into cold storage: you can hard-delete it later, but for now, it'll be hidden from your workflow view. The `z` keybinding archives an agent, by defualt, from the agent list.
 
-Nothing is destroyed, and search still finds what the agents said. However, the agents inside of the workflow will be shut down. Restoring brings the whole workflow back, along with its agents in a stopped state, and ready to resume.
+This doesn't delete the agent or it's wokflows. Instead, the agents inside of the workflow will be paused, and removed from the active agent list. If you want to resume their conversations later, you can restore them with the `R` key, by default.
 
 ## Next Steps
 
