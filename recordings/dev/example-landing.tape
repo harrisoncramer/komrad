@@ -16,7 +16,7 @@ Type "c"
 Type "reply with the single word ok"
 Ctrl+S
 Sleep 3s
-Type "O"
+Type "o"
 Type "s"
 Type "c"
 Type "landing-probe"

@@ -5,7 +5,7 @@ Source recordings/shell.tape
 Hide
 Type "export EDITOR='nvim --clean'; komrad open"
 Enter
-Wait+Screen@30s /agents\s+search\s+schedules/
+Wait+Screen@30s /agents\s+query\s+schedules/
 Sleep 1s
 Show
 Type "j"

@@ -8,7 +8,7 @@ Type "k"
 Type "k"
 Wait+Screen@4m /stand behind[\s\S]*done \d+:\d+ [AP]M/
 Show
-Type "O"
+Type "o"
 Type "s"
 Type "c"
 Wait+Screen@10s /mail one already running/
@@ -25,7 +25,7 @@ Tab
 Ctrl+S
 Wait+Screen@10s /standup/
 Sleep 2s
-Type "O"
+Type "o"
 Type "a"
 Type "k"
 Type "k"

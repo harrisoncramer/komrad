@@ -3,6 +3,6 @@ Source recordings/shell.tape
 Hide
 Type "komrad open"
 Enter
-Wait+Screen@30s /agents\s+search\s+schedules/
+Wait+Screen@30s /agents\s+query\s+schedules/
 Sleep 1s
 Show

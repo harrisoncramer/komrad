@@ -3,8 +3,8 @@
 # loop records it within thirty seconds and the row arrives without the screen asking. The
 # delete then takes it off the screen as soon as it is queued.
 Source recordings/panel.tape
-Type "O"
-Type "t"
+Type "o"
+Type "w"
 Wait+Screen@30s /Worktrees/
 Sleep 2s
 Sleep 20s

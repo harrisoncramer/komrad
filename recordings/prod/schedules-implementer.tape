@@ -2,7 +2,7 @@
 # agent into the neovim workflow every minute, then the agent it launched. The wait for the
 # first firing is out of shot. schedules-implementer.before makes the workflow.
 Source recordings/panel.tape
-Type "O"
+Type "o"
 Type "s"
 Type "c"
 Wait+Screen@10s /launch a new agent/
@@ -17,7 +17,7 @@ Tab
 Ctrl+S
 Wait+Screen@10s /news-digest/
 Sleep 2s
-Type "O"
+Type "o"
 Type "a"
 Hide
 Wait+Screen@3m /news-digest/
