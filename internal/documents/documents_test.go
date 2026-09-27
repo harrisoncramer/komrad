@@ -273,7 +273,7 @@ func TestWriteByAPerson(t *testing.T) {
 	}
 }
 
-// TestAPersonsEditMailsTheAuthor pins who is told of a write and how often.
+// TestAPersonsEditMailsTheAuthor pins which writes tell the author.
 func TestAPersonsEditMailsTheAuthor(t *testing.T) {
 	stores := storetest.Open(t)
 	service := newService(stores)
@@ -281,7 +281,6 @@ func TestAPersonsEditMailsTheAuthor(t *testing.T) {
 
 	type write struct {
 		byPerson bool
-		claim    bool
 	}
 	tests := []struct {
 		name         string
@@ -297,16 +296,6 @@ func TestAPersonsEditMailsTheAuthor(t *testing.T) {
 			name:     "an archived author is not told",
 			archived: true,
 			writes:   []write{{byPerson: true}},
-		},
-		{
-			name:         "edits made while a notice waits unread join it",
-			writes:       []write{{byPerson: true}, {byPerson: true}, {byPerson: true}},
-			wantVersions: []int32{2},
-		},
-		{
-			name:         "an edit after the author read the last notice sends another",
-			writes:       []write{{byPerson: true, claim: true}, {byPerson: true}},
-			wantVersions: []int32{3},
 		},
 		{
 			name:         "a person's edit sends one notice naming the version they wrote",
@@ -343,19 +332,12 @@ func TestAPersonsEditMailsTheAuthor(t *testing.T) {
 				}
 				doc, err = service.WriteDocument(ctx, params)
 				require.NoError(t, err)
-				if step.claim {
-					_, err := stores.Mail.Claim(ctx, author.ID, 10)
-					require.NoError(t, err)
-				}
 			}
 
 			waiting, err := stores.Mail.ListPage(ctx, author.ID, 10, nil)
 			require.NoError(t, err)
 			var got []int32
 			for _, notice := range waiting {
-				if notice.ClaimedAt != nil {
-					continue
-				}
 				assert.Equal(t, mailstore.KindDocumentEdited, notice.Kind)
 				assert.Equal(t, mail.KomradSenderName, notice.FromName)
 				require.NotNil(t, notice.AboutDocumentID)

@@ -3,6 +3,7 @@ package documents
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -143,43 +144,30 @@ func (s *DocumentService) tellTheAuthor(ctx context.Context, author agentstore.A
 		return
 	}
 
-	attrs := []slog.Attr{slog.String(logging.AgentID, author.ID), slog.String("document_id", edited.ID)}
-
-	versions, err := s.documents.ListVersions(ctx, edited.ID)
-	if err != nil {
-		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to read a document's versions to tell its author of an edit",
-			append(attrs, logging.Err(err)...)...)
-
+	_, err := s.mailer.SendNotice(ctx, mail.SendNoticeParams{
+		ToAgentID:     author.ID,
+		Body:          buildEditNotice(edited),
+		Kind:          mailstore.KindDocumentEdited,
+		AboutDocument: &edited.ID,
+	})
+	if err == nil {
 		return
 	}
 
-	if _, err := s.mailer.SendNotice(ctx, mail.SendNoticeParams{
-		ToAgentID:     author.ID,
-		Body:          buildEditNotice(edited, findLastAgentVersion(versions)),
-		Kind:          mailstore.KindDocumentEdited,
-		AboutDocument: &edited.ID,
-	}); err != nil {
-		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to tell an agent a person edited its document",
-			append(attrs, logging.Err(err)...)...)
+	level := slog.LevelError
+	if errors.Is(err, mail.ErrMailboxFull) || errors.Is(err, mail.ErrAgentArchived) {
+		level = slog.LevelWarn
 	}
+	logging.From(ctx).LogAttrs(ctx, level, "failed to tell an agent a person edited its document",
+		append([]slog.Attr{slog.String(logging.AgentID, author.ID), slog.String("document_id", edited.ID)}, logging.Err(err)...)...)
 }
 
-func findLastAgentVersion(versions []documentstore.Version) int32 {
-	for _, version := range versions {
-		if !version.ByPerson {
-			return version.Version
-		}
-	}
-
-	return 0
-}
-
-func buildEditNotice(edited documentstore.Document, yours int32) string {
+func buildEditNotice(edited documentstore.Document) string {
 	return fmt.Sprintf("komrad: a person edited your document %q (%s) in the panel, writing version %d. "+
-		"The last version you wrote is %d. Read theirs with get_document at version %d, and compare the two with list_document_versions. "+
-		"Further saves before you read this send no more mail, so rewrite from the newest version list_document_versions lists, "+
-		"or write_document is refused as failed_precondition.",
-		edited.Name, edited.ID, edited.Version, yours, edited.Version)
+		"They may have saved again since, and those saves send no more mail. "+
+		"list_document_versions lists every write and marks a person's, get_document reads any version, "+
+		"and write_document is refused as failed_precondition unless you rewrite from the newest version.",
+		edited.Name, edited.ID, edited.Version)
 }
 
 // ownerFor is the agent a person's write is to: the owner of the document it rewrites, or the
