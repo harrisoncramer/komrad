@@ -20,18 +20,27 @@ type documentReadWriter interface {
 	ListDocuments(ctx context.Context, agentID string, kind *documentstore.Kind) ([]documentstore.Document, error)
 }
 
-var errUnknownDocumentKind = fail.InvalidArgument("unknown document kind")
+var (
+	errUnknownDocumentKind = fail.InvalidArgument("unknown document kind")
+	errWritingForAnother   = fail.InvalidArgument("an agent writes only its own documents, so leave agent_id unset")
+)
 
 // WriteDocument creates or rewrites one of the calling agent's documents, or lets a caller that
-// is not an agent rewrite any one.
+// is not an agent rewrite any one or create one for the agent it names.
 func (s *Handler) WriteDocument(ctx context.Context, req *agentv1.WriteDocumentRequest) (*agentv1.WriteDocumentResponse, *fail.Error) {
 	kind, failure := documentKindOf(req.GetKind())
 	if failure != nil {
 		return nil, failure
 	}
 
+	agentID := caller.From(ctx).AgentID
+	if agentID != "" && req.AgentId != nil && req.GetAgentId() != agentID {
+		return nil, errWritingForAnother
+	}
+
 	written, err := s.documents.WriteDocument(ctx, documents.WriteDocumentParams{
-		AgentID: caller.From(ctx).AgentID,
+		AgentID: agentID,
+		For:     req.GetAgentId(),
 		ID:      req.Id,
 		Version: req.Version,
 		Name:    req.GetName(),

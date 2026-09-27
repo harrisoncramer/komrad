@@ -507,6 +507,17 @@ func (a api) listDocumentVersions(id string) ([]*agentv1.DocumentVersion, error)
 	})
 }
 
+func (a api) createDocument(agentID, name string, kind agentv1.DocumentKind, body string) error {
+	return mutate(func(ctx context.Context) (any, error) {
+		return a.agents.WriteDocument(ctx, connect.NewRequest(&agentv1.WriteDocumentRequest{
+			AgentId: &agentID,
+			Name:    name,
+			Kind:    kind,
+			Source:  &agentv1.WriteDocumentRequest_Body{Body: body},
+		}))
+	})
+}
+
 func (a api) writeDocument(item documentItem, version int32, body string) error {
 	return mutate(func(ctx context.Context) (any, error) {
 		return a.agents.WriteDocument(ctx, connect.NewRequest(&agentv1.WriteDocumentRequest{

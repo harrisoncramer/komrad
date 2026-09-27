@@ -77,15 +77,18 @@ type CreateParams struct {
 	Name    string
 	Kind    Kind
 	Body    string
+	// ByPerson is whether a person wrote it rather than the agent that owns it.
+	ByPerson bool
 }
 
 // Create writes a new document, refusing a name the agent already uses.
 func (s *DocumentStore) Create(ctx context.Context, params CreateParams) (*Document, error) {
 	row, err := s.queries.InsertDocument(ctx, models.InsertDocumentParams{
-		AgentID: params.AgentID,
-		Name:    params.Name,
-		Kind:    models.DocumentKind(params.Kind),
-		Body:    params.Body,
+		AgentID:  params.AgentID,
+		Name:     params.Name,
+		Kind:     models.DocumentKind(params.Kind),
+		Body:     params.Body,
+		ByPerson: params.ByPerson,
 	})
 	if db.IsUniqueViolation(err) {
 		return nil, s.nameTaken(ctx, params.AgentID, params.Name)

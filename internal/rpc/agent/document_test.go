@@ -101,6 +101,16 @@ func TestDocumentErrors(t *testing.T) {
 
 		return err
 	}
+	writeForAnother := func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
+		_, err := svc.WriteDocument(ctx, connect.NewRequest(&agentv1.WriteDocumentRequest{
+			AgentId: xptr.Ptr(betaID),
+			Name:    "Documents",
+			Kind:    agentv1.DocumentKind_DOCUMENT_KIND_RFC,
+			Source:  &agentv1.WriteDocumentRequest_Body{Body: "# Documents"},
+		}))
+
+		return err
+	}
 	list := func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
 		_, err := svc.ListDocuments(ctx, connect.NewRequest(&agentv1.ListDocumentsRequest{}))
 
@@ -125,6 +135,7 @@ func TestDocumentErrors(t *testing.T) {
 		wantCode connect.Code
 	}{
 		{name: "creating a document with no author", call: write, err: documents.ErrNoAuthor, wantCode: connect.CodeInvalidArgument},
+		{name: "an agent writing a document for another agent", call: writeForAnother, wantCode: connect.CodeInvalidArgument},
 		{name: "writing a name the agent already uses", call: write, err: store.ErrNameTaken, wantCode: connect.CodeAlreadyExists},
 		{name: "writing a body over the cap", call: write, err: documents.ErrTooLarge, wantCode: connect.CodeInvalidArgument},
 		{name: "writing from a path that cannot be read", call: write, err: documents.ErrUnreadablePath, wantCode: connect.CodeInvalidArgument},
@@ -192,6 +203,27 @@ func TestWriteDocument(t *testing.T) {
 			},
 			asNobody: true,
 			want:     documents.WriteDocumentParams{ID: xptr.Ptr(documentID), Name: "Findings", Kind: documentstore.KindReport, Body: "edited"},
+		},
+		{
+			name: "a caller that is not an agent creates a document for the agent it names",
+			req: &agentv1.WriteDocumentRequest{
+				AgentId: xptr.Ptr(betaID),
+				Name:    "Findings",
+				Kind:    agentv1.DocumentKind_DOCUMENT_KIND_REPORT,
+				Source:  &agentv1.WriteDocumentRequest_Body{Body: "Empty report."},
+			},
+			asNobody: true,
+			want:     documents.WriteDocumentParams{For: betaID, Name: "Findings", Kind: documentstore.KindReport, Body: "Empty report."},
+		},
+		{
+			name: "an agent naming itself writes its own",
+			req: &agentv1.WriteDocumentRequest{
+				AgentId: xptr.Ptr(alphaID),
+				Name:    "Documents",
+				Kind:    agentv1.DocumentKind_DOCUMENT_KIND_RFC,
+				Source:  &agentv1.WriteDocumentRequest_Body{Body: "# Documents"},
+			},
+			want: documents.WriteDocumentParams{AgentID: alphaID, For: alphaID, Name: "Documents", Kind: documentstore.KindRFC, Body: "# Documents"},
 		},
 	}
 

@@ -111,6 +111,7 @@ recorded AS (
         name,
         kind,
         body,
+        by_person,
         created_at)
     SELECT
         id,
@@ -118,6 +119,7 @@ recorded AS (
         name,
         kind,
         body,
+        $5,
         updated_at
     FROM
         inserted
@@ -129,10 +131,11 @@ FROM
 `
 
 type InsertDocumentParams struct {
-	AgentID string
-	Name    string
-	Kind    DocumentKind
-	Body    string
+	AgentID  string
+	Name     string
+	Kind     DocumentKind
+	Body     string
+	ByPerson bool
 }
 
 type InsertDocumentRow struct {
@@ -153,6 +156,7 @@ func (q *Queries) InsertDocument(ctx context.Context, arg InsertDocumentParams) 
 		arg.Name,
 		arg.Kind,
 		arg.Body,
+		arg.ByPerson,
 	)
 	var i InsertDocumentRow
 	err := row.Scan(

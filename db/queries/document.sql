@@ -20,6 +20,7 @@ recorded AS (
         name,
         kind,
         body,
+        by_person,
         created_at)
     SELECT
         id,
@@ -27,6 +28,7 @@ recorded AS (
         name,
         kind,
         body,
+        @by_person,
         updated_at
     FROM
         inserted

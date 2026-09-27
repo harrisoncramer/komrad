@@ -29,10 +29,12 @@ var (
 	ErrEmptyFile = fail.InvalidArgument("the file is empty")
 	// ErrNoBody is a write naming neither a body nor a path.
 	ErrNoBody = fail.InvalidArgument("a document needs a body or a path to read one from")
-	// ErrNoAuthor is a new document written by something that is not an agent.
-	ErrNoAuthor = fail.InvalidArgument("only an agent can create a document")
+	// ErrNoAuthor is a new document written by something that is not an agent, naming no agent it is for.
+	ErrNoAuthor = fail.InvalidArgument("a document created by something that is not an agent needs the agent it is for")
 	// ErrNoVersion is a rewrite that does not say which version it replaces.
 	ErrNoVersion = fail.InvalidArgument("a rewrite needs the version it replaces, as the last read or write returned it")
+	// ErrForAnother is a rewrite naming an agent other than the one whose document it is.
+	ErrForAnother = fail.InvalidArgument("the document belongs to another agent, so leave agent_id unset to rewrite it")
 )
 
 type NewDocumentServiceParams struct {
@@ -55,6 +57,8 @@ type WriteDocumentParams struct {
 	// AgentID is the agent writing, whose document it is, or empty for a person rewriting the
 	// document ID names.
 	AgentID string
+	// For is the agent a person creates a document for, and empty for an agent writing its own.
+	For string
 	// ID is the document to rewrite, or nil to create one.
 	ID *string
 	// Version is the version a rewrite replaces, required with ID.
@@ -75,15 +79,11 @@ func (s *DocumentService) WriteDocument(ctx context.Context, params WriteDocumen
 
 	byPerson := params.AgentID == ""
 	if byPerson {
-		if params.ID == nil {
-			return nil, ErrNoAuthor
-		}
-
-		held, err := s.documents.Get(ctx, *params.ID)
+		owner, err := s.ownerFor(ctx, params)
 		if err != nil {
-			return nil, fmt.Errorf("failed to find the document to rewrite: %w", err)
+			return nil, err
 		}
-		params.AgentID = held.AgentID
+		params.AgentID = owner
 	}
 
 	agent, err := s.agents.GetByID(ctx, params.AgentID)
@@ -104,10 +104,11 @@ func (s *DocumentService) WriteDocument(ctx context.Context, params WriteDocumen
 
 	if params.ID == nil {
 		return s.documents.Create(ctx, documentstore.CreateParams{
-			AgentID: agent.ID,
-			Name:    params.Name,
-			Kind:    params.Kind,
-			Body:    body,
+			AgentID:  agent.ID,
+			Name:     params.Name,
+			Kind:     params.Kind,
+			Body:     body,
+			ByPerson: byPerson,
 		})
 	}
 
@@ -120,6 +121,28 @@ func (s *DocumentService) WriteDocument(ctx context.Context, params WriteDocumen
 		Version:  *params.Version,
 		ByPerson: byPerson,
 	})
+}
+
+// ownerFor is the agent a person's write is to: the owner of the document it rewrites, or the
+// agent it names for a new one.
+func (s *DocumentService) ownerFor(ctx context.Context, params WriteDocumentParams) (string, error) {
+	if params.ID == nil {
+		if params.For == "" {
+			return "", ErrNoAuthor
+		}
+
+		return params.For, nil
+	}
+
+	held, err := s.documents.Get(ctx, *params.ID)
+	if err != nil {
+		return "", fmt.Errorf("failed to find the document to rewrite: %w", err)
+	}
+	if params.For != "" && params.For != held.AgentID {
+		return "", ErrForAnother
+	}
+
+	return held.AgentID, nil
 }
 
 func readBody(cwd, path string) (string, error) {

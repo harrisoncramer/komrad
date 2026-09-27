@@ -70,6 +70,9 @@ table "documents" {
     on_delete   = CASCADE
     on_update   = NO_ACTION
   }
+  check "documents_body_written" {
+    expr = "body <> ''"
+  }
 }
 
 table "document_versions" {
@@ -125,5 +128,8 @@ table "document_versions" {
     ref_columns = [table.documents.column.engine_id, table.documents.column.id]
     on_delete   = CASCADE
     on_update   = NO_ACTION
+  }
+  check "document_versions_body_written" {
+    expr = "body <> ''"
   }
 }

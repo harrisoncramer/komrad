@@ -26,6 +26,13 @@ func (d *documentsScreen) table() []screenAction {
 			},
 		},
 		screenAction{
+			id:   actionDocumentsNew,
+			keys: func(k config.Keybindings) []string { return k.Documents.New },
+			run: func(h host, s panelShared, _ string) tea.Cmd {
+				return d.newDocumentForm(h, s)
+			},
+		},
+		screenAction{
 			id:   actionDocumentsOlder,
 			keys: func(k config.Keybindings) []string { return k.Documents.Older },
 			run: func(h host, s panelShared, _ string) tea.Cmd {
@@ -52,8 +59,16 @@ func (d *documentsScreen) table() []screenAction {
 func (d *documentsScreen) legend() []screenLegendRow {
 	return slices.Concat(screenNavLegend(), []screenLegendRow{
 		{
+			of:   []actionID{actionFilterOpen},
+			desc: filterDescOf,
+		},
+		{
 			of:   []actionID{actionDocumentsEdit},
 			desc: func(panelShared) string { return d.editDesc() },
+		},
+		{
+			of:   []actionID{actionDocumentsNew},
+			desc: func(panelShared) string { return "new document" },
 		},
 		{
 			of:   []actionID{actionDocumentsOlder},
@@ -62,6 +77,16 @@ func (d *documentsScreen) legend() []screenLegendRow {
 		{
 			of:   []actionID{actionDocumentsNewer},
 			desc: func(panelShared) string { return "a later version" },
+		},
+		{
+			of:    []actionID{actionFilterClear},
+			desc:  filterClearDescOf,
+			strip: true,
+		},
+		{
+			of:    []actionID{actionFilterMatch},
+			desc:  func(panelShared) string { return "next/prev match" },
+			strip: true,
 		},
 		{
 			of:    []actionID{actionDocumentsBack},

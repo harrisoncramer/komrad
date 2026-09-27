@@ -79,6 +79,7 @@ const (
 	actionDocumentsOpen
 	actionDocumentsBack
 	actionDocumentsEdit
+	actionDocumentsNew
 	actionDocumentsOlder
 	actionDocumentsNewer
 	actionReviewBack
