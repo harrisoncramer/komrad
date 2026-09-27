@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"komrad/internal/rpcapi"
 	"komrad/internal/ui/panel"
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
@@ -48,6 +49,12 @@ func call[T any](timeout time.Duration, fn func(context.Context) (T, error)) (T,
 // request timeout.
 func mutate(fn func(context.Context) (any, error)) error {
 	_, err := call(requestTimeout, fn)
+
+	return err
+}
+
+func mutateAwaitingHooks(fn func(context.Context) (any, error)) error {
+	_, err := call(rpcapi.HookCallTimeout, fn)
 
 	return err
 }
@@ -135,7 +142,7 @@ func (a api) adopt(params adoptParams) (*agentv1.Agent, error) {
 }
 
 func (a api) archiveAgents(ids []string) error {
-	return mutate(func(ctx context.Context) (any, error) {
+	return mutateAwaitingHooks(func(ctx context.Context) (any, error) {
 		return a.agents.ArchiveAgents(ctx, connect.NewRequest(&agentv1.ArchiveAgentsRequest{Ids: ids}))
 	})
 }
@@ -205,7 +212,7 @@ func markRequest(target markTargetRef, mark *string) *agentv1.SetMarkRequest {
 }
 
 func (a api) restoreAgents(ids []string) error {
-	return mutate(func(ctx context.Context) (any, error) {
+	return mutateAwaitingHooks(func(ctx context.Context) (any, error) {
 		resp, err := a.agents.RestoreAgents(ctx, connect.NewRequest(&agentv1.RestoreAgentsRequest{Ids: ids}))
 		if err != nil {
 			return nil, fmt.Errorf("failed to restore %d agents: %w", len(ids), err)
@@ -239,7 +246,7 @@ func (a api) retryAgent(params retryAgentParams) (*agentv1.Agent, error) {
 }
 
 func (a api) resumeAgent(id string) (*agentv1.Agent, error) {
-	return call(requestTimeout, func(ctx context.Context) (*agentv1.Agent, error) {
+	return call(rpcapi.HookCallTimeout, func(ctx context.Context) (*agentv1.Agent, error) {
 		resp, err := a.agents.ResumeAgent(ctx, connect.NewRequest(&agentv1.ResumeAgentRequest{Id: id}))
 		if err != nil {
 			return nil, fmt.Errorf("failed to resume agent %q: %w", id, err)
@@ -413,13 +420,13 @@ func (a api) updateWorkflow(w panel.Workflow) error {
 }
 
 func (a api) archiveWorkflow(id string) error {
-	return mutate(func(ctx context.Context) (any, error) {
+	return mutateAwaitingHooks(func(ctx context.Context) (any, error) {
 		return a.workflows.ArchiveWorkflow(ctx, connect.NewRequest(&workflowv1.ArchiveWorkflowRequest{Id: id}))
 	})
 }
 
 func (a api) restoreWorkflow(id string) error {
-	return mutate(func(ctx context.Context) (any, error) {
+	return mutateAwaitingHooks(func(ctx context.Context) (any, error) {
 		resp, err := a.workflows.RestoreWorkflow(ctx, connect.NewRequest(&workflowv1.RestoreWorkflowRequest{Id: id}))
 		if err != nil {
 			return nil, fmt.Errorf("failed to restore workflow %q: %w", id, err)

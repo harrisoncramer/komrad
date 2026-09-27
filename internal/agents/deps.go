@@ -135,4 +135,7 @@ type agentScriptRunner interface {
 	RunResume(ctx context.Context, agent agentstore.Agent, name string) (string, error)
 	RunDeprovision(ctx context.Context, agent agentstore.Agent, name string, done func(error)) error
 	RunHook(ctx context.Context, agent agentstore.Agent, name, event string) error
+	RunPostDeleteHook(ctx context.Context, agent agentstore.Agent, name, event string) error
+	AwaitHooks(ctx context.Context, agentID string) error
+	QueueHooks(agentID string) *scriptrun.HookTurn
 }

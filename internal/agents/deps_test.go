@@ -21,6 +21,7 @@ import (
 	"komrad/internal/harness"
 	"komrad/internal/harnesstest"
 	"komrad/internal/logging"
+	"komrad/internal/scriptrun"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
 	reviewstore "komrad/internal/store/review"
@@ -287,6 +288,7 @@ type fakeLifecycle struct {
 	holdDeprovision          bool
 	held                     []func(error)
 	hookErrs                 map[string]error
+	holdHooks                chan struct{}
 	hooksMu                  sync.Mutex
 	hooks                    []ranHook
 	provision                []string
@@ -294,6 +296,7 @@ type fakeLifecycle struct {
 	deprovision              []string
 	deprovisionCwd           []string
 	deprovisionCtxErr        []error
+	scriptrun.HookQueue
 }
 
 func (f *fakeLifecycle) RunProvision(_ context.Context, _ agentstore.Agent, name string) (string, error) {
@@ -318,6 +321,10 @@ func (f *fakeLifecycle) RunResume(_ context.Context, _ agentstore.Agent, name st
 }
 
 func (f *fakeLifecycle) RunHook(_ context.Context, agent agentstore.Agent, name, event string) error {
+	if f.holdHooks != nil {
+		<-f.holdHooks
+	}
+
 	f.hooksMu.Lock()
 	defer f.hooksMu.Unlock()
 
@@ -328,6 +335,10 @@ func (f *fakeLifecycle) RunHook(_ context.Context, agent agentstore.Agent, name,
 	})
 
 	return f.hookErrs[name]
+}
+
+func (f *fakeLifecycle) RunPostDeleteHook(ctx context.Context, agent agentstore.Agent, name, event string) error {
+	return f.RunHook(ctx, agent, name, event)
 }
 
 func (f *fakeLifecycle) ranHooks() []ranHook {

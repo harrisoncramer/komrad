@@ -1799,3 +1799,26 @@ func TestSilentAsyncFailureSaysWhyInItsLog(t *testing.T) {
 	assert.Contains(t, string(said), "teardown", "and it names the script that failed")
 	assert.Contains(t, string(said), "exited non-zero", "and says what became of it")
 }
+
+// TestRunPostDeleteHookRunsInTheHooksDirectoryOnceTheWorktreeIsGone covers where the last hook of an agent's life runs.
+func TestRunPostDeleteHookRunsInTheHooksDirectoryOnceTheWorktreeIsGone(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "forget"), []byte(
+		"#!/bin/sh\npwd -P >forgotten\necho \"$KOMRAD_AGENT_CWD\" >>forgotten\n",
+	), 0o755))
+
+	logsDir := t.TempDir()
+	svc := scriptServiceWithLogsDir(t, dir, scripts.NewRunner(), logsDir)
+
+	gone := filepath.Join(t.TempDir(), "worktree")
+	err := svc.RunPostDeleteHook(t.Context(), agentstore.Agent{ID: fixtureAgentID, Cwd: gone}, "forget", workflowstore.HookPostDelete)
+	require.NoError(t, err)
+
+	landed, readErr := os.ReadFile(filepath.Join(dir, "forgotten"))
+	require.NoError(t, readErr)
+
+	resolved, resolveErr := filepath.EvalSymlinks(dir)
+	require.NoError(t, resolveErr)
+	assert.Equal(t, resolved+"\n"+gone+"\n", string(landed), "told where the worktree was")
+	assert.Empty(t, config.ListRunLogs(logsDir, fixtureAgentID), "with no run log for a row that has gone")
+}

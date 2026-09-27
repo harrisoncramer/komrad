@@ -196,6 +196,16 @@ func (s *ResumeService) resume(ctx context.Context, agent agentstore.Agent) erro
 		dir = s.getResumeDir(agent)
 	}
 
+	agent.Cwd = dir
+	if err := runPreHooks(ctx, hookRunParams{
+		scripts: s.scripts,
+		agent:   agent,
+		hooks:   agentHooks(ctx, s.workflows, agent),
+		event:   workflowstore.HookPreResume,
+	}); err != nil {
+		return fmt.Errorf("failed to run the pre-resume hook of %q: %w", agent.Name, err)
+	}
+
 	pane, err = s.tmux.NewWindow(ManagerSession, agent.Name, dir)
 	if err != nil {
 		return fmt.Errorf("failed to open a window for %q: %w", agent.Name, err)
@@ -217,7 +227,6 @@ func (s *ResumeService) resume(ctx context.Context, agent agentstore.Agent) erro
 
 	agent.Pane = pane
 	agent.State = agentstore.StateIdle
-	agent.Cwd = dir
 	// An archive or a delete takes the row without reading the resume mark, so this write is where
 	// a resume finds out it lost and has to take away the pane it opened.
 	written, err := s.agents.UpdateIfLive(ctx, agent)
