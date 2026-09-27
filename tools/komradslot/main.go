@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -94,6 +95,19 @@ func newRootCmd(w world) *cobra.Command {
 		slotCmd("down", "Take the checkout's instance down and give its slot back", func(ctx context.Context, reg registry, checkout string, _ io.Writer) error {
 			return down(ctx, reg, checkout)
 		}),
+		&cobra.Command{
+			Use:   "reap",
+			Short: "Take down every slot whose checkout is gone or that has sat idle",
+			Args:  cobra.NoArgs,
+			RunE: func(cmd *cobra.Command, _ []string) error {
+				reg, err := w.registry(dir)
+				if err != nil {
+					return err
+				}
+
+				return reg.reap(cmd.Context(), "")
+			},
+		},
 	)
 
 	return cmd
@@ -109,7 +123,18 @@ func (w world) registry(dir string) (registry, error) {
 		dir = filepath.Join(home, ".local", "state", "komrad-test", "instances")
 	}
 
-	return registry{dir: dir, lockTimeout: 30 * time.Second, cmds: w.cmds, log: w.log}, nil
+	return registry{dir: dir, lockTimeout: 30 * time.Second, cmds: w.cmds, log: w.log, listening: isListening}, nil
+}
+
+func isListening(ctx context.Context, addr string) bool {
+	dialer := net.Dialer{Timeout: 200 * time.Millisecond}
+
+	conn, err := dialer.DialContext(ctx, "tcp", addr)
+	if err != nil {
+		return false
+	}
+
+	return conn.Close() == nil
 }
 
 func resolve(root string) (string, error) {

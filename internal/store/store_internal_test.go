@@ -224,3 +224,23 @@ func TestEngineIsolationHoldsForEveryTable(t *testing.T) {
 		})
 	}
 }
+
+// TestParseConfigCapsThePool covers a url naming its own cap and one leaving it to the caller.
+func TestParseConfigCapsThePool(t *testing.T) {
+	tests := []struct {
+		name string
+		url  string
+		want int32
+	}{
+		{name: "a url without a cap takes the one it is given", url: "postgres://komrad:komrad@localhost:5460/komrad?sslmode=disable", want: 7},
+		{name: "a url with a cap keeps its own", url: "postgres://komrad:komrad@localhost:5460/komrad?sslmode=disable&pool_max_conns=2", want: 2},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg, err := parseConfig(tt.url, 7)
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, cfg.MaxConns)
+		})
+	}
+}

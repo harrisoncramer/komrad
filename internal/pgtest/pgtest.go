@@ -33,9 +33,11 @@ const (
 	// time and swept out from under a run that is very much alive.
 	nameTimeLayout = "20060102t150405"
 
-	// maxAge is deliberately far longer than the ten minutes Go allows a test binary, leaving a run
+	// maxAge is deliberately longer than the ten minutes Go allows a test binary, leaving a run
 	// under a debugger or a raised timeout its own database.
-	maxAge = 24 * time.Hour
+	maxAge = 2 * time.Hour
+
+	templateMaxAge = 24 * time.Hour
 
 	// templateLockClass is the advisory lock class the template build is serialised under.
 	templateLockClass = 7240116
@@ -319,7 +321,12 @@ func leaked(names []string, now time.Time) []string {
 			continue
 		}
 
-		if now.Sub(created) > maxAge {
+		limit := maxAge
+		if strings.Contains(name, templateMarker) {
+			limit = templateMaxAge
+		}
+
+		if now.Sub(created) > limit {
 			stale = append(stale, name)
 		}
 	}

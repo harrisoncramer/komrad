@@ -39,6 +39,8 @@ for arg in "$@"; do
 	esac
 done
 
+refuse_panel_database check:quick
+
 cd "$MISE_CONFIG_ROOT"
 
 BIN_PATH="$MISE_CONFIG_ROOT/local/custom-gcl"

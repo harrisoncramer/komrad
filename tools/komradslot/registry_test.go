@@ -2,7 +2,10 @@ package main
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"io"
+	"io/fs"
 	"log"
 	"os"
 	"path/filepath"
@@ -290,5 +293,161 @@ func TestRetire(t *testing.T) {
 
 	if _, ok, _ := reg.lookup(root); ok {
 		t.Error("a retired slot is still found for its checkout")
+	}
+}
+
+func ageSlot(t *testing.T, reg registry, n int, age time.Duration) {
+	t.Helper()
+
+	then := time.Now().Add(-age)
+	if err := os.Chtimes(reg.slotDir(n), then, then); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func downCalls(n int) []string {
+	return []string{
+		fmt.Sprintf("tmux -L komrad-test-%d kill-server", n),
+		fmt.Sprintf("pkill -f komrad serve --addr 127.0.0.1:88%02d( |$)", n),
+		fmt.Sprintf("docker compose -p komrad-test-pg exec -T db psql -U komrad -d postgres -v ON_ERROR_STOP=1 -c DROP DATABASE IF EXISTS komrad_%d WITH (FORCE) -c DROP ROLE IF EXISTS komrad_engine_slot_%d, komrad_engine_slot_%d_reader", n, n, n),
+	}
+}
+
+// TestReap covers which slots are taken down and which are left alone.
+func TestReap(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		arrange   func(t *testing.T, reg registry, cmds *fakeRunner, keep string)
+		listening bool
+		reaped    bool
+		calls     []string
+	}{
+		{
+			name: "a slot whose checkout is gone is reaped",
+			arrange: func(t *testing.T, reg registry, _ *fakeRunner, _ string) {
+				holdSlot(t, reg, 3, filepath.Join(t.TempDir(), "gone"))
+			},
+			reaped: true,
+			calls:  downCalls(3),
+		},
+		{
+			name: "a slot used within a day is kept",
+			arrange: func(t *testing.T, reg registry, _ *fakeRunner, _ string) {
+				holdSlot(t, reg, 3, checkout(t))
+				ageSlot(t, reg, 3, time.Hour)
+			},
+		},
+		{
+			name: "an idle slot with nothing running is reaped",
+			arrange: func(t *testing.T, reg registry, cmds *fakeRunner, _ string) {
+				holdSlot(t, reg, 3, checkout(t))
+				ageSlot(t, reg, 3, 2*idleAfter)
+				cmds.fail = map[string]bool{"tmux -L komrad-test-3 list-sessions": true}
+			},
+			reaped: true,
+			calls:  append([]string{"tmux -L komrad-test-3 list-sessions"}, downCalls(3)...),
+		},
+		{
+			name: "an idle slot whose server is still listening is kept",
+			arrange: func(t *testing.T, reg registry, _ *fakeRunner, _ string) {
+				holdSlot(t, reg, 3, checkout(t))
+				ageSlot(t, reg, 3, 2*idleAfter)
+			},
+			listening: true,
+		},
+		{
+			name: "an idle slot whose tmux server still has sessions is kept",
+			arrange: func(t *testing.T, reg registry, _ *fakeRunner, _ string) {
+				holdSlot(t, reg, 3, checkout(t))
+				ageSlot(t, reg, 3, 2*idleAfter)
+			},
+			calls: []string{"tmux -L komrad-test-3 list-sessions"},
+		},
+		{
+			name: "the claiming checkout's own slot is kept however idle",
+			arrange: func(t *testing.T, reg registry, cmds *fakeRunner, keep string) {
+				holdSlot(t, reg, 3, keep)
+				ageSlot(t, reg, 3, 2*idleAfter)
+				cmds.fail = map[string]bool{"tmux -L komrad-test-3 list-sessions": true}
+			},
+		},
+		{
+			name: "a slot a live process is taking down is left to it",
+			arrange: func(t *testing.T, reg registry, _ *fakeRunner, _ string) {
+				holdSlot(t, reg, 3, filepath.Join(t.TempDir(), "gone"))
+				markDownBy(t, reg, 3, os.Getpid())
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			reg, cmds := newTestRegistry(t)
+			reg.listening = func(context.Context, string) bool { return tt.listening }
+			keep := checkout(t)
+			tt.arrange(t, reg, cmds, keep)
+
+			if err := reg.reap(t.Context(), keep); err != nil {
+				t.Fatalf("reap() error = %v", err)
+			}
+
+			_, err := os.Stat(reg.slotDir(3))
+			if gone := errors.Is(err, fs.ErrNotExist); gone != tt.reaped {
+				t.Errorf("slot 3 gone = %v, want %v", gone, tt.reaped)
+			}
+
+			if strings.Join(cmds.calls, "\n") != strings.Join(tt.calls, "\n") {
+				t.Errorf("ran %q, want %q", cmds.calls, tt.calls)
+			}
+		})
+	}
+}
+
+// TestReapKeepsGoingPastASlotItCannotDrop keeps a slot whose database would not drop and reaps the rest.
+func TestReapKeepsGoingPastASlotItCannotDrop(t *testing.T) {
+	t.Parallel()
+
+	reg, cmds := newTestRegistry(t)
+	holdSlot(t, reg, 3, filepath.Join(t.TempDir(), "gone"))
+	holdSlot(t, reg, 4, filepath.Join(t.TempDir(), "gone"))
+	cmds.fail = map[string]bool{downCalls(3)[2]: true}
+
+	if err := reg.reap(t.Context(), ""); err != nil {
+		t.Fatalf("reap() error = %v", err)
+	}
+
+	if reg.getRoot(3) == "" {
+		t.Error("slot 3 was given back although its database was not dropped")
+	}
+
+	if _, err := os.Stat(reg.slotDir(4)); !errors.Is(err, fs.ErrNotExist) {
+		t.Errorf("slot 4 was not reaped: %v", err)
+	}
+}
+
+// TestClaimMarksTheSlotUsed keeps a slot that is claimed from being reaped as idle.
+func TestClaimMarksTheSlotUsed(t *testing.T) {
+	t.Parallel()
+
+	reg, _ := newTestRegistry(t)
+	root := checkout(t)
+	holdSlot(t, reg, 1, root)
+	ageSlot(t, reg, 1, 2*idleAfter)
+
+	if _, err := reg.claim(t.Context(), root); err != nil {
+		t.Fatalf("claim() error = %v", err)
+	}
+
+	info, err := os.Stat(reg.slotDir(1))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if time.Since(info.ModTime()) > time.Minute {
+		t.Errorf("slot 1 was last used %s ago, want just now", time.Since(info.ModTime()))
 	}
 }
