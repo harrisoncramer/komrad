@@ -106,13 +106,13 @@ func (s Snapshot) columns() Columns {
 
 	reviewer, person, unread := 0, 0, false
 	for _, row := range s.Rows {
+		if !isOwn(row) {
+			continue
+		}
+
 		reviewer = max(reviewer, countPairColumns(row.ReviewerComments))
 		person = max(person, countPairColumns(row.PersonComments))
 		unread = unread || (row.PersonComments != nil && row.PersonComments.Unread)
-	}
-
-	if reviewer == 0 && person == 0 {
-		return WorkColumns()
 	}
 
 	return CommentedWorkColumns(reviewer, person, unread)
