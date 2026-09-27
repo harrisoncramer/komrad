@@ -29,6 +29,7 @@ func TestUnspecifiedIsServedEverything(t *testing.T) {
 	assert.Equal(t, every, served)
 }
 
+// TestIsRequired checks a field in a oneof is never demanded on its own.
 func TestIsRequired(t *testing.T) {
 	tests := []struct {
 		field string
