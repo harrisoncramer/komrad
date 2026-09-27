@@ -32,22 +32,44 @@ func TestBindings(t *testing.T) {
 	principal, err := stores.Principals.Create(ctx, identitystore.CreateParams{Name: "ci", Kind: identitystore.KindService})
 	require.NoError(t, err)
 
-	previous, err := stores.Bindings.Set(ctx, identitystore.SetParams{PrincipalID: principal.ID, EngineID: first.ID, Role: principalrole.Viewer})
+	previous, err := stores.Bindings.Set(ctx, identitystore.SetParams{
+		PrincipalID: principal.ID,
+		EngineID:    first.ID,
+		Role:        principalrole.Viewer,
+	})
 	require.NoError(t, err)
 	assert.Empty(t, previous, "a first binding replaces nothing")
 
-	previous, err = stores.Bindings.Set(ctx, identitystore.SetParams{PrincipalID: principal.ID, EngineID: first.ID, Role: principalrole.Operator})
+	previous, err = stores.Bindings.Set(ctx, identitystore.SetParams{
+		PrincipalID: principal.ID,
+		EngineID:    first.ID,
+		Role:        principalrole.Operator,
+	})
 	require.NoError(t, err)
 	assert.Equal(t, principalrole.Viewer, previous)
 
-	_, err = stores.Bindings.Set(ctx, identitystore.SetParams{PrincipalID: principal.ID, EngineID: other.ID, Role: principalrole.Automation})
+	_, err = stores.Bindings.Set(ctx, identitystore.SetParams{
+		PrincipalID: principal.ID,
+		EngineID:    other.ID,
+		Role:        principalrole.Automation,
+	})
 	require.NoError(t, err)
 
 	listed, err := stores.Bindings.List(ctx)
 	require.NoError(t, err)
 	want := []identitystore.Binding{
-		{PrincipalID: principal.ID, EngineID: first.ID, EngineName: first.Name, Role: principalrole.Operator},
-		{PrincipalID: principal.ID, EngineID: other.ID, EngineName: other.Name, Role: principalrole.Automation},
+		{
+			PrincipalID: principal.ID,
+			EngineID:    first.ID,
+			EngineName:  first.Name,
+			Role:        principalrole.Operator,
+		},
+		{
+			PrincipalID: principal.ID,
+			EngineID:    other.ID,
+			EngineName:  other.Name,
+			Role:        principalrole.Automation,
+		},
 	}
 	if first.Name > other.Name {
 		want[0], want[1] = want[1], want[0]

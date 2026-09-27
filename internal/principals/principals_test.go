@@ -213,7 +213,11 @@ func TestUnbind(t *testing.T) {
 
 	_, err := service.Add(ctx, principals.AddParams{Name: "ci", Kind: identitystore.KindService})
 	require.NoError(t, err)
-	_, err = service.Bind(ctx, principals.BindParams{Principal: "ci", Engine: stores.Engine.Name, Role: "viewer"})
+	_, err = service.Bind(ctx, principals.BindParams{
+		Principal: "ci",
+		Engine:    stores.Engine.Name,
+		Role:      "viewer",
+	})
 	require.NoError(t, err)
 
 	tests := []struct {
@@ -272,9 +276,17 @@ func TestListGroupsBindingsUnderTheirPrincipal(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	_, err := service.Bind(ctx, principals.BindParams{Principal: "ci", Engine: stores.Engine.Name, Role: "automation"})
+	_, err := service.Bind(ctx, principals.BindParams{
+		Principal: "ci",
+		Engine:    stores.Engine.Name,
+		Role:      "automation",
+	})
 	require.NoError(t, err)
-	_, err = service.Bind(ctx, principals.BindParams{Principal: "deploy", Engine: stores.Engine.Name, Role: "operator"})
+	_, err = service.Bind(ctx, principals.BindParams{
+		Principal: "deploy",
+		Engine:    stores.Engine.Name,
+		Role:      "operator",
+	})
 	require.NoError(t, err)
 
 	listed, err := service.List(ctx)

@@ -66,8 +66,8 @@ owner_database_url, the login komrad migrate runs as.`,
 		principalListCmd(open),
 		principalBindCmd(open),
 		principalUnbindCmd(open),
-		principalDisableCmd(open, true),
-		principalDisableCmd(open, false),
+		principalDisableCmd(open),
+		principalEnableCmd(open),
 		principalRemoveCmd(open),
 	)
 
@@ -97,7 +97,7 @@ issued to it.`,
 				kind = identitystore.KindService
 			}
 
-			return withPrincipals(cmd, open, func(editor principalEditor) error {
+			return runWithPrincipals(cmd, open, func(editor principalEditor) error {
 				added, err := editor.Add(cmd.Context(), principals.AddParams{
 					Name:     args[0],
 					Kind:     kind,
@@ -128,7 +128,7 @@ func principalListCmd(open principalOpener) *cobra.Command {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return withPrincipals(cmd, open, func(editor principalEditor) error {
+			return runWithPrincipals(cmd, open, func(editor principalEditor) error {
 				listed, err := editor.List(cmd.Context())
 				if err != nil {
 					return err
@@ -154,7 +154,7 @@ ensure named it, and is an argument rather than --engine, which picks the config
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return withPrincipals(cmd, open, func(editor principalEditor) error {
+			return runWithPrincipals(cmd, open, func(editor principalEditor) error {
 				previous, err := editor.Bind(cmd.Context(), principals.BindParams{
 					Principal: args[0],
 					Engine:    args[1],
@@ -182,7 +182,7 @@ func principalUnbindCmd(open principalOpener) *cobra.Command {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return withPrincipals(cmd, open, func(editor principalEditor) error {
+			return runWithPrincipals(cmd, open, func(editor principalEditor) error {
 				if err := editor.Unbind(cmd.Context(), args[0], args[1]); err != nil {
 					return err
 				}
@@ -193,35 +193,41 @@ func principalUnbindCmd(open principalOpener) *cobra.Command {
 	}
 }
 
-func principalDisableCmd(open principalOpener, disable bool) *cobra.Command {
-	use, short := "enable NAME", "Let a disabled principal be issued tokens again, with the bindings it had"
-	if disable {
-		use, short = "disable NAME", "Stop a principal being issued tokens, keeping its bindings"
-	}
-
+func principalDisableCmd(open principalOpener) *cobra.Command {
 	return &cobra.Command{
-		Use:           use,
-		Short:         short,
+		Use:           "disable NAME",
+		Short:         "Stop a principal being issued tokens, keeping its bindings",
 		Args:          cobra.ExactArgs(1),
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return withPrincipals(cmd, open, func(editor principalEditor) error {
-				if !disable {
-					principal, err := editor.Enable(cmd.Context(), args[0])
-					if err != nil {
-						return err
-					}
-
-					return printLine(cmd.OutOrStdout(), "enabled %s", principal.Name)
-				}
-
+			return runWithPrincipals(cmd, open, func(editor principalEditor) error {
 				principal, err := editor.Disable(cmd.Context(), args[0])
 				if err != nil {
 					return err
 				}
 
 				return printLine(cmd.OutOrStdout(), "disabled %s; %s", principal.Name, issuedTokensNote)
+			})
+		},
+	}
+}
+
+func principalEnableCmd(open principalOpener) *cobra.Command {
+	return &cobra.Command{
+		Use:           "enable NAME",
+		Short:         "Let a disabled principal be issued tokens again, with the bindings it had",
+		Args:          cobra.ExactArgs(1),
+		SilenceUsage:  true,
+		SilenceErrors: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runWithPrincipals(cmd, open, func(editor principalEditor) error {
+				principal, err := editor.Enable(cmd.Context(), args[0])
+				if err != nil {
+					return err
+				}
+
+				return printLine(cmd.OutOrStdout(), "enabled %s", principal.Name)
 			})
 		},
 	}
@@ -235,19 +241,19 @@ func principalRemoveCmd(open principalOpener) *cobra.Command {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return withPrincipals(cmd, open, func(editor principalEditor) error {
+			return runWithPrincipals(cmd, open, func(editor principalEditor) error {
 				bindings, err := editor.Remove(cmd.Context(), args[0])
 				if err != nil {
 					return err
 				}
 
-				return printLine(cmd.OutOrStdout(), "removed %s and %d %s; %s", args[0], bindings, plural(bindings, "binding"), issuedTokensNote)
+				return printLine(cmd.OutOrStdout(), "removed %s and %d %s; %s", args[0], bindings, pluralize(bindings, "binding"), issuedTokensNote)
 			})
 		},
 	}
 }
 
-func withPrincipals(cmd *cobra.Command, open principalOpener, run func(principalEditor) error) error {
+func runWithPrincipals(cmd *cobra.Command, open principalOpener, run func(principalEditor) error) error {
 	editor, closeEditor, err := open(cmd.Context())
 	if err != nil {
 		return err
@@ -288,7 +294,7 @@ func printLine(out io.Writer, format string, args ...any) error {
 	return nil
 }
 
-func plural(count int64, noun string) string {
+func pluralize(count int64, noun string) string {
 	if count == 1 {
 		return noun
 	}

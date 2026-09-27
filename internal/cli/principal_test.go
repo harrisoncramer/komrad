@@ -34,7 +34,11 @@ func (f *fakePrincipalEditor) Add(_ context.Context, params principals.AddParams
 		return nil, f.err
 	}
 
-	return &identitystore.Principal{ID: "0190", Name: params.Name, Kind: params.Kind}, nil
+	return &identitystore.Principal{
+		ID:   "0190",
+		Name: params.Name,
+		Kind: params.Kind,
+	}, nil
 }
 
 func (f *fakePrincipalEditor) List(context.Context) ([]principals.Listed, error) {
@@ -53,14 +57,20 @@ func (f *fakePrincipalEditor) Unbind(context.Context, string, string) error {
 
 func (f *fakePrincipalEditor) Disable(_ context.Context, name string) (*identitystore.Principal, error) {
 	f.toggled = "disable"
+	if f.err != nil {
+		return nil, f.err
+	}
 
-	return &identitystore.Principal{Name: name}, f.err
+	return &identitystore.Principal{Name: name}, nil
 }
 
 func (f *fakePrincipalEditor) Enable(_ context.Context, name string) (*identitystore.Principal, error) {
 	f.toggled = "enable"
+	if f.err != nil {
+		return nil, f.err
+	}
 
-	return &identitystore.Principal{Name: name}, f.err
+	return &identitystore.Principal{Name: name}, nil
 }
 
 func (f *fakePrincipalEditor) Remove(context.Context, string) (int64, error) {
@@ -69,8 +79,6 @@ func (f *fakePrincipalEditor) Remove(context.Context, string) (int64, error) {
 
 // TestPrincipalCommands covers what each subcommand hands the service and prints.
 func TestPrincipalCommands(t *testing.T) {
-	disabledAt := time.Now()
-
 	tests := []struct {
 		name    string
 		args    []string
@@ -124,7 +132,7 @@ func TestPrincipalCommands(t *testing.T) {
 						Kind:       identitystore.KindPerson,
 						Provider:   xptr.Ptr(identitystore.ProviderGitHub),
 						Subject:    xptr.Ptr("1"),
-						DisabledAt: &disabledAt,
+						DisabledAt: xptr.Ptr(time.Now()),
 					},
 					Bindings: []identitystore.Binding{
 						{

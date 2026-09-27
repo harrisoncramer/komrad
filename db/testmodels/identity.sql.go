@@ -9,6 +9,20 @@ import (
 	"context"
 )
 
+const countPrincipals = `-- name: CountPrincipals :one
+SELECT
+    COUNT(*)
+FROM
+    identity.principals
+`
+
+func (q *Queries) CountPrincipals(ctx context.Context) (int64, error) {
+	row := q.db.QueryRow(ctx, countPrincipals)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const deleteEngine = `-- name: DeleteEngine :exec
 DELETE FROM engines
 WHERE id::text = $1::text

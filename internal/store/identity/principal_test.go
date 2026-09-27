@@ -205,7 +205,11 @@ func TestDeletePrincipal(t *testing.T) {
 	require.NoError(t, err)
 	principal, err := stores.Principals.Create(ctx, identitystore.CreateParams{Name: "ci", Kind: identitystore.KindService})
 	require.NoError(t, err)
-	_, err = stores.Bindings.Set(ctx, identitystore.SetParams{PrincipalID: principal.ID, EngineID: engine.ID, Role: principalrole.Viewer})
+	_, err = stores.Bindings.Set(ctx, identitystore.SetParams{
+		PrincipalID: principal.ID,
+		EngineID:    engine.ID,
+		Role:        principalrole.Viewer,
+	})
 	require.NoError(t, err)
 
 	removed, err := stores.Principals.Delete(ctx, "ci")

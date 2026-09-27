@@ -11,6 +11,7 @@ import (
 	"komrad/internal/fail"
 	"komrad/internal/principalrole"
 	identitystore "komrad/internal/store/identity"
+	"komrad/lib/xptr"
 	"komrad/lib/xslice"
 )
 
@@ -25,6 +26,12 @@ var (
 
 var namePattern = regexp.MustCompile(`^[a-z][a-z0-9_-]{0,62}$`)
 
+// Listed is one principal with its bindings.
+type Listed struct {
+	Principal identitystore.Principal
+	Bindings  []identitystore.Binding
+}
+
 type NewPrincipalServiceParams struct {
 	Principals *identitystore.PrincipalStore
 	Bindings   *identitystore.BindingStore
@@ -38,12 +45,6 @@ type PrincipalService struct {
 // NewPrincipalService builds the service over the principal and binding stores, both on the owner's pool.
 func NewPrincipalService(params NewPrincipalServiceParams) *PrincipalService {
 	return &PrincipalService{principals: params.Principals, bindings: params.Bindings}
-}
-
-// Listed is one principal with its bindings.
-type Listed struct {
-	Principal identitystore.Principal
-	Bindings  []identitystore.Binding
 }
 
 type AddParams struct {
@@ -67,14 +68,19 @@ func (s *PrincipalService) Add(ctx context.Context, params AddParams) (*identity
 	if params.Provider != "" {
 		provider, err := parseProvider(params.Provider)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to add principal %q: %w", params.Name, err)
 		}
 
 		created.Provider = &provider
-		created.Subject = &params.Subject
+		created.Subject = xptr.Ptr(params.Subject)
 	}
 
-	return s.principals.Create(ctx, created)
+	principal, err := s.principals.Create(ctx, created)
+	if err != nil {
+		return nil, fmt.Errorf("failed to add principal %q: %w", params.Name, err)
+	}
+
+	return principal, nil
 }
 
 // List returns every principal with its bindings, principals by name and bindings by engine name.
@@ -109,7 +115,7 @@ type BindParams struct {
 func (s *PrincipalService) Bind(ctx context.Context, params BindParams) (principalrole.Role, error) {
 	role, err := principalrole.Parse(params.Role)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to bind principal %q: %w", params.Principal, err)
 	}
 
 	principal, err := s.principals.GetByName(ctx, params.Principal)
@@ -122,7 +128,16 @@ func (s *PrincipalService) Bind(ctx context.Context, params BindParams) (princip
 		return "", fmt.Errorf("failed to find the engine to bind to: %w", err)
 	}
 
-	return s.bindings.Set(ctx, identitystore.SetParams{PrincipalID: principal.ID, EngineID: engine.ID, Role: role})
+	previous, err := s.bindings.Set(ctx, identitystore.SetParams{
+		PrincipalID: principal.ID,
+		EngineID:    engine.ID,
+		Role:        role,
+	})
+	if err != nil {
+		return "", fmt.Errorf("failed to bind principal %q to engine %q: %w", params.Principal, params.Engine, err)
+	}
+
+	return previous, nil
 }
 
 // Unbind removes the named principal's role on the named engine, if it has one.
@@ -137,7 +152,11 @@ func (s *PrincipalService) Unbind(ctx context.Context, principalName, engineName
 		return fmt.Errorf("failed to find the engine to unbind from: %w", err)
 	}
 
-	return s.bindings.Delete(ctx, principal.ID, engine.ID)
+	if err := s.bindings.Delete(ctx, principal.ID, engine.ID); err != nil {
+		return fmt.Errorf("failed to unbind principal %q from engine %q: %w", principalName, engineName, err)
+	}
+
+	return nil
 }
 
 // Disable stops the named principal being issued tokens, keeping its bindings.

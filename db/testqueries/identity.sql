@@ -124,3 +124,9 @@ WHERE engine_id::text = @id::text;
 -- name: DeleteEngine :exec
 DELETE FROM engines
 WHERE id::text = @id::text;
+
+-- name: CountPrincipals :one
+SELECT
+    COUNT(*)
+FROM
+    identity.principals;

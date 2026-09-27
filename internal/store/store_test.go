@@ -5,6 +5,7 @@ import (
 
 	"komrad/db"
 	"komrad/db/models"
+	"komrad/db/testmodels"
 	"komrad/internal/dbtest"
 	"komrad/internal/store"
 	workflowstore "komrad/internal/store/workflow"
@@ -245,7 +246,7 @@ func TestNoEngineLoginCanReadIdentity(t *testing.T) {
 			require.NoError(t, err)
 			t.Cleanup(func() { _ = conn.Close(ctx) })
 
-			_, err = conn.Exec(ctx, "SELECT 1 FROM identity.principals")
+			_, err = testmodels.New(conn).CountPrincipals(ctx)
 
 			var pgErr *pgconn.PgError
 			require.ErrorAs(t, err, &pgErr)

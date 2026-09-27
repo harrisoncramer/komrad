@@ -150,7 +150,7 @@ func EnsureEngine(ctx context.Context, url string, params db.EnsureEngineParams)
 func OpenOwner(ctx context.Context, url string) (*pgxpool.Pool, error) {
 	pool, err := openOwner(ctx, url)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to connect as the owner: %w", err)
 	}
 
 	schema, err := migrator.NewMigrator(pool)
@@ -161,7 +161,7 @@ func OpenOwner(ctx context.Context, url string) (*pgxpool.Pool, error) {
 
 	if err := schema.CheckSchema(ctx); err != nil {
 		pool.Close()
-		return nil, err
+		return nil, fmt.Errorf("failed to check the schema as the owner: %w", err)
 	}
 
 	_, err = models.New(pool).GetCurrentEngine(ctx)
