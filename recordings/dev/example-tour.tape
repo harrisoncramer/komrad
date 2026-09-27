@@ -6,6 +6,7 @@ Type "j"
 Enter
 Wait+Screen@30s /Enter to confirm/
 Ctrl+A
-Type "s"
+Type "O"
+Type "q"
 Type "probe"
 Escape
