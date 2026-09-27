@@ -59,8 +59,7 @@ func (e *Enqueuer) InsertTx(ctx context.Context, args river.JobArgs, before func
 	})
 }
 
-// InsertManyTx records the jobs build asks for in the transaction build writes in, so the
-// writes and the jobs land or fail together.
+// InsertManyTx records the jobs build asks for in the transaction build writes in.
 func (e *Enqueuer) InsertManyTx(ctx context.Context, build func(tx pgx.Tx) ([]river.JobArgs, error)) error {
 	tx, err := e.db.Begin(ctx)
 	if err != nil {

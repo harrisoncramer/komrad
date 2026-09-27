@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"komrad/internal/agents"
 	"komrad/internal/jobs/internaljobs"
@@ -67,7 +68,7 @@ func (d *AgentDelete) Resume(ctx context.Context) error {
 		if err := json.Unmarshal(job.EncodedArgs, &args); err != nil {
 			return fmt.Errorf("failed to read the arguments of job %d: %w", job.ID, err)
 		}
-		covered[args.AgentID] = true
+		covered[claimKey(args.AgentID, args.Claim)] = true
 	}
 
 	return d.queue.InsertManyTx(ctx, func(tx pgx.Tx) ([]river.JobArgs, error) {
@@ -80,13 +81,21 @@ func (d *AgentDelete) Resume(ctx context.Context) error {
 			return nil, err
 		}
 
-		return deleteAgentJobs(xslice.Filter(roots, func(id string) bool { return !covered[id] })), nil
+		return deleteAgentJobs(xslice.Filter(roots, func(root agentstore.Claim) bool { return !covered[claimKey(root.ID, root.DeletingAt)] })), nil
 	})
 }
 
 // missingShown is how many missing ids a refusal names before it counts the rest.
 const missingShown = 5
 
-func deleteAgentJobs(ids []string) []river.JobArgs {
-	return xslice.Map(ids, func(id string) river.JobArgs { return internaljobs.DeleteAgentArgs{AgentID: id} })
+func deleteAgentJobs(roots []agentstore.Claim) []river.JobArgs {
+	return xslice.Map(roots, func(root agentstore.Claim) river.JobArgs { return deleteAgentArgs(root) })
+}
+
+func claimKey(id string, claim time.Time) string {
+	return id + "@" + claim.UTC().Format(time.RFC3339Nano)
+}
+
+func deleteAgentArgs(root agentstore.Claim) internaljobs.DeleteAgentArgs {
+	return internaljobs.DeleteAgentArgs{AgentID: root.ID, Claim: root.DeletingAt.UTC()}
 }

@@ -4,6 +4,7 @@ package internaljobs
 
 import (
 	"context"
+	"time"
 
 	"komrad/internal/agents"
 	"komrad/internal/mail"
@@ -43,8 +44,8 @@ type ScheduledMailer interface {
 }
 
 type AgentDeleter interface {
-	DeleteAgent(ctx context.Context, id string) error
-	FailDelete(ctx context.Context, id string, cause error) error
+	DeleteAgent(ctx context.Context, id string, claim time.Time) error
+	FailDelete(ctx context.Context, id string, claim time.Time, cause error) error
 }
 
 type RunningAgentCounter interface {

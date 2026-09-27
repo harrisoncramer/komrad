@@ -4,6 +4,8 @@ import (
 	"context"
 	"testing"
 
+	"komrad/lib/xslice"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -133,8 +135,8 @@ func TestReleaseLeavesAnUnclaimedRowUntouched(t *testing.T) {
 	assert.Equal(t, before.UpdatedAt, after.UpdatedAt)
 }
 
-// TestDeletingClaimReturnsWhatItTook pins a claim answering the rows it took and nothing a
-// claim before it already holds, and the roots read back after it.
+// TestDeletingClaimReturnsWhatItTook pins a claim answering the rows it took under one stamp
+// and nothing a claim before it already holds, and the roots read back after it.
 func TestDeletingClaimReturnsWhatItTook(t *testing.T) {
 	f := open(t)
 	ctx := t.Context()
@@ -151,19 +153,43 @@ func TestDeletingClaimReturnsWhatItTook(t *testing.T) {
 
 	claims, err := f.MarkDeleting(ctx, []string{parent.ID})
 	require.NoError(t, err)
-	assert.ElementsMatch(t, []Claim{
-		{ID: parent.ID},
-		{ID: child.ID, ParentAgentID: &parent.ID},
-	}, claims)
-	assert.Equal(t, []string{parent.ID}, ClaimRoots(claims))
+	require.Len(t, claims, 2)
+	assert.ElementsMatch(t, []string{parent.ID, child.ID}, claimIDs(claims))
+	assert.True(t, claims[0].DeletingAt.Equal(claims[1].DeletingAt), "one claim stamps every row it takes alike")
+	assert.Equal(t, []string{parent.ID}, claimIDs(ClaimRoots(claims)))
 
 	again, err := f.MarkDeleting(ctx, []string{parent.ID, other.ID})
 	require.NoError(t, err)
-	assert.Equal(t, []Claim{{ID: other.ID}}, again, "a second claim takes only what the first left")
+	assert.Equal(t, []string{other.ID}, claimIDs(again), "a second claim takes only what the first left")
 
 	roots, err := f.ListDeletingRoots(ctx)
 	require.NoError(t, err)
-	assert.ElementsMatch(t, []string{parent.ID, other.ID}, roots, "a claimed child under a claimed parent is not a root")
+	assert.ElementsMatch(t, []string{parent.ID, other.ID}, claimIDs(roots), "a child its parent's claim took is not a root")
+}
+
+// TestAChildClaimedBeforeItsParentIsARoot pins a child an earlier delete took keeping a delete
+// of its own once its parent is claimed after it.
+func TestAChildClaimedBeforeItsParentIsARoot(t *testing.T) {
+	f := open(t)
+	ctx := t.Context()
+
+	require.NoError(t, f.Create(ctx, Agent{Name: "author", State: StateIdle}))
+	parent, err := f.Get(ctx, "author")
+	require.NoError(t, err)
+	require.NoError(t, f.Create(ctx, Agent{Name: "reviewer", ParentAgentID: &parent.ID, State: StateIdle}))
+	child, err := f.Get(ctx, "reviewer")
+	require.NoError(t, err)
+
+	first, err := f.MarkDeleting(ctx, []string{child.ID})
+	require.NoError(t, err)
+	require.Len(t, first, 1)
+	second, err := f.MarkDeleting(ctx, []string{parent.ID})
+	require.NoError(t, err)
+	require.Len(t, second, 1)
+
+	roots, err := f.ListDeletingRoots(ctx)
+	require.NoError(t, err)
+	assert.ElementsMatch(t, []Claim{first[0], second[0]}, roots)
 }
 
 // TestClaimRoots pins which claimed agents start a delete of their own.
@@ -189,7 +215,11 @@ func TestClaimRoots(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, ClaimRoots(tt.claims))
+			assert.Equal(t, tt.want, claimIDs(ClaimRoots(tt.claims)))
 		})
 	}
+}
+
+func claimIDs(claims []Claim) []string {
+	return xslice.Map(claims, func(claim Claim) string { return claim.ID })
 }

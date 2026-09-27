@@ -239,6 +239,11 @@ func TestAgentDeleteResume(t *testing.T) {
 	owed := stores.SeedAgent(t, agentstore.Agent{Name: "owed"})
 	_, err := stores.Agents.MarkDeleting(ctx, []string{owed.ID})
 	require.NoError(t, err)
+	reclaimed := stores.SeedAgent(t, agentstore.Agent{Name: "reclaimed"})
+	require.NoError(t, agentDelete.DeleteAgents(ctx, []string{reclaimed.ID}))
+	require.NoError(t, stores.Agents.ClearDeleting(ctx, []string{reclaimed.ID}))
+	_, err = stores.Agents.MarkDeleting(ctx, []string{reclaimed.ID})
+	require.NoError(t, err)
 
 	abandoned, err := stores.Workflows.Create(ctx, workflowstore.Config{Name: "abandoned", Worktree: workflowstore.WorktreeConfig{BaseBranch: "main"}})
 	require.NoError(t, err)
@@ -253,7 +258,8 @@ func TestAgentDeleteResume(t *testing.T) {
 
 	require.NoError(t, agentDelete.Resume(ctx))
 
-	assert.ElementsMatch(t, []string{queued.ID, owed.ID}, queuedDeletes(t, client), "only the delete no job covered is queued")
+	assert.ElementsMatch(t, []string{queued.ID, owed.ID, reclaimed.ID, reclaimed.ID}, queuedDeletes(t, client),
+		"only a claim no job covers is queued, and a job for a claim given back covers nothing")
 	released, err := stores.Workflows.GetIncludingArchived(ctx, abandoned.ID)
 	require.NoError(t, err)
 	assert.Nil(t, released.DeletingAt, "a workflow no claimed agent holds is released")

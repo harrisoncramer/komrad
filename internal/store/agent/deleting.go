@@ -3,16 +3,19 @@ package agent
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"komrad/db/models"
 	"komrad/internal/store"
 	"komrad/lib/xslice"
 )
 
-// Claim is one agent a delete took, with the parent it hangs under.
+// Claim is one agent a delete took, with the parent it hangs under and the stamp every agent
+// that delete took shares.
 type Claim struct {
 	ID            string
 	ParentAgentID *string
+	DeletingAt    time.Time
 }
 
 // MarkDeleting claims agents and their children for a delete, and with them any archived
@@ -29,7 +32,7 @@ func (s *AgentStore) MarkDeleting(ctx context.Context, ids []string) ([]Claim, e
 	}
 
 	return xslice.Map(rows, func(row *models.MarkAgentsDeletingRow) Claim {
-		return Claim{ID: row.ID, ParentAgentID: row.ParentAgentID}
+		return newClaim(row.ID, row.ParentAgentID, row.DeletingAt)
 	}), nil
 }
 
@@ -48,7 +51,7 @@ func (s *AgentStore) MarkArchivedDeletingByID(ctx context.Context, ids []string)
 	}
 
 	return xslice.Map(rows, func(row *models.MarkArchivedAgentsDeletingByIDRow) Claim {
-		return Claim{ID: row.ID, ParentAgentID: row.ParentAgentID}
+		return newClaim(row.ID, row.ParentAgentID, row.DeletingAt)
 	}), nil
 }
 
@@ -66,26 +69,35 @@ func (s *AgentStore) ClearDeleting(ctx context.Context, ids []string) error {
 	return nil
 }
 
-// ListDeletingRoots returns every agent a delete has claimed whose parent it has not.
-func (s *AgentStore) ListDeletingRoots(ctx context.Context) ([]string, error) {
-	ids, err := s.queries.ListDeletingRoots(ctx)
+// ListDeletingRoots returns every claimed agent whose parent the same delete did not take.
+func (s *AgentStore) ListDeletingRoots(ctx context.Context) ([]Claim, error) {
+	rows, err := s.queries.ListDeletingRoots(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list the agents a delete has claimed: %w", err)
 	}
 
-	return ids, nil
+	return xslice.Map(rows, func(row *models.ListDeletingRootsRow) Claim {
+		return newClaim(row.ID, row.ParentAgentID, row.DeletingAt)
+	}), nil
 }
 
 // ClaimRoots are the claimed agents whose parent the same claim did not take, one per delete.
-func ClaimRoots(claims []Claim) []string {
+func ClaimRoots(claims []Claim) []Claim {
 	claimed := make(map[string]bool, len(claims))
 	for _, claim := range claims {
 		claimed[claim.ID] = true
 	}
 
-	roots := xslice.Filter(claims, func(claim Claim) bool {
+	return xslice.Filter(claims, func(claim Claim) bool {
 		return claim.ParentAgentID == nil || !claimed[*claim.ParentAgentID]
 	})
+}
 
-	return xslice.Map(roots, func(claim Claim) string { return claim.ID })
+func newClaim(id string, parentAgentID *string, deletingAt *time.Time) Claim {
+	claim := Claim{ID: id, ParentAgentID: parentAgentID}
+	if deletingAt != nil {
+		claim.DeletingAt = *deletingAt
+	}
+
+	return claim
 }

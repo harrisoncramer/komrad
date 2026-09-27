@@ -408,8 +408,8 @@ func (s *LifecycleService) deleteNow(ctx context.Context, ids []string) error {
 		return err
 	}
 
-	for _, id := range agentstore.ClaimRoots(claims) {
-		if err := s.DeleteAgent(ctx, id); err != nil {
+	for _, root := range agentstore.ClaimRoots(claims) {
+		if err := s.DeleteAgent(ctx, root.ID, root.DeletingAt); err != nil {
 			return err
 		}
 	}

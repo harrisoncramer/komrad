@@ -84,7 +84,7 @@ func (s *OrchestratorService) Start(ctx context.Context, workflowID string) (*ag
 	}
 	// A row still holding a pane is running, whether or not it has said anything yet.
 	if !spoken && found.Pane == "" {
-		if err := s.lifecycle.deleteAgents(ctx, []agentstore.Agent{*found}); err != nil {
+		if err := s.lifecycle.deleteWithChildren(ctx, []agentstore.Agent{*found}); err != nil {
 			return nil, fmt.Errorf("failed to clear the orchestrator of workflow %q, which never ran: %w", workflowID, err)
 		}
 

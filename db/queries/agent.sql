@@ -86,7 +86,8 @@ WITH claimed AS (
 RETURNING
     id,
     parent_agent_id,
-    workflow_id
+    workflow_id,
+    deleting_at
 ),
 marked AS (
     UPDATE
@@ -120,7 +121,8 @@ marked AS (
 )
         SELECT
             id,
-            parent_agent_id
+            parent_agent_id,
+            deleting_at
         FROM
             claimed;
 
@@ -146,7 +148,8 @@ WITH claimed AS (
     RETURNING
         a.id,
         a.parent_agent_id,
-        a.workflow_id
+        a.workflow_id,
+        a.deleting_at
 ),
 marked AS (
     UPDATE
@@ -180,7 +183,8 @@ marked AS (
 )
         SELECT
             id,
-            parent_agent_id
+            parent_agent_id,
+            deleting_at
         FROM
             claimed;
 
@@ -209,7 +213,9 @@ WHERE
 
 -- name: ListDeletingRoots :many
 SELECT
-    a.id
+    a.id,
+    a.parent_agent_id,
+    a.deleting_at
 FROM
     agents a
 WHERE
@@ -221,7 +227,7 @@ WHERE
             agents parent
         WHERE
             parent.id = a.parent_agent_id
-            AND parent.deleting_at IS NOT NULL)
+            AND parent.deleting_at = a.deleting_at)
 ORDER BY
     a.id;
 

@@ -2,7 +2,10 @@ package internaljobs
 
 import (
 	"context"
+	"errors"
 	"time"
+
+	"komrad/internal/agents"
 
 	"github.com/riverqueue/river"
 )
@@ -10,8 +13,12 @@ import (
 // deleteAgentTimeout covers an agent's teardown hooks and deprovisioner, and its children's.
 const deleteAgentTimeout = 30 * time.Minute
 
+// deleteAgentWait is how long a delete waits for a child another delete is tearing down.
+const deleteAgentWait = 10 * time.Second
+
 type DeleteAgentArgs struct {
-	AgentID string `json:"agent_id"`
+	AgentID string    `json:"agent_id"`
+	Claim   time.Time `json:"claim"`
 }
 
 // Kind is the River job kind.
@@ -41,12 +48,15 @@ func (w *DeleteAgentWorker) Timeout(*river.Job[DeleteAgentArgs]) time.Duration {
 
 // Work deletes one agent and its children, failing the agent's cleanup on the last attempt.
 func (w *DeleteAgentWorker) Work(ctx context.Context, job *river.Job[DeleteAgentArgs]) error {
-	err := w.agents.DeleteAgent(ctx, job.Args.AgentID)
+	err := w.agents.DeleteAgent(ctx, job.Args.AgentID, job.Args.Claim)
+	if errors.Is(err, agents.ErrChildDeleting) {
+		return river.JobSnooze(deleteAgentWait)
+	}
 	if err == nil || job.Attempt < job.MaxAttempts {
 		return err
 	}
 
-	if failErr := w.agents.FailDelete(context.WithoutCancel(ctx), job.Args.AgentID, err); failErr != nil {
+	if failErr := w.agents.FailDelete(context.WithoutCancel(ctx), job.Args.AgentID, job.Args.Claim, err); failErr != nil {
 		return failErr
 	}
 

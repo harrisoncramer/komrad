@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"komrad/config"
 	"komrad/internal/frames"
@@ -161,8 +162,9 @@ func TestDeleteClaimsTheRowWhileTheTeardownRuns(t *testing.T) {
 			require.NoError(t, err)
 			require.NoError(t, manager.lifecycle.ArchiveAgents(t.Context(), []string{agent.ID}))
 
-			_, err = st.Agents.MarkDeleting(t.Context(), []string{agent.ID})
+			claims, err := st.Agents.MarkDeleting(t.Context(), []string{agent.ID})
 			require.NoError(t, err)
+			require.Len(t, claims, 1)
 
 			page, err := st.Rows.ListPage(t.Context(), rowstore.Page{Limit: 10, Archived: true})
 			require.NoError(t, err)
@@ -172,7 +174,7 @@ func TestDeleteClaimsTheRowWhileTheTeardownRuns(t *testing.T) {
 			require.Len(t, all, 1, "and still there")
 			assert.NotNil(t, all[0].DeletingAt)
 
-			require.NoError(t, manager.lifecycle.DeleteAgent(t.Context(), agent.ID))
+			require.NoError(t, manager.lifecycle.DeleteAgent(t.Context(), agent.ID, claims[0].DeletingAt))
 
 			page, err = st.Rows.ListPage(t.Context(), rowstore.Page{Limit: 10, Archived: true})
 			require.NoError(t, err)
@@ -1442,22 +1444,27 @@ func collectAgentNames(agents []agentstore.Agent) []string {
 	})
 }
 
-// TestDeleteAgentTakesOnlyAClaimedAgent pins a delete job leaving alone an agent whose claim
-// was given back before it ran.
+// TestDeleteAgentTakesOnlyAClaimedAgent pins a delete job leaving alone an agent its claim no
+// longer holds.
 func TestDeleteAgentTakesOnlyAClaimedAgent(t *testing.T) {
 	tests := []struct {
 		name            string
-		claim           bool
+		claims          int
 		wantDeprovision []string
 		wantLeft        int
 	}{
 		{
-			name:            "a claimed agent is torn down and removed",
-			claim:           true,
+			name:            "an agent the claim holds is torn down and removed",
+			claims:          1,
 			wantDeprovision: []string{worktreeDeprovisioner},
 		},
 		{
 			name:     "an agent nobody claimed is left alone",
+			wantLeft: 1,
+		},
+		{
+			name:     "an agent claimed again since is left to the newer claim's job",
+			claims:   2,
 			wantLeft: 1,
 		},
 	}
@@ -1478,12 +1485,21 @@ func TestDeleteAgentTakesOnlyAClaimedAgent(t *testing.T) {
 				WorkflowID: created.ID,
 			})
 			require.NoError(t, err)
-			if tt.claim {
-				_, err = st.Agents.MarkDeleting(ctx, []string{agent.ID})
+
+			var first time.Time
+			for i := range tt.claims {
+				if i > 0 {
+					require.NoError(t, st.Agents.ClearDeleting(ctx, []string{agent.ID}))
+				}
+				claims, err := st.Agents.MarkDeleting(ctx, []string{agent.ID})
 				require.NoError(t, err)
+				require.Len(t, claims, 1)
+				if i == 0 {
+					first = claims[0].DeletingAt
+				}
 			}
 
-			require.NoError(t, manager.lifecycle.DeleteAgent(ctx, agent.ID))
+			require.NoError(t, manager.lifecycle.DeleteAgent(ctx, agent.ID, first))
 
 			assert.Equal(t, tt.wantDeprovision, lifecycle.deprovision)
 			all, err := st.Agents.ListAll(ctx)
@@ -1491,6 +1507,53 @@ func TestDeleteAgentTakesOnlyAClaimedAgent(t *testing.T) {
 			assert.Len(t, all, tt.wantLeft)
 		})
 	}
+}
+
+// TestDeleteWaitsOnAChildAnotherDeleteHolds pins a parent's delete tearing nothing down while
+// a child claimed by an earlier delete is still going.
+func TestDeleteWaitsOnAChildAnotherDeleteHolds(t *testing.T) {
+	tmux := tmuxtest.NewFake()
+	st := newStore(t)
+	lifecycle := &fakeLifecycle{}
+	manager := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: &harnesstest.Fake{}}, lifecycle)
+	ctx := t.Context()
+
+	created, err := newWorkflowService(st, tmux).NewWorkflow(ctx, worktreeConfig(t, "backend"))
+	require.NoError(t, err)
+	parent, err := manager.launch.NewAgent(ctx, NewAgentParams{
+		Title:      "author",
+		Dir:        t.TempDir(),
+		WorkflowID: created.ID,
+	})
+	require.NoError(t, err)
+	child, err := manager.launch.NewAgent(ctx, NewAgentParams{
+		Title:         "reviewer",
+		WorkflowID:    created.ID,
+		ParentAgentID: parent.ID,
+	})
+	require.NoError(t, err)
+
+	childClaims, err := st.Agents.MarkDeleting(ctx, []string{child.ID})
+	require.NoError(t, err)
+	require.Len(t, childClaims, 1)
+	parentClaims, err := st.Agents.MarkDeleting(ctx, []string{parent.ID})
+	require.NoError(t, err)
+	require.Len(t, parentClaims, 1, "the child is not taken twice")
+
+	err = manager.lifecycle.DeleteAgent(ctx, parent.ID, parentClaims[0].DeletingAt)
+	require.ErrorIs(t, err, ErrChildDeleting)
+	assert.Empty(t, lifecycle.deprovision, "nothing is torn down while the child's delete runs")
+	all, err := st.Agents.ListAll(ctx)
+	require.NoError(t, err)
+	assert.Len(t, all, 2)
+
+	require.NoError(t, manager.lifecycle.DeleteAgent(ctx, child.ID, childClaims[0].DeletingAt))
+	require.NoError(t, manager.lifecycle.DeleteAgent(ctx, parent.ID, parentClaims[0].DeletingAt))
+
+	assert.Equal(t, []string{worktreeDeprovisioner}, lifecycle.deprovision)
+	all, err = st.Agents.ListAll(ctx)
+	require.NoError(t, err)
+	assert.Empty(t, all)
 }
 
 // TestFailDeleteGivesTheRowBack pins a delete given up on leaving the agent in the archive
@@ -1510,10 +1573,17 @@ func TestFailDeleteGivesTheRowBack(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.NoError(t, manager.lifecycle.ArchiveAgents(ctx, []string{agent.ID}))
-	_, err = st.Agents.MarkDeleting(ctx, []string{agent.ID})
+	claims, err := st.Agents.MarkDeleting(ctx, []string{agent.ID})
 	require.NoError(t, err)
+	require.Len(t, claims, 1)
 
-	require.NoError(t, manager.lifecycle.FailDelete(ctx, agent.ID, errors.New("the store is away")))
+	require.NoError(t, manager.lifecycle.FailDelete(ctx, agent.ID, claims[0].DeletingAt.Add(-time.Second), errors.New("an older job")))
+	all, err := st.Agents.ListAll(ctx)
+	require.NoError(t, err)
+	require.Len(t, all, 1)
+	assert.NotNil(t, all[0].DeletingAt, "a job the claim no longer names fails nothing")
+
+	require.NoError(t, manager.lifecycle.FailDelete(ctx, agent.ID, claims[0].DeletingAt, errors.New("the store is away")))
 
 	page, err := st.Rows.ListPage(ctx, rowstore.Page{Limit: 10, Archived: true})
 	require.NoError(t, err)

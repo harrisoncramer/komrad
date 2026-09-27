@@ -1256,7 +1256,9 @@ func (q *Queries) ListChildAgents(ctx context.Context, parentIds []string) ([]*A
 
 const listDeletingRoots = `-- name: ListDeletingRoots :many
 SELECT
-    a.id
+    a.id,
+    a.parent_agent_id,
+    a.deleting_at
 FROM
     agents a
 WHERE
@@ -1268,24 +1270,30 @@ WHERE
             agents parent
         WHERE
             parent.id = a.parent_agent_id
-            AND parent.deleting_at IS NOT NULL)
+            AND parent.deleting_at = a.deleting_at)
 ORDER BY
     a.id
 `
 
-func (q *Queries) ListDeletingRoots(ctx context.Context) ([]string, error) {
+type ListDeletingRootsRow struct {
+	ID            string
+	ParentAgentID *string
+	DeletingAt    *time.Time
+}
+
+func (q *Queries) ListDeletingRoots(ctx context.Context) ([]*ListDeletingRootsRow, error) {
 	rows, err := q.db.Query(ctx, listDeletingRoots)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []string
+	var items []*ListDeletingRootsRow
 	for rows.Next() {
-		var id string
-		if err := rows.Scan(&id); err != nil {
+		var i ListDeletingRootsRow
+		if err := rows.Scan(&i.ID, &i.ParentAgentID, &i.DeletingAt); err != nil {
 			return nil, err
 		}
-		items = append(items, id)
+		items = append(items, &i)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -1939,46 +1947,51 @@ WITH claimed AS (
 RETURNING
     id,
     parent_agent_id,
-    workflow_id),
+    workflow_id,
+    deleting_at
+),
 marked AS (
-UPDATE
-    workflows w
-SET
-    deleting_at = NOW()
-WHERE
-    w.archived_at IS NOT NULL
-    AND w.deleting_at IS NULL
-    AND w.id IN (
-        SELECT
-            workflow_id
-        FROM
-            claimed)
-    AND NOT EXISTS (
-        SELECT
-            1
-        FROM
-            agents a
-        WHERE
-            a.workflow_id = w.id
-            AND a.archived_at IS NOT NULL
-            AND a.deleting_at IS NULL
-            AND a.id NOT IN (
+    UPDATE
+        workflows w
+    SET
+        deleting_at = NOW()
+    WHERE
+        w.archived_at IS NOT NULL
+        AND w.deleting_at IS NULL
+        AND w.id IN (
+            SELECT
+                workflow_id
+            FROM
+                claimed)
+            AND NOT EXISTS (
                 SELECT
-                    id
+                    1
                 FROM
-                    claimed))
-RETURNING
-    w.id)
-SELECT
-    id,
-    parent_agent_id
-FROM
-    claimed
+                    agents a
+                WHERE
+                    a.workflow_id = w.id
+                    AND a.archived_at IS NOT NULL
+                    AND a.deleting_at IS NULL
+                    AND a.id NOT IN (
+                        SELECT
+                            id
+                        FROM
+                            claimed))
+                RETURNING
+                    w.id
+)
+        SELECT
+            id,
+            parent_agent_id,
+            deleting_at
+        FROM
+            claimed
 `
 
 type MarkAgentsDeletingRow struct {
 	ID            string
 	ParentAgentID *string
+	DeletingAt    *time.Time
 }
 
 func (q *Queries) MarkAgentsDeleting(ctx context.Context, ids []string) ([]*MarkAgentsDeletingRow, error) {
@@ -1990,7 +2003,7 @@ func (q *Queries) MarkAgentsDeleting(ctx context.Context, ids []string) ([]*Mark
 	var items []*MarkAgentsDeletingRow
 	for rows.Next() {
 		var i MarkAgentsDeletingRow
-		if err := rows.Scan(&i.ID, &i.ParentAgentID); err != nil {
+		if err := rows.Scan(&i.ID, &i.ParentAgentID, &i.DeletingAt); err != nil {
 			return nil, err
 		}
 		items = append(items, &i)
@@ -2023,46 +2036,51 @@ WITH claimed AS (
     RETURNING
         a.id,
         a.parent_agent_id,
-        a.workflow_id),
+        a.workflow_id,
+        a.deleting_at
+),
 marked AS (
-UPDATE
-    workflows w
-SET
-    deleting_at = NOW()
-WHERE
-    w.archived_at IS NOT NULL
-    AND w.deleting_at IS NULL
-    AND w.id IN (
-        SELECT
-            workflow_id
-        FROM
-            claimed)
-    AND NOT EXISTS (
-        SELECT
-            1
-        FROM
-            agents a
-        WHERE
-            a.workflow_id = w.id
-            AND a.archived_at IS NOT NULL
-            AND a.deleting_at IS NULL
-            AND a.id NOT IN (
+    UPDATE
+        workflows w
+    SET
+        deleting_at = NOW()
+    WHERE
+        w.archived_at IS NOT NULL
+        AND w.deleting_at IS NULL
+        AND w.id IN (
+            SELECT
+                workflow_id
+            FROM
+                claimed)
+            AND NOT EXISTS (
                 SELECT
-                    id
+                    1
                 FROM
-                    claimed))
-RETURNING
-    w.id)
-SELECT
-    id,
-    parent_agent_id
-FROM
-    claimed
+                    agents a
+                WHERE
+                    a.workflow_id = w.id
+                    AND a.archived_at IS NOT NULL
+                    AND a.deleting_at IS NULL
+                    AND a.id NOT IN (
+                        SELECT
+                            id
+                        FROM
+                            claimed))
+                RETURNING
+                    w.id
+)
+        SELECT
+            id,
+            parent_agent_id,
+            deleting_at
+        FROM
+            claimed
 `
 
 type MarkArchivedAgentsDeletingByIDRow struct {
 	ID            string
 	ParentAgentID *string
+	DeletingAt    *time.Time
 }
 
 func (q *Queries) MarkArchivedAgentsDeletingByID(ctx context.Context, ids []string) ([]*MarkArchivedAgentsDeletingByIDRow, error) {
@@ -2074,7 +2092,7 @@ func (q *Queries) MarkArchivedAgentsDeletingByID(ctx context.Context, ids []stri
 	var items []*MarkArchivedAgentsDeletingByIDRow
 	for rows.Next() {
 		var i MarkArchivedAgentsDeletingByIDRow
-		if err := rows.Scan(&i.ID, &i.ParentAgentID); err != nil {
+		if err := rows.Scan(&i.ID, &i.ParentAgentID, &i.DeletingAt); err != nil {
 			return nil, err
 		}
 		items = append(items, &i)

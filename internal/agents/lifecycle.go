@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"os"
 	"slices"
+	"time"
 
 	"komrad/config"
 	"komrad/internal/frames"
@@ -104,29 +105,45 @@ func NewLifecycleService(params NewLifecycleServiceParams) *LifecycleService {
 	}
 }
 
-// DeleteAgent deletes an agent a delete has claimed, and does nothing to one it has not.
-func (s *LifecycleService) DeleteAgent(ctx context.Context, id string) error {
-	named, err := s.agents.ListByID(ctx, []string{id})
+// DeleteAgent deletes an agent and the children the same claim took, and does nothing to an
+// agent that claim no longer holds.
+func (s *LifecycleService) DeleteAgent(ctx context.Context, id string, claim time.Time) error {
+	named, err := s.claimedBy(ctx, id, claim)
+	if err != nil || len(named) == 0 {
+		return err
+	}
+
+	children, err := s.agents.ListChildren(ctx, []string{id})
 	if err != nil {
-		return fmt.Errorf("failed to look up agent %s: %w", id, err)
+		return err
 	}
 
-	claimed := xslice.Filter(named, func(agent agentstore.Agent) bool { return agent.DeletingAt != nil })
-	if len(claimed) == 0 {
-		return nil
+	agents := named
+	for _, child := range children {
+		if child.DeletingAt != nil && !child.DeletingAt.Equal(claim) {
+			return ErrChildDeleting.Saying("agent %s waits on the delete of its child %s", id, child.ID)
+		}
+
+		agents = append(agents, child)
 	}
 
-	return s.deleteAgents(ctx, claimed)
+	return s.deleteAgents(ctx, agents)
 }
 
-// deleteAgents stops agents and their children, tears each down, and removes those whose
-// teardown worked, returning only once every teardown has finished.
-func (s *LifecycleService) deleteAgents(ctx context.Context, named []agentstore.Agent) error {
+// deleteWithChildren stops agents and every child they have, tears each down, and removes those
+// whose teardown worked.
+func (s *LifecycleService) deleteWithChildren(ctx context.Context, named []agentstore.Agent) error {
 	agents, err := s.withChildren(ctx, named)
 	if err != nil {
 		return err
 	}
 
+	return s.deleteAgents(ctx, agents)
+}
+
+// deleteAgents stops agents, tears each down, and removes those whose teardown worked,
+// returning only once every teardown has finished.
+func (s *LifecycleService) deleteAgents(ctx context.Context, agents []agentstore.Agent) error {
 	// A deprovisioner must not run against a directory a CLI is still working in, and since the
 	// children share their parent's, this is what keeps the parent's deprovision from tearing down a
 	// checkout one of them is still sitting in.
@@ -167,11 +184,12 @@ func (s *LifecycleService) deleteAgents(ctx context.Context, named []agentstore.
 	return nil
 }
 
-// FailDelete gives up on deleting an agent, leaving it in the archive as failed to clean up.
-func (s *LifecycleService) FailDelete(ctx context.Context, id string, cause error) error {
-	named, err := s.agents.ListByID(ctx, []string{id})
+// FailDelete gives up on deleting an agent the claim still holds, leaving it in the archive as
+// failed to clean up.
+func (s *LifecycleService) FailDelete(ctx context.Context, id string, claim time.Time, cause error) error {
+	named, err := s.claimedBy(ctx, id, claim)
 	if err != nil {
-		return fmt.Errorf("failed to look up agent %s: %w", id, err)
+		return err
 	}
 
 	for _, agent := range named {
@@ -179,6 +197,17 @@ func (s *LifecycleService) FailDelete(ctx context.Context, id string, cause erro
 	}
 
 	return nil
+}
+
+func (s *LifecycleService) claimedBy(ctx context.Context, id string, claim time.Time) ([]agentstore.Agent, error) {
+	named, err := s.agents.ListByID(ctx, []string{id})
+	if err != nil {
+		return nil, fmt.Errorf("failed to look up agent %s: %w", id, err)
+	}
+
+	return xslice.Filter(named, func(agent agentstore.Agent) bool {
+		return agent.DeletingAt != nil && agent.DeletingAt.Equal(claim)
+	}), nil
 }
 
 // tearDown waits out an agent's hooks still running, runs its pre-delete hooks while its

@@ -1049,7 +1049,11 @@ func TestDeleteWorkflowClaimsTheWorkflowWhileItsAgentsGo(t *testing.T) {
 	require.NotNil(t, got, "and still there")
 	assert.NotNil(t, got.DeletingAt)
 
-	require.NoError(t, agentSvc.lifecycle.DeleteAgent(ctx, agent.ID))
+	all, err := st.Agents.ListAll(ctx)
+	require.NoError(t, err)
+	require.Len(t, all, 1)
+	require.NotNil(t, all[0].DeletingAt)
+	require.NoError(t, agentSvc.lifecycle.DeleteAgent(ctx, agent.ID, *all[0].DeletingAt))
 
 	_, err = st.Workflows.GetIncludingArchived(ctx, created.ID)
 	require.ErrorIs(t, err, store.ErrNotFound, "the last agent going takes the workflow with it")

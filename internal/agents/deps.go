@@ -28,6 +28,7 @@ var (
 	ErrChildOwnsLaunch      = fail.InvalidArgument("a child agent takes its launch from its parent")
 	ErrTooManyChildren      = fail.Exhausted("too many children")
 	ErrTooManySpawned       = fail.Exhausted("too many spawned agents")
+	ErrChildDeleting        = fail.Precondition("a child is still being deleted by another delete")
 
 	// ErrChildNeedsParentDirectory says the agent a child was to be attached to has no directory
 	// recorded.
