@@ -185,6 +185,24 @@ func TestRenderRowShapes(t *testing.T) {
 			},
 		},
 		{
+			name:   "two-digit counts widen their columns rather than clipping",
+			golden: "row-commented-wide",
+			row: Row{
+				Kind:   KindAgent,
+				Name:   "hash-rewrite",
+				Forge:  ForgeOpen,
+				Status: StatusWaiting,
+				ReviewerComments: &Comments{
+					Open:     12,
+					Resolved: 12,
+				},
+				PersonComments: &Comments{
+					Open:     1,
+					Resolved: 10,
+				},
+			},
+		},
+		{
 			name:   "mail and a failed log follow the name",
 			golden: "row-mail-and-alert",
 			row: Row{

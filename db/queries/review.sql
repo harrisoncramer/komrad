@@ -387,13 +387,16 @@ said AS (
         w.thread_id,
         w.author_kind,
         w.author_agent_id,
-        w.round_id IS NOT NULL AS resolves,
+(w.round_id IS NOT NULL
+            AND v.author_kind = 'human') AS resolves,
 (t.resolved_at IS NOT NULL
             AND w.author_kind = t.resolved_by_kind
-            AND w.author_agent_id IS NOT DISTINCT FROM t.resolved_by_agent_id) AS reopens
+            AND w.author_agent_id IS NOT DISTINCT FROM t.resolved_by_agent_id
+            AND w.author_agent_id IS DISTINCT FROM t.agent_id) AS reopens
     FROM
         written w
         JOIN review_threads t ON t.id = w.thread_id
+        JOIN reviews v ON v.id = t.review_id
 ),
 touched AS (
     UPDATE
@@ -604,10 +607,23 @@ SELECT
     r.agent_id,
     r.ordinal,
     r.base_sha,
-    r.snapshot_sha
+    r.snapshot_sha,
+    m.merged_at
 FROM
     review_rounds r
     JOIN agents a ON a.id = r.agent_id
+    LEFT JOIN LATERAL (
+        SELECT
+            p.merged_at
+        FROM
+            agent_pull_requests o
+            JOIN pull_requests p ON p.id = o.pull_request_id
+        WHERE
+            o.agent_id = r.agent_id
+            AND p.merged_at IS NOT NULL
+        ORDER BY
+            p.merged_at DESC
+        LIMIT 1) m ON TRUE
 WHERE
     r.landed_at IS NULL
     AND a.archived_at IS NULL

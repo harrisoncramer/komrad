@@ -38,6 +38,7 @@ type Trees struct {
 	Dirs        []string
 	Bases       []string
 	Tips        map[string]string
+	Fetched     []string
 	Landed      map[string]bool
 	Walked      []string
 }
@@ -92,6 +93,15 @@ func (t *Trees) ReadBaseTip(_ context.Context, dir, _ string) (string, error) {
 	}
 
 	return tip, nil
+}
+
+// FetchBase records the directory whose base was fetched and answers its origin ref.
+func (t *Trees) FetchBase(_ context.Context, dir, base string) (string, string, error) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.Fetched = append(t.Fetched, dir)
+
+	return "origin/" + base, "", nil
 }
 
 // HasLanded records the round asked about and answers what Landed holds for its snapshot.

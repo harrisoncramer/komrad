@@ -40,8 +40,7 @@ var ErrReviewAlreadyGiven = fail.Precondition("that round has already been revie
 // unsent comments on another.
 var ErrReviewInFlight = fail.Precondition("you have unsent comments on an earlier snapshot")
 
-// ErrReviewVerdictFromPerson is answered when a person sends a verdict, since what they send is
-// comments and nothing else.
+// ErrReviewVerdictFromPerson is answered when a person sends a verdict.
 var ErrReviewVerdictFromPerson = fail.InvalidArgument("a person's review carries comments and no verdict")
 
 // ErrReviewVerdictMissing is answered when a reviewing agent releases a review without saying
@@ -615,7 +614,7 @@ type batchTally struct {
 	Comments int
 	// Replies is the threads opened earlier that the batch said more in.
 	Replies int
-	// Reopens is the replies landing on a resolved thread, which the person's release reopens.
+	// Reopens is the replies landing on a resolved thread.
 	Reopens int
 }
 

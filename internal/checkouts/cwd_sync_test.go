@@ -7,10 +7,12 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"komrad/internal/git"
 	"komrad/internal/gittest"
 	agentstore "komrad/internal/store/agent"
+	pullrequeststore "komrad/internal/store/pullrequest"
 	reviewstore "komrad/internal/store/review"
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/internal/storetest"
@@ -559,6 +561,26 @@ func TestCwdSyncerSyncWalksTheLandingAgainOnlyWhenSomethingMoved(t *testing.T) {
 	assert.Empty(t, fixture.readUnlanded(t, agent.ID))
 }
 
+// TestCwdSyncerSyncFetchesTheBaseOncePerMerge covers the base being fetched when the agent's pull
+// request merges, and not again until another does.
+func TestCwdSyncerSyncFetchesTheBaseOncePerMerge(t *testing.T) {
+	fixture := newSyncFixture(t)
+	cwd := makeCheckout(t)
+	agent := fixture.seed(t, "a", cwd)
+	fixture.release(t, agent.ID, "snapshot-one", reviewstore.VerdictCommented)
+	trees := buildEmptyTrees()
+	trees.Tips = map[string]string{cwd: "tip-one"}
+	syncer := fixture.newSyncer(NewCwdSyncerParams{Heads: buildHeads(cwd, git.HeadState{Root: cwd}), Trees: trees})
+
+	require.NoError(t, syncer.Sync(t.Context()))
+	assert.Empty(t, trees.Fetched, "an open pull request fetches nothing")
+
+	fixture.merge(t, agent.ID, time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC))
+	require.NoError(t, syncer.Sync(t.Context()))
+	require.NoError(t, syncer.Sync(t.Context()))
+	assert.Equal(t, []string{cwd}, trees.Fetched, "one merge is one fetch")
+}
+
 func newSyncFixture(t *testing.T) *syncFixture {
 	t.Helper()
 
@@ -607,6 +629,37 @@ func (f *syncFixture) release(t *testing.T, agentID, snapshot string, verdict re
 		ID:      review.ID,
 		Verdict: verdict,
 	})
+	require.NoError(t, err)
+}
+
+// merge puts the agent on a branch whose pull request merged at the time given.
+func (f *syncFixture) merge(t *testing.T, agentID string, mergedAt time.Time) {
+	t.Helper()
+
+	ctx := t.Context()
+	repository, branch := "https://github.com/harrisoncramer/komrad", "agent/a"
+	require.NoError(t, f.stores.Agents.SetCheckout(ctx, agentID, agentstore.SetCheckoutParams{
+		RepositoryURL: &repository,
+		Branch:        &branch,
+	}))
+	require.NoError(t, f.stores.PullRequestSyncs.EnsureSync(ctx, repository))
+	_, err := f.stores.PullRequests.Upsert(ctx, pullrequeststore.UpsertParams{
+		Host:              "github.com",
+		Forge:             "github",
+		ProviderID:        "PR_1",
+		URL:               repository + "/pull/1",
+		RepositoryURL:     repository,
+		HeadRepositoryURL: repository,
+		Number:            1,
+		HeadBranch:        branch,
+		BaseBranch:        "main",
+		State:             "merged",
+		OpenedAt:          mergedAt.Add(-time.Hour),
+		ChangedAt:         mergedAt,
+		MergedAt:          &mergedAt,
+	})
+	require.NoError(t, err)
+	_, err = f.stores.PullRequests.Observe(ctx)
 	require.NoError(t, err)
 }
 

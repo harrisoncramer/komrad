@@ -20,6 +20,9 @@ import (
 // cwdLookTimeout bounds each look at a directory.
 const cwdLookTimeout = 5 * time.Second
 
+// baseFetchTimeout bounds the fetch of a base a merge has moved.
+const baseFetchTimeout = 30 * time.Second
+
 // cwdLookWorkers is how many directories are looked at together.
 const cwdLookWorkers = 8
 
@@ -40,6 +43,7 @@ type treeReader interface {
 	ReadStanding(ctx context.Context, params git.ReadStandingParams) (git.Standing, error)
 	ReadBaseTip(ctx context.Context, dir, base string) (string, error)
 	HasLanded(ctx context.Context, params git.HasLandedParams) (bool, error)
+	FetchBase(ctx context.Context, dir, base string) (ref, sha string, err error)
 }
 
 type workflowLister interface {
@@ -76,11 +80,13 @@ type CwdSyncer struct {
 	rounds       roundLister
 	bases        workflowLister
 	pullRequests pullRequestObserver
-	// walkedMu guards walked.
+	// walkedMu guards walked and fetched.
 	walkedMu sync.Mutex
 	// walked is the base tip and newest unlanded round each agent's landing was last walked at,
 	// so a walk that would find what the last one did is skipped.
 	walked map[string]string
+	// fetched is the merge each agent's base was last fetched for.
+	fetched map[string]time.Time
 }
 
 // NewCwdSyncer builds a syncer over the agent store.
@@ -93,6 +99,7 @@ func NewCwdSyncer(params NewCwdSyncerParams) *CwdSyncer {
 		bases:        params.Bases,
 		pullRequests: params.PullRequests,
 		walked:       map[string]string{},
+		fetched:      map[string]time.Time{},
 	}
 }
 
@@ -412,6 +419,10 @@ func (cs *CwdSyncer) walkLanding(ctx context.Context, params walkLandingParams) 
 		return 0, "", nil
 	}
 
+	if err := cs.fetchMergedBase(ctx, params); err != nil {
+		return 0, "", err
+	}
+
 	ctx, cancel := context.WithTimeout(ctx, cwdLookTimeout)
 	defer cancel()
 
@@ -447,6 +458,33 @@ func (cs *CwdSyncer) walkLanding(ctx context.Context, params walkLandingParams) 
 	}
 
 	return 0, walkedAt, nil
+}
+
+// fetchMergedBase fetches the base once for each merge of the agent's pull request, so the walk
+// reads a base that holds what merged.
+func (cs *CwdSyncer) fetchMergedBase(ctx context.Context, params walkLandingParams) error {
+	merged := params.Rounds[0].MergedAt
+	if merged == nil {
+		return nil
+	}
+
+	cs.walkedMu.Lock()
+	isFetched := cs.fetched[params.Agent.ID].Equal(*merged)
+	cs.fetched[params.Agent.ID] = *merged
+	cs.walkedMu.Unlock()
+	if isFetched {
+		return nil
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, baseFetchTimeout)
+	defer cancel()
+
+	_, _, err := cs.trees.FetchBase(ctx, params.Agent.Cwd, params.Base)
+	if err != nil && !errors.Is(err, git.ErrBaseMissing) {
+		return fmt.Errorf("failed to fetch the base of %q: %w", params.Agent.Name, err)
+	}
+
+	return nil
 }
 
 func isCwdRemoved(ctx context.Context, dir string) bool {

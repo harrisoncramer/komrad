@@ -46,6 +46,30 @@ func TestReviewAnswer(t *testing.T) {
 		assert.Contains(t, frame, "2 files, +4 -1")
 	})
 
+	t.Run("an answer taken after the screen opened is found among the rounds listed afresh", func(t *testing.T) {
+		server := newEarlierReviewServer(t)
+		server.threads = []*agentv1.ReviewThread{newCommentOnRoundOne()}
+		harness := openReview(t, server)
+
+		answer := newAnswer()
+		answer.RoundId = proto.String("round-3")
+		server.rounds = append(server.rounds, &agentv1.ReviewRound{
+			Id:          "round-3",
+			AgentId:     "a1",
+			Ordinal:     3,
+			BaseSha:     gittest.BaseSHA,
+			SnapshotSha: server.rounds[len(server.rounds)-1].GetSnapshotSha(),
+		})
+		server.threads = []*agentv1.ReviewThread{newCommentOnRoundOne(answer)}
+		harness.watch(server.buildSnapshot())
+
+		harness.press("t", "a")
+
+		frame := readStageText(harness.readFrame())
+		assert.Contains(t, frame, "the answer to this comment")
+		assert.Contains(t, frame, "1 file, +3 -0")
+	})
+
 	t.Run("an answer across a rebase is replayed onto the answer's base", func(t *testing.T) {
 		server := newMovedBaseServer(t, &git.Replayed{Tree: replayedTree})
 		server.threads = []*agentv1.ReviewThread{newCommentOnRoundOne(newAnswer())}

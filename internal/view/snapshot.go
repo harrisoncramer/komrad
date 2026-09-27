@@ -122,13 +122,22 @@ func (s Snapshot) columns() Columns {
 		return s.Columns
 	}
 
+	reviewer, person, commented := 0, 0, false
 	for _, row := range s.Rows {
-		if row.ReviewerComments != nil || row.PersonComments != nil {
-			return CommentedWorkColumns()
+		if row.ReviewerComments == nil && row.PersonComments == nil {
+			continue
 		}
+
+		commented = true
+		reviewer = max(reviewer, countPairColumns(row.ReviewerComments))
+		person = max(person, countPairColumns(row.PersonComments))
 	}
 
-	return WorkColumns()
+	if !commented {
+		return WorkColumns()
+	}
+
+	return CommentedWorkColumns(reviewer, person)
 }
 
 // Comments is how one side's comments on an agent's work stand.

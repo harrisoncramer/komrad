@@ -550,7 +550,7 @@
             "orchestrator"
           ],
           "summary": "Say something in a review thread, which is how you answer feedback on your own diff.",
-          "description": "Say something in a review thread, which is how you answer feedback on your own diff. Make the change a comment asks for first, then reply with addressed set: komrad takes a round of your worktree, pins it to the reply so the reviewer can read exactly what answered them, and resolves the comment. One edit that answers several comments is one addressed reply on each. Reply without addressed to push back or to ask what was meant, which leaves the comment open. Write it the way you would say it out loud, in one or two sentences, naming the line, value or case you mean. An addressed reply is refused when the worktree has not changed since the comment was written.",
+          "description": "Say something in a review thread, which is how you answer feedback on your own diff. Make the change a comment asks for first, then reply with addressed set: komrad takes a round of your worktree and pins it to the reply so the reviewer can read exactly what answered them. That resolves a person's comment, while a reviewer agent settles its own once satisfied. One edit that answers several comments is one addressed reply on each. Reply without addressed to push back or to ask what was meant, which leaves the comment open. An addressed reply is refused when the worktree has not changed since the comment was written. Write it the way you would say it out loud. One or two sentences is the normal size and a hundred words is the ceiling. Name the line, the value or the case you mean, and quote code where the code is the point. No preamble, no summary at the end, no hedging, and no invented names for things the repository does not call that. Each call adds another message, so do not retry a call that may have succeeded.",
           "readOnly": false,
           "idempotent": false,
           "destructive": false,
@@ -3515,7 +3515,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "What a reviewing agent concludes, which tells the agent it reviewed whether it is done. An agent must set it and a person must leave it unset, since what a person sends is comments."
+          "description": "What a reviewing agent concludes, which tells the agent it reviewed whether it is done. An agent must set it and a person must leave it unset."
         },
         {
           "name": "interrupt",
@@ -4098,7 +4098,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The round an addressed reply was taken of, which is what answered the thread. Absent on every other message."
+          "description": "The round an addressed reply was taken of. Absent on every other message."
         }
       ]
     },

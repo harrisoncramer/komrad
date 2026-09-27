@@ -383,7 +383,7 @@ func TestPrepareCommentColumns(t *testing.T) {
 				Kind:           KindChild,
 				PersonComments: &Comments{Open: 1},
 			},
-			wantColumns: CommentedWorkColumns(),
+			wantColumns: CommentedWorkColumns(0, 0),
 		},
 		{
 			name: "a side with nothing to show is a dash beside one that has",
@@ -391,7 +391,7 @@ func TestPrepareCommentColumns(t *testing.T) {
 				Kind:             KindAgent,
 				ReviewerComments: &Comments{Resolved: 2},
 			},
-			wantColumns:  CommentedWorkColumns(),
+			wantColumns:  CommentedWorkColumns(0, 0),
 			wantReviewer: Cell{Parts: []Cell{muted("0"), muted("|2")}},
 			wantPerson:   Cell{Parts: []Cell{muted("–"), blankDot}},
 		},
@@ -409,7 +409,7 @@ func TestPrepareCommentColumns(t *testing.T) {
 					Unread:   true,
 				},
 			},
-			wantColumns:  CommentedWorkColumns(),
+			wantColumns:  CommentedWorkColumns(0, 0),
 			wantReviewer: Cell{Parts: []Cell{muted("3"), muted("|1")}},
 			wantPerson: Cell{Parts: []Cell{
 				{

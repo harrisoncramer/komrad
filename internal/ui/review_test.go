@@ -59,6 +59,7 @@ type reviewServer struct {
 	reviews    []*agentv1.Review
 	reviewsErr error
 	roundsErr  error
+	openErr    error
 	holdErr    error
 }
 
@@ -84,6 +85,18 @@ func TestReviewOpen(t *testing.T) {
 
 		assert.False(t, harness.panel.IsZoomed())
 		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceOpenReviewRoundProcedure))
+	})
+
+	t.Run("an agent part way through a rebase opens on its newest round", func(t *testing.T) {
+		server := newEarlierReviewServer(t)
+		server.openErr = connect.NewError(connect.CodeFailedPrecondition, errors.New("a rebase is part way through"))
+
+		harness := openReview(t, server)
+
+		frame := harness.readFrame()
+		assert.True(t, harness.panel.IsZoomed())
+		assert.Contains(t, readSidebarProse(frame), "a rebase or merge is part way through, so this is round 1")
+		assert.Contains(t, readStageText(frame), "1 file")
 	})
 
 	t.Run("a diff git cannot read is refused with the reason", func(t *testing.T) {
@@ -2630,6 +2643,10 @@ func (s *reviewServer) serve(harness *panelHarness) {
 }
 
 func (s *reviewServer) openRound(req connect.AnyRequest) (connect.AnyResponse, error) {
+	if s.openErr != nil {
+		return nil, s.openErr
+	}
+
 	open, _ := req.Any().(*agentv1.OpenReviewRoundRequest)
 	sha := gittest.NameSnapshot(s.repo.Tree)
 	if len(s.rounds) == 0 || s.rounds[len(s.rounds)-1].GetSnapshotSha() != sha {

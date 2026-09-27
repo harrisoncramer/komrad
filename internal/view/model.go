@@ -134,13 +134,13 @@ func WorkColumns() Columns {
 }
 
 // CommentedWorkColumns is the agents list's gutter with the comment counts of reviewer agents and
-// of the person drawn between review and forge.
-func CommentedWorkColumns() Columns {
+// of the person drawn between review and forge, each as wide as its widest pair.
+func CommentedWorkColumns(reviewer, person int) Columns {
 	return Columns{
 		{Kind: ColumnRepo, Width: plainColumns},
 		{Kind: ColumnReview, Width: plainColumns},
-		{Kind: ColumnReviewerComments, Width: countColumns},
-		{Kind: ColumnPersonComments, Width: countColumns + plainColumns},
+		{Kind: ColumnReviewerComments, Width: max(reviewer, countColumns)},
+		{Kind: ColumnPersonComments, Width: max(person, countColumns) + plainColumns},
 		{Kind: ColumnForge, Width: plainColumns},
 	}
 }

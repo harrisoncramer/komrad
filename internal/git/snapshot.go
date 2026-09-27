@@ -14,7 +14,7 @@ import (
 )
 
 // ErrSequenceInProgress is a snapshot refused while a rebase, merge, cherry-pick or revert is
-// part way through, since the tree it would freeze is a half-applied state of the branch.
+// part way through.
 var ErrSequenceInProgress = fail.Precondition("a rebase or merge is part way through in that checkout; finish or abort it first")
 
 // snapshotMessage is what the round's commit says.
@@ -458,8 +458,7 @@ type HasLandedParams struct {
 	SnapshotSHA string
 }
 
-// HasLanded reports whether the base branch holds a round whole, which a round that changed
-// nothing, a base that is the worktree's own branch, and a base the clone lacks never do.
+// HasLanded reports whether the base branch holds a round whole.
 func (c *Client) HasLanded(ctx context.Context, params HasLandedParams) (bool, error) {
 	root, err := c.GetRoot(ctx, params.Dir)
 	if err != nil {

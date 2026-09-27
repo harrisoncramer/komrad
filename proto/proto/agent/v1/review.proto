@@ -212,8 +212,7 @@ message ReviewMessage {
   // The review this message went out with, absent for an answer written by the agent under
   // review, which belongs to no batch.
   optional string review_id = 12;
-  // The round an addressed reply was taken of, which is what answered the thread. Absent on
-  // every other message.
+  // The round an addressed reply was taken of. Absent on every other message.
   optional string round_id = 13;
 }
 
@@ -399,7 +398,7 @@ message ReleaseReviewRequest {
   // Whose work the batch was written against.
   string agent_id = 1 [(buf.validate.field).string.min_len = 1];
   // What a reviewing agent concludes, which tells the agent it reviewed whether it is done. An
-  // agent must set it and a person must leave it unset, since what a person sends is comments.
+  // agent must set it and a person must leave it unset.
   ReviewVerdict verdict = 2 [(buf.validate.field).enum.defined_only = true];
   // Stop the agent where it stands before telling it, so it reads now rather than at the end
   // of whatever it is doing.

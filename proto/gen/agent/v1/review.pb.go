@@ -889,8 +889,7 @@ type ReviewMessage struct {
 	// The review this message went out with, absent for an answer written by the agent under
 	// review, which belongs to no batch.
 	ReviewId *string `protobuf:"bytes,12,opt,name=review_id,json=reviewId,proto3,oneof" json:"review_id,omitempty"`
-	// The round an addressed reply was taken of, which is what answered the thread. Absent on
-	// every other message.
+	// The round an addressed reply was taken of. Absent on every other message.
 	RoundId       *string `protobuf:"bytes,13,opt,name=round_id,json=roundId,proto3,oneof" json:"round_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -2171,7 +2170,7 @@ type ReleaseReviewRequest struct {
 	// Whose work the batch was written against.
 	AgentId string `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
 	// What a reviewing agent concludes, which tells the agent it reviewed whether it is done. An
-	// agent must set it and a person must leave it unset, since what a person sends is comments.
+	// agent must set it and a person must leave it unset.
 	Verdict ReviewVerdict `protobuf:"varint,2,opt,name=verdict,proto3,enum=agent.v1.ReviewVerdict" json:"verdict,omitempty"`
 	// Stop the agent where it stands before telling it, so it reads now rather than at the end
 	// of whatever it is doing.

@@ -460,6 +460,8 @@ type UnlandedRound struct {
 	Ordinal     int32
 	BaseSHA     string
 	SnapshotSHA string
+	// MergedAt is when the agent's newest merged pull request merged, nil while none has.
+	MergedAt *time.Time
 }
 
 // ListUnlandedRounds is every live agent's unlanded rounds with a released review, newest first,
@@ -476,6 +478,7 @@ func (s *ReviewStore) ListUnlandedRounds(ctx context.Context) (map[string][]Unla
 			Ordinal:     row.Ordinal,
 			BaseSHA:     row.BaseSha,
 			SnapshotSHA: row.SnapshotSha,
+			MergedAt:    row.MergedAt,
 		})
 	}
 

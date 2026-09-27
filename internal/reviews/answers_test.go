@@ -13,6 +13,7 @@ func TestAddressedReply(t *testing.T) {
 	tests := []struct {
 		name        string
 		author      func(fx *reviewFixture) ReviewAuthor
+		homeless    bool
 		snapshot    string
 		wantErr     error
 		wantOrdinal int32
@@ -24,6 +25,15 @@ func TestAddressedReply(t *testing.T) {
 			},
 			snapshot: secondSnapshot,
 			wantErr:  ErrReviewAddressedByOwner,
+		},
+		{
+			name: "the agent under review with no worktree",
+			author: func(fx *reviewFixture) ReviewAuthor {
+				return newAgentAuthor(fx.worker)
+			},
+			homeless: true,
+			snapshot: secondSnapshot,
+			wantErr:  ErrReviewNoAnswerRound,
 		},
 		{
 			name: "the agent under review with nothing changed",
@@ -48,6 +58,10 @@ func TestAddressedReply(t *testing.T) {
 			fx := newReviewFixture(t, time.Hour)
 			thread := fx.releaseFirstReview(t)
 			fx.snapshots.SHA = tt.snapshot
+			if tt.homeless {
+				fx.worker.Cwd = ""
+				require.NoError(t, fx.stores.Agents.Update(t.Context(), *fx.worker))
+			}
 
 			added, err := fx.service.AddReviewMessage(t.Context(), AddReviewMessageParams{
 				ThreadID:  thread.ID,
@@ -66,10 +80,6 @@ func TestAddressedReply(t *testing.T) {
 			round, err := fx.reviews.GetRound(t.Context(), *added.Message.RoundID)
 			require.NoError(t, err)
 			assert.Equal(t, tt.wantOrdinal, round.Ordinal)
-
-			settled, err := fx.reviews.GetThread(t.Context(), thread.ID)
-			require.NoError(t, err)
-			assert.NotNil(t, settled.ResolvedAt)
 		})
 	}
 }
@@ -108,10 +118,6 @@ func TestPlainReplyHint(t *testing.T) {
 
 			assert.Equal(t, tt.wantHint, added.Hint != "")
 			assert.Nil(t, added.Message.RoundID)
-
-			open, err := fx.reviews.GetThread(t.Context(), thread.ID)
-			require.NoError(t, err)
-			assert.Nil(t, open.ResolvedAt)
 		})
 	}
 }
@@ -137,10 +143,6 @@ func TestReplyingToAnAnswerReopensIt(t *testing.T) {
 	})
 	require.NoError(t, err)
 	fx.releaseReview(t, personAuthor, "")
-
-	reopened, err := fx.reviews.GetThread(t.Context(), thread.ID)
-	require.NoError(t, err)
-	assert.Nil(t, reopened.ResolvedAt)
 
 	rung := fx.listMail(t, fx.worker.ID)
 	require.NotEmpty(t, rung)

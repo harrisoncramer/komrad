@@ -317,7 +317,7 @@ type CreateMessageParams struct {
 	ThreadID string
 	// ReviewID is the batch the message goes out with, nil for an answer.
 	ReviewID *string
-	// RoundID is the round a reply says answers the thread, which resolves it as the reply is written.
+	// RoundID is the round a reply says answers the thread.
 	RoundID    *string
 	Suggestion []string
 	AuthorKind AuthorKind

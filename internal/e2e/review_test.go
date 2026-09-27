@@ -168,7 +168,7 @@ func TestIntegrationReviews(t *testing.T) {
 		}))
 	})
 
-	t.Run("the worker's addressed answer carries the round that made the change and settles the thread", func(t *testing.T) {
+	t.Run("the worker's addressed answer carries the round that made the change and leaves the reviewer to settle it", func(t *testing.T) {
 		writeIn(t, worker.GetCwd(), "greet.go", "package greet\n\nfunc Hello(name string) {}\n")
 
 		req := connect.NewRequest(&agentv1.AddReviewMessageRequest{
@@ -188,7 +188,7 @@ func TestIntegrationReviews(t *testing.T) {
 		threads, err := instance.Agents.ListReviewThreads(ctx, listed)
 		require.NoError(t, err)
 		require.Len(t, threads.Msg.GetThreads(), 1)
-		assert.NotEmpty(t, threads.Msg.GetThreads()[0].GetResolvedAt())
+		assert.Empty(t, threads.Msg.GetThreads()[0].GetResolvedAt())
 	})
 }
 

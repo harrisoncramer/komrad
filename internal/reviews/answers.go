@@ -2,6 +2,7 @@ package reviews
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"komrad/internal/fail"
@@ -17,10 +18,13 @@ var ErrReviewNothingAddressed = fail.Precondition(
 	"your worktree holds the same tree this comment was written on, so there is no change to show; " +
 		"make the change first, or reply without addressed to push back or ask")
 
+// ErrReviewNoAnswerRound is answered when an addressed reply comes from an agent with no worktree to take a round of.
+var ErrReviewNoAnswerRound = fail.Precondition("you have no worktree to take a round of, so reply without addressed instead")
+
 // replyHint is what a plain reply is told when the worktree has moved since its thread was written.
 const replyHint = "Your worktree has changed since this comment was written. " +
-	"If that change answers it, reply again with addressed set so the comment resolves " +
-	"and the reviewer can read exactly what answered it."
+	"If that change answers it, reply again with addressed set so the reviewer can read " +
+	"exactly what answered it."
 
 // openAnswerRound takes the round an addressed reply points at, refusing one that changed nothing.
 func (s *ReviewService) openAnswerRound(ctx context.Context, thread reviewstore.Thread, author ReviewAuthor) (*reviewstore.Round, error) {
@@ -30,6 +34,9 @@ func (s *ReviewService) openAnswerRound(ctx context.Context, thread reviewstore.
 	}
 
 	answer, err := s.OpenRound(ctx, thread.AgentID, author)
+	if errors.Is(err, ErrReviewNoRound) {
+		return nil, ErrReviewNoAnswerRound
+	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to take the round that answers the comment: %w", err)
 	}

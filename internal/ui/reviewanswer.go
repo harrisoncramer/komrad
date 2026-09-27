@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"errors"
 	"strings"
 
 	agentv1 "komrad/proto/gen/agent/v1"
@@ -8,14 +9,15 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
+// errAnswerGone is a load asked for an answer whose rounds the review no longer lists.
+var errAnswerGone = errors.New("the rounds this answer stands between are gone")
+
 // reviewAnswer is the answer to one comment on screen: the change between the round the comment
 // was written on and the round the reply that addressed it carried.
 type reviewAnswer struct {
-	ThreadID string
-	// FromBase is the base the comment's round was taken on.
-	FromBase string
-	// ToBase is the base the answer's round was taken on.
-	ToBase string
+	ThreadID  string
+	FromRound string
+	ToRound   string
 }
 
 // roundsApartError says an answer stands across a rebase no replay could settle.
@@ -51,21 +53,12 @@ func (r *reviewScreen) toggleAnswer(s panelShared) tea.Cmd {
 		return nil
 	}
 
-	from, to := findRound(r.diff.rounds, thread.GetRoundId()), findRound(r.diff.rounds, answer)
-	if from == nil || to == nil {
-		r.notice = "the rounds this answer stands between are gone"
-
-		return nil
-	}
-
 	r.diff.widen()
-	r.diff.base = from.GetSnapshotSha()
-	r.diff.head = to.GetSnapshotSha()
 	r.diff.baseLabel = "the answer to this comment"
 	r.diff.answer = &reviewAnswer{
-		ThreadID: thread.GetId(),
-		FromBase: from.GetBaseSha(),
-		ToBase:   to.GetBaseSha(),
+		ThreadID:  thread.GetId(),
+		FromRound: thread.GetRoundId(),
+		ToRound:   answer,
 	}
 
 	return r.reload(s)
