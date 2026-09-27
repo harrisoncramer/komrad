@@ -15,5 +15,5 @@ Wait+Screen@4m /done \d+:\d+ [AP]M/
 Show
 Sleep 2s
 Type "D"
-Wait+Screen@10s /Documents  truncate-rfc/
+Wait+Screen@10s /truncate-rfc › documents/
 Sleep 4s
