@@ -67,7 +67,8 @@ targets AS (
     UNION ALL
     SELECT
         'table identity.' || c.relname,
-        HAS_TABLE_PRIVILEGE(er.role_name, c.oid, 'SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER'),
+        HAS_TABLE_PRIVILEGE(er.role_name, c.oid, 'SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER')
+        OR HAS_ANY_COLUMN_PRIVILEGE(er.role_name, c.oid, 'SELECT, INSERT, UPDATE, REFERENCES'),
         er.role_name
     FROM
         engine_roles er
@@ -171,15 +172,42 @@ func (q *Queries) ListPrincipalRoleValues(ctx context.Context) ([]string, error)
 }
 
 const listSecurityDefinerFunctionsEnginesRun = `-- name: ListSecurityDefinerFunctionsEnginesRun :many
-SELECT
+WITH engine_roles AS (
+    SELECT
+        'public'::text AS role_name
+    UNION
+    SELECT
+        g.rolname::text
+    FROM
+        pg_catalog.pg_roles g
+    WHERE
+        g.rolname IN ('komrad_engine', 'komrad_reader')
+    UNION
+    SELECT
+        m.rolname::text
+    FROM
+        pg_catalog.pg_auth_members am
+        JOIN pg_catalog.pg_roles g ON g.oid = am.roleid
+        JOIN pg_catalog.pg_roles m ON m.oid = am.member
+    WHERE
+        g.rolname IN ('komrad_engine', 'komrad_reader')
+    UNION
+    SELECT
+        r.rolname::text
+    FROM
+        pg_catalog.pg_roles r
+    WHERE
+        r.rolname LIKE 'komrad\_engine\_%'
+)
+SELECT DISTINCT
     (n.nspname || '.' || p.proname)::text AS function_name
 FROM
     pg_catalog.pg_proc p
     JOIN pg_catalog.pg_namespace n ON n.oid = p.pronamespace
+    CROSS JOIN engine_roles er
 WHERE
     p.prosecdef
-    AND (HAS_FUNCTION_PRIVILEGE('komrad_engine', p.oid, 'EXECUTE')
-        OR HAS_FUNCTION_PRIVILEGE('komrad_reader', p.oid, 'EXECUTE'))
+    AND HAS_FUNCTION_PRIVILEGE(er.role_name, p.oid, 'EXECUTE')
 ORDER BY
     1
 `

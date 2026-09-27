@@ -230,9 +230,9 @@ func TestEnginesRunOnlyTheAllowedSecurityDefinerFunctions(t *testing.T) {
 
 	for _, function := range functions {
 		assert.Contains(t, securityDefinerFunctions, function,
-			"%s is a SECURITY DEFINER function komrad_engine or komrad_reader can execute, so it reads as the owner on an engine's behalf; "+
+			"%s is a SECURITY DEFINER function an engine login can execute, so it reads as the owner on an engine's behalf; "+
 				"check its body cannot reach identity or another engine's rows, then add it to securityDefinerFunctions on purpose, "+
-				"or revoke EXECUTE from PUBLIC and the engine roles", function)
+				"or revoke EXECUTE from PUBLIC, the engine groups and every engine login", function)
 	}
 	for _, allowed := range securityDefinerFunctions {
 		assert.Contains(t, functions, allowed, "%s is allowed but no longer exists or no longer runs for engines; drop it from securityDefinerFunctions", allowed)
