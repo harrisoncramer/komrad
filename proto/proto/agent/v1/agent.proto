@@ -1015,7 +1015,7 @@ service AgentService {
       cli: true
       mcp: true
       name: "list_review_threads"
-      description: "List the comment threads pinned to lines of an agent's diff, your own by default. Each thread names the round it was written on, a file and a line range, quotes the diff lines it was about, and holds its messages oldest first. Line numbers are true of that round's snapshot rather than of the files as they stand now, so once the code has moved search for the quoted lines instead. Only released reviews appear, so a comment still being written is not here yet. To read a whole review in order use get_review; this is for looking a thread up again, or answering one with add_review_message."
+      description: "List the comment threads on an agent's diff, your own by default. Each thread names the round it was written on and holds its messages oldest first. A thread on lines names a file and a line range and quotes them, and a thread on the change as a whole names no file. Line numbers are true of that round's snapshot rather than of the files as they stand now, so once the code has moved search for the quoted lines instead. Only released reviews appear, so a comment still being written is not here yet. To read a whole review in order use get_review; this is for looking a thread up again, or answering one with add_review_message."
       roles: [
         ROLE_IMPLEMENTER,
         ROLE_REVIEWER,
