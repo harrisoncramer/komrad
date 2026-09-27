@@ -413,7 +413,7 @@ func TestFormsArchivePrompt(t *testing.T) {
 			harness.press(tt.press...)
 
 			harness.assertSent(append(wrapRequests(worktreev1connect.WorktreeServiceGetWorktreeProcedure, before), tt.wantSent...)...)
-			assert.Contains(t, splitLines(harness.readFrame())[0], "Agents & Workflows", "every answer lands back on the list")
+			assert.Equal(t, agentsScreen, harness.readScreen(), "every answer lands back on the list")
 		})
 	}
 

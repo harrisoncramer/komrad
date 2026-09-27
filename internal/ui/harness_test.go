@@ -158,7 +158,7 @@ func TestHarnessFiresHeldTimers(t *testing.T) {
 	harness := newPanelHarness(t, panelHarnessParams{})
 	harness.watch(buildSnapshot())
 
-	harness.press("s", "a", "p", "i")
+	harness.press("O", "q", "a", "p", "i")
 	harness.assertSent()
 
 	harness.fireTimers()
@@ -311,6 +311,10 @@ func (h *panelHarness) send(msg tea.Msg) {
 
 func (h *panelHarness) readFrame() string {
 	return ansi.Strip(h.readRawFrame())
+}
+
+func (h *panelHarness) readScreen() string {
+	return h.panel.ReadScreen()
 }
 
 func (h *panelHarness) readDrawn() string {
@@ -610,6 +614,16 @@ func splitLines(frame string) []string {
 	return strings.Split(frame, "\n")
 }
 
+// readBelowViews is the frame's lines under the view switcher, whole when none is drawn.
+func readBelowViews(frame string) []string {
+	lines := splitLines(frame)
+	if len(lines) > 3 && strings.Contains(lines[0], "\U000F050C komrad") {
+		return lines[3:]
+	}
+
+	return lines
+}
+
 func readListRows(frame string) []string {
 	var rows []string
 	for _, line := range splitLines(frame) {
@@ -754,7 +768,7 @@ func readLegend(frame string) string {
 }
 
 func readSidebar(frame string) []string {
-	return xslice.Map(splitLines(frame), func(line string) string {
+	return xslice.Map(readBelowViews(frame), func(line string) string {
 		return strings.TrimRight(ansi.Truncate(line, ui.SidebarCols, ""), " ")
 	})
 }

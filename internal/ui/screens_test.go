@@ -25,9 +25,9 @@ import (
 const crowdedCount = 40
 
 type listScreen struct {
-	name  string
-	press []string
-	title string
+	name   string
+	press  []string
+	screen string
 }
 
 // TestScreensStage covers what the panel shows beside the hovered row and how much of the window it holds.
@@ -340,18 +340,18 @@ func TestScreensSidebarWidth(t *testing.T) {
 func TestScreensFitTheLegend(t *testing.T) {
 	tests := []listScreen{
 		{
-			name:  "the agents tree",
-			title: "Agents & Workflows",
+			name:   "the agents tree",
+			screen: agentsScreen,
 		},
 		{
-			name:  "the archive",
-			press: []string{"Z"},
-			title: "Archive",
+			name:   "the archive",
+			press:  []string{"O", "z"},
+			screen: archiveScreen,
 		},
 		{
-			name:  "the schedules",
-			press: []string{"S"},
-			title: "Schedules",
+			name:   "the schedules",
+			press:  []string{"O", "s"},
+			screen: schedulesScreen,
 		},
 	}
 
@@ -363,15 +363,15 @@ func TestScreensFitTheLegend(t *testing.T) {
 
 			frame := harness.readFrame()
 			assert.LessOrEqual(t, len(splitLines(frame)), 29)
-			assert.Contains(t, frame, tt.title)
+			assert.Equal(t, tt.screen, harness.readScreen())
 			assert.Contains(t, frame, "hide help")
 			assert.Contains(t, readHoveredRow(frame), "agent39", "the hovered row is on screen")
 		})
 	}
 }
 
-// TestScreensPromptSitsUnderTheTitle covers the prompt set in the same column as the title above it.
-func TestScreensPromptSitsUnderTheTitle(t *testing.T) {
+// TestScreensPromptSitsInTheListColumn covers the prompt set flush with the list's left edge.
+func TestScreensPromptSitsInTheListColumn(t *testing.T) {
 	tests := []struct {
 		name  string
 		press []string
@@ -389,12 +389,12 @@ func TestScreensPromptSitsUnderTheTitle(t *testing.T) {
 		},
 		{
 			name:  "a search on the worktrees",
-			press: []string{"t", "/", "d", "b", "enter"},
+			press: []string{"O", "t", "/", "d", "b", "enter"},
 			want:  "/ db",
 		},
 		{
 			name:  "the transcript search",
-			press: []string{"s", "d", "b"},
+			press: []string{"O", "q", "d", "b"},
 			want:  "/ db",
 		},
 	}
@@ -405,7 +405,9 @@ func TestScreensPromptSitsUnderTheTitle(t *testing.T) {
 
 			harness.press(tt.press...)
 
-			assert.True(t, strings.HasPrefix(splitLines(harness.readFrame())[2], tt.want))
+			assert.True(t, slices.ContainsFunc(splitLines(harness.readFrame()), func(line string) bool {
+				return strings.HasPrefix(line, tt.want)
+			}))
 		})
 	}
 }
@@ -419,17 +421,17 @@ func TestScreensRecordGivesWay(t *testing.T) {
 	}{
 		{
 			name:  "the agents tree",
-			fills: 12,
+			fills: 8,
 		},
 		{
 			name:  "the archive",
-			press: []string{"Z"},
+			press: []string{"O", "z"},
 			fills: 12,
 		},
 		{
 			name:  "the schedules",
-			press: []string{"S"},
-			fills: 10,
+			press: []string{"O", "s"},
+			fills: 6,
 		},
 	}
 
@@ -513,7 +515,7 @@ func TestScreensFitATightPane(t *testing.T) {
 			t.Parallel()
 
 			for _, screen := range buildListScreens() {
-				if screen.title == "Search" && tt.press != nil {
+				if screen.screen == searchScreen && tt.press != nil {
 					continue
 				}
 
@@ -526,7 +528,7 @@ func TestScreensFitATightPane(t *testing.T) {
 					frame := harness.readFrame()
 
 					assert.Len(t, splitLines(frame), height, "%s in a pane %d lines tall", screen.name, height)
-					if height > fitsFrom && screen.title != "Search" {
+					if height > fitsFrom && screen.screen != searchScreen {
 						assert.NotEmpty(t, readHoveredRow(frame), "%s keeps the hovered row on screen in a pane %d lines tall", screen.name, height)
 					}
 				}
@@ -597,7 +599,7 @@ func TestScreensSurviveAListing(t *testing.T) {
 
 			harness.watch(buildCrowdedSnapshot(""))
 
-			assert.Contains(t, splitLines(harness.readFrame())[0], tt.title, "the screen stays where it was")
+			assert.Equal(t, tt.screen, harness.readScreen(), "the screen stays where it was")
 		})
 	}
 }
@@ -717,28 +719,28 @@ func findRowWith(t *testing.T, frame, want string) string {
 func buildListScreens() []listScreen {
 	return []listScreen{
 		{
-			name:  "the agents tree",
-			title: "Agents & Workflows",
+			name:   "the agents tree",
+			screen: agentsScreen,
 		},
 		{
-			name:  "the archive",
-			press: []string{"Z"},
-			title: "Archive",
+			name:   "the archive",
+			press:  []string{"O", "z"},
+			screen: archiveScreen,
 		},
 		{
-			name:  "the schedules",
-			press: []string{"S"},
-			title: "Schedules",
+			name:   "the schedules",
+			press:  []string{"O", "s"},
+			screen: schedulesScreen,
 		},
 		{
-			name:  "the search",
-			press: []string{"s"},
-			title: "Search",
+			name:   "the search",
+			press:  []string{"O", "q"},
+			screen: searchScreen,
 		},
 		{
-			name:  "the worktrees",
-			press: []string{"t"},
-			title: "Worktrees",
+			name:   "the worktrees",
+			press:  []string{"O", "t"},
+			screen: worktreesScreen,
 		},
 	}
 }

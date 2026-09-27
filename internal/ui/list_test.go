@@ -4,65 +4,9 @@ import (
 	"strings"
 	"testing"
 
-	"komrad/internal/glyph"
-	"komrad/internal/ui/paint"
-
-	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-// TestListTitles covers every listing's title drawn behind the icon that says what the screen is.
-func TestListTitles(t *testing.T) {
-	tests := []struct {
-		name  string
-		press []string
-		icon  glyph.Glyph
-		title string
-	}{
-		{
-			name:  "the agents tree",
-			icon:  glyph.Workflow,
-			title: "Agents & Workflows",
-		},
-		{
-			name:  "the schedules",
-			press: []string{"S"},
-			icon:  glyph.Schedule,
-			title: "Schedules",
-		},
-		{
-			name:  "the archive",
-			press: []string{"Z"},
-			icon:  glyph.Archive,
-			title: "Archive",
-		},
-		{
-			name:  "the worktrees",
-			press: []string{"t"},
-			icon:  glyph.Worktree,
-			title: "Worktrees",
-		},
-		{
-			name:  "the search",
-			press: []string{"s"},
-			icon:  glyph.Search,
-			title: "Search",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			harness := openCrowded(t, panelHarnessParams{})
-
-			harness.press(tt.press...)
-
-			first, _, _ := strings.Cut(harness.readRawFrame(), "\n")
-			require.True(t, strings.HasPrefix(first, glyph.Defaults().Spell(tt.icon)+"  "+tt.title), "the title opens the frame: %q", ansi.Strip(first))
-			assert.NotContains(t, first, paint.Panel.Title(tt.title), "and is drawn plain")
-		})
-	}
-}
 
 // TestListPageKeys covers a page key moving the cursor ten rows and stopping at either end.
 func TestListPageKeys(t *testing.T) {
@@ -114,13 +58,13 @@ func TestListScrollKeys(t *testing.T) {
 		},
 		{
 			name:   "the archive",
-			screen: []string{"Z"},
+			screen: []string{"O", "z"},
 			first:  "everything",
 			second: "  agent00",
 		},
 		{
 			name:   "the schedules",
-			screen: []string{"S"},
+			screen: []string{"O", "s"},
 			first:  "agent39",
 			second: "agent38",
 		},

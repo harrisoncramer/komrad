@@ -255,6 +255,11 @@ func (p *Panel) NewFieldEdited(key, text string) tea.Msg {
 	}
 }
 
+// ReadScreen is the name of the screen that is up.
+func (p *Panel) ReadScreen() string {
+	return screenNames[p.model.screen]
+}
+
 // ReadGuestPane is the pane the panel has swapped into its stage.
 func (p *Panel) ReadGuestPane() string {
 	return p.model.frame.GuestPane()

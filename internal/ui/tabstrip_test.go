@@ -1,6 +1,8 @@
 package ui_test
 
 import (
+	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -19,24 +21,24 @@ func TestTabStrip(t *testing.T) {
 	tests := []struct {
 		name   string
 		press  []string
-		title  string
+		screen string
 		second string
 	}{
 		{
 			name:   "the agents tree",
-			title:  agentsTitle,
+			screen: agentsScreen,
 			second: "activity",
 		},
 		{
 			name:   "the archive",
-			press:  []string{"Z"},
-			title:  archiveTitle,
+			press:  []string{"O", "z"},
+			screen: archiveScreen,
 			second: "name",
 		},
 		{
 			name:   "the worktrees",
-			press:  []string{"t"},
-			title:  worktreesTitle,
+			press:  []string{"O", "t"},
+			screen: worktreesScreen,
 			second: "last-accessed",
 		},
 	}
@@ -47,10 +49,12 @@ func TestTabStrip(t *testing.T) {
 			harness.press(tt.press...)
 
 			sidebar := readSidebar(harness.readFrame())
-			require.GreaterOrEqual(t, len(sidebar), 5)
-			assert.Contains(t, sidebar[2], "/")
-			assert.Contains(t, sidebar[3], "f")
-			assert.Empty(t, sidebar[4], "one blank row stands before the list")
+			filter := slices.IndexFunc(sidebar, func(line string) bool { return strings.HasPrefix(line, "/") })
+			require.GreaterOrEqual(t, filter, 0)
+			require.Greater(t, len(sidebar), filter+2)
+			strip := filter + 1
+			assert.Contains(t, sidebar[strip], "f")
+			assert.Empty(t, sidebar[strip+1], "one blank row stands before the list")
 
 			harness.press("f")
 			frame := harness.readFrame()
@@ -58,12 +62,12 @@ func TestTabStrip(t *testing.T) {
 			assert.Empty(t, readHoveredRow(frame), "the row's arrow stands down")
 
 			harness.press("tab", "j", "k")
-			assert.Contains(t, readSidebar(harness.readFrame())[3], "↑ "+tt.second)
+			assert.Contains(t, readSidebar(harness.readFrame())[strip], "↑ "+tt.second)
 
 			harness.press("esc")
 			frame = harness.readFrame()
-			assert.Contains(t, splitLines(frame)[0], tt.title, "the press is spent on the strip rather than on the screen's back key")
-			assert.Contains(t, readSidebar(frame)[3], "↑ "+tt.second, "the choice is kept")
+			assert.Equal(t, tt.screen, harness.readScreen(), "the press is spent on the strip rather than on the screen's back key")
+			assert.Contains(t, readSidebar(frame)[strip], "↑ "+tt.second, "the choice is kept")
 			assert.NotEmpty(t, readHoveredRow(frame), "and the list has the keys again")
 		})
 	}
@@ -98,7 +102,7 @@ func TestTabStrip(t *testing.T) {
 			width:  80,
 			height: 6,
 		})
-		harness.press("t", "G")
+		harness.press("O", "t", "G")
 		frame := harness.readFrame()
 		require.NotContains(t, readSidebar(frame)[3], "f ", "the strip gives up its row")
 		assert.Contains(t, frame, "/trees/agent39", "to the row the cursor stands on")
@@ -115,7 +119,7 @@ func TestTabStrip(t *testing.T) {
 			width:  80,
 			height: 7,
 		})
-		harness.press("t", "G")
+		harness.press("O", "t", "G")
 
 		frame := harness.readFrame()
 		assert.Contains(t, readSidebar(frame)[3], "f ")
@@ -128,7 +132,7 @@ func TestTabStrip(t *testing.T) {
 			width:  80,
 			height: 7,
 		})
-		harness.press("t", "G", "f")
+		harness.press("O", "t", "G", "f")
 		require.Contains(t, readLastLine(harness.readFrame()), stripLegend)
 
 		resize(harness, 80, 6)
@@ -160,17 +164,17 @@ func TestTabStripGolden(t *testing.T) {
 		{
 			name:  "archive-sort-strip",
 			rows:  buildPinnedArchive(),
-			press: []string{"Z"},
+			press: []string{"O", "z"},
 		},
 		{
 			name:  "archive-sort-strip-flat",
 			rows:  buildPinnedArchive(),
-			press: []string{"Z", "f", "shift+tab", "j", "esc"},
+			press: []string{"O", "z", "f", "shift+tab", "j", "esc"},
 		},
 		{
 			name:  "worktrees-sort-strip",
 			rows:  buildMeasuredWorktrees(),
-			press: []string{"t"},
+			press: []string{"O", "t"},
 		},
 		{
 			name:  "worktrees-sort-strip-flat",

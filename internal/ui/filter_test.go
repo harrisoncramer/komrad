@@ -141,7 +141,7 @@ func TestFilterSearch(t *testing.T) {
 	t.Run("the search stays on the screen it was typed on", func(t *testing.T) {
 		harness := openFilterable(t, "backend")
 
-		harness.press("/", "d", "b", "enter", "S")
+		harness.press("/", "d", "b", "enter", "O", "s")
 
 		assert.Equal(t, "/", readSearch(harness.readFrame()))
 	})
@@ -343,7 +343,7 @@ func TestFilterScreens(t *testing.T) {
 
 			return names, hovered
 		}
-		harness.press("S")
+		harness.press("O", "s")
 
 		harness.press("/", "l", "y", "enter")
 		names, hovered := readSchedules()
@@ -388,17 +388,17 @@ func TestFilterScreens(t *testing.T) {
 		},
 		{
 			name:  "the archive says a filter left nothing rather than that nothing is archived",
-			press: []string{"Z"},
+			press: []string{"O", "z"},
 			idle:  "nothing archived",
 		},
 		{
 			name:  "the schedules say a filter left nothing rather than that there are none",
-			press: []string{"S"},
+			press: []string{"O", "s"},
 			idle:  "no schedules yet",
 		},
 		{
 			name:  "the worktrees say a filter left nothing rather than that there are none",
-			press: []string{"t"},
+			press: []string{"O", "t"},
 			idle:  "no worktrees",
 		},
 	}
@@ -453,15 +453,15 @@ func TestFilterWorktreeHeader(t *testing.T) {
 			MeasuredAt: proto.String(archivedAt),
 		},
 	))
-	harness.press("t")
-	header := splitLines(harness.readFrame())[5]
+	harness.press("O", "t")
+	header := readBelowViews(harness.readFrame())[5]
 	require.Contains(t, header, "2.0M")
 
 	harness.press(slices.Concat([]string{"/", "tab"}, spellKeys("worktree-view"), []string{"enter"})...)
 
 	frame := harness.readFrame()
 	assert.NotContains(t, frame, "agent/other", "the filter took the other worktree away")
-	assert.Equal(t, header, splitLines(frame)[5], "and the header's size still reads the whole listing")
+	assert.Equal(t, header, readBelowViews(frame)[5], "and the header's size still reads the whole listing")
 	assert.Contains(t, frame, "2 worktrees", "as does its count")
 }
 

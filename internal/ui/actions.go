@@ -43,7 +43,6 @@ const (
 	actionAgentShowHidden
 	actionAgentNew
 	actionAgentRetry
-	actionAgentSearch
 	actionSearchOpen
 	actionSearchEdit
 	actionWorkflowNew
@@ -56,8 +55,6 @@ const (
 	actionSelectClear
 	actionMarkSet
 	actionMarkJump
-	actionSchedulesOpen
-	actionArchiveOpen
 	actionScheduleNew
 	actionScheduleEdit
 	actionScheduleToggle
@@ -70,7 +67,6 @@ const (
 	actionArchiveKind
 	actionRestoreSelected
 	actionDeleteSelected
-	actionWorktreesOpen
 	actionWorktreesBack
 	actionWorktreesJumpToAgent
 	actionWorktreesDelete

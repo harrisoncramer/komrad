@@ -42,6 +42,9 @@ func (m model) renderHelp(k keyMap, above ...string) string {
 	if m.filter.typing {
 		k = filterHelp(m.filter.mode)
 	}
+	if m.isViewsOpen() {
+		k = m.viewsHelp()
+	}
 
 	width := m.paneWidth()
 	view := helpView(width)
@@ -194,7 +197,11 @@ func (m model) helpBinding() key.Binding {
 }
 
 func (m model) globalHelp() []key.Binding {
-	return []key.Binding{m.helpBinding()}
+	if !m.screen.picksViews() {
+		return []key.Binding{m.helpBinding()}
+	}
+
+	return []key.Binding{m.viewsBinding(), m.helpBinding()}
 }
 
 // fullGlobalHelp is the expanded legend's share of the keys every screen answers.

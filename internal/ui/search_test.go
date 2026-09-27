@@ -22,7 +22,7 @@ import (
 )
 
 const (
-	searchTitle   = "Search"
+	searchScreen  = "the search"
 	queryCaret    = "▏"
 	matchedTurn   = "the reconcile loop is what settles this"
 	previewFiller = " and then a good deal more of it said in the same breath, going on for long " +
@@ -80,7 +80,7 @@ func TestSearchQuery(t *testing.T) {
 			t.Parallel()
 
 			harness := openAgents(t)
-			harness.press("s")
+			harness.press("O", "q")
 
 			harness.press(tt.press...)
 
@@ -127,11 +127,11 @@ func TestSearchResults(t *testing.T) {
 		t.Parallel()
 
 		harness := openAgents(t, buildSearchable()...)
-		harness.press("s", "l", "e", "d", "esc")
+		harness.press("O", "q", "l", "e", "d", "esc")
 
 		harness.fireTimers()
 
-		assert.Contains(t, harness.readFrame(), agentsTitle)
+		assert.Equal(t, agentsScreen, harness.readScreen())
 		harness.assertSentTo(agentv1connect.AgentServiceSearchTranscriptsProcedure)
 	})
 
@@ -237,7 +237,7 @@ func TestSearchResults(t *testing.T) {
 		harness := newPanelHarness(t, panelHarnessParams{height: 14})
 		newSearchServer(found...).serve(harness)
 		harness.watch(buildSnapshot())
-		harness.press("s")
+		harness.press("O", "q")
 		typeText(harness, "agent")
 		harness.fireTimers()
 
@@ -269,51 +269,51 @@ func TestSearchKeys(t *testing.T) {
 	tests := []struct {
 		name        string
 		press       []string
-		wantTitle   string
+		wantScreen  string
 		wantHovered string
 		wantTyping  bool
 	}{
 		{
 			name:       "escape in the query line leaves the screen",
 			press:      []string{"esc"},
-			wantTitle:  agentsTitle,
+			wantScreen: agentsScreen,
 			wantTyping: false,
 		},
 		{
 			name:        "escape over the hits puts the keys back in the query line",
 			press:       []string{"enter", "esc"},
-			wantTitle:   searchTitle,
+			wantScreen:  searchScreen,
 			wantHovered: "alpha",
 			wantTyping:  true,
 		},
 		{
 			name:        "enter closes the line and leaves the query standing",
 			press:       []string{"enter"},
-			wantTitle:   searchTitle,
+			wantScreen:  searchScreen,
 			wantHovered: "alpha",
 		},
 		{
 			name:        "the nav keys run down the hits rather than typing",
 			press:       []string{"enter", "j", "j"},
-			wantTitle:   searchTitle,
+			wantScreen:  searchScreen,
 			wantHovered: "bravo",
 		},
 		{
 			name:        "the bottom key lands on the last turn",
 			press:       []string{"enter", "G"},
-			wantTitle:   searchTitle,
+			wantScreen:  searchScreen,
 			wantHovered: "#0 charlie",
 		},
 		{
 			name:        "the top key acts on its second press",
 			press:       []string{"enter", "G", "g", "g"},
-			wantTitle:   searchTitle,
+			wantScreen:  searchScreen,
 			wantHovered: "alpha",
 		},
 		{
 			name:        "the filter key puts the keys back in the query line and leaves the cursor",
 			press:       []string{"enter", "j", "/"},
-			wantTitle:   searchTitle,
+			wantScreen:  searchScreen,
 			wantHovered: "#0 alpha",
 			wantTyping:  true,
 		},
@@ -336,8 +336,8 @@ func TestSearchKeys(t *testing.T) {
 			harness.press(tt.press...)
 
 			frame := harness.readFrame()
-			assert.Contains(t, frame, tt.wantTitle)
-			if tt.wantTitle != searchTitle {
+			assert.Equal(t, tt.wantScreen, harness.readScreen())
+			if tt.wantScreen != searchScreen {
 				return
 			}
 			assert.Equal(t, tt.wantHovered, readHoveredSearchRow(frame))
@@ -433,7 +433,7 @@ func TestSearchArchivedRow(t *testing.T) {
 			})
 			searched := findRow(readListRows(harness.readFrame()), "payouts")
 
-			harness.press("esc", "Z")
+			harness.press("esc", "O", "z")
 
 			assert.Equal(t, strings.TrimSpace(findRow(readListRows(harness.readFrame()), "payouts")), searched)
 		})
@@ -505,24 +505,24 @@ func TestSearchJump(t *testing.T) {
 		rows        []proto.Message
 		query       string
 		hit         *agentv1.SearchHit
-		wantTitle   string
+		wantScreen  string
 		wantHovered string
 		wantDrawn   string
 		wantZoomed  bool
 	}{
 		{
-			name:      "a hit the panel holds no row for leaves the cursor alone",
-			rows:      buildSearchable(),
-			query:     "ledger",
-			hit:       newTurnHit("gone", "gone", "two"),
-			wantTitle: agentsTitle,
+			name:       "a hit the panel holds no row for leaves the cursor alone",
+			rows:       buildSearchable(),
+			query:      "ledger",
+			hit:        newTurnHit("gone", "gone", "two"),
+			wantScreen: agentsScreen,
 		},
 		{
 			name:        "a live hit lands on its row in the tree and gives the panes the window back",
 			rows:        buildSearchable(),
 			query:       "ledger",
 			hit:         newTurnHit("a2", "payouts", "two"),
-			wantTitle:   agentsTitle,
+			wantScreen:  agentsScreen,
 			wantHovered: "payouts",
 		},
 		{
@@ -530,7 +530,7 @@ func TestSearchJump(t *testing.T) {
 			rows:        []proto.Message{newLiveWorkflow("w1", "core"), newPanedAgent("a1", "billing", "%1"), hiddenPayouts},
 			query:       "ledger",
 			hit:         newTurnHit("a2", "payouts", "two"),
-			wantTitle:   agentsTitle,
+			wantScreen:  agentsScreen,
 			wantHovered: "payouts",
 		},
 		{
@@ -538,7 +538,7 @@ func TestSearchJump(t *testing.T) {
 			rows:        append(buildSearchable(), newArchivedAgent("a3", "old-work", "w1")),
 			query:       "ledger",
 			hit:         archived,
-			wantTitle:   archiveTitle,
+			wantScreen:  archiveScreen,
 			wantHovered: "old-work",
 			wantDrawn:   "kept until deleted",
 			wantZoomed:  true,
@@ -547,7 +547,7 @@ func TestSearchJump(t *testing.T) {
 			name:        "a name hit goes to the agent the same way",
 			rows:        buildSearchable(),
 			query:       "payout",
-			wantTitle:   agentsTitle,
+			wantScreen:  agentsScreen,
 			wantHovered: "payouts",
 		},
 	}
@@ -570,7 +570,7 @@ func TestSearchJump(t *testing.T) {
 			harness.press("enter", "enter")
 
 			frame := harness.readFrame()
-			assert.Contains(t, frame, tt.wantTitle)
+			assert.Equal(t, tt.wantScreen, harness.readScreen())
 			if tt.wantHovered == "" {
 				assert.Equal(t, before, readHoveredRow(frame))
 			}
@@ -656,7 +656,7 @@ func TestSearchPreview(t *testing.T) {
 
 		harness.press("esc")
 
-		assert.Contains(t, harness.readFrame(), agentsTitle)
+		assert.Equal(t, agentsScreen, harness.readScreen())
 		assert.False(t, harness.panel.IsZoomed())
 	})
 
@@ -677,7 +677,7 @@ func TestSearchPreview(t *testing.T) {
 		harness := openPreview(t, panelHarnessParams{})
 
 		frame := harness.readFrame()
-		assert.Contains(t, splitLines(frame)[0], searchTitle)
+		assert.Equal(t, searchScreen, harness.readScreen())
 		assert.NotEmpty(t, strings.TrimSpace(readStage(frame)[0]))
 	})
 
@@ -905,7 +905,7 @@ func openSearch(t *testing.T, params openSearchParams) *panelHarness {
 }
 
 func searchFor(harness *panelHarness, query string) {
-	harness.press("s")
+	harness.press("O", "q")
 	typeText(harness, query)
 	harness.fireTimers()
 }

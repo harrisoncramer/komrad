@@ -8,7 +8,6 @@ import (
 	"komrad/config"
 	"komrad/internal/errui"
 	"komrad/internal/git"
-	"komrad/internal/glyph"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/view"
@@ -180,7 +179,6 @@ func (w *worktreesScreen) tally() string {
 
 func (w *worktreesScreen) listParams(s panelShared) screenListParams {
 	return screenListParams{
-		title:    screenTitle(s.glyphs, glyph.Worktree, "Worktrees"),
 		tally:    w.tally(),
 		help:     w.help,
 		empty:    "no worktrees",
