@@ -78,7 +78,7 @@ Every moment in an agent's life has a hook before it and a hook after it. Komrad
 
 Anything an agent brought up that should not outlive it, such as a server or a database slot, belongs on `post-archive`. Put it on `pre-delete` as well, written so it is safe to run twice, to cover an agent deleted without being archived.
 
-`pre-restore` and `pre-delete` are skipped when the agent's directory has already gone. `post-delete` runs in the hooks directory once the worktree is removed, and `KOMRAD_AGENT_CWD` still names where it was. A hook never starts while another of the same agent's hooks is running, and the worktree is not removed until they have all finished.
+`pre-archive`, `pre-restore` and `pre-delete` are skipped when the agent's directory has already gone. `post-delete` runs in the hooks directory once the worktree is removed, and `KOMRAD_AGENT_CWD` still names where it was. A hook never starts while another of the same agent's hooks is running, and the worktree is not removed until they have all finished.
 
 Child agents run no hooks, because the directory they are in is not theirs.
 

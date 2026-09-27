@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"sync"
 	"time"
 
 	"komrad/internal/scripts"
@@ -16,32 +17,11 @@ type hookRuns struct {
 	idle  chan struct{}
 }
 
-func (s *ScriptService) beginHook(agentID string) {
-	s.hooksMu.Lock()
-	defer s.hooksMu.Unlock()
+// BeginHooks counts an agent's hooks as running until the returned func is called.
+func (s *ScriptService) BeginHooks(agentID string) func() {
+	s.beginHook(agentID)
 
-	runs, ok := s.hooksRunning[agentID]
-	if !ok {
-		runs = &hookRuns{idle: make(chan struct{})}
-		s.hooksRunning[agentID] = runs
-	}
-	runs.count++
-}
-
-func (s *ScriptService) endHook(agentID string) {
-	s.hooksMu.Lock()
-	defer s.hooksMu.Unlock()
-
-	runs, ok := s.hooksRunning[agentID]
-	if !ok {
-		return
-	}
-
-	runs.count--
-	if runs.count == 0 {
-		close(runs.idle)
-		delete(s.hooksRunning, agentID)
-	}
+	return sync.OnceFunc(func() { s.endHook(agentID) })
 }
 
 // AwaitHooks waits until none of an agent's hooks are running.
@@ -99,4 +79,32 @@ func (s *ScriptService) RunPostDeleteHook(ctx context.Context, agent agentstore.
 	logger.LogAttrs(ctx, slog.LevelInfo, "script finished", finishedScript(result, began)...)
 
 	return nil
+}
+
+func (s *ScriptService) beginHook(agentID string) {
+	s.hooksMu.Lock()
+	defer s.hooksMu.Unlock()
+
+	runs, ok := s.hooksRunning[agentID]
+	if !ok {
+		runs = &hookRuns{idle: make(chan struct{})}
+		s.hooksRunning[agentID] = runs
+	}
+	runs.count++
+}
+
+func (s *ScriptService) endHook(agentID string) {
+	s.hooksMu.Lock()
+	defer s.hooksMu.Unlock()
+
+	runs, ok := s.hooksRunning[agentID]
+	if !ok {
+		return
+	}
+
+	runs.count--
+	if runs.count == 0 {
+		close(runs.idle)
+		delete(s.hooksRunning, agentID)
+	}
 }

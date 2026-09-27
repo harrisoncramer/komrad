@@ -12,6 +12,7 @@ import (
 	"komrad/internal/komradtest"
 	agentstore "komrad/internal/store/agent"
 	workflowstore "komrad/internal/store/workflow"
+	"komrad/lib/xslice"
 	agentv1 "komrad/proto/gen/agent/v1"
 	workflowv1 "komrad/proto/gen/workflow/v1"
 
@@ -214,8 +215,7 @@ func realPath(t *testing.T, path string) string {
 	return resolved
 }
 
-// TestIntegrationPostArchiveRunsInTheWorktreeOnceTheAgentIsArchived covers the hook that gives
-// back what an agent brought up, which archiving never ran before.
+// TestIntegrationPostArchiveRunsInTheWorktreeOnceTheAgentIsArchived covers the hook that gives back what an agent brought up.
 func TestIntegrationPostArchiveRunsInTheWorktreeOnceTheAgentIsArchived(t *testing.T) {
 	isolateGit(t)
 
@@ -261,8 +261,7 @@ func TestIntegrationAFailedPreArchiveKeepsTheAgentLive(t *testing.T) {
 	assert.NotEmpty(t, live.Pane, "with its pane")
 }
 
-// TestIntegrationADeleteWaitsForThePostArchiveStillRunning covers archive and delete pressed
-// together, where the worktree must outlive the post-archive hook still working in it.
+// TestIntegrationADeleteWaitsForThePostArchiveStillRunning covers archive and delete pressed together.
 func TestIntegrationADeleteWaitsForThePostArchiveStillRunning(t *testing.T) {
 	isolateGit(t)
 
@@ -290,8 +289,7 @@ func TestIntegrationADeleteWaitsForThePostArchiveStillRunning(t *testing.T) {
 	assert.NotEmpty(t, landed, "with the worktree still under it")
 }
 
-// TestIntegrationPostDeleteRunsOnceTheWorktreeIsGone covers the last hook of an agent's life running
-// somewhere that still exists.
+// TestIntegrationPostDeleteRunsOnceTheWorktreeIsGone covers the last hook of an agent's life running somewhere that still exists.
 func TestIntegrationPostDeleteRunsOnceTheWorktreeIsGone(t *testing.T) {
 	isolateGit(t)
 
@@ -318,4 +316,150 @@ func TestIntegrationPostDeleteRunsOnceTheWorktreeIsGone(t *testing.T) {
 
 	_, err = instance.Stores.Agents.GetByID(ctx, agent.GetId())
 	assert.Error(t, err, "the row had gone before the hook ran")
+}
+
+func everyMoment() []string {
+	return []string{
+		workflowstore.HookPreLaunch,
+		workflowstore.HookPostLaunch,
+		workflowstore.HookPreResume,
+		workflowstore.HookPostResume,
+		workflowstore.HookPreArchive,
+		workflowstore.HookPostArchive,
+		workflowstore.HookPreRestore,
+		workflowstore.HookPostRestore,
+		workflowstore.HookPreDelete,
+		workflowstore.HookPostDelete,
+	}
+}
+
+func hangOnEvery(t *testing.T, instance *komradtest.Instance, name, body string) *workflowv1.CreateWorkflowRequest {
+	t.Helper()
+
+	require.NoError(t, os.WriteFile(filepath.Join(instance.HooksDir, name), []byte(body), 0o755))
+
+	request := buildWorktreeWorkflow(t)
+	request.Hooks = xslice.Map(everyMoment(), func(moment string) *workflowv1.WorkflowHook {
+		return &workflowv1.WorkflowHook{Event: moment, Script: name}
+	})
+
+	return request
+}
+
+func waitForMoments(t *testing.T, path string, want ...string) {
+	t.Helper()
+
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		landed, err := os.ReadFile(path)
+		if !assert.NoError(c, err) {
+			return
+		}
+
+		assert.Equal(c, want, strings.Fields(string(landed)))
+	}, 20*time.Second, 10*time.Millisecond)
+}
+
+// TestIntegrationEveryMomentFiresInOrderOverAnAgentsLife walks one agent from launch to delete.
+func TestIntegrationEveryMomentFiresInOrderOverAnAgentsLife(t *testing.T) {
+	isolateGit(t)
+
+	instance := komradtest.Start(t, komradtest.Params{})
+	ctx := t.Context()
+
+	record := filepath.Join(t.TempDir(), "moments")
+	agent := createHookedAgent(t, instance, hangOnEvery(t, instance, "record",
+		"#!/bin/sh\necho \"$KOMRAD_TRIGGER\" >>"+record+"\n"))
+	ids := []string{agent.GetId()}
+
+	seen := []string{workflowstore.HookPreLaunch, workflowstore.HookPostLaunch}
+	waitForMoments(t, record, seen...)
+
+	_, err := instance.Agents.ArchiveAgents(ctx, connect.NewRequest(&agentv1.ArchiveAgentsRequest{Ids: ids}))
+	require.NoError(t, err)
+	seen = append(seen, workflowstore.HookPreArchive, workflowstore.HookPostArchive)
+	waitForMoments(t, record, seen...)
+
+	_, err = instance.Agents.RestoreAgents(ctx, connect.NewRequest(&agentv1.RestoreAgentsRequest{Ids: ids}))
+	require.NoError(t, err)
+	seen = append(seen, workflowstore.HookPreRestore, workflowstore.HookPostRestore)
+	waitForMoments(t, record, seen...)
+
+	_, err = instance.Agents.ResumeAgent(ctx, connect.NewRequest(&agentv1.ResumeAgentRequest{Id: agent.GetId()}))
+	require.NoError(t, err)
+	seen = append(seen, workflowstore.HookPreResume, workflowstore.HookPostResume)
+	waitForMoments(t, record, seen...)
+
+	_, err = instance.Agents.DeleteAgents(ctx, connect.NewRequest(&agentv1.DeleteAgentsRequest{Ids: ids}))
+	require.NoError(t, err)
+	seen = append(seen, workflowstore.HookPreDelete, workflowstore.HookPostDelete)
+	waitForMoments(t, record, seen...)
+}
+
+// TestIntegrationAFailedPreResumeLeavesTheAgentDormant covers a veto on the way back into a pane.
+func TestIntegrationAFailedPreResumeLeavesTheAgentDormant(t *testing.T) {
+	isolateGit(t)
+
+	instance := komradtest.Start(t, komradtest.Params{})
+	ctx := t.Context()
+
+	agent := createHookedAgent(t, instance, writeHook(t, instance, workflowstore.HookPreResume,
+		"#!/bin/sh\necho no slot free >&2\nexit 1\n"))
+	ids := []string{agent.GetId()}
+
+	_, err := instance.Agents.ArchiveAgents(ctx, connect.NewRequest(&agentv1.ArchiveAgentsRequest{Ids: ids}))
+	require.NoError(t, err)
+	_, err = instance.Agents.RestoreAgents(ctx, connect.NewRequest(&agentv1.RestoreAgentsRequest{Ids: ids}))
+	require.NoError(t, err)
+
+	_, err = instance.Agents.ResumeAgent(ctx, connect.NewRequest(&agentv1.ResumeAgentRequest{Id: agent.GetId()}))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "no slot free", "the refusal carries what the hook said")
+	assert.Empty(t, instance.GetOwnedPane(agent.GetId()), "no pane was opened")
+}
+
+// TestIntegrationAFailedPreRestoreKeepsTheAgentArchived covers a veto on the way out of the archive.
+func TestIntegrationAFailedPreRestoreKeepsTheAgentArchived(t *testing.T) {
+	isolateGit(t)
+
+	instance := komradtest.Start(t, komradtest.Params{})
+	ctx := t.Context()
+
+	agent := createHookedAgent(t, instance, writeHook(t, instance, workflowstore.HookPreRestore,
+		"#!/bin/sh\necho slot taken >&2\nexit 1\n"))
+	ids := []string{agent.GetId()}
+
+	_, err := instance.Agents.ArchiveAgents(ctx, connect.NewRequest(&agentv1.ArchiveAgentsRequest{Ids: ids}))
+	require.NoError(t, err)
+
+	_, err = instance.Agents.RestoreAgents(ctx, connect.NewRequest(&agentv1.RestoreAgentsRequest{Ids: ids}))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "slot taken")
+
+	archived, err := instance.Stores.Agents.GetByID(ctx, agent.GetId())
+	require.NoError(t, err)
+	assert.NotNil(t, archived.ArchivedAt, "the agent stays in the archive")
+}
+
+// TestIntegrationAFailedPostArchiveOnlyMarksItsRun covers a post hook that cannot undo its step.
+func TestIntegrationAFailedPostArchiveOnlyMarksItsRun(t *testing.T) {
+	isolateGit(t)
+
+	instance := komradtest.Start(t, komradtest.Params{})
+	ctx := t.Context()
+
+	agent := createHookedAgent(t, instance, writeHook(t, instance, workflowstore.HookPostArchive,
+		"#!/bin/sh\necho could not give the slot back >&2\nexit 1\n"))
+
+	_, err := instance.Agents.ArchiveAgents(ctx, connect.NewRequest(&agentv1.ArchiveAgentsRequest{Ids: []string{agent.GetId()}}))
+	require.NoError(t, err)
+
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		got, err := instance.Agents.GetAgent(ctx, connect.NewRequest(&agentv1.GetAgentRequest{Id: agent.GetId()}))
+		if !assert.NoError(c, err) {
+			return
+		}
+
+		assert.True(c, got.Msg.GetAgent().GetFailedRun(), "the run is marked failed")
+		assert.NotEmpty(c, got.Msg.GetAgent().GetArchivedAt(), "and the agent stays archived")
+	}, 10*time.Second, 10*time.Millisecond)
 }

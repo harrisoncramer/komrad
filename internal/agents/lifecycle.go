@@ -169,7 +169,12 @@ func (s *LifecycleService) DeleteAgents(ctx context.Context, ids []string) error
 	}
 
 	for _, agent := range immediate {
-		startPostDeleteHooks(bg, s.scripts, agent, immediateHooks[agent.ID])
+		startHooks(bg, hookRunParams{
+			scripts: s.scripts,
+			agent:   agent,
+			hooks:   immediateHooks[agent.ID],
+			event:   workflowstore.HookPostDelete,
+		})
 	}
 
 	s.cleanupEmptyWorkflows(ctx, immediate)
@@ -249,7 +254,12 @@ func (s *LifecycleService) finishDelete(ctx context.Context, agent agentstore.Ag
 			return
 		}
 
-		startPostDeleteHooks(ctx, s.scripts, agent, hooks)
+		startHooks(ctx, hookRunParams{
+			scripts: s.scripts,
+			agent:   agent,
+			hooks:   hooks,
+			event:   workflowstore.HookPostDelete,
+		})
 		s.cleanupEmptyWorkflows(ctx, []agentstore.Agent{agent})
 	}
 }
@@ -288,10 +298,11 @@ func (s *LifecycleService) ArchiveAgents(ctx context.Context, ids []string) erro
 	}
 
 	if err := joinRefusals(agents, runPreHooksFor(ctx, batchHooksParams{
-		scripts:   s.scripts,
-		workflows: s.workflows,
-		agents:    agents,
-		event:     workflowstore.HookPreArchive,
+		scripts:     s.scripts,
+		workflows:   s.workflows,
+		agents:      agents,
+		event:       workflowstore.HookPreArchive,
+		skipGoneDir: true,
 	})); err != nil {
 		return fmt.Errorf("failed to archive %d agents: %w", len(agents), err)
 	}
@@ -321,10 +332,11 @@ func (s *LifecycleService) ArchiveAgents(ctx context.Context, ids []string) erro
 // and returns the ones it archived.
 func (s *LifecycleService) ArchiveUnchangedAgents(ctx context.Context, observed []agentstore.Agent) ([]agentstore.Agent, error) {
 	refused := runPreHooksFor(ctx, batchHooksParams{
-		scripts:   s.scripts,
-		workflows: s.workflows,
-		agents:    observed,
-		event:     workflowstore.HookPreArchive,
+		scripts:     s.scripts,
+		workflows:   s.workflows,
+		agents:      observed,
+		event:       workflowstore.HookPreArchive,
+		skipGoneDir: true,
 	})
 	failures := []error{joinRefusals(observed, refused)}
 	var archived []agentstore.Agent

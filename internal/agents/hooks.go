@@ -37,7 +37,12 @@ func runHooks(ctx context.Context, params hookRunParams) error {
 			continue
 		}
 
-		if err := params.scripts.RunHook(ctx, params.agent, hook.Script, params.event); err != nil {
+		run := params.scripts.RunHook
+		if params.event == workflowstore.HookPostDelete {
+			run = params.scripts.RunPostDeleteHook
+		}
+
+		if err := run(ctx, params.agent, hook.Script, params.event); err != nil {
 			return err
 		}
 	}
@@ -129,8 +134,11 @@ func startHooks(ctx context.Context, params hookRunParams) {
 	}
 
 	bg := context.WithoutCancel(ctx)
+	done := params.scripts.BeginHooks(params.agent.ID)
 
 	go func() {
+		defer done()
+
 		if err := runHooks(bg, hookRunParams{
 			scripts: params.scripts,
 			agent:   params.agent,
@@ -155,32 +163,6 @@ func startHooksFor(ctx context.Context, params batchHooksParams) {
 			event:   params.event,
 		})
 	}
-}
-
-func startPostDeleteHooks(ctx context.Context, runner agentScriptRunner, agent agentstore.Agent, hooks []workflowstore.Hook) {
-	if runner == nil || !hasHookOn(hooks, workflowstore.HookPostDelete) {
-		return
-	}
-
-	bg := context.WithoutCancel(ctx)
-
-	go func() {
-		for _, hook := range hooks {
-			if hook.Event != workflowstore.HookPostDelete {
-				continue
-			}
-
-			if err := runner.RunPostDeleteHook(bg, agent, hook.Script, hook.Event); err != nil {
-				logging.From(bg).LogAttrs(bg, slog.LevelError, "a hook failed",
-					append([]slog.Attr{
-						slog.String(logging.RunTrigger, hook.Event),
-						slog.String(logging.ScriptAgentID, agent.ID),
-					}, logging.Err(err)...)...)
-
-				return
-			}
-		}
-	}()
 }
 
 // agentHooks are the hooks a workflow lists for one of its agents, none for an agent working in

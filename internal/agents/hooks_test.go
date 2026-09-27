@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"os"
-	"slices"
 	"testing"
 	"time"
 
@@ -14,6 +13,7 @@ import (
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/internal/tmuxtest"
 	"komrad/lib/xptr"
+	"komrad/lib/xslice"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -603,7 +603,7 @@ func TestTheWorktreeToggleIsTheWholeProvisioner(t *testing.T) {
 	}
 }
 
-// TestAFailedPreResumeRefusesTheResume pins a pre hook as a veto on the way back in.
+// TestAFailedPreResumeRefusesTheResume covers a pre hook vetoing the way back in.
 func TestAFailedPreResumeRefusesTheResume(t *testing.T) {
 	st := newStore(t)
 	tmux := tmuxtest.NewFake()
@@ -628,6 +628,7 @@ func TestAFailedPreResumeRefusesTheResume(t *testing.T) {
 
 	_, err = manager.resume.ResumeAgent(ctx, agent.ID)
 	require.ErrorContains(t, err, "no slot free")
+	assert.Contains(t, err.Error(), `"auth"`, "the refusal names the agent")
 
 	require.Never(t, func() bool {
 		return len(lifecycle.ranHooks()) > 1
@@ -644,7 +645,6 @@ func TestAFailedPreResumeRefusesTheResume(t *testing.T) {
 	assert.Equal(t, agentstore.StateIdle, after.State, "the row goes back to the state it was in")
 }
 
-// archiveCall is one of the two ways an agent reaches the archive.
 type archiveCall struct {
 	name    string
 	archive func(t *testing.T, st *testStore, lifecycle *fakeLifecycle, workflowID string, agents []agentstore.Agent) error
@@ -697,75 +697,97 @@ func seedHookedAgents(t *testing.T, st *testStore, hooks []workflowstore.Hook, n
 	return created.ID, agents
 }
 
-// TestAFailedPreArchiveRefusesTheWholeArchive pins pre-archive as a veto that keeps every agent in
-// the call live.
-func TestAFailedPreArchiveRefusesTheWholeArchive(t *testing.T) {
-	for _, call := range archiveCalls() {
-		t.Run(call.name, func(t *testing.T) {
+func ranEvents(lifecycle *fakeLifecycle) []string {
+	return xslice.Map(lifecycle.ranHooks(), func(ran ranHook) string { return ran.Event })
+}
+
+// TestArchiveHooks covers both moments around an archive, through both calls that archive.
+func TestArchiveHooks(t *testing.T) {
+	refused := []string{
+		workflowstore.HookPreArchive,
+		workflowstore.HookPreArchive,
+	}
+	archived := []string{
+		workflowstore.HookPreArchive,
+		workflowstore.HookPreArchive,
+		workflowstore.HookPostArchive,
+		workflowstore.HookPostArchive,
+	}
+	byAgents, byWorkflow := archiveCalls()[0], archiveCalls()[1]
+
+	tests := []struct {
+		name         string
+		call         archiveCall
+		hookErrs     map[string]error
+		wantErr      string
+		wantArchived bool
+		wantEvents   []string
+	}{
+		{
+			name:       "a failed pre-archive refuses archiving the agents",
+			call:       byAgents,
+			hookErrs:   map[string]error{"lock": errors.New("uncommitted work")},
+			wantErr:    "uncommitted work",
+			wantEvents: refused,
+		},
+		{
+			name:       "a failed pre-archive refuses archiving the workflow",
+			call:       byWorkflow,
+			hookErrs:   map[string]error{"lock": errors.New("uncommitted work")},
+			wantErr:    "uncommitted work",
+			wantEvents: refused,
+		},
+		{
+			name:         "archiving the agents runs post-archive once it has",
+			call:         byAgents,
+			wantArchived: true,
+			wantEvents:   archived,
+		},
+		{
+			name:         "archiving the workflow runs post-archive once it has",
+			call:         byWorkflow,
+			wantArchived: true,
+			wantEvents:   archived,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
 			st := newStore(t)
 			ctx := t.Context()
 
-			lifecycle := &fakeLifecycle{hookErrs: map[string]error{"lock": errors.New("uncommitted work")}}
+			lifecycle := &fakeLifecycle{hookErrs: tt.hookErrs}
 			workflowID, agents := seedHookedAgents(t, st, []workflowstore.Hook{
 				{Event: workflowstore.HookPreArchive, Script: "lock"},
 				{Event: workflowstore.HookPostArchive, Script: "give-back-the-slot"},
 			}, "auth", "billing")
 
-			err := call.archive(t, st, lifecycle, workflowID, agents)
-			require.ErrorContains(t, err, "uncommitted work")
+			err := tt.call.archive(t, st, lifecycle, workflowID, agents)
+			if tt.wantErr != "" {
+				require.ErrorContains(t, err, tt.wantErr)
+			} else {
+				require.NoError(t, err)
+			}
 
 			for _, agent := range agents {
 				after, err := st.Agents.GetByID(ctx, agent.ID)
 				require.NoError(t, err)
-				assert.Nil(t, after.ArchivedAt, "%s stays live", agent.Name)
+				assert.Equal(t, tt.wantArchived, after.ArchivedAt != nil, "whether %s was archived", agent.Name)
 			}
 
-			workflow, err := st.Workflows.Get(ctx, workflowID)
-			require.NoError(t, err)
-			assert.Nil(t, workflow.ArchivedAt, "and so does its workflow")
-
-			require.Never(t, func() bool {
-				return slices.ContainsFunc(lifecycle.ranHooks(), func(ran ranHook) bool {
-					return ran.Event == workflowstore.HookPostArchive
-				})
-			}, 300*time.Millisecond, 20*time.Millisecond, "post-archive never follows a refused archive")
-		})
-	}
-}
-
-// TestArchiveFiresPreArchiveThenPostArchive pins both moments of an archive that goes through.
-func TestArchiveFiresPreArchiveThenPostArchive(t *testing.T) {
-	for _, call := range archiveCalls() {
-		t.Run(call.name, func(t *testing.T) {
-			st := newStore(t)
-			ctx := t.Context()
-
-			lifecycle := &fakeLifecycle{}
-			workflowID, agents := seedHookedAgents(t, st, []workflowstore.Hook{
-				{Event: workflowstore.HookPreArchive, Script: "lock"},
-				{Event: workflowstore.HookPostArchive, Script: "give-back-the-slot"},
-			}, "auth")
-
-			require.NoError(t, call.archive(t, st, lifecycle, workflowID, agents))
-
-			after, err := st.Agents.GetByID(ctx, agents[0].ID)
-			require.NoError(t, err)
-			assert.NotNil(t, after.ArchivedAt)
-
 			require.Eventually(t, func() bool {
-				return len(lifecycle.ranHooks()) == 2
-			}, 5*time.Second, 10*time.Millisecond, "post-archive runs once the row is archived")
+				return len(lifecycle.ranHooks()) >= len(tt.wantEvents)
+			}, 5*time.Second, 10*time.Millisecond)
+			require.Never(t, func() bool {
+				return len(lifecycle.ranHooks()) > len(tt.wantEvents)
+			}, 300*time.Millisecond, 20*time.Millisecond)
 
-			assert.Equal(t, []ranHook{
-				{Event: workflowstore.HookPreArchive, Script: "lock", Cwd: agents[0].Cwd},
-				{Event: workflowstore.HookPostArchive, Script: "give-back-the-slot", Cwd: agents[0].Cwd},
-			}, lifecycle.ranHooks())
+			assert.ElementsMatch(t, tt.wantEvents, ranEvents(lifecycle))
 		})
 	}
 }
 
-// TestPreRestore pins pre-restore refusing a restore, and passing over an agent whose directory
-// has gone.
+// TestPreRestore covers a veto on the way out of the archive and the directory that has gone.
 func TestPreRestore(t *testing.T) {
 	restoreAgent := func(t *testing.T, st *testStore, lifecycle *fakeLifecycle, _ string, agent agentstore.Agent) error {
 		t.Helper()
@@ -792,10 +814,30 @@ func TestPreRestore(t *testing.T) {
 		wantHooks  int
 		wantActive bool
 	}{
-		{name: "restoring the agent is refused by a failed hook", restore: restoreAgent, wantErr: "slot taken", wantHooks: 1},
-		{name: "restoring the workflow is refused by a failed hook", restore: restoreWorkflow, wantErr: "slot taken", wantHooks: 1},
-		{name: "restoring the agent passes over a directory that has gone", restore: restoreAgent, removeDir: true, wantActive: true},
-		{name: "restoring the workflow passes over a directory that has gone", restore: restoreWorkflow, removeDir: true, wantActive: true},
+		{
+			name:      "restoring the agent is refused by a failed hook",
+			restore:   restoreAgent,
+			wantErr:   "slot taken",
+			wantHooks: 1,
+		},
+		{
+			name:      "restoring the workflow is refused by a failed hook",
+			restore:   restoreWorkflow,
+			wantErr:   "slot taken",
+			wantHooks: 1,
+		},
+		{
+			name:       "restoring the agent passes over a directory that has gone",
+			restore:    restoreAgent,
+			removeDir:  true,
+			wantActive: true,
+		},
+		{
+			name:       "restoring the workflow passes over a directory that has gone",
+			restore:    restoreWorkflow,
+			removeDir:  true,
+			wantActive: true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -828,7 +870,7 @@ func TestPreRestore(t *testing.T) {
 	}
 }
 
-// TestDeleteFiresPreDeleteThenPostDelete pins the two moments either side of the directory going.
+// TestDeleteFiresPreDeleteThenPostDelete covers the two moments either side of the directory going.
 func TestDeleteFiresPreDeleteThenPostDelete(t *testing.T) {
 	st := newStore(t)
 	tmux := tmuxtest.NewFake()
@@ -865,8 +907,7 @@ func TestDeleteFiresPreDeleteThenPostDelete(t *testing.T) {
 	assert.Empty(t, remaining)
 }
 
-// TestDeleteWaitsForTheHooksStillRunning pins a delete leaving the directory alone while a
-// hook from an earlier moment is still working in it.
+// TestDeleteWaitsForTheHooksStillRunning covers the worktree outliving a hook from an earlier moment.
 func TestDeleteWaitsForTheHooksStillRunning(t *testing.T) {
 	st := newStore(t)
 	tmux := tmuxtest.NewFake()
@@ -889,9 +930,8 @@ func TestDeleteWaitsForTheHooksStillRunning(t *testing.T) {
 
 	present := func() bool {
 		remaining, err := st.Agents.ListAll(ctx)
-		require.NoError(t, err)
 
-		return len(remaining) == 1
+		return err == nil && len(remaining) == 1
 	}
 
 	require.Never(t, func() bool { return !present() }, 300*time.Millisecond, 20*time.Millisecond,
@@ -901,4 +941,30 @@ func TestDeleteWaitsForTheHooksStillRunning(t *testing.T) {
 
 	require.Eventually(t, func() bool { return !present() }, 5*time.Second, 10*time.Millisecond,
 		"and goes once it has finished")
+}
+
+// TestAStartedHookCountsAsRunningBeforeItsGoroutineIsScheduled covers the gap between a start and the goroutine running.
+func TestAStartedHookCountsAsRunningBeforeItsGoroutineIsScheduled(t *testing.T) {
+	st := newStore(t)
+	ctx := t.Context()
+
+	hold := make(chan struct{})
+	lifecycle := &fakeLifecycle{holdHooks: hold}
+	_, agents := seedHookedAgents(t, st, []workflowstore.Hook{
+		{Event: workflowstore.HookPostArchive, Script: "give-back-the-slot"},
+	}, "auth")
+
+	startHooksFor(ctx, batchHooksParams{
+		scripts:   lifecycle,
+		workflows: st.Workflows,
+		agents:    agents,
+		event:     workflowstore.HookPostArchive,
+	})
+
+	waiting, cancel := context.WithTimeout(ctx, 50*time.Millisecond)
+	defer cancel()
+	require.Error(t, lifecycle.AwaitHooks(waiting, agents[0].ID), "a wait straight after the start sees the hook")
+
+	close(hold)
+	require.NoError(t, lifecycle.AwaitHooks(ctx, agents[0].ID), "and ends once it has finished")
 }

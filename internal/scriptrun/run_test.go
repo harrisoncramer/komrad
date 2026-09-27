@@ -1800,7 +1800,7 @@ func TestSilentAsyncFailureSaysWhyInItsLog(t *testing.T) {
 	assert.Contains(t, string(said), "exited non-zero", "and says what became of it")
 }
 
-// TestAwaitHooksWaitsForTheHookStillRunning pins the wait that keeps an agent's hooks from overlapping.
+// TestAwaitHooksWaitsForTheHookStillRunning covers the wait that keeps an agent's hooks from overlapping.
 func TestAwaitHooksWaitsForTheHookStillRunning(t *testing.T) {
 	dir := t.TempDir()
 	worktree := t.TempDir()
@@ -1831,8 +1831,7 @@ func TestAwaitHooksWaitsForTheHookStillRunning(t *testing.T) {
 	require.NoError(t, <-done)
 }
 
-// TestRunPostDeleteHookRunsInTheHooksDirectoryOnceTheWorktreeIsGone pins where the last hook of an
-// agent's life runs.
+// TestRunPostDeleteHookRunsInTheHooksDirectoryOnceTheWorktreeIsGone covers where the last hook of an agent's life runs.
 func TestRunPostDeleteHookRunsInTheHooksDirectoryOnceTheWorktreeIsGone(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "forget"), []byte(

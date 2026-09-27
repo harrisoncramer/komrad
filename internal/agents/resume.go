@@ -203,7 +203,7 @@ func (s *ResumeService) resume(ctx context.Context, agent agentstore.Agent) erro
 		hooks:   agentHooks(ctx, s.workflows, agent),
 		event:   workflowstore.HookPreResume,
 	}); err != nil {
-		return err
+		return fmt.Errorf("failed to run the pre-resume hook of %q: %w", agent.Name, err)
 	}
 
 	pane, err = s.tmux.NewWindow(ManagerSession, agent.Name, dir)

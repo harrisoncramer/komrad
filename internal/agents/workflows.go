@@ -346,10 +346,11 @@ func (w *WorkflowService) ArchiveWorkflow(ctx context.Context, id string) error 
 	}
 
 	if err := joinRefusals(inside, runPreHooksFor(ctx, batchHooksParams{
-		scripts:   w.scripts,
-		workflows: w.store,
-		agents:    inside,
-		event:     workflowstore.HookPreArchive,
+		scripts:     w.scripts,
+		workflows:   w.store,
+		agents:      inside,
+		event:       workflowstore.HookPreArchive,
+		skipGoneDir: true,
 	})); err != nil {
 		return fmt.Errorf("failed to archive workflow %q: %w", existing.Name, err)
 	}
@@ -402,8 +403,9 @@ func (w *WorkflowService) RestoreWorkflow(ctx context.Context, id string) (*work
 
 	archived, err := w.agents.ListArchivedInWorkflow(ctx, id)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to list the archived agents of workflow %q: %w", existing.Name, err)
 	}
+
 	if err := joinRefusals(archived, runPreHooksFor(ctx, batchHooksParams{
 		scripts:     w.scripts,
 		workflows:   w.store,
