@@ -533,7 +533,7 @@ func (a *archiveScreen) title() string {
 		}
 	}
 
-	return screenTitle(view.GlyphArchive, "Archive") + "   " + strings.Join(kinds, muted.Render(" · "))
+	return screenTitle(view.GlyphArchive, "Archive") + "  " + strings.Join(kinds, "  ")
 }
 
 func (a *archiveScreen) help(s panelShared) keyMap {
