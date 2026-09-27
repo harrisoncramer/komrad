@@ -107,7 +107,7 @@ func (h *documentHistory) rows(item documentItem, width int) []string {
 		return rows
 	}
 
-	return append(rows, h.changeRows(width)...)
+	return append(append(rows, ""), h.changeRows(width)...)
 }
 
 // notice names the write stepped to, who made it and how long ago.
