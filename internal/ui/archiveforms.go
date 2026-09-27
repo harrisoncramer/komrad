@@ -44,3 +44,12 @@ func deleteWorkflowForm(workflow panel.Workflow, agentCount int, keys config.For
 
 	return confirmForm(title, warning, "Delete", keys)
 }
+
+func deleteScheduleForm(name string, keys config.FormKeys) (*huh.Form, *bool) {
+	return confirmForm(
+		fmt.Sprintf("Permanently delete schedule %q?", name),
+		"Its run history goes with it. The agents it launched are kept.",
+		"Delete",
+		keys,
+	)
+}

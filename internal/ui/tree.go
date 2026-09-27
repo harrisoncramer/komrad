@@ -502,6 +502,7 @@ type listing struct {
 	archivedAgents    []panel.AgentRow
 	archivedWorkflows []panel.Workflow
 	schedules         []scheduleItem
+	archivedSchedules []scheduleItem
 	worktrees         []worktreeItem
 	// marks are the letters a person types to jump to rows, keyed by the id of the agent or
 	// workflow each is on.
@@ -531,8 +532,15 @@ func (l *listing) assemble(now time.Time) {
 	l.archivedWorkflows = slices.DeleteFunc(workflows, func(workflow panel.Workflow) bool {
 		return !isArchivedWorkflow(workflow)
 	})
-	l.schedules = scheduleItemsFrom(slices.Collect(maps.Values(l.world.Schedules)))
-	slices.SortFunc(l.schedules, func(a, b scheduleItem) int { return strings.Compare(b.schedule.ID, a.schedule.ID) })
+	schedules := scheduleItemsFrom(slices.Collect(maps.Values(l.world.Schedules)))
+	slices.SortFunc(schedules, func(a, b scheduleItem) int { return strings.Compare(b.schedule.ID, a.schedule.ID) })
+	isArchivedSchedule := func(item scheduleItem) bool {
+		return item.schedule.ArchivedAt != nil
+	}
+	l.schedules = slices.DeleteFunc(slices.Clone(schedules), isArchivedSchedule)
+	l.archivedSchedules = slices.DeleteFunc(schedules, func(item scheduleItem) bool {
+		return !isArchivedSchedule(item)
+	})
 	l.marks = assemble.Marks(l.world)
 }
 

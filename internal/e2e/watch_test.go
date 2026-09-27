@@ -355,7 +355,7 @@ func worldFromStores(t *testing.T, st *storetest.Stores) assemble.World {
 	workflows, err := st.Workflows.ListWatched(ctx, xslice.Map(rows, func(row rowstore.Row) string { return row.WorkflowID }))
 	require.NoError(t, err)
 
-	schedules, err := st.Schedules.ListPage(ctx, 100, nil)
+	schedules, err := st.Schedules.ListPage(ctx, 100, nil, false)
 	require.NoError(t, err)
 
 	now := time.Now()

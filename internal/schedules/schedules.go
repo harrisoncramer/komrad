@@ -20,11 +20,14 @@ import (
 
 type scheduleReadWriter interface {
 	Get(ctx context.Context, id string) (*schedulestore.Schedule, error)
+	GetIncludingArchived(ctx context.Context, id string) (*schedulestore.Schedule, error)
 	Create(ctx context.Context, cfg schedulestore.Config) (*schedulestore.Schedule, error)
 	Update(ctx context.Context, id string, cfg schedulestore.Config) error
 	SetEnabled(ctx context.Context, id string, enabled bool) error
 	Archive(ctx context.Context, id string) error
-	ListPage(ctx context.Context, limit int64, cursor *schedulestore.Cursor) ([]schedulestore.Schedule, error)
+	Restore(ctx context.Context, id string) error
+	Delete(ctx context.Context, id string) error
+	ListPage(ctx context.Context, limit int64, cursor *schedulestore.Cursor, archived bool) ([]schedulestore.Schedule, error)
 	ListRuns(ctx context.Context, scheduleID string, limit int) ([]schedulestore.Run, error)
 }
 
@@ -159,14 +162,73 @@ func (s *ScheduleService) ArchiveSchedule(ctx context.Context, id string) error 
 	return nil
 }
 
-type ListSchedulesParams struct {
-	Limit  int64
-	Cursor *schedulestore.Cursor
+// RestoreSchedule takes a schedule out of the archive, refusing while what it fires at is gone.
+func (s *ScheduleService) RestoreSchedule(ctx context.Context, id string) error {
+	existing, err := s.getArchived(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	if err := s.requireTarget(ctx, *existing); err != nil {
+		return err
+	}
+
+	if err := s.store.Restore(ctx, id); err != nil {
+		return fmt.Errorf("failed to restore schedule %q: %w", existing.Name, err)
+	}
+
+	return nil
 }
 
-// ListSchedules returns one page of schedules, newest first.
+// DeleteSchedule permanently removes an archived schedule and its firings.
+func (s *ScheduleService) DeleteSchedule(ctx context.Context, id string) error {
+	existing, err := s.getArchived(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	if err := s.store.Delete(ctx, id); err != nil {
+		return fmt.Errorf("failed to delete schedule %q: %w", existing.Name, err)
+	}
+
+	return nil
+}
+
+func (s *ScheduleService) getArchived(ctx context.Context, id string) (*schedulestore.Schedule, error) {
+	existing, err := s.store.GetIncludingArchived(ctx, id)
+	if errors.Is(err, store.ErrNotFound) {
+		return nil, ErrScheduleNotFound.Saying("no schedule with id %q", id)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get schedule %q: %w", id, err)
+	}
+	if existing.ArchivedAt == nil {
+		return nil, ErrScheduleNotFound.Saying("schedule %q is not archived", existing.Name)
+	}
+
+	return existing, nil
+}
+
+// requireTarget checks that what a stored schedule fires at is still live.
+func (s *ScheduleService) requireTarget(ctx context.Context, schedule schedulestore.Schedule) error {
+	if schedule.Kind == schedulestore.KindOrchestrator && schedule.OrchestratorAgentID != nil {
+		_, err := s.RequireOrchestrator(ctx, *schedule.OrchestratorAgentID)
+
+		return err
+	}
+
+	return s.requireWorkflow(ctx, schedule.WorkflowID)
+}
+
+type ListSchedulesParams struct {
+	Limit    int64
+	Cursor   *schedulestore.Cursor
+	Archived bool
+}
+
+// ListSchedules returns one page of schedules, live or archived, newest first.
 func (s *ScheduleService) ListSchedules(ctx context.Context, params ListSchedulesParams) ([]schedulestore.Schedule, error) {
-	listed, err := s.store.ListPage(ctx, params.Limit, params.Cursor)
+	listed, err := s.store.ListPage(ctx, params.Limit, params.Cursor, params.Archived)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list schedules: %w", err)
 	}

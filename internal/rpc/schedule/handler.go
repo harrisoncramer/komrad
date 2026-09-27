@@ -27,6 +27,8 @@ type scheduleReadWriter interface {
 	UpdateSchedule(ctx context.Context, id string, cfg schedulestore.Config) error
 	SetScheduleEnabled(ctx context.Context, id string, enabled bool) error
 	ArchiveSchedule(ctx context.Context, id string) error
+	RestoreSchedule(ctx context.Context, id string) error
+	DeleteSchedule(ctx context.Context, id string) error
 	ListSchedules(ctx context.Context, params schedules.ListSchedulesParams) ([]schedulestore.Schedule, error)
 	ListScheduleRuns(ctx context.Context, params schedules.ListScheduleRunsParams) ([]schedulestore.Run, error)
 }
@@ -52,8 +54,9 @@ func (s *Handler) ListSchedules(ctx context.Context, req *schedulev1.ListSchedul
 	}
 
 	page, err := s.schedules.ListSchedules(ctx, schedules.ListSchedulesParams{
-		Limit:  paginator.Limit(),
-		Cursor: paginator.Cursor(),
+		Limit:    paginator.Limit(),
+		Cursor:   paginator.Cursor(),
+		Archived: req.GetArchived(),
 	})
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to list schedules")
@@ -148,6 +151,24 @@ func (s *Handler) SetScheduleEnabled(ctx context.Context, req *schedulev1.SetSch
 func (s *Handler) ArchiveSchedule(ctx context.Context, req *schedulev1.ArchiveScheduleRequest) (*emptypb.Empty, *fail.Error) {
 	if err := s.schedules.ArchiveSchedule(ctx, req.GetId()); err != nil {
 		return nil, rpcerr.From(err, "failed to archive schedule")
+	}
+
+	return &emptypb.Empty{}, nil
+}
+
+// RestoreSchedule takes a schedule out of the archive.
+func (s *Handler) RestoreSchedule(ctx context.Context, req *schedulev1.RestoreScheduleRequest) (*emptypb.Empty, *fail.Error) {
+	if err := s.schedules.RestoreSchedule(ctx, req.GetId()); err != nil {
+		return nil, rpcerr.From(err, "failed to restore schedule")
+	}
+
+	return &emptypb.Empty{}, nil
+}
+
+// DeleteSchedule removes an archived schedule for good.
+func (s *Handler) DeleteSchedule(ctx context.Context, req *schedulev1.DeleteScheduleRequest) (*emptypb.Empty, *fail.Error) {
+	if err := s.schedules.DeleteSchedule(ctx, req.GetId()); err != nil {
+		return nil, rpcerr.From(err, "failed to delete schedule")
 	}
 
 	return &emptypb.Empty{}, nil

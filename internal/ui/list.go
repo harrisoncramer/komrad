@@ -82,10 +82,8 @@ func (s screenActionSpec) isRowShown(shared panelShared, row screenLegendRow) bo
 		return row.show(shared)
 	}
 
-	return slices.ContainsFunc(row.of, func(id actionID) bool {
-		a, ok := s.actionOf(id)
-
-		return ok && (a.when == nil || a.when(shared))
+	return slices.ContainsFunc(s.table, func(a screenAction) bool {
+		return slices.Contains(row.of, a.id) && (a.when == nil || a.when(shared))
 	})
 }
 

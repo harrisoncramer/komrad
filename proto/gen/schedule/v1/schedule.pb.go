@@ -287,7 +287,9 @@ type Schedule struct {
 	// The newest firing still on record, unset when it has never fired or the record has aged out.
 	LatestRun *ScheduleRun `protobuf:"bytes,15,opt,name=latest_run,json=latestRun,proto3,oneof" json:"latest_run,omitempty"`
 	// The newest firings on record, newest first, which only the watch fills.
-	RecentRuns    []*ScheduleRun `protobuf:"bytes,16,rep,name=recent_runs,json=recentRuns,proto3" json:"recent_runs,omitempty"`
+	RecentRuns []*ScheduleRun `protobuf:"bytes,16,rep,name=recent_runs,json=recentRuns,proto3" json:"recent_runs,omitempty"`
+	// When it was archived, unset while it is live.
+	ArchivedAt    *timestamppb.Timestamp `protobuf:"bytes,19,opt,name=archived_at,json=archivedAt,proto3,oneof" json:"archived_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -420,13 +422,22 @@ func (x *Schedule) GetRecentRuns() []*ScheduleRun {
 	return nil
 }
 
+func (x *Schedule) GetArchivedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.ArchivedAt
+	}
+	return nil
+}
+
 type ListSchedulesRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Where to carry on from.
 	Pagination *v1.Pagination `protobuf:"bytes,1,opt,name=pagination,proto3,oneof" json:"pagination,omitempty"`
 	// How much of each record to return, since the panel draws every field and a model reading
 	// the same endpoint has a context window to spend.
-	View          v11.View `protobuf:"varint,2,opt,name=view,proto3,enum=view.v1.View" json:"view,omitempty"`
+	View v11.View `protobuf:"varint,2,opt,name=view,proto3,enum=view.v1.View" json:"view,omitempty"`
+	// True to list the archived schedules and only those.
+	Archived      bool `protobuf:"varint,3,opt,name=archived,proto3" json:"archived,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -473,6 +484,13 @@ func (x *ListSchedulesRequest) GetView() v11.View {
 		return x.View
 	}
 	return v11.View(0)
+}
+
+func (x *ListSchedulesRequest) GetArchived() bool {
+	if x != nil {
+		return x.Archived
+	}
+	return false
 }
 
 type ListSchedulesResponse struct {
@@ -1151,6 +1169,96 @@ func (x *ArchiveScheduleRequest) GetId() string {
 	return ""
 }
 
+type RestoreScheduleRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Which archived schedule to bring back.
+	Id            string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RestoreScheduleRequest) Reset() {
+	*x = RestoreScheduleRequest{}
+	mi := &file_schedule_v1_schedule_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RestoreScheduleRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RestoreScheduleRequest) ProtoMessage() {}
+
+func (x *RestoreScheduleRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_schedule_v1_schedule_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RestoreScheduleRequest.ProtoReflect.Descriptor instead.
+func (*RestoreScheduleRequest) Descriptor() ([]byte, []int) {
+	return file_schedule_v1_schedule_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *RestoreScheduleRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+type DeleteScheduleRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Which archived schedule to remove for good.
+	Id            string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteScheduleRequest) Reset() {
+	*x = DeleteScheduleRequest{}
+	mi := &file_schedule_v1_schedule_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteScheduleRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteScheduleRequest) ProtoMessage() {}
+
+func (x *DeleteScheduleRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_schedule_v1_schedule_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteScheduleRequest.ProtoReflect.Descriptor instead.
+func (*DeleteScheduleRequest) Descriptor() ([]byte, []int) {
+	return file_schedule_v1_schedule_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *DeleteScheduleRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
 var File_schedule_v1_schedule_proto protoreflect.FileDescriptor
 
 const file_schedule_v1_schedule_proto_rawDesc = "" +
@@ -1164,7 +1272,7 @@ const file_schedule_v1_schedule_proto_rawDesc = "" +
 	"\fmax_attempts\x18\x05 \x01(\x05R\vmaxAttempts\x12B\n" +
 	"\ffinalized_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampH\x00R\vfinalizedAt\x88\x01\x01\x12\x18\n" +
 	"\amessage\x18\a \x01(\tR\amessageB\x0f\n" +
-	"\r_finalized_at\"\xa3\x05\n" +
+	"\r_finalized_at\"\xf5\x05\n" +
 	"\bSchedule\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x12\n" +
@@ -1184,15 +1292,19 @@ const file_schedule_v1_schedule_proto_rawDesc = "" +
 	"\n" +
 	"latest_run\x18\x0f \x01(\v2\x18.schedule.v1.ScheduleRunH\x02R\tlatestRun\x88\x01\x01\x129\n" +
 	"\vrecent_runs\x18\x10 \x03(\v2\x18.schedule.v1.ScheduleRunR\n" +
-	"recentRunsB\x18\n" +
+	"recentRuns\x12@\n" +
+	"\varchived_at\x18\x13 \x01(\v2\x1a.google.protobuf.TimestampH\x03R\n" +
+	"archivedAt\x88\x01\x01B\x18\n" +
 	"\x16_orchestrator_agent_idB\x0e\n" +
 	"\f_next_run_atB\r\n" +
-	"\v_latest_runJ\x04\b\v\x10\fJ\x04\b\f\x10\rJ\x04\b\r\x10\x0eR\x12last_result_statusR\x13last_result_messageR\x0elast_result_at\"\x92\x01\n" +
+	"\v_latest_runB\x0e\n" +
+	"\f_archived_atJ\x04\b\v\x10\fJ\x04\b\f\x10\rJ\x04\b\r\x10\x0eR\x12last_result_statusR\x13last_result_messageR\x0elast_result_at\"\xae\x01\n" +
 	"\x14ListSchedulesRequest\x12>\n" +
 	"\n" +
 	"pagination\x18\x01 \x01(\v2\x19.pagination.v1.PaginationH\x00R\n" +
 	"pagination\x88\x01\x01\x12+\n" +
-	"\x04view\x18\x02 \x01(\x0e2\r.view.v1.ViewB\b\xbaH\x05\x82\x01\x02\x10\x01R\x04viewB\r\n" +
+	"\x04view\x18\x02 \x01(\x0e2\r.view.v1.ViewB\b\xbaH\x05\x82\x01\x02\x10\x01R\x04view\x12\x1a\n" +
+	"\barchived\x18\x03 \x01(\bR\barchivedB\r\n" +
 	"\v_pagination\"\x8d\x01\n" +
 	"\x15ListSchedulesResponse\x123\n" +
 	"\tschedules\x18\x01 \x03(\v2\x15.schedule.v1.ScheduleR\tschedules\x12+\n" +
@@ -1241,6 +1353,10 @@ const file_schedule_v1_schedule_proto_rawDesc = "" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\x12\x18\n" +
 	"\aenabled\x18\x02 \x01(\bR\aenabled\"1\n" +
 	"\x16ArchiveScheduleRequest\x12\x17\n" +
+	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\"1\n" +
+	"\x16RestoreScheduleRequest\x12\x17\n" +
+	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\"0\n" +
+	"\x15DeleteScheduleRequest\x12\x17\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id*\xc2\x02\n" +
 	"\x10ScheduleRunState\x12\"\n" +
 	"\x1eSCHEDULE_RUN_STATE_UNSPECIFIED\x10\x00\x12 \n" +
@@ -1255,15 +1371,17 @@ const file_schedule_v1_schedule_proto_rawDesc = "" +
 	"\fScheduleKind\x12\x1d\n" +
 	"\x19SCHEDULE_KIND_UNSPECIFIED\x10\x00\x12\x1d\n" +
 	"\x19SCHEDULE_KIND_IMPLEMENTER\x10\x01\x12\x1e\n" +
-	"\x1aSCHEDULE_KIND_ORCHESTRATOR\x10\x022\xc1\x16\n" +
-	"\x0fScheduleService\x12\xcc\x03\n" +
-	"\rListSchedules\x12!.schedule.v1.ListSchedulesRequest\x1a\".schedule.v1.ListSchedulesResponse\"\xf3\x02\x9a\xb5\x18\xeb\x02\b\x01\x10\x01\x1a\x0elist_schedules\"\xd1\x02List the schedules, most recently updated first, with each one's kind, cron expression, prompt, target, next run time, and its latest run. The summary this returns by default holds only the opening of each schedule's prompt, marked by prompt_truncated; get_schedule returns one whole, and view VIEW_FULL returns every prompt on the page.B\x01\x03\x90\x02\x01\x12\xb7\x01\n" +
+	"\x1aSCHEDULE_KIND_ORCHESTRATOR\x10\x022\xd6\x1c\n" +
+	"\x0fScheduleService\x12\xa6\x04\n" +
+	"\rListSchedules\x12!.schedule.v1.ListSchedulesRequest\x1a\".schedule.v1.ListSchedulesResponse\"\xcd\x03\x9a\xb5\x18\xc5\x03\b\x01\x10\x01\x1a\x0elist_schedules\"\xab\x03List the schedules, most recently updated first, with each one's kind, cron expression, prompt, target, next run time, and its latest run. The summary this returns by default holds only the opening of each schedule's prompt, marked by prompt_truncated; get_schedule returns one whole, and view VIEW_FULL returns every prompt on the page. Archived schedules are excluded unless archived is set, which lists those and only those.B\x01\x03\x90\x02\x01\x12\xb7\x01\n" +
 	"\vGetSchedule\x12\x1f.schedule.v1.GetScheduleRequest\x1a .schedule.v1.GetScheduleResponse\"e\x9a\xb5\x18^\b\x01\x10\x01\x1a\fget_schedule\"GFetch one schedule by id. Returns not_found if no schedule has that id.B\x01\x03\x90\x02\x01\x12\xa8\x04\n" +
 	"\x10ListScheduleRuns\x12$.schedule.v1.ListScheduleRunsRequest\x1a%.schedule.v1.ListScheduleRunsResponse\"\xc6\x03\x9a\xb5\x18\xbe\x03\b\x01\x10\x01\x1a\x12list_schedule_runs\"\xa0\x03List a schedule's most recent firings, newest first, each with the occurrence it stands for, its state, its attempt count, and why it was skipped or how it failed. A completed run launched its agent or delivered its mail, a cancelled one was skipped on purpose, a discarded one ran out of attempts, and a retryable one is still being tried. Firings are kept for 90 days. Returns not_found if no schedule has that id.B\x01\x03\x90\x02\x01\x12\x8c\x04\n" +
 	"\x0eCreateSchedule\x12\".schedule.v1.CreateScheduleRequest\x1a#.schedule.v1.CreateScheduleResponse\"\xb0\x03\x9a\xb5\x18\xab\x03\b\x01\x10\x01\x1a\x0fcreate_schedule\"\x8e\x03Create a schedule that fires on a cron expression. Give workflowId to launch a new implementer into that workflow on every match, or orchestratorAgentId to mail the prompt to that live orchestrator instead. Nothing fires at create time. Create it with enabled false to write it down without arming it. A firing whose orchestrator has since been archived or deleted is skipped, and its run says why.(\x00B\x01\x03\x12\xdf\x03\n" +
 	"\x0eUpdateSchedule\x12\".schedule.v1.UpdateScheduleRequest\x1a\x16.google.protobuf.Empty\"\x90\x03\x9a\xb5\x18\x88\x03\b\x01\x10\x01\x1a\x0fupdate_schedule\"\xeb\x02Replace a schedule's name, cron expression, timezone, prompt, target, and whether the agents it launches start hidden from the panel. Every field is written, so read the schedule first and send back the ones you are not changing, giving workflowId for an implementer schedule and orchestratorAgentId for an orchestrator one. Agents already launched are untouched.(\x00B\x01\x03\x90\x02\x02\x12\x81\x02\n" +
-	"\x12SetScheduleEnabled\x12&.schedule.v1.SetScheduleEnabledRequest\x1a\x16.google.protobuf.Empty\"\xaa\x01\x9a\xb5\x18\xa2\x01\b\x01\x10\x01\x1a\x14set_schedule_enabled\"\x80\x01Pause or resume one schedule without editing anything else. A paused schedule keeps its record and its history and stops firing.(\x00B\x01\x03\x90\x02\x02\x12\x84\x03\n" +
-	"\x0fArchiveSchedule\x12#.schedule.v1.ArchiveScheduleRequest\x1a\x16.google.protobuf.Empty\"\xb3\x02\x9a\xb5\x18\xab\x02\b\x01\x10\x01\x1a\x10archive_schedule\"\x8d\x02Hide a schedule from the panel so it stops firing, keeping its record. The agents it already launched are left alone and keep running, and they still record the schedule that made them. Nothing brings an archived schedule back yet, so this is the end of it in practice.(\x00B\x01\x03\x90\x02\x02B)Z'komrad/proto/gen/schedule/v1;schedulev1b\x06proto3"
+	"\x12SetScheduleEnabled\x12&.schedule.v1.SetScheduleEnabledRequest\x1a\x16.google.protobuf.Empty\"\xaa\x01\x9a\xb5\x18\xa2\x01\b\x01\x10\x01\x1a\x14set_schedule_enabled\"\x80\x01Pause or resume one schedule without editing anything else. A paused schedule keeps its record and its history and stops firing.(\x00B\x01\x03\x90\x02\x02\x12\xd1\x02\n" +
+	"\x0fArchiveSchedule\x12#.schedule.v1.ArchiveScheduleRequest\x1a\x16.google.protobuf.Empty\"\x80\x02\x9a\xb5\x18\xf8\x01\b\x01\x10\x01\x1a\x10archive_schedule\"\xda\x01Hide a schedule from the panel so it stops firing, keeping its record. The agents it already launched are left alone and keep running, and they still record the schedule that made them. restore_schedule brings it back.(\x00B\x01\x03\x90\x02\x02\x12\x98\x03\n" +
+	"\x0fRestoreSchedule\x12#.schedule.v1.RestoreScheduleRequest\x1a\x16.google.protobuf.Empty\"\xc7\x02\x9a\xb5\x18\xbf\x02\b\x01\x10\x01\x1a\x10restore_schedule\"\xa1\x02Take a schedule out of the archive, keyed by id. It comes back paused or armed as it was when archived. Returns not_found if the schedule is not archived, failed_precondition if its workflow or orchestrator has since been archived, and already_exists if a live schedule has taken its name.(\x00B\x01\x03\x90\x02\x02\x12\xd0\x02\n" +
+	"\x0eDeleteSchedule\x12\".schedule.v1.DeleteScheduleRequest\x1a\x16.google.protobuf.Empty\"\x81\x02\x9a\xb5\x18\xf9\x01\b\x01\x10\x01\x1a\x0fdelete_schedule\"\xdc\x01Permanently delete an archived schedule and its firing history. The agents it launched are left alone and no longer record the schedule that made them. Returns not_found if the schedule does not exist or is not archived.(\x01B\x01\x03\x90\x02\x02B)Z'komrad/proto/gen/schedule/v1;schedulev1b\x06proto3"
 
 var (
 	file_schedule_v1_schedule_proto_rawDescOnce sync.Once
@@ -1278,7 +1396,7 @@ func file_schedule_v1_schedule_proto_rawDescGZIP() []byte {
 }
 
 var file_schedule_v1_schedule_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_schedule_v1_schedule_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
+var file_schedule_v1_schedule_proto_msgTypes = make([]protoimpl.MessageInfo, 15)
 var file_schedule_v1_schedule_proto_goTypes = []any{
 	(ScheduleRunState)(0),             // 0: schedule.v1.ScheduleRunState
 	(ScheduleKind)(0),                 // 1: schedule.v1.ScheduleKind
@@ -1295,44 +1413,51 @@ var file_schedule_v1_schedule_proto_goTypes = []any{
 	(*UpdateScheduleRequest)(nil),     // 12: schedule.v1.UpdateScheduleRequest
 	(*SetScheduleEnabledRequest)(nil), // 13: schedule.v1.SetScheduleEnabledRequest
 	(*ArchiveScheduleRequest)(nil),    // 14: schedule.v1.ArchiveScheduleRequest
-	(*timestamppb.Timestamp)(nil),     // 15: google.protobuf.Timestamp
-	(*v1.Pagination)(nil),             // 16: pagination.v1.Pagination
-	(v11.View)(0),                     // 17: view.v1.View
-	(*emptypb.Empty)(nil),             // 18: google.protobuf.Empty
+	(*RestoreScheduleRequest)(nil),    // 15: schedule.v1.RestoreScheduleRequest
+	(*DeleteScheduleRequest)(nil),     // 16: schedule.v1.DeleteScheduleRequest
+	(*timestamppb.Timestamp)(nil),     // 17: google.protobuf.Timestamp
+	(*v1.Pagination)(nil),             // 18: pagination.v1.Pagination
+	(v11.View)(0),                     // 19: view.v1.View
+	(*emptypb.Empty)(nil),             // 20: google.protobuf.Empty
 }
 var file_schedule_v1_schedule_proto_depIdxs = []int32{
-	15, // 0: schedule.v1.ScheduleRun.scheduled_for:type_name -> google.protobuf.Timestamp
+	17, // 0: schedule.v1.ScheduleRun.scheduled_for:type_name -> google.protobuf.Timestamp
 	0,  // 1: schedule.v1.ScheduleRun.state:type_name -> schedule.v1.ScheduleRunState
-	15, // 2: schedule.v1.ScheduleRun.finalized_at:type_name -> google.protobuf.Timestamp
+	17, // 2: schedule.v1.ScheduleRun.finalized_at:type_name -> google.protobuf.Timestamp
 	1,  // 3: schedule.v1.Schedule.kind:type_name -> schedule.v1.ScheduleKind
-	15, // 4: schedule.v1.Schedule.next_run_at:type_name -> google.protobuf.Timestamp
+	17, // 4: schedule.v1.Schedule.next_run_at:type_name -> google.protobuf.Timestamp
 	2,  // 5: schedule.v1.Schedule.latest_run:type_name -> schedule.v1.ScheduleRun
 	2,  // 6: schedule.v1.Schedule.recent_runs:type_name -> schedule.v1.ScheduleRun
-	16, // 7: schedule.v1.ListSchedulesRequest.pagination:type_name -> pagination.v1.Pagination
-	17, // 8: schedule.v1.ListSchedulesRequest.view:type_name -> view.v1.View
-	3,  // 9: schedule.v1.ListSchedulesResponse.schedules:type_name -> schedule.v1.Schedule
-	3,  // 10: schedule.v1.GetScheduleResponse.schedule:type_name -> schedule.v1.Schedule
-	2,  // 11: schedule.v1.ListScheduleRunsResponse.runs:type_name -> schedule.v1.ScheduleRun
-	3,  // 12: schedule.v1.CreateScheduleResponse.schedule:type_name -> schedule.v1.Schedule
-	4,  // 13: schedule.v1.ScheduleService.ListSchedules:input_type -> schedule.v1.ListSchedulesRequest
-	6,  // 14: schedule.v1.ScheduleService.GetSchedule:input_type -> schedule.v1.GetScheduleRequest
-	8,  // 15: schedule.v1.ScheduleService.ListScheduleRuns:input_type -> schedule.v1.ListScheduleRunsRequest
-	10, // 16: schedule.v1.ScheduleService.CreateSchedule:input_type -> schedule.v1.CreateScheduleRequest
-	12, // 17: schedule.v1.ScheduleService.UpdateSchedule:input_type -> schedule.v1.UpdateScheduleRequest
-	13, // 18: schedule.v1.ScheduleService.SetScheduleEnabled:input_type -> schedule.v1.SetScheduleEnabledRequest
-	14, // 19: schedule.v1.ScheduleService.ArchiveSchedule:input_type -> schedule.v1.ArchiveScheduleRequest
-	5,  // 20: schedule.v1.ScheduleService.ListSchedules:output_type -> schedule.v1.ListSchedulesResponse
-	7,  // 21: schedule.v1.ScheduleService.GetSchedule:output_type -> schedule.v1.GetScheduleResponse
-	9,  // 22: schedule.v1.ScheduleService.ListScheduleRuns:output_type -> schedule.v1.ListScheduleRunsResponse
-	11, // 23: schedule.v1.ScheduleService.CreateSchedule:output_type -> schedule.v1.CreateScheduleResponse
-	18, // 24: schedule.v1.ScheduleService.UpdateSchedule:output_type -> google.protobuf.Empty
-	18, // 25: schedule.v1.ScheduleService.SetScheduleEnabled:output_type -> google.protobuf.Empty
-	18, // 26: schedule.v1.ScheduleService.ArchiveSchedule:output_type -> google.protobuf.Empty
-	20, // [20:27] is the sub-list for method output_type
-	13, // [13:20] is the sub-list for method input_type
-	13, // [13:13] is the sub-list for extension type_name
-	13, // [13:13] is the sub-list for extension extendee
-	0,  // [0:13] is the sub-list for field type_name
+	17, // 7: schedule.v1.Schedule.archived_at:type_name -> google.protobuf.Timestamp
+	18, // 8: schedule.v1.ListSchedulesRequest.pagination:type_name -> pagination.v1.Pagination
+	19, // 9: schedule.v1.ListSchedulesRequest.view:type_name -> view.v1.View
+	3,  // 10: schedule.v1.ListSchedulesResponse.schedules:type_name -> schedule.v1.Schedule
+	3,  // 11: schedule.v1.GetScheduleResponse.schedule:type_name -> schedule.v1.Schedule
+	2,  // 12: schedule.v1.ListScheduleRunsResponse.runs:type_name -> schedule.v1.ScheduleRun
+	3,  // 13: schedule.v1.CreateScheduleResponse.schedule:type_name -> schedule.v1.Schedule
+	4,  // 14: schedule.v1.ScheduleService.ListSchedules:input_type -> schedule.v1.ListSchedulesRequest
+	6,  // 15: schedule.v1.ScheduleService.GetSchedule:input_type -> schedule.v1.GetScheduleRequest
+	8,  // 16: schedule.v1.ScheduleService.ListScheduleRuns:input_type -> schedule.v1.ListScheduleRunsRequest
+	10, // 17: schedule.v1.ScheduleService.CreateSchedule:input_type -> schedule.v1.CreateScheduleRequest
+	12, // 18: schedule.v1.ScheduleService.UpdateSchedule:input_type -> schedule.v1.UpdateScheduleRequest
+	13, // 19: schedule.v1.ScheduleService.SetScheduleEnabled:input_type -> schedule.v1.SetScheduleEnabledRequest
+	14, // 20: schedule.v1.ScheduleService.ArchiveSchedule:input_type -> schedule.v1.ArchiveScheduleRequest
+	15, // 21: schedule.v1.ScheduleService.RestoreSchedule:input_type -> schedule.v1.RestoreScheduleRequest
+	16, // 22: schedule.v1.ScheduleService.DeleteSchedule:input_type -> schedule.v1.DeleteScheduleRequest
+	5,  // 23: schedule.v1.ScheduleService.ListSchedules:output_type -> schedule.v1.ListSchedulesResponse
+	7,  // 24: schedule.v1.ScheduleService.GetSchedule:output_type -> schedule.v1.GetScheduleResponse
+	9,  // 25: schedule.v1.ScheduleService.ListScheduleRuns:output_type -> schedule.v1.ListScheduleRunsResponse
+	11, // 26: schedule.v1.ScheduleService.CreateSchedule:output_type -> schedule.v1.CreateScheduleResponse
+	20, // 27: schedule.v1.ScheduleService.UpdateSchedule:output_type -> google.protobuf.Empty
+	20, // 28: schedule.v1.ScheduleService.SetScheduleEnabled:output_type -> google.protobuf.Empty
+	20, // 29: schedule.v1.ScheduleService.ArchiveSchedule:output_type -> google.protobuf.Empty
+	20, // 30: schedule.v1.ScheduleService.RestoreSchedule:output_type -> google.protobuf.Empty
+	20, // 31: schedule.v1.ScheduleService.DeleteSchedule:output_type -> google.protobuf.Empty
+	23, // [23:32] is the sub-list for method output_type
+	14, // [14:23] is the sub-list for method input_type
+	14, // [14:14] is the sub-list for extension type_name
+	14, // [14:14] is the sub-list for extension extendee
+	0,  // [0:14] is the sub-list for field type_name
 }
 
 func init() { file_schedule_v1_schedule_proto_init() }
@@ -1358,7 +1483,7 @@ func file_schedule_v1_schedule_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_schedule_v1_schedule_proto_rawDesc), len(file_schedule_v1_schedule_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   13,
+			NumMessages:   15,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

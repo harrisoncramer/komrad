@@ -291,7 +291,7 @@
               "key": "delete",
               "path": "keybindings.archive.delete",
               "type": "array",
-              "description": "Destroy the agent under the cursor for good, with its transcript. This is\nthe one thing in the panel nothing undoes, so it asks first.",
+              "description": "Destroy the agent or schedule under the cursor for good, with its transcript\nor its run history. Nothing undoes it, so it asks first.",
               "default": "[\"d\"]"
             },
             {
@@ -300,6 +300,13 @@
               "type": "array",
               "description": "Destroy every archived agent for good, however many there are. The panel hands\nthe work to a background job, since tearing down that many agents takes a while.\nIt asks first.",
               "default": "[\"D\"]"
+            },
+            {
+              "key": "kind",
+              "path": "keybindings.archive.kind",
+              "type": "array",
+              "description": "Switch the archive between its agents and its schedules.",
+              "default": "[\"tab\"]"
             },
             {
               "key": "open",
@@ -319,7 +326,7 @@
               "key": "restore",
               "path": "keybindings.archive.restore",
               "type": "array",
-              "description": "Put the agent under the cursor back in the panel.",
+              "description": "Put the agent or schedule under the cursor back in the panel.",
               "default": "[\"r\"]"
             },
             {
@@ -732,7 +739,7 @@
               "key": "archive",
               "path": "keybindings.schedules.archive",
               "type": "array",
-              "description": "Archive the schedule under the cursor, which stops it firing. The agents it\nlaunched are kept, and nothing brings the schedule back.",
+              "description": "Archive the schedule under the cursor, which stops it firing. The agents it\nlaunched are kept, and the archive can restore it.",
               "default": "[\"z\"]"
             },
             {

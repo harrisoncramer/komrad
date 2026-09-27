@@ -339,6 +339,18 @@ func (a api) archiveSchedule(id string) error {
 	})
 }
 
+func (a api) restoreSchedule(id string) error {
+	return mutate(func(ctx context.Context) (any, error) {
+		return a.schedules.RestoreSchedule(ctx, connect.NewRequest(&schedulev1.RestoreScheduleRequest{Id: id}))
+	})
+}
+
+func (a api) deleteSchedule(id string) error {
+	return mutate(func(ctx context.Context) (any, error) {
+		return a.schedules.DeleteSchedule(ctx, connect.NewRequest(&schedulev1.DeleteScheduleRequest{Id: id}))
+	})
+}
+
 func worktreeConfigToProto(w panel.WorktreeConfig) *workflowv1.WorktreeConfig {
 	return &workflowv1.WorktreeConfig{
 		Enabled:      w.Enabled,

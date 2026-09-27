@@ -2,11 +2,13 @@ package schedule
 
 import (
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 
 	"komrad/internal/dbtest"
 	"komrad/internal/store"
+	agentstore "komrad/internal/store/agent"
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/lib/xslice"
 
@@ -439,15 +441,15 @@ func TestListWatched(t *testing.T) {
 			wantNames: []string{},
 		},
 		{
-			name:      "nil keys list every live schedule",
+			name:      "nil keys list every schedule",
 			seeds:     []string{"a", "b"},
 			wantNames: []string{"b", "a"},
 		},
 		{
-			name:      "an archived one drops out of the whole set",
+			name:      "an archived one stays in the whole set",
 			seeds:     []string{"a", "b"},
 			archive:   "b",
-			wantNames: []string{"a"},
+			wantNames: []string{"a", "b"},
 		},
 		{
 			name:      "keys list only the schedules they name",
@@ -456,11 +458,11 @@ func TestListWatched(t *testing.T) {
 			wantNames: []string{"a"},
 		},
 		{
-			name:      "an archived key is left out",
+			name:      "an archived key is listed",
 			seeds:     []string{"a", "b"},
 			archive:   "b",
-			keys:      []string{"a", "b"},
-			wantNames: []string{"a"},
+			keys:      []string{"b"},
+			wantNames: []string{"b"},
 		},
 		{
 			name:      "keys naming no schedule list nothing",
@@ -501,6 +503,9 @@ func TestListWatched(t *testing.T) {
 				return s.Name
 			})
 			assert.ElementsMatch(t, tt.wantNames, names)
+			for _, schedule := range listed {
+				assert.Equal(t, schedule.Name == tt.archive, schedule.ArchivedAt != nil, "%s says whether it is archived", schedule.Name)
+			}
 		})
 	}
 }
@@ -508,11 +513,13 @@ func TestListWatched(t *testing.T) {
 // TestListPage walks the listing through its cursor the way the RPC does.
 func TestListPage(t *testing.T) {
 	tests := []struct {
-		name      string
-		seeds     int
-		archived  int
-		limit     int64
-		wantPages int
+		name         string
+		seeds        int
+		archived     int
+		listArchived bool
+		limit        int64
+		wantPages    int
+		wantSeen     int
 	}{
 		{
 			name:      "an archived schedule leaves the listing",
@@ -520,18 +527,30 @@ func TestListPage(t *testing.T) {
 			archived:  1,
 			limit:     10,
 			wantPages: 1,
+			wantSeen:  2,
+		},
+		{
+			name:         "the archived listing holds only the archived ones",
+			seeds:        3,
+			archived:     2,
+			listArchived: true,
+			limit:        1,
+			wantPages:    2,
+			wantSeen:     2,
 		},
 		{
 			name:      "one page holds everything when the limit is large",
 			seeds:     3,
 			limit:     10,
 			wantPages: 1,
+			wantSeen:  3,
 		},
 		{
 			name:      "a small limit pages through the whole set",
 			seeds:     3,
 			limit:     1,
 			wantPages: 3,
+			wantSeen:  3,
 		},
 	}
 
@@ -557,7 +576,7 @@ func TestListPage(t *testing.T) {
 				pages  int
 			)
 			for range tt.seeds + 1 {
-				page, err := st.ListPage(ctx, tt.limit, cursor)
+				page, err := st.ListPage(ctx, tt.limit, cursor, tt.listArchived)
 				require.NoError(t, err)
 				if len(page) == 0 {
 					break
@@ -573,7 +592,7 @@ func TestListPage(t *testing.T) {
 			}
 
 			assert.Equal(t, tt.wantPages, pages)
-			assert.Len(t, seen, tt.seeds-tt.archived, "every live schedule is returned exactly once")
+			assert.Len(t, seen, tt.wantSeen, "every schedule on the listed side is returned exactly once")
 			assert.IsDecreasing(t, seen, "the listing is newest first, which is descending id order")
 		})
 	}
@@ -582,6 +601,114 @@ func TestListPage(t *testing.T) {
 type fixture struct {
 	*ScheduleStore
 	workflows *workflowstore.WorkflowStore
+	agents    *agentstore.AgentStore
+}
+
+// TestRestore pins which schedules come back out of the archive and when a live one's name
+// stands in the way.
+func TestRestore(t *testing.T) {
+	tests := []struct {
+		name       string
+		archive    bool
+		nameTaken  bool
+		wantErr    error
+		wantLive   bool
+		wantHidden bool
+	}{
+		{
+			name:     "an archived schedule comes back",
+			archive:  true,
+			wantLive: true,
+		},
+		{
+			name:     "a live schedule is left as it is",
+			wantLive: true,
+		},
+		{
+			name:       "a live schedule holding its name refuses it",
+			archive:    true,
+			nameTaken:  true,
+			wantErr:    store.ErrNameTaken,
+			wantHidden: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := open(t)
+			ctx := t.Context()
+
+			created := seed(t, st, Config{
+				Name:    "morning-ci",
+				Cron:    "0 9 * * *",
+				Prompt:  "go",
+				Enabled: true,
+			})
+			if tt.archive {
+				require.NoError(t, st.Archive(ctx, created.ID))
+			}
+			if tt.nameTaken {
+				seed(t, st, Config{
+					Name:   "morning-ci",
+					Cron:   "0 9 * * *",
+					Prompt: "again",
+				})
+			}
+
+			err := st.Restore(ctx, created.ID)
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+			} else {
+				require.NoError(t, err)
+			}
+
+			got, err := st.GetIncludingArchived(ctx, created.ID)
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantHidden, got.ArchivedAt != nil)
+			assert.True(t, got.Enabled, "restoring leaves whether it is armed alone")
+		})
+	}
+}
+
+// TestDelete pins that deleting a schedule takes its firings with it and leaves the agents it
+// launched in place with no schedule.
+func TestDelete(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+
+	created := seed(t, st, Config{
+		Name:   "morning-ci",
+		Cron:   "0 9 * * *",
+		Prompt: "go",
+	})
+	require.NoError(t, st.StartRun(ctx, StartRunParams{
+		Occurrence: RunOccurrence{
+			ScheduleID:   created.ID,
+			ScheduledFor: time.Now(),
+		},
+		Attempt:     1,
+		MaxAttempts: 3,
+	}))
+	agent := agentstore.Agent{
+		Name:       "launched",
+		WorkflowID: created.WorkflowID,
+		ScheduleID: &created.ID,
+		State:      agentstore.StateIdle,
+	}
+	require.NoError(t, st.agents.Create(ctx, agent))
+
+	require.NoError(t, st.Delete(ctx, created.ID))
+
+	_, err := st.GetIncludingArchived(ctx, created.ID)
+	require.ErrorIs(t, err, store.ErrNotFound)
+
+	runs, err := st.ListRuns(ctx, created.ID, 10)
+	require.NoError(t, err)
+	assert.Empty(t, runs, "its firings go with it")
+
+	launched, err := st.agents.GetInWorkflow(ctx, created.WorkflowID, "launched")
+	require.NoError(t, err)
+	assert.Nil(t, launched.ScheduleID, "the agent it launched stays and no longer names it")
 }
 
 func open(t *testing.T) *fixture {
@@ -591,7 +718,11 @@ func open(t *testing.T) *fixture {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = pool.Close() })
 
-	return &fixture{ScheduleStore: NewScheduleStore(pool.GetDB()), workflows: workflowstore.NewWorkflowStore(pool.GetDB())}
+	return &fixture{
+		ScheduleStore: NewScheduleStore(pool.GetDB()),
+		workflows:     workflowstore.NewWorkflowStore(pool.GetDB()),
+		agents:        agentstore.NewAgentStore(pool.GetDB()),
+	}
 }
 
 func seed(t *testing.T, st *fixture, cfg Config) *Schedule {

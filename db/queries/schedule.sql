@@ -3,8 +3,7 @@ SELECT
     sqlc.embed(s)
 FROM
     schedules s
-WHERE
-    s.archived_at IS NULL
+WHERE (@archived::boolean) =(s.archived_at IS NOT NULL)
     AND (sqlc.narg('cursor_id')::uuid IS NULL
         OR s.id < sqlc.narg('cursor_id'))
 ORDER BY
@@ -16,10 +15,8 @@ SELECT
     sqlc.embed(s)
 FROM
     schedules s
-WHERE
-    s.archived_at IS NULL
-    AND (sqlc.narg('keys')::text[] IS NULL
-        OR s.id = ANY (sqlc.narg('keys')::uuid[]))
+WHERE (sqlc.narg('keys')::text[] IS NULL
+    OR s.id = ANY (sqlc.narg('keys')::uuid[]))
 ORDER BY
     s.id DESC;
 
@@ -31,6 +28,15 @@ FROM
 WHERE
     s.id = @id
     AND s.archived_at IS NULL
+LIMIT 1;
+
+-- name: GetScheduleIncludingArchived :one
+SELECT
+    sqlc.embed(s)
+FROM
+    schedules s
+WHERE
+    s.id = @id
 LIMIT 1;
 
 -- name: InsertSchedule :one
@@ -91,6 +97,15 @@ SET
 WHERE
     id = @id
     AND archived_at IS NULL;
+
+-- name: MarkScheduleRestored :exec
+UPDATE
+    schedules
+SET
+    archived_at = NULL
+WHERE
+    id = @id
+    AND archived_at IS NOT NULL;
 
 -- name: CountLiveWorkflowSchedules :one
 SELECT

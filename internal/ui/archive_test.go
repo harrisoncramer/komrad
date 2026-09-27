@@ -5,11 +5,14 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"komrad/internal/ui/paint"
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
+	schedulev1 "komrad/proto/gen/schedule/v1"
+	"komrad/proto/gen/schedule/v1/schedulev1connect"
 	workflowv1 "komrad/proto/gen/workflow/v1"
 	"komrad/proto/gen/workflow/v1/workflowv1connect"
 
@@ -19,6 +22,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 const (
@@ -844,6 +848,89 @@ func TestArchiveSelection(t *testing.T) {
 	})
 }
 
+// TestArchiveSchedules covers the archive switched to its archived schedules.
+func TestArchiveSchedules(t *testing.T) {
+	rows := []proto.Message{
+		newLiveWorkflow("w1", "backend"),
+		newArchivedAgent("a1", "api-refactor", "w1"),
+		newSchedule("s1", "nightly-live"),
+		newArchivedSchedule("s2", "weekly-gone"),
+	}
+
+	tests := []struct {
+		name       string
+		press      []string
+		want       []string
+		wantAbsent []string
+		wantSent   []request
+	}{
+		{
+			name:       "the kind key lists the archived schedules and none of the live ones",
+			press:      []string{"tab"},
+			want:       []string{"weekly-gone", "archived — kept until deleted", "r restore schedule"},
+			wantAbsent: []string{"nightly-live", "api-refactor"},
+		},
+		{
+			name:       "the kind key again goes back to the agents",
+			press:      []string{"tab", "tab"},
+			want:       []string{"api-refactor"},
+			wantAbsent: []string{"weekly-gone"},
+		},
+		{
+			name:  "restore puts the hovered schedule back",
+			press: []string{"tab", "r"},
+			want:  []string{"weekly-gone"},
+			wantSent: []request{{
+				procedure: schedulev1connect.ScheduleServiceRestoreScheduleProcedure,
+				msg:       &schedulev1.RestoreScheduleRequest{Id: "s2"},
+			}},
+		},
+		{
+			name:  "delete asks first",
+			press: []string{"tab", "d"},
+			want:  []string{`Permanently delete schedule "weekly-gone"?`},
+		},
+		{
+			name:       "declining the delete destroys nothing",
+			press:      []string{"tab", "d", "n"},
+			wantAbsent: []string{deletePrompt},
+		},
+		{
+			name:       "confirming the delete destroys the schedule",
+			press:      []string{"tab", "d", "y"},
+			wantAbsent: []string{deletePrompt},
+			wantSent: []request{{
+				procedure: schedulev1connect.ScheduleServiceDeleteScheduleProcedure,
+				msg:       &schedulev1.DeleteScheduleRequest{Id: "s2"},
+			}},
+		},
+		{
+			name:       "the kind key waits while agents are selected",
+			press:      []string{"j", "v", "tab"},
+			want:       []string{"api-refactor"},
+			wantAbsent: []string{"weekly-gone"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			harness := openArchive(t, rows...)
+
+			harness.press(append(tt.press, widenListPresses...)...)
+
+			frame := ansi.Strip(harness.readFrame())
+			assert.Contains(t, splitLines(frame)[0], archiveTitle)
+			for _, want := range tt.want {
+				assert.Contains(t, frame, want)
+			}
+			for _, absent := range tt.wantAbsent {
+				assert.NotContains(t, frame, absent)
+			}
+			harness.assertSent(tt.wantSent...)
+		})
+	}
+}
+
 func openArchive(t *testing.T, rows ...proto.Message) *panelHarness {
 	t.Helper()
 
@@ -891,4 +978,11 @@ func newArchivedAgentAt(name, at string) *agentv1.Agent {
 	agent.ArchivedAt = proto.String(at)
 
 	return agent
+}
+
+func newArchivedSchedule(id, name string) *schedulev1.Schedule {
+	schedule := newSchedule(id, name)
+	schedule.ArchivedAt = timestamppb.New(time.Date(2026, 7, 30, 9, 0, 0, 0, time.UTC))
+
+	return schedule
 }

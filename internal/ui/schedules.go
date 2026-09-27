@@ -88,6 +88,10 @@ func (w *schedulesScreen) details(s panelShared) details {
 		return details{}
 	}
 
+	return scheduleDetails(s, item)
+}
+
+func scheduleDetails(s panelShared, item scheduleItem) details {
 	return details{
 		id: item.schedule.ID,
 		fields: scheduleFields(item.schedule, scheduleTarget{
@@ -292,14 +296,24 @@ func (w *schedulesScreen) help(s panelShared) keyMap {
 
 // lines is the list as drawn: each row's cursor, icon, name and cron, or one line over no rows.
 func (w *schedulesScreen) lines(s panelShared, pane listPane) []string {
-	all := w.listRows(s)
-	if len(all) == 0 {
-		return []string{dimStyle.Render("  " + emptyLineOf(s.chrome.filter, "no schedules yet"))}
+	return scheduleLines(s, pane, scheduleLinesParams{rows: w.listRows(s), cursor: w.cursor, idle: "no schedules yet"})
+}
+
+type scheduleLinesParams struct {
+	rows   []scheduleItem
+	cursor int
+	idle   string
+}
+
+// scheduleLines draws schedule rows with the cursor on one, or the idle line over none.
+func scheduleLines(s panelShared, pane listPane, params scheduleLinesParams) []string {
+	if len(params.rows) == 0 {
+		return []string{dimStyle.Render("  " + emptyLineOf(s.chrome.filter, params.idle))}
 	}
 
-	rows := make([]string, 0, len(all))
-	for i, item := range all {
-		selected := i == w.cursor
+	rows := make([]string, 0, len(params.rows))
+	for i, item := range params.rows {
+		selected := i == params.cursor
 		prefix := "  "
 		if selected {
 			prefix = caretGlyph(pane.caret)

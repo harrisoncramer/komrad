@@ -23,7 +23,8 @@ var WatchedSchedules = watch.Resource{
 	},
 }
 
-// ListWatched returns the live schedules among keys, or every one when keys is nil.
+// ListWatched returns the schedules among keys, archived ones included, or every one when keys
+// is nil.
 func (s *ScheduleStore) ListWatched(ctx context.Context, keys []string) ([]Schedule, error) {
 	rows, err := s.queries.ListWatchedSchedules(ctx, keys)
 	if err != nil {

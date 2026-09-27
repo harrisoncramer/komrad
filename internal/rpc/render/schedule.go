@@ -40,7 +40,9 @@ func Schedule(s schedulestore.Schedule, now time.Time, options ScheduleOptions) 
 		OrchestratorAgentId: s.OrchestratorAgentID,
 	}
 
-	if next := schedules.CalculateNextRun(s, now); !next.IsZero() {
+	if s.ArchivedAt != nil {
+		rendered.ArchivedAt = timestamppb.New(*s.ArchivedAt)
+	} else if next := schedules.CalculateNextRun(s, now); !next.IsZero() {
 		rendered.NextRunAt = timestamppb.New(next)
 	}
 

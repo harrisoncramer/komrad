@@ -68,6 +68,7 @@ const (
 	actionArchiveDelete
 	actionArchiveEmpty
 	actionArchiveBack
+	actionArchiveKind
 	actionRestoreSelected
 	actionDeleteSelected
 	actionWorktreesOpen

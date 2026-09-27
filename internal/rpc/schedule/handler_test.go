@@ -37,14 +37,17 @@ type enableCall struct {
 
 // fakeSchedules answers from its fields and records what each call asked of it.
 type fakeSchedules struct {
-	stored  []schedulestore.Schedule
-	runs    []schedulestore.Run
-	err     error
-	created []schedulestore.Config
-	updated []updateCall
-	enabled []enableCall
-	gone    []string
-	listed  []schedules.ListScheduleRunsParams
+	stored   []schedulestore.Schedule
+	runs     []schedulestore.Run
+	err      error
+	created  []schedulestore.Config
+	updated  []updateCall
+	enabled  []enableCall
+	gone     []string
+	restored []string
+	deleted  []string
+	pages    []schedules.ListSchedulesParams
+	listed   []schedules.ListScheduleRunsParams
 }
 
 // GetSchedule answers the first stored schedule unless err refuses it.
@@ -102,8 +105,24 @@ func (f *fakeSchedules) ArchiveSchedule(_ context.Context, id string) error {
 	return f.err
 }
 
-// ListSchedules answers as many stored schedules as the limit allows unless err refuses it.
+// RestoreSchedule records the id and answers err.
+func (f *fakeSchedules) RestoreSchedule(_ context.Context, id string) error {
+	f.restored = append(f.restored, id)
+
+	return f.err
+}
+
+// DeleteSchedule records the id and answers err.
+func (f *fakeSchedules) DeleteSchedule(_ context.Context, id string) error {
+	f.deleted = append(f.deleted, id)
+
+	return f.err
+}
+
+// ListSchedules records the listing and answers as many stored schedules as the limit allows
+// unless err refuses it.
 func (f *fakeSchedules) ListSchedules(_ context.Context, params schedules.ListSchedulesParams) ([]schedulestore.Schedule, error) {
+	f.pages = append(f.pages, params)
 	if f.err != nil {
 		return nil, f.err
 	}
@@ -130,6 +149,11 @@ func TestScheduleRefusalsMapToCodes(t *testing.T) {
 	}
 	update := func(ctx context.Context, svc schedulev1komrad.ScheduleServiceAdapter) error {
 		_, err := svc.UpdateSchedule(ctx, connect.NewRequest(&schedulev1.UpdateScheduleRequest{Id: scheduleID}))
+
+		return err
+	}
+	restore := func(ctx context.Context, svc schedulev1komrad.ScheduleServiceAdapter) error {
+		_, err := svc.RestoreSchedule(ctx, connect.NewRequest(&schedulev1.RestoreScheduleRequest{Id: scheduleID}))
 
 		return err
 	}
@@ -215,6 +239,34 @@ func TestScheduleRefusalsMapToCodes(t *testing.T) {
 			wantCode: connect.CodeNotFound,
 		},
 		{
+			name:     "restoring a schedule the archive does not hold",
+			call:     restore,
+			err:      schedules.ErrScheduleNotFound,
+			wantCode: connect.CodeNotFound,
+		},
+		{
+			name:     "restoring into a workflow that has been archived",
+			call:     restore,
+			err:      schedules.ErrWorkflowArchived,
+			wantCode: connect.CodeFailedPrecondition,
+		},
+		{
+			name:     "restoring over a name a live schedule holds",
+			call:     restore,
+			err:      store.ErrNameTaken,
+			wantCode: connect.CodeAlreadyExists,
+		},
+		{
+			name: "deleting a schedule the archive does not hold",
+			call: func(ctx context.Context, svc schedulev1komrad.ScheduleServiceAdapter) error {
+				_, err := svc.DeleteSchedule(ctx, connect.NewRequest(&schedulev1.DeleteScheduleRequest{Id: scheduleID}))
+
+				return err
+			},
+			err:      schedules.ErrScheduleNotFound,
+			wantCode: connect.CodeNotFound,
+		},
+		{
 			name: "reading a schedule nothing holds",
 			call: func(ctx context.Context, svc schedulev1komrad.ScheduleServiceAdapter) error {
 				_, err := svc.GetSchedule(ctx, connect.NewRequest(&schedulev1.GetScheduleRequest{Id: scheduleID}))
@@ -270,7 +322,7 @@ func TestScheduleRefusalsMapToCodes(t *testing.T) {
 	}
 }
 
-// TestScheduleWritesPassDown pins what each write hands the schedule service.
+// TestScheduleWritesPassDown pins what each call hands the schedule service.
 func TestScheduleWritesPassDown(t *testing.T) {
 	cfg := schedulestore.Config{
 		Name:       "morning-ci",
@@ -401,6 +453,36 @@ func TestScheduleWritesPassDown(t *testing.T) {
 				return err
 			},
 			want: fakeSchedules{gone: []string{scheduleID}},
+		},
+		{
+			name: "restoring hands down the id",
+			call: func(ctx context.Context, svc schedulev1komrad.ScheduleServiceAdapter) error {
+				_, err := svc.RestoreSchedule(ctx, connect.NewRequest(&schedulev1.RestoreScheduleRequest{Id: scheduleID}))
+
+				return err
+			},
+			want: fakeSchedules{restored: []string{scheduleID}},
+		},
+		{
+			name: "deleting hands down the id",
+			call: func(ctx context.Context, svc schedulev1komrad.ScheduleServiceAdapter) error {
+				_, err := svc.DeleteSchedule(ctx, connect.NewRequest(&schedulev1.DeleteScheduleRequest{Id: scheduleID}))
+
+				return err
+			},
+			want: fakeSchedules{deleted: []string{scheduleID}},
+		},
+		{
+			name: "listing the archive hands down which half to list",
+			call: func(ctx context.Context, svc schedulev1komrad.ScheduleServiceAdapter) error {
+				_, err := svc.ListSchedules(ctx, connect.NewRequest(&schedulev1.ListSchedulesRequest{
+					Pagination: &paginationv1.Pagination{Limit: proto.Int32(5)},
+					Archived:   true,
+				}))
+
+				return err
+			},
+			want: fakeSchedules{pages: []schedules.ListSchedulesParams{{Limit: 5, Archived: true}}},
 		},
 	}
 

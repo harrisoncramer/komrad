@@ -5,6 +5,7 @@ import (
 
 	"komrad/config"
 	"komrad/internal/ui/panel"
+	"komrad/lib/xslice"
 
 	tea "charm.land/bubbletea/v2"
 )
@@ -18,6 +19,51 @@ func (a *archiveScreen) actions() screenActionSpec {
 }
 
 func (a *archiveScreen) table() []screenAction {
+	return slices.Concat(
+		[]screenAction{{
+			id:   actionArchiveKind,
+			keys: func(k config.Keybindings) []string { return k.Archive.Kind },
+			when: a.canSwitchKind,
+			run:  func(h host, s panelShared, _ string) tea.Cmd { return a.switchKind(h, s) },
+		}},
+		guarded(a.onAgents, a.agentTable()),
+		guarded(a.onSchedules, a.scheduleTable()),
+	)
+}
+
+// guarded narrows each action to answer only while when holds.
+func guarded(when func(panelShared) bool, actions []screenAction) []screenAction {
+	return xslice.Map(actions, func(action screenAction) screenAction {
+		inner := action.when
+		action.when = func(s panelShared) bool { return when(s) && (inner == nil || inner(s)) }
+
+		return action
+	})
+}
+
+func (a *archiveScreen) scheduleTable() []screenAction {
+	list := a.scheduleList()
+
+	return append(list.actions(),
+		screenAction{
+			id:   actionArchiveBack,
+			keys: func(k config.Keybindings) []string { return k.Archive.Back },
+			run:  func(h host, _ panelShared, _ string) tea.Cmd { return h.enter(screenAgents, screenTarget{}) },
+		},
+		screenAction{
+			id:   actionArchiveRestore,
+			keys: func(k config.Keybindings) []string { return k.Archive.Restore },
+			run:  func(h host, s panelShared, _ string) tea.Cmd { return a.restoreSchedule(h, s) },
+		},
+		screenAction{
+			id:   actionArchiveDelete,
+			keys: func(k config.Keybindings) []string { return k.Archive.Delete },
+			run:  func(h host, s panelShared, _ string) tea.Cmd { return a.confirmDeleteSchedule(h, s) },
+		},
+	)
+}
+
+func (a *archiveScreen) agentTable() []screenAction {
 	list := a.list()
 
 	return append(list.actions(),
@@ -79,6 +125,11 @@ func (a *archiveScreen) legend() []screenLegendRow {
 
 	return slices.Concat(list.selectionLegend(), []screenLegendRow{
 		{
+			of:    []actionID{actionArchiveKind},
+			desc:  a.kindDesc,
+			strip: true,
+		},
+		{
 			of:   []actionID{actionRestoreSelected},
 			desc: func(panelShared) string { return "restore all" },
 			show: list.isSelecting,
@@ -95,6 +146,11 @@ func (a *archiveScreen) legend() []screenLegendRow {
 			strip: true,
 		},
 		{
+			of:   []actionID{actionArchiveDelete},
+			desc: func(panelShared) string { return "delete for good" },
+			show: a.holdsASchedule,
+		},
+		{
 			of:   []actionID{actionArchiveRestoreOpen},
 			desc: func(panelShared) string { return "restore and open" },
 			show: a.canRowOpen,
@@ -102,7 +158,7 @@ func (a *archiveScreen) legend() []screenLegendRow {
 		{
 			of:   []actionID{actionSelectToggle},
 			desc: list.toggleDesc,
-			show: a.holdsARow,
+			show: func(s panelShared) bool { return a.onAgents(s) && a.holdsARow(s) },
 		},
 		{
 			of:   []actionID{actionArchiveDelete},
@@ -117,7 +173,7 @@ func (a *archiveScreen) legend() []screenLegendRow {
 		{
 			of:   []actionID{actionWorktreesOpen},
 			desc: func(panelShared) string { return "worktrees" },
-			show: list.isBrowsing,
+			show: func(s panelShared) bool { return a.onAgents(s) && list.isBrowsing(s) },
 		},
 		{
 			of:   []actionID{actionFilterOpen},
@@ -141,8 +197,36 @@ func (a *archiveScreen) legend() []screenLegendRow {
 	})
 }
 
+// canSwitchKind reports whether the kind key answers, which it does not while agents are selected.
+func (a *archiveScreen) canSwitchKind(s panelShared) bool {
+	return a.onSchedules(s) || !a.selected.isActive()
+}
+
+func (a *archiveScreen) kindDesc(s panelShared) string {
+	if a.onSchedules(s) {
+		return "agents"
+	}
+
+	return "schedules"
+}
+
+// holdsASchedule reports whether the archive lists schedules and the cursor is on one.
+func (a *archiveScreen) holdsASchedule(s panelShared) bool {
+	if !a.onSchedules(s) {
+		return false
+	}
+
+	_, ok := a.hoveredSchedule(s)
+
+	return ok
+}
+
 // holdsARow reports whether the cursor is on something the row keys can act on.
 func (a *archiveScreen) holdsARow(s panelShared) bool {
+	if a.onSchedules(s) {
+		return a.holdsASchedule(s)
+	}
+
 	if _, ok := a.hoveredWorkflow(s); ok {
 		return !a.selected.isActive()
 	}
@@ -153,7 +237,7 @@ func (a *archiveScreen) holdsARow(s panelShared) bool {
 // holdsAnAgent reports whether the cursor is on an archived agent rather than on the folder
 // holding one.
 func (a *archiveScreen) holdsAnAgent(s panelShared) bool {
-	if a.selected.isActive() {
+	if a.onSchedules(s) || a.selected.isActive() {
 		return false
 	}
 
@@ -184,6 +268,10 @@ func (a *archiveScreen) deleteHovered(h host, s panelShared, _ string) tea.Cmd {
 }
 
 func (a *archiveScreen) restoreDesc(s panelShared) string {
+	if a.onSchedules(s) {
+		return "restore schedule"
+	}
+
 	if _, ok := a.hoveredWorkflow(s); ok {
 		return "restore workflow"
 	}
@@ -194,6 +282,10 @@ func (a *archiveScreen) restoreDesc(s panelShared) string {
 // canRowOpen reports whether the row under the cursor holds a conversation the panel can put
 // back in a pane.
 func (a *archiveScreen) canRowOpen(s panelShared) bool {
+	if a.onSchedules(s) {
+		return false
+	}
+
 	agent, ok := a.hoveredAgent(s)
 
 	return ok && agent.State.DoesPaneDecide()
