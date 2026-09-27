@@ -175,7 +175,7 @@ func EnumNames(values protoreflect.EnumDescriptor) []string {
 // rules decide rather than proto3 field presence.
 func IsRequired(field protoreflect.FieldDescriptor) bool {
 	rules := GetRules(field)
-	if rules == nil || field.HasOptionalKeyword() {
+	if rules == nil || field.ContainingOneof() != nil {
 		return false
 	}
 

@@ -170,6 +170,11 @@ func TestInputSchema(t *testing.T) {
 			wantFields:   map[string]map[string]any{"id": {"type": "string"}},
 			wantRequired: []string{"id"},
 		},
+		{
+			method:       "WriteDocument",
+			wantFields:   map[string]map[string]any{"body": nil, "path": nil},
+			wantRequired: []string{"name"},
+		},
 	}
 
 	service := agentv1.File_agent_v1_agent_proto.Services().Get(0)
