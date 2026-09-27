@@ -8,22 +8,26 @@ order: 2
 import Alert from "../../components/Alert.astro";
 import { media } from "../../site";
 
-Komrad agents run inside _workflows_. Every agent belongs to one workflow, which provides common, editable settings to every agent spawned within it.
+Komrad agents run inside of _workflows_. Workflows are just a bucket of settings: the directory for an agent to run in, the harness it'll use, like Claude or Codex, and other settings for every agent that spawns within them.
 
 <Alert variant="warning">This guide assumes you have [installed komrad](../install/) already.</Alert>
 
-Think of a workflow as the container for agroup of agents that do the same kind of work.
+Think of a workflow a shared blueprint for every agent that does the same kind of work. Workflows control where agents start, which CLI they run, and what flags their agents are launched with such as the `--dangerously-skip-permissions` flag for Claude.
 
-## Creating one
+You can have multiple workflows per directory, such as a bugfix workflow, and a feature workflow, that apply different settings to their implementer agents.
 
-Let's clone a real repository to work in. This guide uses Neovim, and a shallow clone is enough:
+Each workflow also has one orchestrator agent, responssible for managing every implementer agent within it.
+
+## Creating your first Workflow
+
+Let's clone a real repository to work in. This guide uses Neovim:
 
 ```sh
-git clone --depth 1 https://github.com/neovim/neovim ~/neovim
+git clone https://github.com/neovim/neovim ~/neovim
 cd ~/neovim
 ```
 
-Then run `komrad open` and press `w` in the panel, name the workflow `neovim` and submit it with `<C-s>` to create it. The directory is filled in with the one you ran `komrad open` from.
+Next, run `komrad open` and press `w` in the panel, name the workflow `neovim` and submit it with `<C-s>` to create it. By default, your workflow takes the current directory as it's active directory:
 
 <figure>
   <video
@@ -43,9 +47,7 @@ Then run `komrad open` and press `w` in the panel, name the workflow `neovim` an
 
 ## The orchestrator
 
-Creating a workflow also starts its _orchestrator_. This is a Claude session that belongs to the workflow itself, and it opens beside the list whenever the workflow's row is selected. The first time, Claude asks whether to trust the folder it runs in. Move down to "Yes, I trust this folder" and press enter.
-
-The orchestrator writes no code of its own. You tell it what you want done, and it spawns agents into the workflow to do the work, passes messages between them, and gathers what they find. Its conversation lasts as long as the workflow does, so it remembers what happened in the workflow.
+Creating a workflow also starts its _orchestrator_. This is a agent that belongs to the workflow. In this case, let's tell Claude to trust the folder we're executing in.
 
 <figure>
   <video
@@ -63,17 +65,15 @@ The orchestrator writes no code of its own. You tell it what you want done, and 
   </video>
 </figure>
 
-You will learn more about the orchestrator and the other kinds of agent in the [agents](../agents/) guide.
+The orchestrator writes no code of its own. You tell it what you want done, and it spawns agents into the workflow to do the work, passes messages between them, and gathers what they find. The coordinator is the "brains" of every subagent that is doing real work and often stitches their work together or passes work between them.
 
-## What a workflow decides
-
-Workflows control where agents start, which CLI they run, and what flags they are launched with, such as the model. When you spawn an agent you can override any of these for that one agent.
-
-Think of a workflow as an editable set of presets for every agent that spawns within it. Changing the workflow only affects agents spawned afterwards; existing agents are unaffected.
+You can learn more about the orchestrator and the other kinds of agent in the [agents](../agents/) guide.
 
 ## Shared context
 
-Workflows can hold shared text that is included in every agent's system prompt. This is where you put what you would otherwise tell each agent by hand: how tests run, and how branches are named. For Neovim, that might be "Run make lint before committing any Lua change."
+Workflows can hold _shared context_ for each implementer agent. This is where you put what you would otherwise tell each agent by hand: how tests run, how branches are named, and so forth.
+
+In our Neovim example, that might be: "Run make lint before committing any Lua change."
 
 It comes after komrad's own briefing and your [global context](../../config/#context).
 
