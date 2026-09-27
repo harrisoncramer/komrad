@@ -30,7 +30,7 @@ func (d *documentsScreen) pressEdit(h host, s panelShared) tea.Cmd {
 	}
 
 	read, asked := d.bodies[item.id]
-	if !asked || read.err != nil || read.body == "" {
+	if !asked || read.err != nil || read.body == "" || read.pending || read.updatedAt.Before(item.updatedAt) {
 		h.reportBrief("could not edit "+item.name, "its text has not been read yet")
 
 		return nil
