@@ -1,1 +1,7 @@
-clear-neovim
+#!/usr/bin/env bash
+set -euo pipefail
+
+here="$(dirname "$0")"
+"$here/clear-neovim"
+
+rm -f "$(dirname "$KOMRAD_CONFIG")/context.md"

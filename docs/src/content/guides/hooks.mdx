@@ -2,36 +2,46 @@
 title: Hooks
 description: Your own scripts, run by komrad at moments in an agent's life.
 group: start
-order: 4
+order: 5
 ---
 
+import Alert from "../../components/Alert.astro";
 import { media } from "../../site";
 
-Your [agent](../agents/) started in a clean worktree, so it has none of the things you built or installed in your own clone. A hook is your own script that komrad runs at a moment in an agent's life, and it is how you fill that gap.
+Hooks provide a way to run arbitrary code at a given moment in your agent's life.
 
-Hooks cover the setup and cleanup komrad cannot know about, like installing dependencies, or tearing down a docker stack an agent started.
+You can use hooks to cover setup that komra cannot handle out of the box, such as tearing down a docker stack, or configuring a network.
+
+<Alert variant="danger">
+  Do not use hooks to copy or link files, such as built dependencies, into a worktree. A
+  [workflow](../workflows/#worktrees) already does that: its worktree copy paths and worktree symlink paths,
+  `copy_paths` and `symlink_paths` on the [worktree config](../../api/workflow/create-workflow/#types), are copied or
+  linked into every new worktree before the agent starts. Hooks are for what lives outside the tree.
+</Alert>
+
+Hooks can also be used to clean up when an agent is destroyed. For instance, run a pre-delete hook to remove the network the agent needs.
 
 ## Writing a hook
 
-Hooks are executable files in [`hooks.dir`](../../config/#hooks.dir), which is `~/.config/komrad/hooks` unless you set it. A workflow picks which hook runs at which moment, so one script can serve many workflows. Each hook runs inside its agent's directory.
+Hooks are executable files in [`hooks.dir`](../../config/#hooks.dir), which is `~/.config/komrad/hooks` by default. Each hook runs inside its agent's directory.
 
-Neovim builds its dependencies into a `.deps` directory, which takes a few minutes. A fresh worktree does not have one, and rebuilding it for every agent would be slow. A hook can link each worktree to the `.deps` in your main clone instead:
+In our example, Neovim keeps a `.git-blame-ignore-revs` file listing the commits that only reformatted code, so `git blame` can skip them. Git only honours the file when told to, and that setting lives in git's config rather than in the tree, so no checkout carries it. A hook can set it for each agent:
 
 ```sh
 mkdir -p ~/.config/komrad/hooks
-cat > ~/.config/komrad/hooks/link-deps <<'EOF'
+cat > ~/.config/komrad/hooks/ignore-revs <<'EOF'
 #!/usr/bin/env bash
-#KOMRAD description="share the main clone's built dependencies"
-ln -sfn ~/neovim/.deps .deps
+#KOMRAD description="make git blame skip neovim's reformatting commits"
+git config blame.ignoreRevsFile .git-blame-ignore-revs
 EOF
-chmod +x ~/.config/komrad/hooks/link-deps
+chmod +x ~/.config/komrad/hooks/ignore-revs
 ```
 
 The `#KOMRAD` line is optional. A hook can declare a description and a timeout this way, in comment lines at the top of the file.
 
 ## Hanging it on a workflow
 
-Press `e` on the workflow's row, move down to "Pre-launch hook", pick `link-deps`, and press `<C-s>`. Every agent spawned from now on runs it once its worktree exists and before its CLI starts.
+Press `e` on the workflow's row, move down to "Pre-launch hook", pick `ignore-revs`, and press `<C-s>`. Every agent spawned from now on runs it once its worktree exists and before its CLI starts.
 
 <figure>
   <video
@@ -42,7 +52,7 @@ Press `e` on the workflow's row, move down to "Pre-launch hook", pick `link-deps
     poster={media("hook-setup.png")}
     width="1440"
     height="920"
-    aria-label="Writing the link-deps hook in a shell, picking it as the neovim workflow's pre-launch hook, and spawning an agent that confirms .deps is linked to the main clone."
+    aria-label="Writing the ignore-revs hook in a shell, picking it as the neovim workflow's pre-launch hook, and spawning an agent that confirms git blame skips the listed commits."
   >
     <source src={media("hook-setup.webm")} type="video/webm" />
     <source src={media("hook-setup.mp4")} type="video/mp4" />
@@ -51,11 +61,15 @@ Press `e` on the workflow's row, move down to "Pre-launch hook", pick `link-deps
 
 ## The moments
 
-Before launch runs once the agent's directory exists but before its CLI starts. Komrad waits for it. If it fails, the agent is not started and stays in the list marked as failed, so you can fix the cause and retry.
+| Moment         | Fires                                                     | Komrad waits | If it fails                                                                                          |
+| -------------- | --------------------------------------------------------- | ------------ | ---------------------------------------------------------------------------------------------------- |
+| `pre-launch`   | Once the agent's directory exists, before its CLI starts. | Yes          | The agent is not started and stays in the list marked as failed, so you can fix the cause and retry. |
+| `post-launch`  | Once the CLI is up, in the background.                    | No           | The run's log says so.                                                                               |
+| `post-resume`  | Once a dormant agent's CLI is back up, in the background. | No           | The run's log says so.                                                                               |
+| `post-restore` | Once a restored agent's CLI is up, in the background.     | No           | The run's log says so.                                                                               |
+| `pre-teardown` | When an agent is deleted, before its worktree is removed. | Yes          | The delete stops and the worktree is kept.                                                           |
 
-After launch, after resume and after restore run in the background once the CLI is up. Komrad does not wait for them.
-
-Before teardown runs when an agent is deleted, before its worktree is removed. Komrad waits for it, and if it fails the delete stops and the worktree is kept. Write it so it is safe to run twice. Archiving does not run it.
+Write `pre-teardown` so it is safe to run twice. Archiving does not run it.
 
 Child agents run no hooks, because the directory they are in is not theirs.
 
@@ -67,7 +81,7 @@ Komrad tells a hook about its agent through environment variables. `KOMRAD_AGENT
 
 Every run writes its own log. When a hook fails, the error says so and the agent is marked as never having launched. Move the cursor onto the agent to see why.
 
-Here the workflow's pre-launch hook tries to build Neovim with `cmake --build build`, which fails in a fresh worktree because nothing has configured the build yet.
+Here the workflow's pre-launch hook tries to build Neovim with `cmake --build build` and fails. The hook's own output says why.
 
 <figure>
   <img
@@ -77,5 +91,3 @@ Here the workflow's pre-launch hook tries to build Neovim with `cmake --build bu
     height="920"
   />
 </figure>
-
-Agents you start by hand are one thing. A [schedule](../schedules/) starts them for you.

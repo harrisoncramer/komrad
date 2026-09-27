@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-rm -f "$HOME/.config/komrad/hooks/link-deps"
+rm -f "$(dirname "$KOMRAD_CONFIG")/hooks/ignore-revs"
 "$(dirname "$0")/clear-neovim"
