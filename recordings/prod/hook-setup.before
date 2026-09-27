@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-hook="$HOME/.config/komrad/hooks/link-deps"
+hook="$(dirname "$KOMRAD_CONFIG")/hooks/ignore-revs"
 if [ -e "$hook" ]; then
 	echo "$hook already exists, and the recording writes its own there" >&2
 	exit 1

@@ -73,17 +73,16 @@ func writeConfig(root, slotDir string) error {
 	}
 
 	for line := range strings.Lines(string(base)) {
-		switch strings.TrimSpace(line) {
-		case "[worktrees]":
-			return fmt.Errorf("komrad.test.toml names a [worktrees] table, which the slot owns")
-		case "[context]":
-			return fmt.Errorf("komrad.test.toml names a [context] table, which the slot owns")
+		switch table := strings.TrimSpace(line); table {
+		case "[worktrees]", "[context]", "[hooks]":
+			return fmt.Errorf("komrad.test.toml names a %s table, which the slot owns", table)
 		}
 	}
 
 	worktrees := filepath.Join(slotDir, "worktrees")
 	context := filepath.Join(slotDir, "context.md")
-	content := fmt.Sprintf("%s\n[worktrees]\ndir = %q\n\n[context]\nfile = %q\n", base, worktrees, context)
+	hooks := filepath.Join(slotDir, "hooks")
+	content := fmt.Sprintf("%s\n[worktrees]\ndir = %q\n\n[context]\nfile = %q\n\n[hooks]\ndir = %q\n", base, worktrees, context, hooks)
 
 	existing, err := os.ReadFile(configPath(slotDir))
 	if err == nil && string(existing) == content {

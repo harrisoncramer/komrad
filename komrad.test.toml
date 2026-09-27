@@ -7,8 +7,8 @@
 # working in it.
 #
 # The connection settings that isolate this instance are exported as environment variables, and
-# the slot adds its own [worktrees] and [context] tables, so an agent it starts never reads the
-# global context of the checkout being developed against.
+# the slot adds its own [worktrees], [context] and [hooks] tables, so an agent it starts never
+# reads the global context or runs the hooks of the machine it is developed on.
 
 [log]
 # Louder than the default, because the reason to open this instance is usually to watch it.
