@@ -75,7 +75,7 @@ Workflows can hold _shared context_ for each implementer agent. This is where yo
 
 In our Neovim example, that might be: "Run make lint before committing any Lua change."
 
-It comes after komrad's own briefing and your [global context](../../config/#context).
+It comes after komrad's own briefing and your [global context](../../config/#context), which every agent gets whatever workflow it is in. In the video below the global context says only that Neovim is the best editor, and the agent has read both.
 
 <figure>
   <video
@@ -86,7 +86,7 @@ It comes after komrad's own briefing and your [global context](../../config/#con
     poster={media("shared-context.png")}
     width="1440"
     height="920"
-    aria-label="Creating a neovim workflow whose shared context says to run make lint before committing Lua changes, then spawning an agent and asking what to run after changing a Lua file."
+    aria-label="Creating a neovim workflow whose shared context says to run make lint before committing Lua changes, then spawning an agent and asking what to run after changing a Lua file and which editor is best. It answers from the shared context and from the global context that says Neovim."
   >
     <source src={media("shared-context.webm")} type="video/webm" />
     <source src={media("shared-context.mp4")} type="video/mp4" />
@@ -97,15 +97,12 @@ It comes after komrad's own briefing and your [global context](../../config/#con
 
 Like most agent orchestrators, komrad ships with first-class support for [worktrees](https://git-scm.com/docs/git-worktree).
 
-Komrad can automatically create a worktree for each agent, which is cut fresh from a base branch. The agent works on a branch of its own, and the worktree is removed when the agent is deleted.
+When creating a workflow or an agent, tell komrade to automatically create a worktree for each agent, and it'll cut one from the base branch. Your implementer agent will then work within that worktree, exclusively, providing it isolation from other agents. The worktree is automatically cleaned up when the agent is deleted.
 
-The workflow's directory has to be an ordinary clone for this to work.
-
-Worktrees go in [`worktrees.dir`](../../config/#worktrees.dir) unless the workflow names its own location. Each worktree is a clean checkout, so a workflow can list files to copy in, like local environment files, or local packages. For anything heavier, like installing or networking configuration, use a [hook](../hooks/) instead.
+Komrad places worktrees into [`worktrees.dir`](../../config/#worktrees.dir) unless the workflow names its own location.
 
 <Alert variant="info">
-  Agents do not have to create worktrees, but be careful: those that do not will run directly inside of the directory
-  specified.
+  Agents do not have to create worktrees, but be careful: those that don't will run directly inside of the directory specified.
 </Alert>
 
 The worktree's branch is worked out from your repository's clone when you create the workflow. New worktrees are cut from it and an agent's work is measured against it. If the clone loses that branch, `komrad doctor` says so.
