@@ -2170,7 +2170,8 @@ type ReleaseReviewRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Whose work the batch was written against.
 	AgentId string `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
-	// What the review concludes, which is what tells the agent whether it is done.
+	// What a reviewing agent concludes, which tells the agent it reviewed whether it is done. An
+	// agent must set it and a person must leave it unset, since what a person sends is comments.
 	Verdict ReviewVerdict `protobuf:"varint,2,opt,name=verdict,proto3,enum=agent.v1.ReviewVerdict" json:"verdict,omitempty"`
 	// Stop the agent where it stands before telling it, so it reads now rather than at the end
 	// of whatever it is doing.
@@ -2757,11 +2758,10 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"\x12ListReviewsRequest\x12\"\n" +
 	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\"A\n" +
 	"\x13ListReviewsResponse\x12*\n" +
-	"\areviews\x18\x01 \x03(\v2\x10.agent.v1.ReviewR\areviews\"\xb5\x01\n" +
+	"\areviews\x18\x01 \x03(\v2\x10.agent.v1.ReviewR\areviews\"\xb3\x01\n" +
 	"\x14ReleaseReviewRequest\x12\"\n" +
-	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\x12=\n" +
-	"\averdict\x18\x02 \x01(\x0e2\x17.agent.v1.ReviewVerdictB\n" +
-	"\xbaH\a\x82\x01\x04\x10\x01 \x00R\averdict\x12\x1c\n" +
+	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\x12;\n" +
+	"\averdict\x18\x02 \x01(\x0e2\x17.agent.v1.ReviewVerdictB\b\xbaH\x05\x82\x01\x02\x10\x01R\averdict\x12\x1c\n" +
 	"\tinterrupt\x18\x03 \x01(\bR\tinterrupt\x12\x1c\n" +
 	"\x04body\x18\x04 \x01(\tB\b\xbaH\x05r\x03\x18\xdc\vR\x04body\"q\n" +
 	"\x15ReleaseReviewResponse\x12(\n" +

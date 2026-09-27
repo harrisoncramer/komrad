@@ -340,9 +340,10 @@ func fromReviewVerdict(verdict agentv1.ReviewVerdict) reviewstore.Verdict {
 		return reviewstore.VerdictApproved
 	case agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED:
 		return reviewstore.VerdictChangesRequested
-	case agentv1.ReviewVerdict_REVIEW_VERDICT_COMMENTED,
-		agentv1.ReviewVerdict_REVIEW_VERDICT_UNSPECIFIED:
+	case agentv1.ReviewVerdict_REVIEW_VERDICT_COMMENTED:
+		return reviewstore.VerdictCommented
+	case agentv1.ReviewVerdict_REVIEW_VERDICT_UNSPECIFIED:
 	}
 
-	return reviewstore.VerdictCommented
+	return ""
 }

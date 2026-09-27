@@ -4,8 +4,6 @@ import (
 	"testing"
 	"time"
 
-	reviewstore "komrad/internal/store/review"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -138,7 +136,7 @@ func TestReplyingToAnAnswerReopensIt(t *testing.T) {
 		Author:   personAuthor,
 	})
 	require.NoError(t, err)
-	fx.releaseReview(t, personAuthor, reviewstore.VerdictCommented)
+	fx.releaseReview(t, personAuthor, "")
 
 	reopened, err := fx.reviews.GetThread(t.Context(), thread.ID)
 	require.NoError(t, err)

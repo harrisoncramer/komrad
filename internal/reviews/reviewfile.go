@@ -35,7 +35,10 @@ func renderReview(params renderReviewParams) string {
 	var out strings.Builder
 
 	fmt.Fprintf(&out, "# Review of round %d\n\n", round.Ordinal)
-	fmt.Fprintf(&out, "%s\n\n", verdictSentence(verdict))
+	fmt.Fprintf(&out, "%s\n\n", verdictSentence(verdictSentenceParams{
+		Verdict: verdict,
+		Person:  params.Author == "",
+	}))
 	fmt.Fprintf(&out, "On the work of **%s** (`%s`), reviewed by %s.\n\n",
 		params.Agent.Name, params.Agent.ID, reviewerName(params.Author))
 	fmt.Fprintf(&out, "This review was written against the snapshot `%s`, taken from `%s`. "+
@@ -197,8 +200,19 @@ func reviewerName(author string) string {
 	return "the agent " + author
 }
 
-func verdictSentence(verdict reviewstore.Verdict) string {
-	switch verdict {
+// verdictSentenceParams is what a review concluded and whether a person gave it.
+type verdictSentenceParams struct {
+	Verdict reviewstore.Verdict
+	Person  bool
+}
+
+// verdictSentence opens the file with what the review asks of the agent.
+func verdictSentence(params verdictSentenceParams) string {
+	if params.Person {
+		return "Comments to act on. Answer each one with addressed set once you have made the change."
+	}
+
+	switch params.Verdict {
 	case reviewstore.VerdictApproved:
 		return "Approved. This round is good as it stands."
 	case reviewstore.VerdictChangesRequested:

@@ -229,7 +229,7 @@ func (s *ReviewStore) GetReview(ctx context.Context, id string) (*Review, error)
 	return &review, nil
 }
 
-type AuthorParams struct {
+type OpenReviewOfParams struct {
 	AgentID       string
 	AuthorKind    AuthorKind
 	AuthorAgentID *string
@@ -237,7 +237,7 @@ type AuthorParams struct {
 
 // OpenReviewOf is the review a reviewer is still writing against an agent, ErrNotFound when
 // they have none open.
-func (s *ReviewStore) OpenReviewOf(ctx context.Context, params AuthorParams) (*Review, error) {
+func (s *ReviewStore) OpenReviewOf(ctx context.Context, params OpenReviewOfParams) (*Review, error) {
 	if !store.IsID(params.AgentID) {
 		return nil, reviewNotFound(params.AgentID)
 	}
@@ -255,31 +255,6 @@ func (s *ReviewStore) OpenReviewOf(ctx context.Context, params AuthorParams) (*R
 	}
 
 	review := reviewFromRow(*row)
-
-	return &review, nil
-}
-
-// GetLastReleasedReview is the newest review a reviewer has released against an agent,
-// ErrNotFound when they have released none.
-func (s *ReviewStore) GetLastReleasedReview(ctx context.Context, params AuthorParams) (*Review, error) {
-	if !store.IsID(params.AgentID) {
-		return nil, reviewNotFound(params.AgentID)
-	}
-
-	row, err := s.queries.GetLastReleasedReview(ctx, models.GetLastReleasedReviewParams{
-		AgentID:       params.AgentID,
-		AuthorKind:    models.ReviewAuthorKind(params.AuthorKind),
-		AuthorAgentID: params.AuthorAgentID,
-	})
-	if db.IsNoRows(err) {
-		return nil, reviewNotFound(params.AgentID)
-	}
-	if err != nil {
-		return nil, fmt.Errorf("failed to read the last released review on agent %q: %w", params.AgentID, err)
-	}
-
-	review := reviewFromRow(row.Review)
-	review.OpenThreads = row.OpenThreads
 
 	return &review, nil
 }

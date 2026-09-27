@@ -33,7 +33,6 @@ type reviewThreads struct {
 	composing bool
 	// releasing is set while the panel is asking what to send.
 	releasing bool
-	verdict   int
 	editor    reviewInput
 	// editing is the thread a composed message is going into, empty when it will open a new
 	// thread on the line under the cursor.

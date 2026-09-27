@@ -224,50 +224,12 @@ func (d reviewDiff) commentWhereView(thread *agentv1.ReviewThread) string {
 	return dimStyle.Render(fmt.Sprintf("  %d of %d", at, total))
 }
 
-// releaseView asks what to send: an optional word about the work as a whole, and the verdict
-// the agent acts on.
+// releaseView asks what to send: an optional word about the work as a whole.
 func (r reviewScreen) releaseView(s panelShared) string {
 	out := "\n" + r.threads.editor.view() + "\n\n"
 
-	for i, verdict := range reviewVerdicts {
-		mark, style := "  ", dimStyle
-		if i == r.threads.verdict {
-			mark, style = "▸ ", paint.Panel.Style(verdictTone(verdict))
-		}
-
-		out += style.Render("  "+mark+describeVerdict(verdict)) + "\n"
-	}
-
-	return out + "\n" + reviewNote(s, dimStyle, "tab to change · "+
-		keyLabel(formKeys().SendNow)+" send and interrupt · "+
+	return out + reviewNote(s, dimStyle, keyLabel(formKeys().SendNow)+" send and interrupt · "+
 		keyLabel(formKeys().Back)+" cancel")
-}
-
-// describeVerdict is how a verdict reads in the panel, spelled the way a person would say it.
-func describeVerdict(verdict agentv1.ReviewVerdict) string {
-	switch verdict {
-	case agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED:
-		return "approve"
-	case agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED:
-		return "request changes"
-	case agentv1.ReviewVerdict_REVIEW_VERDICT_COMMENTED, agentv1.ReviewVerdict_REVIEW_VERDICT_UNSPECIFIED:
-		return "comment only"
-	}
-
-	return "no verdict"
-}
-
-// verdictTone colours the chosen verdict by what it means.
-func verdictTone(verdict agentv1.ReviewVerdict) paint.Tone {
-	switch verdict {
-	case agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED:
-		return reviewDeliveredTone
-	case agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED:
-		return reviewSentTone
-	case agentv1.ReviewVerdict_REVIEW_VERDICT_COMMENTED, agentv1.ReviewVerdict_REVIEW_VERDICT_UNSPECIFIED:
-	}
-
-	return reviewUnsentTone
 }
 
 func (r reviewScreen) threadView(s panelShared) string {
@@ -337,7 +299,7 @@ func (t reviewThreads) sendDesc() string {
 		return "send to the agent"
 	}
 
-	return "give a verdict"
+	return "send a note"
 }
 
 // details is the record drawn under the review sidebar.

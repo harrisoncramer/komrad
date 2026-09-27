@@ -16,13 +16,6 @@ import (
 	"connectrpc.com/connect"
 )
 
-// reviewVerdicts is what the release panel offers, in the order a reader most often wants them.
-var reviewVerdicts = []agentv1.ReviewVerdict{
-	agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED,
-	agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED,
-	agentv1.ReviewVerdict_REVIEW_VERDICT_COMMENTED,
-}
-
 // compose opens the editor on the line under the cursor, replying in the thread already there
 // or opening a new one, writing prose alone rather than editing the round.
 func (r *reviewScreen) compose(h host, s panelShared) tea.Cmd {
@@ -372,7 +365,6 @@ func (r reviewScreen) markThreadReadCmd(s panelShared) tea.Cmd {
 // openRelease asks what to send rather than sending.
 func (r *reviewScreen) openRelease(s panelShared) tea.Cmd {
 	r.threads.releasing = true
-	r.threads.verdict = 0
 	r.notice = ""
 
 	return r.openInput(s, newReviewInputParams{
@@ -382,8 +374,8 @@ func (r *reviewScreen) openRelease(s panelShared) tea.Cmd {
 	})
 }
 
-// updateRelease takes every key while the panel is up: tab walks the verdict, the submit key
-// sends, escape abandons, and everything else is a word being typed about the work.
+// updateRelease takes every key while the panel is up: the submit key sends, escape abandons,
+// and everything else is a word being typed about the work.
 func (r *reviewScreen) updateRelease(h host, s panelShared, key tea.KeyPressMsg) tea.Cmd {
 	k := key.String()
 
@@ -394,14 +386,6 @@ func (r *reviewScreen) updateRelease(h host, s panelShared, key tea.KeyPressMsg)
 		return nil
 	case isBound(k, formKeys().Quit):
 		return h.hide()
-	case k == "tab":
-		r.threads.cycleVerdict(1)
-
-		return nil
-	case k == "shift+tab":
-		r.threads.cycleVerdict(-1)
-
-		return nil
 	case isBound(k, formKeys().Editor):
 		return r.openMessageEditor(h, s)
 	case isBound(k, formKeys().Submit):
@@ -416,10 +400,9 @@ func (r *reviewScreen) updateRelease(h host, s panelShared, key tea.KeyPressMsg)
 	return cmd
 }
 
-// send releases the batch with the verdict chosen and whatever was written about the work as a
-// whole, reaching the agent as one file and one piece of mail.
+// send releases the batch with whatever was written about the work as a whole, reaching the
+// agent as one file and one piece of mail.
 func (r *reviewScreen) send(s panelShared, interrupt bool) tea.Cmd {
-	verdict := reviewVerdicts[r.threads.verdict]
 	body := strings.TrimSpace(r.threads.editor.value())
 
 	r.threads.closeRelease()
@@ -429,7 +412,6 @@ func (r *reviewScreen) send(s panelShared, interrupt bool) tea.Cmd {
 	return r.sendCmd(s, func(ctx context.Context) (string, error) {
 		resp, err := agents.ReleaseReview(ctx, connect.NewRequest(&agentv1.ReleaseReviewRequest{
 			AgentId:   agentID,
-			Verdict:   verdict,
 			Interrupt: interrupt,
 			Body:      body,
 		}))
@@ -437,7 +419,7 @@ func (r *reviewScreen) send(s panelShared, interrupt bool) tea.Cmd {
 			return "", err
 		}
 
-		return releasedNotice(verdict, resp.Msg.GetComments(), interrupt), nil
+		return releasedNotice(resp.Msg.GetComments(), interrupt), nil
 	})
 }
 
@@ -450,11 +432,6 @@ const sentSaid = "I paused you while I reviewed your work and have let you go no
 	"My comments are pinned to your work as it stood when I started, so read them against " +
 	"the worktree as it is rather than assuming the lines still match."
 
-// cycleVerdict moves the choice of verdict one step round the list.
-func (t *reviewThreads) cycleVerdict(delta int) {
-	t.verdict = (t.verdict + delta + len(reviewVerdicts)) % len(reviewVerdicts)
-}
-
 // closeRelease puts the release panel away, sent or not.
 func (t *reviewThreads) closeRelease() {
 	t.editor = reviewInput{}
@@ -462,23 +439,13 @@ func (t *reviewThreads) closeRelease() {
 }
 
 // releasedNotice says what went.
-func releasedNotice(verdict agentv1.ReviewVerdict, count int32, interrupt bool) string {
-	sent := ", " + label.Counted(int(count), "comment") + " sent"
+func releasedNotice(count int32, interrupt bool) string {
+	sent := label.Counted(int(count), "comment") + " sent"
 	if interrupt {
 		sent += " and the agent stopped to read them"
 	}
 
-	switch verdict {
-	case agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED:
-		return "approved" + sent
-	case agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED:
-		return "changes requested" + sent
-	case agentv1.ReviewVerdict_REVIEW_VERDICT_COMMENTED:
-		return "comments only" + sent
-	case agentv1.ReviewVerdict_REVIEW_VERDICT_UNSPECIFIED:
-	}
-
-	return "no verdict" + sent
+	return sent
 }
 
 // writeCmd runs one write on the review.

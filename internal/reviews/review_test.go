@@ -304,7 +304,6 @@ func TestReviewEntitlement(t *testing.T) {
 
 				_, err = fx.service.ReleaseReview(t.Context(), ReleaseReviewParams{
 					AgentID: fx.worker.ID,
-					Verdict: reviewstore.VerdictApproved,
 					Author:  personAuthor,
 				})
 
@@ -313,17 +312,44 @@ func TestReviewEntitlement(t *testing.T) {
 			wantErr: agents.ErrAgentArchived,
 		},
 		{
-			name: "releasing notes with nothing in them",
+			name: "a reviewer releasing notes with nothing in them",
 			call: func(t *testing.T, fx *reviewFixture) error {
 				_, err := fx.service.ReleaseReview(t.Context(), ReleaseReviewParams{
 					AgentID: fx.worker.ID,
 					Verdict: reviewstore.VerdictCommented,
-					Author:  personAuthor,
+					Author:  newAgentAuthor(fx.reviewer),
 				})
 
 				return err
 			},
 			wantErr: ErrReviewEmpty,
+		},
+		{
+			name: "a reviewer releasing with no verdict",
+			call: func(t *testing.T, fx *reviewFixture) error {
+				fx.writeComment(t, newAgentAuthor(fx.reviewer), "this needs a nil check")
+				_, err := fx.service.ReleaseReview(t.Context(), ReleaseReviewParams{
+					AgentID: fx.worker.ID,
+					Author:  newAgentAuthor(fx.reviewer),
+				})
+
+				return err
+			},
+			wantErr: ErrReviewVerdictMissing,
+		},
+		{
+			name: "the person releasing with a verdict",
+			call: func(t *testing.T, fx *reviewFixture) error {
+				fx.writeComment(t, personAuthor, "this needs a nil check")
+				_, err := fx.service.ReleaseReview(t.Context(), ReleaseReviewParams{
+					AgentID: fx.worker.ID,
+					Verdict: reviewstore.VerdictApproved,
+					Author:  personAuthor,
+				})
+
+				return err
+			},
+			wantErr: ErrReviewVerdictFromPerson,
 		},
 		{
 			name: "a comment read from a snapshot no round was taken of",
@@ -372,6 +398,17 @@ func TestReviewEntitlement(t *testing.T) {
 					ID:     messages[0].ID,
 					Body:   "this needs a nil check, or a guard above it",
 					Author: personAuthor,
+				})
+
+				return err
+			},
+		},
+		{
+			name: "the person sending with nothing written",
+			call: func(t *testing.T, fx *reviewFixture) error {
+				_, err := fx.service.ReleaseReview(t.Context(), ReleaseReviewParams{
+					AgentID: fx.worker.ID,
+					Author:  personAuthor,
 				})
 
 				return err
@@ -572,34 +609,6 @@ func TestASecondReview(t *testing.T) {
 		wantErrText string
 	}{
 		{
-			name: "the person before the agent has said anything",
-			write: func(t *testing.T, fx *reviewFixture) error {
-				fx.releaseFirstReview(t)
-
-				return fx.tryComment(t, personAuthor, "")
-			},
-			wantErr: ErrReviewNotAnswered,
-		},
-		{
-			name: "the person after only another reviewer wrote",
-			write: func(t *testing.T, fx *reviewFixture) error {
-				fx.releaseFirstReview(t)
-				fx.writeComment(t, newAgentAuthor(fx.reviewer), "and the caller above it")
-
-				return fx.tryComment(t, personAuthor, "")
-			},
-			wantErr: ErrReviewNotAnswered,
-		},
-		{
-			name: "the person after the agent answered in words",
-			write: func(t *testing.T, fx *reviewFixture) error {
-				fx.writeAnswer(t, fx.releaseFirstReview(t).ID)
-
-				return fx.tryComment(t, personAuthor, "")
-			},
-			wantErr: ErrReviewNotAnswered,
-		},
-		{
 			name: "the reviewer on a round it has reviewed",
 			write: func(t *testing.T, fx *reviewFixture) error {
 				fx.writeComment(t, newAgentAuthor(fx.reviewer), "this needs a nil check")
@@ -647,6 +656,14 @@ func TestASecondReview(t *testing.T) {
 				})
 
 				return err
+			},
+		},
+		{
+			name: "the person while the agent has not answered the first",
+			write: func(t *testing.T, fx *reviewFixture) error {
+				fx.releaseFirstReview(t)
+
+				return fx.tryComment(t, personAuthor, "")
 			},
 		},
 		{
@@ -974,7 +991,7 @@ func (fx *reviewFixture) releaseFirstReview(t *testing.T) reviewstore.Thread {
 	t.Helper()
 
 	written := fx.writeComment(t, personAuthor, "this needs a nil check")
-	fx.releaseReview(t, personAuthor, reviewstore.VerdictChangesRequested)
+	fx.releaseReview(t, personAuthor, "")
 
 	return written.Thread
 }

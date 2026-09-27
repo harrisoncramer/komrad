@@ -398,11 +398,9 @@ message ListReviewsResponse {
 message ReleaseReviewRequest {
   // Whose work the batch was written against.
   string agent_id = 1 [(buf.validate.field).string.min_len = 1];
-  // What the review concludes, which is what tells the agent whether it is done.
-  ReviewVerdict verdict = 2 [(buf.validate.field).enum = {
-    defined_only: true
-    not_in: [0]
-  }];
+  // What a reviewing agent concludes, which tells the agent it reviewed whether it is done. An
+  // agent must set it and a person must leave it unset, since what a person sends is comments.
+  ReviewVerdict verdict = 2 [(buf.validate.field).enum.defined_only = true];
   // Stop the agent where it stands before telling it, so it reads now rather than at the end
   // of whatever it is doing.
   bool interrupt = 3;

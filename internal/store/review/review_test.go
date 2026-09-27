@@ -742,40 +742,12 @@ func TestUnlandedRoundsAreTheReleasedOnesNotYetLanded(t *testing.T) {
 	}
 }
 
-// TestTheLastReleasedReviewIsTheNewestOne pins which batch answers for where an author last looked.
-func TestTheLastReleasedReviewIsTheNewestOne(t *testing.T) {
-	st := openFixture(t)
-	ctx := t.Context()
-	agentID := st.seedAgent(t, "worker")
-	author := AuthorParams{
-		AgentID:    agentID,
-		AuthorKind: AuthorHuman,
-	}
-
-	_, err := st.GetLastReleasedReview(ctx, author)
-	require.ErrorIs(t, err, store.ErrNotFound, "an author who has released none has looked nowhere")
-
-	first := st.openReview(t, st.openRound(t, agentID, "tree-one"))
-	st.releaseReview(t, first, VerdictChangesRequested)
-	second := st.openReview(t, st.openRound(t, agentID, "tree-two"))
-
-	held, err := st.GetLastReleasedReview(ctx, author)
-	require.NoError(t, err)
-	assert.Equal(t, first.ID, held.ID, "a batch still being written is not one they have looked at")
-
-	st.releaseReview(t, second, VerdictApproved)
-
-	latest, err := st.GetLastReleasedReview(ctx, author)
-	require.NoError(t, err)
-	assert.Equal(t, second.ID, latest.ID)
-}
-
 // TestTheOpenReviewIsTheOneStillBeingWritten pins that releasing a batch closes it.
 func TestTheOpenReviewIsTheOneStillBeingWritten(t *testing.T) {
 	st := openFixture(t)
 	ctx := t.Context()
 	agentID := st.seedAgent(t, "worker")
-	author := AuthorParams{
+	author := OpenReviewOfParams{
 		AgentID:    agentID,
 		AuthorKind: AuthorHuman,
 	}

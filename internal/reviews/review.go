@@ -396,7 +396,6 @@ func (s *ReviewService) AddReviewMessage(
 		open, err := s.openReviewFor(ctx, openReviewForParams{
 			AgentID: thread.AgentID,
 			Author:  params.Author,
-			Reply:   true,
 		})
 		if err != nil {
 			return nil, err

@@ -47,62 +47,6 @@ func (q *Queries) DeleteReview(ctx context.Context, id string) error {
 	return err
 }
 
-const getLastReleasedReview = `-- name: GetLastReleasedReview :one
-SELECT
-    v.id, v.agent_id, v.round_id, v.author_kind, v.author_agent_id, v.verdict, v.released_at, v.path, v.doorbell_mail_id, v.created_at, v.updated_at, v.body, v.engine_id,
-(
-        SELECT
-            COUNT(*)
-        FROM
-            review_threads t
-        WHERE
-            t.review_id = v.id
-            AND t.resolved_at IS NULL)::int AS open_threads
-FROM
-    reviews v
-WHERE
-    v.agent_id = $1
-    AND v.author_kind = $2
-    AND v.author_agent_id IS NOT DISTINCT FROM $3
-    AND v.released_at IS NOT NULL
-ORDER BY
-    v.released_at DESC
-LIMIT 1
-`
-
-type GetLastReleasedReviewParams struct {
-	AgentID       string
-	AuthorKind    ReviewAuthorKind
-	AuthorAgentID *string
-}
-
-type GetLastReleasedReviewRow struct {
-	Review      Review
-	OpenThreads int32
-}
-
-func (q *Queries) GetLastReleasedReview(ctx context.Context, arg GetLastReleasedReviewParams) (*GetLastReleasedReviewRow, error) {
-	row := q.db.QueryRow(ctx, getLastReleasedReview, arg.AgentID, arg.AuthorKind, arg.AuthorAgentID)
-	var i GetLastReleasedReviewRow
-	err := row.Scan(
-		&i.Review.ID,
-		&i.Review.AgentID,
-		&i.Review.RoundID,
-		&i.Review.AuthorKind,
-		&i.Review.AuthorAgentID,
-		&i.Review.Verdict,
-		&i.Review.ReleasedAt,
-		&i.Review.Path,
-		&i.Review.DoorbellMailID,
-		&i.Review.CreatedAt,
-		&i.Review.UpdatedAt,
-		&i.Review.Body,
-		&i.Review.EngineID,
-		&i.OpenThreads,
-	)
-	return &i, err
-}
-
 const getLatestReviewRound = `-- name: GetLatestReviewRound :one
 SELECT
     id, agent_id, ordinal, base_sha, snapshot_sha, created_at, engine_id, landed_at
@@ -1600,8 +1544,8 @@ reopened AS (
             WHERE
                 m.thread_id = t.id
                 AND m.review_id = r.id)
-    RETURNING
-        t.id
+        RETURNING
+            t.id
 )
 SELECT
     r.id, r.agent_id, r.round_id, r.author_kind, r.author_agent_id, r.verdict, r.released_at, r.path, r.doorbell_mail_id, r.created_at, r.updated_at, r.body, r.engine_id

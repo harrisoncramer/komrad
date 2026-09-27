@@ -3515,7 +3515,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "What the review concludes, which is what tells the agent whether it is done."
+          "description": "What a reviewing agent concludes, which tells the agent it reviewed whether it is done. An agent must set it and a person must leave it unset, since what a person sends is comments."
         },
         {
           "name": "interrupt",

@@ -838,55 +838,18 @@ func TestReviewGutter(t *testing.T) {
 
 // TestReviewRelease covers sending the review to the agent.
 func TestReviewRelease(t *testing.T) {
-	tests := []struct {
-		name string
-		tabs int
-		want agentv1.ReviewVerdict
-		says string
-	}{
-		{
-			name: "the panel opens on asking for changes",
-			want: agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED,
-			says: "changes requested",
-		},
-		{
-			name: "one tab approves",
-			tabs: 1,
-			want: agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED,
-			says: "approved",
-		},
-		{
-			name: "two tabs comment without asking for anything",
-			tabs: 2,
-			want: agentv1.ReviewVerdict_REVIEW_VERDICT_COMMENTED,
-			says: "comments only",
-		},
-		{
-			name: "three tabs wrap back around",
-			tabs: 3,
-			want: agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED,
-			says: "changes requested",
-		},
-	}
+	t.Run("the panel sends with no verdict and says how many comments went", func(t *testing.T) {
+		harness := openReview(t, newReviewServer(t))
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			harness := openReview(t, newReviewServer(t))
+		harness.press("ctrl+s")
+		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceReleaseReviewProcedure))
+		harness.press("ctrl+s")
 
-			harness.press("ctrl+s")
-			assert.Empty(t, harness.readSent(agentv1connect.AgentServiceReleaseReviewProcedure))
-			for range tt.tabs {
-				harness.press("tab")
-			}
-			harness.press("ctrl+s")
-
-			harness.assertSentTo(agentv1connect.AgentServiceReleaseReviewProcedure, &agentv1.ReleaseReviewRequest{
-				AgentId: "a1",
-				Verdict: tt.want,
-			})
-			assert.Contains(t, readSidebarProse(harness.readFrame()), tt.says)
+		harness.assertSentTo(agentv1connect.AgentServiceReleaseReviewProcedure, &agentv1.ReleaseReviewRequest{
+			AgentId: "a1",
 		})
-	}
+		assert.Contains(t, readSidebarProse(harness.readFrame()), "0 comments sent")
+	})
 
 	t.Run("the panel carries a word about the whole change", func(t *testing.T) {
 		harness := openReview(t, newReviewServer(t))
@@ -897,7 +860,6 @@ func TestReviewRelease(t *testing.T) {
 
 		harness.assertSentTo(agentv1connect.AgentServiceReleaseReviewProcedure, &agentv1.ReleaseReviewRequest{
 			AgentId: "a1",
-			Verdict: agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED,
 			Body:    "the shape is right",
 		})
 	})
@@ -2522,17 +2484,6 @@ func TestReviewEmphasis(t *testing.T) {
 		frame := harness.readRawFrame()
 		assert.NotContains(t, frame, paint.Panel.Style(paint.ToneAccent).Bold(true).Render(pin))
 		assert.Contains(t, frame, errui.Dim.Render(pin))
-	})
-
-	t.Run("the chosen verdict wears its own tone rather than the muted one", func(t *testing.T) {
-		harness := openReview(t, newReviewServer(t))
-
-		harness.press("ctrl+s")
-
-		frame := harness.readRawFrame()
-		chosen := "  ▸ request changes"
-		assert.Contains(t, frame, paint.Panel.Style(paint.ToneWarning).Render(chosen))
-		assert.NotContains(t, frame, paint.Panel.Style(paint.ToneMuted).Render(chosen))
 	})
 
 	t.Run("the cursor row dims while the record has the keys", func(t *testing.T) {

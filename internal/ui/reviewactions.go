@@ -155,8 +155,8 @@ func (r *reviewScreen) table() []screenAction {
 		},
 		{
 			id: actionReviewSend,
-			// A verdict with no comments is how a change is approved, so this is offered while
-			// reading as well as while writing.
+			// Comments wait in a batch until sent, so this is offered while reading as well as
+			// while writing.
 			keys: func(config.Keybindings) []string { return formKeys().Submit },
 			run:  r.orRefuseWrite(r.pressSend),
 		},
