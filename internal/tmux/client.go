@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"komrad/internal/logging"
+	"komrad/lib/xslice"
 )
 
 const paneOwnerOption = "@komrad_agent_id"
@@ -555,6 +556,26 @@ func (c *Client) GetDefaultShell() string {
 // running.
 func (c *Client) DetachSession(name string) {
 	c.run("detach-client", "-s", name)
+}
+
+// HandOver detaches the terminal showing a pane and runs argv in that terminal instead.
+func (c *Client) HandOver(pane string, argv []string) error {
+	client, err := c.query("display-message", "-p", "-t", pane, "#{client_name}")
+	if err != nil {
+		return err
+	}
+
+	if client == "" {
+		return errors.New("no terminal is showing the panel")
+	}
+
+	_, err = c.query("detach-client", "-t", client, "-E", strings.Join(xslice.Map(argv, shellQuote), " "))
+
+	return err
+}
+
+func shellQuote(value string) string {
+	return "'" + strings.ReplaceAll(value, "'", `'\''`) + "'"
 }
 
 // CapturePane returns the visible content of a pane with colors preserved.

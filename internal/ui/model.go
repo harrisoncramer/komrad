@@ -212,6 +212,7 @@ type Deps struct {
 	ConfigErr       error
 	StartupErr      error
 	StartupFindings []errui.Finding
+	Engines         Engines
 }
 
 type model struct {
@@ -225,6 +226,9 @@ type model struct {
 	frame         *layout.Frame
 	settings      PanelSettings
 	unreachable   error
+	engines       Engines
+	chooser       chooserState
+	switchErr     error
 	// writes counts the writes sent, and a write's own count is what its landing answers to.
 	writes int
 	// pending is the writes in flight.
@@ -351,6 +355,8 @@ func newModel(deps Deps, isDark bool, post *postbox) model {
 		configErr:       deps.ConfigErr,
 		startupErr:      deps.StartupErr,
 		startupFindings: deps.StartupFindings,
+		engines:         deps.Engines,
+		chooser:         chooserState{build: deps.Engines.Build},
 		screen:          screenAgents,
 		rowCursor:       newRowCursor(),
 		warm:            newWarmupState(),

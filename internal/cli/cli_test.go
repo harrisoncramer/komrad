@@ -114,6 +114,11 @@ func TestIntegrationResolveConfigStack(t *testing.T) {
 			want:   config.Stack{Engine: "remote"},
 		},
 		{
+			name:   "local names this machine, which is no engine at all",
+			engine: "local",
+			want:   config.Stack{},
+		},
+		{
 			name:   "an engine lays over whatever the paths came to",
 			flags:  []string{"/only.toml"},
 			engine: "remote",

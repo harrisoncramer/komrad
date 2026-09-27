@@ -21,13 +21,13 @@ func TestEnginePathRefusesAPath(t *testing.T) {
 // the only way to find out what this machine can be pointed at.
 func TestEngineNamesListsWhatIsThere(t *testing.T) {
 	dir := t.TempDir()
-	for _, file := range []string{"remote.toml", "staging.toml", "notes.md"} {
+	for _, file := range []string{"remote.toml", "staging.toml", "notes.md", "local.toml"} {
 		require.NoError(t, os.WriteFile(filepath.Join(dir, file), []byte(""), 0o600))
 	}
 	require.NoError(t, os.Mkdir(filepath.Join(dir, "nested.toml"), 0o755))
 
 	assert.Equal(t, []string{"remote", "staging"}, engineNames(dir),
-		"only the toml files, without their extension, and not a directory named like one")
+		"only the toml files, without their extension, and neither a directory named like one nor the local name")
 	assert.Contains(t, knownEngines(dir), "remote, staging")
 	assert.Contains(t, knownEngines(t.TempDir()), "no engines yet")
 }

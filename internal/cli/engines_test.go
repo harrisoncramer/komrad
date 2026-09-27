@@ -13,41 +13,53 @@ import (
 
 	"komrad/config"
 	"komrad/internal/store"
-	"komrad/internal/ui/enginepick"
+	"komrad/internal/ui"
 	"komrad/internal/version"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-// TestOpenEngineArgs covers the open the picker hands off to, which has to carry the same
-// config files this one was given.
-func TestOpenEngineArgs(t *testing.T) {
+// TestSwitchEngineArgs covers the open a panel hands its terminal to.
+func TestSwitchEngineArgs(t *testing.T) {
 	tests := []struct {
-		name  string
-		stack config.Stack
-		want  []string
+		name   string
+		params switchEngineArgsParams
+		want   []string
 	}{
 		{
-			name:  "the default config",
-			stack: config.Stack{},
-			want:  []string{"/opt/komrad", "open", "--engine", "remote"},
+			name:   "the default config",
+			params: switchEngineArgsParams{self: "/opt/komrad", to: "remote"},
+			want:   []string{"/opt/komrad", "open", "--engine", "remote"},
 		},
 		{
-			name:  "named config files, in order",
-			stack: config.Stack{Paths: []string{"/a.toml", "/b.toml"}},
-			want:  []string{"/opt/komrad", "open", "--engine", "remote", "--config", "/a.toml", "--config", "/b.toml"},
+			name:   "named config files, in order",
+			params: switchEngineArgsParams{self: "/opt/komrad", paths: []string{"/a.toml", "/b.toml"}, to: "remote"},
+			want:   []string{"/opt/komrad", "open", "--engine", "remote", "--config", "/a.toml", "--config", "/b.toml"},
+		},
+		{
+			name: "the host client and the engine to fall back to",
+			params: switchEngineArgsParams{
+				self:     "/opt/komrad",
+				to:       "local",
+				host:     hostPlace{socket: "/tmp/tmux-501/default", path: "/src"},
+				fallback: "remote",
+			},
+			want: []string{
+				"/opt/komrad", "open", "--engine", "local",
+				"--host-socket", "/tmp/tmux-501/default", "--host-path", "/src", "--fallback-engine", "remote",
+			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, openEngineArgs("/opt/komrad", tt.stack, "remote"))
+			assert.Equal(t, tt.want, switchEngineArgs(tt.params))
 		})
 	}
 }
 
-// TestEngineRowsStartWithThisMachine covers what the picker is offered on a machine with and
+// TestEngineRowsStartWithThisMachine covers what the chooser is offered on a machine with and
 // without engine files.
 func TestEngineRowsStartWithThisMachine(t *testing.T) {
 	home := t.TempDir()
@@ -60,7 +72,7 @@ func TestEngineRowsStartWithThisMachine(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, rows, 1)
 	assert.Empty(t, rows[0].Name)
-	assert.Equal(t, "this machine", rows[0].Title())
+	assert.Equal(t, "local", rows[0].Title())
 
 	engines := filepath.Join(home, ".config", "komrad", "engines")
 	require.NoError(t, os.MkdirAll(engines, 0o755))
@@ -83,7 +95,7 @@ func TestEngineRowsStartWithThisMachine(t *testing.T) {
 	assert.Contains(t, facts["engine"], "komrad@host")
 }
 
-// TestProbeWarnsOfAFailingLoginAndRefusesOnlyWhatCannotStart pins a bad password showing in the picker without locking out a running engine.
+// TestProbeWarnsOfAFailingLoginAndRefusesOnlyWhatCannotStart pins a bad password showing in the chooser without locking out a running engine.
 func TestProbeWarnsOfAFailingLoginAndRefusesOnlyWhatCannotStart(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
@@ -110,17 +122,17 @@ func TestProbeWarnsOfAFailingLoginAndRefusesOnlyWhatCannotStart(t *testing.T) {
 	}
 	badPassword := errors.New("password authentication failed")
 
-	stopped := failing(badPassword).probe(t.Context(), enginepick.Row{Name: "stopped"})
+	stopped := failing(badPassword).probe(t.Context(), ui.EngineRow{Name: "stopped"})
 	assert.Equal(t, "login", stopped.Label)
 	assert.Contains(t, stopped.Refused, "password authentication failed")
 
-	noEngine := failing(store.ErrNotAnEngine).probe(t.Context(), enginepick.Row{Name: "stopped"})
+	noEngine := failing(store.ErrNotAnEngine).probe(t.Context(), ui.EngineRow{Name: "stopped"})
 	assert.Equal(t, "no engine", noEngine.Label)
 
-	running := failing(badPassword).probe(t.Context(), enginepick.Row{Name: "running"})
+	running := failing(badPassword).probe(t.Context(), ui.EngineRow{Name: "running"})
 	assert.Empty(t, running.Refused, "a running server can still be attached to")
 	assert.Contains(t, running.Build, "could not start again")
 
-	healthy := failing(nil).probe(t.Context(), enginepick.Row{Name: "stopped"})
+	healthy := failing(nil).probe(t.Context(), ui.EngineRow{Name: "stopped"})
 	assert.Empty(t, healthy.Refused)
 }
