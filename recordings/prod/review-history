@@ -1,0 +1,177 @@
+#!/usr/bin/env bash
+# An agent on the neovim workflow with a vim.text.truncate change reviewed twice by the person
+# and once by a reviewer agent, then one more commit nobody has read. The commits, comments and
+# answers are written here rather than by Claude so every recording starts from the same diff.
+set -euo pipefail
+
+here="$(dirname "$0")"
+"$here/fresh-neovim"
+
+as() {
+	local id="$1"
+	shift
+	KOMRAD_AGENT_ID="$id" komrad rpc "$@"
+}
+
+state() {
+	komrad rpc get-agent --id "$1" --compact | jq -r '.agent.state'
+}
+
+wait_turn() {
+	local worked=""
+	for _ in $(seq 180); do
+		case "$(state "$1")" in
+		AGENT_STATE_THINKING) worked=1 ;;
+		AGENT_STATE_IDLE) [ -n "$worked" ] && return ;;
+		esac
+		sleep 1
+	done
+	echo "agent $1 never finished a turn" >&2
+	exit 1
+}
+
+hold() {
+	for _ in $(seq 30); do
+		komrad rpc hold-agent --id "$1" >/dev/null 2>&1 && return
+		sleep 1
+	done
+	echo "agent $1 could not be held" >&2
+	exit 1
+}
+
+line_of() {
+	grep -nF -- "$2" "$1" | head -1 | cut -d: -f1
+}
+
+comment() {
+	local caller="$1" file="$2" text="$3" body="$4" round line
+	round="$(as "$caller" open-review-round --agent-id "$agent" --compact)"
+	line="$(line_of "$tree/$file" "$text")"
+	as "$caller" create-review-thread --agent-id "$agent" \
+		--base-sha "$(jq -r '.round.base_sha' <<<"$round")" \
+		--snapshot-sha "$(jq -r '.round.snapshot_sha' <<<"$round")" \
+		--file-path "$file" --new-start "$line" --new-end "$line" \
+		--quoted-lines "+$(sed -n "${line}p" "$tree/$file")" \
+		--body "$body" --compact | jq -r '.thread.id'
+}
+
+commit() {
+	git -C "$tree" add -A
+	git -C "$tree" commit --quiet -m "$1"
+}
+
+workflow="$(komrad rpc create-workflow --name neovim --cwd "$HOME/neovim" --worktree.enabled --flags "--model haiku" --compact | jq -r '.workflow.id')"
+agent="$(komrad rpc create-agent --workflow-id "$workflow" --title text-truncate \
+	--prompt "Reply with the single word ready. Your change to vim.text will be reviewed, and you answer the review when its mail arrives." \
+	--compact | jq -r '.agent.id')"
+wait_turn "$agent"
+hold "$agent"
+tree="$(komrad rpc get-agent --id "$agent" --compact | jq -r '.agent.cwd')"
+
+text=runtime/lua/vim/text.lua
+spec=test/functional/lua/text_spec.lua
+
+python3 - "$tree/$text" <<'EOF'
+import sys
+path = sys.argv[1]
+source = open(path).read()
+addition = '''--- Truncates {s} to at most {width} columns, ending it with {marker} when it was cut.
+---
+--- @param s string
+--- @param width integer
+--- @param marker? string Defaults to "…".
+--- @return string
+function M.truncate(s, width, marker)
+  vim.validate('s', s, 'string')
+  vim.validate('width', width, 'number')
+  marker = marker or '…'
+  if #s <= width then
+    return s
+  end
+  return s:sub(1, width - #marker) .. marker
+end
+
+return M
+'''
+open(path, 'w').write(source[: source.rindex('return M')] + addition)
+EOF
+python3 - "$tree/$spec" <<'EOF'
+import sys
+path = sys.argv[1]
+source = open(path).read()
+addition = '''
+  describe('truncate()', function()
+    it('leaves a short string alone', function()
+      eq('abc', vim.text.truncate('abc', 5))
+    end)
+
+    it('cuts a long string and marks it', function()
+      eq('abcd…', vim.text.truncate('abcdefgh', 5))
+    end)
+  end)
+end)
+'''
+open(path, 'w').write(source[: source.rindex('end)')] + addition.lstrip('\n'))
+EOF
+commit "feat(text): vim.text.truncate()"
+
+bytes="$(comment "" "$text" "if #s <= width then" "This counts bytes, not columns, so a string with wide or multibyte characters gets cut in the wrong place. vim.fn.strdisplaywidth() measures what the user sees.")"
+komrad rpc release-review --agent-id "$agent" >/dev/null
+
+python3 - "$tree/$text" <<'EOF'
+import sys
+path = sys.argv[1]
+source = open(path).read()
+source = source.replace('''  if #s <= width then
+    return s
+  end
+  return s:sub(1, width - #marker) .. marker
+''', '''  if vim.fn.strdisplaywidth(s) <= width then
+    return s
+  end
+  local keep = width - vim.fn.strdisplaywidth(marker)
+  return vim.fn.strcharpart(s, 0, keep) .. marker
+''')
+open(path, 'w').write(source)
+EOF
+commit "fix(text): measure truncate() in display columns"
+as "$agent" add-review-message --thread-id "$bytes" --addressed \
+	--body "Switched both measurements to strdisplaywidth() and the cut to strcharpart(), so it counts columns." >/dev/null
+
+reviewer="$(as "$agent" request-review --flags "--model haiku" --title text-truncate-review \
+	--prompt "Review vim.text.truncate() in runtime/lua/vim/text.lua and its tests." --compact | jq -r '.reviewer.id')"
+hold "$reviewer"
+comment "$reviewer" "$spec" "it('cuts a long string and marks it'" "Add a case with a wide character, such as a CJK string, since measuring columns is what the fix is for." >/dev/null
+as "$reviewer" release-review --agent-id "$agent" --verdict REVIEW_VERDICT_CHANGES_REQUESTED \
+	--body "The fix reads right. One test is missing." >/dev/null
+
+news="$(comment "" "$text" "--- Truncates {s}" "New public API wants a line in runtime/doc/news.txt too.")"
+komrad rpc release-review --agent-id "$agent" >/dev/null
+
+line="$(grep -n '^LUA$' "$tree/runtime/doc/news.txt" | head -1 | cut -d: -f1)"
+sed -i '' "$((line + 1))a\\
+• |vim.text.truncate()| shortens a string to a width in display columns.
+" "$tree/runtime/doc/news.txt"
+commit "docs(news): vim.text.truncate()"
+as "$agent" add-review-message --thread-id "$news" --addressed --body "Added under LUA in news.txt." >/dev/null
+
+python3 - "$tree/$spec" <<'EOF'
+import sys
+path = sys.argv[1]
+source = open(path).read()
+source = source.replace('''      eq('abcd…', vim.text.truncate('abcdefgh', 5))
+    end)
+''', '''      eq('abcd…', vim.text.truncate('abcdefgh', 5))
+    end)
+
+    it('counts wide characters as two columns', function()
+      eq('日本…', vim.text.truncate('日本語です', 5))
+    end)
+''')
+open(path, 'w').write(source)
+EOF
+commit "test(text): truncate() with wide characters"
+
+komrad rpc archive-agents --ids "$reviewer" >/dev/null
+KOMRAD_AGENT_ID="$agent" komrad rpc read-mail >/dev/null
+komrad rpc release-agent --id "$agent" >/dev/null

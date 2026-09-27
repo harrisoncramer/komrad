@@ -5,11 +5,27 @@ group: start
 order: 5
 ---
 
+import Alert from "../../components/Alert.astro";
+import { media } from "../../site";
+
 ## What a local review is
 
 A local review is how you read what an agent has written and tell it what to change. You read the diff in the panel, leave comments on its lines, and send them to the agent all at once. The agent gets your comments as mail and answers in the same threads.
 
 Nothing here touches GitHub or GitLab. The review lives in komrad, next to the agent it is about, so you can read and comment on work long before anyone opens a pull request. Reviewer agents use the same mechanism, which means your comments and theirs show up in one place.
+
+<Alert variant="warning">
+  This guide uses the `neovim` workflow from the [workflows](../workflows/) guide. The videos follow one agent adding
+  `vim.text.truncate()` to Neovim, which you have reviewed twice and a reviewer agent has reviewed once.
+</Alert>
+
+## Reading the agents list
+
+Each agent in the list shows its review comments as two pairs of counts, just before its pull request column. The first pair is comments from reviewer agents and the second pair is yours. Each pair is open comments, then settled ones, so `1|10` means one still open and ten settled. Your open count is highlighted while it isn't zero, and a dot after your pair means the agent has written something in one of your threads that you haven't read.
+
+Only comments you've sent are counted. Drafts don't show up until they go out. Settled comments stop being counted once the work they were about has landed on the base branch, so the numbers track work that's still in play.
+
+Move the keyboard into the details to see the same counts spelled out, for example `your comments: 1 open, 10 resolved, with something you have not read`.
 
 ## Opening a review
 
@@ -18,6 +34,22 @@ Put the cursor on an agent and press `d`. The stage shows everything the agent h
 The band at the top of the sidebar tells you what you're looking at. It gives the agent's name, what the diff is measured from (`all changes` when you open it), how big the change is, and how many files you've marked as read. If you've reviewed this agent before, it also tells you how many files have changed since you last did.
 
 Move around the diff the same way you move around any list: `j` and `k` a line at a time, `]` and `[` a file at a time, `t` and `T` from one comment to the next, and `u` and `U` between the comments nobody has settled yet. `/` searches the diff. `E` shows the whole of the file the cursor is in, not just the changed lines. `v` folds a file away once you've read it. The fold stays until the agent writes to that file again. `esc` takes you back to the agents list.
+
+<figure>
+  <video
+    autoplay
+    loop
+    muted
+    playsinline
+    poster={media("reviews-open.png")}
+    width="1440"
+    height="920"
+    aria-label="Hovering the text-truncate agent to show its comment counts, opening its review, moving between files to the reviewer agent's comment and then to one of yours, and showing the change the agent made to answer it."
+  >
+    <source src={media("reviews-open.webm")} type="video/webm" />
+    <source src={media("reviews-open.mp4")} type="video/mp4" />
+  </video>
+</figure>
 
 ## Leaving comments
 
@@ -36,6 +68,22 @@ Press `e` again to close the editor. The agent carries on and the diff reads the
 ## Sending
 
 Press `ctrl+s` while reading, not writing, to send what you have. Komrad asks whether you want to say anything about the work as a whole. Leave it empty if not. Then press `ctrl+s` to send, or `ctrl+x` to send and interrupt the agent so it reads your comments right away instead of when it finishes what it's doing.
+
+<figure>
+  <video
+    autoplay
+    loop
+    muted
+    playsinline
+    poster={media("reviews-comment.png")}
+    width="1440"
+    height="920"
+    aria-label="Searching the diff for a test, writing a comment on it and saving it as a draft, then sending it with a note about the work as a whole, and the agent's answer arriving in the thread."
+  >
+    <source src={media("reviews-comment.webm")} type="video/webm" />
+    <source src={media("reviews-comment.mp4")} type="video/mp4" />
+  </video>
+</figure>
 
 The agent gets one piece of mail naming the review. When it reads the review, each comment comes with the lines it was written on and the code around them, so the agent can find the spot even if the file has changed since.
 
@@ -57,13 +105,21 @@ A chapter only ends where you sent something. Commenting, editing a file, commen
 
 Past chapters are for reading. You can't comment or mark files as read there, because those lines may no longer exist in the agent's work. Press `>` until you're back on all changes to do either.
 
-## Reading the agents list
-
-Each agent in the list shows its review comments as two pairs of counts, just before its pull request column. The first pair is comments from reviewer agents and the second pair is yours. Each pair is open comments, then settled ones, so `1|10` means one still open and ten settled. Your open count is highlighted while it isn't zero, and a dot after your pair means the agent has written something in one of your threads that you haven't read.
-
-Only comments you've sent are counted. Drafts don't show up until they go out. Settled comments stop being counted once the work they were about has landed on the base branch, so the numbers track work that's still in play.
-
-Move the keyboard into the details to see the same counts spelled out, for example `your comments: 1 open, 10 resolved, with something you have not read`.
+<figure>
+  <video
+    autoplay
+    loop
+    muted
+    playsinline
+    poster={media("reviews-history.png")}
+    width="1440"
+    height="920"
+    aria-label="Stepping back from all changes through the newest chapter, which has not been reviewed yet, and the two chapters closed by earlier reviews, then forward again to all changes."
+  >
+    <source src={media("reviews-history.webm")} type="video/webm" />
+    <source src={media("reviews-history.mp4")} type="video/mp4" />
+  </video>
+</figure>
 
 ## Reviews from agents
 
