@@ -73,6 +73,11 @@ tmux prefix both work.
 
 - `Type` types text and `Enter`, `Escape`, `Down`, `Ctrl+S` and the like press keys.
 - `Sleep` waits and keeps recording.
+
+The recorder paces a tape itself. Every key or `Type` the tape shows is followed by the pause
+named on the `# pace:` line of `recordings/settings.tape`, so a viewer can read what each key
+did. Do not add a `Sleep` between keys; add one only where a moment deserves longer, such as the
+last frame. Keys inside a `Hide` are not paced.
 - `Wait+Screen@<timeout> /regex/` waits until the screen matches.
 - `Hide` and `Show` stop and start recording, for setup a viewer should not watch.
 

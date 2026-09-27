@@ -13,6 +13,5 @@ Wait+Screen@30s /Welcome, komrad!/
 Sleep 1s
 Type "w"
 Type "neovim"
-Sleep 500ms
 Ctrl+S
 Wait+Screen@4m /done \d+:\d+ [AP]M/

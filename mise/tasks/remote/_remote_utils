@@ -19,6 +19,11 @@ require_aws_profile() {
 	echo "Export AWS_PROFILE, or whichever of AWS_ACCESS_KEY_ID and friends you use:" >&2
 	echo >&2
 	echo "  export AWS_PROFILE=your-profile" >&2
+	if command -v aws >/dev/null; then
+		echo >&2
+		echo "The profiles this machine knows:" >&2
+		aws configure list-profiles 2>/dev/null | sed 's/^/  /' >&2
+	fi
 	exit 1
 }
 

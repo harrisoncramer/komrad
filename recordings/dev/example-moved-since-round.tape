@@ -2,7 +2,6 @@
 # agent's checkout change underneath it, and watch cwd sync report the move and the diff catch up.
 Source recordings/panel.tape
 Type "k"
-Sleep 500ms
 Type "d"
 Wait+Screen@30s /hello, reviewer/
 Sleep 3s

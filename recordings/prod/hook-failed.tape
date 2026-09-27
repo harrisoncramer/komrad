@@ -12,13 +12,10 @@ Type "c"
 Type "Build neovim and run the unit tests."
 Enter
 Type "build"
-Sleep 500ms
 Ctrl+S
 Wait+Screen@30s /a hook failed/
 Sleep 1s
 Escape
-Sleep 500ms
 Type "j"
-Sleep 500ms
 Type "l"
 Sleep 2s

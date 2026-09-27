@@ -12,13 +12,11 @@ Type "c"
 Type "Add a sentence to the end of CONTRIBUTING.md reminding contributors to run make lint, then commit it. Do not ask for a review."
 Enter
 Type "lint-reminder"
-Sleep 500ms
 Ctrl+S
 Sleep 2s
 Enter
 Wait+Screen@4m /done \d+:\d+ [AP]M/
 Ctrl+A
-Sleep 500ms
 Type "j"
 Type "j"
 Type "j"
@@ -27,4 +25,3 @@ Type "j"
 Type "j"
 Type "j"
 Type "j"
-Sleep 1s
