@@ -551,7 +551,6 @@ func (f *Frame) ReleaseGuest(pane string) {
 
 // Vacate returns the guest to its own window and kills the frame's own panes.
 func (f *Frame) Vacate() {
-	f.restoreGuest()
 	f.abandonStage()
 }
 
@@ -596,8 +595,12 @@ func (f *Frame) restoreGuest() {
 		return
 	}
 
-	if f.tmux.IsPaneAlive(f.guest) {
+	switch {
+	case !f.tmux.IsPaneAlive(f.guest):
+	case f.tmux.IsPaneAlive(f.stage):
 		f.move(panes.Swap(f.stage, f.guest))
+	default:
+		f.tmux.BreakPane(f.guest)
 	}
 
 	f.guest = ""
@@ -667,12 +670,14 @@ func (f *Frame) hasStage() bool {
 }
 
 func (f *Frame) abandonStage() {
+	f.restoreGuest()
+
 	if f.stage != "" && f.tmux.IsPaneAlive(f.stage) {
 		f.tmux.KillPane(f.stage)
 	}
 
 	f.closeInfo()
-	f.stage, f.guest = "", ""
+	f.stage = ""
 }
 
 func (f *Frame) claimInfo() {

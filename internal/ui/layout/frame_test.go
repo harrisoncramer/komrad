@@ -325,6 +325,23 @@ func TestFrameReleaseGuest(t *testing.T) {
 	assert.Empty(t, frame.GuestPane())
 }
 
+// TestFrameGuestOutlivingTheStageGoesHome covers the stage's pane dying while an agent is swapped
+// in, which leaves the agent standing in the panel's window with nothing to swap it back with.
+func TestFrameGuestOutlivingTheStageGoesHome(t *testing.T) {
+	tmux := &recordingTmux{deadPanes: map[string]bool{}}
+	frame := New(tmux, config.DefaultLayout())
+	frame.Attach("%0")
+	frame.ShowGuest(Guest{Agent: "agent-9", Pane: "%9"})
+	require.Equal(t, 1, tmux.swaps)
+
+	tmux.deadPanes["%1"] = true
+	frame.Show(RegionStage, newDocument("# auth"))
+
+	assert.Equal(t, []string{"%9"}, tmux.broken, "the agent is returned to a window of its own")
+	assert.Equal(t, 1, tmux.swaps, "rather than swapped with a pane that is gone")
+	assert.Empty(t, frame.GuestPane())
+}
+
 // TestFrameVacateLeavesOnlyTheSidebar covers the panel on its way out, where a staged agent goes
 // back to its own window and the frame's own panes die rather than outliving the panel.
 func TestFrameVacateLeavesOnlyTheSidebar(t *testing.T) {
