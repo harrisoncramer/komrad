@@ -28,6 +28,9 @@ const (
 	Separator = "·"
 )
 
+// Logo is the mark beside komrad's name at the top of the panel, outside the approved set.
+const Logo = "\U000F050C"
+
 // Chrome is every piece of chrome and what a report calls it.
 func Chrome() []Named {
 	return []Named{

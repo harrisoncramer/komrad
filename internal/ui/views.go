@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"komrad/config"
+	"komrad/internal/glyph"
 	"komrad/internal/ui/paint"
 	"komrad/lib/xslice"
 
@@ -13,7 +14,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
-const komradLogo = "\U000F050C komrad"
+const komradLogo = glyph.Logo + " komrad"
 
 // viewsBarFloor is the shortest pane the switcher is drawn in.
 const viewsBarFloor = 20
