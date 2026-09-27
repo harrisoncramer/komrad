@@ -691,6 +691,51 @@ func TestPendingNoticeOfKindIsToldApartByWhatItIsAbout(t *testing.T) {
 	require.ErrorIs(t, err, store.ErrNotFound, "a notice about one partner does not stand in for another")
 }
 
+// TestPendingNoticeAboutDocumentIsToldApartByDocument pins that a document notice waits apart from notices about agents and other documents.
+func TestPendingNoticeAboutDocumentIsToldApartByDocument(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+	recipient := seedAgent(t, st, "recipient")
+	partner := seedAgent(t, st, "partner")
+	one, other := uuid.NewString(), uuid.NewString()
+
+	_, err := st.Send(ctx, SendParams{
+		ToAgentID:    recipient,
+		Body:         "a notice about an agent",
+		Kind:         KindDocumentEdited,
+		AboutAgentID: &partner,
+		Deadline:     time.Hour,
+	})
+	require.NoError(t, err)
+
+	_, err = st.GetPendingAboutDocument(ctx, recipient, KindDocumentEdited, one)
+	require.ErrorIs(t, err, store.ErrNotFound, "a notice about an agent does not stand in for one about a document")
+
+	sent, err := st.Send(ctx, SendParams{
+		ToAgentID:       recipient,
+		Body:            "a person edited your document",
+		Kind:            KindDocumentEdited,
+		AboutDocumentID: &one,
+		Deadline:        time.Hour,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, sent.AboutDocumentID)
+	assert.Equal(t, one, *sent.AboutDocumentID)
+
+	found, err := st.GetPendingAboutDocument(ctx, recipient, KindDocumentEdited, one)
+	require.NoError(t, err)
+	assert.Equal(t, sent.ID, found.ID)
+
+	_, err = st.GetPendingAboutDocument(ctx, recipient, KindDocumentEdited, other)
+	require.ErrorIs(t, err, store.ErrNotFound, "a notice about one document does not stand in for another")
+
+	_, err = st.Claim(ctx, recipient, 10)
+	require.NoError(t, err)
+
+	_, err = st.GetPendingAboutDocument(ctx, recipient, KindDocumentEdited, one)
+	require.ErrorIs(t, err, store.ErrNotFound, "once the agent has taken it, nothing is waiting")
+}
+
 // TestPendingNoticeOfKindIsTheOneWaiting pins that the lookup finds only a notice the agent can
 // still read, never one it has claimed or one that ran out of time.
 func TestPendingNoticeOfKindIsTheOneWaiting(t *testing.T) {

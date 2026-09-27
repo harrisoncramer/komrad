@@ -3,16 +3,21 @@ package documents
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"syscall"
 	"unicode/utf8"
 
 	"komrad/internal/fail"
+	"komrad/internal/logging"
+	"komrad/internal/mail"
 	agentstore "komrad/internal/store/agent"
 	documentstore "komrad/internal/store/document"
+	mailstore "komrad/internal/store/mail"
 )
 
 // MaxBodyBytes is the most a document's body may hold.
@@ -40,17 +45,19 @@ var (
 type NewDocumentServiceParams struct {
 	Agents    *agentstore.AgentStore
 	Documents *documentstore.DocumentStore
+	Mailer    *mail.MailService
 }
 
 type DocumentService struct {
 	agents    *agentstore.AgentStore
 	documents *documentstore.DocumentStore
+	mailer    *mail.MailService
 }
 
-// NewDocumentService builds the service over the agents that write documents and the store that
-// keeps them.
+// NewDocumentService builds the service over the agents that write documents, the store that
+// keeps them, and the mailer that tells an author a person edited its document.
 func NewDocumentService(params NewDocumentServiceParams) *DocumentService {
-	return &DocumentService{agents: params.Agents, documents: params.Documents}
+	return &DocumentService{agents: params.Agents, documents: params.Documents, mailer: params.Mailer}
 }
 
 type WriteDocumentParams struct {
@@ -102,25 +109,75 @@ func (s *DocumentService) WriteDocument(ctx context.Context, params WriteDocumen
 		return nil, err
 	}
 
+	var written *documentstore.Document
 	if params.ID == nil {
-		return s.documents.Create(ctx, documentstore.CreateParams{
+		written, err = s.documents.Create(ctx, documentstore.CreateParams{
 			AgentID:  agent.ID,
 			Name:     params.Name,
 			Kind:     params.Kind,
 			Body:     body,
 			ByPerson: byPerson,
 		})
+	} else {
+		written, err = s.documents.Update(ctx, documentstore.UpdateParams{
+			ID:       *params.ID,
+			AgentID:  agent.ID,
+			Name:     params.Name,
+			Kind:     params.Kind,
+			Body:     body,
+			Version:  *params.Version,
+			ByPerson: byPerson,
+		})
+	}
+	if err != nil {
+		return nil, err
 	}
 
-	return s.documents.Update(ctx, documentstore.UpdateParams{
-		ID:       *params.ID,
-		AgentID:  agent.ID,
-		Name:     params.Name,
-		Kind:     params.Kind,
-		Body:     body,
-		Version:  *params.Version,
-		ByPerson: byPerson,
+	if byPerson && params.ID == nil {
+		s.tellTheAuthor(ctx, *agent, *written, buildCreateNotice(*written))
+	} else if byPerson {
+		s.tellTheAuthor(ctx, *agent, *written, buildEditNotice(*written))
+	}
+
+	return written, nil
+}
+
+func (s *DocumentService) tellTheAuthor(ctx context.Context, author agentstore.Agent, edited documentstore.Document, notice string) {
+	if author.ArchivedAt != nil {
+		return
+	}
+
+	_, err := s.mailer.SendNotice(ctx, mail.SendNoticeParams{
+		ToAgentID:     author.ID,
+		Body:          notice,
+		Kind:          mailstore.KindDocumentEdited,
+		AboutDocument: &edited.ID,
 	})
+	if err == nil {
+		return
+	}
+
+	level := slog.LevelError
+	if errors.Is(err, mail.ErrMailboxFull) || errors.Is(err, mail.ErrAgentArchived) {
+		level = slog.LevelWarn
+	}
+	logging.From(ctx).LogAttrs(ctx, level, "failed to tell an agent a person wrote its document",
+		append([]slog.Attr{slog.String(logging.AgentID, author.ID), slog.String(logging.DocumentID, edited.ID)}, logging.Err(err)...)...)
+}
+
+func buildCreateNotice(created documentstore.Document) string {
+	return fmt.Sprintf("komrad: a person wrote a new document for you in the panel, %q (%s). "+
+		"Read it with get_document. Further saves before you read this send no more mail, and "+
+		"write_document is refused as failed_precondition unless you rewrite from the newest version list_document_versions lists.",
+		created.Name, created.ID)
+}
+
+func buildEditNotice(edited documentstore.Document) string {
+	return fmt.Sprintf("komrad: a person edited your document %q (%s) in the panel, writing version %d. "+
+		"They may have saved again since, and those saves send no more mail. "+
+		"list_document_versions lists every write and marks a person's, get_document reads any version, "+
+		"and write_document is refused as failed_precondition unless you rewrite from the newest version.",
+		edited.Name, edited.ID, edited.Version)
 }
 
 // ownerFor is the agent a person's write is to: the owner of the document it rewrites, or the

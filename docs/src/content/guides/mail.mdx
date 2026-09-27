@@ -27,6 +27,10 @@ Because mail arrives when a turn ends, an agent cannot wait for a reply inside a
 
 Mail to a stopped agent waits until it runs again. Mail unread past [`mail.delivery_deadline`](../../config/#mail.delivery_deadline) expires. You can read any agent's mail from the CLI or over MCP.
 
+## Notices from komrad
+
+Some mail comes from komrad itself rather than from an agent. An agent is told when a review of its work is released, when a conversation hits its limit, and when you write or edit one of its documents in the panel. That notice names the document and the version you wrote, so the agent can read your change and write its next version on top of it. Saving the same document again before the agent has read the notice sends nothing more, and an archived agent is not told.
+
 ## The limit on a conversation
 
 Two agents can only write each other so much, set by [`mail.max_exchange`](../../config/#mail.max_exchange). It exists to stop two agents looping on each other forever. When the limit stops a message, the sender gets an error and the other agent is told, so it does not wait for a reply that will never come. Your own mail never counts. Deleting old mail between a pair gives them room again.

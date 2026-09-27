@@ -7,6 +7,7 @@ INSERT INTO mail(
     kind,
     reply_to,
     about_agent_id,
+    about_document_id,
     idempotency_key,
     expires_at)
 VALUES (
@@ -17,6 +18,7 @@ VALUES (
     @kind,
     sqlc.narg('reply_to'),
     sqlc.narg('about_agent_id'),
+    sqlc.narg('about_document_id'),
     sqlc.narg('idempotency_key'),
     NOW() + interval '1 microsecond' * @deadline_micros::bigint)
 RETURNING
@@ -40,6 +42,21 @@ WHERE
     m.to_agent_id = @to_agent_id
     AND m.kind = @kind
     AND m.about_agent_id = @about_agent_id::uuid
+    AND m.claimed_at IS NULL
+    AND m.expires_at > NOW()
+ORDER BY
+    m.id DESC
+LIMIT 1;
+
+-- name: GetPendingMailAboutDocument :one
+SELECT
+    *
+FROM
+    mail m
+WHERE
+    m.to_agent_id = @to_agent_id
+    AND m.kind = @kind
+    AND m.about_document_id = @about_document_id::uuid
     AND m.claimed_at IS NULL
     AND m.expires_at > NOW()
 ORDER BY

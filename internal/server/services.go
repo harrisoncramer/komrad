@@ -307,7 +307,7 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 			Reconciler: reconciler,
 		}),
 		marks:           markService,
-		documents:       documents.NewDocumentService(documents.NewDocumentServiceParams{Agents: st.agents, Documents: st.documents}),
+		documents:       documents.NewDocumentService(documents.NewDocumentServiceParams{Agents: st.agents, Documents: st.documents, Mailer: mailService}),
 		rebase:          rebaseService,
 		cwdSync:         cwdSyncer,
 		transcriptSync:  transcriptSyncer,

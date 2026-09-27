@@ -29,6 +29,8 @@ const (
 	// KindExchangeCapped tells an agent that mail written to it was refused because the pair had
 	// reached the cap on how much they may exchange.
 	KindExchangeCapped Kind = Kind(models.MailKindExchangeCapped)
+	// KindDocumentEdited tells an agent that a person wrote or edited one of its documents in the panel.
+	KindDocumentEdited Kind = Kind(models.MailKindDocumentEdited)
 )
 
 type Mail struct {
@@ -40,10 +42,11 @@ type Mail struct {
 	Kind        Kind
 	ReplyTo     *string
 	// AboutAgentID is the other agent a notice komrad raised is about, unset on ordinary mail.
-	AboutAgentID *string
-	ClaimedAt    *time.Time
-	ExpiresAt    time.Time
-	CreatedAt    time.Time
+	AboutAgentID    *string
+	AboutDocumentID *string
+	ClaimedAt       *time.Time
+	ExpiresAt       time.Time
+	CreatedAt       time.Time
 }
 
 type MailStore struct {
@@ -56,14 +59,15 @@ func NewMailStore(db store.DBTX) *MailStore {
 }
 
 type SendParams struct {
-	FromAgentID    *string
-	FromName       string
-	ToAgentID      string
-	Body           string
-	Kind           Kind
-	ReplyTo        *string
-	AboutAgentID   *string
-	IdempotencyKey *string
+	FromAgentID     *string
+	FromName        string
+	ToAgentID       string
+	Body            string
+	Kind            Kind
+	ReplyTo         *string
+	AboutAgentID    *string
+	AboutDocumentID *string
+	IdempotencyKey  *string
 	// How long the mail stays deliverable, counted from the database's clock rather than the
 	// caller's, which every read of expires_at compares it against.
 	Deadline time.Duration
@@ -77,15 +81,16 @@ func (s *MailStore) Send(ctx context.Context, params SendParams) (*Mail, error) 
 	}
 
 	row, err := s.queries.InsertMail(ctx, models.InsertMailParams{
-		FromAgentID:    params.FromAgentID,
-		FromName:       params.FromName,
-		ToAgentID:      params.ToAgentID,
-		Body:           params.Body,
-		Kind:           models.MailKind(kind),
-		ReplyTo:        params.ReplyTo,
-		AboutAgentID:   params.AboutAgentID,
-		IdempotencyKey: params.IdempotencyKey,
-		DeadlineMicros: params.Deadline.Microseconds(),
+		FromAgentID:     params.FromAgentID,
+		FromName:        params.FromName,
+		ToAgentID:       params.ToAgentID,
+		Body:            params.Body,
+		Kind:            models.MailKind(kind),
+		ReplyTo:         params.ReplyTo,
+		AboutAgentID:    params.AboutAgentID,
+		AboutDocumentID: params.AboutDocumentID,
+		IdempotencyKey:  params.IdempotencyKey,
+		DeadlineMicros:  params.Deadline.Microseconds(),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to send mail to agent %q: %w", params.ToAgentID, err)
@@ -107,6 +112,30 @@ func (s *MailStore) GetPendingOfKind(ctx context.Context, toAgentID string, kind
 		ToAgentID:    toAgentID,
 		Kind:         models.MailKind(kind),
 		AboutAgentID: about,
+	})
+	if db.IsNoRows(err) {
+		return nil, noPendingOfKind(toAgentID, kind)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to read the unread %q notice of agent %q: %w", kind, toAgentID, err)
+	}
+
+	held := fromRow(row)
+
+	return &held, nil
+}
+
+// GetPendingAboutDocument is the notice of a kind, about the same document, that its recipient is
+// already holding unread, ErrNotFound when it holds none.
+func (s *MailStore) GetPendingAboutDocument(ctx context.Context, toAgentID string, kind Kind, documentID string) (*Mail, error) {
+	if !store.IsID(toAgentID) || !store.IsID(documentID) {
+		return nil, noPendingOfKind(toAgentID, kind)
+	}
+
+	row, err := s.queries.GetPendingMailAboutDocument(ctx, models.GetPendingMailAboutDocumentParams{
+		ToAgentID:       toAgentID,
+		Kind:            models.MailKind(kind),
+		AboutDocumentID: documentID,
 	})
 	if db.IsNoRows(err) {
 		return nil, noPendingOfKind(toAgentID, kind)
@@ -309,16 +338,17 @@ func (s *MailStore) ListExpired(ctx context.Context, toAgentID string) ([]Mail, 
 
 func fromRow(row *models.Mail) Mail {
 	return Mail{
-		ID:           row.ID,
-		FromAgentID:  row.FromAgentID,
-		FromName:     row.FromName,
-		ToAgentID:    row.ToAgentID,
-		Body:         row.Body,
-		Kind:         Kind(row.Kind),
-		ReplyTo:      row.ReplyTo,
-		AboutAgentID: row.AboutAgentID,
-		ClaimedAt:    row.ClaimedAt,
-		ExpiresAt:    row.ExpiresAt,
-		CreatedAt:    row.CreatedAt,
+		ID:              row.ID,
+		FromAgentID:     row.FromAgentID,
+		FromName:        row.FromName,
+		ToAgentID:       row.ToAgentID,
+		Body:            row.Body,
+		Kind:            Kind(row.Kind),
+		ReplyTo:         row.ReplyTo,
+		AboutAgentID:    row.AboutAgentID,
+		AboutDocumentID: row.AboutDocumentID,
+		ClaimedAt:       row.ClaimedAt,
+		ExpiresAt:       row.ExpiresAt,
+		CreatedAt:       row.CreatedAt,
 	}
 }

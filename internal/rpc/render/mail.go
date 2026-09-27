@@ -30,6 +30,8 @@ func mailKindOf(kind mailstore.Kind) agentv1.MailKind {
 		return agentv1.MailKind_MAIL_KIND_REVIEW_ACTIVITY
 	case mailstore.KindExchangeCapped:
 		return agentv1.MailKind_MAIL_KIND_EXCHANGE_CAPPED
+	case mailstore.KindDocumentEdited:
+		return agentv1.MailKind_MAIL_KIND_DOCUMENT_EDITED
 	}
 
 	return agentv1.MailKind_MAIL_KIND_UNSPECIFIED

@@ -151,6 +151,7 @@ const (
 	MailKindPlain          MailKind = "plain"
 	MailKindReviewActivity MailKind = "review_activity"
 	MailKindExchangeCapped MailKind = "exchange_capped"
+	MailKindDocumentEdited MailKind = "document_edited"
 )
 
 func (e *MailKind) Scan(src interface{}) error {
@@ -525,6 +526,8 @@ type Mail struct {
 	EngineID pgtype.UUID
 	// The key a retried send is recognised by, null on mail sent once.
 	IdempotencyKey *string
+	// The document a komrad notice is about, null on ordinary mail. A person editing the same document again joins the unread notice about it rather than adding another.
+	AboutDocumentID pgtype.UUID
 }
 
 // A letter a person types to jump to one row. Each letter belongs to a single agent or a single workflow, so it always names one place.

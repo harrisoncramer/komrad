@@ -481,6 +481,37 @@ func TestSendNoticeRefusesAPlainKind(t *testing.T) {
 	assert.Nil(t, sent)
 }
 
+// TestSendNoticeAboutADocumentJoinsTheUnreadOne pins that one unread notice stands for every edit of a document until it is read.
+func TestSendNoticeAboutADocumentJoinsTheUnreadOne(t *testing.T) {
+	st := storetest.Open(t)
+	svc := newMailService(st, config.DefaultMaxExchange)
+	ctx := t.Context()
+	recipient := st.SeedAgent(t, agentstore.Agent{Name: "author"})
+	one, other := uuid.NewString(), uuid.NewString()
+
+	notify := func(document string) *mailstore.Mail {
+		t.Helper()
+		sent, err := svc.SendNotice(ctx, SendNoticeParams{
+			ToAgentID:     recipient.ID,
+			Body:          "a person edited your document",
+			Kind:          mailstore.KindDocumentEdited,
+			AboutDocument: &document,
+		})
+		require.NoError(t, err)
+
+		return sent
+	}
+
+	first := notify(one)
+	assert.Equal(t, first.ID, notify(one).ID, "a second edit joins the unread notice")
+	assert.NotEqual(t, first.ID, notify(other).ID, "an edit of another document is told apart")
+
+	_, err := svc.ClaimMail(ctx, recipient.ID)
+	require.NoError(t, err)
+
+	assert.NotEqual(t, first.ID, notify(one).ID, "an edit after the notice was read sends another")
+}
+
 // TestClaimMail pins that a claim is refused for an id no agent holds and takes at most one batch otherwise.
 func TestClaimMail(t *testing.T) {
 	st := storetest.Open(t)

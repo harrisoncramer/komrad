@@ -74,6 +74,7 @@ type mailReadWriter interface {
 	Claim(ctx context.Context, toAgentID string, limit int32) ([]mailstore.Mail, error)
 	CountPending(ctx context.Context, toAgentID string) (int64, error)
 	GetPendingOfKind(ctx context.Context, toAgentID string, kind mailstore.Kind, about string) (*mailstore.Mail, error)
+	GetPendingAboutDocument(ctx context.Context, toAgentID string, kind mailstore.Kind, documentID string) (*mailstore.Mail, error)
 	ListPage(ctx context.Context, toAgentID string, limit int32, cursor *mailstore.Cursor) ([]mailstore.Mail, error)
 	ListSentPage(ctx context.Context, fromAgentID string, limit int32, cursor *mailstore.Cursor) ([]mailstore.Mail, error)
 	ListByID(ctx context.Context, ids []string) ([]mailstore.Mail, error)
@@ -238,11 +239,12 @@ type SendNoticeParams struct {
 	// Kind is what the notice is about.
 	Kind mailstore.Kind
 	// About is the other agent the notice concerns.
-	About *string
+	About         *string
+	AboutDocument *string
 }
 
 // SendNotice sends a notice as komrad itself, handing back the unread notice about the same
-// agent instead when the recipient is still holding one.
+// agent or document instead when the recipient is still holding one.
 func (s *MailService) SendNotice(ctx context.Context, params SendNoticeParams) (*mailstore.Mail, error) {
 	if params.Kind == "" || params.Kind == mailstore.KindPlain {
 		return nil, fmt.Errorf("%w: a notice needs a kind of its own to be told apart by", ErrNoticeKindMissing)
@@ -258,12 +260,23 @@ func (s *MailService) SendNotice(ctx context.Context, params SendNoticeParams) (
 		}
 	}
 
+	if params.AboutDocument != nil {
+		waiting, err := s.mailReadWriter.GetPendingAboutDocument(ctx, params.ToAgentID, params.Kind, *params.AboutDocument)
+		if err != nil && !errors.Is(err, store.ErrNotFound) {
+			return nil, fmt.Errorf("failed to find the unread notice about document %q: %w", *params.AboutDocument, err)
+		}
+		if waiting != nil {
+			return waiting, nil
+		}
+	}
+
 	return s.send(ctx, sendParams{
-		ToAgentID: params.ToAgentID,
-		Body:      params.Body,
-		Kind:      params.Kind,
-		About:     params.About,
-		System:    true,
+		ToAgentID:     params.ToAgentID,
+		Body:          params.Body,
+		Kind:          params.Kind,
+		About:         params.About,
+		AboutDocument: params.AboutDocument,
+		System:        true,
 	})
 }
 
@@ -294,12 +307,13 @@ func requireSameFamily(sender *agentstore.Agent, recipient agentstore.Agent) err
 }
 
 type sendParams struct {
-	From      string
-	ToAgentID string
-	Body      string
-	ReplyTo   *string
-	Kind      mailstore.Kind
-	About     *string
+	From          string
+	ToAgentID     string
+	Body          string
+	ReplyTo       *string
+	Kind          mailstore.Kind
+	About         *string
+	AboutDocument *string
 	// System marks mail komrad raises itself rather than on a caller's behalf.
 	System bool
 	// SenderName names mail sent on a person's behalf by something other than an agent.
@@ -363,12 +377,13 @@ func (s *MailService) send(ctx context.Context, params sendParams) (*mailstore.M
 	}
 
 	send := mailstore.SendParams{
-		ToAgentID:    recipient.ID,
-		Body:         params.Body,
-		Kind:         params.Kind,
-		ReplyTo:      params.ReplyTo,
-		AboutAgentID: params.About,
-		Deadline:     deadline,
+		ToAgentID:       recipient.ID,
+		Body:            params.Body,
+		Kind:            params.Kind,
+		ReplyTo:         params.ReplyTo,
+		AboutAgentID:    params.About,
+		AboutDocumentID: params.AboutDocument,
+		Deadline:        deadline,
 	}
 	if params.IdempotencyKey != "" {
 		send.IdempotencyKey = &params.IdempotencyKey
