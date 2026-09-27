@@ -45,6 +45,7 @@ const (
 	FilePath               = "file.path"
 	TmuxCommands           = "komrad.tmux.commands"
 	MailID                 = "komrad.mail.id"
+	DocumentID             = "komrad.document.id"
 	UnreadMail             = "komrad.mail.unread"
 	ExchangedMail          = "komrad.mail.exchanged"
 	WorkflowID             = "komrad.workflow.id"

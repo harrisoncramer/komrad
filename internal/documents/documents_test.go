@@ -6,6 +6,7 @@ import (
 	"strings"
 	"syscall"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -281,6 +282,7 @@ func TestAPersonsWriteMailsTheAuthor(t *testing.T) {
 	tests := []struct {
 		name       string
 		archived   bool
+		full       bool
 		byPerson   bool
 		creates    bool
 		wantNotice string
@@ -295,6 +297,11 @@ func TestAPersonsWriteMailsTheAuthor(t *testing.T) {
 		{
 			name:     "an archived author is not told",
 			archived: true,
+			byPerson: true,
+		},
+		{
+			name:     "an author holding a full mailbox is not told and the write still lands",
+			full:     true,
 			byPerson: true,
 		},
 		{
@@ -316,6 +323,17 @@ func TestAPersonsWriteMailsTheAuthor(t *testing.T) {
 			if tt.archived {
 				_, err := stores.Agents.Archive(ctx, []string{author.ID})
 				require.NoError(t, err)
+			}
+			if tt.full {
+				for range 100 {
+					_, err := stores.Mail.Send(ctx, mailstore.SendParams{
+						FromName:  "person",
+						ToAgentID: author.ID,
+						Body:      "filler",
+						Deadline:  time.Hour,
+					})
+					require.NoError(t, err)
+				}
 			}
 
 			params := documents.WriteDocumentParams{
@@ -343,8 +361,14 @@ func TestAPersonsWriteMailsTheAuthor(t *testing.T) {
 			written, err := service.WriteDocument(ctx, params)
 			require.NoError(t, err)
 
-			waiting, err := stores.Mail.ListPage(ctx, author.ID, 10, nil)
+			held, err := stores.Mail.ListPage(ctx, author.ID, 200, nil)
 			require.NoError(t, err)
+			var waiting []mailstore.Mail
+			for _, m := range held {
+				if m.Kind != mailstore.KindPlain {
+					waiting = append(waiting, m)
+				}
+			}
 			if tt.wantNotice == "" {
 				assert.Empty(t, waiting)
 

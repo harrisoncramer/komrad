@@ -133,21 +133,23 @@ func (s *DocumentService) WriteDocument(ctx context.Context, params WriteDocumen
 		return nil, err
 	}
 
-	if byPerson {
-		s.tellTheAuthor(ctx, *agent, *written)
+	if byPerson && params.ID == nil {
+		s.tellTheAuthor(ctx, *agent, *written, buildCreateNotice(*written))
+	} else if byPerson {
+		s.tellTheAuthor(ctx, *agent, *written, buildEditNotice(*written))
 	}
 
 	return written, nil
 }
 
-func (s *DocumentService) tellTheAuthor(ctx context.Context, author agentstore.Agent, edited documentstore.Document) {
+func (s *DocumentService) tellTheAuthor(ctx context.Context, author agentstore.Agent, edited documentstore.Document, notice string) {
 	if author.ArchivedAt != nil {
 		return
 	}
 
 	_, err := s.mailer.SendNotice(ctx, mail.SendNoticeParams{
 		ToAgentID:     author.ID,
-		Body:          buildEditNotice(edited),
+		Body:          notice,
 		Kind:          mailstore.KindDocumentEdited,
 		AboutDocument: &edited.ID,
 	})
@@ -160,17 +162,17 @@ func (s *DocumentService) tellTheAuthor(ctx context.Context, author agentstore.A
 		level = slog.LevelWarn
 	}
 	logging.From(ctx).LogAttrs(ctx, level, "failed to tell an agent a person wrote its document",
-		append([]slog.Attr{slog.String(logging.AgentID, author.ID), slog.String("document_id", edited.ID)}, logging.Err(err)...)...)
+		append([]slog.Attr{slog.String(logging.AgentID, author.ID), slog.String(logging.DocumentID, edited.ID)}, logging.Err(err)...)...)
+}
+
+func buildCreateNotice(created documentstore.Document) string {
+	return fmt.Sprintf("komrad: a person wrote a new document for you in the panel, %q (%s). "+
+		"Read it with get_document. Further saves before you read this send no more mail, and "+
+		"write_document is refused as failed_precondition unless you rewrite from the newest version list_document_versions lists.",
+		created.Name, created.ID)
 }
 
 func buildEditNotice(edited documentstore.Document) string {
-	if edited.Version == 1 {
-		return fmt.Sprintf("komrad: a person wrote a new document for you in the panel, %q (%s). "+
-			"Read it with get_document. Further saves before you read this send no more mail, and "+
-			"write_document is refused as failed_precondition unless you rewrite from the newest version list_document_versions lists.",
-			edited.Name, edited.ID)
-	}
-
 	return fmt.Sprintf("komrad: a person edited your document %q (%s) in the panel, writing version %d. "+
 		"They may have saved again since, and those saves send no more mail. "+
 		"list_document_versions lists every write and marks a person's, get_document reads any version, "+
