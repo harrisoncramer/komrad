@@ -8,6 +8,7 @@ INSERT INTO mail(
     reply_to,
     about_agent_id,
     about_document_id,
+    schedule_id,
     idempotency_key,
     expires_at)
 VALUES (
@@ -19,6 +20,7 @@ VALUES (
     sqlc.narg('reply_to'),
     sqlc.narg('about_agent_id'),
     sqlc.narg('about_document_id'),
+    sqlc.narg('schedule_id'),
     sqlc.narg('idempotency_key'),
     NOW() + interval '1 microsecond' * sqlc.narg('deadline_micros')::bigint)
 RETURNING
@@ -58,6 +60,21 @@ WHERE
     m.to_agent_id = @to_agent_id
     AND m.kind = @kind
     AND m.about_document_id = @about_document_id::uuid
+    AND m.claimed_at IS NULL
+    AND (m.expires_at IS NULL
+        OR m.expires_at > NOW())
+ORDER BY
+    m.id DESC
+LIMIT 1;
+
+-- name: GetPendingMailFromSchedule :one
+SELECT
+    *
+FROM
+    mail m
+WHERE
+    m.to_agent_id = @to_agent_id
+    AND m.schedule_id = @schedule_id::uuid
     AND m.claimed_at IS NULL
     AND (m.expires_at IS NULL
         OR m.expires_at > NOW())

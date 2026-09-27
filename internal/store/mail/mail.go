@@ -44,6 +44,7 @@ type Mail struct {
 	// AboutAgentID is the other agent a notice komrad raised is about, unset on ordinary mail.
 	AboutAgentID    *string
 	AboutDocumentID *string
+	ScheduleID      *string
 	ClaimedAt       *time.Time
 	ExpiresAt       *time.Time
 	CreatedAt       time.Time
@@ -67,6 +68,7 @@ type SendParams struct {
 	ReplyTo         *string
 	AboutAgentID    *string
 	AboutDocumentID *string
+	ScheduleID      *string
 	IdempotencyKey  *string
 	// Deadline is how long the mail stays deliverable, nil for mail that waits until claimed.
 	Deadline *time.Duration
@@ -88,6 +90,7 @@ func (s *MailStore) Send(ctx context.Context, params SendParams) (*Mail, error) 
 		ReplyTo:         params.ReplyTo,
 		AboutAgentID:    params.AboutAgentID,
 		AboutDocumentID: params.AboutDocumentID,
+		ScheduleID:      params.ScheduleID,
 		IdempotencyKey:  params.IdempotencyKey,
 		DeadlineMicros:  deadlineMicros(params.Deadline),
 	})
@@ -160,6 +163,30 @@ func (s *MailStore) GetPendingAboutDocument(ctx context.Context, toAgentID strin
 
 func noPendingOfKind(toAgentID string, kind Kind) error {
 	return fmt.Errorf("%w: an unread %q notice for agent %q", store.ErrNotFound, kind, toAgentID)
+}
+
+// GetPendingFromSchedule is the mail from a schedule that its recipient is already holding
+// unread, ErrNotFound when it holds none.
+func (s *MailStore) GetPendingFromSchedule(ctx context.Context, toAgentID string, scheduleID string) (*Mail, error) {
+	missing := fmt.Errorf("%w: unread mail from schedule %q for agent %q", store.ErrNotFound, scheduleID, toAgentID)
+	if !store.IsID(toAgentID) || !store.IsID(scheduleID) {
+		return nil, missing
+	}
+
+	row, err := s.queries.GetPendingMailFromSchedule(ctx, models.GetPendingMailFromScheduleParams{
+		ToAgentID:  toAgentID,
+		ScheduleID: scheduleID,
+	})
+	if db.IsNoRows(err) {
+		return nil, missing
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to read the unread mail from schedule %q to agent %q: %w", scheduleID, toAgentID, err)
+	}
+
+	held := fromRow(row)
+
+	return &held, nil
 }
 
 // GetByIdempotencyKey is the mail a send with that key already wrote, ErrNotFound when none did.
@@ -370,6 +397,7 @@ func fromRow(row *models.Mail) Mail {
 		ReplyTo:         row.ReplyTo,
 		AboutAgentID:    row.AboutAgentID,
 		AboutDocumentID: row.AboutDocumentID,
+		ScheduleID:      row.ScheduleID,
 		ClaimedAt:       row.ClaimedAt,
 		ExpiresAt:       row.ExpiresAt,
 		CreatedAt:       row.CreatedAt,

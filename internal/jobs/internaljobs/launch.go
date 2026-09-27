@@ -136,6 +136,7 @@ func (w *LaunchAgentWorker) mailOrchestrator(ctx context.Context, schedule *sche
 
 	_, err = w.mailer.SendScheduledMail(ctx, mail.SendScheduledMailParams{
 		ToAgentID:      orchestrator.ID,
+		ScheduleID:     schedule.ID,
 		ScheduleName:   schedule.Name,
 		Body:           schedule.Prompt,
 		IdempotencyKey: launchKey(schedule.ID, args.ScheduledFor),

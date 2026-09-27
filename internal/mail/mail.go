@@ -76,6 +76,7 @@ type mailReadWriter interface {
 	CountPendingFromAgents(ctx context.Context, toAgentID string) (int64, error)
 	GetPendingOfKind(ctx context.Context, toAgentID string, kind mailstore.Kind, about string) (*mailstore.Mail, error)
 	GetPendingAboutDocument(ctx context.Context, toAgentID string, kind mailstore.Kind, documentID string) (*mailstore.Mail, error)
+	GetPendingFromSchedule(ctx context.Context, toAgentID string, scheduleID string) (*mailstore.Mail, error)
 	ListPage(ctx context.Context, toAgentID string, limit int32, cursor *mailstore.Cursor) ([]mailstore.Mail, error)
 	ListSentPage(ctx context.Context, fromAgentID string, limit int32, cursor *mailstore.Cursor) ([]mailstore.Mail, error)
 	ListByID(ctx context.Context, ids []string) ([]mailstore.Mail, error)
@@ -210,12 +211,14 @@ func (s *MailService) SendSystemMail(ctx context.Context, toAgentID, body string
 
 type SendScheduledMailParams struct {
 	ToAgentID      string
+	ScheduleID     string
 	ScheduleName   string
 	Body           string
 	IdempotencyKey string
 }
 
-// SendScheduledMail sends a schedule's prompt on behalf of the person who wrote the schedule.
+// SendScheduledMail sends a schedule's prompt on behalf of the person who wrote the schedule,
+// handing back the schedule's unread mail instead when the recipient is still holding it.
 func (s *MailService) SendScheduledMail(ctx context.Context, params SendScheduledMailParams) (*mailstore.Mail, error) {
 	sent, err := s.mailReadWriter.GetByIdempotencyKey(ctx, params.IdempotencyKey)
 	if err == nil {
@@ -225,11 +228,20 @@ func (s *MailService) SendScheduledMail(ctx context.Context, params SendSchedule
 		return nil, err
 	}
 
+	waiting, err := s.mailReadWriter.GetPendingFromSchedule(ctx, params.ToAgentID, params.ScheduleID)
+	if err != nil && !errors.Is(err, store.ErrNotFound) {
+		return nil, err
+	}
+	if waiting != nil {
+		return waiting, nil
+	}
+
 	return s.send(ctx, sendParams{
 		ToAgentID:      params.ToAgentID,
 		Body:           params.Body,
 		Kind:           mailstore.KindPlain,
 		SenderName:     "schedule " + params.ScheduleName,
+		Schedule:       &params.ScheduleID,
 		IdempotencyKey: params.IdempotencyKey,
 	})
 }
@@ -315,6 +327,7 @@ type sendParams struct {
 	Kind          mailstore.Kind
 	About         *string
 	AboutDocument *string
+	Schedule      *string
 	// System marks mail komrad raises itself rather than on a caller's behalf.
 	System bool
 	// SenderName names mail sent on a person's behalf by something other than an agent.
@@ -392,6 +405,7 @@ func (s *MailService) send(ctx context.Context, params sendParams) (*mailstore.M
 		ReplyTo:         params.ReplyTo,
 		AboutAgentID:    params.About,
 		AboutDocumentID: params.AboutDocument,
+		ScheduleID:      params.Schedule,
 	}
 	if sender == nil {
 		deadline, err := s.config.GetDeliveryDeadline()

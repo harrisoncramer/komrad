@@ -203,6 +203,7 @@ func TestSendMailRecordsWhoSentIt(t *testing.T) {
 			case tt.schedule != "":
 				sent, err = svc.SendScheduledMail(t.Context(), SendScheduledMailParams{
 					ToAgentID:    recipient.ID,
+					ScheduleID:   uuid.NewString(),
 					ScheduleName: tt.schedule,
 					Body:         "check CI",
 				})
@@ -253,6 +254,7 @@ func TestAgentMailGetsPastKomradsOwn(t *testing.T) {
 			fill: func(svc *MailService, recipientID string) error {
 				_, err := svc.SendScheduledMail(t.Context(), SendScheduledMailParams{
 					ToAgentID:    recipientID,
+					ScheduleID:   uuid.NewString(),
 					ScheduleName: "every-minute",
 					Body:         "Hey!",
 				})
@@ -589,6 +591,38 @@ func TestSendNoticeAboutADocumentJoinsTheUnreadOne(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.NotEqual(t, first.ID, notify(one).ID, "an edit after the notice was read sends another")
+}
+
+// TestSendScheduledMailJoinsTheUnreadOne pins that a schedule leaves one unread piece however often it fires.
+func TestSendScheduledMailJoinsTheUnreadOne(t *testing.T) {
+	st := storetest.Open(t)
+	svc := newMailService(st, config.DefaultMaxExchange)
+	ctx := t.Context()
+	recipient := st.SeedAgent(t, agentstore.Agent{Name: "orchestrator"})
+	one, other := uuid.NewString(), uuid.NewString()
+
+	fire := func(schedule string) *mailstore.Mail {
+		t.Helper()
+		sent, err := svc.SendScheduledMail(ctx, SendScheduledMailParams{
+			ToAgentID:      recipient.ID,
+			ScheduleID:     schedule,
+			ScheduleName:   "hey-there",
+			Body:           "Hey!",
+			IdempotencyKey: uuid.NewString(),
+		})
+		require.NoError(t, err)
+
+		return sent
+	}
+
+	first := fire(one)
+	assert.Equal(t, first.ID, fire(one).ID, "a second firing joins the unread mail")
+	assert.NotEqual(t, first.ID, fire(other).ID, "another schedule's firing is told apart")
+
+	_, err := svc.ClaimMail(ctx, recipient.ID)
+	require.NoError(t, err)
+
+	assert.NotEqual(t, first.ID, fire(one).ID, "a firing after the mail was read sends another")
 }
 
 // TestClaimMail pins that a claim is refused for an id no agent holds and takes at most one batch otherwise.

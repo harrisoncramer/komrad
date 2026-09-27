@@ -71,6 +71,11 @@ table "mail" {
     type    = uuid
     comment = "The document a komrad notice is about, null on ordinary mail. A person editing the same document again joins the unread notice about it rather than adding another."
   }
+  column "schedule_id" {
+    null    = true
+    type    = uuid
+    comment = "The schedule that sent the mail, null on mail no schedule sent. A schedule firing while its last mail is still unread joins that mail rather than adding another."
+  }
   column "idempotency_key" {
     null    = true
     type    = text

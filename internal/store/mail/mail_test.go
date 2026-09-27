@@ -840,6 +840,38 @@ func TestPendingNoticeAboutDocumentIsToldApartByDocument(t *testing.T) {
 	require.ErrorIs(t, err, store.ErrNotFound, "once the agent has taken it, nothing is waiting")
 }
 
+// TestPendingMailFromScheduleIsToldApartBySchedule pins that a schedule's unread mail is found by that schedule and gone once claimed.
+func TestPendingMailFromScheduleIsToldApartBySchedule(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+	recipient := seedAgent(t, st, "recipient")
+	one, other := uuid.NewString(), uuid.NewString()
+
+	sent, err := st.Send(ctx, SendParams{
+		ToAgentID:  recipient,
+		FromName:   "schedule hey-there",
+		Body:       "Hey!",
+		ScheduleID: &one,
+		Deadline:   xptr.Ptr(time.Hour),
+	})
+	require.NoError(t, err)
+	require.NotNil(t, sent.ScheduleID)
+	assert.Equal(t, one, *sent.ScheduleID)
+
+	found, err := st.GetPendingFromSchedule(ctx, recipient, one)
+	require.NoError(t, err)
+	assert.Equal(t, sent.ID, found.ID)
+
+	_, err = st.GetPendingFromSchedule(ctx, recipient, other)
+	require.ErrorIs(t, err, store.ErrNotFound, "mail from one schedule does not stand in for another")
+
+	_, err = st.Claim(ctx, recipient, 10)
+	require.NoError(t, err)
+
+	_, err = st.GetPendingFromSchedule(ctx, recipient, one)
+	require.ErrorIs(t, err, store.ErrNotFound, "once the agent has taken it, nothing is waiting")
+}
+
 // TestPendingNoticeOfKindIsTheOneWaiting pins that the lookup finds only a notice the agent can
 // still read, never one it has claimed or one that ran out of time.
 func TestPendingNoticeOfKindIsTheOneWaiting(t *testing.T) {

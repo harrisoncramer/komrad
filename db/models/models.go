@@ -528,6 +528,8 @@ type Mail struct {
 	IdempotencyKey *string
 	// The document a komrad notice is about, null on ordinary mail. A person editing the same document again joins the unread notice about it rather than adding another.
 	AboutDocumentID *string
+	// The schedule that sent the mail, null on mail no schedule sent. A schedule firing while its last mail is still unread joins that mail rather than adding another.
+	ScheduleID *string
 }
 
 // A letter a person types to jump to one row. Each letter belongs to a single agent or a single workflow, so it always names one place.
