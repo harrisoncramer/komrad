@@ -852,14 +852,14 @@
         },
         {
           "path": "keybindings.views",
-          "description": "The switcher at the top of the panel, which moves between the agents, search,\nschedules, archive and worktrees from any of them.",
+          "description": "The switcher at the top of the panel, which moves between the agents, query,\nschedules, archive and worktrees from any of them.",
           "settings": [
             {
               "key": "pick",
               "path": "keybindings.views.pick",
               "type": "array",
               "description": "Hand the keys to the switcher.",
-              "default": "[\"O\"]"
+              "default": "[\"o\"]"
             },
             {
               "key": "agents",
@@ -872,7 +872,7 @@
               "key": "query",
               "path": "keybindings.views.query",
               "type": "array",
-              "description": "Open the search over every conversation the panel holds, the archived ones included.",
+              "description": "Open the query over every conversation the panel holds, the archived ones included.",
               "default": "[\"q\"]"
             },
             {
@@ -887,14 +887,14 @@
               "path": "keybindings.views.archive",
               "type": "array",
               "description": "Open the archive.",
-              "default": "[\"z\"]"
+              "default": "[\"r\"]"
             },
             {
               "key": "worktrees",
               "path": "keybindings.views.worktrees",
               "type": "array",
               "description": "Open the worktrees, landing on the hovered agent's own directory.",
-              "default": "[\"t\"]"
+              "default": "[\"w\"]"
             }
           ],
           "sections": []

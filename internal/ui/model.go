@@ -275,7 +275,7 @@ type model struct {
 	keysElsewhere bool
 	helpExpanded  bool
 	topHeld       bool
-	views         viewsPicker
+	viewsOpen     bool
 	keys          config.Keybindings
 	glyphs        glyph.Set
 	// paneMeasure is the column one half of a split is laid out in once the split has been chosen.

@@ -80,7 +80,7 @@ func TestSearchQuery(t *testing.T) {
 			t.Parallel()
 
 			harness := openAgents(t)
-			harness.press("O", "q")
+			harness.press("o", "q")
 
 			harness.press(tt.press...)
 
@@ -127,7 +127,7 @@ func TestSearchResults(t *testing.T) {
 		t.Parallel()
 
 		harness := openAgents(t, buildSearchable()...)
-		harness.press("O", "q", "l", "e", "d", "esc")
+		harness.press("o", "q", "l", "e", "d", "esc")
 
 		harness.fireTimers()
 
@@ -237,7 +237,7 @@ func TestSearchResults(t *testing.T) {
 		harness := newPanelHarness(t, panelHarnessParams{height: 14})
 		newSearchServer(found...).serve(harness)
 		harness.watch(buildSnapshot())
-		harness.press("O", "q")
+		harness.press("o", "q")
 		typeText(harness, "agent")
 		harness.fireTimers()
 
@@ -433,7 +433,7 @@ func TestSearchArchivedRow(t *testing.T) {
 			})
 			searched := findRow(readListRows(harness.readFrame()), "payouts")
 
-			harness.press("esc", "O", "z")
+			harness.press("esc", "o", "r")
 
 			assert.Equal(t, strings.TrimSpace(findRow(readListRows(harness.readFrame()), "payouts")), searched)
 		})
@@ -905,7 +905,7 @@ func openSearch(t *testing.T, params openSearchParams) *panelHarness {
 }
 
 func searchFor(harness *panelHarness, query string) {
-	harness.press("O", "q")
+	harness.press("o", "q")
 	typeText(harness, query)
 	harness.fireTimers()
 }

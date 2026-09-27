@@ -167,7 +167,7 @@ type Keybindings struct {
 	// The key that opens a shell in the hovered agent's directory, shared by every
 	// screen that lists agents.
 	Terminal TerminalKeys `mapstructure:"terminal"`
-	// The switcher at the top of the panel, which moves between the agents, search,
+	// The switcher at the top of the panel, which moves between the agents, query,
 	// schedules, archive and worktrees from any of them.
 	Views ViewsKeys `mapstructure:"views"`
 	// The bindings that create and change workflows, from the agents list.
@@ -251,17 +251,17 @@ type TabsKeys struct {
 // hands the keys back. Each view's own key opens it straight away once the switcher holds the keys.
 type ViewsKeys struct {
 	// Hand the keys to the switcher.
-	Pick []string `mapstructure:"pick" default:"O"`
+	Pick []string `mapstructure:"pick" default:"o"`
 	// Open the agents list.
 	Agents []string `mapstructure:"agents" default:"a"`
-	// Open the search over every conversation the panel holds, the archived ones included.
+	// Open the query over every conversation the panel holds, the archived ones included.
 	Query []string `mapstructure:"query" default:"q"`
 	// Open the schedules.
 	Schedules []string `mapstructure:"schedules" default:"s"`
 	// Open the archive.
-	Archive []string `mapstructure:"archive" default:"z"`
+	Archive []string `mapstructure:"archive" default:"r"`
 	// Open the worktrees, landing on the hovered agent's own directory.
-	Worktrees []string `mapstructure:"worktrees" default:"t"`
+	Worktrees []string `mapstructure:"worktrees" default:"w"`
 }
 
 // TerminalKeys is the binding that opens a shell in the info pane, rooted at the hovered

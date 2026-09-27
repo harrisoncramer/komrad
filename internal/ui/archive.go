@@ -3,7 +3,6 @@ package ui
 import (
 	"fmt"
 	"slices"
-	"strings"
 
 	"komrad/config"
 	"komrad/internal/ui/paint"
@@ -489,19 +488,7 @@ func (a *archiveScreen) listParams(s panelShared) screenListParams {
 
 // title is the kinds the screen switches between, the one it lists picked out.
 func (a *archiveScreen) title() string {
-	muted := paint.Panel.Style(paint.ToneMuted)
-	chosen := paint.Panel.Style(paint.ToneAccent)
-
-	kinds := []string{"agents", "schedules"}
-	for i, kind := range kinds {
-		if archiveKind(i) == a.kind {
-			kinds[i] = chosen.Render(kind)
-		} else {
-			kinds[i] = muted.Render(kind)
-		}
-	}
-
-	return strings.Join(kinds, "  ")
+	return stops{labels: []string{"agents", "schedules"}, focus: noStop, lit: int(a.kind)}.view(paint.Panel)
 }
 
 func (a *archiveScreen) help(s panelShared) keyMap {

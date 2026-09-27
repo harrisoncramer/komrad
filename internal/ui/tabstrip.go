@@ -9,6 +9,7 @@ import (
 
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 )
 
@@ -30,6 +31,68 @@ func (d tabDirection) glyph() string {
 	}
 
 	return "↓"
+}
+
+// stops is a row of labels the tab keys walk, the focused one drawn as the cursor and the lit one
+// as the choice in force.
+type stops struct {
+	labels []string
+	// marks is the letter underlined in each label, the key that jumps to it.
+	marks []string
+	focus int
+	lit   int
+}
+
+// noStop is a focus or a lit stop that stands on none of the row.
+const noStop = -1
+
+func (s stops) parts(palette paint.Palette) []string {
+	muted := palette.Style(paint.ToneMuted)
+	lit := palette.Style(paint.ToneAccent)
+
+	parts := make([]string, len(s.labels))
+	for i := range s.labels {
+		style := muted
+		switch i {
+		case s.focus:
+			style = palette.Cursor()
+		case s.lit:
+			style = lit
+		}
+		parts[i] = s.render(style, i)
+	}
+
+	return parts
+}
+
+// render draws one label in its style, its mark underlined where the label holds it.
+func (s stops) render(style lipgloss.Style, i int) string {
+	label := s.labels[i]
+	if i >= len(s.marks) || s.marks[i] == "" {
+		return style.Render(label)
+	}
+
+	at := strings.Index(label, s.marks[i])
+	if at < 0 {
+		return style.Render(label)
+	}
+
+	end := at + len(s.marks[i])
+
+	return style.Render(label[:at]) + style.Underline(true).Render(label[at:end]) + style.Render(label[end:])
+}
+
+func (s stops) view(palette paint.Palette) string {
+	return strings.Join(s.parts(palette), "  ")
+}
+
+// stepStop is the stop delta along from at in a row of count, wrapping at both ends.
+func stepStop(at, delta, count int) int {
+	return (at + delta + count) % count
+}
+
+func stopsMoveBinding(desc string) key.Binding {
+	return key.NewBinding(key.WithKeys(tabNextKey, tabPrevKey), key.WithHelp("tab/S-tab", desc))
 }
 
 type tabOption struct {
@@ -103,7 +166,7 @@ func (s tabStrip) step(state *tabsState, delta int) {
 		stops++
 	}
 
-	at := (s.focusIndex(*state) + delta + stops) % stops
+	at := stepStop(s.focusIndex(*state), delta, stops)
 	state.onGroup = at == len(s.options)
 	if state.onGroup {
 		state.focus = ""
@@ -121,29 +184,28 @@ func (s tabStrip) choose(state *tabsState, direction tabDirection) {
 
 func (s tabStrip) view(state tabsState, palette paint.Palette, width int) string {
 	muted := palette.Style(paint.ToneMuted)
-	chosen, focus := s.indexOf(state), s.focusIndex(state)
+	chosen := s.indexOf(state)
 
-	parts := make([]string, 0, len(s.options))
+	labels := make([]string, len(s.options), len(s.options)+1)
 	for i, option := range s.options {
-		text := option.label
+		labels[i] = option.label
 		if i == chosen {
-			text = state.direction.glyph() + " " + text
+			labels[i] = state.direction.glyph() + " " + option.label
 		}
-		if state.focused && i == focus {
-			text = palette.Cursor().Render(text)
-		} else {
-			text = muted.Render(text)
-		}
-		parts = append(parts, text)
+	}
+	if s.grouped != "" {
+		labels = append(labels, s.groupLabel(state))
 	}
 
-	line := muted.Render(s.title) + "   " + strings.Join(parts, "  ")
+	row := stops{labels: labels, focus: noStop, lit: noStop}
+	if state.focused {
+		row.focus = s.focusIndex(state)
+	}
+	parts := row.parts(palette)
+
+	line := muted.Render(s.title) + "   " + strings.Join(parts[:len(s.options)], "  ")
 	if s.grouped != "" {
-		group := muted.Render(s.groupLabel(state))
-		if state.focused && state.onGroup {
-			group = palette.Cursor().Render(s.groupLabel(state))
-		}
-		line += "  " + muted.Render(glyph.Separator) + "  " + group
+		line += "  " + muted.Render(glyph.Separator) + "  " + parts[len(s.options)]
 	}
 	if width > 0 {
 		line = ansi.Truncate(line, width, "…")
@@ -259,7 +321,7 @@ func (m model) tabsBinding() key.Binding {
 }
 
 func (m model) tabsHelp() keyMap {
-	column := key.NewBinding(key.WithKeys(tabNextKey, tabPrevKey), key.WithHelp("tab/S-tab", "move"))
+	column := stopsMoveBinding("move")
 	direction := binding(slices.Concat(m.keys.Nav.Down, m.keys.Nav.Up), "sort down/up, flip")
 	back := binding([]string{"esc"}, "back to the list")
 

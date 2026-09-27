@@ -15,15 +15,16 @@ func TestViews(t *testing.T) {
 	t.Run("the logo and every view open the frame, the current one lit", func(t *testing.T) {
 		harness := openCrowded(t, panelHarnessParams{})
 
-		harness.press(append(widenListPresses, "O", "z")...)
+		harness.press(append(widenListPresses, "o", "r")...)
 
 		lines := splitLines(harness.readFrame())
 		require.GreaterOrEqual(t, len(lines), 2)
-		for i, want := range []string{"\U000F050C komrad", "agents  search  schedules  archive  worktrees"} {
+		for i, want := range []string{"\U000F050C komrad", "agents  query  schedules  archive  worktrees"} {
 			list, _, _ := strings.Cut(lines[i], "│")
 			assert.Equal(t, want, strings.TrimSpace(list))
 		}
-		assert.Contains(t, harness.readRawFrame(), paint.Panel.Header().Render("archive"))
+		lit := paint.Panel.Style(paint.ToneAccent)
+		assert.Contains(t, harness.readRawFrame(), lit.Render("a")+lit.Underline(true).Render("r")+lit.Render("chive"), "the view that is up is lit with its jump key underlined")
 	})
 
 	t.Run("a pane too short for it draws none", func(t *testing.T) {
@@ -39,27 +40,37 @@ func TestViews(t *testing.T) {
 	}{
 		{
 			name:       "a letter jumps to its view",
-			press:      []string{"O", "s"},
+			press:      []string{"o", "s"},
 			wantScreen: schedulesScreen,
 		},
 		{
-			name:       "tab moves to the next view and enter opens it",
-			press:      []string{"O", "tab", "enter"},
+			name:       "tab opens the next view",
+			press:      []string{"o", "tab"},
 			wantScreen: searchScreen,
 		},
 		{
+			name:       "the switcher keeps the keys through each view it opens",
+			press:      []string{"o", "tab", "tab"},
+			wantScreen: schedulesScreen,
+		},
+		{
 			name:       "shift-tab wraps to the last view",
-			press:      []string{"O", "shift+tab", "enter"},
+			press:      []string{"o", "shift+tab"},
 			wantScreen: worktreesScreen,
 		},
 		{
-			name:       "escape closes the switcher where it stands",
-			press:      []string{"O", "tab", "esc"},
-			wantScreen: agentsScreen,
+			name:       "escape hands the keys back to the view it stands on",
+			press:      []string{"o", "tab", "esc", "x"},
+			wantScreen: searchScreen,
+		},
+		{
+			name:       "a letter closes the switcher behind it",
+			press:      []string{"o", "r", "tab"},
+			wantScreen: archiveScreen,
 		},
 		{
 			name:       "the switcher answers from a view it opened",
-			press:      []string{"O", "z", "O", "a"},
+			press:      []string{"o", "r", "o", "a"},
 			wantScreen: agentsScreen,
 		},
 	}
@@ -77,8 +88,8 @@ func TestViews(t *testing.T) {
 	t.Run("the legend names the switcher's keys while it is open", func(t *testing.T) {
 		harness := openCrowded(t, panelHarnessParams{})
 
-		harness.press("O")
+		harness.press(append(widenListPresses, "o")...)
 
-		assert.Contains(t, readLegend(harness.readFrame()), "a agents • z archive")
+		assert.Contains(t, readLegend(harness.readFrame()), "a agents • r archive • esc done")
 	})
 }

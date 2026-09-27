@@ -29,17 +29,11 @@ type viewEntry struct {
 func viewEntries() []viewEntry {
 	return []viewEntry{
 		{screen: screenAgents, label: "agents", keys: func(k config.ViewsKeys) []string { return k.Agents }},
-		{screen: screenSearch, label: "search", keys: func(k config.ViewsKeys) []string { return k.Query }},
+		{screen: screenSearch, label: "query", keys: func(k config.ViewsKeys) []string { return k.Query }},
 		{screen: screenSchedules, label: "schedules", keys: func(k config.ViewsKeys) []string { return k.Schedules }},
 		{screen: screenArchive, label: "archive", keys: func(k config.ViewsKeys) []string { return k.Archive }},
 		{screen: screenWorktrees, label: "worktrees", keys: func(k config.ViewsKeys) []string { return k.Worktrees }},
 	}
-}
-
-// viewsPicker is whether the switcher holds the keys and the view its cursor is on.
-type viewsPicker struct {
-	open  bool
-	focus int
 }
 
 // picksViews reports whether the switcher answers on a screen.
@@ -48,7 +42,7 @@ func (s screen) picksViews() bool {
 }
 
 func (m model) isViewsOpen() bool {
-	return m.views.open && m.screen.picksViews()
+	return m.viewsOpen && m.screen.picksViews()
 }
 
 // viewsBar is the logo and the switcher drawn over a list.
@@ -57,25 +51,20 @@ func (m model) viewsBar() string {
 		return ""
 	}
 
-	palette := paint.Panel
-	muted := palette.Style(paint.ToneMuted)
-	current := palette.Style(paint.ToneAccent).Bold(true)
-	focused := current.Reverse(true)
-
 	entries := viewEntries()
-	parts := make([]string, len(entries))
-	for i, entry := range entries {
-		switch {
-		case m.isViewsOpen() && i == m.views.focus:
-			parts[i] = focused.Render(entry.label)
-		case entry.screen == m.screen:
-			parts[i] = current.Render(entry.label)
-		default:
-			parts[i] = muted.Render(entry.label)
-		}
+	row := stops{
+		labels: xslice.Map(entries, func(entry viewEntry) string { return entry.label }),
+		marks:  xslice.Map(entries, func(entry viewEntry) string { return headLabel(entry.keys(m.keys.Views)) }),
+		focus:  noStop,
+		lit:    noStop,
+	}
+	if m.isViewsOpen() {
+		row.focus = m.viewIndex()
+	} else {
+		row.lit = m.viewIndex()
 	}
 
-	lines := []string{palette.Title(komradLogo), strings.Join(parts, "  ")}
+	lines := []string{paint.Panel.Title(komradLogo), row.view(paint.Panel)}
 	if width := m.paneWidth(); width > 0 {
 		for i, line := range lines {
 			lines[i] = ansi.Truncate(line, width, "…")
@@ -85,13 +74,14 @@ func (m model) viewsBar() string {
 	return strings.Join(lines, "\n") + "\n\n"
 }
 
+// viewIndex is where the screen that is up sits on the switcher, and noStop when it is not there.
+func (m model) viewIndex() int {
+	return slices.IndexFunc(viewEntries(), func(entry viewEntry) bool { return entry.screen == m.screen })
+}
+
 func (m model) openViews() model {
 	m.blurTabs()
-	m.views = viewsPicker{open: true}
-
-	if at := slices.IndexFunc(viewEntries(), func(e viewEntry) bool { return e.screen == m.screen }); at >= 0 {
-		m.views.focus = at
-	}
+	m.viewsOpen = true
 
 	return m
 }
@@ -102,21 +92,21 @@ func (m model) updateViews(key tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 
 	switch {
 	case k == tabNextKey:
-		m.views.focus = (m.views.focus + 1) % len(entries)
+		return m.enterView(entries[stepStop(m.viewIndex(), 1, len(entries))])
 	case k == tabPrevKey:
-		m.views.focus = (m.views.focus + len(entries) - 1) % len(entries)
-	case k == "enter":
-		return m.pickView(entries[m.views.focus])
+		return m.enterView(entries[stepStop(m.viewIndex(), -1, len(entries))])
 	case k == "esc":
-		m.views = viewsPicker{}
+		m.viewsOpen = false
 	case isBound(k, m.quitKeys()):
-		m.views = viewsPicker{}
+		m.viewsOpen = false
 
 		return m, m.hide()
 	default:
 		for _, entry := range entries {
 			if isBound(k, entry.keys(m.keys.Views)) {
-				return m.pickView(entry)
+				m.viewsOpen = false
+
+				return m.enterView(entry)
 			}
 		}
 	}
@@ -124,8 +114,7 @@ func (m model) updateViews(key tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m model) pickView(entry viewEntry) (tea.Model, tea.Cmd) {
-	m.views = viewsPicker{}
+func (m model) enterView(entry viewEntry) (tea.Model, tea.Cmd) {
 	if entry.screen == m.screen {
 		return m, nil
 	}
@@ -158,11 +147,10 @@ func (m model) viewsBinding() key.Binding {
 }
 
 func (m model) viewsHelp() keyMap {
-	move := key.NewBinding(key.WithKeys(tabNextKey, tabPrevKey), key.WithHelp("tab/S-tab", "move"))
-	pick := binding([]string{"enter"}, "open")
-	back := binding([]string{"esc"}, "back")
+	move := stopsMoveBinding("switch")
+	done := binding([]string{"esc"}, "done")
 
-	bindings := append([]key.Binding{move, pick, back}, xslice.Map(viewEntries(), func(entry viewEntry) key.Binding {
+	bindings := append([]key.Binding{move, done}, xslice.Map(viewEntries(), func(entry viewEntry) key.Binding {
 		return binding(entry.keys(m.keys.Views), entry.label)
 	})...)
 

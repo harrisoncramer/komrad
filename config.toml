@@ -330,21 +330,21 @@ focus = ["f"]
 # Open a shell in the hovered agent's directory, focus the one already there, or move it here.
 open = ["T"]
 
-# The switcher at the top of the panel, which moves between the agents, search,
+# The switcher at the top of the panel, which moves between the agents, query,
 # schedules, archive and worktrees from any of them.
 [keybindings.views]
 # Hand the keys to the switcher.
-pick      = ["O"]
+pick      = ["o"]
 # Open the agents list.
 agents    = ["a"]
-# Open the search over every conversation the panel holds, the archived ones included.
+# Open the query over every conversation the panel holds, the archived ones included.
 query     = ["q"]
 # Open the schedules.
 schedules = ["s"]
 # Open the archive.
-archive   = ["z"]
+archive   = ["r"]
 # Open the worktrees, landing on the hovered agent's own directory.
-worktrees = ["t"]
+worktrees = ["w"]
 
 # The bindings that create and change workflows, from the agents list.
 [keybindings.workflows]
