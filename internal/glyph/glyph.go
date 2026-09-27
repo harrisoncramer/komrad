@@ -53,7 +53,6 @@ const (
 	MessageInfo
 	ScheduleEnabled
 	ScheduleDisabled
-	Logo
 	// count stands one past the last glyph.
 	count
 )
@@ -98,7 +97,6 @@ var defined = [count]struct {
 	MessageInfo:      {"messages.info", "·"},
 	ScheduleEnabled:  {"schedules.enabled", "◆"},
 	ScheduleDisabled: {"schedules.disabled", "◇"},
-	Logo:             {"lists.logo", ""},
 }
 
 // All is every glyph a Set spells, in the order they are declared.

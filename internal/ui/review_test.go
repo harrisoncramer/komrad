@@ -1504,7 +1504,7 @@ func TestReviewLayout(t *testing.T) {
 			{
 				name: "on the left the top row opens with the sidebar",
 				side: config.SidebarSideLeft,
-				want: "\uf477 komrad",
+				want: "\U000F050C komrad",
 			},
 			{
 				name: "on the right the top row opens with the band over the diff",

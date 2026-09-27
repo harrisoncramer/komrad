@@ -19,7 +19,7 @@ func TestViews(t *testing.T) {
 
 		lines := splitLines(harness.readFrame())
 		require.GreaterOrEqual(t, len(lines), 2)
-		for i, want := range []string{"\uf477 komrad", "agents  query  schedules  archive  worktrees"} {
+		for i, want := range []string{"\U000F050C komrad", "agents  query  schedules  archive  worktrees"} {
 			list, _, _ := strings.Cut(lines[i], "│")
 			assert.Equal(t, want, strings.TrimSpace(list))
 		}

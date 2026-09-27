@@ -51,7 +51,7 @@ engines_dir="$HOME/.config/komrad/engines"
 if [ "${MISE_ENV:-}" != test ] && [ -d "$engines_dir" ]; then
 	for file in "$engines_dir"/*.toml; do
 		[ -e "$file" ] || continue
-		if grep -Eq '^[[:space:]]*(ssh|exec)[[:space:]]*=' "$file"; then
+		if grep -Eq '^[[:space:]]*(ssh|exec|forward)[[:space:]]*=' "$file"; then
 			continue
 		fi
 

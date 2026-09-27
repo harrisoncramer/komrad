@@ -77,7 +77,7 @@ func (m model) switcherLines() []string {
 		row.lit = m.viewIndex()
 	}
 
-	lines := []string{paint.Panel.Title(m.glyphs.Spell(glyph.Logo) + " " + komradName), row.view(paint.Panel)}
+	lines := []string{paint.Panel.Title(glyph.Logo + " " + komradName), row.view(paint.Panel)}
 	if width := m.paneWidth(); width > 0 {
 		for i, line := range lines {
 			lines[i] = ansi.Truncate(line, width, "…")

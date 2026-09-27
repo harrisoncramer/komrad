@@ -82,8 +82,6 @@ type ListGlyphs struct {
 	Filter string `mapstructure:"filter"`
 	// The cursor in a list of choices, such as the engines to connect to.
 	Cursor string `mapstructure:"cursor"`
-	// The logo over the switcher between the panel's views.
-	Logo string `mapstructure:"logo"`
 }
 
 // ReviewGlyphs are drawn on the review screen.

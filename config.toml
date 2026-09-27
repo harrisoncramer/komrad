@@ -441,8 +441,6 @@ search   = ""
 filter   = "▽"
 # The cursor in a list of choices, such as the engines to connect to.
 cursor   = "▸"
-# The logo over the switcher between the panel's views.
-logo     = ""
 
 # The review screen: the marks on its threads and files, and how far a comment has got.
 [glyphs.review]
