@@ -352,7 +352,7 @@ func (s *ReviewStore) ReleaseReview(ctx context.Context, params ReleaseReviewPar
 		return nil, fmt.Errorf("failed to release the review %q: %w", params.ID, err)
 	}
 
-	review := reviewFromRow(*row)
+	review := reviewFromRow(models.Review(*row))
 
 	return &review, nil
 }

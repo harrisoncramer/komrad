@@ -536,6 +536,8 @@ type ReviewMessage struct {
 	Suggestion []string
 	// The engine that owns this row, stamped from the login that wrote it.
 	EngineID pgtype.UUID
+	// The round an agent's reply said answers the thread, taken of its worktree as it stood when it replied. Set only on a reply that resolves the thread; null on everything else.
+	RoundID pgtype.UUID
 }
 
 // One frozen snapshot of what an agent has written. A review is always given against a round rather than against the working files.

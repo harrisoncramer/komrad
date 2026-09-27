@@ -606,12 +606,12 @@ func (f *fakeReviewer) CreateReviewThread(context.Context, reviews.CreateReviewT
 }
 
 // AddReviewMessage answers the message it holds.
-func (f *fakeReviewer) AddReviewMessage(context.Context, reviews.AddReviewMessageParams) (*reviewstore.Message, error) {
+func (f *fakeReviewer) AddReviewMessage(context.Context, reviews.AddReviewMessageParams) (*reviews.AddReviewMessageResult, error) {
 	if f.err != nil {
 		return nil, f.err
 	}
 
-	return &f.message, nil
+	return &reviews.AddReviewMessageResult{Message: f.message}, nil
 }
 
 // EditReviewMessage answers the message it holds.

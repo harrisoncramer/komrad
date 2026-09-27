@@ -978,7 +978,7 @@ service AgentService {
       cli: true
       mcp: true
       name: "add_review_message"
-      description: "Say something in a review thread, which is how you answer feedback on your own diff. Use it to report what you changed and why, or to ask what was meant when the note is not clear enough to act on. Your answer belongs to no batch and reaches the reviewer as soon as it is written, unlike a review, which is released whole. The message is attributed to you rather than to the person reviewing. Write it the way you would say it out loud. One or two sentences is the normal size and a hundred words is the ceiling. Name the line, the value or the case you mean, and quote code where the code is the point. No preamble, no summary at the end, no hedging, and no invented names for things the repository does not call that. Say what you changed, or what you did not change and why. Each call adds another message, so do not retry a call that may have succeeded."
+      description: "Say something in a review thread, which is how you answer feedback on your own diff. Make the change a comment asks for first, then reply with addressed set: komrad takes a round of your worktree, pins it to the reply so the reviewer can read exactly what answered them, and resolves the comment. One edit that answers several comments is one addressed reply on each. Reply without addressed to push back or to ask what was meant, which leaves the comment open. Write it the way you would say it out loud, in one or two sentences, naming the line, value or case you mean. An addressed reply is refused when the worktree has not changed since the comment was written."
       destructive: false
       idempotent: false
       roles: [

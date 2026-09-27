@@ -498,6 +498,13 @@
           "description": "The review screen, which draws an agent's diff in the stage and its review\nthreads in the sidebar.",
           "settings": [
             {
+              "key": "answer",
+              "path": "keybindings.review.answer",
+              "type": "array",
+              "description": "Show the change that answered the comment under the cursor, from the round the\ncomment was written on to the round the agent's addressed reply carried, or go back\nto all changes from there.",
+              "default": "[\"a\"]"
+            },
+            {
               "key": "back",
               "path": "keybindings.review.back",
               "type": "array",

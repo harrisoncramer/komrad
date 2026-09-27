@@ -1050,7 +1050,7 @@ func (fx *reviewFixture) writeAnswer(t *testing.T, threadID string) *reviewstore
 	})
 	require.NoError(t, err)
 
-	return answer
+	return &answer.Message
 }
 
 func (fx *reviewFixture) settle(t *testing.T, threadID string, author ReviewAuthor) *reviewstore.Thread {

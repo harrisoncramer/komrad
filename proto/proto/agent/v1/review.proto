@@ -212,6 +212,9 @@ message ReviewMessage {
   // The review this message went out with, absent for an answer written by the agent under
   // review, which belongs to no batch.
   optional string review_id = 12;
+  // The round an addressed reply was taken of, which is what answered the thread. Absent on
+  // every other message.
+  optional string round_id = 13;
 }
 
 message ListReviewThreadsRequest {
@@ -273,11 +276,18 @@ message AddReviewMessageRequest {
   }];
   // Replacement lines proposed for the thread's range, empty for an ordinary message.
   repeated string suggestion = 3;
+  // Says the change the thread asks for is made. Komrad takes a round of the worktree as it
+  // stands, pins it to the reply, and resolves the thread. Refused when the worktree holds the
+  // same tree the thread was written on.
+  bool addressed = 4;
 }
 
 message AddReviewMessageResponse {
   // The message as recorded.
   ReviewMessage message = 1;
+  // A nudge towards addressed, given when a plain reply lands on a thread whose worktree has
+  // moved since it was written. Empty otherwise.
+  string hint = 2;
 }
 
 message EditReviewMessageRequest {

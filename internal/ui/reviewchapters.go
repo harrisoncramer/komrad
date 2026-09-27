@@ -94,10 +94,11 @@ func (d *reviewDiff) showChapter(at int) bool {
 		at = -1
 	}
 
-	if at == d.chapter {
+	if at == d.chapter && d.answer == nil {
 		return false
 	}
 
+	d.answer = nil
 	d.chapter = at
 	if at < 0 {
 		d.widen()
@@ -176,6 +177,7 @@ func (d *reviewDiff) widen() {
 	d.head = ""
 	d.baseLabel = ""
 	d.chapter = -1
+	d.answer = nil
 }
 
 // doesFitBaseLegend reports whether the base key is worth a legend row.

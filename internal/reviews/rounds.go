@@ -510,18 +510,24 @@ func (s *ReviewService) ReleaseReview(
 	if err != nil {
 		return nil, err
 	}
-	// Notes with no conclusion have to say something, whether pinned to a line or about the work
-	// as a whole.
-	if comments == 0 && strings.TrimSpace(params.Body) == "" && params.Verdict == reviewstore.VerdictCommented {
-		return nil, fmt.Errorf("%w: %q", ErrReviewEmpty, params.AgentID)
-	}
 
-	round, err := s.rounds.GetRound(ctx, open.RoundID)
+	threads, err := s.listBatchThreads(ctx, open.ID)
 	if err != nil {
 		return nil, err
 	}
 
-	threads, err := s.listBatchThreads(ctx, open.ID)
+	tally := tallyBatch(tallyBatchParams{
+		ReviewID: open.ID,
+		Author:   params.Author,
+		Threads:  threads,
+	})
+	// Notes with no conclusion have to say something, whether pinned to a line, a reply in an
+	// earlier thread, or about the work as a whole.
+	if comments == 0 && tally.Replies == 0 && strings.TrimSpace(params.Body) == "" && params.Verdict == reviewstore.VerdictCommented {
+		return nil, fmt.Errorf("%w: %q", ErrReviewEmpty, params.AgentID)
+	}
+
+	round, err := s.rounds.GetRound(ctx, open.RoundID)
 	if err != nil {
 		return nil, err
 	}
@@ -547,7 +553,9 @@ func (s *ReviewService) ReleaseReview(
 		Body: reviewNotice(reviewNoticeParams{
 			Ordinal:  round.Ordinal,
 			Verdict:  params.Verdict,
-			Comments: comments,
+			Comments: tally.Comments,
+			Replies:  tally.Replies,
+			Reopens:  tally.Reopens,
 			ReviewID: open.ID,
 			Path:     path,
 		}),
@@ -581,6 +589,8 @@ type reviewNoticeParams struct {
 	Ordinal  int32
 	Verdict  reviewstore.Verdict
 	Comments int
+	Replies  int
+	Reopens  int
 	ReviewID string
 	Path     string
 }
@@ -588,9 +598,55 @@ type reviewNoticeParams struct {
 // reviewNotice is the whole of what the mail carries: the round, the verdict, how much there is
 // and how to read it.
 func reviewNotice(params reviewNoticeParams) string {
-	return fmt.Sprintf("komrad: review of round %d released: %s, %d comment(s). "+
-		"Call get_review with review id %s, or read %s, then answer each thread with add_review_message.",
-		params.Ordinal, strings.ReplaceAll(string(params.Verdict), "_", " "), params.Comments, params.ReviewID, params.Path)
+	said := fmt.Sprintf("%d comment(s)", params.Comments)
+	if params.Replies > 0 {
+		said += fmt.Sprintf(", %d reply(ies) in earlier threads", params.Replies)
+	}
+	if params.Reopens > 0 {
+		said += fmt.Sprintf(", %d of them reopening a comment you had resolved", params.Reopens)
+	}
+
+	return fmt.Sprintf("komrad: review of round %d released: %s, %s. "+
+		"Call get_review with review id %s, or read %s. Make the change each thread asks for, "+
+		"then answer it with add_review_message and addressed set; reply without addressed to push back or ask.",
+		params.Ordinal, strings.ReplaceAll(string(params.Verdict), "_", " "), said, params.ReviewID, params.Path)
+}
+
+// tallyBatchParams is one batch, who wrote it, and the threads it said something in.
+type tallyBatchParams struct {
+	ReviewID string
+	Author   ReviewAuthor
+	Threads  []ReviewThreadWithMessages
+}
+
+// batchTally is what one batch said, split by whether it opened a thread or added to one.
+type batchTally struct {
+	// Comments is the threads the batch opened.
+	Comments int
+	// Replies is the threads opened earlier that the batch said more in.
+	Replies int
+	// Reopens is the replies landing on a resolved thread, which the person's release reopens.
+	Reopens int
+}
+
+// tallyBatch counts the threads a batch opened, the replies it carries into earlier ones, and
+// which of those replies reopen one.
+func tallyBatch(params tallyBatchParams) batchTally {
+	var tally batchTally
+	for _, thread := range params.Threads {
+		if thread.Thread.ReviewID == params.ReviewID {
+			tally.Comments++
+
+			continue
+		}
+
+		tally.Replies++
+		if params.Author.IsHuman() && thread.Thread.ResolvedAt != nil {
+			tally.Reopens++
+		}
+	}
+
+	return tally
 }
 
 // listBatchThreads is what one review actually says, gathered by the messages written under it

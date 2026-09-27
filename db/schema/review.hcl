@@ -395,6 +395,11 @@ table "review_messages" {
     default = sql("'{}'::text[]")
     comment = "Replacement lines the reviewer is proposing for the range the thread is pinned to, empty on an ordinary comment. The agent applies them as written rather than treating them as a description of what to do."
   }
+  column "round_id" {
+    null    = true
+    type    = uuid
+    comment = "The round an agent's reply said answers the thread, taken of its worktree as it stood when it replied. Set only on a reply that resolves the thread; null on everything else."
+  }
   column "engine_id" {
     null    = false
     type    = uuid
@@ -419,6 +424,12 @@ table "review_messages" {
     columns     = [column.engine_id, column.review_id]
     ref_columns = [table.reviews.column.engine_id, table.reviews.column.id]
     on_delete   = SET_NULL
+    on_update   = NO_ACTION
+  }
+  foreign_key "review_messages_round_id_fkey" {
+    columns     = [column.engine_id, column.round_id]
+    ref_columns = [table.review_rounds.column.engine_id, table.review_rounds.column.id]
+    on_delete   = CASCADE
     on_update   = NO_ACTION
   }
   foreign_key "review_messages_author_agent_id_fkey" {

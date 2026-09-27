@@ -364,6 +364,15 @@ type AddReviewMessageParams struct {
 	Body       string
 	Suggestion []string
 	Author     ReviewAuthor
+	// Addressed says the agent under review made the change the thread asks for.
+	Addressed bool
+}
+
+// AddReviewMessageResult is the message as written and anything worth telling the one who wrote it.
+type AddReviewMessageResult struct {
+	Message reviewstore.Message
+	// Hint points a plain reply at addressed when the worktree has moved since the thread was written.
+	Hint string
 }
 
 // AddReviewMessage says something in an existing thread, filed under the review a reviewer
@@ -371,14 +380,19 @@ type AddReviewMessageParams struct {
 func (s *ReviewService) AddReviewMessage(
 	ctx context.Context,
 	params AddReviewMessageParams,
-) (*reviewstore.Message, error) {
+) (*AddReviewMessageResult, error) {
 	thread, err := s.getOwnThread(ctx, params.ThreadID, params.Author)
 	if err != nil {
 		return nil, err
 	}
 
+	answering := !params.Author.IsHuman() && doesOwnAgent(params.Author, thread.AgentID)
+	if params.Addressed && !answering {
+		return nil, ErrReviewAddressedByOwner
+	}
+
 	var reviewID *string
-	if params.Author.IsHuman() || !doesOwnAgent(params.Author, thread.AgentID) {
+	if !answering {
 		open, err := s.openReviewFor(ctx, openReviewForParams{
 			AgentID: thread.AgentID,
 			Author:  params.Author,
@@ -391,9 +405,20 @@ func (s *ReviewService) AddReviewMessage(
 		reviewID = &open.ID
 	}
 
+	var roundID *string
+	if params.Addressed {
+		answer, err := s.openAnswerRound(ctx, *thread, params.Author)
+		if err != nil {
+			return nil, err
+		}
+
+		roundID = &answer.ID
+	}
+
 	message, err := s.messages.CreateMessage(ctx, reviewstore.CreateMessageParams{
 		ThreadID:      params.ThreadID,
 		ReviewID:      reviewID,
+		RoundID:       roundID,
 		Suggestion:    params.Suggestion,
 		AuthorKind:    params.Author.Kind,
 		AuthorAgentID: params.Author.AgentID,
@@ -403,11 +428,16 @@ func (s *ReviewService) AddReviewMessage(
 		return nil, err
 	}
 
-	if reviewID == nil {
+	result := &AddReviewMessageResult{Message: *message}
+	if answering {
 		s.ringTheReviewer(ctx, thread.AgentID)
+
+		if !params.Addressed {
+			result.Hint = s.findReplyHint(ctx, *thread)
+		}
 	}
 
-	return message, nil
+	return result, nil
 }
 
 // resumeWakeTimeout bounds a wake nobody is waiting on, so a post-resume hook that hangs cannot

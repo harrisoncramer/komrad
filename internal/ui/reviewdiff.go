@@ -53,6 +53,10 @@ type reviewDiff struct {
 	chapters []reviewChapter
 	// chapter is which of those is on screen, negative for the whole change.
 	chapter int
+	// rounds are every round of the review, which the answer key finds a comment's two ends in.
+	rounds []*agentv1.ReviewRound
+	// answer is the answer to a comment on screen, nil while the diff is anything else.
+	answer *reviewAnswer
 
 	// followedMove is the move the diff last caught up on.
 	followedMove string

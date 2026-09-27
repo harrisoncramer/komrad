@@ -359,6 +359,133 @@ func TestWritingInASettledThread(t *testing.T) {
 	}
 }
 
+// TestAnAnswerCarryingARoundSettlesTheThread pins that a reply naming the round that answers it
+// settles the thread in the same write.
+func TestAnAnswerCarryingARoundSettlesTheThread(t *testing.T) {
+	tests := []struct {
+		name        string
+		withRound   bool
+		wantSettled bool
+	}{
+		{
+			name:        "a plain reply",
+			withRound:   false,
+			wantSettled: false,
+		},
+		{
+			name:        "a reply carrying the round that answers it",
+			withRound:   true,
+			wantSettled: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := openFixture(t)
+			ctx := t.Context()
+			workerID := st.seedAgent(t, "worker")
+			review := st.openReview(t, st.openRound(t, workerID, "tree-one"))
+			thread := st.openThread(t, review, "this needs a nil check")
+			st.releaseReview(t, review, VerdictChangesRequested)
+
+			var roundID *string
+			if tt.withRound {
+				roundID = &st.openRound(t, workerID, "tree-two").ID
+			}
+
+			answer, err := st.CreateMessage(ctx, CreateMessageParams{
+				ThreadID:      thread.ID,
+				RoundID:       roundID,
+				AuthorKind:    AuthorAgent,
+				AuthorAgentID: &workerID,
+				Body:          "added the check",
+			})
+			require.NoError(t, err)
+			assert.Equal(t, roundID, answer.RoundID)
+
+			got, err := st.GetThread(ctx, thread.ID)
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantSettled, got.ResolvedAt != nil)
+			if tt.wantSettled {
+				assert.Equal(t, AuthorAgent, got.ResolvedByKind)
+				assert.Equal(t, &workerID, got.ResolvedByAgentID)
+			}
+		})
+	}
+}
+
+// TestReleasingReopensWhatThePersonRepliedTo pins that a person's reply in a settled thread
+// reopens it once the batch carrying the reply goes out.
+func TestReleasingReopensWhatThePersonRepliedTo(t *testing.T) {
+	tests := []struct {
+		name        string
+		byReviewer  bool
+		reply       bool
+		wantSettled bool
+	}{
+		{
+			name:        "a settled thread the person did not reply to",
+			reply:       false,
+			wantSettled: true,
+		},
+		{
+			name:        "a reviewer agent replying in a settled thread",
+			byReviewer:  true,
+			reply:       true,
+			wantSettled: true,
+		},
+		{
+			name:        "the person replying in a settled thread",
+			reply:       true,
+			wantSettled: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := openFixture(t)
+			ctx := t.Context()
+			workerID := st.seedAgent(t, "worker")
+			round := st.openRound(t, workerID, "tree-one")
+			first := st.openReview(t, round)
+			thread := st.openThread(t, first, "this needs a nil check")
+			st.releaseReview(t, first, VerdictChangesRequested)
+			st.settle(t, thread, &workerID)
+
+			author := AuthorHuman
+			var authorAgentID *string
+			var second *Review
+			if tt.byReviewer {
+				reviewerID := st.seedReviewerChild(t, workerID)
+				second = st.openReviewBy(t, round, reviewerID)
+				author, authorAgentID = AuthorAgent, &reviewerID
+			} else {
+				second = st.openReview(t, round)
+			}
+			if tt.reply {
+				_, err := st.CreateMessage(ctx, CreateMessageParams{
+					ThreadID:      thread.ID,
+					ReviewID:      &second.ID,
+					AuthorKind:    author,
+					AuthorAgentID: authorAgentID,
+					Body:          "this still panics on an empty list",
+				})
+				require.NoError(t, err)
+			}
+
+			held, err := st.GetThread(ctx, thread.ID)
+			require.NoError(t, err)
+			require.NotNil(t, held.ResolvedAt, "the reply waits for the batch to go out")
+
+			st.releaseReview(t, second, VerdictChangesRequested)
+
+			got, err := st.GetThread(ctx, thread.ID)
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantSettled, got.ResolvedAt != nil)
+		})
+	}
+}
+
 // TestASuggestionIsCarriedWithTheComment pins that replacement lines survive the round trip.
 func TestASuggestionIsCarriedWithTheComment(t *testing.T) {
 	st := openFixture(t)

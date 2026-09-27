@@ -386,6 +386,10 @@ type WorktreesKeys struct {
 // pattern typed, every other key is a character, so the keys that close those are fixed rather
 // than configured.
 type ReviewKeys struct {
+	// Show the change that answered the comment under the cursor, from the round the
+	// comment was written on to the round the agent's addressed reply carried, or go back
+	// to all changes from there.
+	Answer []string `mapstructure:"answer" default:"a"`
 	// Leave the review for the agents list.
 	Back []string `mapstructure:"back" default:"esc"`
 	// Walk back a round through the review, from the whole change to the newest round and

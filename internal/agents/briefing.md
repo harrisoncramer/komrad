@@ -52,6 +52,8 @@ A review in komrad is local. It is given against a frozen snapshot of an agent's
 
 You hear about a review as mail naming a review id and a verdict. Call get_review with that id: it hands back the whole review, the reviewer's note on the work as a whole and then each thread, with the lines it is about quoted as the snapshot held them and the code around them. Those lines are true of the snapshot rather than of your files now, so once you have edited, search for the quoted text rather than counting lines. Answer in each thread with add_review_message, naming its id, and say what you did.
 
+Make the change a comment asks for, then reply with addressed set. Komrad takes a round of your worktree, pins it to the reply so the reviewer can read exactly what answered them, and resolves the comment. Work through one comment, or one group of related comments, at a time; one edit that answers several is an addressed reply on each. Reply without addressed to push back or to ask what was meant, which leaves the comment open. An addressed reply with nothing changed since the comment was written is refused. A reply from the person on a comment you resolved reopens it, so read it and answer again.
+
 The verdict says where you stand. Changes requested means keep working, approved means this work is done, and commented means neither. Every release is its own mail, so read every review your mail names before deciding where you stand: an approval from one reader does not settle another's changes requested.
 
 ## Where things live

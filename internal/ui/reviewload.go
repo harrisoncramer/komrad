@@ -49,6 +49,9 @@ type reviewLoadedMsg struct {
 	owed string
 	// chapters are the rounds of the review as the reader can step through them, oldest first.
 	chapters []reviewChapter
+	rounds   []*agentv1.ReviewRound
+	// replayed says the older side was carried across a rebase onto the newer one's base.
+	replayed bool
 	// traced is where git says each thread's lines went, keyed by thread id, and empty for a
 	// repository that could not answer.
 	traced map[string]diffview.Traced
@@ -143,8 +146,25 @@ type loadReviewCmdParams struct {
 	// Base is the commit to measure the round from, empty for the point the branch left main.
 	Base string
 	// Head is the commit to measure it to, empty for the round's own snapshot.
-	Head  string
-	Fresh bool
+	Head string
+	// FromBase and ToBase are the bases Base and Head were taken on, set when they are two
+	// rounds a rebase may lie between.
+	FromBase string
+	ToBase   string
+	Fresh    bool
+}
+
+// withAnswer measures the load between the two rounds of an answer, carrying the older across a
+// rebase onto the newer's base.
+func (p loadReviewCmdParams) withAnswer(answer *reviewAnswer) loadReviewCmdParams {
+	if answer == nil {
+		return p
+	}
+
+	p.FromBase = answer.FromBase
+	p.ToBase = answer.ToBase
+
+	return p
 }
 
 // loadReviewCmd opens a round of the agent and reads that rather than the worktree, a tree that
@@ -213,6 +233,23 @@ func loadReviewCmd(s panelShared, params loadReviewCmdParams) tea.Cmd {
 			head = params.Head
 		}
 
+		compared := compareRounds(ctx, compareRoundsParams{
+			Git:      repo,
+			Dir:      dir,
+			FromSHA:  base,
+			FromBase: params.FromBase,
+			ToBase:   params.ToBase,
+		})
+		if !compared.Comparable {
+			return reviewLoadedMsg{
+				agentID: agentID,
+				round:   round,
+				err:     &roundsApartError{Conflicts: compared.Conflicts},
+			}
+		}
+
+		base = compared.FromSHA
+
 		patch, err := diff.Load(ctx, repo, diff.LoadParams{
 			Dir:         dir,
 			BaseSHA:     base,
@@ -257,6 +294,8 @@ func loadReviewCmd(s panelShared, params loadReviewCmdParams) tea.Cmd {
 			pinned:    pinned,
 			owed:      findLastOwedReview(reviews).GetId(),
 			chapters:  chapters,
+			rounds:    rounds,
+			replayed:  compared.Replayed,
 			traced:    traced,
 			since: changedSinceLastReview(ctx, changedSinceLastReviewParams{
 				Git:         repo,
@@ -325,6 +364,14 @@ func (r *reviewScreen) applyLoaded(h host, s panelShared, msg reviewLoadedMsg) t
 		return nil
 	}
 
+	var apart *roundsApartError
+	if errors.As(msg.err, &apart) {
+		r.diff.widen()
+		r.notice = apart.Error()
+
+		return r.loadWholeCmd(s)
+	}
+
 	drewNothing := errors.Is(msg.err, diff.ErrNoChanges) || errors.Is(msg.err, diff.ErrAllExcluded)
 
 	// A narrowed diff drawing nothing is an answer about the agent rather than a reason to leave,
@@ -388,7 +435,15 @@ func (d *reviewDiff) load(msg reviewLoadedMsg, isDark bool) {
 	d.baseAt = msg.earlierAt
 	d.pinned = msg.pinned
 	d.chapters = msg.chapters
+	d.rounds = msg.rounds
 	d.since = msg.since
+
+	if d.answer != nil {
+		d.baseLabel = "the answer to this comment"
+		if msg.replayed {
+			d.baseLabel += ", replayed across the rebase"
+		}
+	}
 
 	// The files the reader opened out are the view's own, so a view built again over the patch
 	// takes them from the one it replaces, or from what was kept when that one was dropped.
@@ -530,7 +585,7 @@ func (r *reviewScreen) reload(s panelShared) tea.Cmd {
 		Base:    r.diff.base,
 		Head:    r.diff.head,
 		Fresh:   r.pass.mode == modeReviewing,
-	})
+	}.withAnswer(r.diff.answer))
 }
 
 func (r *reviewScreen) leave(h host, s panelShared) tea.Cmd {

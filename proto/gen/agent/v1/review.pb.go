@@ -888,7 +888,10 @@ type ReviewMessage struct {
 	DeliveredAt string `protobuf:"bytes,10,opt,name=delivered_at,json=deliveredAt,proto3" json:"delivered_at,omitempty"`
 	// The review this message went out with, absent for an answer written by the agent under
 	// review, which belongs to no batch.
-	ReviewId      *string `protobuf:"bytes,12,opt,name=review_id,json=reviewId,proto3,oneof" json:"review_id,omitempty"`
+	ReviewId *string `protobuf:"bytes,12,opt,name=review_id,json=reviewId,proto3,oneof" json:"review_id,omitempty"`
+	// The round an addressed reply was taken of, which is what answered the thread. Absent on
+	// every other message.
+	RoundId       *string `protobuf:"bytes,13,opt,name=round_id,json=roundId,proto3,oneof" json:"round_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1003,6 +1006,13 @@ func (x *ReviewMessage) GetDeliveredAt() string {
 func (x *ReviewMessage) GetReviewId() string {
 	if x != nil && x.ReviewId != nil {
 		return *x.ReviewId
+	}
+	return ""
+}
+
+func (x *ReviewMessage) GetRoundId() string {
+	if x != nil && x.RoundId != nil {
+		return *x.RoundId
 	}
 	return ""
 }
@@ -1290,7 +1300,11 @@ type AddReviewMessageRequest struct {
 	// What to say. The ceiling refuses an essay and is not a length to write up to.
 	Body string `protobuf:"bytes,2,opt,name=body,proto3" json:"body,omitempty"`
 	// Replacement lines proposed for the thread's range, empty for an ordinary message.
-	Suggestion    []string `protobuf:"bytes,3,rep,name=suggestion,proto3" json:"suggestion,omitempty"`
+	Suggestion []string `protobuf:"bytes,3,rep,name=suggestion,proto3" json:"suggestion,omitempty"`
+	// Says the change the thread asks for is made. Komrad takes a round of the worktree as it
+	// stands, pins it to the reply, and resolves the thread. Refused when the worktree holds the
+	// same tree the thread was written on.
+	Addressed     bool `protobuf:"varint,4,opt,name=addressed,proto3" json:"addressed,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1346,10 +1360,20 @@ func (x *AddReviewMessageRequest) GetSuggestion() []string {
 	return nil
 }
 
+func (x *AddReviewMessageRequest) GetAddressed() bool {
+	if x != nil {
+		return x.Addressed
+	}
+	return false
+}
+
 type AddReviewMessageResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The message as recorded.
-	Message       *ReviewMessage `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
+	Message *ReviewMessage `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
+	// A nudge towards addressed, given when a plain reply lands on a thread whose worktree has
+	// moved since it was written. Empty otherwise.
+	Hint          string `protobuf:"bytes,2,opt,name=hint,proto3" json:"hint,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1389,6 +1413,13 @@ func (x *AddReviewMessageResponse) GetMessage() *ReviewMessage {
 		return x.Message
 	}
 	return nil
+}
+
+func (x *AddReviewMessageResponse) GetHint() string {
+	if x != nil {
+		return x.Hint
+	}
+	return ""
 }
 
 type EditReviewMessageRequest struct {
@@ -2629,7 +2660,7 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\r \x01(\tR\tcreatedAt\x12\x1d\n" +
 	"\n" +
-	"updated_at\x18\x0e \x01(\tR\tupdatedAt\"\xd3\x03\n" +
+	"updated_at\x18\x0e \x01(\tR\tupdatedAt\"\x80\x04\n" +
 	"\rReviewMessage\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
 	"\tthread_id\x18\x02 \x01(\tR\bthreadId\x12;\n" +
@@ -2648,10 +2679,12 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"\asent_at\x18\t \x01(\tR\x06sentAt\x12!\n" +
 	"\fdelivered_at\x18\n" +
 	" \x01(\tR\vdeliveredAt\x12 \n" +
-	"\treview_id\x18\f \x01(\tH\x01R\breviewId\x88\x01\x01B\x12\n" +
+	"\treview_id\x18\f \x01(\tH\x01R\breviewId\x88\x01\x01\x12\x1e\n" +
+	"\bround_id\x18\r \x01(\tH\x02R\aroundId\x88\x01\x01B\x12\n" +
 	"\x10_author_agent_idB\f\n" +
 	"\n" +
-	"_review_id\"P\n" +
+	"_review_idB\v\n" +
+	"\t_round_id\"P\n" +
 	"\x18ListReviewThreadsRequest\x12'\n" +
 	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\aagentId\x88\x01\x01B\v\n" +
 	"\t_agent_id\"M\n" +
@@ -2674,16 +2707,18 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"suggestion\x18\t \x03(\tR\n" +
 	"suggestion\"L\n" +
 	"\x1aCreateReviewThreadResponse\x12.\n" +
-	"\x06thread\x18\x01 \x01(\v2\x16.agent.v1.ReviewThreadR\x06thread\"\x7f\n" +
+	"\x06thread\x18\x01 \x01(\v2\x16.agent.v1.ReviewThreadR\x06thread\"\x9d\x01\n" +
 	"\x17AddReviewMessageRequest\x12$\n" +
 	"\tthread_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\bthreadId\x12\x1e\n" +
 	"\x04body\x18\x02 \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\xe8\aR\x04body\x12\x1e\n" +
 	"\n" +
 	"suggestion\x18\x03 \x03(\tR\n" +
-	"suggestion\"M\n" +
+	"suggestion\x12\x1c\n" +
+	"\taddressed\x18\x04 \x01(\bR\taddressed\"a\n" +
 	"\x18AddReviewMessageResponse\x121\n" +
-	"\amessage\x18\x01 \x01(\v2\x17.agent.v1.ReviewMessageR\amessage\"s\n" +
+	"\amessage\x18\x01 \x01(\v2\x17.agent.v1.ReviewMessageR\amessage\x12\x12\n" +
+	"\x04hint\x18\x02 \x01(\tR\x04hint\"s\n" +
 	"\x18EditReviewMessageRequest\x12\x17\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\x12\x1e\n" +
 	"\x04body\x18\x02 \x01(\tB\n" +

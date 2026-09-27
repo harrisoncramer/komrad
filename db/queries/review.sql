@@ -179,18 +179,47 @@ WHERE
     m.review_id = @review_id;
 
 -- name: ReleaseReview :one
-UPDATE
-    reviews v
-SET
-    released_at = NOW(),
-    verdict = @verdict,
-    body = @body,
-    path = @path,
-    doorbell_mail_id = sqlc.narg('doorbell_mail_id')
-WHERE
-    v.id = @id
-RETURNING
-    *;
+WITH released AS (
+    UPDATE
+        reviews v
+    SET
+        released_at = NOW(),
+        verdict = @verdict,
+        body = @body,
+        path = @path,
+        doorbell_mail_id = sqlc.narg('doorbell_mail_id')
+    WHERE
+        v.id = @id
+    RETURNING
+        *
+),
+reopened AS (
+    UPDATE
+        review_threads t
+    SET
+        resolved_at = NULL,
+        resolved_by_kind = NULL,
+        resolved_by_agent_id = NULL
+    FROM
+        released r
+    WHERE
+        r.author_kind = 'human'
+        AND t.resolved_at IS NOT NULL
+        AND EXISTS (
+            SELECT
+                1
+            FROM
+                review_messages m
+            WHERE
+                m.thread_id = t.id
+                AND m.review_id = r.id)
+        RETURNING
+            t.id
+)
+SELECT
+    r.*
+FROM
+    released r;
 
 -- name: DeleteOpenReviewsByAuthor :exec
 DELETE FROM reviews
@@ -359,6 +388,7 @@ WITH written AS (
     INSERT INTO review_messages(
         thread_id,
         review_id,
+        round_id,
         author_kind,
         author_agent_id,
         body,
@@ -366,6 +396,7 @@ WITH written AS (
     VALUES (
         @thread_id,
         sqlc.narg('review_id'),
+        sqlc.narg('round_id'),
         @author_kind,
         sqlc.narg('author_agent_id'),
         @body,
@@ -377,6 +408,8 @@ said AS (
     SELECT
         w.thread_id,
         w.author_kind,
+        w.author_agent_id,
+        w.round_id IS NOT NULL AS resolves,
 (t.resolved_at IS NOT NULL
             AND w.author_kind = t.resolved_by_kind
             AND w.author_agent_id IS NOT DISTINCT FROM t.resolved_by_agent_id) AS reopens
@@ -393,17 +426,23 @@ touched AS (
         ELSE
             t.last_agent_activity_at
         END,
-        resolved_at = CASE WHEN s.reopens THEN
+        resolved_at = CASE WHEN s.resolves THEN
+            NOW()
+        WHEN s.reopens THEN
             NULL
         ELSE
             t.resolved_at
         END,
-        resolved_by_kind = CASE WHEN s.reopens THEN
+        resolved_by_kind = CASE WHEN s.resolves THEN
+            s.author_kind
+        WHEN s.reopens THEN
             NULL
         ELSE
             t.resolved_by_kind
         END,
-        resolved_by_agent_id = CASE WHEN s.reopens THEN
+        resolved_by_agent_id = CASE WHEN s.resolves THEN
+            s.author_agent_id
+        WHEN s.reopens THEN
             NULL
         ELSE
             t.resolved_by_agent_id

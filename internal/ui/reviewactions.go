@@ -111,6 +111,12 @@ func (r *reviewScreen) table() []screenAction {
 			run:  func(_ host, s panelShared, _ string) tea.Cmd { return r.stepBaseForward(s) },
 		},
 		{
+			id:   actionReviewAnswer,
+			keys: func(k config.Keybindings) []string { return k.Review.Answer },
+			when: func(panelShared) bool { return r.doesOfferAnswer() },
+			run:  func(_ host, s panelShared, _ string) tea.Cmd { return r.toggleAnswer(s) },
+		},
+		{
 			id:   actionReviewReload,
 			keys: func(k config.Keybindings) []string { return k.Review.Reload },
 			run:  func(_ host, s panelShared, _ string) tea.Cmd { return r.reload(s) },
@@ -284,6 +290,11 @@ func (r *reviewScreen) legend() []screenLegendRow {
 			of:   []actionID{actionReviewBase},
 			desc: func(panelShared) string { return "an earlier round" },
 			show: r.doesFitBaseLegend,
+		},
+		{
+			of:   []actionID{actionReviewAnswer},
+			desc: func(panelShared) string { return r.diff.answerDesc() },
+			show: func(panelShared) bool { return r.doesOfferAnswer() },
 		},
 		{
 			of:   []actionID{actionReviewReload},
