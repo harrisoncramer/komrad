@@ -4,6 +4,7 @@ import { join } from "node:path";
 const read = (path) => JSON.parse(readFileSync(new URL(`../src/data/${path}`, import.meta.url), "utf8"));
 const config = read("config.json");
 const api = read("api.json");
+const commands = new Set(read("cli.json").map((command) => command.path));
 const guides = new URL("../src/content/guides/", import.meta.url).pathname;
 
 const keys = new Set();
@@ -40,6 +41,11 @@ for (const file of readdirSync(guides).filter((name) => /\.mdx?$/.test(name))) {
     if (keys.has(code)) found.push(`${at(match.index)}: \`${code}\` is a keybinding; use <Key name="..." />`);
     else if (settings.has(bare) || leaves.has(bare)) {
       found.push(`${at(match.index)}: \`${code}\` is a config setting; use <Setting path="..." />`);
+    } else if (
+      commands.has(code.split(" ").slice(0, 3).join(" ")) ||
+      commands.has(code.split(" ").slice(0, 2).join(" "))
+    ) {
+      found.push(`${at(match.index)}: \`${code}\` is a CLI command; use <Command path="..." />`);
     } else if (fieldNames.has(code)) {
       found.push(`${at(match.index)}: \`${code}\` is an API field; use <Field message="..." name="..." />`);
     }
@@ -52,6 +58,10 @@ for (const file of readdirSync(guides).filter((name) => /\.mdx?$/.test(name))) {
   }
   for (const match of text.matchAll(/<Setting path="([^"]+)"/g)) {
     if (!settings.has(match[1])) found.push(`${at(match.index)}: ${match[1]} is not in config.json`);
+  }
+  for (const match of text.matchAll(/<Command path="([^"]+)"/g)) {
+    if (!commands.has(match[1] ? `komrad ${match[1]}` : "komrad"))
+      found.push(`${at(match.index)}: komrad ${match[1]} is not in cli.json`);
   }
   for (const match of text.matchAll(/<Field message="([^"]+)" name="([^"]+)"/g)) {
     if (!fields.has(`${match[1]}.${match[2]}`))

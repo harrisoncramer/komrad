@@ -5,6 +5,7 @@ group: start
 order: 1
 ---
 
+import Command from "../../components/Command.astro";
 import Setting from "../../components/Setting.astro";
 import Alert from "../../components/Alert.astro";
 import Key from "../../components/Key.astro";
@@ -51,13 +52,13 @@ komrad migrate
 komrad engine ensure laptop
 ```
 
-The `komrad migrate` command is the only command that changes the schema.
+The <Command path="migrate" /> command is the only command that changes the schema.
 
 <Alert title="Having trouble?" variant="warning">
-  Run `komrad doctor` to check for configuration or installation issues.
+  Run <Command path="doctor" /> to check for configuration or installation issues.
 </Alert>
 
-Provide your database connection string to the `komrad migrate` command, and create your first engine. The engine is named `laptop` here.
+Provide your database connection string to the <Command path="migrate" /> command, and create your first engine. The engine is named `laptop` here.
 
 The komrad engine is one running komrad on one machine. Several can share one database, which enables multiple developers to share the same Postgres database, or for a single developer to scale their workload horizontally across machines.
 
@@ -67,7 +68,7 @@ Komrad will safely auto-migrate the database after you first set it up.
 
 Komrad's configuration is stored in a TOML file.
 
-The `komrad engine ensure` command prints an initial <Setting path="connection" label="[connection]" /> block that can be added to the database with a login for the engine. Run it, then put the engine block in `~/.config/komrad/config.toml`, and add the owner URL from the previous step beside it.
+The <Command path="engine ensure" /> command prints an initial <Setting path="connection" label="[connection]" /> block that can be added to the database with a login for the engine. Run it, then put the engine block in `~/.config/komrad/config.toml`, and add the owner URL from the previous step beside it.
 
 ```toml
 [connection]
@@ -75,13 +76,13 @@ owner_database_url = "postgres://komrad_owner:password123@localhost:5432/komrad"
 database_url = "postgres://komrad_engine_laptop:8f3a1c9e2b7d4e6f@localhost:5432/komrad"
 ```
 
-The <Setting path="connection.owner_database_url" label="owner_database_url" /> is only used by `komrad migrate` and `komrad engine ensure`. The service itself connects with <Setting path="connection.database_url" label="database_url" />.
+The <Setting path="connection.owner_database_url" label="owner_database_url" /> is only used by <Command path="migrate" /> and <Command path="engine ensure" />. The service itself connects with <Setting path="connection.database_url" label="database_url" />.
 
 ## Open the panel
 
 Komrad runs every agent in a tmux server of its own, so tmux must be installed. Using tmux yourself is optional.
 
-Run `komrad open` to open the panel. The first open starts the service in the background.
+Run <Command path="open" /> to open the panel. The first open starts the service in the background.
 
 <figure>
   <img
@@ -94,7 +95,7 @@ Run `komrad open` to open the panel. The first open starts the service in the ba
 
 ## Komrad + Tmux
 
-The panel takes over the terminal you open it in, and a tmux pane works like any other. `komrad attach` shows the same panel in a second terminal. Closing the panel with <Key name="agents.quit" /> only detaches it, so the service and your agents keep running.
+The panel takes over the terminal you open it in, and a tmux pane works like any other. <Command path="attach" /> shows the same panel in a second terminal. Closing the panel with <Key name="agents.quit" /> only detaches it, so the service and your agents keep running.
 
 If your own tmux prefix is <Key name="cycle.views" at={0} />, change the <Setting path="keybindings.cycle.views">cycle keys</Setting> so the panel still sees them.
 

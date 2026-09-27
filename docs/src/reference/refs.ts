@@ -1,4 +1,4 @@
-import { anchor, api, config, referencedTypes } from ".";
+import { anchor, api, commandBySlug, commandHref, config, referencedTypes } from ".";
 import { link } from "../site";
 import type { Section, Setting } from "./types";
 
@@ -54,5 +54,17 @@ export function fieldOf(message: string, name: string): Ref {
     title: `${message.split(".").pop() ?? message}.${name}`,
     description: field.description,
     detail: `${field.repeated ? "list of " : ""}${field.type}`,
+  };
+}
+
+export function commandOf(path: string): Ref {
+  const slug = path.split(" ").join("/");
+  const command = commandBySlug.get(slug);
+  if (!command) throw new Error(`cli.json has no command named komrad ${path}`);
+  return {
+    href: commandHref(slug),
+    title: command.path,
+    description: command.short,
+    detail: command.usage,
   };
 }

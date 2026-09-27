@@ -5,6 +5,7 @@ group: operations
 order: 9
 ---
 
+import Command from "../../components/Command.astro";
 import Setting from "../../components/Setting.astro";
 
 [Agents](../agents/) on your laptop stop when your laptop sleeps. Komrad can run them on a remote machine instead. The panel stays on your laptop and looks the same. What moves is the engine: the service, the database, and every agent's terminal.
@@ -27,7 +28,7 @@ To move to another engine, close the panel and run `komrad open --engine` with t
 
 ## Attaching to an agent
 
-An agent's terminal on the engine is streamed to your panel, and `komrad terminal AGENT` does the same in any terminal. The agent's window takes the size of the terminal attached to it, so it fills the stage and follows it when you resize.
+An agent's terminal on the engine is streamed to your panel, and <Command path="terminal" args="AGENT" /> does the same in any terminal. The agent's window takes the size of the terminal attached to it, so it fills the stage and follows it when you resize.
 
 The exception is a window someone fixed at a size on the engine itself, for example by opening a panel there, which runs tmux's `resize-window` and sets the window's `window-size` to `manual`. That window keeps its size wherever it is attached, so a smaller terminal crops it and a larger one leaves blank space around it.
 
@@ -37,7 +38,7 @@ Agents on the engine run a CLI that has to be logged in and has to trust the che
 
 ## Keeping the two builds in step
 
-Your komrad and the engine's have to be the same build. The engine moves when a release is published, so when the two disagree it is usually your laptop that moved on. Install the release the engine runs. `komrad doctor` checks both and says what to do.
+Your komrad and the engine's have to be the same build. The engine moves when a release is published, so when the two disagree it is usually your laptop that moved on. Install the release the engine runs. <Command path="doctor" /> checks both and says what to do.
 
 ## When the engine is off
 

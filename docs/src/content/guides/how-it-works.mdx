@@ -5,6 +5,8 @@ group: architecture
 order: 11
 ---
 
+import Command from "../../components/Command.astro";
+
 You have used every piece: [workflows](../workflows/), [agents](../agents/), [hooks](../hooks/), [schedules](../schedules/), [mail](../mail/) and [MCP](../mcp/). This guide steps back and shows how they fit together, and why closing things is always safe. The guides after it go deeper.
 
 ## Two programs
@@ -33,7 +35,7 @@ This is also why you can upgrade komrad without losing your agents. The service 
 
 ## One API
 
-Everything goes through one API. The panel uses it. A script using `komrad rpc` uses it. An agent calling an MCP tool uses it. So they all get the same rules and the same checks.
+Everything goes through one API. The panel uses it. A script using <Command path="rpc" /> uses it. An agent calling an MCP tool uses it. So they all get the same rules and the same checks.
 
 The CLI commands and MCP tools are not written by hand. Every endpoint is declared once, and the declaration says which surfaces it appears on. The commands, the tools, and the [API reference](../../api/) are all built from that.
 

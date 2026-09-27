@@ -5,6 +5,7 @@ group: start
 order: 2
 ---
 
+import Command from "../../components/Command.astro";
 import Setting from "../../components/Setting.astro";
 import Alert from "../../components/Alert.astro";
 import Key from "../../components/Key.astro";
@@ -29,7 +30,7 @@ git clone https://github.com/neovim/neovim ~/neovim
 cd ~/neovim
 ```
 
-Next, run `komrad open` and press <Key name="workflows.new" /> in the panel, name the workflow `neovim` and submit it with `<C-s>` to create it. By default, your workflow takes the current directory as it's active directory:
+Next, run <Command path="open" /> and press <Key name="workflows.new" /> in the panel, name the workflow `neovim` and submit it with `<C-s>` to create it. By default, your workflow takes the current directory as it's active directory:
 
 <figure>
   <video
@@ -108,7 +109,7 @@ Komrad places worktrees into <Setting path="worktrees.dir" /> unless the workflo
   directory.
 </Alert>
 
-The worktree's branch is worked out from your repository's clone when you create the workflow. New worktrees are cut from it and an agent's work is measured against it. If the clone loses that branch, `komrad doctor` says so.
+The worktree's branch is worked out from your repository's clone when you create the workflow. New worktrees are cut from it and an agent's work is measured against it. If the clone loses that branch, <Command path="doctor" /> says so.
 
 ## Archiving and restoring
 
