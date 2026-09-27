@@ -140,8 +140,11 @@ func (s *DocumentStore) Update(ctx context.Context, params UpdateParams) (*Docum
 
 // missedUpdate is why a rewrite matched no row: a version already moved past, or no such document.
 func (s *DocumentStore) missedUpdate(ctx context.Context, params UpdateParams) error {
-	held, err := s.queries.GetDocument(ctx, params.ID)
-	if err != nil || held.AgentID != params.AgentID {
+	held, err := s.Get(ctx, params.ID)
+	if err != nil {
+		return err
+	}
+	if held.AgentID != params.AgentID {
 		return fmt.Errorf("%w: document %q of agent %q", store.ErrNotFound, params.ID, params.AgentID)
 	}
 
