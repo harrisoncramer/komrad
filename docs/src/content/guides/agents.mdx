@@ -5,32 +5,36 @@ group: start
 order: 3
 ---
 
+import Alert from "../../components/Alert.astro";
 import { media } from "../../site";
 
-This guide assumes you know what a [workflow](../workflows/) is, and you've created one.
+<Alert variant="warning">This guide assumes you know what a [workflow](../workflows/) is, and you've created one.</Alert>
 
 Agents run your workloads. They are spawned according to workflows.
 
-Right now, every agent is a Claude or Codex session. You can leave them working and come back, restart your machine without losing any history or context, search everything they have said, and even have agents spawn and manage other agents.
+Komrad currently supports just Claude and Codex agents. You can leave them working and come back, restart your machine without losing any history or context, search everything they have said, and even have agents spawn and manage other agents.
 
-There are three types of agents, and you've already seen one: the orchestraotr agent(link to page). Orchestrator agents can spawn children called "implementer" agents, which each (typically) get their own worktree. Finally, implementer agents can spawn reviewer agents, which live inside _the same worktree_ and are responsible only for reviewing their work.
+This is the core value for komrad: *durable, resumable, searchable agentic compute*.
+
+There are three types of agents, and you've already seen one: the [orchestrator](../workflows/#the-orchestrator). Orchestrator agents can spawn children called "implementer" agents, which each (typically) get their own worktree. Finally, implementer agents can spawn reviewer agents, which live inside _the same worktree_ and are responsible only for reviewing their work.
 
 ```
   workflow
    |
-   |-- orchestrator      one per workflow, stands behind its row
-   |                     hands work out, writes no code
-   |
-   |-- implementer       its own checkout, its own branch
-   |     |
-   |     '-- reviewer    a child, reads the parent's work
-   |
-   '-- implementer
-         |
-         '-- reviewer
+   '-- orchestrator                <-- one per workflow, coordinates work
+           |
+           |-- implementer         <-- multiple per orchestrator, writes code
+           |       |
+           |       '-- reviewer    <-- multiple per implementer, provides feedback
+           |       |
+           |       '-- reviewer
+           |
+           '-- implementer
+                    |
+                    '-- reviewer
 ```
 
-Let's ask our orchestrator to spawn our first implementer agent. You can also hover over the orchestrator and press `c` to give the agent a name, and spawn it with a direct prompt, such as: "Where is :checkhealth implemented?"
+Let's ask our orchestrator to spawn our first implementer agent. You can also hover over the orchestrator and press `c` to spawn the implementer directly. Let's give the agent a name, and spawn it with a direct prompt, such as: "Where is :checkhealth implemented?"
 
 <figure>
   <video
@@ -48,19 +52,15 @@ Let's ask our orchestrator to spawn our first implementer agent. You can also ho
   </video>
 </figure>
 
-## Agent State
+The agent responds to our question. If it needs to, it can send and receive messages from the orchestrator.
 
-Komrad reads each agent's screen to tell what it is doing. An agent is working while it thinks or runs a tool, waiting when it has stopped to ask you something, and idle when it has nothing to do.
+Each agent is in one of several states, such as running, idle, dormant, or active. The state of the agent is reflected in the UI column.
 
-Separately, an agent is either running or dormant. A dormant agent's CLI has exited, but its conversation is kept, and resuming picks up where it left off.
+Dorman agent's CLI have exited, but their conversations are kept so that you can still search them, and resume them later. You can search the agent list by name, filter it, jump around it with [marks](../../config/#keybindings.marks). Press [`ctrl+a` and `ctrl+q`](../../config/#keybindings.cycle.views) to cycle through the views: the sidebar, the agent's screen, and the info pane.
 
-Each row shows the agent's state, whether mail (incoming messages from other agents) is waiting, and any pull request data. The details beneath show what it was launched with, its branch, how its checkout compares to the base, and its recent commits.
+## Reviewer Agents
 
-You can search the agent list by name, filter it, jump around it with marks(link to config on marks). Press KEYBINDING to cycle through the various views on the agent screen: the agent sidebar, the agent screen, and the inf
-
-## Children
-
-A child is any agent attached to a parent, and a reviewer is the usual case. Children share the parent's checkout, so [`usage.implementer.max_children`](../../config/#usage.implementer.max_children) caps how many one parent may hold. An agent that writes work of its own should be a standalone implementer, not a child.
+Reviewer agents are attached to an implementer agent, and can be used to review it's work. Don't try to have reviewer agents run work: each change should be implemented by an implementer agent, so that isolation between edits is guaranteed. For kicks, let's ask our orchestrator to spawn three implementer agents to do some research before they start writing code:
 
 <figure>
   <video
@@ -77,6 +77,10 @@ A child is any agent attached to a parent, and a reviewer is the usual case. Chi
     <source src={media("agent-children.mp4")} type="video/mp4" />
   </video>
 </figure>
+
+## Reviewer Agents
+
+They share the implementer's checkout, and [`usage.implementer.max_children`](../../config/#usage.implementer.max_children) caps how many one parent may hold.
 
 ## Picking up an existing branch
 
