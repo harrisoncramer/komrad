@@ -400,6 +400,27 @@
               "default": "[\"D\"]"
             },
             {
+              "key": "pan_left",
+              "path": "keybindings.documents.pan_left",
+              "type": "array",
+              "description": "Pan the diff of a write left, for a line wider than the pane.",
+              "default": "[\"h\", \"left\"]"
+            },
+            {
+              "key": "pan_reset",
+              "path": "keybindings.documents.pan_reset",
+              "type": "array",
+              "description": "Pan the diff of a write back to the start of its lines.",
+              "default": "[\"0\"]"
+            },
+            {
+              "key": "pan_right",
+              "path": "keybindings.documents.pan_right",
+              "type": "array",
+              "description": "Pan the diff of a write right.",
+              "default": "[\"l\", \"right\"]"
+            },
+            {
               "key": "quit",
               "path": "keybindings.documents.quit",
               "type": "array",
