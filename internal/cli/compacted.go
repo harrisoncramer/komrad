@@ -167,9 +167,7 @@ func renderCompactedRecord(row *agentv1.AgentRow, threads []*agentv1.ReviewThrea
 
 	if len(threads) > 0 {
 		lines = append(lines, threadsHeading(agent.GetRole(), len(threads)))
-		lines = append(lines, xslice.Map(threads, func(thread *agentv1.ReviewThread) string {
-			return fmt.Sprintf("- %s on %s lines %d-%d", thread.GetId(), thread.GetFilePath(), thread.GetNewStart(), thread.GetNewEnd())
-		})...)
+		lines = append(lines, xslice.Map(threads, describeThread)...)
 	}
 
 	if row.GetUnreadMail() {
@@ -181,6 +179,15 @@ func renderCompactedRecord(row *agentv1.AgentRow, threads []*agentv1.ReviewThrea
 	}
 
 	return strings.Join(lines, "\n")
+}
+
+// describeThread is one open thread as a line of the reminder, naming where it is pinned.
+func describeThread(thread *agentv1.ReviewThread) string {
+	if thread.GetFilePath() == "" {
+		return fmt.Sprintf("- %s on the change as a whole", thread.GetId())
+	}
+
+	return fmt.Sprintf("- %s on %s lines %d-%d", thread.GetId(), thread.GetFilePath(), thread.GetNewStart(), thread.GetNewEnd())
 }
 
 func threadsHeading(role agentv1.AgentRole, count int) string {

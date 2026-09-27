@@ -140,7 +140,7 @@ func (v *View) matchText(y int) (string, bool) {
 	}
 
 	switch current.kind {
-	case fileRow:
+	case fileRow, changeRow:
 		return current.text, true
 	case threadRow:
 		return FormatThreadLocation(current.thread) + " " + firstLine(current.thread), true

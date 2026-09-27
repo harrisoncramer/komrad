@@ -161,8 +161,13 @@ func contextOf(thread reviewstore.Thread, lines []string) []string {
 	return drawn
 }
 
-// anchorOf names where a thread is pinned in the terms the diff uses, preferring the new side.
+// anchorOf names where a thread is pinned in the terms the diff uses, preferring the new side,
+// and the change itself for a thread on no file.
 func anchorOf(thread reviewstore.Thread) string {
+	if thread.FilePath == "" {
+		return "The change as a whole"
+	}
+
 	start, end, side := thread.NewStart, thread.NewEnd, ""
 	if isOnOldSide(thread) {
 		start, end, side = thread.OldStart, thread.OldEnd, " (removed)"

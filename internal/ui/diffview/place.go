@@ -15,6 +15,9 @@ const changedNotice = "── the code these were about has changed ──"
 // screen.
 const outsideNotice = "── still in the change, outside what is on screen ──"
 
+// changeNotice heads the comments on the change as a whole beyond the one its row carries.
+const changeNotice = "── more on the change as a whole ──"
+
 // goneNotice heads the comments whose file has left the change altogether.
 const goneNotice = "── these are holding your review, on files that have left the change ──"
 
@@ -51,6 +54,7 @@ func (v *View) PinThreads(threads []*agentv1.ReviewThread) {
 	v.placed = map[string]placement{}
 
 	index := v.indexLines()
+	threads = v.pinChangeThreads(threads)
 
 	// A thread written against the snapshot on screen is offered its row ahead of one traced
 	// onto the same row.
@@ -87,6 +91,42 @@ func (v *View) PinThreads(threads []*agentv1.ReviewThread) {
 	if v.search != nil {
 		v.SetPattern(v.search.pattern)
 	}
+}
+
+// pinChangeThreads gives the row for the change as a whole to the first open comment on it, sends
+// the rest of those comments to the foot, and hands back the threads that are about lines.
+func (v *View) pinChangeThreads(threads []*agentv1.ReviewThread) []*agentv1.ReviewThread {
+	lines := make([]*agentv1.ReviewThread, 0, len(threads))
+
+	var change []*agentv1.ReviewThread
+
+	for _, thread := range threads {
+		if thread.GetFilePath() == "" {
+			change = append(change, thread)
+
+			continue
+		}
+
+		lines = append(lines, thread)
+	}
+
+	y, ok := v.changeRowAt()
+	if ok && len(change) > 0 {
+		first := max(slices.IndexFunc(change, func(thread *agentv1.ReviewThread) bool {
+			return thread.GetResolvedAt() == ""
+		}), 0)
+		v.pinned[y] = change[first]
+		v.placed[change[first].GetId()] = pinned
+		change = slices.Delete(change, first, first+1)
+	}
+
+	v.appendFootSection(changeNotice, change)
+
+	for _, thread := range change {
+		v.placed[thread.GetId()] = pinned
+	}
+
+	return lines
 }
 
 // placeArms is the ladder in order of how much the row is worth: where git says the thread's

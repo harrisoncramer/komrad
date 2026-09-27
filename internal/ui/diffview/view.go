@@ -19,7 +19,12 @@ const (
 	hunkRow
 	lineRow
 	threadRow
+	changeRow
 )
+
+// changeWord is what the row above the first file says, the place a comment on the change as a
+// whole is written from and drawn on.
+const changeWord = "the change as a whole"
 
 // row is one drawable line of the diff, flattened from the patch once so that moving the cursor
 // walks a slice rather than the patch.
@@ -121,6 +126,16 @@ func NewView(patch *diff.Patch, isDark bool) *View {
 // else.
 func (v *View) build() {
 	v.rows = nil
+
+	if len(v.files) > 0 {
+		v.rows = append(v.rows, row{
+			kind: changeRow,
+			file: -1,
+			hunk: -1,
+			line: -1,
+			text: changeWord,
+		})
+	}
 
 	for fileIndex := range v.files {
 		file := &v.files[fileIndex]
@@ -388,12 +403,21 @@ func (v *View) isPinnable(y int) bool {
 
 	return current.kind == lineRow ||
 		current.kind == threadRow ||
+		current.kind == changeRow ||
 		(current.kind == fileRow && v.isCollapsed(current.file))
 }
 
-// GetFirstRow returns where the cursor starts: the first row that stands for a line.
+// GetFirstRow returns where the cursor starts: the first row that stands for a line, below the
+// row for the change as a whole.
 func (v *View) GetFirstRow() int {
-	return max(v.scan(-1, 1), 0)
+	first := max(v.scan(-1, 1), 0)
+	if current, ok := v.getRow(first); ok && current.kind == changeRow {
+		if next := v.scan(first, 1); next >= 0 {
+			return next
+		}
+	}
+
+	return first
 }
 
 // Place is a spot in the diff worth returning to, taken off the cursor before the patch is
@@ -411,6 +435,9 @@ type Place struct {
 	// ThreadID is set when the cursor was standing on a thread that had come adrift rather than on
 	// a line, those rows having no coordinates to come back to.
 	ThreadID string
+
+	// Change is set when the cursor was standing on the row for the change as a whole.
+	Change bool
 }
 
 // GetPlace is where the cursor is standing, in terms that survive the patch being reloaded.
@@ -418,6 +445,10 @@ func (v *View) GetPlace(y int) (Place, bool) {
 	current, ok := v.getRow(y)
 	if ok && current.kind == threadRow {
 		return Place{ThreadID: current.thread.GetId()}, true
+	}
+
+	if ok && current.kind == changeRow {
+		return Place{Change: true}, true
 	}
 
 	// A file header has no line under the cursor, so the file itself is the place.
@@ -455,6 +486,10 @@ func (v *View) Locate(place Place) (int, bool) {
 		return 0, false
 	}
 
+	if place.Change {
+		return v.changeRowAt()
+	}
+
 	if place.Header {
 		return v.fileHeader(place.FilePath)
 	}
@@ -487,6 +522,17 @@ func (v *View) Locate(place Place) (int, bool) {
 	}
 
 	return nearest, nearest >= 0
+}
+
+// changeRowAt is the row for the change as a whole, which a patch with no files has none of.
+func (v *View) changeRowAt() (int, bool) {
+	for y, current := range v.rows {
+		if current.kind == changeRow {
+			return y, true
+		}
+	}
+
+	return 0, false
 }
 
 // collapsedHeader is the header row of a file drawn collapsed, and false for a file drawn
@@ -686,8 +732,13 @@ func (v *View) getLine(y int) (diff.Line, bool) {
 	return v.files[current.file].Hunks[current.hunk].Lines[current.line], true
 }
 
-// GetAnchor lifts the cursor's row into an anchor.
+// GetAnchor lifts the cursor's row into an anchor, one naming no file for the row that stands for
+// the change as a whole.
 func (v *View) GetAnchor(y int) (*Anchor, bool) {
+	if current, ok := v.getRow(y); ok && current.kind == changeRow {
+		return &Anchor{}, true
+	}
+
 	file, fileOK := v.GetDrawnFileAt(y)
 	line, lineOK := v.getLine(y)
 	if !fileOK || !lineOK {

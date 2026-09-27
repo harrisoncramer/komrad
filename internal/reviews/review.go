@@ -39,6 +39,10 @@ var ErrReviewNotYours = fail.Denied("that review belongs to another agent")
 // does, such as opening, deleting, or releasing a review.
 var ErrReviewHumanOnly = fail.Denied("only the person reviewing can do that")
 
+// ErrReviewWholeChangeAnchored is answered when a comment on the change as a whole names lines,
+// quotes them, or suggests replacing them, which only a comment on a file can.
+var ErrReviewWholeChangeAnchored = fail.InvalidArgument("a comment on the change as a whole names no lines, quotes nothing and suggests nothing")
+
 // reviewThreadReadWriter is the half of the store that keeps conversations: where they are
 // pinned, whether the person has read the replies, and whether they are still owed an answer.
 type reviewThreadReadWriter interface {
@@ -297,6 +301,10 @@ func (s *ReviewService) CreateReviewThread(
 	ctx context.Context,
 	params CreateReviewThreadParams,
 ) (*ReviewThreadWithMessages, error) {
+	if params.FilePath == "" && isAnchoredToLines(params) {
+		return nil, ErrReviewWholeChangeAnchored
+	}
+
 	if err := s.requireEntitled(ctx, params.AgentID, params.Author); err != nil {
 		return nil, err
 	}
@@ -384,6 +392,10 @@ func (s *ReviewService) AddReviewMessage(
 	thread, err := s.getOwnThread(ctx, params.ThreadID, params.Author)
 	if err != nil {
 		return nil, err
+	}
+
+	if thread.FilePath == "" && len(params.Suggestion) > 0 {
+		return nil, ErrReviewWholeChangeAnchored
 	}
 
 	answering := !params.Author.IsHuman() && doesOwnAgent(params.Author, thread.AgentID)
@@ -808,4 +820,10 @@ func (s *ReviewService) requireOwnMessage(ctx context.Context, id string, author
 
 func doesOwnAgent(author ReviewAuthor, agentID string) bool {
 	return author.AgentID != nil && *author.AgentID == agentID
+}
+
+// isAnchoredToLines reports whether a new thread names, quotes or rewrites any line.
+func isAnchoredToLines(params CreateReviewThreadParams) bool {
+	return params.OldStart != 0 || params.OldEnd != 0 || params.NewStart != 0 || params.NewEnd != 0 ||
+		len(params.QuotedLines) > 0 || len(params.Suggestion) > 0
 }

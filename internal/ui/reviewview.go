@@ -405,6 +405,10 @@ func (r reviewScreen) composeDesc() string {
 		return "reply in this thread"
 	}
 
+	if r.diff.isOnChange() {
+		return "comment on the change"
+	}
+
 	return "comment on this line"
 }
 

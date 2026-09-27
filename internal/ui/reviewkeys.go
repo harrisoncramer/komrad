@@ -243,6 +243,17 @@ func (d reviewDiff) threadAtCursor() (*agentv1.ReviewThread, bool) {
 	return d.view.GetThreadAt(d.cursor)
 }
 
+// isOnChange reports whether the cursor stands on the row for the change as a whole.
+func (d reviewDiff) isOnChange() bool {
+	if d.view == nil {
+		return false
+	}
+
+	anchor, ok := d.view.GetAnchor(d.cursor)
+
+	return ok && anchor.FilePath == ""
+}
+
 // toggleExpanded draws the whole of the file the cursor is in, or gives back the changed lines
 // and the few around them.
 func (r *reviewScreen) toggleExpanded(s panelShared) {

@@ -6,6 +6,7 @@ import (
 	"komrad/internal/diff"
 	agentv1 "komrad/proto/gen/agent/v1"
 
+	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -47,7 +48,7 @@ func TestPinHoldsWhenLinesShiftBeneathIt(t *testing.T) {
 	thread := threadAt("t1", "greet.go", 1, 1, " package greet")
 	view.PinThreads([]*agentv1.ReviewThread{thread})
 
-	found, ok := view.GetThreadAt(3)
+	found, ok := view.GetThreadAt(4)
 	require.True(t, ok, "the thread should still be on the line it was written against")
 	assert.Equal(t, "t1", found.GetId())
 	assert.False(t, view.IsGhosted(thread))
@@ -71,7 +72,7 @@ func TestPinFollowsCodeThatMoved(t *testing.T) {
 	thread := threadAt("t1", "greet.go", 0, 12, "+func Hello() string {")
 	view.PinThreads([]*agentv1.ReviewThread{thread})
 
-	found, ok := view.GetThreadAt(2)
+	found, ok := view.GetThreadAt(3)
 	require.True(t, ok)
 	assert.Equal(t, "t1", found.GetId())
 	assert.False(t, view.IsGhosted(thread))
@@ -100,7 +101,7 @@ func TestPinGhostsWhenTheLineChangedUnderIt(t *testing.T) {
 	thread := threadAt("t1", "greet.go", 4, 4, " return \"hello\"")
 	view.PinThreads([]*agentv1.ReviewThread{thread})
 
-	found, ok := view.GetThreadAt(2)
+	found, ok := view.GetThreadAt(3)
 	require.True(t, ok, "the thread stays on its old-side line")
 	assert.Equal(t, "t1", found.GetId())
 	assert.True(t, view.IsGhosted(thread))
@@ -215,7 +216,7 @@ func TestASecondThreadOnALineGetsItsOwnRow(t *testing.T) {
 	second := threadAt("t2", "greet.go", 1, 1, " package greet")
 	view.PinThreads([]*agentv1.ReviewThread{first, second})
 
-	onTheLine, ok := view.GetThreadAt(2)
+	onTheLine, ok := view.GetThreadAt(3)
 	require.True(t, ok)
 	assert.Equal(t, "t1", onTheLine.GetId())
 
@@ -275,7 +276,7 @@ func TestPinTakesAQuoteStoredWithoutItsMarker(t *testing.T) {
 	thread := threadAt("t1", "greet.go", 0, 4, "\treturn \"hi\"")
 	view.PinThreads([]*agentv1.ReviewThread{thread})
 
-	found, ok := view.GetThreadAt(2)
+	found, ok := view.GetThreadAt(3)
 	require.True(t, ok, "the thread stands on its own line")
 	assert.Equal(t, "t1", found.GetId())
 	assert.False(t, view.IsGhosted(thread), "the line reads exactly as the thread quoted it")
@@ -299,7 +300,7 @@ func TestPinFindsAMovedLineFromABareQuote(t *testing.T) {
 	thread := threadAt("t1", "greet.go", 0, 2, "\tname = \"world\"")
 	view.PinThreads([]*agentv1.ReviewThread{thread})
 
-	found, ok := view.GetThreadAt(2)
+	found, ok := view.GetThreadAt(3)
 	require.True(t, ok, "the text index carries the thread to where the line went")
 	assert.Equal(t, "t1", found.GetId())
 }
@@ -497,7 +498,7 @@ func TestPinFindsTheOldSideOfARenamedFile(t *testing.T) {
 	require.Equal(t, ghosted, view.placed[thread.GetId()],
 		"old line 1 of the shared base is on screen under the new name")
 
-	found, ok := view.GetThreadAt(2)
+	found, ok := view.GetThreadAt(3)
 	require.True(t, ok)
 	assert.Equal(t, "t1", found.GetId())
 }
@@ -534,7 +535,7 @@ func TestPinHoldsADrawnQuoteOnARemovedLine(t *testing.T) {
 	thread.BaseSha = "0000000000000000000000000000000000000000"
 	view.PinThreads([]*agentv1.ReviewThread{thread})
 
-	found, ok := view.GetThreadAt(2)
+	found, ok := view.GetThreadAt(3)
 	require.True(t, ok, "the row the diff draws that text on is the row")
 	assert.Equal(t, "t1", found.GetId())
 }
@@ -662,4 +663,38 @@ func TestACommentOutsideANarrowedDiffIsNotGone(t *testing.T) {
 
 	require.Equal(t, adrift, view.placed["t1"])
 	assert.Equal(t, outsideNotice, headingAbove(t, view, "t1"))
+}
+
+// TestCommentsOnTheChangeFillItsRowThenTheFoot covers several comments on the change as a whole:
+// the first open one is drawn on its row and the rest wait at the foot, none of them counted as
+// moved.
+func TestCommentsOnTheChangeFillItsRowThenTheFoot(t *testing.T) {
+	view := NewView(twoFilePatch(), false)
+	settled := newChangeThread("t1", "2026-09-27T00:00:00Z")
+	open := newChangeThread("t2", "")
+	onLine := threadAt("t3", "greet.go", 0, 2, "+// greet")
+
+	view.PinThreads([]*agentv1.ReviewThread{settled, open, onLine})
+
+	found, ok := view.GetThreadAt(0)
+	require.True(t, ok)
+	assert.Equal(t, "t2", found.GetId(), "the open comment is the one drawn on the row")
+	assert.Contains(t, ansi.Strip(view.RenderRow(0, NoCursor, 60, 0)), changeWord)
+
+	foot, ok := view.GetThreadAt(view.Len() - 1)
+	require.True(t, ok)
+	assert.Equal(t, "t1", foot.GetId())
+	assert.Contains(t, ansi.Strip(view.RenderRow(view.Len()-2, NoCursor, 60, 0)), "more on the change as a whole")
+
+	assert.False(t, view.HasMoved(settled))
+	assert.False(t, view.HasMoved(open))
+	assert.False(t, view.HasMoved(onLine))
+}
+
+func newChangeThread(id, resolvedAt string) *agentv1.ReviewThread {
+	return &agentv1.ReviewThread{
+		Id:         id,
+		BaseSha:    patchBaseSHA,
+		ResolvedAt: resolvedAt,
+	}
 }

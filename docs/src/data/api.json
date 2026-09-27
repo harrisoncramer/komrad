@@ -2108,10 +2108,8 @@
           "repeated": false,
           "map": false,
           "oneof": "",
-          "rules": [
-            "required"
-          ],
-          "description": "Which file, relative to the checkout."
+          "rules": [],
+          "description": "Which file, relative to the checkout. Empty for a comment on the change as a whole, which then carries no lines, no quote and no suggestion."
         },
         {
           "name": "baseSha",
@@ -4200,7 +4198,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Which file, relative to the checkout."
+          "description": "Which file, relative to the checkout, empty for a comment on the change as a whole."
         },
         {
           "name": "oldStart",

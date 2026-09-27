@@ -79,6 +79,8 @@ func (v *View) RenderRow(y int, cursor Cursor, width, offset int) string {
 		return ansi.Truncate(hunkStyle.Render(current.text), width, "…")
 	case threadRow:
 		return v.renderThreadRow(current, cursor, width)
+	case changeRow:
+		return v.renderChangeRow(y, current, cursor, width)
 	case lineRow:
 	}
 
@@ -200,21 +202,63 @@ func doesHoldDelivery(thread *agentv1.ReviewThread, state agentv1.ReviewDelivery
 // renderThreadRow draws a thread with no line left to stand on, saying where it was written and
 // what it opened with.
 func (v *View) renderThreadRow(current row, cursor Cursor, width int) string {
-	background := getBackground(diff.Context, cursor)
-	style := lipgloss.NewStyle().Background(background)
-
 	mark, markStyle := v.markFor(current.thread)
 
-	head := strings.Repeat(" ", max(GutterWidth-2, 0))
 	said := FormatThreadLocation(current.thread)
 	if opening := firstLine(current.thread); opening != "" {
 		said += "  " + opening
 	}
 
+	return renderSaidRow(renderSaidRowParams{
+		Mark:      mark,
+		MarkStyle: markStyle,
+		Said:      said,
+		Cursor:    cursor,
+		Width:     width,
+	})
+}
+
+// renderChangeRow draws the row above the first file, carrying the mark and the opening words of
+// a comment on the change as a whole when there is one.
+func (v *View) renderChangeRow(y int, current row, cursor Cursor, width int) string {
+	mark, markStyle := " ", gutterStyle
+	said := current.text
+	if thread, ok := v.GetThreadAt(y); ok {
+		mark, markStyle = v.markFor(thread)
+		if opening := firstLine(thread); opening != "" {
+			said += "  " + opening
+		}
+	}
+
+	return renderSaidRow(renderSaidRowParams{
+		Mark:      mark,
+		MarkStyle: markStyle,
+		Said:      said,
+		Cursor:    cursor,
+		Width:     width,
+	})
+}
+
+// renderSaidRowParams is a row of prose drawn in the diff and the mark beside it.
+type renderSaidRowParams struct {
+	Mark      string
+	MarkStyle lipgloss.Style
+	Said      string
+	Cursor    Cursor
+	Width     int
+}
+
+// renderSaidRow draws a row of prose with nothing but a thread's mark in its gutter.
+func renderSaidRow(params renderSaidRowParams) string {
+	background := getBackground(diff.Context, params.Cursor)
+	style := lipgloss.NewStyle().Background(background)
+	head := strings.Repeat(" ", max(GutterWidth-2, 0))
+	said := style.Foreground(lipgloss.Color("8")).Italic(true).Render(params.Said)
+
 	return ansi.Truncate(
-		style.Render(head)+markStyle.Background(background).Render(mark)+style.Render(" ")+
-			fitWindow(style.Foreground(lipgloss.Color("8")).Italic(true).Render(said), 0, max(0, width-GutterWidth), background),
-		width, "…")
+		style.Render(head)+params.MarkStyle.Background(background).Render(params.Mark)+style.Render(" ")+
+			fitWindow(said, 0, max(0, params.Width-GutterWidth), background),
+		params.Width, "…")
 }
 
 // firstLine is the opening line of a thread.

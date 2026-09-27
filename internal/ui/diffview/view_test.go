@@ -60,17 +60,17 @@ func TestEditTargetIsWhereTheLineLivesNow(t *testing.T) {
 	}{
 		{
 			name: "a line both sides have opens at its own number",
-			row:  2,
-			want: 1,
-		},
-		{
-			name: "a deleted line opens at the line above it",
 			row:  3,
 			want: 1,
 		},
 		{
-			name: "an added line opens at its own number",
+			name: "a deleted line opens at the line above it",
 			row:  4,
+			want: 1,
+		},
+		{
+			name: "an added line opens at its own number",
+			row:  5,
 			want: 2,
 		},
 	}
@@ -196,11 +196,11 @@ func twoFilePatch() *diff.Patch {
 // loses its lines, and the file beside it is untouched.
 func TestViewedFileCollapsesToItsHeader(t *testing.T) {
 	view := NewView(twoFilePatch(), false)
-	require.Equal(t, 8, view.Len())
+	require.Equal(t, 9, view.Len())
 
 	view.SetFileViewed("greet.go", true)
 
-	require.Equal(t, 5, view.Len())
+	require.Equal(t, 6, view.Len())
 	assert.True(t, view.IsViewed("greet.go"))
 
 	read, total := view.CountViewedFiles()
@@ -208,7 +208,7 @@ func TestViewedFileCollapsesToItsHeader(t *testing.T) {
 	assert.Equal(t, 2, total)
 
 	view.SetFileViewed("greet.go", false)
-	assert.Equal(t, 8, view.Len())
+	assert.Equal(t, 9, view.Len())
 	assert.False(t, view.IsViewed("greet.go"))
 }
 
@@ -218,9 +218,9 @@ func TestCursorCanRestOnACollapsedHeader(t *testing.T) {
 	view := NewView(twoFilePatch(), false)
 	view.SetFileViewed("greet.go", true)
 
-	assert.Equal(t, 0, view.GetFirstRow(), "the fold leaves the header as the first row to rest on")
+	assert.Equal(t, 1, view.GetFirstRow(), "the fold leaves the header as the first row to rest on")
 
-	file, ok := view.GetDrawnFileAt(0)
+	file, ok := view.GetDrawnFileAt(1)
 	require.True(t, ok)
 	assert.Equal(t, "greet.go", file.Path())
 }
@@ -251,7 +251,7 @@ func TestFoldingKeepsTheCursorInTheFile(t *testing.T) {
 
 	header, ok := view.Locate(place)
 	require.True(t, ok)
-	assert.Equal(t, 0, header, "the header is what is left of the file to come back to")
+	assert.Equal(t, 1, header, "the header is what is left of the file to come back to")
 
 	place, ok = view.GetPlace(header)
 	require.True(t, ok)
@@ -293,7 +293,7 @@ func TestHeaderFoundByASearchIsHeldAcrossARebuild(t *testing.T) {
 func TestHeaderFoundByASearchSurvivesTheFold(t *testing.T) {
 	view := NewView(twoFilePatch(), false)
 
-	place, ok := view.GetPlace(0)
+	place, ok := view.GetPlace(1)
 	require.True(t, ok)
 	require.True(t, place.Header)
 
@@ -301,7 +301,7 @@ func TestHeaderFoundByASearchSurvivesTheFold(t *testing.T) {
 
 	back, ok := view.Locate(place)
 	require.True(t, ok)
-	assert.Equal(t, 0, back)
+	assert.Equal(t, 1, back)
 }
 
 // TestHeaderOfAFileWithNoLinesIsHeld covers a rename or a mode change.
@@ -339,11 +339,11 @@ func TestThreadInACollapsedFileIsNotAdrift(t *testing.T) {
 
 	thread := threadAt("t1", "greet.go", 0, 2, "+// greet")
 	view.PinThreads([]*agentv1.ReviewThread{thread})
-	require.Equal(t, 8, view.Len())
+	require.Equal(t, 9, view.Len())
 
 	view.SetFileViewed("greet.go", true)
 
-	assert.Equal(t, 5, view.Len(), "no row is added at the foot for the folded thread")
+	assert.Equal(t, 6, view.Len(), "no row is added at the foot for the folded thread")
 	assert.Equal(t, collapsed, view.placed[thread.GetId()])
 }
 
@@ -404,4 +404,34 @@ func TestAnAgentsOwnCommentIsNotOwedASettling(t *testing.T) {
 
 	_, ok = view.JumpOpenThread(next, 1)
 	assert.False(t, ok, "with nothing after it")
+}
+
+// TestChangeRowStandsAboveTheFirstFile covers the row a comment on the change as a whole is
+// written from, which the cursor can reach but does not start on.
+func TestChangeRowStandsAboveTheFirstFile(t *testing.T) {
+	view := NewView(twoFilePatch(), false)
+
+	anchor, ok := view.GetAnchor(0)
+	require.True(t, ok)
+	assert.Empty(t, anchor.FilePath, "the anchor names no file")
+
+	place, ok := view.GetPlace(0)
+	require.True(t, ok)
+	assert.True(t, place.Change)
+
+	back, ok := view.Locate(place)
+	require.True(t, ok)
+	assert.Equal(t, 0, back)
+
+	assert.Positive(t, view.GetFirstRow(), "the cursor starts on the first line rather than above it")
+	assert.Equal(t, 0, view.Move(view.GetFirstRow(), -1), "the cursor can step up onto it")
+}
+
+// TestChangeRowIsAbsentWithNothingToReview covers an empty change, where there is nothing for a
+// comment on the whole of it to be about.
+func TestChangeRowIsAbsentWithNothingToReview(t *testing.T) {
+	view := NewView(patchWith(), false)
+
+	_, ok := view.Locate(Place{Change: true})
+	assert.False(t, ok)
 }

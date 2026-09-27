@@ -216,7 +216,7 @@ table "review_threads" {
   column "file_path" {
     null    = false
     type    = text
-    comment = "The file the thread is pinned to, named the way the diff names it. That is a path relative to the repository root, and where the change left the file if it moved it."
+    comment = "The file the thread is pinned to, named the way the diff names it. That is a path relative to the repository root, and where the change left the file if it moved it. It is empty for a comment on the change as a whole, which has no file and no lines."
   }
   column "old_start" {
     null    = false
