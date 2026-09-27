@@ -92,6 +92,8 @@ Because adoption creates a new implementer agent, the adopted branch must be ava
 
 ## Tearing down
 
-Archiving stops the agent and takes it out of the list, but keeps its record and conversation. Deleting is permanent: the record, the conversation and the worktree are all removed. Komrad refuses to run more agents than [`usage.max_agents`](../../config/#usage.max_agents) allows, so archive what you are done with.
+In komrad, you can either _archive_ or _delete_ an agent.
 
-Your agent is working in a fresh worktree, which means it has no dependencies installed. A [hook](../hooks/) fixes that.
+Archiving an agent will stop it immediately, and remove it from the agent sidebar. It will not remove its conversation from Postgres, so you can still search for it or resume it later.
+
+Deleting an agent is permanent. When you choose to delete an agent, the conversation and the worktree are all removed.
