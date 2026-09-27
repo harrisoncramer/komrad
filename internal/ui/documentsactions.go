@@ -26,6 +26,13 @@ func (d *documentsScreen) table() []screenAction {
 			},
 		},
 		screenAction{
+			id:   actionDocumentsNew,
+			keys: func(k config.Keybindings) []string { return k.Documents.New },
+			run: func(h host, s panelShared, _ string) tea.Cmd {
+				return d.newDocumentForm(h, s)
+			},
+		},
+		screenAction{
 			id:   actionDocumentsOlder,
 			keys: func(k config.Keybindings) []string { return k.Documents.Older },
 			run: func(h host, s panelShared, _ string) tea.Cmd {
@@ -54,6 +61,10 @@ func (d *documentsScreen) legend() []screenLegendRow {
 		{
 			of:   []actionID{actionDocumentsEdit},
 			desc: func(panelShared) string { return d.editDesc() },
+		},
+		{
+			of:   []actionID{actionDocumentsNew},
+			desc: func(panelShared) string { return "new document" },
 		},
 		{
 			of:   []actionID{actionDocumentsOlder},

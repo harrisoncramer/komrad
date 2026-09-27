@@ -386,11 +386,18 @@
               "default": "[\"\u003e\"]"
             },
             {
+              "key": "new",
+              "path": "keybindings.documents.new",
+              "type": "array",
+              "description": "Write a new document for the agent whose documents are listed, from a form asking its name\nand kind. It starts with a line saying it is empty, for you to edit.",
+              "default": "[\"c\"]"
+            },
+            {
               "key": "open",
               "path": "keybindings.documents.open",
               "type": "array",
               "description": "Open the documents screen from the agents list, on the hovered agent's documents, or\nits orchestrator's on a workflow's row.",
-              "default": "[\"i\"]"
+              "default": "[\"D\"]"
             },
             {
               "key": "quit",

@@ -56,13 +56,19 @@ message WriteDocumentRequest {
   oneof source {
     option (buf.validate.oneof).required = true;
     // The markdown text itself.
-    string body = 4 [(buf.validate.field).string.max_bytes = 1048576];
+    string body = 4 [(buf.validate.field).string = {
+      min_len: 1
+      max_bytes: 1048576
+    }];
     // A markdown file on the machine komrad runs on, relative to the writing agent's working
     // directory unless absolute.
     string path = 5 [(buf.validate.field).string.min_len = 1];
   }
   // The version a rewrite replaces, as the last read or write returned it, and required with id.
   optional int32 version = 6 [(buf.validate.field).int32.gt = 0];
+  // The agent a person creates a document for. An agent leaves it unset, since what it writes is
+  // its own.
+  optional string agent_id = 7 [(buf.validate.field).string.min_len = 1];
 }
 
 message WriteDocumentResponse {

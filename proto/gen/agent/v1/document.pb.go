@@ -207,7 +207,10 @@ type WriteDocumentRequest struct {
 	//	*WriteDocumentRequest_Path
 	Source isWriteDocumentRequest_Source `protobuf_oneof:"source"`
 	// The version a rewrite replaces, as the last read or write returned it, and required with id.
-	Version       *int32 `protobuf:"varint,6,opt,name=version,proto3,oneof" json:"version,omitempty"`
+	Version *int32 `protobuf:"varint,6,opt,name=version,proto3,oneof" json:"version,omitempty"`
+	// The agent a person creates a document for. An agent leaves it unset, since what it writes is
+	// its own.
+	AgentId       *string `protobuf:"bytes,7,opt,name=agent_id,json=agentId,proto3,oneof" json:"agent_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -293,6 +296,13 @@ func (x *WriteDocumentRequest) GetVersion() int32 {
 		return *x.Version
 	}
 	return 0
+}
+
+func (x *WriteDocumentRequest) GetAgentId() string {
+	if x != nil && x.AgentId != nil {
+		return *x.AgentId
+	}
+	return ""
 }
 
 type isWriteDocumentRequest_Source interface {
@@ -744,20 +754,22 @@ const file_agent_v1_document_proto_rawDesc = "" +
 	"created_at\x18\x06 \x01(\tR\tcreatedAt\x12\x1d\n" +
 	"\n" +
 	"updated_at\x18\a \x01(\tR\tupdatedAt\x12\x18\n" +
-	"\aversion\x18\b \x01(\x05R\aversion\"\x98\x02\n" +
+	"\aversion\x18\b \x01(\x05R\aversion\"\xd0\x02\n" +
 	"\x14WriteDocumentRequest\x12\x1c\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x01R\x02id\x88\x01\x01\x12\x1e\n" +
 	"\x04name\x18\x02 \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\xc8\x01R\x04name\x126\n" +
 	"\x04kind\x18\x03 \x01(\x0e2\x16.agent.v1.DocumentKindB\n" +
-	"\xbaH\a\x82\x01\x04\x10\x01 \x00R\x04kind\x12\x1f\n" +
-	"\x04body\x18\x04 \x01(\tB\t\xbaH\x06r\x04(\x80\x80@H\x00R\x04body\x12\x1d\n" +
+	"\xbaH\a\x82\x01\x04\x10\x01 \x00R\x04kind\x12!\n" +
+	"\x04body\x18\x04 \x01(\tB\v\xbaH\br\x06\x10\x01(\x80\x80@H\x00R\x04body\x12\x1d\n" +
 	"\x04path\x18\x05 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\x04path\x12&\n" +
-	"\aversion\x18\x06 \x01(\x05B\a\xbaH\x04\x1a\x02 \x00H\x02R\aversion\x88\x01\x01B\x0f\n" +
+	"\aversion\x18\x06 \x01(\x05B\a\xbaH\x04\x1a\x02 \x00H\x02R\aversion\x88\x01\x01\x12'\n" +
+	"\bagent_id\x18\a \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x03R\aagentId\x88\x01\x01B\x0f\n" +
 	"\x06source\x12\x05\xbaH\x02\b\x01B\x05\n" +
 	"\x03_idB\n" +
 	"\n" +
-	"\b_version\"G\n" +
+	"\b_versionB\v\n" +
+	"\t_agent_id\"G\n" +
 	"\x15WriteDocumentResponse\x12.\n" +
 	"\bdocument\x18\x01 \x01(\v2\x12.agent.v1.DocumentR\bdocument\"\x92\x01\n" +
 	"\x14ListDocumentsRequest\x12'\n" +

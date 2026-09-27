@@ -374,9 +374,12 @@ type DocumentsKeys struct {
 	Older []string `mapstructure:"older" default:"<"`
 	// Step forward to a later write, and past the newest back to the document as it stands.
 	Newer []string `mapstructure:"newer" default:">"`
+	// Write a new document for the agent whose documents are listed, from a form asking its name
+	// and kind. It starts with a line saying it is empty, for you to edit.
+	New []string `mapstructure:"new" default:"c"`
 	// Open the documents screen from the agents list, on the hovered agent's documents, or
 	// its orchestrator's on a workflow's row.
-	Open []string `mapstructure:"open" default:"i"`
+	Open []string `mapstructure:"open" default:"D"`
 	// Quit the panel.
 	Quit []string `mapstructure:"quit" default:"ctrl+c"`
 }

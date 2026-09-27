@@ -192,8 +192,8 @@ func TestReadAnEarlierWrite(t *testing.T) {
 	require.ErrorIs(t, err, store.ErrNotFound)
 }
 
-// TestWriteByAPerson pins that a write naming no agent rewrites the document its id names and
-// leaves it with the agent that wrote it.
+// TestWriteByAPerson pins that a write by no agent rewrites the document its id names, or
+// creates one for the agent it is for, and leaves it with that agent.
 func TestWriteByAPerson(t *testing.T) {
 	stores := storetest.Open(t)
 	author := stores.SeedAgent(t, agentstore.Agent{Name: "author"})
@@ -220,9 +220,19 @@ func TestWriteByAPerson(t *testing.T) {
 			wantErr: documents.ErrNoVersion,
 		},
 		{
-			name:    "no id is refused",
+			name:    "no id and no agent it is for is refused",
 			params:  documents.WriteDocumentParams{Name: "Fresh", Kind: documentstore.KindRFC, Body: "new"},
 			wantErr: documents.ErrNoAuthor,
+		},
+		{
+			name:     "no id creates a document for the agent it is for",
+			params:   documents.WriteDocumentParams{For: author.ID, Name: "Fresh", Kind: documentstore.KindRFC, Body: "Empty RFC."},
+			wantBody: "Empty RFC.",
+		},
+		{
+			name:    "an agent it is for that does not exist is not found",
+			params:  documents.WriteDocumentParams{For: uuid.NewString(), Name: "Stray", Kind: documentstore.KindRFC, Body: "stray"},
+			wantErr: store.ErrNotFound,
 		},
 		{
 			name:    "an id no document holds is not found",

@@ -70,7 +70,7 @@ func TestDocumentsOpen(t *testing.T) {
 
 		harness := openAgents(t, buildDocumentAuthors()...)
 		moveToAgentRow(t, harness, "quiet")
-		harness.press("i")
+		harness.press("D")
 
 		assert.NotContains(t, harness.readFrame(), documentsTitle)
 		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceListDocumentsProcedure))
@@ -285,6 +285,61 @@ func TestDocumentsEdit(t *testing.T) {
 	}
 }
 
+// TestDocumentsNew covers writing a new document for the agent whose documents are listed.
+func TestDocumentsNew(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		presses []string
+		want    *agentv1.WriteDocumentRequest
+	}{
+		{
+			name:    "a name and the kind left alone write an RFC saying it is empty",
+			presses: []string{"c", "P", "l", "a", "n", "ctrl+s"},
+			want: &agentv1.WriteDocumentRequest{
+				AgentId: proto.String("author"),
+				Name:    "Plan",
+				Kind:    agentv1.DocumentKind_DOCUMENT_KIND_RFC,
+				Source:  &agentv1.WriteDocumentRequest_Body{Body: "Empty RFC document.\n"},
+			},
+		},
+		{
+			name:    "the kind chosen names what the document says it is",
+			presses: []string{"c", "L", "o", "g", "tab", "down", "down", "down", "ctrl+s"},
+			want: &agentv1.WriteDocumentRequest{
+				AgentId: proto.String("author"),
+				Name:    "Log",
+				Kind:    agentv1.DocumentKind_DOCUMENT_KIND_NOTES,
+				Source:  &agentv1.WriteDocumentRequest_Body{Body: "Empty notes document.\n"},
+			},
+		},
+		{
+			name:    "a blank name writes nothing",
+			presses: []string{"c", " ", "ctrl+s"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			harness, _ := openDocuments(t, "author")
+			harness.answer(agentv1connect.AgentServiceWriteDocumentProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+				return connect.NewResponse(&agentv1.WriteDocumentResponse{}), nil
+			})
+			harness.press(tt.presses...)
+
+			if tt.want == nil {
+				assert.Empty(t, harness.readSent(agentv1connect.AgentServiceWriteDocumentProcedure))
+
+				return
+			}
+			harness.assertSentTo(agentv1connect.AgentServiceWriteDocumentProcedure, tt.want)
+		})
+	}
+}
+
 // TestDocumentsHistory covers stepping back and forward through a document's writes, drawing
 // what each changed.
 func TestDocumentsHistory(t *testing.T) {
@@ -410,7 +465,7 @@ func openDocuments(t *testing.T, row string) (*panelHarness, *documentShelf) {
 	docs.answer(harness)
 
 	moveToAgentRow(t, harness, row)
-	harness.press("i")
+	harness.press("D")
 	harness.fireTimers()
 
 	return harness, docs

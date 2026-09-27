@@ -5300,7 +5300,9 @@
           "repeated": false,
           "map": false,
           "oneof": "source",
-          "rules": [],
+          "rules": [
+            "required"
+          ],
           "description": "The markdown text itself."
         },
         {
@@ -5324,6 +5326,16 @@
           "oneof": "",
           "rules": [],
           "description": "The version a rewrite replaces, as the last read or write returned it, and required with id."
+        },
+        {
+          "name": "agent_id",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The agent a person creates a document for. An agent leaves it unset, since what it writes is its own."
         }
       ]
     },

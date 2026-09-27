@@ -35,6 +35,7 @@ func TestCreate(t *testing.T) {
 		params  documentstore.CreateParams
 		wantErr error
 		wantID  bool
+		refused bool
 	}{
 		{
 			name:    "a name the agent already uses is refused, naming the document that holds it",
@@ -50,11 +51,21 @@ func TestCreate(t *testing.T) {
 			name:   "a second name for the same agent is its own document",
 			params: documentstore.CreateParams{AgentID: author.ID, Name: "Findings", Kind: documentstore.KindReport, Body: "found"},
 		},
+		{
+			name:    "an empty body is refused",
+			params:  documentstore.CreateParams{AgentID: author.ID, Name: "Blank", Kind: documentstore.KindNotes},
+			refused: true,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			created, err := stores.Documents.Create(ctx, tt.params)
+			if tt.refused {
+				require.Error(t, err)
+
+				return
+			}
 			if tt.wantErr != nil {
 				require.ErrorIs(t, err, tt.wantErr)
 				if tt.wantID {
