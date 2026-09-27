@@ -39,8 +39,10 @@ type diffKeys struct {
 func (k diffKeys) table() []screenAction {
 	return []screenAction{
 		{
-			id:   actionMove,
-			keys: func(bindings config.Keybindings) []string { return slices.Concat(bindings.Nav.Up, bindings.Nav.Down) },
+			id: actionMove,
+			keys: func(bindings config.Keybindings) []string {
+				return slices.Concat(bindings.Nav.Up, bindings.Nav.Down)
+			},
 			run: func(_ host, s panelShared, pressed string) tea.Cmd {
 				return k.step(s, directionOf(pressed, s.keys.Nav.Up), 1)
 			},
@@ -51,6 +53,10 @@ func (k diffKeys) table() []screenAction {
 				return slices.Concat(bindings.Nav.Top, bindings.Nav.Bottom)
 			},
 			run: func(_ host, s panelShared, pressed string) tea.Cmd {
+				if k.pane.GetView() == nil {
+					return nil
+				}
+
 				if isBound(pressed, s.keys.Nav.Bottom) {
 					return k.moveTo(s, k.pane.GetView().GetLastRow())
 				}

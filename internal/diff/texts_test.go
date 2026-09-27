@@ -110,8 +110,8 @@ func TestCompareTexts(t *testing.T) {
 	}
 }
 
-// TestFromTextsSplitsDistantChangesIntoHunks covers two changes too far apart to share a hunk.
-func TestFromTextsSplitsDistantChangesIntoHunks(t *testing.T) {
+// TestCompareTextsSplitsDistantChangesIntoHunks covers two changes too far apart to share a hunk.
+func TestCompareTextsSplitsDistantChangesIntoHunks(t *testing.T) {
 	t.Parallel()
 
 	lines := make([]string, 20)
