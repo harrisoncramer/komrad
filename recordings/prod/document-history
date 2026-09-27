@@ -1,0 +1,118 @@
+#!/usr/bin/env bash
+# An agent on the neovim workflow holding an RFC for vim.text.truncate() in three writes: its
+# first draft, the person's edit to it, and the agent's revision answering that edit. The writes
+# are made here rather than by Claude so every recording starts from the same document.
+set -euo pipefail
+
+here="$(dirname "$0")"
+"$here/fresh-neovim"
+
+state() {
+	komrad rpc get-agent --id "$1" --compact | jq -r '.agent.state'
+}
+
+wait_turn() {
+	local worked=""
+	for _ in $(seq 180); do
+		case "$(state "$1")" in
+		AGENT_STATE_THINKING) worked=1 ;;
+		AGENT_STATE_IDLE) [ -n "$worked" ] && return ;;
+		esac
+		sleep 1
+	done
+	echo "agent $1 never finished a turn" >&2
+	exit 1
+}
+
+workflow="$(komrad rpc create-workflow --name neovim --cwd "$HOME/neovim" --worktree.enabled --flags "--model haiku" --compact | jq -r '.workflow.id')"
+agent="$(komrad rpc create-agent --workflow-id "$workflow" --title text-truncate \
+	--prompt "Reply with the single word ready, then wait." \
+	--compact | jq -r '.agent.id')"
+wait_turn "$agent"
+
+draft="$(cat <<'MD'
+# RFC: vim.text.truncate()
+
+## Problem
+
+Plugins that draw statuslines, tabs and floating windows all need to shorten a string to fit a
+width. Each one writes its own, and most count bytes, so they cut multibyte text in the wrong
+place.
+
+## Proposal
+
+Add `vim.text.truncate(s, width, marker)` to `runtime/lua/vim/text.lua`. It returns `s` when it
+fits in `width`, and otherwise cuts it and ends it with `marker`, which defaults to `…`.
+
+## Tests
+
+Cases in `test/functional/lua/text_spec.lua` for a short string and a long one.
+MD
+)"
+doc="$(KOMRAD_AGENT_ID="$agent" komrad rpc write-document --name truncate-rfc --kind DOCUMENT_KIND_RFC \
+	--body "$draft" --compact | jq -r '.document.id')"
+
+edited="$(cat <<'MD'
+# RFC: vim.text.truncate()
+
+## Problem
+
+Plugins that draw statuslines, tabs and floating windows all need to shorten a string to fit a
+width. Each one writes its own, and most count bytes, so they cut multibyte text in the wrong
+place.
+
+## Proposal
+
+Add `vim.text.truncate(s, width, marker)` to `runtime/lua/vim/text.lua`. It returns `s` when it
+fits in `width`, and otherwise cuts it and ends it with `marker`, which defaults to `…`.
+
+Width is measured in display columns, not bytes.
+
+## Tests
+
+Cases in `test/functional/lua/text_spec.lua` for a short string and a long one.
+
+## Open questions
+
+Should it cut from the middle, the way the tabline does?
+MD
+)"
+version="$(komrad rpc get-document --id "$doc" --compact | jq -r '.document.version')"
+komrad rpc write-document --agent-id "$agent" --id "$doc" --version "$version" --name truncate-rfc \
+	--kind DOCUMENT_KIND_RFC --body "$edited" >/dev/null
+
+revised="$(cat <<'MD'
+# RFC: vim.text.truncate()
+
+## Problem
+
+Plugins that draw statuslines, tabs and floating windows all need to shorten a string to fit a
+width. Each one writes its own, and most count bytes, so they cut multibyte text in the wrong
+place.
+
+## Proposal
+
+Add `vim.text.truncate(s, width, marker)` to `runtime/lua/vim/text.lua`. It returns `s` when it
+fits in `width`, and otherwise cuts it and ends it with `marker`, which defaults to `…`.
+
+Width is measured in display columns with `vim.fn.strdisplaywidth()`, and the cut is made with
+`vim.fn.strcharpart()`, so a wide character is never split in half.
+
+## Tests
+
+Cases in `test/functional/lua/text_spec.lua` for a short string, a long one, and a string of
+wide characters.
+
+## Out of scope
+
+Cutting from the middle. The tabline does it for paths, but a caller can build that from two
+calls, so it can wait for a real need.
+
+## News
+
+A line under LUA in `runtime/doc/news.txt`.
+MD
+)"
+version="$(komrad rpc get-document --id "$doc" --compact | jq -r '.document.version')"
+KOMRAD_AGENT_ID="$agent" komrad rpc write-document --id "$doc" --version "$version" --name truncate-rfc \
+	--kind DOCUMENT_KIND_RFC --body "$revised" >/dev/null

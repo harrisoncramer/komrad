@@ -1,0 +1,93 @@
+---
+title: Documents
+description: Have an agent write an RFC, a report or notes, refine it with it, and step through every version.
+group: start
+order: 6
+---
+
+import Alert from "../../components/Alert.astro";
+import { media } from "../../site";
+
+Some work goes better when the agent writes before it builds. You ask it for a plan, read the plan, fix what it got wrong, and only then let it write code. The mistakes are cheaper to catch in a page of prose than in a diff.
+
+Documents are where that writing lives. A document is a markdown file that belongs to an agent, kept in komrad's database rather than in the agent's checkout, so it never ends up in a commit. Each one has a name and a kind: an RFC for a change proposed before it is built, a report for what an investigation found, an explainer for how something that already exists works, or notes for anything else. Every time the agent or you write to a document, komrad keeps the version it replaced.
+
+<Alert variant="warning">This guide uses the `neovim` workflow from the [workflows](../workflows/) guide.</Alert>
+
+## Asking an agent for one
+
+Agents write documents with komrad's `write_document` tool, so asking for one is just a matter of saying so in the prompt. Tell the agent what to write, what to name it, and that it should change no code yet.
+
+When it has written one, put the cursor on the agent and press `D` to open its documents. The list sits in the sidebar and the document under the cursor is drawn beside it. `D` on a workflow row opens the documents of that workflow's orchestrator.
+
+<figure>
+  <video
+    autoplay
+    loop
+    muted
+    playsinline
+    poster={media("documents-ask.png")}
+    width="1440"
+    height="920"
+    aria-label="Launching an agent in the neovim workflow with a prompt to write an RFC called truncate-rfc, then opening its documents once it has written it."
+  >
+    <source src={media("documents-ask.webm")} type="video/webm" />
+    <source src={media("documents-ask.mp4")} type="video/mp4" />
+  </video>
+</figure>
+
+An agent reads its own documents with `get_document` and lists them with `list_documents`. Other agents can read its documents the same way, which is how a plan one agent wrote gets handed to another, such as an orchestrator giving an RFC to the agent that will build it.
+
+## Editing a document
+
+Press `e` on a document to open it in your editor, in place of the document drawn beside the list. Change what you like and quit the editor, or press `e` again, and what you wrote is saved as the document's next version. The editor is whatever `$EDITOR` names.
+
+<figure>
+  <video
+    autoplay
+    loop
+    muted
+    playsinline
+    poster={media("documents-edit.png")}
+    width="1440"
+    height="920"
+    aria-label="Opening the truncate-rfc document in Neovim beside the list, adding a line about one more test case, and quitting to see the document drawn again with the new line."
+  >
+    <source src={media("documents-edit.webm")} type="video/webm" />
+    <source src={media("documents-edit.mp4")} type="video/mp4" />
+  </video>
+</figure>
+
+Komrad does not tell the agent you edited its document. Tell it yourself, by mail or in its session, and ask it to read the document again before it carries on. It can see which versions you wrote with `list_document_versions`, and read any of them whole with `get_document`, so it can tell exactly what you changed.
+
+Your edit is also safe from an agent that was halfway through a rewrite of its own. A rewrite has to name the version it replaces, and one that names a version older than yours is refused, so the agent has to read your edit before it can write over it.
+
+## Starting one yourself
+
+Press `c` in the documents list to write a new one for the agent. Komrad asks for its name and its kind, then creates it with a line of placeholder text. Press `e` to write the real text. This is handy for giving an agent a plan you wrote, or notes it should keep in mind, without putting them in the prompt.
+
+## Stepping through versions
+
+`<` steps back through a document's writes and `>` steps forward again. Each step draws what that write changed, the way a review draws a commit, so you can read how the document got to where it is. Each step says which version it is, whether the agent or you wrote it, and how long ago. Stepping past the newest write takes you back to the document as it stands.
+
+<figure>
+  <video
+    autoplay
+    loop
+    muted
+    playsinline
+    poster={media("documents-history.png")}
+    width="1440"
+    height="920"
+    aria-label="Stepping back through the truncate-rfc document: the agent's revision, the person's edit before it, and the first draft, each drawn as a diff, then stepping forward to the document as it stands."
+  >
+    <source src={media("documents-history.webm")} type="video/webm" />
+    <source src={media("documents-history.mp4")} type="video/mp4" />
+  </video>
+</figure>
+
+The history is the record of the back and forth. After a round or two of edits, it shows what the agent first proposed, what you changed, and how the agent answered, which is often the most useful part of an RFC once the work is done.
+
+## From a document to the work
+
+Once the document says what you want, tell the agent to build it. It already has the document, so the prompt can be as short as "carry out truncate-rfc". Because the document stays with the agent, you can open it next to the agent's diff later and check that what was built is what was agreed.
