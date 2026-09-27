@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"komrad/internal/fail"
 	"komrad/internal/mail"
@@ -211,7 +212,7 @@ func (s *ScheduleService) resolveTarget(ctx context.Context, cfg schedulestore.C
 		if cfg.OrchestratorAgentID == nil {
 			return schedulestore.Config{}, ErrOrchestratorNotFound.Saying("an orchestrator schedule names no orchestrator")
 		}
-		if len(cfg.Prompt) > mail.MaxMailBody {
+		if utf8.RuneCountInString(cfg.Prompt) > mail.MaxMailBody {
 			return schedulestore.Config{}, ErrPromptTooLong.Saying("an orchestrator schedule's prompt is mailed, which holds at most %d characters", mail.MaxMailBody)
 		}
 

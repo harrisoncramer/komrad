@@ -7,6 +7,7 @@ INSERT INTO mail(
     kind,
     reply_to,
     about_agent_id,
+    idempotency_key,
     expires_at)
 VALUES (
     sqlc.narg('from_agent_id'),
@@ -16,9 +17,19 @@ VALUES (
     @kind,
     sqlc.narg('reply_to'),
     sqlc.narg('about_agent_id'),
+    sqlc.narg('idempotency_key'),
     NOW() + interval '1 microsecond' * @deadline_micros::bigint)
 RETURNING
     *;
+
+-- name: GetMailByIdempotencyKey :one
+SELECT
+    *
+FROM
+    mail m
+WHERE
+    m.idempotency_key = @idempotency_key
+LIMIT 1;
 
 -- name: GetPendingMailOfKind :one
 SELECT

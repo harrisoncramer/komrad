@@ -110,7 +110,7 @@ func (w *LaunchAgentWorker) fire(ctx context.Context, schedule *schedulestore.Sc
 	}
 
 	if schedule.Kind == schedulestore.KindOrchestrator {
-		return w.mailOrchestrator(ctx, schedule)
+		return w.mailOrchestrator(ctx, schedule, args)
 	}
 
 	return w.launch(ctx, schedule, args)
@@ -118,7 +118,7 @@ func (w *LaunchAgentWorker) fire(ctx context.Context, schedule *schedulestore.Sc
 
 // mailOrchestrator sends the prompt to the schedule's orchestrator, skipping the firing when that
 // orchestrator has been archived or deleted.
-func (w *LaunchAgentWorker) mailOrchestrator(ctx context.Context, schedule *schedulestore.Schedule) error {
+func (w *LaunchAgentWorker) mailOrchestrator(ctx context.Context, schedule *schedulestore.Schedule, args LaunchAgentArgs) error {
 	if schedule.OrchestratorAgentID == nil {
 		return river.JobCancel(fmt.Errorf("schedule %q names no orchestrator", schedule.Name))
 	}
@@ -134,10 +134,14 @@ func (w *LaunchAgentWorker) mailOrchestrator(ctx context.Context, schedule *sche
 	}
 
 	_, err = w.mailer.SendScheduledMail(ctx, mail.SendScheduledMailParams{
-		ToAgentID:    orchestrator.ID,
-		ScheduleName: schedule.Name,
-		Body:         schedule.Prompt,
+		ToAgentID:      orchestrator.ID,
+		ScheduleName:   schedule.Name,
+		Body:           schedule.Prompt,
+		IdempotencyKey: launchKey(schedule.ID, args.ScheduledFor),
 	})
+	if errors.Is(err, mail.ErrAlreadySent) {
+		return nil
+	}
 	if errors.Is(err, mail.ErrAgentArchived) || errors.Is(err, mail.ErrRecipientNotFound) {
 		return river.JobCancel(fmt.Errorf("failed to mail for schedule %q: %w", schedule.Name, err))
 	}

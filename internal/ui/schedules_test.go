@@ -469,13 +469,59 @@ func TestSchedulesForm(t *testing.T) {
 		})
 	})
 
-	t.Run("an orchestrator schedule with no live orchestrator says there is none to mail", func(t *testing.T) {
+	t.Run("with no live orchestrator only an implementer schedule is offered", func(t *testing.T) {
 		harness := openSchedules(t, buildSchedules()...)
 
 		harness.press(widenListPresses...)
 		harness.press("c", "down")
+		form := readStageText(harness.readFrame())
+		assert.Contains(t, form, "start an orchestrator to mail one instead")
+		assert.NotContains(t, form, "mail one already running")
 
-		assert.Contains(t, readStageText(harness.readFrame()), "no live orchestrator to mail")
+		harness.press("tab")
+		typeText(harness, "nightly")
+		harness.press("enter")
+		typeText(harness, "0 9 * * *")
+		harness.press("ctrl+s")
+
+		harness.assertSentTo(schedulev1connect.ScheduleServiceCreateScheduleProcedure, &schedulev1.CreateScheduleRequest{
+			Name:    "nightly",
+			Cron:    "0 9 * * *",
+			Enabled: true,
+			Target:  &schedulev1.CreateScheduleRequest_WorkflowId{WorkflowId: "w1"},
+		})
+	})
+
+	t.Run("flipping the kind keeps what was typed and the cursor on the kind", func(t *testing.T) {
+		harness := openSchedules(t, append(buildSchedules(), newOrchestrator())...)
+
+		harness.press(widenListPresses...)
+		harness.press("c", "tab")
+		typeText(harness, "nightly")
+		harness.press("enter")
+		typeText(harness, "0 9 * * *")
+		harness.press("enter", "enter")
+		typeText(harness, "check CI")
+		harness.press("shift+tab", "shift+tab", "shift+tab", "shift+tab", "down")
+		require.Contains(t, readStageText(harness.readFrame()), "> orchestrator  api")
+		harness.press("up")
+		require.Contains(t, readStageText(harness.readFrame()), "> api")
+		harness.press("down")
+
+		form := readStageText(harness.readFrame())
+		assert.Contains(t, form, "> nightly")
+		assert.Contains(t, form, "check CI")
+		harness.press("tab")
+		typeText(harness, "-brief")
+		harness.press("ctrl+s")
+
+		harness.assertSentTo(schedulev1connect.ScheduleServiceCreateScheduleProcedure, &schedulev1.CreateScheduleRequest{
+			Name:    "nightly-brief",
+			Cron:    "0 9 * * *",
+			Prompt:  "check CI",
+			Enabled: true,
+			Target:  &schedulev1.CreateScheduleRequest_OrchestratorAgentId{OrchestratorAgentId: "o1"},
+		})
 	})
 
 	t.Run("an edit of an orchestrator schedule keeps the orchestrator it mails", func(t *testing.T) {

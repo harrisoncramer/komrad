@@ -26,10 +26,7 @@ func scheduleForm(params scheduleFormParams) (*huh.Form, []string) {
 	values := params.values
 
 	fields := []huh.Field{
-		huh.NewSelect[schedulev1.ScheduleKind]().Key("kind").Title("Kind").Description("what each firing does").Options(
-			huh.NewOption("Implementer  launch a new agent", schedulev1.ScheduleKind_SCHEDULE_KIND_IMPLEMENTER),
-			huh.NewOption("Orchestrator  mail one already running", schedulev1.ScheduleKind_SCHEDULE_KIND_ORCHESTRATOR),
-		).Value(&values.Kind),
+		kindField(values, params.orchestrators),
 		huh.NewInput().Key("name").Title("Name").Description(scheduleNameDescription(values.Kind)).Value(&values.Name),
 		huh.NewInput().Key("cron").Title("Cron").Placeholder("0 9 * * 1-5").Description("minute hour day month weekday").Value(&values.Cron),
 		huh.NewInput().Key("timezone").Title("Timezone").Placeholder("America/New_York").Description("blank = this machine's zone").Value(&values.Timezone),
@@ -52,6 +49,20 @@ func scheduleForm(params scheduleFormParams) (*huh.Form, []string) {
 	}
 
 	return formOf(params.keys, fields...)
+}
+
+func kindField(values *panel.ScheduleConfig, orchestrators []panel.Agent) huh.Field {
+	options := []huh.Option[schedulev1.ScheduleKind]{
+		huh.NewOption("Implementer  launch a new agent", schedulev1.ScheduleKind_SCHEDULE_KIND_IMPLEMENTER),
+	}
+	description := "what each firing does"
+	if len(orchestrators) > 0 || values.Kind == schedulev1.ScheduleKind_SCHEDULE_KIND_ORCHESTRATOR {
+		options = append(options, huh.NewOption("Orchestrator  mail one already running", schedulev1.ScheduleKind_SCHEDULE_KIND_ORCHESTRATOR))
+	} else {
+		description = "start an orchestrator to mail one instead"
+	}
+
+	return huh.NewSelect[schedulev1.ScheduleKind]().Key("kind").Title("Kind").Description(description).Options(options...).Value(&values.Kind)
 }
 
 func scheduleNameDescription(kind schedulev1.ScheduleKind) string {
@@ -97,10 +108,6 @@ func orchestratorField(values *panel.ScheduleConfig, orchestrators []panel.Agent
 
 	if values.OrchestratorID != "" && !slices.ContainsFunc(options, func(o huh.Option[string]) bool { return o.Value == values.OrchestratorID }) {
 		options = append(options, huh.NewOption(values.OrchestratorID+"  gone", values.OrchestratorID))
-	}
-
-	if len(options) == 0 {
-		return huh.NewNote().Title("Orchestrator").Description("no live orchestrator to mail")
 	}
 
 	return huh.NewSelect[string]().Key("orchestrator").Title("Orchestrator").Description("receives the prompt as mail").Options(options...).Value(&values.OrchestratorID)

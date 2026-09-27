@@ -52,7 +52,7 @@ table "schedules" {
   column "orchestrator_agent_id" {
     null    = true
     type    = uuid
-    comment = "The orchestrator an orchestrator schedule mails, left unconstrained so the agent can be deleted while the schedule names it."
+    comment = "The orchestrator an orchestrator schedule mails."
   }
   column "archived_at" {
     null = true

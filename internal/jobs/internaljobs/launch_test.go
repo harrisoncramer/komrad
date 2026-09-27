@@ -306,12 +306,19 @@ func TestLaunchAgentWorkerMailsAnOrchestrator(t *testing.T) {
 		archived   bool
 		deleted    bool
 		paused     bool
+		twice      bool
 		wantReason string
 		wantRuns   []schedulestore.RunState
 		wantMailed bool
 	}{
 		{
 			name:       "a live orchestrator is mailed the prompt",
+			wantRuns:   []schedulestore.RunState{schedulestore.RunStateCompleted},
+			wantMailed: true,
+		},
+		{
+			name:       "working the same firing twice mails once",
+			twice:      true,
 			wantRuns:   []schedulestore.RunState{schedulestore.RunStateCompleted},
 			wantMailed: true,
 		},
@@ -381,10 +388,15 @@ func TestLaunchAgentWorkerMailsAnOrchestrator(t *testing.T) {
 				}),
 			})
 
-			err := worker.Work(ctx, &river.Job[LaunchAgentArgs]{
+			job := &river.Job[LaunchAgentArgs]{
 				JobRow: &rivertype.JobRow{Attempt: 1, MaxAttempts: 5},
 				Args:   LaunchAgentArgs{ScheduleID: schedule.ID, ScheduledFor: nine},
-			})
+			}
+			if tt.twice {
+				require.NoError(t, worker.Work(ctx, job))
+				job.Attempt = 2
+			}
+			err := worker.Work(ctx, job)
 			if tt.wantReason != "" {
 				require.Error(t, err)
 				assert.True(t, isCancel(err), "a firing with nobody to mail cancels rather than being retried")

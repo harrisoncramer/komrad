@@ -35,7 +35,7 @@ WHERE
         FROM
             pending)
 RETURNING
-    id, from_agent_id, from_name, to_agent_id, body, reply_to, claimed_at, reported_at, expires_at, created_at, updated_at, kind, about_agent_id, engine_id
+    id, from_agent_id, from_name, to_agent_id, body, reply_to, claimed_at, reported_at, expires_at, created_at, updated_at, kind, about_agent_id, engine_id, idempotency_key
 `
 
 type ClaimMailParams struct {
@@ -67,6 +67,7 @@ func (q *Queries) ClaimMail(ctx context.Context, arg ClaimMailParams) ([]*Mail, 
 			&i.Kind,
 			&i.AboutAgentID,
 			&i.EngineID,
+			&i.IdempotencyKey,
 		); err != nil {
 			return nil, err
 		}
@@ -133,7 +134,7 @@ func (q *Queries) DeleteMailByID(ctx context.Context, ids []string) error {
 
 const getMail = `-- name: GetMail :one
 SELECT
-    id, from_agent_id, from_name, to_agent_id, body, reply_to, claimed_at, reported_at, expires_at, created_at, updated_at, kind, about_agent_id, engine_id
+    id, from_agent_id, from_name, to_agent_id, body, reply_to, claimed_at, reported_at, expires_at, created_at, updated_at, kind, about_agent_id, engine_id, idempotency_key
 FROM
     mail m
 WHERE
@@ -158,13 +159,47 @@ func (q *Queries) GetMail(ctx context.Context, id string) (*Mail, error) {
 		&i.Kind,
 		&i.AboutAgentID,
 		&i.EngineID,
+		&i.IdempotencyKey,
+	)
+	return &i, err
+}
+
+const getMailByIdempotencyKey = `-- name: GetMailByIdempotencyKey :one
+SELECT
+    id, from_agent_id, from_name, to_agent_id, body, reply_to, claimed_at, reported_at, expires_at, created_at, updated_at, kind, about_agent_id, engine_id, idempotency_key
+FROM
+    mail m
+WHERE
+    m.idempotency_key = $1
+LIMIT 1
+`
+
+func (q *Queries) GetMailByIdempotencyKey(ctx context.Context, idempotencyKey *string) (*Mail, error) {
+	row := q.db.QueryRow(ctx, getMailByIdempotencyKey, idempotencyKey)
+	var i Mail
+	err := row.Scan(
+		&i.ID,
+		&i.FromAgentID,
+		&i.FromName,
+		&i.ToAgentID,
+		&i.Body,
+		&i.ReplyTo,
+		&i.ClaimedAt,
+		&i.ReportedAt,
+		&i.ExpiresAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Kind,
+		&i.AboutAgentID,
+		&i.EngineID,
+		&i.IdempotencyKey,
 	)
 	return &i, err
 }
 
 const getPendingMailOfKind = `-- name: GetPendingMailOfKind :one
 SELECT
-    id, from_agent_id, from_name, to_agent_id, body, reply_to, claimed_at, reported_at, expires_at, created_at, updated_at, kind, about_agent_id, engine_id
+    id, from_agent_id, from_name, to_agent_id, body, reply_to, claimed_at, reported_at, expires_at, created_at, updated_at, kind, about_agent_id, engine_id, idempotency_key
 FROM
     mail m
 WHERE
@@ -202,6 +237,7 @@ func (q *Queries) GetPendingMailOfKind(ctx context.Context, arg GetPendingMailOf
 		&i.Kind,
 		&i.AboutAgentID,
 		&i.EngineID,
+		&i.IdempotencyKey,
 	)
 	return &i, err
 }
@@ -215,6 +251,7 @@ INSERT INTO mail(
     kind,
     reply_to,
     about_agent_id,
+    idempotency_key,
     expires_at)
 VALUES (
     $1,
@@ -224,9 +261,10 @@ VALUES (
     $5,
     $6,
     $7,
-    NOW() + interval '1 microsecond' * $8::bigint)
+    $8,
+    NOW() + interval '1 microsecond' * $9::bigint)
 RETURNING
-    id, from_agent_id, from_name, to_agent_id, body, reply_to, claimed_at, reported_at, expires_at, created_at, updated_at, kind, about_agent_id, engine_id
+    id, from_agent_id, from_name, to_agent_id, body, reply_to, claimed_at, reported_at, expires_at, created_at, updated_at, kind, about_agent_id, engine_id, idempotency_key
 `
 
 type InsertMailParams struct {
@@ -237,6 +275,7 @@ type InsertMailParams struct {
 	Kind           MailKind
 	ReplyTo        *string
 	AboutAgentID   *string
+	IdempotencyKey *string
 	DeadlineMicros int64
 }
 
@@ -249,6 +288,7 @@ func (q *Queries) InsertMail(ctx context.Context, arg InsertMailParams) (*Mail, 
 		arg.Kind,
 		arg.ReplyTo,
 		arg.AboutAgentID,
+		arg.IdempotencyKey,
 		arg.DeadlineMicros,
 	)
 	var i Mail
@@ -267,13 +307,14 @@ func (q *Queries) InsertMail(ctx context.Context, arg InsertMailParams) (*Mail, 
 		&i.Kind,
 		&i.AboutAgentID,
 		&i.EngineID,
+		&i.IdempotencyKey,
 	)
 	return &i, err
 }
 
 const listMailByID = `-- name: ListMailByID :many
 SELECT
-    id, from_agent_id, from_name, to_agent_id, body, reply_to, claimed_at, reported_at, expires_at, created_at, updated_at, kind, about_agent_id, engine_id
+    id, from_agent_id, from_name, to_agent_id, body, reply_to, claimed_at, reported_at, expires_at, created_at, updated_at, kind, about_agent_id, engine_id, idempotency_key
 FROM
     mail m
 WHERE
@@ -304,6 +345,7 @@ func (q *Queries) ListMailByID(ctx context.Context, ids []string) ([]*Mail, erro
 			&i.Kind,
 			&i.AboutAgentID,
 			&i.EngineID,
+			&i.IdempotencyKey,
 		); err != nil {
 			return nil, err
 		}
@@ -317,7 +359,7 @@ func (q *Queries) ListMailByID(ctx context.Context, ids []string) ([]*Mail, erro
 
 const listMailPage = `-- name: ListMailPage :many
 SELECT
-    id, from_agent_id, from_name, to_agent_id, body, reply_to, claimed_at, reported_at, expires_at, created_at, updated_at, kind, about_agent_id, engine_id
+    id, from_agent_id, from_name, to_agent_id, body, reply_to, claimed_at, reported_at, expires_at, created_at, updated_at, kind, about_agent_id, engine_id, idempotency_key
 FROM
     mail m
 WHERE
@@ -359,6 +401,7 @@ func (q *Queries) ListMailPage(ctx context.Context, arg ListMailPageParams) ([]*
 			&i.Kind,
 			&i.AboutAgentID,
 			&i.EngineID,
+			&i.IdempotencyKey,
 		); err != nil {
 			return nil, err
 		}
@@ -372,7 +415,7 @@ func (q *Queries) ListMailPage(ctx context.Context, arg ListMailPageParams) ([]*
 
 const listMailSentPage = `-- name: ListMailSentPage :many
 SELECT
-    id, from_agent_id, from_name, to_agent_id, body, reply_to, claimed_at, reported_at, expires_at, created_at, updated_at, kind, about_agent_id, engine_id
+    id, from_agent_id, from_name, to_agent_id, body, reply_to, claimed_at, reported_at, expires_at, created_at, updated_at, kind, about_agent_id, engine_id, idempotency_key
 FROM
     mail m
 WHERE
@@ -414,6 +457,7 @@ func (q *Queries) ListMailSentPage(ctx context.Context, arg ListMailSentPagePara
 			&i.Kind,
 			&i.AboutAgentID,
 			&i.EngineID,
+			&i.IdempotencyKey,
 		); err != nil {
 			return nil, err
 		}
@@ -458,7 +502,7 @@ func (q *Queries) ListMailboxesWithPendingMail(ctx context.Context) ([]string, e
 
 const listWatchedMail = `-- name: ListWatchedMail :many
 SELECT
-    id, from_agent_id, from_name, to_agent_id, body, reply_to, claimed_at, reported_at, expires_at, created_at, updated_at, kind, about_agent_id, engine_id
+    id, from_agent_id, from_name, to_agent_id, body, reply_to, claimed_at, reported_at, expires_at, created_at, updated_at, kind, about_agent_id, engine_id, idempotency_key
 FROM
     mail m
 WHERE
@@ -493,6 +537,7 @@ func (q *Queries) ListWatchedMail(ctx context.Context, keys []string) ([]*Mail, 
 			&i.Kind,
 			&i.AboutAgentID,
 			&i.EngineID,
+			&i.IdempotencyKey,
 		); err != nil {
 			return nil, err
 		}
@@ -530,7 +575,7 @@ WHERE
         FROM
             unreported)
     RETURNING
-        id, from_agent_id, from_name, to_agent_id, body, reply_to, claimed_at, reported_at, expires_at, created_at, updated_at, kind, about_agent_id, engine_id
+        id, from_agent_id, from_name, to_agent_id, body, reply_to, claimed_at, reported_at, expires_at, created_at, updated_at, kind, about_agent_id, engine_id, idempotency_key
 `
 
 func (q *Queries) ReportExpiredMail(ctx context.Context, toAgentID string) ([]*Mail, error) {
@@ -557,6 +602,7 @@ func (q *Queries) ReportExpiredMail(ctx context.Context, toAgentID string) ([]*M
 			&i.Kind,
 			&i.AboutAgentID,
 			&i.EngineID,
+			&i.IdempotencyKey,
 		); err != nil {
 			return nil, err
 		}

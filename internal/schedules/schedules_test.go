@@ -418,6 +418,11 @@ func TestOrchestratorSchedule(t *testing.T) {
 			prompt:  strings.Repeat("x", mail.MaxMailBody+1),
 			wantErr: ErrPromptTooLong,
 		},
+		{
+			name:   "a prompt whose characters fit mail though its bytes do not",
+			role:   agentstore.RoleOrchestrator,
+			prompt: strings.Repeat("é", mail.MaxMailBody),
+		},
 	}
 
 	for _, tt := range tests {

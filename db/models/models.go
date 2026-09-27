@@ -506,6 +506,8 @@ type Mail struct {
 	AboutAgentID *string
 	// The engine that owns this row, stamped from the login that wrote it.
 	EngineID string
+	// The key a retried send is recognised by, null on mail sent once.
+	IdempotencyKey *string
 }
 
 // A letter a person types to jump to one row. Each letter belongs to a single agent or a single workflow, so it always names one place.
@@ -719,7 +721,7 @@ type Schedule struct {
 	EngineID string
 	// Whether a firing launches an implementer into the workflow or mails the prompt to an orchestrator.
 	Kind ScheduleKind
-	// The orchestrator an orchestrator schedule mails, left unconstrained so the agent can be deleted while the schedule names it.
+	// The orchestrator an orchestrator schedule mails.
 	OrchestratorAgentID *string
 }
 
