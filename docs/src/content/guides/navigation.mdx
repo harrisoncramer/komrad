@@ -1,0 +1,102 @@
+---
+title: Navigating komrad
+description: Komrad's navigation is keyboard based, and inspired by vim.
+group: start
+order: 4
+---
+
+import { media } from "../../site";
+
+## The different views
+
+The panel is divided into a few regions.
+
+The sidebar holds a list of whatever is in focus: agents and workflows, schedules, worktrees, or documents. Under the list are the details, which show what is known about the row under the cursor, such as an agent's directory or its base branch. Under those, the messages region shows what komrad has recently reported, and the legend shows the keys that work from where you are.
+
+The stage is the wide region beside the sidebar. It shows the agent you have opened, its diff on the review screen, or a document.
+
+`ctrl+a` moves the keyboard to the next of these views, and `ctrl+q` to the previous one: the list, the agent on the stage, then the details. `ctrl+g` moves it to the messages. If your own tmux prefix is `ctrl+a`, choose another [pair of cycle keys](../../config/#keybindings.cycle.views).
+
+<figure>
+  <video
+    autoplay
+    loop
+    muted
+    playsinline
+    poster={media("navigation-views.png")}
+    width="1440"
+    height="920"
+    aria-label="Opening an agent onto the stage, then pressing ctrl+a and ctrl+q to move the keyboard between the list, the agent and the details."
+  >
+    <source src={media("navigation-views.webm")} type="video/webm" />
+    <source src={media("navigation-views.mp4")} type="video/mp4" />
+  </video>
+</figure>
+
+## Basic navigation
+
+Every list moves the same way. `j` and `k` move the cursor a row, `ctrl+d` and `ctrl+u` move it a chunk of rows, and `gg` and `G` jump to the first and last row. The mouse wheel scrolls whichever region it is over.
+
+Press `/` to search. Typing lights up the rows that match, and `enter` puts the cursor on the nearest one. `n` and `N` then step through the matches. A pattern in lower case ignores case, and a pattern is a regular expression.
+
+While typing a search, press `tab` to turn it into a filter, which takes every row that does not match off the screen instead of stepping through them. `esc` clears either one and puts the cursor back where it started.
+
+Press `f` to reach the sort strip over the list. `tab` moves along its columns, `j` sorts by the column under the cursor downward and `k` upward, and `esc` returns to the list. The last stop on the strip groups the rows under their workflows; `j` or `k` there flattens the list, which is easier to sort by activity or name.
+
+You can also mark a row with `m` and a letter, and jump back to it with `'` and the same letter, the way vim's marks work.
+
+<figure>
+  <video
+    autoplay
+    loop
+    muted
+    playsinline
+    poster={media("navigation-moving.png")}
+    width="1440"
+    height="920"
+    aria-label="Moving down the agents list a row and a chunk at a time, searching for lsp and stepping through the matches, filtering the list down to docs, then sorting it by name and flattening it."
+  >
+    <source src={media("navigation-moving.webm")} type="video/webm" />
+    <source src={media("navigation-moving.mp4")} type="video/mp4" />
+  </video>
+</figure>
+
+## Visual selection
+
+Press `v` to take the row under the cursor into a selection, or out of it again, and `V` to take in every row between the cursor and the nearest selected one. An action that works on one agent then works on all of them, such as archiving with `z`, or restoring and deleting on the archive screen. `esc` drops the selection.
+
+<figure>
+  <video
+    autoplay
+    loop
+    muted
+    playsinline
+    poster={media("navigation-selecting.png")}
+    width="1440"
+    height="920"
+    aria-label="Selecting three agents with v and V, then archiving them together with z."
+  >
+    <source src={media("navigation-selecting.webm")} type="video/webm" />
+    <source src={media("navigation-selecting.mp4")} type="video/mp4" />
+  </video>
+</figure>
+
+## The details
+
+The details under the list show more about the row under the cursor, such as an agent's directory, branch, pull request and recent commits. Press `ctrl+a` until the keyboard reaches them, move with `j` and `k`, and press `y` to copy the value of the field under the cursor to your clipboard. `/` searches the fields the same way it searches the list.
+
+<figure>
+  <video
+    autoplay
+    loop
+    muted
+    playsinline
+    poster={media("navigation-details.png")}
+    width="1440"
+    height="920"
+    aria-label="Moving the keyboard into an agent's details with ctrl+a, moving down to its directory, and copying it with y."
+  >
+    <source src={media("navigation-details.webm")} type="video/webm" />
+    <source src={media("navigation-details.mp4")} type="video/mp4" />
+  </video>
+</figure>
