@@ -61,6 +61,7 @@ func TestIntegrationPreDeleteRunsWhileTheWorktreeIsStillThere(t *testing.T) {
 
 	_, err = instance.Agents.DeleteAgents(ctx, connect.NewRequest(&agentv1.DeleteAgentsRequest{Ids: []string{id}}))
 	require.NoError(t, err)
+	instance.WorkQueue()
 
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
 		_, err := instance.Stores.Agents.GetByID(ctx, id)
@@ -97,6 +98,7 @@ func TestIntegrationAFailedPreDeleteHoldsTheDelete(t *testing.T) {
 
 	_, err = instance.Agents.DeleteAgents(ctx, connect.NewRequest(&agentv1.DeleteAgentsRequest{Ids: []string{id}}))
 	require.NoError(t, err)
+	instance.WorkQueue()
 
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
 		agent, err := instance.Stores.Agents.GetByID(ctx, id)
@@ -136,6 +138,7 @@ func TestIntegrationPreDeleteIsSkippedOnceTheDirectoryHasGone(t *testing.T) {
 
 	_, err = instance.Agents.DeleteAgents(ctx, connect.NewRequest(&agentv1.DeleteAgentsRequest{Ids: []string{id}}))
 	require.NoError(t, err)
+	instance.WorkQueue()
 
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
 		_, err := instance.Stores.Agents.GetByID(ctx, id)
@@ -167,6 +170,8 @@ func TestIntegrationOverlappingDeletesRunThePreDeleteOnce(t *testing.T) {
 
 	id := created.Msg.GetAgent().GetId()
 	request := &agentv1.DeleteAgentsRequest{Ids: []string{id}}
+
+	instance.WorkQueue()
 
 	_, err = instance.Agents.DeleteAgents(ctx, connect.NewRequest(request))
 	require.NoError(t, err)
@@ -277,6 +282,7 @@ func TestIntegrationADeleteWaitsForThePostArchiveStillRunning(t *testing.T) {
 	require.NoError(t, err)
 	_, err = instance.Agents.DeleteAgents(ctx, connect.NewRequest(&agentv1.DeleteAgentsRequest{Ids: ids}))
 	require.NoError(t, err)
+	instance.WorkQueue()
 
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
 		_, err := instance.Stores.Agents.GetByID(ctx, agent.GetId())
@@ -302,6 +308,7 @@ func TestIntegrationPostDeleteRunsOnceTheWorktreeIsGone(t *testing.T) {
 
 	_, err := instance.Agents.DeleteAgents(ctx, connect.NewRequest(&agentv1.DeleteAgentsRequest{Ids: []string{agent.GetId()}}))
 	require.NoError(t, err)
+	instance.WorkQueue()
 
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
 		ran, err := os.ReadFile(seen)
@@ -391,6 +398,7 @@ func TestIntegrationEveryMomentFiresInOrderOverAnAgentsLife(t *testing.T) {
 
 	_, err = instance.Agents.DeleteAgents(ctx, connect.NewRequest(&agentv1.DeleteAgentsRequest{Ids: ids}))
 	require.NoError(t, err)
+	instance.WorkQueue()
 	seen = append(seen, workflowstore.HookPreDelete, workflowstore.HookPostDelete)
 	waitForMoments(t, record, seen...)
 }

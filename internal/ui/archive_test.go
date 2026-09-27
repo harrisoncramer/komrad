@@ -21,16 +21,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 const (
-	archivedAt    = "2026-07-30T09:00:00Z"
-	archiveTitle  = "Archive"
-	agentsTitle   = "Agents & Workflows"
-	deletePrompt  = "Permanently delete"
-	emptyingQueue = "Emptying the archive"
+	archivedAt   = "2026-07-30T09:00:00Z"
+	archiveTitle = "Archive"
+	agentsTitle  = "Agents & Workflows"
+	deletePrompt = "Permanently delete"
 )
 
 var widenListPresses = slices.Repeat([]string{"}"}, 10)
@@ -58,12 +56,6 @@ func TestArchiveKeys(t *testing.T) {
 			name:      "delete on an empty archive opens no prompt",
 			rows:      []proto.Message{newLiveWorkflow("w1", "backend")},
 			press:     []string{"d"},
-			wantTitle: archiveTitle,
-		},
-		{
-			name:      "empty on an empty archive opens no prompt",
-			rows:      []proto.Message{newLiveWorkflow("w1", "backend")},
-			press:     []string{"D"},
 			wantTitle: archiveTitle,
 		},
 		{
@@ -153,20 +145,6 @@ func TestArchiveKeys(t *testing.T) {
 			wantTitle:  archiveTitle,
 			wantPrompt: "The one agent still archived inside it goes with it",
 		},
-		{
-			name:       "empty on an agent opens the confirm prompt rather than sweeping",
-			rows:       buildOneArchivedAgent(),
-			press:      []string{"j", "D"},
-			wantTitle:  archiveTitle,
-			wantPrompt: "Permanently delete the one archived agent?",
-		},
-		{
-			name:       "empty on a header opens it too",
-			rows:       buildOneArchivedAgent(),
-			press:      []string{"D"},
-			wantTitle:  archiveTitle,
-			wantPrompt: "Permanently delete the one archived agent?",
-		},
 	}
 
 	for _, tt := range tests {
@@ -187,14 +165,13 @@ func TestArchiveKeys(t *testing.T) {
 	}
 }
 
-// TestArchivePrompts covers answering the delete and empty prompts.
+// TestArchivePrompts covers answering the delete prompts.
 func TestArchivePrompts(t *testing.T) {
 	tests := []struct {
-		name       string
-		rows       []proto.Message
-		press      []string
-		wantSent   []request
-		wantBanner string
+		name     string
+		rows     []proto.Message
+		press    []string
+		wantSent []request
 	}{
 		{
 			name:  "declining the delete destroys nothing",
@@ -205,16 +182,6 @@ func TestArchivePrompts(t *testing.T) {
 			name:  "declining the workflow delete destroys nothing",
 			rows:  []proto.Message{newArchivedWorkflow("w1", "backend")},
 			press: []string{"d", "n"},
-		},
-		{
-			name:  "declining the empty queues nothing",
-			rows:  buildOneArchivedAgent(),
-			press: []string{"D", "n"},
-		},
-		{
-			name:  "the empty prompt starts on cancel",
-			rows:  buildOneArchivedAgent(),
-			press: []string{"D", "ctrl+s"},
 		},
 		{
 			name:  "confirming the delete destroys the agent it was opened on",
@@ -234,16 +201,6 @@ func TestArchivePrompts(t *testing.T) {
 				msg:       &workflowv1.DeleteWorkflowRequest{Id: "w1"},
 			}},
 		},
-		{
-			name:  "confirming the empty queues the sweep and says so",
-			rows:  buildOneArchivedAgent(),
-			press: []string{"D", "y"},
-			wantSent: []request{{
-				procedure: agentv1connect.AgentServiceEmptyArchiveProcedure,
-				msg:       &emptypb.Empty{},
-			}},
-			wantBanner: emptyingQueue,
-		},
 	}
 
 	for _, tt := range tests {
@@ -255,11 +212,6 @@ func TestArchivePrompts(t *testing.T) {
 			frame := harness.readFrame()
 			assert.Contains(t, splitLines(frame)[0], archiveTitle, "the prompt returns to the archive it was opened from")
 			assert.NotContains(t, frame, deletePrompt, "the prompt is down")
-			if tt.wantBanner == "" {
-				assert.NotContains(t, frame, emptyingQueue)
-			} else {
-				assert.Contains(t, frame, tt.wantBanner)
-			}
 			harness.assertSent(tt.wantSent...)
 		})
 	}

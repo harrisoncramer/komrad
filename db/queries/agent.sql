@@ -74,20 +74,7 @@ FROM
 ORDER BY
     s.id DESC;
 
--- name: ListArchiveSweepPage :many
-SELECT
-    *
-FROM
-    agents s
-WHERE
-    s.archived_at IS NOT NULL
-    AND (sqlc.narg('cursor_id')::uuid IS NULL
-        OR s.id < sqlc.narg('cursor_id'))
-ORDER BY
-    s.id DESC
-LIMIT @lim;
-
--- name: MarkAgentsDeleting :exec
+-- name: MarkAgentsDeleting :many
 WITH claimed AS (
     UPDATE
         agents
@@ -98,83 +85,46 @@ WITH claimed AS (
     AND deleting_at IS NULL
 RETURNING
     id,
-    workflow_id)
-UPDATE
-    workflows w
-SET
-    deleting_at = NOW()
-WHERE
-    w.archived_at IS NOT NULL
-    AND w.deleting_at IS NULL
-    AND w.id IN (
-        SELECT
-            workflow_id
-        FROM
-            claimed)
-    AND NOT EXISTS (
-        SELECT
-            1
-        FROM
-            agents a
-        WHERE
-            a.workflow_id = w.id
-            AND a.archived_at IS NOT NULL
-            AND a.deleting_at IS NULL
-            AND a.id NOT IN (
-                SELECT
-                    id
-                FROM
-                    claimed));
-
--- name: MarkArchivedAgentsDeleting :exec
-WITH claimed AS (
+    parent_agent_id,
+    workflow_id
+),
+marked AS (
     UPDATE
-        agents a
+        workflows w
     SET
         deleting_at = NOW()
     WHERE
-        a.archived_at IS NOT NULL
-        AND a.state <> 'failed_to_cleanup'
-        AND a.deleting_at IS NULL
-        AND NOT EXISTS (
+        w.archived_at IS NOT NULL
+        AND w.deleting_at IS NULL
+        AND w.id IN (
             SELECT
-                1
+                workflow_id
             FROM
-                agents parent
-            WHERE
-                parent.id = a.parent_agent_id
-                AND parent.state = 'failed_to_cleanup')
-        RETURNING
-            a.id,
-            a.workflow_id)
-UPDATE
-    workflows w
-SET
-    deleting_at = NOW()
-WHERE
-    w.archived_at IS NOT NULL
-    AND w.deleting_at IS NULL
-    AND w.id IN (
-        SELECT
-            workflow_id
-        FROM
-            claimed)
-    AND NOT EXISTS (
-        SELECT
-            1
-        FROM
-            agents a
-        WHERE
-            a.workflow_id = w.id
-            AND a.archived_at IS NOT NULL
-            AND a.deleting_at IS NULL
-            AND a.id NOT IN (
+                claimed)
+            AND NOT EXISTS (
                 SELECT
-                    id
+                    1
                 FROM
-                    claimed));
+                    agents a
+                WHERE
+                    a.workflow_id = w.id
+                    AND a.archived_at IS NOT NULL
+                    AND a.deleting_at IS NULL
+                    AND a.id NOT IN (
+                        SELECT
+                            id
+                        FROM
+                            claimed))
+                RETURNING
+                    w.id
+)
+        SELECT
+            id,
+            parent_agent_id
+        FROM
+            claimed;
 
--- name: MarkArchivedAgentsDeletingByID :exec
+-- name: MarkArchivedAgentsDeletingByID :many
 WITH claimed AS (
     UPDATE
         agents a
@@ -195,33 +145,44 @@ WITH claimed AS (
             AND parent.state = 'failed_to_cleanup')
     RETURNING
         a.id,
-        a.workflow_id)
-UPDATE
-    workflows w
-SET
-    deleting_at = NOW()
-WHERE
-    w.archived_at IS NOT NULL
-    AND w.deleting_at IS NULL
-    AND w.id IN (
-        SELECT
-            workflow_id
-        FROM
-            claimed)
-    AND NOT EXISTS (
-        SELECT
-            1
-        FROM
-            agents a
-        WHERE
-            a.workflow_id = w.id
-            AND a.archived_at IS NOT NULL
-            AND a.deleting_at IS NULL
-            AND a.id NOT IN (
+        a.parent_agent_id,
+        a.workflow_id
+),
+marked AS (
+    UPDATE
+        workflows w
+    SET
+        deleting_at = NOW()
+    WHERE
+        w.archived_at IS NOT NULL
+        AND w.deleting_at IS NULL
+        AND w.id IN (
+            SELECT
+                workflow_id
+            FROM
+                claimed)
+            AND NOT EXISTS (
                 SELECT
-                    id
+                    1
                 FROM
-                    claimed));
+                    agents a
+                WHERE
+                    a.workflow_id = w.id
+                    AND a.archived_at IS NOT NULL
+                    AND a.deleting_at IS NULL
+                    AND a.id NOT IN (
+                        SELECT
+                            id
+                        FROM
+                            claimed))
+                RETURNING
+                    w.id
+)
+        SELECT
+            id,
+            parent_agent_id
+        FROM
+            claimed;
 
 -- name: ClearAgentsDeleting :exec
 WITH released AS (
@@ -246,13 +207,23 @@ WHERE
         FROM
             released);
 
--- name: ClearAllAgentsDeleting :exec
-UPDATE
-    agents
-SET
-    deleting_at = NULL
+-- name: ListDeletingRoots :many
+SELECT
+    a.id
+FROM
+    agents a
 WHERE
-    deleting_at IS NOT NULL;
+    a.deleting_at IS NOT NULL
+    AND NOT EXISTS (
+        SELECT
+            1
+        FROM
+            agents parent
+        WHERE
+            parent.id = a.parent_agent_id
+            AND parent.deleting_at IS NOT NULL)
+ORDER BY
+    a.id;
 
 -- name: ListAllAgents :many
 SELECT

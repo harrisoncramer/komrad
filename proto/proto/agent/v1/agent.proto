@@ -507,7 +507,6 @@ message ArchiveAgentsRequest {
   // them. The batch goes whole or not at all.
   repeated string ids = 1 [(buf.validate.field).repeated = {
     min_items: 1
-    max_items: 100
     unique: true
     items: {
       string: {min_len: 1}
@@ -519,7 +518,6 @@ message RestoreAgentsRequest {
   // The archived agents to bring back as dormant rows, along with their workflows.
   repeated string ids = 1 [(buf.validate.field).repeated = {
     min_items: 1
-    max_items: 100
     unique: true
     items: {
       string: {min_len: 1}
@@ -591,7 +589,6 @@ message DeleteAgentsRequest {
   // The agents to remove for good, transcripts and worktrees with them.
   repeated string ids = 1 [(buf.validate.field).repeated = {
     min_items: 1
-    max_items: 25
     unique: true
     items: {
       string: {min_len: 1}
@@ -879,7 +876,7 @@ service AgentService {
       cli: true
       mcp: true
       name: "delete_agents"
-      description: "Remove agents for good, along with their records, transcripts and worktrees. Nothing can be searched or restored afterwards, so prefer archive_agents, and leave agents alone unless asked to remove them. The call returns as soon as each teardown is under way rather than when it finishes. The agents leave list_agents at once, and one whose teardown fails comes back as AGENT_STATE_FAILED_TO_CLEANUP with the reason on its row. An agent's children are deleted with it, and a child named alone is deleted alone. The batch goes whole or not at all."
+      description: "Remove agents for good, along with their records, transcripts and worktrees. Nothing can be searched or restored afterwards, so prefer archive_agents, and leave agents alone unless asked to remove them. The call returns once the deletes are queued rather than when they finish. The agents leave list_agents at once, and one whose teardown fails comes back as AGENT_STATE_FAILED_TO_CLEANUP with the reason on its row. An agent's children are deleted with it, and a child named alone is deleted alone. The batch goes whole or not at all."
       destructive: true
       roles: [ROLE_ORCHESTRATOR]
     };
@@ -991,16 +988,6 @@ service AgentService {
         ROLE_REVIEWER,
         ROLE_ORCHESTRATOR
       ]
-    };
-  }
-  rpc EmptyArchive(google.protobuf.Empty) returns (google.protobuf.Empty) {
-    option idempotency_level = IDEMPOTENT;
-    option (annotation.v1.surfaces) = {
-      cli: true
-      mcp: false
-      name: "empty_archive"
-      description: "Delete every archived agent and workflow for good, tearing down any worktree still on disk. It names nothing and cannot be undone, so read the archive first."
-      reason: "Emptying the archive names nothing and cannot be undone, so it stays a key a person presses or a command a script runs on purpose, rather than a call a model could reach for on its own reading of an instruction to tidy up."
     };
   }
   rpc RecordReport(RecordReportRequest) returns (google.protobuf.Empty) {

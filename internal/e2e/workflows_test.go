@@ -93,7 +93,8 @@ func TestIntegrationWorkflowsAgainstRealRepositories(t *testing.T) {
 
 		got, err := instance.Stores.Workflows.GetIncludingArchived(ctx, workflowID)
 		require.NoError(t, err)
-		assert.NotNil(t, got, "the workflow is not gone yet, since the deprovisioner has not finished")
+		assert.NotNil(t, got, "the workflow is not gone yet, since its agent's delete has not run")
+		instance.WorkQueue()
 
 		require.EventuallyWithT(t, func(c *assert.CollectT) {
 			_, err := instance.Stores.Agents.GetByID(ctx, created.Msg.GetAgent().GetId())

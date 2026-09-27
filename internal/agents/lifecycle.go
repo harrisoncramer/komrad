@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"sync"
+	"slices"
 
 	"komrad/config"
 	"komrad/internal/frames"
@@ -37,7 +37,6 @@ type lifecycleAgentReadWriter interface {
 	Archive(ctx context.Context, ids []string) ([]agentstore.AgentPane, error)
 	ArchiveIfUnchanged(ctx context.Context, params agentstore.ArchiveIfUnchangedParams) (bool, error)
 	RestampArchived(ctx context.Context, ids []string) error
-	MarkDeleting(ctx context.Context, ids []string) error
 	ClearDeleting(ctx context.Context, ids []string) error
 }
 
@@ -86,8 +85,6 @@ type LifecycleService struct {
 	logsDir        string
 	framesDir      string
 	usage          config.Usage
-	tearingDownMu  sync.Mutex
-	tearingDown    map[string]struct{}
 }
 
 // NewLifecycleService builds the service from its dependencies.
@@ -104,25 +101,30 @@ func NewLifecycleService(params NewLifecycleServiceParams) *LifecycleService {
 		logsDir:        params.LogsDir,
 		framesDir:      params.FramesDir,
 		usage:          params.Usage,
-		tearingDown:    make(map[string]struct{}),
 	}
 }
 
-// DeleteAgents stops agents and removes those with nothing left to tear down, holding back any
-// whose deprovisioner is still running until it finishes.
-func (s *LifecycleService) DeleteAgents(ctx context.Context, ids []string) error {
-	named, err := s.requireEveryAgent(ctx, ids)
+// DeleteAgent deletes an agent a delete has claimed, and does nothing to one it has not.
+func (s *LifecycleService) DeleteAgent(ctx context.Context, id string) error {
+	named, err := s.agents.ListByID(ctx, []string{id})
 	if err != nil {
-		return errors.Join(err, s.agents.ClearDeleting(ctx, ids))
+		return fmt.Errorf("failed to look up agent %s: %w", id, err)
 	}
 
+	claimed := xslice.Filter(named, func(agent agentstore.Agent) bool { return agent.DeletingAt != nil })
+	if len(claimed) == 0 {
+		return nil
+	}
+
+	return s.deleteAgents(ctx, claimed)
+}
+
+// deleteAgents stops agents and their children, tears each down, and removes those whose
+// teardown worked, returning only once every teardown has finished.
+func (s *LifecycleService) deleteAgents(ctx context.Context, named []agentstore.Agent) error {
 	agents, err := s.withChildren(ctx, named)
 	if err != nil {
-		return errors.Join(err, s.agents.ClearDeleting(ctx, ids))
-	}
-
-	if err := s.agents.MarkDeleting(ctx, agentstore.IDs(agents)); err != nil {
-		return errors.Join(err, s.agents.ClearDeleting(ctx, ids))
+		return err
 	}
 
 	// A deprovisioner must not run against a directory a CLI is still working in, and since the
@@ -130,137 +132,91 @@ func (s *LifecycleService) DeleteAgents(ctx context.Context, ids []string) error
 	// checkout one of them is still sitting in.
 	killOwnedPanes(ctx, s.tmux, agents)
 
-	bg := context.WithoutCancel(ctx)
-
-	var immediate []agentstore.Agent
-	immediateHooks := make(map[string][]workflowstore.Hook)
-	for _, agent := range agents {
-		name := deprovisionerFor(ctx, s.workflows, agent)
-		hooks := agentHooks(ctx, s.workflows, agent)
-		if s.scripts == nil || (name == "" && !hasHookOn(hooks, workflowstore.HookPreDelete)) {
-			immediate = append(immediate, agent)
-			immediateHooks[agent.ID] = hooks
+	hooks := make(map[string][]workflowstore.Hook, len(agents))
+	var torn []agentstore.Agent
+	for _, agent := range slices.Backward(agents) {
+		hooks[agent.ID] = agentHooks(ctx, s.workflows, agent)
+		if err := s.tearDown(ctx, agent, hooks[agent.ID]); err != nil {
+			s.failCleanup(context.WithoutCancel(ctx), agent, err)
 
 			continue
 		}
 
-		// The row is never dropped before the script says whether it worked.
-		done := s.finishDelete(bg, agent, hooks)
-		if len(hooks) == 0 {
-			runDeprovision(ctx, s.scripts, agent, name, done)
-
-			continue
-		}
-
-		// The deprovisioner claims the agent so it cannot run twice at once, and a hook does not.
-		if !s.claimTeardown(agent.ID) {
-			continue
-		}
-
-		go s.tearDown(bg, agent, hooks, name, done)
+		torn = append(torn, agent)
 	}
 
-	if len(immediate) == 0 {
+	if len(torn) == 0 {
 		return nil
 	}
 
-	if err := s.removeAgents(ctx, agentstore.IDs(immediate)); err != nil {
-		return errors.Join(err, s.agents.ClearDeleting(ctx, agentstore.IDs(immediate)))
+	if err := s.removeAgents(ctx, agentstore.IDs(torn)); err != nil {
+		return err
 	}
 
-	for _, agent := range immediate {
-		startHooks(bg, hookRunParams{
+	for _, agent := range torn {
+		startHooks(ctx, hookRunParams{
 			scripts: s.scripts,
 			agent:   agent,
-			hooks:   immediateHooks[agent.ID],
+			hooks:   hooks[agent.ID],
 			event:   workflowstore.HookPostDelete,
 		})
 	}
 
-	s.cleanupEmptyWorkflows(ctx, immediate)
+	s.cleanupEmptyWorkflows(ctx, torn)
 
 	return nil
 }
 
-// tearDown waits out an agent's hooks still running, runs its pre-delete hooks while its directory
-// is still there, then lets the deprovisioner take it away.
-func (s *LifecycleService) tearDown(ctx context.Context, agent agentstore.Agent, hooks []workflowstore.Hook, deprovisioner string, done func(error)) { //nolint:revive // a params struct is the follow-up
-	if err := s.scripts.AwaitHooks(ctx, agent.ID); err != nil {
-		s.releaseTeardown(agent.ID)
-		s.failCleanup(ctx, agent, err)
+// FailDelete gives up on deleting an agent, leaving it in the archive as failed to clean up.
+func (s *LifecycleService) FailDelete(ctx context.Context, id string, cause error) error {
+	named, err := s.agents.ListByID(ctx, []string{id})
+	if err != nil {
+		return fmt.Errorf("failed to look up agent %s: %w", id, err)
+	}
 
-		return
+	for _, agent := range named {
+		s.failCleanup(ctx, agent, cause)
+	}
+
+	return nil
+}
+
+// tearDown waits out an agent's hooks still running, runs its pre-delete hooks while its
+// directory is still there, then its deprovisioner, and waits for both.
+func (s *LifecycleService) tearDown(ctx context.Context, agent agentstore.Agent, hooks []workflowstore.Hook) error {
+	if s.scripts == nil {
+		return nil
+	}
+
+	if err := s.scripts.AwaitHooks(ctx, agent.ID); err != nil {
+		return err
 	}
 
 	// A hook has nothing to run against once the directory has gone.
 	if scripts.RequireUsableDir(agent.Cwd) == nil {
-		// The deprovisioner waits until the teardown has worked.
 		if err := runPreHooks(ctx, hookRunParams{
 			scripts: s.scripts,
 			agent:   agent,
 			hooks:   hooks,
 			event:   workflowstore.HookPreDelete,
 		}); err != nil {
-			s.releaseTeardown(agent.ID)
-			s.failCleanup(ctx, agent, err)
-
-			return
+			return err
 		}
 	}
 
-	runDeprovision(ctx, s.scripts, agent, deprovisioner, func(deprovisionErr error) {
-		s.releaseTeardown(agent.ID)
-		done(deprovisionErr)
-	})
-}
-
-// claimTeardown reports whether this caller is the one tearing an agent down, so a second
-// delete does nothing instead of running the hooks again.
-func (s *LifecycleService) claimTeardown(id string) bool {
-	s.tearingDownMu.Lock()
-	defer s.tearingDownMu.Unlock()
-
-	if _, running := s.tearingDown[id]; running {
-		return false
+	name := deprovisionerFor(ctx, s.workflows, agent)
+	if name == "" {
+		return nil
 	}
 
-	s.tearingDown[id] = struct{}{}
+	done := make(chan error, 1)
+	runDeprovision(ctx, s.scripts, agent, name, func(err error) { done <- err })
 
-	return true
-}
-
-func (s *LifecycleService) releaseTeardown(id string) {
-	s.tearingDownMu.Lock()
-	defer s.tearingDownMu.Unlock()
-
-	delete(s.tearingDown, id)
-}
-
-// finishDelete drops the row of an agent whose teardown worked, and writes down the reason on
-// one whose teardown did not.
-func (s *LifecycleService) finishDelete(ctx context.Context, agent agentstore.Agent, hooks []workflowstore.Hook) func(error) {
-	return func(deprovisionErr error) {
-		if deprovisionErr != nil {
-			s.failCleanup(ctx, agent, deprovisionErr)
-
-			return
-		}
-
-		if err := s.removeAgents(ctx, []string{agent.ID}); err != nil {
-			logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to remove an agent whose cleanup finished",
-				append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
-			s.failCleanup(ctx, agent, err)
-
-			return
-		}
-
-		startHooks(ctx, hookRunParams{
-			scripts: s.scripts,
-			agent:   agent,
-			hooks:   hooks,
-			event:   workflowstore.HookPostDelete,
-		})
-		s.cleanupEmptyWorkflows(ctx, []agentstore.Agent{agent})
+	select {
+	case err := <-done:
+		return err
+	case <-ctx.Done():
+		return ctx.Err()
 	}
 }
 

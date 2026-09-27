@@ -284,12 +284,6 @@ func (a api) deleteAgents(ids []string) error {
 	})
 }
 
-func (a api) emptyArchive() error {
-	return mutate(func(ctx context.Context) (any, error) {
-		return a.agents.EmptyArchive(ctx, connect.NewRequest(&emptypb.Empty{}))
-	})
-}
-
 func (a api) createSchedule(cfg panel.ScheduleConfig) error {
 	return mutate(func(ctx context.Context) (any, error) {
 		req := &schedulev1.CreateScheduleRequest{

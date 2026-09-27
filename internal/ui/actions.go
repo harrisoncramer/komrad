@@ -66,7 +66,6 @@ const (
 	actionArchiveRestore
 	actionArchiveRestoreOpen
 	actionArchiveDelete
-	actionArchiveEmpty
 	actionArchiveBack
 	actionArchiveKind
 	actionRestoreSelected

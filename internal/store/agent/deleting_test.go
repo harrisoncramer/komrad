@@ -9,8 +9,19 @@ import (
 )
 
 // TestDeletingClaimHidesTheRow covers a claim taking a row and its children out of the page
-// listing while the sweep's own page and the directories still hold them.
+// listing while the directories still hold them.
 func TestDeletingClaimHidesTheRow(t *testing.T) {
+	byID := func(ctx context.Context, f *fixture, parentID string) error {
+		_, err := f.MarkDeleting(ctx, []string{parentID})
+
+		return err
+	}
+	archivedByID := func(ctx context.Context, f *fixture, parentID string) error {
+		_, err := f.MarkArchivedDeletingByID(ctx, []string{parentID})
+
+		return err
+	}
+
 	tests := []struct {
 		name       string
 		archive    bool
@@ -20,91 +31,43 @@ func TestDeletingClaimHidesTheRow(t *testing.T) {
 		wantHidden bool
 	}{
 		{
-			name:    "an archived claim leaves a failed parent and its child alone",
-			archive: true,
-			failed:  true,
-			claim: func(ctx context.Context, f *fixture, parentID string) error {
-				return f.MarkArchivedDeletingByID(ctx, []string{parentID})
-			},
+			name:       "an archived claim leaves a failed parent and its child alone",
+			archive:    true,
+			failed:     true,
+			claim:      archivedByID,
 			wantHidden: false,
 		},
 		{
-			name:    "the archive claim leaves a failed parent and its child alone",
-			archive: true,
-			failed:  true,
-			claim: func(ctx context.Context, f *fixture, _ string) error {
-				return f.MarkArchivedDeleting(ctx)
-			},
-			wantHidden: false,
-		},
-		{
-			name:    "a claim by id takes a failed parent and its child",
-			archive: true,
-			failed:  true,
-			claim: func(ctx context.Context, f *fixture, parentID string) error {
-				return f.MarkDeleting(ctx, []string{parentID})
-			},
+			name:       "a claim by id takes a failed parent and its child",
+			archive:    true,
+			failed:     true,
+			claim:      byID,
 			wantHidden: true,
 		},
 		{
-			name:    "an archived claim leaves a live parent alone",
-			archive: false,
-			claim: func(ctx context.Context, f *fixture, parentID string) error {
-				return f.MarkArchivedDeletingByID(ctx, []string{parentID})
-			},
+			name:       "an archived claim leaves a live parent alone",
+			archive:    false,
+			claim:      archivedByID,
 			wantHidden: false,
 		},
 		{
-			name:    "the archive claim leaves a live parent alone",
-			archive: false,
-			claim: func(ctx context.Context, f *fixture, _ string) error {
-				return f.MarkArchivedDeleting(ctx)
-			},
-			wantHidden: false,
-		},
-		{
-			name:    "a claim by id takes a live parent and its child",
-			archive: false,
-			claim: func(ctx context.Context, f *fixture, parentID string) error {
-				return f.MarkDeleting(ctx, []string{parentID})
-			},
+			name:       "a claim by id takes a live parent and its child",
+			archive:    false,
+			claim:      byID,
 			wantHidden: true,
 		},
 		{
-			name:    "an archived claim takes an archived parent and its child",
-			archive: true,
-			claim: func(ctx context.Context, f *fixture, parentID string) error {
-				return f.MarkArchivedDeletingByID(ctx, []string{parentID})
-			},
-			wantHidden: true,
-		},
-		{
-			name:    "the archive claim takes an archived parent and its child",
-			archive: true,
-			claim: func(ctx context.Context, f *fixture, _ string) error {
-				return f.MarkArchivedDeleting(ctx)
-			},
+			name:       "an archived claim takes an archived parent and its child",
+			archive:    true,
+			claim:      archivedByID,
 			wantHidden: true,
 		},
 		{
 			name:    "a release by id gives the rows back",
 			archive: true,
-			claim: func(ctx context.Context, f *fixture, _ string) error {
-				return f.MarkArchivedDeleting(ctx)
-			},
+			claim:   archivedByID,
 			release: func(ctx context.Context, f *fixture, parentID string) error {
 				return f.ClearDeleting(ctx, []string{parentID})
-			},
-			wantHidden: false,
-		},
-		{
-			name:    "a release of everything gives the rows back",
-			archive: true,
-			claim: func(ctx context.Context, f *fixture, _ string) error {
-				return f.MarkArchivedDeleting(ctx)
-			},
-			release: func(ctx context.Context, f *fixture, _ string) error {
-				return f.ClearAllDeleting(ctx)
 			},
 			wantHidden: false,
 		},
@@ -147,12 +110,6 @@ func TestDeletingClaimHidesTheRow(t *testing.T) {
 			for _, dir := range dirs {
 				assert.Equal(t, tt.wantHidden, dir.DeletingAt != nil, dir.Name)
 			}
-
-			if tt.archive {
-				sweep, err := f.ListArchiveSweepPage(ctx, 10, nil)
-				require.NoError(t, err)
-				assert.Len(t, sweep, 2, "the sweep reads the claimed rows it is there to take")
-			}
 		})
 	}
 }
@@ -174,4 +131,65 @@ func TestReleaseLeavesAnUnclaimedRowUntouched(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, after)
 	assert.Equal(t, before.UpdatedAt, after.UpdatedAt)
+}
+
+// TestDeletingClaimReturnsWhatItTook pins a claim answering the rows it took and nothing a
+// claim before it already holds, and the roots read back after it.
+func TestDeletingClaimReturnsWhatItTook(t *testing.T) {
+	f := open(t)
+	ctx := t.Context()
+
+	require.NoError(t, f.Create(ctx, Agent{Name: "author", State: StateIdle}))
+	parent, err := f.Get(ctx, "author")
+	require.NoError(t, err)
+	require.NoError(t, f.Create(ctx, Agent{Name: "reviewer", ParentAgentID: &parent.ID, State: StateIdle}))
+	child, err := f.Get(ctx, "reviewer")
+	require.NoError(t, err)
+	require.NoError(t, f.Create(ctx, Agent{Name: "other", State: StateIdle}))
+	other, err := f.Get(ctx, "other")
+	require.NoError(t, err)
+
+	claims, err := f.MarkDeleting(ctx, []string{parent.ID})
+	require.NoError(t, err)
+	assert.ElementsMatch(t, []Claim{
+		{ID: parent.ID},
+		{ID: child.ID, ParentAgentID: &parent.ID},
+	}, claims)
+	assert.Equal(t, []string{parent.ID}, ClaimRoots(claims))
+
+	again, err := f.MarkDeleting(ctx, []string{parent.ID, other.ID})
+	require.NoError(t, err)
+	assert.Equal(t, []Claim{{ID: other.ID}}, again, "a second claim takes only what the first left")
+
+	roots, err := f.ListDeletingRoots(ctx)
+	require.NoError(t, err)
+	assert.ElementsMatch(t, []string{parent.ID, other.ID}, roots, "a claimed child under a claimed parent is not a root")
+}
+
+// TestClaimRoots pins which claimed agents start a delete of their own.
+func TestClaimRoots(t *testing.T) {
+	parent, orphanParent := "p", "gone"
+	tests := []struct {
+		name   string
+		claims []Claim
+		want   []string
+	}{
+		{name: "nothing claimed", claims: nil, want: []string{}},
+		{
+			name:   "a child claimed with its parent goes with it",
+			claims: []Claim{{ID: parent}, {ID: "c", ParentAgentID: &parent}},
+			want:   []string{parent},
+		},
+		{
+			name:   "a child claimed without its parent is a root",
+			claims: []Claim{{ID: "c", ParentAgentID: &orphanParent}},
+			want:   []string{"c"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, ClaimRoots(tt.claims))
+		})
+	}
 }

@@ -84,8 +84,7 @@ func newMux(params newMuxParams) (*http.ServeMux, error) {
 	}
 
 	mux := http.NewServeMux()
-	queue := jobs.NewEnqueuer(params.Jobs, params.Stores.pool.GetRawPool())
-	worktreeDelete := jobs.NewWorktreeDelete(queue)
+	worktreeDelete := jobs.NewWorktreeDelete(params.Services.queue)
 	mux.Handle(HealthPath, newHealthHandler(params.Stores.pool.GetRawPool()))
 	mux.Handle(StopPath, interceptors.NewLoggingHandler(params.Logger, newStopHandler(params.StopRequested)))
 	mux.Handle(agentv1connect.NewAgentServiceHandler(
@@ -101,7 +100,7 @@ func newMux(params newMuxParams) (*http.ServeMux, error) {
 			Lifecycle:    params.Services.lifecycle,
 			Resumer:      params.Services.resume,
 			Holder:       params.Services.holder,
-			Archive:      jobs.NewArchiveSweep(queue),
+			Deleter:      params.Services.agentDelete,
 			Review:       params.Services.review,
 			Marks:        params.Services.marks,
 			Documents:    params.Services.documents,

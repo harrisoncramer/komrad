@@ -285,8 +285,6 @@ type fakeLifecycle struct {
 	deprovisionStartErr      error
 	deprovisionRunErr        error
 	deprovisionRunErrByAgent map[string]error
-	holdDeprovision          bool
-	held                     []func(error)
 	hookErrs                 map[string]error
 	holdHooks                chan struct{}
 	hooksMu                  sync.Mutex
@@ -362,11 +360,6 @@ func (f *fakeLifecycle) RunDeprovision(ctx context.Context, agent agentstore.Age
 		if byAgent, ok := f.deprovisionRunErrByAgent[agent.ID]; ok {
 			runErr = byAgent
 		}
-		if f.holdDeprovision {
-			f.held = append(f.held, done)
-
-			return nil
-		}
 		done(runErr)
 	}
 
@@ -389,7 +382,7 @@ func (s *testStore) workflowService(options workflowServiceOptions) *WorkflowSer
 	return NewWorkflowService(NewWorkflowServiceParams{
 		Workflows:    s.Workflows,
 		Agents:       s.Agents,
-		AgentDeleter: deleter.lifecycle,
+		AgentDeleter: inlineDelete{lifecycle: deleter.lifecycle},
 		Emptied:      deleter.emptied,
 		Schedules:    s.Schedules,
 		Tmux:         options.tmux,
@@ -397,6 +390,39 @@ func (s *testStore) workflowService(options workflowServiceOptions) *WorkflowSer
 		Scripts:      options.lifecycle,
 		Usage:        options.usage,
 	})
+}
+
+type deletingClaimer interface {
+	MarkDeleting(ctx context.Context, ids []string) ([]agentstore.Claim, error)
+}
+
+// deleteNow claims agents and runs the delete of each root the claim took, as the queued jobs do.
+func (s *LifecycleService) deleteNow(ctx context.Context, ids []string) error {
+	claimer, ok := s.agents.(deletingClaimer)
+	if !ok {
+		return fmt.Errorf("the agent store %T cannot claim a delete", s.agents)
+	}
+
+	claims, err := claimer.MarkDeleting(ctx, ids)
+	if err != nil {
+		return err
+	}
+
+	for _, id := range agentstore.ClaimRoots(claims) {
+		if err := s.DeleteAgent(ctx, id); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+type inlineDelete struct {
+	lifecycle *LifecycleService
+}
+
+func (d inlineDelete) DeleteAgents(ctx context.Context, ids []string) error {
+	return d.lifecycle.deleteNow(ctx, ids)
 }
 
 func seed(t *testing.T, st *testStore, name, pane string, state agentstore.State) agentstore.Agent {

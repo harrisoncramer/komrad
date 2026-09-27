@@ -291,7 +291,7 @@ func TestMessagesGolden(t *testing.T) {
 		{
 			name: "an-info-message-read-in-the-region",
 			open: func(t *testing.T) *panelHarness {
-				harness := openArchive(t, buildOneArchivedAgent()...)
+				harness := openWorktrees(t)
 				harness.press("D", "y")
 				settlePulse(harness)
 				harness.press("ctrl+g")
@@ -302,7 +302,7 @@ func TestMessagesGolden(t *testing.T) {
 		{
 			name: "an-info-message-landing",
 			open: func(t *testing.T) *panelHarness {
-				harness := openArchive(t, buildOneArchivedAgent()...)
+				harness := openWorktrees(t)
 				harness.press("D", "y")
 
 				return harness

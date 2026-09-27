@@ -7,7 +7,6 @@ import (
 
 	"komrad/config"
 	"komrad/internal/ui/paint"
-	"komrad/internal/ui/paint/label"
 	"komrad/internal/ui/panel"
 	"komrad/internal/view"
 	"komrad/lib/xslice"
@@ -379,37 +378,6 @@ func confirmDeleteWorkflow(h host, s panelShared, workflow panel.Workflow) tea.C
 			return m, m.writeCmd(
 				fmt.Sprintf("Could not delete workflow %q", workflow.Name),
 				func(a api) error { return a.deleteWorkflow(workflow.ID) },
-			)
-		}),
-	})
-}
-
-// confirmEmptyArchive asks before every archived agent is deleted for good.
-func confirmEmptyArchive(h host, s panelShared) tea.Cmd {
-	count := len(s.listing.archivedAgents)
-	if count == 0 {
-		return nil
-	}
-
-	form, confirmed := emptyArchiveForm(count, formKeys())
-
-	return h.openForm(formState{
-		kind:   formArchiveEmpty,
-		form:   form,
-		update: model.updateForm,
-		submit: confirmSubmit(func(m model) (model, tea.Cmd) {
-			if !*confirmed {
-				return m, nil
-			}
-
-			return m, m.queuedCmd(
-				"Could not empty the archive",
-				message{
-					kind:    messageInfo,
-					summary: "Emptying the archive",
-					detail:  fmt.Sprintf("A background job is deleting %s, each with its worktree. The rows are out of the archive now, and one whose delete fails comes back saying so.", label.Count(count, "archived agent", "archived agents")),
-				},
-				func(a api) error { return a.emptyArchive() },
 			)
 		}),
 	})

@@ -16,6 +16,7 @@ import (
 	"komrad/internal/frames"
 	"komrad/internal/git"
 	"komrad/internal/harness/pane"
+	"komrad/internal/jobs"
 	"komrad/internal/mail"
 	"komrad/internal/marks"
 	"komrad/internal/pullrequests"
@@ -43,6 +44,8 @@ type services struct {
 	resume           *agents.ResumeService
 	adopt            *agents.AdoptService
 	lifecycle        *agents.LifecycleService
+	agentDelete      *jobs.AgentDelete
+	queue            *jobs.Enqueuer
 	orchestrator     *agents.OrchestratorService
 	workflow         *agents.WorkflowService
 	delivery         *mail.DeliveryService
@@ -181,6 +184,13 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 		Launch:    launchService,
 		Worktrees: gitClient,
 	})
+	inserter, err := jobs.NewInsertOnlyClient(st.pool.GetRawPool(), st.pool.GetRiverSchema())
+	if err != nil {
+		return nil, err
+	}
+	queue := jobs.NewEnqueuer(inserter, st.pool.GetRawPool())
+	agentDelete := jobs.NewAgentDelete(queue)
+
 	emptyWorkflows := agents.NewEmptyWorkflowDeleter(agents.NewEmptyWorkflowDeleterParams{
 		Workflows: st.workflows,
 		Agents:    st.agents,
@@ -203,7 +213,7 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 		Workflows:    st.workflows,
 		Pages:        st.workflows,
 		Agents:       st.agents,
-		AgentDeleter: lifecycleService,
+		AgentDeleter: agentDelete,
 		Emptied:      emptyWorkflows,
 		Schedules:    st.schedules,
 		Tmux:         params.Tmux,
@@ -340,8 +350,10 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 			Channel: paneChannel,
 			Settler: settler,
 		}),
-		adopt:     adoptService,
-		lifecycle: lifecycleService,
+		adopt:       adoptService,
+		lifecycle:   lifecycleService,
+		agentDelete: agentDelete,
+		queue:       queue,
 		orchestrator: agents.NewOrchestratorService(agents.NewOrchestratorServiceParams{
 			Agents:      st.agents,
 			Workflows:   st.workflows,

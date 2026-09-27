@@ -156,7 +156,8 @@ func TestListWatchedLeavesOutADeletingAgentsDirectory(t *testing.T) {
 	require.NoError(t, worktrees.Upsert(t.Context(), Worktree{Dir: dir}))
 	require.NoError(t, worktrees.Upsert(t.Context(), Worktree{Dir: "/trees/other"}))
 
-	require.NoError(t, stores.Agents.MarkDeleting(t.Context(), []string{agent.ID}))
+	_, err := stores.Agents.MarkDeleting(t.Context(), []string{agent.ID})
+	require.NoError(t, err)
 
 	watched, err := worktrees.ListWatched(t.Context(), nil)
 	require.NoError(t, err)

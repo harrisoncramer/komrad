@@ -134,7 +134,8 @@ func TestListPage(t *testing.T) {
 	archivedDeleting := st.SeedAgent(t, agentstore.Agent{Name: "archived-deleting"})
 	_, err := st.Agents.Archive(ctx, []string{archived.ID, archivedDeleting.ID})
 	require.NoError(t, err)
-	require.NoError(t, st.Agents.MarkDeleting(ctx, []string{deleting.ID, archivedDeleting.ID}))
+	_, err = st.Agents.MarkDeleting(ctx, []string{deleting.ID, archivedDeleting.ID})
+	require.NoError(t, err)
 
 	names := func(rows []rowstore.Row) []string {
 		listed := xslice.Map(rows, func(row rowstore.Row) string {
@@ -171,7 +172,8 @@ func TestListWatched(t *testing.T) {
 	deleting := st.SeedAgent(t, agentstore.Agent{Name: "deleting"})
 	_, err := st.Agents.Archive(ctx, []string{archived.ID})
 	require.NoError(t, err)
-	require.NoError(t, st.Agents.MarkDeleting(ctx, []string{deleting.ID}))
+	_, err = st.Agents.MarkDeleting(ctx, []string{deleting.ID})
+	require.NoError(t, err)
 
 	rows, err := st.Rows.ListWatched(ctx, []string{first.ID, second.ID, archived.ID, deleting.ID, "00000000-0000-0000-0000-000000000000", "not-an-id"})
 	require.NoError(t, err)
@@ -195,7 +197,8 @@ func TestGet(t *testing.T) {
 	deleting := st.SeedAgent(t, agentstore.Agent{Name: "deleting"})
 	_, err := st.Agents.Archive(ctx, []string{archived.ID})
 	require.NoError(t, err)
-	require.NoError(t, st.Agents.MarkDeleting(ctx, []string{deleting.ID}))
+	_, err = st.Agents.MarkDeleting(ctx, []string{deleting.ID})
+	require.NoError(t, err)
 
 	row, err := st.Rows.Get(ctx, archived.ID)
 	require.NoError(t, err)

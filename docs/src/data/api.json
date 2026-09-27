@@ -398,7 +398,7 @@
             "orchestrator"
           ],
           "summary": "Remove agents for good, along with their records, transcripts and worktrees.",
-          "description": "Remove agents for good, along with their records, transcripts and worktrees. Nothing can be searched or restored afterwards, so prefer archive_agents, and leave agents alone unless asked to remove them. The call returns as soon as each teardown is under way rather than when it finishes. The agents leave list_agents at once, and one whose teardown fails comes back as AGENT_STATE_FAILED_TO_CLEANUP with the reason on its row. An agent's children are deleted with it, and a child named alone is deleted alone. The batch goes whole or not at all.",
+          "description": "Remove agents for good, along with their records, transcripts and worktrees. Nothing can be searched or restored afterwards, so prefer archive_agents, and leave agents alone unless asked to remove them. The call returns once the deletes are queued rather than when they finish. The agents leave list_agents at once, and one whose teardown fails comes back as AGENT_STATE_FAILED_TO_CLEANUP with the reason on its row. An agent's children are deleted with it, and a child named alone is deleted alone. The batch goes whole or not at all.",
           "readOnly": false,
           "idempotent": true,
           "destructive": true,
@@ -561,22 +561,6 @@
           "destructive": false,
           "request": "agent.v1.ListDocumentVersionsRequest",
           "response": "agent.v1.ListDocumentVersionsResponse"
-        },
-        {
-          "slug": "empty-archive",
-          "name": "EmptyArchive",
-          "path": "/agent.v1.AgentService/EmptyArchive",
-          "command": "komrad rpc empty-archive",
-          "tool": "empty_archive",
-          "mcp": false,
-          "roles": [],
-          "summary": "Delete every archived agent and workflow for good, tearing down any worktree still on disk.",
-          "description": "Delete every archived agent and workflow for good, tearing down any worktree still on disk. It names nothing and cannot be undone, so read the archive first.",
-          "readOnly": false,
-          "idempotent": true,
-          "destructive": true,
-          "request": "google.protobuf.Empty",
-          "response": "google.protobuf.Empty"
         },
         {
           "slug": "list-review-threads",
