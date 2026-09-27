@@ -208,8 +208,7 @@ type WriteDocumentRequest struct {
 	Source isWriteDocumentRequest_Source `protobuf_oneof:"source"`
 	// The version a rewrite replaces, as the last read or write returned it, and required with id.
 	Version *int32 `protobuf:"varint,6,opt,name=version,proto3,oneof" json:"version,omitempty"`
-	// The agent a person creates a document for. An agent leaves it unset, since what it writes is
-	// its own.
+	// The agent a person creates a document for. An agent may name only itself.
 	AgentId       *string `protobuf:"bytes,7,opt,name=agent_id,json=agentId,proto3,oneof" json:"agent_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

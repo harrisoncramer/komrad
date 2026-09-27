@@ -80,7 +80,7 @@ func checkDocumentName(name string) error {
 	return nil
 }
 
-// documentPlaceholder is the text a new document starts with, since a document is never empty.
+// documentPlaceholder is the text a new document starts with.
 func documentPlaceholder(kind agentv1.DocumentKind) string {
 	return fmt.Sprintf("Empty %s document.\n", documentKindLabel(kind))
 }

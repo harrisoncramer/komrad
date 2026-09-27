@@ -31,11 +31,11 @@ func TestCreate(t *testing.T) {
 	require.NoError(t, err)
 
 	tests := []struct {
-		name    string
-		params  documentstore.CreateParams
-		wantErr error
-		wantID  bool
-		refused bool
+		name           string
+		params         documentstore.CreateParams
+		wantErr        error
+		wantID         bool
+		wantConstraint string
 	}{
 		{
 			name:    "a name the agent already uses is refused, naming the document that holds it",
@@ -52,17 +52,21 @@ func TestCreate(t *testing.T) {
 			params: documentstore.CreateParams{AgentID: author.ID, Name: "Findings", Kind: documentstore.KindReport, Body: "found"},
 		},
 		{
-			name:    "an empty body is refused",
-			params:  documentstore.CreateParams{AgentID: author.ID, Name: "Blank", Kind: documentstore.KindNotes},
-			refused: true,
+			name:           "an empty body is refused",
+			params:         documentstore.CreateParams{AgentID: author.ID, Name: "Blank", Kind: documentstore.KindNotes},
+			wantConstraint: "documents_body_written",
+		},
+		{
+			name:   "a document a person creates keeps its first version as theirs",
+			params: documentstore.CreateParams{AgentID: author.ID, Name: "Plan", Kind: documentstore.KindRFC, Body: "Empty RFC document.", ByPerson: true},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			created, err := stores.Documents.Create(ctx, tt.params)
-			if tt.refused {
-				require.Error(t, err)
+			if tt.wantConstraint != "" {
+				require.ErrorContains(t, err, tt.wantConstraint)
 
 				return
 			}
@@ -80,6 +84,12 @@ func TestCreate(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, tt.params.Body, got.Body)
 			assert.Equal(t, tt.params.Kind, got.Kind)
+
+			versions, err := stores.Documents.ListVersions(ctx, created.ID)
+			require.NoError(t, err)
+			require.Len(t, versions, 1)
+			assert.Equal(t, int32(1), versions[0].Version)
+			assert.Equal(t, tt.params.ByPerson, versions[0].ByPerson)
 		})
 	}
 }

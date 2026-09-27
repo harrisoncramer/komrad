@@ -197,6 +197,7 @@ func TestReadAnEarlierWrite(t *testing.T) {
 func TestWriteByAPerson(t *testing.T) {
 	stores := storetest.Open(t)
 	author := stores.SeedAgent(t, agentstore.Agent{Name: "author"})
+	other := stores.SeedAgent(t, agentstore.Agent{Name: "other"})
 	service := documents.NewDocumentService(documents.NewDocumentServiceParams{Agents: stores.Agents, Documents: stores.Documents})
 	ctx := t.Context()
 
@@ -218,6 +219,11 @@ func TestWriteByAPerson(t *testing.T) {
 			name:    "a rewrite naming no version is refused",
 			params:  documents.WriteDocumentParams{ID: xptr.Ptr(draft.ID), Name: "Documents", Kind: documentstore.KindRFC, Body: "blind"},
 			wantErr: documents.ErrNoVersion,
+		},
+		{
+			name:    "an id naming an agent other than its owner is refused",
+			params:  documents.WriteDocumentParams{ID: xptr.Ptr(draft.ID), Version: xptr.Ptr(draft.Version), For: other.ID, Name: "Documents", Kind: documentstore.KindRFC, Body: "moved"},
+			wantErr: documents.ErrForAnother,
 		},
 		{
 			name:    "no id and no agent it is for is refused",

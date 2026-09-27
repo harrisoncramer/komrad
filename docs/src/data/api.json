@@ -5335,7 +5335,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The agent a person creates a document for. An agent leaves it unset, since what it writes is its own."
+          "description": "The agent a person creates a document for. An agent may name only itself."
         }
       ]
     },

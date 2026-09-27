@@ -33,6 +33,8 @@ var (
 	ErrNoAuthor = fail.InvalidArgument("a document created by something that is not an agent needs the agent it is for")
 	// ErrNoVersion is a rewrite that does not say which version it replaces.
 	ErrNoVersion = fail.InvalidArgument("a rewrite needs the version it replaces, as the last read or write returned it")
+	// ErrForAnother is a rewrite naming an agent other than the one whose document it is.
+	ErrForAnother = fail.InvalidArgument("the document belongs to another agent, so leave agent_id unset to rewrite it")
 )
 
 type NewDocumentServiceParams struct {
@@ -135,6 +137,9 @@ func (s *DocumentService) ownerFor(ctx context.Context, params WriteDocumentPara
 	held, err := s.documents.Get(ctx, *params.ID)
 	if err != nil {
 		return "", fmt.Errorf("failed to find the document to rewrite: %w", err)
+	}
+	if params.For != "" && params.For != held.AgentID {
+		return "", ErrForAnother
 	}
 
 	return held.AgentID, nil
