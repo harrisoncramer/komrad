@@ -73,7 +73,7 @@ func TestEnvThenCheck(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	want := "# the slot adds [worktrees]\n[log]\nlevel = \"debug\"\n\n[worktrees]\ndir = \"" + filepath.Join(reg.slotDir(1), "worktrees") + "\"\n"
+	want := "# the slot adds [worktrees]\n[log]\nlevel = \"debug\"\n\n[worktrees]\ndir = \"" + filepath.Join(reg.slotDir(1), "worktrees") + "\"\n\n[context]\nfile = \"" + filepath.Join(reg.slotDir(1), "context.md") + "\"\n"
 	if string(config) != want {
 		t.Errorf("slot config = %q, want %q", config, want)
 	}
@@ -109,6 +109,18 @@ func TestEnvRefusesATestConfigNamingWorktrees(t *testing.T) {
 	root := testCheckout(t, "[worktrees]\ndir = \"/elsewhere\"\n")
 
 	if _, err := runSlot(t, reg, nil, "env", "--root", root); err == nil || !strings.Contains(err.Error(), "[worktrees]") {
+		t.Errorf("env = %v, want a refusal", err)
+	}
+}
+
+// TestEnvRefusesATestConfigNamingContext keeps the slot the owner of its context file.
+func TestEnvRefusesATestConfigNamingContext(t *testing.T) {
+	t.Parallel()
+
+	reg, _ := newTestRegistry(t)
+	root := testCheckout(t, "[context]\nfile = \"/elsewhere/context.md\"\n")
+
+	if _, err := runSlot(t, reg, nil, "env", "--root", root); err == nil || !strings.Contains(err.Error(), "[context]") {
 		t.Errorf("env = %v, want a refusal", err)
 	}
 }

@@ -1,1 +1,7 @@
-clear-neovim
+#!/usr/bin/env bash
+set -euo pipefail
+
+here="$(dirname "$0")"
+"$here/clear-neovim"
+
+rm -f "$(dirname "$(MISE_ENV=test mise exec -- sh -c 'echo "$KOMRAD_CONFIG"')")/context.md"
