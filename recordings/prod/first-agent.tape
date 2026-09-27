@@ -12,7 +12,6 @@ Type "c"
 Type "Where is :checkhealth implemented?"
 Enter
 Type "find-checkhealth"
-Sleep 500ms
 Ctrl+S
 Sleep 2s
 Enter

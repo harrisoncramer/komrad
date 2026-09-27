@@ -16,8 +16,10 @@ usage() {
 	echo "starts on the panel sources recordings/panel.tape. Tapes live under"
 	echo "recordings/prod, which is tracked, or recordings/dev, which is not."
 	echo
-	echo "It needs the instance up, which 'MISE_ENV=test mise run restart' does. It refuses"
-	echo "to run against any tmux socket but a throwaway instance's."
+	echo "It needs the instance up, which 'MISE_ENV=test mise run restart' does. It closes"
+	echo "the instance's panel first, so a tape opens a fresh one rather than the screen"
+	echo "the last recording left it on. It refuses to run against any tmux socket but a"
+	echo "throwaway instance's."
 }
 
 TAPE=""
@@ -82,9 +84,27 @@ rm -rf "$SCRATCH"
 mkdir -p "$SCRATCH" "$OUT"
 rm -f "$OUT/$NAME".{mp4,webm,gif,png}
 
+PANEL_PANE="$(tmux -L "$KOMRAD_TMUX_SOCKET" show-options -gqv @komrad_panel_pane 2>/dev/null || true)"
+if [ -n "$PANEL_PANE" ]; then
+	tmux -L "$KOMRAD_TMUX_SOCKET" kill-pane -t "$PANEL_PANE" 2>/dev/null || true
+fi
+
+PACE="$(sed -n 's/^# pace: *//p' recordings/settings.tape)"
+if [ -z "$PACE" ]; then
+	echo "record: recordings/settings.tape names no '# pace:'" >&2
+	exit 1
+fi
+
+awk -v pace="$PACE" '
+	/^Hide/ { hidden = 1 }
+	/^Show/ { hidden = 0 }
+	{ print }
+	!hidden && /^(Type|Enter|Tab|Space|Backspace|Delete|Escape|Up|Down|Left|Right|PageUp|PageDown|Ctrl\+|Alt\+|Shift\+)/ { print "Sleep " pace }
+' "$TAPE" >"$SCRATCH/paced.tape"
+
 cat >"$SCRATCH/run.tape" <<TAPE
 Source "recordings/settings.tape"
-Source "$TAPE"
+Source "$SCRATCH/paced.tape"
 Sleep 1s
 Screenshot "$OUT/$NAME.png"
 TAPE

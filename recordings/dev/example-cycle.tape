@@ -9,14 +9,8 @@ Type "j"
 Wait+Screen@30s /payouts/
 Sleep 1s
 Ctrl+A
-Sleep 700ms
 Ctrl+A
-Sleep 700ms
 Ctrl+A
-Sleep 700ms
 Ctrl+Q
-Sleep 700ms
 Ctrl+Q
-Sleep 700ms
 Ctrl+Q
-Sleep 700ms

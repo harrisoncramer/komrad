@@ -4,16 +4,10 @@
 Source recordings/panel.tape
 Wait+Screen@60s /help-tags/
 Type "j"
-Sleep 500ms
 Enter
 Sleep 2s
 Ctrl+A
-Sleep 1s
 Ctrl+A
-Sleep 1s
 Ctrl+Q
-Sleep 1s
 Ctrl+Q
-Sleep 1s
 Ctrl+Q
-Sleep 1s

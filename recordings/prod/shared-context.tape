@@ -13,16 +13,13 @@ Type "w"
 Type "neovim"
 Enter
 Type "Run make lint before committing any Lua change."
-Sleep 500ms
 Ctrl+S
 Sleep 2s
 Ctrl+Q
-Sleep 500ms
 Type "c"
 Type "I changed runtime/lua/vim/lsp.lua. What should I run before committing? Also, which editor is best?"
 Enter
 Type "before-commit"
-Sleep 500ms
 Ctrl+S
 Sleep 2s
 Enter

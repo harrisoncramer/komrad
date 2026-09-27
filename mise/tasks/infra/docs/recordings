@@ -37,7 +37,7 @@ if [ -z "$(find "$SOURCE" -type f \( -name '*.mp4' -o -name '*.webm' -o -name '*
 	exit 1
 fi
 
-require_aws_profile
+use_komrad_aws_profile
 
 BUCKET="$(docs_require_output bucket_name)"
 DISTRIBUTION_ID="$(docs_require_output cloudfront_distribution_id)"

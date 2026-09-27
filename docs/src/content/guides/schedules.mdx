@@ -1,26 +1,44 @@
 ---
 title: Schedules
-description: Start agents on a timer, and what happens when a run is late or busy.
+description: Launch agents or mail an orchestrator on a timer, and what happens when a run is late or busy.
 group: start
 order: 5
 ---
 
-Let's say you want to spawn an agent every day at 10am, which reads overnight alerts and writes up a summary for you. You can do this with schedules.
+import { media } from "../../site";
 
-Schedules spawn one implementer agent into a workflow on the timing you specify. The launch details, aside from the prompt, still come from the workflow each time the schedule fires. Think of schedules of a way to spawn implementer agents automatically with a pre-defined prompt. Schedules live in komrad's database, so they survive application restarts.
+Let's say you want an agent to read overnight alerts every day at 10am and write up a summary for you. You can do this with schedules.
 
-To create one, press `S` to open the schedules screen, then press `c` to create one.
+A schedule fires on a cron expression and hands its prompt to an agent. Schedules live in komrad's database, so they survive application restarts. There are two kinds.
 
-<figure class="placeholder">
-  <figcaption>The schedules screen, listing each schedule with its next run and the result of its last one.</figcaption>
+An implementer schedule spawns a new implementer agent into a workflow each time it fires, with the schedule's prompt. Everything else about the launch, such as the directory, the flags and the shared context, comes from the workflow at the moment it fires.
+
+An orchestrator schedule mails its prompt to an orchestrator that is already running. Use it when the work belongs to an agent that already knows the workflow, such as asking an orchestrator each morning to hand out the day's work. The mail is signed with the schedule's name and the orchestrator reads it as coming from you.
+
+To create one, press `S` to open the schedules screen, then press `c`. Pick the kind first. An implementer schedule asks which workflow to launch into, and an orchestrator schedule asks which orchestrator to mail. The orchestrator kind is only offered while at least one orchestrator is running.
+
+<figure>
+  <video
+    autoplay
+    loop
+    muted
+    playsinline
+    poster={media("schedules.png")}
+    width="1440"
+    height="920"
+    aria-label="Creating an implementer schedule that launches an agent into the neovim workflow each night, then an orchestrator schedule that mails the neovim workflow's orchestrator each weekday morning."
+  >
+    <source src={media("schedules.webm")} type="video/webm" />
+    <source src={media("schedules.mp4")} type="video/mp4" />
+  </video>
 </figure>
 
 ## How schedules work
 
-Komrad never catches up on missed runs. If the service is down when a run was due, that run is skipped. This is intentional, to avoid accidental agents running at odd hours.
+Komrad never catches up on missed runs. If the service is down when a run was due, that run is skipped. This is intentional, to avoid agents running at odd hours.
 
-Furthermore, a schedule never piles up work. If an agent from its last run is still working or waiting on you, the next run is skipped and recorded as skipped. Plan accordingly.
+An implementer schedule never piles up work. If an agent from its last run is still working or waiting on you, the next run is skipped and recorded as skipped. Plan accordingly.
 
-Runs that cannot succeed are cancelled with a reason. For instance, if a schedule is told to spawn an implementer agent into a workflowk, but that workflow no longer exists, the schedule will fail.
+Runs that cannot succeed are cancelled with a reason, which shows as the schedule's last run. An implementer schedule whose workflow no longer exists is cancelled. So is an orchestrator schedule whose orchestrator has been archived or deleted. Point the schedule at a new orchestrator, or archive it.
 
-You can pause a schedule, which prevents it from spawning new agents.
+You can pause a schedule, which stops it firing until you arm it again.

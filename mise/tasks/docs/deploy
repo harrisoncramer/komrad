@@ -32,7 +32,7 @@ if [ -z "$VERSION" ]; then
 	exit 1
 fi
 
-require_aws_profile
+use_komrad_aws_profile
 
 cd "$MISE_CONFIG_ROOT/docs"
 docs_install

@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+here="$(dirname "$0")"
+"$here/fresh-neovim"
+workflow="$(komrad rpc create-workflow --name neovim --cwd "$HOME/neovim" --worktree.enabled --compact | jq -r '.workflow.id')"
+komrad rpc start-orchestrator --workflow-id "$workflow" >/dev/null

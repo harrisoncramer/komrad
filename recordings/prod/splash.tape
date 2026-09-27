@@ -10,9 +10,7 @@ Sleep 20s
 Show
 Sleep 2s
 Type "j"
-Sleep 1s
 Type "j"
-Sleep 1s
 Type "j"
 Sleep 1.5s
 Enter
@@ -20,22 +18,17 @@ Sleep 4s
 Ctrl+Q
 Sleep 1.5s
 Type "j"
-Sleep 1s
 Type "j"
-Sleep 1s
 Enter
 Sleep 4s
 Ctrl+Q
 Sleep 1.5s
 Type "s"
-Sleep 1s
 Type "lsp"
 Sleep 3s
 Escape
 Sleep 1.5s
 Type "k"
-Sleep 1s
 Type "k"
-Sleep 1s
 Type "k"
 Sleep 3s

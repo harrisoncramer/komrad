@@ -4,16 +4,10 @@
 Source recordings/panel.tape
 Wait+Screen@60s /help-tags/
 Type "j"
-Sleep 700ms
 Ctrl+A
-Sleep 700ms
 Ctrl+A
-Sleep 1s
 Type "j"
-Sleep 500ms
 Type "j"
-Sleep 500ms
 Type "j"
-Sleep 700ms
 Type "y"
 Sleep 1.5s

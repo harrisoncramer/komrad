@@ -8,5 +8,4 @@ Wait+Screen@30s /Enter to confirm/
 Ctrl+A
 Type "s"
 Type "probe"
-Sleep 500ms
 Escape
