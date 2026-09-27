@@ -1796,26 +1796,6 @@
           "description": "Whether prompt holds only its opening, which a summary listing returns so that a page of agents does not carry every briefing they were launched with."
         },
         {
-          "name": "treeStanding",
-          "type": "ReviewTreeStanding",
-          "ref": "agent.v1.ReviewTreeStanding",
-          "repeated": false,
-          "map": false,
-          "oneof": "",
-          "rules": [],
-          "description": "Where the agent's worktree stood when last measured against the round tree_standing_sha names."
-        },
-        {
-          "name": "treeStandingSha",
-          "type": "string",
-          "ref": "",
-          "repeated": false,
-          "map": false,
-          "oneof": "",
-          "rules": [],
-          "description": "The snapshot of the round tree_standing was measured against, empty before any measurement."
-        },
-        {
           "name": "movedSinceRound",
           "type": "string",
           "ref": "",
@@ -1900,26 +1880,6 @@
           "oneof": "",
           "rules": [],
           "description": "How many rounds of local review its own work has been through."
-        },
-        {
-          "name": "localReviewVerdict",
-          "type": "ReviewVerdict",
-          "ref": "agent.v1.ReviewVerdict",
-          "repeated": false,
-          "map": false,
-          "oneof": "",
-          "rules": [],
-          "description": "What the last released local review concluded about the agent's own work, UNSPECIFIED when none has concluded anything."
-        },
-        {
-          "name": "localReviewTree",
-          "type": "ReviewTreeStanding",
-          "ref": "agent.v1.ReviewTreeStanding",
-          "repeated": false,
-          "map": false,
-          "oneof": "",
-          "rules": [],
-          "description": "Where the agent's worktree stands against the round that verdict was given on."
         },
         {
           "name": "reviewerComments",
@@ -7816,24 +7776,6 @@
         {
           "name": "REVIEW_DELIVERY_STATE_DELIVERED",
           "description": "Released, and the agent has claimed the doorbell."
-        }
-      ]
-    },
-    "agent.v1.ReviewTreeStanding": {
-      "name": "ReviewTreeStanding",
-      "description": "ReviewTreeStanding is where an agent's worktree stands against the round its last verdict was given on.",
-      "values": [
-        {
-          "name": "REVIEW_TREE_STANDING_MOVED",
-          "description": "The worktree differs from the round and the base does not hold the round."
-        },
-        {
-          "name": "REVIEW_TREE_STANDING_LANDED",
-          "description": "The base holds the round whole and the worktree carries nothing beyond the base."
-        },
-        {
-          "name": "REVIEW_TREE_STANDING_LANDED_MOVED",
-          "description": "The base holds the round whole and the worktree carries new work on top of the base."
         }
       ]
     },

@@ -113,14 +113,13 @@ message Agent {
   // Whether prompt holds only its opening, which a summary listing returns so that a page of
   // agents does not carry every briefing they were launched with.
   bool prompt_truncated = 32;
-  // Where the agent's worktree stood when last measured against the round tree_standing_sha names.
-  ReviewTreeStanding tree_standing = 31;
-  // The snapshot of the round tree_standing was measured against, empty before any measurement.
-  string tree_standing_sha = 33;
   // The snapshot of its newest round while its worktree no longer hashes to it, empty otherwise.
   string moved_since_round = 42;
   // When a person stopped this agent and took its worktree, empty while nobody is holding it.
   string held_at = 35;
+
+  reserved 31, 33;
+  reserved "tree_standing", "tree_standing_sha";
 }
 
 // AgentRow is an agent with what is drawn beside it: its mark, its waiting mail and the pull
@@ -138,17 +137,15 @@ message AgentRow {
   repeated pullrequest.v1.PullRequest pull_requests = 5;
   // How many rounds of local review its own work has been through.
   int32 local_review_rounds = 6;
-  // What the last released local review concluded about the agent's own work, UNSPECIFIED
-  // when none has concluded anything.
-  ReviewVerdict local_review_verdict = 7;
-  // Where the agent's worktree stands against the round that verdict was given on.
-  ReviewTreeStanding local_review_tree = 8;
   // The comments reviewer agents have left on its work, absent while none has released a review
   // of work the base branch has not taken.
   optional CommentCounts reviewer_comments = 9;
   // The comments the person has left on its work, absent while they have released no review of
   // work the base branch has not taken.
   optional CommentCounts person_comments = 10;
+
+  reserved 7, 8;
+  reserved "local_review_verdict", "local_review_tree";
 }
 
 // CommentCounts is how the comments on an agent's work stand.

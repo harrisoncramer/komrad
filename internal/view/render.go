@@ -162,20 +162,12 @@ func Spell(glyph Glyph) string {
 		return ""
 	case GlyphRepo:
 		return ""
-	case GlyphUnverified:
-		return "\uf4a3"
 	case GlyphForge:
 		return ""
 	case GlyphApproved:
 		return ""
 	case GlyphBroken:
 		return ""
-	case GlyphCheckbox:
-		return "\uf4a7"
-	case GlyphBell:
-		return "\uf49a"
-	case GlyphHourglass:
-		return "\uf4e3"
 	case GlyphMerged:
 		return ""
 	case GlyphDraft:

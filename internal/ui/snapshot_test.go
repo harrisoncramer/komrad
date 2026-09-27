@@ -5,7 +5,6 @@ import (
 	"testing"
 	"time"
 
-	"komrad/internal/git"
 	"komrad/internal/ui/panel"
 	"komrad/internal/view"
 	"komrad/lib/xptr"
@@ -159,78 +158,56 @@ func TestSnapshotRepo(t *testing.T) {
 	}
 }
 
-// TestSnapshotReview pins the five states the column picks from the last conclusion released
-// and whether the worktree still matches the round it was given on.
-func TestSnapshotReview(t *testing.T) {
+// TestSnapshotComments pins each side's counts reaching the row as the listing carried them,
+// an archived agent's included.
+func TestSnapshotComments(t *testing.T) {
 	tests := []struct {
-		name string
-		item panel.AgentRow
-		want view.Review
+		name         string
+		item         panel.AgentRow
+		wantReviewer *view.Comments
+		wantPerson   *view.Comments
 	}{
 		{
-			name: "an approval on the tree as it stands is approved",
-			item: panel.AgentRow{LocalVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED},
-			want: view.ReviewApproved,
-		},
-		{
-			name: "an approval the tree has moved past is owed another pass",
-			item: panel.AgentRow{LocalVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED, LocalTree: git.StandingMoved},
-			want: view.ReviewApprovedMoved,
-		},
-		{
-			name: "changes requested on the tree as it stands are still owed by the agent",
-			item: panel.AgentRow{LocalVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED},
-			want: view.ReviewChangesRequested,
-		},
-		{
-			name: "changes requested the tree has moved past are ready to read again",
-			item: panel.AgentRow{LocalVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED, LocalTree: git.StandingMoved},
-			want: view.ReviewChangesPushed,
-		},
-		{
-			name: "an approval the base has taken, with nothing on top, is approved and landed",
-			item: panel.AgentRow{LocalVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED, LocalTree: git.StandingLanded},
-			want: view.ReviewApprovedLanded,
-		},
-		{
-			name: "an approval the base has taken, with new work on top, is never reviewed for that work",
-			item: panel.AgentRow{LocalVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED, LocalTree: git.StandingLandedMoved},
-			want: view.ReviewApprovedLandedMoved,
-		},
-		{
-			name: "changes requested on a tree the base took as it was are finished business",
-			item: panel.AgentRow{LocalVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED, LocalTree: git.StandingLanded},
-			want: view.ReviewChangesLanded,
-		},
-		{
-			name: "changes requested on a landed tree with new work on top are never reviewed for that work",
-			item: panel.AgentRow{LocalVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED, LocalTree: git.StandingLandedMoved},
-			want: view.ReviewChangesLandedMoved,
-		},
-		{
-			name: "notes without a conclusion are no review",
-			item: panel.AgentRow{LocalVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_COMMENTED},
-			want: view.ReviewNone,
-		},
-		{
-			name: "an archived agent's approval carries the verdict alone, whatever its tree last read",
-			item: panel.AgentRow{
-				Agent:        panel.Agent{ArchivedAt: xptr.Ptr(time.Now())},
-				LocalVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED,
-				LocalTree:    git.StandingMoved,
-			},
-			want: view.ReviewApproved,
-		},
-		{
-			name: "work nobody has concluded on has no review",
+			name: "work nobody has commented on counts nothing",
 			item: panel.AgentRow{},
-			want: view.ReviewNone,
+		},
+		{
+			name: "an archived agent keeps its counts",
+			item: panel.AgentRow{
+				Agent:          panel.Agent{ArchivedAt: xptr.Ptr(time.Now())},
+				PersonComments: &agentv1.CommentCounts{Resolved: 2},
+			},
+			wantPerson: &view.Comments{Resolved: 2},
+		},
+		{
+			name: "each side is counted apart",
+			item: panel.AgentRow{
+				ReviewerComments: &agentv1.CommentCounts{
+					Open:   1,
+					Unread: true,
+				},
+				PersonComments: &agentv1.CommentCounts{
+					Open:     2,
+					Resolved: 1,
+				},
+			},
+			wantReviewer: &view.Comments{
+				Open:   1,
+				Unread: true,
+			},
+			wantPerson: &view.Comments{
+				Open:     2,
+				Resolved: 1,
+			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, snapshotOne(t, tt.item).Review)
+			row := snapshotOne(t, tt.item)
+
+			assert.Equal(t, tt.wantReviewer, row.ReviewerComments)
+			assert.Equal(t, tt.wantPerson, row.PersonComments)
 		})
 	}
 }
@@ -623,13 +600,13 @@ func TestSnapshotKinds(t *testing.T) {
 }
 
 // TestSnapshotPlainWorkflowKeepsItsColumns pins that an agent in a workflow cutting no worktrees
-// still reports the directory it was handed and the review of its work.
+// still reports the directory it was handed and the comments on its work.
 func TestSnapshotPlainWorkflowKeepsItsColumns(t *testing.T) {
 	row := snapshotRowOf(t, snapshotParams{rows: []agentRow{{
 		workflow: panel.Workflow{ID: "w1", Name: "komrad"},
 		item: panel.AgentRow{
-			Alive:        true,
-			LocalVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED,
+			Alive:          true,
+			PersonComments: &agentv1.CommentCounts{Open: 1},
 			Agent: panel.Agent{
 				ID:              "a1",
 				Name:            "worker",
@@ -642,9 +619,8 @@ func TestSnapshotPlainWorkflowKeepsItsColumns(t *testing.T) {
 	}}})
 
 	assert.Equal(t, view.RepoGone, row.Repo)
-	assert.Equal(t, view.ReviewApproved, row.Review)
+	assert.Equal(t, &view.Comments{Open: 1}, row.PersonComments)
 	assert.False(t, view.RepoCell(row).IsBlank())
-	assert.False(t, view.ReviewCell(row).IsBlank())
 }
 
 // TestSnapshotHiddenTally pins the count a row stands in for.

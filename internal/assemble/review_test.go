@@ -15,80 +15,45 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// TestAgentRowsLocalReview pins what the rows draw from the reviews in the world: released
-// rounds are counted against the agent whose work went round, the last conclusion stands with
-// the round it was given on, and a comment concludes nothing.
+// TestAgentRowsLocalReview pins the rounds a row counts: released rounds, each once, against the
+// agent whose work went round.
 func TestAgentRowsLocalReview(t *testing.T) {
 	t.Parallel()
 
-	approved := agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED
-	changes := agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED
 	commented := agentv1.ReviewVerdict_REVIEW_VERDICT_COMMENTED
-	moved := agentv1.ReviewTreeStanding_REVIEW_TREE_STANDING_LANDED_MOVED
 
 	tests := []struct {
 		name    string
-		agent   *agentv1.Agent
 		reviews []*agentv1.WatchedReview
 		rounds  int32
-		verdict agentv1.ReviewVerdict
-		tree    agentv1.ReviewTreeStanding
 	}{
 		{
-			name:  "no review is nothing",
-			agent: agent(newer),
+			name: "no review is nothing",
 		},
 		{
 			name:    "an open review is counted against nobody",
-			agent:   agent(newer),
-			reviews: []*agentv1.WatchedReview{review("v1", newer, 1, "", approved)},
-		},
-		{
-			name:  "the last conclusion stands and a later comment leaves it",
-			agent: agent(newer),
-			reviews: []*agentv1.WatchedReview{
-				review("v1", newer, 1, stamp(-3*time.Hour), changes),
-				review("v2", newer, 2, stamp(-2*time.Hour), approved),
-				review("v3", newer, 3, stamp(-time.Hour), commented),
-			},
-			rounds:  3,
-			verdict: approved,
-		},
-		{
-			name:  "two reviews of one round count it once, the later release standing",
-			agent: agent(newer),
-			reviews: []*agentv1.WatchedReview{
-				review("v1", newer, 1, stamp(-time.Hour), approved),
-				review("v2", newer, 1, stamp(-2*time.Hour), changes),
-			},
-			rounds:  1,
-			verdict: approved,
+			reviews: []*agentv1.WatchedReview{review("v1", newer, 1, "", commented)},
 		},
 		{
 			name:    "a review of another agent's work is not this agent's",
-			agent:   agent(newer),
-			reviews: []*agentv1.WatchedReview{review("v1", older, 1, stamp(-time.Hour), approved)},
+			reviews: []*agentv1.WatchedReview{review("v1", older, 1, stamp(-time.Hour), commented)},
 		},
 		{
-			name:    "the tree stands where it was measured against the concluded round",
-			agent:   agent(newer, measuredAgainst("snapshot-2")),
-			reviews: []*agentv1.WatchedReview{review("v1", newer, 2, stamp(-time.Hour), approved)},
-			rounds:  1,
-			verdict: approved,
-			tree:    moved,
+			name: "two reviews of one round count it once",
+			reviews: []*agentv1.WatchedReview{
+				review("v1", newer, 1, stamp(-time.Hour), commented),
+				review("v2", newer, 1, stamp(-2*time.Hour), commented),
+			},
+			rounds: 1,
 		},
 		{
-			name:    "a tree measured against another round is unmoved",
-			agent:   agent(newer, measuredAgainst("snapshot-1")),
-			reviews: []*agentv1.WatchedReview{review("v1", newer, 2, stamp(-time.Hour), approved)},
-			rounds:  1,
-			verdict: approved,
-		},
-		{
-			name:    "a tree measured against a round nobody concluded on is unmoved",
-			agent:   agent(newer, measuredAgainst("snapshot-1")),
-			reviews: []*agentv1.WatchedReview{review("v1", newer, 1, stamp(-time.Hour), commented)},
-			rounds:  1,
+			name: "every released round counts",
+			reviews: []*agentv1.WatchedReview{
+				review("v1", newer, 1, stamp(-3*time.Hour), commented),
+				review("v2", newer, 2, stamp(-2*time.Hour), commented),
+				review("v3", newer, 3, stamp(-time.Hour), commented),
+			},
+			rounds: 3,
 		},
 	}
 	for _, tt := range tests {
@@ -96,7 +61,7 @@ func TestAgentRowsLocalReview(t *testing.T) {
 			t.Parallel()
 
 			world := assemble.World{
-				Agents:  map[string]*agentv1.Agent{tt.agent.GetId(): tt.agent},
+				Agents:  map[string]*agentv1.Agent{newer: agent(newer)},
 				Reviews: map[string]*agentv1.WatchedReview{},
 			}
 			for _, review := range tt.reviews {
@@ -106,8 +71,6 @@ func TestAgentRowsLocalReview(t *testing.T) {
 			rows := assemble.AgentRows(world, now)
 			require.Len(t, rows, 1)
 			assert.Equal(t, tt.rounds, rows[0].GetLocalReviewRounds())
-			assert.Equal(t, tt.verdict, rows[0].GetLocalReviewVerdict())
-			assert.Equal(t, tt.tree, rows[0].GetLocalReviewTree())
 		})
 	}
 }
@@ -257,11 +220,4 @@ func thread(id, reviewID string, resolved, unread bool) *agentv1.ReviewThread {
 	}
 
 	return thread
-}
-
-func measuredAgainst(sha string) func(*agentv1.Agent) {
-	return func(a *agentv1.Agent) {
-		a.TreeStanding = agentv1.ReviewTreeStanding_REVIEW_TREE_STANDING_LANDED_MOVED
-		a.TreeStandingSha = sha
-	}
 }

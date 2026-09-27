@@ -378,78 +378,6 @@ func getTree(ctx context.Context, on runner, dir, sha string) (string, error) {
 	return tree, nil
 }
 
-// Standing is where a worktree stands against a ref.
-type Standing string
-
-const (
-	// StandingSame is a worktree that still hashes to the ref, the zero standing.
-	StandingSame Standing = ""
-	// StandingMoved is a worktree that differs from a ref the base does not hold.
-	StandingMoved Standing = "moved"
-	// StandingLanded is a worktree carrying nothing beyond a base that holds the ref whole.
-	StandingLanded Standing = "landed"
-	// StandingLandedMoved is a worktree carrying new work over a base that holds the ref whole.
-	StandingLandedMoved Standing = "landed_moved"
-)
-
-// ReadStandingParams names the worktree, the base it is measured against, and the ref.
-type ReadStandingParams struct {
-	Dir         string
-	Base        string
-	SnapshotSHA string
-	// Probe is the worktree's tree already written, written again when empty.
-	Probe string
-}
-
-// ReadStanding is where a worktree stands against a ref.
-func (c *Client) ReadStanding(ctx context.Context, params ReadStandingParams) (Standing, error) {
-	root, err := c.GetRoot(ctx, params.Dir)
-	if err != nil {
-		return StandingSame, err
-	}
-
-	probe := params.Probe
-	if probe == "" {
-		probe, err = writeTree(ctx, root)
-		if err != nil {
-			return StandingSame, err
-		}
-	}
-
-	held, err := c.GetTree(ctx, root, params.SnapshotSHA)
-	if err != nil {
-		return StandingSame, err
-	}
-	if probe == held {
-		return StandingSame, nil
-	}
-
-	base, err := resolveBase(ctx, root, params.Base)
-	if err != nil {
-		return StandingMoved, err
-	}
-	if isOwnHead(ctx, root, base) {
-		return StandingMoved, nil
-	}
-
-	baseTree, err := Run(ctx, root, "rev-parse", "--verify", "--quiet", base+"^{tree}")
-	if err != nil {
-		return StandingMoved, nil
-	}
-
-	landed, err := doesHoldWhole(ctx, root, base, baseTree, params.SnapshotSHA)
-	if err != nil || !landed {
-		return StandingMoved, err
-	}
-
-	clean, err := isCleanOnto(ctx, root, base, baseTree, probe)
-	if err != nil || !clean {
-		return StandingLandedMoved, err
-	}
-
-	return StandingLanded, nil
-}
-
 // HasLandedParams names the worktree, the base branch, and the round asked about.
 type HasLandedParams struct {
 	Dir         string
@@ -508,27 +436,6 @@ func doesHoldWhole(ctx context.Context, root, base, baseTree, sha string) (bool,
 		Dir:   root,
 		Left:  base,
 		Right: sha,
-	})
-	if err != nil {
-		return false, err
-	}
-
-	return merged == baseTree, nil
-}
-
-// isCleanOnto reports whether a worktree's tree brings nothing to the base beyond what the base
-// already holds, measured from where the worktree's branch left it.
-func isCleanOnto(ctx context.Context, root, base, baseTree, probe string) (bool, error) { //nolint:revive // a params struct is the follow-up
-	mergeBase, err := Run(ctx, root, "merge-base", base, "HEAD")
-	if err != nil {
-		return false, fmt.Errorf("failed to find where %q left %q: %w", root, base, err)
-	}
-
-	merged, _, err := readMergedTree(ctx, local, readMergedTreeParams{
-		Dir:       root,
-		Left:      base,
-		Right:     probe,
-		MergeBase: mergeBase,
 	})
 	if err != nil {
 		return false, err

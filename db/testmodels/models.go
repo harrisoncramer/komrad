@@ -276,10 +276,6 @@ type Agent struct {
 	DeletingAt pgtype.Timestamptz
 	// Whether the agent still owns the pane its row names.
 	Alive bool
-	// Where the worktree stands against the round its last verdict was given on, empty while it still hashes to it.
-	TreeStanding string
-	// The round the standing was measured against.
-	TreeStandingSha string
 	// The engine that owns this row, stamped from the login that wrote it.
 	EngineID pgtype.UUID
 	// The commit the agent's checkout has checked out, null when the checkout is gone or git cannot read it. The cwd syncer rewrites it on the same pass that rewrites branch.

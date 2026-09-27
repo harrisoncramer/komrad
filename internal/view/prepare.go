@@ -73,8 +73,6 @@ func columnCells(row Row, columns Columns) []Cell {
 		switch column.Kind {
 		case ColumnRepo:
 			cells[i] = RepoCell(row)
-		case ColumnReview:
-			cells[i] = ReviewCell(row)
 		case ColumnForge:
 			cells[i] = ForgeCell(row)
 		case ColumnReviewerComments:
@@ -123,30 +121,6 @@ func RepoCell(row Row) Cell {
 	}
 
 	return Cell{Glyph: GlyphRepo, Tone: paint.ToneMuted}
-}
-
-// ReviewCell is where the tree on disk stands with the local review of an agent's work.
-func ReviewCell(row Row) Cell {
-	if !isOwn(row) {
-		return Cell{}
-	}
-
-	switch row.Review {
-	case ReviewNone:
-		return Cell{}
-	case ReviewApprovedLandedMoved, ReviewChangesLanded, ReviewChangesLandedMoved:
-		return Cell{Glyph: GlyphUnverified, Tone: paint.ToneMuted}
-	case ReviewApproved, ReviewApprovedLanded:
-		return Cell{Glyph: GlyphApproved, Tone: paint.ToneSuccess}
-	case ReviewApprovedMoved:
-		return Cell{Glyph: GlyphCheckbox, Tone: paint.ToneWarning}
-	case ReviewChangesRequested:
-		return Cell{Glyph: GlyphHourglass, Tone: paint.ToneMuted}
-	case ReviewChangesPushed:
-		return Cell{Glyph: GlyphBell, Tone: paint.ToneWarning}
-	}
-
-	return Cell{}
 }
 
 // ReviewerCommentsCell counts the comments reviewer agents left on an agent's work, open then

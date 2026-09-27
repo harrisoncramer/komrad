@@ -29,7 +29,6 @@ const cwdLookWorkers = 8
 type cwdSetter interface {
 	List(ctx context.Context) ([]agentstore.Agent, error)
 	SetCheckout(ctx context.Context, id string, params agentstore.SetCheckoutParams) error
-	SetTreeStanding(ctx context.Context, id string, standing git.Standing, snapshotSHA string) error
 	SetMovedSinceRound(ctx context.Context, id, snapshotSHA string) error
 }
 
@@ -40,7 +39,6 @@ type headReader interface {
 
 type treeReader interface {
 	ProbeTree(ctx context.Context, root string) (string, error)
-	ReadStanding(ctx context.Context, params git.ReadStandingParams) (git.Standing, error)
 	ReadBaseTip(ctx context.Context, dir, base string) (string, error)
 	HasLanded(ctx context.Context, params git.HasLandedParams) (bool, error)
 	FetchBase(ctx context.Context, dir, base string) (ref, sha string, err error)
@@ -51,7 +49,6 @@ type workflowLister interface {
 }
 
 type roundLister interface {
-	ListTallies(ctx context.Context) ([]reviewstore.Tally, error)
 	ListNewestRounds(ctx context.Context) ([]reviewstore.NewestRound, error)
 	ListUnlandedRounds(ctx context.Context) (map[string][]reviewstore.UnlandedRound, error)
 	MarkRoundsLanded(ctx context.Context, agentID string, ordinal int32) (int64, error)
@@ -108,9 +105,6 @@ type cwdLook struct {
 	agent   agentstore.Agent
 	removed bool
 	head    git.HeadState
-	// round is the snapshot the worktree was measured against, empty when no verdict names one.
-	round    string
-	standing git.Standing
 	// movedSinceRound is the newest round's snapshot while the worktree no longer hashes to it.
 	movedSinceRound string
 	// landed is the newest round the base holds whole, zero when it holds none.
@@ -129,7 +123,7 @@ func (cs *CwdSyncer) Sync(ctx context.Context) error {
 		return fmt.Errorf("failed to list agents for cwd sync: %w", err)
 	}
 
-	rounds, err := cs.listRounds(ctx)
+	rounds, err := cs.listNewestRounds(ctx)
 	if err != nil {
 		return err
 	}
@@ -164,9 +158,6 @@ func (cs *CwdSyncer) Sync(ctx context.Context) error {
 		if err := cs.write(ctx, look); err != nil {
 			failures = append(failures, err)
 		}
-		if err := cs.writeStanding(ctx, look); err != nil {
-			failures = append(failures, err)
-		}
 		if err := cs.writeMovedSinceRound(ctx, look); err != nil {
 			failures = append(failures, err)
 		}
@@ -184,35 +175,16 @@ func (cs *CwdSyncer) Sync(ctx context.Context) error {
 	return errors.Join(failures...)
 }
 
-// agentRounds are the snapshots one agent's worktree is measured against.
-type agentRounds struct {
-	// concluded is the round its last verdict was given on.
-	concluded string
-	newest    string
-}
-
-// listRounds is every agent's rounds, by agent id.
-func (cs *CwdSyncer) listRounds(ctx context.Context) (map[string]agentRounds, error) {
-	tallies, err := cs.rounds.ListTallies(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list the review tallies for cwd sync: %w", err)
-	}
-
+// listNewestRounds is the snapshot of every agent's newest round, by agent id.
+func (cs *CwdSyncer) listNewestRounds(ctx context.Context) (map[string]string, error) {
 	newest, err := cs.rounds.ListNewestRounds(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list the newest review rounds for cwd sync: %w", err)
 	}
 
-	rounds := map[string]agentRounds{}
+	rounds := map[string]string{}
 	for _, round := range newest {
-		rounds[round.AgentID] = agentRounds{newest: round.SnapshotSHA}
-	}
-	for _, tally := range tallies {
-		if tally.Verdict != nil {
-			agent := rounds[tally.AgentID]
-			agent.concluded = tally.SnapshotSHA
-			rounds[tally.AgentID] = agent
-		}
+		rounds[round.AgentID] = round.SnapshotSHA
 	}
 
 	return rounds, nil
@@ -235,7 +207,7 @@ func (cs *CwdSyncer) listBases(ctx context.Context) (map[string]string, error) {
 
 type lookAtAllParams struct {
 	Agents   []agentstore.Agent
-	Rounds   map[string]agentRounds
+	Rounds   map[string]string
 	Unlanded map[string][]reviewstore.UnlandedRound
 	Bases    map[string]string
 }
@@ -245,7 +217,7 @@ func (cs *CwdSyncer) lookAtAll(ctx context.Context, params lookAtAllParams) ([]c
 	looker, err := streamer.NewStreamer(streamer.NewStreamerParams[agentstore.Agent, cwdLook]{
 		WorkerCount: cwdLookWorkers,
 		Work: func(ctx context.Context, agent agentstore.Agent) (cwdLook, error) {
-			look := cs.look(ctx, agent, params.Rounds[agent.ID], params.Bases[agent.WorkflowID])
+			look := cs.look(ctx, agent, params.Rounds[agent.ID])
 			if look.removed || look.head.Root == "" {
 				return look, nil
 			}
@@ -287,19 +259,18 @@ func (cs *CwdSyncer) lookAtAll(ctx context.Context, params lookAtAllParams) ([]c
 	return looks, nil
 }
 
-func (cs *CwdSyncer) look(ctx context.Context, agent agentstore.Agent, rounds agentRounds, base string) cwdLook {
+func (cs *CwdSyncer) look(ctx context.Context, agent agentstore.Agent, newest string) cwdLook {
 	look := cwdLook{
 		agent:   agent,
-		round:   rounds.concluded,
 		removed: isCwdRemoved(ctx, agent.Cwd),
 	}
 	if look.removed {
 		return look
 	}
 
-	look.head = cs.readHead(ctx, agent.Cwd, rounds.newest)
+	look.head = cs.readHead(ctx, agent.Cwd, newest)
 
-	probe, err := cs.probeTree(ctx, look.head, rounds.concluded)
+	probe, err := cs.probeTree(ctx, look.head)
 	if err != nil {
 		look.movedSinceRound = agent.MovedSinceRound
 		look.err = fmt.Errorf("failed to hash the worktree of %q: %w", agent.Name, err)
@@ -308,15 +279,8 @@ func (cs *CwdSyncer) look(ctx context.Context, agent agentstore.Agent, rounds ag
 	}
 
 	if look.head.SnapshotTree != "" && probe != look.head.SnapshotTree {
-		look.movedSinceRound = rounds.newest
+		look.movedSinceRound = newest
 	}
-
-	look.standing, look.err = cs.readStanding(ctx, readStandingParams{
-		Agent: agent,
-		Round: rounds.concluded,
-		Base:  base,
-		Probe: probe,
-	})
 
 	return look
 }
@@ -367,21 +331,6 @@ func (cs *CwdSyncer) writeMovedSinceRound(ctx context.Context, look cwdLook) err
 
 	if err := cs.agents.SetMovedSinceRound(ctx, agent.ID, look.movedSinceRound); err != nil {
 		return fmt.Errorf("failed to set the round the worktree of %q moved since: %w", agent.Name, err)
-	}
-
-	return nil
-}
-
-// writeStanding records where the look found the worktree against its round, when the row says
-// otherwise.
-func (cs *CwdSyncer) writeStanding(ctx context.Context, look cwdLook) error {
-	agent := look.agent
-	if agent.TreeStanding == look.standing && agent.TreeStandingSHA == look.round {
-		return nil
-	}
-
-	if err := cs.agents.SetTreeStanding(ctx, agent.ID, look.standing, look.round); err != nil {
-		return fmt.Errorf("failed to set the tree standing for %q: %w", agent.Name, err)
 	}
 
 	return nil
@@ -520,9 +469,9 @@ func (cs *CwdSyncer) readHead(ctx context.Context, dir, snapshotSHA string) git.
 	return cs.heads.ReadHeadState(ctx, git.ReadHeadStateParams{Dir: dir, SnapshotSHA: snapshotSHA})
 }
 
-// probeTree hashes the worktree once for both rounds, and not at all when neither needs it.
-func (cs *CwdSyncer) probeTree(ctx context.Context, head git.HeadState, concluded string) (string, error) {
-	if head.Root == "" || (head.SnapshotTree == "" && concluded == "") {
+// probeTree hashes the worktree, and not at all when there is no round to measure it against.
+func (cs *CwdSyncer) probeTree(ctx context.Context, head git.HeadState) (string, error) {
+	if head.Root == "" || head.SnapshotTree == "" {
 		return "", nil
 	}
 
@@ -530,33 +479,4 @@ func (cs *CwdSyncer) probeTree(ctx context.Context, head git.HeadState, conclude
 	defer cancel()
 
 	return cs.trees.ProbeTree(ctx, head.Root)
-}
-
-type readStandingParams struct {
-	Agent agentstore.Agent
-	Round string
-	Base  string
-	Probe string
-}
-
-func (cs *CwdSyncer) readStanding(ctx context.Context, params readStandingParams) (git.Standing, error) {
-	agent := params.Agent
-	if agent.Cwd == "" || params.Round == "" {
-		return git.StandingSame, nil
-	}
-
-	ctx, cancel := context.WithTimeout(ctx, cwdLookTimeout)
-	defer cancel()
-
-	standing, err := cs.trees.ReadStanding(ctx, git.ReadStandingParams{
-		Dir:         agent.Cwd,
-		Base:        params.Base,
-		SnapshotSHA: params.Round,
-		Probe:       params.Probe,
-	})
-	if err != nil {
-		return standing, fmt.Errorf("failed to compare the tree of %q against its reviewed round: %w", agent.Name, err)
-	}
-
-	return standing, nil
 }

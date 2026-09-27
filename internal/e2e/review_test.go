@@ -138,7 +138,6 @@ func TestIntegrationReviews(t *testing.T) {
 			rows[row.GetAgent().GetId()] = row
 		}
 		assert.Equal(t, int32(1), rows[worker.GetId()].GetLocalReviewRounds())
-		assert.Equal(t, agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED, rows[worker.GetId()].GetLocalReviewVerdict())
 		assert.Zero(t, rows[reviewer.GetId()].GetLocalReviewRounds(), "the reviewer holds no work of its own")
 	})
 

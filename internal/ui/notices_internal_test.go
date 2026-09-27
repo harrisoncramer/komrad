@@ -7,7 +7,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"komrad/internal/git"
 	"komrad/internal/ui/panel"
 	"komrad/internal/view"
 	"komrad/lib/xptr"
@@ -25,16 +24,6 @@ func TestAgentNotices(t *testing.T) {
 		{
 			name: "an agent carrying nothing has nothing to say",
 			row:  buildNoticeRow(panel.AgentRow{Alive: true}),
-			want: []string{},
-		},
-		{
-			name: "a review released without a conclusion says nothing",
-			row:  buildNoticeRow(panel.AgentRow{LocalVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_COMMENTED}),
-			want: []string{},
-		},
-		{
-			name: "a tree that moved with nothing concluded on it says nothing",
-			row:  buildNoticeRow(panel.AgentRow{LocalTree: git.StandingMoved}),
 			want: []string{},
 		},
 		{
@@ -103,80 +92,34 @@ func TestAgentNotices(t *testing.T) {
 			want: []string{failedToCleanupNotice, failedRunNotice, unreadMailNotice, worktreeRemovedNotice, hiddenNotice},
 		},
 		{
-			name: "approved on this tree",
-			row:  buildNoticeRow(panel.AgentRow{LocalVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED}),
-			want: []string{localApprovedNotice},
+			name: "the person's comments read",
+			row: buildNoticeRow(panel.AgentRow{PersonComments: &agentv1.CommentCounts{
+				Open:     2,
+				Resolved: 1,
+			}}),
+			want: []string{"your comments: 2 open, 1 resolved"},
 		},
 		{
-			name: "approved, tree moved since",
+			name: "a reviewer's comments with a reply unread come before the person's",
 			row: buildNoticeRow(panel.AgentRow{
-				LocalVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED,
-				LocalTree:    git.StandingMoved,
+				ReviewerComments: &agentv1.CommentCounts{
+					Open:   1,
+					Unread: true,
+				},
+				PersonComments: &agentv1.CommentCounts{Resolved: 3},
 			}),
-			want: []string{localApprovedMovedNotice},
+			want: []string{
+				"reviewer agents' comments: 1 open, 0 resolved, with something you have not read",
+				"your comments: 0 open, 3 resolved",
+			},
 		},
 		{
-			name: "changes requested, agent still owes fixes",
-			row:  buildNoticeRow(panel.AgentRow{LocalVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED}),
-			want: []string{localChangesOwedNotice},
-		},
-		{
-			name: "changes requested, agent pushed since",
+			name: "an archived row still counts its comments",
 			row: buildNoticeRow(panel.AgentRow{
-				LocalVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED,
-				LocalTree:    git.StandingMoved,
+				Agent:          panel.Agent{ArchivedAt: xptr.Ptr(time.Now())},
+				PersonComments: &agentv1.CommentCounts{Open: 1},
 			}),
-			want: []string{localChangesPushedNotice},
-		},
-		{
-			name: "approved and landed",
-			row: buildNoticeRow(panel.AgentRow{
-				LocalVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED,
-				LocalTree:    git.StandingLanded,
-			}),
-			want: []string{localApprovedLandedNotice},
-		},
-		{
-			name: "approved and landed, new work since",
-			row: buildNoticeRow(panel.AgentRow{
-				LocalVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED,
-				LocalTree:    git.StandingLandedMoved,
-			}),
-			want: []string{localApprovedLandedMovedNotice},
-		},
-		{
-			name: "changes requested, landed as it was",
-			row: buildNoticeRow(panel.AgentRow{
-				LocalVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED,
-				LocalTree:    git.StandingLanded,
-			}),
-			want: []string{localChangesLandedNotice},
-		},
-		{
-			name: "changes requested, landed with new work",
-			row: buildNoticeRow(panel.AgentRow{
-				LocalVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED,
-				LocalTree:    git.StandingLandedMoved,
-			}),
-			want: []string{localChangesLandedMovedNotice},
-		},
-		{
-			name: "an archived row with changes still owed names the verdict as of the archiving",
-			row: buildNoticeRow(panel.AgentRow{
-				Agent:        panel.Agent{ArchivedAt: xptr.Ptr(time.Now())},
-				LocalVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED,
-				LocalTree:    git.StandingMoved,
-			}),
-			want: []string{archivedChangesOwedNotice},
-		},
-		{
-			name: "an archived row with an approval standing names the verdict as of the archiving",
-			row: buildNoticeRow(panel.AgentRow{
-				Agent:        panel.Agent{ArchivedAt: xptr.Ptr(time.Now())},
-				LocalVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED,
-				LocalTree:    git.StandingMoved,
-			}),
-			want: []string{archivedApprovedNotice},
+			want: []string{"your comments: 1 open, 0 resolved"},
 		},
 		{
 			name: "an agent without a worktree still says its directory is gone",
@@ -195,12 +138,12 @@ func TestAgentNotices(t *testing.T) {
 			want: []string{sequenceNotice},
 		},
 		{
-			name: "an agent without a worktree still says how its review stands",
+			name: "an agent without a worktree still counts its comments",
 			row: buildPlainRow(panel.AgentRow{
-				Agent:        panel.Agent{ID: "a1"},
-				LocalVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED,
+				Agent:          panel.Agent{ID: "a1"},
+				PersonComments: &agentv1.CommentCounts{Open: 1},
 			}),
-			want: []string{localApprovedNotice},
+			want: []string{"your comments: 1 open, 0 resolved"},
 		},
 	}
 
@@ -219,21 +162,18 @@ func TestAgentNoticesWearTheGlyphTheRowDraws(t *testing.T) {
 			SequenceInProgress: true,
 			HeldAt:             xptr.Ptr(time.Now()),
 		},
-		Alive:        true,
-		UnreadMail:   true,
-		FailedRun:    true,
-		LocalVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED,
-		LocalTree:    git.StandingMoved,
+		Alive:      true,
+		UnreadMail: true,
+		FailedRun:  true,
 	}
 
 	line := view.Prepare(view.Snapshot{Rows: []view.Row{snapshotRow(buildNoticeRow(item), snapshotParams{})}}).Lines[0]
 
 	want := map[string]view.Cell{
-		failedRunNotice:          line.Alert,
-		unreadMailNotice:         line.Mail,
-		sequenceNotice:           line.Columns[0],
-		heldPromptedNotice:       line.Held,
-		localChangesPushedNotice: line.Columns[1],
+		failedRunNotice:    line.Alert,
+		unreadMailNotice:   line.Mail,
+		sequenceNotice:     line.Columns[0],
+		heldPromptedNotice: line.Held,
 	}
 
 	notices := agentNotices(buildNoticeRow(item))
@@ -254,13 +194,6 @@ func TestAgentNoticesSpeakForEveryColumnState(t *testing.T) {
 		_, said := repoSaid[repo]
 
 		assert.NotEqual(t, said, repo == view.RepoClean, "repo state %d is neither given a sentence nor its baseline", state)
-	}
-
-	for state := range int(view.ReviewEnd) {
-		review := view.Review(state)
-		_, said := reviewSaid[review]
-
-		assert.NotEqual(t, said, review == view.ReviewNone, "review state %d is neither given a sentence nor its baseline", state)
 	}
 
 	for _, state := range []panel.State{panel.StateFailedToCreate, panel.StateFailedToCleanup} {

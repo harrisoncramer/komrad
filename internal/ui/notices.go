@@ -30,19 +30,6 @@ const (
 	heldPromptedNotice    = "paused, but stopped at a prompt, so a write lands if anybody answers"
 )
 
-const (
-	localApprovedNotice            = "approved as it stands"
-	localApprovedMovedNotice       = "approved, but the tree has changed since"
-	localChangesOwedNotice         = "changes were asked for that the agent still owes"
-	localChangesPushedNotice       = "ready for re-review, the agent has pushed the changes"
-	localApprovedLandedNotice      = "approved and landed"
-	localApprovedLandedMovedNotice = "approved and landed, with new work nobody has read"
-	localChangesLandedNotice       = "changes asked for, but the tree landed already"
-	localChangesLandedMovedNotice  = "changes asked for, the tree landed, plus there is unreviewed work"
-	archivedApprovedNotice         = "approved while archived"
-	archivedChangesOwedNotice      = "changes asked for + still owed when archived"
-)
-
 var (
 	// failureSaid is what the status column drawn broken says about how an agent got there.
 	failureSaid = map[panel.State]string{
@@ -54,25 +41,6 @@ var (
 	repoSaid = map[view.Repo]string{
 		view.RepoGone:     worktreeRemovedNotice,
 		view.RepoRebasing: sequenceNotice,
-	}
-
-	// reviewSaid is what the review column says where it stands away from its baseline, which
-	// is whose turn it is.
-	reviewSaid = map[view.Review]string{
-		view.ReviewApproved:            localApprovedNotice,
-		view.ReviewApprovedMoved:       localApprovedMovedNotice,
-		view.ReviewChangesRequested:    localChangesOwedNotice,
-		view.ReviewChangesPushed:       localChangesPushedNotice,
-		view.ReviewApprovedLanded:      localApprovedLandedNotice,
-		view.ReviewApprovedLandedMoved: localApprovedLandedMovedNotice,
-		view.ReviewChangesLanded:       localChangesLandedNotice,
-		view.ReviewChangesLandedMoved:  localChangesLandedMovedNotice,
-	}
-
-	// archivedReviewSaid is what the review column says on an archived row.
-	archivedReviewSaid = map[view.Review]string{
-		view.ReviewApproved:         archivedApprovedNotice,
-		view.ReviewChangesRequested: archivedChangesOwedNotice,
 	}
 )
 
@@ -87,12 +55,6 @@ func agentNotices(r agentRow) []notice {
 	notices = appendCellNotice(notices, view.RepoCell(row), repoSaid[row.Repo])
 	notices = appendCellNotice(notices, view.HeldCell(row), heldNoticeText(item))
 	notices = appendCellNotice(notices, view.HiddenCell(row), hiddenNotice)
-
-	if row.Archived {
-		return appendCellNotice(notices, view.ReviewCell(row), archivedReviewSaid[row.Review])
-	}
-
-	notices = appendCellNotice(notices, view.ReviewCell(row), reviewSaid[row.Review])
 	notices = appendCommentsNotice(notices, row.ReviewerComments, "reviewer agents' comments")
 
 	return appendCommentsNotice(notices, row.PersonComments, "your comments")

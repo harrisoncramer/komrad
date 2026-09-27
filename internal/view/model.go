@@ -8,13 +8,9 @@ type Glyph int
 const (
 	GlyphNone Glyph = iota
 	GlyphRepo
-	GlyphUnverified
 	GlyphForge
 	GlyphApproved
 	GlyphBroken
-	GlyphCheckbox
-	GlyphBell
-	GlyphHourglass
 	GlyphMerged
 	GlyphDraft
 	GlyphClosed
@@ -104,7 +100,6 @@ type ColumnKind int
 
 const (
 	ColumnRepo ColumnKind = iota
-	ColumnReview
 	ColumnForge
 	// ColumnReviewerComments counts the comments reviewer agents left, open then resolved.
 	ColumnReviewerComments
@@ -124,21 +119,19 @@ type Column struct {
 // Columns is the gutter a list declares, in the order its columns are drawn.
 type Columns []Column
 
-// WorkColumns is the gutter of the agents list: repo, review and forge, one glyph each.
+// WorkColumns is the gutter of the agents list: repo and forge, one glyph each.
 func WorkColumns() Columns {
 	return Columns{
 		{Kind: ColumnRepo, Width: plainColumns},
-		{Kind: ColumnReview, Width: plainColumns},
 		{Kind: ColumnForge, Width: plainColumns},
 	}
 }
 
 // CommentedWorkColumns is the agents list's gutter with the comment counts of reviewer agents and
-// of the person drawn between review and forge, each as wide as its widest pair.
+// of the person drawn between repo and forge, each as wide as its widest pair.
 func CommentedWorkColumns(reviewer, person int) Columns {
 	return Columns{
 		{Kind: ColumnRepo, Width: plainColumns},
-		{Kind: ColumnReview, Width: plainColumns},
 		{Kind: ColumnReviewerComments, Width: max(reviewer, countColumns)},
 		{Kind: ColumnPersonComments, Width: max(person, countColumns) + plainColumns},
 		{Kind: ColumnForge, Width: plainColumns},

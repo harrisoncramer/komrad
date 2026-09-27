@@ -29,13 +29,9 @@ type namedGlyph struct {
 // glyphNames is what each glyph is called in a report.
 var glyphNames = []namedGlyph{
 	{GlyphRepo, "repo"},
-	{GlyphUnverified, "unverified"},
 	{GlyphForge, "forge"},
 	{GlyphApproved, "approved"},
 	{GlyphBroken, "broken"},
-	{GlyphCheckbox, "checkbox"},
-	{GlyphBell, "bell"},
-	{GlyphHourglass, "hourglass"},
 	{GlyphMerged, "merged"},
 	{GlyphDraft, "draft"},
 	{GlyphClosed, "closed"},

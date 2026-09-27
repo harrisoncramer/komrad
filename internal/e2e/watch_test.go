@@ -197,16 +197,28 @@ func TestIntegrationTheWatchAndTheStoresAgree(t *testing.T) {
 			name: "a review of an agent's work is released",
 			write: func(t *testing.T) {
 				reviews := reviewstore.NewReviewStore(st.Pool.GetDB())
-				round, err := reviews.CreateRound(ctx, reviewstore.CreateRoundParams{AgentID: api.ID, BaseSHA: "base", SnapshotSHA: "snapshot"})
+				round, err := reviews.CreateRound(ctx, reviewstore.CreateRoundParams{
+					AgentID:     api.ID,
+					BaseSHA:     "base",
+					SnapshotSHA: "snapshot",
+				})
 				require.NoError(t, err)
-				review, err := reviews.OpenReview(ctx, reviewstore.OpenReviewParams{AgentID: api.ID, RoundID: round.ID, AuthorKind: reviewstore.AuthorHuman})
+				review, err := reviews.OpenReview(ctx, reviewstore.OpenReviewParams{
+					AgentID:    api.ID,
+					RoundID:    round.ID,
+					AuthorKind: reviewstore.AuthorHuman,
+				})
 				require.NoError(t, err)
-				_, err = reviews.ReleaseReview(ctx, reviewstore.ReleaseReviewParams{ID: review.ID, Verdict: reviewstore.VerdictApproved, Path: "/tmp/review.md"})
+				_, err = reviews.ReleaseReview(ctx, reviewstore.ReleaseReviewParams{
+					ID:      review.ID,
+					Verdict: reviewstore.VerdictCommented,
+					Path:    "/tmp/review.md",
+				})
 				require.NoError(t, err)
 			},
 			took: func(t *testing.T, stores view) {
 				assert.Equal(t, int32(1), stores.agents[api.ID].GetLocalReviewRounds())
-				assert.Equal(t, agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED, stores.agents[api.ID].GetLocalReviewVerdict())
+				assert.NotNil(t, stores.agents[api.ID].GetPersonComments(), "the person released a review on this round")
 			},
 		},
 		{

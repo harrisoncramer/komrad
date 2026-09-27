@@ -20,12 +20,11 @@ import (
 // columns and the names beside them.
 const canonicalPane = 36
 
-// everyColumn is all three columns, written out here rather than taken from the package so a
+// everyColumn is both glyph columns, written out here rather than taken from the package so a
 // test measuring the gutter does not borrow the package's own idea of what fills it.
 func everyColumn() Columns {
 	return Columns{
 		{Kind: ColumnRepo, Width: 1},
-		{Kind: ColumnReview, Width: 1},
 		{Kind: ColumnForge, Width: 1},
 	}
 }
@@ -160,7 +159,6 @@ func TestRenderRowShapes(t *testing.T) {
 			row: Row{
 				Kind:   KindAgent,
 				Name:   "pr-metadata-fixes",
-				Review: ReviewApproved,
 				Forge:  ForgeApproved,
 				Status: StatusWaiting,
 				Held:   true,
@@ -393,7 +391,6 @@ func livePanelRows() []Row {
 		{
 			Kind:    KindAgent,
 			Name:    "eng-6994-unable-to-create-a-fundraising",
-			Review:  ReviewApproved,
 			Process: ProcessStopped,
 		},
 		{
@@ -442,7 +439,6 @@ func livePanelRows() []Row {
 			Key:    "strip-demo",
 			Kind:   KindAgent,
 			Name:   "strip-demo",
-			Review: ReviewChangesRequested,
 			Status: StatusWaiting,
 		},
 		{
@@ -472,14 +468,12 @@ func livePanelRows() []Row {
 		{
 			Kind:    KindAgent,
 			Name:    "frozen-review-bug",
-			Review:  ReviewChangesRequested,
 			Process: ProcessStopped,
 		},
 		{
 			Kind:    KindAgent,
 			Name:    "view-foundation",
 			Repo:    RepoGone,
-			Review:  ReviewApproved,
 			Process: ProcessStopped,
 		},
 		{
@@ -491,7 +485,6 @@ func livePanelRows() []Row {
 			Kind:   KindAgent,
 			Name:   "view-gather",
 			Repo:   RepoRebasing,
-			Review: ReviewApprovedMoved,
 			Status: StatusThinking,
 		},
 		{
@@ -647,12 +640,12 @@ func TestNarrowSidebarsKeepTheirColumns(t *testing.T) {
 		{
 			name:     "a sidebar narrower than a name keeps the columns and cuts the name",
 			pane:     16,
-			wantName: 4,
+			wantName: 6,
 		},
 		{
-			name:     "the default sidebar draws all three with room to spare",
+			name:     "the default sidebar draws both with room to spare",
 			pane:     30,
-			wantName: 18,
+			wantName: 20,
 		},
 	}
 
@@ -724,7 +717,7 @@ func TestGutterColumnsAgreesWithWhatIsDrawn(t *testing.T) {
 
 // drawnNameColumn is the column the settled design opens a workflow's name at, counted off the
 // drawing by hand rather than from the package's own arithmetic.
-const drawnNameColumn = 12
+const drawnNameColumn = 10
 
 // drawnIndentStep is how far each level of the tree sets its name in, written out here rather
 // than taken from the package so a change to the package's own constant fails these tests.
@@ -820,7 +813,6 @@ func canonicalRows() []Row {
 		{
 			Kind:   KindAgent,
 			Name:   "eng-6994-unable-to-create-a-grant",
-			Review: ReviewApproved,
 			Forge:  ForgeOpen,
 			Status: StatusThinking,
 		},
@@ -844,7 +836,6 @@ func canonicalRows() []Row {
 			Key:    "strip-demo",
 			Kind:   KindAgent,
 			Name:   "strip-demo",
-			Review: ReviewChangesRequested,
 			Status: StatusWaiting,
 			Held:   true,
 		},
@@ -858,13 +849,11 @@ func canonicalRows() []Row {
 		{
 			Kind:   KindAgent,
 			Name:   "frozen-review-bug",
-			Review: ReviewChangesPushed,
 			Status: StatusWaiting,
 		},
 		{
 			Kind:       KindAgent,
 			Name:       "pr-metadata-fixes",
-			Review:     ReviewApproved,
 			Forge:      ForgeApproved,
 			Status:     StatusWaiting,
 			Held:       true,
@@ -874,7 +863,6 @@ func canonicalRows() []Row {
 			Kind:   KindAgent,
 			Name:   "iss-582",
 			Repo:   RepoRebasing,
-			Review: ReviewApprovedMoved,
 			Hidden: true,
 		},
 		{
