@@ -44,12 +44,13 @@ func (d *documentsScreen) stepOlder(h host, s panelShared) tea.Cmd {
 		return nil
 	}
 
-	if d.history == nil || d.history.id != item.id {
+	if d.history == nil || d.history.id != item.id || d.history.err != nil {
 		d.history = &documentHistory{id: item.id}
 
 		return h.waitToStage()
 	}
 
+	d.history.forgetFailedReads()
 	if d.history.at+1 < len(d.history.versions) {
 		d.history.at++
 	}
@@ -70,9 +71,19 @@ func (d *documentsScreen) stepNewer(h host, s panelShared) tea.Cmd {
 		return nil
 	}
 
+	d.history.forgetFailedReads()
 	d.history.at--
 
 	return h.waitToStage()
+}
+
+// forgetFailedReads drops the writes that could not be read, so the next step reads them again.
+func (h *documentHistory) forgetFailedReads() {
+	for version, read := range h.reads {
+		if read.err != nil {
+			delete(h.reads, version)
+		}
+	}
 }
 
 // isSteppingHovered reports whether the document under the cursor is being stepped through.
@@ -118,8 +129,19 @@ func (h *documentHistory) notice() string {
 		by = "you"
 	}
 
-	return fmt.Sprintf("_version %d of %d, written by %s %s ago_",
+	notice := fmt.Sprintf("version %d of %d, written by %s %s ago",
 		current.GetVersion(), h.versions[0].GetVersion(), by, label.Age(dates.Parse(current.GetCreatedAt())))
+	if h.isOldestKeptLate() {
+		notice += ", and the writes before it were not kept"
+	}
+
+	return "_" + notice + "_"
+}
+
+// isOldestKeptLate reports whether the write stood on is the oldest kept but not the first
+// written, as for a document written before its writes were kept.
+func (h *documentHistory) isOldestKeptLate() bool {
+	return h.at+1 >= len(h.versions) && h.versions[h.at].GetVersion() > 1
 }
 
 // changeRows is what the write stepped to changed from the one kept before it.
@@ -141,6 +163,8 @@ func (h *documentHistory) changeRows(width int) []string {
 		return []string{fitRow(indent+"could not read: "+errui.GetReason(after.err), width)}
 	case before.err != nil:
 		return []string{fitRow(indent+"could not read: "+errui.GetReason(before.err), width)}
+	case h.isOldestKeptLate():
+		return paint.DocStyledRows(after.body+"\n", width, columnStyle())
 	case before.body == after.body:
 		return []string{fitRow(indent+dimStyle.Render("no change to the text"), width)}
 	}

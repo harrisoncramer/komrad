@@ -294,6 +294,7 @@ func TestDocumentsHistory(t *testing.T) {
 		name     string
 		presses  []string
 		unlisted bool
+		relisted bool
 		want     []string
 		wantNot  []string
 	}{
@@ -331,6 +332,24 @@ func TestDocumentsHistory(t *testing.T) {
 			wantNot: []string{"version"},
 		},
 		{
+			name:    "stepping back through writes not kept from the first steps by what was kept",
+			presses: []string{"j", "<"},
+			want:    []string{"version 5 of 5", "- It went out on Monday.", "+ It went out on Tuesday."},
+		},
+		{
+			name:    "the oldest write kept when earlier ones were not is drawn as it is",
+			presses: []string{"j", "<", "<"},
+			want:    []string{"version 4 of 5", "the writes before it were not kept", "It went out on Monday."},
+			wantNot: []string{"+ It went out on Monday."},
+		},
+		{
+			name:     "writes that could not be listed are listed again on the next step",
+			presses:  []string{"<"},
+			unlisted: true,
+			relisted: true,
+			want:     []string{"version 3 of 3"},
+		},
+		{
 			name:     "writes that cannot be listed say so",
 			presses:  []string{"<"},
 			unlisted: true,
@@ -349,6 +368,14 @@ func TestDocumentsHistory(t *testing.T) {
 
 			for _, key := range tt.presses {
 				harness.press(key)
+				harness.fireTimers()
+			}
+
+			if tt.relisted {
+				docs.mu.Lock()
+				docs.unlisted = false
+				docs.mu.Unlock()
+				harness.press("<")
 				harness.fireTimers()
 			}
 
@@ -437,6 +464,7 @@ type documentShelf struct {
 
 // documentWrite is one write kept of a document.
 type documentWrite struct {
+	version  int32
 	body     string
 	byPerson bool
 }
@@ -445,7 +473,7 @@ func newDocumentShelf() *documentShelf {
 	return &documentShelf{
 		listed: []*agentv1.Document{
 			{Id: "d1", Name: "Design the cache", Kind: agentv1.DocumentKind_DOCUMENT_KIND_RFC, Version: 3, UpdatedAt: "2026-09-25T12:00:00Z"},
-			{Id: "d2", Name: "Rollout report", Kind: agentv1.DocumentKind_DOCUMENT_KIND_REPORT, UpdatedAt: "2026-09-24T12:00:00Z"},
+			{Id: "d2", Name: "Rollout report", Kind: agentv1.DocumentKind_DOCUMENT_KIND_REPORT, Version: 5, UpdatedAt: "2026-09-24T12:00:00Z"},
 		},
 		bodies: map[string]string{
 			"d1": "# Design the cache\n\nKeep the cache warm.",
@@ -453,9 +481,13 @@ func newDocumentShelf() *documentShelf {
 		},
 		writes: map[string][]documentWrite{
 			"d1": {
-				{body: "# Design the cache\n\nKeep the cache cold."},
-				{body: "# Design the cache\n\nKeep the cache cold.\n\nEvict nightly."},
-				{body: "# Design the cache\n\nKeep the cache warm.", byPerson: true},
+				{version: 1, body: "# Design the cache\n\nKeep the cache cold."},
+				{version: 2, body: "# Design the cache\n\nKeep the cache cold.\n\nEvict nightly."},
+				{version: 3, body: "# Design the cache\n\nKeep the cache warm.", byPerson: true},
+			},
+			"d2": {
+				{version: 4, body: "It went out on Monday."},
+				{version: 5, body: "It went out on Tuesday."},
 			},
 		},
 	}
@@ -467,11 +499,11 @@ func (d *documentShelf) rewrite(id, body, at string) {
 	defer d.mu.Unlock()
 
 	d.bodies[id] = body
-	d.writes[id] = append(d.writes[id], documentWrite{body: body})
 	for _, document := range d.listed {
 		if document.GetId() == id {
 			document.UpdatedAt = at
 			document.Version++
+			d.writes[id] = append(d.writes[id], documentWrite{version: document.GetVersion(), body: body})
 		}
 	}
 }
@@ -513,7 +545,11 @@ func (d *documentShelf) answer(harness *panelHarness) {
 			whole.Body = d.bodies[read.GetId()]
 			if read.Version != nil {
 				whole.Version = read.GetVersion()
-				whole.Body = d.writes[read.GetId()][read.GetVersion()-1].body
+				for _, write := range d.writes[read.GetId()] {
+					if write.version == read.GetVersion() {
+						whole.Body = write.body
+					}
+				}
 			}
 
 			return connect.NewResponse(&agentv1.GetDocumentResponse{Document: whole}), nil
@@ -534,7 +570,7 @@ func (d *documentShelf) answer(harness *panelHarness) {
 		versions := make([]*agentv1.DocumentVersion, 0, len(writes))
 		for i := len(writes) - 1; i >= 0; i-- {
 			versions = append(versions, &agentv1.DocumentVersion{
-				Version:   int32(i + 1),
+				Version:   writes[i].version,
 				ByPerson:  writes[i].byPerson,
 				CreatedAt: "2026-09-25T12:00:00Z",
 			})
