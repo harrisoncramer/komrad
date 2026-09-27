@@ -20,7 +20,7 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-const worktreesTitle = "Worktrees"
+const worktreesScreen = "the worktrees"
 
 // TestWorktreesOpen covers the screen opening on the directory of the agent the cursor was on.
 func TestWorktreesOpen(t *testing.T) {
@@ -33,17 +33,17 @@ func TestWorktreesOpen(t *testing.T) {
 	}{
 		{
 			name:        "from the agents list it lands on the hovered agent's directory",
-			press:       []string{"t"},
+			press:       []string{"O", "t"},
 			wantHovered: "treeview",
 		},
 		{
 			name:        "an occupant lands on the directory it works in",
-			press:       []string{"j", "t"},
+			press:       []string{"j", "O", "t"},
 			wantHovered: "treeview",
 		},
 		{
 			name:        "from the archive it lands on the archived agent's directory",
-			press:       []string{"Z", "j", "t"},
+			press:       []string{"O", "z", "j", "O", "t"},
 			wantHovered: "reviewer",
 		},
 	}
@@ -58,7 +58,7 @@ func TestWorktreesOpen(t *testing.T) {
 			harness.press(tt.press...)
 
 			frame := harness.readFrame()
-			assert.Contains(t, frame, worktreesTitle)
+			assert.Equal(t, worktreesScreen, harness.readScreen())
 			assert.Equal(t, tt.wantHovered, readHoveredWorktree(frame))
 		})
 	}
@@ -69,7 +69,7 @@ func TestWorktreesOpen(t *testing.T) {
 		rows := buildWorktrees()
 		rows[1].(*agentv1.Agent).PaneId = "%7"
 		harness := openAgents(t, rows...)
-		harness.press("t")
+		harness.press("O", "t")
 
 		assert.True(t, harness.panel.IsZoomed())
 	})
@@ -78,7 +78,7 @@ func TestWorktreesOpen(t *testing.T) {
 		t.Parallel()
 
 		harness := openWorktrees(t)
-		require.Contains(t, splitLines(harness.readFrame())[0], "5 · —")
+		require.Contains(t, readBelowViews(harness.readFrame())[0], "5 · —")
 
 		harness.watch(buildPuts(
 			newMeasuredWorktree("/trees/live", 49*1024*1024),
@@ -86,7 +86,7 @@ func TestWorktreesOpen(t *testing.T) {
 			newMeasuredWorktree("/trees/admin", 1536*1024*1024),
 		))
 
-		assert.Contains(t, splitLines(harness.readFrame())[0], "5 · 1.6G")
+		assert.Contains(t, readBelowViews(harness.readFrame())[0], "5 · 1.6G")
 	})
 }
 
@@ -97,25 +97,25 @@ func TestWorktreesJump(t *testing.T) {
 	tests := []struct {
 		name        string
 		row         string
-		wantTitle   string
+		wantScreen  string
 		wantHovered string
 	}{
 		{
 			name:        "a directory nothing answers for stays put",
 			row:         "agent/orphan",
-			wantTitle:   worktreesTitle,
+			wantScreen:  worktreesScreen,
 			wantHovered: "agent/orphan",
 		},
 		{
 			name:        "a live agent's directory lands on the agents list",
 			row:         "treeview",
-			wantTitle:   agentsTitle,
+			wantScreen:  agentsScreen,
 			wantHovered: "treeview",
 		},
 		{
 			name:        "an archived agent's directory lands in the archive",
 			row:         "reviewer",
-			wantTitle:   archiveTitle,
+			wantScreen:  archiveScreen,
 			wantHovered: "reviewer",
 		},
 	}
@@ -130,7 +130,7 @@ func TestWorktreesJump(t *testing.T) {
 			harness.press("J")
 
 			frame := harness.readFrame()
-			assert.Contains(t, frame, tt.wantTitle)
+			assert.Equal(t, tt.wantScreen, harness.readScreen())
 			assert.Contains(t, readHoveredRow(frame), tt.wantHovered)
 		})
 	}
@@ -734,15 +734,15 @@ func TestWorktreesSort(t *testing.T) {
 
 		harness := openWorktrees(t, buildMeasuredWorktrees()...)
 		harness.press("f", "tab", "tab", "j")
-		require.Contains(t, splitLines(harness.readFrame())[0], "flat")
+		require.Contains(t, readBelowViews(harness.readFrame())[0], "flat")
 
 		harness.press("k")
 		frame := harness.readFrame()
-		assert.NotContains(t, splitLines(frame)[0], "flat")
+		assert.NotContains(t, readBelowViews(frame)[0], "flat")
 		assert.Equal(t, "treeview", readRecordField(frame, "name"))
 
 		harness.press("j", "esc")
-		assert.Contains(t, splitLines(harness.readFrame())[0], "flat")
+		assert.Contains(t, readBelowViews(harness.readFrame())[0], "flat")
 	})
 
 	t.Run("a cursor on a heading lands on a row once the headings go", func(t *testing.T) {
@@ -765,7 +765,7 @@ func TestWorktreesSort(t *testing.T) {
 
 		frame := harness.readFrame()
 		assert.Contains(t, readSidebar(frame)[3], "↑ size")
-		assert.NotContains(t, splitLines(frame)[0], "flat")
+		assert.NotContains(t, readBelowViews(frame)[0], "flat")
 	})
 }
 
@@ -777,7 +777,7 @@ func openWorktrees(t *testing.T, rows ...proto.Message) *panelHarness {
 	}
 
 	harness := openAgents(t, rows...)
-	harness.press("t")
+	harness.press("O", "t")
 
 	return harness
 }

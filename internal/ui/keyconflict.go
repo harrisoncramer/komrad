@@ -168,11 +168,16 @@ func validateArms(s screen, arms []dispatchArm) error {
 // globalArms are the keys the panel answers on one screen ahead of that screen's own table, in
 // the order it reads them.
 func globalArms(s screen, keys config.Keybindings) []dispatchArm {
-	arms := []dispatchArm{
-		{describe: "the help toggle", keys: keys.Help.Toggle},
-		{describe: "the sidebar narrowing", keys: keys.Sidebar.Narrow},
-		{describe: "the sidebar widening", keys: keys.Sidebar.Widen},
+	var arms []dispatchArm
+	if s.picksViews() {
+		arms = append(arms, dispatchArm{describe: "the view switcher", keys: keys.Views.Pick})
 	}
+
+	arms = append(arms,
+		dispatchArm{describe: "the help toggle", keys: keys.Help.Toggle},
+		dispatchArm{describe: "the sidebar narrowing", keys: keys.Sidebar.Narrow},
+		dispatchArm{describe: "the sidebar widening", keys: keys.Sidebar.Widen},
+	)
 
 	if s.opensInfoPane() {
 		arms = append(arms,

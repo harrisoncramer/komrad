@@ -260,13 +260,6 @@
               "default": "[\"R\"]"
             },
             {
-              "key": "search",
-              "path": "keybindings.agents.search",
-              "type": "array",
-              "description": "Search every conversation the panel holds for what you type, the archived ones included.",
-              "default": "[\"s\"]"
-            },
-            {
               "key": "show_hidden",
               "path": "keybindings.agents.show_hidden",
               "type": "array",
@@ -278,7 +271,7 @@
         },
         {
           "path": "keybindings.archive",
-          "description": "The archive screen, and the key that opens it from the agents list.",
+          "description": "The archive screen.",
           "settings": [
             {
               "key": "back",
@@ -300,13 +293,6 @@
               "type": "array",
               "description": "Switch the archive between its agents and its schedules.",
               "default": "[\"tab\"]"
-            },
-            {
-              "key": "open",
-              "path": "keybindings.archive.open",
-              "type": "array",
-              "description": "Open the archive from the agents list.",
-              "default": "[\"Z\"]"
             },
             {
               "key": "quit",
@@ -740,7 +726,7 @@
         },
         {
           "path": "keybindings.schedules",
-          "description": "The schedules screen, and the key that opens it from the agents list.",
+          "description": "The schedules screen.",
           "settings": [
             {
               "key": "archive",
@@ -769,13 +755,6 @@
               "type": "array",
               "description": "Write a new schedule.",
               "default": "[\"c\"]"
-            },
-            {
-              "key": "open",
-              "path": "keybindings.schedules.open",
-              "type": "array",
-              "description": "Open the schedules screen from the agents list.",
-              "default": "[\"S\"]"
             },
             {
               "key": "quit",
@@ -872,6 +851,55 @@
           "sections": []
         },
         {
+          "path": "keybindings.views",
+          "description": "The switcher at the top of the panel, which moves between the agents, search,\nschedules, archive and worktrees from any of them.",
+          "settings": [
+            {
+              "key": "pick",
+              "path": "keybindings.views.pick",
+              "type": "array",
+              "description": "Hand the keys to the switcher.",
+              "default": "[\"O\"]"
+            },
+            {
+              "key": "agents",
+              "path": "keybindings.views.agents",
+              "type": "array",
+              "description": "Open the agents list.",
+              "default": "[\"a\"]"
+            },
+            {
+              "key": "query",
+              "path": "keybindings.views.query",
+              "type": "array",
+              "description": "Open the search over every conversation the panel holds, the archived ones included.",
+              "default": "[\"q\"]"
+            },
+            {
+              "key": "schedules",
+              "path": "keybindings.views.schedules",
+              "type": "array",
+              "description": "Open the schedules.",
+              "default": "[\"s\"]"
+            },
+            {
+              "key": "archive",
+              "path": "keybindings.views.archive",
+              "type": "array",
+              "description": "Open the archive.",
+              "default": "[\"z\"]"
+            },
+            {
+              "key": "worktrees",
+              "path": "keybindings.views.worktrees",
+              "type": "array",
+              "description": "Open the worktrees, landing on the hovered agent's own directory.",
+              "default": "[\"t\"]"
+            }
+          ],
+          "sections": []
+        },
+        {
           "path": "keybindings.workflows",
           "description": "The bindings that create and change workflows, from the agents list.",
           "settings": [
@@ -944,13 +972,6 @@
               "type": "array",
               "description": "Jump to the agent in the directory under the cursor, on the agents list or in the\narchive.",
               "default": "[\"J\"]"
-            },
-            {
-              "key": "open",
-              "path": "keybindings.worktrees.open",
-              "type": "array",
-              "description": "Open the worktrees screen from the agents list or the archive, landing on the hovered\nagent's own directory.",
-              "default": "[\"t\"]"
             },
             {
               "key": "quit",

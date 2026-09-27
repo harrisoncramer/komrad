@@ -48,7 +48,7 @@ func rootKeysEnvWithPrefix(cfg *config.Config, prefix string, rootKeys ...string
 // in its root table, where the press never reaches the panel at all.
 func TestKeybindingsCheckFindsAKeyTmuxHolds(t *testing.T) {
 	cfg := config.Defaults()
-	cfg.Keybindings.Agents.Search = []string{"ctrl+y"}
+	cfg.Keybindings.Views.Query = []string{"ctrl+y"}
 
 	result := newKeybindingsCheck().Run(t.Context(), rootKeysEnv(cfg, "C-y"))
 

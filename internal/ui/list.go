@@ -507,6 +507,7 @@ type drawer interface {
 	listRecordRoom(params screenListParams) int
 
 	// The pieces a screen composing its own frame draws with.
+	viewsBar() string
 	screenColumnSplit() (columnSplit, bool)
 	joinColumns(split columnSplit, sidebar, column string) string
 	renderHelp(k keyMap, above ...string) string
@@ -718,14 +719,21 @@ func (m model) talliedHeader(title, tally string) string {
 
 func (m model) headerLines(title, tally, tabs string) string {
 	header := title
-	if tally != "" {
+	switch {
+	case tally == "":
+	case header == "":
+		header = dimStyle.Render(tally)
+	default:
 		header += dimStyle.Render("  " + tally)
 	}
 	if width := m.paneWidth(); width > 0 {
 		header = ansi.Truncate(header, width, "…")
 	}
+	if header != "" {
+		header += "\n\n"
+	}
 
-	return header + "\n\n" + m.filter.line(paint.Panel, m.glyphs) + "\n" + tabs + "\n"
+	return m.viewsBar() + header + m.filter.line(paint.Panel, m.glyphs) + "\n" + tabs + "\n"
 }
 
 // headedListView draws a list under its header, padded out to the record and the legend under it.

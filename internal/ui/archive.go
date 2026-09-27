@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"komrad/config"
-	"komrad/internal/glyph"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/panel"
 	"komrad/internal/view"
@@ -466,7 +465,7 @@ func (a *archiveScreen) view(s panelShared) string {
 func (a *archiveScreen) listParams(s panelShared) screenListParams {
 	if a.kind == archiveSchedules {
 		return screenListParams{
-			title: a.title(s.glyphs),
+			title: a.title(),
 			help:  a.help,
 			rows:  len(a.scheduleListRows(s)),
 			lines: func(pane listPane) ([]string, int) {
@@ -480,7 +479,7 @@ func (a *archiveScreen) listParams(s panelShared) screenListParams {
 	}
 
 	return screenListParams{
-		title:    a.title(s.glyphs),
+		title:    a.title(),
 		help:     a.help,
 		empty:    "nothing archived",
 		rows:     len(a.listRows(s)),
@@ -488,8 +487,8 @@ func (a *archiveScreen) listParams(s panelShared) screenListParams {
 	}
 }
 
-// title is the screen's name with the kinds it switches between, the one it lists picked out.
-func (a *archiveScreen) title(glyphs glyph.Set) string {
+// title is the kinds the screen switches between, the one it lists picked out.
+func (a *archiveScreen) title() string {
 	muted := paint.Panel.Style(paint.ToneMuted)
 	chosen := paint.Panel.Style(paint.ToneAccent)
 
@@ -502,7 +501,7 @@ func (a *archiveScreen) title(glyphs glyph.Set) string {
 		}
 	}
 
-	return screenTitle(glyphs, glyph.Archive, "Archive") + "  " + strings.Join(kinds, "  ")
+	return strings.Join(kinds, "  ")
 }
 
 func (a *archiveScreen) help(s panelShared) keyMap {

@@ -185,7 +185,7 @@ func TestAgentsRows(t *testing.T) {
 		harness := openAgents(t)
 
 		frame := harness.readFrame()
-		assert.Contains(t, frame, agentsTitle)
+		assert.Equal(t, agentsScreen, harness.readScreen())
 		assert.Contains(t, frame, "Welcome, komrad!")
 		assert.Contains(t, frame, "Press 'w' to set up your first workflow")
 		assert.Empty(t, readListRows(frame))
@@ -522,7 +522,7 @@ func TestAgentsCursorAcrossListings(t *testing.T) {
 			harness.watch(buildSnapshot(tt.next...))
 
 			frame := harness.readFrame()
-			assert.Contains(t, frame, agentsTitle)
+			assert.Equal(t, agentsScreen, harness.readScreen())
 			assert.Equal(t, tt.want, readHoveredRow(frame))
 		})
 	}
@@ -864,7 +864,7 @@ func TestAgentsRecordHeight(t *testing.T) {
 	}{
 		{
 			name:   "a pane without room for the chrome and a field closes the record",
-			height: 12,
+			height: 8,
 			want:   0,
 		},
 		{
@@ -952,7 +952,7 @@ func TestAgentsRecordFocusAndSize(t *testing.T) {
 	}{
 		{
 			name:   "a pane too short to draw the record leaves the keys with the list",
-			params: panelHarnessParams{height: 12},
+			params: panelHarnessParams{height: 8},
 		},
 		{
 			name: "a share too small for a field leaves the keys with the list",
@@ -1364,10 +1364,10 @@ func TestAgentsRecordSearch(t *testing.T) {
 	t.Run("the search goes with the screen", func(t *testing.T) {
 		harness := openWorktreeRecord(t, panelHarnessParams{})
 
-		harness.press("/", "s", "i", "z", "enter", "ctrl+a", "S", "esc")
+		harness.press("/", "s", "i", "z", "enter", "ctrl+a", "O", "s", "esc")
 
 		frame := harness.readFrame()
-		assert.Contains(t, frame, agentsTitle)
+		assert.Equal(t, agentsScreen, harness.readScreen())
 		assert.Equal(t, "/", readSearch(frame))
 	})
 
@@ -1395,7 +1395,7 @@ func TestAgentsRecordSearch(t *testing.T) {
 				name: "a narrow pane with the legend expanded",
 				params: panelHarnessParams{
 					width:  30,
-					height: 26,
+					height: 28,
 				},
 				press: []string{"?"},
 			},
@@ -1420,7 +1420,7 @@ func TestAgentsRecordSearch(t *testing.T) {
 
 				frame = harness.readFrame()
 				assert.NotEmpty(t, readRecordCursor(frame), "enter kept the search rather than reaching the list")
-				assert.Contains(t, frame, agentsTitle)
+				assert.Equal(t, agentsScreen, harness.readScreen())
 
 				harness.press("esc", "esc")
 				assert.Empty(t, readRecordCursor(harness.readFrame()), "two escapes clear the search and hand the keys back")
@@ -1446,7 +1446,7 @@ func TestAgentsRecordSearch(t *testing.T) {
 	t.Run("a grown record with no room for a row draws nothing rather than two bare rules", func(t *testing.T) {
 		harness := newPanelHarness(t, panelHarnessParams{
 			width:         40,
-			height:        19,
+			height:        18,
 			detailsHeight: 2,
 		})
 		answerWorktreeReads(harness)
@@ -1457,7 +1457,7 @@ func TestAgentsRecordSearch(t *testing.T) {
 		frame := harness.readFrame()
 		assert.False(t, isRecordDrawn(frame))
 		assert.False(t, hasAdjacentRules(frame), "no bare rules stand where the record was")
-		assert.Len(t, splitLines(frame), 19)
+		assert.Len(t, splitLines(frame), 18)
 	})
 }
 
@@ -1958,7 +1958,7 @@ func TestAgentsChildren(t *testing.T) {
 
 		harness.press("G", "d")
 
-		assert.Contains(t, splitLines(harness.readFrame())[0], agentsTitle)
+		assert.Equal(t, agentsScreen, harness.readScreen())
 		harness.assertSent()
 	})
 
@@ -2597,7 +2597,14 @@ func findBarColumn(row string) int {
 }
 
 func readSearch(frame string) string {
-	return strings.TrimSpace(ansi.Truncate(splitLines(frame)[2], ui.SidebarCols, ""))
+	for _, line := range readBelowViews(frame) {
+		prompt := strings.TrimSpace(ansi.Truncate(line, ui.SidebarCols, ""))
+		if strings.HasPrefix(prompt, "/") || strings.HasPrefix(prompt, "▽") {
+			return prompt
+		}
+	}
+
+	return ""
 }
 
 func findRecordCursor(frame string) int {

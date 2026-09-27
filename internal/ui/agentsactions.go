@@ -50,32 +50,6 @@ func (a *agentsScreen) modeActions() []screenAction {
 			run:  func(h host, s panelShared, _ string) tea.Cmd { return newWorkflowForm(h, s) },
 		},
 		screenAction{
-			id:   actionAgentSearch,
-			keys: func(k config.Keybindings) []string { return k.Agents.Search },
-			when: list.isBrowsing,
-			run:  func(h host, _ panelShared, _ string) tea.Cmd { return h.enter(screenSearch, screenTarget{}) },
-		},
-		screenAction{
-			id:   actionSchedulesOpen,
-			keys: func(k config.Keybindings) []string { return k.Schedules.Open },
-			when: list.isBrowsing,
-			run:  func(h host, _ panelShared, _ string) tea.Cmd { return h.enter(screenSchedules, screenTarget{}) },
-		},
-		screenAction{
-			id:   actionArchiveOpen,
-			keys: func(k config.Keybindings) []string { return k.Archive.Open },
-			when: list.isBrowsing,
-			run:  func(h host, _ panelShared, _ string) tea.Cmd { return h.enter(screenArchive, screenTarget{}) },
-		},
-		screenAction{
-			id:   actionWorktreesOpen,
-			keys: func(k config.Keybindings) []string { return k.Worktrees.Open },
-			when: list.isBrowsing,
-			run: func(h host, s panelShared, _ string) tea.Cmd {
-				return h.enter(screenWorktrees, screenTarget{agentID: a.hoveredAgentID(s)})
-			},
-		},
-		screenAction{
 			id:   actionDocumentsOpen,
 			keys: func(k config.Keybindings) []string { return k.Documents.Open },
 			when: a.hasDocuments,
@@ -385,29 +359,14 @@ func (a *agentsScreen) browsingLegend() []screenLegendRow {
 			desc: func(panelShared) string { return "edit" },
 		},
 		{
-			of:   []actionID{actionWorkflowArchive, actionArchiveOpen},
-			desc: func(panelShared) string { return "archive/archived agents" },
+			of:   []actionID{actionWorkflowArchive},
+			desc: func(panelShared) string { return "archive" },
 			show: a.isHoveringWorkflow,
 		},
 		{
-			of:   []actionID{actionAgentArchive, actionArchiveOpen},
-			desc: func(panelShared) string { return "archive/archived agents" },
+			of:   []actionID{actionAgentArchive},
+			desc: func(panelShared) string { return "archive" },
 			show: a.isHoveringAgent,
-		},
-		{
-			of:   []actionID{actionAgentSearch},
-			desc: func(panelShared) string { return "search" },
-			show: a.isBrowsing,
-		},
-		{
-			of:   []actionID{actionSchedulesOpen},
-			desc: func(panelShared) string { return "schedules" },
-			show: a.isBrowsing,
-		},
-		{
-			of:   []actionID{actionWorktreesOpen},
-			desc: func(panelShared) string { return "worktrees" },
-			show: a.isBrowsing,
 		},
 		{
 			of:   []actionID{actionDocumentsOpen},

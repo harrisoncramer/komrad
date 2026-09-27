@@ -51,7 +51,7 @@ func TestHelp(t *testing.T) {
 	})
 
 	t.Run("a legend too wide for the sidebar keeps its short form and says there is help to show", func(t *testing.T) {
-		harness := openHelp(t, panelHarnessParams{}, "?")
+		harness := openHelp(t, panelHarnessParams{}, append(slices.Repeat([]string{"{"}, 4), "?")...)
 
 		legend := readLegend(harness.readFrame())
 		assert.Contains(t, legend, "show help")
@@ -77,7 +77,7 @@ func TestHelpFitsEveryScreen(t *testing.T) {
 	t.Parallel()
 
 	for _, screen := range buildListScreens() {
-		if screen.title == "Search" {
+		if screen.screen == searchScreen {
 			continue
 		}
 
@@ -149,7 +149,7 @@ type undrawn struct {
 
 type driftScreen struct {
 	name    string
-	title   string
+	screen  string
 	open    func(t *testing.T) *panelHarness
 	excused []undrawn
 }
@@ -202,9 +202,9 @@ func buildDriftScreens() []driftScreen {
 
 	return []driftScreen{
 		{
-			name:  "agents",
-			title: agentsTitle,
-			open:  openDriftAgents,
+			name:   "agents",
+			screen: agentsScreen,
+			open:   openDriftAgents,
 			excused: []undrawn{
 				quit,
 				{
@@ -215,21 +215,21 @@ func buildDriftScreens() []driftScreen {
 			},
 		},
 		{
-			name:  "schedules",
-			title: schedulesTitle,
+			name:   "schedules",
+			screen: schedulesScreen,
 			open: func(t *testing.T) *panelHarness {
 				t.Helper()
 
 				harness := openDriftAgents(t)
-				harness.press("S")
+				harness.press("O", "s")
 
 				return harness
 			},
 			excused: []undrawn{quit},
 		},
 		{
-			name:  "archive",
-			title: archiveTitle,
+			name:   "archive",
+			screen: archiveScreen,
 			open: func(t *testing.T) *panelHarness {
 				t.Helper()
 
@@ -244,8 +244,8 @@ func buildDriftScreens() []driftScreen {
 			},
 		},
 		{
-			name:  "search",
-			title: searchTitle,
+			name:   "search",
+			screen: searchScreen,
 			open: func(t *testing.T) *panelHarness {
 				t.Helper()
 
@@ -261,8 +261,8 @@ func buildDriftScreens() []driftScreen {
 			excused: []undrawn{quit},
 		},
 		{
-			name:  "review",
-			title: "Review · auth",
+			name:   "review",
+			screen: "the review",
 			open: func(t *testing.T) *panelHarness {
 				t.Helper()
 
@@ -281,8 +281,8 @@ func buildDriftScreens() []driftScreen {
 			},
 		},
 		{
-			name:  "worktrees",
-			title: worktreesTitle,
+			name:   "worktrees",
+			screen: worktreesScreen,
 			open: func(t *testing.T) *panelHarness {
 				t.Helper()
 
@@ -294,8 +294,8 @@ func buildDriftScreens() []driftScreen {
 			},
 		},
 		{
-			name:  "documents",
-			title: documentsTitle,
+			name:   "documents",
+			screen: documentsScreen,
 			open: func(t *testing.T) *panelHarness {
 				t.Helper()
 
@@ -312,7 +312,7 @@ func openDriftScreen(t *testing.T, screen driftScreen) *panelHarness {
 	t.Helper()
 
 	harness := screen.open(t)
-	require.Contains(t, splitLines(harness.readFrame())[0], screen.title, "the %s screen is up", screen.name)
+	require.Equal(t, screen.screen, harness.readScreen(), "the %s screen is up", screen.name)
 
 	return harness
 }

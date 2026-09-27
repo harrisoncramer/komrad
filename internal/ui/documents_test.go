@@ -17,7 +17,7 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-const documentsTitle = "Documents"
+const documentsScreen = "the documents"
 
 // TestDocumentsOpen covers the screen opening on the documents of the row the cursor was on.
 func TestDocumentsOpen(t *testing.T) {
@@ -47,7 +47,7 @@ func TestDocumentsOpen(t *testing.T) {
 			harness, _ := openDocuments(t, tt.row)
 
 			frame := harness.readFrame()
-			assert.Contains(t, frame, documentsTitle)
+			assert.Equal(t, documentsScreen, harness.readScreen())
 			assert.Contains(t, readStageText(frame), "Design the cache")
 			harness.assertSentTo(agentv1connect.AgentServiceListDocumentsProcedure, &agentv1.ListDocumentsRequest{AgentId: proto.String(tt.wantAgent)})
 		})
@@ -73,7 +73,7 @@ func TestDocumentsOpen(t *testing.T) {
 		moveToAgentRow(t, harness, "quiet")
 		harness.press("D")
 
-		assert.NotContains(t, harness.readFrame(), documentsTitle)
+		assert.NotEqual(t, documentsScreen, harness.readScreen())
 		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceListDocumentsProcedure))
 	})
 
@@ -84,7 +84,7 @@ func TestDocumentsOpen(t *testing.T) {
 		harness.press("esc")
 
 		frame := harness.readFrame()
-		assert.Contains(t, frame, agentsTitle)
+		assert.Equal(t, agentsScreen, harness.readScreen())
 		assert.Contains(t, readHoveredRow(frame), "author")
 	})
 }
@@ -199,7 +199,7 @@ func TestDocumentsEdit(t *testing.T) {
 			write: "Rewritten.",
 			close: func(h *panelHarness) {
 				h.press("esc")
-				require.Contains(t, h.readFrame(), agentsTitle)
+				require.Equal(t, agentsScreen, h.readScreen())
 			},
 			wantSaved: "Rewritten.",
 		},

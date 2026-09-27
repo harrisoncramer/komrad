@@ -103,14 +103,6 @@ func (a *archiveScreen) agentTable() []screenAction {
 			when: list.isBrowsing,
 			run:  a.deleteHovered,
 		},
-		screenAction{
-			id:   actionWorktreesOpen,
-			keys: func(k config.Keybindings) []string { return k.Worktrees.Open },
-			when: list.isBrowsing,
-			run: func(h host, s panelShared, _ string) tea.Cmd {
-				return h.enter(screenWorktrees, screenTarget{agentID: a.hoveredAgentID(s)})
-			},
-		},
 	)
 }
 
@@ -158,11 +150,6 @@ func (a *archiveScreen) legend() []screenLegendRow {
 			of:   []actionID{actionArchiveDelete},
 			desc: func(panelShared) string { return "delete for good" },
 			show: a.holdsAnAgent,
-		},
-		{
-			of:   []actionID{actionWorktreesOpen},
-			desc: func(panelShared) string { return "worktrees" },
-			show: func(s panelShared) bool { return a.onAgents(s) && list.isBrowsing(s) },
 		},
 		{
 			of:   []actionID{actionFilterOpen},

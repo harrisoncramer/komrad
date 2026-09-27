@@ -18,9 +18,9 @@ import (
 )
 
 const (
-	schedulesTitle = "Schedules"
-	scheduleForm   = "minute hour day month weekday"
-	archiveAsk     = `Archive schedule "morning-ci"?`
+	schedulesScreen = "the schedules"
+	scheduleForm    = "minute hour day month weekday"
+	archiveAsk      = `Archive schedule "morning-ci"?`
 )
 
 // TestSchedulesKeys covers what each key does on the schedule under the cursor.
@@ -29,6 +29,7 @@ func TestSchedulesKeys(t *testing.T) {
 		name       string
 		rows       []proto.Message
 		press      []string
+		wantScreen string
 		wantDrawn  []string
 		wantAbsent []string
 		wantSent   []request
@@ -58,10 +59,10 @@ func TestSchedulesKeys(t *testing.T) {
 			wantAbsent: []string{scheduleForm},
 		},
 		{
-			name:      "back returns to the agents tree",
-			rows:      buildSchedules(),
-			press:     []string{"esc"},
-			wantDrawn: []string{agentsTitle},
+			name:       "back returns to the agents tree",
+			rows:       buildSchedules(),
+			press:      []string{"esc"},
+			wantScreen: agentsScreen,
 		},
 		{
 			name:      "new opens the form on the first workflow",
@@ -85,7 +86,7 @@ func TestSchedulesKeys(t *testing.T) {
 			name:       "archive once confirmed archives the hovered schedule and lands back on the schedules",
 			rows:       buildSchedules(),
 			press:      []string{"z", "y"},
-			wantDrawn:  []string{schedulesTitle},
+			wantScreen: schedulesScreen,
 			wantAbsent: []string{archiveAsk},
 			wantSent: []request{{
 				procedure: schedulev1connect.ScheduleServiceArchiveScheduleProcedure,
@@ -121,6 +122,9 @@ func TestSchedulesKeys(t *testing.T) {
 
 			harness.press(tt.press...)
 
+			if tt.wantScreen != "" {
+				assert.Equal(t, tt.wantScreen, harness.readScreen())
+			}
 			frame := harness.readFrame()
 			for _, drawn := range tt.wantDrawn {
 				assert.Contains(t, frame, drawn)
@@ -139,7 +143,7 @@ func TestSchedulesList(t *testing.T) {
 		harness := openSchedules(t, newLiveWorkflow("w1", "api"), newSchedule("s1", "morning-ci"), newPausedSchedule("s2", "nightly"))
 
 		frame := harness.readFrame()
-		assert.Contains(t, frame, schedulesTitle)
+		assert.Equal(t, schedulesScreen, harness.readScreen())
 		assert.Equal(t, []string{"◇ nightly  0 1 * * *", "◆ morning-ci  0 9 * * 1-5"}, readScheduleRows(frame))
 	})
 
@@ -653,7 +657,7 @@ func openSchedules(t *testing.T, rows ...proto.Message) *panelHarness {
 	t.Helper()
 
 	harness := openAgents(t, rows...)
-	harness.press("S")
+	harness.press("O", "s")
 
 	return harness
 }

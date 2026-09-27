@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"komrad/config"
-	"komrad/internal/glyph"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/panel"
 	"komrad/internal/view"
@@ -284,7 +283,6 @@ func (w *schedulesScreen) view(s panelShared) string {
 
 func (w *schedulesScreen) listParams(s panelShared) screenListParams {
 	return screenListParams{
-		title: screenTitle(s.glyphs, glyph.Schedule, "Schedules"),
 		help:  w.help,
 		rows:  len(w.listRows(s)),
 		lines: func(pane listPane) ([]string, int) { return w.lines(s, pane), w.cursor },

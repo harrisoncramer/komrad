@@ -86,7 +86,7 @@ func TestMessagesRegion(t *testing.T) {
 		assert.Contains(t, prose, "connection refused")
 		assert.Contains(t, prose, "Start it with: komrad serve")
 		assert.Contains(t, prose, "error ·", "the footer says what kind of message this is")
-		assert.Contains(t, frame, "Agents & Workflows", "the list is still above it")
+		assert.Equal(t, agentsScreen, harness.readScreen(), "the list is still above it")
 	})
 
 	t.Run("a message carrying a trace says how to read it in the log", func(t *testing.T) {

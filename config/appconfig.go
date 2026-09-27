@@ -128,7 +128,7 @@ var cycleKeyChoices = [][]string{
 type Keybindings struct {
 	// The agents list, the panel's main screen.
 	Agents AgentsKeys `mapstructure:"agents"`
-	// The archive screen, and the key that opens it from the agents list.
+	// The archive screen.
 	Archive ArchiveKeys `mapstructure:"archive"`
 	// The details under whichever list is on screen: the key that hands them the
 	// cursor, and the key that copies the field it lands on.
@@ -156,7 +156,7 @@ type Keybindings struct {
 	Review ReviewKeys `mapstructure:"review"`
 	// The keys the mouse wheel presses over the panel, shared by every screen.
 	Column ColumnKeys `mapstructure:"column"`
-	// The schedules screen, and the key that opens it from the agents list.
+	// The schedules screen.
 	Schedules SchedulesKeys `mapstructure:"schedules"`
 	// The keys that move the sidebar's edge, shared by every screen.
 	Sidebar SidebarKeys `mapstructure:"sidebar"`
@@ -167,6 +167,9 @@ type Keybindings struct {
 	// The key that opens a shell in the hovered agent's directory, shared by every
 	// screen that lists agents.
 	Terminal TerminalKeys `mapstructure:"terminal"`
+	// The switcher at the top of the panel, which moves between the agents, search,
+	// schedules, archive and worktrees from any of them.
+	Views ViewsKeys `mapstructure:"views"`
 	// The bindings that create and change workflows, from the agents list.
 	Workflows WorkflowsKeys `mapstructure:"workflows"`
 	// The worktrees screen, which lists every directory komrad cut for an agent.
@@ -243,6 +246,24 @@ type TabsKeys struct {
 	Focus []string `mapstructure:"focus" default:"f"`
 }
 
+// ViewsKeys are the bindings for the switcher at the top of the panel. Pick hands it the
+// keys, where tab and shift+tab move along it, enter opens the view under the cursor and esc
+// hands the keys back. Each view's own key opens it straight away once the switcher holds the keys.
+type ViewsKeys struct {
+	// Hand the keys to the switcher.
+	Pick []string `mapstructure:"pick" default:"O"`
+	// Open the agents list.
+	Agents []string `mapstructure:"agents" default:"a"`
+	// Open the search over every conversation the panel holds, the archived ones included.
+	Query []string `mapstructure:"query" default:"q"`
+	// Open the schedules.
+	Schedules []string `mapstructure:"schedules" default:"s"`
+	// Open the archive.
+	Archive []string `mapstructure:"archive" default:"z"`
+	// Open the worktrees, landing on the hovered agent's own directory.
+	Worktrees []string `mapstructure:"worktrees" default:"t"`
+}
+
 // TerminalKeys is the binding that opens a shell in the info pane, rooted at the hovered
 // agent's own directory. It is its own group rather than one of a screen's, since the
 // archive lists agents with directories too. The shell stays where it opened as the cursor
@@ -315,8 +336,6 @@ type AgentsKeys struct {
 	// Retry the launch of an agent that failed to create, opening a form where the flags can be
 	// corrected before confirming.
 	Retry []string `mapstructure:"retry" default:"R"`
-	// Search every conversation the panel holds for what you type, the archived ones included.
-	Search []string `mapstructure:"search" default:"s"`
 	// Toggles visibility of hidden agents alongside the rest.
 	ShowHidden []string `mapstructure:"show_hidden" default:"H"`
 }
@@ -401,9 +420,6 @@ type WorktreesKeys struct {
 	// Jump to the agent in the directory under the cursor, on the agents list or in the
 	// archive.
 	JumpToAgent []string `mapstructure:"jump_to_agent" default:"J"`
-	// Open the worktrees screen from the agents list or the archive, landing on the hovered
-	// agent's own directory.
-	Open []string `mapstructure:"open" default:"t"`
 	// Quit the panel.
 	Quit []string `mapstructure:"quit" default:"ctrl+c"`
 }
@@ -498,8 +514,7 @@ type SidebarKeys struct {
 }
 
 // SchedulesKeys are the bindings for the schedules screen, which is its own view
-// rather than part of the agents tree. Open enters it from the agents list, and
-// the rest act on the hovered schedule once inside.
+// rather than part of the agents tree, and act on the hovered schedule.
 type SchedulesKeys struct {
 	// Archive the schedule under the cursor, which stops it firing. The agents it
 	// launched are kept, and the archive can restore it.
@@ -510,8 +525,6 @@ type SchedulesKeys struct {
 	Edit []string `mapstructure:"edit" default:"e"`
 	// Write a new schedule.
 	New []string `mapstructure:"new" default:"c"`
-	// Open the schedules screen from the agents list.
-	Open []string `mapstructure:"open" default:"S"`
 	// Quit the panel.
 	Quit []string `mapstructure:"quit" default:"ctrl+c"`
 	// Pause or resume the schedule under the cursor.
@@ -519,8 +532,7 @@ type SchedulesKeys struct {
 }
 
 // ArchiveKeys are the bindings for the archive screen, which lists the agents
-// and schedules archived from the panel. Open enters it from the agents list, and the rest act
-// on the hovered row once inside.
+// and schedules archived from the panel, and act on the hovered row.
 type ArchiveKeys struct {
 	// Leave the archive for the agents list.
 	Back []string `mapstructure:"back" default:"esc"`
@@ -529,8 +541,6 @@ type ArchiveKeys struct {
 	Delete []string `mapstructure:"delete" default:"d"`
 	// Switch the archive between its agents and its schedules.
 	Kind []string `mapstructure:"kind" default:"tab"`
-	// Open the archive from the agents list.
-	Open []string `mapstructure:"open" default:"Z"`
 	// Quit the panel.
 	Quit []string `mapstructure:"quit" default:"ctrl+c"`
 	// Put the agent or schedule under the cursor back in the panel.
