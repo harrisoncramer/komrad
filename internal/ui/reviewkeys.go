@@ -25,7 +25,7 @@ func (r *reviewScreen) updateKey(h host, s panelShared, key tea.KeyPressMsg) tea
 
 	// The diff opens for an agent that is not there, and only the back key answers until it has
 	// something to draw.
-	if r.diff.View() == nil {
+	if r.diff.GetView() == nil {
 		if isBound(k, s.keys.Review.Back) {
 			return r.leave(h, s)
 		}
@@ -155,8 +155,8 @@ func (r *reviewScreen) diffKeys() diffKeys {
 
 // refuseExpand says why the file under the cursor cannot be drawn whole.
 func (r *reviewScreen) refuseExpand(s panelShared) string {
-	file, ok := r.diff.View().GetDrawnFileAt(r.diff.Cursor())
-	if !ok || r.diff.View().IsExpanded(file.Path()) || !r.diff.View().IsViewed(file.Path()) {
+	file, ok := r.diff.GetView().GetDrawnFileAt(r.diff.GetCursor())
+	if !ok || r.diff.GetView().IsExpanded(file.Path()) || !r.diff.GetView().IsViewed(file.Path()) {
 		return ""
 	}
 
@@ -175,8 +175,8 @@ func (r *reviewScreen) diffHeight(s panelShared) int {
 
 // jumpOpenThread moves to the next comment nobody has settled, stopping at the ends.
 func (r *reviewScreen) jumpOpenThread(s panelShared, direction int) tea.Cmd {
-	next, ok := r.diff.View().JumpOpenThread(r.diff.Cursor(), direction)
-	if !ok || next == r.diff.Cursor() {
+	next, ok := r.diff.GetView().JumpOpenThread(r.diff.GetCursor(), direction)
+	if !ok || next == r.diff.GetCursor() {
 		r.notice = r.diff.noOpenThreadSaid()
 
 		return nil
@@ -187,11 +187,11 @@ func (r *reviewScreen) jumpOpenThread(s panelShared, direction int) tea.Cmd {
 
 // noOpenThreadSaid is why the key moved nowhere.
 func (d reviewDiff) noOpenThreadSaid() string {
-	if d.View().IsOpenThreadAt(d.Cursor()) && d.View().CountOpenThreads() == 1 {
+	if d.GetView().IsOpenThreadAt(d.GetCursor()) && d.GetView().CountOpenThreads() == 1 {
 		return "this is the only comment left open"
 	}
 
-	if d.View().CountOpenThreads() > 0 {
+	if d.GetView().CountOpenThreads() > 0 {
 		return "the comments left open are in files you have folded away"
 	}
 
@@ -200,11 +200,11 @@ func (d reviewDiff) noOpenThreadSaid() string {
 
 // threadStepDesc names the three keys that walk the conversations, by what is left to settle.
 func (d reviewDiff) threadStepDesc() string {
-	if d.View() == nil {
+	if d.GetView() == nil {
 		return "thread, next open"
 	}
 
-	open := d.View().CountOpenThreads()
+	open := d.GetView().CountOpenThreads()
 	if open == 0 {
 		return "thread, next open"
 	}
@@ -215,20 +215,20 @@ func (d reviewDiff) threadStepDesc() string {
 // threadAtCursor is the thread the cursor is standing on, and false while the diff is still
 // loading.
 func (d reviewDiff) threadAtCursor() (*agentv1.ReviewThread, bool) {
-	if d.View() == nil {
+	if d.GetView() == nil {
 		return nil, false
 	}
 
-	return d.View().GetThreadAt(d.Cursor())
+	return d.GetView().GetThreadAt(d.GetCursor())
 }
 
 // isOnChange reports whether the cursor stands on the row for the change as a whole.
 func (d reviewDiff) isOnChange() bool {
-	if d.View() == nil {
+	if d.GetView() == nil {
 		return false
 	}
 
-	anchor, ok := d.View().GetAnchor(d.Cursor())
+	anchor, ok := d.GetView().GetAnchor(d.GetCursor())
 
 	return ok && anchor.FilePath == ""
 }

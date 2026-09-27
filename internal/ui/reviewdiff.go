@@ -86,7 +86,7 @@ func (r reviewScreen) diffNotice() string {
 // diffView is the screenful of the patch beside the sidebar, starting at top, with the cursor's
 // own row dim while the keys are on the record rather than on the diff.
 func (r reviewScreen) diffView(s panelShared, split columnSplit) string {
-	view := r.diff.View()
+	view := r.diff.GetView()
 	if view == nil || view.Len() == 0 {
 		// This is the larger half of the window, so it says what is being waited on rather than
 		// standing empty under a band, and stands rather than collapsing so the frame does not

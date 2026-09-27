@@ -68,8 +68,8 @@ func (t reviewThreads) holdsUnsent() bool {
 // isHistory reports whether the round on screen ends before the agent's current work.
 func (r reviewScreen) isHistory() (string, bool) {
 	drawn := r.diff.head
-	if r.diff.View() != nil {
-		drawn = r.diff.View().GetSnapshotSHA()
+	if r.diff.GetView() != nil {
+		drawn = r.diff.GetView().GetSnapshotSHA()
 	}
 
 	if drawn == "" || drawn == r.round.GetSnapshotSha() {

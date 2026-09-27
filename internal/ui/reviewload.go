@@ -430,8 +430,8 @@ func (r *reviewScreen) applyLoaded(h host, s panelShared, msg reviewLoadedMsg) t
 
 // drop puts the patch down until the next one arrives, keeping the files drawn whole for it.
 func (d *reviewDiff) drop() {
-	if d.View() != nil {
-		d.expanded = d.View().GetExpanded()
+	if d.GetView() != nil {
+		d.expanded = d.GetView().GetExpanded()
 	}
 
 	d.Drop()
@@ -462,8 +462,8 @@ func (d *reviewDiff) load(msg reviewLoadedMsg, isDark bool, glyphs glyph.Set) {
 	view.SetNarrowed(d.base != "")
 	view.SetTraced(msg.traced)
 	view.SetViewed(indexViewedFiles(msg.viewed, msg.patch))
-	if d.View() != nil {
-		d.expanded = d.View().GetExpanded()
+	if d.GetView() != nil {
+		d.expanded = d.GetView().GetExpanded()
 	}
 
 	view.SetExpanded(d.expanded)
@@ -501,7 +501,7 @@ func indexViewedFiles(viewed []*agentv1.ReviewViewedFile, patch *diff.Patch) map
 }
 
 func (r *reviewScreen) applyWrote(h host, s panelShared, msg reviewWroteMsg) tea.Cmd {
-	if msg.agentID != r.agentID || r.diff.View() == nil {
+	if msg.agentID != r.agentID || r.diff.GetView() == nil {
 		return nil
 	}
 
@@ -540,8 +540,8 @@ func (r *reviewScreen) applyThreads(s panelShared, threads []*agentv1.ReviewThre
 
 	// Where the cursor is standing is taken before the threads are pinned again, which rebuilds
 	// the rows a settled or deleted thread takes away from under it.
-	place, ok := r.diff.View().GetPlace(r.diff.Cursor())
-	r.diff.View().PinThreads(drawn)
+	place, ok := r.diff.GetView().GetPlace(r.diff.GetCursor())
+	r.diff.GetView().PinThreads(drawn)
 	r.diff.Keep(place, ok)
 
 	r.scrollToCursor(s)
@@ -560,11 +560,11 @@ func (r *reviewScreen) reloadFresh(s panelShared) tea.Cmd {
 }
 
 func (r *reviewScreen) load(s panelShared, fresh bool) tea.Cmd {
-	if r.diff.View() == nil {
+	if r.diff.GetView() == nil {
 		return nil
 	}
 
-	if place, ok := r.diff.View().GetPlace(r.diff.Cursor()); ok {
+	if place, ok := r.diff.GetView().GetPlace(r.diff.GetCursor()); ok {
 		r.diff.restore = &place
 	}
 

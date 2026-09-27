@@ -17,8 +17,8 @@ import (
 const paneHeight = 5
 
 // numberedText is lines "line 1" to "line n", with any line given replaced.
-func numberedText(n int, replaced map[int]string) string {
-	lines := make([]string, n)
+func numberedText(count int, replaced map[int]string) string {
+	lines := make([]string, count)
 	for i := range lines {
 		lines[i] = fmt.Sprint("line ", i+1)
 		if text, ok := replaced[i+1]; ok {
@@ -31,7 +31,7 @@ func numberedText(n int, replaced map[int]string) string {
 
 // twoChangePane is a headless pane over twenty lines with the first and the last rewritten.
 func twoChangePane() Pane {
-	view := NewView(patchWith(diff.FromTexts("notes.md",
+	view := NewView(patchWith(diff.CompareTexts("notes.md",
 		numberedText(20, nil),
 		numberedText(20, map[int]string{1: "first", 20: "last"}),
 	)), false)
@@ -40,46 +40,40 @@ func twoChangePane() Pane {
 	return NewPane(view)
 }
 
-func readCursorText(p *Pane) string {
-	return strings.TrimSpace(ansi.Strip(p.View().RenderRow(p.Cursor(), NoCursor, 80, 0)))
+func readCursorText(pane *Pane) string {
+	return strings.TrimSpace(ansi.Strip(pane.GetView().RenderRow(pane.GetCursor(), NoCursor, 80, 0)))
 }
 
 // TestNewPaneStandsOnTheFirstLine covers where a reader starts.
 func TestNewPaneStandsOnTheFirstLine(t *testing.T) {
 	pane := twoChangePane()
 
-	assert.Equal(t, pane.View().GetFirstRow(), pane.Cursor())
-	assert.Equal(t, 0, pane.Top())
-	assert.Equal(t, 0, pane.Pan())
+	assert.Equal(t, pane.GetView().GetFirstRow(), pane.GetCursor())
+	assert.Equal(t, 0, pane.GetTop())
+	assert.Equal(t, 0, pane.GetPan())
 }
 
 // TestPaneMoves covers the cursor walking the rows and reporting whether it went anywhere.
 func TestPaneMoves(t *testing.T) {
 	tests := []struct {
 		name      string
-		move      func(p *Pane) bool
+		move      func(pane *Pane) bool
 		wantMoved bool
 		wantText  string
 	}{
 		{
-			name:      "a step down lands on the next row",
-			move:      func(p *Pane) bool { return p.Step(1, 1, paneHeight) },
-			wantMoved: true,
-			wantText:  "1 +  first",
-		},
-		{
 			name:     "a step up from the first row stays there",
-			move:     func(p *Pane) bool { return p.Step(-1, 1, paneHeight) },
+			move:     func(pane *Pane) bool { return pane.Step(-1, 1, paneHeight) },
 			wantText: "1      -  line 1",
 		},
 		{
 			name:     "moving to the row already stood on is no move",
-			move:     func(p *Pane) bool { return p.MoveTo(p.Cursor(), paneHeight) },
+			move:     func(pane *Pane) bool { return pane.MoveTo(pane.GetCursor(), paneHeight) },
 			wantText: "1      -  line 1",
 		},
 		{
 			name:      "several steps are taken at once",
-			move:      func(p *Pane) bool { return p.Step(1, 3, paneHeight) },
+			move:      func(pane *Pane) bool { return pane.Step(1, 3, paneHeight) },
 			wantMoved: true,
 			wantText:  "3    3    line 3",
 		},
@@ -98,16 +92,16 @@ func TestPaneMoves(t *testing.T) {
 // TestPaneScrollsToKeepTheCursorInSight covers the window following the cursor with a margin.
 func TestPaneScrollsToKeepTheCursorInSight(t *testing.T) {
 	pane := twoChangePane()
-	last := pane.View().GetLastRow()
+	last := pane.GetView().GetLastRow()
 
 	pane.MoveTo(last, paneHeight)
-	assert.Equal(t, last-paneHeight+1+2, pane.Top(), "a margin of two rows is kept under the cursor")
+	assert.Equal(t, last-paneHeight+1+2, pane.GetTop(), "a margin of two rows is kept under the cursor")
 
-	pane.MoveTo(pane.View().GetFirstRow(), paneHeight)
-	assert.Equal(t, 0, pane.Top())
+	pane.MoveTo(pane.GetView().GetFirstRow(), paneHeight)
+	assert.Equal(t, 0, pane.GetTop())
 
 	pane.MoveTo(4, 0)
-	assert.Equal(t, 0, pane.Top(), "a pane not yet measured leaves the window where it is")
+	assert.Equal(t, 0, pane.GetTop(), "a pane not yet measured leaves the window where it is")
 }
 
 // TestPaneJumpFilePutsTheFileAtTheTop covers a file jump and the window holding the file's
@@ -116,21 +110,21 @@ func TestPaneJumpFilePutsTheFileAtTheTop(t *testing.T) {
 	const height = 10
 
 	pane := NewPane(NewView(patchWith(
-		diff.FromTexts("a.md", "one", "two"),
-		diff.FromTexts("b.md", "three\nfour\nfive", "3\n4\n5"),
+		diff.CompareTexts("a.md", "one", "two"),
+		diff.CompareTexts("b.md", "three\nfour\nfive", "3\n4\n5"),
 	), false))
 
 	require.True(t, pane.JumpFile(1, height))
-	file, ok := pane.View().GetDrawnFileAt(pane.Cursor())
+	file, ok := pane.GetView().GetDrawnFileAt(pane.GetCursor())
 	require.True(t, ok)
 	assert.Equal(t, "b.md", file.Path())
 
-	header := pane.View().GetFileTopRow(pane.Cursor())
-	assert.Equal(t, header, pane.Top())
+	header := pane.GetView().GetFileTopRow(pane.GetCursor())
+	assert.Equal(t, header, pane.GetTop())
 
 	pane.Step(1, 2, height)
 	pane.Step(-1, 1, height)
-	assert.Equal(t, header, pane.Top(), "the margin gives way to the header while the cursor is in its file")
+	assert.Equal(t, header, pane.GetTop(), "the margin gives way to the header while the cursor is in its file")
 
 	assert.False(t, pane.JumpFile(1, height), "there is no file past the last")
 }
@@ -149,7 +143,7 @@ func TestPaneSearch(t *testing.T) {
 	assert.True(t, found)
 	assert.True(t, moved)
 	assert.Equal(t, "20 +  last", readCursorText(&pane))
-	assert.Positive(t, pane.Top(), "the window follows a match off the bottom")
+	assert.Positive(t, pane.GetTop(), "the window follows a match off the bottom")
 
 	pane.JumpMatch(1, paneHeight)
 	assert.Equal(t, "1 +  first", readCursorText(&pane), "the matches wrap at the end")
@@ -159,69 +153,129 @@ func TestPaneSearch(t *testing.T) {
 func TestPaneToggleExpanded(t *testing.T) {
 	pane := twoChangePane()
 	pane.Step(1, 1, paneHeight)
-	tight := pane.View().Len()
+	tight := pane.GetView().Len()
 
 	assert.Equal(t, ExpandWhole, pane.ToggleExpanded(paneHeight))
-	assert.Greater(t, pane.View().Len(), tight)
+	assert.Greater(t, pane.GetView().Len(), tight)
 	assert.Equal(t, "1 +  first", readCursorText(&pane))
 
 	assert.Equal(t, ExpandChanged, pane.ToggleExpanded(paneHeight))
-	assert.Equal(t, tight, pane.View().Len())
+	assert.Equal(t, tight, pane.GetView().Len())
 	assert.Equal(t, "1 +  first", readCursorText(&pane))
 }
 
-// TestPaneToggleExpandedRefuses covers the two files the key does nothing to.
+// TestPaneToggleExpandedRefuses covers the panes the key does nothing to.
 func TestPaneToggleExpandedRefuses(t *testing.T) {
-	t.Run("a file whose every line is drawn already has nothing more to show", func(t *testing.T) {
-		pane := NewPane(NewView(patchWith(diff.FromTexts("a.md", "one\ntwo", "one\n2")), false))
+	tests := []struct {
+		name  string
+		build func() Pane
+		want  Expansion
+	}{
+		{
+			name:  "a pane with no view",
+			build: func() Pane { return Pane{} },
+			want:  ExpandNothing,
+		},
+		{
+			name: "the row for the change as a whole is in no file",
+			build: func() Pane {
+				pane := NewPane(NewView(patchWith(diff.CompareTexts("a.md", "one", "two")), false))
+				pane.MoveTo(0, paneHeight)
 
-		assert.Equal(t, ExpandNoMore, pane.ToggleExpanded(paneHeight))
-	})
+				return pane
+			},
+			want: ExpandNothing,
+		},
+		{
+			name: "a file whose every line is drawn already has nothing more to show",
+			build: func() Pane {
+				return NewPane(NewView(patchWith(diff.CompareTexts("a.md", "one\ntwo", "one\n2")), false))
+			},
+			want: ExpandNoMore,
+		},
+	}
 
-	t.Run("the row for the change as a whole is in no file", func(t *testing.T) {
-		pane := NewPane(NewView(patchWith(diff.FromTexts("a.md", "one", "two")), false))
-		pane.MoveTo(0, paneHeight)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pane := tt.build()
 
-		assert.Equal(t, ExpandNothing, pane.ToggleExpanded(paneHeight))
-	})
+			assert.Equal(t, tt.want, pane.ToggleExpanded(paneHeight))
+		})
+	}
 }
 
 // TestPaneKeepsItsPlace covers the cursor coming back to its line after the rows are rebuilt or
 // the view is replaced.
 func TestPaneKeepsItsPlace(t *testing.T) {
-	t.Run("rows rebuilt under the cursor", func(t *testing.T) {
-		pane := twoChangePane()
-		pane.Step(1, 1, paneHeight)
+	tests := []struct {
+		name     string
+		act      func(pane *Pane)
+		wantText string
+		wantPan  int
+	}{
+		{
+			name: "a view built again with nowhere to return to",
+			act: func(pane *Pane) {
+				pane.MoveTo(pane.GetView().GetLastRow(), paneHeight)
 
-		place, ok := pane.View().GetPlace(pane.Cursor())
-		pane.View().SetFileExpanded("notes.md", true)
-		pane.Keep(place, ok)
+				fresh := twoChangePane()
+				pane.Replace(fresh.GetView(), nil)
+			},
+			wantText: "1      -  line 1",
+		},
+		{
+			name: "rows rebuilt under the cursor",
+			act: func(pane *Pane) {
+				pane.Step(1, 1, paneHeight)
 
-		assert.Equal(t, "1 +  first", readCursorText(&pane))
-	})
+				place, ok := pane.GetView().GetPlace(pane.GetCursor())
+				pane.GetView().SetFileExpanded("notes.md", true)
+				pane.Keep(place, ok)
+			},
+			wantText: "1 +  first",
+		},
+		{
+			name: "a view built again keeps the line and the pan",
+			act: func(pane *Pane) {
+				pane.PanBy(8)
+				pane.MoveTo(pane.GetView().GetLastRow(), paneHeight)
+				place, _ := pane.GetView().GetPlace(pane.GetCursor())
 
-	t.Run("a view built again", func(t *testing.T) {
-		pane := twoChangePane()
-		pane.PanBy(8)
-		pane.MoveTo(pane.View().GetLastRow(), paneHeight)
-		place, _ := pane.View().GetPlace(pane.Cursor())
+				fresh := twoChangePane()
+				pane.Replace(fresh.GetView(), &place)
+			},
+			wantText: "20 +  last",
+			wantPan:  8,
+		},
+	}
 
-		fresh := twoChangePane()
-		pane.Replace(fresh.View(), &place)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pane := twoChangePane()
 
-		assert.Equal(t, "20 +  last", readCursorText(&pane))
-		assert.Equal(t, 8, pane.Pan(), "the pan is kept")
-	})
+			tt.act(&pane)
 
-	t.Run("a view built again with nowhere to return to", func(t *testing.T) {
-		pane := twoChangePane()
-		pane.MoveTo(pane.View().GetLastRow(), paneHeight)
+			assert.Equal(t, tt.wantText, readCursorText(&pane))
+			assert.Equal(t, tt.wantPan, pane.GetPan())
+		})
+	}
+}
 
-		fresh := twoChangePane()
-		pane.Replace(fresh.View(), nil)
+// TestPaneWithNoView covers a pane whose view has been dropped taking every key without moving.
+func TestPaneWithNoView(t *testing.T) {
+	pane := twoChangePane()
+	pane.Drop()
 
-		assert.Equal(t, pane.View().GetFirstRow(), pane.Cursor())
-	})
+	assert.False(t, pane.Step(1, 1, paneHeight))
+	assert.False(t, pane.JumpFile(1, paneHeight))
+
+	moved, found := pane.JumpMatch(1, paneHeight)
+	assert.False(t, moved)
+	assert.False(t, found)
+
+	pane.Search(regexp.MustCompile("first"), paneHeight)
+	pane.Keep(Place{}, false)
+	assert.Equal(t, strings.Repeat(" ", 40), pane.Render(40, paneHeight, LiveCursor)[0])
 }
 
 // TestPanePanStopsAtTheLeftEdge covers sliding the rows sideways.
@@ -229,29 +283,29 @@ func TestPanePanStopsAtTheLeftEdge(t *testing.T) {
 	pane := twoChangePane()
 
 	pane.PanBy(8)
-	assert.Equal(t, 8, pane.Pan())
+	assert.Equal(t, 8, pane.GetPan())
 
 	pane.PanBy(-20)
-	assert.Equal(t, 0, pane.Pan())
+	assert.Equal(t, 0, pane.GetPan())
 }
 
 // TestPaneRender covers the window of rows drawn, the cursor's row marked and the rest blank.
 func TestPaneRender(t *testing.T) {
 	pane := twoChangePane()
 	pane.Step(1, 1, paneHeight)
-	height := pane.View().Len() + 2
+	height := pane.GetView().Len() + 2
 
 	rows := pane.Render(40, height, LiveCursor)
 
 	require.Len(t, rows, height)
-	assert.Equal(t, pane.View().RenderRow(pane.Cursor(), LiveCursor, 40, 0), rows[pane.Cursor()])
-	assert.Equal(t, pane.View().RenderRow(0, NoCursor, 40, 0), rows[0])
+	assert.Equal(t, pane.GetView().RenderRow(pane.GetCursor(), LiveCursor, 40, 0), rows[pane.GetCursor()])
+	assert.Equal(t, pane.GetView().RenderRow(0, NoCursor, 40, 0), rows[0])
 	assert.Equal(t, strings.Repeat(" ", 40), rows[height-1])
 
-	pane.MoveTo(pane.View().GetLastRow(), paneHeight)
+	pane.MoveTo(pane.GetView().GetLastRow(), paneHeight)
 	window := pane.Render(40, paneHeight, DimCursor)
 	require.Len(t, window, paneHeight)
-	start := min(pane.Top(), pane.View().Len()-paneHeight)
-	assert.Equal(t, pane.View().RenderRow(start, NoCursor, 40, 0), window[0], "the window never runs past the last row")
-	assert.Equal(t, pane.View().RenderRow(pane.Cursor(), DimCursor, 40, 0), window[pane.Cursor()-start])
+	start := min(pane.GetTop(), pane.GetView().Len()-paneHeight)
+	assert.Equal(t, pane.GetView().RenderRow(start, NoCursor, 40, 0), window[0], "the window never runs past the last row")
+	assert.Equal(t, pane.GetView().RenderRow(pane.GetCursor(), DimCursor, 40, 0), window[pane.GetCursor()-start])
 }

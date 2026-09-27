@@ -44,6 +44,28 @@ type versionRead struct {
 	err     error
 }
 
+// drawnChange is the two writes a change view was built between, and the background it was
+// highlighted for.
+type drawnChange struct {
+	before int32
+	after  int32
+	isDark bool
+}
+
+// documentVersionsListedMsg is the writes kept of a document come back.
+type documentVersionsListedMsg struct {
+	id       string
+	versions []*agentv1.DocumentVersion
+	err      error
+}
+
+// documentVersionReadMsg is one write's text come back.
+type documentVersionReadMsg struct {
+	id      string
+	version int32
+	read    versionRead
+}
+
 // stepOlder steps back to the write before the one drawn, starting from the newest.
 func (d *documentsScreen) stepOlder(h host, s panelShared) tea.Cmd {
 	item, ok := d.hovered(s)
@@ -110,14 +132,14 @@ func (d *documentsScreen) docRows(s panelShared, width int) []string {
 		return paint.DocStyledRows(d.doc(s), width, columnStyle())
 	}
 
-	h := d.history
-	head := h.head(item, width, s.glyphs)
-	if h.err != nil || h.versions == nil {
+	history := d.history
+	head := history.head(item, width, s.glyphs)
+	if history.err != nil || history.versions == nil {
 		return head
 	}
 
-	if !h.isDrawn(s.isDark) {
-		return append(head, h.changeRows(width)...)
+	if !history.ensureDrawn(s.isDark) {
+		return append(head, history.changeRows(width)...)
 	}
 
 	held := diffview.DimCursor
@@ -125,7 +147,7 @@ func (d *documentsScreen) docRows(s panelShared, width int) []string {
 		held = diffview.LiveCursor
 	}
 
-	return append(head, h.pane.Render(width, d.diffHeight(s), held)...)
+	return append(head, history.pane.Render(width, d.diffHeight(s), held)...)
 }
 
 // head is the rows over the change: which write it is, the search, and what the last key said.
@@ -190,11 +212,10 @@ func (h *documentHistory) isOldestKeptLate() bool {
 	return h.at+1 >= len(h.versions) && h.versions[h.at].GetVersion() > 1
 }
 
-// readChange is the write stepped to and the one kept before it, and false while either is still
+// getChange is the write stepped to and the one kept before it, and false while either is still
 // being read.
-func (h *documentHistory) readChange() (versionRead, versionRead, bool) {
-	after, ok := h.reads[h.versions[h.at].GetVersion()]
-	before := versionRead{}
+func (h *documentHistory) getChange() (before, after versionRead, ok bool) {
+	after, ok = h.reads[h.versions[h.at].GetVersion()]
 	if h.at+1 < len(h.versions) {
 		var held bool
 		before, held = h.reads[h.versions[h.at+1].GetVersion()]
@@ -208,7 +229,7 @@ func (h *documentHistory) readChange() (versionRead, versionRead, bool) {
 func (h *documentHistory) changeRows(width int) []string {
 	indent := strings.Repeat(" ", docMargin())
 
-	before, after, ok := h.readChange()
+	before, after, ok := h.getChange()
 	switch {
 	case !ok:
 		return []string{fitRow(indent+dimStyle.Render("reading…"), width)}
@@ -223,22 +244,14 @@ func (h *documentHistory) changeRows(width int) []string {
 	return []string{fitRow(indent+dimStyle.Render("no change to the text"), width)}
 }
 
-// drawnChange is the two writes a change view was built between, and the background it was
-// highlighted for.
-type drawnChange struct {
-	before int32
-	after  int32
-	isDark bool
-}
-
-// isDrawn reports whether the change is drawn as a diff, building it once per pair of writes when
-// it is.
-func (h *documentHistory) isDrawn(isDark bool) bool {
+// ensureDrawn builds the change as a diff once per pair of writes and background, and reports
+// whether there is one to draw.
+func (h *documentHistory) ensureDrawn(isDark bool) bool {
 	if h.err != nil || h.versions == nil || h.isOldestKeptLate() {
 		return false
 	}
 
-	before, after, ok := h.readChange()
+	before, after, ok := h.getChange()
 	if !ok || after.err != nil || before.err != nil {
 		return false
 	}
@@ -248,58 +261,48 @@ func (h *documentHistory) isDrawn(isDark bool) bool {
 		drawn.before = h.versions[h.at+1].GetVersion()
 	}
 
-	if h.pane.View() == nil || h.drawn != drawn {
-		view := diffview.NewView(&diff.Patch{Files: []diff.File{diff.FromTexts(documentDiffPath, before.body, after.body)}}, isDark)
+	if h.pane.GetView() == nil || h.drawn != drawn {
+		view := diffview.NewView(&diff.Patch{Files: []diff.File{diff.CompareTexts(documentDiffPath, before.body, after.body)}}, isDark)
 		view.SetHeadless(true)
 		view.SetPattern(h.filter.pattern)
 		h.pane, h.drawn = diffview.NewPane(view), drawn
 	}
 
-	return h.pane.View().Len() > 0
-}
-
-// documentVersionsListedMsg is the writes kept of a document come back.
-type documentVersionsListedMsg struct {
-	id       string
-	versions []*agentv1.DocumentVersion
-	err      error
-}
-
-// documentVersionReadMsg is one write's text come back.
-type documentVersionReadMsg struct {
-	id      string
-	version int32
-	read    versionRead
+	return h.pane.GetView().Len() > 0
 }
 
 // readHistoryCmd lists the writes of the document being stepped through, then reads the one
 // stood on and the one before it.
 func (m *model) readHistoryCmd() tea.Cmd {
-	d := &m.documents
-	if !d.isSteppingHovered(m.shared()) {
+	docs := &m.documents
+	if !docs.isSteppingHovered(m.shared()) {
 		return nil
 	}
 
-	h, clients := d.history, m.api
-	if h.versions == nil {
-		if h.listing || h.err != nil {
+	history, clients := docs.history, m.api
+	if history.versions == nil {
+		if history.listing || history.err != nil {
 			return nil
 		}
 
-		h.listing = true
-		id := h.id
+		history.listing = true
+		id := history.id
 
 		return func() tea.Msg {
 			versions, err := clients.listDocumentVersions(id)
 
-			return documentVersionsListedMsg{id: id, versions: versions, err: err}
+			return documentVersionsListedMsg{
+				id:       id,
+				versions: versions,
+				err:      err,
+			}
 		}
 	}
 
 	var cmds []tea.Cmd
-	for _, at := range []int{h.at, h.at + 1} {
-		if at < len(h.versions) {
-			cmds = append(cmds, m.readVersionCmd(h.versions[at].GetVersion()))
+	for _, at := range []int{history.at, history.at + 1} {
+		if at < len(history.versions) {
+			cmds = append(cmds, m.readVersionCmd(history.versions[at].GetVersion()))
 		}
 	}
 
@@ -308,50 +311,58 @@ func (m *model) readHistoryCmd() tea.Cmd {
 
 // readVersionCmd reads one write of the document being stepped through, once.
 func (m *model) readVersionCmd(version int32) tea.Cmd {
-	h, clients := m.documents.history, m.api
-	if _, asked := h.reads[version]; asked {
+	history, clients := m.documents.history, m.api
+	if _, asked := history.reads[version]; asked {
 		return nil
 	}
 
-	if h.reads == nil {
-		h.reads = map[int32]versionRead{}
+	if history.reads == nil {
+		history.reads = map[int32]versionRead{}
 	}
-	h.reads[version] = versionRead{pending: true}
-	id := h.id
+	history.reads[version] = versionRead{pending: true}
+	id := history.id
 
 	return func() tea.Msg {
 		document, err := clients.getDocumentVersion(id, version)
 		if err != nil {
-			return documentVersionReadMsg{id: id, version: version, read: versionRead{err: err}}
+			return documentVersionReadMsg{
+				id:      id,
+				version: version,
+				read:    versionRead{err: err},
+			}
 		}
 
-		return documentVersionReadMsg{id: id, version: version, read: versionRead{body: document.GetBody()}}
+		return documentVersionReadMsg{
+			id:      id,
+			version: version,
+			read:    versionRead{body: document.GetBody()},
+		}
 	}
 }
 
 func (m *model) applyDocumentVersionsListed(msg documentVersionsListedMsg) tea.Cmd {
-	h := m.documents.history
-	if h == nil || h.id != msg.id {
+	history := m.documents.history
+	if history == nil || history.id != msg.id {
 		return nil
 	}
 
-	h.listing = false
+	history.listing = false
 	if msg.err != nil {
-		h.err = msg.err
+		history.err = msg.err
 
 		return nil
 	}
 
-	h.versions, h.at = msg.versions, 0
+	history.versions, history.at = msg.versions, 0
 
 	return m.readHistoryCmd()
 }
 
 func (m *model) applyDocumentVersionRead(msg documentVersionReadMsg) {
-	h := m.documents.history
-	if h == nil || h.id != msg.id || h.reads == nil {
+	history := m.documents.history
+	if history == nil || history.id != msg.id || history.reads == nil {
 		return
 	}
 
-	h.reads[msg.version] = msg.read
+	history.reads[msg.version] = msg.read
 }

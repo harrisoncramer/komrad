@@ -12,23 +12,23 @@ import (
 // textContext is how many unchanged lines are kept either side of a change.
 const textContext = 3
 
-// FromTexts is the change between two texts as one file under a path, with both sides carried
-// whole.
-func FromTexts(path, before, after string) File {
-	a, b := splitText(before), splitText(after)
+// CompareTexts is the change between two texts as one file under a path, with both sides
+// carried whole.
+func CompareTexts(path, before, after string) File {
+	oldLines, newLines := splitText(before), splitText(after)
 
 	return File{
 		OldPath:   path,
 		NewPath:   path,
 		OldSource: before,
 		NewSource: after,
-		Hunks: xslice.Map(difflib.NewMatcher(a, b).GetGroupedOpCodes(textContext), func(group []difflib.OpCode) Hunk {
-			return hunkOf(group, a, b)
+		Hunks: xslice.Map(difflib.NewMatcher(oldLines, newLines).GetGroupedOpCodes(textContext), func(group []difflib.OpCode) Hunk {
+			return buildHunk(group, oldLines, newLines)
 		}),
 	}
 }
 
-func hunkOf(group []difflib.OpCode, a, b []string) Hunk {
+func buildHunk(group []difflib.OpCode, oldLines, newLines []string) Hunk {
 	first, last := group[0], group[len(group)-1]
 	hunk := Hunk{
 		Header: fmt.Sprintf("@@ -%s +%s @@",
@@ -41,7 +41,7 @@ func hunkOf(group []difflib.OpCode, a, b []string) Hunk {
 			for offset := range op.I2 - op.I1 {
 				hunk.Lines = append(hunk.Lines, Line{
 					Kind:      Context,
-					Text:      a[op.I1+offset],
+					Text:      oldLines[op.I1+offset],
 					OldNumber: op.I1 + offset + 1,
 					NewNumber: op.J1 + offset + 1,
 				})
@@ -51,10 +51,18 @@ func hunkOf(group []difflib.OpCode, a, b []string) Hunk {
 		}
 
 		for i := op.I1; i < op.I2; i++ {
-			hunk.Lines = append(hunk.Lines, Line{Kind: Deletion, Text: a[i], OldNumber: i + 1})
+			hunk.Lines = append(hunk.Lines, Line{
+				Kind:      Deletion,
+				Text:      oldLines[i],
+				OldNumber: i + 1,
+			})
 		}
 		for j := op.J1; j < op.J2; j++ {
-			hunk.Lines = append(hunk.Lines, Line{Kind: Addition, Text: b[j], NewNumber: j + 1})
+			hunk.Lines = append(hunk.Lines, Line{
+				Kind:      Addition,
+				Text:      newLines[j],
+				NewNumber: j + 1,
+			})
 		}
 	}
 

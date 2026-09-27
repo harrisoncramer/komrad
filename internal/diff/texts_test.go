@@ -10,8 +10,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestFromTexts covers the hunks one text's change to another is drawn as.
-func TestFromTexts(t *testing.T) {
+// TestCompareTexts covers the hunks one text's change to another is drawn as.
+func TestCompareTexts(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -33,8 +33,16 @@ func TestFromTexts(t *testing.T) {
 				Header:   "@@ -0,0 +1,2 @@",
 				NewStart: 1,
 				Lines: []Line{
-					{Kind: Addition, Text: "one", NewNumber: 1},
-					{Kind: Addition, Text: "two", NewNumber: 2},
+					{
+						Kind:      Addition,
+						Text:      "one",
+						NewNumber: 1,
+					},
+					{
+						Kind:      Addition,
+						Text:      "two",
+						NewNumber: 2,
+					},
 				},
 			}},
 		},
@@ -44,7 +52,13 @@ func TestFromTexts(t *testing.T) {
 			want: []Hunk{{
 				Header:   "@@ -1 +0,0 @@",
 				NewStart: 1,
-				Lines:    []Line{{Kind: Deletion, Text: "one", OldNumber: 1}},
+				Lines: []Line{
+					{
+						Kind:      Deletion,
+						Text:      "one",
+						OldNumber: 1,
+					},
+				},
 			}},
 		},
 		{
@@ -55,10 +69,28 @@ func TestFromTexts(t *testing.T) {
 				Header:   "@@ -1,3 +1,3 @@",
 				NewStart: 1,
 				Lines: []Line{
-					{Kind: Context, Text: "one", OldNumber: 1, NewNumber: 1},
-					{Kind: Deletion, Text: "two", OldNumber: 2},
-					{Kind: Addition, Text: "2", NewNumber: 2},
-					{Kind: Context, Text: "three", OldNumber: 3, NewNumber: 3},
+					{
+						Kind:      Context,
+						Text:      "one",
+						OldNumber: 1,
+						NewNumber: 1,
+					},
+					{
+						Kind:      Deletion,
+						Text:      "two",
+						OldNumber: 2,
+					},
+					{
+						Kind:      Addition,
+						Text:      "2",
+						NewNumber: 2,
+					},
+					{
+						Kind:      Context,
+						Text:      "three",
+						OldNumber: 3,
+						NewNumber: 3,
+					},
 				},
 			}},
 		},
@@ -68,7 +100,7 @@ func TestFromTexts(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			file := FromTexts("document.md", tt.before, tt.after)
+			file := CompareTexts("document.md", tt.before, tt.after)
 
 			assert.Equal(t, tt.want, file.Hunks)
 			assert.Equal(t, "document.md", file.Path())
@@ -89,7 +121,7 @@ func TestFromTextsSplitsDistantChangesIntoHunks(t *testing.T) {
 	before := strings.Join(lines, "\n")
 	lines[0], lines[19] = "first", "last"
 
-	file := FromTexts("document.md", before, strings.Join(lines, "\n"))
+	file := CompareTexts("document.md", before, strings.Join(lines, "\n"))
 
 	assert.Equal(t, []string{"@@ -1,4 +1,4 @@", "@@ -17,4 +17,4 @@"}, xslice.Map(file.Hunks, func(hunk Hunk) string {
 		return hunk.Header

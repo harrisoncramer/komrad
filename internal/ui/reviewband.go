@@ -25,7 +25,7 @@ func (r reviewScreen) bandView(s panelShared, width int) string {
 
 	out := strings.Join(kept, "") + "\n\n" + r.diff.filter.view(paint.Panel, s.glyphs) + diffMatchCount(&r.diff.Pane, r.diff.filter)
 
-	if r.diff.View() != nil && r.diff.View().Len() > 0 {
+	if r.diff.GetView() != nil && r.diff.GetView().Len() > 0 {
 		out += r.deadView(s, width)
 	}
 
@@ -106,11 +106,11 @@ func reviewFill(line string, pane int) string {
 
 // statView is how big the change is, with the counts coloured the way the lines themselves are.
 func (d reviewDiff) statView() string {
-	if d.View() == nil {
+	if d.GetView() == nil {
 		return ""
 	}
 
-	stat := d.View().Stat()
+	stat := d.GetView().Stat()
 	if stat.Files == 0 {
 		return ""
 	}
@@ -119,7 +119,7 @@ func (d reviewDiff) statView() string {
 		paint.Panel.Style(reviewAddedTone).Render(fmt.Sprintf("+%d", stat.Added)) + " " +
 		paint.Panel.Style(reviewRemovedTone).Render(fmt.Sprintf("-%d", stat.Removed))
 
-	if read, total := d.View().CountViewedFiles(); read > 0 {
+	if read, total := d.GetView().CountViewedFiles(); read > 0 {
 		out += dimStyle.Render(fmt.Sprintf("  %d/%d viewed", read, total))
 	}
 
@@ -129,7 +129,7 @@ func (d reviewDiff) statView() string {
 // scopeView says what the diff on screen is measured between, in the reader's own terms rather
 // than as rounds, and draws the other thing the base key could show beside it.
 func (r reviewScreen) scopeView(s panelShared) string {
-	if r.diff.View() == nil {
+	if r.diff.GetView() == nil {
 		return ""
 	}
 

@@ -169,15 +169,15 @@ func (d *documentsScreen) stepActions() screenActionSpec {
 
 // diffKeys is the diff of the write stepped to under the keys every diff pane shares.
 func (d *documentsScreen) diffKeys() diffKeys {
-	h := d.history
-	if h == nil {
-		h = &documentHistory{}
+	history := d.history
+	if history == nil {
+		history = &documentHistory{}
 	}
 
 	return diffKeys{
-		pane:   &h.pane,
-		filter: &h.filter,
-		notice: &h.said,
+		pane:   &history.pane,
+		filter: &history.filter,
+		notice: &history.said,
 		height: d.diffHeight,
 	}
 }
@@ -195,7 +195,7 @@ func (d *documentsScreen) isDiffDrawn(s panelShared) bool {
 		return false
 	}
 
-	return d.isSteppingHovered(s) && d.history.isDrawn(s.isDark)
+	return d.isSteppingHovered(s) && d.history.ensureDrawn(s.isDark)
 }
 
 // isDiffFocused reports whether the diff of the write stepped to holds the keys.

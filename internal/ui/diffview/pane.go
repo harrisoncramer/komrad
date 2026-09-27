@@ -9,19 +9,31 @@ import (
 // it.
 const scrollMargin = 4
 
+const (
+	// ExpandNothing is a cursor standing in no file.
+	ExpandNothing Expansion = iota
+	// ExpandWhole is a file now drawn whole.
+	ExpandWhole
+	// ExpandChanged is a file drawn as its changed lines again.
+	ExpandChanged
+	// ExpandNoMore is a file with nothing more to show than its hunks.
+	ExpandNoMore
+)
+
+// Expansion is what toggling the file under the cursor did.
+type Expansion int
+
 // Pane is a view with a reader standing in it: the row under the cursor, the first row on screen,
 // and how far the rows are slid sideways.
 type Pane struct {
 	view   *View
 	cursor int
 	pan    int
-	// top is the first row the pane is showing, held rather than derived from the cursor.
+	// top is the first row the pane is showing.
 	top int
-
 	// pinTop holds the window where a file jump put it until the cursor moves.
 	pinTop bool
-	// pinFloor is the row a file jump put at the top of the pane, which the window stays at or
-	// below while the cursor is inside that file.
+	// pinFloor is the row a file jump put at the top of the pane.
 	pinFloor int
 }
 
@@ -30,23 +42,23 @@ func NewPane(view *View) Pane {
 	return Pane{view: view, cursor: view.GetFirstRow()}
 }
 
-// View is the view the reader is standing in, nil while there is none.
-func (p *Pane) View() *View {
+// GetView is the view the reader is standing in, nil while there is none.
+func (p *Pane) GetView() *View {
 	return p.view
 }
 
-// Cursor is the row the reader is standing on.
-func (p *Pane) Cursor() int {
+// GetCursor is the row the reader is standing on.
+func (p *Pane) GetCursor() int {
 	return p.cursor
 }
 
-// Top is the first row the pane is showing.
-func (p *Pane) Top() int {
+// GetTop is the first row the pane is showing.
+func (p *Pane) GetTop() int {
 	return p.top
 }
 
-// Pan is how far the rows are slid sideways.
-func (p *Pane) Pan() int {
+// GetPan is how far the rows are slid sideways.
+func (p *Pane) GetPan() int {
 	return p.pan
 }
 
@@ -85,6 +97,10 @@ func (p *Pane) MoveTo(row, height int) bool {
 
 // Step moves the reader a number of rows up or down.
 func (p *Pane) Step(direction, rows, height int) bool {
+	if p.view == nil {
+		return false
+	}
+
 	cursor := p.cursor
 	for range rows {
 		cursor = p.view.Move(cursor, direction)
@@ -95,6 +111,10 @@ func (p *Pane) Step(direction, rows, height int) bool {
 
 // JumpFile moves to the next or previous file and puts that file's header at the top of the pane.
 func (p *Pane) JumpFile(direction, height int) bool {
+	if p.view == nil {
+		return false
+	}
+
 	next := p.view.JumpFile(p.cursor, direction)
 	if next == p.cursor {
 		return false
@@ -111,7 +131,7 @@ func (p *Pane) JumpFile(direction, height int) bool {
 
 // Search runs a pattern over the view and stands the reader on the first match at or after them.
 func (p *Pane) Search(pattern *regexp.Regexp, height int) {
-	if p.view.SetPattern(pattern) == 0 {
+	if p.view == nil || p.view.SetPattern(pattern) == 0 {
 		return
 	}
 
@@ -125,7 +145,11 @@ func (p *Pane) Search(pattern *regexp.Regexp, height int) {
 
 // JumpMatch steps to the next or previous line the search found, wrapping at the ends, and
 // reports false while nothing was found.
-func (p *Pane) JumpMatch(direction, height int) (bool, bool) {
+func (p *Pane) JumpMatch(direction, height int) (moved, found bool) {
+	if p.view == nil {
+		return false, false
+	}
+
 	next, ok := p.view.JumpMatch(p.cursor, direction)
 	if !ok {
 		return false, false
@@ -137,6 +161,10 @@ func (p *Pane) JumpMatch(direction, height int) (bool, bool) {
 // Keep puts the reader back on what they were standing on after the rows were built again, and
 // failing that back inside the view.
 func (p *Pane) Keep(place Place, ok bool) {
+	if p.view == nil {
+		return
+	}
+
 	was := p.cursor
 
 	p.cursor = min(p.cursor, p.view.GetLastRow())
@@ -151,23 +179,13 @@ func (p *Pane) Keep(place Place, ok bool) {
 	}
 }
 
-// Expansion is what toggling the file under the cursor did.
-type Expansion int
-
-const (
-	// ExpandNothing is a cursor standing in no file.
-	ExpandNothing Expansion = iota
-	// ExpandWhole is a file now drawn whole.
-	ExpandWhole
-	// ExpandChanged is a file drawn as its changed lines again.
-	ExpandChanged
-	// ExpandNoMore is a file with nothing more to show than its hunks.
-	ExpandNoMore
-)
-
 // ToggleExpanded draws the whole of the file the cursor is in, or gives back the changed lines and
 // the few around them, keeping the reader on the line they were on.
 func (p *Pane) ToggleExpanded(height int) Expansion {
+	if p.view == nil {
+		return ExpandNothing
+	}
+
 	file, ok := p.view.GetDrawnFileAt(p.cursor)
 	if !ok {
 		return ExpandNothing
@@ -176,7 +194,6 @@ func (p *Pane) ToggleExpanded(height int) Expansion {
 	path := file.Path()
 	expanding := !p.view.IsExpanded(path)
 
-	// Where the cursor is standing is taken before the rows are built again.
 	place, located := p.view.GetPlace(p.cursor)
 
 	p.view.SetFileExpanded(path, expanding)
@@ -228,12 +245,15 @@ func (p *Pane) ScrollToCursor(height int) {
 // Render is the window of rows the pane shows at a width and height, with the cursor's row marked
 // as given and blank rows under a view shorter than the pane.
 func (p *Pane) Render(width, height int, held Cursor) []string {
-	start := max(min(p.top, p.view.Len()-height), 0)
-
-	// Only the rows the pane can show are drawn, a nine thousand row diff taking a tenth of a
-	// second to draw whole.
 	rows := make([]string, 0, height)
-	for y := start; y < min(start+height, p.view.Len()); y++ {
+
+	length := 0
+	if p.view != nil {
+		length = p.view.Len()
+	}
+
+	start := max(min(p.top, length-height), 0)
+	for y := start; y < min(start+height, length); y++ {
 		mark := NoCursor
 		if y == p.cursor {
 			mark = held

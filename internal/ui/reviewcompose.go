@@ -23,7 +23,7 @@ func (r *reviewScreen) compose(s panelShared) tea.Cmd {
 
 	// A thread whose code is gone has no line to anchor a new thread to, but replying to it is
 	// what it is still on screen for.
-	if _, ok := r.diff.View().GetAnchor(r.diff.Cursor()); !ok && !replying {
+	if _, ok := r.diff.GetView().GetAnchor(r.diff.GetCursor()); !ok && !replying {
 		r.refuseLine()
 
 		return nil
@@ -201,7 +201,7 @@ func (r *reviewScreen) saveMessage(s panelShared) tea.Cmd {
 
 	place := retrying.getPlace()
 	if place == nil {
-		anchor, ok := r.diff.View().GetAnchor(r.diff.Cursor())
+		anchor, ok := r.diff.GetView().GetAnchor(r.diff.GetCursor())
 		if !ok {
 			return nil
 		}
@@ -210,10 +210,10 @@ func (r *reviewScreen) saveMessage(s panelShared) tea.Cmd {
 			anchor: *anchor,
 			// The old side of these numbers came from whatever the diff was measured from, so the
 			// thread records that rather than leaving a later reader to assume the round's own base.
-			base: r.diff.View().GetBaseSHA(),
+			base: r.diff.GetView().GetBaseSHA(),
 			// The new side names the snapshot it was read from, which the service compares against
 			// the round it would file the thread under rather than trusting the numbers.
-			snapshot: r.diff.View().GetSnapshotSHA(),
+			snapshot: r.diff.GetView().GetSnapshotSHA(),
 		}
 		if place.snapshot == "" {
 			place.snapshot = r.round.GetSnapshotSha()
@@ -343,23 +343,23 @@ func (r *reviewScreen) toggleViewed(h host, s panelShared) tea.Cmd {
 		return nil
 	}
 
-	file, ok := r.diff.View().GetPatchFileAt(r.diff.Cursor())
+	file, ok := r.diff.GetView().GetPatchFileAt(r.diff.GetCursor())
 	if !ok {
 		return nil
 	}
 
 	path := file.Path()
-	viewed := !r.diff.View().IsViewed(path)
+	viewed := !r.diff.GetView().IsViewed(path)
 
 	// Where the cursor is standing is taken before the rows are built again.
-	place, located := r.diff.View().GetPlace(r.diff.Cursor())
-	r.diff.View().SetFileViewed(path, viewed)
+	place, located := r.diff.GetView().GetPlace(r.diff.GetCursor())
+	r.diff.GetView().SetFileViewed(path, viewed)
 	r.diff.Keep(place, located)
 
 	notice := "file opened again"
 	if viewed {
 		notice = "file viewed"
-		r.diff.MoveTo(r.diff.View().JumpFile(r.diff.Cursor(), 1), r.diffHeight(s))
+		r.diff.MoveTo(r.diff.GetView().JumpFile(r.diff.GetCursor(), 1), r.diffHeight(s))
 	}
 
 	r.scrollToCursor(s)
