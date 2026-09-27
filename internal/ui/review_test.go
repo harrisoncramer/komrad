@@ -332,6 +332,28 @@ func TestReviewThreads(t *testing.T) {
 		assert.Contains(t, frame, "this should say hello")
 	})
 
+	t.Run("a refused comment is sent again on the line it was written on", func(t *testing.T) {
+		harness := openReview(t, newReviewServer(t))
+		harness.refuse(agentv1connect.AgentServiceCreateReviewThreadProcedure,
+			connect.NewError(connect.CodeFailedPrecondition, errors.New("not now")))
+		harness.hold(agentv1connect.AgentServiceCreateReviewThreadProcedure)
+
+		harness.press("c")
+		typeText(harness, "this should say hello")
+		harness.press("ctrl+s")
+		harness.press("j", "j", "j")
+		harness.release(agentv1connect.AgentServiceCreateReviewThreadProcedure)
+		harness.press("ctrl+s")
+
+		sent := harness.readSent(agentv1connect.AgentServiceCreateReviewThreadProcedure)
+		require.Len(t, sent, 2)
+		first, _ := sent[0].(*agentv1.CreateReviewThreadRequest)
+		again, _ := sent[1].(*agentv1.CreateReviewThreadRequest)
+		assert.Equal(t, first.GetNewStart(), again.GetNewStart())
+		assert.Equal(t, first.GetQuotedLines(), again.GetQuotedLines())
+		assert.Equal(t, "this should say hello", again.GetBody())
+	})
+
 	t.Run("the thread under the cursor is drawn in the sidebar", func(t *testing.T) {
 		server := newReviewServer(t)
 		server.threads = []*agentv1.ReviewThread{newThreadOnFirstLine(newHumanMessage("m1", "wrong greeting"))}
@@ -1172,7 +1194,7 @@ func TestReviewReload(t *testing.T) {
 
 		frame := harness.readFrame()
 		assert.NotContains(t, frame, "written by the agent")
-		assert.Contains(t, readStageText(frame), "the worktree has moved · your comments are pinned to this round · R to catch up")
+		assert.Contains(t, readStageText(frame), "the worktree has moved · R to catch up")
 	})
 }
 
@@ -1809,6 +1831,24 @@ func TestReviewPin(t *testing.T) {
 		harness.press("esc", "d")
 
 		assert.NotContains(t, harness.readFrame(), "written by the agent")
+	})
+
+	t.Run("the reload key catches up past an open batch", func(t *testing.T) {
+		server := newReviewServer(t)
+		harness := openReview(t, server)
+		server.reviews = []*agentv1.Review{{
+			Id:         "v1",
+			RoundId:    "round-1",
+			AuthorKind: agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN,
+		}}
+
+		server.repo.Wrote(newRoundWrittenOver())
+		harness.press("esc", "d")
+		require.NotContains(t, harness.readFrame(), "written by the agent")
+
+		harness.press("R")
+
+		assert.Contains(t, harness.readFrame(), "written by the agent")
 	})
 
 	t.Run("the reviews failing to read fails the load rather than moving the pin", func(t *testing.T) {

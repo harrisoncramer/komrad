@@ -33,6 +33,8 @@ type reviewThreads struct {
 	// editing is the thread a composed message is going into, empty when it will open a new
 	// thread on the line under the cursor.
 	editing string
+	// retrying is the refused message the composer was opened again on, nil otherwise.
+	retrying *reviewUnsent
 }
 
 // set holds the conversation and its delivery counts together.

@@ -111,7 +111,7 @@ func (r *reviewScreen) table() []screenAction {
 		{
 			id:   actionReviewReload,
 			keys: func(k config.Keybindings) []string { return k.Review.Reload },
-			run:  func(_ host, s panelShared, _ string) tea.Cmd { return r.reload(s) },
+			run:  func(_ host, s panelShared, _ string) tea.Cmd { return r.reloadFresh(s) },
 		},
 		{
 			id:   actionReviewEdit,

@@ -90,11 +90,6 @@ func (r reviewScreen) staleSaid(s panelShared) string {
 		return "the worktree has moved · catching up"
 	}
 
-	if r.threads.holdsUnsent() {
-		return "the worktree has moved · your comments are pinned to this round · " +
-			keyLabel(s.keys.Review.Reload) + " to catch up"
-	}
-
 	return "the worktree has moved · " + keyLabel(s.keys.Review.Reload) + " to catch up"
 }
 
