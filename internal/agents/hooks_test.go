@@ -219,7 +219,7 @@ func TestNewWorkflowRefusesAHookOnAMomentKomradDoesNotFire(t *testing.T) {
 }
 
 // TestWorkflowRefusesAHookScriptTheHooksDirectoryDoesNotHold pins a misnamed hook being refused
-// when it is saved rather than failing each time its moment fires.
+// when it is saved.
 func TestWorkflowRefusesAHookScriptTheHooksDirectoryDoesNotHold(t *testing.T) {
 	st := newStore(t)
 	workflows := st.workflowService(workflowServiceOptions{tmux: tmuxtest.NewFake(), hooks: knownHooks{"install-deps"}})

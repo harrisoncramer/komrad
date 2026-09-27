@@ -383,7 +383,7 @@ func (everyHook) FindHook(name string) (Script, error) {
 
 type knownHooks []string
 
-// FindHook finds only the names listed, as a hooks directory holding just those would.
+// FindHook finds only the names listed.
 func (k knownHooks) FindHook(name string) (Script, error) {
 	if !slices.Contains(k, name) {
 		return Script{}, fmt.Errorf("%w: %q is not in the hooks directory", scripts.ErrScriptNotFound, name)
