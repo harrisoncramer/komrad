@@ -1,0 +1,70 @@
+---
+title: Local reviews
+description: Read an agent's work, comment on it, and send your comments back, without leaving the panel.
+group: start
+order: 5
+---
+
+## What a local review is
+
+A local review is how you read what an agent has written and tell it what to change. You read the diff in the panel, leave comments on its lines, and send them to the agent all at once. The agent gets your comments as mail and answers in the same threads.
+
+Nothing here touches GitHub or GitLab. The review lives in komrad, next to the agent it is about, so you can read and comment on work long before anyone opens a pull request. Reviewer agents use the same mechanism, which means your comments and theirs show up in one place.
+
+## Opening a review
+
+Put the cursor on an agent and press `d`. The stage shows everything the agent has changed since its branch left the base branch, and the sidebar shows the conversation on the line under the cursor.
+
+The band at the top of the sidebar tells you what you're looking at. It gives the agent's name, what the diff is measured from (`all changes` when you open it), how big the change is, and how many files you've marked as read. If you've reviewed this agent before, it also tells you how many files have changed since you last did.
+
+Move around the diff the same way you move around any list: `j` and `k` a line at a time, `]` and `[` a file at a time, `t` and `T` from one comment to the next, and `u` and `U` between the comments nobody has settled yet. `/` searches the diff. `E` shows the whole of the file the cursor is in, not just the changed lines. `v` folds a file away once you've read it. The fold stays until the agent writes to that file again. `esc` takes you back to the agents list.
+
+## Leaving comments
+
+Press `c` on a line to write a comment on it. Type it in the sidebar, or press `ctrl+e` to write it in your own editor, and press `ctrl+s` to save it. Pressing `c` on a line that already has a comment replies in that thread instead of starting a new one. To say something about the work as a whole rather than one line, put the cursor on the row above the first file and press `c` there.
+
+A saved comment is a draft. The agent can't see it, and neither can anyone else. The band says how many drafts you're holding. They stay drafts until you send them, so you can read the whole change, change your mind, and send everything together.
+
+While you hold drafts, the diff stays still. If the agent keeps writing, the band says so, but what you're reading doesn't change underneath the comment you're halfway through. Press `R` when you're ready to catch up.
+
+## Editing the code yourself
+
+Sometimes it's quicker to fix something than to describe it. Press `e` on a line to open that file in your editor, beside the diff, at that line. Komrad pauses the agent first so the two of you aren't writing in the same checkout at once. The file is the agent's own, so what you save is what the agent finds when it carries on.
+
+Press `e` again to close the editor. The agent carries on and the diff reads the worktree again, now with your edit in it. Your drafts come with you. You can keep commenting after an edit, and everything you wrote before and after it goes out together when you send.
+
+## Sending
+
+Press `ctrl+s` while reading, not writing, to send what you have. Komrad asks whether you want to say anything about the work as a whole. Leave it empty if not. Then press `ctrl+s` to send, or `ctrl+x` to send and interrupt the agent so it reads your comments right away instead of when it finishes what it's doing.
+
+The agent gets one piece of mail naming the review. When it reads the review, each comment comes with the lines it was written on and the code around them, so the agent can find the spot even if the file has changed since.
+
+## Answers
+
+The agent answers inside your threads. A plain reply is the agent talking back: it has a question, or it disagrees. An answer that says the change is made settles your comment. Press `a` on a comment answered that way to see exactly what the agent changed, and `a` again to go back to all changes.
+
+Press `r` to settle a comment yourself, or to reopen one. Replying to a comment the agent settled reopens it once you send the reply.
+
+## Stepping through history
+
+A long change is easier to follow one pass at a time. Each time you send a review, you close a chapter: the work you had read when you sent it. `<` and `>` step through those chapters.
+
+Say you sent a review this morning and another after lunch, and the agent has written more since. Pressing `<` from all changes shows the newest work first, the part nobody has reviewed yet. Press `<` again for what the agent wrote between your morning and afternoon reviews, and again for everything up to this morning's review. `>` walks back the other way and ends on all changes.
+
+The band labels each chapter with its position and when you reviewed it, or says it hasn't been reviewed yet. The comments shown are the ones that existed at that point, and replies written later are left out, so you see the conversation as it stood.
+
+A chapter only ends where you sent something. Commenting, editing a file, commenting again, and then sending is one chapter, however many times the agent or you changed the code along the way. The chapter includes your own edits alongside the agent's, because they're part of the work that was reviewed.
+
+Past chapters are for reading. You can't comment or mark files as read there, because those lines may no longer exist in the agent's work. Press `>` until you're back on all changes to do either.
+
+## Reading the agents list
+
+Each agent in the list shows its review comments as two pairs of counts, just before its pull request column. The first pair is comments from reviewer agents and the second pair is yours. Each pair is open comments, then settled ones, so `1|10` means one still open and ten settled. Your open count is highlighted while it isn't zero, and a dot after your pair means the agent has written something in one of your threads that you haven't read.
+
+Only comments you've sent are counted. Drafts don't show up until they go out. Settled comments stop being counted once the work they were about has landed on the base branch, so the numbers track work that's still in play.
+
+Move the keyboard into the details to see the same counts spelled out, for example `your comments: 1 open, 10 resolved, with something you have not read`.
+
+## Reviews from agents
+
+An agent can ask for its own work to be reviewed. Komrad starts a reviewer agent inside the same worktree, and the reviewer comments and sends exactly the way you do. The one difference is that a reviewer agent gives a verdict with each review, approved or changes requested, while yours carry comments only. Its threads sit next to yours in the diff, and its counts are the first pair in the agents list.
