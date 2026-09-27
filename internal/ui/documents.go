@@ -7,7 +7,6 @@ import (
 
 	"komrad/config"
 	"komrad/internal/errui"
-	"komrad/internal/glyph"
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/view"
 	"komrad/lib/dates"
@@ -135,8 +134,6 @@ func (d *documentsScreen) view(s panelShared) string {
 
 func (d *documentsScreen) listParams(s panelShared) screenListParams {
 	return screenListParams{
-		title:    screenTitle(s.glyphs, glyph.Document, "Documents"),
-		tally:    d.tally(s),
 		help:     d.help,
 		empty:    d.emptyLine(),
 		rows:     len(d.rows(s)),
@@ -144,14 +141,25 @@ func (d *documentsScreen) listParams(s panelShared) screenListParams {
 	}
 }
 
-// tally names the agent the documents are of, and how many it has written.
-func (d *documentsScreen) tally(s panelShared) string {
-	name := d.agentName(s)
-	if !d.listed {
-		return name
+func (d *documentsScreen) parent() screen {
+	return screenAgents
+}
+
+// crumbs runs through the agent the documents are of down to the version stepped to, and counts
+// the documents while none is.
+func (d *documentsScreen) crumbs(s panelShared) crumbs {
+	trail := crumbs{trail: []string{d.agentName(s), "documents"}}
+	if item, ok := d.hovered(s); ok && d.history != nil && d.history.id == item.id && len(d.history.versions) > 0 {
+		current := d.history.versions[d.history.at]
+		trail.trail = append(trail.trail, item.name, fmt.Sprintf("v%d of %d", current.GetVersion(), d.history.versions[0].GetVersion()))
+
+		return trail
+	}
+	if d.listed {
+		trail.tally = fmt.Sprint(len(d.items))
 	}
 
-	return fmt.Sprintf("%s"+separated+"%d", name, len(d.items))
+	return trail
 }
 
 func (d *documentsScreen) emptyLine() string {

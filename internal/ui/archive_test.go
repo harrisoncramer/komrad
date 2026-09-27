@@ -641,7 +641,7 @@ func TestArchiveWindow(t *testing.T) {
 		})
 		harness.watch(buildSnapshot(buildOneArchivedAgent()...))
 
-		harness.press("O", "z", "?")
+		harness.press("o", "r", "?")
 
 		frame := harness.readFrame()
 		assert.Equal(t, []string{"backend", "  api-refactor"}, readListRows(frame), "the list keeps its column")
@@ -678,7 +678,7 @@ func TestArchiveWindow(t *testing.T) {
 				harness := newPanelHarness(t, panelHarnessParams{height: tt.height})
 				harness.watch(buildSnapshot(workflow, newArchivedAgent("a1", "api-refactor", "w1")))
 
-				harness.press("O", "z")
+				harness.press("o", "r")
 
 				assert.Len(t, splitLines(harness.readFrame()), tt.height)
 			})
@@ -817,20 +817,20 @@ func TestArchiveSchedules(t *testing.T) {
 		wantSent   []request
 	}{
 		{
-			name:       "the kind key lists the archived schedules and none of the live ones",
-			press:      []string{"tab"},
+			name:       "the row of kinds lists the archived schedules and none of the live ones",
+			press:      []string{"F", "tab", "esc"},
 			want:       []string{"weekly-gone", "archived — kept until deleted", "r restore schedule"},
 			wantAbsent: []string{"nightly-live", "api-refactor"},
 		},
 		{
-			name:       "the kind key again goes back to the agents",
-			press:      []string{"tab", "tab"},
+			name:       "the row of kinds again goes back to the agents",
+			press:      []string{"F", "tab", "tab", "esc"},
 			want:       []string{"api-refactor"},
 			wantAbsent: []string{"weekly-gone"},
 		},
 		{
 			name:  "restore puts the hovered schedule back",
-			press: []string{"tab", "r"},
+			press: []string{"F", "tab", "esc", "r"},
 			want:  []string{"weekly-gone"},
 			wantSent: []request{{
 				procedure: schedulev1connect.ScheduleServiceRestoreScheduleProcedure,
@@ -839,17 +839,17 @@ func TestArchiveSchedules(t *testing.T) {
 		},
 		{
 			name:  "delete asks first",
-			press: []string{"tab", "d"},
+			press: []string{"F", "tab", "esc", "d"},
 			want:  []string{`Permanently delete schedule "weekly-gone"?`},
 		},
 		{
 			name:       "declining the delete destroys nothing",
-			press:      []string{"tab", "d", "n"},
+			press:      []string{"F", "tab", "esc", "d", "n"},
 			wantAbsent: []string{deletePrompt},
 		},
 		{
 			name:       "confirming the delete destroys the schedule",
-			press:      []string{"tab", "d", "y"},
+			press:      []string{"F", "tab", "esc", "d", "y"},
 			wantAbsent: []string{deletePrompt},
 			wantSent: []request{{
 				procedure: schedulev1connect.ScheduleServiceDeleteScheduleProcedure,
@@ -857,8 +857,20 @@ func TestArchiveSchedules(t *testing.T) {
 			}},
 		},
 		{
-			name:       "the kind key waits while agents are selected",
-			press:      []string{"j", "v", "tab"},
+			name:       "tab on the list leaves the kind alone",
+			press:      []string{"tab"},
+			want:       []string{"api-refactor"},
+			wantAbsent: []string{"weekly-gone"},
+		},
+		{
+			name:       "shift-tab on the row of kinds wraps to the schedules",
+			press:      []string{"F", "shift+tab", "esc"},
+			want:       []string{"weekly-gone"},
+			wantAbsent: []string{"api-refactor"},
+		},
+		{
+			name:       "the row of kinds waits while agents are selected",
+			press:      []string{"j", "v", "F", "tab", "esc"},
 			want:       []string{"api-refactor"},
 			wantAbsent: []string{"weekly-gone"},
 		},
@@ -881,6 +893,29 @@ func TestArchiveSchedules(t *testing.T) {
 			harness.assertSent(tt.wantSent...)
 		})
 	}
+
+	t.Run("the row of kinds refuses the keys while agents are selected", func(t *testing.T) {
+		harness := openArchive(t, rows...)
+
+		harness.press(append(widenListPresses, "j", "v", "F", "?")...)
+		frame := harness.readFrame()
+		assert.NotEmpty(t, readHoveredRow(frame), "the list keeps the keys")
+		assert.NotContains(t, readLegend(frame), "F kind")
+	})
+
+	t.Run("the row of kinds holds the keys until escape", func(t *testing.T) {
+		harness := openArchive(t, rows...)
+
+		harness.press(append(widenListPresses, "F")...)
+		frame := harness.readFrame()
+		legend := readLegend(frame)
+		assert.Contains(t, legend, "tab/S-tab switch")
+		assert.Contains(t, legend, "esc back to the list")
+		assert.Empty(t, readHoveredRow(frame), "the row's arrow stands down")
+
+		harness.press("esc")
+		assert.NotEmpty(t, readHoveredRow(harness.readFrame()), "and the list has the keys again")
+	})
 }
 
 func openArchive(t *testing.T, rows ...proto.Message) *panelHarness {
@@ -888,7 +923,7 @@ func openArchive(t *testing.T, rows ...proto.Message) *panelHarness {
 
 	harness := newPanelHarness(t, panelHarnessParams{})
 	harness.watch(buildSnapshot(rows...))
-	harness.press("O", "z")
+	harness.press("o", "r")
 
 	return harness
 }

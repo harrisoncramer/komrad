@@ -1504,7 +1504,7 @@ func TestReviewLayout(t *testing.T) {
 			{
 				name: "on the left the top row opens with the sidebar",
 				side: config.SidebarSideLeft,
-				want: "greet.go:1",
+				want: "\uf477 komrad",
 			},
 			{
 				name: "on the right the top row opens with the band over the diff",
@@ -1520,6 +1520,16 @@ func TestReviewLayout(t *testing.T) {
 				assert.True(t, strings.HasPrefix(splitLines(harness.readFrame())[0], tt.want))
 			})
 		}
+	})
+
+	t.Run("the switcher and the trail give way before the head does", func(t *testing.T) {
+		harness := openReviewAt(t, newReviewServer(t), panelHarnessParams{height: 22})
+		require.Contains(t, splitLines(harness.readFrame())[0], "komrad")
+
+		harness.press("?")
+
+		assert.NotContains(t, harness.readFrame(), "komrad")
+		assert.Equal(t, "greet.go:1", readReviewCursor(harness.readFrame()), "the head is whole")
 	})
 
 	t.Run("a window too narrow for both keeps the sidebar and drops the diff", func(t *testing.T) {

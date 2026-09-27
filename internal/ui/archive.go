@@ -3,7 +3,6 @@ package ui
 import (
 	"fmt"
 	"slices"
-	"strings"
 
 	"komrad/config"
 	"komrad/internal/ui/paint"
@@ -29,6 +28,7 @@ type archiveScreen struct {
 	rowCursor
 	sort      tabsState
 	kind      archiveKind
+	kindFocus bool
 	schedules rowCursor
 	// rows is the rows built once for the frame being drawn, and nil between frames.
 	rows         []agentRow
@@ -68,13 +68,26 @@ func (a *archiveScreen) onSchedules(panelShared) bool {
 	return a.kind == archiveSchedules
 }
 
-// switchKind moves the archive to the other kind of archived resource.
-func (a *archiveScreen) switchKind(h host, s panelShared) tea.Cmd {
-	if a.onSchedules(s) {
-		a.kind = archiveAgents
-	} else {
-		a.kind = archiveSchedules
-	}
+func (a *archiveScreen) kinds() stops {
+	return stops{labels: []string{"agents", "schedules"}, focus: noStop, lit: int(a.kind)}
+}
+
+func (a *archiveScreen) kindsFit(s panelShared) bool {
+	return s.draw.listFitsTabs(a.listParams(s))
+}
+
+func (a *archiveScreen) kindsFocused() *bool {
+	return &a.kindFocus
+}
+
+// kindsSwitch holds the archive on its agents while any are selected.
+func (a *archiveScreen) kindsSwitch(s panelShared) bool {
+	return !a.onAgents(s) || !a.selected.isActive()
+}
+
+// stepKind moves the archive to another kind of archived resource.
+func (a *archiveScreen) stepKind(h host, s panelShared, delta int) tea.Cmd {
+	a.kind = archiveKind(stepStop(int(a.kind), delta, len(a.kinds().labels)))
 
 	a.stage(h, s)
 
@@ -465,9 +478,8 @@ func (a *archiveScreen) view(s panelShared) string {
 func (a *archiveScreen) listParams(s panelShared) screenListParams {
 	if a.kind == archiveSchedules {
 		return screenListParams{
-			title: a.title(),
-			help:  a.help,
-			rows:  len(a.scheduleListRows(s)),
+			help: a.help,
+			rows: len(a.scheduleListRows(s)),
 			lines: func(pane listPane) ([]string, int) {
 				return scheduleLines(s, pane, scheduleLinesParams{
 					rows:   a.scheduleListRows(s),
@@ -479,29 +491,11 @@ func (a *archiveScreen) listParams(s panelShared) screenListParams {
 	}
 
 	return screenListParams{
-		title:    a.title(),
 		help:     a.help,
 		empty:    "nothing archived",
 		rows:     len(a.listRows(s)),
 		snapshot: func(pane listPane) view.Snapshot { return a.snapshot(s, pane) },
 	}
-}
-
-// title is the kinds the screen switches between, the one it lists picked out.
-func (a *archiveScreen) title() string {
-	muted := paint.Panel.Style(paint.ToneMuted)
-	chosen := paint.Panel.Style(paint.ToneAccent)
-
-	kinds := []string{"agents", "schedules"}
-	for i, kind := range kinds {
-		if archiveKind(i) == a.kind {
-			kinds[i] = chosen.Render(kind)
-		} else {
-			kinds[i] = muted.Render(kind)
-		}
-	}
-
-	return strings.Join(kinds, "  ")
 }
 
 func (a *archiveScreen) help(s panelShared) keyMap {
@@ -540,6 +534,7 @@ func archiveTabs() tabStrip {
 var (
 	_ detailed = (*archiveScreen)(nil)
 	_ filtered = (*archiveScreen)(nil)
+	_ kinded   = (*archiveScreen)(nil)
 	_ tabbed   = (*archiveScreen)(nil)
 	_ columned = (*archiveScreen)(nil)
 	_ staged   = (*archiveScreen)(nil)

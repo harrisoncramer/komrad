@@ -64,7 +64,7 @@ type MarkGlyphs struct {
 	Hidden string `mapstructure:"hidden"`
 	// A schedule launches into the workflow, and the title over the schedules list.
 	Schedule string `mapstructure:"schedule"`
-	// The agent has written documents for a person, and the title over the documents list.
+	// The agent has written documents for a person.
 	Document string `mapstructure:"document"`
 	// Your comments on the agent's work hold something you have not read.
 	Unread string `mapstructure:"unread"`
@@ -82,6 +82,8 @@ type ListGlyphs struct {
 	Filter string `mapstructure:"filter"`
 	// The cursor in a list of choices, such as the engines to connect to.
 	Cursor string `mapstructure:"cursor"`
+	// The logo over the switcher between the panel's views.
+	Logo string `mapstructure:"logo"`
 }
 
 // ReviewGlyphs are drawn on the review screen.

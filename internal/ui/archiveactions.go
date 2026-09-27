@@ -20,12 +20,6 @@ func (a *archiveScreen) actions() screenActionSpec {
 
 func (a *archiveScreen) table() []screenAction {
 	return slices.Concat(
-		[]screenAction{{
-			id:   actionArchiveKind,
-			keys: func(k config.Keybindings) []string { return k.Archive.Kind },
-			when: a.canSwitchKind,
-			run:  func(h host, s panelShared, _ string) tea.Cmd { return a.switchKind(h, s) },
-		}},
 		guarded(a.onAgents, a.agentTable()),
 		guarded(a.onSchedules, a.scheduleTable()),
 	)
@@ -111,11 +105,6 @@ func (a *archiveScreen) legend() []screenLegendRow {
 
 	return slices.Concat(list.selectionLegend(), []screenLegendRow{
 		{
-			of:    []actionID{actionArchiveKind},
-			desc:  a.kindDesc,
-			strip: true,
-		},
-		{
 			of:   []actionID{actionRestoreSelected},
 			desc: func(panelShared) string { return "restore all" },
 			show: list.isSelecting,
@@ -171,19 +160,6 @@ func (a *archiveScreen) legend() []screenLegendRow {
 			strip: true,
 		},
 	})
-}
-
-// canSwitchKind reports whether the kind key answers, which it does not while agents are selected.
-func (a *archiveScreen) canSwitchKind(s panelShared) bool {
-	return a.onSchedules(s) || !a.selected.isActive()
-}
-
-func (a *archiveScreen) kindDesc(s panelShared) string {
-	if a.onSchedules(s) {
-		return "agents"
-	}
-
-	return "schedules"
 }
 
 // holdsASchedule reports whether the archive lists schedules and the cursor is on one.

@@ -657,7 +657,7 @@ func openSchedules(t *testing.T, rows ...proto.Message) *panelHarness {
 	t.Helper()
 
 	harness := openAgents(t, rows...)
-	harness.press("O", "s")
+	harness.press("o", "s")
 
 	return harness
 }

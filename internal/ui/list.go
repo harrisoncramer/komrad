@@ -621,6 +621,9 @@ func (m model) listHelp(own keyMap) keyMap {
 	if b := m.tabsBinding(); b.Enabled() {
 		tabs = []key.Binding{b}
 	}
+	if b := m.kindsBinding(); b.Enabled() {
+		tabs = append(tabs, b)
+	}
 
 	return keyMap{
 		short: slices.Concat(own.short, m.globalHelp()),
@@ -697,11 +700,6 @@ func (c rowCursor) jump(idx, length int) (rowCursor, bool) {
 	c.cursor = next
 
 	return c, true
-}
-
-// screenTitle is a listing's title: its icon and its name, set in from the pane's edge.
-func screenTitle(glyphs glyph.Set, icon glyph.Glyph, name string) string {
-	return glyphs.Spell(icon) + "  " + name
 }
 
 // prepareList resolves a snapshot to the list drawn from it, in the glyphs the panel was

@@ -156,6 +156,11 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.routeScreenMessage(msg)
 	}
 
+	// The switcher keeps the keys through every view it opens, one that types included.
+	if m.isViewsOpen() {
+		return m.updateViews(key)
+	}
+
 	if m.filter.typing {
 		return m.updateFilterInput(key)
 	}
@@ -194,6 +199,9 @@ func (m model) resizeTo(size tea.WindowSizeMsg) model {
 
 	if !m.isTabsDrawn() {
 		m.blurTabs()
+	}
+	if !m.isKindsDrawn() {
+		m.blurKinds()
 	}
 
 	// A drag and a zoom both change the panel's own pane and leave the window around it alone.
@@ -264,12 +272,6 @@ func (m model) nudgeSidebar(delta int) model {
 // routeGlobalKey answers the keys the panel owns whatever screen is up, reporting whether it
 // took the press so the screen underneath gets whatever it left alone.
 func (m model) routeGlobalKey(key tea.KeyPressMsg) (tea.Model, tea.Cmd, bool) {
-	if m.isViewsOpen() {
-		next, cmd := m.updateViews(key)
-
-		return next, cmd, true
-	}
-
 	if m.screen.picksViews() && isBound(key.String(), m.keys.Views.Pick) {
 		return m.openViews(), nil, true
 	}
@@ -313,6 +315,17 @@ func (m model) routeGlobalKey(key tea.KeyPressMsg) (tea.Model, tea.Cmd, bool) {
 		}
 		if isBound(key.String(), m.keys.Tabs.Focus) {
 			return m.focusTabs(), nil, true
+		}
+	}
+
+	if _, ok := m.activeKinds(); ok {
+		if m.isKindsFocused() {
+			next, cmd := m.updateKinds(key)
+
+			return next, cmd, true
+		}
+		if isBound(key.String(), m.keys.Kinds.Focus) {
+			return m.focusKinds(), nil, true
 		}
 	}
 

@@ -67,7 +67,7 @@ const (
 // keyholder is the section whose cursor the arrow keys would move.
 func (m model) keyholder() sidebarSection {
 	switch {
-	case m.isTabsFocused():
+	case m.isTabsFocused(), m.isKindsFocused():
 		return sectionTabs
 	case m.isDetailsFocused():
 		return sectionRecord

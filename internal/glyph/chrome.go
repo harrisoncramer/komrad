@@ -26,10 +26,9 @@ const (
 	TextCursor = "▏"
 	// Separator sits between two things said on the same line.
 	Separator = "·"
+	// Crumb sits between two steps of the trail down to an open page.
+	Crumb = "›"
 )
-
-// Logo is the mark beside komrad's name at the top of the panel, outside the approved set.
-const Logo = "\U000F050C"
 
 // Chrome is every piece of chrome and what a report calls it.
 func Chrome() []Named {
@@ -45,6 +44,7 @@ func Chrome() []Named {
 		{Name: "cross", Text: Cross},
 		{Name: "text cursor", Text: TextCursor},
 		{Name: "separator", Text: Separator},
+		{Name: "crumb", Text: Crumb},
 	}
 }
 

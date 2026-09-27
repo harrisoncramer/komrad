@@ -164,10 +164,12 @@ type Keybindings struct {
 	Selection SelectionKeys `mapstructure:"selection"`
 	// The row of tabs a screen draws over its list, and the key that hands it the cursor.
 	Tabs TabsKeys `mapstructure:"tabs"`
+	// The row of kinds a screen listing more than one kind of resource draws under its tabs.
+	Kinds KindsKeys `mapstructure:"kinds"`
 	// The key that opens a shell in the hovered agent's directory, shared by every
 	// screen that lists agents.
 	Terminal TerminalKeys `mapstructure:"terminal"`
-	// The switcher at the top of the panel, which moves between the agents, search,
+	// The switcher at the top of the panel, which moves between the agents, query,
 	// schedules, archive and worktrees from any of them.
 	Views ViewsKeys `mapstructure:"views"`
 	// The bindings that create and change workflows, from the agents list.
@@ -246,22 +248,29 @@ type TabsKeys struct {
 	Focus []string `mapstructure:"focus" default:"f"`
 }
 
+// KindsKeys is the binding for the row of kinds a screen draws under its tabs.
+type KindsKeys struct {
+	// Hand the keys to the row of kinds, where tab and shift+tab switch the kind listed; escape
+	// hands them back.
+	Focus []string `mapstructure:"focus" default:"F"`
+}
+
 // ViewsKeys are the bindings for the switcher at the top of the panel. Pick hands it the
-// keys, where tab and shift+tab move along it, enter opens the view under the cursor and esc
-// hands the keys back. Each view's own key opens it straight away once the switcher holds the keys.
+// keys, where tab and shift+tab open the next and previous view and esc hands the keys back.
+// Each view's own key opens it straight away once the switcher holds the keys.
 type ViewsKeys struct {
 	// Hand the keys to the switcher.
-	Pick []string `mapstructure:"pick" default:"O"`
+	Pick []string `mapstructure:"pick" default:"o"`
 	// Open the agents list.
 	Agents []string `mapstructure:"agents" default:"a"`
-	// Open the search over every conversation the panel holds, the archived ones included.
+	// Open the query over every conversation the panel holds, the archived ones included.
 	Query []string `mapstructure:"query" default:"q"`
 	// Open the schedules.
 	Schedules []string `mapstructure:"schedules" default:"s"`
 	// Open the archive.
-	Archive []string `mapstructure:"archive" default:"z"`
+	Archive []string `mapstructure:"archive" default:"r"`
 	// Open the worktrees, landing on the hovered agent's own directory.
-	Worktrees []string `mapstructure:"worktrees" default:"t"`
+	Worktrees []string `mapstructure:"worktrees" default:"w"`
 }
 
 // TerminalKeys is the binding that opens a shell in the info pane, rooted at the hovered
@@ -539,8 +548,6 @@ type ArchiveKeys struct {
 	// Destroy the agent or schedule under the cursor for good, with its transcript
 	// or its run history. Nothing undoes it, so it asks first.
 	Delete []string `mapstructure:"delete" default:"d"`
-	// Switch the archive between its agents and its schedules.
-	Kind []string `mapstructure:"kind" default:"tab"`
 	// Quit the panel.
 	Quit []string `mapstructure:"quit" default:"ctrl+c"`
 	// Put the agent or schedule under the cursor back in the panel.
