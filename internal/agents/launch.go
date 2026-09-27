@@ -486,7 +486,7 @@ func (s *LaunchService) startInPane(ctx context.Context, agent agentstore.Agent,
 	}
 	agent.Cwd = dir
 
-	if err := runHooks(ctx, hookRunParams{
+	if err := runPreHooks(ctx, hookRunParams{
 		scripts: s.scripts,
 		agent:   agent,
 		hooks:   resolved.hooks,

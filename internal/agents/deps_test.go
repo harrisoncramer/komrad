@@ -11,7 +11,6 @@ import (
 	"slices"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -22,6 +21,7 @@ import (
 	"komrad/internal/harness"
 	"komrad/internal/harnesstest"
 	"komrad/internal/logging"
+	"komrad/internal/scriptrun"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
 	reviewstore "komrad/internal/store/review"
@@ -288,9 +288,7 @@ type fakeLifecycle struct {
 	holdDeprovision          bool
 	held                     []func(error)
 	hookErrs                 map[string]error
-	awaitHooks               chan struct{}
 	holdHooks                chan struct{}
-	hooksRunning             atomic.Int32
 	hooksMu                  sync.Mutex
 	hooks                    []ranHook
 	provision                []string
@@ -298,6 +296,7 @@ type fakeLifecycle struct {
 	deprovision              []string
 	deprovisionCwd           []string
 	deprovisionCtxErr        []error
+	scriptrun.HookQueue
 }
 
 func (f *fakeLifecycle) RunProvision(_ context.Context, _ agentstore.Agent, name string) (string, error) {
@@ -340,32 +339,6 @@ func (f *fakeLifecycle) RunHook(_ context.Context, agent agentstore.Agent, name,
 
 func (f *fakeLifecycle) RunPostDeleteHook(ctx context.Context, agent agentstore.Agent, name, event string) error {
 	return f.RunHook(ctx, agent, name, event)
-}
-
-func (f *fakeLifecycle) BeginHooks(string) func() {
-	f.hooksRunning.Add(1)
-
-	return sync.OnceFunc(func() { f.hooksRunning.Add(-1) })
-}
-
-func (f *fakeLifecycle) AwaitHooks(ctx context.Context, _ string) error {
-	if f.awaitHooks != nil {
-		select {
-		case <-f.awaitHooks:
-		case <-ctx.Done():
-			return ctx.Err()
-		}
-	}
-
-	for f.hooksRunning.Load() > 0 {
-		select {
-		case <-time.After(5 * time.Millisecond):
-		case <-ctx.Done():
-			return ctx.Err()
-		}
-	}
-
-	return nil
 }
 
 func (f *fakeLifecycle) ranHooks() []ranHook {

@@ -30,7 +30,7 @@ type rpcTools struct {
 func registerRPCTools(server *mcpsdk.Server, baseURL string, role annotationv1.Role) error {
 	tools := &rpcTools{
 		baseURL: strings.TrimSuffix(baseURL, "/"),
-		client:  xhttp.NewClientOver(caller.Transport(xhttp.NewTransport()), callTimeout),
+		client:  xhttp.NewClientOver(caller.Transport(xhttp.NewTransport()), 0),
 	}
 
 	for exposed := range rpcapi.GetMethods() {
@@ -48,7 +48,7 @@ func registerRPCTools(server *mcpsdk.Server, baseURL string, role annotationv1.R
 			Description: exposed.Surfaces.GetDescription(),
 			InputSchema: schema,
 			Annotations: toolHints(exposed.Method, exposed.Surfaces),
-		}, tools.handler(string(exposed.Service.FullName()), string(exposed.Method.Name())))
+		}, tools.handler(exposed.GetPath(), exposed.GetCallTimeout(callTimeout)))
 	}
 
 	return nil
@@ -149,10 +149,13 @@ func valueSchema(field protoreflect.FieldDescriptor, enclosing map[protoreflect.
 	return nil, fmt.Errorf("field %q has kind %s, which the tool schema does not describe yet", field.Name(), field.Kind())
 }
 
-func (r *rpcTools) handler(service, method string) func(context.Context, *mcpsdk.CallToolRequest, map[string]any) (*mcpsdk.CallToolResult, any, error) {
-	url := fmt.Sprintf("%s/%s/%s", r.baseURL, service, method)
+func (r *rpcTools) handler(path string, timeout time.Duration) func(context.Context, *mcpsdk.CallToolRequest, map[string]any) (*mcpsdk.CallToolResult, any, error) {
+	url := r.baseURL + path
 
 	return func(ctx context.Context, _ *mcpsdk.CallToolRequest, args map[string]any) (*mcpsdk.CallToolResult, any, error) {
+		ctx, cancel := context.WithTimeout(ctx, timeout)
+		defer cancel()
+
 		if args == nil {
 			args = map[string]any{}
 		}

@@ -195,7 +195,7 @@ func (s *LifecycleService) tearDown(ctx context.Context, agent agentstore.Agent,
 	// A hook has nothing to run against once the directory has gone.
 	if scripts.RequireUsableDir(agent.Cwd) == nil {
 		// The deprovisioner waits until the teardown has worked.
-		if err := runHooks(ctx, hookRunParams{
+		if err := runPreHooks(ctx, hookRunParams{
 			scripts: s.scripts,
 			agent:   agent,
 			hooks:   hooks,
@@ -297,10 +297,11 @@ func (s *LifecycleService) ArchiveAgents(ctx context.Context, ids []string) erro
 		return err
 	}
 
-	if err := joinRefusals(agents, runPreHooksFor(ctx, batchHooksParams{
+	live := xslice.Filter(agents, func(agent agentstore.Agent) bool { return agent.ArchivedAt == nil })
+	if err := joinRefusals(live, runPreHooksFor(ctx, batchHooksParams{
 		scripts:     s.scripts,
 		workflows:   s.workflows,
-		agents:      agents,
+		agents:      live,
 		event:       workflowstore.HookPreArchive,
 		skipGoneDir: true,
 	})); err != nil {
@@ -321,7 +322,7 @@ func (s *LifecycleService) ArchiveAgents(ctx context.Context, ids []string) erro
 	startHooksFor(ctx, batchHooksParams{
 		scripts:   s.scripts,
 		workflows: s.workflows,
-		agents:    agents,
+		agents:    live,
 		event:     workflowstore.HookPostArchive,
 	})
 
@@ -331,21 +332,10 @@ func (s *LifecycleService) ArchiveAgents(ctx context.Context, ids []string) erro
 // ArchiveUnchangedAgents archives the agents whose rows still read as the caller observed them
 // and returns the ones it archived.
 func (s *LifecycleService) ArchiveUnchangedAgents(ctx context.Context, observed []agentstore.Agent) ([]agentstore.Agent, error) {
-	refused := runPreHooksFor(ctx, batchHooksParams{
-		scripts:     s.scripts,
-		workflows:   s.workflows,
-		agents:      observed,
-		event:       workflowstore.HookPreArchive,
-		skipGoneDir: true,
-	})
-	failures := []error{joinRefusals(observed, refused)}
+	var failures []error
 	var archived []agentstore.Agent
 
 	for _, agent := range observed {
-		if _, ok := refused[agent.ID]; ok {
-			continue
-		}
-
 		applied, err := s.agents.ArchiveIfUnchanged(ctx, agentstore.ArchiveIfUnchangedParams{ID: agent.ID, UpdatedAt: agent.UpdatedAt})
 		if err != nil {
 			failures = append(failures, err)
@@ -369,13 +359,6 @@ func (s *LifecycleService) ArchiveUnchangedAgents(ctx context.Context, observed 
 	if err := s.agents.RestampArchived(ctx, agentstore.IDs(archived)); err != nil {
 		failures = append(failures, err)
 	}
-
-	startHooksFor(ctx, batchHooksParams{
-		scripts:   s.scripts,
-		workflows: s.workflows,
-		agents:    archived,
-		event:     workflowstore.HookPostArchive,
-	})
 
 	return archived, errors.Join(failures...)
 }
@@ -429,6 +412,12 @@ func (s *LifecycleService) RestoreAgents(ctx context.Context, ids []string) ([]a
 		return agents, nil
 	}
 
+	if err := s.tx.InTx(ctx, func(db store.DBTX) error {
+		return claimRoomToRestore(ctx, agentstore.NewAgentStore(db), s.usage, archived)
+	}); err != nil {
+		return nil, fmt.Errorf("failed to restore %d agents: %w", len(archived), err)
+	}
+
 	if err := joinRefusals(archived, runPreHooksFor(ctx, batchHooksParams{
 		scripts:     s.scripts,
 		workflows:   s.workflows,
@@ -442,16 +431,7 @@ func (s *LifecycleService) RestoreAgents(ctx context.Context, ids []string) ([]a
 	err = s.tx.InTx(ctx, func(db store.DBTX) error {
 		agentStore, workflowStore := agentstore.NewAgentStore(db), workflowstore.NewWorkflowStore(db)
 
-		if err := claimRoomForAgents(ctx, agentStore, s.usage.MaxAgents, len(archived)); err != nil {
-			return err
-		}
-		if err := claimRoomForRestoredChildren(ctx, agentStore, s.usage.Implementer.MaxChildren, archived); err != nil {
-			return err
-		}
-		if err := claimRoomForRestoredSpawned(ctx, agentStore, s.usage.Orchestrator.MaxChildren, archived); err != nil {
-			return err
-		}
-		if err := requireNamesFree(ctx, agentStore, archived); err != nil {
+		if err := claimRoomToRestore(ctx, agentStore, s.usage, archived); err != nil {
 			return err
 		}
 		if err := agentStore.Restore(ctx, agentstore.IDs(archived)); err != nil {

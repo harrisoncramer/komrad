@@ -72,7 +72,7 @@ func rpcMethodCmd(state *app, exposed rpcapi.Method) *cobra.Command {
 
 	cmd.Flags().StringVar(&requestJSON, "request-json", "", "the whole request as JSON, which the flags above are laid over")
 	cmd.Flags().BoolVar(&compact, "compact", false, "print the response on one line")
-	cmd.Flags().DurationVar(&timeout, "timeout", rpcTimeout, "how long to wait for the call")
+	cmd.Flags().DurationVar(&timeout, "timeout", exposed.GetCallTimeout(rpcTimeout), "how long to wait for the call")
 
 	cmd.RunE = func(cmd *cobra.Command, _ []string) error {
 		request, err := fields.request(cmd.Flags(), requestJSON)

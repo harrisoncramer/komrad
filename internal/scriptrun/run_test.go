@@ -1800,37 +1800,6 @@ func TestSilentAsyncFailureSaysWhyInItsLog(t *testing.T) {
 	assert.Contains(t, string(said), "exited non-zero", "and says what became of it")
 }
 
-// TestAwaitHooksWaitsForTheHookStillRunning covers the wait that keeps an agent's hooks from overlapping.
-func TestAwaitHooksWaitsForTheHookStillRunning(t *testing.T) {
-	dir := t.TempDir()
-	worktree := t.TempDir()
-	release := filepath.Join(worktree, "release")
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "give-back"), []byte(
-		"#!/bin/sh\nwhile [ ! -e "+release+" ]; do sleep 0.02; done\n",
-	), 0o755))
-
-	svc := scriptServiceWithLogsDir(t, dir, scripts.NewRunner(), t.TempDir())
-	agent := agentstore.Agent{ID: fixtureAgentID, Cwd: worktree}
-
-	require.NoError(t, svc.AwaitHooks(t.Context(), agent.ID), "nothing is running yet")
-
-	done := make(chan error, 1)
-	go func() {
-		done <- svc.RunHook(context.WithoutCancel(t.Context()), agent, "give-back", workflowstore.HookPostArchive)
-	}()
-
-	require.Eventually(t, func() bool {
-		ctx, cancel := context.WithTimeout(t.Context(), 10*time.Millisecond)
-		defer cancel()
-
-		return svc.AwaitHooks(ctx, agent.ID) != nil
-	}, 5*time.Second, 10*time.Millisecond, "the wait holds while the hook runs")
-
-	require.NoError(t, os.WriteFile(release, nil, 0o644))
-	require.NoError(t, svc.AwaitHooks(t.Context(), agent.ID), "and ends once it has finished")
-	require.NoError(t, <-done)
-}
-
 // TestRunPostDeleteHookRunsInTheHooksDirectoryOnceTheWorktreeIsGone covers where the last hook of an agent's life runs.
 func TestRunPostDeleteHookRunsInTheHooksDirectoryOnceTheWorktreeIsGone(t *testing.T) {
 	dir := t.TempDir()

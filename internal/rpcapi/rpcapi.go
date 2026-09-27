@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"iter"
 	"slices"
+	"time"
 
 	agentv1 "komrad/proto/gen/agent/v1"
 	annotationv1 "komrad/proto/gen/annotation/v1"
@@ -49,6 +50,26 @@ type Method struct {
 	Service  protoreflect.ServiceDescriptor
 	Method   protoreflect.MethodDescriptor
 	Surfaces *annotationv1.Surfaces
+}
+
+// HookCallTimeout bounds a call that waits on a workflow's pre hooks, each of which may run for ten minutes.
+const HookCallTimeout = 11 * time.Minute
+
+var awaitsPreHooks = map[protoreflect.FullName]bool{
+	"agent.v1.AgentService.ArchiveAgents":         true,
+	"agent.v1.AgentService.RestoreAgents":         true,
+	"agent.v1.AgentService.ResumeAgent":           true,
+	"workflow.v1.WorkflowService.ArchiveWorkflow": true,
+	"workflow.v1.WorkflowService.RestoreWorkflow": true,
+}
+
+// GetCallTimeout returns how long a caller gives the method, the fallback unless it waits on a pre hook.
+func (m Method) GetCallTimeout(fallback time.Duration) time.Duration {
+	if awaitsPreHooks[m.Method.FullName()] {
+		return HookCallTimeout
+	}
+
+	return fallback
 }
 
 // GetPath returns where the method is served, which for a unary call is its Connect route.

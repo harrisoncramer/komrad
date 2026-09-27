@@ -713,12 +713,17 @@ func TestArchiveHooks(t *testing.T) {
 		workflowstore.HookPostArchive,
 		workflowstore.HookPostArchive,
 	}
+	postOnly := []string{
+		workflowstore.HookPostArchive,
+		workflowstore.HookPostArchive,
+	}
 	byAgents, byWorkflow := archiveCalls()[0], archiveCalls()[1]
 
 	tests := []struct {
 		name         string
 		call         archiveCall
 		hookErrs     map[string]error
+		removeDir    bool
 		wantErr      string
 		wantArchived bool
 		wantEvents   []string
@@ -736,6 +741,22 @@ func TestArchiveHooks(t *testing.T) {
 			hookErrs:   map[string]error{"lock": errors.New("uncommitted work")},
 			wantErr:    "uncommitted work",
 			wantEvents: refused,
+		},
+		{
+			name:         "archiving the agents passes pre-archive over a directory that has gone",
+			call:         byAgents,
+			hookErrs:     map[string]error{"lock": errors.New("uncommitted work")},
+			removeDir:    true,
+			wantArchived: true,
+			wantEvents:   postOnly,
+		},
+		{
+			name:         "archiving the workflow passes pre-archive over a directory that has gone",
+			call:         byWorkflow,
+			hookErrs:     map[string]error{"lock": errors.New("uncommitted work")},
+			removeDir:    true,
+			wantArchived: true,
+			wantEvents:   postOnly,
 		},
 		{
 			name:         "archiving the agents runs post-archive once it has",
@@ -761,6 +782,11 @@ func TestArchiveHooks(t *testing.T) {
 				{Event: workflowstore.HookPreArchive, Script: "lock"},
 				{Event: workflowstore.HookPostArchive, Script: "give-back-the-slot"},
 			}, "auth", "billing")
+			if tt.removeDir {
+				for _, agent := range agents {
+					require.NoError(t, os.RemoveAll(agent.Cwd))
+				}
+			}
 
 			err := tt.call.archive(t, st, lifecycle, workflowID, agents)
 			if tt.wantErr != "" {
@@ -810,6 +836,7 @@ func TestPreRestore(t *testing.T) {
 		name       string
 		restore    func(t *testing.T, st *testStore, lifecycle *fakeLifecycle, workflowID string, agent agentstore.Agent) error
 		removeDir  bool
+		nameTaken  bool
 		wantErr    string
 		wantHooks  int
 		wantActive bool
@@ -825,6 +852,18 @@ func TestPreRestore(t *testing.T) {
 			restore:   restoreWorkflow,
 			wantErr:   "slot taken",
 			wantHooks: 1,
+		},
+		{
+			name:      "restoring the agent runs no hook when its name is taken",
+			restore:   restoreAgent,
+			nameTaken: true,
+			wantErr:   "rename whatever holds auth",
+		},
+		{
+			name:      "restoring the workflow runs no hook when its name is taken",
+			restore:   restoreWorkflow,
+			nameTaken: true,
+			wantErr:   "rename whatever holds auth",
 		},
 		{
 			name:       "restoring the agent passes over a directory that has gone",
@@ -853,6 +892,9 @@ func TestPreRestore(t *testing.T) {
 			if tt.removeDir {
 				require.NoError(t, os.Remove(agents[0].Cwd))
 			}
+			if tt.nameTaken {
+				seedInWorkflow(t, st, workflowID, "auth", "%9", agentstore.StateIdle)
+			}
 
 			err := tt.restore(t, st, lifecycle, workflowID, agents[0])
 			if tt.wantErr != "" {
@@ -868,6 +910,30 @@ func TestPreRestore(t *testing.T) {
 			assert.Equal(t, tt.wantActive, after.ArchivedAt == nil, "whether the agent came out of the archive")
 		})
 	}
+}
+
+// TestArchivingAnArchivedAgentRunsNoHooks covers a second archive of an agent already in the archive.
+func TestArchivingAnArchivedAgentRunsNoHooks(t *testing.T) {
+	st := newStore(t)
+	ctx := t.Context()
+
+	lifecycle := &fakeLifecycle{}
+	manager := st.agentServiceWithLifecycle(tmuxtest.NewFake(), harnesstest.Registry{Harness: &harnesstest.Fake{}}, lifecycle)
+	_, agents := seedHookedAgents(t, st, []workflowstore.Hook{
+		{Event: workflowstore.HookPreArchive, Script: "lock"},
+		{Event: workflowstore.HookPostArchive, Script: "give-back-the-slot"},
+	}, "auth")
+
+	require.NoError(t, manager.lifecycle.ArchiveAgents(ctx, agentstore.IDs(agents)))
+	require.Eventually(t, func() bool {
+		return len(lifecycle.ranHooks()) == 2
+	}, 5*time.Second, 10*time.Millisecond)
+
+	require.NoError(t, os.RemoveAll(agents[0].Cwd))
+	require.NoError(t, manager.lifecycle.ArchiveAgents(ctx, agentstore.IDs(agents)))
+	require.Never(t, func() bool {
+		return len(lifecycle.ranHooks()) > 2
+	}, 300*time.Millisecond, 20*time.Millisecond)
 }
 
 // TestDeleteFiresPreDeleteThenPostDelete covers the two moments either side of the directory going.
@@ -914,7 +980,7 @@ func TestDeleteWaitsForTheHooksStillRunning(t *testing.T) {
 	ctx := t.Context()
 
 	running := make(chan struct{})
-	lifecycle := &fakeLifecycle{awaitHooks: running}
+	lifecycle := &fakeLifecycle{holdHooks: running}
 	manager := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: &harnesstest.Fake{}}, lifecycle)
 
 	config := worktreeConfig(t, "backend")
@@ -926,6 +992,12 @@ func TestDeleteWaitsForTheHooksStillRunning(t *testing.T) {
 	agent.Cwd = t.TempDir()
 	require.NoError(t, st.Agents.Update(ctx, agent))
 
+	startHooks(ctx, hookRunParams{
+		scripts: lifecycle,
+		agent:   agent,
+		hooks:   config.Hooks,
+		event:   workflowstore.HookPostArchive,
+	})
 	require.NoError(t, manager.lifecycle.DeleteAgents(ctx, []string{agent.ID}))
 
 	present := func() bool {
@@ -943,8 +1015,8 @@ func TestDeleteWaitsForTheHooksStillRunning(t *testing.T) {
 		"and goes once it has finished")
 }
 
-// TestAStartedHookCountsAsRunningBeforeItsGoroutineIsScheduled covers the gap between a start and the goroutine running.
-func TestAStartedHookCountsAsRunningBeforeItsGoroutineIsScheduled(t *testing.T) {
+// TestAStartedHookHoldsItsPlaceBeforeItsGoroutineIsScheduled covers the gap between a start and the goroutine running.
+func TestAStartedHookHoldsItsPlaceBeforeItsGoroutineIsScheduled(t *testing.T) {
 	st := newStore(t)
 	ctx := t.Context()
 

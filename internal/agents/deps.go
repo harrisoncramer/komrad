@@ -137,5 +137,5 @@ type agentScriptRunner interface {
 	RunHook(ctx context.Context, agent agentstore.Agent, name, event string) error
 	RunPostDeleteHook(ctx context.Context, agent agentstore.Agent, name, event string) error
 	AwaitHooks(ctx context.Context, agentID string) error
-	BeginHooks(agentID string) func()
+	QueueHooks(agentID string) *scriptrun.HookTurn
 }

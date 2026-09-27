@@ -12,30 +12,89 @@ import (
 	agentstore "komrad/internal/store/agent"
 )
 
-type hookRuns struct {
-	count int
-	idle  chan struct{}
+// HookQueue runs each agent's hooks one moment at a time, in the order the moments were queued.
+type HookQueue struct {
+	mu    sync.Mutex
+	tails map[string]chan struct{}
 }
 
-// BeginHooks counts an agent's hooks as running until the returned func is called.
-func (s *ScriptService) BeginHooks(agentID string) func() {
-	s.beginHook(agentID)
-
-	return sync.OnceFunc(func() { s.endHook(agentID) })
+// HookTurn is one moment's place in an agent's hook queue.
+type HookTurn struct {
+	ahead <-chan struct{}
+	done  func()
 }
 
-// AwaitHooks waits until none of an agent's hooks are running.
-func (s *ScriptService) AwaitHooks(ctx context.Context, agentID string) error {
-	s.hooksMu.Lock()
-	runs, ok := s.hooksRunning[agentID]
-	s.hooksMu.Unlock()
+// QueueHooks takes the next place in an agent's hook queue, which is held until Done.
+func (q *HookQueue) QueueHooks(agentID string) *HookTurn {
+	q.mu.Lock()
+	defer q.mu.Unlock()
 
-	if !ok {
+	if q.tails == nil {
+		q.tails = make(map[string]chan struct{})
+	}
+
+	ahead := q.tails[agentID]
+	mine := make(chan struct{})
+	q.tails[agentID] = mine
+
+	release := func() {
+		q.mu.Lock()
+		defer q.mu.Unlock()
+
+		close(mine)
+		if q.tails[agentID] == mine {
+			delete(q.tails, agentID)
+		}
+	}
+
+	return &HookTurn{
+		ahead: ahead,
+		done: sync.OnceFunc(func() {
+			if ahead == nil {
+				release()
+
+				return
+			}
+
+			select {
+			case <-ahead:
+				release()
+			default:
+				go func() {
+					<-ahead
+					release()
+				}()
+			}
+		}),
+	}
+}
+
+// AwaitHooks waits until every hook already queued for an agent has finished.
+func (q *HookQueue) AwaitHooks(ctx context.Context, agentID string) error {
+	q.mu.Lock()
+	tail := q.tails[agentID]
+	q.mu.Unlock()
+
+	return awaitHooks(ctx, agentID, tail)
+}
+
+// Wait waits until every moment queued ahead of this one has finished.
+func (t *HookTurn) Wait(ctx context.Context, agentID string) error {
+	return awaitHooks(ctx, agentID, t.ahead)
+}
+
+// Done gives up the place, once the moments ahead of it have finished.
+func (t *HookTurn) Done() {
+	t.done()
+}
+
+func awaitHooks(ctx context.Context, agentID string, ahead <-chan struct{}) error {
+	if ahead == nil {
 		return nil
 	}
 
 	select {
-	case <-runs.idle:
+	case <-ahead:
 		return nil
 	case <-ctx.Done():
 		return fmt.Errorf("failed to wait for the hooks already running for agent %q: %w", agentID, context.Cause(ctx))
@@ -79,32 +138,4 @@ func (s *ScriptService) RunPostDeleteHook(ctx context.Context, agent agentstore.
 	logger.LogAttrs(ctx, slog.LevelInfo, "script finished", finishedScript(result, began)...)
 
 	return nil
-}
-
-func (s *ScriptService) beginHook(agentID string) {
-	s.hooksMu.Lock()
-	defer s.hooksMu.Unlock()
-
-	runs, ok := s.hooksRunning[agentID]
-	if !ok {
-		runs = &hookRuns{idle: make(chan struct{})}
-		s.hooksRunning[agentID] = runs
-	}
-	runs.count++
-}
-
-func (s *ScriptService) endHook(agentID string) {
-	s.hooksMu.Lock()
-	defer s.hooksMu.Unlock()
-
-	runs, ok := s.hooksRunning[agentID]
-	if !ok {
-		return
-	}
-
-	runs.count--
-	if runs.count == 0 {
-		close(runs.idle)
-		delete(s.hooksRunning, agentID)
-	}
 }
