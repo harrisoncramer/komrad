@@ -34,7 +34,7 @@ const (
 	prChangesNotice       = "its pull request has changes requested"
 	prApprovedNotice      = "its pull request is approved and ready to merge"
 	prWaitingNotice       = "its pull request is approved but cannot merge yet"
-	prOpenNotice          = "its pull request is open, no review settles it"
+	prOpenNotice          = "its pull request is open and waiting on a review"
 	prDraftNotice         = "its pull request is still a draft"
 	prMergedNotice        = "its pull request is merged"
 	prClosedNotice        = "its pull request was closed without merging"
