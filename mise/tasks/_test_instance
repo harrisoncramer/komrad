@@ -37,7 +37,7 @@ test_instance_holds_slot() {
 	local root
 	root="$(cd "$1" && pwd -P)"
 
-	cat "$HOME/.local/state/komrad-test/instances"/*/root 2>/dev/null | grep -qxF "$root"
+	grep -qxsF "$root" "$HOME/.local/state/komrad-test/instances"/*/root
 }
 
 # test_database_psql runs psql as the owner in the shared test container.
