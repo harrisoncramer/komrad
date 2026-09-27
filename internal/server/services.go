@@ -85,6 +85,7 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 	scheduleService := schedules.NewScheduleService(schedules.NewScheduleServiceParams{
 		Schedules: st.schedules,
 		Workflows: st.workflows,
+		Agents:    st.agents,
 	})
 
 	builtinScriptsDir := BuiltinScriptsDir(params.Env.CacheDir)

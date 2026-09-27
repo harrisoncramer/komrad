@@ -1,6 +1,11 @@
+enum "schedule_kind" {
+  schema = schema.public
+  values = ["implementer", "orchestrator"]
+}
+
 table "schedules" {
   schema  = schema.public
-  comment = "A recurring agent launch, holding when to fire and the prompt to launch with."
+  comment = "A recurring firing, holding when to fire and the prompt it launches an implementer with or mails an orchestrator."
   column "id" {
     null    = false
     type    = uuid
@@ -37,6 +42,17 @@ table "schedules" {
   column "workflow_id" {
     null = false
     type = uuid
+  }
+  column "kind" {
+    null    = false
+    type    = enum.schedule_kind
+    default = "implementer"
+    comment = "Whether a firing launches an implementer into the workflow or mails the prompt to an orchestrator."
+  }
+  column "orchestrator_agent_id" {
+    null    = true
+    type    = uuid
+    comment = "The orchestrator an orchestrator schedule mails, left unconstrained so the agent can be deleted while the schedule names it."
   }
   column "archived_at" {
     null = true
@@ -82,6 +98,9 @@ table "schedules" {
   }
   index "schedules_workflow_id" {
     columns = [column.workflow_id]
+  }
+  check "schedules_orchestrator_matches_kind" {
+    expr = "(kind = 'orchestrator') = (orchestrator_agent_id IS NOT NULL)"
   }
 }
 

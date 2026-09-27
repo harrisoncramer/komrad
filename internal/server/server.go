@@ -118,17 +118,19 @@ func NewServer(ctx context.Context, params NewServerParams) (*Server, error) {
 	}
 
 	srv.Jobs, err = jobs.NewClient(jobs.NewClientParams{
-		Pool:      st.pool.GetRawPool(),
-		Schema:    st.pool.GetRiverSchema(),
-		Schedules: st.schedules,
-		Runs:      st.schedules,
-		Launcher:  svc.launch,
-		Deleter:   svc.lifecycle,
-		Archived:  st.agents,
-		Running:   st.agents,
-		Worktrees: svc.worktreeLister,
-		Remover:   svc.remover,
-		Logger:    params.Logger,
+		Pool:          st.pool.GetRawPool(),
+		Schema:        st.pool.GetRiverSchema(),
+		Schedules:     st.schedules,
+		Runs:          st.schedules,
+		Launcher:      svc.launch,
+		Deleter:       svc.lifecycle,
+		Archived:      st.agents,
+		Running:       st.agents,
+		Orchestrators: svc.schedule,
+		Mailer:        svc.mail,
+		Worktrees:     svc.worktreeLister,
+		Remover:       svc.remover,
+		Logger:        params.Logger,
 	})
 	if err != nil {
 		return nil, err

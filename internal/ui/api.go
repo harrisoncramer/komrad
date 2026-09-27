@@ -285,21 +285,27 @@ func (a api) emptyArchive() error {
 
 func (a api) createSchedule(cfg panel.ScheduleConfig) error {
 	return mutate(func(ctx context.Context) (any, error) {
-		return a.schedules.CreateSchedule(ctx, connect.NewRequest(&schedulev1.CreateScheduleRequest{
+		req := &schedulev1.CreateScheduleRequest{
 			Name:       strings.TrimSpace(cfg.Name),
 			Cron:       cfg.Cron,
 			Timezone:   cfg.Timezone,
 			Enabled:    cfg.Enabled,
 			HideAgents: cfg.HideAgents,
 			Prompt:     cfg.Prompt,
-			WorkflowId: cfg.WorkflowID,
-		}))
+		}
+		if cfg.Kind == schedulev1.ScheduleKind_SCHEDULE_KIND_ORCHESTRATOR {
+			req.Target = &schedulev1.CreateScheduleRequest_OrchestratorAgentId{OrchestratorAgentId: cfg.OrchestratorID}
+		} else {
+			req.Target = &schedulev1.CreateScheduleRequest_WorkflowId{WorkflowId: cfg.WorkflowID}
+		}
+
+		return a.schedules.CreateSchedule(ctx, connect.NewRequest(req))
 	})
 }
 
 func (a api) updateSchedule(id string, cfg panel.ScheduleConfig) error {
 	return mutate(func(ctx context.Context) (any, error) {
-		return a.schedules.UpdateSchedule(ctx, connect.NewRequest(&schedulev1.UpdateScheduleRequest{
+		req := &schedulev1.UpdateScheduleRequest{
 			Id:         id,
 			Name:       strings.TrimSpace(cfg.Name),
 			Cron:       cfg.Cron,
@@ -307,8 +313,14 @@ func (a api) updateSchedule(id string, cfg panel.ScheduleConfig) error {
 			Enabled:    cfg.Enabled,
 			HideAgents: cfg.HideAgents,
 			Prompt:     cfg.Prompt,
-			WorkflowId: cfg.WorkflowID,
-		}))
+		}
+		if cfg.Kind == schedulev1.ScheduleKind_SCHEDULE_KIND_ORCHESTRATOR {
+			req.Target = &schedulev1.UpdateScheduleRequest_OrchestratorAgentId{OrchestratorAgentId: cfg.OrchestratorID}
+		} else {
+			req.Target = &schedulev1.UpdateScheduleRequest_WorkflowId{WorkflowId: cfg.WorkflowID}
+		}
+
+		return a.schedules.UpdateSchedule(ctx, connect.NewRequest(req))
 	})
 }
 

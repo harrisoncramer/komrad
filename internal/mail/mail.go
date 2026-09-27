@@ -203,6 +203,22 @@ func (s *MailService) SendSystemMail(ctx context.Context, toAgentID, body string
 	})
 }
 
+type SendScheduledMailParams struct {
+	ToAgentID    string
+	ScheduleName string
+	Body         string
+}
+
+// SendScheduledMail sends a schedule's prompt on behalf of the person who wrote the schedule.
+func (s *MailService) SendScheduledMail(ctx context.Context, params SendScheduledMailParams) (*mailstore.Mail, error) {
+	return s.send(ctx, sendParams{
+		ToAgentID:  params.ToAgentID,
+		Body:       params.Body,
+		Kind:       mailstore.KindPlain,
+		SenderName: "schedule " + params.ScheduleName,
+	})
+}
+
 type SendNoticeParams struct {
 	ToAgentID string
 	Body      string
@@ -273,6 +289,8 @@ type sendParams struct {
 	About     *string
 	// System marks mail komrad raises itself rather than on a caller's behalf.
 	System bool
+	// SenderName names mail sent on a person's behalf by something other than an agent.
+	SenderName string
 }
 
 func (s *MailService) send(ctx context.Context, params sendParams) (*mailstore.Mail, error) {
@@ -338,11 +356,14 @@ func (s *MailService) send(ctx context.Context, params sendParams) (*mailstore.M
 		AboutAgentID: params.About,
 		Deadline:     deadline,
 	}
-	if sender != nil {
+	switch {
+	case sender != nil:
 		send.FromAgentID = &sender.ID
 		send.FromName = sender.Name
-	} else if params.System {
+	case params.System:
 		send.FromName = KomradSenderName
+	default:
+		send.FromName = params.SenderName
 	}
 
 	sent, err := s.mailReadWriter.Send(ctx, send)

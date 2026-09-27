@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"komrad/internal/agents"
+	"komrad/internal/mail"
+	"komrad/internal/schedules"
 	"komrad/internal/store"
 	schedulestore "komrad/internal/store/schedule"
 	"komrad/lib/xptr"
@@ -42,33 +44,39 @@ func (LaunchAgentArgs) InsertOpts() river.InsertOpts {
 
 // NewLaunchAgentWorkerParams is what NewLaunchAgentWorker takes.
 type NewLaunchAgentWorkerParams struct {
-	Schedules ScheduleGetter
-	Runs      RunRecorder
-	Launcher  AgentLauncher
-	Running   RunningAgentCounter
+	Schedules     ScheduleGetter
+	Runs          RunRecorder
+	Launcher      AgentLauncher
+	Running       RunningAgentCounter
+	Orchestrators OrchestratorResolver
+	Mailer        ScheduledMailer
 }
 
 type LaunchAgentWorker struct {
 	river.WorkerDefaults[LaunchAgentArgs]
-	schedules ScheduleGetter
-	runs      RunRecorder
-	agents    AgentLauncher
-	running   RunningAgentCounter
+	schedules     ScheduleGetter
+	runs          RunRecorder
+	agents        AgentLauncher
+	running       RunningAgentCounter
+	orchestrators OrchestratorResolver
+	mailer        ScheduledMailer
 }
 
-// NewLaunchAgentWorker builds the worker over the schedules it reads and the service that
-// launches an agent.
+// NewLaunchAgentWorker builds the worker over the schedules it reads, the service that launches
+// an agent, and the one that mails an orchestrator.
 func NewLaunchAgentWorker(params NewLaunchAgentWorkerParams) *LaunchAgentWorker {
 	return &LaunchAgentWorker{
-		schedules: params.Schedules,
-		runs:      params.Runs,
-		agents:    params.Launcher,
-		running:   params.Running,
+		schedules:     params.Schedules,
+		runs:          params.Runs,
+		agents:        params.Launcher,
+		running:       params.Running,
+		orchestrators: params.Orchestrators,
+		mailer:        params.Mailer,
 	}
 }
 
-// Work launches the agent the schedule describes, cancelling the job with its reason for every
-// firing that deliberately launches nothing so River's record of the job says why.
+// Work fires the schedule, launching its implementer or mailing its orchestrator, cancelling the
+// job with its reason for every firing that deliberately does nothing so River's record says why.
 func (w *LaunchAgentWorker) Work(ctx context.Context, job *river.Job[LaunchAgentArgs]) error {
 	schedule, err := w.schedules.Get(ctx, job.Args.ScheduleID)
 	if errors.Is(err, store.ErrNotFound) {
@@ -88,7 +96,7 @@ func (w *LaunchAgentWorker) Work(ctx context.Context, job *river.Job[LaunchAgent
 		return fmt.Errorf("failed to start the run of schedule %q: %w", schedule.Name, err)
 	}
 
-	launchErr := w.launch(ctx, schedule, job.Args)
+	launchErr := w.fire(ctx, schedule, job.Args)
 	if err := w.runs.FinishRun(ctx, occurrence, buildRunOutcome(launchErr, job.JobRow)); err != nil {
 		return errors.Join(launchErr, fmt.Errorf("failed to finish the run of schedule %q: %w", schedule.Name, err))
 	}
@@ -96,11 +104,51 @@ func (w *LaunchAgentWorker) Work(ctx context.Context, job *river.Job[LaunchAgent
 	return launchErr
 }
 
-func (w *LaunchAgentWorker) launch(ctx context.Context, schedule *schedulestore.Schedule, args LaunchAgentArgs) error {
+func (w *LaunchAgentWorker) fire(ctx context.Context, schedule *schedulestore.Schedule, args LaunchAgentArgs) error {
 	if !schedule.Enabled {
 		return river.JobCancel(fmt.Errorf("schedule %q is paused", schedule.Name))
 	}
 
+	if schedule.Kind == schedulestore.KindOrchestrator {
+		return w.mailOrchestrator(ctx, schedule)
+	}
+
+	return w.launch(ctx, schedule, args)
+}
+
+// mailOrchestrator sends the prompt to the schedule's orchestrator, skipping the firing when that
+// orchestrator has been archived or deleted.
+func (w *LaunchAgentWorker) mailOrchestrator(ctx context.Context, schedule *schedulestore.Schedule) error {
+	if schedule.OrchestratorAgentID == nil {
+		return river.JobCancel(fmt.Errorf("schedule %q names no orchestrator", schedule.Name))
+	}
+
+	orchestrator, err := w.orchestrators.RequireOrchestrator(ctx, *schedule.OrchestratorAgentID)
+	if errors.Is(err, schedules.ErrOrchestratorNotFound) ||
+		errors.Is(err, schedules.ErrOrchestratorArchived) ||
+		errors.Is(err, schedules.ErrNotAnOrchestrator) {
+		return river.JobCancel(fmt.Errorf("failed to mail for schedule %q: %w", schedule.Name, err))
+	}
+	if err != nil {
+		return fmt.Errorf("failed to look up the orchestrator of schedule %q: %w", schedule.Name, err)
+	}
+
+	_, err = w.mailer.SendScheduledMail(ctx, mail.SendScheduledMailParams{
+		ToAgentID:    orchestrator.ID,
+		ScheduleName: schedule.Name,
+		Body:         schedule.Prompt,
+	})
+	if errors.Is(err, mail.ErrAgentArchived) || errors.Is(err, mail.ErrRecipientNotFound) {
+		return river.JobCancel(fmt.Errorf("failed to mail for schedule %q: %w", schedule.Name, err))
+	}
+	if err != nil {
+		return fmt.Errorf("failed to mail orchestrator %q for schedule %q: %w", orchestrator.Name, schedule.Name, err)
+	}
+
+	return nil
+}
+
+func (w *LaunchAgentWorker) launch(ctx context.Context, schedule *schedulestore.Schedule, args LaunchAgentArgs) error {
 	running, err := w.running.CountLiveForSchedule(ctx, schedule.ID)
 	if err != nil {
 		return fmt.Errorf("failed to check what schedule %q is already running: %w", schedule.Name, err)

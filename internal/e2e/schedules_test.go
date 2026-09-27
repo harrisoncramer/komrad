@@ -34,11 +34,11 @@ func TestIntegrationSchedulesLaunchOnTheirFirings(t *testing.T) {
 
 	t.Run("a new schedule reports when it next fires", func(t *testing.T) {
 		created, err := instance.Schedules.CreateSchedule(ctx, connect.NewRequest(&schedulev1.CreateScheduleRequest{
-			Name:       "morning-ci",
-			Cron:       "0 9 * * *",
-			Prompt:     "check CI",
-			Enabled:    true,
-			WorkflowId: workflowID,
+			Name:    "morning-ci",
+			Cron:    "0 9 * * *",
+			Prompt:  "check CI",
+			Enabled: true,
+			Target:  &schedulev1.CreateScheduleRequest_WorkflowId{WorkflowId: workflowID},
 		}))
 		require.NoError(t, err)
 
@@ -109,6 +109,50 @@ func TestIntegrationSchedulesLaunchOnTheirFirings(t *testing.T) {
 		assert.Empty(t, listed.Msg.GetSchedules())
 
 		assert.Len(t, listScheduleAgents(t, instance, scheduleID), 1, "the agent it launched is left alone")
+	})
+}
+
+// TestIntegrationSchedulesMailTheirOrchestrator walks an orchestrator schedule from its creation to the mail its firing delivers.
+func TestIntegrationSchedulesMailTheirOrchestrator(t *testing.T) {
+	instance := komradtest.Start(t, komradtest.Params{})
+	ctx := t.Context()
+
+	workflowID := createWorkflow(t, instance, "nightly")
+	orchestrator := startOrchestrator(t, instance, workflowID)
+	instance.WaitForHarness(orchestrator.GetId())
+	nine := time.Date(2026, time.July, 28, 9, 0, 0, 0, time.UTC)
+
+	var scheduleID string
+
+	t.Run("a new orchestrator schedule is filed under its orchestrator's workflow", func(t *testing.T) {
+		created, err := instance.Schedules.CreateSchedule(ctx, connect.NewRequest(&schedulev1.CreateScheduleRequest{
+			Name:    "morning-ci",
+			Cron:    "0 9 * * *",
+			Prompt:  "check CI",
+			Enabled: true,
+			Target:  &schedulev1.CreateScheduleRequest_OrchestratorAgentId{OrchestratorAgentId: orchestrator.GetId()},
+		}))
+		require.NoError(t, err)
+
+		schedule := created.Msg.GetSchedule()
+		scheduleID = schedule.GetId()
+		assert.Equal(t, schedulev1.ScheduleKind_SCHEDULE_KIND_ORCHESTRATOR, schedule.GetKind())
+		assert.Equal(t, orchestrator.GetId(), schedule.GetOrchestratorAgentId())
+		assert.Equal(t, workflowID, schedule.GetWorkflowId())
+	})
+
+	t.Run("a firing mails the prompt to the orchestrator and launches nothing", func(t *testing.T) {
+		instance.Fire(scheduleID, nine)
+
+		mail := readMail(t, instance, orchestrator.GetId())
+		require.Len(t, mail, 1)
+		assert.Equal(t, "check CI", mail[0].GetBody())
+		assert.Equal(t, "schedule morning-ci", mail[0].GetFromName())
+
+		assert.Empty(t, listScheduleAgents(t, instance, scheduleID))
+		runs := listScheduleRuns(t, instance, scheduleID)
+		require.Len(t, runs, 1)
+		assert.Equal(t, schedulev1.ScheduleRunState_SCHEDULE_RUN_STATE_COMPLETED, runs[0].GetState())
 	})
 }
 

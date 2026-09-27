@@ -353,6 +353,78 @@ func TestHideAgents(t *testing.T) {
 	assert.False(t, updated.HideAgents, "an edit that turns it off is written")
 }
 
+// TestKind pins that a schedule's kind and the orchestrator it mails are read back, and that the
+// two are only ever written together.
+func TestKind(t *testing.T) {
+	orchestrator := "00000000-0000-0000-0000-00000000000a"
+
+	tests := []struct {
+		name             string
+		kind             Kind
+		orchestratorID   *string
+		wantErr          bool
+		wantKind         Kind
+		wantOrchestrator *string
+	}{
+		{
+			name:     "a schedule given no kind launches an implementer",
+			wantKind: KindImplementer,
+		},
+		{
+			name:             "an orchestrator schedule names the orchestrator it mails",
+			kind:             KindOrchestrator,
+			orchestratorID:   &orchestrator,
+			wantKind:         KindOrchestrator,
+			wantOrchestrator: &orchestrator,
+		},
+		{
+			name:    "an orchestrator schedule naming no orchestrator is refused",
+			kind:    KindOrchestrator,
+			wantErr: true,
+		},
+		{
+			name:           "an implementer schedule naming an orchestrator is refused",
+			kind:           KindImplementer,
+			orchestratorID: &orchestrator,
+			wantErr:        true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := open(t)
+			ctx := t.Context()
+
+			cfg := Config{
+				Name:                "nightly",
+				Cron:                "0 9 * * *",
+				Prompt:              "go",
+				WorkflowID:          seedWorkflow(t, st),
+				Kind:                tt.kind,
+				OrchestratorAgentID: tt.orchestratorID,
+			}
+
+			created, err := st.Create(ctx, cfg)
+			if tt.wantErr {
+				require.Error(t, err)
+
+				existing := seed(t, st, Config{Name: "existing", Cron: "0 9 * * *", Prompt: "go"})
+				cfg.Name = existing.Name
+				cfg.WorkflowID = existing.WorkflowID
+				require.Error(t, st.Update(ctx, existing.ID, cfg), "nor is one rewritten that way")
+
+				return
+			}
+			require.NoError(t, err)
+
+			got, err := st.Get(ctx, created.ID)
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantKind, got.Kind)
+			assert.Equal(t, tt.wantOrchestrator, got.OrchestratorAgentID)
+		})
+	}
+}
+
 // TestListWatched covers the watched set read whole and by key.
 func TestListWatched(t *testing.T) {
 	tests := []struct {

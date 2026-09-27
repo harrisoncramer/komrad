@@ -21,17 +21,19 @@ const maxAttempts = 5
 const jobTimeout = 2 * time.Minute
 
 type NewClientParams struct {
-	Pool      *pgxpool.Pool
-	Schema    string
-	Schedules internaljobs.ScheduleGetter
-	Runs      internaljobs.RunRecorder
-	Launcher  internaljobs.AgentLauncher
-	Deleter   internaljobs.AgentDeleter
-	Archived  internaljobs.ArchivedAgentLister
-	Running   internaljobs.RunningAgentCounter
-	Worktrees internaljobs.WorktreeLister
-	Remover   internaljobs.WorktreeRemover
-	Logger    *slog.Logger
+	Pool          *pgxpool.Pool
+	Schema        string
+	Schedules     internaljobs.ScheduleGetter
+	Runs          internaljobs.RunRecorder
+	Launcher      internaljobs.AgentLauncher
+	Deleter       internaljobs.AgentDeleter
+	Archived      internaljobs.ArchivedAgentLister
+	Running       internaljobs.RunningAgentCounter
+	Orchestrators internaljobs.OrchestratorResolver
+	Mailer        internaljobs.ScheduledMailer
+	Worktrees     internaljobs.WorktreeLister
+	Remover       internaljobs.WorktreeRemover
+	Logger        *slog.Logger
 }
 
 // NewClient builds the River client with the workers registered, leaving the periodic jobs to
@@ -39,10 +41,12 @@ type NewClientParams struct {
 func NewClient(params NewClientParams) (*river.Client[pgx.Tx], error) {
 	workers := river.NewWorkers()
 	river.AddWorker(workers, internaljobs.NewLaunchAgentWorker(internaljobs.NewLaunchAgentWorkerParams{
-		Schedules: params.Schedules,
-		Runs:      params.Runs,
-		Launcher:  params.Launcher,
-		Running:   params.Running,
+		Schedules:     params.Schedules,
+		Runs:          params.Runs,
+		Launcher:      params.Launcher,
+		Running:       params.Running,
+		Orchestrators: params.Orchestrators,
+		Mailer:        params.Mailer,
 	}))
 	river.AddWorker(workers, internaljobs.NewEmptyArchiveWorker(params.Archived, params.Deleter))
 	river.AddWorker(workers, internaljobs.NewDeleteWorktreesWorker(internaljobs.NewDeleteWorktreesWorkerParams{

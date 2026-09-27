@@ -6,7 +6,9 @@ import (
 	"context"
 
 	"komrad/internal/agents"
+	"komrad/internal/mail"
 	agentstore "komrad/internal/store/agent"
+	mailstore "komrad/internal/store/mail"
 	schedulestore "komrad/internal/store/schedule"
 )
 
@@ -22,6 +24,15 @@ type ScheduleLister interface {
 
 type AgentLauncher interface {
 	NewAgent(ctx context.Context, p agents.NewAgentParams) (*agentstore.Agent, error)
+}
+
+// OrchestratorResolver answers the live orchestrator an orchestrator schedule mails.
+type OrchestratorResolver interface {
+	RequireOrchestrator(ctx context.Context, id string) (*agentstore.Agent, error)
+}
+
+type ScheduledMailer interface {
+	SendScheduledMail(ctx context.Context, params mail.SendScheduledMailParams) (*mailstore.Mail, error)
 }
 
 type AgentDeleter interface {

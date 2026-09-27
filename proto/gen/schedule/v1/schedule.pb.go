@@ -44,7 +44,7 @@ const (
 	ScheduleRunState_SCHEDULE_RUN_STATE_RUNNING ScheduleRunState = 4
 	// Failed an attempt and waiting to try again.
 	ScheduleRunState_SCHEDULE_RUN_STATE_RETRYABLE ScheduleRunState = 5
-	// Launched its agent.
+	// Launched its agent or delivered its mail.
 	ScheduleRunState_SCHEDULE_RUN_STATE_COMPLETED ScheduleRunState = 6
 	// Skipped on purpose, with the reason in its message.
 	ScheduleRunState_SCHEDULE_RUN_STATE_CANCELLED ScheduleRunState = 7
@@ -105,6 +105,59 @@ func (ScheduleRunState) EnumDescriptor() ([]byte, []int) {
 	return file_schedule_v1_schedule_proto_rawDescGZIP(), []int{0}
 }
 
+// ScheduleKind is what a schedule does each time it fires.
+type ScheduleKind int32
+
+const (
+	// No kind was recorded.
+	ScheduleKind_SCHEDULE_KIND_UNSPECIFIED ScheduleKind = 0
+	// Launches a new implementer into the workflow with the prompt.
+	ScheduleKind_SCHEDULE_KIND_IMPLEMENTER ScheduleKind = 1
+	// Mails the prompt to an orchestrator that is already running.
+	ScheduleKind_SCHEDULE_KIND_ORCHESTRATOR ScheduleKind = 2
+)
+
+// Enum value maps for ScheduleKind.
+var (
+	ScheduleKind_name = map[int32]string{
+		0: "SCHEDULE_KIND_UNSPECIFIED",
+		1: "SCHEDULE_KIND_IMPLEMENTER",
+		2: "SCHEDULE_KIND_ORCHESTRATOR",
+	}
+	ScheduleKind_value = map[string]int32{
+		"SCHEDULE_KIND_UNSPECIFIED":  0,
+		"SCHEDULE_KIND_IMPLEMENTER":  1,
+		"SCHEDULE_KIND_ORCHESTRATOR": 2,
+	}
+)
+
+func (x ScheduleKind) Enum() *ScheduleKind {
+	p := new(ScheduleKind)
+	*p = x
+	return p
+}
+
+func (x ScheduleKind) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (ScheduleKind) Descriptor() protoreflect.EnumDescriptor {
+	return file_schedule_v1_schedule_proto_enumTypes[1].Descriptor()
+}
+
+func (ScheduleKind) Type() protoreflect.EnumType {
+	return &file_schedule_v1_schedule_proto_enumTypes[1]
+}
+
+func (x ScheduleKind) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use ScheduleKind.Descriptor instead.
+func (ScheduleKind) EnumDescriptor() ([]byte, []int) {
+	return file_schedule_v1_schedule_proto_rawDescGZIP(), []int{1}
+}
+
 // ScheduleRun is one firing of a schedule, as the job that carried it out stands.
 type ScheduleRun struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -120,7 +173,7 @@ type ScheduleRun struct {
 	MaxAttempts int32 `protobuf:"varint,5,opt,name=max_attempts,json=maxAttempts,proto3" json:"max_attempts,omitempty"`
 	// When it finished, unset while it is still waiting or working.
 	FinalizedAt *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=finalized_at,json=finalizedAt,proto3,oneof" json:"finalized_at,omitempty"`
-	// Why it was skipped or what its last failed attempt said, blank once it has launched.
+	// Why it was skipped or what its last failed attempt said, blank once it has fired.
 	Message       string `protobuf:"bytes,7,opt,name=message,proto3" json:"message,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -219,10 +272,14 @@ type Schedule struct {
 	Enabled bool `protobuf:"varint,5,opt,name=enabled,proto3" json:"enabled,omitempty"`
 	// Whether its launches stay out of the panel's sidebar while still running.
 	HideAgents bool `protobuf:"varint,8,opt,name=hide_agents,json=hideAgents,proto3" json:"hide_agents,omitempty"`
-	// The opening prompt every agent it launches is given.
+	// The opening prompt every agent it launches is given, or the mail its orchestrator is sent.
 	Prompt string `protobuf:"bytes,6,opt,name=prompt,proto3" json:"prompt,omitempty"`
-	// Which workflow its agents are filed under, deciding their directory and flags.
+	// Which workflow it is filed under, which for an orchestrator schedule is its orchestrator's.
 	WorkflowId string `protobuf:"bytes,7,opt,name=workflow_id,json=workflowId,proto3" json:"workflow_id,omitempty"`
+	// Whether it launches an implementer or mails an orchestrator.
+	Kind ScheduleKind `protobuf:"varint,17,opt,name=kind,proto3,enum=schedule.v1.ScheduleKind" json:"kind,omitempty"`
+	// The orchestrator it mails, set only on an orchestrator schedule.
+	OrchestratorAgentId *string `protobuf:"bytes,18,opt,name=orchestrator_agent_id,json=orchestratorAgentId,proto3,oneof" json:"orchestrator_agent_id,omitempty"`
 	// When the expression next matches, unset while the schedule is paused.
 	NextRunAt *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=next_run_at,json=nextRunAt,proto3,oneof" json:"next_run_at,omitempty"`
 	// Whether prompt holds only its opening, which a summary listing returns.
@@ -317,6 +374,20 @@ func (x *Schedule) GetPrompt() string {
 func (x *Schedule) GetWorkflowId() string {
 	if x != nil {
 		return x.WorkflowId
+	}
+	return ""
+}
+
+func (x *Schedule) GetKind() ScheduleKind {
+	if x != nil {
+		return x.Kind
+	}
+	return ScheduleKind_SCHEDULE_KIND_UNSPECIFIED
+}
+
+func (x *Schedule) GetOrchestratorAgentId() string {
+	if x != nil && x.OrchestratorAgentId != nil {
+		return *x.OrchestratorAgentId
 	}
 	return ""
 }
@@ -657,12 +728,17 @@ type CreateScheduleRequest struct {
 	Timezone string `protobuf:"bytes,3,opt,name=timezone,proto3" json:"timezone,omitempty"`
 	// False to write the schedule down without arming it.
 	Enabled bool `protobuf:"varint,4,opt,name=enabled,proto3" json:"enabled,omitempty"`
-	// True to keep its launches out of the panel's sidebar.
+	// True to keep its launches out of the panel's sidebar, ignored by an orchestrator schedule.
 	HideAgents bool `protobuf:"varint,7,opt,name=hide_agents,json=hideAgents,proto3" json:"hide_agents,omitempty"`
-	// The opening prompt each launch is given.
+	// The opening prompt each launch is given, or the mail an orchestrator is sent.
 	Prompt string `protobuf:"bytes,5,opt,name=prompt,proto3" json:"prompt,omitempty"`
-	// Which workflow to launch into, whose cwd and flags each agent inherits.
-	WorkflowId    string `protobuf:"bytes,6,opt,name=workflow_id,json=workflowId,proto3" json:"workflow_id,omitempty"`
+	// What each firing does.
+	//
+	// Types that are valid to be assigned to Target:
+	//
+	//	*CreateScheduleRequest_WorkflowId
+	//	*CreateScheduleRequest_OrchestratorAgentId
+	Target        isCreateScheduleRequest_Target `protobuf_oneof:"target"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -739,12 +815,48 @@ func (x *CreateScheduleRequest) GetPrompt() string {
 	return ""
 }
 
+func (x *CreateScheduleRequest) GetTarget() isCreateScheduleRequest_Target {
+	if x != nil {
+		return x.Target
+	}
+	return nil
+}
+
 func (x *CreateScheduleRequest) GetWorkflowId() string {
 	if x != nil {
-		return x.WorkflowId
+		if x, ok := x.Target.(*CreateScheduleRequest_WorkflowId); ok {
+			return x.WorkflowId
+		}
 	}
 	return ""
 }
+
+func (x *CreateScheduleRequest) GetOrchestratorAgentId() string {
+	if x != nil {
+		if x, ok := x.Target.(*CreateScheduleRequest_OrchestratorAgentId); ok {
+			return x.OrchestratorAgentId
+		}
+	}
+	return ""
+}
+
+type isCreateScheduleRequest_Target interface {
+	isCreateScheduleRequest_Target()
+}
+
+type CreateScheduleRequest_WorkflowId struct {
+	// Launch an implementer into this workflow, whose cwd and flags it inherits.
+	WorkflowId string `protobuf:"bytes,6,opt,name=workflow_id,json=workflowId,proto3,oneof"`
+}
+
+type CreateScheduleRequest_OrchestratorAgentId struct {
+	// Mail the prompt to this orchestrator.
+	OrchestratorAgentId string `protobuf:"bytes,8,opt,name=orchestrator_agent_id,json=orchestratorAgentId,proto3,oneof"`
+}
+
+func (*CreateScheduleRequest_WorkflowId) isCreateScheduleRequest_Target() {}
+
+func (*CreateScheduleRequest_OrchestratorAgentId) isCreateScheduleRequest_Target() {}
 
 type CreateScheduleResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -803,10 +915,15 @@ type UpdateScheduleRequest struct {
 	Timezone string `protobuf:"bytes,4,opt,name=timezone,proto3" json:"timezone,omitempty"`
 	// Whether it stays armed.
 	Enabled bool `protobuf:"varint,5,opt,name=enabled,proto3" json:"enabled,omitempty"`
-	// The prompt later launches are given, leaving agents already launched alone.
+	// The prompt later firings use, leaving agents already launched alone.
 	Prompt string `protobuf:"bytes,6,opt,name=prompt,proto3" json:"prompt,omitempty"`
-	// Which workflow later launches go into.
-	WorkflowId string `protobuf:"bytes,7,opt,name=workflow_id,json=workflowId,proto3" json:"workflow_id,omitempty"`
+	// What later firings do.
+	//
+	// Types that are valid to be assigned to Target:
+	//
+	//	*UpdateScheduleRequest_WorkflowId
+	//	*UpdateScheduleRequest_OrchestratorAgentId
+	Target isUpdateScheduleRequest_Target `protobuf_oneof:"target"`
 	// Whether later launches stay out of the sidebar, leaving existing agents alone.
 	HideAgents    bool `protobuf:"varint,8,opt,name=hide_agents,json=hideAgents,proto3" json:"hide_agents,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -885,9 +1002,27 @@ func (x *UpdateScheduleRequest) GetPrompt() string {
 	return ""
 }
 
+func (x *UpdateScheduleRequest) GetTarget() isUpdateScheduleRequest_Target {
+	if x != nil {
+		return x.Target
+	}
+	return nil
+}
+
 func (x *UpdateScheduleRequest) GetWorkflowId() string {
 	if x != nil {
-		return x.WorkflowId
+		if x, ok := x.Target.(*UpdateScheduleRequest_WorkflowId); ok {
+			return x.WorkflowId
+		}
+	}
+	return ""
+}
+
+func (x *UpdateScheduleRequest) GetOrchestratorAgentId() string {
+	if x != nil {
+		if x, ok := x.Target.(*UpdateScheduleRequest_OrchestratorAgentId); ok {
+			return x.OrchestratorAgentId
+		}
 	}
 	return ""
 }
@@ -898,6 +1033,24 @@ func (x *UpdateScheduleRequest) GetHideAgents() bool {
 	}
 	return false
 }
+
+type isUpdateScheduleRequest_Target interface {
+	isUpdateScheduleRequest_Target()
+}
+
+type UpdateScheduleRequest_WorkflowId struct {
+	// Launch an implementer into this workflow.
+	WorkflowId string `protobuf:"bytes,7,opt,name=workflow_id,json=workflowId,proto3,oneof"`
+}
+
+type UpdateScheduleRequest_OrchestratorAgentId struct {
+	// Mail the prompt to this orchestrator.
+	OrchestratorAgentId string `protobuf:"bytes,9,opt,name=orchestrator_agent_id,json=orchestratorAgentId,proto3,oneof"`
+}
+
+func (*UpdateScheduleRequest_WorkflowId) isUpdateScheduleRequest_Target() {}
+
+func (*UpdateScheduleRequest_OrchestratorAgentId) isUpdateScheduleRequest_Target() {}
 
 type SetScheduleEnabledRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -1011,7 +1164,7 @@ const file_schedule_v1_schedule_proto_rawDesc = "" +
 	"\fmax_attempts\x18\x05 \x01(\x05R\vmaxAttempts\x12B\n" +
 	"\ffinalized_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampH\x00R\vfinalizedAt\x88\x01\x01\x12\x18\n" +
 	"\amessage\x18\a \x01(\tR\amessageB\x0f\n" +
-	"\r_finalized_at\"\xa1\x04\n" +
+	"\r_finalized_at\"\xa3\x05\n" +
 	"\bSchedule\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x12\n" +
@@ -1022,14 +1175,17 @@ const file_schedule_v1_schedule_proto_rawDesc = "" +
 	"hideAgents\x12\x16\n" +
 	"\x06prompt\x18\x06 \x01(\tR\x06prompt\x12\x1f\n" +
 	"\vworkflow_id\x18\a \x01(\tR\n" +
-	"workflowId\x12?\n" +
+	"workflowId\x12-\n" +
+	"\x04kind\x18\x11 \x01(\x0e2\x19.schedule.v1.ScheduleKindR\x04kind\x127\n" +
+	"\x15orchestrator_agent_id\x18\x12 \x01(\tH\x00R\x13orchestratorAgentId\x88\x01\x01\x12?\n" +
 	"\vnext_run_at\x18\n" +
-	" \x01(\v2\x1a.google.protobuf.TimestampH\x00R\tnextRunAt\x88\x01\x01\x12)\n" +
+	" \x01(\v2\x1a.google.protobuf.TimestampH\x01R\tnextRunAt\x88\x01\x01\x12)\n" +
 	"\x10prompt_truncated\x18\x0e \x01(\bR\x0fpromptTruncated\x12<\n" +
 	"\n" +
-	"latest_run\x18\x0f \x01(\v2\x18.schedule.v1.ScheduleRunH\x01R\tlatestRun\x88\x01\x01\x129\n" +
+	"latest_run\x18\x0f \x01(\v2\x18.schedule.v1.ScheduleRunH\x02R\tlatestRun\x88\x01\x01\x129\n" +
 	"\vrecent_runs\x18\x10 \x03(\v2\x18.schedule.v1.ScheduleRunR\n" +
-	"recentRunsB\x0e\n" +
+	"recentRunsB\x18\n" +
+	"\x16_orchestrator_agent_idB\x0e\n" +
 	"\f_next_run_atB\r\n" +
 	"\v_latest_runJ\x04\b\v\x10\fJ\x04\b\f\x10\rJ\x04\b\r\x10\x0eR\x12last_result_statusR\x13last_result_messageR\x0elast_result_at\"\x92\x01\n" +
 	"\x14ListSchedulesRequest\x12>\n" +
@@ -1051,7 +1207,7 @@ const file_schedule_v1_schedule_proto_rawDesc = "" +
 	"\x05limit\x18\x02 \x01(\x05B\n" +
 	"\xbaH\a\x1a\x05\x18\xc8\x01(\x00R\x05limit\"H\n" +
 	"\x18ListScheduleRunsResponse\x12,\n" +
-	"\x04runs\x18\x01 \x03(\v2\x18.schedule.v1.ScheduleRunR\x04runs\"\xe6\x02\n" +
+	"\x04runs\x18\x01 \x03(\v2\x18.schedule.v1.ScheduleRunR\x04runs\"\xb8\x03\n" +
 	"\x15CreateScheduleRequest\x12}\n" +
 	"\x04name\x18\x01 \x01(\tBi\xbaHf\xba\x01\\\n" +
 	"\x0ename.printable\x12(name must not contain control characters\x1a !this.matches('[\\x00-\\x1f\\x7f]')r\x05\x10\x01\x18\xc8\x01R\x04name\x12\x1f\n" +
@@ -1060,11 +1216,13 @@ const file_schedule_v1_schedule_proto_rawDesc = "" +
 	"\aenabled\x18\x04 \x01(\bR\aenabled\x12\x1f\n" +
 	"\vhide_agents\x18\a \x01(\bR\n" +
 	"hideAgents\x12#\n" +
-	"\x06prompt\x18\x05 \x01(\tB\v\xbaH\br\x06\x10\x01\x18І\x03R\x06prompt\x12(\n" +
-	"\vworkflow_id\x18\x06 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\n" +
-	"workflowId\"K\n" +
+	"\x06prompt\x18\x05 \x01(\tB\v\xbaH\br\x06\x10\x01\x18І\x03R\x06prompt\x12*\n" +
+	"\vworkflow_id\x18\x06 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\n" +
+	"workflowId\x12=\n" +
+	"\x15orchestrator_agent_id\x18\b \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\x13orchestratorAgentIdB\x0f\n" +
+	"\x06target\x12\x05\xbaH\x02\b\x01\"K\n" +
 	"\x16CreateScheduleResponse\x121\n" +
-	"\bschedule\x18\x01 \x01(\v2\x15.schedule.v1.ScheduleR\bschedule\"\xff\x02\n" +
+	"\bschedule\x18\x01 \x01(\v2\x15.schedule.v1.ScheduleR\bschedule\"\xd1\x03\n" +
 	"\x15UpdateScheduleRequest\x12\x17\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\x12}\n" +
 	"\x04name\x18\x02 \x01(\tBi\xbaHf\xba\x01\\\n" +
@@ -1072,11 +1230,13 @@ const file_schedule_v1_schedule_proto_rawDesc = "" +
 	"\x04cron\x18\x03 \x01(\tB\v\xbaH\br\x06\xb8\xbb\x18\x01\x10\x01R\x04cron\x12#\n" +
 	"\btimezone\x18\x04 \x01(\tB\a\xbaH\x04r\x02\x18dR\btimezone\x12\x18\n" +
 	"\aenabled\x18\x05 \x01(\bR\aenabled\x12#\n" +
-	"\x06prompt\x18\x06 \x01(\tB\v\xbaH\br\x06\x10\x01\x18І\x03R\x06prompt\x12(\n" +
-	"\vworkflow_id\x18\a \x01(\tB\a\xbaH\x04r\x02\x10\x01R\n" +
-	"workflowId\x12\x1f\n" +
+	"\x06prompt\x18\x06 \x01(\tB\v\xbaH\br\x06\x10\x01\x18І\x03R\x06prompt\x12*\n" +
+	"\vworkflow_id\x18\a \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\n" +
+	"workflowId\x12=\n" +
+	"\x15orchestrator_agent_id\x18\t \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\x13orchestratorAgentId\x12\x1f\n" +
 	"\vhide_agents\x18\b \x01(\bR\n" +
-	"hideAgents\"N\n" +
+	"hideAgentsB\x0f\n" +
+	"\x06target\x12\x05\xbaH\x02\b\x01\"N\n" +
 	"\x19SetScheduleEnabledRequest\x12\x17\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\x12\x18\n" +
 	"\aenabled\x18\x02 \x01(\bR\aenabled\"1\n" +
@@ -1091,13 +1251,17 @@ const file_schedule_v1_schedule_proto_rawDesc = "" +
 	"\x1cSCHEDULE_RUN_STATE_RETRYABLE\x10\x05\x12 \n" +
 	"\x1cSCHEDULE_RUN_STATE_COMPLETED\x10\x06\x12 \n" +
 	"\x1cSCHEDULE_RUN_STATE_CANCELLED\x10\a\x12 \n" +
-	"\x1cSCHEDULE_RUN_STATE_DISCARDED\x10\b2\xb8\x16\n" +
-	"\x0fScheduleService\x12\xd7\x03\n" +
-	"\rListSchedules\x12!.schedule.v1.ListSchedulesRequest\x1a\".schedule.v1.ListSchedulesResponse\"\xfe\x02\x9a\xb5\x18\xf6\x02\b\x01\x10\x01\x1a\x0elist_schedules\"\xdc\x02List the recurring agent launches, most recently updated first, with each one's cron expression, prompt, workflow, next run time, and its latest run. The summary this returns by default holds only the opening of each schedule's prompt, marked by prompt_truncated; get_schedule returns one whole, and view VIEW_FULL returns every prompt on the page.B\x01\x03\x90\x02\x01\x12\xb7\x01\n" +
-	"\vGetSchedule\x12\x1f.schedule.v1.GetScheduleRequest\x1a .schedule.v1.GetScheduleResponse\"e\x9a\xb5\x18^\b\x01\x10\x01\x1a\fget_schedule\"GFetch one schedule by id. Returns not_found if no schedule has that id.B\x01\x03\x90\x02\x01\x12\x92\x04\n" +
-	"\x10ListScheduleRuns\x12$.schedule.v1.ListScheduleRunsRequest\x1a%.schedule.v1.ListScheduleRunsResponse\"\xb0\x03\x9a\xb5\x18\xa8\x03\b\x01\x10\x01\x1a\x12list_schedule_runs\"\x8a\x03List a schedule's most recent firings, newest first, each with the occurrence it stands for, its state, its attempt count, and why it was skipped or how it failed. A completed run launched its agent, a cancelled one was skipped on purpose, a discarded one ran out of attempts, and a retryable one is still being tried. Firings are kept for 90 days. Returns not_found if no schedule has that id.B\x01\x03\x90\x02\x01\x12\xca\x04\n" +
-	"\x0eCreateSchedule\x12\".schedule.v1.CreateScheduleRequest\x1a#.schedule.v1.CreateScheduleResponse\"\xee\x03\x9a\xb5\x18\xe9\x03\b\x01\x10\x01\x1a\x0fcreate_schedule\"\xcc\x03Create a recurring agent launch inside a workflow. Nothing runs at create time; the agent is spawned when the cron expression next matches, and again on every match after that. The workflow supplies the directory, flags, and shared context each launch uses, so only the prompt and the timing are set here. Create it with enabled false to write it down without arming it, or with hideAgents true to keep its runs out of the panel's sidebar while they still run.(\x00B\x01\x03\x12\xa3\x03\n" +
-	"\x0eUpdateSchedule\x12\".schedule.v1.UpdateScheduleRequest\x1a\x16.google.protobuf.Empty\"\xd4\x02\x9a\xb5\x18\xcc\x02\b\x01\x10\x01\x1a\x0fupdate_schedule\"\xaf\x02Replace a schedule's name, cron expression, timezone, prompt, workflow, and whether the agents it launches start hidden from the panel. Every field is written, so read the schedule first and send back the ones you are not changing. Agents already launched are untouched, including their own hidden flag.(\x00B\x01\x03\x90\x02\x02\x12\x81\x02\n" +
+	"\x1cSCHEDULE_RUN_STATE_DISCARDED\x10\b*l\n" +
+	"\fScheduleKind\x12\x1d\n" +
+	"\x19SCHEDULE_KIND_UNSPECIFIED\x10\x00\x12\x1d\n" +
+	"\x19SCHEDULE_KIND_IMPLEMENTER\x10\x01\x12\x1e\n" +
+	"\x1aSCHEDULE_KIND_ORCHESTRATOR\x10\x022\xc1\x16\n" +
+	"\x0fScheduleService\x12\xcc\x03\n" +
+	"\rListSchedules\x12!.schedule.v1.ListSchedulesRequest\x1a\".schedule.v1.ListSchedulesResponse\"\xf3\x02\x9a\xb5\x18\xeb\x02\b\x01\x10\x01\x1a\x0elist_schedules\"\xd1\x02List the schedules, most recently updated first, with each one's kind, cron expression, prompt, target, next run time, and its latest run. The summary this returns by default holds only the opening of each schedule's prompt, marked by prompt_truncated; get_schedule returns one whole, and view VIEW_FULL returns every prompt on the page.B\x01\x03\x90\x02\x01\x12\xb7\x01\n" +
+	"\vGetSchedule\x12\x1f.schedule.v1.GetScheduleRequest\x1a .schedule.v1.GetScheduleResponse\"e\x9a\xb5\x18^\b\x01\x10\x01\x1a\fget_schedule\"GFetch one schedule by id. Returns not_found if no schedule has that id.B\x01\x03\x90\x02\x01\x12\xa8\x04\n" +
+	"\x10ListScheduleRuns\x12$.schedule.v1.ListScheduleRunsRequest\x1a%.schedule.v1.ListScheduleRunsResponse\"\xc6\x03\x9a\xb5\x18\xbe\x03\b\x01\x10\x01\x1a\x12list_schedule_runs\"\xa0\x03List a schedule's most recent firings, newest first, each with the occurrence it stands for, its state, its attempt count, and why it was skipped or how it failed. A completed run launched its agent or delivered its mail, a cancelled one was skipped on purpose, a discarded one ran out of attempts, and a retryable one is still being tried. Firings are kept for 90 days. Returns not_found if no schedule has that id.B\x01\x03\x90\x02\x01\x12\x8c\x04\n" +
+	"\x0eCreateSchedule\x12\".schedule.v1.CreateScheduleRequest\x1a#.schedule.v1.CreateScheduleResponse\"\xb0\x03\x9a\xb5\x18\xab\x03\b\x01\x10\x01\x1a\x0fcreate_schedule\"\x8e\x03Create a schedule that fires on a cron expression. Give workflowId to launch a new implementer into that workflow on every match, or orchestratorAgentId to mail the prompt to that live orchestrator instead. Nothing fires at create time. Create it with enabled false to write it down without arming it. A firing whose orchestrator has since been archived or deleted is skipped, and its run says why.(\x00B\x01\x03\x12\xdf\x03\n" +
+	"\x0eUpdateSchedule\x12\".schedule.v1.UpdateScheduleRequest\x1a\x16.google.protobuf.Empty\"\x90\x03\x9a\xb5\x18\x88\x03\b\x01\x10\x01\x1a\x0fupdate_schedule\"\xeb\x02Replace a schedule's name, cron expression, timezone, prompt, target, and whether the agents it launches start hidden from the panel. Every field is written, so read the schedule first and send back the ones you are not changing, giving workflowId for an implementer schedule and orchestratorAgentId for an orchestrator one. Agents already launched are untouched.(\x00B\x01\x03\x90\x02\x02\x12\x81\x02\n" +
 	"\x12SetScheduleEnabled\x12&.schedule.v1.SetScheduleEnabledRequest\x1a\x16.google.protobuf.Empty\"\xaa\x01\x9a\xb5\x18\xa2\x01\b\x01\x10\x01\x1a\x14set_schedule_enabled\"\x80\x01Pause or resume one schedule without editing anything else. A paused schedule keeps its record and its history and stops firing.(\x00B\x01\x03\x90\x02\x02\x12\x84\x03\n" +
 	"\x0fArchiveSchedule\x12#.schedule.v1.ArchiveScheduleRequest\x1a\x16.google.protobuf.Empty\"\xb3\x02\x9a\xb5\x18\xab\x02\b\x01\x10\x01\x1a\x10archive_schedule\"\x8d\x02Hide a schedule from the panel so it stops firing, keeping its record. The agents it already launched are left alone and keep running, and they still record the schedule that made them. Nothing brings an archived schedule back yet, so this is the end of it in practice.(\x00B\x01\x03\x90\x02\x02B)Z'komrad/proto/gen/schedule/v1;schedulev1b\x06proto3"
 
@@ -1113,60 +1277,62 @@ func file_schedule_v1_schedule_proto_rawDescGZIP() []byte {
 	return file_schedule_v1_schedule_proto_rawDescData
 }
 
-var file_schedule_v1_schedule_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_schedule_v1_schedule_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
 var file_schedule_v1_schedule_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
 var file_schedule_v1_schedule_proto_goTypes = []any{
 	(ScheduleRunState)(0),             // 0: schedule.v1.ScheduleRunState
-	(*ScheduleRun)(nil),               // 1: schedule.v1.ScheduleRun
-	(*Schedule)(nil),                  // 2: schedule.v1.Schedule
-	(*ListSchedulesRequest)(nil),      // 3: schedule.v1.ListSchedulesRequest
-	(*ListSchedulesResponse)(nil),     // 4: schedule.v1.ListSchedulesResponse
-	(*GetScheduleRequest)(nil),        // 5: schedule.v1.GetScheduleRequest
-	(*GetScheduleResponse)(nil),       // 6: schedule.v1.GetScheduleResponse
-	(*ListScheduleRunsRequest)(nil),   // 7: schedule.v1.ListScheduleRunsRequest
-	(*ListScheduleRunsResponse)(nil),  // 8: schedule.v1.ListScheduleRunsResponse
-	(*CreateScheduleRequest)(nil),     // 9: schedule.v1.CreateScheduleRequest
-	(*CreateScheduleResponse)(nil),    // 10: schedule.v1.CreateScheduleResponse
-	(*UpdateScheduleRequest)(nil),     // 11: schedule.v1.UpdateScheduleRequest
-	(*SetScheduleEnabledRequest)(nil), // 12: schedule.v1.SetScheduleEnabledRequest
-	(*ArchiveScheduleRequest)(nil),    // 13: schedule.v1.ArchiveScheduleRequest
-	(*timestamppb.Timestamp)(nil),     // 14: google.protobuf.Timestamp
-	(*v1.Pagination)(nil),             // 15: pagination.v1.Pagination
-	(v11.View)(0),                     // 16: view.v1.View
-	(*emptypb.Empty)(nil),             // 17: google.protobuf.Empty
+	(ScheduleKind)(0),                 // 1: schedule.v1.ScheduleKind
+	(*ScheduleRun)(nil),               // 2: schedule.v1.ScheduleRun
+	(*Schedule)(nil),                  // 3: schedule.v1.Schedule
+	(*ListSchedulesRequest)(nil),      // 4: schedule.v1.ListSchedulesRequest
+	(*ListSchedulesResponse)(nil),     // 5: schedule.v1.ListSchedulesResponse
+	(*GetScheduleRequest)(nil),        // 6: schedule.v1.GetScheduleRequest
+	(*GetScheduleResponse)(nil),       // 7: schedule.v1.GetScheduleResponse
+	(*ListScheduleRunsRequest)(nil),   // 8: schedule.v1.ListScheduleRunsRequest
+	(*ListScheduleRunsResponse)(nil),  // 9: schedule.v1.ListScheduleRunsResponse
+	(*CreateScheduleRequest)(nil),     // 10: schedule.v1.CreateScheduleRequest
+	(*CreateScheduleResponse)(nil),    // 11: schedule.v1.CreateScheduleResponse
+	(*UpdateScheduleRequest)(nil),     // 12: schedule.v1.UpdateScheduleRequest
+	(*SetScheduleEnabledRequest)(nil), // 13: schedule.v1.SetScheduleEnabledRequest
+	(*ArchiveScheduleRequest)(nil),    // 14: schedule.v1.ArchiveScheduleRequest
+	(*timestamppb.Timestamp)(nil),     // 15: google.protobuf.Timestamp
+	(*v1.Pagination)(nil),             // 16: pagination.v1.Pagination
+	(v11.View)(0),                     // 17: view.v1.View
+	(*emptypb.Empty)(nil),             // 18: google.protobuf.Empty
 }
 var file_schedule_v1_schedule_proto_depIdxs = []int32{
-	14, // 0: schedule.v1.ScheduleRun.scheduled_for:type_name -> google.protobuf.Timestamp
+	15, // 0: schedule.v1.ScheduleRun.scheduled_for:type_name -> google.protobuf.Timestamp
 	0,  // 1: schedule.v1.ScheduleRun.state:type_name -> schedule.v1.ScheduleRunState
-	14, // 2: schedule.v1.ScheduleRun.finalized_at:type_name -> google.protobuf.Timestamp
-	14, // 3: schedule.v1.Schedule.next_run_at:type_name -> google.protobuf.Timestamp
-	1,  // 4: schedule.v1.Schedule.latest_run:type_name -> schedule.v1.ScheduleRun
-	1,  // 5: schedule.v1.Schedule.recent_runs:type_name -> schedule.v1.ScheduleRun
-	15, // 6: schedule.v1.ListSchedulesRequest.pagination:type_name -> pagination.v1.Pagination
-	16, // 7: schedule.v1.ListSchedulesRequest.view:type_name -> view.v1.View
-	2,  // 8: schedule.v1.ListSchedulesResponse.schedules:type_name -> schedule.v1.Schedule
-	2,  // 9: schedule.v1.GetScheduleResponse.schedule:type_name -> schedule.v1.Schedule
-	1,  // 10: schedule.v1.ListScheduleRunsResponse.runs:type_name -> schedule.v1.ScheduleRun
-	2,  // 11: schedule.v1.CreateScheduleResponse.schedule:type_name -> schedule.v1.Schedule
-	3,  // 12: schedule.v1.ScheduleService.ListSchedules:input_type -> schedule.v1.ListSchedulesRequest
-	5,  // 13: schedule.v1.ScheduleService.GetSchedule:input_type -> schedule.v1.GetScheduleRequest
-	7,  // 14: schedule.v1.ScheduleService.ListScheduleRuns:input_type -> schedule.v1.ListScheduleRunsRequest
-	9,  // 15: schedule.v1.ScheduleService.CreateSchedule:input_type -> schedule.v1.CreateScheduleRequest
-	11, // 16: schedule.v1.ScheduleService.UpdateSchedule:input_type -> schedule.v1.UpdateScheduleRequest
-	12, // 17: schedule.v1.ScheduleService.SetScheduleEnabled:input_type -> schedule.v1.SetScheduleEnabledRequest
-	13, // 18: schedule.v1.ScheduleService.ArchiveSchedule:input_type -> schedule.v1.ArchiveScheduleRequest
-	4,  // 19: schedule.v1.ScheduleService.ListSchedules:output_type -> schedule.v1.ListSchedulesResponse
-	6,  // 20: schedule.v1.ScheduleService.GetSchedule:output_type -> schedule.v1.GetScheduleResponse
-	8,  // 21: schedule.v1.ScheduleService.ListScheduleRuns:output_type -> schedule.v1.ListScheduleRunsResponse
-	10, // 22: schedule.v1.ScheduleService.CreateSchedule:output_type -> schedule.v1.CreateScheduleResponse
-	17, // 23: schedule.v1.ScheduleService.UpdateSchedule:output_type -> google.protobuf.Empty
-	17, // 24: schedule.v1.ScheduleService.SetScheduleEnabled:output_type -> google.protobuf.Empty
-	17, // 25: schedule.v1.ScheduleService.ArchiveSchedule:output_type -> google.protobuf.Empty
-	19, // [19:26] is the sub-list for method output_type
-	12, // [12:19] is the sub-list for method input_type
-	12, // [12:12] is the sub-list for extension type_name
-	12, // [12:12] is the sub-list for extension extendee
-	0,  // [0:12] is the sub-list for field type_name
+	15, // 2: schedule.v1.ScheduleRun.finalized_at:type_name -> google.protobuf.Timestamp
+	1,  // 3: schedule.v1.Schedule.kind:type_name -> schedule.v1.ScheduleKind
+	15, // 4: schedule.v1.Schedule.next_run_at:type_name -> google.protobuf.Timestamp
+	2,  // 5: schedule.v1.Schedule.latest_run:type_name -> schedule.v1.ScheduleRun
+	2,  // 6: schedule.v1.Schedule.recent_runs:type_name -> schedule.v1.ScheduleRun
+	16, // 7: schedule.v1.ListSchedulesRequest.pagination:type_name -> pagination.v1.Pagination
+	17, // 8: schedule.v1.ListSchedulesRequest.view:type_name -> view.v1.View
+	3,  // 9: schedule.v1.ListSchedulesResponse.schedules:type_name -> schedule.v1.Schedule
+	3,  // 10: schedule.v1.GetScheduleResponse.schedule:type_name -> schedule.v1.Schedule
+	2,  // 11: schedule.v1.ListScheduleRunsResponse.runs:type_name -> schedule.v1.ScheduleRun
+	3,  // 12: schedule.v1.CreateScheduleResponse.schedule:type_name -> schedule.v1.Schedule
+	4,  // 13: schedule.v1.ScheduleService.ListSchedules:input_type -> schedule.v1.ListSchedulesRequest
+	6,  // 14: schedule.v1.ScheduleService.GetSchedule:input_type -> schedule.v1.GetScheduleRequest
+	8,  // 15: schedule.v1.ScheduleService.ListScheduleRuns:input_type -> schedule.v1.ListScheduleRunsRequest
+	10, // 16: schedule.v1.ScheduleService.CreateSchedule:input_type -> schedule.v1.CreateScheduleRequest
+	12, // 17: schedule.v1.ScheduleService.UpdateSchedule:input_type -> schedule.v1.UpdateScheduleRequest
+	13, // 18: schedule.v1.ScheduleService.SetScheduleEnabled:input_type -> schedule.v1.SetScheduleEnabledRequest
+	14, // 19: schedule.v1.ScheduleService.ArchiveSchedule:input_type -> schedule.v1.ArchiveScheduleRequest
+	5,  // 20: schedule.v1.ScheduleService.ListSchedules:output_type -> schedule.v1.ListSchedulesResponse
+	7,  // 21: schedule.v1.ScheduleService.GetSchedule:output_type -> schedule.v1.GetScheduleResponse
+	9,  // 22: schedule.v1.ScheduleService.ListScheduleRuns:output_type -> schedule.v1.ListScheduleRunsResponse
+	11, // 23: schedule.v1.ScheduleService.CreateSchedule:output_type -> schedule.v1.CreateScheduleResponse
+	18, // 24: schedule.v1.ScheduleService.UpdateSchedule:output_type -> google.protobuf.Empty
+	18, // 25: schedule.v1.ScheduleService.SetScheduleEnabled:output_type -> google.protobuf.Empty
+	18, // 26: schedule.v1.ScheduleService.ArchiveSchedule:output_type -> google.protobuf.Empty
+	20, // [20:27] is the sub-list for method output_type
+	13, // [13:20] is the sub-list for method input_type
+	13, // [13:13] is the sub-list for extension type_name
+	13, // [13:13] is the sub-list for extension extendee
+	0,  // [0:13] is the sub-list for field type_name
 }
 
 func init() { file_schedule_v1_schedule_proto_init() }
@@ -1178,12 +1344,20 @@ func file_schedule_v1_schedule_proto_init() {
 	file_schedule_v1_schedule_proto_msgTypes[1].OneofWrappers = []any{}
 	file_schedule_v1_schedule_proto_msgTypes[2].OneofWrappers = []any{}
 	file_schedule_v1_schedule_proto_msgTypes[3].OneofWrappers = []any{}
+	file_schedule_v1_schedule_proto_msgTypes[8].OneofWrappers = []any{
+		(*CreateScheduleRequest_WorkflowId)(nil),
+		(*CreateScheduleRequest_OrchestratorAgentId)(nil),
+	}
+	file_schedule_v1_schedule_proto_msgTypes[10].OneofWrappers = []any{
+		(*UpdateScheduleRequest_WorkflowId)(nil),
+		(*UpdateScheduleRequest_OrchestratorAgentId)(nil),
+	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_schedule_v1_schedule_proto_rawDesc), len(file_schedule_v1_schedule_proto_rawDesc)),
-			NumEnums:      1,
+			NumEnums:      2,
 			NumMessages:   13,
 			NumExtensions: 0,
 			NumServices:   1,

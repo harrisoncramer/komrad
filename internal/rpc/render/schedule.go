@@ -27,15 +27,17 @@ func Schedule(s schedulestore.Schedule, now time.Time, options ScheduleOptions) 
 	}
 
 	rendered := &schedulev1.Schedule{
-		Id:              s.ID,
-		Name:            s.Name,
-		Cron:            s.Cron,
-		Timezone:        s.Timezone,
-		Enabled:         s.Enabled,
-		HideAgents:      s.HideAgents,
-		Prompt:          prompt,
-		PromptTruncated: promptTruncated,
-		WorkflowId:      s.WorkflowID,
+		Id:                  s.ID,
+		Name:                s.Name,
+		Cron:                s.Cron,
+		Timezone:            s.Timezone,
+		Enabled:             s.Enabled,
+		HideAgents:          s.HideAgents,
+		Prompt:              prompt,
+		PromptTruncated:     promptTruncated,
+		WorkflowId:          s.WorkflowID,
+		Kind:                scheduleKinds[s.Kind],
+		OrchestratorAgentId: s.OrchestratorAgentID,
 	}
 
 	if next := schedules.CalculateNextRun(s, now); !next.IsZero() {
@@ -49,6 +51,11 @@ func Schedule(s schedulestore.Schedule, now time.Time, options ScheduleOptions) 
 	rendered.RecentRuns = xslice.Map(s.RecentRuns, ScheduleRun)
 
 	return rendered
+}
+
+var scheduleKinds = map[schedulestore.Kind]schedulev1.ScheduleKind{
+	schedulestore.KindImplementer:  schedulev1.ScheduleKind_SCHEDULE_KIND_IMPLEMENTER,
+	schedulestore.KindOrchestrator: schedulev1.ScheduleKind_SCHEDULE_KIND_ORCHESTRATOR,
 }
 
 var runStates = map[schedulestore.RunState]schedulev1.ScheduleRunState{

@@ -8,7 +8,9 @@ import (
 	"time"
 
 	"komrad/internal/fail"
+	"komrad/internal/mail"
 	"komrad/internal/store"
+	agentstore "komrad/internal/store/agent"
 	schedulestore "komrad/internal/store/schedule"
 	workflowstore "komrad/internal/store/workflow"
 
@@ -30,26 +32,37 @@ type workflowReader interface {
 	GetIncludingArchived(ctx context.Context, id string) (*workflowstore.Workflow, error)
 }
 
+type agentGetter interface {
+	GetByID(ctx context.Context, id string) (*agentstore.Agent, error)
+}
+
 var (
-	ErrScheduleNotFound = fail.NotFound("schedule not found")
-	ErrBadCron          = fail.InvalidArgument("unreadable cron expression")
-	ErrWorkflowNotFound = fail.NotFound("workflow not found")
-	ErrWorkflowArchived = fail.Precondition("workflow is archived")
+	ErrScheduleNotFound     = fail.NotFound("schedule not found")
+	ErrBadCron              = fail.InvalidArgument("unreadable cron expression")
+	ErrWorkflowNotFound     = fail.NotFound("workflow not found")
+	ErrWorkflowArchived     = fail.Precondition("workflow is archived")
+	ErrOrchestratorNotFound = fail.NotFound("orchestrator not found")
+	ErrOrchestratorArchived = fail.Precondition("orchestrator is archived")
+	ErrNotAnOrchestrator    = fail.InvalidArgument("agent is not an orchestrator")
+	ErrPromptTooLong        = fail.InvalidArgument("prompt is too long to mail")
+	ErrBadKind              = fail.InvalidArgument("unknown schedule kind")
 )
 
 type NewScheduleServiceParams struct {
 	Schedules scheduleReadWriter
 	Workflows workflowReader
+	Agents    agentGetter
 }
 
 type ScheduleService struct {
 	store     scheduleReadWriter
 	workflows workflowReader
+	agents    agentGetter
 }
 
 // NewScheduleService builds the service from its dependencies.
 func NewScheduleService(params NewScheduleServiceParams) *ScheduleService {
-	return &ScheduleService{store: params.Schedules, workflows: params.Workflows}
+	return &ScheduleService{store: params.Schedules, workflows: params.Workflows, agents: params.Agents}
 }
 
 // GetSchedule returns a schedule by id, or nil when none has that id.
@@ -69,7 +82,7 @@ func (s *ScheduleService) NewSchedule(ctx context.Context, cfg schedulestore.Con
 	if err != nil {
 		return nil, err
 	}
-	if err := s.requireWorkflow(ctx, normalized.WorkflowID); err != nil {
+	if normalized, err = s.resolveTarget(ctx, normalized); err != nil {
 		return nil, err
 	}
 
@@ -99,7 +112,7 @@ func (s *ScheduleService) UpdateSchedule(ctx context.Context, id string, cfg sch
 	if normalized.Name == "" {
 		normalized.Name = existing.Name
 	}
-	if err := s.requireWorkflow(ctx, normalized.WorkflowID); err != nil {
+	if normalized, err = s.resolveTarget(ctx, normalized); err != nil {
 		return err
 	}
 
@@ -183,6 +196,57 @@ func (s *ScheduleService) ListScheduleRuns(ctx context.Context, params ListSched
 	return runs, nil
 }
 
+// resolveTarget checks what a schedule fires at, filing an orchestrator schedule under its
+// orchestrator's workflow.
+func (s *ScheduleService) resolveTarget(ctx context.Context, cfg schedulestore.Config) (schedulestore.Config, error) {
+	switch cfg.Kind {
+	case schedulestore.KindImplementer:
+		cfg.OrchestratorAgentID = nil
+		if err := s.requireWorkflow(ctx, cfg.WorkflowID); err != nil {
+			return schedulestore.Config{}, err
+		}
+
+		return cfg, nil
+	case schedulestore.KindOrchestrator:
+		if cfg.OrchestratorAgentID == nil {
+			return schedulestore.Config{}, ErrOrchestratorNotFound.Saying("an orchestrator schedule names no orchestrator")
+		}
+		if len(cfg.Prompt) > mail.MaxMailBody {
+			return schedulestore.Config{}, ErrPromptTooLong.Saying("an orchestrator schedule's prompt is mailed, which holds at most %d characters", mail.MaxMailBody)
+		}
+
+		orchestrator, err := s.RequireOrchestrator(ctx, *cfg.OrchestratorAgentID)
+		if err != nil {
+			return schedulestore.Config{}, err
+		}
+		cfg.WorkflowID = orchestrator.WorkflowID
+		cfg.HideAgents = false
+
+		return cfg, nil
+	}
+
+	return schedulestore.Config{}, ErrBadKind.Saying("no schedule kind %q", cfg.Kind)
+}
+
+// RequireOrchestrator returns the live orchestrator an id names, or says which way it is unusable.
+func (s *ScheduleService) RequireOrchestrator(ctx context.Context, id string) (*agentstore.Agent, error) {
+	agent, err := s.agents.GetByID(ctx, id)
+	if errors.Is(err, store.ErrNotFound) {
+		return nil, ErrOrchestratorNotFound.Saying("no agent with id %q", id)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to look up orchestrator %q: %w", id, err)
+	}
+	if agent.ArchivedAt != nil {
+		return nil, ErrOrchestratorArchived.Saying("orchestrator %q has been archived", agent.Name)
+	}
+	if agent.Role != agentstore.RoleOrchestrator {
+		return nil, ErrNotAnOrchestrator.Saying("agent %q was launched as %s", agent.Name, agent.Role)
+	}
+
+	return agent, nil
+}
+
 func (s *ScheduleService) requireWorkflow(ctx context.Context, workflowID string) error {
 	_, err := s.workflows.Get(ctx, workflowID)
 	if errors.Is(err, store.ErrNotFound) {
@@ -210,6 +274,9 @@ func normalize(cfg schedulestore.Config) (schedulestore.Config, error) {
 	cfg.Cron = strings.TrimSpace(cfg.Cron)
 	cfg.Timezone = strings.TrimSpace(cfg.Timezone)
 	cfg.Prompt = strings.TrimSpace(cfg.Prompt)
+	if cfg.Kind == "" {
+		cfg.Kind = schedulestore.KindImplementer
+	}
 
 	if _, err := ParseCron(cfg.Cron, cfg.Timezone); err != nil {
 		return schedulestore.Config{}, err

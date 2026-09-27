@@ -64,12 +64,14 @@ func (f *fakeSchedules) NewSchedule(_ context.Context, cfg schedulestore.Config)
 	}
 
 	return &schedulestore.Schedule{
-		ID:         scheduleID,
-		Name:       cfg.Name,
-		Cron:       cfg.Cron,
-		Enabled:    cfg.Enabled,
-		Prompt:     cfg.Prompt,
-		WorkflowID: cfg.WorkflowID,
+		ID:                  scheduleID,
+		Name:                cfg.Name,
+		Cron:                cfg.Cron,
+		Enabled:             cfg.Enabled,
+		Prompt:              cfg.Prompt,
+		WorkflowID:          cfg.WorkflowID,
+		Kind:                cfg.Kind,
+		OrchestratorAgentID: cfg.OrchestratorAgentID,
 	}, nil
 }
 
@@ -155,6 +157,30 @@ func TestScheduleRefusalsMapToCodes(t *testing.T) {
 			call:     update,
 			err:      schedules.ErrWorkflowArchived,
 			wantCode: connect.CodeFailedPrecondition,
+		},
+		{
+			name:     "an orchestrator nothing holds",
+			call:     create,
+			err:      schedules.ErrOrchestratorNotFound,
+			wantCode: connect.CodeNotFound,
+		},
+		{
+			name:     "an orchestrator that has been archived",
+			call:     update,
+			err:      schedules.ErrOrchestratorArchived,
+			wantCode: connect.CodeFailedPrecondition,
+		},
+		{
+			name:     "an agent that is not an orchestrator",
+			call:     create,
+			err:      schedules.ErrNotAnOrchestrator,
+			wantCode: connect.CodeInvalidArgument,
+		},
+		{
+			name:     "a prompt too long to mail",
+			call:     create,
+			err:      schedules.ErrPromptTooLong,
+			wantCode: connect.CodeInvalidArgument,
 		},
 		{
 			name:     "a name a live schedule holds",
@@ -254,6 +280,17 @@ func TestScheduleWritesPassDown(t *testing.T) {
 		HideAgents: true,
 		Prompt:     "check CI",
 		WorkflowID: "01a0d228-0000-7000-8000-0000000000ff",
+		Kind:       schedulestore.KindImplementer,
+	}
+	orchestratorID := "01a0d228-0000-7000-8000-0000000000aa"
+	mailing := schedulestore.Config{
+		Name:                cfg.Name,
+		Cron:                cfg.Cron,
+		Timezone:            cfg.Timezone,
+		Enabled:             cfg.Enabled,
+		Prompt:              cfg.Prompt,
+		Kind:                schedulestore.KindOrchestrator,
+		OrchestratorAgentID: &orchestratorID,
 	}
 
 	tests := []struct {
@@ -271,12 +308,28 @@ func TestScheduleWritesPassDown(t *testing.T) {
 					Enabled:    cfg.Enabled,
 					HideAgents: cfg.HideAgents,
 					Prompt:     cfg.Prompt,
-					WorkflowId: cfg.WorkflowID,
+					Target:     &schedulev1.CreateScheduleRequest_WorkflowId{WorkflowId: cfg.WorkflowID},
 				}))
 
 				return err
 			},
 			want: fakeSchedules{created: []schedulestore.Config{cfg}},
+		},
+		{
+			name: "creating with an orchestrator makes an orchestrator schedule",
+			call: func(ctx context.Context, svc schedulev1komrad.ScheduleServiceAdapter) error {
+				_, err := svc.CreateSchedule(ctx, connect.NewRequest(&schedulev1.CreateScheduleRequest{
+					Name:     mailing.Name,
+					Cron:     mailing.Cron,
+					Timezone: mailing.Timezone,
+					Enabled:  mailing.Enabled,
+					Prompt:   mailing.Prompt,
+					Target:   &schedulev1.CreateScheduleRequest_OrchestratorAgentId{OrchestratorAgentId: orchestratorID},
+				}))
+
+				return err
+			},
+			want: fakeSchedules{created: []schedulestore.Config{mailing}},
 		},
 		{
 			name: "updating hands down the id and every field",
@@ -289,7 +342,7 @@ func TestScheduleWritesPassDown(t *testing.T) {
 					Enabled:    cfg.Enabled,
 					HideAgents: cfg.HideAgents,
 					Prompt:     cfg.Prompt,
-					WorkflowId: cfg.WorkflowID,
+					Target:     &schedulev1.UpdateScheduleRequest_WorkflowId{WorkflowId: cfg.WorkflowID},
 				}))
 
 				return err
@@ -298,6 +351,28 @@ func TestScheduleWritesPassDown(t *testing.T) {
 				{
 					id:  scheduleID,
 					cfg: cfg,
+				},
+			}},
+		},
+		{
+			name: "updating with an orchestrator makes it an orchestrator schedule",
+			call: func(ctx context.Context, svc schedulev1komrad.ScheduleServiceAdapter) error {
+				_, err := svc.UpdateSchedule(ctx, connect.NewRequest(&schedulev1.UpdateScheduleRequest{
+					Id:       scheduleID,
+					Name:     mailing.Name,
+					Cron:     mailing.Cron,
+					Timezone: mailing.Timezone,
+					Enabled:  mailing.Enabled,
+					Prompt:   mailing.Prompt,
+					Target:   &schedulev1.UpdateScheduleRequest_OrchestratorAgentId{OrchestratorAgentId: orchestratorID},
+				}))
+
+				return err
+			},
+			want: fakeSchedules{updated: []updateCall{
+				{
+					id:  scheduleID,
+					cfg: mailing,
 				},
 			}},
 		},
@@ -339,20 +414,31 @@ func TestScheduleWritesPassDown(t *testing.T) {
 	}
 }
 
-// TestCreateSchedule pins that a created schedule comes back rendered, with its next run when it is armed.
+// TestCreateSchedule pins that a created schedule comes back rendered, with its kind and its next run when it is armed.
 func TestCreateSchedule(t *testing.T) {
 	tests := []struct {
-		name        string
-		enabled     bool
-		wantNextRun bool
+		name             string
+		enabled          bool
+		orchestrator     string
+		wantNextRun      bool
+		wantKind         schedulev1.ScheduleKind
+		wantOrchestrator *string
 	}{
 		{
-			name: "a paused schedule has no next run to report",
+			name:     "a paused schedule has no next run to report",
+			wantKind: schedulev1.ScheduleKind_SCHEDULE_KIND_IMPLEMENTER,
 		},
 		{
 			name:        "an armed schedule reports when it next fires",
 			enabled:     true,
 			wantNextRun: true,
+			wantKind:    schedulev1.ScheduleKind_SCHEDULE_KIND_IMPLEMENTER,
+		},
+		{
+			name:             "an orchestrator schedule names the orchestrator it mails",
+			orchestrator:     "01a0d228-0000-7000-8000-0000000000aa",
+			wantKind:         schedulev1.ScheduleKind_SCHEDULE_KIND_ORCHESTRATOR,
+			wantOrchestrator: proto.String("01a0d228-0000-7000-8000-0000000000aa"),
 		},
 	}
 
@@ -360,16 +446,22 @@ func TestCreateSchedule(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			svc := newScheduleHandler(&fakeSchedules{})
 
-			created, err := svc.CreateSchedule(t.Context(), connect.NewRequest(&schedulev1.CreateScheduleRequest{
+			req := &schedulev1.CreateScheduleRequest{
 				Name:    "morning-ci",
 				Cron:    "0 9 * * 1-5",
 				Enabled: tt.enabled,
 				Prompt:  "check CI",
-			}))
+			}
+			if tt.orchestrator != "" {
+				req.Target = &schedulev1.CreateScheduleRequest_OrchestratorAgentId{OrchestratorAgentId: tt.orchestrator}
+			}
+			created, err := svc.CreateSchedule(t.Context(), connect.NewRequest(req))
 			require.NoError(t, err)
 
 			schedule := created.Msg.GetSchedule()
 			assert.Equal(t, scheduleID, schedule.GetId())
+			assert.Equal(t, tt.wantKind, schedule.GetKind())
+			assert.Equal(t, tt.wantOrchestrator, schedule.OrchestratorAgentId)
 			assert.Equal(t, "check CI", schedule.GetPrompt())
 			assert.Equal(t, tt.wantNextRun, schedule.GetNextRunAt() != nil)
 			if tt.wantNextRun {

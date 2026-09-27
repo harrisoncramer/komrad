@@ -10,6 +10,8 @@ import (
 	"komrad/internal/agents"
 	"komrad/internal/harness"
 	"komrad/internal/harness/claude"
+	"komrad/internal/mail"
+	"komrad/internal/schedules"
 	agentstore "komrad/internal/store/agent"
 	reviewstore "komrad/internal/store/review"
 	schedulestore "komrad/internal/store/schedule"
@@ -292,6 +294,132 @@ func TestLaunchAgentWorkerLaunchesOneAgentPerFiring(t *testing.T) {
 			assert.Equal(t, tt.wantRuns, xslice.Map(runs, func(run schedulestore.Run) schedulestore.RunState {
 				return run.State
 			}))
+		})
+	}
+}
+
+// TestLaunchAgentWorkerMailsAnOrchestrator pins what an orchestrator schedule's firing sends, and
+// that one whose orchestrator is gone is skipped with the reason on its run.
+func TestLaunchAgentWorkerMailsAnOrchestrator(t *testing.T) {
+	tests := []struct {
+		name       string
+		archived   bool
+		deleted    bool
+		paused     bool
+		wantReason string
+		wantRuns   []schedulestore.RunState
+		wantMailed bool
+	}{
+		{
+			name:       "a live orchestrator is mailed the prompt",
+			wantRuns:   []schedulestore.RunState{schedulestore.RunStateCompleted},
+			wantMailed: true,
+		},
+		{
+			name:       "a paused schedule mails nothing",
+			paused:     true,
+			wantReason: "is paused",
+			wantRuns:   []schedulestore.RunState{schedulestore.RunStateCancelled},
+		},
+		{
+			name:       "an orchestrator archived since the schedule was written is skipped",
+			archived:   true,
+			wantReason: "orchestrator \"lead\" has been archived",
+			wantRuns:   []schedulestore.RunState{schedulestore.RunStateCancelled},
+		},
+		{
+			name:       "an orchestrator deleted since the schedule was written is skipped",
+			deleted:    true,
+			wantReason: "no agent with id",
+			wantRuns:   []schedulestore.RunState{schedulestore.RunStateCancelled},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			stores := storetest.Open(t)
+			ctx := t.Context()
+
+			workflow := stores.SeedWorkflow(t, workflowstore.Config{Name: "nightly", Cwd: t.TempDir()})
+			orchestrator := stores.SeedAgent(t, agentstore.Agent{
+				Name:       "lead",
+				Role:       agentstore.RoleOrchestrator,
+				WorkflowID: workflow.ID,
+			})
+			schedule := stores.SeedSchedule(t, schedulestore.Config{
+				Name:                "morning-ci",
+				Cron:                "0 9 * * *",
+				Prompt:              "check CI",
+				Enabled:             !tt.paused,
+				WorkflowID:          workflow.ID,
+				Kind:                schedulestore.KindOrchestrator,
+				OrchestratorAgentID: &orchestrator.ID,
+			})
+			if tt.archived {
+				_, err := stores.Agents.Archive(ctx, []string{orchestrator.ID})
+				require.NoError(t, err)
+			}
+			if tt.deleted {
+				_, err := stores.Agents.Delete(ctx, []string{orchestrator.ID})
+				require.NoError(t, err)
+			}
+
+			worker := NewLaunchAgentWorker(NewLaunchAgentWorkerParams{
+				Schedules: stores.Schedules,
+				Runs:      stores.Schedules,
+				Running:   stores.Agents,
+				Orchestrators: schedules.NewScheduleService(schedules.NewScheduleServiceParams{
+					Schedules: stores.Schedules,
+					Workflows: stores.Workflows,
+					Agents:    stores.Agents,
+				}),
+				Mailer: mail.NewMailService(mail.NewMailServiceParams{
+					MailReadWriter: stores.Mail,
+					Agents:         stores.Agents,
+					Workflows:      stores.Workflows,
+					Config:         config.Mail{MaxExchange: config.DefaultMaxExchange},
+				}),
+			})
+
+			err := worker.Work(ctx, &river.Job[LaunchAgentArgs]{
+				JobRow: &rivertype.JobRow{Attempt: 1, MaxAttempts: 5},
+				Args:   LaunchAgentArgs{ScheduleID: schedule.ID, ScheduledFor: nine},
+			})
+			if tt.wantReason != "" {
+				require.Error(t, err)
+				assert.True(t, isCancel(err), "a firing with nobody to mail cancels rather than being retried")
+				assert.Contains(t, err.Error(), tt.wantReason)
+			} else {
+				require.NoError(t, err)
+			}
+
+			runs, err := stores.Schedules.ListRuns(ctx, schedule.ID, 10)
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantRuns, xslice.Map(runs, func(run schedulestore.Run) schedulestore.RunState {
+				return run.State
+			}))
+			if tt.wantReason != "" {
+				assert.Contains(t, runs[0].Message, tt.wantReason, "the run on the schedule says why it was skipped")
+			}
+
+			assert.Empty(t, listScheduleAgents(t, stores, schedule.ID), "an orchestrator schedule launches no agent")
+
+			if tt.deleted {
+				return
+			}
+
+			waiting, err := stores.Mail.Claim(ctx, orchestrator.ID, 10)
+			require.NoError(t, err)
+			if !tt.wantMailed {
+				assert.Empty(t, waiting)
+
+				return
+			}
+
+			require.Len(t, waiting, 1)
+			assert.Equal(t, "check CI", waiting[0].Body)
+			assert.Equal(t, "schedule morning-ci", waiting[0].FromName)
+			assert.Nil(t, waiting[0].FromAgentID)
 		})
 	}
 }

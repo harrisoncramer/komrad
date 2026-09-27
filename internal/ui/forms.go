@@ -31,6 +31,9 @@ type formState struct {
 	// reach in the order they are drawn.
 	rebuild func(model) (*huh.Form, []string)
 
+	// reshaped reports whether an answer has changed which fields the form draws.
+	reshaped func() bool
+
 	// editable are the text fields the panel's editor key can open.
 	editable []editableText
 
@@ -92,6 +95,7 @@ func redrawnForm(params redrawnFormParams) formState {
 		update:   model.updateForm,
 		submit:   params.Submit,
 		rebuild:  params.Build,
+		reshaped: params.Reshaped,
 		editable: params.Editable,
 	}
 }
@@ -100,6 +104,7 @@ func redrawnForm(params redrawnFormParams) formState {
 type redrawnFormParams struct {
 	Kind     formKind
 	Build    func(model) (*huh.Form, []string)
+	Reshaped func() bool
 	Editable []editableText
 	Submit   func(model) (tea.Model, tea.Cmd)
 }
@@ -353,6 +358,15 @@ func (m model) updateForm(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case huh.StateAborted:
 		return m.closeForm()
 	case huh.StateNormal:
+	}
+
+	if m.form.reshaped != nil && m.form.reshaped() {
+		key := ""
+		if focused := m.form.form.GetFocusedField(); focused != nil {
+			key = focused.GetKey()
+		}
+
+		return m, tea.Batch(cmd, m.redrawFormOn(key))
 	}
 
 	return m, cmd
