@@ -487,7 +487,7 @@ func (v *View) Locate(place Place) (int, bool) {
 	}
 
 	if place.Change {
-		return v.changeRowAt()
+		return v.findChangeRow()
 	}
 
 	if place.Header {
@@ -524,8 +524,8 @@ func (v *View) Locate(place Place) (int, bool) {
 	return nearest, nearest >= 0
 }
 
-// changeRowAt is the row for the change as a whole, which a patch with no files has none of.
-func (v *View) changeRowAt() (int, bool) {
+// findChangeRow finds the row for the change as a whole, which a patch with no files has none of.
+func (v *View) findChangeRow() (int, bool) {
 	for y, current := range v.rows {
 		if current.kind == changeRow {
 			return y, true

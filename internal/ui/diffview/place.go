@@ -15,8 +15,8 @@ const changedNotice = "── the code these were about has changed ──"
 // screen.
 const outsideNotice = "── still in the change, outside what is on screen ──"
 
-// changeNotice heads the comments on the change as a whole beyond the one its row carries.
-const changeNotice = "── more on the change as a whole ──"
+// changeNotice heads the comments on the change as a whole.
+const changeNotice = "── on the change as a whole ──"
 
 // goneNotice heads the comments whose file has left the change altogether.
 const goneNotice = "── these are holding your review, on files that have left the change ──"
@@ -93,8 +93,9 @@ func (v *View) PinThreads(threads []*agentv1.ReviewThread) {
 	}
 }
 
-// pinChangeThreads gives the row for the change as a whole to the first open comment on it, sends
-// the rest of those comments to the foot, and hands back the threads that are about lines.
+// pinChangeThreads draws the comments on the change as a whole in a section of their own at the
+// foot, leaving the row for the change free to start another, and hands back the threads that
+// are about lines.
 func (v *View) pinChangeThreads(threads []*agentv1.ReviewThread) []*agentv1.ReviewThread {
 	lines := make([]*agentv1.ReviewThread, 0, len(threads))
 
@@ -108,16 +109,6 @@ func (v *View) pinChangeThreads(threads []*agentv1.ReviewThread) []*agentv1.Revi
 		}
 
 		lines = append(lines, thread)
-	}
-
-	y, ok := v.changeRowAt()
-	if ok && len(change) > 0 {
-		first := max(slices.IndexFunc(change, func(thread *agentv1.ReviewThread) bool {
-			return thread.GetResolvedAt() == ""
-		}), 0)
-		v.pinned[y] = change[first]
-		v.placed[change[first].GetId()] = pinned
-		change = slices.Delete(change, first, first+1)
 	}
 
 	v.appendFootSection(changeNotice, change)

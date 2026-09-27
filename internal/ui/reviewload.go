@@ -111,7 +111,7 @@ func (r *reviewScreen) abandon(h host, s panelShared, err error) tea.Cmd {
 // drop puts the reader back on the row they opened the review from, letting go of an agent
 // stopped for the editor.
 func (r *reviewScreen) drop(h host, s panelShared) tea.Cmd {
-	letGo := r.endPass(h, s, abandonedSaid)
+	letGo := r.endHold(h, s, abandonedSaid)
 
 	*r = reviewScreen{}
 
@@ -601,7 +601,7 @@ func (r *reviewScreen) load(s panelShared, fresh bool) tea.Cmd {
 }
 
 func (r *reviewScreen) leave(h host, s panelShared) tea.Cmd {
-	if r.pass.atEditor {
+	if r.hold.atEditor {
 		return r.closeEdit(h, s)
 	}
 

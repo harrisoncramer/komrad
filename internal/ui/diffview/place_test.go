@@ -665,10 +665,10 @@ func TestACommentOutsideANarrowedDiffIsNotGone(t *testing.T) {
 	assert.Equal(t, outsideNotice, headingAbove(t, view, "t1"))
 }
 
-// TestCommentsOnTheChangeFillItsRowThenTheFoot covers several comments on the change as a whole:
-// the first open one is drawn on its row and the rest wait at the foot, none of them counted as
-// moved.
-func TestCommentsOnTheChangeFillItsRowThenTheFoot(t *testing.T) {
+// TestCommentsOnTheChangeWaitAtTheFoot covers several comments on the change as a whole: the row
+// for the change stays free to start another, it says how many there are, and the comments wait in
+// a section at the foot, none of them counted as moved.
+func TestCommentsOnTheChangeWaitAtTheFoot(t *testing.T) {
 	view := NewView(twoFilePatch(), false)
 	settled := newChangeThread("t1", "2026-09-27T00:00:00Z")
 	open := newChangeThread("t2", "")
@@ -676,15 +676,18 @@ func TestCommentsOnTheChangeFillItsRowThenTheFoot(t *testing.T) {
 
 	view.PinThreads([]*agentv1.ReviewThread{settled, open, onLine})
 
-	found, ok := view.GetThreadAt(0)
-	require.True(t, ok)
-	assert.Equal(t, "t2", found.GetId(), "the open comment is the one drawn on the row")
-	assert.Contains(t, ansi.Strip(view.RenderRow(0, NoCursor, 60, 0)), changeWord)
+	_, ok := view.GetThreadAt(0)
+	assert.False(t, ok, "the row is left to start another comment")
+	assert.Contains(t, ansi.Strip(view.RenderRow(0, NoCursor, 60, 0)), "the change as a whole  2 at the end of the diff")
 
-	foot, ok := view.GetThreadAt(view.Len() - 1)
-	require.True(t, ok)
-	assert.Equal(t, "t1", foot.GetId())
-	assert.Contains(t, ansi.Strip(view.RenderRow(view.Len()-2, NoCursor, 60, 0)), "more on the change as a whole")
+	notice := view.Len() - 3
+	assert.Contains(t, ansi.Strip(view.RenderRow(notice, NoCursor, 60, 0)), "on the change as a whole")
+
+	for at, want := range []string{"t1", "t2"} {
+		found, ok := view.GetThreadAt(notice + 1 + at)
+		require.True(t, ok)
+		assert.Equal(t, want, found.GetId())
+	}
 
 	assert.False(t, view.HasMoved(settled))
 	assert.False(t, view.HasMoved(open))

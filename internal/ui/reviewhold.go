@@ -18,16 +18,16 @@ const abandonedSaid = "I paused you to open your worktree in my editor and have 
 // editedSaid is what an agent is told when the reader's editor on its worktree closes.
 const editedSaid = "I paused you while I had your worktree open in my editor and have let you go now."
 
-// reviewPass is the hold the reader takes on the agent while their editor is open on its
+// reviewHold is the hold the reader takes on the agent while their editor is open on its
 // worktree: whether it is stopped, what stopped it, and the files the editor was opened on.
-type reviewPass struct {
+type reviewHold struct {
 	// paused says the agent is stopped for the editor, whoever stopped it.
 	paused bool
 	// pausing is set while the panel is asking for the agent to stop.
 	pausing bool
-	// ourPause says this pass is what stopped the agent, so ending the pass is what lets it go.
+	// ourPause says this hold is what stopped the agent, so ending the hold is what lets it go.
 	ourPause bool
-	// touched are the files the reader opened an editor on during the pass, oldest first, which
+	// touched are the files the reader opened an editor on during the hold, oldest first, which
 	// is what the agent is told about when it is let go.
 	touched []string
 
@@ -39,23 +39,23 @@ type reviewPass struct {
 	editorPane string
 }
 
-// isHeld reports whether the pass has the agent, or is asking for it.
-func (p reviewPass) isHeld() bool {
+// isHeld reports whether the hold has the agent, or is asking for it.
+func (p reviewHold) isHeld() bool {
 	return p.paused || p.pausing || p.atEditor
 }
 
-// end puts the pass down, and says whether it was this pass that stopped the agent and which
+// end puts the hold down, and says whether it was this hold that stopped the agent and which
 // files the reader opened while it was.
-func (p *reviewPass) end() (bool, []string) {
+func (p *reviewHold) end() (bool, []string) {
 	ours, touched := p.ourPause, p.touched
 
-	*p = reviewPass{}
+	*p = reviewHold{}
 
 	return ours, touched
 }
 
 // openEditor records the editor holding the stage on one file, in the pane the split gave it.
-func (p *reviewPass) openEditor(path, pane string) {
+func (p *reviewHold) openEditor(path, pane string) {
 	p.atEditor = true
 	p.editingPath = path
 	p.editorPane = pane
@@ -70,8 +70,8 @@ type reviewPausedMsg struct {
 	err     error
 }
 
-// startPass stops the agent and opens the editor once it has.
-func (r *reviewScreen) startPass(h host, s panelShared) tea.Cmd {
+// startHold stops the agent and opens the editor once it has.
+func (r *reviewScreen) startHold(h host, s panelShared) tea.Cmd {
 	if _, dead := r.isReadOnly(s); dead {
 		return r.editFile(h, s)
 	}
@@ -79,12 +79,12 @@ func (r *reviewScreen) startPass(h host, s panelShared) tea.Cmd {
 	// An agent the person stopped themselves is already where the editor needs it, and letting it
 	// go when the editor closes is not this screen's to do.
 	if item, ok := r.agentRow(s); ok && item.Agent.HeldAt != nil {
-		r.pass.paused = true
+		r.hold.paused = true
 
 		return r.editFile(h, s)
 	}
 
-	r.pass.pausing = true
+	r.hold.pausing = true
 
 	return r.holdAgentCmd(s)
 }
@@ -112,7 +112,7 @@ func (r *reviewScreen) applyPaused(h host, s panelShared, msg reviewPausedMsg) t
 		return nil
 	}
 
-	r.pass.pausing = false
+	r.hold.pausing = false
 
 	if msg.err != nil {
 		h.report("Could not pause "+r.agentName, msg.err)
@@ -120,14 +120,14 @@ func (r *reviewScreen) applyPaused(h host, s panelShared, msg reviewPausedMsg) t
 		return nil
 	}
 
-	r.pass.paused = true
-	r.pass.ourPause = true
+	r.hold.paused = true
+	r.hold.ourPause = true
 
 	return r.editFile(h, s)
 }
 
 func (m model) isPassing(agentID string) bool {
-	return m.screen == screenReview && m.review.agentID == agentID && m.review.pass.pausing
+	return m.screen == screenReview && m.review.agentID == agentID && m.review.hold.pausing
 }
 
 func (m *model) releaseAbandonedPause(msg reviewPausedMsg) tea.Cmd {
@@ -143,10 +143,10 @@ func (m *model) releaseAbandonedPause(msg reviewPausedMsg) tea.Cmd {
 	return m.releaseCmd("Could not let "+item.Agent.Name+" go", item.Agent, abandonedSaid)
 }
 
-// endPass lets the agent go, telling it which files the reader opened while it was stopped.
-func (r *reviewScreen) endPass(h host, s panelShared, said string) tea.Cmd {
+// endHold lets the agent go, telling it which files the reader opened while it was stopped.
+func (r *reviewScreen) endHold(h host, s panelShared, said string) tea.Cmd {
 	agentID := r.agentID
-	ours, touched := r.pass.end()
+	ours, touched := r.hold.end()
 
 	h.noteEdited(agentID, touched)
 

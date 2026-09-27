@@ -1244,8 +1244,9 @@ type AddReviewMessageRequest struct {
 	// Replacement lines proposed for the thread's range, empty for an ordinary message.
 	Suggestion []string `protobuf:"bytes,3,rep,name=suggestion,proto3" json:"suggestion,omitempty"`
 	// Says the change the thread asks for is made. Komrad takes a round of the worktree as it
-	// stands, pins it to the reply, and resolves the thread. Refused when the worktree holds the
-	// same tree the thread was written on.
+	// stands and pins it to the reply. A thread the person started is resolved by it, and one a
+	// reviewer agent started stays open for that reviewer to resolve. Refused when the worktree
+	// holds the same tree the thread was written on.
 	Addressed     bool `protobuf:"varint,4,opt,name=addressed,proto3" json:"addressed,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

@@ -13,7 +13,7 @@ import (
 // ErrReviewAddressedByOwner is answered when anyone but the agent a thread is on replies with addressed.
 var ErrReviewAddressedByOwner = fail.Denied("only the agent whose work a comment is on can reply with addressed")
 
-// ErrReviewNothingAddressed is answered when an addressed reply carries the tree the thread was written on.
+// ErrReviewNothingAddressed is answered when an addressed reply comes while the worktree is unchanged since the thread was written.
 var ErrReviewNothingAddressed = fail.Precondition(
 	"your worktree holds the same tree this comment was written on, so there is no change to show; " +
 		"make the change first, or reply without addressed to push back or ask")

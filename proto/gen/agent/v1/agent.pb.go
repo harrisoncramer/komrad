@@ -503,11 +503,11 @@ type AgentRow struct {
 	PullRequests []*v1.PullRequest `protobuf:"bytes,5,rep,name=pull_requests,json=pullRequests,proto3" json:"pull_requests,omitempty"`
 	// How many rounds of local review its own work has been through.
 	LocalReviewRounds int32 `protobuf:"varint,6,opt,name=local_review_rounds,json=localReviewRounds,proto3" json:"local_review_rounds,omitempty"`
-	// The comments reviewer agents have left on its work, absent while none has released a review
-	// of work the base branch has not taken.
+	// Comments reviewer agents have left on its work. Absent until a reviewer agent has released a
+	// review of work not yet merged into the base branch.
 	ReviewerComments *CommentCounts `protobuf:"bytes,9,opt,name=reviewer_comments,json=reviewerComments,proto3,oneof" json:"reviewer_comments,omitempty"`
-	// The comments the person has left on its work, absent while they have released no review of
-	// work the base branch has not taken.
+	// Comments the person has left on its work. Absent until the person has released a review of
+	// work not yet merged into the base branch.
 	PersonComments *CommentCounts `protobuf:"bytes,10,opt,name=person_comments,json=personComments,proto3,oneof" json:"person_comments,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
@@ -602,11 +602,11 @@ func (x *AgentRow) GetPersonComments() *CommentCounts {
 // CommentCounts is how the comments on an agent's work stand.
 type CommentCounts struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Conversations nobody has resolved yet, on any round.
+	// Comments nobody has resolved yet, on any round.
 	Open int32 `protobuf:"varint,1,opt,name=open,proto3" json:"open,omitempty"`
-	// Conversations resolved on rounds the base branch has not taken yet.
+	// Comments resolved on rounds not yet merged into the base branch.
 	Resolved int32 `protobuf:"varint,2,opt,name=resolved,proto3" json:"resolved,omitempty"`
-	// Whether any of the conversations holds something the person has not read.
+	// Whether any of the comments holds something the person has not read.
 	Unread        bool `protobuf:"varint,3,opt,name=unread,proto3" json:"unread,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

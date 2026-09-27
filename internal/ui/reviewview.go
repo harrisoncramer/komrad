@@ -85,7 +85,7 @@ func (r reviewScreen) layoutSidebar(s panelShared, above ...string) sidebarLayou
 	messages := s.draw.messagesRegion(record, help, above...)
 	chrome := slices.Concat(above, []string{help, record, messages})
 	spare := s.draw.listLines(chrome...)
-	head := r.headView(s, reviewYoursRoom(spare))
+	head := r.headView(s, countYoursRoom(spare))
 
 	return sidebarLayout{
 		help:        help,
@@ -414,7 +414,7 @@ func (r reviewScreen) composeDesc() string {
 
 // backDesc says which of the two things the back key leaves.
 func (r reviewScreen) backDesc() string {
-	if r.pass.atEditor {
+	if r.hold.atEditor {
 		return "close the editor"
 	}
 

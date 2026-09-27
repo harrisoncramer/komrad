@@ -137,11 +137,11 @@ message AgentRow {
   repeated pullrequest.v1.PullRequest pull_requests = 5;
   // How many rounds of local review its own work has been through.
   int32 local_review_rounds = 6;
-  // The comments reviewer agents have left on its work, absent while none has released a review
-  // of work the base branch has not taken.
+  // Comments reviewer agents have left on its work. Absent until a reviewer agent has released a
+  // review of work not yet merged into the base branch.
   optional CommentCounts reviewer_comments = 9;
-  // The comments the person has left on its work, absent while they have released no review of
-  // work the base branch has not taken.
+  // Comments the person has left on its work. Absent until the person has released a review of
+  // work not yet merged into the base branch.
   optional CommentCounts person_comments = 10;
 
   reserved 7, 8;
@@ -150,11 +150,11 @@ message AgentRow {
 
 // CommentCounts is how the comments on an agent's work stand.
 message CommentCounts {
-  // Conversations nobody has resolved yet, on any round.
+  // Comments nobody has resolved yet, on any round.
   int32 open = 1;
-  // Conversations resolved on rounds the base branch has not taken yet.
+  // Comments resolved on rounds not yet merged into the base branch.
   int32 resolved = 2;
-  // Whether any of the conversations holds something the person has not read.
+  // Whether any of the comments holds something the person has not read.
   bool unread = 3;
 }
 

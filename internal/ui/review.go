@@ -29,8 +29,8 @@ type reviewScreen struct {
 	// threads is the conversation in the sidebar and what the reader is writing into it.
 	threads reviewThreads
 
-	// pass is the reader's own pass over the work, and the editor it may hold open.
-	pass reviewPass
+	// hold is the reader's own hold over the work, and the editor it may hold open.
+	hold reviewHold
 }
 
 // takesEveryKey reports whether the review is mid-input, in which case a key bound elsewhere
@@ -46,7 +46,7 @@ func (r reviewScreen) isWriting() bool {
 
 // isBusy reports whether the reader is part way through something a restart would lose.
 func (r reviewScreen) isBusy() bool {
-	return r.isWriting() || r.pass.isHeld()
+	return r.isWriting() || r.hold.isHeld()
 }
 
 // isThreadTaken reports whether the reader has taken the keys onto a conversation the cursor is

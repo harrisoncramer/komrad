@@ -245,7 +245,7 @@ func (r *reviewScreen) legend() []screenLegendRow {
 		},
 		{
 			of:   []actionID{actionReviewEdit},
-			desc: func(panelShared) string { return r.pass.editorDesc() },
+			desc: func(panelShared) string { return r.hold.editorDesc() },
 			// The one thing standing in the way of editing is an earlier round, whose line numbers
 			// name a file the worktree no longer holds.
 			show: func(panelShared) bool {

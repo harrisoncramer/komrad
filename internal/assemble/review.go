@@ -47,7 +47,7 @@ func setCommentCounts(row *agentv1.AgentRow, reviews []*agentv1.WatchedReview, t
 		released[review.GetId()] = review
 
 		if review.GetRoundLandedAt() == "" {
-			countsFor(row, review)
+			getOrAddCounts(row, review)
 		}
 	}
 
@@ -62,7 +62,7 @@ func setCommentCounts(row *agentv1.AgentRow, reviews []*agentv1.WatchedReview, t
 			continue
 		}
 
-		counts := countsFor(row, review)
+		counts := getOrAddCounts(row, review)
 		if isOpen {
 			counts.Open++
 		} else {
@@ -72,8 +72,8 @@ func setCommentCounts(row *agentv1.AgentRow, reviews []*agentv1.WatchedReview, t
 	}
 }
 
-// countsFor is the side of the row a review's comments are counted on, made when it is absent.
-func countsFor(row *agentv1.AgentRow, review *agentv1.WatchedReview) *agentv1.CommentCounts {
+// getOrAddCounts returns the side of the row a review's comments are counted on, adding it when it is absent.
+func getOrAddCounts(row *agentv1.AgentRow, review *agentv1.WatchedReview) *agentv1.CommentCounts {
 	if review.GetAuthorKind() == agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT {
 		if row.ReviewerComments == nil {
 			row.ReviewerComments = &agentv1.CommentCounts{}

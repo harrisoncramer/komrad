@@ -36,9 +36,9 @@ type yourComment struct {
 	folded bool
 }
 
-// yourComments are the comments the reader started, the ones with something unread first, then
+// listYourComments lists the comments the reader started, the ones with something unread first, then
 // the open ones, each group in the order the diff draws them.
-func (r reviewScreen) yourComments() []yourComment {
+func (r reviewScreen) listYourComments() []yourComment {
 	if r.diff.view == nil {
 		return nil
 	}
@@ -80,7 +80,7 @@ func isYours(thread *agentv1.ReviewThread) bool {
 	return len(messages) > 0 && messages[0].GetAuthorKind() == agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN
 }
 
-// compareFirst sorts whatever holds before whatever does not.
+// compareFirst orders true before false.
 func compareFirst(a, b bool) int {
 	switch {
 	case a == b:
@@ -106,7 +106,7 @@ func (r reviewScreen) yoursView(s panelShared, room int) string {
 		return ""
 	}
 
-	yours := r.yourComments()
+	yours := r.listYourComments()
 	if len(yours) == 0 {
 		return ""
 	}
@@ -133,15 +133,15 @@ func (r reviewScreen) yoursView(s panelShared, room int) string {
 	return out
 }
 
-// reviewYoursRoom is how many comments fit once the sidebar's own chrome has taken its share.
-func reviewYoursRoom(spare int) int {
+// countYoursRoom counts how many comments fit once the sidebar's own chrome has taken its share.
+func countYoursRoom(spare int) int {
 	// The title row, the line the cursor is standing on, and the conversation's own keep.
 	return min(max(spare-2-yoursThreadRows, 0), yoursRows)
 }
 
 // yoursRow is one comment, where it stands and what it is waiting for.
 func (r reviewScreen) yoursRow(s panelShared, comment yourComment) string {
-	said := reviewYoursState(comment)
+	said := describeYoursState(comment)
 	where := diffview.FormatThreadLocation(comment.thread)
 
 	room := max(lineWidthOf(s.pane)-len(said)-5, 1)
@@ -187,8 +187,8 @@ func (r reviewScreen) isCommentNear(s panelShared, comment yourComment) bool {
 	return comment.row >= r.diff.top && comment.row < r.diff.top+split.rows
 }
 
-// reviewYoursState is the few words a row carries about what the comment is waiting for.
-func reviewYoursState(comment yourComment) string {
+// describeYoursState gives the few words a row carries about what the comment is waiting for.
+func describeYoursState(comment yourComment) string {
 	if comment.thread.GetUnreadByHuman() {
 		return "unread"
 	}

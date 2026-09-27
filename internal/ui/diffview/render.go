@@ -35,11 +35,11 @@ const (
 	unreadMark = "●"
 	// readMark is a thread nobody has settled with nothing new in it.
 	readMark = "○"
-	// OpenMark is what a comment nobody has settled wears away from the diff.
+	// OpenMark is what a comment nobody has resolved wears away from the diff.
 	OpenMark = readMark
-	// settledMark is a thread that has been settled.
+	// settledMark is a thread that has been resolved.
 	settledMark = "✓"
-	// SettledMark is what a settled comment wears away from the diff.
+	// SettledMark is what a resolved comment wears away from the diff.
 	SettledMark = settledMark
 	// unsentMark is a thread holding a comment nobody has released yet.
 	unsentMark = "◇"
@@ -80,7 +80,7 @@ func (v *View) RenderRow(y int, cursor Cursor, width, offset int) string {
 	case threadRow:
 		return v.renderThreadRow(current, cursor, width)
 	case changeRow:
-		return v.renderChangeRow(y, current, cursor, width)
+		return v.renderChangeRow(current, cursor, width)
 	case lineRow:
 	}
 
@@ -218,25 +218,33 @@ func (v *View) renderThreadRow(current row, cursor Cursor, width int) string {
 	})
 }
 
-// renderChangeRow draws the row above the first file, carrying the mark and the opening words of
-// a comment on the change as a whole when there is one.
-func (v *View) renderChangeRow(y int, current row, cursor Cursor, width int) string {
-	mark, markStyle := " ", gutterStyle
+// renderChangeRow draws the row above the first file, saying how many comments on the change as a
+// whole wait at the foot.
+func (v *View) renderChangeRow(current row, cursor Cursor, width int) string {
 	said := current.text
-	if thread, ok := v.GetThreadAt(y); ok {
-		mark, markStyle = v.markFor(thread)
-		if opening := firstLine(thread); opening != "" {
-			said += "  " + opening
-		}
+	if count := v.countChangeThreads(); count > 0 {
+		said += fmt.Sprintf("  %d at the end of the diff", count)
 	}
 
 	return renderSaidRow(renderSaidRowParams{
-		Mark:      mark,
-		MarkStyle: markStyle,
+		Mark:      " ",
+		MarkStyle: gutterStyle,
 		Said:      said,
 		Cursor:    cursor,
 		Width:     width,
 	})
+}
+
+// countChangeThreads counts the comments on the change as a whole.
+func (v *View) countChangeThreads() int {
+	count := 0
+	for _, thread := range v.threads {
+		if thread.GetFilePath() == "" {
+			count++
+		}
+	}
+
+	return count
 }
 
 // renderSaidRowParams is a row of prose drawn in the diff and the mark beside it.

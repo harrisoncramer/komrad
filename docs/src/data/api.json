@@ -1353,7 +1353,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Says the change the thread asks for is made. Komrad takes a round of the worktree as it stands, pins it to the reply, and resolves the thread. Refused when the worktree holds the same tree the thread was written on."
+          "description": "Says the change the thread asks for is made. Komrad takes a round of the worktree as it stands and pins it to the reply. A thread the person started is resolved by it, and one a reviewer agent started stays open for that reviewer to resolve. Refused when the worktree holds the same tree the thread was written on."
         }
       ]
     },
@@ -1889,7 +1889,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The comments reviewer agents have left on its work, absent while none has released a review of work the base branch has not taken."
+          "description": "Comments reviewer agents have left on its work. Absent until a reviewer agent has released a review of work not yet merged into the base branch."
         },
         {
           "name": "personComments",
@@ -1899,7 +1899,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The comments the person has left on its work, absent while they have released no review of work the base branch has not taken."
+          "description": "Comments the person has left on its work. Absent until the person has released a review of work not yet merged into the base branch."
         }
       ]
     },
@@ -1933,7 +1933,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Conversations nobody has resolved yet, on any round."
+          "description": "Comments nobody has resolved yet, on any round."
         },
         {
           "name": "resolved",
@@ -1943,7 +1943,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Conversations resolved on rounds the base branch has not taken yet."
+          "description": "Comments resolved on rounds not yet merged into the base branch."
         },
         {
           "name": "unread",
@@ -1953,7 +1953,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whether any of the conversations holds something the person has not read."
+          "description": "Whether any of the comments holds something the person has not read."
         }
       ]
     },

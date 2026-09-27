@@ -140,11 +140,11 @@ func (v *View) matchText(y int) (string, bool) {
 	}
 
 	switch current.kind {
-	case fileRow, changeRow:
+	case fileRow:
 		return current.text, true
 	case threadRow:
 		return FormatThreadLocation(current.thread) + " " + firstLine(current.thread), true
-	case metadataRow, hunkRow, lineRow:
+	case changeRow, metadataRow, hunkRow, lineRow:
 	}
 
 	return v.quoteAt(y)

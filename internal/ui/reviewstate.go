@@ -18,10 +18,10 @@ const (
 // statusView names what the reader is part way through, and says nothing when nothing is.
 func (r reviewScreen) statusView(s panelShared) string {
 	switch {
-	case r.pass.atEditor:
+	case r.hold.atEditor:
 		return bandRow(s, reviewWritingTone, "editing",
-			r.pass.editingPath+" · "+keyLabel(s.keys.Review.EditFile)+" to come back")
-	case r.pass.pausing:
+			r.hold.editingPath+" · "+keyLabel(s.keys.Review.EditFile)+" to come back")
+	case r.hold.pausing:
 		return bandRow(s, reviewWritingTone, "editing", "stopping the agent · the editor opens once it has")
 	}
 
@@ -87,5 +87,5 @@ func (r reviewScreen) isHistory() (string, bool) {
 // doesWalk says whether the round keys have anywhere to go, which an editor holding the stage
 // takes away.
 func (r reviewScreen) doesWalk() bool {
-	return !r.pass.atEditor && len(r.diff.chapters) > 0
+	return !r.hold.atEditor && len(r.diff.chapters) > 0
 }

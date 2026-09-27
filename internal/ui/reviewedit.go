@@ -69,7 +69,7 @@ func editorContent(editor, dir, path string, line int) layout.Content {
 // pressEdit is the edit key, refused on a round the agent has written past, which stops the agent
 // before it opens the editor and closes one already open.
 func (r *reviewScreen) pressEdit(h host, s panelShared) tea.Cmd {
-	if said, history := r.isHistory(); history && !r.pass.atEditor {
+	if said, history := r.isHistory(); history && !r.hold.atEditor {
 		r.notice = said + " is finished, so the worktree no longer holds these lines · " +
 			keyLabel(s.keys.Review.BaseForward) + " for the current work"
 
@@ -78,13 +78,13 @@ func (r *reviewScreen) pressEdit(h host, s panelShared) tea.Cmd {
 
 	// A press that arrives while the agent is still coming to a stop is the wait, not a second
 	// thing to do, and letting it through would open the editor the wait exists to hold shut.
-	if r.pass.pausing {
+	if r.hold.pausing {
 		r.notice = "the agent is still stopping"
 
 		return nil
 	}
 
-	if r.pass.atEditor {
+	if r.hold.atEditor {
 		return r.closeEdit(h, s)
 	}
 
@@ -95,7 +95,7 @@ func (r *reviewScreen) pressEdit(h host, s panelShared) tea.Cmd {
 		return nil
 	}
 
-	return r.startPass(h, s)
+	return r.startHold(h, s)
 }
 
 // isEditRefused is why the edit key would open nothing, read before the agent is stopped for it.
@@ -129,23 +129,23 @@ func (r *reviewScreen) editFile(h host, s panelShared) tea.Cmd {
 	if !ok {
 		r.notice = "that file was deleted, so there is nothing to open"
 
-		return r.endPass(h, s, abandonedSaid)
+		return r.endHold(h, s, abandonedSaid)
 	}
 
 	if reason, busy := r.isAgentBusy(s); busy {
 		r.notice = reason
 
-		return r.endPass(h, s, abandonedSaid)
+		return r.endHold(h, s, abandonedSaid)
 	}
 
 	pane := h.stageEditor(editorContent(s.editor, r.root, path, line))
 	if pane == "" {
 		r.notice = "there is no room beside the sidebar for an editor"
 
-		return r.endPass(h, s, abandonedSaid)
+		return r.endHold(h, s, abandonedSaid)
 	}
 
-	r.pass.openEditor(path, pane)
+	r.hold.openEditor(path, pane)
 
 	return nil
 }
@@ -154,7 +154,7 @@ func (r *reviewScreen) editFile(h host, s panelShared) tea.Cmd {
 func (r reviewScreen) isAgentBusy(s panelShared) (string, bool) {
 	// The agent is stopped before the editor opens, and an agent that has been seen to stop is not
 	// writing, whatever the state on its row was read as before that.
-	if r.pass.paused {
+	if r.hold.paused {
 		return "", false
 	}
 
@@ -187,7 +187,7 @@ func (r reviewScreen) agentRow(s panelShared) (panel.AgentRow, bool) {
 // the reader's own writing in it.
 func (r *reviewScreen) closeEdit(h host, s panelShared) tea.Cmd {
 	h.unstageEditor()
-	letGo := r.endPass(h, s, editedSaid)
+	letGo := r.endHold(h, s, editedSaid)
 
 	return tea.Batch(letGo, r.reloadFresh(s))
 }
@@ -195,13 +195,13 @@ func (r *reviewScreen) closeEdit(h host, s panelShared) tea.Cmd {
 // reconcileEditor catches the editor pane going away on its own and takes the window back for the
 // diff it was covering.
 func (r *reviewScreen) reconcileEditor(h host, s panelShared) tea.Cmd {
-	if !r.pass.atEditor {
+	if !r.hold.atEditor {
 		return nil
 	}
 
 	// A pane the split refused is not one that can go away, so nothing here reports it as the
 	// editor closing.
-	if r.pass.editorPane == "" || h.isPaneAlive(r.pass.editorPane) {
+	if r.hold.editorPane == "" || h.isPaneAlive(r.hold.editorPane) {
 		return nil
 	}
 
@@ -209,7 +209,7 @@ func (r *reviewScreen) reconcileEditor(h host, s panelShared) tea.Cmd {
 }
 
 // editorDesc says what the edit key would do.
-func (p reviewPass) editorDesc() string {
+func (p reviewHold) editorDesc() string {
 	if p.atEditor {
 		return "close the editor"
 	}

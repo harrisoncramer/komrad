@@ -450,8 +450,7 @@ func (s *ReviewService) ReleaseReview(
 		return nil, err
 	}
 
-	// Only notes from an agent with no conclusion say nothing, so everything else opens the
-	// batch it goes out under.
+	// A release opens a batch unless it is an agent's comment-only review with nothing in it.
 	open, err := s.reviews.OpenReviewOf(ctx, reviewstore.OpenReviewOfParams{
 		AgentID:       params.AgentID,
 		AuthorKind:    params.Author.Kind,
@@ -595,8 +594,8 @@ func resolveVerdict(params ReleaseReviewParams) (reviewstore.Verdict, error) {
 	return params.Verdict, nil
 }
 
-// isSayingNothing reports whether a release with nothing written in it would carry nothing,
-// which only an agent's notes with no conclusion do.
+// isSayingNothing reports whether an empty release would be refused, which is true only of an
+// agent releasing as commented.
 func isSayingNothing(author ReviewAuthor, verdict reviewstore.Verdict) bool {
 	return !author.IsHuman() && verdict == reviewstore.VerdictCommented
 }

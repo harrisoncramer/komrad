@@ -6,11 +6,11 @@ import (
 	"komrad/internal/git"
 )
 
-// roundComparison is how an older round reads against a newer one once their bases are settled.
+// roundComparison is how an older round reads against a newer one once it is carried across to the newer base.
 type roundComparison struct {
 	// FromSHA is the older side of the diff, the older snapshot or its replay onto the newer base.
 	FromSHA string
-	// Comparable is false when the two rounds stand on different bases and no replay settled.
+	// Comparable is false when the two rounds stand on different bases and no replay carried across.
 	Comparable bool
 	// Rewritten says the older base is not reachable from the newer one.
 	Rewritten bool
@@ -29,7 +29,7 @@ type compareRoundsParams struct {
 	ToBase   string
 }
 
-// compareRounds settles the older side of a diff between two rounds, carrying it onto the newer
+// compareRounds works out the older side of a diff between two rounds, carrying it onto the newer
 // base when a rebase lies between them.
 func compareRounds(ctx context.Context, params compareRoundsParams) roundComparison {
 	if params.FromBase == params.ToBase {

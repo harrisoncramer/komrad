@@ -20,7 +20,7 @@ type reviewAnswer struct {
 	ToRound   string
 }
 
-// roundsApartError says an answer stands across a rebase no replay could settle.
+// roundsApartError says an answer stands across a rebase no replay could carry across.
 type roundsApartError struct {
 	Conflicts []string
 }

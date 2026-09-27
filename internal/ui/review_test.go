@@ -1965,8 +1965,8 @@ func TestReviewComposer(t *testing.T) {
 	})
 }
 
-// TestReviewPass covers the reader stopping the agent to edit its worktree.
-func TestReviewPass(t *testing.T) {
+// TestReviewHold covers the reader stopping the agent to edit its worktree.
+func TestReviewHold(t *testing.T) {
 	t.Run("the edit key stops the agent and opens the editor over the diff", func(t *testing.T) {
 		server := newReviewServer(t)
 		server.agent.State = agentv1.AgentState_AGENT_STATE_THINKING
@@ -2899,7 +2899,7 @@ func TestReviewChange(t *testing.T) {
 		})
 	})
 
-	t.Run("a comment on the change is drawn on the row above the first file", func(t *testing.T) {
+	t.Run("a comment on the change waits at the end of the diff and the row still starts another", func(t *testing.T) {
 		server := newReviewServer(t)
 		server.threads = []*agentv1.ReviewThread{{
 			Id:       "t1",
@@ -2907,11 +2907,14 @@ func TestReviewChange(t *testing.T) {
 		}}
 		harness := openReview(t, server)
 
-		row := findLine(readStage(harness.readFrame()), "the change as a whole")
-		require.NotEmpty(t, row)
-		assert.Contains(t, row, "split this in two")
+		assert.Contains(t, findLine(readStage(harness.readFrame()), "the change as a whole"), "1 at the end of the diff")
 
 		harness.press("k")
-		assert.Contains(t, readSidebarProse(harness.readFrame()), "split this in two")
+		assert.Contains(t, harness.readFrame(), "comment on the change")
+
+		harness.press("G")
+		frame := harness.readFrame()
+		assert.NotEmpty(t, findLine(readStage(frame), "on the change as a whole ──"))
+		assert.Contains(t, readSidebarProse(frame), "split this in two")
 	})
 }

@@ -89,7 +89,7 @@ func snapshotRow(r agentRow, params snapshotParams) view.Row {
 	row.Name = item.Agent.Name
 	row.Matches = matchesIn(params.matcher, item.Agent.Name)
 	row.Repo = snapshotRepo(item.Agent)
-	row.ReviewerComments, row.PersonComments = snapshotComments(item)
+	row.ReviewerComments, row.PersonComments = readSnapshotComments(item)
 	row.Forge = snapshotForge(item)
 	row.Selected = params.selected.has(key)
 
@@ -213,12 +213,12 @@ func snapshotRepo(agent panel.Agent) view.Repo {
 	return view.RepoClean
 }
 
-// snapshotComments is how the comments on an agent's work stand, reviewer agents then the person.
-func snapshotComments(item panel.AgentRow) (*view.Comments, *view.Comments) {
-	return commentsFrom(item.ReviewerComments), commentsFrom(item.PersonComments)
+// readSnapshotComments reads how the comments on an agent's work stand, reviewer agents then the person.
+func readSnapshotComments(item panel.AgentRow) (*view.Comments, *view.Comments) {
+	return convertComments(item.ReviewerComments), convertComments(item.PersonComments)
 }
 
-func commentsFrom(counts *agentv1.CommentCounts) *view.Comments {
+func convertComments(counts *agentv1.CommentCounts) *view.Comments {
 	if counts == nil {
 		return nil
 	}

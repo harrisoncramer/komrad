@@ -41,7 +41,7 @@ var ErrReviewHumanOnly = fail.Denied("only the person reviewing can do that")
 
 // ErrReviewWholeChangeAnchored is answered when a comment on the change as a whole names lines,
 // quotes them, or suggests replacing them, which only a comment on a file can.
-var ErrReviewWholeChangeAnchored = fail.InvalidArgument("a comment on the change as a whole names no lines, quotes nothing and suggests nothing")
+var ErrReviewWholeChangeAnchored = fail.InvalidArgument("a comment on the change as a whole cannot name lines, quote them, or suggest a replacement")
 
 // reviewThreadReadWriter is the half of the store that keeps conversations: where they are
 // pinned, whether the person has read the replies, and whether they are still owed an answer.
