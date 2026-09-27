@@ -924,7 +924,7 @@ func TestListAgents(t *testing.T) {
 						FromName:  "beta",
 						ToAgentID: alphaID,
 						Body:      "refunded_cents",
-						ExpiresAt: time.Now().Add(time.Hour),
+						ExpiresAt: xptr.Ptr(time.Now().Add(time.Hour)),
 					},
 				}},
 			}
@@ -1014,7 +1014,7 @@ func TestGetAgent(t *testing.T) {
 				{
 					ID:        "mail-1",
 					ToAgentID: alphaID,
-					ExpiresAt: time.Now().Add(time.Hour),
+					ExpiresAt: xptr.Ptr(time.Now().Add(time.Hour)),
 				},
 			},
 			PullRequests: []pullrequeststore.PullRequest{

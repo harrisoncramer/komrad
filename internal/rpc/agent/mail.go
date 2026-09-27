@@ -23,7 +23,7 @@ import (
 type mailer interface {
 	ResolveRecipient(ctx context.Context, params mail.ResolveRecipientParams) (*agentstore.Agent, error)
 	SendMail(ctx context.Context, params mail.SendMailParams) (*mailstore.Mail, error)
-	ClaimMail(ctx context.Context, agentID string) ([]mailstore.Mail, error)
+	ClaimMail(ctx context.Context, agentID string) (*mail.ClaimedMail, error)
 	ListMail(ctx context.Context, params mail.ListMailParams) ([]mailstore.Mail, error)
 	DeleteMail(ctx context.Context, ids []string) error
 }
@@ -79,7 +79,8 @@ func (s *Handler) ReadMail(ctx context.Context, req *agentv1.ReadMailRequest) (*
 	}
 
 	return &agentv1.ReadMailResponse{
-		Mail: xslice.Map(claimed, render.Mail),
+		Mail:      xslice.Map(claimed.Mail, render.Mail),
+		Remaining: claimed.Remaining,
 	}, nil
 }
 

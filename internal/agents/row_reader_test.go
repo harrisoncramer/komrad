@@ -7,6 +7,7 @@ import (
 
 	"komrad/internal/forge"
 	"komrad/internal/storetest"
+	"komrad/lib/xptr"
 	"komrad/lib/xslice"
 
 	agentstore "komrad/internal/store/agent"
@@ -54,7 +55,7 @@ func TestListSurroundings(t *testing.T) {
 		FromName:  "beta",
 		ToAgentID: elsewhere.ID,
 		Body:      "refunded_cents",
-		Deadline:  time.Hour,
+		Deadline:  xptr.Ptr(time.Hour),
 	})
 	require.NoError(t, err)
 

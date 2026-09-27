@@ -17,7 +17,7 @@ func Mail(stored mailstore.Mail) *agentv1.Mail {
 		ReplyTo:     stored.ReplyTo,
 		CreatedAt:   dates.Stamp(stored.CreatedAt),
 		ClaimedAt:   dates.StampPtr(stored.ClaimedAt),
-		ExpiresAt:   dates.Stamp(stored.ExpiresAt),
+		ExpiresAt:   dates.StampPtr(stored.ExpiresAt),
 		Kind:        mailKindOf(stored.Kind),
 	}
 }

@@ -8,6 +8,7 @@ import (
 
 	"komrad/config"
 	"komrad/internal/ui/paint"
+	"komrad/lib/xptr"
 	"komrad/lib/xslice"
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
@@ -1008,7 +1009,7 @@ func newUnreadMail(agentID string) *agentv1.Mail {
 	return &agentv1.Mail{
 		Id:        "m1",
 		ToAgentId: agentID,
-		ExpiresAt: time.Now().Add(time.Hour).UTC().Format(time.RFC3339),
+		ExpiresAt: xptr.Ptr(time.Now().Add(time.Hour).UTC().Format(time.RFC3339)),
 	}
 }
 

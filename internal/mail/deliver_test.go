@@ -22,6 +22,7 @@ import (
 	mailstore "komrad/internal/store/mail"
 	"komrad/internal/storetest"
 	"komrad/internal/tmuxtest"
+	"komrad/lib/xptr"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -326,7 +327,7 @@ func TestDeliverReportsExpiredMail(t *testing.T) {
 		FromName:  "somebody",
 		ToAgentID: agent.ID,
 		Body:      "too late",
-		Deadline:  time.Nanosecond,
+		Deadline:  xptr.Ptr(time.Nanosecond),
 	})
 	require.NoError(t, err)
 
@@ -642,7 +643,7 @@ func sendTo(t *testing.T, st *storetest.Stores, agentID string) {
 		FromName:  "somebody",
 		ToAgentID: agentID,
 		Body:      "please read this",
-		Deadline:  time.Hour,
+		Deadline:  xptr.Ptr(time.Hour),
 	})
 	require.NoError(t, err)
 }

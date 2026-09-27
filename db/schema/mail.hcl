@@ -41,8 +41,9 @@ table "mail" {
     type = timestamptz
   }
   column "expires_at" {
-    null = false
-    type = timestamptz
+    null    = true
+    type    = timestamptz
+    comment = "When the mail stops being deliverable, null on mail from an agent, which waits until it is claimed."
   }
   column "created_at" {
     null    = false

@@ -18,7 +18,8 @@ WITH pending AS (
     WHERE
         m.to_agent_id = $1
         AND m.claimed_at IS NULL
-        AND m.expires_at > NOW()
+        AND (m.expires_at IS NULL
+            OR m.expires_at > NOW())
     ORDER BY
         m.id
     LIMIT $2
@@ -113,11 +114,32 @@ FROM
 WHERE
     m.to_agent_id = $1
     AND m.claimed_at IS NULL
-    AND m.expires_at > NOW()
+    AND (m.expires_at IS NULL
+        OR m.expires_at > NOW())
 `
 
 func (q *Queries) CountPendingMail(ctx context.Context, toAgentID string) (int64, error) {
 	row := q.db.QueryRow(ctx, countPendingMail, toAgentID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countPendingMailFromAgents = `-- name: CountPendingMailFromAgents :one
+SELECT
+    COUNT(*)
+FROM
+    mail m
+WHERE
+    m.to_agent_id = $1
+    AND m.from_agent_id IS NOT NULL
+    AND m.claimed_at IS NULL
+    AND (m.expires_at IS NULL
+        OR m.expires_at > NOW())
+`
+
+func (q *Queries) CountPendingMailFromAgents(ctx context.Context, toAgentID string) (int64, error) {
+	row := q.db.QueryRow(ctx, countPendingMailFromAgents, toAgentID)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -210,7 +232,8 @@ WHERE
     AND m.kind = $2
     AND m.about_document_id = $3::uuid
     AND m.claimed_at IS NULL
-    AND m.expires_at > NOW()
+    AND (m.expires_at IS NULL
+        OR m.expires_at > NOW())
 ORDER BY
     m.id DESC
 LIMIT 1
@@ -256,7 +279,8 @@ WHERE
     AND m.kind = $2
     AND m.about_agent_id = $3::uuid
     AND m.claimed_at IS NULL
-    AND m.expires_at > NOW()
+    AND (m.expires_at IS NULL
+        OR m.expires_at > NOW())
 ORDER BY
     m.id DESC
 LIMIT 1
@@ -329,7 +353,7 @@ type InsertMailParams struct {
 	AboutAgentID    *string
 	AboutDocumentID *string
 	IdempotencyKey  *string
-	DeadlineMicros  int64
+	DeadlineMicros  *int64
 }
 
 func (q *Queries) InsertMail(ctx context.Context, arg InsertMailParams) (*Mail, error) {
@@ -532,8 +556,10 @@ SELECT DISTINCT
     m.to_agent_id
 FROM
     mail m
+    JOIN agents a ON a.id = m.to_agent_id
 WHERE
-    m.claimed_at IS NULL
+    a.archived_at IS NULL
+    AND m.claimed_at IS NULL
     AND (m.expires_at > NOW()
         OR m.reported_at IS NULL)
 `

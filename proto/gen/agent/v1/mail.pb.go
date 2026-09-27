@@ -155,8 +155,8 @@ type Mail struct {
 	CreatedAt string `protobuf:"bytes,7,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	// When the recipient took it, unset while it is still waiting.
 	ClaimedAt *string `protobuf:"bytes,8,opt,name=claimed_at,json=claimedAt,proto3,oneof" json:"claimed_at,omitempty"`
-	// When it stops being offered, whether or not it was ever taken.
-	ExpiresAt string `protobuf:"bytes,9,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
+	// When it stops being offered, unset on mail from an agent, which waits until it is taken.
+	ExpiresAt *string `protobuf:"bytes,9,opt,name=expires_at,json=expiresAt,proto3,oneof" json:"expires_at,omitempty"`
 	// Whether an agent wrote it or komrad raised it.
 	Kind          MailKind `protobuf:"varint,10,opt,name=kind,proto3,enum=agent.v1.MailKind" json:"kind,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -250,8 +250,8 @@ func (x *Mail) GetClaimedAt() string {
 }
 
 func (x *Mail) GetExpiresAt() string {
-	if x != nil {
-		return x.ExpiresAt
+	if x != nil && x.ExpiresAt != nil {
+		return *x.ExpiresAt
 	}
 	return ""
 }
@@ -601,8 +601,10 @@ func (x *ReadMailRequest) GetId() string {
 
 type ReadMailResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Everything that was waiting, oldest first, now marked read.
-	Mail          []*Mail `protobuf:"bytes,1,rep,name=mail,proto3" json:"mail,omitempty"`
+	// Up to twenty pieces of what was waiting, oldest first, now marked read.
+	Mail []*Mail `protobuf:"bytes,1,rep,name=mail,proto3" json:"mail,omitempty"`
+	// How much is still waiting after this read.
+	Remaining     int64 `protobuf:"varint,2,opt,name=remaining,proto3" json:"remaining,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -642,6 +644,13 @@ func (x *ReadMailResponse) GetMail() []*Mail {
 		return x.Mail
 	}
 	return nil
+}
+
+func (x *ReadMailResponse) GetRemaining() int64 {
+	if x != nil {
+		return x.Remaining
+	}
+	return 0
 }
 
 type ListMailRequest struct {
@@ -810,7 +819,7 @@ var File_agent_v1_mail_proto protoreflect.FileDescriptor
 
 const file_agent_v1_mail_proto_rawDesc = "" +
 	"\n" +
-	"\x13agent/v1/mail.proto\x12\bagent.v1\x1a\x1bbuf/validate/validate.proto\x1a\x1epagination/v1/pagination.proto\"\xe8\x02\n" +
+	"\x13agent/v1/mail.proto\x12\bagent.v1\x1a\x1bbuf/validate/validate.proto\x1a\x1epagination/v1/pagination.proto\"\xfc\x02\n" +
 	"\x04Mail\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12'\n" +
 	"\rfrom_agent_id\x18\x02 \x01(\tH\x00R\vfromAgentId\x88\x01\x01\x12\x1b\n" +
@@ -821,14 +830,15 @@ const file_agent_v1_mail_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\a \x01(\tR\tcreatedAt\x12\"\n" +
 	"\n" +
-	"claimed_at\x18\b \x01(\tH\x02R\tclaimedAt\x88\x01\x01\x12\x1d\n" +
+	"claimed_at\x18\b \x01(\tH\x02R\tclaimedAt\x88\x01\x01\x12\"\n" +
 	"\n" +
-	"expires_at\x18\t \x01(\tR\texpiresAt\x12&\n" +
+	"expires_at\x18\t \x01(\tH\x03R\texpiresAt\x88\x01\x01\x12&\n" +
 	"\x04kind\x18\n" +
 	" \x01(\x0e2\x12.agent.v1.MailKindR\x04kindB\x10\n" +
 	"\x0e_from_agent_idB\v\n" +
 	"\t_reply_toB\r\n" +
-	"\v_claimed_at\"\x80\x01\n" +
+	"\v_claimed_atB\r\n" +
+	"\v_expires_at\"\x80\x01\n" +
 	"\x0fSendMailRequest\x12\x17\n" +
 	"\x02to\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02to\x12\x1e\n" +
 	"\x04body\x18\x02 \x01(\tB\n" +
@@ -865,9 +875,10 @@ const file_agent_v1_mail_proto_rawDesc = "" +
 	"\b_warning\"6\n" +
 	"\x0fReadMailRequest\x12\x1c\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\x02id\x88\x01\x01B\x05\n" +
-	"\x03_id\"6\n" +
+	"\x03_id\"T\n" +
 	"\x10ReadMailResponse\x12\"\n" +
-	"\x04mail\x18\x01 \x03(\v2\x0e.agent.v1.MailR\x04mail\"\xc6\x01\n" +
+	"\x04mail\x18\x01 \x03(\v2\x0e.agent.v1.MailR\x04mail\x12\x1c\n" +
+	"\tremaining\x18\x02 \x01(\x03R\tremaining\"\xc6\x01\n" +
 	"\x0fListMailRequest\x12\x1c\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\x02id\x88\x01\x01\x12>\n" +
 	"\n" +

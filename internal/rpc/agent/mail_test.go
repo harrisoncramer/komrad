@@ -42,6 +42,7 @@ type fakeMailer struct {
 	resolveErr error
 	err        error
 	mail       []mailstore.Mail
+	remaining  int64
 	resolved   []mail.ResolveRecipientParams
 	sent       []mail.SendMailParams
 	claimed    []string
@@ -75,7 +76,7 @@ func (f *fakeMailer) SendMail(_ context.Context, params mail.SendMailParams) (*m
 		ReplyTo:     params.ReplyTo,
 		Kind:        mailstore.KindPlain,
 		CreatedAt:   time.Date(2026, time.September, 24, 9, 0, 0, 0, time.UTC),
-		ExpiresAt:   time.Date(2026, time.September, 24, 12, 0, 0, 0, time.UTC),
+		ExpiresAt:   xptr.Ptr(time.Date(2026, time.September, 24, 12, 0, 0, 0, time.UTC)),
 	}
 	f.mail = append(f.mail, sent)
 
@@ -83,13 +84,13 @@ func (f *fakeMailer) SendMail(_ context.Context, params mail.SendMailParams) (*m
 }
 
 // ClaimMail records the mailbox and answers mail unless err refuses it.
-func (f *fakeMailer) ClaimMail(_ context.Context, agentID string) ([]mailstore.Mail, error) {
+func (f *fakeMailer) ClaimMail(_ context.Context, agentID string) (*mail.ClaimedMail, error) {
 	f.claimed = append(f.claimed, agentID)
 	if f.err != nil {
 		return nil, f.err
 	}
 
-	return f.mail, nil
+	return &mail.ClaimedMail{Mail: f.mail, Remaining: f.remaining}, nil
 }
 
 // ListMail records the listing and answers mail unless err refuses it.
@@ -302,7 +303,7 @@ func TestSendMail(t *testing.T) {
 			Body:        "which column holds the refund?",
 			ReplyTo:     proto.String("mail-0"),
 			CreatedAt:   "2026-09-24T09:00:00Z",
-			ExpiresAt:   "2026-09-24T12:00:00Z",
+			ExpiresAt:   xptr.Ptr("2026-09-24T12:00:00Z"),
 			Kind:        agentv1.MailKind_MAIL_KIND_PLAIN,
 		},
 	}, sent.Msg, protocmp.Transform()), "an agent running in its pane draws no warning")
@@ -384,7 +385,7 @@ func TestReadMail(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mailer := &fakeMailer{mail: []mailstore.Mail{{
+			mailer := &fakeMailer{remaining: 3, mail: []mailstore.Mail{{
 				ID:        "mail-1",
 				ToAgentID: betaID,
 				Body:      "refunded_cents",
@@ -397,6 +398,7 @@ func TestReadMail(t *testing.T) {
 			assert.Equal(t, []string{tt.wantClaimed}, mailer.claimed)
 			require.Len(t, read.Msg.GetMail(), 1)
 			assert.Empty(t, diffMail(mailer.mail[0], read.Msg.GetMail()[0]))
+			assert.Equal(t, int64(3), read.Msg.GetRemaining())
 			assertCrossAgentRead(t, assertCrossAgentReadParams{
 				Written: written.String(),
 				Body:    "agent read another agent's mail",

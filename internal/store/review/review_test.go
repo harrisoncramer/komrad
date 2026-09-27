@@ -1208,7 +1208,7 @@ func (st *fixture) releaseReview(t *testing.T, review *Review, verdict Verdict) 
 		ToAgentID: review.AgentID,
 		Body:      "komrad: review of round 1, changes requested, 1 comment(s)",
 		Kind:      mailstore.KindReviewActivity,
-		Deadline:  time.Hour,
+		Deadline:  xptr.Ptr(time.Hour),
 	})
 	require.NoError(t, err)
 	require.NotNil(t, sent)

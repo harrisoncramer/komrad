@@ -48,8 +48,8 @@ message Mail {
   string created_at = 7;
   // When the recipient took it, unset while it is still waiting.
   optional string claimed_at = 8;
-  // When it stops being offered, whether or not it was ever taken.
-  string expires_at = 9;
+  // When it stops being offered, unset on mail from an agent, which waits until it is taken.
+  optional string expires_at = 9;
   // Whether an agent wrote it or komrad raised it.
   MailKind kind = 10;
 }
@@ -116,8 +116,10 @@ message ReadMailRequest {
 }
 
 message ReadMailResponse {
-  // Everything that was waiting, oldest first, now marked read.
+  // Up to twenty pieces of what was waiting, oldest first, now marked read.
   repeated Mail mail = 1;
+  // How much is still waiting after this read.
+  int64 remaining = 2;
 }
 
 message ListMailRequest {

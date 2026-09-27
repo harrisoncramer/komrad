@@ -330,7 +330,7 @@ func TestAPersonsWriteMailsTheAuthor(t *testing.T) {
 						FromName:  "person",
 						ToAgentID: author.ID,
 						Body:      "filler",
-						Deadline:  time.Hour,
+						Deadline:  xptr.Ptr(time.Hour),
 					})
 					require.NoError(t, err)
 				}

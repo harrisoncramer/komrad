@@ -73,6 +73,7 @@ type mailReadWriter interface {
 	GetByIdempotencyKey(ctx context.Context, key string) (*mailstore.Mail, error)
 	Claim(ctx context.Context, toAgentID string, limit int32) ([]mailstore.Mail, error)
 	CountPending(ctx context.Context, toAgentID string) (int64, error)
+	CountPendingFromAgents(ctx context.Context, toAgentID string) (int64, error)
 	GetPendingOfKind(ctx context.Context, toAgentID string, kind mailstore.Kind, about string) (*mailstore.Mail, error)
 	GetPendingAboutDocument(ctx context.Context, toAgentID string, kind mailstore.Kind, documentID string) (*mailstore.Mail, error)
 	ListPage(ctx context.Context, toAgentID string, limit int32, cursor *mailstore.Cursor) ([]mailstore.Mail, error)
@@ -290,16 +291,16 @@ func familyID(agent agentstore.Agent) string {
 	return agent.ID
 }
 
-// requireSameFamily holds a child to its parent and that parent's other children, letting
-// through the mail komrad raises itself and the mail a person sends.
-func requireSameFamily(sender *agentstore.Agent, recipient agentstore.Agent) error {
-	if sender == nil {
-		return nil
-	}
-	if sender.ParentAgentID == nil && recipient.ParentAgentID == nil {
+// requireSameFamily holds a child to its own family unless it is answering mail the recipient sent it.
+func requireSameFamily(sender *agentstore.Agent, recipient agentstore.Agent, answering *mailstore.Mail) error {
+	if sender == nil || sender.ParentAgentID == nil {
 		return nil
 	}
 	if familyID(*sender) == familyID(recipient) {
+		return nil
+	}
+	if answering != nil && answering.ToAgentID == sender.ID &&
+		answering.FromAgentID != nil && *answering.FromAgentID == recipient.ID {
 		return nil
 	}
 
@@ -319,6 +320,15 @@ type sendParams struct {
 	// SenderName names mail sent on a person's behalf by something other than an agent.
 	SenderName     string
 	IdempotencyKey string
+}
+
+// countTowardTheLimit counts the unread mail a send is held against, only mail from agents when an agent sends.
+func (s *MailService) countTowardTheLimit(ctx context.Context, sender *agentstore.Agent, recipientID string) (int64, error) {
+	if sender != nil {
+		return s.mailReadWriter.CountPendingFromAgents(ctx, recipientID)
+	}
+
+	return s.mailReadWriter.CountPending(ctx, recipientID)
 }
 
 func (s *MailService) send(ctx context.Context, params sendParams) (*mailstore.Mail, error) {
@@ -344,7 +354,19 @@ func (s *MailService) send(ctx context.Context, params sendParams) (*mailstore.M
 	if sender != nil && sender.ID == recipient.ID {
 		return nil, ErrSelfAddressed
 	}
-	if err := requireSameFamily(sender, *recipient); err != nil {
+
+	var answering *mailstore.Mail
+	if params.ReplyTo != nil {
+		answering, err = s.mailReadWriter.GetByID(ctx, *params.ReplyTo)
+		if errors.Is(err, store.ErrNotFound) {
+			return nil, fmt.Errorf("%w: %q", ErrReplyToNotFound, *params.ReplyTo)
+		}
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if err := requireSameFamily(sender, *recipient, answering); err != nil {
 		return nil, err
 	}
 
@@ -355,25 +377,12 @@ func (s *MailService) send(ctx context.Context, params sendParams) (*mailstore.M
 		}
 	}
 
-	pending, err := s.mailReadWriter.CountPending(ctx, recipient.ID)
+	pending, err := s.countTowardTheLimit(ctx, sender, recipient.ID)
 	if err != nil {
 		return nil, err
 	}
 	if pending >= maxPendingMail {
 		return nil, fmt.Errorf("%w: %q is holding %d unread", ErrMailboxFull, recipient.Name, pending)
-	}
-
-	if params.ReplyTo != nil {
-		if _, err := s.mailReadWriter.GetByID(ctx, *params.ReplyTo); errors.Is(err, store.ErrNotFound) {
-			return nil, fmt.Errorf("%w: %q", ErrReplyToNotFound, *params.ReplyTo)
-		} else if err != nil {
-			return nil, err
-		}
-	}
-
-	deadline, err := s.config.GetDeliveryDeadline()
-	if err != nil {
-		return nil, err
 	}
 
 	send := mailstore.SendParams{
@@ -383,7 +392,13 @@ func (s *MailService) send(ctx context.Context, params sendParams) (*mailstore.M
 		ReplyTo:         params.ReplyTo,
 		AboutAgentID:    params.About,
 		AboutDocumentID: params.AboutDocument,
-		Deadline:        deadline,
+	}
+	if sender == nil {
+		deadline, err := s.config.GetDeliveryDeadline()
+		if err != nil {
+			return nil, err
+		}
+		send.Deadline = &deadline
 	}
 	if params.IdempotencyKey != "" {
 		send.IdempotencyKey = &params.IdempotencyKey
@@ -447,8 +462,14 @@ func (s *MailService) tellTheCapWasReached(ctx context.Context, sender, recipien
 	}
 }
 
-// ClaimMail takes the mail waiting for an agent, emptying its mailbox rather than showing it.
-func (s *MailService) ClaimMail(ctx context.Context, agentID string) ([]mailstore.Mail, error) {
+// ClaimedMail is one batch taken from a mailbox and how much is still waiting behind it.
+type ClaimedMail struct {
+	Mail      []mailstore.Mail
+	Remaining int64
+}
+
+// ClaimMail takes a batch of the mail waiting for an agent, reporting how much is left behind.
+func (s *MailService) ClaimMail(ctx context.Context, agentID string) (*ClaimedMail, error) {
 	agent, err := s.agents.GetByID(ctx, agentID)
 	if errors.Is(err, store.ErrNotFound) {
 		return nil, ErrAgentNotFound.Saying("no agent with id %q", agentID)
@@ -462,7 +483,12 @@ func (s *MailService) ClaimMail(ctx context.Context, agentID string) ([]mailstor
 		return nil, err
 	}
 
-	return claimed, nil
+	remaining, err := s.mailReadWriter.CountPending(ctx, agent.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &ClaimedMail{Mail: claimed, Remaining: remaining}, nil
 }
 
 type ListMailParams struct {

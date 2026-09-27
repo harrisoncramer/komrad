@@ -88,14 +88,14 @@ func TestIntegrationTheWatchAndTheStoresAgree(t *testing.T) {
 		FromName:  "panel",
 		ToAgentID: api.ID,
 		Body:      "waiting",
-		Deadline:  time.Hour,
+		Deadline:  xptr.Ptr(time.Hour),
 	})
 	require.NoError(t, err)
 	_, err = st.Mail.Send(ctx, mailstore.SendParams{
 		FromName:  "panel",
 		ToAgentID: quiet.ID,
 		Body:      "claimed",
-		Deadline:  time.Hour,
+		Deadline:  xptr.Ptr(time.Hour),
 	})
 	require.NoError(t, err)
 	_, err = st.Mail.Claim(ctx, quiet.ID, 10)

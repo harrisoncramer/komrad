@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"komrad/lib/xptr"
 	watchv1 "komrad/proto/gen/watch/v1"
 	worktreev1 "komrad/proto/gen/worktree/v1"
 
@@ -154,7 +155,7 @@ func TestWatch(t *testing.T) {
 
 		expired := newUnreadMail("expired")
 		expired.Id = "m2"
-		expired.ExpiresAt = time.Now().Add(-time.Hour).UTC().Format(time.RFC3339)
+		expired.ExpiresAt = xptr.Ptr(time.Now().Add(-time.Hour).UTC().Format(time.RFC3339))
 		harness := openAgents(t,
 			newLiveWorkflow("w1", "api"),
 			newAgentAt("waiting", "w1", 2),

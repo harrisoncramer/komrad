@@ -20,7 +20,7 @@ VALUES (
     sqlc.narg('about_agent_id'),
     sqlc.narg('about_document_id'),
     sqlc.narg('idempotency_key'),
-    NOW() + interval '1 microsecond' * @deadline_micros::bigint)
+    NOW() + interval '1 microsecond' * sqlc.narg('deadline_micros')::bigint)
 RETURNING
     *;
 
@@ -43,7 +43,8 @@ WHERE
     AND m.kind = @kind
     AND m.about_agent_id = @about_agent_id::uuid
     AND m.claimed_at IS NULL
-    AND m.expires_at > NOW()
+    AND (m.expires_at IS NULL
+        OR m.expires_at > NOW())
 ORDER BY
     m.id DESC
 LIMIT 1;
@@ -58,7 +59,8 @@ WHERE
     AND m.kind = @kind
     AND m.about_document_id = @about_document_id::uuid
     AND m.claimed_at IS NULL
-    AND m.expires_at > NOW()
+    AND (m.expires_at IS NULL
+        OR m.expires_at > NOW())
 ORDER BY
     m.id DESC
 LIMIT 1;
@@ -80,7 +82,8 @@ WITH pending AS (
     WHERE
         m.to_agent_id = @to_agent_id
         AND m.claimed_at IS NULL
-        AND m.expires_at > NOW()
+        AND (m.expires_at IS NULL
+            OR m.expires_at > NOW())
     ORDER BY
         m.id
     LIMIT @lim
@@ -107,7 +110,20 @@ FROM
 WHERE
     m.to_agent_id = @to_agent_id
     AND m.claimed_at IS NULL
-    AND m.expires_at > NOW();
+    AND (m.expires_at IS NULL
+        OR m.expires_at > NOW());
+
+-- name: CountPendingMailFromAgents :one
+SELECT
+    COUNT(*)
+FROM
+    mail m
+WHERE
+    m.to_agent_id = @to_agent_id
+    AND m.from_agent_id IS NOT NULL
+    AND m.claimed_at IS NULL
+    AND (m.expires_at IS NULL
+        OR m.expires_at > NOW());
 
 -- name: ReportExpiredMail :many
 WITH unreported AS (
@@ -179,8 +195,10 @@ SELECT DISTINCT
     m.to_agent_id
 FROM
     mail m
+    JOIN agents a ON a.id = m.to_agent_id
 WHERE
-    m.claimed_at IS NULL
+    a.archived_at IS NULL
+    AND m.claimed_at IS NULL
     AND (m.expires_at > NOW()
         OR m.reported_at IS NULL);
 

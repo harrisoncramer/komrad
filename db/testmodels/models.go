@@ -515,9 +515,10 @@ type Mail struct {
 	ReplyTo     pgtype.UUID
 	ClaimedAt   pgtype.Timestamptz
 	ReportedAt  pgtype.Timestamptz
-	ExpiresAt   pgtype.Timestamptz
-	CreatedAt   pgtype.Timestamptz
-	UpdatedAt   pgtype.Timestamptz
+	// When the mail stops being deliverable, null on mail from an agent, which waits until it is claimed.
+	ExpiresAt pgtype.Timestamptz
+	CreatedAt pgtype.Timestamptz
+	UpdatedAt pgtype.Timestamptz
 	// Who wrote the mail and why. Plain is mail an agent sent. The other values are notices komrad raised itself, which the panel draws differently. Komrad also counts unread notices by this value. One unread notice of a kind is enough however much is waiting behind it.
 	Kind MailKind
 	// The other agent a komrad notice is about, null on ordinary mail. Counting unread notices by this column gives the recipient one notice per subject rather than one per kind, so an agent that hits the exchange cap with a second partner is told about that partner too. There is no foreign key here on purpose. The notice has to keep naming the agent whose exchange was cut off after that agent is gone.

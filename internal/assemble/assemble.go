@@ -349,7 +349,7 @@ func isMovedPast(agent *agentv1.Agent, pullRequest *pullrequestv1.PullRequest) b
 func getAgentsWithUnreadMail(mail map[string]*agentv1.Mail, now time.Time) map[string]bool {
 	unread := map[string]bool{}
 	for _, piece := range mail {
-		if dates.Parse(piece.GetExpiresAt()).After(now) {
+		if piece.ExpiresAt == nil || dates.Parse(piece.GetExpiresAt()).After(now) {
 			unread[piece.GetToAgentId()] = true
 		}
 	}

@@ -45,7 +45,7 @@ type Mail struct {
 	AboutAgentID    *string
 	AboutDocumentID *string
 	ClaimedAt       *time.Time
-	ExpiresAt       time.Time
+	ExpiresAt       *time.Time
 	CreatedAt       time.Time
 }
 
@@ -68,9 +68,8 @@ type SendParams struct {
 	AboutAgentID    *string
 	AboutDocumentID *string
 	IdempotencyKey  *string
-	// How long the mail stays deliverable, counted from the database's clock rather than the
-	// caller's, which every read of expires_at compares it against.
-	Deadline time.Duration
+	// Deadline is how long the mail stays deliverable, nil for mail that waits until claimed.
+	Deadline *time.Duration
 }
 
 // Send writes one piece of mail.
@@ -90,7 +89,7 @@ func (s *MailStore) Send(ctx context.Context, params SendParams) (*Mail, error) 
 		AboutAgentID:    params.AboutAgentID,
 		AboutDocumentID: params.AboutDocumentID,
 		IdempotencyKey:  params.IdempotencyKey,
-		DeadlineMicros:  params.Deadline.Microseconds(),
+		DeadlineMicros:  deadlineMicros(params.Deadline),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to send mail to agent %q: %w", params.ToAgentID, err)
@@ -99,6 +98,16 @@ func (s *MailStore) Send(ctx context.Context, params SendParams) (*Mail, error) 
 	sent := fromRow(row)
 
 	return &sent, nil
+}
+
+func deadlineMicros(deadline *time.Duration) *int64 {
+	if deadline == nil {
+		return nil
+	}
+
+	micros := deadline.Microseconds()
+
+	return &micros
 }
 
 // GetPendingOfKind is the notice of a kind, about the same agent, that its recipient is already
@@ -310,7 +319,21 @@ func (s *MailStore) CountPending(ctx context.Context, toAgentID string) (int64, 
 	return count, nil
 }
 
-// ListPendingMailboxes is every agent holding unclaimed mail, whether that mail is still live
+// CountPendingFromAgents returns how much unclaimed mail other agents have written to an agent.
+func (s *MailStore) CountPendingFromAgents(ctx context.Context, toAgentID string) (int64, error) {
+	if !store.IsID(toAgentID) {
+		return 0, nil
+	}
+
+	count, err := s.queries.CountPendingMailFromAgents(ctx, toAgentID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to count the mail agents left waiting for agent %q: %w", toAgentID, err)
+	}
+
+	return count, nil
+}
+
+// ListPendingMailboxes is every live agent holding unclaimed mail, whether that mail is still live
 // or has expired without being reported.
 func (s *MailStore) ListPendingMailboxes(ctx context.Context) ([]string, error) {
 	rows, err := s.queries.ListMailboxesWithPendingMail(ctx)

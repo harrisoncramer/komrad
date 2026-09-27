@@ -59,7 +59,7 @@ func TestSendAndClaim(t *testing.T) {
 					FromName:    "sender",
 					ToAgentID:   recipient,
 					Body:        body,
-					Deadline:    time.Hour,
+					Deadline:    xptr.Ptr(time.Hour),
 				})
 				require.NoError(t, err)
 			}
@@ -92,7 +92,7 @@ func TestClaimTakesEachMailOnce(t *testing.T) {
 	_, err := st.Send(ctx, SendParams{
 		ToAgentID: recipient,
 		Body:      "only once",
-		Deadline:  time.Hour,
+		Deadline:  xptr.Ptr(time.Hour),
 	})
 	require.NoError(t, err)
 
@@ -116,7 +116,7 @@ func TestClaimIgnoresOtherMailboxes(t *testing.T) {
 	_, err := st.Send(ctx, SendParams{
 		ToAgentID: theirs,
 		Body:      "not for you",
-		Deadline:  time.Hour,
+		Deadline:  xptr.Ptr(time.Hour),
 	})
 	require.NoError(t, err)
 
@@ -154,7 +154,7 @@ func TestReplyToThreadsMail(t *testing.T) {
 		FromAgentID: &asker,
 		ToAgentID:   answerer,
 		Body:        "which column?",
-		Deadline:    time.Hour,
+		Deadline:    xptr.Ptr(time.Hour),
 	})
 	require.NoError(t, err)
 
@@ -163,7 +163,7 @@ func TestReplyToThreadsMail(t *testing.T) {
 		ToAgentID:   asker,
 		Body:        "refunded_cents",
 		ReplyTo:     &asked.ID,
-		Deadline:    time.Hour,
+		Deadline:    xptr.Ptr(time.Hour),
 	})
 	require.NoError(t, err)
 	require.NotNil(t, answered.ReplyTo)
@@ -202,7 +202,7 @@ func TestGetByID(t *testing.T) {
 			sent, err := st.Send(ctx, SendParams{
 				ToAgentID: recipient,
 				Body:      "which column?",
-				Deadline:  time.Hour,
+				Deadline:  xptr.Ptr(time.Hour),
 			})
 			require.NoError(t, err)
 
@@ -230,7 +230,7 @@ func TestGetByIdempotencyKey(t *testing.T) {
 		ToAgentID:      recipient,
 		Body:           "check CI",
 		IdempotencyKey: xptr.Ptr("schedule:s1:nine"),
-		Deadline:       time.Hour,
+		Deadline:       xptr.Ptr(time.Hour),
 	})
 	require.NoError(t, err)
 
@@ -250,7 +250,7 @@ func TestGetByIdempotencyKey(t *testing.T) {
 			ToAgentID:      recipient,
 			Body:           "check CI",
 			IdempotencyKey: xptr.Ptr("schedule:s1:nine"),
-			Deadline:       time.Hour,
+			Deadline:       xptr.Ptr(time.Hour),
 		})
 		require.Error(t, err)
 	})
@@ -266,7 +266,7 @@ func TestADeadlineIsMeasuredOnTheDatabaseClock(t *testing.T) {
 	sent, err := st.Send(ctx, SendParams{
 		ToAgentID: recipient,
 		Body:      "still live",
-		Deadline:  time.Hour,
+		Deadline:  xptr.Ptr(time.Hour),
 	})
 	require.NoError(t, err)
 
@@ -283,7 +283,7 @@ func TestMailPastItsDeadlineTheInstantItIsSentIsAlreadyExpired(t *testing.T) {
 	_, err := st.Send(ctx, SendParams{
 		ToAgentID: recipient,
 		Body:      "too late",
-		Deadline:  time.Nanosecond,
+		Deadline:  xptr.Ptr(time.Nanosecond),
 	})
 	require.NoError(t, err)
 
@@ -302,7 +302,7 @@ func TestExpiredMailIsNeitherDeliveredNorRead(t *testing.T) {
 	_, err := st.Send(ctx, SendParams{
 		ToAgentID: recipient,
 		Body:      "too late",
-		Deadline:  -time.Minute,
+		Deadline:  xptr.Ptr(-time.Minute),
 	})
 	require.NoError(t, err)
 
@@ -330,7 +330,7 @@ func TestExpiredMailIsNotListedAgainOnceReported(t *testing.T) {
 	_, err := st.Send(ctx, SendParams{
 		ToAgentID: recipient,
 		Body:      "too late",
-		Deadline:  -time.Minute,
+		Deadline:  xptr.Ptr(-time.Minute),
 	})
 	require.NoError(t, err)
 
@@ -353,7 +353,7 @@ func TestListPendingMailboxesIncludesAMailboxWhoseOnlyMailHasExpired(t *testing.
 	_, err := st.Send(ctx, SendParams{
 		ToAgentID: recipient,
 		Body:      "too late",
-		Deadline:  -time.Minute,
+		Deadline:  xptr.Ptr(-time.Minute),
 	})
 	require.NoError(t, err)
 
@@ -372,7 +372,7 @@ func TestListPendingMailboxesDropsAMailboxOnceItsExpiredMailIsReported(t *testin
 	_, err := st.Send(ctx, SendParams{
 		ToAgentID: recipient,
 		Body:      "too late",
-		Deadline:  -time.Minute,
+		Deadline:  xptr.Ptr(-time.Minute),
 	})
 	require.NoError(t, err)
 
@@ -395,13 +395,13 @@ func TestListPendingMailboxesKeepsAMailboxWithLiveMailAfterItsExpiredMailIsRepor
 	_, err := st.Send(ctx, SendParams{
 		ToAgentID: recipient,
 		Body:      "too late",
-		Deadline:  -time.Minute,
+		Deadline:  xptr.Ptr(-time.Minute),
 	})
 	require.NoError(t, err)
 	_, err = st.Send(ctx, SendParams{
 		ToAgentID: recipient,
 		Body:      "still live",
-		Deadline:  time.Hour,
+		Deadline:  xptr.Ptr(time.Hour),
 	})
 	require.NoError(t, err)
 
@@ -412,6 +412,110 @@ func TestListPendingMailboxesKeepsAMailboxWithLiveMailAfterItsExpiredMailIsRepor
 	mailboxes, err := st.ListPendingMailboxes(ctx)
 	require.NoError(t, err)
 	assert.Contains(t, mailboxes, recipient, "the mailbox still holds live mail, so it must stay in the sweep")
+}
+
+// TestMailWithNoDeadlineWaitsUntilClaimed pins that mail sent without a deadline is counted and
+// claimable for as long as it sits unread, and is never reported as expired.
+func TestMailWithNoDeadlineWaitsUntilClaimed(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+	sender := seedAgent(t, st, "sender")
+	recipient := seedAgent(t, st, "recipient")
+
+	sent, err := st.Send(ctx, SendParams{
+		FromAgentID: &sender,
+		ToAgentID:   recipient,
+		Body:        "the PR is ready",
+	})
+	require.NoError(t, err)
+	assert.Nil(t, sent.ExpiresAt)
+
+	mailboxes, err := st.ListPendingMailboxes(ctx)
+	require.NoError(t, err)
+	assert.Contains(t, mailboxes, recipient)
+
+	expired, err := st.ListExpired(ctx, recipient)
+	require.NoError(t, err)
+	assert.Empty(t, expired)
+
+	pending, err := st.CountPending(ctx, recipient)
+	require.NoError(t, err)
+	assert.EqualValues(t, 1, pending)
+
+	claimed, err := st.Claim(ctx, recipient, 10)
+	require.NoError(t, err)
+	require.Len(t, claimed, 1)
+	assert.Equal(t, sent.ID, claimed[0].ID)
+}
+
+// TestCountPendingFromAgentsLeavesOutMailNoAgentSent pins that the count behind the mailbox limit
+// holds only unread, unexpired mail with a sending agent.
+func TestCountPendingFromAgentsLeavesOutMailNoAgentSent(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+	sender := seedAgent(t, st, "sender")
+	recipient := seedAgent(t, st, "recipient")
+
+	sends := []SendParams{
+		{
+			FromAgentID: &sender,
+			ToAgentID:   recipient,
+			Body:        "claimed",
+		},
+		{
+			FromAgentID: &sender,
+			ToAgentID:   recipient,
+			Body:        "waiting",
+		},
+		{
+			FromAgentID: &sender,
+			ToAgentID:   recipient,
+			Body:        "expired",
+			Deadline:    xptr.Ptr(-time.Minute),
+		},
+		{
+			FromName:  "schedule nightly",
+			ToAgentID: recipient,
+			Body:      "Hey!",
+			Deadline:  xptr.Ptr(time.Hour),
+		},
+	}
+	for _, send := range sends {
+		_, err := st.Send(ctx, send)
+		require.NoError(t, err)
+	}
+	_, err := st.Claim(ctx, recipient, 1)
+	require.NoError(t, err)
+
+	fromAgents, err := st.CountPendingFromAgents(ctx, recipient)
+	require.NoError(t, err)
+	assert.EqualValues(t, 1, fromAgents)
+
+	pending, err := st.CountPending(ctx, recipient)
+	require.NoError(t, err)
+	assert.EqualValues(t, 2, pending)
+}
+
+// TestListPendingMailboxesSkipsArchivedAgents pins that mail waiting on an archived agent does not
+// keep its mailbox in the sweep.
+func TestListPendingMailboxesSkipsArchivedAgents(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+	sender := seedAgent(t, st, "sender")
+	recipient := seedAgent(t, st, "recipient")
+
+	_, err := st.Send(ctx, SendParams{
+		FromAgentID: &sender,
+		ToAgentID:   recipient,
+		Body:        "still there?",
+	})
+	require.NoError(t, err)
+	_, err = st.agents.Archive(ctx, []string{recipient})
+	require.NoError(t, err)
+
+	mailboxes, err := st.ListPendingMailboxes(ctx)
+	require.NoError(t, err)
+	assert.NotContains(t, mailboxes, recipient)
 }
 
 // TestListPage pins that a listing is newest first, is scoped to one mailbox, and shows
@@ -425,20 +529,20 @@ func TestListPage(t *testing.T) {
 	_, err := st.Send(ctx, SendParams{
 		ToAgentID: other,
 		Body:      "not for you",
-		Deadline:  time.Hour,
+		Deadline:  xptr.Ptr(time.Hour),
 	})
 	require.NoError(t, err)
 
 	first, err := st.Send(ctx, SendParams{
 		ToAgentID: recipient,
 		Body:      "first",
-		Deadline:  time.Hour,
+		Deadline:  xptr.Ptr(time.Hour),
 	})
 	require.NoError(t, err)
 	second, err := st.Send(ctx, SendParams{
 		ToAgentID: recipient,
 		Body:      "second",
-		Deadline:  time.Hour,
+		Deadline:  xptr.Ptr(time.Hour),
 	})
 	require.NoError(t, err)
 
@@ -466,7 +570,7 @@ func TestListPageCursorTakesTheNextPage(t *testing.T) {
 		mail, err := st.Send(ctx, SendParams{
 			ToAgentID: recipient,
 			Body:      body,
-			Deadline:  time.Hour,
+			Deadline:  xptr.Ptr(time.Hour),
 		})
 		require.NoError(t, err)
 		sent = append(sent, mail)
@@ -495,7 +599,7 @@ func TestListPageIgnoresOtherMailboxes(t *testing.T) {
 	_, err := st.Send(ctx, SendParams{
 		ToAgentID: theirs,
 		Body:      "not for you",
-		Deadline:  time.Hour,
+		Deadline:  xptr.Ptr(time.Hour),
 	})
 	require.NoError(t, err)
 
@@ -517,14 +621,14 @@ func TestListSentPage(t *testing.T) {
 		FromName:    "other",
 		ToAgentID:   recipient,
 		Body:        "not from you",
-		Deadline:    time.Hour,
+		Deadline:    xptr.Ptr(time.Hour),
 	})
 	require.NoError(t, err)
 
 	_, err = st.Send(ctx, SendParams{
 		ToAgentID: sender,
 		Body:      "addressed to you rather than from you",
-		Deadline:  time.Hour,
+		Deadline:  xptr.Ptr(time.Hour),
 	})
 	require.NoError(t, err)
 
@@ -535,7 +639,7 @@ func TestListSentPage(t *testing.T) {
 			FromName:    "sender",
 			ToAgentID:   recipient,
 			Body:        body,
-			Deadline:    time.Hour,
+			Deadline:    xptr.Ptr(time.Hour),
 		})
 		require.NoError(t, err)
 		sent = append(sent, mail)
@@ -563,7 +667,7 @@ func TestListSentPageCursorTakesTheNextPage(t *testing.T) {
 			FromName:    "sender",
 			ToAgentID:   recipient,
 			Body:        body,
-			Deadline:    time.Hour,
+			Deadline:    xptr.Ptr(time.Hour),
 		})
 		require.NoError(t, err)
 		sent = append(sent, mail)
@@ -591,7 +695,7 @@ func TestListByID(t *testing.T) {
 	sent, err := st.Send(ctx, SendParams{
 		ToAgentID: recipient,
 		Body:      "which column?",
-		Deadline:  time.Hour,
+		Deadline:  xptr.Ptr(time.Hour),
 	})
 	require.NoError(t, err)
 
@@ -610,7 +714,7 @@ func TestDelete(t *testing.T) {
 	sent, err := st.Send(ctx, SendParams{
 		ToAgentID: recipient,
 		Body:      "which column?",
-		Deadline:  time.Hour,
+		Deadline:  xptr.Ptr(time.Hour),
 	})
 	require.NoError(t, err)
 
@@ -677,7 +781,7 @@ func TestPendingNoticeOfKindIsToldApartByWhatItIsAbout(t *testing.T) {
 		Body:         "your exchange with partner-one was cut off",
 		Kind:         KindExchangeCapped,
 		AboutAgentID: &one,
-		Deadline:     time.Hour,
+		Deadline:     xptr.Ptr(time.Hour),
 	})
 	require.NoError(t, err)
 	require.NotNil(t, sent.AboutAgentID)
@@ -704,7 +808,7 @@ func TestPendingNoticeAboutDocumentIsToldApartByDocument(t *testing.T) {
 		Body:         "a notice about an agent",
 		Kind:         KindDocumentEdited,
 		AboutAgentID: &partner,
-		Deadline:     time.Hour,
+		Deadline:     xptr.Ptr(time.Hour),
 	})
 	require.NoError(t, err)
 
@@ -716,7 +820,7 @@ func TestPendingNoticeAboutDocumentIsToldApartByDocument(t *testing.T) {
 		Body:            "a person edited your document",
 		Kind:            KindDocumentEdited,
 		AboutDocumentID: &one,
-		Deadline:        time.Hour,
+		Deadline:        xptr.Ptr(time.Hour),
 	})
 	require.NoError(t, err)
 	require.NotNil(t, sent.AboutDocumentID)
@@ -750,7 +854,7 @@ func TestPendingNoticeOfKindIsTheOneWaiting(t *testing.T) {
 	_, err = st.Send(ctx, SendParams{
 		ToAgentID: recipient,
 		Body:      "from a peer",
-		Deadline:  time.Hour,
+		Deadline:  xptr.Ptr(time.Hour),
 	})
 	require.NoError(t, err)
 
@@ -759,7 +863,7 @@ func TestPendingNoticeOfKindIsTheOneWaiting(t *testing.T) {
 		Body:         answerNotice,
 		Kind:         KindReviewActivity,
 		AboutAgentID: &author,
-		Deadline:     -time.Hour,
+		Deadline:     xptr.Ptr(-time.Hour),
 	})
 	require.NoError(t, err)
 
@@ -771,7 +875,7 @@ func TestPendingNoticeOfKindIsTheOneWaiting(t *testing.T) {
 		Body:         answerNotice,
 		Kind:         KindReviewActivity,
 		AboutAgentID: &author,
-		Deadline:     time.Hour,
+		Deadline:     xptr.Ptr(time.Hour),
 	})
 	require.NoError(t, err)
 
@@ -798,7 +902,7 @@ func TestOrdinaryMailIsNeverDeduplicated(t *testing.T) {
 		sent, err := st.Send(ctx, SendParams{
 			ToAgentID: recipient,
 			Body:      "same thing",
-			Deadline:  time.Hour,
+			Deadline:  xptr.Ptr(time.Hour),
 		})
 		require.NoError(t, err)
 		require.NotNil(t, sent)
@@ -820,7 +924,7 @@ func TestNoticeRingsAgainOnceItHasExpired(t *testing.T) {
 		ToAgentID: recipient,
 		Body:      "komrad: 1 review thread(s) have activity",
 		Kind:      KindReviewActivity,
-		Deadline:  -time.Hour,
+		Deadline:  xptr.Ptr(-time.Hour),
 	})
 	require.NoError(t, err)
 	require.NotNil(t, first)
@@ -833,7 +937,7 @@ func TestNoticeRingsAgainOnceItHasExpired(t *testing.T) {
 		ToAgentID: recipient,
 		Body:      "komrad: 2 review thread(s) have activity",
 		Kind:      KindReviewActivity,
-		Deadline:  time.Hour,
+		Deadline:  xptr.Ptr(time.Hour),
 	})
 	require.NoError(t, err)
 	require.NotNil(t, again, "a notice nobody could claim does not stand in for one that can be")
@@ -856,7 +960,7 @@ func TestExpiredNoticeIsReportableAgain(t *testing.T) {
 			ToAgentID: recipient,
 			Body:      "komrad: review thread(s) have activity",
 			Kind:      KindReviewActivity,
-			Deadline:  -time.Hour,
+			Deadline:  xptr.Ptr(-time.Hour),
 		})
 		require.NoError(t, err)
 		require.NotNil(t, sent)
@@ -884,7 +988,7 @@ func TestCountExchangedSpansThreadsAndDirections(t *testing.T) {
 			ToAgentID:   to,
 			Body:        "hello",
 			Kind:        kind,
-			Deadline:    time.Hour,
+			Deadline:    xptr.Ptr(time.Hour),
 		})
 		require.NoError(t, err)
 
@@ -898,7 +1002,7 @@ func TestCountExchangedSpansThreadsAndDirections(t *testing.T) {
 		Body:        "fixed",
 		Kind:        KindPlain,
 		ReplyTo:     &opening.ID,
-		Deadline:    time.Hour,
+		Deadline:    xptr.Ptr(time.Hour),
 	})
 	require.NoError(t, err)
 	require.NotNil(t, reply)

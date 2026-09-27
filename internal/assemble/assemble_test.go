@@ -66,7 +66,7 @@ func mail(id, to string, expiresIn time.Duration) *agentv1.Mail {
 	return &agentv1.Mail{
 		Id:        id,
 		ToAgentId: to,
-		ExpiresAt: stamp(expiresIn),
+		ExpiresAt: xptr.Ptr(stamp(expiresIn)),
 	}
 }
 
@@ -246,6 +246,20 @@ func TestAgentRows(t *testing.T) {
 				{Agent: agent(newer), PullRequest: standing(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_UNREAD)},
 				{
 					Agent:       agent(older),
+					UnreadMail:  true,
+					PullRequest: standing(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_UNREAD),
+				},
+			},
+		},
+		{
+			name: "mail with no deadline is unread until it is claimed",
+			world: assemble.World{
+				Agents: map[string]*agentv1.Agent{newer: agent(newer)},
+				Mail:   map[string]*agentv1.Mail{"m1": {Id: "m1", ToAgentId: newer}},
+			},
+			want: []*agentv1.AgentRow{
+				{
+					Agent:       agent(newer),
 					UnreadMail:  true,
 					PullRequest: standing(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_UNREAD),
 				},

@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"komrad/lib/xptr"
 	"komrad/lib/xslice"
 
 	"github.com/stretchr/testify/assert"
@@ -25,7 +26,7 @@ func TestListWatchedIsTheUnclaimedSet(t *testing.T) {
 			FromName:    "sender",
 			ToAgentID:   recipient,
 			Body:        body,
-			Deadline:    deadline,
+			Deadline:    xptr.Ptr(deadline),
 		})
 		require.NoError(t, err)
 

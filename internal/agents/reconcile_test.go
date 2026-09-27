@@ -1301,7 +1301,7 @@ func TestDeliverToAnAgentNoPassCanRead(t *testing.T) {
 		FromName:  "somebody",
 		ToAgentID: agent.ID,
 		Body:      "please read this",
-		Deadline:  time.Hour,
+		Deadline:  xptr.Ptr(time.Hour),
 	})
 	require.NoError(t, err)
 

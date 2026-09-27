@@ -769,7 +769,7 @@ service AgentService {
       cli: true
       mcp: true
       name: "read_mail"
-      description: "Take the mail waiting for you, oldest first. Reading claims it: the mail is marked read and a second call returns nothing, so act on what comes back. Pass another agent's id to empty its mailbox instead, which takes that mail away from the agent it was addressed to and is almost never what you want."
+      description: "Take the mail waiting for you, oldest first and up to twenty at a time. Reading claims it: the mail is marked read and is not handed out again, so act on what comes back, and call again while remaining is above zero. Pass another agent's id to empty its mailbox instead, which takes that mail away from the agent it was addressed to and is almost never what you want."
       destructive: false
       idempotent: false
       roles: [

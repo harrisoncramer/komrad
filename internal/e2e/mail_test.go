@@ -185,23 +185,20 @@ func TestIntegrationDeliveryWaitsUntilTheRecipientCanTakeTheLine(t *testing.T) {
 	})
 }
 
-// TestIntegrationExpiredMailIsGivenUpOn covers delivery finishing at the deadline rather than chasing a recipient forever.
+// TestIntegrationExpiredMailIsGivenUpOn covers delivery finishing at the deadline of mail no agent sent rather than chasing a recipient forever.
 func TestIntegrationExpiredMailIsGivenUpOn(t *testing.T) {
 	instance := komradtest.Start(t, komradtest.Params{DeliveryDeadline: "1ns"})
 	ctx := t.Context()
 
 	workflowID := createMailWorkflow(t, instance)
-	api := createAgent(t, instance, workflowID, "api")
 	migrations := createAgent(t, instance, workflowID, "migrations")
 
 	instance.Settle(migrations.GetId(), harness.ActivityIdle, agentstore.StateIdle)
 
-	req := connect.NewRequest(&agentv1.SendMailRequest{
+	_, err := instance.Agents.SendMail(ctx, connect.NewRequest(&agentv1.SendMailRequest{
 		To:   migrations.GetId(),
 		Body: "too late",
-	})
-	callAs(req, api.GetId())
-	_, err := instance.Agents.SendMail(ctx, req)
+	}))
 	require.NoError(t, err)
 
 	assert.Equal(t, mail.DeliveryDone, instance.Deliver(migrations.GetId()))

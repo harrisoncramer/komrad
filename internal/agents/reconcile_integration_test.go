@@ -14,6 +14,7 @@ import (
 	agentstore "komrad/internal/store/agent"
 	mailstore "komrad/internal/store/mail"
 	"komrad/internal/tmuxtest"
+	"komrad/lib/xptr"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -108,7 +109,7 @@ func TestIntegrationExitedCLIStopsBeingANudgeTarget(t *testing.T) {
 		FromName:  "somebody",
 		ToAgentID: agent.ID,
 		Body:      "please read this",
-		Deadline:  time.Hour,
+		Deadline:  xptr.Ptr(time.Hour),
 	})
 	require.NoError(t, err)
 

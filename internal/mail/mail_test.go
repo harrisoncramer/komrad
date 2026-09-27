@@ -71,6 +71,12 @@ func TestSendMailRefusals(t *testing.T) {
 			wantErr: ErrMailboxFull,
 		},
 		{
+			name:    "a person's mail to a mailbox full of agent mail",
+			to:      "migrations",
+			pending: maxPendingMail,
+			wantErr: ErrMailboxFull,
+		},
+		{
 			name:    "a reply_to that is not a well-formed id",
 			from:    "api",
 			to:      "migrations",
@@ -95,6 +101,7 @@ func TestSendMailRefusals(t *testing.T) {
 				"api":        st.SeedAgent(t, agentstore.Agent{Name: "api"}).ID,
 				"migrations": st.SeedAgent(t, agentstore.Agent{Name: "migrations"}).ID,
 				"archived":   st.SeedAgent(t, agentstore.Agent{Name: "archived"}).ID,
+				"neighbour":  st.SeedAgent(t, agentstore.Agent{Name: "neighbour"}).ID,
 				"ghost":      uuid.NewString(),
 			}
 			_, err := st.Agents.Archive(t.Context(), []string{ids["archived"]})
@@ -102,9 +109,9 @@ func TestSendMailRefusals(t *testing.T) {
 
 			for range tt.pending {
 				_, err := st.Mail.Send(t.Context(), mailstore.SendParams{
-					ToAgentID: ids[tt.to],
-					Body:      "waiting",
-					Deadline:  time.Hour,
+					FromAgentID: xptr.Ptr(ids["neighbour"]),
+					ToAgentID:   ids[tt.to],
+					Body:        "waiting",
 				})
 				require.NoError(t, err)
 			}
@@ -135,20 +142,24 @@ func TestSendMailRecordsWhoSentIt(t *testing.T) {
 		reply        bool
 		wantFromID   bool
 		wantFromName string
+		wantExpires  bool
 	}{
 		{
 			name:         "a person sending as nobody",
 			wantFromName: "",
+			wantExpires:  true,
 		},
 		{
 			name:         "komrad's own mail",
 			system:       true,
 			wantFromName: KomradSenderName,
+			wantExpires:  true,
 		},
 		{
 			name:         "a schedule sending for the person who wrote it",
 			schedule:     "nightly",
 			wantFromName: "schedule nightly",
+			wantExpires:  true,
 		},
 		{
 			name:         "an agent sending to another",
@@ -178,7 +189,7 @@ func TestSendMailRecordsWhoSentIt(t *testing.T) {
 					FromAgentID: &recipient.ID,
 					ToAgentID:   sender.ID,
 					Body:        "which column holds the refund?",
-					Deadline:    time.Hour,
+					Deadline:    xptr.Ptr(time.Hour),
 				})
 				require.NoError(t, err)
 				replyTo = &opening.ID
@@ -217,6 +228,7 @@ func TestSendMailRecordsWhoSentIt(t *testing.T) {
 			assert.Equal(t, mailstore.KindPlain, waiting[0].Kind)
 			assert.Equal(t, tt.wantFromName, waiting[0].FromName)
 			assert.Equal(t, replyTo, waiting[0].ReplyTo)
+			assert.Equal(t, tt.wantExpires, waiting[0].ExpiresAt != nil)
 
 			if !tt.wantFromID {
 				assert.Nil(t, waiting[0].FromAgentID)
@@ -226,6 +238,57 @@ func TestSendMailRecordsWhoSentIt(t *testing.T) {
 
 			require.NotNil(t, waiting[0].FromAgentID)
 			assert.Equal(t, sender.ID, *waiting[0].FromAgentID)
+		})
+	}
+}
+
+// TestAgentMailGetsPastKomradsOwn pins that unread mail no agent sent never keeps an agent's mail out.
+func TestAgentMailGetsPastKomradsOwn(t *testing.T) {
+	tests := []struct {
+		name string
+		fill func(svc *MailService, recipientID string) error
+	}{
+		{
+			name: "a mailbox full of schedule mail",
+			fill: func(svc *MailService, recipientID string) error {
+				_, err := svc.SendScheduledMail(t.Context(), SendScheduledMailParams{
+					ToAgentID:    recipientID,
+					ScheduleName: "every-minute",
+					Body:         "Hey!",
+				})
+
+				return err
+			},
+		},
+		{
+			name: "a mailbox full of komrad's own mail",
+			fill: func(svc *MailService, recipientID string) error {
+				_, err := svc.SendSystemMail(t.Context(), recipientID, "your delegate was archived")
+
+				return err
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := storetest.Open(t)
+			svc := newMailService(st, config.DefaultMaxExchange)
+			sender := st.SeedAgent(t, agentstore.Agent{Name: "api"})
+			recipient := st.SeedAgent(t, agentstore.Agent{Name: "migrations"})
+
+			for range maxPendingMail {
+				require.NoError(t, tt.fill(svc, recipient.ID))
+			}
+			require.ErrorIs(t, tt.fill(svc, recipient.ID), ErrMailboxFull)
+
+			sent, err := svc.SendMail(t.Context(), SendMailParams{
+				From:      sender.ID,
+				ToAgentID: recipient.ID,
+				Body:      "the PR is ready",
+			})
+			require.NoError(t, err)
+			assert.Equal(t, recipient.ID, sent.ToAgentID)
 		})
 	}
 }
@@ -371,9 +434,10 @@ func TestSendMailTellsTheRecipientWhenTheCapRefusesASend(t *testing.T) {
 // TestChildMailStaysInTheFamily pins that a child may reach nobody outside its parent and that parent's other children.
 func TestChildMailStaysInTheFamily(t *testing.T) {
 	tests := []struct {
-		name string
-		from string
-		to   string
+		name    string
+		from    string
+		to      string
+		opening *opening
 	}{
 		{
 			name: "a child reaching an unrelated agent",
@@ -386,9 +450,10 @@ func TestChildMailStaysInTheFamily(t *testing.T) {
 			to:   "cousin",
 		},
 		{
-			name: "an unrelated agent reaching a child",
-			from: "stranger",
-			to:   "child-one",
+			name:    "a child answering mail a stranger sent to somebody else",
+			from:    "child-one",
+			to:      "stranger",
+			opening: &opening{from: "stranger", to: "child-two"},
 		},
 	}
 
@@ -402,6 +467,7 @@ func TestChildMailStaysInTheFamily(t *testing.T) {
 				From:      family[tt.from].ID,
 				ToAgentID: family[tt.to].ID,
 				Body:      "hello",
+				ReplyTo:   sendOpening(t, st, family, tt.opening),
 			})
 			require.ErrorIs(t, err, ErrOutsideFamily)
 			assert.Nil(t, sent)
@@ -412,9 +478,10 @@ func TestChildMailStaysInTheFamily(t *testing.T) {
 // TestFamilyMailGetsThrough pins the sends the family rule leaves alone.
 func TestFamilyMailGetsThrough(t *testing.T) {
 	tests := []struct {
-		name string
-		from string
-		to   string
+		name    string
+		from    string
+		to      string
+		opening *opening
 	}{
 		{
 			name: "a child answers its parent",
@@ -436,6 +503,17 @@ func TestFamilyMailGetsThrough(t *testing.T) {
 			from: "parent",
 			to:   "stranger",
 		},
+		{
+			name: "an unrelated agent reaching a child",
+			from: "stranger",
+			to:   "child-one",
+		},
+		{
+			name:    "a child answering the stranger that reached it",
+			from:    "child-one",
+			to:      "stranger",
+			opening: &opening{from: "stranger", to: "child-one"},
+		},
 	}
 
 	for _, tt := range tests {
@@ -448,6 +526,7 @@ func TestFamilyMailGetsThrough(t *testing.T) {
 				From:      family[tt.from].ID,
 				ToAgentID: family[tt.to].ID,
 				Body:      "hello",
+				ReplyTo:   sendOpening(t, st, family, tt.opening),
 			})
 			require.NoError(t, err)
 			assert.Equal(t, family[tt.to].ID, sent.ToAgentID)
@@ -532,16 +611,18 @@ func TestClaimMail(t *testing.T) {
 		assert.Empty(t, claimed)
 	})
 
-	t.Run("an agent reading its own takes one batch", func(t *testing.T) {
+	t.Run("an agent reading its own takes one batch and is told what is left", func(t *testing.T) {
 		claimed, err := svc.ClaimMail(t.Context(), recipient.ID)
 		require.NoError(t, err)
-		assert.Len(t, claimed, maxClaimedMail)
+		assert.Len(t, claimed.Mail, maxClaimedMail)
+		assert.EqualValues(t, 1, claimed.Remaining)
 	})
 
 	t.Run("and the rest on the next read", func(t *testing.T) {
 		claimed, err := svc.ClaimMail(t.Context(), recipient.ID)
 		require.NoError(t, err)
-		assert.Len(t, claimed, 1)
+		assert.Len(t, claimed.Mail, 1)
+		assert.Zero(t, claimed.Remaining)
 	})
 }
 
@@ -846,6 +927,28 @@ func seedFamily(t *testing.T, st *storetest.Stores) map[string]agentstore.Agent 
 		"cousin":    seedChild("their-reviewer", otherParent.ID),
 		"stranger":  *st.SeedAgent(t, agentstore.Agent{Name: "unrelated"}),
 	}
+}
+
+type opening struct {
+	from, to string
+}
+
+// sendOpening records the mail a reply answers and returns its id, or nil when there is none.
+func sendOpening(t *testing.T, st *storetest.Stores, family map[string]agentstore.Agent, o *opening) *string {
+	t.Helper()
+
+	if o == nil {
+		return nil
+	}
+
+	sent, err := st.Mail.Send(t.Context(), mailstore.SendParams{
+		FromAgentID: xptr.Ptr(family[o.from].ID),
+		ToAgentID:   family[o.to].ID,
+		Body:        "which column holds the refund?",
+	})
+	require.NoError(t, err)
+
+	return &sent.ID
 }
 
 type exchangeParams struct {
