@@ -58,7 +58,7 @@ func runPreHooks(ctx context.Context, params hookRunParams) error {
 	turn := params.scripts.QueueHooks(params.agent.ID)
 	defer turn.Done()
 
-	if err := turn.Wait(ctx, params.agent.ID); err != nil {
+	if err := turn.Wait(ctx); err != nil {
 		return err
 	}
 
@@ -142,7 +142,7 @@ func startHooks(ctx context.Context, params hookRunParams) {
 	go func() {
 		defer turn.Done()
 
-		if err := turn.Wait(bg, params.agent.ID); err != nil {
+		if err := turn.Wait(bg); err != nil {
 			return
 		}
 

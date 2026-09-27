@@ -12,7 +12,7 @@ import (
 	agentstore "komrad/internal/store/agent"
 )
 
-// HookQueue runs each agent's hooks one moment at a time, in the order the moments were queued.
+// HookQueue orders each agent's hooks one moment at a time.
 type HookQueue struct {
 	mu    sync.Mutex
 	tails map[string]chan struct{}
@@ -20,8 +20,9 @@ type HookQueue struct {
 
 // HookTurn is one moment's place in an agent's hook queue.
 type HookTurn struct {
-	ahead <-chan struct{}
-	done  func()
+	agentID string
+	ahead   <-chan struct{}
+	done    func()
 }
 
 // QueueHooks takes the next place in an agent's hook queue, which is held until Done.
@@ -48,7 +49,8 @@ func (q *HookQueue) QueueHooks(agentID string) *HookTurn {
 	}
 
 	return &HookTurn{
-		ahead: ahead,
+		agentID: agentID,
+		ahead:   ahead,
 		done: sync.OnceFunc(func() {
 			if ahead == nil {
 				release()
@@ -79,8 +81,8 @@ func (q *HookQueue) AwaitHooks(ctx context.Context, agentID string) error {
 }
 
 // Wait waits until every moment queued ahead of this one has finished.
-func (t *HookTurn) Wait(ctx context.Context, agentID string) error {
-	return awaitHooks(ctx, agentID, t.ahead)
+func (t *HookTurn) Wait(ctx context.Context) error {
+	return awaitHooks(ctx, t.agentID, t.ahead)
 }
 
 // Done gives up the place, once the moments ahead of it have finished.

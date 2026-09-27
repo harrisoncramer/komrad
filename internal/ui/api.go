@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"komrad/internal/rpcapi"
 	"komrad/internal/ui/panel"
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
@@ -27,8 +28,6 @@ import (
 const requestTimeout = 10 * time.Second
 
 const createAgentTimeout = 11 * time.Minute
-
-const preHookTimeout = 11 * time.Minute
 
 type api struct {
 	agents    agentv1connect.AgentServiceClient
@@ -55,7 +54,7 @@ func mutate(fn func(context.Context) (any, error)) error {
 }
 
 func mutateAwaitingHooks(fn func(context.Context) (any, error)) error {
-	_, err := call(preHookTimeout, fn)
+	_, err := call(rpcapi.HookCallTimeout, fn)
 
 	return err
 }
@@ -247,7 +246,7 @@ func (a api) retryAgent(params retryAgentParams) (*agentv1.Agent, error) {
 }
 
 func (a api) resumeAgent(id string) (*agentv1.Agent, error) {
-	return call(preHookTimeout, func(ctx context.Context) (*agentv1.Agent, error) {
+	return call(rpcapi.HookCallTimeout, func(ctx context.Context) (*agentv1.Agent, error) {
 		resp, err := a.agents.ResumeAgent(ctx, connect.NewRequest(&agentv1.ResumeAgentRequest{Id: id}))
 		if err != nil {
 			return nil, fmt.Errorf("failed to resume agent %q: %w", id, err)

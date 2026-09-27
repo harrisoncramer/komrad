@@ -413,7 +413,11 @@ func (s *LifecycleService) RestoreAgents(ctx context.Context, ids []string) ([]a
 	}
 
 	if err := s.tx.InTx(ctx, func(db store.DBTX) error {
-		return claimRoomToRestore(ctx, agentstore.NewAgentStore(db), s.usage, archived)
+		return claimRoomToRestore(ctx, claimRoomToRestoreParams{
+			agents:   agentstore.NewAgentStore(db),
+			usage:    s.usage,
+			archived: archived,
+		})
 	}); err != nil {
 		return nil, fmt.Errorf("failed to restore %d agents: %w", len(archived), err)
 	}
@@ -431,7 +435,11 @@ func (s *LifecycleService) RestoreAgents(ctx context.Context, ids []string) ([]a
 	err = s.tx.InTx(ctx, func(db store.DBTX) error {
 		agentStore, workflowStore := agentstore.NewAgentStore(db), workflowstore.NewWorkflowStore(db)
 
-		if err := claimRoomToRestore(ctx, agentStore, s.usage, archived); err != nil {
+		if err := claimRoomToRestore(ctx, claimRoomToRestoreParams{
+			agents:   agentStore,
+			usage:    s.usage,
+			archived: archived,
+		}); err != nil {
 			return err
 		}
 		if err := agentStore.Restore(ctx, agentstore.IDs(archived)); err != nil {

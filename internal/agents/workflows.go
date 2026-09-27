@@ -407,7 +407,11 @@ func (w *WorkflowService) RestoreWorkflow(ctx context.Context, id string) (*work
 	}
 
 	if err := w.tx.InTx(ctx, func(db store.DBTX) error {
-		return claimRoomToRestore(ctx, agentstore.NewAgentStore(db), w.usage, archived)
+		return claimRoomToRestore(ctx, claimRoomToRestoreParams{
+			agents:   agentstore.NewAgentStore(db),
+			usage:    w.usage,
+			archived: archived,
+		})
 	}); err != nil {
 		return nil, fmt.Errorf("failed to restore workflow %q: %w", existing.Name, err)
 	}
@@ -432,7 +436,11 @@ func (w *WorkflowService) RestoreWorkflow(ctx context.Context, id string) (*work
 		}
 		// A partial restore would read as a whole one, so the ceiling and the names live agents
 		// hold are both checked before anything is written.
-		if err := claimRoomToRestore(ctx, agents, w.usage, archived); err != nil {
+		if err := claimRoomToRestore(ctx, claimRoomToRestoreParams{
+			agents:   agents,
+			usage:    w.usage,
+			archived: archived,
+		}); err != nil {
 			return err
 		}
 
@@ -503,18 +511,31 @@ func (w *WorkflowService) DeleteWorkflow(ctx context.Context, id string) error {
 	return w.agentDeleter.DeleteAgents(ctx, agentstore.IDs(inside))
 }
 
-func claimRoomToRestore(ctx context.Context, agents *agentstore.AgentStore, usage config.Usage, archived []agentstore.Agent) error {
-	if err := claimRoomForAgents(ctx, agents, usage.MaxAgents, len(archived)); err != nil {
+type restoreSlotLocker interface {
+	agentSlotLocker
+	restoredChildSlotLocker
+	restoredSpawnedSlotLocker
+	nameChecker
+}
+
+type claimRoomToRestoreParams struct {
+	agents   restoreSlotLocker
+	usage    config.Usage
+	archived []agentstore.Agent
+}
+
+func claimRoomToRestore(ctx context.Context, params claimRoomToRestoreParams) error {
+	if err := claimRoomForAgents(ctx, params.agents, params.usage.MaxAgents, len(params.archived)); err != nil {
 		return err
 	}
-	if err := claimRoomForRestoredChildren(ctx, agents, usage.Implementer.MaxChildren, archived); err != nil {
+	if err := claimRoomForRestoredChildren(ctx, params.agents, params.usage.Implementer.MaxChildren, params.archived); err != nil {
 		return err
 	}
-	if err := claimRoomForRestoredSpawned(ctx, agents, usage.Orchestrator.MaxChildren, archived); err != nil {
+	if err := claimRoomForRestoredSpawned(ctx, params.agents, params.usage.Orchestrator.MaxChildren, params.archived); err != nil {
 		return err
 	}
 
-	return requireNamesFree(ctx, agents, archived)
+	return requireNamesFree(ctx, params.agents, params.archived)
 }
 
 func requireNamesFree(ctx context.Context, agents nameChecker, archived []agentstore.Agent) error {
