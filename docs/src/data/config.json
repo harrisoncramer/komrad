@@ -564,7 +564,7 @@
               "key": "answer",
               "path": "keybindings.review.answer",
               "type": "array",
-              "description": "Show the change that answered the comment under the cursor, from the round the\ncomment was written on to the round the agent's addressed reply carried, or go back\nto all changes from there.",
+              "description": "Show the change that answered the comment under the cursor, from the work the\ncomment was written on to the work the agent's addressed reply carried, or go back\nto all changes from there.",
               "default": "[\"a\"]"
             },
             {
@@ -578,14 +578,14 @@
               "key": "base",
               "path": "keybindings.review.base",
               "type": "array",
-              "description": "Walk back a round through the review, from the whole change to the newest round and\non into the older ones, stopping on the oldest.",
+              "description": "Walk back a chapter through the review, from the whole change to the newest chapter and\non into the older ones, stopping on the oldest.",
               "default": "[\"\u003c\"]"
             },
             {
               "key": "base_forward",
               "path": "keybindings.review.base_forward",
               "type": "array",
-              "description": "Walk the other way through the rounds, towards the newest work and on to the whole\nchange.",
+              "description": "Walk the other way through the chapters, towards the newest work and on to the whole\nchange.",
               "default": "[\"\u003e\"]"
             },
             {

@@ -36,8 +36,8 @@ var ErrReviewOwnWork = fail.Denied("an agent cannot review its own work")
 // ErrReviewAlreadyGiven is answered when an agent asks to review a round it has reviewed once.
 var ErrReviewAlreadyGiven = fail.Precondition("that round has already been reviewed; wait for the agent to write something")
 
-// ErrReviewInFlight is answered when somebody writes a comment on one snapshot while holding
-// unsent comments on another.
+// ErrReviewInFlight is answered when a reviewing agent writes a comment on one snapshot while
+// holding unsent comments on another.
 var ErrReviewInFlight = fail.Precondition("you have unsent comments on an earlier snapshot")
 
 // ErrReviewVerdictFromPerson is answered when a person sends a verdict.
@@ -69,6 +69,7 @@ type reviewBatchReadWriter interface {
 	OpenReview(ctx context.Context, params reviewstore.OpenReviewParams) (*reviewstore.Review, error)
 	GetReview(ctx context.Context, id string) (*reviewstore.Review, error)
 	OpenReviewOf(ctx context.Context, params reviewstore.OpenReviewOfParams) (*reviewstore.Review, error)
+	MoveOpenReview(ctx context.Context, params reviewstore.MoveOpenReviewParams) (*reviewstore.Review, error)
 	ListReviews(ctx context.Context, agentID string) ([]reviewstore.Review, error)
 	CountOpenComments(ctx context.Context, reviewID string) (int, error)
 	ReleaseReview(ctx context.Context, params reviewstore.ReleaseReviewParams) (*reviewstore.Review, error)
@@ -499,7 +500,7 @@ func (s *ReviewService) ReleaseReview(
 		Review:  *open,
 		Verdict: verdict,
 		Body:    params.Body,
-		Threads: s.threadsInContext(ctx, agent.Cwd, *round, threads),
+		Threads: s.threadsInContext(ctx, agent.Cwd, threads),
 	})
 	if err != nil {
 		return nil, err
@@ -737,7 +738,7 @@ func (s *ReviewService) GetReview(ctx context.Context, reviewID string, author R
 	return &ReviewInFull{
 		Review:  *review,
 		Round:   *round,
-		Threads: s.threadsInContext(ctx, agent.Cwd, *round, threads),
+		Threads: s.threadsInContext(ctx, agent.Cwd, threads),
 	}, nil
 }
 
@@ -791,27 +792,26 @@ func (s *ReviewService) getAuthorName(ctx context.Context, review reviewstore.Re
 	return author.Name
 }
 
-// threadsInContext draws the code around each thread out of the round's snapshot, reading each
-// file once and leaving a thread without context when its file cannot be read.
+// threadsInContext draws the code around each thread out of the snapshot it was written against.
 func (s *ReviewService) threadsInContext(
 	ctx context.Context,
 	dir string,
-	round reviewstore.Round,
 	threads []ReviewThreadWithMessages,
 ) []ReviewThreadInContext {
-	held := make(map[string][]string, len(threads))
+	snapshots := map[string]string{}
+	held := map[[2]string][]string{}
 	drawn := make([]ReviewThreadInContext, 0, len(threads))
 	for _, thread := range threads {
-		path := thread.Thread.FilePath
-		lines, done := held[path]
-		if !done && dir != "" && path != "" {
-			read, err := s.snapshots.ReadFileLines(ctx, dir, round.SnapshotSHA, path)
-			if err != nil {
-				read = nil
-			}
-
-			lines = read
-			held[path] = lines
+		key := [2]string{thread.Thread.RoundID, thread.Thread.FilePath}
+		lines, done := held[key]
+		if !done && dir != "" && thread.Thread.FilePath != "" {
+			lines = s.readRoundFile(ctx, readRoundFileParams{
+				Dir:       dir,
+				RoundID:   thread.Thread.RoundID,
+				Path:      thread.Thread.FilePath,
+				Snapshots: snapshots,
+			})
+			held[key] = lines
 		}
 
 		drawn = append(drawn, ReviewThreadInContext{
@@ -822,6 +822,37 @@ func (s *ReviewService) threadsInContext(
 	}
 
 	return drawn
+}
+
+type readRoundFileParams struct {
+	Dir       string
+	RoundID   string
+	Path      string
+	Snapshots map[string]string
+}
+
+// readRoundFile is a file as one round froze it, nil when the round or the file cannot be read.
+func (s *ReviewService) readRoundFile(ctx context.Context, params readRoundFileParams) []string {
+	snapshot, known := params.Snapshots[params.RoundID]
+	if !known {
+		round, err := s.rounds.GetRound(ctx, params.RoundID)
+		if err == nil {
+			snapshot = round.SnapshotSHA
+		}
+
+		params.Snapshots[params.RoundID] = snapshot
+	}
+
+	if snapshot == "" {
+		return nil
+	}
+
+	lines, err := s.snapshots.ReadFileLines(ctx, params.Dir, snapshot, params.Path)
+	if err != nil {
+		return nil
+	}
+
+	return lines
 }
 
 // getLiveAgent refuses an agent that has been archived.

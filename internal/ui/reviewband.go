@@ -90,11 +90,6 @@ func (r reviewScreen) staleSaid(s panelShared) string {
 		return "the worktree has moved · catching up"
 	}
 
-	if r.threads.holdsUnsent() {
-		return "the worktree has moved · your comments are pinned to this round · " +
-			keyLabel(s.keys.Review.Reload) + " to catch up"
-	}
-
 	return "the worktree has moved · " + keyLabel(s.keys.Review.Reload) + " to catch up"
 }
 
@@ -152,16 +147,16 @@ func (r reviewScreen) scopeView(s panelShared) string {
 	return out + "\n"
 }
 
-// stepSaid is the way through the rounds, naming only the direction that has somewhere to go.
+// stepSaid is the way through the chapters, naming only the direction that has somewhere to go.
 func (r reviewScreen) stepSaid(s panelShared) string {
 	back := keyLabel(s.keys.Review.Base)
 	forward := keyLabel(s.keys.Review.BaseForward)
 
 	switch {
 	case r.diff.chapter < 0:
-		return back + " for the latest round"
+		return back + " for the latest chapter"
 	case r.diff.chapter == 0:
-		return forward + " for a later round"
+		return forward + " for a later chapter"
 	default:
 		return back + " back · " + forward + " forward"
 	}

@@ -35,6 +35,7 @@ func (r *reviewScreen) compose(s panelShared) tea.Cmd {
 	}
 
 	r.threads.composing = true
+	r.threads.retrying = nil
 
 	return r.openInput(s, newReviewInputParams{
 		Title:       reviewInputTitle(replying),
@@ -179,55 +180,123 @@ func (r *reviewScreen) saveMessage(s panelShared) tea.Cmd {
 		return nil
 	}
 
+	retrying := r.threads.retrying
 	r.threads.editor = reviewInput{}
 	r.threads.composing = false
+	r.threads.retrying = nil
 
 	agents, threadID := s.api.agents, r.threads.editing
+	kept := reviewUnsent{editing: threadID, body: body}
 	if threadID != "" {
 		// Nothing is said back: the reply is drawn in the thread it went into.
-		return r.writeCmd(s, "", func(ctx context.Context) error {
+		return keepUnsent(kept, r.writeCmd(s, "", func(ctx context.Context) error {
 			_, err := agents.AddReviewMessage(ctx, connect.NewRequest(&agentv1.AddReviewMessageRequest{
 				ThreadId: threadID,
 				Body:     body,
 			}))
 
 			return err
-		})
+		}))
 	}
 
-	anchor, ok := r.diff.view.GetAnchor(r.diff.cursor)
-	if !ok {
+	place := retrying.getPlace()
+	if place == nil {
+		anchor, ok := r.diff.view.GetAnchor(r.diff.cursor)
+		if !ok {
+			return nil
+		}
+
+		place = &reviewPlace{
+			anchor: *anchor,
+			// The old side of these numbers came from whatever the diff was measured from, so the
+			// thread records that rather than leaving a later reader to assume the round's own base.
+			base: r.diff.view.GetBaseSHA(),
+			// The new side names the snapshot it was read from, which the service compares against
+			// the round it would file the thread under rather than trusting the numbers.
+			snapshot: r.diff.view.GetSnapshotSHA(),
+		}
+		if place.snapshot == "" {
+			place.snapshot = r.round.GetSnapshotSha()
+		}
+	}
+
+	kept.place = place
+
+	return keepUnsent(kept, r.createThreadCmd(s, *place, body))
+}
+
+// reviewUnsent is a message on its way to the service, held until the write carrying it lands.
+type reviewUnsent struct {
+	editing string
+	body    string
+	// place is where a new thread goes, nil for a reply.
+	place *reviewPlace
+}
+
+func (u *reviewUnsent) getPlace() *reviewPlace {
+	if u == nil {
 		return nil
 	}
 
-	return r.createThreadCmd(s, *anchor, body)
+	return u.place
+}
+
+// reviewPlace is the lines a new thread is pinned to and the snapshots they were read between.
+type reviewPlace struct {
+	anchor   diffview.Anchor
+	base     string
+	snapshot string
+}
+
+// keepUnsent hands a message back with the refusal of the write carrying it.
+func keepUnsent(kept reviewUnsent, write tea.Cmd) tea.Cmd {
+	return func() tea.Msg {
+		msg := write()
+
+		wrote, ok := msg.(reviewWroteMsg)
+		if !ok || wrote.err == nil {
+			return msg
+		}
+
+		wrote.unsent = &kept
+
+		return wrote
+	}
+}
+
+// restoreMessage opens the composer again on a message the service refused.
+func (r *reviewScreen) restoreMessage(s panelShared, unsent reviewUnsent) tea.Cmd {
+	if r.threads.composing || r.threads.releasing {
+		return nil
+	}
+
+	r.threads.editing = unsent.editing
+	r.threads.composing = true
+	r.threads.retrying = &unsent
+
+	return r.openInput(s, newReviewInputParams{
+		Title:       reviewInputTitle(unsent.editing != ""),
+		Description: reviewInputHint(formKeys().Editor, formKeys().Submit, "save"),
+		Body:        unsent.body,
+	})
 }
 
 // cancelMessage puts the composer away, abandoning nothing but the words typed into it.
 func (t *reviewThreads) cancelMessage() {
 	t.editor = reviewInput{}
 	t.composing = false
+	t.retrying = nil
 }
 
-func (r reviewScreen) createThreadCmd(s panelShared, anchor diffview.Anchor, body string) tea.Cmd {
+func (r reviewScreen) createThreadCmd(s panelShared, place reviewPlace, body string) tea.Cmd {
 	agents, agentID := s.api.agents, r.agentID
-
-	// The old side of these numbers came from whatever the diff was measured from, so the thread
-	// records that rather than leaving a later reader to assume the round's own base.
-	base := r.diff.view.GetBaseSHA()
-
-	// The new side names the snapshot it was read from, which the service compares against the
-	// round it would file the thread under rather than trusting the numbers.
-	snapshot := r.diff.view.GetSnapshotSHA()
-	if snapshot == "" {
-		snapshot = r.round.GetSnapshotSha()
-	}
+	anchor := place.anchor
 
 	return r.writeCmd(s, "thread opened", func(ctx context.Context) error {
 		_, err := agents.CreateReviewThread(ctx, connect.NewRequest(&agentv1.CreateReviewThreadRequest{
 			AgentId:     agentID,
-			BaseSha:     base,
-			SnapshotSha: snapshot,
+			BaseSha:     place.base,
+			SnapshotSha: place.snapshot,
 			FilePath:    anchor.FilePath,
 			OldStart:    int32(anchor.OldStart),
 			OldEnd:      int32(anchor.OldEnd),

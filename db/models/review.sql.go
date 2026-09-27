@@ -1528,6 +1528,44 @@ func (q *Queries) MarkReviewThreadRead(ctx context.Context, id string) (*ReviewT
 	return &i, err
 }
 
+const moveOpenReview = `-- name: MoveOpenReview :one
+UPDATE
+    reviews v
+SET
+    round_id = $1
+WHERE
+    v.id = $2
+    AND v.released_at IS NULL
+RETURNING
+    id, agent_id, round_id, author_kind, author_agent_id, verdict, released_at, path, doorbell_mail_id, created_at, updated_at, body, engine_id
+`
+
+type MoveOpenReviewParams struct {
+	RoundID string
+	ID      string
+}
+
+func (q *Queries) MoveOpenReview(ctx context.Context, arg MoveOpenReviewParams) (*Review, error) {
+	row := q.db.QueryRow(ctx, moveOpenReview, arg.RoundID, arg.ID)
+	var i Review
+	err := row.Scan(
+		&i.ID,
+		&i.AgentID,
+		&i.RoundID,
+		&i.AuthorKind,
+		&i.AuthorAgentID,
+		&i.Verdict,
+		&i.ReleasedAt,
+		&i.Path,
+		&i.DoorbellMailID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Body,
+		&i.EngineID,
+	)
+	return &i, err
+}
+
 const releaseReview = `-- name: ReleaseReview :one
 WITH released AS (
     UPDATE

@@ -229,6 +229,33 @@ func (s *ReviewStore) GetReview(ctx context.Context, id string) (*Review, error)
 	return &review, nil
 }
 
+type MoveOpenReviewParams struct {
+	ID      string
+	RoundID string
+}
+
+// MoveOpenReview files an unreleased review under another round, ErrNotFound once it is released.
+func (s *ReviewStore) MoveOpenReview(ctx context.Context, params MoveOpenReviewParams) (*Review, error) {
+	if !store.IsID(params.ID) {
+		return nil, reviewNotFound(params.ID)
+	}
+
+	row, err := s.queries.MoveOpenReview(ctx, models.MoveOpenReviewParams{
+		ID:      params.ID,
+		RoundID: params.RoundID,
+	})
+	if db.IsNoRows(err) {
+		return nil, reviewNotFound(params.ID)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to move the review %q: %w", params.ID, err)
+	}
+
+	review := reviewFromRow(*row)
+
+	return &review, nil
+}
+
 type OpenReviewOfParams struct {
 	AgentID       string
 	AuthorKind    AuthorKind

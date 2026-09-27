@@ -126,9 +126,9 @@ type reviewChapterLabelParams struct {
 }
 
 // reviewChapterLabel names a chapter for the band, counting from the oldest so a number keeps
-// meaning the same round however many follow it.
+// meaning the same chapter however many follow it.
 func reviewChapterLabel(params reviewChapterLabelParams) string {
-	said := fmt.Sprintf("round %d of %d", params.At+1, params.Held)
+	said := fmt.Sprintf("chapter %d of %d", params.At+1, params.Held)
 	chapter := params.Chapter
 
 	switch {

@@ -3,7 +3,6 @@ package ui
 import (
 	"context"
 	"errors"
-	"strconv"
 
 	"komrad/internal/assemble"
 	"komrad/internal/diff"
@@ -70,6 +69,8 @@ type reviewWroteMsg struct {
 	readBack bool
 	threads  []*agentv1.ReviewThread
 	readErr  error
+	// unsent is the message a refused write was carrying, nil for any other write.
+	unsent *reviewUnsent
 }
 
 // open puts the review on an agent's diff and reads it.
@@ -216,8 +217,7 @@ func loadReviewCmd(s panelShared, params loadReviewCmdParams) tea.Cmd {
 			switch {
 			case connect.CodeOf(err) == connect.CodeFailedPrecondition && len(rounds) > 0:
 				round = rounds[len(rounds)-1]
-				notice = "a rebase or merge is part way through, so this is round " +
-					strconv.Itoa(int(round.GetOrdinal()))
+				notice = "a rebase or merge is part way through, so this is the work as it stood before it"
 			case err != nil:
 				return reviewLoadedMsg{agentID: agentID, err: err}
 			default:
@@ -513,6 +513,10 @@ func (r *reviewScreen) applyWrote(h host, s panelShared, msg reviewWroteMsg) tea
 
 	if msg.err != nil {
 		h.report("Could not write on "+r.agentName, msg.err)
+
+		if msg.unsent != nil {
+			return r.restoreMessage(s, *msg.unsent)
+		}
 
 		return nil
 	}

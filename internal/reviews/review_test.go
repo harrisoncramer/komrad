@@ -746,6 +746,24 @@ func TestASecondReview(t *testing.T) {
 			wantErrText: "round 1",
 		},
 		{
+			name: "the person commenting on a newer round while holding comments on an older one",
+			write: func(t *testing.T, fx *reviewFixture) error {
+				fx.writeComment(t, personAuthor, "this needs a nil check")
+				fx.advanceTree(t)
+
+				return fx.tryComment(t, personAuthor, secondSnapshot)
+			},
+		},
+		{
+			name: "the person commenting on an older round while holding comments on a newer one",
+			write: func(t *testing.T, fx *reviewFixture) error {
+				fx.advanceTree(t)
+				fx.writeCommentOn(t, personAuthor, secondSnapshot)
+
+				return fx.tryComment(t, personAuthor, firstSnapshot)
+			},
+		},
+		{
 			name: "the person answering back in the thread",
 			write: func(t *testing.T, fx *reviewFixture) error {
 				released := fx.releaseFirstReview(t)

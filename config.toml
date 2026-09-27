@@ -225,16 +225,16 @@ up        = ["k"]
 # The review screen, which draws an agent's diff in the stage and its review
 # threads in the sidebar.
 [keybindings.review]
-# Show the change that answered the comment under the cursor, from the round the
-# comment was written on to the round the agent's addressed reply carried, or go back
+# Show the change that answered the comment under the cursor, from the work the
+# comment was written on to the work the agent's addressed reply carried, or go back
 # to all changes from there.
 answer           = ["a"]
 # Leave the review for the agents list.
 back             = ["esc"]
-# Walk back a round through the review, from the whole change to the newest round and
+# Walk back a chapter through the review, from the whole change to the newest chapter and
 # on into the older ones, stopping on the oldest.
 base             = ["<"]
-# Walk the other way through the rounds, towards the newest work and on to the whole
+# Walk the other way through the chapters, towards the newest work and on to the whole
 # change.
 base_forward     = [">"]
 # Write a message on the line under the cursor, replying in the thread already there
