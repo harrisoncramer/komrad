@@ -48,6 +48,7 @@ type documentsScreen struct {
 	err         error
 	bodies      map[string]documentBody
 	editing     *documentEdit
+	history     *documentHistory
 }
 
 // documentRow is one line of the documents list.
@@ -87,6 +88,8 @@ func (d *documentsScreen) list() screenList[documentRow] {
 		rows:   d.rows,
 		placed: func(h host, _ panelShared) { h.stageInfo() },
 		moved: func(h host, _ panelShared) tea.Cmd {
+			d.history = nil
+
 			return h.waitToStage()
 		},
 		quit: func(k config.Keybindings) []string { return k.Documents.Quit },
@@ -264,7 +267,7 @@ func (m *model) readDocumentsCmd() tea.Cmd {
 		return m.listDocumentsCmd(written)
 	}
 
-	return m.readHoveredDocumentCmd()
+	return tea.Batch(m.readHoveredDocumentCmd(), m.readHistoryCmd())
 }
 
 // documentsWritten is what the agent has written, as its row says.
@@ -401,7 +404,9 @@ func (d *documentsScreen) takesEveryKey() bool {
 func (d *documentsScreen) column() columnSpec {
 	return columnSpec{
 		floor: columnFloor,
-		doc:   func(m model) string { return m.documents.doc(m.shared()) },
+		docRows: func(m model, width int) []string {
+			return m.documents.docRows(m.shared(), width)
+		},
 		holds: func(m model) bool { return m.documents.editing == nil },
 	}
 }

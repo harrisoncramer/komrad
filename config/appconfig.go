@@ -369,6 +369,11 @@ type DocumentsKeys struct {
 	// beside the list. Quitting the editor, or pressing the key again to close it, saves what it
 	// has written to the file.
 	Edit []string `mapstructure:"edit" default:"e"`
+	// Step back to an earlier write of the document under the cursor, drawing what that write
+	// changed.
+	Older []string `mapstructure:"older" default:"<"`
+	// Step forward to a later write, and past the newest back to the document as it stands.
+	Newer []string `mapstructure:"newer" default:">"`
 	// Open the documents screen from the agents list, on the hovered agent's documents, or
 	// its orchestrator's on a workflow's row.
 	Open []string `mapstructure:"open" default:"i"`

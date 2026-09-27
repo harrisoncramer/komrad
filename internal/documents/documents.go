@@ -73,7 +73,8 @@ func (s *DocumentService) WriteDocument(ctx context.Context, params WriteDocumen
 		return nil, ErrNoVersion
 	}
 
-	if params.AgentID == "" {
+	byPerson := params.AgentID == ""
+	if byPerson {
 		if params.ID == nil {
 			return nil, ErrNoAuthor
 		}
@@ -111,12 +112,13 @@ func (s *DocumentService) WriteDocument(ctx context.Context, params WriteDocumen
 	}
 
 	return s.documents.Update(ctx, documentstore.UpdateParams{
-		ID:      *params.ID,
-		AgentID: agent.ID,
-		Name:    params.Name,
-		Kind:    params.Kind,
-		Body:    body,
-		Version: *params.Version,
+		ID:       *params.ID,
+		AgentID:  agent.ID,
+		Name:     params.Name,
+		Kind:     params.Kind,
+		Body:     body,
+		Version:  *params.Version,
+		ByPerson: byPerson,
 	})
 }
 
@@ -167,9 +169,37 @@ func checkBody(body string) error {
 	return nil
 }
 
-// GetDocument returns one document whole.
-func (s *DocumentService) GetDocument(ctx context.Context, id string) (*documentstore.Document, error) {
-	return s.documents.Get(ctx, id)
+// GetDocument returns one document whole, as it stands or as the write version names left it.
+func (s *DocumentService) GetDocument(ctx context.Context, id string, version *int32) (*documentstore.Document, error) {
+	got, err := s.documents.Get(ctx, id)
+	if err != nil || version == nil {
+		return got, err
+	}
+
+	written, err := s.documents.GetVersion(ctx, id, *version)
+	if err != nil {
+		return nil, err
+	}
+
+	got.Name, got.Kind, got.Body = written.Name, written.Kind, written.Body
+	got.Version, got.UpdatedAt = written.Version, written.CreatedAt
+
+	return got, nil
+}
+
+// ListDocumentVersions returns every write of a document, the newest first, with the agent that owns it.
+func (s *DocumentService) ListDocumentVersions(ctx context.Context, id string) (string, []documentstore.Version, error) {
+	got, err := s.documents.Get(ctx, id)
+	if err != nil {
+		return "", nil, err
+	}
+
+	versions, err := s.documents.ListVersions(ctx, id)
+	if err != nil {
+		return "", nil, err
+	}
+
+	return got.AgentID, versions, nil
 }
 
 // ListDocuments returns an agent's documents without their bodies, newest write first.

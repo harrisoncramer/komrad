@@ -365,6 +365,20 @@
               "default": "[\"e\"]"
             },
             {
+              "key": "older",
+              "path": "keybindings.documents.older",
+              "type": "array",
+              "description": "Step back to an earlier write of the document under the cursor, drawing what that write\nchanged.",
+              "default": "[\"\u003c\"]"
+            },
+            {
+              "key": "newer",
+              "path": "keybindings.documents.newer",
+              "type": "array",
+              "description": "Step forward to a later write, and past the newest back to the document as it stands.",
+              "default": "[\"\u003e\"]"
+            },
+            {
               "key": "open",
               "path": "keybindings.documents.open",
               "type": "array",

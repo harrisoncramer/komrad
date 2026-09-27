@@ -153,6 +153,45 @@ func TestWriteWithAnIDRewritesThatDocument(t *testing.T) {
 	assert.Equal(t, "Documents RFC", listed[0].Name)
 }
 
+// TestReadAnEarlierWrite pins that a document reads as an earlier write left it, and that a write
+// or document nobody made is not found.
+func TestReadAnEarlierWrite(t *testing.T) {
+	stores := storetest.Open(t)
+	author := stores.SeedAgent(t, agentstore.Agent{Name: "author"})
+	service := documents.NewDocumentService(documents.NewDocumentServiceParams{Agents: stores.Agents, Documents: stores.Documents})
+	ctx := t.Context()
+
+	draft, err := service.WriteDocument(ctx, documents.WriteDocumentParams{AgentID: author.ID, Name: "Draft", Kind: documentstore.KindNotes, Body: "draft"})
+	require.NoError(t, err)
+	_, err = service.WriteDocument(ctx, documents.WriteDocumentParams{
+		AgentID: author.ID,
+		ID:      xptr.Ptr(draft.ID),
+		Version: xptr.Ptr(draft.Version),
+		Name:    "Documents",
+		Kind:    documentstore.KindRFC,
+		Body:    "revised",
+	})
+	require.NoError(t, err)
+
+	first, err := service.GetDocument(ctx, draft.ID, xptr.Ptr(int32(1)))
+	require.NoError(t, err)
+	assert.Equal(t, draft.ID, first.ID)
+	assert.Equal(t, author.ID, first.AgentID)
+	assert.Equal(t, "Draft", first.Name)
+	assert.Equal(t, documentstore.KindNotes, first.Kind)
+	assert.Equal(t, "draft", first.Body)
+	assert.Equal(t, int32(1), first.Version)
+
+	current, err := service.GetDocument(ctx, draft.ID, nil)
+	require.NoError(t, err)
+	assert.Equal(t, "revised", current.Body)
+
+	_, err = service.GetDocument(ctx, draft.ID, xptr.Ptr(int32(3)))
+	require.ErrorIs(t, err, store.ErrNotFound)
+	_, _, err = service.ListDocumentVersions(ctx, uuid.NewString())
+	require.ErrorIs(t, err, store.ErrNotFound)
+}
+
 // TestWriteByAPerson pins that a write naming no agent rewrites the document its id names and
 // leaves it with the agent that wrote it.
 func TestWriteByAPerson(t *testing.T) {
@@ -206,6 +245,10 @@ func TestWriteByAPerson(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, tt.wantBody, stored.Body)
 			assert.Equal(t, author.ID, stored.AgentID)
+
+			_, versions, err := service.ListDocumentVersions(ctx, written.ID)
+			require.NoError(t, err)
+			assert.True(t, versions[0].ByPerson, "the write is kept as a person's")
 		})
 	}
 }

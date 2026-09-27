@@ -246,5 +246,61 @@ func TestDeletingTheAgentDeletesItsDocuments(t *testing.T) {
 	_, err = stores.Agents.Delete(ctx, []string{author.ID})
 	require.NoError(t, err)
 	_, err = stores.Documents.Get(ctx, created.ID)
-	assert.ErrorIs(t, err, store.ErrNotFound)
+	require.ErrorIs(t, err, store.ErrNotFound)
+	versions, err := stores.Documents.ListVersions(ctx, created.ID)
+	require.NoError(t, err)
+	assert.Empty(t, versions, "and every write of it")
+}
+
+// TestListVersions pins that every write of a document is kept as it was written, the newest first,
+// and that a refused rewrite keeps nothing.
+func TestListVersions(t *testing.T) {
+	stores := storetest.Open(t)
+	ctx := t.Context()
+	author := stores.SeedAgent(t, agentstore.Agent{Name: "author"})
+
+	draft, err := stores.Documents.Create(ctx, documentstore.CreateParams{AgentID: author.ID, Name: "design", Kind: documentstore.KindNotes, Body: "draft"})
+	require.NoError(t, err)
+	revised, err := stores.Documents.Update(ctx, documentstore.UpdateParams{ID: draft.ID, AgentID: author.ID, Name: "design", Kind: documentstore.KindRFC, Body: "revised", Version: draft.Version})
+	require.NoError(t, err)
+	_, err = stores.Documents.Update(ctx, documentstore.UpdateParams{ID: draft.ID, AgentID: author.ID, Name: "design", Kind: documentstore.KindRFC, Body: "stale", Version: draft.Version})
+	require.ErrorIs(t, err, documentstore.ErrChanged)
+	_, err = stores.Documents.Update(ctx, documentstore.UpdateParams{ID: draft.ID, AgentID: author.ID, Name: "design, edited", Kind: documentstore.KindRFC, Body: "edited", Version: revised.Version, ByPerson: true})
+	require.NoError(t, err)
+
+	versions, err := stores.Documents.ListVersions(ctx, draft.ID)
+	require.NoError(t, err)
+	require.Len(t, versions, 3)
+	for i, want := range []struct {
+		version  int32
+		name     string
+		kind     documentstore.Kind
+		byPerson bool
+	}{
+		{version: 3, name: "design, edited", kind: documentstore.KindRFC, byPerson: true},
+		{version: 2, name: "design", kind: documentstore.KindRFC},
+		{version: 1, name: "design", kind: documentstore.KindNotes},
+	} {
+		assert.Equal(t, want.version, versions[i].Version)
+		assert.Equal(t, want.name, versions[i].Name)
+		assert.Equal(t, want.kind, versions[i].Kind)
+		assert.Equal(t, want.byPerson, versions[i].ByPerson)
+		assert.Empty(t, versions[i].Body, "a listing carries no bodies")
+	}
+
+	first, err := stores.Documents.GetVersion(ctx, draft.ID, 1)
+	require.NoError(t, err)
+	assert.Equal(t, "draft", first.Body)
+
+	for _, missing := range []struct {
+		id      string
+		version int32
+	}{
+		{id: draft.ID, version: 4},
+		{id: uuid.NewString(), version: 1},
+		{id: "not-an-id", version: 1},
+	} {
+		_, err := stores.Documents.GetVersion(ctx, missing.id, missing.version)
+		assert.ErrorIs(t, err, store.ErrNotFound, "%s at %d", missing.id, missing.version)
+	}
 }

@@ -26,6 +26,20 @@ func (d *documentsScreen) table() []screenAction {
 			},
 		},
 		screenAction{
+			id:   actionDocumentsOlder,
+			keys: func(k config.Keybindings) []string { return k.Documents.Older },
+			run: func(h host, s panelShared, _ string) tea.Cmd {
+				return d.stepOlder(h, s)
+			},
+		},
+		screenAction{
+			id:   actionDocumentsNewer,
+			keys: func(k config.Keybindings) []string { return k.Documents.Newer },
+			run: func(h host, s panelShared, _ string) tea.Cmd {
+				return d.stepNewer(h, s)
+			},
+		},
+		screenAction{
 			id:   actionDocumentsBack,
 			keys: func(k config.Keybindings) []string { return k.Documents.Back },
 			run: func(h host, _ panelShared, _ string) tea.Cmd {
@@ -40,6 +54,14 @@ func (d *documentsScreen) legend() []screenLegendRow {
 		{
 			of:   []actionID{actionDocumentsEdit},
 			desc: func(panelShared) string { return d.editDesc() },
+		},
+		{
+			of:   []actionID{actionDocumentsOlder},
+			desc: func(panelShared) string { return "an earlier version" },
+		},
+		{
+			of:   []actionID{actionDocumentsNewer},
+			desc: func(panelShared) string { return "a later version" },
 		},
 		{
 			of:    []actionID{actionDocumentsBack},

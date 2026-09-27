@@ -94,7 +94,7 @@ func (s *DocumentStore) Create(ctx context.Context, params CreateParams) (*Docum
 		return nil, fmt.Errorf("failed to create document %q: %w", params.Name, err)
 	}
 
-	created := fromRow(row)
+	created := fromRow((*models.Document)(row))
 
 	return &created, nil
 }
@@ -107,6 +107,8 @@ type UpdateParams struct {
 	Body    string
 	// Version is the version the rewrite replaces.
 	Version int32
+	// ByPerson is whether a person wrote it rather than the agent that owns it.
+	ByPerson bool
 }
 
 // Update rewrites one of the agent's own documents, refusing a version it has moved past.
@@ -116,12 +118,13 @@ func (s *DocumentStore) Update(ctx context.Context, params UpdateParams) (*Docum
 	}
 
 	row, err := s.queries.UpdateDocument(ctx, models.UpdateDocumentParams{
-		ID:      params.ID,
-		AgentID: params.AgentID,
-		Name:    params.Name,
-		Kind:    models.DocumentKind(params.Kind),
-		Body:    params.Body,
-		Version: params.Version,
+		ID:          params.ID,
+		AgentID:     params.AgentID,
+		Name:        params.Name,
+		Kind:        models.DocumentKind(params.Kind),
+		Body:        params.Body,
+		ReadVersion: params.Version,
+		ByPerson:    params.ByPerson,
 	})
 	if db.IsNoRows(err) {
 		return nil, s.missedUpdate(ctx, params)
@@ -133,7 +136,7 @@ func (s *DocumentStore) Update(ctx context.Context, params UpdateParams) (*Docum
 		return nil, fmt.Errorf("failed to update document %q: %w", params.ID, err)
 	}
 
-	updated := fromRow(row)
+	updated := fromRow((*models.Document)(row))
 
 	return &updated, nil
 }
@@ -197,4 +200,61 @@ func (s *DocumentStore) List(ctx context.Context, agentID string, kind *Kind) ([
 	}
 
 	return xslice.Map(rows, fromListRow), nil
+}
+
+// Version is one write of a document as it was written, with an empty Body when it came from a
+// listing.
+type Version struct {
+	Version   int32
+	Name      string
+	Kind      Kind
+	Body      string
+	ByPerson  bool
+	CreatedAt time.Time
+}
+
+// ListVersions returns every write of a document, the newest first.
+func (s *DocumentStore) ListVersions(ctx context.Context, documentID string) ([]Version, error) {
+	if !store.IsID(documentID) {
+		return nil, nil
+	}
+
+	rows, err := s.queries.ListDocumentVersions(ctx, documentID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list the versions of document %q: %w", documentID, err)
+	}
+
+	return xslice.Map(rows, func(row *models.ListDocumentVersionsRow) Version {
+		return Version{
+			Version:   row.Version,
+			Name:      row.Name,
+			Kind:      Kind(row.Kind),
+			ByPerson:  row.ByPerson,
+			CreatedAt: row.CreatedAt,
+		}
+	}), nil
+}
+
+// GetVersion returns one write of a document whole.
+func (s *DocumentStore) GetVersion(ctx context.Context, documentID string, version int32) (*Version, error) {
+	if !store.IsID(documentID) {
+		return nil, fmt.Errorf("%w: document %q", store.ErrNotFound, documentID)
+	}
+
+	row, err := s.queries.GetDocumentVersion(ctx, models.GetDocumentVersionParams{DocumentID: documentID, Version: version})
+	if db.IsNoRows(err) {
+		return nil, fmt.Errorf("%w: version %d of document %q", store.ErrNotFound, version, documentID)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get version %d of document %q: %w", version, documentID, err)
+	}
+
+	return &Version{
+		Version:   row.Version,
+		Name:      row.Name,
+		Kind:      Kind(row.Kind),
+		Body:      row.Body,
+		ByPerson:  row.ByPerson,
+		CreatedAt: row.CreatedAt,
+	}, nil
 }

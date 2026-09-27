@@ -1,31 +1,81 @@
 -- name: InsertDocument :one
-INSERT INTO documents(
-    agent_id,
-    name,
-    kind,
-    body)
-VALUES (
-    @agent_id,
-    @name,
-    @kind,
-    @body)
+WITH inserted AS (
+    INSERT INTO documents(
+        agent_id,
+        name,
+        kind,
+        body)
+    VALUES (
+        @agent_id,
+        @name,
+        @kind,
+        @body)
 RETURNING
-    *;
+    *
+),
+recorded AS (
+    INSERT INTO document_versions(
+        document_id,
+        version,
+        name,
+        kind,
+        body,
+        created_at)
+    SELECT
+        id,
+        version,
+        name,
+        kind,
+        body,
+        updated_at
+    FROM
+        inserted
+)
+SELECT
+    *
+FROM
+    inserted;
 
 -- name: UpdateDocument :one
-UPDATE
-    documents
-SET
-    name = @name,
-    kind = @kind,
-    body = @body,
-    version = version + 1
-WHERE
-    id = @id
-    AND agent_id = @agent_id
-    AND version = @version
-RETURNING
-    *;
+WITH updated AS (
+    UPDATE
+        documents
+    SET
+        name = @name,
+        kind = @kind,
+        body = @body,
+        version = documents.version + 1
+    WHERE
+        documents.id = @id
+        AND documents.agent_id = @agent_id
+        AND documents.version = sqlc.arg('read_version')
+    RETURNING
+        *
+),
+recorded AS (
+    INSERT INTO document_versions(
+        document_id,
+        version,
+        name,
+        kind,
+        body,
+        by_person,
+        created_at)
+    SELECT
+        id,
+        version,
+        name,
+        kind,
+        body,
+        @by_person,
+        updated_at
+    FROM
+        updated
+)
+SELECT
+    *
+FROM
+    updated;
 
 -- name: GetDocument :one
 SELECT
@@ -62,3 +112,26 @@ WHERE
 ORDER BY
     updated_at DESC,
     id DESC;
+
+-- name: ListDocumentVersions :many
+SELECT
+    version,
+    name,
+    kind,
+    by_person,
+    created_at
+FROM
+    document_versions
+WHERE
+    document_id = @document_id
+ORDER BY
+    version DESC;
+
+-- name: GetDocumentVersion :one
+SELECT
+    *
+FROM
+    document_versions
+WHERE
+    document_id = @document_id
+    AND version = @version;

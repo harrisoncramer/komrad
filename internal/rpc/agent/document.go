@@ -15,7 +15,8 @@ import (
 
 type documentReadWriter interface {
 	WriteDocument(ctx context.Context, params documents.WriteDocumentParams) (*documentstore.Document, error)
-	GetDocument(ctx context.Context, id string) (*documentstore.Document, error)
+	GetDocument(ctx context.Context, id string, version *int32) (*documentstore.Document, error)
+	ListDocumentVersions(ctx context.Context, id string) (string, []documentstore.Version, error)
 	ListDocuments(ctx context.Context, agentID string, kind *documentstore.Kind) ([]documentstore.Document, error)
 }
 
@@ -75,7 +76,7 @@ func (s *Handler) ListDocuments(ctx context.Context, req *agentv1.ListDocumentsR
 
 // GetDocument returns one document whole.
 func (s *Handler) GetDocument(ctx context.Context, req *agentv1.GetDocumentRequest) (*agentv1.GetDocumentResponse, *fail.Error) {
-	got, err := s.documents.GetDocument(ctx, req.GetId())
+	got, err := s.documents.GetDocument(ctx, req.GetId(), req.Version)
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to get the document")
 	}
@@ -83,6 +84,18 @@ func (s *Handler) GetDocument(ctx context.Context, req *agentv1.GetDocumentReque
 	logCrossAgentRead(ctx, got.AgentID, "agent read another agent's document")
 
 	return &agentv1.GetDocumentResponse{Document: render.Document(*got)}, nil
+}
+
+// ListDocumentVersions returns every write of one document without their bodies.
+func (s *Handler) ListDocumentVersions(ctx context.Context, req *agentv1.ListDocumentVersionsRequest) (*agentv1.ListDocumentVersionsResponse, *fail.Error) {
+	agentID, versions, err := s.documents.ListDocumentVersions(ctx, req.GetId())
+	if err != nil {
+		return nil, rpcerr.From(err, "failed to list the document's versions")
+	}
+
+	logCrossAgentRead(ctx, agentID, "agent listed the versions of another agent's document")
+
+	return &agentv1.ListDocumentVersionsResponse{Versions: xslice.Map(versions, render.DocumentVersion)}, nil
 }
 
 func documentKindOf(kind agentv1.DocumentKind) (documentstore.Kind, *fail.Error) {

@@ -379,6 +379,14 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 		m.applyDocumentRead(msg)
 
 		return m, nil, true
+	case documentVersionsListedMsg:
+		cmd := m.applyDocumentVersionsListed(msg)
+
+		return m, cmd, true
+	case documentVersionReadMsg:
+		m.applyDocumentVersionRead(msg)
+
+		return m, nil, true
 	case urlOpenedMsg:
 		m.applyURLOpened(msg)
 

@@ -105,6 +105,9 @@ const (
 	// AgentServiceGetDocumentProcedure is the fully-qualified name of the AgentService's GetDocument
 	// RPC.
 	AgentServiceGetDocumentProcedure = "/agent.v1.AgentService/GetDocument"
+	// AgentServiceListDocumentVersionsProcedure is the fully-qualified name of the AgentService's
+	// ListDocumentVersions RPC.
+	AgentServiceListDocumentVersionsProcedure = "/agent.v1.AgentService/ListDocumentVersions"
 	// AgentServiceEmptyArchiveProcedure is the fully-qualified name of the AgentService's EmptyArchive
 	// RPC.
 	AgentServiceEmptyArchiveProcedure = "/agent.v1.AgentService/EmptyArchive"
@@ -192,6 +195,7 @@ type AgentServiceClient interface {
 	WriteDocument(context.Context, *connect.Request[v1.WriteDocumentRequest]) (*connect.Response[v1.WriteDocumentResponse], error)
 	ListDocuments(context.Context, *connect.Request[v1.ListDocumentsRequest]) (*connect.Response[v1.ListDocumentsResponse], error)
 	GetDocument(context.Context, *connect.Request[v1.GetDocumentRequest]) (*connect.Response[v1.GetDocumentResponse], error)
+	ListDocumentVersions(context.Context, *connect.Request[v1.ListDocumentVersionsRequest]) (*connect.Response[v1.ListDocumentVersionsResponse], error)
 	EmptyArchive(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[emptypb.Empty], error)
 	RecordReport(context.Context, *connect.Request[v1.RecordReportRequest]) (*connect.Response[emptypb.Empty], error)
 	MarkRunsRead(context.Context, *connect.Request[v1.MarkRunsReadRequest]) (*connect.Response[emptypb.Empty], error)
@@ -409,6 +413,13 @@ func NewAgentServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
+		listDocumentVersions: connect.NewClient[v1.ListDocumentVersionsRequest, v1.ListDocumentVersionsResponse](
+			httpClient,
+			baseURL+AgentServiceListDocumentVersionsProcedure,
+			connect.WithSchema(agentServiceMethods.ByName("ListDocumentVersions")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+			connect.WithClientOptions(opts...),
+		),
 		emptyArchive: connect.NewClient[emptypb.Empty, emptypb.Empty](
 			httpClient,
 			baseURL+AgentServiceEmptyArchiveProcedure,
@@ -569,6 +580,7 @@ type agentServiceClient struct {
 	writeDocument           *connect.Client[v1.WriteDocumentRequest, v1.WriteDocumentResponse]
 	listDocuments           *connect.Client[v1.ListDocumentsRequest, v1.ListDocumentsResponse]
 	getDocument             *connect.Client[v1.GetDocumentRequest, v1.GetDocumentResponse]
+	listDocumentVersions    *connect.Client[v1.ListDocumentVersionsRequest, v1.ListDocumentVersionsResponse]
 	emptyArchive            *connect.Client[emptypb.Empty, emptypb.Empty]
 	recordReport            *connect.Client[v1.RecordReportRequest, emptypb.Empty]
 	markRunsRead            *connect.Client[v1.MarkRunsReadRequest, emptypb.Empty]
@@ -730,6 +742,11 @@ func (c *agentServiceClient) GetDocument(ctx context.Context, req *connect.Reque
 	return c.getDocument.CallUnary(ctx, req)
 }
 
+// ListDocumentVersions calls agent.v1.AgentService.ListDocumentVersions.
+func (c *agentServiceClient) ListDocumentVersions(ctx context.Context, req *connect.Request[v1.ListDocumentVersionsRequest]) (*connect.Response[v1.ListDocumentVersionsResponse], error) {
+	return c.listDocumentVersions.CallUnary(ctx, req)
+}
+
 // EmptyArchive calls agent.v1.AgentService.EmptyArchive.
 func (c *agentServiceClient) EmptyArchive(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[emptypb.Empty], error) {
 	return c.emptyArchive.CallUnary(ctx, req)
@@ -855,6 +872,7 @@ type AgentServiceHandler interface {
 	WriteDocument(context.Context, *connect.Request[v1.WriteDocumentRequest]) (*connect.Response[v1.WriteDocumentResponse], error)
 	ListDocuments(context.Context, *connect.Request[v1.ListDocumentsRequest]) (*connect.Response[v1.ListDocumentsResponse], error)
 	GetDocument(context.Context, *connect.Request[v1.GetDocumentRequest]) (*connect.Response[v1.GetDocumentResponse], error)
+	ListDocumentVersions(context.Context, *connect.Request[v1.ListDocumentVersionsRequest]) (*connect.Response[v1.ListDocumentVersionsResponse], error)
 	EmptyArchive(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[emptypb.Empty], error)
 	RecordReport(context.Context, *connect.Request[v1.RecordReportRequest]) (*connect.Response[emptypb.Empty], error)
 	MarkRunsRead(context.Context, *connect.Request[v1.MarkRunsReadRequest]) (*connect.Response[emptypb.Empty], error)
@@ -1068,6 +1086,13 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
+	agentServiceListDocumentVersionsHandler := connect.NewUnaryHandler(
+		AgentServiceListDocumentVersionsProcedure,
+		svc.ListDocumentVersions,
+		connect.WithSchema(agentServiceMethods.ByName("ListDocumentVersions")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+		connect.WithHandlerOptions(opts...),
+	)
 	agentServiceEmptyArchiveHandler := connect.NewUnaryHandler(
 		AgentServiceEmptyArchiveProcedure,
 		svc.EmptyArchive,
@@ -1253,6 +1278,8 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 			agentServiceListDocumentsHandler.ServeHTTP(w, r)
 		case AgentServiceGetDocumentProcedure:
 			agentServiceGetDocumentHandler.ServeHTTP(w, r)
+		case AgentServiceListDocumentVersionsProcedure:
+			agentServiceListDocumentVersionsHandler.ServeHTTP(w, r)
 		case AgentServiceEmptyArchiveProcedure:
 			agentServiceEmptyArchiveHandler.ServeHTTP(w, r)
 		case AgentServiceRecordReportProcedure:
@@ -1410,6 +1437,10 @@ func (UnimplementedAgentServiceHandler) ListDocuments(context.Context, *connect.
 
 func (UnimplementedAgentServiceHandler) GetDocument(context.Context, *connect.Request[v1.GetDocumentRequest]) (*connect.Response[v1.GetDocumentResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.GetDocument is not implemented"))
+}
+
+func (UnimplementedAgentServiceHandler) ListDocumentVersions(context.Context, *connect.Request[v1.ListDocumentVersionsRequest]) (*connect.Response[v1.ListDocumentVersionsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.ListDocumentVersions is not implemented"))
 }
 
 func (UnimplementedAgentServiceHandler) EmptyArchive(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[emptypb.Empty], error) {

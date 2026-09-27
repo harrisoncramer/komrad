@@ -78,6 +78,8 @@ const (
 	actionDocumentsOpen
 	actionDocumentsBack
 	actionDocumentsEdit
+	actionDocumentsOlder
+	actionDocumentsNewer
 	actionReviewBack
 	actionReviewFile
 	actionReviewThread

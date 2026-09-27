@@ -20,6 +20,17 @@ func Document(stored documentstore.Document) *agentv1.Document {
 	}
 }
 
+// DocumentVersion draws one write of a document as the wire carries it.
+func DocumentVersion(stored documentstore.Version) *agentv1.DocumentVersion {
+	return &agentv1.DocumentVersion{
+		Version:   stored.Version,
+		Name:      stored.Name,
+		Kind:      DocumentKind(stored.Kind),
+		ByPerson:  stored.ByPerson,
+		CreatedAt: dates.PreciseStamp(stored.CreatedAt),
+	}
+}
+
 // DocumentKind is the wire's name for a kind of document.
 func DocumentKind(kind documentstore.Kind) agentv1.DocumentKind {
 	switch kind {

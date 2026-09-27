@@ -88,9 +88,35 @@ message ListDocumentsResponse {
 message GetDocumentRequest {
   // The document to read.
   string id = 1 [(buf.validate.field).string.min_len = 1];
+  // An earlier write to read as it was, or unset for the document as it stands.
+  optional int32 version = 2 [(buf.validate.field).int32.gt = 0];
 }
 
 message GetDocumentResponse {
   // The document whole.
   Document document = 1;
+}
+
+// DocumentVersion is one write of a document, without its body.
+message DocumentVersion {
+  // Pass this to get_document to read the document as this write left it.
+  int32 version = 1;
+  // The title it had.
+  string name = 2;
+  // What sort of document it was.
+  DocumentKind kind = 3;
+  // Whether a person wrote it in the panel rather than the agent that owns the document.
+  bool by_person = 4;
+  // When it was written, in RFC 3339.
+  string created_at = 5;
+}
+
+message ListDocumentVersionsRequest {
+  // The document whose writes to list.
+  string id = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+message ListDocumentVersionsResponse {
+  // Every write of the document, the newest first.
+  repeated DocumentVersion versions = 1;
 }
