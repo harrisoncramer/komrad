@@ -102,7 +102,7 @@ When creating a workflow or an agent, tell komrade to automatically create a wor
 Komrad places worktrees into [`worktrees.dir`](../../config/#worktrees.dir) unless the workflow names its own location.
 
 <Alert variant="info">
-  Agents do not have to create worktrees, but be careful: those that don't will run directly inside of the directory specified.
+  Agents do not have to create worktrees, but be careful: those that don't will run directly inside of their parent directory.
 </Alert>
 
 The worktree's branch is worked out from your repository's clone when you create the workflow. New worktrees are cut from it and an agent's work is measured against it. If the clone loses that branch, `komrad doctor` says so.
