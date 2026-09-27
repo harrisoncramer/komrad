@@ -95,7 +95,9 @@ It comes after komrad's own briefing and your [global context](../../config/#con
 
 ## Worktrees
 
-Agents that write code need to stay out of each other's way. Komrad can automatically create a worktree for each agent, which is cut fresh from a base branch. The agent works on a branch of its own, and the worktree is removed when the agent is deleted.
+Like most agent orchestrators, komrad ships with first-class support for [worktrees](https://git-scm.com/docs/git-worktree).
+
+Komrad can automatically create a worktree for each agent, which is cut fresh from a base branch. The agent works on a branch of its own, and the worktree is removed when the agent is deleted.
 
 The workflow's directory has to be an ordinary clone for this to work.
 
