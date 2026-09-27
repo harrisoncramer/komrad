@@ -1,6 +1,8 @@
 package ui_test
 
 import (
+	"os"
+	"regexp"
 	"strings"
 	"sync"
 	"testing"
@@ -161,6 +163,243 @@ func TestDocumentsRead(t *testing.T) {
 	})
 }
 
+// TestDocumentsEdit covers opening the document under the cursor in your editor and saving what
+// you wrote there.
+func TestDocumentsEdit(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		write     string
+		refuse    bool
+		between   func(*panelHarness, *documentShelf)
+		close     func(*panelHarness)
+		wantSaved string
+		wantKept  bool
+	}{
+		{
+			name:      "the key again saves what changed",
+			write:     "# Design the cache\n\nKeep the cache cold.",
+			close:     func(h *panelHarness) { h.press("e") },
+			wantSaved: "# Design the cache\n\nKeep the cache cold.",
+		},
+		{
+			name:  "the editor quitting saves what changed",
+			write: "Rewritten.",
+			close: func(h *panelHarness) {
+				editors := h.panel.ReadRespawnPanes()
+				h.panel.SetPaneDead(editors[len(editors)-1])
+				h.fireTimers()
+			},
+			wantSaved: "Rewritten.",
+		},
+		{
+			name:  "leaving the screen saves what changed",
+			write: "Rewritten.",
+			close: func(h *panelHarness) {
+				h.press("esc")
+				require.Contains(t, h.readFrame(), agentsTitle)
+			},
+			wantSaved: "Rewritten.",
+		},
+		{
+			name:      "a refused write keeps the copy",
+			write:     "Rewritten.",
+			refuse:    true,
+			close:     func(h *panelHarness) { h.press("e") },
+			wantSaved: "Rewritten.",
+			wantKept:  true,
+		},
+		{
+			name:  "a write refused because the agent rewrote it meanwhile keeps the copy",
+			write: "Rewritten.",
+			between: func(h *panelHarness, docs *documentShelf) {
+				docs.rewrite("d1", "The agent's own rewrite.", "2026-09-26T12:00:00Z")
+				author := buildDocumentAuthors()[2].(*agentv1.Agent)
+				author.DocumentsUpdatedAt = proto.String("2026-09-26T12:00:00Z")
+				h.watch(buildPuts(author))
+			},
+			refuse:    true,
+			close:     func(h *panelHarness) { h.press("e") },
+			wantSaved: "Rewritten.",
+			wantKept:  true,
+		},
+		{
+			name:  "nothing changed saves nothing",
+			write: "# Design the cache\n\nKeep the cache warm.",
+			close: func(h *panelHarness) { h.press("e") },
+		},
+		{
+			name:  "an emptied document is not saved",
+			write: "  \n",
+			close: func(h *panelHarness) { h.press("e") },
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			harness, docs := openDocuments(t, "author")
+			harness.answer(agentv1connect.AgentServiceWriteDocumentProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+				if tt.refuse {
+					return nil, connect.NewError(connect.CodeFailedPrecondition, nil)
+				}
+
+				return connect.NewResponse(&agentv1.WriteDocumentResponse{}), nil
+			})
+			harness.press("e")
+
+			respawns := harness.panel.ReadRespawns()
+			require.NotEmpty(t, respawns)
+			path := readEditedPath(t, respawns[len(respawns)-1])
+			assert.NotContains(t, readStageText(harness.readFrame()), "Keep the cache warm.", "the editor stands where the document was drawn")
+
+			require.NoError(t, os.WriteFile(path, []byte(tt.write), 0o600))
+			if tt.between != nil {
+				tt.between(harness, docs)
+			}
+			tt.close(harness)
+
+			if tt.wantKept {
+				assert.FileExists(t, path)
+			}
+
+			if tt.wantSaved == "" {
+				assert.Empty(t, harness.readSent(agentv1connect.AgentServiceWriteDocumentProcedure))
+
+				return
+			}
+
+			harness.assertSentTo(agentv1connect.AgentServiceWriteDocumentProcedure, &agentv1.WriteDocumentRequest{
+				Id:      proto.String("d1"),
+				Version: proto.Int32(3),
+				Name:    "Design the cache",
+				Kind:    agentv1.DocumentKind_DOCUMENT_KIND_RFC,
+				Source:  &agentv1.WriteDocumentRequest_Body{Body: tt.wantSaved},
+			})
+			if !tt.wantKept {
+				assert.NoFileExists(t, path)
+			}
+		})
+	}
+}
+
+// TestDocumentsHistory covers stepping back and forward through a document's writes, drawing
+// what each changed.
+func TestDocumentsHistory(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		presses  []string
+		unlisted bool
+		relisted bool
+		want     []string
+		wantNot  []string
+	}{
+		{
+			name:    "stepping back draws what the newest write changed",
+			presses: []string{"<"},
+			want:    []string{"version 3 of 3, written by you", "- Keep the cache cold.", "- Evict nightly.", "+ Keep the cache warm."},
+		},
+		{
+			name:    "stepping back again draws the write before it",
+			presses: []string{"<", "<"},
+			want:    []string{"version 2 of 3, written by the agent", "+ Evict nightly."},
+			wantNot: []string{"Keep the cache warm."},
+		},
+		{
+			name:    "the first write is drawn whole as added, and stepping past it stays there",
+			presses: []string{"<", "<", "<", "<"},
+			want:    []string{"version 1 of 3", "+ Keep the cache cold."},
+		},
+		{
+			name:    "stepping forward draws the later write",
+			presses: []string{"<", "<", ">"},
+			want:    []string{"version 3 of 3"},
+		},
+		{
+			name:    "stepping forward past the newest draws the document as it stands",
+			presses: []string{"<", ">"},
+			want:    []string{"RFC, written", "Keep the cache warm."},
+			wantNot: []string{"version 3 of 3"},
+		},
+		{
+			name:    "moving the cursor leaves the writes behind",
+			presses: []string{"<", "j"},
+			want:    []string{"It went out on Tuesday."},
+			wantNot: []string{"version"},
+		},
+		{
+			name:    "stepping back through writes not kept from the first steps by what was kept",
+			presses: []string{"j", "<"},
+			want:    []string{"version 5 of 5", "- It went out on Monday.", "+ It went out on Tuesday."},
+		},
+		{
+			name:    "the oldest write kept when earlier ones were not is drawn as it is",
+			presses: []string{"j", "<", "<"},
+			want:    []string{"version 4 of 5", "the writes before it were not kept", "It went out on Monday."},
+			wantNot: []string{"+ It went out on Monday."},
+		},
+		{
+			name:     "writes that could not be listed are listed again on the next step",
+			presses:  []string{"<"},
+			unlisted: true,
+			relisted: true,
+			want:     []string{"version 3 of 3"},
+		},
+		{
+			name:     "writes that cannot be listed say so",
+			presses:  []string{"<"},
+			unlisted: true,
+			want:     []string{"could not list its versions"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			harness, docs := openDocuments(t, "author")
+			docs.mu.Lock()
+			docs.unlisted = tt.unlisted
+			docs.mu.Unlock()
+
+			for _, key := range tt.presses {
+				harness.press(key)
+				harness.fireTimers()
+			}
+
+			if tt.relisted {
+				docs.mu.Lock()
+				docs.unlisted = false
+				docs.mu.Unlock()
+				harness.press("<")
+				harness.fireTimers()
+			}
+
+			stage := readStageText(harness.readFrame())
+			for _, want := range tt.want {
+				assert.Contains(t, stage, want)
+			}
+			for _, wantNot := range tt.wantNot {
+				assert.NotContains(t, stage, wantNot)
+			}
+		})
+	}
+}
+
+// readEditedPath is the file an editor's shell line opens.
+func readEditedPath(t *testing.T, respawn string) string {
+	t.Helper()
+
+	match := regexp.MustCompile(`'([^']*komrad-document-[^']*\.md)'`).FindStringSubmatch(respawn)
+	require.Len(t, match, 2, "no document copy in %q", respawn)
+
+	return match[1]
+}
+
 // openDocuments opens the documents screen from the agents list on the row named, and fires the
 // rest the cursor waits for.
 func openDocuments(t *testing.T, row string) (*panelHarness, *documentShelf) {
@@ -217,17 +456,39 @@ type documentShelf struct {
 	mu     sync.Mutex
 	listed []*agentv1.Document
 	bodies map[string]string
+	// writes is every write kept of a document, oldest first.
+	writes map[string][]documentWrite
+	// unlisted refuses to list the writes of a document.
+	unlisted bool
+}
+
+// documentWrite is one write kept of a document.
+type documentWrite struct {
+	version  int32
+	body     string
+	byPerson bool
 }
 
 func newDocumentShelf() *documentShelf {
 	return &documentShelf{
 		listed: []*agentv1.Document{
-			{Id: "d1", Name: "Design the cache", Kind: agentv1.DocumentKind_DOCUMENT_KIND_RFC, UpdatedAt: "2026-09-25T12:00:00Z"},
-			{Id: "d2", Name: "Rollout report", Kind: agentv1.DocumentKind_DOCUMENT_KIND_REPORT, UpdatedAt: "2026-09-24T12:00:00Z"},
+			{Id: "d1", Name: "Design the cache", Kind: agentv1.DocumentKind_DOCUMENT_KIND_RFC, Version: 3, UpdatedAt: "2026-09-25T12:00:00Z"},
+			{Id: "d2", Name: "Rollout report", Kind: agentv1.DocumentKind_DOCUMENT_KIND_REPORT, Version: 5, UpdatedAt: "2026-09-24T12:00:00Z"},
 		},
 		bodies: map[string]string{
 			"d1": "# Design the cache\n\nKeep the cache warm.",
 			"d2": "It went out on Tuesday.",
+		},
+		writes: map[string][]documentWrite{
+			"d1": {
+				{version: 1, body: "# Design the cache\n\nKeep the cache cold."},
+				{version: 2, body: "# Design the cache\n\nKeep the cache cold.\n\nEvict nightly."},
+				{version: 3, body: "# Design the cache\n\nKeep the cache warm.", byPerson: true},
+			},
+			"d2": {
+				{version: 4, body: "It went out on Monday."},
+				{version: 5, body: "It went out on Tuesday."},
+			},
 		},
 	}
 }
@@ -241,6 +502,8 @@ func (d *documentShelf) rewrite(id, body, at string) {
 	for _, document := range d.listed {
 		if document.GetId() == id {
 			document.UpdatedAt = at
+			document.Version++
+			d.writes[id] = append(d.writes[id], documentWrite{version: document.GetVersion(), body: body})
 		}
 	}
 }
@@ -280,10 +543,39 @@ func (d *documentShelf) answer(harness *panelHarness) {
 			whole, ok := proto.Clone(document).(*agentv1.Document)
 			require.True(harness.t, ok)
 			whole.Body = d.bodies[read.GetId()]
+			if read.Version != nil {
+				whole.Version = read.GetVersion()
+				for _, write := range d.writes[read.GetId()] {
+					if write.version == read.GetVersion() {
+						whole.Body = write.body
+					}
+				}
+			}
 
 			return connect.NewResponse(&agentv1.GetDocumentResponse{Document: whole}), nil
 		}
 
 		return nil, connect.NewError(connect.CodeNotFound, nil)
+	})
+	harness.answer(agentv1connect.AgentServiceListDocumentVersionsProcedure, func(req connect.AnyRequest) (connect.AnyResponse, error) {
+		d.mu.Lock()
+		defer d.mu.Unlock()
+
+		if d.unlisted {
+			return nil, connect.NewError(connect.CodeUnavailable, nil)
+		}
+
+		listed, _ := req.Any().(*agentv1.ListDocumentVersionsRequest)
+		writes := d.writes[listed.GetId()]
+		versions := make([]*agentv1.DocumentVersion, 0, len(writes))
+		for i := len(writes) - 1; i >= 0; i-- {
+			versions = append(versions, &agentv1.DocumentVersion{
+				Version:   writes[i].version,
+				ByPerson:  writes[i].byPerson,
+				CreatedAt: "2026-09-25T12:00:00Z",
+			})
+		}
+
+		return connect.NewResponse(&agentv1.ListDocumentVersionsResponse{Versions: versions}), nil
 	})
 }

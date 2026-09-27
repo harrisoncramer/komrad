@@ -472,3 +472,37 @@ func (a api) getDocument(id string) (*agentv1.Document, error) {
 		return resp.Msg.GetDocument(), nil
 	})
 }
+
+func (a api) getDocumentVersion(id string, version int32) (*agentv1.Document, error) {
+	return call(requestTimeout, func(ctx context.Context) (*agentv1.Document, error) {
+		resp, err := a.agents.GetDocument(ctx, connect.NewRequest(&agentv1.GetDocumentRequest{Id: id, Version: &version}))
+		if err != nil {
+			return nil, fmt.Errorf("failed to read version %d of document %q: %w", version, id, err)
+		}
+
+		return resp.Msg.GetDocument(), nil
+	})
+}
+
+func (a api) listDocumentVersions(id string) ([]*agentv1.DocumentVersion, error) {
+	return call(requestTimeout, func(ctx context.Context) ([]*agentv1.DocumentVersion, error) {
+		resp, err := a.agents.ListDocumentVersions(ctx, connect.NewRequest(&agentv1.ListDocumentVersionsRequest{Id: id}))
+		if err != nil {
+			return nil, fmt.Errorf("failed to list the versions of document %q: %w", id, err)
+		}
+
+		return resp.Msg.GetVersions(), nil
+	})
+}
+
+func (a api) writeDocument(item documentItem, version int32, body string) error {
+	return mutate(func(ctx context.Context) (any, error) {
+		return a.agents.WriteDocument(ctx, connect.NewRequest(&agentv1.WriteDocumentRequest{
+			Id:      &item.id,
+			Version: &version,
+			Name:    item.name,
+			Kind:    item.kind,
+			Source:  &agentv1.WriteDocumentRequest_Body{Body: body},
+		}))
+	})
+}

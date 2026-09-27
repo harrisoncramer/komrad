@@ -113,7 +113,7 @@ func TestDocuments(t *testing.T) {
 	assert.True(t, row.DocumentsUpdatedAt.Equal(second.UpdatedAt), "the newest write is the one that landed last")
 	assert.Zero(t, rowOf(t, st, other.ID).Documents, "another agent's documents are not counted")
 
-	rewritten, err := st.Documents.Update(ctx, documentstore.UpdateParams{ID: second.ID, AgentID: author.ID, Name: "second", Kind: documentstore.KindNotes, Body: "again"})
+	rewritten, err := st.Documents.Update(ctx, documentstore.UpdateParams{ID: second.ID, AgentID: author.ID, Name: "second", Kind: documentstore.KindNotes, Body: "again", Version: second.Version})
 	require.NoError(t, err)
 
 	row = rowOf(t, st, author.ID)

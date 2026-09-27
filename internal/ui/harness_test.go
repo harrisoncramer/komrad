@@ -265,7 +265,7 @@ func newPanelHarness(t *testing.T, params panelHarnessParams) *panelHarness {
 			SidebarWidth:    params.sidebarWidth,
 			Width:           width,
 			Height:          height,
-			Settings:        params.settings,
+			Settings:        draftedSettings(t, params.settings),
 			Engine:          params.engine,
 			ShellCommand:    params.shellCommand,
 			TerminalCommand: params.terminalCommand,
@@ -781,4 +781,15 @@ func readReviewCursor(frame string) string {
 	}
 
 	return ""
+}
+
+// draftedSettings keeps the copies a panel writes for an editor inside the test's own directory.
+func draftedSettings(t *testing.T, settings ui.PanelSettings) ui.PanelSettings {
+	t.Helper()
+
+	if settings.DraftDir == "" {
+		settings.DraftDir = t.TempDir()
+	}
+
+	return settings
 }

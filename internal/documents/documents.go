@@ -29,6 +29,10 @@ var (
 	ErrEmptyFile = fail.InvalidArgument("the file is empty")
 	// ErrNoBody is a write naming neither a body nor a path.
 	ErrNoBody = fail.InvalidArgument("a document needs a body or a path to read one from")
+	// ErrNoAuthor is a new document written by something that is not an agent.
+	ErrNoAuthor = fail.InvalidArgument("only an agent can create a document")
+	// ErrNoVersion is a rewrite that does not say which version it replaces.
+	ErrNoVersion = fail.InvalidArgument("a rewrite needs the version it replaces, as the last read or write returned it")
 )
 
 type NewDocumentServiceParams struct {
@@ -48,13 +52,16 @@ func NewDocumentService(params NewDocumentServiceParams) *DocumentService {
 }
 
 type WriteDocumentParams struct {
-	// AgentID is the agent writing, whose document it is.
+	// AgentID is the agent writing, whose document it is, or empty for a person rewriting the
+	// document ID names.
 	AgentID string
 	// ID is the document to rewrite, or nil to create one.
-	ID   *string
-	Name string
-	Kind documentstore.Kind
-	Body string
+	ID *string
+	// Version is the version a rewrite replaces, required with ID.
+	Version *int32
+	Name    string
+	Kind    documentstore.Kind
+	Body    string
 	// Path is a file on this machine to read the body from, resolved against the agent's
 	// working directory when relative.
 	Path string
@@ -62,6 +69,23 @@ type WriteDocumentParams struct {
 
 // WriteDocument creates a document, or rewrites the one ID names.
 func (s *DocumentService) WriteDocument(ctx context.Context, params WriteDocumentParams) (*documentstore.Document, error) {
+	if params.ID != nil && params.Version == nil {
+		return nil, ErrNoVersion
+	}
+
+	byPerson := params.AgentID == ""
+	if byPerson {
+		if params.ID == nil {
+			return nil, ErrNoAuthor
+		}
+
+		held, err := s.documents.Get(ctx, *params.ID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to find the document to rewrite: %w", err)
+		}
+		params.AgentID = held.AgentID
+	}
+
 	agent, err := s.agents.GetByID(ctx, params.AgentID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find the agent writing the document: %w", err)
@@ -88,11 +112,13 @@ func (s *DocumentService) WriteDocument(ctx context.Context, params WriteDocumen
 	}
 
 	return s.documents.Update(ctx, documentstore.UpdateParams{
-		ID:      *params.ID,
-		AgentID: agent.ID,
-		Name:    params.Name,
-		Kind:    params.Kind,
-		Body:    body,
+		ID:       *params.ID,
+		AgentID:  agent.ID,
+		Name:     params.Name,
+		Kind:     params.Kind,
+		Body:     body,
+		Version:  *params.Version,
+		ByPerson: byPerson,
 	})
 }
 
@@ -143,9 +169,37 @@ func checkBody(body string) error {
 	return nil
 }
 
-// GetDocument returns one document whole.
-func (s *DocumentService) GetDocument(ctx context.Context, id string) (*documentstore.Document, error) {
-	return s.documents.Get(ctx, id)
+// GetDocument returns one document whole, as it stands or as the write version names left it.
+func (s *DocumentService) GetDocument(ctx context.Context, id string, version *int32) (*documentstore.Document, error) {
+	got, err := s.documents.Get(ctx, id)
+	if err != nil || version == nil {
+		return got, err
+	}
+
+	written, err := s.documents.GetVersion(ctx, id, *version)
+	if err != nil {
+		return nil, err
+	}
+
+	got.Name, got.Kind, got.Body = written.Name, written.Kind, written.Body
+	got.Version, got.UpdatedAt = written.Version, written.CreatedAt
+
+	return got, nil
+}
+
+// ListDocumentVersions returns every write of a document, the newest first, with the agent that owns it.
+func (s *DocumentService) ListDocumentVersions(ctx context.Context, id string) (string, []documentstore.Version, error) {
+	got, err := s.documents.Get(ctx, id)
+	if err != nil {
+		return "", nil, err
+	}
+
+	versions, err := s.documents.ListVersions(ctx, id)
+	if err != nil {
+		return "", nil, err
+	}
+
+	return got.AgentID, versions, nil
 }
 
 // ListDocuments returns an agent's documents without their bodies, newest write first.

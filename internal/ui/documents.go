@@ -27,6 +27,7 @@ type documentItem struct {
 // documentBody is one document's text as it was last read, or why it could not be.
 type documentBody struct {
 	updatedAt time.Time
+	version   int32
 	body      string
 	pending   bool
 	err       error
@@ -46,6 +47,8 @@ type documentsScreen struct {
 	listing     bool
 	err         error
 	bodies      map[string]documentBody
+	editing     *documentEdit
+	history     *documentHistory
 }
 
 // documentRow is one line of the documents list.
@@ -59,13 +62,15 @@ func (r documentRow) key() string {
 
 // enter opens on the documents of the agent the target names, forgetting another agent's.
 func (d *documentsScreen) enter(h host, _ panelShared, target screenTarget) tea.Cmd {
+	var saved tea.Cmd
 	if target.agentID != d.agentID {
+		saved = d.closeEdit(h)
 		*d = documentsScreen{agentID: target.agentID}
 	}
 
 	h.stageInfo()
 
-	return h.waitToStage()
+	return tea.Batch(saved, h.waitToStage())
 }
 
 func (d *documentsScreen) update(h host, s panelShared, msg tea.Msg) tea.Cmd {
@@ -83,6 +88,8 @@ func (d *documentsScreen) list() screenList[documentRow] {
 		rows:   d.rows,
 		placed: func(h host, _ panelShared) { h.stageInfo() },
 		moved: func(h host, _ panelShared) tea.Cmd {
+			d.history = nil
+
 			return h.waitToStage()
 		},
 		quit: func(k config.Keybindings) []string { return k.Documents.Quit },
@@ -260,7 +267,7 @@ func (m *model) readDocumentsCmd() tea.Cmd {
 		return m.listDocumentsCmd(written)
 	}
 
-	return m.readHoveredDocumentCmd()
+	return tea.Batch(m.readHoveredDocumentCmd(), m.readHistoryCmd())
 }
 
 // documentsWritten is what the agent has written, as its row says.
@@ -362,6 +369,7 @@ func (m *model) readHoveredDocumentCmd() tea.Cmd {
 
 		return documentReadMsg{agentID: agentID, id: item.id, read: documentBody{
 			updatedAt: dates.Parse(document.GetUpdatedAt()),
+			version:   document.GetVersion(),
 			body:      document.GetBody(),
 		}}
 	}
@@ -396,6 +404,9 @@ func (d *documentsScreen) takesEveryKey() bool {
 func (d *documentsScreen) column() columnSpec {
 	return columnSpec{
 		floor: columnFloor,
-		doc:   func(m model) string { return m.documents.doc(m.shared()) },
+		docRows: func(m model, width int) []string {
+			return m.documents.docRows(m.shared(), width)
+		},
+		holds: func(m model) bool { return m.documents.editing == nil },
 	}
 }

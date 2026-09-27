@@ -358,6 +358,27 @@
               "default": "[\"esc\"]"
             },
             {
+              "key": "edit",
+              "path": "keybindings.documents.edit",
+              "type": "array",
+              "description": "Open the document under the cursor in your editor, in place of the document drawn\nbeside the list. Quitting the editor, or pressing the key again to close it, saves what it\nhas written to the file.",
+              "default": "[\"e\"]"
+            },
+            {
+              "key": "older",
+              "path": "keybindings.documents.older",
+              "type": "array",
+              "description": "Step back to an earlier write of the document under the cursor, drawing what that write\nchanged.",
+              "default": "[\"\u003c\"]"
+            },
+            {
+              "key": "newer",
+              "path": "keybindings.documents.newer",
+              "type": "array",
+              "description": "Step forward to a later write, and past the newest back to the document as it stands.",
+              "default": "[\"\u003e\"]"
+            },
+            {
               "key": "open",
               "path": "keybindings.documents.open",
               "type": "array",

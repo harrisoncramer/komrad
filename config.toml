@@ -145,12 +145,21 @@ copy = ["y"]
 # The documents screen, which reads what the hovered agent has written for a person.
 [keybindings.documents]
 # Leave the documents screen for the agents list.
-back = ["esc"]
+back  = ["esc"]
+# Open the document under the cursor in your editor, in place of the document drawn
+# beside the list. Quitting the editor, or pressing the key again to close it, saves what it
+# has written to the file.
+edit  = ["e"]
+# Step back to an earlier write of the document under the cursor, drawing what that write
+# changed.
+older = ["<"]
+# Step forward to a later write, and past the newest back to the document as it stands.
+newer = [">"]
 # Open the documents screen from the agents list, on the hovered agent's documents, or
 # its orchestrator's on a workflow's row.
-open = ["i"]
+open  = ["i"]
 # Quit the panel.
-quit = ["ctrl+c"]
+quit  = ["ctrl+c"]
 
 # The filter over whichever list is on screen, shared by every screen that
 # draws one. The key that opens it is "/" and is not configured.

@@ -28,6 +28,9 @@ type fakeDocuments struct {
 	stored  documentstore.Document
 	written []documents.WriteDocumentParams
 	listed  []fakeDocumentsList
+	// versions is every write of stored, and read the versions a get asked for.
+	versions []documentstore.Version
+	read     []*int32
 }
 
 type fakeDocumentsList struct {
@@ -51,8 +54,9 @@ func (f *fakeDocuments) WriteDocument(_ context.Context, params documents.WriteD
 	return &written, nil
 }
 
-// GetDocument answers stored unless err refuses it.
-func (f *fakeDocuments) GetDocument(_ context.Context, _ string) (*documentstore.Document, error) {
+// GetDocument records the version asked for and answers stored unless err refuses it.
+func (f *fakeDocuments) GetDocument(_ context.Context, _ string, version *int32) (*documentstore.Document, error) {
+	f.read = append(f.read, version)
 	if f.err != nil {
 		return nil, f.err
 	}
@@ -71,6 +75,15 @@ func (f *fakeDocuments) ListDocuments(_ context.Context, agentID string, kind *d
 	listed.Body = ""
 
 	return []documentstore.Document{listed}, nil
+}
+
+// ListDocumentVersions answers versions as the writes of stored unless err refuses it.
+func (f *fakeDocuments) ListDocumentVersions(_ context.Context, _ string) (string, []documentstore.Version, error) {
+	if f.err != nil {
+		return "", nil, f.err
+	}
+
+	return f.stored.AgentID, f.versions, nil
 }
 
 func newDocumentHandler(docs *fakeDocuments) agentv1komrad.AgentServiceAdapter {
@@ -98,6 +111,11 @@ func TestDocumentErrors(t *testing.T) {
 
 		return err
 	}
+	versions := func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
+		_, err := svc.ListDocumentVersions(ctx, connect.NewRequest(&agentv1.ListDocumentVersionsRequest{Id: documentID}))
+
+		return err
+	}
 
 	tests := []struct {
 		name     string
@@ -106,13 +124,16 @@ func TestDocumentErrors(t *testing.T) {
 		asNobody bool
 		wantCode connect.Code
 	}{
-		{name: "writing with no caller identity", call: write, asNobody: true, wantCode: connect.CodeInvalidArgument},
+		{name: "creating a document with no author", call: write, err: documents.ErrNoAuthor, wantCode: connect.CodeInvalidArgument},
 		{name: "writing a name the agent already uses", call: write, err: store.ErrNameTaken, wantCode: connect.CodeAlreadyExists},
 		{name: "writing a body over the cap", call: write, err: documents.ErrTooLarge, wantCode: connect.CodeInvalidArgument},
 		{name: "writing from a path that cannot be read", call: write, err: documents.ErrUnreadablePath, wantCode: connect.CodeInvalidArgument},
 		{name: "rewriting a document that does not exist", call: write, err: store.ErrNotFound, wantCode: connect.CodeNotFound},
+		{name: "rewriting a document with no version", call: write, err: documents.ErrNoVersion, wantCode: connect.CodeInvalidArgument},
+		{name: "rewriting a document written since it was read", call: write, err: documentstore.ErrChanged, wantCode: connect.CodeFailedPrecondition},
 		{name: "listing with no id and no caller identity", call: list, asNobody: true, wantCode: connect.CodeInvalidArgument},
 		{name: "getting a document that does not exist", call: get, err: store.ErrNotFound, wantCode: connect.CodeNotFound},
+		{name: "listing the versions of a document that does not exist", call: versions, err: store.ErrNotFound, wantCode: connect.CodeNotFound},
 	}
 
 	for _, tt := range tests {
@@ -136,9 +157,10 @@ func TestDocumentErrors(t *testing.T) {
 // TestWriteDocument pins that a write is the caller's own and comes back without its body.
 func TestWriteDocument(t *testing.T) {
 	tests := []struct {
-		name string
-		req  *agentv1.WriteDocumentRequest
-		want documents.WriteDocumentParams
+		name     string
+		req      *agentv1.WriteDocumentRequest
+		asNobody bool
+		want     documents.WriteDocumentParams
 	}{
 		{
 			name: "a body creates a document",
@@ -152,12 +174,24 @@ func TestWriteDocument(t *testing.T) {
 		{
 			name: "a path with an id rewrites that document",
 			req: &agentv1.WriteDocumentRequest{
+				Id:      xptr.Ptr(documentID),
+				Version: xptr.Ptr(int32(2)),
+				Name:    "Findings",
+				Kind:    agentv1.DocumentKind_DOCUMENT_KIND_REPORT,
+				Source:  &agentv1.WriteDocumentRequest_Path{Path: "rfcs/findings.md"},
+			},
+			want: documents.WriteDocumentParams{AgentID: alphaID, ID: xptr.Ptr(documentID), Version: xptr.Ptr(int32(2)), Name: "Findings", Kind: documentstore.KindReport, Path: "rfcs/findings.md"},
+		},
+		{
+			name: "a caller that is not an agent rewrites the document the id names",
+			req: &agentv1.WriteDocumentRequest{
 				Id:     xptr.Ptr(documentID),
 				Name:   "Findings",
 				Kind:   agentv1.DocumentKind_DOCUMENT_KIND_REPORT,
-				Source: &agentv1.WriteDocumentRequest_Path{Path: "rfcs/findings.md"},
+				Source: &agentv1.WriteDocumentRequest_Body{Body: "edited"},
 			},
-			want: documents.WriteDocumentParams{AgentID: alphaID, ID: xptr.Ptr(documentID), Name: "Findings", Kind: documentstore.KindReport, Path: "rfcs/findings.md"},
+			asNobody: true,
+			want:     documents.WriteDocumentParams{ID: xptr.Ptr(documentID), Name: "Findings", Kind: documentstore.KindReport, Body: "edited"},
 		},
 	}
 
@@ -166,7 +200,12 @@ func TestWriteDocument(t *testing.T) {
 			docs := &fakeDocuments{stored: documentstore.Document{ID: documentID}}
 			svc := newDocumentHandler(docs)
 
-			written, err := svc.WriteDocument(caller.With(t.Context(), caller.Caller{AgentID: alphaID}), connect.NewRequest(tt.req))
+			ctx := t.Context()
+			if !tt.asNobody {
+				ctx = caller.With(ctx, caller.Caller{AgentID: alphaID})
+			}
+
+			written, err := svc.WriteDocument(ctx, connect.NewRequest(tt.req))
 			require.NoError(t, err)
 
 			assert.Equal(t, []documents.WriteDocumentParams{tt.want}, docs.written)
@@ -238,19 +277,24 @@ func TestGetDocument(t *testing.T) {
 	tests := []struct {
 		name       string
 		from       string
+		version    *int32
 		wantTarget string
 	}{
 		{name: "the author reads its own", from: betaID},
 		{name: "another agent's read is recorded", from: alphaID, wantTarget: betaID},
+		{name: "a version reads that write", from: betaID, version: xptr.Ptr(int32(2))},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc := newDocumentHandler(&fakeDocuments{stored: stored})
+			docs := &fakeDocuments{stored: stored}
+			svc := newDocumentHandler(docs)
 			ctx, written := newLoggedCaller(t, tt.from)
 
-			got, err := svc.GetDocument(ctx, connect.NewRequest(&agentv1.GetDocumentRequest{Id: documentID}))
+			got, err := svc.GetDocument(ctx, connect.NewRequest(&agentv1.GetDocumentRequest{Id: documentID, Version: tt.version}))
 			require.NoError(t, err)
+
+			assert.Equal(t, []*int32{tt.version}, docs.read)
 
 			assert.Empty(t, cmp.Diff(&agentv1.Document{
 				Id:        documentID,
@@ -264,6 +308,45 @@ func TestGetDocument(t *testing.T) {
 			assertCrossAgentRead(t, assertCrossAgentReadParams{
 				Written: written.String(),
 				Body:    "agent read another agent's document",
+				Target:  tt.wantTarget,
+			})
+		})
+	}
+}
+
+// TestListDocumentVersions pins that a document's writes come back as the wire draws them and that
+// listing another agent's is recorded.
+func TestListDocumentVersions(t *testing.T) {
+	tests := []struct {
+		name       string
+		from       string
+		wantTarget string
+	}{
+		{name: "the author lists its own", from: betaID},
+		{name: "another agent's listing is recorded", from: alphaID, wantTarget: betaID},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := newDocumentHandler(&fakeDocuments{
+				stored: documentstore.Document{ID: documentID, AgentID: betaID},
+				versions: []documentstore.Version{
+					{Version: 2, Name: "Documents", Kind: documentstore.KindRFC, ByPerson: true, CreatedAt: time.Date(2026, time.September, 26, 10, 0, 0, 0, time.UTC)},
+					{Version: 1, Name: "Draft", Kind: documentstore.KindNotes, CreatedAt: time.Date(2026, time.September, 26, 9, 0, 0, 0, time.UTC)},
+				},
+			})
+			ctx, written := newLoggedCaller(t, tt.from)
+
+			listed, err := svc.ListDocumentVersions(ctx, connect.NewRequest(&agentv1.ListDocumentVersionsRequest{Id: documentID}))
+			require.NoError(t, err)
+
+			assert.Empty(t, cmp.Diff([]*agentv1.DocumentVersion{
+				{Version: 2, Name: "Documents", Kind: agentv1.DocumentKind_DOCUMENT_KIND_RFC, ByPerson: true, CreatedAt: "2026-09-26T10:00:00Z"},
+				{Version: 1, Name: "Draft", Kind: agentv1.DocumentKind_DOCUMENT_KIND_NOTES, CreatedAt: "2026-09-26T09:00:00Z"},
+			}, listed.Msg.GetVersions(), protocmp.Transform()))
+			assertCrossAgentRead(t, assertCrossAgentReadParams{
+				Written: written.String(),
+				Body:    "agent listed the versions of another agent's document",
 				Target:  tt.wantTarget,
 			})
 		})

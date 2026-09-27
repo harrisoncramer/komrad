@@ -447,6 +447,22 @@ type Document struct {
 	UpdatedAt time.Time
 	// The engine that owns this row, stamped from the login that wrote it.
 	EngineID string
+	// How many times the document has been written, which a rewrite names to say what it replaces.
+	Version int32
+}
+
+// Every write of a document as it was written, so a person can step back through it.
+type DocumentVersion struct {
+	DocumentID string
+	Version    int32
+	Name       string
+	Kind       DocumentKind
+	Body       string
+	// Whether a person wrote this version in the panel rather than the agent that owns the document.
+	ByPerson  bool
+	CreatedAt time.Time
+	// The engine that owns this row, stamped from the login that wrote it.
+	EngineID string
 }
 
 // An engine, the owner of every row it writes.

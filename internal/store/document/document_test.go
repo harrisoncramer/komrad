@@ -102,36 +102,43 @@ func TestUpdate(t *testing.T) {
 		{
 			name: "the name, kind and body all change and the document keeps its id",
 			params: func(doc *documentstore.Document) documentstore.UpdateParams {
-				return documentstore.UpdateParams{ID: doc.ID, AgentID: author.ID, Name: "renamed", Kind: documentstore.KindReport, Body: "final"}
+				return documentstore.UpdateParams{ID: doc.ID, AgentID: author.ID, Name: "renamed", Kind: documentstore.KindReport, Body: "final", Version: doc.Version}
 			},
 		},
 		{
 			name: "another agent's document is not found",
 			params: func(doc *documentstore.Document) documentstore.UpdateParams {
-				return documentstore.UpdateParams{ID: doc.ID, AgentID: other.ID, Name: doc.Name, Kind: doc.Kind, Body: "stolen"}
+				return documentstore.UpdateParams{ID: doc.ID, AgentID: other.ID, Name: doc.Name, Kind: doc.Kind, Body: "stolen", Version: doc.Version}
 			},
 			wantErr: store.ErrNotFound,
 		},
 		{
 			name: "an id no document holds is not found",
 			params: func(doc *documentstore.Document) documentstore.UpdateParams {
-				return documentstore.UpdateParams{ID: uuid.NewString(), AgentID: author.ID, Name: doc.Name, Kind: doc.Kind, Body: "lost"}
+				return documentstore.UpdateParams{ID: uuid.NewString(), AgentID: author.ID, Name: doc.Name, Kind: doc.Kind, Body: "lost", Version: doc.Version}
 			},
 			wantErr: store.ErrNotFound,
 		},
 		{
 			name: "a value that is not an id is not found",
 			params: func(doc *documentstore.Document) documentstore.UpdateParams {
-				return documentstore.UpdateParams{ID: "not-an-id", AgentID: author.ID, Name: doc.Name, Kind: doc.Kind, Body: "lost"}
+				return documentstore.UpdateParams{ID: "not-an-id", AgentID: author.ID, Name: doc.Name, Kind: doc.Kind, Body: "lost", Version: doc.Version}
 			},
 			wantErr: store.ErrNotFound,
 		},
 		{
 			name: "a name another of the agent's documents holds is refused",
 			params: func(doc *documentstore.Document) documentstore.UpdateParams {
-				return documentstore.UpdateParams{ID: doc.ID, AgentID: author.ID, Name: "taken", Kind: doc.Kind, Body: "clash"}
+				return documentstore.UpdateParams{ID: doc.ID, AgentID: author.ID, Name: "taken", Kind: doc.Kind, Body: "clash", Version: doc.Version}
 			},
 			wantErr: store.ErrNameTaken,
+		},
+		{
+			name: "a version the document is no longer at is refused",
+			params: func(doc *documentstore.Document) documentstore.UpdateParams {
+				return documentstore.UpdateParams{ID: doc.ID, AgentID: author.ID, Name: doc.Name, Kind: doc.Kind, Body: "stale", Version: doc.Version + 1}
+			},
+			wantErr: documentstore.ErrChanged,
 		},
 	}
 
@@ -156,6 +163,7 @@ func TestUpdate(t *testing.T) {
 			assert.Equal(t, params.Name, updated.Name)
 			assert.Equal(t, params.Kind, updated.Kind)
 			assert.Equal(t, params.Body, updated.Body)
+			assert.Equal(t, doc.Version+1, updated.Version)
 			assert.False(t, updated.UpdatedAt.Before(doc.UpdatedAt))
 		})
 	}
@@ -188,7 +196,7 @@ func TestList(t *testing.T) {
 	notes := write(author.ID, "scratch", documentstore.KindNotes)
 	write(other.ID, "elsewhere", documentstore.KindRFC)
 
-	_, err := stores.Documents.Update(ctx, documentstore.UpdateParams{ID: rfc, AgentID: author.ID, Name: "design", Kind: documentstore.KindRFC, Body: "revised"})
+	_, err := stores.Documents.Update(ctx, documentstore.UpdateParams{ID: rfc, AgentID: author.ID, Name: "design", Kind: documentstore.KindRFC, Body: "revised", Version: 1})
 	require.NoError(t, err)
 
 	tests := []struct {
@@ -238,5 +246,61 @@ func TestDeletingTheAgentDeletesItsDocuments(t *testing.T) {
 	_, err = stores.Agents.Delete(ctx, []string{author.ID})
 	require.NoError(t, err)
 	_, err = stores.Documents.Get(ctx, created.ID)
-	assert.ErrorIs(t, err, store.ErrNotFound)
+	require.ErrorIs(t, err, store.ErrNotFound)
+	versions, err := stores.Documents.ListVersions(ctx, created.ID)
+	require.NoError(t, err)
+	assert.Empty(t, versions, "and every write of it")
+}
+
+// TestListVersions pins that every write of a document is kept as it was written, the newest first,
+// and that a refused rewrite keeps nothing.
+func TestListVersions(t *testing.T) {
+	stores := storetest.Open(t)
+	ctx := t.Context()
+	author := stores.SeedAgent(t, agentstore.Agent{Name: "author"})
+
+	draft, err := stores.Documents.Create(ctx, documentstore.CreateParams{AgentID: author.ID, Name: "design", Kind: documentstore.KindNotes, Body: "draft"})
+	require.NoError(t, err)
+	revised, err := stores.Documents.Update(ctx, documentstore.UpdateParams{ID: draft.ID, AgentID: author.ID, Name: "design", Kind: documentstore.KindRFC, Body: "revised", Version: draft.Version})
+	require.NoError(t, err)
+	_, err = stores.Documents.Update(ctx, documentstore.UpdateParams{ID: draft.ID, AgentID: author.ID, Name: "design", Kind: documentstore.KindRFC, Body: "stale", Version: draft.Version})
+	require.ErrorIs(t, err, documentstore.ErrChanged)
+	_, err = stores.Documents.Update(ctx, documentstore.UpdateParams{ID: draft.ID, AgentID: author.ID, Name: "design, edited", Kind: documentstore.KindRFC, Body: "edited", Version: revised.Version, ByPerson: true})
+	require.NoError(t, err)
+
+	versions, err := stores.Documents.ListVersions(ctx, draft.ID)
+	require.NoError(t, err)
+	require.Len(t, versions, 3)
+	for i, want := range []struct {
+		version  int32
+		name     string
+		kind     documentstore.Kind
+		byPerson bool
+	}{
+		{version: 3, name: "design, edited", kind: documentstore.KindRFC, byPerson: true},
+		{version: 2, name: "design", kind: documentstore.KindRFC},
+		{version: 1, name: "design", kind: documentstore.KindNotes},
+	} {
+		assert.Equal(t, want.version, versions[i].Version)
+		assert.Equal(t, want.name, versions[i].Name)
+		assert.Equal(t, want.kind, versions[i].Kind)
+		assert.Equal(t, want.byPerson, versions[i].ByPerson)
+		assert.Empty(t, versions[i].Body, "a listing carries no bodies")
+	}
+
+	first, err := stores.Documents.GetVersion(ctx, draft.ID, 1)
+	require.NoError(t, err)
+	assert.Equal(t, "draft", first.Body)
+
+	for _, missing := range []struct {
+		id      string
+		version int32
+	}{
+		{id: draft.ID, version: 4},
+		{id: uuid.NewString(), version: 1},
+		{id: "not-an-id", version: 1},
+	} {
+		_, err := stores.Documents.GetVersion(ctx, missing.id, missing.version)
+		assert.ErrorIs(t, err, store.ErrNotFound, "%s at %d", missing.id, missing.version)
+	}
 }

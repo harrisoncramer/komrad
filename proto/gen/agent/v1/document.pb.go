@@ -98,7 +98,9 @@ type Document struct {
 	// When it was first written, in RFC 3339.
 	CreatedAt string `protobuf:"bytes,6,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	// When it was last written, in RFC 3339.
-	UpdatedAt     string `protobuf:"bytes,7,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	UpdatedAt string `protobuf:"bytes,7,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	// How many times it has been written, which a rewrite passes back to say what it replaces.
+	Version       int32 `protobuf:"varint,8,opt,name=version,proto3" json:"version,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -182,6 +184,13 @@ func (x *Document) GetUpdatedAt() string {
 	return ""
 }
 
+func (x *Document) GetVersion() int32 {
+	if x != nil {
+		return x.Version
+	}
+	return 0
+}
+
 type WriteDocumentRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The document to rewrite, or unset to create one.
@@ -196,7 +205,9 @@ type WriteDocumentRequest struct {
 	//
 	//	*WriteDocumentRequest_Body
 	//	*WriteDocumentRequest_Path
-	Source        isWriteDocumentRequest_Source `protobuf_oneof:"source"`
+	Source isWriteDocumentRequest_Source `protobuf_oneof:"source"`
+	// The version a rewrite replaces, as the last read or write returned it, and required with id.
+	Version       *int32 `protobuf:"varint,6,opt,name=version,proto3,oneof" json:"version,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -275,6 +286,13 @@ func (x *WriteDocumentRequest) GetPath() string {
 		}
 	}
 	return ""
+}
+
+func (x *WriteDocumentRequest) GetVersion() int32 {
+	if x != nil && x.Version != nil {
+		return *x.Version
+	}
+	return 0
 }
 
 type isWriteDocumentRequest_Source interface {
@@ -443,7 +461,9 @@ func (x *ListDocumentsResponse) GetDocuments() []*Document {
 type GetDocumentRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The document to read.
-	Id            string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	// An earlier write to read as it was, or unset for the document as it stands.
+	Version       *int32 `protobuf:"varint,2,opt,name=version,proto3,oneof" json:"version,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -483,6 +503,13 @@ func (x *GetDocumentRequest) GetId() string {
 		return x.Id
 	}
 	return ""
+}
+
+func (x *GetDocumentRequest) GetVersion() int32 {
+	if x != nil && x.Version != nil {
+		return *x.Version
+	}
+	return 0
 }
 
 type GetDocumentResponse struct {
@@ -530,11 +557,183 @@ func (x *GetDocumentResponse) GetDocument() *Document {
 	return nil
 }
 
+// DocumentVersion is one write of a document, without its body.
+type DocumentVersion struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Pass this to get_document to read the document as this write left it.
+	Version int32 `protobuf:"varint,1,opt,name=version,proto3" json:"version,omitempty"`
+	// The title it had.
+	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	// What sort of document it was.
+	Kind DocumentKind `protobuf:"varint,3,opt,name=kind,proto3,enum=agent.v1.DocumentKind" json:"kind,omitempty"`
+	// Whether a person wrote it in the panel rather than the agent that owns the document.
+	ByPerson bool `protobuf:"varint,4,opt,name=by_person,json=byPerson,proto3" json:"by_person,omitempty"`
+	// When it was written, in RFC 3339.
+	CreatedAt     string `protobuf:"bytes,5,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DocumentVersion) Reset() {
+	*x = DocumentVersion{}
+	mi := &file_agent_v1_document_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DocumentVersion) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DocumentVersion) ProtoMessage() {}
+
+func (x *DocumentVersion) ProtoReflect() protoreflect.Message {
+	mi := &file_agent_v1_document_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DocumentVersion.ProtoReflect.Descriptor instead.
+func (*DocumentVersion) Descriptor() ([]byte, []int) {
+	return file_agent_v1_document_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *DocumentVersion) GetVersion() int32 {
+	if x != nil {
+		return x.Version
+	}
+	return 0
+}
+
+func (x *DocumentVersion) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *DocumentVersion) GetKind() DocumentKind {
+	if x != nil {
+		return x.Kind
+	}
+	return DocumentKind_DOCUMENT_KIND_UNSPECIFIED
+}
+
+func (x *DocumentVersion) GetByPerson() bool {
+	if x != nil {
+		return x.ByPerson
+	}
+	return false
+}
+
+func (x *DocumentVersion) GetCreatedAt() string {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return ""
+}
+
+type ListDocumentVersionsRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The document whose writes to list.
+	Id            string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListDocumentVersionsRequest) Reset() {
+	*x = ListDocumentVersionsRequest{}
+	mi := &file_agent_v1_document_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListDocumentVersionsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListDocumentVersionsRequest) ProtoMessage() {}
+
+func (x *ListDocumentVersionsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_agent_v1_document_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListDocumentVersionsRequest.ProtoReflect.Descriptor instead.
+func (*ListDocumentVersionsRequest) Descriptor() ([]byte, []int) {
+	return file_agent_v1_document_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *ListDocumentVersionsRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+type ListDocumentVersionsResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Every write of the document, the newest first.
+	Versions      []*DocumentVersion `protobuf:"bytes,1,rep,name=versions,proto3" json:"versions,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListDocumentVersionsResponse) Reset() {
+	*x = ListDocumentVersionsResponse{}
+	mi := &file_agent_v1_document_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListDocumentVersionsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListDocumentVersionsResponse) ProtoMessage() {}
+
+func (x *ListDocumentVersionsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_agent_v1_document_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListDocumentVersionsResponse.ProtoReflect.Descriptor instead.
+func (*ListDocumentVersionsResponse) Descriptor() ([]byte, []int) {
+	return file_agent_v1_document_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *ListDocumentVersionsResponse) GetVersions() []*DocumentVersion {
+	if x != nil {
+		return x.Versions
+	}
+	return nil
+}
+
 var File_agent_v1_document_proto protoreflect.FileDescriptor
 
 const file_agent_v1_document_proto_rawDesc = "" +
 	"\n" +
-	"\x17agent/v1/document.proto\x12\bagent.v1\x1a\x1bbuf/validate/validate.proto\"\xc7\x01\n" +
+	"\x17agent/v1/document.proto\x12\bagent.v1\x1a\x1bbuf/validate/validate.proto\"\xe1\x01\n" +
 	"\bDocument\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x19\n" +
 	"\bagent_id\x18\x02 \x01(\tR\aagentId\x12\x12\n" +
@@ -544,7 +743,8 @@ const file_agent_v1_document_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\x06 \x01(\tR\tcreatedAt\x12\x1d\n" +
 	"\n" +
-	"updated_at\x18\a \x01(\tR\tupdatedAt\"\xe4\x01\n" +
+	"updated_at\x18\a \x01(\tR\tupdatedAt\x12\x18\n" +
+	"\aversion\x18\b \x01(\x05R\aversion\"\x98\x02\n" +
 	"\x14WriteDocumentRequest\x12\x1c\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x01R\x02id\x88\x01\x01\x12\x1e\n" +
 	"\x04name\x18\x02 \x01(\tB\n" +
@@ -552,9 +752,12 @@ const file_agent_v1_document_proto_rawDesc = "" +
 	"\x04kind\x18\x03 \x01(\x0e2\x16.agent.v1.DocumentKindB\n" +
 	"\xbaH\a\x82\x01\x04\x10\x01 \x00R\x04kind\x12\x1f\n" +
 	"\x04body\x18\x04 \x01(\tB\t\xbaH\x06r\x04(\x80\x80@H\x00R\x04body\x12\x1d\n" +
-	"\x04path\x18\x05 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\x04pathB\x0f\n" +
+	"\x04path\x18\x05 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\x04path\x12&\n" +
+	"\aversion\x18\x06 \x01(\x05B\a\xbaH\x04\x1a\x02 \x00H\x02R\aversion\x88\x01\x01B\x0f\n" +
 	"\x06source\x12\x05\xbaH\x02\b\x01B\x05\n" +
-	"\x03_id\"G\n" +
+	"\x03_idB\n" +
+	"\n" +
+	"\b_version\"G\n" +
 	"\x15WriteDocumentResponse\x12.\n" +
 	"\bdocument\x18\x01 \x01(\v2\x12.agent.v1.DocumentR\bdocument\"\x92\x01\n" +
 	"\x14ListDocumentsRequest\x12'\n" +
@@ -564,11 +767,25 @@ const file_agent_v1_document_proto_rawDesc = "" +
 	"\t_agent_idB\a\n" +
 	"\x05_kind\"I\n" +
 	"\x15ListDocumentsResponse\x120\n" +
-	"\tdocuments\x18\x01 \x03(\v2\x12.agent.v1.DocumentR\tdocuments\"-\n" +
+	"\tdocuments\x18\x01 \x03(\v2\x12.agent.v1.DocumentR\tdocuments\"a\n" +
 	"\x12GetDocumentRequest\x12\x17\n" +
-	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\"E\n" +
+	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\x12&\n" +
+	"\aversion\x18\x02 \x01(\x05B\a\xbaH\x04\x1a\x02 \x00H\x00R\aversion\x88\x01\x01B\n" +
+	"\n" +
+	"\b_version\"E\n" +
 	"\x13GetDocumentResponse\x12.\n" +
-	"\bdocument\x18\x01 \x01(\v2\x12.agent.v1.DocumentR\bdocument*\x94\x01\n" +
+	"\bdocument\x18\x01 \x01(\v2\x12.agent.v1.DocumentR\bdocument\"\xa7\x01\n" +
+	"\x0fDocumentVersion\x12\x18\n" +
+	"\aversion\x18\x01 \x01(\x05R\aversion\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12*\n" +
+	"\x04kind\x18\x03 \x01(\x0e2\x16.agent.v1.DocumentKindR\x04kind\x12\x1b\n" +
+	"\tby_person\x18\x04 \x01(\bR\bbyPerson\x12\x1d\n" +
+	"\n" +
+	"created_at\x18\x05 \x01(\tR\tcreatedAt\"6\n" +
+	"\x1bListDocumentVersionsRequest\x12\x17\n" +
+	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\"U\n" +
+	"\x1cListDocumentVersionsResponse\x125\n" +
+	"\bversions\x18\x01 \x03(\v2\x19.agent.v1.DocumentVersionR\bversions*\x94\x01\n" +
 	"\fDocumentKind\x12\x1d\n" +
 	"\x19DOCUMENT_KIND_UNSPECIFIED\x10\x00\x12\x15\n" +
 	"\x11DOCUMENT_KIND_RFC\x10\x01\x12\x18\n" +
@@ -589,16 +806,19 @@ func file_agent_v1_document_proto_rawDescGZIP() []byte {
 }
 
 var file_agent_v1_document_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_agent_v1_document_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
+var file_agent_v1_document_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
 var file_agent_v1_document_proto_goTypes = []any{
-	(DocumentKind)(0),             // 0: agent.v1.DocumentKind
-	(*Document)(nil),              // 1: agent.v1.Document
-	(*WriteDocumentRequest)(nil),  // 2: agent.v1.WriteDocumentRequest
-	(*WriteDocumentResponse)(nil), // 3: agent.v1.WriteDocumentResponse
-	(*ListDocumentsRequest)(nil),  // 4: agent.v1.ListDocumentsRequest
-	(*ListDocumentsResponse)(nil), // 5: agent.v1.ListDocumentsResponse
-	(*GetDocumentRequest)(nil),    // 6: agent.v1.GetDocumentRequest
-	(*GetDocumentResponse)(nil),   // 7: agent.v1.GetDocumentResponse
+	(DocumentKind)(0),                    // 0: agent.v1.DocumentKind
+	(*Document)(nil),                     // 1: agent.v1.Document
+	(*WriteDocumentRequest)(nil),         // 2: agent.v1.WriteDocumentRequest
+	(*WriteDocumentResponse)(nil),        // 3: agent.v1.WriteDocumentResponse
+	(*ListDocumentsRequest)(nil),         // 4: agent.v1.ListDocumentsRequest
+	(*ListDocumentsResponse)(nil),        // 5: agent.v1.ListDocumentsResponse
+	(*GetDocumentRequest)(nil),           // 6: agent.v1.GetDocumentRequest
+	(*GetDocumentResponse)(nil),          // 7: agent.v1.GetDocumentResponse
+	(*DocumentVersion)(nil),              // 8: agent.v1.DocumentVersion
+	(*ListDocumentVersionsRequest)(nil),  // 9: agent.v1.ListDocumentVersionsRequest
+	(*ListDocumentVersionsResponse)(nil), // 10: agent.v1.ListDocumentVersionsResponse
 }
 var file_agent_v1_document_proto_depIdxs = []int32{
 	0, // 0: agent.v1.Document.kind:type_name -> agent.v1.DocumentKind
@@ -607,11 +827,13 @@ var file_agent_v1_document_proto_depIdxs = []int32{
 	0, // 3: agent.v1.ListDocumentsRequest.kind:type_name -> agent.v1.DocumentKind
 	1, // 4: agent.v1.ListDocumentsResponse.documents:type_name -> agent.v1.Document
 	1, // 5: agent.v1.GetDocumentResponse.document:type_name -> agent.v1.Document
-	6, // [6:6] is the sub-list for method output_type
-	6, // [6:6] is the sub-list for method input_type
-	6, // [6:6] is the sub-list for extension type_name
-	6, // [6:6] is the sub-list for extension extendee
-	0, // [0:6] is the sub-list for field type_name
+	0, // 6: agent.v1.DocumentVersion.kind:type_name -> agent.v1.DocumentKind
+	8, // 7: agent.v1.ListDocumentVersionsResponse.versions:type_name -> agent.v1.DocumentVersion
+	8, // [8:8] is the sub-list for method output_type
+	8, // [8:8] is the sub-list for method input_type
+	8, // [8:8] is the sub-list for extension type_name
+	8, // [8:8] is the sub-list for extension extendee
+	0, // [0:8] is the sub-list for field type_name
 }
 
 func init() { file_agent_v1_document_proto_init() }
@@ -624,13 +846,14 @@ func file_agent_v1_document_proto_init() {
 		(*WriteDocumentRequest_Path)(nil),
 	}
 	file_agent_v1_document_proto_msgTypes[3].OneofWrappers = []any{}
+	file_agent_v1_document_proto_msgTypes[5].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_agent_v1_document_proto_rawDesc), len(file_agent_v1_document_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   7,
+			NumMessages:   10,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

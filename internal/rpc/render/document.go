@@ -14,8 +14,20 @@ func Document(stored documentstore.Document) *agentv1.Document {
 		Name:      stored.Name,
 		Kind:      DocumentKind(stored.Kind),
 		Body:      stored.Body,
+		Version:   stored.Version,
 		CreatedAt: dates.Stamp(stored.CreatedAt),
 		UpdatedAt: dates.PreciseStamp(stored.UpdatedAt),
+	}
+}
+
+// DocumentVersion draws one write of a document as the wire carries it.
+func DocumentVersion(stored documentstore.Version) *agentv1.DocumentVersion {
+	return &agentv1.DocumentVersion{
+		Version:   stored.Version,
+		Name:      stored.Name,
+		Kind:      DocumentKind(stored.Kind),
+		ByPerson:  stored.ByPerson,
+		CreatedAt: dates.PreciseStamp(stored.CreatedAt),
 	}
 }
 
