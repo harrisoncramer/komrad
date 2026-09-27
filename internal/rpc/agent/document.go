@@ -32,6 +32,7 @@ func (s *Handler) WriteDocument(ctx context.Context, req *agentv1.WriteDocumentR
 	written, err := s.documents.WriteDocument(ctx, documents.WriteDocumentParams{
 		AgentID: caller.From(ctx).AgentID,
 		ID:      req.Id,
+		Version: req.Version,
 		Name:    req.GetName(),
 		Kind:    kind,
 		Body:    req.GetBody(),

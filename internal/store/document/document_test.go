@@ -102,36 +102,43 @@ func TestUpdate(t *testing.T) {
 		{
 			name: "the name, kind and body all change and the document keeps its id",
 			params: func(doc *documentstore.Document) documentstore.UpdateParams {
-				return documentstore.UpdateParams{ID: doc.ID, AgentID: author.ID, Name: "renamed", Kind: documentstore.KindReport, Body: "final"}
+				return documentstore.UpdateParams{ID: doc.ID, AgentID: author.ID, Name: "renamed", Kind: documentstore.KindReport, Body: "final", Version: doc.Version}
 			},
 		},
 		{
 			name: "another agent's document is not found",
 			params: func(doc *documentstore.Document) documentstore.UpdateParams {
-				return documentstore.UpdateParams{ID: doc.ID, AgentID: other.ID, Name: doc.Name, Kind: doc.Kind, Body: "stolen"}
+				return documentstore.UpdateParams{ID: doc.ID, AgentID: other.ID, Name: doc.Name, Kind: doc.Kind, Body: "stolen", Version: doc.Version}
 			},
 			wantErr: store.ErrNotFound,
 		},
 		{
 			name: "an id no document holds is not found",
 			params: func(doc *documentstore.Document) documentstore.UpdateParams {
-				return documentstore.UpdateParams{ID: uuid.NewString(), AgentID: author.ID, Name: doc.Name, Kind: doc.Kind, Body: "lost"}
+				return documentstore.UpdateParams{ID: uuid.NewString(), AgentID: author.ID, Name: doc.Name, Kind: doc.Kind, Body: "lost", Version: doc.Version}
 			},
 			wantErr: store.ErrNotFound,
 		},
 		{
 			name: "a value that is not an id is not found",
 			params: func(doc *documentstore.Document) documentstore.UpdateParams {
-				return documentstore.UpdateParams{ID: "not-an-id", AgentID: author.ID, Name: doc.Name, Kind: doc.Kind, Body: "lost"}
+				return documentstore.UpdateParams{ID: "not-an-id", AgentID: author.ID, Name: doc.Name, Kind: doc.Kind, Body: "lost", Version: doc.Version}
 			},
 			wantErr: store.ErrNotFound,
 		},
 		{
 			name: "a name another of the agent's documents holds is refused",
 			params: func(doc *documentstore.Document) documentstore.UpdateParams {
-				return documentstore.UpdateParams{ID: doc.ID, AgentID: author.ID, Name: "taken", Kind: doc.Kind, Body: "clash"}
+				return documentstore.UpdateParams{ID: doc.ID, AgentID: author.ID, Name: "taken", Kind: doc.Kind, Body: "clash", Version: doc.Version}
 			},
 			wantErr: store.ErrNameTaken,
+		},
+		{
+			name: "a version the document is no longer at is refused",
+			params: func(doc *documentstore.Document) documentstore.UpdateParams {
+				return documentstore.UpdateParams{ID: doc.ID, AgentID: author.ID, Name: doc.Name, Kind: doc.Kind, Body: "stale", Version: doc.Version + 1}
+			},
+			wantErr: documentstore.ErrChanged,
 		},
 	}
 
@@ -156,6 +163,7 @@ func TestUpdate(t *testing.T) {
 			assert.Equal(t, params.Name, updated.Name)
 			assert.Equal(t, params.Kind, updated.Kind)
 			assert.Equal(t, params.Body, updated.Body)
+			assert.Equal(t, doc.Version+1, updated.Version)
 			assert.False(t, updated.UpdatedAt.Before(doc.UpdatedAt))
 		})
 	}
@@ -188,7 +196,7 @@ func TestList(t *testing.T) {
 	notes := write(author.ID, "scratch", documentstore.KindNotes)
 	write(other.ID, "elsewhere", documentstore.KindRFC)
 
-	_, err := stores.Documents.Update(ctx, documentstore.UpdateParams{ID: rfc, AgentID: author.ID, Name: "design", Kind: documentstore.KindRFC, Body: "revised"})
+	_, err := stores.Documents.Update(ctx, documentstore.UpdateParams{ID: rfc, AgentID: author.ID, Name: "design", Kind: documentstore.KindRFC, Body: "revised", Version: 1})
 	require.NoError(t, err)
 
 	tests := []struct {

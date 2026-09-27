@@ -447,6 +447,8 @@ type Document struct {
 	UpdatedAt time.Time
 	// The engine that owns this row, stamped from the login that wrote it.
 	EngineID string
+	// How many times the document has been written, which a rewrite names to say what it replaces.
+	Version int32
 }
 
 // An engine, the owner of every row it writes.

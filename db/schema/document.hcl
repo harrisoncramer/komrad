@@ -28,6 +28,12 @@ table "documents" {
     null = false
     type = text
   }
+  column "version" {
+    null    = false
+    type    = integer
+    default = 1
+    comment = "How many times the document has been written, which a rewrite names to say what it replaces."
+  }
   column "created_at" {
     null    = false
     type    = timestamptz

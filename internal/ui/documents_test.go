@@ -211,7 +211,7 @@ func TestDocumentsEdit(t *testing.T) {
 			wantKept:  true,
 		},
 		{
-			name:  "the agent rewriting it meanwhile keeps the copy and saves nothing",
+			name:  "a write refused because the agent rewrote it meanwhile keeps the copy",
 			write: "Rewritten.",
 			between: func(h *panelHarness, docs *documentShelf) {
 				docs.rewrite("d1", "The agent's own rewrite.", "2026-09-26T12:00:00Z")
@@ -219,8 +219,10 @@ func TestDocumentsEdit(t *testing.T) {
 				author.DocumentsUpdatedAt = proto.String("2026-09-26T12:00:00Z")
 				h.watch(buildPuts(author))
 			},
-			close:    func(h *panelHarness) { h.press("e") },
-			wantKept: true,
+			refuse:    true,
+			close:     func(h *panelHarness) { h.press("e") },
+			wantSaved: "Rewritten.",
+			wantKept:  true,
 		},
 		{
 			name:  "nothing changed saves nothing",
@@ -241,7 +243,7 @@ func TestDocumentsEdit(t *testing.T) {
 			harness, docs := openDocuments(t, "author")
 			harness.answer(agentv1connect.AgentServiceWriteDocumentProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
 				if tt.refuse {
-					return nil, connect.NewError(connect.CodeUnavailable, nil)
+					return nil, connect.NewError(connect.CodeFailedPrecondition, nil)
 				}
 
 				return connect.NewResponse(&agentv1.WriteDocumentResponse{}), nil
@@ -270,10 +272,11 @@ func TestDocumentsEdit(t *testing.T) {
 			}
 
 			harness.assertSentTo(agentv1connect.AgentServiceWriteDocumentProcedure, &agentv1.WriteDocumentRequest{
-				Id:     proto.String("d1"),
-				Name:   "Design the cache",
-				Kind:   agentv1.DocumentKind_DOCUMENT_KIND_RFC,
-				Source: &agentv1.WriteDocumentRequest_Body{Body: tt.wantSaved},
+				Id:      proto.String("d1"),
+				Version: proto.Int32(3),
+				Name:    "Design the cache",
+				Kind:    agentv1.DocumentKind_DOCUMENT_KIND_RFC,
+				Source:  &agentv1.WriteDocumentRequest_Body{Body: tt.wantSaved},
 			})
 			if !tt.wantKept {
 				assert.NoFileExists(t, path)
@@ -353,7 +356,7 @@ type documentShelf struct {
 func newDocumentShelf() *documentShelf {
 	return &documentShelf{
 		listed: []*agentv1.Document{
-			{Id: "d1", Name: "Design the cache", Kind: agentv1.DocumentKind_DOCUMENT_KIND_RFC, UpdatedAt: "2026-09-25T12:00:00Z"},
+			{Id: "d1", Name: "Design the cache", Kind: agentv1.DocumentKind_DOCUMENT_KIND_RFC, Version: 3, UpdatedAt: "2026-09-25T12:00:00Z"},
 			{Id: "d2", Name: "Rollout report", Kind: agentv1.DocumentKind_DOCUMENT_KIND_REPORT, UpdatedAt: "2026-09-24T12:00:00Z"},
 		},
 		bodies: map[string]string{
@@ -372,6 +375,7 @@ func (d *documentShelf) rewrite(id, body, at string) {
 	for _, document := range d.listed {
 		if document.GetId() == id {
 			document.UpdatedAt = at
+			document.Version++
 		}
 	}
 }

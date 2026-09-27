@@ -18,10 +18,12 @@ UPDATE
 SET
     name = @name,
     kind = @kind,
-    body = @body
+    body = @body,
+    version = version + 1
 WHERE
     id = @id
     AND agent_id = @agent_id
+    AND version = @version
 RETURNING
     *;
 
@@ -48,6 +50,7 @@ SELECT
     agent_id,
     name,
     kind,
+    version,
     created_at,
     updated_at
 FROM

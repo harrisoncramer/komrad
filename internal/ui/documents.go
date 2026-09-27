@@ -27,6 +27,7 @@ type documentItem struct {
 // documentBody is one document's text as it was last read, or why it could not be.
 type documentBody struct {
 	updatedAt time.Time
+	version   int32
 	body      string
 	pending   bool
 	err       error
@@ -365,6 +366,7 @@ func (m *model) readHoveredDocumentCmd() tea.Cmd {
 
 		return documentReadMsg{agentID: agentID, id: item.id, read: documentBody{
 			updatedAt: dates.Parse(document.GetUpdatedAt()),
+			version:   document.GetVersion(),
 			body:      document.GetBody(),
 		}}
 	}

@@ -111,6 +111,8 @@ func TestDocumentErrors(t *testing.T) {
 		{name: "writing a body over the cap", call: write, err: documents.ErrTooLarge, wantCode: connect.CodeInvalidArgument},
 		{name: "writing from a path that cannot be read", call: write, err: documents.ErrUnreadablePath, wantCode: connect.CodeInvalidArgument},
 		{name: "rewriting a document that does not exist", call: write, err: store.ErrNotFound, wantCode: connect.CodeNotFound},
+		{name: "rewriting a document with no version", call: write, err: documents.ErrNoVersion, wantCode: connect.CodeInvalidArgument},
+		{name: "rewriting a document written since it was read", call: write, err: documentstore.ErrChanged, wantCode: connect.CodeFailedPrecondition},
 		{name: "listing with no id and no caller identity", call: list, asNobody: true, wantCode: connect.CodeInvalidArgument},
 		{name: "getting a document that does not exist", call: get, err: store.ErrNotFound, wantCode: connect.CodeNotFound},
 	}
@@ -153,12 +155,13 @@ func TestWriteDocument(t *testing.T) {
 		{
 			name: "a path with an id rewrites that document",
 			req: &agentv1.WriteDocumentRequest{
-				Id:     xptr.Ptr(documentID),
-				Name:   "Findings",
-				Kind:   agentv1.DocumentKind_DOCUMENT_KIND_REPORT,
-				Source: &agentv1.WriteDocumentRequest_Path{Path: "rfcs/findings.md"},
+				Id:      xptr.Ptr(documentID),
+				Version: xptr.Ptr(int32(2)),
+				Name:    "Findings",
+				Kind:    agentv1.DocumentKind_DOCUMENT_KIND_REPORT,
+				Source:  &agentv1.WriteDocumentRequest_Path{Path: "rfcs/findings.md"},
 			},
-			want: documents.WriteDocumentParams{AgentID: alphaID, ID: xptr.Ptr(documentID), Name: "Findings", Kind: documentstore.KindReport, Path: "rfcs/findings.md"},
+			want: documents.WriteDocumentParams{AgentID: alphaID, ID: xptr.Ptr(documentID), Version: xptr.Ptr(int32(2)), Name: "Findings", Kind: documentstore.KindReport, Path: "rfcs/findings.md"},
 		},
 		{
 			name: "a caller that is not an agent rewrites the document the id names",

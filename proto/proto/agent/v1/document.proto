@@ -35,6 +35,8 @@ message Document {
   string created_at = 6;
   // When it was last written, in RFC 3339.
   string updated_at = 7;
+  // How many times it has been written, which a rewrite passes back to say what it replaces.
+  int32 version = 8;
 }
 
 message WriteDocumentRequest {
@@ -59,6 +61,8 @@ message WriteDocumentRequest {
     // directory unless absolute.
     string path = 5 [(buf.validate.field).string.min_len = 1];
   }
+  // The version a rewrite replaces, as the last read or write returned it, and required with id.
+  optional int32 version = 6 [(buf.validate.field).int32.gt = 0];
 }
 
 message WriteDocumentResponse {

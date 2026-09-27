@@ -12,10 +12,11 @@ import (
 
 // documentEdit is one document open in your editor on the stage, from a copy of its text.
 type documentEdit struct {
-	item documentItem
-	path string
-	pane string
-	body string
+	item    documentItem
+	version int32
+	path    string
+	pane    string
+	body    string
 }
 
 // pressEdit opens the document under the cursor in your editor, or saves and closes the one open.
@@ -51,7 +52,7 @@ func (d *documentsScreen) pressEdit(h host, s panelShared) tea.Cmd {
 		return nil
 	}
 
-	d.editing = &documentEdit{item: item, path: path, pane: pane, body: read.body}
+	d.editing = &documentEdit{item: item, version: read.version, path: path, pane: pane, body: read.body}
 
 	return nil
 }
@@ -87,31 +88,13 @@ func (d *documentsScreen) closeEdit(h host) tea.Cmd {
 		return nil
 	}
 
-	if d.isRewrittenSince(edit) {
-		h.reportBrief(summary, "the agent rewrote it while you were editing, so your copy is left at "+edit.path)
-
-		return nil
-	}
-
 	return h.writeCmd(summary, func(a api) error {
-		if err := a.writeDocument(edit.item.id, edit.item.name, edit.item.kind, body); err != nil {
+		if err := a.writeDocument(edit.item, edit.version, body); err != nil {
 			return fmt.Errorf("failed to save, so your copy is left at %s: %w", edit.path, err)
 		}
 
 		return removeDocumentCopy(edit.path)
 	})
-}
-
-// isRewrittenSince reports whether the listing holds a newer write of the document than the one
-// the edit was opened on.
-func (d *documentsScreen) isRewrittenSince(edit documentEdit) bool {
-	for _, item := range d.items {
-		if item.id == edit.item.id {
-			return item.updatedAt.After(edit.item.updatedAt)
-		}
-	}
-
-	return false
 }
 
 // reconcileEditor catches the editor pane going away on its own and saves what it wrote.

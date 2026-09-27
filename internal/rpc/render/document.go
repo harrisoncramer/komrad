@@ -14,6 +14,7 @@ func Document(stored documentstore.Document) *agentv1.Document {
 		Name:      stored.Name,
 		Kind:      DocumentKind(stored.Kind),
 		Body:      stored.Body,
+		Version:   stored.Version,
 		CreatedAt: dates.Stamp(stored.CreatedAt),
 		UpdatedAt: dates.PreciseStamp(stored.UpdatedAt),
 	}

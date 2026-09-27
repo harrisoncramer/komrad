@@ -8,6 +8,7 @@ import (
 
 	"komrad/db"
 	"komrad/db/models"
+	"komrad/internal/fail"
 	"komrad/internal/store"
 	"komrad/lib/xslice"
 )
@@ -22,6 +23,9 @@ const (
 	KindNotes     Kind = Kind(models.DocumentKindNotes)
 )
 
+// ErrChanged is a rewrite naming a version the document has already moved past.
+var ErrChanged = fail.Precondition("the document has been written since that version was read")
+
 // Document is one document, with an empty Body when it came from a listing.
 type Document struct {
 	ID        string
@@ -29,6 +33,7 @@ type Document struct {
 	Name      string
 	Kind      Kind
 	Body      string
+	Version   int32
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
@@ -49,6 +54,7 @@ func fromRow(row *models.Document) Document {
 		Name:      row.Name,
 		Kind:      Kind(row.Kind),
 		Body:      row.Body,
+		Version:   row.Version,
 		CreatedAt: row.CreatedAt,
 		UpdatedAt: row.UpdatedAt,
 	}
@@ -60,6 +66,7 @@ func fromListRow(row *models.ListAgentDocumentsRow) Document {
 		AgentID:   row.AgentID,
 		Name:      row.Name,
 		Kind:      Kind(row.Kind),
+		Version:   row.Version,
 		CreatedAt: row.CreatedAt,
 		UpdatedAt: row.UpdatedAt,
 	}
@@ -98,9 +105,11 @@ type UpdateParams struct {
 	Name    string
 	Kind    Kind
 	Body    string
+	// Version is the version the rewrite replaces.
+	Version int32
 }
 
-// Update rewrites one of the agent's own documents.
+// Update rewrites one of the agent's own documents, refusing a version it has moved past.
 func (s *DocumentStore) Update(ctx context.Context, params UpdateParams) (*Document, error) {
 	if !store.IsID(params.ID) {
 		return nil, fmt.Errorf("%w: document %q", store.ErrNotFound, params.ID)
@@ -112,9 +121,10 @@ func (s *DocumentStore) Update(ctx context.Context, params UpdateParams) (*Docum
 		Name:    params.Name,
 		Kind:    models.DocumentKind(params.Kind),
 		Body:    params.Body,
+		Version: params.Version,
 	})
 	if db.IsNoRows(err) {
-		return nil, fmt.Errorf("%w: document %q of agent %q", store.ErrNotFound, params.ID, params.AgentID)
+		return nil, s.missedUpdate(ctx, params)
 	}
 	if db.IsUniqueViolation(err) {
 		return nil, s.nameTaken(ctx, params.AgentID, params.Name)
@@ -126,6 +136,17 @@ func (s *DocumentStore) Update(ctx context.Context, params UpdateParams) (*Docum
 	updated := fromRow(row)
 
 	return &updated, nil
+}
+
+// missedUpdate is why a rewrite matched no row: a version already moved past, or no such document.
+func (s *DocumentStore) missedUpdate(ctx context.Context, params UpdateParams) error {
+	held, err := s.queries.GetDocument(ctx, params.ID)
+	if err != nil || held.AgentID != params.AgentID {
+		return fmt.Errorf("%w: document %q of agent %q", store.ErrNotFound, params.ID, params.AgentID)
+	}
+
+	return fmt.Errorf("%w: version %d was read, and it is at version %d, last written %s",
+		ErrChanged, params.Version, held.Version, held.UpdatedAt.Format(time.RFC3339))
 }
 
 func (s *DocumentStore) nameTaken(ctx context.Context, agentID, name string) error {

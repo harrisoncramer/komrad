@@ -98,7 +98,9 @@ type Document struct {
 	// When it was first written, in RFC 3339.
 	CreatedAt string `protobuf:"bytes,6,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	// When it was last written, in RFC 3339.
-	UpdatedAt     string `protobuf:"bytes,7,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	UpdatedAt string `protobuf:"bytes,7,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	// How many times it has been written, which a rewrite passes back to say what it replaces.
+	Version       int32 `protobuf:"varint,8,opt,name=version,proto3" json:"version,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -182,6 +184,13 @@ func (x *Document) GetUpdatedAt() string {
 	return ""
 }
 
+func (x *Document) GetVersion() int32 {
+	if x != nil {
+		return x.Version
+	}
+	return 0
+}
+
 type WriteDocumentRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The document to rewrite, or unset to create one.
@@ -196,7 +205,9 @@ type WriteDocumentRequest struct {
 	//
 	//	*WriteDocumentRequest_Body
 	//	*WriteDocumentRequest_Path
-	Source        isWriteDocumentRequest_Source `protobuf_oneof:"source"`
+	Source isWriteDocumentRequest_Source `protobuf_oneof:"source"`
+	// The version a rewrite replaces, as the last read or write returned it, and required with id.
+	Version       *int32 `protobuf:"varint,6,opt,name=version,proto3,oneof" json:"version,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -275,6 +286,13 @@ func (x *WriteDocumentRequest) GetPath() string {
 		}
 	}
 	return ""
+}
+
+func (x *WriteDocumentRequest) GetVersion() int32 {
+	if x != nil && x.Version != nil {
+		return *x.Version
+	}
+	return 0
 }
 
 type isWriteDocumentRequest_Source interface {
@@ -534,7 +552,7 @@ var File_agent_v1_document_proto protoreflect.FileDescriptor
 
 const file_agent_v1_document_proto_rawDesc = "" +
 	"\n" +
-	"\x17agent/v1/document.proto\x12\bagent.v1\x1a\x1bbuf/validate/validate.proto\"\xc7\x01\n" +
+	"\x17agent/v1/document.proto\x12\bagent.v1\x1a\x1bbuf/validate/validate.proto\"\xe1\x01\n" +
 	"\bDocument\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x19\n" +
 	"\bagent_id\x18\x02 \x01(\tR\aagentId\x12\x12\n" +
@@ -544,7 +562,8 @@ const file_agent_v1_document_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\x06 \x01(\tR\tcreatedAt\x12\x1d\n" +
 	"\n" +
-	"updated_at\x18\a \x01(\tR\tupdatedAt\"\xe4\x01\n" +
+	"updated_at\x18\a \x01(\tR\tupdatedAt\x12\x18\n" +
+	"\aversion\x18\b \x01(\x05R\aversion\"\x98\x02\n" +
 	"\x14WriteDocumentRequest\x12\x1c\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x01R\x02id\x88\x01\x01\x12\x1e\n" +
 	"\x04name\x18\x02 \x01(\tB\n" +
@@ -552,9 +571,12 @@ const file_agent_v1_document_proto_rawDesc = "" +
 	"\x04kind\x18\x03 \x01(\x0e2\x16.agent.v1.DocumentKindB\n" +
 	"\xbaH\a\x82\x01\x04\x10\x01 \x00R\x04kind\x12\x1f\n" +
 	"\x04body\x18\x04 \x01(\tB\t\xbaH\x06r\x04(\x80\x80@H\x00R\x04body\x12\x1d\n" +
-	"\x04path\x18\x05 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\x04pathB\x0f\n" +
+	"\x04path\x18\x05 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\x04path\x12&\n" +
+	"\aversion\x18\x06 \x01(\x05B\a\xbaH\x04\x1a\x02 \x00H\x02R\aversion\x88\x01\x01B\x0f\n" +
 	"\x06source\x12\x05\xbaH\x02\b\x01B\x05\n" +
-	"\x03_id\"G\n" +
+	"\x03_idB\n" +
+	"\n" +
+	"\b_version\"G\n" +
 	"\x15WriteDocumentResponse\x12.\n" +
 	"\bdocument\x18\x01 \x01(\v2\x12.agent.v1.DocumentR\bdocument\"\x92\x01\n" +
 	"\x14ListDocumentsRequest\x12'\n" +

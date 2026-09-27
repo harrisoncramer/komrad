@@ -139,6 +139,7 @@ func TestWriteWithAnIDRewritesThatDocument(t *testing.T) {
 	revised, err := service.WriteDocument(ctx, documents.WriteDocumentParams{
 		AgentID: author.ID,
 		ID:      xptr.Ptr(draft.ID),
+		Version: xptr.Ptr(draft.Version),
 		Name:    "Documents RFC",
 		Kind:    documentstore.KindRFC,
 		Body:    "revised",
@@ -171,8 +172,13 @@ func TestWriteByAPerson(t *testing.T) {
 	}{
 		{
 			name:     "an id rewrites that document",
-			params:   documents.WriteDocumentParams{ID: xptr.Ptr(draft.ID), Name: "Documents", Kind: documentstore.KindRFC, Body: "edited"},
+			params:   documents.WriteDocumentParams{ID: xptr.Ptr(draft.ID), Version: xptr.Ptr(draft.Version), Name: "Documents", Kind: documentstore.KindRFC, Body: "edited"},
 			wantBody: "edited",
+		},
+		{
+			name:    "a rewrite naming no version is refused",
+			params:  documents.WriteDocumentParams{ID: xptr.Ptr(draft.ID), Name: "Documents", Kind: documentstore.KindRFC, Body: "blind"},
+			wantErr: documents.ErrNoVersion,
 		},
 		{
 			name:    "no id is refused",
@@ -181,7 +187,7 @@ func TestWriteByAPerson(t *testing.T) {
 		},
 		{
 			name:    "an id no document holds is not found",
-			params:  documents.WriteDocumentParams{ID: xptr.Ptr(uuid.NewString()), Name: "Lost", Kind: documentstore.KindRFC, Body: "lost"},
+			params:  documents.WriteDocumentParams{ID: xptr.Ptr(uuid.NewString()), Version: xptr.Ptr(int32(1)), Name: "Lost", Kind: documentstore.KindRFC, Body: "lost"},
 			wantErr: store.ErrNotFound,
 		},
 	}

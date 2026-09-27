@@ -31,6 +31,8 @@ var (
 	ErrNoBody = fail.InvalidArgument("a document needs a body or a path to read one from")
 	// ErrNoAuthor is a new document written by something that is not an agent.
 	ErrNoAuthor = fail.InvalidArgument("only an agent can create a document")
+	// ErrNoVersion is a rewrite that does not say which version it replaces.
+	ErrNoVersion = fail.InvalidArgument("a rewrite needs the version it replaces, as the last read or write returned it")
 )
 
 type NewDocumentServiceParams struct {
@@ -54,10 +56,12 @@ type WriteDocumentParams struct {
 	// document ID names.
 	AgentID string
 	// ID is the document to rewrite, or nil to create one.
-	ID   *string
-	Name string
-	Kind documentstore.Kind
-	Body string
+	ID *string
+	// Version is the version a rewrite replaces, required with ID.
+	Version *int32
+	Name    string
+	Kind    documentstore.Kind
+	Body    string
 	// Path is a file on this machine to read the body from, resolved against the agent's
 	// working directory when relative.
 	Path string
@@ -65,6 +69,10 @@ type WriteDocumentParams struct {
 
 // WriteDocument creates a document, or rewrites the one ID names.
 func (s *DocumentService) WriteDocument(ctx context.Context, params WriteDocumentParams) (*documentstore.Document, error) {
+	if params.ID != nil && params.Version == nil {
+		return nil, ErrNoVersion
+	}
+
 	if params.AgentID == "" {
 		if params.ID == nil {
 			return nil, ErrNoAuthor
@@ -108,6 +116,7 @@ func (s *DocumentService) WriteDocument(ctx context.Context, params WriteDocumen
 		Name:    params.Name,
 		Kind:    params.Kind,
 		Body:    body,
+		Version: *params.Version,
 	})
 }
 

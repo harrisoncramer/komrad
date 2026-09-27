@@ -12,7 +12,7 @@ import (
 
 const getDocument = `-- name: GetDocument :one
 SELECT
-    id, agent_id, name, kind, body, created_at, updated_at, engine_id
+    id, agent_id, name, kind, body, created_at, updated_at, engine_id, version
 FROM
     documents
 WHERE
@@ -31,6 +31,7 @@ func (q *Queries) GetDocument(ctx context.Context, id string) (*Document, error)
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.EngineID,
+		&i.Version,
 	)
 	return &i, err
 }
@@ -69,7 +70,7 @@ VALUES (
     $3,
     $4)
 RETURNING
-    id, agent_id, name, kind, body, created_at, updated_at, engine_id
+    id, agent_id, name, kind, body, created_at, updated_at, engine_id, version
 `
 
 type InsertDocumentParams struct {
@@ -96,6 +97,7 @@ func (q *Queries) InsertDocument(ctx context.Context, arg InsertDocumentParams) 
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.EngineID,
+		&i.Version,
 	)
 	return &i, err
 }
@@ -106,6 +108,7 @@ SELECT
     agent_id,
     name,
     kind,
+    version,
     created_at,
     updated_at
 FROM
@@ -129,6 +132,7 @@ type ListAgentDocumentsRow struct {
 	AgentID   string
 	Name      string
 	Kind      DocumentKind
+	Version   int32
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
@@ -147,6 +151,7 @@ func (q *Queries) ListAgentDocuments(ctx context.Context, arg ListAgentDocuments
 			&i.AgentID,
 			&i.Name,
 			&i.Kind,
+			&i.Version,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -166,12 +171,14 @@ UPDATE
 SET
     name = $1,
     kind = $2,
-    body = $3
+    body = $3,
+    version = version + 1
 WHERE
     id = $4
     AND agent_id = $5
+    AND version = $6
 RETURNING
-    id, agent_id, name, kind, body, created_at, updated_at, engine_id
+    id, agent_id, name, kind, body, created_at, updated_at, engine_id, version
 `
 
 type UpdateDocumentParams struct {
@@ -180,6 +187,7 @@ type UpdateDocumentParams struct {
 	Body    string
 	ID      string
 	AgentID string
+	Version int32
 }
 
 func (q *Queries) UpdateDocument(ctx context.Context, arg UpdateDocumentParams) (*Document, error) {
@@ -189,6 +197,7 @@ func (q *Queries) UpdateDocument(ctx context.Context, arg UpdateDocumentParams) 
 		arg.Body,
 		arg.ID,
 		arg.AgentID,
+		arg.Version,
 	)
 	var i Document
 	err := row.Scan(
@@ -200,6 +209,7 @@ func (q *Queries) UpdateDocument(ctx context.Context, arg UpdateDocumentParams) 
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.EngineID,
+		&i.Version,
 	)
 	return &i, err
 }
