@@ -13,17 +13,20 @@ ORDER BY
 -- name: ListIdentityGrantsToEngines :many
 WITH engine_roles AS (
     SELECT
-        'public'::text AS role_name
+        'public'::text AS role_name,
+        0::oid AS role_oid
     UNION
     SELECT
-        g.rolname::text
+        g.rolname::text,
+        g.oid
     FROM
         pg_catalog.pg_roles g
     WHERE
         g.rolname IN ('komrad_engine', 'komrad_reader')
     UNION
     SELECT
-        m.rolname::text
+        m.rolname::text,
+        m.oid
     FROM
         pg_catalog.pg_auth_members am
         JOIN pg_catalog.pg_roles g ON g.oid = am.roleid
@@ -32,7 +35,8 @@ WITH engine_roles AS (
         g.rolname IN ('komrad_engine', 'komrad_reader')
     UNION
     SELECT
-        r.rolname::text
+        r.rolname::text,
+        r.oid
     FROM
         pg_catalog.pg_roles r
     WHERE
@@ -41,15 +45,15 @@ WITH engine_roles AS (
 targets AS (
     SELECT
         'schema identity'::text AS target,
-        HAS_SCHEMA_PRIVILEGE(er.role_name, 'identity', 'USAGE, CREATE') AS granted,
+        HAS_SCHEMA_PRIVILEGE(er.role_oid, 'identity', 'USAGE, CREATE') AS granted,
         er.role_name
     FROM
         engine_roles er
     UNION ALL
     SELECT
         'table identity.' || c.relname,
-        HAS_TABLE_PRIVILEGE(er.role_name, c.oid, 'SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER')
-        OR HAS_ANY_COLUMN_PRIVILEGE(er.role_name, c.oid, 'SELECT, INSERT, UPDATE, REFERENCES'),
+        HAS_TABLE_PRIVILEGE(er.role_oid, c.oid, 'SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER')
+        OR HAS_ANY_COLUMN_PRIVILEGE(er.role_oid, c.oid, 'SELECT, INSERT, UPDATE, REFERENCES'),
         er.role_name
     FROM
         engine_roles er
@@ -70,17 +74,20 @@ ORDER BY
 -- name: ListSecurityDefinerFunctionsEnginesRun :many
 WITH engine_roles AS (
     SELECT
-        'public'::text AS role_name
+        'public'::text AS role_name,
+        0::oid AS role_oid
     UNION
     SELECT
-        g.rolname::text
+        g.rolname::text,
+        g.oid
     FROM
         pg_catalog.pg_roles g
     WHERE
         g.rolname IN ('komrad_engine', 'komrad_reader')
     UNION
     SELECT
-        m.rolname::text
+        m.rolname::text,
+        m.oid
     FROM
         pg_catalog.pg_auth_members am
         JOIN pg_catalog.pg_roles g ON g.oid = am.roleid
@@ -89,7 +96,8 @@ WITH engine_roles AS (
         g.rolname IN ('komrad_engine', 'komrad_reader')
     UNION
     SELECT
-        r.rolname::text
+        r.rolname::text,
+        r.oid
     FROM
         pg_catalog.pg_roles r
     WHERE
@@ -103,7 +111,7 @@ FROM
     CROSS JOIN engine_roles er
 WHERE
     p.prosecdef
-    AND HAS_FUNCTION_PRIVILEGE(er.role_name, p.oid, 'EXECUTE')
+    AND HAS_FUNCTION_PRIVILEGE(er.role_oid, p.oid, 'EXECUTE')
 ORDER BY
     1;
 
