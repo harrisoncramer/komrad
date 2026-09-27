@@ -2,10 +2,13 @@ package diffview
 
 import (
 	"regexp"
+	"strings"
 	"testing"
 
 	"komrad/internal/diff"
 	agentv1 "komrad/proto/gen/agent/v1"
+
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -431,6 +434,28 @@ func TestChangeRowStandsAboveTheFirstFile(t *testing.T) {
 // comment on the whole of it to be about.
 func TestChangeRowIsAbsentWithNothingToReview(t *testing.T) {
 	view := NewView(patchWith(), false)
+
+	_, ok := view.Locate(Place{Change: true})
+	assert.False(t, ok)
+}
+
+// TestHeadlessViewDrawsItsHunksAlone covers a diff with no row for the change as a whole and no
+// file headers.
+func TestHeadlessViewDrawsItsHunksAlone(t *testing.T) {
+	view := NewView(patchWith(diff.FromTexts("document.md", "one\ntwo", "one\n2")), false)
+	view.SetHeadless(true)
+
+	rows := make([]string, 0, view.Len())
+	for y := range view.Len() {
+		rows = append(rows, strings.TrimRight(ansi.Strip(view.RenderRow(y, NoCursor, 40, 0)), " "))
+	}
+
+	assert.Equal(t, []string{
+		"@@ -1,2 +1,2 @@",
+		"   1    1    one",
+		"   2      -  two",
+		"        2 +  2",
+	}, rows)
 
 	_, ok := view.Locate(Place{Change: true})
 	assert.False(t, ok)

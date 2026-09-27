@@ -347,6 +347,69 @@
           "sections": []
         },
         {
+          "path": "keybindings.diff",
+          "description": "A diff with a cursor in it, shared by the review and a document's history.",
+          "settings": [
+            {
+              "key": "expand",
+              "path": "keybindings.diff.expand",
+              "type": "array",
+              "description": "Draw the whole of the file the cursor is in rather than the changed lines and the\nthree around them, or go back to those. The lines this adds behave like any other:\nthe cursor rests on them and, on the review, a comment can be written on one. A file\nstays open while you are reading this change and is drawn tight again when you leave.",
+              "default": "[\"E\"]"
+            },
+            {
+              "key": "next_file",
+              "path": "keybindings.diff.next_file",
+              "type": "array",
+              "description": "Jump to the next file in the diff.",
+              "default": "[\"]\"]"
+            },
+            {
+              "key": "next_match",
+              "path": "keybindings.diff.next_match",
+              "type": "array",
+              "description": "Jump to the next line matching the pattern the filter key searched for.",
+              "default": "[\"n\"]"
+            },
+            {
+              "key": "pan_left",
+              "path": "keybindings.diff.pan_left",
+              "type": "array",
+              "description": "Pan the diff left, for a line wider than the pane.",
+              "default": "[\"h\", \"left\"]"
+            },
+            {
+              "key": "pan_reset",
+              "path": "keybindings.diff.pan_reset",
+              "type": "array",
+              "description": "Pan back to the start of the line.",
+              "default": "[\"0\"]"
+            },
+            {
+              "key": "pan_right",
+              "path": "keybindings.diff.pan_right",
+              "type": "array",
+              "description": "Pan the diff right.",
+              "default": "[\"l\", \"right\"]"
+            },
+            {
+              "key": "prev_file",
+              "path": "keybindings.diff.prev_file",
+              "type": "array",
+              "description": "Jump to the previous file in the diff.",
+              "default": "[\"[\"]"
+            },
+            {
+              "key": "prev_match",
+              "path": "keybindings.diff.prev_match",
+              "type": "array",
+              "description": "Jump to the previous line matching the pattern.",
+              "default": "[\"N\"]"
+            }
+          ],
+          "sections": []
+        },
+        {
           "path": "keybindings.documents",
           "description": "The documents screen, which reads what the hovered agent has written for a person.",
           "settings": [
@@ -596,20 +659,6 @@
               "default": "[\"e\"]"
             },
             {
-              "key": "next_file",
-              "path": "keybindings.review.next_file",
-              "type": "array",
-              "description": "Jump to the next file in the diff.",
-              "default": "[\"]\"]"
-            },
-            {
-              "key": "next_match",
-              "path": "keybindings.review.next_match",
-              "type": "array",
-              "description": "Jump to the next line matching the pattern the filter key searched for.",
-              "default": "[\"n\"]"
-            },
-            {
               "key": "next_thread",
               "path": "keybindings.review.next_thread",
               "type": "array",
@@ -622,41 +671,6 @@
               "type": "array",
               "description": "Move the cursor to the next comment nobody has settled. It stops on the last one.",
               "default": "[\"u\"]"
-            },
-            {
-              "key": "pan_left",
-              "path": "keybindings.review.pan_left",
-              "type": "array",
-              "description": "Pan the diff left, for a line wider than the pane.",
-              "default": "[\"h\", \"left\"]"
-            },
-            {
-              "key": "pan_reset",
-              "path": "keybindings.review.pan_reset",
-              "type": "array",
-              "description": "Pan back to the start of the line.",
-              "default": "[\"0\"]"
-            },
-            {
-              "key": "pan_right",
-              "path": "keybindings.review.pan_right",
-              "type": "array",
-              "description": "Pan the diff right.",
-              "default": "[\"l\", \"right\"]"
-            },
-            {
-              "key": "prev_file",
-              "path": "keybindings.review.prev_file",
-              "type": "array",
-              "description": "Jump to the previous file in the diff.",
-              "default": "[\"[\"]"
-            },
-            {
-              "key": "prev_match",
-              "path": "keybindings.review.prev_match",
-              "type": "array",
-              "description": "Jump to the previous line matching the pattern.",
-              "default": "[\"N\"]"
             },
             {
               "key": "prev_open_thread",
@@ -692,13 +706,6 @@
               "type": "array",
               "description": "Settle the thread under the cursor, which marks it resolved without deleting it.",
               "default": "[\"r\"]"
-            },
-            {
-              "key": "expand",
-              "path": "keybindings.review.expand",
-              "type": "array",
-              "description": "Draw the whole of the file the cursor is in rather than the changed lines and the\nthree around them, or go back to those. The lines this adds behave like any other:\nthe cursor rests on them and a comment can be written on one. A file stays open\nwhile you are reading this change and is drawn tight again when you leave.",
-              "default": "[\"E\"]"
             },
             {
               "key": "toggle_viewed",

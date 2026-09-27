@@ -23,9 +23,9 @@ const reviewScopeOnTone = paint.ToneAccent
 func (r reviewScreen) bandView(s panelShared, width int) string {
 	kept := r.bandRows(s)
 
-	out := strings.Join(kept, "") + "\n\n" + r.diff.filter.view(paint.Panel, s.glyphs) + r.diff.matchCount()
+	out := strings.Join(kept, "") + "\n\n" + r.diff.filter.view(paint.Panel, s.glyphs) + diffMatchCount(&r.diff.Pane, r.diff.filter)
 
-	if r.diff.view != nil && r.diff.view.Len() > 0 {
+	if r.diff.View() != nil && r.diff.View().Len() > 0 {
 		out += r.deadView(s, width)
 	}
 
@@ -106,11 +106,11 @@ func reviewFill(line string, pane int) string {
 
 // statView is how big the change is, with the counts coloured the way the lines themselves are.
 func (d reviewDiff) statView() string {
-	if d.view == nil {
+	if d.View() == nil {
 		return ""
 	}
 
-	stat := d.view.Stat()
+	stat := d.View().Stat()
 	if stat.Files == 0 {
 		return ""
 	}
@@ -119,7 +119,7 @@ func (d reviewDiff) statView() string {
 		paint.Panel.Style(reviewAddedTone).Render(fmt.Sprintf("+%d", stat.Added)) + " " +
 		paint.Panel.Style(reviewRemovedTone).Render(fmt.Sprintf("-%d", stat.Removed))
 
-	if read, total := d.view.CountViewedFiles(); read > 0 {
+	if read, total := d.View().CountViewedFiles(); read > 0 {
 		out += dimStyle.Render(fmt.Sprintf("  %d/%d viewed", read, total))
 	}
 
@@ -129,7 +129,7 @@ func (d reviewDiff) statView() string {
 // scopeView says what the diff on screen is measured between, in the reader's own terms rather
 // than as rounds, and draws the other thing the base key could show beside it.
 func (r reviewScreen) scopeView(s panelShared) string {
-	if r.diff.view == nil {
+	if r.diff.View() == nil {
 		return ""
 	}
 
@@ -160,27 +160,6 @@ func (r reviewScreen) stepSaid(s panelShared) string {
 	default:
 		return back + " back" + separated + forward + " forward"
 	}
-}
-
-// matchCount is where in the search the cursor is standing, drawn under the pattern the panel's
-// own filter is already showing.
-func (d reviewDiff) matchCount() string {
-	if d.view == nil || !d.filter.isStanding() {
-		return ""
-	}
-
-	where := label.Counted(d.view.MatchCount(), "match")
-	if at, ok := d.view.MatchNumber(d.cursor); ok {
-		where = label.OfCount(at, d.view.MatchCount())
-	}
-
-	// A match inside a file folded away is on no row, so stepping through the matches never
-	// reaches it, and it is counted apart rather than left to look like nothing was found.
-	if hidden := d.view.HiddenMatches(); hidden > 0 {
-		where += fmt.Sprintf(separated+"%d in viewed files", hidden)
-	}
-
-	return dimStyle.Render("  "+where) + "\n\n"
 }
 
 // bandRow draws one row of the band as a coloured state and a hint after it, cutting the hint

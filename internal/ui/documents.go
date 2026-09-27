@@ -50,6 +50,8 @@ type documentsScreen struct {
 	bodies      map[string]documentBody
 	editing     *documentEdit
 	history     *documentHistory
+	// diffFocus says the cycle key handed the keys to the diff of a write.
+	diffFocus bool
 }
 
 // documentRow is one line of the documents list.
@@ -80,7 +82,15 @@ func (d *documentsScreen) update(h host, s panelShared, msg tea.Msg) tea.Cmd {
 		return nil
 	}
 
-	return d.list().update(h, s, key, d.actions())
+	if d.history != nil && d.history.filter.typing {
+		return d.diffKeys().updateFilter(h, s, key)
+	}
+
+	if d.isDiffFocused(s) {
+		return d.updateDiff(h, s, key)
+	}
+
+	return d.list().update(h, s, key, d.actions(s))
 }
 
 func (d *documentsScreen) list() screenList[documentRow] {
@@ -90,7 +100,7 @@ func (d *documentsScreen) list() screenList[documentRow] {
 		name:   documentRowName,
 		placed: func(h host, _ panelShared) { h.stageInfo() },
 		moved: func(h host, _ panelShared) tea.Cmd {
-			d.history = nil
+			d.history, d.diffFocus = nil, false
 
 			return h.waitToStage()
 		},
@@ -164,7 +174,7 @@ func (d *documentsScreen) agentName(s panelShared) string {
 }
 
 func (d *documentsScreen) help(s panelShared) keyMap {
-	return d.actions().help(s)
+	return d.actions(s).help(s)
 }
 
 // documentColumns is the gutter of the documents list: how long ago each was last written.
@@ -397,9 +407,10 @@ func (m *model) applyDocumentRead(msg documentReadMsg) {
 }
 
 var (
-	_ columned = (*documentsScreen)(nil)
-	_ filtered = (*documentsScreen)(nil)
-	_ staged   = (*documentsScreen)(nil)
+	_ columned       = (*documentsScreen)(nil)
+	_ filtered       = (*documentsScreen)(nil)
+	_ staged         = (*documentsScreen)(nil)
+	_ columnScroller = (*documentsScreen)(nil)
 )
 
 func (d *documentsScreen) stage(h host, _ panelShared) {
@@ -411,7 +422,7 @@ func (d *documentsScreen) doesDrawFromListing() bool {
 }
 
 func (d *documentsScreen) takesEveryKey() bool {
-	return false
+	return d.history != nil && d.history.filter.typing
 }
 
 func (d *documentsScreen) column() columnSpec {

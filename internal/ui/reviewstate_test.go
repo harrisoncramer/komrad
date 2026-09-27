@@ -29,7 +29,7 @@ func TestIsReviewHistory(t *testing.T) {
 			name: "the base and head were cleared under a diff still drawn to an older round",
 			diff: reviewDiff{
 				chapter: -1,
-				view:    diffview.NewView(&diff.Patch{BaseSHA: "s1", SnapshotSHA: "s2"}, false),
+				Pane:    diffview.NewPane(diffview.NewView(&diff.Patch{BaseSHA: "s1", SnapshotSHA: "s2"}, false)),
 			},
 			want: true,
 		},

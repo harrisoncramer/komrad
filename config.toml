@@ -140,6 +140,28 @@ restore_open = ["R"]
 # Copy the field the details cursor is on to the system clipboard.
 copy = ["y"]
 
+# A diff with a cursor in it, shared by the review and a document's history.
+[keybindings.diff]
+# Draw the whole of the file the cursor is in rather than the changed lines and the
+# three around them, or go back to those. The lines this adds behave like any other:
+# the cursor rests on them and, on the review, a comment can be written on one. A file
+# stays open while you are reading this change and is drawn tight again when you leave.
+expand     = ["E"]
+# Jump to the next file in the diff.
+next_file  = ["]"]
+# Jump to the next line matching the pattern the filter key searched for.
+next_match = ["n"]
+# Pan the diff left, for a line wider than the pane.
+pan_left   = ["h", "left"]
+# Pan back to the start of the line.
+pan_reset  = ["0"]
+# Pan the diff right.
+pan_right  = ["l", "right"]
+# Jump to the previous file in the diff.
+prev_file  = ["["]
+# Jump to the previous line matching the pattern.
+prev_match = ["N"]
+
 # The documents screen, which reads what the hovered agent has written for a person.
 [keybindings.documents]
 # Leave the documents screen for the agents list.
@@ -242,24 +264,10 @@ compose          = ["c"]
 # working rather than letting you both write at once. It is refused on a round the
 # agent has written past, since those lines have moved on.
 edit_file        = ["e"]
-# Jump to the next file in the diff.
-next_file        = ["]"]
-# Jump to the next line matching the pattern the filter key searched for.
-next_match       = ["n"]
 # Jump to the next line carrying a review thread.
 next_thread      = ["t"]
 # Move the cursor to the next comment nobody has settled. It stops on the last one.
 next_open_thread = ["u"]
-# Pan the diff left, for a line wider than the pane.
-pan_left         = ["h", "left"]
-# Pan back to the start of the line.
-pan_reset        = ["0"]
-# Pan the diff right.
-pan_right        = ["l", "right"]
-# Jump to the previous file in the diff.
-prev_file        = ["["]
-# Jump to the previous line matching the pattern.
-prev_match       = ["N"]
 # Move the cursor to the previous comment nobody has settled. It stops on the first one.
 prev_open_thread = ["U"]
 # Jump to the previous line carrying a review thread.
@@ -272,11 +280,6 @@ quit             = ["ctrl+c"]
 reload           = ["R"]
 # Settle the thread under the cursor, which marks it resolved without deleting it.
 resolve          = ["r"]
-# Draw the whole of the file the cursor is in rather than the changed lines and the
-# three around them, or go back to those. The lines this adds behave like any other:
-# the cursor rests on them and a comment can be written on one. A file stays open
-# while you are reading this change and is drawn tight again when you leave.
-expand           = ["E"]
 # Fold away the file the cursor is in once you have read it, or open it again. A file
 # the agent writes to afterwards comes back on its own.
 toggle_viewed    = ["v"]

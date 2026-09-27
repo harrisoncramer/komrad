@@ -100,7 +100,7 @@ func (r *reviewScreen) pressEdit(h host, s panelShared) tea.Cmd {
 
 // isEditRefused is why the edit key would open nothing, read before the agent is stopped for it.
 func (r reviewScreen) isEditRefused(s panelShared) (string, bool) {
-	if _, _, ok := r.diff.view.GetEditTarget(r.diff.cursor); !ok {
+	if _, _, ok := r.diff.View().GetEditTarget(r.diff.Cursor()); !ok {
 		return "that file was deleted, so there is nothing to open", true
 	}
 
@@ -125,7 +125,7 @@ func (r reviewScreen) isAgentUnreadable(s panelShared) (string, bool) {
 // editFile opens the file under the cursor in the agent's own worktree, in the stage beside the
 // sidebar, letting the agent go again when there is nothing to open it in.
 func (r *reviewScreen) editFile(h host, s panelShared) tea.Cmd {
-	path, line, ok := r.diff.view.GetEditTarget(r.diff.cursor)
+	path, line, ok := r.diff.View().GetEditTarget(r.diff.Cursor())
 	if !ok {
 		r.notice = "that file was deleted, so there is nothing to open"
 

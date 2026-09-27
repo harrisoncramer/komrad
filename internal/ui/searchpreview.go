@@ -113,6 +113,10 @@ func (w *searchScreen) scrollPreviewBy(s panelShared, rows int) tea.Cmd {
 	return nil
 }
 
+func (w *searchScreen) doesScrollColumn(panelShared) bool {
+	return true
+}
+
 func (w *searchScreen) scrollColumn(_ host, s panelShared, rows int) tea.Cmd {
 	return w.scrollPreviewBy(s, rows)
 }

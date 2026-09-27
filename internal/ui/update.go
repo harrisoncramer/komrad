@@ -289,7 +289,7 @@ func (m model) routeGlobalKey(key tea.KeyPressMsg) (tea.Model, tea.Cmd, bool) {
 		return m.pushMockMessage(), nil, true
 	}
 
-	if m.isDetailsScreen() && m.isCycleKey(key.String()) {
+	if (m.isDetailsScreen() || m.screen == screenDocuments) && m.isCycleKey(key.String()) {
 		next, cmd := m.cycleView(key.String(), m.readSidebarStop())
 
 		return next, cmd, true
@@ -466,8 +466,9 @@ func (m model) isTyping() bool {
 	return m.active().takesEveryKey()
 }
 
-// columnScroller is a screen that scrolls its own block beside the list.
+// columnScroller is a screen that scrolls its own block beside the list while it says it does.
 type columnScroller interface {
+	doesScrollColumn(s panelShared) bool
 	scrollColumn(h host, s panelShared, rows int) tea.Cmd
 }
 
@@ -499,7 +500,7 @@ func (m model) routeWheel(wheel tea.MouseWheelMsg) (tea.Model, tea.Cmd) {
 		return m.route(pressed)
 	}
 
-	if screen, ok := m.active().(columnScroller); ok {
+	if screen, ok := m.active().(columnScroller); ok && screen.doesScrollColumn(m.shared()) {
 		return m, screen.scrollColumn(&m, m.shared(), rows*columnWheelStep)
 	}
 

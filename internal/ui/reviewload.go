@@ -430,11 +430,11 @@ func (r *reviewScreen) applyLoaded(h host, s panelShared, msg reviewLoadedMsg) t
 
 // drop puts the patch down until the next one arrives, keeping the files drawn whole for it.
 func (d *reviewDiff) drop() {
-	if d.view != nil {
-		d.expanded = d.view.GetExpanded()
+	if d.View() != nil {
+		d.expanded = d.View().GetExpanded()
 	}
 
-	d.view = nil
+	d.Drop()
 }
 
 // load draws a patch just read, over the one on screen, and puts the cursor back where the
@@ -462,8 +462,8 @@ func (d *reviewDiff) load(msg reviewLoadedMsg, isDark bool, glyphs glyph.Set) {
 	view.SetNarrowed(d.base != "")
 	view.SetTraced(msg.traced)
 	view.SetViewed(indexViewedFiles(msg.viewed, msg.patch))
-	if d.view != nil {
-		d.expanded = d.view.GetExpanded()
+	if d.View() != nil {
+		d.expanded = d.View().GetExpanded()
 	}
 
 	view.SetExpanded(d.expanded)
@@ -478,16 +478,8 @@ func (d *reviewDiff) load(msg reviewLoadedMsg, isDark bool, glyphs glyph.Set) {
 	// The pattern is the screen's rather than the view's, so a view built from nothing is given
 	// it back once the marks and the threads have settled the rows it walks.
 	view.SetPattern(d.filter.pattern)
-	d.view = view
-
-	d.cursor = view.GetFirstRow()
-	if place := d.restore; place != nil {
-		if found, ok := view.Locate(*place); ok {
-			d.cursor = found
-		}
-
-		d.restore = nil
-	}
+	d.Replace(view, d.restore)
+	d.restore = nil
 }
 
 // indexViewedFiles indexes the files whose stored fingerprint still matches the current patch,
@@ -509,7 +501,7 @@ func indexViewedFiles(viewed []*agentv1.ReviewViewedFile, patch *diff.Patch) map
 }
 
 func (r *reviewScreen) applyWrote(h host, s panelShared, msg reviewWroteMsg) tea.Cmd {
-	if msg.agentID != r.agentID || r.diff.view == nil {
+	if msg.agentID != r.agentID || r.diff.View() == nil {
 		return nil
 	}
 
@@ -548,28 +540,11 @@ func (r *reviewScreen) applyThreads(s panelShared, threads []*agentv1.ReviewThre
 
 	// Where the cursor is standing is taken before the threads are pinned again, which rebuilds
 	// the rows a settled or deleted thread takes away from under it.
-	place, ok := r.diff.view.GetPlace(r.diff.cursor)
-	r.diff.view.PinThreads(drawn)
-	r.diff.keepCursor(place, ok)
+	place, ok := r.diff.View().GetPlace(r.diff.Cursor())
+	r.diff.View().PinThreads(drawn)
+	r.diff.Keep(place, ok)
 
 	r.scrollToCursor(s)
-}
-
-// keepCursor puts the cursor back on what it was standing on, and failing that back inside the
-// diff.
-func (d *reviewDiff) keepCursor(place diffview.Place, ok bool) {
-	was := d.cursor
-
-	d.cursor = min(d.cursor, d.view.GetLastRow())
-	if ok {
-		if found, located := d.view.Locate(place); located {
-			d.cursor = found
-		}
-	}
-
-	if d.cursor != was {
-		d.pinTop = false
-	}
 }
 
 // reload reads the worktree again, holding the place the cursor is standing so the diff comes
@@ -585,11 +560,11 @@ func (r *reviewScreen) reloadFresh(s panelShared) tea.Cmd {
 }
 
 func (r *reviewScreen) load(s panelShared, fresh bool) tea.Cmd {
-	if r.diff.view == nil {
+	if r.diff.View() == nil {
 		return nil
 	}
 
-	if place, ok := r.diff.view.GetPlace(r.diff.cursor); ok {
+	if place, ok := r.diff.View().GetPlace(r.diff.Cursor()); ok {
 		r.diff.restore = &place
 	}
 

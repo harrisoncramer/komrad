@@ -133,6 +133,8 @@ type Keybindings struct {
 	// The details under whichever list is on screen: the key that hands them the
 	// cursor, and the key that copies the field it lands on.
 	Details DetailsKeys `mapstructure:"details"`
+	// A diff with a cursor in it, shared by the review and a document's history.
+	Diff DiffKeys `mapstructure:"diff"`
 	// The documents screen, which reads what the hovered agent has written for a person.
 	Documents DocumentsKeys `mapstructure:"documents"`
 	// The filter over whichever list is on screen, shared by every screen that
@@ -433,24 +435,10 @@ type ReviewKeys struct {
 	// working rather than letting you both write at once. It is refused on a round the
 	// agent has written past, since those lines have moved on.
 	EditFile []string `mapstructure:"edit_file" default:"e"`
-	// Jump to the next file in the diff.
-	NextFile []string `mapstructure:"next_file" default:"]"`
-	// Jump to the next line matching the pattern the filter key searched for.
-	NextMatch []string `mapstructure:"next_match" default:"n"`
 	// Jump to the next line carrying a review thread.
 	NextThread []string `mapstructure:"next_thread" default:"t"`
 	// Move the cursor to the next comment nobody has settled. It stops on the last one.
 	NextOpenThread []string `mapstructure:"next_open_thread" default:"u"`
-	// Pan the diff left, for a line wider than the pane.
-	PanLeft []string `mapstructure:"pan_left" default:"h,left"`
-	// Pan back to the start of the line.
-	PanReset []string `mapstructure:"pan_reset" default:"0"`
-	// Pan the diff right.
-	PanRight []string `mapstructure:"pan_right" default:"l,right"`
-	// Jump to the previous file in the diff.
-	PrevFile []string `mapstructure:"prev_file" default:"["`
-	// Jump to the previous line matching the pattern.
-	PrevMatch []string `mapstructure:"prev_match" default:"N"`
 	// Move the cursor to the previous comment nobody has settled. It stops on the first one.
 	PrevOpenThread []string `mapstructure:"prev_open_thread" default:"U"`
 	// Jump to the previous line carrying a review thread.
@@ -463,14 +451,32 @@ type ReviewKeys struct {
 	Reload []string `mapstructure:"reload" default:"R"`
 	// Settle the thread under the cursor, which marks it resolved without deleting it.
 	Resolve []string `mapstructure:"resolve" default:"r"`
-	// Draw the whole of the file the cursor is in rather than the changed lines and the
-	// three around them, or go back to those. The lines this adds behave like any other:
-	// the cursor rests on them and a comment can be written on one. A file stays open
-	// while you are reading this change and is drawn tight again when you leave.
-	Expand []string `mapstructure:"expand" default:"E"`
 	// Fold away the file the cursor is in once you have read it, or open it again. A file
 	// the agent writes to afterwards comes back on its own.
 	ToggleViewed []string `mapstructure:"toggle_viewed" default:"v"`
+}
+
+// DiffKeys walk a diff once the keys are on it, on the review and on a document's history alike.
+type DiffKeys struct {
+	// Draw the whole of the file the cursor is in rather than the changed lines and the
+	// three around them, or go back to those. The lines this adds behave like any other:
+	// the cursor rests on them and, on the review, a comment can be written on one. A file
+	// stays open while you are reading this change and is drawn tight again when you leave.
+	Expand []string `mapstructure:"expand" default:"E"`
+	// Jump to the next file in the diff.
+	NextFile []string `mapstructure:"next_file" default:"]"`
+	// Jump to the next line matching the pattern the filter key searched for.
+	NextMatch []string `mapstructure:"next_match" default:"n"`
+	// Pan the diff left, for a line wider than the pane.
+	PanLeft []string `mapstructure:"pan_left" default:"h,left"`
+	// Pan back to the start of the line.
+	PanReset []string `mapstructure:"pan_reset" default:"0"`
+	// Pan the diff right.
+	PanRight []string `mapstructure:"pan_right" default:"l,right"`
+	// Jump to the previous file in the diff.
+	PrevFile []string `mapstructure:"prev_file" default:"["`
+	// Jump to the previous line matching the pattern.
+	PrevMatch []string `mapstructure:"prev_match" default:"N"`
 }
 
 // ColumnKeys are what the mouse wheel presses over the panel. On a list they move the
