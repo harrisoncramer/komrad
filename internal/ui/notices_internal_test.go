@@ -159,7 +159,7 @@ func TestAgentNotices(t *testing.T) {
 			want: []string{"your comments: 2 open, 1 resolved"},
 		},
 		{
-			name: "a reviewer's comments with a reply unread come before the person's",
+			name: "a reviewer's comments come before the person's, undotted like their column",
 			row: buildNoticeRow(panel.AgentRow{
 				ReviewerComments: &agentv1.CommentCounts{
 					Open:   1,
@@ -168,9 +168,17 @@ func TestAgentNotices(t *testing.T) {
 				PersonComments: &agentv1.CommentCounts{Resolved: 3},
 			}),
 			want: []string{
-				"reviewer agents' comments: 1 open, 0 resolved, with something you have not read",
+				"reviewer agents' comments: 1 open, 0 resolved",
 				"your comments: 0 open, 3 resolved",
 			},
+		},
+		{
+			name: "the person's comments with a reply unread",
+			row: buildNoticeRow(panel.AgentRow{PersonComments: &agentv1.CommentCounts{
+				Open:   1,
+				Unread: true,
+			}}),
+			want: []string{"your comments: 1 open, 0 resolved, with something you have not read"},
 		},
 		{
 			name: "an archived row still counts its comments",

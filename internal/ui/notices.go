@@ -84,20 +84,20 @@ func agentNotices(r agentRow) []notice {
 	notices = appendCellNotice(notices, view.HiddenCell(row), hiddenNotice)
 	notices = appendCellNotice(notices, view.DocumentCell(row), documentsNotice)
 	notices = appendCellNotice(notices, view.ForgeCell(row), forgeSaid[row.Forge])
-	notices = appendCommentsNotice(notices, row.ReviewerComments, "reviewer agents' comments")
+	notices = appendCommentsNotice(notices, row.ReviewerComments, "reviewer agents' comments", false)
 
-	return appendCommentsNotice(notices, row.PersonComments, "your comments")
+	return appendCommentsNotice(notices, row.PersonComments, "your comments", true)
 }
 
-// appendCommentsNotice says how one side's comments stand, marked with the dot while any of
-// them holds something unread.
-func appendCommentsNotice(notices []notice, comments *view.Comments, whose string) []notice {
+// appendCommentsNotice says how one side's comments stand, marked with the dot on a side whose
+// column draws one while any of them holds something unread.
+func appendCommentsNotice(notices []notice, comments *view.Comments, whose string, dotted bool) []notice {
 	if comments == nil {
 		return notices
 	}
 
 	text := fmt.Sprintf("%s: %d open, %d resolved", whose, comments.Open, comments.Resolved)
-	if !comments.Unread {
+	if !dotted || !comments.Unread {
 		return appendNotice(notices, true, "", paint.ToneMuted, text)
 	}
 
