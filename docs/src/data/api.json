@@ -5072,9 +5072,7 @@
           "repeated": false,
           "map": false,
           "oneof": "target",
-          "rules": [
-            "required"
-          ],
+          "rules": [],
           "description": "The agent to mark."
         },
         {
@@ -5084,9 +5082,7 @@
           "repeated": false,
           "map": false,
           "oneof": "target",
-          "rules": [
-            "required"
-          ],
+          "rules": [],
           "description": "The workflow to mark."
         },
         {
@@ -5300,9 +5296,7 @@
           "repeated": false,
           "map": false,
           "oneof": "source",
-          "rules": [
-            "required"
-          ],
+          "rules": [],
           "description": "The markdown text itself."
         },
         {
@@ -5312,9 +5306,7 @@
           "repeated": false,
           "map": false,
           "oneof": "source",
-          "rules": [
-            "required"
-          ],
+          "rules": [],
           "description": "A markdown file on the machine komrad runs on, relative to the writing agent's working directory unless absolute."
         },
         {
@@ -6630,9 +6622,7 @@
           "repeated": false,
           "map": false,
           "oneof": "target",
-          "rules": [
-            "required"
-          ],
+          "rules": [],
           "description": "Launch an implementer into this workflow, whose cwd and flags it inherits."
         },
         {
@@ -6642,9 +6632,7 @@
           "repeated": false,
           "map": false,
           "oneof": "target",
-          "rules": [
-            "required"
-          ],
+          "rules": [],
           "description": "Mail the prompt to this orchestrator."
         }
       ]
@@ -7186,9 +7174,7 @@
           "repeated": false,
           "map": false,
           "oneof": "target",
-          "rules": [
-            "required"
-          ],
+          "rules": [],
           "description": "Launch an implementer into this workflow."
         },
         {
@@ -7198,9 +7184,7 @@
           "repeated": false,
           "map": false,
           "oneof": "target",
-          "rules": [
-            "required"
-          ],
+          "rules": [],
           "description": "Mail the prompt to this orchestrator."
         },
         {
