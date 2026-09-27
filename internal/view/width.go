@@ -9,9 +9,6 @@ import (
 // plainColumns is how many columns one glyph takes.
 const plainColumns = 1
 
-// countColumns is the narrowest a pair of comment counts is drawn.
-const countColumns = 3
-
 // spaceColumns is the space a cell carries after its glyph.
 const spaceColumns = 1
 
@@ -29,10 +26,10 @@ func GutterColumns(columns Columns) int {
 	return width
 }
 
-// countPairColumns is how wide one side's pair of counts is drawn, a dash when it has none.
+// countPairColumns is how wide one side's pair of counts is drawn, nothing when it has none.
 func countPairColumns(comments *Comments) int {
 	if comments == nil {
-		return plainColumns
+		return 0
 	}
 
 	return len(strconv.Itoa(comments.Open)) + plainColumns + len(strconv.Itoa(comments.Resolved))

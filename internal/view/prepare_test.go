@@ -232,7 +232,7 @@ func TestPrepareColumnsFollowTheRowKind(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			line := prepareOne(t, tt.row)
 
-			require.Len(t, line.Columns, 4)
+			require.Len(t, line.Columns, 3)
 			for _, cell := range line.Columns {
 				assert.Equal(t, tt.blank, cell.IsBlank())
 			}
@@ -295,12 +295,11 @@ func TestPrepareRepoColumn(t *testing.T) {
 }
 
 // TestPrepareCommentColumns pins the two count pairs, reviewer agents then the person, and that the
-// gutter makes room for them only while some row has any.
+// gutter makes room for each only while some row has any.
 func TestPrepareCommentColumns(t *testing.T) {
 	muted := func(text string) Cell {
 		return Cell{Text: text, Tone: paint.ToneMuted}
 	}
-	blankDot := Cell{Text: " "}
 	unreadDot := Cell{Text: "·", Tone: paint.ToneWarning}
 
 	tests := []struct {
@@ -321,17 +320,25 @@ func TestPrepareCommentColumns(t *testing.T) {
 				Kind:           KindChild,
 				PersonComments: &Comments{Open: 1},
 			},
-			wantColumns: CommentedWorkColumns(0, 0),
+			wantColumns: CommentedWorkColumns(0, 3, false),
 		},
 		{
-			name: "a side with nothing to show is a dash beside one that has",
+			name: "a side nobody has comments on is left out of the gutter",
 			row: Row{
 				Kind:             KindAgent,
 				ReviewerComments: &Comments{Resolved: 2},
 			},
-			wantColumns:  CommentedWorkColumns(0, 0),
+			wantColumns:  CommentedWorkColumns(3, 0, false),
 			wantReviewer: Cell{Parts: []Cell{muted("0"), muted("|2")}},
-			wantPerson:   Cell{Parts: []Cell{muted("–"), blankDot}},
+		},
+		{
+			name: "the person's counts take no place for a dot while nothing is unread",
+			row: Row{
+				Kind:           KindAgent,
+				PersonComments: &Comments{Resolved: 12},
+			},
+			wantColumns: CommentedWorkColumns(0, 4, false),
+			wantPerson:  Cell{Parts: []Cell{muted("0"), muted("|12")}},
 		},
 		{
 			name: "the person's open count stands out and an unread one earns the dot",
@@ -347,7 +354,7 @@ func TestPrepareCommentColumns(t *testing.T) {
 					Unread:   true,
 				},
 			},
-			wantColumns:  CommentedWorkColumns(0, 0),
+			wantColumns:  CommentedWorkColumns(3, 3, true),
 			wantReviewer: Cell{Parts: []Cell{muted("3"), muted("|1")}},
 			wantPerson: Cell{Parts: []Cell{
 				{
@@ -365,12 +372,14 @@ func TestPrepareCommentColumns(t *testing.T) {
 			list := Prepare(Snapshot{Rows: []Row{tt.row}})
 			require.Len(t, list.Lines, 1)
 			require.Equal(t, tt.wantColumns, list.Columns)
-			if len(tt.wantColumns) == len(WorkColumns()) {
-				return
+
+			drawn := map[ColumnKind]Cell{}
+			for i, column := range list.Columns {
+				drawn[column.Kind] = list.Lines[0].Columns[i]
 			}
 
-			assert.Equal(t, tt.wantReviewer, list.Lines[0].Columns[1])
-			assert.Equal(t, tt.wantPerson, list.Lines[0].Columns[2])
+			assert.Equal(t, tt.wantReviewer, drawn[ColumnReviewerComments])
+			assert.Equal(t, tt.wantPerson, drawn[ColumnPersonComments])
 		})
 	}
 }
