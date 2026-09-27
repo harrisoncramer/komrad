@@ -181,6 +181,42 @@ func TestAgentsRows(t *testing.T) {
 		assert.Equal(t, readListRows(plain.readFrame()), readListRows(branched.readFrame()))
 	})
 
+	t.Run("a reviewed row with no comments draws no counts and keeps to one line in the narrowest sidebar", func(t *testing.T) {
+		harness := newPanelHarness(t, panelHarnessParams{sidebarWidth: 1})
+		answerWorktreeReads(harness)
+		harness.watch(buildSnapshot(
+			newLiveWorkflow("w1", "backend"),
+			newAgent("a1", "render-issues", "w1"),
+			&agentv1.WatchedReview{
+				Id:           "v1",
+				AgentId:      "a1",
+				RoundId:      "a1-round-1",
+				RoundOrdinal: 1,
+				ReleasedAt:   "2026-09-20T12:00:00Z",
+				AuthorKind:   agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT,
+			},
+			&agentv1.WatchedReview{
+				Id:           "v2",
+				AgentId:      "a1",
+				RoundId:      "a1-round-1",
+				RoundOrdinal: 1,
+				ReleasedAt:   "2026-09-20T12:00:00Z",
+			},
+		))
+
+		frame := harness.readFrame()
+		sidebar := measureListRule(frame)
+		var rows []string
+		for _, line := range splitLines(frame) {
+			if _, isRow := cutListRow(line); isRow {
+				rows = append(rows, strings.TrimRight(ansi.Truncate(line, sidebar, ""), " "))
+			}
+		}
+
+		assert.NotContains(t, frame, "0|0")
+		ui.RequireGolden(t, "agents-reviewed-without-comments", strings.Join(rows, "\n"))
+	})
+
 	t.Run("an empty panel welcomes a newcomer and says where to start", func(t *testing.T) {
 		harness := openAgents(t)
 

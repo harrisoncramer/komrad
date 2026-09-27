@@ -515,6 +515,79 @@ func TestRenderLivePanelShape(t *testing.T) {
 	requireGolden(t, "list-live-panel", render(list, paint.Panel, 0))
 }
 
+// TestRenderCommentCounts draws the comment columns in a narrow sidebar, blank for a side with no
+// comments and left out of the gutter while no row has any.
+func TestRenderCommentCounts(t *testing.T) {
+	plain := Row{
+		Kind:   KindAgent,
+		Name:   "render-issues",
+		Forge:  ForgeOpen,
+		Status: StatusIdle,
+	}
+	reviewed := Row{
+		Kind:   KindAgent,
+		Name:   "hash-rewrite",
+		Status: StatusWaiting,
+		ReviewerComments: &Comments{
+			Open:     2,
+			Resolved: 1,
+		},
+	}
+	commented := Row{
+		Kind:           KindAgent,
+		Name:           "gutter-fix",
+		Status:         StatusIdle,
+		PersonComments: &Comments{Resolved: 3},
+	}
+	both := Row{
+		Kind:   KindAgent,
+		Name:   "pr-state-notices",
+		Forge:  ForgeDraft,
+		Status: StatusThinking,
+		ReviewerComments: &Comments{
+			Open:     12,
+			Resolved: 4,
+		},
+		PersonComments: &Comments{
+			Open:   1,
+			Unread: true,
+		},
+	}
+
+	tests := []struct {
+		name   string
+		golden string
+		rows   []Row
+	}{
+		{
+			name:   "no comments on any row take no columns",
+			golden: "list-comments-none",
+			rows:   []Row{plain, plain},
+		},
+		{
+			name:   "one side draws its column and a row without comments leaves it blank",
+			golden: "list-comments-one-side",
+			rows:   []Row{plain, reviewed},
+		},
+		{
+			name:   "both sides keep their columns aligned across rows with either or neither",
+			golden: "list-comments-both",
+			rows:   []Row{plain, reviewed, commented, both},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			list := Prepare(Snapshot{
+				Rows: tt.rows,
+				Pane: 30,
+			})
+
+			requireGolden(t, tt.golden, render(list, paint.Panel, 0))
+		})
+	}
+}
+
 // TestRenderDrawsTheSpecifiedGlyphSequence pins the glyphs of the settled design and the order
 // they come in, comparing runes rather than the columns they occupy.
 func TestRenderDrawsTheSpecifiedGlyphSequence(t *testing.T) {

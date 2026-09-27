@@ -536,6 +536,11 @@ func TestArchiveDocument(t *testing.T) {
 				RoundOrdinal: 1,
 				ReleasedAt:   archivedAt,
 			},
+			&agentv1.ReviewThread{
+				Id:       "t1",
+				AgentId:  "a1",
+				ReviewId: "v1",
+			},
 		)
 
 		harness.press(append([]string{"j", "ctrl+a"}, widenListPresses...)...)
@@ -543,7 +548,7 @@ func TestArchiveDocument(t *testing.T) {
 		frame := harness.readFrame()
 		assert.Contains(t, frame, "agent/a1")
 		assert.Contains(t, frame, "#42 merged")
-		assert.Contains(t, frame, "your comments: 0 open, 0 resolved")
+		assert.Contains(t, frame, "your comments: 1 open, 0 resolved")
 		created, archived := findRecordLine(frame, "created"), findRecordLine(frame, "archived")
 		require.Positive(t, created)
 		assert.Less(t, created, archived, "when it was put away comes after when it was made")

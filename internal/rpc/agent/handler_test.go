@@ -1073,8 +1073,6 @@ func TestGetAgent(t *testing.T) {
 	assert.Equal(t, int32(740), got.Msg.GetPullRequests()[0].GetNumber(), "with every pull request on its branch")
 	assert.Equal(t, int32(740), got.Msg.GetPullRequest().GetNumber(), "and the current one's standing")
 	assert.Equal(t, int32(1), got.Msg.GetLocalReviewRounds())
-	require.NotNil(t, got.Msg.GetPersonComments(), "a released review of unlanded work is counted")
-	assert.Nil(t, got.Msg.GetReviewerComments())
 
 	agent := got.Msg.GetAgent()
 	assert.Equal(t, "/repo", agent.GetCwd())
