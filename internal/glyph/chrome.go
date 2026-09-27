@@ -1,0 +1,63 @@
+package glyph
+
+import "komrad/lib/xslice"
+
+// The chrome is what the layout is drawn with rather than anything the panel says, so it is
+// fixed rather than configured.
+const (
+	// Busy is the status bar of an agent that is working or waiting on a person.
+	Busy = "┃"
+	// Quiet is the status bar of an agent with nothing going on.
+	Quiet = "│"
+	// Child is the corner a child hangs off its parent by.
+	Child = "└"
+	// Focus is the arrow on the row the keyboard stands on.
+	Focus = "›"
+	// Divider is the line between two columns.
+	Divider = "│"
+	// Rule is the line across the width of a pane.
+	Rule = "─"
+	// TeeLeft is where a rule leaves a divider on its left.
+	TeeLeft = "├"
+	// TeeRight is where a rule meets a divider on its right.
+	TeeRight = "┤"
+	// Cross is where a rule crosses a divider.
+	Cross = "┼"
+	// TextCursor is the cursor at the end of text being typed.
+	TextCursor = "▏"
+	// Separator sits between two things said on the same line.
+	Separator = "·"
+)
+
+// Chrome is every piece of chrome and what a report calls it.
+func Chrome() []Named {
+	return []Named{
+		{Name: "busy", Text: Busy},
+		{Name: "quiet", Text: Quiet},
+		{Name: "child", Text: Child},
+		{Name: "focus", Text: Focus},
+		{Name: "divider", Text: Divider},
+		{Name: "rule", Text: Rule},
+		{Name: "tee left", Text: TeeLeft},
+		{Name: "tee right", Text: TeeRight},
+		{Name: "cross", Text: Cross},
+		{Name: "text cursor", Text: TextCursor},
+		{Name: "separator", Text: Separator},
+	}
+}
+
+// Named is a character the panel draws and what a report calls it.
+type Named struct {
+	Name string
+	Text string
+}
+
+// Drawn is every character the panel draws with the set given, each glyph by its key and then
+// the chrome.
+func (s Set) Drawn() []Named {
+	drawn := xslice.Map(All(), func(g Glyph) Named {
+		return Named{Name: g.Key(), Text: s.Spell(g)}
+	})
+
+	return append(drawn, Chrome()...)
+}

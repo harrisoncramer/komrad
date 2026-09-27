@@ -7,6 +7,7 @@ import (
 	"slices"
 
 	"komrad/internal/diff"
+	"komrad/internal/glyph"
 	"komrad/lib/xslice"
 	agentv1 "komrad/proto/gen/agent/v1"
 )
@@ -87,6 +88,13 @@ type View struct {
 	search  *search
 	// narrowed says the patch is a slice of the change rather than the whole of it.
 	narrowed bool
+	// glyphs is what the marks on threads and files are drawn in.
+	glyphs glyph.Set
+}
+
+// SetGlyphs says what the marks on threads and files are drawn in.
+func (v *View) SetGlyphs(glyphs glyph.Set) {
+	v.glyphs = glyphs
 }
 
 // SetNarrowed says whether the patch on screen is a slice of the change rather than all of it.

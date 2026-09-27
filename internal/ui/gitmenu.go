@@ -142,7 +142,7 @@ func gitEntryLabel(entry gitEntry) string {
 	}
 
 	if !entry.held {
-		label += " · " + entry.refusal
+		label += separated + entry.refusal
 	}
 
 	return label

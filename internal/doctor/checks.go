@@ -14,6 +14,8 @@ func HereChecks() []Check {
 		newServerCheck(),
 		newForgesCheck(),
 		newTerminalGlyphCheck(),
+		newGlyphFontCheck(),
+		newGlyphCollisionCheck(),
 		newTerminalEmphasisCheck(),
 		newTerminalColorCheck(),
 	}

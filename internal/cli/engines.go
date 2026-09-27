@@ -200,7 +200,8 @@ func pickEngine(ctx context.Context, state *app, rows []enginepick.Row) (string,
 		Probe: func(row enginepick.Row) enginepick.Status {
 			return prober.probe(ctx, row)
 		},
-		Self: version.Describe(version.Version(), version.Commit()),
+		Self:   version.Describe(version.Version(), version.Commit()),
+		Glyphs: state.glyphs,
 	})
 	if err != nil {
 		return "", err

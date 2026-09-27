@@ -266,7 +266,7 @@ func (r *reviewScreen) toggleExpanded(s panelShared) {
 	expanding := !r.diff.view.IsExpanded(path)
 
 	if expanding && r.diff.view.IsViewed(path) {
-		r.notice = "that file is folded away · " +
+		r.notice = "that file is folded away" + separated +
 			keyLabel(s.keys.Review.ToggleViewed) + " to open it"
 
 		return

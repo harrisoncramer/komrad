@@ -82,6 +82,8 @@ func TestChecksMakesEveryCheckOnce(t *testing.T) {
 		"server",
 		"forges",
 		"terminal glyphs",
+		"glyph font",
+		"glyph collisions",
 		"terminal emphasis",
 		"terminal color",
 		"tmux shell",

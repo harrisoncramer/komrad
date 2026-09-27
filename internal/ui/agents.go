@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"komrad/config"
+	"komrad/internal/glyph"
 	"komrad/internal/ui/panel"
 	"komrad/internal/view"
 	agentv1 "komrad/proto/gen/agent/v1"
@@ -199,7 +200,7 @@ func (a *agentsScreen) details(s panelShared) details {
 
 	return details{
 		id:      r.item.Agent.ID,
-		notices: agentNotices(r),
+		notices: agentNotices(s.glyphs, r),
 		fields:  agentDetailFields(s, r.item),
 		tag:     buildDiffStatTag(agentWorktree(s.inspections, r.item.Agent.Cwd)),
 	}
@@ -336,7 +337,7 @@ func agentsTabs() tabStrip {
 
 func (a *agentsScreen) listParams(s panelShared) screenListParams {
 	return screenListParams{
-		title:    screenTitle(view.GlyphWorkflow, "Agents & Workflows"),
+		title:    screenTitle(s.glyphs, glyph.Workflow, "Agents & Workflows"),
 		help:     a.help,
 		rows:     len(a.rows(s)),
 		snapshot: func(pane listPane) view.Snapshot { return a.snapshot(s, pane) },

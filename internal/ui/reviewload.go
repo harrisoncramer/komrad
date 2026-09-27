@@ -7,6 +7,7 @@ import (
 	"komrad/internal/assemble"
 	"komrad/internal/diff"
 	"komrad/internal/git"
+	"komrad/internal/glyph"
 	"komrad/internal/ui/diffview"
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/ui/panel"
@@ -419,7 +420,7 @@ func (r *reviewScreen) applyLoaded(h host, s panelShared, msg reviewLoadedMsg) t
 
 	r.root = msg.patch.Root
 	r.round = msg.round
-	r.diff.load(msg, s.isDark)
+	r.diff.load(msg, s.isDark, s.glyphs)
 	r.threads.set(msg.threads)
 
 	r.scrollToCursor(s)
@@ -438,7 +439,7 @@ func (d *reviewDiff) drop() {
 
 // load draws a patch just read, over the one on screen, and puts the cursor back where the
 // reader was standing.
-func (d *reviewDiff) load(msg reviewLoadedMsg, isDark bool) {
+func (d *reviewDiff) load(msg reviewLoadedMsg, isDark bool, glyphs glyph.Set) {
 	d.baseRound = msg.earlier
 	d.baseAt = msg.earlierAt
 	d.pinned = msg.pinned
@@ -457,6 +458,7 @@ func (d *reviewDiff) load(msg reviewLoadedMsg, isDark bool) {
 	// The files the reader opened out are the view's own, so a view built again over the patch
 	// takes them from the one it replaces, or from what was kept when that one was dropped.
 	view := diffview.NewView(msg.patch, isDark)
+	view.SetGlyphs(glyphs)
 	view.SetNarrowed(d.base != "")
 	view.SetTraced(msg.traced)
 	view.SetViewed(indexViewedFiles(msg.viewed, msg.patch))

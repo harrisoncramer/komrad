@@ -3,6 +3,7 @@ package ui
 import (
 	"time"
 
+	"komrad/internal/glyph"
 	"komrad/internal/ui/paint"
 	"komrad/internal/view"
 
@@ -14,7 +15,7 @@ import (
 const blankCursor = "  "
 
 // rowCursorGlyph is the arrow a list draws on the row the cursor is standing on.
-var rowCursorGlyph = view.Spell(view.GlyphFocus) + " "
+var rowCursorGlyph = glyph.Focus + " "
 
 // newRowCursor is the blink the lists share, focused from the start.
 func newRowCursor() cursor.Model {

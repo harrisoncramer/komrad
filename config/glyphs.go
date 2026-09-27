@@ -1,0 +1,198 @@
+package config
+
+import (
+	"fmt"
+	"reflect"
+
+	"komrad/internal/glyph"
+)
+
+// Glyphs are the icons the panel draws, grouped by where each one is drawn.
+type Glyphs struct {
+	// The repo column of the sidebar, which says where an agent's own checkout stands.
+	Row RowGlyphs `mapstructure:"row"`
+	// The forge column of the sidebar, which says where the pull request from an agent's branch stands.
+	PullRequest PullRequestGlyphs `mapstructure:"pull_request"`
+	// The marks drawn after a row's name in the sidebar and beside what they say in the details.
+	Marks MarkGlyphs `mapstructure:"marks"`
+	// The titles over the panel's lists, and the prompt and cursor they draw.
+	Lists ListGlyphs `mapstructure:"lists"`
+	// The review screen: the marks on its threads and files, and how far a comment has got.
+	Review ReviewGlyphs `mapstructure:"review"`
+	// The messages the panel shows, one for each kind.
+	Messages MessageGlyphs `mapstructure:"messages"`
+	// The schedules list, one for a schedule that runs and one for a schedule that is paused.
+	Schedules ScheduleGlyphs `mapstructure:"schedules"`
+}
+
+// RowGlyphs are drawn in the repo column of the sidebar.
+type RowGlyphs struct {
+	// An agent with a checkout of its own, drawn in a warning colour while a rebase is stopped in
+	// it, and the title over the worktrees list.
+	Worktree string `mapstructure:"worktree"`
+	// An agent whose checkout no longer exists.
+	WorktreeGone string `mapstructure:"worktree_gone"`
+}
+
+// PullRequestGlyphs are drawn in the forge column of the sidebar.
+type PullRequestGlyphs struct {
+	// An open pull request, drawn in a warning colour once changes have been requested.
+	Open string `mapstructure:"open"`
+	// A draft pull request.
+	Draft string `mapstructure:"draft"`
+	// An approved pull request, drawn muted while it cannot merge yet.
+	Approved string `mapstructure:"approved"`
+	// A merged pull request.
+	Merged string `mapstructure:"merged"`
+	// A pull request closed without merging.
+	Closed string `mapstructure:"closed"`
+	// A pull request with a failing check.
+	Failing string `mapstructure:"failing"`
+	// A pull request that no longer merges cleanly.
+	Conflicting string `mapstructure:"conflicting"`
+}
+
+// MarkGlyphs are drawn after a row's name in the sidebar.
+type MarkGlyphs struct {
+	// A script komrad fired for the agent failed and its log is unread.
+	FailedScript string `mapstructure:"failed_script"`
+	// Mail is waiting that the agent has not read.
+	Mail string `mapstructure:"mail"`
+	// The agent is paused, held by a person reading its worktree.
+	Paused string `mapstructure:"paused"`
+	// The row has been hidden from the sidebar.
+	Hidden string `mapstructure:"hidden"`
+	// A schedule launches into the workflow, and the title over the schedules list.
+	Schedule string `mapstructure:"schedule"`
+	// The agent has written documents for a person, and the title over the documents list.
+	Document string `mapstructure:"document"`
+	// Your comments on the agent's work hold something you have not read.
+	Unread string `mapstructure:"unread"`
+}
+
+// ListGlyphs are drawn in the titles over the panel's lists.
+type ListGlyphs struct {
+	// The title over the agents list.
+	Workflow string `mapstructure:"workflow"`
+	// The title over the archive.
+	Archive string `mapstructure:"archive"`
+	// The title over the transcript search.
+	Search string `mapstructure:"search"`
+	// The prompt of the filter over a list.
+	Filter string `mapstructure:"filter"`
+	// The cursor in a list of choices, such as the engines to connect to.
+	Cursor string `mapstructure:"cursor"`
+}
+
+// ReviewGlyphs are drawn on the review screen.
+type ReviewGlyphs struct {
+	// A thread holding something you have not read.
+	Unread string `mapstructure:"unread"`
+	// A thread nobody has resolved, with nothing new in it.
+	Read string `mapstructure:"read"`
+	// A thread that has been resolved.
+	Settled string `mapstructure:"settled"`
+	// A thread holding a comment nobody has sent yet.
+	Unsent string `mapstructure:"unsent"`
+	// The header of a file you have read and folded away.
+	Viewed string `mapstructure:"viewed"`
+	// A comment the agent has been given.
+	Delivered string `mapstructure:"delivered"`
+	// A comment held back until you send it.
+	Held string `mapstructure:"held"`
+}
+
+// MessageGlyphs are drawn before each message the panel shows.
+type MessageGlyphs struct {
+	// Something failed.
+	Error string `mapstructure:"error"`
+	// Something needs your attention.
+	Warning string `mapstructure:"warning"`
+	// Something finished as asked.
+	Success string `mapstructure:"success"`
+	// Something to know.
+	Info string `mapstructure:"info"`
+}
+
+// ScheduleGlyphs are drawn beside each schedule in the schedules list.
+type ScheduleGlyphs struct {
+	// A schedule that runs.
+	Enabled string `mapstructure:"enabled"`
+	// A schedule that is paused.
+	Disabled string `mapstructure:"disabled"`
+}
+
+// DefaultGlyphs are the icons used when the config omits them, read from the glyph package so
+// the characters are written in one place.
+func DefaultGlyphs() Glyphs {
+	var glyphs Glyphs
+	defaults := glyph.Defaults()
+
+	eachGlyphField(&glyphs, func(key string, field reflect.Value) {
+		g, ok := glyph.ByKey(key)
+		if !ok {
+			panic(fmt.Sprintf("glyphs.%s names no glyph the panel draws", key))
+		}
+
+		field.SetString(defaults.Spell(g))
+	})
+
+	return glyphs
+}
+
+// Set is the glyph set the panel draws with.
+func (g Glyphs) Set() (glyph.Set, error) {
+	overrides := map[glyph.Glyph]string{}
+
+	var err error
+	eachGlyphField(&g, func(key string, field reflect.Value) {
+		found, ok := glyph.ByKey(key)
+		if !ok && err == nil {
+			err = fmt.Errorf("glyphs.%s names no glyph the panel draws", key)
+
+			return
+		}
+
+		overrides[found] = field.String()
+	})
+	if err != nil {
+		return glyph.Set{}, err
+	}
+
+	set, err := glyph.Load(overrides)
+	if err != nil {
+		return glyph.Set{}, fmt.Errorf("failed to load the glyphs: %w", err)
+	}
+
+	return set, nil
+}
+
+// validateGlyphs refuses a glyph outside the approved set, naming the key it was written under.
+func validateGlyphs(glyphs Glyphs) error {
+	var err error
+	eachGlyphField(&glyphs, func(key string, field reflect.Value) {
+		if err != nil {
+			return
+		}
+		if checked := glyph.Check(field.String()); checked != nil {
+			err = fmt.Errorf("glyphs.%s: %w", key, checked)
+		}
+	})
+
+	return err
+}
+
+// eachGlyphField calls visit with every field of the glyphs and the key it sits at, its group
+// and its name as the config spells them.
+func eachGlyphField(glyphs *Glyphs, visit func(key string, field reflect.Value)) {
+	groups := reflect.ValueOf(glyphs).Elem()
+	for i := range groups.NumField() {
+		group := groups.Field(i)
+		groupName := groups.Type().Field(i).Tag.Get("mapstructure")
+
+		for j := range group.NumField() {
+			fieldName := group.Type().Field(j).Tag.Get("mapstructure")
+			visit(groupName+"."+fieldName, group.Field(j))
+		}
+	}
+}

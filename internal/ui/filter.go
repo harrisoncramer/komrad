@@ -5,6 +5,7 @@ import (
 	"slices"
 	"strings"
 
+	"komrad/internal/glyph"
 	"komrad/internal/ui/paint"
 
 	tea "charm.land/bubbletea/v2"
@@ -31,9 +32,9 @@ func (m filterMode) flipped() filterMode {
 }
 
 // glyph is the character the prompt opens with.
-func (m filterMode) glyph() string {
+func (m filterMode) glyph(glyphs glyph.Set) string {
 	if m == filterModeFilter {
-		return "▽"
+		return glyphs.Spell(glyph.Filter)
 	}
 
 	return "/"
@@ -389,11 +390,11 @@ func placeCursor(found, cursor, length int) int {
 }
 
 // view draws the search line whether or not there is a search.
-func (f filterState) view(palette paint.Palette) string {
-	return f.line(palette) + "\n\n"
+func (f filterState) view(palette paint.Palette, glyphs glyph.Set) string {
+	return f.line(palette, glyphs) + "\n\n"
 }
 
-func (f filterState) line(palette paint.Palette) string {
+func (f filterState) line(palette paint.Palette, glyphs glyph.Set) string {
 	query := f.query
 	if f.broken {
 		query = palette.Broken().Render(query)
@@ -404,9 +405,9 @@ func (f filterState) line(palette paint.Palette) string {
 		slash = dimStyle
 	}
 
-	line := slash.Render(f.mode.glyph()) + " " + query
+	line := slash.Render(f.mode.glyph(glyphs)) + " " + query
 	if f.typing {
-		line += palette.Cursor().Render("▏")
+		line += palette.Cursor().Render(glyph.TextCursor)
 	}
 
 	return line

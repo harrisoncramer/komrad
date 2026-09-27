@@ -13,6 +13,7 @@ import (
 
 	"komrad/config"
 	"komrad/internal/agents"
+	"komrad/internal/glyph"
 	"komrad/internal/harness"
 	"komrad/internal/harness/claude"
 	"komrad/internal/harness/codex"
@@ -104,6 +105,13 @@ the service, or call an endpoint from a script.`,
 			app.env = env
 			app.configSources = report.Sources
 			app.keys = cfg.Keybindings
+			app.glyphs, err = cfg.Glyphs.Set()
+			if err != nil {
+				if app.configErr == nil {
+					app.configErr = err
+				}
+				app.glyphs = glyph.Defaults()
+			}
 			app.defaultHarness = cfg.DefaultHarness
 			app.usage = cfg.Usage
 

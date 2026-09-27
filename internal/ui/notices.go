@@ -3,6 +3,7 @@ package ui
 import (
 	"fmt"
 
+	"komrad/internal/glyph"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/panel"
 	"komrad/internal/view"
@@ -71,27 +72,27 @@ var (
 
 // agentNotices orders the marks by how much each wants a person's attention, reading the row the
 // list would draw so a column the row leaves empty is a column the record says nothing about.
-func agentNotices(r agentRow) []notice {
+func agentNotices(glyphs glyph.Set, r agentRow) []notice {
 	item, row := r.item, snapshotRow(r, snapshotParams{})
 
-	notices := appendCellNotice(nil, view.StatusCell(row), failureSaid[displayState(item)])
-	notices = appendCellNotice(notices, view.AlertCell(row), failedRunNotice)
-	notices = appendCellNotice(notices, view.ForgeCell(row), forgeAlertSaid[row.Forge])
-	notices = appendCellNotice(notices, view.MailCell(row), unreadMailNotice)
-	notices = appendCellNotice(notices, view.ForgeCell(row), forgeReviewSaid[row.Forge])
-	notices = appendCellNotice(notices, view.RepoCell(row), repoSaid[row.Repo])
-	notices = appendCellNotice(notices, view.HeldCell(row), heldNoticeText(item))
-	notices = appendCellNotice(notices, view.HiddenCell(row), hiddenNotice)
-	notices = appendCellNotice(notices, view.DocumentCell(row), documentsNotice)
-	notices = appendCellNotice(notices, view.ForgeCell(row), forgeSaid[row.Forge])
-	notices = appendCommentsNotice(notices, row.ReviewerComments, "reviewer agents' comments", false)
+	notices := appendCellNotice(nil, glyphs, view.StatusCell(row), failureSaid[displayState(item)])
+	notices = appendCellNotice(notices, glyphs, view.AlertCell(row), failedRunNotice)
+	notices = appendCellNotice(notices, glyphs, view.ForgeCell(row), forgeAlertSaid[row.Forge])
+	notices = appendCellNotice(notices, glyphs, view.MailCell(row), unreadMailNotice)
+	notices = appendCellNotice(notices, glyphs, view.ForgeCell(row), forgeReviewSaid[row.Forge])
+	notices = appendCellNotice(notices, glyphs, view.RepoCell(row), repoSaid[row.Repo])
+	notices = appendCellNotice(notices, glyphs, view.HeldCell(row), heldNoticeText(item))
+	notices = appendCellNotice(notices, glyphs, view.HiddenCell(row), hiddenNotice)
+	notices = appendCellNotice(notices, glyphs, view.DocumentCell(row), documentsNotice)
+	notices = appendCellNotice(notices, glyphs, view.ForgeCell(row), forgeSaid[row.Forge])
+	notices = appendCommentsNotice(notices, glyphs, row.ReviewerComments, "reviewer agents' comments", false)
 
-	return appendCommentsNotice(notices, row.PersonComments, "your comments", true)
+	return appendCommentsNotice(notices, glyphs, row.PersonComments, "your comments", true)
 }
 
 // appendCommentsNotice says how one side's comments stand, marked with the dot on a side whose
 // column draws one while any of them holds something unread.
-func appendCommentsNotice(notices []notice, comments *view.Comments, whose string, dotted bool) []notice {
+func appendCommentsNotice(notices []notice, glyphs glyph.Set, comments *view.Comments, whose string, dotted bool) []notice { //nolint:revive // a params struct is the follow-up
 	if comments == nil {
 		return notices
 	}
@@ -101,13 +102,13 @@ func appendCommentsNotice(notices []notice, comments *view.Comments, whose strin
 		return appendNotice(notices, true, "", paint.ToneMuted, text)
 	}
 
-	return appendNotice(notices, true, "·", paint.ToneWarning, text+", with something you have not read")
+	return appendNotice(notices, true, glyphs.Spell(glyph.Unread), paint.ToneWarning, text+", with something you have not read")
 }
 
 // appendCellNotice says in words what a cell of the row stands for, taking the glyph and the tone
 // from that cell, and saying nothing where the row draws nothing.
-func appendCellNotice(notices []notice, cell view.Cell, text string) []notice {
-	return appendNotice(notices, !cell.IsBlank() && text != "", view.Spell(cell.Glyph), cell.Tone, text)
+func appendCellNotice(notices []notice, glyphs glyph.Set, cell view.Cell, text string) []notice {
+	return appendNotice(notices, !cell.IsBlank() && text != "", view.Spell(glyphs, cell), cell.Tone, text)
 }
 
 func appendNotice(notices []notice, show bool, icon string, tone paint.Tone, text string) []notice { //nolint:revive // a params struct is the follow-up

@@ -8,6 +8,7 @@ import (
 	"komrad/config"
 	"komrad/internal/errui"
 	"komrad/internal/git"
+	"komrad/internal/glyph"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/view"
@@ -169,9 +170,9 @@ func worktreesTabs() tabStrip {
 // tally is how many directories the listing holds, what the measured ones take, and whether
 // they are drawn as one list.
 func (w *worktreesScreen) tally() string {
-	tally := fmt.Sprintf("%d · %s", len(w.items), totalLabel(w.items))
+	tally := fmt.Sprintf("%d"+separated+"%s", len(w.items), totalLabel(w.items))
 	if w.sort.flat {
-		tally += " · " + flatLabel
+		tally += separated + flatLabel
 	}
 
 	return tally
@@ -179,7 +180,7 @@ func (w *worktreesScreen) tally() string {
 
 func (w *worktreesScreen) listParams(s panelShared) screenListParams {
 	return screenListParams{
-		title:    screenTitle(view.GlyphRepo, "Worktrees"),
+		title:    screenTitle(s.glyphs, glyph.Worktree, "Worktrees"),
 		tally:    w.tally(),
 		help:     w.help,
 		empty:    "no worktrees",

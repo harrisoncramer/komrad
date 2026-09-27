@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"komrad/internal/glyph"
 	"komrad/internal/view"
 	"komrad/lib/xslice"
 
@@ -22,12 +23,12 @@ func measuring(t *testing.T, glyphColumns int) Env {
 
 	return Env{
 		MeasureColumns: func(_ context.Context, samples []string) ([]int, error) {
-			require.Len(t, samples, len(calibration)+len(view.Drawings()))
+			require.Len(t, samples, len(calibration)+len(view.Drawings(glyph.Defaults())))
 
 			columns := xslice.Map(calibration, func(drawn view.Drawn) int {
 				return drawn.Columns
 			})
-			for range view.Drawings() {
+			for range view.Drawings(glyph.Defaults()) {
 				columns = append(columns, glyphColumns)
 			}
 
@@ -59,7 +60,7 @@ func TestGlyphCheckSkipsWhenTheTerminalWalkedAway(t *testing.T) {
 func agreeing() Env {
 	return Env{
 		MeasureColumns: func(_ context.Context, _ []string) ([]int, error) {
-			return xslice.Map(slices.Concat(calibration, view.Drawings()), func(drawn view.Drawn) int {
+			return xslice.Map(slices.Concat(calibration, view.Drawings(glyph.Defaults())), func(drawn view.Drawn) int {
 				return drawn.Columns
 			}), nil
 		},
@@ -102,7 +103,7 @@ func TestGlyphCheckReportsWidthsThatDisagree(t *testing.T) {
 	require.Equal(t, StatusWarn, result.Status,
 		"a font the terminal lacks is a degraded panel rather than a broken komrad")
 	require.ErrorIs(t, result.Err, errGlyphWidthUnexpected)
-	assert.Contains(t, result.Err.Error(), fmt.Sprintf("%d glyphs drew in 2 columns where the layout counts them as 1", len(view.Drawings())))
+	assert.Contains(t, result.Err.Error(), fmt.Sprintf("%d glyphs drew in 2 columns where the layout counts them as 1", len(view.Drawings(glyph.Defaults()))))
 	assert.NotEmpty(t, result.Fix)
 }
 

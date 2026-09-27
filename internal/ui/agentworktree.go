@@ -114,7 +114,7 @@ func buildRemoteField(read worktreeInspection) recordField {
 	unpushed := fmt.Sprintf("↑%d unpushed", read.unpushed)
 	unpulled := fmt.Sprintf("↓%d unpulled", read.unpulled)
 	if read.unpulledLanded {
-		landed := fmt.Sprintf("%s · landed on %s", unpulled, strings.TrimPrefix(read.baseRef, "origin/"))
+		landed := fmt.Sprintf("%s"+separated+"landed on %s", unpulled, strings.TrimPrefix(read.baseRef, "origin/"))
 		pushing := dimStyle
 		if read.ahead > 0 {
 			pushing = countStyle(read.unpushed, warning.Bold(true))

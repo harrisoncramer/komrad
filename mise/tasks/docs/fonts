@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+source "$MISE_CONFIG_ROOT/mise/tasks/_"
+set -euo pipefail
+#MISE description="Cut JetBrainsMono Nerd Font down to what the docs site draws."
+
+usage() {
+	echo "Usage: mise run docs:fonts"
+	echo
+	echo "Downloads JetBrainsMono Nerd Font from the Nerd Fonts release the approved glyphs"
+	echo "were read from, and writes its regular and bold weights to docs/public/fonts as"
+	echo "woff2, cut down to the Latin range, the punctuation, arrows and box drawing the"
+	echo "site's text uses, and every character in docs/src/data/glyphs.json. Run it after"
+	echo "gen:docs whenever the approved glyphs change, and commit the fonts it writes."
+}
+
+for arg in "$@"; do
+	case "$arg" in
+	-h | --help)
+		usage
+		exit 0
+		;;
+	esac
+done
+
+cd "$MISE_CONFIG_ROOT"
+
+GLYPHS=docs/src/data/glyphs.json
+OUT=docs/public/fonts
+TEXT="U+0020-007E,U+00A0-00FF,U+0131,U+0152-0153,U+02C6,U+02DA,U+02DC,U+2000-206F,U+20AC,U+2122,U+2190-21FF,U+2212,U+2500-259F,U+25A0-25FF,U+2700-27BF"
+
+version="$(jq -r .nerdFontsVersion "$GLYPHS")"
+approved="$(jq -r '[.characters[].codePoint] | join(",")' "$GLYPHS")"
+
+work="$(mktemp -d)"
+trap 'rm -rf "$work"' EXIT
+
+curl -fsSL -o "$work/JetBrainsMono.tar.xz" \
+	"https://github.com/ryanoasis/nerd-fonts/releases/download/v${version}/JetBrainsMono.tar.xz"
+tar -xJf "$work/JetBrainsMono.tar.xz" -C "$work" \
+	JetBrainsMonoNerdFont-Regular.ttf JetBrainsMonoNerdFont-Bold.ttf
+
+mkdir -p "$OUT"
+for weight in Regular Bold; do
+	uvx --from 'fonttools[woff]' pyftsubset "$work/JetBrainsMonoNerdFont-${weight}.ttf" \
+		--unicodes="${TEXT},${approved}" \
+		--layout-features='*' \
+		--flavor=woff2 \
+		--output-file="$OUT/JetBrainsMonoNerdFont-${weight}.woff2"
+done
+
+ls -lh "$OUT"

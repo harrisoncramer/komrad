@@ -216,6 +216,9 @@ linters:
           files:
             - "**/config/**"
             - "!**/internal/**"
+          list-mode: lax
+          allow:
+            - komrad/internal/glyph
           deny:
             - pkg: komrad/internal
               desc: config is read by everything and so may depend on nothing

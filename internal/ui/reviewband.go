@@ -23,7 +23,7 @@ const reviewScopeOnTone = paint.ToneAccent
 func (r reviewScreen) bandView(s panelShared, width int) string {
 	kept := r.bandRows(s)
 
-	out := strings.Join(kept, "") + "\n\n" + r.diff.filter.view(paint.Panel) + r.diff.matchCount()
+	out := strings.Join(kept, "") + "\n\n" + r.diff.filter.view(paint.Panel, s.glyphs) + r.diff.matchCount()
 
 	if r.diff.view != nil && r.diff.view.Len() > 0 {
 		out += r.deadView(s, width)
@@ -35,7 +35,7 @@ func (r reviewScreen) bandView(s panelShared, width int) string {
 // bandRows is the band's rows in the order they give way, least valuable last.
 func (r reviewScreen) bandRows(s panelShared) []string {
 	rows := []string{
-		paint.Panel.Title("Review · "+r.agentName) + "\n",
+		paint.Panel.Title("Review"+separated+r.agentName) + "\n",
 		r.statusView(s),
 		r.scopeView(s),
 		r.diff.statView(),
@@ -83,14 +83,14 @@ func (r reviewScreen) staleView(s panelShared) string {
 // staleSaid is why the diff is behind the worktree, in the terms the reader can act on.
 func (r reviewScreen) staleSaid(s panelShared) string {
 	if r.isAgentWriting(s) {
-		return "the agent is writing · the diff catches up when it stops"
+		return "the agent is writing" + separated + "the diff catches up when it stops"
 	}
 
 	if r.doesFollowLive(s) {
-		return "the worktree has moved · catching up"
+		return "the worktree has moved" + separated + "catching up"
 	}
 
-	return "the worktree has moved · " + keyLabel(s.keys.Review.Reload) + " to catch up"
+	return "the worktree has moved" + separated + keyLabel(s.keys.Review.Reload) + " to catch up"
 }
 
 // reviewFill pads a line out to the band's width, so a background colour reads as a bar rather
@@ -141,7 +141,7 @@ func (r reviewScreen) scopeView(s panelShared) string {
 	out := paint.Panel.Style(reviewScopeOnTone).Bold(true).Render(from)
 
 	if r.doesFitBaseLegend(s) {
-		out += dimStyle.Render(" · " + r.stepSaid(s))
+		out += dimStyle.Render(separated + r.stepSaid(s))
 	}
 
 	return out + "\n"
@@ -158,7 +158,7 @@ func (r reviewScreen) stepSaid(s panelShared) string {
 	case r.diff.chapter == 0:
 		return forward + " for a later chapter"
 	default:
-		return back + " back · " + forward + " forward"
+		return back + " back" + separated + forward + " forward"
 	}
 }
 
@@ -177,7 +177,7 @@ func (d reviewDiff) matchCount() string {
 	// A match inside a file folded away is on no row, so stepping through the matches never
 	// reaches it, and it is counted apart rather than left to look like nothing was found.
 	if hidden := d.view.HiddenMatches(); hidden > 0 {
-		where += fmt.Sprintf(" · %d in viewed files", hidden)
+		where += fmt.Sprintf(separated+"%d in viewed files", hidden)
 	}
 
 	return dimStyle.Render("  "+where) + "\n\n"
@@ -190,12 +190,12 @@ func bandRow(s panelShared, tone paint.Tone, state, hint string) string {
 
 	width := lineWidthOf(s.pane)
 
-	room := width - lipgloss.Width(state) - len(" · ")
+	room := width - lipgloss.Width(state) - len(separated)
 	if room <= 0 {
 		return style.Render(paint.Clip(state, width)) + "\n"
 	}
 
-	return style.Render(state) + dimStyle.Render(" · "+paint.Clip(hint, room)) + "\n"
+	return style.Render(state) + dimStyle.Render(separated+paint.Clip(hint, room)) + "\n"
 }
 
 // reviewColumnStyle is the markdown a notice standing in for the patch is drawn in.

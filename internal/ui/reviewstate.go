@@ -20,9 +20,9 @@ func (r reviewScreen) statusView(s panelShared) string {
 	switch {
 	case r.hold.atEditor:
 		return bandRow(s, reviewWritingTone, "editing",
-			r.hold.editingPath+" · "+keyLabel(s.keys.Review.EditFile)+" to come back")
+			r.hold.editingPath+separated+keyLabel(s.keys.Review.EditFile)+" to come back")
 	case r.hold.pausing:
-		return bandRow(s, reviewWritingTone, "editing", "stopping the agent · the editor opens once it has")
+		return bandRow(s, reviewWritingTone, "editing", "stopping the agent"+separated+"the editor opens once it has")
 	}
 
 	if _, dead := r.isReadOnly(s); dead {
@@ -31,7 +31,7 @@ func (r reviewScreen) statusView(s panelShared) string {
 
 	if r.threads.holdsUnsent() {
 		return bandRow(s, reviewWritingTone, "unsent",
-			label.Counted(r.threads.unsentCount(), "comment")+" not sent · "+
+			label.Counted(r.threads.unsentCount(), "comment")+" not sent"+separated+
 				keyLabel(formKeys().Submit)+" sends them to the agent")
 	}
 
@@ -54,10 +54,10 @@ func (r reviewScreen) isReadOnly(s panelShared) (string, bool) {
 			return "", false
 		}
 
-		return "this agent is dormant · resume it before writing to it", true
+		return "this agent is dormant" + separated + "resume it before writing to it", true
 	}
 
-	return "this agent is archived · restore it before writing to it", true
+	return "this agent is archived" + separated + "restore it before writing to it", true
 }
 
 // holdsUnsent says whether the reader has comments nobody has seen.

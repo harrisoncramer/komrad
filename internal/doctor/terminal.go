@@ -109,7 +109,7 @@ func newTerminalGlyphCheck() Check {
 				return skip("nothing is attached to a terminal to ask")
 			}
 
-			drawings := append(slices.Clone(calibration), view.Drawings()...)
+			drawings := append(slices.Clone(calibration), view.Drawings(configuredGlyphs(env))...)
 
 			measured, err := env.MeasureColumns(ctx, xslice.Map(drawings, textOf))
 			if err != nil {

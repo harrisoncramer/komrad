@@ -3,6 +3,7 @@ package view
 import (
 	"strings"
 
+	"komrad/internal/glyph"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/paint/label"
 	"komrad/lib/xslice"
@@ -13,7 +14,7 @@ import (
 // Rows draws every row of the agents list as its own string.
 func Rows(list List, palette paint.Palette, width int) []string {
 	rows := xslice.Map(list.Lines, func(line Line) string {
-		return renderLine(line, list.Columns, palette, width)
+		return renderLine(line, list, palette, width)
 	})
 
 	return rows
@@ -21,24 +22,25 @@ func Rows(list List, palette paint.Palette, width int) []string {
 
 // renderLine spells one prepared row out, painting the selection bar under it last so the
 // colours it already carries read through.
-func renderLine(line Line, columns Columns, palette paint.Palette, width int) string {
+func renderLine(line Line, list List, palette paint.Palette, width int) string {
+	draw := drawer{palette: palette, glyphs: list.Glyphs}
 	cells := []string{
-		drawGutterCell(palette, line.Focus, plainColumns),
-		drawGutterCell(palette, line.Mark, plainColumns),
+		draw.gutterCell(line.Focus, plainColumns),
+		draw.gutterCell(line.Mark, plainColumns),
 	}
-	for i, column := range columns {
+	for i, column := range list.Columns {
 		var cell Cell
 		if i < len(line.Columns) {
 			cell = line.Columns[i]
 		}
 
-		cells = append(cells, drawGutterCell(palette, cell, column.Width))
+		cells = append(cells, draw.gutterCell(cell, column.Width))
 	}
 
-	gutter := strings.Join(append(cells, drawGutterCell(palette, line.Status, plainColumns)), " ")
+	gutter := strings.Join(append(cells, draw.gutterCell(line.Status, plainColumns)), " ")
 
 	row := gutter + " " + strings.Repeat(" ", line.Indent) + drawRule(palette, line.Rule) +
-		drawLead(palette, line.Lead) + drawName(palette, line) + drawTrailing(palette, line)
+		drawLead(palette, line.Lead) + drawName(palette, line) + draw.trailing(line)
 
 	if line.Selected {
 		return paint.PaintRow(row, width)
@@ -53,12 +55,19 @@ func drawName(palette paint.Palette, line Line) string {
 	return palette.Highlight(line.Name, line.Matches, nameStyle(palette, line.Weight, line.Emphasis))
 }
 
-// drawTrailing is the odds and ends after a name, each one a space away from what precedes it.
-func drawTrailing(palette paint.Palette, line Line) string {
+// drawer spells cells out in a palette and a set of glyphs.
+type drawer struct {
+	palette paint.Palette
+	glyphs  glyph.Set
+}
+
+// trailing is the odds and ends after a name, each one a space away from what precedes it.
+func (d drawer) trailing(line Line) string {
+	palette := d.palette
 	var b strings.Builder
 	for _, cell := range []Cell{line.Held, line.Hidden, line.Document, line.Mail, line.Alert} {
 		if !cell.IsBlank() {
-			b.WriteString(" " + drawCell(palette, cell))
+			b.WriteString(" " + d.cell(cell))
 		}
 	}
 
@@ -67,27 +76,27 @@ func drawTrailing(palette paint.Palette, line Line) string {
 	}
 
 	if !line.Schedule.IsBlank() {
-		b.WriteString(" " + drawCell(palette, line.Schedule))
+		b.WriteString(" " + d.cell(line.Schedule))
 	}
 
 	return b.String()
 }
 
-// drawGutterCell is a cell that holds its column whether or not it has anything to draw, its
-// text set against the right edge of the column.
-func drawGutterCell(palette paint.Palette, cell Cell, width int) string {
+// gutterCell is a cell that holds its column whether or not it has anything to draw, its text
+// set against the right edge of the column.
+func (d drawer) gutterCell(cell Cell, width int) string {
 	if width <= 0 || cell.IsBlank() {
 		return strings.Repeat(" ", max(width, 0))
 	}
 
-	text := cellText(cell)
+	text := d.text(cell)
 	if lipgloss.Width(text) > width || len(cell.Parts) == 0 {
 		text = paint.Clip(text, width)
 
-		return strings.Repeat(" ", max(width-lipgloss.Width(text), 0)) + palette.Style(cell.Tone).Render(text)
+		return strings.Repeat(" ", max(width-lipgloss.Width(text), 0)) + d.palette.Style(cell.Tone).Render(text)
 	}
 
-	return strings.Repeat(" ", width-lipgloss.Width(text)) + drawCell(palette, cell)
+	return strings.Repeat(" ", width-lipgloss.Width(text)) + d.cell(cell)
 }
 
 func drawLead(palette paint.Palette, lead string) string {
@@ -104,30 +113,28 @@ func drawRule(palette paint.Palette, rule bool) string {
 		return ""
 	}
 
-	return palette.Style(paint.ToneMuted).Render(Spell(GlyphChild)) + " "
+	return palette.Style(paint.ToneMuted).Render(glyph.Child) + " "
 }
 
-// drawCell is what a cell holds, in its own tone or each part in its own.
-func drawCell(palette paint.Palette, cell Cell) string {
+// cell is what a cell holds, in its own tone or each part in its own.
+func (d drawer) cell(cell Cell) string {
 	if len(cell.Parts) > 0 {
-		return strings.Join(xslice.Map(cell.Parts, func(part Cell) string {
-			return drawCell(palette, part)
-		}), "")
+		return strings.Join(xslice.Map(cell.Parts, d.cell), "")
 	}
 
-	return palette.Style(cell.Tone).Render(cellText(cell))
+	return d.palette.Style(cell.Tone).Render(d.text(cell))
 }
 
-// cellText is what a cell holds, the letter a person typed or the glyph spelled out.
-func cellText(cell Cell) string {
+// text is what a cell holds, its text or its glyph spelled out.
+func (d drawer) text(cell Cell) string {
 	if len(cell.Parts) > 0 {
-		return strings.Join(xslice.Map(cell.Parts, cellText), "")
+		return strings.Join(xslice.Map(cell.Parts, d.text), "")
 	}
 	if cell.Text != "" {
 		return cell.Text
 	}
 
-	return Spell(cell.Glyph)
+	return d.glyphs.Spell(cell.Glyph)
 }
 
 // nameStyle is the lettering a name is drawn in: its weight from where it sits in the tree, its
@@ -154,57 +161,7 @@ func nameStyle(palette paint.Palette, weight Weight, emphasis Emphasis) lipgloss
 	return style
 }
 
-// Spell is the one place a glyph is written out, every one of them a Nerd Font Octicon or a
-// box-drawing rule.
-func Spell(glyph Glyph) string {
-	switch glyph {
-	case GlyphNone, glyphCount:
-		return ""
-	case GlyphRepo:
-		return ""
-	case GlyphForge:
-		return ""
-	case GlyphApproved:
-		return ""
-	case GlyphBroken:
-		return ""
-	case GlyphMerged:
-		return ""
-	case GlyphDraft:
-		return "\uf4dd"
-	case GlyphClosed:
-		return "\uf4dc"
-	case GlyphAlert:
-		return "\uf489"
-	case GlyphMail:
-		return ""
-	case GlyphPaused:
-		return ""
-	case GlyphHidden:
-		return ""
-	case GlyphSchedule:
-		return ""
-	case GlyphWorkflow:
-		return "\uf52e"
-	case GlyphArchive:
-		return "\uf411"
-	case GlyphSearch:
-		return "\uf422"
-	case GlyphBusy:
-		return "┃"
-	case GlyphQuiet:
-		return "│"
-	case GlyphChild:
-		return "└"
-	case GlyphFocus:
-		return "›"
-	case GlyphFailing:
-		return "\uf467"
-	case GlyphConflicting:
-		return "\uf421"
-	case GlyphDocument:
-		return "\uf4a5"
-	}
-
-	return ""
+// Spell is what a cell holds, its text or its glyph drawn in the set given, without its tone.
+func Spell(glyphs glyph.Set, cell Cell) string {
+	return drawer{glyphs: glyphs}.text(cell)
 }

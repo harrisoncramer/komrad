@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"komrad/internal/glyph"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/paint/label"
 
@@ -216,7 +217,7 @@ func (m model) messagePieces() []messagePiece {
 			style: dimStyle,
 		},
 		{
-			label: kindLabel(held.kind) + " · ",
+			label: kindLabel(held.kind) + separated,
 			text:  landed,
 			value: landed,
 			style: dimStyle,
@@ -308,12 +309,12 @@ func (m model) messagesSlot() []string {
 // the far side.
 func (m model) messagesSummaryLine(taken int) string {
 	if len(m.messages.items) == 0 {
-		return kindIcon(messageSuccess) + " No messages"
+		return kindIcon(m.glyphs, messageSuccess) + " No messages"
 	}
 
 	held := m.messages.items[m.messages.clampedCursor()]
 
-	return paint.Clip(kindIcon(held.kind)+" "+held.summary, max(m.lineWidth()-taken-messagesTallyWidth, 1))
+	return paint.Clip(kindIcon(m.glyphs, held.kind)+" "+held.summary, max(m.lineWidth()-taken-messagesTallyWidth, 1))
 }
 
 // messagesSummaryStyle is the summary row drawn with the kind on the icon alone, spreading to
@@ -411,13 +412,13 @@ func (m model) messagesDoc() string {
 	held := m.messages.items[m.messages.clampedCursor()]
 
 	var b strings.Builder
-	fmt.Fprintf(&b, "`%s` **%s**\n\n%s\n", kindIcon(held.kind), held.summary, held.detail)
+	fmt.Fprintf(&b, "`%s` **%s**\n\n%s\n", kindIcon(m.glyphs, held.kind), held.summary, held.detail)
 
 	if held.hint != "" {
 		fmt.Fprintf(&b, "\n%s\n", held.hint)
 	}
 
-	fmt.Fprintf(&b, "\n_%s · %s · message %d of %d_\n", kindLabel(held.kind), held.at.Format("3:04pm"), len(m.messages.items)-m.messages.clampedCursor(), len(m.messages.items))
+	fmt.Fprintf(&b, "\n_%s"+separated+"%s"+separated+"message %d of %d_\n", kindLabel(held.kind), held.at.Format("3:04pm"), len(m.messages.items)-m.messages.clampedCursor(), len(m.messages.items))
 
 	if held.trace != "" {
 		fmt.Fprintf(&b, "\n```\nkomrad log %s\n```\n", held.trace)
@@ -573,19 +574,19 @@ func (m model) messagesBinding() key.Binding {
 	return binding([]string{messagesFocusKey}, desc)
 }
 
-func kindIcon(kind messageKind) string {
+func kindIcon(glyphs glyph.Set, kind messageKind) string {
 	switch kind {
 	case messageError:
-		return "✗"
+		return glyphs.Spell(glyph.MessageError)
 	case messageWarning:
-		return "!"
+		return glyphs.Spell(glyph.MessageWarning)
 	case messageSuccess:
-		return "✔"
+		return glyphs.Spell(glyph.MessageSuccess)
 	case messageInfo:
-		return "·"
+		return glyphs.Spell(glyph.MessageInfo)
 	}
 
-	return "·"
+	return glyphs.Spell(glyph.MessageInfo)
 }
 
 func kindLabel(kind messageKind) string {

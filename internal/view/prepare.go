@@ -3,6 +3,7 @@ package view
 import (
 	"strconv"
 
+	"komrad/internal/glyph"
 	"komrad/internal/ui/paint"
 	"komrad/lib/xslice"
 )
@@ -27,7 +28,7 @@ func Prepare(snapshot Snapshot) List {
 		}
 	}
 
-	return List{Lines: lines, Columns: columns}
+	return List{Lines: lines, Columns: columns, Glyphs: snapshot.Glyphs}
 }
 
 // prepareLineParams is one row and what the list around it says about that row.
@@ -45,7 +46,7 @@ func prepareLine(params prepareLineParams) Line {
 
 	return Line{
 		Focused:  focused,
-		Focus:    markCell(focused && params.caret == CaretDrawn, GlyphFocus, paint.ToneAccent),
+		Focus:    textCell(chromeIf(focused && params.caret == CaretDrawn, glyph.Focus), paint.ToneAccent),
 		Mark:     textCell(row.Mark, paint.ToneMuted),
 		Columns:  columnCells(row, params.columns),
 		Status:   blinkBar(StatusCell(row), row, params.barBlinkedOut),
@@ -62,7 +63,7 @@ func prepareLine(params prepareLineParams) Line {
 		Mail:     MailCell(row),
 		Alert:    AlertCell(row),
 		Tally:    row.HiddenCount,
-		Schedule: markCell(row.Scheduled, GlyphSchedule, paint.ToneMuted),
+		Schedule: markCell(row.Scheduled, glyph.Schedule, paint.ToneMuted),
 		Selected: row.Selected,
 	}
 }
@@ -114,14 +115,14 @@ func RepoCell(row Row) Cell {
 
 	switch row.Repo {
 	case RepoClean:
-		return Cell{Glyph: GlyphRepo, Tone: paint.ToneMuted}
+		return Cell{Glyph: glyph.Worktree, Tone: paint.ToneMuted}
 	case RepoRebasing:
-		return Cell{Glyph: GlyphRepo, Tone: paint.ToneWarning}
+		return Cell{Glyph: glyph.Worktree, Tone: paint.ToneWarning}
 	case RepoGone:
-		return Cell{Glyph: GlyphBroken, Tone: paint.ToneDanger}
+		return Cell{Glyph: glyph.WorktreeGone, Tone: paint.ToneDanger}
 	}
 
-	return Cell{Glyph: GlyphRepo, Tone: paint.ToneMuted}
+	return Cell{Glyph: glyph.Worktree, Tone: paint.ToneMuted}
 }
 
 // ReviewerCommentsCell counts the comments reviewer agents left on an agent's work, open then
@@ -148,7 +149,7 @@ func PersonCommentsCell(row Row, dotted bool) Cell {
 
 	dot := Cell{Text: " "}
 	if row.PersonComments.Unread {
-		dot = Cell{Text: "·", Tone: paint.ToneWarning}
+		dot = Cell{Glyph: glyph.Unread, Tone: paint.ToneWarning}
 	}
 
 	return Cell{Parts: append(counts.Parts, dot)}
@@ -182,23 +183,23 @@ func ForgeCell(row Row) Cell {
 	case ForgeUnread, ForgeNone, ForgeEnd:
 		return Cell{}
 	case ForgeOpen:
-		return Cell{Glyph: GlyphForge, Tone: paint.ToneMuted}
+		return Cell{Glyph: glyph.Open, Tone: paint.ToneMuted}
 	case ForgeApproved:
-		return Cell{Glyph: GlyphApproved, Tone: paint.ToneSuccess}
+		return Cell{Glyph: glyph.Approved, Tone: paint.ToneSuccess}
 	case ForgeApprovedWaiting:
-		return Cell{Glyph: GlyphApproved, Tone: paint.ToneMuted}
+		return Cell{Glyph: glyph.Approved, Tone: paint.ToneMuted}
 	case ForgeChangesRequested:
-		return Cell{Glyph: GlyphForge, Tone: paint.ToneWarning}
+		return Cell{Glyph: glyph.Open, Tone: paint.ToneWarning}
 	case ForgeDraft:
-		return Cell{Glyph: GlyphDraft, Tone: paint.ToneMuted}
+		return Cell{Glyph: glyph.Draft, Tone: paint.ToneMuted}
 	case ForgeFailing:
-		return Cell{Glyph: GlyphFailing, Tone: paint.ToneDanger}
+		return Cell{Glyph: glyph.Failing, Tone: paint.ToneDanger}
 	case ForgeConflicting:
-		return Cell{Glyph: GlyphConflicting, Tone: paint.ToneDanger}
+		return Cell{Glyph: glyph.Conflicting, Tone: paint.ToneDanger}
 	case ForgeMerged:
-		return Cell{Glyph: GlyphMerged, Tone: paint.ToneMerged}
+		return Cell{Glyph: glyph.Merged, Tone: paint.ToneMerged}
 	case ForgeClosed:
-		return Cell{Glyph: GlyphClosed, Tone: paint.ToneDanger}
+		return Cell{Glyph: glyph.Closed, Tone: paint.ToneDanger}
 	}
 
 	return Cell{}
@@ -209,22 +210,22 @@ func ForgeCell(row Row) Cell {
 func StatusCell(row Row) Cell {
 	switch row.Status {
 	case StatusIdle:
-		return Cell{Glyph: GlyphQuiet, Tone: paint.ToneMuted}
+		return Cell{Text: glyph.Quiet, Tone: paint.ToneMuted}
 	case StatusThinking:
-		return Cell{Glyph: GlyphBusy, Tone: paint.ToneBright}
+		return Cell{Text: glyph.Busy, Tone: paint.ToneBright}
 	case StatusWaiting:
-		return Cell{Glyph: GlyphBusy, Tone: paint.ToneWarning}
+		return Cell{Text: glyph.Busy, Tone: paint.ToneWarning}
 	case StatusBroken:
-		return Cell{Glyph: GlyphBusy, Tone: paint.ToneDanger}
+		return Cell{Text: glyph.Busy, Tone: paint.ToneDanger}
 	}
 
-	return Cell{Glyph: GlyphQuiet, Tone: paint.ToneMuted}
+	return Cell{Text: glyph.Quiet, Tone: paint.ToneMuted}
 }
 
 // blinkBar thins a working agent's bar on the off half of the blink.
 func blinkBar(cell Cell, row Row, out bool) Cell {
-	if out && row.Status == StatusThinking && cell.Glyph == GlyphBusy {
-		cell.Glyph = GlyphQuiet
+	if out && row.Status == StatusThinking && cell.Text == glyph.Busy {
+		cell.Text = glyph.Quiet
 	}
 
 	return cell
@@ -232,35 +233,44 @@ func blinkBar(cell Cell, row Row, out bool) Cell {
 
 // HiddenCell is the mark a row draws once a person has taken it out of the sidebar.
 func HiddenCell(row Row) Cell {
-	return markCell(row.Hidden, GlyphHidden, paint.ToneMuted)
+	return markCell(row.Hidden, glyph.Hidden, paint.ToneMuted)
 }
 
 // MailCell is the mark a row draws for mail its agent has not read.
 func MailCell(row Row) Cell {
-	return markCell(row.UnreadMail, GlyphMail, paint.ToneMuted)
+	return markCell(row.UnreadMail, glyph.Mail, paint.ToneMuted)
 }
 
 // DocumentCell is the mark a row draws once its agent has written a document for a person to read.
 func DocumentCell(row Row) Cell {
-	return markCell(row.Documents, GlyphDocument, paint.ToneMuted)
+	return markCell(row.Documents, glyph.Document, paint.ToneMuted)
 }
 
 // AlertCell is the mark a row draws for a script komrad fired that failed.
 func AlertCell(row Row) Cell {
-	return markCell(row.FailedRun, GlyphAlert, paint.ToneDanger)
+	return markCell(row.FailedRun, glyph.FailedScript, paint.ToneDanger)
 }
 
 // markCell is the shape every optional mark takes: nothing at all when what it stands for is
 // not true.
-func markCell(show bool, glyph Glyph, tone paint.Tone) Cell {
+func markCell(show bool, mark glyph.Glyph, tone paint.Tone) Cell {
 	if !show {
 		return Cell{}
 	}
 
-	return Cell{Glyph: glyph, Tone: tone}
+	return Cell{Glyph: mark, Tone: tone}
 }
 
-// textCell is a cell holding a letter a person typed rather than a glyph the design names.
+// chromeIf is the chrome given when it is to be drawn, and nothing when it is not.
+func chromeIf(show bool, chrome string) string {
+	if !show {
+		return ""
+	}
+
+	return chrome
+}
+
+// textCell is a cell holding text rather than a glyph a person may choose.
 func textCell(text string, tone paint.Tone) Cell {
 	if text == "" {
 		return Cell{}
@@ -364,10 +374,10 @@ func clipSpans(matches []Span, kept int) []Span {
 // HeldCell is the pause a person took on an agent, in danger where that agent is working anyway.
 func HeldCell(row Row) Cell {
 	if row.Held && row.HeldWorking {
-		return Cell{Glyph: GlyphPaused, Tone: paint.ToneDanger}
+		return Cell{Glyph: glyph.Paused, Tone: paint.ToneDanger}
 	}
 
-	return markCell(row.Held, GlyphPaused, paint.ToneMuted)
+	return markCell(row.Held, glyph.Paused, paint.ToneMuted)
 }
 
 // emphasisFor is how brightly a name is drawn, the row under the cursor beating greying.

@@ -3,6 +3,7 @@ package cli
 import (
 	"komrad/config"
 	"komrad/internal/engine"
+	"komrad/internal/glyph"
 	"komrad/internal/harness"
 	"komrad/internal/tmux"
 	"komrad/internal/ui"
@@ -12,6 +13,7 @@ type app struct {
 	session        *ui.Session
 	env            *config.Environment
 	keys           config.Keybindings
+	glyphs         glyph.Set
 	harnesses      *harness.Registry
 	defaultHarness string
 	defaultFlags   map[string]string

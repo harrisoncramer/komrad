@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"komrad/internal/glyph"
 	"komrad/internal/ui/paint"
 
 	"charm.land/lipgloss/v2"
@@ -14,7 +15,7 @@ const (
 	// dividerCols is the columns the divider between the list and the block beside it takes.
 	dividerCols = 2*gutter + 1
 	// dividerGlyph is what the divider is drawn with.
-	dividerGlyph = "│"
+	dividerGlyph = glyph.Divider
 )
 
 // columnSplit is how the window is divided while the panel is drawing a block beside its own
@@ -247,30 +248,30 @@ func readLineAt(lines []string, i, width int) string {
 func isRule(line string) bool {
 	plain := ansi.Strip(line)
 
-	return plain != "" && strings.Trim(plain, "─") == ""
+	return plain != "" && strings.Trim(plain, glyph.Rule) == ""
 }
 
 // drawDividerRow is one row of the divider, joined to the rules that meet it from either side.
 func drawDividerRow(fromLeft, fromRight bool) string {
-	glyph := dividerGlyph
+	junction := dividerGlyph
 	switch {
 	case fromLeft && fromRight:
-		glyph = "┼"
+		junction = glyph.Cross
 	case fromLeft:
-		glyph = "┤"
+		junction = glyph.TeeRight
 	case fromRight:
-		glyph = "├"
+		junction = glyph.TeeLeft
 	}
 
 	leftPad, rightPad := strings.Repeat(" ", gutter), strings.Repeat(" ", gutter)
 	if fromLeft {
-		leftPad = dimStyle.Render(strings.Repeat("─", gutter))
+		leftPad = dimStyle.Render(strings.Repeat(glyph.Rule, gutter))
 	}
 	if fromRight {
-		rightPad = dimStyle.Render(strings.Repeat("─", gutter))
+		rightPad = dimStyle.Render(strings.Repeat(glyph.Rule, gutter))
 	}
 
-	return leftPad + dimStyle.Render(glyph) + rightPad
+	return leftPad + dimStyle.Render(junction) + rightPad
 }
 
 // paneWidth is the column the panel draws its own list, record and legend in, which is the whole
