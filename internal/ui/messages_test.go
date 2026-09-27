@@ -31,7 +31,7 @@ func TestMessagesRegion(t *testing.T) {
 	t.Run("an empty stack says komrad is running normally", func(t *testing.T) {
 		harness := openMessages(t, panelHarnessParams{}, "no such agent")
 
-		assert.Equal(t, []string{"✔ No messages", "  Komrad is running normally"}, readMessages(harness.readFrame()))
+		assert.Equal(t, []string{"✓ No messages", "  Komrad is running normally"}, readMessages(harness.readFrame()))
 	})
 
 	t.Run("a message takes back the row the empty region gave the list", func(t *testing.T) {

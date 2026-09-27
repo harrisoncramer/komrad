@@ -1,36 +1,8 @@
 package view
 
-import "komrad/internal/ui/paint"
-
-// Glyph names a mark the sidebar draws, spelled out by the renderer rather than here.
-type Glyph int
-
-const (
-	GlyphNone Glyph = iota
-	GlyphRepo
-	GlyphForge
-	GlyphApproved
-	GlyphBroken
-	GlyphMerged
-	GlyphDraft
-	GlyphClosed
-	GlyphAlert
-	GlyphMail
-	GlyphPaused
-	GlyphHidden
-	GlyphSchedule
-	GlyphWorkflow
-	GlyphArchive
-	GlyphSearch
-	GlyphBusy
-	GlyphQuiet
-	GlyphChild
-	GlyphFocus
-	GlyphFailing
-	GlyphConflicting
-	GlyphDocument
-	// glyphCount stands one past the last glyph.
-	glyphCount
+import (
+	"komrad/internal/glyph"
+	"komrad/internal/ui/paint"
 )
 
 // Weight is the structure a row carries in its own lettering.
@@ -51,10 +23,10 @@ const (
 	EmphasisFocused
 )
 
-// Cell is one drawn position, carrying either a named glyph or a letter a person typed, in a
-// tone the palette turns into a colour.
+// Cell is one drawn position, carrying either a named glyph or text, in a tone the palette turns
+// into a colour.
 type Cell struct {
-	Glyph Glyph
+	Glyph glyph.Glyph
 	Text  string
 	Tone  paint.Tone
 	// Parts draw the cell as stretches each in its own tone, in place of its glyph and text.
@@ -63,7 +35,7 @@ type Cell struct {
 
 // IsBlank reports whether a cell has nothing to draw.
 func (c Cell) IsBlank() bool {
-	return c.Glyph == GlyphNone && c.Text == "" && len(c.Parts) == 0
+	return c.Glyph == glyph.None && c.Text == "" && len(c.Parts) == 0
 }
 
 // Line is one row of the agents list with every decision already made.
@@ -159,4 +131,6 @@ func NoColumns() Columns {
 type List struct {
 	Lines   []Line
 	Columns Columns
+	// Glyphs is the character each glyph in a cell is drawn with.
+	Glyphs glyph.Set
 }

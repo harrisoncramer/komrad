@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"komrad/config"
+	"komrad/internal/glyph"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/panel"
 	"komrad/internal/view"
@@ -283,7 +284,7 @@ func (w *schedulesScreen) view(s panelShared) string {
 
 func (w *schedulesScreen) listParams(s panelShared) screenListParams {
 	return screenListParams{
-		title: screenTitle(view.GlyphSchedule, "Schedules"),
+		title: screenTitle(s.glyphs, glyph.Schedule, "Schedules"),
 		help:  w.help,
 		rows:  len(w.listRows(s)),
 		lines: func(pane listPane) ([]string, int) { return w.lines(s, pane), w.cursor },
@@ -320,7 +321,7 @@ func scheduleLines(s panelShared, pane listPane, params scheduleLinesParams) []s
 		}
 
 		name := s.chrome.filter.highlight(paint.Panel, clipName(item.schedule.Name), nameStyle(selected && pane.caret != view.CaretAbsent, !item.schedule.Enabled))
-		icon := paint.Panel.Style(scheduleTone(item.schedule.Enabled)).Render(scheduleIcon(item.schedule.Enabled))
+		icon := paint.Panel.Style(scheduleTone(item.schedule.Enabled)).Render(scheduleIcon(s.glyphs, item.schedule.Enabled))
 		rows = append(rows, prefix+"  "+icon+" "+name+"  "+dimStyle.Render(item.schedule.Cron))
 	}
 

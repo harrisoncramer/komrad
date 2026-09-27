@@ -268,7 +268,7 @@ func (d reviewDiff) commentWhereView(thread *agentv1.ReviewThread) string {
 func (r reviewScreen) releaseView(s panelShared) string {
 	out := "\n" + r.threads.editor.view() + "\n\n"
 
-	return out + reviewNote(s, dimStyle, keyLabel(formKeys().SendNow)+" send and interrupt · "+
+	return out + reviewNote(s, dimStyle, keyLabel(formKeys().SendNow)+" send and interrupt"+separated+
 		keyLabel(formKeys().Back)+" cancel")
 }
 
@@ -306,17 +306,17 @@ func (r reviewScreen) originView(s panelShared, thread *agentv1.ReviewThread) st
 func (d reviewDiff) originSaid(thread *agentv1.ReviewThread) string {
 	if _, drawn := d.view.GetFile(thread.GetFilePath()); !drawn {
 		if d.base != "" {
-			return "still in the change, outside what is on screen · written against"
+			return "still in the change, outside what is on screen" + separated + "written against"
 		}
 
-		return "the file this was about has gone · written against"
+		return "the file this was about has gone" + separated + "written against"
 	}
 
 	if d.view.IsGhosted(thread) {
-		return "the code under this has changed · written against"
+		return "the code under this has changed" + separated + "written against"
 	}
 
-	return "moved since it was written · written against"
+	return "moved since it was written" + separated + "written against"
 }
 
 func (r reviewScreen) messageView(s panelShared, message *agentv1.ReviewMessage) string {
@@ -330,7 +330,7 @@ func (r reviewScreen) messageView(s panelShared, message *agentv1.ReviewMessage)
 		head += " " + dimStyle.Render(when)
 	}
 
-	return head + "\n" + reviewWrap(s, message.GetBody()) + "\n" + reviewDeliveryBadge(paint.Panel, message) + "\n"
+	return head + "\n" + reviewWrap(s, message.GetBody()) + "\n" + reviewDeliveryBadge(paint.Panel, s.glyphs, message) + "\n"
 }
 
 // sendDesc says what the send key opens.
@@ -362,7 +362,7 @@ func (r reviewScreen) details(s panelShared) details {
 
 	return details{
 		id:      agent.ID,
-		notices: agentNotices(row),
+		notices: agentNotices(s.glyphs, row),
 		fields:  append(fields, r.fields()...),
 	}
 }

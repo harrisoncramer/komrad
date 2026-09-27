@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"komrad/internal/glyph"
 	"komrad/internal/ui/panel"
 	"komrad/internal/view"
 	"komrad/lib/xptr"
@@ -216,7 +217,7 @@ func TestAgentNotices(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, readNoticeTexts(agentNotices(tt.row)))
+			assert.Equal(t, tt.want, readNoticeTexts(agentNotices(glyph.Defaults(), tt.row)))
 		})
 	}
 }
@@ -245,13 +246,13 @@ func TestAgentNoticesWearTheGlyphTheRowDraws(t *testing.T) {
 		heldPromptedNotice: line.Held,
 	}
 
-	notices := agentNotices(buildNoticeRow(item))
+	notices := agentNotices(glyph.Defaults(), buildNoticeRow(item))
 	require.Len(t, notices, len(want))
 
 	for _, notice := range notices {
 		cell, ok := want[notice.text]
 		require.True(t, ok, "an unexpected notice %q", notice.text)
-		assert.Equal(t, view.Spell(cell.Glyph), notice.icon, "the glyph beside %q", notice.text)
+		assert.Equal(t, view.Spell(glyph.Defaults(), cell), notice.icon, "the glyph beside %q", notice.text)
 		assert.Equal(t, cell.Tone, notice.tone, "the tone beside %q", notice.text)
 	}
 }
@@ -294,14 +295,14 @@ func TestAgentNoticesLeaveAStoppedRowToItsBar(t *testing.T) {
 	row := snapshotRow(stopped, snapshotParams{})
 
 	require.Equal(t, view.ProcessStopped, row.Process)
-	require.Equal(t, view.GlyphQuiet, view.StatusCell(row).Glyph)
+	require.Equal(t, glyph.Quiet, view.StatusCell(row).Text)
 	assert.Equal(t, view.EmphasisDim, view.Prepare(view.Snapshot{Rows: []view.Row{row}}).Lines[0].Emphasis)
-	assert.Empty(t, readNoticeTexts(agentNotices(stopped)))
+	assert.Empty(t, readNoticeTexts(agentNotices(glyph.Defaults(), stopped)))
 
 	failed := buildNoticeRow(panel.AgentRow{Agent: panel.Agent{State: panel.StateFailedToCreate}})
 
 	require.Equal(t, view.ProcessAlive, snapshotRow(failed, snapshotParams{}).Process, "a failed create is not a stopped process")
-	assert.Contains(t, readNoticeTexts(agentNotices(failed)), failedToCreateNotice)
+	assert.Contains(t, readNoticeTexts(agentNotices(glyph.Defaults(), failed)), failedToCreateNotice)
 }
 
 func buildNoticeRow(item panel.AgentRow) agentRow {

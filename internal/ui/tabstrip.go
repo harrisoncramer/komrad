@@ -4,6 +4,7 @@ import (
 	"slices"
 	"strings"
 
+	"komrad/internal/glyph"
 	"komrad/internal/ui/paint"
 
 	"charm.land/bubbles/v2/key"
@@ -142,7 +143,7 @@ func (s tabStrip) view(state tabsState, palette paint.Palette, width int) string
 		if state.focused && state.onGroup {
 			group = palette.Cursor().Render(s.groupLabel(state))
 		}
-		line += "  " + muted.Render("·") + "  " + group
+		line += "  " + muted.Render(glyph.Separator) + "  " + group
 	}
 	if width > 0 {
 		line = ansi.Truncate(line, width, "…")

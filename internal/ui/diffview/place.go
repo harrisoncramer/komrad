@@ -5,21 +5,25 @@ import (
 	"slices"
 
 	"komrad/internal/diff"
+	"komrad/internal/glyph"
 	agentv1 "komrad/proto/gen/agent/v1"
 )
 
+// noticeRule is the rule either side of a notice over a group of comments.
+const noticeRule = glyph.Rule + glyph.Rule
+
 // changedNotice heads the comments whose code the agent has rewritten or removed.
-const changedNotice = "── the code these were about has changed ──"
+const changedNotice = noticeRule + " the code these were about has changed " + noticeRule
 
 // outsideNotice heads the comments that are still in the change but not in the narrower diff on
 // screen.
-const outsideNotice = "── still in the change, outside what is on screen ──"
+const outsideNotice = noticeRule + " still in the change, outside what is on screen " + noticeRule
 
 // changeNotice heads the comments on the change as a whole.
-const changeNotice = "── on the change as a whole ──"
+const changeNotice = noticeRule + " on the change as a whole " + noticeRule
 
 // goneNotice heads the comments whose file has left the change altogether.
-const goneNotice = "── these are holding your review, on files that have left the change ──"
+const goneNotice = noticeRule + " these are holding your review, on files that have left the change " + noticeRule
 
 // placement is how a thread reached the row it is drawn on, which separates a thread the diff
 // still agrees with from one the agent has written out from under.

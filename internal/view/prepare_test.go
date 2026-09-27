@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"komrad/internal/glyph"
 	"komrad/internal/ui/paint"
 
 	"github.com/stretchr/testify/assert"
@@ -30,22 +31,22 @@ func TestPrepareStatusBar(t *testing.T) {
 		{
 			name:   "a broken agent gets the danger bar",
 			status: StatusBroken,
-			want:   Cell{Glyph: GlyphBusy, Tone: paint.ToneDanger},
+			want:   Cell{Text: glyph.Busy, Tone: paint.ToneDanger},
 		},
 		{
 			name:   "an agent that wants you gets the warning bar",
 			status: StatusWaiting,
-			want:   Cell{Glyph: GlyphBusy, Tone: paint.ToneWarning},
+			want:   Cell{Text: glyph.Busy, Tone: paint.ToneWarning},
 		},
 		{
 			name:   "a thinking agent gets the bright bar",
 			status: StatusThinking,
-			want:   Cell{Glyph: GlyphBusy, Tone: paint.ToneBright},
+			want:   Cell{Text: glyph.Busy, Tone: paint.ToneBright},
 		},
 		{
 			name:   "an idle agent gets the muted pipe",
 			status: StatusIdle,
-			want:   Cell{Glyph: GlyphQuiet, Tone: paint.ToneMuted},
+			want:   Cell{Text: glyph.Quiet, Tone: paint.ToneMuted},
 		},
 	}
 
@@ -67,22 +68,22 @@ func TestPrepareBarSaysWhatStandsBehindARow(t *testing.T) {
 		{
 			name: "a process sitting quiet is a solid pipe",
 			row:  Row{Status: StatusIdle},
-			want: Cell{Glyph: GlyphQuiet, Tone: paint.ToneMuted},
+			want: Cell{Text: glyph.Quiet, Tone: paint.ToneMuted},
 		},
 		{
 			name: "a process that has stopped keeps the quiet pipe",
 			row:  Row{Status: StatusIdle, Process: ProcessStopped},
-			want: Cell{Glyph: GlyphQuiet, Tone: paint.ToneMuted},
+			want: Cell{Text: glyph.Quiet, Tone: paint.ToneMuted},
 		},
 		{
 			name: "a process that stopped mid-thought keeps the bar it stopped in",
 			row:  Row{Status: StatusThinking, Process: ProcessStopped},
-			want: Cell{Glyph: GlyphBusy, Tone: paint.ToneBright},
+			want: Cell{Text: glyph.Busy, Tone: paint.ToneBright},
 		},
 		{
 			name: "a row that never had a process draws the quiet pipe all the same",
 			row:  Row{Status: StatusIdle, Process: ProcessNone},
-			want: Cell{Glyph: GlyphQuiet, Tone: paint.ToneMuted},
+			want: Cell{Text: glyph.Quiet, Tone: paint.ToneMuted},
 		},
 	}
 
@@ -150,12 +151,12 @@ func TestPrepareHiddenMark(t *testing.T) {
 		{
 			name: "a hidden row carries the muted mark",
 			row:  Row{Hidden: true},
-			want: Cell{Glyph: GlyphHidden, Tone: paint.ToneMuted},
+			want: Cell{Glyph: glyph.Hidden, Tone: paint.ToneMuted},
 		},
 		{
 			name: "a hidden row whose process has gone keeps it",
 			row:  Row{Hidden: true, Process: ProcessStopped},
-			want: Cell{Glyph: GlyphHidden, Tone: paint.ToneMuted},
+			want: Cell{Glyph: glyph.Hidden, Tone: paint.ToneMuted},
 		},
 		{
 			name: "an archived row does not carry it",
@@ -273,17 +274,17 @@ func TestPrepareRepoColumn(t *testing.T) {
 		{
 			name: "a checkout that is gone gets the broken glyph in danger",
 			repo: RepoGone,
-			want: Cell{Glyph: GlyphBroken, Tone: paint.ToneDanger},
+			want: Cell{Glyph: glyph.WorktreeGone, Tone: paint.ToneDanger},
 		},
 		{
 			name: "a rebase part-way through keeps the glyph and takes the warning tone",
 			repo: RepoRebasing,
-			want: Cell{Glyph: GlyphRepo, Tone: paint.ToneWarning},
+			want: Cell{Glyph: glyph.Worktree, Tone: paint.ToneWarning},
 		},
 		{
 			name: "a clean checkout is drawn greyed rather than left out",
 			repo: RepoClean,
-			want: Cell{Glyph: GlyphRepo, Tone: paint.ToneMuted},
+			want: Cell{Glyph: glyph.Worktree, Tone: paint.ToneMuted},
 		},
 	}
 
@@ -301,7 +302,7 @@ func TestPrepareCommentColumns(t *testing.T) {
 		return Cell{Text: text, Tone: paint.ToneMuted}
 	}
 	blankDot := Cell{Text: " "}
-	unreadDot := Cell{Text: "·", Tone: paint.ToneWarning}
+	unreadDot := Cell{Glyph: glyph.Unread, Tone: paint.ToneWarning}
 
 	tests := []struct {
 		name         string
@@ -422,47 +423,47 @@ func TestPrepareForgeColumn(t *testing.T) {
 		{
 			name:  "an open pull request is the pull request glyph greyed",
 			forge: ForgeOpen,
-			want:  Cell{Glyph: GlyphForge, Tone: paint.ToneMuted},
+			want:  Cell{Glyph: glyph.Open, Tone: paint.ToneMuted},
 		},
 		{
 			name:  "approved gets the check in success",
 			forge: ForgeApproved,
-			want:  Cell{Glyph: GlyphApproved, Tone: paint.ToneSuccess},
+			want:  Cell{Glyph: glyph.Approved, Tone: paint.ToneSuccess},
 		},
 		{
 			name:  "changes requested is the pull request glyph in warning",
 			forge: ForgeChangesRequested,
-			want:  Cell{Glyph: GlyphForge, Tone: paint.ToneWarning},
+			want:  Cell{Glyph: glyph.Open, Tone: paint.ToneWarning},
 		},
 		{
 			name:  "a draft has its own glyph greyed",
 			forge: ForgeDraft,
-			want:  Cell{Glyph: GlyphDraft, Tone: paint.ToneMuted},
+			want:  Cell{Glyph: glyph.Draft, Tone: paint.ToneMuted},
 		},
 		{
 			name:  "an approval waiting on the forge keeps the check glyph, muted",
 			forge: ForgeApprovedWaiting,
-			want:  Cell{Glyph: GlyphApproved, Tone: paint.ToneMuted},
+			want:  Cell{Glyph: glyph.Approved, Tone: paint.ToneMuted},
 		},
 		{
 			name:  "failing checks get the failing glyph in danger",
 			forge: ForgeFailing,
-			want:  Cell{Glyph: GlyphFailing, Tone: paint.ToneDanger},
+			want:  Cell{Glyph: glyph.Failing, Tone: paint.ToneDanger},
 		},
 		{
 			name:  "a conflict with the base gets the conflicting glyph in danger",
 			forge: ForgeConflicting,
-			want:  Cell{Glyph: GlyphConflicting, Tone: paint.ToneDanger},
+			want:  Cell{Glyph: glyph.Conflicting, Tone: paint.ToneDanger},
 		},
 		{
 			name:  "a merged change gets its own glyph and its own tone",
 			forge: ForgeMerged,
-			want:  Cell{Glyph: GlyphMerged, Tone: paint.ToneMerged},
+			want:  Cell{Glyph: glyph.Merged, Tone: paint.ToneMerged},
 		},
 		{
 			name:  "closed without merging has its own glyph in danger",
 			forge: ForgeClosed,
-			want:  Cell{Glyph: GlyphClosed, Tone: paint.ToneDanger},
+			want:  Cell{Glyph: glyph.Closed, Tone: paint.ToneDanger},
 		},
 	}
 
@@ -627,7 +628,7 @@ func TestPrepareDimRowKeepsItsCaret(t *testing.T) {
 	})
 	require.Len(t, list.Lines, 1)
 
-	assert.Equal(t, Cell{Glyph: GlyphFocus, Tone: paint.ToneAccent}, list.Lines[0].Focus)
+	assert.Equal(t, Cell{Text: glyph.Focus, Tone: paint.ToneAccent}, list.Lines[0].Focus)
 }
 
 // TestPrepareTrailingMarks pins the odds and ends drawn after a name.
@@ -645,27 +646,27 @@ func TestPrepareTrailingMarks(t *testing.T) {
 		{
 			name: "a failed nobody has read is the danger alert",
 			row:  Row{FailedRun: true},
-			want: Line{Alert: Cell{Glyph: GlyphAlert, Tone: paint.ToneDanger}},
+			want: Line{Alert: Cell{Glyph: glyph.FailedScript, Tone: paint.ToneDanger}},
 		},
 		{
 			name: "unread mail is the muted envelope",
 			row:  Row{UnreadMail: true},
-			want: Line{Mail: Cell{Glyph: GlyphMail, Tone: paint.ToneMuted}},
+			want: Line{Mail: Cell{Glyph: glyph.Mail, Tone: paint.ToneMuted}},
 		},
 		{
 			name: "a paused agent is the muted pause",
 			row:  Row{Held: true},
-			want: Line{Held: Cell{Glyph: GlyphPaused, Tone: paint.ToneMuted}},
+			want: Line{Held: Cell{Glyph: glyph.Paused, Tone: paint.ToneMuted}},
 		},
 		{
 			name: "a hidden agent is the muted closed eye",
 			row:  Row{Hidden: true},
-			want: Line{Hidden: Cell{Glyph: GlyphHidden, Tone: paint.ToneMuted}},
+			want: Line{Hidden: Cell{Glyph: glyph.Hidden, Tone: paint.ToneMuted}},
 		},
 		{
 			name: "a schedule targeting the row is the muted calendar",
 			row:  Row{Scheduled: true},
-			want: Line{Schedule: Cell{Glyph: GlyphSchedule, Tone: paint.ToneMuted}},
+			want: Line{Schedule: Cell{Glyph: glyph.Schedule, Tone: paint.ToneMuted}},
 		},
 		{
 			name: "rows standing in for hidden ones carry the count",
@@ -927,12 +928,12 @@ func TestPrepareHeldCell(t *testing.T) {
 		{
 			name: "a paused agent working anyway is drawn in danger",
 			row:  Row{Held: true, HeldWorking: true},
-			want: Cell{Glyph: GlyphPaused, Tone: paint.ToneDanger},
+			want: Cell{Glyph: glyph.Paused, Tone: paint.ToneDanger},
 		},
 		{
 			name: "an ordinary pause is muted",
 			row:  Row{Held: true},
-			want: Cell{Glyph: GlyphPaused, Tone: paint.ToneMuted},
+			want: Cell{Glyph: glyph.Paused, Tone: paint.ToneMuted},
 		},
 		{
 			name: "an agent nobody paused draws nothing",
@@ -1016,37 +1017,37 @@ func TestPrepareShedsMarksOnlyWhereTheMarksAloneWillNotFit(t *testing.T) {
 	tests := []struct {
 		name string
 		pane int
-		want []Glyph
+		want []glyph.Glyph
 	}{
 		{
 			name: "a pane with room for one mark keeps the failed run alone",
 			pane: 15,
-			want: []Glyph{GlyphAlert},
+			want: []glyph.Glyph{glyph.FailedScript},
 		},
 		{
 			name: "a pane two wider keeps the mail as well",
 			pane: 17,
-			want: []Glyph{GlyphMail, GlyphAlert},
+			want: []glyph.Glyph{glyph.Mail, glyph.FailedScript},
 		},
 		{
 			name: "a pane one wider keeps the pause too",
 			pane: 18,
-			want: []Glyph{GlyphPaused, GlyphMail, GlyphAlert},
+			want: []glyph.Glyph{glyph.Paused, glyph.Mail, glyph.FailedScript},
 		},
 		{
 			name: "the next keeps the hiding, which goes before the pause",
 			pane: 20,
-			want: []Glyph{GlyphPaused, GlyphHidden, GlyphMail, GlyphAlert},
+			want: []glyph.Glyph{glyph.Paused, glyph.Hidden, glyph.Mail, glyph.FailedScript},
 		},
 		{
 			name: "the next keeps the documents, which go before the hiding",
 			pane: 22,
-			want: []Glyph{GlyphPaused, GlyphHidden, GlyphDocument, GlyphMail, GlyphAlert},
+			want: []glyph.Glyph{glyph.Paused, glyph.Hidden, glyph.Document, glyph.Mail, glyph.FailedScript},
 		},
 		{
 			name: "wider still keeps every mark, the schedule last",
 			pane: 24,
-			want: []Glyph{GlyphPaused, GlyphHidden, GlyphDocument, GlyphMail, GlyphAlert, GlyphSchedule},
+			want: []glyph.Glyph{glyph.Paused, glyph.Hidden, glyph.Document, glyph.Mail, glyph.FailedScript, glyph.Schedule},
 		},
 	}
 
@@ -1055,7 +1056,7 @@ func TestPrepareShedsMarksOnlyWhereTheMarksAloneWillNotFit(t *testing.T) {
 			list := Prepare(Snapshot{Rows: []Row{worst}, Pane: tt.pane})
 			require.Len(t, list.Lines, 1)
 
-			drawn := make([]Glyph, 0, 6)
+			drawn := make([]glyph.Glyph, 0, 6)
 			for _, cell := range []Cell{list.Lines[0].Held, list.Lines[0].Hidden, list.Lines[0].Document, list.Lines[0].Mail, list.Lines[0].Alert, list.Lines[0].Schedule} {
 				if !cell.IsBlank() {
 					drawn = append(drawn, cell.Glyph)

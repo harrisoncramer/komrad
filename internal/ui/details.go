@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"komrad/config"
+	"komrad/internal/glyph"
 	"komrad/internal/ui/paint"
 	"komrad/internal/view"
 	"komrad/lib/xslice"
@@ -447,10 +448,10 @@ func (m model) detailsRule(tag string) string {
 
 	tagWidth := lipgloss.Width(tag)
 	if tag == "" || tagWidth+4 > width {
-		return dimStyle.Render(strings.Repeat("─", width)) + "\n"
+		return dimStyle.Render(strings.Repeat(glyph.Rule, width)) + "\n"
 	}
 
-	return dimStyle.Render(strings.Repeat("─", width-tagWidth-3)+" ") + tag + dimStyle.Render(" ─") + "\n"
+	return dimStyle.Render(strings.Repeat(glyph.Rule, width-tagWidth-3)+" ") + tag + dimStyle.Render(" "+glyph.Rule) + "\n"
 }
 
 // detailsNotices are the lines the marks on the row take above the fields, giving up a notice

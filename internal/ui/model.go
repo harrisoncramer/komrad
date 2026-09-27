@@ -20,6 +20,7 @@ import (
 	"komrad/internal/engine"
 	"komrad/internal/errui"
 	"komrad/internal/git"
+	"komrad/internal/glyph"
 	"komrad/internal/position"
 	"komrad/internal/ui/layout"
 	"komrad/proto/gen/agent/v1/agentv1connect"
@@ -201,6 +202,7 @@ type Deps struct {
 	Worktrees       worktreev1connect.WorktreeServiceClient
 	Watch           watchv1connect.WatchServiceClient
 	Keys            config.Keybindings
+	Glyphs          glyph.Set
 	Layout          config.Layout
 	Engine          engine.Remote
 	ShellCommand    []string
@@ -274,6 +276,7 @@ type model struct {
 	helpExpanded  bool
 	topHeld       bool
 	keys          config.Keybindings
+	glyphs        glyph.Set
 	// paneMeasure is the column one half of a split is laid out in once the split has been chosen.
 	paneMeasure int
 	// shell is what tmux starts a pane's process with, read once.
@@ -343,6 +346,7 @@ func newModel(deps Deps, isDark bool, post *postbox) model {
 		detailsHeight:   deps.Layout.DetailsHeight,
 		settings:        deps.Settings,
 		keys:            deps.Keys,
+		glyphs:          deps.Glyphs,
 		configErr:       deps.ConfigErr,
 		startupErr:      deps.StartupErr,
 		startupFindings: deps.StartupFindings,

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"komrad/internal/glyph"
 	"komrad/internal/ui/paint"
 	agentv1 "komrad/proto/gen/agent/v1"
 )
@@ -20,7 +21,6 @@ var reviewDeliveryOrder = []agentv1.ReviewDeliveryState{
 // with, and the colour both of those carry.
 type reviewDelivery struct {
 	word string
-	mark string
 	tone paint.Tone
 }
 
@@ -31,19 +31,16 @@ func reviewDeliveryOf(state agentv1.ReviewDeliveryState) reviewDelivery {
 	case agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSENT:
 		return reviewDelivery{
 			word: "unsent",
-			mark: "◇",
 			tone: reviewUnsentTone,
 		}
 	case agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_SENT:
 		return reviewDelivery{
 			word: "waiting",
-			mark: "→",
 			tone: reviewSentTone,
 		}
 	case agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_DELIVERED:
 		return reviewDelivery{
 			word: "delivered",
-			mark: "✓",
 			tone: reviewDeliveredTone,
 		}
 	case agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSPECIFIED:
@@ -55,18 +52,34 @@ func reviewDeliveryOf(state agentv1.ReviewDeliveryState) reviewDelivery {
 
 // reviewDeliveryBadge is how far one comment has got towards being read, drawn under the comment
 // itself and not at all for what the agent wrote.
-func reviewDeliveryBadge(palette paint.Palette, message *agentv1.ReviewMessage) string {
+func reviewDeliveryBadge(palette paint.Palette, glyphs glyph.Set, message *agentv1.ReviewMessage) string {
 	drawn := reviewDeliveryOf(message.GetDelivery())
 	if drawn.word == "" {
 		return ""
 	}
 
-	badge := drawn.mark + " " + drawn.word
+	badge := reviewDeliveryMark(glyphs, message.GetDelivery()) + " " + drawn.word
 	if when := reviewTimeOf(reviewDeliveryStamp(message)); when != "" {
 		badge += " " + when
 	}
 
 	return palette.Style(drawn.tone).Render("  "+badge) + "\n"
+}
+
+// reviewDeliveryMark is the mark a badge opens with.
+func reviewDeliveryMark(glyphs glyph.Set, state agentv1.ReviewDeliveryState) string {
+	switch state {
+	case agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSENT:
+		return glyphs.Spell(glyph.Held)
+	case agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_SENT:
+		return "→"
+	case agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_DELIVERED:
+		return glyphs.Spell(glyph.Delivered)
+	case agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSPECIFIED:
+		return ""
+	}
+
+	return ""
 }
 
 // reviewDeliveryStamp is the moment a badge names: the last thing that happened to the comment,
@@ -92,5 +105,5 @@ func (t reviewThreads) deliveryCountView() string {
 		parts = append(parts, paint.Panel.Style(drawn.tone).Render(fmt.Sprintf("%d %s", count, drawn.word)))
 	}
 
-	return strings.Join(parts, dimStyle.Render(" · "))
+	return strings.Join(parts, dimStyle.Render(separated))
 }

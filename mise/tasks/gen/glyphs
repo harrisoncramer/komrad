@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+source "$MISE_CONFIG_ROOT/mise/tasks/_"
+set -euo pipefail
+#MISE description="Regenerate the approved octicons from the pinned Nerd Fonts glyph names."
+
+usage() {
+	echo "Usage: mise run gen:glyphs"
+	echo
+	echo "Rewrites internal/glyph/approved.go from internal/glyph/nerdfonts/glyphnames.json,"
+	echo "keeping every octicon in the Private Use Area. To move to a newer Nerd Fonts"
+	echo "release, replace glyphnames.json with that release's copy and run this."
+}
+
+for arg in "$@"; do
+	case "$arg" in
+	-h | --help)
+		usage
+		exit 0
+		;;
+	esac
+done
+
+cd "$MISE_CONFIG_ROOT"
+
+go generate ./internal/glyph/...

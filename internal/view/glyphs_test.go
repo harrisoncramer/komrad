@@ -1,73 +1,35 @@
 package view
 
 import (
-	"fmt"
 	"testing"
+
+	"komrad/internal/glyph"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-// TestDrawingsCoverEveryGlyph covers the one way this list rots.
-func TestDrawingsCoverEveryGlyph(t *testing.T) {
-	named := map[Glyph]bool{}
-	for _, entry := range glyphNames {
-		named[entry.glyph] = true
-	}
-
-	for glyph := GlyphNone + 1; glyph < glyphCount; glyph++ {
-		assert.True(t, named[glyph], "glyph %d is drawn but is not in the inventory the doctor measures", glyph)
-	}
-}
-
-// TestDrawingsCarryTextAndWidth covers that the inventory is worth measuring.
-func TestDrawingsCarryTextAndWidth(t *testing.T) {
-	drawings := Drawings()
-	require.Len(t, drawings, int(glyphCount)-1)
+// TestDrawingsCoverEveryGlyphAndTheChrome covers the one way this list rots.
+func TestDrawingsCoverEveryGlyphAndTheChrome(t *testing.T) {
+	drawings := Drawings(glyph.Defaults())
+	require.Len(t, drawings, len(glyph.All())+len(glyph.Chrome()))
 
 	for _, drawing := range drawings {
 		assert.NotEmpty(t, drawing.Text, "%s has nothing to draw", drawing.Name)
-		assert.Positive(t, drawing.Columns, "%s is counted as no columns at all", drawing.Name)
+		assert.Equal(t, plainColumns, drawing.Columns, "%s is counted as other than one glyph wide", drawing.Name)
 	}
 }
 
-// TestDrawingsAgreeWithTheLayout covers the constant the whole package's arithmetic rests on,
-// so a change to it is a change to a test rather than a silent shift in every row.
-func TestDrawingsAgreeWithTheLayout(t *testing.T) {
-	widths := map[string]int{}
-	for _, drawing := range Drawings() {
-		widths[drawing.Name] = drawing.Columns
+// TestDrawingsMeasureTheSetGiven covers the doctor measuring what a person chose rather than
+// what ships.
+func TestDrawingsMeasureTheSetGiven(t *testing.T) {
+	set, err := glyph.Load(map[glyph.Glyph]string{glyph.FailedScript: ""})
+	require.NoError(t, err)
+
+	texts := map[string]string{}
+	for _, drawing := range Drawings(set) {
+		texts[drawing.Name] = drawing.Text
 	}
 
-	assert.Equal(t, plainColumns, widths["repo"])
-	assert.Equal(t, plainColumns, widths["mail"])
-	assert.Equal(t, plainColumns, widths["busy"])
-	assert.Equal(t, plainColumns, widths["child"])
-}
-
-// TestGlyphsSpellTheirOcticons pins each mark written from its number to its codepoint.
-func TestGlyphsSpellTheirOcticons(t *testing.T) {
-	tests := []struct {
-		glyph Glyph
-		want  string
-	}{
-		{GlyphApproved, "f42e"},
-		{GlyphForge, "f407"},
-		{GlyphMerged, "f419"},
-		{GlyphDraft, "f4dd"},
-		{GlyphClosed, "f4dc"},
-		{GlyphWorkflow, "f52e"},
-		{GlyphArchive, "f411"},
-		{GlyphSearch, "f422"},
-		{GlyphAlert, "f489"},
-		{GlyphConflicting, "f421"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.want, func(t *testing.T) {
-			runes := []rune(Spell(tt.glyph))
-			require.Len(t, runes, 1)
-			assert.Equal(t, tt.want, fmt.Sprintf("%x", runes[0]))
-		})
-	}
+	assert.Equal(t, "", texts[glyph.FailedScript.Key()])
 }
