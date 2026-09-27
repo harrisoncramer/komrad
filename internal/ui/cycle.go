@@ -164,6 +164,7 @@ func (m model) enterSidebar(to stop) model {
 	}
 
 	m.blurTabs()
+	m.blurKinds()
 	if m.screen == screenReview && to != stopThread {
 		m.review.threads.blur()
 	}

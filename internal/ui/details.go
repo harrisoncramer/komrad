@@ -145,6 +145,7 @@ func (m model) focusDetails() (model, tea.Cmd) {
 
 	m.details.focused = true
 	m.blurTabs()
+	m.blurKinds()
 	if m.details.row != held.id {
 		m.details.cursor = 0
 	}

@@ -119,8 +119,6 @@ back         = ["esc"]
 # Destroy the agent or schedule under the cursor for good, with its transcript
 # or its run history. Nothing undoes it, so it asks first.
 delete       = ["d"]
-# Switch the archive between its agents and its schedules.
-kind         = ["tab"]
 # Quit the panel.
 quit         = ["ctrl+c"]
 # Put the agent or schedule under the cursor back in the panel.
@@ -323,6 +321,12 @@ toggle = ["v"]
 [keybindings.tabs]
 # Hand the keys to the row of tabs over the list; escape hands them back.
 focus = ["f"]
+
+# The row of kinds a screen listing more than one kind of resource draws under its tabs.
+[keybindings.kinds]
+# Hand the keys to the row of kinds, where tab and shift+tab switch the kind listed; escape
+# hands them back.
+focus = ["F"]
 
 # The key that opens a shell in the hovered agent's directory, shared by every
 # screen that lists agents.

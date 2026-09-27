@@ -234,11 +234,18 @@ func (m model) isTabsFocused() bool {
 }
 
 func (m model) tabbedHeader(title, tally string) string {
-	if !m.isTabsDrawn() {
+	var strips string
+	if m.isTabsDrawn() {
+		strips += m.tabsLine()
+	}
+	if m.isKindsDrawn() {
+		strips += m.kindsLine()
+	}
+	if strips == "" {
 		return m.talliedHeader(title, tally)
 	}
 
-	return m.headerLines(title, tally, m.tabsLine())
+	return m.headerLines(title, tally, strips)
 }
 
 func (m model) tabsLine() string {
@@ -247,11 +254,12 @@ func (m model) tabsLine() string {
 	return t.tabs().view(*t.tabsState(), paint.Panel, m.paneWidth()) + "\n"
 }
 
-// listFitsTabs is whether a list has the room to draw its strip, judged with the keys on the
+// listFitsTabs is whether a list has the room to draw its strips, judged with the keys on the
 // list.
 func (m model) listFitsTabs(params screenListParams) bool {
-	t, ok := m.activeTabs()
-	if !ok {
+	t, tabbed := m.activeTabs()
+	k, kinded := m.activeKinds()
+	if !tabbed && !kinded {
 		return false
 	}
 
@@ -260,9 +268,17 @@ func (m model) listFitsTabs(params screenListParams) bool {
 	}
 
 	m.details.focused, m.helpExpanded = false, false
-	t.tabsState().focused = false
+	var strips string
+	if tabbed {
+		t.tabsState().focused = false
+		strips += m.tabsLine()
+	}
+	if kinded {
+		*k.kindsFocused() = false
+		strips += m.kindsLine()
+	}
 
-	return m.spareLines(m.headerLines(params.title, params.tally, m.tabsLine()), m.renderHelp(m.listHelpOf(params))) >= 1
+	return m.spareLines(m.headerLines(params.title, params.tally, strips), m.renderHelp(m.listHelpOf(params))) >= 1
 }
 
 func (m *model) blurTabs() {
@@ -277,6 +293,7 @@ func (m model) focusTabs() model {
 		return m
 	}
 
+	m.blurKinds()
 	t.tabsState().focused = true
 	m.details.focused = false
 

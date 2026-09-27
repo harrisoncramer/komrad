@@ -621,6 +621,9 @@ func (m model) listHelp(own keyMap) keyMap {
 	if b := m.tabsBinding(); b.Enabled() {
 		tabs = []key.Binding{b}
 	}
+	if b := m.kindsBinding(); b.Enabled() {
+		tabs = append(tabs, b)
+	}
 
 	return keyMap{
 		short: slices.Concat(own.short, m.globalHelp()),

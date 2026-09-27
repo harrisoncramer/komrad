@@ -200,6 +200,9 @@ func (m model) resizeTo(size tea.WindowSizeMsg) model {
 	if !m.isTabsDrawn() {
 		m.blurTabs()
 	}
+	if !m.isKindsDrawn() {
+		m.blurKinds()
+	}
 
 	// A drag and a zoom both change the panel's own pane and leave the window around it alone.
 	window := m.frame.WindowCols()
@@ -312,6 +315,17 @@ func (m model) routeGlobalKey(key tea.KeyPressMsg) (tea.Model, tea.Cmd, bool) {
 		}
 		if isBound(key.String(), m.keys.Tabs.Focus) {
 			return m.focusTabs(), nil, true
+		}
+	}
+
+	if _, ok := m.activeKinds(); ok {
+		if m.isKindsFocused() {
+			next, cmd := m.updateKinds(key)
+
+			return next, cmd, true
+		}
+		if isBound(key.String(), m.keys.Kinds.Focus) {
+			return m.focusKinds(), nil, true
 		}
 	}
 

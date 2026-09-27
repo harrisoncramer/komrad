@@ -81,6 +81,7 @@ func (m model) viewIndex() int {
 
 func (m model) openViews() model {
 	m.blurTabs()
+	m.blurKinds()
 	m.viewsOpen = true
 
 	return m

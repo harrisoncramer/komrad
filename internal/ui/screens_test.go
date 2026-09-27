@@ -426,7 +426,7 @@ func TestScreensRecordGivesWay(t *testing.T) {
 		{
 			name:  "the archive",
 			press: []string{"o", "r"},
-			fills: 12,
+			fills: 10,
 		},
 		{
 			name:  "the schedules",

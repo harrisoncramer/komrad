@@ -471,6 +471,7 @@ func (m model) toggleMessagesFocus() model {
 	m.messages.focused = !m.messages.focused
 	m.details.focused = false
 	m.blurTabs()
+	m.blurKinds()
 
 	if entering {
 		m.messages.field = 0

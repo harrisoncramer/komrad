@@ -189,6 +189,7 @@ func globalArms(s screen, keys config.Keybindings) []dispatchArm {
 
 	if _, ok := zero.screenOf(s).(tabbed); ok {
 		arms = append(arms, dispatchArm{describe: "the tabs focus", keys: keys.Tabs.Focus})
+		arms = append(arms, dispatchArm{describe: "the kinds focus", keys: keys.Kinds.Focus})
 	}
 
 	if s == screenDocuments {

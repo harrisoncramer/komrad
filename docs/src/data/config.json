@@ -288,13 +288,6 @@
               "default": "[\"d\"]"
             },
             {
-              "key": "kind",
-              "path": "keybindings.archive.kind",
-              "type": "array",
-              "description": "Switch the archive between its agents and its schedules.",
-              "default": "[\"tab\"]"
-            },
-            {
               "key": "quit",
               "path": "keybindings.archive.quit",
               "type": "array",
@@ -832,6 +825,20 @@
               "type": "array",
               "description": "Hand the keys to the row of tabs over the list; escape hands them back.",
               "default": "[\"f\"]"
+            }
+          ],
+          "sections": []
+        },
+        {
+          "path": "keybindings.kinds",
+          "description": "The row of kinds a screen listing more than one kind of resource draws under its tabs.",
+          "settings": [
+            {
+              "key": "focus",
+              "path": "keybindings.kinds.focus",
+              "type": "array",
+              "description": "Hand the keys to the row of kinds, where tab and shift+tab switch the kind listed; escape\nhands them back.",
+              "default": "[\"F\"]"
             }
           ],
           "sections": []

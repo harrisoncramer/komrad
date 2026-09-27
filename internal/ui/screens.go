@@ -97,6 +97,20 @@ type filterRow struct {
 	name string
 }
 
+// kinded is a screen listing more than one kind of resource, switched on a row of its own.
+type kinded interface {
+	kinds() stops
+
+	// kindsFocused is whether the row of kinds holds the keys.
+	kindsFocused() *bool
+
+	// stepKind moves the list delta kinds along, wrapping at both ends.
+	stepKind(h host, s panelShared, delta int) tea.Cmd
+
+	// kindsFit is whether the screen has the room to draw the row of kinds.
+	kindsFit(s panelShared) bool
+}
+
 // tabbed is a screen that draws a strip of tabs over its list.
 type tabbed interface {
 	tabs() tabStrip

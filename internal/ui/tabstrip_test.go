@@ -23,6 +23,7 @@ func TestTabStrip(t *testing.T) {
 		press  []string
 		screen string
 		second string
+		kinds  bool
 	}{
 		{
 			name:   "the agents tree",
@@ -34,6 +35,7 @@ func TestTabStrip(t *testing.T) {
 			press:  []string{"o", "r"},
 			screen: archiveScreen,
 			second: "name",
+			kinds:  true,
 		},
 		{
 			name:   "the worktrees",
@@ -54,7 +56,12 @@ func TestTabStrip(t *testing.T) {
 			require.Greater(t, len(sidebar), filter+2)
 			strip := filter + 1
 			assert.Contains(t, sidebar[strip], "f")
-			assert.Empty(t, sidebar[strip+1], "one blank row stands before the list")
+			gap := strip + 1
+			if tt.kinds {
+				assert.Equal(t, "F   agents  schedules", sidebar[gap], "the row of kinds stands under the strip")
+				gap++
+			}
+			assert.Empty(t, sidebar[gap], "one blank row stands before the list")
 
 			harness.press("f")
 			frame := harness.readFrame()

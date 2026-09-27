@@ -1,13 +1,13 @@
 [1;34m󰔌 komrad[m
 [90m[m[4;90;4ma[m[90mgents[m  [90m[m[4;90;4mq[m[90muery[m  [90m[m[4;90;4ms[m[90mchedules[m  [34ma[m[4;34;4mr[m[34mchive[m  [90m[m[4;90;4mw[m[90morktre…[m
 
-[34magents[m  [90mschedules[m
-
 [90m/[m
 [90mf[m   [90m↓ archived[m  [90mname[m  [90m·[m  [90mflat[m
+[90mF[m   [34magents[m  [90mschedules[m
 
 [34m›[m   [90m[m   [90m│[m [34mreviewer[m
     [90m[m   [90m│[m [90mcargo-fix[m
+
 
 
 
@@ -25,4 +25,4 @@
 [92m✓[m No messages
 [90m  Komrad is running normally[m
 [90m───────────────────────────────────────────[m
-[90mr[m [90mrestore[m[90m • [m[90mtab[m [90mschedules[m[90m • [m[90m?[m [90mshow help[m [90m…[m
+[90mr[m [90mrestore[m[90m • [m[90m?[m [90mshow help[m[90m • [m[90mo[m [90mswitch view[m
