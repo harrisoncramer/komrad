@@ -35,10 +35,12 @@ const (
 	unreadMark = "●"
 	// readMark is a thread nobody has settled with nothing new in it.
 	readMark = "○"
-	// OpenMark is what a comment nobody has settled wears away from the diff.
+	// OpenMark is what a comment nobody has resolved wears away from the diff.
 	OpenMark = readMark
-	// settledMark is a thread that has been settled.
+	// settledMark is a thread that has been resolved.
 	settledMark = "✓"
+	// SettledMark is what a resolved comment wears away from the diff.
+	SettledMark = settledMark
 	// unsentMark is a thread holding a comment nobody has released yet.
 	unsentMark = "◇"
 	// viewedMark heads the header of a file that has been read and folded away.
@@ -77,6 +79,8 @@ func (v *View) RenderRow(y int, cursor Cursor, width, offset int) string {
 		return ansi.Truncate(hunkStyle.Render(current.text), width, "…")
 	case threadRow:
 		return v.renderThreadRow(current, cursor, width)
+	case changeRow:
+		return v.renderChangeRow(current, cursor, width)
 	case lineRow:
 	}
 
@@ -198,21 +202,71 @@ func doesHoldDelivery(thread *agentv1.ReviewThread, state agentv1.ReviewDelivery
 // renderThreadRow draws a thread with no line left to stand on, saying where it was written and
 // what it opened with.
 func (v *View) renderThreadRow(current row, cursor Cursor, width int) string {
-	background := getBackground(diff.Context, cursor)
-	style := lipgloss.NewStyle().Background(background)
-
 	mark, markStyle := v.markFor(current.thread)
 
-	head := strings.Repeat(" ", max(GutterWidth-2, 0))
 	said := FormatThreadLocation(current.thread)
 	if opening := firstLine(current.thread); opening != "" {
 		said += "  " + opening
 	}
 
+	return renderSaidRow(renderSaidRowParams{
+		Mark:      mark,
+		MarkStyle: markStyle,
+		Said:      said,
+		Cursor:    cursor,
+		Width:     width,
+	})
+}
+
+// renderChangeRow draws the row above the first file, saying how many comments on the change as a
+// whole wait at the foot.
+func (v *View) renderChangeRow(current row, cursor Cursor, width int) string {
+	said := current.text
+	if count := v.countChangeThreads(); count > 0 {
+		said += fmt.Sprintf("  %d at the end of the diff", count)
+	}
+
+	return renderSaidRow(renderSaidRowParams{
+		Mark:      " ",
+		MarkStyle: gutterStyle,
+		Said:      said,
+		Cursor:    cursor,
+		Width:     width,
+	})
+}
+
+// countChangeThreads counts the comments on the change as a whole.
+func (v *View) countChangeThreads() int {
+	count := 0
+	for _, thread := range v.threads {
+		if thread.GetFilePath() == "" {
+			count++
+		}
+	}
+
+	return count
+}
+
+// renderSaidRowParams is a row of prose drawn in the diff and the mark beside it.
+type renderSaidRowParams struct {
+	Mark      string
+	MarkStyle lipgloss.Style
+	Said      string
+	Cursor    Cursor
+	Width     int
+}
+
+// renderSaidRow draws a row of prose with nothing but a thread's mark in its gutter.
+func renderSaidRow(params renderSaidRowParams) string {
+	background := getBackground(diff.Context, params.Cursor)
+	style := lipgloss.NewStyle().Background(background)
+	head := strings.Repeat(" ", max(GutterWidth-2, 0))
+	said := style.Foreground(lipgloss.Color("8")).Italic(true).Render(params.Said)
+
 	return ansi.Truncate(
-		style.Render(head)+markStyle.Background(background).Render(mark)+style.Render(" ")+
-			fitWindow(style.Foreground(lipgloss.Color("8")).Italic(true).Render(said), 0, max(0, width-GutterWidth), background),
-		width, "…")
+		style.Render(head)+params.MarkStyle.Background(background).Render(params.Mark)+style.Render(" ")+
+			fitWindow(said, 0, max(0, params.Width-GutterWidth), background),
+		params.Width, "…")
 }
 
 // firstLine is the opening line of a thread.

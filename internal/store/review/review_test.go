@@ -1,6 +1,7 @@
 package review
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -8,6 +9,7 @@ import (
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
 	mailstore "komrad/internal/store/mail"
+	pullrequeststore "komrad/internal/store/pullrequest"
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
@@ -271,7 +273,8 @@ func TestSettlingAThreadIsCarriedByTheList(t *testing.T) {
 	assert.NotNil(t, threads[0].ResolvedAt)
 }
 
-// TestWritingInASettledThread pins that only the settler's own words take a settling back.
+// TestWritingInASettledThread pins that only a reviewer agent's own words take its settling back
+// as they are written; the person's wait for the release.
 func TestWritingInASettledThread(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -294,9 +297,36 @@ func TestWritingInASettledThread(t *testing.T) {
 			wantSettled: true,
 		},
 		{
-			name:    "the person writing in what they settled",
-			settler: "person",
-			writer:  "person",
+			name:        "the person writing in what they settled, which waits for the release",
+			settler:     "person",
+			writer:      "person",
+			wantSettled: true,
+		},
+		{
+			name:        "the person rewriting what they said in what they settled",
+			settler:     "person",
+			writer:      "person",
+			rewrite:     true,
+			wantSettled: true,
+		},
+		{
+			name:        "the agent under review writing again in what its answer settled",
+			settler:     "worker",
+			writer:      "worker",
+			wantSettled: true,
+		},
+		{
+			name:        "the agent under review rewriting the answer that settled it",
+			settler:     "worker",
+			writer:      "worker",
+			rewrite:     true,
+			wantSettled: true,
+		},
+		{
+			name:        "a reviewer agent writing in what the person settled",
+			settler:     "person",
+			writer:      "reviewer",
+			wantSettled: true,
 		},
 		{
 			name:    "the reviewer writing in what it settled",
@@ -355,6 +385,184 @@ func TestWritingInASettledThread(t *testing.T) {
 				assert.Empty(t, got.ResolvedByKind, "an unsettled thread names nobody as having settled it")
 				assert.Nil(t, got.ResolvedByAgentID)
 			}
+		})
+	}
+}
+
+// TestAnAnswerCarryingARoundSettlesTheThread pins that a reply naming the round that answers it
+// settles the thread in the same write.
+func TestAnAnswerCarryingARoundSettlesTheThread(t *testing.T) {
+	tests := []struct {
+		name        string
+		byReviewer  bool
+		withRound   bool
+		followUp    bool
+		wantSettled bool
+	}{
+		{
+			name:        "a plain reply",
+			withRound:   false,
+			wantSettled: false,
+		},
+		{
+			name:        "a reply carrying a round in a reviewer agent's thread",
+			byReviewer:  true,
+			withRound:   true,
+			wantSettled: false,
+		},
+		{
+			name:        "a plain reply after the answer",
+			withRound:   true,
+			followUp:    true,
+			wantSettled: true,
+		},
+		{
+			name:        "a reply carrying the round that answers it",
+			withRound:   true,
+			wantSettled: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := openFixture(t)
+			ctx := t.Context()
+			workerID := st.seedAgent(t, "worker")
+			round := st.openRound(t, workerID, "tree-one")
+			review := st.openReview(t, round)
+			if tt.byReviewer {
+				review = st.openReviewBy(t, round, st.seedReviewerChild(t, workerID))
+			}
+			thread := st.openThread(t, review, "this needs a nil check")
+			st.releaseReview(t, review, VerdictChangesRequested)
+
+			var roundID *string
+			if tt.withRound {
+				roundID = &st.openRound(t, workerID, "tree-two").ID
+			}
+
+			answer, err := st.CreateMessage(ctx, CreateMessageParams{
+				ThreadID:      thread.ID,
+				RoundID:       roundID,
+				AuthorKind:    AuthorAgent,
+				AuthorAgentID: &workerID,
+				Body:          "added the check",
+			})
+			require.NoError(t, err)
+			assert.Equal(t, roundID, answer.RoundID)
+
+			if tt.followUp {
+				_, err := st.CreateMessage(ctx, CreateMessageParams{
+					ThreadID:      thread.ID,
+					AuthorKind:    AuthorAgent,
+					AuthorAgentID: &workerID,
+					Body:          "also renamed the helper",
+				})
+				require.NoError(t, err)
+			}
+
+			got, err := st.GetThread(ctx, thread.ID)
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantSettled, got.ResolvedAt != nil)
+			if tt.wantSettled {
+				assert.Equal(t, AuthorAgent, got.ResolvedByKind)
+				assert.Equal(t, &workerID, got.ResolvedByAgentID)
+			}
+		})
+	}
+}
+
+// TestReleasingReopensWhatThePersonRepliedTo pins that a person's reply in a settled thread
+// reopens it once the batch carrying the reply goes out.
+func TestReleasingReopensWhatThePersonRepliedTo(t *testing.T) {
+	tests := []struct {
+		name        string
+		byReviewer  bool
+		byPerson    bool
+		reply       bool
+		thenSettle  bool
+		wantSettled bool
+	}{
+		{
+			name:        "a settled thread the person did not reply to",
+			reply:       false,
+			wantSettled: true,
+		},
+		{
+			name:        "the person replying and then settling it before the batch goes out",
+			reply:       true,
+			thenSettle:  true,
+			wantSettled: true,
+		},
+		{
+			name:        "a reviewer agent replying in a settled thread",
+			byReviewer:  true,
+			reply:       true,
+			wantSettled: true,
+		},
+		{
+			name:        "the person replying in a settled thread",
+			reply:       true,
+			wantSettled: false,
+		},
+		{
+			name:        "the person replying in a thread they settled themselves",
+			byPerson:    true,
+			reply:       true,
+			wantSettled: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := openFixture(t)
+			ctx := t.Context()
+			workerID := st.seedAgent(t, "worker")
+			round := st.openRound(t, workerID, "tree-one")
+			first := st.openReview(t, round)
+			thread := st.openThread(t, first, "this needs a nil check")
+			st.releaseReview(t, first, VerdictChangesRequested)
+
+			settler := &workerID
+			if tt.byPerson {
+				settler = nil
+			}
+			st.settle(t, thread, settler)
+
+			author := AuthorHuman
+			var authorAgentID *string
+			var second *Review
+			if tt.byReviewer {
+				reviewerID := st.seedReviewerChild(t, workerID)
+				second = st.openReviewBy(t, round, reviewerID)
+				author, authorAgentID = AuthorAgent, &reviewerID
+			} else {
+				second = st.openReview(t, round)
+			}
+			if tt.reply {
+				_, err := st.CreateMessage(ctx, CreateMessageParams{
+					ThreadID:      thread.ID,
+					ReviewID:      &second.ID,
+					AuthorKind:    author,
+					AuthorAgentID: authorAgentID,
+					Body:          "this still panics on an empty list",
+				})
+				require.NoError(t, err)
+			}
+
+			if tt.thenSettle {
+				st.settle(t, thread, nil)
+			}
+
+			held, err := st.GetThread(ctx, thread.ID)
+			require.NoError(t, err)
+			require.NotNil(t, held.ResolvedAt, "the reply waits for the batch to go out")
+
+			st.releaseReview(t, second, VerdictChangesRequested)
+
+			got, err := st.GetThread(ctx, thread.ID)
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantSettled, got.ResolvedAt != nil)
 		})
 	}
 }
@@ -556,32 +764,108 @@ func TestNewestRoundsAreEachAgentsLastRound(t *testing.T) {
 	}, newest)
 }
 
-// TestTheLastReleasedReviewIsTheNewestOne pins which batch answers for where an author last looked.
-func TestTheLastReleasedReviewIsTheNewestOne(t *testing.T) {
+// TestUnlandedRoundsAreTheReleasedOnesNotYetLanded pins which rounds the landing walk is given and
+// that landing a round lands every earlier one with it.
+func TestUnlandedRoundsAreTheReleasedOnesNotYetLanded(t *testing.T) {
 	st := openFixture(t)
 	ctx := t.Context()
 	agentID := st.seedAgent(t, "worker")
-	author := AuthorParams{
-		AgentID:    agentID,
-		AuthorKind: AuthorHuman,
+	archived := st.seedAgent(t, "archived")
+
+	for _, tree := range []string{"tree-one", "tree-two", "tree-three"} {
+		st.releaseReview(t, st.openReview(t, st.openRound(t, agentID, tree)), VerdictCommented)
 	}
-
-	_, err := st.GetLastReleasedReview(ctx, author)
-	require.ErrorIs(t, err, store.ErrNotFound, "an author who has released none has looked nowhere")
-
-	first := st.openReview(t, st.openRound(t, agentID, "tree-one"))
-	st.releaseReview(t, first, VerdictChangesRequested)
-	second := st.openReview(t, st.openRound(t, agentID, "tree-two"))
-
-	held, err := st.GetLastReleasedReview(ctx, author)
+	st.openReview(t, st.openRound(t, agentID, "tree-draft"))
+	st.releaseReview(t, st.openReview(t, st.openRound(t, archived, "tree-gone")), VerdictCommented)
+	_, err := st.agents.Archive(ctx, []string{archived})
 	require.NoError(t, err)
-	assert.Equal(t, first.ID, held.ID, "a batch still being written is not one they have looked at")
 
-	st.releaseReview(t, second, VerdictApproved)
-
-	latest, err := st.GetLastReleasedReview(ctx, author)
+	unlanded, err := st.ListUnlandedRounds(ctx)
 	require.NoError(t, err)
-	assert.Equal(t, second.ID, latest.ID)
+	assert.Equal(t, map[string][]UnlandedRound{
+		agentID: {
+			{
+				Ordinal:     3,
+				BaseSHA:     "base-tree-three",
+				SnapshotSHA: "snapshot-tree-three",
+			},
+			{
+				Ordinal:     2,
+				BaseSHA:     "base-tree-two",
+				SnapshotSHA: "snapshot-tree-two",
+			},
+			{
+				Ordinal:     1,
+				BaseSHA:     "base-tree-one",
+				SnapshotSHA: "snapshot-tree-one",
+			},
+		},
+	}, unlanded, "a draft round and an archived agent's rounds are not walked")
+
+	landed, err := st.MarkRoundsLanded(ctx, agentID, 2)
+	require.NoError(t, err)
+	assert.Equal(t, int64(2), landed)
+
+	again, err := st.MarkRoundsLanded(ctx, agentID, 3)
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), again, "a round already landed keeps when it landed")
+
+	unlanded, err = st.ListUnlandedRounds(ctx)
+	require.NoError(t, err)
+	assert.Empty(t, unlanded)
+
+	reviews, err := st.ListWatched(ctx, nil)
+	require.NoError(t, err)
+	for _, review := range reviews {
+		if review.AgentID == agentID && review.RoundOrdinal <= 3 {
+			assert.NotNil(t, review.RoundLandedAt, "round %d", review.RoundOrdinal)
+		}
+	}
+}
+
+// TestUnlandedRoundsCarryTheNewestMerge pins that an agent's unlanded rounds say when its newest
+// merged pull request merged.
+func TestUnlandedRoundsCarryTheNewestMerge(t *testing.T) {
+	st := openFixture(t)
+	ctx := t.Context()
+	agentID := st.seedAgent(t, "worker")
+	st.releaseReview(t, st.openReview(t, st.openRound(t, agentID, "tree-one")), VerdictCommented)
+
+	repository, branch := "https://github.com/harrisoncramer/komrad", "agent/worker"
+	require.NoError(t, st.agents.SetCheckout(ctx, agentID, agentstore.SetCheckoutParams{
+		RepositoryURL: &repository,
+		Branch:        &branch,
+	}))
+	require.NoError(t, pullrequeststore.NewPullRequestSyncStore(st.pool).EnsureSync(ctx, repository))
+	pullRequests := pullrequeststore.NewPullRequestStore(st.pool)
+	earlier := time.Date(2026, 9, 19, 12, 0, 0, 0, time.UTC)
+	later := earlier.Add(24 * time.Hour)
+	for number, mergedAt := range map[int]*time.Time{1: &earlier, 2: &later, 3: nil} {
+		_, err := pullRequests.Upsert(ctx, pullrequeststore.UpsertParams{
+			Host:              "github.com",
+			Forge:             "github",
+			ProviderID:        fmt.Sprintf("PR_%d", number),
+			URL:               fmt.Sprintf("%s/pull/%d", repository, number),
+			RepositoryURL:     repository,
+			HeadRepositoryURL: repository,
+			Number:            number,
+			HeadBranch:        branch,
+			BaseBranch:        "main",
+			State:             "merged",
+			OpenedAt:          earlier.Add(-time.Hour),
+			ChangedAt:         earlier,
+			MergedAt:          mergedAt,
+		})
+		require.NoError(t, err)
+	}
+	_, err := pullRequests.Observe(ctx)
+	require.NoError(t, err)
+
+	unlanded, err := st.ListUnlandedRounds(ctx)
+	require.NoError(t, err)
+	require.Len(t, unlanded[agentID], 1)
+	require.NotNil(t, unlanded[agentID][0].MergedAt)
+	assert.True(t, later.Equal(*unlanded[agentID][0].MergedAt))
 }
 
 // TestTheOpenReviewIsTheOneStillBeingWritten pins that releasing a batch closes it.
@@ -589,7 +873,7 @@ func TestTheOpenReviewIsTheOneStillBeingWritten(t *testing.T) {
 	st := openFixture(t)
 	ctx := t.Context()
 	agentID := st.seedAgent(t, "worker")
-	author := AuthorParams{
+	author := OpenReviewOfParams{
 		AgentID:    agentID,
 		AuthorKind: AuthorHuman,
 	}

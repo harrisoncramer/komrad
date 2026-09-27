@@ -782,15 +782,6 @@ SET
 WHERE
     id = ANY (@ids::uuid[]);
 
--- name: SetAgentTreeStanding :exec
-UPDATE
-    agents
-SET
-    tree_standing = @tree_standing,
-    tree_standing_sha = @tree_standing_sha
-WHERE
-    id = @id;
-
 -- name: SetAgentMovedSinceRound :exec
 UPDATE
     agents

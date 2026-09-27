@@ -177,8 +177,8 @@ func TestPrepareHiddenMark(t *testing.T) {
 }
 
 // TestPrepareColumnsFollowTheRowKind pins the difference between a stage that has not happened
-// and one that never can: the three columns beside an agent's own row, under a heading or in a
-// flat list, are drawn greyed, and a row that is not an agent's own draws them blank.
+// and one that never can: the columns beside an agent's own row, under a heading or in a flat
+// list, are drawn greyed, and a row that is not an agent's own draws them blank.
 func TestPrepareColumnsFollowTheRowKind(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -186,43 +186,43 @@ func TestPrepareColumnsFollowTheRowKind(t *testing.T) {
 		blank bool
 	}{
 		{
-			name: "an agent's own row carries all three",
+			name: "an agent's own row carries all of them",
 			row: Row{
-				Name:   "worker",
-				Repo:   RepoGone,
-				Review: ReviewApproved,
-				Forge:  ForgeMerged,
+				Name:           "worker",
+				Repo:           RepoGone,
+				PersonComments: &Comments{Open: 1},
+				Forge:          ForgeMerged,
 			},
 		},
 		{
 			name: "a result is an agent's own row with no tree over it",
 			row: Row{
-				Kind:   KindResult,
-				Name:   "worker",
-				Repo:   RepoGone,
-				Review: ReviewApproved,
-				Forge:  ForgeMerged,
+				Kind:           KindResult,
+				Name:           "worker",
+				Repo:           RepoGone,
+				PersonComments: &Comments{Open: 1},
+				Forge:          ForgeMerged,
 			},
 		},
 		{
 			name: "a child leaves them to the row above it",
 			row: Row{
-				Kind:   KindChild,
-				Name:   "reviewer",
-				Repo:   RepoGone,
-				Review: ReviewApproved,
-				Forge:  ForgeMerged,
+				Kind:           KindChild,
+				Name:           "reviewer",
+				Repo:           RepoGone,
+				PersonComments: &Comments{Open: 1},
+				Forge:          ForgeMerged,
 			},
 			blank: true,
 		},
 		{
 			name: "a workflow header stands for none of them",
 			row: Row{
-				Kind:   KindWorkflow,
-				Name:   "komrad",
-				Repo:   RepoGone,
-				Review: ReviewApproved,
-				Forge:  ForgeMerged,
+				Kind:           KindWorkflow,
+				Name:           "komrad",
+				Repo:           RepoGone,
+				PersonComments: &Comments{Open: 1},
+				Forge:          ForgeMerged,
 			},
 			blank: true,
 		},
@@ -232,7 +232,7 @@ func TestPrepareColumnsFollowTheRowKind(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			line := prepareOne(t, tt.row)
 
-			require.Len(t, line.Columns, 3)
+			require.Len(t, line.Columns, 4)
 			for _, cell := range line.Columns {
 				assert.Equal(t, tt.blank, cell.IsBlank())
 			}
@@ -294,64 +294,83 @@ func TestPrepareRepoColumn(t *testing.T) {
 	}
 }
 
-// TestPrepareReviewColumn pins where the tree on disk stands with the local review of an
-// agent's work: yellow waits on a person, grey on nobody or on the agent, green on nobody.
-func TestPrepareReviewColumn(t *testing.T) {
+// TestPrepareCommentColumns pins the two count pairs, reviewer agents then the person, and that the
+// gutter makes room for them only while some row has any.
+func TestPrepareCommentColumns(t *testing.T) {
+	muted := func(text string) Cell {
+		return Cell{Text: text, Tone: paint.ToneMuted}
+	}
+	blankDot := Cell{Text: " "}
+	unreadDot := Cell{Text: "·", Tone: paint.ToneWarning}
+
 	tests := []struct {
-		name   string
-		review Review
-		want   Cell
+		name         string
+		row          Row
+		wantColumns  Columns
+		wantReviewer Cell
+		wantPerson   Cell
 	}{
 		{
-			name:   "never reviewed draws nothing",
-			review: ReviewNone,
-			want:   Cell{},
+			name:        "a row with no comments leaves the counts out of the gutter",
+			row:         Row{Kind: KindAgent},
+			wantColumns: WorkColumns(),
 		},
 		{
-			name:   "approved on this tree gets the check in success",
-			review: ReviewApproved,
-			want:   Cell{Glyph: GlyphApproved, Tone: paint.ToneSuccess},
+			name: "a child row draws no counts",
+			row: Row{
+				Kind:           KindChild,
+				PersonComments: &Comments{Open: 1},
+			},
+			wantColumns: CommentedWorkColumns(0, 0),
 		},
 		{
-			name:   "approved on a tree since moved gets the checkbox in warning, since a pass is owed",
-			review: ReviewApprovedMoved,
-			want:   Cell{Glyph: GlyphCheckbox, Tone: paint.ToneWarning},
+			name: "a side with nothing to show is a dash beside one that has",
+			row: Row{
+				Kind:             KindAgent,
+				ReviewerComments: &Comments{Resolved: 2},
+			},
+			wantColumns:  CommentedWorkColumns(0, 0),
+			wantReviewer: Cell{Parts: []Cell{muted("0"), muted("|2")}},
+			wantPerson:   Cell{Parts: []Cell{muted("–"), blankDot}},
 		},
 		{
-			name:   "changes still owed gets the hourglass greyed, since the agent is the one waited on",
-			review: ReviewChangesRequested,
-			want:   Cell{Glyph: GlyphHourglass, Tone: paint.ToneMuted},
-		},
-		{
-			name:   "changes pushed gets the bell in warning, since the reviewer is the one waited on",
-			review: ReviewChangesPushed,
-			want:   Cell{Glyph: GlyphBell, Tone: paint.ToneWarning},
-		},
-		{
-			name:   "approved and landed gets the check in success, since nothing is owed",
-			review: ReviewApprovedLanded,
-			want:   Cell{Glyph: GlyphApproved, Tone: paint.ToneSuccess},
-		},
-		{
-			name:   "approved and landed with new work since is the unverified mark greyed",
-			review: ReviewApprovedLandedMoved,
-			want:   Cell{Glyph: GlyphUnverified, Tone: paint.ToneMuted},
-		},
-		{
-			name:   "changes requested on a tree that landed as it was is the unverified mark greyed",
-			review: ReviewChangesLanded,
-			want:   Cell{Glyph: GlyphUnverified, Tone: paint.ToneMuted},
-		},
-		{
-			name:   "changes requested on a landed tree with new work since is the unverified mark greyed",
-			review: ReviewChangesLandedMoved,
-			want:   Cell{Glyph: GlyphUnverified, Tone: paint.ToneMuted},
+			name: "the person's open count stands out and an unread one earns the dot",
+			row: Row{
+				Kind: KindAgent,
+				ReviewerComments: &Comments{
+					Open:     3,
+					Resolved: 1,
+				},
+				PersonComments: &Comments{
+					Open:     2,
+					Resolved: 4,
+					Unread:   true,
+				},
+			},
+			wantColumns:  CommentedWorkColumns(0, 0),
+			wantReviewer: Cell{Parts: []Cell{muted("3"), muted("|1")}},
+			wantPerson: Cell{Parts: []Cell{
+				{
+					Text: "2",
+					Tone: paint.ToneWarning,
+				},
+				muted("|4"),
+				unreadDot,
+			}},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, prepareOne(t, Row{Review: tt.review}).Columns[1])
+			list := Prepare(Snapshot{Rows: []Row{tt.row}})
+			require.Len(t, list.Lines, 1)
+			require.Equal(t, tt.wantColumns, list.Columns)
+			if len(tt.wantColumns) == len(WorkColumns()) {
+				return
+			}
+
+			assert.Equal(t, tt.wantReviewer, list.Lines[0].Columns[1])
+			assert.Equal(t, tt.wantPerson, list.Lines[0].Columns[2])
 		})
 	}
 }
@@ -423,7 +442,7 @@ func TestPrepareForgeColumn(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, prepareOne(t, Row{Forge: tt.forge}).Columns[2])
+			assert.Equal(t, tt.want, prepareOne(t, Row{Forge: tt.forge}).Columns[1])
 		})
 	}
 
@@ -532,14 +551,17 @@ func TestPrepareEmphasis(t *testing.T) {
 }
 
 // TestPrepareDimRowKeepsEveryCell pins greying reaching the name and nothing else, so a dormant
-// agent still says in colour where its review and its pull request stand.
+// agent still says in colour where its comments and its pull request stand.
 func TestPrepareDimRowKeepsEveryCell(t *testing.T) {
 	row := Row{
-		Key:        "gone",
-		Status:     StatusBroken,
-		Repo:       RepoGone,
-		Review:     ReviewApproved,
-		Forge:      ForgeMerged,
+		Key:    "gone",
+		Status: StatusBroken,
+		Repo:   RepoGone,
+		Forge:  ForgeMerged,
+		PersonComments: &Comments{
+			Open:   1,
+			Unread: true,
+		},
 		Held:       true,
 		Hidden:     true,
 		UnreadMail: true,
@@ -704,13 +726,13 @@ func TestPrepareClipsName(t *testing.T) {
 		{
 			name:  "a name past the column ends in an ellipsis",
 			given: "eng-6994-unable-to-create",
-			pane:  29,
+			pane:  27,
 			want:  "eng-6994-unabl…",
 		},
 		{
 			name:  "a name inside the column is left alone",
 			given: "iss-582",
-			pane:  29,
+			pane:  27,
 			want:  "iss-582",
 		},
 		{
@@ -836,19 +858,19 @@ func TestPrepareClipsMatchesWithTheName(t *testing.T) {
 		{
 			name:    "a match wholly past the cut is dropped",
 			matches: []Span{{Start: 10, End: 14}},
-			pane:    21,
+			pane:    19,
 			want:    nil,
 		},
 		{
 			name:    "a match the cut runs through is shortened to what is left",
 			matches: []Span{{Start: 3, End: 14}},
-			pane:    21,
+			pane:    19,
 			want:    []Span{{Start: 3, End: 6}},
 		},
 		{
 			name:    "a match before the cut is left alone",
 			matches: []Span{{Start: 0, End: 4}},
-			pane:    21,
+			pane:    19,
 			want:    []Span{{Start: 0, End: 4}},
 		},
 		{
@@ -920,13 +942,13 @@ func TestPrepareGivesTheTallyUpBeforeTheMarks(t *testing.T) {
 	}{
 		{
 			name:      "a pane with nothing left for a name gives the tally up and spends what it frees",
-			pane:      17,
+			pane:      15,
 			wantName:  "an…",
 			wantTally: 0,
 		},
 		{
 			name:      "the default sidebar has room for both",
-			pane:      30,
+			pane:      28,
 			wantName:  "an agent wi…",
 			wantTally: 12,
 		},
@@ -972,32 +994,32 @@ func TestPrepareShedsMarksOnlyWhereTheMarksAloneWillNotFit(t *testing.T) {
 	}{
 		{
 			name: "a pane with room for one mark keeps the failed run alone",
-			pane: 17,
+			pane: 15,
 			want: []Glyph{GlyphAlert},
 		},
 		{
 			name: "a pane two wider keeps the mail as well",
-			pane: 19,
+			pane: 17,
 			want: []Glyph{GlyphMail, GlyphAlert},
 		},
 		{
 			name: "a pane one wider keeps the pause too",
-			pane: 20,
+			pane: 18,
 			want: []Glyph{GlyphPaused, GlyphMail, GlyphAlert},
 		},
 		{
 			name: "the next keeps the hiding, which goes before the pause",
-			pane: 22,
+			pane: 20,
 			want: []Glyph{GlyphPaused, GlyphHidden, GlyphMail, GlyphAlert},
 		},
 		{
 			name: "the next keeps the documents, which go before the hiding",
-			pane: 24,
+			pane: 22,
 			want: []Glyph{GlyphPaused, GlyphHidden, GlyphDocument, GlyphMail, GlyphAlert},
 		},
 		{
 			name: "wider still keeps every mark, the schedule last",
-			pane: 26,
+			pane: 24,
 			want: []Glyph{GlyphPaused, GlyphHidden, GlyphDocument, GlyphMail, GlyphAlert, GlyphSchedule},
 		},
 	}
@@ -1028,10 +1050,9 @@ func TestPrepareDrawsTheColumnsAScreenDeclares(t *testing.T) {
 		want    Columns
 	}{
 		{
-			name: "a screen naming nothing draws the agents list's three",
+			name: "a screen naming nothing draws the agents list's two",
 			want: Columns{
 				{Kind: ColumnRepo, Width: 1},
-				{Kind: ColumnReview, Width: 1},
 				{Kind: ColumnForge, Width: 1},
 			},
 		},
@@ -1130,8 +1151,8 @@ func TestUndeclaredColumnsBuyTheNameTheirRoom(t *testing.T) {
 		Columns: NoColumns(),
 	})
 
-	assert.Equal(t, 6, NameColumns(pane, none.Columns)-NameColumns(pane, every.Columns),
-		"each of the three costs an Octicon and the space after it")
+	assert.Equal(t, 4, NameColumns(pane, none.Columns)-NameColumns(pane, every.Columns),
+		"each of the two costs an Octicon and the space after it")
 }
 
 // drawnResultNameColumn is the column a result list opens its name at, counted off the drawing

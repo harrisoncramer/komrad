@@ -70,6 +70,30 @@ func TestIntegrationTakingTheSameTreeTwiceIsTheSameRound(t *testing.T) {
 	assert.NotEqual(t, first.SHA, moved.SHA, "and a worktree that moved is a new one")
 }
 
+// TestIntegrationASnapshotIsRefusedPartWayThroughAMerge pins that a half-applied tree is never
+// frozen as a round.
+func TestIntegrationASnapshotIsRefusedPartWayThroughAMerge(t *testing.T) {
+	root := repo(t)
+	run(t, root, "checkout", "-b", "topic")
+	write(t, root, "clash.go", "package topic\n")
+	run(t, root, "add", "-A")
+	run(t, root, "commit", "-m", "topic")
+	run(t, root, "checkout", "main")
+	write(t, root, "clash.go", "package main\n")
+	run(t, root, "add", "-A")
+	run(t, root, "commit", "-m", "main")
+	run(t, root, "checkout", "topic")
+	require.Error(t, exec.Command("git", "-C", root, "merge", "main").Run())
+
+	_, err := client.TakeSnapshot(t.Context(), TakeSnapshotParams{Dir: root, Base: "main"})
+	require.ErrorIs(t, err, ErrSequenceInProgress)
+
+	run(t, root, "merge", "--abort")
+
+	_, err = client.TakeSnapshot(t.Context(), TakeSnapshotParams{Dir: root, Base: "main"})
+	require.NoError(t, err)
+}
+
 // TestIntegrationReleaseDropsTheRef covers letting a round go, which leaves its commit to be collected.
 func TestIntegrationReleaseDropsTheRef(t *testing.T) {
 	root := repo(t)
@@ -296,203 +320,6 @@ func TestIntegrationASnapshotSurvivesAnUnreadableIndex(t *testing.T) {
 	assert.Equal(t, []string{"package main"}, lines)
 }
 
-// TestIntegrationTheTreeStandsUntilTheWorktreeMoves is the comparison the review column rests on: the
-// worktree a round was taken of hashes to that round until a file in it changes.
-func TestIntegrationTheTreeStandsUntilTheWorktreeMoves(t *testing.T) {
-	root := repo(t)
-	write(t, root, "loose.go", "package main\n")
-
-	snapshot, err := client.TakeSnapshot(t.Context(), TakeSnapshotParams{Dir: root, Base: "main"})
-	require.NoError(t, err)
-
-	assert.Equal(t, StandingSame, standing(t, root, snapshot.SHA), "nothing has been written since the round was taken")
-
-	write(t, root, "loose.go", "package main\n\nfunc Later() {}\n")
-
-	assert.Equal(t, StandingMoved, standing(t, root, snapshot.SHA), "an edit to a file the round holds is a move")
-
-	write(t, root, "loose.go", "package main\n")
-
-	assert.Equal(t, StandingSame, standing(t, root, snapshot.SHA), "a worktree edited back to the round is not a move")
-}
-
-// TestIntegrationARebaseMovesTheTree pins that a rebase bringing in a commit of the base's is a move until
-// the base has taken the round, and that the agent's own commit riding on top is not new work.
-func TestIntegrationARebaseMovesTheTree(t *testing.T) {
-	root := repo(t)
-	snapshot := topicRound(t, root)
-
-	run(t, root, "checkout", "main")
-	write(t, root, "landed.go", "package main\n")
-	run(t, root, "add", "-A")
-	run(t, root, "commit", "-m", "landed")
-	run(t, root, "checkout", "topic")
-
-	assert.Equal(t, StandingSame, standing(t, root, snapshot.SHA), "the base moving on its own changes nothing in the agent's checkout")
-
-	run(t, root, "rebase", "main")
-
-	assert.Equal(t, StandingMoved, standing(t, root, snapshot.SHA), "the base does not hold the round, so the rebase is a move and nothing more")
-
-	landOn(t, root, snapshot.SHA)
-
-	assert.Equal(t, StandingLanded, standing(t, root, snapshot.SHA), "the commit on top is the one the base took, so nothing on disk is unread")
-
-	write(t, root, "later.go", "package main\n")
-
-	assert.Equal(t, StandingLandedMoved, standing(t, root, snapshot.SHA))
-}
-
-// TestIntegrationAStandingReadsAProbeItIsGiven pins that a probe already taken is measured rather
-// than the worktree hashed again.
-func TestIntegrationAStandingReadsAProbeItIsGiven(t *testing.T) {
-	root := repo(t)
-	snapshot := topicRound(t, root)
-	held, err := client.GetTree(t.Context(), root, snapshot.SHA)
-	require.NoError(t, err)
-
-	write(t, root, "later.go", "package main\n")
-
-	standing, err := client.ReadStanding(t.Context(), ReadStandingParams{
-		Dir:         root,
-		Base:        "main",
-		SnapshotSHA: snapshot.SHA,
-		Probe:       held,
-	})
-	require.NoError(t, err)
-	assert.Equal(t, StandingSame, standing)
-}
-
-// TestIntegrationAnUnreadableBaseIsRefused pins that a base git cannot find is reported rather than read
-// as a standing against something else.
-func TestIntegrationAnUnreadableBaseIsRefused(t *testing.T) {
-	root := repo(t)
-	snapshot := topicRound(t, root)
-	write(t, root, "later.go", "package main\n")
-
-	_, err := client.ReadStanding(t.Context(), ReadStandingParams{
-		Dir:         root,
-		Base:        "develop",
-		SnapshotSHA: snapshot.SHA,
-	})
-	require.ErrorIs(t, err, ErrBaseMissing)
-
-	for _, base := range []string{"", "HEAD"} {
-		_, err := client.ReadStanding(t.Context(), ReadStandingParams{
-			Dir:         root,
-			Base:        base,
-			SnapshotSHA: snapshot.SHA,
-		})
-		require.ErrorIs(t, err, ErrBaseMissing, "base %q", base)
-	}
-}
-
-// TestIntegrationABaseThatIsTheHeadCannotHoldTheRound pins that a base naming the branch the agent is on
-// never reads as having taken the round.
-func TestIntegrationABaseThatIsTheHeadCannotHoldTheRound(t *testing.T) {
-	root := repo(t)
-	snapshot := topicRound(t, root)
-	write(t, root, "later.go", "package main\n")
-	run(t, root, "add", "-A")
-	run(t, root, "commit", "-m", "later")
-
-	standing, err := client.ReadStanding(t.Context(), ReadStandingParams{
-		Dir:         root,
-		Base:        "topic",
-		SnapshotSHA: snapshot.SHA,
-	})
-	require.NoError(t, err)
-	assert.Equal(t, StandingMoved, standing)
-}
-
-// TestIntegrationALandedRoundWithNothingOnTopIsLanded is the round shipped and the branch reset onto the
-// base that took it.
-func TestIntegrationALandedRoundWithNothingOnTopIsLanded(t *testing.T) {
-	root := repo(t)
-	snapshot := topicRound(t, root)
-	moveOn(t, root)
-	landOn(t, root, snapshot.SHA)
-
-	run(t, root, "reset", "--hard", "main")
-
-	assert.Equal(t, StandingLanded, standing(t, root, snapshot.SHA))
-}
-
-// TestIntegrationALandedRoundWithNewWorkOnTopIsLandedAndMoved is the round shipped and the agent writing
-// more since.
-func TestIntegrationALandedRoundWithNewWorkOnTopIsLandedAndMoved(t *testing.T) {
-	root := repo(t)
-	snapshot := topicRound(t, root)
-	moveOn(t, root)
-	landOn(t, root, snapshot.SHA)
-
-	run(t, root, "reset", "--hard", "main")
-	write(t, root, "later.go", "package main\n")
-
-	assert.Equal(t, StandingLandedMoved, standing(t, root, snapshot.SHA), "an uncommitted file is new work as much as a commit is")
-
-	run(t, root, "add", "-A")
-	run(t, root, "commit", "-m", "later")
-
-	assert.Equal(t, StandingLandedMoved, standing(t, root, snapshot.SHA))
-}
-
-// TestIntegrationABranchBehindTheBaseTipIsStillClean pins that an agent sitting on an older base with
-// nothing of its own is clean however far the base has moved on.
-func TestIntegrationABranchBehindTheBaseTipIsStillClean(t *testing.T) {
-	root := repo(t)
-	snapshot := topicRound(t, root)
-	moveOn(t, root)
-	landOn(t, root, snapshot.SHA)
-	run(t, root, "reset", "--hard", "main")
-	moveOn(t, root)
-
-	assert.Equal(t, StandingLanded, standing(t, root, snapshot.SHA))
-}
-
-// TestIntegrationAStaleBaseReadsAsMovedNeverAsLanded pins that a base nobody has fetched errs toward a
-// pass owed and never toward green.
-func TestIntegrationAStaleBaseReadsAsMovedNeverAsLanded(t *testing.T) {
-	root := repo(t)
-	snapshot := topicRound(t, root)
-	moveOn(t, root)
-	landOn(t, root, snapshot.SHA)
-	run(t, root, "reset", "--hard", "main")
-
-	run(t, root, "branch", "-f", "main", "main~1")
-
-	assert.Equal(t, StandingMoved, standing(t, root, snapshot.SHA))
-}
-
-// TestIntegrationAnEditedRoundThatLandedIsNotLanded pins that landed means the base took the round itself
-// rather than a later state of the same branch.
-func TestIntegrationAnEditedRoundThatLandedIsNotLanded(t *testing.T) {
-	root := repo(t)
-	snapshot := topicRound(t, root)
-
-	write(t, root, "topic.go", "package main\n\nfunc Changed() {}\n")
-	run(t, root, "add", "-A")
-	run(t, root, "commit", "-m", "changed after the round")
-	run(t, root, "checkout", "main")
-	run(t, root, "merge", "--ff-only", "topic")
-	run(t, root, "checkout", "topic")
-
-	assert.Equal(t, StandingMoved, standing(t, root, snapshot.SHA), "the base holds something other than the round that was approved")
-}
-
-func standing(t *testing.T, root, sha string) Standing {
-	t.Helper()
-
-	standing, err := client.ReadStanding(t.Context(), ReadStandingParams{
-		Dir:         root,
-		Base:        "main",
-		SnapshotSHA: sha,
-	})
-	require.NoError(t, err)
-
-	return standing
-}
-
 // topicRound commits one change on a topic branch and takes a round of it.
 func topicRound(t *testing.T, root string) *Snapshot {
 	t.Helper()
@@ -530,4 +357,106 @@ func landOn(t *testing.T, root, sha string) {
 	run(t, root, "merge", "--squash", sha)
 	run(t, root, "commit", "-m", "landed the round")
 	run(t, root, "checkout", was)
+}
+
+// TestIntegrationHasLanded pins when the base branch counts as holding a round whole.
+func TestIntegrationHasLanded(t *testing.T) {
+	tests := []struct {
+		name    string
+		base    string
+		arrange func(t *testing.T, root string) *Snapshot
+		want    bool
+	}{
+		{
+			name: "a round that changed nothing never lands",
+			base: "main",
+			arrange: func(t *testing.T, root string) *Snapshot {
+				run(t, root, "checkout", "-b", "topic")
+				snapshot, err := client.TakeSnapshot(t.Context(), TakeSnapshotParams{Dir: root, Base: "main"})
+				require.NoError(t, err)
+
+				return snapshot
+			},
+			want: false,
+		},
+		{
+			name:    "a base the clone does not have is not landed",
+			base:    "nowhere",
+			arrange: topicRound,
+			want:    false,
+		},
+		{
+			name:    "the worktree's own branch cannot hold the round",
+			base:    "topic",
+			arrange: topicRound,
+			want:    false,
+		},
+		{
+			name: "a base that has not taken the round",
+			base: "main",
+			arrange: func(t *testing.T, root string) *Snapshot {
+				snapshot := topicRound(t, root)
+				moveOn(t, root)
+
+				return snapshot
+			},
+			want: false,
+		},
+		{
+			name: "a base holding a later edit of the round",
+			base: "main",
+			arrange: func(t *testing.T, root string) *Snapshot {
+				snapshot := topicRound(t, root)
+				write(t, root, "topic.go", "package main\n\nfunc Changed() {}\n")
+				run(t, root, "add", "-A")
+				run(t, root, "commit", "-m", "changed after the round")
+				landOn(t, root, capture(t, root, "rev-parse", "HEAD"))
+
+				return snapshot
+			},
+			want: false,
+		},
+		{
+			name: "a round squashed onto the base",
+			base: "main",
+			arrange: func(t *testing.T, root string) *Snapshot {
+				snapshot := topicRound(t, root)
+				moveOn(t, root)
+				landOn(t, root, snapshot.SHA)
+
+				return snapshot
+			},
+			want: true,
+		},
+		{
+			name: "an earlier round of work that later landed whole",
+			base: "main",
+			arrange: func(t *testing.T, root string) *Snapshot {
+				snapshot := topicRound(t, root)
+				write(t, root, "more.go", "package main\n")
+				run(t, root, "add", "-A")
+				run(t, root, "commit", "-m", "more")
+				landOn(t, root, capture(t, root, "rev-parse", "HEAD"))
+
+				return snapshot
+			},
+			want: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			root := repo(t)
+			snapshot := tt.arrange(t, root)
+
+			landed, err := client.HasLanded(t.Context(), HasLandedParams{
+				Dir:         root,
+				Base:        tt.base,
+				BaseSHA:     snapshot.BaseSHA,
+				SnapshotSHA: snapshot.SHA,
+			})
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, landed)
+		})
+	}
 }

@@ -37,6 +37,9 @@ type Round struct {
 	BaseSHA     string
 	SnapshotSHA string
 	CreatedAt   time.Time
+	// LandedAt is when the base branch was first seen holding this round or a later one whole,
+	// nil until then.
+	LandedAt *time.Time
 }
 
 // Review is one reviewer's batch of comments on one round, released all at once.
@@ -50,6 +53,8 @@ type Review struct {
 
 	// RoundSnapshotSHA is the commit the round froze the checkout as, empty when it was not read.
 	RoundSnapshotSHA string
+	// RoundLandedAt is when the base branch was first seen holding the round whole, nil until then.
+	RoundLandedAt *time.Time
 	// Verdict is what the reviewer concluded, nil while the review is still open.
 	Verdict *Verdict
 	// ReleasedAt is when the review was released, nil while nothing in it has reached the agent.
@@ -224,7 +229,7 @@ func (s *ReviewStore) GetReview(ctx context.Context, id string) (*Review, error)
 	return &review, nil
 }
 
-type AuthorParams struct {
+type OpenReviewOfParams struct {
 	AgentID       string
 	AuthorKind    AuthorKind
 	AuthorAgentID *string
@@ -232,7 +237,7 @@ type AuthorParams struct {
 
 // OpenReviewOf is the review a reviewer is still writing against an agent, ErrNotFound when
 // they have none open.
-func (s *ReviewStore) OpenReviewOf(ctx context.Context, params AuthorParams) (*Review, error) {
+func (s *ReviewStore) OpenReviewOf(ctx context.Context, params OpenReviewOfParams) (*Review, error) {
 	if !store.IsID(params.AgentID) {
 		return nil, reviewNotFound(params.AgentID)
 	}
@@ -250,31 +255,6 @@ func (s *ReviewStore) OpenReviewOf(ctx context.Context, params AuthorParams) (*R
 	}
 
 	review := reviewFromRow(*row)
-
-	return &review, nil
-}
-
-// GetLastReleasedReview is the newest review a reviewer has released against an agent,
-// ErrNotFound when they have released none.
-func (s *ReviewStore) GetLastReleasedReview(ctx context.Context, params AuthorParams) (*Review, error) {
-	if !store.IsID(params.AgentID) {
-		return nil, reviewNotFound(params.AgentID)
-	}
-
-	row, err := s.queries.GetLastReleasedReview(ctx, models.GetLastReleasedReviewParams{
-		AgentID:       params.AgentID,
-		AuthorKind:    models.ReviewAuthorKind(params.AuthorKind),
-		AuthorAgentID: params.AuthorAgentID,
-	})
-	if db.IsNoRows(err) {
-		return nil, reviewNotFound(params.AgentID)
-	}
-	if err != nil {
-		return nil, fmt.Errorf("failed to read the last released review on agent %q: %w", params.AgentID, err)
-	}
-
-	review := reviewFromRow(row.Review)
-	review.OpenThreads = row.OpenThreads
 
 	return &review, nil
 }
@@ -347,7 +327,7 @@ func (s *ReviewStore) ReleaseReview(ctx context.Context, params ReleaseReviewPar
 		return nil, fmt.Errorf("failed to release the review %q: %w", params.ID, err)
 	}
 
-	review := reviewFromRow(*row)
+	review := reviewFromRow(models.Review(*row))
 
 	return &review, nil
 }
@@ -387,6 +367,7 @@ func roundFromRow(row models.ReviewRound) Round {
 		BaseSHA:     row.BaseSha,
 		SnapshotSHA: row.SnapshotSha,
 		CreatedAt:   row.CreatedAt,
+		LandedAt:    row.LandedAt,
 	}
 }
 
@@ -471,6 +452,51 @@ func (s *ReviewStore) ListNewestRounds(ctx context.Context) ([]NewestRound, erro
 	return xslice.Map(rows, func(row *models.ListNewestReviewRoundsRow) NewestRound {
 		return NewestRound{AgentID: row.AgentID, SnapshotSHA: row.SnapshotSha}
 	}), nil
+}
+
+// UnlandedRound is a round with a released review that the base branch has not yet been seen
+// holding whole.
+type UnlandedRound struct {
+	Ordinal     int32
+	BaseSHA     string
+	SnapshotSHA string
+	// MergedAt is when the agent's newest merged pull request merged, nil while none has.
+	MergedAt *time.Time
+}
+
+// ListUnlandedRounds is every live agent's unlanded rounds with a released review, newest first,
+// keyed by agent.
+func (s *ReviewStore) ListUnlandedRounds(ctx context.Context) (map[string][]UnlandedRound, error) {
+	rows, err := s.queries.ListUnlandedReviewRounds(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list the unlanded review rounds: %w", err)
+	}
+
+	byAgent := map[string][]UnlandedRound{}
+	for _, row := range rows {
+		byAgent[row.AgentID] = append(byAgent[row.AgentID], UnlandedRound{
+			Ordinal:     row.Ordinal,
+			BaseSHA:     row.BaseSha,
+			SnapshotSHA: row.SnapshotSha,
+			MergedAt:    row.MergedAt,
+		})
+	}
+
+	return byAgent, nil
+}
+
+// MarkRoundsLanded marks an agent's round and every earlier one as landed, leaving rounds that already
+// landed alone, and returns how many it marked.
+func (s *ReviewStore) MarkRoundsLanded(ctx context.Context, agentID string, ordinal int32) (int64, error) {
+	landed, err := s.queries.LandReviewRounds(ctx, models.LandReviewRoundsParams{
+		AgentID: agentID,
+		Ordinal: ordinal,
+	})
+	if err != nil {
+		return 0, fmt.Errorf("failed to land round %d of agent %q: %w", ordinal, agentID, err)
+	}
+
+	return landed, nil
 }
 
 // LiveReviewer is a reviewer still owed an answer about the work of the agent it is attached to.

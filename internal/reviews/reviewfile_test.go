@@ -18,6 +18,11 @@ func TestRenderReviewHeadsEachThread(t *testing.T) {
 		wantPair    string
 	}{
 		{
+			name:        "a comment on no file is headed as the change as a whole",
+			thread:      reviewstore.Thread{},
+			wantHeading: "## The change as a whole",
+		},
+		{
 			name: "a line removed since an earlier round is counted in that round's snapshot",
 			thread: reviewstore.Thread{
 				BaseSHA:  "earlier-snapshot-sha",

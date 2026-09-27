@@ -109,8 +109,9 @@ func groupBySnapshot(params traceThreadsParams) map[string][]*agentv1.ReviewThre
 		from := snapshots[thread.GetRoundId()]
 
 		// A thread written against the snapshot on screen already answers to its own coordinates,
-		// and one whose round nobody can name has nothing to be traced from.
-		if from == "" || from == params.ToSHA {
+		// and one whose round nobody can name, or that is about the change as a whole, has nothing to
+		// be traced from.
+		if from == "" || from == params.ToSHA || thread.GetFilePath() == "" {
 			continue
 		}
 

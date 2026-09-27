@@ -59,6 +59,7 @@ type reviewServer struct {
 	reviews    []*agentv1.Review
 	reviewsErr error
 	roundsErr  error
+	openErr    error
 	holdErr    error
 }
 
@@ -84,6 +85,18 @@ func TestReviewOpen(t *testing.T) {
 
 		assert.False(t, harness.panel.IsZoomed())
 		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceOpenReviewRoundProcedure))
+	})
+
+	t.Run("an agent part way through a rebase opens on its newest round", func(t *testing.T) {
+		server := newEarlierReviewServer(t)
+		server.openErr = connect.NewError(connect.CodeFailedPrecondition, errors.New("a rebase is part way through"))
+
+		harness := openReview(t, server)
+
+		frame := harness.readFrame()
+		assert.True(t, harness.panel.IsZoomed())
+		assert.Contains(t, readSidebarProse(frame), "a rebase or merge is part way through, so this is round 1")
+		assert.Contains(t, readStageText(frame), "1 file")
 	})
 
 	t.Run("a diff git cannot read is refused with the reason", func(t *testing.T) {
@@ -124,7 +137,7 @@ func TestReviewOpen(t *testing.T) {
 
 		frame := harness.readFrame()
 		assert.Contains(t, readStageText(frame), "loading the diff")
-		assert.Contains(t, frame, "start a review here")
+		assert.Contains(t, frame, "comment on this line")
 	})
 
 	t.Run("a worktree holding only an untracked file opens", func(t *testing.T) {
@@ -214,14 +227,14 @@ func TestReviewCursor(t *testing.T) {
 		})
 	})
 
-	t.Run("the page keys settle on a line and come back", func(t *testing.T) {
+	t.Run("the page keys settle on a line and come back to the top", func(t *testing.T) {
 		harness := openReview(t, newReviewServer(t))
 
 		harness.press("ctrl+d")
 		assert.Equal(t, "greet.go:5", readReviewCursor(harness.readFrame()))
 
 		harness.press("ctrl+u")
-		assert.Equal(t, "greet.go:1", readReviewCursor(harness.readFrame()))
+		assert.Contains(t, readSidebar(harness.readFrame()), "the change as a whole")
 	})
 
 	t.Run("panning moves the text a third of the diff's width", func(t *testing.T) {
@@ -271,7 +284,7 @@ func TestReviewCursor(t *testing.T) {
 		harness := openReviewAt(t, newReviewServer(t), panelHarnessParams{height: 40, keys: &keys})
 
 		harness.press("?")
-		assert.Contains(t, readLegend(harness.readFrame()), "i       start a review here")
+		assert.Contains(t, readLegend(harness.readFrame()), "i       comment on this line")
 
 		harness.press("c")
 		assert.NotContains(t, harness.readFrame(), "┃ Comment")
@@ -424,7 +437,7 @@ func TestReviewThreads(t *testing.T) {
 		harness.press("c", "?", "l", "n")
 		frame := harness.readFrame()
 		assert.Contains(t, readSidebar(frame), "┃ ?ln")
-		assert.Contains(t, frame, "k/j move …")
+		assert.Contains(t, frame, "c comment on this line …")
 
 		harness.press("esc")
 		assert.NotContains(t, harness.readFrame(), "┃ Comment")
@@ -598,7 +611,7 @@ func TestReviewSearch(t *testing.T) {
 
 		frame := harness.readFrame()
 		assert.Contains(t, readStage(frame), "/ go?▏")
-		assert.Contains(t, frame, "k/j move …")
+		assert.Contains(t, frame, "c comment on this line …")
 	})
 
 	t.Run("the search is the review's and leaves the agents list alone", func(t *testing.T) {
@@ -838,55 +851,18 @@ func TestReviewGutter(t *testing.T) {
 
 // TestReviewRelease covers sending the review to the agent.
 func TestReviewRelease(t *testing.T) {
-	tests := []struct {
-		name string
-		tabs int
-		want agentv1.ReviewVerdict
-		says string
-	}{
-		{
-			name: "the panel opens on asking for changes",
-			want: agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED,
-			says: "changes requested",
-		},
-		{
-			name: "one tab approves",
-			tabs: 1,
-			want: agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED,
-			says: "approved",
-		},
-		{
-			name: "two tabs comment without asking for anything",
-			tabs: 2,
-			want: agentv1.ReviewVerdict_REVIEW_VERDICT_COMMENTED,
-			says: "comments only",
-		},
-		{
-			name: "three tabs wrap back around",
-			tabs: 3,
-			want: agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED,
-			says: "changes requested",
-		},
-	}
+	t.Run("the panel sends with no verdict and says how many comments went", func(t *testing.T) {
+		harness := openReview(t, newReviewServer(t))
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			harness := openReview(t, newReviewServer(t))
+		harness.press("ctrl+s")
+		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceReleaseReviewProcedure))
+		harness.press("ctrl+s")
 
-			harness.press("ctrl+s")
-			assert.Empty(t, harness.readSent(agentv1connect.AgentServiceReleaseReviewProcedure))
-			for range tt.tabs {
-				harness.press("tab")
-			}
-			harness.press("ctrl+s")
-
-			harness.assertSentTo(agentv1connect.AgentServiceReleaseReviewProcedure, &agentv1.ReleaseReviewRequest{
-				AgentId: "a1",
-				Verdict: tt.want,
-			})
-			assert.Contains(t, readSidebarProse(harness.readFrame()), tt.says)
+		harness.assertSentTo(agentv1connect.AgentServiceReleaseReviewProcedure, &agentv1.ReleaseReviewRequest{
+			AgentId: "a1",
 		})
-	}
+		assert.Contains(t, readSidebarProse(harness.readFrame()), "0 comments sent")
+	})
 
 	t.Run("the panel carries a word about the whole change", func(t *testing.T) {
 		harness := openReview(t, newReviewServer(t))
@@ -897,7 +873,6 @@ func TestReviewRelease(t *testing.T) {
 
 		harness.assertSentTo(agentv1connect.AgentServiceReleaseReviewProcedure, &agentv1.ReleaseReviewRequest{
 			AgentId: "a1",
-			Verdict: agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED,
 			Body:    "the shape is right",
 		})
 	})
@@ -1172,93 +1147,110 @@ func TestReviewReload(t *testing.T) {
 		assert.Contains(t, harness.readFrame(), "written by the agent")
 	})
 
-	t.Run("a move while the reader writes is offered rather than read", func(t *testing.T) {
+	t.Run("a move under an unsent comment is offered rather than read", func(t *testing.T) {
 		server := newReviewServer(t)
+		server.threads = []*agentv1.ReviewThread{newThreadOnFirstLine(newUnsentComment())}
 		harness := openReview(t, server)
-		harness.press("c", "a")
 
 		server.repo.Wrote(newRoundWrittenOver())
 		server.agent.MovedSinceRound = gittest.SnapshotSHA
 		harness.watch(server.buildSnapshot())
-		harness.press("esc")
-		harness.watch(server.buildSnapshot())
 
 		frame := harness.readFrame()
 		assert.NotContains(t, frame, "written by the agent")
-		assert.Contains(t, readStageText(frame), "the worktree has moved · R to catch up")
+		assert.Contains(t, readStageText(frame), "the worktree has moved · your comments are pinned to this round · R to catch up")
 	})
 }
 
-// TestReviewOwed covers the reader's released review holding comments nobody has settled.
-func TestReviewOwed(t *testing.T) {
-	t.Run("the list names each open comment and whether it was answered", func(t *testing.T) {
-		answered := newOwedThread("b.txt", 5)
+// TestReviewYours covers the list of comments the reader started, open and resolved.
+func TestReviewYours(t *testing.T) {
+	t.Run("the list names each comment and what it is waiting for", func(t *testing.T) {
+		answered := newYourThread("b.txt", 5)
 		answered.Messages = append(answered.Messages, newAgentMessage("m9", "rewrote the header"))
-		harness := openReview(t, newOwedServer(t, newOwedThread("a.txt", 2), answered))
+		reopened := newYourThread("c.txt", 3)
+		reopened.Messages = append(reopened.Messages,
+			newAgentMessage("m10", "renamed it"),
+			newHumanMessage("m11", "the caller still uses the old name"),
+		)
+		harness := openReview(t, newYoursServer(t, newYourThread("a.txt", 2), answered, reopened))
 
 		sidebar := readSidebarProse(harness.readFrame())
-		assert.Contains(t, sidebar, "Open in your review 2")
+		assert.Contains(t, sidebar, "Yours 3 open, 0 resolved")
 		assert.Contains(t, sidebar, "a.txt:2 no reply")
 		assert.Contains(t, sidebar, "b.txt:5 answered")
+		assert.Contains(t, sidebar, "c.txt:3 no reply", "the person's word after the answer waits for another")
 	})
 
-	t.Run("the list counts the comments it draws and goes with the last one settled", func(t *testing.T) {
-		server := newOwedServer(t, newOwedThread("a.txt", 2), newOwedThread("b.txt", 5))
+	t.Run("a resolved comment stays on the list and is counted apart", func(t *testing.T) {
+		server := newYoursServer(t, newYourThread("a.txt", 2), newYourThread("b.txt", 5))
 		harness := openReview(t, server)
 
 		server.threads[0].ResolvedAt = "2026-09-13T11:00:00Z"
 		harness.watch(server.buildSnapshot())
-		sidebar := readSidebarProse(harness.readFrame())
-		assert.Contains(t, sidebar, "Open in your review 1")
-		assert.NotContains(t, sidebar, "a.txt:2")
 
-		server.threads[1].ResolvedAt = "2026-09-13T11:00:00Z"
-		harness.watch(server.buildSnapshot())
-		assert.NotContains(t, readSidebarProse(harness.readFrame()), "Open in your review")
+		sidebar := readSidebarProse(harness.readFrame())
+		assert.Contains(t, sidebar, "Yours 1 open, 1 resolved")
+		assert.Contains(t, sidebar, "a.txt:2 resolved")
+		assert.Less(t, strings.Index(sidebar, "b.txt:5"), strings.Index(sidebar, "a.txt:2"))
+	})
+
+	t.Run("a comment with something unread goes first", func(t *testing.T) {
+		unread := newYourThread("b.txt", 5)
+		unread.UnreadByHuman = true
+		harness := openReview(t, newYoursServer(t, newYourThread("a.txt", 2), unread))
+
+		sidebar := readSidebarProse(harness.readFrame())
+		assert.Contains(t, sidebar, "b.txt:5 unread")
+		assert.Less(t, strings.Index(sidebar, "b.txt:5"), strings.Index(sidebar, "a.txt:2"))
 	})
 
 	t.Run("the list counts what it has no room to draw", func(t *testing.T) {
 		threads := make([]*agentv1.ReviewThread, 0, 6)
 		for i := range 6 {
-			threads = append(threads, newOwedThread(fmt.Sprintf("f%d.txt", i), int32(i+1)))
+			threads = append(threads, newYourThread(fmt.Sprintf("f%d.txt", i), int32(i+1)))
 		}
 
-		harness := openReview(t, newOwedServer(t, threads...))
+		harness := openReview(t, newYoursServer(t, threads...))
 
 		sidebar := readSidebarProse(harness.readFrame())
-		assert.Contains(t, sidebar, "Open in your review 6")
+		assert.Contains(t, sidebar, "Yours 6 open, 0 resolved")
 		assert.Contains(t, sidebar, "+ 3 more")
 	})
 
-	t.Run("the list is not drawn over an agent that will never answer", func(t *testing.T) {
-		server := newOwedServer(t, newOwedThread("a.txt", 2))
-		server.agent.Alive = proto.Bool(false)
+	t.Run("the list leaves out the comments an agent started", func(t *testing.T) {
+		reviewer := newYourThread("a.txt", 2)
+		reviewer.Messages = []*agentv1.ReviewMessage{newAgentMessage("m1", "rename this")}
+		harness := openReview(t, newYoursServer(t, reviewer))
 
-		harness := openReview(t, server)
-
-		assert.NotContains(t, readSidebarProse(harness.readFrame()), "Open in your review")
+		assert.NotContains(t, readSidebarProse(harness.readFrame()), "Yours")
 	})
 
 	t.Run("the list says when a comment is folded away", func(t *testing.T) {
-		harness := openReview(t, newOwedServer(t, newOwedThread(gittest.File, 2)))
+		harness := openReview(t, newYoursServer(t, newYourThread(gittest.File, 2)))
 
 		harness.press("v")
 
 		assert.Contains(t, readSidebarProse(harness.readFrame()), "folded away")
 	})
 
-	t.Run("the compose key refuses a new comment and says why", func(t *testing.T) {
-		harness := openReview(t, newOwedServer(t, newOwedThread("a.txt", 2)))
+	t.Run("an open comment leaves the reader free to write another", func(t *testing.T) {
+		harness := openReview(t, newYoursServer(t, newYourThread("a.txt", 2)))
 
 		harness.press("c")
 
-		frame := harness.readFrame()
-		assert.NotContains(t, frame, "┃ Comment")
-		assert.Contains(t, readSidebarProse(frame), "comment of yours is still open")
+		assert.Contains(t, harness.readFrame(), "┃ Comment")
 	})
 
-	t.Run("the compose key still replies in a comment the review holds", func(t *testing.T) {
-		harness := openReview(t, newOwedServer(t, newOwedThread(gittest.File, 1)))
+	t.Run("an open comment leaves the editor free to open", func(t *testing.T) {
+		harness := openReview(t, newYoursServer(t, newYourThread("a.txt", 2)))
+
+		harness.press("e")
+
+		assert.Contains(t, harness.readFrame(), "editing · greet.go")
+	})
+
+	t.Run("the compose key replies in a comment the cursor stands on", func(t *testing.T) {
+		harness := openReview(t, newYoursServer(t, newYourThread(gittest.File, 1)))
 
 		harness.press("c")
 		typeText(harness, "still reads like a changelog")
@@ -1270,59 +1262,11 @@ func TestReviewOwed(t *testing.T) {
 		})
 	})
 
-	t.Run("the submit key refuses with nothing written and opens once a reply is", func(t *testing.T) {
-		server := newOwedServer(t, newOwedThread(gittest.File, 1))
-		harness := openReview(t, server)
-
-		harness.press("ctrl+s", "ctrl+s")
-		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceReleaseReviewProcedure))
-		assert.Contains(t, readSidebarProse(harness.readFrame()), "still open")
-
-		harness.press("c")
-		typeText(harness, "again")
-		harness.press("ctrl+s")
-		harness.watch(server.buildSnapshot())
-		harness.press("ctrl+s", "ctrl+s")
-
-		assert.Len(t, harness.readSent(agentv1connect.AgentServiceReleaseReviewProcedure), 1)
-	})
-
-	t.Run("settling the last comment lets the next review go", func(t *testing.T) {
-		server := newOwedServer(t, newOwedThread(gittest.File, 1))
-		harness := openReview(t, server)
-
-		harness.press("r")
-		harness.watch(server.buildSnapshot())
-		harness.press("ctrl+s", "ctrl+s")
-
-		assert.Len(t, harness.readSent(agentv1connect.AgentServiceReleaseReviewProcedure), 1)
-		assert.NotContains(t, readSidebarProse(harness.readFrame()), "Open in your review")
-	})
-
-	t.Run("the edit key refuses and names the key that settles", func(t *testing.T) {
-		harness := openReview(t, newOwedServer(t, newOwedThread("a.txt", 2)))
-
-		harness.press("e")
-
-		assert.Contains(t, readSidebarProse(harness.readFrame()), "r settles")
-		assert.NotContains(t, harness.readFrame(), "editing")
-	})
-
-	t.Run("the edit key opens over an agent that will never answer", func(t *testing.T) {
-		server := newOwedServer(t, newOwedThread("a.txt", 2))
-		server.agent.Alive = proto.Bool(false)
-		harness := openReview(t, server)
-
-		harness.press("e")
-
-		assert.Contains(t, harness.readFrame(), "editing · greet.go")
-	})
-
 	t.Run("the open comment keys walk both ways and stop at the ends", func(t *testing.T) {
-		harness := openReview(t, newOwedServer(t,
-			newOwedThread(gittest.File, 2),
-			newOwedThread(gittest.File, 3),
-			newOwedThread(gittest.File, 5),
+		harness := openReview(t, newYoursServer(t,
+			newYourThread(gittest.File, 2),
+			newYourThread(gittest.File, 3),
+			newYourThread(gittest.File, 5),
 		))
 
 		harness.press("u")
@@ -1342,7 +1286,7 @@ func TestReviewOwed(t *testing.T) {
 	})
 
 	t.Run("the open comment key says why it moved nowhere", func(t *testing.T) {
-		settled := newOwedThread(gittest.File, 2)
+		settled := newYourThread(gittest.File, 2)
 		settled.ResolvedAt = "2026-09-13T12:00:00Z"
 		tests := []struct {
 			name    string
@@ -1359,13 +1303,13 @@ func TestReviewOwed(t *testing.T) {
 			},
 			{
 				name:    "the cursor stands on the only one left",
-				threads: []*agentv1.ReviewThread{settled, newOwedThread(gittest.File, 3)},
+				threads: []*agentv1.ReviewThread{settled, newYourThread(gittest.File, 3)},
 				keys:    []string{"u", "u"},
 				want:    "only comment left open",
 			},
 			{
 				name:    "the only one left is folded away",
-				threads: []*agentv1.ReviewThread{newOwedThread(gittest.File, 3)},
+				threads: []*agentv1.ReviewThread{newYourThread(gittest.File, 3)},
 				keys:    []string{"v", "u"},
 				want:    "folded away",
 				absent:  "settled",
@@ -1374,7 +1318,7 @@ func TestReviewOwed(t *testing.T) {
 
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
-				harness := openReview(t, newOwedServer(t, tt.threads...))
+				harness := openReview(t, newYoursServer(t, tt.threads...))
 
 				harness.press(tt.keys...)
 
@@ -1388,7 +1332,7 @@ func TestReviewOwed(t *testing.T) {
 	})
 
 	t.Run("the legend follows the keys onto the thread and back", func(t *testing.T) {
-		harness := openReviewAt(t, newOwedServer(t, newOwedThread(gittest.File, 2)), panelHarnessParams{height: 50})
+		harness := openReviewAt(t, newYoursServer(t, newYourThread(gittest.File, 2)), panelHarnessParams{height: 50})
 		harness.press("?", "u")
 		diff := readLegend(harness.readFrame())
 		require.NotContains(t, diff, "scroll the thread")
@@ -2025,21 +1969,10 @@ func TestReviewComposer(t *testing.T) {
 		assert.NotContains(t, frame, "┃ Comment")
 		assert.Contains(t, readSidebarProse(frame), "put the cursor on a line of the diff")
 	})
-
-	t.Run("the back key while writing leaves the mode rather than the screen", func(t *testing.T) {
-		harness := openReviewAt(t, newReviewServer(t), panelHarnessParams{height: 50})
-
-		harness.press("c", "esc", "?")
-		assert.NotContains(t, readLegend(harness.readFrame()), "back to the agents")
-
-		harness.press("esc")
-		assert.True(t, harness.panel.IsZoomed())
-		assert.Contains(t, readLegend(harness.readFrame()), "back to the agents")
-	})
 }
 
-// TestReviewPass covers the reader stopping the agent to comment on or edit its worktree.
-func TestReviewPass(t *testing.T) {
+// TestReviewHold covers the reader stopping the agent to edit its worktree.
+func TestReviewHold(t *testing.T) {
 	t.Run("the edit key stops the agent and opens the editor over the diff", func(t *testing.T) {
 		server := newReviewServer(t)
 		server.agent.State = agentv1.AgentState_AGENT_STATE_THINKING
@@ -2048,7 +1981,7 @@ func TestReviewPass(t *testing.T) {
 		harness.press("e")
 
 		frame := harness.readFrame()
-		assert.Contains(t, frame, "reviewing · editing · greet.go")
+		assert.Contains(t, frame, "editing · greet.go")
 		assert.NotContains(t, frame, "package greet")
 		harness.assertSentTo(agentv1connect.AgentServiceHoldAgentProcedure, &agentv1.HoldAgentRequest{Id: "a1"})
 	})
@@ -2063,35 +1996,14 @@ func TestReviewPass(t *testing.T) {
 		assert.Contains(t, harness.readFrame(), "editing · greet.go")
 	})
 
-	t.Run("an agent that will not stop opens nothing", func(t *testing.T) {
-		tests := []struct {
-			name string
-			key  string
-		}{
-			{
-				name: "the edit key opens no editor",
-				key:  "e",
-			},
-			{
-				name: "the compose key takes its composer away",
-				key:  "c",
-			},
-		}
+	t.Run("an agent that will not stop opens no editor", func(t *testing.T) {
+		server := newReviewServer(t)
+		server.holdErr = errors.New("the agent did not stop")
+		harness := openReview(t, server)
 
-		for _, tt := range tests {
-			t.Run(tt.name, func(t *testing.T) {
-				server := newReviewServer(t)
-				server.holdErr = errors.New("the agent did not stop")
-				harness := openReview(t, server)
+		harness.press("e")
 
-				harness.press(tt.key)
-
-				frame := harness.readFrame()
-				assert.NotContains(t, frame, "editing")
-				assert.NotContains(t, frame, "┃ Comment")
-				assert.NotContains(t, frame, "reviewing ·")
-			})
-		}
+		assert.NotContains(t, harness.readFrame(), "editing")
 	})
 
 	t.Run("an unreadable pane refuses the edit key and stops nothing", func(t *testing.T) {
@@ -2123,7 +2035,7 @@ func TestReviewPass(t *testing.T) {
 		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceReleaseAgentProcedure))
 	})
 
-	t.Run("a deleted file refuses the edit key and opens no mode", func(t *testing.T) {
+	t.Run("a deleted file refuses the edit key and opens no editor", func(t *testing.T) {
 		repo := gittest.NewRepo(t.TempDir())
 		repo.Sources[gittest.NameSource(gittest.BaseSHA, "gone.go")] = "package greet\n\nfunc Gone() {}\n"
 		repo.Wrote(gittest.WroteParams{
@@ -2139,10 +2051,10 @@ func TestReviewPass(t *testing.T) {
 
 		frame := harness.readFrame()
 		assert.Contains(t, readSidebarProse(frame), "deleted")
-		assert.NotContains(t, frame, "reviewing ·")
+		assert.NotContains(t, frame, "editing ·")
 	})
 
-	t.Run("the compose key opens the composer and stops the agent beside it", func(t *testing.T) {
+	t.Run("the compose key leaves the agent running", func(t *testing.T) {
 		server := newReviewServer(t)
 		server.agent.State = agentv1.AgentState_AGENT_STATE_THINKING
 		harness := openReview(t, server)
@@ -2150,7 +2062,7 @@ func TestReviewPass(t *testing.T) {
 		harness.press("c")
 
 		assert.Contains(t, harness.readFrame(), "┃ Comment")
-		harness.assertSentTo(agentv1connect.AgentServiceHoldAgentProcedure, &agentv1.HoldAgentRequest{Id: "a1"})
+		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceHoldAgentProcedure))
 	})
 
 	t.Run("a second edit press waits for the agent the first is stopping", func(t *testing.T) {
@@ -2160,68 +2072,29 @@ func TestReviewPass(t *testing.T) {
 		harness.hold(agentv1connect.AgentServiceHoldAgentProcedure)
 
 		harness.press("e")
-		require.Contains(t, harness.readFrame(), "reviewing · stopping the age")
+		require.Contains(t, harness.readFrame(), "editing · stopping the agent")
 
 		harness.press("e")
 		frame := harness.readFrame()
 		assert.Contains(t, readSidebarProse(frame), "still stopping")
-		assert.NotContains(t, frame, "editing ·")
+		assert.NotContains(t, frame, "editing · greet.go")
 
 		harness.release(agentv1connect.AgentServiceHoldAgentProcedure)
 		assert.Contains(t, harness.readFrame(), "editing · greet.go")
 	})
 
-	t.Run("a pass given up before the agent stops lets it go", func(t *testing.T) {
-		tests := []struct {
-			name  string
-			key   string
-			leave []string
-		}{
-			{
-				name:  "the edit key backed out of",
-				key:   "e",
-				leave: []string{"esc"},
-			},
-			{
-				name:  "the edit key and the whole review left",
-				key:   "e",
-				leave: []string{"esc", "esc"},
-			},
-			{
-				name:  "the compose key and the whole review left",
-				key:   "c",
-				leave: []string{"esc", "esc"},
-			},
-		}
+	t.Run("an edit given up before the agent stops lets it go", func(t *testing.T) {
+		server := newReviewServer(t)
+		server.agent.State = agentv1.AgentState_AGENT_STATE_THINKING
+		harness := openReview(t, server)
+		harness.hold(agentv1connect.AgentServiceHoldAgentProcedure)
+		harness.press("e")
 
-		for _, tt := range tests {
-			t.Run(tt.name, func(t *testing.T) {
-				server := newReviewServer(t)
-				server.agent.State = agentv1.AgentState_AGENT_STATE_THINKING
-				harness := openReview(t, server)
-				harness.hold(agentv1connect.AgentServiceHoldAgentProcedure)
-				harness.press(tt.key)
+		harness.press("esc")
+		harness.release(agentv1connect.AgentServiceHoldAgentProcedure)
 
-				harness.press(tt.leave...)
-				harness.release(agentv1connect.AgentServiceHoldAgentProcedure)
-
-				assert.NotContains(t, harness.readFrame(), "editing ·")
-				assert.Contains(t, readReleaseSaid(t, harness), "let you go")
-			})
-		}
-	})
-
-	t.Run("a comment written in a pass keeps the agent stopped", func(t *testing.T) {
-		harness := openReview(t, newReviewServer(t))
-		harness.press("e", "e")
-
-		harness.press("c")
-		typeText(harness, "hello")
-		harness.press("ctrl+s")
-
-		require.Len(t, harness.readSent(agentv1connect.AgentServiceCreateReviewThreadProcedure), 1)
-		assert.Contains(t, harness.readFrame(), "reviewing · agent paused")
-		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceReleaseAgentProcedure))
+		assert.NotContains(t, harness.readFrame(), "editing ·")
+		assert.Contains(t, readReleaseSaid(t, harness), "without opening it")
 	})
 
 	t.Run("the editor quitting gives the stage back and reads the diff again", func(t *testing.T) {
@@ -2235,9 +2108,8 @@ func TestReviewPass(t *testing.T) {
 		harness.panel.SetPaneDead(editor[len(editor)-1])
 		harness.fireTimers()
 
-		frame := harness.readFrame()
-		assert.NotContains(t, frame, "editing ·")
-		assert.Contains(t, frame, "reviewing · agent paused")
+		assert.NotContains(t, harness.readFrame(), "editing ·")
+		assert.Contains(t, readReleaseSaid(t, harness), "while I had your worktree open")
 		assert.Len(t, harness.readSent(agentv1connect.AgentServiceOpenReviewRoundProcedure), loads+1)
 	})
 
@@ -2263,40 +2135,21 @@ func TestReviewPass(t *testing.T) {
 		assert.Contains(t, frame, "Review · auth")
 	})
 
-	t.Run("leaving the pass lets the agent go and says where to look", func(t *testing.T) {
+	t.Run("closing the editor lets the agent go and says where to look", func(t *testing.T) {
 		harness := openReview(t, newReviewServer(t))
 
-		harness.press("e", "e", "esc")
+		harness.press("e", "e")
 
 		said := readReleaseSaid(t, harness)
 		assert.Contains(t, said, "let you go")
 		assert.Contains(t, said, "greet.go")
-		assert.NotContains(t, harness.readFrame(), "reviewing ·")
-	})
-
-	t.Run("sending the review ends the pass", func(t *testing.T) {
-		harness := openReview(t, newReviewServer(t))
-
-		harness.press("c", "esc", "ctrl+s", "ctrl+s")
-
-		assert.NotContains(t, harness.readFrame(), "reviewing ·")
-		assert.Contains(t, readReleaseSaid(t, harness), "let you go")
-	})
-
-	t.Run("a send that fails keeps the pass and the agent stopped", func(t *testing.T) {
-		harness := openReview(t, newReviewServer(t))
-		harness.refuse(agentv1connect.AgentServiceReleaseReviewProcedure, connect.NewError(connect.CodeUnavailable, errors.New("the review could not be released")))
-
-		harness.press("e", "e", "ctrl+s", "ctrl+s")
-
-		assert.Contains(t, harness.readFrame(), "reviewing · agent paused")
-		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceReleaseAgentProcedure))
+		assert.Contains(t, harness.readFrame(), "Review · auth")
 	})
 
 	t.Run("a diff that stops being readable lets the agent go with the files", func(t *testing.T) {
 		server := newReviewServer(t)
 		harness := openReview(t, server)
-		harness.press("e", "e")
+		harness.press("e")
 
 		server.repo.RootErr = gittest.ErrNoGit
 		harness.press("R")
@@ -2317,8 +2170,8 @@ func TestReviewPass(t *testing.T) {
 				unreadable: true,
 			},
 			{
-				name: "backing out of the pass and the screen leaves the pause standing",
-				keys: []string{"esc", "esc"},
+				name: "closing the editor and leaving the screen leaves the pause standing",
+				keys: []string{"e", "esc"},
 			},
 		}
 
@@ -2328,7 +2181,7 @@ func TestReviewPass(t *testing.T) {
 				server.agent.HeldAt = heldAt
 				server.agent.State = agentv1.AgentState_AGENT_STATE_THINKING
 				harness := openReview(t, server)
-				harness.press("e", "e")
+				harness.press("e")
 
 				if tt.unreadable {
 					server.repo.RootErr = gittest.ErrNoGit
@@ -2361,7 +2214,7 @@ func TestReviewPass(t *testing.T) {
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
 				harness := openPausedReview(t, newReviewServer(t))
-				harness.press("e", "e", "esc", "esc")
+				harness.press("e", "e", "esc")
 
 				harness.press(tt.unpause...)
 				harness.press("p")
@@ -2376,7 +2229,7 @@ func TestReviewPass(t *testing.T) {
 
 	t.Run("an unpause in silence says which files the agent was not told about", func(t *testing.T) {
 		harness := openPausedReview(t, newReviewServer(t))
-		harness.press("e", "e", "esc", "esc")
+		harness.press("e", "e", "esc")
 
 		harness.press("P", "y", "ctrl+g")
 
@@ -2396,13 +2249,13 @@ func TestReviewPass(t *testing.T) {
 			},
 		})
 		harness := openPausedReview(t, server)
-		harness.press("e", "e", "esc", "esc")
+		harness.press("e", "e", "esc")
 		harness.hold(agentv1connect.AgentServiceReleaseAgentProcedure)
 		harness.press("p")
 
 		harness.press("d", "/")
 		typeText(harness, "Second")
-		harness.press("enter", "e", "e", "esc", "esc")
+		harness.press("enter", "e", "e", "esc")
 		harness.release(agentv1connect.AgentServiceReleaseAgentProcedure)
 		harness.press("p")
 
@@ -2427,7 +2280,7 @@ func TestReviewPass(t *testing.T) {
 			return connect.NewResponse(&agentv1.ReleaseAgentResponse{}), nil
 		})
 
-		harness.press("e", "e", "esc")
+		harness.press("e", "e")
 		server.agent.HeldAt = heldAt
 		harness.watch(server.buildSnapshot())
 		harness.press("esc", "p")
@@ -2440,13 +2293,8 @@ func TestReviewPass(t *testing.T) {
 
 	t.Run("closing the editor draws the reader's own edits over a pinned diff", func(t *testing.T) {
 		server := newReviewServer(t)
+		server.threads = []*agentv1.ReviewThread{newThreadOnFirstLine(newUnsentComment())}
 		harness := openReview(t, server)
-		harness.press("c", "esc")
-		server.reviews = []*agentv1.Review{{
-			Id:         "v1",
-			RoundId:    "round-1",
-			AuthorKind: agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN,
-		}}
 
 		harness.press("e")
 		server.repo.Wrote(gittest.WroteParams{Tree: "tree-the-reader-edited", Whole: gittest.PatchWrittenOver})
@@ -2501,7 +2349,7 @@ func TestReviewPass(t *testing.T) {
 func TestReviewEmphasis(t *testing.T) {
 	t.Run("the owed list brightens a comment only while its line is on screen", func(t *testing.T) {
 		server := newReviewServerOver(gittest.NewTallRepo(t.TempDir()))
-		thread := newOwedThread(gittest.TallFile, 5)
+		thread := newYourThread(gittest.TallFile, 5)
 		thread.QuotedLines = []string{" func One() {}"}
 		server.threads = []*agentv1.ReviewThread{thread}
 		server.reviews = []*agentv1.Review{{
@@ -2522,17 +2370,6 @@ func TestReviewEmphasis(t *testing.T) {
 		frame := harness.readRawFrame()
 		assert.NotContains(t, frame, paint.Panel.Style(paint.ToneAccent).Bold(true).Render(pin))
 		assert.Contains(t, frame, errui.Dim.Render(pin))
-	})
-
-	t.Run("the chosen verdict wears its own tone rather than the muted one", func(t *testing.T) {
-		harness := openReview(t, newReviewServer(t))
-
-		harness.press("ctrl+s")
-
-		frame := harness.readRawFrame()
-		chosen := "  ▸ request changes"
-		assert.Contains(t, frame, paint.Panel.Style(paint.ToneWarning).Render(chosen))
-		assert.NotContains(t, frame, paint.Panel.Style(paint.ToneMuted).Render(chosen))
 	})
 
 	t.Run("the cursor row dims while the record has the keys", func(t *testing.T) {
@@ -2603,7 +2440,7 @@ func openLongThread(t *testing.T) *panelHarness {
 	server := newReviewServer(t)
 	server.threads = []*agentv1.ReviewThread{newLongThread()}
 
-	return openReviewAt(t, server, panelHarnessParams{height: 14})
+	return openReviewAt(t, server, panelHarnessParams{height: 16})
 }
 
 func openTallReview(t *testing.T) (*panelHarness, *reviewServer) {
@@ -2679,6 +2516,10 @@ func (s *reviewServer) serve(harness *panelHarness) {
 }
 
 func (s *reviewServer) openRound(req connect.AnyRequest) (connect.AnyResponse, error) {
+	if s.openErr != nil {
+		return nil, s.openErr
+	}
+
 	open, _ := req.Any().(*agentv1.OpenReviewRoundRequest)
 	sha := gittest.NameSnapshot(s.repo.Tree)
 	if len(s.rounds) == 0 || s.rounds[len(s.rounds)-1].GetSnapshotSha() != sha {
@@ -2937,7 +2778,7 @@ func newRoundWrittenOver() gittest.WroteParams {
 	}
 }
 
-func newOwedServer(t *testing.T, threads ...*agentv1.ReviewThread) *reviewServer {
+func newYoursServer(t *testing.T, threads ...*agentv1.ReviewThread) *reviewServer {
 	t.Helper()
 
 	server := newReviewServer(t)
@@ -2952,7 +2793,7 @@ func newOwedServer(t *testing.T, threads ...*agentv1.ReviewThread) *reviewServer
 	return server
 }
 
-func newOwedThread(path string, line int32) *agentv1.ReviewThread {
+func newYourThread(path string, line int32) *agentv1.ReviewThread {
 	source := map[int32]string{
 		1: " package greet",
 		2: " ",
@@ -3039,4 +2880,47 @@ func readReleaseSaid(t *testing.T, harness *panelHarness) string {
 	assert.Equal(t, "a1", released.GetId())
 
 	return released.GetSaid()
+}
+
+// TestReviewChange covers the row above the first file, where a comment is about the change as a
+// whole rather than any line of it.
+func TestReviewChange(t *testing.T) {
+	t.Run("a comment written on the row names no file and quotes no line", func(t *testing.T) {
+		harness := openReview(t, newReviewServer(t))
+
+		harness.press("k")
+		frame := harness.readFrame()
+		assert.Contains(t, readSidebar(frame), "the change as a whole")
+		assert.Contains(t, frame, "comment on the change")
+
+		harness.press("c")
+		typeText(harness, "split this in two")
+		harness.press("ctrl+s")
+
+		harness.assertSentTo(agentv1connect.AgentServiceCreateReviewThreadProcedure, &agentv1.CreateReviewThreadRequest{
+			AgentId:     "a1",
+			Body:        "split this in two",
+			BaseSha:     gittest.BaseSHA,
+			SnapshotSha: gittest.SnapshotSHA,
+		})
+	})
+
+	t.Run("a comment on the change waits at the end of the diff and the row still starts another", func(t *testing.T) {
+		server := newReviewServer(t)
+		server.threads = []*agentv1.ReviewThread{{
+			Id:       "t1",
+			Messages: []*agentv1.ReviewMessage{newHumanMessage("m1", "split this in two")},
+		}}
+		harness := openReview(t, server)
+
+		assert.Contains(t, findLine(readStage(harness.readFrame()), "the change as a whole"), "1 at the end of the diff")
+
+		harness.press("k")
+		assert.Contains(t, harness.readFrame(), "comment on the change")
+
+		harness.press("G")
+		frame := harness.readFrame()
+		assert.NotEmpty(t, findLine(readStage(frame), "on the change as a whole ──"))
+		assert.Contains(t, readSidebarProse(frame), "split this in two")
+	})
 }

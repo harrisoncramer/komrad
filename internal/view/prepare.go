@@ -1,6 +1,8 @@
 package view
 
 import (
+	"strconv"
+
 	"komrad/internal/ui/paint"
 	"komrad/lib/xslice"
 )
@@ -72,10 +74,12 @@ func columnCells(row Row, columns Columns) []Cell {
 		switch column.Kind {
 		case ColumnRepo:
 			cells[i] = RepoCell(row)
-		case ColumnReview:
-			cells[i] = ReviewCell(row)
 		case ColumnForge:
 			cells[i] = ForgeCell(row)
+		case ColumnReviewerComments:
+			cells[i] = ReviewerCommentsCell(row)
+		case ColumnPersonComments:
+			cells[i] = PersonCommentsCell(row)
 		case ColumnText:
 			if i < len(row.Cells) {
 				cells[i] = row.Cells[i]
@@ -120,28 +124,52 @@ func RepoCell(row Row) Cell {
 	return Cell{Glyph: GlyphRepo, Tone: paint.ToneMuted}
 }
 
-// ReviewCell is where the tree on disk stands with the local review of an agent's work.
-func ReviewCell(row Row) Cell {
-	if !isOwn(row) {
+// ReviewerCommentsCell counts the comments reviewer agents left on an agent's work, open then
+// resolved, drawn as a dash while only the person has any.
+func ReviewerCommentsCell(row Row) Cell {
+	if !isOwn(row) || (row.ReviewerComments == nil && row.PersonComments == nil) {
 		return Cell{}
 	}
 
-	switch row.Review {
-	case ReviewNone:
+	return countsCell(row.ReviewerComments, paint.ToneMuted)
+}
+
+// PersonCommentsCell counts the comments the person left on an agent's work, the open count
+// standing out while there is one, and a dot after while any holds something unread.
+func PersonCommentsCell(row Row) Cell {
+	if !isOwn(row) || (row.ReviewerComments == nil && row.PersonComments == nil) {
 		return Cell{}
-	case ReviewApprovedLandedMoved, ReviewChangesLanded, ReviewChangesLandedMoved:
-		return Cell{Glyph: GlyphUnverified, Tone: paint.ToneMuted}
-	case ReviewApproved, ReviewApprovedLanded:
-		return Cell{Glyph: GlyphApproved, Tone: paint.ToneSuccess}
-	case ReviewApprovedMoved:
-		return Cell{Glyph: GlyphCheckbox, Tone: paint.ToneWarning}
-	case ReviewChangesRequested:
-		return Cell{Glyph: GlyphHourglass, Tone: paint.ToneMuted}
-	case ReviewChangesPushed:
-		return Cell{Glyph: GlyphBell, Tone: paint.ToneWarning}
 	}
 
-	return Cell{}
+	dot := Cell{Text: " "}
+	if row.PersonComments != nil && row.PersonComments.Unread {
+		dot = Cell{Text: "·", Tone: paint.ToneWarning}
+	}
+
+	counts := countsCell(row.PersonComments, paint.ToneWarning)
+
+	return Cell{Parts: append(counts.Parts, dot)}
+}
+
+// countsCell is a pair of counts, open then resolved, with the open count in the tone given
+// while it is not zero, and a dash for a side with nothing to show.
+func countsCell(comments *Comments, openTone paint.Tone) Cell {
+	if comments == nil {
+		return Cell{Parts: []Cell{{Text: "–", Tone: paint.ToneMuted}}}
+	}
+
+	open := Cell{Text: strconv.Itoa(comments.Open), Tone: paint.ToneMuted}
+	if comments.Open > 0 {
+		open.Tone = openTone
+	}
+
+	return Cell{Parts: []Cell{
+		open,
+		{
+			Text: "|" + strconv.Itoa(comments.Resolved),
+			Tone: paint.ToneMuted,
+		},
+	}}
 }
 
 // ForgeCell is where the pull request opened from an agent's branch stands, blank while

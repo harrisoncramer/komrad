@@ -70,6 +70,7 @@ func watchedReviewFromRow(row models.ListWatchedReviewsRow) Review {
 		RoundID:          row.RoundID,
 		RoundOrdinal:     row.RoundOrdinal,
 		RoundSnapshotSHA: row.RoundSnapshotSha,
+		RoundLandedAt:    row.RoundLandedAt,
 		AuthorKind:       AuthorKind(row.AuthorKind),
 		AuthorAgentID:    row.AuthorAgentID,
 		ReleasedAt:       row.ReleasedAt,

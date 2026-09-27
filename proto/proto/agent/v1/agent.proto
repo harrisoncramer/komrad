@@ -116,14 +116,13 @@ message Agent {
   AgentRole role = 30;
   // Whether prompt holds only its opening, as a summary listing returns it.
   bool prompt_truncated = 32;
-  // Where the agent's worktree stood when last measured against the round tree_standing_sha names.
-  ReviewTreeStanding tree_standing = 31;
-  // The snapshot of the round tree_standing was measured against, empty before any measurement.
-  string tree_standing_sha = 33;
   // The snapshot of its newest round while its worktree no longer hashes to it, empty otherwise.
   string moved_since_round = 42;
   // When a person stopped this agent and took its worktree, empty while nobody is holding it.
   string held_at = 35;
+
+  reserved 31, 33;
+  reserved "tree_standing", "tree_standing_sha";
 }
 
 // AgentRow is an agent with what the panel draws beside it: its mark, its waiting mail, the
@@ -141,11 +140,25 @@ message AgentRow {
   repeated pullrequest.v1.PullRequest pull_requests = 5;
   // How many rounds of local review its own work has been through.
   int32 local_review_rounds = 6;
-  // What the last released local review concluded about the agent's own work, UNSPECIFIED
-  // when none has concluded anything.
-  ReviewVerdict local_review_verdict = 7;
-  // Where the agent's worktree stands against the round that verdict was given on.
-  ReviewTreeStanding local_review_tree = 8;
+  // Comments reviewer agents have left on its work. Absent until a reviewer agent has released a
+  // review of work not yet merged into the base branch.
+  optional CommentCounts reviewer_comments = 9;
+  // Comments the person has left on its work. Absent until the person has released a review of
+  // work not yet merged into the base branch.
+  optional CommentCounts person_comments = 10;
+
+  reserved 7, 8;
+  reserved "local_review_verdict", "local_review_tree";
+}
+
+// CommentCounts is how the comments on an agent's work stand.
+message CommentCounts {
+  // Comments nobody has resolved yet, on any round.
+  int32 open = 1;
+  // Comments resolved on rounds not yet merged into the base branch.
+  int32 resolved = 2;
+  // Whether any of the comments holds something the person has not read.
+  bool unread = 3;
 }
 
 message PullRequestStanding {
@@ -338,11 +351,15 @@ message GetAgentResponse {
   repeated pullrequest.v1.PullRequest pull_requests = 5;
   // How many rounds of local review its own work has been through.
   int32 local_review_rounds = 6;
-  // What the last released local review concluded about the agent's own work, UNSPECIFIED
-  // when none has concluded anything.
-  ReviewVerdict local_review_verdict = 7;
-  // Where the agent's worktree stands against the round that verdict was given on.
-  ReviewTreeStanding local_review_tree = 8;
+  // Comments reviewer agents have left on its work. Absent until a reviewer agent has released a
+  // review of work not yet merged into the base branch.
+  optional CommentCounts reviewer_comments = 9;
+  // Comments the person has left on its work. Absent until the person has released a review of
+  // work not yet merged into the base branch.
+  optional CommentCounts person_comments = 10;
+
+  reserved 7, 8;
+  reserved "local_review_verdict", "local_review_tree";
 }
 
 // PlanRebaseRequest asks what a rebase would do without doing it.
@@ -998,7 +1015,7 @@ service AgentService {
       cli: true
       mcp: true
       name: "list_review_threads"
-      description: "List the comment threads pinned to lines of an agent's diff, your own by default. Each thread names the round it was written on, a file and a line range, quotes the diff lines it was about, and holds its messages oldest first. Line numbers are true of that round's snapshot rather than of the files as they stand now, so once the code has moved search for the quoted lines instead. Only released reviews appear, so a comment still being written is not here yet. To read a whole review in order use get_review; this is for looking a thread up again, or answering one with add_review_message."
+      description: "List the comment threads on an agent's diff, your own by default. Each thread names the round it was written on and holds its messages oldest first. A thread on lines names a file and a line range and quotes them, and a thread on the change as a whole names no file. Line numbers are true of that round's snapshot rather than of the files as they stand now, so once the code has moved search for the quoted lines instead. Only released reviews appear, so a comment still being written is not here yet. To read a whole review in order use get_review; this is for looking a thread up again, or answering one with add_review_message."
       roles: [
         ROLE_IMPLEMENTER,
         ROLE_REVIEWER,
@@ -1022,7 +1039,7 @@ service AgentService {
       cli: true
       mcp: true
       name: "add_review_message"
-      description: "Reply in a review thread, which is how you answer feedback on your own diff. Use it to say what you changed and why, what you did not change and why, or to ask what was meant. Unlike a review, a message reaches the other side as soon as it is written. Keep it to a sentence or two, naming the line, value or case you mean and quoting code where the code is the point, with no preamble and no hedging."
+      description: "Reply in a review thread, which is how you answer feedback on your own diff. Make the change a comment asks for first, then reply with addressed set, and komrad pins a round of your worktree to the reply so the reviewer reads exactly what answered them. That resolves a person's comment, and a reviewer agent resolves its own once satisfied. Reply without addressed to push back or to ask what was meant, which leaves the comment open. An addressed reply is refused when the worktree has not changed since the comment was written. Keep it to a sentence or two, naming the line, value or case you mean and quoting code where the code is the point, with no preamble and no hedging."
       destructive: false
       idempotent: false
       roles: [

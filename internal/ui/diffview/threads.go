@@ -116,6 +116,10 @@ func (i lineIndex) quoted(filePath, quote string) (drawn, bare []int) {
 
 // FormatLocation names a place in the diff, on whichever side the line actually lives.
 func FormatLocation(filePath string, oldStart, newStart int) string {
+	if filePath == "" {
+		return changeWord
+	}
+
 	if newStart > 0 {
 		return fmt.Sprintf("%s:%d", filePath, newStart)
 	}

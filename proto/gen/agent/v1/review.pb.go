@@ -194,64 +194,6 @@ func (ReviewVerdict) EnumDescriptor() ([]byte, []int) {
 	return file_agent_v1_review_proto_rawDescGZIP(), []int{2}
 }
 
-// ReviewTreeStanding is where an agent's worktree stands against the round its last verdict
-// was given on.
-type ReviewTreeStanding int32
-
-const (
-	// The worktree still hashes to the round.
-	ReviewTreeStanding_REVIEW_TREE_STANDING_UNSPECIFIED ReviewTreeStanding = 0
-	// The worktree differs from the round and the base does not hold the round.
-	ReviewTreeStanding_REVIEW_TREE_STANDING_MOVED ReviewTreeStanding = 1
-	// The base holds the round whole and the worktree carries nothing beyond the base.
-	ReviewTreeStanding_REVIEW_TREE_STANDING_LANDED ReviewTreeStanding = 2
-	// The base holds the round whole and the worktree carries new work on top of the base.
-	ReviewTreeStanding_REVIEW_TREE_STANDING_LANDED_MOVED ReviewTreeStanding = 3
-)
-
-// Enum value maps for ReviewTreeStanding.
-var (
-	ReviewTreeStanding_name = map[int32]string{
-		0: "REVIEW_TREE_STANDING_UNSPECIFIED",
-		1: "REVIEW_TREE_STANDING_MOVED",
-		2: "REVIEW_TREE_STANDING_LANDED",
-		3: "REVIEW_TREE_STANDING_LANDED_MOVED",
-	}
-	ReviewTreeStanding_value = map[string]int32{
-		"REVIEW_TREE_STANDING_UNSPECIFIED":  0,
-		"REVIEW_TREE_STANDING_MOVED":        1,
-		"REVIEW_TREE_STANDING_LANDED":       2,
-		"REVIEW_TREE_STANDING_LANDED_MOVED": 3,
-	}
-)
-
-func (x ReviewTreeStanding) Enum() *ReviewTreeStanding {
-	p := new(ReviewTreeStanding)
-	*p = x
-	return p
-}
-
-func (x ReviewTreeStanding) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (ReviewTreeStanding) Descriptor() protoreflect.EnumDescriptor {
-	return file_agent_v1_review_proto_enumTypes[3].Descriptor()
-}
-
-func (ReviewTreeStanding) Type() protoreflect.EnumType {
-	return &file_agent_v1_review_proto_enumTypes[3]
-}
-
-func (x ReviewTreeStanding) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use ReviewTreeStanding.Descriptor instead.
-func (ReviewTreeStanding) EnumDescriptor() ([]byte, []int) {
-	return file_agent_v1_review_proto_rawDescGZIP(), []int{3}
-}
-
 // ReviewRound is one immutable snapshot of what an agent has written, which is what a review is
 // given against. Nothing a comment is pinned to can move underneath the person reading it,
 // because the snapshot is a commit rather than the worktree.
@@ -538,7 +480,9 @@ type WatchedReview struct {
 	// When the batch was opened.
 	CreatedAt string `protobuf:"bytes,11,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	// When anything in it last moved.
-	UpdatedAt     string `protobuf:"bytes,12,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	UpdatedAt string `protobuf:"bytes,12,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	// When the base branch was first seen holding the round whole, empty until then.
+	RoundLandedAt string `protobuf:"bytes,13,opt,name=round_landed_at,json=roundLandedAt,proto3" json:"round_landed_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -657,6 +601,13 @@ func (x *WatchedReview) GetUpdatedAt() string {
 	return ""
 }
 
+func (x *WatchedReview) GetRoundLandedAt() string {
+	if x != nil {
+		return x.RoundLandedAt
+	}
+	return ""
+}
+
 // ReviewThread is one conversation pinned to a place in a round of an agent's diff.
 type ReviewThread struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -673,7 +624,7 @@ type ReviewThread struct {
 	// The commit the old side of these line numbers was read against, which is the round's own
 	// base unless the diff was narrowed to an earlier round when the thread was written.
 	BaseSha string `protobuf:"bytes,19,opt,name=base_sha,json=baseSha,proto3" json:"base_sha,omitempty"`
-	// Which file, relative to the checkout.
+	// Which file, relative to the checkout, empty for a comment on the change as a whole.
 	FilePath string `protobuf:"bytes,3,opt,name=file_path,json=filePath,proto3" json:"file_path,omitempty"`
 	// Where the range begins on the old side of the diff, counting from one.
 	OldStart int32 `protobuf:"varint,4,opt,name=old_start,json=oldStart,proto3" json:"old_start,omitempty"`
@@ -879,7 +830,9 @@ type ReviewMessage struct {
 	DeliveredAt string `protobuf:"bytes,10,opt,name=delivered_at,json=deliveredAt,proto3" json:"delivered_at,omitempty"`
 	// The review this message went out with, absent for an answer written by the agent under
 	// review, which belongs to no batch.
-	ReviewId      *string `protobuf:"bytes,12,opt,name=review_id,json=reviewId,proto3,oneof" json:"review_id,omitempty"`
+	ReviewId *string `protobuf:"bytes,12,opt,name=review_id,json=reviewId,proto3,oneof" json:"review_id,omitempty"`
+	// The round an addressed reply was taken of. Absent on every other message.
+	RoundId       *string `protobuf:"bytes,13,opt,name=round_id,json=roundId,proto3,oneof" json:"round_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -998,6 +951,13 @@ func (x *ReviewMessage) GetReviewId() string {
 	return ""
 }
 
+func (x *ReviewMessage) GetRoundId() string {
+	if x != nil && x.RoundId != nil {
+		return *x.RoundId
+	}
+	return ""
+}
+
 type ListReviewThreadsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The agent whose diff is being reviewed. An agent reading its own threads may leave this
@@ -1095,7 +1055,8 @@ type CreateReviewThreadRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Whose diff to pin the comment to.
 	AgentId string `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
-	// Which file, relative to the checkout.
+	// Which file, relative to the checkout. Empty for a comment on the change as a whole, which
+	// then carries no lines, no quote and no suggestion.
 	FilePath string `protobuf:"bytes,2,opt,name=file_path,json=filePath,proto3" json:"file_path,omitempty"`
 	// The commit the old side of these line numbers was read against, empty for the round's own
 	// base.
@@ -1281,7 +1242,12 @@ type AddReviewMessageRequest struct {
 	// What to say. The ceiling refuses an essay and is not a length to write up to.
 	Body string `protobuf:"bytes,2,opt,name=body,proto3" json:"body,omitempty"`
 	// Replacement lines proposed for the thread's range, empty for an ordinary message.
-	Suggestion    []string `protobuf:"bytes,3,rep,name=suggestion,proto3" json:"suggestion,omitempty"`
+	Suggestion []string `protobuf:"bytes,3,rep,name=suggestion,proto3" json:"suggestion,omitempty"`
+	// Says the change the thread asks for is made. Komrad takes a round of the worktree as it
+	// stands and pins it to the reply. A thread the person started is resolved by it, and one a
+	// reviewer agent started stays open for that reviewer to resolve. Refused when the worktree
+	// holds the same tree the thread was written on.
+	Addressed     bool `protobuf:"varint,4,opt,name=addressed,proto3" json:"addressed,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1337,10 +1303,20 @@ func (x *AddReviewMessageRequest) GetSuggestion() []string {
 	return nil
 }
 
+func (x *AddReviewMessageRequest) GetAddressed() bool {
+	if x != nil {
+		return x.Addressed
+	}
+	return false
+}
+
 type AddReviewMessageResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The message as recorded.
-	Message       *ReviewMessage `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
+	Message *ReviewMessage `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
+	// A nudge towards addressed, given when a plain reply lands on a thread whose worktree has
+	// moved since it was written. Empty otherwise.
+	Hint          string `protobuf:"bytes,2,opt,name=hint,proto3" json:"hint,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1380,6 +1356,13 @@ func (x *AddReviewMessageResponse) GetMessage() *ReviewMessage {
 		return x.Message
 	}
 	return nil
+}
+
+func (x *AddReviewMessageResponse) GetHint() string {
+	if x != nil {
+		return x.Hint
+	}
+	return ""
 }
 
 type EditReviewMessageRequest struct {
@@ -2130,7 +2113,8 @@ type ReleaseReviewRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Whose work the batch was written against.
 	AgentId string `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
-	// What the review concludes, which is what tells the agent whether it is done.
+	// What a reviewing agent concludes, which tells the agent it reviewed whether it is done. An
+	// agent must set it and a person must leave it unset.
 	Verdict ReviewVerdict `protobuf:"varint,2,opt,name=verdict,proto3,enum=agent.v1.ReviewVerdict" json:"verdict,omitempty"`
 	// Stop the agent where it stands before telling it, so it reads now rather than at the end
 	// of whatever it is doing.
@@ -2579,7 +2563,7 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"updated_at\x18\f \x01(\tR\tupdatedAt\x12\x12\n" +
 	"\x04body\x18\r \x01(\tR\x04body\x12!\n" +
 	"\fopen_threads\x18\x0e \x01(\x05R\vopenThreadsB\x12\n" +
-	"\x10_author_agent_id\"\xdb\x03\n" +
+	"\x10_author_agent_id\"\x83\x04\n" +
 	"\rWatchedReview\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x19\n" +
 	"\bagent_id\x18\x02 \x01(\tR\aagentId\x12\x19\n" +
@@ -2597,7 +2581,8 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\v \x01(\tR\tcreatedAt\x12\x1d\n" +
 	"\n" +
-	"updated_at\x18\f \x01(\tR\tupdatedAtB\x12\n" +
+	"updated_at\x18\f \x01(\tR\tupdatedAt\x12&\n" +
+	"\x0fround_landed_at\x18\r \x01(\tR\rroundLandedAtB\x12\n" +
 	"\x10_author_agent_id\"\x99\x04\n" +
 	"\fReviewThread\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x19\n" +
@@ -2619,7 +2604,7 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\r \x01(\tR\tcreatedAt\x12\x1d\n" +
 	"\n" +
-	"updated_at\x18\x0e \x01(\tR\tupdatedAt\"\xd3\x03\n" +
+	"updated_at\x18\x0e \x01(\tR\tupdatedAt\"\x80\x04\n" +
 	"\rReviewMessage\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
 	"\tthread_id\x18\x02 \x01(\tR\bthreadId\x12;\n" +
@@ -2638,18 +2623,20 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"\asent_at\x18\t \x01(\tR\x06sentAt\x12!\n" +
 	"\fdelivered_at\x18\n" +
 	" \x01(\tR\vdeliveredAt\x12 \n" +
-	"\treview_id\x18\f \x01(\tH\x01R\breviewId\x88\x01\x01B\x12\n" +
+	"\treview_id\x18\f \x01(\tH\x01R\breviewId\x88\x01\x01\x12\x1e\n" +
+	"\bround_id\x18\r \x01(\tH\x02R\aroundId\x88\x01\x01B\x12\n" +
 	"\x10_author_agent_idB\f\n" +
 	"\n" +
-	"_review_id\"P\n" +
+	"_review_idB\v\n" +
+	"\t_round_id\"P\n" +
 	"\x18ListReviewThreadsRequest\x12'\n" +
 	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\aagentId\x88\x01\x01B\v\n" +
 	"\t_agent_id\"M\n" +
 	"\x19ListReviewThreadsResponse\x120\n" +
-	"\athreads\x18\x01 \x03(\v2\x16.agent.v1.ReviewThreadR\athreads\"\xf2\x02\n" +
+	"\athreads\x18\x01 \x03(\v2\x16.agent.v1.ReviewThreadR\athreads\"\xe9\x02\n" +
 	"\x19CreateReviewThreadRequest\x12\"\n" +
-	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\x12$\n" +
-	"\tfile_path\x18\x02 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\bfilePath\x12\x19\n" +
+	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\x12\x1b\n" +
+	"\tfile_path\x18\x02 \x01(\tR\bfilePath\x12\x19\n" +
 	"\bbase_sha\x18\n" +
 	" \x01(\tR\abaseSha\x12!\n" +
 	"\fsnapshot_sha\x18\v \x01(\tR\vsnapshotSha\x12\x1b\n" +
@@ -2664,16 +2651,18 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"suggestion\x18\t \x03(\tR\n" +
 	"suggestion\"L\n" +
 	"\x1aCreateReviewThreadResponse\x12.\n" +
-	"\x06thread\x18\x01 \x01(\v2\x16.agent.v1.ReviewThreadR\x06thread\"\x7f\n" +
+	"\x06thread\x18\x01 \x01(\v2\x16.agent.v1.ReviewThreadR\x06thread\"\x9d\x01\n" +
 	"\x17AddReviewMessageRequest\x12$\n" +
 	"\tthread_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\bthreadId\x12\x1e\n" +
 	"\x04body\x18\x02 \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\xe8\aR\x04body\x12\x1e\n" +
 	"\n" +
 	"suggestion\x18\x03 \x03(\tR\n" +
-	"suggestion\"M\n" +
+	"suggestion\x12\x1c\n" +
+	"\taddressed\x18\x04 \x01(\bR\taddressed\"a\n" +
 	"\x18AddReviewMessageResponse\x121\n" +
-	"\amessage\x18\x01 \x01(\v2\x17.agent.v1.ReviewMessageR\amessage\"s\n" +
+	"\amessage\x18\x01 \x01(\v2\x17.agent.v1.ReviewMessageR\amessage\x12\x12\n" +
+	"\x04hint\x18\x02 \x01(\tR\x04hint\"s\n" +
 	"\x18EditReviewMessageRequest\x12\x17\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\x12\x1e\n" +
 	"\x04body\x18\x02 \x01(\tB\n" +
@@ -2712,11 +2701,10 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"\x12ListReviewsRequest\x12\"\n" +
 	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\"A\n" +
 	"\x13ListReviewsResponse\x12*\n" +
-	"\areviews\x18\x01 \x03(\v2\x10.agent.v1.ReviewR\areviews\"\xb5\x01\n" +
+	"\areviews\x18\x01 \x03(\v2\x10.agent.v1.ReviewR\areviews\"\xb3\x01\n" +
 	"\x14ReleaseReviewRequest\x12\"\n" +
-	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\x12=\n" +
-	"\averdict\x18\x02 \x01(\x0e2\x17.agent.v1.ReviewVerdictB\n" +
-	"\xbaH\a\x82\x01\x04\x10\x01 \x00R\averdict\x12\x1c\n" +
+	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\x12;\n" +
+	"\averdict\x18\x02 \x01(\x0e2\x17.agent.v1.ReviewVerdictB\b\xbaH\x05\x82\x01\x02\x10\x01R\averdict\x12\x1c\n" +
 	"\tinterrupt\x18\x03 \x01(\bR\tinterrupt\x12\x1c\n" +
 	"\x04body\x18\x04 \x01(\tB\b\xbaH\x05r\x03\x18\xdc\vR\x04body\"q\n" +
 	"\x15ReleaseReviewResponse\x12(\n" +
@@ -2752,12 +2740,7 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"\x1aREVIEW_VERDICT_UNSPECIFIED\x10\x00\x12\x1b\n" +
 	"\x17REVIEW_VERDICT_APPROVED\x10\x01\x12$\n" +
 	" REVIEW_VERDICT_CHANGES_REQUESTED\x10\x02\x12\x1c\n" +
-	"\x18REVIEW_VERDICT_COMMENTED\x10\x03*\xa2\x01\n" +
-	"\x12ReviewTreeStanding\x12$\n" +
-	" REVIEW_TREE_STANDING_UNSPECIFIED\x10\x00\x12\x1e\n" +
-	"\x1aREVIEW_TREE_STANDING_MOVED\x10\x01\x12\x1f\n" +
-	"\x1bREVIEW_TREE_STANDING_LANDED\x10\x02\x12%\n" +
-	"!REVIEW_TREE_STANDING_LANDED_MOVED\x10\x03B#Z!komrad/proto/gen/agent/v1;agentv1b\x06proto3"
+	"\x18REVIEW_VERDICT_COMMENTED\x10\x03B#Z!komrad/proto/gen/agent/v1;agentv1b\x06proto3"
 
 var (
 	file_agent_v1_review_proto_rawDescOnce sync.Once
@@ -2771,72 +2754,71 @@ func file_agent_v1_review_proto_rawDescGZIP() []byte {
 	return file_agent_v1_review_proto_rawDescData
 }
 
-var file_agent_v1_review_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
+var file_agent_v1_review_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
 var file_agent_v1_review_proto_msgTypes = make([]protoimpl.MessageInfo, 33)
 var file_agent_v1_review_proto_goTypes = []any{
 	(ReviewAuthorKind)(0),                   // 0: agent.v1.ReviewAuthorKind
 	(ReviewDeliveryState)(0),                // 1: agent.v1.ReviewDeliveryState
 	(ReviewVerdict)(0),                      // 2: agent.v1.ReviewVerdict
-	(ReviewTreeStanding)(0),                 // 3: agent.v1.ReviewTreeStanding
-	(*ReviewRound)(nil),                     // 4: agent.v1.ReviewRound
-	(*Review)(nil),                          // 5: agent.v1.Review
-	(*WatchedReview)(nil),                   // 6: agent.v1.WatchedReview
-	(*ReviewThread)(nil),                    // 7: agent.v1.ReviewThread
-	(*ReviewMessage)(nil),                   // 8: agent.v1.ReviewMessage
-	(*ListReviewThreadsRequest)(nil),        // 9: agent.v1.ListReviewThreadsRequest
-	(*ListReviewThreadsResponse)(nil),       // 10: agent.v1.ListReviewThreadsResponse
-	(*CreateReviewThreadRequest)(nil),       // 11: agent.v1.CreateReviewThreadRequest
-	(*CreateReviewThreadResponse)(nil),      // 12: agent.v1.CreateReviewThreadResponse
-	(*AddReviewMessageRequest)(nil),         // 13: agent.v1.AddReviewMessageRequest
-	(*AddReviewMessageResponse)(nil),        // 14: agent.v1.AddReviewMessageResponse
-	(*EditReviewMessageRequest)(nil),        // 15: agent.v1.EditReviewMessageRequest
-	(*EditReviewMessageResponse)(nil),       // 16: agent.v1.EditReviewMessageResponse
-	(*MarkReviewThreadReadRequest)(nil),     // 17: agent.v1.MarkReviewThreadReadRequest
-	(*MarkReviewThreadReadResponse)(nil),    // 18: agent.v1.MarkReviewThreadReadResponse
-	(*SetReviewThreadResolvedRequest)(nil),  // 19: agent.v1.SetReviewThreadResolvedRequest
-	(*SetReviewThreadResolvedResponse)(nil), // 20: agent.v1.SetReviewThreadResolvedResponse
-	(*OpenReviewRoundRequest)(nil),          // 21: agent.v1.OpenReviewRoundRequest
-	(*OpenReviewRoundResponse)(nil),         // 22: agent.v1.OpenReviewRoundResponse
-	(*ListReviewRoundsRequest)(nil),         // 23: agent.v1.ListReviewRoundsRequest
-	(*ListReviewRoundsResponse)(nil),        // 24: agent.v1.ListReviewRoundsResponse
-	(*ReviewThreadInContext)(nil),           // 25: agent.v1.ReviewThreadInContext
-	(*GetReviewRequest)(nil),                // 26: agent.v1.GetReviewRequest
-	(*GetReviewResponse)(nil),               // 27: agent.v1.GetReviewResponse
-	(*ListReviewsRequest)(nil),              // 28: agent.v1.ListReviewsRequest
-	(*ListReviewsResponse)(nil),             // 29: agent.v1.ListReviewsResponse
-	(*ReleaseReviewRequest)(nil),            // 30: agent.v1.ReleaseReviewRequest
-	(*ReleaseReviewResponse)(nil),           // 31: agent.v1.ReleaseReviewResponse
-	(*ReviewViewedFile)(nil),                // 32: agent.v1.ReviewViewedFile
-	(*SetReviewFileViewedRequest)(nil),      // 33: agent.v1.SetReviewFileViewedRequest
-	(*SetReviewFileViewedResponse)(nil),     // 34: agent.v1.SetReviewFileViewedResponse
-	(*ListReviewViewedFilesRequest)(nil),    // 35: agent.v1.ListReviewViewedFilesRequest
-	(*ListReviewViewedFilesResponse)(nil),   // 36: agent.v1.ListReviewViewedFilesResponse
+	(*ReviewRound)(nil),                     // 3: agent.v1.ReviewRound
+	(*Review)(nil),                          // 4: agent.v1.Review
+	(*WatchedReview)(nil),                   // 5: agent.v1.WatchedReview
+	(*ReviewThread)(nil),                    // 6: agent.v1.ReviewThread
+	(*ReviewMessage)(nil),                   // 7: agent.v1.ReviewMessage
+	(*ListReviewThreadsRequest)(nil),        // 8: agent.v1.ListReviewThreadsRequest
+	(*ListReviewThreadsResponse)(nil),       // 9: agent.v1.ListReviewThreadsResponse
+	(*CreateReviewThreadRequest)(nil),       // 10: agent.v1.CreateReviewThreadRequest
+	(*CreateReviewThreadResponse)(nil),      // 11: agent.v1.CreateReviewThreadResponse
+	(*AddReviewMessageRequest)(nil),         // 12: agent.v1.AddReviewMessageRequest
+	(*AddReviewMessageResponse)(nil),        // 13: agent.v1.AddReviewMessageResponse
+	(*EditReviewMessageRequest)(nil),        // 14: agent.v1.EditReviewMessageRequest
+	(*EditReviewMessageResponse)(nil),       // 15: agent.v1.EditReviewMessageResponse
+	(*MarkReviewThreadReadRequest)(nil),     // 16: agent.v1.MarkReviewThreadReadRequest
+	(*MarkReviewThreadReadResponse)(nil),    // 17: agent.v1.MarkReviewThreadReadResponse
+	(*SetReviewThreadResolvedRequest)(nil),  // 18: agent.v1.SetReviewThreadResolvedRequest
+	(*SetReviewThreadResolvedResponse)(nil), // 19: agent.v1.SetReviewThreadResolvedResponse
+	(*OpenReviewRoundRequest)(nil),          // 20: agent.v1.OpenReviewRoundRequest
+	(*OpenReviewRoundResponse)(nil),         // 21: agent.v1.OpenReviewRoundResponse
+	(*ListReviewRoundsRequest)(nil),         // 22: agent.v1.ListReviewRoundsRequest
+	(*ListReviewRoundsResponse)(nil),        // 23: agent.v1.ListReviewRoundsResponse
+	(*ReviewThreadInContext)(nil),           // 24: agent.v1.ReviewThreadInContext
+	(*GetReviewRequest)(nil),                // 25: agent.v1.GetReviewRequest
+	(*GetReviewResponse)(nil),               // 26: agent.v1.GetReviewResponse
+	(*ListReviewsRequest)(nil),              // 27: agent.v1.ListReviewsRequest
+	(*ListReviewsResponse)(nil),             // 28: agent.v1.ListReviewsResponse
+	(*ReleaseReviewRequest)(nil),            // 29: agent.v1.ReleaseReviewRequest
+	(*ReleaseReviewResponse)(nil),           // 30: agent.v1.ReleaseReviewResponse
+	(*ReviewViewedFile)(nil),                // 31: agent.v1.ReviewViewedFile
+	(*SetReviewFileViewedRequest)(nil),      // 32: agent.v1.SetReviewFileViewedRequest
+	(*SetReviewFileViewedResponse)(nil),     // 33: agent.v1.SetReviewFileViewedResponse
+	(*ListReviewViewedFilesRequest)(nil),    // 34: agent.v1.ListReviewViewedFilesRequest
+	(*ListReviewViewedFilesResponse)(nil),   // 35: agent.v1.ListReviewViewedFilesResponse
 }
 var file_agent_v1_review_proto_depIdxs = []int32{
 	0,  // 0: agent.v1.Review.author_kind:type_name -> agent.v1.ReviewAuthorKind
 	2,  // 1: agent.v1.Review.verdict:type_name -> agent.v1.ReviewVerdict
 	0,  // 2: agent.v1.WatchedReview.author_kind:type_name -> agent.v1.ReviewAuthorKind
 	2,  // 3: agent.v1.WatchedReview.verdict:type_name -> agent.v1.ReviewVerdict
-	8,  // 4: agent.v1.ReviewThread.messages:type_name -> agent.v1.ReviewMessage
+	7,  // 4: agent.v1.ReviewThread.messages:type_name -> agent.v1.ReviewMessage
 	0,  // 5: agent.v1.ReviewMessage.author_kind:type_name -> agent.v1.ReviewAuthorKind
 	1,  // 6: agent.v1.ReviewMessage.delivery:type_name -> agent.v1.ReviewDeliveryState
-	7,  // 7: agent.v1.ListReviewThreadsResponse.threads:type_name -> agent.v1.ReviewThread
-	7,  // 8: agent.v1.CreateReviewThreadResponse.thread:type_name -> agent.v1.ReviewThread
-	8,  // 9: agent.v1.AddReviewMessageResponse.message:type_name -> agent.v1.ReviewMessage
-	8,  // 10: agent.v1.EditReviewMessageResponse.message:type_name -> agent.v1.ReviewMessage
-	7,  // 11: agent.v1.MarkReviewThreadReadResponse.thread:type_name -> agent.v1.ReviewThread
-	7,  // 12: agent.v1.SetReviewThreadResolvedResponse.thread:type_name -> agent.v1.ReviewThread
-	4,  // 13: agent.v1.OpenReviewRoundResponse.round:type_name -> agent.v1.ReviewRound
-	4,  // 14: agent.v1.ListReviewRoundsResponse.rounds:type_name -> agent.v1.ReviewRound
-	7,  // 15: agent.v1.ReviewThreadInContext.thread:type_name -> agent.v1.ReviewThread
-	5,  // 16: agent.v1.GetReviewResponse.review:type_name -> agent.v1.Review
-	4,  // 17: agent.v1.GetReviewResponse.round:type_name -> agent.v1.ReviewRound
-	25, // 18: agent.v1.GetReviewResponse.threads:type_name -> agent.v1.ReviewThreadInContext
-	5,  // 19: agent.v1.ListReviewsResponse.reviews:type_name -> agent.v1.Review
+	6,  // 7: agent.v1.ListReviewThreadsResponse.threads:type_name -> agent.v1.ReviewThread
+	6,  // 8: agent.v1.CreateReviewThreadResponse.thread:type_name -> agent.v1.ReviewThread
+	7,  // 9: agent.v1.AddReviewMessageResponse.message:type_name -> agent.v1.ReviewMessage
+	7,  // 10: agent.v1.EditReviewMessageResponse.message:type_name -> agent.v1.ReviewMessage
+	6,  // 11: agent.v1.MarkReviewThreadReadResponse.thread:type_name -> agent.v1.ReviewThread
+	6,  // 12: agent.v1.SetReviewThreadResolvedResponse.thread:type_name -> agent.v1.ReviewThread
+	3,  // 13: agent.v1.OpenReviewRoundResponse.round:type_name -> agent.v1.ReviewRound
+	3,  // 14: agent.v1.ListReviewRoundsResponse.rounds:type_name -> agent.v1.ReviewRound
+	6,  // 15: agent.v1.ReviewThreadInContext.thread:type_name -> agent.v1.ReviewThread
+	4,  // 16: agent.v1.GetReviewResponse.review:type_name -> agent.v1.Review
+	3,  // 17: agent.v1.GetReviewResponse.round:type_name -> agent.v1.ReviewRound
+	24, // 18: agent.v1.GetReviewResponse.threads:type_name -> agent.v1.ReviewThreadInContext
+	4,  // 19: agent.v1.ListReviewsResponse.reviews:type_name -> agent.v1.Review
 	2,  // 20: agent.v1.ReleaseReviewRequest.verdict:type_name -> agent.v1.ReviewVerdict
-	5,  // 21: agent.v1.ReleaseReviewResponse.review:type_name -> agent.v1.Review
-	32, // 22: agent.v1.SetReviewFileViewedResponse.viewed:type_name -> agent.v1.ReviewViewedFile
-	32, // 23: agent.v1.ListReviewViewedFilesResponse.viewed:type_name -> agent.v1.ReviewViewedFile
+	4,  // 21: agent.v1.ReleaseReviewResponse.review:type_name -> agent.v1.Review
+	31, // 22: agent.v1.SetReviewFileViewedResponse.viewed:type_name -> agent.v1.ReviewViewedFile
+	31, // 23: agent.v1.ListReviewViewedFilesResponse.viewed:type_name -> agent.v1.ReviewViewedFile
 	24, // [24:24] is the sub-list for method output_type
 	24, // [24:24] is the sub-list for method input_type
 	24, // [24:24] is the sub-list for extension type_name
@@ -2858,7 +2840,7 @@ func file_agent_v1_review_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_agent_v1_review_proto_rawDesc), len(file_agent_v1_review_proto_rawDesc)),
-			NumEnums:      4,
+			NumEnums:      3,
 			NumMessages:   33,
 			NumExtensions: 0,
 			NumServices:   0,

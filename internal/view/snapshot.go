@@ -45,24 +45,6 @@ const (
 	RepoEnd
 )
 
-// Review is where the tree on disk stands with the local review of an agent's work.
-type Review int
-
-const (
-	ReviewNone Review = iota
-	ReviewApproved
-	ReviewApprovedMoved
-	ReviewChangesRequested
-	ReviewChangesPushed
-	ReviewApprovedLanded
-	ReviewApprovedLandedMoved
-	ReviewChangesLanded
-	ReviewChangesLandedMoved
-	// ReviewEnd is one past the last state, so a caller walking them all gets a bound that moves
-	// when a state is added.
-	ReviewEnd
-)
-
 // Forge is where the pull request opened from an agent's branch stands.
 type Forge int
 
@@ -115,13 +97,36 @@ type Snapshot struct {
 	Columns Columns
 }
 
-// columns is the gutter the snapshot draws, the agents list's own where none was named.
+// columns is the gutter the snapshot draws, the agents list's own where none was named, which
+// makes room for comment counts only while some row has any.
 func (s Snapshot) columns() Columns {
-	if s.Columns == nil {
+	if s.Columns != nil {
+		return s.Columns
+	}
+
+	reviewer, person, commented := 0, 0, false
+	for _, row := range s.Rows {
+		if row.ReviewerComments == nil && row.PersonComments == nil {
+			continue
+		}
+
+		commented = true
+		reviewer = max(reviewer, countPairColumns(row.ReviewerComments))
+		person = max(person, countPairColumns(row.PersonComments))
+	}
+
+	if !commented {
 		return WorkColumns()
 	}
 
-	return s.Columns
+	return CommentedWorkColumns(reviewer, person)
+}
+
+// Comments is how one side's comments on an agent's work stand.
+type Comments struct {
+	Open     int
+	Resolved int
+	Unread   bool
 }
 
 // Row is one line of the agents list as the panel found it.
@@ -140,8 +145,11 @@ type Row struct {
 	// nothing did and the weight greys once it has gone.
 	Process Process
 	Repo    Repo
-	Review  Review
 	Forge   Forge
+	// ReviewerComments counts the comments reviewer agents left, nil while there are none to show.
+	ReviewerComments *Comments
+	// PersonComments counts the comments the person left, nil while there are none to show.
+	PersonComments *Comments
 	// Cells fill the list's text columns, indexed by column position, and are ignored under a
 	// glyph column and past the last column.
 	Cells []Cell

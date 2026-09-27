@@ -4,7 +4,6 @@ package panel
 import (
 	"time"
 
-	"komrad/internal/git"
 	"komrad/lib/xslice"
 	agentv1 "komrad/proto/gen/agent/v1"
 )
@@ -92,13 +91,14 @@ type AgentRow struct {
 	Documents int32
 	// DocumentsUpdatedAt is when the newest of them was last written, nil when there are none.
 	DocumentsUpdatedAt *time.Time
-	// LocalVerdict is what the last released local review concluded about this agent's work,
-	// UNSPECIFIED when none has concluded anything.
-	LocalVerdict agentv1.ReviewVerdict
-	// LocalTree is where the worktree stands against the round that verdict was given on.
-	LocalTree git.Standing
 	// MovedSinceRound is the newest round's snapshot while the worktree no longer hashes to it.
 	MovedSinceRound string
+	// ReviewerComments counts the comments reviewer agents left on its work, nil while there
+	// are none to show.
+	ReviewerComments *agentv1.CommentCounts
+	// PersonComments counts the comments the person left on its work, nil while there are none
+	// to show.
+	PersonComments *agentv1.CommentCounts
 	// PullRequest is where the pull request opened from its branch stands.
 	PullRequest PullRequestStanding
 	// PullRequests is every pull request opened from its branch, the current one first.

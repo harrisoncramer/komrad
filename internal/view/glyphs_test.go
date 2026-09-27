@@ -51,10 +51,6 @@ func TestGlyphsSpellTheirOcticons(t *testing.T) {
 		glyph Glyph
 		want  string
 	}{
-		{GlyphUnverified, "f4a3"},
-		{GlyphCheckbox, "f4a7"},
-		{GlyphBell, "f49a"},
-		{GlyphHourglass, "f4e3"},
 		{GlyphApproved, "f42e"},
 		{GlyphForge, "f407"},
 		{GlyphMerged, "f419"},

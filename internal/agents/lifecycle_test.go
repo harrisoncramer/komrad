@@ -473,7 +473,12 @@ func TestArchiveKillsAPaneWrittenBeforeItsOwnWrite(t *testing.T) {
 	ctx := t.Context()
 
 	agent := seed(t, st, "dormant", "", agentstore.StateIdle)
-	tmux.AfterGetPanes = buildResumeWrite(t, buildResumeWriteParams{Store: st, Tmux: tmux, Agent: agent, Pane: "%9"})
+	tmux.AfterGetPanes = buildResumeWrite(t, buildResumeWriteParams{
+		Store: st,
+		Tmux:  tmux,
+		Agent: agent,
+		Pane:  "%9",
+	})
 
 	manager := newManager(tmux, st, "")
 
@@ -499,7 +504,12 @@ func TestDeleteKillsAPaneWrittenBeforeItsOwnWrite(t *testing.T) {
 		tmux:      tmux,
 		harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}},
 		addr:      "127.0.0.1:9999",
-		tx:        txWritingPaneFirst{txRunner: st.Pool, inTheGap: buildResumeWrite(t, buildResumeWriteParams{Store: st, Tmux: tmux, Agent: agent, Pane: "%9"})},
+		tx: txWritingPaneFirst{txRunner: st.Pool, inTheGap: buildResumeWrite(t, buildResumeWriteParams{
+			Store: st,
+			Tmux:  tmux,
+			Agent: agent,
+			Pane:  "%9",
+		})},
 	})
 
 	require.NoError(t, manager.lifecycle.DeleteAgents(ctx, []string{agent.ID}))
@@ -754,6 +764,65 @@ func TestDeletingAnAgentLeavesAnotherAgentsRoundHeld(t *testing.T) {
 
 	assert.Equal(t, []string{reviewstore.RoundRef(going, "same-sha")}, manager.snapshots.Released,
 		"only the going agent's round is let go of, since the other's ref names the other agent")
+}
+
+// TestDeletingAnAgentReleasesItsRoundsFromACheckoutThatStands pins that a removed worktree hands
+// the release to its workflow's checkout, which shares the refs.
+func TestDeletingAnAgentReleasesItsRoundsFromACheckoutThatStands(t *testing.T) {
+	tests := []struct {
+		name            string
+		worktreeRemoved bool
+		wantWorkflowDir bool
+	}{
+		{
+			name:            "a worktree already removed",
+			worktreeRemoved: true,
+			wantWorkflowDir: true,
+		},
+		{
+			name:            "a worktree that stands",
+			worktreeRemoved: false,
+			wantWorkflowDir: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmux := tmuxtest.NewFake()
+			st := newStore(t)
+			manager := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: &harnesstest.Fake{}}, &fakeLifecycle{})
+			reviews := reviewstore.NewReviewStore(st.Pool.GetDB())
+
+			flow, err := st.Workflows.Create(t.Context(), worktreeConfig(t, "workflow-"+uuid.NewString()))
+			require.NoError(t, err)
+
+			agentDir := t.TempDir()
+			require.NoError(t, st.createAgent(t.Context(), agentstore.Agent{
+				Name:       "going",
+				Cwd:        agentDir,
+				State:      agentstore.StateIdle,
+				WorkflowID: flow.ID,
+			}))
+			going, err := st.Get(t.Context(), "going")
+			require.NoError(t, err)
+
+			_, err = reviews.CreateRound(t.Context(), reviewstore.CreateRoundParams{
+				AgentID:     going.ID,
+				BaseSHA:     "base",
+				SnapshotSHA: "sha",
+			})
+			require.NoError(t, err)
+			require.NoError(t, st.Agents.SetCheckout(t.Context(), going.ID, agentstore.SetCheckoutParams{WorktreeRemoved: tt.worktreeRemoved}))
+
+			require.NoError(t, manager.lifecycle.DeleteAgents(t.Context(), []string{going.ID}))
+
+			want := agentDir
+			if tt.wantWorkflowDir {
+				want = flow.Cwd
+			}
+			assert.Equal(t, []string{want}, manager.snapshots.ReleasedFrom)
+		})
+	}
 }
 
 // TestDeletingAnAgentTakesItsDraftsAndKeepsItsReviews pins the two halves apart: a batch nobody

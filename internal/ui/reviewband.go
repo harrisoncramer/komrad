@@ -36,14 +36,14 @@ func (r reviewScreen) bandView(s panelShared, width int) string {
 func (r reviewScreen) bandRows(s panelShared) []string {
 	rows := []string{
 		paint.Panel.Title("Review · "+r.agentName) + "\n",
-		r.modeView(s),
+		r.statusView(s),
 		r.scopeView(s),
 		r.diff.statView(),
 		r.staleView(s),
 		r.threads.deliveryCountView(),
 	}
 
-	// The title and the mode line are what the screen is, so they are never dropped however
+	// The title and the status line are what the screen is, so they are never dropped however
 	// short the pane.
 	const pinned = 2
 
@@ -73,7 +73,7 @@ func (r reviewScreen) deadView(s panelShared, width int) string {
 func (r reviewScreen) staleView(s panelShared) string {
 	// The editor holds the stage rather than the diff, and the move it reports is usually the
 	// reader's own writing, so there is nothing here worth a row.
-	if !r.isWorktreeMoved(s) || r.diff.pinned || r.pass.atEditor {
+	if !r.isWorktreeMoved(s) || r.diff.pinned || r.hold.atEditor {
 		return "\n"
 	}
 

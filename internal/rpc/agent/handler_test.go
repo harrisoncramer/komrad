@@ -17,7 +17,6 @@ import (
 	"komrad/internal/agents"
 	"komrad/internal/caller"
 	"komrad/internal/checkouts"
-	"komrad/internal/git"
 	"komrad/internal/interceptors"
 	"komrad/internal/logging"
 	"komrad/internal/logtest"
@@ -1010,17 +1009,15 @@ func TestGetAgent(t *testing.T) {
 		rows: []rowstore.Row{
 			{
 				Agent: agentstore.Agent{
-					ID:              alphaID,
-					Name:            "alpha",
-					Cwd:             "/repo",
-					Prompt:          prompt,
-					State:           agentstore.StateThinking,
-					CreatedAt:       created,
-					WorkflowID:      "wf-1",
-					RepositoryURL:   xptr.Ptr(komradRepository),
-					Branch:          xptr.Ptr("agent/x"),
-					TreeStanding:    git.StandingLanded,
-					TreeStandingSHA: "round-1-sha",
+					ID:            alphaID,
+					Name:          "alpha",
+					Cwd:           "/repo",
+					Prompt:        prompt,
+					State:         agentstore.StateThinking,
+					CreatedAt:     created,
+					WorkflowID:    "wf-1",
+					RepositoryURL: xptr.Ptr(komradRepository),
+					Branch:        xptr.Ptr("agent/x"),
 				},
 				FailedRun:    true,
 				FailedRunLog: xptr.Ptr(int32(4)),
@@ -1060,7 +1057,6 @@ func TestGetAgent(t *testing.T) {
 					RoundID:          "round-1",
 					RoundOrdinal:     1,
 					RoundSnapshotSHA: "round-1-sha",
-					Verdict:          xptr.Ptr(reviewstore.VerdictApproved),
 					ReleasedAt:       xptr.Ptr(created),
 				},
 			},
@@ -1077,8 +1073,8 @@ func TestGetAgent(t *testing.T) {
 	assert.Equal(t, int32(740), got.Msg.GetPullRequests()[0].GetNumber(), "with every pull request on its branch")
 	assert.Equal(t, int32(740), got.Msg.GetPullRequest().GetNumber(), "and the current one's standing")
 	assert.Equal(t, int32(1), got.Msg.GetLocalReviewRounds())
-	assert.Equal(t, agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED, got.Msg.GetLocalReviewVerdict())
-	assert.Equal(t, agentv1.ReviewTreeStanding_REVIEW_TREE_STANDING_LANDED, got.Msg.GetLocalReviewTree())
+	require.NotNil(t, got.Msg.GetPersonComments(), "a released review of unlanded work is counted")
+	assert.Nil(t, got.Msg.GetReviewerComments())
 
 	agent := got.Msg.GetAgent()
 	assert.Equal(t, "/repo", agent.GetCwd())

@@ -16,6 +16,7 @@ import (
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 )
 
 // TestIntegrationReviews walks one review loop, from the worker asking for a reviewer through the release and its doorbell to the answer that rings the reviewer back.
@@ -137,7 +138,6 @@ func TestIntegrationReviews(t *testing.T) {
 			rows[row.GetAgent().GetId()] = row
 		}
 		assert.Equal(t, int32(1), rows[worker.GetId()].GetLocalReviewRounds())
-		assert.Equal(t, agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED, rows[worker.GetId()].GetLocalReviewVerdict())
 		assert.Zero(t, rows[reviewer.GetId()].GetLocalReviewRounds(), "the reviewer holds no work of its own")
 	})
 
@@ -165,6 +165,29 @@ func TestIntegrationReviews(t *testing.T) {
 			AgentID:  worker.GetId(),
 			ReaderID: reviewer.GetId(),
 		}))
+	})
+
+	t.Run("the worker's addressed answer carries the round that made the change and leaves the reviewer to settle it", func(t *testing.T) {
+		writeIn(t, worker.GetCwd(), "greet.go", "package greet\n\nfunc Hello(name string) {}\n")
+
+		req := connect.NewRequest(&agentv1.AddReviewMessageRequest{
+			ThreadId:  threadID,
+			Body:      "takes the name now",
+			Addressed: true,
+		})
+		callAs(req, worker.GetId())
+
+		added, err := instance.Agents.AddReviewMessage(ctx, req)
+		require.NoError(t, err)
+		assert.NotEmpty(t, added.Msg.GetMessage().GetRoundId())
+
+		listed := connect.NewRequest(&agentv1.ListReviewThreadsRequest{AgentId: proto.String(worker.GetId())})
+		callAs(listed, worker.GetId())
+
+		threads, err := instance.Agents.ListReviewThreads(ctx, listed)
+		require.NoError(t, err)
+		require.Len(t, threads.Msg.GetThreads(), 1)
+		assert.Empty(t, threads.Msg.GetThreads()[0].GetResolvedAt())
 	})
 }
 

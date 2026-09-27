@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -11,6 +12,7 @@ import (
 	"komrad/internal/agents"
 	"komrad/internal/fail"
 	"komrad/internal/git"
+	"komrad/internal/logging"
 	"komrad/internal/mail"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
@@ -38,9 +40,12 @@ var ErrReviewAlreadyGiven = fail.Precondition("that round has already been revie
 // unsent comments on another.
 var ErrReviewInFlight = fail.Precondition("you have unsent comments on an earlier snapshot")
 
-// ErrReviewNotAnswered is a second review started while the last one still has comments nobody
-// has settled.
-var ErrReviewNotAnswered = fail.Precondition("your last review is still owed an answer")
+// ErrReviewVerdictFromPerson is answered when a person sends a verdict.
+var ErrReviewVerdictFromPerson = fail.InvalidArgument("a person's review carries comments and no verdict")
+
+// ErrReviewVerdictMissing is answered when a reviewing agent releases a review without saying
+// what it concluded.
+var ErrReviewVerdictMissing = fail.InvalidArgument("a review from an agent needs a verdict")
 
 // ErrReviewNotCurrent is answered when a comment's line numbers were read from a snapshot no
 // round of that agent was taken of.
@@ -63,8 +68,7 @@ type reviewRoundReadWriter interface {
 type reviewBatchReadWriter interface {
 	OpenReview(ctx context.Context, params reviewstore.OpenReviewParams) (*reviewstore.Review, error)
 	GetReview(ctx context.Context, id string) (*reviewstore.Review, error)
-	OpenReviewOf(ctx context.Context, params reviewstore.AuthorParams) (*reviewstore.Review, error)
-	GetLastReleasedReview(ctx context.Context, params reviewstore.AuthorParams) (*reviewstore.Review, error)
+	OpenReviewOf(ctx context.Context, params reviewstore.OpenReviewOfParams) (*reviewstore.Review, error)
 	ListReviews(ctx context.Context, agentID string) ([]reviewstore.Review, error)
 	CountOpenComments(ctx context.Context, reviewID string) (int, error)
 	ReleaseReview(ctx context.Context, params reviewstore.ReleaseReviewParams) (*reviewstore.Review, error)
@@ -98,6 +102,9 @@ func (s *ReviewService) OpenRound(ctx context.Context, agentID string, author Re
 		return nil, fmt.Errorf("%w: %q has no directory to take a round of", ErrReviewNoRound, agent.Name)
 	}
 
+	unlock := s.roundLocks.lock(agentID)
+	defer unlock()
+
 	base := ""
 	if flow, err := s.workflows.Get(ctx, agent.WorkflowID); err == nil {
 		base = flow.Worktree.BaseBranch
@@ -118,15 +125,47 @@ func (s *ReviewService) OpenRound(ctx context.Context, agentID string, author Re
 		return latest, nil
 	}
 
-	if err := s.snapshots.HoldRef(ctx, agent.Cwd, reviewstore.RoundRef(agentID, snapshot.SHA), snapshot.SHA); err != nil {
+	ref := reviewstore.RoundRef(agentID, snapshot.SHA)
+	if err := s.snapshots.HoldRef(ctx, agent.Cwd, ref, snapshot.SHA); err != nil {
 		return nil, err
 	}
 
-	return s.rounds.CreateRound(ctx, reviewstore.CreateRoundParams{
+	round, err := s.rounds.CreateRound(ctx, reviewstore.CreateRoundParams{
 		AgentID:     agentID,
 		BaseSHA:     snapshot.BaseSHA,
 		SnapshotSHA: snapshot.SHA,
 	})
+	if err != nil {
+		s.releaseUnheldRef(ctx, releaseUnheldRefParams{
+			Agent:       agent,
+			Ref:         ref,
+			SnapshotSHA: snapshot.SHA,
+		})
+
+		return nil, err
+	}
+
+	return round, nil
+}
+
+type releaseUnheldRefParams struct {
+	Agent       *agentstore.Agent
+	Ref         string
+	SnapshotSHA string
+}
+
+// releaseUnheldRef drops a ref taken for a round that was never written, unless an earlier round
+// of the same tree already stands on it.
+func (s *ReviewService) releaseUnheldRef(ctx context.Context, params releaseUnheldRefParams) {
+	_, err := s.rounds.GetRoundBySnapshot(ctx, params.Agent.ID, params.SnapshotSHA)
+	if !errors.Is(err, store.ErrNotFound) {
+		return
+	}
+
+	if err := s.snapshots.ReleaseRef(ctx, params.Agent.Cwd, params.Ref); err != nil {
+		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to release the ref of a round that was never written",
+			append([]slog.Attr{slog.String(logging.AgentID, params.Agent.ID)}, logging.Err(err)...)...)
+	}
 }
 
 // GetLatestRound is the newest round of an agent, ErrReviewNoRound when none has been taken.
@@ -212,8 +251,6 @@ type openReviewForParams struct {
 	// Round is the round the author read their line numbers from, nil for a caller with nothing
 	// to say about which round that was.
 	Round *reviewstore.Round
-	// Reply says the words are going into a thread that already exists.
-	Reply bool
 }
 
 // roundFor is the round a comment's line numbers were read from: the one the caller names, the
@@ -236,7 +273,7 @@ func (s *ReviewService) roundFor(
 		return round, err
 	}
 
-	open, err := s.reviews.OpenReviewOf(ctx, reviewstore.AuthorParams{
+	open, err := s.reviews.OpenReviewOf(ctx, reviewstore.OpenReviewOfParams{
 		AgentID:       params.AgentID,
 		AuthorKind:    params.Author.Kind,
 		AuthorAgentID: params.Author.AgentID,
@@ -261,7 +298,7 @@ func (s *ReviewService) openReviewFor(
 		return nil, err
 	}
 
-	author := reviewstore.AuthorParams{
+	author := reviewstore.OpenReviewOfParams{
 		AgentID:       params.AgentID,
 		AuthorKind:    params.Author.Kind,
 		AuthorAgentID: params.Author.AgentID,
@@ -287,14 +324,6 @@ func (s *ReviewService) openReviewFor(
 		return nil, err
 	}
 
-	// Answering in a thread is not a second review, so the wait for the agent to act is not
-	// something to hold a reply behind.
-	if !params.Reply {
-		if err := s.requirePreviousReviewAnswered(ctx, params.AgentID, author); err != nil {
-			return nil, err
-		}
-	}
-
 	return s.reviews.OpenReview(ctx, reviewstore.OpenReviewParams{
 		AgentID:       params.AgentID,
 		RoundID:       round.ID,
@@ -303,46 +332,11 @@ func (s *ReviewService) openReviewFor(
 	})
 }
 
-// requirePreviousReviewAnswered holds a reviewer to one review at a time, refusing a second
-// until the agent has answered the last.
-func (s *ReviewService) requirePreviousReviewAnswered(
-	ctx context.Context,
-	agentID string,
-	params reviewstore.AuthorParams,
-) error {
-	// An agent reviewing is held to one review per round elsewhere, in its own words, so this is
-	// the person's rule alone.
-	if params.AuthorKind != reviewstore.AuthorHuman {
-		return nil
-	}
-
-	last, err := s.reviews.GetLastReleasedReview(ctx, params)
-	if errors.Is(err, store.ErrNotFound) {
-		return nil
-	}
-	if err != nil {
-		return err
-	}
-	if last.IsSettled() {
-		return nil
-	}
-
-	// An agent nobody can reach will never answer, so a reader is left able to write notes on it
-	// rather than locked out by a wait that cannot end.
-	agent, err := s.getLiveAgent(ctx, agentID)
-	if err != nil || agent == nil {
-		return nil
-	}
-
-	return ErrReviewNotAnswered.Saying(
-		"your last review has %d comment(s) nobody has settled", last.OpenThreads)
-}
-
 // requireNotReviewedAlready holds a reviewing agent to one review per round, so a reviewer and
 // its parent can only go round again once the parent has done more work.
 func (s *ReviewService) requireNotReviewedAlready(
 	ctx context.Context,
-	params reviewstore.AuthorParams,
+	params reviewstore.OpenReviewOfParams,
 	round reviewstore.Round,
 ) error {
 	if params.AuthorKind != reviewstore.AuthorAgent {
@@ -416,6 +410,7 @@ func (s *ReviewService) requireMayRead(
 // ReleaseReviewParams says whose review to let go of and what it concluded.
 type ReleaseReviewParams struct {
 	AgentID string
+	// Verdict is what a reviewing agent concluded, empty from a person, who sends comments alone.
 	Verdict reviewstore.Verdict
 	// Body is what the reviewer says about the change as a whole rather than about any one line,
 	// empty when they said nothing.
@@ -450,16 +445,19 @@ func (s *ReviewService) ReleaseReview(
 		return nil, err
 	}
 
-	// A verdict is worth sending on its own, so approving a round nobody wrote a word about opens
-	// the batch it goes out under rather than refusing, which leaves notes with no conclusion as
-	// the one case where an empty review says nothing at all.
-	open, err := s.reviews.OpenReviewOf(ctx, reviewstore.AuthorParams{
+	verdict, err := resolveVerdict(params)
+	if err != nil {
+		return nil, err
+	}
+
+	// A release opens a batch unless it is an agent's comment-only review with nothing in it.
+	open, err := s.reviews.OpenReviewOf(ctx, reviewstore.OpenReviewOfParams{
 		AgentID:       params.AgentID,
 		AuthorKind:    params.Author.Kind,
 		AuthorAgentID: params.Author.AgentID,
 	})
 	if errors.Is(err, store.ErrNotFound) {
-		if params.Verdict == reviewstore.VerdictCommented {
+		if isSayingNothing(params.Author, verdict) {
 			return nil, fmt.Errorf("%w: %q", ErrReviewEmpty, params.AgentID)
 		}
 
@@ -473,9 +471,20 @@ func (s *ReviewService) ReleaseReview(
 	if err != nil {
 		return nil, err
 	}
-	// Notes with no conclusion have to say something, whether pinned to a line or about the work
-	// as a whole.
-	if comments == 0 && strings.TrimSpace(params.Body) == "" && params.Verdict == reviewstore.VerdictCommented {
+
+	threads, err := s.listBatchThreads(ctx, open.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	tally := tallyBatch(tallyBatchParams{
+		ReviewID: open.ID,
+		Author:   params.Author,
+		Threads:  threads,
+	})
+	// An agent's notes with no conclusion have to say something, whether pinned to a line, a
+	// reply in an earlier thread, or about the work as a whole.
+	if comments == 0 && tally.Replies == 0 && strings.TrimSpace(params.Body) == "" && isSayingNothing(params.Author, verdict) {
 		return nil, fmt.Errorf("%w: %q", ErrReviewEmpty, params.AgentID)
 	}
 
@@ -484,16 +493,11 @@ func (s *ReviewService) ReleaseReview(
 		return nil, err
 	}
 
-	threads, err := s.listBatchThreads(ctx, open.ID)
-	if err != nil {
-		return nil, err
-	}
-
 	path, err := s.writeReview(ctx, writeReviewParams{
 		Agent:   *agent,
 		Round:   *round,
 		Review:  *open,
-		Verdict: params.Verdict,
+		Verdict: verdict,
 		Body:    params.Body,
 		Threads: s.threadsInContext(ctx, agent.Cwd, *round, threads),
 	})
@@ -509,8 +513,11 @@ func (s *ReviewService) ReleaseReview(
 		ToAgentID: params.AgentID,
 		Body: reviewNotice(reviewNoticeParams{
 			Ordinal:  round.Ordinal,
-			Verdict:  params.Verdict,
-			Comments: comments,
+			Author:   params.Author,
+			Verdict:  verdict,
+			Comments: tally.Comments,
+			Replies:  tally.Replies,
+			Reopens:  tally.Reopens,
 			ReviewID: open.ID,
 			Path:     path,
 		}),
@@ -522,7 +529,7 @@ func (s *ReviewService) ReleaseReview(
 
 	released, err := s.reviews.ReleaseReview(ctx, reviewstore.ReleaseReviewParams{
 		ID:             open.ID,
-		Verdict:        params.Verdict,
+		Verdict:        verdict,
 		Body:           params.Body,
 		Path:           path,
 		DoorbellMailID: &doorbell.ID,
@@ -542,8 +549,11 @@ func (s *ReviewService) ReleaseReview(
 // reviewNoticeParams is what the mail announcing a release has to say.
 type reviewNoticeParams struct {
 	Ordinal  int32
+	Author   ReviewAuthor
 	Verdict  reviewstore.Verdict
 	Comments int
+	Replies  int
+	Reopens  int
 	ReviewID string
 	Path     string
 }
@@ -551,9 +561,80 @@ type reviewNoticeParams struct {
 // reviewNotice is the whole of what the mail carries: the round, the verdict, how much there is
 // and how to read it.
 func reviewNotice(params reviewNoticeParams) string {
-	return fmt.Sprintf("komrad: review of round %d released: %s, %d comment(s). "+
-		"Call get_review with review id %s, or read %s, then answer each thread with add_review_message.",
-		params.Ordinal, strings.ReplaceAll(string(params.Verdict), "_", " "), params.Comments, params.ReviewID, params.Path)
+	said := fmt.Sprintf("%d comment(s)", params.Comments)
+	if params.Replies > 0 {
+		said += fmt.Sprintf(", %d reply(ies) in earlier threads", params.Replies)
+	}
+	if params.Reopens > 0 {
+		said += fmt.Sprintf(", %d of them reopening a comment you had resolved", params.Reopens)
+	}
+
+	if !params.Author.IsHuman() {
+		said = strings.ReplaceAll(string(params.Verdict), "_", " ") + ", " + said
+	}
+
+	return fmt.Sprintf("komrad: review of round %d released: %s. "+
+		"Call get_review with review id %s, or read %s. Make the change each thread asks for, "+
+		"then answer it with add_review_message and addressed set; reply without addressed to push back or ask.",
+		params.Ordinal, said, params.ReviewID, params.Path)
+}
+
+// resolveVerdict is the verdict a release is stored with, refusing one from a person and
+// requiring one from an agent.
+func resolveVerdict(params ReleaseReviewParams) (reviewstore.Verdict, error) {
+	switch {
+	case params.Author.IsHuman() && params.Verdict != "":
+		return "", ErrReviewVerdictFromPerson
+	case params.Author.IsHuman():
+		return reviewstore.VerdictCommented, nil
+	case params.Verdict == "":
+		return "", ErrReviewVerdictMissing
+	}
+
+	return params.Verdict, nil
+}
+
+// isSayingNothing reports whether an empty release would be refused, which is true only of an
+// agent releasing as commented.
+func isSayingNothing(author ReviewAuthor, verdict reviewstore.Verdict) bool {
+	return !author.IsHuman() && verdict == reviewstore.VerdictCommented
+}
+
+// tallyBatchParams is one batch, who wrote it, and the threads it said something in.
+type tallyBatchParams struct {
+	ReviewID string
+	Author   ReviewAuthor
+	Threads  []ReviewThreadWithMessages
+}
+
+// batchTally is what one batch said, split by whether it opened a thread or added to one.
+type batchTally struct {
+	// Comments is the threads the batch opened.
+	Comments int
+	// Replies is the threads opened earlier that the batch said more in.
+	Replies int
+	// Reopens is the replies landing on a resolved thread.
+	Reopens int
+}
+
+// tallyBatch counts the threads a batch opened, the replies it carries into earlier ones, and
+// which of those replies reopen one.
+func tallyBatch(params tallyBatchParams) batchTally {
+	var tally batchTally
+	for _, thread := range params.Threads {
+		if thread.Thread.ReviewID == params.ReviewID {
+			tally.Comments++
+
+			continue
+		}
+
+		tally.Replies++
+		if params.Author.IsHuman() && thread.Thread.ResolvedAt != nil {
+			tally.Reopens++
+		}
+	}
+
+	return tally
 }
 
 // listBatchThreads is what one review actually says, gathered by the messages written under it

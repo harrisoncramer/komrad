@@ -6,7 +6,6 @@ import (
 	"strings"
 	"time"
 
-	"komrad/internal/git"
 	agentv1 "komrad/proto/gen/agent/v1"
 
 	tea "charm.land/bubbletea/v2"
@@ -95,10 +94,11 @@ func (d *reviewDiff) showChapter(at int) bool {
 		at = -1
 	}
 
-	if at == d.chapter {
+	if at == d.chapter && d.answer == nil {
 		return false
 	}
 
+	d.answer = nil
 	d.chapter = at
 	if at < 0 {
 		d.widen()
@@ -177,6 +177,7 @@ func (d *reviewDiff) widen() {
 	d.head = ""
 	d.baseLabel = ""
 	d.chapter = -1
+	d.answer = nil
 }
 
 // doesFitBaseLegend reports whether the base key is worth a legend row.
@@ -271,43 +272,21 @@ func replayChapters(ctx context.Context, params replayChaptersParams) []reviewCh
 			continue
 		}
 
-		chapter.Rewritten = isBaseRewritten(ctx, params, *chapter)
-
-		// A git too old to replay, or a commit gone, leaves the refusal standing.
-		replayed, err := params.Git.Replay(ctx, git.ReplayParams{
-			Dir:         params.Dir,
-			FromBase:    chapter.FromBase,
-			OntoBase:    chapter.ToBase,
-			SnapshotSHA: chapter.FromSHA,
+		compared := compareRounds(ctx, compareRoundsParams{
+			Git:      params.Git,
+			Dir:      params.Dir,
+			FromSHA:  chapter.FromSHA,
+			FromBase: chapter.FromBase,
+			ToBase:   chapter.ToBase,
 		})
-		if err != nil {
-			continue
-		}
-
-		if len(replayed.Conflicts) > 0 {
-			chapter.Conflicts = replayed.Conflicts
-
-			continue
-		}
-
-		chapter.FromSHA = replayed.Tree
-		chapter.Comparable = true
-		chapter.Replayed = true
+		chapter.FromSHA = compared.FromSHA
+		chapter.Comparable = compared.Comparable
+		chapter.Rewritten = compared.Rewritten
+		chapter.Replayed = compared.Replayed
+		chapter.Conflicts = compared.Conflicts
 	}
 
 	return params.Chapters
-}
-
-// isBaseRewritten reports whether a chapter's start sits on a base its end cannot reach, and
-// says no when git cannot answer.
-func isBaseRewritten(ctx context.Context, params replayChaptersParams, chapter reviewChapter) bool {
-	reachable, err := params.Git.IsAncestor(ctx, git.IsAncestorParams{
-		Dir:           params.Dir,
-		MaybeAncestor: chapter.FromBase,
-		Of:            chapter.ToBase,
-	})
-
-	return err == nil && !reachable
 }
 
 // threadsByChapterParams is the whole conversation and which round of it is on screen.

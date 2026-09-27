@@ -90,28 +90,6 @@ WHERE
     AND v.author_agent_id IS NOT DISTINCT FROM sqlc.narg('author_agent_id')
     AND v.released_at IS NULL;
 
--- name: GetLastReleasedReview :one
-SELECT
-    sqlc.embed(v),
-(
-        SELECT
-            COUNT(*)
-        FROM
-            review_threads t
-        WHERE
-            t.review_id = v.id
-            AND t.resolved_at IS NULL)::int AS open_threads
-FROM
-    reviews v
-WHERE
-    v.agent_id = @agent_id
-    AND v.author_kind = @author_kind
-    AND v.author_agent_id IS NOT DISTINCT FROM sqlc.narg('author_agent_id')
-    AND v.released_at IS NOT NULL
-ORDER BY
-    v.released_at DESC
-LIMIT 1;
-
 -- name: ListReviews :many
 SELECT
     sqlc.embed(v),
@@ -148,6 +126,7 @@ SELECT
     v.updated_at,
     r.ordinal AS round_ordinal,
     r.snapshot_sha AS round_snapshot_sha,
+    r.landed_at AS round_landed_at,
     d.claimed_at AS delivered_at
 FROM
     reviews v
@@ -178,18 +157,48 @@ WHERE
     m.review_id = @review_id;
 
 -- name: ReleaseReview :one
-UPDATE
-    reviews v
-SET
-    released_at = NOW(),
-    verdict = @verdict,
-    body = @body,
-    path = @path,
-    doorbell_mail_id = sqlc.narg('doorbell_mail_id')
-WHERE
-    v.id = @id
-RETURNING
-    *;
+WITH released AS (
+    UPDATE
+        reviews v
+    SET
+        released_at = NOW(),
+        verdict = @verdict,
+        body = @body,
+        path = @path,
+        doorbell_mail_id = sqlc.narg('doorbell_mail_id')
+    WHERE
+        v.id = @id
+    RETURNING
+        *
+),
+reopened AS (
+    UPDATE
+        review_threads t
+    SET
+        resolved_at = NULL,
+        resolved_by_kind = NULL,
+        resolved_by_agent_id = NULL
+    FROM
+        released r
+    WHERE
+        r.author_kind = 'human'
+        AND t.resolved_at IS NOT NULL
+        AND EXISTS (
+            SELECT
+                1
+            FROM
+                review_messages m
+            WHERE
+                m.thread_id = t.id
+                AND m.review_id = r.id
+                AND m.created_at > t.resolved_at)
+        RETURNING
+            t.id
+)
+SELECT
+    r.*
+FROM
+    released r;
 
 -- name: DeleteOpenReviewsByAuthor :exec
 DELETE FROM reviews
@@ -358,6 +367,7 @@ WITH written AS (
     INSERT INTO review_messages(
         thread_id,
         review_id,
+        round_id,
         author_kind,
         author_agent_id,
         body,
@@ -365,6 +375,7 @@ WITH written AS (
     VALUES (
         @thread_id,
         sqlc.narg('review_id'),
+        sqlc.narg('round_id'),
         @author_kind,
         sqlc.narg('author_agent_id'),
         @body,
@@ -376,12 +387,18 @@ said AS (
     SELECT
         w.thread_id,
         w.author_kind,
+        w.author_agent_id,
+(w.round_id IS NOT NULL
+            AND v.author_kind = 'human') AS resolves,
 (t.resolved_at IS NOT NULL
             AND w.author_kind = t.resolved_by_kind
-            AND w.author_agent_id IS NOT DISTINCT FROM t.resolved_by_agent_id) AS reopens
+            AND w.author_kind <> 'human'
+            AND w.author_agent_id IS NOT DISTINCT FROM t.resolved_by_agent_id
+            AND w.author_agent_id IS DISTINCT FROM t.agent_id) AS reopens
     FROM
         written w
         JOIN review_threads t ON t.id = w.thread_id
+        JOIN reviews v ON v.id = t.review_id
 ),
 touched AS (
     UPDATE
@@ -392,17 +409,23 @@ touched AS (
         ELSE
             t.last_agent_activity_at
         END,
-        resolved_at = CASE WHEN s.reopens THEN
+        resolved_at = CASE WHEN s.resolves THEN
+            NOW()
+        WHEN s.reopens THEN
             NULL
         ELSE
             t.resolved_at
         END,
-        resolved_by_kind = CASE WHEN s.reopens THEN
+        resolved_by_kind = CASE WHEN s.resolves THEN
+            s.author_kind
+        WHEN s.reopens THEN
             NULL
         ELSE
             t.resolved_by_kind
         END,
-        resolved_by_agent_id = CASE WHEN s.reopens THEN
+        resolved_by_agent_id = CASE WHEN s.resolves THEN
+            s.author_agent_id
+        WHEN s.reopens THEN
             NULL
         ELSE
             t.resolved_by_agent_id
@@ -437,7 +460,9 @@ said AS (
         w.author_kind,
 (t.resolved_at IS NOT NULL
             AND w.author_kind = t.resolved_by_kind
-            AND w.author_agent_id IS NOT DISTINCT FROM t.resolved_by_agent_id) AS reopens
+            AND w.author_kind <> 'human'
+            AND w.author_agent_id IS NOT DISTINCT FROM t.resolved_by_agent_id
+            AND w.author_agent_id IS DISTINCT FROM t.agent_id) AS reopens
     FROM
         written w
         JOIN review_threads t ON t.id = w.thread_id
@@ -580,6 +605,53 @@ FROM
 ORDER BY
     agent_id,
     ordinal DESC;
+
+-- name: ListUnlandedReviewRounds :many
+SELECT
+    r.agent_id,
+    r.ordinal,
+    r.base_sha,
+    r.snapshot_sha,
+    m.merged_at
+FROM
+    review_rounds r
+    JOIN agents a ON a.id = r.agent_id
+    LEFT JOIN LATERAL (
+        SELECT
+            p.merged_at
+        FROM
+            agent_pull_requests o
+            JOIN pull_requests p ON p.id = o.pull_request_id
+        WHERE
+            o.agent_id = r.agent_id
+            AND p.merged_at IS NOT NULL
+        ORDER BY
+            p.merged_at DESC
+        LIMIT 1) m ON TRUE
+WHERE
+    r.landed_at IS NULL
+    AND a.archived_at IS NULL
+    AND EXISTS (
+        SELECT
+            1
+        FROM
+            reviews v
+        WHERE
+            v.round_id = r.id
+            AND v.released_at IS NOT NULL)
+ORDER BY
+    r.agent_id,
+    r.ordinal DESC;
+
+-- name: LandReviewRounds :execrows
+UPDATE
+    review_rounds
+SET
+    landed_at = NOW()
+WHERE
+    agent_id = @agent_id
+    AND ordinal <= @ordinal
+    AND landed_at IS NULL;
 
 -- name: ListLiveReviewers :many
 SELECT

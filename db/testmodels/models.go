@@ -320,10 +320,6 @@ type Agent struct {
 	DeletingAt pgtype.Timestamptz
 	// Whether the agent still owns the pane its row names.
 	Alive bool
-	// Where the worktree stands against the round its last verdict was given on, empty while it still hashes to it.
-	TreeStanding string
-	// The round the standing was measured against.
-	TreeStandingSha string
 	// The engine that owns this row, stamped from the login that wrote it.
 	EngineID pgtype.UUID
 	// The commit the agent's checkout has checked out, null when the checkout is gone or git cannot read it. The cwd syncer rewrites it on the same pass that rewrites branch.
@@ -594,6 +590,8 @@ type ReviewMessage struct {
 	Suggestion []string
 	// The engine that owns this row, stamped from the login that wrote it.
 	EngineID pgtype.UUID
+	// The round an agent's reply said answers the thread, taken of its worktree as it stood when it replied. Set only on a reply that resolves the thread; null on everything else.
+	RoundID pgtype.UUID
 }
 
 // One frozen snapshot of what an agent has written. A review is always given against a round rather than against the working files.
@@ -609,6 +607,8 @@ type ReviewRound struct {
 	CreatedAt   pgtype.Timestamptz
 	// The engine that owns this row, stamped from the login that wrote it.
 	EngineID pgtype.UUID
+	// When the base branch was first seen holding this round whole, or a later round whole, null until then. A landed round's settled comments are history rather than work still under review.
+	LandedAt pgtype.Timestamptz
 }
 
 // One conversation pinned to a file and a line range in the round its review was given against.
@@ -616,7 +616,7 @@ type ReviewThread struct {
 	ID pgtype.UUID
 	// The agent being reviewed. The review already says this and neither value ever changes. It is repeated here because almost every read of threads is by agent.
 	AgentID pgtype.UUID
-	// The file the thread is pinned to, named the way the diff names it. That is a path relative to the repository root, and where the change left the file if it moved it.
+	// The file the thread is pinned to, named the way the diff names it. That is a path relative to the repository root, and where the change left the file if it moved it. It is empty for a comment on the change as a whole, which has no file and no lines.
 	FilePath string
 	// First line of the range on the old side of the diff. Zero means the thread is pinned to lines that exist only on the new side.
 	OldStart int32

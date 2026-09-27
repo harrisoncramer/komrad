@@ -211,6 +211,10 @@ up        = ["k"]
 # The review screen, which draws an agent's diff in the stage and its review
 # threads in the sidebar.
 [keybindings.review]
+# Show the change that answered the comment under the cursor, from the round the
+# comment was written on to the round the agent's addressed reply carried, or go back
+# to all changes from there.
+answer           = ["a"]
 # Leave the review for the agents list.
 back             = ["esc"]
 # Walk back a round through the review, from the whole change to the newest round and

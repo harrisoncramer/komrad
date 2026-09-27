@@ -1,9 +1,16 @@
 package view
 
-import "komrad/internal/ui/paint/label"
+import (
+	"strconv"
+
+	"komrad/internal/ui/paint/label"
+)
 
 // plainColumns is how many columns one glyph takes.
 const plainColumns = 1
+
+// countColumns is the narrowest a pair of comment counts is drawn.
+const countColumns = 3
 
 // spaceColumns is the space a cell carries after its glyph.
 const spaceColumns = 1
@@ -20,6 +27,15 @@ func GutterColumns(columns Columns) int {
 	}
 
 	return width
+}
+
+// countPairColumns is how wide one side's pair of counts is drawn, a dash when it has none.
+func countPairColumns(comments *Comments) int {
+	if comments == nil {
+		return plainColumns
+	}
+
+	return len(strconv.Itoa(comments.Open)) + plainColumns + len(strconv.Itoa(comments.Resolved))
 }
 
 // NameColumns is how many columns a name has in a pane of the given width.

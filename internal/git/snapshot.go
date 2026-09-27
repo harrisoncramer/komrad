@@ -13,6 +13,10 @@ import (
 	"komrad/internal/fail"
 )
 
+// ErrSequenceInProgress is a snapshot refused while a rebase, merge, cherry-pick or revert is
+// part way through.
+var ErrSequenceInProgress = fail.Precondition("a rebase or merge is part way through in that checkout; finish or abort it first")
+
 // snapshotMessage is what the round's commit says.
 const snapshotMessage = "komrad review round"
 
@@ -101,6 +105,14 @@ func (c *Client) TakeSnapshot(ctx context.Context, params TakeSnapshotParams) (*
 	root, err := c.GetRoot(ctx, params.Dir)
 	if err != nil {
 		return nil, err
+	}
+
+	gitDir, err := Run(ctx, root, "rev-parse", "--absolute-git-dir")
+	if err != nil {
+		return nil, fmt.Errorf("failed to find the git directory of %q: %w", root, err)
+	}
+	if hasSequenceMarker(gitDir) {
+		return nil, ErrSequenceInProgress
 	}
 
 	base, err := resolveBase(ctx, root, params.Base)
@@ -362,76 +374,48 @@ func (c *Client) GetTree(ctx context.Context, dir, sha string) (string, error) {
 	return tree, nil
 }
 
-// Standing is where a worktree stands against a ref.
-type Standing string
-
-const (
-	// StandingSame is a worktree that still hashes to the ref, the zero standing.
-	StandingSame Standing = ""
-	// StandingMoved is a worktree that differs from a ref the base does not hold.
-	StandingMoved Standing = "moved"
-	// StandingLanded is a worktree carrying nothing beyond a base that holds the ref whole.
-	StandingLanded Standing = "landed"
-	// StandingLandedMoved is a worktree carrying new work over a base that holds the ref whole.
-	StandingLandedMoved Standing = "landed_moved"
-)
-
-// ReadStandingParams names the worktree, the base it is measured against, and the ref.
-type ReadStandingParams struct {
+// HasLandedParams names the worktree, the base branch, and the round asked about.
+type HasLandedParams struct {
 	Dir         string
 	Base        string
+	BaseSHA     string
 	SnapshotSHA string
-	// Probe is the worktree's tree already written, written again when empty.
-	Probe string
 }
 
-// ReadStanding is where a worktree stands against a ref.
-func (c *Client) ReadStanding(ctx context.Context, params ReadStandingParams) (Standing, error) {
+// HasLanded reports whether the base branch holds a round whole.
+func (c *Client) HasLanded(ctx context.Context, params HasLandedParams) (bool, error) {
 	root, err := c.GetRoot(ctx, params.Dir)
 	if err != nil {
-		return StandingSame, err
-	}
-
-	probe := params.Probe
-	if probe == "" {
-		probe, err = writeTree(ctx, root)
-		if err != nil {
-			return StandingSame, err
-		}
+		return false, err
 	}
 
 	held, err := c.GetTree(ctx, root, params.SnapshotSHA)
 	if err != nil {
-		return StandingSame, err
+		return false, err
 	}
-	if probe == held {
-		return StandingSame, nil
+
+	started, err := c.GetTree(ctx, root, params.BaseSHA)
+	if err != nil || held == started {
+		return false, err
 	}
 
 	base, err := resolveBase(ctx, root, params.Base)
+	if errors.Is(err, ErrBaseMissing) {
+		return false, nil
+	}
 	if err != nil {
-		return StandingMoved, err
+		return false, err
 	}
 	if isOwnHead(ctx, root, base) {
-		return StandingMoved, nil
+		return false, nil
 	}
 
 	baseTree, err := Run(ctx, root, "rev-parse", "--verify", "--quiet", base+"^{tree}")
 	if err != nil {
-		return StandingMoved, nil
+		return false, nil
 	}
 
-	landed, err := doesHoldWhole(ctx, root, base, baseTree, params.SnapshotSHA)
-	if err != nil || !landed {
-		return StandingMoved, err
-	}
-
-	clean, err := isCleanOnto(ctx, root, base, baseTree, probe)
-	if err != nil || !clean {
-		return StandingLandedMoved, err
-	}
-
-	return StandingLanded, nil
+	return doesHoldWhole(ctx, root, base, baseTree, params.SnapshotSHA)
 }
 
 // isOwnHead reports whether a base names the very branch the worktree is on, which can hold
@@ -448,27 +432,6 @@ func doesHoldWhole(ctx context.Context, root, base, baseTree, sha string) (bool,
 		Dir:   root,
 		Left:  base,
 		Right: sha,
-	})
-	if err != nil {
-		return false, err
-	}
-
-	return merged == baseTree, nil
-}
-
-// isCleanOnto reports whether a worktree's tree brings nothing to the base beyond what the base
-// already holds, measured from where the worktree's branch left it.
-func isCleanOnto(ctx context.Context, root, base, baseTree, probe string) (bool, error) { //nolint:revive // a params struct is the follow-up
-	mergeBase, err := Run(ctx, root, "merge-base", base, "HEAD")
-	if err != nil {
-		return false, fmt.Errorf("failed to find where %q left %q: %w", root, base, err)
-	}
-
-	merged, _, err := readMergedTree(ctx, readMergedTreeParams{
-		Dir:       root,
-		Left:      base,
-		Right:     probe,
-		MergeBase: mergeBase,
 	})
 	if err != nil {
 		return false, err

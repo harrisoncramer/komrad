@@ -87,6 +87,8 @@ type Message struct {
 
 	// ReviewID is the review this message went out with, nil for an answer from the agent.
 	ReviewID *string
+	// RoundID is the round an agent's reply said answers the thread, nil on any other message.
+	RoundID *string
 	// Suggestion is the replacement lines the reviewer is proposing for the thread's range,
 	// empty on an ordinary comment.
 	Suggestion []string
@@ -314,7 +316,9 @@ func (s *ReviewStore) SetThreadResolved(ctx context.Context, params SetThreadRes
 type CreateMessageParams struct {
 	ThreadID string
 	// ReviewID is the batch the message goes out with, nil for an answer.
-	ReviewID   *string
+	ReviewID *string
+	// RoundID is the round a reply says answers the thread.
+	RoundID    *string
 	Suggestion []string
 	AuthorKind AuthorKind
 	// AuthorAgentID links to the agent that wrote it, and is cleared when that agent is deleted.
@@ -328,6 +332,7 @@ func (s *ReviewStore) CreateMessage(ctx context.Context, params CreateMessagePar
 	row, err := s.queries.InsertReviewMessage(ctx, models.InsertReviewMessageParams{
 		ThreadID:      params.ThreadID,
 		ReviewID:      params.ReviewID,
+		RoundID:       params.RoundID,
 		Suggestion:    lines(params.Suggestion),
 		AuthorKind:    models.ReviewAuthorKind(params.AuthorKind),
 		AuthorAgentID: params.AuthorAgentID,
@@ -341,6 +346,7 @@ func (s *ReviewStore) CreateMessage(ctx context.Context, params CreateMessagePar
 		ID:            row.ID,
 		ThreadID:      row.ThreadID,
 		ReviewID:      row.ReviewID,
+		RoundID:       row.RoundID,
 		Suggestion:    row.Suggestion,
 		AuthorKind:    AuthorKind(row.AuthorKind),
 		AuthorAgentID: row.AuthorAgentID,
@@ -375,6 +381,7 @@ func (s *ReviewStore) UpdateMessage(ctx context.Context, id, body string, sugges
 		ID:            row.ID,
 		ThreadID:      row.ThreadID,
 		ReviewID:      row.ReviewID,
+		RoundID:       row.RoundID,
 		Suggestion:    row.Suggestion,
 		AuthorKind:    AuthorKind(row.AuthorKind),
 		AuthorAgentID: row.AuthorAgentID,
@@ -423,6 +430,7 @@ func (s *ReviewStore) ListMessages(ctx context.Context, threadIDs []string) ([]M
 			ID:            row.ID,
 			ThreadID:      row.ThreadID,
 			ReviewID:      row.ReviewID,
+			RoundID:       row.RoundID,
 			Suggestion:    row.Suggestion,
 			AuthorKind:    AuthorKind(row.AuthorKind),
 			AuthorAgentID: row.AuthorAgentID,
@@ -551,6 +559,7 @@ func undeliveredMessageFromRow(row models.ReviewMessage) Message {
 		ID:            row.ID,
 		ThreadID:      row.ThreadID,
 		ReviewID:      row.ReviewID,
+		RoundID:       row.RoundID,
 		Suggestion:    row.Suggestion,
 		AuthorKind:    AuthorKind(row.AuthorKind),
 		AuthorAgentID: row.AuthorAgentID,

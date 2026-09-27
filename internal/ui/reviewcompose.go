@@ -16,20 +16,9 @@ import (
 	"connectrpc.com/connect"
 )
 
-// reviewVerdicts is what the release panel offers, in the order a reader most often wants them.
-var reviewVerdicts = []agentv1.ReviewVerdict{
-	agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED,
-	agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED,
-	agentv1.ReviewVerdict_REVIEW_VERDICT_COMMENTED,
-}
-
 // compose opens the editor on the line under the cursor, replying in the thread already there
 // or opening a new one, writing prose alone rather than editing the round.
-func (r *reviewScreen) compose(h host, s panelShared) tea.Cmd {
-	if r.pass.mode != modeReviewing {
-		return r.enterWriting(h, s, intentComment)
-	}
-
+func (r *reviewScreen) compose(s panelShared) tea.Cmd {
 	thread, replying := r.diff.threadAtCursor()
 
 	// A thread whose code is gone has no line to anchor a new thread to, but replying to it is
@@ -84,40 +73,9 @@ func (r *reviewScreen) openInput(s panelShared, params newReviewInputParams) tea
 	return cmd
 }
 
-// enterWriting moves from reading to writing, keeping the reader on the line they pressed the
-// key on, and refuses when that line is in a round the whole change does not draw.
-func (r *reviewScreen) enterWriting(h host, s panelShared, intent passIntent) tea.Cmd {
-	if said, history := r.isHistory(); history {
-		r.refuseHistory(h, s, said)
-
-		return nil
-	}
-
-	if _, ok := r.diff.view.GetAnchor(r.diff.cursor); !ok {
-		if _, replying := r.diff.threadAtCursor(); !replying {
-			r.refuseLine()
-
-			return nil
-		}
-	}
-
-	return r.startPass(h, s, intent)
-}
-
 // refuseLine says why nothing opened on a row that is not a line of code.
 func (r *reviewScreen) refuseLine() {
 	r.notice = "put the cursor on a line of the diff to comment on it"
-}
-
-// leaveWriting puts the pass down, keeping whatever has been written and letting the agent go.
-func (r *reviewScreen) leaveWriting(h host, s panelShared) tea.Cmd {
-	// Comments already written are held by the panel rather than by the pass, so leaving keeps
-	// them and says so.
-	if r.threads.holdsUnsent() {
-		r.notice = label.Counted(r.threads.unsentCount(), "comment") + " kept, still unsent"
-	}
-
-	return r.endPass(h, s, abandonedSaid)
 }
 
 func (r *reviewScreen) updateComposer(h host, s panelShared, key tea.KeyPressMsg) tea.Cmd {
@@ -372,7 +330,6 @@ func (r reviewScreen) markThreadReadCmd(s panelShared) tea.Cmd {
 // openRelease asks what to send rather than sending.
 func (r *reviewScreen) openRelease(s panelShared) tea.Cmd {
 	r.threads.releasing = true
-	r.threads.verdict = 0
 	r.notice = ""
 
 	return r.openInput(s, newReviewInputParams{
@@ -382,8 +339,8 @@ func (r *reviewScreen) openRelease(s panelShared) tea.Cmd {
 	})
 }
 
-// updateRelease takes every key while the panel is up: tab walks the verdict, the submit key
-// sends, escape abandons, and everything else is a word being typed about the work.
+// updateRelease takes every key while the panel is up: the submit key sends, escape abandons,
+// and everything else is a word being typed about the work.
 func (r *reviewScreen) updateRelease(h host, s panelShared, key tea.KeyPressMsg) tea.Cmd {
 	k := key.String()
 
@@ -394,14 +351,6 @@ func (r *reviewScreen) updateRelease(h host, s panelShared, key tea.KeyPressMsg)
 		return nil
 	case isBound(k, formKeys().Quit):
 		return h.hide()
-	case k == "tab":
-		r.threads.cycleVerdict(1)
-
-		return nil
-	case k == "shift+tab":
-		r.threads.cycleVerdict(-1)
-
-		return nil
 	case isBound(k, formKeys().Editor):
 		return r.openMessageEditor(h, s)
 	case isBound(k, formKeys().Submit):
@@ -416,10 +365,9 @@ func (r *reviewScreen) updateRelease(h host, s panelShared, key tea.KeyPressMsg)
 	return cmd
 }
 
-// send releases the batch with the verdict chosen and whatever was written about the work as a
-// whole, reaching the agent as one file and one piece of mail.
+// send releases the batch with whatever was written about the work as a whole, reaching the
+// agent as one file and one piece of mail.
 func (r *reviewScreen) send(s panelShared, interrupt bool) tea.Cmd {
-	verdict := reviewVerdicts[r.threads.verdict]
 	body := strings.TrimSpace(r.threads.editor.value())
 
 	r.threads.closeRelease()
@@ -429,7 +377,6 @@ func (r *reviewScreen) send(s panelShared, interrupt bool) tea.Cmd {
 	return r.sendCmd(s, func(ctx context.Context) (string, error) {
 		resp, err := agents.ReleaseReview(ctx, connect.NewRequest(&agentv1.ReleaseReviewRequest{
 			AgentId:   agentID,
-			Verdict:   verdict,
 			Interrupt: interrupt,
 			Body:      body,
 		}))
@@ -437,22 +384,8 @@ func (r *reviewScreen) send(s panelShared, interrupt bool) tea.Cmd {
 			return "", err
 		}
 
-		return releasedNotice(verdict, resp.Msg.GetComments(), interrupt), nil
+		return releasedNotice(resp.Msg.GetComments(), interrupt), nil
 	})
-}
-
-// abandonedSaid is what an agent is told when a pass ends without a review.
-const abandonedSaid = "I paused you while I read your work and have let you go now. " +
-	"Nothing was sent, so there is nothing of mine to answer."
-
-// sentSaid is what an agent is told when the pass ended by sending it a review.
-const sentSaid = "I paused you while I reviewed your work and have let you go now. " +
-	"My comments are pinned to your work as it stood when I started, so read them against " +
-	"the worktree as it is rather than assuming the lines still match."
-
-// cycleVerdict moves the choice of verdict one step round the list.
-func (t *reviewThreads) cycleVerdict(delta int) {
-	t.verdict = (t.verdict + delta + len(reviewVerdicts)) % len(reviewVerdicts)
 }
 
 // closeRelease puts the release panel away, sent or not.
@@ -462,39 +395,29 @@ func (t *reviewThreads) closeRelease() {
 }
 
 // releasedNotice says what went.
-func releasedNotice(verdict agentv1.ReviewVerdict, count int32, interrupt bool) string {
-	sent := ", " + label.Counted(int(count), "comment") + " sent"
+func releasedNotice(count int32, interrupt bool) string {
+	sent := label.Counted(int(count), "comment") + " sent"
 	if interrupt {
 		sent += " and the agent stopped to read them"
 	}
 
-	switch verdict {
-	case agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED:
-		return "approved" + sent
-	case agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED:
-		return "changes requested" + sent
-	case agentv1.ReviewVerdict_REVIEW_VERDICT_COMMENTED:
-		return "comments only" + sent
-	case agentv1.ReviewVerdict_REVIEW_VERDICT_UNSPECIFIED:
-	}
-
-	return "no verdict" + sent
+	return sent
 }
 
 // writeCmd runs one write on the review.
 func (r reviewScreen) writeCmd(s panelShared, notice string, write func(context.Context) error) tea.Cmd {
-	return r.writeMsgCmd(s, false, func(ctx context.Context) (string, error) {
+	return r.writeMsgCmd(s, func(ctx context.Context) (string, error) {
 		return notice, write(ctx)
 	})
 }
 
 // sendCmd is the write that releases a review.
 func (r reviewScreen) sendCmd(s panelShared, write func(context.Context) (string, error)) tea.Cmd {
-	return r.writeMsgCmd(s, true, write)
+	return r.writeMsgCmd(s, write)
 }
 
 // writeMsgCmd runs one write, marking whose answer it is, and reads an archived agent's threads back.
-func (r reviewScreen) writeMsgCmd(s panelShared, sent bool, write func(context.Context) (string, error)) tea.Cmd {
+func (r reviewScreen) writeMsgCmd(s panelShared, write func(context.Context) (string, error)) tea.Cmd {
 	agents, agentID := s.api.agents, r.agentID
 	_, live := r.agentRow(s)
 
@@ -507,7 +430,6 @@ func (r reviewScreen) writeMsgCmd(s panelShared, sent bool, write func(context.C
 			agentID: agentID,
 			notice:  notice,
 			err:     err,
-			sent:    sent,
 		}
 		if err != nil || live {
 			return wrote

@@ -45,19 +45,6 @@ enum ReviewVerdict {
   REVIEW_VERDICT_COMMENTED = 3;
 }
 
-// ReviewTreeStanding is where an agent's worktree stands against the round its last verdict
-// was given on.
-enum ReviewTreeStanding {
-  // The worktree still hashes to the round.
-  REVIEW_TREE_STANDING_UNSPECIFIED = 0;
-  // The worktree differs from the round and the base does not hold the round.
-  REVIEW_TREE_STANDING_MOVED = 1;
-  // The base holds the round whole and the worktree carries nothing beyond the base.
-  REVIEW_TREE_STANDING_LANDED = 2;
-  // The base holds the round whole and the worktree carries new work on top of the base.
-  REVIEW_TREE_STANDING_LANDED_MOVED = 3;
-}
-
 // ReviewRound is one immutable snapshot of what an agent has written, which is what a review is
 // given against. Nothing a comment is pinned to can move underneath the person reading it,
 // because the snapshot is a commit rather than the worktree.
@@ -138,6 +125,8 @@ message WatchedReview {
   string created_at = 11;
   // When anything in it last moved.
   string updated_at = 12;
+  // When the base branch was first seen holding the round whole, empty until then.
+  string round_landed_at = 13;
 }
 
 // ReviewThread is one conversation pinned to a place in a round of an agent's diff.
@@ -155,7 +144,7 @@ message ReviewThread {
   // The commit the old side of these line numbers was read against, which is the round's own
   // base unless the diff was narrowed to an earlier round when the thread was written.
   string base_sha = 19;
-  // Which file, relative to the checkout.
+  // Which file, relative to the checkout, empty for a comment on the change as a whole.
   string file_path = 3;
   // Where the range begins on the old side of the diff, counting from one.
   int32 old_start = 4;
@@ -210,6 +199,8 @@ message ReviewMessage {
   // The review this message went out with, absent for an answer written by the agent under
   // review, which belongs to no batch.
   optional string review_id = 12;
+  // The round an addressed reply was taken of. Absent on every other message.
+  optional string round_id = 13;
 }
 
 message ListReviewThreadsRequest {
@@ -228,8 +219,9 @@ message ListReviewThreadsResponse {
 message CreateReviewThreadRequest {
   // Whose diff to pin the comment to.
   string agent_id = 1 [(buf.validate.field).string.min_len = 1];
-  // Which file, relative to the checkout.
-  string file_path = 2 [(buf.validate.field).string.min_len = 1];
+  // Which file, relative to the checkout. Empty for a comment on the change as a whole, which
+  // then carries no lines, no quote and no suggestion.
+  string file_path = 2;
   // The commit the old side of these line numbers was read against, empty for the round's own
   // base.
   string base_sha = 10;
@@ -271,11 +263,19 @@ message AddReviewMessageRequest {
   }];
   // Replacement lines proposed for the thread's range, empty for an ordinary message.
   repeated string suggestion = 3;
+  // Says the change the thread asks for is made. Komrad takes a round of the worktree as it
+  // stands and pins it to the reply. A thread the person started is resolved by it, and one a
+  // reviewer agent started stays open for that reviewer to resolve. Refused when the worktree
+  // holds the same tree the thread was written on.
+  bool addressed = 4;
 }
 
 message AddReviewMessageResponse {
   // The message as recorded.
   ReviewMessage message = 1;
+  // A nudge towards addressed, given when a plain reply lands on a thread whose worktree has
+  // moved since it was written. Empty otherwise.
+  string hint = 2;
 }
 
 message EditReviewMessageRequest {
@@ -386,11 +386,9 @@ message ListReviewsResponse {
 message ReleaseReviewRequest {
   // Whose work the batch was written against.
   string agent_id = 1 [(buf.validate.field).string.min_len = 1];
-  // What the review concludes, which is what tells the agent whether it is done.
-  ReviewVerdict verdict = 2 [(buf.validate.field).enum = {
-    defined_only: true
-    not_in: [0]
-  }];
+  // What a reviewing agent concludes, which tells the agent it reviewed whether it is done. An
+  // agent must set it and a person must leave it unset.
+  ReviewVerdict verdict = 2 [(buf.validate.field).enum.defined_only = true];
   // Stop the agent where it stands before telling it, so it reads now rather than at the end
   // of whatever it is doing.
   bool interrupt = 3;

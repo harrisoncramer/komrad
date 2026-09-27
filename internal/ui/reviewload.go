@@ -3,6 +3,7 @@ package ui
 import (
 	"context"
 	"errors"
+	"strconv"
 
 	"komrad/internal/assemble"
 	"komrad/internal/diff"
@@ -44,11 +45,16 @@ type reviewLoadedMsg struct {
 	// pinned says the diff is the snapshot the reader's unsent comments were written against
 	// rather than the work as it now stands.
 	pinned bool
-	// owed is the id of the reader's last released review while it still holds comments nobody
-	// has settled, empty once a second review would be allowed.
-	owed string
 	// chapters are the rounds of the review as the reader can step through them, oldest first.
 	chapters []reviewChapter
+	rounds   []*agentv1.ReviewRound
+	// replayed says the older side was carried across a rebase onto the newer one's base.
+	replayed bool
+	// answerBase and answerHead are the snapshots an answer on screen was measured between.
+	answerBase string
+	answerHead string
+	// notice is what the load has to say about the round it settled on.
+	notice string
 	// traced is where git says each thread's lines went, keyed by thread id, and empty for a
 	// repository that could not answer.
 	traced map[string]diffview.Traced
@@ -64,9 +70,6 @@ type reviewWroteMsg struct {
 	readBack bool
 	threads  []*agentv1.ReviewThread
 	readErr  error
-	// sent says this is the answer to a released review rather than to any of the other writes
-	// this screen makes, which all come back the same way.
-	sent bool
 }
 
 // open puts the review on an agent's diff and reads it.
@@ -105,10 +108,10 @@ func (r *reviewScreen) abandon(h host, s panelShared, err error) tea.Cmd {
 	return letGo
 }
 
-// drop puts the reader back on the row they opened the review from, letting go of an agent the
-// pass stopped.
+// drop puts the reader back on the row they opened the review from, letting go of an agent
+// stopped for the editor.
 func (r *reviewScreen) drop(h host, s panelShared) tea.Cmd {
-	letGo := r.endPass(h, s, abandonedSaid)
+	letGo := r.endHold(h, s, abandonedSaid)
 
 	*r = reviewScreen{}
 
@@ -143,8 +146,10 @@ type loadReviewCmdParams struct {
 	// Base is the commit to measure the round from, empty for the point the branch left main.
 	Base string
 	// Head is the commit to measure it to, empty for the round's own snapshot.
-	Head  string
-	Fresh bool
+	Head string
+	// Answer is the answer to measure between, found among the rounds the load lists.
+	Answer *reviewAnswer
+	Fresh  bool
 }
 
 // loadReviewCmd opens a round of the agent and reads that rather than the worktree, a tree that
@@ -184,6 +189,18 @@ func loadReviewCmd(s panelShared, params loadReviewCmdParams) tea.Cmd {
 			return reviewLoadedMsg{agentID: agentID, err: roundsErr}
 		}
 
+		var fromBase, toBase, answerBase, answerHead string
+		if answer := params.Answer; answer != nil {
+			from, to := findRound(rounds, answer.FromRound), findRound(rounds, answer.ToRound)
+			if from == nil || to == nil {
+				return reviewLoadedMsg{agentID: agentID, err: errAnswerGone}
+			}
+
+			answerBase, answerHead = from.GetSnapshotSha(), to.GetSnapshotSha()
+			params.Base, params.Head = answerBase, answerHead
+			fromBase, toBase = from.GetBaseSha(), to.GetBaseSha()
+		}
+
 		var round *agentv1.ReviewRound
 
 		var pinned bool
@@ -191,16 +208,22 @@ func loadReviewCmd(s panelShared, params loadReviewCmdParams) tea.Cmd {
 			round, pinned = findPendingRound(rounds, openBatch)
 		}
 
+		var notice string
 		if round == nil {
 			opened, err := agents.OpenReviewRound(ctx, connect.NewRequest(&agentv1.OpenReviewRoundRequest{
 				AgentId: agentID,
 			}))
-			if err != nil {
+			switch {
+			case connect.CodeOf(err) == connect.CodeFailedPrecondition && len(rounds) > 0:
+				round = rounds[len(rounds)-1]
+				notice = "a rebase or merge is part way through, so this is round " +
+					strconv.Itoa(int(round.GetOrdinal()))
+			case err != nil:
 				return reviewLoadedMsg{agentID: agentID, err: err}
+			default:
+				round = opened.Msg.GetRound()
+				rounds = withRound(rounds, round)
 			}
-
-			round = opened.Msg.GetRound()
-			rounds = withRound(rounds, round)
 		}
 
 		base := round.GetBaseSha()
@@ -212,6 +235,23 @@ func loadReviewCmd(s panelShared, params loadReviewCmdParams) tea.Cmd {
 		if params.Head != "" {
 			head = params.Head
 		}
+
+		compared := compareRounds(ctx, compareRoundsParams{
+			Git:      repo,
+			Dir:      dir,
+			FromSHA:  base,
+			FromBase: fromBase,
+			ToBase:   toBase,
+		})
+		if !compared.Comparable {
+			return reviewLoadedMsg{
+				agentID: agentID,
+				round:   round,
+				err:     &roundsApartError{Conflicts: compared.Conflicts},
+			}
+		}
+
+		base = compared.FromSHA
 
 		patch, err := diff.Load(ctx, repo, diff.LoadParams{
 			Dir:         dir,
@@ -247,17 +287,21 @@ func loadReviewCmd(s panelShared, params loadReviewCmdParams) tea.Cmd {
 		})
 
 		return reviewLoadedMsg{
-			agentID:   agentID,
-			round:     round,
-			patch:     patch,
-			threads:   threads,
-			viewed:    viewed,
-			earlier:   earlier,
-			earlierAt: releasedAtOf(reviews, round),
-			pinned:    pinned,
-			owed:      findLastOwedReview(reviews).GetId(),
-			chapters:  chapters,
-			traced:    traced,
+			agentID:    agentID,
+			round:      round,
+			patch:      patch,
+			threads:    threads,
+			viewed:     viewed,
+			earlier:    earlier,
+			earlierAt:  releasedAtOf(reviews, round),
+			pinned:     pinned,
+			chapters:   chapters,
+			rounds:     rounds,
+			replayed:   compared.Replayed,
+			traced:     traced,
+			answerBase: answerBase,
+			answerHead: answerHead,
+			notice:     notice,
 			since: changedSinceLastReview(ctx, changedSinceLastReviewParams{
 				Git:         repo,
 				Dir:         dir,
@@ -325,11 +369,19 @@ func (r *reviewScreen) applyLoaded(h host, s panelShared, msg reviewLoadedMsg) t
 		return nil
 	}
 
+	var apart *roundsApartError
+	if errors.As(msg.err, &apart) || errors.Is(msg.err, errAnswerGone) {
+		r.diff.widen()
+		r.notice = msg.err.Error()
+
+		return r.loadWholeCmd(s)
+	}
+
 	drewNothing := errors.Is(msg.err, diff.ErrNoChanges) || errors.Is(msg.err, diff.ErrAllExcluded)
 
 	// A narrowed diff drawing nothing is an answer about the agent rather than a reason to leave,
 	// so the whole change comes back with the answer said out loud.
-	if drewNothing && r.diff.base != "" {
+	if drewNothing && (r.diff.base != "" || r.diff.answer != nil) {
 		said := r.diff.baseLabel
 		r.diff.widen()
 		r.notice = "nothing written " + said
@@ -361,10 +413,13 @@ func (r *reviewScreen) applyLoaded(h host, s panelShared, msg reviewLoadedMsg) t
 		return r.loadWholeCmd(s)
 	}
 
+	if msg.notice != "" {
+		r.notice = msg.notice
+	}
+
 	r.root = msg.patch.Root
 	r.round = msg.round
 	r.diff.load(msg, s.isDark)
-	r.threads.owed = msg.owed
 	r.threads.set(msg.threads)
 
 	r.scrollToCursor(s)
@@ -388,7 +443,16 @@ func (d *reviewDiff) load(msg reviewLoadedMsg, isDark bool) {
 	d.baseAt = msg.earlierAt
 	d.pinned = msg.pinned
 	d.chapters = msg.chapters
+	d.rounds = msg.rounds
 	d.since = msg.since
+
+	if d.answer != nil {
+		d.base, d.head = msg.answerBase, msg.answerHead
+		d.baseLabel = "the answer to this comment"
+		if msg.replayed {
+			d.baseLabel += ", replayed across the rebase"
+		}
+	}
 
 	// The files the reader opened out are the view's own, so a view built again over the patch
 	// takes them from the one it replaces, or from what was kept when that one was dropped.
@@ -448,8 +512,6 @@ func (r *reviewScreen) applyWrote(h host, s panelShared, msg reviewWroteMsg) tea
 	}
 
 	if msg.err != nil {
-		// A send that did not land leaves the pass standing, so the reader keeps their comments
-		// and keeps the agent stopped rather than being put back to watching with neither.
 		h.report("Could not write on "+r.agentName, msg.err)
 
 		return nil
@@ -465,13 +527,7 @@ func (r *reviewScreen) applyWrote(h host, s panelShared, msg reviewWroteMsg) tea
 		r.applyThreads(s, msg.threads)
 	}
 
-	if !msg.sent {
-		return nil
-	}
-
-	// The comments are in the agent's hands now, and answering them is the next thing it does, so
-	// this is what lets it go.
-	return r.endPass(h, s, sentSaid)
+	return nil
 }
 
 // applyThreads draws the review as it now stands, keeping the reader where they were.
@@ -513,6 +569,16 @@ func (d *reviewDiff) keepCursor(place diffview.Place, ok bool) {
 // reload reads the worktree again, holding the place the cursor is standing so the diff comes
 // back under it.
 func (r *reviewScreen) reload(s panelShared) tea.Cmd {
+	return r.load(s, false)
+}
+
+// reloadFresh reads the worktree as it stands, even where unsent comments hold the diff to the
+// round they were written on.
+func (r *reviewScreen) reloadFresh(s panelShared) tea.Cmd {
+	return r.load(s, true)
+}
+
+func (r *reviewScreen) load(s panelShared, fresh bool) tea.Cmd {
 	if r.diff.view == nil {
 		return nil
 	}
@@ -529,12 +595,13 @@ func (r *reviewScreen) reload(s panelShared) tea.Cmd {
 		Exclude: r.exclude,
 		Base:    r.diff.base,
 		Head:    r.diff.head,
-		Fresh:   r.pass.mode == modeReviewing,
+		Answer:  r.diff.answer,
+		Fresh:   fresh,
 	})
 }
 
 func (r *reviewScreen) leave(h host, s panelShared) tea.Cmd {
-	if r.pass.atEditor {
+	if r.hold.atEditor {
 		return r.closeEdit(h, s)
 	}
 

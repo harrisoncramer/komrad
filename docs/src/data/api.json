@@ -570,8 +570,8 @@
             "reviewer",
             "orchestrator"
           ],
-          "summary": "List the comment threads pinned to lines of an agent's diff, your own by default.",
-          "description": "List the comment threads pinned to lines of an agent's diff, your own by default. Each thread names the round it was written on, a file and a line range, quotes the diff lines it was about, and holds its messages oldest first. Line numbers are true of that round's snapshot rather than of the files as they stand now, so once the code has moved search for the quoted lines instead. Only released reviews appear, so a comment still being written is not here yet. To read a whole review in order use get_review; this is for looking a thread up again, or answering one with add_review_message.",
+          "summary": "List the comment threads on an agent's diff, your own by default.",
+          "description": "List the comment threads on an agent's diff, your own by default. Each thread names the round it was written on and holds its messages oldest first. A thread on lines names a file and a line range and quotes them, and a thread on the change as a whole names no file. Line numbers are true of that round's snapshot rather than of the files as they stand now, so once the code has moved search for the quoted lines instead. Only released reviews appear, so a comment still being written is not here yet. To read a whole review in order use get_review; this is for looking a thread up again, or answering one with add_review_message.",
           "readOnly": true,
           "idempotent": true,
           "destructive": false,
@@ -609,7 +609,7 @@
             "orchestrator"
           ],
           "summary": "Reply in a review thread, which is how you answer feedback on your own diff.",
-          "description": "Reply in a review thread, which is how you answer feedback on your own diff. Use it to say what you changed and why, what you did not change and why, or to ask what was meant. Unlike a review, a message reaches the other side as soon as it is written. Keep it to a sentence or two, naming the line, value or case you mean and quoting code where the code is the point, with no preamble and no hedging.",
+          "description": "Reply in a review thread, which is how you answer feedback on your own diff. Make the change a comment asks for first, then reply with addressed set, and komrad pins a round of your worktree to the reply so the reviewer reads exactly what answered them. That resolves a person's comment, and a reviewer agent resolves its own once satisfied. Reply without addressed to push back or to ask what was meant, which leaves the comment open. An addressed reply is refused when the worktree has not changed since the comment was written. Keep it to a sentence or two, naming the line, value or case you mean and quoting code where the code is the point, with no preamble and no hedging.",
           "readOnly": false,
           "idempotent": false,
           "destructive": false,
@@ -1403,6 +1403,16 @@
           "oneof": "",
           "rules": [],
           "description": "Replacement lines proposed for the thread's range, empty for an ordinary message."
+        },
+        {
+          "name": "addressed",
+          "type": "bool",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "Says the change the thread asks for is made. Komrad takes a round of the worktree as it stands and pins it to the reply. A thread the person started is resolved by it, and one a reviewer agent started stays open for that reviewer to resolve. Refused when the worktree holds the same tree the thread was written on."
         }
       ]
     },
@@ -1419,6 +1429,16 @@
           "oneof": "",
           "rules": [],
           "description": "The message as recorded."
+        },
+        {
+          "name": "hint",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "A nudge towards addressed, given when a plain reply lands on a thread whose worktree has moved since it was written. Empty otherwise."
         }
       ]
     },
@@ -1855,26 +1875,6 @@
           "description": "Whether prompt holds only its opening, as a summary listing returns it."
         },
         {
-          "name": "tree_standing",
-          "type": "ReviewTreeStanding",
-          "ref": "agent.v1.ReviewTreeStanding",
-          "repeated": false,
-          "map": false,
-          "oneof": "",
-          "rules": [],
-          "description": "Where the agent's worktree stood when last measured against the round tree_standing_sha names."
-        },
-        {
-          "name": "tree_standing_sha",
-          "type": "string",
-          "ref": "",
-          "repeated": false,
-          "map": false,
-          "oneof": "",
-          "rules": [],
-          "description": "The snapshot of the round tree_standing was measured against, empty before any measurement."
-        },
-        {
           "name": "moved_since_round",
           "type": "string",
           "ref": "",
@@ -1961,24 +1961,24 @@
           "description": "How many rounds of local review its own work has been through."
         },
         {
-          "name": "local_review_verdict",
-          "type": "ReviewVerdict",
-          "ref": "agent.v1.ReviewVerdict",
+          "name": "reviewer_comments",
+          "type": "CommentCounts",
+          "ref": "agent.v1.CommentCounts",
           "repeated": false,
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "What the last released local review concluded about the agent's own work, UNSPECIFIED when none has concluded anything."
+          "description": "Comments reviewer agents have left on its work. Absent until a reviewer agent has released a review of work not yet merged into the base branch."
         },
         {
-          "name": "local_review_tree",
-          "type": "ReviewTreeStanding",
-          "ref": "agent.v1.ReviewTreeStanding",
+          "name": "person_comments",
+          "type": "CommentCounts",
+          "ref": "agent.v1.CommentCounts",
           "repeated": false,
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Where the agent's worktree stands against the round that verdict was given on."
+          "description": "Comments the person has left on its work. Absent until the person has released a review of work not yet merged into the base branch."
         }
       ]
     },
@@ -1997,6 +1997,42 @@
             "required"
           ],
           "description": "The agents to stop and hide, keeping their records and transcripts, children along with them. The batch goes whole or not at all."
+        }
+      ]
+    },
+    "agent.v1.CommentCounts": {
+      "name": "CommentCounts",
+      "description": "CommentCounts is how the comments on an agent's work stand.",
+      "fields": [
+        {
+          "name": "open",
+          "type": "int32",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "Comments nobody has resolved yet, on any round."
+        },
+        {
+          "name": "resolved",
+          "type": "int32",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "Comments resolved on rounds not yet merged into the base branch."
+        },
+        {
+          "name": "unread",
+          "type": "bool",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "Whether any of the comments holds something the person has not read."
         }
       ]
     },
@@ -2151,10 +2187,8 @@
           "repeated": false,
           "map": false,
           "oneof": "",
-          "rules": [
-            "required"
-          ],
-          "description": "Which file, relative to the checkout."
+          "rules": [],
+          "description": "Which file, relative to the checkout. Empty for a comment on the change as a whole, which then carries no lines, no quote and no suggestion."
         },
         {
           "name": "base_sha",
@@ -2592,24 +2626,24 @@
           "description": "How many rounds of local review its own work has been through."
         },
         {
-          "name": "local_review_verdict",
-          "type": "ReviewVerdict",
-          "ref": "agent.v1.ReviewVerdict",
+          "name": "reviewer_comments",
+          "type": "CommentCounts",
+          "ref": "agent.v1.CommentCounts",
           "repeated": false,
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "What the last released local review concluded about the agent's own work, UNSPECIFIED when none has concluded anything."
+          "description": "Comments reviewer agents have left on its work. Absent until a reviewer agent has released a review of work not yet merged into the base branch."
         },
         {
-          "name": "local_review_tree",
-          "type": "ReviewTreeStanding",
-          "ref": "agent.v1.ReviewTreeStanding",
+          "name": "person_comments",
+          "type": "CommentCounts",
+          "ref": "agent.v1.CommentCounts",
           "repeated": false,
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Where the agent's worktree stands against the round that verdict was given on."
+          "description": "Comments the person has left on its work. Absent until the person has released a review of work not yet merged into the base branch."
         }
       ]
     },
@@ -3740,7 +3774,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "What the review concludes, which is what tells the agent whether it is done."
+          "description": "What a reviewing agent concludes, which tells the agent it reviewed whether it is done. An agent must set it and a person must leave it unset."
         },
         {
           "name": "interrupt",
@@ -4314,6 +4348,16 @@
           "oneof": "",
           "rules": [],
           "description": "The review this message went out with, absent for an answer written by the agent under review, which belongs to no batch."
+        },
+        {
+          "name": "round_id",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The round an addressed reply was taken of. Absent on every other message."
         }
       ]
     },
@@ -4455,7 +4499,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Which file, relative to the checkout."
+          "description": "Which file, relative to the checkout, empty for a comment on the change as a whole."
         },
         {
           "name": "old_start",
@@ -8190,24 +8234,6 @@
         {
           "name": "REVIEW_DELIVERY_STATE_DELIVERED",
           "description": "Released, and the agent has claimed the doorbell."
-        }
-      ]
-    },
-    "agent.v1.ReviewTreeStanding": {
-      "name": "ReviewTreeStanding",
-      "description": "ReviewTreeStanding is where an agent's worktree stands against the round its last verdict was given on.",
-      "values": [
-        {
-          "name": "REVIEW_TREE_STANDING_MOVED",
-          "description": "The worktree differs from the round and the base does not hold the round."
-        },
-        {
-          "name": "REVIEW_TREE_STANDING_LANDED",
-          "description": "The base holds the round whole and the worktree carries nothing beyond the base."
-        },
-        {
-          "name": "REVIEW_TREE_STANDING_LANDED_MOVED",
-          "description": "The base holds the round whole and the worktree carries new work on top of the base."
         }
       ]
     },

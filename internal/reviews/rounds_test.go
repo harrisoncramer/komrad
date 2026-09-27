@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"sync"
 	"testing"
 	"time"
 
@@ -49,6 +50,49 @@ func TestOpenRound(t *testing.T) {
 	}
 }
 
+// TestOpenRoundReleasesTheRefOfARoundItFailedToWrite pins that a round whose insert fails leaves
+// no ref behind.
+func TestOpenRoundReleasesTheRefOfARoundItFailedToWrite(t *testing.T) {
+	fx := newReviewFixture(t, time.Hour)
+	fx.snapshots.SHA = secondSnapshot
+	fx.snapshots.Taking = func() {
+		_, err := fx.stores.Agents.Delete(t.Context(), []string{fx.worker.ID})
+		require.NoError(t, err)
+	}
+
+	_, err := fx.service.OpenRound(t.Context(), fx.worker.ID, personAuthor)
+	require.Error(t, err)
+
+	assert.Equal(t, []string{reviewstore.RoundRef(fx.worker.ID, secondSnapshot)}, fx.snapshots.Released)
+}
+
+// TestOpenRoundTakesOneRoundOfATreeOpenedTwiceAtOnce pins that two callers racing on the same
+// tree share one round.
+func TestOpenRoundTakesOneRoundOfATreeOpenedTwiceAtOnce(t *testing.T) {
+	fx := newReviewFixture(t, time.Hour)
+	fx.snapshots.SHA = secondSnapshot
+	fx.snapshots.Taking = func() {
+		time.Sleep(250 * time.Millisecond)
+	}
+
+	var group sync.WaitGroup
+	ordinals := make([]int32, 2)
+	errs := make([]error, 2)
+	for i := range ordinals {
+		group.Go(func() {
+			round, err := fx.service.OpenRound(t.Context(), fx.worker.ID, personAuthor)
+			errs[i] = err
+			if err == nil {
+				ordinals[i] = round.Ordinal
+			}
+		})
+	}
+	group.Wait()
+
+	require.NoError(t, errors.Join(errs...))
+	assert.Equal(t, []int32{2, 2}, ordinals)
+}
+
 // TestReleaseReviewWritesTheFile pins what the file a release writes says.
 func TestReleaseReviewWritesTheFile(t *testing.T) {
 	tests := []struct {
@@ -58,11 +102,12 @@ func TestReleaseReviewWritesTheFile(t *testing.T) {
 		wantNotSaid []string
 	}{
 		{
-			name: "an approval with nothing written",
+			name: "the person sending with nothing written",
 			write: func(t *testing.T, fx *reviewFixture) *ReleaseReviewResult {
-				return fx.releaseReview(t, personAuthor, reviewstore.VerdictApproved)
+				return fx.releaseReview(t, personAuthor, "")
 			},
-			wantSaid: []string{"Approved", "round 1", "the person running komrad"},
+			wantSaid:    []string{"Comments to act on", "round 1", "the person running komrad"},
+			wantNotSaid: []string{"Approved", "Changes requested"},
 		},
 		{
 			name: "a reviewer's comment",
@@ -87,7 +132,7 @@ func TestReleaseReviewWritesTheFile(t *testing.T) {
 				})
 				require.NoError(t, err)
 
-				return fx.releaseReview(t, personAuthor, reviewstore.VerdictChangesRequested)
+				return fx.releaseReview(t, personAuthor, "")
 			},
 			wantSaid: []string{
 				">> 12  line 12 of greet.go",
@@ -102,7 +147,7 @@ func TestReleaseReviewWritesTheFile(t *testing.T) {
 			write: func(t *testing.T, fx *reviewFixture) *ReleaseReviewResult {
 				fx.writeComment(t, personAuthor, "this needs a nil check")
 
-				return fx.releaseReview(t, personAuthor, reviewstore.VerdictChangesRequested)
+				return fx.releaseReview(t, personAuthor, "")
 			},
 			wantSaid: []string{"+\tgreet(nil)", "this needs a nil check"},
 		},
@@ -136,7 +181,7 @@ func TestReleaseReviewRingsTheAgent(t *testing.T) {
 	fx.writeComment(t, reviewer, "and the test")
 
 	first := fx.releaseReview(t, reviewer, reviewstore.VerdictChangesRequested)
-	second := fx.releaseReview(t, personAuthor, reviewstore.VerdictApproved)
+	second := fx.releaseReview(t, personAuthor, "")
 
 	assert.Equal(t, 3, first.Comments)
 	rung := fx.listMail(t, fx.worker.ID)
@@ -148,7 +193,7 @@ func TestReleaseReviewRingsTheAgent(t *testing.T) {
 		assert.Contains(t, rung[i].Body, "or read "+released.Path)
 	}
 	assert.Contains(t, rung[0].Body, "changes requested")
-	assert.Contains(t, rung[1].Body, "approved")
+	assert.Contains(t, rung[1].Body, "released: 0 comment(s).")
 	assert.NotContains(t, rung[0].Body, "nil check", "the mail carries no feedback")
 }
 
@@ -196,7 +241,6 @@ func TestGetReview(t *testing.T) {
 
 	first, err := fx.service.ReleaseReview(t.Context(), ReleaseReviewParams{
 		AgentID: fx.worker.ID,
-		Verdict: reviewstore.VerdictChangesRequested,
 		Body:    "two things before it goes",
 		Author:  personAuthor,
 	})
@@ -210,13 +254,11 @@ func TestGetReview(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	second := fx.releaseReview(t, personAuthor, reviewstore.VerdictChangesRequested)
+	second := fx.releaseReview(t, personAuthor, "")
 
 	whole, err := fx.service.GetReview(t.Context(), first.Review.ID, newAgentAuthor(fx.worker))
 	require.NoError(t, err)
 
-	require.NotNil(t, whole.Review.Verdict)
-	assert.Equal(t, reviewstore.VerdictChangesRequested, *whole.Review.Verdict)
 	assert.Equal(t, "two things before it goes", whole.Review.Body)
 	assert.Empty(t, whole.Review.Path, "the agent is not told where the file is")
 	assert.Equal(t, firstSnapshot, whole.Round.SnapshotSHA)

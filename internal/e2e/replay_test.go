@@ -86,7 +86,6 @@ func reviewAcrossARebase(t *testing.T, mainsGreet string, wantConflict bool) rou
 
 	_, err = instance.Agents.ReleaseReview(ctx, connect.NewRequest(&agentv1.ReleaseReviewRequest{
 		AgentId: agentID,
-		Verdict: agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED,
 	}))
 	require.NoError(t, err)
 

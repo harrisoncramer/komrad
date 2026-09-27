@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"komrad/db/models"
-	"komrad/internal/git"
 	"komrad/internal/store"
 	"komrad/lib/xslice"
 )
@@ -157,9 +156,6 @@ type Agent struct {
 
 	// Alive is whether the agent still owns the pane its row names.
 	Alive bool
-	// TreeStanding is where the worktree stands against the round TreeStandingSHA names.
-	TreeStanding    git.Standing
-	TreeStandingSHA string
 	// MovedSinceRound is the newest round's snapshot while the worktree no longer hashes to it.
 	MovedSinceRound string
 }
@@ -250,8 +246,6 @@ func FromRow(agent models.Agent) Agent {
 		HeldAt:             agent.HeldAt,
 		HeldMidTurn:        agent.HeldMidTurn,
 		Alive:              agent.Alive,
-		TreeStanding:       git.Standing(agent.TreeStanding),
-		TreeStandingSHA:    agent.TreeStandingSha,
 		MovedSinceRound:    agent.MovedSinceRound,
 	}
 }

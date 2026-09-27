@@ -53,6 +53,10 @@ type reviewDiff struct {
 	chapters []reviewChapter
 	// chapter is which of those is on screen, negative for the whole change.
 	chapter int
+	// rounds are every round of the review, which the answer key finds a comment's two ends in.
+	rounds []*agentv1.ReviewRound
+	// answer is the answer to a comment on screen, nil while the diff is anything else.
+	answer *reviewAnswer
 
 	// followedMove is the move the diff last caught up on.
 	followedMove string
@@ -69,7 +73,7 @@ func reviewColumn() columnSpec {
 		floor: reviewDiffFloor,
 		// The editor is another process holding the stage, so the panel owns the window only while
 		// there is none.
-		holds: func(m model) bool { return !m.review.pass.atEditor },
+		holds: func(m model) bool { return !m.review.hold.atEditor },
 		rows: func(m model, split columnSplit) int {
 			// The band stands on the diff's own rows rather than the window's, so what is left is
 			// what the patch is drawn in and what the cursor is scrolled against.

@@ -34,6 +34,9 @@ func WatchedReview(review reviewstore.Review) *agentv1.WatchedReview {
 	if at := review.DeliveredAt; at != nil {
 		watched.DeliveredAt = dates.Stamp(*at)
 	}
+	if at := review.RoundLandedAt; at != nil {
+		watched.RoundLandedAt = dates.Stamp(*at)
+	}
 
 	return watched
 }

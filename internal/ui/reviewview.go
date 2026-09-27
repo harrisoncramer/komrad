@@ -60,17 +60,50 @@ func (r reviewScreen) view(s panelShared) string {
 // sidebarView is the panel's own column: where the cursor is standing, and the thread hanging
 // off it.
 func (r reviewScreen) sidebarView(s panelShared, above ...string) string {
-	help := s.draw.renderHelp(r.help(s))
+	layout := r.layoutSidebar(s, above...)
+	rest := r.threads.window(r.restView(s), layout.threadLines)
 
-	// The head is pinned and the conversation gives up the room: where the cursor is standing is
-	// what makes the rest of the pane mean anything.
+	return paint.PadRows(layout.head+rest, layout.spare) + layout.record + layout.messages + layout.help
+}
+
+// sidebarLayout is the sidebar measured once, so the drawing and the thread's scroll agree on
+// the rows the conversation has.
+type sidebarLayout struct {
+	help        string
+	record      string
+	messages    string
+	head        string
+	spare       int
+	threadLines int
+}
+
+// layoutSidebar pins the head and hands the conversation whatever the chrome leaves: where the
+// cursor is standing is what makes the rest of the pane mean anything.
+func (r reviewScreen) layoutSidebar(s panelShared, above ...string) sidebarLayout {
+	help := s.draw.renderHelp(r.help(s))
 	record := s.draw.detailsView()
 	messages := s.draw.messagesRegion(record, help, above...)
 	chrome := slices.Concat(above, []string{help, record, messages})
-	head := r.headView(s, reviewOwedRoom(s.draw.listLines(chrome...)))
-	rest := r.threads.window(r.restView(s), s.draw.listLines(slices.Concat(chrome, []string{head})...))
+	spare := s.draw.listLines(chrome...)
+	head := r.headView(s, countYoursRoom(spare))
 
-	return paint.PadRows(head+rest, s.draw.listLines(chrome...)) + record + messages + help
+	return sidebarLayout{
+		help:        help,
+		record:      record,
+		messages:    messages,
+		head:        head,
+		spare:       spare,
+		threadLines: s.draw.listLines(slices.Concat(chrome, []string{head})...),
+	}
+}
+
+// layoutSidebarAsDrawn measures the sidebar with the band over it when the panel draws one there.
+func (r reviewScreen) layoutSidebarAsDrawn(s panelShared) sidebarLayout {
+	if _, ok := s.draw.screenColumnSplit(); !ok {
+		return r.layoutSidebar(s, r.bandView(s, s.pane))
+	}
+
+	return r.layoutSidebar(s)
 }
 
 // help keeps the strip to what the screen is for, and hands the legend to the conversation
@@ -104,7 +137,7 @@ func (r reviewScreen) threadHelp(s panelShared) keyMap {
 	back := binding([]string{"esc"}, "back to the diff")
 	reply := binding(s.keys.Review.Compose, "reply")
 	settle := binding(s.keys.Review.Resolve, r.diff.resolveDesc())
-	send := binding(formKeys().Submit, "send the review")
+	send := binding(formKeys().Submit, r.threads.sendDesc())
 
 	return keyMap{
 		short: slices.Concat([]key.Binding{scroll, back, reply, settle}, s.draw.globalHelp()),
@@ -119,10 +152,11 @@ func (t reviewThreads) window(rendered string, lines int) string {
 		return ""
 	}
 
-	rows := strings.Split(strings.TrimRight(rendered, "\n"), "\n")
-	if len(rows) <= lines {
+	if len(strings.Split(strings.TrimRight(rendered, "\n"), "\n")) <= lines {
 		return rendered
 	}
+
+	rows := splitConversation(rendered)
 
 	// Placed from the end of the conversation rather than around a cursor, so the newest message
 	// holds its row as the thread grows and the reader walks back from there.
@@ -133,20 +167,26 @@ func (t reviewThreads) window(rendered string, lines int) string {
 	return paint.WindowRows(rows, lines, place, reviewMarkerStyle())
 }
 
+// splitConversation is the conversation's rows once it no longer fits, without the gap that
+// parts it from the head, since a clipped thread has no row to spare on it.
+func splitConversation(rendered string) []string {
+	return strings.Split(strings.Trim(rendered, "\n"), "\n")
+}
+
 // detailsFit reports whether the sidebar has a line left over once the record has taken its
 // share.
 func (r reviewScreen) detailsFit(s panelShared) bool {
-	return s.draw.sidebarFitsDetails(r.help, r.headView(s, owedRows))
+	return s.draw.sidebarFitsDetails(r.help, r.headView(s, 0))
 }
 
 // detailsRoom is the rows the sidebar has under the head and the legend it is drawing.
 func (r reviewScreen) detailsRoom(s panelShared) int {
-	return s.draw.sidebarDetailsRoom(r.help, r.headView(s, owedRows))
+	return s.draw.sidebarDetailsRoom(r.help, r.headView(s, 0))
 }
 
-// headView is the fixed top of the sidebar: whatever is standing in the way of a review, or the
-// place the cursor is standing when nothing is.
-func (r reviewScreen) headView(s panelShared, owedRoom int) string {
+// headView is the fixed top of the sidebar: the reader's own comments, then the place the cursor
+// is standing.
+func (r reviewScreen) headView(s panelShared, yoursRoom int) string {
 	switch {
 	case r.loading:
 		return dimStyle.Render(reviewLoadingWord) + "\n"
@@ -154,7 +194,7 @@ func (r reviewScreen) headView(s panelShared, owedRoom int) string {
 		return dimStyle.Render(reviewEmptyWord) + "\n"
 	}
 
-	return r.owedView(s, owedRoom) + r.diff.anchorView()
+	return r.yoursView(s, yoursRoom) + r.diff.anchorView()
 }
 
 // reviewNote is a line of prose under the conversation, wrapped into the sidebar's own column.
@@ -224,50 +264,12 @@ func (d reviewDiff) commentWhereView(thread *agentv1.ReviewThread) string {
 	return dimStyle.Render(fmt.Sprintf("  %d of %d", at, total))
 }
 
-// releaseView asks what to send: an optional word about the work as a whole, and the verdict
-// the agent acts on.
+// releaseView asks what to send: an optional word about the work as a whole.
 func (r reviewScreen) releaseView(s panelShared) string {
 	out := "\n" + r.threads.editor.view() + "\n\n"
 
-	for i, verdict := range reviewVerdicts {
-		mark, style := "  ", dimStyle
-		if i == r.threads.verdict {
-			mark, style = "▸ ", paint.Panel.Style(verdictTone(verdict))
-		}
-
-		out += style.Render("  "+mark+describeVerdict(verdict)) + "\n"
-	}
-
-	return out + "\n" + reviewNote(s, dimStyle, "tab to change · "+
-		keyLabel(formKeys().SendNow)+" send and interrupt · "+
+	return out + reviewNote(s, dimStyle, keyLabel(formKeys().SendNow)+" send and interrupt · "+
 		keyLabel(formKeys().Back)+" cancel")
-}
-
-// describeVerdict is how a verdict reads in the panel, spelled the way a person would say it.
-func describeVerdict(verdict agentv1.ReviewVerdict) string {
-	switch verdict {
-	case agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED:
-		return "approve"
-	case agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED:
-		return "request changes"
-	case agentv1.ReviewVerdict_REVIEW_VERDICT_COMMENTED, agentv1.ReviewVerdict_REVIEW_VERDICT_UNSPECIFIED:
-		return "comment only"
-	}
-
-	return "no verdict"
-}
-
-// verdictTone colours the chosen verdict by what it means.
-func verdictTone(verdict agentv1.ReviewVerdict) paint.Tone {
-	switch verdict {
-	case agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED:
-		return reviewDeliveredTone
-	case agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED:
-		return reviewSentTone
-	case agentv1.ReviewVerdict_REVIEW_VERDICT_COMMENTED, agentv1.ReviewVerdict_REVIEW_VERDICT_UNSPECIFIED:
-	}
-
-	return reviewUnsentTone
 }
 
 func (r reviewScreen) threadView(s panelShared) string {
@@ -337,7 +339,7 @@ func (t reviewThreads) sendDesc() string {
 		return "send to the agent"
 	}
 
-	return "give a verdict"
+	return "send a note"
 }
 
 // details is the record drawn under the review sidebar.
@@ -403,21 +405,17 @@ func (r reviewScreen) composeDesc() string {
 		return "reply in this thread"
 	}
 
-	if r.threads.isOwedAnAnswer() {
-		return "reply in a comment left open"
-	}
-
-	if !r.threads.holdsUnsent() {
-		return "start a review here"
+	if r.diff.isOnChange() {
+		return "comment on the change"
 	}
 
 	return "comment on this line"
 }
 
 // backDesc says which of the two things the back key leaves.
-func (p reviewPass) backDesc() string {
-	if p.mode == modeReviewing {
-		return "stop reviewing"
+func (r reviewScreen) backDesc() string {
+	if r.hold.atEditor {
+		return "close the editor"
 	}
 
 	return "back to the agents"

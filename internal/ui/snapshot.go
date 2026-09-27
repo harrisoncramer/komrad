@@ -3,7 +3,6 @@ package ui
 import (
 	"regexp"
 
-	"komrad/internal/git"
 	"komrad/internal/ui/panel"
 	"komrad/internal/view"
 	"komrad/lib/xslice"
@@ -91,7 +90,7 @@ func snapshotRow(r agentRow, params snapshotParams) view.Row {
 	row.Name = item.Agent.Name
 	row.Matches = matchesIn(params.matcher, item.Agent.Name)
 	row.Repo = snapshotRepo(item.Agent)
-	row.Review = snapshotReview(item)
+	row.ReviewerComments, row.PersonComments = readSnapshotComments(item)
 	row.Forge = snapshotForge(item)
 	row.Selected = params.selected.has(key)
 
@@ -216,43 +215,21 @@ func snapshotRepo(agent panel.Agent) view.Repo {
 	return view.RepoClean
 }
 
-// snapshotReview is where the tree on disk stands with the local review of an agent's work, the
-// last conclusion released and whether the worktree still matches the round it was given on.
-func snapshotReview(item panel.AgentRow) view.Review {
-	tree := item.LocalTree
-	if item.Agent.ArchivedAt != nil {
-		tree = git.StandingSame
+// readSnapshotComments reads how the comments on an agent's work stand, reviewer agents then the person.
+func readSnapshotComments(item panel.AgentRow) (*view.Comments, *view.Comments) {
+	return convertComments(item.ReviewerComments), convertComments(item.PersonComments)
+}
+
+func convertComments(counts *agentv1.CommentCounts) *view.Comments {
+	if counts == nil {
+		return nil
 	}
 
-	switch item.LocalVerdict {
-	case agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED:
-		switch tree {
-		case git.StandingMoved:
-			return view.ReviewApprovedMoved
-		case git.StandingLanded:
-			return view.ReviewApprovedLanded
-		case git.StandingLandedMoved:
-			return view.ReviewApprovedLandedMoved
-		case git.StandingSame:
-		}
-
-		return view.ReviewApproved
-	case agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED:
-		switch tree {
-		case git.StandingMoved:
-			return view.ReviewChangesPushed
-		case git.StandingLanded:
-			return view.ReviewChangesLanded
-		case git.StandingLandedMoved:
-			return view.ReviewChangesLandedMoved
-		case git.StandingSame:
-		}
-
-		return view.ReviewChangesRequested
-	case agentv1.ReviewVerdict_REVIEW_VERDICT_COMMENTED, agentv1.ReviewVerdict_REVIEW_VERDICT_UNSPECIFIED:
+	return &view.Comments{
+		Open:     int(counts.GetOpen()),
+		Resolved: int(counts.GetResolved()),
+		Unread:   counts.GetUnread(),
 	}
-
-	return view.ReviewNone
 }
 
 // snapshotForge is where the pull request opened from an agent's branch stands, as the forge

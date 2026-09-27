@@ -304,7 +304,6 @@ func TestReviewEntitlement(t *testing.T) {
 
 				_, err = fx.service.ReleaseReview(t.Context(), ReleaseReviewParams{
 					AgentID: fx.worker.ID,
-					Verdict: reviewstore.VerdictApproved,
 					Author:  personAuthor,
 				})
 
@@ -313,17 +312,44 @@ func TestReviewEntitlement(t *testing.T) {
 			wantErr: agents.ErrAgentArchived,
 		},
 		{
-			name: "releasing notes with nothing in them",
+			name: "a reviewer releasing notes with nothing in them",
 			call: func(t *testing.T, fx *reviewFixture) error {
 				_, err := fx.service.ReleaseReview(t.Context(), ReleaseReviewParams{
 					AgentID: fx.worker.ID,
 					Verdict: reviewstore.VerdictCommented,
-					Author:  personAuthor,
+					Author:  newAgentAuthor(fx.reviewer),
 				})
 
 				return err
 			},
 			wantErr: ErrReviewEmpty,
+		},
+		{
+			name: "a reviewer releasing with no verdict",
+			call: func(t *testing.T, fx *reviewFixture) error {
+				fx.writeComment(t, newAgentAuthor(fx.reviewer), "this needs a nil check")
+				_, err := fx.service.ReleaseReview(t.Context(), ReleaseReviewParams{
+					AgentID: fx.worker.ID,
+					Author:  newAgentAuthor(fx.reviewer),
+				})
+
+				return err
+			},
+			wantErr: ErrReviewVerdictMissing,
+		},
+		{
+			name: "the person releasing with a verdict",
+			call: func(t *testing.T, fx *reviewFixture) error {
+				fx.writeComment(t, personAuthor, "this needs a nil check")
+				_, err := fx.service.ReleaseReview(t.Context(), ReleaseReviewParams{
+					AgentID: fx.worker.ID,
+					Verdict: reviewstore.VerdictApproved,
+					Author:  personAuthor,
+				})
+
+				return err
+			},
+			wantErr: ErrReviewVerdictFromPerson,
 		},
 		{
 			name: "a comment read from a snapshot no round was taken of",
@@ -372,6 +398,17 @@ func TestReviewEntitlement(t *testing.T) {
 					ID:     messages[0].ID,
 					Body:   "this needs a nil check, or a guard above it",
 					Author: personAuthor,
+				})
+
+				return err
+			},
+		},
+		{
+			name: "the person sending with nothing written",
+			call: func(t *testing.T, fx *reviewFixture) error {
+				_, err := fx.service.ReleaseReview(t.Context(), ReleaseReviewParams{
+					AgentID: fx.worker.ID,
+					Author:  personAuthor,
 				})
 
 				return err
@@ -563,6 +600,108 @@ func TestCreateReviewThreadPicksTheRound(t *testing.T) {
 	}
 }
 
+// TestCommentOnTheChangeAsAWhole pins what a comment naming no file may carry, from the first
+// message to the replies under it.
+func TestCommentOnTheChangeAsAWhole(t *testing.T) {
+	tests := []struct {
+		name    string
+		write   func(t *testing.T, fx *reviewFixture) error
+		wantErr error
+	}{
+		{
+			name: "opened naming lines",
+			write: func(t *testing.T, fx *reviewFixture) error {
+				return fx.tryWholeChange(t, CreateReviewThreadParams{
+					NewStart: 3,
+					NewEnd:   3,
+				})
+			},
+			wantErr: ErrReviewWholeChangeAnchored,
+		},
+		{
+			name: "opened quoting a line",
+			write: func(t *testing.T, fx *reviewFixture) error {
+				return fx.tryWholeChange(t, CreateReviewThreadParams{
+					QuotedLines: []string{"+func Hello() {}"},
+				})
+			},
+			wantErr: ErrReviewWholeChangeAnchored,
+		},
+		{
+			name: "opened suggesting a replacement",
+			write: func(t *testing.T, fx *reviewFixture) error {
+				return fx.tryWholeChange(t, CreateReviewThreadParams{
+					Suggestion: []string{"func Hello(name string) {}"},
+				})
+			},
+			wantErr: ErrReviewWholeChangeAnchored,
+		},
+		{
+			name: "answered with a suggested replacement",
+			write: func(t *testing.T, fx *reviewFixture) error {
+				written, err := fx.service.CreateReviewThread(t.Context(), CreateReviewThreadParams{
+					AgentID: fx.worker.ID,
+					Body:    "split this in two",
+					Author:  personAuthor,
+				})
+				require.NoError(t, err)
+
+				_, err = fx.service.AddReviewMessage(t.Context(), AddReviewMessageParams{
+					ThreadID:   written.Thread.ID,
+					Body:       "like this",
+					Suggestion: []string{"func Hello(name string) {}"},
+					Author:     personAuthor,
+				})
+
+				return err
+			},
+			wantErr: ErrReviewWholeChangeAnchored,
+		},
+		{
+			name: "edited to suggest a replacement",
+			write: func(t *testing.T, fx *reviewFixture) error {
+				written, err := fx.service.CreateReviewThread(t.Context(), CreateReviewThreadParams{
+					AgentID: fx.worker.ID,
+					Body:    "split this in two",
+					Author:  personAuthor,
+				})
+				require.NoError(t, err)
+
+				_, err = fx.service.EditReviewMessage(t.Context(), EditReviewMessageParams{
+					ID:         written.Messages[0].ID,
+					Body:       "split this in two",
+					Suggestion: []string{"func Hello(name string) {}"},
+					Author:     personAuthor,
+				})
+
+				return err
+			},
+			wantErr: ErrReviewWholeChangeAnchored,
+		},
+		{
+			name: "saying something about the whole of it",
+			write: func(t *testing.T, fx *reviewFixture) error {
+				return fx.tryWholeChange(t, CreateReviewThreadParams{})
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fx := newReviewFixture(t, time.Hour)
+
+			err := tt.write(t, fx)
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+
+				return
+			}
+
+			require.NoError(t, err)
+		})
+	}
+}
+
 // TestASecondReview pins when an author may start another review of the same agent.
 func TestASecondReview(t *testing.T) {
 	tests := []struct {
@@ -571,34 +710,6 @@ func TestASecondReview(t *testing.T) {
 		wantErr     error
 		wantErrText string
 	}{
-		{
-			name: "the person before the agent has said anything",
-			write: func(t *testing.T, fx *reviewFixture) error {
-				fx.releaseFirstReview(t)
-
-				return fx.tryComment(t, personAuthor, "")
-			},
-			wantErr: ErrReviewNotAnswered,
-		},
-		{
-			name: "the person after only another reviewer wrote",
-			write: func(t *testing.T, fx *reviewFixture) error {
-				fx.releaseFirstReview(t)
-				fx.writeComment(t, newAgentAuthor(fx.reviewer), "and the caller above it")
-
-				return fx.tryComment(t, personAuthor, "")
-			},
-			wantErr: ErrReviewNotAnswered,
-		},
-		{
-			name: "the person after the agent answered in words",
-			write: func(t *testing.T, fx *reviewFixture) error {
-				fx.writeAnswer(t, fx.releaseFirstReview(t).ID)
-
-				return fx.tryComment(t, personAuthor, "")
-			},
-			wantErr: ErrReviewNotAnswered,
-		},
 		{
 			name: "the reviewer on a round it has reviewed",
 			write: func(t *testing.T, fx *reviewFixture) error {
@@ -647,6 +758,14 @@ func TestASecondReview(t *testing.T) {
 				})
 
 				return err
+			},
+		},
+		{
+			name: "the person while the agent has not answered the first",
+			write: func(t *testing.T, fx *reviewFixture) error {
+				fx.releaseFirstReview(t)
+
+				return fx.tryComment(t, personAuthor, "")
 			},
 		},
 		{
@@ -974,7 +1093,7 @@ func (fx *reviewFixture) releaseFirstReview(t *testing.T) reviewstore.Thread {
 	t.Helper()
 
 	written := fx.writeComment(t, personAuthor, "this needs a nil check")
-	fx.releaseReview(t, personAuthor, reviewstore.VerdictChangesRequested)
+	fx.releaseReview(t, personAuthor, "")
 
 	return written.Thread
 }
@@ -1026,6 +1145,19 @@ func (fx *reviewFixture) tryComment(t *testing.T, author ReviewAuthor, snapshot 
 	return err
 }
 
+// tryWholeChange opens a comment on the change as a whole carrying whatever else params names.
+func (fx *reviewFixture) tryWholeChange(t *testing.T, params CreateReviewThreadParams) error {
+	t.Helper()
+
+	params.AgentID = fx.worker.ID
+	params.Body = "split this in two"
+	params.Author = personAuthor
+
+	_, err := fx.service.CreateReviewThread(t.Context(), params)
+
+	return err
+}
+
 func (fx *reviewFixture) releaseReview(t *testing.T, author ReviewAuthor, verdict reviewstore.Verdict) *ReleaseReviewResult {
 	t.Helper()
 
@@ -1050,7 +1182,7 @@ func (fx *reviewFixture) writeAnswer(t *testing.T, threadID string) *reviewstore
 	})
 	require.NoError(t, err)
 
-	return answer
+	return &answer.Message
 }
 
 func (fx *reviewFixture) settle(t *testing.T, threadID string, author ReviewAuthor) *reviewstore.Thread {

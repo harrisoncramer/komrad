@@ -91,6 +91,7 @@ const (
 	actionReviewViewed
 	actionReviewExpand
 	actionReviewBaseForward
+	actionReviewAnswer
 	actionReviewCompose
 	actionReviewSend
 )

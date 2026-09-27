@@ -10,7 +10,6 @@ import (
 	workflowv1 "komrad/proto/gen/workflow/v1"
 	worktreev1 "komrad/proto/gen/worktree/v1"
 
-	"komrad/internal/git"
 	"komrad/lib/dates"
 	"komrad/lib/xslice"
 )
@@ -94,11 +93,11 @@ func agentRowFrom(row *agentv1.AgentRow) panel.AgentRow {
 		FailedRunLog:       agent.FailedRunLog,
 		Documents:          agent.GetDocuments(),
 		DocumentsUpdatedAt: dates.ParsePtr(agent.GetDocumentsUpdatedAt()),
-		LocalVerdict:       row.GetLocalReviewVerdict(),
-		LocalTree:          standingFrom(row.GetLocalReviewTree()),
 		PullRequest:        pullRequestStandingFrom(row.GetPullRequest()),
 		PullRequests:       xslice.Map(row.GetPullRequests(), pullRequestFrom),
 		MovedSinceRound:    agent.GetMovedSinceRound(),
+		ReviewerComments:   row.GetReviewerComments(),
+		PersonComments:     row.GetPersonComments(),
 	}
 }
 
@@ -126,21 +125,6 @@ func pullRequestFrom(pullRequest *pullrequestv1.PullRequest) panel.PullRequest {
 		MergedAt:     dates.ParsePtr(pullRequest.GetMergedAt()),
 		ClosedAt:     dates.ParsePtr(pullRequest.GetClosedAt()),
 	}
-}
-
-// standingFrom is a standing as the wire carries it.
-func standingFrom(standing agentv1.ReviewTreeStanding) git.Standing {
-	switch standing {
-	case agentv1.ReviewTreeStanding_REVIEW_TREE_STANDING_MOVED:
-		return git.StandingMoved
-	case agentv1.ReviewTreeStanding_REVIEW_TREE_STANDING_LANDED:
-		return git.StandingLanded
-	case agentv1.ReviewTreeStanding_REVIEW_TREE_STANDING_LANDED_MOVED:
-		return git.StandingLandedMoved
-	case agentv1.ReviewTreeStanding_REVIEW_TREE_STANDING_UNSPECIFIED:
-	}
-
-	return git.StandingSame
 }
 
 func workflowsFrom(listed []*workflowv1.Workflow) []panel.Workflow {

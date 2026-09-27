@@ -3,7 +3,6 @@ package render
 import (
 	"time"
 
-	"komrad/internal/git"
 	"komrad/lib/dates"
 	"komrad/lib/xptr"
 	"komrad/lib/xstr"
@@ -61,8 +60,6 @@ func Agent(row rowstore.Row, options AgentOptions) *agentv1.Agent {
 		FailedRunLog:       row.FailedRunLog,
 		Documents:          row.Documents,
 		DocumentsUpdatedAt: dates.PreciseStampPtr(row.DocumentsUpdatedAt),
-		TreeStanding:       standingOf(stored.TreeStanding),
-		TreeStandingSha:    stored.TreeStandingSHA,
 		MovedSinceRound:    stored.MovedSinceRound,
 		HeldAt:             heldStamp(stored.HeldAt),
 	}
@@ -89,21 +86,6 @@ func ReviewVerdictOf(verdict reviewstore.Verdict) agentv1.ReviewVerdict {
 	default:
 		return agentv1.ReviewVerdict_REVIEW_VERDICT_UNSPECIFIED
 	}
-}
-
-// standingOf is a standing as the wire carries it.
-func standingOf(standing git.Standing) agentv1.ReviewTreeStanding {
-	switch standing {
-	case git.StandingMoved:
-		return agentv1.ReviewTreeStanding_REVIEW_TREE_STANDING_MOVED
-	case git.StandingLanded:
-		return agentv1.ReviewTreeStanding_REVIEW_TREE_STANDING_LANDED
-	case git.StandingLandedMoved:
-		return agentv1.ReviewTreeStanding_REVIEW_TREE_STANDING_LANDED_MOVED
-	case git.StandingSame:
-	}
-
-	return agentv1.ReviewTreeStanding_REVIEW_TREE_STANDING_UNSPECIFIED
 }
 
 // heldStamp is when a person took the agent's worktree, empty while nobody has.

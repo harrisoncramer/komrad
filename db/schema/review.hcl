@@ -35,6 +35,11 @@ table "review_rounds" {
     type    = text
     comment = "A commit covering the agent's whole checkout, tracked and untracked files alike. A ref under refs/komrad/rounds keeps it alive so git will not collect it. Writing it leaves the agent's own branch, index and files alone."
   }
+  column "landed_at" {
+    null    = true
+    type    = timestamptz
+    comment = "When the base branch was first seen holding this round whole, or a later round whole, null until then. A landed round's settled comments are history rather than work still under review."
+  }
   column "created_at" {
     null    = false
     type    = timestamptz
@@ -211,7 +216,7 @@ table "review_threads" {
   column "file_path" {
     null    = false
     type    = text
-    comment = "The file the thread is pinned to, named the way the diff names it. That is a path relative to the repository root, and where the change left the file if it moved it."
+    comment = "The file the thread is pinned to, named the way the diff names it. That is a path relative to the repository root, and where the change left the file if it moved it. It is empty for a comment on the change as a whole, which has no file and no lines."
   }
   column "old_start" {
     null    = false
@@ -390,6 +395,11 @@ table "review_messages" {
     default = sql("'{}'::text[]")
     comment = "Replacement lines the reviewer is proposing for the range the thread is pinned to, empty on an ordinary comment. The agent applies them as written rather than treating them as a description of what to do."
   }
+  column "round_id" {
+    null    = true
+    type    = uuid
+    comment = "The round an agent's reply said answers the thread, taken of its worktree as it stood when it replied. Set only on a reply that resolves the thread; null on everything else."
+  }
   column "engine_id" {
     null    = false
     type    = uuid
@@ -414,6 +424,12 @@ table "review_messages" {
     columns     = [column.engine_id, column.review_id]
     ref_columns = [table.reviews.column.engine_id, table.reviews.column.id]
     on_delete   = SET_NULL
+    on_update   = NO_ACTION
+  }
+  foreign_key "review_messages_round_id_fkey" {
+    columns     = [column.engine_id, column.round_id]
+    ref_columns = [table.review_rounds.column.engine_id, table.review_rounds.column.id]
+    on_delete   = CASCADE
     on_update   = NO_ACTION
   }
   foreign_key "review_messages_author_agent_id_fkey" {

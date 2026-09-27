@@ -184,6 +184,42 @@ func TestTraceThreadsSkipsRoundsTheScreenWillNotDraw(t *testing.T) {
 	assert.Empty(t, repo.MappingsAsked(), "and the diff it would have taken was never run")
 }
 
+// TestTraceThreadsSkipsTheChangeAsAWhole covers a comment on no file, which git would otherwise
+// answer by filing it under whichever file was added.
+func TestTraceThreadsSkipsTheChangeAsAWhole(t *testing.T) {
+	repo := &gittest.Repo{Mappings: map[string][]position.Mapping{gittest.NamePair(firstSHA, secondSHA): insertedAHelper}}
+
+	rounds := []*agentv1.ReviewRound{
+		{
+			Id:          "r1",
+			Ordinal:     1,
+			SnapshotSha: firstSHA,
+		},
+		{
+			Id:          "r2",
+			Ordinal:     2,
+			SnapshotSha: secondSHA,
+		},
+	}
+	threads := []*agentv1.ReviewThread{
+		{
+			Id:      "whole",
+			RoundId: "r1",
+		},
+	}
+
+	traced := traceThreads(t.Context(), traceThreadsParams{
+		Git:     repo,
+		Dir:     traceDir,
+		ToSHA:   secondSHA,
+		Threads: threads,
+		Rounds:  rounds,
+	})
+
+	assert.Empty(t, traced)
+	assert.Empty(t, repo.MappingsAsked(), "and no diff was taken for it")
+}
+
 // TestTraceThreadsGivesUpWholeRatherThanInPart covers one pair failing while another answers:
 // keeping the answers that arrived would make placement depend on which pairs could be read, so
 // two loads of the same screen would draw the same comments in different places.

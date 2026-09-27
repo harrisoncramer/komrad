@@ -75,14 +75,17 @@ func TestReviewRefusalsMapToCodes(t *testing.T) {
 			wantCode: connect.CodeFailedPrecondition,
 		},
 		{
-			name: "a second review before the first was answered",
+			name: "a person releasing with a verdict",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
-				_, err := svc.CreateReviewThread(ctx, connect.NewRequest(&agentv1.CreateReviewThreadRequest{AgentId: betaID}))
+				_, err := svc.ReleaseReview(ctx, connect.NewRequest(&agentv1.ReleaseReviewRequest{
+					AgentId: betaID,
+					Verdict: agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED,
+				}))
 
 				return err
 			},
-			err:      reviews.ErrReviewNotAnswered,
-			wantCode: connect.CodeFailedPrecondition,
+			err:      reviews.ErrReviewVerdictFromPerson,
+			wantCode: connect.CodeInvalidArgument,
 		},
 		{
 			name: "a reply in a thread nothing holds",
@@ -419,9 +422,9 @@ func TestReleaseReviewPassesTheVerdict(t *testing.T) {
 		wantVerdict reviewstore.Verdict
 	}{
 		{
-			name:        "no verdict at all is a comment",
+			name:        "no verdict at all is left for the service to settle",
 			verdict:     agentv1.ReviewVerdict_REVIEW_VERDICT_UNSPECIFIED,
-			wantVerdict: reviewstore.VerdictCommented,
+			wantVerdict: "",
 		},
 		{
 			name:        "a comment",
@@ -606,12 +609,12 @@ func (f *fakeReviewer) CreateReviewThread(context.Context, reviews.CreateReviewT
 }
 
 // AddReviewMessage answers the message it holds.
-func (f *fakeReviewer) AddReviewMessage(context.Context, reviews.AddReviewMessageParams) (*reviewstore.Message, error) {
+func (f *fakeReviewer) AddReviewMessage(context.Context, reviews.AddReviewMessageParams) (*reviews.AddReviewMessageResult, error) {
 	if f.err != nil {
 		return nil, f.err
 	}
 
-	return &f.message, nil
+	return &reviews.AddReviewMessageResult{Message: f.message}, nil
 }
 
 // EditReviewMessage answers the message it holds.

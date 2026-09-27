@@ -208,6 +208,7 @@ func AgentRows(w World, now time.Time) []*agentv1.AgentRow {
 	unread := getAgentsWithUnreadMail(w.Mail, now)
 	onBranch := groupPullRequestsByBranch(w.PullRequests)
 	reviewed := groupReviewsByAgent(w.Reviews)
+	threaded := groupThreadsByAgent(w.ReviewThreads)
 
 	rows := make([]*agentv1.AgentRow, 0, len(w.Agents))
 	for _, agent := range w.Agents {
@@ -223,6 +224,7 @@ func AgentRows(w World, now time.Time) []*agentv1.AgentRow {
 			row.Mark = &mark
 		}
 		setLocalReview(row, reviewed[agent.GetId()])
+		setCommentCounts(row, reviewed[agent.GetId()], threaded[agent.GetId()])
 
 		rows = append(rows, row)
 	}

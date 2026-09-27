@@ -5,7 +5,6 @@ import (
 	"testing"
 	"time"
 
-	"komrad/internal/git"
 	"komrad/internal/store"
 	"komrad/lib/xptr"
 
@@ -476,35 +475,4 @@ func TestSetAlive(t *testing.T) {
 	assert.True(t, a.Alive)
 
 	require.NoError(t, st.SetAlive(ctx, nil, true), "no ids is nothing to write")
-}
-
-// TestSetTreeStanding covers the cwd sync's write: the standing and the round it was measured
-// against ride the row together.
-func TestSetTreeStanding(t *testing.T) {
-	st := open(t)
-	ctx := t.Context()
-
-	require.NoError(t, st.Create(ctx, Agent{Name: "agent", State: StateIdle}))
-	created, err := st.Get(ctx, "agent")
-	require.NoError(t, err)
-	assert.Equal(t, git.StandingSame, created.TreeStanding)
-	assert.Empty(t, created.TreeStandingSHA)
-
-	require.NoError(t, st.SetTreeStanding(ctx, created.ID, git.StandingLandedMoved, "snapshot-one"))
-
-	measured, err := st.GetByID(ctx, created.ID)
-	require.NoError(t, err)
-	require.NotNil(t, measured)
-	assert.Equal(t, git.StandingLandedMoved, measured.TreeStanding)
-	assert.Equal(t, "snapshot-one", measured.TreeStandingSHA)
-
-	require.NoError(t, st.SetTreeStanding(ctx, created.ID, git.StandingSame, ""))
-
-	rested, err := st.GetByID(ctx, created.ID)
-	require.NoError(t, err)
-	require.NotNil(t, rested)
-	assert.Equal(t, git.StandingSame, rested.TreeStanding)
-	assert.Empty(t, rested.TreeStandingSHA)
-
-	require.ErrorIs(t, st.SetTreeStanding(ctx, "not-a-uuid", git.StandingMoved, "snapshot-one"), store.ErrNotFound)
 }

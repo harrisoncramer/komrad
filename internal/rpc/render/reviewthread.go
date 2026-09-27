@@ -54,6 +54,7 @@ func ReviewMessage(message reviewstore.Message) *agentv1.ReviewMessage {
 		AuthorKind:    kind,
 		AuthorAgentId: message.AuthorAgentID,
 		ReviewId:      message.ReviewID,
+		RoundId:       message.RoundID,
 		Body:          message.Body,
 		Suggestion:    message.Suggestion,
 		Delivery:      reviewDeliveryStateOf(message.Delivery),

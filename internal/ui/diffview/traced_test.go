@@ -33,7 +33,7 @@ func TestTracingPlacesAThreadThatMoved(t *testing.T) {
 	view.SetTraced(map[string]Traced{"t1": {FilePath: "greet.go", NewStart: 9}})
 	view.PinThreads([]*agentv1.ReviewThread{thread})
 
-	found, ok := view.GetThreadAt(2)
+	found, ok := view.GetThreadAt(3)
 	require.True(t, ok, "the thread is drawn on the line git says it became")
 	assert.Equal(t, "t1", found.GetId())
 }
@@ -59,7 +59,7 @@ func TestTracingFollowsARename(t *testing.T) {
 	view.SetTraced(map[string]Traced{"t1": {FilePath: "hello.go", NewStart: 4}})
 	view.PinThreads([]*agentv1.ReviewThread{thread})
 
-	found, ok := view.GetThreadAt(2)
+	found, ok := view.GetThreadAt(3)
 	require.True(t, ok, "the thread follows its file")
 	assert.Equal(t, "t1", found.GetId())
 }
@@ -110,7 +110,7 @@ func TestTracingLeavesTheOtherAttemptsAlone(t *testing.T) {
 	view.SetTraced(map[string]Traced{"t1": {FilePath: "greet.go", NewStart: 900}})
 	view.PinThreads([]*agentv1.ReviewThread{thread})
 
-	found, ok := view.GetThreadAt(2)
+	found, ok := view.GetThreadAt(3)
 	require.True(t, ok, "a line nobody drew does not cost the thread its own coordinates")
 	assert.Equal(t, "t1", found.GetId())
 }
@@ -151,7 +151,7 @@ func TestAnExactCoordinateKeepsItsRowFromATracedGuess(t *testing.T) {
 	// The listing orders by round, so the older thread is offered its row first.
 	view.PinThreads([]*agentv1.ReviewThread{older, newer})
 
-	found, ok := view.GetThreadAt(2)
+	found, ok := view.GetThreadAt(3)
 	require.True(t, ok, "the row is drawn")
 	assert.Equal(t, "newer", found.GetId(), "and belongs to the thread written against it")
 	assert.Equal(t, pinned, view.placed["newer"])
@@ -208,7 +208,7 @@ func TestPlacesAThreadWrittenAgainstTheSnapshotOnScreen(t *testing.T) {
 	}})
 	view.PinThreads([]*agentv1.ReviewThread{thread})
 
-	found, ok := view.GetThreadAt(2)
+	found, ok := view.GetThreadAt(3)
 	require.True(t, ok, "the thread stands on the line it was written against")
 	assert.Equal(t, "t1", found.GetId())
 	assert.Equal(t, pinned, view.placed["t1"])

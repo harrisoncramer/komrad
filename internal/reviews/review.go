@@ -39,6 +39,10 @@ var ErrReviewNotYours = fail.Denied("that review belongs to another agent")
 // does, such as opening, deleting, or releasing a review.
 var ErrReviewHumanOnly = fail.Denied("only the person reviewing can do that")
 
+// ErrReviewWholeChangeAnchored is answered when a comment on the change as a whole names lines,
+// quotes them, or suggests replacing them, which only a comment on a file can.
+var ErrReviewWholeChangeAnchored = fail.InvalidArgument("a comment on the change as a whole cannot name lines, quote them, or suggest a replacement")
+
 // reviewThreadReadWriter is the half of the store that keeps conversations: where they are
 // pinned, whether the person has read the replies, and whether they are still owed an answer.
 type reviewThreadReadWriter interface {
@@ -145,6 +149,7 @@ type ReviewService struct {
 	noticeDebounce time.Duration
 	noticesMu      sync.Mutex
 	notices        map[string]*pendingReviewerNotice
+	roundLocks     *agentLocks
 }
 
 // NewReviewService builds the service over the review store and the things it tells.
@@ -169,6 +174,7 @@ func NewReviewService(params NewReviewServiceParams) *ReviewService {
 		stateDir:       params.StateDir,
 		noticeDebounce: debounce,
 		notices:        map[string]*pendingReviewerNotice{},
+		roundLocks:     newAgentLocks(),
 	}
 }
 
@@ -295,6 +301,10 @@ func (s *ReviewService) CreateReviewThread(
 	ctx context.Context,
 	params CreateReviewThreadParams,
 ) (*ReviewThreadWithMessages, error) {
+	if params.FilePath == "" && isAnchoredToLines(params) {
+		return nil, ErrReviewWholeChangeAnchored
+	}
+
 	if err := s.requireEntitled(ctx, params.AgentID, params.Author); err != nil {
 		return nil, err
 	}
@@ -362,6 +372,15 @@ type AddReviewMessageParams struct {
 	Body       string
 	Suggestion []string
 	Author     ReviewAuthor
+	// Addressed says the agent under review made the change the thread asks for.
+	Addressed bool
+}
+
+// AddReviewMessageResult is the message as written and anything worth telling the one who wrote it.
+type AddReviewMessageResult struct {
+	Message reviewstore.Message
+	// Hint points a plain reply at addressed when the worktree has moved since the thread was written.
+	Hint string
 }
 
 // AddReviewMessage says something in an existing thread, filed under the review a reviewer
@@ -369,18 +388,26 @@ type AddReviewMessageParams struct {
 func (s *ReviewService) AddReviewMessage(
 	ctx context.Context,
 	params AddReviewMessageParams,
-) (*reviewstore.Message, error) {
+) (*AddReviewMessageResult, error) {
 	thread, err := s.getOwnThread(ctx, params.ThreadID, params.Author)
 	if err != nil {
 		return nil, err
 	}
 
+	if thread.FilePath == "" && len(params.Suggestion) > 0 {
+		return nil, ErrReviewWholeChangeAnchored
+	}
+
+	answering := !params.Author.IsHuman() && doesOwnAgent(params.Author, thread.AgentID)
+	if params.Addressed && !answering {
+		return nil, ErrReviewAddressedByOwner
+	}
+
 	var reviewID *string
-	if params.Author.IsHuman() || !doesOwnAgent(params.Author, thread.AgentID) {
+	if !answering {
 		open, err := s.openReviewFor(ctx, openReviewForParams{
 			AgentID: thread.AgentID,
 			Author:  params.Author,
-			Reply:   true,
 		})
 		if err != nil {
 			return nil, err
@@ -389,9 +416,20 @@ func (s *ReviewService) AddReviewMessage(
 		reviewID = &open.ID
 	}
 
+	var roundID *string
+	if params.Addressed {
+		answer, err := s.openAnswerRound(ctx, *thread, params.Author)
+		if err != nil {
+			return nil, err
+		}
+
+		roundID = &answer.ID
+	}
+
 	message, err := s.messages.CreateMessage(ctx, reviewstore.CreateMessageParams{
 		ThreadID:      params.ThreadID,
 		ReviewID:      reviewID,
+		RoundID:       roundID,
 		Suggestion:    params.Suggestion,
 		AuthorKind:    params.Author.Kind,
 		AuthorAgentID: params.Author.AgentID,
@@ -401,11 +439,16 @@ func (s *ReviewService) AddReviewMessage(
 		return nil, err
 	}
 
-	if reviewID == nil {
+	result := &AddReviewMessageResult{Message: *message}
+	if answering {
 		s.ringTheReviewer(ctx, thread.AgentID)
+
+		if !params.Addressed {
+			result.Hint = s.findReplyHint(ctx, *thread)
+		}
 	}
 
-	return message, nil
+	return result, nil
 }
 
 // resumeWakeTimeout bounds a wake nobody is waiting on, so a post-resume hook that hangs cannot
@@ -602,8 +645,20 @@ func (s *ReviewService) EditReviewMessage(
 	ctx context.Context,
 	params EditReviewMessageParams,
 ) (*reviewstore.Message, error) {
-	if err := s.requireOwnMessage(ctx, params.ID, params.Author); err != nil {
+	message, err := s.getOwnMessage(ctx, params.ID, params.Author)
+	if err != nil {
 		return nil, err
+	}
+
+	if len(params.Suggestion) > 0 {
+		thread, err := s.threads.GetThread(ctx, message.ThreadID)
+		if err != nil {
+			return nil, err
+		}
+
+		if thread.FilePath == "" {
+			return nil, ErrReviewWholeChangeAnchored
+		}
 	}
 
 	return s.messages.UpdateMessage(ctx, params.ID, params.Body, params.Suggestion)
@@ -748,33 +803,39 @@ func (s *ReviewService) getOwnThread(ctx context.Context, id string, author Revi
 	return nil, fmt.Errorf("%w: %q", ErrReviewNotYours, id)
 }
 
-// requireOwnMessage refuses a caller rewriting or removing words it did not write.
-func (s *ReviewService) requireOwnMessage(ctx context.Context, id string, author ReviewAuthor) error {
+// getOwnMessage reads a message, refusing a caller rewriting or removing words it did not write.
+func (s *ReviewService) getOwnMessage(ctx context.Context, id string, author ReviewAuthor) (*reviewstore.Message, error) {
 	message, err := s.messages.GetMessage(ctx, id)
 	if errors.Is(err, store.ErrNotFound) {
-		return fmt.Errorf("%w: %q", ErrReviewMessageNotFound, id)
+		return nil, fmt.Errorf("%w: %q", ErrReviewMessageNotFound, id)
 	}
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if author.IsHuman() {
 		if message.AuthorKind != reviewstore.AuthorHuman {
-			return fmt.Errorf("%w: %q was written by an agent", ErrReviewNotYours, id)
+			return nil, fmt.Errorf("%w: %q was written by an agent", ErrReviewNotYours, id)
 		}
 
-		return nil
+		return message, nil
 	}
 
 	if message.AuthorKind != reviewstore.AuthorAgent ||
 		message.AuthorAgentID == nil ||
 		!doesOwnAgent(author, *message.AuthorAgentID) {
-		return fmt.Errorf("%w: %q", ErrReviewNotYours, id)
+		return nil, fmt.Errorf("%w: %q", ErrReviewNotYours, id)
 	}
 
-	return nil
+	return message, nil
 }
 
 func doesOwnAgent(author ReviewAuthor, agentID string) bool {
 	return author.AgentID != nil && *author.AgentID == agentID
+}
+
+// isAnchoredToLines reports whether a new thread names, quotes or rewrites any line.
+func isAnchoredToLines(params CreateReviewThreadParams) bool {
+	return params.OldStart != 0 || params.OldEnd != 0 || params.NewStart != 0 || params.NewEnd != 0 ||
+		len(params.QuotedLines) > 0 || len(params.Suggestion) > 0
 }

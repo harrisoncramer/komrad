@@ -247,6 +247,21 @@ func (c *Client) ResolveBase(ctx context.Context, dir, base string) (string, err
 	return resolveBase(ctx, dir, base)
 }
 
+// ReadBaseTip is the commit the base branch points at, as the clone last fetched it.
+func (c *Client) ReadBaseTip(ctx context.Context, dir, base string) (string, error) {
+	resolved, err := resolveBase(ctx, dir, base)
+	if err != nil {
+		return "", err
+	}
+
+	tip, err := Run(ctx, dir, "rev-parse", "--verify", "--quiet", resolved+"^{commit}")
+	if err != nil {
+		return "", fmt.Errorf("failed to read the tip of %q in %q: %w", resolved, dir, err)
+	}
+
+	return tip, nil
+}
+
 // PruneWorktrees drops the registrations of checkouts whose directories are gone.
 func (c *Client) PruneWorktrees(ctx context.Context, repo string) error {
 	if _, err := Run(ctx, repo, "worktree", "prune"); err != nil {

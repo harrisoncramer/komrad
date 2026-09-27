@@ -22,15 +22,7 @@ func (r *reviewScreen) table() []screenAction {
 		{
 			id:   actionReviewBack,
 			keys: func(k config.Keybindings) []string { return k.Review.Back },
-			// Writing is a mode inside the screen, so the back key gives up the mode before it
-			// gives up the screen.
-			run: func(h host, s panelShared, _ string) tea.Cmd {
-				if r.pass.mode == modeReviewing {
-					return r.leaveWriting(h, s)
-				}
-
-				return r.leave(h, s)
-			},
+			run:  func(h host, s panelShared, _ string) tea.Cmd { return r.leave(h, s) },
 		},
 		{
 			id:   actionQuit,
@@ -111,6 +103,12 @@ func (r *reviewScreen) table() []screenAction {
 			run:  func(_ host, s panelShared, _ string) tea.Cmd { return r.stepBaseForward(s) },
 		},
 		{
+			id:   actionReviewAnswer,
+			keys: func(k config.Keybindings) []string { return k.Review.Answer },
+			when: func(panelShared) bool { return r.doesOfferAnswer() },
+			run:  func(_ host, s panelShared, _ string) tea.Cmd { return r.toggleAnswer(s) },
+		},
+		{
 			id:   actionReviewReload,
 			keys: func(k config.Keybindings) []string { return k.Review.Reload },
 			run:  func(_ host, s panelShared, _ string) tea.Cmd { return r.reload(s) },
@@ -145,14 +143,14 @@ func (r *reviewScreen) table() []screenAction {
 		{
 			id:   actionReviewCompose,
 			keys: func(k config.Keybindings) []string { return k.Review.Compose },
-			run:  r.orRefuseWrite(r.pressCompose),
+			run:  r.orRefuseWrite(func(_ host, s panelShared) tea.Cmd { return r.compose(s) }),
 		},
 		{
 			id: actionReviewSend,
-			// A verdict with no comments is how a change is approved, so this is offered while
-			// reading as well as while writing.
+			// Comments wait in a batch until sent, so this is offered while reading as well as
+			// while writing.
 			keys: func(config.Keybindings) []string { return formKeys().Submit },
-			run:  r.orRefuseWrite(r.pressSend),
+			run:  r.orRefuseWrite(func(_ host, s panelShared) tea.Cmd { return r.openRelease(s) }),
 		},
 	}
 }
@@ -175,29 +173,6 @@ func (r *reviewScreen) orRefuseWrite(fn func(host, panelShared) tea.Cmd) func(ho
 
 		return fn(h, s)
 	}
-}
-
-// pressCompose is the comment key, which refuses a new thread while a review is owed an answer.
-func (r *reviewScreen) pressCompose(h host, s panelShared) tea.Cmd {
-	if _, replying := r.diff.threadAtCursor(); r.threads.isOwedAnAnswer() && !replying {
-		r.refuseAwaiting(h, s)
-
-		return nil
-	}
-
-	return r.compose(h, s)
-}
-
-// pressSend is the send key, which while a review is owed an answer needs replies written to
-// send, a verdict on its own being the second review the wait holds off.
-func (r *reviewScreen) pressSend(h host, s panelShared) tea.Cmd {
-	if r.threads.isOwedAnAnswer() && !r.threads.holdsUnsent() {
-		r.refuseAwaiting(h, s)
-
-		return nil
-	}
-
-	return r.openRelease(s)
 }
 
 func (r *reviewScreen) legend() []screenLegendRow {
@@ -270,7 +245,7 @@ func (r *reviewScreen) legend() []screenLegendRow {
 		},
 		{
 			of:   []actionID{actionReviewEdit},
-			desc: func(panelShared) string { return r.pass.editorDesc() },
+			desc: func(panelShared) string { return r.hold.editorDesc() },
 			// The one thing standing in the way of editing is an earlier round, whose line numbers
 			// name a file the worktree no longer holds.
 			show: func(panelShared) bool {
@@ -284,6 +259,11 @@ func (r *reviewScreen) legend() []screenLegendRow {
 			of:   []actionID{actionReviewBase},
 			desc: func(panelShared) string { return "an earlier round" },
 			show: r.doesFitBaseLegend,
+		},
+		{
+			of:   []actionID{actionReviewAnswer},
+			desc: func(panelShared) string { return r.diff.answerDesc() },
+			show: func(panelShared) bool { return r.doesOfferAnswer() },
 		},
 		{
 			of:   []actionID{actionReviewReload},
@@ -303,9 +283,8 @@ func (r *reviewScreen) legend() []screenLegendRow {
 			show: r.doesFitBaseLegend,
 		},
 		{
-			of:   []actionID{actionReviewCompose},
-			desc: func(panelShared) string { return r.composeDesc() },
-			// The compose key is the way into the mode that writes, so reading offers it too.
+			of:    []actionID{actionReviewCompose},
+			desc:  func(panelShared) string { return r.composeDesc() },
 			show:  offered,
 			strip: true,
 		},
@@ -316,7 +295,7 @@ func (r *reviewScreen) legend() []screenLegendRow {
 		},
 		{
 			of:   []actionID{actionReviewBack},
-			desc: func(panelShared) string { return r.pass.backDesc() },
+			desc: func(panelShared) string { return r.backDesc() },
 		},
 	}
 }

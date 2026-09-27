@@ -20,7 +20,7 @@ type reviewConversation interface {
 		params reviews.ListReviewThreadsParams,
 	) ([]reviews.ReviewThreadWithMessages, error)
 	CreateReviewThread(ctx context.Context, params reviews.CreateReviewThreadParams) (*reviews.ReviewThreadWithMessages, error)
-	AddReviewMessage(ctx context.Context, params reviews.AddReviewMessageParams) (*reviewstore.Message, error)
+	AddReviewMessage(ctx context.Context, params reviews.AddReviewMessageParams) (*reviews.AddReviewMessageResult, error)
 	EditReviewMessage(ctx context.Context, params reviews.EditReviewMessageParams) (*reviewstore.Message, error)
 	MarkReviewThreadRead(ctx context.Context, params reviews.MarkReviewThreadReadParams) (*reviewstore.Thread, error)
 	SetReviewThreadResolved(ctx context.Context, params reviews.SetReviewThreadResolvedParams) (*reviewstore.Thread, error)
@@ -87,17 +87,21 @@ func (s *Handler) CreateReviewThread(ctx context.Context, req *agentv1.CreateRev
 
 // AddReviewMessage says something in an existing thread, as whoever is calling.
 func (s *Handler) AddReviewMessage(ctx context.Context, req *agentv1.AddReviewMessageRequest) (*agentv1.AddReviewMessageResponse, *fail.Error) {
-	message, err := s.review.AddReviewMessage(ctx, reviews.AddReviewMessageParams{
+	added, err := s.review.AddReviewMessage(ctx, reviews.AddReviewMessageParams{
 		ThreadID:   req.GetThreadId(),
 		Body:       req.GetBody(),
 		Suggestion: req.GetSuggestion(),
 		Author:     reviewAuthorFrom(ctx),
+		Addressed:  req.GetAddressed(),
 	})
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to add the review message")
 	}
 
-	return &agentv1.AddReviewMessageResponse{Message: render.ReviewMessage(*message)}, nil
+	return &agentv1.AddReviewMessageResponse{
+		Message: render.ReviewMessage(added.Message),
+		Hint:    added.Hint,
+	}, nil
 }
 
 // EditReviewMessage rewrites what was said.
@@ -336,9 +340,10 @@ func fromReviewVerdict(verdict agentv1.ReviewVerdict) reviewstore.Verdict {
 		return reviewstore.VerdictApproved
 	case agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED:
 		return reviewstore.VerdictChangesRequested
-	case agentv1.ReviewVerdict_REVIEW_VERDICT_COMMENTED,
-		agentv1.ReviewVerdict_REVIEW_VERDICT_UNSPECIFIED:
+	case agentv1.ReviewVerdict_REVIEW_VERDICT_COMMENTED:
+		return reviewstore.VerdictCommented
+	case agentv1.ReviewVerdict_REVIEW_VERDICT_UNSPECIFIED:
 	}
 
-	return reviewstore.VerdictCommented
+	return ""
 }
