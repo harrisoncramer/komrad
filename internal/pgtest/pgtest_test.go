@@ -114,16 +114,17 @@ func TestURLIsUnmigrated(t *testing.T) {
 }
 
 // TestLeakedTakesOnlyTheDatabasesPastMaxAge covers a template being swept on age like any
-// other database.
+// other database, only later.
 func TestLeakedTakesOnlyTheDatabasesPastMaxAge(t *testing.T) {
 	now := time.Now()
-	old := now.Add(-2 * maxAge).UTC().Format(nameTimeLayout)
-	recent := now.Add(-time.Minute).UTC().Format(nameTimeLayout)
+	stamp := func(age time.Duration) string { return now.Add(-age).UTC().Format(nameTimeLayout) }
 
 	names := []string{
-		namePrefix + old + "_0f",
-		namePrefix + recent + "_0f",
-		namePrefix + old + "_0f" + templateSuffix("abc"),
+		namePrefix + stamp(2*maxAge) + "_0f",
+		namePrefix + stamp(time.Minute) + "_0f",
+		namePrefix + stamp(2*templateMaxAge) + "_0f" + templateSuffix("abc"),
+		namePrefix + stamp(2*maxAge) + "_0f" + templateSuffix("def"),
+		namePrefix + stamp(2*maxAge) + "_0f" + buildingMarker,
 		"komrad",
 	}
 

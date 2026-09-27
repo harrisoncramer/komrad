@@ -3,4 +3,4 @@
 set -euo pipefail
 
 cd "$MISE_CONFIG_ROOT"
-exec docker compose -p komrad-test-pg down "$@"
+exec docker compose -p komrad-test-pg -f docker-compose.yml -f docker-compose.test.yml down "$@"

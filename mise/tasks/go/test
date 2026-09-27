@@ -61,6 +61,8 @@ all)
 	;;
 esac
 
+refuse_panel_database go:test
+
 cd "$MISE_CONFIG_ROOT"
 
 # The tools are modules of their own, so the suite below does not see them. They run

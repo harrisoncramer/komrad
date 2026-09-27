@@ -54,3 +54,11 @@ get_random_port() {
 in_linked_worktree() {
 	[ "$(git -C "$MISE_CONFIG_ROOT" rev-parse --git-dir)" != "$(git -C "$MISE_CONFIG_ROOT" rev-parse --git-common-dir)" ]
 }
+
+refuse_panel_database() {
+	if [ "${MISE_ENV:-}" != test ] && [ "$DB_PORT" = 5460 ] && in_linked_worktree; then
+		echo "$1: refusing to test against the panel's Postgres on 5460 from a worktree; run it as MISE_ENV=test mise run $1" >&2
+
+		exit 1
+	fi
+}

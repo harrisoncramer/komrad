@@ -16,6 +16,8 @@ const containerProject = "komrad-test-pg"
 // containerPort is where that Postgres listens on the host.
 const containerPort = 5470
 
+const serverMaxConns = 4
+
 // setting is one environment variable a slot derives.
 type setting struct {
 	name  string
@@ -29,7 +31,7 @@ func buildSettings(slotDir string, n int) []setting {
 		{"DB_PORT", fmt.Sprint(containerPort)},
 		{"KOMRAD_TEST_DATABASE", database},
 		{"KOMRAD_TEST_ENGINE", getEngine(n)},
-		{"KOMRAD_DATABASE_URL", fmt.Sprintf("postgres://%s:komrad@localhost:%d/%s?sslmode=disable", getLogin(n), containerPort, database)},
+		{"KOMRAD_DATABASE_URL", fmt.Sprintf("postgres://%s:komrad@localhost:%d/%s?sslmode=disable&pool_max_conns=%d", getLogin(n), containerPort, database, serverMaxConns)},
 		{"KOMRAD_OWNER_DATABASE_URL", fmt.Sprintf("postgres://komrad:komrad@localhost:%d/%s?sslmode=disable", containerPort, database)},
 		{"KOMRAD_READONLY_DATABASE_URL", ""},
 		{"KOMRAD_ADDR", serverAddr(n)},
