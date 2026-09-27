@@ -21,10 +21,11 @@ type documentReadWriter interface {
 
 var errUnknownDocumentKind = fail.InvalidArgument("unknown document kind")
 
-// WriteDocument creates or rewrites one of the calling agent's documents.
+// WriteDocument creates or rewrites one of the calling agent's documents, or lets a caller that
+// is not an agent rewrite any one.
 func (s *Handler) WriteDocument(ctx context.Context, req *agentv1.WriteDocumentRequest) (*agentv1.WriteDocumentResponse, *fail.Error) {
 	from := caller.From(ctx).AgentID
-	if from == "" {
+	if from == "" && req.Id == nil {
 		return nil, errCallerHasNoAgent
 	}
 

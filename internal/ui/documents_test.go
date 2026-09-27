@@ -1,6 +1,8 @@
 package ui_test
 
 import (
+	"os"
+	"regexp"
 	"strings"
 	"sync"
 	"testing"
@@ -159,6 +161,99 @@ func TestDocumentsRead(t *testing.T) {
 		assert.Len(t, harness.readSent(agentv1connect.AgentServiceListDocumentsProcedure), 2)
 		assert.Contains(t, harness.readFrame(), "Cache notes")
 	})
+}
+
+// TestDocumentsEdit covers opening the document under the cursor in your editor and saving what
+// you wrote there.
+func TestDocumentsEdit(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		write     string
+		close     func(*panelHarness)
+		wantSaved string
+	}{
+		{
+			name:      "the key again saves what changed",
+			write:     "# Design the cache\n\nKeep the cache cold.",
+			close:     func(h *panelHarness) { h.press("e") },
+			wantSaved: "# Design the cache\n\nKeep the cache cold.",
+		},
+		{
+			name:  "the editor quitting saves what changed",
+			write: "Rewritten.",
+			close: func(h *panelHarness) {
+				editors := h.panel.ReadRespawnPanes()
+				h.panel.SetPaneDead(editors[len(editors)-1])
+				h.fireTimers()
+			},
+			wantSaved: "Rewritten.",
+		},
+		{
+			name:  "leaving the screen saves what changed",
+			write: "Rewritten.",
+			close: func(h *panelHarness) {
+				h.press("esc")
+				require.Contains(t, h.readFrame(), agentsTitle)
+			},
+			wantSaved: "Rewritten.",
+		},
+		{
+			name:  "nothing changed saves nothing",
+			write: "# Design the cache\n\nKeep the cache warm.",
+			close: func(h *panelHarness) { h.press("e") },
+		},
+		{
+			name:  "an emptied document is not saved",
+			write: "  \n",
+			close: func(h *panelHarness) { h.press("e") },
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			harness, _ := openDocuments(t, "author")
+			harness.answer(agentv1connect.AgentServiceWriteDocumentProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+				return connect.NewResponse(&agentv1.WriteDocumentResponse{}), nil
+			})
+			harness.press("e")
+
+			respawns := harness.panel.ReadRespawns()
+			require.NotEmpty(t, respawns)
+			path := readEditedPath(t, respawns[len(respawns)-1])
+			assert.NotContains(t, readStageText(harness.readFrame()), "Keep the cache warm.", "the editor stands where the document was drawn")
+
+			require.NoError(t, os.WriteFile(path, []byte(tt.write), 0o600))
+			tt.close(harness)
+
+			if tt.wantSaved == "" {
+				assert.Empty(t, harness.readSent(agentv1connect.AgentServiceWriteDocumentProcedure))
+
+				return
+			}
+
+			harness.assertSentTo(agentv1connect.AgentServiceWriteDocumentProcedure, &agentv1.WriteDocumentRequest{
+				Id:     proto.String("d1"),
+				Name:   "Design the cache",
+				Kind:   agentv1.DocumentKind_DOCUMENT_KIND_RFC,
+				Source: &agentv1.WriteDocumentRequest_Body{Body: tt.wantSaved},
+			})
+			assert.NoFileExists(t, path)
+		})
+	}
+}
+
+// readEditedPath is the file an editor's shell line opens.
+func readEditedPath(t *testing.T, respawn string) string {
+	t.Helper()
+
+	match := regexp.MustCompile(`'([^']*komrad-document-[^']*\.md)'`).FindStringSubmatch(respawn)
+	require.Len(t, match, 2, "no document copy in %q", respawn)
+
+	return match[1]
 }
 
 // openDocuments opens the documents screen from the agents list on the row named, and fires the

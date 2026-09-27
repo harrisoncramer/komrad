@@ -19,6 +19,13 @@ func (d *documentsScreen) actions() screenActionSpec {
 func (d *documentsScreen) table() []screenAction {
 	return append(d.list().actions(),
 		screenAction{
+			id:   actionDocumentsEdit,
+			keys: func(k config.Keybindings) []string { return k.Documents.Edit },
+			run: func(h host, s panelShared, _ string) tea.Cmd {
+				return d.pressEdit(h, s)
+			},
+		},
+		screenAction{
 			id:   actionDocumentsBack,
 			keys: func(k config.Keybindings) []string { return k.Documents.Back },
 			run: func(h host, _ panelShared, _ string) tea.Cmd {
@@ -30,6 +37,10 @@ func (d *documentsScreen) table() []screenAction {
 
 func (d *documentsScreen) legend() []screenLegendRow {
 	return slices.Concat(screenNavLegend(), []screenLegendRow{
+		{
+			of:   []actionID{actionDocumentsEdit},
+			desc: func(panelShared) string { return d.editDesc() },
+		},
 		{
 			of:    []actionID{actionDocumentsBack},
 			desc:  func(panelShared) string { return "back" },

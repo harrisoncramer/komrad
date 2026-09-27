@@ -151,3 +151,55 @@ func TestWriteWithAnIDRewritesThatDocument(t *testing.T) {
 	require.Len(t, listed, 1, "a retitled document is the same document")
 	assert.Equal(t, "Documents RFC", listed[0].Name)
 }
+
+// TestWriteByAPerson pins that a write naming no agent rewrites the document its id names and
+// leaves it with the agent that wrote it.
+func TestWriteByAPerson(t *testing.T) {
+	stores := storetest.Open(t)
+	author := stores.SeedAgent(t, agentstore.Agent{Name: "author"})
+	service := documents.NewDocumentService(documents.NewDocumentServiceParams{Agents: stores.Agents, Documents: stores.Documents})
+	ctx := t.Context()
+
+	draft, err := service.WriteDocument(ctx, documents.WriteDocumentParams{AgentID: author.ID, Name: "Documents", Kind: documentstore.KindRFC, Body: "draft"})
+	require.NoError(t, err)
+
+	tests := []struct {
+		name     string
+		params   documents.WriteDocumentParams
+		wantErr  error
+		wantBody string
+	}{
+		{
+			name:     "an id rewrites that document",
+			params:   documents.WriteDocumentParams{ID: xptr.Ptr(draft.ID), Name: "Documents", Kind: documentstore.KindRFC, Body: "edited"},
+			wantBody: "edited",
+		},
+		{
+			name:    "no id is refused",
+			params:  documents.WriteDocumentParams{Name: "Fresh", Kind: documentstore.KindRFC, Body: "new"},
+			wantErr: documents.ErrNoAuthor,
+		},
+		{
+			name:    "an id no document holds is not found",
+			params:  documents.WriteDocumentParams{ID: xptr.Ptr(uuid.NewString()), Name: "Lost", Kind: documentstore.KindRFC, Body: "lost"},
+			wantErr: store.ErrNotFound,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			written, err := service.WriteDocument(ctx, tt.params)
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+
+				return
+			}
+			require.NoError(t, err)
+
+			stored, err := stores.Documents.Get(ctx, written.ID)
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantBody, stored.Body)
+			assert.Equal(t, author.ID, stored.AgentID)
+		})
+	}
+}

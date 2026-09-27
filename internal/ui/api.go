@@ -472,3 +472,14 @@ func (a api) getDocument(id string) (*agentv1.Document, error) {
 		return resp.Msg.GetDocument(), nil
 	})
 }
+
+func (a api) writeDocument(id, name string, kind agentv1.DocumentKind, body string) error {
+	return mutate(func(ctx context.Context) (any, error) {
+		return a.agents.WriteDocument(ctx, connect.NewRequest(&agentv1.WriteDocumentRequest{
+			Id:     &id,
+			Name:   name,
+			Kind:   kind,
+			Source: &agentv1.WriteDocumentRequest_Body{Body: body},
+		}))
+	})
+}

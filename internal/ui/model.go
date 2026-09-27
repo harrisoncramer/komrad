@@ -183,6 +183,9 @@ type PanelSettings struct {
 	Editor string
 	// Pane is the tmux pane the panel is drawn in.
 	Pane string
+	// DraftDir is where a copy of a document is written for the editor, the system's temporary
+	// directory when empty.
+	DraftDir string
 }
 
 type Deps struct {

@@ -432,15 +432,20 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 	}
 }
 
-// reconcileEditor catches the info pane and the review's editor going away on their own.
+// reconcileEditor catches the info pane and the review's or the documents' editor going away on
+// their own.
 func (m *model) reconcileEditor() tea.Cmd {
 	m.reconcileInfo()
 
-	if m.screen != screenReview {
-		return nil
+	switch m.screen {
+	case screenReview:
+		return m.review.reconcileEditor(m, m.shared())
+	case screenDocuments:
+		return m.documents.reconcileEditor(m)
+	case screenAgents, screenSchedules, screenArchive, screenSearch, screenWorktrees:
 	}
 
-	return m.review.reconcileEditor(m, m.shared())
+	return nil
 }
 
 // isTyping reports whether the panel's own bindings are off: the list's filter, a text input the

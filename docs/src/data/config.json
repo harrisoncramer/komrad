@@ -358,6 +358,13 @@
               "default": "[\"esc\"]"
             },
             {
+              "key": "edit",
+              "path": "keybindings.documents.edit",
+              "type": "array",
+              "description": "Open the document under the cursor in your editor, in place of the document drawn\nbeside the list. Quitting the editor, or pressing the key again, saves what you wrote.",
+              "default": "[\"e\"]"
+            },
+            {
               "key": "open",
               "path": "keybindings.documents.open",
               "type": "array",

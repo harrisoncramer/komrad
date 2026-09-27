@@ -106,7 +106,7 @@ func TestDocumentErrors(t *testing.T) {
 		asNobody bool
 		wantCode connect.Code
 	}{
-		{name: "writing with no caller identity", call: write, asNobody: true, wantCode: connect.CodeInvalidArgument},
+		{name: "creating with no caller identity", call: write, asNobody: true, wantCode: connect.CodeInvalidArgument},
 		{name: "writing a name the agent already uses", call: write, err: store.ErrNameTaken, wantCode: connect.CodeAlreadyExists},
 		{name: "writing a body over the cap", call: write, err: documents.ErrTooLarge, wantCode: connect.CodeInvalidArgument},
 		{name: "writing from a path that cannot be read", call: write, err: documents.ErrUnreadablePath, wantCode: connect.CodeInvalidArgument},
@@ -136,9 +136,10 @@ func TestDocumentErrors(t *testing.T) {
 // TestWriteDocument pins that a write is the caller's own and comes back without its body.
 func TestWriteDocument(t *testing.T) {
 	tests := []struct {
-		name string
-		req  *agentv1.WriteDocumentRequest
-		want documents.WriteDocumentParams
+		name     string
+		req      *agentv1.WriteDocumentRequest
+		asNobody bool
+		want     documents.WriteDocumentParams
 	}{
 		{
 			name: "a body creates a document",
@@ -159,6 +160,17 @@ func TestWriteDocument(t *testing.T) {
 			},
 			want: documents.WriteDocumentParams{AgentID: alphaID, ID: xptr.Ptr(documentID), Name: "Findings", Kind: documentstore.KindReport, Path: "rfcs/findings.md"},
 		},
+		{
+			name: "a caller that is not an agent rewrites the document the id names",
+			req: &agentv1.WriteDocumentRequest{
+				Id:     xptr.Ptr(documentID),
+				Name:   "Findings",
+				Kind:   agentv1.DocumentKind_DOCUMENT_KIND_REPORT,
+				Source: &agentv1.WriteDocumentRequest_Body{Body: "edited"},
+			},
+			asNobody: true,
+			want:     documents.WriteDocumentParams{ID: xptr.Ptr(documentID), Name: "Findings", Kind: documentstore.KindReport, Body: "edited"},
+		},
 	}
 
 	for _, tt := range tests {
@@ -166,7 +178,12 @@ func TestWriteDocument(t *testing.T) {
 			docs := &fakeDocuments{stored: documentstore.Document{ID: documentID}}
 			svc := newDocumentHandler(docs)
 
-			written, err := svc.WriteDocument(caller.With(t.Context(), caller.Caller{AgentID: alphaID}), connect.NewRequest(tt.req))
+			ctx := t.Context()
+			if !tt.asNobody {
+				ctx = caller.With(ctx, caller.Caller{AgentID: alphaID})
+			}
+
+			written, err := svc.WriteDocument(ctx, connect.NewRequest(tt.req))
 			require.NoError(t, err)
 
 			assert.Equal(t, []documents.WriteDocumentParams{tt.want}, docs.written)

@@ -146,6 +146,9 @@ copy = ["y"]
 [keybindings.documents]
 # Leave the documents screen for the agents list.
 back = ["esc"]
+# Open the document under the cursor in your editor, in place of the document drawn
+# beside the list. Quitting the editor, or pressing the key again, saves what you wrote.
+edit = ["e"]
 # Open the documents screen from the agents list, on the hovered agent's documents, or
 # its orchestrator's on a workflow's row.
 open = ["i"]

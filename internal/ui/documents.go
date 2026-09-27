@@ -46,6 +46,7 @@ type documentsScreen struct {
 	listing     bool
 	err         error
 	bodies      map[string]documentBody
+	editing     *documentEdit
 }
 
 // documentRow is one line of the documents list.
@@ -59,13 +60,15 @@ func (r documentRow) key() string {
 
 // enter opens on the documents of the agent the target names, forgetting another agent's.
 func (d *documentsScreen) enter(h host, _ panelShared, target screenTarget) tea.Cmd {
+	var saved tea.Cmd
 	if target.agentID != d.agentID {
+		saved = d.closeEdit(h)
 		*d = documentsScreen{agentID: target.agentID}
 	}
 
 	h.stageInfo()
 
-	return h.waitToStage()
+	return tea.Batch(saved, h.waitToStage())
 }
 
 func (d *documentsScreen) update(h host, s panelShared, msg tea.Msg) tea.Cmd {
@@ -397,5 +400,6 @@ func (d *documentsScreen) column() columnSpec {
 	return columnSpec{
 		floor: columnFloor,
 		doc:   func(m model) string { return m.documents.doc(m.shared()) },
+		holds: func(m model) bool { return m.documents.editing == nil },
 	}
 }

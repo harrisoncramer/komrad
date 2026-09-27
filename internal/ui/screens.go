@@ -175,7 +175,7 @@ type host interface {
 	noteEdited(agentID string, touched []string)
 	releaseCmd(summary string, agent panel.Agent, said string) tea.Cmd
 
-	// The review puts an editor on the stage.
+	// The review and the documents put an editor on the stage.
 	stageEditor(content layout.Content) string
 	unstageEditor()
 	isPaneAlive(pane string) bool
@@ -239,6 +239,15 @@ func (m *model) widenFilter() {
 
 // enter leaves whichever screen is up for the next, landing it on the target.
 func (m *model) enter(next screen, target screenTarget) tea.Cmd {
+	if m.screen == screenDocuments && next != screenDocuments {
+		return tea.Batch(m.documents.closeEdit(m), m.enterOther(next, target))
+	}
+
+	return m.enterOther(next, target)
+}
+
+// enterOther lands on the next screen.
+func (m *model) enterOther(next screen, target screenTarget) tea.Cmd {
 	// The review is the one screen that refuses a target, and it refuses before the screen goes up.
 	if next == screenReview && target.agentID != "" {
 		item, ok := m.listing.liveAgent(target.agentID)
@@ -276,6 +285,9 @@ type panelShared struct {
 
 	// editor is the command a file is opened in.
 	editor string
+
+	// draftDir is where a copy of a document is written for the editor.
+	draftDir string
 
 	// isDark is the terminal's background.
 	isDark bool
@@ -319,6 +331,7 @@ func (m *model) unmeasured() panelShared {
 		},
 		inspections: m.inspections,
 		editor:      m.settings.Editor,
+		draftDir:    m.settings.DraftDir,
 		isDark:      m.isDark,
 		draw:        m,
 	}

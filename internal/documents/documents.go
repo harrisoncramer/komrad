@@ -29,6 +29,8 @@ var (
 	ErrEmptyFile = fail.InvalidArgument("the file is empty")
 	// ErrNoBody is a write naming neither a body nor a path.
 	ErrNoBody = fail.InvalidArgument("a document needs a body or a path to read one from")
+	// ErrNoAuthor is a new document written by something that is not an agent.
+	ErrNoAuthor = fail.InvalidArgument("only an agent can create a document")
 )
 
 type NewDocumentServiceParams struct {
@@ -48,7 +50,8 @@ func NewDocumentService(params NewDocumentServiceParams) *DocumentService {
 }
 
 type WriteDocumentParams struct {
-	// AgentID is the agent writing, whose document it is.
+	// AgentID is the agent writing, whose document it is, or empty for a person rewriting the
+	// document ID names.
 	AgentID string
 	// ID is the document to rewrite, or nil to create one.
 	ID   *string
@@ -62,6 +65,18 @@ type WriteDocumentParams struct {
 
 // WriteDocument creates a document, or rewrites the one ID names.
 func (s *DocumentService) WriteDocument(ctx context.Context, params WriteDocumentParams) (*documentstore.Document, error) {
+	if params.AgentID == "" {
+		if params.ID == nil {
+			return nil, ErrNoAuthor
+		}
+
+		held, err := s.documents.Get(ctx, *params.ID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to find the document to rewrite: %w", err)
+		}
+		params.AgentID = held.AgentID
+	}
+
 	agent, err := s.agents.GetByID(ctx, params.AgentID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find the agent writing the document: %w", err)
