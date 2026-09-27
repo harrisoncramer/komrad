@@ -145,6 +145,7 @@ type ReviewService struct {
 	noticeDebounce time.Duration
 	noticesMu      sync.Mutex
 	notices        map[string]*pendingReviewerNotice
+	roundLocks     *agentLocks
 }
 
 // NewReviewService builds the service over the review store and the things it tells.
@@ -169,6 +170,7 @@ func NewReviewService(params NewReviewServiceParams) *ReviewService {
 		stateDir:       params.StateDir,
 		noticeDebounce: debounce,
 		notices:        map[string]*pendingReviewerNotice{},
+		roundLocks:     newAgentLocks(),
 	}
 }
 

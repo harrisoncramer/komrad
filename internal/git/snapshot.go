@@ -13,6 +13,10 @@ import (
 	"komrad/internal/fail"
 )
 
+// ErrSequenceInProgress is a snapshot refused while a rebase, merge, cherry-pick or revert is
+// part way through, since the tree it would freeze is a half-applied state of the branch.
+var ErrSequenceInProgress = fail.Precondition("a rebase or merge is part way through in that checkout; finish or abort it first")
+
 // snapshotMessage is what the round's commit says.
 const snapshotMessage = "komrad review round"
 
@@ -101,6 +105,14 @@ func (c *Client) TakeSnapshot(ctx context.Context, params TakeSnapshotParams) (*
 	root, err := c.GetRoot(ctx, params.Dir)
 	if err != nil {
 		return nil, err
+	}
+
+	gitDir, err := Run(ctx, root, "rev-parse", "--absolute-git-dir")
+	if err != nil {
+		return nil, fmt.Errorf("failed to find the git directory of %q: %w", root, err)
+	}
+	if hasSequenceMarker(gitDir) {
+		return nil, ErrSequenceInProgress
 	}
 
 	base, err := resolveBase(ctx, root, params.Base)

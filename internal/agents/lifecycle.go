@@ -574,7 +574,8 @@ func (s *LifecycleService) releaseRounds(ctx context.Context, ids []string) {
 	}
 
 	for _, agent := range going {
-		if agent.Cwd == "" || agent.WorktreeRemoved {
+		dir := s.findRoundRefDir(ctx, agent)
+		if dir == "" {
 			continue
 		}
 
@@ -587,12 +588,27 @@ func (s *LifecycleService) releaseRounds(ctx context.Context, ids []string) {
 		}
 
 		for _, round := range rounds {
-			if err := s.snapshots.ReleaseRef(ctx, agent.Cwd, reviewstore.RoundRef(agent.ID, round.SnapshotSHA)); err != nil {
+			if err := s.snapshots.ReleaseRef(ctx, dir, reviewstore.RoundRef(agent.ID, round.SnapshotSHA)); err != nil {
 				logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to release the snapshot of a round",
 					append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
 			}
 		}
 	}
+}
+
+// findRoundRefDir is a checkout of the repository holding an agent's round refs: its own while it
+// stands, else its workflow's directory, which shares the refs of every worktree cut from it.
+func (s *LifecycleService) findRoundRefDir(ctx context.Context, agent agentstore.Agent) string {
+	if agent.Cwd != "" && !agent.WorktreeRemoved {
+		return agent.Cwd
+	}
+
+	flow, err := s.workflows.GetIncludingArchived(ctx, agent.WorkflowID)
+	if err != nil {
+		return ""
+	}
+
+	return flow.Cwd
 }
 
 // dropOpenReviews removes the unreleased reviews these agents were writing on other agents'

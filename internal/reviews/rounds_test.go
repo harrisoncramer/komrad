@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"sync"
 	"testing"
 	"time"
 
@@ -47,6 +48,49 @@ func TestOpenRound(t *testing.T) {
 			assert.Equal(t, tt.snapshot, round.SnapshotSHA)
 		})
 	}
+}
+
+// TestOpenRoundReleasesTheRefOfARoundItFailedToWrite pins that a round whose insert fails leaves
+// no ref behind.
+func TestOpenRoundReleasesTheRefOfARoundItFailedToWrite(t *testing.T) {
+	fx := newReviewFixture(t, time.Hour)
+	fx.snapshots.SHA = secondSnapshot
+	fx.snapshots.Taking = func() {
+		_, err := fx.stores.Agents.Delete(t.Context(), []string{fx.worker.ID})
+		require.NoError(t, err)
+	}
+
+	_, err := fx.service.OpenRound(t.Context(), fx.worker.ID, personAuthor)
+	require.Error(t, err)
+
+	assert.Equal(t, []string{reviewstore.RoundRef(fx.worker.ID, secondSnapshot)}, fx.snapshots.Released)
+}
+
+// TestOpenRoundTakesOneRoundOfATreeOpenedTwiceAtOnce pins that two callers racing on the same
+// tree share one round.
+func TestOpenRoundTakesOneRoundOfATreeOpenedTwiceAtOnce(t *testing.T) {
+	fx := newReviewFixture(t, time.Hour)
+	fx.snapshots.SHA = secondSnapshot
+	fx.snapshots.Taking = func() {
+		time.Sleep(250 * time.Millisecond)
+	}
+
+	var group sync.WaitGroup
+	ordinals := make([]int32, 2)
+	errs := make([]error, 2)
+	for i := range ordinals {
+		group.Go(func() {
+			round, err := fx.service.OpenRound(t.Context(), fx.worker.ID, personAuthor)
+			errs[i] = err
+			if err == nil {
+				ordinals[i] = round.Ordinal
+			}
+		})
+	}
+	group.Wait()
+
+	require.NoError(t, errors.Join(errs...))
+	assert.Equal(t, []int32{2, 2}, ordinals)
 }
 
 // TestReleaseReviewWritesTheFile pins what the file a release writes says.

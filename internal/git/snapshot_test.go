@@ -70,6 +70,30 @@ func TestIntegrationTakingTheSameTreeTwiceIsTheSameRound(t *testing.T) {
 	assert.NotEqual(t, first.SHA, moved.SHA, "and a worktree that moved is a new one")
 }
 
+// TestIntegrationASnapshotIsRefusedPartWayThroughAMerge pins that a half-applied tree is never
+// frozen as a round.
+func TestIntegrationASnapshotIsRefusedPartWayThroughAMerge(t *testing.T) {
+	root := repo(t)
+	run(t, root, "checkout", "-b", "topic")
+	write(t, root, "clash.go", "package topic\n")
+	run(t, root, "add", "-A")
+	run(t, root, "commit", "-m", "topic")
+	run(t, root, "checkout", "main")
+	write(t, root, "clash.go", "package main\n")
+	run(t, root, "add", "-A")
+	run(t, root, "commit", "-m", "main")
+	run(t, root, "checkout", "topic")
+	require.Error(t, exec.Command("git", "-C", root, "merge", "main").Run())
+
+	_, err := client.TakeSnapshot(t.Context(), TakeSnapshotParams{Dir: root, Base: "main"})
+	require.ErrorIs(t, err, ErrSequenceInProgress)
+
+	run(t, root, "merge", "--abort")
+
+	_, err = client.TakeSnapshot(t.Context(), TakeSnapshotParams{Dir: root, Base: "main"})
+	require.NoError(t, err)
+}
+
 // TestIntegrationReleaseDropsTheRef covers letting a round go, which leaves its commit to be collected.
 func TestIntegrationReleaseDropsTheRef(t *testing.T) {
 	root := repo(t)

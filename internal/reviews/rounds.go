@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -11,6 +12,7 @@ import (
 	"komrad/internal/agents"
 	"komrad/internal/fail"
 	"komrad/internal/git"
+	"komrad/internal/logging"
 	"komrad/internal/mail"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
@@ -98,6 +100,9 @@ func (s *ReviewService) OpenRound(ctx context.Context, agentID string, author Re
 		return nil, fmt.Errorf("%w: %q has no directory to take a round of", ErrReviewNoRound, agent.Name)
 	}
 
+	unlock := s.roundLocks.lock(agentID)
+	defer unlock()
+
 	base := ""
 	if flow, err := s.workflows.Get(ctx, agent.WorkflowID); err == nil {
 		base = flow.Worktree.BaseBranch
@@ -118,15 +123,47 @@ func (s *ReviewService) OpenRound(ctx context.Context, agentID string, author Re
 		return latest, nil
 	}
 
-	if err := s.snapshots.HoldRef(ctx, agent.Cwd, reviewstore.RoundRef(agentID, snapshot.SHA), snapshot.SHA); err != nil {
+	ref := reviewstore.RoundRef(agentID, snapshot.SHA)
+	if err := s.snapshots.HoldRef(ctx, agent.Cwd, ref, snapshot.SHA); err != nil {
 		return nil, err
 	}
 
-	return s.rounds.CreateRound(ctx, reviewstore.CreateRoundParams{
+	round, err := s.rounds.CreateRound(ctx, reviewstore.CreateRoundParams{
 		AgentID:     agentID,
 		BaseSHA:     snapshot.BaseSHA,
 		SnapshotSHA: snapshot.SHA,
 	})
+	if err != nil {
+		s.releaseUnheldRef(ctx, releaseUnheldRefParams{
+			Agent:       agent,
+			Ref:         ref,
+			SnapshotSHA: snapshot.SHA,
+		})
+
+		return nil, err
+	}
+
+	return round, nil
+}
+
+type releaseUnheldRefParams struct {
+	Agent       *agentstore.Agent
+	Ref         string
+	SnapshotSHA string
+}
+
+// releaseUnheldRef drops a ref taken for a round that was never written, unless an earlier round
+// of the same tree already stands on it.
+func (s *ReviewService) releaseUnheldRef(ctx context.Context, params releaseUnheldRefParams) {
+	_, err := s.rounds.GetRoundBySnapshot(ctx, params.Agent.ID, params.SnapshotSHA)
+	if !errors.Is(err, store.ErrNotFound) {
+		return
+	}
+
+	if err := s.snapshots.ReleaseRef(ctx, params.Agent.Cwd, params.Ref); err != nil {
+		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to release the ref of a round that was never written",
+			append([]slog.Attr{slog.String(logging.AgentID, params.Agent.ID)}, logging.Err(err)...)...)
+	}
 }
 
 // GetLatestRound is the newest round of an agent, ErrReviewNoRound when none has been taken.
