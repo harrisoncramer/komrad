@@ -356,18 +356,18 @@ func TestDocumentsHistory(t *testing.T) {
 		{
 			name:    "stepping back draws what the newest write changed",
 			presses: []string{"<"},
-			want:    []string{"version 3 of 3, written by you", "- Keep the cache cold.", "- Evict nightly.", "+ Keep the cache warm."},
+			want:    []string{"version 3 of 3, written by you", "3      -  Keep the cache cold.", "5      -  Evict nightly.", "3 +  Keep the cache warm."},
 		},
 		{
 			name:    "stepping back again draws the write before it",
 			presses: []string{"<", "<"},
-			want:    []string{"version 2 of 3, written by the agent", "+ Evict nightly."},
+			want:    []string{"version 2 of 3, written by the agent", "5 +  Evict nightly."},
 			wantNot: []string{"Keep the cache warm."},
 		},
 		{
 			name:    "the first write is drawn whole as added, and stepping past it stays there",
 			presses: []string{"<", "<", "<", "<"},
-			want:    []string{"version 1 of 3", "+ Keep the cache cold."},
+			want:    []string{"version 1 of 3", "@@ -0,0 +1,3 @@", "3 +  Keep the cache cold."},
 		},
 		{
 			name:    "stepping forward draws the later write",
@@ -389,13 +389,29 @@ func TestDocumentsHistory(t *testing.T) {
 		{
 			name:    "stepping back through writes not kept from the first steps by what was kept",
 			presses: []string{"j", "<"},
-			want:    []string{"version 5 of 5", "- It went out on Monday.", "+ It went out on Tuesday."},
+			want:    []string{"version 5 of 5", "1      -  It went out on Monday.", "1 +  It went out on Tuesday."},
 		},
 		{
 			name:    "the oldest write kept when earlier ones were not is drawn as it is",
 			presses: []string{"j", "<", "<"},
 			want:    []string{"version 4 of 5", "the writes before it were not kept", "It went out on Monday."},
-			wantNot: []string{"+ It went out on Monday."},
+			wantNot: []string{"+  It went out on Monday."},
+		},
+		{
+			name:    "panning slides the lines under the gutter",
+			presses: []string{"<", "l"},
+			want:    []string{"        3 +"},
+			wantNot: []string{"Keep the cache warm."},
+		},
+		{
+			name:    "panning back to the start draws the lines whole",
+			presses: []string{"<", "l", "0"},
+			want:    []string{"3 +  Keep the cache warm."},
+		},
+		{
+			name:    "stepping to another write starts its lines at the left",
+			presses: []string{"<", "l", "<"},
+			want:    []string{"version 2 of 3", "5 +  Evict nightly."},
 		},
 		{
 			name:     "writes that could not be listed are listed again on the next step",

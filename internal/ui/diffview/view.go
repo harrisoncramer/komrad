@@ -87,6 +87,14 @@ type View struct {
 	search  *search
 	// narrowed says the patch is a slice of the change rather than the whole of it.
 	narrowed bool
+	// headless leaves out the row for the change as a whole and each file's header.
+	headless bool
+}
+
+// SetHeadless draws the hunks alone, with no row for the change as a whole and no file headers.
+func (v *View) SetHeadless(headless bool) {
+	v.headless = headless
+	v.redraw()
 }
 
 // SetNarrowed says whether the patch on screen is a slice of the change rather than all of it.
@@ -127,7 +135,7 @@ func NewView(patch *diff.Patch, isDark bool) *View {
 func (v *View) build() {
 	v.rows = nil
 
-	if len(v.files) > 0 {
+	if len(v.files) > 0 && !v.headless {
 		v.rows = append(v.rows, row{
 			kind: changeRow,
 			file: -1,
@@ -140,13 +148,15 @@ func (v *View) build() {
 	for fileIndex := range v.files {
 		file := &v.files[fileIndex]
 
-		v.rows = append(v.rows, row{
-			kind: fileRow,
-			file: fileIndex,
-			hunk: -1,
-			line: -1,
-			text: file.Path(),
-		})
+		if !v.headless {
+			v.rows = append(v.rows, row{
+				kind: fileRow,
+				file: fileIndex,
+				hunk: -1,
+				line: -1,
+				text: file.Path(),
+			})
+		}
 
 		if v.viewed[file.Path()] {
 			continue

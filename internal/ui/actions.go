@@ -82,6 +82,8 @@ const (
 	actionDocumentsNew
 	actionDocumentsOlder
 	actionDocumentsNewer
+	actionDocumentsPan
+	actionDocumentsPanReset
 	actionReviewBack
 	actionReviewFile
 	actionReviewThread

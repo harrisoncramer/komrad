@@ -4,20 +4,19 @@ import (
 	"fmt"
 	"strings"
 
+	"komrad/internal/diff"
 	"komrad/internal/errui"
+	"komrad/internal/ui/diffview"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/paint/label"
 	"komrad/lib/dates"
 	agentv1 "komrad/proto/gen/agent/v1"
 
 	tea "charm.land/bubbletea/v2"
-	"charm.land/lipgloss/v2"
-	"github.com/charmbracelet/x/ansi"
-	"github.com/pmezard/go-difflib/difflib"
 )
 
-// diffContext is how many unchanged lines are drawn either side of a change.
-const diffContext = 3
+// documentDiffPath is the name a document's diff is highlighted as.
+const documentDiffPath = "document.md"
 
 // documentHistory is one document's writes stepped through, drawing what the one stood on changed.
 type documentHistory struct {
@@ -28,6 +27,10 @@ type documentHistory struct {
 	listing  bool
 	err      error
 	reads    map[int32]versionRead
+	// pan is how far the diff is scrolled sideways.
+	pan   int
+	view  *diffview.View
+	drawn drawnChange
 }
 
 // versionRead is one write's text as it was read, or why it could not be.
@@ -53,6 +56,7 @@ func (d *documentsScreen) stepOlder(h host, s panelShared) tea.Cmd {
 	d.history.forgetFailedReads()
 	if d.history.at+1 < len(d.history.versions) {
 		d.history.at++
+		d.history.pan = 0
 	}
 
 	return h.waitToStage()
@@ -73,6 +77,7 @@ func (d *documentsScreen) stepNewer(h host, s panelShared) tea.Cmd {
 
 	d.history.forgetFailedReads()
 	d.history.at--
+	d.history.pan = 0
 
 	return h.waitToStage()
 }
@@ -101,10 +106,10 @@ func (d *documentsScreen) docRows(s panelShared, width int) []string {
 		return paint.DocStyledRows(d.doc(s), width, columnStyle())
 	}
 
-	return d.history.rows(item, width)
+	return d.history.rows(item, width, s.isDark)
 }
 
-func (h *documentHistory) rows(item documentItem, width int) []string {
+func (h *documentHistory) rows(item documentItem, width int, isDark bool) []string {
 	notice := "_reading its versions…_"
 	switch {
 	case h.err != nil:
@@ -118,7 +123,7 @@ func (h *documentHistory) rows(item documentItem, width int) []string {
 		return rows
 	}
 
-	return append(append(rows, ""), h.changeRows(width)...)
+	return append(append(rows, ""), h.changeRows(width, isDark)...)
 }
 
 // notice names the write stepped to, who made it and how long ago.
@@ -145,7 +150,7 @@ func (h *documentHistory) isOldestKeptLate() bool {
 }
 
 // changeRows is what the write stepped to changed from the one kept before it.
-func (h *documentHistory) changeRows(width int) []string {
+func (h *documentHistory) changeRows(width int, isDark bool) []string {
 	indent := strings.Repeat(" ", docMargin())
 
 	after, ok := h.reads[h.versions[h.at].GetVersion()]
@@ -165,75 +170,45 @@ func (h *documentHistory) changeRows(width int) []string {
 		return []string{fitRow(indent+"could not read: "+errui.GetReason(before.err), width)}
 	case h.isOldestKeptLate():
 		return paint.DocStyledRows(after.body+"\n", width, columnStyle())
-	case before.body == after.body:
+	}
+
+	view := h.changeView(before.body, after.body, isDark)
+	if view.Len() == 0 {
 		return []string{fitRow(indent+dimStyle.Render("no change to the text"), width)}
 	}
 
-	return diffRows(before.body, after.body, indent, width)
-}
-
-// diffRows is the lines one text changed in another, with a few unchanged either side, wrapped
-// to a width.
-func diffRows(before, after, indent string, width int) []string {
-	a, b := diffLines(before), diffLines(after)
-	added := paint.Panel.Style(reviewAddedTone)
-	removed := paint.Panel.Style(reviewRemovedTone)
-	unchanged := paint.Panel.Style(paint.ToneMuted)
-	room := max(width-len(indent)-2, 1)
-
-	var rows []string
-	for i, group := range difflib.NewMatcher(a, b).GetGroupedOpCodes(diffContext) {
-		if i > 0 {
-			rows = append(rows, indent+dimStyle.Render("⋯"))
-		}
-
-		for _, op := range group {
-			if op.Tag == 'e' {
-				rows = append(rows, wrappedDiffRows(a[op.I1:op.I2], diffMark{" ", unchanged}, indent, room)...)
-
-				continue
-			}
-			if op.Tag == 'r' || op.Tag == 'd' {
-				rows = append(rows, wrappedDiffRows(a[op.I1:op.I2], diffMark{"-", removed}, indent, room)...)
-			}
-			if op.Tag == 'r' || op.Tag == 'i' {
-				rows = append(rows, wrappedDiffRows(b[op.J1:op.J2], diffMark{"+", added}, indent, room)...)
-			}
-		}
+	rows := make([]string, 0, view.Len())
+	for y := range view.Len() {
+		rows = append(rows, view.RenderRow(y, diffview.NoCursor, width, h.pan))
 	}
 
 	return rows
 }
 
-// diffMark is how a changed line is drawn: the sign before it and its colour.
-type diffMark struct {
-	sign  string
-	style lipgloss.Style
+// drawnChange is the two writes a change view was built between, and the background it was
+// highlighted for.
+type drawnChange struct {
+	before int32
+	after  int32
+	isDark bool
 }
 
-func wrappedDiffRows(lines []string, mark diffMark, indent string, room int) []string {
-	var rows []string
-	for _, line := range lines {
-		for j, part := range strings.Split(ansi.Wrap(line, room, ""), "\n") {
-			sign := mark.sign
-			if j > 0 {
-				sign = " "
-			}
-
-			rows = append(rows, indent+mark.style.Render(sign+" "+part))
-		}
+// changeView is the diff between the write stepped to and the one before it, built once per pair.
+func (h *documentHistory) changeView(before, after string, isDark bool) *diffview.View {
+	drawn := drawnChange{after: h.versions[h.at].GetVersion(), isDark: isDark}
+	if h.at+1 < len(h.versions) {
+		drawn.before = h.versions[h.at+1].GetVersion()
 	}
 
-	return rows
-}
-
-func diffLines(body string) []string {
-	body = strings.TrimRight(body, "\n")
-	if body == "" {
-		return nil
+	if h.view != nil && h.drawn == drawn {
+		return h.view
 	}
 
-	return strings.Split(body, "\n")
+	view := diffview.NewView(&diff.Patch{Files: []diff.File{diff.FromTexts(documentDiffPath, before, after)}}, isDark)
+	view.SetHeadless(true)
+	h.view, h.drawn = view, drawn
+
+	return view
 }
 
 // documentVersionsListedMsg is the writes kept of a document come back.

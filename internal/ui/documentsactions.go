@@ -47,6 +47,22 @@ func (d *documentsScreen) table() []screenAction {
 			},
 		},
 		screenAction{
+			id:   actionDocumentsPan,
+			keys: func(k config.Keybindings) []string { return slices.Concat(k.Documents.PanLeft, k.Documents.PanRight) },
+			when: d.isSteppingHovered,
+			run:  d.panBy,
+		},
+		screenAction{
+			id:   actionDocumentsPanReset,
+			keys: func(k config.Keybindings) []string { return k.Documents.PanReset },
+			when: d.isSteppingHovered,
+			run: func(host, panelShared, string) tea.Cmd {
+				d.history.pan = 0
+
+				return nil
+			},
+		},
+		screenAction{
 			id:   actionDocumentsBack,
 			keys: func(k config.Keybindings) []string { return k.Documents.Back },
 			run: func(h host, _ panelShared, _ string) tea.Cmd {
@@ -79,6 +95,14 @@ func (d *documentsScreen) legend() []screenLegendRow {
 			desc: func(panelShared) string { return "a later version" },
 		},
 		{
+			of:   []actionID{actionDocumentsPan, actionDocumentsPanReset},
+			desc: func(panelShared) string { return "pan sideways" },
+			show: d.isSteppingHovered,
+			label: func(k config.Keybindings) string {
+				return headLabel(k.Documents.PanLeft) + "/" + headLabel(k.Documents.PanRight) + "/" + keyLabel(k.Documents.PanReset)
+			},
+		},
+		{
 			of:    []actionID{actionFilterClear},
 			desc:  filterClearDescOf,
 			strip: true,
@@ -94,6 +118,17 @@ func (d *documentsScreen) legend() []screenLegendRow {
 			strip: true,
 		},
 	})
+}
+
+func (d *documentsScreen) panBy(_ host, s panelShared, pressed string) tea.Cmd {
+	step := panStep(s)
+	if isBound(pressed, s.keys.Documents.PanLeft) {
+		step = -step
+	}
+
+	d.history.pan = max(0, d.history.pan+step)
+
+	return nil
 }
 
 // hasDocuments reports whether the hovered agent, or the orchestrator behind a hovered

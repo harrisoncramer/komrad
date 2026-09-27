@@ -380,6 +380,12 @@ type DocumentsKeys struct {
 	// Open the documents screen from the agents list, on the hovered agent's documents, or
 	// its orchestrator's on a workflow's row.
 	Open []string `mapstructure:"open" default:"D"`
+	// Pan the diff of a write left, for a line wider than the pane.
+	PanLeft []string `mapstructure:"pan_left" default:"h,left"`
+	// Pan the diff of a write back to the start of its lines.
+	PanReset []string `mapstructure:"pan_reset" default:"0"`
+	// Pan the diff of a write right.
+	PanRight []string `mapstructure:"pan_right" default:"l,right"`
 	// Quit the panel.
 	Quit []string `mapstructure:"quit" default:"ctrl+c"`
 }
