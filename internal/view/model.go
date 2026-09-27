@@ -116,6 +116,8 @@ const (
 type Column struct {
 	Kind  ColumnKind
 	Width int
+	// Dotted keeps a place after the person's counts for the unread dot.
+	Dotted bool
 }
 
 // Columns is the gutter a list declares, in the order its columns are drawn.
@@ -130,14 +132,22 @@ func WorkColumns() Columns {
 }
 
 // CommentedWorkColumns is the agents list's gutter with the comment counts of reviewer agents and
-// of the person drawn between repo and forge, each as wide as its widest pair.
-func CommentedWorkColumns(reviewer, person int) Columns {
-	return Columns{
-		{Kind: ColumnRepo, Width: plainColumns},
-		{Kind: ColumnReviewerComments, Width: max(reviewer, countColumns)},
-		{Kind: ColumnPersonComments, Width: max(person, countColumns) + plainColumns},
-		{Kind: ColumnForge, Width: plainColumns},
+// of the person drawn between repo and forge, each as wide as its widest pair and left out while
+// nobody has any.
+func CommentedWorkColumns(reviewer, person int, unread bool) Columns {
+	columns := Columns{{Kind: ColumnRepo, Width: plainColumns}}
+	if reviewer > 0 {
+		columns = append(columns, Column{Kind: ColumnReviewerComments, Width: reviewer})
 	}
+	if person > 0 {
+		width := person
+		if unread {
+			width += plainColumns
+		}
+		columns = append(columns, Column{Kind: ColumnPersonComments, Width: width, Dotted: unread})
+	}
+
+	return append(columns, Column{Kind: ColumnForge, Width: plainColumns})
 }
 
 // NoColumns is the gutter of a list with nothing to say before a name.

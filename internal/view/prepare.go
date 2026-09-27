@@ -79,7 +79,7 @@ func columnCells(row Row, columns Columns) []Cell {
 		case ColumnReviewerComments:
 			cells[i] = ReviewerCommentsCell(row)
 		case ColumnPersonComments:
-			cells[i] = PersonCommentsCell(row)
+			cells[i] = PersonCommentsCell(row, column.Dotted)
 		case ColumnText:
 			if i < len(row.Cells) {
 				cells[i] = row.Cells[i]
@@ -125,9 +125,9 @@ func RepoCell(row Row) Cell {
 }
 
 // ReviewerCommentsCell counts the comments reviewer agents left on an agent's work, open then
-// resolved, drawn as a dash while only the person has any.
+// resolved.
 func ReviewerCommentsCell(row Row) Cell {
-	if !isOwn(row) || (row.ReviewerComments == nil && row.PersonComments == nil) {
+	if !isOwn(row) || row.ReviewerComments == nil {
 		return Cell{}
 	}
 
@@ -136,28 +136,27 @@ func ReviewerCommentsCell(row Row) Cell {
 
 // PersonCommentsCell counts the comments the person left on an agent's work, the open count
 // standing out while there is one, and a dot after while any holds something unread.
-func PersonCommentsCell(row Row) Cell {
-	if !isOwn(row) || (row.ReviewerComments == nil && row.PersonComments == nil) {
+func PersonCommentsCell(row Row, dotted bool) Cell {
+	if !isOwn(row) || row.PersonComments == nil {
 		return Cell{}
 	}
 
-	dot := Cell{Text: " "}
-	if row.PersonComments != nil && row.PersonComments.Unread {
-		dot = Cell{Text: "·", Tone: paint.ToneWarning}
+	counts := countsCell(row.PersonComments, paint.ToneWarning)
+	if !dotted {
+		return counts
 	}
 
-	counts := countsCell(row.PersonComments, paint.ToneWarning)
+	dot := Cell{Text: " "}
+	if row.PersonComments.Unread {
+		dot = Cell{Text: "·", Tone: paint.ToneWarning}
+	}
 
 	return Cell{Parts: append(counts.Parts, dot)}
 }
 
 // countsCell is a pair of counts, open then resolved, with the open count in the tone given
-// while it is not zero, and a dash for a side with nothing to show.
+// while it is not zero.
 func countsCell(comments *Comments, openTone paint.Tone) Cell {
-	if comments == nil {
-		return Cell{Parts: []Cell{{Text: "–", Tone: paint.ToneMuted}}}
-	}
-
 	open := Cell{Text: strconv.Itoa(comments.Open), Tone: paint.ToneMuted}
 	if comments.Open > 0 {
 		open.Tone = openTone
