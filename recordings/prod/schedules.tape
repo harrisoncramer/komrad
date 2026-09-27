@@ -2,7 +2,8 @@
 # then an orchestrator schedule that mails the neovim workflow's orchestrator each weekday.
 # schedules.before makes the workflow and starts its orchestrator out of shot.
 Source recordings/panel.tape
-Type "S"
+Type "O"
+Type "s"
 Wait+Screen@10s /Schedules/
 Type "c"
 Wait+Screen@10s /launch a new agent/

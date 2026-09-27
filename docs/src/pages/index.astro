@@ -1,9 +1,88 @@
 ---
+import { Code } from "astro:components";
 import Layout from "../layouts/Layout.astro";
-import Splash from "../components/home/Splash.astro";
+import { codeTheme } from "../code-theme.mjs";
 import { SITE_DESCRIPTION, SITE_TITLE } from "../consts";
+import { link, media } from "../site";
+
+const INSTALL = `gh release download tip --repo harrisoncramer/komrad --pattern komrad-darwin-arm64 --output ~/.local/bin/komrad
+chmod +x ~/.local/bin/komrad`;
+
+const NEXT = [
+  { href: link("/guides/install"), title: "Install", text: "Set up Postgres, start the engine, open the panel." },
+  { href: link("/guides/how-it-works"), title: "How it works", text: "The engine, the panel, and what each one owns." },
+  { href: link("/guides"), title: "Guides", text: "Everything else: agents, workflows, mail, reviews, hooks." },
+];
 ---
 
 <Layout title={SITE_TITLE} description={SITE_DESCRIPTION}>
-  <Splash slot="hero" />
+  <article class="home">
+    <h1>komrad</h1>
+
+    <p>Komrad is a terminal-based agent orchestrator. It wraps around agent CLIs like Claude and Codex.</p>
+    <p>
+      With komrad, you can easily search agent transcripts, schedule agents, and orchestrate more complex agentic
+      workflows via an MCP. Juggling lots of terminal sessions is difficult, and komrad makes it easy.
+    </p>
+    <p>Komrad runs on your machine by default, but can be deployed to a remote instance that you control.</p>
+    <img
+      src={media("splash.png")}
+      alt="The komrad panel: a list of agents grouped by project beside a live Claude session."
+      width="1920"
+      height="930"
+      fetchpriority="high"
+      decoding="async"
+    />
+
+    <h2>Install</h2>
+    <Code code={INSTALL} lang="sh" theme={codeTheme} />
+    <p>
+      Swap <code>darwin-arm64</code> for your platform, then follow the{" "}
+      <a href={link("/guides/install")}>install guide</a> to set up Postgres and start the engine.
+    </p>
+
+    <h2>Read next</h2>
+    <dl>
+      {NEXT.map((item) => (
+        <>
+          <dt>
+            <a href={item.href}>{item.title}</a>
+          </dt>
+          <dd>{item.text}</dd>
+        </>
+      ))}
+    </dl>
+  </article>
 </Layout>
+
+<style>
+  @reference "../styles/global.css";
+
+  .home {
+    @apply mt-4 flex flex-col gap-5 leading-relaxed text-app-gray;
+  }
+
+  .home h1 {
+    @apply text-app-white;
+  }
+
+  .home h2 {
+    @apply mt-6 text-app-white;
+  }
+
+  .home img {
+    @apply my-4 h-auto w-full rounded-lg border border-app-background-medium;
+  }
+
+  .home p code {
+    @apply font-mono text-[0.9em] text-app-white;
+  }
+
+  .home dl {
+    @apply grid grid-cols-1 gap-x-6 gap-y-1 sm:grid-cols-[10rem_1fr] sm:gap-y-3;
+  }
+
+  .home dd {
+    @apply mb-3 sm:mb-0;
+  }
+</style>
