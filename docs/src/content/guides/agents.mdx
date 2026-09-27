@@ -80,13 +80,17 @@ Reviewer agents are attached to an implementer agent, and can be used to review 
 
 ## Reviewer Agents
 
-They share the implementer's checkout, and [`usage.implementer.max_children`](../../config/#usage.implementer.max_children) caps how many one parent may hold.
+Reviewer agents share the implementer's checkout. They make no changes of their own, but provide feedback on their parent's chagnes. Set the [`usage.implementer.max_children`](../../config/#usage.implementer.max_children) value to cap how many reviewers one implementer may hold at a time.
 
-## Picking up an existing branch
+## Adopting work
 
-You can put an agent onto a branch someone else started, which komrad calls adopting it. The agent gets a fresh worktree on that branch, or works in the checkout that already has it. The branch stays its owner's. Komrad never resets it, and the agent is told the commits are not its to rewrite.
+If you need to resume work that started outside of komrad (such as reviewing a pull request from a colleague, or resuming work from another machine) you can _adopt_ the branch. Adopting the branch lets komrad spawn an implementer agent into that branch responsible for resuming work on it.
 
-## Finishing with an agent
+To adopt a branch, press the `a` key when hovering over a workflow.
+
+Because adoption creates a new implementer agent, the adopted branch must be available in the repository controlled by the workflow you are adopting work into.
+
+## Tearing down
 
 Archiving stops the agent and takes it out of the list, but keeps its record and conversation. Deleting is permanent: the record, the conversation and the worktree are all removed. Komrad refuses to run more agents than [`usage.max_agents`](../../config/#usage.max_agents) allows, so archive what you are done with.
 
