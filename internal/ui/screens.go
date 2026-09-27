@@ -110,8 +110,7 @@ type kinded interface {
 	// kindsFit is whether the screen has the room to draw the row of kinds.
 	kindsFit(s panelShared) bool
 
-	// kindsSwitch is whether the kind listed may change, which the row of kinds only takes the
-	// keys while it may.
+	// kindsSwitch is whether the kind listed may change.
 	kindsSwitch(s panelShared) bool
 }
 
