@@ -5,6 +5,7 @@ group: start
 order: 1
 ---
 
+import Setting from "../../components/Setting.astro";
 import Alert from "../../components/Alert.astro";
 import Key from "../../components/Key.astro";
 import { media } from "../../site";
@@ -66,7 +67,7 @@ Komrad will safely auto-migrate the database after you first set it up.
 
 Komrad's configuration is stored in a TOML file.
 
-The `komrad engine ensure` command prints an initial `[connection]` block that can be added to the database with a login for the engine. Run it, then put the engine block in `~/.config/komrad/config.toml`, and add the owner URL from the previous step beside it.
+The `komrad engine ensure` command prints an initial <Setting path="connection" label="[connection]" /> block that can be added to the database with a login for the engine. Run it, then put the engine block in `~/.config/komrad/config.toml`, and add the owner URL from the previous step beside it.
 
 ```toml
 [connection]
@@ -74,7 +75,7 @@ owner_database_url = "postgres://komrad_owner:password123@localhost:5432/komrad"
 database_url = "postgres://komrad_engine_laptop:8f3a1c9e2b7d4e6f@localhost:5432/komrad"
 ```
 
-The `owner_database_url` is only used by `komrad migrate` and `komrad engine ensure`. The service itself connects with `database_url`.
+The <Setting path="connection.owner_database_url" label="owner_database_url" /> is only used by `komrad migrate` and `komrad engine ensure`. The service itself connects with <Setting path="connection.database_url" label="database_url" />.
 
 ## Open the panel
 
@@ -95,7 +96,7 @@ Run `komrad open` to open the panel. The first open starts the service in the ba
 
 The panel takes over the terminal you open it in, and a tmux pane works like any other. `komrad attach` shows the same panel in a second terminal. Closing the panel with <Key name="agents.quit" /> only detaches it, so the service and your agents keep running.
 
-If your own tmux prefix is <Key name="cycle.views" at={0} />, change the [cycle keys](../../config/#keybindings.cycle.views) so the panel still sees them.
+If your own tmux prefix is <Key name="cycle.views" at={0} />, change the <Setting path="keybindings.cycle.views">cycle keys</Setting> so the panel still sees them.
 
 ## Upgrading
 

@@ -5,6 +5,8 @@ group: start
 order: 5
 ---
 
+import Field from "../../components/Field.astro";
+import Setting from "../../components/Setting.astro";
 import Alert from "../../components/Alert.astro";
 import Key from "../../components/Key.astro";
 import { media } from "../../site";
@@ -16,15 +18,16 @@ You can use hooks to cover setup that komra cannot handle out of the box, such a
 <Alert variant="danger">
   Do not use hooks to copy or link files, such as built dependencies, into a worktree. A
   [workflow](../workflows/#worktrees) already does that: its worktree copy paths and worktree symlink paths,
-  `copy_paths` and `symlink_paths` on the [worktree config](../../api/workflow/create-workflow/#types), are copied or
-  linked into every new worktree before the agent starts. Hooks are for what lives outside the tree.
+  <Field message="workflow.v1.WorktreeConfig" name="copy_paths" /> and{" "}
+  <Field message="workflow.v1.WorktreeConfig" name="symlink_paths" /> on the worktree config, are copied or linked into
+  every new worktree before the agent starts. Hooks are for what lives outside the tree.
 </Alert>
 
 Hooks can also be used to clean up when an agent is destroyed. For instance, run a pre-delete hook to remove the network the agent needs.
 
 ## Writing a hook
 
-Hooks are executable files in [`hooks.dir`](../../config/#hooks.dir), which is `~/.config/komrad/hooks` by default. Each hook runs inside its agent's directory.
+Hooks are executable files in <Setting path="hooks.dir" />, which is `~/.config/komrad/hooks` by default. Each hook runs inside its agent's directory.
 
 In our example, Neovim keeps a `.git-blame-ignore-revs` file listing the commits that only reformatted code, so `git blame` can skip them. Git only honours the file when told to, and that setting lives in git's config rather than in the tree, so no checkout carries it. A hook can set it for each agent:
 

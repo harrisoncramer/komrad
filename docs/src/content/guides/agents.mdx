@@ -5,6 +5,7 @@ group: start
 order: 3
 ---
 
+import Setting from "../../components/Setting.astro";
 import Alert from "../../components/Alert.astro";
 import Key from "../../components/Key.astro";
 import { media } from "../../site";
@@ -59,7 +60,7 @@ The agent responds to our question. If it needs to, it can send and receive mess
 
 Each agent is in one of several states, such as running, idle, dormant, or active. The state of the agent is reflected in the UI column.
 
-Dorman agent's CLI have exited, but their conversations are kept so that you can still search them, and resume them later. You can search the agent list by name, filter it, jump around it with [marks](../../config/#keybindings.marks). Press <Key name="cycle.views" at={0} /> and <Key name="cycle.views" at={1} /> to cycle through the views: the sidebar, the agent's screen, and the info pane.
+Dorman agent's CLI have exited, but their conversations are kept so that you can still search them, and resume them later. You can search the agent list by name, filter it, jump around it with <Setting path="keybindings.marks">marks</Setting>. Press <Key name="cycle.views" at={0} /> and <Key name="cycle.views" at={1} /> to cycle through the views: the sidebar, the agent's screen, and the info pane.
 
 ## Reviewer Agents
 
@@ -83,7 +84,7 @@ Reviewer agents are attached to an implementer agent, and can be used to review 
 
 ## Reviewer Agents
 
-Reviewer agents share the implementer's checkout. They make no changes of their own, but provide feedback on their parent's chagnes. Set the [`usage.implementer.max_children`](../../config/#usage.implementer.max_children) value to cap how many reviewers one implementer may hold at a time.
+Reviewer agents share the implementer's checkout. They make no changes of their own, but provide feedback on their parent's chagnes. Set the <Setting path="usage.implementer.max_children" /> value to cap how many reviewers one implementer may hold at a time.
 
 ## Adopting work
 

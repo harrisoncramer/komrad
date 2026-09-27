@@ -1,6 +1,6 @@
 ---
-import { bindingOf } from "../reference/keys";
-import { link } from "../site";
+import Ref from "./Ref.astro";
+import { keybindingOf } from "../reference/refs";
 
 type Props = {
   name: string;
@@ -8,12 +8,12 @@ type Props = {
 };
 
 const { name, at } = Astro.props;
-const { path, description, keys } = bindingOf(name);
-const shown = at === undefined ? keys : keys.slice(at, at + 1);
-if (shown.length === 0) throw new Error(`${path} has no key at ${String(at)}`);
+const binding = keybindingOf(name);
+const shown = at === undefined ? binding.keys : binding.keys.slice(at, at + 1);
+if (shown.length === 0) throw new Error(`keybindings.${name} has no key at ${String(at)}`);
 ---
 
-<a class="key" href={link(`/config#${path}`)}>
+<Ref target={binding}>
   {shown.map((key, i) =>
     i === 0 ? (
       <code>{key}</code>
@@ -24,41 +24,4 @@ if (shown.length === 0) throw new Error(`${path} has no key at ${String(at)}`);
       </Fragment>
     ),
   )}
-  <span class="key-field" aria-hidden="true">
-    <code>{path}</code>
-    <span>{description}</span>
-  </span>
-</a>
-
-<style>
-  .key {
-    position: relative;
-    text-decoration: none;
-  }
-
-  .key-field {
-    display: none;
-  }
-
-  @media (hover: hover) {
-    .key:hover .key-field {
-      position: absolute;
-      bottom: calc(100% + 0.4rem);
-      left: 0;
-      z-index: 10;
-      display: flex;
-      flex-direction: column;
-      gap: 0.3rem;
-      width: max-content;
-      max-width: 22rem;
-      padding: 0.5rem 0.7rem;
-      border: 1px solid var(--color-app-background-medium);
-      border-radius: 6px;
-      background: var(--color-app-background-medium-dark);
-      color: var(--color-app-gray-light);
-      font-size: 0.85em;
-      line-height: 1.4;
-      white-space: normal;
-    }
-  }
-</style>
+</Ref>

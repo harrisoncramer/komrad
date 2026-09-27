@@ -5,13 +5,15 @@ group: operations
 order: 9
 ---
 
+import Setting from "../../components/Setting.astro";
+
 [Agents](../agents/) on your laptop stop when your laptop sleeps. Komrad can run them on a remote machine instead. The panel stays on your laptop and looks the same. What moves is the engine: the service, the database, and every agent's terminal.
 
 Komrad's own repository works this way. [Administering the engine](../engine-admin/) covers building that machine. This guide covers using one that exists.
 
 ## Telling your panel about an engine
 
-An engine is a small config file on your laptop in `~/.config/komrad/engines/`, named after the engine. It sets the [`[connection]`](../../config/#connection) table: [`forward`](../../config/#connection.forward) says how to carry the engine's API back to your laptop, and everything the panel does on the engine goes through that API. For a host your SSH config already knows, a plain [`ssh`](../../config/#connection.ssh) destination is enough.
+An engine is a small config file on your laptop in `~/.config/komrad/engines/`, named after the engine. It sets the <Setting path="connection" label="[connection]" /> table: <Setting path="connection.forward" label="forward" /> says how to carry the engine's API back to your laptop, and everything the panel does on the engine goes through that API. For a host your SSH config already knows, a plain <Setting path="connection.ssh" label="ssh" /> destination is enough.
 
 Keep the engine's SSH host keys in a file of their own. A rebuilt engine answers on the same address with a new key.
 

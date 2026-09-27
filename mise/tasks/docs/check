@@ -7,7 +7,7 @@ usage() {
 	echo "Usage: mise run docs:check"
 	echo
 	echo "Runs astro check over the pages, components and content schema under docs/, then"
-	echo "fails on a guide that writes a keybinding by hand rather than through <Key>."
+	echo "fails on a guide that writes a keybinding, setting or API field by hand."
 }
 
 for arg in "$@"; do
@@ -24,4 +24,4 @@ cd "$MISE_CONFIG_ROOT/docs"
 docs_install
 
 npm run check
-node scripts/check-keys.mjs
+node scripts/check-references.mjs

@@ -5,6 +5,7 @@ group: start
 order: 4
 ---
 
+import Setting from "../../components/Setting.astro";
 import Key from "../../components/Key.astro";
 import { media } from "../../site";
 
@@ -20,8 +21,8 @@ The stage is the wide region beside the sidebar. It shows the agent you have ope
 
 <Key name="cycle.views" at={0} /> moves the keyboard to the next of these regions, and <Key name="cycle.views" at={1} />
 to the previous one: the list, the agent on the stage, then the details. `ctrl+g` moves it to the messages. If your own
-tmux prefix is <Key name="cycle.views" at={0} />, choose another [pair of cycle
-keys](../../config/#keybindings.cycle.views).
+tmux prefix is <Key name="cycle.views" at={0} />, choose another
+<Setting path="keybindings.cycle.views">pair of cycle keys</Setting>.
 
 <figure>
   <video

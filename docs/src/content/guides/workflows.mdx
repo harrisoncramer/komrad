@@ -5,6 +5,7 @@ group: start
 order: 2
 ---
 
+import Setting from "../../components/Setting.astro";
 import Alert from "../../components/Alert.astro";
 import Key from "../../components/Key.astro";
 import { media } from "../../site";
@@ -76,7 +77,7 @@ Workflows can hold _shared context_ for each implementer agent. This is where yo
 
 In our Neovim example, that might be: "Run make lint before committing any Lua change."
 
-It comes after komrad's own briefing and your [global context](../../config/#context), which every agent gets whatever workflow it is in. In the video below the global context says only that Neovim is the best editor, and the agent has read both.
+It comes after komrad's own briefing and your <Setting path="context">global context</Setting>, which every agent gets whatever workflow it is in. In the video below the global context says only that Neovim is the best editor, and the agent has read both.
 
 <figure>
   <video
@@ -100,7 +101,7 @@ Like most agent orchestrators, komrad ships with first-class support for [worktr
 
 When creating a workflow or an agent, tell komrade to automatically create a worktree for each agent, and it'll cut one from the base branch. Your implementer agent will then work within that worktree, exclusively, providing it isolation from other agents. The worktree is automatically cleaned up when the agent is deleted.
 
-Komrad places worktrees into [`worktrees.dir`](../../config/#worktrees.dir) unless the workflow names its own location.
+Komrad places worktrees into <Setting path="worktrees.dir" /> unless the workflow names its own location.
 
 <Alert variant="info">
   Agents do not have to create worktrees, but be careful: those that don't will run directly inside of their parent
