@@ -8,7 +8,7 @@ order: 5
 import Alert from "../../components/Alert.astro";
 import { media } from "../../site";
 
-Some work is worth doing on a timer. A nightly pass over the lint, a summary of what changed each morning, a nudge to your orchestrator before you sit down. Schedules do this.
+Some work is worth doing on a timer, such as a nightly pass over the lint, a summary of what changed each morning, or a nudge to your orchestrator before you sit down. Schedules do this.
 
 A schedule fires on a cron expression and hands its prompt to an agent. It lives in komrad's database, so it keeps firing after you close the panel. There are two kinds: implementer schedules launch a new agent each time, and orchestrator schedules mail one that is already running.
 
@@ -66,7 +66,7 @@ If the orchestrator is archived or deleted, the schedule's runs are cancelled. P
 
 ## Missed and paused runs
 
-Komrad never catches up on missed runs. If the engine is down when a run was due, that run is skipped. This is on purpose, so agents do not start at odd hours.
+Komrad never catches up on missed runs. If the service is down when a run was due, that run is skipped. This is on purpose, so agents do not start at odd hours.
 
 Runs that cannot succeed are cancelled with a reason, which shows as the schedule's last run. An implementer schedule whose workflow no longer exists is cancelled, for instance.
 
