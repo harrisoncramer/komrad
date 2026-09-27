@@ -131,8 +131,8 @@ func (r *reviewScreen) refuseHistory(h host, s panelShared, said string) {
 // refuseViewed says why the fold key did nothing on a chapter, and names the key back to the
 // change a mark is about.
 func (r *reviewScreen) refuseViewed(h host, s panelShared) {
-	summary := "a file is read in the whole change, not in one round"
-	detail := "This draws one round of the change, so the file under the cursor is a different " +
+	summary := "a file is read in the whole change, not in one chapter"
+	detail := "This draws one chapter of the change, so the file under the cursor is a different " +
 		"diff here than it is in the whole of it and a mark taken on it would say you had read " +
 		"something else. Press " + keyLabel(s.keys.Review.BaseForward) + " until the whole change " +
 		"is on screen, then mark it there."

@@ -257,7 +257,7 @@ func (r *reviewScreen) legend() []screenLegendRow {
 		},
 		{
 			of:   []actionID{actionReviewBase},
-			desc: func(panelShared) string { return "an earlier round" },
+			desc: func(panelShared) string { return "an earlier chapter" },
 			show: r.doesFitBaseLegend,
 		},
 		{
@@ -279,7 +279,7 @@ func (r *reviewScreen) legend() []screenLegendRow {
 		},
 		{
 			of:   []actionID{actionReviewBaseForward},
-			desc: func(panelShared) string { return "a later round" },
+			desc: func(panelShared) string { return "a later chapter" },
 			show: r.doesFitBaseLegend,
 		},
 		{

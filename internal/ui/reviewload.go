@@ -3,7 +3,6 @@ package ui
 import (
 	"context"
 	"errors"
-	"strconv"
 
 	"komrad/internal/assemble"
 	"komrad/internal/diff"
@@ -218,8 +217,7 @@ func loadReviewCmd(s panelShared, params loadReviewCmdParams) tea.Cmd {
 			switch {
 			case connect.CodeOf(err) == connect.CodeFailedPrecondition && len(rounds) > 0:
 				round = rounds[len(rounds)-1]
-				notice = "a rebase or merge is part way through, so this is round " +
-					strconv.Itoa(int(round.GetOrdinal()))
+				notice = "a rebase or merge is part way through, so this is the work as it stood before it"
 			case err != nil:
 				return reviewLoadedMsg{agentID: agentID, err: err}
 			default:

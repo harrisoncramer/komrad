@@ -78,10 +78,10 @@ func (r reviewScreen) isHistory() (string, bool) {
 
 	at := r.diff.chapter
 	if at < 0 || at >= len(r.diff.chapters) {
-		return "an earlier round", true
+		return "an earlier chapter", true
 	}
 
-	return fmt.Sprintf("round %d of %d", at+1, len(r.diff.chapters)), true
+	return fmt.Sprintf("chapter %d of %d", at+1, len(r.diff.chapters)), true
 }
 
 // doesWalk says whether the round keys have anywhere to go, which an editor holding the stage
