@@ -32,6 +32,11 @@ if [ ! -d dist/pagefind ]; then
 	npm run build >/dev/null
 fi
 
-gum log --level info "serving the docs at http://localhost:4321/$PUBLIC_DOCS_VERSION/"
+port=4321
+if in_linked_worktree; then
+	port="$(get_random_port)"
+fi
 
-npm run dev -- --force
+gum log --level info "serving the docs at http://localhost:$port/$PUBLIC_DOCS_VERSION/"
+
+npm run dev -- --force --port "$port"

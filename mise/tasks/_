@@ -32,3 +32,25 @@ docs_install() {
 		npm install
 	fi
 }
+
+get_random_port() {
+	local port
+	local attempt
+
+	for ((attempt = 0; attempt < 100; attempt++)); do
+		port=$((32768 + RANDOM % (65535 - 32768 + 1)))
+		if ! nc -z localhost "$port" 2>/dev/null; then
+			echo "$port"
+
+			return 0
+		fi
+	done
+
+	echo "get_random_port: no free port after 100 attempts" >&2
+
+	return 1
+}
+
+in_linked_worktree() {
+	[ "$(git -C "$MISE_CONFIG_ROOT" rev-parse --git-dir)" != "$(git -C "$MISE_CONFIG_ROOT" rev-parse --git-common-dir)" ]
+}
