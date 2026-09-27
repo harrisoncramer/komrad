@@ -11,6 +11,7 @@ import (
 
 	"komrad/internal/ui"
 	agentv1 "komrad/proto/gen/agent/v1"
+	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 )
 
 // TestNotices covers the record spelling out the marks on the hovered row above its fields.
@@ -121,6 +122,16 @@ func TestNoticesGolden(t *testing.T) {
 			},
 		},
 		{
+			name:  "a-conflicting-pull-request",
+			press: widenListPresses,
+			rows:  newPullRequested(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CONFLICTING),
+		},
+		{
+			name:  "a-failing-pull-request",
+			press: widenListPresses,
+			rows:  newPullRequested(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_FAILING),
+		},
+		{
 			name: "a-failed-create",
 			rows: []proto.Message{newFailedCreate()},
 		},
@@ -159,6 +170,29 @@ func newNoticed() *agentv1.Agent {
 		WorkflowId: "w1",
 		Cwd:        "/repo",
 		State:      agentv1.AgentState_AGENT_STATE_WAITING,
+	}
+}
+
+func newPullRequested(state pullrequestv1.PullRequestState) []proto.Message {
+	agent := newNoticed()
+	agent.RepositoryUrl = proto.String(repositoryURL)
+	agent.Branch = proto.String("agent/n1")
+
+	return []proto.Message{
+		agent,
+		&pullrequestv1.Repository{
+			Url:  repositoryURL,
+			Read: true,
+		},
+		&pullrequestv1.PullRequest{
+			Id:                "pr-1",
+			RepositoryUrl:     repositoryURL,
+			HeadRepositoryUrl: repositoryURL,
+			HeadBranch:        "agent/n1",
+			Number:            7,
+			State:             state,
+			OpenedAt:          "2026-09-19T12:00:00Z",
+		},
 	}
 }
 

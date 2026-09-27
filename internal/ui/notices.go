@@ -29,6 +29,15 @@ const (
 	heldWorkingNotice     = "paused, but it has started working again"
 	heldUnreadableNotice  = "paused, but its pane cannot be read, so it may be writing"
 	heldPromptedNotice    = "paused, but stopped at a prompt, so a write lands if anybody answers"
+	prFailingNotice       = "its pull request has a failing check"
+	prConflictingNotice   = "its pull request no longer merges cleanly"
+	prChangesNotice       = "its pull request has changes requested"
+	prApprovedNotice      = "its pull request is approved and ready to merge"
+	prWaitingNotice       = "its pull request is approved but cannot merge yet"
+	prOpenNotice          = "its pull request is open, no review settles it"
+	prDraftNotice         = "its pull request is still a draft"
+	prMergedNotice        = "its pull request is merged"
+	prClosedNotice        = "its pull request was closed without merging"
 )
 
 var (
@@ -43,6 +52,21 @@ var (
 		view.RepoGone:     worktreeRemovedNotice,
 		view.RepoRebasing: sequenceNotice,
 	}
+	forgeAlertSaid = map[view.Forge]string{
+		view.ForgeFailing:     prFailingNotice,
+		view.ForgeConflicting: prConflictingNotice,
+	}
+	forgeReviewSaid = map[view.Forge]string{
+		view.ForgeChangesRequested: prChangesNotice,
+		view.ForgeApproved:         prApprovedNotice,
+	}
+	forgeSaid = map[view.Forge]string{
+		view.ForgeOpen:            prOpenNotice,
+		view.ForgeApprovedWaiting: prWaitingNotice,
+		view.ForgeDraft:           prDraftNotice,
+		view.ForgeMerged:          prMergedNotice,
+		view.ForgeClosed:          prClosedNotice,
+	}
 )
 
 // agentNotices orders the marks by how much each wants a person's attention, reading the row the
@@ -52,11 +76,14 @@ func agentNotices(r agentRow) []notice {
 
 	notices := appendCellNotice(nil, view.StatusCell(row), failureSaid[displayState(item)])
 	notices = appendCellNotice(notices, view.AlertCell(row), failedRunNotice)
+	notices = appendCellNotice(notices, view.ForgeCell(row), forgeAlertSaid[row.Forge])
 	notices = appendCellNotice(notices, view.MailCell(row), unreadMailNotice)
+	notices = appendCellNotice(notices, view.ForgeCell(row), forgeReviewSaid[row.Forge])
 	notices = appendCellNotice(notices, view.RepoCell(row), repoSaid[row.Repo])
 	notices = appendCellNotice(notices, view.HeldCell(row), heldNoticeText(item))
 	notices = appendCellNotice(notices, view.HiddenCell(row), hiddenNotice)
 	notices = appendCellNotice(notices, view.DocumentCell(row), documentsNotice)
+	notices = appendCellNotice(notices, view.ForgeCell(row), forgeSaid[row.Forge])
 	notices = appendCommentsNotice(notices, row.ReviewerComments, "reviewer agents' comments")
 
 	return appendCommentsNotice(notices, row.PersonComments, "your comments")
