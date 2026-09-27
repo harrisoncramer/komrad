@@ -9,7 +9,6 @@ import (
 	agentv1 "komrad/proto/gen/agent/v1"
 
 	"github.com/charmbracelet/x/ansi"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -442,7 +441,7 @@ func TestChangeRowIsAbsentWithNothingToReview(t *testing.T) {
 // TestHeadlessViewDrawsItsHunksAlone covers a diff with no row for the change as a whole and no
 // file headers.
 func TestHeadlessViewDrawsItsHunksAlone(t *testing.T) {
-	view := NewView(patchWith(diff.FromTexts("document.md", "one\ntwo", "one\n2")), false)
+	view := NewView(patchWith(diff.CompareTexts("document.md", "one\ntwo", "one\n2")), false)
 	view.SetHeadless(true)
 
 	rows := make([]string, 0, view.Len())

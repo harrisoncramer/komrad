@@ -39,40 +39,54 @@ type diffKeys struct {
 func (k diffKeys) table() []screenAction {
 	return []screenAction{
 		{
-			id:   actionMove,
-			keys: func(b config.Keybindings) []string { return slices.Concat(b.Nav.Up, b.Nav.Down) },
+			id: actionMove,
+			keys: func(bindings config.Keybindings) []string {
+				return slices.Concat(bindings.Nav.Up, bindings.Nav.Down)
+			},
 			run: func(_ host, s panelShared, pressed string) tea.Cmd {
 				return k.step(s, directionOf(pressed, s.keys.Nav.Up), 1)
 			},
 		},
 		{
-			id:   actionJump,
-			keys: func(b config.Keybindings) []string { return slices.Concat(b.Nav.Top, b.Nav.Bottom) },
+			id: actionJump,
+			keys: func(bindings config.Keybindings) []string {
+				return slices.Concat(bindings.Nav.Top, bindings.Nav.Bottom)
+			},
 			run: func(_ host, s panelShared, pressed string) tea.Cmd {
-				if isBound(pressed, s.keys.Nav.Bottom) {
-					return k.moveTo(s, k.pane.View().GetLastRow())
+				if k.pane.GetView() == nil {
+					return nil
 				}
 
-				return k.moveTo(s, k.pane.View().GetFirstRow())
+				if isBound(pressed, s.keys.Nav.Bottom) {
+					return k.moveTo(s, k.pane.GetView().GetLastRow())
+				}
+
+				return k.moveTo(s, k.pane.GetView().GetFirstRow())
 			},
 		},
 		{
-			id:   actionNavPage,
-			keys: func(b config.Keybindings) []string { return slices.Concat(b.Nav.PageUp, b.Nav.PageDown) },
+			id: actionNavPage,
+			keys: func(bindings config.Keybindings) []string {
+				return slices.Concat(bindings.Nav.PageUp, bindings.Nav.PageDown)
+			},
 			run: func(_ host, s panelShared, pressed string) tea.Cmd {
 				return k.step(s, directionOf(pressed, s.keys.Nav.PageUp), navPageStep)
 			},
 		},
 		{
-			id:   actionColumnScroll,
-			keys: func(b config.Keybindings) []string { return slices.Concat(b.Column.ScrollDown, b.Column.ScrollUp) },
+			id: actionColumnScroll,
+			keys: func(bindings config.Keybindings) []string {
+				return slices.Concat(bindings.Column.ScrollDown, bindings.Column.ScrollUp)
+			},
 			run: func(_ host, s panelShared, pressed string) tea.Cmd {
 				return k.step(s, directionOf(pressed, s.keys.Column.ScrollUp), diffWheelStep)
 			},
 		},
 		{
-			id:   actionDiffFile,
-			keys: func(b config.Keybindings) []string { return slices.Concat(b.Diff.NextFile, b.Diff.PrevFile) },
+			id: actionDiffFile,
+			keys: func(bindings config.Keybindings) []string {
+				return slices.Concat(bindings.Diff.NextFile, bindings.Diff.PrevFile)
+			},
 			run: func(_ host, s panelShared, pressed string) tea.Cmd {
 				if !k.pane.JumpFile(directionOf(pressed, s.keys.Diff.PrevFile), k.height(s)) {
 					return nil
@@ -93,15 +107,19 @@ func (k diffKeys) table() []screenAction {
 			},
 		},
 		{
-			id:   actionDiffMatch,
-			keys: func(b config.Keybindings) []string { return slices.Concat(b.Diff.NextMatch, b.Diff.PrevMatch) },
+			id: actionDiffMatch,
+			keys: func(bindings config.Keybindings) []string {
+				return slices.Concat(bindings.Diff.NextMatch, bindings.Diff.PrevMatch)
+			},
 			run: func(_ host, s panelShared, pressed string) tea.Cmd {
 				return k.jumpMatch(s, directionOf(pressed, s.keys.Diff.PrevMatch))
 			},
 		},
 		{
-			id:   actionDiffPan,
-			keys: func(b config.Keybindings) []string { return slices.Concat(b.Diff.PanLeft, b.Diff.PanRight) },
+			id: actionDiffPan,
+			keys: func(bindings config.Keybindings) []string {
+				return slices.Concat(bindings.Diff.PanLeft, bindings.Diff.PanRight)
+			},
 			run: func(_ host, s panelShared, pressed string) tea.Cmd {
 				k.pane.PanBy(directionOf(pressed, s.keys.Diff.PanLeft) * panStep(s))
 
@@ -110,16 +128,16 @@ func (k diffKeys) table() []screenAction {
 		},
 		{
 			id:   actionDiffPanReset,
-			keys: func(b config.Keybindings) []string { return b.Diff.PanReset },
+			keys: func(bindings config.Keybindings) []string { return bindings.Diff.PanReset },
 			run: func(host, panelShared, string) tea.Cmd {
-				k.pane.PanBy(-k.pane.Pan())
+				k.pane.PanBy(-k.pane.GetPan())
 
 				return nil
 			},
 		},
 		{
 			id:   actionDiffExpand,
-			keys: func(b config.Keybindings) []string { return b.Diff.Expand },
+			keys: func(bindings config.Keybindings) []string { return bindings.Diff.Expand },
 			run:  func(_ host, s panelShared, _ string) tea.Cmd { return k.toggleExpanded(s) },
 		},
 	}
@@ -216,12 +234,12 @@ func diffJumpRow() screenLegendRow {
 
 // expandDesc names what the expand key does to the file under the cursor.
 func (k diffKeys) expandDesc() string {
-	view := k.pane.View()
+	view := k.pane.GetView()
 	if view == nil {
 		return "show the whole file"
 	}
 
-	file, ok := view.GetDrawnFileAt(k.pane.Cursor())
+	file, ok := view.GetDrawnFileAt(k.pane.GetCursor())
 	if ok && view.IsExpanded(file.Path()) {
 		return "show the changes"
 	}
@@ -244,7 +262,7 @@ func (k diffKeys) updateFilter(h host, s panelShared, key tea.KeyPressMsg) tea.C
 
 // search runs the pattern over the diff and moves to the first thing it finds.
 func (k diffKeys) search(s panelShared) {
-	if k.pane.View() == nil {
+	if k.pane.GetView() == nil {
 		return
 	}
 
@@ -344,13 +362,13 @@ func panStep(s panelShared) int {
 
 // diffMatchCount is where in the search the cursor is standing, drawn under the pattern.
 func diffMatchCount(pane *diffview.Pane, filter filterState) string {
-	view := pane.View()
+	view := pane.GetView()
 	if view == nil || !filter.isStanding() {
 		return ""
 	}
 
 	where := label.Counted(view.MatchCount(), "match")
-	if at, ok := view.MatchNumber(pane.Cursor()); ok {
+	if at, ok := view.MatchNumber(pane.GetCursor()); ok {
 		where = label.OfCount(at, view.MatchCount())
 	}
 

@@ -223,8 +223,8 @@ func (r *reviewScreen) stepOpenThread(_ host, s panelShared, pressed string) tea
 
 func (r *reviewScreen) stepThread(_ host, s panelShared, pressed string) tea.Cmd {
 	if isBound(pressed, s.keys.Review.PrevThread) {
-		return r.moveCursor(s, r.diff.View().JumpThread(r.diff.Cursor(), -1))
+		return r.moveCursor(s, r.diff.GetView().JumpThread(r.diff.GetCursor(), -1))
 	}
 
-	return r.moveCursor(s, r.diff.View().JumpThread(r.diff.Cursor(), 1))
+	return r.moveCursor(s, r.diff.GetView().JumpThread(r.diff.GetCursor(), 1))
 }

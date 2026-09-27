@@ -355,6 +355,44 @@ func TestDocumentsHistory(t *testing.T) {
 		wantNot  []string
 	}{
 		{
+			name:     "writes that cannot be listed say so",
+			presses:  []string{"<"},
+			unlisted: true,
+			want:     []string{"could not list its versions"},
+		},
+		{
+			name:     "writes that could not be listed are listed again on the next step",
+			presses:  []string{"<"},
+			unlisted: true,
+			relisted: true,
+			want:     []string{"version 3 of 3"},
+		},
+		{
+			name:    "panning waits for the diff to be focused",
+			presses: []string{"<", "l"},
+			want:    []string{"3 +  Keep the cache warm."},
+		},
+		{
+			name:    "a match past the last is said to be missing",
+			presses: []string{"<", "ctrl+a", "/", "z", "z", "enter", "n"},
+			want:    []string{"no matches"},
+		},
+		{
+			name:    "a document drawn whole has no more to show",
+			presses: []string{"<", "ctrl+a", "j", "E"},
+			want:    []string{"there is no more of that file to show"},
+		},
+		{
+			name:    "the diff keeps the keys across a write it cannot draw",
+			presses: []string{"j", "<", "ctrl+a", "<", "k"},
+			want:    []string{"version 4 of 5"},
+		},
+		{
+			name:    "leaving a write it cannot draw stays on the screen",
+			presses: []string{"j", "<", "ctrl+a", "<", "esc", ">"},
+			want:    []string{"version 5 of 5"},
+		},
+		{
 			name:    "stepping back draws what the newest write changed",
 			presses: []string{"<"},
 			want:    []string{"version 3 of 3, written by you", "3      -  Keep the cache cold.", "5      -  Evict nightly.", "3 +  Keep the cache warm."},
@@ -405,11 +443,6 @@ func TestDocumentsHistory(t *testing.T) {
 			wantNot: []string{"Keep the cache warm."},
 		},
 		{
-			name:    "panning waits for the diff to be focused",
-			presses: []string{"<", "l"},
-			want:    []string{"3 +  Keep the cache warm."},
-		},
-		{
 			name:    "panning back to the start draws the lines whole",
 			presses: []string{"<", "ctrl+a", "l", "0"},
 			want:    []string{"3 +  Keep the cache warm."},
@@ -434,39 +467,6 @@ func TestDocumentsHistory(t *testing.T) {
 			name:    "searching the diff counts what it found",
 			presses: []string{"<", "ctrl+a", "/", "w", "a", "r", "m", "enter"},
 			want:    []string{"/ warm", "1 of 1"},
-		},
-		{
-			name:    "a match past the last is said to be missing",
-			presses: []string{"<", "ctrl+a", "/", "z", "z", "enter", "n"},
-			want:    []string{"no matches"},
-		},
-		{
-			name:    "the diff keeps the keys across a write it cannot draw",
-			presses: []string{"j", "<", "ctrl+a", "<", "k"},
-			want:    []string{"version 4 of 5"},
-		},
-		{
-			name:    "leaving a write it cannot draw stays on the screen",
-			presses: []string{"j", "<", "ctrl+a", "<", "esc", ">"},
-			want:    []string{"version 5 of 5"},
-		},
-		{
-			name:    "a document drawn whole has no more to show",
-			presses: []string{"<", "ctrl+a", "j", "E"},
-			want:    []string{"there is no more of that file to show"},
-		},
-		{
-			name:     "writes that could not be listed are listed again on the next step",
-			presses:  []string{"<"},
-			unlisted: true,
-			relisted: true,
-			want:     []string{"version 3 of 3"},
-		},
-		{
-			name:     "writes that cannot be listed say so",
-			presses:  []string{"<"},
-			unlisted: true,
-			want:     []string{"could not list its versions"},
 		},
 	}
 
