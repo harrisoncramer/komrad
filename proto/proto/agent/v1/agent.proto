@@ -143,6 +143,22 @@ message AgentRow {
   ReviewVerdict local_review_verdict = 7;
   // Where the agent's worktree stands against the round that verdict was given on.
   ReviewTreeStanding local_review_tree = 8;
+  // The comments reviewer agents have left on its work, absent while none has released a review
+  // of work the base branch has not taken.
+  optional CommentCounts reviewer_comments = 9;
+  // The comments the person has left on its work, absent while they have released no review of
+  // work the base branch has not taken.
+  optional CommentCounts person_comments = 10;
+}
+
+// CommentCounts is how the comments on an agent's work stand.
+message CommentCounts {
+  // Conversations nobody has resolved yet, on any round.
+  int32 open = 1;
+  // Conversations resolved on rounds the base branch has not taken yet.
+  int32 resolved = 2;
+  // Whether any of the conversations holds something the person has not read.
+  bool unread = 3;
 }
 
 message PullRequestStanding {

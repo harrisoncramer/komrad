@@ -167,6 +167,24 @@ func TestRenderRowShapes(t *testing.T) {
 			},
 		},
 		{
+			name:   "comment counts stand between the review and the pull request",
+			golden: "row-commented",
+			row: Row{
+				Kind:   KindAgent,
+				Name:   "hash-rewrite",
+				Forge:  ForgeOpen,
+				Status: StatusWaiting,
+				ReviewerComments: &Comments{
+					Open:     2,
+					Resolved: 1,
+				},
+				PersonComments: &Comments{
+					Open:   1,
+					Unread: true,
+				},
+			},
+		},
+		{
 			name:   "mail and a failed log follow the name",
 			golden: "row-mail-and-alert",
 			row: Row{

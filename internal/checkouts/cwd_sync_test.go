@@ -15,6 +15,7 @@ import (
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/internal/storetest"
 	"komrad/lib/xptr"
+	"komrad/lib/xslice"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -472,6 +473,92 @@ func TestCwdSyncerSyncKeepsAMoveItCouldNotProbe(t *testing.T) {
 	assert.Equal(t, "snapshot-one", fixture.read(t, agent.ID).MovedSinceRound)
 }
 
+// TestCwdSyncerSyncLandsTheRoundsTheBaseHolds covers the walk from the newest round down to the
+// first one the base holds whole.
+func TestCwdSyncerSyncLandsTheRoundsTheBaseHolds(t *testing.T) {
+	tests := []struct {
+		name         string
+		tips         bool
+		landed       map[string]bool
+		wantWalked   []string
+		wantUnlanded []int32
+	}{
+		{
+			name:         "a base the clone does not have walks nothing",
+			landed:       map[string]bool{"snapshot-three": true},
+			wantUnlanded: []int32{3, 2, 1},
+		},
+		{
+			name:         "a base holding no round walks them all and lands none",
+			tips:         true,
+			landed:       map[string]bool{},
+			wantWalked:   []string{"snapshot-three", "snapshot-two", "snapshot-one"},
+			wantUnlanded: []int32{3, 2, 1},
+		},
+		{
+			name:         "a base holding a middle round lands it and every earlier one",
+			tips:         true,
+			landed:       map[string]bool{"snapshot-two": true},
+			wantWalked:   []string{"snapshot-three", "snapshot-two"},
+			wantUnlanded: []int32{3},
+		},
+		{
+			name:         "a base holding the newest round lands them all",
+			tips:         true,
+			landed:       map[string]bool{"snapshot-three": true},
+			wantWalked:   []string{"snapshot-three"},
+			wantUnlanded: []int32{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fixture := newSyncFixture(t)
+			cwd := makeCheckout(t)
+			agent := fixture.seed(t, "a", cwd)
+			for _, snapshot := range []string{"snapshot-one", "snapshot-two", "snapshot-three"} {
+				fixture.release(t, agent.ID, snapshot, reviewstore.VerdictCommented)
+			}
+			trees := buildEmptyTrees()
+			trees.Landed = tt.landed
+			if tt.tips {
+				trees.Tips = map[string]string{cwd: "tip-one"}
+			}
+
+			require.NoError(t, fixture.newSyncer(NewCwdSyncerParams{Heads: buildHeads(cwd, git.HeadState{Root: cwd}), Trees: trees}).Sync(t.Context()))
+
+			assert.Equal(t, tt.wantWalked, trees.Walked)
+			assert.Equal(t, tt.wantUnlanded, fixture.readUnlanded(t, agent.ID))
+		})
+	}
+}
+
+// TestCwdSyncerSyncWalksTheLandingAgainOnlyWhenSomethingMoved covers a pass skipping the walk while
+// neither the base tip nor the newest round has changed.
+func TestCwdSyncerSyncWalksTheLandingAgainOnlyWhenSomethingMoved(t *testing.T) {
+	fixture := newSyncFixture(t)
+	cwd := makeCheckout(t)
+	agent := fixture.seed(t, "a", cwd)
+	fixture.release(t, agent.ID, "snapshot-one", reviewstore.VerdictCommented)
+	trees := buildEmptyTrees()
+	trees.Tips = map[string]string{cwd: "tip-one"}
+	syncer := fixture.newSyncer(NewCwdSyncerParams{Heads: buildHeads(cwd, git.HeadState{Root: cwd}), Trees: trees})
+
+	require.NoError(t, syncer.Sync(t.Context()))
+	require.NoError(t, syncer.Sync(t.Context()))
+	assert.Equal(t, []string{"snapshot-one"}, trees.Walked, "an unmoved base is not walked twice")
+
+	fixture.release(t, agent.ID, "snapshot-two", reviewstore.VerdictCommented)
+	require.NoError(t, syncer.Sync(t.Context()))
+	assert.Equal(t, []string{"snapshot-one", "snapshot-two", "snapshot-one"}, trees.Walked, "a new round is walked")
+
+	trees.Tips[cwd] = "tip-two"
+	trees.Landed = map[string]bool{"snapshot-two": true}
+	require.NoError(t, syncer.Sync(t.Context()))
+	assert.Equal(t, []string{"snapshot-one", "snapshot-two", "snapshot-one", "snapshot-two"}, trees.Walked, "a moved base is walked")
+	assert.Empty(t, fixture.readUnlanded(t, agent.ID))
+}
+
 func newSyncFixture(t *testing.T) *syncFixture {
 	t.Helper()
 
@@ -554,6 +641,18 @@ func (f *syncFixture) newSyncer(params NewCwdSyncerParams) *CwdSyncer {
 	params.Bases = f.stores.Workflows
 
 	return NewCwdSyncer(params)
+}
+
+// readUnlanded is the ordinals of the agent's rounds that have not landed, newest first.
+func (f *syncFixture) readUnlanded(t *testing.T, id string) []int32 {
+	t.Helper()
+
+	unlanded, err := f.reviews.ListUnlandedRounds(t.Context())
+	require.NoError(t, err)
+
+	return xslice.Map(unlanded[id], func(round reviewstore.UnlandedRound) int32 {
+		return round.Ordinal
+	})
 }
 
 // readRecordedStanding is the standing the row records against the round, unmoved against any other.

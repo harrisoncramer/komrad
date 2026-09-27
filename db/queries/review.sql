@@ -148,6 +148,7 @@ SELECT
     v.updated_at,
     r.ordinal AS round_ordinal,
     r.snapshot_sha AS round_snapshot_sha,
+    r.landed_at AS round_landed_at,
     d.claimed_at AS delivered_at
 FROM
     reviews v
@@ -580,6 +581,40 @@ FROM
 ORDER BY
     agent_id,
     ordinal DESC;
+
+-- name: ListUnlandedReviewRounds :many
+SELECT
+    r.agent_id,
+    r.ordinal,
+    r.base_sha,
+    r.snapshot_sha
+FROM
+    review_rounds r
+    JOIN agents a ON a.id = r.agent_id
+WHERE
+    r.landed_at IS NULL
+    AND a.archived_at IS NULL
+    AND EXISTS (
+        SELECT
+            1
+        FROM
+            reviews v
+        WHERE
+            v.round_id = r.id
+            AND v.released_at IS NOT NULL)
+ORDER BY
+    r.agent_id,
+    r.ordinal DESC;
+
+-- name: LandReviewRounds :execrows
+UPDATE
+    review_rounds
+SET
+    landed_at = NOW()
+WHERE
+    agent_id = @agent_id
+    AND ordinal <= @ordinal
+    AND landed_at IS NULL;
 
 -- name: ListLiveReviewers :many
 SELECT

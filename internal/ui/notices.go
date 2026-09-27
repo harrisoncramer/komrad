@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"fmt"
+
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/panel"
 	"komrad/internal/view"
@@ -90,7 +92,25 @@ func agentNotices(r agentRow) []notice {
 		return appendCellNotice(notices, view.ReviewCell(row), archivedReviewSaid[row.Review])
 	}
 
-	return appendCellNotice(notices, view.ReviewCell(row), reviewSaid[row.Review])
+	notices = appendCellNotice(notices, view.ReviewCell(row), reviewSaid[row.Review])
+	notices = appendCommentsNotice(notices, row.ReviewerComments, "reviewer agents' comments")
+
+	return appendCommentsNotice(notices, row.PersonComments, "your comments")
+}
+
+// appendCommentsNotice says how one side's comments stand, marked with the dot while any of
+// them holds something unread.
+func appendCommentsNotice(notices []notice, comments *view.Comments, whose string) []notice {
+	if comments == nil {
+		return notices
+	}
+
+	text := fmt.Sprintf("%s: %d open, %d resolved", whose, comments.Open, comments.Resolved)
+	if !comments.Unread {
+		return appendNotice(notices, true, "", paint.ToneMuted, text)
+	}
+
+	return appendNotice(notices, true, "·", paint.ToneWarning, text+", with something you have not read")
 }
 
 // appendCellNotice says in words what a cell of the row stands for, taking the glyph and the tone

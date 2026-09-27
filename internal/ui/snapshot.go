@@ -91,6 +91,7 @@ func snapshotRow(r agentRow, params snapshotParams) view.Row {
 	row.Matches = matchesIn(params.matcher, item.Agent.Name)
 	row.Repo = snapshotRepo(item.Agent)
 	row.Review = snapshotReview(item)
+	row.ReviewerComments, row.PersonComments = snapshotComments(item)
 	row.Forge = snapshotForge(item)
 	row.Selected = params.selected.has(key)
 
@@ -251,6 +252,28 @@ func snapshotReview(item panel.AgentRow) view.Review {
 	}
 
 	return view.ReviewNone
+}
+
+// snapshotComments is how the comments on an agent's work stand, reviewer agents then the person,
+// with nothing drawn for an archived agent.
+func snapshotComments(item panel.AgentRow) (*view.Comments, *view.Comments) {
+	if item.Agent.ArchivedAt != nil {
+		return nil, nil
+	}
+
+	return commentsFrom(item.ReviewerComments), commentsFrom(item.PersonComments)
+}
+
+func commentsFrom(counts *agentv1.CommentCounts) *view.Comments {
+	if counts == nil {
+		return nil
+	}
+
+	return &view.Comments{
+		Open:     int(counts.GetOpen()),
+		Resolved: int(counts.GetResolved()),
+		Unread:   counts.GetUnread(),
+	}
 }
 
 // snapshotForge is where the pull request opened from an agent's branch stands, as the forge

@@ -105,7 +105,7 @@ func (q *Queries) GetLastReleasedReview(ctx context.Context, arg GetLastReleased
 
 const getLatestReviewRound = `-- name: GetLatestReviewRound :one
 SELECT
-    id, agent_id, ordinal, base_sha, snapshot_sha, created_at, engine_id
+    id, agent_id, ordinal, base_sha, snapshot_sha, created_at, engine_id, landed_at
 FROM
     review_rounds r
 WHERE
@@ -126,6 +126,7 @@ func (q *Queries) GetLatestReviewRound(ctx context.Context, agentID string) (*Re
 		&i.SnapshotSha,
 		&i.CreatedAt,
 		&i.EngineID,
+		&i.LandedAt,
 	)
 	return &i, err
 }
@@ -228,7 +229,7 @@ func (q *Queries) GetReviewMessage(ctx context.Context, id string) (*ReviewMessa
 
 const getReviewRound = `-- name: GetReviewRound :one
 SELECT
-    id, agent_id, ordinal, base_sha, snapshot_sha, created_at, engine_id
+    id, agent_id, ordinal, base_sha, snapshot_sha, created_at, engine_id, landed_at
 FROM
     review_rounds r
 WHERE
@@ -246,13 +247,14 @@ func (q *Queries) GetReviewRound(ctx context.Context, id string) (*ReviewRound, 
 		&i.SnapshotSha,
 		&i.CreatedAt,
 		&i.EngineID,
+		&i.LandedAt,
 	)
 	return &i, err
 }
 
 const getReviewRoundBySnapshot = `-- name: GetReviewRoundBySnapshot :one
 SELECT
-    id, agent_id, ordinal, base_sha, snapshot_sha, created_at, engine_id
+    id, agent_id, ordinal, base_sha, snapshot_sha, created_at, engine_id, landed_at
 FROM
     review_rounds r
 WHERE
@@ -279,6 +281,7 @@ func (q *Queries) GetReviewRoundBySnapshot(ctx context.Context, arg GetReviewRou
 		&i.SnapshotSha,
 		&i.CreatedAt,
 		&i.EngineID,
+		&i.LandedAt,
 	)
 	return &i, err
 }
@@ -529,7 +532,7 @@ FROM
 WHERE
     r.agent_id = $1
 RETURNING
-    id, agent_id, ordinal, base_sha, snapshot_sha, created_at, engine_id
+    id, agent_id, ordinal, base_sha, snapshot_sha, created_at, engine_id, landed_at
 `
 
 type InsertReviewRoundParams struct {
@@ -549,6 +552,7 @@ func (q *Queries) InsertReviewRound(ctx context.Context, arg InsertReviewRoundPa
 		&i.SnapshotSha,
 		&i.CreatedAt,
 		&i.EngineID,
+		&i.LandedAt,
 	)
 	return &i, err
 }
@@ -689,6 +693,30 @@ func (q *Queries) InsertReviewThreadWithMessage(ctx context.Context, arg InsertR
 		&i.EngineID,
 	)
 	return &i, err
+}
+
+const landReviewRounds = `-- name: LandReviewRounds :execrows
+UPDATE
+    review_rounds
+SET
+    landed_at = NOW()
+WHERE
+    agent_id = $1
+    AND ordinal <= $2
+    AND landed_at IS NULL
+`
+
+type LandReviewRoundsParams struct {
+	AgentID string
+	Ordinal int32
+}
+
+func (q *Queries) LandReviewRounds(ctx context.Context, arg LandReviewRoundsParams) (int64, error) {
+	result, err := q.db.Exec(ctx, landReviewRounds, arg.AgentID, arg.Ordinal)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const listLiveReviewers = `-- name: ListLiveReviewers :many
@@ -919,7 +947,7 @@ func (q *Queries) ListReviewMessagesOfThreads(ctx context.Context, threadIds []s
 
 const listReviewRounds = `-- name: ListReviewRounds :many
 SELECT
-    id, agent_id, ordinal, base_sha, snapshot_sha, created_at, engine_id
+    id, agent_id, ordinal, base_sha, snapshot_sha, created_at, engine_id, landed_at
 FROM
     review_rounds r
 WHERE
@@ -945,6 +973,7 @@ func (q *Queries) ListReviewRounds(ctx context.Context, agentID string) ([]*Revi
 			&i.SnapshotSha,
 			&i.CreatedAt,
 			&i.EngineID,
+			&i.LandedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -1224,6 +1253,63 @@ func (q *Queries) ListReviews(ctx context.Context, agentID string) ([]*ListRevie
 	return items, nil
 }
 
+const listUnlandedReviewRounds = `-- name: ListUnlandedReviewRounds :many
+SELECT
+    r.agent_id,
+    r.ordinal,
+    r.base_sha,
+    r.snapshot_sha
+FROM
+    review_rounds r
+    JOIN agents a ON a.id = r.agent_id
+WHERE
+    r.landed_at IS NULL
+    AND a.archived_at IS NULL
+    AND EXISTS (
+        SELECT
+            1
+        FROM
+            reviews v
+        WHERE
+            v.round_id = r.id
+            AND v.released_at IS NOT NULL)
+ORDER BY
+    r.agent_id,
+    r.ordinal DESC
+`
+
+type ListUnlandedReviewRoundsRow struct {
+	AgentID     string
+	Ordinal     int32
+	BaseSha     string
+	SnapshotSha string
+}
+
+func (q *Queries) ListUnlandedReviewRounds(ctx context.Context) ([]*ListUnlandedReviewRoundsRow, error) {
+	rows, err := q.db.Query(ctx, listUnlandedReviewRounds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*ListUnlandedReviewRoundsRow
+	for rows.Next() {
+		var i ListUnlandedReviewRoundsRow
+		if err := rows.Scan(
+			&i.AgentID,
+			&i.Ordinal,
+			&i.BaseSha,
+			&i.SnapshotSha,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listWatchedReviewThreads = `-- name: ListWatchedReviewThreads :many
 SELECT
     t.id, t.agent_id, t.file_path, t.old_start, t.old_end, t.new_start, t.new_end, t.quoted_lines, t.human_read_at, t.created_at, t.updated_at, t.last_agent_activity_at, t.resolved_at, t.review_id, t.round_id, t.base_sha, t.resolved_by_kind, t.resolved_by_agent_id, t.engine_id,
@@ -1322,6 +1408,7 @@ SELECT
     v.updated_at,
     r.ordinal AS round_ordinal,
     r.snapshot_sha AS round_snapshot_sha,
+    r.landed_at AS round_landed_at,
     d.claimed_at AS delivered_at
 FROM
     reviews v
@@ -1346,6 +1433,7 @@ type ListWatchedReviewsRow struct {
 	UpdatedAt        time.Time
 	RoundOrdinal     int32
 	RoundSnapshotSha string
+	RoundLandedAt    *time.Time
 	DeliveredAt      *time.Time
 }
 
@@ -1370,6 +1458,7 @@ func (q *Queries) ListWatchedReviews(ctx context.Context, keys []string) ([]*Lis
 			&i.UpdatedAt,
 			&i.RoundOrdinal,
 			&i.RoundSnapshotSha,
+			&i.RoundLandedAt,
 			&i.DeliveredAt,
 		); err != nil {
 			return nil, err

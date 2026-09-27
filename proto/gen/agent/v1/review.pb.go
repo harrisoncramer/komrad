@@ -538,7 +538,9 @@ type WatchedReview struct {
 	// When the batch was opened.
 	CreatedAt string `protobuf:"bytes,11,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	// When anything in it last moved.
-	UpdatedAt     string `protobuf:"bytes,12,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	UpdatedAt string `protobuf:"bytes,12,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	// When the base branch was first seen holding the round whole, empty until then.
+	RoundLandedAt string `protobuf:"bytes,13,opt,name=round_landed_at,json=roundLandedAt,proto3" json:"round_landed_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -653,6 +655,13 @@ func (x *WatchedReview) GetCreatedAt() string {
 func (x *WatchedReview) GetUpdatedAt() string {
 	if x != nil {
 		return x.UpdatedAt
+	}
+	return ""
+}
+
+func (x *WatchedReview) GetRoundLandedAt() string {
+	if x != nil {
+		return x.RoundLandedAt
 	}
 	return ""
 }
@@ -2579,7 +2588,7 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"updated_at\x18\f \x01(\tR\tupdatedAt\x12\x12\n" +
 	"\x04body\x18\r \x01(\tR\x04body\x12!\n" +
 	"\fopen_threads\x18\x0e \x01(\x05R\vopenThreadsB\x12\n" +
-	"\x10_author_agent_id\"\xdb\x03\n" +
+	"\x10_author_agent_id\"\x83\x04\n" +
 	"\rWatchedReview\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x19\n" +
 	"\bagent_id\x18\x02 \x01(\tR\aagentId\x12\x19\n" +
@@ -2597,7 +2606,8 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\v \x01(\tR\tcreatedAt\x12\x1d\n" +
 	"\n" +
-	"updated_at\x18\f \x01(\tR\tupdatedAtB\x12\n" +
+	"updated_at\x18\f \x01(\tR\tupdatedAt\x12&\n" +
+	"\x0fround_landed_at\x18\r \x01(\tR\rroundLandedAtB\x12\n" +
 	"\x10_author_agent_id\"\x99\x04\n" +
 	"\fReviewThread\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x19\n" +

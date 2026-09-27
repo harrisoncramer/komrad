@@ -438,6 +438,51 @@ func (c *Client) ReadStanding(ctx context.Context, params ReadStandingParams) (S
 	return StandingLanded, nil
 }
 
+// HasLandedParams names the worktree, the base branch, and the round asked about.
+type HasLandedParams struct {
+	Dir         string
+	Base        string
+	BaseSHA     string
+	SnapshotSHA string
+}
+
+// HasLanded reports whether the base branch holds a round whole, which a round that changed
+// nothing, a base that is the worktree's own branch, and a base the clone lacks never do.
+func (c *Client) HasLanded(ctx context.Context, params HasLandedParams) (bool, error) {
+	root, err := c.GetRoot(ctx, params.Dir)
+	if err != nil {
+		return false, err
+	}
+
+	held, err := c.GetTree(ctx, root, params.SnapshotSHA)
+	if err != nil {
+		return false, err
+	}
+
+	started, err := c.GetTree(ctx, root, params.BaseSHA)
+	if err != nil || held == started {
+		return false, err
+	}
+
+	base, err := resolveBase(ctx, root, params.Base)
+	if errors.Is(err, ErrBaseMissing) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	if isOwnHead(ctx, root, base) {
+		return false, nil
+	}
+
+	baseTree, err := Run(ctx, root, "rev-parse", "--verify", "--quiet", base+"^{tree}")
+	if err != nil {
+		return false, nil
+	}
+
+	return doesHoldWhole(ctx, root, base, baseTree, params.SnapshotSHA)
+}
+
 // isOwnHead reports whether a base names the very branch the worktree is on, which can hold
 // nothing the worktree does not.
 func isOwnHead(ctx context.Context, root, base string) bool {

@@ -60,11 +60,13 @@ type Cell struct {
 	Glyph Glyph
 	Text  string
 	Tone  paint.Tone
+	// Parts draw the cell as stretches each in its own tone, in place of its glyph and text.
+	Parts []Cell
 }
 
 // IsBlank reports whether a cell has nothing to draw.
 func (c Cell) IsBlank() bool {
-	return c.Glyph == GlyphNone && c.Text == ""
+	return c.Glyph == GlyphNone && c.Text == "" && len(c.Parts) == 0
 }
 
 // Line is one row of the agents list with every decision already made.
@@ -104,6 +106,11 @@ const (
 	ColumnRepo ColumnKind = iota
 	ColumnReview
 	ColumnForge
+	// ColumnReviewerComments counts the comments reviewer agents left, open then resolved.
+	ColumnReviewerComments
+	// ColumnPersonComments counts the comments the person left, open then resolved, with a dot
+	// while any of them holds something unread.
+	ColumnPersonComments
 	// ColumnText is a column the row fills itself, right-aligned in the width the list declares.
 	ColumnText
 )
@@ -122,6 +129,18 @@ func WorkColumns() Columns {
 	return Columns{
 		{Kind: ColumnRepo, Width: plainColumns},
 		{Kind: ColumnReview, Width: plainColumns},
+		{Kind: ColumnForge, Width: plainColumns},
+	}
+}
+
+// CommentedWorkColumns is the agents list's gutter with the comment counts of reviewer agents and
+// of the person drawn between review and forge.
+func CommentedWorkColumns() Columns {
+	return Columns{
+		{Kind: ColumnRepo, Width: plainColumns},
+		{Kind: ColumnReview, Width: plainColumns},
+		{Kind: ColumnReviewerComments, Width: countColumns},
+		{Kind: ColumnPersonComments, Width: countColumns + plainColumns},
 		{Kind: ColumnForge, Width: plainColumns},
 	}
 }

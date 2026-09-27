@@ -35,6 +35,11 @@ table "review_rounds" {
     type    = text
     comment = "A commit covering the agent's whole checkout, tracked and untracked files alike. A ref under refs/komrad/rounds keeps it alive so git will not collect it. Writing it leaves the agent's own branch, index and files alone."
   }
+  column "landed_at" {
+    null    = true
+    type    = timestamptz
+    comment = "When the base branch was first seen holding this round whole, or a later round whole, null until then. A landed round's settled comments are history rather than work still under review."
+  }
   column "created_at" {
     null    = false
     type    = timestamptz

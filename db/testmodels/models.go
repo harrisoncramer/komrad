@@ -551,6 +551,8 @@ type ReviewRound struct {
 	CreatedAt   pgtype.Timestamptz
 	// The engine that owns this row, stamped from the login that wrote it.
 	EngineID pgtype.UUID
+	// When the base branch was first seen holding this round whole, or a later round whole, null until then. A landed round's settled comments are history rather than work still under review.
+	LandedAt pgtype.Timestamptz
 }
 
 // One conversation pinned to a file and a line range in the round its review was given against.

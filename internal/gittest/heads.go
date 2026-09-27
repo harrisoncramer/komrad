@@ -37,6 +37,9 @@ type Trees struct {
 	Given       []string
 	Dirs        []string
 	Bases       []string
+	Tips        map[string]string
+	Landed      map[string]bool
+	Walked      []string
 }
 
 // ProbeTree records the root and answers what Probes holds for it, refusing when there are no
@@ -75,4 +78,27 @@ func (t *Trees) ReadStanding(_ context.Context, params git.ReadStandingParams) (
 	}
 
 	return standing, t.StandingErr
+}
+
+// ReadBaseTip answers what Tips holds for the directory, refusing as a missing base when it
+// names none.
+func (t *Trees) ReadBaseTip(_ context.Context, dir, _ string) (string, error) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	tip, ok := t.Tips[dir]
+	if !ok {
+		return "", git.ErrBaseMissing
+	}
+
+	return tip, nil
+}
+
+// HasLanded records the round asked about and answers what Landed holds for its snapshot.
+func (t *Trees) HasLanded(_ context.Context, params git.HasLandedParams) (bool, error) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.Walked = append(t.Walked, params.SnapshotSHA)
+
+	return t.Landed[params.SnapshotSHA], nil
 }

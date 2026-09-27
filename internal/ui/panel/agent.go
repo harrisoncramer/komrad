@@ -96,6 +96,12 @@ type AgentRow struct {
 	LocalTree git.Standing
 	// MovedSinceRound is the newest round's snapshot while the worktree no longer hashes to it.
 	MovedSinceRound string
+	// ReviewerComments counts the comments reviewer agents left on its work, nil while there
+	// are none to show.
+	ReviewerComments *agentv1.CommentCounts
+	// PersonComments counts the comments the person left on its work, nil while there are none
+	// to show.
+	PersonComments *agentv1.CommentCounts
 	// PullRequest is where the pull request opened from its branch stands.
 	PullRequest PullRequestStanding
 	// PullRequests is every pull request opened from its branch, the current one first.

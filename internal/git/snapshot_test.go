@@ -531,3 +531,105 @@ func landOn(t *testing.T, root, sha string) {
 	run(t, root, "commit", "-m", "landed the round")
 	run(t, root, "checkout", was)
 }
+
+// TestIntegrationHasLanded pins when the base branch counts as holding a round whole.
+func TestIntegrationHasLanded(t *testing.T) {
+	tests := []struct {
+		name    string
+		base    string
+		arrange func(t *testing.T, root string) *Snapshot
+		want    bool
+	}{
+		{
+			name: "a round that changed nothing never lands",
+			base: "main",
+			arrange: func(t *testing.T, root string) *Snapshot {
+				run(t, root, "checkout", "-b", "topic")
+				snapshot, err := client.TakeSnapshot(t.Context(), TakeSnapshotParams{Dir: root, Base: "main"})
+				require.NoError(t, err)
+
+				return snapshot
+			},
+			want: false,
+		},
+		{
+			name:    "a base the clone does not have is not landed",
+			base:    "nowhere",
+			arrange: topicRound,
+			want:    false,
+		},
+		{
+			name:    "the worktree's own branch cannot hold the round",
+			base:    "topic",
+			arrange: topicRound,
+			want:    false,
+		},
+		{
+			name: "a base that has not taken the round",
+			base: "main",
+			arrange: func(t *testing.T, root string) *Snapshot {
+				snapshot := topicRound(t, root)
+				moveOn(t, root)
+
+				return snapshot
+			},
+			want: false,
+		},
+		{
+			name: "a base holding a later edit of the round",
+			base: "main",
+			arrange: func(t *testing.T, root string) *Snapshot {
+				snapshot := topicRound(t, root)
+				write(t, root, "topic.go", "package main\n\nfunc Changed() {}\n")
+				run(t, root, "add", "-A")
+				run(t, root, "commit", "-m", "changed after the round")
+				landOn(t, root, capture(t, root, "rev-parse", "HEAD"))
+
+				return snapshot
+			},
+			want: false,
+		},
+		{
+			name: "a round squashed onto the base",
+			base: "main",
+			arrange: func(t *testing.T, root string) *Snapshot {
+				snapshot := topicRound(t, root)
+				moveOn(t, root)
+				landOn(t, root, snapshot.SHA)
+
+				return snapshot
+			},
+			want: true,
+		},
+		{
+			name: "an earlier round of work that later landed whole",
+			base: "main",
+			arrange: func(t *testing.T, root string) *Snapshot {
+				snapshot := topicRound(t, root)
+				write(t, root, "more.go", "package main\n")
+				run(t, root, "add", "-A")
+				run(t, root, "commit", "-m", "more")
+				landOn(t, root, capture(t, root, "rev-parse", "HEAD"))
+
+				return snapshot
+			},
+			want: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			root := repo(t)
+			snapshot := tt.arrange(t, root)
+
+			landed, err := client.HasLanded(t.Context(), HasLandedParams{
+				Dir:         root,
+				Base:        tt.base,
+				BaseSHA:     snapshot.BaseSHA,
+				SnapshotSHA: snapshot.SHA,
+			})
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, landed)
+		})
+	}
+}

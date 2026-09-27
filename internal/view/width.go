@@ -5,6 +5,9 @@ import "komrad/internal/ui/paint/label"
 // plainColumns is how many columns one glyph takes.
 const plainColumns = 1
 
+// countColumns is how wide a pair of comment counts is drawn.
+const countColumns = 4
+
 // spaceColumns is the space a cell carries after its glyph.
 const spaceColumns = 1
 

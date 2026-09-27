@@ -12,6 +12,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 )
 
 // TestAgentRowsLocalReview pins what the rows draw from the reviews in the world: released
@@ -111,6 +112,96 @@ func TestAgentRowsLocalReview(t *testing.T) {
 	}
 }
 
+// TestAgentRowsCommentCounts pins how the comments on an agent's work are counted: reviewer
+// agents apart from the person, open conversations on any round, resolved ones only until their
+// round lands, and nothing from a batch still being written.
+func TestAgentRowsCommentCounts(t *testing.T) {
+	t.Parallel()
+
+	commented := agentv1.ReviewVerdict_REVIEW_VERDICT_COMMENTED
+	landed := stamp(-time.Minute)
+
+	tests := []struct {
+		name         string
+		reviews      []*agentv1.WatchedReview
+		threads      []*agentv1.ReviewThread
+		wantReviewer *agentv1.CommentCounts
+		wantPerson   *agentv1.CommentCounts
+	}{
+		{
+			name:    "a batch still being written draws nothing",
+			reviews: []*agentv1.WatchedReview{review("v1", newer, 1, "", commented)},
+			threads: []*agentv1.ReviewThread{thread("t1", "v1", false, true)},
+		},
+		{
+			name:    "a released review of a landed round with every conversation resolved draws nothing",
+			reviews: []*agentv1.WatchedReview{landedOn(review("v1", newer, 1, stamp(-time.Hour), commented), landed)},
+			threads: []*agentv1.ReviewThread{thread("t1", "v1", true, false)},
+		},
+		{
+			name:       "a released review with no comments draws an empty side",
+			reviews:    []*agentv1.WatchedReview{review("v1", newer, 1, stamp(-time.Hour), commented)},
+			wantPerson: &agentv1.CommentCounts{},
+		},
+		{
+			name: "an open conversation on a landed round still counts",
+			reviews: []*agentv1.WatchedReview{
+				landedOn(review("v1", newer, 1, stamp(-time.Hour), commented), landed),
+			},
+			threads: []*agentv1.ReviewThread{
+				thread("t1", "v1", false, false),
+				thread("t2", "v1", true, true),
+			},
+			wantPerson: &agentv1.CommentCounts{Open: 1},
+		},
+		{
+			name: "reviewer agents and the person are counted apart",
+			reviews: []*agentv1.WatchedReview{
+				review("v1", newer, 1, stamp(-2*time.Hour), commented),
+				byReviewer(review("v2", newer, 1, stamp(-time.Hour), commented)),
+			},
+			threads: []*agentv1.ReviewThread{
+				thread("t1", "v1", false, false),
+				thread("t2", "v1", true, true),
+				thread("t3", "v2", false, false),
+				thread("t4", "v2", false, false),
+				thread("t5", "v2", true, false),
+			},
+			wantReviewer: &agentv1.CommentCounts{
+				Open:     2,
+				Resolved: 1,
+			},
+			wantPerson: &agentv1.CommentCounts{
+				Open:     1,
+				Resolved: 1,
+				Unread:   true,
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			world := assemble.World{
+				Agents:        map[string]*agentv1.Agent{newer: agent(newer)},
+				Reviews:       map[string]*agentv1.WatchedReview{},
+				ReviewThreads: map[string]*agentv1.ReviewThread{},
+			}
+			for _, review := range tt.reviews {
+				world.Reviews[review.GetId()] = review
+			}
+			for _, thread := range tt.threads {
+				world.ReviewThreads[thread.GetId()] = thread
+			}
+
+			rows := assemble.AgentRows(world, now)
+			require.Len(t, rows, 1)
+			assert.True(t, proto.Equal(tt.wantReviewer, rows[0].GetReviewerComments()), "reviewer: %v", rows[0].GetReviewerComments())
+			assert.True(t, proto.Equal(tt.wantPerson, rows[0].GetPersonComments()), "person: %v", rows[0].GetPersonComments())
+		})
+	}
+}
+
 // TestApplyReview pins that a review put and dropped by the watch is what the rows count.
 func TestApplyReview(t *testing.T) {
 	t.Parallel()
@@ -140,6 +231,32 @@ func review(id, agentID string, ordinal int32, releasedAt string, verdict agentv
 	}
 
 	return watched
+}
+
+func landedOn(review *agentv1.WatchedReview, at string) *agentv1.WatchedReview {
+	review.RoundLandedAt = at
+
+	return review
+}
+
+func byReviewer(review *agentv1.WatchedReview) *agentv1.WatchedReview {
+	review.AuthorKind = agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT
+
+	return review
+}
+
+func thread(id, reviewID string, resolved, unread bool) *agentv1.ReviewThread {
+	thread := &agentv1.ReviewThread{
+		Id:            id,
+		AgentId:       newer,
+		ReviewId:      reviewID,
+		UnreadByHuman: unread,
+	}
+	if resolved {
+		thread.ResolvedAt = stamp(-time.Minute)
+	}
+
+	return thread
 }
 
 func measuredAgainst(sha string) func(*agentv1.Agent) {

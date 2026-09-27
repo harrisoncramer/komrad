@@ -1900,6 +1900,26 @@
           "oneof": "",
           "rules": [],
           "description": "Where the agent's worktree stands against the round that verdict was given on."
+        },
+        {
+          "name": "reviewerComments",
+          "type": "CommentCounts",
+          "ref": "agent.v1.CommentCounts",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The comments reviewer agents have left on its work, absent while none has released a review of work the base branch has not taken."
+        },
+        {
+          "name": "personComments",
+          "type": "CommentCounts",
+          "ref": "agent.v1.CommentCounts",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The comments the person has left on its work, absent while they have released no review of work the base branch has not taken."
         }
       ]
     },
@@ -1918,6 +1938,42 @@
             "required"
           ],
           "description": "The agents to stop and hide, keeping their records and transcripts, children along with them. The batch goes whole or not at all."
+        }
+      ]
+    },
+    "agent.v1.CommentCounts": {
+      "name": "CommentCounts",
+      "description": "CommentCounts is how the comments on an agent's work stand.",
+      "fields": [
+        {
+          "name": "open",
+          "type": "int32",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "Conversations nobody has resolved yet, on any round."
+        },
+        {
+          "name": "resolved",
+          "type": "int32",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "Conversations resolved on rounds the base branch has not taken yet."
+        },
+        {
+          "name": "unread",
+          "type": "bool",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "Whether any of the conversations holds something the person has not read."
         }
       ]
     },

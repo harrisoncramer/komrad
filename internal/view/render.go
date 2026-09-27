@@ -80,9 +80,14 @@ func drawGutterCell(palette paint.Palette, cell Cell, width int) string {
 		return strings.Repeat(" ", max(width, 0))
 	}
 
-	text := paint.Clip(cellText(cell), width)
+	text := cellText(cell)
+	if lipgloss.Width(text) > width || len(cell.Parts) == 0 {
+		text = paint.Clip(text, width)
 
-	return strings.Repeat(" ", max(width-lipgloss.Width(text), 0)) + palette.Style(cell.Tone).Render(text)
+		return strings.Repeat(" ", max(width-lipgloss.Width(text), 0)) + palette.Style(cell.Tone).Render(text)
+	}
+
+	return strings.Repeat(" ", width-lipgloss.Width(text)) + drawCell(palette, cell)
 }
 
 func drawLead(palette paint.Palette, lead string) string {
@@ -102,13 +107,22 @@ func drawRule(palette paint.Palette, rule bool) string {
 	return palette.Style(paint.ToneMuted).Render(Spell(GlyphChild)) + " "
 }
 
-// drawCell is what a cell holds, in its own tone.
+// drawCell is what a cell holds, in its own tone or each part in its own.
 func drawCell(palette paint.Palette, cell Cell) string {
+	if len(cell.Parts) > 0 {
+		return strings.Join(xslice.Map(cell.Parts, func(part Cell) string {
+			return drawCell(palette, part)
+		}), "")
+	}
+
 	return palette.Style(cell.Tone).Render(cellText(cell))
 }
 
 // cellText is what a cell holds, the letter a person typed or the glyph spelled out.
 func cellText(cell Cell) string {
+	if len(cell.Parts) > 0 {
+		return strings.Join(xslice.Map(cell.Parts, cellText), "")
+	}
 	if cell.Text != "" {
 		return cell.Text
 	}

@@ -556,6 +556,65 @@ func TestNewestRoundsAreEachAgentsLastRound(t *testing.T) {
 	}, newest)
 }
 
+// TestUnlandedRoundsAreTheReleasedOnesNotYetLanded pins which rounds the landing walk is given and
+// that landing a round lands every earlier one with it.
+func TestUnlandedRoundsAreTheReleasedOnesNotYetLanded(t *testing.T) {
+	st := openFixture(t)
+	ctx := t.Context()
+	agentID := st.seedAgent(t, "worker")
+	archived := st.seedAgent(t, "archived")
+
+	for _, tree := range []string{"tree-one", "tree-two", "tree-three"} {
+		st.releaseReview(t, st.openReview(t, st.openRound(t, agentID, tree)), VerdictCommented)
+	}
+	st.openReview(t, st.openRound(t, agentID, "tree-draft"))
+	st.releaseReview(t, st.openReview(t, st.openRound(t, archived, "tree-gone")), VerdictCommented)
+	_, err := st.agents.Archive(ctx, []string{archived})
+	require.NoError(t, err)
+
+	unlanded, err := st.ListUnlandedRounds(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, map[string][]UnlandedRound{
+		agentID: {
+			{
+				Ordinal:     3,
+				BaseSHA:     "base-tree-three",
+				SnapshotSHA: "snapshot-tree-three",
+			},
+			{
+				Ordinal:     2,
+				BaseSHA:     "base-tree-two",
+				SnapshotSHA: "snapshot-tree-two",
+			},
+			{
+				Ordinal:     1,
+				BaseSHA:     "base-tree-one",
+				SnapshotSHA: "snapshot-tree-one",
+			},
+		},
+	}, unlanded, "a draft round and an archived agent's rounds are not walked")
+
+	landed, err := st.MarkRoundsLanded(ctx, agentID, 2)
+	require.NoError(t, err)
+	assert.Equal(t, int64(2), landed)
+
+	again, err := st.MarkRoundsLanded(ctx, agentID, 3)
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), again, "a round already landed keeps when it landed")
+
+	unlanded, err = st.ListUnlandedRounds(ctx)
+	require.NoError(t, err)
+	assert.Empty(t, unlanded)
+
+	reviews, err := st.ListWatched(ctx, nil)
+	require.NoError(t, err)
+	for _, review := range reviews {
+		if review.AgentID == agentID && review.RoundOrdinal <= 3 {
+			assert.NotNil(t, review.RoundLandedAt, "round %d", review.RoundOrdinal)
+		}
+	}
+}
+
 // TestTheLastReleasedReviewIsTheNewestOne pins which batch answers for where an author last looked.
 func TestTheLastReleasedReviewIsTheNewestOne(t *testing.T) {
 	st := openFixture(t)

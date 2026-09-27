@@ -115,13 +115,27 @@ type Snapshot struct {
 	Columns Columns
 }
 
-// columns is the gutter the snapshot draws, the agents list's own where none was named.
+// columns is the gutter the snapshot draws, the agents list's own where none was named, which
+// makes room for comment counts only while some row has any.
 func (s Snapshot) columns() Columns {
-	if s.Columns == nil {
-		return WorkColumns()
+	if s.Columns != nil {
+		return s.Columns
 	}
 
-	return s.Columns
+	for _, row := range s.Rows {
+		if row.ReviewerComments != nil || row.PersonComments != nil {
+			return CommentedWorkColumns()
+		}
+	}
+
+	return WorkColumns()
+}
+
+// Comments is how one side's comments on an agent's work stand.
+type Comments struct {
+	Open     int
+	Resolved int
+	Unread   bool
 }
 
 // Row is one line of the agents list as the panel found it.
@@ -142,6 +156,10 @@ type Row struct {
 	Repo    Repo
 	Review  Review
 	Forge   Forge
+	// ReviewerComments counts the comments reviewer agents left, nil while there are none to show.
+	ReviewerComments *Comments
+	// PersonComments counts the comments the person left, nil while there are none to show.
+	PersonComments *Comments
 	// Cells fill the list's text columns, indexed by column position, and are ignored under a
 	// glyph column and past the last column.
 	Cells []Cell

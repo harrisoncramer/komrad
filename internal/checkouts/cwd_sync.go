@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"sync"
 	"time"
 
 	"komrad/internal/git"
@@ -37,6 +38,8 @@ type headReader interface {
 type treeReader interface {
 	ProbeTree(ctx context.Context, root string) (string, error)
 	ReadStanding(ctx context.Context, params git.ReadStandingParams) (git.Standing, error)
+	ReadBaseTip(ctx context.Context, dir, base string) (string, error)
+	HasLanded(ctx context.Context, params git.HasLandedParams) (bool, error)
 }
 
 type workflowLister interface {
@@ -46,6 +49,8 @@ type workflowLister interface {
 type roundLister interface {
 	ListTallies(ctx context.Context) ([]reviewstore.Tally, error)
 	ListNewestRounds(ctx context.Context) ([]reviewstore.NewestRound, error)
+	ListUnlandedRounds(ctx context.Context) (map[string][]reviewstore.UnlandedRound, error)
+	MarkRoundsLanded(ctx context.Context, agentID string, ordinal int32) (int64, error)
 }
 
 type pullRequestObserver interface {
@@ -71,6 +76,11 @@ type CwdSyncer struct {
 	rounds       roundLister
 	bases        workflowLister
 	pullRequests pullRequestObserver
+	// walkedMu guards walked.
+	walkedMu sync.Mutex
+	// walked is the base tip and newest unlanded round each agent's landing was last walked at,
+	// so a walk that would find what the last one did is skipped.
+	walked map[string]string
 }
 
 // NewCwdSyncer builds a syncer over the agent store.
@@ -82,6 +92,7 @@ func NewCwdSyncer(params NewCwdSyncerParams) *CwdSyncer {
 		rounds:       params.Rounds,
 		bases:        params.Bases,
 		pullRequests: params.PullRequests,
+		walked:       map[string]string{},
 	}
 }
 
@@ -95,7 +106,11 @@ type cwdLook struct {
 	standing git.Standing
 	// movedSinceRound is the newest round's snapshot while the worktree no longer hashes to it.
 	movedSinceRound string
-	err             error
+	// landed is the newest round the base holds whole, zero when it holds none.
+	landed int32
+	// walkedAt is the base tip and newest round the landing walk read, empty when it did not walk.
+	walkedAt string
+	err      error
 }
 
 // Sync looks at every live agent's cwd once and writes what changed, clearing the branch and
@@ -117,7 +132,17 @@ func (cs *CwdSyncer) Sync(ctx context.Context) error {
 		return err
 	}
 
-	looks, err := cs.lookAtAll(ctx, agents, rounds, bases)
+	unlanded, err := cs.rounds.ListUnlandedRounds(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to list the unlanded review rounds for cwd sync: %w", err)
+	}
+
+	looks, err := cs.lookAtAll(ctx, lookAtAllParams{
+		Agents:   agents,
+		Rounds:   rounds,
+		Unlanded: unlanded,
+		Bases:    bases,
+	})
 	if err != nil {
 		return err
 	}
@@ -136,6 +161,9 @@ func (cs *CwdSyncer) Sync(ctx context.Context) error {
 			failures = append(failures, err)
 		}
 		if err := cs.writeMovedSinceRound(ctx, look); err != nil {
+			failures = append(failures, err)
+		}
+		if err := cs.writeLanded(ctx, look); err != nil {
 			failures = append(failures, err)
 		}
 	}
@@ -198,11 +226,32 @@ func (cs *CwdSyncer) listBases(ctx context.Context) (map[string]string, error) {
 	return bases, nil
 }
 
-func (cs *CwdSyncer) lookAtAll(ctx context.Context, agents []agentstore.Agent, rounds map[string]agentRounds, bases map[string]string) ([]cwdLook, error) {
+type lookAtAllParams struct {
+	Agents   []agentstore.Agent
+	Rounds   map[string]agentRounds
+	Unlanded map[string][]reviewstore.UnlandedRound
+	Bases    map[string]string
+}
+
+func (cs *CwdSyncer) lookAtAll(ctx context.Context, params lookAtAllParams) ([]cwdLook, error) {
+	agents := params.Agents
 	looker, err := streamer.NewStreamer(streamer.NewStreamerParams[agentstore.Agent, cwdLook]{
 		WorkerCount: cwdLookWorkers,
 		Work: func(ctx context.Context, agent agentstore.Agent) (cwdLook, error) {
-			return cs.look(ctx, agent, rounds[agent.ID], bases[agent.WorkflowID]), nil
+			look := cs.look(ctx, agent, params.Rounds[agent.ID], params.Bases[agent.WorkflowID])
+			if look.removed || look.head.Root == "" {
+				return look, nil
+			}
+
+			landed, walkedAt, err := cs.walkLanding(ctx, walkLandingParams{
+				Agent:  agent,
+				Rounds: params.Unlanded[agent.ID],
+				Base:   params.Bases[agent.WorkflowID],
+			})
+			look.landed, look.walkedAt = landed, walkedAt
+			look.err = errors.Join(look.err, err)
+
+			return look, nil
 		},
 	})
 	if err != nil {
@@ -329,6 +378,75 @@ func (cs *CwdSyncer) writeStanding(ctx context.Context, look cwdLook) error {
 	}
 
 	return nil
+}
+
+// writeLanded marks the round the look found landed, and every earlier one, then remembers where
+// the walk stood so the next pass can skip it.
+func (cs *CwdSyncer) writeLanded(ctx context.Context, look cwdLook) error {
+	if look.landed > 0 {
+		if _, err := cs.rounds.MarkRoundsLanded(ctx, look.agent.ID, look.landed); err != nil {
+			return fmt.Errorf("failed to land the rounds of %q: %w", look.agent.Name, err)
+		}
+	}
+
+	if look.walkedAt != "" {
+		cs.walkedMu.Lock()
+		cs.walked[look.agent.ID] = look.walkedAt
+		cs.walkedMu.Unlock()
+	}
+
+	return nil
+}
+
+type walkLandingParams struct {
+	Agent  agentstore.Agent
+	Rounds []reviewstore.UnlandedRound
+	Base   string
+}
+
+// walkLanding finds the newest of an agent's unlanded rounds the base holds whole, skipping the
+// walk while neither the base tip nor the newest round has moved since the last one.
+func (cs *CwdSyncer) walkLanding(ctx context.Context, params walkLandingParams) (int32, string, error) {
+	agent := params.Agent
+	if len(params.Rounds) == 0 {
+		return 0, "", nil
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, cwdLookTimeout)
+	defer cancel()
+
+	tip, err := cs.trees.ReadBaseTip(ctx, agent.Cwd, params.Base)
+	if errors.Is(err, git.ErrBaseMissing) {
+		return 0, "", nil
+	}
+	if err != nil {
+		return 0, "", fmt.Errorf("failed to read the base tip of %q: %w", agent.Name, err)
+	}
+
+	walkedAt := tip + ":" + params.Rounds[0].SnapshotSHA
+	cs.walkedMu.Lock()
+	isWalked := cs.walked[agent.ID] == walkedAt
+	cs.walkedMu.Unlock()
+	if isWalked {
+		return 0, "", nil
+	}
+
+	for _, round := range params.Rounds {
+		landed, err := cs.trees.HasLanded(ctx, git.HasLandedParams{
+			Dir:         agent.Cwd,
+			Base:        params.Base,
+			BaseSHA:     round.BaseSHA,
+			SnapshotSHA: round.SnapshotSHA,
+		})
+		if err != nil {
+			return 0, "", fmt.Errorf("failed to read whether round %d of %q landed: %w", round.Ordinal, agent.Name, err)
+		}
+		if landed {
+			return round.Ordinal, walkedAt, nil
+		}
+	}
+
+	return 0, walkedAt, nil
 }
 
 func isCwdRemoved(ctx context.Context, dir string) bool {

@@ -356,6 +356,87 @@ func TestPrepareReviewColumn(t *testing.T) {
 	}
 }
 
+// TestPrepareCommentColumns pins the two count pairs, reviewer agents then the person, and that the
+// gutter makes room for them only while some row has any.
+func TestPrepareCommentColumns(t *testing.T) {
+	muted := func(text string) Cell {
+		return Cell{Text: text, Tone: paint.ToneMuted}
+	}
+	blankDot := Cell{Text: " "}
+	unreadDot := Cell{Text: "·", Tone: paint.ToneWarning}
+
+	tests := []struct {
+		name         string
+		row          Row
+		wantColumns  Columns
+		wantReviewer Cell
+		wantPerson   Cell
+	}{
+		{
+			name:        "a row with no comments leaves the counts out of the gutter",
+			row:         Row{Kind: KindAgent},
+			wantColumns: WorkColumns(),
+		},
+		{
+			name: "a child row draws no counts",
+			row: Row{
+				Kind:           KindChild,
+				PersonComments: &Comments{Open: 1},
+			},
+			wantColumns: CommentedWorkColumns(),
+		},
+		{
+			name: "a side with nothing to show is a dash beside one that has",
+			row: Row{
+				Kind:             KindAgent,
+				ReviewerComments: &Comments{Resolved: 2},
+			},
+			wantColumns:  CommentedWorkColumns(),
+			wantReviewer: Cell{Parts: []Cell{muted("0"), muted("|2")}},
+			wantPerson:   Cell{Parts: []Cell{muted("–"), blankDot}},
+		},
+		{
+			name: "the person's open count stands out and an unread one earns the dot",
+			row: Row{
+				Kind: KindAgent,
+				ReviewerComments: &Comments{
+					Open:     3,
+					Resolved: 1,
+				},
+				PersonComments: &Comments{
+					Open:     2,
+					Resolved: 4,
+					Unread:   true,
+				},
+			},
+			wantColumns:  CommentedWorkColumns(),
+			wantReviewer: Cell{Parts: []Cell{muted("3"), muted("|1")}},
+			wantPerson: Cell{Parts: []Cell{
+				{
+					Text: "2",
+					Tone: paint.ToneWarning,
+				},
+				muted("|4"),
+				unreadDot,
+			}},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			list := Prepare(Snapshot{Rows: []Row{tt.row}})
+			require.Len(t, list.Lines, 1)
+			require.Equal(t, tt.wantColumns, list.Columns)
+			if len(tt.wantColumns) == len(WorkColumns()) {
+				return
+			}
+
+			assert.Equal(t, tt.wantReviewer, list.Lines[0].Columns[2])
+			assert.Equal(t, tt.wantPerson, list.Lines[0].Columns[3])
+		})
+	}
+}
+
 // TestPrepareForgeColumn pins where a pull request opened from the branch stands, every state
 // of it, with nothing drawn while nothing is known or nothing was opened.
 func TestPrepareForgeColumn(t *testing.T) {

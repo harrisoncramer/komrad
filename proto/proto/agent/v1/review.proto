@@ -138,6 +138,8 @@ message WatchedReview {
   string created_at = 11;
   // When anything in it last moved.
   string updated_at = 12;
+  // When the base branch was first seen holding the round whole, empty until then.
+  string round_landed_at = 13;
 }
 
 // ReviewThread is one conversation pinned to a place in a round of an agent's diff.
