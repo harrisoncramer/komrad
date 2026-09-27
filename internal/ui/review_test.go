@@ -1167,12 +1167,18 @@ func TestReviewYours(t *testing.T) {
 	t.Run("the list names each comment and what it is waiting for", func(t *testing.T) {
 		answered := newYourThread("b.txt", 5)
 		answered.Messages = append(answered.Messages, newAgentMessage("m9", "rewrote the header"))
-		harness := openReview(t, newYoursServer(t, newYourThread("a.txt", 2), answered))
+		reopened := newYourThread("c.txt", 3)
+		reopened.Messages = append(reopened.Messages,
+			newAgentMessage("m10", "renamed it"),
+			newHumanMessage("m11", "the caller still uses the old name"),
+		)
+		harness := openReview(t, newYoursServer(t, newYourThread("a.txt", 2), answered, reopened))
 
 		sidebar := readSidebarProse(harness.readFrame())
-		assert.Contains(t, sidebar, "Yours 2 open, 0 resolved")
+		assert.Contains(t, sidebar, "Yours 3 open, 0 resolved")
 		assert.Contains(t, sidebar, "a.txt:2 no reply")
 		assert.Contains(t, sidebar, "b.txt:5 answered")
+		assert.Contains(t, sidebar, "c.txt:3 no reply", "the person's word after the answer waits for another")
 	})
 
 	t.Run("a resolved comment stays on the list and is counted apart", func(t *testing.T) {

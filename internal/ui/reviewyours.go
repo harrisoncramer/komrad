@@ -208,10 +208,8 @@ func describeYoursState(comment yourComment) string {
 		return "resolved"
 	}
 
-	for _, message := range messages[min(1, len(messages)):] {
-		if message.GetAuthorKind() == agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT {
-			return "answered"
-		}
+	if len(messages) > 1 && messages[len(messages)-1].GetAuthorKind() == agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT {
+		return "answered"
 	}
 
 	return "no reply"
