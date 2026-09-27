@@ -217,7 +217,7 @@ func TestSchedulesDocument(t *testing.T) {
 	}{
 		{
 			name:      "an empty list says how to write one",
-			wantDrawn: []string{"A schedule launches an agent on a cron expression."},
+			wantDrawn: []string{"A schedule launches an agent, or mails an orchestrator, on a cron expression."},
 		},
 		{
 			name:       "a paused schedule says it will not run",

@@ -158,7 +158,7 @@ const branchFieldKey = "branch"
 
 const noSchedulesMarkdown = `# Schedules
 
-A schedule launches an agent on a cron expression.
+A schedule launches an agent, or mails an orchestrator, on a cron expression.
 
 Press the new key to write one.
 `
