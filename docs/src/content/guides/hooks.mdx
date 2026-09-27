@@ -12,7 +12,12 @@ Hooks provide a way to run arbitrary code at a given moment in your agent's life
 
 You can use hooks to cover setup that komra cannot handle out of the box, such as tearing down a docker stack, or configuring a network.
 
-<Alert variant="danger">Do not use hooks to copy or link files, such as built dependencies, into a worktree. A [workflow](../workflows/#worktrees) already does that: its worktree copy paths and worktree symlink paths, `copy_paths` and `symlink_paths` on the [worktree config](../../api/workflow/create-workflow/#types), are copied or linked into every new worktree before the agent starts. Hooks are for what lives outside the tree.</Alert>
+<Alert variant="danger">
+  Do not use hooks to copy or link files, such as built dependencies, into a worktree. A
+  [workflow](../workflows/#worktrees) already does that: its worktree copy paths and worktree symlink paths,
+  `copy_paths` and `symlink_paths` on the [worktree config](../../api/workflow/create-workflow/#types), are copied or
+  linked into every new worktree before the agent starts. Hooks are for what lives outside the tree.
+</Alert>
 
 Hooks can also be used to clean up when an agent is destroyed. For instance, run a pre-delete hook to remove the network the agent needs.
 
@@ -56,13 +61,13 @@ Press `e` on the workflow's row, move down to "Pre-launch hook", pick `ignore-re
 
 ## The moments
 
-| Moment | Fires | Komrad waits | If it fails |
-| --- | --- | --- | --- |
-| `pre-launch` | Once the agent's directory exists, before its CLI starts. | Yes | The agent is not started and stays in the list marked as failed, so you can fix the cause and retry. |
-| `post-launch` | Once the CLI is up, in the background. | No | The run's log says so. |
-| `post-resume` | Once a dormant agent's CLI is back up, in the background. | No | The run's log says so. |
-| `post-restore` | Once a restored agent's CLI is up, in the background. | No | The run's log says so. |
-| `pre-teardown` | When an agent is deleted, before its worktree is removed. | Yes | The delete stops and the worktree is kept. |
+| Moment         | Fires                                                     | Komrad waits | If it fails                                                                                          |
+| -------------- | --------------------------------------------------------- | ------------ | ---------------------------------------------------------------------------------------------------- |
+| `pre-launch`   | Once the agent's directory exists, before its CLI starts. | Yes          | The agent is not started and stays in the list marked as failed, so you can fix the cause and retry. |
+| `post-launch`  | Once the CLI is up, in the background.                    | No           | The run's log says so.                                                                               |
+| `post-resume`  | Once a dormant agent's CLI is back up, in the background. | No           | The run's log says so.                                                                               |
+| `post-restore` | Once a restored agent's CLI is up, in the background.     | No           | The run's log says so.                                                                               |
+| `pre-teardown` | When an agent is deleted, before its worktree is removed. | Yes          | The delete stops and the worktree is kept.                                                           |
 
 Write `pre-teardown` so it is safe to run twice. Archiving does not run it.
 

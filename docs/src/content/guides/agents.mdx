@@ -8,13 +8,15 @@ order: 3
 import Alert from "../../components/Alert.astro";
 import { media } from "../../site";
 
-<Alert variant="warning">This guide assumes you know what a [workflow](../workflows/) is, and you've created one.</Alert>
+<Alert variant="warning">
+  This guide assumes you know what a [workflow](../workflows/) is, and you've created one.
+</Alert>
 
 Agents run your workloads. They are spawned according to workflows.
 
 Komrad currently supports just Claude and Codex agents. You can leave them working and come back, restart your machine without losing any history or context, search everything they have said, and even have agents spawn and manage other agents.
 
-This is the core value for komrad: *durable, resumable, searchable agentic compute*.
+This is the core value for komrad: _durable, resumable, searchable agentic compute_.
 
 There are three types of agents, and you've already seen one: the [orchestrator](../workflows/#the-orchestrator). Orchestrator agents can spawn children called "implementer" agents, which each (typically) get their own worktree. Finally, implementer agents can spawn reviewer agents, which live inside _the same worktree_ and are responsible only for reviewing their work.
 
