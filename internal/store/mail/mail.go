@@ -167,7 +167,7 @@ func noPendingOfKind(toAgentID string, kind Kind) error {
 
 // GetPendingFromSchedule is the mail from a schedule that its recipient is already holding
 // unread, ErrNotFound when it holds none.
-func (s *MailStore) GetPendingFromSchedule(ctx context.Context, toAgentID string, scheduleID string) (*Mail, error) {
+func (s *MailStore) GetPendingFromSchedule(ctx context.Context, toAgentID, scheduleID string) (*Mail, error) {
 	missing := fmt.Errorf("%w: unread mail from schedule %q for agent %q", store.ErrNotFound, scheduleID, toAgentID)
 	if !store.IsID(toAgentID) || !store.IsID(scheduleID) {
 		return nil, missing

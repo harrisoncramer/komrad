@@ -14,6 +14,7 @@ import (
 	agentstore "komrad/internal/store/agent"
 	mailstore "komrad/internal/store/mail"
 	workflowstore "komrad/internal/store/workflow"
+	"komrad/lib/xptr"
 	"komrad/lib/xslice"
 	"komrad/lib/xstr"
 )
@@ -76,7 +77,7 @@ type mailReadWriter interface {
 	CountPendingFromAgents(ctx context.Context, toAgentID string) (int64, error)
 	GetPendingOfKind(ctx context.Context, toAgentID string, kind mailstore.Kind, about string) (*mailstore.Mail, error)
 	GetPendingAboutDocument(ctx context.Context, toAgentID string, kind mailstore.Kind, documentID string) (*mailstore.Mail, error)
-	GetPendingFromSchedule(ctx context.Context, toAgentID string, scheduleID string) (*mailstore.Mail, error)
+	GetPendingFromSchedule(ctx context.Context, toAgentID, scheduleID string) (*mailstore.Mail, error)
 	ListPage(ctx context.Context, toAgentID string, limit int32, cursor *mailstore.Cursor) ([]mailstore.Mail, error)
 	ListSentPage(ctx context.Context, fromAgentID string, limit int32, cursor *mailstore.Cursor) ([]mailstore.Mail, error)
 	ListByID(ctx context.Context, ids []string) ([]mailstore.Mail, error)
@@ -241,7 +242,7 @@ func (s *MailService) SendScheduledMail(ctx context.Context, params SendSchedule
 		Body:           params.Body,
 		Kind:           mailstore.KindPlain,
 		SenderName:     "schedule " + params.ScheduleName,
-		Schedule:       &params.ScheduleID,
+		Schedule:       xptr.NonEmpty(params.ScheduleID),
 		IdempotencyKey: params.IdempotencyKey,
 	})
 }
