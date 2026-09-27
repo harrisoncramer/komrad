@@ -102,9 +102,8 @@ func TestAgentRowsCommentCounts(t *testing.T) {
 			threads: []*agentv1.ReviewThread{thread("t1", "v1", true, false)},
 		},
 		{
-			name:       "a released review with no comments draws an empty side",
-			reviews:    []*agentv1.WatchedReview{review("v1", newer, 1, stamp(-time.Hour), commented)},
-			wantPerson: &agentv1.CommentCounts{},
+			name:    "a released review with no comments draws nothing",
+			reviews: []*agentv1.WatchedReview{review("v1", newer, 1, stamp(-time.Hour), commented)},
 		},
 		{
 			name: "an open conversation on a landed round still counts",
@@ -115,6 +114,15 @@ func TestAgentRowsCommentCounts(t *testing.T) {
 				thread("t1", "v1", false, false),
 				thread("t2", "v1", true, true),
 			},
+			wantPerson: &agentv1.CommentCounts{Open: 1},
+		},
+		{
+			name: "a reviewer agent that left no comments draws nothing beside the person's",
+			reviews: []*agentv1.WatchedReview{
+				review("v1", newer, 1, stamp(-2*time.Hour), commented),
+				byReviewer(review("v2", newer, 1, stamp(-time.Hour), commented)),
+			},
+			threads:    []*agentv1.ReviewThread{thread("t1", "v1", false, false)},
 			wantPerson: &agentv1.CommentCounts{Open: 1},
 		},
 		{

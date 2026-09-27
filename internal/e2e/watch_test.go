@@ -218,7 +218,6 @@ func TestIntegrationTheWatchAndTheStoresAgree(t *testing.T) {
 			},
 			took: func(t *testing.T, stores view) {
 				assert.Equal(t, int32(1), stores.agents[api.ID].GetLocalReviewRounds())
-				assert.NotNil(t, stores.agents[api.ID].GetPersonComments(), "the person released a review on this round")
 			},
 		},
 		{

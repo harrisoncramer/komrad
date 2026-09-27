@@ -519,11 +519,9 @@ type AgentRow struct {
 	PullRequests []*v1.PullRequest `protobuf:"bytes,5,rep,name=pull_requests,json=pullRequests,proto3" json:"pull_requests,omitempty"`
 	// How many rounds of local review its own work has been through.
 	LocalReviewRounds int32 `protobuf:"varint,6,opt,name=local_review_rounds,json=localReviewRounds,proto3" json:"local_review_rounds,omitempty"`
-	// Comments reviewer agents have left on its work. Absent until a reviewer agent has released a
-	// review of work not yet merged into the base branch.
+	// Comments reviewer agents have left on its work. Absent while there are none to count.
 	ReviewerComments *CommentCounts `protobuf:"bytes,9,opt,name=reviewer_comments,json=reviewerComments,proto3,oneof" json:"reviewer_comments,omitempty"`
-	// Comments the person has left on its work. Absent until the person has released a review of
-	// work not yet merged into the base branch.
+	// Comments the person has left on its work. Absent while there are none to count.
 	PersonComments *CommentCounts `protobuf:"bytes,10,opt,name=person_comments,json=personComments,proto3,oneof" json:"person_comments,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
@@ -1405,11 +1403,9 @@ type GetAgentResponse struct {
 	PullRequests []*v1.PullRequest `protobuf:"bytes,5,rep,name=pull_requests,json=pullRequests,proto3" json:"pull_requests,omitempty"`
 	// How many rounds of local review its own work has been through.
 	LocalReviewRounds int32 `protobuf:"varint,6,opt,name=local_review_rounds,json=localReviewRounds,proto3" json:"local_review_rounds,omitempty"`
-	// Comments reviewer agents have left on its work. Absent until a reviewer agent has released a
-	// review of work not yet merged into the base branch.
+	// Comments reviewer agents have left on its work. Absent while there are none to count.
 	ReviewerComments *CommentCounts `protobuf:"bytes,9,opt,name=reviewer_comments,json=reviewerComments,proto3,oneof" json:"reviewer_comments,omitempty"`
-	// Comments the person has left on its work. Absent until the person has released a review of
-	// work not yet merged into the base branch.
+	// Comments the person has left on its work. Absent while there are none to count.
 	PersonComments *CommentCounts `protobuf:"bytes,10,opt,name=person_comments,json=personComments,proto3,oneof" json:"person_comments,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache

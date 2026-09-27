@@ -45,10 +45,6 @@ func setCommentCounts(row *agentv1.AgentRow, reviews []*agentv1.WatchedReview, t
 			continue
 		}
 		released[review.GetId()] = review
-
-		if review.GetRoundLandedAt() == "" {
-			getOrAddCounts(row, review)
-		}
 	}
 
 	for _, thread := range threads {
