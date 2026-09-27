@@ -12,6 +12,7 @@ import (
 	"komrad/config"
 	"komrad/internal/fail"
 	"komrad/internal/git"
+	"komrad/internal/scripts"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
 	workflowstore "komrad/internal/store/workflow"
@@ -34,6 +35,8 @@ var ErrWorktreeUnsafePath = fail.InvalidArgument("a worktree copy or symlink pat
 
 var ErrUnknownHookEvent = fail.InvalidArgument("a hook must name a moment komrad fires")
 
+var ErrUnknownHookScript = fail.InvalidArgument("a hook must name a script in the hooks directory")
+
 var ErrWorktreeNeedsBase = fail.InvalidArgument("a workflow's base branch cannot be blank")
 
 type workflowScheduleCounter interface {
@@ -50,6 +53,10 @@ type workflowAgentDeleter interface {
 	DeleteAgents(ctx context.Context, ids []string) error
 }
 
+type workflowHookFinder interface {
+	FindHook(name string) (Script, error)
+}
+
 type workflowPageLister interface {
 	ListPage(ctx context.Context, limit int64, cursor *workflowstore.Cursor, archived bool) ([]workflowstore.Workflow, error)
 }
@@ -64,6 +71,7 @@ type NewWorkflowServiceParams struct {
 	Tmux         paneKiller
 	Tx           txRunner
 	Scripts      agentScriptRunner
+	Hooks        workflowHookFinder
 	Usage        config.Usage
 }
 
@@ -77,6 +85,7 @@ type WorkflowService struct {
 	tmux         paneKiller
 	tx           txRunner
 	scripts      agentScriptRunner
+	hooks        workflowHookFinder
 	usage        config.Usage
 }
 
@@ -92,6 +101,7 @@ func NewWorkflowService(params NewWorkflowServiceParams) *WorkflowService {
 		tmux:         params.Tmux,
 		tx:           params.Tx,
 		scripts:      params.Scripts,
+		hooks:        params.Hooks,
 		usage:        params.Usage,
 	}
 }
@@ -141,7 +151,7 @@ func (w *WorkflowService) NewWorkflow(ctx context.Context, cfg workflowstore.Con
 		return nil, err
 	}
 
-	hooks, err := normalizeHooks(cfg.Hooks)
+	hooks, err := w.normalizeHooks(cfg.Hooks)
 	if err != nil {
 		return nil, err
 	}
@@ -196,7 +206,7 @@ func (w *WorkflowService) UpdateWorkflow(ctx context.Context, id string, cfg wor
 		return err
 	}
 
-	hooks, hooksErr := normalizeHooks(cfg.Hooks)
+	hooks, hooksErr := w.normalizeHooks(cfg.Hooks)
 	if hooksErr != nil {
 		return hooksErr
 	}
@@ -219,8 +229,8 @@ func (w *WorkflowService) UpdateWorkflow(ctx context.Context, id string, cfg wor
 }
 
 // normalizeHooks trims what a caller sent, drops the blank entries, and refuses a moment komrad
-// does not fire.
-func normalizeHooks(hooks []workflowstore.Hook) ([]workflowstore.Hook, error) {
+// does not fire or a script the hooks directory does not hold.
+func (w *WorkflowService) normalizeHooks(hooks []workflowstore.Hook) ([]workflowstore.Hook, error) {
 	kept := make([]workflowstore.Hook, 0, len(hooks))
 	for _, hook := range hooks {
 		hook.Event = strings.TrimSpace(hook.Event)
@@ -230,6 +240,11 @@ func normalizeHooks(hooks []workflowstore.Hook) ([]workflowstore.Hook, error) {
 		}
 		if !slices.Contains(workflowstore.HookEvents(), hook.Event) {
 			return nil, fmt.Errorf("%w: %q is not one of %s", ErrUnknownHookEvent, hook.Event, strings.Join(workflowstore.HookEvents(), ", "))
+		}
+		if _, err := w.hooks.FindHook(hook.Script); errors.Is(err, scripts.ErrScriptNotFound) {
+			return nil, fmt.Errorf("%w: %s: %s", ErrUnknownHookScript, hook.Event, err.Error())
+		} else if err != nil {
+			return nil, fmt.Errorf("failed to find hook %q: %w", hook.Script, err)
 		}
 
 		kept = append(kept, hook)

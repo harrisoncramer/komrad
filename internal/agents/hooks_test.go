@@ -218,6 +218,38 @@ func TestNewWorkflowRefusesAHookOnAMomentKomradDoesNotFire(t *testing.T) {
 	require.ErrorIs(t, err, ErrUnknownHookEvent)
 }
 
+// TestWorkflowRefusesAHookScriptTheHooksDirectoryDoesNotHold pins a misnamed hook being refused
+// when it is saved.
+func TestWorkflowRefusesAHookScriptTheHooksDirectoryDoesNotHold(t *testing.T) {
+	st := newStore(t)
+	workflows := st.workflowService(workflowServiceOptions{tmux: tmuxtest.NewFake(), hooks: knownHooks{"install-deps"}})
+
+	_, err := workflows.NewWorkflow(t.Context(), workflowstore.Config{
+		Name:  "backend",
+		Hooks: []workflowstore.Hook{{Event: workflowstore.HookPreDelete, Script: "instal-deps"}},
+	})
+	require.ErrorIs(t, err, ErrUnknownHookScript)
+
+	created, err := workflows.NewWorkflow(t.Context(), workflowstore.Config{
+		Name:     "backend",
+		Worktree: workflowstore.WorktreeConfig{BaseBranch: "main"},
+		Hooks:    []workflowstore.Hook{{Event: workflowstore.HookPreDelete, Script: "install-deps"}},
+	})
+	require.NoError(t, err)
+
+	err = workflows.UpdateWorkflow(t.Context(), created.ID, workflowstore.Config{
+		Name:     "backend",
+		Worktree: workflowstore.WorktreeConfig{BaseBranch: "main"},
+		Hooks:    []workflowstore.Hook{{Event: workflowstore.HookPreDelete, Script: "instal-deps"}},
+	})
+	require.ErrorIs(t, err, ErrUnknownHookScript)
+
+	stored, err := st.GetWorkflow(t.Context(), created.ID)
+	require.NoError(t, err)
+	assert.Equal(t, []workflowstore.Hook{{Event: workflowstore.HookPreDelete, Script: "install-deps"}}, stored.Hooks,
+		"the refused update leaves the hooks it had")
+}
+
 // TestWorkflowHooksRoundTripInOrder pins the hooks coming back as they were written, in the
 // order they run.
 func TestWorkflowHooksRoundTripInOrder(t *testing.T) {

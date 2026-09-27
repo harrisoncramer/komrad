@@ -219,6 +219,7 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 		Tmux:         params.Tmux,
 		Tx:           st.pool,
 		Scripts:      scriptService,
+		Hooks:        scriptService,
 		Usage:        params.Usage,
 	})
 

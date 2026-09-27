@@ -275,7 +275,7 @@ func (s *ScriptService) release(key scriptKey) {
 func (s *ScriptService) prepare(ctx context.Context, params prepareParams) (scripts.Script, []string, error) {
 	find := s.find
 	if params.hook {
-		find = s.findHook
+		find = s.FindHook
 	}
 
 	script, err := find(params.name)

@@ -22,6 +22,7 @@ import (
 	"komrad/internal/harnesstest"
 	"komrad/internal/logging"
 	"komrad/internal/scriptrun"
+	"komrad/internal/scripts"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
 	reviewstore "komrad/internal/store/review"
@@ -369,7 +370,26 @@ func (f *fakeLifecycle) RunDeprovision(ctx context.Context, agent agentstore.Age
 type workflowServiceOptions struct {
 	tmux      *tmuxtest.Fake
 	lifecycle agentScriptRunner
+	hooks     workflowHookFinder
 	usage     config.Usage
+}
+
+type everyHook struct{}
+
+// FindHook finds whatever it is asked for.
+func (everyHook) FindHook(name string) (Script, error) {
+	return Script{Name: name}, nil
+}
+
+type knownHooks []string
+
+// FindHook finds only the names listed.
+func (k knownHooks) FindHook(name string) (Script, error) {
+	if !slices.Contains(k, name) {
+		return Script{}, fmt.Errorf("%w: %q is not in the hooks directory", scripts.ErrScriptNotFound, name)
+	}
+
+	return Script{Name: name}, nil
 }
 
 func (s *testStore) workflowService(options workflowServiceOptions) *WorkflowService {
@@ -378,6 +398,11 @@ func (s *testStore) workflowService(options workflowServiceOptions) *WorkflowSer
 		harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}},
 		addr:      "127.0.0.1:9999",
 	})
+
+	hooks := options.hooks
+	if hooks == nil {
+		hooks = everyHook{}
+	}
 
 	return NewWorkflowService(NewWorkflowServiceParams{
 		Workflows:    s.Workflows,
@@ -388,6 +413,7 @@ func (s *testStore) workflowService(options workflowServiceOptions) *WorkflowSer
 		Tmux:         options.tmux,
 		Tx:           s.Pool,
 		Scripts:      options.lifecycle,
+		Hooks:        hooks,
 		Usage:        options.usage,
 	})
 }
