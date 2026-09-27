@@ -391,6 +391,7 @@ said AS (
             AND v.author_kind = 'human') AS resolves,
 (t.resolved_at IS NOT NULL
             AND w.author_kind = t.resolved_by_kind
+            AND w.author_kind <> 'human'
             AND w.author_agent_id IS NOT DISTINCT FROM t.resolved_by_agent_id
             AND w.author_agent_id IS DISTINCT FROM t.agent_id) AS reopens
     FROM
@@ -458,7 +459,9 @@ said AS (
         w.author_kind,
 (t.resolved_at IS NOT NULL
             AND w.author_kind = t.resolved_by_kind
-            AND w.author_agent_id IS NOT DISTINCT FROM t.resolved_by_agent_id) AS reopens
+            AND w.author_kind <> 'human'
+            AND w.author_agent_id IS NOT DISTINCT FROM t.resolved_by_agent_id
+            AND w.author_agent_id IS DISTINCT FROM t.agent_id) AS reopens
     FROM
         written w
         JOIN review_threads t ON t.id = w.thread_id

@@ -273,7 +273,8 @@ func TestSettlingAThreadIsCarriedByTheList(t *testing.T) {
 	assert.NotNil(t, threads[0].ResolvedAt)
 }
 
-// TestWritingInASettledThread pins that only the settler's own words take a settling back.
+// TestWritingInASettledThread pins that only a reviewer agent's own words take its settling back
+// as they are written; the person's wait for the release.
 func TestWritingInASettledThread(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -296,9 +297,30 @@ func TestWritingInASettledThread(t *testing.T) {
 			wantSettled: true,
 		},
 		{
-			name:    "the person writing in what they settled",
-			settler: "person",
-			writer:  "person",
+			name:        "the person writing in what they settled, which waits for the release",
+			settler:     "person",
+			writer:      "person",
+			wantSettled: true,
+		},
+		{
+			name:        "the person rewriting what they said in what they settled",
+			settler:     "person",
+			writer:      "person",
+			rewrite:     true,
+			wantSettled: true,
+		},
+		{
+			name:        "the agent under review writing again in what its answer settled",
+			settler:     "worker",
+			writer:      "worker",
+			wantSettled: true,
+		},
+		{
+			name:        "the agent under review rewriting the answer that settled it",
+			settler:     "worker",
+			writer:      "worker",
+			rewrite:     true,
+			wantSettled: true,
 		},
 		{
 			name:    "the reviewer writing in what it settled",
@@ -450,6 +472,7 @@ func TestReleasingReopensWhatThePersonRepliedTo(t *testing.T) {
 	tests := []struct {
 		name        string
 		byReviewer  bool
+		byPerson    bool
 		reply       bool
 		wantSettled bool
 	}{
@@ -469,6 +492,12 @@ func TestReleasingReopensWhatThePersonRepliedTo(t *testing.T) {
 			reply:       true,
 			wantSettled: false,
 		},
+		{
+			name:        "the person replying in a thread they settled themselves",
+			byPerson:    true,
+			reply:       true,
+			wantSettled: false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -480,7 +509,12 @@ func TestReleasingReopensWhatThePersonRepliedTo(t *testing.T) {
 			first := st.openReview(t, round)
 			thread := st.openThread(t, first, "this needs a nil check")
 			st.releaseReview(t, first, VerdictChangesRequested)
-			st.settle(t, thread, &workerID)
+
+			settler := &workerID
+			if tt.byPerson {
+				settler = nil
+			}
+			st.settle(t, thread, settler)
 
 			author := AuthorHuman
 			var authorAgentID *string
