@@ -54,11 +54,12 @@ func TestValidateKeybindingsReadsEveryScreen(t *testing.T) {
 			tt.rebind(&keys)
 
 			require.Error(t, ValidateKeybindings(keys))
-			for _, s := range tt.screens {
-				err := validateScreenKeys(s, keys)
+
+			for _, target := range tt.screens {
+				err := validateScreenKeys(target, keys)
 
 				require.Error(t, err)
-				assert.Contains(t, err.Error(), screenNames[s])
+				assert.Contains(t, err.Error(), screenNames[target])
 			}
 		})
 	}
