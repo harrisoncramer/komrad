@@ -323,6 +323,12 @@ func TestWritingInASettledThread(t *testing.T) {
 			wantSettled: true,
 		},
 		{
+			name:        "a reviewer agent writing in what the person settled",
+			settler:     "person",
+			writer:      "reviewer",
+			wantSettled: true,
+		},
+		{
 			name:    "the reviewer writing in what it settled",
 			settler: "reviewer",
 			writer:  "reviewer",
@@ -474,11 +480,18 @@ func TestReleasingReopensWhatThePersonRepliedTo(t *testing.T) {
 		byReviewer  bool
 		byPerson    bool
 		reply       bool
+		thenSettle  bool
 		wantSettled bool
 	}{
 		{
 			name:        "a settled thread the person did not reply to",
 			reply:       false,
+			wantSettled: true,
+		},
+		{
+			name:        "the person replying and then settling it before the batch goes out",
+			reply:       true,
+			thenSettle:  true,
 			wantSettled: true,
 		},
 		{
@@ -535,6 +548,10 @@ func TestReleasingReopensWhatThePersonRepliedTo(t *testing.T) {
 					Body:          "this still panics on an empty list",
 				})
 				require.NoError(t, err)
+			}
+
+			if tt.thenSettle {
+				st.settle(t, thread, nil)
 			}
 
 			held, err := st.GetThread(ctx, thread.ID)

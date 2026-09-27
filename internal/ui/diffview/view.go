@@ -23,7 +23,7 @@ const (
 )
 
 // changeWord is what the row above the first file says, the place a comment on the change as a
-// whole is written from and drawn on.
+// whole is written from.
 const changeWord = "the change as a whole"
 
 // row is one drawable line of the diff, flattened from the patch once so that moving the cursor

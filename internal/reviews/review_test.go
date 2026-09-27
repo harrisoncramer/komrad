@@ -658,6 +658,27 @@ func TestCommentOnTheChangeAsAWhole(t *testing.T) {
 			wantErr: ErrReviewWholeChangeAnchored,
 		},
 		{
+			name: "edited to suggest a replacement",
+			write: func(t *testing.T, fx *reviewFixture) error {
+				written, err := fx.service.CreateReviewThread(t.Context(), CreateReviewThreadParams{
+					AgentID: fx.worker.ID,
+					Body:    "split this in two",
+					Author:  personAuthor,
+				})
+				require.NoError(t, err)
+
+				_, err = fx.service.EditReviewMessage(t.Context(), EditReviewMessageParams{
+					ID:         written.Messages[0].ID,
+					Body:       "split this in two",
+					Suggestion: []string{"func Hello(name string) {}"},
+					Author:     personAuthor,
+				})
+
+				return err
+			},
+			wantErr: ErrReviewWholeChangeAnchored,
+		},
+		{
 			name: "saying something about the whole of it",
 			write: func(t *testing.T, fx *reviewFixture) error {
 				return fx.tryWholeChange(t, CreateReviewThreadParams{})

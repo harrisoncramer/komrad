@@ -1562,7 +1562,8 @@ reopened AS (
                 review_messages m
             WHERE
                 m.thread_id = t.id
-                AND m.review_id = r.id)
+                AND m.review_id = r.id
+                AND m.created_at > t.resolved_at)
         RETURNING
             t.id
 )

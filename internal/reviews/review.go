@@ -645,8 +645,20 @@ func (s *ReviewService) EditReviewMessage(
 	ctx context.Context,
 	params EditReviewMessageParams,
 ) (*reviewstore.Message, error) {
-	if err := s.requireOwnMessage(ctx, params.ID, params.Author); err != nil {
+	message, err := s.getOwnMessage(ctx, params.ID, params.Author)
+	if err != nil {
 		return nil, err
+	}
+
+	if len(params.Suggestion) > 0 {
+		thread, err := s.threads.GetThread(ctx, message.ThreadID)
+		if err != nil {
+			return nil, err
+		}
+
+		if thread.FilePath == "" {
+			return nil, ErrReviewWholeChangeAnchored
+		}
 	}
 
 	return s.messages.UpdateMessage(ctx, params.ID, params.Body, params.Suggestion)
@@ -791,31 +803,31 @@ func (s *ReviewService) getOwnThread(ctx context.Context, id string, author Revi
 	return nil, fmt.Errorf("%w: %q", ErrReviewNotYours, id)
 }
 
-// requireOwnMessage refuses a caller rewriting or removing words it did not write.
-func (s *ReviewService) requireOwnMessage(ctx context.Context, id string, author ReviewAuthor) error {
+// getOwnMessage reads a message, refusing a caller rewriting or removing words it did not write.
+func (s *ReviewService) getOwnMessage(ctx context.Context, id string, author ReviewAuthor) (*reviewstore.Message, error) {
 	message, err := s.messages.GetMessage(ctx, id)
 	if errors.Is(err, store.ErrNotFound) {
-		return fmt.Errorf("%w: %q", ErrReviewMessageNotFound, id)
+		return nil, fmt.Errorf("%w: %q", ErrReviewMessageNotFound, id)
 	}
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if author.IsHuman() {
 		if message.AuthorKind != reviewstore.AuthorHuman {
-			return fmt.Errorf("%w: %q was written by an agent", ErrReviewNotYours, id)
+			return nil, fmt.Errorf("%w: %q was written by an agent", ErrReviewNotYours, id)
 		}
 
-		return nil
+		return message, nil
 	}
 
 	if message.AuthorKind != reviewstore.AuthorAgent ||
 		message.AuthorAgentID == nil ||
 		!doesOwnAgent(author, *message.AuthorAgentID) {
-		return fmt.Errorf("%w: %q", ErrReviewNotYours, id)
+		return nil, fmt.Errorf("%w: %q", ErrReviewNotYours, id)
 	}
 
-	return nil
+	return message, nil
 }
 
 func doesOwnAgent(author ReviewAuthor, agentID string) bool {
