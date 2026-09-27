@@ -62,7 +62,8 @@ func (s *ScriptService) find(name string) (scripts.Script, error) {
 	return scripts.Find(name, s.builtinDirs()...)
 }
 
-func (s *ScriptService) findHook(name string) (scripts.Script, error) {
+// FindHook is the hook named name in the hooks directory.
+func (s *ScriptService) FindHook(name string) (scripts.Script, error) {
 	dirs, err := s.hookDirs()
 	if err != nil {
 		return scripts.Script{}, err

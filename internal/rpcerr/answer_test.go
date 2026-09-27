@@ -71,6 +71,7 @@ func TestWrapCodes(t *testing.T) {
 		{reviews.ErrReviewAlreadyGiven, connect.CodeFailedPrecondition},
 		{schedules.ErrBadCron, connect.CodeInvalidArgument},
 		{agents.ErrUnknownHookEvent, connect.CodeInvalidArgument},
+		{agents.ErrUnknownHookScript, connect.CodeInvalidArgument},
 		{mail.ErrNoticeKindMissing, connect.CodeInvalidArgument},
 		{agents.ErrBadDirectory, connect.CodeInvalidArgument},
 		{agentdirs.ErrNoDirectory, connect.CodeInvalidArgument},
