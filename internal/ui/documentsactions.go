@@ -10,8 +10,11 @@ import (
 
 // actions is the documents screen as one table and the legend that names it.
 func (d *documentsScreen) actions(s panelShared) screenActionSpec {
-	if d.isDiffFocused(s) {
+	switch {
+	case d.isDiffFocused(s) && d.isDiffDrawn(s):
 		return d.diffActions()
+	case d.isDiffFocused(s):
+		return d.stepActions()
 	}
 
 	return d.listActions()
@@ -109,9 +112,18 @@ func (d *documentsScreen) legend() []screenLegendRow {
 // the writes, and handing the keys back to the list.
 func (d *documentsScreen) diffActions() screenActionSpec {
 	keys := d.diffKeys()
+	step := d.stepActions()
 
 	return screenActionSpec{
-		table: slices.Concat([]screenAction{
+		table:  slices.Concat(step.table, keys.table()),
+		legend: slices.Concat(keys.legend(), step.legend),
+	}
+}
+
+// stepActions is the keys on a focused diff with no write drawn yet.
+func (d *documentsScreen) stepActions() screenActionSpec {
+	return screenActionSpec{
+		table: []screenAction{
 			{
 				id:   actionDocumentsBack,
 				keys: func(k config.Keybindings) []string { return k.Documents.Back },
@@ -136,8 +148,8 @@ func (d *documentsScreen) diffActions() screenActionSpec {
 				keys: func(k config.Keybindings) []string { return k.Documents.Newer },
 				run:  func(h host, s panelShared, _ string) tea.Cmd { return d.stepNewer(h, s) },
 			},
-		}, keys.table()),
-		legend: slices.Concat(keys.legend(), []screenLegendRow{
+		},
+		legend: []screenLegendRow{
 			{
 				of:   []actionID{actionDocumentsOlder},
 				desc: func(panelShared) string { return "an earlier version" },
@@ -151,7 +163,7 @@ func (d *documentsScreen) diffActions() screenActionSpec {
 				desc:  func(panelShared) string { return "back to the list" },
 				strip: true,
 			},
-		}),
+		},
 	}
 }
 
@@ -174,7 +186,7 @@ func (d *documentsScreen) diffKeys() diffKeys {
 func (d *documentsScreen) updateDiff(h host, s panelShared, key tea.KeyPressMsg) tea.Cmd {
 	d.history.said = ""
 
-	return d.diffActions().dispatch(h, s, key.String())
+	return d.actions(s).dispatch(h, s, key.String())
 }
 
 // isDiffDrawn reports whether a write's change is drawn as a diff beside the list.

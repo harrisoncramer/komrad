@@ -37,7 +37,7 @@ type diffKeys struct {
 }
 
 func (k diffKeys) table() []screenAction {
-	actions := []screenAction{
+	return []screenAction{
 		{
 			id:   actionMove,
 			keys: func(b config.Keybindings) []string { return slices.Concat(b.Nav.Up, b.Nav.Down) },
@@ -123,17 +123,6 @@ func (k diffKeys) table() []screenAction {
 			run:  func(_ host, s panelShared, _ string) tea.Cmd { return k.toggleExpanded(s) },
 		},
 	}
-
-	for i := range actions {
-		actions[i].when = k.isDrawn
-	}
-
-	return actions
-}
-
-// isDrawn reports whether the pane has any rows for the keys to walk.
-func (k diffKeys) isDrawn(panelShared) bool {
-	return k.pane.View() != nil && k.pane.View().Len() > 0
 }
 
 // directionOf is back for a press of the backward keys and forward for any other.

@@ -29,15 +29,40 @@ func TestValidateKeybindingsFindsAShadowedAction(t *testing.T) {
 }
 
 // TestValidateKeybindingsReadsEveryScreen covers a rebind that only collides somewhere other than
-// the agents list, the review being the screen with the most keys on it.
+// the agents list.
 func TestValidateKeybindingsReadsEveryScreen(t *testing.T) {
-	keys := config.DefaultKeybindings()
-	keys.Review.Reload = keys.Nav.Down
+	tests := []struct {
+		name    string
+		rebind  func(*config.Keybindings)
+		screens []screen
+	}{
+		{
+			name:    "a review key taking a movement key",
+			rebind:  func(k *config.Keybindings) { k.Review.Reload = k.Nav.Down },
+			screens: []screen{screenReview},
+		},
+		{
+			name:    "a diff key taking a movement key, on both screens that draw a diff",
+			rebind:  func(k *config.Keybindings) { k.Diff.PanLeft = k.Nav.Down },
+			screens: []screen{screenReview, screenDocuments},
+		},
+	}
 
-	err := ValidateKeybindings(keys)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			keys := config.DefaultKeybindings()
+			tt.rebind(&keys)
 
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "the review")
+			require.Error(t, ValidateKeybindings(keys))
+
+			for _, target := range tt.screens {
+				err := validateScreenKeys(target, keys)
+
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), screenNames[target])
+			}
+		})
+	}
 }
 
 // TestValidateKeybindingsAllowsAGuardedArmInFront covers one key layered over two actions the way
