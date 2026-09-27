@@ -79,6 +79,17 @@ FROM
 WHERE
     v.id = @id;
 
+-- name: MoveOpenReview :one
+UPDATE
+    reviews v
+SET
+    round_id = @round_id
+WHERE
+    v.id = @id
+    AND v.released_at IS NULL
+RETURNING
+    *;
+
 -- name: GetOpenReview :one
 SELECT
     *

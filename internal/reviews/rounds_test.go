@@ -281,6 +281,47 @@ func TestGetReview(t *testing.T) {
 	assert.Equal(t, []string{"not quite, the other branch too"}, readBodies(again.Threads[0].Messages))
 }
 
+// TestAReviewCarriedAcrossRounds pins that a person's draft goes out on the newest round they commented on, each comment read against its own.
+func TestAReviewCarriedAcrossRounds(t *testing.T) {
+	fx := newReviewFixture(t, time.Hour)
+	fx.snapshots.FilesAt = map[string]map[string][]string{
+		firstSnapshot:  {"greet.go": {"before the edit"}},
+		secondSnapshot: {"greet.go": {"after the edit"}},
+	}
+
+	commentOn := func(snapshot string) *ReviewThreadWithMessages {
+		written, err := fx.service.CreateReviewThread(t.Context(), CreateReviewThreadParams{
+			AgentID:     fx.worker.ID,
+			SnapshotSHA: snapshot,
+			FilePath:    "greet.go",
+			NewStart:    1,
+			NewEnd:      1,
+			Body:        "why two sources here?",
+			Author:      personAuthor,
+		})
+		require.NoError(t, err)
+
+		return written
+	}
+
+	older := commentOn(firstSnapshot)
+	fx.advanceTree(t)
+	newer := commentOn(secondSnapshot)
+
+	released := fx.releaseReview(t, personAuthor, "")
+
+	whole, err := fx.service.GetReview(t.Context(), released.Review.ID, newAgentAuthor(fx.worker))
+	require.NoError(t, err)
+	assert.Equal(t, secondSnapshot, whole.Round.SnapshotSHA, "the review is of the newest work the person read")
+
+	byID := xslice.KeyBy(whole.Threads, func(thread ReviewThreadInContext) string {
+		return thread.Thread.ID
+	})
+	require.Len(t, byID, 2)
+	assert.Equal(t, []string{">> 1  before the edit"}, byID[older.Thread.ID].Context)
+	assert.Equal(t, []string{">> 1  after the edit"}, byID[newer.Thread.ID].Context)
+}
+
 // TestGetReviewOfAnUnreleasedReview pins that a review still being written is found only by its author and the person.
 func TestGetReviewOfAnUnreleasedReview(t *testing.T) {
 	tests := []struct {

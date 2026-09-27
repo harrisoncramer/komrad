@@ -183,16 +183,17 @@ func (r *reviewScreen) saveMessage(s panelShared) tea.Cmd {
 	r.threads.composing = false
 
 	agents, threadID := s.api.agents, r.threads.editing
+	kept := reviewUnsent{editing: threadID, body: body}
 	if threadID != "" {
 		// Nothing is said back: the reply is drawn in the thread it went into.
-		return r.writeCmd(s, "", func(ctx context.Context) error {
+		return keepUnsent(kept, r.writeCmd(s, "", func(ctx context.Context) error {
 			_, err := agents.AddReviewMessage(ctx, connect.NewRequest(&agentv1.AddReviewMessageRequest{
 				ThreadId: threadID,
 				Body:     body,
 			}))
 
 			return err
-		})
+		}))
 	}
 
 	anchor, ok := r.diff.view.GetAnchor(r.diff.cursor)
@@ -200,7 +201,45 @@ func (r *reviewScreen) saveMessage(s panelShared) tea.Cmd {
 		return nil
 	}
 
-	return r.createThreadCmd(s, *anchor, body)
+	return keepUnsent(kept, r.createThreadCmd(s, *anchor, body))
+}
+
+// reviewUnsent is a message on its way to the service, held until the write carrying it lands.
+type reviewUnsent struct {
+	editing string
+	body    string
+}
+
+// keepUnsent hands a message back with the refusal of the write carrying it.
+func keepUnsent(kept reviewUnsent, write tea.Cmd) tea.Cmd {
+	return func() tea.Msg {
+		msg := write()
+
+		wrote, ok := msg.(reviewWroteMsg)
+		if !ok || wrote.err == nil {
+			return msg
+		}
+
+		wrote.unsent = &kept
+
+		return wrote
+	}
+}
+
+// restoreMessage opens the composer again on a message the service refused.
+func (r *reviewScreen) restoreMessage(s panelShared, unsent reviewUnsent) tea.Cmd {
+	if r.threads.composing || r.threads.releasing {
+		return nil
+	}
+
+	r.threads.editing = unsent.editing
+	r.threads.composing = true
+
+	return r.openInput(s, newReviewInputParams{
+		Title:       reviewInputTitle(unsent.editing != ""),
+		Description: reviewInputHint(formKeys().Editor, formKeys().Submit, "save"),
+		Body:        unsent.body,
+	})
 }
 
 // cancelMessage puts the composer away, abandoning nothing but the words typed into it.

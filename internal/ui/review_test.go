@@ -318,6 +318,20 @@ func TestReviewThreads(t *testing.T) {
 		assert.NotContains(t, harness.readFrame(), "┃ Comment")
 	})
 
+	t.Run("a comment the service refuses stays in the composer", func(t *testing.T) {
+		harness := openReview(t, newReviewServer(t))
+		harness.refuse(agentv1connect.AgentServiceCreateReviewThreadProcedure,
+			connect.NewError(connect.CodeFailedPrecondition, errors.New("not now")))
+
+		harness.press("c")
+		typeText(harness, "this should say hello")
+		harness.press("ctrl+s")
+
+		frame := harness.readFrame()
+		assert.Contains(t, frame, "┃ Comment")
+		assert.Contains(t, frame, "this should say hello")
+	})
+
 	t.Run("the thread under the cursor is drawn in the sidebar", func(t *testing.T) {
 		server := newReviewServer(t)
 		server.threads = []*agentv1.ReviewThread{newThreadOnFirstLine(newHumanMessage("m1", "wrong greeting"))}

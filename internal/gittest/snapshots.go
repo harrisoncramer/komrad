@@ -12,7 +12,9 @@ type Snapshots struct {
 	SHA     string
 	BaseSHA string
 	// Files is each path as every snapshot holds it.
-	Files    map[string][]string
+	Files map[string][]string
+	// FilesAt is each path as one snapshot holds it, read ahead of Files.
+	FilesAt  map[string]map[string][]string
 	Released []string
 	// ReleasedFrom is the checkout each ref in Released was let go of from.
 	ReleasedFrom []string
@@ -45,8 +47,12 @@ func (s *Snapshots) ReleaseRef(_ context.Context, dir, ref string) error {
 	return nil
 }
 
-// ReadFileLines answers what Files holds for the path, refusing one it does not name.
-func (s *Snapshots) ReadFileLines(_ context.Context, _, _, path string) ([]string, error) {
+// ReadFileLines answers what FilesAt or Files holds for the path, refusing one neither names.
+func (s *Snapshots) ReadFileLines(_ context.Context, _, sha, path string) ([]string, error) {
+	if lines, ok := s.FilesAt[sha][path]; ok {
+		return lines, nil
+	}
+
 	lines, ok := s.Files[path]
 	if !ok {
 		return nil, fmt.Errorf("%w: no path %q", ErrNoGit, path)

@@ -70,6 +70,8 @@ type reviewWroteMsg struct {
 	readBack bool
 	threads  []*agentv1.ReviewThread
 	readErr  error
+	// unsent is the message a refused write was carrying, nil for any other write.
+	unsent *reviewUnsent
 }
 
 // open puts the review on an agent's diff and reads it.
@@ -513,6 +515,10 @@ func (r *reviewScreen) applyWrote(h host, s panelShared, msg reviewWroteMsg) tea
 
 	if msg.err != nil {
 		h.report("Could not write on "+r.agentName, msg.err)
+
+		if msg.unsent != nil {
+			return r.restoreMessage(s, *msg.unsent)
+		}
 
 		return nil
 	}

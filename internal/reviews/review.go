@@ -324,13 +324,10 @@ func (s *ReviewService) CreateReviewThread(
 	}
 
 	if open.RoundID != round.ID {
-		held, err := s.rounds.GetRound(ctx, open.RoundID)
+		open, err = s.carryOpenReview(ctx, *open, *round, params.Author)
 		if err != nil {
 			return nil, err
 		}
-
-		return nil, fmt.Errorf("%w: send the comments you have on round %d first",
-			ErrReviewInFlight, held.Ordinal)
 	}
 
 	baseSHA := params.BaseSHA
@@ -364,6 +361,33 @@ func (s *ReviewService) CreateReviewThread(
 	}
 
 	return &ReviewThreadWithMessages{Thread: *thread, Messages: messages}, nil
+}
+
+// carryOpenReview files a person's draft under the newest round they have commented on.
+func (s *ReviewService) carryOpenReview(
+	ctx context.Context,
+	open reviewstore.Review,
+	round reviewstore.Round,
+	author ReviewAuthor,
+) (*reviewstore.Review, error) {
+	held, err := s.rounds.GetRound(ctx, open.RoundID)
+	if err != nil {
+		return nil, err
+	}
+
+	if !author.IsHuman() {
+		return nil, fmt.Errorf("%w: send the comments you have on round %d first",
+			ErrReviewInFlight, held.Ordinal)
+	}
+
+	if round.Ordinal <= held.Ordinal {
+		return &open, nil
+	}
+
+	return s.reviews.MoveOpenReview(ctx, reviewstore.MoveOpenReviewParams{
+		ID:      open.ID,
+		RoundID: round.ID,
+	})
 }
 
 // AddReviewMessageParams is what to say in an existing thread, and as whom.

@@ -893,6 +893,30 @@ func TestTheOpenReviewIsTheOneStillBeingWritten(t *testing.T) {
 	require.ErrorIs(t, err, store.ErrNotFound, "a batch that has gone is not still being written")
 }
 
+// TestMovingAnOpenReview pins that a draft moves to another round and leaves its comments where they were written.
+func TestMovingAnOpenReview(t *testing.T) {
+	st := openFixture(t)
+	ctx := t.Context()
+	agentID := st.seedAgent(t, "worker")
+	first := st.openRound(t, agentID, "tree-one")
+	review := st.openReview(t, first)
+	thread := st.openThread(t, review, "this needs a nil check")
+	second := st.openRound(t, agentID, "tree-two")
+
+	moved, err := st.MoveOpenReview(ctx, MoveOpenReviewParams{ID: review.ID, RoundID: second.ID})
+	require.NoError(t, err)
+	assert.Equal(t, second.ID, moved.RoundID)
+
+	kept, err := st.GetThread(ctx, thread.ID)
+	require.NoError(t, err)
+	assert.Equal(t, first.ID, kept.RoundID, "a comment stays on the round it was written against")
+
+	st.releaseReview(t, moved, VerdictCommented)
+
+	_, err = st.MoveOpenReview(ctx, MoveOpenReviewParams{ID: review.ID, RoundID: first.ID})
+	require.ErrorIs(t, err, store.ErrNotFound, "a released review stays where it was sent")
+}
+
 // TestDeletingAnAuthorsOpenReviewsLeavesWhatTheyReleased pins that a departing reviewer's draft goes and its release stays.
 func TestDeletingAnAuthorsOpenReviewsLeavesWhatTheyReleased(t *testing.T) {
 	st := openFixture(t)
