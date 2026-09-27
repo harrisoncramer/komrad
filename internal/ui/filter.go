@@ -228,6 +228,8 @@ func (m model) updateFilterInput(key tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		filter.mode = filter.mode.flipped()
 	case key.String() == "enter":
 		m.applyFilter()
+
+		return m, m.waitToStage()
 	case !filter.takeKey(key):
 		return m, nil
 	}
@@ -425,7 +427,7 @@ func (m *model) jumpToFilterMatch(pressed string) tea.Cmd {
 		m.placeFilteredCursor(found)
 	}
 
-	return nil
+	return m.waitToStage()
 }
 
 // matchAt is the row the search lands on in the pane holding the keys, counted from the hovered

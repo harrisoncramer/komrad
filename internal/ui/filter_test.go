@@ -363,6 +363,19 @@ func TestFilterScreens(t *testing.T) {
 		assert.Equal(t, []string{"weekly", "nightly"}, names)
 	})
 
+	t.Run("the documents walk their matches and narrow to them", func(t *testing.T) {
+		harness, _ := openDocuments(t, "author")
+
+		harness.press("/", "r", "o", "l", "l", "enter")
+		assert.Contains(t, readHoveredRow(harness.readFrame()), "Rollout report")
+
+		harness.press("esc", "/", "tab", "r", "o", "l", "l", "enter")
+		harness.fireTimers()
+		frame := harness.readFrame()
+		assert.NotContains(t, readSidebarProse(frame), "Design the cache")
+		assert.Contains(t, readStageText(frame), "It went out on Tuesday.")
+	})
+
 	tests := []struct {
 		name  string
 		press []string

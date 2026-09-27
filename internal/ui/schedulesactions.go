@@ -43,7 +43,7 @@ func (w *schedulesScreen) actions() screenActionSpec {
 				run: func(h host, _ panelShared, _ string) tea.Cmd {
 					h.clearFilter()
 
-					return nil
+					return h.waitToStage()
 				},
 			},
 			{

@@ -59,6 +59,10 @@ func (d *documentsScreen) table() []screenAction {
 func (d *documentsScreen) legend() []screenLegendRow {
 	return slices.Concat(screenNavLegend(), []screenLegendRow{
 		{
+			of:   []actionID{actionFilterOpen},
+			desc: filterDescOf,
+		},
+		{
 			of:   []actionID{actionDocumentsEdit},
 			desc: func(panelShared) string { return d.editDesc() },
 		},
@@ -73,6 +77,16 @@ func (d *documentsScreen) legend() []screenLegendRow {
 		{
 			of:   []actionID{actionDocumentsNewer},
 			desc: func(panelShared) string { return "a later version" },
+		},
+		{
+			of:    []actionID{actionFilterClear},
+			desc:  filterClearDescOf,
+			strip: true,
+		},
+		{
+			of:    []actionID{actionFilterMatch},
+			desc:  func(panelShared) string { return "next/prev match" },
+			strip: true,
 		},
 		{
 			of:    []actionID{actionDocumentsBack},

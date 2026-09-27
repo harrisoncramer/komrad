@@ -332,7 +332,7 @@ func (l screenList[T]) filterActions() []screenAction {
 			run: func(h host, _ panelShared, _ string) tea.Cmd {
 				h.clearFilter()
 
-				return nil
+				return h.waitToStage()
 			},
 		},
 	}

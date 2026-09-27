@@ -86,6 +86,7 @@ func (d *documentsScreen) list() screenList[documentRow] {
 	return screenList[documentRow]{
 		cursor: func() *rowCursor { return &d.rowCursor },
 		rows:   d.rows,
+		name:   documentRowName,
 		placed: func(h host, _ panelShared) { h.stageInfo() },
 		moved: func(h host, _ panelShared) tea.Cmd {
 			d.history = nil
@@ -97,10 +98,18 @@ func (d *documentsScreen) list() screenList[documentRow] {
 	}
 }
 
-func (d *documentsScreen) rows(panelShared) []documentRow {
-	return xslice.Map(d.items, func(item documentItem) documentRow {
-		return documentRow{item: item}
+func (d *documentsScreen) rows(s panelShared) []documentRow {
+	return narrowed(s.chrome.filter, narrowedParams[documentRow]{
+		rows: xslice.Map(d.items, func(item documentItem) documentRow {
+			return documentRow{item: item}
+		}),
+		depth: func(documentRow) int { return 0 },
+		name:  documentRowName,
 	})
+}
+
+func documentRowName(row documentRow) string {
+	return row.item.name
 }
 
 func (d *documentsScreen) hovered(s panelShared) (documentItem, bool) {
@@ -119,7 +128,7 @@ func (d *documentsScreen) listParams(s panelShared) screenListParams {
 		tally:    d.tally(s),
 		help:     d.help,
 		empty:    d.emptyLine(),
-		rows:     len(d.items),
+		rows:     len(d.rows(s)),
 		snapshot: func(pane listPane) view.Snapshot { return d.snapshot(s, pane) },
 	}
 }
@@ -172,6 +181,7 @@ func (d *documentsScreen) snapshot(s panelShared, pane listPane) view.Snapshot {
 				Key:     r.key(),
 				Kind:    view.KindResult,
 				Name:    r.item.name,
+				Matches: matchesIn(s.chrome.filter.pattern, r.item.name),
 				Process: view.ProcessNone,
 				Cells:   []view.Cell{mutedCell(label.AgeAt(r.item.updatedAt, now))},
 			}
@@ -334,7 +344,8 @@ func (m *model) applyDocumentsListed(msg documentsListedMsg) tea.Cmd {
 
 	hovered := d.list().hovered(m.shared())
 	d.items, d.listedAt, d.listedCount, d.listed, d.err = msg.items, msg.written.newest, msg.written.count, true, nil
-	d.cursor = placeCursor(rowIndexOfKey(d.rows(m.shared()), hovered), d.cursor, len(d.items))
+	rows := d.rows(m.shared())
+	d.cursor = placeCursor(rowIndexOfKey(rows, hovered), d.cursor, len(rows))
 
 	return m.readDocumentsCmd()
 }
@@ -386,6 +397,7 @@ func (m *model) applyDocumentRead(msg documentReadMsg) {
 
 var (
 	_ columned = (*documentsScreen)(nil)
+	_ filtered = (*documentsScreen)(nil)
 	_ staged   = (*documentsScreen)(nil)
 )
 
@@ -409,4 +421,16 @@ func (d *documentsScreen) column() columnSpec {
 		},
 		holds: func(m model) bool { return m.documents.editing == nil },
 	}
+}
+
+func (d *documentsScreen) hoveredKey(s panelShared) string {
+	return d.list().hovered(s)
+}
+
+func (d *documentsScreen) placeAt(h host, s panelShared, key string) {
+	d.list().place(h, s, key)
+}
+
+func (d *documentsScreen) filterRows(s panelShared) []filterRow {
+	return d.list().filterRows(s)
 }
