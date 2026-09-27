@@ -12,6 +12,7 @@ import (
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
 	agentv1 "komrad/proto/gen/agent/v1"
+	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 )
 
 // TestAgentNotices covers what the record says about each mark a row carries, in the order a person would act on them.
@@ -76,6 +77,31 @@ func TestAgentNotices(t *testing.T) {
 			want: []string{failedRunNotice},
 		},
 		{
+			name: "a failing pull request",
+			row:  buildNoticeRow(buildPullRequested(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_FAILING)),
+			want: []string{prFailingNotice},
+		},
+		{
+			name: "a conflicting pull request",
+			row:  buildNoticeRow(buildPullRequested(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CONFLICTING)),
+			want: []string{prConflictingNotice},
+		},
+		{
+			name: "a pull request with changes requested",
+			row:  buildNoticeRow(buildPullRequested(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHANGES_REQUESTED)),
+			want: []string{prChangesNotice},
+		},
+		{
+			name: "a draft pull request",
+			row:  buildNoticeRow(buildPullRequested(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_DRAFT)),
+			want: []string{prDraftNotice},
+		},
+		{
+			name: "a branch with no pull request",
+			row:  buildNoticeRow(buildPullRequested(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE)),
+			want: []string{},
+		},
+		{
 			name: "a failed create says where its worktree went",
 			row: buildNoticeRow(panel.AgentRow{Agent: panel.Agent{
 				State:           panel.StateFailedToCreate,
@@ -96,6 +122,33 @@ func TestAgentNotices(t *testing.T) {
 				Documents:  1,
 			}),
 			want: []string{failedToCleanupNotice, failedRunNotice, unreadMailNotice, worktreeRemovedNotice, hiddenNotice, documentsNotice},
+		},
+		{
+			name: "a pull request that needs a push comes before mail, and one that asks nothing comes last",
+			row: buildNoticeRow(panel.AgentRow{
+				UnreadMail:  true,
+				FailedRun:   true,
+				Documents:   1,
+				PullRequest: panel.PullRequestStanding{State: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CONFLICTING},
+			}),
+			want: []string{failedRunNotice, prConflictingNotice, unreadMailNotice, documentsNotice},
+		},
+		{
+			name: "an approved pull request comes after mail and before the directory",
+			row: buildNoticeRow(panel.AgentRow{
+				Agent:       panel.Agent{WorktreeRemoved: true},
+				UnreadMail:  true,
+				PullRequest: panel.PullRequestStanding{State: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED},
+			}),
+			want: []string{unreadMailNotice, prApprovedNotice, worktreeRemovedNotice},
+		},
+		{
+			name: "an open pull request comes after documents",
+			row: buildNoticeRow(panel.AgentRow{
+				Documents:   1,
+				PullRequest: panel.PullRequestStanding{State: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN},
+			}),
+			want: []string{documentsNotice, prOpenNotice},
 		},
 		{
 			name: "the person's comments read",
@@ -204,6 +257,23 @@ func TestAgentNoticesSpeakForEveryColumnState(t *testing.T) {
 		assert.NotEqual(t, said, repo == view.RepoClean, "repo state %d is neither given a sentence nor its baseline", state)
 	}
 
+	for state := range int(view.ForgeEnd) {
+		forge := view.Forge(state)
+		said := 0
+		for _, sentences := range []map[view.Forge]string{forgeAlertSaid, forgeReviewSaid, forgeSaid} {
+			if _, ok := sentences[forge]; ok {
+				said++
+			}
+		}
+
+		want := 0
+		if !view.ForgeCell(view.Row{Kind: view.KindAgent, Forge: forge}).IsBlank() {
+			want = 1
+		}
+
+		assert.Equal(t, want, said, "forge state %d is given %d sentences", state, said)
+	}
+
 	for _, state := range []panel.State{panel.StateFailedToCreate, panel.StateFailedToCleanup} {
 		require.Equal(t, view.StatusBroken, snapshotStatus(panel.AgentRow{Agent: panel.Agent{State: state}}), "state %q no longer draws a broken bar", state)
 		assert.NotEmpty(t, failureSaid[state], "state %q draws a broken bar with no sentence", state)
@@ -231,6 +301,10 @@ func buildNoticeRow(item panel.AgentRow) agentRow {
 		item:     item,
 		workflow: panel.Workflow{Worktree: panel.WorktreeConfig{Enabled: true}},
 	}
+}
+
+func buildPullRequested(state pullrequestv1.PullRequestState) panel.AgentRow {
+	return panel.AgentRow{PullRequest: panel.PullRequestStanding{State: state}}
 }
 
 func buildPlainRow(item panel.AgentRow) agentRow {
