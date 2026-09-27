@@ -928,7 +928,7 @@
       "slug": "schedule",
       "title": "Schedule",
       "name": "schedule.v1.ScheduleService",
-      "description": "ScheduleService is the recurring launches, which spawn an agent into a workflow whenever their cron expression next matches.",
+      "description": "ScheduleService is the recurring firings, which spawn an implementer into a workflow or mail an orchestrator whenever their cron expression next matches.",
       "methods": [
         {
           "slug": "list-schedules",
@@ -940,8 +940,8 @@
           "roles": [
             "orchestrator"
           ],
-          "summary": "List the recurring agent launches, most recently updated first, with each one's cron expression, prompt, workflow, next run time, and its latest run.",
-          "description": "List the recurring agent launches, most recently updated first, with each one's cron expression, prompt, workflow, next run time, and its latest run. The summary this returns by default holds only the opening of each schedule's prompt, marked by prompt_truncated; get_schedule returns one whole, and view VIEW_FULL returns every prompt on the page.",
+          "summary": "List the schedules, most recently updated first, with each one's kind, cron expression, prompt, target, next run time, and its latest run.",
+          "description": "List the schedules, most recently updated first, with each one's kind, cron expression, prompt, target, next run time, and its latest run. The summary this returns by default holds only the opening of each schedule's prompt, marked by prompt_truncated; get_schedule returns one whole, and view VIEW_FULL returns every prompt on the page.",
           "readOnly": true,
           "idempotent": true,
           "destructive": false,
@@ -977,7 +977,7 @@
             "orchestrator"
           ],
           "summary": "List a schedule's most recent firings, newest first, each with the occurrence it stands for, its state, its attempt count, and why it was skipped or how it failed.",
-          "description": "List a schedule's most recent firings, newest first, each with the occurrence it stands for, its state, its attempt count, and why it was skipped or how it failed. A completed run launched its agent, a cancelled one was skipped on purpose, a discarded one ran out of attempts, and a retryable one is still being tried. Firings are kept for 90 days. Returns not_found if no schedule has that id.",
+          "description": "List a schedule's most recent firings, newest first, each with the occurrence it stands for, its state, its attempt count, and why it was skipped or how it failed. A completed run launched its agent or delivered its mail, a cancelled one was skipped on purpose, a discarded one ran out of attempts, and a retryable one is still being tried. Firings are kept for 90 days. Returns not_found if no schedule has that id.",
           "readOnly": true,
           "idempotent": true,
           "destructive": false,
@@ -994,8 +994,8 @@
           "roles": [
             "orchestrator"
           ],
-          "summary": "Create a recurring agent launch inside a workflow.",
-          "description": "Create a recurring agent launch inside a workflow. Nothing runs at create time; the agent is spawned when the cron expression next matches, and again on every match after that. The workflow supplies the directory, flags, and shared context each launch uses, so only the prompt and the timing are set here. Create it with enabled false to write it down without arming it, or with hideAgents true to keep its runs out of the panel's sidebar while they still run.",
+          "summary": "Create a schedule that fires on a cron expression.",
+          "description": "Create a schedule that fires on a cron expression. Give workflowId to launch a new implementer into that workflow on every match, or orchestratorAgentId to mail the prompt to that live orchestrator instead. Nothing fires at create time. Create it with enabled false to write it down without arming it. A firing whose orchestrator has since been archived or deleted is skipped, and its run says why.",
           "readOnly": false,
           "idempotent": false,
           "destructive": false,
@@ -1012,8 +1012,8 @@
           "roles": [
             "orchestrator"
           ],
-          "summary": "Replace a schedule's name, cron expression, timezone, prompt, workflow, and whether the agents it launches start hidden from the panel.",
-          "description": "Replace a schedule's name, cron expression, timezone, prompt, workflow, and whether the agents it launches start hidden from the panel. Every field is written, so read the schedule first and send back the ones you are not changing. Agents already launched are untouched, including their own hidden flag.",
+          "summary": "Replace a schedule's name, cron expression, timezone, prompt, target, and whether the agents it launches start hidden from the panel.",
+          "description": "Replace a schedule's name, cron expression, timezone, prompt, target, and whether the agents it launches start hidden from the panel. Every field is written, so read the schedule first and send back the ones you are not changing, giving workflowId for an implementer schedule and orchestratorAgentId for an orchestrator one. Agents already launched are untouched.",
           "readOnly": false,
           "idempotent": true,
           "destructive": false,
@@ -6420,7 +6420,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "True to keep its launches out of the panel's sidebar."
+          "description": "True to keep its launches out of the panel's sidebar, ignored by an orchestrator schedule."
         },
         {
           "name": "prompt",
@@ -6433,7 +6433,7 @@
             "required",
             "at most 50000 characters"
           ],
-          "description": "The opening prompt each launch is given."
+          "description": "The opening prompt each launch is given, or the mail an orchestrator is sent."
         },
         {
           "name": "workflow_id",
@@ -6441,11 +6441,23 @@
           "ref": "",
           "repeated": false,
           "map": false,
-          "oneof": "",
+          "oneof": "target",
           "rules": [
             "required"
           ],
-          "description": "Which workflow to launch into, whose cwd and flags each agent inherits."
+          "description": "Launch an implementer into this workflow, whose cwd and flags it inherits."
+        },
+        {
+          "name": "orchestrator_agent_id",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "target",
+          "rules": [
+            "required"
+          ],
+          "description": "Mail the prompt to this orchestrator."
         }
       ]
     },
@@ -6669,7 +6681,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The opening prompt every agent it launches is given."
+          "description": "The opening prompt every agent it launches is given, or the mail its orchestrator is sent."
         },
         {
           "name": "workflow_id",
@@ -6679,7 +6691,27 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Which workflow its agents are filed under, deciding their directory and flags."
+          "description": "Which workflow it is filed under, which for an orchestrator schedule is its orchestrator's."
+        },
+        {
+          "name": "kind",
+          "type": "ScheduleKind",
+          "ref": "schedule.v1.ScheduleKind",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "Whether it launches an implementer or mails an orchestrator."
+        },
+        {
+          "name": "orchestrator_agent_id",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The orchestrator it mails, set only on an orchestrator schedule."
         },
         {
           "name": "next_run_at",
@@ -6795,7 +6827,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Why it was skipped or what its last failed attempt said, blank once it has launched."
+          "description": "Why it was skipped or what its last failed attempt said, blank once it has fired."
         }
       ]
     },
@@ -6901,7 +6933,7 @@
             "required",
             "at most 50000 characters"
           ],
-          "description": "The prompt later launches are given, leaving agents already launched alone."
+          "description": "The prompt later firings use, leaving agents already launched alone."
         },
         {
           "name": "workflow_id",
@@ -6909,11 +6941,23 @@
           "ref": "",
           "repeated": false,
           "map": false,
-          "oneof": "",
+          "oneof": "target",
           "rules": [
             "required"
           ],
-          "description": "Which workflow later launches go into."
+          "description": "Launch an implementer into this workflow."
+        },
+        {
+          "name": "orchestrator_agent_id",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "target",
+          "rules": [
+            "required"
+          ],
+          "description": "Mail the prompt to this orchestrator."
         },
         {
           "name": "hide_agents",
@@ -8379,6 +8423,20 @@
         }
       ]
     },
+    "schedule.v1.ScheduleKind": {
+      "name": "ScheduleKind",
+      "description": "ScheduleKind is what a schedule does each time it fires.",
+      "values": [
+        {
+          "name": "SCHEDULE_KIND_IMPLEMENTER",
+          "description": "Launches a new implementer into the workflow with the prompt."
+        },
+        {
+          "name": "SCHEDULE_KIND_ORCHESTRATOR",
+          "description": "Mails the prompt to an orchestrator that is already running."
+        }
+      ]
+    },
     "schedule.v1.ScheduleRunState": {
       "name": "ScheduleRunState",
       "description": "ScheduleRunState is where River holds a firing's job.",
@@ -8405,7 +8463,7 @@
         },
         {
           "name": "SCHEDULE_RUN_STATE_COMPLETED",
-          "description": "Launched its agent."
+          "description": "Launched its agent or delivered its mail."
         },
         {
           "name": "SCHEDULE_RUN_STATE_CANCELLED",

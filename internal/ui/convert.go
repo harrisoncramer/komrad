@@ -171,15 +171,17 @@ func scheduleItemsFrom(listed []*schedulev1.Schedule) []scheduleItem {
 
 func scheduleFrom(s *schedulev1.Schedule) panel.Schedule {
 	schedule := panel.Schedule{
-		ID:         s.GetId(),
-		Name:       s.GetName(),
-		Cron:       s.GetCron(),
-		Timezone:   s.GetTimezone(),
-		Enabled:    s.GetEnabled(),
-		HideAgents: s.GetHideAgents(),
-		Prompt:     s.GetPrompt(),
-		WorkflowID: s.GetWorkflowId(),
-		RecentRuns: xslice.Map(s.GetRecentRuns(), scheduleRunFrom),
+		ID:             s.GetId(),
+		Name:           s.GetName(),
+		Cron:           s.GetCron(),
+		Timezone:       s.GetTimezone(),
+		Enabled:        s.GetEnabled(),
+		HideAgents:     s.GetHideAgents(),
+		Prompt:         s.GetPrompt(),
+		WorkflowID:     s.GetWorkflowId(),
+		Kind:           s.GetKind(),
+		OrchestratorID: s.GetOrchestratorAgentId(),
+		RecentRuns:     xslice.Map(s.GetRecentRuns(), scheduleRunFrom),
 	}
 
 	if latest := s.GetLatestRun(); latest != nil {

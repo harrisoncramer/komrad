@@ -8,6 +8,7 @@ import (
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/panel"
 	"komrad/internal/view"
+	schedulev1 "komrad/proto/gen/schedule/v1"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/huh/v2"
@@ -88,9 +89,27 @@ func (w *schedulesScreen) details(s panelShared) details {
 	}
 
 	return details{
-		id:     item.schedule.ID,
-		fields: scheduleFields(item.schedule, workflowByID(s.listing.workflows, item.schedule.WorkflowID)),
+		id: item.schedule.ID,
+		fields: scheduleFields(item.schedule, scheduleTarget{
+			workflow:     workflowByID(s.listing.workflows, item.schedule.WorkflowID),
+			orchestrator: s.listing.orchestratorLabel(item.schedule.OrchestratorID),
+		}),
 	}
+}
+
+func (l listing) orchestratorLabel(id string) string {
+	for _, row := range l.agents {
+		if row.Agent.ID == id {
+			return row.Agent.Name
+		}
+	}
+	for _, row := range l.archivedAgents {
+		if row.Agent.ID == id {
+			return row.Agent.Name + " (archived)"
+		}
+	}
+
+	return "— (gone)"
 }
 
 // docRows is the document drawn beside the list at a width: the notice for an empty list, or
@@ -139,8 +158,12 @@ func (w *schedulesScreen) newForm(h host, s panelShared) tea.Cmd {
 	}
 
 	values := panel.ScheduleConfig{
+		Kind:       schedulev1.ScheduleKind_SCHEDULE_KIND_IMPLEMENTER,
 		Enabled:    true,
 		WorkflowID: s.listing.workflows[0].ID,
+	}
+	if orchestrators := s.listing.liveOrchestrators(); len(orchestrators) > 0 {
+		values.OrchestratorID = orchestrators[0].ID
 	}
 
 	return w.openForm(h, &values, nil)
@@ -149,11 +172,21 @@ func (w *schedulesScreen) newForm(h host, s panelShared) tea.Cmd {
 // openForm puts up the schedule form, creating a schedule when target is nil and saving over the
 // one it names otherwise.
 func (w *schedulesScreen) openForm(h host, values *panel.ScheduleConfig, target *panel.Schedule) tea.Cmd {
+	drawnKind := values.Kind
+
 	return h.openForm(redrawnForm(redrawnFormParams{
 		Kind: formSchedule,
 		Build: func(m model) (*huh.Form, []string) {
-			return scheduleForm(values, m.listing.workflows, formKeys())
+			drawnKind = values.Kind
+
+			return scheduleForm(scheduleFormParams{
+				values:        values,
+				workflows:     m.listing.workflows,
+				orchestrators: m.listing.liveOrchestrators(),
+				keys:          formKeys(),
+			})
 		},
+		Reshaped: func() bool { return values.Kind != drawnKind },
 		Editable: []editableText{{key: "prompt", value: &values.Prompt}},
 		Submit: func(m model) (tea.Model, tea.Cmd) {
 			var cmd tea.Cmd
@@ -186,14 +219,28 @@ func (w *schedulesScreen) editForm(h host, s panelShared) tea.Cmd {
 // schedulePrefill is the schedule form as the stored schedule leaves it.
 func schedulePrefill(schedule panel.Schedule) panel.ScheduleConfig {
 	return panel.ScheduleConfig{
-		Name:       schedule.Name,
-		Cron:       schedule.Cron,
-		Timezone:   schedule.Timezone,
-		Enabled:    schedule.Enabled,
-		HideAgents: schedule.HideAgents,
-		Prompt:     schedule.Prompt,
-		WorkflowID: schedule.WorkflowID,
+		Name:           schedule.Name,
+		Cron:           schedule.Cron,
+		Timezone:       schedule.Timezone,
+		Enabled:        schedule.Enabled,
+		HideAgents:     schedule.HideAgents,
+		Prompt:         schedule.Prompt,
+		WorkflowID:     schedule.WorkflowID,
+		Kind:           schedule.Kind,
+		OrchestratorID: schedule.OrchestratorID,
 	}
+}
+
+// liveOrchestrators is the orchestrators a schedule may mail.
+func (l listing) liveOrchestrators() []panel.Agent {
+	var orchestrators []panel.Agent
+	for _, row := range l.agents {
+		if row.Agent.Role == panel.RoleOrchestrator {
+			orchestrators = append(orchestrators, row.Agent)
+		}
+	}
+
+	return orchestrators
 }
 
 func (w *schedulesScreen) archiveConfirm(h host, s panelShared) tea.Cmd {

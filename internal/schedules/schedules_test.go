@@ -1,9 +1,12 @@
 package schedules
 
 import (
+	"strings"
 	"testing"
 	"time"
 
+	"komrad/internal/mail"
+	agentstore "komrad/internal/store/agent"
 	schedulestore "komrad/internal/store/schedule"
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/internal/storetest"
@@ -371,6 +374,122 @@ func TestScheduleWorkflowMustExist(t *testing.T) {
 			require.NoError(t, err)
 			require.Len(t, listed, 1, "only the schedule that named a live workflow was written")
 			assert.Equal(t, live, listed[0].WorkflowID, "the refused update left the schedule where it was")
+		})
+	}
+}
+
+// TestOrchestratorSchedule pins which agents an orchestrator schedule may mail, and that it is
+// filed under its orchestrator's workflow.
+func TestOrchestratorSchedule(t *testing.T) {
+	tests := []struct {
+		name       string
+		role       agentstore.Role
+		archived   bool
+		missing    bool
+		prompt     string
+		wantErr    error
+		wantSaying string
+	}{
+		{
+			name: "a live orchestrator",
+			role: agentstore.RoleOrchestrator,
+		},
+		{
+			name:       "an archived orchestrator",
+			role:       agentstore.RoleOrchestrator,
+			archived:   true,
+			wantErr:    ErrOrchestratorArchived,
+			wantSaying: "lead",
+		},
+		{
+			name:    "an id no agent holds",
+			missing: true,
+			wantErr: ErrOrchestratorNotFound,
+		},
+		{
+			name:       "an agent that is not an orchestrator",
+			role:       agentstore.RoleImplementer,
+			wantErr:    ErrNotAnOrchestrator,
+			wantSaying: "implementer",
+		},
+		{
+			name:    "a prompt longer than mail holds",
+			role:    agentstore.RoleOrchestrator,
+			prompt:  strings.Repeat("x", mail.MaxMailBody+1),
+			wantErr: ErrPromptTooLong,
+		},
+		{
+			name:   "a prompt whose characters fit mail though its bytes do not",
+			role:   agentstore.RoleOrchestrator,
+			prompt: strings.Repeat("é", mail.MaxMailBody),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := storetest.Open(t)
+			ctx := t.Context()
+			svc := NewScheduleService(NewScheduleServiceParams{Schedules: st.Schedules, Workflows: st.Workflows, Agents: st.Agents})
+
+			home := st.SeedWorkflow(t, workflowstore.Config{Name: "home"}).ID
+			elsewhere := st.SeedWorkflow(t, workflowstore.Config{Name: "elsewhere"}).ID
+			agent := st.SeedAgent(t, agentstore.Agent{Name: "lead", Role: tt.role, WorkflowID: home})
+			if tt.archived {
+				_, err := st.Agents.Archive(ctx, []string{agent.ID})
+				require.NoError(t, err)
+			}
+			target := agent.ID
+			if tt.missing {
+				target = missingWorkflowID
+			}
+			prompt := tt.prompt
+			if prompt == "" {
+				prompt = "check CI"
+			}
+
+			cfg := schedulestore.Config{
+				Name:                "nightly",
+				Cron:                "0 9 * * *",
+				Prompt:              prompt,
+				HideAgents:          true,
+				WorkflowID:          elsewhere,
+				Kind:                schedulestore.KindOrchestrator,
+				OrchestratorAgentID: &target,
+			}
+
+			created, err := svc.NewSchedule(ctx, cfg)
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+				if tt.wantSaying != "" {
+					assert.Contains(t, err.Error(), tt.wantSaying)
+				}
+
+				existing := st.SeedSchedule(t, schedulestore.Config{Name: "existing", Cron: "0 9 * * *", Prompt: "go"})
+				require.ErrorIs(t, svc.UpdateSchedule(ctx, existing.ID, cfg), tt.wantErr, "nor is one turned into it")
+
+				return
+			}
+			require.NoError(t, err)
+
+			got, err := svc.GetSchedule(ctx, created.ID)
+			require.NoError(t, err)
+			assert.Equal(t, schedulestore.KindOrchestrator, got.Kind)
+			assert.Equal(t, &agent.ID, got.OrchestratorAgentID)
+			assert.Equal(t, home, got.WorkflowID, "it is filed under its orchestrator's workflow rather than the one given")
+			assert.False(t, got.HideAgents, "it launches nothing to hide")
+
+			require.NoError(t, svc.UpdateSchedule(ctx, created.ID, schedulestore.Config{
+				Name:       "nightly",
+				Cron:       "0 9 * * *",
+				Prompt:     "go",
+				WorkflowID: elsewhere,
+				Kind:       schedulestore.KindImplementer,
+			}))
+			got, err = svc.GetSchedule(ctx, created.ID)
+			require.NoError(t, err)
+			assert.Equal(t, schedulestore.KindImplementer, got.Kind, "an update may turn it back into an implementer schedule")
+			assert.Nil(t, got.OrchestratorAgentID)
+			assert.Equal(t, elsewhere, got.WorkflowID)
 		})
 	}
 }

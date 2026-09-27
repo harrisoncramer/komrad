@@ -8,6 +8,7 @@ import (
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
 	workflowstore "komrad/internal/store/workflow"
+	"komrad/lib/xptr"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -217,6 +218,42 @@ func TestGetByID(t *testing.T) {
 			assert.Equal(t, sent.ID, got.ID)
 		})
 	}
+}
+
+// TestGetByIdempotencyKey covers finding mail by the key it was sent with.
+func TestGetByIdempotencyKey(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+	recipient := seedAgent(t, st, "recipient")
+
+	sent, err := st.Send(ctx, SendParams{
+		ToAgentID:      recipient,
+		Body:           "check CI",
+		IdempotencyKey: xptr.Ptr("schedule:s1:nine"),
+		Deadline:       time.Hour,
+	})
+	require.NoError(t, err)
+
+	t.Run("the key finds the mail sent with it", func(t *testing.T) {
+		got, err := st.GetByIdempotencyKey(ctx, "schedule:s1:nine")
+		require.NoError(t, err)
+		assert.Equal(t, sent.ID, got.ID)
+	})
+
+	t.Run("a key nothing was sent with finds nothing", func(t *testing.T) {
+		_, err := st.GetByIdempotencyKey(ctx, "schedule:s1:ten")
+		require.ErrorIs(t, err, store.ErrNotFound)
+	})
+
+	t.Run("a second send with the same key is refused", func(t *testing.T) {
+		_, err := st.Send(ctx, SendParams{
+			ToAgentID:      recipient,
+			Body:           "check CI",
+			IdempotencyKey: xptr.Ptr("schedule:s1:nine"),
+			Deadline:       time.Hour,
+		})
+		require.Error(t, err)
+	})
 }
 
 // TestADeadlineIsMeasuredOnTheDatabaseClock pins that expires_at is compared against the

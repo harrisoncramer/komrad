@@ -8,6 +8,7 @@ import (
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/ui/panel"
+	schedulev1 "komrad/proto/gen/schedule/v1"
 )
 
 type recordField struct {
@@ -157,25 +158,38 @@ const branchFieldKey = "branch"
 
 const noSchedulesMarkdown = `# Schedules
 
-A schedule launches an agent on a cron expression.
+A schedule launches an agent, or mails an orchestrator, on a cron expression.
 
 Press the new key to write one.
 `
 
-func scheduleFields(sched panel.Schedule, workflow *panel.Workflow) []recordField {
+type scheduleTarget struct {
+	workflow     *panel.Workflow
+	orchestrator string
+}
+
+func scheduleFields(sched panel.Schedule, target scheduleTarget) []recordField {
 	fields := []recordField{
 		{label: "name", value: label.OrDash(sched.Name)},
 		{label: "cron", value: label.OrDash(sched.Cron)},
 		{label: "timezone", value: label.OrDash(sched.Timezone)},
 	}
 
-	if workflow == nil {
+	if sched.Kind == schedulev1.ScheduleKind_SCHEDULE_KIND_ORCHESTRATOR {
+		return append(fields,
+			recordField{label: "kind", value: "orchestrator"},
+			recordField{label: "mails", value: target.orchestrator},
+		)
+	}
+
+	fields = append(fields, recordField{label: "kind", value: "implementer"})
+	if target.workflow == nil {
 		return append(fields, recordField{label: "workflow", value: "— (archived)"})
 	}
 
-	fields = append(fields, recordField{label: "workflow", value: workflow.Name})
+	fields = append(fields, recordField{label: "workflow", value: target.workflow.Name})
 
-	return append(fields, workflowConfigFields(*workflow)...)
+	return append(fields, workflowConfigFields(*target.workflow)...)
 }
 
 // scheduleDocRows is a schedule's document at a width: its name and next run, its firings, then

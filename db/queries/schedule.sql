@@ -41,7 +41,9 @@ INSERT INTO schedules(
     enabled,
     hide_agents,
     prompt,
-    workflow_id)
+    workflow_id,
+    kind,
+    orchestrator_agent_id)
 VALUES (
     @name,
     @cron,
@@ -49,7 +51,9 @@ VALUES (
     @enabled,
     @hide_agents,
     @prompt,
-    @workflow_id)
+    @workflow_id,
+    @kind,
+    sqlc.narg('orchestrator_agent_id'))
 RETURNING
     *;
 
@@ -63,7 +67,9 @@ SET
     enabled = @enabled,
     hide_agents = @hide_agents,
     prompt = @prompt,
-    workflow_id = @workflow_id
+    workflow_id = @workflow_id,
+    kind = @kind,
+    orchestrator_agent_id = sqlc.narg('orchestrator_agent_id')
 WHERE
     id = @id
     AND archived_at IS NULL;

@@ -70,7 +70,7 @@ func (q *Queries) FinishScheduleRun(ctx context.Context, arg FinishScheduleRunPa
 
 const getSchedule = `-- name: GetSchedule :one
 SELECT
-    s.id, s.name, s.cron, s.timezone, s.enabled, s.hide_agents, s.prompt, s.workflow_id, s.archived_at, s.created_at, s.updated_at, s.engine_id
+    s.id, s.name, s.cron, s.timezone, s.enabled, s.hide_agents, s.prompt, s.workflow_id, s.archived_at, s.created_at, s.updated_at, s.engine_id, s.kind, s.orchestrator_agent_id
 FROM
     schedules s
 WHERE
@@ -99,6 +99,8 @@ func (q *Queries) GetSchedule(ctx context.Context, id string) (*GetScheduleRow, 
 		&i.Schedule.CreatedAt,
 		&i.Schedule.UpdatedAt,
 		&i.Schedule.EngineID,
+		&i.Schedule.Kind,
+		&i.Schedule.OrchestratorAgentID,
 	)
 	return &i, err
 }
@@ -111,7 +113,9 @@ INSERT INTO schedules(
     enabled,
     hide_agents,
     prompt,
-    workflow_id)
+    workflow_id,
+    kind,
+    orchestrator_agent_id)
 VALUES (
     $1,
     $2,
@@ -119,19 +123,23 @@ VALUES (
     $4,
     $5,
     $6,
-    $7)
+    $7,
+    $8,
+    $9)
 RETURNING
-    id, name, cron, timezone, enabled, hide_agents, prompt, workflow_id, archived_at, created_at, updated_at, engine_id
+    id, name, cron, timezone, enabled, hide_agents, prompt, workflow_id, archived_at, created_at, updated_at, engine_id, kind, orchestrator_agent_id
 `
 
 type InsertScheduleParams struct {
-	Name       string
-	Cron       string
-	Timezone   string
-	Enabled    bool
-	HideAgents bool
-	Prompt     string
-	WorkflowID string
+	Name                string
+	Cron                string
+	Timezone            string
+	Enabled             bool
+	HideAgents          bool
+	Prompt              string
+	WorkflowID          string
+	Kind                ScheduleKind
+	OrchestratorAgentID *string
 }
 
 func (q *Queries) InsertSchedule(ctx context.Context, arg InsertScheduleParams) (*Schedule, error) {
@@ -143,6 +151,8 @@ func (q *Queries) InsertSchedule(ctx context.Context, arg InsertScheduleParams) 
 		arg.HideAgents,
 		arg.Prompt,
 		arg.WorkflowID,
+		arg.Kind,
+		arg.OrchestratorAgentID,
 	)
 	var i Schedule
 	err := row.Scan(
@@ -158,6 +168,8 @@ func (q *Queries) InsertSchedule(ctx context.Context, arg InsertScheduleParams) 
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.EngineID,
+		&i.Kind,
+		&i.OrchestratorAgentID,
 	)
 	return &i, err
 }
@@ -283,7 +295,7 @@ func (q *Queries) ListScheduleRuns(ctx context.Context, arg ListScheduleRunsPara
 
 const listSchedulesPage = `-- name: ListSchedulesPage :many
 SELECT
-    s.id, s.name, s.cron, s.timezone, s.enabled, s.hide_agents, s.prompt, s.workflow_id, s.archived_at, s.created_at, s.updated_at, s.engine_id
+    s.id, s.name, s.cron, s.timezone, s.enabled, s.hide_agents, s.prompt, s.workflow_id, s.archived_at, s.created_at, s.updated_at, s.engine_id, s.kind, s.orchestrator_agent_id
 FROM
     schedules s
 WHERE
@@ -326,6 +338,8 @@ func (q *Queries) ListSchedulesPage(ctx context.Context, arg ListSchedulesPagePa
 			&i.Schedule.CreatedAt,
 			&i.Schedule.UpdatedAt,
 			&i.Schedule.EngineID,
+			&i.Schedule.Kind,
+			&i.Schedule.OrchestratorAgentID,
 		); err != nil {
 			return nil, err
 		}
@@ -339,7 +353,7 @@ func (q *Queries) ListSchedulesPage(ctx context.Context, arg ListSchedulesPagePa
 
 const listWatchedSchedules = `-- name: ListWatchedSchedules :many
 SELECT
-    s.id, s.name, s.cron, s.timezone, s.enabled, s.hide_agents, s.prompt, s.workflow_id, s.archived_at, s.created_at, s.updated_at, s.engine_id
+    s.id, s.name, s.cron, s.timezone, s.enabled, s.hide_agents, s.prompt, s.workflow_id, s.archived_at, s.created_at, s.updated_at, s.engine_id, s.kind, s.orchestrator_agent_id
 FROM
     schedules s
 WHERE
@@ -376,6 +390,8 @@ func (q *Queries) ListWatchedSchedules(ctx context.Context, keys []string) ([]*L
 			&i.Schedule.CreatedAt,
 			&i.Schedule.UpdatedAt,
 			&i.Schedule.EngineID,
+			&i.Schedule.Kind,
+			&i.Schedule.OrchestratorAgentID,
 		); err != nil {
 			return nil, err
 		}
@@ -389,7 +405,7 @@ func (q *Queries) ListWatchedSchedules(ctx context.Context, keys []string) ([]*L
 
 const listWorkflowSchedules = `-- name: ListWorkflowSchedules :many
 SELECT
-    s.id, s.name, s.cron, s.timezone, s.enabled, s.hide_agents, s.prompt, s.workflow_id, s.archived_at, s.created_at, s.updated_at, s.engine_id
+    s.id, s.name, s.cron, s.timezone, s.enabled, s.hide_agents, s.prompt, s.workflow_id, s.archived_at, s.created_at, s.updated_at, s.engine_id, s.kind, s.orchestrator_agent_id
 FROM
     schedules s
 WHERE
@@ -424,6 +440,8 @@ func (q *Queries) ListWorkflowSchedules(ctx context.Context, workflowID string) 
 			&i.Schedule.CreatedAt,
 			&i.Schedule.UpdatedAt,
 			&i.Schedule.EngineID,
+			&i.Schedule.Kind,
+			&i.Schedule.OrchestratorAgentID,
 		); err != nil {
 			return nil, err
 		}
@@ -546,21 +564,25 @@ SET
     enabled = $4,
     hide_agents = $5,
     prompt = $6,
-    workflow_id = $7
+    workflow_id = $7,
+    kind = $8,
+    orchestrator_agent_id = $9
 WHERE
-    id = $8
+    id = $10
     AND archived_at IS NULL
 `
 
 type UpdateScheduleParams struct {
-	Name       string
-	Cron       string
-	Timezone   string
-	Enabled    bool
-	HideAgents bool
-	Prompt     string
-	WorkflowID string
-	ID         string
+	Name                string
+	Cron                string
+	Timezone            string
+	Enabled             bool
+	HideAgents          bool
+	Prompt              string
+	WorkflowID          string
+	Kind                ScheduleKind
+	OrchestratorAgentID *string
+	ID                  string
 }
 
 func (q *Queries) UpdateSchedule(ctx context.Context, arg UpdateScheduleParams) error {
@@ -572,6 +594,8 @@ func (q *Queries) UpdateSchedule(ctx context.Context, arg UpdateScheduleParams) 
 		arg.HideAgents,
 		arg.Prompt,
 		arg.WorkflowID,
+		arg.Kind,
+		arg.OrchestratorAgentID,
 		arg.ID,
 	)
 	return err

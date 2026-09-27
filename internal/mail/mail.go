@@ -45,6 +45,8 @@ var ErrMailNotFound = fail.NotFound("no mail holds that id, deleting nothing")
 
 var ErrNoticeKindMissing = fail.InvalidArgument("a notice must name a kind other than plain")
 
+var ErrAlreadySent = fail.AlreadyExists("this idempotency key already sent its mail")
+
 var ErrAgentNotFound = fail.NotFound("agent not found")
 
 var ErrAgentArchived = fail.Precondition("agent is archived")
@@ -68,6 +70,7 @@ type workflowGetter interface {
 type mailReadWriter interface {
 	Send(ctx context.Context, params mailstore.SendParams) (*mailstore.Mail, error)
 	GetByID(ctx context.Context, id string) (*mailstore.Mail, error)
+	GetByIdempotencyKey(ctx context.Context, key string) (*mailstore.Mail, error)
 	Claim(ctx context.Context, toAgentID string, limit int32) ([]mailstore.Mail, error)
 	CountPending(ctx context.Context, toAgentID string) (int64, error)
 	GetPendingOfKind(ctx context.Context, toAgentID string, kind mailstore.Kind, about string) (*mailstore.Mail, error)
@@ -203,6 +206,32 @@ func (s *MailService) SendSystemMail(ctx context.Context, toAgentID, body string
 	})
 }
 
+type SendScheduledMailParams struct {
+	ToAgentID      string
+	ScheduleName   string
+	Body           string
+	IdempotencyKey string
+}
+
+// SendScheduledMail sends a schedule's prompt on behalf of the person who wrote the schedule.
+func (s *MailService) SendScheduledMail(ctx context.Context, params SendScheduledMailParams) (*mailstore.Mail, error) {
+	sent, err := s.mailReadWriter.GetByIdempotencyKey(ctx, params.IdempotencyKey)
+	if err == nil {
+		return sent, fmt.Errorf("%w: %q", ErrAlreadySent, params.IdempotencyKey)
+	}
+	if !errors.Is(err, store.ErrNotFound) {
+		return nil, err
+	}
+
+	return s.send(ctx, sendParams{
+		ToAgentID:      params.ToAgentID,
+		Body:           params.Body,
+		Kind:           mailstore.KindPlain,
+		SenderName:     "schedule " + params.ScheduleName,
+		IdempotencyKey: params.IdempotencyKey,
+	})
+}
+
 type SendNoticeParams struct {
 	ToAgentID string
 	Body      string
@@ -273,6 +302,9 @@ type sendParams struct {
 	About     *string
 	// System marks mail komrad raises itself rather than on a caller's behalf.
 	System bool
+	// SenderName names mail sent on a person's behalf by something other than an agent.
+	SenderName     string
+	IdempotencyKey string
 }
 
 func (s *MailService) send(ctx context.Context, params sendParams) (*mailstore.Mail, error) {
@@ -338,11 +370,17 @@ func (s *MailService) send(ctx context.Context, params sendParams) (*mailstore.M
 		AboutAgentID: params.About,
 		Deadline:     deadline,
 	}
-	if sender != nil {
+	if params.IdempotencyKey != "" {
+		send.IdempotencyKey = &params.IdempotencyKey
+	}
+	switch {
+	case sender != nil:
 		send.FromAgentID = &sender.ID
 		send.FromName = sender.Name
-	} else if params.System {
+	case params.System:
 		send.FromName = KomradSenderName
+	default:
+		send.FromName = params.SenderName
 	}
 
 	sent, err := s.mailReadWriter.Send(ctx, send)

@@ -125,12 +125,13 @@ func TestSendMailRefusals(t *testing.T) {
 	}
 }
 
-// TestSendMailRecordsWhoSentIt pins the sender an agent's mail, a person's and komrad's own each carry.
+// TestSendMailRecordsWhoSentIt pins the sender an agent's mail, a person's, a schedule's and komrad's own each carry.
 func TestSendMailRecordsWhoSentIt(t *testing.T) {
 	tests := []struct {
 		name         string
 		from         string
 		system       bool
+		schedule     string
 		reply        bool
 		wantFromID   bool
 		wantFromName string
@@ -143,6 +144,11 @@ func TestSendMailRecordsWhoSentIt(t *testing.T) {
 			name:         "komrad's own mail",
 			system:       true,
 			wantFromName: KomradSenderName,
+		},
+		{
+			name:         "a schedule sending for the person who wrote it",
+			schedule:     "nightly",
+			wantFromName: "schedule nightly",
 		},
 		{
 			name:         "an agent sending to another",
@@ -183,6 +189,12 @@ func TestSendMailRecordsWhoSentIt(t *testing.T) {
 			switch {
 			case tt.system:
 				sent, err = svc.SendSystemMail(t.Context(), recipient.ID, "your delegate was archived")
+			case tt.schedule != "":
+				sent, err = svc.SendScheduledMail(t.Context(), SendScheduledMailParams{
+					ToAgentID:    recipient.ID,
+					ScheduleName: tt.schedule,
+					Body:         "check CI",
+				})
 			case tt.from != "":
 				sent, err = svc.SendMail(t.Context(), SendMailParams{
 					From:      sender.ID,

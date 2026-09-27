@@ -14,18 +14,30 @@ import (
 )
 
 type Schedule struct {
-	ID         string
-	Name       string
-	Cron       string
-	Timezone   string
-	Enabled    bool
-	HideAgents bool
-	Prompt     string
-	WorkflowID string
-	UpdatedAt  time.Time
-	LatestRun  *Run
-	RecentRuns []Run
+	ID                  string
+	Name                string
+	Cron                string
+	Timezone            string
+	Enabled             bool
+	HideAgents          bool
+	Prompt              string
+	WorkflowID          string
+	Kind                Kind
+	OrchestratorAgentID *string
+	UpdatedAt           time.Time
+	LatestRun           *Run
+	RecentRuns          []Run
 }
+
+// Kind is what a firing does with the prompt.
+type Kind string
+
+const (
+	// KindImplementer launches an implementer into the workflow.
+	KindImplementer Kind = Kind(models.ScheduleKindImplementer)
+	// KindOrchestrator mails the prompt to an orchestrator.
+	KindOrchestrator Kind = Kind(models.ScheduleKindOrchestrator)
+)
 
 // RunState is where a firing stands.
 type RunState string
@@ -50,13 +62,15 @@ type Run struct {
 }
 
 type Config struct {
-	Name       string
-	Cron       string
-	Timezone   string
-	Enabled    bool
-	HideAgents bool
-	Prompt     string
-	WorkflowID string
+	Name                string
+	Cron                string
+	Timezone            string
+	Enabled             bool
+	HideAgents          bool
+	Prompt              string
+	WorkflowID          string
+	Kind                Kind
+	OrchestratorAgentID *string
 }
 
 type ScheduleStore struct {
@@ -116,13 +130,15 @@ func (s *ScheduleStore) Get(ctx context.Context, id string) (*Schedule, error) {
 // Create inserts a schedule and returns it.
 func (s *ScheduleStore) Create(ctx context.Context, cfg Config) (*Schedule, error) {
 	row, err := s.queries.InsertSchedule(ctx, models.InsertScheduleParams{
-		Name:       cfg.Name,
-		Cron:       cfg.Cron,
-		Timezone:   cfg.Timezone,
-		Enabled:    cfg.Enabled,
-		HideAgents: cfg.HideAgents,
-		Prompt:     cfg.Prompt,
-		WorkflowID: cfg.WorkflowID,
+		Name:                cfg.Name,
+		Cron:                cfg.Cron,
+		Timezone:            cfg.Timezone,
+		Enabled:             cfg.Enabled,
+		HideAgents:          cfg.HideAgents,
+		Prompt:              cfg.Prompt,
+		WorkflowID:          cfg.WorkflowID,
+		Kind:                models.ScheduleKind(kindOrDefault(cfg.Kind)),
+		OrchestratorAgentID: cfg.OrchestratorAgentID,
 	})
 	if db.IsUniqueViolation(err) {
 		return nil, store.ErrNameTaken.Saying("a schedule named %q already exists", cfg.Name)
@@ -143,14 +159,16 @@ func (s *ScheduleStore) Update(ctx context.Context, id string, cfg Config) error
 	}
 
 	err := s.queries.UpdateSchedule(ctx, models.UpdateScheduleParams{
-		ID:         id,
-		Name:       cfg.Name,
-		Cron:       cfg.Cron,
-		Timezone:   cfg.Timezone,
-		Enabled:    cfg.Enabled,
-		HideAgents: cfg.HideAgents,
-		Prompt:     cfg.Prompt,
-		WorkflowID: cfg.WorkflowID,
+		ID:                  id,
+		Name:                cfg.Name,
+		Cron:                cfg.Cron,
+		Timezone:            cfg.Timezone,
+		Enabled:             cfg.Enabled,
+		HideAgents:          cfg.HideAgents,
+		Prompt:              cfg.Prompt,
+		WorkflowID:          cfg.WorkflowID,
+		Kind:                models.ScheduleKind(kindOrDefault(cfg.Kind)),
+		OrchestratorAgentID: cfg.OrchestratorAgentID,
 	})
 	if db.IsUniqueViolation(err) {
 		return store.ErrNameTaken.Saying("a schedule named %q already exists", cfg.Name)
@@ -237,14 +255,24 @@ func (s *ScheduleStore) CountLive(ctx context.Context, workflowID string) (int64
 
 func scheduleFromRow(s models.Schedule) Schedule {
 	return Schedule{
-		ID:         s.ID,
-		Name:       s.Name,
-		Cron:       s.Cron,
-		Timezone:   s.Timezone,
-		Enabled:    s.Enabled,
-		HideAgents: s.HideAgents,
-		Prompt:     s.Prompt,
-		WorkflowID: s.WorkflowID,
-		UpdatedAt:  s.UpdatedAt,
+		ID:                  s.ID,
+		Name:                s.Name,
+		Cron:                s.Cron,
+		Timezone:            s.Timezone,
+		Enabled:             s.Enabled,
+		HideAgents:          s.HideAgents,
+		Prompt:              s.Prompt,
+		WorkflowID:          s.WorkflowID,
+		Kind:                Kind(s.Kind),
+		OrchestratorAgentID: s.OrchestratorAgentID,
+		UpdatedAt:           s.UpdatedAt,
 	}
+}
+
+func kindOrDefault(kind Kind) Kind {
+	if kind == "" {
+		return KindImplementer
+	}
+
+	return kind
 }

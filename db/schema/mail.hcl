@@ -65,6 +65,11 @@ table "mail" {
     type    = uuid
     comment = "The other agent a komrad notice is about, null on ordinary mail. Counting unread notices by this column gives the recipient one notice per subject rather than one per kind, so an agent that hits the exchange cap with a second partner is told about that partner too. There is no foreign key here on purpose. The notice has to keep naming the agent whose exchange was cut off after that agent is gone."
   }
+  column "idempotency_key" {
+    null    = true
+    type    = text
+    comment = "The key a retried send is recognised by, null on mail sent once."
+  }
   column "engine_id" {
     null    = false
     type    = uuid
@@ -111,5 +116,10 @@ table "mail" {
   }
   index "mail_reply_to" {
     columns = [column.reply_to]
+  }
+  index "mail_idempotency_key" {
+    unique  = true
+    columns = [column.engine_id, column.idempotency_key]
+    where   = "idempotency_key IS NOT NULL"
   }
 }

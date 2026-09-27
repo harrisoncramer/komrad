@@ -36,31 +36,49 @@ func TestValidationRefusesControlCharacters(t *testing.T) {
 		{
 			name: "a new schedule named with a tab is refused",
 			req: connect.NewRequest(&schedulev1.CreateScheduleRequest{
-				Name:       "nightly\treview",
-				Cron:       "0 9 * * *",
-				Prompt:     "go",
-				WorkflowId: "w1",
+				Name:   "nightly\treview",
+				Cron:   "0 9 * * *",
+				Prompt: "go",
+				Target: &schedulev1.CreateScheduleRequest_WorkflowId{WorkflowId: "w1"},
 			}),
 			wantErr: true,
 		},
 		{
 			name: "renaming a schedule to a name carrying a delete is refused",
 			req: connect.NewRequest(&schedulev1.UpdateScheduleRequest{
-				Id:         "s1",
-				Name:       "nightly\x7freview",
-				Cron:       "0 9 * * *",
-				Prompt:     "go",
-				WorkflowId: "w1",
+				Id:     "s1",
+				Name:   "nightly\x7freview",
+				Cron:   "0 9 * * *",
+				Prompt: "go",
+				Target: &schedulev1.UpdateScheduleRequest_WorkflowId{WorkflowId: "w1"},
 			}),
 			wantErr: true,
 		},
 		{
 			name: "an ordinary schedule name is accepted",
 			req: connect.NewRequest(&schedulev1.CreateScheduleRequest{
-				Name:       "nightly review",
-				Cron:       "0 9 * * *",
-				Prompt:     "go",
-				WorkflowId: "w1",
+				Name:   "nightly review",
+				Cron:   "0 9 * * *",
+				Prompt: "go",
+				Target: &schedulev1.CreateScheduleRequest_WorkflowId{WorkflowId: "w1"},
+			}),
+		},
+		{
+			name: "a new schedule naming neither a workflow nor an orchestrator is refused",
+			req: connect.NewRequest(&schedulev1.CreateScheduleRequest{
+				Name:   "nightly review",
+				Cron:   "0 9 * * *",
+				Prompt: "go",
+			}),
+			wantErr: true,
+		},
+		{
+			name: "a new schedule mailing an orchestrator is accepted",
+			req: connect.NewRequest(&schedulev1.CreateScheduleRequest{
+				Name:   "nightly review",
+				Cron:   "0 9 * * *",
+				Prompt: "go",
+				Target: &schedulev1.CreateScheduleRequest_OrchestratorAgentId{OrchestratorAgentId: "o1"},
 			}),
 		},
 	}

@@ -272,6 +272,48 @@ func (ns NullReviewVerdict) Value() (driver.Value, error) {
 	return string(ns.ReviewVerdict), nil
 }
 
+type ScheduleKind string
+
+const (
+	ScheduleKindImplementer  ScheduleKind = "implementer"
+	ScheduleKindOrchestrator ScheduleKind = "orchestrator"
+)
+
+func (e *ScheduleKind) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = ScheduleKind(s)
+	case string:
+		*e = ScheduleKind(s)
+	default:
+		return fmt.Errorf("unsupported scan type for ScheduleKind: %T", src)
+	}
+	return nil
+}
+
+type NullScheduleKind struct {
+	ScheduleKind ScheduleKind
+	Valid        bool // Valid is true if ScheduleKind is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullScheduleKind) Scan(value interface{}) error {
+	if value == nil {
+		ns.ScheduleKind, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.ScheduleKind.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullScheduleKind) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.ScheduleKind), nil
+}
+
 // One background agent, holding everything needed to start it again.
 type Agent struct {
 	ID     string
@@ -464,6 +506,8 @@ type Mail struct {
 	AboutAgentID *string
 	// The engine that owns this row, stamped from the login that wrote it.
 	EngineID string
+	// The key a retried send is recognised by, null on mail sent once.
+	IdempotencyKey *string
 }
 
 // A letter a person types to jump to one row. Each letter belongs to a single agent or a single workflow, so it always names one place.
@@ -660,7 +704,7 @@ type ReviewViewedFile struct {
 	EngineID string
 }
 
-// A recurring agent launch, holding when to fire and the prompt to launch with.
+// A recurring firing, holding when to fire and the prompt it launches an implementer with or mails an orchestrator.
 type Schedule struct {
 	ID         string
 	Name       string
@@ -675,6 +719,10 @@ type Schedule struct {
 	UpdatedAt  time.Time
 	// The engine that owns this row, stamped from the login that wrote it.
 	EngineID string
+	// Whether a firing launches an implementer into the workflow or mails the prompt to an orchestrator.
+	Kind ScheduleKind
+	// The orchestrator an orchestrator schedule mails.
+	OrchestratorAgentID *string
 }
 
 type ScheduleRun struct {

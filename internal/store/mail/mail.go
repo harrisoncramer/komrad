@@ -56,13 +56,14 @@ func NewMailStore(db store.DBTX) *MailStore {
 }
 
 type SendParams struct {
-	FromAgentID  *string
-	FromName     string
-	ToAgentID    string
-	Body         string
-	Kind         Kind
-	ReplyTo      *string
-	AboutAgentID *string
+	FromAgentID    *string
+	FromName       string
+	ToAgentID      string
+	Body           string
+	Kind           Kind
+	ReplyTo        *string
+	AboutAgentID   *string
+	IdempotencyKey *string
 	// How long the mail stays deliverable, counted from the database's clock rather than the
 	// caller's, which every read of expires_at compares it against.
 	Deadline time.Duration
@@ -83,6 +84,7 @@ func (s *MailStore) Send(ctx context.Context, params SendParams) (*Mail, error) 
 		Kind:           models.MailKind(kind),
 		ReplyTo:        params.ReplyTo,
 		AboutAgentID:   params.AboutAgentID,
+		IdempotencyKey: params.IdempotencyKey,
 		DeadlineMicros: params.Deadline.Microseconds(),
 	})
 	if err != nil {
@@ -120,6 +122,21 @@ func (s *MailStore) GetPendingOfKind(ctx context.Context, toAgentID string, kind
 
 func noPendingOfKind(toAgentID string, kind Kind) error {
 	return fmt.Errorf("%w: an unread %q notice for agent %q", store.ErrNotFound, kind, toAgentID)
+}
+
+// GetByIdempotencyKey is the mail a send with that key already wrote, ErrNotFound when none did.
+func (s *MailStore) GetByIdempotencyKey(ctx context.Context, key string) (*Mail, error) {
+	row, err := s.queries.GetMailByIdempotencyKey(ctx, &key)
+	if db.IsNoRows(err) {
+		return nil, fmt.Errorf("%w: mail for idempotency key %q", store.ErrNotFound, key)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get the mail for idempotency key %q: %w", key, err)
+	}
+
+	got := fromRow(row)
+
+	return &got, nil
 }
 
 // GetByID returns one piece of mail, claimed or not.

@@ -119,15 +119,15 @@ func (s *Handler) CreateSchedule(ctx context.Context, req *schedulev1.CreateSche
 
 // UpdateSchedule replaces a schedule's editable fields.
 func (s *Handler) UpdateSchedule(ctx context.Context, req *schedulev1.UpdateScheduleRequest) (*emptypb.Empty, *fail.Error) {
-	err := s.schedules.UpdateSchedule(ctx, req.GetId(), schedulestore.Config{
+	cfg := schedulestore.Config{
 		Name:       req.GetName(),
 		Cron:       req.GetCron(),
 		Timezone:   req.GetTimezone(),
 		Enabled:    req.GetEnabled(),
 		HideAgents: req.GetHideAgents(),
 		Prompt:     req.GetPrompt(),
-		WorkflowID: req.GetWorkflowId(),
-	})
+	}
+	err := s.schedules.UpdateSchedule(ctx, req.GetId(), withTarget(cfg, req.GetWorkflowId(), req.GetOrchestratorAgentId()))
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to update schedule")
 	}
@@ -154,13 +154,29 @@ func (s *Handler) ArchiveSchedule(ctx context.Context, req *schedulev1.ArchiveSc
 }
 
 func configFrom(req *schedulev1.CreateScheduleRequest) schedulestore.Config {
-	return schedulestore.Config{
+	cfg := schedulestore.Config{
 		Name:       req.GetName(),
 		Cron:       req.GetCron(),
 		Timezone:   req.GetTimezone(),
 		Enabled:    req.GetEnabled(),
 		HideAgents: req.GetHideAgents(),
 		Prompt:     req.GetPrompt(),
-		WorkflowID: req.GetWorkflowId(),
 	}
+
+	return withTarget(cfg, req.GetWorkflowId(), req.GetOrchestratorAgentId())
+}
+
+// withTarget sets what a schedule fires at from whichever of the request's targets was given.
+func withTarget(cfg schedulestore.Config, workflowID, orchestratorID string) schedulestore.Config {
+	if orchestratorID != "" {
+		cfg.Kind = schedulestore.KindOrchestrator
+		cfg.OrchestratorAgentID = &orchestratorID
+
+		return cfg
+	}
+
+	cfg.Kind = schedulestore.KindImplementer
+	cfg.WorkflowID = workflowID
+
+	return cfg
 }

@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	agentv1 "komrad/proto/gen/agent/v1"
 	schedulev1 "komrad/proto/gen/schedule/v1"
 	schedulev1connect "komrad/proto/gen/schedule/v1/schedulev1connect"
 	workflowv1 "komrad/proto/gen/workflow/v1"
@@ -216,7 +217,7 @@ func TestSchedulesDocument(t *testing.T) {
 	}{
 		{
 			name:      "an empty list says how to write one",
-			wantDrawn: []string{"A schedule launches an agent on a cron expression."},
+			wantDrawn: []string{"A schedule launches an agent, or mails an orchestrator, on a cron expression."},
 		},
 		{
 			name:       "a paused schedule says it will not run",
@@ -290,17 +291,50 @@ func TestSchedulesRecord(t *testing.T) {
 	zoned := newSchedule("s1", "morning-ci")
 	zoned.Timezone = "UTC"
 
+	mailing := newSchedule("s1", "morning-ci")
+	mailing.Timezone = "UTC"
+	mailing.Kind = schedulev1.ScheduleKind_SCHEDULE_KIND_ORCHESTRATOR
+	mailing.OrchestratorAgentId = proto.String("o1")
+
 	tests := []struct {
 		name     string
+		schedule *schedulev1.Schedule
 		workflow *workflowv1.Workflow
+		agent    *agentv1.Agent
 		want     []string
 	}{
+		{
+			name:     "an orchestrator schedule names the orchestrator it mails in place of the workflow",
+			schedule: mailing,
+			workflow: configured,
+			agent:    newOrchestrator(),
+			want: []string{
+				"name morning-ci",
+				"cron 0 9 * * 1-5",
+				"timezone UTC",
+				"kind orchestrator",
+				"mails orchestrator",
+			},
+		},
+		{
+			name:     "an orchestrator schedule whose orchestrator is gone says so",
+			schedule: mailing,
+			workflow: configured,
+			want: []string{
+				"name morning-ci",
+				"cron 0 9 * * 1-5",
+				"timezone UTC",
+				"kind orchestrator",
+				"mails — (gone)",
+			},
+		},
 		{
 			name: "a schedule whose workflow was archived says so rather than showing a blank",
 			want: []string{
 				"name morning-ci",
 				"cron 0 9 * * 1-5",
 				"timezone UTC",
+				"kind implementer",
 				"workflow — (archived)",
 			},
 		},
@@ -311,6 +345,7 @@ func TestSchedulesRecord(t *testing.T) {
 				"name morning-ci",
 				"cron 0 9 * * 1-5",
 				"timezone UTC",
+				"kind implementer",
 				"workflow api",
 				"default agent —",
 				"directory —",
@@ -325,6 +360,7 @@ func TestSchedulesRecord(t *testing.T) {
 				"name morning-ci",
 				"cron 0 9 * * 1-5",
 				"timezone UTC",
+				"kind implementer",
 				"workflow api",
 				"default agent codex",
 				"directory /work/api",
@@ -336,9 +372,16 @@ func TestSchedulesRecord(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			rows := []proto.Message{zoned}
+			schedule := zoned
+			if tt.schedule != nil {
+				schedule = tt.schedule
+			}
+			rows := []proto.Message{schedule}
 			if tt.workflow != nil {
 				rows = append(rows, tt.workflow)
+			}
+			if tt.agent != nil {
+				rows = append(rows, tt.agent)
 			}
 			harness := openSchedules(t, rows...)
 
@@ -384,22 +427,121 @@ func TestSchedulesForm(t *testing.T) {
 		harness.refuse(schedulev1connect.ScheduleServiceCreateScheduleProcedure, errors.New("cron must be five fields"))
 
 		harness.press(widenListPresses...)
-		harness.press("c")
+		harness.press("c", "tab")
 		typeText(harness, "x")
 		harness.press("enter")
 		typeText(harness, "0 9 * * *")
 		harness.press("ctrl+s")
 
 		harness.assertSentTo(schedulev1connect.ScheduleServiceCreateScheduleProcedure, &schedulev1.CreateScheduleRequest{
-			Name:       "x",
-			Cron:       "0 9 * * *",
-			Enabled:    true,
-			WorkflowId: "w1",
+			Name:    "x",
+			Cron:    "0 9 * * *",
+			Enabled: true,
+			Target:  &schedulev1.CreateScheduleRequest_WorkflowId{WorkflowId: "w1"},
 		})
 		frame := harness.readFrame()
 		assert.Contains(t, frame, "Could not create the schedule")
 		assert.Contains(t, readStageText(frame), "> x")
 		assert.Contains(t, readStageText(frame), "> 0 9 * * *")
+	})
+
+	t.Run("an orchestrator schedule mails the orchestrator picked in place of a workflow", func(t *testing.T) {
+		harness := openSchedules(t, append(buildSchedules(), newOrchestrator())...)
+
+		harness.press(widenListPresses...)
+		harness.press("c", "down")
+		form := readStageText(harness.readFrame())
+		assert.Contains(t, form, "> orchestrator  api")
+		assert.NotContains(t, form, "┃ Workflow")
+		assert.NotContains(t, form, "Hide its runs?")
+
+		harness.press("tab")
+		typeText(harness, "nightly")
+		harness.press("enter")
+		typeText(harness, "0 9 * * *")
+		harness.press("ctrl+s")
+
+		harness.assertSentTo(schedulev1connect.ScheduleServiceCreateScheduleProcedure, &schedulev1.CreateScheduleRequest{
+			Name:    "nightly",
+			Cron:    "0 9 * * *",
+			Enabled: true,
+			Target:  &schedulev1.CreateScheduleRequest_OrchestratorAgentId{OrchestratorAgentId: "o1"},
+		})
+	})
+
+	t.Run("with no live orchestrator only an implementer schedule is offered", func(t *testing.T) {
+		harness := openSchedules(t, buildSchedules()...)
+
+		harness.press(widenListPresses...)
+		harness.press("c", "down")
+		form := readStageText(harness.readFrame())
+		assert.Contains(t, form, "start an orchestrator to mail one instead")
+		assert.NotContains(t, form, "mail one already running")
+
+		harness.press("tab")
+		typeText(harness, "nightly")
+		harness.press("enter")
+		typeText(harness, "0 9 * * *")
+		harness.press("ctrl+s")
+
+		harness.assertSentTo(schedulev1connect.ScheduleServiceCreateScheduleProcedure, &schedulev1.CreateScheduleRequest{
+			Name:    "nightly",
+			Cron:    "0 9 * * *",
+			Enabled: true,
+			Target:  &schedulev1.CreateScheduleRequest_WorkflowId{WorkflowId: "w1"},
+		})
+	})
+
+	t.Run("flipping the kind keeps what was typed and the cursor on the kind", func(t *testing.T) {
+		harness := openSchedules(t, append(buildSchedules(), newOrchestrator())...)
+
+		harness.press(widenListPresses...)
+		harness.press("c", "tab")
+		typeText(harness, "nightly")
+		harness.press("enter")
+		typeText(harness, "0 9 * * *")
+		harness.press("enter", "enter")
+		typeText(harness, "check CI")
+		harness.press("shift+tab", "shift+tab", "shift+tab", "shift+tab", "down")
+		require.Contains(t, readStageText(harness.readFrame()), "> orchestrator  api")
+		harness.press("up")
+		require.Contains(t, readStageText(harness.readFrame()), "> api")
+		harness.press("down")
+
+		form := readStageText(harness.readFrame())
+		assert.Contains(t, form, "> nightly")
+		assert.Contains(t, form, "check CI")
+		harness.press("tab")
+		typeText(harness, "-brief")
+		harness.press("ctrl+s")
+
+		harness.assertSentTo(schedulev1connect.ScheduleServiceCreateScheduleProcedure, &schedulev1.CreateScheduleRequest{
+			Name:    "nightly-brief",
+			Cron:    "0 9 * * *",
+			Prompt:  "check CI",
+			Enabled: true,
+			Target:  &schedulev1.CreateScheduleRequest_OrchestratorAgentId{OrchestratorAgentId: "o1"},
+		})
+	})
+
+	t.Run("an edit of an orchestrator schedule keeps the orchestrator it mails", func(t *testing.T) {
+		mailing := newSchedule("s1", "morning-ci")
+		mailing.Kind = schedulev1.ScheduleKind_SCHEDULE_KIND_ORCHESTRATOR
+		mailing.OrchestratorAgentId = proto.String("o1")
+		harness := openSchedules(t, newLiveWorkflow("w1", "api"), mailing, newOrchestrator())
+
+		harness.press("e")
+		require.Contains(t, readStageText(harness.readFrame()), "> orchestrator  api")
+		harness.press("ctrl+s")
+
+		harness.assertSentTo(schedulev1connect.ScheduleServiceUpdateScheduleProcedure, &schedulev1.UpdateScheduleRequest{
+			Id:      "s1",
+			Name:    "morning-ci",
+			Cron:    "0 9 * * 1-5",
+			Enabled: true,
+			Prompt:  "check CI",
+			Target:  &schedulev1.UpdateScheduleRequest_OrchestratorAgentId{OrchestratorAgentId: "o1"},
+		})
 	})
 
 	t.Run("a refused pause says why", func(t *testing.T) {
@@ -417,7 +559,7 @@ func TestSchedulesForm(t *testing.T) {
 		hidden.HideAgents = true
 		harness := openSchedules(t, newLiveWorkflow("w1", "api"), hidden)
 
-		harness.press("e", "tab", "tab", "tab")
+		harness.press("e", "tab", "tab", "tab", "tab")
 		typeText(harness, " harder")
 		harness.press("ctrl+s")
 
@@ -428,7 +570,7 @@ func TestSchedulesForm(t *testing.T) {
 			Enabled:    true,
 			HideAgents: true,
 			Prompt:     "check CI harder",
-			WorkflowId: "w1",
+			Target:     &schedulev1.UpdateScheduleRequest_WorkflowId{WorkflowId: "w1"},
 		})
 	})
 
@@ -450,7 +592,7 @@ func TestSchedulesForm(t *testing.T) {
 
 	t.Run("a workflow made while the form is up is offered and the cursor stays put", func(t *testing.T) {
 		harness := openSchedules(t, buildSchedules()...)
-		harness.press("e", "tab")
+		harness.press("e", "tab", "tab")
 
 		harness.watch(buildPuts(newLiveWorkflow("w2", "brandnew")))
 
@@ -468,12 +610,12 @@ func TestSchedulesForm(t *testing.T) {
 		harness.press("ctrl+s")
 
 		harness.assertSentTo(schedulev1connect.ScheduleServiceUpdateScheduleProcedure, &schedulev1.UpdateScheduleRequest{
-			Id:         "s1",
-			Name:       "morning-ci",
-			Cron:       "0 9 * * 1-5",
-			Enabled:    true,
-			Prompt:     "check CI",
-			WorkflowId: "w1",
+			Id:      "s1",
+			Name:    "morning-ci",
+			Cron:    "0 9 * * 1-5",
+			Enabled: true,
+			Prompt:  "check CI",
+			Target:  &schedulev1.UpdateScheduleRequest_WorkflowId{WorkflowId: "w1"},
 		})
 	})
 
@@ -525,6 +667,7 @@ func newSchedule(id, name string) *schedulev1.Schedule {
 		Enabled:    true,
 		Prompt:     "check CI",
 		WorkflowId: "w1",
+		Kind:       schedulev1.ScheduleKind_SCHEDULE_KIND_IMPLEMENTER,
 	}
 }
 
