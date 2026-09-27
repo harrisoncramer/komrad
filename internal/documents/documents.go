@@ -41,20 +41,16 @@ var (
 	ErrForAnother = fail.InvalidArgument("the document belongs to another agent, so leave agent_id unset to rewrite it")
 )
 
-type editNoticeSender interface {
-	SendNotice(ctx context.Context, params mail.SendNoticeParams) (*mailstore.Mail, error)
-}
-
 type NewDocumentServiceParams struct {
 	Agents    *agentstore.AgentStore
 	Documents *documentstore.DocumentStore
-	Mailer    editNoticeSender
+	Mailer    *mail.MailService
 }
 
 type DocumentService struct {
 	agents    *agentstore.AgentStore
 	documents *documentstore.DocumentStore
-	mailer    editNoticeSender
+	mailer    *mail.MailService
 }
 
 // NewDocumentService builds the service over the agents that write documents, the store that
@@ -159,7 +155,7 @@ func (s *DocumentService) tellTheAuthor(ctx context.Context, author agentstore.A
 
 	if _, err := s.mailer.SendNotice(ctx, mail.SendNoticeParams{
 		ToAgentID:     author.ID,
-		Body:          editNotice(edited, lastWrittenByAgent(versions)),
+		Body:          buildEditNotice(edited, findLastAgentVersion(versions)),
 		Kind:          mailstore.KindDocumentEdited,
 		AboutDocument: &edited.ID,
 	}); err != nil {
@@ -168,7 +164,7 @@ func (s *DocumentService) tellTheAuthor(ctx context.Context, author agentstore.A
 	}
 }
 
-func lastWrittenByAgent(versions []documentstore.Version) int32 {
+func findLastAgentVersion(versions []documentstore.Version) int32 {
 	for _, version := range versions {
 		if !version.ByPerson {
 			return version.Version
@@ -178,7 +174,7 @@ func lastWrittenByAgent(versions []documentstore.Version) int32 {
 	return 0
 }
 
-func editNotice(edited documentstore.Document, yours int32) string {
+func buildEditNotice(edited documentstore.Document, yours int32) string {
 	return fmt.Sprintf("komrad: a person edited your document %q (%s) in the panel, writing version %d. "+
 		"The last version you wrote is %d. Read theirs with get_document at version %d, and compare the two with list_document_versions. "+
 		"Further saves before you read this send no more mail, so rewrite from the newest version list_document_versions lists, "+

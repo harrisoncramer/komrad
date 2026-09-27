@@ -290,13 +290,13 @@ func TestAPersonsEditMailsTheAuthor(t *testing.T) {
 		wantVersions []int32
 	}{
 		{
-			name:         "a person's edit sends one notice naming the version they wrote",
-			writes:       []write{{byPerson: true}},
-			wantVersions: []int32{2},
-		},
-		{
 			name:   "the author's own rewrite sends nothing",
 			writes: []write{{}},
+		},
+		{
+			name:     "an archived author is not told",
+			archived: true,
+			writes:   []write{{byPerson: true}},
 		},
 		{
 			name:         "edits made while a notice waits unread join it",
@@ -309,30 +309,41 @@ func TestAPersonsEditMailsTheAuthor(t *testing.T) {
 			wantVersions: []int32{3},
 		},
 		{
-			name:     "an archived author is not told",
-			archived: true,
-			writes:   []write{{byPerson: true}},
+			name:         "a person's edit sends one notice naming the version they wrote",
+			writes:       []write{{byPerson: true}},
+			wantVersions: []int32{2},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			author := stores.SeedAgent(t, agentstore.Agent{Name: uuid.NewString()})
-			doc, err := service.WriteDocument(ctx, documents.WriteDocumentParams{AgentID: author.ID, Name: "Documents", Kind: documentstore.KindRFC, Body: "draft"})
+			doc, err := service.WriteDocument(ctx, documents.WriteDocumentParams{
+				AgentID: author.ID,
+				Name:    "Documents",
+				Kind:    documentstore.KindRFC,
+				Body:    "draft",
+			})
 			require.NoError(t, err)
 			if tt.archived {
 				_, err := stores.Agents.Archive(ctx, []string{author.ID})
 				require.NoError(t, err)
 			}
 
-			for _, w := range tt.writes {
-				params := documents.WriteDocumentParams{ID: xptr.Ptr(doc.ID), Version: xptr.Ptr(doc.Version), Name: doc.Name, Kind: doc.Kind, Body: uuid.NewString()}
-				if !w.byPerson {
+			for _, step := range tt.writes {
+				params := documents.WriteDocumentParams{
+					ID:      xptr.Ptr(doc.ID),
+					Version: xptr.Ptr(doc.Version),
+					Name:    doc.Name,
+					Kind:    doc.Kind,
+					Body:    uuid.NewString(),
+				}
+				if !step.byPerson {
 					params.AgentID = author.ID
 				}
 				doc, err = service.WriteDocument(ctx, params)
 				require.NoError(t, err)
-				if w.claim {
+				if step.claim {
 					_, err := stores.Mail.Claim(ctx, author.ID, 10)
 					require.NoError(t, err)
 				}
@@ -349,14 +360,14 @@ func TestAPersonsEditMailsTheAuthor(t *testing.T) {
 				assert.Equal(t, mail.KomradSenderName, notice.FromName)
 				require.NotNil(t, notice.AboutDocumentID)
 				assert.Equal(t, doc.ID, *notice.AboutDocumentID)
-				got = append(got, versionIn(t, notice.Body))
+				got = append(got, parseNoticeVersion(t, notice.Body))
 			}
 			assert.Equal(t, tt.wantVersions, got)
 		})
 	}
 }
 
-func versionIn(t *testing.T, body string) int32 {
+func parseNoticeVersion(t *testing.T, body string) int32 {
 	t.Helper()
 
 	_, after, found := strings.Cut(body, "writing version ")

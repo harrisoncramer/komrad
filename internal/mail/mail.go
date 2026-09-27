@@ -263,7 +263,7 @@ func (s *MailService) SendNotice(ctx context.Context, params SendNoticeParams) (
 	if params.AboutDocument != nil {
 		waiting, err := s.mailReadWriter.GetPendingAboutDocument(ctx, params.ToAgentID, params.Kind, *params.AboutDocument)
 		if err != nil && !errors.Is(err, store.ErrNotFound) {
-			return nil, err
+			return nil, fmt.Errorf("failed to find the unread notice about document %q: %w", *params.AboutDocument, err)
 		}
 		if waiting != nil {
 			return waiting, nil
