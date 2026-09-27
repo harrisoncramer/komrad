@@ -511,7 +511,7 @@ type SchedulesKeys struct {
 
 // ArchiveKeys are the bindings for the archive screen, which lists the agents
 // and schedules archived from the panel. Open enters it from the agents list, and the rest act
-// on the hovered agent once inside.
+// on the hovered row once inside.
 type ArchiveKeys struct {
 	// Leave the archive for the agents list.
 	Back []string `mapstructure:"back" default:"esc"`

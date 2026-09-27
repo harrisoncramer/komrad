@@ -93,7 +93,7 @@ func (s screenActionSpec) rowBinding(shared panelShared, row screenLegendRow) ke
 	var keys, heads []string
 
 	for _, id := range row.of {
-		a, ok := s.actionOf(id)
+		a, ok := s.answeringActionOf(shared, id)
 		if !ok {
 			continue
 		}
@@ -113,6 +113,18 @@ func (s screenActionSpec) rowBinding(shared panelShared, row screenLegendRow) ke
 	}
 
 	return key.NewBinding(key.WithKeys(keys...), key.WithHelp(label, row.desc(shared)))
+}
+
+// answeringActionOf is the first arm with the id that answers now, or the first arm with it.
+func (s screenActionSpec) answeringActionOf(shared panelShared, id actionID) (screenAction, bool) {
+	i := slices.IndexFunc(s.table, func(a screenAction) bool {
+		return a.id == id && (a.when == nil || a.when(shared))
+	})
+	if i < 0 {
+		return s.actionOf(id)
+	}
+
+	return s.table[i], true
 }
 
 func (s screenActionSpec) actionOf(id actionID) (screenAction, bool) {
