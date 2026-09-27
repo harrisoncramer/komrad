@@ -493,7 +493,7 @@ type SidebarKeys struct {
 // the rest act on the hovered schedule once inside.
 type SchedulesKeys struct {
 	// Archive the schedule under the cursor, which stops it firing. The agents it
-	// launched are kept, and nothing brings the schedule back.
+	// launched are kept, and the archive can restore it.
 	Archive []string `mapstructure:"archive" default:"z"`
 	// Leave the schedules screen for the agents list.
 	Back []string `mapstructure:"back" default:"esc"`
@@ -510,23 +510,25 @@ type SchedulesKeys struct {
 }
 
 // ArchiveKeys are the bindings for the archive screen, which lists the agents
-// archived from the panel. Open enters it from the agents list, and the rest act
-// on the hovered agent once inside.
+// and schedules archived from the panel. Open enters it from the agents list, and the rest act
+// on the hovered row once inside.
 type ArchiveKeys struct {
 	// Leave the archive for the agents list.
 	Back []string `mapstructure:"back" default:"esc"`
-	// Destroy the agent under the cursor for good, with its transcript. This is
-	// the one thing in the panel nothing undoes, so it asks first.
+	// Destroy the agent or schedule under the cursor for good, with its transcript
+	// or its run history. Nothing undoes it, so it asks first.
 	Delete []string `mapstructure:"delete" default:"d"`
 	// Destroy every archived agent for good, however many there are. The panel hands
 	// the work to a background job, since tearing down that many agents takes a while.
 	// It asks first.
 	Empty []string `mapstructure:"empty" default:"D"`
+	// Switch the archive between its agents and its schedules.
+	Kind []string `mapstructure:"kind" default:"tab"`
 	// Open the archive from the agents list.
 	Open []string `mapstructure:"open" default:"Z"`
 	// Quit the panel.
 	Quit []string `mapstructure:"quit" default:"ctrl+c"`
-	// Put the agent under the cursor back in the panel.
+	// Put the agent or schedule under the cursor back in the panel.
 	Restore []string `mapstructure:"restore" default:"r"`
 	// Put the agent under the cursor back in the panel and open it, which relaunches its
 	// conversation in a pane and takes you to it. An agent that never got as far as

@@ -961,7 +961,7 @@
             "orchestrator"
           ],
           "summary": "List the schedules, most recently updated first, with each one's kind, cron expression, prompt, target, next run time, and its latest run.",
-          "description": "List the schedules, most recently updated first, with each one's kind, cron expression, prompt, target, next run time, and its latest run. The summary this returns by default holds only the opening of each schedule's prompt, marked by prompt_truncated; get_schedule returns one whole, and view VIEW_FULL returns every prompt on the page.",
+          "description": "List the schedules, most recently updated first, with each one's kind, cron expression, prompt, target, next run time, and its latest run. The summary this returns by default holds only the opening of each schedule's prompt, marked by prompt_truncated; get_schedule returns one whole, and view VIEW_FULL returns every prompt on the page. Archived schedules are excluded unless archived is set, which lists those and only those.",
           "readOnly": true,
           "idempotent": true,
           "destructive": false,
@@ -1069,11 +1069,47 @@
             "orchestrator"
           ],
           "summary": "Hide a schedule from the panel so it stops firing, keeping its record.",
-          "description": "Hide a schedule from the panel so it stops firing, keeping its record. The agents it already launched are left alone and keep running, and they still record the schedule that made them. Nothing brings an archived schedule back yet, so this is the end of it in practice.",
+          "description": "Hide a schedule from the panel so it stops firing, keeping its record. The agents it already launched are left alone and keep running, and they still record the schedule that made them. restore_schedule brings it back.",
           "readOnly": false,
           "idempotent": true,
           "destructive": false,
           "request": "schedule.v1.ArchiveScheduleRequest",
+          "response": "google.protobuf.Empty"
+        },
+        {
+          "slug": "restore-schedule",
+          "name": "RestoreSchedule",
+          "path": "/schedule.v1.ScheduleService/RestoreSchedule",
+          "command": "komrad rpc restore-schedule",
+          "tool": "restore_schedule",
+          "mcp": true,
+          "roles": [
+            "orchestrator"
+          ],
+          "summary": "Take a schedule out of the archive, keyed by id.",
+          "description": "Take a schedule out of the archive, keyed by id. It comes back paused or armed as it was when archived. Returns not_found if the schedule is not archived, failed_precondition if its workflow or orchestrator has since been archived, and already_exists if a live schedule has taken its name.",
+          "readOnly": false,
+          "idempotent": true,
+          "destructive": false,
+          "request": "schedule.v1.RestoreScheduleRequest",
+          "response": "google.protobuf.Empty"
+        },
+        {
+          "slug": "delete-schedule",
+          "name": "DeleteSchedule",
+          "path": "/schedule.v1.ScheduleService/DeleteSchedule",
+          "command": "komrad rpc delete-schedule",
+          "tool": "delete_schedule",
+          "mcp": true,
+          "roles": [
+            "orchestrator"
+          ],
+          "summary": "Permanently delete an archived schedule and its firing history.",
+          "description": "Permanently delete an archived schedule and its firing history. The agents it launched are left alone and no longer record the schedule that made them. Returns not_found if the schedule does not exist or is not archived.",
+          "readOnly": false,
+          "idempotent": true,
+          "destructive": true,
+          "request": "schedule.v1.DeleteScheduleRequest",
           "response": "google.protobuf.Empty"
         }
       ]
@@ -6617,6 +6653,24 @@
         }
       ]
     },
+    "schedule.v1.DeleteScheduleRequest": {
+      "name": "DeleteScheduleRequest",
+      "description": "",
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [
+            "required"
+          ],
+          "description": "Which archived schedule to remove for good."
+        }
+      ]
+    },
     "schedule.v1.GetScheduleRequest": {
       "name": "GetScheduleRequest",
       "description": "",
@@ -6720,6 +6774,16 @@
           "oneof": "",
           "rules": [],
           "description": "How much of each record to return, since the panel draws every field and a model reading the same endpoint has a context window to spend."
+        },
+        {
+          "name": "archived",
+          "type": "bool",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "True to list the archived schedules and only those."
         }
       ]
     },
@@ -6746,6 +6810,24 @@
           "oneof": "",
           "rules": [],
           "description": "Pass this back as the pagination cursor for the next page."
+        }
+      ]
+    },
+    "schedule.v1.RestoreScheduleRequest": {
+      "name": "RestoreScheduleRequest",
+      "description": "",
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [
+            "required"
+          ],
+          "description": "Which archived schedule to bring back."
         }
       ]
     },
@@ -6892,6 +6974,16 @@
           "oneof": "",
           "rules": [],
           "description": "The newest firings on record, newest first, which only the watch fills."
+        },
+        {
+          "name": "archived_at",
+          "type": "timestamp",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "When it was archived, unset while it is live."
         }
       ]
     },

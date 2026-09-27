@@ -65,6 +65,7 @@ func (m *model) withListing(change func(*listing)) tea.Cmd {
 	treeRow := m.agents.list().hovered(m.shared())
 	scheduleRow := m.schedules.list().hovered(m.shared())
 	archiveRow := m.archive.list().hovered(m.shared())
+	archiveScheduleRow := m.archive.scheduleList().hovered(m.shared())
 	worktreeRow := m.worktrees.list().hovered(m.shared())
 	searchRow := m.search.list().hovered(m.shared())
 
@@ -74,6 +75,7 @@ func (m *model) withListing(change func(*listing)) tea.Cmd {
 	m.agents.apply(m.shared(), m.landedRow(treeRow, time.Now()))
 	m.schedules.apply(m, m.shared(), scheduleRow)
 	m.archive.place(m.shared(), archiveRow)
+	m.archive.placeSchedule(m.shared(), archiveScheduleRow)
 	m.applyWorktrees(m.listing.worktrees, worktreeRow)
 	m.sizeAgentWindows()
 

@@ -116,7 +116,7 @@ func orchestratorField(values *panel.ScheduleConfig, orchestrators []panel.Agent
 func archiveScheduleForm(name string, keys config.FormKeys) (*huh.Form, *bool) {
 	return confirmForm(
 		fmt.Sprintf("Archive schedule %q?", name),
-		"The agents it already launched are kept, and nothing brings the schedule back.",
+		"The agents it already launched are kept, and the archive can restore it.",
 		"Archive",
 		keys,
 	)

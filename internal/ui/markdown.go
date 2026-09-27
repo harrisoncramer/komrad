@@ -198,7 +198,10 @@ func scheduleDocRows(item scheduleItem, width int) []string {
 	sched := item.schedule
 
 	notice := "_paused — will not run_"
-	if sched.Enabled {
+	switch {
+	case sched.ArchivedAt != nil:
+		notice = "_archived — kept until deleted_"
+	case sched.Enabled:
 		notice = fmt.Sprintf("_next run %s_", label.OrDash(label.Friendly(item.nextRun)))
 	}
 
@@ -220,6 +223,8 @@ func scheduleDocRows(item scheduleItem, width int) []string {
 }
 
 const emptyArchiveMarkdown = "# Archive\n\n_nothing archived_\n\nAgents archived from the panel are kept here until you delete them.\n"
+
+const emptyScheduleArchiveMarkdown = "# Archive\n\n_no archived schedules_\n\nSchedules archived from the panel are kept here until you delete them.\n"
 
 func archiveMarkdown(agent panel.Agent) string {
 	return renderDocument(agent.Name, "_archived — kept until deleted_", "",

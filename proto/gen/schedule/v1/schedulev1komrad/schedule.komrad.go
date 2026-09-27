@@ -23,6 +23,8 @@ type ScheduleServiceImpl interface {
 	UpdateSchedule(context.Context, *v1.UpdateScheduleRequest) (*emptypb.Empty, *fail.Error)
 	SetScheduleEnabled(context.Context, *v1.SetScheduleEnabledRequest) (*emptypb.Empty, *fail.Error)
 	ArchiveSchedule(context.Context, *v1.ArchiveScheduleRequest) (*emptypb.Empty, *fail.Error)
+	RestoreSchedule(context.Context, *v1.RestoreScheduleRequest) (*emptypb.Empty, *fail.Error)
+	DeleteSchedule(context.Context, *v1.DeleteScheduleRequest) (*emptypb.Empty, *fail.Error)
 }
 
 // ScheduleServiceAdapter carries what the implementation returned across to the signature
@@ -64,4 +66,14 @@ func (a ScheduleServiceAdapter) SetScheduleEnabled(ctx context.Context, req *con
 // ArchiveSchedule answers the request as connect serves it.
 func (a ScheduleServiceAdapter) ArchiveSchedule(ctx context.Context, req *connect.Request[v1.ArchiveScheduleRequest]) (*connect.Response[emptypb.Empty], error) {
 	return rpcerr.Answer(a.Impl.ArchiveSchedule(ctx, req.Msg))
+}
+
+// RestoreSchedule answers the request as connect serves it.
+func (a ScheduleServiceAdapter) RestoreSchedule(ctx context.Context, req *connect.Request[v1.RestoreScheduleRequest]) (*connect.Response[emptypb.Empty], error) {
+	return rpcerr.Answer(a.Impl.RestoreSchedule(ctx, req.Msg))
+}
+
+// DeleteSchedule answers the request as connect serves it.
+func (a ScheduleServiceAdapter) DeleteSchedule(ctx context.Context, req *connect.Request[v1.DeleteScheduleRequest]) (*connect.Response[emptypb.Empty], error) {
+	return rpcerr.Answer(a.Impl.DeleteSchedule(ctx, req.Msg))
 }

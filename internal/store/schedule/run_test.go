@@ -226,7 +226,7 @@ func TestRunsRideOnTheSchedule(t *testing.T) {
 		{
 			name: "a page of schedules carries the newest run of each",
 			read: func(t *testing.T, st *fixture, _ string) []Schedule {
-				page, err := st.ListPage(t.Context(), 10, nil)
+				page, err := st.ListPage(t.Context(), 10, nil, false)
 				require.NoError(t, err)
 
 				return page

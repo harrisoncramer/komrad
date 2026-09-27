@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"komrad/internal/mail"
+	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
 	schedulestore "komrad/internal/store/schedule"
 	workflowstore "komrad/internal/store/workflow"
@@ -496,6 +497,134 @@ func TestOrchestratorSchedule(t *testing.T) {
 
 const missingWorkflowID = "00000000-0000-0000-0000-0000000000ff"
 
+// TestRestoreSchedule pins which archived schedules come back and which are refused while what
+// they fire at is gone.
+func TestRestoreSchedule(t *testing.T) {
+	tests := []struct {
+		name                string
+		live                bool
+		orchestrator        bool
+		archiveWorkflow     bool
+		archiveOrchestrator bool
+		wantErr             error
+	}{
+		{
+			name: "an archived schedule comes back",
+		},
+		{
+			name:         "an archived orchestrator schedule comes back",
+			orchestrator: true,
+		},
+		{
+			name:    "a live schedule is not in the archive",
+			live:    true,
+			wantErr: ErrScheduleNotFound,
+		},
+		{
+			name:            "its workflow has been archived since",
+			archiveWorkflow: true,
+			wantErr:         ErrWorkflowArchived,
+		},
+		{
+			name:                "its orchestrator has been archived since",
+			orchestrator:        true,
+			archiveOrchestrator: true,
+			wantErr:             ErrOrchestratorArchived,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := storetest.Open(t)
+			ctx := t.Context()
+			svc := NewScheduleService(NewScheduleServiceParams{Schedules: st.Schedules, Workflows: st.Workflows, Agents: st.Agents})
+
+			workflow := st.SeedWorkflow(t, workflowstore.Config{Name: "backend"}).ID
+			cfg := schedulestore.Config{
+				Name:       "nightly",
+				Cron:       "0 9 * * *",
+				Prompt:     "go",
+				WorkflowID: workflow,
+			}
+			var lead *agentstore.Agent
+			if tt.orchestrator {
+				lead = st.SeedAgent(t, agentstore.Agent{Name: "lead", Role: agentstore.RoleOrchestrator, WorkflowID: workflow})
+				cfg.Kind = schedulestore.KindOrchestrator
+				cfg.OrchestratorAgentID = &lead.ID
+			}
+			created, err := svc.NewSchedule(ctx, cfg)
+			require.NoError(t, err)
+			if !tt.live {
+				require.NoError(t, svc.ArchiveSchedule(ctx, created.ID))
+			}
+			if tt.archiveOrchestrator {
+				_, err := st.Agents.Archive(ctx, []string{lead.ID})
+				require.NoError(t, err)
+			}
+			if tt.archiveWorkflow {
+				require.NoError(t, st.Workflows.Archive(ctx, workflow))
+			}
+
+			err = svc.RestoreSchedule(ctx, created.ID)
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+
+				return
+			}
+			require.NoError(t, err)
+
+			got, err := svc.GetSchedule(ctx, created.ID)
+			require.NoError(t, err)
+			assert.Nil(t, got.ArchivedAt)
+		})
+	}
+}
+
+// TestDeleteSchedule pins that only an archived schedule is deleted.
+func TestDeleteSchedule(t *testing.T) {
+	tests := []struct {
+		name    string
+		live    bool
+		wantErr error
+	}{
+		{
+			name: "an archived schedule is deleted",
+		},
+		{
+			name:    "a live schedule is refused",
+			live:    true,
+			wantErr: ErrScheduleNotFound,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := storetest.Open(t)
+			ctx := t.Context()
+			svc := NewScheduleService(NewScheduleServiceParams{Schedules: st.Schedules, Workflows: st.Workflows})
+
+			created := st.SeedSchedule(t, schedulestore.Config{Name: "nightly", Cron: "0 9 * * *", Prompt: "go"})
+			if !tt.live {
+				require.NoError(t, svc.ArchiveSchedule(ctx, created.ID))
+			}
+
+			err := svc.DeleteSchedule(ctx, created.ID)
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+
+				_, err = st.Schedules.Get(ctx, created.ID)
+				require.NoError(t, err, "the refused schedule is still there")
+
+				return
+			}
+			require.NoError(t, err)
+
+			_, err = st.Schedules.GetIncludingArchived(ctx, created.ID)
+			require.ErrorIs(t, err, store.ErrNotFound)
+		})
+	}
+}
+
 // TestScheduleNotFound pins that an id nothing holds is not-found rather than a silent
 // success, so a caller editing a deleted schedule hears about it.
 func TestScheduleNotFound(t *testing.T) {
@@ -522,9 +651,21 @@ func TestScheduleNotFound(t *testing.T) {
 			},
 		},
 		{
-			name: "deleting",
+			name: "archiving",
 			call: func(t *testing.T, svc *ScheduleService) error {
 				return svc.ArchiveSchedule(t.Context(), missingScheduleID)
+			},
+		},
+		{
+			name: "restoring",
+			call: func(t *testing.T, svc *ScheduleService) error {
+				return svc.RestoreSchedule(t.Context(), missingScheduleID)
+			},
+		},
+		{
+			name: "deleting for good",
+			call: func(t *testing.T, svc *ScheduleService) error {
+				return svc.DeleteSchedule(t.Context(), missingScheduleID)
 			},
 		},
 		{

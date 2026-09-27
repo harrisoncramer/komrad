@@ -94,6 +94,8 @@ message Schedule {
   optional ScheduleRun latest_run = 15;
   // The newest firings on record, newest first, which only the watch fills.
   repeated ScheduleRun recent_runs = 16;
+  // When it was archived, unset while it is live.
+  optional google.protobuf.Timestamp archived_at = 19;
 }
 
 message ListSchedulesRequest {
@@ -102,6 +104,8 @@ message ListSchedulesRequest {
   // How much of each record to return, since the panel draws every field and a model reading
   // the same endpoint has a context window to spend.
   view.v1.View view = 2 [(buf.validate.field).enum.defined_only = true];
+  // True to list the archived schedules and only those.
+  bool archived = 3;
 }
 
 message ListSchedulesResponse {
@@ -233,6 +237,16 @@ message ArchiveScheduleRequest {
   string id = 1 [(buf.validate.field).string.min_len = 1];
 }
 
+message RestoreScheduleRequest {
+  // Which archived schedule to bring back.
+  string id = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+message DeleteScheduleRequest {
+  // Which archived schedule to remove for good.
+  string id = 1 [(buf.validate.field).string.min_len = 1];
+}
+
 // ScheduleService is the recurring firings, which spawn an implementer into a workflow or mail an
 // orchestrator whenever their cron expression next matches.
 service ScheduleService {
@@ -242,7 +256,7 @@ service ScheduleService {
       cli: true
       mcp: true
       name: "list_schedules"
-      description: "List the schedules, most recently updated first, with each one's kind, cron expression, prompt, target, next run time, and its latest run. The summary this returns by default holds only the opening of each schedule's prompt, marked by prompt_truncated; get_schedule returns one whole, and view VIEW_FULL returns every prompt on the page."
+      description: "List the schedules, most recently updated first, with each one's kind, cron expression, prompt, target, next run time, and its latest run. The summary this returns by default holds only the opening of each schedule's prompt, marked by prompt_truncated; get_schedule returns one whole, and view VIEW_FULL returns every prompt on the page. Archived schedules are excluded unless archived is set, which lists those and only those."
       roles: [ROLE_ORCHESTRATOR]
     };
   }
@@ -304,8 +318,30 @@ service ScheduleService {
       cli: true
       mcp: true
       name: "archive_schedule"
-      description: "Hide a schedule from the panel so it stops firing, keeping its record. The agents it already launched are left alone and keep running, and they still record the schedule that made them. Nothing brings an archived schedule back yet, so this is the end of it in practice."
+      description: "Hide a schedule from the panel so it stops firing, keeping its record. The agents it already launched are left alone and keep running, and they still record the schedule that made them. restore_schedule brings it back."
       destructive: false
+      roles: [ROLE_ORCHESTRATOR]
+    };
+  }
+  rpc RestoreSchedule(RestoreScheduleRequest) returns (google.protobuf.Empty) {
+    option idempotency_level = IDEMPOTENT;
+    option (annotation.v1.surfaces) = {
+      cli: true
+      mcp: true
+      name: "restore_schedule"
+      description: "Take a schedule out of the archive, keyed by id. It comes back paused or armed as it was when archived. Returns not_found if the schedule is not archived, failed_precondition if its workflow or orchestrator has since been archived, and already_exists if a live schedule has taken its name."
+      destructive: false
+      roles: [ROLE_ORCHESTRATOR]
+    };
+  }
+  rpc DeleteSchedule(DeleteScheduleRequest) returns (google.protobuf.Empty) {
+    option idempotency_level = IDEMPOTENT;
+    option (annotation.v1.surfaces) = {
+      cli: true
+      mcp: true
+      name: "delete_schedule"
+      description: "Permanently delete an archived schedule and its firing history. The agents it launched are left alone and no longer record the schedule that made them. Returns not_found if the schedule does not exist or is not archived."
+      destructive: true
       roles: [ROLE_ORCHESTRATOR]
     };
   }

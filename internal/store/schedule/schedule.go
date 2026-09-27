@@ -25,6 +25,7 @@ type Schedule struct {
 	Kind                Kind
 	OrchestratorAgentID *string
 	UpdatedAt           time.Time
+	ArchivedAt          *time.Time
 	LatestRun           *Run
 	RecentRuns          []Run
 }
@@ -85,10 +86,10 @@ func NewScheduleStore(db store.DBTX) *ScheduleStore {
 // Cursor pages this listing, resuming from one row's id.
 type Cursor = store.IDCursor
 
-// ListPage returns one page of live schedules, newest first, resuming after cursor when one
-// is given.
-func (s *ScheduleStore) ListPage(ctx context.Context, limit int64, cursor *Cursor) ([]Schedule, error) {
-	params := models.ListSchedulesPageParams{Lim: int32(limit)}
+// ListPage returns one page of schedules, live or archived, newest first, resuming after cursor
+// when one is given.
+func (s *ScheduleStore) ListPage(ctx context.Context, limit int64, cursor *Cursor, archived bool) ([]Schedule, error) {
+	params := models.ListSchedulesPageParams{Lim: int32(limit), Archived: archived}
 	if cursor != nil {
 		params.CursorID = &cursor.ID
 	}
@@ -125,6 +126,25 @@ func (s *ScheduleStore) Get(ctx context.Context, id string) (*Schedule, error) {
 	}
 
 	return &attached[0], nil
+}
+
+// GetIncludingArchived returns a schedule by id whether or not it is archived.
+func (s *ScheduleStore) GetIncludingArchived(ctx context.Context, id string) (*Schedule, error) {
+	if !store.IsID(id) {
+		return nil, store.ErrNotFound.Saying("no schedule with id %q", id)
+	}
+
+	row, err := s.queries.GetScheduleIncludingArchived(ctx, id)
+	if db.IsNoRows(err) {
+		return nil, store.ErrNotFound.Saying("no schedule with id %q", id)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get schedule %q: %w", id, err)
+	}
+
+	schedule := scheduleFromRow(row.Schedule)
+
+	return &schedule, nil
 }
 
 // Create inserts a schedule and returns it.
@@ -207,6 +227,23 @@ func (s *ScheduleStore) Archive(ctx context.Context, id string) error {
 	return nil
 }
 
+// Restore takes a schedule out of the archive.
+func (s *ScheduleStore) Restore(ctx context.Context, id string) error {
+	if !store.IsID(id) {
+		return nil
+	}
+
+	err := s.queries.MarkScheduleRestored(ctx, id)
+	if db.IsUniqueViolation(err) {
+		return store.ErrNameTaken.Saying("a live schedule already holds its name")
+	}
+	if err != nil {
+		return fmt.Errorf("failed to restore schedule %q: %w", id, err)
+	}
+
+	return nil
+}
+
 // ListInWorkflow returns every schedule pointing at a workflow, archived ones included.
 func (s *ScheduleStore) ListInWorkflow(ctx context.Context, workflowID string) ([]Schedule, error) {
 	if !store.IsID(workflowID) {
@@ -266,6 +303,7 @@ func scheduleFromRow(s models.Schedule) Schedule {
 		Kind:                Kind(s.Kind),
 		OrchestratorAgentID: s.OrchestratorAgentID,
 		UpdatedAt:           s.UpdatedAt,
+		ArchivedAt:          s.ArchivedAt,
 	}
 }
 

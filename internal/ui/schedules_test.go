@@ -143,6 +143,12 @@ func TestSchedulesList(t *testing.T) {
 		assert.Equal(t, []string{"◇ nightly  0 1 * * *", "◆ morning-ci  0 9 * * 1-5"}, readScheduleRows(frame))
 	})
 
+	t.Run("an archived schedule is left to the archive", func(t *testing.T) {
+		harness := openSchedules(t, newLiveWorkflow("w1", "api"), newSchedule("s1", "morning-ci"), newArchivedSchedule("s2", "weekly-gone"))
+
+		assert.Equal(t, []string{"◆ morning-ci  0 9 * * 1-5"}, readScheduleRows(harness.readFrame()))
+	})
+
 	t.Run("the cursor keeps its schedule as another lands above it", func(t *testing.T) {
 		harness := openSchedules(t, newSchedule("a", "alpha"), newSchedule("b", "bravo"))
 		harness.press("j")

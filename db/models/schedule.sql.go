@@ -105,6 +105,42 @@ func (q *Queries) GetSchedule(ctx context.Context, id string) (*GetScheduleRow, 
 	return &i, err
 }
 
+const getScheduleIncludingArchived = `-- name: GetScheduleIncludingArchived :one
+SELECT
+    s.id, s.name, s.cron, s.timezone, s.enabled, s.hide_agents, s.prompt, s.workflow_id, s.archived_at, s.created_at, s.updated_at, s.engine_id, s.kind, s.orchestrator_agent_id
+FROM
+    schedules s
+WHERE
+    s.id = $1
+LIMIT 1
+`
+
+type GetScheduleIncludingArchivedRow struct {
+	Schedule Schedule
+}
+
+func (q *Queries) GetScheduleIncludingArchived(ctx context.Context, id string) (*GetScheduleIncludingArchivedRow, error) {
+	row := q.db.QueryRow(ctx, getScheduleIncludingArchived, id)
+	var i GetScheduleIncludingArchivedRow
+	err := row.Scan(
+		&i.Schedule.ID,
+		&i.Schedule.Name,
+		&i.Schedule.Cron,
+		&i.Schedule.Timezone,
+		&i.Schedule.Enabled,
+		&i.Schedule.HideAgents,
+		&i.Schedule.Prompt,
+		&i.Schedule.WorkflowID,
+		&i.Schedule.ArchivedAt,
+		&i.Schedule.CreatedAt,
+		&i.Schedule.UpdatedAt,
+		&i.Schedule.EngineID,
+		&i.Schedule.Kind,
+		&i.Schedule.OrchestratorAgentID,
+	)
+	return &i, err
+}
+
 const insertSchedule = `-- name: InsertSchedule :one
 INSERT INTO schedules(
     name,
@@ -298,16 +334,16 @@ SELECT
     s.id, s.name, s.cron, s.timezone, s.enabled, s.hide_agents, s.prompt, s.workflow_id, s.archived_at, s.created_at, s.updated_at, s.engine_id, s.kind, s.orchestrator_agent_id
 FROM
     schedules s
-WHERE
-    s.archived_at IS NULL
-    AND ($1::uuid IS NULL
-        OR s.id < $1)
+WHERE ($1::boolean) =(s.archived_at IS NOT NULL)
+    AND ($2::uuid IS NULL
+        OR s.id < $2)
 ORDER BY
     s.id DESC
-LIMIT $2
+LIMIT $3
 `
 
 type ListSchedulesPageParams struct {
+	Archived bool
 	CursorID *string
 	Lim      int32
 }
@@ -317,7 +353,7 @@ type ListSchedulesPageRow struct {
 }
 
 func (q *Queries) ListSchedulesPage(ctx context.Context, arg ListSchedulesPageParams) ([]*ListSchedulesPageRow, error) {
-	rows, err := q.db.Query(ctx, listSchedulesPage, arg.CursorID, arg.Lim)
+	rows, err := q.db.Query(ctx, listSchedulesPage, arg.Archived, arg.CursorID, arg.Lim)
 	if err != nil {
 		return nil, err
 	}
@@ -356,10 +392,8 @@ SELECT
     s.id, s.name, s.cron, s.timezone, s.enabled, s.hide_agents, s.prompt, s.workflow_id, s.archived_at, s.created_at, s.updated_at, s.engine_id, s.kind, s.orchestrator_agent_id
 FROM
     schedules s
-WHERE
-    s.archived_at IS NULL
-    AND ($1::text[] IS NULL
-        OR s.id = ANY ($1::uuid[]))
+WHERE ($1::text[] IS NULL
+    OR s.id = ANY ($1::uuid[]))
 ORDER BY
     s.id DESC
 `
@@ -465,6 +499,21 @@ WHERE
 
 func (q *Queries) MarkScheduleArchived(ctx context.Context, id string) error {
 	_, err := q.db.Exec(ctx, markScheduleArchived, id)
+	return err
+}
+
+const markScheduleRestored = `-- name: MarkScheduleRestored :exec
+UPDATE
+    schedules
+SET
+    archived_at = NULL
+WHERE
+    id = $1
+    AND archived_at IS NOT NULL
+`
+
+func (q *Queries) MarkScheduleRestored(ctx context.Context, id string) error {
+	_, err := q.db.Exec(ctx, markScheduleRestored, id)
 	return err
 }
 

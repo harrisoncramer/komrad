@@ -189,6 +189,11 @@ func scheduleFrom(s *schedulev1.Schedule) panel.Schedule {
 		schedule.LatestRun = &run
 	}
 
+	if archived := s.GetArchivedAt(); archived != nil {
+		at := archived.AsTime().Local()
+		schedule.ArchivedAt = &at
+	}
+
 	return schedule
 }
 

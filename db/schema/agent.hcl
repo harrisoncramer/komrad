@@ -703,7 +703,7 @@ table "agents" {
   foreign_key "agents_schedule_id_fkey" {
     columns     = [column.engine_id, column.schedule_id]
     ref_columns = [table.schedules.column.engine_id, table.schedules.column.id]
-    on_delete   = RESTRICT
+    on_delete   = SET_NULL
     on_update   = NO_ACTION
   }
   foreign_key "agents_spawned_by_agent_id_fkey" {

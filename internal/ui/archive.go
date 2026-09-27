@@ -3,8 +3,10 @@ package ui
 import (
 	"fmt"
 	"slices"
+	"strings"
 
 	"komrad/config"
+	"komrad/internal/ui/paint"
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/ui/panel"
 	"komrad/internal/view"
@@ -14,18 +16,30 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
+// archiveKind is which archived resources the archive is listing.
+type archiveKind int
+
+const (
+	archiveAgents archiveKind = iota
+	archiveSchedules
+)
+
 // archiveScreen is the archive screen: the cursor in the archived agents and how they are
-// ordered.
+// ordered, and the cursor in the archived schedules.
 type archiveScreen struct {
 	rowCursor
-	sort tabsState
+	sort      tabsState
+	kind      archiveKind
+	schedules rowCursor
 	// rows is the rows built once for the frame being drawn, and nil between frames.
-	rows []agentRow
+	rows         []agentRow
+	scheduleRows []scheduleItem
 }
 
 // enter lands on the agent the target names.
 func (a *archiveScreen) enter(h host, s panelShared, target screenTarget) tea.Cmd {
 	if idx := rowIndexOfAgentID(a.listRows(s), target.agentID); target.agentID != "" && idx >= 0 {
+		a.kind = archiveAgents
 		a.cursor = idx
 	}
 
@@ -40,7 +54,32 @@ func (a *archiveScreen) update(h host, s panelShared, msg tea.Msg) tea.Cmd {
 		return nil
 	}
 
+	if a.kind == archiveSchedules {
+		return a.scheduleList().update(h, s, key, a.actions())
+	}
+
 	return a.list().update(h, s, key, a.actions())
+}
+
+func (a *archiveScreen) onAgents(panelShared) bool {
+	return a.kind == archiveAgents
+}
+
+func (a *archiveScreen) onSchedules(panelShared) bool {
+	return a.kind == archiveSchedules
+}
+
+// switchKind moves the archive to the other kind of archived resource.
+func (a *archiveScreen) switchKind(h host, s panelShared) tea.Cmd {
+	if a.onSchedules(s) {
+		a.kind = archiveAgents
+	} else {
+		a.kind = archiveSchedules
+	}
+
+	a.stage(h, s)
+
+	return h.waitToStage()
 }
 
 func (a *archiveScreen) list() screenList[agentRow] {
@@ -59,6 +98,81 @@ func (a *archiveScreen) list() screenList[agentRow] {
 		quit: func(k config.Keybindings) []string { return k.Archive.Quit },
 		back: func(k config.Keybindings) []string { return k.Archive.Back },
 	}
+}
+
+func (a *archiveScreen) scheduleList() screenList[scheduleItem] {
+	return screenList[scheduleItem]{
+		cursor: func() *rowCursor { return &a.schedules },
+		rows:   a.scheduleListRows,
+		name:   func(item scheduleItem) string { return item.schedule.Name },
+		placed: a.stage,
+		moved: func(h host, s panelShared) tea.Cmd {
+			a.stage(h, s)
+
+			return h.waitToStage()
+		},
+		quit: func(k config.Keybindings) []string { return k.Archive.Quit },
+		back: func(k config.Keybindings) []string { return k.Archive.Back },
+	}
+}
+
+// scheduleListRows is the archived schedules as drawn, or as they would be drawn when nothing has
+// cached them.
+func (a *archiveScreen) scheduleListRows(s panelShared) []scheduleItem {
+	if a.scheduleRows != nil {
+		return a.scheduleRows
+	}
+
+	return narrowed(s.chrome.filter, narrowedParams[scheduleItem]{
+		rows:  s.listing.archivedSchedules,
+		depth: func(scheduleItem) int { return 0 },
+		name:  func(item scheduleItem) string { return item.schedule.Name },
+	})
+}
+
+// hoveredSchedule is the archived schedule the cursor is on.
+func (a *archiveScreen) hoveredSchedule(s panelShared) (panel.Schedule, bool) {
+	item, ok := rowAt(a.scheduleListRows(s), a.schedules.cursor)
+
+	return item.schedule, ok
+}
+
+func (a *archiveScreen) restoreSchedule(h host, s panelShared) tea.Cmd {
+	schedule, ok := a.hoveredSchedule(s)
+	if !ok {
+		return nil
+	}
+
+	return h.writeCmd(
+		fmt.Sprintf("Could not restore schedule %q", schedule.Name),
+		func(c api) error { return c.restoreSchedule(schedule.ID) },
+	)
+}
+
+// confirmDeleteSchedule asks before the hovered archived schedule is deleted for good.
+func (a *archiveScreen) confirmDeleteSchedule(h host, s panelShared) tea.Cmd {
+	schedule, ok := a.hoveredSchedule(s)
+	if !ok {
+		return nil
+	}
+
+	form, confirmed := deleteScheduleForm(schedule.Name, formKeys())
+
+	return h.openForm(formState{
+		kind:   formArchiveDelete,
+		form:   form,
+		update: model.updateForm,
+		submit: confirmSubmit(func(m model) (model, tea.Cmd) {
+			if !*confirmed {
+				return m, nil
+			}
+
+			return m, m.writeCmd(
+				fmt.Sprintf("Could not delete schedule %q", schedule.Name),
+				func(c api) error { return c.deleteSchedule(schedule.ID) },
+			)
+		}),
+	})
 }
 
 // archiveSorts is every column the archive can be ordered by.
@@ -146,6 +260,12 @@ func (a *archiveScreen) place(s panelShared, hovered string) {
 	}
 
 	a.cursor = idx
+}
+
+// placeSchedule keeps the cursor on the archived schedule it was on as the rows under it change.
+func (a *archiveScreen) placeSchedule(s panelShared, hovered string) {
+	rows := a.scheduleListRows(s)
+	a.schedules.cursor = placeCursor(rowIndexOfKey(rows, hovered), a.schedules.cursor, len(rows))
 }
 
 // hoveredAgent is the archived agent the cursor is on, and none on a folder.
@@ -296,6 +416,15 @@ func confirmEmptyArchive(h host, s panelShared) tea.Cmd {
 }
 
 func (a *archiveScreen) details(s panelShared) details {
+	if a.kind == archiveSchedules {
+		item, ok := rowAt(a.scheduleListRows(s), a.schedules.cursor)
+		if !ok {
+			return details{}
+		}
+
+		return scheduleDetails(s, item)
+	}
+
 	r, ok := rowAt(a.listRows(s), a.cursor)
 	if !ok {
 		return details{}
@@ -334,6 +463,20 @@ func (a *archiveScreen) doc(s panelShared) string {
 	}
 }
 
+// docRows is the block drawn beside the list at a width for the row the cursor is on.
+func (a *archiveScreen) docRows(s panelShared, width int) []string {
+	if a.kind == archiveAgents {
+		return paint.DocStyledRows(a.doc(s), width, columnStyle())
+	}
+
+	item, ok := rowAt(a.scheduleListRows(s), a.schedules.cursor)
+	if !ok {
+		return paint.DocStyledRows(emptyScheduleArchiveMarkdown, width, columnStyle())
+	}
+
+	return scheduleDocRows(item, width)
+}
+
 // archiveDocument is what the panel draws beside an archived agent's row.
 func archiveDocument(agent panel.Agent) string {
 	if agent.State.IsFailed() {
@@ -345,19 +488,52 @@ func archiveDocument(agent panel.Agent) string {
 
 func (a *archiveScreen) view(s panelShared) string {
 	a.rows = a.buildRows(s)
-	defer func() { a.rows = nil }()
+	a.scheduleRows = a.scheduleListRows(s)
+	defer func() { a.rows, a.scheduleRows = nil, nil }()
 
 	return s.draw.columnListView(a.listParams(s))
 }
 
 func (a *archiveScreen) listParams(s panelShared) screenListParams {
+	if a.kind == archiveSchedules {
+		return screenListParams{
+			title: a.title(),
+			help:  a.help,
+			rows:  len(a.scheduleListRows(s)),
+			lines: func(pane listPane) ([]string, int) {
+				return scheduleLines(s, pane, scheduleLinesParams{
+					rows:   a.scheduleListRows(s),
+					cursor: a.schedules.cursor,
+					idle:   "no archived schedules",
+				}), a.schedules.cursor
+			},
+		}
+	}
+
 	return screenListParams{
-		title:    screenTitle(view.GlyphArchive, "Archive"),
+		title:    a.title(),
 		help:     a.help,
 		empty:    "nothing archived",
 		rows:     len(a.listRows(s)),
 		snapshot: func(pane listPane) view.Snapshot { return a.snapshot(s, pane) },
 	}
+}
+
+// title is the screen's name with the kinds it switches between, the one it lists picked out.
+func (a *archiveScreen) title() string {
+	muted := paint.Panel.Style(paint.ToneMuted)
+	chosen := paint.Panel.Style(paint.ToneAccent)
+
+	kinds := []string{"agents", "schedules"}
+	for i, kind := range kinds {
+		if archiveKind(i) == a.kind {
+			kinds[i] = chosen.Render(kind)
+		} else {
+			kinds[i] = muted.Render(kind)
+		}
+	}
+
+	return screenTitle(view.GlyphArchive, "Archive") + "  " + strings.Join(kinds, "  ")
 }
 
 func (a *archiveScreen) help(s panelShared) keyMap {
@@ -422,14 +598,28 @@ func (a *archiveScreen) detailsRoom(s panelShared) int {
 }
 
 func (a *archiveScreen) hoveredKey(s panelShared) string {
+	if a.kind == archiveSchedules {
+		return a.scheduleList().hovered(s)
+	}
+
 	return a.list().hovered(s)
 }
 
 func (a *archiveScreen) placeAt(h host, s panelShared, key string) {
+	if a.kind == archiveSchedules {
+		a.scheduleList().place(h, s, key)
+
+		return
+	}
+
 	a.list().place(h, s, key)
 }
 
 func (a *archiveScreen) filterRows(s panelShared) []filterRow {
+	if a.kind == archiveSchedules {
+		return a.scheduleList().filterRows(s)
+	}
+
 	return a.list().filterRows(s)
 }
 
@@ -442,12 +632,14 @@ func (a *archiveScreen) tabsState() *tabsState {
 }
 
 func (a *archiveScreen) tabsFit(s panelShared) bool {
-	return s.draw.listFitsTabs(a.listParams(s))
+	return a.kind == archiveAgents && s.draw.listFitsTabs(a.listParams(s))
 }
 
 func (a *archiveScreen) column() columnSpec {
 	return columnSpec{
 		floor: columnFloor,
-		doc:   func(m model) string { return m.archive.doc(m.shared()) },
+		docRows: func(m model, width int) []string {
+			return m.archive.docRows(m.shared(), width)
+		},
 	}
 }

@@ -48,7 +48,7 @@ func (s *Scheduler) Reconcile(ctx context.Context) error {
 
 	live := make(map[string]bool, len(listed))
 	for _, schedule := range listed {
-		if !schedule.Enabled {
+		if !schedule.Enabled || schedule.ArchivedAt != nil {
 			continue
 		}
 

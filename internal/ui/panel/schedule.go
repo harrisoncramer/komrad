@@ -20,6 +20,7 @@ type Schedule struct {
 	OrchestratorID string
 	LatestRun      *ScheduleRun
 	RecentRuns     []ScheduleRun
+	ArchivedAt     *time.Time
 }
 
 // ScheduleRun is one firing of a schedule as the launch job recorded it.

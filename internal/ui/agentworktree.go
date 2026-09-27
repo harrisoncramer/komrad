@@ -164,6 +164,9 @@ func (m model) hoveredRecordAgent() (panel.AgentRow, bool) {
 	case screenAgents:
 		row, ok = m.agents.hoveredRow(m.shared())
 	case screenArchive:
+		if m.archive.kind == archiveSchedules {
+			return panel.AgentRow{}, false
+		}
 		row, ok = rowAt(m.archive.listRows(m.shared()), m.archive.cursor)
 	case screenSchedules, screenSearch, screenReview, screenWorktrees, screenDocuments:
 		return panel.AgentRow{}, false
