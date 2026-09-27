@@ -290,7 +290,7 @@
             "orchestrator"
           ],
           "summary": "Stop a list of agents and hide them from the panel.",
-          "description": "Stop a list of agents and hide them from the panel. Their records and transcripts are kept, search still finds their conversations, and restore_agents brings them back, so prefer this to delete_agents. An agent's children are archived with it. A child named on its own is archived alone, which is how you finish with a reviewer while the agent it was reading keeps working. The batch goes whole or not at all. An agent other than an orchestrator may archive only its own children.",
+          "description": "Stop a list of agents and hide them from the panel. Their records and transcripts are kept, search still finds their conversations, and restore_agents brings them back, so prefer this to delete_agents. An agent's children are archived with it. A child named on its own is archived alone, which is how you finish with a reviewer while the agent it was reading keeps working. The batch goes whole or not at all, and the call waits for each agent's pre-archive hook, one that fails refusing the batch. An agent other than an orchestrator may archive only its own children.",
           "readOnly": false,
           "idempotent": true,
           "destructive": false,
@@ -308,7 +308,7 @@
             "orchestrator"
           ],
           "summary": "Bring archived agents back, along with the workflows they belong to.",
-          "description": "Bring archived agents back, along with the workflows they belong to. They come back dormant, with no pane, so call resume_agent on each one you want running again. Agents that are not archived are returned as they stand. The batch goes whole or not at all: it is refused when any id is unknown, when a live agent has taken a returning agent's name, or when the panel has no room for all of them. A child comes back with its parent, and cannot be restored on its own while its parent stays archived.",
+          "description": "Bring archived agents back, along with the workflows they belong to. They come back dormant, with no pane, so call resume_agent on each one you want running again. Agents that are not archived are returned as they stand. The batch goes whole or not at all: it is refused when any id is unknown, when a live agent has taken a returning agent's name, or when the panel has no room for all of them. A child comes back with its parent, and cannot be restored on its own while its parent stays archived. The call waits for each agent's pre-restore hook, and one that fails refuses the batch.",
           "readOnly": false,
           "idempotent": true,
           "destructive": false,
@@ -362,7 +362,7 @@
             "orchestrator"
           ],
           "summary": "Relaunch an agent's CLI on the same conversation, which is how to reach an agent whose pane has died or that was just restored from the archive.",
-          "description": "Relaunch an agent's CLI on the same conversation, which is how to reach an agent whose pane has died or that was just restored from the archive. An agent already running is returned as it stands. An archived agent is refused, so call restore_agents first. One already part-way through resuming is refused as failed_precondition, which means wait for the pane rather than call again.",
+          "description": "Relaunch an agent's CLI on the same conversation, which is how to reach an agent whose pane has died or that was just restored from the archive. An agent already running is returned as it stands. An archived agent is refused, so call restore_agents first. One already part-way through resuming is refused as failed_precondition, which means wait for the pane rather than call again. The call waits for the workflow's pre-resume hook, and one that fails refuses the resume.",
           "readOnly": false,
           "idempotent": true,
           "destructive": false,
@@ -863,7 +863,7 @@
             "orchestrator"
           ],
           "summary": "Create a workflow to group agents under.",
-          "description": "Create a workflow to group agents under. Nothing runs as a result; this is organisation. The cwd and flags become the defaults prefilled when an agent is created inside it, and the context is appended to those agents' system prompts. worktree.enabled gives every agent a git worktree of its own, cut from cwd, which komrad makes before the agent starts and removes when it is deleted; left off, agents run in the directory they are given and komrad provisions nothing. hooks hang your own scripts on a moment in those agents' lives, one per moment, each naming a hook from list_hooks and one of pre-launch, post-launch, post-resume, post-restore or pre-teardown; komrad waits for pre-launch and pre-teardown and not the others, so a pre-launch that fails abandons the create and a pre-teardown that fails stops the delete and leaves the directory alone. worktree.baseBranch is the branch worktrees are cut from and every agent's work is measured against, filled in from the clone when left blank, which is what origin/HEAD names there, else the branch cwd is on, else main; the response carries the name stored. worktree.dir names the parent new worktrees are made in, blank meaning the one every workflow shares. worktree.diffExclude drops paths from the diff the panel draws, as paths or globs relative to the checkout such as proto/gen or *.pb.go. docs/src/content/guides/workflows.md says why each is there.",
+          "description": "Create a workflow to group agents under. Nothing runs as a result; this is organisation. The cwd and flags become the defaults prefilled when an agent is created inside it, and the context is appended to those agents' system prompts. worktree.enabled gives every agent a git worktree of its own, cut from cwd, which komrad makes before the agent starts and removes when it is deleted; left off, agents run in the directory they are given and komrad provisions nothing. hooks hang your own scripts on a moment in those agents' lives, one per moment, each naming a hook from list_hooks and one of pre-launch, post-launch, pre-resume, post-resume, pre-archive, post-archive, pre-restore, post-restore, pre-delete or post-delete; komrad waits for every pre hook and one that fails refuses the step, and it runs every post hook in the background, where one that fails only marks its run. worktree.baseBranch is the branch worktrees are cut from and every agent's work is measured against, filled in from the clone when left blank, which is what origin/HEAD names there, else the branch cwd is on, else main; the response carries the name stored. worktree.dir names the parent new worktrees are made in, blank meaning the one every workflow shares. worktree.diffExclude drops paths from the diff the panel draws, as paths or globs relative to the checkout such as proto/gen or *.pb.go. docs/src/content/guides/workflows.md says why each is there.",
           "readOnly": false,
           "idempotent": false,
           "destructive": false,
@@ -881,7 +881,7 @@
             "orchestrator"
           ],
           "summary": "Replace a workflow's name, context, directory, flags, worktree config and hooks.",
-          "description": "Replace a workflow's name, context, directory, flags, worktree config and hooks. Every field is written, so read the workflow first and send back the ones you are not changing, the hooks list included. Editing the context reaches only agents spawned afterwards, since existing agents took a snapshot at launch, while worktree.enabled reaches agents already running, since whether komrad removes an agent's directory is read when the agent is deleted. worktree.baseBranch is the branch worktrees are cut from and every agent's work is measured against, and a blank one is refused here, so send back the stored name when it is not what you are changing. worktree.dir names the parent new worktrees are made in, blank meaning the one every workflow shares. worktree.diffExclude drops paths from the diff the panel draws, as paths or globs relative to the checkout such as proto/gen or *.pb.go. docs/src/content/guides/workflows.md says why each is there.",
+          "description": "Replace a workflow's name, context, directory, flags, worktree config and hooks. Every field is written, so read the workflow first and send back the ones you are not changing, the hooks list included. Each hook names a hook from list_hooks and one of pre-launch, post-launch, pre-resume, post-resume, pre-archive, post-archive, pre-restore, post-restore, pre-delete or post-delete; komrad waits for every pre hook and one that fails refuses the step, and it runs every post hook in the background, where one that fails only marks its run. Editing the context reaches only agents spawned afterwards, since existing agents took a snapshot at launch, while worktree.enabled reaches agents already running, since whether komrad removes an agent's directory is read when the agent is deleted. worktree.baseBranch is the branch worktrees are cut from and every agent's work is measured against, and a blank one is refused here, so send back the stored name when it is not what you are changing. worktree.dir names the parent new worktrees are made in, blank meaning the one every workflow shares. worktree.diffExclude drops paths from the diff the panel draws, as paths or globs relative to the checkout such as proto/gen or *.pb.go. docs/src/content/guides/workflows.md says why each is there.",
           "readOnly": false,
           "idempotent": true,
           "destructive": false,
@@ -899,7 +899,7 @@
             "orchestrator"
           ],
           "summary": "Hide a workflow from the panel, archiving the agents inside it.",
-          "description": "Hide a workflow from the panel, archiving the agents inside it. Nothing is destroyed: the agents stay findable through search_transcripts and no transcript goes with them. Refused while any schedule still launches into the workflow, since those would have nowhere to run.",
+          "description": "Hide a workflow from the panel, archiving the agents inside it. Nothing is destroyed: the agents stay findable through search_transcripts and no transcript goes with them. Refused while any schedule still launches into the workflow, since those would have nowhere to run. The call waits for each agent's pre-archive hook, and one that fails refuses the whole archive.",
           "readOnly": false,
           "idempotent": true,
           "destructive": false,
@@ -917,7 +917,7 @@
             "orchestrator"
           ],
           "summary": "Take a workflow out of the archive, keyed by id, along with every agent archived inside it.",
-          "description": "Take a workflow out of the archive, keyed by id, along with every agent archived inside it. The agents come back as dormant rows, so call resume_agent on the ones whose conversations you want in a pane. Returns not_found if the workflow is not archived. It is refused whole rather than in part, either because its agents would not fit under the number the panel is configured to hold, or because live agents have taken their names, which the error lists for you to rename.",
+          "description": "Take a workflow out of the archive, keyed by id, along with every agent archived inside it. The agents come back as dormant rows, so call resume_agent on the ones whose conversations you want in a pane. Returns not_found if the workflow is not archived. It is refused whole rather than in part, either because its agents would not fit under the number the panel is configured to hold, or because live agents have taken their names, which the error lists for you to rename. The call waits for each agent's pre-restore hook, and one that fails refuses the whole restore.",
           "readOnly": false,
           "idempotent": true,
           "destructive": false,
@@ -1410,7 +1410,7 @@
           "mcp": false,
           "roles": [],
           "summary": "Queue one background job that deletes worktree directories, each by the path its row decides.",
-          "description": "Queue one background job that deletes worktree directories, each by the path its row decides. A directory whose agent is archived goes through delete_agents, which runs the workflow's teardown hooks and the cleanup and takes the agent's children with it; one nothing answers for, or whose agent's own delete failed on a registration git cannot read, goes through remove_unowned_worktrees; one whose agent is live is left alone. It answers once the job is recorded, before anything has gone. The directories leave list_worktrees as soon as the job is recorded. A directory the listing no longer holds is skipped, so a retried job takes only what is left, and one that is refused comes back to list_worktrees once the job is finished with, with the reason in the log.",
+          "description": "Queue one background job that deletes worktree directories, each by the path its row decides. A directory whose agent is archived goes through delete_agents, which runs the workflow's pre-delete hooks and the cleanup and takes the agent's children with it; one nothing answers for, or whose agent's own delete failed on a registration git cannot read, goes through remove_unowned_worktrees; one whose agent is live is left alone. It answers once the job is recorded, before anything has gone. The directories leave list_worktrees as soon as the job is recorded. A directory the listing no longer holds is skipped, so a retried job takes only what is left, and one that is refused comes back to list_worktrees once the job is finished with, with the reason in the log.",
           "readOnly": false,
           "idempotent": true,
           "destructive": true,
@@ -7694,7 +7694,7 @@
             "required",
             "at most 40 characters"
           ],
-          "description": "Which moment fires it, such as pre-launch or post-resume."
+          "description": "Which moment fires it, such as pre-launch or post-archive."
         },
         {
           "name": "script",

@@ -66,6 +66,9 @@ func (s *ScriptService) RunProvision(ctx context.Context, agent agentstore.Agent
 // RunHook runs one of a workflow's hooks and waits for it, in the directory the agent was
 // provisioned rather than the one the hook was found in.
 func (s *ScriptService) RunHook(ctx context.Context, agent agentstore.Agent, name, event string) error {
+	s.beginHook(agent.ID)
+	defer s.endHook(agent.ID)
+
 	record := s.beginRun(ctx, agent.ID, event, name)
 
 	script, env, err := s.prepare(ctx, prepareParams{

@@ -61,15 +61,24 @@ Press `e` on the workflow's row, move down to "Pre-launch hook", pick `ignore-re
 
 ## The moments
 
-| Moment         | Fires                                                     | Komrad waits | If it fails                                                                                          |
-| -------------- | --------------------------------------------------------- | ------------ | ---------------------------------------------------------------------------------------------------- |
-| `pre-launch`   | Once the agent's directory exists, before its CLI starts. | Yes          | The agent is not started and stays in the list marked as failed, so you can fix the cause and retry. |
-| `post-launch`  | Once the CLI is up, in the background.                    | No           | The run's log says so.                                                                               |
-| `post-resume`  | Once a dormant agent's CLI is back up, in the background. | No           | The run's log says so.                                                                               |
-| `post-restore` | Once a restored agent's CLI is up, in the background.     | No           | The run's log says so.                                                                               |
-| `pre-teardown` | When an agent is deleted, before its worktree is removed. | Yes          | The delete stops and the worktree is kept.                                                           |
+Every moment in an agent's life has a hook before it and a hook after it. Komrad waits for a `pre-` hook, and one that fails refuses the step. It never waits for a `post-` hook, and one that fails only marks its run.
 
-Write `pre-teardown` so it is safe to run twice. Archiving does not run it.
+| Moment         | Fires                                                                 | If it fails                                                                                          |
+| -------------- | --------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `pre-launch`   | Once the agent's directory exists, before its CLI starts.             | The agent is not started and stays in the list marked as failed, so you can fix the cause and retry. |
+| `post-launch`  | Once the CLI is up.                                                   | The run's log says so.                                                                               |
+| `pre-resume`   | Before a dormant agent's CLI starts again.                            | The agent is not resumed and stays dormant.                                                          |
+| `post-resume`  | Once a dormant agent's CLI is back up.                                | The run's log says so.                                                                               |
+| `pre-archive`  | While the CLI is still running, before its pane is closed.            | Nothing in the archive call is archived.                                                             |
+| `post-archive` | Once the pane is closed and the agent is in the archive.              | The run's log says so, and the agent stays archived.                                                 |
+| `pre-restore`  | While the agent is still in the archive.                              | Nothing in the restore call is restored.                                                             |
+| `post-restore` | Once the agent is back in the list, dormant.                          | The run's log says so.                                                                               |
+| `pre-delete`   | Once the panes are closed, before the worktree is removed.            | The delete stops, the worktree is kept, and the agent is marked as failed to clean up.               |
+| `post-delete`  | Once the worktree is removed and the agent's row is gone.             | Komrad's own log says so, since the agent has no run log left.                                      |
+
+Anything an agent brought up that should not outlive it, such as a server or a database slot, belongs on `post-archive`. Put it on `pre-delete` as well, written so it is safe to run twice, to cover an agent deleted without being archived.
+
+`pre-restore` and `pre-delete` are skipped when the agent's directory has already gone. `post-delete` runs in the hooks directory once the worktree is removed, and `KOMRAD_AGENT_CWD` still names where it was. A hook never starts while another of the same agent's hooks is running, and the worktree is not removed until they have all finished.
 
 Child agents run no hooks, because the directory they are in is not theirs.
 

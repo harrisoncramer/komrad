@@ -3,10 +3,13 @@ package agents
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"slices"
+	"sync"
 
 	"komrad/internal/logging"
+	"komrad/internal/scripts"
 	"komrad/internal/store"
 
 	agentstore "komrad/internal/store/agent"
@@ -42,6 +45,78 @@ func runHooks(ctx context.Context, params hookRunParams) error {
 	return nil
 }
 
+func runPreHooks(ctx context.Context, params hookRunParams) error {
+	if params.scripts == nil || !hasHookOn(params.hooks, params.event) {
+		return nil
+	}
+
+	if err := params.scripts.AwaitHooks(ctx, params.agent.ID); err != nil {
+		return err
+	}
+
+	return runHooks(ctx, params)
+}
+
+type batchHooksParams struct {
+	scripts     agentScriptRunner
+	workflows   workflowReader
+	agents      []agentstore.Agent
+	event       string
+	skipGoneDir bool
+}
+
+func runPreHooksFor(ctx context.Context, params batchHooksParams) map[string]error {
+	refused := make(map[string]error)
+	if params.scripts == nil {
+		return refused
+	}
+
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+
+	for _, agent := range params.agents {
+		hooks := agentHooks(ctx, params.workflows, agent)
+		if !hasHookOn(hooks, params.event) {
+			continue
+		}
+		if params.skipGoneDir && scripts.RequireUsableDir(agent.Cwd) != nil {
+			continue
+		}
+
+		wg.Go(func() {
+			err := runPreHooks(ctx, hookRunParams{
+				scripts: params.scripts,
+				agent:   agent,
+				hooks:   hooks,
+				event:   params.event,
+			})
+			if err == nil {
+				return
+			}
+
+			mu.Lock()
+			defer mu.Unlock()
+
+			refused[agent.ID] = fmt.Errorf("failed to run the %s hook of %q: %w", params.event, agent.Name, err)
+		})
+	}
+
+	wg.Wait()
+
+	return refused
+}
+
+func joinRefusals(agents []agentstore.Agent, refused map[string]error) error {
+	var errs []error
+	for _, agent := range agents {
+		if err, ok := refused[agent.ID]; ok {
+			errs = append(errs, err)
+		}
+	}
+
+	return errors.Join(errs...)
+}
+
 // hasHookOn reports whether a workflow hangs any script on one moment.
 func hasHookOn(hooks []workflowstore.Hook, event string) bool {
 	return slices.ContainsFunc(hooks, func(hook workflowstore.Hook) bool { return hook.Event == event })
@@ -71,17 +146,41 @@ func startHooks(ctx context.Context, params hookRunParams) {
 	}()
 }
 
-// startRestoreHooks tells every agent a restore took out of the archive that its row is back
-// but dormant.
-func startRestoreHooks(ctx context.Context, scripts agentScriptRunner, workflows workflowReader, restored []agentstore.Agent) {
-	for _, agent := range restored {
+func startHooksFor(ctx context.Context, params batchHooksParams) {
+	for _, agent := range params.agents {
 		startHooks(ctx, hookRunParams{
-			scripts: scripts,
+			scripts: params.scripts,
 			agent:   agent,
-			hooks:   agentHooks(ctx, workflows, agent),
-			event:   workflowstore.HookPostRestore,
+			hooks:   agentHooks(ctx, params.workflows, agent),
+			event:   params.event,
 		})
 	}
+}
+
+func startPostDeleteHooks(ctx context.Context, runner agentScriptRunner, agent agentstore.Agent, hooks []workflowstore.Hook) {
+	if runner == nil || !hasHookOn(hooks, workflowstore.HookPostDelete) {
+		return
+	}
+
+	bg := context.WithoutCancel(ctx)
+
+	go func() {
+		for _, hook := range hooks {
+			if hook.Event != workflowstore.HookPostDelete {
+				continue
+			}
+
+			if err := runner.RunPostDeleteHook(bg, agent, hook.Script, hook.Event); err != nil {
+				logging.From(bg).LogAttrs(bg, slog.LevelError, "a hook failed",
+					append([]slog.Attr{
+						slog.String(logging.RunTrigger, hook.Event),
+						slog.String(logging.ScriptAgentID, agent.ID),
+					}, logging.Err(err)...)...)
+
+				return
+			}
+		}
+	}()
 }
 
 // agentHooks are the hooks a workflow lists for one of its agents, none for an agent working in

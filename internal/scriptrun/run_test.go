@@ -1799,3 +1799,58 @@ func TestSilentAsyncFailureSaysWhyInItsLog(t *testing.T) {
 	assert.Contains(t, string(said), "teardown", "and it names the script that failed")
 	assert.Contains(t, string(said), "exited non-zero", "and says what became of it")
 }
+
+// TestAwaitHooksWaitsForTheHookStillRunning pins the wait that keeps an agent's hooks from overlapping.
+func TestAwaitHooksWaitsForTheHookStillRunning(t *testing.T) {
+	dir := t.TempDir()
+	worktree := t.TempDir()
+	release := filepath.Join(worktree, "release")
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "give-back"), []byte(
+		"#!/bin/sh\nwhile [ ! -e "+release+" ]; do sleep 0.02; done\n",
+	), 0o755))
+
+	svc := scriptServiceWithLogsDir(t, dir, scripts.NewRunner(), t.TempDir())
+	agent := agentstore.Agent{ID: fixtureAgentID, Cwd: worktree}
+
+	require.NoError(t, svc.AwaitHooks(t.Context(), agent.ID), "nothing is running yet")
+
+	done := make(chan error, 1)
+	go func() {
+		done <- svc.RunHook(context.WithoutCancel(t.Context()), agent, "give-back", workflowstore.HookPostArchive)
+	}()
+
+	require.Eventually(t, func() bool {
+		ctx, cancel := context.WithTimeout(t.Context(), 10*time.Millisecond)
+		defer cancel()
+
+		return svc.AwaitHooks(ctx, agent.ID) != nil
+	}, 5*time.Second, 10*time.Millisecond, "the wait holds while the hook runs")
+
+	require.NoError(t, os.WriteFile(release, nil, 0o644))
+	require.NoError(t, svc.AwaitHooks(t.Context(), agent.ID), "and ends once it has finished")
+	require.NoError(t, <-done)
+}
+
+// TestRunPostDeleteHookRunsInTheHooksDirectoryOnceTheWorktreeIsGone pins where the last hook of an
+// agent's life runs.
+func TestRunPostDeleteHookRunsInTheHooksDirectoryOnceTheWorktreeIsGone(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "forget"), []byte(
+		"#!/bin/sh\npwd -P >forgotten\necho \"$KOMRAD_AGENT_CWD\" >>forgotten\n",
+	), 0o755))
+
+	logsDir := t.TempDir()
+	svc := scriptServiceWithLogsDir(t, dir, scripts.NewRunner(), logsDir)
+
+	gone := filepath.Join(t.TempDir(), "worktree")
+	err := svc.RunPostDeleteHook(t.Context(), agentstore.Agent{ID: fixtureAgentID, Cwd: gone}, "forget", workflowstore.HookPostDelete)
+	require.NoError(t, err)
+
+	landed, readErr := os.ReadFile(filepath.Join(dir, "forgotten"))
+	require.NoError(t, readErr)
+
+	resolved, resolveErr := filepath.EvalSymlinks(dir)
+	require.NoError(t, resolveErr)
+	assert.Equal(t, resolved+"\n"+gone+"\n", string(landed), "told where the worktree was")
+	assert.Empty(t, config.ListRunLogs(logsDir, fixtureAgentID), "with no run log for a row that has gone")
+}

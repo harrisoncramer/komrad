@@ -24,9 +24,9 @@ func deleteWorktreesForm(deletion worktreeDeletion, keepsBranch *bool, keys conf
 	var lines []string
 	switch n := len(deletion.agents); {
 	case n == 1:
-		lines = append(lines, "The directory goes through the agent delete, which runs the workflow's teardown hooks and the cleanup; the agent leaves the archive and its transcript goes with it.")
+		lines = append(lines, "The directory goes through the agent delete, which runs the workflow's pre-delete hooks and the cleanup; the agent leaves the archive and its transcript goes with it.")
 	case n > 1:
-		lines = append(lines, fmt.Sprintf("%d directories go through the agent delete, which runs the workflow's teardown hooks and the cleanup; the agents leave the archive and their transcripts go with them.", n))
+		lines = append(lines, fmt.Sprintf("%d directories go through the agent delete, which runs the workflow's pre-delete hooks and the cleanup; the agents leave the archive and their transcripts go with them.", n))
 	}
 	switch n := len(deletion.unowned); {
 	case n == 1:

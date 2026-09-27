@@ -344,6 +344,16 @@ func (w *WorkflowService) ArchiveWorkflow(ctx context.Context, id string) error 
 	if err != nil {
 		return err
 	}
+
+	if err := joinRefusals(inside, runPreHooksFor(ctx, batchHooksParams{
+		scripts:   w.scripts,
+		workflows: w.store,
+		agents:    inside,
+		event:     workflowstore.HookPreArchive,
+	})); err != nil {
+		return fmt.Errorf("failed to archive workflow %q: %w", existing.Name, err)
+	}
+
 	// Panes go before the commit, so a failed commit leaves rows the reconciler can still tidy
 	// rather than a live CLI hidden for good.
 	killOwnedPanes(ctx, w.tmux, inside)
@@ -366,6 +376,13 @@ func (w *WorkflowService) ArchiveWorkflow(ctx context.Context, id string) error 
 	// took off the rows.
 	killPanes(ctx, w.tmux, taken)
 
+	startHooksFor(ctx, batchHooksParams{
+		scripts:   w.scripts,
+		workflows: w.store,
+		agents:    inside,
+		event:     workflowstore.HookPostArchive,
+	})
+
 	return nil
 }
 
@@ -381,6 +398,20 @@ func (w *WorkflowService) RestoreWorkflow(ctx context.Context, id string) (*work
 	}
 	if existing.ArchivedAt == nil {
 		return nil, ErrWorkflowNotFound.Saying("no archived workflow with id %q", id)
+	}
+
+	archived, err := w.agents.ListArchivedInWorkflow(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if err := joinRefusals(archived, runPreHooksFor(ctx, batchHooksParams{
+		scripts:     w.scripts,
+		workflows:   w.store,
+		agents:      archived,
+		event:       workflowstore.HookPreRestore,
+		skipGoneDir: true,
+	})); err != nil {
+		return nil, fmt.Errorf("failed to restore workflow %q: %w", existing.Name, err)
 	}
 
 	var restoring []agentstore.Agent
@@ -429,7 +460,12 @@ func (w *WorkflowService) RestoreWorkflow(ctx context.Context, id string) (*work
 	if err != nil {
 		return nil, err
 	}
-	startRestoreHooks(ctx, w.scripts, w.store, restored)
+	startHooksFor(ctx, batchHooksParams{
+		scripts:   w.scripts,
+		workflows: w.store,
+		agents:    restored,
+		event:     workflowstore.HookPostRestore,
+	})
 
 	return w.store.Get(ctx, id)
 }

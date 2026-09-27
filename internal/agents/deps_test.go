@@ -287,6 +287,7 @@ type fakeLifecycle struct {
 	holdDeprovision          bool
 	held                     []func(error)
 	hookErrs                 map[string]error
+	awaitHooks               chan struct{}
 	hooksMu                  sync.Mutex
 	hooks                    []ranHook
 	provision                []string
@@ -328,6 +329,23 @@ func (f *fakeLifecycle) RunHook(_ context.Context, agent agentstore.Agent, name,
 	})
 
 	return f.hookErrs[name]
+}
+
+func (f *fakeLifecycle) RunPostDeleteHook(ctx context.Context, agent agentstore.Agent, name, event string) error {
+	return f.RunHook(ctx, agent, name, event)
+}
+
+func (f *fakeLifecycle) AwaitHooks(ctx context.Context, _ string) error {
+	if f.awaitHooks == nil {
+		return nil
+	}
+
+	select {
+	case <-f.awaitHooks:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 func (f *fakeLifecycle) ranHooks() []ranHook {
