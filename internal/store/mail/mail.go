@@ -29,7 +29,7 @@ const (
 	// KindExchangeCapped tells an agent that mail written to it was refused because the pair had
 	// reached the cap on how much they may exchange.
 	KindExchangeCapped Kind = Kind(models.MailKindExchangeCapped)
-	// KindDocumentEdited tells an agent that a person edited one of its documents in the panel.
+	// KindDocumentEdited tells an agent that a person wrote or edited one of its documents in the panel.
 	KindDocumentEdited Kind = Kind(models.MailKindDocumentEdited)
 )
 

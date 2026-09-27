@@ -1,7 +1,6 @@
 package documents_test
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -273,20 +272,25 @@ func TestWriteByAPerson(t *testing.T) {
 	}
 }
 
-// TestAPersonsEditMailsTheAuthor pins which writes tell the author.
-func TestAPersonsEditMailsTheAuthor(t *testing.T) {
+// TestAPersonsWriteMailsTheAuthor pins which writes tell the author.
+func TestAPersonsWriteMailsTheAuthor(t *testing.T) {
 	stores := storetest.Open(t)
 	service := newService(stores)
 	ctx := t.Context()
 
 	tests := []struct {
-		name         string
-		archived     bool
-		byPerson     bool
-		wantVersions []int32
+		name       string
+		archived   bool
+		byPerson   bool
+		creates    bool
+		wantNotice string
 	}{
 		{
 			name: "the author's own rewrite sends nothing",
+		},
+		{
+			name:    "the author's own new document sends nothing",
+			creates: true,
 		},
 		{
 			name:     "an archived author is not told",
@@ -294,66 +298,66 @@ func TestAPersonsEditMailsTheAuthor(t *testing.T) {
 			byPerson: true,
 		},
 		{
-			name:         "a person's edit sends one notice naming the version they wrote",
-			byPerson:     true,
-			wantVersions: []int32{2},
+			name:       "a person's new document for the author sends one notice",
+			byPerson:   true,
+			creates:    true,
+			wantNotice: "a person wrote a new document for you",
+		},
+		{
+			name:       "a person's edit sends one notice naming the version they wrote",
+			byPerson:   true,
+			wantNotice: "writing version 2.",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			author := stores.SeedAgent(t, agentstore.Agent{Name: uuid.NewString()})
-			doc, err := service.WriteDocument(ctx, documents.WriteDocumentParams{
-				AgentID: author.ID,
-				Name:    "Documents",
-				Kind:    documentstore.KindRFC,
-				Body:    "draft",
-			})
-			require.NoError(t, err)
 			if tt.archived {
 				_, err := stores.Agents.Archive(ctx, []string{author.ID})
 				require.NoError(t, err)
 			}
 
 			params := documents.WriteDocumentParams{
-				ID:      xptr.Ptr(doc.ID),
-				Version: xptr.Ptr(doc.Version),
-				Name:    doc.Name,
-				Kind:    doc.Kind,
-				Body:    uuid.NewString(),
+				Name: "Documents",
+				Kind: documentstore.KindRFC,
+				Body: uuid.NewString(),
 			}
-			if !tt.byPerson {
+			if !tt.creates {
+				draft, err := service.WriteDocument(ctx, documents.WriteDocumentParams{
+					AgentID: author.ID,
+					Name:    params.Name,
+					Kind:    params.Kind,
+					Body:    "draft",
+				})
+				require.NoError(t, err)
+				params.ID = xptr.Ptr(draft.ID)
+				params.Version = xptr.Ptr(draft.Version)
+			}
+			switch {
+			case !tt.byPerson:
 				params.AgentID = author.ID
+			case tt.creates:
+				params.For = author.ID
 			}
-			doc, err = service.WriteDocument(ctx, params)
+			written, err := service.WriteDocument(ctx, params)
 			require.NoError(t, err)
 
 			waiting, err := stores.Mail.ListPage(ctx, author.ID, 10, nil)
 			require.NoError(t, err)
-			var got []int32
-			for _, notice := range waiting {
-				assert.Equal(t, mailstore.KindDocumentEdited, notice.Kind)
-				assert.Equal(t, mail.KomradSenderName, notice.FromName)
-				require.NotNil(t, notice.AboutDocumentID)
-				assert.Equal(t, doc.ID, *notice.AboutDocumentID)
-				got = append(got, parseNoticeVersion(t, notice.Body))
+			if tt.wantNotice == "" {
+				assert.Empty(t, waiting)
+
+				return
 			}
-			assert.Equal(t, tt.wantVersions, got)
+			require.Len(t, waiting, 1)
+			assert.Equal(t, mailstore.KindDocumentEdited, waiting[0].Kind)
+			assert.Equal(t, mail.KomradSenderName, waiting[0].FromName)
+			require.NotNil(t, waiting[0].AboutDocumentID)
+			assert.Equal(t, written.ID, *waiting[0].AboutDocumentID)
+			assert.Contains(t, waiting[0].Body, tt.wantNotice)
 		})
 	}
-}
-
-func parseNoticeVersion(t *testing.T, body string) int32 {
-	t.Helper()
-
-	_, after, found := strings.Cut(body, "writing version ")
-	require.True(t, found, body)
-
-	var version int32
-	_, err := fmt.Sscanf(after, "%d.", &version)
-	require.NoError(t, err, body)
-
-	return version
 }
 
 func newService(stores *storetest.Stores) *documents.DocumentService {

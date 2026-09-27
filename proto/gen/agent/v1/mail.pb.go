@@ -35,7 +35,7 @@ const (
 	MailKind_MAIL_KIND_REVIEW_ACTIVITY MailKind = 2
 	// Komrad telling an agent that it and one other have spent their mail limit.
 	MailKind_MAIL_KIND_EXCHANGE_CAPPED MailKind = 3
-	// Komrad telling an agent that a person edited one of its documents in the panel.
+	// Komrad telling an agent that a person wrote or edited one of its documents in the panel.
 	MailKind_MAIL_KIND_DOCUMENT_EDITED MailKind = 4
 )
 

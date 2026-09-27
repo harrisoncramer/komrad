@@ -495,7 +495,7 @@
             "orchestrator"
           ],
           "summary": "Write a markdown document for a person to read, such as an RFC, a report or an explainer.",
-          "description": "Write a markdown document for a person to read, such as an RFC, a report or an explainer. Give the text as body, or as path to a file you already wrote. It creates a document unless id names one of yours, which it rewrites, name and kind included. A rewrite passes the version the last read or write gave, and is refused as failed_precondition when the document has been written since, a person's edit included, so read it again with get_document and rewrite from that. A person's edit also mails you, naming the version they wrote. A name you already use is refused as already_exists, naming the id to pass instead.",
+          "description": "Write a markdown document for a person to read, such as an RFC, a report or an explainer. Give the text as body, or as path to a file you already wrote. It creates a document unless id names one of yours, which it rewrites, name and kind included. A rewrite passes the version the last read or write gave, and is refused as failed_precondition when the document has been written since, a person's edit included, so read it again with get_document and rewrite from that. A person writing or editing one of your documents in the panel mails you, naming the version they wrote. A name you already use is refused as already_exists, naming the id to pass instead.",
           "readOnly": false,
           "idempotent": false,
           "destructive": false,
@@ -8461,7 +8461,7 @@
         },
         {
           "name": "MAIL_KIND_DOCUMENT_EDITED",
-          "description": "Komrad telling an agent that a person edited one of its documents in the panel."
+          "description": "Komrad telling an agent that a person wrote or edited one of its documents in the panel."
         }
       ]
     },

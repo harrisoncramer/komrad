@@ -17,7 +17,7 @@ enum MailKind {
   MAIL_KIND_REVIEW_ACTIVITY = 2;
   // Komrad telling an agent that it and one other have spent their mail limit.
   MAIL_KIND_EXCHANGE_CAPPED = 3;
-  // Komrad telling an agent that a person edited one of its documents in the panel.
+  // Komrad telling an agent that a person wrote or edited one of its documents in the panel.
   MAIL_KIND_DOCUMENT_EDITED = 4;
 }
 
