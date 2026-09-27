@@ -109,6 +109,10 @@ type kinded interface {
 
 	// kindsFit is whether the screen has the room to draw the row of kinds.
 	kindsFit(s panelShared) bool
+
+	// kindsSwitch is whether the kind listed may change, which the row of kinds only takes the
+	// keys while it may.
+	kindsSwitch(s panelShared) bool
 }
 
 // tabbed is a screen that draws a strip of tabs over its list.

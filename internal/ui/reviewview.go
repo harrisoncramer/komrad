@@ -82,11 +82,21 @@ type sidebarLayout struct {
 // layoutSidebar pins the head and hands the conversation whatever the chrome leaves: where the
 // cursor is standing is what makes the rest of the pane mean anything.
 func (r reviewScreen) layoutSidebar(s panelShared, above ...string) sidebarLayout {
-	if layout := r.layoutUnder(s, s.draw.viewsBar(), above); strings.Count(layout.head, "\n") <= layout.spare {
-		return layout
+	// The logo, the switcher and the trail take their rows from the conversation alone, and give
+	// way before they cost the head, the record or the messages anything.
+	bare := r.layoutUnder(s, "", above)
+	barred := r.layoutUnder(s, s.draw.viewsBar(), above)
+	if barred.head != bare.head || barred.record != bare.record || barred.messages != bare.messages {
+		return bare
+	}
+	if strings.Count(barred.head, "\n") > barred.spare {
+		return bare
+	}
+	if conversation := strings.Count(r.restView(s), "\n"); barred.threadLines < min(bare.threadLines, conversation) {
+		return bare
 	}
 
-	return r.layoutUnder(s, "", above)
+	return barred
 }
 
 // layoutUnder measures the sidebar with bar over its head, the logo, the switcher and the trail

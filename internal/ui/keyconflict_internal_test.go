@@ -75,6 +75,15 @@ func TestValidateKeybindingsAllowsAGuardedArmInFront(t *testing.T) {
 		"both of these read the row under the cursor before they answer, so only one is ever live")
 }
 
+// TestValidateKeybindingsAllowsTheKindsKeyWhereNoRowOfKindsIsDrawn covers a screen that lists one
+// kind, where the kinds key is free for its own table.
+func TestValidateKeybindingsAllowsTheKindsKeyWhereNoRowOfKindsIsDrawn(t *testing.T) {
+	keys := config.DefaultKeybindings()
+	keys.Agents.Pause = keys.Kinds.Focus
+
+	assert.NoError(t, ValidateKeybindings(keys), "only the archive answers the kinds key ahead of its own table")
+}
+
 // TestValidateKeybindingsReadsTheGlobalKeys covers the keys routeGlobalKey answers before any
 // screen's own table, where the shadowed action is the screen's rather than the global one.
 func TestValidateKeybindingsReadsTheGlobalKeys(t *testing.T) {
@@ -107,6 +116,11 @@ func TestValidateKeybindingsReadsTheGlobalKeys(t *testing.T) {
 			name:   "the key that pushes a fixture into the messages",
 			rebind: func(k *config.Keybindings) { k.Agents.Pause = []string{messagesMockKey} },
 			names:  "the key that pushes a fixture into the messages",
+		},
+		{
+			name:   "an archive key on the row of kinds",
+			rebind: func(k *config.Keybindings) { k.Archive.Restore = k.Kinds.Focus },
+			names:  "the kinds focus",
 		},
 	}
 

@@ -52,7 +52,7 @@ func (m *model) blurKinds() {
 
 func (m model) focusKinds() model {
 	k, ok := m.activeKinds()
-	if !ok || !k.kindsFit(m.shared()) {
+	if !ok || !k.kindsFit(m.shared()) || !k.kindsSwitch(m.shared()) {
 		return m
 	}
 
@@ -81,7 +81,7 @@ func (m model) updateKinds(press tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) kindsBinding() key.Binding {
-	if _, ok := m.activeKinds(); !ok {
+	if k, ok := m.activeKinds(); !ok || !k.kindsSwitch(m.shared()) {
 		return key.Binding{}
 	}
 

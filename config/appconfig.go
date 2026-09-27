@@ -256,7 +256,8 @@ type KindsKeys struct {
 }
 
 // ViewsKeys are the bindings for the switcher at the top of the panel. Pick hands it the
-// keys, where tab and shift+tab open the next and previous view and esc hands the keys back. Each view's own key opens it straight away once the switcher holds the keys.
+// keys, where tab and shift+tab open the next and previous view and esc hands the keys back.
+// Each view's own key opens it straight away once the switcher holds the keys.
 type ViewsKeys struct {
 	// Hand the keys to the switcher.
 	Pick []string `mapstructure:"pick" default:"o"`

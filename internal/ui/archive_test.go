@@ -894,6 +894,15 @@ func TestArchiveSchedules(t *testing.T) {
 		})
 	}
 
+	t.Run("the row of kinds refuses the keys while agents are selected", func(t *testing.T) {
+		harness := openArchive(t, rows...)
+
+		harness.press(append(widenListPresses, "j", "v", "F", "?")...)
+		frame := harness.readFrame()
+		assert.NotEmpty(t, readHoveredRow(frame), "the list keeps the keys")
+		assert.NotContains(t, readLegend(frame), "F kind")
+	})
+
 	t.Run("the row of kinds holds the keys until escape", func(t *testing.T) {
 		harness := openArchive(t, rows...)
 

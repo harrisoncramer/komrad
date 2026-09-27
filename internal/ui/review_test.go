@@ -30,7 +30,7 @@ import (
 
 const (
 	reviewWidth  = 200
-	reviewHeight = 34
+	reviewHeight = 30
 	olderBase    = "1111111111111111111111111111111111111111"
 	replayedTree = "replayed-round-one"
 	secondTree   = "tree-with-a-second-file"
@@ -281,7 +281,7 @@ func TestReviewCursor(t *testing.T) {
 	t.Run("the keys come from the keymap", func(t *testing.T) {
 		keys := config.DefaultKeybindings()
 		keys.Review.Compose = []string{"i"}
-		harness := openReviewAt(t, newReviewServer(t), panelHarnessParams{height: 44, keys: &keys})
+		harness := openReviewAt(t, newReviewServer(t), panelHarnessParams{height: 40, keys: &keys})
 
 		harness.press("?")
 		assert.Contains(t, readLegend(harness.readFrame()), "i       comment on this line")
@@ -1522,6 +1522,16 @@ func TestReviewLayout(t *testing.T) {
 		}
 	})
 
+	t.Run("the switcher and the trail give way before the head does", func(t *testing.T) {
+		harness := openReviewAt(t, newReviewServer(t), panelHarnessParams{height: 22})
+		require.Contains(t, splitLines(harness.readFrame())[0], "komrad")
+
+		harness.press("?")
+
+		assert.NotContains(t, harness.readFrame(), "komrad")
+		assert.Equal(t, "greet.go:1", readReviewCursor(harness.readFrame()), "the head is whole")
+	})
+
 	t.Run("a window too narrow for both keeps the sidebar and drops the diff", func(t *testing.T) {
 		harness := openReviewAt(t, newReviewServer(t), panelHarnessParams{width: 120})
 		assert.Contains(t, harness.readFrame(), "package greet")
@@ -2413,7 +2423,7 @@ func TestReviewEmphasis(t *testing.T) {
 			OpenThreads: 1,
 		}}
 		harness := openReviewAt(t, server, panelHarnessParams{
-			height:        14,
+			height:        12,
 			detailsHeight: 0.01,
 		})
 		pin := gittest.TallFile + ":5"

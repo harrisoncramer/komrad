@@ -80,13 +80,13 @@ func (a *archiveScreen) kindsFocused() *bool {
 	return &a.kindFocus
 }
 
-// stepKind moves the archive to another kind of archived resource, which it does not while
-// agents are selected.
-func (a *archiveScreen) stepKind(h host, s panelShared, delta int) tea.Cmd {
-	if a.onAgents(s) && a.selected.isActive() {
-		return nil
-	}
+// kindsSwitch holds the archive on its agents while any are selected.
+func (a *archiveScreen) kindsSwitch(s panelShared) bool {
+	return !a.onAgents(s) || !a.selected.isActive()
+}
 
+// stepKind moves the archive to another kind of archived resource.
+func (a *archiveScreen) stepKind(h host, s panelShared, delta int) tea.Cmd {
 	a.kind = archiveKind(stepStop(int(a.kind), delta, len(a.kinds().labels)))
 
 	a.stage(h, s)
