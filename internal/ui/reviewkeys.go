@@ -161,7 +161,7 @@ func (r *reviewScreen) refuseExpand(s panelShared) string {
 		return ""
 	}
 
-	return "that file is folded away · " + keyLabel(s.keys.Review.ToggleViewed) + " to open it"
+	return "that file is folded away" + separated + keyLabel(s.keys.Review.ToggleViewed) + " to open it"
 }
 
 // diffHeight is the rows the diff is drawn in, less whatever the band over it takes.

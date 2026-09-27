@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
+	"komrad/internal/glyph"
 	"komrad/internal/ui/paint"
-	"komrad/internal/view"
 
 	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
@@ -17,36 +17,36 @@ func TestListTitles(t *testing.T) {
 	tests := []struct {
 		name  string
 		press []string
-		icon  view.Glyph
+		icon  glyph.Glyph
 		title string
 	}{
 		{
 			name:  "the agents tree",
-			icon:  view.GlyphWorkflow,
+			icon:  glyph.Workflow,
 			title: "Agents & Workflows",
 		},
 		{
 			name:  "the schedules",
 			press: []string{"S"},
-			icon:  view.GlyphSchedule,
+			icon:  glyph.Schedule,
 			title: "Schedules",
 		},
 		{
 			name:  "the archive",
 			press: []string{"Z"},
-			icon:  view.GlyphArchive,
+			icon:  glyph.Archive,
 			title: "Archive",
 		},
 		{
 			name:  "the worktrees",
 			press: []string{"t"},
-			icon:  view.GlyphRepo,
+			icon:  glyph.Worktree,
 			title: "Worktrees",
 		},
 		{
 			name:  "the search",
 			press: []string{"s"},
-			icon:  view.GlyphSearch,
+			icon:  glyph.Search,
 			title: "Search",
 		},
 	}
@@ -58,7 +58,7 @@ func TestListTitles(t *testing.T) {
 			harness.press(tt.press...)
 
 			first, _, _ := strings.Cut(harness.readRawFrame(), "\n")
-			require.True(t, strings.HasPrefix(first, view.Spell(tt.icon)+"  "+tt.title), "the title opens the frame: %q", ansi.Strip(first))
+			require.True(t, strings.HasPrefix(first, glyph.Defaults().Spell(tt.icon)+"  "+tt.title), "the title opens the frame: %q", ansi.Strip(first))
 			assert.NotContains(t, first, paint.Panel.Title(tt.title), "and is drawn plain")
 		})
 	}

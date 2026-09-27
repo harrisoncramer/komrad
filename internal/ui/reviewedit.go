@@ -70,7 +70,7 @@ func editorContent(editor, dir, path string, line int) layout.Content {
 // before it opens the editor and closes one already open.
 func (r *reviewScreen) pressEdit(h host, s panelShared) tea.Cmd {
 	if said, history := r.isHistory(); history && !r.hold.atEditor {
-		r.notice = said + " is finished, so the worktree no longer holds these lines · " +
+		r.notice = said + " is finished, so the worktree no longer holds these lines" + separated +
 			keyLabel(s.keys.Review.BaseForward) + " for the current work"
 
 		return nil
@@ -118,7 +118,7 @@ func (r reviewScreen) isAgentUnreadable(s panelShared) (string, bool) {
 		return "", false
 	}
 
-	return "komrad cannot read this agent's pane, so it may be writing in this worktree · " +
+	return "komrad cannot read this agent's pane, so it may be writing in this worktree" + separated +
 		"look at the pane before you edit", true
 }
 
@@ -167,7 +167,7 @@ func (r reviewScreen) isAgentBusy(s panelShared) (string, bool) {
 	// letting an editor in over a writer.
 	switch item.Agent.State {
 	case panel.StateThinking:
-		return "the agent is writing in this worktree · " +
+		return "the agent is writing in this worktree" + separated +
 			"two writers in one checkout cannot both win, so stop it before you edit", true
 	case panel.StateUncertain:
 		return r.isAgentUnreadable(s)

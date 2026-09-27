@@ -831,6 +831,11 @@ type Config struct {
 	Layout Layout `mapstructure:"layout"`
 	// Panel keybindings, scoped to the screen each binding acts in.
 	Keybindings Keybindings `mapstructure:"keybindings"`
+	// The icons the panel draws, grouped by where each one is drawn. Every value is one character
+	// from the approved set, the Nerd Fonts octicons and a few named characters. The chrome the
+	// layout is drawn with, such as the status bars, dividers and rules, is fixed and not
+	// configured here.
+	Glyphs Glyphs `mapstructure:"glyphs"`
 	// Where komrad finds the scripts a workflow hangs on a moment in its agents' lives.
 	Hooks Hooks `mapstructure:"hooks"`
 	// Where a workflow's generated worktree provisioner creates its worktrees.
@@ -857,6 +862,7 @@ func Defaults() *Config {
 		Usage:          NewUsage(),
 		Layout:         DefaultLayout(),
 		Keybindings:    DefaultKeybindings(),
+		Glyphs:         DefaultGlyphs(),
 		Mail:           Mail{DeliveryDeadline: DefaultDeliveryDeadline, MaxExchange: DefaultMaxExchange},
 		Log:            Log{Level: DefaultLogLevel},
 		Debug:          Debug{FrameHistory: DefaultFrameHistory},
@@ -1008,6 +1014,9 @@ func (c Config) validate() error {
 		return err
 	}
 	if err := validateMail(c.Mail); err != nil {
+		return err
+	}
+	if err := validateGlyphs(c.Glyphs); err != nil {
 		return err
 	}
 	if err := validateConnection(c.Connection); err != nil {

@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strings"
 
+	"komrad/internal/glyph"
 	"komrad/internal/ui/diffview"
 	"komrad/internal/ui/paint"
 	agentv1 "komrad/proto/gen/agent/v1"
@@ -154,9 +155,9 @@ func (r reviewScreen) yoursRow(s panelShared, comment yourComment) string {
 
 	pad := strings.Repeat(" ", max(room-lipgloss.Width(where), 0))
 
-	mark := diffview.OpenMark
+	mark := s.glyphs.Spell(glyph.ThreadRead)
 	if comment.thread.GetResolvedAt() != "" {
-		mark = diffview.SettledMark
+		mark = s.glyphs.Spell(glyph.ThreadSettled)
 	}
 
 	return paint.Panel.Style(reviewHumanTone).Render(" "+mark+" ") +

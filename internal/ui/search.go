@@ -10,6 +10,7 @@ import (
 
 	"komrad/config"
 	"komrad/internal/client"
+	"komrad/internal/glyph"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/panel"
 	"komrad/internal/view"
@@ -694,9 +695,9 @@ func (w *searchScreen) sidebarView(s panelShared) string {
 
 	query := palette.Cursor().Render("/") + " " + w.query
 	if w.typing {
-		query += palette.Cursor().Render("▏")
+		query += palette.Cursor().Render(glyph.TextCursor)
 	}
-	header := screenTitle(view.GlyphSearch, "Search") + "\n\n" + query + "\n\n"
+	header := screenTitle(s.glyphs, glyph.Search, "Search") + "\n\n" + query + "\n\n"
 	help := s.draw.renderHelp(w.help(s), header)
 
 	rows := w.rows(s)
@@ -708,7 +709,7 @@ func (w *searchScreen) sidebarView(s panelShared) string {
 	}
 
 	window := view.Window(view.WindowParams{
-		List:    view.Prepare(w.snapshot(s, rows, s.draw.listPane(s.pane))),
+		List:    prepareList(s.glyphs, w.snapshot(s, rows, s.draw.listPane(s.pane))),
 		Palette: palette,
 		Width:   s.pane,
 		Lines:   s.draw.listLines(header, help),

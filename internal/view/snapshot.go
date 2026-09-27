@@ -1,6 +1,9 @@
 package view
 
-import "komrad/internal/ui/paint"
+import (
+	"komrad/internal/glyph"
+	"komrad/internal/ui/paint"
+)
 
 // RowKind is what one line of the agents list stands for, an agent leading so a row that names
 // no kind is the ordinary one.
@@ -95,6 +98,8 @@ type Snapshot struct {
 	Pane int
 	// Columns is the gutter this screen draws, and nil is the agents list's own.
 	Columns Columns
+	// Glyphs is the character each glyph is drawn with.
+	Glyphs glyph.Set
 }
 
 // columns is the gutter the snapshot draws, the agents list's own where none was named, which

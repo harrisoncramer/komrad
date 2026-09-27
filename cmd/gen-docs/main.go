@@ -43,6 +43,7 @@ func run(ctx context.Context, root, dir string) error {
 		"api.json":    buildAPI(notes),
 		"cli.json":    buildCLI(command),
 		"config.json": settings,
+		"glyphs.json": buildGlyphs(),
 	} {
 		if err := writeJSON(filepath.Join(dir, name), value); err != nil {
 			return err

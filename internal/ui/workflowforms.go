@@ -27,9 +27,14 @@ type workflowFormValues struct {
 	Provisioner          string
 	PreLaunchHook        string
 	PostLaunchHook       string
+	PreResumeHook        string
 	PostResumeHook       string
+	PreArchiveHook       string
+	PostArchiveHook      string
+	PreRestoreHook       string
 	PostRestoreHook      string
-	PreTeardownHook      string
+	PreDeleteHook        string
+	PostDeleteHook       string
 	WorktreeBaseBranch   string
 	WorktreeCopyPaths    string
 	WorktreeSymlinkPaths string
@@ -52,9 +57,14 @@ func workflowFormValuesFrom(cfg panel.WorkflowConfig) workflowFormValues {
 		Provisioner:          provisioner,
 		PreLaunchHook:        hookNamed(cfg.Hooks, config.HookPreLaunch),
 		PostLaunchHook:       hookNamed(cfg.Hooks, config.HookPostLaunch),
+		PreResumeHook:        hookNamed(cfg.Hooks, config.HookPreResume),
 		PostResumeHook:       hookNamed(cfg.Hooks, config.HookPostResume),
+		PreArchiveHook:       hookNamed(cfg.Hooks, config.HookPreArchive),
+		PostArchiveHook:      hookNamed(cfg.Hooks, config.HookPostArchive),
+		PreRestoreHook:       hookNamed(cfg.Hooks, config.HookPreRestore),
 		PostRestoreHook:      hookNamed(cfg.Hooks, config.HookPostRestore),
-		PreTeardownHook:      hookNamed(cfg.Hooks, config.HookPreTeardown),
+		PreDeleteHook:        hookNamed(cfg.Hooks, config.HookPreDelete),
+		PostDeleteHook:       hookNamed(cfg.Hooks, config.HookPostDelete),
 		WorktreeBaseBranch:   cfg.Worktree.BaseBranch,
 		WorktreeCopyPaths:    strings.Join(cfg.Worktree.CopyPaths, "\n"),
 		WorktreeSymlinkPaths: strings.Join(cfg.Worktree.SymlinkPaths, "\n"),
@@ -81,9 +91,14 @@ func (v workflowFormValues) toConfig() panel.WorkflowConfig {
 		Hooks: slices.Concat(
 			hookOn(v.PreLaunchHook, config.HookPreLaunch),
 			hookOn(v.PostLaunchHook, config.HookPostLaunch),
+			hookOn(v.PreResumeHook, config.HookPreResume),
 			hookOn(v.PostResumeHook, config.HookPostResume),
+			hookOn(v.PreArchiveHook, config.HookPreArchive),
+			hookOn(v.PostArchiveHook, config.HookPostArchive),
+			hookOn(v.PreRestoreHook, config.HookPreRestore),
 			hookOn(v.PostRestoreHook, config.HookPostRestore),
-			hookOn(v.PreTeardownHook, config.HookPreTeardown),
+			hookOn(v.PreDeleteHook, config.HookPreDelete),
+			hookOn(v.PostDeleteHook, config.HookPostDelete),
 		),
 	}
 
@@ -242,10 +257,34 @@ func hookFields(values *workflowFormValues, available []hookChoice) []huh.Field 
 			chosen:      &values.PostLaunchHook,
 		},
 		{
+			key:         "pre_resume_hook",
+			title:       "Pre-resume hook",
+			description: "runs in the agent's directory before a dormant agent's pane opens, and a failure refuses the resume",
+			chosen:      &values.PreResumeHook,
+		},
+		{
 			key:         "post_resume_hook",
 			title:       "Post-resume hook",
 			description: "runs once a dormant agent is back in a pane",
 			chosen:      &values.PostResumeHook,
+		},
+		{
+			key:         "pre_archive_hook",
+			title:       "Pre-archive hook",
+			description: "runs while the agent is still running, and a failure refuses the archive",
+			chosen:      &values.PreArchiveHook,
+		},
+		{
+			key:         "post_archive_hook",
+			title:       "Post-archive hook",
+			description: "runs in the agent's directory once its pane is gone and its row is archived",
+			chosen:      &values.PostArchiveHook,
+		},
+		{
+			key:         "pre_restore_hook",
+			title:       "Pre-restore hook",
+			description: "runs before an archived agent's row comes back, and a failure refuses the restore",
+			chosen:      &values.PreRestoreHook,
 		},
 		{
 			key:         "post_restore_hook",
@@ -254,10 +293,16 @@ func hookFields(values *workflowFormValues, available []hookChoice) []huh.Field 
 			chosen:      &values.PostRestoreHook,
 		},
 		{
-			key:         "pre_teardown_hook",
-			title:       "Pre-teardown hook",
+			key:         "pre_delete_hook",
+			title:       "Pre-delete hook",
 			description: "runs in the agent's directory as it is deleted, before the worktree is given back",
-			chosen:      &values.PreTeardownHook,
+			chosen:      &values.PreDeleteHook,
+		},
+		{
+			key:         "post_delete_hook",
+			title:       "Post-delete hook",
+			description: "runs once the agent and its worktree are gone",
+			chosen:      &values.PostDeleteHook,
 		},
 	}
 

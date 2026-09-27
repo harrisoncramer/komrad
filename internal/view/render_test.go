@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"komrad/internal/glyph"
 	"komrad/internal/ui/paint"
 
 	"charm.land/lipgloss/v2"
@@ -746,16 +747,8 @@ func wantNameColumn(kind RowKind) int {
 // TestEveryGlyphDrawsOneColumn pins the measurement the whole gutter rests on: an Octicon takes
 // one column, the same as the box-drawing rules beside it.
 func TestEveryGlyphDrawsOneColumn(t *testing.T) {
-	for glyph := GlyphNone; glyph < glyphCount; glyph++ {
-		spelled := Spell(glyph)
-		if glyph == GlyphNone {
-			assert.Empty(t, spelled)
-
-			continue
-		}
-
-		require.NotEmpty(t, spelled, "glyph %d is spelled out nowhere", glyph)
-		assert.Equal(t, plainColumns, lipgloss.Width(spelled), "glyph %q", spelled)
+	for _, drawing := range Drawings(glyph.Defaults()) {
+		assert.Equal(t, plainColumns, lipgloss.Width(drawing.Text), "%s %q", drawing.Name, drawing.Text)
 	}
 }
 

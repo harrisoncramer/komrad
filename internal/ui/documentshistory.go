@@ -6,6 +6,7 @@ import (
 
 	"komrad/internal/diff"
 	"komrad/internal/errui"
+	"komrad/internal/glyph"
 	"komrad/internal/ui/diffview"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/paint/label"
@@ -108,7 +109,7 @@ func (d *documentsScreen) docRows(s panelShared, width int) []string {
 	}
 
 	h := d.history
-	head := h.head(item, width)
+	head := h.head(item, width, s.glyphs)
 	if h.err != nil || h.versions == nil {
 		return head
 	}
@@ -126,7 +127,7 @@ func (d *documentsScreen) docRows(s panelShared, width int) []string {
 }
 
 // head is the rows over the change: which write it is, the search, and what the last key said.
-func (h *documentHistory) head(item documentItem, width int) []string {
+func (h *documentHistory) head(item documentItem, width int, glyphs glyph.Set) []string {
 	notice := "_reading its versions…_"
 	switch {
 	case h.err != nil:
@@ -143,7 +144,7 @@ func (h *documentHistory) head(item documentItem, width int) []string {
 	indent := strings.Repeat(" ", docMargin())
 	if h.filter.typing || h.filter.isStanding() {
 		count := strings.TrimRight(diffMatchCount(&h.pane, h.filter), "\n")
-		rows = append(rows, fitRow(indent+h.filter.line(paint.Panel)+count, width))
+		rows = append(rows, fitRow(indent+h.filter.line(paint.Panel, glyphs)+count, width))
 	}
 
 	if h.said != "" {
@@ -161,7 +162,7 @@ func (d *documentsScreen) diffHeight(s panelShared) int {
 		return 1
 	}
 
-	return max(split.rows-len(d.history.head(item, split.column)), 1)
+	return max(split.rows-len(d.history.head(item, split.column, s.glyphs)), 1)
 }
 
 // notice names the write stepped to, who made it and how long ago.

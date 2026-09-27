@@ -15,7 +15,7 @@ func TestReferenceIsInStepWithSources(t *testing.T) {
 	fresh := t.TempDir()
 	require.NoError(t, run(t.Context(), "../..", fresh))
 
-	for _, name := range []string{"api.json", "cli.json", "config.json"} {
+	for _, name := range []string{"api.json", "cli.json", "config.json", "glyphs.json"} {
 		require.Equal(t, read(t, filepath.Join(fresh, name)), read(t, filepath.Join(committed, name)), "%s is stale; run mise run gen:docs and commit the result", name)
 	}
 }

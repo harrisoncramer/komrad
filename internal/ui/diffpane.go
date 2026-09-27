@@ -357,7 +357,7 @@ func diffMatchCount(pane *diffview.Pane, filter filterState) string {
 	// A match inside a file folded away is on no row, so stepping through the matches never
 	// reaches it, and it is counted apart rather than left to look like nothing was found.
 	if hidden := view.HiddenMatches(); hidden > 0 {
-		where += fmt.Sprintf(" · %d in viewed files", hidden)
+		where += fmt.Sprintf(separated+"%d in viewed files", hidden)
 	}
 
 	return dimStyle.Render("  "+where) + "\n\n"

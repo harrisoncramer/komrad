@@ -1,0 +1,1640 @@
+{
+  "nerdFontsVersion": "3.5.1",
+  "characters": [
+    {
+      "codePoint": "U+F400",
+      "character": "",
+      "name": "oct-light_bulb"
+    },
+    {
+      "codePoint": "U+F401",
+      "character": "",
+      "name": "oct-repo"
+    },
+    {
+      "codePoint": "U+F402",
+      "character": "",
+      "name": "oct-repo_forked"
+    },
+    {
+      "codePoint": "U+F403",
+      "character": "",
+      "name": "oct-repo_push"
+    },
+    {
+      "codePoint": "U+F404",
+      "character": "",
+      "name": "oct-repo_pull"
+    },
+    {
+      "codePoint": "U+F405",
+      "character": "",
+      "name": "oct-book"
+    },
+    {
+      "codePoint": "U+F406",
+      "character": "",
+      "name": "oct-accessibility"
+    },
+    {
+      "codePoint": "U+F407",
+      "character": "",
+      "name": "oct-git_pull_request"
+    },
+    {
+      "codePoint": "U+F408",
+      "character": "",
+      "name": "oct-mark_github"
+    },
+    {
+      "codePoint": "U+F409",
+      "character": "",
+      "name": "oct-download"
+    },
+    {
+      "codePoint": "U+F40A",
+      "character": "",
+      "name": "oct-upload"
+    },
+    {
+      "codePoint": "U+F40B",
+      "character": "",
+      "name": "oct-accessibility_inset"
+    },
+    {
+      "codePoint": "U+F40C",
+      "character": "",
+      "name": "oct-alert_fill"
+    },
+    {
+      "codePoint": "U+F40D",
+      "character": "",
+      "name": "oct-file_code"
+    },
+    {
+      "codePoint": "U+F40E",
+      "character": "",
+      "name": "oct-apps"
+    },
+    {
+      "codePoint": "U+F40F",
+      "character": "",
+      "name": "oct-file_media"
+    },
+    {
+      "codePoint": "U+F410",
+      "character": "",
+      "name": "oct-file_zip"
+    },
+    {
+      "codePoint": "U+F411",
+      "character": "",
+      "name": "oct-archive"
+    },
+    {
+      "codePoint": "U+F412",
+      "character": "",
+      "name": "oct-tag"
+    },
+    {
+      "codePoint": "U+F413",
+      "character": "",
+      "name": "oct-file_directory"
+    },
+    {
+      "codePoint": "U+F414",
+      "character": "",
+      "name": "oct-file_submodule"
+    },
+    {
+      "codePoint": "U+F415",
+      "character": "",
+      "name": "oct-person"
+    },
+    {
+      "codePoint": "U+F416",
+      "character": "",
+      "name": "oct-arrow_both"
+    },
+    {
+      "codePoint": "U+F417",
+      "character": "",
+      "name": "oct-git_commit"
+    },
+    {
+      "codePoint": "U+F418",
+      "character": "",
+      "name": "oct-git_branch"
+    },
+    {
+      "codePoint": "U+F419",
+      "character": "",
+      "name": "oct-git_merge"
+    },
+    {
+      "codePoint": "U+F41A",
+      "character": "",
+      "name": "oct-mirror"
+    },
+    {
+      "codePoint": "U+F41B",
+      "character": "",
+      "name": "oct-issue_opened"
+    },
+    {
+      "codePoint": "U+F41C",
+      "character": "",
+      "name": "oct-issue_reopened"
+    },
+    {
+      "codePoint": "U+F41D",
+      "character": "",
+      "name": "oct-issue_closed"
+    },
+    {
+      "codePoint": "U+F41E",
+      "character": "",
+      "name": "oct-star"
+    },
+    {
+      "codePoint": "U+F41F",
+      "character": "",
+      "name": "oct-comment"
+    },
+    {
+      "codePoint": "U+F420",
+      "character": "",
+      "name": "oct-question"
+    },
+    {
+      "codePoint": "U+F421",
+      "character": "",
+      "name": "oct-alert"
+    },
+    {
+      "codePoint": "U+F422",
+      "character": "",
+      "name": "oct-search"
+    },
+    {
+      "codePoint": "U+F423",
+      "character": "",
+      "name": "oct-gear"
+    },
+    {
+      "codePoint": "U+F424",
+      "character": "",
+      "name": "oct-arrow_down_left"
+    },
+    {
+      "codePoint": "U+F425",
+      "character": "",
+      "name": "oct-tools"
+    },
+    {
+      "codePoint": "U+F426",
+      "character": "",
+      "name": "oct-sign_out"
+    },
+    {
+      "codePoint": "U+F427",
+      "character": "",
+      "name": "oct-rocket"
+    },
+    {
+      "codePoint": "U+F428",
+      "character": "",
+      "name": "oct-rss"
+    },
+    {
+      "codePoint": "U+F429",
+      "character": "",
+      "name": "oct-paste"
+    },
+    {
+      "codePoint": "U+F42A",
+      "character": "",
+      "name": "oct-sign_in"
+    },
+    {
+      "codePoint": "U+F42B",
+      "character": "",
+      "name": "oct-organization"
+    },
+    {
+      "codePoint": "U+F42C",
+      "character": "",
+      "name": "oct-device_mobile"
+    },
+    {
+      "codePoint": "U+F42D",
+      "character": "",
+      "name": "oct-unfold"
+    },
+    {
+      "codePoint": "U+F42E",
+      "character": "",
+      "name": "oct-check"
+    },
+    {
+      "codePoint": "U+F42F",
+      "character": "",
+      "name": "oct-mail"
+    },
+    {
+      "codePoint": "U+F430",
+      "character": "",
+      "name": "oct-read"
+    },
+    {
+      "codePoint": "U+F431",
+      "character": "",
+      "name": "oct-arrow_up"
+    },
+    {
+      "codePoint": "U+F432",
+      "character": "",
+      "name": "oct-arrow_right"
+    },
+    {
+      "codePoint": "U+F433",
+      "character": "",
+      "name": "oct-arrow_down"
+    },
+    {
+      "codePoint": "U+F434",
+      "character": "",
+      "name": "oct-arrow_left"
+    },
+    {
+      "codePoint": "U+F435",
+      "character": "",
+      "name": "oct-pin"
+    },
+    {
+      "codePoint": "U+F436",
+      "character": "",
+      "name": "oct-gift"
+    },
+    {
+      "codePoint": "U+F437",
+      "character": "",
+      "name": "oct-graph"
+    },
+    {
+      "codePoint": "U+F438",
+      "character": "",
+      "name": "oct-triangle_left"
+    },
+    {
+      "codePoint": "U+F439",
+      "character": "",
+      "name": "oct-credit_card"
+    },
+    {
+      "codePoint": "U+F43A",
+      "character": "",
+      "name": "oct-clock"
+    },
+    {
+      "codePoint": "U+F43B",
+      "character": "",
+      "name": "oct-ruby"
+    },
+    {
+      "codePoint": "U+F43C",
+      "character": "",
+      "name": "oct-broadcast"
+    },
+    {
+      "codePoint": "U+F43D",
+      "character": "",
+      "name": "oct-key"
+    },
+    {
+      "codePoint": "U+F43E",
+      "character": "",
+      "name": "oct-arrow_down_right"
+    },
+    {
+      "codePoint": "U+F43F",
+      "character": "",
+      "name": "oct-repo_clone"
+    },
+    {
+      "codePoint": "U+F440",
+      "character": "",
+      "name": "oct-diff"
+    },
+    {
+      "codePoint": "U+F441",
+      "character": "",
+      "name": "oct-eye"
+    },
+    {
+      "codePoint": "U+F442",
+      "character": "",
+      "name": "oct-comment_discussion"
+    },
+    {
+      "codePoint": "U+F443",
+      "character": "",
+      "name": "oct-arrow_switch"
+    },
+    {
+      "codePoint": "U+F444",
+      "character": "",
+      "name": "oct-dot_fill"
+    },
+    {
+      "codePoint": "U+F445",
+      "character": "",
+      "name": "oct-square_fill"
+    },
+    {
+      "codePoint": "U+F446",
+      "character": "",
+      "name": "oct-device_camera"
+    },
+    {
+      "codePoint": "U+F447",
+      "character": "",
+      "name": "oct-device_camera_video"
+    },
+    {
+      "codePoint": "U+F448",
+      "character": "",
+      "name": "oct-pencil"
+    },
+    {
+      "codePoint": "U+F449",
+      "character": "",
+      "name": "oct-info"
+    },
+    {
+      "codePoint": "U+F44A",
+      "character": "",
+      "name": "oct-triangle_right"
+    },
+    {
+      "codePoint": "U+F44B",
+      "character": "",
+      "name": "oct-triangle_down"
+    },
+    {
+      "codePoint": "U+F44C",
+      "character": "",
+      "name": "oct-link"
+    },
+    {
+      "codePoint": "U+F44D",
+      "character": "",
+      "name": "oct-plus"
+    },
+    {
+      "codePoint": "U+F44E",
+      "character": "",
+      "name": "oct-three_bars"
+    },
+    {
+      "codePoint": "U+F44F",
+      "character": "",
+      "name": "oct-code"
+    },
+    {
+      "codePoint": "U+F450",
+      "character": "",
+      "name": "oct-location"
+    },
+    {
+      "codePoint": "U+F451",
+      "character": "",
+      "name": "oct-list_unordered"
+    },
+    {
+      "codePoint": "U+F452",
+      "character": "",
+      "name": "oct-list_ordered"
+    },
+    {
+      "codePoint": "U+F453",
+      "character": "",
+      "name": "oct-quote"
+    },
+    {
+      "codePoint": "U+F454",
+      "character": "",
+      "name": "oct-versions"
+    },
+    {
+      "codePoint": "U+F455",
+      "character": "",
+      "name": "oct-calendar"
+    },
+    {
+      "codePoint": "U+F456",
+      "character": "",
+      "name": "oct-lock"
+    },
+    {
+      "codePoint": "U+F457",
+      "character": "",
+      "name": "oct-diff_added"
+    },
+    {
+      "codePoint": "U+F458",
+      "character": "",
+      "name": "oct-diff_removed"
+    },
+    {
+      "codePoint": "U+F459",
+      "character": "",
+      "name": "oct-diff_modified"
+    },
+    {
+      "codePoint": "U+F45A",
+      "character": "",
+      "name": "oct-diff_renamed"
+    },
+    {
+      "codePoint": "U+F45B",
+      "character": "",
+      "name": "oct-horizontal_rule"
+    },
+    {
+      "codePoint": "U+F45C",
+      "character": "",
+      "name": "oct-arrow_up_left"
+    },
+    {
+      "codePoint": "U+F45D",
+      "character": "",
+      "name": "oct-milestone"
+    },
+    {
+      "codePoint": "U+F45E",
+      "character": "",
+      "name": "oct-checklist"
+    },
+    {
+      "codePoint": "U+F45F",
+      "character": "",
+      "name": "oct-megaphone"
+    },
+    {
+      "codePoint": "U+F460",
+      "character": "",
+      "name": "oct-chevron_right"
+    },
+    {
+      "codePoint": "U+F461",
+      "character": "",
+      "name": "oct-bookmark"
+    },
+    {
+      "codePoint": "U+F462",
+      "character": "",
+      "name": "oct-sliders"
+    },
+    {
+      "codePoint": "U+F463",
+      "character": "",
+      "name": "oct-meter"
+    },
+    {
+      "codePoint": "U+F464",
+      "character": "",
+      "name": "oct-history"
+    },
+    {
+      "codePoint": "U+F465",
+      "character": "",
+      "name": "oct-link_external"
+    },
+    {
+      "codePoint": "U+F466",
+      "character": "",
+      "name": "oct-mute"
+    },
+    {
+      "codePoint": "U+F467",
+      "character": "",
+      "name": "oct-x"
+    },
+    {
+      "codePoint": "U+F468",
+      "character": "",
+      "name": "oct-circle_slash"
+    },
+    {
+      "codePoint": "U+F469",
+      "character": "",
+      "name": "oct-pulse"
+    },
+    {
+      "codePoint": "U+F46A",
+      "character": "",
+      "name": "oct-sync"
+    },
+    {
+      "codePoint": "U+F46B",
+      "character": "",
+      "name": "oct-telescope"
+    },
+    {
+      "codePoint": "U+F46C",
+      "character": "",
+      "name": "oct-arrow_up_right"
+    },
+    {
+      "codePoint": "U+F46D",
+      "character": "",
+      "name": "oct-home"
+    },
+    {
+      "codePoint": "U+F46E",
+      "character": "",
+      "name": "oct-stop"
+    },
+    {
+      "codePoint": "U+F46F",
+      "character": "",
+      "name": "oct-bug"
+    },
+    {
+      "codePoint": "U+F470",
+      "character": "",
+      "name": "oct-logo_github"
+    },
+    {
+      "codePoint": "U+F471",
+      "character": "",
+      "name": "oct-file_binary"
+    },
+    {
+      "codePoint": "U+F472",
+      "character": "",
+      "name": "oct-database"
+    },
+    {
+      "codePoint": "U+F473",
+      "character": "",
+      "name": "oct-server"
+    },
+    {
+      "codePoint": "U+F474",
+      "character": "",
+      "name": "oct-diff_ignored"
+    },
+    {
+      "codePoint": "U+F475",
+      "character": "",
+      "name": "oct-ellipsis"
+    },
+    {
+      "codePoint": "U+F476",
+      "character": "",
+      "name": "oct-bell_fill"
+    },
+    {
+      "codePoint": "U+F477",
+      "character": "",
+      "name": "oct-hubot"
+    },
+    {
+      "codePoint": "U+F478",
+      "character": "",
+      "name": "oct-bell_slash"
+    },
+    {
+      "codePoint": "U+F479",
+      "character": "",
+      "name": "oct-blocked"
+    },
+    {
+      "codePoint": "U+F47A",
+      "character": "",
+      "name": "oct-bookmark_fill"
+    },
+    {
+      "codePoint": "U+F47B",
+      "character": "",
+      "name": "oct-chevron_up"
+    },
+    {
+      "codePoint": "U+F47C",
+      "character": "",
+      "name": "oct-chevron_down"
+    },
+    {
+      "codePoint": "U+F47D",
+      "character": "",
+      "name": "oct-chevron_left"
+    },
+    {
+      "codePoint": "U+F47E",
+      "character": "",
+      "name": "oct-triangle_up"
+    },
+    {
+      "codePoint": "U+F47F",
+      "character": "",
+      "name": "oct-git_compare"
+    },
+    {
+      "codePoint": "U+F480",
+      "character": "",
+      "name": "oct-logo_gist"
+    },
+    {
+      "codePoint": "U+F481",
+      "character": "",
+      "name": "oct-file_symlink_file"
+    },
+    {
+      "codePoint": "U+F482",
+      "character": "",
+      "name": "oct-file_symlink_directory"
+    },
+    {
+      "codePoint": "U+F483",
+      "character": "",
+      "name": "oct-squirrel"
+    },
+    {
+      "codePoint": "U+F484",
+      "character": "",
+      "name": "oct-globe"
+    },
+    {
+      "codePoint": "U+F485",
+      "character": "",
+      "name": "oct-unmute"
+    },
+    {
+      "codePoint": "U+F486",
+      "character": "",
+      "name": "oct-mention"
+    },
+    {
+      "codePoint": "U+F487",
+      "character": "",
+      "name": "oct-package"
+    },
+    {
+      "codePoint": "U+F488",
+      "character": "",
+      "name": "oct-browser"
+    },
+    {
+      "codePoint": "U+F489",
+      "character": "",
+      "name": "oct-terminal"
+    },
+    {
+      "codePoint": "U+F48A",
+      "character": "",
+      "name": "oct-markdown"
+    },
+    {
+      "codePoint": "U+F48B",
+      "character": "",
+      "name": "oct-dash"
+    },
+    {
+      "codePoint": "U+F48C",
+      "character": "",
+      "name": "oct-fold"
+    },
+    {
+      "codePoint": "U+F48D",
+      "character": "",
+      "name": "oct-inbox"
+    },
+    {
+      "codePoint": "U+F48E",
+      "character": "",
+      "name": "oct-trash"
+    },
+    {
+      "codePoint": "U+F48F",
+      "character": "",
+      "name": "oct-paintbrush"
+    },
+    {
+      "codePoint": "U+F490",
+      "character": "",
+      "name": "oct-flame"
+    },
+    {
+      "codePoint": "U+F491",
+      "character": "",
+      "name": "oct-briefcase"
+    },
+    {
+      "codePoint": "U+F492",
+      "character": "",
+      "name": "oct-plug"
+    },
+    {
+      "codePoint": "U+F493",
+      "character": "",
+      "name": "oct-bookmark_slash_fill"
+    },
+    {
+      "codePoint": "U+F494",
+      "character": "",
+      "name": "oct-mortar_board"
+    },
+    {
+      "codePoint": "U+F495",
+      "character": "",
+      "name": "oct-law"
+    },
+    {
+      "codePoint": "U+F496",
+      "character": "",
+      "name": "oct-thumbsup"
+    },
+    {
+      "codePoint": "U+F497",
+      "character": "",
+      "name": "oct-thumbsdown"
+    },
+    {
+      "codePoint": "U+F498",
+      "character": "",
+      "name": "oct-desktop_download"
+    },
+    {
+      "codePoint": "U+F499",
+      "character": "",
+      "name": "oct-beaker"
+    },
+    {
+      "codePoint": "U+F49A",
+      "character": "",
+      "name": "oct-bell"
+    },
+    {
+      "codePoint": "U+F49B",
+      "character": "",
+      "name": "oct-cache"
+    },
+    {
+      "codePoint": "U+F49C",
+      "character": "",
+      "name": "oct-shield"
+    },
+    {
+      "codePoint": "U+F49D",
+      "character": "",
+      "name": "oct-bold"
+    },
+    {
+      "codePoint": "U+F49E",
+      "character": "",
+      "name": "oct-check_circle"
+    },
+    {
+      "codePoint": "U+F49F",
+      "character": "",
+      "name": "oct-italic"
+    },
+    {
+      "codePoint": "U+F4A0",
+      "character": "",
+      "name": "oct-tasklist"
+    },
+    {
+      "codePoint": "U+F4A1",
+      "character": "",
+      "name": "oct-verified"
+    },
+    {
+      "codePoint": "U+F4A2",
+      "character": "",
+      "name": "oct-smiley"
+    },
+    {
+      "codePoint": "U+F4A3",
+      "character": "",
+      "name": "oct-unverified"
+    },
+    {
+      "codePoint": "U+F4A4",
+      "character": "",
+      "name": "oct-check_circle_fill"
+    },
+    {
+      "codePoint": "U+F4A5",
+      "character": "",
+      "name": "oct-file"
+    },
+    {
+      "codePoint": "U+F4A6",
+      "character": "",
+      "name": "oct-grabber"
+    },
+    {
+      "codePoint": "U+F4A7",
+      "character": "",
+      "name": "oct-checkbox"
+    },
+    {
+      "codePoint": "U+F4A8",
+      "character": "",
+      "name": "oct-reply"
+    },
+    {
+      "codePoint": "U+F4A9",
+      "character": "",
+      "name": "oct-device_desktop"
+    },
+    {
+      "codePoint": "U+F4AA",
+      "character": "",
+      "name": "oct-circle"
+    },
+    {
+      "codePoint": "U+F4AB",
+      "character": "",
+      "name": "oct-clock_fill"
+    },
+    {
+      "codePoint": "U+F4AC",
+      "character": "",
+      "name": "oct-cloud"
+    },
+    {
+      "codePoint": "U+F4AD",
+      "character": "",
+      "name": "oct-cloud_offline"
+    },
+    {
+      "codePoint": "U+F4AE",
+      "character": "",
+      "name": "oct-code_of_conduct"
+    },
+    {
+      "codePoint": "U+F4AF",
+      "character": "",
+      "name": "oct-code_review"
+    },
+    {
+      "codePoint": "U+F4B0",
+      "character": "",
+      "name": "oct-code_square"
+    },
+    {
+      "codePoint": "U+F4B1",
+      "character": "",
+      "name": "oct-codescan"
+    },
+    {
+      "codePoint": "U+F4B2",
+      "character": "",
+      "name": "oct-codescan_checkmark"
+    },
+    {
+      "codePoint": "U+F4B3",
+      "character": "",
+      "name": "oct-codespaces"
+    },
+    {
+      "codePoint": "U+F4B4",
+      "character": "",
+      "name": "oct-columns"
+    },
+    {
+      "codePoint": "U+F4B5",
+      "character": "",
+      "name": "oct-command_palette"
+    },
+    {
+      "codePoint": "U+F4B6",
+      "character": "",
+      "name": "oct-commit"
+    },
+    {
+      "codePoint": "U+F4B7",
+      "character": "",
+      "name": "oct-container"
+    },
+    {
+      "codePoint": "U+F4B8",
+      "character": "",
+      "name": "oct-copilot"
+    },
+    {
+      "codePoint": "U+F4B9",
+      "character": "",
+      "name": "oct-copilot_error"
+    },
+    {
+      "codePoint": "U+F4BA",
+      "character": "",
+      "name": "oct-copilot_warning"
+    },
+    {
+      "codePoint": "U+F4BB",
+      "character": "",
+      "name": "oct-copy"
+    },
+    {
+      "codePoint": "U+F4BC",
+      "character": "",
+      "name": "oct-cpu"
+    },
+    {
+      "codePoint": "U+F4BD",
+      "character": "",
+      "name": "oct-cross_reference"
+    },
+    {
+      "codePoint": "U+F4BE",
+      "character": "",
+      "name": "oct-dependabot"
+    },
+    {
+      "codePoint": "U+F4BF",
+      "character": "",
+      "name": "oct-diamond"
+    },
+    {
+      "codePoint": "U+F4C0",
+      "character": "",
+      "name": "oct-discussion_closed"
+    },
+    {
+      "codePoint": "U+F4C1",
+      "character": "",
+      "name": "oct-discussion_duplicate"
+    },
+    {
+      "codePoint": "U+F4C2",
+      "character": "",
+      "name": "oct-discussion_outdated"
+    },
+    {
+      "codePoint": "U+F4C3",
+      "character": "",
+      "name": "oct-dot"
+    },
+    {
+      "codePoint": "U+F4C4",
+      "character": "",
+      "name": "oct-duplicate"
+    },
+    {
+      "codePoint": "U+F4C5",
+      "character": "",
+      "name": "oct-eye_closed"
+    },
+    {
+      "codePoint": "U+F4C6",
+      "character": "",
+      "name": "oct-feed_discussion"
+    },
+    {
+      "codePoint": "U+F4C7",
+      "character": "",
+      "name": "oct-feed_forked"
+    },
+    {
+      "codePoint": "U+F4C8",
+      "character": "",
+      "name": "oct-feed_heart"
+    },
+    {
+      "codePoint": "U+F4C9",
+      "character": "",
+      "name": "oct-feed_merged"
+    },
+    {
+      "codePoint": "U+F4CA",
+      "character": "",
+      "name": "oct-feed_person"
+    },
+    {
+      "codePoint": "U+F4CB",
+      "character": "",
+      "name": "oct-feed_repo"
+    },
+    {
+      "codePoint": "U+F4CC",
+      "character": "",
+      "name": "oct-feed_rocket"
+    },
+    {
+      "codePoint": "U+F4CD",
+      "character": "",
+      "name": "oct-feed_star"
+    },
+    {
+      "codePoint": "U+F4CE",
+      "character": "",
+      "name": "oct-feed_tag"
+    },
+    {
+      "codePoint": "U+F4CF",
+      "character": "",
+      "name": "oct-feed_trophy"
+    },
+    {
+      "codePoint": "U+F4D0",
+      "character": "",
+      "name": "oct-file_added"
+    },
+    {
+      "codePoint": "U+F4D1",
+      "character": "",
+      "name": "oct-file_badge"
+    },
+    {
+      "codePoint": "U+F4D2",
+      "character": "",
+      "name": "oct-file_diff"
+    },
+    {
+      "codePoint": "U+F4D3",
+      "character": "",
+      "name": "oct-file_directory_fill"
+    },
+    {
+      "codePoint": "U+F4D4",
+      "character": "",
+      "name": "oct-file_directory_open_fill"
+    },
+    {
+      "codePoint": "U+F4D5",
+      "character": "",
+      "name": "oct-file_moved"
+    },
+    {
+      "codePoint": "U+F4D6",
+      "character": "",
+      "name": "oct-file_removed"
+    },
+    {
+      "codePoint": "U+F4D7",
+      "character": "",
+      "name": "oct-filter"
+    },
+    {
+      "codePoint": "U+F4D8",
+      "character": "",
+      "name": "oct-fiscal_host"
+    },
+    {
+      "codePoint": "U+F4D9",
+      "character": "",
+      "name": "oct-fold_down"
+    },
+    {
+      "codePoint": "U+F4DA",
+      "character": "",
+      "name": "oct-fold_up"
+    },
+    {
+      "codePoint": "U+F4DB",
+      "character": "",
+      "name": "oct-git_merge_queue"
+    },
+    {
+      "codePoint": "U+F4DC",
+      "character": "",
+      "name": "oct-git_pull_request_closed"
+    },
+    {
+      "codePoint": "U+F4DD",
+      "character": "",
+      "name": "oct-git_pull_request_draft"
+    },
+    {
+      "codePoint": "U+F4DE",
+      "character": "",
+      "name": "oct-goal"
+    },
+    {
+      "codePoint": "U+F4DF",
+      "character": "",
+      "name": "oct-hash"
+    },
+    {
+      "codePoint": "U+F4E0",
+      "character": "",
+      "name": "oct-heading"
+    },
+    {
+      "codePoint": "U+F4E1",
+      "character": "",
+      "name": "oct-heart_fill"
+    },
+    {
+      "codePoint": "U+F4E2",
+      "character": "",
+      "name": "oct-home_fill"
+    },
+    {
+      "codePoint": "U+F4E3",
+      "character": "",
+      "name": "oct-hourglass"
+    },
+    {
+      "codePoint": "U+F4E4",
+      "character": "",
+      "name": "oct-id_badge"
+    },
+    {
+      "codePoint": "U+F4E5",
+      "character": "",
+      "name": "oct-image"
+    },
+    {
+      "codePoint": "U+F4E6",
+      "character": "",
+      "name": "oct-infinity"
+    },
+    {
+      "codePoint": "U+F4E7",
+      "character": "",
+      "name": "oct-issue_draft"
+    },
+    {
+      "codePoint": "U+F4E8",
+      "character": "",
+      "name": "oct-issue_tracked_by"
+    },
+    {
+      "codePoint": "U+F4E9",
+      "character": "",
+      "name": "oct-issue_tracks"
+    },
+    {
+      "codePoint": "U+F4EA",
+      "character": "",
+      "name": "oct-iterations"
+    },
+    {
+      "codePoint": "U+F4EB",
+      "character": "",
+      "name": "oct-kebab_horizontal"
+    },
+    {
+      "codePoint": "U+F4EC",
+      "character": "",
+      "name": "oct-key_asterisk"
+    },
+    {
+      "codePoint": "U+F4ED",
+      "character": "",
+      "name": "oct-log"
+    },
+    {
+      "codePoint": "U+F4EE",
+      "character": "",
+      "name": "oct-moon"
+    },
+    {
+      "codePoint": "U+F4EF",
+      "character": "",
+      "name": "oct-move_to_bottom"
+    },
+    {
+      "codePoint": "U+F4F0",
+      "character": "",
+      "name": "oct-move_to_end"
+    },
+    {
+      "codePoint": "U+F4F1",
+      "character": "",
+      "name": "oct-move_to_start"
+    },
+    {
+      "codePoint": "U+F4F2",
+      "character": "",
+      "name": "oct-move_to_top"
+    },
+    {
+      "codePoint": "U+F4F3",
+      "character": "",
+      "name": "oct-multi_select"
+    },
+    {
+      "codePoint": "U+F4F4",
+      "character": "",
+      "name": "oct-no_entry"
+    },
+    {
+      "codePoint": "U+F4F5",
+      "character": "",
+      "name": "oct-north_star"
+    },
+    {
+      "codePoint": "U+F4F6",
+      "character": "",
+      "name": "oct-note"
+    },
+    {
+      "codePoint": "U+F4F7",
+      "character": "",
+      "name": "oct-number"
+    },
+    {
+      "codePoint": "U+F4F8",
+      "character": "",
+      "name": "oct-package_dependencies"
+    },
+    {
+      "codePoint": "U+F4F9",
+      "character": "",
+      "name": "oct-package_dependents"
+    },
+    {
+      "codePoint": "U+F4FA",
+      "character": "",
+      "name": "oct-paper_airplane"
+    },
+    {
+      "codePoint": "U+F4FB",
+      "character": "",
+      "name": "oct-paperclip"
+    },
+    {
+      "codePoint": "U+F4FC",
+      "character": "",
+      "name": "oct-passkey_fill"
+    },
+    {
+      "codePoint": "U+F4FD",
+      "character": "",
+      "name": "oct-people"
+    },
+    {
+      "codePoint": "U+F4FE",
+      "character": "",
+      "name": "oct-person_add"
+    },
+    {
+      "codePoint": "U+F4FF",
+      "character": "",
+      "name": "oct-person_fill"
+    },
+    {
+      "codePoint": "U+F500",
+      "character": "",
+      "name": "oct-play"
+    },
+    {
+      "codePoint": "U+F501",
+      "character": "",
+      "name": "oct-plus_circle"
+    },
+    {
+      "codePoint": "U+F502",
+      "character": "",
+      "name": "oct-project"
+    },
+    {
+      "codePoint": "U+F503",
+      "character": "",
+      "name": "oct-project_roadmap"
+    },
+    {
+      "codePoint": "U+F504",
+      "character": "",
+      "name": "oct-project_symlink"
+    },
+    {
+      "codePoint": "U+F505",
+      "character": "",
+      "name": "oct-project_template"
+    },
+    {
+      "codePoint": "U+F506",
+      "character": "",
+      "name": "oct-rel_file_path"
+    },
+    {
+      "codePoint": "U+F507",
+      "character": "",
+      "name": "oct-repo_deleted"
+    },
+    {
+      "codePoint": "U+F508",
+      "character": "",
+      "name": "oct-repo_locked"
+    },
+    {
+      "codePoint": "U+F509",
+      "character": "",
+      "name": "oct-repo_template"
+    },
+    {
+      "codePoint": "U+F50A",
+      "character": "",
+      "name": "oct-report"
+    },
+    {
+      "codePoint": "U+F50B",
+      "character": "",
+      "name": "oct-rows"
+    },
+    {
+      "codePoint": "U+F50C",
+      "character": "",
+      "name": "oct-screen_full"
+    },
+    {
+      "codePoint": "U+F50D",
+      "character": "",
+      "name": "oct-screen_normal"
+    },
+    {
+      "codePoint": "U+F50E",
+      "character": "",
+      "name": "oct-share"
+    },
+    {
+      "codePoint": "U+F50F",
+      "character": "",
+      "name": "oct-share_android"
+    },
+    {
+      "codePoint": "U+F510",
+      "character": "",
+      "name": "oct-shield_check"
+    },
+    {
+      "codePoint": "U+F511",
+      "character": "",
+      "name": "oct-shield_lock"
+    },
+    {
+      "codePoint": "U+F512",
+      "character": "",
+      "name": "oct-shield_slash"
+    },
+    {
+      "codePoint": "U+F513",
+      "character": "",
+      "name": "oct-shield_x"
+    },
+    {
+      "codePoint": "U+F514",
+      "character": "",
+      "name": "oct-sidebar_collapse"
+    },
+    {
+      "codePoint": "U+F515",
+      "character": "",
+      "name": "oct-sidebar_expand"
+    },
+    {
+      "codePoint": "U+F516",
+      "character": "",
+      "name": "oct-single_select"
+    },
+    {
+      "codePoint": "U+F517",
+      "character": "",
+      "name": "oct-skip"
+    },
+    {
+      "codePoint": "U+F518",
+      "character": "",
+      "name": "oct-skip_fill"
+    },
+    {
+      "codePoint": "U+F519",
+      "character": "",
+      "name": "oct-sort_asc"
+    },
+    {
+      "codePoint": "U+F51A",
+      "character": "",
+      "name": "oct-sort_desc"
+    },
+    {
+      "codePoint": "U+F51B",
+      "character": "",
+      "name": "oct-sparkle_fill"
+    },
+    {
+      "codePoint": "U+F51C",
+      "character": "",
+      "name": "oct-sponsor_tiers"
+    },
+    {
+      "codePoint": "U+F51D",
+      "character": "",
+      "name": "oct-square"
+    },
+    {
+      "codePoint": "U+F51E",
+      "character": "",
+      "name": "oct-stack"
+    },
+    {
+      "codePoint": "U+F51F",
+      "character": "",
+      "name": "oct-star_fill"
+    },
+    {
+      "codePoint": "U+F520",
+      "character": "",
+      "name": "oct-stopwatch"
+    },
+    {
+      "codePoint": "U+F521",
+      "character": "",
+      "name": "oct-strikethrough"
+    },
+    {
+      "codePoint": "U+F522",
+      "character": "",
+      "name": "oct-sun"
+    },
+    {
+      "codePoint": "U+F523",
+      "character": "",
+      "name": "oct-tab"
+    },
+    {
+      "codePoint": "U+F524",
+      "character": "",
+      "name": "oct-tab_external"
+    },
+    {
+      "codePoint": "U+F525",
+      "character": "",
+      "name": "oct-table"
+    },
+    {
+      "codePoint": "U+F526",
+      "character": "",
+      "name": "oct-telescope_fill"
+    },
+    {
+      "codePoint": "U+F527",
+      "character": "",
+      "name": "oct-trophy"
+    },
+    {
+      "codePoint": "U+F528",
+      "character": "",
+      "name": "oct-typography"
+    },
+    {
+      "codePoint": "U+F529",
+      "character": "",
+      "name": "oct-unlink"
+    },
+    {
+      "codePoint": "U+F52A",
+      "character": "",
+      "name": "oct-unlock"
+    },
+    {
+      "codePoint": "U+F52B",
+      "character": "",
+      "name": "oct-unread"
+    },
+    {
+      "codePoint": "U+F52C",
+      "character": "",
+      "name": "oct-video"
+    },
+    {
+      "codePoint": "U+F52D",
+      "character": "",
+      "name": "oct-webhook"
+    },
+    {
+      "codePoint": "U+F52E",
+      "character": "",
+      "name": "oct-workflow"
+    },
+    {
+      "codePoint": "U+F52F",
+      "character": "",
+      "name": "oct-x_circle"
+    },
+    {
+      "codePoint": "U+F530",
+      "character": "",
+      "name": "oct-x_circle_fill"
+    },
+    {
+      "codePoint": "U+F531",
+      "character": "",
+      "name": "oct-zoom_in"
+    },
+    {
+      "codePoint": "U+F532",
+      "character": "",
+      "name": "oct-zoom_out"
+    },
+    {
+      "codePoint": "U+F533",
+      "character": "",
+      "name": "oct-bookmark_slash"
+    },
+    {
+      "codePoint": "U+0021",
+      "character": "!",
+      "name": "exclamation mark"
+    },
+    {
+      "codePoint": "U+00B7",
+      "character": "·",
+      "name": "middle dot"
+    },
+    {
+      "codePoint": "U+203A",
+      "character": "›",
+      "name": "single right-pointing angle quotation mark"
+    },
+    {
+      "codePoint": "U+2500",
+      "character": "─",
+      "name": "box drawings light horizontal"
+    },
+    {
+      "codePoint": "U+2502",
+      "character": "│",
+      "name": "box drawings light vertical"
+    },
+    {
+      "codePoint": "U+2503",
+      "character": "┃",
+      "name": "box drawings heavy vertical"
+    },
+    {
+      "codePoint": "U+2514",
+      "character": "└",
+      "name": "box drawings light up and right"
+    },
+    {
+      "codePoint": "U+251C",
+      "character": "├",
+      "name": "box drawings light vertical and right"
+    },
+    {
+      "codePoint": "U+2524",
+      "character": "┤",
+      "name": "box drawings light vertical and left"
+    },
+    {
+      "codePoint": "U+253C",
+      "character": "┼",
+      "name": "box drawings light vertical and horizontal"
+    },
+    {
+      "codePoint": "U+258F",
+      "character": "▏",
+      "name": "left one eighth block"
+    },
+    {
+      "codePoint": "U+25B8",
+      "character": "▸",
+      "name": "black right-pointing small triangle"
+    },
+    {
+      "codePoint": "U+25BD",
+      "character": "▽",
+      "name": "white down-pointing triangle"
+    },
+    {
+      "codePoint": "U+25CB",
+      "character": "○",
+      "name": "white circle"
+    },
+    {
+      "codePoint": "U+25CF",
+      "character": "●",
+      "name": "black circle"
+    },
+    {
+      "codePoint": "U+25C6",
+      "character": "◆",
+      "name": "black diamond"
+    },
+    {
+      "codePoint": "U+25C7",
+      "character": "◇",
+      "name": "white diamond"
+    },
+    {
+      "codePoint": "U+2713",
+      "character": "✓",
+      "name": "check mark"
+    },
+    {
+      "codePoint": "U+2717",
+      "character": "✗",
+      "name": "ballot x"
+    }
+  ]
+}

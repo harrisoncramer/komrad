@@ -35,6 +35,7 @@ type Env struct {
 	ProbeServer           func(ctx context.Context) (ServerStatus, error)
 	IsPanelRunning        func(ctx context.Context) bool
 	ReadTerminfo          func(ctx context.Context, term, capability string) (string, error)
+	ListFonts             func(ctx context.Context) ([]string, error)
 
 	// MeasureColumns asks the terminal how wide it drew each sample, and is left nil wherever
 	// there is no terminal to take over.
@@ -104,6 +105,7 @@ func NewEnv(settings Settings) Env {
 		ReadWorkflowBases:  readWorkflowBases,
 		ResolveBase:        resolveWorkflowBase,
 		ReadTerminfo:       readTerminfo,
+		ListFonts:          listFonts,
 	}
 }
 

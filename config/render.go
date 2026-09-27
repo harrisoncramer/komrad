@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"komrad/internal/glyph"
 	"komrad/lib/xslice"
 
 	"github.com/invopop/jsonschema"
@@ -108,11 +109,15 @@ func renderSection(buf *bytes.Buffer, schema *jsonschema.Schema, path []string) 
 	return nil
 }
 
-// renderValue formats a default as TOML, failing on a kind the config does not hold rather
-// than emitting something that will not parse.
+// renderValue formats a default as TOML, writing an approved glyph as itself and failing on a
+// kind the config does not hold.
 func renderValue(value any) (string, error) {
 	switch typed := value.(type) {
 	case string:
+		if runes := []rune(typed); len(runes) == 1 && glyph.IsApproved(runes[0]) {
+			return `"` + typed + `"`, nil
+		}
+
 		return strconv.Quote(typed), nil
 	case bool:
 		return strconv.FormatBool(typed), nil

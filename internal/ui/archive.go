@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"komrad/config"
+	"komrad/internal/glyph"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/ui/panel"
@@ -439,7 +440,7 @@ func (a *archiveScreen) details(s panelShared) details {
 
 	return details{
 		id:      r.item.Agent.ID,
-		notices: agentNotices(r),
+		notices: agentNotices(s.glyphs, r),
 		fields:  agentDetailFields(s, r.item),
 		tag:     buildDiffStatTag(agentWorktree(s.inspections, r.item.Agent.Cwd)),
 	}
@@ -497,7 +498,7 @@ func (a *archiveScreen) view(s panelShared) string {
 func (a *archiveScreen) listParams(s panelShared) screenListParams {
 	if a.kind == archiveSchedules {
 		return screenListParams{
-			title: a.title(),
+			title: a.title(s.glyphs),
 			help:  a.help,
 			rows:  len(a.scheduleListRows(s)),
 			lines: func(pane listPane) ([]string, int) {
@@ -511,7 +512,7 @@ func (a *archiveScreen) listParams(s panelShared) screenListParams {
 	}
 
 	return screenListParams{
-		title:    a.title(),
+		title:    a.title(s.glyphs),
 		help:     a.help,
 		empty:    "nothing archived",
 		rows:     len(a.listRows(s)),
@@ -520,7 +521,7 @@ func (a *archiveScreen) listParams(s panelShared) screenListParams {
 }
 
 // title is the screen's name with the kinds it switches between, the one it lists picked out.
-func (a *archiveScreen) title() string {
+func (a *archiveScreen) title(glyphs glyph.Set) string {
 	muted := paint.Panel.Style(paint.ToneMuted)
 	chosen := paint.Panel.Style(paint.ToneAccent)
 
@@ -533,7 +534,7 @@ func (a *archiveScreen) title() string {
 		}
 	}
 
-	return screenTitle(view.GlyphArchive, "Archive") + "  " + strings.Join(kinds, "  ")
+	return screenTitle(glyphs, glyph.Archive, "Archive") + "  " + strings.Join(kinds, "  ")
 }
 
 func (a *archiveScreen) help(s panelShared) keyMap {

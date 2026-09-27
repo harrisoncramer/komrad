@@ -375,6 +375,101 @@ open          = ["t"]
 # Quit the panel.
 quit          = ["ctrl+c"]
 
+# The icons the panel draws, grouped by where each one is drawn. Every value is one character
+# from the approved set, the Nerd Fonts octicons and a few named characters. The chrome the
+# layout is drawn with, such as the status bars, dividers and rules, is fixed and not
+# configured here.
+
+# The repo column of the sidebar, which says where an agent's own checkout stands.
+[glyphs.row]
+# An agent with a checkout of its own, drawn in a warning colour while a rebase is stopped in
+# it, and the title over the worktrees list.
+worktree      = ""
+# An agent whose checkout no longer exists.
+worktree_gone = ""
+
+# The forge column of the sidebar, which says where the pull request from an agent's branch stands.
+[glyphs.pull_request]
+# An open pull request, drawn in a warning colour once changes have been requested.
+open        = ""
+# A draft pull request.
+draft       = ""
+# An approved pull request, drawn muted while it cannot merge yet.
+approved    = ""
+# A merged pull request.
+merged      = ""
+# A pull request closed without merging.
+closed      = ""
+# A pull request with a failing check.
+failing     = ""
+# A pull request that no longer merges cleanly.
+conflicting = ""
+
+# The marks drawn after a row's name in the sidebar and beside what they say in the details.
+[glyphs.marks]
+# A script komrad fired for the agent failed and its log is unread.
+failed_script = ""
+# Mail is waiting that the agent has not read.
+mail          = ""
+# The agent is paused, held by a person reading its worktree.
+paused        = ""
+# The row has been hidden from the sidebar.
+hidden        = ""
+# A schedule launches into the workflow, and the title over the schedules list.
+schedule      = ""
+# The agent has written documents for a person, and the title over the documents list.
+document      = ""
+# Your comments on the agent's work hold something you have not read.
+unread        = "·"
+
+# The titles over the panel's lists, and the prompt and cursor they draw.
+[glyphs.lists]
+# The title over the agents list.
+workflow = ""
+# The title over the archive.
+archive  = ""
+# The title over the transcript search.
+search   = ""
+# The prompt of the filter over a list.
+filter   = "▽"
+# The cursor in a list of choices, such as the engines to connect to.
+cursor   = "▸"
+
+# The review screen: the marks on its threads and files, and how far a comment has got.
+[glyphs.review]
+# A thread holding something you have not read.
+unread    = "●"
+# A thread nobody has resolved, with nothing new in it.
+read      = "○"
+# A thread that has been resolved.
+settled   = "✓"
+# A thread holding a comment nobody has sent yet.
+unsent    = "◇"
+# The header of a file you have read and folded away.
+viewed    = "✓"
+# A comment the agent has been given.
+delivered = "✓"
+# A comment held back until you send it.
+held      = "◇"
+
+# The messages the panel shows, one for each kind.
+[glyphs.messages]
+# Something failed.
+error   = "✗"
+# Something needs your attention.
+warning = "!"
+# Something finished as asked.
+success = "✓"
+# Something to know.
+info    = "·"
+
+# The schedules list, one for a schedule that runs and one for a schedule that is paused.
+[glyphs.schedules]
+# A schedule that runs.
+enabled  = "◆"
+# A schedule that is paused.
+disabled = "◇"
+
 # Where komrad finds the scripts a workflow hangs on a moment in its agents' lives.
 [hooks]
 # Directory for hooks: one executable file per hook, named after the hook.

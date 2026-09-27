@@ -116,9 +116,14 @@ const (
 	TriggerDeprovision = "deprovision"
 	HookPreLaunch      = "pre-launch"
 	HookPostLaunch     = "post-launch"
+	HookPreResume      = "pre-resume"
 	HookPostResume     = "post-resume"
+	HookPreArchive     = "pre-archive"
+	HookPostArchive    = "post-archive"
+	HookPreRestore     = "pre-restore"
 	HookPostRestore    = "post-restore"
-	HookPreTeardown    = "pre-teardown"
+	HookPreDelete      = "pre-delete"
+	HookPostDelete     = "post-delete"
 )
 
 // runMoments is every moment by name.
@@ -129,9 +134,14 @@ func runMoments() []string {
 		TriggerDeprovision,
 		HookPreLaunch,
 		HookPostLaunch,
+		HookPreResume,
 		HookPostResume,
+		HookPreArchive,
+		HookPostArchive,
+		HookPreRestore,
 		HookPostRestore,
-		HookPreTeardown,
+		HookPreDelete,
+		HookPostDelete,
 	}
 }
 

@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"komrad/config"
+	"komrad/internal/glyph"
 	"komrad/internal/ui/paint"
 	"komrad/internal/view"
 	"komrad/lib/xslice"
@@ -580,7 +581,7 @@ func (m model) screenListView(params screenListParams) string {
 	pane := m.paneWidth()
 	lines := m.listLines(header, below)
 	window := view.Window(view.WindowParams{
-		List:    view.Prepare(params.snapshot(m.listPane(pane))),
+		List:    prepareList(m.glyphs, params.snapshot(m.listPane(pane))),
 		Palette: paint.Panel,
 		Width:   pane,
 		Lines:   lines,
@@ -698,8 +699,16 @@ func (c rowCursor) jump(idx, length int) (rowCursor, bool) {
 }
 
 // screenTitle is a listing's title: its icon and its name, set in from the pane's edge.
-func screenTitle(icon view.Glyph, name string) string {
-	return view.Spell(icon) + "  " + name
+func screenTitle(glyphs glyph.Set, icon glyph.Glyph, name string) string {
+	return glyphs.Spell(icon) + "  " + name
+}
+
+// prepareList resolves a snapshot to the list drawn from it, in the glyphs the panel was
+// configured with.
+func prepareList(glyphs glyph.Set, snapshot view.Snapshot) view.List {
+	snapshot.Glyphs = glyphs
+
+	return view.Prepare(snapshot)
 }
 
 // talliedHeader is a list's header with a muted tally after its title.
@@ -716,7 +725,7 @@ func (m model) headerLines(title, tally, tabs string) string {
 		header = ansi.Truncate(header, width, "…")
 	}
 
-	return header + "\n\n" + m.filter.line(paint.Panel) + "\n" + tabs + "\n"
+	return header + "\n\n" + m.filter.line(paint.Panel, m.glyphs) + "\n" + tabs + "\n"
 }
 
 // headedListView draws a list under its header, padded out to the record and the legend under it.

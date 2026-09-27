@@ -2,6 +2,7 @@ package ui
 
 import (
 	"komrad/internal/errui"
+	"komrad/internal/glyph"
 	"komrad/internal/ui/paint"
 
 	"charm.land/lipgloss/v2"
@@ -9,18 +10,20 @@ import (
 
 const nameWidth = 30
 
+const separated = " " + glyph.Separator + " "
+
 var dimStyle = errui.Dim
 
 func rowCursorStyle() lipgloss.Style {
 	return paint.Panel.Cursor()
 }
 
-func scheduleIcon(enabled bool) string {
+func scheduleIcon(glyphs glyph.Set, enabled bool) string {
 	if enabled {
-		return "◆"
+		return glyphs.Spell(glyph.ScheduleEnabled)
 	}
 
-	return "◇"
+	return glyphs.Spell(glyph.ScheduleDisabled)
 }
 
 func scheduleTone(enabled bool) paint.Tone {

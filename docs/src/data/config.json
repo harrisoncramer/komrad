@@ -972,6 +972,300 @@
       ]
     },
     {
+      "path": "glyphs",
+      "description": "The icons the panel draws, grouped by where each one is drawn. Every value is one character\nfrom the approved set, the Nerd Fonts octicons and a few named characters. The chrome the\nlayout is drawn with, such as the status bars, dividers and rules, is fixed and not\nconfigured here.",
+      "settings": [],
+      "sections": [
+        {
+          "path": "glyphs.row",
+          "description": "The repo column of the sidebar, which says where an agent's own checkout stands.",
+          "settings": [
+            {
+              "key": "worktree",
+              "path": "glyphs.row.worktree",
+              "type": "string",
+              "description": "An agent with a checkout of its own, drawn in a warning colour while a rebase is stopped in\nit, and the title over the worktrees list.",
+              "default": "\"\""
+            },
+            {
+              "key": "worktree_gone",
+              "path": "glyphs.row.worktree_gone",
+              "type": "string",
+              "description": "An agent whose checkout no longer exists.",
+              "default": "\"\""
+            }
+          ],
+          "sections": []
+        },
+        {
+          "path": "glyphs.pull_request",
+          "description": "The forge column of the sidebar, which says where the pull request from an agent's branch stands.",
+          "settings": [
+            {
+              "key": "open",
+              "path": "glyphs.pull_request.open",
+              "type": "string",
+              "description": "An open pull request, drawn in a warning colour once changes have been requested.",
+              "default": "\"\""
+            },
+            {
+              "key": "draft",
+              "path": "glyphs.pull_request.draft",
+              "type": "string",
+              "description": "A draft pull request.",
+              "default": "\"\""
+            },
+            {
+              "key": "approved",
+              "path": "glyphs.pull_request.approved",
+              "type": "string",
+              "description": "An approved pull request, drawn muted while it cannot merge yet.",
+              "default": "\"\""
+            },
+            {
+              "key": "merged",
+              "path": "glyphs.pull_request.merged",
+              "type": "string",
+              "description": "A merged pull request.",
+              "default": "\"\""
+            },
+            {
+              "key": "closed",
+              "path": "glyphs.pull_request.closed",
+              "type": "string",
+              "description": "A pull request closed without merging.",
+              "default": "\"\""
+            },
+            {
+              "key": "failing",
+              "path": "glyphs.pull_request.failing",
+              "type": "string",
+              "description": "A pull request with a failing check.",
+              "default": "\"\""
+            },
+            {
+              "key": "conflicting",
+              "path": "glyphs.pull_request.conflicting",
+              "type": "string",
+              "description": "A pull request that no longer merges cleanly.",
+              "default": "\"\""
+            }
+          ],
+          "sections": []
+        },
+        {
+          "path": "glyphs.marks",
+          "description": "The marks drawn after a row's name in the sidebar and beside what they say in the details.",
+          "settings": [
+            {
+              "key": "failed_script",
+              "path": "glyphs.marks.failed_script",
+              "type": "string",
+              "description": "A script komrad fired for the agent failed and its log is unread.",
+              "default": "\"\""
+            },
+            {
+              "key": "mail",
+              "path": "glyphs.marks.mail",
+              "type": "string",
+              "description": "Mail is waiting that the agent has not read.",
+              "default": "\"\""
+            },
+            {
+              "key": "paused",
+              "path": "glyphs.marks.paused",
+              "type": "string",
+              "description": "The agent is paused, held by a person reading its worktree.",
+              "default": "\"\""
+            },
+            {
+              "key": "hidden",
+              "path": "glyphs.marks.hidden",
+              "type": "string",
+              "description": "The row has been hidden from the sidebar.",
+              "default": "\"\""
+            },
+            {
+              "key": "schedule",
+              "path": "glyphs.marks.schedule",
+              "type": "string",
+              "description": "A schedule launches into the workflow, and the title over the schedules list.",
+              "default": "\"\""
+            },
+            {
+              "key": "document",
+              "path": "glyphs.marks.document",
+              "type": "string",
+              "description": "The agent has written documents for a person, and the title over the documents list.",
+              "default": "\"\""
+            },
+            {
+              "key": "unread",
+              "path": "glyphs.marks.unread",
+              "type": "string",
+              "description": "Your comments on the agent's work hold something you have not read.",
+              "default": "\"·\""
+            }
+          ],
+          "sections": []
+        },
+        {
+          "path": "glyphs.lists",
+          "description": "The titles over the panel's lists, and the prompt and cursor they draw.",
+          "settings": [
+            {
+              "key": "workflow",
+              "path": "glyphs.lists.workflow",
+              "type": "string",
+              "description": "The title over the agents list.",
+              "default": "\"\""
+            },
+            {
+              "key": "archive",
+              "path": "glyphs.lists.archive",
+              "type": "string",
+              "description": "The title over the archive.",
+              "default": "\"\""
+            },
+            {
+              "key": "search",
+              "path": "glyphs.lists.search",
+              "type": "string",
+              "description": "The title over the transcript search.",
+              "default": "\"\""
+            },
+            {
+              "key": "filter",
+              "path": "glyphs.lists.filter",
+              "type": "string",
+              "description": "The prompt of the filter over a list.",
+              "default": "\"▽\""
+            },
+            {
+              "key": "cursor",
+              "path": "glyphs.lists.cursor",
+              "type": "string",
+              "description": "The cursor in a list of choices, such as the engines to connect to.",
+              "default": "\"▸\""
+            }
+          ],
+          "sections": []
+        },
+        {
+          "path": "glyphs.review",
+          "description": "The review screen: the marks on its threads and files, and how far a comment has got.",
+          "settings": [
+            {
+              "key": "unread",
+              "path": "glyphs.review.unread",
+              "type": "string",
+              "description": "A thread holding something you have not read.",
+              "default": "\"●\""
+            },
+            {
+              "key": "read",
+              "path": "glyphs.review.read",
+              "type": "string",
+              "description": "A thread nobody has resolved, with nothing new in it.",
+              "default": "\"○\""
+            },
+            {
+              "key": "settled",
+              "path": "glyphs.review.settled",
+              "type": "string",
+              "description": "A thread that has been resolved.",
+              "default": "\"✓\""
+            },
+            {
+              "key": "unsent",
+              "path": "glyphs.review.unsent",
+              "type": "string",
+              "description": "A thread holding a comment nobody has sent yet.",
+              "default": "\"◇\""
+            },
+            {
+              "key": "viewed",
+              "path": "glyphs.review.viewed",
+              "type": "string",
+              "description": "The header of a file you have read and folded away.",
+              "default": "\"✓\""
+            },
+            {
+              "key": "delivered",
+              "path": "glyphs.review.delivered",
+              "type": "string",
+              "description": "A comment the agent has been given.",
+              "default": "\"✓\""
+            },
+            {
+              "key": "held",
+              "path": "glyphs.review.held",
+              "type": "string",
+              "description": "A comment held back until you send it.",
+              "default": "\"◇\""
+            }
+          ],
+          "sections": []
+        },
+        {
+          "path": "glyphs.messages",
+          "description": "The messages the panel shows, one for each kind.",
+          "settings": [
+            {
+              "key": "error",
+              "path": "glyphs.messages.error",
+              "type": "string",
+              "description": "Something failed.",
+              "default": "\"✗\""
+            },
+            {
+              "key": "warning",
+              "path": "glyphs.messages.warning",
+              "type": "string",
+              "description": "Something needs your attention.",
+              "default": "\"!\""
+            },
+            {
+              "key": "success",
+              "path": "glyphs.messages.success",
+              "type": "string",
+              "description": "Something finished as asked.",
+              "default": "\"✓\""
+            },
+            {
+              "key": "info",
+              "path": "glyphs.messages.info",
+              "type": "string",
+              "description": "Something to know.",
+              "default": "\"·\""
+            }
+          ],
+          "sections": []
+        },
+        {
+          "path": "glyphs.schedules",
+          "description": "The schedules list, one for a schedule that runs and one for a schedule that is paused.",
+          "settings": [
+            {
+              "key": "enabled",
+              "path": "glyphs.schedules.enabled",
+              "type": "string",
+              "description": "A schedule that runs.",
+              "default": "\"◆\""
+            },
+            {
+              "key": "disabled",
+              "path": "glyphs.schedules.disabled",
+              "type": "string",
+              "description": "A schedule that is paused.",
+              "default": "\"◇\""
+            }
+          ],
+          "sections": []
+        }
+      ]
+    },
+    {
       "path": "hooks",
       "description": "Where komrad finds the scripts a workflow hangs on a moment in its agents' lives.",
       "settings": [

@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"komrad/internal/diff"
+	"komrad/internal/glyph"
 	"komrad/internal/ui/paint"
 	agentv1 "komrad/proto/gen/agent/v1"
 
@@ -91,17 +92,17 @@ func TestMarkForSaysWhichThreadIsWhich(t *testing.T) {
 	view.PinThreads([]*agentv1.ReviewThread{thread})
 
 	mark, style := view.markFor(thread)
-	assert.Equal(t, readMark, mark)
+	assert.Equal(t, glyph.Defaults().Spell(glyph.ThreadRead), mark)
 	assert.Equal(t, paint.Panel.Style(paint.ToneSelf), style, "a thread the person opened is drawn in their colour")
 
 	thread.ResolvedAt = "2026-08-27T12:00:00Z"
 	mark, style = view.markFor(thread)
-	assert.Equal(t, settledMark, mark)
+	assert.Equal(t, glyph.Defaults().Spell(glyph.ThreadSettled), mark)
 	assert.Equal(t, paint.Panel.Style(paint.ToneSelf), style, "and the check keeps the author's colour")
 
 	thread.UnreadByHuman = true
 	mark, _ = view.markFor(thread)
-	assert.Equal(t, unreadMark, mark,
+	assert.Equal(t, glyph.Defaults().Spell(glyph.ThreadUnread), mark,
 		"a reply nobody has read outranks the settling, the gutter being the only place it is said")
 
 	thread.Messages = []*agentv1.ReviewMessage{

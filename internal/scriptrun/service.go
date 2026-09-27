@@ -63,6 +63,7 @@ type ScriptService struct {
 	inFlightMu sync.Mutex
 	inFlight   map[scriptKey]struct{}
 	logRunMu   sync.Mutex
+	HookQueue
 }
 
 // NewScriptService builds the service from its dependencies.

@@ -7,6 +7,7 @@ import (
 
 	"komrad/config"
 	"komrad/internal/errui"
+	"komrad/internal/glyph"
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/view"
 	"komrad/lib/dates"
@@ -130,7 +131,7 @@ func (d *documentsScreen) view(s panelShared) string {
 
 func (d *documentsScreen) listParams(s panelShared) screenListParams {
 	return screenListParams{
-		title:    screenTitle(view.GlyphDocument, "Documents"),
+		title:    screenTitle(s.glyphs, glyph.Document, "Documents"),
 		tally:    d.tally(s),
 		help:     d.help,
 		empty:    d.emptyLine(),
@@ -146,7 +147,7 @@ func (d *documentsScreen) tally(s panelShared) string {
 		return name
 	}
 
-	return fmt.Sprintf("%s · %d", name, len(d.items))
+	return fmt.Sprintf("%s"+separated+"%d", name, len(d.items))
 }
 
 func (d *documentsScreen) emptyLine() string {

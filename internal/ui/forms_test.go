@@ -522,9 +522,14 @@ func TestFormsWorkflowHooks(t *testing.T) {
 	every := []*workflowv1.WorkflowHook{
 		{Event: config.HookPreLaunch, Script: "install-deps"},
 		{Event: config.HookPostLaunch, Script: "announce"},
+		{Event: config.HookPreResume, Script: "warm-up"},
 		{Event: config.HookPostResume, Script: "announce-back"},
+		{Event: config.HookPreArchive, Script: "check-in"},
+		{Event: config.HookPostArchive, Script: "give-back-the-slot"},
+		{Event: config.HookPreRestore, Script: "lock"},
 		{Event: config.HookPostRestore, Script: "unlock"},
-		{Event: config.HookPreTeardown, Script: "take-the-stack-down"},
+		{Event: config.HookPreDelete, Script: "take-the-stack-down"},
+		{Event: config.HookPostDelete, Script: "say-goodbye"},
 	}
 
 	t.Run("a picker offers every hook and opens on the one the workflow names", func(t *testing.T) {
@@ -565,9 +570,10 @@ func TestFormsWorkflowHooks(t *testing.T) {
 	})
 
 	t.Run("every moment comes back as it went in", func(t *testing.T) {
-		harness := openHookForm(t, every, "install-deps", "announce", "announce-back", "unlock", "take-the-stack-down")
+		harness := openHookForm(t, every, "install-deps", "announce", "warm-up", "announce-back", "check-in",
+			"give-back-the-slot", "lock", "unlock", "take-the-stack-down", "say-goodbye")
 
-		harness.press(slices.Concat(slices.Repeat([]string{"enter"}, 20), []string{"ctrl+s"})...)
+		harness.press(slices.Concat(slices.Repeat([]string{"enter"}, 25), []string{"ctrl+s"})...)
 
 		assertSentHooks(t, harness, every)
 	})

@@ -12,6 +12,9 @@ and tmux socket.
 Never run `mise run docker:up`, `mise run db:apply`, `mise run restart`, or a bare `komrad`
 command from a worktree without it.
 
+The tests take it too, as `MISE_ENV=test mise run check:quick`. From a worktree, `go:test` and
+`check:quick` refuse to run without it, since their databases would land on the panel's Postgres.
+
 Each checkout gets a throwaway instance of its own, so agents testing at once do not share one.
 Every instance keeps its database in one shared test Postgres on port 5470. `MISE_ENV=test mise
 env` prints the instance's database, address and socket, `MISE_ENV=test mise run test:reset`

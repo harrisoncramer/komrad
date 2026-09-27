@@ -26,6 +26,12 @@ import (
 
 var ErrNameTaken = fail.AlreadyExists("name already taken")
 
+const (
+	writerMaxConns = 10
+	readerMaxConns = 4
+	ownerMaxConns  = 4
+)
+
 // ErrNotFound is what a single-row lookup returns when the row is absent.
 var ErrNotFound = fail.NotFound("not found")
 
@@ -65,7 +71,7 @@ func (c IDCursor) Validate() error {
 
 // Open connects to the Postgres at url as an engine's login, refusing a schema this build does not match.
 func Open(ctx context.Context, url string) (*Pool, error) {
-	cfg, err := parseConfig(url)
+	cfg, err := parseConfig(url, writerMaxConns)
 	if err != nil {
 		return nil, err
 	}
@@ -131,7 +137,7 @@ func EnsureEngine(ctx context.Context, url string, params db.EnsureEngineParams)
 }
 
 func openOwner(ctx context.Context, url string) (*pgxpool.Pool, error) {
-	cfg, err := parseConfig(url)
+	cfg, err := parseConfig(url, ownerMaxConns)
 	if err != nil {
 		return nil, err
 	}
@@ -157,7 +163,7 @@ func OpenReadOnly(ctx context.Context, url, engineID string) (*pgxpool.Pool, err
 		return nil, ErrNoReadOnlyURL
 	}
 
-	cfg, err := parseConfig(url)
+	cfg, err := parseConfig(url, readerMaxConns)
 	if err != nil {
 		return nil, err
 	}
@@ -183,11 +189,15 @@ func OpenReadOnly(ctx context.Context, url, engineID string) (*pgxpool.Pool, err
 	return pool, nil
 }
 
-// parseConfig reads url and names this process on every connection made from it.
-func parseConfig(url string) (*pgxpool.Config, error) {
+// parseConfig reads url, caps its pool at maxConns unless url names a cap of its own, and names
+// this process on every connection made from it.
+func parseConfig(url string, maxConns int32) (*pgxpool.Config, error) {
 	cfg, err := pgxpool.ParseConfig(url)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse database url: %w", err)
+	}
+	if !strings.Contains(url, "pool_max_conns") {
+		cfg.MaxConns = maxConns
 	}
 	cfg.ConnConfig.RuntimeParams["application_name"] = db.AppName()
 

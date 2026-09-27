@@ -7,6 +7,7 @@ import (
 	"slices"
 
 	"komrad/internal/diff"
+	"komrad/internal/glyph"
 	"komrad/lib/xslice"
 	agentv1 "komrad/proto/gen/agent/v1"
 )
@@ -89,12 +90,19 @@ type View struct {
 	narrowed bool
 	// headless leaves out the row for the change as a whole and each file's header.
 	headless bool
+	// glyphs is what the marks on threads and files are drawn in.
+	glyphs glyph.Set
 }
 
 // SetHeadless draws the hunks alone, with no row for the change as a whole and no file headers.
 func (v *View) SetHeadless(headless bool) {
 	v.headless = headless
 	v.redraw()
+}
+
+// SetGlyphs says what the marks on threads and files are drawn in.
+func (v *View) SetGlyphs(glyphs glyph.Set) {
+	v.glyphs = glyphs
 }
 
 // SetNarrowed says whether the patch on screen is a slice of the change rather than all of it.

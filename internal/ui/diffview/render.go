@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"komrad/internal/diff"
+	"komrad/internal/glyph"
 	"komrad/internal/ui/paint"
 	"komrad/lib/xstr"
 	agentv1 "komrad/proto/gen/agent/v1"
@@ -28,23 +29,6 @@ const (
 	NoCursor Cursor = iota
 	LiveCursor
 	DimCursor
-)
-
-const (
-	// unreadMark is a thread carrying something the person reviewing has not read.
-	unreadMark = "●"
-	// readMark is a thread nobody has settled with nothing new in it.
-	readMark = "○"
-	// OpenMark is what a comment nobody has resolved wears away from the diff.
-	OpenMark = readMark
-	// settledMark is a thread that has been resolved.
-	settledMark = "✓"
-	// SettledMark is what a resolved comment wears away from the diff.
-	SettledMark = settledMark
-	// unsentMark is a thread holding a comment nobody has released yet.
-	unsentMark = "◇"
-	// viewedMark heads the header of a file that has been read and folded away.
-	viewedMark = "✓"
 )
 
 var (
@@ -115,7 +99,7 @@ func (v *View) renderFileRow(y int, current row, cursor Cursor, width int) strin
 
 	text := out.String()
 	if v.isCollapsed(current.file) {
-		text += style.Render("  " + viewedMark + " viewed  " + v.fileSummary(current.file))
+		text += style.Render("  " + v.glyphs.Spell(glyph.FileViewed) + " viewed  " + v.fileSummary(current.file))
 	}
 
 	text = ansi.Truncate(text, width, "…")
@@ -133,7 +117,7 @@ func (v *View) fileSummary(fileIndex int) string {
 
 	summary := fmt.Sprintf("+%d −%d", stat.Added, stat.Removed)
 	if open := v.countOpenThreadsIn(v.files[fileIndex].Path()); open > 0 {
-		summary += fmt.Sprintf("  %s %d", readMark, open)
+		summary += fmt.Sprintf("  %s %d", v.glyphs.Spell(glyph.ThreadRead), open)
 	}
 
 	return summary
@@ -173,14 +157,14 @@ func (v *View) markFor(thread *agentv1.ReviewThread) (string, lipgloss.Style) {
 
 	switch {
 	case doesHoldDelivery(thread, agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSENT):
-		return unsentMark, style
+		return v.glyphs.Spell(glyph.ThreadUnsent), style
 	case thread.GetUnreadByHuman():
-		return unreadMark, style
+		return v.glyphs.Spell(glyph.ThreadUnread), style
 	case thread.GetResolvedAt() != "":
-		return settledMark, style
+		return v.glyphs.Spell(glyph.ThreadSettled), style
 	}
 
-	return readMark, style
+	return v.glyphs.Spell(glyph.ThreadRead), style
 }
 
 // markStyleFor is the colour a thread is drawn in, which says who opened it.

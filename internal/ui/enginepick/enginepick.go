@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 
+	"komrad/internal/glyph"
 	"komrad/internal/ui/paint"
 	"komrad/lib/xslice"
 
@@ -62,6 +63,8 @@ type RunParams struct {
 	Probe Probe
 	// Self names this komrad's build, drawn in the header.
 	Self string
+	// Glyphs is what the cursor is drawn in.
+	Glyphs glyph.Set
 }
 
 // Run draws the picker until a row is chosen or the picker is closed, answering with the row
@@ -93,6 +96,7 @@ type model struct {
 	probed   []bool
 	probe    Probe
 	self     string
+	glyphs   glyph.Set
 	cursor   int
 	chosen   int
 	notice   string
@@ -106,6 +110,7 @@ func newModel(params RunParams) model {
 		probed:   make([]bool, len(params.Rows)),
 		probe:    params.Probe,
 		self:     params.Self,
+		glyphs:   params.Glyphs,
 		chosen:   -1,
 	}
 }
@@ -226,7 +231,7 @@ func (m model) render() string {
 func (m model) rowLine(index int, row Row) string {
 	marker := "  "
 	if index == m.cursor {
-		marker = paint.Panel.Cursor().Render("▸ ")
+		marker = paint.Panel.Cursor().Render(m.glyphs.Spell(glyph.Cursor) + " ")
 	}
 
 	title := row.Title()

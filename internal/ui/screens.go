@@ -2,6 +2,7 @@ package ui
 
 import (
 	"komrad/config"
+	"komrad/internal/glyph"
 	"komrad/internal/ui/layout"
 	"komrad/internal/ui/panel"
 	agentv1 "komrad/proto/gen/agent/v1"
@@ -267,8 +268,10 @@ func (m *model) enterOther(next screen, target screenTarget) tea.Cmd {
 type panelShared struct {
 	listing listing
 	keys    config.Keybindings
-	width   int
-	height  int
+	// glyphs is the character each icon is drawn with.
+	glyphs glyph.Set
+	width  int
+	height int
 
 	// api is the service a screen builds its own reads and writes on.
 	api api
@@ -318,6 +321,7 @@ func (m *model) unmeasured() panelShared {
 	return panelShared{
 		listing: m.listing,
 		keys:    m.keys,
+		glyphs:  m.glyphs,
 		width:   m.width,
 		height:  m.height,
 		api:     m.api,
