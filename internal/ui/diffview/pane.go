@@ -203,7 +203,7 @@ func (p *Pane) PanBy(delta int) {
 func (p *Pane) ScrollToCursor(height int) {
 	// A file jump has already said where the window goes, and the margin below would drag it
 	// straight back off what it was asked to show.
-	if p.pinTop {
+	if p.pinTop || height <= 0 {
 		return
 	}
 

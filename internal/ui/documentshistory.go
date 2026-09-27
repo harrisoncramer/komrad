@@ -28,7 +28,7 @@ type documentHistory struct {
 	listing  bool
 	err      error
 	reads    map[int32]versionRead
-	// pane is the change drawn as a diff, and drawn the two writes and background it was built for.
+	// pane is the change drawn as a diff.
 	pane  diffview.Pane
 	drawn drawnChange
 	// filter is the pattern being searched for in the diff.
@@ -60,6 +60,7 @@ func (d *documentsScreen) stepOlder(h host, s panelShared) tea.Cmd {
 	d.history.forgetFailedReads()
 	if d.history.at+1 < len(d.history.versions) {
 		d.history.at++
+		d.history.pane.Drop()
 	}
 
 	return h.waitToStage()
@@ -80,6 +81,7 @@ func (d *documentsScreen) stepNewer(h host, s panelShared) tea.Cmd {
 
 	d.history.forgetFailedReads()
 	d.history.at--
+	d.history.pane.Drop()
 
 	return h.waitToStage()
 }

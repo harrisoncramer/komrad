@@ -8,8 +8,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-// actions is the documents screen as one table and the legend that names it, which are the
-// diff's own while the keys are on it.
+// actions is the documents screen as one table and the legend that names it.
 func (d *documentsScreen) actions(s panelShared) screenActionSpec {
 	if d.isDiffFocused(s) {
 		return d.diffActions()
@@ -171,12 +170,8 @@ func (d *documentsScreen) diffKeys() diffKeys {
 	}
 }
 
-// updateDiff is the diff taking the keys, the search prompt first while it is open.
+// updateDiff is the diff taking the keys.
 func (d *documentsScreen) updateDiff(h host, s panelShared, key tea.KeyPressMsg) tea.Cmd {
-	if d.history.filter.typing {
-		return d.diffKeys().updateFilter(h, s, key)
-	}
-
 	d.history.said = ""
 
 	return d.diffActions().dispatch(h, s, key.String())
@@ -191,10 +186,9 @@ func (d *documentsScreen) isDiffDrawn(s panelShared) bool {
 	return d.isSteppingHovered(s) && d.history.isDrawn(s.isDark)
 }
 
-// isDiffFocused reports whether the diff holds the keys, which it does once the cycle key has
-// handed them to it and for as long as it is drawn.
+// isDiffFocused reports whether the diff of the write stepped to holds the keys.
 func (d *documentsScreen) isDiffFocused(s panelShared) bool {
-	return d.diffFocus && s.draw.isListFocused() && d.isDiffDrawn(s)
+	return d.diffFocus && d.history != nil && s.draw.isListFocused()
 }
 
 func (d *documentsScreen) doesScrollColumn(s panelShared) bool {

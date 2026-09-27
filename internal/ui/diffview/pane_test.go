@@ -105,6 +105,9 @@ func TestPaneScrollsToKeepTheCursorInSight(t *testing.T) {
 
 	pane.MoveTo(pane.View().GetFirstRow(), paneHeight)
 	assert.Equal(t, 0, pane.Top())
+
+	pane.MoveTo(4, 0)
+	assert.Equal(t, 0, pane.Top(), "a pane not yet measured leaves the window where it is")
 }
 
 // TestPaneJumpFilePutsTheFileAtTheTop covers a file jump and the window holding the file's

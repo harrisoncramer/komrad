@@ -153,8 +153,7 @@ func (r *reviewScreen) diffKeys() diffKeys {
 	}
 }
 
-// refuseExpand says why the file under the cursor cannot be drawn whole, which is while it is
-// folded away.
+// refuseExpand says why the file under the cursor cannot be drawn whole.
 func (r *reviewScreen) refuseExpand(s panelShared) string {
 	file, ok := r.diff.View().GetDrawnFileAt(r.diff.Cursor())
 	if !ok || r.diff.View().IsExpanded(file.Path()) || !r.diff.View().IsViewed(file.Path()) {
@@ -164,7 +163,7 @@ func (r *reviewScreen) refuseExpand(s panelShared) string {
 	return "that file is folded away" + separated + keyLabel(s.keys.Review.ToggleViewed) + " to open it"
 }
 
-// diffHeight is the rows the diff is drawn in, less whatever the band over it takes.
+// diffHeight is the rows the diff is drawn in.
 func (r *reviewScreen) diffHeight(s panelShared) int {
 	split, ok := s.draw.screenColumnSplit()
 	if !ok {

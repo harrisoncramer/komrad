@@ -10,6 +10,7 @@ import (
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
 
+	tea "charm.land/bubbletea/v2"
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -440,6 +441,16 @@ func TestDocumentsHistory(t *testing.T) {
 			want:    []string{"no matches"},
 		},
 		{
+			name:    "the diff keeps the keys across a write it cannot draw",
+			presses: []string{"j", "<", "ctrl+a", "<", "k"},
+			want:    []string{"version 4 of 5"},
+		},
+		{
+			name:    "leaving a write it cannot draw stays on the screen",
+			presses: []string{"j", "<", "ctrl+a", "<", "esc", ">"},
+			want:    []string{"version 5 of 5"},
+		},
+		{
 			name:    "a document drawn whole has no more to show",
 			presses: []string{"<", "ctrl+a", "j", "E"},
 			want:    []string{"there is no more of that file to show"},
@@ -515,6 +526,25 @@ func TestDocumentsDiffCursor(t *testing.T) {
 	require.NotEmpty(t, plain)
 	assert.NotEqual(t, live, plain, "the cursor leaves the line it stood on")
 	assert.NotEqual(t, dim, plain)
+}
+
+// TestDocumentsDiffSearchOutlastsTheSplit covers the search prompt keeping its keys while the
+// panel is too narrow to draw the diff beside the list.
+func TestDocumentsDiffSearchOutlastsTheSplit(t *testing.T) {
+	t.Parallel()
+
+	harness, _ := openDocuments(t, "author")
+	harness.press("<")
+	harness.fireTimers()
+	harness.press("ctrl+a", "/", "w")
+
+	harness.send(tea.WindowSizeMsg{Width: 50, Height: 40})
+	harness.press("a", "r", "m", "enter")
+	harness.send(tea.WindowSizeMsg{Width: 140, Height: 40})
+
+	stage := readStageText(harness.readFrame())
+	assert.Contains(t, stage, "/ warm")
+	assert.Contains(t, stage, "1 of 1")
 }
 
 // readEditedPath is the file an editor's shell line opens.

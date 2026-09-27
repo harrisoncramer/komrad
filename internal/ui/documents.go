@@ -82,6 +82,10 @@ func (d *documentsScreen) update(h host, s panelShared, msg tea.Msg) tea.Cmd {
 		return nil
 	}
 
+	if d.history != nil && d.history.filter.typing {
+		return d.diffKeys().updateFilter(h, s, key)
+	}
+
 	if d.isDiffFocused(s) {
 		return d.updateDiff(h, s, key)
 	}
