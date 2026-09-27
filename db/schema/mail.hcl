@@ -1,6 +1,6 @@
 enum "mail_kind" {
   schema = schema.public
-  values = ["plain", "review_activity", "exchange_capped"]
+  values = ["plain", "review_activity", "exchange_capped", "document_edited"]
 }
 
 table "mail" {
@@ -64,6 +64,11 @@ table "mail" {
     null    = true
     type    = uuid
     comment = "The other agent a komrad notice is about, null on ordinary mail. Counting unread notices by this column gives the recipient one notice per subject rather than one per kind, so an agent that hits the exchange cap with a second partner is told about that partner too. There is no foreign key here on purpose. The notice has to keep naming the agent whose exchange was cut off after that agent is gone."
+  }
+  column "about_document_id" {
+    null    = true
+    type    = uuid
+    comment = "The document a komrad notice is about, null on ordinary mail. A person editing the same document again joins the unread notice about it rather than adding another."
   }
   column "idempotency_key" {
     null    = true

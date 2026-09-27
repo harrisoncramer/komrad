@@ -1,6 +1,7 @@
 package documents_test
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -11,10 +12,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"komrad/config"
 	"komrad/internal/documents"
+	"komrad/internal/mail"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
 	documentstore "komrad/internal/store/document"
+	mailstore "komrad/internal/store/mail"
 	"komrad/internal/storetest"
 	"komrad/lib/xptr"
 )
@@ -24,7 +28,7 @@ func TestWrite(t *testing.T) {
 	stores := storetest.Open(t)
 	cwd := t.TempDir()
 	author := stores.SeedAgent(t, agentstore.Agent{Name: "author", Cwd: cwd})
-	service := documents.NewDocumentService(documents.NewDocumentServiceParams{Agents: stores.Agents, Documents: stores.Documents})
+	service := newService(stores)
 
 	writeFile := func(name, content string) string {
 		path := filepath.Join(cwd, name)
@@ -130,7 +134,7 @@ func TestWrite(t *testing.T) {
 func TestWriteWithAnIDRewritesThatDocument(t *testing.T) {
 	stores := storetest.Open(t)
 	author := stores.SeedAgent(t, agentstore.Agent{Name: "author"})
-	service := documents.NewDocumentService(documents.NewDocumentServiceParams{Agents: stores.Agents, Documents: stores.Documents})
+	service := newService(stores)
 	ctx := t.Context()
 
 	draft, err := service.WriteDocument(ctx, documents.WriteDocumentParams{AgentID: author.ID, Name: "Documents", Kind: documentstore.KindRFC, Body: "draft"})
@@ -158,7 +162,7 @@ func TestWriteWithAnIDRewritesThatDocument(t *testing.T) {
 func TestReadAnEarlierWrite(t *testing.T) {
 	stores := storetest.Open(t)
 	author := stores.SeedAgent(t, agentstore.Agent{Name: "author"})
-	service := documents.NewDocumentService(documents.NewDocumentServiceParams{Agents: stores.Agents, Documents: stores.Documents})
+	service := newService(stores)
 	ctx := t.Context()
 
 	draft, err := service.WriteDocument(ctx, documents.WriteDocumentParams{AgentID: author.ID, Name: "Draft", Kind: documentstore.KindNotes, Body: "draft"})
@@ -198,7 +202,7 @@ func TestWriteByAPerson(t *testing.T) {
 	stores := storetest.Open(t)
 	author := stores.SeedAgent(t, agentstore.Agent{Name: "author"})
 	other := stores.SeedAgent(t, agentstore.Agent{Name: "other"})
-	service := documents.NewDocumentService(documents.NewDocumentServiceParams{Agents: stores.Agents, Documents: stores.Documents})
+	service := newService(stores)
 	ctx := t.Context()
 
 	draft, err := service.WriteDocument(ctx, documents.WriteDocumentParams{AgentID: author.ID, Name: "Documents", Kind: documentstore.KindRFC, Body: "draft"})
@@ -267,4 +271,112 @@ func TestWriteByAPerson(t *testing.T) {
 			assert.True(t, versions[0].ByPerson, "the write is kept as a person's")
 		})
 	}
+}
+
+// TestAPersonsEditMailsTheAuthor pins who is told of a write and how often.
+func TestAPersonsEditMailsTheAuthor(t *testing.T) {
+	stores := storetest.Open(t)
+	service := newService(stores)
+	ctx := t.Context()
+
+	type write struct {
+		byPerson bool
+		claim    bool
+	}
+	tests := []struct {
+		name         string
+		archived     bool
+		writes       []write
+		wantVersions []int32
+	}{
+		{
+			name:         "a person's edit sends one notice naming the version they wrote",
+			writes:       []write{{byPerson: true}},
+			wantVersions: []int32{2},
+		},
+		{
+			name:   "the author's own rewrite sends nothing",
+			writes: []write{{}},
+		},
+		{
+			name:         "edits made while a notice waits unread join it",
+			writes:       []write{{byPerson: true}, {byPerson: true}, {byPerson: true}},
+			wantVersions: []int32{2},
+		},
+		{
+			name:         "an edit after the author read the last notice sends another",
+			writes:       []write{{byPerson: true, claim: true}, {byPerson: true}},
+			wantVersions: []int32{3},
+		},
+		{
+			name:     "an archived author is not told",
+			archived: true,
+			writes:   []write{{byPerson: true}},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			author := stores.SeedAgent(t, agentstore.Agent{Name: uuid.NewString()})
+			doc, err := service.WriteDocument(ctx, documents.WriteDocumentParams{AgentID: author.ID, Name: "Documents", Kind: documentstore.KindRFC, Body: "draft"})
+			require.NoError(t, err)
+			if tt.archived {
+				_, err := stores.Agents.Archive(ctx, []string{author.ID})
+				require.NoError(t, err)
+			}
+
+			for _, w := range tt.writes {
+				params := documents.WriteDocumentParams{ID: xptr.Ptr(doc.ID), Version: xptr.Ptr(doc.Version), Name: doc.Name, Kind: doc.Kind, Body: uuid.NewString()}
+				if !w.byPerson {
+					params.AgentID = author.ID
+				}
+				doc, err = service.WriteDocument(ctx, params)
+				require.NoError(t, err)
+				if w.claim {
+					_, err := stores.Mail.Claim(ctx, author.ID, 10)
+					require.NoError(t, err)
+				}
+			}
+
+			waiting, err := stores.Mail.ListPage(ctx, author.ID, 10, nil)
+			require.NoError(t, err)
+			var got []int32
+			for _, notice := range waiting {
+				if notice.ClaimedAt != nil {
+					continue
+				}
+				assert.Equal(t, mailstore.KindDocumentEdited, notice.Kind)
+				assert.Equal(t, mail.KomradSenderName, notice.FromName)
+				require.NotNil(t, notice.AboutDocumentID)
+				assert.Equal(t, doc.ID, *notice.AboutDocumentID)
+				got = append(got, versionIn(t, notice.Body))
+			}
+			assert.Equal(t, tt.wantVersions, got)
+		})
+	}
+}
+
+func versionIn(t *testing.T, body string) int32 {
+	t.Helper()
+
+	_, after, found := strings.Cut(body, "writing version ")
+	require.True(t, found, body)
+
+	var version int32
+	_, err := fmt.Sscanf(after, "%d.", &version)
+	require.NoError(t, err, body)
+
+	return version
+}
+
+func newService(stores *storetest.Stores) *documents.DocumentService {
+	return documents.NewDocumentService(documents.NewDocumentServiceParams{
+		Agents:    stores.Agents,
+		Documents: stores.Documents,
+		Mailer: mail.NewMailService(mail.NewMailServiceParams{
+			MailReadWriter: stores.Mail,
+			Agents:         stores.Agents,
+			Config:         config.Mail{},
+		}),
+	})
 }

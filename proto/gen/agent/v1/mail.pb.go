@@ -35,6 +35,8 @@ const (
 	MailKind_MAIL_KIND_REVIEW_ACTIVITY MailKind = 2
 	// Komrad telling an agent that it and one other have spent their mail limit.
 	MailKind_MAIL_KIND_EXCHANGE_CAPPED MailKind = 3
+	// Komrad telling an agent that a person edited one of its documents in the panel.
+	MailKind_MAIL_KIND_DOCUMENT_EDITED MailKind = 4
 )
 
 // Enum value maps for MailKind.
@@ -44,12 +46,14 @@ var (
 		1: "MAIL_KIND_PLAIN",
 		2: "MAIL_KIND_REVIEW_ACTIVITY",
 		3: "MAIL_KIND_EXCHANGE_CAPPED",
+		4: "MAIL_KIND_DOCUMENT_EDITED",
 	}
 	MailKind_value = map[string]int32{
 		"MAIL_KIND_UNSPECIFIED":     0,
 		"MAIL_KIND_PLAIN":           1,
 		"MAIL_KIND_REVIEW_ACTIVITY": 2,
 		"MAIL_KIND_EXCHANGE_CAPPED": 3,
+		"MAIL_KIND_DOCUMENT_EDITED": 4,
 	}
 )
 
@@ -877,12 +881,13 @@ const file_agent_v1_mail_proto_rawDesc = "" +
 	"\x0fnext_page_token\x18\x02 \x01(\tH\x00R\rnextPageToken\x88\x01\x01B\x12\n" +
 	"\x10_next_page_token\"/\n" +
 	"\x11DeleteMailRequest\x12\x1a\n" +
-	"\x03ids\x18\x01 \x03(\tB\b\xbaH\x05\x92\x01\x02\b\x01R\x03ids*x\n" +
+	"\x03ids\x18\x01 \x03(\tB\b\xbaH\x05\x92\x01\x02\b\x01R\x03ids*\x97\x01\n" +
 	"\bMailKind\x12\x19\n" +
 	"\x15MAIL_KIND_UNSPECIFIED\x10\x00\x12\x13\n" +
 	"\x0fMAIL_KIND_PLAIN\x10\x01\x12\x1d\n" +
 	"\x19MAIL_KIND_REVIEW_ACTIVITY\x10\x02\x12\x1d\n" +
-	"\x19MAIL_KIND_EXCHANGE_CAPPED\x10\x03*e\n" +
+	"\x19MAIL_KIND_EXCHANGE_CAPPED\x10\x03\x12\x1d\n" +
+	"\x19MAIL_KIND_DOCUMENT_EDITED\x10\x04*e\n" +
 	"\rMailDirection\x12\x1e\n" +
 	"\x1aMAIL_DIRECTION_UNSPECIFIED\x10\x00\x12\x1b\n" +
 	"\x17MAIL_DIRECTION_RECEIVED\x10\x01\x12\x17\n" +
