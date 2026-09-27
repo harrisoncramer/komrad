@@ -6,19 +6,18 @@ order: 6
 ---
 
 import Alert from "../../components/Alert.astro";
+import Key from "../../components/Key.astro";
 import { media } from "../../site";
 
-Some work goes better when the agent writes before it builds. You ask it for a plan, read the plan, fix what it got wrong, and only then let it write code. The mistakes are cheaper to catch in a page of prose than in a diff.
+Some work goes better when the agent writes before it builds. You ask for a plan, read it, fix what it got wrong, and only then let it write code. A mistake is cheaper to catch in a page of prose than in a diff.
 
-Documents are where that writing lives. A document is a markdown file that belongs to an agent, kept in komrad's database rather than in the agent's checkout, so it never ends up in a commit. Each one has a name and a kind: an RFC for a change proposed before it is built, a report for what an investigation found, an explainer for how something that already exists works, or notes for anything else. Every time the agent or you write to a document, komrad keeps the version it replaced.
+Documents are where that writing lives. A document is a markdown file that belongs to an agent. It is kept in komrad rather than in the agent's checkout, so it never ends up in a commit. Each one is an RFC, a report, an explainer, or notes, and komrad keeps every version of it.
 
 <Alert variant="warning">This guide uses the `neovim` workflow from the [workflows](../workflows/) guide.</Alert>
 
 ## Asking an agent for one
 
-Agents write documents with komrad's `write_document` tool, so asking for one is just a matter of saying so in the prompt. Tell the agent what to write, what to name it, and that it should change no code yet.
-
-When it has written one, put the cursor on the agent and press `D` to open its documents. The list sits in the sidebar and the document under the cursor is drawn beside it. `D` on a workflow row opens the documents of that workflow's orchestrator.
+Agents write documents with komrad's tools, so you ask for one in the prompt. Say what to write, what to name it, and that it should not change any code yet. Once it has written one, press <Key name="documents.open" /> on the agent to read its documents beside the list.
 
 <figure>
   <video
@@ -36,11 +35,11 @@ When it has written one, put the cursor on the agent and press `D` to open its d
   </video>
 </figure>
 
-An agent reads its own documents with `get_document` and lists them with `list_documents`. Other agents can read its documents the same way, which is how a plan one agent wrote gets handed to another, such as an orchestrator giving an RFC to the agent that will build it.
+Other agents can read a document too. That is how a plan one agent wrote reaches another, such as an orchestrator handing an RFC to the agent that will build it.
 
 ## Editing a document
 
-Press `e` on a document to open it in your editor, in place of the document drawn beside the list. Change what you like and quit the editor, or press `e` again, and what you wrote is saved as the document's next version. The editor is whatever `$EDITOR` names.
+Press <Key name="documents.edit" /> to open a document in your editor. When you quit, what you wrote is saved as the next version.
 
 <figure>
   <video
@@ -58,17 +57,13 @@ Press `e` on a document to open it in your editor, in place of the document draw
   </video>
 </figure>
 
-Komrad does not tell the agent you edited its document. Tell it yourself, by mail or in its session, and ask it to read the document again before it carries on. It can see which versions you wrote with `list_document_versions`, and read any of them whole with `get_document`, so it can tell exactly what you changed.
+Komrad mails the agent to say you changed its document, and the agent can see exactly what you changed. A few quick saves in a row reach it as one notice. If the agent was halfway through a rewrite of its own, komrad refuses it until the agent has read your edit, so your change is never lost.
 
-Your edit is also safe from an agent that was halfway through a rewrite of its own. A rewrite has to name the version it replaces, and one that names a version older than yours is refused, so the agent has to read your edit before it can write over it.
-
-## Starting one yourself
-
-Press `c` in the documents list to write a new one for the agent. Komrad asks for its name and its kind, then creates it with a line of placeholder text. Press `e` to write the real text. This is handy for giving an agent a plan you wrote, or notes it should keep in mind, without putting them in the prompt.
+You can also start a document yourself, such as a plan you wrote or notes the agent should keep in mind. Komrad tells the agent it exists.
 
 ## Stepping through versions
 
-`<` steps back through a document's writes and `>` steps forward again. Each step draws what that write changed, the way a review draws a commit, so you can read how the document got to where it is. Each step says which version it is, whether the agent or you wrote it, and how long ago. Stepping past the newest write takes you back to the document as it stands.
+You can step back through a document's versions. Each step shows what that version changed, who wrote it, and when. After a round or two it shows what the agent first proposed, what you changed, and how the agent answered.
 
 <figure>
   <video
@@ -86,8 +81,6 @@ Press `c` in the documents list to write a new one for the agent. Komrad asks fo
   </video>
 </figure>
 
-The history is the record of the back and forth. After a round or two of edits, it shows what the agent first proposed, what you changed, and how the agent answered, which is often the most useful part of an RFC once the work is done.
-
 ## From a document to the work
 
-Once the document says what you want, tell the agent to build it. It already has the document, so the prompt can be as short as "carry out truncate-rfc". Because the document stays with the agent, you can open it next to the agent's diff later and check that what was built is what was agreed.
+Once the document says what you want, tell the agent to build it. It already has the document, so the prompt can be as short as "carry out truncate-rfc". The document stays with the agent, so later you can read it beside the diff and check that what was built is what you agreed on.

@@ -36,7 +36,7 @@ The machine boots from an image Packer built, with tmux, Docker, Go, Node, Claud
 
 ## Deploys
 
-The engine follows release tags, not merges. Pushing a `v` tag runs the release workflow, which publishes the binary and then deploys it. The workflow assumes an AWS role with a token GitHub signs, so no key is stored anywhere. It puts the binary on the box with an SSM command, never SSH.
+The engine follows release tags, not merges. Pushing a version tag such as `v1.2.0` runs the release workflow, which publishes the binary and then deploys it. The workflow assumes an AWS role with a token GitHub signs, so no key is stored anywhere. It puts the binary on the box with an SSM command, never SSH.
 
 Agents survive a deploy. The service unit is configured so that stopping it stops only the `komrad serve` process. The tmux server it started keeps running, and the new binary picks the agents back up.
 

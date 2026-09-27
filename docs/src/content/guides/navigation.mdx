@@ -5,6 +5,7 @@ group: start
 order: 4
 ---
 
+import Key from "../../components/Key.astro";
 import { media } from "../../site";
 
 ## The different views
@@ -13,9 +14,14 @@ The panel is divided into a few regions.
 
 The sidebar holds a list of whatever is in focus: agents and workflows, schedules, worktrees, or documents. Under the list are the details, which show what is known about the row under the cursor, such as an agent's directory or its base branch. Under those, the messages region shows what komrad has recently reported, and the legend shows the keys that work from where you are.
 
+The switcher across the top of the sidebar moves between the agents, the query, the schedules, the archive and the worktrees. Press <Key name="views.pick" /> to reach it, then the underlined letter of the view you want.
+
 The stage is the wide region beside the sidebar. It shows the agent you have opened, its diff on the review screen, or a document.
 
-`ctrl+a` moves the keyboard to the next of these views, and `ctrl+q` to the previous one: the list, the agent on the stage, then the details. `ctrl+g` moves it to the messages. If your own tmux prefix is `ctrl+a`, choose another [pair of cycle keys](../../config/#keybindings.cycle.views).
+<Key name="cycle.views" at={0} /> moves the keyboard to the next of these regions, and <Key name="cycle.views" at={1} />
+to the previous one: the list, the agent on the stage, then the details. `ctrl+g` moves it to the messages. If your own
+tmux prefix is <Key name="cycle.views" at={0} />, choose another [pair of cycle
+keys](../../config/#keybindings.cycle.views).
 
 <figure>
   <video
@@ -35,15 +41,15 @@ The stage is the wide region beside the sidebar. It shows the agent you have ope
 
 ## Basic navigation
 
-Every list moves the same way. `j` and `k` move the cursor a row, `ctrl+d` and `ctrl+u` move it a chunk of rows, and `gg` and `G` jump to the first and last row. The mouse wheel scrolls whichever region it is over.
+Every list moves the same way. <Key name="nav.down" /> and <Key name="nav.up" /> move the cursor a row, <Key name="nav.page_down" /> and <Key name="nav.page_up" /> move it a chunk of rows, and `gg` and <Key name="nav.bottom" /> jump to the first and last row. The mouse wheel scrolls whichever region it is over.
 
-Press `/` to search. Typing lights up the rows that match, and `enter` puts the cursor on the nearest one. `n` and `N` then step through the matches. A pattern in lower case ignores case, and a pattern is a regular expression.
+Press `/` to search. Typing lights up the rows that match, and <Key name="agents.open" /> puts the cursor on the nearest one. <Key name="filter.next_match" /> and <Key name="filter.prev_match" /> then step through the matches. A pattern in lower case ignores case, and a pattern is a regular expression.
 
-While typing a search, press `tab` to turn it into a filter, which takes every row that does not match off the screen instead of stepping through them. `esc` clears either one and puts the cursor back where it started.
+While typing a search, press `tab` to turn it into a filter, which takes every row that does not match off the screen instead of stepping through them. <Key name="agents.back" /> clears either one and puts the cursor back where it started.
 
-Press `f` to reach the sort strip over the list. `tab` moves along its columns, `j` sorts by the column under the cursor downward and `k` upward, and `esc` returns to the list. The last stop on the strip groups the rows under their workflows; `j` or `k` there flattens the list, which is easier to sort by activity or name.
+Press <Key name="tabs.focus" /> to reach the sort strip over the list, where you pick the column to sort by. Its last stop groups the rows under their workflows, and flattening them makes the list easier to sort by activity or name.
 
-You can also mark a row with `m` and a letter, and jump back to it with `'` and the same letter, the way vim's marks work.
+You can also mark a row with <Key name="marks.set" /> and a letter, and jump back to it with <Key name="marks.jump" /> and the same letter, the way vim's marks work.
 
 <figure>
   <video
@@ -63,7 +69,7 @@ You can also mark a row with `m` and a letter, and jump back to it with `'` and 
 
 ## Visual selection
 
-Press `v` to take the row under the cursor into a selection, or out of it again, and `V` to take in every row between the cursor and the nearest selected one. An action that works on one agent then works on all of them, such as archiving with `z`, or restoring and deleting on the archive screen. `esc` drops the selection.
+Press <Key name="selection.toggle" /> to take the row under the cursor into a selection, and <Key name="selection.range" /> to take in every row between the cursor and the nearest selected one. An action that works on one agent then works on all of them, such as archiving, or restoring and deleting on the archive screen.
 
 <figure>
   <video
@@ -83,7 +89,7 @@ Press `v` to take the row under the cursor into a selection, or out of it again,
 
 ## The details
 
-The details under the list show more about the row under the cursor, such as an agent's directory, branch, pull request and recent commits. Press `ctrl+a` until the keyboard reaches them, move with `j` and `k`, and press `y` to copy the value of the field under the cursor to your clipboard. `/` searches the fields the same way it searches the list.
+The details under the list show more about the row under the cursor, such as an agent's directory, branch, pull request and recent commits. Press <Key name="cycle.views" at={0} /> until the keyboard reaches them, and press <Key name="details.copy" /> to copy the value of the field under the cursor to your clipboard. `/` searches the fields the same way it searches the list.
 
 Above the fields, each mark the row draws in the sidebar is said in words, such as unread mail, a failed script, or where its pull request stands: failing, conflicting, approved, or still a draft.
 

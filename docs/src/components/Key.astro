@@ -1,0 +1,24 @@
+---
+import { keysOf } from "../reference/keys";
+
+type Props = {
+  name: string;
+  at?: number;
+};
+
+const { name, at } = Astro.props;
+const keys = keysOf(name);
+const shown = at === undefined ? keys : keys.slice(at, at + 1);
+if (shown.length === 0) throw new Error(`keybindings.${name} has no key at ${String(at)}`);
+---
+
+{shown.map((key, i) =>
+  i === 0 ? (
+    <code>{key}</code>
+  ) : (
+    <Fragment>
+      {" "}
+      or <code>{key}</code>
+    </Fragment>
+  ),
+)}

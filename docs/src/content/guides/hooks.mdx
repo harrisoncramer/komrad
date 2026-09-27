@@ -6,6 +6,7 @@ order: 5
 ---
 
 import Alert from "../../components/Alert.astro";
+import Key from "../../components/Key.astro";
 import { media } from "../../site";
 
 Hooks provide a way to run arbitrary code at a given moment in your agent's life.
@@ -41,7 +42,7 @@ The `#KOMRAD` line is optional. A hook can declare a description and a timeout t
 
 ## Hanging it on a workflow
 
-Press `e` on the workflow's row, move down to "Pre-launch hook", pick `ignore-revs`, and press `<C-s>`. Every agent spawned from now on runs it once its worktree exists and before its CLI starts.
+Press <Key name="workflows.edit" /> on the workflow's row, move down to "Pre-launch hook", pick `ignore-revs`, and press `<C-s>`. Every agent spawned from now on runs it once its worktree exists and before its CLI starts.
 
 <figure>
   <video

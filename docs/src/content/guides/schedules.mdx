@@ -6,6 +6,7 @@ order: 5
 ---
 
 import Alert from "../../components/Alert.astro";
+import Key from "../../components/Key.astro";
 import { media } from "../../site";
 
 Some work is worth doing on a timer, such as a nightly pass over the lint, a summary of what changed each morning, or a nudge to your orchestrator before you sit down. Schedules do this.
@@ -18,7 +19,7 @@ A schedule fires on a cron expression and hands its prompt to an agent. It lives
 
 An implementer schedule launches a new agent into a workflow each time it fires, with the schedule's prompt. Everything else about the launch, such as the directory, the flags and the shared context, comes from the workflow at the moment it fires.
 
-Press `O` then `s` to open the schedules, and `c` to write a new one. Leave the kind on implementer, give it a name, a cron expression and a prompt, and pick the `neovim` workflow. Submit it with `<C-s>`. The name also names every agent it launches.
+Open the schedules from the switcher at the top of the panel and press <Key name="schedules.new" /> to write one. Leave the kind on implementer, then give it a name, a cron expression, a prompt, and the `neovim` workflow. The name also names every agent it launches.
 
 The video uses `* * * * *` so the schedule fires within a minute. A nightly run would be `0 2 * * *`.
 
@@ -62,7 +63,7 @@ The form is the same, except you pick the orchestrator kind and then the orchest
   </video>
 </figure>
 
-If the orchestrator is archived or deleted, the schedule's runs are cancelled. Point it at a new orchestrator with `e`, or archive it with `z`.
+If the orchestrator is archived or deleted, the schedule's runs are cancelled. Edit it to point at another orchestrator, or archive it.
 
 ## Missed and paused runs
 
@@ -70,4 +71,4 @@ Komrad never catches up on missed runs. If the service is down when a run was du
 
 Runs that cannot succeed are cancelled with a reason, which shows as the schedule's last run. An implementer schedule whose workflow no longer exists is cancelled, for instance.
 
-Press `space` on a schedule to pause it, and again to arm it. A paused schedule keeps its settings and fires again once armed.
+You can pause a schedule and arm it again later. A paused schedule keeps its settings.

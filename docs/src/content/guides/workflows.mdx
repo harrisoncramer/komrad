@@ -6,6 +6,7 @@ order: 2
 ---
 
 import Alert from "../../components/Alert.astro";
+import Key from "../../components/Key.astro";
 import { media } from "../../site";
 
 Komrad agents run inside of _workflows_. Workflows are just a bucket of settings: the directory for an agent to run in, the harness it'll use, like Claude or Codex, and other settings for every agent that spawns within them.
@@ -27,7 +28,7 @@ git clone https://github.com/neovim/neovim ~/neovim
 cd ~/neovim
 ```
 
-Next, run `komrad open` and press `w` in the panel, name the workflow `neovim` and submit it with `<C-s>` to create it. By default, your workflow takes the current directory as it's active directory:
+Next, run `komrad open` and press <Key name="workflows.new" /> in the panel, name the workflow `neovim` and submit it with `<C-s>` to create it. By default, your workflow takes the current directory as it's active directory:
 
 <figure>
   <video
@@ -110,9 +111,9 @@ The worktree's branch is worked out from your repository's clone when you create
 
 ## Archiving and restoring
 
-Archiving a workflow puts it into cold storage: you can hard-delete it later, but for now, it'll be hidden from your workflow view. The `z` keybinding archives an agent, by defualt, from the agent list.
+Archiving a workflow puts it into cold storage: you can hard-delete it later, but for now, it'll be hidden from your workflow view. Press <Key name="workflows.archive" /> on a workflow to archive it.
 
-This doesn't delete the agent or it's wokflows. Instead, the agents inside of the workflow will be paused, and removed from the active agent list. If you want to resume their conversations later, you can restore them with the `R` key, by default.
+This doesn't delete the agent or it's wokflows. Instead, the agents inside of the workflow will be paused, and removed from the active agent list. If you want to resume their conversations later, you can restore them from the archive.
 
 ## Next Steps
 

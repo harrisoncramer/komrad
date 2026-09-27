@@ -6,6 +6,7 @@ order: 1
 ---
 
 import Alert from "../../components/Alert.astro";
+import Key from "../../components/Key.astro";
 import { media } from "../../site";
 
 Komrad is one binary. The binary can run either a client or a server (or multiple servers on different machines) known as _engines_.
@@ -92,9 +93,9 @@ Run `komrad open` to open the panel. The first open starts the service in the ba
 
 ## Komrad + Tmux
 
-The panel takes over the terminal you open it in, and a tmux pane works like any other. `komrad attach` shows the same panel in a second terminal. Closing the panel with `ctrl+c` only detaches it, so the service and your agents keep running.
+The panel takes over the terminal you open it in, and a tmux pane works like any other. `komrad attach` shows the same panel in a second terminal. Closing the panel with <Key name="agents.quit" /> only detaches it, so the service and your agents keep running.
 
-If your own tmux prefix is `ctrl+a`, change the [cycle keys](../../config/#keybindings.cycle.views) so the panel still sees them.
+If your own tmux prefix is <Key name="cycle.views" at={0} />, change the [cycle keys](../../config/#keybindings.cycle.views) so the panel still sees them.
 
 ## Upgrading
 
