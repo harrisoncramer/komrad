@@ -729,8 +729,8 @@ func TestAgentsRecordCopy(t *testing.T) {
 
 				return openWorktreeRecord(t, panelHarnessParams{})
 			},
-			press: []string{"/", "c", "o", "m", "m", "i", "t", "tab", "enter", "G"},
-			want:  "1234567890ab  3h   feat(ui): a thing",
+			press: []string{"/", "_", "i", "d", "tab", "enter", "G"},
+			want:  "abc",
 		},
 	}
 
@@ -1111,7 +1111,7 @@ func TestAgentsRecordWorktree(t *testing.T) {
 		})
 	}
 
-	t.Run("the standing follows what was launched and the lists come last", func(t *testing.T) {
+	t.Run("the standing follows what was launched", func(t *testing.T) {
 		harness := newPanelHarness(t, panelHarnessParams{})
 		harness.answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, answerWith(buildWorktreeRead()))
 		harness.watch(buildSnapshot(buildRecorded()...))
@@ -1120,34 +1120,10 @@ func TestAgentsRecordWorktree(t *testing.T) {
 
 		frame := harness.readFrame()
 		directory, remote, size, flags := findRecordLine(frame, "directory"), findRecordLine(frame, "remote"), findRecordLine(frame, "size"), findRecordLine(frame, "flags")
-		commits := findRecordLine(frame, "commits")
 		require.Positive(t, directory)
 		assert.Less(t, directory, remote)
 		assert.Less(t, size, flags, "the standing comes before the ids")
-		assert.Less(t, flags, commits, "the commits come last")
-		record := readRecord(frame)
-		second := slices.IndexFunc(record, func(line string) bool { return strings.HasPrefix(strings.TrimLeft(line, "› "), "commits ") }) + 1
-		assert.Regexp(t, `^1234567890ab\s`, strings.TrimSpace(record[second]), "a second commit carries no label of its own")
-		assert.Regexp(t, `^87a3bcc98c47\s+2h\s+fix\(view\): drop the column$`, readRecordField(frame, "commits"))
-	})
-
-	t.Run("the commits past the first ten fold into a count", func(t *testing.T) {
-		read := buildWorktreeRead()
-		read.Commits = nil
-		for i := range 12 {
-			read.Commits = append(read.Commits, &worktreev1.Commit{
-				Sha:     fmt.Sprintf("%012d", i),
-				Subject: "a commit",
-			})
-		}
-		harness := newPanelHarness(t, panelHarnessParams{height: 60})
-		harness.answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, answerWith(read))
-		harness.watch(buildSnapshot(buildRecorded()...))
-
-		harness.press("ctrl+a")
-
-		frame := harness.readFrame()
-		assert.Equal(t, 1, strings.Count(frame, "+ 2 more"))
+		assert.Negative(t, findRecordLine(frame, "commits"))
 	})
 
 	t.Run("the top rule carries the lines the branch changed", func(t *testing.T) {
@@ -1274,12 +1250,12 @@ func TestAgentsRecordWorktree(t *testing.T) {
 		harness.answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, answerWith(buildWorktreeRead()))
 		harness.watch(buildSnapshot(buildRecorded()...))
 		share := len(readRecord(harness.readFrame()))
-		require.Negative(t, findRecordLine(harness.readFrame(), "commits"), "the last fields are past the share")
+		require.Negative(t, findRecordLine(harness.readFrame(), "created"), "the last fields are past the share")
 
 		harness.press("ctrl+a")
 
 		frame := harness.readFrame()
-		assert.Positive(t, findRecordLine(frame, "commits"))
+		assert.Positive(t, findRecordLine(frame, "created"))
 		assert.NotContains(t, strings.Join(readRecord(frame), "\n"), "more", "nothing is left out")
 		assert.Len(t, splitLines(frame), defaultHarnessHeight)
 		assert.Equal(t, []string{"backend", "  auth"}, readListRows(frame), "the list keeps its rows")
@@ -1289,14 +1265,14 @@ func TestAgentsRecordWorktree(t *testing.T) {
 	})
 
 	t.Run("a focused record taller than the pane grows only as far as the room", func(t *testing.T) {
-		harness := newPanelHarness(t, panelHarnessParams{height: 24})
+		harness := newPanelHarness(t, panelHarnessParams{height: 16})
 		harness.answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, answerWith(buildWorktreeRead()))
 		harness.watch(buildSnapshot(buildRecorded()...))
 
 		harness.press("ctrl+a")
 
 		frame := harness.readFrame()
-		assert.Len(t, splitLines(frame), 24)
+		assert.Len(t, splitLines(frame), 16)
 		assert.Contains(t, strings.Join(readRecord(frame), "\n"), "more")
 	})
 }
@@ -1322,47 +1298,27 @@ func TestAgentsRecordSearch(t *testing.T) {
 		harness.press("n")
 		require.Regexp(t, `^name\s`, readRecordCursor(harness.readFrame()), "nothing stands to step through")
 
-		harness.press("/", "c", "o", "m", "m", "i", "t", "enter")
-		assert.Regexp(t, `^landed\s`, readRecordCursor(harness.readFrame()))
+		harness.press("/", "_", "i", "d", "enter")
+		assert.Regexp(t, `^agent_id\s`, readRecordCursor(harness.readFrame()))
 
 		harness.press("n")
-		assert.Regexp(t, `^commits\s`, readRecordCursor(harness.readFrame()))
+		assert.Regexp(t, `^session_id\s`, readRecordCursor(harness.readFrame()))
 
 		harness.press("N")
-		assert.Regexp(t, `^landed\s`, readRecordCursor(harness.readFrame()))
+		assert.Regexp(t, `^agent_id\s`, readRecordCursor(harness.readFrame()))
 	})
 
 	t.Run("tab narrows the record to the fields it matches and the rows under them", func(t *testing.T) {
 		harness := openWorktreeRecord(t, panelHarnessParams{})
 
-		harness.press(append([]string{"/", "c", "o", "m", "m", "i", "t", "tab", "enter"}, widenListPresses...)...)
+		harness.press(append([]string{"/", "_", "i", "d", "tab", "enter"}, widenListPresses...)...)
 
 		frame := harness.readFrame()
-		assert.Contains(t, frame, "▽ commit")
+		assert.Contains(t, frame, "▽ _id")
 		assert.Equal(t, []string{
-			"› landed  1 commit the base already holds",
-			"  commits 87a3bcc98c47  2h   fix(view): drop the column",
-			"          1234567890ab  3h   feat(ui): a thing",
+			"› agent_id   a1",
+			"  session_id abc",
 		}, slices.DeleteFunc(readRecord(frame), isBlank))
-	})
-
-	t.Run("a narrowed list keeps the count of what it cut", func(t *testing.T) {
-		read := buildWorktreeRead()
-		for i := range 12 {
-			read.Commits = append(read.Commits, &worktreev1.Commit{
-				Sha:     fmt.Sprintf("%012d", i),
-				Subject: "a commit",
-			})
-		}
-		harness := newPanelHarness(t, panelHarnessParams{})
-		harness.answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, answerWith(read))
-		harness.watch(buildSnapshot(buildRecorded()...))
-
-		harness.press("ctrl+a", "/", "c", "o", "m", "m", "i", "t", "s", "tab", "enter")
-
-		record := slices.DeleteFunc(readRecord(harness.readFrame()), isBlank)
-		require.NotEmpty(t, record)
-		assert.Equal(t, "+ 4 more", strings.TrimSpace(record[len(record)-1]))
 	})
 
 	t.Run("a filter nothing matches says so and leaves the list alone", func(t *testing.T) {

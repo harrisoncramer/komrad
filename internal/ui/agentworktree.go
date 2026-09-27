@@ -18,9 +18,6 @@ import (
 // on the row asks for it again.
 const worktreeReadTTL = time.Minute
 
-// worktreeRowsShown is how many commits the record lists before counting the rest.
-const worktreeRowsShown = 10
-
 // inspectAgentWorktreeCmd asks for the hovered agent's directory where nothing stands for it or
 // what stands is stale.
 func (m *model) inspectAgentWorktreeCmd(now time.Time) tea.Cmd {
@@ -90,15 +87,6 @@ func worktreeStandingFields(read worktreeInspection, now time.Time) []recordFiel
 	return fields
 }
 
-// worktreeHistoryFields are the record's rows for the commits since the base, cut and counted.
-func worktreeHistoryFields(read worktreeInspection) []recordField {
-	if !read.isRead() || !read.item.readable || read.baseRef == "" || len(read.commits) == 0 {
-		return nil
-	}
-
-	return labelledRows("commits", cutRows(commitLines(read.commits), worktreeRowsShown))
-}
-
 // buildRemoteField is where the branch stands against its copy on origin.
 func buildRemoteField(read worktreeInspection) recordField {
 	warning := paint.Panel.Style(paint.ToneWarning)
@@ -165,29 +153,6 @@ func countStyle(count int, style lipgloss.Style) lipgloss.Style {
 	}
 
 	return style
-}
-
-// labelledRows is one field per line, the label on the first and the rest under it.
-func labelledRows(key string, lines []string) []recordField {
-	fields := make([]recordField, 0, len(lines))
-	for i, line := range lines {
-		if i > 0 {
-			key = ""
-		}
-
-		fields = append(fields, recordField{label: key, value: line})
-	}
-
-	return fields
-}
-
-// cutRows is the first lines and one counting the rest.
-func cutRows(lines []string, shown int) []string {
-	if len(lines) <= shown {
-		return lines
-	}
-
-	return append(lines[:shown:shown], fmt.Sprintf("+ %d more", len(lines)-shown))
 }
 
 // hoveredRecordAgent is the agent the record under the agents list or the archive is about, and

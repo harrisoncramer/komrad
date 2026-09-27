@@ -135,9 +135,6 @@ func agentFields(params agentFieldsParams) []recordField {
 			fields = append(fields, recordField{label: "archived", value: archived})
 		}
 	}
-	if params.read {
-		fields = append(fields, worktreeHistoryFields(params.worktree)...)
-	}
 
 	return fields
 }
