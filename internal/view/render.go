@@ -201,7 +201,7 @@ func Spell(glyph Glyph) string {
 	case GlyphFailing:
 		return "\uf467"
 	case GlyphConflicting:
-		return "\uf40c"
+		return "\uf421"
 	case GlyphDocument:
 		return "\uf4a5"
 	}
