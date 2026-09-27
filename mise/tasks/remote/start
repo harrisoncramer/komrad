@@ -14,7 +14,7 @@ usage() {
 	echo "The agents that were on the box are not brought back. Their conversations are on"
 	echo "the data volume, so resume the ones you want from the panel."
 	echo
-	echo "Needs AWS credentials in the environment, as AWS_PROFILE or the access key variables."
+	echo "Uses the komrad AWS profile, unless the environment already carries credentials."
 }
 
 for arg in "$@"; do
@@ -28,7 +28,7 @@ done
 
 cd "$MISE_CONFIG_ROOT"
 
-require_aws_profile
+use_komrad_aws_profile
 
 INSTANCE="$(require_instance "${1:-}")"
 REGION="$(engine_region)"

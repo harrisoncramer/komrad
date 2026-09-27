@@ -1,24 +1,13 @@
 #!/usr/bin/env bash
 
-# The AWS profile is a credential choice belonging to whoever is running the command, so it
-# comes from the environment like it does for every other AWS tool. See
+# Komrad's AWS profile is komrad, used unless the environment already carries credentials. See
 # mise/tasks/remote/_remote_utils for the fuller version of this explainer.
-require_aws_profile() {
+use_komrad_aws_profile() {
 	if [ -n "${AWS_PROFILE:-}" ] || [ -n "${AWS_ACCESS_KEY_ID:-}" ] || [ -n "${AWS_SESSION_TOKEN:-}" ]; then
 		return 0
 	fi
 
-	echo "no AWS credentials in the environment." >&2
-	echo >&2
-	echo "Export AWS_PROFILE, or whichever of AWS_ACCESS_KEY_ID and friends you use:" >&2
-	echo >&2
-	echo "  export AWS_PROFILE=your-profile" >&2
-	if command -v aws >/dev/null; then
-		echo >&2
-		echo "The profiles this machine knows:" >&2
-		aws configure list-profiles 2>/dev/null | sed 's/^/  /' >&2
-	fi
-	exit 1
+	export AWS_PROFILE=komrad
 }
 
 # Terraform built the site's bucket and distribution, so Terraform is what says where they are.
