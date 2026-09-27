@@ -366,7 +366,8 @@ type DocumentsKeys struct {
 	// Leave the documents screen for the agents list.
 	Back []string `mapstructure:"back" default:"esc"`
 	// Open the document under the cursor in your editor, in place of the document drawn
-	// beside the list. Quitting the editor, or pressing the key again, saves what you wrote.
+	// beside the list. Quitting the editor, or pressing the key again to close it, saves what it
+	// has written to the file.
 	Edit []string `mapstructure:"edit" default:"e"`
 	// Open the documents screen from the agents list, on the hovered agent's documents, or
 	// its orchestrator's on a workflow's row.

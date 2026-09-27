@@ -171,8 +171,11 @@ func TestDocumentsEdit(t *testing.T) {
 	tests := []struct {
 		name      string
 		write     string
+		refuse    bool
+		between   func(*panelHarness, *documentShelf)
 		close     func(*panelHarness)
 		wantSaved string
+		wantKept  bool
 	}{
 		{
 			name:      "the key again saves what changed",
@@ -200,6 +203,26 @@ func TestDocumentsEdit(t *testing.T) {
 			wantSaved: "Rewritten.",
 		},
 		{
+			name:      "a refused write keeps the copy",
+			write:     "Rewritten.",
+			refuse:    true,
+			close:     func(h *panelHarness) { h.press("e") },
+			wantSaved: "Rewritten.",
+			wantKept:  true,
+		},
+		{
+			name:  "the agent rewriting it meanwhile keeps the copy and saves nothing",
+			write: "Rewritten.",
+			between: func(h *panelHarness, docs *documentShelf) {
+				docs.rewrite("d1", "The agent's own rewrite.", "2026-09-26T12:00:00Z")
+				author := buildDocumentAuthors()[2].(*agentv1.Agent)
+				author.DocumentsUpdatedAt = proto.String("2026-09-26T12:00:00Z")
+				h.watch(buildPuts(author))
+			},
+			close:    func(h *panelHarness) { h.press("e") },
+			wantKept: true,
+		},
+		{
 			name:  "nothing changed saves nothing",
 			write: "# Design the cache\n\nKeep the cache warm.",
 			close: func(h *panelHarness) { h.press("e") },
@@ -215,8 +238,12 @@ func TestDocumentsEdit(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			harness, _ := openDocuments(t, "author")
+			harness, docs := openDocuments(t, "author")
 			harness.answer(agentv1connect.AgentServiceWriteDocumentProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+				if tt.refuse {
+					return nil, connect.NewError(connect.CodeUnavailable, nil)
+				}
+
 				return connect.NewResponse(&agentv1.WriteDocumentResponse{}), nil
 			})
 			harness.press("e")
@@ -227,7 +254,14 @@ func TestDocumentsEdit(t *testing.T) {
 			assert.NotContains(t, readStageText(harness.readFrame()), "Keep the cache warm.", "the editor stands where the document was drawn")
 
 			require.NoError(t, os.WriteFile(path, []byte(tt.write), 0o600))
+			if tt.between != nil {
+				tt.between(harness, docs)
+			}
 			tt.close(harness)
+
+			if tt.wantKept {
+				assert.FileExists(t, path)
+			}
 
 			if tt.wantSaved == "" {
 				assert.Empty(t, harness.readSent(agentv1connect.AgentServiceWriteDocumentProcedure))
@@ -241,7 +275,9 @@ func TestDocumentsEdit(t *testing.T) {
 				Kind:   agentv1.DocumentKind_DOCUMENT_KIND_RFC,
 				Source: &agentv1.WriteDocumentRequest_Body{Body: tt.wantSaved},
 			})
-			assert.NoFileExists(t, path)
+			if !tt.wantKept {
+				assert.NoFileExists(t, path)
+			}
 		})
 	}
 }

@@ -81,19 +81,37 @@ func (d *documentsScreen) closeEdit(h host) tea.Cmd {
 		return nil
 	}
 
-	h.report(summary, removeDocumentCopy(edit.path))
 	if body == edit.body {
+		h.report(summary, removeDocumentCopy(edit.path))
+
 		return nil
 	}
 
-	if read, ok := d.bodies[edit.item.id]; ok {
-		read.body = body
-		d.bodies[edit.item.id] = read
+	if d.isRewrittenSince(edit) {
+		h.reportBrief(summary, "the agent rewrote it while you were editing, so your copy is left at "+edit.path)
+
+		return nil
 	}
 
 	return h.writeCmd(summary, func(a api) error {
-		return a.writeDocument(edit.item.id, edit.item.name, edit.item.kind, body)
+		if err := a.writeDocument(edit.item.id, edit.item.name, edit.item.kind, body); err != nil {
+			return fmt.Errorf("failed to save, so your copy is left at %s: %w", edit.path, err)
+		}
+
+		return removeDocumentCopy(edit.path)
 	})
+}
+
+// isRewrittenSince reports whether the listing holds a newer write of the document than the one
+// the edit was opened on.
+func (d *documentsScreen) isRewrittenSince(edit documentEdit) bool {
+	for _, item := range d.items {
+		if item.id == edit.item.id {
+			return item.updatedAt.After(edit.item.updatedAt)
+		}
+	}
+
+	return false
 }
 
 // reconcileEditor catches the editor pane going away on its own and saves what it wrote.
@@ -108,7 +126,7 @@ func (d *documentsScreen) reconcileEditor(h host) tea.Cmd {
 // editDesc says what the edit key would do.
 func (d *documentsScreen) editDesc() string {
 	if d.editing != nil {
-		return "save and close the editor"
+		return "close the editor, keeping what it wrote"
 	}
 
 	return "edit in your editor"

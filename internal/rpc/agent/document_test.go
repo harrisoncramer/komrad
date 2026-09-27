@@ -106,7 +106,7 @@ func TestDocumentErrors(t *testing.T) {
 		asNobody bool
 		wantCode connect.Code
 	}{
-		{name: "creating with no caller identity", call: write, asNobody: true, wantCode: connect.CodeInvalidArgument},
+		{name: "creating a document with no author", call: write, err: documents.ErrNoAuthor, wantCode: connect.CodeInvalidArgument},
 		{name: "writing a name the agent already uses", call: write, err: store.ErrNameTaken, wantCode: connect.CodeAlreadyExists},
 		{name: "writing a body over the cap", call: write, err: documents.ErrTooLarge, wantCode: connect.CodeInvalidArgument},
 		{name: "writing from a path that cannot be read", call: write, err: documents.ErrUnreadablePath, wantCode: connect.CodeInvalidArgument},

@@ -24,18 +24,13 @@ var errUnknownDocumentKind = fail.InvalidArgument("unknown document kind")
 // WriteDocument creates or rewrites one of the calling agent's documents, or lets a caller that
 // is not an agent rewrite any one.
 func (s *Handler) WriteDocument(ctx context.Context, req *agentv1.WriteDocumentRequest) (*agentv1.WriteDocumentResponse, *fail.Error) {
-	from := caller.From(ctx).AgentID
-	if from == "" && req.Id == nil {
-		return nil, errCallerHasNoAgent
-	}
-
 	kind, failure := documentKindOf(req.GetKind())
 	if failure != nil {
 		return nil, failure
 	}
 
 	written, err := s.documents.WriteDocument(ctx, documents.WriteDocumentParams{
-		AgentID: from,
+		AgentID: caller.From(ctx).AgentID,
 		ID:      req.Id,
 		Name:    req.GetName(),
 		Kind:    kind,
