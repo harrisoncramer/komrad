@@ -598,7 +598,7 @@ func TestADeleteAfterTheMarkStopsTheResume(t *testing.T) {
 	<-lifecycle.entered
 
 	require.Equal(t, agentstore.StateSettingUp, agentByID(t, st, agent.ID).State)
-	require.NoError(t, manager.lifecycle.DeleteAgents(ctx, []string{agent.ID}))
+	require.NoError(t, manager.lifecycle.deleteNow(ctx, []string{agent.ID}))
 
 	close(lifecycle.release)
 	select {

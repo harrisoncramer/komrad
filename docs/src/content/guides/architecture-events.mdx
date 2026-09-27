@@ -48,4 +48,4 @@ For instance, the reconcile loop reads the bottom of each agent's pane and decid
 
 ## River
 
-Work that must happen later, or exactly once, goes through River, a job queue that lives in the same Postgres. Launching an agent for a schedule is a River job. So is emptying the archive. Jobs are unique by their arguments, so pressing a key twice cannot queue the work twice.
+Work that must happen later, or exactly once, goes through River, a job queue that lives in the same Postgres. Launching an agent for a schedule is a River job. So is deleting an agent, which claims the row as it queues the job, so pressing a key twice cannot queue the work twice. Each kind of job runs on a queue of its own, so a slow teardown never holds up a scheduled launch.

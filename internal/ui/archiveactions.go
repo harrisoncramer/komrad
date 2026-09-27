@@ -104,12 +104,6 @@ func (a *archiveScreen) agentTable() []screenAction {
 			run:  a.deleteHovered,
 		},
 		screenAction{
-			id:   actionArchiveEmpty,
-			keys: func(k config.Keybindings) []string { return k.Archive.Empty },
-			when: list.isBrowsing,
-			run:  func(h host, s panelShared, _ string) tea.Cmd { return confirmEmptyArchive(h, s) },
-		},
-		screenAction{
 			id:   actionWorktreesOpen,
 			keys: func(k config.Keybindings) []string { return k.Worktrees.Open },
 			when: list.isBrowsing,
@@ -163,11 +157,6 @@ func (a *archiveScreen) legend() []screenLegendRow {
 		{
 			of:   []actionID{actionArchiveDelete},
 			desc: func(panelShared) string { return "delete for good" },
-			show: a.holdsAnAgent,
-		},
-		{
-			of:   []actionID{actionArchiveEmpty},
-			desc: func(panelShared) string { return "empty the archive" },
 			show: a.holdsAnAgent,
 		},
 		{

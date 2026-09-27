@@ -142,20 +142,6 @@ func (q *Queries) ClearAgentsDeleting(ctx context.Context, ids []string) error {
 	return err
 }
 
-const clearAllAgentsDeleting = `-- name: ClearAllAgentsDeleting :exec
-UPDATE
-    agents
-SET
-    deleting_at = NULL
-WHERE
-    deleting_at IS NOT NULL
-`
-
-func (q *Queries) ClearAllAgentsDeleting(ctx context.Context) error {
-	_, err := q.db.Exec(ctx, clearAllAgentsDeleting)
-	return err
-}
-
 const countLiveAgents = `-- name: CountLiveAgents :one
 SELECT
     COUNT(*)
@@ -1123,86 +1109,6 @@ func (q *Queries) ListAllAgents(ctx context.Context) ([]*Agent, error) {
 	return items, nil
 }
 
-const listArchiveSweepPage = `-- name: ListArchiveSweepPage :many
-SELECT
-    id, name, cwd, flags, prompt, pane_id, state, state_changed_at, harness, session_id, workflow_id, schedule_id, idempotency_key, spawned_by_agent_id, archived_at, is_hidden, nudged_at, branch, worktree_removed, created_at, updated_at, state_seen_at, interrupted_at, adopted_branch, parent_agent_id, turn_ended_at, provision_enabled, reported_reason, role, held_at, held_mid_turn, nudge_sent_at, sequence_in_progress, repository_url, deleting_at, alive, engine_id, head_sha, moved_since_round, failure_reason
-FROM
-    agents s
-WHERE
-    s.archived_at IS NOT NULL
-    AND ($1::uuid IS NULL
-        OR s.id < $1)
-ORDER BY
-    s.id DESC
-LIMIT $2
-`
-
-type ListArchiveSweepPageParams struct {
-	CursorID *string
-	Lim      int32
-}
-
-func (q *Queries) ListArchiveSweepPage(ctx context.Context, arg ListArchiveSweepPageParams) ([]*Agent, error) {
-	rows, err := q.db.Query(ctx, listArchiveSweepPage, arg.CursorID, arg.Lim)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []*Agent
-	for rows.Next() {
-		var i Agent
-		if err := rows.Scan(
-			&i.ID,
-			&i.Name,
-			&i.Cwd,
-			&i.Flags,
-			&i.Prompt,
-			&i.PaneID,
-			&i.State,
-			&i.StateChangedAt,
-			&i.Harness,
-			&i.SessionID,
-			&i.WorkflowID,
-			&i.ScheduleID,
-			&i.IdempotencyKey,
-			&i.SpawnedByAgentID,
-			&i.ArchivedAt,
-			&i.IsHidden,
-			&i.NudgedAt,
-			&i.Branch,
-			&i.WorktreeRemoved,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.StateSeenAt,
-			&i.InterruptedAt,
-			&i.AdoptedBranch,
-			&i.ParentAgentID,
-			&i.TurnEndedAt,
-			&i.ProvisionEnabled,
-			&i.ReportedReason,
-			&i.Role,
-			&i.HeldAt,
-			&i.HeldMidTurn,
-			&i.NudgeSentAt,
-			&i.SequenceInProgress,
-			&i.RepositoryUrl,
-			&i.DeletingAt,
-			&i.Alive,
-			&i.EngineID,
-			&i.HeadSha,
-			&i.MovedSinceRound,
-			&i.FailureReason,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, &i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const listArchivedWorkflowAgents = `-- name: ListArchivedWorkflowAgents :many
 SELECT
     id, name, cwd, flags, prompt, pane_id, state, state_changed_at, harness, session_id, workflow_id, schedule_id, idempotency_key, spawned_by_agent_id, archived_at, is_hidden, nudged_at, branch, worktree_removed, created_at, updated_at, state_seen_at, interrupted_at, adopted_branch, parent_agent_id, turn_ended_at, provision_enabled, reported_reason, role, held_at, held_mid_turn, nudge_sent_at, sequence_in_progress, repository_url, deleting_at, alive, engine_id, head_sha, moved_since_round, failure_reason
@@ -1338,6 +1244,53 @@ func (q *Queries) ListChildAgents(ctx context.Context, parentIds []string) ([]*A
 			&i.MovedSinceRound,
 			&i.FailureReason,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listDeletingRoots = `-- name: ListDeletingRoots :many
+SELECT
+    a.id,
+    a.parent_agent_id,
+    a.deleting_at
+FROM
+    agents a
+WHERE
+    a.deleting_at IS NOT NULL
+    AND NOT EXISTS (
+        SELECT
+            1
+        FROM
+            agents parent
+        WHERE
+            parent.id = a.parent_agent_id
+            AND parent.deleting_at = a.deleting_at)
+ORDER BY
+    a.id
+`
+
+type ListDeletingRootsRow struct {
+	ID            string
+	ParentAgentID *string
+	DeletingAt    *time.Time
+}
+
+func (q *Queries) ListDeletingRoots(ctx context.Context) ([]*ListDeletingRootsRow, error) {
+	rows, err := q.db.Query(ctx, listDeletingRoots)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*ListDeletingRootsRow
+	for rows.Next() {
+		var i ListDeletingRootsRow
+		if err := rows.Scan(&i.ID, &i.ParentAgentID, &i.DeletingAt); err != nil {
 			return nil, err
 		}
 		items = append(items, &i)
@@ -1982,7 +1935,7 @@ func (q *Queries) MarkAgentsArchived(ctx context.Context, ids []string) ([]*Mark
 	return items, nil
 }
 
-const markAgentsDeleting = `-- name: MarkAgentsDeleting :exec
+const markAgentsDeleting = `-- name: MarkAgentsDeleting :many
 WITH claimed AS (
     UPDATE
         agents
@@ -1993,95 +1946,75 @@ WITH claimed AS (
     AND deleting_at IS NULL
 RETURNING
     id,
-    workflow_id)
-UPDATE
-    workflows w
-SET
-    deleting_at = NOW()
-WHERE
-    w.archived_at IS NOT NULL
-    AND w.deleting_at IS NULL
-    AND w.id IN (
-        SELECT
-            workflow_id
-        FROM
-            claimed)
-    AND NOT EXISTS (
-        SELECT
-            1
-        FROM
-            agents a
-        WHERE
-            a.workflow_id = w.id
-            AND a.archived_at IS NOT NULL
-            AND a.deleting_at IS NULL
-            AND a.id NOT IN (
-                SELECT
-                    id
-                FROM
-                    claimed))
-`
-
-func (q *Queries) MarkAgentsDeleting(ctx context.Context, ids []string) error {
-	_, err := q.db.Exec(ctx, markAgentsDeleting, ids)
-	return err
-}
-
-const markArchivedAgentsDeleting = `-- name: MarkArchivedAgentsDeleting :exec
-WITH claimed AS (
+    parent_agent_id,
+    workflow_id,
+    deleting_at
+),
+marked AS (
     UPDATE
-        agents a
+        workflows w
     SET
         deleting_at = NOW()
     WHERE
-        a.archived_at IS NOT NULL
-        AND a.state <> 'failed_to_cleanup'
-        AND a.deleting_at IS NULL
-        AND NOT EXISTS (
+        w.archived_at IS NOT NULL
+        AND w.deleting_at IS NULL
+        AND w.id IN (
             SELECT
-                1
+                workflow_id
             FROM
-                agents parent
-            WHERE
-                parent.id = a.parent_agent_id
-                AND parent.state = 'failed_to_cleanup')
-        RETURNING
-            a.id,
-            a.workflow_id)
-UPDATE
-    workflows w
-SET
-    deleting_at = NOW()
-WHERE
-    w.archived_at IS NOT NULL
-    AND w.deleting_at IS NULL
-    AND w.id IN (
-        SELECT
-            workflow_id
-        FROM
-            claimed)
-    AND NOT EXISTS (
-        SELECT
-            1
-        FROM
-            agents a
-        WHERE
-            a.workflow_id = w.id
-            AND a.archived_at IS NOT NULL
-            AND a.deleting_at IS NULL
-            AND a.id NOT IN (
+                claimed)
+            AND NOT EXISTS (
                 SELECT
-                    id
+                    1
                 FROM
-                    claimed))
+                    agents a
+                WHERE
+                    a.workflow_id = w.id
+                    AND a.archived_at IS NOT NULL
+                    AND a.deleting_at IS NULL
+                    AND a.id NOT IN (
+                        SELECT
+                            id
+                        FROM
+                            claimed))
+                RETURNING
+                    w.id
+)
+        SELECT
+            id,
+            parent_agent_id,
+            deleting_at
+        FROM
+            claimed
 `
 
-func (q *Queries) MarkArchivedAgentsDeleting(ctx context.Context) error {
-	_, err := q.db.Exec(ctx, markArchivedAgentsDeleting)
-	return err
+type MarkAgentsDeletingRow struct {
+	ID            string
+	ParentAgentID *string
+	DeletingAt    *time.Time
 }
 
-const markArchivedAgentsDeletingByID = `-- name: MarkArchivedAgentsDeletingByID :exec
+func (q *Queries) MarkAgentsDeleting(ctx context.Context, ids []string) ([]*MarkAgentsDeletingRow, error) {
+	rows, err := q.db.Query(ctx, markAgentsDeleting, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*MarkAgentsDeletingRow
+	for rows.Next() {
+		var i MarkAgentsDeletingRow
+		if err := rows.Scan(&i.ID, &i.ParentAgentID, &i.DeletingAt); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const markArchivedAgentsDeletingByID = `-- name: MarkArchivedAgentsDeletingByID :many
 WITH claimed AS (
     UPDATE
         agents a
@@ -2102,38 +2035,72 @@ WITH claimed AS (
             AND parent.state = 'failed_to_cleanup')
     RETURNING
         a.id,
-        a.workflow_id)
-UPDATE
-    workflows w
-SET
-    deleting_at = NOW()
-WHERE
-    w.archived_at IS NOT NULL
-    AND w.deleting_at IS NULL
-    AND w.id IN (
-        SELECT
-            workflow_id
-        FROM
-            claimed)
-    AND NOT EXISTS (
-        SELECT
-            1
-        FROM
-            agents a
-        WHERE
-            a.workflow_id = w.id
-            AND a.archived_at IS NOT NULL
-            AND a.deleting_at IS NULL
-            AND a.id NOT IN (
+        a.parent_agent_id,
+        a.workflow_id,
+        a.deleting_at
+),
+marked AS (
+    UPDATE
+        workflows w
+    SET
+        deleting_at = NOW()
+    WHERE
+        w.archived_at IS NOT NULL
+        AND w.deleting_at IS NULL
+        AND w.id IN (
+            SELECT
+                workflow_id
+            FROM
+                claimed)
+            AND NOT EXISTS (
                 SELECT
-                    id
+                    1
                 FROM
-                    claimed))
+                    agents a
+                WHERE
+                    a.workflow_id = w.id
+                    AND a.archived_at IS NOT NULL
+                    AND a.deleting_at IS NULL
+                    AND a.id NOT IN (
+                        SELECT
+                            id
+                        FROM
+                            claimed))
+                RETURNING
+                    w.id
+)
+        SELECT
+            id,
+            parent_agent_id,
+            deleting_at
+        FROM
+            claimed
 `
 
-func (q *Queries) MarkArchivedAgentsDeletingByID(ctx context.Context, ids []string) error {
-	_, err := q.db.Exec(ctx, markArchivedAgentsDeletingByID, ids)
-	return err
+type MarkArchivedAgentsDeletingByIDRow struct {
+	ID            string
+	ParentAgentID *string
+	DeletingAt    *time.Time
+}
+
+func (q *Queries) MarkArchivedAgentsDeletingByID(ctx context.Context, ids []string) ([]*MarkArchivedAgentsDeletingByIDRow, error) {
+	rows, err := q.db.Query(ctx, markArchivedAgentsDeletingByID, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*MarkArchivedAgentsDeletingByIDRow
+	for rows.Next() {
+		var i MarkArchivedAgentsDeletingByIDRow
+		if err := rows.Scan(&i.ID, &i.ParentAgentID, &i.DeletingAt); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const markWorkflowAgentsArchived = `-- name: MarkWorkflowAgentsArchived :many

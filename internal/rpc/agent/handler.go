@@ -50,7 +50,6 @@ type rowReader interface {
 }
 
 type agentLifecycle interface {
-	DeleteAgents(ctx context.Context, ids []string) error
 	ArchiveAgents(ctx context.Context, ids []string) error
 	RestoreAgents(ctx context.Context, ids []string) ([]agentstore.Agent, error)
 }
@@ -83,8 +82,8 @@ type markReadWriter interface {
 	ListMarks(ctx context.Context) ([]markstore.Mark, error)
 }
 
-type archiveEmptier interface {
-	EmptyArchive(ctx context.Context) error
+type agentDeleter interface {
+	DeleteAgents(ctx context.Context, ids []string) error
 }
 
 type NewHandlerParams struct {
@@ -99,7 +98,7 @@ type NewHandlerParams struct {
 	Lifecycle    agentLifecycle
 	Resumer      agentResumer
 	Holder       agentHolder
-	Archive      archiveEmptier
+	Deleter      agentDeleter
 	Review       reviewConversation
 	Marks        markReadWriter
 	Documents    documentReadWriter
@@ -120,7 +119,7 @@ type Handler struct {
 	lifecycle    agentLifecycle
 	resumer      agentResumer
 	holder       agentHolder
-	archive      archiveEmptier
+	deleter      agentDeleter
 	review       reviewConversation
 	marks        markReadWriter
 	documents    documentReadWriter
@@ -149,7 +148,7 @@ func NewHandler(params NewHandlerParams) *Handler {
 		lifecycle:    params.Lifecycle,
 		resumer:      params.Resumer,
 		holder:       params.Holder,
-		archive:      params.Archive,
+		deleter:      params.Deleter,
 		review:       params.Review,
 		marks:        params.Marks,
 		documents:    params.Documents,
@@ -447,9 +446,9 @@ func logCrossAgentRead(ctx context.Context, target, message string) {
 		slog.String(logging.TargetAgentID, target))
 }
 
-// DeleteAgents stops agents and removes them with their configs and transcripts.
+// DeleteAgents claims agents and queues their deletes.
 func (s *Handler) DeleteAgents(ctx context.Context, req *agentv1.DeleteAgentsRequest) (*emptypb.Empty, *fail.Error) {
-	if err := s.lifecycle.DeleteAgents(ctx, req.GetIds()); err != nil {
+	if err := s.deleter.DeleteAgents(ctx, req.GetIds()); err != nil {
 		return nil, rpcerr.From(err, "failed to delete agents")
 	}
 
@@ -517,16 +516,6 @@ func (s *Handler) RestoreAgents(ctx context.Context, req *agentv1.RestoreAgentsR
 	return &agentv1.RestoreAgentsResponse{
 		Agents: xslice.Map(rows, func(row rowstore.Row) *agentv1.Agent { return render.Agent(row, render.AgentOptions{}) }),
 	}, nil
-}
-
-// EmptyArchive queues the sweep that deletes the whole archive as a background job, every agent
-// in it running its own deprovisioner.
-func (s *Handler) EmptyArchive(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, *fail.Error) {
-	if err := s.archive.EmptyArchive(ctx); err != nil {
-		return nil, rpcerr.From(err, "failed to empty the archive")
-	}
-
-	return &emptypb.Empty{}, nil
 }
 
 // ResumeAgent relaunches an agent's CLI on its conversation and returns it as stored.

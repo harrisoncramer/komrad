@@ -9,17 +9,25 @@ import (
 	"context"
 )
 
-const clearAllWorkflowsDeleting = `-- name: ClearAllWorkflowsDeleting :exec
+const clearAbandonedWorkflowsDeleting = `-- name: ClearAbandonedWorkflowsDeleting :exec
 UPDATE
-    workflows
+    workflows w
 SET
     deleting_at = NULL
 WHERE
-    deleting_at IS NOT NULL
+    w.deleting_at IS NOT NULL
+    AND NOT EXISTS (
+        SELECT
+            1
+        FROM
+            agents a
+        WHERE
+            a.workflow_id = w.id
+            AND a.deleting_at IS NOT NULL)
 `
 
-func (q *Queries) ClearAllWorkflowsDeleting(ctx context.Context) error {
-	_, err := q.db.Exec(ctx, clearAllWorkflowsDeleting)
+func (q *Queries) ClearAbandonedWorkflowsDeleting(ctx context.Context) error {
+	_, err := q.db.Exec(ctx, clearAbandonedWorkflowsDeleting)
 	return err
 }
 

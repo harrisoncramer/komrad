@@ -3,7 +3,6 @@ package internaljobs
 import (
 	"context"
 	"errors"
-	"fmt"
 	"testing"
 	"time"
 
@@ -15,15 +14,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// fakeWorktrees answers as the listing, the agent delete and the remover, remembering what
-// each was asked.
+// fakeWorktrees answers as the listing and the remover, remembering what the remover was asked.
 type fakeWorktrees struct {
 	listing   worktrees.Listing
 	listErr   error
-	deleteErr error
 	removeErr error
 	refused   []worktrees.Refusal
-	deleted   [][]string
 	removed   [][]string
 }
 
@@ -33,12 +29,6 @@ func (f *fakeWorktrees) List(context.Context) (*worktrees.Listing, error) {
 	}
 
 	return &f.listing, nil
-}
-
-func (f *fakeWorktrees) DeleteAgents(_ context.Context, ids []string) error {
-	f.deleted = append(f.deleted, ids)
-
-	return f.deleteErr
 }
 
 func (f *fakeWorktrees) Remove(_ context.Context, dirs []string) (*worktrees.Removal, error) {
@@ -53,7 +43,6 @@ func (f *fakeWorktrees) Remove(_ context.Context, dirs []string) (*worktrees.Rem
 func newDeleteWorktreesWorker(fake *fakeWorktrees) *DeleteWorktreesWorker {
 	return NewDeleteWorktreesWorker(NewDeleteWorktreesWorkerParams{
 		Worktrees: fake,
-		Deleter:   fake,
 		Remover:   fake,
 	})
 }
@@ -78,9 +67,7 @@ func TestDeleteWorktreesSendsEachDirectoryDownItsPath(t *testing.T) {
 		listing     []worktrees.Worktree
 		dirs        []string
 		refused     []worktrees.Refusal
-		deleteErr   error
 		removeErr   error
-		wantDeleted [][]string
 		wantRemoved [][]string
 		wantErr     bool
 		wantCancel  bool
@@ -132,26 +119,9 @@ func TestDeleteWorktreesSendsEachDirectoryDownItsPath(t *testing.T) {
 			wantErr:     true,
 		},
 		{
-			name: "a delete that fails is retried, the refusals riding along in the error",
-			listing: []worktrees.Worktree{
-				archivedWorktree("/trees/a", "a"),
-				{
-					Dir:      "/trees/live",
-					Readable: true,
-					Agent:    &worktrees.Agent{ID: "live", Name: "worktree-view"},
-				},
-			},
-			dirs:        []string{"/trees/a", "/trees/live"},
-			deleteErr:   errors.New("the store is away"),
-			wantDeleted: [][]string{{"a"}},
-			wantErr:     true,
-			wantSaid:    "agent worktree-view is live",
-		},
-		{
-			name:        "an archived agent's directory goes through the agent delete",
-			listing:     []worktrees.Worktree{archivedWorktree("/trees/a", "a")},
-			dirs:        []string{"/trees/a"},
-			wantDeleted: [][]string{{"a"}},
+			name:    "an archived agent's directory is left to the agent's own delete",
+			listing: []worktrees.Worktree{archivedWorktree("/trees/a", "a")},
+			dirs:    []string{"/trees/a"},
 		},
 		{
 			name:        "a directory nothing answers for goes to the remover",
@@ -179,7 +149,6 @@ func TestDeleteWorktreesSendsEachDirectoryDownItsPath(t *testing.T) {
 				{Dir: "/trees/orphan", Readable: true},
 			},
 			dirs:        []string{"/trees/orphan", "/trees/a"},
-			wantDeleted: [][]string{{"a"}},
 			wantRemoved: [][]string{{"/trees/orphan"}},
 		},
 		{
@@ -190,24 +159,9 @@ func TestDeleteWorktreesSendsEachDirectoryDownItsPath(t *testing.T) {
 			},
 			dirs:        []string{"/trees/outer", "/trees/outer/inner"},
 			refused:     []worktrees.Refusal{{Dir: "/trees/outer", Reason: "it holds the worktree /trees/outer/inner; remove that first"}},
-			wantDeleted: [][]string{{"inner"}},
 			wantRemoved: [][]string{{"/trees/outer"}},
 			wantErr:     true,
 			wantSaid:    "an agent's teardown is still running under it",
-		},
-		{
-			name: "a directory refused over an agent whose delete failed is a verdict",
-			listing: []worktrees.Worktree{
-				{Dir: "/trees/outer", Readable: true},
-				archivedWorktree("/trees/outer/inner", "inner"),
-			},
-			dirs:        []string{"/trees/outer", "/trees/outer/inner"},
-			deleteErr:   errors.New("the store is away"),
-			refused:     []worktrees.Refusal{{Dir: "/trees/outer", Reason: "it holds the worktree /trees/outer/inner; remove that first"}},
-			wantDeleted: [][]string{{"inner"}},
-			wantRemoved: [][]string{{"/trees/outer"}},
-			wantErr:     true,
-			wantSaid:    "/trees/outer was left alone: it holds the worktree",
 		},
 		{
 			name: "a directory goes before the one holding it, each depth its own call",
@@ -226,7 +180,6 @@ func TestDeleteWorktreesSendsEachDirectoryDownItsPath(t *testing.T) {
 			fake := &fakeWorktrees{
 				listing:   worktrees.Listing{Worktrees: tt.listing},
 				refused:   tt.refused,
-				deleteErr: tt.deleteErr,
 				removeErr: tt.removeErr,
 			}
 			worker := newDeleteWorktreesWorker(fake)
@@ -247,29 +200,9 @@ func TestDeleteWorktreesSendsEachDirectoryDownItsPath(t *testing.T) {
 				require.ErrorContains(t, err, tt.wantSaid)
 			}
 
-			assert.Equal(t, tt.wantDeleted, fake.deleted, "what the agent delete was asked")
 			assert.Equal(t, tt.wantRemoved, fake.removed, "what the remover was asked")
 		})
 	}
-}
-
-// TestDeleteWorktreesDeletesAgentsAPageAtATime covers the ids going in the batches the agent
-// delete takes.
-func TestDeleteWorktreesDeletesAgentsAPageAtATime(t *testing.T) {
-	fake := &fakeWorktrees{}
-	var dirs []string
-	for i := range deleteWorktreesBatch + 2 {
-		dir := fmt.Sprintf("/trees/%03d", i)
-		fake.listing.Worktrees = append(fake.listing.Worktrees, archivedWorktree(dir, fmt.Sprintf("%03d", i)))
-		dirs = append(dirs, dir)
-	}
-	worker := newDeleteWorktreesWorker(fake)
-
-	require.NoError(t, worker.Work(t.Context(), &river.Job[DeleteWorktreesArgs]{Args: DeleteWorktreesArgs{Dirs: dirs}}))
-
-	require.Len(t, fake.deleted, 2)
-	assert.Len(t, fake.deleted[0], deleteWorktreesBatch)
-	assert.Len(t, fake.deleted[1], 2)
 }
 
 // TestDeleteWorktreesRetriesAListingItCannotRead covers the one failure before anything is
@@ -283,6 +216,5 @@ func TestDeleteWorktreesRetriesAListingItCannotRead(t *testing.T) {
 	require.Error(t, err)
 	var cancel *river.JobCancelError
 	assert.NotErrorAs(t, err, &cancel)
-	assert.Empty(t, fake.deleted)
 	assert.Empty(t, fake.removed)
 }

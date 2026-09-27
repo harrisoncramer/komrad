@@ -957,7 +957,7 @@ func TestDeleteFiresPreDeleteThenPostDelete(t *testing.T) {
 	agent.Cwd = t.TempDir()
 	require.NoError(t, st.Agents.Update(ctx, agent))
 
-	require.NoError(t, manager.lifecycle.DeleteAgents(ctx, []string{agent.ID}))
+	require.NoError(t, manager.lifecycle.deleteNow(ctx, []string{agent.ID}))
 
 	require.Eventually(t, func() bool {
 		return len(lifecycle.ranHooks()) == 2
@@ -998,7 +998,8 @@ func TestDeleteWaitsForTheHooksStillRunning(t *testing.T) {
 		hooks:   config.Hooks,
 		event:   workflowstore.HookPostArchive,
 	})
-	require.NoError(t, manager.lifecycle.DeleteAgents(ctx, []string{agent.ID}))
+	deleted := make(chan error, 1)
+	go func() { deleted <- manager.lifecycle.deleteNow(ctx, []string{agent.ID}) }()
 
 	present := func() bool {
 		remaining, err := st.Agents.ListAll(ctx)
@@ -1011,8 +1012,8 @@ func TestDeleteWaitsForTheHooksStillRunning(t *testing.T) {
 
 	close(running)
 
-	require.Eventually(t, func() bool { return !present() }, 5*time.Second, 10*time.Millisecond,
-		"and goes once it has finished")
+	require.NoError(t, <-deleted)
+	assert.False(t, present(), "and goes once it has finished")
 }
 
 // TestAStartedHookHoldsItsPlaceBeforeItsGoroutineIsScheduled covers the gap between a start and the goroutine running.

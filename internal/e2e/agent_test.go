@@ -141,6 +141,7 @@ func TestIntegrationAgentLifecycle(t *testing.T) {
 			Ids: []string{agent.GetId()},
 		}))
 		require.NoError(t, err)
+		instance.WorkQueue()
 
 		assert.Empty(t, liveNames(t, instance))
 		assert.Empty(t, archivedNames(t, instance))

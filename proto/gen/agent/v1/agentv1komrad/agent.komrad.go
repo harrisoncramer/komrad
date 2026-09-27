@@ -45,7 +45,6 @@ type AgentServiceImpl interface {
 	ListDocuments(context.Context, *v1.ListDocumentsRequest) (*v1.ListDocumentsResponse, *fail.Error)
 	GetDocument(context.Context, *v1.GetDocumentRequest) (*v1.GetDocumentResponse, *fail.Error)
 	ListDocumentVersions(context.Context, *v1.ListDocumentVersionsRequest) (*v1.ListDocumentVersionsResponse, *fail.Error)
-	EmptyArchive(context.Context, *emptypb.Empty) (*emptypb.Empty, *fail.Error)
 	RecordReport(context.Context, *v1.RecordReportRequest) (*emptypb.Empty, *fail.Error)
 	MarkRunsRead(context.Context, *v1.MarkRunsReadRequest) (*emptypb.Empty, *fail.Error)
 	ListReviewThreads(context.Context, *v1.ListReviewThreadsRequest) (*v1.ListReviewThreadsResponse, *fail.Error)
@@ -215,11 +214,6 @@ func (a AgentServiceAdapter) GetDocument(ctx context.Context, req *connect.Reque
 // ListDocumentVersions answers the request as connect serves it.
 func (a AgentServiceAdapter) ListDocumentVersions(ctx context.Context, req *connect.Request[v1.ListDocumentVersionsRequest]) (*connect.Response[v1.ListDocumentVersionsResponse], error) {
 	return rpcerr.Answer(a.Impl.ListDocumentVersions(ctx, req.Msg))
-}
-
-// EmptyArchive answers the request as connect serves it.
-func (a AgentServiceAdapter) EmptyArchive(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[emptypb.Empty], error) {
-	return rpcerr.Answer(a.Impl.EmptyArchive(ctx, req.Msg))
 }
 
 // RecordReport answers the request as connect serves it.

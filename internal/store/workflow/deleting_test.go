@@ -29,16 +29,20 @@ func TestDeletingClaimHidesTheWorkflow(t *testing.T) {
 			name:    "a live workflow is left alone",
 			archive: false,
 			agents:  1,
-			claim: func(ctx context.Context, agents *agentstore.AgentStore, _ []string) error {
-				return agents.MarkArchivedDeleting(ctx)
+			claim: func(ctx context.Context, agents *agentstore.AgentStore, ids []string) error {
+				_, err := agents.MarkArchivedDeletingByID(ctx, ids)
+
+				return err
 			},
 		},
 		{
 			name:    "an archived workflow holding nothing is left alone",
 			archive: true,
 			agents:  0,
-			claim: func(ctx context.Context, agents *agentstore.AgentStore, _ []string) error {
-				return agents.MarkArchivedDeleting(ctx)
+			claim: func(ctx context.Context, agents *agentstore.AgentStore, ids []string) error {
+				_, err := agents.MarkArchivedDeletingByID(ctx, ids)
+
+				return err
 			},
 		},
 		{
@@ -46,8 +50,10 @@ func TestDeletingClaimHidesTheWorkflow(t *testing.T) {
 			archive: true,
 			agents:  1,
 			failed:  true,
-			claim: func(ctx context.Context, agents *agentstore.AgentStore, _ []string) error {
-				return agents.MarkArchivedDeleting(ctx)
+			claim: func(ctx context.Context, agents *agentstore.AgentStore, ids []string) error {
+				_, err := agents.MarkArchivedDeletingByID(ctx, ids)
+
+				return err
 			},
 		},
 		{
@@ -55,15 +61,19 @@ func TestDeletingClaimHidesTheWorkflow(t *testing.T) {
 			archive: true,
 			agents:  2,
 			claim: func(ctx context.Context, agents *agentstore.AgentStore, ids []string) error {
-				return agents.MarkDeleting(ctx, ids[:1])
+				_, err := agents.MarkDeleting(ctx, ids[:1])
+
+				return err
 			},
 		},
 		{
-			name:    "the archive claim takes the workflow with its agents",
+			name:    "an archived claim on every agent takes the workflow with them",
 			archive: true,
 			agents:  2,
-			claim: func(ctx context.Context, agents *agentstore.AgentStore, _ []string) error {
-				return agents.MarkArchivedDeleting(ctx)
+			claim: func(ctx context.Context, agents *agentstore.AgentStore, ids []string) error {
+				_, err := agents.MarkArchivedDeletingByID(ctx, ids)
+
+				return err
 			},
 			wantHidden: true,
 		},
@@ -72,11 +82,12 @@ func TestDeletingClaimHidesTheWorkflow(t *testing.T) {
 			archive: true,
 			agents:  2,
 			claim: func(ctx context.Context, agents *agentstore.AgentStore, ids []string) error {
-				if err := agents.MarkDeleting(ctx, ids[:1]); err != nil {
+				if _, err := agents.MarkDeleting(ctx, ids[:1]); err != nil {
 					return err
 				}
+				_, err := agents.MarkDeleting(ctx, ids[1:])
 
-				return agents.MarkDeleting(ctx, ids[1:])
+				return err
 			},
 			wantHidden: true,
 		},
@@ -85,7 +96,9 @@ func TestDeletingClaimHidesTheWorkflow(t *testing.T) {
 			archive: true,
 			agents:  1,
 			claim: func(ctx context.Context, agents *agentstore.AgentStore, ids []string) error {
-				return agents.MarkArchivedDeletingByID(ctx, ids)
+				_, err := agents.MarkArchivedDeletingByID(ctx, ids)
+
+				return err
 			},
 			wantHidden: true,
 		},
@@ -93,22 +106,43 @@ func TestDeletingClaimHidesTheWorkflow(t *testing.T) {
 			name:    "an agent's release gives the workflow back",
 			archive: true,
 			agents:  2,
-			claim: func(ctx context.Context, agents *agentstore.AgentStore, _ []string) error {
-				return agents.MarkArchivedDeleting(ctx)
+			claim: func(ctx context.Context, agents *agentstore.AgentStore, ids []string) error {
+				_, err := agents.MarkArchivedDeletingByID(ctx, ids)
+
+				return err
 			},
 			release: func(ctx context.Context, _ *WorkflowStore, agents *agentstore.AgentStore, ids []string) error {
 				return agents.ClearDeleting(ctx, ids[:1])
 			},
 		},
 		{
-			name:    "a release of everything gives the workflow back",
+			name:    "an abandoned release keeps a workflow a claimed agent still holds",
 			archive: true,
 			agents:  1,
-			claim: func(ctx context.Context, agents *agentstore.AgentStore, _ []string) error {
-				return agents.MarkArchivedDeleting(ctx)
+			claim: func(ctx context.Context, agents *agentstore.AgentStore, ids []string) error {
+				_, err := agents.MarkArchivedDeletingByID(ctx, ids)
+
+				return err
 			},
 			release: func(ctx context.Context, f *WorkflowStore, _ *agentstore.AgentStore, _ []string) error {
-				return f.ClearAllDeleting(ctx)
+				return f.ClearAbandonedDeleting(ctx)
+			},
+			wantHidden: true,
+		},
+		{
+			name:    "an abandoned release gives back a workflow no claimed agent holds",
+			archive: true,
+			agents:  1,
+			claim: func(ctx context.Context, agents *agentstore.AgentStore, ids []string) error {
+				if _, err := agents.MarkArchivedDeletingByID(ctx, ids); err != nil {
+					return err
+				}
+				_, err := agents.Delete(ctx, ids)
+
+				return err
+			},
+			release: func(ctx context.Context, f *WorkflowStore, _ *agentstore.AgentStore, _ []string) error {
+				return f.ClearAbandonedDeleting(ctx)
 			},
 		},
 	}

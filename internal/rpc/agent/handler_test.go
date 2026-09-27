@@ -308,16 +308,6 @@ func TestLifecycleRefusalsMapToCodes(t *testing.T) {
 			wantCode: connect.CodeFailedPrecondition,
 		},
 		{
-			name: "a queue that refuses the archive sweep",
-			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
-				_, err := svc.EmptyArchive(ctx, connect.NewRequest(&emptypb.Empty{}))
-
-				return err
-			},
-			err:      errors.New("the database is gone"),
-			wantCode: connect.CodeInternal,
-		},
-		{
 			name: "an orchestrator for a workflow that is not there",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
 				_, err := svc.StartOrchestrator(ctx, connect.NewRequest(&agentv1.StartOrchestratorRequest{WorkflowId: missingID}))
@@ -704,17 +694,6 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 			wantAnswer: "alpha beta",
 			check: func(t *testing.T, services *recordingAgentServices, ids []string) {
 				assert.Equal(t, ids, services.restored)
-			},
-		},
-		{
-			name: "emptying the archive",
-			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, _ []string) (string, error) {
-				_, err := svc.EmptyArchive(ctx, connect.NewRequest(&emptypb.Empty{}))
-
-				return "", err
-			},
-			check: func(t *testing.T, services *recordingAgentServices, _ []string) {
-				assert.Equal(t, 1, services.emptied)
 			},
 		},
 		{
@@ -1384,7 +1363,6 @@ type recordingAgentServices struct {
 	runsRead     []string
 	renamed      map[string]string
 	hidden       map[string]bool
-	emptied      int
 }
 
 // spawn seeds the agent the fake answers with among the rows.
@@ -1516,12 +1494,6 @@ func (f *recordingAgentServices) RestoreAgents(_ context.Context, ids []string) 
 	}), nil
 }
 
-func (f *recordingAgentServices) EmptyArchive(context.Context) error {
-	f.emptied++
-
-	return f.err
-}
-
 func (f *recordingAgentServices) SetHidden(_ context.Context, id string, hidden bool) error {
 	if f.hidden == nil {
 		f.hidden = map[string]bool{}
@@ -1600,7 +1572,7 @@ func newRecordedService(t *testing.T) (agentv1komrad.AgentServiceAdapter, *recor
 		Lifecycle:    services,
 		Resumer:      services,
 		Holder:       services,
-		Archive:      services,
+		Deleter:      services,
 		Orchestrator: services,
 		Rebaser:      services,
 	})}, services
@@ -1747,10 +1719,10 @@ func TestRequestValidation(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "a delete past the ceiling on how many go at once is refused",
+			name: "a delete of however many agents is taken",
 			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
-				ids := make([]string, 0, 26)
-				for range 26 {
+				ids := make([]string, 0, 500)
+				for range 500 {
 					ids = append(ids, uuid.NewString())
 				}
 
@@ -1758,7 +1730,6 @@ func TestRequestValidation(t *testing.T) {
 
 				return err
 			},
-			wantErr: true,
 		},
 		{
 			name: "an archive naming the same agent twice is refused, since it says nothing twice",
@@ -1773,10 +1744,10 @@ func TestRequestValidation(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "a restore past the ceiling on how many go at once is refused",
+			name: "a restore of however many agents is taken",
 			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
-				ids := make([]string, 0, 101)
-				for range 101 {
+				ids := make([]string, 0, 500)
+				for range 500 {
 					ids = append(ids, uuid.NewString())
 				}
 
@@ -1784,7 +1755,6 @@ func TestRequestValidation(t *testing.T) {
 
 				return err
 			},
-			wantErr: true,
 		},
 		{
 			name: "a mark of more than one letter is refused, since it is drawn into one cell",

@@ -31,6 +31,7 @@ func (LaunchAgentArgs) Kind() string {
 // leaves out so a stopped attempt cannot queue the same occurrence again.
 func (LaunchAgentArgs) InsertOpts() river.InsertOpts {
 	return river.InsertOpts{
+		Queue: QueueLaunchAgent,
 		UniqueOpts: river.UniqueOpts{
 			ByArgs: true,
 			ByState: append(

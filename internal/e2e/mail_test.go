@@ -124,6 +124,7 @@ func TestIntegrationAgentsMailEachOther(t *testing.T) {
 			Ids: []string{migrations.GetId()},
 		}))
 		require.NoError(t, err)
+		instance.WorkQueue()
 
 		gone := migrations.GetId()
 		_, err = instance.Agents.ReadMail(ctx, connect.NewRequest(&agentv1.ReadMailRequest{

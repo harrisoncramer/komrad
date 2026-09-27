@@ -4,12 +4,20 @@ package internaljobs
 
 import (
 	"context"
+	"time"
 
 	"komrad/internal/agents"
 	"komrad/internal/mail"
 	agentstore "komrad/internal/store/agent"
 	mailstore "komrad/internal/store/mail"
 	schedulestore "komrad/internal/store/schedule"
+)
+
+// QueueLaunchAgent, QueueDeleteAgent and QueueDeleteWorktrees are the queues, one per kind of job.
+const (
+	QueueLaunchAgent     = "launch_agent"
+	QueueDeleteAgent     = "delete_agent"
+	QueueDeleteWorktrees = "delete_worktrees"
 )
 
 // ScheduleGetter reads the one schedule a firing names.
@@ -36,12 +44,8 @@ type ScheduledMailer interface {
 }
 
 type AgentDeleter interface {
-	DeleteAgents(ctx context.Context, ids []string) error
-}
-
-type ArchivedAgentLister interface {
-	ListArchiveSweepPage(ctx context.Context, limit int64, cursor *agentstore.Cursor) ([]agentstore.Agent, error)
-	ListByID(ctx context.Context, ids []string) ([]agentstore.Agent, error)
+	DeleteAgent(ctx context.Context, id string, claim time.Time) error
+	FailDelete(ctx context.Context, id string, claim time.Time, cause error) error
 }
 
 type RunningAgentCounter interface {

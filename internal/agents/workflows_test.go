@@ -1,6 +1,7 @@
 package agents
 
 import (
+	"context"
 	"errors"
 	"os"
 	"path/filepath"
@@ -960,7 +961,7 @@ func TestDeleteWorkflowRefusesAScheduleAnotherWorkflowsAgentsHold(t *testing.T) 
 
 // TestDeleteWorkflowLeavesAStragglerAndItsWorkflowBehind covers a deprovisioner that will
 // not run: DeleteAgents cannot destroy that row, so the workflow it is still in cannot be
-// destroyed either, and neither is an error the caller sees, the same as emptying the archive.
+// destroyed either, and neither is an error the caller sees.
 func TestDeleteWorkflowLeavesAStragglerAndItsWorkflowBehind(t *testing.T) {
 	st := newStore(t)
 	tmux := tmuxtest.NewFake()
@@ -969,7 +970,7 @@ func TestDeleteWorkflowLeavesAStragglerAndItsWorkflowBehind(t *testing.T) {
 	workflows := NewWorkflowService(NewWorkflowServiceParams{
 		Workflows:    st.Workflows,
 		Agents:       st.Agents,
-		AgentDeleter: agentSvc.lifecycle,
+		AgentDeleter: inlineDelete{lifecycle: agentSvc.lifecycle},
 		Emptied:      agentSvc.emptied,
 		Schedules:    st.Schedules,
 		Tmux:         tmux,
@@ -999,18 +1000,28 @@ func TestDeleteWorkflowLeavesAStragglerAndItsWorkflowBehind(t *testing.T) {
 	assert.Equal(t, agentstore.StateFailedToCleanup, agentByID(t, st, agent.ID).State)
 }
 
+type claimOnly struct {
+	agents *agentstore.AgentStore
+}
+
+func (c claimOnly) DeleteAgents(ctx context.Context, ids []string) error {
+	_, err := c.agents.MarkDeleting(ctx, ids)
+
+	return err
+}
+
 // TestDeleteWorkflowClaimsTheWorkflowWhileItsAgentsGo covers the archived workflow leaving the
 // archive listing with its agents the moment the delete is asked, and going for good once the
 // last teardown has worked.
 func TestDeleteWorkflowClaimsTheWorkflowWhileItsAgentsGo(t *testing.T) {
 	st := newStore(t)
 	tmux := tmuxtest.NewFake()
-	lifecycle := &fakeLifecycle{holdDeprovision: true}
+	lifecycle := &fakeLifecycle{}
 	agentSvc := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: &harnesstest.Fake{}}, lifecycle)
 	workflows := NewWorkflowService(NewWorkflowServiceParams{
 		Workflows:    st.Workflows,
 		Agents:       st.Agents,
-		AgentDeleter: agentSvc.lifecycle,
+		AgentDeleter: claimOnly{agents: st.Agents},
 		Emptied:      agentSvc.emptied,
 		Schedules:    st.Schedules,
 		Tmux:         tmux,
@@ -1020,7 +1031,7 @@ func TestDeleteWorkflowClaimsTheWorkflowWhileItsAgentsGo(t *testing.T) {
 
 	created, err := workflows.NewWorkflow(ctx, worktreeConfig(t, "backend"))
 	require.NoError(t, err)
-	_, err = agentSvc.launch.NewAgent(ctx, NewAgentParams{
+	agent, err := agentSvc.launch.NewAgent(ctx, NewAgentParams{
 		Title:      "agent",
 		Dir:        t.TempDir(),
 		WorkflowID: created.ID,
@@ -1038,8 +1049,11 @@ func TestDeleteWorkflowClaimsTheWorkflowWhileItsAgentsGo(t *testing.T) {
 	require.NotNil(t, got, "and still there")
 	assert.NotNil(t, got.DeletingAt)
 
-	require.Len(t, lifecycle.held, 1)
-	lifecycle.held[0](nil)
+	all, err := st.Agents.ListAll(ctx)
+	require.NoError(t, err)
+	require.Len(t, all, 1)
+	require.NotNil(t, all[0].DeletingAt)
+	require.NoError(t, agentSvc.lifecycle.DeleteAgent(ctx, agent.ID, *all[0].DeletingAt))
 
 	_, err = st.Workflows.GetIncludingArchived(ctx, created.ID)
 	require.ErrorIs(t, err, store.ErrNotFound, "the last agent going takes the workflow with it")

@@ -521,10 +521,6 @@ type ArchiveKeys struct {
 	// Destroy the agent or schedule under the cursor for good, with its transcript
 	// or its run history. Nothing undoes it, so it asks first.
 	Delete []string `mapstructure:"delete" default:"d"`
-	// Destroy every archived agent for good, however many there are. The panel hands
-	// the work to a background job, since tearing down that many agents takes a while.
-	// It asks first.
-	Empty []string `mapstructure:"empty" default:"D"`
 	// Switch the archive between its agents and its schedules.
 	Kind []string `mapstructure:"kind" default:"tab"`
 	// Open the archive from the agents list.

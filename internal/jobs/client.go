@@ -20,6 +20,8 @@ const maxAttempts = 5
 
 const jobTimeout = 2 * time.Minute
 
+const deleteAgentWorkers = 4
+
 type NewClientParams struct {
 	Pool          *pgxpool.Pool
 	Schema        string
@@ -27,7 +29,6 @@ type NewClientParams struct {
 	Runs          internaljobs.RunRecorder
 	Launcher      internaljobs.AgentLauncher
 	Deleter       internaljobs.AgentDeleter
-	Archived      internaljobs.ArchivedAgentLister
 	Running       internaljobs.RunningAgentCounter
 	Orchestrators internaljobs.OrchestratorResolver
 	Mailer        internaljobs.ScheduledMailer
@@ -48,10 +49,9 @@ func NewClient(params NewClientParams) (*river.Client[pgx.Tx], error) {
 		Orchestrators: params.Orchestrators,
 		Mailer:        params.Mailer,
 	}))
-	river.AddWorker(workers, internaljobs.NewEmptyArchiveWorker(params.Archived, params.Deleter))
+	river.AddWorker(workers, internaljobs.NewDeleteAgentWorker(params.Deleter))
 	river.AddWorker(workers, internaljobs.NewDeleteWorktreesWorker(internaljobs.NewDeleteWorktreesWorkerParams{
 		Worktrees: params.Worktrees,
-		Deleter:   params.Deleter,
 		Remover:   params.Remover,
 		Logger:    params.Logger,
 	}))
@@ -63,11 +63,23 @@ func NewClient(params NewClientParams) (*river.Client[pgx.Tx], error) {
 		MaxAttempts: maxAttempts,
 		JobTimeout:  jobTimeout,
 		Queues: map[string]river.QueueConfig{
-			river.QueueDefault: {MaxWorkers: 1},
+			internaljobs.QueueLaunchAgent:     {MaxWorkers: 1},
+			internaljobs.QueueDeleteAgent:     {MaxWorkers: deleteAgentWorkers},
+			internaljobs.QueueDeleteWorktrees: {MaxWorkers: 1},
 		},
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create the river client: %w", err)
+	}
+
+	return client, nil
+}
+
+// NewInsertOnlyClient builds a River client that queues jobs and works none.
+func NewInsertOnlyClient(pool *pgxpool.Pool, schema string) (*river.Client[pgx.Tx], error) {
+	client, err := river.NewClient(riverpgxv5.New(pool), &river.Config{Schema: schema})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create the river insert client: %w", err)
 	}
 
 	return client, nil

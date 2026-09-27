@@ -18,9 +18,6 @@ import (
 	"github.com/riverqueue/river/rivertype"
 )
 
-// deleteWorktreesBatch is how many agents one delete covers.
-const deleteWorktreesBatch = 25
-
 type DeleteWorktreesArgs struct {
 	Dirs []string `json:"dirs"`
 }
@@ -33,6 +30,7 @@ func (DeleteWorktreesArgs) Kind() string {
 // InsertOpts keeps one job per set of directories in flight.
 func (DeleteWorktreesArgs) InsertOpts() river.InsertOpts {
 	return river.InsertOpts{
+		Queue: QueueDeleteWorktrees,
 		UniqueOpts: river.UniqueOpts{
 			ByArgs: true,
 			ByState: []rivertype.JobState{
@@ -56,7 +54,6 @@ type WorktreeRemover interface {
 
 type NewDeleteWorktreesWorkerParams struct {
 	Worktrees WorktreeLister
-	Deleter   AgentDeleter
 	Remover   WorktreeRemover
 	Logger    *slog.Logger
 }
@@ -64,7 +61,6 @@ type NewDeleteWorktreesWorkerParams struct {
 type DeleteWorktreesWorker struct {
 	river.WorkerDefaults[DeleteWorktreesArgs]
 	worktrees WorktreeLister
-	deleter   AgentDeleter
 	remover   WorktreeRemover
 	logger    *slog.Logger
 }
@@ -74,7 +70,6 @@ type DeleteWorktreesWorker struct {
 func NewDeleteWorktreesWorker(params NewDeleteWorktreesWorkerParams) *DeleteWorktreesWorker {
 	return &DeleteWorktreesWorker{
 		worktrees: params.Worktrees,
-		deleter:   params.Deleter,
 		remover:   params.Remover,
 		logger:    cmp.Or(params.Logger, slog.Default()),
 	}
@@ -109,16 +104,7 @@ func (w *DeleteWorktreesWorker) Work(ctx context.Context, job *river.Job[DeleteW
 	}
 
 	var failed []error
-	var tearing []string
-	for batch := range slices.Chunk(owned, deleteWorktreesBatch) {
-		ids := xslice.Map(batch, func(worktree worktrees.Worktree) string { return worktree.Agent.ID })
-		if err := w.deleter.DeleteAgents(ctx, ids); err != nil {
-			failed = append(failed, fmt.Errorf("failed to delete %d agents: %w", len(batch), err))
-
-			continue
-		}
-		tearing = append(tearing, xslice.Map(batch, func(worktree worktrees.Worktree) string { return worktree.Dir })...)
-	}
+	tearing := xslice.Map(owned, func(worktree worktrees.Worktree) string { return worktree.Dir })
 
 	for _, level := range deepestFirst(dirs) {
 		removal, err := w.remover.Remove(ctx, level)

@@ -20,17 +20,6 @@ func deleteAgentsForm(agents []panel.Agent, children int, keys config.FormKeys) 
 	return confirmForm(title, warning, "Delete", keys)
 }
 
-func emptyArchiveForm(count int, keys config.FormKeys) (*huh.Form, *bool) {
-	title := fmt.Sprintf("Permanently delete all %d archived agents?", count)
-	warning := "Their transcripts go with them and search will not find the conversations again. Any archived workflow the sweep leaves with no agents in it is deleted too."
-	if count == 1 {
-		title = "Permanently delete the one archived agent?"
-		warning = "Its transcript goes with it and search will not find the conversation again. Any archived workflow the sweep leaves with no agents in it is deleted too."
-	}
-
-	return confirmFormStartingOn(false, title, warning, "Empty", keys)
-}
-
 func deleteWorkflowForm(workflow panel.Workflow, agentCount int, keys config.FormKeys) (*huh.Form, *bool) {
 	title := fmt.Sprintf("Permanently delete workflow %q?", workflow.Name)
 

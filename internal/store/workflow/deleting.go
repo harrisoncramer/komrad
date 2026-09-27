@@ -5,10 +5,10 @@ import (
 	"fmt"
 )
 
-// ClearAllDeleting takes the delete's claim off every workflow.
-func (s *WorkflowStore) ClearAllDeleting(ctx context.Context) error {
-	if err := s.queries.ClearAllWorkflowsDeleting(ctx); err != nil {
-		return fmt.Errorf("failed to release every workflow from a delete: %w", err)
+// ClearAbandonedDeleting takes the delete's claim off every workflow no agent delete still holds.
+func (s *WorkflowStore) ClearAbandonedDeleting(ctx context.Context) error {
+	if err := s.queries.ClearAbandonedWorkflowsDeleting(ctx); err != nil {
+		return fmt.Errorf("failed to release the workflows no delete holds: %w", err)
 	}
 
 	return nil

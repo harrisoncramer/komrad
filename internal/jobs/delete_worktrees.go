@@ -12,6 +12,7 @@ import (
 	"komrad/lib/xslice"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/riverqueue/river"
 )
 
 type WorktreeDelete struct {
@@ -24,14 +25,20 @@ func NewWorktreeDelete(queue *Enqueuer) *WorktreeDelete {
 }
 
 // DeleteWorktrees claims the archived agents the directories were cut for, forgets the
-// directories' rows and queues one delete of the directories in the same transaction.
+// directories' rows, and queues a delete of each claimed agent and one delete of the
+// directories, all in the same transaction.
 func (d *WorktreeDelete) DeleteWorktrees(ctx context.Context, dirs []string) error {
-	return d.queue.InsertTx(ctx, internaljobs.DeleteWorktreesArgs{Dirs: dirs}, func(tx pgx.Tx) error {
-		if err := agentstore.NewAgentStore(tx).MarkArchivedDeletingByID(ctx, xslice.Map(dirs, filepath.Base)); err != nil {
-			return err
+	return d.queue.InsertManyTx(ctx, func(tx pgx.Tx) ([]river.JobArgs, error) {
+		claims, err := agentstore.NewAgentStore(tx).MarkArchivedDeletingByID(ctx, xslice.Map(dirs, filepath.Base))
+		if err != nil {
+			return nil, err
 		}
 
-		return worktreestore.NewWorktreeStore(tx).Delete(ctx, dirs)
+		if err := worktreestore.NewWorktreeStore(tx).Delete(ctx, dirs); err != nil {
+			return nil, err
+		}
+
+		return append(deleteAgentJobs(agentstore.ClaimRoots(claims)), internaljobs.DeleteWorktreesArgs{Dirs: dirs}), nil
 	})
 }
 

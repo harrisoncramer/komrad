@@ -295,13 +295,6 @@
               "default": "[\"d\"]"
             },
             {
-              "key": "empty",
-              "path": "keybindings.archive.empty",
-              "type": "array",
-              "description": "Destroy every archived agent for good, however many there are. The panel hands\nthe work to a background job, since tearing down that many agents takes a while.\nIt asks first.",
-              "default": "[\"D\"]"
-            },
-            {
               "key": "kind",
               "path": "keybindings.archive.kind",
               "type": "array",

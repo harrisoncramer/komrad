@@ -26,7 +26,7 @@ Every endpoint in komrad is declared once, as an RPC in a protobuf file. Everyth
        |--> docs
 ```
 
-Each RPC carries one annotation, `surfaces`. It says whether the RPC gets a CLI command, whether it becomes an MCP tool, what it is called, and which agent roles may use it. If a surface is left off, it must say why. For instance, `EmptyArchive` is a CLI command but not an MCP tool, because it cannot be undone.
+Each RPC carries one annotation, `surfaces`. It says whether the RPC gets a CLI command, whether it becomes an MCP tool, what it is called, and which agent roles may use it. If a surface is left off, it must say why. For instance, `RecordReport` is not an MCP tool, because only komrad's own hook binary may call it.
 
 ## Lint
 

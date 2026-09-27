@@ -24,7 +24,8 @@ func TestOpen(t *testing.T) {
 	_, err := stores.Agents.Archive(t.Context(), []string{archived.ID})
 	require.NoError(t, err)
 	deleting := stores.SeedAgent(t, agentstore.Agent{Name: "deleting", Pane: "%6"})
-	require.NoError(t, stores.Agents.MarkDeleting(t.Context(), []string{deleting.ID}))
+	_, err = stores.Agents.MarkDeleting(t.Context(), []string{deleting.ID})
+	require.NoError(t, err)
 
 	fake := tmuxtest.NewFake()
 	fake.Owners["%9"] = live.ID

@@ -167,6 +167,7 @@ func TestIntegrationWorktrees(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.NotContains(t, listWorktrees(t, instance), leaver.GetCwd(), "the directory leaves the listing as soon as the delete claims it")
+		instance.WorkQueue()
 		require.EventuallyWithT(t, func(collect *assert.CollectT) {
 			assert.NoDirExists(collect, leaver.GetCwd())
 		}, 10*time.Second, 100*time.Millisecond)

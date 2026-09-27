@@ -110,13 +110,6 @@ func NewServer(ctx context.Context, params NewServerParams) (*Server, error) {
 		return nil, err
 	}
 
-	if err := st.agents.ClearAllDeleting(ctx); err != nil {
-		return nil, err
-	}
-	if err := st.workflows.ClearAllDeleting(ctx); err != nil {
-		return nil, err
-	}
-
 	srv.Jobs, err = jobs.NewClient(jobs.NewClientParams{
 		Pool:          st.pool.GetRawPool(),
 		Schema:        st.pool.GetRiverSchema(),
@@ -124,7 +117,6 @@ func NewServer(ctx context.Context, params NewServerParams) (*Server, error) {
 		Runs:          st.schedules,
 		Launcher:      svc.launch,
 		Deleter:       svc.lifecycle,
-		Archived:      st.agents,
 		Running:       st.agents,
 		Orchestrators: svc.schedule,
 		Mailer:        svc.mail,
@@ -160,12 +152,16 @@ func NewServer(ctx context.Context, params NewServerParams) (*Server, error) {
 		return nil, err
 	}
 
+	if err := svc.agentDelete.Resume(ctx); err != nil {
+		return nil, err
+	}
+
 	srv.Periodic = jobs.NewRiverPeriodic(srv.Jobs.PeriodicJobs())
 	srv.Loops = buildLoops(buildLoopsParams{
 		Stores:   st,
 		Services: svc,
 		Periodic: srv.Periodic,
-		Claimed:  jobs.NewWorktreeDelete(jobs.NewEnqueuer(srv.Jobs, st.pool.GetRawPool())),
+		Claimed:  jobs.NewWorktreeDelete(svc.queue),
 	})
 
 	if err := broker.Start(); err != nil {
