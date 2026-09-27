@@ -29,11 +29,11 @@ var (
 	}
 	errGlyphCollision = &ProblemError{
 		Code:    "glyph_collision",
-		Message: "two glyphs drawn in the same sidebar column are the same character, so a row cannot say which it means",
+		Message: "two glyphs drawn in the same sidebar row are the same character, so a row cannot say which it means",
 	}
 )
 
-// collidingGroups are the groups whose glyphs share a column of the sidebar.
+// collidingGroups are the groups whose glyphs share a row of the sidebar.
 var collidingGroups = []string{"row", "pull_request", "marks"}
 
 // configuredGlyphs is the set the config chooses, or the defaults when it cannot be read.
@@ -87,11 +87,11 @@ func newGlyphFontCheck() Check {
 	}
 }
 
-// newGlyphCollisionCheck reports two glyphs in one sidebar column configured as one character.
+// newGlyphCollisionCheck reports two glyphs in one sidebar row configured as one character.
 func newGlyphCollisionCheck() Check {
 	return Check{
 		Name:        "glyph collisions",
-		Description: "the glyphs sharing a sidebar column are each a character of their own",
+		Description: "the glyphs sharing a sidebar row are each a character of their own",
 		Needs:       []string{"config"},
 		Run: func(_ context.Context, env Env) Result {
 			set := configuredGlyphs(env)
@@ -126,7 +126,7 @@ func newGlyphCollisionCheck() Check {
 				}
 			}
 
-			return pass("no two glyphs in a sidebar column are the same character")
+			return pass("no two glyphs in a sidebar row are the same character")
 		},
 	}
 }

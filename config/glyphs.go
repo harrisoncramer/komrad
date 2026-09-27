@@ -122,8 +122,7 @@ type ScheduleGlyphs struct {
 	Disabled string `mapstructure:"disabled"`
 }
 
-// DefaultGlyphs are the icons used when the config omits them, read from the glyph package so
-// the characters are written in one place.
+// DefaultGlyphs are the icons used when the config omits them, read from the glyph package.
 func DefaultGlyphs() Glyphs {
 	var glyphs Glyphs
 	defaults := glyph.Defaults()
@@ -146,8 +145,12 @@ func (g Glyphs) Set() (glyph.Set, error) {
 
 	var err error
 	eachGlyphField(&g, func(key string, field reflect.Value) {
+		if err != nil {
+			return
+		}
+
 		found, ok := glyph.ByKey(key)
-		if !ok && err == nil {
+		if !ok {
 			err = fmt.Errorf("glyphs.%s names no glyph the panel draws", key)
 
 			return

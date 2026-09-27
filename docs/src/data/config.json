@@ -966,7 +966,7 @@
     },
     {
       "path": "glyphs",
-      "description": "The icons the panel draws, grouped by where each one is drawn. Every value is one character\nfrom the approved set, the Nerd Fonts octicons and a few named characters, all listed on the\ndocs site. The chrome the layout is drawn with, such as the status bars, dividers and rules,\nis fixed and not configured here.",
+      "description": "The icons the panel draws, grouped by where each one is drawn. Every value is one character\nfrom the approved set, the Nerd Fonts octicons and a few named characters. The chrome the\nlayout is drawn with, such as the status bars, dividers and rules, is fixed and not\nconfigured here.",
       "settings": [],
       "sections": [
         {

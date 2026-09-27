@@ -109,9 +109,8 @@ func renderSection(buf *bytes.Buffer, schema *jsonschema.Schema, path []string) 
 	return nil
 }
 
-// renderValue formats a default as TOML, writing an approved glyph as itself rather than as an
-// escape, and failing on a kind the config does not hold rather than emitting something that
-// will not parse.
+// renderValue formats a default as TOML, writing an approved glyph as itself and failing on a
+// kind the config does not hold.
 func renderValue(value any) (string, error) {
 	switch typed := value.(type) {
 	case string:

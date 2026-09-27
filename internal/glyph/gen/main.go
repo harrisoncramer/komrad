@@ -1,9 +1,7 @@
 //go:build ignore
 
-// Command gen writes approved.go from the pinned copy of Nerd Fonts' glyphnames.json, keeping
-// every octicon in it that sits in the Private Use Area, since the two that do not are
-// ordinary Unicode characters a terminal may draw as an emoji. It runs from the glyph package's
-// directory via go:generate.
+// Command gen writes approved.go from every octicon in the Private Use Area of the pinned copy
+// of Nerd Fonts' glyphnames.json.
 package main
 
 import (

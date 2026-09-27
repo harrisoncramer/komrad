@@ -2,7 +2,6 @@
 import DocPage from "../layouts/DocPage.astro";
 import Heading from "../components/reference/Heading.astro";
 import JumpBar from "../components/reference/JumpBar.astro";
-import glyphs from "../data/glyphs.json";
 import { config, prose } from "../reference";
 import type { Section } from "../reference/types";
 
@@ -13,10 +12,7 @@ for (const section of sections) {
   const table = section.path.split(".")[0] ?? "";
   if (!firstOf.has(table)) firstOf.set(table, section.path);
 }
-const jumps = [
-  ...[...firstOf].map(([table, path]) => ({ href: `#${path || "top-level"}`, label: table || "top level" })),
-  { href: "#approved-glyphs", label: "approved glyphs" },
-];
+const jumps = [...firstOf].map(([table, path]) => ({ href: `#${path || "top-level"}`, label: table || "top level" }));
 ---
 
 <DocPage
@@ -60,36 +56,4 @@ const jumps = [
       )}
     </section>
   ))}
-  <section class="type">
-    <Heading id="approved-glyphs">Approved glyphs</Heading>
-    <p>
-      Every value under <code>[glyphs]</code> is one of these characters: the octicons from Nerd Fonts{" "}
-      {glyphs.nerdFontsVersion}, then a few named characters. The octicons draw only in a Nerd Font, such as
-      JetBrainsMono Nerd Font.
-    </p>
-    <div class="table-scroll">
-      <table>
-        <thead>
-          <tr>
-            <th>Glyph</th>
-            <th>Code point</th>
-            <th>Name</th>
-          </tr>
-        </thead>
-        <tbody>
-          {glyphs.characters.map((glyph) => (
-            <tr id={glyph.codePoint}>
-              <td>
-                <code>{glyph.character}</code>
-              </td>
-              <td>
-                <code>{glyph.codePoint}</code>
-              </td>
-              <td>{glyph.name}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  </section>
 </DocPage>

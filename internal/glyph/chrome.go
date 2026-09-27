@@ -2,8 +2,7 @@ package glyph
 
 import "komrad/lib/xslice"
 
-// The chrome is what the layout is drawn with rather than anything the panel says, so it is
-// fixed rather than configured.
+// The chrome is what the layout is drawn with, and it is fixed.
 const (
 	// Busy is the status bar of an agent that is working or waiting on a person.
 	Busy = "┃"

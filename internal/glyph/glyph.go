@@ -11,10 +11,10 @@ import (
 
 //go:generate go run gen/main.go
 
-// Columns is how many columns every glyph takes, which the sidebar's layout rests on.
+// Columns is how many columns every glyph takes.
 const Columns = 1
 
-// Glyph names an icon the panel draws, spelled out by a Set rather than where it is drawn.
+// Glyph names an icon the panel draws, spelled out by a Set.
 type Glyph int
 
 const (
