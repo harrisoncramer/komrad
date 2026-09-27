@@ -19,12 +19,32 @@ func TestViews(t *testing.T) {
 
 		lines := splitLines(harness.readFrame())
 		require.GreaterOrEqual(t, len(lines), 2)
-		for i, want := range []string{"\U000F050C komrad", "agents  query  schedules  archive  worktrees"} {
+		for i, want := range []string{"\uf477 komrad", "agents  query  schedules  archive  worktrees"} {
 			list, _, _ := strings.Cut(lines[i], "│")
 			assert.Equal(t, want, strings.TrimSpace(list))
 		}
 		lit := paint.Panel.Style(paint.ToneAccent)
 		assert.Contains(t, harness.readRawFrame(), lit.Render("a")+lit.Underline(true).Render("r")+lit.Render("chive"), "the view that is up is lit with its jump key underlined")
+	})
+
+	t.Run("a page opened from a view draws the trail back to it under the switcher", func(t *testing.T) {
+		harness, _ := openDocuments(t, "author")
+
+		lines := splitLines(harness.readFrame())
+		require.GreaterOrEqual(t, len(lines), 3)
+		trail, _, _ := strings.Cut(lines[2], "│")
+		assert.True(t, strings.HasPrefix(trail, "agents › author › documents"))
+		lit := paint.Panel.Style(paint.ToneAccent)
+		assert.Contains(t, harness.readRawFrame(), lit.Underline(true).Render("a")+lit.Render("gents"), "the view it was opened from is lit")
+	})
+
+	t.Run("a pane too short for the switcher still draws the trail", func(t *testing.T) {
+		harness, _ := openDocuments(t, "author")
+
+		resize(harness, 80, 16)
+		frame := harness.readFrame()
+		assert.NotContains(t, frame, "komrad")
+		assert.Contains(t, frame, "agents › author › documents")
 	})
 
 	t.Run("a pane too short for it draws none", func(t *testing.T) {

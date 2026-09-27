@@ -424,7 +424,7 @@ paused        = ""
 hidden        = ""
 # A schedule launches into the workflow, and the title over the schedules list.
 schedule      = ""
-# The agent has written documents for a person, and the title over the documents list.
+# The agent has written documents for a person.
 document      = ""
 # Your comments on the agent's work hold something you have not read.
 unread        = "·"
@@ -441,6 +441,8 @@ search   = ""
 filter   = "▽"
 # The cursor in a list of choices, such as the engines to connect to.
 cursor   = "▸"
+# The logo over the switcher between the panel's views.
+logo     = ""
 
 # The review screen: the marks on its threads and files, and how far a comment has got.
 [glyphs.review]

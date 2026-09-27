@@ -614,10 +614,15 @@ func splitLines(frame string) []string {
 	return strings.Split(frame, "\n")
 }
 
-// readBelowViews is the frame's lines under the view switcher, whole when none is drawn.
+// readBelowViews is the frame's lines under the view switcher and any trail under it, whole when
+// none is drawn.
 func readBelowViews(frame string) []string {
 	lines := splitLines(frame)
-	if len(lines) > 3 && strings.Contains(lines[0], "\U000F050C komrad") {
+	if len(lines) > 4 && strings.Contains(lines[0], "\uf477 komrad") {
+		if strings.Contains(lines[2], " › ") {
+			return lines[4:]
+		}
+
 		return lines[3:]
 	}
 

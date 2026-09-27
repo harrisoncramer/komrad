@@ -63,12 +63,14 @@ func (r reviewScreen) sidebarView(s panelShared, above ...string) string {
 	layout := r.layoutSidebar(s, above...)
 	rest := r.threads.window(r.restView(s), layout.threadLines)
 
-	return paint.PadRows(layout.head+rest, layout.spare) + layout.record + layout.messages + layout.help
+	return layout.bar + paint.PadRows(layout.head+rest, layout.spare) + layout.record + layout.messages + layout.help
 }
 
 // sidebarLayout is the sidebar measured once, so the drawing and the thread's scroll agree on
 // the rows the conversation has.
 type sidebarLayout struct {
+	// bar is the logo, the switcher and the trail down to the review, over the head.
+	bar         string
 	help        string
 	record      string
 	messages    string
@@ -80,14 +82,25 @@ type sidebarLayout struct {
 // layoutSidebar pins the head and hands the conversation whatever the chrome leaves: where the
 // cursor is standing is what makes the rest of the pane mean anything.
 func (r reviewScreen) layoutSidebar(s panelShared, above ...string) sidebarLayout {
+	if layout := r.layoutUnder(s, s.draw.viewsBar(), above); strings.Count(layout.head, "\n") <= layout.spare {
+		return layout
+	}
+
+	return r.layoutUnder(s, "", above)
+}
+
+// layoutUnder measures the sidebar with bar over its head, the logo, the switcher and the trail
+// down to the review.
+func (r reviewScreen) layoutUnder(s panelShared, bar string, above []string) sidebarLayout {
 	help := s.draw.renderHelp(r.help(s))
 	record := s.draw.detailsView()
-	messages := s.draw.messagesRegion(record, help, above...)
-	chrome := slices.Concat(above, []string{help, record, messages})
+	messages := s.draw.messagesRegion(record, help, append(slices.Clone(above), bar)...)
+	chrome := slices.Concat(above, []string{bar, help, record, messages})
 	spare := s.draw.listLines(chrome...)
 	head := r.headView(s, countYoursRoom(spare))
 
 	return sidebarLayout{
+		bar:         bar,
 		help:        help,
 		record:      record,
 		messages:    messages,

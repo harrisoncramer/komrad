@@ -14,7 +14,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
-const komradLogo = glyph.Logo + " komrad"
+const komradName = "komrad"
 
 // viewsBarFloor is the shortest pane the switcher is drawn in.
 const viewsBarFloor = 20
@@ -45,12 +45,25 @@ func (m model) isViewsOpen() bool {
 	return m.viewsOpen && m.screen.picksViews()
 }
 
-// viewsBar is the logo and the switcher drawn over a list.
+// viewsBar is the logo and the switcher drawn over a list, and under them the trail down to a
+// page opened from a view, which is drawn however short the pane.
 func (m model) viewsBar() string {
-	if m.height > 0 && m.height < viewsBarFloor {
+	var lines []string
+	if m.height <= 0 || m.height >= viewsBarFloor {
+		lines = m.switcherLines()
+	}
+	if trail, _, ok := m.activeCrumbs(); ok {
+		lines = append(lines, trail.view(paint.Panel, m.paneWidth()))
+	}
+	if len(lines) == 0 {
 		return ""
 	}
 
+	return strings.Join(lines, "\n") + "\n\n"
+}
+
+// switcherLines is the logo and the row of views.
+func (m model) switcherLines() []string {
 	entries := viewEntries()
 	row := stops{
 		labels: xslice.Map(entries, func(entry viewEntry) string { return entry.label }),
@@ -64,19 +77,21 @@ func (m model) viewsBar() string {
 		row.lit = m.viewIndex()
 	}
 
-	lines := []string{paint.Panel.Title(komradLogo), row.view(paint.Panel)}
+	lines := []string{paint.Panel.Title(m.glyphs.Spell(glyph.Logo) + " " + komradName), row.view(paint.Panel)}
 	if width := m.paneWidth(); width > 0 {
 		for i, line := range lines {
 			lines[i] = ansi.Truncate(line, width, "…")
 		}
 	}
 
-	return strings.Join(lines, "\n") + "\n\n"
+	return lines
 }
 
 // viewIndex is where the screen that is up sits on the switcher, and noStop when it is not there.
 func (m model) viewIndex() int {
-	return slices.IndexFunc(viewEntries(), func(entry viewEntry) bool { return entry.screen == m.screen })
+	_, at, _ := m.activeCrumbs()
+
+	return slices.IndexFunc(viewEntries(), func(entry viewEntry) bool { return entry.screen == at })
 }
 
 func (m model) openViews() model {

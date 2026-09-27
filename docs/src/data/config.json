@@ -1117,7 +1117,7 @@
               "key": "document",
               "path": "glyphs.marks.document",
               "type": "string",
-              "description": "The agent has written documents for a person, and the title over the documents list.",
+              "description": "The agent has written documents for a person.",
               "default": "\"\""
             },
             {
@@ -1168,6 +1168,13 @@
               "type": "string",
               "description": "The cursor in a list of choices, such as the engines to connect to.",
               "default": "\"▸\""
+            },
+            {
+              "key": "logo",
+              "path": "glyphs.lists.logo",
+              "type": "string",
+              "description": "The logo over the switcher between the panel's views.",
+              "default": "\"\""
             }
           ],
           "sections": []

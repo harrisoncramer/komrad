@@ -30,7 +30,7 @@ import (
 
 const (
 	reviewWidth  = 200
-	reviewHeight = 30
+	reviewHeight = 34
 	olderBase    = "1111111111111111111111111111111111111111"
 	replayedTree = "replayed-round-one"
 	secondTree   = "tree-with-a-second-file"
@@ -281,7 +281,7 @@ func TestReviewCursor(t *testing.T) {
 	t.Run("the keys come from the keymap", func(t *testing.T) {
 		keys := config.DefaultKeybindings()
 		keys.Review.Compose = []string{"i"}
-		harness := openReviewAt(t, newReviewServer(t), panelHarnessParams{height: 40, keys: &keys})
+		harness := openReviewAt(t, newReviewServer(t), panelHarnessParams{height: 44, keys: &keys})
 
 		harness.press("?")
 		assert.Contains(t, readLegend(harness.readFrame()), "i       comment on this line")
@@ -1504,7 +1504,7 @@ func TestReviewLayout(t *testing.T) {
 			{
 				name: "on the left the top row opens with the sidebar",
 				side: config.SidebarSideLeft,
-				want: "greet.go:1",
+				want: "\uf477 komrad",
 			},
 			{
 				name: "on the right the top row opens with the band over the diff",
@@ -2413,7 +2413,7 @@ func TestReviewEmphasis(t *testing.T) {
 			OpenThreads: 1,
 		}}
 		harness := openReviewAt(t, server, panelHarnessParams{
-			height:        12,
+			height:        14,
 			detailsHeight: 0.01,
 		})
 		pin := gittest.TallFile + ":5"

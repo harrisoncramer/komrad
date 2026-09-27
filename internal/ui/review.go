@@ -33,6 +33,15 @@ type reviewScreen struct {
 	hold reviewHold
 }
 
+func (r reviewScreen) parent() screen {
+	return screenAgents
+}
+
+// crumbs runs through the agent whose work is under review.
+func (r reviewScreen) crumbs(panelShared) crumbs {
+	return crumbs{trail: []string{r.agentName, "review"}}
+}
+
 // takesEveryKey reports whether the review is mid-input, in which case a key bound elsewhere
 // in the panel belongs here instead.
 func (r reviewScreen) takesEveryKey() bool {

@@ -702,11 +702,6 @@ func (c rowCursor) jump(idx, length int) (rowCursor, bool) {
 	return c, true
 }
 
-// screenTitle is a listing's title: its icon and its name, set in from the pane's edge.
-func screenTitle(glyphs glyph.Set, icon glyph.Glyph, name string) string {
-	return glyphs.Spell(icon) + "  " + name
-}
-
 // prepareList resolves a snapshot to the list drawn from it, in the glyphs the panel was
 // configured with.
 func prepareList(glyphs glyph.Set, snapshot view.Snapshot) view.List {
