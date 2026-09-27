@@ -32,26 +32,27 @@ type dispatching interface {
 	dispatchArms(keys config.Keybindings) []dispatchArm
 }
 
-// actionsOf is the table each screen dispatches through, walked behind the global keys.
-func actionsOf(s screen) (dispatching, bool) {
+// actionsOf is the tables each screen dispatches through, one at a time, walked behind the global
+// keys.
+func actionsOf(s screen) []dispatching {
 	switch s {
 	case screenAgents:
-		return (&agentsScreen{}).actions(), true
+		return []dispatching{(&agentsScreen{}).actions()}
 	case screenSchedules:
-		return (&schedulesScreen{}).actions(), true
+		return []dispatching{(&schedulesScreen{}).actions()}
 	case screenArchive:
-		return (&archiveScreen{}).actions(), true
+		return []dispatching{(&archiveScreen{}).actions()}
 	case screenReview:
-		return (&reviewScreen{}).actions(), true
+		return []dispatching{(&reviewScreen{}).actions()}
 	case screenWorktrees:
-		return (&worktreesScreen{}).actions(), true
+		return []dispatching{(&worktreesScreen{}).actions()}
 	case screenDocuments:
-		return (&documentsScreen{}).actions(), true
+		return []dispatching{(&documentsScreen{}).listActions(), (&documentsScreen{}).diffActions()}
 	case screenSearch:
-		return (&searchScreen{}).actions(), true
+		return []dispatching{(&searchScreen{}).actions()}
 	}
 
-	return nil, false
+	return nil
 }
 
 // ValidateKeybindings rejects the bindings a screen could not dispatch.
@@ -115,9 +116,25 @@ func validateGitMenuKeys(keys config.GitKeys) error {
 	return nil
 }
 
-// validateScreenKeys walks one screen in dispatch order and finds a key an earlier unguarded arm
-// answers ahead of a later one.
+// validateScreenKeys walks each of one screen's tables in dispatch order and finds a key an
+// earlier unguarded arm answers ahead of a later one.
 func validateScreenKeys(s screen, keys config.Keybindings) error {
+	tables := actionsOf(s)
+	if len(tables) == 0 {
+		return validateArms(s, globalArms(s, keys))
+	}
+
+	for _, table := range tables {
+		if err := validateArms(s, append(globalArms(s, keys), table.dispatchArms(keys)...)); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// validateArms finds a key an earlier unguarded arm answers ahead of a later one.
+func validateArms(s screen, arms []dispatchArm) error {
 	// answered holds, per key, the arm that takes every press of it and the arm's own place in the
 	// order, so an arm is not read as shadowing itself.
 	type shadow struct {
@@ -127,7 +144,7 @@ func validateScreenKeys(s screen, keys config.Keybindings) error {
 
 	answered := map[string]shadow{}
 
-	for at, arm := range dispatchOrder(s, keys) {
+	for at, arm := range arms {
 		for _, key := range arm.keys {
 			if taken, ok := answered[key]; ok && taken.at != at {
 				if taken.describe == arm.describe {
@@ -146,18 +163,6 @@ func validateScreenKeys(s screen, keys config.Keybindings) error {
 	}
 
 	return nil
-}
-
-// dispatchOrder is every arm one screen offers a press to, in the order it offers them.
-func dispatchOrder(s screen, keys config.Keybindings) []dispatchArm {
-	arms := globalArms(s, keys)
-
-	spec, ok := actionsOf(s)
-	if !ok {
-		return arms
-	}
-
-	return append(arms, spec.dispatchArms(keys)...)
 }
 
 // globalArms are the keys the panel answers on one screen ahead of that screen's own table, in
@@ -179,6 +184,10 @@ func globalArms(s screen, keys config.Keybindings) []dispatchArm {
 
 	if _, ok := zero.screenOf(s).(tabbed); ok {
 		arms = append(arms, dispatchArm{describe: "the tabs focus", keys: keys.Tabs.Focus})
+	}
+
+	if s == screenDocuments {
+		arms = append(arms, dispatchArm{describe: "the view cycle", keys: keys.Cycle.Views})
 	}
 
 	if _, ok := zero.screenOf(s).(detailed); ok {

@@ -10,17 +10,7 @@ import (
 
 // reviewDiff is the patch on screen and where the reader is standing in it.
 type reviewDiff struct {
-	view   *diffview.View
-	cursor int
-	pan    int
-	// top is the first row the pane is showing, held rather than derived from the cursor.
-	top int
-
-	// pinTop holds the window where a file jump put it until the cursor moves.
-	pinTop bool
-	// pinFloor is the row a file jump put at the top of the pane, which the window stays at or
-	// below while the cursor is inside that file.
-	pinFloor int
+	diffview.Pane
 
 	// filter is the pattern being searched for in the diff.
 	filter filterState
@@ -62,15 +52,11 @@ type reviewDiff struct {
 	followedMove string
 }
 
-// reviewDiffFloor is the narrowest the diff is worth drawing at: the gutter and enough of a line
-// beside it to read.
-const reviewDiffFloor = diffview.GutterWidth + 20
-
 // reviewColumn is the diff drawn beside the review's own threads, whose row budget is what the
 // band over it leaves.
 func reviewColumn() columnSpec {
 	return columnSpec{
-		floor: reviewDiffFloor,
+		floor: diffFloor,
 		// The editor is another process holding the stage, so the panel owns the window only while
 		// there is none.
 		holds: func(m model) bool { return !m.review.hold.atEditor },
@@ -100,7 +86,7 @@ func (r reviewScreen) diffNotice() string {
 // diffView is the screenful of the patch beside the sidebar, starting at top, with the cursor's
 // own row dim while the keys are on the record rather than on the diff.
 func (r reviewScreen) diffView(s panelShared, split columnSplit) string {
-	view := r.diff.view
+	view := r.diff.View()
 	if view == nil || view.Len() == 0 {
 		// This is the larger half of the window, so it says what is being waited on rather than
 		// standing empty under a band, and stands rather than collapsing so the frame does not
@@ -108,30 +94,10 @@ func (r reviewScreen) diffView(s panelShared, split columnSplit) string {
 		return docWindow{rows: paint.DocStyledRows(r.diffNotice(), split.column, reviewColumnStyle())}.view(split.rows)
 	}
 
-	start := max(min(r.diff.top, view.Len()-split.rows), 0)
-
 	held := diffview.LiveCursor
 	if !r.isDiffFocused(s) {
 		held = diffview.DimCursor
 	}
 
-	// Only the rows the pane can show are drawn, a nine thousand row diff taking a tenth of a
-	// second to draw whole.
-	rows := make([]string, 0, split.rows)
-	for y := start; y < min(start+split.rows, view.Len()); y++ {
-		mark := diffview.NoCursor
-		if y == r.diff.cursor {
-			mark = held
-		}
-
-		rows = append(rows, view.RenderRow(y, mark, split.column, r.diff.pan))
-	}
-
-	// Padded out rather than left short, so a diff smaller than the pane keeps its half of the
-	// window instead of the sidebar sliding under it.
-	for len(rows) < split.rows {
-		rows = append(rows, strings.Repeat(" ", split.column))
-	}
-
-	return strings.Join(rows, "\n")
+	return strings.Join(r.diff.Render(split.column, split.rows, held), "\n")
 }

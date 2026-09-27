@@ -54,7 +54,7 @@ func (r *reviewScreen) followWorld(s panelShared) tea.Cmd {
 // followThreads draws the conversation the world holds on a live agent, once the reader has stopped
 // typing.
 func (r *reviewScreen) followThreads(s panelShared) {
-	if r.diff.view == nil || r.takesEveryKey() {
+	if r.diff.View() == nil || r.takesEveryKey() {
 		return
 	}
 

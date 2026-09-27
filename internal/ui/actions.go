@@ -82,21 +82,19 @@ const (
 	actionDocumentsNew
 	actionDocumentsOlder
 	actionDocumentsNewer
-	actionDocumentsPan
-	actionDocumentsPanReset
+	actionDiffFile
+	actionDiffMatch
+	actionDiffPan
+	actionDiffPanReset
+	actionDiffExpand
 	actionReviewBack
-	actionReviewFile
 	actionReviewThread
 	actionReviewOpenThread
-	actionReviewMatch
-	actionReviewPan
-	actionReviewPanReset
 	actionReviewEdit
 	actionReviewBase
 	actionReviewReload
 	actionReviewResolve
 	actionReviewViewed
-	actionReviewExpand
 	actionReviewBaseForward
 	actionReviewAnswer
 	actionReviewCompose

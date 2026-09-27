@@ -18,6 +18,11 @@ func (r *reviewScreen) actions() screenActionSpec {
 }
 
 func (r *reviewScreen) table() []screenAction {
+	return slices.Concat(r.ownTable(), r.diffKeys().table())
+}
+
+// ownTable is the review's keys past the ones every diff pane shares.
+func (r *reviewScreen) ownTable() []screenAction {
 	return []screenAction{
 		{
 			id:   actionReviewBack,
@@ -30,31 +35,6 @@ func (r *reviewScreen) table() []screenAction {
 			run:  func(h host, _ panelShared, _ string) tea.Cmd { return h.hide() },
 		},
 		{
-			id:   actionMove,
-			keys: func(k config.Keybindings) []string { return slices.Concat(k.Nav.Up, k.Nav.Down) },
-			run:  r.movePressed,
-		},
-		{
-			id:   actionJump,
-			keys: func(k config.Keybindings) []string { return slices.Concat(k.Nav.Top, k.Nav.Bottom) },
-			run:  r.jumpPressed,
-		},
-		{
-			id:   actionNavPage,
-			keys: func(k config.Keybindings) []string { return slices.Concat(k.Nav.PageUp, k.Nav.PageDown) },
-			run:  r.pagePressed,
-		},
-		{
-			id:   actionColumnScroll,
-			keys: func(k config.Keybindings) []string { return slices.Concat(k.Column.ScrollDown, k.Column.ScrollUp) },
-			run:  r.wheelPressed,
-		},
-		{
-			id:   actionReviewFile,
-			keys: func(k config.Keybindings) []string { return slices.Concat(k.Review.NextFile, k.Review.PrevFile) },
-			run:  r.stepFile,
-		},
-		{
 			id:   actionReviewThread,
 			keys: func(k config.Keybindings) []string { return slices.Concat(k.Review.NextThread, k.Review.PrevThread) },
 			run:  r.stepThread,
@@ -65,30 +45,6 @@ func (r *reviewScreen) table() []screenAction {
 				return slices.Concat(k.Review.NextOpenThread, k.Review.PrevOpenThread)
 			},
 			run: r.stepOpenThread,
-		},
-		{
-			id:   actionFilterOpen,
-			keys: func(config.Keybindings) []string { return []string{filterOpenKey} },
-			run:  r.openFilter,
-		},
-		{
-			id:   actionReviewMatch,
-			keys: func(k config.Keybindings) []string { return slices.Concat(k.Review.NextMatch, k.Review.PrevMatch) },
-			run:  r.stepMatch,
-		},
-		{
-			id:   actionReviewPan,
-			keys: func(k config.Keybindings) []string { return slices.Concat(k.Review.PanLeft, k.Review.PanRight) },
-			run:  r.panBy,
-		},
-		{
-			id:   actionReviewPanReset,
-			keys: func(k config.Keybindings) []string { return k.Review.PanReset },
-			run: func(host, panelShared, string) tea.Cmd {
-				r.diff.panBy(-r.diff.pan)
-
-				return nil
-			},
 		},
 		{
 			id:   actionReviewBase,
@@ -129,15 +85,6 @@ func (r *reviewScreen) table() []screenAction {
 			id:   actionReviewViewed,
 			keys: func(k config.Keybindings) []string { return k.Review.ToggleViewed },
 			run:  func(h host, s panelShared, _ string) tea.Cmd { return r.toggleViewed(h, s) },
-		},
-		{
-			id:   actionReviewExpand,
-			keys: func(k config.Keybindings) []string { return k.Review.Expand },
-			run: func(_ host, s panelShared, _ string) tea.Cmd {
-				r.toggleExpanded(s)
-
-				return nil
-			},
 		},
 		// The two keys that write are taken whether or not anybody is there to read.
 		{
@@ -193,24 +140,9 @@ func (r *reviewScreen) legend() []screenLegendRow {
 	}
 
 	return []screenLegendRow{
-		{
-			of:    []actionID{actionMove},
-			desc:  func(panelShared) string { return "move" },
-			label: moveLabel,
-			strip: true,
-		},
-		{
-			of:    []actionID{actionNavPage},
-			desc:  func(panelShared) string { return "page" },
-			label: navPageLabel,
-		},
-		{
-			of:   []actionID{actionReviewFile},
-			desc: func(panelShared) string { return "next/previous file" },
-			label: func(k config.Keybindings) string {
-				return headLabel(k.Review.NextFile) + "/" + headLabel(k.Review.PrevFile)
-			},
-		},
+		diffMoveRow(),
+		diffPageRow(),
+		diffFileRow(),
 		{
 			of:   []actionID{actionReviewThread, actionReviewOpenThread},
 			desc: func(panelShared) string { return r.diff.threadStepDesc() },
@@ -219,30 +151,10 @@ func (r *reviewScreen) legend() []screenLegendRow {
 					"/" + headLabel(k.Review.NextOpenThread) + "/" + headLabel(k.Review.PrevOpenThread)
 			},
 		},
-		{
-			of:   []actionID{actionFilterOpen},
-			desc: func(panelShared) string { return "search" },
-		},
-		{
-			of:   []actionID{actionReviewMatch},
-			desc: func(panelShared) string { return "next/previous match" },
-			label: func(k config.Keybindings) string {
-				return headLabel(k.Review.NextMatch) + "/" + headLabel(k.Review.PrevMatch)
-			},
-		},
-		// Panning and its reset share a row.
-		{
-			of:   []actionID{actionReviewPan, actionReviewPanReset},
-			desc: func(panelShared) string { return "pan sideways" },
-			label: func(k config.Keybindings) string {
-				return headLabel(k.Review.PanLeft) + "/" + headLabel(k.Review.PanRight) + "/" + keyLabel(k.Review.PanReset)
-			},
-		},
-		{
-			of:    []actionID{actionJump},
-			desc:  func(panelShared) string { return "top/bottom" },
-			label: jumpLabel,
-		},
+		diffSearchRow(),
+		diffMatchRow(),
+		diffPanRow(),
+		diffJumpRow(),
 		{
 			of:   []actionID{actionReviewEdit},
 			desc: func(panelShared) string { return r.hold.editorDesc() },
@@ -274,7 +186,7 @@ func (r *reviewScreen) legend() []screenLegendRow {
 			desc: func(panelShared) string { return r.diff.resolveDesc() },
 		},
 		{
-			of:   []actionID{actionReviewViewed, actionReviewExpand},
+			of:   []actionID{actionReviewViewed, actionDiffExpand},
 			desc: func(panelShared) string { return r.diff.fileDesc() },
 		},
 		{
@@ -300,38 +212,6 @@ func (r *reviewScreen) legend() []screenLegendRow {
 	}
 }
 
-func (r *reviewScreen) movePressed(_ host, s panelShared, pressed string) tea.Cmd {
-	if isBound(pressed, s.keys.Nav.Down) {
-		return r.moveCursor(s, r.diff.view.Move(r.diff.cursor, 1))
-	}
-
-	return r.moveCursor(s, r.diff.view.Move(r.diff.cursor, -1))
-}
-
-func (r *reviewScreen) jumpPressed(_ host, s panelShared, pressed string) tea.Cmd {
-	if isBound(pressed, s.keys.Nav.Bottom) {
-		return r.moveCursor(s, r.diff.view.GetLastRow())
-	}
-
-	return r.moveCursor(s, r.diff.view.GetFirstRow())
-}
-
-func (r *reviewScreen) pagePressed(_ host, s panelShared, pressed string) tea.Cmd {
-	if isBound(pressed, s.keys.Nav.PageUp) {
-		return r.scroll(s, -1)
-	}
-
-	return r.scroll(s, 1)
-}
-
-func (r *reviewScreen) stepFile(_ host, s panelShared, pressed string) tea.Cmd {
-	if isBound(pressed, s.keys.Review.PrevFile) {
-		return r.jumpFile(s, -1)
-	}
-
-	return r.jumpFile(s, 1)
-}
-
 // stepOpenThread walks the comments nobody has settled.
 func (r *reviewScreen) stepOpenThread(_ host, s panelShared, pressed string) tea.Cmd {
 	if isBound(pressed, s.keys.Review.PrevOpenThread) {
@@ -343,36 +223,8 @@ func (r *reviewScreen) stepOpenThread(_ host, s panelShared, pressed string) tea
 
 func (r *reviewScreen) stepThread(_ host, s panelShared, pressed string) tea.Cmd {
 	if isBound(pressed, s.keys.Review.PrevThread) {
-		return r.moveCursor(s, r.diff.view.JumpThread(r.diff.cursor, -1))
+		return r.moveCursor(s, r.diff.View().JumpThread(r.diff.Cursor(), -1))
 	}
 
-	return r.moveCursor(s, r.diff.view.JumpThread(r.diff.cursor, 1))
-}
-
-func (r *reviewScreen) stepMatch(_ host, s panelShared, pressed string) tea.Cmd {
-	if isBound(pressed, s.keys.Review.PrevMatch) {
-		return r.jumpMatch(s, -1)
-	}
-
-	return r.jumpMatch(s, 1)
-}
-
-func (r *reviewScreen) panBy(_ host, s panelShared, pressed string) tea.Cmd {
-	if isBound(pressed, s.keys.Review.PanLeft) {
-		r.diff.panBy(-panStep(s))
-
-		return nil
-	}
-
-	r.diff.panBy(panStep(s))
-
-	return nil
-}
-
-func (r *reviewScreen) openFilter(_ host, s panelShared, _ string) tea.Cmd {
-	r.diff.filter.typing = true
-	r.diff.filter.setQuery("")
-	r.search(s)
-
-	return nil
+	return r.moveCursor(s, r.diff.View().JumpThread(r.diff.Cursor(), 1))
 }

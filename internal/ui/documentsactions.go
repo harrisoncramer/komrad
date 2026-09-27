@@ -8,8 +8,18 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-// actions is the documents screen as one table and the legend that names it.
-func (d *documentsScreen) actions() screenActionSpec {
+// actions is the documents screen as one table and the legend that names it, which are the
+// diff's own while the keys are on it.
+func (d *documentsScreen) actions(s panelShared) screenActionSpec {
+	if d.isDiffFocused(s) {
+		return d.diffActions()
+	}
+
+	return d.listActions()
+}
+
+// listActions is the keys on the list of documents.
+func (d *documentsScreen) listActions() screenActionSpec {
 	return screenActionSpec{
 		table:  d.table(),
 		legend: d.legend(),
@@ -47,22 +57,6 @@ func (d *documentsScreen) table() []screenAction {
 			},
 		},
 		screenAction{
-			id:   actionDocumentsPan,
-			keys: func(k config.Keybindings) []string { return slices.Concat(k.Documents.PanLeft, k.Documents.PanRight) },
-			when: d.isSteppingHovered,
-			run:  d.panBy,
-		},
-		screenAction{
-			id:   actionDocumentsPanReset,
-			keys: func(k config.Keybindings) []string { return k.Documents.PanReset },
-			when: d.isSteppingHovered,
-			run: func(host, panelShared, string) tea.Cmd {
-				d.history.pan = 0
-
-				return nil
-			},
-		},
-		screenAction{
 			id:   actionDocumentsBack,
 			keys: func(k config.Keybindings) []string { return k.Documents.Back },
 			run: func(h host, _ panelShared, _ string) tea.Cmd {
@@ -95,14 +89,6 @@ func (d *documentsScreen) legend() []screenLegendRow {
 			desc: func(panelShared) string { return "a later version" },
 		},
 		{
-			of:   []actionID{actionDocumentsPan, actionDocumentsPanReset},
-			desc: func(panelShared) string { return "pan sideways" },
-			show: d.isSteppingHovered,
-			label: func(k config.Keybindings) string {
-				return headLabel(k.Documents.PanLeft) + "/" + headLabel(k.Documents.PanRight) + "/" + keyLabel(k.Documents.PanReset)
-			},
-		},
-		{
 			of:    []actionID{actionFilterClear},
 			desc:  filterClearDescOf,
 			strip: true,
@@ -120,15 +106,103 @@ func (d *documentsScreen) legend() []screenLegendRow {
 	})
 }
 
-func (d *documentsScreen) panBy(_ host, s panelShared, pressed string) tea.Cmd {
-	step := panStep(s)
-	if isBound(pressed, s.keys.Documents.PanLeft) {
-		step = -step
+// diffActions is the keys on a write's diff: the ones every diff pane shares, stepping between
+// the writes, and handing the keys back to the list.
+func (d *documentsScreen) diffActions() screenActionSpec {
+	keys := d.diffKeys()
+
+	return screenActionSpec{
+		table: slices.Concat([]screenAction{
+			{
+				id:   actionDocumentsBack,
+				keys: func(k config.Keybindings) []string { return k.Documents.Back },
+				run: func(host, panelShared, string) tea.Cmd {
+					d.diffFocus = false
+
+					return nil
+				},
+			},
+			{
+				id:   actionQuit,
+				keys: func(k config.Keybindings) []string { return k.Documents.Quit },
+				run:  func(h host, _ panelShared, _ string) tea.Cmd { return h.hide() },
+			},
+			{
+				id:   actionDocumentsOlder,
+				keys: func(k config.Keybindings) []string { return k.Documents.Older },
+				run:  func(h host, s panelShared, _ string) tea.Cmd { return d.stepOlder(h, s) },
+			},
+			{
+				id:   actionDocumentsNewer,
+				keys: func(k config.Keybindings) []string { return k.Documents.Newer },
+				run:  func(h host, s panelShared, _ string) tea.Cmd { return d.stepNewer(h, s) },
+			},
+		}, keys.table()),
+		legend: slices.Concat(keys.legend(), []screenLegendRow{
+			{
+				of:   []actionID{actionDocumentsOlder},
+				desc: func(panelShared) string { return "an earlier version" },
+			},
+			{
+				of:   []actionID{actionDocumentsNewer},
+				desc: func(panelShared) string { return "a later version" },
+			},
+			{
+				of:    []actionID{actionDocumentsBack},
+				desc:  func(panelShared) string { return "back to the list" },
+				strip: true,
+			},
+		}),
+	}
+}
+
+// diffKeys is the diff of the write stepped to under the keys every diff pane shares.
+func (d *documentsScreen) diffKeys() diffKeys {
+	h := d.history
+	if h == nil {
+		h = &documentHistory{}
 	}
 
-	d.history.pan = max(0, d.history.pan+step)
+	return diffKeys{
+		pane:   &h.pane,
+		filter: &h.filter,
+		notice: &h.said,
+		height: d.diffHeight,
+	}
+}
 
-	return nil
+// updateDiff is the diff taking the keys, the search prompt first while it is open.
+func (d *documentsScreen) updateDiff(h host, s panelShared, key tea.KeyPressMsg) tea.Cmd {
+	if d.history.filter.typing {
+		return d.diffKeys().updateFilter(h, s, key)
+	}
+
+	d.history.said = ""
+
+	return d.diffActions().dispatch(h, s, key.String())
+}
+
+// isDiffDrawn reports whether a write's change is drawn as a diff beside the list.
+func (d *documentsScreen) isDiffDrawn(s panelShared) bool {
+	if _, ok := s.draw.screenColumnSplit(); !ok {
+		return false
+	}
+
+	return d.isSteppingHovered(s) && d.history.isDrawn(s.isDark)
+}
+
+// isDiffFocused reports whether the diff holds the keys, which it does once the cycle key has
+// handed them to it and for as long as it is drawn.
+func (d *documentsScreen) isDiffFocused(s panelShared) bool {
+	return d.diffFocus && s.draw.isListFocused() && d.isDiffDrawn(s)
+}
+
+func (d *documentsScreen) doesScrollColumn(s panelShared) bool {
+	return d.isDiffDrawn(s)
+}
+
+func (d *documentsScreen) scrollColumn(_ host, s panelShared, rows int) tea.Cmd {
+	return d.diffKeys().scrollColumn(s, rows)
 }
 
 // hasDocuments reports whether the hovered agent, or the orchestrator behind a hovered

@@ -190,7 +190,7 @@ func (r reviewScreen) headView(s panelShared, yoursRoom int) string {
 	switch {
 	case r.loading:
 		return dimStyle.Render(reviewLoadingWord) + "\n"
-	case r.diff.view == nil || r.diff.view.Len() == 0:
+	case r.diff.View() == nil || r.diff.View().Len() == 0:
 		return dimStyle.Render(reviewEmptyWord) + "\n"
 	}
 
@@ -208,7 +208,7 @@ func reviewNote(s panelShared, style lipgloss.Style, text string) string {
 }
 
 func (r reviewScreen) restView(s panelShared) string {
-	if r.loading || r.diff.view == nil || r.diff.view.Len() == 0 {
+	if r.loading || r.diff.View() == nil || r.diff.View().Len() == 0 {
 		return ""
 	}
 
@@ -236,7 +236,7 @@ func (r reviewScreen) restView(s panelShared) string {
 // anchorView names the place the cursor is standing, so the sidebar says what a new thread
 // would be pinned to without repeating the line the diff already draws beside it.
 func (d reviewDiff) anchorView() string {
-	anchor, ok := d.view.GetAnchor(d.cursor)
+	anchor, ok := d.View().GetAnchor(d.Cursor())
 	if !ok {
 		if thread, ok := d.threadAtCursor(); ok {
 			return paint.Panel.Title(clipName(diffview.FormatThreadLocation(thread))) +
@@ -256,7 +256,7 @@ func (d reviewDiff) anchorView() string {
 
 // commentWhereView is which comment of how many the cursor is standing on.
 func (d reviewDiff) commentWhereView(thread *agentv1.ReviewThread) string {
-	at, total := d.view.CommentPosition(thread)
+	at, total := d.View().CommentPosition(thread)
 	if at == 0 || total < 2 {
 		return ""
 	}
@@ -289,7 +289,7 @@ func (r reviewScreen) threadView(s panelShared) string {
 // originView is where a thread was written and the line it was written against, drawn only once
 // that code has moved.
 func (r reviewScreen) originView(s panelShared, thread *agentv1.ReviewThread) string {
-	if !r.diff.view.HasMoved(thread) {
+	if !r.diff.View().HasMoved(thread) {
 		return ""
 	}
 
@@ -304,7 +304,7 @@ func (r reviewScreen) originView(s panelShared, thread *agentv1.ReviewThread) st
 // originSaid says why a comment is not on the line it was written against, in terms of what
 // happened rather than of the placement komrad settled on.
 func (d reviewDiff) originSaid(thread *agentv1.ReviewThread) string {
-	if _, drawn := d.view.GetFile(thread.GetFilePath()); !drawn {
+	if _, drawn := d.View().GetFile(thread.GetFilePath()); !drawn {
 		if d.base != "" {
 			return "still in the change, outside what is on screen · written against"
 		}
@@ -312,7 +312,7 @@ func (d reviewDiff) originSaid(thread *agentv1.ReviewThread) string {
 		return "the file this was about has gone · written against"
 	}
 
-	if d.view.IsGhosted(thread) {
+	if d.View().IsGhosted(thread) {
 		return "the code under this has changed · written against"
 	}
 
@@ -442,28 +442,28 @@ func (d reviewDiff) resolveDesc() string {
 // fileDesc names the two keys that act on the whole file the cursor is in, which share a legend
 // row so that the taller of them costs the pane nothing.
 func (d reviewDiff) fileDesc() string {
-	if d.view == nil {
+	if d.View() == nil {
 		return "fold / whole file"
 	}
 
 	// A folded file has nothing on screen to open out, so the expand key is refused there and
 	// the legend names the fold key alone.
-	file, ok := d.view.GetDrawnFileAt(d.cursor)
+	file, ok := d.View().GetDrawnFileAt(d.Cursor())
 
 	// Marking a file read is refused in a round, so the row names the key that still works.
 	if d.isNarrowed() {
-		if ok && d.view.IsExpanded(file.Path()) {
+		if ok && d.View().IsExpanded(file.Path()) {
 			return "show the changes"
 		}
 
 		return "show the whole file"
 	}
 
-	if ok && d.view.IsViewed(file.Path()) {
+	if ok && d.View().IsViewed(file.Path()) {
 		return "open the file"
 	}
 
-	if ok && d.view.IsExpanded(file.Path()) {
+	if ok && d.View().IsExpanded(file.Path()) {
 		return "fold / the changes"
 	}
 

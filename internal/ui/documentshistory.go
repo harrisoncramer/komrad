@@ -27,10 +27,13 @@ type documentHistory struct {
 	listing  bool
 	err      error
 	reads    map[int32]versionRead
-	// pan is how far the diff is scrolled sideways.
-	pan   int
-	view  *diffview.View
+	// pane is the change drawn as a diff, and drawn the two writes and background it was built for.
+	pane  diffview.Pane
 	drawn drawnChange
+	// filter is the pattern being searched for in the diff.
+	filter filterState
+	// said is what the last key on the diff said.
+	said string
 }
 
 // versionRead is one write's text as it was read, or why it could not be.
@@ -56,7 +59,6 @@ func (d *documentsScreen) stepOlder(h host, s panelShared) tea.Cmd {
 	d.history.forgetFailedReads()
 	if d.history.at+1 < len(d.history.versions) {
 		d.history.at++
-		d.history.pan = 0
 	}
 
 	return h.waitToStage()
@@ -70,14 +72,13 @@ func (d *documentsScreen) stepNewer(h host, s panelShared) tea.Cmd {
 	}
 
 	if d.history.at == 0 {
-		d.history = nil
+		d.history, d.diffFocus = nil, false
 
 		return nil
 	}
 
 	d.history.forgetFailedReads()
 	d.history.at--
-	d.history.pan = 0
 
 	return h.waitToStage()
 }
@@ -106,10 +107,26 @@ func (d *documentsScreen) docRows(s panelShared, width int) []string {
 		return paint.DocStyledRows(d.doc(s), width, columnStyle())
 	}
 
-	return d.history.rows(item, width, s.isDark)
+	h := d.history
+	head := h.head(item, width)
+	if h.err != nil || h.versions == nil {
+		return head
+	}
+
+	if !h.isDrawn(s.isDark) {
+		return append(head, h.changeRows(width)...)
+	}
+
+	held := diffview.DimCursor
+	if d.isDiffFocused(s) {
+		held = diffview.LiveCursor
+	}
+
+	return append(head, h.pane.Render(width, d.diffHeight(s), held)...)
 }
 
-func (h *documentHistory) rows(item documentItem, width int, isDark bool) []string {
+// head is the rows over the change: which write it is, the search, and what the last key said.
+func (h *documentHistory) head(item documentItem, width int) []string {
 	notice := "_reading its versions…_"
 	switch {
 	case h.err != nil:
@@ -123,7 +140,28 @@ func (h *documentHistory) rows(item documentItem, width int, isDark bool) []stri
 		return rows
 	}
 
-	return append(append(rows, ""), h.changeRows(width, isDark)...)
+	indent := strings.Repeat(" ", docMargin())
+	if h.filter.typing || h.filter.isStanding() {
+		count := strings.TrimRight(diffMatchCount(&h.pane, h.filter), "\n")
+		rows = append(rows, fitRow(indent+h.filter.line(paint.Panel)+count, width))
+	}
+
+	if h.said != "" {
+		rows = append(rows, fitRow(indent+dimStyle.Render(h.said), width))
+	}
+
+	return append(rows, "")
+}
+
+// diffHeight is the rows the diff is drawn in, under the rows over it.
+func (d *documentsScreen) diffHeight(s panelShared) int {
+	split, ok := s.draw.screenColumnSplit()
+	item, hovered := d.hovered(s)
+	if !ok || !hovered || d.history == nil {
+		return 1
+	}
+
+	return max(split.rows-len(d.history.head(item, split.column)), 1)
 }
 
 // notice names the write stepped to, who made it and how long ago.
@@ -149,10 +187,9 @@ func (h *documentHistory) isOldestKeptLate() bool {
 	return h.at+1 >= len(h.versions) && h.versions[h.at].GetVersion() > 1
 }
 
-// changeRows is what the write stepped to changed from the one kept before it.
-func (h *documentHistory) changeRows(width int, isDark bool) []string {
-	indent := strings.Repeat(" ", docMargin())
-
+// readChange is the write stepped to and the one kept before it, and false while either is still
+// being read.
+func (h *documentHistory) readChange() (versionRead, versionRead, bool) {
 	after, ok := h.reads[h.versions[h.at].GetVersion()]
 	before := versionRead{}
 	if h.at+1 < len(h.versions) {
@@ -161,8 +198,16 @@ func (h *documentHistory) changeRows(width int, isDark bool) []string {
 		ok = ok && held
 	}
 
+	return before, after, ok && !after.pending && !before.pending
+}
+
+// changeRows is what stands in place of the diff while the change is not drawn as one.
+func (h *documentHistory) changeRows(width int) []string {
+	indent := strings.Repeat(" ", docMargin())
+
+	before, after, ok := h.readChange()
 	switch {
-	case !ok || after.pending || before.pending:
+	case !ok:
 		return []string{fitRow(indent+dimStyle.Render("reading…"), width)}
 	case after.err != nil:
 		return []string{fitRow(indent+"could not read: "+errui.GetReason(after.err), width)}
@@ -172,17 +217,7 @@ func (h *documentHistory) changeRows(width int, isDark bool) []string {
 		return paint.DocStyledRows(after.body+"\n", width, columnStyle())
 	}
 
-	view := h.changeView(before.body, after.body, isDark)
-	if view.Len() == 0 {
-		return []string{fitRow(indent+dimStyle.Render("no change to the text"), width)}
-	}
-
-	rows := make([]string, 0, view.Len())
-	for y := range view.Len() {
-		rows = append(rows, view.RenderRow(y, diffview.NoCursor, width, h.pan))
-	}
-
-	return rows
+	return []string{fitRow(indent+dimStyle.Render("no change to the text"), width)}
 }
 
 // drawnChange is the two writes a change view was built between, and the background it was
@@ -193,22 +228,31 @@ type drawnChange struct {
 	isDark bool
 }
 
-// changeView is the diff between the write stepped to and the one before it, built once per pair.
-func (h *documentHistory) changeView(before, after string, isDark bool) *diffview.View {
+// isDrawn reports whether the change is drawn as a diff, building it once per pair of writes when
+// it is.
+func (h *documentHistory) isDrawn(isDark bool) bool {
+	if h.err != nil || h.versions == nil || h.isOldestKeptLate() {
+		return false
+	}
+
+	before, after, ok := h.readChange()
+	if !ok || after.err != nil || before.err != nil {
+		return false
+	}
+
 	drawn := drawnChange{after: h.versions[h.at].GetVersion(), isDark: isDark}
 	if h.at+1 < len(h.versions) {
 		drawn.before = h.versions[h.at+1].GetVersion()
 	}
 
-	if h.view != nil && h.drawn == drawn {
-		return h.view
+	if h.pane.View() == nil || h.drawn != drawn {
+		view := diffview.NewView(&diff.Patch{Files: []diff.File{diff.FromTexts(documentDiffPath, before.body, after.body)}}, isDark)
+		view.SetHeadless(true)
+		view.SetPattern(h.filter.pattern)
+		h.pane, h.drawn = diffview.NewPane(view), drawn
 	}
 
-	view := diffview.NewView(&diff.Patch{Files: []diff.File{diff.FromTexts(documentDiffPath, before, after)}}, isDark)
-	view.SetHeadless(true)
-	h.view, h.drawn = view, drawn
-
-	return view
+	return h.pane.View().Len() > 0
 }
 
 // documentVersionsListedMsg is the writes kept of a document come back.

@@ -15,6 +15,8 @@ const (
 	stopAgent
 	stopThread
 	stopRecord
+	// stopDiff is the diff of a document's write, drawn beside the documents list.
+	stopDiff
 	// stopOther is a pane beside the sidebar that is not a stop, such as the info pane.
 	stopOther
 )
@@ -85,6 +87,8 @@ func (m model) readSidebarStop() stop {
 		return stopRecord
 	case m.screen == screenReview && m.review.isThreadTaken():
 		return stopThread
+	case m.screen == screenDocuments && m.documents.isDiffFocused(m.shared()):
+		return stopDiff
 	}
 
 	return stopList
@@ -98,6 +102,10 @@ func (m model) listStops() []stop {
 	case m.screen == screenReview:
 		if _, ok := m.review.diff.threadAtCursor(); ok {
 			stops = append(stops, stopThread)
+		}
+	case m.screen == screenDocuments:
+		if m.documents.isDiffDrawn(m.shared()) {
+			stops = append(stops, stopDiff)
 		}
 	case m.focusPane() != "":
 		stops = append(stops, stopAgent)
@@ -139,6 +147,9 @@ func (m model) enterStop(to stop) (tea.Model, tea.Cmd) {
 	case stopThread:
 		m = m.enterSidebar(to).blurDetails()
 		m.review.threads.focus = true
+	case stopDiff:
+		m = m.enterSidebar(to).blurDetails()
+		m.documents.diffFocus = true
 	case stopList, stopOther:
 		m = m.enterSidebar(to).blurDetails()
 	}
@@ -155,6 +166,10 @@ func (m model) enterSidebar(to stop) model {
 	m.blurTabs()
 	if m.screen == screenReview && to != stopThread {
 		m.review.threads.blur()
+	}
+
+	if to != stopDiff {
+		m.documents.diffFocus = false
 	}
 
 	return m

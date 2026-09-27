@@ -39,7 +39,7 @@ type yourComment struct {
 // listYourComments lists the comments the reader started, the ones with something unread first, then
 // the open ones, each group in the order the diff draws them.
 func (r reviewScreen) listYourComments() []yourComment {
-	if r.diff.view == nil {
+	if r.diff.View() == nil {
 		return nil
 	}
 
@@ -49,7 +49,7 @@ func (r reviewScreen) listYourComments() []yourComment {
 			continue
 		}
 
-		row, drawn := r.diff.view.GetThreadRow(thread.GetId())
+		row, drawn := r.diff.View().GetThreadRow(thread.GetId())
 		if !drawn {
 			row = noRow
 		}
@@ -57,7 +57,7 @@ func (r reviewScreen) listYourComments() []yourComment {
 		yours = append(yours, yourComment{
 			thread: thread,
 			row:    row,
-			folded: r.diff.view.IsFoldedAway(thread),
+			folded: r.diff.View().IsFoldedAway(thread),
 		})
 	}
 
@@ -181,10 +181,10 @@ func (r reviewScreen) isCommentNear(s panelShared, comment yourComment) bool {
 
 	split, ok := s.draw.screenColumnSplit()
 	if !ok {
-		return comment.row == r.diff.cursor
+		return comment.row == r.diff.Cursor()
 	}
 
-	return comment.row >= r.diff.top && comment.row < r.diff.top+split.rows
+	return comment.row >= r.diff.Top() && comment.row < r.diff.Top()+split.rows
 }
 
 // describeYoursState gives the few words a row carries about what the comment is waiting for.

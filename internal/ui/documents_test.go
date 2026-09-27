@@ -399,19 +399,50 @@ func TestDocumentsHistory(t *testing.T) {
 		},
 		{
 			name:    "panning slides the lines under the gutter",
-			presses: []string{"<", "l"},
+			presses: []string{"<", "ctrl+a", "l"},
 			want:    []string{"        3 +"},
 			wantNot: []string{"Keep the cache warm."},
 		},
 		{
+			name:    "panning waits for the diff to be focused",
+			presses: []string{"<", "l"},
+			want:    []string{"3 +  Keep the cache warm."},
+		},
+		{
 			name:    "panning back to the start draws the lines whole",
-			presses: []string{"<", "l", "0"},
+			presses: []string{"<", "ctrl+a", "l", "0"},
 			want:    []string{"3 +  Keep the cache warm."},
 		},
 		{
 			name:    "stepping to another write starts its lines at the left",
-			presses: []string{"<", "l", "<"},
+			presses: []string{"<", "ctrl+a", "l", "<"},
 			want:    []string{"version 2 of 3", "5 +  Evict nightly."},
+		},
+		{
+			name:    "moving in the focused diff leaves the list where it is",
+			presses: []string{"<", "ctrl+a", "j", "j"},
+			want:    []string{"version 3 of 3"},
+		},
+		{
+			name:    "leaving the diff gives the keys back to the list",
+			presses: []string{"<", "ctrl+a", "esc", "j"},
+			want:    []string{"It went out on Tuesday."},
+			wantNot: []string{"version"},
+		},
+		{
+			name:    "searching the diff counts what it found",
+			presses: []string{"<", "ctrl+a", "/", "w", "a", "r", "m", "enter"},
+			want:    []string{"/ warm", "1 of 1"},
+		},
+		{
+			name:    "a match past the last is said to be missing",
+			presses: []string{"<", "ctrl+a", "/", "z", "z", "enter", "n"},
+			want:    []string{"no matches"},
+		},
+		{
+			name:    "a document drawn whole has no more to show",
+			presses: []string{"<", "ctrl+a", "j", "E"},
+			want:    []string{"there is no more of that file to show"},
 		},
 		{
 			name:     "writes that could not be listed are listed again on the next step",
@@ -459,6 +490,31 @@ func TestDocumentsHistory(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestDocumentsDiffCursor covers the cursor in a version's diff, held dim while the list has the
+// keys, lit once the diff is focused, and walking the lines from there.
+func TestDocumentsDiffCursor(t *testing.T) {
+	t.Parallel()
+
+	harness, _ := openDocuments(t, "author")
+	heading := regexp.MustCompile(`1\s+1\s+# Design the cache`)
+
+	harness.press("<")
+	harness.fireTimers()
+	dim := findRawLine(harness.readRawFrame(), heading)
+	require.NotEmpty(t, dim)
+
+	harness.press("ctrl+a")
+	live := findRawLine(harness.readRawFrame(), heading)
+	require.NotEmpty(t, live)
+	assert.NotEqual(t, dim, live, "focusing the diff lights the cursor")
+
+	harness.press("j")
+	plain := findRawLine(harness.readRawFrame(), heading)
+	require.NotEmpty(t, plain)
+	assert.NotEqual(t, live, plain, "the cursor leaves the line it stood on")
+	assert.NotEqual(t, dim, plain)
 }
 
 // readEditedPath is the file an editor's shell line opens.
