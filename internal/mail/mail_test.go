@@ -508,6 +508,7 @@ func TestSendNoticeAboutADocumentJoinsTheUnreadOne(t *testing.T) {
 
 	_, err := svc.ClaimMail(ctx, recipient.ID)
 	require.NoError(t, err)
+
 	assert.NotEqual(t, first.ID, notify(one).ID, "an edit after the notice was read sends another")
 }
 

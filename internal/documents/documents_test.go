@@ -279,27 +279,23 @@ func TestAPersonsEditMailsTheAuthor(t *testing.T) {
 	service := newService(stores)
 	ctx := t.Context()
 
-	type write struct {
-		byPerson bool
-	}
 	tests := []struct {
 		name         string
 		archived     bool
-		writes       []write
+		byPerson     bool
 		wantVersions []int32
 	}{
 		{
-			name:   "the author's own rewrite sends nothing",
-			writes: []write{{}},
+			name: "the author's own rewrite sends nothing",
 		},
 		{
 			name:     "an archived author is not told",
 			archived: true,
-			writes:   []write{{byPerson: true}},
+			byPerson: true,
 		},
 		{
 			name:         "a person's edit sends one notice naming the version they wrote",
-			writes:       []write{{byPerson: true}},
+			byPerson:     true,
 			wantVersions: []int32{2},
 		},
 	}
@@ -319,20 +315,18 @@ func TestAPersonsEditMailsTheAuthor(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			for _, step := range tt.writes {
-				params := documents.WriteDocumentParams{
-					ID:      xptr.Ptr(doc.ID),
-					Version: xptr.Ptr(doc.Version),
-					Name:    doc.Name,
-					Kind:    doc.Kind,
-					Body:    uuid.NewString(),
-				}
-				if !step.byPerson {
-					params.AgentID = author.ID
-				}
-				doc, err = service.WriteDocument(ctx, params)
-				require.NoError(t, err)
+			params := documents.WriteDocumentParams{
+				ID:      xptr.Ptr(doc.ID),
+				Version: xptr.Ptr(doc.Version),
+				Name:    doc.Name,
+				Kind:    doc.Kind,
+				Body:    uuid.NewString(),
 			}
+			if !tt.byPerson {
+				params.AgentID = author.ID
+			}
+			doc, err = service.WriteDocument(ctx, params)
+			require.NoError(t, err)
 
 			waiting, err := stores.Mail.ListPage(ctx, author.ID, 10, nil)
 			require.NoError(t, err)
