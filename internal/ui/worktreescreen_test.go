@@ -682,17 +682,17 @@ func TestWorktreesSort(t *testing.T) {
 	}{
 		{
 			name: "size down is the fallback, under each repository",
-			want: []string{"/home/h/gadge…", "  cargo-fix", "/home/h/komrad", "  reviewer", "  treeview", "  agent/orphan", "/var/folders/…", "  broken"},
+			want: []string{"/home/h/gadgets/admin", "  cargo-fix", "/home/h/komrad", "  reviewer", "  treeview", "  agent/orphan", "/var/folders/T/repo", "  broken"},
 		},
 		{
 			name:  "moving the focus reorders nothing",
 			press: []string{"f", "tab", "esc"},
-			want:  []string{"/home/h/gadge…", "  cargo-fix", "/home/h/komrad", "  reviewer", "  treeview", "  agent/orphan", "/var/folders/…", "  broken"},
+			want:  []string{"/home/h/gadgets/admin", "  cargo-fix", "/home/h/komrad", "  reviewer", "  treeview", "  agent/orphan", "/var/folders/T/repo", "  broken"},
 		},
 		{
 			name:  "last accessed down is the most recent first",
 			press: []string{"f", "tab", "j", "esc"},
-			want:  []string{"/home/h/gadge…", "  cargo-fix", "/home/h/komrad", "  treeview", "  agent/orphan", "  reviewer", "/var/folders/…", "  broken"},
+			want:  []string{"/home/h/gadgets/admin", "  cargo-fix", "/home/h/komrad", "  treeview", "  agent/orphan", "  reviewer", "/var/folders/T/repo", "  broken"},
 		},
 		{
 			name:  "the stop drops the headings and settles a tie in size by path",
@@ -726,7 +726,7 @@ func TestWorktreesSort(t *testing.T) {
 		assert.Equal(t, "treeview", readRecordField(frame, "name"), "the cursor follows its row as the arrow turns")
 
 		harness.press("esc", "j")
-		assert.Equal(t, "/var/folders/…", readHoveredWorktree(harness.readFrame()))
+		assert.Equal(t, "/var/folders/T/repo", readHoveredWorktree(harness.readFrame()))
 	})
 
 	t.Run("the stop flips the headings back and escape keeps what it chose", func(t *testing.T) {

@@ -437,15 +437,15 @@ func TestScreensRecordGivesWay(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			harness := openCrowded(t, panelHarnessParams{width: 80, height: 40})
+			harness := openCrowded(t, panelHarnessParams{height: 40})
 			harness.press(append(tt.press, "G")...)
 
-			resize(harness, 80, tt.fills)
+			resize(harness, defaultHarnessWidth, tt.fills)
 			frame := harness.readFrame()
 			assert.False(t, isRecordDrawn(frame), "the record gives up its rows")
 			assert.Contains(t, readHoveredRow(frame), "agent39", "to the row the cursor stands on")
 
-			resize(harness, 80, tt.fills+1)
+			resize(harness, defaultHarnessWidth, tt.fills+1)
 			frame = harness.readFrame()
 			assert.True(t, isRecordDrawn(frame), "the record is drawn once the list keeps a row beside it")
 			assert.Contains(t, readHoveredRow(frame), "agent39")

@@ -100,7 +100,7 @@ const DefaultHarness = "claude"
 // tall enough to read a log in without pushing the agent above it off the screen.
 const (
 	DefaultSidebarSide   = SidebarSideLeft
-	DefaultSidebarWidth  = 33
+	DefaultSidebarWidth  = 47
 	DefaultInfoSide      = InfoSideBelow
 	DefaultInfoHeight    = 0.4
 	DefaultDetailsHeight = 9

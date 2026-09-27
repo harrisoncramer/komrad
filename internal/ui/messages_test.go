@@ -35,7 +35,7 @@ func TestMessagesRegion(t *testing.T) {
 	})
 
 	t.Run("a message takes back the row the empty region gave the list", func(t *testing.T) {
-		harness := openMessages(t, panelHarnessParams{}, "no such agent")
+		harness := openMessages(t, panelHarnessParams{sidebarWidth: 33}, "no such agent")
 		empty := findRule(harness.readFrame())
 
 		harness.press("enter")
