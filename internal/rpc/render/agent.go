@@ -58,6 +58,8 @@ func Agent(row rowstore.Row, options AgentOptions) *agentv1.Agent {
 		SequenceInProgress: stored.SequenceInProgress,
 		FailedRun:          row.FailedRun,
 		FailedRunLog:       row.FailedRunLog,
+		Documents:          row.Documents,
+		DocumentsUpdatedAt: dates.PreciseStampPtr(row.DocumentsUpdatedAt),
 		MovedSinceRound:    stored.MovedSinceRound,
 		HeldAt:             heldStamp(stored.HeldAt),
 	}

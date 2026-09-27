@@ -58,7 +58,6 @@ type Agent struct {
 	Role           Role
 	State          State
 	StateChangedAt time.Time
-	ReportedReason string
 	FailureReason  string
 	Harness        string
 	SessionID      string
@@ -88,6 +87,10 @@ type AgentRow struct {
 	FailedRun  bool
 	// FailedRunLog is the run its unread failure was written to.
 	FailedRunLog *int32
+	// Documents is how many documents the agent has written.
+	Documents int32
+	// DocumentsUpdatedAt is when the newest of them was last written, nil when there are none.
+	DocumentsUpdatedAt *time.Time
 	// MovedSinceRound is the newest round's snapshot while the worktree no longer hashes to it.
 	MovedSinceRound string
 	// ReviewerComments counts the comments reviewer agents left on its work, nil while there

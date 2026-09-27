@@ -80,10 +80,7 @@ func describeEngine(stack config.Stack, name string) enginepick.Row {
 	)
 
 	if setup.remote.IsRemote() {
-		row.Facts = append(row.Facts,
-			enginepick.Fact{Label: "engine", Value: setup.remote.String()},
-			enginepick.Fact{Label: "socket", Value: setup.remote.Socket},
-		)
+		row.Facts = append(row.Facts, enginepick.Fact{Label: "engine", Value: setup.remote.String()})
 	}
 
 	row.Facts = append(row.Facts, enginepick.Fact{Label: "cache", Value: setup.env.CacheDir})

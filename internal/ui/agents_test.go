@@ -37,9 +37,10 @@ const (
 )
 
 var (
-	recordNameLine = regexp.MustCompile(`name\s+auth`)
-	recordBaseLine = regexp.MustCompile(`base\s+origin/main`)
-	cursorRowLine  = regexp.MustCompile(`package greet`)
+	recordNameLine   = regexp.MustCompile(`name\s+auth`)
+	recordChangeLine = regexp.MustCompile(`changes\s+2 modified`)
+	recordRemoteLine = regexp.MustCompile(`remote\s+↑2 unpushed`)
+	cursorRowLine    = regexp.MustCompile(`package greet`)
 )
 
 // TestAgentsRows covers which rows the agents tree draws and where.
@@ -643,12 +644,12 @@ func TestAgentsRecordFocus(t *testing.T) {
 	t.Run("a record shortened under the cursor holds it on its last field", func(t *testing.T) {
 		rows := buildRecorded()
 		agent, _ := rows[1].(*agentv1.Agent)
-		agent.ReportedReason = "reading the diff"
+		agent.Branch = proto.String("agent/auth")
 		harness := openAgents(t, rows...)
 		harness.press("ctrl+a", "G")
 		require.Regexp(t, `^created\s`, readRecordCursor(harness.readFrame()))
 
-		agent.ReportedReason = ""
+		agent.Branch = nil
 		harness.watch(buildSnapshot(rows...))
 
 		assert.Regexp(t, `^created\s`, readRecordCursor(harness.readFrame()))
@@ -701,15 +702,25 @@ func TestAgentsRecordCopy(t *testing.T) {
 
 				rows := buildRecorded()
 				agent, _ := rows[1].(*agentv1.Agent)
-				agent.ReportedReason = strings.Repeat("reading the diff of every file on the branch ", 4)
+				agent.Flags = strings.Repeat("--append-system-prompt read every file on the branch ", 4)
 				harness := newPanelHarness(t, panelHarnessParams{})
 				answerWorktreeReads(harness)
 				harness.watch(buildSnapshot(rows...))
 
 				return harness
 			},
-			press: []string{"ctrl+a", "j", "j", "j", "j"},
-			want:  strings.Repeat("reading the diff of every file on the branch ", 4),
+			press: []string{"ctrl+a", "j", "j", "j", "j", "j"},
+			want:  strings.Repeat("--append-system-prompt read every file on the branch ", 4),
+		},
+		{
+			name: "a coloured value is copied as its plain text",
+			open: func(t *testing.T) *panelHarness {
+				t.Helper()
+
+				return openWorktreeRecord(t, panelHarnessParams{})
+			},
+			press: []string{"/", "u", "n", "p", "u", "s", "h", "e", "d", "enter"},
+			want:  "↑2 unpushed ↓1 unpulled",
 		},
 		{
 			name: "a narrowed record copies from the rows that are left",
@@ -718,8 +729,8 @@ func TestAgentsRecordCopy(t *testing.T) {
 
 				return openWorktreeRecord(t, panelHarnessParams{})
 			},
-			press: []string{"/", "c", "o", "m", "m", "i", "t", "tab", "enter", "G"},
-			want:  "1234567890ab  3h   feat(ui): a thing",
+			press: []string{"/", "_", "i", "d", "tab", "enter", "G"},
+			want:  "abc",
 		},
 	}
 
@@ -758,9 +769,76 @@ func TestAgentsRecordEmphasis(t *testing.T) {
 	t.Run("a search standing over the record lights the matched run of a value", func(t *testing.T) {
 		harness := openWorktreeRecord(t, panelHarnessParams{})
 
-		harness.press("/", "o", "r", "i", "g", "i", "n", "enter")
+		harness.press("/", "m", "o", "d", "i", "f", "i", "e", "d", "enter")
 
-		assert.Contains(t, findRawLine(harness.readRawFrame(), recordBaseLine), paint.Panel.Match().Render("origin"))
+		assert.Contains(t, findRawLine(harness.readRawFrame(), recordChangeLine), paint.Panel.Match().Render("modified"))
+	})
+
+	t.Run("the tag and the counts wear the tone of what they count", func(t *testing.T) {
+		harness := openWorktreeRecord(t, panelHarnessParams{})
+		harness.press(append([]string{"ctrl+a"}, widenListPresses...)...)
+
+		frame := harness.readRawFrame()
+		for _, want := range []string{
+			paint.Panel.Style(paint.ToneSuccess).Render("+200"),
+			paint.Panel.Style(paint.ToneDanger).Render("−100"),
+			paint.Panel.Style(paint.ToneWarning).Bold(true).Render("↑2 unpushed"),
+			paint.Panel.Style(paint.ToneMark).Render("↓1 unpulled"),
+		} {
+			assert.Contains(t, frame, want)
+		}
+	})
+
+	t.Run("a count of nothing is dimmed", func(t *testing.T) {
+		read := buildWorktreeRead()
+		read.Unpulled = 0
+		harness := newPanelHarness(t, panelHarnessParams{})
+		harness.answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, answerWith(read))
+		harness.watch(buildSnapshot(buildRecorded()...))
+		harness.press(append([]string{"ctrl+a"}, widenListPresses...)...)
+
+		assert.Contains(t, harness.readRawFrame(), errui.Dim.Render("↓0 unpulled"))
+	})
+
+	t.Run("a remote whose unpulled commits landed on the base dims what landed", func(t *testing.T) {
+		tests := []struct {
+			name  string
+			ahead int32
+			want  string
+		}{
+			{
+				name:  "a branch carrying work of its own keeps the warning on what it has not pushed",
+				ahead: 3,
+				want:  paint.Panel.Style(paint.ToneWarning).Bold(true).Render("↑2 unpushed") + " " + errui.Dim.Render("↓1 unpulled · landed on main"),
+			},
+			{
+				name:  "a branch carrying nothing of its own is dimmed whole",
+				ahead: 0,
+				want:  errui.Dim.Render("↑2 unpushed") + " " + errui.Dim.Render("↓1 unpulled · landed on main"),
+			},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				read := buildWorktreeRead()
+				read.UnpulledLanded, read.Ahead = true, tt.ahead
+				harness := newPanelHarness(t, panelHarnessParams{})
+				harness.answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, answerWith(read))
+				harness.watch(buildSnapshot(buildRecorded()...))
+				harness.press(append([]string{"ctrl+a"}, widenListPresses...)...)
+
+				assert.Contains(t, harness.readRawFrame(), tt.want)
+			})
+		}
+	})
+
+	t.Run("a search over a coloured value lights its match in the plain text", func(t *testing.T) {
+		harness := openWorktreeRecord(t, panelHarnessParams{})
+		harness.press(append([]string{"/", "u", "n", "p", "u", "s", "h", "e", "d", "enter"}, widenListPresses...)...)
+
+		line := findRawLine(harness.readRawFrame(), recordRemoteLine)
+		assert.Contains(t, line, paint.Panel.Match().Render("unpushed"))
+		assert.NotContains(t, line, paint.Panel.Style(paint.ToneWarning).Bold(true).Render("↑2 unpushed"))
 	})
 
 	t.Run("the hovered label takes the accent only while the record has the keys", func(t *testing.T) {
@@ -852,15 +930,15 @@ func TestAgentsRecordHeight(t *testing.T) {
 	t.Run("a record longer than its share says how much is left either side of the cursor", func(t *testing.T) {
 		rows := buildRecorded()
 		agent, _ := rows[1].(*agentv1.Agent)
-		agent.ReportedReason = "reading the diff"
+		agent.Branch = proto.String("agent/auth")
 		harness := openAgents(t, rows...)
-		require.Equal(t, "  ↓ 2 more", readRecord(harness.readFrame())[8])
+		require.Equal(t, "  ↓ 3 more", readRecord(harness.readFrame())[8])
 
 		harness.press("ctrl+a", "G", "ctrl+a")
 
 		record := readRecord(harness.readFrame())
-		assert.Equal(t, "  ↑ 2 more", record[0])
-		assert.NotContains(t, record, "  ↓ 2 more")
+		assert.Equal(t, "  ↑ 3 more", record[0])
+		assert.NotContains(t, record, "  ↓ 3 more")
 	})
 }
 
@@ -938,7 +1016,7 @@ func TestAgentsRecordWorktree(t *testing.T) {
 		{
 			name:       "a directory komrad does not hold draws no worktree rows and no error",
 			answer:     refuseWith(connect.CodeNotFound, "/repo is not under the worktree directories"),
-			wantAbsent: []string{"worktree", "size", "base"},
+			wantAbsent: []string{"worktree", "size", "remote"},
 		},
 		{
 			name:   "a directory git refuses says why",
@@ -949,19 +1027,69 @@ func TestAgentsRecordWorktree(t *testing.T) {
 			name:       "a registration git cannot read has a size and no standing",
 			answer:     answerWith(unreadable),
 			want:       map[string]string{"size": "1.2G, measured 5m ago"},
-			wantAbsent: []string{"base", "commits"},
+			wantAbsent: []string{"remote", "commits"},
 		},
 		{
-			name:   "a readable worktree says where its branch stands and what is uncommitted",
+			name:   "a readable worktree says where its branch stands against its remote and leaves the base to the worktree screen",
 			answer: answerWith(buildWorktreeRead()),
 			want: map[string]string{
-				"base":        "origin/main  ↑3 ↓12",
-				"changes":     "2 modified, 1 untracked",
-				"landed":      "1 commit the base already holds",
-				"sequence":    "a merge or rebase is part-way through",
-				"also here":   "reader",
-				"uncommitted": "M a.go",
+				"remote":    "↑2 unpushed ↓1 unpulled",
+				"changes":   "2 modified, 1 untracked",
+				"landed":    "1 commit the base already holds",
+				"sequence":  "a merge or rebase is part-way through",
+				"also here": "reader",
 			},
+			wantAbsent: []string{"uncommitted", "base"},
+		},
+		{
+			name: "a branch with no commits of its own has nothing to push",
+			answer: answerWith(func() *worktreev1.GetWorktreeResponse {
+				read := buildWorktreeRead()
+				read.Pushed, read.Ahead = false, 0
+
+				return read
+			}()),
+			want: map[string]string{"remote": "nothing to push"},
+		},
+		{
+			name: "a branch never pushed says so",
+			answer: answerWith(func() *worktreev1.GetWorktreeResponse {
+				read := buildWorktreeRead()
+				read.Pushed = false
+
+				return read
+			}()),
+			want: map[string]string{"remote": "not pushed"},
+		},
+		{
+			name: "a branch level with its remote reads even",
+			answer: answerWith(func() *worktreev1.GetWorktreeResponse {
+				read := buildWorktreeRead()
+				read.Unpushed, read.Unpulled = 0, 0
+
+				return read
+			}()),
+			want: map[string]string{"remote": "even"},
+		},
+		{
+			name: "a remote whose unpulled commits landed on the base says so",
+			answer: answerWith(func() *worktreev1.GetWorktreeResponse {
+				read := buildWorktreeRead()
+				read.UnpulledLanded = true
+
+				return read
+			}()),
+			want: map[string]string{"remote": "↑2 unpushed ↓1 unpulled · landed on main"},
+		},
+		{
+			name: "a detached head has no remote row",
+			answer: answerWith(func() *worktreev1.GetWorktreeResponse {
+				read := buildWorktreeRead()
+				read.Worktree.Branch = ""
+
+				return read
+			}()),
+			wantAbsent: []string{"remote"},
 		},
 	}
 
@@ -983,7 +1111,7 @@ func TestAgentsRecordWorktree(t *testing.T) {
 		})
 	}
 
-	t.Run("the standing follows what was launched and the lists come last", func(t *testing.T) {
+	t.Run("the standing follows what was launched", func(t *testing.T) {
 		harness := newPanelHarness(t, panelHarnessParams{})
 		harness.answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, answerWith(buildWorktreeRead()))
 		harness.watch(buildSnapshot(buildRecorded()...))
@@ -991,37 +1119,68 @@ func TestAgentsRecordWorktree(t *testing.T) {
 		harness.press(append([]string{"ctrl+a"}, widenListPresses...)...)
 
 		frame := harness.readFrame()
-		directory, base, size, flags := findRecordLine(frame, "directory"), findRecordLine(frame, "base"), findRecordLine(frame, "size"), findRecordLine(frame, "flags")
-		pr, uncommitted, commits := findRecordLine(frame, "pr"), findRecordLine(frame, "uncommitted"), findRecordLine(frame, "commits")
+		directory, remote, size, flags := findRecordLine(frame, "directory"), findRecordLine(frame, "remote"), findRecordLine(frame, "size"), findRecordLine(frame, "flags")
 		require.Positive(t, directory)
-		assert.Less(t, directory, base)
+		assert.Less(t, directory, remote)
 		assert.Less(t, size, flags, "the standing comes before the ids")
-		assert.Less(t, pr, uncommitted, "the lists come after the pull request")
-		record := readRecord(frame)
-		second := slices.IndexFunc(record, func(line string) bool { return strings.HasPrefix(strings.TrimLeft(line, "› "), "uncommitted ") }) + 1
-		assert.Equal(t, "M b.go", strings.TrimSpace(record[second]), "a second path carries no label of its own")
-		assert.Regexp(t, `^87a3bcc98c47\s+2h\s+fix\(view\): drop the column$`, readRecordField(frame, "commits"))
-		assert.Positive(t, commits)
+		assert.Negative(t, findRecordLine(frame, "commits"))
 	})
 
-	t.Run("the paths and commits past the first ten fold into a count", func(t *testing.T) {
-		read := buildWorktreeRead()
-		read.Modified, read.Untracked, read.Commits = nil, nil, nil
-		for i := range 12 {
-			read.Untracked = append(read.Untracked, fmt.Sprintf("file%d", i))
-			read.Commits = append(read.Commits, &worktreev1.Commit{
-				Sha:     fmt.Sprintf("%012d", i),
-				Subject: "a commit",
+	t.Run("the top rule carries the lines the branch changed", func(t *testing.T) {
+		tests := []struct {
+			name   string
+			answer answerFunc
+			want   string
+		}{
+			{
+				name:   "a directory komrad does not hold carries nothing",
+				answer: refuseWith(connect.CodeNotFound, "/repo is not under the worktree directories"),
+			},
+			{
+				name: "a branch with no base to count against carries nothing",
+				answer: answerWith(func() *worktreev1.GetWorktreeResponse {
+					read := buildWorktreeRead()
+					read.BaseRef, read.BaseError = "", "no base branch"
+					read.AddedLines, read.RemovedLines = nil, nil
+
+					return read
+				}()),
+			},
+			{
+				name: "a base the branch shares no history with carries nothing",
+				answer: answerWith(func() *worktreev1.GetWorktreeResponse {
+					read := buildWorktreeRead()
+					read.AddedLines, read.RemovedLines = nil, nil
+
+					return read
+				}()),
+			},
+			{
+				name: "a branch with nothing changed reads clean",
+				answer: answerWith(func() *worktreev1.GetWorktreeResponse {
+					read := buildWorktreeRead()
+					read.AddedLines, read.RemovedLines = proto.Int32(0), proto.Int32(0)
+
+					return read
+				}()),
+				want: "clean",
+			},
+			{
+				name:   "a branch with changes counts the lines added and removed",
+				answer: answerWith(buildWorktreeRead()),
+				want:   "+200 −100",
+			},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				harness := newPanelHarness(t, panelHarnessParams{})
+				harness.answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, tt.answer)
+				harness.watch(buildSnapshot(buildRecorded()...))
+
+				assert.Equal(t, tt.want, readRecordTag(harness.readFrame()))
 			})
 		}
-		harness := newPanelHarness(t, panelHarnessParams{height: 60})
-		harness.answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, answerWith(read))
-		harness.watch(buildSnapshot(buildRecorded()...))
-
-		harness.press("ctrl+a")
-
-		frame := harness.readFrame()
-		assert.Equal(t, 2, strings.Count(frame, "+ 2 more"))
 	})
 
 	t.Run("the focus key reads the directory again", func(t *testing.T) {
@@ -1043,8 +1202,7 @@ func TestAgentsRecordWorktree(t *testing.T) {
 
 		frame := harness.readFrame()
 		assert.Equal(t, "could not read: context deadline exceeded", readRecordField(frame, "worktree"))
-		assert.Equal(t, "origin/main  ↑3 ↓12", readRecordField(frame, "base"))
-		assert.Equal(t, "M a.go", readRecordField(frame, "uncommitted"))
+		assert.Equal(t, "↑2 unpushed ↓1 unpulled", readRecordField(frame, "remote"))
 	})
 
 	t.Run("the cursor coming to rest asks again only for a read gone stale", func(t *testing.T) {
@@ -1092,12 +1250,12 @@ func TestAgentsRecordWorktree(t *testing.T) {
 		harness.answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, answerWith(buildWorktreeRead()))
 		harness.watch(buildSnapshot(buildRecorded()...))
 		share := len(readRecord(harness.readFrame()))
-		require.Negative(t, findRecordLine(harness.readFrame(), "commits"), "the last fields are past the share")
+		require.Negative(t, findRecordLine(harness.readFrame(), "created"), "the last fields are past the share")
 
 		harness.press("ctrl+a")
 
 		frame := harness.readFrame()
-		assert.Positive(t, findRecordLine(frame, "commits"))
+		assert.Positive(t, findRecordLine(frame, "created"))
 		assert.NotContains(t, strings.Join(readRecord(frame), "\n"), "more", "nothing is left out")
 		assert.Len(t, splitLines(frame), defaultHarnessHeight)
 		assert.Equal(t, []string{"backend", "  auth"}, readListRows(frame), "the list keeps its rows")
@@ -1107,14 +1265,14 @@ func TestAgentsRecordWorktree(t *testing.T) {
 	})
 
 	t.Run("a focused record taller than the pane grows only as far as the room", func(t *testing.T) {
-		harness := newPanelHarness(t, panelHarnessParams{height: 24})
+		harness := newPanelHarness(t, panelHarnessParams{height: 16})
 		harness.answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, answerWith(buildWorktreeRead()))
 		harness.watch(buildSnapshot(buildRecorded()...))
 
 		harness.press("ctrl+a")
 
 		frame := harness.readFrame()
-		assert.Len(t, splitLines(frame), 24)
+		assert.Len(t, splitLines(frame), 16)
 		assert.Contains(t, strings.Join(readRecord(frame), "\n"), "more")
 	})
 }
@@ -1140,47 +1298,27 @@ func TestAgentsRecordSearch(t *testing.T) {
 		harness.press("n")
 		require.Regexp(t, `^name\s`, readRecordCursor(harness.readFrame()), "nothing stands to step through")
 
-		harness.press("/", "c", "o", "m", "m", "i", "t", "enter")
-		assert.Regexp(t, `^landed\s`, readRecordCursor(harness.readFrame()))
+		harness.press("/", "_", "i", "d", "enter")
+		assert.Regexp(t, `^agent_id\s`, readRecordCursor(harness.readFrame()))
 
 		harness.press("n")
-		assert.Regexp(t, `^uncommitted\s`, readRecordCursor(harness.readFrame()))
+		assert.Regexp(t, `^session_id\s`, readRecordCursor(harness.readFrame()))
 
 		harness.press("N")
-		assert.Regexp(t, `^landed\s`, readRecordCursor(harness.readFrame()))
+		assert.Regexp(t, `^agent_id\s`, readRecordCursor(harness.readFrame()))
 	})
 
 	t.Run("tab narrows the record to the fields it matches and the rows under them", func(t *testing.T) {
 		harness := openWorktreeRecord(t, panelHarnessParams{})
 
-		harness.press(append([]string{"/", "c", "o", "m", "m", "i", "t", "tab", "enter"}, widenListPresses...)...)
+		harness.press(append([]string{"/", "_", "i", "d", "tab", "enter"}, widenListPresses...)...)
 
 		frame := harness.readFrame()
-		assert.Contains(t, frame, "▽ commit")
+		assert.Contains(t, frame, "▽ _id")
 		assert.Equal(t, []string{
-			"› landed      1 commit the base already holds",
-			"  uncommitted M a.go",
-			"              M b.go",
-			"              ? notes.md",
-			"  commits     87a3bcc98c47  2h   fix(view): drop the column",
-			"              1234567890ab  3h   feat(ui): a thing",
+			"› agent_id   a1",
+			"  session_id abc",
 		}, slices.DeleteFunc(readRecord(frame), isBlank))
-	})
-
-	t.Run("a narrowed list keeps the count of what it cut", func(t *testing.T) {
-		read := buildWorktreeRead()
-		for i := range 12 {
-			read.Untracked = append(read.Untracked, fmt.Sprintf("file%d", i))
-		}
-		harness := newPanelHarness(t, panelHarnessParams{})
-		harness.answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, answerWith(read))
-		harness.watch(buildSnapshot(buildRecorded()...))
-
-		harness.press("ctrl+a", "/", "u", "n", "c", "o", "m", "tab", "enter")
-
-		record := slices.DeleteFunc(readRecord(harness.readFrame()), isBlank)
-		require.NotEmpty(t, record)
-		assert.Equal(t, "+ 5 more", strings.TrimSpace(record[len(record)-1]))
 	})
 
 	t.Run("a filter nothing matches says so and leaves the list alone", func(t *testing.T) {
@@ -2074,14 +2212,14 @@ func TestAgentsSetMark(t *testing.T) {
 			press: []string{"k", "m", "a"},
 			want: &agentv1.SetMarkRequest{
 				Target: &agentv1.SetMarkRequest_WorkflowId{WorkflowId: "w1"},
-				Mark:   proto.String("a"),
+				Letter: proto.String("a"),
 			},
 		},
 		{
 			name: "the letter a header already holds takes the mark off it",
 			marks: []proto.Message{&agentv1.Mark{
 				Id:         "m-w1",
-				Mark:       "a",
+				Letter:     "a",
 				WorkflowId: proto.String("w1"),
 			}},
 			press: []string{"k", "m", "a"},
@@ -2178,7 +2316,7 @@ func TestAgentsJumpMark(t *testing.T) {
 			name: "a workflow header",
 			mark: &agentv1.Mark{
 				Id:         "m-w2",
-				Mark:       "c",
+				Letter:     "c",
 				WorkflowId: proto.String("w2"),
 			},
 			press: []string{"'", "c"},
@@ -2188,7 +2326,7 @@ func TestAgentsJumpMark(t *testing.T) {
 			name: "a workflow header from a flat list, which is put back under its headers",
 			mark: &agentv1.Mark{
 				Id:         "m-w2",
-				Mark:       "c",
+				Letter:     "c",
 				WorkflowId: proto.String("w2"),
 			},
 			press: []string{"f", "shift+tab", "j", "esc", "'", "c"},
@@ -2491,6 +2629,11 @@ func buildWorktreeRead() *worktreev1.GetWorktreeResponse {
 		BaseRef:            "origin/main",
 		Ahead:              3,
 		Behind:             12,
+		AddedLines:         proto.Int32(200),
+		RemovedLines:       proto.Int32(100),
+		Pushed:             true,
+		Unpushed:           2,
+		Unpulled:           1,
 		LandedCommits:      1,
 		SequenceInProgress: true,
 		Commits: []*worktreev1.Commit{
@@ -2506,6 +2649,16 @@ func buildWorktreeRead() *worktreev1.GetWorktreeResponse {
 			},
 		},
 	}
+}
+
+func readRecordTag(frame string) string {
+	for _, line := range splitLines(frame) {
+		if strings.HasPrefix(line, "─") {
+			return strings.Trim(strings.TrimRight(line, " │┤┼"), "─ ")
+		}
+	}
+
+	return ""
 }
 
 func answerWith(read *worktreev1.GetWorktreeResponse) answerFunc {
@@ -2596,7 +2749,7 @@ func buildSelectable() []proto.Message {
 func newMark(letter, agentID string) *agentv1.Mark {
 	return &agentv1.Mark{
 		Id:      "m-" + agentID,
-		Mark:    letter,
+		Letter:  letter,
 		AgentId: proto.String(agentID),
 	}
 }
@@ -2604,6 +2757,6 @@ func newMark(letter, agentID string) *agentv1.Mark {
 func newMarkAuthRequest(letter *string) *agentv1.SetMarkRequest {
 	return &agentv1.SetMarkRequest{
 		Target: &agentv1.SetMarkRequest_AgentId{AgentId: "auth"},
-		Mark:   letter,
+		Letter: letter,
 	}
 }

@@ -201,6 +201,7 @@ func (a *agentsScreen) details(s panelShared) details {
 		id:      r.item.Agent.ID,
 		notices: agentNotices(r),
 		fields:  agentDetailFields(s, r.item),
+		tag:     buildDiffStatTag(agentWorktree(s.inspections, r.item.Agent.Cwd)),
 	}
 }
 
@@ -388,6 +389,7 @@ func startOrchestrator(h host, workflow panel.Workflow) tea.Cmd {
 			// stands behind.
 			return written{
 				row:     workflowRowKey(workflow.ID),
+				agent:   agent.GetId(),
 				pane:    agent.GetPaneId(),
 				harness: agent.GetHarness(),
 				focus:   true,

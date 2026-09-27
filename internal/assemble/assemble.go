@@ -242,9 +242,9 @@ func Marks(w World) map[string]string {
 	for _, mark := range w.Marks {
 		switch {
 		case mark.AgentId != nil:
-			marks[mark.GetAgentId()] = mark.GetMark()
+			marks[mark.GetAgentId()] = mark.GetLetter()
 		case mark.WorkflowId != nil:
-			marks[mark.GetWorkflowId()] = mark.GetMark()
+			marks[mark.GetWorkflowId()] = mark.GetLetter()
 		}
 	}
 

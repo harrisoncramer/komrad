@@ -9,6 +9,7 @@ import (
 	"komrad/lib/xslice"
 
 	agentstore "komrad/internal/store/agent"
+	documentstore "komrad/internal/store/document"
 	rowstore "komrad/internal/store/row"
 	runstore "komrad/internal/store/run"
 
@@ -83,6 +84,41 @@ func TestFailedRun(t *testing.T) {
 
 	require.NoError(t, st.Runs.MarkRead(ctx, alpha.ID))
 	assert.False(t, rowOf(t, st, alpha.ID).FailedRun, "reading it clears the mark")
+}
+
+// TestDocuments pins the count of an agent's documents and the time of its newest write, which
+// a rewrite moves without changing the count.
+func TestDocuments(t *testing.T) {
+	st := storetest.Open(t)
+	ctx := t.Context()
+	author := st.SeedAgent(t, agentstore.Agent{Name: "author"})
+	other := st.SeedAgent(t, agentstore.Agent{Name: "other"})
+
+	row := rowOf(t, st, author.ID)
+	assert.Zero(t, row.Documents)
+	assert.Nil(t, row.DocumentsUpdatedAt, "an agent with no documents has no newest write")
+
+	write := func(name string) *documentstore.Document {
+		created, err := st.Documents.Create(ctx, documentstore.CreateParams{AgentID: author.ID, Name: name, Kind: documentstore.KindNotes, Body: name})
+		require.NoError(t, err)
+
+		return created
+	}
+	write("first")
+	second := write("second")
+
+	row = rowOf(t, st, author.ID)
+	assert.Equal(t, int32(2), row.Documents)
+	require.NotNil(t, row.DocumentsUpdatedAt)
+	assert.True(t, row.DocumentsUpdatedAt.Equal(second.UpdatedAt), "the newest write is the one that landed last")
+	assert.Zero(t, rowOf(t, st, other.ID).Documents, "another agent's documents are not counted")
+
+	rewritten, err := st.Documents.Update(ctx, documentstore.UpdateParams{ID: second.ID, AgentID: author.ID, Name: "second", Kind: documentstore.KindNotes, Body: "again"})
+	require.NoError(t, err)
+
+	row = rowOf(t, st, author.ID)
+	assert.Equal(t, int32(2), row.Documents)
+	assert.True(t, row.DocumentsUpdatedAt.Equal(rewritten.UpdatedAt), "a rewrite moves the newest write")
 }
 
 // TestListPage pins the paging: live or archived rows, newest first, from the cursor on, with

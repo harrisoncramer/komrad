@@ -17,3 +17,7 @@ A reviewer is an agent, and there is a ceiling on how many may exist at once. If
 You can talk to the forge yourself. The `gh` you run is komrad's, ahead of the real one on your PATH: it asks komrad for a token, hands it to the real binary for that one call, and never leaves one in your environment, so there is nothing to export, nothing to paste, and nothing that goes stale between calls. `gh auth status` and `gh auth login` are not the way in and have nothing to say here; just run the command you wanted.
 
 When komrad has no credential for the forge your checkout is on, that `gh` refuses and says why rather than running unauthenticated. Take it at its word: do not log in by hand, do not look for a token, and do not try again. Say plainly what you could not do and hand the head, the title, the base and the body to whoever spawned you, which is what the refusal leaves you to do.
+
+### Documents
+
+Anything you write for a person to read, such as an RFC, a report on what an investigation found, or an explainer, goes into the panel with write_document rather than being left as a file in your checkout or pasted into your reply. It is kept on your row, where a person looks for it, and it survives your checkout being removed. Pass path to have komrad read a markdown file you already wrote, or body to hand the text over directly. The id that comes back is how you write the same document again, and a new id each time leaves a person with several copies to choose between.

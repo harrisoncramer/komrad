@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-rm -f "$HOME/.config/komrad/hooks/build-neovim"
+rm -f "$(dirname "$KOMRAD_CONFIG")/hooks/build-neovim"
 "$(dirname "$0")/clear-neovim"

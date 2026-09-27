@@ -694,9 +694,22 @@ type GetWorktreeResponse struct {
 	// and for one whose commits are on no other ref.
 	KeepsBranch bool `protobuf:"varint,10,opt,name=keeps_branch,json=keepsBranch,proto3" json:"keeps_branch,omitempty"`
 	// The branch's commits the base does not hold, newest first, at most fifty.
-	Commits       []*Commit `protobuf:"bytes,11,rep,name=commits,proto3" json:"commits,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Commits []*Commit `protobuf:"bytes,11,rep,name=commits,proto3" json:"commits,omitempty"`
+	// The lines the working tree adds since the branch left the base, leaving out the workflow's
+	// diff exclusions, and unset where there is no base or one the branch shares no history with.
+	AddedLines *int32 `protobuf:"varint,14,opt,name=added_lines,json=addedLines,proto3,oneof" json:"added_lines,omitempty"`
+	// The lines the working tree removes since the branch left the base, unset with added_lines.
+	RemovedLines *int32 `protobuf:"varint,15,opt,name=removed_lines,json=removedLines,proto3,oneof" json:"removed_lines,omitempty"`
+	// Whether origin holds a copy of the branch, false for a detached HEAD.
+	Pushed bool `protobuf:"varint,16,opt,name=pushed,proto3" json:"pushed,omitempty"`
+	// How many of the branch's commits origin's copy does not hold.
+	Unpushed int32 `protobuf:"varint,17,opt,name=unpushed,proto3" json:"unpushed,omitempty"`
+	// How many of origin's copy's commits the branch does not hold.
+	Unpulled int32 `protobuf:"varint,18,opt,name=unpulled,proto3" json:"unpulled,omitempty"`
+	// Whether the base already holds every commit counted in unpulled.
+	UnpulledLanded bool `protobuf:"varint,19,opt,name=unpulled_landed,json=unpulledLanded,proto3" json:"unpulled_landed,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *GetWorktreeResponse) Reset() {
@@ -818,6 +831,48 @@ func (x *GetWorktreeResponse) GetCommits() []*Commit {
 		return x.Commits
 	}
 	return nil
+}
+
+func (x *GetWorktreeResponse) GetAddedLines() int32 {
+	if x != nil && x.AddedLines != nil {
+		return *x.AddedLines
+	}
+	return 0
+}
+
+func (x *GetWorktreeResponse) GetRemovedLines() int32 {
+	if x != nil && x.RemovedLines != nil {
+		return *x.RemovedLines
+	}
+	return 0
+}
+
+func (x *GetWorktreeResponse) GetPushed() bool {
+	if x != nil {
+		return x.Pushed
+	}
+	return false
+}
+
+func (x *GetWorktreeResponse) GetUnpushed() int32 {
+	if x != nil {
+		return x.Unpushed
+	}
+	return 0
+}
+
+func (x *GetWorktreeResponse) GetUnpulled() int32 {
+	if x != nil {
+		return x.Unpulled
+	}
+	return 0
+}
+
+func (x *GetWorktreeResponse) GetUnpulledLanded() bool {
+	if x != nil {
+		return x.UnpulledLanded
+	}
+	return false
 }
 
 type RemoveUnownedWorktreesRequest struct {
@@ -1079,7 +1134,7 @@ const file_worktree_v1_worktree_proto_rawDesc = "" +
 	"\x06Commit\x12\x10\n" +
 	"\x03sha\x18\x01 \x01(\tR\x03sha\x12\x18\n" +
 	"\asubject\x18\x02 \x01(\tR\asubject\x12!\n" +
-	"\fcommitted_at\x18\x03 \x01(\tR\vcommittedAt\"\xe2\x03\n" +
+	"\fcommitted_at\x18\x03 \x01(\tR\vcommittedAt\"\xcd\x05\n" +
 	"\x13GetWorktreeResponse\x121\n" +
 	"\bworktree\x18\x01 \x01(\v2\x15.worktree.v1.WorktreeR\bworktree\x12\x1d\n" +
 	"\n" +
@@ -1096,7 +1151,16 @@ const file_worktree_v1_worktree_proto_rawDesc = "" +
 	"\x14sequence_in_progress\x18\t \x01(\bR\x12sequenceInProgress\x12!\n" +
 	"\fkeeps_branch\x18\n" +
 	" \x01(\bR\vkeepsBranch\x12-\n" +
-	"\acommits\x18\v \x03(\v2\x13.worktree.v1.CommitR\acommits\"G\n" +
+	"\acommits\x18\v \x03(\v2\x13.worktree.v1.CommitR\acommits\x12$\n" +
+	"\vadded_lines\x18\x0e \x01(\x05H\x00R\n" +
+	"addedLines\x88\x01\x01\x12(\n" +
+	"\rremoved_lines\x18\x0f \x01(\x05H\x01R\fremovedLines\x88\x01\x01\x12\x16\n" +
+	"\x06pushed\x18\x10 \x01(\bR\x06pushed\x12\x1a\n" +
+	"\bunpushed\x18\x11 \x01(\x05R\bunpushed\x12\x1a\n" +
+	"\bunpulled\x18\x12 \x01(\x05R\bunpulled\x12'\n" +
+	"\x0funpulled_landed\x18\x13 \x01(\bR\x0eunpulledLandedB\x0e\n" +
+	"\f_added_linesB\x10\n" +
+	"\x0e_removed_lines\"G\n" +
 	"\x1dRemoveUnownedWorktreesRequest\x12&\n" +
 	"\x04dirs\x18\x01 \x03(\tB\x12\xbaH\x0f\x92\x01\f\b\x01\x10d\x18\x01\"\x04r\x02\x10\x01R\x04dirs\"3\n" +
 	"\aRefusal\x12\x10\n" +
@@ -1183,6 +1247,7 @@ func file_worktree_v1_worktree_proto_init() {
 	file_worktree_v1_worktree_proto_msgTypes[0].OneofWrappers = []any{}
 	file_worktree_v1_worktree_proto_msgTypes[1].OneofWrappers = []any{}
 	file_worktree_v1_worktree_proto_msgTypes[2].OneofWrappers = []any{}
+	file_worktree_v1_worktree_proto_msgTypes[7].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

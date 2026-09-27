@@ -11,7 +11,9 @@ usage() {
 	echo "beside each tape, untracked. The png is the last frame, which is a video's"
 	echo "poster or a still on its own. A <name>.before script beside the recording runs"
 	echo "against the fresh instance first, to set up what the recording should not show,"
-	echo "and a <name>.after script runs once it is done, to clear what it made."
+	echo "and a <name>.after script runs once it is done, to clear what it made. Both run"
+	echo "in the throwaway instance's environment, with this checkout's komrad first on"
+	echo "the path, so KOMRAD_CONFIG names the instance's config file."
 	echo
 	echo "Every recording drops the throwaway instance's database first, so nothing"
 	echo "recorded depends on what was there. Publish what it made to the docs site"
@@ -28,6 +30,10 @@ for arg in "$@"; do
 done
 
 cd "$MISE_CONFIG_ROOT"
+
+run_script() {
+	MISE_ENV="test" mise exec -- env -u KOMRAD_AGENT_ID -u KOMRAD_SESSION_ID PATH="$MISE_CONFIG_ROOT/bin:$PATH" "$1"
+}
 
 SCRIPTS=(recordings/prod/*.tape)
 if [ $# -gt 0 ]; then
@@ -53,13 +59,13 @@ for script in "${SCRIPTS[@]}"; do
 	MISE_ENV="test" mise run restart >/dev/null
 
 	if [ -x "$before" ]; then
-		MISE_ENV="test" mise exec -- env PATH="$MISE_CONFIG_ROOT/bin:$PATH" "$before"
+		run_script "$before"
 	fi
 
 	MISE_ENV="test" mise run record "$MISE_CONFIG_ROOT/$script"
 
 	if [ -x "$after" ]; then
-		"$after"
+		run_script "$after"
 	fi
 
 	rm -f "recordings/prod/$name.gif"

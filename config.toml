@@ -142,6 +142,16 @@ restore_open = ["R"]
 # Copy the field the details cursor is on to the system clipboard.
 copy = ["y"]
 
+# The documents screen, which reads what the hovered agent has written for a person.
+[keybindings.documents]
+# Leave the documents screen for the agents list.
+back = ["esc"]
+# Open the documents screen from the agents list, on the hovered agent's documents, or
+# its orchestrator's on a workflow's row.
+open = ["i"]
+# Quit the panel.
+quit = ["ctrl+c"]
+
 # The filter over whichever list is on screen, shared by every screen that
 # draws one. The key that opens it is "/" and is not configured.
 [keybindings.filter]
@@ -439,19 +449,7 @@ cache_dir             = ""
 # Left empty the engine is local and an agent's terminal is shown by moving its own pane
 # into the panel, which only works while the panel and the agents share a tmux server.
 ssh                   = ""
-# The tmux socket the engine's own server runs on, which is only consulted when ssh names
-# a destination. Left empty it is tmux_socket, which is right when both machines run a
-# default komrad and wrong when this machine is also running an engine of its own.
-engine_tmux_socket    = ""
-# How to run a command on the engine, as an argv, when ssh is not how you reach it.
-# "{{command}}" is replaced with what komrad wants run there, and "{{command_json}}" with the
-# same text escaped for embedding in JSON. It needs to allocate a terminal, since what it
-# carries is an interactive one.
-exec                  = []
 # How to forward a port from this machine to the engine, as an argv, when ssh is not how you
 # reach it. "{{local_port}}" and "{{remote_port}}" are replaced with the two ends. It should
 # stay in the foreground for as long as the forward is wanted.
 forward               = []
-# The account on the engine that owns its tmux server, where the transport does not already
-# arrive as it. Left empty nothing is stepped into.
-engine_user           = ""

@@ -10,22 +10,28 @@ import (
 // Checkout answers every question about a checkout with what the test put in it, remembering
 // which base it was asked to resolve and which repositories it was asked to prune.
 type Checkout struct {
-	Changes    git.Changes
-	State      git.TreeState
-	Ahead      int
-	Behind     int
-	Prediction git.Prediction
-	PredictErr error
-	Held       bool
-	Unresolved bool
-	Commits    []git.Commit
-	Resolved   string
-	Resolves   int
-	Fetched    string
-	Fetches    int
-	Pruned     []string
-	Registered []git.Worktree
-	ListErr    error
+	Changes      git.Changes
+	State        git.TreeState
+	Ahead        int
+	Behind       int
+	Prediction   git.Prediction
+	PredictErr   error
+	Held         bool
+	Unresolved   bool
+	Commits      []git.Commit
+	DiffStat     git.DiffStat
+	DiffErr      error
+	Excluded     []string
+	Remote       git.RemoteStanding
+	RemoteLanded bool
+	HoldAsked    string
+	Resolved     string
+	Resolves     int
+	Fetched      string
+	Fetches      int
+	Pruned       []string
+	Registered   []git.Worktree
+	ListErr      error
 }
 
 // ReadChanges answers Changes.
@@ -75,6 +81,32 @@ func (g *Checkout) IsBranchHeldElsewhere(context.Context, string, string) (bool,
 // ListCommitsSince answers Commits.
 func (g *Checkout) ListCommitsSince(context.Context, string, string, int) ([]git.Commit, error) {
 	return g.Commits, nil
+}
+
+// ReadDiffStat records the paths it was told to leave out and answers DiffStat and DiffErr.
+func (g *Checkout) ReadDiffStat(_ context.Context, params git.ReadDiffStatParams) (*git.DiffStat, error) {
+	g.Excluded = params.Exclude
+	if g.DiffErr != nil {
+		return nil, g.DiffErr
+	}
+
+	stat := g.DiffStat
+
+	return &stat, nil
+}
+
+// DoesBaseHoldRemote records the base it was asked about and answers RemoteLanded.
+func (g *Checkout) DoesBaseHoldRemote(_ context.Context, params git.DoesBaseHoldRemoteParams) (bool, error) {
+	g.HoldAsked = params.Base
+
+	return g.RemoteLanded, nil
+}
+
+// CountAgainstRemote answers Remote.
+func (g *Checkout) CountAgainstRemote(context.Context, string, string) (*git.RemoteStanding, error) {
+	remote := g.Remote
+
+	return &remote, nil
 }
 
 // ListWorktrees answers Registered and ListErr.

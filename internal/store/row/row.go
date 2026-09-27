@@ -5,6 +5,7 @@ package row
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"komrad/db/models"
 	"komrad/internal/store"
@@ -19,6 +20,10 @@ type Row struct {
 	FailedRun bool
 	// FailedRunLog is the log the unread failure went to.
 	FailedRunLog *int32
+	// Documents is how many documents the agent has written.
+	Documents int32
+	// DocumentsUpdatedAt is when the newest of them was last written, nil when there are none.
+	DocumentsUpdatedAt *time.Time
 }
 
 // Page is one page of rows: how many, from where, and whether the archived ones.
@@ -72,9 +77,11 @@ func (s *RowStore) Get(ctx context.Context, id string) (*Row, error) {
 func fromWatched(watched []*models.ListWatchedAgentsRow) []Row {
 	return xslice.Map(watched, func(fact *models.ListWatchedAgentsRow) Row {
 		return Row{
-			Agent:        agentstore.FromRow(fact.Agent),
-			FailedRun:    fact.FailedRun,
-			FailedRunLog: fact.FailedRunLog,
+			Agent:              agentstore.FromRow(fact.Agent),
+			FailedRun:          fact.FailedRun,
+			FailedRunLog:       fact.FailedRunLog,
+			Documents:          fact.Documents,
+			DocumentsUpdatedAt: fact.DocumentsUpdatedAt,
 		}
 	})
 }

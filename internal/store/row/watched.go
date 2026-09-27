@@ -20,6 +20,10 @@ var WatchedAgents = watch.Resource{
 			Table:  "agent_runs",
 			Column: "agent_id",
 		},
+		{
+			Table:  "documents",
+			Column: "agent_id",
+		},
 	},
 }
 

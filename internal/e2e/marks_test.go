@@ -28,25 +28,25 @@ func TestIntegrationMarks(t *testing.T) {
 	migrations := createAgent(t, instance, workflowID, "migrations")
 
 	t.Run("a letter goes on an agent", func(t *testing.T) {
-		require.NoError(t, setMark(t, instance, &agentv1.SetMarkRequest{Target: newAgentTarget(api.GetId()), Mark: xptr.Ptr("a")}))
+		require.NoError(t, setMark(t, instance, &agentv1.SetMarkRequest{Target: newAgentTarget(api.GetId()), Letter: xptr.Ptr("a")}))
 
 		assert.Equal(t, map[string]string{"a": api.GetId()}, listMarks(t, instance))
 	})
 
 	t.Run("claiming a held letter takes it off the row that had it", func(t *testing.T) {
-		require.NoError(t, setMark(t, instance, &agentv1.SetMarkRequest{Target: newAgentTarget(migrations.GetId()), Mark: xptr.Ptr("a")}))
+		require.NoError(t, setMark(t, instance, &agentv1.SetMarkRequest{Target: newAgentTarget(migrations.GetId()), Letter: xptr.Ptr("a")}))
 
 		assert.Equal(t, map[string]string{"a": migrations.GetId()}, listMarks(t, instance))
 	})
 
 	t.Run("a row answers to one letter at a time", func(t *testing.T) {
-		require.NoError(t, setMark(t, instance, &agentv1.SetMarkRequest{Target: newAgentTarget(migrations.GetId()), Mark: xptr.Ptr("m")}))
+		require.NoError(t, setMark(t, instance, &agentv1.SetMarkRequest{Target: newAgentTarget(migrations.GetId()), Letter: xptr.Ptr("m")}))
 
 		assert.Equal(t, map[string]string{"m": migrations.GetId()}, listMarks(t, instance))
 	})
 
 	t.Run("a letter goes on a workflow", func(t *testing.T) {
-		require.NoError(t, setMark(t, instance, &agentv1.SetMarkRequest{Target: newWorkflowTarget(workflowID), Mark: xptr.Ptr("w")}))
+		require.NoError(t, setMark(t, instance, &agentv1.SetMarkRequest{Target: newWorkflowTarget(workflowID), Letter: xptr.Ptr("w")}))
 
 		assert.Equal(t, map[string]string{
 			"m": migrations.GetId(),
@@ -61,7 +61,7 @@ func TestIntegrationMarks(t *testing.T) {
 	})
 
 	t.Run("archiving an agent frees its letter", func(t *testing.T) {
-		require.NoError(t, setMark(t, instance, &agentv1.SetMarkRequest{Target: newAgentTarget(api.GetId()), Mark: xptr.Ptr("a")}))
+		require.NoError(t, setMark(t, instance, &agentv1.SetMarkRequest{Target: newAgentTarget(api.GetId()), Letter: xptr.Ptr("a")}))
 
 		archiveAgent(t, instance, api.GetId())
 
@@ -69,13 +69,13 @@ func TestIntegrationMarks(t *testing.T) {
 	})
 
 	t.Run("an archived agent cannot be marked", func(t *testing.T) {
-		err := setMark(t, instance, &agentv1.SetMarkRequest{Target: newAgentTarget(api.GetId()), Mark: xptr.Ptr("a")})
+		err := setMark(t, instance, &agentv1.SetMarkRequest{Target: newAgentTarget(api.GetId()), Letter: xptr.Ptr("a")})
 		assert.Equal(t, connect.CodeNotFound, connect.CodeOf(err))
 		assert.Equal(t, map[string]string{"w": workflowID}, listMarks(t, instance))
 	})
 
 	t.Run("archiving a workflow frees its letter and its agents' letters", func(t *testing.T) {
-		require.NoError(t, setMark(t, instance, &agentv1.SetMarkRequest{Target: newAgentTarget(migrations.GetId()), Mark: xptr.Ptr("m")}))
+		require.NoError(t, setMark(t, instance, &agentv1.SetMarkRequest{Target: newAgentTarget(migrations.GetId()), Letter: xptr.Ptr("m")}))
 
 		_, err := instance.Workflows.ArchiveWorkflow(ctx, connect.NewRequest(&workflowv1.ArchiveWorkflowRequest{
 			Id: workflowID,
@@ -111,7 +111,7 @@ func listMarks(t *testing.T, instance *komradtest.Instance) map[string]string {
 
 	marks := map[string]string{}
 	for _, mark := range listed.Msg.GetMarks() {
-		marks[mark.GetMark()] = mark.GetAgentId() + mark.GetWorkflowId()
+		marks[mark.GetLetter()] = mark.GetAgentId() + mark.GetWorkflowId()
 	}
 
 	return marks

@@ -2,7 +2,6 @@ package cli
 
 import (
 	"komrad/config"
-	"komrad/internal/agents"
 	"komrad/internal/engine"
 	"komrad/internal/harness"
 	"komrad/internal/tmux"
@@ -44,17 +43,8 @@ func (a *app) engine() engine.Remote {
 }
 
 func remoteOf(env *config.Environment) engine.Remote {
-	socket := env.EngineTmuxSocket
-	if socket == "" {
-		socket = env.TmuxSocket
-	}
-
 	return engine.Remote{
 		Destination: env.SSH,
-		Exec:        env.Exec,
 		Forward:     env.Forward,
-		User:        env.EngineUser,
-		Socket:      socket,
-		Session:     agents.ManagerSession,
 	}
 }

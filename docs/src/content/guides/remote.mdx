@@ -11,7 +11,7 @@ Komrad's own repository works this way. [Administering the engine](../engine-adm
 
 ## Telling your panel about an engine
 
-An engine is a small config file on your laptop in `~/.config/komrad/engines/`, named after the engine. It sets the [`[connection]`](../../config/#connection) table: [`exec`](../../config/#connection.exec) says how to run a command on the engine, and [`forward`](../../config/#connection.forward) says how to carry the engine's service back to your laptop. Both are usually SSH. For a host your SSH config already knows, a plain [`ssh`](../../config/#connection.ssh) destination is enough.
+An engine is a small config file on your laptop in `~/.config/komrad/engines/`, named after the engine. It sets the [`[connection]`](../../config/#connection) table: [`forward`](../../config/#connection.forward) says how to carry the engine's API back to your laptop, and everything the panel does on the engine goes through that API. For a host your SSH config already knows, a plain [`ssh`](../../config/#connection.ssh) destination is enough.
 
 Keep the engine's SSH host keys in a file of their own. A rebuilt engine answers on the same address with a new key.
 
@@ -20,8 +20,16 @@ Keep the engine's SSH host keys in a file of their own. A rebuilt engine answers
 Once an engine file exists, opening komrad shows a picker listing your laptop and each engine. An engine that cannot be reached, or runs a different build from yours, is greyed out and says why.
 
 <figure class="placeholder">
-  <figcaption>The engine picker, with this machine ready, one engine ready, and one greyed out for a build mismatch.</figcaption>
+  <figcaption>
+    The engine picker, with this machine ready, one engine ready, and one greyed out for a build mismatch.
+  </figcaption>
 </figure>
+
+## Attaching to an agent
+
+An agent's terminal on the engine is streamed to your panel, and `komrad terminal AGENT` does the same in any terminal. The agent's window takes the size of the terminal attached to it, so it fills the stage and follows it when you resize.
+
+The exception is a window someone fixed at a size on the engine itself, for example by opening a panel there, which runs tmux's `resize-window` and sets the window's `window-size` to `manual`. That window keeps its size wherever it is attached, so a smaller terminal crops it and a larger one leaves blank space around it.
 
 ## Signing the agent CLI in
 

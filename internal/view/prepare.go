@@ -58,6 +58,7 @@ func prepareLine(params prepareLineParams) Line {
 		Emphasis: emphasisFor(row, focused && params.caret != CaretAbsent),
 		Held:     HeldCell(row),
 		Hidden:   HiddenCell(row),
+		Document: DocumentCell(row),
 		Mail:     MailCell(row),
 		Alert:    AlertCell(row),
 		Tally:    row.HiddenCount,
@@ -240,6 +241,11 @@ func MailCell(row Row) Cell {
 	return markCell(row.UnreadMail, GlyphMail, paint.ToneMuted)
 }
 
+// DocumentCell is the mark a row draws once its agent has written a document for a person to read.
+func DocumentCell(row Row) Cell {
+	return markCell(row.Documents, GlyphDocument, paint.ToneMuted)
+}
+
 // AlertCell is the mark a row draws for a script komrad fired that failed.
 func AlertCell(row Row) Cell {
 	return markCell(row.FailedRun, GlyphAlert, paint.ToneDanger)
@@ -308,10 +314,10 @@ func fitRow(line Line, width int) Line {
 // shedMarks gives the marks after a name up, in the order of what a person can do without,
 // where even a nameless row will not fit the pane.
 func shedMarks(line Line, width int) Line {
-	// The schedule is a standing fact about the row, hiding and pausing are things a person did
-	// themselves, mail goes before the output nobody has read, which asks the person to look, and
-	// the failed run nobody else will mention goes last.
-	for _, shed := range []*Cell{&line.Schedule, &line.Hidden, &line.Held, &line.Mail, &line.Alert} {
+	// The schedule and the documents are standing facts about the row, hiding and pausing are
+	// things a person did themselves, mail goes before the output nobody has read, which asks
+	// the person to look, and the failed run nobody else will mention goes last.
+	for _, shed := range []*Cell{&line.Schedule, &line.Document, &line.Hidden, &line.Held, &line.Mail, &line.Alert} {
 		if roomForName(line, width) >= 0 {
 			return line
 		}

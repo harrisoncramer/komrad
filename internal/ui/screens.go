@@ -18,6 +18,7 @@ const (
 	screenSearch
 	screenReview
 	screenWorktrees
+	screenDocuments
 )
 
 // opensInfoPane reports whether the keys that draw a pane beside the panel act on a screen.
@@ -25,7 +26,7 @@ func (s screen) opensInfoPane() bool {
 	switch s {
 	case screenAgents, screenSchedules:
 		return true
-	case screenArchive, screenSearch, screenReview, screenWorktrees:
+	case screenArchive, screenSearch, screenReview, screenWorktrees, screenDocuments:
 		return false
 	}
 
@@ -136,6 +137,8 @@ func (m *model) screenOf(s screen) screenModel {
 		return &m.review
 	case screenWorktrees:
 		return &m.worktrees
+	case screenDocuments:
+		return &m.documents
 	}
 
 	// The switch carries every screen and no default, so this is what a screen added without an

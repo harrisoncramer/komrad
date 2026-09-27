@@ -6,7 +6,9 @@
 # is a built-in default, which is what you want when you are checking a build rather than
 # working in it.
 #
-# The connection settings that isolate this instance are exported as environment variables.
+# The connection settings that isolate this instance are exported as environment variables, and
+# the slot adds its own [worktrees], [context] and [hooks] tables, so an agent it starts never
+# reads the global context or runs the hooks of the machine it is developed on.
 
 [log]
 # Louder than the default, because the reason to open this instance is usually to watch it.

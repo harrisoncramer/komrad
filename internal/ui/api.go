@@ -192,7 +192,7 @@ func (a api) writeMark(req *agentv1.SetMarkRequest) error {
 }
 
 func markRequest(target markTargetRef, mark *string) *agentv1.SetMarkRequest {
-	req := &agentv1.SetMarkRequest{Mark: mark}
+	req := &agentv1.SetMarkRequest{Letter: mark}
 	if target.workflowID != "" {
 		req.Target = &agentv1.SetMarkRequest_WorkflowId{WorkflowId: target.workflowID}
 
@@ -436,5 +436,27 @@ func (a api) getWorktree(dir string) (*worktreev1.GetWorktreeResponse, error) {
 func (a api) deleteWorktrees(dirs []string) error {
 	return mutate(func(ctx context.Context) (any, error) {
 		return a.worktrees.DeleteWorktrees(ctx, connect.NewRequest(&worktreev1.DeleteWorktreesRequest{Dirs: dirs}))
+	})
+}
+
+func (a api) listDocuments(agentID string) ([]*agentv1.Document, error) {
+	return call(requestTimeout, func(ctx context.Context) ([]*agentv1.Document, error) {
+		resp, err := a.agents.ListDocuments(ctx, connect.NewRequest(&agentv1.ListDocumentsRequest{AgentId: &agentID}))
+		if err != nil {
+			return nil, fmt.Errorf("failed to list the documents of agent %q: %w", agentID, err)
+		}
+
+		return resp.Msg.GetDocuments(), nil
+	})
+}
+
+func (a api) getDocument(id string) (*agentv1.Document, error) {
+	return call(requestTimeout, func(ctx context.Context) (*agentv1.Document, error) {
+		resp, err := a.agents.GetDocument(ctx, connect.NewRequest(&agentv1.GetDocumentRequest{Id: id}))
+		if err != nil {
+			return nil, fmt.Errorf("failed to read document %q: %w", id, err)
+		}
+
+		return resp.Msg.GetDocument(), nil
 	})
 }

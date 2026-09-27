@@ -404,9 +404,10 @@ func livePanelRows() []Row {
 			Process: ProcessNone,
 		},
 		{
-			Kind:    KindAgent,
-			Name:    "research-disbursements",
-			Process: ProcessStopped,
+			Kind:      KindAgent,
+			Name:      "research-disbursements",
+			Process:   ProcessStopped,
+			Documents: true,
 		},
 		{
 			Kind:   KindAgent,
@@ -686,7 +687,7 @@ func reachableRows() []Row {
 
 	var rows []Row
 	for _, kind := range []RowKind{KindWorkflow, KindAgent, KindChild} {
-		for marks := range 32 {
+		for marks := range 64 {
 			row := Row{
 				Kind:       kind,
 				Name:       name,
@@ -695,6 +696,7 @@ func reachableRows() []Row {
 				FailedRun:  marks&4 != 0,
 				Scheduled:  marks&8 != 0,
 				Hidden:     marks&16 != 0,
+				Documents:  marks&32 != 0,
 			}
 			if kind == KindChild {
 				row.Scheduled = false

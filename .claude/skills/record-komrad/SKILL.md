@@ -16,8 +16,12 @@ The recorder only ever runs against this checkout's throwaway instance, on a tmu
 command here carries `MISE_ENV=test`; without it the task refuses to run. The live panel on
 socket `komrad` is never recorded.
 
-mise installs VHS and the ffmpeg it uses, and leaves both out of CI. VHS also needs ttyd, which
-mise cannot install on macOS, so install that with nix or Homebrew.
+mise installs VHS and the ffmpeg and ttyd it uses, and leaves all three out of CI.
+
+An agent can record from its own pane. The task drops the agent's own ids and tmux variables
+before VHS starts, so `komrad open` in a tape opens a panel rather than refusing to nest one,
+and it points the tape's komrad at an empty engines directory, so `komrad open` goes straight
+to the throwaway instance rather than asking which komrad to open.
 
 ## Stand the instance up
 

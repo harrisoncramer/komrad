@@ -241,7 +241,7 @@ func TestFrameBottomRegion(t *testing.T) {
 	tmux := &recordingTmux{}
 	frame := New(tmux, config.DefaultLayout())
 	frame.Attach("%0")
-	frame.ShowGuest("%9")
+	frame.ShowGuest(Guest{Agent: "agent-9", Pane: "%9"})
 
 	pane := frame.Open(RegionInfo)
 
@@ -280,13 +280,13 @@ func TestFrameGuestHoldsTheMainRegion(t *testing.T) {
 	frame := New(tmux, config.DefaultLayout())
 	frame.Attach("%0")
 
-	frame.ShowGuest("%9")
+	frame.ShowGuest(Guest{Agent: "agent-9", Pane: "%9"})
 
 	assert.Equal(t, "%9", frame.GuestPane())
 	assert.Equal(t, "%1", frame.Pane(RegionStage), "the region keeps its own pane, away in the agent's window")
 	require.Equal(t, 1, tmux.swaps)
 
-	frame.ShowGuest("%9")
+	frame.ShowGuest(Guest{Agent: "agent-9", Pane: "%9"})
 	assert.Equal(t, 1, tmux.swaps, "the agent already staged is not swapped again")
 
 	frame.Show(RegionStage, newDocument("# auth"))
@@ -304,7 +304,7 @@ func TestFrameGuestDisplacesWhatWasDrawn(t *testing.T) {
 	frame.Attach("%0")
 
 	frame.Show(RegionStage, newDocument("# auth"))
-	frame.ShowGuest("%9")
+	frame.ShowGuest(Guest{Agent: "agent-9", Pane: "%9"})
 	frame.Show(RegionStage, newDocument("# auth"))
 
 	assert.Len(t, tmux.respawns, 2)
@@ -316,7 +316,7 @@ func TestFrameReleaseGuest(t *testing.T) {
 	tmux := &recordingTmux{}
 	frame := New(tmux, config.DefaultLayout())
 	frame.Attach("%0")
-	frame.ShowGuest("%9")
+	frame.ShowGuest(Guest{Agent: "agent-9", Pane: "%9"})
 
 	frame.ReleaseGuest("%8")
 	assert.Equal(t, "%9", frame.GuestPane(), "another agent's pane is not the one staged")
@@ -331,7 +331,7 @@ func TestFrameVacateLeavesOnlyTheSidebar(t *testing.T) {
 	tmux := &recordingTmux{}
 	frame := New(tmux, config.DefaultLayout())
 	frame.Attach("%0")
-	frame.ShowGuest("%9")
+	frame.ShowGuest(Guest{Agent: "agent-9", Pane: "%9"})
 	frame.Show(RegionInfo, newDocument("# auth"))
 	require.Equal(t, 1, tmux.swaps)
 
@@ -631,7 +631,7 @@ func TestRestoreSplitGivesTheSidebarItsColumnsBack(t *testing.T) {
 	tmux := &recordingTmux{width: 200, height: 50}
 	frame := New(tmux, config.Layout{SidebarWidth: 16})
 	frame.Attach("%0")
-	frame.ShowGuest("%7")
+	frame.ShowGuest(Guest{Agent: "agent-7", Pane: "%7"})
 
 	tmux.resizes = nil
 	frame.RestoreSplit()
@@ -646,7 +646,7 @@ func TestRestoreSplitLeavesAZoomedSidebarAlone(t *testing.T) {
 	tmux := &recordingTmux{width: 200, height: 50}
 	frame := New(tmux, config.Layout{SidebarWidth: 16})
 	frame.Attach("%0")
-	frame.ShowGuest("%7")
+	frame.ShowGuest(Guest{Agent: "agent-7", Pane: "%7"})
 	frame.Solo(true)
 
 	tmux.resizes = nil
@@ -670,7 +670,7 @@ func TestRestoreSplitKeepsAChosenWidth(t *testing.T) {
 	}
 	frame := New(tmux, config.Layout{SidebarWidth: 16})
 	frame.Attach("%0")
-	frame.ShowGuest("%7")
+	frame.ShowGuest(Guest{Agent: "agent-7", Pane: "%7"})
 	frame.SyncSplit()
 
 	tmux.resizes = nil
@@ -795,11 +795,14 @@ func TestAWindowTooNarrowForTheChosenWidthKeepsIt(t *testing.T) {
 
 // remoteEngine is an engine somewhere this tmux server cannot reach.
 func remoteEngine() engine.Remote {
-	return engine.Remote{
-		Destination: "komrad@host",
-		Socket:      "komrad",
-		Session:     "komrad",
-	}
+	return engine.Remote{Destination: "komrad@host"}
+}
+
+// newRemoteFrame is a frame over an engine somewhere else, reached with komrad terminal.
+func newRemoteFrame(tmux *recordingTmux) *Frame {
+	return New(tmux, config.DefaultLayout(),
+		WithEngine(remoteEngine()),
+		WithTerminalCommand([]string{"komrad", "terminal", "--addr", "127.0.0.1:19001"}))
 }
 
 // TestFocusPaneIsTheGuestForALocalEngine covers the focus key jumping to the agent's own pane,
@@ -808,7 +811,7 @@ func TestFocusPaneIsTheGuestForALocalEngine(t *testing.T) {
 	tmux := &recordingTmux{width: 80, height: 40}
 	frame := New(tmux, config.DefaultLayout())
 	frame.Attach("%1")
-	frame.ShowGuest("%7")
+	frame.ShowGuest(Guest{Agent: "agent-7", Pane: "%7"})
 
 	assert.Equal(t, "%7", frame.FocusPane())
 }
@@ -818,12 +821,12 @@ func TestFocusPaneIsTheGuestForALocalEngine(t *testing.T) {
 // the key is unbound.
 func TestFocusPaneIsTheStageForARemoteEngine(t *testing.T) {
 	tmux := &recordingTmux{width: 80, height: 40}
-	frame := New(tmux, config.DefaultLayout(), WithEngine(remoteEngine()))
+	frame := newRemoteFrame(tmux)
 	frame.Attach("%1")
 
 	require.Empty(t, frame.FocusPane(), "nothing is staged yet")
 
-	frame.ShowGuest("%7")
+	frame.ShowGuest(Guest{Agent: "agent-7", Pane: "%7"})
 
 	stage := frame.Pane(RegionStage)
 	require.NotEmpty(t, stage)
@@ -835,9 +838,9 @@ func TestFocusPaneIsTheStageForARemoteEngine(t *testing.T) {
 // server does not hold.
 func TestRemoteGuestIsNotTrackedAsAGuest(t *testing.T) {
 	tmux := &recordingTmux{width: 80, height: 40}
-	frame := New(tmux, config.DefaultLayout(), WithEngine(remoteEngine()))
+	frame := newRemoteFrame(tmux)
 	frame.Attach("%1")
-	frame.ShowGuest("%7")
+	frame.ShowGuest(Guest{Agent: "agent-7", Pane: "%7"})
 
 	assert.Empty(t, frame.GuestPane())
 }
@@ -846,9 +849,9 @@ func TestRemoteGuestIsNotTrackedAsAGuest(t *testing.T) {
 // stops holding an agent.
 func TestFocusPaneIsEmptyOnceTheStageShowsSomethingElse(t *testing.T) {
 	tmux := &recordingTmux{width: 80, height: 40}
-	frame := New(tmux, config.DefaultLayout(), WithEngine(remoteEngine()))
+	frame := newRemoteFrame(tmux)
 	frame.Attach("%1")
-	frame.ShowGuest("%7")
+	frame.ShowGuest(Guest{Agent: "agent-7", Pane: "%7"})
 	require.NotEmpty(t, frame.FocusPane())
 
 	frame.Show(RegionStage, Content{
@@ -867,21 +870,59 @@ func TestRemoteGuestIsAttachedAgainOnceItsViewerDies(t *testing.T) {
 		height:    40,
 		deadPanes: map[string]bool{},
 	}
-	frame := New(tmux, config.DefaultLayout(), WithEngine(remoteEngine()))
+	frame := newRemoteFrame(tmux)
 	frame.Attach("%1")
-	frame.ShowGuest("%7")
+	frame.ShowGuest(Guest{Agent: "agent-7", Pane: "%7"})
 
 	stage := frame.Pane(RegionStage)
 	require.NotEmpty(t, stage)
 	require.Len(t, tmux.respawns, 1)
 
-	frame.ShowGuest("%7")
+	frame.ShowGuest(Guest{Agent: "agent-7", Pane: "%7"})
 	require.Len(t, tmux.respawns, 1, "the same agent is not attached twice")
 
 	tmux.deadPanes[stage] = true
 
-	frame.ShowGuest("%7")
+	frame.ShowGuest(Guest{Agent: "agent-7", Pane: "%7"})
 
 	assert.Len(t, tmux.respawns, 2, "the viewer is run again in a fresh stage")
 	assert.Equal(t, frame.Pane(RegionStage), frame.FocusPane())
+}
+
+// TestRemoteGuestAttachesOverTheAPI covers what the stage runs to show an agent on an engine
+// somewhere else.
+func TestRemoteGuestAttachesOverTheAPI(t *testing.T) {
+	tests := []struct {
+		name    string
+		command []string
+		guest   Guest
+		want    []string
+	}{
+		{
+			name:    "the stage runs komrad terminal on the agent",
+			command: []string{"komrad", "terminal", "--addr", "127.0.0.1:19001"},
+			guest:   Guest{Agent: "agent-7", Pane: "%7"},
+			want:    []string{"komrad terminal --addr 127.0.0.1:19001 -- agent-7"},
+		},
+		{
+			name:  "an engine the panel cannot reach leaves the stage alone",
+			guest: Guest{Agent: "agent-7", Pane: "%7"},
+		},
+		{
+			name:    "a guest with no agent leaves the stage alone",
+			command: []string{"komrad", "terminal", "--addr", "127.0.0.1:19001"},
+			guest:   Guest{Pane: "%7"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmux := &recordingTmux{width: 80, height: 40}
+			frame := New(tmux, config.DefaultLayout(), WithEngine(remoteEngine()), WithTerminalCommand(tt.command))
+			frame.Attach("%1")
+			frame.ShowGuest(tt.guest)
+
+			assert.Equal(t, tt.want, tmux.respawns)
+		})
+	}
 }

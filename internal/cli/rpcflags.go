@@ -36,7 +36,7 @@ type fieldLocation struct {
 
 func (l fieldLocation) descend(field protoreflect.FieldDescriptor) fieldLocation {
 	return fieldLocation{
-		path: append(append([]string{}, l.path...), field.JSONName()),
+		path: append(append([]string{}, l.path...), string(field.Name())),
 		name: append(append([]string{}, l.name...), strings.ReplaceAll(string(field.Name()), "_", "-")),
 	}
 }

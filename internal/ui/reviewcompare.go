@@ -39,7 +39,11 @@ func compareRounds(ctx context.Context, params compareRoundsParams) roundCompari
 		}
 	}
 
-	reachable, err := params.Git.IsAncestor(ctx, params.Dir, params.FromBase, params.ToBase)
+	reachable, err := params.Git.IsAncestor(ctx, git.IsAncestorParams{
+		Dir:           params.Dir,
+		MaybeAncestor: params.FromBase,
+		Of:            params.ToBase,
+	})
 	compared := roundComparison{
 		FromSHA:   params.FromSHA,
 		Rewritten: err == nil && !reachable,

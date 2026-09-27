@@ -28,20 +28,16 @@ type Replayed struct {
 // Replay carries a snapshot's own change onto another base in memory, answering with the tree
 // that results and the paths that would not settle.
 func (c *Client) Replay(ctx context.Context, params ReplayParams) (*Replayed, error) {
-	return replay(ctx, local, params)
-}
-
-func replay(ctx context.Context, on runner, params ReplayParams) (*Replayed, error) {
 	if params.FromBase == "" || params.OntoBase == "" || params.SnapshotSHA == "" {
 		return nil, fmt.Errorf("failed to replay in %q: three commits are needed", params.Dir)
 	}
 
-	root, err := getRoot(ctx, on, params.Dir)
+	root, err := getRoot(ctx, params.Dir)
 	if err != nil {
 		return nil, err
 	}
 
-	tree, conflicts, err := readMergedTree(ctx, on, readMergedTreeParams{
+	tree, conflicts, err := readMergedTree(ctx, readMergedTreeParams{
 		Dir:       root,
 		Left:      params.OntoBase,
 		Right:     params.SnapshotSHA,
@@ -55,7 +51,17 @@ func replay(ctx context.Context, on runner, params ReplayParams) (*Replayed, err
 	return &Replayed{Tree: tree, Conflicts: conflicts}, nil
 }
 
+// IsAncestorParams says which two commits to compare, and in which repository.
+type IsAncestorParams struct {
+	// Dir is anywhere inside the repository holding both commits.
+	Dir string
+	// MaybeAncestor is the commit looked for.
+	MaybeAncestor string
+	// Of is the commit it is looked for in.
+	Of string
+}
+
 // IsAncestor reports whether one commit is reachable from another.
-func (c *Client) IsAncestor(ctx context.Context, dir, maybeAncestor, of string) (bool, error) {
-	return isAncestor(ctx, local, dir, maybeAncestor, of)
+func (c *Client) IsAncestor(ctx context.Context, params IsAncestorParams) (bool, error) {
+	return isAncestor(ctx, params)
 }

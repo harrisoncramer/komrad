@@ -102,6 +102,7 @@ type NewHandlerParams struct {
 	Archive      archiveEmptier
 	Review       reviewConversation
 	Marks        markReadWriter
+	Documents    documentReadWriter
 	Rebaser      worktreeRebaser
 	Orchestrator orchestratorStarter
 	Clock        func() time.Time
@@ -122,6 +123,7 @@ type Handler struct {
 	archive      archiveEmptier
 	review       reviewConversation
 	marks        markReadWriter
+	documents    documentReadWriter
 	rebaser      worktreeRebaser
 	orchestrator orchestratorStarter
 	now          func() time.Time
@@ -150,6 +152,7 @@ func NewHandler(params NewHandlerParams) *Handler {
 		archive:      params.Archive,
 		review:       params.Review,
 		marks:        params.Marks,
+		documents:    params.Documents,
 		rebaser:      params.Rebaser,
 		orchestrator: params.Orchestrator,
 		now:          now,
@@ -300,7 +303,18 @@ func (s *Handler) GetAgent(ctx context.Context, req *agentv1.GetAgentRequest) (*
 		return nil, failure
 	}
 
-	return &agentv1.GetAgentResponse{Agent: resources[0].AgentRow}, nil
+	drawn := resources[0].AgentRow
+
+	return &agentv1.GetAgentResponse{
+		Agent:             drawn.GetAgent(),
+		Mark:              drawn.Mark,
+		UnreadMail:        drawn.GetUnreadMail(),
+		PullRequest:       drawn.GetPullRequest(),
+		PullRequests:      drawn.GetPullRequests(),
+		LocalReviewRounds: drawn.GetLocalReviewRounds(),
+		ReviewerComments:  drawn.ReviewerComments,
+		PersonComments:    drawn.PersonComments,
+	}, nil
 }
 
 // ListMarks is every mark, by letter.
@@ -324,7 +338,7 @@ func (s *Handler) SetMark(ctx context.Context, req *agentv1.SetMarkRequest) (*em
 		target = markstore.OnWorkflow(req.GetWorkflowId())
 	}
 
-	if req.Mark == nil {
+	if req.Letter == nil {
 		if _, err := s.marks.ClearMark(ctx, target); err != nil {
 			return nil, rpcerr.From(err, "failed to clear the mark")
 		}
@@ -332,7 +346,7 @@ func (s *Handler) SetMark(ctx context.Context, req *agentv1.SetMarkRequest) (*em
 		return &emptypb.Empty{}, nil
 	}
 
-	marked, err := s.marks.SetMark(ctx, req.GetMark(), target)
+	marked, err := s.marks.SetMark(ctx, req.GetLetter(), target)
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to set the mark")
 	}

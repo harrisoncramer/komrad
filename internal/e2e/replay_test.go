@@ -142,7 +142,11 @@ func TestIntegrationRoundsEitherSideOfARebaseReplayToTheAgentsOwnChange(t *testi
 		rounds.first.GetSnapshotSha(), rounds.second.GetSnapshotSha())
 	require.Contains(t, naive, "other.go", "the two snapshots' own diff carries the base's move")
 
-	forward, err := client.IsAncestor(t.Context(), rounds.tree, rounds.first.GetBaseSha(), rounds.second.GetBaseSha())
+	forward, err := client.IsAncestor(t.Context(), git.IsAncestorParams{
+		Dir:           rounds.tree,
+		MaybeAncestor: rounds.first.GetBaseSha(),
+		Of:            rounds.second.GetBaseSha(),
+	})
 	require.NoError(t, err)
 	assert.True(t, forward, "the rebase key moves the base forward rather than rewriting it")
 

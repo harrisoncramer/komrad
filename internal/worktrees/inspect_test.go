@@ -23,7 +23,10 @@ import (
 func TestInspectReadsABranchAgainstItsWorkflowsBase(t *testing.T) {
 	fixture := newFixture(t)
 	dir := fixture.cut(t)
-	develop := fixture.stores.SeedWorkflow(t, workflowstore.Config{Name: "develop", Worktree: workflowstore.WorktreeConfig{BaseBranch: "develop"}})
+	develop := fixture.stores.SeedWorkflow(t, workflowstore.Config{Name: "develop", Worktree: workflowstore.WorktreeConfig{
+		BaseBranch:  "develop",
+		DiffExclude: []string{"proto/gen"},
+	}})
 	fixture.own(t, dir, agentstore.Agent{Name: "first", WorkflowID: develop.ID})
 	fixture.git.State = git.TreeState{Branch: filepath.Base(dir), InProgress: true}
 	at := time.Date(2026, 9, 19, 12, 0, 0, 0, time.UTC)
@@ -31,6 +34,8 @@ func TestInspectReadsABranchAgainstItsWorkflowsBase(t *testing.T) {
 	fixture.git.Changes = git.Changes{Modified: []string{"own.go"}, Untracked: []string{"scratch.txt"}}
 	fixture.git.Ahead, fixture.git.Behind = 2, 12
 	fixture.git.Prediction = git.Prediction{Landed: 1, Replay: 1}
+	fixture.git.DiffStat = git.DiffStat{Added: 214, Removed: 87}
+	fixture.git.Remote = git.RemoteStanding{Pushed: true, Unpushed: 1}
 	fixture.git.Commits = []git.Commit{{
 		SHA:         "abc",
 		Subject:     "own work",
@@ -46,6 +51,9 @@ func TestInspectReadsABranchAgainstItsWorkflowsBase(t *testing.T) {
 	assert.Equal(t, "origin/develop", inspection.BaseRef)
 	assert.Equal(t, 2, inspection.Ahead)
 	assert.Equal(t, 12, inspection.Behind)
+	assert.Equal(t, &git.DiffStat{Added: 214, Removed: 87}, inspection.DiffStat)
+	assert.Equal(t, []string{"proto/gen"}, fixture.git.Excluded)
+	assert.Equal(t, git.RemoteStanding{Pushed: true, Unpushed: 1}, inspection.Remote)
 	assert.Equal(t, 1, inspection.Landed)
 	assert.True(t, inspection.SequenceInProgress)
 	assert.True(t, inspection.KeepsBranch)
@@ -59,6 +67,51 @@ func TestInspectReadsABranchAgainstItsWorkflowsBase(t *testing.T) {
 	assert.Equal(t, sumEntryBytes(inspection.Entries), inspection.Bytes)
 }
 
+// TestInspectAsksWhetherTheBaseHoldsWhatOriginHas covers a branch behind its copy on origin
+// being asked about against the base, and a branch level with it not being asked.
+func TestInspectAsksWhetherTheBaseHoldsWhatOriginHas(t *testing.T) {
+	tests := []struct {
+		name       string
+		remote     git.RemoteStanding
+		wantAsked  string
+		wantLanded bool
+	}{
+		{
+			name: "nothing unpulled is not asked about",
+			remote: git.RemoteStanding{
+				Pushed:   true,
+				Unpushed: 2,
+			},
+		},
+		{
+			name: "unpulled commits the base holds have landed",
+			remote: git.RemoteStanding{
+				Pushed:   true,
+				Unpushed: 4,
+				Unpulled: 4,
+			},
+			wantAsked:  "origin/main",
+			wantLanded: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fixture := newFixture(t)
+			dir := fixture.cut(t)
+			fixture.own(t, dir, agentstore.Agent{Name: "squashed"})
+			fixture.git.Remote = tt.remote
+			fixture.git.RemoteLanded = true
+
+			inspection, err := fixture.newInspector().Inspect(t.Context(), InspectParams{Dir: dir})
+			require.NoError(t, err)
+
+			assert.Equal(t, tt.wantAsked, fixture.git.HoldAsked)
+			assert.Equal(t, tt.wantLanded, inspection.RemoteLanded)
+		})
+	}
+}
+
 // TestInspectReportsABaseTheCloneDoesNotHold covers a clone without the workflow's base
 // answering with why rather than with a standing against something else.
 func TestInspectReportsABaseTheCloneDoesNotHold(t *testing.T) {
@@ -67,6 +120,8 @@ func TestInspectReportsABaseTheCloneDoesNotHold(t *testing.T) {
 	fixture.own(t, dir, agentstore.Agent{Name: "stale"})
 	fixture.git.Unresolved = true
 	fixture.git.Commits = []git.Commit{{SHA: "never"}}
+	fixture.git.DiffStat = git.DiffStat{Added: 1}
+	fixture.git.Remote = git.RemoteStanding{Pushed: true, Unpulled: 3}
 
 	inspection, err := fixture.newInspector().Inspect(t.Context(), InspectParams{Dir: dir})
 	require.NoError(t, err)
@@ -74,7 +129,24 @@ func TestInspectReportsABaseTheCloneDoesNotHold(t *testing.T) {
 	require.ErrorIs(t, inspection.BaseErr, git.ErrBaseMissing)
 	assert.Empty(t, inspection.BaseRef)
 	assert.Empty(t, inspection.Commits)
+	assert.Nil(t, inspection.DiffStat)
+	assert.Equal(t, git.RemoteStanding{Pushed: true, Unpulled: 3}, inspection.Remote)
 	assert.False(t, inspection.KeepsBranch)
+}
+
+// TestInspectLeavesADetachedHeadWithNoRemote covers a checkout with no branch to push.
+func TestInspectLeavesADetachedHeadWithNoRemote(t *testing.T) {
+	fixture := newFixture(t)
+	dir := fixture.cut(t)
+	fixture.own(t, dir, agentstore.Agent{Name: "detached"})
+	write(t, filepath.Join(fixture.repo, ".git", "worktrees", filepath.Base(dir)), "HEAD", "0123456789abcdef0123456789abcdef01234567\n")
+	fixture.git.Remote = git.RemoteStanding{Pushed: true, Unpushed: 2}
+
+	inspection, err := fixture.newInspector().Inspect(t.Context(), InspectParams{Dir: dir})
+	require.NoError(t, err)
+
+	assert.Empty(t, inspection.Worktree.Branch)
+	assert.Zero(t, inspection.Remote)
 }
 
 // TestInspectReportsADirectoryWithNoRowAsHavingNoBase covers a directory whose agent row is
@@ -140,11 +212,13 @@ func TestInspectReadsAnUnrelatedBaseAsNothingLanded(t *testing.T) {
 	dir := fixture.cut(t)
 	fixture.own(t, dir, agentstore.Agent{Name: "unrelated"})
 	fixture.git.PredictErr = git.ErrBaseUnrelated
+	fixture.git.DiffErr = git.ErrBaseUnrelated
 
 	inspection, err := fixture.newInspector().Inspect(t.Context(), InspectParams{Dir: dir})
 	require.NoError(t, err)
 
 	assert.Equal(t, 0, inspection.Landed)
+	assert.Nil(t, inspection.DiffStat, "an unrelated base measures no lines")
 }
 
 // TestInspectReadsOnlyTheEntriesOfAGoneRegistration covers a directory git cannot read

@@ -3,6 +3,7 @@ package cli
 import (
 	"encoding/json"
 	"log/slog"
+	"net/http"
 	"os"
 	"path/filepath"
 	"testing"
@@ -11,6 +12,7 @@ import (
 	"komrad/internal/git"
 	"komrad/internal/logging"
 	"komrad/internal/ui"
+	"komrad/proto/gen/git/v1/gitv1connect"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -83,7 +85,7 @@ func TestReviewGitRunsOnTheEngineWhenTheAgentsAreThere(t *testing.T) {
 		want   ui.ReviewGit
 	}{
 		{
-			name:   "a remote engine reads through its transport",
+			name:   "a remote engine reads through its api",
 			remote: engine.Remote{Destination: "komrad@host"},
 			want:   &git.EngineClient{},
 		},
@@ -98,7 +100,7 @@ func TestReviewGitRunsOnTheEngineWhenTheAgentsAreThere(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			assert.IsType(t, tt.want, reviewGit(tt.remote))
+			assert.IsType(t, tt.want, reviewGit(tt.remote, gitv1connect.NewGitServiceClient(http.DefaultClient, "http://engine")))
 		})
 	}
 }

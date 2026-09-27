@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+package stutter.v1;
+
+message Cat {
+  string id = 1;
+}
+
+message CatRow {
+  Cat cat = 1;
+  bool unread_mail = 2;
+}
+
+message GetCatResponse {
+  CatRow cat = 1;
+}
+
+message ListCatsResponse {
+  repeated CatRow cats = 1;
+}
+
+message Litter {
+  Cat mother = 1;
+}

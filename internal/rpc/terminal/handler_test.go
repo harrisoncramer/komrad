@@ -9,10 +9,13 @@ import (
 	"testing"
 	"time"
 
+	"komrad/internal/agentdirs"
+	"komrad/internal/attaches"
 	"komrad/internal/interceptors"
 	"komrad/internal/pty"
 	"komrad/internal/rpc/terminal"
 	"komrad/internal/shells"
+	"komrad/internal/store"
 	"komrad/lib/xhttp"
 	terminalv1 "komrad/proto/gen/terminal/v1"
 	"komrad/proto/gen/terminal/v1/terminalv1connect"
@@ -91,9 +94,39 @@ func (f *fakeOpener) Open(_ context.Context, params shells.OpenParams) (pty.Term
 	return f.terminal, nil
 }
 
+type fakeAttacher struct {
+	terminal *fakeTerminal
+	err      error
+	opened   chan attaches.OpenParams
+}
+
+func (f *fakeAttacher) Open(_ context.Context, params attaches.OpenParams) (pty.Terminal, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
+
+	f.opened <- params
+
+	return f.terminal, nil
+}
+
 type shellStream = *connect.BidiStreamForClient[terminalv1.ShellRequest, terminalv1.ShellResponse]
 
+type attachStream = *connect.BidiStreamForClient[terminalv1.AttachRequest, terminalv1.AttachResponse]
+
 func serve(t *testing.T, opener *fakeOpener) terminalv1connect.TerminalServiceClient {
+	t.Helper()
+
+	return serveBoth(t, opener, &fakeAttacher{})
+}
+
+func serveAttaches(t *testing.T, attacher *fakeAttacher) terminalv1connect.TerminalServiceClient {
+	t.Helper()
+
+	return serveBoth(t, &fakeOpener{}, attacher)
+}
+
+func serveBoth(t *testing.T, opener *fakeOpener, attacher *fakeAttacher) terminalv1connect.TerminalServiceClient {
 	t.Helper()
 
 	validation, err := interceptors.NewValidation()
@@ -103,6 +136,7 @@ func serve(t *testing.T, opener *fakeOpener) terminalv1connect.TerminalServiceCl
 	mux.Handle(terminalv1connect.NewTerminalServiceHandler(
 		terminalv1komrad.TerminalServiceAdapter{Impl: terminal.NewHandler(terminal.NewHandlerParams{
 			Shells:         opener,
+			Attaches:       attacher,
 			DrainAfterExit: 50 * time.Millisecond,
 		})},
 		connect.WithInterceptors(validation),
@@ -151,13 +185,13 @@ func TestShellRefuses(t *testing.T) {
 		{
 			name:     "a directory outside every live agent",
 			first:    openRequest("/etc"),
-			openErr:  shells.ErrOutsideAgents,
+			openErr:  agentdirs.ErrOutsideAgents,
 			wantCode: connect.CodePermissionDenied,
 		},
 		{
 			name:     "a directory that does not exist",
 			first:    openRequest("/nowhere"),
-			openErr:  shells.ErrNoDirectory,
+			openErr:  agentdirs.ErrNoDirectory,
 			wantCode: connect.CodeInvalidArgument,
 		},
 	}
@@ -262,5 +296,125 @@ func TestShellWhenTheCallerStops(t *testing.T) {
 		}
 
 		fake.exit <- 129
+	})
+}
+
+func openAttachRequest(agentID string) *terminalv1.AttachRequest {
+	return &terminalv1.AttachRequest{Message: &terminalv1.AttachRequest_Open{Open: &terminalv1.OpenAttach{
+		AgentId: agentID,
+		Size:    &terminalv1.Size{Rows: 24, Cols: 80},
+		Term:    "screen-256color",
+	}}}
+}
+
+func receiveAttach(t *testing.T, stream attachStream) *terminalv1.AttachResponse {
+	t.Helper()
+
+	response, err := stream.Receive()
+	require.NoError(t, err)
+
+	return response
+}
+
+// TestAttachRefuses covers what the handler answers before an attach is running.
+func TestAttachRefuses(t *testing.T) {
+	tests := []struct {
+		name     string
+		first    *terminalv1.AttachRequest
+		openErr  error
+		wantCode connect.Code
+	}{
+		{
+			name:     "a stream that does not open first",
+			first:    &terminalv1.AttachRequest{Message: &terminalv1.AttachRequest_Input{Input: []byte("ls\n")}},
+			wantCode: connect.CodeInvalidArgument,
+		},
+		{
+			name:     "an opening that names no agent",
+			first:    openAttachRequest(""),
+			wantCode: connect.CodeInvalidArgument,
+		},
+		{
+			name:     "an agent that does not exist",
+			first:    openAttachRequest("a1"),
+			openErr:  store.ErrNotFound,
+			wantCode: connect.CodeNotFound,
+		},
+		{
+			name:     "an agent that is not live",
+			first:    openAttachRequest("a1"),
+			openErr:  attaches.ErrNotLive,
+			wantCode: connect.CodeFailedPrecondition,
+		},
+		{
+			name:     "an agent holding no pane",
+			first:    openAttachRequest("a1"),
+			openErr:  attaches.ErrNoPane,
+			wantCode: connect.CodeFailedPrecondition,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			client := serveAttaches(t, &fakeAttacher{err: tt.openErr, opened: make(chan attaches.OpenParams, 1)})
+
+			stream := client.Attach(t.Context())
+			require.NoError(t, stream.Send(tt.first))
+
+			_, err := stream.Receive()
+			require.Error(t, err)
+			assert.Equal(t, tt.wantCode, connect.CodeOf(err))
+		})
+	}
+}
+
+// TestAttachCarriesATerminal covers one attach from open to exit.
+func TestAttachCarriesATerminal(t *testing.T) {
+	fake := newFakeTerminal()
+	attacher := &fakeAttacher{terminal: fake, opened: make(chan attaches.OpenParams, 1)}
+	client := serveAttaches(t, attacher)
+
+	stream := client.Attach(t.Context())
+	require.NoError(t, stream.Send(openAttachRequest("a1")))
+
+	t.Run("it attaches to the agent asked for and says it is ready", func(t *testing.T) {
+		assert.Equal(t, attaches.OpenParams{
+			AgentID: "a1",
+			Size:    pty.Size{Rows: 24, Cols: 80},
+			Term:    "screen-256color",
+		}, <-attacher.opened)
+		assert.NotNil(t, receiveAttach(t, stream).GetReady())
+	})
+
+	t.Run("what is typed reaches the terminal", func(t *testing.T) {
+		require.NoError(t, stream.Send(&terminalv1.AttachRequest{Message: &terminalv1.AttachRequest_Input{Input: []byte("ls\n")}}))
+		assert.Equal(t, []byte("ls\n"), <-fake.typed)
+	})
+
+	t.Run("a resize reaches the terminal", func(t *testing.T) {
+		require.NoError(t, stream.Send(&terminalv1.AttachRequest{Message: &terminalv1.AttachRequest_Resize{Resize: &terminalv1.Size{Rows: 30, Cols: 100}}}))
+		assert.Equal(t, pty.Size{Rows: 30, Cols: 100}, <-fake.resized)
+	})
+
+	t.Run("a caller closing its side types nothing and still hears the terminal", func(t *testing.T) {
+		require.NoError(t, stream.CloseRequest())
+
+		_, err := fake.draw.Write([]byte("still here\r\n"))
+		require.NoError(t, err)
+		assert.Equal(t, []byte("still here\r\n"), receiveAttach(t, stream).GetOutput())
+
+		select {
+		case typed := <-fake.typed:
+			t.Fatalf("the agent's terminal was typed into: %q", typed)
+		default:
+		}
+	})
+
+	t.Run("the attach's exit status ends the stream", func(t *testing.T) {
+		fake.exit <- 0
+		assert.Equal(t, int32(0), receiveAttach(t, stream).GetExit().GetCode())
+
+		_, err := stream.Receive()
+		assert.ErrorIs(t, err, io.EOF)
 	})
 }

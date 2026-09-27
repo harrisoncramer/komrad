@@ -16,8 +16,7 @@ usage() {
 	echo "starts on the panel sources recordings/panel.tape. Tapes live under"
 	echo "recordings/prod, which is tracked, or recordings/dev, which is not."
 	echo
-	echo "It needs the instance up, which 'MISE_ENV=test mise run restart' does, and ttyd,"
-	echo "which mise cannot install on macOS; install it with nix or Homebrew. It refuses"
+	echo "It needs the instance up, which 'MISE_ENV=test mise run restart' does. It refuses"
 	echo "to run against any tmux socket but a throwaway instance's."
 }
 
@@ -55,7 +54,7 @@ if [ -z "$TAPE" ]; then
 fi
 
 if ! command -v ttyd >/dev/null; then
-	echo "record: VHS needs ttyd, which mise cannot install on macOS; install it with nix or Homebrew" >&2
+	echo "record: VHS needs ttyd, which 'mise install' puts on the path" >&2
 	exit 1
 fi
 
@@ -90,7 +89,8 @@ Sleep 1s
 Screenshot "$OUT/$NAME.png"
 TAPE
 
-env -u TMUX -u TMUX_PANE PATH="$MISE_CONFIG_ROOT/bin:$PATH" \
+env -u TMUX -u TMUX_PANE -u KOMRAD_AGENT_ID -u KOMRAD_SESSION_ID \
+	KOMRAD_ENGINES_DIR="$SCRATCH/engines" PATH="$MISE_CONFIG_ROOT/bin:$PATH" \
 	vhs --quiet \
 	--output "$OUT/$NAME.mp4" \
 	--output "$OUT/$NAME.webm" \

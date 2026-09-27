@@ -126,7 +126,7 @@ func transcriptWindow(content string, cursor *transcriptstore.ContentCursor, req
 
 	// A limit landing inside the first rune would hand back a token asking the same question again.
 	if window == "" {
-		return "", nil, errWindowTooSmall.Saying("maxBytes of %d is too small to hold the next character", limit)
+		return "", nil, errWindowTooSmall.Saying("max_bytes of %d is too small to hold the next character", limit)
 	}
 
 	next, err := pagination.Token(transcriptstore.ContentCursor{Offset: int64(offset + len(window))})

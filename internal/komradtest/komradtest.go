@@ -47,6 +47,7 @@ import (
 	"komrad/proto/gen/config/v1/configv1connect"
 	"komrad/proto/gen/doctor/v1/doctorv1connect"
 	"komrad/proto/gen/forge/v1/forgev1connect"
+	"komrad/proto/gen/git/v1/gitv1connect"
 	"komrad/proto/gen/hook/v1/hookv1connect"
 	"komrad/proto/gen/log/v1/logv1connect"
 	"komrad/proto/gen/pullrequest/v1/pullrequestv1connect"
@@ -76,6 +77,7 @@ type Instance struct {
 	Config       configv1connect.ConfigServiceClient
 	Watches      watchv1connect.WatchServiceClient
 	Terminals    terminalv1connect.TerminalServiceClient
+	Git          gitv1connect.GitServiceClient
 	Harness      *harnesstest.Harness
 	Tmux         *tmuxtest.Server
 	Stores       *storetest.Stores
@@ -219,6 +221,7 @@ func Start(t *testing.T, p Params) *Instance {
 		Config:       configv1connect.NewConfigServiceClient(client, url),
 		Watches:      watchv1connect.NewWatchServiceClient(client, url),
 		Terminals:    terminalv1connect.NewTerminalServiceClient(xhttp.NewClientOver(xhttp.NewStreamTransport(), 0), url),
+		Git:          gitv1connect.NewGitServiceClient(client, url),
 		Harness:      fake,
 		Tmux:         tmuxServer,
 		Stores:       stores,

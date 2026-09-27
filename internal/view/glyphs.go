@@ -49,4 +49,5 @@ var glyphNames = []namedGlyph{
 	{GlyphFocus, "focus"},
 	{GlyphFailing, "failing"},
 	{GlyphConflicting, "conflicting"},
+	{GlyphDocument, "document"},
 }

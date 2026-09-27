@@ -1,22 +1,28 @@
 # The video on the hooks guide: write a pre-launch hook in the shell, hang it on the workflow,
-# and spawn an agent to see it ran. hook-setup.before makes the workflow out of shot, and
-# hook-setup.after removes the hook. The agent answering runs a real Claude session.
+# and spawn an agent to see it ran. The hook goes in the throwaway instance's own hooks
+# directory, which the slot names in its config, so the picker offers nothing else.
+# hook-setup.before makes the workflow out of shot, and hook-setup.after removes the hook. The
+# agent answering runs a real Claude session.
 Source recordings/shell.tape
+Hide
+Type `HOOKS="$(dirname "$KOMRAD_CONFIG")/hooks"; clear`
+Enter
+Show
 Type "cd ~/neovim"
 Enter
-Type "mkdir -p ~/.config/komrad/hooks"
+Type `mkdir -p "$HOOKS"`
 Enter
-Type "cat > ~/.config/komrad/hooks/link-deps <<'EOF'"
+Type `cat > "$HOOKS/ignore-revs" <<'EOF'`
 Enter
 Type "#!/usr/bin/env bash"
 Enter
-Type `#KOMRAD description="share the main clone's built dependencies"`
+Type `#KOMRAD description="make git blame skip neovim's reformatting commits"`
 Enter
-Type "ln -sfn ~/neovim/.deps .deps"
+Type "git config blame.ignoreRevsFile .git-blame-ignore-revs"
 Enter
 Type "EOF"
 Enter
-Type "chmod +x ~/.config/komrad/hooks/link-deps"
+Type `chmod +x "$HOOKS/ignore-revs"`
 Enter
 Type "komrad open"
 Enter
@@ -34,15 +40,15 @@ Enter
 Enter
 Enter
 Enter
-Wait+Screen@30s /link-deps/
+Wait+Screen@30s /ignore-revs/
 Down
 Sleep 1s
 Ctrl+S
 Sleep 2s
 Type "c"
-Type "Is .deps in this worktree a link, and to where? Answer in one line."
+Type "Does git blame here skip the commits in .git-blame-ignore-revs? Answer in one line."
 Enter
-Type "check-deps"
+Type "check-blame"
 Sleep 500ms
 Ctrl+S
 Sleep 2s

@@ -2,6 +2,7 @@ package cli
 
 import (
 	"log/slog"
+	"slices"
 	"time"
 
 	"komrad/internal/agents"
@@ -14,6 +15,7 @@ import (
 	"komrad/internal/version"
 	"komrad/lib/xhttp"
 	"komrad/proto/gen/agent/v1/agentv1connect"
+	"komrad/proto/gen/git/v1/gitv1connect"
 	"komrad/proto/gen/hook/v1/hookv1connect"
 	"komrad/proto/gen/schedule/v1/schedulev1connect"
 	"komrad/proto/gen/watch/v1/watchv1connect"
@@ -68,8 +70,9 @@ Use ` + "`komrad open`" + ` to bring the panel up.`,
 			addr := state.env.Addr
 
 			var (
-				startupErr   error
-				shellCommand []string
+				startupErr      error
+				shellCommand    []string
+				terminalCommand []string
 			)
 
 			switch {
@@ -85,7 +88,9 @@ Use ` + "`komrad open`" + ` to bring the panel up.`,
 
 				addr = tunnel.Local
 				startupErr = requireEngineBuild(cmd.Context(), addr)
-				shellCommand = append(append([]string{state.selfPath()}, configArgs(state.configStack)...), "shell", "--addr", addr)
+				self := append([]string{state.selfPath()}, configArgs(state.configStack)...)
+				shellCommand = append(slices.Clone(self), "shell", "--addr", addr)
+				terminalCommand = append(slices.Clone(self), "terminal", "--addr", addr)
 			case state.configErr == nil:
 				startupErr = ensureServer(cmd.Context(), ensureServerParams{
 					Addr:       addr,
@@ -118,22 +123,23 @@ Use ` + "`komrad open`" + ` to bring the panel up.`,
 			}
 
 			return ui.Run(cmd.Context(), ui.Deps{
-				Session:       state.session,
-				Tmux:          state.tmux,
-				Git:           reviewGit(remote),
-				Browser:       browser.NewDesktop(),
-				HarnessFrames: paneFrameReader{panes: state.tmux, harnesses: state.harnesses},
-				Agents:        agentClient,
-				Workflows:     workflowClient,
-				Schedules:     scheduleClient,
-				Keys:          state.keys,
-				Hooks:         hookClient,
-				Worktrees:     worktreeClient,
-				Watch:         watchClient,
-				Layout:        state.layout,
-				Engine:        remote,
-				ShellCommand:  shellCommand,
-				Binary:        binary,
+				Session:         state.session,
+				Tmux:            state.tmux,
+				Git:             reviewGit(remote, gitv1connect.NewGitServiceClient(httpClient, base)),
+				Browser:         browser.NewDesktop(),
+				HarnessFrames:   paneFrameReader{panes: state.tmux, harnesses: state.harnesses},
+				Agents:          agentClient,
+				Workflows:       workflowClient,
+				Schedules:       scheduleClient,
+				Keys:            state.keys,
+				Hooks:           hookClient,
+				Worktrees:       worktreeClient,
+				Watch:           watchClient,
+				Layout:          state.layout,
+				Engine:          remote,
+				ShellCommand:    shellCommand,
+				TerminalCommand: terminalCommand,
+				Binary:          binary,
 				Settings: ui.PanelSettings{
 					Addr:   addr,
 					Editor: state.env.Editor,
@@ -168,9 +174,9 @@ func installPanelLogger(logPath, level string) error {
 
 // reviewGit is the git the review screen reads a round through, on the engine when the agents
 // and their worktrees are there.
-func reviewGit(remote engine.Remote) ui.ReviewGit {
+func reviewGit(remote engine.Remote, engineGit gitv1connect.GitServiceClient) ui.ReviewGit {
 	if remote.IsRemote() {
-		return git.NewEngineClient(remote)
+		return git.NewEngineClient(engineGit)
 	}
 
 	return git.NewClient()

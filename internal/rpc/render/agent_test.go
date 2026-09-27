@@ -21,9 +21,12 @@ func TestAgent(t *testing.T) {
 
 	changed := time.Date(2026, time.September, 1, 9, 9, 0, 0, time.UTC)
 
+	written := time.Date(2026, time.September, 1, 9, 9, 0, 250_000_000, time.UTC)
+
 	tests := []struct {
 		name   string
 		stored agentstore.Agent
+		beside rowstore.Row
 		want   *agentv1.Agent
 	}{
 		{
@@ -60,13 +63,33 @@ func TestAgent(t *testing.T) {
 				Alive:           xptr.Ptr(false),
 			},
 		},
+		{
+			name: "an agent that has written documents, stamped to within the second",
+			stored: agentstore.Agent{
+				ID:   "a3",
+				Name: "author",
+			},
+			beside: rowstore.Row{
+				Documents:          2,
+				DocumentsUpdatedAt: &written,
+			},
+			want: &agentv1.Agent{
+				Id:                 "a3",
+				Name:               "author",
+				Alive:              xptr.Ptr(false),
+				Documents:          2,
+				DocumentsUpdatedAt: xptr.Ptr("2026-09-01T09:09:00.25Z"),
+			},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			assert.Empty(t, cmp.Diff(tt.want, Agent(rowOf(tt.stored), AgentOptions{}), protocmp.Transform()))
+			row := tt.beside
+			row.Agent = tt.stored
+			assert.Empty(t, cmp.Diff(tt.want, Agent(row, AgentOptions{}), protocmp.Transform()))
 		})
 	}
 }

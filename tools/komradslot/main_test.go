@@ -73,7 +73,7 @@ func TestEnvThenCheck(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	want := "# the slot adds [worktrees]\n[log]\nlevel = \"debug\"\n\n[worktrees]\ndir = \"" + filepath.Join(reg.slotDir(1), "worktrees") + "\"\n"
+	want := "# the slot adds [worktrees]\n[log]\nlevel = \"debug\"\n\n[worktrees]\ndir = \"" + filepath.Join(reg.slotDir(1), "worktrees") + "\"\n\n[context]\nfile = \"" + filepath.Join(reg.slotDir(1), "context.md") + "\"\n\n[hooks]\ndir = \"" + filepath.Join(reg.slotDir(1), "hooks") + "\"\n"
 	if string(config) != want {
 		t.Errorf("slot config = %q, want %q", config, want)
 	}
@@ -101,15 +101,28 @@ func TestCheckRefusesACheckoutWithNoSlot(t *testing.T) {
 	}
 }
 
-// TestEnvRefusesATestConfigNamingWorktrees keeps the slot the owner of its worktrees table.
-func TestEnvRefusesATestConfigNamingWorktrees(t *testing.T) {
+// TestEnvRefusesATestConfigNamingASlotTable keeps the slot the owner of the tables it writes.
+func TestEnvRefusesATestConfigNamingASlotTable(t *testing.T) {
 	t.Parallel()
 
-	reg, _ := newTestRegistry(t)
-	root := testCheckout(t, "[worktrees]\ndir = \"/elsewhere\"\n")
+	for _, tc := range []struct {
+		table  string
+		config string
+	}{
+		{table: "[worktrees]", config: "[worktrees]\ndir = \"/elsewhere\"\n"},
+		{table: "[context]", config: "[context]\nfile = \"/elsewhere/context.md\"\n"},
+		{table: "[hooks]", config: "[hooks]\ndir = \"/elsewhere/hooks\"\n"},
+	} {
+		t.Run(tc.table, func(t *testing.T) {
+			t.Parallel()
 
-	if _, err := runSlot(t, reg, nil, "env", "--root", root); err == nil || !strings.Contains(err.Error(), "[worktrees]") {
-		t.Errorf("env = %v, want a refusal", err)
+			reg, _ := newTestRegistry(t)
+			root := testCheckout(t, tc.config)
+
+			if _, err := runSlot(t, reg, nil, "env", "--root", root); err == nil || !strings.Contains(err.Error(), tc.table) {
+				t.Errorf("env = %v, want a refusal naming %s", err, tc.table)
+			}
+		})
 	}
 }
 

@@ -9,7 +9,7 @@ import (
 func Mark(stored markstore.Mark) *agentv1.Mark {
 	return &agentv1.Mark{
 		Id:         stored.ID,
-		Mark:       stored.Mark,
+		Letter:     stored.Mark,
 		AgentId:    stored.AgentID,
 		WorkflowId: stored.WorkflowID,
 	}

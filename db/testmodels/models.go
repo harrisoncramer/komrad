@@ -101,6 +101,50 @@ func (ns NullAgentState) Value() (driver.Value, error) {
 	return string(ns.AgentState), nil
 }
 
+type DocumentKind string
+
+const (
+	DocumentKindRfc       DocumentKind = "rfc"
+	DocumentKindReport    DocumentKind = "report"
+	DocumentKindExplainer DocumentKind = "explainer"
+	DocumentKindNotes     DocumentKind = "notes"
+)
+
+func (e *DocumentKind) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = DocumentKind(s)
+	case string:
+		*e = DocumentKind(s)
+	default:
+		return fmt.Errorf("unsupported scan type for DocumentKind: %T", src)
+	}
+	return nil
+}
+
+type NullDocumentKind struct {
+	DocumentKind DocumentKind
+	Valid        bool // Valid is true if DocumentKind is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullDocumentKind) Scan(value interface{}) error {
+	if value == nil {
+		ns.DocumentKind, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.DocumentKind.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullDocumentKind) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.DocumentKind), nil
+}
+
 type MailKind string
 
 const (
@@ -346,6 +390,20 @@ type BranchScan struct {
 	NextCursor string
 	// When the listing answered its last page, after which the branch is never scanned again.
 	CompletedAt pgtype.Timestamptz
+	// The engine that owns this row, stamped from the login that wrote it.
+	EngineID pgtype.UUID
+}
+
+// A markdown document an agent wrote for a person to read, kept after its worktree is gone.
+type Document struct {
+	ID      pgtype.UUID
+	AgentID pgtype.UUID
+	// The title a person reads, unique among one agent's documents.
+	Name      string
+	Kind      DocumentKind
+	Body      string
+	CreatedAt pgtype.Timestamptz
+	UpdatedAt pgtype.Timestamptz
 	// The engine that owns this row, stamped from the login that wrote it.
 	EngineID pgtype.UUID
 }

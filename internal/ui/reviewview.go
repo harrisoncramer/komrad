@@ -371,11 +371,11 @@ func (r reviewScreen) details(s panelShared) details {
 // it was measured against and what was kept out of it.
 func (r reviewScreen) fields() []recordField {
 	fields := []recordField{
-		{"base", label.OrDash(git.ShortSHA(r.round.GetBaseSha()))},
-		{"snapshot", label.OrDash(git.ShortSHA(r.round.GetSnapshotSha()))},
+		{label: "base", value: label.OrDash(git.ShortSHA(r.round.GetBaseSha()))},
+		{label: "snapshot", value: label.OrDash(git.ShortSHA(r.round.GetSnapshotSha()))},
 	}
 	if len(r.exclude) > 0 {
-		fields = append(fields, recordField{"excludes", strings.Join(r.exclude, ", ")})
+		fields = append(fields, recordField{label: "excludes", value: strings.Join(r.exclude, ", ")})
 	}
 
 	return fields

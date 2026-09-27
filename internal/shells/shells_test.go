@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"komrad/internal/agentdirs"
 	"komrad/internal/pty"
 	"komrad/internal/shells"
 	agentstore "komrad/internal/store/agent"
@@ -16,29 +17,24 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestOpen covers which directories a shell opens in and where it starts.
+// TestOpen covers a shell refused outside the agents' directories and started where its
+// directory resolves to.
 func TestOpen(t *testing.T) {
 	root, err := filepath.EvalSymlinks(t.TempDir())
 	require.NoError(t, err)
 
 	live := filepath.Join(root, "tree")
-	archived := filepath.Join(root, "archived")
-	sibling := filepath.Join(root, "tree-2")
-	nested := filepath.Join(live, "nested")
 	link := filepath.Join(root, "link")
-	for _, dir := range []string{live, archived, sibling, nested} {
-		require.NoError(t, os.MkdirAll(dir, 0o755))
-	}
+	require.NoError(t, os.MkdirAll(live, 0o755))
 	require.NoError(t, os.Symlink(live, link))
-	file := filepath.Join(live, "notes.txt")
-	require.NoError(t, os.WriteFile(file, nil, 0o600))
 
 	stores := storetest.Open(t)
 	workflowID := stores.SeedWorkflow(t, workflowstore.Config{Name: "flow"}).ID
-	stores.SeedAgent(t, agentstore.Agent{Name: "live", Cwd: live, WorkflowID: workflowID})
-	gone := stores.SeedAgent(t, agentstore.Agent{Name: "gone", Cwd: archived, WorkflowID: workflowID})
-	_, err = stores.Agents.Archive(t.Context(), []string{gone.ID})
-	require.NoError(t, err)
+	stores.SeedAgent(t, agentstore.Agent{
+		Name:       "live",
+		Cwd:        live,
+		WorkflowID: workflowID,
+	})
 
 	service := shells.NewShellService(shells.NewShellServiceParams{Agents: stores.Agents, Shell: "sh"})
 
@@ -49,44 +45,9 @@ func TestOpen(t *testing.T) {
 		wantPwd string
 	}{
 		{
-			name:    "a directory that does not exist is refused",
-			dir:     filepath.Join(root, "missing"),
-			wantErr: shells.ErrNoDirectory,
-		},
-		{
-			name:    "a file inside a live agent's directory is refused",
-			dir:     file,
-			wantErr: shells.ErrNoDirectory,
-		},
-		{
-			name:    "a relative directory is refused",
-			dir:     ".",
-			wantErr: shells.ErrNoDirectory,
-		},
-		{
 			name:    "a directory no agent works in is refused",
 			dir:     root,
-			wantErr: shells.ErrOutsideAgents,
-		},
-		{
-			name:    "an archived agent's directory is refused",
-			dir:     archived,
-			wantErr: shells.ErrOutsideAgents,
-		},
-		{
-			name:    "a sibling sharing the agent's prefix is refused",
-			dir:     sibling,
-			wantErr: shells.ErrOutsideAgents,
-		},
-		{
-			name:    "a live agent's directory opens",
-			dir:     live,
-			wantPwd: live,
-		},
-		{
-			name:    "a directory under a live agent's opens",
-			dir:     nested,
-			wantPwd: nested,
+			wantErr: agentdirs.ErrOutsideAgents,
 		},
 		{
 			name:    "a link to a live agent's directory opens where it points",

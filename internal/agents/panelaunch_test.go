@@ -365,7 +365,7 @@ func TestBriefingCarriesTheReviewRules(t *testing.T) {
 		"open_review_round",
 		"create_review_thread",
 		"release_review",
-		"quotedLines",
+		"quoted_lines",
 	} {
 		assert.Contains(t, reviewer, want, "an agent giving a review is told the call by name")
 	}

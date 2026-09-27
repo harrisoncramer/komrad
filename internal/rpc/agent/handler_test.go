@@ -1031,6 +1031,13 @@ func TestGetAgent(t *testing.T) {
 					AgentID: xptr.Ptr(alphaID),
 				},
 			},
+			Mail: []mailstore.Mail{
+				{
+					ID:        "mail-1",
+					ToAgentID: alphaID,
+					ExpiresAt: time.Now().Add(time.Hour),
+				},
+			},
 			PullRequests: []pullrequeststore.PullRequest{
 				{
 					ID:                "pr-740",
@@ -1045,8 +1052,12 @@ func TestGetAgent(t *testing.T) {
 			Repositories: []pullrequeststore.Sync{{RepositoryURL: komradRepository}},
 			Reviews: []reviewstore.Review{
 				{
-					ID:      "review-1",
-					AgentID: alphaID,
+					ID:               "review-1",
+					AgentID:          alphaID,
+					RoundID:          "round-1",
+					RoundOrdinal:     1,
+					RoundSnapshotSHA: "round-1-sha",
+					ReleasedAt:       xptr.Ptr(created),
 				},
 			},
 			Workflows: []workflowstore.Workflow{{ID: "wf-1"}},
@@ -1056,11 +1067,16 @@ func TestGetAgent(t *testing.T) {
 	got, err := newRowHandler(rows).GetAgent(t.Context(), connect.NewRequest(&agentv1.GetAgentRequest{Id: alphaID}))
 	require.NoError(t, err)
 
-	assert.Equal(t, "a", got.Msg.GetAgent().GetMark(), "the agent is drawn beside its surroundings")
-	require.Len(t, got.Msg.GetAgent().GetPullRequests(), 1)
-	assert.Equal(t, int32(740), got.Msg.GetAgent().GetPullRequests()[0].GetNumber(), "with every pull request on its branch")
+	assert.Equal(t, "a", got.Msg.GetMark(), "the agent is drawn beside its surroundings")
+	assert.True(t, got.Msg.GetUnreadMail())
+	require.Len(t, got.Msg.GetPullRequests(), 1)
+	assert.Equal(t, int32(740), got.Msg.GetPullRequests()[0].GetNumber(), "with every pull request on its branch")
+	assert.Equal(t, int32(740), got.Msg.GetPullRequest().GetNumber(), "and the current one's standing")
+	assert.Equal(t, int32(1), got.Msg.GetLocalReviewRounds())
+	require.NotNil(t, got.Msg.GetPersonComments(), "a released review of unlanded work is counted")
+	assert.Nil(t, got.Msg.GetReviewerComments())
 
-	agent := got.Msg.GetAgent().GetAgent()
+	agent := got.Msg.GetAgent()
 	assert.Equal(t, "/repo", agent.GetCwd())
 	assert.Equal(t, agentv1.AgentState_AGENT_STATE_THINKING, agent.GetState())
 	assert.Equal(t, prompt, agent.GetPrompt(), "no view narrows a single agent")
@@ -1070,12 +1086,45 @@ func TestGetAgent(t *testing.T) {
 	assert.Equal(t, "2026-09-20T12:00:00Z", agent.GetCreatedAt(), "the creation time is RFC 3339")
 }
 
+// TestGetAgentResponseMirrorsAgentRow pins that every field AgentRow draws beside an agent is
+// declared on GetAgentResponse the same way.
+func TestGetAgentResponseMirrorsAgentRow(t *testing.T) {
+	t.Parallel()
+
+	rowFields := (&agentv1.AgentRow{}).ProtoReflect().Descriptor().Fields()
+	responseFields := (&agentv1.GetAgentResponse{}).ProtoReflect().Descriptor().Fields()
+
+	assert.Equal(t, rowFields.Len(), responseFields.Len())
+
+	for i := range rowFields.Len() {
+		want := rowFields.Get(i)
+
+		got := responseFields.ByName(want.Name())
+		if !assert.NotNil(t, got, "GetAgentResponse declares no field %q", want.Name()) {
+			continue
+		}
+
+		assert.Equal(t, want.Number(), got.Number(), "%q is numbered differently", want.Name())
+		assert.Equal(t, want.Kind(), got.Kind(), "%q is of a different kind", want.Name())
+		assert.Equal(t, want.Cardinality(), got.Cardinality(), "%q has a different cardinality", want.Name())
+		assert.Equal(t, want.HasPresence(), got.HasPresence(), "%q differs on presence", want.Name())
+
+		if want.Message() != nil {
+			assert.Equal(t, want.Message().FullName(), got.Message().FullName(), "%q is of a different message", want.Name())
+		}
+
+		if want.Enum() != nil {
+			assert.Equal(t, want.Enum().FullName(), got.Enum().FullName(), "%q is of a different enum", want.Name())
+		}
+	}
+}
+
 // TestMarkRefusalsMapToCodes pins the code each refusal of the marks reaches the caller as.
 func TestMarkRefusalsMapToCodes(t *testing.T) {
 	setMark := func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
 		_, err := svc.SetMark(ctx, connect.NewRequest(&agentv1.SetMarkRequest{
 			Target: &agentv1.SetMarkRequest_AgentId{AgentId: alphaID},
-			Mark:   xptr.Ptr("a"),
+			Letter: xptr.Ptr("a"),
 		}))
 
 		return err
@@ -1146,7 +1195,7 @@ func TestMarkRequestsReachTheService(t *testing.T) {
 			name: "a letter for an agent",
 			req: &agentv1.SetMarkRequest{
 				Target: &agentv1.SetMarkRequest_AgentId{AgentId: alphaID},
-				Mark:   xptr.Ptr("a"),
+				Letter: xptr.Ptr("a"),
 			},
 			wantSet: []markCall{
 				{
@@ -1159,7 +1208,7 @@ func TestMarkRequestsReachTheService(t *testing.T) {
 			name: "a letter for a workflow",
 			req: &agentv1.SetMarkRequest{
 				Target: &agentv1.SetMarkRequest_WorkflowId{WorkflowId: "wf-1"},
-				Mark:   xptr.Ptr("b"),
+				Letter: xptr.Ptr("b"),
 			},
 			wantSet: []markCall{
 				{
@@ -1211,12 +1260,12 @@ func TestListMarks(t *testing.T) {
 	want := &agentv1.ListMarksResponse{Marks: []*agentv1.Mark{
 		{
 			Id:      "m1",
-			Mark:    "a",
+			Letter:  "a",
 			AgentId: xptr.Ptr(alphaID),
 		},
 		{
 			Id:         "m2",
-			Mark:       "b",
+			Letter:     "b",
 			WorkflowId: xptr.Ptr("wf-1"),
 		},
 	}}
@@ -1744,7 +1793,7 @@ func TestRequestValidation(t *testing.T) {
 			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
 				_, err := c.SetMark(t.Context(), connect.NewRequest(&agentv1.SetMarkRequest{
 					Target: &agentv1.SetMarkRequest_AgentId{AgentId: uuid.NewString()},
-					Mark:   xptr.Ptr("ab"),
+					Letter: xptr.Ptr("ab"),
 				}))
 
 				return err
@@ -1756,7 +1805,7 @@ func TestRequestValidation(t *testing.T) {
 			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
 				_, err := c.SetMark(t.Context(), connect.NewRequest(&agentv1.SetMarkRequest{
 					Target: &agentv1.SetMarkRequest_AgentId{AgentId: uuid.NewString()},
-					Mark:   xptr.Ptr(""),
+					Letter: xptr.Ptr(""),
 				}))
 
 				return err
@@ -1768,7 +1817,7 @@ func TestRequestValidation(t *testing.T) {
 			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
 				_, err := c.SetMark(t.Context(), connect.NewRequest(&agentv1.SetMarkRequest{
 					Target: &agentv1.SetMarkRequest_AgentId{AgentId: uuid.NewString()},
-					Mark:   xptr.Ptr("A"),
+					Letter: xptr.Ptr("A"),
 				}))
 
 				return err
@@ -1780,7 +1829,7 @@ func TestRequestValidation(t *testing.T) {
 			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
 				_, err := c.SetMark(t.Context(), connect.NewRequest(&agentv1.SetMarkRequest{
 					Target: &agentv1.SetMarkRequest_AgentId{AgentId: uuid.NewString()},
-					Mark:   xptr.Ptr("◐"),
+					Letter: xptr.Ptr("◐"),
 				}))
 
 				return err
@@ -1791,7 +1840,7 @@ func TestRequestValidation(t *testing.T) {
 			name: "a mark with no agent to put it on is refused",
 			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
 				_, err := c.SetMark(t.Context(), connect.NewRequest(&agentv1.SetMarkRequest{
-					Mark: xptr.Ptr("a"),
+					Letter: xptr.Ptr("a"),
 				}))
 
 				return err
@@ -1803,7 +1852,7 @@ func TestRequestValidation(t *testing.T) {
 			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
 				_, err := c.SetMark(t.Context(), connect.NewRequest(&agentv1.SetMarkRequest{
 					Target: &agentv1.SetMarkRequest_AgentId{AgentId: uuid.NewString()},
-					Mark:   xptr.Ptr("a"),
+					Letter: xptr.Ptr("a"),
 				}))
 
 				if connect.CodeOf(err) == connect.CodeNotFound {

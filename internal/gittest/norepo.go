@@ -36,7 +36,7 @@ func (NoRepo) Replay(context.Context, git.ReplayParams) (*git.Replayed, error) {
 }
 
 // IsAncestor refuses.
-func (NoRepo) IsAncestor(context.Context, string, string, string) (bool, error) {
+func (NoRepo) IsAncestor(context.Context, git.IsAncestorParams) (bool, error) {
 	return false, ErrNoGit
 }
 

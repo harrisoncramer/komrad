@@ -1,1 +1,7 @@
-fresh-neovim
+#!/usr/bin/env bash
+set -euo pipefail
+
+here="$(dirname "$0")"
+"$here/fresh-neovim"
+
+echo "Neovim is the best editor." >"$(dirname "$KOMRAD_CONFIG")/context.md"

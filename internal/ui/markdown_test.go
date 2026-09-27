@@ -41,13 +41,13 @@ func TestWorkflowFields(t *testing.T) {
 	}, 3)
 
 	assert.Equal(t, []recordField{
-		{"name", "api"},
-		{"agents", "3"},
-		{"default agent", "codex"},
-		{"directory", "/repo/api"},
-		{"flags", "--model opus"},
-		{"worktree", "off"},
-		{"workflow_id", "w1"},
+		{label: "name", value: "api"},
+		{label: "agents", value: "3"},
+		{label: "default agent", value: "codex"},
+		{label: "directory", value: "/repo/api"},
+		{label: "flags", value: "--model opus"},
+		{label: "worktree", value: "off"},
+		{label: "workflow_id", value: "w1"},
 	}, fields)
 }
 
@@ -68,16 +68,16 @@ func TestWorkflowFieldsWorktree(t *testing.T) {
 	}
 
 	assert.Equal(t, []recordField{
-		{"name", "api"},
-		{"agents", "3"},
-		{"default agent", "codex"},
-		{"directory", "/repo/api"},
-		{"flags", "—"},
-		{"worktree", "on"},
-		{"base branch", "main"},
-		{"copy", ".env, .envrc"},
-		{"symlink", "node_modules"},
-		{"workflow_id", "w1"},
+		{label: "name", value: "api"},
+		{label: "agents", value: "3"},
+		{label: "default agent", value: "codex"},
+		{label: "directory", value: "/repo/api"},
+		{label: "flags", value: "—"},
+		{label: "worktree", value: "on"},
+		{label: "base branch", value: "main"},
+		{label: "copy", value: ".env, .envrc"},
+		{label: "symlink", value: "node_modules"},
+		{label: "workflow_id", value: "w1"},
 	}, workflowFields(workflow, 3))
 
 	workflow.Worktree.CopyPaths = nil
@@ -86,9 +86,9 @@ func TestWorkflowFieldsWorktree(t *testing.T) {
 
 	fields := workflowFields(workflow, 3)
 
-	assert.Contains(t, fields, recordField{"base branch", "—"})
-	assert.NotContains(t, fields, recordField{"copy", ""})
-	assert.NotContains(t, fields, recordField{"worktree", "off"}, "a worktree workflow says what it cuts them from, not that it has none")
+	assert.Contains(t, fields, recordField{label: "base branch", value: "—"})
+	assert.NotContains(t, fields, recordField{label: "copy", value: ""})
+	assert.NotContains(t, fields, recordField{label: "worktree", value: "off"}, "a worktree workflow says what it cuts them from, not that it has none")
 }
 
 // TestAgentFields covers what an agent shows in the section: what it was launched with and

@@ -48,15 +48,29 @@ failed AS (
         r.agent_id,
         r.started_at DESC,
         r.id DESC
+),
+written AS (
+    SELECT
+        d.agent_id,
+        COUNT(*)::integer AS documents,
+        MAX(d.updated_at)::timestamptz AS documents_updated_at
+    FROM
+        watched w
+        JOIN documents d ON d.agent_id = ANY (w.ids)
+    GROUP BY
+        d.agent_id
 )
 SELECT
     sqlc.embed(s),
 (f.agent_id IS NOT NULL)::boolean AS failed_run,
-    f.log_number AS failed_run_log
+    f.log_number AS failed_run_log,
+    COALESCE(d.documents, 0)::integer AS documents,
+    d.documents_updated_at
 FROM
     watched w
     JOIN agents s ON s.id = ANY (w.ids)
     LEFT JOIN failed f ON f.agent_id = s.id
+    LEFT JOIN written d ON d.agent_id = s.id
 ORDER BY
     s.id DESC;
 

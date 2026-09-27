@@ -54,6 +54,8 @@ const (
 
 var reviewCursorLine = regexp.MustCompile(`^[^ ]+:\d+`)
 
+var taggedRule = regexp.MustCompile(`^─+ [^─│┤┼]+ ─`)
+
 var listBars = []string{"│ ", "┃ "}
 
 var timerCmds = []string{
@@ -180,14 +182,16 @@ type panelHarnessParams struct {
 	settings      ui.PanelSettings
 	engine        engine.Remote
 	shellCommand  []string
-	harnessFrames ui.HarnessFrameReader
-	configErr     error
-	startupErr    error
-	refuseSplits  bool
-	binary        ui.BinaryWatcher
-	browser       browser.Opener
-	tmux          ui.PanelTmux
-	remote        *panelRemote
+	// terminalCommand is what the stage attaches to a remote agent with.
+	terminalCommand []string
+	harnessFrames   ui.HarnessFrameReader
+	configErr       error
+	startupErr      error
+	refuseSplits    bool
+	binary          ui.BinaryWatcher
+	browser         browser.Opener
+	tmux            ui.PanelTmux
+	remote          *panelRemote
 }
 
 func newPanelHarness(t *testing.T, params panelHarnessParams) *panelHarness {
@@ -249,28 +253,29 @@ func newPanelHarness(t *testing.T, params panelHarnessParams) *panelHarness {
 		recorder: recorder,
 		gate:     gate,
 		panel: ui.NewPanel(ui.NewPanelParams{
-			Agents:        remote.agents,
-			Workflows:     remote.workflows,
-			Schedules:     remote.schedules,
-			Hooks:         remote.hooks,
-			Worktrees:     remote.worktrees,
-			Git:           reviewGit,
-			Keys:          keys,
-			DetailsHeight: params.detailsHeight,
-			SidebarSide:   params.sidebarSide,
-			SidebarWidth:  params.sidebarWidth,
-			Width:         width,
-			Height:        height,
-			Settings:      params.settings,
-			Engine:        params.engine,
-			ShellCommand:  params.shellCommand,
-			HarnessFrames: params.harnessFrames,
-			ConfigErr:     params.configErr,
-			StartupErr:    params.startupErr,
-			RefuseSplits:  params.refuseSplits,
-			Binary:        params.binary,
-			Browser:       params.browser,
-			Tmux:          params.tmux,
+			Agents:          remote.agents,
+			Workflows:       remote.workflows,
+			Schedules:       remote.schedules,
+			Hooks:           remote.hooks,
+			Worktrees:       remote.worktrees,
+			Git:             reviewGit,
+			Keys:            keys,
+			DetailsHeight:   params.detailsHeight,
+			SidebarSide:     params.sidebarSide,
+			SidebarWidth:    params.sidebarWidth,
+			Width:           width,
+			Height:          height,
+			Settings:        params.settings,
+			Engine:          params.engine,
+			ShellCommand:    params.shellCommand,
+			TerminalCommand: params.terminalCommand,
+			HarnessFrames:   params.harnessFrames,
+			ConfigErr:       params.configErr,
+			StartupErr:      params.startupErr,
+			RefuseSplits:    params.refuseSplits,
+			Binary:          params.binary,
+			Browser:         params.browser,
+			Tmux:            params.tmux,
 		}),
 	}
 	t.Cleanup(harness.releaseParked)
@@ -664,6 +669,9 @@ func cutStyled(line string, width int) string {
 }
 
 func ruleWidth(line string) int {
+	if tagged := taggedRule.FindString(line); tagged != "" {
+		line = strings.Repeat("─", ansi.StringWidth(tagged)) + line[len(tagged):]
+	}
 	rest := strings.TrimLeft(line, "─")
 	width := ansi.StringWidth(line) - ansi.StringWidth(rest)
 	if strings.HasPrefix(rest, "┤") || strings.HasPrefix(rest, "┼") {

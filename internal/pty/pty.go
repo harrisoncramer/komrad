@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"slices"
 	"syscall"
 
 	creackpty "github.com/creack/pty"
@@ -40,6 +41,8 @@ type Session struct {
 type StartParams struct {
 	Argv []string
 	Dir  string
+	// Env is the program's environment, this process's own when nil.
+	Env  []string
 	Size Size
 	Term string
 }
@@ -57,7 +60,11 @@ func Start(ctx context.Context, params StartParams) (*Session, error) {
 
 	command := exec.CommandContext(ctx, params.Argv[0], params.Argv[1:]...) //nolint:gosec // the engine names the program
 	command.Dir = params.Dir
-	command.Env = append(os.Environ(), "TERM="+term)
+	env := params.Env
+	if env == nil {
+		env = os.Environ()
+	}
+	command.Env = append(slices.Clip(env), "TERM="+term)
 
 	file, err := creackpty.StartWithSize(command, &creackpty.Winsize{Rows: params.Size.Rows, Cols: params.Size.Cols})
 	if err != nil {

@@ -8,6 +8,7 @@ import (
 	"komrad/config"
 	"komrad/internal/errui"
 	"komrad/internal/git"
+	"komrad/internal/ui/paint"
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/view"
 	"komrad/lib/xslice"
@@ -218,7 +219,7 @@ func (w *worktreesScreen) details(s panelShared) details {
 	if row.header {
 		return details{
 			id:     row.key(),
-			fields: []recordField{{"repository", row.repo}, {"worktrees", fmt.Sprintf("%d", w.countUnder(row.repo))}},
+			fields: []recordField{{label: "repository", value: row.repo}, {label: "worktrees", value: fmt.Sprintf("%d", w.countUnder(row.repo))}},
 		}
 	}
 
@@ -231,40 +232,40 @@ func (w *worktreesScreen) countUnder(repo string) int {
 
 func worktreeFields(s panelShared, item worktreeItem, now time.Time) []recordField {
 	fields := []recordField{
-		{"name", worktreeRow{item: item}.name()},
-		{"directory", item.dir},
-		{"size", sizeField(item, now)},
-		{"last active", lastActiveField(item, now)},
+		{label: "name", value: worktreeRow{item: item}.name()},
+		{label: "directory", value: item.dir},
+		{label: "size", value: sizeField(item, now)},
+		{label: "last active", value: lastActiveField(item, now)},
 	}
 
 	if !item.readable {
-		fields = append(fields, recordField{"repository", label.OrDash(item.repoDir)})
+		fields = append(fields, recordField{label: "repository", value: label.OrDash(item.repoDir)})
 		if len(item.occupants) > 0 {
-			fields = append(fields, recordField{"also here", occupantsField(item)})
+			fields = append(fields, recordField{label: "also here", value: occupantsField(item)})
 		}
 
-		return append(fields, recordField{"agent", worktreeAgentField(s.listing, item)})
+		return append(fields, recordField{label: "agent", value: worktreeAgentField(s.listing, item)})
 	}
 
 	fields = append(fields,
-		recordField{"branch", label.OrDash(item.branch)},
-		recordField{"repository", label.OrDash(label.Path(item.repoDir, homeDir()))},
+		recordField{label: "branch", value: label.OrDash(item.branch)},
+		recordField{label: "repository", value: label.OrDash(label.Path(item.repoDir, homeDir()))},
 	)
 	if len(item.occupants) > 0 {
-		fields = append(fields, recordField{"also here", occupantsField(item)})
+		fields = append(fields, recordField{label: "also here", value: occupantsField(item)})
 	}
 	read := s.inspections[item.dir]
 	if read.answered && read.err != nil {
-		fields = append(fields, recordField{"worktree", "could not read: " + errui.GetReason(read.err)})
+		fields = append(fields, recordField{label: "worktree", value: "could not read: " + errui.GetReason(read.err)})
 	}
 	if read.isRead() {
 		fields = append(fields,
-			recordField{"base", baseField(read)},
-			recordField{"changes", changesField(read)},
+			buildBaseField(read),
+			recordField{label: "changes", value: changesField(read)},
 		)
 	}
 
-	return append(fields, recordField{"agent", worktreeAgentField(s.listing, item)}, recordField{"workflow", worktreeWorkflowField(s.listing, item)})
+	return append(fields, recordField{label: "agent", value: worktreeAgentField(s.listing, item)}, recordField{label: "workflow", value: worktreeWorkflowField(s.listing, item)})
 }
 
 func occupantsField(item worktreeItem) string {
@@ -297,24 +298,27 @@ func lastActiveField(item worktreeItem, now time.Time) string {
 	return field
 }
 
-// baseField spells where the branch stands against its base, or why git could not name one.
-func baseField(read worktreeInspection) string {
+// buildBaseField spells where the branch stands against its base, or why git could not name one.
+func buildBaseField(read worktreeInspection) recordField {
 	if read.baseRef == "" {
-		return label.OrDash(read.baseError)
+		return recordField{label: "base", value: label.OrDash(read.baseError)}
+	}
+	if read.ahead == 0 && read.behind == 0 {
+		return recordField{
+			label:  "base",
+			value:  read.baseRef + "  even",
+			styled: read.baseRef + "  " + dimStyle.Render("even"),
+		}
 	}
 
-	var parts []string
-	if read.ahead > 0 {
-		parts = append(parts, fmt.Sprintf("↑%d", read.ahead))
-	}
-	if read.behind > 0 {
-		parts = append(parts, fmt.Sprintf("↓%d", read.behind))
-	}
-	if len(parts) == 0 {
-		return read.baseRef
-	}
+	ahead := fmt.Sprintf("↑%d", read.ahead)
+	behind := fmt.Sprintf("↓%d", read.behind)
 
-	return read.baseRef + "  " + strings.Join(parts, " ")
+	return recordField{
+		label:  "base",
+		value:  read.baseRef + "  " + ahead + " " + behind,
+		styled: read.baseRef + "  " + countStyle(read.ahead, paint.Panel.Style(paint.ToneSuccess)).Render(ahead) + " " + countStyle(read.behind, paint.Panel.Style(paint.ToneMark)).Render(behind),
+	}
 }
 
 func changesField(read worktreeInspection) string {

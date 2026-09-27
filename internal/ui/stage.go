@@ -52,6 +52,10 @@ func (m *model) applyStageTick(msg stageTickMsg) tea.Cmd {
 		m.worktrees.stage(m, m.shared())
 
 		return m.inspectWorktreeCmd()
+	case screenDocuments:
+		m.documents.stage(m, m.shared())
+
+		return m.readDocumentsCmd()
 	case screenArchive:
 		m.archive.stage(m, m.shared())
 	case screenSchedules:
@@ -117,7 +121,7 @@ func (m *model) stageSelection() {
 	switch {
 	case ok && m.isPaneStageable(staged.Agent.Pane, staged.Agent.Harness):
 		m.sizeGuestWindow(staged.Agent.Pane)
-		m.frame.ShowGuest(staged.Agent.Pane)
+		m.frame.ShowGuest(layout.Guest{Agent: staged.Agent.ID, Pane: staged.Agent.Pane})
 	case m.frame.IsSolo() && m.isGuestLive():
 	default:
 		m.frame.Show(layout.RegionStage, newBlankContent())
@@ -133,8 +137,8 @@ func (m *model) afterStaging() {
 
 // sizeGuestWindow puts an agent's own window at the size of the stage before it is swapped in.
 func (m *model) sizeGuestWindow(pane string) {
-	// A remote agent's window is sized by the ssh client attached to it, which is the stage pane
-	// itself, so there is nothing here to set and the pane id names a window on another server.
+	// A remote agent's window is sized by the terminal stream attached to it, which is the stage
+	// pane itself, so there is nothing here to set and the pane id names a window on another server.
 	if m.frame.IsRemote() {
 		return
 	}

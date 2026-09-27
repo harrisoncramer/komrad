@@ -98,6 +98,7 @@ func TestEngineOverANamedFile(t *testing.T) {
 func TestEngineNamesReadsTheEnginesDir(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv(enginesDirVariable, "")
 
 	names, err := EngineNames()
 	require.NoError(t, err)
@@ -110,4 +111,9 @@ func TestEngineNamesReadsTheEnginesDir(t *testing.T) {
 	names, err = EngineNames()
 	require.NoError(t, err)
 	assert.Equal(t, []string{"remote"}, names)
+
+	t.Setenv(enginesDirVariable, t.TempDir())
+	names, err = EngineNames()
+	require.NoError(t, err)
+	assert.Empty(t, names, "a directory named in the environment stands in for the user's")
 }

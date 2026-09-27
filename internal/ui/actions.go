@@ -75,6 +75,8 @@ const (
 	actionWorktreesJumpToAgent
 	actionWorktreesDelete
 	actionWorktreesClear
+	actionDocumentsOpen
+	actionDocumentsBack
 	actionReviewBack
 	actionReviewFile
 	actionReviewThread

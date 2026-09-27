@@ -96,6 +96,15 @@ const (
 	// AgentServiceGetLastTurnsProcedure is the fully-qualified name of the AgentService's GetLastTurns
 	// RPC.
 	AgentServiceGetLastTurnsProcedure = "/agent.v1.AgentService/GetLastTurns"
+	// AgentServiceWriteDocumentProcedure is the fully-qualified name of the AgentService's
+	// WriteDocument RPC.
+	AgentServiceWriteDocumentProcedure = "/agent.v1.AgentService/WriteDocument"
+	// AgentServiceListDocumentsProcedure is the fully-qualified name of the AgentService's
+	// ListDocuments RPC.
+	AgentServiceListDocumentsProcedure = "/agent.v1.AgentService/ListDocuments"
+	// AgentServiceGetDocumentProcedure is the fully-qualified name of the AgentService's GetDocument
+	// RPC.
+	AgentServiceGetDocumentProcedure = "/agent.v1.AgentService/GetDocument"
 	// AgentServiceEmptyArchiveProcedure is the fully-qualified name of the AgentService's EmptyArchive
 	// RPC.
 	AgentServiceEmptyArchiveProcedure = "/agent.v1.AgentService/EmptyArchive"
@@ -180,6 +189,9 @@ type AgentServiceClient interface {
 	SearchTranscripts(context.Context, *connect.Request[v1.SearchTranscriptsRequest]) (*connect.Response[v1.SearchTranscriptsResponse], error)
 	GetTranscript(context.Context, *connect.Request[v1.GetTranscriptRequest]) (*connect.Response[v1.GetTranscriptResponse], error)
 	GetLastTurns(context.Context, *connect.Request[v1.GetLastTurnsRequest]) (*connect.Response[v1.GetLastTurnsResponse], error)
+	WriteDocument(context.Context, *connect.Request[v1.WriteDocumentRequest]) (*connect.Response[v1.WriteDocumentResponse], error)
+	ListDocuments(context.Context, *connect.Request[v1.ListDocumentsRequest]) (*connect.Response[v1.ListDocumentsResponse], error)
+	GetDocument(context.Context, *connect.Request[v1.GetDocumentRequest]) (*connect.Response[v1.GetDocumentResponse], error)
 	EmptyArchive(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[emptypb.Empty], error)
 	RecordReport(context.Context, *connect.Request[v1.RecordReportRequest]) (*connect.Response[emptypb.Empty], error)
 	MarkRunsRead(context.Context, *connect.Request[v1.MarkRunsReadRequest]) (*connect.Response[emptypb.Empty], error)
@@ -377,6 +389,26 @@ func NewAgentServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
+		writeDocument: connect.NewClient[v1.WriteDocumentRequest, v1.WriteDocumentResponse](
+			httpClient,
+			baseURL+AgentServiceWriteDocumentProcedure,
+			connect.WithSchema(agentServiceMethods.ByName("WriteDocument")),
+			connect.WithClientOptions(opts...),
+		),
+		listDocuments: connect.NewClient[v1.ListDocumentsRequest, v1.ListDocumentsResponse](
+			httpClient,
+			baseURL+AgentServiceListDocumentsProcedure,
+			connect.WithSchema(agentServiceMethods.ByName("ListDocuments")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+			connect.WithClientOptions(opts...),
+		),
+		getDocument: connect.NewClient[v1.GetDocumentRequest, v1.GetDocumentResponse](
+			httpClient,
+			baseURL+AgentServiceGetDocumentProcedure,
+			connect.WithSchema(agentServiceMethods.ByName("GetDocument")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+			connect.WithClientOptions(opts...),
+		),
 		emptyArchive: connect.NewClient[emptypb.Empty, emptypb.Empty](
 			httpClient,
 			baseURL+AgentServiceEmptyArchiveProcedure,
@@ -534,6 +566,9 @@ type agentServiceClient struct {
 	searchTranscripts       *connect.Client[v1.SearchTranscriptsRequest, v1.SearchTranscriptsResponse]
 	getTranscript           *connect.Client[v1.GetTranscriptRequest, v1.GetTranscriptResponse]
 	getLastTurns            *connect.Client[v1.GetLastTurnsRequest, v1.GetLastTurnsResponse]
+	writeDocument           *connect.Client[v1.WriteDocumentRequest, v1.WriteDocumentResponse]
+	listDocuments           *connect.Client[v1.ListDocumentsRequest, v1.ListDocumentsResponse]
+	getDocument             *connect.Client[v1.GetDocumentRequest, v1.GetDocumentResponse]
 	emptyArchive            *connect.Client[emptypb.Empty, emptypb.Empty]
 	recordReport            *connect.Client[v1.RecordReportRequest, emptypb.Empty]
 	markRunsRead            *connect.Client[v1.MarkRunsReadRequest, emptypb.Empty]
@@ -680,6 +715,21 @@ func (c *agentServiceClient) GetLastTurns(ctx context.Context, req *connect.Requ
 	return c.getLastTurns.CallUnary(ctx, req)
 }
 
+// WriteDocument calls agent.v1.AgentService.WriteDocument.
+func (c *agentServiceClient) WriteDocument(ctx context.Context, req *connect.Request[v1.WriteDocumentRequest]) (*connect.Response[v1.WriteDocumentResponse], error) {
+	return c.writeDocument.CallUnary(ctx, req)
+}
+
+// ListDocuments calls agent.v1.AgentService.ListDocuments.
+func (c *agentServiceClient) ListDocuments(ctx context.Context, req *connect.Request[v1.ListDocumentsRequest]) (*connect.Response[v1.ListDocumentsResponse], error) {
+	return c.listDocuments.CallUnary(ctx, req)
+}
+
+// GetDocument calls agent.v1.AgentService.GetDocument.
+func (c *agentServiceClient) GetDocument(ctx context.Context, req *connect.Request[v1.GetDocumentRequest]) (*connect.Response[v1.GetDocumentResponse], error) {
+	return c.getDocument.CallUnary(ctx, req)
+}
+
 // EmptyArchive calls agent.v1.AgentService.EmptyArchive.
 func (c *agentServiceClient) EmptyArchive(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[emptypb.Empty], error) {
 	return c.emptyArchive.CallUnary(ctx, req)
@@ -802,6 +852,9 @@ type AgentServiceHandler interface {
 	SearchTranscripts(context.Context, *connect.Request[v1.SearchTranscriptsRequest]) (*connect.Response[v1.SearchTranscriptsResponse], error)
 	GetTranscript(context.Context, *connect.Request[v1.GetTranscriptRequest]) (*connect.Response[v1.GetTranscriptResponse], error)
 	GetLastTurns(context.Context, *connect.Request[v1.GetLastTurnsRequest]) (*connect.Response[v1.GetLastTurnsResponse], error)
+	WriteDocument(context.Context, *connect.Request[v1.WriteDocumentRequest]) (*connect.Response[v1.WriteDocumentResponse], error)
+	ListDocuments(context.Context, *connect.Request[v1.ListDocumentsRequest]) (*connect.Response[v1.ListDocumentsResponse], error)
+	GetDocument(context.Context, *connect.Request[v1.GetDocumentRequest]) (*connect.Response[v1.GetDocumentResponse], error)
 	EmptyArchive(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[emptypb.Empty], error)
 	RecordReport(context.Context, *connect.Request[v1.RecordReportRequest]) (*connect.Response[emptypb.Empty], error)
 	MarkRunsRead(context.Context, *connect.Request[v1.MarkRunsReadRequest]) (*connect.Response[emptypb.Empty], error)
@@ -995,6 +1048,26 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
+	agentServiceWriteDocumentHandler := connect.NewUnaryHandler(
+		AgentServiceWriteDocumentProcedure,
+		svc.WriteDocument,
+		connect.WithSchema(agentServiceMethods.ByName("WriteDocument")),
+		connect.WithHandlerOptions(opts...),
+	)
+	agentServiceListDocumentsHandler := connect.NewUnaryHandler(
+		AgentServiceListDocumentsProcedure,
+		svc.ListDocuments,
+		connect.WithSchema(agentServiceMethods.ByName("ListDocuments")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+		connect.WithHandlerOptions(opts...),
+	)
+	agentServiceGetDocumentHandler := connect.NewUnaryHandler(
+		AgentServiceGetDocumentProcedure,
+		svc.GetDocument,
+		connect.WithSchema(agentServiceMethods.ByName("GetDocument")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+		connect.WithHandlerOptions(opts...),
+	)
 	agentServiceEmptyArchiveHandler := connect.NewUnaryHandler(
 		AgentServiceEmptyArchiveProcedure,
 		svc.EmptyArchive,
@@ -1174,6 +1247,12 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 			agentServiceGetTranscriptHandler.ServeHTTP(w, r)
 		case AgentServiceGetLastTurnsProcedure:
 			agentServiceGetLastTurnsHandler.ServeHTTP(w, r)
+		case AgentServiceWriteDocumentProcedure:
+			agentServiceWriteDocumentHandler.ServeHTTP(w, r)
+		case AgentServiceListDocumentsProcedure:
+			agentServiceListDocumentsHandler.ServeHTTP(w, r)
+		case AgentServiceGetDocumentProcedure:
+			agentServiceGetDocumentHandler.ServeHTTP(w, r)
 		case AgentServiceEmptyArchiveProcedure:
 			agentServiceEmptyArchiveHandler.ServeHTTP(w, r)
 		case AgentServiceRecordReportProcedure:
@@ -1319,6 +1398,18 @@ func (UnimplementedAgentServiceHandler) GetTranscript(context.Context, *connect.
 
 func (UnimplementedAgentServiceHandler) GetLastTurns(context.Context, *connect.Request[v1.GetLastTurnsRequest]) (*connect.Response[v1.GetLastTurnsResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.GetLastTurns is not implemented"))
+}
+
+func (UnimplementedAgentServiceHandler) WriteDocument(context.Context, *connect.Request[v1.WriteDocumentRequest]) (*connect.Response[v1.WriteDocumentResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.WriteDocument is not implemented"))
+}
+
+func (UnimplementedAgentServiceHandler) ListDocuments(context.Context, *connect.Request[v1.ListDocumentsRequest]) (*connect.Response[v1.ListDocumentsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.ListDocuments is not implemented"))
+}
+
+func (UnimplementedAgentServiceHandler) GetDocument(context.Context, *connect.Request[v1.GetDocumentRequest]) (*connect.Response[v1.GetDocumentResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.GetDocument is not implemented"))
 }
 
 func (UnimplementedAgentServiceHandler) EmptyArchive(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[emptypb.Empty], error) {

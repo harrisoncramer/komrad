@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-hooks="$HOME/.config/komrad/hooks"
+hooks="$(dirname "$KOMRAD_CONFIG")/hooks"
 if [ -e "$hooks/build-neovim" ]; then
 	echo "$hooks/build-neovim already exists, and the recording writes its own there" >&2
 	exit 1

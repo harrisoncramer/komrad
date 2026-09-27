@@ -22,6 +22,8 @@ lint:
     - RPC_DECLARES_SURFACES
     - SERVICE_ONE_PER_FILE
     - MESSAGE_NOT_EMPTY
+    - RPC_GET_RETURNS_RESOURCE
+    - FIELD_TYPE_NO_STUTTER
   except:
     # The watch and the terminals are streams, held open by the panel and served by hand.
     - UNARY_RPC

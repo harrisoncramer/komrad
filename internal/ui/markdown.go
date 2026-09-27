@@ -11,8 +11,9 @@ import (
 )
 
 type recordField struct {
-	label string
-	value string
+	label  string
+	value  string
+	styled string
 }
 
 func renderDocument(title, notice, prose, footer string) string {
@@ -33,34 +34,34 @@ func renderDocument(title, notice, prose, footer string) string {
 
 func workflowFields(w panel.Workflow, agentCount int) []recordField {
 	fields := []recordField{
-		{"name", label.OrDash(w.Name)},
-		{"agents", fmt.Sprintf("%d", agentCount)},
+		{label: "name", value: label.OrDash(w.Name)},
+		{label: "agents", value: fmt.Sprintf("%d", agentCount)},
 	}
 	fields = append(fields, workflowConfigFields(w)...)
 
-	return append(fields, recordField{"workflow_id", label.OrDash(w.ID)})
+	return append(fields, recordField{label: "workflow_id", value: label.OrDash(w.ID)})
 }
 
 func workflowConfigFields(w panel.Workflow) []recordField {
 	fields := []recordField{
-		{"default agent", label.OrDash(w.Harness)},
-		{"directory", label.OrDash(w.Cwd)},
-		{"flags", label.OrDash(w.Flags)},
+		{label: "default agent", value: label.OrDash(w.Harness)},
+		{label: "directory", value: label.OrDash(w.Cwd)},
+		{label: "flags", value: label.OrDash(w.Flags)},
 	}
 
 	if !w.Worktree.Enabled {
-		return append(fields, recordField{"worktree", "off"})
+		return append(fields, recordField{label: "worktree", value: "off"})
 	}
 
 	fields = append(fields,
-		recordField{"worktree", "on"},
-		recordField{"base branch", label.OrDash(w.Worktree.BaseBranch)},
+		recordField{label: "worktree", value: "on"},
+		recordField{label: "base branch", value: label.OrDash(w.Worktree.BaseBranch)},
 	)
 	if len(w.Worktree.CopyPaths) > 0 {
-		fields = append(fields, recordField{"copy", strings.Join(w.Worktree.CopyPaths, ", ")})
+		fields = append(fields, recordField{label: "copy", value: strings.Join(w.Worktree.CopyPaths, ", ")})
 	}
 	if len(w.Worktree.SymlinkPaths) > 0 {
-		fields = append(fields, recordField{"symlink", strings.Join(w.Worktree.SymlinkPaths, ", ")})
+		fields = append(fields, recordField{label: "symlink", value: strings.Join(w.Worktree.SymlinkPaths, ", ")})
 	}
 
 	return fields
@@ -96,25 +97,21 @@ type agentFieldsParams struct {
 
 func agentFields(params agentFieldsParams) []recordField {
 	agent, schedule, parent := params.agent, params.schedule, params.parent
-	fields := []recordField{{"name", label.OrDash(agent.Name)}}
+	fields := []recordField{{label: "name", value: label.OrDash(agent.Name)}}
 	// What a child is attached to comes early, and for a reviewer that same row is whose work it
 	// is reading.
 	if agent.ParentAgentID != nil {
-		fields = append(fields, recordField{attachmentFieldKey(agent.Role), label.OrDash(parent)})
+		fields = append(fields, recordField{label: attachmentFieldKey(agent.Role), value: label.OrDash(parent)})
 	}
 
 	fields = append(fields,
-		recordField{"agent", label.OrDash(agent.Harness)},
-		recordField{"workflow", label.OrDash(params.workflow)},
-		recordField{"directory", label.OrDash(agent.Cwd)},
+		recordField{label: "agent", value: label.OrDash(agent.Harness)},
+		recordField{label: "workflow", value: label.OrDash(params.workflow)},
+		recordField{label: "directory", value: label.OrDash(agent.Cwd)},
 	)
 
-	if agent.ReportedReason != "" {
-		fields = append(fields, recordField{"doing", agent.ReportedReason})
-	}
-
 	if agent.Branch != nil {
-		fields = append(fields, recordField{branchFieldKey, *agent.Branch})
+		fields = append(fields, recordField{label: branchFieldKey, value: *agent.Branch})
 		fields = append(fields, pullRequestFields(params.standing, params.pullRequests)...)
 	}
 	if params.read {
@@ -122,24 +119,21 @@ func agentFields(params agentFieldsParams) []recordField {
 	}
 
 	fields = append(fields,
-		recordField{"flags", label.OrDash(agent.Flags)},
+		recordField{label: "flags", value: label.OrDash(agent.Flags)},
 
-		recordField{"agent_id", label.OrDash(agent.ID)},
-		recordField{"session_id", label.OrDash(agent.SessionID)},
+		recordField{label: "agent_id", value: label.OrDash(agent.ID)},
+		recordField{label: "session_id", value: label.OrDash(agent.SessionID)},
 	)
 	if schedule != "" {
-		fields = append(fields, recordField{"launched by", schedule})
+		fields = append(fields, recordField{label: "launched by", value: schedule})
 	}
 	if created := label.Friendly(agent.CreatedAt); created != "" {
-		fields = append(fields, recordField{"created", created})
+		fields = append(fields, recordField{label: "created", value: created})
 	}
 	if agent.ArchivedAt != nil {
 		if archived := label.Friendly(*agent.ArchivedAt); archived != "" {
-			fields = append(fields, recordField{"archived", archived})
+			fields = append(fields, recordField{label: "archived", value: archived})
 		}
-	}
-	if params.read {
-		fields = append(fields, worktreeHistoryFields(params.worktree)...)
 	}
 
 	return fields
@@ -170,16 +164,16 @@ Press the new key to write one.
 
 func scheduleFields(sched panel.Schedule, workflow *panel.Workflow) []recordField {
 	fields := []recordField{
-		{"name", label.OrDash(sched.Name)},
-		{"cron", label.OrDash(sched.Cron)},
-		{"timezone", label.OrDash(sched.Timezone)},
+		{label: "name", value: label.OrDash(sched.Name)},
+		{label: "cron", value: label.OrDash(sched.Cron)},
+		{label: "timezone", value: label.OrDash(sched.Timezone)},
 	}
 
 	if workflow == nil {
-		return append(fields, recordField{"workflow", "— (archived)"})
+		return append(fields, recordField{label: "workflow", value: "— (archived)"})
 	}
 
-	fields = append(fields, recordField{"workflow", workflow.Name})
+	fields = append(fields, recordField{label: "workflow", value: workflow.Name})
 
 	return append(fields, workflowConfigFields(*workflow)...)
 }

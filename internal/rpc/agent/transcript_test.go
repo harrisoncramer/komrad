@@ -130,7 +130,7 @@ func TestTranscriptWindow(t *testing.T) {
 			content:   "日本語",
 			requested: 2,
 			wantCode:  connect.CodeInvalidArgument,
-			wantErr:   "maxBytes of 2 is too small",
+			wantErr:   "max_bytes of 2 is too small",
 		},
 		{
 			name:     "a cursor landing inside a character says so rather than blaming the window",

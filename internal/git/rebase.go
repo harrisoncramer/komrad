@@ -164,7 +164,11 @@ func (c *Client) PredictRebase(ctx context.Context, dir, ref string) (Prediction
 	// A base the branch already contains is not one to catch up to, whatever its content says:
 	// a branch that committed something and then reverted it holds the base's own tree, and
 	// replaying from its tip would drop both commits over a rebase git calls a no-op.
-	contained, err := isAncestor(ctx, local, dir, ref, "HEAD")
+	contained, err := isAncestor(ctx, IsAncestorParams{
+		Dir:           dir,
+		MaybeAncestor: ref,
+		Of:            "HEAD",
+	})
 	if err != nil || contained {
 		return prediction, err
 	}
@@ -250,7 +254,7 @@ func findLandedCutoff(ctx context.Context, dir, ref string, own []string) (int, 
 
 	// Walked newest first rather than halved.
 	for i := len(own) - 1; i >= 0; i-- {
-		merged, _, err := readMergedTree(ctx, local, readMergedTreeParams{
+		merged, _, err := readMergedTree(ctx, readMergedTreeParams{
 			Dir:   dir,
 			Left:  ref,
 			Right: own[i],
@@ -268,7 +272,7 @@ func findLandedCutoff(ctx context.Context, dir, ref string, own []string) (int, 
 
 // readConflictPaths test-merges ref into the head and answers with what would not settle.
 func readConflictPaths(ctx context.Context, dir, ref string) ([]string, error) {
-	_, paths, err := readMergedTree(ctx, local, readMergedTreeParams{
+	_, paths, err := readMergedTree(ctx, readMergedTreeParams{
 		Dir:   dir,
 		Left:  ref,
 		Right: "HEAD",
@@ -288,7 +292,7 @@ type readMergedTreeParams struct {
 
 // readMergedTree merges two commits in memory and answers with the tree that would result and
 // the paths that would not settle, without touching the checkout.
-func readMergedTree(ctx context.Context, on runner, params readMergedTreeParams) (tree string, conflicts []string, err error) {
+func readMergedTree(ctx context.Context, params readMergedTreeParams) (tree string, conflicts []string, err error) {
 	dir, left, right := params.Dir, params.Left, params.Right
 
 	args := []string{"merge-tree", "--write-tree", "--name-only"}
@@ -298,7 +302,7 @@ func readMergedTree(ctx context.Context, on runner, params readMergedTreeParams)
 	args = append(args, left, right)
 
 	// A conflict is reported by exiting 1 with the paths on stdout.
-	out, err := runAllowing(ctx, on, dir, 1, args...)
+	out, err := runAllowing(ctx, dir, 1, args...)
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to test-merge %s into %s in %q: %w", left, right, dir, err)
 	}
@@ -338,8 +342,8 @@ func doesShareHistory(ctx context.Context, dir, left, right string) (bool, error
 }
 
 // isAncestor reports whether one commit is reachable from another.
-func isAncestor(ctx context.Context, on runner, dir, maybeAncestor, of string) (bool, error) { //nolint:revive // a params struct is the follow-up
-	_, err := runOn(ctx, on, dir, "merge-base", "--is-ancestor", maybeAncestor, of)
+func isAncestor(ctx context.Context, params IsAncestorParams) (bool, error) {
+	_, err := Run(ctx, params.Dir, "merge-base", "--is-ancestor", params.MaybeAncestor, params.Of)
 	if err == nil {
 		return true, nil
 	}
@@ -350,7 +354,7 @@ func isAncestor(ctx context.Context, on runner, dir, maybeAncestor, of string) (
 		return false, nil
 	}
 
-	return false, fmt.Errorf("failed to test whether %s is contained in %s: %w", maybeAncestor, of, err)
+	return false, fmt.Errorf("failed to test whether %s is contained in %s: %w", params.MaybeAncestor, params.Of, err)
 }
 
 // countUnlanded counts the commits after cutoff that a rebase would actually move, which is

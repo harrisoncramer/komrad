@@ -3,6 +3,7 @@ package worktrees
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"komrad/internal/git"
@@ -28,6 +29,12 @@ type Inspection struct {
 	BaseErr error
 	Ahead   int
 	Behind  int
+	// DiffStat is nil where there is no base, or one the branch shares no history with.
+	DiffStat *git.DiffStat
+	Remote   git.RemoteStanding
+	// RemoteLanded says the base already holds every commit origin's copy of the branch has that
+	// the branch does not.
+	RemoteLanded bool
 	// Landed is how many of the branch's own commits the base already holds whole.
 	Landed             int
 	SequenceInProgress bool
@@ -45,6 +52,9 @@ type gitReader interface {
 	PredictRebase(ctx context.Context, dir, ref string) (git.Prediction, error)
 	IsBranchHeldElsewhere(ctx context.Context, dir, branch string) (bool, error)
 	ListCommitsSince(ctx context.Context, dir, ref string, limit int) ([]git.Commit, error)
+	ReadDiffStat(ctx context.Context, params git.ReadDiffStatParams) (*git.DiffStat, error)
+	CountAgainstRemote(ctx context.Context, dir, branch string) (*git.RemoteStanding, error)
+	DoesBaseHoldRemote(ctx context.Context, params git.DoesBaseHoldRemoteParams) (bool, error)
 }
 
 type workflowReader interface {
@@ -122,12 +132,21 @@ func (i *Inspector) Inspect(ctx context.Context, params InspectParams) (*Inspect
 		return inspection, nil
 	}
 
-	base, err := i.baseOf(ctx, inspection.Worktree)
+	if inspection.Worktree.Branch != "" {
+		remote, err := i.git.CountAgainstRemote(ctx, dir, inspection.Worktree.Branch)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read where %q stands against origin: %w", dir, err)
+		}
+
+		inspection.Remote = *remote
+	}
+
+	config, err := i.getWorktreeConfig(ctx, inspection.Worktree)
 	if err != nil {
 		return nil, err
 	}
 
-	ref, err := i.nameBase(ctx, dir, base, params.Fetch)
+	ref, err := i.nameBase(ctx, dir, config.BaseBranch, params.Fetch)
 	if errors.Is(err, git.ErrBaseMissing) {
 		inspection.BaseErr = err
 
@@ -138,7 +157,7 @@ func (i *Inspector) Inspect(ctx context.Context, params InspectParams) (*Inspect
 	}
 	inspection.BaseRef = ref
 
-	if err := i.readStanding(ctx, inspection); err != nil {
+	if err := i.readStanding(ctx, inspection, config.DiffExclude); err != nil {
 		return nil, err
 	}
 
@@ -156,24 +175,24 @@ func (i *Inspector) nameBase(ctx context.Context, dir, base string, fetch bool) 
 	return ref, err
 }
 
-// baseOf is the base branch the directory's workflow names, empty when no row names one.
-func (i *Inspector) baseOf(ctx context.Context, worktree Worktree) (string, error) {
+// getWorktreeConfig is the worktree settings the directory's workflow names, empty when no row names one.
+func (i *Inspector) getWorktreeConfig(ctx context.Context, worktree Worktree) (workflowstore.WorktreeConfig, error) {
 	if worktree.Agent == nil || worktree.Agent.WorkflowID == "" {
-		return "", nil
+		return workflowstore.WorktreeConfig{}, nil
 	}
 
 	workflow, err := i.workflows.GetIncludingArchived(ctx, worktree.Agent.WorkflowID)
 	if errors.Is(err, store.ErrNotFound) {
-		return "", nil
+		return workflowstore.WorktreeConfig{}, nil
 	}
 	if err != nil {
-		return "", err
+		return workflowstore.WorktreeConfig{}, err
 	}
 
-	return workflow.Worktree.BaseBranch, nil
+	return workflow.Worktree, nil
 }
 
-func (i *Inspector) readStanding(ctx context.Context, inspection *Inspection) error {
+func (i *Inspector) readStanding(ctx context.Context, inspection *Inspection, exclude []string) error {
 	dir, ref := inspection.Worktree.Dir, inspection.BaseRef
 
 	state, err := i.git.ReadTreeState(ctx, dir)
@@ -189,6 +208,28 @@ func (i *Inspector) readStanding(ctx context.Context, inspection *Inspection) er
 	if inspection.Ahead, inspection.Behind, err = i.git.CountAheadBehind(ctx, dir, ref); err != nil {
 		return err
 	}
+
+	if inspection.Remote.Unpulled > 0 {
+		inspection.RemoteLanded, err = i.git.DoesBaseHoldRemote(ctx, git.DoesBaseHoldRemoteParams{
+			Dir:    dir,
+			Branch: inspection.Worktree.Branch,
+			Base:   ref,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to read whether %s holds what origin has of %q: %w", ref, dir, err)
+		}
+	}
+
+	stat, err := i.git.ReadDiffStat(ctx, git.ReadDiffStatParams{
+		Dir:     dir,
+		Ref:     ref,
+		Exclude: exclude,
+	})
+	if err != nil && !errors.Is(err, git.ErrBaseUnrelated) {
+		return fmt.Errorf("failed to measure %q against %s: %w", dir, ref, err)
+	}
+
+	inspection.DiffStat = stat
 
 	prediction, err := i.git.PredictRebase(ctx, dir, ref)
 	if err != nil && !errors.Is(err, git.ErrBaseUnrelated) {

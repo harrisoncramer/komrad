@@ -16,6 +16,7 @@ import (
 // of failure they are rather than leaving it to be decided later.
 type TerminalServiceImpl interface {
 	Shell(context.Context, *connect.BidiStream[v1.ShellRequest, v1.ShellResponse]) *fail.Error
+	Attach(context.Context, *connect.BidiStream[v1.AttachRequest, v1.AttachResponse]) *fail.Error
 }
 
 // TerminalServiceAdapter carries what the implementation returned across to the signature
@@ -27,4 +28,9 @@ type TerminalServiceAdapter struct {
 // Shell serves the stream as connect opens it.
 func (a TerminalServiceAdapter) Shell(ctx context.Context, stream *connect.BidiStream[v1.ShellRequest, v1.ShellResponse]) error {
 	return rpcerr.AnswerStream(a.Impl.Shell(ctx, stream))
+}
+
+// Attach serves the stream as connect opens it.
+func (a TerminalServiceAdapter) Attach(ctx context.Context, stream *connect.BidiStream[v1.AttachRequest, v1.AttachResponse]) error {
+	return rpcerr.AnswerStream(a.Impl.Attach(ctx, stream))
 }

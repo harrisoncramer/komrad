@@ -28,6 +28,7 @@ const (
 	GlyphFocus
 	GlyphFailing
 	GlyphConflicting
+	GlyphDocument
 	// glyphCount stands one past the last glyph.
 	glyphCount
 )
@@ -87,6 +88,7 @@ type Line struct {
 	Emphasis Emphasis
 	Held     Cell
 	Hidden   Cell
+	Document Cell
 	Mail     Cell
 	Alert    Cell
 	// Tally is how many rows this one stands in for, drawn as a number.

@@ -41,6 +41,9 @@ type AgentServiceImpl interface {
 	SearchTranscripts(context.Context, *v1.SearchTranscriptsRequest) (*v1.SearchTranscriptsResponse, *fail.Error)
 	GetTranscript(context.Context, *v1.GetTranscriptRequest) (*v1.GetTranscriptResponse, *fail.Error)
 	GetLastTurns(context.Context, *v1.GetLastTurnsRequest) (*v1.GetLastTurnsResponse, *fail.Error)
+	WriteDocument(context.Context, *v1.WriteDocumentRequest) (*v1.WriteDocumentResponse, *fail.Error)
+	ListDocuments(context.Context, *v1.ListDocumentsRequest) (*v1.ListDocumentsResponse, *fail.Error)
+	GetDocument(context.Context, *v1.GetDocumentRequest) (*v1.GetDocumentResponse, *fail.Error)
 	EmptyArchive(context.Context, *emptypb.Empty) (*emptypb.Empty, *fail.Error)
 	RecordReport(context.Context, *v1.RecordReportRequest) (*emptypb.Empty, *fail.Error)
 	MarkRunsRead(context.Context, *v1.MarkRunsReadRequest) (*emptypb.Empty, *fail.Error)
@@ -191,6 +194,21 @@ func (a AgentServiceAdapter) GetTranscript(ctx context.Context, req *connect.Req
 // GetLastTurns answers the request as connect serves it.
 func (a AgentServiceAdapter) GetLastTurns(ctx context.Context, req *connect.Request[v1.GetLastTurnsRequest]) (*connect.Response[v1.GetLastTurnsResponse], error) {
 	return rpcerr.Answer(a.Impl.GetLastTurns(ctx, req.Msg))
+}
+
+// WriteDocument answers the request as connect serves it.
+func (a AgentServiceAdapter) WriteDocument(ctx context.Context, req *connect.Request[v1.WriteDocumentRequest]) (*connect.Response[v1.WriteDocumentResponse], error) {
+	return rpcerr.Answer(a.Impl.WriteDocument(ctx, req.Msg))
+}
+
+// ListDocuments answers the request as connect serves it.
+func (a AgentServiceAdapter) ListDocuments(ctx context.Context, req *connect.Request[v1.ListDocumentsRequest]) (*connect.Response[v1.ListDocumentsResponse], error) {
+	return rpcerr.Answer(a.Impl.ListDocuments(ctx, req.Msg))
+}
+
+// GetDocument answers the request as connect serves it.
+func (a AgentServiceAdapter) GetDocument(ctx context.Context, req *connect.Request[v1.GetDocumentRequest]) (*connect.Response[v1.GetDocumentResponse], error) {
+	return rpcerr.Answer(a.Impl.GetDocument(ctx, req.Msg))
 }
 
 // EmptyArchive answers the request as connect serves it.
