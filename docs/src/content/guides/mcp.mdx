@@ -7,7 +7,7 @@ order: 7
 
 Komrad serves its own API over MCP, the protocol agent CLIs use to call tools, so an agent can ask what the other agents are doing, read their conversations, send them mail, and start agents of its own.
 
-## Who can reach it
+## MCP Access
 
 Every agent komrad starts is already connected. You can also add the server to your own Claude or Codex session to drive komrad from a conversation.
 
@@ -15,16 +15,14 @@ For now, the server listens only on your own machine is unauthenticated.
 
 For Claude agents, komrad also switches off Claude's built-in subagent tool. An agent asked to spawn help then uses komrad, so the new agent appears in the panel where you can see it.
 
-## Two kinds of tool
+## Read-only vs. write tools
 
 The first kind reads komrad's database with read-only SQL, so an orchestrator can answer its own questions, like how many agents in a workflow are still working. The second kind is the API itself: listing agents, creating them, sending mail, requesting reviews. Anything that changes something goes through the API, with the same rules as the panel. When a model lists agents it gets the same row the panel draws.
 
 The [API reference](../../api/) lists every tool.
 
-## Different roles, different tools
+## Identity and scope
 
 Komrad offers each agent only the tools that fit its role. An implementer gets what it needs to do the work and answer a review, but doesn't get tools relevant to orchestrating other agents. You, with the server in your own session, get everything.
-
-## Knowing who called
 
 Every agent carries its own id, and komrad attaches it to every call. That is how a call is credited to the agent that made it and how the server knows which role to serve. Calls from the panel carry no id, because the panel is you.
