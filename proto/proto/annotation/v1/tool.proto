@@ -45,7 +45,7 @@ message Surfaces {
   // idempotency_level says.
   optional bool idempotent = 6;
 
-  // Which agent roles the MCP server offers the tool to, required of every tool.
+  // Which agent roles may call the method and are offered it as a tool, required of every tool.
   repeated Role roles = 8;
 
   // Why a surface is left off, in a sentence, so the next reader is told rather than left to

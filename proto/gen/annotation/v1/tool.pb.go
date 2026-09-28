@@ -98,7 +98,7 @@ type Surfaces struct {
 	// Whether calling twice lands where calling once does, overriding what the method's
 	// idempotency_level says.
 	Idempotent *bool `protobuf:"varint,6,opt,name=idempotent,proto3,oneof" json:"idempotent,omitempty"`
-	// Which agent roles the MCP server offers the tool to, required of every tool.
+	// Which agent roles may call the method and are offered it as a tool, required of every tool.
 	Roles []Role `protobuf:"varint,8,rep,packed,name=roles,proto3,enum=annotation.v1.Role" json:"roles,omitempty"`
 	// Why a surface is left off, in a sentence, so the next reader is told rather than left to
 	// work it out. Required when either surface is off.

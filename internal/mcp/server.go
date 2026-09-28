@@ -12,13 +12,13 @@
 package mcp
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 
 	annotationv1 "komrad/proto/gen/annotation/v1"
 
 	"komrad/internal/caller"
+	"komrad/internal/rpcapi"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
@@ -32,14 +32,11 @@ var servedRoles = []annotationv1.Role{
 	annotationv1.Role_ROLE_ORCHESTRATOR,
 }
 
-// RoleOf answers what the agent was launched to do.
-type RoleOf func(ctx context.Context, agentID string) annotationv1.Role
-
 type NewHandlerParams struct {
 	DB      *pgxpool.Pool
 	BaseURL string
 	// RoleOf places the caller, serving every tool when it is nil.
-	RoleOf RoleOf
+	RoleOf rpcapi.RoleOf
 }
 
 // NewHandler builds the MCP server as an HTTP handler with no auth on it, safe only while it
@@ -69,7 +66,7 @@ func NewHandler(params NewHandlerParams) (http.Handler, error) {
 }
 
 // getCallerRole reads the role of whoever is making the request.
-func getCallerRole(request *http.Request, roleOf RoleOf) annotationv1.Role {
+func getCallerRole(request *http.Request, roleOf rpcapi.RoleOf) annotationv1.Role {
 	agentID := caller.FromHeader(request.Header).AgentID
 	if roleOf == nil || agentID == "" {
 		return annotationv1.Role_ROLE_UNSPECIFIED

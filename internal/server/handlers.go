@@ -77,8 +77,9 @@ func newMux(params newMuxParams) (*http.ServeMux, error) {
 		return nil, err
 	}
 
+	roleOf := newRoleOf(params.Stores.agents, params.Logger)
 	options := []connect.HandlerOption{
-		connect.WithInterceptors(interceptors.NewLogging(params.Logger), validation),
+		connect.WithInterceptors(interceptors.NewLogging(params.Logger), interceptors.NewRoles(roleOf), validation),
 		interceptors.NewRecovery(),
 		rpccodec.NewStrictJSON(),
 	}
@@ -173,7 +174,7 @@ func newMux(params newMuxParams) (*http.ServeMux, error) {
 	mcpHandler, err := mcp.NewHandler(mcp.NewHandlerParams{
 		DB:      params.ReadOnly,
 		BaseURL: "http://" + params.Addr,
-		RoleOf:  newRoleOf(params.Stores.agents, params.Logger),
+		RoleOf:  roleOf,
 	})
 	if err != nil {
 		return nil, err
