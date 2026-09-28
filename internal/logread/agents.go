@@ -30,10 +30,10 @@ type Window struct {
 }
 
 // NewestAboutAgents is the last limit lines about any of the agents, oldest first.
-func (r *Reader) NewestAboutAgents(ctx context.Context, agentIDs []string, limit int) (Window, error) {
+func (r *Reader) NewestAboutAgents(ctx context.Context, agentIDs []string, limit int) (*Window, error) {
 	log, err := r.open()
 	if err != nil {
-		return Window{}, err
+		return nil, err
 	}
 	defer func() { _ = log.file.Close() }()
 
@@ -41,10 +41,10 @@ func (r *Reader) NewestAboutAgents(ctx context.Context, agentIDs []string, limit
 }
 
 // AboutAgentsSince is the lines about any of the agents written after offset, oldest first.
-func (r *Reader) AboutAgentsSince(ctx context.Context, agentIDs []string, offset int64, limit int) (Window, error) {
+func (r *Reader) AboutAgentsSince(ctx context.Context, agentIDs []string, offset int64, limit int) (*Window, error) {
 	log, err := r.open()
 	if err != nil {
-		return Window{}, err
+		return nil, err
 	}
 	defer func() { _ = log.file.Close() }()
 
@@ -52,7 +52,7 @@ func (r *Reader) AboutAgentsSince(ctx context.Context, agentIDs []string, offset
 	if offset > log.size {
 		window, err := r.newestAboutAgents(ctx, log, agentIDs, limit)
 		if err != nil {
-			return Window{}, err
+			return nil, err
 		}
 		window.Reset = true
 
@@ -61,13 +61,13 @@ func (r *Reader) AboutAgentsSince(ctx context.Context, agentIDs []string, offset
 
 	reader, err := r.readFrom(log.file, offset, log.size)
 	if err != nil {
-		return Window{}, err
+		return nil, err
 	}
 
-	window := Window{Offset: offset}
+	window := &Window{Offset: offset}
 	for len(window.Lines) < limit {
 		if err := ctx.Err(); err != nil {
-			return Window{}, fmt.Errorf("failed to finish reading the log at %s: %w", r.path, err)
+			return nil, fmt.Errorf("failed to finish reading the log at %s: %w", r.path, err)
 		}
 
 		// Past the budget the read stops and says more remains, so one call never reads the whole log.
@@ -82,7 +82,7 @@ func (r *Reader) AboutAgentsSince(ctx context.Context, agentIDs []string, offset
 			break
 		}
 		if err != nil {
-			return Window{}, err
+			return nil, err
 		}
 
 		window.Offset += n
@@ -99,9 +99,9 @@ func (r *Reader) AboutAgentsSince(ctx context.Context, agentIDs []string, offset
 }
 
 // newestAboutAgents reads the last budget of the log forward, keeping the last limit lines about the agents.
-func (r *Reader) newestAboutAgents(ctx context.Context, log openLog, agentIDs []string, limit int) (Window, error) {
+func (r *Reader) newestAboutAgents(ctx context.Context, log *openLog, agentIDs []string, limit int) (*Window, error) {
 	start := max(log.size-int64(r.budget), 0)
-	window := Window{Offset: start}
+	window := &Window{Offset: start}
 
 	// A read starting partway into the log begins one byte early and drops through the first newline.
 	if start > 0 {
@@ -109,22 +109,22 @@ func (r *Reader) newestAboutAgents(ctx context.Context, log openLog, agentIDs []
 	}
 	reader, err := r.readFrom(log.file, window.Offset, log.size)
 	if err != nil {
-		return Window{}, err
+		return nil, err
 	}
 	if start > 0 {
 		_, n, err := r.nextLine(reader)
 		if errors.Is(err, io.EOF) {
-			return Window{Offset: start}, nil
+			return &Window{Offset: start}, nil
 		}
 		if err != nil {
-			return Window{}, err
+			return nil, err
 		}
 		window.Offset += n
 	}
 
 	for {
 		if err := ctx.Err(); err != nil {
-			return Window{}, fmt.Errorf("failed to finish reading the log at %s: %w", r.path, err)
+			return nil, fmt.Errorf("failed to finish reading the log at %s: %w", r.path, err)
 		}
 
 		line, n, err := r.nextLine(reader)
@@ -132,7 +132,7 @@ func (r *Reader) newestAboutAgents(ctx context.Context, log openLog, agentIDs []
 			break
 		}
 		if err != nil {
-			return Window{}, err
+			return nil, err
 		}
 
 		window.Offset += n
@@ -186,23 +186,23 @@ type openLog struct {
 	size int64
 }
 
-func (r *Reader) open() (openLog, error) {
+func (r *Reader) open() (*openLog, error) {
 	file, err := os.Open(r.path)
 	if errors.Is(err, fs.ErrNotExist) {
-		return openLog{}, ErrNoLog.Saying("nothing has been written to %s", r.path)
+		return nil, ErrNoLog.Saying("nothing has been written to %s", r.path)
 	}
 	if err != nil {
-		return openLog{}, fmt.Errorf("failed to read the log at %s: %w", r.path, err)
+		return nil, fmt.Errorf("failed to read the log at %s: %w", r.path, err)
 	}
 
 	info, err := file.Stat()
 	if err != nil {
 		_ = file.Close()
 
-		return openLog{}, fmt.Errorf("failed to read the log at %s: %w", r.path, err)
+		return nil, fmt.Errorf("failed to read the log at %s: %w", r.path, err)
 	}
 
-	return openLog{file: file, size: info.Size()}, nil
+	return &openLog{file: file, size: info.Size()}, nil
 }
 
 // isAbout reports whether a line names any of the agents in one of the fields that name an agent.

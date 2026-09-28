@@ -20,7 +20,7 @@ import (
 type fakeLogReader struct {
 	lines     []logread.Line
 	summaries []logread.Summary
-	window    logread.Window
+	window    *logread.Window
 	err       error
 	traces    []string
 	limits    []int
@@ -35,17 +35,25 @@ type agentRead struct {
 }
 
 // NewestAboutAgents records the read and answers window.
-func (f *fakeLogReader) NewestAboutAgents(_ context.Context, agentIDs []string, limit int) (logread.Window, error) {
+func (f *fakeLogReader) NewestAboutAgents(_ context.Context, agentIDs []string, limit int) (*logread.Window, error) {
 	f.reads = append(f.reads, agentRead{ids: agentIDs, offset: -1, limit: limit})
 
-	return f.window, f.err
+	if f.err != nil {
+		return nil, f.err
+	}
+
+	return f.window, nil
 }
 
 // AboutAgentsSince records the read and answers window.
-func (f *fakeLogReader) AboutAgentsSince(_ context.Context, agentIDs []string, offset int64, limit int) (logread.Window, error) {
+func (f *fakeLogReader) AboutAgentsSince(_ context.Context, agentIDs []string, offset int64, limit int) (*logread.Window, error) {
 	f.reads = append(f.reads, agentRead{ids: agentIDs, offset: offset, limit: limit})
 
-	return f.window, f.err
+	if f.err != nil {
+		return nil, f.err
+	}
+
+	return f.window, nil
 }
 
 // Lines records the trace and answers lines unless err refuses it.
@@ -163,7 +171,7 @@ func TestReadAgentLogs(t *testing.T) {
 	tests := []struct {
 		name     string
 		req      *logv1.ReadAgentLogsRequest
-		window   logread.Window
+		window   *logread.Window
 		wantRead agentRead
 		want     *logv1.ReadAgentLogsResponse
 		wantCode connect.Code
@@ -181,21 +189,21 @@ func TestReadAgentLogs(t *testing.T) {
 		{
 			name:     "no cursor reads the newest, two hundred by default",
 			req:      &logv1.ReadAgentLogsRequest{AgentIds: []string{"a1", "b2"}},
-			window:   logread.Window{Lines: []string{"one", "two"}, Offset: 42},
+			window:   &logread.Window{Lines: []string{"one", "two"}, Offset: 42},
 			wantRead: agentRead{ids: []string{"a1", "b2"}, offset: -1, limit: 200},
 			want:     &logv1.ReadAgentLogsResponse{Lines: []string{"one", "two"}, Cursor: "42"},
 		},
 		{
 			name:     "a cursor reads from where it left off",
 			req:      &logv1.ReadAgentLogsRequest{AgentIds: []string{"a1"}, Cursor: "42", Limit: 5},
-			window:   logread.Window{Lines: []string{"three"}, Offset: 90, More: true},
+			window:   &logread.Window{Lines: []string{"three"}, Offset: 90, More: true},
 			wantRead: agentRead{ids: []string{"a1"}, offset: 42, limit: 5},
 			want:     &logv1.ReadAgentLogsResponse{Lines: []string{"three"}, Cursor: "90", More: true},
 		},
 		{
 			name:     "a log that started over says so",
 			req:      &logv1.ReadAgentLogsRequest{AgentIds: []string{"a1"}, Cursor: "900"},
-			window:   logread.Window{Lines: []string{"one"}, Offset: 10, Reset: true},
+			window:   &logread.Window{Lines: []string{"one"}, Offset: 10, Reset: true},
 			wantRead: agentRead{ids: []string{"a1"}, offset: 900, limit: 200},
 			want:     &logv1.ReadAgentLogsResponse{Lines: []string{"one"}, Cursor: "10", Reset_: true},
 		},

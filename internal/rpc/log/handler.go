@@ -23,8 +23,8 @@ var errBadCursor = fail.InvalidArgument("the cursor is not one this service answ
 type logReader interface {
 	Lines(trace string) ([]logread.Line, error)
 	RecentTraces(limit int) ([]logread.Summary, error)
-	NewestAboutAgents(ctx context.Context, agentIDs []string, limit int) (logread.Window, error)
-	AboutAgentsSince(ctx context.Context, agentIDs []string, offset int64, limit int) (logread.Window, error)
+	NewestAboutAgents(ctx context.Context, agentIDs []string, limit int) (*logread.Window, error)
+	AboutAgentsSince(ctx context.Context, agentIDs []string, offset int64, limit int) (*logread.Window, error)
 }
 
 type Handler struct {
@@ -89,7 +89,7 @@ func (s *Handler) ReadAgentLogs(ctx context.Context, req *logv1.ReadAgentLogsReq
 	}
 
 	var (
-		window logread.Window
+		window *logread.Window
 		err    error
 	)
 	if req.GetCursor() == "" {
