@@ -62,7 +62,7 @@ func (d *documentsScreen) table() []screenAction {
 			id:   actionDocumentsBack,
 			keys: func(k config.Keybindings) []string { return k.Documents.Back },
 			run: func(h host, _ panelShared, _ string) tea.Cmd {
-				return h.enter(screenAgents, screenTarget{agentID: d.agentID})
+				return h.enter(d.from, screenTarget{agentID: d.agentID})
 			},
 		},
 	)
@@ -209,21 +209,4 @@ func (d *documentsScreen) doesScrollColumn(s panelShared) bool {
 
 func (d *documentsScreen) scrollColumn(_ host, s panelShared, rows int) tea.Cmd {
 	return d.diffKeys().scrollColumn(s, rows)
-}
-
-// hasDocuments reports whether the hovered agent, or the orchestrator behind a hovered
-// workflow, has written anything the documents screen would list.
-func (a *agentsScreen) hasDocuments(s panelShared) bool {
-	if !a.isBrowsing(s) {
-		return false
-	}
-
-	row, ok := a.hoveredRow(s)
-	if !ok {
-		return false
-	}
-
-	item, held := row.paneItem()
-
-	return held && item.Documents > 0
 }

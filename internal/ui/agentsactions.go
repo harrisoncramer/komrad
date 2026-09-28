@@ -50,16 +50,16 @@ func (a *agentsScreen) modeActions() []screenAction {
 			run:  func(h host, s panelShared, _ string) tea.Cmd { return newWorkflowForm(h, s) },
 		},
 		screenAction{
-			id:   actionDocumentsOpen,
-			keys: func(k config.Keybindings) []string { return k.Documents.Open },
-			when: a.hasDocuments,
+			id:   actionSubpagesOpen,
+			keys: func(k config.Keybindings) []string { return k.Subpages.Open },
+			when: a.holdsSubpages,
 			run: func(h host, s panelShared, _ string) tea.Cmd {
-				id := a.hoveredAgentID(s)
-				if id == "" {
+				item, ok := a.hoveredPaneItem(s)
+				if !ok {
 					return nil
 				}
 
-				return h.enter(screenDocuments, screenTarget{agentID: id})
+				return openAgentSubpages(h, s, screenAgents, item)
 			},
 		},
 		screenAction{
@@ -150,14 +150,6 @@ func (a *agentsScreen) rowActions() []screenAction {
 			run:  a.onHoveredAgentIn(openGitMenu),
 		},
 		{
-			id:   actionAgentReview,
-			keys: func(k config.Keybindings) []string { return k.Agents.Review },
-			when: a.isHoveringAgent,
-			run: a.onHoveredAgent(func(h host, item panel.AgentRow) tea.Cmd {
-				return h.enter(screenReview, screenTarget{agentID: item.Agent.ID})
-			}),
-		},
-		{
 			id:   actionAgentChild,
 			keys: func(k config.Keybindings) []string { return k.Agents.Child },
 			when: a.isHoveringAgent,
@@ -188,6 +180,14 @@ func (a *agentsScreen) rowActions() []screenAction {
 
 func (a *agentsScreen) isBrowsing(s panelShared) bool {
 	return a.list().isBrowsing(s)
+}
+
+// holdsSubpages reports whether the cursor is on an agent, or on a workflow with an orchestrator,
+// whose subpages the menu can list.
+func (a *agentsScreen) holdsSubpages(s panelShared) bool {
+	_, ok := a.hoveredPaneItem(s)
+
+	return a.isBrowsing(s) && ok
 }
 
 func (a *agentsScreen) isHoveringWorkflow(s panelShared) bool {
@@ -294,12 +294,6 @@ func (a *agentsScreen) browsingLegend() []screenLegendRow {
 			desc: func(panelShared) string { return "git actions" },
 			show: a.isHoveringAgent,
 		},
-		// The review key is drawn for every agent, whether or not it answers for the one hovered.
-		{
-			of:   []actionID{actionAgentReview},
-			desc: func(panelShared) string { return "review diff" },
-			show: a.isHoveringAgent,
-		},
 		{
 			of:   []actionID{actionAgentPause},
 			desc: a.pauseDesc,
@@ -369,9 +363,9 @@ func (a *agentsScreen) browsingLegend() []screenLegendRow {
 			show: a.isHoveringAgent,
 		},
 		{
-			of:   []actionID{actionDocumentsOpen},
-			desc: func(panelShared) string { return "documents" },
-			show: a.hasDocuments,
+			of:   []actionID{actionSubpagesOpen},
+			desc: func(panelShared) string { return "subpages" },
+			show: a.holdsSubpages,
 		},
 		{
 			of:   []actionID{actionFilterOpen},

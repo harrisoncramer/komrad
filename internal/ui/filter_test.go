@@ -364,7 +364,7 @@ func TestFilterScreens(t *testing.T) {
 	})
 
 	t.Run("the documents walk their matches and narrow to them", func(t *testing.T) {
-		harness, _ := openDocuments(t, "author")
+		harness, _ := openDocuments(t)
 
 		harness.press("/", "r", "o", "l", "l", "enter")
 		assert.Contains(t, readHoveredRow(harness.readFrame()), "Rollout report")

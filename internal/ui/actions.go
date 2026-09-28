@@ -27,12 +27,11 @@ const (
 	actionFilterOpen
 	actionFilterClear
 	actionFilterMatch
-	actionTerminal
 	actionQuit
 	actionAgentsBack
 	actionAgentOpen
-	actionAgentReview
 	actionGitMenu
+	actionSubpagesOpen
 	actionAgentChild
 	actionAgentRename
 	actionAgentArchive
@@ -70,7 +69,6 @@ const (
 	actionWorktreesJumpToAgent
 	actionWorktreesDelete
 	actionWorktreesClear
-	actionDocumentsOpen
 	actionDocumentsBack
 	actionDocumentsEdit
 	actionDocumentsNew

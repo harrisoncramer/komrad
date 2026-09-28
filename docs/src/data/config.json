@@ -190,13 +190,6 @@
               "default": "[\"esc\"]"
             },
             {
-              "key": "review",
-              "path": "keybindings.agents.review",
-              "type": "array",
-              "description": "Review what the hovered agent has changed in its worktree, with the diff and the review\nthreads drawn beside each other across the window. The key does nothing for an agent whose\nworkflow does not make worktrees, since there is no base branch to measure one against, and\nthe legend leaves it off there.",
-              "default": "[\"d\"]"
-            },
-            {
               "key": "pause",
               "path": "keybindings.agents.pause",
               "type": "array",
@@ -396,7 +389,7 @@
               "key": "back",
               "path": "keybindings.documents.back",
               "type": "array",
-              "description": "Leave the documents screen for the agents list.",
+              "description": "Leave the documents screen for the view it was opened from.",
               "default": "[\"esc\"]"
             },
             {
@@ -426,13 +419,6 @@
               "type": "array",
               "description": "Write a new document for the agent whose documents are listed, from a form asking its name\nand kind. It starts with a line saying it is empty, for you to edit.",
               "default": "[\"c\"]"
-            },
-            {
-              "key": "open",
-              "path": "keybindings.documents.open",
-              "type": "array",
-              "description": "Open the documents screen from the agents list, on the hovered agent's documents, or\nits orchestrator's on a workflow's row.",
-              "default": "[\"D\"]"
             },
             {
               "key": "quit",
@@ -816,6 +802,48 @@
           "sections": []
         },
         {
+          "path": "keybindings.subpages",
+          "description": "The subpages menu, which lists the screens that belong to the hovered row.",
+          "settings": [
+            {
+              "key": "open",
+              "path": "keybindings.subpages.open",
+              "type": "array",
+              "description": "Open the subpages menu on the hovered agent, or its orchestrator's on a workflow's row.",
+              "default": "[\"space\"]"
+            },
+            {
+              "key": "review",
+              "path": "keybindings.subpages.review",
+              "type": "array",
+              "description": "Open the review of the agent's diff. The entry is gray on an agent with no worktree of its\nown, and in the archive.",
+              "default": "[\"r\"]"
+            },
+            {
+              "key": "documents",
+              "path": "keybindings.subpages.documents",
+              "type": "array",
+              "description": "Open the documents the agent has written. The entry is gray on an agent that has written\nnone.",
+              "default": "[\"d\"]"
+            },
+            {
+              "key": "logs",
+              "path": "keybindings.subpages.logs",
+              "type": "array",
+              "description": "Pick the agent's logs, which the panel does not draw yet, so the entry closes the menu.",
+              "default": "[\"l\"]"
+            },
+            {
+              "key": "terminal",
+              "path": "keybindings.subpages.terminal",
+              "type": "array",
+              "description": "Open a shell in the pane below the stage, rooted at the agent's directory, or hand the\nkeyboard to the one already rooted there. The entry is gray in the archive and on an agent\nwith no directory.",
+              "default": "[\"t\"]"
+            }
+          ],
+          "sections": []
+        },
+        {
           "path": "keybindings.tabs",
           "description": "The row of tabs a screen draws over its list, and the key that hands it the cursor.",
           "settings": [
@@ -839,20 +867,6 @@
               "type": "array",
               "description": "Hand the keys to the row of kinds, where tab and shift+tab switch the kind listed; escape\nhands them back.",
               "default": "[\"F\"]"
-            }
-          ],
-          "sections": []
-        },
-        {
-          "path": "keybindings.terminal",
-          "description": "The key that opens a shell in the hovered agent's directory, shared by every\nscreen that lists agents.",
-          "settings": [
-            {
-              "key": "open",
-              "path": "keybindings.terminal.open",
-              "type": "array",
-              "description": "Open a shell in the hovered agent's directory, focus the one already there, or move it here.",
-              "default": "[\"T\"]"
             }
           ],
           "sections": []

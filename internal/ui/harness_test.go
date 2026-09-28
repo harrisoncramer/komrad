@@ -620,11 +620,7 @@ func splitLines(frame string) []string {
 // none is drawn.
 func readBelowViews(frame string) []string {
 	lines := splitLines(frame)
-	if len(lines) > 4 && strings.Contains(lines[0], "\U000F050C komrad") {
-		if strings.Contains(lines[2], " › ") {
-			return lines[4:]
-		}
-
+	if len(lines) > 3 && strings.Contains(lines[0], "\U000F050C komrad") {
 		return lines[3:]
 	}
 

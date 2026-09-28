@@ -29,7 +29,7 @@ func TestViews(t *testing.T) {
 	})
 
 	t.Run("a page opened from a view draws the trail back to it under the switcher", func(t *testing.T) {
-		harness, _ := openDocuments(t, "author")
+		harness, _ := openDocuments(t)
 
 		lines := splitLines(harness.readFrame())
 		require.GreaterOrEqual(t, len(lines), 3)
@@ -40,7 +40,7 @@ func TestViews(t *testing.T) {
 	})
 
 	t.Run("a pane too short for the switcher still draws the trail", func(t *testing.T) {
-		harness, _ := openDocuments(t, "author")
+		harness, _ := openDocuments(t)
 
 		resize(harness, 80, 16)
 		frame := harness.readFrame()

@@ -97,6 +97,19 @@ func (a *archiveScreen) agentTable() []screenAction {
 			when: list.isBrowsing,
 			run:  a.deleteHovered,
 		},
+		screenAction{
+			id:   actionSubpagesOpen,
+			keys: func(k config.Keybindings) []string { return k.Subpages.Open },
+			when: a.holdsAnAgent,
+			run: func(h host, s panelShared, _ string) tea.Cmd {
+				row, ok := rowAt(a.listRows(s), a.cursor)
+				if !ok || row.header {
+					return nil
+				}
+
+				return openAgentSubpages(h, s, screenArchive, row.item)
+			},
+		},
 	)
 }
 
@@ -138,6 +151,11 @@ func (a *archiveScreen) legend() []screenLegendRow {
 		{
 			of:   []actionID{actionArchiveDelete},
 			desc: func(panelShared) string { return "delete for good" },
+			show: a.holdsAnAgent,
+		},
+		{
+			of:   []actionID{actionSubpagesOpen},
+			desc: func(panelShared) string { return "subpages" },
 			show: a.holdsAnAgent,
 		},
 		{

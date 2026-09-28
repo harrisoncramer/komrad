@@ -41,9 +41,9 @@ func remoteTerminalContent(argv []string) layout.Content {
 	}
 }
 
-// openTerminal puts a shell in the pane below the stage, rooted at the hovered agent's directory,
-// and moves the shell there when the key is pressed over an agent it is not already rooted in.
-func (m model) openTerminal() (tea.Model, tea.Cmd) {
+// openTerminal puts a shell in the pane below the stage, rooted at the agent's directory, and
+// hands the keyboard to the shell already there when it is rooted in the same place.
+func (m model) openTerminal(agent panel.Agent) (tea.Model, tea.Cmd) {
 	focus := func() (tea.Model, tea.Cmd) {
 		m.tmux.SelectPane(m.frame.Pane(layout.RegionInfo))
 
@@ -51,16 +51,6 @@ func (m model) openTerminal() (tea.Model, tea.Cmd) {
 	}
 
 	up := m.info.kind == infoTerminal && m.frame.IsOpen(layout.RegionInfo)
-
-	agent, ok := m.terminalTarget()
-	if !ok {
-		// A row holding no directory of its own can only ask for the shell already there.
-		if up {
-			return focus()
-		}
-
-		return m, nil
-	}
 
 	// The shell is where the key asks for, so it wants the keyboard rather than a fresh start.
 	if up && agent.Cwd == m.info.subject {
@@ -103,33 +93,4 @@ func (m model) checkTerminalDir(dir string) error {
 	_, err := os.Stat(dir)
 
 	return err
-}
-
-func (m model) terminalDesc() string {
-	if m.info.kind != infoTerminal {
-		return "terminal here"
-	}
-
-	// Pressing the key over an agent the shell is not rooted in moves it, so say so.
-	if agent, ok := m.terminalTarget(); ok && agent.Cwd != m.info.subject {
-		return "terminal here"
-	}
-
-	return "back to the terminal"
-}
-
-// terminalTarget is the agent the terminal key roots its shell in, which for a workflow is its
-// orchestrator.
-func (m model) terminalTarget() (panel.Agent, bool) {
-	row, ok := m.agents.hoveredRow(m.shared())
-	if !ok {
-		return panel.Agent{}, false
-	}
-
-	item, ok := row.paneItem()
-	if !ok {
-		return panel.Agent{}, false
-	}
-
-	return item.Agent, true
 }

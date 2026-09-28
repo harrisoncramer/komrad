@@ -299,7 +299,7 @@ func buildDriftScreens() []driftScreen {
 			open: func(t *testing.T) *panelHarness {
 				t.Helper()
 
-				harness, _ := openDocuments(t, "author")
+				harness, _ := openDocuments(t)
 
 				return harness
 			},

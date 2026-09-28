@@ -637,7 +637,6 @@ func (m model) listHelp(own keyMap) keyMap {
 				m.cycleBinding(),
 				m.messagesBinding(),
 			},
-			m.infoPaneHelp(),
 			m.fullGlobalHelp(),
 		),
 	}

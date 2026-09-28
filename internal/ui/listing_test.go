@@ -151,7 +151,7 @@ func TestListingLandsWrites(t *testing.T) {
 
 		harness := openTerminal(t, panelHarnessParams{}, newStagedShellAgent(t.TempDir()))
 		harness.refuse(agentv1connect.AgentServiceUpdateAgentProcedure, connect.NewError(connect.CodeAlreadyExists, errors.New("name is taken")))
-		harness.press("T")
+		harness.press("space", "t")
 		opened := len(harness.panel.ReadRespawns())
 		require.Positive(t, opened, "the shell is opened into a pane")
 

@@ -19,6 +19,9 @@ type formState struct {
 	kind formKind
 	form *huh.Form
 
+	// crumb is the step the form adds to the trail while it is up, empty for none.
+	crumb string
+
 	// update is the form's own message handler, so the panel need not ask which form is up before
 	// handing it a message.
 	update func(model, tea.Msg) (tea.Model, tea.Cmd)
@@ -55,6 +58,7 @@ const (
 	formAgentRetry
 	formAgentRelease
 	formGit
+	formSubpages
 	formWorkflow
 	formWorkflowArchive
 	formSchedule
@@ -120,7 +124,7 @@ func formColumn(kind formKind) (columnSpec, bool) {
 	case formAgent, formChild, formAdopt, formRename, formAgentRetry, formWorkflow, formSchedule,
 		formDocument:
 		return columnSpec{floor: formColumnFloor}, true
-	case formGit, formAgentArchive, formAgentRebase, formAgentRelease, formWorkflowArchive, formScheduleArchive,
+	case formGit, formSubpages, formAgentArchive, formAgentRebase, formAgentRelease, formWorkflowArchive, formScheduleArchive,
 		formArchiveDelete, formWorktreesDelete:
 		return columnSpec{floor: columnFloor}, true
 	case formNone:
@@ -386,10 +390,16 @@ func (m model) formSizeOf(msg tea.Msg) tea.Msg {
 	}
 }
 
-// closeForm drops the form and comes back to the screen it was drawn over.
-func (m model) closeForm() (tea.Model, tea.Cmd) {
+// leaveForm drops the form for an answer that goes on to another screen, which settles the window
+// itself, so the screen the form was drawn over is not drawn again on the way.
+func (m *model) leaveForm() {
 	m.held = heldWrite{}
 	m.form = formState{}
+}
+
+// closeForm drops the form and comes back to the screen it was drawn over.
+func (m model) closeForm() (tea.Model, tea.Cmd) {
+	m.leaveForm()
 	m.reconcileSolo()
 
 	cmd := m.enter(m.screen, screenTarget{})

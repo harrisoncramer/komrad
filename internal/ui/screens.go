@@ -59,6 +59,8 @@ type screenModel interface {
 // understands.
 type screenTarget struct {
 	agentID string
+	// from is the view the screen was opened from.
+	from screen
 }
 
 // detailed is a screen that draws a record under its list.

@@ -71,6 +71,7 @@ type recordingTmux struct {
 	deadPanes     map[string]bool
 	sessionClient string
 	zoomed        bool
+	zooms         []bool
 	// keysElsewhere is the keyboard sitting in a pane other than the one being asked about.
 	keysElsewhere bool
 	// activePane is the pane the window sends keys to, where a test has put them somewhere named.
@@ -394,6 +395,11 @@ func (p *Panel) IsZoomed() bool {
 	return p.tmux.zoomed
 }
 
+// ReadZooms is every zoom the panel has asked tmux for, in order.
+func (p *Panel) ReadZooms() []bool {
+	return p.tmux.zooms
+}
+
 // IsKeyTaken reports whether a press of the key reaches any binding the panel dispatches on.
 func (p *Panel) IsKeyTaken(key string) bool {
 	isTaken := false
@@ -582,6 +588,7 @@ func (t *recordingTmux) IsPaneAlive(pane string) bool {
 
 func (t *recordingTmux) SetPaneZoomed(_ string, on bool) {
 	t.zoomed = on
+	t.zooms = append(t.zooms, on)
 }
 
 func (t *recordingTmux) GetWindowWidth(string) int {

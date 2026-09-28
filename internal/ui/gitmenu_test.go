@@ -74,7 +74,7 @@ func TestGitMenu(t *testing.T) {
 
 		harness.press("/")
 
-		assert.Contains(t, harness.readFrame(), "Rebase onto the base (r)")
+		assert.Contains(t, harness.readFrame(), "rebase with base")
 	})
 
 	t.Run("an entry picked after its agent has left the list says so", func(t *testing.T) {
@@ -90,7 +90,7 @@ func TestGitMenu(t *testing.T) {
 	})
 }
 
-// TestGitMenuRefusals covers each entry naming why it would do nothing, and saying so when picked.
+// TestGitMenuRefusals covers an entry that would do nothing saying why when picked.
 func TestGitMenuRefusals(t *testing.T) {
 	t.Parallel()
 
@@ -98,21 +98,18 @@ func TestGitMenuRefusals(t *testing.T) {
 		name        string
 		rows        []proto.Message
 		press       string
-		wantEntry   string
 		wantRefusal string
 	}{
 		{
 			name:        "the rebase of an agent with no worktree of its own",
 			rows:        buildUncutAgent(),
 			press:       "r",
-			wantEntry:   "Rebase onto the base (r) · no worktree of its own",
 			wantRefusal: "this agent has no worktree of its own, so there is no base to move it onto",
 		},
 		{
 			name:        "the pull request of a repository not read yet",
 			rows:        buildUncutAgent(),
 			press:       "o",
-			wantEntry:   "Open the pull request (o) · not read yet",
 			wantRefusal: "komrad has not read this agent's repository yet",
 		},
 		{
@@ -122,14 +119,12 @@ func TestGitMenuRefusals(t *testing.T) {
 				Read: true,
 			}),
 			press:       "o",
-			wantEntry:   "Open the pull request (o) · none from this branch",
 			wantRefusal: "komrad has read the repository and nothing has been opened from this branch",
 		},
 		{
 			name:        "the pull request of a branch that has moved past its last one",
 			rows:        append(buildUncutAgent(), newMergedPullRequest()),
 			press:       "o",
-			wantEntry:   "Open the pull request (o) · moved on since its last one",
 			wantRefusal: "the branch has moved on since its last pull request finished",
 		},
 	}
@@ -139,10 +134,6 @@ func TestGitMenuRefusals(t *testing.T) {
 			t.Parallel()
 
 			harness := openGitMenu(t, tt.rows...)
-
-			frame := harness.readFrame()
-			assert.Contains(t, frame, tt.wantEntry)
-			assert.Contains(t, frame, "Cancel")
 
 			harness.press(tt.press)
 

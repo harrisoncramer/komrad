@@ -80,11 +80,6 @@ details_height = 9
 archive          = ["z"]
 # Step out of a workflow scope, or quit at the root.
 back             = ["esc"]
-# Review what the hovered agent has changed in its worktree, with the diff and the review
-# threads drawn beside each other across the window. The key does nothing for an agent whose
-# workflow does not make worktrees, since there is no base branch to measure one against, and
-# the legend leaves it off there.
-review           = ["d"]
 # Pause the hovered agent where it stands, or unpause one you have already paused. Komrad
 # waits for the agent to come to rest before it claims the worktree, and refuses rather than
 # claiming it when the agent will not stop or its pane cannot be read.
@@ -158,7 +153,7 @@ prev_match = ["N"]
 
 # The documents screen, which reads what the hovered agent has written for a person.
 [keybindings.documents]
-# Leave the documents screen for the agents list.
+# Leave the documents screen for the view it was opened from.
 back  = ["esc"]
 # Open the document under the cursor in your editor, in place of the document drawn
 # beside the list. Quitting the editor, or pressing the key again to close it, saves what it
@@ -172,9 +167,6 @@ newer = [">"]
 # Write a new document for the agent whose documents are listed, from a form asking its name
 # and kind. It starts with a line saying it is empty, for you to edit.
 new   = ["c"]
-# Open the documents screen from the agents list, on the hovered agent's documents, or
-# its orchestrator's on a workflow's row.
-open  = ["D"]
 # Quit the panel.
 quit  = ["ctrl+c"]
 
@@ -317,6 +309,23 @@ range  = ["V"]
 # Take the row under the cursor into the selection, or back out of it.
 toggle = ["v"]
 
+# The subpages menu, which lists the screens that belong to the hovered row.
+[keybindings.subpages]
+# Open the subpages menu on the hovered agent, or its orchestrator's on a workflow's row.
+open      = ["space"]
+# Open the review of the agent's diff. The entry is gray on an agent with no worktree of its
+# own, and in the archive.
+review    = ["r"]
+# Open the documents the agent has written. The entry is gray on an agent that has written
+# none.
+documents = ["d"]
+# Pick the agent's logs, which the panel does not draw yet, so the entry closes the menu.
+logs      = ["l"]
+# Open a shell in the pane below the stage, rooted at the agent's directory, or hand the
+# keyboard to the one already rooted there. The entry is gray in the archive and on an agent
+# with no directory.
+terminal  = ["t"]
+
 # The row of tabs a screen draws over its list, and the key that hands it the cursor.
 [keybindings.tabs]
 # Hand the keys to the row of tabs over the list; escape hands them back.
@@ -327,12 +336,6 @@ focus = ["f"]
 # Hand the keys to the row of kinds, where tab and shift+tab switch the kind listed; escape
 # hands them back.
 focus = ["F"]
-
-# The key that opens a shell in the hovered agent's directory, shared by every
-# screen that lists agents.
-[keybindings.terminal]
-# Open a shell in the hovered agent's directory, focus the one already there, or move it here.
-open = ["T"]
 
 # The switcher at the top of the panel, which moves between the agents, query,
 # schedules, archive and worktrees from any of them.

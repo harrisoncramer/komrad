@@ -289,14 +289,6 @@ func (m model) routeGlobalKey(key tea.KeyPressMsg) (tea.Model, tea.Cmd, bool) {
 		return m.nudgeSidebar(sidebarStep), nil, true
 	}
 
-	// Whether these keys act is a policy about the keys rather than the geometry, and the two do
-	// not line up: the archive and the review draw the whole window and refuse them.
-	if m.screen.opensInfoPane() && isBound(key.String(), m.keys.Terminal.Open) {
-		next, cmd := m.openTerminal()
-
-		return next, cmd, true
-	}
-
 	if m.isMessagesRegion() && key.String() == messagesMockKey {
 		return m.pushMockMessage(), nil, true
 	}

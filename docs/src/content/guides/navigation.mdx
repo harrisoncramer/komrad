@@ -68,6 +68,12 @@ You can also mark a row with <Key name="marks.set" /> and a letter, and jump bac
   </video>
 </figure>
 
+## Subpages
+
+Some screens belong to one row rather than to a whole view. An agent has the review of its work, the documents it has written, its logs, and a terminal in its directory. Press <Key name="subpages.open" /> on an agent, in the agents list or the archive, to open a menu of its <Setting path="keybindings.subpages">subpages</Setting>: <Key name="subpages.review" /> for the review, <Key name="subpages.documents" /> for documents, <Key name="subpages.logs" /> for logs, and <Key name="subpages.terminal" /> for a shell in the pane below the stage, rooted at the agent's directory. Picking the terminal again on an agent in the same directory hands the keyboard to the shell already there. On a workflow's row the menu opens on its orchestrator, which has only its logs and terminal, since the reviews and documents belong to the workflow's other agents. You can also move to an entry with <Key name="nav.down" /> and <Key name="nav.up" /> and pick it. An entry with nothing behind it is gray, and pressing its letter says why in the messages. Leaving the subpage you picked, such as with <Key name="documents.back" /> on documents, goes back to the list you opened the menu from.
+
+The <Setting path="keybindings.git">git menu</Setting> on <Key name="git.open" /> works the same way, with <Key name="git.rebase" /> to rebase the agent's branch onto its base and <Key name="git.open_pull_request" /> to open its pull request.
+
 ## Visual selection
 
 Press <Key name="selection.toggle" /> to take the row under the cursor into a selection, and <Key name="selection.range" /> to take in every row between the cursor and the nearest selected one. An action that works on one agent then works on all of them, such as archiving, or restoring and deleting on the archive screen.

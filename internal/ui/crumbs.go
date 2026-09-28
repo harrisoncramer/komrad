@@ -52,16 +52,28 @@ func (c crumbs) view(palette paint.Palette, width int) string {
 // activeCrumbs is the trail from the view the page that is up was opened from, and false on a
 // view of its own.
 func (m *model) activeCrumbs() (crumbs, screen, bool) {
-	c, ok := m.active().(crumbed)
+	parent, trail, ok := m.pageCrumbs()
 	if !ok {
 		return crumbs{}, m.screen, false
 	}
 
-	parent := c.parent()
-	trail := c.crumbs(m.shared())
 	if i := slices.IndexFunc(viewEntries(), func(entry viewEntry) bool { return entry.screen == parent }); i >= 0 {
 		trail.trail = slices.Concat([]string{viewEntries()[i].label}, trail.trail)
 	}
 
 	return trail, parent, true
+}
+
+// pageCrumbs is the trail under the view, from the page that is up or from the form open over a
+// view.
+func (m *model) pageCrumbs() (screen, crumbs, bool) {
+	if c, ok := m.active().(crumbed); ok {
+		return c.parent(), c.crumbs(m.shared()), true
+	}
+
+	if m.form.isOpening() && m.form.crumb != "" {
+		return m.screen, crumbs{trail: []string{m.form.crumb}}, true
+	}
+
+	return m.screen, crumbs{}, false
 }

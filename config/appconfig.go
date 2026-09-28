@@ -162,13 +162,12 @@ type Keybindings struct {
 	Sidebar SidebarKeys `mapstructure:"sidebar"`
 	// Choosing several agents at once, shared by the two screens that draw a tree.
 	Selection SelectionKeys `mapstructure:"selection"`
+	// The subpages menu, which lists the screens that belong to the hovered row.
+	Subpages SubpagesKeys `mapstructure:"subpages"`
 	// The row of tabs a screen draws over its list, and the key that hands it the cursor.
 	Tabs TabsKeys `mapstructure:"tabs"`
 	// The row of kinds a screen listing more than one kind of resource draws under its tabs.
 	Kinds KindsKeys `mapstructure:"kinds"`
-	// The key that opens a shell in the hovered agent's directory, shared by every
-	// screen that lists agents.
-	Terminal TerminalKeys `mapstructure:"terminal"`
 	// The switcher at the top of the panel, which moves between the agents, query,
 	// schedules, archive and worktrees from any of them.
 	Views ViewsKeys `mapstructure:"views"`
@@ -273,16 +272,6 @@ type ViewsKeys struct {
 	Worktrees []string `mapstructure:"worktrees" default:"w"`
 }
 
-// TerminalKeys is the binding that opens a shell in the info pane, rooted at the hovered
-// agent's own directory. It is its own group rather than one of a screen's, since the
-// archive lists agents with directories too. The shell stays where it opened as the cursor
-// moves, since respawning its pane would kill whatever is running in it, so pressing the key
-// hands it the keyboard and only moves it when the hovered agent is rooted somewhere else.
-type TerminalKeys struct {
-	// Open a shell in the hovered agent's directory, focus the one already there, or move it here.
-	Open []string `mapstructure:"open" default:"T"`
-}
-
 // FormKeys are the keys a form answers, read before the key reaches the box being typed into and
 // so not something a config sets.
 type FormKeys struct {
@@ -316,11 +305,6 @@ type AgentsKeys struct {
 	Archive []string `mapstructure:"archive" default:"z"`
 	// Step out of a workflow scope, or quit at the root.
 	Back []string `mapstructure:"back" default:"esc"`
-	// Review what the hovered agent has changed in its worktree, with the diff and the review
-	// threads drawn beside each other across the window. The key does nothing for an agent whose
-	// workflow does not make worktrees, since there is no base branch to measure one against, and
-	// the legend leaves it off there.
-	Review []string `mapstructure:"review" default:"d"`
 	// Pause the hovered agent where it stands, or unpause one you have already paused. Komrad
 	// waits for the agent to come to rest before it claims the worktree, and refuses rather than
 	// claiming it when the agent will not stop or its pane cannot be read.
@@ -375,6 +359,25 @@ type GitKeys struct {
 	Rebase []string `mapstructure:"rebase" default:"r"`
 }
 
+// SubpagesKeys are the bindings for the subpages menu, which lists the screens that belong to
+// the hovered row. Today that row is an agent, on the agents list or in the archive.
+type SubpagesKeys struct {
+	// Open the subpages menu on the hovered agent, or its orchestrator's on a workflow's row.
+	Open []string `mapstructure:"open" default:"space"`
+	// Open the review of the agent's diff. The entry is gray on an agent with no worktree of its
+	// own, and in the archive.
+	Review []string `mapstructure:"review" default:"r"`
+	// Open the documents the agent has written. The entry is gray on an agent that has written
+	// none.
+	Documents []string `mapstructure:"documents" default:"d"`
+	// Pick the agent's logs, which the panel does not draw yet, so the entry closes the menu.
+	Logs []string `mapstructure:"logs" default:"l"`
+	// Open a shell in the pane below the stage, rooted at the agent's directory, or hand the
+	// keyboard to the one already rooted there. The entry is gray in the archive and on an agent
+	// with no directory.
+	Terminal []string `mapstructure:"terminal" default:"t"`
+}
+
 // WorkflowsKeys are the bindings that act on a workflow.
 type WorkflowsKeys struct {
 	// Put an agent on a branch that already exists, in the workflow under the
@@ -393,7 +396,7 @@ type WorkflowsKeys struct {
 // DocumentsKeys are the bindings for the documents screen, which lists the documents one
 // agent has written and draws the one under the cursor beside the list.
 type DocumentsKeys struct {
-	// Leave the documents screen for the agents list.
+	// Leave the documents screen for the view it was opened from.
 	Back []string `mapstructure:"back" default:"esc"`
 	// Open the document under the cursor in your editor, in place of the document drawn
 	// beside the list. Quitting the editor, or pressing the key again to close it, saves what it
@@ -407,9 +410,6 @@ type DocumentsKeys struct {
 	// Write a new document for the agent whose documents are listed, from a form asking its name
 	// and kind. It starts with a line saying it is empty, for you to edit.
 	New []string `mapstructure:"new" default:"c"`
-	// Open the documents screen from the agents list, on the hovered agent's documents, or
-	// its orchestrator's on a workflow's row.
-	Open []string `mapstructure:"open" default:"D"`
 	// Quit the panel.
 	Quit []string `mapstructure:"quit" default:"ctrl+c"`
 }

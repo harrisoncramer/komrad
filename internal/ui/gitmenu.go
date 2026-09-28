@@ -4,13 +4,10 @@ import (
 	"errors"
 	"slices"
 
-	"komrad/config"
-	"komrad/internal/ui/paint"
 	"komrad/internal/ui/panel"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 
 	tea "charm.land/bubbletea/v2"
-	"charm.land/huh/v2"
 )
 
 // gitChoice is one entry of the git menu.
@@ -19,7 +16,6 @@ type gitChoice int
 const (
 	gitChoiceRebase gitChoice = iota
 	gitChoiceOpenPullRequest
-	gitChoiceCancel
 )
 
 var (
@@ -33,36 +29,20 @@ var (
 // openGitMenu draws the git actions beside the list, for the agent the cursor is on.
 func openGitMenu(h host, s panelShared, item panel.AgentRow) tea.Cmd {
 	agent := item.Agent
-	menu := gitMenu{
-		name:           agent.Name,
-		rebaseable:     s.listing.isRebaseable(agent),
-		hasPullRequest: item.PullRequest.URL != "",
-		noPullRequest:  pullRequestHint(pullRequestRefusal(item)),
-	}
-	form, choice := gitMenuForm(menu, s.keys.Git, formKeys())
-
 	agentID := agent.ID
 
-	return h.openForm(formState{
-		kind:   formGit,
-		form:   form,
-		update: func(m model, msg tea.Msg) (tea.Model, tea.Cmd) { return m.updateGitMenu(msg, choice) },
-		submit: confirmSubmit(func(m model) (model, tea.Cmd) { return m.runGitChoice(agentID, *choice) }),
-		rebuild: func(model) (*huh.Form, []string) {
-			held, _ := gitMenuForm(menu, s.keys.Git, formKeys())
-
-			return held, nil
+	return openSubmenu(h, submenu{
+		kind:  formGit,
+		title: "Git on " + agent.Name,
+		crumb: agent.Name,
+		entries: []submenuEntry{
+			{label: "rebase with base", keys: s.keys.Git.Rebase, isOff: !s.listing.isRebaseable(agent)},
+			{label: "open pr", keys: s.keys.Git.OpenPullRequest, isOff: item.PullRequest.URL == ""},
+		},
+		answer: func(m model, choice int) (tea.Model, tea.Cmd) {
+			return confirmSubmit(func(m model) (model, tea.Cmd) { return m.runGitChoice(agentID, gitChoice(choice)) })(m)
 		},
 	})
-}
-
-// gitMenu is what the menu is drawn from: who it is about, and which of its entries would do
-// anything.
-type gitMenu struct {
-	name           string
-	rebaseable     bool
-	hasPullRequest bool
-	noPullRequest  string
 }
 
 // pullRequestRefusal is why an agent with no current pull request has none to open.
@@ -74,98 +54,6 @@ func pullRequestRefusal(item panel.AgentRow) error {
 		return errMovedPastPullRequest
 	default:
 		return errNoPullRequest
-	}
-}
-
-// pullRequestHint is a refusal as the menu words it beside its entry.
-func pullRequestHint(refusal error) string {
-	switch {
-	case errors.Is(refusal, errPullRequestsUnread):
-		return "not read yet"
-	case errors.Is(refusal, errMovedPastPullRequest):
-		return "moved on since its last one"
-	default:
-		return "none from this branch"
-	}
-}
-
-func gitMenuForm(menu gitMenu, keys config.GitKeys, form config.FormKeys) (*huh.Form, *gitChoice) {
-	// huh scrolls its list to whichever entry the cursor starts on.
-	choice := gitChoiceRebase
-
-	field := huh.NewSelect[gitChoice]().
-		Key("git").
-		Title("Git on "+menu.name).
-		Value(&choice).
-		Options(
-			huh.NewOption(gitEntryLabel(gitEntry{
-				name:    "Rebase onto the base",
-				keys:    keys.Rebase,
-				refusal: "no worktree of its own",
-				held:    menu.rebaseable,
-			}), gitChoiceRebase),
-			huh.NewOption(gitEntryLabel(gitEntry{
-				name:    "Open the pull request",
-				keys:    keys.OpenPullRequest,
-				refusal: menu.noPullRequest,
-				held:    menu.hasPullRequest,
-			}), gitChoiceOpenPullRequest),
-			huh.NewOption("Cancel", gitChoiceCancel),
-		)
-
-	return huh.NewForm(huh.NewGroup(field)).
-		WithShowHelp(true).WithKeyMap(gitMenuKeyMap(form)).WithTheme(paint.Panel.FormTheme()), &choice
-}
-
-// gitMenuKeyMap is the form's own keys without the select's filter.
-func gitMenuKeyMap(keys config.FormKeys) *huh.KeyMap {
-	km := multiFieldKeyMap(keys)
-	km.Select.Filter.SetEnabled(false)
-
-	return km
-}
-
-// gitEntry is one row of the menu: what it does, the key that picks it, and its refusal.
-type gitEntry struct {
-	name    string
-	keys    []string
-	refusal string
-	held    bool
-}
-
-// gitEntryLabel names an entry, the key that picks it, and why it would do nothing here.
-func gitEntryLabel(entry gitEntry) string {
-	label := entry.name
-
-	if key := headLabel(entry.keys); key != "" {
-		label += " (" + key + ")"
-	}
-
-	if !entry.held {
-		label += separated + entry.refusal
-	}
-
-	return label
-}
-
-// updateGitMenu answers an entry by its own letter, and hands huh every other message.
-func (m model) updateGitMenu(msg tea.Msg, choice *gitChoice) (tea.Model, tea.Cmd) {
-	press, ok := msg.(tea.KeyPressMsg)
-	if !ok {
-		return m.updateForm(msg)
-	}
-
-	switch k := press.String(); {
-	case isBound(k, m.keys.Git.Rebase):
-		*choice = gitChoiceRebase
-
-		return m.answerForm()
-	case isBound(k, m.keys.Git.OpenPullRequest):
-		*choice = gitChoiceOpenPullRequest
-
-		return m.answerForm()
-	default:
-		return m.updateForm(msg)
 	}
 }
 
@@ -194,8 +82,6 @@ func (m model) runGitChoice(agentID string, choice gitChoice) (model, tea.Cmd) {
 		return m, cmd
 	case gitChoiceOpenPullRequest:
 		return m.openPullRequest(item)
-	case gitChoiceCancel:
-		return m, nil
 	}
 
 	// The switch carries every entry and no default, so this is what an entry added without an arm

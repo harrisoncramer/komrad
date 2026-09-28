@@ -180,16 +180,6 @@ func filterHelp(mode filterMode) keyMap {
 	return keyMap{short: []key.Binding{done, flip, drop}, full: []key.Binding{done, flip, drop}}
 }
 
-// infoPaneHelp is the keys that fill the pane beside the panel, drawn off the same question the
-// dispatch asks before answering them.
-func (m model) infoPaneHelp() []key.Binding {
-	if !m.screen.opensInfoPane() {
-		return nil
-	}
-
-	return []key.Binding{binding(m.keys.Terminal.Open, m.terminalDesc())}
-}
-
 func (m model) helpBinding() key.Binding {
 	desc := "show help"
 	if m.helpExpanded {
