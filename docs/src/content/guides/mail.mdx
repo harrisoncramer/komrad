@@ -8,7 +8,7 @@ order: 7
 import Setting from "../../components/Setting.astro";
 import { media } from "../../site";
 
-So far each [agent](../agents/) has worked alone. Agents can also talk to each other, by mail. It is how an orchestrator hands out work and hears back, and how a reviewer tells an author what it found.
+Agents talk to each other asynchronously using komrad's _mail_. Mail lets an orchestrator hand out work and hear back from implementers, or a reviewer send a message back to an implementer, without having to pause each others' line of thought.
 
 ## Try it
 
@@ -40,18 +40,12 @@ Mail never interrupts an agent mid-turn. An agent picks up its mail when it fini
 
 Because mail arrives when a turn ends, an agent cannot wait for a reply inside a turn. Agents are told to end their turn and let the reply come to them.
 
-Mail to a stopped agent waits until it runs again. Mail unread past <Setting path="mail.delivery_deadline" /> expires. You can read any agent's mail from the CLI or over MCP.
+Mail unread past <Setting path="mail.delivery_deadline" /> expires. You can read any agent's mail from the CLI or over MCP.
 
-## Notices from komrad
+Within a group, an implementer [agent](../agents/#agents-that-work-together) can mail its parent and its siblings, and nobody else. An implementer outside that family cannot mail it.
 
-Some mail comes from komrad itself rather than from an agent. An agent is told when a review of its work is released, when a conversation hits its limit, and when you write or edit one of its documents in the panel. That notice names the document and the version you wrote, so the agent can read your change and write its next version on top of it. Saving the same document again before the agent has read the notice sends nothing more, and an archived agent is not told.
+## Conversation limits
 
-## The limit on a conversation
+You can limit how much mail two agents exchange by setting <Setting path="mail.max_exchange" />. It exists to stop two agents looping on each other forever. When the limit stops a message, the sender gets an error and the other agent is told, so it does not wait for a reply that will never come. Your own mail never counts.
 
-Two agents can only write each other so much, set by <Setting path="mail.max_exchange" />. It exists to stop two agents looping on each other forever. When the limit stops a message, the sender gets an error and the other agent is told, so it does not wait for a reply that will never come. Your own mail never counts. Deleting old mail between a pair gives them room again.
 
-## Families
-
-A [child agent](../agents/#agents-that-work-together) can mail its parent and its siblings, and nobody else. An agent outside the family cannot mail the child. You can always mail anyone.
-
-Mail is how agents talk. [MCP](../mcp/) is how one agent starts another in the first place.
