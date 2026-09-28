@@ -40,7 +40,7 @@ var (
 	// ErrForAnother is a rewrite naming an agent other than the one whose document it is.
 	ErrForAnother = fail.InvalidArgument("the document belongs to another agent, so leave agent_id unset to rewrite it")
 	// ErrReviewer is a reviewer writing a document of its own.
-	ErrReviewer = fail.Denied("a reviewer does not write documents, so put the text in your verdict or mail and ask your parent to write it on its own row")
+	ErrReviewer = fail.Denied("a reviewer does not write documents, so put the text in the body of your release_review or in mail and ask your parent to write it on its own row")
 )
 
 type eventRecorder interface {
