@@ -9,7 +9,7 @@ type Qualifier struct {
 
 // Qualifiers is every qualifier a transcript search takes, in the order they are shown.
 var Qualifiers = []Qualifier{
-	{Syntax: "from:me", Meaning: "what you sent"},
+	{Syntax: "from:me", Meaning: "prompts, mail included"},
 	{Syntax: "from:agent", Meaning: "what the agent wrote"},
 	{Syntax: "agent:NAME", Meaning: "agents named like NAME"},
 	{Syntax: "workflow:NAME", Meaning: "agents in that workflow"},
