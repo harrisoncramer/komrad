@@ -420,10 +420,10 @@ func TestWorktreesRecordActivity(t *testing.T) {
 				Readable:   true,
 				Branch:     "agent/archived",
 				SizeBytes:  proto.Int64(49 * 1024 * 1024),
-				MeasuredAt: proto.String(formatStampAgo(5 * time.Minute)),
+				MeasuredAt: proto.String(formatStampAgo(90 * time.Minute)),
 			},
 			row:            "reviewer",
-			wantSize:       "49M, measured 5m ago",
+			wantSize:       "49M, measured 1h ago",
 			wantLastActive: "4d ago, archived",
 		},
 	}
