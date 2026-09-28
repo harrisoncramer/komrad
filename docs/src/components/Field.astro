@@ -1,0 +1,14 @@
+---
+import Ref from "./Ref.astro";
+import { fieldOf } from "../reference/refs";
+
+type Props = {
+  message: string;
+  name: string;
+};
+
+const { message, name } = Astro.props;
+const target = fieldOf(message, name);
+---
+
+<Ref target={target}>{Astro.slots.has("default") ? <slot /> : <code>{name}</code>}</Ref>

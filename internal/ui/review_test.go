@@ -238,7 +238,7 @@ func TestReviewCursor(t *testing.T) {
 	})
 
 	t.Run("panning moves the text a third of the diff's width", func(t *testing.T) {
-		wide := strings.Repeat("a", 55) + "panned-to-here"
+		wide := strings.Repeat("a", (reviewWidth-1-config.DefaultSidebarWidth)/3) + "panned-to-here"
 		repo := gittest.NewRepo(t.TempDir())
 		repo.Wrote(gittest.WroteParams{
 			Tree:    "tree-with-a-wide-line",
@@ -473,7 +473,7 @@ func TestReviewThreads(t *testing.T) {
 		harness.press("c", "?", "l", "n")
 		frame := harness.readFrame()
 		assert.Contains(t, readSidebar(frame), "┃ ?ln")
-		assert.Contains(t, frame, "c comment on this line …")
+		assert.Contains(t, frame, "c comment on this line")
 
 		harness.press("esc")
 		assert.NotContains(t, harness.readFrame(), "┃ Comment")
@@ -647,7 +647,7 @@ func TestReviewSearch(t *testing.T) {
 
 		frame := harness.readFrame()
 		assert.Contains(t, readStage(frame), "/ go?▏")
-		assert.Contains(t, frame, "c comment on this line …")
+		assert.Contains(t, frame, "c comment on this line")
 	})
 
 	t.Run("the search is the review's and leaves the agents list alone", func(t *testing.T) {
@@ -1258,7 +1258,7 @@ func TestReviewYours(t *testing.T) {
 		reviewer.Messages = []*agentv1.ReviewMessage{newAgentMessage("m1", "rename this")}
 		harness := openReview(t, newYoursServer(t, reviewer))
 
-		assert.NotContains(t, readSidebarProse(harness.readFrame()), "Yours")
+		assert.NotRegexp(t, `Yours \d+ open`, readSidebarProse(harness.readFrame()))
 	})
 
 	t.Run("the list says when a comment is folded away", func(t *testing.T) {

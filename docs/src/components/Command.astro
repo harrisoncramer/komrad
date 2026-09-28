@@ -1,0 +1,16 @@
+---
+import Ref from "./Ref.astro";
+import { commandOf } from "../reference/refs";
+
+type Props = {
+  path: string;
+  args?: string;
+};
+
+const { path, args } = Astro.props;
+const target = commandOf(path);
+---
+
+<Ref target={target}>
+  {Astro.slots.has("default") ? <slot /> : <code>{[target.title, args].filter(Boolean).join(" ")}</code>}
+</Ref>

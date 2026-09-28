@@ -5,17 +5,23 @@ group: start
 order: 5
 ---
 
+import Alert from "../../components/Alert.astro";
+import Key from "../../components/Key.astro";
 import { media } from "../../site";
 
-Let's say you want an agent to read overnight alerts every day at 10am and write up a summary for you. You can do this with schedules.
+Some work is worth doing on a timer, such as a nightly pass over the lint, a summary of what changed each morning, or a nudge to your orchestrator before you sit down. Schedules do this.
 
-A schedule fires on a cron expression and hands its prompt to an agent. Schedules live in komrad's database, so they survive application restarts. There are two kinds.
+A schedule fires on a cron expression and hands its prompt to an agent. It lives in komrad's database, so it keeps firing after you close the panel. There are two kinds: implementer schedules launch a new agent each time, and orchestrator schedules mail one that is already running.
 
-An implementer schedule spawns a new implementer agent into a workflow each time it fires, with the schedule's prompt. Everything else about the launch, such as the directory, the flags and the shared context, comes from the workflow at the moment it fires.
+<Alert variant="warning">This guide uses the `neovim` workflow from the [workflows](../workflows/) guide.</Alert>
 
-An orchestrator schedule mails its prompt to an orchestrator that is already running. Use it when the work belongs to an agent that already knows the workflow, such as asking an orchestrator each morning to hand out the day's work. The mail is signed with the schedule's name and the orchestrator reads it as coming from you.
+## Implementer schedules
 
-To create one, press `S` to open the schedules screen, then press `c`. Pick the kind first. An implementer schedule asks which workflow to launch into, and an orchestrator schedule asks which orchestrator to mail. The orchestrator kind is only offered while at least one orchestrator is running.
+An implementer schedule launches a new agent into a workflow each time it fires, with the schedule's prompt. Everything else about the launch, such as the directory, the flags and the shared context, comes from the workflow at the moment it fires.
+
+Open the schedules from the switcher at the top of the panel and press <Key name="schedules.new" /> to write one. Leave the kind on implementer, then give it a name, a cron expression, a prompt, and the `neovim` workflow. The name also names every agent it launches.
+
+The video uses `* * * * *` so the schedule fires within a minute. A nightly run would be `0 2 * * *`.
 
 <figure>
   <video
@@ -23,22 +29,46 @@ To create one, press `S` to open the schedules screen, then press `c`. Pick the 
     loop
     muted
     playsinline
-    poster={media("schedules.png")}
+    poster={media("schedules-implementer.png")}
     width="1440"
     height="920"
-    aria-label="Creating an implementer schedule that launches an agent into the neovim workflow each night, then an orchestrator schedule that mails the neovim workflow's orchestrator each weekday morning."
+    aria-label="Creating an implementer schedule called news-digest that fires every minute in the neovim workflow, then opening the agent it launched as it summarizes Neovim's news file."
   >
-    <source src={media("schedules.webm")} type="video/webm" />
-    <source src={media("schedules.mp4")} type="video/mp4" />
+    <source src={media("schedules-implementer.webm")} type="video/webm" />
+    <source src={media("schedules-implementer.mp4")} type="video/mp4" />
   </video>
 </figure>
 
-## How schedules work
+An implementer schedule never piles up work. If an agent from its last run is still working or waiting on you, the next run is skipped and recorded as skipped. A schedule that fires often can also hide its runs, so they do their work without taking a row in the agents list.
 
-Komrad never catches up on missed runs. If the service is down when a run was due, that run is skipped. This is intentional, to avoid agents running at odd hours.
+## Orchestrator schedules
 
-An implementer schedule never piles up work. If an agent from its last run is still working or waiting on you, the next run is skipped and recorded as skipped. Plan accordingly.
+An orchestrator schedule mails its prompt to an orchestrator that is already running. Use it when the work belongs to an agent that already knows the workflow, such as asking the orchestrator each morning to hand out the day's work.
 
-Runs that cannot succeed are cancelled with a reason, which shows as the schedule's last run. An implementer schedule whose workflow no longer exists is cancelled. So is an orchestrator schedule whose orchestrator has been archived or deleted. Point the schedule at a new orchestrator, or archive it.
+The form is the same, except you pick the orchestrator kind and then the orchestrator to mail. That kind is only offered while at least one orchestrator is running. The mail is signed with the schedule's name, and the orchestrator reads it as coming from you.
 
-You can pause a schedule, which stops it firing until you arm it again.
+<figure>
+  <video
+    autoplay
+    loop
+    muted
+    playsinline
+    poster={media("schedules-orchestrator.png")}
+    width="1440"
+    height="920"
+    aria-label="Creating an orchestrator schedule called standup that mails the neovim workflow's orchestrator every minute, then watching the orchestrator read the mail and answer it."
+  >
+    <source src={media("schedules-orchestrator.webm")} type="video/webm" />
+    <source src={media("schedules-orchestrator.mp4")} type="video/mp4" />
+  </video>
+</figure>
+
+If the orchestrator is archived or deleted, the schedule's runs are cancelled. Edit it to point at another orchestrator, or archive it.
+
+## Missed and paused runs
+
+Komrad never catches up on missed runs. If the service is down when a run was due, that run is skipped. This is on purpose, so agents do not start at odd hours.
+
+Runs that cannot succeed are cancelled with a reason, which shows as the schedule's last run. An implementer schedule whose workflow no longer exists is cancelled, for instance.
+
+You can pause a schedule and arm it again later. A paused schedule keeps its settings.

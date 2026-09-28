@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+"$(dirname "$0")/fresh-neovim"
+
+workflow="$(komrad rpc create-workflow --name neovim --cwd "$HOME/neovim" --worktree.enabled --flags "--model haiku" --compact | jq -r '.workflow.id')"
+komrad rpc create-agent --workflow-id "$workflow" --title lsp-tests --prompt "Which tests cover vim.lsp.buf? Answer briefly." >/dev/null
+komrad rpc create-agent --workflow-id "$workflow" --title help-tags --prompt "How are Neovim's help tags generated? Answer briefly." >/dev/null
+komrad rpc start-orchestrator --workflow-id "$workflow" >/dev/null

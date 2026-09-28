@@ -5,7 +5,10 @@ group: start
 order: 2
 ---
 
+import Command from "../../components/Command.astro";
+import Setting from "../../components/Setting.astro";
 import Alert from "../../components/Alert.astro";
+import Key from "../../components/Key.astro";
 import { media } from "../../site";
 
 Komrad agents run inside of _workflows_. Workflows are just a bucket of settings: the directory for an agent to run in, the harness it'll use, like Claude or Codex, and other settings for every agent that spawns within them.
@@ -27,7 +30,7 @@ git clone https://github.com/neovim/neovim ~/neovim
 cd ~/neovim
 ```
 
-Next, run `komrad open` and press `w` in the panel, name the workflow `neovim` and submit it with `<C-s>` to create it. By default, your workflow takes the current directory as it's active directory:
+Next, run <Command path="open" /> and press <Key name="workflows.new" /> in the panel, name the workflow `neovim` and submit it with `<C-s>` to create it. By default, your workflow takes the current directory as it's active directory:
 
 <figure>
   <video
@@ -75,7 +78,7 @@ Workflows can hold _shared context_ for each implementer agent. This is where yo
 
 In our Neovim example, that might be: "Run make lint before committing any Lua change."
 
-It comes after komrad's own briefing and your [global context](../../config/#context), which every agent gets whatever workflow it is in. In the video below the global context says only that Neovim is the best editor, and the agent has read both.
+It comes after komrad's own briefing and your <Setting path="context">global context</Setting>, which every agent gets whatever workflow it is in. In the video below the global context says only that Neovim is the best editor, and the agent has read both.
 
 <figure>
   <video
@@ -99,20 +102,20 @@ Like most agent orchestrators, komrad ships with first-class support for [worktr
 
 When creating a workflow or an agent, tell komrade to automatically create a worktree for each agent, and it'll cut one from the base branch. Your implementer agent will then work within that worktree, exclusively, providing it isolation from other agents. The worktree is automatically cleaned up when the agent is deleted.
 
-Komrad places worktrees into [`worktrees.dir`](../../config/#worktrees.dir) unless the workflow names its own location.
+Komrad places worktrees into <Setting path="worktrees.dir" /> unless the workflow names its own location.
 
 <Alert variant="info">
   Agents do not have to create worktrees, but be careful: those that don't will run directly inside of their parent
   directory.
 </Alert>
 
-The worktree's branch is worked out from your repository's clone when you create the workflow. New worktrees are cut from it and an agent's work is measured against it. If the clone loses that branch, `komrad doctor` says so.
+The worktree's branch is worked out from your repository's clone when you create the workflow. New worktrees are cut from it and an agent's work is measured against it. If the clone loses that branch, <Command path="doctor" /> says so.
 
 ## Archiving and restoring
 
-Archiving a workflow puts it into cold storage: you can hard-delete it later, but for now, it'll be hidden from your workflow view. The `z` keybinding archives an agent, by defualt, from the agent list.
+Archiving a workflow puts it into cold storage: you can hard-delete it later, but for now, it'll be hidden from your workflow view. Press <Key name="workflows.archive" /> on a workflow to archive it.
 
-This doesn't delete the agent or it's wokflows. Instead, the agents inside of the workflow will be paused, and removed from the active agent list. If you want to resume their conversations later, you can restore them with the `R` key, by default.
+This doesn't delete the agent or it's wokflows. Instead, the agents inside of the workflow will be paused, and removed from the active agent list. If you want to resume their conversations later, you can restore them from the archive.
 
 ## Next Steps
 

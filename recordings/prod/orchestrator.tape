@@ -10,6 +10,6 @@ Wait+Screen@30s /no shared context set/
 Sleep 1s
 Enter
 Wait+Screen@4m /done \d+:\d+ [AP]M/
-Type "What is this repository, and how would you help me work on it? Answer in a few sentences."
+Type "What is this repository, and how would you help me work on it? Answer in two short sentences."
 Enter
 Wait+Screen@4m /work on it\?[\s\S]*done \d+:\d+ [AP]M/

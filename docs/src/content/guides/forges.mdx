@@ -5,11 +5,13 @@ group: operations
 order: 9
 ---
 
+import Command from "../../components/Command.astro";
+
 Your `fix-login` [agent](../agents/) has pushed a branch and opened a pull request, and the panel does not know. A forge is where your code is hosted, such as GitHub or GitLab, and komrad connects to it for two reasons. It wants to show you, beside each agent, the pull request that agent's branch has open. And agents need to push and open pull requests without you doing it for them.
 
 ## Connecting a forge
 
-You connect a forge once, by handing komrad a token. Komrad checks it with the forge straight away and refuses one that is wrong. Give the token access to the pull requests of the repositories your agents work in. GitHub and GitLab are both supported, including self-hosted. `komrad forge` and `komrad doctor` show what is connected and whether it still works.
+You connect a forge once, by handing komrad a token. Komrad checks it with the forge straight away and refuses one that is wrong. Give the token access to the pull requests of the repositories your agents work in. GitHub and GitLab are both supported, including self-hosted. <Command path="forge" /> and <Command path="doctor" /> show what is connected and whether it still works.
 
 ## What komrad reads
 

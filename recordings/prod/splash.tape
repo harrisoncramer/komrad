@@ -23,7 +23,7 @@ Enter
 Sleep 4s
 Ctrl+Q
 Sleep 1.5s
-Type "O"
+Type "o"
 Type "q"
 Type "lsp"
 Sleep 3s

@@ -1,0 +1,27 @@
+---
+import Ref from "./Ref.astro";
+import { keybindingOf } from "../reference/refs";
+
+type Props = {
+  name: string;
+  at?: number;
+};
+
+const { name, at } = Astro.props;
+const binding = keybindingOf(name);
+const shown = at === undefined ? binding.keys : binding.keys.slice(at, at + 1);
+if (shown.length === 0) throw new Error(`keybindings.${name} has no key at ${String(at)}`);
+---
+
+<Ref target={binding}>
+  {shown.map((key, i) =>
+    i === 0 ? (
+      <code>{key}</code>
+    ) : (
+      <Fragment>
+        {" "}
+        or <code>{key}</code>
+      </Fragment>
+    ),
+  )}
+</Ref>

@@ -1,0 +1,14 @@
+---
+import Ref from "./Ref.astro";
+import { settingOf } from "../reference/refs";
+
+type Props = {
+  path: string;
+  label?: string;
+};
+
+const { path, label } = Astro.props;
+const target = settingOf(path);
+---
+
+<Ref target={target}>{Astro.slots.has("default") ? <slot /> : <code>{label ?? path}</code>}</Ref>

@@ -51,7 +51,7 @@ func TestHelp(t *testing.T) {
 	})
 
 	t.Run("a legend too wide for the sidebar keeps its short form and says there is help to show", func(t *testing.T) {
-		harness := openHelp(t, panelHarnessParams{}, append(slices.Repeat([]string{"{"}, 4), "?")...)
+		harness := openHelp(t, panelHarnessParams{sidebarWidth: 33}, append(slices.Repeat([]string{"{"}, 4), "?")...)
 
 		legend := readLegend(harness.readFrame())
 		assert.Contains(t, legend, "show help")

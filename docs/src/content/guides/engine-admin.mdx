@@ -5,6 +5,9 @@ group: operations
 order: 11
 ---
 
+import Command from "../../components/Command.astro";
+import Setting from "../../components/Setting.astro";
+
 This guide is for whoever runs the remote engine. Using one that exists is covered in [running komrad remotely](../remote/). Everything here runs from a komrad checkout as a mise task, with AWS credentials in your environment.
 
 ## What gets built
@@ -27,7 +30,7 @@ Copy the two example files in [`infra/engine`](https://github.com/harrisoncramer
 
 Run `mise run infra:engine:init` and `mise run infra:engine:apply`. It prints the engine's address.
 
-Get a shell with `mise run remote:connect` and add the [`[github_app]`](../../config/#github_app) table to komrad's config with your App's id, its installation id and the key's path. `komrad github token` should print a token. Then connect the engine's forge through the App.
+Get a shell with `mise run remote:connect` and add the <Setting path="github_app" label="[github_app]" /> table to komrad's config with your App's id, its installation id and the key's path. <Command path="github token" /> should print a token. Then connect the engine's forge through the App.
 
 Finally, clone the repositories agents will work in onto the data disk, point your panel at the engine, and sign the agent CLI in.
 

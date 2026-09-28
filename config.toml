@@ -64,7 +64,7 @@ max_children    = 0
 # Which side of the window the panel's sidebar sits on, "left" or "right".
 sidebar_side   = "left"
 # How many columns wide the panel's sidebar opens at. Dragging the divider afterwards moves it, and the panel follows.
-sidebar_width  = 33
+sidebar_width  = 47
 # Which side of the stage the info pane opens on, "below" or "above". That pane is where the server log and an editor are drawn.
 info_side      = "below"
 # How tall the info pane opens, either a share of the stage's height below one or a whole number of rows.

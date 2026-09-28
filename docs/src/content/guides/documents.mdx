@@ -1,0 +1,86 @@
+---
+title: Documents
+description: Have an agent write an RFC, a report or notes, refine it with it, and step through every version.
+group: start
+order: 6
+---
+
+import Alert from "../../components/Alert.astro";
+import Key from "../../components/Key.astro";
+import { media } from "../../site";
+
+Some work goes better when the agent writes before it builds. You ask for a plan, read it, fix what it got wrong, and only then let it write code. A mistake is cheaper to catch in a page of prose than in a diff.
+
+Documents are where that writing lives. A document is a markdown file that belongs to an agent. It is kept in komrad rather than in the agent's checkout, so it never ends up in a commit. Each one is an RFC, a report, an explainer, or notes, and komrad keeps every version of it.
+
+<Alert variant="warning">This guide uses the `neovim` workflow from the [workflows](../workflows/) guide.</Alert>
+
+## Asking an agent for one
+
+Agents write documents with komrad's tools, so you ask for one in the prompt. Say what to write, what to name it, and that it should not change any code yet. Once it has written one, press <Key name="documents.open" /> on the agent to read its documents beside the list.
+
+<figure>
+  <video
+    autoplay
+    loop
+    muted
+    playsinline
+    poster={media("documents-ask.png")}
+    width="1440"
+    height="920"
+    aria-label="Launching an agent in the neovim workflow with a prompt to write an RFC called truncate-rfc, then opening its documents once it has written it."
+  >
+    <source src={media("documents-ask.webm")} type="video/webm" />
+    <source src={media("documents-ask.mp4")} type="video/mp4" />
+  </video>
+</figure>
+
+Other agents can read a document too. That is how a plan one agent wrote reaches another, such as an orchestrator handing an RFC to the agent that will build it.
+
+## Editing a document
+
+Press <Key name="documents.edit" /> to open a document in your editor. When you quit, what you wrote is saved as the next version.
+
+<figure>
+  <video
+    autoplay
+    loop
+    muted
+    playsinline
+    poster={media("documents-edit.png")}
+    width="1440"
+    height="920"
+    aria-label="Opening the truncate-rfc document in Neovim beside the list, adding a line about one more test case, and quitting to see the document drawn again with the new line."
+  >
+    <source src={media("documents-edit.webm")} type="video/webm" />
+    <source src={media("documents-edit.mp4")} type="video/mp4" />
+  </video>
+</figure>
+
+Komrad mails the agent to say you changed its document, and the agent can see exactly what you changed. A few quick saves in a row reach it as one notice. If the agent was halfway through a rewrite of its own, komrad refuses it until the agent has read your edit, so your change is never lost.
+
+You can also start a document yourself, such as a plan you wrote or notes the agent should keep in mind. Komrad tells the agent it exists.
+
+## Stepping through versions
+
+You can step back through a document's versions. Each step shows what that version changed, who wrote it, and when. After a round or two it shows what the agent first proposed, what you changed, and how the agent answered.
+
+<figure>
+  <video
+    autoplay
+    loop
+    muted
+    playsinline
+    poster={media("documents-history.png")}
+    width="1440"
+    height="920"
+    aria-label="Stepping back through the truncate-rfc document: the agent's revision, the person's edit before it, and the first draft, each drawn as a diff, then stepping forward to the document as it stands."
+  >
+    <source src={media("documents-history.webm")} type="video/webm" />
+    <source src={media("documents-history.mp4")} type="video/mp4" />
+  </video>
+</figure>
+
+## From a document to the work
+
+Once the document says what you want, tell the agent to build it. It already has the document, so the prompt can be as short as "carry out truncate-rfc". The document stays with the agent, so later you can read it beside the diff and check that what was built is what you agreed on.
