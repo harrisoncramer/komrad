@@ -20,6 +20,8 @@ const maxAutoCompactWindow = 1_000_000
 
 var deniedAgents = []string{"Agent(general-purpose)", "Agent(claude)"}
 
+var allowedTools = []string{"mcp__komrad"}
+
 // BuildCommand renders the command line that puts Claude up, quoting everything interpolated
 // since it is written to a script and parsed by the shell komrad starts the pane with.
 func (h *Harness) BuildCommand(launch harness.Launch) (string, error) {
@@ -79,7 +81,7 @@ func (h *Harness) writeSettings(hookCommand, role string, autoCompaction int) (s
 	}
 
 	settings := map[string]any{
-		"permissions": map[string]any{"deny": deniedAgents},
+		"permissions": map[string]any{"allow": allowedTools, "deny": deniedAgents},
 	}
 	if hooks := hookSettings(hookCommand); len(hooks) > 0 {
 		settings["hooks"] = hooks
