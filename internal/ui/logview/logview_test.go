@@ -56,6 +56,13 @@ func TestTailRows(t *testing.T) {
 			want:   []string{"a line th", "at wraps", "last"},
 		},
 		{
+			name:   "a line cut off above the view draws only its rows inside it",
+			lines:  []string{"abcd", "efgh", "ijkl"},
+			width:  2,
+			height: 3,
+			want:   []string{"gh", "ij", "kl"},
+		},
+		{
 			name:   "escape sequences and control characters are stripped",
 			lines:  []string{"\x1b[31mred\x1b[0m\ttab\rbell\a"},
 			width:  40,
@@ -128,6 +135,12 @@ func TestTailMove(t *testing.T) {
 			wantCursor: 1,
 		},
 		{
+			name:       "forward from the oldest moves at once",
+			moves:      []int{-100, 1},
+			want:       []string{"line 1", "line 2", "line 3"},
+			wantCursor: 1,
+		},
+		{
 			name:       "forward past the newest follows again",
 			moves:      []int{-3, 100},
 			more:       numbered(6, 7),
@@ -146,6 +159,12 @@ func TestTailMove(t *testing.T) {
 			scrolls:    []int{-1},
 			want:       []string{"line 2", "line 3", "line 4"},
 			wantCursor: 2,
+		},
+		{
+			name:    "scrolling the view forward drags the cursor down to its top",
+			moves:   []int{-4},
+			scrolls: []int{1},
+			want:    []string{"line 2", "line 3", "line 4"},
 		},
 		{
 			name:       "scrolling back to the newest follows again",

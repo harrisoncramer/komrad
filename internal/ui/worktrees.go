@@ -233,10 +233,5 @@ func (w *worktreesScreen) place(s panelShared, hovered string) {
 	rows := w.rows(s)
 	w.selected = w.selected.pruned(worktreeRefs(rows))
 
-	idx := rowIndexOfKey(rows, hovered)
-	if idx < 0 {
-		idx = cursor.Clamp(w.cursor, len(rows))
-	}
-
-	w.cursor = idx
+	w.cursor = cursor.Place(rowIndexOfKey(rows, hovered), w.cursor, len(rows))
 }

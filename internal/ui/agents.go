@@ -132,11 +132,7 @@ func (a *agentsScreen) toggleHidden(h host, s panelShared, _ string) tea.Cmd {
 	a.showHidden = !a.showHidden
 
 	rows := a.rows(s)
-	if idx := rowIndexOfKey(rows, selected); idx >= 0 {
-		a.cursor = idx
-	} else {
-		a.cursor = cursor.Clamp(a.cursor, len(rows))
-	}
+	a.cursor = cursor.Place(rowIndexOfKey(rows, selected), a.cursor, len(rows))
 	a.selected = a.selected.pruned(refsOf(a.rows(s)))
 	a.stage(h, s)
 

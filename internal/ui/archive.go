@@ -267,12 +267,7 @@ func (a *archiveScreen) place(s panelShared, hovered string) {
 	rows := a.listRows(s)
 	a.selected = a.selected.pruned(refsOf(rows))
 
-	idx := rowIndexOfKey(rows, hovered)
-	if idx < 0 {
-		idx = cursor.Clamp(a.cursor, len(rows))
-	}
-
-	a.cursor = idx
+	a.cursor = cursor.Place(rowIndexOfKey(rows, hovered), a.cursor, len(rows))
 }
 
 // placeSchedule keeps the cursor on the archived schedule it was on as the rows under it change.
