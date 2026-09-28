@@ -18,8 +18,8 @@ import (
 type logReader interface {
 	Lines(trace string) ([]logread.Line, error)
 	RecentTraces(limit int) ([]logread.Summary, error)
-	Recent(agentIDs []string, limit int) (logread.Window, error)
-	Since(agentIDs []string, offset int64, limit int) (logread.Window, error)
+	NewestAboutAgents(agentIDs []string, limit int) (logread.Window, error)
+	AboutAgentsSince(agentIDs []string, offset int64, limit int) (logread.Window, error)
 }
 
 // defaultAgentLogLimit is how many lines a read of agent logs answers when the caller names no count.
@@ -93,14 +93,14 @@ func (s *Handler) ReadAgentLogs(_ context.Context, req *logv1.ReadAgentLogsReque
 		err    error
 	)
 	if req.GetCursor() == "" {
-		window, err = s.log.Recent(req.GetAgentIds(), limit)
+		window, err = s.log.NewestAboutAgents(req.GetAgentIds(), limit)
 	} else {
 		offset, parseErr := strconv.ParseInt(req.GetCursor(), 10, 64)
 		if parseErr != nil || offset < 0 {
 			return nil, errBadCursor.Saying("cursor %q is not one this service answered", req.GetCursor())
 		}
 
-		window, err = s.log.Since(req.GetAgentIds(), offset, limit)
+		window, err = s.log.AboutAgentsSince(req.GetAgentIds(), offset, limit)
 	}
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to read the agents' logs")

@@ -1,6 +1,7 @@
 package logread
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"errors"
@@ -11,13 +12,15 @@ import (
 	"slices"
 
 	"komrad/internal/logging"
+
+	"github.com/icza/backscanner"
 )
 
 // ScanBudget is how much of the log one read of the lines about some agents looks through.
 const ScanBudget = 64 << 20
 
-// readChunk is how much of the log one read takes in at a time.
-const readChunk = 1 << 20
+// readChunk is how much of the log is read from disk at a time.
+const readChunk = 64 << 10
 
 // agentKeys are the fields a line names an agent in.
 var agentKeys = []string{logging.AgentID, logging.TargetAgentID, logging.ScriptAgentID}
@@ -30,124 +33,97 @@ type Window struct {
 	More   bool
 }
 
-// Recent is the newest lines about any of the agents, oldest first.
-func (r *Reader) Recent(agentIDs []string, limit int) (Window, error) {
+// NewestAboutAgents is the last limit lines about any of the agents, oldest first.
+func (r *Reader) NewestAboutAgents(agentIDs []string, limit int) (Window, error) {
 	file, size, err := r.open()
 	if err != nil {
 		return Window{}, err
 	}
 	defer func() { _ = file.Close() }()
 
-	return r.recent(file, size, agentIDs, limit)
+	return r.newestAboutAgents(file, size, agentIDs, limit)
 }
 
-// Since is the lines about any of the agents written after offset, oldest first.
-func (r *Reader) Since(agentIDs []string, offset int64, limit int) (Window, error) {
+// AboutAgentsSince is the lines about any of the agents written after offset, oldest first.
+func (r *Reader) AboutAgentsSince(agentIDs []string, offset int64, limit int) (Window, error) {
 	file, size, err := r.open()
 	if err != nil {
 		return Window{}, err
 	}
 	defer func() { _ = file.Close() }()
 
+	// An offset past the end means the log was truncated, so the caller starts over from the newest lines.
 	if offset > size {
-		window, err := r.recent(file, size, agentIDs, limit)
+		window, err := r.newestAboutAgents(file, size, agentIDs, limit)
 		window.Reset = true
 
 		return window, err
 	}
 
+	if _, err := file.Seek(offset, io.SeekStart); err != nil {
+		return Window{}, fmt.Errorf("failed to read the log at %s: %w", r.path, err)
+	}
+	reader := bufio.NewReaderSize(io.LimitReader(file, size-offset), r.chunk)
+
 	window := Window{Offset: offset}
-	partial := []byte{}
-	pos := offset
-	for pos < size && len(window.Lines) < limit {
-		if pos-offset >= int64(r.budget) {
+	for len(window.Lines) < limit {
+		// Past the budget the read stops and says more remains, so one call never reads the whole log.
+		if window.Offset-offset >= int64(r.budget) {
 			window.More = true
-			if window.Offset == offset {
-				window.Offset = pos
-			}
 
 			break
 		}
 
-		n := min(int64(r.chunk), size-pos)
-		data := make([]byte, n)
-		if _, err := file.ReadAt(data, pos); err != nil && !errors.Is(err, io.EOF) {
+		// A last line without its newline is still being written, so it is left for the next read.
+		line, err := reader.ReadBytes('\n')
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
 			return Window{}, fmt.Errorf("failed to read the log at %s: %w", r.path, err)
 		}
-		pos += n
 
-		data = append(partial, data...)
-		end := bytes.LastIndexByte(data, '\n')
-		if end < 0 {
-			partial = data
-			continue
+		window.Offset += int64(len(line))
+		if isAbout(line, agentIDs) {
+			window.Lines = append(window.Lines, string(bytes.TrimSuffix(line, []byte{'\n'})))
 		}
-		partial = slices.Clone(data[end+1:])
+	}
 
-		for line := range bytes.SplitAfterSeq(data[:end+1], []byte{'\n'}) {
-			window.Offset += int64(len(line))
-			if isAbout(line, agentIDs) {
-				window.Lines = append(window.Lines, string(bytes.TrimRight(line, "\n")))
-			}
-			if len(window.Lines) == limit {
-				window.More = window.Offset < size
-				break
-			}
-		}
+	if len(window.Lines) == limit && window.Offset < size {
+		window.More = true
 	}
 
 	return window, nil
 }
 
-func (r *Reader) recent(file *os.File, size int64, agentIDs []string, limit int) (Window, error) {
-	var (
-		found   []string
-		partial []byte
-		scanned int
-	)
+// newestAboutAgents reads the log backward from its end, stopping at limit lines or the budget.
+func (r *Reader) newestAboutAgents(file *os.File, size int64, agentIDs []string, limit int) (Window, error) {
+	scanner := backscanner.NewOptions(file, int(size), &backscanner.Options{ChunkSize: r.chunk, MaxBufferSize: scanBuffer})
 
-	window := Window{Offset: -1}
-	pos := size
-	for pos > 0 && len(found) < limit && scanned < r.budget {
-		n := min(int64(r.chunk), pos)
-		pos -= n
-		scanned += int(n)
-
-		data := make([]byte, n, int(n)+len(partial))
-		if _, err := file.ReadAt(data, pos); err != nil && !errors.Is(err, io.EOF) {
+	var found []string
+	window := Window{Offset: size}
+	for len(found) < limit {
+		line, pos, err := scanner.LineBytes()
+		if errors.Is(err, io.EOF) || errors.Is(err, backscanner.ErrLongLine) {
+			break
+		}
+		if err != nil {
 			return Window{}, fmt.Errorf("failed to read the log at %s: %w", r.path, err)
 		}
-		data = append(data, partial...)
 
-		if window.Offset < 0 {
-			end := bytes.LastIndexByte(data, '\n')
-			if end < 0 {
-				partial = data
-				continue
-			}
+		// Only the last line can run to the end of the file, and then it has no newline yet, so the next read starts at it.
+		if int64(pos+len(line)) == size {
+			window.Offset = int64(pos)
 
-			window.Offset = pos + int64(end) + 1
-			data = data[:end+1]
+			continue
 		}
 
-		lines := bytes.Split(data, []byte{'\n'})
-		partial = nil
-		if pos > 0 {
-			partial = slices.Clone(lines[0])
-			lines = lines[1:]
+		if size-int64(pos) > int64(r.budget) {
+			break
 		}
 
-		for i := len(lines) - 1; i >= 0 && len(found) < limit; i-- {
-			if isAbout(lines[i], agentIDs) {
-				found = append(found, string(lines[i]))
-			}
-		}
-	}
-
-	if window.Offset < 0 {
-		window.Offset = 0
-		if pos > 0 {
-			window.Offset = size
+		if isAbout(line, agentIDs) {
+			found = append(found, string(line))
 		}
 	}
 

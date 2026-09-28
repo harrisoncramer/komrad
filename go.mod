@@ -23,6 +23,7 @@ require (
 	github.com/google/go-cmp v0.7.0
 	github.com/google/uuid v1.6.0
 	github.com/harrisoncramer/streamer v0.0.2
+	github.com/icza/backscanner v0.0.0-20241124160932-dff01ac50250
 	github.com/invopop/jsonschema v0.14.0
 	github.com/jackc/pgx/v5 v5.10.0
 	github.com/modelcontextprotocol/go-sdk v1.4.1

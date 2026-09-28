@@ -33,15 +33,15 @@ type agentRead struct {
 	limit  int
 }
 
-// Recent records the read and answers window.
-func (f *fakeLogReader) Recent(agentIDs []string, limit int) (logread.Window, error) {
+// NewestAboutAgents records the read and answers window.
+func (f *fakeLogReader) NewestAboutAgents(agentIDs []string, limit int) (logread.Window, error) {
 	f.reads = append(f.reads, agentRead{ids: agentIDs, offset: -1, limit: limit})
 
 	return f.window, f.err
 }
 
-// Since records the read and answers window.
-func (f *fakeLogReader) Since(agentIDs []string, offset int64, limit int) (logread.Window, error) {
+// AboutAgentsSince records the read and answers window.
+func (f *fakeLogReader) AboutAgentsSince(agentIDs []string, offset int64, limit int) (logread.Window, error) {
 	f.reads = append(f.reads, agentRead{ids: agentIDs, offset: offset, limit: limit})
 
 	return f.window, f.err
