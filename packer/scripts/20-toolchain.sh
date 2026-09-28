@@ -15,4 +15,6 @@ eval "$(/usr/local/bin/mise activate bash)"
 PROFILE
 
 sudo -u komrad env HOME=/opt/mise/home MISE_DATA_DIR=/opt/mise/data MISE_CONFIG_DIR=/opt/mise/config \
-	/usr/local/bin/mise use -g go@1.25.1 node@22
+	/usr/local/bin/mise use -g go@1.25.1 node@26
+sudo -u komrad env HOME=/opt/mise/home MISE_DATA_DIR=/opt/mise/data MISE_CONFIG_DIR=/opt/mise/config \
+	/usr/local/bin/mise settings add trusted_config_paths /var/lib/komrad

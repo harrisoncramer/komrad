@@ -1,6 +1,6 @@
 ---
 title: The remote engine
-description: How we run komrad on a machine of its own, and what survives what.
+description: How komrad runs on a machine of its own, and what survives what.
 group: architecture
 order: 14
 ---
@@ -9,7 +9,7 @@ import Command from "../../components/Command.astro";
 
 An engine is komrad running on a machine that is not your laptop. The service, the database and every agent's terminal live there. The panel stays with you.
 
-Komrad needs little from that machine: a Postgres it can reach, tmux, the agent CLIs, and SSH in. This guide describes the engine we run for komrad's own development. It is on AWS, deployed from GitHub Actions, and wired to GitHub through a GitHub App. The Terraform and Packer in the repository build exactly that. None of it is required to run an engine. It is how we chose to.
+Komrad needs little from that machine: a Postgres it can reach, tmux, the agent CLIs, and SSH in. This guide describes the engine komrad's own development runs on. It is on AWS, deployed from GitHub Actions, and wired to GitHub through a GitHub App. The Terraform and Packer in the repository build exactly that. None of it is required to run an engine. It is how komrad's own engine is built.
 
 ## The pieces
 
@@ -28,7 +28,7 @@ Komrad needs little from that machine: a Postgres it can reach, tmux, the agent 
   +----------------+             +-----------------------------+
 ```
 
-One EC2 instance runs the service and every agent. It has a fixed address, and SSH is open only to the addresses we list. The database is RDS, reachable only from the instance. Its password lives in Secrets Manager, never on disk.
+One EC2 instance runs the service and every agent. It has a fixed address, and SSH is open only to the addresses its Terraform variables list. The database is RDS, reachable only from the instance. Its password lives in Secrets Manager, never on disk.
 
 The agents' worktrees and the komrad user's home sit on a separate data volume. The instance can be thrown away and the volume attached to the next one.
 
@@ -48,10 +48,10 @@ An engine is a TOML file in `~/.config/komrad/engines/`. It says how to forward 
 
 Terminals are HTTP/2 streams, so the forward has to carry HTTP/2. An SSH forward does, and HTTP/2 pings keep an open terminal's forward from going idle. An SSM port forward carries plain TCP and should work the same way, but nobody has checked it on a real engine yet.
 
-On our engine, GitHub access comes from a GitHub App, so no person's token sits on a shared box. <Command path="github credential" /> mints short-lived tokens from the App's key, and git picks them up through the credential helper. An engine without the App still runs on whatever credentials the box has.
+On komrad's engine, GitHub access comes from a GitHub App, so no person's token sits on a shared box. <Command path="github credential" /> mints short-lived tokens from the App's key, and git picks them up through the credential helper. An engine without the App still runs on whatever credentials the box has.
 
 ## Stop and replace
 
-We stop the instance overnight. The data volume, the database and the address survive. The agents do not, but their worktrees and conversations do, and you resume them in the morning.
+The instance is stopped overnight. The data volume, the database and the address survive. The agents do not, but their worktrees and conversations do, and you resume them in the morning.
 
 Changing the image replaces the instance. The root disk is discarded and the data volume follows the new host. The database is untouched. `database_deletion_protection` is on, so a Terraform destroy refuses until you turn it off on purpose.

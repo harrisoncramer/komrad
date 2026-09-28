@@ -30,6 +30,7 @@ type Env struct {
 	ReadEngine            func(ctx context.Context, url string) (string, error)
 	ReadWorktreeOwners    func(ctx context.Context, url string) (WorktreeOwners, error)
 	ReadWorkflowBases     func(ctx context.Context, url string) ([]WorkflowBase, error)
+	ReadWorkflowHarnesses func(ctx context.Context, url string) ([]WorkflowHarness, error)
 	ResolveBase           func(ctx context.Context, dir, base string) (string, error)
 	CheckForges           func(ctx context.Context) ([]ForgeStatus, error)
 	ProbeServer           func(ctx context.Context) (ServerStatus, error)
@@ -100,12 +101,13 @@ func NewEnv(settings Settings) Env {
 		ConnectReadOnly: func(ctx context.Context, url string) error {
 			return connectReadOnly(ctx, url, settings.DatabaseURL)
 		},
-		ReadEngine:         readEngine,
-		ReadWorktreeOwners: readWorktreeOwners,
-		ReadWorkflowBases:  readWorkflowBases,
-		ResolveBase:        resolveWorkflowBase,
-		ReadTerminfo:       readTerminfo,
-		ListFonts:          listFonts,
+		ReadEngine:            readEngine,
+		ReadWorktreeOwners:    readWorktreeOwners,
+		ReadWorkflowBases:     readWorkflowBases,
+		ReadWorkflowHarnesses: readWorkflowHarnesses,
+		ResolveBase:           resolveWorkflowBase,
+		ReadTerminfo:          readTerminfo,
+		ListFonts:             listFonts,
 	}
 }
 

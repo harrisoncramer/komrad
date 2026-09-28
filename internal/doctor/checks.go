@@ -35,6 +35,7 @@ func EngineChecks(settings Settings) []Check {
 		newContextCheck(),
 		newDatabaseCheck(),
 		newBasesCheck(),
+		newWorkflowHarnessCheck(),
 		newSchemaCheck(),
 		newEngineCheck(),
 		newReadOnlyLoginCheck(),
