@@ -25,51 +25,54 @@ func TestRoles(t *testing.T) {
 		"reviewer":     annotationv1.Role_ROLE_REVIEWER,
 		"orchestrator": annotationv1.Role_ROLE_ORCHESTRATOR,
 	}
-	interceptor := NewRoles(func(_ context.Context, agentID string) annotationv1.Role {
-		return roles[agentID]
-	})
 
 	tests := []struct {
-		name      string
-		agentID   string
-		procedure string
-		wantErr   bool
+		name       string
+		agentID    string
+		procedure  string
+		wantErr    bool
+		wantLookup bool
 	}{
 		{
-			name:      "a reviewer is refused a document",
-			agentID:   "reviewer",
-			procedure: agentv1connect.AgentServiceWriteDocumentProcedure,
-			wantErr:   true,
+			name:       "a reviewer is refused a document",
+			agentID:    "reviewer",
+			procedure:  agentv1connect.AgentServiceWriteDocumentProcedure,
+			wantErr:    true,
+			wantLookup: true,
 		},
 		{
-			name:      "an implementer writes a document",
-			agentID:   "implementer",
-			procedure: agentv1connect.AgentServiceWriteDocumentProcedure,
+			name:       "an implementer writes a document",
+			agentID:    "implementer",
+			procedure:  agentv1connect.AgentServiceWriteDocumentProcedure,
+			wantLookup: true,
 		},
 		{
-			name:      "an orchestrator writes a document",
-			agentID:   "orchestrator",
-			procedure: agentv1connect.AgentServiceWriteDocumentProcedure,
+			name:       "an orchestrator writes a document",
+			agentID:    "orchestrator",
+			procedure:  agentv1connect.AgentServiceWriteDocumentProcedure,
+			wantLookup: true,
 		},
 		{
-			name:      "a reviewer reads a document",
+			name:      "a reviewer reads a document without its role being looked up",
 			agentID:   "reviewer",
 			procedure: agentv1connect.AgentServiceGetDocumentProcedure,
 		},
 		{
-			name:      "an implementer is refused a schedule",
-			agentID:   "implementer",
-			procedure: schedulev1connect.ScheduleServiceCreateScheduleProcedure,
-			wantErr:   true,
+			name:       "an implementer is refused a schedule",
+			agentID:    "implementer",
+			procedure:  schedulev1connect.ScheduleServiceCreateScheduleProcedure,
+			wantErr:    true,
+			wantLookup: true,
 		},
 		{
 			name:      "a caller naming no agent is served everything",
 			procedure: schedulev1connect.ScheduleServiceCreateScheduleProcedure,
 		},
 		{
-			name:      "an agent with no role is served everything",
-			agentID:   "unknown",
-			procedure: agentv1connect.AgentServiceWriteDocumentProcedure,
+			name:       "an agent with no role is served everything",
+			agentID:    "unknown",
+			procedure:  agentv1connect.AgentServiceWriteDocumentProcedure,
+			wantLookup: true,
 		},
 		{
 			name:      "a method naming no roles is open to every agent",
@@ -81,6 +84,13 @@ func TestRoles(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
+
+			lookedUp := false
+			interceptor := NewRoles(func(_ context.Context, agentID string) annotationv1.Role {
+				lookedUp = true
+
+				return roles[agentID]
+			})
 
 			ctx := caller.With(t.Context(), caller.Caller{AgentID: tt.agentID})
 			served := false
@@ -94,6 +104,7 @@ func TestRoles(t *testing.T) {
 				AnyRequest: connect.NewRequest(&agentv1.WriteDocumentRequest{}),
 				procedure:  tt.procedure,
 			})
+			assert.Equal(t, tt.wantLookup, lookedUp)
 
 			if tt.wantErr {
 				require.Error(t, err)

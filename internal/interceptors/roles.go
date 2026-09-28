@@ -3,6 +3,7 @@ package interceptors
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 
 	annotationv1 "komrad/proto/gen/annotation/v1"
@@ -22,12 +23,28 @@ type rolesInterceptor struct {
 func NewRoles(roleOf rpcapi.RoleOf) connect.Interceptor {
 	methods := make(map[string]*annotationv1.Surfaces)
 	for method := range rpcapi.GetMethods() {
-		if len(method.Surfaces.GetRoles()) > 0 {
+		if isRestricted(method.Surfaces) {
 			methods[method.GetPath()] = method.Surfaces
 		}
 	}
 
 	return &rolesInterceptor{roleOf: roleOf, methods: methods}
+}
+
+// isRestricted reports whether some role is left off a method that names any.
+func isRestricted(surfaces *annotationv1.Surfaces) bool {
+	if len(surfaces.GetRoles()) == 0 {
+		return false
+	}
+
+	for number := range annotationv1.Role_name {
+		role := annotationv1.Role(number)
+		if role != annotationv1.Role_ROLE_UNSPECIFIED && !slices.Contains(surfaces.GetRoles(), role) {
+			return true
+		}
+	}
+
+	return false
 }
 
 func (r *rolesInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
