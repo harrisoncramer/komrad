@@ -9,11 +9,13 @@ import Alert from "../../components/Alert.astro";
 import Key from "../../components/Key.astro";
 import { media } from "../../site";
 
-Some work is worth doing on a timer, such as a nightly pass over the lint, a summary of what changed each morning, or a nudge to your orchestrator before you sit down. Schedules do this.
+Komrad supports spawning or messaging agents on a schedule. This is useful for periodic work, such as triage work, or summarizer workflows.
 
-A schedule fires on a cron expression and hands its prompt to an agent. It lives in komrad's database, so it keeps firing after you close the panel. There are two kinds: implementer schedules launch a new agent each time, and orchestrator schedules mail one that is already running.
+Schedules fire on a cron expression and hand their prompts to an agent. They keep firing after you close the panel, as long as the engine is running.
 
 <Alert variant="warning">This guide uses the `neovim` workflow from the [workflows](../workflows/) guide.</Alert>
+
+There are two kinds of schedules: _implementer schedules_ launch a new agent each time, and _orchestrator schedules_ mail a running orchestrator.
 
 ## Implementer schedules
 
@@ -21,7 +23,7 @@ An implementer schedule launches a new agent into a workflow each time it fires,
 
 Open the schedules from the switcher at the top of the panel and press <Key name="schedules.new" /> to write one. Leave the kind on implementer, then give it a name, a cron expression, a prompt, and the `neovim` workflow. The name also names every agent it launches.
 
-The video uses `* * * * *` so the schedule fires within a minute. A nightly run would be `0 2 * * *`.
+The video uses `* * * * *` so the schedule fires within a minute.
 
 <figure>
   <video
@@ -39,13 +41,11 @@ The video uses `* * * * *` so the schedule fires within a minute. A nightly run 
   </video>
 </figure>
 
-An implementer schedule never piles up work. If an agent from its last run is still working or waiting on you, the next run is skipped and recorded as skipped. A schedule that fires often can also hide its runs, so they do their work without taking a row in the agents list.
+An implementer schedule never piles up work. If an agent from its last run is still working or waiting on you, the next run is skipped and recorded as skipped.
 
 ## Orchestrator schedules
 
 An orchestrator schedule mails its prompt to an orchestrator that is already running. Use it when the work belongs to an agent that already knows the workflow, such as asking the orchestrator each morning to hand out the day's work.
-
-The form is the same, except you pick the orchestrator kind and then the orchestrator to mail. That kind is only offered while at least one orchestrator is running. The mail is signed with the schedule's name, and the orchestrator reads it as coming from you.
 
 <figure>
   <video
