@@ -297,6 +297,22 @@ func TestLogsFilter(t *testing.T) {
 			}
 		})
 	}
+
+	t.Run("a filtered run gone from the listing moves to the neighbour the filter shows", func(t *testing.T) {
+		t.Parallel()
+
+		reads := tailOfTwo()
+		reads[launchSource.GetId()+"@"] = &logv1.ReadAgentLogsResponse{Lines: []string{"launching"}, Cursor: "9"}
+		harness := openLogs(t, reads)
+		answerSources(harness, serviceSource, launchSource, provisionSource)
+		harness.fireTimers()
+		harness.press("/", "tab", "s", "e", "t", "u", "p", "enter", "j")
+		harness.fireTimers()
+		answerSources(harness, serviceSource, launchSource)
+		harness.fireTimers()
+
+		assert.Contains(t, readStageText(harness.readFrame()), "launching")
+	})
 }
 
 // TestLogsTail covers the reads after the first, each from where the last left off.

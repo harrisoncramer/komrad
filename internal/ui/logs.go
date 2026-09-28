@@ -144,7 +144,8 @@ func (m *model) applyLogsSources(msg logsSourcesMsg) tea.Cmd {
 	hovered := rowKeyAt(l.rows(s), l.rowCursor.cursor)
 	l.sources = msg.sources
 	if l.listed {
-		l.rowCursor.cursor = cursor.Place(rowIndexOfKey(l.rows(s), hovered), l.rowCursor.cursor, len(l.sources))
+		rows := l.rows(s)
+		l.rowCursor.cursor = cursor.Place(rowIndexOfKey(rows, hovered), l.rowCursor.cursor, len(rows))
 
 		return l.switchSource(s)
 	}
