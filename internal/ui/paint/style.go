@@ -65,8 +65,7 @@ func (p Palette) Highlight(text string, spans []Span, base lipgloss.Style) strin
 	return b.String()
 }
 
-// PlainText is a styled row without its escape sequences, which is the text HighlightStyled's
-// spans are measured against.
+// PlainText is a styled row without its escape sequences.
 func PlainText(row string) string {
 	var b strings.Builder
 	walkStyled(row, func(piece string, isText bool) {

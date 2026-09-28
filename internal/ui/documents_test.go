@@ -586,6 +586,45 @@ func TestDocumentsReadingCursor(t *testing.T) {
 	assert.NotEqual(t, focused, found, "the hit is painted")
 }
 
+// TestDocumentsReadingKeepsTheCursorShown covers the rows the search adds over a long document
+// never pushing the cursor out of the window.
+func TestDocumentsReadingKeepsTheCursorShown(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		presses []string
+	}{
+		{name: "opening the search", presses: []string{"/", "z", "z"}},
+		{name: "a jump that finds nothing", presses: []string{"n"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			harness, docs := openDocuments(t)
+			lines := make([]string, 0, 81)
+			for range 80 {
+				lines = append(lines, "Filler paragraph.\n")
+			}
+			docs.rewrite("d2", strings.Join(append(lines, "The last line."), "\n"), "2026-09-26T12:00:00Z")
+
+			author := buildDocumentAuthors()[2].(*agentv1.Agent)
+			author.DocumentsUpdatedAt = proto.String("2026-09-26T12:00:00Z")
+			harness.watch(buildPuts(author))
+
+			harness.press("j")
+			harness.fireTimers()
+			harness.press("ctrl+a", "G")
+			require.Contains(t, readStageText(harness.readFrame()), "The last line.")
+
+			harness.press(tt.presses...)
+			assert.Contains(t, readStageText(harness.readFrame()), "The last line.")
+		})
+	}
+}
+
 // TestDocumentsDiffCursor covers the cursor in a version's diff, held dim while the list has the
 // keys, lit once the diff is focused, and walking the lines from there.
 func TestDocumentsDiffCursor(t *testing.T) {

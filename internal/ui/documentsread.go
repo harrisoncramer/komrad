@@ -183,6 +183,7 @@ func (d *documentsScreen) jumpReadMatch(s panelShared, direction int) tea.Cmd {
 		if r.filter.isStanding() {
 			r.said = "no matches"
 		}
+		d.moveReadTo(s, r.Line)
 
 		return nil
 	}
@@ -239,10 +240,11 @@ func (d *documentsScreen) readActions() screenActionSpec {
 			{
 				id:   actionFilterOpen,
 				keys: func(config.Keybindings) []string { return []string{filterOpenKey} },
-				run: func(host, panelShared, string) tea.Cmd {
+				run: func(_ host, s panelShared, _ string) tea.Cmd {
 					d.reading.filter.typing = true
 					d.reading.filter.setQuery("")
 					d.reading.origin = d.reading.Line
+					d.moveReadTo(s, d.reading.Line)
 
 					return nil
 				},
