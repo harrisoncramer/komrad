@@ -62,11 +62,14 @@ const (
 	sectionList sidebarSection = iota
 	sectionRecord
 	sectionTabs
+	sectionViews
 )
 
 // keyholder is the section whose cursor the arrow keys would move.
 func (m model) keyholder() sidebarSection {
 	switch {
+	case m.isViewsOpen():
+		return sectionViews
 	case m.isTabsFocused(), m.isKindsFocused():
 		return sectionTabs
 	case m.isDetailsFocused():
