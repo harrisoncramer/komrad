@@ -10,6 +10,7 @@ import (
 	"komrad/internal/ui/diffview"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/paint/label"
+	"komrad/internal/view"
 	"komrad/lib/dates"
 	agentv1 "komrad/proto/gen/agent/v1"
 
@@ -74,7 +75,10 @@ func (d *documentsScreen) stepNewer(h host, s panelShared) tea.Cmd {
 	}
 
 	if d.history.at == 0 {
-		d.history, d.diffFocus = nil, false
+		d.history = nil
+		if d.focus {
+			d.focusRead(s)
+		}
 
 		return nil
 	}
@@ -104,10 +108,10 @@ func (d *documentsScreen) isSteppingHovered(s panelShared) bool {
 
 // docRows is the document drawn beside the list at a width: the write stepped to and what it
 // changed, or the document as it stands.
-func (d *documentsScreen) docRows(s panelShared, width int) []string {
+func (d *documentsScreen) docRows(s panelShared, width int, caret view.Caret) []string {
 	item, ok := d.hovered(s)
 	if !ok || !d.isSteppingHovered(s) {
-		return paint.DocStyledRows(d.doc(s), width, columnStyle())
+		return d.readBlock(s, width, caret)
 	}
 
 	h := d.history

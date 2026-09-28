@@ -15,6 +15,8 @@ func (d *documentsScreen) actions(s panelShared) screenActionSpec {
 		return d.diffActions()
 	case d.isDiffFocused(s):
 		return d.stepActions()
+	case d.isReadFocused(s):
+		return d.readActions()
 	}
 
 	return d.listActions()
@@ -128,7 +130,7 @@ func (d *documentsScreen) stepActions() screenActionSpec {
 				id:   actionDocumentsBack,
 				keys: func(k config.Keybindings) []string { return k.Documents.Back },
 				run: func(host, panelShared, string) tea.Cmd {
-					d.diffFocus = false
+					d.focus = false
 
 					return nil
 				},
@@ -200,13 +202,22 @@ func (d *documentsScreen) isDiffDrawn(s panelShared) bool {
 
 // isDiffFocused reports whether the diff of the write stepped to holds the keys.
 func (d *documentsScreen) isDiffFocused(s panelShared) bool {
-	return d.diffFocus && d.history != nil && s.draw.isListFocused()
+	return d.focus && d.history != nil && s.draw.isListFocused()
+}
+
+// isBlockFocused reports whether the document or the diff of one of its writes holds the keys.
+func (d *documentsScreen) isBlockFocused(s panelShared) bool {
+	return d.isDiffFocused(s) || d.isReadFocused(s)
 }
 
 func (d *documentsScreen) doesScrollColumn(s panelShared) bool {
-	return d.isDiffDrawn(s)
+	return d.isDiffDrawn(s) || d.isReadDrawn(s)
 }
 
 func (d *documentsScreen) scrollColumn(_ host, s panelShared, rows int) tea.Cmd {
+	if d.isReadDrawn(s) {
+		return d.scrollRead(s, rows)
+	}
+
 	return d.diffKeys().scrollColumn(s, rows)
 }

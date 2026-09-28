@@ -15,8 +15,8 @@ const (
 	stopAgent
 	stopThread
 	stopRecord
-	// stopDiff is the diff of a document's write, drawn beside the documents list.
-	stopDiff
+	// stopDocument is the document drawn beside the documents list, or the diff of one of its writes.
+	stopDocument
 	// stopLog is the log of the source hovered on the logs screen, drawn beside the list.
 	stopLog
 	// stopOther is a pane beside the sidebar that is not a stop, such as the info pane.
@@ -89,8 +89,8 @@ func (m model) readSidebarStop() stop {
 		return stopRecord
 	case m.screen == screenReview && m.review.isThreadTaken():
 		return stopThread
-	case m.screen == screenDocuments && m.documents.isDiffFocused(m.shared()):
-		return stopDiff
+	case m.screen == screenDocuments && m.documents.isBlockFocused(m.shared()):
+		return stopDocument
 	case m.screen == screenLogs && m.logs.isLogFocused(m.shared()):
 		return stopLog
 	}
@@ -108,8 +108,8 @@ func (m model) listStops() []stop {
 			stops = append(stops, stopThread)
 		}
 	case m.screen == screenDocuments:
-		if m.documents.isDiffDrawn(m.shared()) {
-			stops = append(stops, stopDiff)
+		if m.documents.isDiffDrawn(m.shared()) || m.documents.isReadDrawn(m.shared()) {
+			stops = append(stops, stopDocument)
 		}
 	case m.screen == screenLogs:
 		if m.logs.isLogDrawn(m.shared()) {
@@ -155,9 +155,9 @@ func (m model) enterStop(to stop) (tea.Model, tea.Cmd) {
 	case stopThread:
 		m = m.enterSidebar(to).blurDetails()
 		m.review.threads.focus = true
-	case stopDiff:
+	case stopDocument:
 		m = m.enterSidebar(to).blurDetails()
-		m.documents.diffFocus = true
+		m.documents.focusRead(m.shared())
 	case stopLog:
 		m = m.enterSidebar(to).blurDetails()
 		m.logs.logFocus = true
@@ -180,8 +180,8 @@ func (m model) enterSidebar(to stop) model {
 		m.review.threads.blur()
 	}
 
-	if to != stopDiff {
-		m.documents.diffFocus = false
+	if to != stopDocument {
+		m.documents.focus = false
 	}
 
 	if to != stopLog {
