@@ -1418,3 +1418,68 @@ func TestIntegrationBuiltinWorktreeCleanupKeepsAnAdoptedBranch(t *testing.T) {
 	assert.True(t, os.IsNotExist(statErr), "the worktree directory is gone")
 	assert.True(t, hasRef(t, repo, "refs/heads/someones/work"), "the branch outlives the agent that adopted it")
 }
+
+// TestIntegrationBuiltinKomradCheckoutTeardown covers giving back what a komrad checkout claimed.
+func TestIntegrationBuiltinKomradCheckoutTeardown(t *testing.T) {
+	tests := []struct {
+		name        string
+		checkout    bool
+		dirName     string
+		dockerDown  bool
+		wantFreed   bool
+		wantCompose bool
+	}{
+		{name: "a komrad checkout gives back its instance and stack", checkout: true, dirName: "agent-a", wantFreed: true, wantCompose: true},
+		{name: "a komrad checkout with docker down still gives back its instance", checkout: true, dirName: "agent-a", dockerDown: true, wantFreed: true},
+		{name: "a komrad checkout not named after its agent is left alone", checkout: true, dirName: "komrad"},
+		{name: "any other checkout is left alone", dirName: "agent-a"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tree := filepath.Join(t.TempDir(), tt.dirName)
+			require.NoError(t, os.MkdirAll(tree, 0o755))
+			calls := t.TempDir()
+			freed := filepath.Join(calls, "freed")
+			dockered := filepath.Join(calls, "docker")
+
+			if tt.checkout {
+				tasks := filepath.Join(tree, "mise", "tasks")
+				require.NoError(t, os.MkdirAll(tasks, 0o755))
+				stub := fmt.Sprintf("#!/bin/sh\nprintf '%%s' \"$*\" > %q\n", freed)
+				require.NoError(t, os.WriteFile(filepath.Join(tasks, "_test_instance"), []byte(stub), 0o755))
+			}
+
+			bin := t.TempDir()
+			docker := fmt.Sprintf("#!/bin/sh\nprintf '%%s\\n' \"$*\" >> %q\n", dockered)
+			if tt.dockerDown {
+				docker = "#!/bin/sh\nexit 1\n"
+			}
+			require.NoError(t, os.WriteFile(filepath.Join(bin, "docker"), []byte(docker), 0o755))
+
+			result, err := runBuiltin(t, "komrad-checkout-teardown", worktreeEnv{
+				agentID:    "agent-a",
+				agentCwd:   tree,
+				trigger:    "pre-delete",
+				pathPrefix: bin,
+			})
+			require.NoError(t, err, "stderr: %s", result.Stderr)
+
+			said, freedErr := os.ReadFile(freed)
+			ran, dockerErr := os.ReadFile(dockered)
+			if tt.wantFreed {
+				require.NoError(t, freedErr)
+				assert.Equal(t, "down --root "+tree, string(said))
+			} else {
+				assert.True(t, os.IsNotExist(freedErr), "no instance was given back")
+			}
+
+			if tt.wantCompose {
+				require.NoError(t, dockerErr)
+				assert.Contains(t, string(ran), "compose -p agent-a --profile * down --volumes --remove-orphans --rmi local\n")
+			} else {
+				assert.NotContains(t, string(ran), "compose", "no stack was taken down")
+			}
+		})
+	}
+}

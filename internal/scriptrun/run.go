@@ -33,6 +33,8 @@ var ErrProvisionFailed = fail.Precondition("the provisioner failed")
 
 var ErrHookFailed = fail.Precondition("a hook failed")
 
+var ErrHookNameTaken = fail.InvalidArgument("a hook in the hooks directory takes the name of one komrad ships")
+
 var ErrScriptAlreadyRunning = fail.Precondition("the script is already running for this agent")
 
 type scriptRunner interface {

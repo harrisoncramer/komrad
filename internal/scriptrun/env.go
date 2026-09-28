@@ -50,40 +50,70 @@ type scriptEnvParams struct {
 // ListHooks returns the available hooks in name order, the order they run in on a moment that
 // holds several.
 func (s *ScriptService) ListHooks() ([]scripts.Script, error) {
-	dirs, err := s.hookDirs()
+	dir, err := s.hooksDir()
 	if err != nil {
 		return nil, err
 	}
 
-	return scripts.List(dirs...)
+	return scripts.List(dir)
 }
 
 func (s *ScriptService) find(name string) (scripts.Script, error) {
 	return scripts.Find(name, s.builtinDirs()...)
 }
 
-// FindHook is the hook named name in the hooks directory.
+// FindHook is the hook named name in the hooks directory or among the hooks komrad ships.
 func (s *ScriptService) FindHook(name string) (scripts.Script, error) {
-	dirs, err := s.hookDirs()
+	dir, err := s.hooksDir()
 	if err != nil {
 		return scripts.Script{}, err
 	}
 
-	return scripts.Find(name, dirs...)
+	written, err := scripts.Find(name, dir)
+	if err != nil && !errors.Is(err, scripts.ErrScriptNotFound) {
+		return scripts.Script{}, err
+	}
+
+	shipped, ships, shippedErr := s.findShippedHook(name)
+	if shippedErr != nil {
+		return scripts.Script{}, shippedErr
+	}
+
+	switch {
+	case err == nil && ships && written.Path != shipped.Path:
+		return scripts.Script{}, fmt.Errorf("%w: %q", ErrHookNameTaken, name)
+	case err == nil:
+		return written, nil
+	case ships:
+		return shipped, nil
+	}
+
+	return scripts.Script{}, err
 }
 
-func (s *ScriptService) hookDirs() ([]string, error) {
+func (s *ScriptService) findShippedHook(name string) (scripts.Script, bool, error) {
+	if strings.HasPrefix(name, "_") {
+		return scripts.Script{}, false, nil
+	}
+
+	shipped, err := scripts.Find(name, s.builtinDirs()...)
+	if errors.Is(err, scripts.ErrScriptNotFound) {
+		return scripts.Script{}, false, nil
+	}
+	if err != nil {
+		return scripts.Script{}, false, err
+	}
+
+	return shipped, true, nil
+}
+
+func (s *ScriptService) hooksDir() (string, error) {
 	cfg, err := s.load()
 	if err != nil {
-		return nil, fmt.Errorf("failed to read the config: %w", err)
+		return "", fmt.Errorf("failed to read the config: %w", err)
 	}
 
-	dir, err := cfg.GetHooksDir()
-	if err != nil {
-		return nil, err
-	}
-
-	return []string{dir}, nil
+	return cfg.GetHooksDir()
 }
 
 // builtinDirs is where the scripts komrad ships live.

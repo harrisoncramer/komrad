@@ -20,6 +20,7 @@ import (
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/internal/storetest"
 	"komrad/lib/xptr"
+	"komrad/lib/xslice"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -42,6 +43,52 @@ func TestListHooks(t *testing.T) {
 
 	assert.Equal(t, "unrunnable", listed[1].Name)
 	assert.False(t, listed[1].Executable)
+}
+
+// TestShippedHooks covers the hooks komrad ships, which a workflow can name but nobody is shown.
+func TestShippedHooks(t *testing.T) {
+	hooksDir, builtinDir := t.TempDir(), t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(hooksDir, "install-deps"), []byte("#!/bin/sh\n"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(hooksDir, "_mine"), []byte("#!/bin/sh\n"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(hooksDir, "taken"), []byte("#!/bin/sh\n"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(builtinDir, "taken"), []byte("#!/bin/sh\n"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(builtinDir, "shipped"), []byte("#!/bin/sh\n"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(builtinDir, "_worktree_setup"), []byte("#!/bin/sh\n"), 0o755))
+
+	service := scriptService(t, hooksDir, &recordingRunner{})
+	service.builtinDir = builtinDir
+
+	listed, err := service.ListHooks()
+	require.NoError(t, err)
+	assert.Equal(t, []string{"_mine", "install-deps", "taken"}, xslice.Map(listed, func(s scripts.Script) string { return s.Name }))
+
+	tests := []struct {
+		name    string
+		hook    string
+		wantDir string
+		wantIs  error
+	}{
+		{name: "a hook a person wrote", hook: "install-deps", wantDir: hooksDir},
+		{name: "a hook komrad ships", hook: "shipped", wantDir: builtinDir},
+		{name: "a person's underscored hook", hook: "_mine", wantDir: hooksDir},
+		{name: "a person's hook named like a shipped one", hook: "taken", wantIs: ErrHookNameTaken},
+		{name: "komrad's own script", hook: "_worktree_setup", wantIs: scripts.ErrScriptNotFound},
+		{name: "a hook nobody has", hook: "absent", wantIs: scripts.ErrScriptNotFound},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			found, err := service.FindHook(tt.hook)
+			if tt.wantIs != nil {
+				require.ErrorIs(t, err, tt.wantIs)
+
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantDir, found.GetDir())
+		})
+	}
 }
 
 // TestListHooksWithNoDirectory pins that never having written one is the ordinary case rather
