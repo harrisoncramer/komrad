@@ -6,7 +6,7 @@ Source recordings/panel.tape
 Hide
 Type "k"
 Type "k"
-Wait+Screen@4m /stand behind[\s\S]*done \d+:\d+ [AP]M/
+Wait+Screen@4m /done \d+:\d+ [AP]M/
 Show
 Type "o"
 Type "s"
