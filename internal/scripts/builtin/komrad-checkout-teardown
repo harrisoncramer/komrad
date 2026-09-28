@@ -1,0 +1,33 @@
+#!/bin/sh
+#KOMRAD description="Give back what a komrad checkout claimed: its throwaway test instance and any docker stack it brought up. Does nothing in any other checkout."
+#KOMRAD timeout="10m"
+set -eu
+
+tree="$KOMRAD_AGENT_CWD"
+
+if [ ! -x "$tree/mise/tasks/_test_instance" ]; then
+	exit 0
+fi
+
+if [ "$(basename "$tree")" != "$KOMRAD_AGENT_ID" ]; then
+	echo "teardown: $tree is not named after $KOMRAD_AGENT_ID, so it is not this agent's to tear down" >&2
+	exit 0
+fi
+
+"$tree/mise/tasks/_test_instance" down --root "$tree"
+
+if ! docker info >/dev/null 2>&1; then
+	echo "teardown: docker is not reachable, so no stack was taken down"
+	exit 0
+fi
+
+project="$KOMRAD_AGENT_ID"
+(cd "$tree" && docker compose -p "$project" --profile "*" down --volumes --remove-orphans --rmi local)
+
+for image in $(docker images --format '{{.Repository}}:{{.Tag}}' | grep "^${project}[-_]" || true); do
+	docker rmi -f "$image" >/dev/null
+done
+
+for volume in $(docker volume ls --format '{{.Name}}' | grep "^${project}[-_]" || true); do
+	docker volume rm "$volume" >/dev/null
+done
