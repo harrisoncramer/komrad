@@ -1438,7 +1438,7 @@ func TestIntegrationBuiltinTestInstanceDown(t *testing.T) {
 			if tt.checkout {
 				tasks := filepath.Join(tree, "mise", "tasks")
 				require.NoError(t, os.MkdirAll(tasks, 0o755))
-				stub := fmt.Sprintf("komradslot() { printf '%%s' \"$*\" > %q; }\n", freed)
+				stub := fmt.Sprintf("#!/bin/sh\nprintf '%%s' \"$*\" > %q\n", freed)
 				require.NoError(t, os.WriteFile(filepath.Join(tasks, "_test_instance"), []byte(stub), 0o755))
 			}
 

@@ -28,8 +28,7 @@ func NewHandler(hooks hookLister) *Handler {
 	return &Handler{hooks: hooks}
 }
 
-// ListHooks returns every hook komrad ships and every file in the user's hooks directory, and a directory that is not
-// there is an empty listing rather than an error.
+// ListHooks returns every hook komrad ships and every file in the user's hooks directory.
 func (s *Handler) ListHooks(_ context.Context, _ *emptypb.Empty) (*hookv1.ListHooksResponse, *fail.Error) {
 	listed, err := s.hooks.ListHooks()
 	if err != nil {
