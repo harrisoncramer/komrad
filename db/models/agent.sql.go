@@ -676,21 +676,24 @@ WITH chunk AS (
         UNNEST($3::int[]) AS seq,
         UNNEST($4::text[]) AS role,
         UNNEST($5::text[]) AS content,
-        UNNEST($6::bigint[]) AS content_offset)
+        UNNEST($6::bigint[]) AS content_offset,
+        UNNEST($7::timestamptz[]) AS spoken_at)
 INSERT INTO agent_transcript_chunks(
     agent_id,
     session_id,
     seq,
     role,
     content,
-    content_offset)
+    content_offset,
+    spoken_at)
 SELECT
     $1,
     $2,
     chunk.seq,
     chunk.role,
     chunk.content,
-    chunk.content_offset
+    chunk.content_offset,
+    NULLIF(chunk.spoken_at, '0001-01-01 00:00:00+00'::timestamptz)
 FROM
     chunk
 `
@@ -702,6 +705,7 @@ type InsertTranscriptChunksParams struct {
 	Roles          []string
 	Contents       []string
 	ContentOffsets []int64
+	SpokenAts      []time.Time
 }
 
 func (q *Queries) InsertTranscriptChunks(ctx context.Context, arg InsertTranscriptChunksParams) error {
@@ -712,6 +716,7 @@ func (q *Queries) InsertTranscriptChunks(ctx context.Context, arg InsertTranscri
 		arg.Roles,
 		arg.Contents,
 		arg.ContentOffsets,
+		arg.SpokenAts,
 	)
 	return err
 }
@@ -2411,17 +2416,56 @@ ranked AS (
         OCTET_LENGTH(c.content) AS content_length,
         a.name,
         a.archived_at IS NOT NULL AS archived,
-        TS_HEADLINE('english_nostop', c.content, q.wanted, $8) AS snippet,
-        TS_RANK_CD(c.tsv, q.wanted, 2) + COALESCE((c.content ~* q.phrase)::int, 0) AS rank
+        c.spoken_at,
+        CASE WHEN q.wanted = '' THEN
+            LEFT(c.content, $8::int)
+        ELSE
+            TS_HEADLINE('english_nostop', c.content, q.wanted, $9)
+        END AS snippet,
+        CASE $10::text
+        WHEN 'new' THEN
+            COALESCE(EXTRACT(EPOCH FROM c.spoken_at)::float8, $11::float8)
+        WHEN 'old' THEN
+            COALESCE(-EXTRACT(EPOCH FROM c.spoken_at)::float8, $11::float8)
+        ELSE
+            CASE WHEN q.wanted = '' THEN
+                0
+            ELSE
+                TS_RANK_CD(c.tsv, q.wanted, 2) + COALESCE((c.content ~* q.phrase)::int, 0)
+            END
+        END AS sort_key
     FROM
         agent_transcript_chunks c
         CROSS JOIN q
         JOIN agents a ON a.id = c.agent_id
-    WHERE
-        q.wanted <> ''
-        AND c.tsv @@(q.wanted && q.unwanted)
-        AND ($9::uuid IS NULL
-            OR c.agent_id = $9))
+    WHERE (q.wanted <> ''
+        OR $12::boolean)
+    AND ((q.wanted && q.unwanted) = ''
+        OR c.tsv @@(q.wanted && q.unwanted))
+    AND ($13::uuid IS NULL
+        OR c.agent_id = $13)
+    AND ($14::text IS NULL
+        OR c.role = $14)
+    AND ($15::text IS NULL
+        OR a.name ILIKE $15)
+    AND ($16::text IS NULL
+        OR EXISTS (
+            SELECT
+                1
+            FROM
+                workflows w
+            WHERE
+                w.id = a.workflow_id
+                AND w.name ILIKE $16))
+    AND (CARDINALITY($17::text[]) = 0
+        OR a.role::text = ANY ($17::text[]))
+    AND NOT (a.role::text = ANY ($18::text[]))
+    AND ($19::boolean IS NULL
+        OR (a.archived_at IS NOT NULL) = $19)
+    AND ($20::timestamptz IS NULL
+        OR c.spoken_at >= $20)
+    AND ($21::timestamptz IS NULL
+        OR c.spoken_at < $21))
 SELECT
     r.agent_id,
     r.seq,
@@ -2430,33 +2474,46 @@ SELECT
     r.content_length,
     r.name,
     r.archived::boolean AS archived,
+    r.spoken_at,
     r.snippet::text AS snippet,
-    r.rank::float8 AS rank
+    r.sort_key::float8 AS sort_key
 FROM
     ranked r
 WHERE ($1::float8 IS NULL
-    OR r.rank < $1
-    OR (r.rank = $1
+    OR r.sort_key < $1
+    OR (r.sort_key = $1
         AND (r.agent_id,
             r.seq) >($2::uuid,
             $3::int)))
 ORDER BY
-    r.rank DESC,
+    r.sort_key DESC,
     r.agent_id ASC,
     r.seq ASC
 LIMIT $4
 `
 
 type SearchTranscriptsParams struct {
-	CursorRank    *float64
+	CursorKey     *float64
 	CursorAgentID *string
 	CursorSeq     *int32
 	Lim           int32
 	Wanted        string
 	Excluded      string
 	Phrase        *string
+	Width         int32
 	Headline      string
+	Sort          string
+	UnknownKey    float64
+	Browse        bool
 	AgentID       *string
+	Speaker       *string
+	AgentName     *string
+	WorkflowName  *string
+	Kinds         []string
+	ExcludedKinds []string
+	Archived      *bool
+	Since         *time.Time
+	Until         *time.Time
 }
 
 type SearchTranscriptsRow struct {
@@ -2467,21 +2524,34 @@ type SearchTranscriptsRow struct {
 	ContentLength int32
 	Name          string
 	Archived      bool
+	SpokenAt      *time.Time
 	Snippet       string
-	Rank          float64
+	SortKey       float64
 }
 
 func (q *Queries) SearchTranscripts(ctx context.Context, arg SearchTranscriptsParams) ([]*SearchTranscriptsRow, error) {
 	rows, err := q.db.Query(ctx, searchTranscripts,
-		arg.CursorRank,
+		arg.CursorKey,
 		arg.CursorAgentID,
 		arg.CursorSeq,
 		arg.Lim,
 		arg.Wanted,
 		arg.Excluded,
 		arg.Phrase,
+		arg.Width,
 		arg.Headline,
+		arg.Sort,
+		arg.UnknownKey,
+		arg.Browse,
 		arg.AgentID,
+		arg.Speaker,
+		arg.AgentName,
+		arg.WorkflowName,
+		arg.Kinds,
+		arg.ExcludedKinds,
+		arg.Archived,
+		arg.Since,
+		arg.Until,
 	)
 	if err != nil {
 		return nil, err
@@ -2498,8 +2568,9 @@ func (q *Queries) SearchTranscripts(ctx context.Context, arg SearchTranscriptsPa
 			&i.ContentLength,
 			&i.Name,
 			&i.Archived,
+			&i.SpokenAt,
 			&i.Snippet,
-			&i.Rank,
+			&i.SortKey,
 		); err != nil {
 			return nil, err
 		}
@@ -2528,6 +2599,7 @@ ranked AS (
         OCTET_LENGTH(c.content) AS content_length,
         a.name,
         a.archived_at IS NOT NULL AS archived,
+        c.spoken_at,
         SUBSTRING(c.content FROM GREATEST(1,(
                     SELECT
                         MIN(POSITION(LOWER(t) IN LOWER(c.content)))
@@ -2535,7 +2607,14 @@ ranked AS (
                     WHERE
                         POSITION(LOWER(t) IN LOWER(c.content)) > 0) - $9::int)
                 FOR $10::int) AS snippet,
-        WORD_SIMILARITY(ARRAY_TO_STRING(q.terms, ' '), c.content) AS rank
+        CASE $11::text
+        WHEN 'new' THEN
+            COALESCE(EXTRACT(EPOCH FROM c.spoken_at)::float8, $12::float8)
+        WHEN 'old' THEN
+            COALESCE(-EXTRACT(EPOCH FROM c.spoken_at)::float8, $12::float8)
+        ELSE
+            WORD_SIMILARITY(ARRAY_TO_STRING(q.terms, ' '), c.content)
+        END AS sort_key
     FROM
         agent_transcript_chunks c
         CROSS JOIN q
@@ -2547,8 +2626,30 @@ ranked AS (
             AND c.tsv @@ q.wanted)
         AND (q.unwanted = ''
             OR c.tsv @@ q.unwanted)
-        AND ($11::uuid IS NULL
-            OR c.agent_id = $11))
+        AND ($13::uuid IS NULL
+            OR c.agent_id = $13)
+        AND ($14::text IS NULL
+            OR c.role = $14)
+        AND ($15::text IS NULL
+            OR a.name ILIKE $15)
+        AND ($16::text IS NULL
+            OR EXISTS (
+                SELECT
+                    1
+                FROM
+                    workflows w
+                WHERE
+                    w.id = a.workflow_id
+                    AND w.name ILIKE $16))
+        AND (CARDINALITY($17::text[]) = 0
+            OR a.role::text = ANY ($17::text[]))
+        AND NOT (a.role::text = ANY ($18::text[]))
+        AND ($19::boolean IS NULL
+            OR (a.archived_at IS NOT NULL) = $19)
+        AND ($20::timestamptz IS NULL
+            OR c.spoken_at >= $20)
+        AND ($21::timestamptz IS NULL
+            OR c.spoken_at < $21))
 SELECT
     r.agent_id,
     r.seq,
@@ -2557,25 +2658,26 @@ SELECT
     r.content_length,
     r.name,
     r.archived::boolean AS archived,
+    r.spoken_at,
     r.snippet::text AS snippet,
-    r.rank::float8 AS rank
+    r.sort_key::float8 AS sort_key
 FROM
     ranked r
 WHERE ($1::float8 IS NULL
-    OR r.rank < $1
-    OR (r.rank = $1
+    OR r.sort_key < $1
+    OR (r.sort_key = $1
         AND (r.agent_id,
             r.seq) >($2::uuid,
             $3::int)))
 ORDER BY
-    r.rank DESC,
+    r.sort_key DESC,
     r.agent_id ASC,
     r.seq ASC
 LIMIT $4
 `
 
 type SearchTranscriptsNearParams struct {
-	CursorRank    *float64
+	CursorKey     *float64
 	CursorAgentID *string
 	CursorSeq     *int32
 	Lim           int32
@@ -2585,7 +2687,17 @@ type SearchTranscriptsNearParams struct {
 	Excluded      string
 	Lead          int32
 	Width         int32
+	Sort          string
+	UnknownKey    float64
 	AgentID       *string
+	Speaker       *string
+	AgentName     *string
+	WorkflowName  *string
+	Kinds         []string
+	ExcludedKinds []string
+	Archived      *bool
+	Since         *time.Time
+	Until         *time.Time
 }
 
 type SearchTranscriptsNearRow struct {
@@ -2596,13 +2708,14 @@ type SearchTranscriptsNearRow struct {
 	ContentLength int32
 	Name          string
 	Archived      bool
+	SpokenAt      *time.Time
 	Snippet       string
-	Rank          float64
+	SortKey       float64
 }
 
 func (q *Queries) SearchTranscriptsNear(ctx context.Context, arg SearchTranscriptsNearParams) ([]*SearchTranscriptsNearRow, error) {
 	rows, err := q.db.Query(ctx, searchTranscriptsNear,
-		arg.CursorRank,
+		arg.CursorKey,
 		arg.CursorAgentID,
 		arg.CursorSeq,
 		arg.Lim,
@@ -2612,7 +2725,17 @@ func (q *Queries) SearchTranscriptsNear(ctx context.Context, arg SearchTranscrip
 		arg.Excluded,
 		arg.Lead,
 		arg.Width,
+		arg.Sort,
+		arg.UnknownKey,
 		arg.AgentID,
+		arg.Speaker,
+		arg.AgentName,
+		arg.WorkflowName,
+		arg.Kinds,
+		arg.ExcludedKinds,
+		arg.Archived,
+		arg.Since,
+		arg.Until,
 	)
 	if err != nil {
 		return nil, err
@@ -2629,8 +2752,9 @@ func (q *Queries) SearchTranscriptsNear(ctx context.Context, arg SearchTranscrip
 			&i.ContentLength,
 			&i.Name,
 			&i.Archived,
+			&i.SpokenAt,
 			&i.Snippet,
-			&i.Rank,
+			&i.SortKey,
 		); err != nil {
 			return nil, err
 		}

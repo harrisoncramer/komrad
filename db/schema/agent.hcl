@@ -361,6 +361,11 @@ table "agent_transcript_chunks" {
       type = STORED
     }
   }
+  column "spoken_at" {
+    null    = true
+    type    = timestamptz
+    comment = "When the turn was written, read from its line in the log, null for a turn whose log was gone before it was read with times."
+  }
   column "engine_id" {
     null    = false
     type    = uuid
@@ -389,6 +394,9 @@ table "agent_transcript_chunks" {
   }
   index "agent_transcript_chunks_session_id" {
     columns = [column.session_id]
+  }
+  index "agent_transcript_chunks_spoken_at" {
+    columns = [column.spoken_at]
   }
   index "agent_transcript_chunks_tsv" {
     type    = GIN

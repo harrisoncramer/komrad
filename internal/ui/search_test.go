@@ -1,6 +1,7 @@
 package ui_test
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -32,6 +33,7 @@ const (
 type searchServer struct {
 	pages       map[string]*agentv1.SearchTranscriptsResponse
 	transcripts map[string]string
+	refusals    map[string]error
 }
 
 // TestSearchQuery covers the query line taking every key typed into it.
@@ -121,6 +123,46 @@ func TestSearchResults(t *testing.T) {
 
 		assert.Empty(t, readListRows(harness.readFrame()))
 		assert.Len(t, harness.readSent(agentv1connect.AgentServiceSearchTranscriptsProcedure), 1)
+	})
+
+	t.Run("a refused query says why over the hits of the one before it", func(t *testing.T) {
+		t.Parallel()
+
+		server := newSearchServer(newTurnHit("a2", "payouts", "ledger"))
+		server.refusals = map[string]error{
+			"led since:x": connect.NewError(connect.CodeInvalidArgument, errors.New("since:x is not a day")),
+		}
+		harness := openSearch(t, openSearchParams{
+			server: server,
+			query:  "led",
+			rows:   buildSearchable(),
+		})
+		hits := readListRows(harness.readFrame())
+		require.NotEmpty(t, hits)
+
+		typeText(harness, " since:x")
+		harness.fireTimers()
+
+		frame := harness.readFrame()
+		assert.Contains(t, frame, "since:x is not a day")
+		assert.Equal(t, hits, readListRows(frame))
+	})
+
+	t.Run("a search that failed says so rather than that nothing matched", func(t *testing.T) {
+		t.Parallel()
+
+		server := &searchServer{refusals: map[string]error{
+			"ledger": connect.NewError(connect.CodeUnavailable, errors.New("the server is gone")),
+		}}
+		harness := openSearch(t, openSearchParams{
+			server: server,
+			query:  "ledger",
+			rows:   buildSearchable(),
+		})
+
+		frame := harness.readFrame()
+		assert.Contains(t, frame, "the server is gone")
+		assert.NotContains(t, frame, "no matches")
 	})
 
 	t.Run("a search left before it settles is never sent", func(t *testing.T) {
@@ -934,6 +976,9 @@ func newSearchServer(hits ...*agentv1.SearchHit) *searchServer {
 func (s *searchServer) serve(harness *panelHarness) {
 	harness.answer(agentv1connect.AgentServiceSearchTranscriptsProcedure, func(req connect.AnyRequest) (connect.AnyResponse, error) {
 		search, _ := req.Any().(*agentv1.SearchTranscriptsRequest)
+		if err := s.refusals[search.GetQuery()]; err != nil {
+			return nil, err
+		}
 		page := s.pages[search.GetPagination().GetCursor()]
 		if page == nil {
 			page = &agentv1.SearchTranscriptsResponse{}

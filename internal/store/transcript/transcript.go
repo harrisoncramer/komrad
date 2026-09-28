@@ -6,11 +6,13 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 	"unicode"
 	"unicode/utf8"
 
 	"komrad/db"
 	"komrad/db/models"
+	"komrad/internal/fail"
 	"komrad/internal/store"
 	"komrad/lib/xslice"
 )
@@ -31,6 +33,8 @@ type SearchHit struct {
 	ContentLength int64
 	Snippet       string
 	Rank          float64
+	SpokenAt      *time.Time
+	Key           float64
 }
 
 const (
@@ -46,6 +50,10 @@ const (
 )
 
 const defaultSearchLimit = 50
+
+const unknownTimeKey = -1e18
+
+var ErrSortChanged = fail.InvalidArgument("the cursor was handed out under another sort; search again from the first page")
 
 const minNearTermRunes = 3
 
@@ -149,9 +157,10 @@ func (s *TranscriptStore) Advance(ctx context.Context, sessionID string, offset 
 }
 
 type Turn struct {
-	Role    string
-	Content string
-	Offset  int64
+	Role     string
+	Content  string
+	Offset   int64
+	SpokenAt time.Time
 }
 
 type AppendTurnsParams struct {
@@ -181,6 +190,7 @@ func (s *TranscriptStore) AppendTurns(ctx context.Context, params AppendTurnsPar
 		chunks.Roles = append(chunks.Roles, turn.Role)
 		chunks.Contents = append(chunks.Contents, turn.Content)
 		chunks.ContentOffsets = append(chunks.ContentOffsets, turn.Offset)
+		chunks.SpokenAts = append(chunks.SpokenAts, turn.SpokenAt)
 	}
 
 	if err := s.queries.InsertTranscriptChunks(ctx, chunks); err != nil {
@@ -233,7 +243,7 @@ func (s *TranscriptStore) Delete(ctx context.Context, agentIDs []string) error {
 
 // Position locates one hit within its own section.
 type Position struct {
-	Rank    float64 `json:"r"`
+	Key     float64 `json:"k"`
 	AgentID string  `json:"i"`
 	Seq     int32   `json:"s"`
 }
@@ -249,6 +259,7 @@ func (p Position) Validate() error {
 
 // Cursor walks both sections at once, holding nothing for a section that has run out.
 type Cursor struct {
+	Sort    Sort      `json:"o"`
 	Matches *Position `json:"m,omitempty"`
 	Near    *Position `json:"n,omitempty"`
 }
@@ -274,6 +285,9 @@ func (c Cursor) Validate() error {
 	if c.Matches == nil && c.Near == nil {
 		return fmt.Errorf("cursor locates neither section")
 	}
+	if err := c.Sort.Validate(); err != nil {
+		return err
+	}
 
 	for _, position := range []*Position{c.Matches, c.Near} {
 		if position == nil {
@@ -287,11 +301,49 @@ func (c Cursor) Validate() error {
 	return nil
 }
 
+type Sort string
+
+const (
+	SortBest   Sort = "best"
+	SortNewest Sort = "new"
+	SortOldest Sort = "old"
+)
+
+// Validate refuses a sort this server does not know.
+func (s Sort) Validate() error {
+	switch s {
+	case SortBest, SortNewest, SortOldest:
+		return nil
+	}
+
+	return fmt.Errorf("sort %q is not one of best, new or old", string(s))
+}
+
+type Filter struct {
+	Speaker       *string
+	AgentName     *string
+	WorkflowName  *string
+	Kinds         []string
+	ExcludedKinds []string
+	Archived      *bool
+	Since         *time.Time
+	Until         *time.Time
+}
+
+// IsZero reports whether the filter narrows nothing.
+func (f Filter) IsZero() bool {
+	return f.Speaker == nil && f.AgentName == nil && f.WorkflowName == nil &&
+		len(f.Kinds) == 0 && len(f.ExcludedKinds) == 0 && f.Archived == nil &&
+		f.Since == nil && f.Until == nil
+}
+
 type SearchParams struct {
 	Query   string
 	Limit   int64
 	Cursor  *Cursor
 	AgentID *string
+	Filter  Filter
+	Sort    Sort
 }
 
 // Results is one page of each section, the turns that say the words and the turns that only
@@ -305,14 +357,31 @@ type Results struct {
 	Next *Cursor
 }
 
-// Search returns one page of each section, most relevant first within each, answering a query
-// with no word to look for with nothing.
+// Search returns one page of each section in the order the sort asks for, answering a query
+// with neither a word to look for nor a filter with nothing and one with only a filter with the
+// turns passing it.
 func (s *TranscriptStore) Search(ctx context.Context, params SearchParams) (Results, error) {
 	query := strings.ReplaceAll(params.Query, "\x00", "")
 
 	terms := splitTerms(query)
-	if len(terms.wanted) == 0 {
+	browse := len(terms.wanted) == 0
+	if browse && params.Filter.IsZero() {
 		return Results{}, nil
+	}
+
+	sort := params.Sort
+	switch {
+	case sort != "":
+	case browse:
+		sort = SortNewest
+	default:
+		sort = SortBest
+	}
+	if err := sort.Validate(); err != nil {
+		return Results{}, err
+	}
+	if params.Cursor != nil && params.Cursor.Sort != sort {
+		return Results{}, ErrSortChanged.Saying("the cursor was handed out for sort %q, not %q; search again from the first page", params.Cursor.Sort, sort)
 	}
 
 	wanted, excluded := quoteTerms(terms.wanted, ""), quoteTerms(terms.excluded, "-")
@@ -335,6 +404,7 @@ func (s *TranscriptStore) Search(ctx context.Context, params SearchParams) (Resu
 	}
 
 	var results Results
+	filter := params.Filter
 
 	matchesRan := first || matchesAt != nil
 	if matchesRan {
@@ -343,9 +413,21 @@ func (s *TranscriptStore) Search(ctx context.Context, params SearchParams) (Resu
 			Excluded:      excluded,
 			Phrase:        phrasePattern(terms.wanted),
 			Headline:      headlineOptions,
+			Width:         snippetWidth,
+			Sort:          string(sort),
+			UnknownKey:    unknownTimeKey,
+			Browse:        browse,
 			Lim:           int32(limit),
 			AgentID:       params.AgentID,
-			CursorRank:    rankOf(matchesAt),
+			Speaker:       filter.Speaker,
+			AgentName:     containing(filter.AgentName),
+			WorkflowName:  containing(filter.WorkflowName),
+			Kinds:         nonNil(filter.Kinds),
+			ExcludedKinds: nonNil(filter.ExcludedKinds),
+			Archived:      filter.Archived,
+			Since:         filter.Since,
+			Until:         filter.Until,
+			CursorKey:     keyOf(matchesAt),
 			CursorAgentID: agentOf(matchesAt),
 			CursorSeq:     seqOf(matchesAt),
 		})
@@ -363,12 +445,14 @@ func (s *TranscriptStore) Search(ctx context.Context, params SearchParams) (Resu
 				ContentOffset: row.ContentOffset,
 				ContentLength: int64(row.ContentLength),
 				Snippet:       row.Snippet,
-				Rank:          row.Rank,
+				Rank:          rankUnder(sort, row.SortKey),
+				SpokenAt:      row.SpokenAt,
+				Key:           row.SortKey,
 			}
 		})
 	}
 
-	nearStarts := matchesRan && int64(len(results.Matches)) < limit && hasNearTerms(terms.wanted)
+	nearStarts := matchesRan && !browse && int64(len(results.Matches)) < limit && hasNearTerms(terms.wanted)
 	if nearAt != nil || nearStarts {
 		rows, err := s.queries.SearchTranscriptsNear(ctx, models.SearchTranscriptsNearParams{
 			Terms:         terms.wanted,
@@ -377,9 +461,19 @@ func (s *TranscriptStore) Search(ctx context.Context, params SearchParams) (Resu
 			Excluded:      excluded,
 			Lead:          snippetLead,
 			Width:         snippetWidth,
+			Sort:          string(sort),
+			UnknownKey:    unknownTimeKey,
 			Lim:           int32(limit),
 			AgentID:       params.AgentID,
-			CursorRank:    rankOf(nearAt),
+			Speaker:       filter.Speaker,
+			AgentName:     containing(filter.AgentName),
+			WorkflowName:  containing(filter.WorkflowName),
+			Kinds:         nonNil(filter.Kinds),
+			ExcludedKinds: nonNil(filter.ExcludedKinds),
+			Archived:      filter.Archived,
+			Since:         filter.Since,
+			Until:         filter.Until,
+			CursorKey:     keyOf(nearAt),
 			CursorAgentID: agentOf(nearAt),
 			CursorSeq:     seqOf(nearAt),
 		})
@@ -397,19 +491,22 @@ func (s *TranscriptStore) Search(ctx context.Context, params SearchParams) (Resu
 				ContentOffset: row.ContentOffset,
 				ContentLength: int64(row.ContentLength),
 				Snippet:       markMatches(row.Snippet, terms.wanted),
-				Rank:          row.Rank,
+				Rank:          rankUnder(sort, row.SortKey),
+				SpokenAt:      row.SpokenAt,
+				Key:           row.SortKey,
 			}
 		})
 	}
 
-	results.Next = nextCursor(limit, results)
+	results.Next = nextCursor(limit, sort, results)
 
 	return results, nil
 }
 
 // nextCursor keeps a position for each section that filled its page.
-func nextCursor(limit int64, results Results) *Cursor {
+func nextCursor(limit int64, sort Sort, results Results) *Cursor {
 	cursor := Cursor{
+		Sort:    sort,
 		Matches: lastOf(limit, results.Matches),
 		Near:    lastOf(limit, results.Near),
 	}
@@ -428,18 +525,44 @@ func lastOf(limit int64, hits []SearchHit) *Position {
 	last := hits[len(hits)-1]
 
 	return &Position{
-		Rank:    last.Rank,
+		Key:     last.Key,
 		AgentID: last.AgentID,
 		Seq:     last.Seq,
 	}
 }
 
-func rankOf(p *Position) *float64 {
+func keyOf(p *Position) *float64 {
 	if p == nil {
 		return nil
 	}
 
-	return &p.Rank
+	return &p.Key
+}
+
+func rankUnder(sort Sort, key float64) float64 {
+	if sort != SortBest {
+		return 0
+	}
+
+	return key
+}
+
+func containing(text *string) *string {
+	if text == nil {
+		return nil
+	}
+
+	pattern := likePattern(*text)
+
+	return &pattern
+}
+
+func nonNil(values []string) []string {
+	if values == nil {
+		return []string{}
+	}
+
+	return values
 }
 
 func agentOf(p *Position) *string {

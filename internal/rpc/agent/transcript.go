@@ -19,7 +19,7 @@ import (
 type transcriptReader interface {
 	ReadTranscript(ctx context.Context, agentID string) (string, error)
 	ListLastTurns(ctx context.Context, params transcripts.ListLastTurnsParams) ([]transcriptstore.StoredTurn, error)
-	SearchTranscripts(ctx context.Context, params transcriptstore.SearchParams) (*transcriptstore.Results, error)
+	SearchTranscripts(ctx context.Context, params transcripts.SearchTranscriptsParams) (*transcriptstore.Results, error)
 }
 
 // SearchTranscripts runs a search over stored transcripts and returns one page of the turns
@@ -30,16 +30,18 @@ func (s *Handler) SearchTranscripts(ctx context.Context, req *agentv1.SearchTran
 		return nil, rpcerr.From(err, "failed to read the pagination")
 	}
 
-	scope := searchScope(ctx, req.GetAgentId())
-	if scope != nil {
-		logCrossAgentRead(ctx, *scope, "agent read another agent's transcript")
+	var scope *string
+	if requested := req.GetAgentId(); requested != "" {
+		scope = &requested
+		logCrossAgentRead(ctx, requested, "agent read another agent's transcript")
 	}
 
-	results, err := s.transcripts.SearchTranscripts(ctx, transcriptstore.SearchParams{
+	results, err := s.transcripts.SearchTranscripts(ctx, transcripts.SearchTranscriptsParams{
 		Query:   req.GetQuery(),
 		Limit:   paginator.Limit(),
 		Cursor:  paginator.Cursor(),
 		AgentID: scope,
+		Caller:  caller.From(ctx).AgentID,
 	})
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to search transcripts")
@@ -185,17 +187,4 @@ func (s *Handler) listLastTurns(ctx context.Context, params listLastTurnsParams)
 	}
 
 	return turns, nil
-}
-
-func searchScope(ctx context.Context, requested string) *string {
-	if requested != "" {
-		return &requested
-	}
-
-	from := caller.From(ctx)
-	if from.AgentID == "" {
-		return nil
-	}
-
-	return &from.AgentID
 }

@@ -107,3 +107,83 @@ func TestListLastTurns(t *testing.T) {
 		})
 	}
 }
+
+// TestSearchTranscriptsScope pins which agents a search reaches: the one named, else the caller's
+// own conversation unless a qualifier names which agents to search, else every agent.
+func TestSearchTranscriptsScope(t *testing.T) {
+	st := storetest.Open(t)
+	reader := newTranscriptReader(st)
+	alpha := st.SeedAgent(t, agentstore.Agent{Name: "alpha"})
+	beta := st.SeedAgent(t, agentstore.Agent{Name: "beta"})
+	st.SeedTurns(t, alpha.ID, transcriptstore.Turn{Role: "user", Content: "the reconciler"})
+	st.SeedTurns(t, beta.ID, transcriptstore.Turn{Role: "user", Content: "the reconciler"})
+
+	tests := []struct {
+		name    string
+		query   string
+		agentID *string
+		caller  string
+		want    []string
+	}{
+		{
+			name:   "a caller naming nobody reads its own conversation",
+			query:  "reconciler",
+			caller: alpha.ID,
+			want:   []string{"alpha"},
+		},
+		{
+			name:   "a qualifier naming agents widens it",
+			query:  "reconciler agent:beta",
+			caller: alpha.ID,
+			want:   []string{"beta"},
+		},
+		{
+			name:   "a qualifier naming a kind widens it",
+			query:  "reconciler is:live",
+			caller: alpha.ID,
+			want:   []string{"alpha", "beta"},
+		},
+		{
+			name:   "a qualifier naming only when or who spoke does not",
+			query:  "reconciler from:me",
+			caller: alpha.ID,
+			want:   []string{"alpha"},
+		},
+		{
+			name:    "the agent named",
+			query:   "reconciler",
+			agentID: &beta.ID,
+			caller:  alpha.ID,
+			want:    []string{"beta"},
+		},
+		{
+			name:  "no caller reads every conversation",
+			query: "reconciler",
+			want:  []string{"alpha", "beta"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := reader.SearchTranscripts(t.Context(), SearchTranscriptsParams{
+				Query:   tt.query,
+				Limit:   10,
+				AgentID: tt.agentID,
+				Caller:  tt.caller,
+			})
+			require.NoError(t, err)
+			assert.ElementsMatch(t, tt.want, xslice.Map(got.Matches, func(hit transcriptstore.SearchHit) string {
+				return hit.Name
+			}))
+		})
+	}
+}
+
+// TestSearchTranscriptsRefusesABadQualifier pins that a qualifier that does not parse is an
+// error naming it rather than a search for the word.
+func TestSearchTranscriptsRefusesABadQualifier(t *testing.T) {
+	reader := newTranscriptReader(storetest.Open(t))
+
+	_, err := reader.SearchTranscripts(t.Context(), SearchTranscriptsParams{Query: "since:yesterdy"})
+	require.ErrorIs(t, err, ErrBadQualifier)
+}

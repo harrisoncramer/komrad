@@ -1038,21 +1038,24 @@ WITH chunk AS (
         UNNEST(@seqs::int[]) AS seq,
         UNNEST(@roles::text[]) AS role,
         UNNEST(@contents::text[]) AS content,
-        UNNEST(@content_offsets::bigint[]) AS content_offset)
+        UNNEST(@content_offsets::bigint[]) AS content_offset,
+        UNNEST(@spoken_ats::timestamptz[]) AS spoken_at)
 INSERT INTO agent_transcript_chunks(
     agent_id,
     session_id,
     seq,
     role,
     content,
-    content_offset)
+    content_offset,
+    spoken_at)
 SELECT
     @agent_id,
     @session_id,
     chunk.seq,
     chunk.role,
     chunk.content,
-    chunk.content_offset
+    chunk.content_offset,
+    NULLIF(chunk.spoken_at, '0001-01-01 00:00:00+00'::timestamptz)
 FROM
     chunk;
 
@@ -1072,17 +1075,56 @@ ranked AS (
         OCTET_LENGTH(c.content) AS content_length,
         a.name,
         a.archived_at IS NOT NULL AS archived,
-        TS_HEADLINE('english_nostop', c.content, q.wanted, @headline) AS snippet,
-        TS_RANK_CD(c.tsv, q.wanted, 2) + COALESCE((c.content ~* q.phrase)::int, 0) AS rank
+        c.spoken_at,
+        CASE WHEN q.wanted = '' THEN
+            LEFT(c.content, @width::int)
+        ELSE
+            TS_HEADLINE('english_nostop', c.content, q.wanted, @headline)
+        END AS snippet,
+        CASE @sort::text
+        WHEN 'new' THEN
+            COALESCE(EXTRACT(EPOCH FROM c.spoken_at)::float8, @unknown_key::float8)
+        WHEN 'old' THEN
+            COALESCE(-EXTRACT(EPOCH FROM c.spoken_at)::float8, @unknown_key::float8)
+        ELSE
+            CASE WHEN q.wanted = '' THEN
+                0
+            ELSE
+                TS_RANK_CD(c.tsv, q.wanted, 2) + COALESCE((c.content ~* q.phrase)::int, 0)
+            END
+        END AS sort_key
     FROM
         agent_transcript_chunks c
         CROSS JOIN q
         JOIN agents a ON a.id = c.agent_id
-    WHERE
-        q.wanted <> ''
-        AND c.tsv @@(q.wanted && q.unwanted)
-        AND (sqlc.narg('agent_id')::uuid IS NULL
-            OR c.agent_id = sqlc.narg('agent_id')))
+    WHERE (q.wanted <> ''
+        OR @browse::boolean)
+    AND ((q.wanted && q.unwanted) = ''
+        OR c.tsv @@(q.wanted && q.unwanted))
+    AND (sqlc.narg('agent_id')::uuid IS NULL
+        OR c.agent_id = sqlc.narg('agent_id'))
+    AND (sqlc.narg('speaker')::text IS NULL
+        OR c.role = sqlc.narg('speaker'))
+    AND (sqlc.narg('agent_name')::text IS NULL
+        OR a.name ILIKE sqlc.narg('agent_name'))
+    AND (sqlc.narg('workflow_name')::text IS NULL
+        OR EXISTS (
+            SELECT
+                1
+            FROM
+                workflows w
+            WHERE
+                w.id = a.workflow_id
+                AND w.name ILIKE sqlc.narg('workflow_name')))
+    AND (CARDINALITY(@kinds::text[]) = 0
+        OR a.role::text = ANY (@kinds::text[]))
+    AND NOT (a.role::text = ANY (@excluded_kinds::text[]))
+    AND (sqlc.narg('archived')::boolean IS NULL
+        OR (a.archived_at IS NOT NULL) = sqlc.narg('archived'))
+    AND (sqlc.narg('since')::timestamptz IS NULL
+        OR c.spoken_at >= sqlc.narg('since'))
+    AND (sqlc.narg('until')::timestamptz IS NULL
+        OR c.spoken_at < sqlc.narg('until')))
 SELECT
     r.agent_id,
     r.seq,
@@ -1091,18 +1133,19 @@ SELECT
     r.content_length,
     r.name,
     r.archived::boolean AS archived,
+    r.spoken_at,
     r.snippet::text AS snippet,
-    r.rank::float8 AS rank
+    r.sort_key::float8 AS sort_key
 FROM
     ranked r
-WHERE (sqlc.narg('cursor_rank')::float8 IS NULL
-    OR r.rank < sqlc.narg('cursor_rank')
-    OR (r.rank = sqlc.narg('cursor_rank')
+WHERE (sqlc.narg('cursor_key')::float8 IS NULL
+    OR r.sort_key < sqlc.narg('cursor_key')
+    OR (r.sort_key = sqlc.narg('cursor_key')
         AND (r.agent_id,
             r.seq) >(sqlc.narg('cursor_agent_id')::uuid,
             sqlc.narg('cursor_seq')::int)))
 ORDER BY
-    r.rank DESC,
+    r.sort_key DESC,
     r.agent_id ASC,
     r.seq ASC
 LIMIT @lim;
@@ -1124,6 +1167,7 @@ ranked AS (
         OCTET_LENGTH(c.content) AS content_length,
         a.name,
         a.archived_at IS NOT NULL AS archived,
+        c.spoken_at,
         SUBSTRING(c.content FROM GREATEST(1,(
                     SELECT
                         MIN(POSITION(LOWER(t) IN LOWER(c.content)))
@@ -1131,7 +1175,14 @@ ranked AS (
                     WHERE
                         POSITION(LOWER(t) IN LOWER(c.content)) > 0) - @lead::int)
                 FOR @width::int) AS snippet,
-        WORD_SIMILARITY(ARRAY_TO_STRING(q.terms, ' '), c.content) AS rank
+        CASE @sort::text
+        WHEN 'new' THEN
+            COALESCE(EXTRACT(EPOCH FROM c.spoken_at)::float8, @unknown_key::float8)
+        WHEN 'old' THEN
+            COALESCE(-EXTRACT(EPOCH FROM c.spoken_at)::float8, @unknown_key::float8)
+        ELSE
+            WORD_SIMILARITY(ARRAY_TO_STRING(q.terms, ' '), c.content)
+        END AS sort_key
     FROM
         agent_transcript_chunks c
         CROSS JOIN q
@@ -1144,7 +1195,29 @@ ranked AS (
         AND (q.unwanted = ''
             OR c.tsv @@ q.unwanted)
         AND (sqlc.narg('agent_id')::uuid IS NULL
-            OR c.agent_id = sqlc.narg('agent_id')))
+            OR c.agent_id = sqlc.narg('agent_id'))
+        AND (sqlc.narg('speaker')::text IS NULL
+            OR c.role = sqlc.narg('speaker'))
+        AND (sqlc.narg('agent_name')::text IS NULL
+            OR a.name ILIKE sqlc.narg('agent_name'))
+        AND (sqlc.narg('workflow_name')::text IS NULL
+            OR EXISTS (
+                SELECT
+                    1
+                FROM
+                    workflows w
+                WHERE
+                    w.id = a.workflow_id
+                    AND w.name ILIKE sqlc.narg('workflow_name')))
+        AND (CARDINALITY(@kinds::text[]) = 0
+            OR a.role::text = ANY (@kinds::text[]))
+        AND NOT (a.role::text = ANY (@excluded_kinds::text[]))
+        AND (sqlc.narg('archived')::boolean IS NULL
+            OR (a.archived_at IS NOT NULL) = sqlc.narg('archived'))
+        AND (sqlc.narg('since')::timestamptz IS NULL
+            OR c.spoken_at >= sqlc.narg('since'))
+        AND (sqlc.narg('until')::timestamptz IS NULL
+            OR c.spoken_at < sqlc.narg('until')))
 SELECT
     r.agent_id,
     r.seq,
@@ -1153,18 +1226,19 @@ SELECT
     r.content_length,
     r.name,
     r.archived::boolean AS archived,
+    r.spoken_at,
     r.snippet::text AS snippet,
-    r.rank::float8 AS rank
+    r.sort_key::float8 AS sort_key
 FROM
     ranked r
-WHERE (sqlc.narg('cursor_rank')::float8 IS NULL
-    OR r.rank < sqlc.narg('cursor_rank')
-    OR (r.rank = sqlc.narg('cursor_rank')
+WHERE (sqlc.narg('cursor_key')::float8 IS NULL
+    OR r.sort_key < sqlc.narg('cursor_key')
+    OR (r.sort_key = sqlc.narg('cursor_key')
         AND (r.agent_id,
             r.seq) >(sqlc.narg('cursor_agent_id')::uuid,
             sqlc.narg('cursor_seq')::int)))
 ORDER BY
-    r.rank DESC,
+    r.sort_key DESC,
     r.agent_id ASC,
     r.seq ASC
 LIMIT @lim;

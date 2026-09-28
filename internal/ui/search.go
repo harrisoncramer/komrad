@@ -10,6 +10,7 @@ import (
 
 	"komrad/config"
 	"komrad/internal/client"
+	"komrad/internal/errui"
 	"komrad/internal/glyph"
 	"komrad/internal/ui/cursor"
 	"komrad/internal/ui/paint"
@@ -34,9 +35,10 @@ type searchScreen struct {
 	// turns are the hits the server found in the conversations, one per turn that said the query.
 	turns []searchHit
 	// drawn is the rows built once for the frame being drawn, and nil between frames.
-	drawn  []searchRow
-	next   *string
-	paging bool
+	drawn   []searchRow
+	next    *string
+	paging  bool
+	problem searchProblem
 	// preview is the transcript of the agent the cursor is standing on, drawn beside the list.
 	preview searchPreview
 }
@@ -190,10 +192,16 @@ type searchSettledMsg struct {
 }
 
 type searchResult struct {
-	query string
-	hits  []searchHit
-	next  *string
-	paged bool
+	query   string
+	hits    []searchHit
+	next    *string
+	paged   bool
+	problem searchProblem
+}
+
+type searchProblem struct {
+	reason  string
+	refused bool
 }
 
 type previewResult struct {
@@ -258,7 +266,10 @@ func (w *searchScreen) searchCmd(s panelShared, query string, cursor *string) te
 			}, nil
 		})
 		if err != nil {
-			return searchResult{query: query, paged: cursor != nil}
+			return searchResult{query: query, paged: cursor != nil, problem: searchProblem{
+				reason:  errui.GetReason(err),
+				refused: connect.CodeOf(err) == connect.CodeInvalidArgument,
+			}}
 		}
 
 		return page
@@ -385,6 +396,13 @@ func nameMatches(name, query string) []view.Span {
 
 func (w *searchScreen) apply(h host, s panelShared, result searchResult) tea.Cmd {
 	if result.query != w.query {
+		return nil
+	}
+
+	w.problem = result.problem
+	if result.problem.reason != "" {
+		w.paging = false
+
 		return nil
 	}
 
@@ -705,10 +723,20 @@ func (w *searchScreen) sidebarView(s panelShared) string {
 	header := s.draw.viewsBar() + query + "\n\n"
 	help := s.draw.renderHelp(w.help(s), header)
 
+	if w.problem.reason != "" {
+		tone := paint.ToneDanger
+		if w.problem.refused {
+			tone = paint.ToneWarning
+		}
+		header += palette.Style(tone).Width(s.pane).Render(w.problem.reason) + "\n\n"
+	}
+
 	rows := w.rows(s)
 	switch {
 	case strings.TrimSpace(w.query) == "":
 		return header + dimStyle.Render("type to search transcripts") + "\n" + help
+	case len(rows) == 0 && w.problem.reason != "":
+		return header + help
 	case len(rows) == 0:
 		return header + dimStyle.Render("no matches") + "\n" + help
 	}
