@@ -1,2 +1,15 @@
 [worktrees]
 dir = "/var/lib/komrad/worktrees"
+
+[harness.claude]
+flags             = "--dangerously-skip-permissions"
+trust_launch_dirs = true
+
+[harness.codex]
+flags             = "--dangerously-bypass-approvals-and-sandbox"
+trust_launch_dirs = true
+
+[github_app]
+app_id           = ""
+installation_id  = ""
+private_key_path = "/run/komrad/github.pem"

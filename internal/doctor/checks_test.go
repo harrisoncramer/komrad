@@ -93,6 +93,7 @@ func TestChecksMakesEveryCheckOnce(t *testing.T) {
 		"context",
 		"database",
 		"bases",
+		"workflow harnesses",
 		"schema",
 		"engine",
 		"readonly login",

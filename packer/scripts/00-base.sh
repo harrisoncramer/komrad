@@ -48,6 +48,7 @@ chmod 0644 /etc/komrad/rds-ca.pem
 # machine nobody logs into.
 git config --system credential.https://github.com.helper '!komrad github credential'
 git config --system credential.https://github.com.username x-access-token
+git config --system url.https://github.com/.insteadOf git@github.com:
 
 sed 's/^/export /' /tmp/files/komrad.env >/etc/profile.d/komrad-env.sh
 chmod 0644 /etc/profile.d/komrad-env.sh

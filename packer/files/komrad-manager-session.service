@@ -10,7 +10,7 @@ RemainAfterExit=yes
 KillMode=process
 User=komrad
 Group=komrad
-Environment=PATH=/opt/mise/data/shims:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin
+Environment=PATH=/opt/harnesses/bin:/opt/mise/data/shims:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin
 EnvironmentFile=-/etc/komrad/komrad.env
 EnvironmentFile=/etc/komrad/database.env
 ExecStart=/usr/local/sbin/komrad-manager-session

@@ -129,6 +129,30 @@ func readWorkflowBases(ctx context.Context, url string) ([]WorkflowBase, error) 
 	}), nil
 }
 
+func readWorkflowHarnesses(ctx context.Context, url string) ([]WorkflowHarness, error) {
+	pool, err := openReadOnlyPool(ctx, url)
+	if err != nil {
+		return nil, err
+	}
+	defer pool.Close()
+
+	ctx, cancel := context.WithTimeout(ctx, connectTimeout)
+	defer cancel()
+
+	workflows, err := workflowstore.NewWorkflowStore(pool).List(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return xslice.Map(workflows, func(workflow workflowstore.Workflow) WorkflowHarness {
+		return WorkflowHarness{
+			Name:    workflow.Name,
+			Cwd:     workflow.Cwd,
+			Harness: workflow.Harness,
+		}
+	}), nil
+}
+
 // resolveWorkflowBase is the ref a workflow's clone holds for its base, read without a fetch.
 func resolveWorkflowBase(ctx context.Context, dir, base string) (string, error) {
 	client := git.NewClient()
