@@ -4,6 +4,7 @@ package mail
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"slices"
 	"strings"
@@ -31,6 +32,10 @@ const (
 	KindExchangeCapped Kind = Kind(models.MailKindExchangeCapped)
 	// KindDocumentEdited tells an agent that a person wrote or edited one of its documents in the panel.
 	KindDocumentEdited Kind = Kind(models.MailKindDocumentEdited)
+	// KindPullRequestChanged tells an agent that a pull request on its branch changed at the forge.
+	KindPullRequestChanged Kind = Kind(models.MailKindPullRequestChanged)
+	// KindWorktreeRebased tells an agent that komrad rebased its worktree, or tried to.
+	KindWorktreeRebased Kind = Kind(models.MailKindWorktreeRebased)
 )
 
 type Mail struct {
@@ -41,12 +46,12 @@ type Mail struct {
 	Body        string
 	Kind        Kind
 	ReplyTo     *string
-	// AboutAgentID is the other agent a notice komrad raised is about, unset on ordinary mail.
-	AboutAgentID    *string
-	AboutDocumentID *string
-	ClaimedAt       *time.Time
-	ExpiresAt       time.Time
-	CreatedAt       time.Time
+	// SubjectID is the thing a notice komrad raised is about, unset on ordinary mail.
+	SubjectID    *string
+	SubjectState json.RawMessage
+	ClaimedAt    *time.Time
+	ExpiresAt    time.Time
+	CreatedAt    time.Time
 }
 
 type MailStore struct {
@@ -59,15 +64,13 @@ func NewMailStore(db store.DBTX) *MailStore {
 }
 
 type SendParams struct {
-	FromAgentID     *string
-	FromName        string
-	ToAgentID       string
-	Body            string
-	Kind            Kind
-	ReplyTo         *string
-	AboutAgentID    *string
-	AboutDocumentID *string
-	IdempotencyKey  *string
+	FromAgentID    *string
+	FromName       string
+	ToAgentID      string
+	Body           string
+	Kind           Kind
+	ReplyTo        *string
+	IdempotencyKey *string
 	// How long the mail stays deliverable, counted from the database's clock rather than the
 	// caller's, which every read of expires_at compares it against.
 	Deadline time.Duration
@@ -81,16 +84,14 @@ func (s *MailStore) Send(ctx context.Context, params SendParams) (*Mail, error) 
 	}
 
 	row, err := s.queries.InsertMail(ctx, models.InsertMailParams{
-		FromAgentID:     params.FromAgentID,
-		FromName:        params.FromName,
-		ToAgentID:       params.ToAgentID,
-		Body:            params.Body,
-		Kind:            models.MailKind(kind),
-		ReplyTo:         params.ReplyTo,
-		AboutAgentID:    params.AboutAgentID,
-		AboutDocumentID: params.AboutDocumentID,
-		IdempotencyKey:  params.IdempotencyKey,
-		DeadlineMicros:  params.Deadline.Microseconds(),
+		FromAgentID:    params.FromAgentID,
+		FromName:       params.FromName,
+		ToAgentID:      params.ToAgentID,
+		Body:           params.Body,
+		Kind:           models.MailKind(kind),
+		ReplyTo:        params.ReplyTo,
+		IdempotencyKey: params.IdempotencyKey,
+		DeadlineMicros: params.Deadline.Microseconds(),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to send mail to agent %q: %w", params.ToAgentID, err)
@@ -101,20 +102,65 @@ func (s *MailStore) Send(ctx context.Context, params SendParams) (*Mail, error) 
 	return &sent, nil
 }
 
-// GetPendingOfKind is the notice of a kind, about the same agent, that its recipient is already
-// holding unread, ErrNotFound when it holds none.
-func (s *MailStore) GetPendingOfKind(ctx context.Context, toAgentID string, kind Kind, about string) (*Mail, error) {
-	if !store.IsID(toAgentID) || !store.IsID(about) {
-		return nil, noPendingOfKind(toAgentID, kind)
+type UpsertNoticeParams struct {
+	FromName     string
+	ToAgentID    string
+	Body         string
+	Kind         Kind
+	SubjectID    string
+	SubjectState json.RawMessage
+	Deadline     time.Duration
+}
+
+// UpsertNotice writes a notice komrad raised, rewriting the recipient's unread notice of the
+// same kind about the same subject when it holds one.
+func (s *MailStore) UpsertNotice(ctx context.Context, params UpsertNoticeParams) (*Mail, error) {
+	row, err := s.queries.UpsertNotice(ctx, models.UpsertNoticeParams{
+		FromName:       params.FromName,
+		ToAgentID:      params.ToAgentID,
+		Body:           params.Body,
+		Kind:           models.MailKind(params.Kind),
+		SubjectID:      params.SubjectID,
+		SubjectState:   params.SubjectState,
+		DeadlineMicros: params.Deadline.Microseconds(),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to write the %q notice for agent %q: %w", params.Kind, params.ToAgentID, err)
 	}
 
-	row, err := s.queries.GetPendingMailOfKind(ctx, models.GetPendingMailOfKindParams{
-		ToAgentID:    toAgentID,
-		Kind:         models.MailKind(kind),
-		AboutAgentID: about,
+	written := fromRow(row)
+
+	return &written, nil
+}
+
+// LockNotice holds the recipient's notice of a kind about a subject until the transaction ends.
+func (s *MailStore) LockNotice(ctx context.Context, toAgentID string, kind Kind, subjectID string) error {
+	err := s.queries.LockNoticeSubject(ctx, models.LockNoticeSubjectParams{
+		ToAgentID: toAgentID,
+		Kind:      string(kind),
+		SubjectID: subjectID,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to lock the %q notice of agent %q: %w", kind, toAgentID, err)
+	}
+
+	return nil
+}
+
+// GetPendingNotice is the unread notice of a kind about a subject that its recipient holds,
+// expired or not, ErrNotFound when it holds none.
+func (s *MailStore) GetPendingNotice(ctx context.Context, toAgentID string, kind Kind, subjectID string) (*Mail, error) {
+	if !store.IsID(toAgentID) || !store.IsID(subjectID) {
+		return nil, noPendingNotice(toAgentID, kind)
+	}
+
+	row, err := s.queries.GetPendingNotice(ctx, models.GetPendingNoticeParams{
+		ToAgentID: toAgentID,
+		Kind:      models.MailKind(kind),
+		SubjectID: subjectID,
 	})
 	if db.IsNoRows(err) {
-		return nil, noPendingOfKind(toAgentID, kind)
+		return nil, noPendingNotice(toAgentID, kind)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to read the unread %q notice of agent %q: %w", kind, toAgentID, err)
@@ -125,31 +171,26 @@ func (s *MailStore) GetPendingOfKind(ctx context.Context, toAgentID string, kind
 	return &held, nil
 }
 
-// GetPendingAboutDocument is the notice of a kind, about the same document, that its recipient is
-// already holding unread, ErrNotFound when it holds none.
-func (s *MailStore) GetPendingAboutDocument(ctx context.Context, toAgentID string, kind Kind, documentID string) (*Mail, error) {
-	if !store.IsID(toAgentID) || !store.IsID(documentID) {
-		return nil, noPendingOfKind(toAgentID, kind)
+// DeletePendingNotice removes the unread notice of a kind about a subject, doing nothing when
+// the recipient holds none.
+func (s *MailStore) DeletePendingNotice(ctx context.Context, toAgentID string, kind Kind, subjectID string) error {
+	if !store.IsID(toAgentID) || !store.IsID(subjectID) {
+		return nil
 	}
 
-	row, err := s.queries.GetPendingMailAboutDocument(ctx, models.GetPendingMailAboutDocumentParams{
-		ToAgentID:       toAgentID,
-		Kind:            models.MailKind(kind),
-		AboutDocumentID: documentID,
+	err := s.queries.DeletePendingNotice(ctx, models.DeletePendingNoticeParams{
+		ToAgentID: toAgentID,
+		Kind:      models.MailKind(kind),
+		SubjectID: subjectID,
 	})
-	if db.IsNoRows(err) {
-		return nil, noPendingOfKind(toAgentID, kind)
-	}
 	if err != nil {
-		return nil, fmt.Errorf("failed to read the unread %q notice of agent %q: %w", kind, toAgentID, err)
+		return fmt.Errorf("failed to delete the unread %q notice of agent %q: %w", kind, toAgentID, err)
 	}
 
-	held := fromRow(row)
-
-	return &held, nil
+	return nil
 }
 
-func noPendingOfKind(toAgentID string, kind Kind) error {
+func noPendingNotice(toAgentID string, kind Kind) error {
 	return fmt.Errorf("%w: an unread %q notice for agent %q", store.ErrNotFound, kind, toAgentID)
 }
 
@@ -338,17 +379,17 @@ func (s *MailStore) ListExpired(ctx context.Context, toAgentID string) ([]Mail, 
 
 func fromRow(row *models.Mail) Mail {
 	return Mail{
-		ID:              row.ID,
-		FromAgentID:     row.FromAgentID,
-		FromName:        row.FromName,
-		ToAgentID:       row.ToAgentID,
-		Body:            row.Body,
-		Kind:            Kind(row.Kind),
-		ReplyTo:         row.ReplyTo,
-		AboutAgentID:    row.AboutAgentID,
-		AboutDocumentID: row.AboutDocumentID,
-		ClaimedAt:       row.ClaimedAt,
-		ExpiresAt:       row.ExpiresAt,
-		CreatedAt:       row.CreatedAt,
+		ID:           row.ID,
+		FromAgentID:  row.FromAgentID,
+		FromName:     row.FromName,
+		ToAgentID:    row.ToAgentID,
+		Body:         row.Body,
+		Kind:         Kind(row.Kind),
+		ReplyTo:      row.ReplyTo,
+		SubjectID:    row.SubjectID,
+		SubjectState: row.SubjectState,
+		ClaimedAt:    row.ClaimedAt,
+		ExpiresAt:    row.ExpiresAt,
+		CreatedAt:    row.CreatedAt,
 	}
 }

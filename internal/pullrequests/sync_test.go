@@ -3,6 +3,7 @@ package pullrequests
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -11,15 +12,16 @@ import (
 	"testing"
 	"time"
 
-	"komrad/internal/dbtest"
 	"komrad/internal/forge"
 	"komrad/internal/git"
 	"komrad/internal/logging"
+	"komrad/internal/notices/noticestest"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
 	forgestore "komrad/internal/store/forge"
 	pullrequeststore "komrad/internal/store/pullrequest"
 	workflowstore "komrad/internal/store/workflow"
+	"komrad/internal/storetest"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
 
@@ -165,6 +167,8 @@ type syncFixture struct {
 	pullRequests *pullrequeststore.PullRequestStore
 	syncs        *pullrequeststore.PullRequestSyncStore
 	agents       *agentstore.AgentStore
+	events       *noticestest.Queue
+	stores       *storetest.Stores
 	workflow     string
 	now          time.Time
 }
@@ -173,9 +177,8 @@ func newSyncFixture(t *testing.T) *syncFixture {
 	t.Helper()
 	ctx := t.Context()
 
-	pool, err := store.Open(ctx, dbtest.URL(t))
-	require.NoError(t, err)
-	t.Cleanup(func() { _ = pool.Close() })
+	stores := storetest.Open(t)
+	pool := stores.Pool
 
 	workflows := workflowstore.NewWorkflowStore(pool.GetDB())
 	created, err := workflows.Create(ctx, workflowstore.Config{
@@ -208,6 +211,8 @@ func newSyncFixture(t *testing.T) *syncFixture {
 		pullRequests: pullrequeststore.NewPullRequestStore(pool.GetDB()),
 		syncs:        pullrequeststore.NewPullRequestSyncStore(pool.GetDB()),
 		agents:       agentstore.NewAgentStore(pool.GetDB()),
+		events:       noticestest.NewQueue(t, stores, NewNoticeHandler()),
+		stores:       stores,
 		workflow:     created.ID,
 		now:          syncNow,
 	}
@@ -223,7 +228,7 @@ func newSyncFixture(t *testing.T) *syncFixture {
 		}),
 		PullRequests: f.pullRequests,
 		Syncs:        f.syncs,
-		Tx:           pool,
+		Events:       f.events,
 		Now:          func() time.Time { return f.now },
 	})
 
@@ -1238,6 +1243,38 @@ func TestSyncReadsTheChecksUntilTheyLand(t *testing.T) {
 	assert.Empty(t, f.standings(), "a failing run read four minutes ago is trusted")
 }
 
+// TestSyncRecordsWhatMovedOnAPullRequest covers the events a sync records: none on first
+// sight, the standing a read moves, and the head a push moves without the unchanged checks.
+func TestSyncRecordsWhatMovedOnAPullRequest(t *testing.T) {
+	f := newSyncFixture(t)
+	f.agentOn(t, "a", "agent/x")
+	f.forge.updated[""] = &forge.Page{PullRequests: []forge.PullRequest{pullRequestAt("PR_1", "agent/x", syncNow.Add(-time.Hour))}}
+	f.forge.standings[1] = forge.Standing{Decision: forge.ReviewDecisionPending, Checks: forge.ChecksPending}
+
+	f.sync(t)
+	assert.Empty(t, f.changes(t), "a pull request seen for the first time moved nothing")
+	id := f.stored(t, "PR_1").ID
+
+	f.forge.standings[1] = forge.Standing{Decision: forge.ReviewDecisionPending, Checks: forge.ChecksFailing}
+	f.pass(t, syncNow.Add(2*time.Minute))
+
+	pushed := pullRequestAt("PR_1", "agent/x", syncNow.Add(time.Hour))
+	pushed.HeadSHA = "def"
+	f.forge.changed[""] = &forge.Page{PullRequests: []forge.PullRequest{pushed}}
+	f.forge.updated[""] = &forge.Page{PullRequests: []forge.PullRequest{pushed}}
+	f.forge.standings[1] = forge.Standing{Decision: forge.ReviewDecisionPending, Checks: forge.ChecksFailing, HeadSHA: "def"}
+	f.pass(t, syncNow.Add(time.Hour+time.Minute))
+
+	assert.Equal(t, []Change{
+		{ID: id, Moves: []Move{
+			{Field: FieldChecks, From: string(forge.ChecksPending), To: string(forge.ChecksFailing)},
+		}},
+		{ID: id, Moves: []Move{
+			{Field: FieldHead, From: scriptedHeadSHA, To: "def"},
+		}},
+	}, f.changes(t))
+}
+
 // TestSyncReadsAHeadWithNoChecksAgainWhileItSettles covers a fresh change the forge reports
 // no checks on, which is read again each pass for ten minutes in case the run had not started,
 // and then on the slow tier like any settled row.
@@ -1347,4 +1384,18 @@ func TestSyncMatchesARemoteSpelledWithCapitals(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, seen, 1, "the agent is observed beside its pull request")
 	assert.NotContains(t, logged.String(), "under another name")
+}
+
+// changes is every pull request change the sync recorded.
+func (f *syncFixture) changes(t *testing.T) []Change {
+	t.Helper()
+
+	var changes []Change
+	for _, event := range f.events.ListEvents() {
+		var change Change
+		require.NoError(t, json.Unmarshal(event.Payload, &change))
+		changes = append(changes, change)
+	}
+
+	return changes
 }

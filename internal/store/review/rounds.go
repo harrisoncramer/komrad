@@ -328,24 +328,21 @@ type ReleaseReviewParams struct {
 	ID      string
 	Verdict Verdict
 	// Body is what the reviewer said about the change as a whole, empty when they said nothing.
-	Body           string
-	Path           string
-	DoorbellMailID *string
+	Body string
+	Path string
 }
 
-// ReleaseReview releases a review, stamping its verdict, the file it was written to and the
-// mail that told the agent it was there.
+// ReleaseReview releases a review, stamping its verdict and the file it was written to.
 func (s *ReviewStore) ReleaseReview(ctx context.Context, params ReleaseReviewParams) (*Review, error) {
 	if !store.IsID(params.ID) {
 		return nil, reviewNotFound(params.ID)
 	}
 
 	row, err := s.queries.ReleaseReview(ctx, models.ReleaseReviewParams{
-		ID:             params.ID,
-		Body:           params.Body,
-		Verdict:        models.NullReviewVerdict{ReviewVerdict: models.ReviewVerdict(params.Verdict), Valid: params.Verdict != ""},
-		Path:           params.Path,
-		DoorbellMailID: params.DoorbellMailID,
+		ID:      params.ID,
+		Body:    params.Body,
+		Verdict: models.NullReviewVerdict{ReviewVerdict: models.ReviewVerdict(params.Verdict), Valid: params.Verdict != ""},
+		Path:    params.Path,
 	})
 	if db.IsNoRows(err) {
 		return nil, reviewNotFound(params.ID)
@@ -566,4 +563,13 @@ func (s *ReviewStore) GetLiveReviewerOf(ctx context.Context, agentID string) (*L
 	}
 
 	return nil, fmt.Errorf("%w: no reviewer is reading %q", store.ErrNotFound, agentID)
+}
+
+// SetDoorbell records the mail that told the agent its review was released.
+func (s *ReviewStore) SetDoorbell(ctx context.Context, reviewID, mailID string) error {
+	if err := s.queries.SetReviewDoorbell(ctx, models.SetReviewDoorbellParams{ID: reviewID, DoorbellMailID: &mailID}); err != nil {
+		return fmt.Errorf("failed to record the mail that told of review %q: %w", reviewID, err)
+	}
+
+	return nil
 }

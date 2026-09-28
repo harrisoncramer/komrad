@@ -12,9 +12,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"komrad/config"
 	"komrad/internal/documents"
 	"komrad/internal/mail"
+	"komrad/internal/notices/noticestest"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
 	documentstore "komrad/internal/store/document"
@@ -28,7 +28,7 @@ func TestWrite(t *testing.T) {
 	stores := storetest.Open(t)
 	cwd := t.TempDir()
 	author := stores.SeedAgent(t, agentstore.Agent{Name: "author", Cwd: cwd})
-	service := newService(stores)
+	service := newService(stores, noticestest.NewQueue(t, stores, documents.NewNoticeHandler()))
 
 	writeFile := func(name, content string) string {
 		path := filepath.Join(cwd, name)
@@ -134,7 +134,7 @@ func TestWrite(t *testing.T) {
 func TestWriteWithAnIDRewritesThatDocument(t *testing.T) {
 	stores := storetest.Open(t)
 	author := stores.SeedAgent(t, agentstore.Agent{Name: "author"})
-	service := newService(stores)
+	service := newService(stores, noticestest.NewQueue(t, stores, documents.NewNoticeHandler()))
 	ctx := t.Context()
 
 	draft, err := service.WriteDocument(ctx, documents.WriteDocumentParams{AgentID: author.ID, Name: "Documents", Kind: documentstore.KindRFC, Body: "draft"})
@@ -162,7 +162,7 @@ func TestWriteWithAnIDRewritesThatDocument(t *testing.T) {
 func TestReadAnEarlierWrite(t *testing.T) {
 	stores := storetest.Open(t)
 	author := stores.SeedAgent(t, agentstore.Agent{Name: "author"})
-	service := newService(stores)
+	service := newService(stores, noticestest.NewQueue(t, stores, documents.NewNoticeHandler()))
 	ctx := t.Context()
 
 	draft, err := service.WriteDocument(ctx, documents.WriteDocumentParams{AgentID: author.ID, Name: "Draft", Kind: documentstore.KindNotes, Body: "draft"})
@@ -202,7 +202,7 @@ func TestWriteByAPerson(t *testing.T) {
 	stores := storetest.Open(t)
 	author := stores.SeedAgent(t, agentstore.Agent{Name: "author"})
 	other := stores.SeedAgent(t, agentstore.Agent{Name: "other"})
-	service := newService(stores)
+	service := newService(stores, noticestest.NewQueue(t, stores, documents.NewNoticeHandler()))
 	ctx := t.Context()
 
 	draft, err := service.WriteDocument(ctx, documents.WriteDocumentParams{AgentID: author.ID, Name: "Documents", Kind: documentstore.KindRFC, Body: "draft"})
@@ -276,7 +276,8 @@ func TestWriteByAPerson(t *testing.T) {
 // TestAPersonsWriteMailsTheAuthor pins which writes tell the author.
 func TestAPersonsWriteMailsTheAuthor(t *testing.T) {
 	stores := storetest.Open(t)
-	service := newService(stores)
+	queue := noticestest.NewQueue(t, stores, documents.NewNoticeHandler())
+	service := newService(stores, queue)
 	ctx := t.Context()
 
 	tests := []struct {
@@ -300,7 +301,7 @@ func TestAPersonsWriteMailsTheAuthor(t *testing.T) {
 			byPerson: true,
 		},
 		{
-			name:     "an author holding a full mailbox is not told and the write still lands",
+			name:     "an author holding a full mailbox is not told yet and the write still lands",
 			full:     true,
 			byPerson: true,
 		},
@@ -369,6 +370,11 @@ func TestAPersonsWriteMailsTheAuthor(t *testing.T) {
 					waiting = append(waiting, m)
 				}
 			}
+			if tt.full {
+				errs := queue.TakeErrors()
+				require.Len(t, errs, 1)
+				require.ErrorIs(t, errs[0], mail.ErrMailboxFull)
+			}
 			if tt.wantNotice == "" {
 				assert.Empty(t, waiting)
 
@@ -377,21 +383,17 @@ func TestAPersonsWriteMailsTheAuthor(t *testing.T) {
 			require.Len(t, waiting, 1)
 			assert.Equal(t, mailstore.KindDocumentEdited, waiting[0].Kind)
 			assert.Equal(t, mail.KomradSenderName, waiting[0].FromName)
-			require.NotNil(t, waiting[0].AboutDocumentID)
-			assert.Equal(t, written.ID, *waiting[0].AboutDocumentID)
+			require.NotNil(t, waiting[0].SubjectID)
+			assert.Equal(t, written.ID, *waiting[0].SubjectID)
 			assert.Contains(t, waiting[0].Body, tt.wantNotice)
 		})
 	}
 }
 
-func newService(stores *storetest.Stores) *documents.DocumentService {
+func newService(stores *storetest.Stores, events *noticestest.Queue) *documents.DocumentService {
 	return documents.NewDocumentService(documents.NewDocumentServiceParams{
 		Agents:    stores.Agents,
 		Documents: stores.Documents,
-		Mailer: mail.NewMailService(mail.NewMailServiceParams{
-			MailReadWriter: stores.Mail,
-			Agents:         stores.Agents,
-			Config:         config.Mail{},
-		}),
+		Events:    events,
 	})
 }

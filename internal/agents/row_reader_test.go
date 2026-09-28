@@ -75,7 +75,8 @@ func TestListSurroundings(t *testing.T) {
 		ChangedAt:         openedAt,
 	})
 	require.NoError(t, err)
-	require.NoError(t, st.PullRequests.SetStanding(ctx, written.ID, forge.Standing{Decision: forge.ReviewDecisionApproved}, openedAt))
+	_, err = st.PullRequests.SetStanding(ctx, written.ID, forge.Standing{Decision: forge.ReviewDecisionApproved}, openedAt)
+	require.NoError(t, err)
 	_, err = st.PullRequests.Observe(ctx)
 	require.NoError(t, err)
 

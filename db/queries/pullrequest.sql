@@ -1,5 +1,15 @@
 -- name: UpsertPullRequest :one
-WITH written AS (
+WITH prior AS (
+    SELECT
+        held.state,
+        held.head_sha
+    FROM
+        pull_requests held
+    WHERE
+        held.host = @host
+        AND held.provider_id = @provider_id
+),
+written AS (
     INSERT INTO pull_requests(
         host,
         forge,
@@ -95,14 +105,19 @@ RETURNING
 SELECT
     written.id,
     written.inserted,
-    TRUE AS changed
+    TRUE AS changed,
+    prior.state AS old_state,
+    prior.head_sha AS old_head_sha
 FROM
     written
+    LEFT JOIN prior ON TRUE
 UNION ALL
 SELECT
     pull_requests.id,
     FALSE AS inserted,
-    FALSE AS changed
+    FALSE AS changed,
+    NULL::text AS old_state,
+    NULL::text AS old_head_sha
 FROM
     pull_requests
 WHERE
@@ -362,18 +377,41 @@ WHERE
 ORDER BY
     p.changed_at DESC;
 
--- name: SetStanding :exec
+-- name: SetStanding :one
+WITH prior AS (
+    SELECT
+        held.id,
+        held.last_known_checks,
+        held.last_known_mergeability,
+        held.last_known_decision
+    FROM
+        pull_requests held
+    WHERE
+        held.id = @id
+    FOR UPDATE)
 UPDATE
-    pull_requests
+    pull_requests p
 SET
     review_decision = sqlc.narg('review_decision'),
-    decision_changed_at = changed_at,
+    decision_changed_at = p.changed_at,
     checks = sqlc.narg('checks'),
     mergeability = sqlc.narg('mergeability'),
     checks_sha = @checks_sha::text,
-    checks_read_at = @checks_read_at::timestamptz
+    checks_read_at = @checks_read_at::timestamptz,
+    last_known_checks = COALESCE(sqlc.narg('checks'), p.last_known_checks),
+    last_known_mergeability = COALESCE(sqlc.narg('mergeability'), p.last_known_mergeability),
+    last_known_decision = COALESCE(sqlc.narg('review_decision'), p.last_known_decision)
+FROM
+    prior
 WHERE
-    id = @id;
+    p.id = prior.id
+RETURNING
+    prior.last_known_checks AS old_checks,
+    prior.last_known_mergeability AS old_mergeability,
+    prior.last_known_decision AS old_decision,
+    p.last_known_checks AS known_checks,
+    p.last_known_mergeability AS known_mergeability,
+    p.last_known_decision AS known_decision;
 
 -- name: ListWatchedPullRequests :many
 SELECT
@@ -427,3 +465,32 @@ WHERE
     OR repository_url = ANY (sqlc.narg('keys')::text[])
 ORDER BY
     repository_url;
+
+-- name: GetPullRequest :one
+SELECT
+    *
+FROM
+    pull_requests
+WHERE
+    id = @id;
+
+-- name: ListPullRequestRecipients :many
+SELECT
+    a.id
+FROM
+    agents a
+    JOIN pull_requests p ON p.repository_url = a.repository_url
+        AND p.head_repository_url = a.repository_url
+        AND p.head_branch = a.branch
+    JOIN workflows w ON w.id = a.workflow_id
+    LEFT JOIN workflow_provisioner_configs c ON c.id = w.provisioner_config_id
+WHERE
+    p.id = @id
+    AND a.deleting_at IS NULL
+    AND a.archived_at IS NULL
+    AND a.parent_agent_id IS NULL
+    AND a.branch <> ''
+    AND (c.worktree_base_branch IS NULL
+        OR a.branch <> c.worktree_base_branch)
+ORDER BY
+    a.id;

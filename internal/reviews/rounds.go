@@ -13,11 +13,13 @@ import (
 	"komrad/internal/fail"
 	"komrad/internal/git"
 	"komrad/internal/logging"
-	"komrad/internal/mail"
+	"komrad/internal/notices"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
-	mailstore "komrad/internal/store/mail"
 	reviewstore "komrad/internal/store/review"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/riverqueue/river"
 )
 
 // reviewDirName is where released reviews are kept under komrad's own state directory.
@@ -510,34 +512,38 @@ func (s *ReviewService) ReleaseReview(
 		s.interrupt(ctx, params.AgentID)
 	}
 
-	doorbell, err := s.mailer.SendNotice(ctx, mail.SendNoticeParams{
-		ToAgentID: params.AgentID,
-		Body: reviewNotice(reviewNoticeParams{
+	var released *reviewstore.Review
+	err = s.events.InsertManyTx(ctx, func(tx pgx.Tx) ([]river.JobArgs, error) {
+		var err error
+		released, err = reviewstore.NewReviewStore(tx).ReleaseReview(ctx, reviewstore.ReleaseReviewParams{
+			ID:      open.ID,
+			Verdict: verdict,
+			Body:    params.Body,
+			Path:    path,
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		event, err := notices.NewEvent(Released{
+			ReviewID: open.ID,
+			AgentID:  params.AgentID,
 			Ordinal:  round.Ordinal,
-			Author:   params.Author,
+			ByPerson: params.Author.IsHuman(),
 			Verdict:  verdict,
 			Comments: tally.Comments,
 			Replies:  tally.Replies,
 			Reopens:  tally.Reopens,
-			ReviewID: open.ID,
 			Path:     path,
-		}),
-		Kind: mailstore.KindReviewActivity,
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		return []river.JobArgs{*event}, nil
 	})
 	if err != nil {
 		return nil, err
-	}
-
-	released, err := s.reviews.ReleaseReview(ctx, reviewstore.ReleaseReviewParams{
-		ID:             open.ID,
-		Verdict:        verdict,
-		Body:           params.Body,
-		Path:           path,
-		DoorbellMailID: &doorbell.ID,
-	})
-	if err != nil {
-		// The mail has gone, so the agent has the review whatever the panel goes on to draw.
-		return nil, fmt.Errorf("failed to record that the review reached %q: %w", agent.Name, err)
 	}
 
 	return &ReleaseReviewResult{
@@ -547,21 +553,9 @@ func (s *ReviewService) ReleaseReview(
 	}, nil
 }
 
-// reviewNoticeParams is what the mail announcing a release has to say.
-type reviewNoticeParams struct {
-	Ordinal  int32
-	Author   ReviewAuthor
-	Verdict  reviewstore.Verdict
-	Comments int
-	Replies  int
-	Reopens  int
-	ReviewID string
-	Path     string
-}
-
 // reviewNotice is the whole of what the mail carries: the round, the verdict, how much there is
 // and how to read it.
-func reviewNotice(params reviewNoticeParams) string {
+func reviewNotice(params Released) string {
 	said := fmt.Sprintf("%d comment(s)", params.Comments)
 	if params.Replies > 0 {
 		said += fmt.Sprintf(", %d reply(ies) in earlier threads", params.Replies)
@@ -570,7 +564,7 @@ func reviewNotice(params reviewNoticeParams) string {
 		said += fmt.Sprintf(", %d of them reopening a comment you had resolved", params.Reopens)
 	}
 
-	if !params.Author.IsHuman() {
+	if !params.ByPerson {
 		said = strings.ReplaceAll(string(params.Verdict), "_", " ") + ", " + said
 	}
 

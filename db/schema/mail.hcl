@@ -1,6 +1,6 @@
 enum "mail_kind" {
   schema = schema.public
-  values = ["plain", "review_activity", "exchange_capped", "document_edited"]
+  values = ["plain", "review_activity", "exchange_capped", "document_edited", "pull_request_changed", "worktree_rebased"]
 }
 
 table "mail" {
@@ -60,15 +60,15 @@ table "mail" {
     default = "plain"
     comment = "Who wrote the mail and why. Plain is mail an agent sent. The other values are notices komrad raised itself, which the panel draws differently. Komrad also counts unread notices by this value. One unread notice of a kind is enough however much is waiting behind it."
   }
-  column "about_agent_id" {
+  column "subject_id" {
     null    = true
     type    = uuid
-    comment = "The other agent a komrad notice is about, null on ordinary mail. Counting unread notices by this column gives the recipient one notice per subject rather than one per kind, so an agent that hits the exchange cap with a second partner is told about that partner too. There is no foreign key here on purpose. The notice has to keep naming the agent whose exchange was cut off after that agent is gone."
+    comment = "The thing a komrad notice is about, null on ordinary mail. Its kind says what sort of thing it is: another agent, a document, a pull request or a worktree. A recipient holds at most one unread notice of a kind about one subject, and a later notice rewrites it. There is no foreign key here on purpose. The notice has to keep naming its subject after the subject is gone."
   }
-  column "about_document_id" {
+  column "subject_state" {
     null    = true
-    type    = uuid
-    comment = "The document a komrad notice is about, null on ordinary mail. A person editing the same document again joins the unread notice about it rather than adding another."
+    type    = jsonb
+    comment = "What a notice last said about its subject, kept so that a later notice about the same subject can say what moved since the recipient last heard."
   }
   column "idempotency_key" {
     null    = true
@@ -121,6 +121,12 @@ table "mail" {
   }
   index "mail_reply_to" {
     columns = [column.reply_to]
+  }
+  index "mail_pending_subject" {
+    unique  = true
+    columns = [column.to_agent_id, column.kind, column.subject_id]
+    where   = "claimed_at IS NULL AND subject_id IS NOT NULL"
+    comment = "Holds a recipient to one unread notice of a kind about one subject, which a later notice rewrites in place."
   }
   index "mail_idempotency_key" {
     unique  = true

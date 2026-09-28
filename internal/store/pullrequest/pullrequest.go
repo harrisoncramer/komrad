@@ -61,6 +61,12 @@ type PullRequest struct {
 	ChecksSHA string
 	// ChecksReadAt is when the checks were last read, nil while they never have been.
 	ChecksReadAt *time.Time
+	// LastKnownChecks is the checks as the forge last reported them, empty before it ever has.
+	LastKnownChecks string
+	// LastKnownMergeability is the mergeability as the forge last reported it, empty before it ever has.
+	LastKnownMergeability string
+	// LastKnownDecision is the review decision as the forge last reported it, empty before it ever has.
+	LastKnownDecision string
 }
 
 // IsFinished says whether the pull request merged or closed.
@@ -98,6 +104,21 @@ type Outcome struct {
 	Inserted bool
 	// Changed says the row was written, whether new or different from what was stored.
 	Changed bool
+	// OldState is the state the row held before a change, nil when it is new or unchanged.
+	OldState *string
+	// OldHeadSHA is the head the row held before a change, nil when it is new or unchanged.
+	OldHeadSHA *string
+}
+
+// StandingChange is the last known standing before and after a write, a blank from the forge
+// leaving the last known value as it was.
+type StandingChange struct {
+	OldChecks         *string
+	OldMergeability   *string
+	OldDecision       *string
+	KnownChecks       *string
+	KnownMergeability *string
+	KnownDecision     *string
 }
 
 // Observation is one agent having been seen with one pull request.
@@ -146,9 +167,11 @@ func (s *PullRequestStore) Upsert(ctx context.Context, params UpsertParams) (*Ou
 	}
 
 	return &Outcome{
-		ID:       row.ID,
-		Inserted: row.Inserted,
-		Changed:  row.Changed,
+		ID:         row.ID,
+		Inserted:   row.Inserted,
+		Changed:    row.Changed,
+		OldState:   row.OldState,
+		OldHeadSHA: row.OldHeadSha,
 	}, nil
 }
 
@@ -215,9 +238,9 @@ func (s *PullRequestStore) ListPage(ctx context.Context, params ListPageParams) 
 }
 
 // SetStanding records where the forge said a pull request's reviews, checks and mergeability
-// stand, the reviews read for the change the row holds now and the rest for the head the
-// standing names, and stamps the read at readAt whether or not anything moved.
-func (s *PullRequestStore) SetStanding(ctx context.Context, id string, standing forge.Standing, readAt time.Time) error {
+// stand, stamps the read at readAt whether or not anything moved, and answers the last known
+// standing before and after.
+func (s *PullRequestStore) SetStanding(ctx context.Context, id string, standing forge.Standing, readAt time.Time) (*StandingChange, error) {
 	var decision *string
 	if standing.Decision != forge.ReviewDecisionNone {
 		decision = xptr.Ptr(string(standing.Decision))
@@ -231,7 +254,7 @@ func (s *PullRequestStore) SetStanding(ctx context.Context, id string, standing 
 		mergeability = xptr.Ptr(string(standing.Mergeability))
 	}
 
-	err := s.queries.SetStanding(ctx, models.SetStandingParams{
+	row, err := s.queries.SetStanding(ctx, models.SetStandingParams{
 		ID:             id,
 		ReviewDecision: decision,
 		Checks:         checks,
@@ -239,11 +262,21 @@ func (s *PullRequestStore) SetStanding(ctx context.Context, id string, standing 
 		ChecksSha:      standing.HeadSHA,
 		ChecksReadAt:   readAt,
 	})
+	if db.IsNoRows(err) {
+		return &StandingChange{}, nil
+	}
 	if err != nil {
-		return fmt.Errorf("failed to record the standing of pull request %s: %w", id, err)
+		return nil, fmt.Errorf("failed to record the standing of pull request %s: %w", id, err)
 	}
 
-	return nil
+	return &StandingChange{
+		OldChecks:         row.OldChecks,
+		OldMergeability:   row.OldMergeability,
+		OldDecision:       row.OldDecision,
+		KnownChecks:       row.KnownChecks,
+		KnownMergeability: row.KnownMergeability,
+		KnownDecision:     row.KnownDecision,
+	}, nil
 }
 
 // Observe records every agent not being deleted beside every stored pull request opened from
@@ -299,32 +332,35 @@ func (s *PullRequestStore) ListLiveRepositories(ctx context.Context) ([]string, 
 
 func fromRow(row *models.PullRequest) PullRequest {
 	return PullRequest{
-		ID:                row.ID,
-		Host:              row.Host,
-		Forge:             row.Forge,
-		ProviderID:        row.ProviderID,
-		URL:               row.Url,
-		RepositoryURL:     row.RepositoryUrl,
-		HeadRepositoryURL: row.HeadRepositoryUrl,
-		Number:            int(row.Number),
-		Title:             row.Title,
-		HeadBranch:        row.HeadBranch,
-		HeadSHA:           row.HeadSha,
-		BaseBranch:        row.BaseBranch,
-		BaseSHA:           row.BaseSha,
-		Draft:             row.Draft,
-		State:             row.State,
-		OpenedAt:          row.OpenedAt,
-		ChangedAt:         row.ChangedAt,
-		MergedAt:          row.MergedAt,
-		ClosedAt:          row.ClosedAt,
-		FirstSeenAt:       row.FirstSeenAt,
-		ReviewDecision:    storedReviewDecision(row.ReviewDecision),
-		DecisionChangedAt: row.DecisionChangedAt,
-		Checks:            StoredChecks(row.Checks),
-		Mergeability:      StoredMergeability(row.Mergeability),
-		ChecksSHA:         xptr.Deref(row.ChecksSha),
-		ChecksReadAt:      row.ChecksReadAt,
+		ID:                    row.ID,
+		Host:                  row.Host,
+		Forge:                 row.Forge,
+		ProviderID:            row.ProviderID,
+		URL:                   row.Url,
+		RepositoryURL:         row.RepositoryUrl,
+		HeadRepositoryURL:     row.HeadRepositoryUrl,
+		Number:                int(row.Number),
+		Title:                 row.Title,
+		HeadBranch:            row.HeadBranch,
+		HeadSHA:               row.HeadSha,
+		BaseBranch:            row.BaseBranch,
+		BaseSHA:               row.BaseSha,
+		Draft:                 row.Draft,
+		State:                 row.State,
+		OpenedAt:              row.OpenedAt,
+		ChangedAt:             row.ChangedAt,
+		MergedAt:              row.MergedAt,
+		ClosedAt:              row.ClosedAt,
+		FirstSeenAt:           row.FirstSeenAt,
+		ReviewDecision:        storedReviewDecision(row.ReviewDecision),
+		DecisionChangedAt:     row.DecisionChangedAt,
+		Checks:                StoredChecks(row.Checks),
+		Mergeability:          StoredMergeability(row.Mergeability),
+		ChecksSHA:             xptr.Deref(row.ChecksSha),
+		ChecksReadAt:          row.ChecksReadAt,
+		LastKnownChecks:       xptr.Deref(row.LastKnownChecks),
+		LastKnownMergeability: xptr.Deref(row.LastKnownMergeability),
+		LastKnownDecision:     xptr.Deref(row.LastKnownDecision),
 	}
 }
 
@@ -352,4 +388,38 @@ func storedReviewDecision(stored *string) *forge.ReviewDecision {
 	}
 
 	return xptr.Ptr(forge.ReviewDecision(*stored))
+}
+
+// GetByID is one stored pull request, or ErrNotFound.
+func (s *PullRequestStore) GetByID(ctx context.Context, id string) (*PullRequest, error) {
+	if !store.IsID(id) {
+		return nil, store.ErrNotFound.Saying("no pull request %s", id)
+	}
+
+	row, err := s.queries.GetPullRequest(ctx, id)
+	if db.IsNoRows(err) {
+		return nil, store.ErrNotFound.Saying("no pull request %s", id)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get pull request %s: %w", id, err)
+	}
+
+	pullRequest := fromRow(row)
+
+	return &pullRequest, nil
+}
+
+// ListRecipients is every live agent, children aside, whose checkout is on a pull request's
+// branch in its repository, in id order.
+func (s *PullRequestStore) ListRecipients(ctx context.Context, id string) ([]string, error) {
+	if !store.IsID(id) {
+		return nil, nil
+	}
+
+	ids, err := s.queries.ListPullRequestRecipients(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list the agents on pull request %s: %w", id, err)
+	}
+
+	return ids, nil
 }

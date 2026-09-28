@@ -1,6 +1,8 @@
 package mail
 
 import (
+	"encoding/json"
+	"strconv"
 	"testing"
 	"time"
 
@@ -9,6 +11,7 @@ import (
 	agentstore "komrad/internal/store/agent"
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/lib/xptr"
+	"komrad/lib/xslice"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -620,9 +623,6 @@ func TestDelete(t *testing.T) {
 	require.ErrorIs(t, err, store.ErrNotFound, "deleted mail is gone, not just claimed")
 }
 
-// answerNotice is what the notice to a reviewer says.
-const answerNotice = "komrad: worker answered your review, read the threads with list_review_threads"
-
 type fixture struct {
 	*MailStore
 	agents   *agentstore.AgentStore
@@ -661,131 +661,132 @@ func seedAgent(t *testing.T, st *fixture, name string) string {
 	return got.ID
 }
 
-// TestPendingNoticeOfKindIsToldApartByWhatItIsAbout pins the discrimination the exchange cap
-// rests on: a notice already waiting about one agent must not stand in for a notice about a
-// different one, or a second severed exchange is never reported and the agent waiting on it is
-// never told.
-func TestPendingNoticeOfKindIsToldApartByWhatItIsAbout(t *testing.T) {
-	st := open(t)
-	ctx := t.Context()
-	recipient := seedAgent(t, st, "recipient")
-	one := seedAgent(t, st, "partner-one")
-	other := seedAgent(t, st, "partner-other")
+// TestNoticeIsOnePerSubject pins that a recipient holds one unread notice per kind and subject.
+func TestNoticeIsOnePerSubject(t *testing.T) {
+	type write struct {
+		kind    Kind
+		subject string
+		body    string
+	}
+	tests := []struct {
+		name       string
+		writes     []write
+		claimFirst bool
+		wantRows   int
+		wantBodies []string
+	}{
+		{
+			name:       "a second notice about the same subject rewrites the first",
+			writes:     []write{{KindDocumentEdited, "one", "version 1"}, {KindDocumentEdited, "one", "version 2"}},
+			wantRows:   1,
+			wantBodies: []string{"version 2"},
+		},
+		{
+			name:       "a notice about another subject waits beside it",
+			writes:     []write{{KindDocumentEdited, "one", "first"}, {KindDocumentEdited, "other", "second"}},
+			wantRows:   2,
+			wantBodies: []string{"first", "second"},
+		},
+		{
+			name:       "a notice of another kind about the same subject waits beside it",
+			writes:     []write{{KindExchangeCapped, "one", "capped"}, {KindReviewActivity, "one", "reviewed"}},
+			wantRows:   2,
+			wantBodies: []string{"capped", "reviewed"},
+		},
+		{
+			name:       "a notice after the first was read is a new one",
+			writes:     []write{{KindDocumentEdited, "one", "read"}, {KindDocumentEdited, "one", "unread"}},
+			claimFirst: true,
+			wantRows:   1,
+			wantBodies: []string{"unread"},
+		},
+	}
 
-	sent, err := st.Send(ctx, SendParams{
-		ToAgentID:    recipient,
-		Body:         "your exchange with partner-one was cut off",
-		Kind:         KindExchangeCapped,
-		AboutAgentID: &one,
-		Deadline:     time.Hour,
-	})
-	require.NoError(t, err)
-	require.NotNil(t, sent.AboutAgentID)
-	assert.Equal(t, one, *sent.AboutAgentID, "the subject round-trips")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := open(t)
+			ctx := t.Context()
+			recipient := seedAgent(t, st, "recipient")
+			subjects := map[string]string{"one": uuid.NewString(), "other": uuid.NewString()}
 
-	found, err := st.GetPendingOfKind(ctx, recipient, KindExchangeCapped, one)
-	require.NoError(t, err)
-	assert.Equal(t, sent.ID, found.ID, "a lookup naming that partner finds it")
+			for i, w := range tt.writes {
+				_, err := st.UpsertNotice(ctx, UpsertNoticeParams{
+					FromName:     "komrad",
+					ToAgentID:    recipient,
+					Body:         w.body,
+					Kind:         w.kind,
+					SubjectID:    subjects[w.subject],
+					SubjectState: json.RawMessage(`{"n":` + strconv.Itoa(i) + `}`),
+					Deadline:     time.Hour,
+				})
+				require.NoError(t, err)
+				if tt.claimFirst && i == 0 {
+					_, err := st.Claim(ctx, recipient, 10)
+					require.NoError(t, err)
+				}
+			}
 
-	_, err = st.GetPendingOfKind(ctx, recipient, KindExchangeCapped, other)
-	require.ErrorIs(t, err, store.ErrNotFound, "a notice about one partner does not stand in for another")
+			pending, err := st.CountPending(ctx, recipient)
+			require.NoError(t, err)
+			assert.Equal(t, int64(tt.wantRows), pending)
+
+			claimed, err := st.Claim(ctx, recipient, 10)
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantBodies, xslice.Map(claimed, func(m Mail) string { return m.Body }))
+		})
+	}
 }
 
-// TestPendingNoticeAboutDocumentIsToldApartByDocument pins that a document notice waits apart from notices about agents and other documents.
-func TestPendingNoticeAboutDocumentIsToldApartByDocument(t *testing.T) {
+// TestPendingNoticeCarriesItsState pins that the unread notice reads back with the state it was written with.
+func TestPendingNoticeCarriesItsState(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
 	recipient := seedAgent(t, st, "recipient")
-	partner := seedAgent(t, st, "partner")
-	one, other := uuid.NewString(), uuid.NewString()
+	subject := uuid.NewString()
 
-	_, err := st.Send(ctx, SendParams{
+	_, err := st.GetPendingNotice(ctx, recipient, KindPullRequestChanged, subject)
+	require.ErrorIs(t, err, store.ErrNotFound)
+
+	written, err := st.UpsertNotice(ctx, UpsertNoticeParams{
+		FromName:     "komrad",
 		ToAgentID:    recipient,
-		Body:         "a notice about an agent",
-		Kind:         KindDocumentEdited,
-		AboutAgentID: &partner,
+		Body:         "checks failing",
+		Kind:         KindPullRequestChanged,
+		SubjectID:    subject,
+		SubjectState: json.RawMessage(`{"checks": {"from": "passing", "to": "failing"}}`),
 		Deadline:     time.Hour,
 	})
 	require.NoError(t, err)
 
-	_, err = st.GetPendingAboutDocument(ctx, recipient, KindDocumentEdited, one)
-	require.ErrorIs(t, err, store.ErrNotFound, "a notice about an agent does not stand in for one about a document")
-
-	sent, err := st.Send(ctx, SendParams{
-		ToAgentID:       recipient,
-		Body:            "a person edited your document",
-		Kind:            KindDocumentEdited,
-		AboutDocumentID: &one,
-		Deadline:        time.Hour,
-	})
+	found, err := st.GetPendingNotice(ctx, recipient, KindPullRequestChanged, subject)
 	require.NoError(t, err)
-	require.NotNil(t, sent.AboutDocumentID)
-	assert.Equal(t, one, *sent.AboutDocumentID)
+	assert.Equal(t, written.ID, found.ID)
+	require.NotNil(t, found.SubjectID)
+	assert.Equal(t, subject, *found.SubjectID)
+	assert.JSONEq(t, `{"checks": {"from": "passing", "to": "failing"}}`, string(found.SubjectState))
 
-	found, err := st.GetPendingAboutDocument(ctx, recipient, KindDocumentEdited, one)
+	require.NoError(t, st.DeletePendingNotice(ctx, recipient, KindPullRequestChanged, subject))
+	_, err = st.GetPendingNotice(ctx, recipient, KindPullRequestChanged, subject)
+	require.ErrorIs(t, err, store.ErrNotFound, "a withdrawn notice is gone")
+}
+
+// TestDeletePendingNoticeLeavesReadNoticesAlone pins that withdrawing a notice takes only the unread one.
+func TestDeletePendingNoticeLeavesReadNoticesAlone(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+	recipient := seedAgent(t, st, "recipient")
+	subject := uuid.NewString()
+
+	written, err := st.UpsertNotice(ctx, UpsertNoticeParams{FromName: "komrad", ToAgentID: recipient, Body: "read", Kind: KindPullRequestChanged, SubjectID: subject, Deadline: time.Hour})
 	require.NoError(t, err)
-	assert.Equal(t, sent.ID, found.ID)
-
-	_, err = st.GetPendingAboutDocument(ctx, recipient, KindDocumentEdited, other)
-	require.ErrorIs(t, err, store.ErrNotFound, "a notice about one document does not stand in for another")
-
 	_, err = st.Claim(ctx, recipient, 10)
 	require.NoError(t, err)
 
-	_, err = st.GetPendingAboutDocument(ctx, recipient, KindDocumentEdited, one)
-	require.ErrorIs(t, err, store.ErrNotFound, "once the agent has taken it, nothing is waiting")
-}
+	require.NoError(t, st.DeletePendingNotice(ctx, recipient, KindPullRequestChanged, subject))
 
-// TestPendingNoticeOfKindIsTheOneWaiting pins that the lookup finds only a notice the agent can
-// still read, never one it has claimed or one that ran out of time.
-func TestPendingNoticeOfKindIsTheOneWaiting(t *testing.T) {
-	st := open(t)
-	ctx := t.Context()
-	recipient := seedAgent(t, st, "recipient")
-	author := seedAgent(t, st, "author")
-
-	_, err := st.GetPendingOfKind(ctx, recipient, KindReviewActivity, author)
-	require.ErrorIs(t, err, store.ErrNotFound, "an agent holding nothing has no notice waiting")
-
-	_, err = st.Send(ctx, SendParams{
-		ToAgentID: recipient,
-		Body:      "from a peer",
-		Deadline:  time.Hour,
-	})
+	kept, err := st.GetByID(ctx, written.ID)
 	require.NoError(t, err)
-
-	stale, err := st.Send(ctx, SendParams{
-		ToAgentID:    recipient,
-		Body:         answerNotice,
-		Kind:         KindReviewActivity,
-		AboutAgentID: &author,
-		Deadline:     -time.Hour,
-	})
-	require.NoError(t, err)
-
-	_, err = st.GetPendingOfKind(ctx, recipient, KindReviewActivity, author)
-	require.ErrorIs(t, err, store.ErrNotFound, "a notice nobody claimed in time is not one the agent can still read")
-
-	live, err := st.Send(ctx, SendParams{
-		ToAgentID:    recipient,
-		Body:         answerNotice,
-		Kind:         KindReviewActivity,
-		AboutAgentID: &author,
-		Deadline:     time.Hour,
-	})
-	require.NoError(t, err)
-
-	waiting, err := st.GetPendingOfKind(ctx, recipient, KindReviewActivity, author)
-	require.NoError(t, err)
-	require.NotNil(t, waiting)
-	assert.Equal(t, live.ID, waiting.ID, "the notice found is the deliverable one")
-	assert.NotEqual(t, stale.ID, waiting.ID)
-
-	_, err = st.Claim(ctx, recipient, 10)
-	require.NoError(t, err)
-
-	_, err = st.GetPendingOfKind(ctx, recipient, KindReviewActivity, author)
-	require.ErrorIs(t, err, store.ErrNotFound, "once the agent has taken it, nothing is waiting")
+	assert.NotNil(t, kept.ClaimedAt, "mail the agent already read stays in its history")
 }
 
 // TestOrdinaryMailIsNeverDeduplicated pins that the dedupe covers only notices komrad raises.
@@ -809,62 +810,39 @@ func TestOrdinaryMailIsNeverDeduplicated(t *testing.T) {
 	assert.Equal(t, int64(3), pending)
 }
 
-// TestNoticeRingsAgainOnceItHasExpired pins that a notice nobody claimed before it ran out
-// of time frees its slot, where it used to hold one for the life of the database.
-func TestNoticeRingsAgainOnceItHasExpired(t *testing.T) {
+// TestExpiredNoticeComesBackWhenRewritten pins that rewriting an expired notice gives it a new deadline.
+func TestExpiredNoticeComesBackWhenRewritten(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
 	recipient := seedAgent(t, st, "recipient")
+	subject := uuid.NewString()
 
-	first, err := st.Send(ctx, SendParams{
-		ToAgentID: recipient,
-		Body:      "komrad: 1 review thread(s) have activity",
-		Kind:      KindReviewActivity,
-		Deadline:  -time.Hour,
-	})
+	first, err := st.UpsertNotice(ctx, UpsertNoticeParams{FromName: "komrad", ToAgentID: recipient, Body: "one", Kind: KindReviewActivity, SubjectID: subject, Deadline: -time.Hour})
 	require.NoError(t, err)
-	require.NotNil(t, first)
 
 	pending, err := st.CountPending(ctx, recipient)
 	require.NoError(t, err)
 	require.Equal(t, int64(0), pending, "mail that ran out of time is not waiting for anyone")
 
-	again, err := st.Send(ctx, SendParams{
-		ToAgentID: recipient,
-		Body:      "komrad: 2 review thread(s) have activity",
-		Kind:      KindReviewActivity,
-		Deadline:  time.Hour,
-	})
-	require.NoError(t, err)
-	require.NotNil(t, again, "a notice nobody could claim does not stand in for one that can be")
-
-	claimed, err := st.Claim(ctx, recipient, 10)
-	require.NoError(t, err)
-	require.Len(t, claimed, 1, "the notice that replaced it is the only one, and it is deliverable")
-	assert.Equal(t, "komrad: 2 review thread(s) have activity", claimed[0].Body)
-}
-
-// TestExpiredNoticeIsReportableAgain proves a revived notice can expire a second time and still
-// be reported.
-func TestExpiredNoticeIsReportableAgain(t *testing.T) {
-	st := open(t)
-	ctx := t.Context()
-	recipient := seedAgent(t, st, "recipient")
-
 	for range 2 {
-		sent, err := st.Send(ctx, SendParams{
-			ToAgentID: recipient,
-			Body:      "komrad: review thread(s) have activity",
-			Kind:      KindReviewActivity,
-			Deadline:  -time.Hour,
-		})
-		require.NoError(t, err)
-		require.NotNil(t, sent)
-
 		expired, err := st.ListExpired(ctx, recipient)
 		require.NoError(t, err)
-		assert.Len(t, expired, 1)
+		require.Len(t, expired, 1, "an expired notice is reported, again after each revival")
+
+		again, err := st.UpsertNotice(ctx, UpsertNoticeParams{FromName: "komrad", ToAgentID: recipient, Body: "two", Kind: KindReviewActivity, SubjectID: subject, Deadline: time.Hour})
+		require.NoError(t, err)
+		assert.Equal(t, first.ID, again.ID, "the expired notice is brought back rather than blocking a new one")
+
+		_, err = st.UpsertNotice(ctx, UpsertNoticeParams{FromName: "komrad", ToAgentID: recipient, Body: "one", Kind: KindReviewActivity, SubjectID: subject, Deadline: -time.Hour})
+		require.NoError(t, err)
 	}
+
+	_, err = st.UpsertNotice(ctx, UpsertNoticeParams{FromName: "komrad", ToAgentID: recipient, Body: "last", Kind: KindReviewActivity, SubjectID: subject, Deadline: time.Hour})
+	require.NoError(t, err)
+	claimed, err := st.Claim(ctx, recipient, 10)
+	require.NoError(t, err)
+	require.Len(t, claimed, 1)
+	assert.Equal(t, "last", claimed[0].Body)
 }
 
 // TestCountExchangedSpansThreadsAndDirections pins what a send is refused by the size of: every

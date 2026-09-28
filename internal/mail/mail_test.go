@@ -360,9 +360,9 @@ func TestSendMailTellsTheRecipientWhenTheCapRefusesASend(t *testing.T) {
 		refuse(t, childTwo)
 
 		about := xslice.Map(listCappedNotices(t, st, parent.ID), func(notice mailstore.Mail) string {
-			require.NotNil(t, notice.AboutAgentID)
+			require.NotNil(t, notice.SubjectID)
 
-			return *notice.AboutAgentID
+			return *notice.SubjectID
 		})
 		assert.ElementsMatch(t, []string{childOne.ID, childOne.ID, childTwo.ID}, about)
 	})
@@ -466,50 +466,69 @@ func TestSystemMailReachesAChild(t *testing.T) {
 	assert.Equal(t, KomradSenderName, sent.FromName)
 }
 
-// TestSendNoticeRefusesAPlainKind pins that a notice must say what it is about to be told apart from ordinary mail.
-func TestSendNoticeRefusesAPlainKind(t *testing.T) {
-	st := storetest.Open(t)
-	svc := newMailService(st, config.DefaultMaxExchange)
-	recipient := st.SeedAgent(t, agentstore.Agent{Name: "migrations"})
+// TestSendNoticeRefusesAnIncompleteNotice pins that a notice must say what it is and what it is about.
+func TestSendNoticeRefusesAnIncompleteNotice(t *testing.T) {
+	tests := []struct {
+		name    string
+		params  SendNoticeParams
+		wantErr error
+	}{
+		{
+			name:    "a plain kind",
+			params:  SendNoticeParams{Body: "hello", Kind: mailstore.KindPlain, SubjectID: uuid.NewString()},
+			wantErr: ErrNoticeKindMissing,
+		},
+		{
+			name:    "no subject",
+			params:  SendNoticeParams{Body: "hello", Kind: mailstore.KindDocumentEdited},
+			wantErr: ErrNoticeSubjectMissing,
+		},
+	}
 
-	sent, err := svc.SendNotice(t.Context(), SendNoticeParams{
-		ToAgentID: recipient.ID,
-		Body:      "hello",
-		Kind:      mailstore.KindPlain,
-	})
-	require.ErrorIs(t, err, ErrNoticeKindMissing)
-	assert.Nil(t, sent)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := storetest.Open(t)
+			svc := newMailService(st, config.DefaultMaxExchange)
+			tt.params.ToAgentID = st.SeedAgent(t, agentstore.Agent{Name: "migrations"}).ID
+
+			sent, err := svc.SendNotice(t.Context(), tt.params)
+			require.ErrorIs(t, err, tt.wantErr)
+			assert.Nil(t, sent)
+		})
+	}
 }
 
-// TestSendNoticeAboutADocumentJoinsTheUnreadOne pins that one unread notice stands for every edit of a document until it is read.
-func TestSendNoticeAboutADocumentJoinsTheUnreadOne(t *testing.T) {
+// TestSendNoticeRewritesTheUnreadOne pins that one unread notice stands for every change to its subject until it is read.
+func TestSendNoticeRewritesTheUnreadOne(t *testing.T) {
 	st := storetest.Open(t)
 	svc := newMailService(st, config.DefaultMaxExchange)
 	ctx := t.Context()
 	recipient := st.SeedAgent(t, agentstore.Agent{Name: "author"})
 	one, other := uuid.NewString(), uuid.NewString()
 
-	notify := func(document string) *mailstore.Mail {
+	notify := func(document, body string) *mailstore.Mail {
 		t.Helper()
 		sent, err := svc.SendNotice(ctx, SendNoticeParams{
-			ToAgentID:     recipient.ID,
-			Body:          "a person edited your document",
-			Kind:          mailstore.KindDocumentEdited,
-			AboutDocument: &document,
+			ToAgentID: recipient.ID,
+			Body:      body,
+			Kind:      mailstore.KindDocumentEdited,
+			SubjectID: document,
 		})
 		require.NoError(t, err)
 
 		return sent
 	}
 
-	first := notify(one)
-	assert.Equal(t, first.ID, notify(one).ID, "a second edit joins the unread notice")
-	assert.NotEqual(t, first.ID, notify(other).ID, "an edit of another document is told apart")
+	first := notify(one, "first edit")
+	second := notify(one, "second edit")
+	assert.Equal(t, first.ID, second.ID, "a second edit rewrites the unread notice")
+	assert.Equal(t, "second edit", second.Body)
+	assert.NotEqual(t, first.ID, notify(other, "edit").ID, "an edit of another document is told apart")
 
 	_, err := svc.ClaimMail(ctx, recipient.ID)
 	require.NoError(t, err)
 
-	assert.NotEqual(t, first.ID, notify(one).ID, "an edit after the notice was read sends another")
+	assert.NotEqual(t, first.ID, notify(one, "third edit").ID, "an edit after the notice was read sends another")
 }
 
 // TestClaimMail pins that a claim is refused for an id no agent holds and takes at most one batch otherwise.

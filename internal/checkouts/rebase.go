@@ -13,11 +13,14 @@ import (
 	"komrad/internal/fail"
 	"komrad/internal/git"
 	"komrad/internal/logging"
+	"komrad/internal/notices"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
-	mailstore "komrad/internal/store/mail"
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/lib/xpath"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/riverqueue/river"
 )
 
 var (
@@ -65,9 +68,9 @@ type agentSettler interface {
 	Settle(ctx context.Context, agent agentstore.Agent) (bool, error)
 }
 
-// systemMailSender leaves a note from komrad itself in an agent's mailbox.
-type systemMailSender interface {
-	SendSystemMail(ctx context.Context, toAgentID, body string) (*mailstore.Mail, error)
+// eventRecorder queues the event that tells an agent what became of its worktree.
+type eventRecorder interface {
+	InsertTx(ctx context.Context, args river.JobArgs, before func(tx pgx.Tx) error) error
 }
 
 // worktreeRebaser is the git a rebase reads the checkout through and moves the branch with.
@@ -87,7 +90,7 @@ type NewRebaseServiceParams struct {
 	Agents    rebaseAgentReadWriter
 	Workflows workflowReader
 	Settler   agentSettler
-	Notifier  systemMailSender
+	Events    eventRecorder
 	Rebaser   worktreeRebaser
 	Locks     *TreeLocks
 }
@@ -97,7 +100,7 @@ type RebaseService struct {
 	agents    rebaseAgentReadWriter
 	workflows workflowReader
 	settler   agentSettler
-	notifier  systemMailSender
+	events    eventRecorder
 	rebaser   worktreeRebaser
 	locks     *TreeLocks
 }
@@ -113,7 +116,7 @@ func NewRebaseService(params NewRebaseServiceParams) *RebaseService {
 		agents:    params.Agents,
 		workflows: params.Workflows,
 		settler:   params.Settler,
-		notifier:  params.Notifier,
+		events:    params.Events,
 		rebaser:   params.Rebaser,
 		locks:     locks,
 	}
@@ -122,33 +125,33 @@ func NewRebaseService(params NewRebaseServiceParams) *RebaseService {
 // RebasePlan is what a rebase would do.
 type RebasePlan struct {
 	// BaseRef is what the branch would move onto, and BaseSHA the commit it named when read.
-	BaseRef string
-	BaseSHA string
+	BaseRef string `json:"base_ref"`
+	BaseSHA string `json:"base_sha"`
 	// Commits is how many of the agent's own commits would be replayed.
-	Commits int
-	Branch  string
+	Commits int    `json:"commits"`
+	Branch  string `json:"branch"`
 	// Cutoff is the newest of the agent's own commits the base already holds whole, which is
 	// where the replay starts, empty when the base holds none of them.
-	Cutoff string
+	Cutoff string `json:"cutoff"`
 	// Landed is how many of its commits the base already holds, and Replay how many would move.
-	Landed int
-	Replay int
+	Landed int `json:"landed"`
+	Replay int `json:"replay"`
 	// Merges is how many merge commits a rebase would discard.
-	Merges int
+	Merges int `json:"merges"`
 	// ConflictPaths are the paths a merge of the base into the branch could not settle.
-	ConflictPaths []string
+	ConflictPaths []string `json:"conflict_paths"`
 }
 
 // RebaseResult is what a rebase did.
 type RebaseResult struct {
-	RebasePlan
+	RebasePlan `json:"plan"`
 	// Conflicted says the rebase stopped part-way and is waiting for the agent.
-	Conflicted bool
+	Conflicted bool `json:"conflicted"`
 	// Moved says the branch reached the base without replaying anything, which is what a branch
 	// whose work has entirely landed gets.
-	Moved bool
+	Moved bool `json:"moved"`
 	// ParkedRef holds the checkout as it stood before any of this, which is what an undo reads.
-	ParkedRef string
+	ParkedRef string `json:"parked_ref"`
 }
 
 // PlanRebase reads what a rebase would do without touching anything.
@@ -336,11 +339,7 @@ func (s *RebaseService) recordStopped(ctx context.Context, agent agentstore.Agen
 
 // tell says what happened in the agent's mailbox.
 func (s *RebaseService) tell(ctx context.Context, agent agentstore.Agent, result RebaseResult) {
-	if s.notifier == nil {
-		return
-	}
-
-	if _, err := s.notifier.SendSystemMail(ctx, agent.ID, rebaseMail(result)); err != nil {
+	if err := s.record(ctx, Rebased{AgentID: agent.ID, Result: &result}); err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to tell an agent its worktree was rebased",
 			append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
 	}
@@ -348,18 +347,14 @@ func (s *RebaseService) tell(ctx context.Context, agent agentstore.Agent, result
 
 // tellCut says in the agent's mailbox that its turn was cut for a rebase that then failed.
 func (s *RebaseService) tellCut(ctx context.Context, agent agentstore.Agent, failure error) {
-	if s.notifier == nil {
-		return
-	}
-
-	if _, err := s.notifier.SendSystemMail(ctx, agent.ID, cutMail(failure)); err != nil {
+	if err := s.record(ctx, Rebased{AgentID: agent.ID, Failure: failure.Error()}); err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to tell an agent its turn was cut for nothing",
 			append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
 	}
 }
 
 // cutMail is what an agent is told when it was stopped for a rebase that did not go through.
-func cutMail(failure error) string {
+func cutMail(failure string) string {
 	return fmt.Sprintf("Your turn was interrupted so that your worktree could be rebased onto its base, "+
 		"but the rebase failed before it finished: %s\n\n"+
 		"Check git status before carrying on, then pick up where you were.", failure)
@@ -552,4 +547,17 @@ func refuseTreeState(state git.TreeState) error {
 	}
 
 	return nil
+}
+
+func (s *RebaseService) record(ctx context.Context, rebased Rebased) error {
+	if s.events == nil {
+		return nil
+	}
+
+	event, err := notices.NewEvent(rebased)
+	if err != nil {
+		return err
+	}
+
+	return s.events.InsertTx(ctx, *event, nil)
 }

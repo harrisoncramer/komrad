@@ -192,6 +192,21 @@ table "pull_requests" {
     type    = text
     comment = "Where the forge says the pull request stands against its base and its branch rules, in komrad's own words: clean, unstable, blocked, behind or conflicting, null while the forge has not computed it. Read with the checks and kept fresh the same way."
   }
+  column "last_known_checks" {
+    null    = true
+    type    = text
+    comment = "The checks as the forge last reported them when it reported anything, which a blank reading leaves alone. A notice compares against this so that a moment without an answer is not taken for a change."
+  }
+  column "last_known_mergeability" {
+    null    = true
+    type    = text
+    comment = "The mergeability as the forge last reported it when it reported anything, which a blank reading leaves alone."
+  }
+  column "last_known_decision" {
+    null    = true
+    type    = text
+    comment = "The review decision as the forge last reported it when it reported anything, which a blank reading leaves alone."
+  }
   column "engine_id" {
     null    = false
     type    = uuid

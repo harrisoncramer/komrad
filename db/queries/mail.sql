@@ -6,8 +6,6 @@ INSERT INTO mail(
     body,
     kind,
     reply_to,
-    about_agent_id,
-    about_document_id,
     idempotency_key,
     expires_at)
 VALUES (
@@ -17,12 +15,65 @@ VALUES (
     @body,
     @kind,
     sqlc.narg('reply_to'),
-    sqlc.narg('about_agent_id'),
-    sqlc.narg('about_document_id'),
     sqlc.narg('idempotency_key'),
     NOW() + interval '1 microsecond' * @deadline_micros::bigint)
 RETURNING
     *;
+
+-- name: UpsertNotice :one
+INSERT INTO mail(
+    from_name,
+    to_agent_id,
+    body,
+    kind,
+    subject_id,
+    subject_state,
+    expires_at)
+VALUES (
+    @from_name,
+    @to_agent_id,
+    @body,
+    @kind,
+    @subject_id::uuid,
+    sqlc.narg('subject_state')::jsonb,
+    NOW() + interval '1 microsecond' * @deadline_micros::bigint)
+ON CONFLICT (
+    to_agent_id,
+    kind,
+    subject_id)
+WHERE
+    claimed_at IS NULL
+    AND subject_id IS NOT NULL
+        DO UPDATE SET
+            body = EXCLUDED.body,
+            subject_state = EXCLUDED.subject_state,
+            expires_at = EXCLUDED.expires_at,
+            reported_at = NULL,
+            updated_at = NOW()
+        RETURNING
+            *;
+
+-- name: LockNoticeSubject :exec
+SELECT
+    PG_ADVISORY_XACT_LOCK(HASHTEXTEXTENDED(@to_agent_id::text || '/' || @kind::text || '/' || @subject_id::text, 0));
+
+-- name: GetPendingNotice :one
+SELECT
+    *
+FROM
+    mail m
+WHERE
+    m.to_agent_id = @to_agent_id
+    AND m.kind = @kind
+    AND m.subject_id = @subject_id::uuid
+    AND m.claimed_at IS NULL;
+
+-- name: DeletePendingNotice :exec
+DELETE FROM mail m
+WHERE m.to_agent_id = @to_agent_id
+    AND m.kind = @kind
+    AND m.subject_id = @subject_id::uuid
+    AND m.claimed_at IS NULL;
 
 -- name: GetMailByIdempotencyKey :one
 SELECT
@@ -31,36 +82,6 @@ FROM
     mail m
 WHERE
     m.idempotency_key = @idempotency_key
-LIMIT 1;
-
--- name: GetPendingMailOfKind :one
-SELECT
-    *
-FROM
-    mail m
-WHERE
-    m.to_agent_id = @to_agent_id
-    AND m.kind = @kind
-    AND m.about_agent_id = @about_agent_id::uuid
-    AND m.claimed_at IS NULL
-    AND m.expires_at > NOW()
-ORDER BY
-    m.id DESC
-LIMIT 1;
-
--- name: GetPendingMailAboutDocument :one
-SELECT
-    *
-FROM
-    mail m
-WHERE
-    m.to_agent_id = @to_agent_id
-    AND m.kind = @kind
-    AND m.about_document_id = @about_document_id::uuid
-    AND m.claimed_at IS NULL
-    AND m.expires_at > NOW()
-ORDER BY
-    m.id DESC
 LIMIT 1;
 
 -- name: GetMail :one
