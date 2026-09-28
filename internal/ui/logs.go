@@ -35,6 +35,8 @@ type logsScreen struct {
 	from    screen
 	sources []*logv1.LogSource
 	listed  bool
+	// reading is the id of the source the block holds lines of.
+	reading string
 	viewer  logview.LogViewer
 	cursor  string
 	// generation tells this visit's and this source's reads apart from an earlier one's.
@@ -140,17 +142,14 @@ func (m *model) applyLogsSources(msg logsSourcesMsg) tea.Cmd {
 	l.sources = msg.sources
 	if l.listed {
 		l.rowCursor.cursor = placeCursor(rowIndexOfKey(l.rows(s), hovered), l.rowCursor.cursor, len(l.sources))
-		if rowKeyAt(l.rows(s), l.rowCursor.cursor) != hovered {
-			return l.switchSource(s)
-		}
 
-		return nil
+		return l.switchSource(s)
 	}
 
 	l.listed, l.err = true, nil
 	l.rowCursor.cursor = max(slices.IndexFunc(l.rows(s), func(row logSourceRow) bool { return row.failed }), 0)
 
-	return l.readCmd(s)
+	return l.switchSource(s)
 }
 
 func (m *model) applyLogsRead(msg logsReadMsg) tea.Cmd {
@@ -196,8 +195,14 @@ func (l *logsScreen) tickCmd() tea.Cmd {
 	return tea.Tick(logsPollInterval, func(time.Time) tea.Msg { return logsTickMsg{generation: generation} })
 }
 
-// switchSource starts the block over on the source the cursor landed on.
+// switchSource starts the block over on the source the cursor is on, unless it is the one being read.
 func (l *logsScreen) switchSource(s panelShared) tea.Cmd {
+	row, ok := rowAt(l.rows(s), l.rowCursor.cursor)
+	if !ok || row.source.GetId() == l.reading {
+		return nil
+	}
+
+	l.reading = row.source.GetId()
 	l.generation++
 	l.viewer.Reset()
 	l.cursor, l.read, l.err = "", false, nil

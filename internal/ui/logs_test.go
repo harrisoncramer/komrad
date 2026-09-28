@@ -22,13 +22,21 @@ const provisionRun = "001-provision-setup.log"
 // logReads answers each read of an agent's logs by the source and cursor it was sent with.
 type logReads map[string]*logv1.ReadAgentLogsResponse
 
-func (r logReads) answer(harness *panelHarness) {
+var (
+	serviceSource   = &logv1.LogSource{Id: "service", Name: "service"}
+	provisionSource = &logv1.LogSource{Id: provisionRun, Name: "001 provision setup", Run: xptr.Ptr[int32](1)}
+	launchSource    = &logv1.LogSource{Id: "002-pre-launch-setup.log", Name: "002 pre-launch setup", Run: xptr.Ptr[int32](2)}
+)
+
+// answerSources lists the sources given for every agent.
+func answerSources(harness *panelHarness, sources ...*logv1.LogSource) {
 	harness.answer(logv1connect.LogServiceListAgentLogSourcesProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
-		return connect.NewResponse(&logv1.ListAgentLogSourcesResponse{Sources: []*logv1.LogSource{
-			{Id: "service", Name: "service"},
-			{Id: provisionRun, Name: "001 provision setup", Run: xptr.Ptr[int32](1)},
-		}}), nil
+		return connect.NewResponse(&logv1.ListAgentLogSourcesResponse{Sources: sources}), nil
 	})
+}
+
+func (r logReads) answer(harness *panelHarness) {
+	answerSources(harness, serviceSource, provisionSource)
 	harness.answer(logv1connect.LogServiceReadAgentLogsProcedure, func(req connect.AnyRequest) (connect.AnyResponse, error) {
 		read, _ := req.Any().(*logv1.ReadAgentLogsRequest)
 		if resp, ok := r[read.GetSource()+"@"+read.GetCursor()]; ok {
@@ -157,6 +165,46 @@ func TestLogsSources(t *testing.T) {
 
 		assert.Contains(t, readStageText(harness.readFrame()), "second line")
 		harness.assertSentTo(logv1connect.LogServiceReadAgentLogsProcedure, logRead("service", ""), logRead(provisionRun, ""), logRead("service", ""))
+	})
+
+	t.Run("a key that leaves the cursor where it was reads nothing again", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openLogs(t, tailOfTwo())
+		harness.press("g", "g")
+
+		assert.Contains(t, readStageText(harness.readFrame()), "second line")
+		harness.assertSentTo(logv1connect.LogServiceReadAgentLogsProcedure, logRead("service", ""))
+	})
+
+	t.Run("a newer run listed on a tick leaves the hovered source as it was", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openLogs(t, tailOfTwo())
+		harness.press("j")
+		answerSources(harness, serviceSource, launchSource, provisionSource)
+		harness.fireTimers()
+
+		frame := harness.readFrame()
+		assert.Contains(t, readSidebarProse(frame), "002 pre-launch setup")
+		assert.Contains(t, readStageText(frame), "error: port 5470 already allocated")
+		harness.assertSentTo(logv1connect.LogServiceReadAgentLogsProcedure, logRead("service", ""), logRead(provisionRun, ""), logRead(provisionRun, "35"))
+	})
+
+	t.Run("a hovered run gone from the listing moves to its neighbour and reads it", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openLogs(t, tailOfTwo())
+		harness.press("j")
+		answerSources(harness, serviceSource)
+		harness.fireTimers()
+
+		frame := harness.readFrame()
+		assert.NotContains(t, readSidebarProse(frame), "001 provision setup")
+		assert.Contains(t, readStageText(frame), "second line")
+		assert.NotContains(t, readStageText(frame), "error: port")
+		sent := harness.readSent(logv1connect.LogServiceReadAgentLogsProcedure)
+		assert.True(t, proto.Equal(logRead("service", ""), sent[len(sent)-1]), "the neighbour is read from its newest")
 	})
 
 	t.Run("a read of the source moved off is dropped", func(t *testing.T) {

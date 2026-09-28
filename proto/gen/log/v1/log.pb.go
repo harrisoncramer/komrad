@@ -498,7 +498,7 @@ type LogSource struct {
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	// What the source is called, such as service or 003 pre-launch setup.
 	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	// The number of the script run the source holds, unset for the service log.
+	// The number of the script run the source holds, which the agent's failed_run_log names when that run failed. Unset for the service log.
 	Run           *int32 `protobuf:"varint,3,opt,name=run,proto3,oneof" json:"run,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

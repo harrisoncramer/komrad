@@ -40,6 +40,13 @@ func TestRuns(t *testing.T) {
 			wantErr: ErrNoSuchRun,
 		},
 		{
+			name:    "an agent id that leaves the runs directory",
+			agentID: "../outside",
+			run:     "001-provision-setup.log",
+			limit:   10,
+			wantErr: ErrNoSuchRun,
+		},
+		{
 			name:    "another agent's run",
 			agentID: "b2",
 			run:     "001-provision-setup.log",
@@ -82,14 +89,16 @@ func TestRuns(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			dir := t.TempDir()
-			require.NoError(t, os.MkdirAll(filepath.Join(dir, "a1"), 0o755))
+			root := t.TempDir()
+			dir := filepath.Join(root, "runs")
 			body := ""
 			for _, line := range output {
 				body += line + "\n"
 			}
-			path := filepath.Join(dir, "a1", "001-provision-setup.log")
-			require.NoError(t, os.WriteFile(path, []byte(body+tt.tail), 0o600))
+			for _, agentDir := range []string{filepath.Join(dir, "a1"), filepath.Join(root, "outside")} {
+				require.NoError(t, os.MkdirAll(agentDir, 0o755))
+				require.NoError(t, os.WriteFile(filepath.Join(agentDir, "001-provision-setup.log"), []byte(body+tt.tail), 0o600))
+			}
 
 			runs := NewRuns(dir)
 			run := Run{AgentID: tt.agentID, Name: tt.run}

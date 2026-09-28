@@ -6252,7 +6252,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The number of the script run the source holds, unset for the service log."
+          "description": "The number of the script run the source holds, which the agent's failed_run_log names when that run failed. Unset for the service log."
         }
       ]
     },

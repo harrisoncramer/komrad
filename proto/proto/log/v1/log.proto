@@ -92,7 +92,7 @@ message LogSource {
   string id = 1;
   // What the source is called, such as service or 003 pre-launch setup.
   string name = 2;
-  // The number of the script run the source holds, unset for the service log.
+  // The number of the script run the source holds, which the agent's failed_run_log names when that run failed. Unset for the service log.
   optional int32 run = 3;
 }
 

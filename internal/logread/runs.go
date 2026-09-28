@@ -27,8 +27,12 @@ func NewRuns(dir string) *Runs {
 	return &Runs{dir: dir}
 }
 
-// List is the runs the agent has recorded, newest first.
+// List is the runs the agent has recorded, newest first, and none for an id that is not one path element.
 func (r *Runs) List(agentID string) []config.RunLog {
+	if agentID != filepath.Base(agentID) || agentID == ".." || agentID == "." {
+		return nil
+	}
+
 	return config.ListRunLogs(r.dir, agentID)
 }
 
@@ -52,8 +56,7 @@ func (r *Runs) Since(ctx context.Context, run Run, offset int64, limit int) (*Wi
 	return reader.Since(ctx, offset, limit)
 }
 
-// reader finds the run among those listed rather than joining its name to a path, so no name
-// reaches outside the agent's directory.
+// reader is a reader over the run the agent recorded by that name.
 func (r *Runs) reader(run Run) (*Reader, error) {
 	for _, listed := range r.List(run.AgentID) {
 		if filepath.Base(listed.Path) == run.Name {
