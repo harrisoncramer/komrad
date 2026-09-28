@@ -46,9 +46,9 @@ On its first boot the machine formats and mounts the data disk at `/var/lib/komr
 
 ## Telling komrad about the App
 
-Open a shell on the engine. `mise run remote:connect` does this over SSH as the `komrad` user with the key from your Terraform variables, keeping the engine's host key in a file of its own. Any SSH client does the same.
+Open a shell on the engine. `mise run remote:connect` does this over SSH as the komrad user with the key from your Terraform variables, keeping the engine's host key in a file of its own. Any SSH client does the same.
 
-In `~/.config/komrad/config.toml` there, fill in the two numbers under <Setting path="github_app" label="[github_app]" />: `app_id` and `installation_id`. The key's path is already set. Then restart the service so it reads the config again. `mise run remote:restart` does that through AWS Systems Manager without stopping any agent, or run `systemctl restart komrad.service` on the engine as root.
+In `~/.config/komrad/config.toml` there, fill in the two numbers under <Setting path="github_app" label="[github_app]" />: <Setting path="github_app.app_id" label="app_id" /> and <Setting path="github_app.installation_id" label="installation_id" />. The key's path is already set. Then restart the service so it reads the config again. `mise run remote:restart` does that through AWS Systems Manager without stopping any agent, or run `systemctl restart komrad.service` on the engine as root.
 
 Check it worked by running <Command path="github token" /> on the engine, which should print a token. Then, from your own panel pointed at the engine as [running komrad remotely](../remote/) describes, connect the engine's forge through the App:
 
@@ -58,7 +58,7 @@ komrad forge connect github.com --method github-app --engine remote
 
 ## Repositories and the agent CLI
 
-Still on the engine, clone the repositories agents will work in onto the data disk, under the `komrad` user's home. Clone over HTTPS, as in `git clone https://github.com/owner/repo`, since that is where git hands out the App's token.
+Still on the engine, clone the repositories agents will work in onto the data disk, under the komrad user's home. Clone over HTTPS, as in `git clone https://github.com/owner/repo`, since that is where git hands out the App's token.
 
 Set the name and email the engine's commits will carry with `git config --global user.name` and `git config --global user.email`. Then run the agent CLI once, in any directory, and log in. The login lives on the data disk, so this is a one-time step.
 
