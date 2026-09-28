@@ -1422,12 +1422,15 @@ func TestIntegrationBuiltinWorktreeCleanupKeepsAnAdoptedBranch(t *testing.T) {
 // TestIntegrationBuiltinKomradCheckoutTeardown covers giving back what a komrad checkout claimed.
 func TestIntegrationBuiltinKomradCheckoutTeardown(t *testing.T) {
 	tests := []struct {
-		name         string
-		checkout     bool
-		dirName      string
-		wantTeardown bool
+		name        string
+		checkout    bool
+		dirName     string
+		dockerDown  bool
+		wantFreed   bool
+		wantCompose bool
 	}{
-		{name: "a komrad checkout gives back its instance and stack", checkout: true, dirName: "agent-a", wantTeardown: true},
+		{name: "a komrad checkout gives back its instance and stack", checkout: true, dirName: "agent-a", wantFreed: true, wantCompose: true},
+		{name: "a komrad checkout with docker down still gives back its instance", checkout: true, dirName: "agent-a", dockerDown: true, wantFreed: true},
 		{name: "a komrad checkout not named after its agent is left alone", checkout: true, dirName: "komrad"},
 		{name: "any other checkout is left alone", dirName: "agent-a"},
 	}
@@ -1449,6 +1452,9 @@ func TestIntegrationBuiltinKomradCheckoutTeardown(t *testing.T) {
 
 			bin := t.TempDir()
 			docker := fmt.Sprintf("#!/bin/sh\nprintf '%%s\\n' \"$*\" >> %q\n", dockered)
+			if tt.dockerDown {
+				docker = "#!/bin/sh\nexit 1\n"
+			}
 			require.NoError(t, os.WriteFile(filepath.Join(bin, "docker"), []byte(docker), 0o755))
 
 			result, err := runBuiltin(t, "komrad-checkout-teardown", worktreeEnv{
@@ -1461,17 +1467,19 @@ func TestIntegrationBuiltinKomradCheckoutTeardown(t *testing.T) {
 
 			said, freedErr := os.ReadFile(freed)
 			ran, dockerErr := os.ReadFile(dockered)
-			if !tt.wantTeardown {
+			if tt.wantFreed {
+				require.NoError(t, freedErr)
+				assert.Equal(t, "down --root "+tree, string(said))
+			} else {
 				assert.True(t, os.IsNotExist(freedErr), "no instance was given back")
-				assert.True(t, os.IsNotExist(dockerErr), "docker was never asked")
-
-				return
 			}
 
-			require.NoError(t, freedErr)
-			assert.Equal(t, "down --root "+tree, string(said))
-			require.NoError(t, dockerErr)
-			assert.Contains(t, string(ran), "compose -p agent-a --profile * down --volumes --remove-orphans --rmi local\n")
+			if tt.wantCompose {
+				require.NoError(t, dockerErr)
+				assert.Contains(t, string(ran), "compose -p agent-a --profile * down --volumes --remove-orphans --rmi local\n")
+			} else {
+				assert.NotContains(t, string(ran), "compose", "no stack was taken down")
+			}
 		})
 	}
 }
