@@ -473,8 +473,7 @@ func (l *logsScreen) isLogDrawn(s panelShared) bool {
 	return l.read && l.viewer.Len() > 0
 }
 
-// isLogFocused reports whether the log holds the keys, which it keeps through a pattern that
-// leaves nothing to draw.
+// isLogFocused reports whether the log holds the keys.
 func (l *logsScreen) isLogFocused(s panelShared) bool {
 	if !l.logFocus || !s.draw.isListFocused() {
 		return false

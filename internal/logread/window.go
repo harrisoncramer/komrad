@@ -36,7 +36,7 @@ func matching(pattern *regexp.Regexp, keep func([]byte) bool) func([]byte) bool 
 	}
 
 	return func(line []byte) bool {
-		return pattern.Match(line) && keep(line)
+		return keep(line) && pattern.Match(line)
 	}
 }
 
