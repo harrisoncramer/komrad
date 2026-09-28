@@ -1077,7 +1077,8 @@ ranked AS (
         a.archived_at IS NOT NULL AS archived,
         c.spoken_at,
         CASE WHEN q.wanted = '' THEN
-            LEFT(c.content, @width::int)
+            LEFT (c.content,
+                @width::int)
         ELSE
             TS_HEADLINE('english_nostop', c.content, q.wanted, @headline)
         END AS snippet,
@@ -1085,7 +1086,7 @@ ranked AS (
         WHEN 'new' THEN
             COALESCE(EXTRACT(EPOCH FROM c.spoken_at)::float8, @unknown_key::float8)
         WHEN 'old' THEN
-            COALESCE(-EXTRACT(EPOCH FROM c.spoken_at)::float8, @unknown_key::float8)
+            COALESCE(- EXTRACT(EPOCH FROM c.spoken_at)::float8, @unknown_key::float8)
         ELSE
             CASE WHEN q.wanted = '' THEN
                 0
@@ -1116,15 +1117,15 @@ ranked AS (
             WHERE
                 w.id = a.workflow_id
                 AND w.name ILIKE sqlc.narg('workflow_name')))
-    AND (CARDINALITY(@kinds::text[]) = 0
-        OR a.role::text = ANY (@kinds::text[]))
-    AND NOT (a.role::text = ANY (@excluded_kinds::text[]))
-    AND (sqlc.narg('archived')::boolean IS NULL
-        OR (a.archived_at IS NOT NULL) = sqlc.narg('archived'))
-    AND (sqlc.narg('since')::timestamptz IS NULL
-        OR c.spoken_at >= sqlc.narg('since'))
-    AND (sqlc.narg('until')::timestamptz IS NULL
-        OR c.spoken_at < sqlc.narg('until')))
+        AND (CARDINALITY(@kinds::text[]) = 0
+            OR a.role::text = ANY (@kinds::text[]))
+        AND NOT (a.role::text = ANY (@excluded_kinds::text[]))
+        AND (sqlc.narg('archived')::boolean IS NULL
+            OR (a.archived_at IS NOT NULL) = sqlc.narg('archived'))
+        AND (sqlc.narg('since')::timestamptz IS NULL
+            OR c.spoken_at >= sqlc.narg('since'))
+        AND (sqlc.narg('until')::timestamptz IS NULL
+            OR c.spoken_at < sqlc.narg('until')))
 SELECT
     r.agent_id,
     r.seq,
@@ -1179,7 +1180,7 @@ ranked AS (
         WHEN 'new' THEN
             COALESCE(EXTRACT(EPOCH FROM c.spoken_at)::float8, @unknown_key::float8)
         WHEN 'old' THEN
-            COALESCE(-EXTRACT(EPOCH FROM c.spoken_at)::float8, @unknown_key::float8)
+            COALESCE(- EXTRACT(EPOCH FROM c.spoken_at)::float8, @unknown_key::float8)
         ELSE
             WORD_SIMILARITY(ARRAY_TO_STRING(q.terms, ' '), c.content)
         END AS sort_key
@@ -1209,15 +1210,15 @@ ranked AS (
                 WHERE
                     w.id = a.workflow_id
                     AND w.name ILIKE sqlc.narg('workflow_name')))
-        AND (CARDINALITY(@kinds::text[]) = 0
-            OR a.role::text = ANY (@kinds::text[]))
-        AND NOT (a.role::text = ANY (@excluded_kinds::text[]))
-        AND (sqlc.narg('archived')::boolean IS NULL
-            OR (a.archived_at IS NOT NULL) = sqlc.narg('archived'))
-        AND (sqlc.narg('since')::timestamptz IS NULL
-            OR c.spoken_at >= sqlc.narg('since'))
-        AND (sqlc.narg('until')::timestamptz IS NULL
-            OR c.spoken_at < sqlc.narg('until')))
+            AND (CARDINALITY(@kinds::text[]) = 0
+                OR a.role::text = ANY (@kinds::text[]))
+            AND NOT (a.role::text = ANY (@excluded_kinds::text[]))
+            AND (sqlc.narg('archived')::boolean IS NULL
+                OR (a.archived_at IS NOT NULL) = sqlc.narg('archived'))
+            AND (sqlc.narg('since')::timestamptz IS NULL
+                OR c.spoken_at >= sqlc.narg('since'))
+            AND (sqlc.narg('until')::timestamptz IS NULL
+                OR c.spoken_at < sqlc.narg('until')))
 SELECT
     r.agent_id,
     r.seq,

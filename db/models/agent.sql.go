@@ -2418,7 +2418,8 @@ ranked AS (
         a.archived_at IS NOT NULL AS archived,
         c.spoken_at,
         CASE WHEN q.wanted = '' THEN
-            LEFT(c.content, $8::int)
+            LEFT (c.content,
+                $8::int)
         ELSE
             TS_HEADLINE('english_nostop', c.content, q.wanted, $9)
         END AS snippet,
@@ -2426,7 +2427,7 @@ ranked AS (
         WHEN 'new' THEN
             COALESCE(EXTRACT(EPOCH FROM c.spoken_at)::float8, $11::float8)
         WHEN 'old' THEN
-            COALESCE(-EXTRACT(EPOCH FROM c.spoken_at)::float8, $11::float8)
+            COALESCE(- EXTRACT(EPOCH FROM c.spoken_at)::float8, $11::float8)
         ELSE
             CASE WHEN q.wanted = '' THEN
                 0
@@ -2457,15 +2458,15 @@ ranked AS (
             WHERE
                 w.id = a.workflow_id
                 AND w.name ILIKE $16))
-    AND (CARDINALITY($17::text[]) = 0
-        OR a.role::text = ANY ($17::text[]))
-    AND NOT (a.role::text = ANY ($18::text[]))
-    AND ($19::boolean IS NULL
-        OR (a.archived_at IS NOT NULL) = $19)
-    AND ($20::timestamptz IS NULL
-        OR c.spoken_at >= $20)
-    AND ($21::timestamptz IS NULL
-        OR c.spoken_at < $21))
+        AND (CARDINALITY($17::text[]) = 0
+            OR a.role::text = ANY ($17::text[]))
+        AND NOT (a.role::text = ANY ($18::text[]))
+        AND ($19::boolean IS NULL
+            OR (a.archived_at IS NOT NULL) = $19)
+        AND ($20::timestamptz IS NULL
+            OR c.spoken_at >= $20)
+        AND ($21::timestamptz IS NULL
+            OR c.spoken_at < $21))
 SELECT
     r.agent_id,
     r.seq,
@@ -2611,7 +2612,7 @@ ranked AS (
         WHEN 'new' THEN
             COALESCE(EXTRACT(EPOCH FROM c.spoken_at)::float8, $12::float8)
         WHEN 'old' THEN
-            COALESCE(-EXTRACT(EPOCH FROM c.spoken_at)::float8, $12::float8)
+            COALESCE(- EXTRACT(EPOCH FROM c.spoken_at)::float8, $12::float8)
         ELSE
             WORD_SIMILARITY(ARRAY_TO_STRING(q.terms, ' '), c.content)
         END AS sort_key
@@ -2641,15 +2642,15 @@ ranked AS (
                 WHERE
                     w.id = a.workflow_id
                     AND w.name ILIKE $16))
-        AND (CARDINALITY($17::text[]) = 0
-            OR a.role::text = ANY ($17::text[]))
-        AND NOT (a.role::text = ANY ($18::text[]))
-        AND ($19::boolean IS NULL
-            OR (a.archived_at IS NOT NULL) = $19)
-        AND ($20::timestamptz IS NULL
-            OR c.spoken_at >= $20)
-        AND ($21::timestamptz IS NULL
-            OR c.spoken_at < $21))
+            AND (CARDINALITY($17::text[]) = 0
+                OR a.role::text = ANY ($17::text[]))
+            AND NOT (a.role::text = ANY ($18::text[]))
+            AND ($19::boolean IS NULL
+                OR (a.archived_at IS NOT NULL) = $19)
+            AND ($20::timestamptz IS NULL
+                OR c.spoken_at >= $20)
+            AND ($21::timestamptz IS NULL
+                OR c.spoken_at < $21))
 SELECT
     r.agent_id,
     r.seq,
