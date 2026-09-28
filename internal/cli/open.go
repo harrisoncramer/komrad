@@ -18,8 +18,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// openFlags is what an open is given beyond the engine, the last three only by a panel handing
-// its terminal to another engine.
+// openFlags is what an open is given beyond the engine.
 type openFlags struct {
 	detach   bool
 	headless bool

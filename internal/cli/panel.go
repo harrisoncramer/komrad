@@ -152,15 +152,19 @@ Use ` + "`komrad open`" + ` to bring the panel up.`,
 				ConfigErr:       state.configErr,
 				StartupErr:      startupErr,
 				StartupFindings: startupFindings,
-				Engines:         panelEngines(cmd.Context(), state, addr),
+				Engines:         panelEngines(cmd.Context(), state, addr, startupErr),
 			})
 		},
 	}
 }
 
 // panelEngines is the engine this panel is on and the way to the others this machine can open.
-func panelEngines(ctx context.Context, state *app, addr string) ui.Engines {
-	build, _ := readEngineBuild(ctx, addr)
+func panelEngines(ctx context.Context, state *app, addr string, startupErr error) ui.Engines {
+	var build ui.EngineBuild
+	if startupErr == nil {
+		build, _ = readEngineBuild(ctx, addr)
+	}
+
 	prober := engineProber{stack: state.configStack, checkLogin: checkEngineLogin}
 
 	return ui.Engines{

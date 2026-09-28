@@ -227,6 +227,7 @@ type model struct {
 	settings      PanelSettings
 	unreachable   error
 	engines       Engines
+	engineBuild   EngineBuild
 	chooser       chooserState
 	switchErr     error
 	// writes counts the writes sent, and a write's own count is what its landing answers to.
@@ -356,7 +357,7 @@ func newModel(deps Deps, isDark bool, post *postbox) model {
 		startupErr:      deps.StartupErr,
 		startupFindings: deps.StartupFindings,
 		engines:         deps.Engines,
-		chooser:         chooserState{build: deps.Engines.Build},
+		engineBuild:     deps.Engines.Build,
 		screen:          screenAgents,
 		rowCursor:       newRowCursor(),
 		warm:            newWarmupState(),

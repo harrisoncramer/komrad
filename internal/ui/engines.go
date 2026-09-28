@@ -81,7 +81,6 @@ func engineTitle(name string) string {
 
 // chooserState is the chooser's rows and what the probes have found of them.
 type chooserState struct {
-	build EngineBuild
 	rows  []EngineRow
 	found map[string]EngineStatus
 	// round tells this opening's answers from an earlier one's.
@@ -115,7 +114,7 @@ var errEngineUnchecked = errors.New("still checking what it is running")
 // engineWord is the status word the logo line carries, empty when nothing is wrong.
 func (m model) engineWord() (string, paint.Tone) {
 	switch {
-	case errors.Is(m.startupErr, errui.ErrEngineBuild), m.chooser.build.Stale != "":
+	case errors.Is(m.startupErr, errui.ErrEngineBuild), m.engineBuild.Stale != "":
 		return "mismatch", paint.ToneWarning
 	case errors.Is(m.startupErr, errui.ErrRebuilt):
 	case m.startupErr != nil, m.unreachable != nil:
@@ -145,8 +144,8 @@ func (m model) engineParts() (label, name, word, commit string) {
 		word = paint.Panel.Style(tone).Render(text)
 	}
 
-	if m.chooser.build.Commit != "" {
-		commit = paint.Panel.Style(paint.ToneMuted).Render(m.chooser.build.Commit)
+	if m.engineBuild.Commit != "" {
+		commit = paint.Panel.Style(paint.ToneMuted).Render(m.engineBuild.Commit)
 	}
 
 	return label, name, word, commit
@@ -238,8 +237,8 @@ func (m model) readEngineBuildCmd() tea.Cmd {
 // landEngineBuild takes what the server says it runs, warning once each time it stops agreeing
 // with the panel.
 func (m model) landEngineBuild(msg engineBuildMsg) model {
-	was := m.chooser.build.Stale
-	m.chooser.build = msg.build
+	was := m.engineBuild.Stale
+	m.engineBuild = msg.build
 
 	if msg.build.Stale != "" && was == "" {
 		m.pushMessage(message{
@@ -474,8 +473,6 @@ func (m model) updateFatalChooser(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg.(type) {
 	case formResizedMsg, tea.WindowSizeMsg:
 		msg = tea.WindowSizeMsg{Width: m.width, Height: max(m.height/2, 1)}
-	case tea.BlurMsg, tea.FocusMsg:
-		return m, nil
 	}
 
 	if press, ok := msg.(tea.KeyPressMsg); ok && isBound(press.String(), formKeys().Submit) {

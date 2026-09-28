@@ -11,6 +11,8 @@ import (
 	"komrad/internal/ui"
 	"komrad/internal/ui/paint"
 
+	tea "charm.land/bubbletea/v2"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -148,7 +150,9 @@ func TestEngineLine(t *testing.T) {
 		harness.send(ui.NewWatchLost(errors.New("connection refused")))
 		harness.watch(buildCrowdedSnapshot(""))
 
-		assert.NotContains(t, harness.readFrame(), "+1", "a mismatch that stayed is not warned of again")
+		frame = harness.readFrame()
+		assert.Contains(t, frame, "+2", "the stream lost twice and the mismatch")
+		assert.NotContains(t, frame, "+3", "a mismatch that stayed is not warned of again")
 	})
 }
 
@@ -215,17 +219,23 @@ func TestEngineChooser(t *testing.T) {
 // TestEngineChooserOnTheErrorScreen covers choosing another engine from a panel that could not start.
 func TestEngineChooserOnTheErrorScreen(t *testing.T) {
 	startupErr := errors.New("failed to carry 127.0.0.1:8787 through the tunnel: Operation timed out")
+	unanswered := func() *fakeEngines {
+		engines := newFakeEngines()
+		engines.build = ui.EngineBuild{}
+
+		return engines
+	}
 
 	t.Run("the engine is drawn over the error, and e is named", func(t *testing.T) {
-		harness := newPanelHarness(t, panelHarnessParams{startupErr: startupErr, engines: newFakeEngines().on("remote")})
+		harness := newPanelHarness(t, panelHarnessParams{startupErr: startupErr, engines: unanswered().on("remote")})
 
 		frame := harness.readFrame()
-		assert.Equal(t, "engine  remote  down  d70bf5a", strings.TrimSpace(splitLines(frame)[0]))
+		assert.Equal(t, "engine  remote  down", strings.TrimSpace(splitLines(frame)[0]))
 		assert.Contains(t, joinProse(splitLines(frame)), "Press e to choose another engine, or any other key to close.")
 	})
 
 	t.Run("e opens the chooser under the error and another key goes to it", func(t *testing.T) {
-		engines := newFakeEngines()
+		engines := unanswered()
 		harness := newPanelHarness(t, panelHarnessParams{startupErr: startupErr, engines: engines.on("remote")})
 
 		harness.press("e")
@@ -238,7 +248,7 @@ func TestEngineChooserOnTheErrorScreen(t *testing.T) {
 	})
 
 	t.Run("esc puts back closing on any key", func(t *testing.T) {
-		harness := newPanelHarness(t, panelHarnessParams{startupErr: startupErr, engines: newFakeEngines().on("remote")})
+		harness := newPanelHarness(t, panelHarnessParams{startupErr: startupErr, engines: unanswered().on("remote")})
 
 		harness.press("e", "esc")
 
@@ -246,17 +256,27 @@ func TestEngineChooserOnTheErrorScreen(t *testing.T) {
 		assert.True(t, doesQuit(harness.panel.Update(ui.NewKeyPress("x"))))
 	})
 
+	t.Run("losing focus leaves the chooser up, and closes the panel once it is gone", func(t *testing.T) {
+		harness := newPanelHarness(t, panelHarnessParams{startupErr: startupErr, engines: unanswered().on("remote")})
+
+		harness.press("e")
+		assert.False(t, doesQuit(harness.panel.Update(tea.BlurMsg{})), "the chooser is still being read")
+
+		harness.press("esc")
+		assert.True(t, doesQuit(harness.panel.Update(tea.BlurMsg{})))
+	})
+
 	t.Run("a mismatched engine says so", func(t *testing.T) {
 		harness := newPanelHarness(t, panelHarnessParams{
 			startupErr: errors.Join(errui.ErrEngineBuild, errors.New("engine v2")),
-			engines:    newFakeEngines().on("remote"),
+			engines:    unanswered().on("remote"),
 		})
 
-		assert.Equal(t, "engine  remote  mismatch  d70bf5a", strings.TrimSpace(splitLines(harness.readFrame())[0]))
+		assert.Equal(t, "engine  remote  mismatch", strings.TrimSpace(splitLines(harness.readFrame())[0]))
 	})
 
 	t.Run("the config error screen offers it too", func(t *testing.T) {
-		engines := newFakeEngines()
+		engines := unanswered()
 		harness := newPanelHarness(t, panelHarnessParams{configErr: errors.New("bad toml"), engines: engines.on("remote")})
 
 		harness.press("e", "up", "enter")
