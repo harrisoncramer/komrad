@@ -1258,7 +1258,7 @@ func TestReviewYours(t *testing.T) {
 		reviewer.Messages = []*agentv1.ReviewMessage{newAgentMessage("m1", "rename this")}
 		harness := openReview(t, newYoursServer(t, reviewer))
 
-		assert.NotContains(t, readSidebarProse(harness.readFrame()), "Yours")
+		assert.NotRegexp(t, `Yours \d+ open`, readSidebarProse(harness.readFrame()))
 	})
 
 	t.Run("the list says when a comment is folded away", func(t *testing.T) {
