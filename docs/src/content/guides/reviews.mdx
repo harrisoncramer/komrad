@@ -1,6 +1,6 @@
 ---
-title: Local reviews
-description: Read an agent's work, comment on it, and send your comments back, without leaving the panel.
+title: Local Reviews
+description: Komrad lets you read and review an agents work before making a pull request, or have agents review themselves.
 group: start
 order: 5
 ---
@@ -9,9 +9,11 @@ import Alert from "../../components/Alert.astro";
 import Key from "../../components/Key.astro";
 import { media } from "../../site";
 
-A local review is how you read what an agent wrote and tell it what to change. You read the diff in the panel, leave comments on its lines, and send them all at once. The agent gets them as mail and answers in the same threads.
+Komrad supports providing feedback to agents directly in code rather than via a forge like Github or Gitlab. This helps keep feedback loops quick and reduce CI spend for agent-authored changes.
 
-None of this touches GitHub or GitLab. The review lives in komrad beside the agent, so you can read and comment on work long before anyone opens a pull request. Reviewer agents use the same threads, so their comments and yours sit in one place.
+With local reviews, you can read the agent's diff, leave comments on its lines, and edit it yourself. The agent will respond in the same view.
+
+Komrad's local review model is quite similar to how <a href="https://www.gerritcodereview.com/">Gerrit</a> does code review, where you can step through chunks of changes (known in komrad as chapters) that correspond to review rounds. Each chapter is tied to a specific diff in the code that an agent has made. Using local reviews is completely optional.
 
 <Alert variant="warning">
   This guide uses the `neovim` workflow from the [workflows](../workflows/) guide. The videos follow one agent adding
@@ -20,9 +22,7 @@ None of this touches GitHub or GitLab. The review lives in komrad beside the age
 
 ## Opening a review
 
-Put the cursor on an agent, press <Key name="subpages.open" /> to open its [subpages](../navigation/#subpages), and pick review with <Key name="subpages.review" />. The diff fills the stage, showing everything the agent changed since its branch left the base. The sidebar shows the conversation on the line under the cursor, and the band above it names the agent, the size of the change, and how much of it you have already read.
-
-You move through the diff like any other list, and the legend under the sidebar lists the rest. It can jump from file to file, from one thread to the next, or to the comments nobody has settled yet. You can fold a file away once you have read it, and it stays folded until the agent touches it again.
+Put the cursor on an agent, press <Key name="subpages.open" /> to open its [subpages](../navigation/#subpages), and pick review with <Key name="subpages.review" />. The main panel then shows everything the agent changed since its branch left the base. The sidebar shows conversations.
 
 <figure>
   <video
@@ -46,7 +46,7 @@ The agents list keeps count between visits. Each agent shows its open and settle
 
 Press <Key name="review.compose" /> on a line to comment on it, or on a line that already has a thread to reply there. The row above the first file takes a comment about the work as a whole.
 
-A saved comment is a draft that nobody else sees. You can read the whole change, change your mind, and send everything together. While you hold drafts the diff stays still, so the lines you are commenting on do not move underneath you. The band says when the agent has written more, and you catch up when you are ready.
+The draft is not submitted to the agent until you submit the entire review. Take your time to read the change. While you hold the drafts, the diff is "frozen", so the lines you are commenting on do not move.
 
 ## Editing the code yourself
 
@@ -74,15 +74,13 @@ When you are done reading, send the review. Komrad asks if you have anything to 
 
 The agent gets one piece of mail. Each comment comes with the lines it was written on and the code around them, so the agent can find the spot even after the file has moved.
 
-## Answers
-
-The agent answers in your threads. A plain reply is a question or a disagreement. An answer that says the change is made settles your comment, and from that comment you can see exactly what the agent changed to answer it. You can settle or reopen any comment yourself.
+The agent answers in your threads, and can settle them. You can even press see exactly what the agent changed to answer the comment with <Key name="review.answer" /> . You can settle or reopen any comment yourself.
 
 ## Stepping through history
 
-Each review you send closes a chapter, which is the work you had read when you sent it. Stepping back from all changes shows the newest work first, the part nobody has reviewed. Each step after that shows the work between two of your reviews, with the comments as they stood then. Stepping forward brings you back to all changes.
+Each review you send closes a "chapter" in komrad, which holds the work you had read when you sent it. Stepping through chapters shows each review, with the comments as they stood then and the code that changed as a result.
 
-This is how you follow a long change one pass at a time. Past chapters are only for reading, since their lines may no longer exist in the agent's work.
+Past chapters are read-only, since their lines may no longer exist in the agent's work.
 
 <figure>
   <video
@@ -100,6 +98,8 @@ This is how you follow a long change one pass at a time. Past chapters are only 
   </video>
 </figure>
 
-## Reviews from agents
+## Local review from agents
 
-An agent can ask for a review of its own work. Komrad starts a reviewer agent in the same worktree, which comments and sends the way you do. The difference is that a reviewer agent approves or requests changes with each review, while yours carry comments only.
+An agent can ask for a review of its own work.
+
+Komrad starts a reviewer agent in the same worktree, which comments and sends the way you do. Reviewer agents approve or requests changes with each review.
