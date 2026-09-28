@@ -8,45 +8,82 @@ order: 11
 import Command from "../../components/Command.astro";
 import Setting from "../../components/Setting.astro";
 
-This guide is for whoever runs the remote engine. Using one that exists is covered in [running komrad remotely](../remote/). Everything here runs from a komrad checkout as a mise task, with AWS credentials in your environment.
+This guide is for whoever runs a remote engine. Using one that exists is covered in [running komrad remotely](../remote/).
+
+Komrad is built on komrad. The agents that work on this repository run on an engine of its own, built exactly as this guide describes, and everything that builds and runs it is committed here. To see how we do it, start with [`infra/engine`](https://github.com/harrisoncramer/komrad/tree/main/infra/engine), which is the machine and everything around it as Terraform, then [`packer`](https://github.com/harrisoncramer/komrad/tree/main/packer), which is the machine image, then [`mise/tasks/remote`](https://github.com/harrisoncramer/komrad/tree/main/mise/tasks/remote), which is the day-to-day operations.
+
+The mise tasks named below are how our engine is run. Each one is a short script over `packer`, `terraform`, `ssh` or the AWS CLI, so if you run those tools some other way, or host the engine somewhere other than AWS, read the task to see what it does and do the same.
 
 ## What gets built
 
 The engine is one machine on AWS with a separate data disk and a managed Postgres. The machine is disposable. Everything that matters lives on the disk or in the database: conversations, worktrees, komrad's config, and the agent CLIs' logins. So the machine can be switched off or rebuilt without losing work.
 
-The engine pushes code as a GitHub App rather than as you. The App's key is kept in AWS Secrets Manager and copied into memory at boot, so it never touches the disk.
+The engine pushes code as a GitHub App rather than as a person. The App's private key is kept in AWS Secrets Manager and copied into memory at boot, so it never touches the disk. Everything else the App needs, its id and the id of its installation, is ordinary configuration.
 
-## Standing one up
+## Before you start
 
-Do these in order.
+You need an AWS account with a named profile, an S3 bucket for Terraform's state, and an SSH key pair used for nothing else.
 
-1. Get an AWS account with a named profile, an S3 bucket for Terraform's state, and an SSH key used for nothing else.
-2. Register a GitHub App with no webhook, installed only on the repositories the engine should work in, with read and write on contents, pull requests, issues and workflows. Store its private key in Secrets Manager as `komrad/github-app`, so the first boot finds it.
-3. Build the machine image with `mise run packer:build`. It prints an image id at the end.
-4. Copy the two example files in [`infra/engine`](https://github.com/harrisoncramer/komrad/tree/main/infra/engine) and fill them in: your account, region, the image id, your SSH key, and the addresses allowed in over SSH. Fill in the `github_*` values too, which let GitHub Actions deploy.
-5. Run `mise run infra:engine:init` and `mise run infra:engine:apply`. It prints the engine's address.
-6. Get a shell with `mise run remote:connect`. komrad's config at `~/.config/komrad/config.toml` already has a <Setting path="github_app" label="[github_app]" /> table pointing at the key. Fill in `app_id`, which is the App ID on the App's settings page, and `installation_id`, which is the number at the end of the address of the installation's Configure page.
-7. Run `mise run remote:restart`. On the engine, <Command path="github token" /> should now print a token.
-8. Point your panel at the engine as [running komrad remotely](../remote/) describes, and connect its forge through the App with `komrad forge connect github.com --method github-app --engine remote`.
-9. On the engine, clone the repositories agents will work in onto the data disk over HTTPS, as in `git clone https://github.com/owner/repo`. The App's token only works over HTTPS, and a `git@github.com:` address is rewritten to it for you.
-10. Still on the engine, set the name and email git commits under with `git config --global user.name` and `git config --global user.email`, then run `claude` once and log in.
+You also need a GitHub App. Register one with no webhook, with read and write on contents, pull requests, issues and workflows, and install it only on the repositories the engine should work in. Generate a private key for it and store the key in Secrets Manager under `komrad/github-app`, as JSON with the key under `private_key`. The engine reads that secret at every boot, so it has to exist before the machine first starts.
 
-The image takes care of the rest. Agents run with the permission flags that skip their CLI's prompts, and komrad trusts each agent's directory for the CLI before it starts. mise trusts every checkout under `/var/lib/komrad`, and the agent CLIs are installed outside mise, so a project that pins its own node version cannot hide them.
+Note two numbers from GitHub while you are there. The App ID is on the App's settings page. The installation id is the number at the end of the address of the installation's Configure page, under your account's installed apps. Both go into komrad's config later.
 
-## Keeping it up to date
+## The machine image
 
-Publishing a release deploys it to the engine. A deploy restarts the service but leaves the agents running. You can also deploy by hand with `mise run remote:deploy`.
+The image is an Ubuntu arm64 machine with everything an agent needs already on it: git, tmux, Docker, mise with Go and node, the agent CLIs, and the komrad binary. It is defined by the Packer template and scripts under `packer`.
 
-The machine image changes rarely. Building one from the Actions tab records it without applying it. `mise run remote:reimage` applies it, which replaces the machine and stops every agent. It names them and asks first.
+A few choices in the image are there because of what goes wrong without them. The agent CLIs are installed under `/opt/harnesses`, outside mise, so a repository that pins its own node version cannot hide them from the agent running in it. mise is told to trust every checkout under `/var/lib/komrad`, since agents work in fresh worktrees there and would otherwise stop at mise's trust prompt. git rewrites `git@github.com:` addresses to HTTPS, because the App's token only works over HTTPS. And the image carries a default komrad config, [`packer/files/komrad-config.toml`](https://github.com/harrisoncramer/komrad/tree/main/packer/files/komrad-config.toml), which starts each CLI with the flags that skip its permission prompts, turns on <Setting path="harness.claude.trust_launch_dirs" label="trust_launch_dirs" /> for each so komrad answers the CLI's own trust question before an agent starts, and points <Setting path="github_app" label="[github_app]" /> at where the key lands.
 
-The image writes komrad's config only the first time the data disk is set up, so a reimage leaves an existing engine's config as it was. When the image's defaults change, copy the ones you want from [`packer/files/komrad-config.toml`](https://github.com/harrisoncramer/komrad/tree/main/packer/files/komrad-config.toml) into the engine's config by hand.
+Building the image takes a komrad binary for linux arm64 and then runs `packer build` in the `packer` directory with the binary's path and version as variables. `mise run packer:build` does both and prints the image id at the end. The image only changes when something in `packer` does, so this is a rare step. The `image.yml` GitHub Actions workflow builds it too, which records the new image without applying it.
+
+## The machine
+
+The machine, its data disk, the database, the network and the roles the engine runs under are Terraform under `infra/engine`. Copy `terraform.tfvars.example` to `terraform.tfvars` and `backend.hcl.example` to `backend.hcl`, and fill them in: your account, region and profile, the image id from the previous step, your SSH public key, and the addresses allowed in over SSH. The `github_*` values name the repository whose GitHub Actions may deploy to the engine. Neither file is committed.
+
+Run `terraform init` with the backend file, then `terraform apply`. `mise run infra:engine:init` and `mise run infra:engine:apply` do that. The apply prints the engine's public address.
+
+On its first boot the machine formats and mounts the data disk at `/var/lib/komrad`, fetches the database login and the App's key, copies the default config to `/var/lib/komrad/home/.config/komrad/config.toml`, and starts the komrad service. The config is copied only when there is none, so edits made on the engine survive every later boot and rebuild.
+
+## Telling komrad about the App
+
+Open a shell on the engine. `mise run remote:connect` does this over SSH as the `komrad` user with the key from your Terraform variables, keeping the engine's host key in a file of its own. Any SSH client does the same.
+
+In `~/.config/komrad/config.toml` there, fill in the two numbers under <Setting path="github_app" label="[github_app]" />: `app_id` and `installation_id`. The key's path is already set. Then restart the service so it reads the config again. `mise run remote:restart` does that through AWS Systems Manager without stopping any agent, or run `systemctl restart komrad.service` on the engine as root.
+
+Check it worked by running <Command path="github token" /> on the engine, which should print a token. Then, from your own panel pointed at the engine as [running komrad remotely](../remote/) describes, connect the engine's forge through the App:
+
+```sh
+komrad forge connect github.com --method github-app --engine remote
+```
+
+## Repositories and the agent CLI
+
+Still on the engine, clone the repositories agents will work in onto the data disk, under the `komrad` user's home. Clone over HTTPS, as in `git clone https://github.com/owner/repo`, since that is where git hands out the App's token.
+
+Set the name and email the engine's commits will carry with `git config --global user.name` and `git config --global user.email`. Then run the agent CLI once, in any directory, and log in. The login lives on the data disk, so this is a one-time step.
+
+From here the engine is ready. Create a workflow in your panel with the cloned repository as its directory, and <Command path="doctor" args="--engine remote" /> will tell you if anything on the engine is not as it should be, including whether each workflow's CLI actually starts from that workflow's directory.
+
+## Updating komrad on it
+
+Publishing a release deploys it to the engine through the `release.yml` workflow. A deploy replaces the binary at `/usr/local/bin/komrad` and restarts the service, which leaves every agent's terminal running since the tmux server holding them is not part of the service.
+
+`mise run remote:deploy` does the same by hand from your checkout: it builds a linux arm64 binary, stages it through the Terraform state bucket, and has the engine fetch and install it through Systems Manager. If the engine is switched off it does nothing, since the engine picks up the newest build when it next starts.
+
+`mise run remote:restart` restarts only the service. With `--hard` it also restarts the tmux server, which stops every agent, and is what to reach for when the service and its agents have lost track of each other.
+
+## Changing the image
+
+A new image means a new machine. `mise run remote:reimage` reads the newest image id, or takes one as an argument, and applies it with Terraform, which replaces the machine and stops every agent. It names them and asks first. The data disk and database are reattached to the new machine, so nothing else is lost.
+
+A rebuild does not rewrite komrad's config, since the config is only seeded onto an empty data disk. When the image's default config changes, copy what you want from `packer/files/komrad-config.toml` into the engine's config yourself.
 
 ## Keeping the bill down
 
-`mise run remote:stop` switches the machine off and `mise run remote:start` switches it on. Every agent stops with it, but nothing else is lost. A GitHub Actions schedule does this every night, New York time. The disks and database are still billed while stopped, but the machine is most of the bill.
+`mise run remote:stop` switches the machine off and `mise run remote:start` switches it on, through the AWS CLI. Every agent stops with it, but nothing else is lost. The `engine-stop.yml` and `engine-start.yml` workflows do this on a schedule every night, New York time. The disks and database are still billed while the machine is stopped, but the machine is most of the bill.
 
 ## Tearing it down
 
-`mise run infra:engine:destroy` removes everything. The database is protected from deletion by default, so turn that off first. A final snapshot is kept.
+`terraform destroy` under `infra/engine`, or `mise run infra:engine:destroy`, removes everything. The database is protected from deletion by default, so turn that off first. A final snapshot is kept.
 
 That is everything a user or an operator needs. [How it works](../how-it-works/) starts the guides for anyone curious what is underneath.
