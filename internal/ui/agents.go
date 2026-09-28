@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"komrad/config"
+	"komrad/internal/ui/cursor"
 	"komrad/internal/ui/panel"
 	"komrad/internal/view"
 	agentv1 "komrad/proto/gen/agent/v1"
@@ -18,7 +19,7 @@ func (a *agentsScreen) enter(h host, s panelShared, target screenTarget) tea.Cmd
 	if target.agentID != "" {
 		a.revealAgent(s, target.agentID)
 	} else {
-		a.cursor = clampCursor(a.cursor, len(a.rows(s)))
+		a.cursor = cursor.Clamp(a.cursor, len(a.rows(s)))
 	}
 
 	h.stageSelection()
@@ -131,11 +132,7 @@ func (a *agentsScreen) toggleHidden(h host, s panelShared, _ string) tea.Cmd {
 	a.showHidden = !a.showHidden
 
 	rows := a.rows(s)
-	if idx := rowIndexOfKey(rows, selected); idx >= 0 {
-		a.cursor = idx
-	} else {
-		a.cursor = clampCursor(a.cursor, len(rows))
-	}
+	a.cursor = cursor.Place(rowIndexOfKey(rows, selected), a.cursor, len(rows))
 	a.selected = a.selected.pruned(refsOf(a.rows(s)))
 	a.stage(h, s)
 

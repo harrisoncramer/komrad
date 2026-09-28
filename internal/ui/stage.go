@@ -63,7 +63,7 @@ func (m *model) applyStageTick(msg stageTickMsg) tea.Cmd {
 
 		return m.inspectAgentWorktreeCmd(time.Now())
 	case screenLogs:
-		return nil
+		return m.logs.switchSource(m.shared())
 	case screenAgents, screenSearch, screenReview:
 		m.stageSelection()
 	}

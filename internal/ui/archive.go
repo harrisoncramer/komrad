@@ -5,6 +5,7 @@ import (
 	"slices"
 
 	"komrad/config"
+	"komrad/internal/ui/cursor"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/panel"
 	"komrad/internal/view"
@@ -266,18 +267,13 @@ func (a *archiveScreen) place(s panelShared, hovered string) {
 	rows := a.listRows(s)
 	a.selected = a.selected.pruned(refsOf(rows))
 
-	idx := rowIndexOfKey(rows, hovered)
-	if idx < 0 {
-		idx = clampCursor(a.cursor, len(rows))
-	}
-
-	a.cursor = idx
+	a.cursor = cursor.Place(rowIndexOfKey(rows, hovered), a.cursor, len(rows))
 }
 
 // placeSchedule keeps the cursor on the archived schedule it was on as the rows under it change.
 func (a *archiveScreen) placeSchedule(s panelShared, hovered string) {
 	rows := a.scheduleListRows(s)
-	a.schedules.cursor = placeCursor(rowIndexOfKey(rows, hovered), a.schedules.cursor, len(rows))
+	a.schedules.cursor = cursor.Place(rowIndexOfKey(rows, hovered), a.schedules.cursor, len(rows))
 }
 
 // hoveredAgent is the archived agent the cursor is on, and none on a folder.

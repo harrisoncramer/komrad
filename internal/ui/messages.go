@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"komrad/internal/glyph"
+	"komrad/internal/ui/cursor"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/paint/label"
 
@@ -269,7 +270,7 @@ func (m model) messagesCursorPrefix(hovered bool) string {
 
 // messagesPiece is the piece the cursor stands on, kept inside the pieces this message has.
 func (m model) messagesPiece() int {
-	return clampCursor(m.messages.field, len(m.messagePieces()))
+	return cursor.Clamp(m.messages.field, len(m.messagePieces()))
 }
 
 // copyMessagePiece puts the piece under the cursor on the clipboard, flashing it the way the
@@ -444,7 +445,7 @@ func (m model) messagesKind() messageKind {
 }
 
 func (s messagesState) clampedCursor() int {
-	return clampCursor(s.cursor, len(s.items))
+	return cursor.Clamp(s.cursor, len(s.items))
 }
 
 // isMessagesRegion is whether the screen on top draws the region at all, which the review screen
@@ -493,19 +494,19 @@ func (m model) updateMessages(key tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m.dismissMessage(), nil
 	// The newest message is the one on screen, so back through the stack is back through time.
 	case k == "<", k == "[":
-		m.messages.cursor = clampCursor(m.messages.clampedCursor()+1, len(m.messages.items))
+		m.messages.cursor = cursor.Clamp(m.messages.clampedCursor()+1, len(m.messages.items))
 		m = m.landedOnMessage()
 	case k == ">", k == "]":
-		m.messages.cursor = clampCursor(m.messages.clampedCursor()-1, len(m.messages.items))
+		m.messages.cursor = cursor.Clamp(m.messages.clampedCursor()-1, len(m.messages.items))
 		m = m.landedOnMessage()
 	case k == messagesMockKey:
 		return m.pushMockMessage(), nil
 	case isBound(k, m.keys.Details.Copy):
 		return m.copyMessagePiece()
 	case isBound(k, m.keys.Nav.Up):
-		m.messages.field = clampCursor(m.messagesPiece()-1, len(m.messagePieces()))
+		m.messages.field = cursor.Clamp(m.messagesPiece()-1, len(m.messagePieces()))
 	case isBound(k, m.keys.Nav.Down):
-		m.messages.field = clampCursor(m.messagesPiece()+1, len(m.messagePieces()))
+		m.messages.field = cursor.Clamp(m.messagesPiece()+1, len(m.messagePieces()))
 	case isBound(k, m.keys.Nav.Top):
 		m.messages.field = 0
 	case isBound(k, m.keys.Nav.Bottom):
@@ -529,9 +530,9 @@ func (m model) dismissMessage() model {
 		return m.toggleMessagesFocus()
 	}
 
-	cursor := m.messages.clampedCursor()
-	m.messages.items = slices.Delete(slices.Clone(m.messages.items), cursor, cursor+1)
-	m.messages.cursor = clampCursor(cursor, len(m.messages.items))
+	at := m.messages.clampedCursor()
+	m.messages.items = slices.Delete(slices.Clone(m.messages.items), at, at+1)
+	m.messages.cursor = cursor.Clamp(at, len(m.messages.items))
 	m = m.landedOnMessage()
 
 	if len(m.messages.items) == 0 {

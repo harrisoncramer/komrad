@@ -56,6 +56,13 @@ func TestTailRows(t *testing.T) {
 			want:   []string{"a line th", "at wraps", "last"},
 		},
 		{
+			name:   "a line cut off above the view draws only its rows inside it",
+			lines:  []string{"abcd", "efgh", "ijkl"},
+			width:  2,
+			height: 3,
+			want:   []string{"gh", "ij", "kl"},
+		},
+		{
 			name:   "escape sequences and control characters are stripped",
 			lines:  []string{"\x1b[31mred\x1b[0m\ttab\rbell\a"},
 			width:  40,
@@ -71,7 +78,8 @@ func TestTailRows(t *testing.T) {
 			viewer := logview.NewTail(100)
 			viewer.Append(tt.lines)
 
-			assert.Equal(t, tt.want, viewer.Rows(tt.width, tt.height))
+			rows, _ := viewer.Rows(tt.width, tt.height)
+			assert.Equal(t, tt.want, rows)
 		})
 	}
 }
@@ -85,7 +93,8 @@ func TestTailCeiling(t *testing.T) {
 	viewer.Append(numbered(4, 5))
 
 	assert.Equal(t, 3, viewer.Len())
-	assert.Equal(t, []string{"line 3", "line 4", "line 5"}, viewer.Rows(20, 5))
+	rows, _ := viewer.Rows(20, 5)
+	assert.Equal(t, []string{"line 3", "line 4", "line 5"}, rows)
 }
 
 // TestTailReset covers starting over, which empties the viewer.
@@ -97,5 +106,94 @@ func TestTailReset(t *testing.T) {
 	viewer.Reset()
 
 	assert.Zero(t, viewer.Len())
-	assert.Empty(t, viewer.Rows(20, 3))
+	rows, _ := viewer.Rows(20, 3)
+	assert.Empty(t, rows)
+}
+
+// TestTailMove covers moving the cursor with the view following it, scrolling the view with the
+// cursor kept inside it, and following the log again from the newest.
+func TestTailMove(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		moves      []int
+		scrolls    []int
+		more       []string
+		want       []string
+		wantCursor int
+	}{
+		{
+			name:       "the cursor starts on the newest line",
+			want:       []string{"line 3", "line 4", "line 5"},
+			wantCursor: 2,
+		},
+		{
+			name:       "back a line moves the cursor and leaves the view",
+			moves:      []int{-1},
+			want:       []string{"line 3", "line 4", "line 5"},
+			wantCursor: 1,
+		},
+		{
+			name:       "forward from the oldest moves at once",
+			moves:      []int{-100, 1},
+			want:       []string{"line 1", "line 2", "line 3"},
+			wantCursor: 1,
+		},
+		{
+			name:       "forward past the newest follows again",
+			moves:      []int{-3, 100},
+			more:       numbered(6, 7),
+			want:       []string{"line 5", "line 6", "line 7"},
+			wantCursor: 2,
+		},
+		{
+			name:       "moved back stays on its line as more arrive",
+			moves:      []int{-1},
+			more:       numbered(6, 7),
+			want:       []string{"line 3", "line 4", "line 5"},
+			wantCursor: 1,
+		},
+		{
+			name:       "scrolling the view back drags the cursor inside it",
+			scrolls:    []int{-1},
+			want:       []string{"line 2", "line 3", "line 4"},
+			wantCursor: 2,
+		},
+		{
+			name:    "scrolling the view forward drags the cursor down to its top",
+			moves:   []int{-4},
+			scrolls: []int{1},
+			want:    []string{"line 2", "line 3", "line 4"},
+		},
+		{
+			name:       "scrolling back to the newest follows again",
+			scrolls:    []int{-100, 100},
+			more:       numbered(6, 7),
+			want:       []string{"line 5", "line 6", "line 7"},
+			wantCursor: 2,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			viewer := logview.NewTail(100)
+			viewer.Append(numbered(1, 5))
+			for _, move := range tt.moves {
+				viewer.Move(move)
+				viewer.Rows(20, 3)
+			}
+			for _, scroll := range tt.scrolls {
+				viewer.Scroll(scroll)
+				viewer.Rows(20, 3)
+			}
+			viewer.Append(tt.more)
+
+			rows, cursor := viewer.Rows(20, 3)
+			assert.Equal(t, tt.want, rows)
+			assert.Equal(t, tt.wantCursor, cursor)
+		})
+	}
 }

@@ -385,14 +385,6 @@ func narrowed[T any](filter filterState, params narrowedParams[T]) []T {
 	return kept
 }
 
-func placeCursor(found, cursor, length int) int {
-	if found >= 0 {
-		return found
-	}
-
-	return clampCursor(cursor, length)
-}
-
 // view draws the search line whether or not there is a search.
 func (f filterState) view(palette paint.Palette, glyphs glyph.Set) string {
 	return f.line(palette, glyphs) + "\n\n"

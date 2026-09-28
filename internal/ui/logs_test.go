@@ -2,6 +2,7 @@ package ui_test
 
 import (
 	"errors"
+	"fmt"
 	"slices"
 	"testing"
 
@@ -10,6 +11,7 @@ import (
 	logv1 "komrad/proto/gen/log/v1"
 	"komrad/proto/gen/log/v1/logv1connect"
 
+	tea "charm.land/bubbletea/v2"
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/proto"
@@ -106,8 +108,7 @@ func TestLogsOpen(t *testing.T) {
 		harness := openLogs(t, tailOfTwo(), rows...)
 
 		frame := harness.readFrame()
-		assert.Contains(t, readHoveredRow(frame), "001 provision setup")
-		assert.Contains(t, readSidebarProse(frame), "failed")
+		assert.Contains(t, readHoveredRow(frame), "001 provision setup \uf489")
 		assert.Contains(t, readStageText(frame), "error: port 5470 already allocated")
 		harness.assertSentTo(logv1connect.LogServiceReadAgentLogsProcedure, logRead(provisionRun, ""))
 	})
@@ -207,6 +208,20 @@ func TestLogsSources(t *testing.T) {
 		assert.True(t, proto.Equal(logRead("service", ""), sent[len(sent)-1]), "the neighbour is read from its newest")
 	})
 
+	t.Run("a hovered run gone from the listing hands the keys back to the list", func(t *testing.T) {
+		t.Parallel()
+
+		reads := tailOfTwo()
+		reads[launchSource.GetId()+"@"] = &logv1.ReadAgentLogsResponse{Lines: []string{"launching"}, Cursor: "9"}
+		harness := openLogs(t, reads)
+		harness.press("j", "ctrl+a")
+		answerSources(harness, serviceSource, launchSource)
+		harness.fireTimers()
+		harness.press("k")
+
+		assert.Contains(t, readStageText(harness.readFrame()), "second line")
+	})
+
 	t.Run("a read of the source moved off is dropped", func(t *testing.T) {
 		t.Parallel()
 
@@ -222,6 +237,81 @@ func TestLogsSources(t *testing.T) {
 		harness.release(read)
 
 		assert.NotContains(t, readStageText(harness.readFrame()), "third line")
+	})
+}
+
+// TestLogsFilter covers searching and filtering the sources, and the log following the cursor to
+// the source it lands on.
+func TestLogsFilter(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		presses     []string
+		wantStage   string
+		notSidebar  string
+		wantSidebar string
+	}{
+		{
+			name:      "a search lands on the source it matches and reads it",
+			presses:   []string{"/", "p", "r", "o", "v", "enter"},
+			wantStage: "error: port 5470 already allocated",
+		},
+		{
+			name:       "a filter leaves only the sources it matches",
+			presses:    []string{"/", "tab", "p", "r", "o", "v", "enter"},
+			wantStage:  "error: port 5470 already allocated",
+			notSidebar: "service",
+		},
+		{
+			name:        "a filter nothing matches says so",
+			presses:     []string{"/", "tab", "z", "z", "z", "enter"},
+			wantSidebar: "nothing matches",
+		},
+		{
+			name:        "clearing the filter goes back to the source it opened on",
+			presses:     []string{"/", "tab", "p", "r", "o", "v", "enter", "esc"},
+			wantStage:   "second line",
+			wantSidebar: "001 provision setup",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			harness := openLogs(t, tailOfTwo())
+			harness.hold(logv1connect.LogServiceListAgentLogSourcesProcedure)
+			harness.press(tt.presses...)
+			harness.fireTimers()
+
+			frame := harness.readFrame()
+			if tt.wantStage != "" {
+				assert.Contains(t, readStageText(frame), tt.wantStage)
+			}
+			if tt.wantSidebar != "" {
+				assert.Contains(t, readSidebarProse(frame), tt.wantSidebar)
+			}
+			if tt.notSidebar != "" {
+				assert.NotContains(t, readSidebarProse(frame), tt.notSidebar)
+			}
+		})
+	}
+
+	t.Run("a filtered run gone from the listing moves to the neighbour the filter shows", func(t *testing.T) {
+		t.Parallel()
+
+		reads := tailOfTwo()
+		reads[launchSource.GetId()+"@"] = &logv1.ReadAgentLogsResponse{Lines: []string{"launching"}, Cursor: "9"}
+		harness := openLogs(t, reads)
+		answerSources(harness, serviceSource, launchSource, provisionSource)
+		harness.fireTimers()
+		harness.press("/", "tab", "s", "e", "t", "u", "p", "enter", "j")
+		harness.fireTimers()
+		answerSources(harness, serviceSource, launchSource)
+		harness.fireTimers()
+
+		assert.Contains(t, readStageText(harness.readFrame()), "launching")
 	})
 }
 
@@ -328,5 +418,96 @@ func TestLogsTail(t *testing.T) {
 
 		assert.Len(t, harness.readSent(logv1connect.LogServiceListAgentLogSourcesProcedure), 2)
 		assert.Contains(t, readSidebarProse(harness.readFrame()), "could not list: the engine is gone")
+	})
+}
+
+// longLog is a service log of a hundred numbered entries, taller than the block draws.
+func longLog() logReads {
+	var lines []string
+	for i := 1; i <= 100; i++ {
+		lines = append(lines, fmt.Sprintf("entry %03d", i))
+	}
+
+	return logReads{
+		"service@":         {Lines: lines, Cursor: "10"},
+		provisionRun + "@": {Lines: []string{"error: port 5470 already allocated"}, Cursor: "35"},
+	}
+}
+
+// TestLogsScroll covers the cycle key handing the keys to the log, its cursor moving through it,
+// and the wheel scrolling it.
+func TestLogsScroll(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		presses []string
+		want    string
+		notWant string
+	}{
+		{
+			name:    "the list holding the keys draws no cursor in the log",
+			want:    "  entry 100",
+			notWant: "›",
+		},
+		{
+			name:    "the cycle key puts the cursor on the newest line",
+			presses: []string{"ctrl+a"},
+			want:    "› entry 100",
+		},
+		{
+			name:    "up in the log moves the cursor back a line",
+			presses: []string{"ctrl+a", "k"},
+			want:    "› entry 099",
+			notWant: "› entry 100",
+		},
+		{
+			name:    "top in the log moves the cursor to its oldest line",
+			presses: []string{"ctrl+a", "g", "g"},
+			want:    "› entry 001",
+			notWant: "entry 100",
+		},
+		{
+			name:    "bottom in the log moves the cursor to the newest line",
+			presses: []string{"ctrl+a", "g", "g", "G"},
+			want:    "› entry 100",
+			notWant: "entry 001",
+		},
+		{
+			name:    "back from the log hands the keys to the list",
+			presses: []string{"ctrl+a", "esc", "j"},
+			want:    "error: port 5470 already allocated",
+		},
+		{
+			name:    "the cycle key from the log hands the keys to the list",
+			presses: []string{"ctrl+a", "ctrl+a", "j"},
+			want:    "error: port 5470 already allocated",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			harness := openLogs(t, longLog())
+			harness.press(tt.presses...)
+
+			stage := readStageText(harness.readFrame())
+			assert.Contains(t, stage, tt.want)
+			if tt.notWant != "" {
+				assert.NotContains(t, stage, tt.notWant)
+			}
+		})
+	}
+
+	t.Run("the wheel over the log scrolls it and leaves the list alone", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openLogs(t, longLog())
+		harness.send(tea.MouseWheelMsg{X: defaultHarnessWidth - 1, Y: 5, Button: tea.MouseWheelUp})
+
+		frame := harness.readFrame()
+		assert.NotContains(t, readStageText(frame), "entry 100")
+		assert.Contains(t, readHoveredRow(frame), "service")
 	})
 }

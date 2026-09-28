@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"komrad/internal/assemble"
+	"komrad/internal/ui/cursor"
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/ui/panel"
 	"komrad/lib/xslice"
@@ -501,7 +502,7 @@ func (a *agentsScreen) apply(s panelShared, selected string) {
 	case !placed:
 		a.cursor = firstAgentRowIndex(rows)
 	default:
-		clamped := clampCursor(a.cursor, len(rows))
+		clamped := cursor.Clamp(a.cursor, len(rows))
 		if strings.HasPrefix(selected, "agent:") {
 			clamped = nearestAgentRowIndex(rows, clamped)
 		}

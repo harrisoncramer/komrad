@@ -7,7 +7,9 @@ import (
 
 	"komrad/config"
 	"komrad/internal/errui"
+	"komrad/internal/glyph"
 	"komrad/internal/logread"
+	"komrad/internal/ui/cursor"
 	"komrad/internal/ui/logview"
 	"komrad/internal/ui/paint"
 	"komrad/internal/view"
@@ -43,6 +45,8 @@ type logsScreen struct {
 	generation int
 	read       bool
 	err        error
+	// logFocus says the cycle key handed the keys to the log.
+	logFocus bool
 }
 
 // logSourceRow is one line of the list of log sources.
@@ -106,12 +110,11 @@ func (l *logsScreen) listCmd(s panelShared) tea.Cmd {
 }
 
 func (l *logsScreen) readCmd(s panelShared) tea.Cmd {
-	row, ok := rowAt(l.rows(s), l.rowCursor.cursor)
-	if !ok {
+	if l.reading == "" {
 		return nil
 	}
 
-	agentID, source, cursor, generation, clients := l.agentID, row.source.GetId(), l.cursor, l.generation, s.api
+	agentID, source, cursor, generation, clients := l.agentID, l.reading, l.cursor, l.generation, s.api
 
 	return func() tea.Msg {
 		resp, err := clients.readAgentLogs(agentID, source, cursor, logsReadLimit)
@@ -141,7 +144,8 @@ func (m *model) applyLogsSources(msg logsSourcesMsg) tea.Cmd {
 	hovered := rowKeyAt(l.rows(s), l.rowCursor.cursor)
 	l.sources = msg.sources
 	if l.listed {
-		l.rowCursor.cursor = placeCursor(rowIndexOfKey(l.rows(s), hovered), l.rowCursor.cursor, len(l.sources))
+		rows := l.rows(s)
+		l.rowCursor.cursor = cursor.Place(rowIndexOfKey(rows, hovered), l.rowCursor.cursor, len(rows))
 
 		return l.switchSource(s)
 	}
@@ -205,7 +209,7 @@ func (l *logsScreen) switchSource(s panelShared) tea.Cmd {
 	l.reading = row.source.GetId()
 	l.generation++
 	l.viewer.Reset()
-	l.cursor, l.read, l.err = "", false, nil
+	l.cursor, l.read, l.err, l.logFocus = "", false, nil, false
 
 	return l.readCmd(s)
 }
@@ -216,13 +220,18 @@ func (l *logsScreen) update(h host, s panelShared, msg tea.Msg) tea.Cmd {
 		return nil
 	}
 
-	return l.list().update(h, s, key, l.actions())
+	if l.isLogFocused(s) {
+		return l.actions(s).dispatch(h, s, key.String())
+	}
+
+	return l.list().update(h, s, key, l.actions(s))
 }
 
 func (l *logsScreen) list() screenList[logSourceRow] {
 	return screenList[logSourceRow]{
 		cursor: func() *rowCursor { return &l.rowCursor },
 		rows:   l.rows,
+		name:   logSourceRowName,
 		moved: func(_ host, s panelShared) tea.Cmd {
 			return l.switchSource(s)
 		},
@@ -237,20 +246,28 @@ func (l *logsScreen) rows(s panelShared) []logSourceRow {
 		failedRun = item.FailedRunLog
 	}
 
-	return xslice.Map(l.sources, func(source *logv1.LogSource) logSourceRow {
-		return logSourceRow{
-			source: source,
-			failed: source.Run != nil && failedRun != nil && *source.Run == *failedRun,
-		}
+	return narrowed(s.chrome.filter, narrowedParams[logSourceRow]{
+		rows: xslice.Map(l.sources, func(source *logv1.LogSource) logSourceRow {
+			return logSourceRow{
+				source: source,
+				failed: source.Run != nil && failedRun != nil && *source.Run == *failedRun,
+			}
+		}),
+		depth: func(logSourceRow) int { return 0 },
+		name:  logSourceRowName,
 	})
+}
+
+func logSourceRowName(row logSourceRow) string {
+	return row.source.GetName()
 }
 
 func (l *logsScreen) view(s panelShared) string {
 	return s.draw.columnListView(screenListParams{
-		help:     l.help,
-		empty:    l.emptyLine(),
-		rows:     len(l.sources),
-		snapshot: func(pane listPane) view.Snapshot { return l.snapshot(s, pane) },
+		help:  l.help,
+		empty: l.emptyLine(),
+		rows:  len(l.rows(s)),
+		lines: func(pane listPane) ([]string, int) { return l.lines(s, pane), l.rowCursor.cursor },
 	})
 }
 
@@ -262,30 +279,32 @@ func (l *logsScreen) emptyLine() string {
 	return "reading…"
 }
 
-func (l *logsScreen) snapshot(s panelShared, pane listPane) view.Snapshot {
+// lines is the list as drawn: each source's name behind the cursor, the failed run marked after it.
+func (l *logsScreen) lines(s panelShared, pane listPane) []string {
 	rows := l.rows(s)
-
-	return view.Snapshot{
-		Rows: xslice.Map(rows, func(r logSourceRow) view.Row {
-			failed := ""
-			if r.failed {
-				failed = "failed"
-			}
-
-			return view.Row{
-				Key:     r.key(),
-				Kind:    view.KindResult,
-				Name:    r.source.GetName(),
-				Process: view.ProcessNone,
-				Cells:   []view.Cell{{Text: failed, Tone: paint.ToneDanger}},
-			}
-		}),
-		Caret:         pane.caret,
-		BarBlinkedOut: pane.blinkedOut,
-		Focused:       rowKeyAt(rows, l.rowCursor.cursor),
-		Pane:          pane.width,
-		Columns:       view.Columns{{Kind: view.ColumnText, Width: len("failed")}},
+	if len(rows) == 0 {
+		return []string{dimStyle.Render("  " + emptyLineOf(s.chrome.filter, l.emptyLine()))}
 	}
+
+	caret := pane.caret
+	if l.isLogFocused(s) {
+		caret = view.CaretDrawn
+	}
+
+	return xslice.Map(rows, func(row logSourceRow) string {
+		hovered := row.key() == rowKeyAt(rows, l.rowCursor.cursor)
+		prefix := "  "
+		if hovered {
+			prefix = caretGlyph(caret)
+		}
+
+		line := prefix + " " + s.chrome.filter.highlight(paint.Panel, clipName(row.source.GetName()), nameStyle(hovered && caret != view.CaretAbsent, false))
+		if row.failed {
+			line += " " + paint.Panel.Style(paint.ToneDanger).Render(s.glyphs.Spell(glyph.FailedScript))
+		}
+
+		return line
+	})
 }
 
 // block is the log drawn at the width and height of the block beside the sidebar.
@@ -310,7 +329,17 @@ func (l *logsScreen) block(m model, width int) []string {
 		return nil
 	}
 
-	return l.viewer.Rows(width, split.rows)
+	rows, cursor := l.viewer.Rows(width-len(blankCursor), split.rows)
+	focused := l.isLogFocused(m.shared())
+	for i, row := range rows {
+		prefix := blankCursor
+		if focused && i == cursor {
+			prefix = caretGlyph(m.blinkingCaret(true))
+		}
+		rows[i] = prefix + row
+	}
+
+	return rows
 }
 
 func (l *logsScreen) parent() screen {
@@ -343,7 +372,52 @@ func (l *logsScreen) column() columnSpec {
 	}
 }
 
+// isLogDrawn reports whether the block beside the list holds lines of the log.
+func (l *logsScreen) isLogDrawn(s panelShared) bool {
+	if _, ok := s.draw.screenColumnSplit(); !ok {
+		return false
+	}
+
+	return l.read && l.viewer.Len() > 0
+}
+
+// isLogFocused reports whether the log holds the keys.
+func (l *logsScreen) isLogFocused(s panelShared) bool {
+	return l.logFocus && l.isLogDrawn(s) && s.draw.isListFocused()
+}
+
+func (l *logsScreen) doesScrollColumn(s panelShared) bool {
+	return l.isLogDrawn(s)
+}
+
+func (l *logsScreen) scrollColumn(_ host, _ panelShared, rows int) tea.Cmd {
+	l.viewer.Scroll(rows)
+
+	return nil
+}
+
+// move moves the log's cursor a number of lines toward the newest, or toward the oldest for a negative count.
+func (l *logsScreen) move(lines int) tea.Cmd {
+	l.viewer.Move(lines)
+
+	return nil
+}
+
 var (
-	_ columned = (*logsScreen)(nil)
-	_ crumbed  = (*logsScreen)(nil)
+	_ columned       = (*logsScreen)(nil)
+	_ crumbed        = (*logsScreen)(nil)
+	_ columnScroller = (*logsScreen)(nil)
+	_ filtered       = (*logsScreen)(nil)
 )
+
+func (l *logsScreen) hoveredKey(s panelShared) string {
+	return l.list().hovered(s)
+}
+
+func (l *logsScreen) placeAt(h host, s panelShared, key string) {
+	l.list().place(h, s, key)
+}
+
+func (l *logsScreen) filterRows(s panelShared) []filterRow {
+	return l.list().filterRows(s)
+}
