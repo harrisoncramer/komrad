@@ -150,14 +150,6 @@ func (a *agentsScreen) rowActions() []screenAction {
 			run:  a.onHoveredAgentIn(openGitMenu),
 		},
 		{
-			id:   actionAgentReview,
-			keys: func(k config.Keybindings) []string { return k.Agents.Review },
-			when: a.isHoveringAgent,
-			run: a.onHoveredAgent(func(h host, item panel.AgentRow) tea.Cmd {
-				return h.enter(screenReview, screenTarget{agentID: item.Agent.ID})
-			}),
-		},
-		{
 			id:   actionAgentChild,
 			keys: func(k config.Keybindings) []string { return k.Agents.Child },
 			when: a.isHoveringAgent,
@@ -300,12 +292,6 @@ func (a *agentsScreen) browsingLegend() []screenLegendRow {
 		{
 			of:   []actionID{actionGitMenu},
 			desc: func(panelShared) string { return "git actions" },
-			show: a.isHoveringAgent,
-		},
-		// The review key is drawn for every agent, whether or not it answers for the one hovered.
-		{
-			of:   []actionID{actionAgentReview},
-			desc: func(panelShared) string { return "review diff" },
 			show: a.isHoveringAgent,
 		},
 		{

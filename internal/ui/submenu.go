@@ -29,8 +29,7 @@ type submenu struct {
 type submenuEntry struct {
 	label string
 	keys  []string
-	// isOff says the entry would do nothing here, which draws it gray and leaves its answer to
-	// say why.
+	// isOff says the entry would do nothing here.
 	isOff bool
 }
 

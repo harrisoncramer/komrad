@@ -31,7 +31,6 @@ const (
 	actionQuit
 	actionAgentsBack
 	actionAgentOpen
-	actionAgentReview
 	actionGitMenu
 	actionSubpagesOpen
 	actionAgentChild

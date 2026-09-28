@@ -1953,13 +1953,13 @@ func TestAgentsChildren(t *testing.T) {
 		assert.NotContains(t, frame, "C-s submit")
 	})
 
-	t.Run("the review key on a child opens nothing", func(t *testing.T) {
+	t.Run("the review subpage on a child says why rather than opening", func(t *testing.T) {
 		harness := openAgents(t, buildFamily()...)
 
-		harness.press("G", "d")
+		harness.press("G", "space", "r")
 
 		assert.Equal(t, agentsScreen, harness.readScreen())
-		harness.assertSent()
+		assert.Contains(t, readOpenMessages(harness), "its work is reviewed there")
 	})
 
 	t.Run("only the parent's own worktree is offered a rebase", func(t *testing.T) {

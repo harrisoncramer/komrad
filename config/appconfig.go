@@ -318,11 +318,6 @@ type AgentsKeys struct {
 	Archive []string `mapstructure:"archive" default:"z"`
 	// Step out of a workflow scope, or quit at the root.
 	Back []string `mapstructure:"back" default:"esc"`
-	// Review what the hovered agent has changed in its worktree, with the diff and the review
-	// threads drawn beside each other across the window. The key does nothing for an agent whose
-	// workflow does not make worktrees, since there is no base branch to measure one against, and
-	// the legend leaves it off there.
-	Review []string `mapstructure:"review" default:"d"`
 	// Pause the hovered agent where it stands, or unpause one you have already paused. Komrad
 	// waits for the agent to come to rest before it claims the worktree, and refuses rather than
 	// claiming it when the agent will not stop or its pane cannot be read.

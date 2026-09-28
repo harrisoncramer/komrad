@@ -190,13 +190,6 @@
               "default": "[\"esc\"]"
             },
             {
-              "key": "review",
-              "path": "keybindings.agents.review",
-              "type": "array",
-              "description": "Review what the hovered agent has changed in its worktree, with the diff and the review\nthreads drawn beside each other across the window. The key does nothing for an agent whose\nworkflow does not make worktrees, since there is no base branch to measure one against, and\nthe legend leaves it off there.",
-              "default": "[\"d\"]"
-            },
-            {
               "key": "pause",
               "path": "keybindings.agents.pause",
               "type": "array",

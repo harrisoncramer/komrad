@@ -38,7 +38,7 @@ type documentBody struct {
 type documentsScreen struct {
 	rowCursor
 	agentID string
-	// from is the view the documents were opened from, and where the way back goes.
+	// from is the view the screen was opened from.
 	from  screen
 	items []documentItem
 	// listedAt is the agent's newest write the list was read at, and listedCount how many it had

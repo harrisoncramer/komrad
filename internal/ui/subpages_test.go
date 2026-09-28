@@ -117,6 +117,20 @@ func TestSubpages(t *testing.T) {
 		assert.NotContains(t, frame, "agents › author")
 	})
 
+	t.Run("the trail takes the blank row under the switcher, so the list does not move", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openAgents(t, buildSubpagesAgents()...)
+		moveToAgentRow(t, harness, "author")
+		before := splitLines(harness.readFrame())
+
+		harness.press("space")
+		after := splitLines(harness.readFrame())
+
+		require.Contains(t, after[2], "agents › author")
+		assert.Equal(t, before[3], after[3])
+	})
+
 	t.Run("the legend offers it", func(t *testing.T) {
 		t.Parallel()
 

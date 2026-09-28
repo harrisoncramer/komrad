@@ -46,7 +46,7 @@ func (m model) isViewsOpen() bool {
 }
 
 // viewsBar is the logo and the switcher drawn over a list, and under them the trail down to a
-// page opened from a view, which takes the blank row under the switcher so the list stays put.
+// page opened from a view.
 func (m model) viewsBar() string {
 	var lines []string
 	if m.height <= 0 || m.height >= viewsBarFloor {
