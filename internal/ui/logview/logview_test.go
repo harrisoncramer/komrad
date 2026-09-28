@@ -121,6 +121,11 @@ func TestTailScroll(t *testing.T) {
 			want:   []string{"line 1", "line 2", "line 3"},
 		},
 		{
+			name:   "forward from the oldest moves at once",
+			scroll: []int{-100, 1},
+			want:   []string{"line 2", "line 3", "line 4"},
+		},
+		{
 			name:   "forward past the newest follows again",
 			scroll: []int{-2, 100},
 			want:   []string{"line 3", "line 4", "line 5"},
@@ -146,6 +151,7 @@ func TestTailScroll(t *testing.T) {
 			viewer.Append(numbered(1, 5))
 			for _, lines := range tt.scroll {
 				viewer.Scroll(lines)
+				viewer.Rows(20, 3)
 			}
 			viewer.Append(tt.more)
 

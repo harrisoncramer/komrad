@@ -21,7 +21,7 @@ type LogViewer interface {
 	// the oldest for a negative one, stopping at either end.
 	Scroll(lines int)
 	// Rows is the lines up to the one the view ends on wrapped to width, as many rows of them as
-	// fit in height.
+	// fit in height, holding the view where it first fills height once scrolled past the oldest.
 	Rows(width, height int) []string
 }
 
@@ -66,20 +66,27 @@ func (t *tail) Rows(width, height int) []string {
 		return nil
 	}
 
-	end := len(t.lines) - 1 - t.back
+	t.back = min(t.back, t.furthestBack(width, height))
+
 	var rows []string
-	for i := end; i >= 0 && len(rows) < height; i-- {
+	for i := len(t.lines) - 1 - t.back; i >= 0 && len(rows) < height; i-- {
 		rows = append(t.wrap(i, width), rows...)
 	}
-	if len(rows) >= height {
-		return rows[len(rows)-height:]
+
+	return rows[max(len(rows)-height, 0):]
+}
+
+// furthestBack is the most lines the view can end before the newest and still fill height rows.
+func (t *tail) furthestBack(width, height int) int {
+	filled := 0
+	for i := range t.lines {
+		filled += len(t.wrap(i, width))
+		if filled >= height {
+			return len(t.lines) - 1 - i
+		}
 	}
 
-	for i := end + 1; i < len(t.lines) && len(rows) < height; i++ {
-		rows = append(rows, t.wrap(i, width)...)
-	}
-
-	return rows[:min(len(rows), height)]
+	return 0
 }
 
 // wrap is one held line broken into the rows it takes at width.

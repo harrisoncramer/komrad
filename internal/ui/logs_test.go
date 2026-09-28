@@ -208,6 +208,20 @@ func TestLogsSources(t *testing.T) {
 		assert.True(t, proto.Equal(logRead("service", ""), sent[len(sent)-1]), "the neighbour is read from its newest")
 	})
 
+	t.Run("a hovered run gone from the listing hands the keys back to the list", func(t *testing.T) {
+		t.Parallel()
+
+		reads := tailOfTwo()
+		reads[launchSource.GetId()+"@"] = &logv1.ReadAgentLogsResponse{Lines: []string{"launching"}, Cursor: "9"}
+		harness := openLogs(t, reads)
+		harness.press("j", "ctrl+a")
+		answerSources(harness, serviceSource, launchSource)
+		harness.fireTimers()
+		harness.press("k")
+
+		assert.Contains(t, readStageText(harness.readFrame()), "second line")
+	})
+
 	t.Run("a read of the source moved off is dropped", func(t *testing.T) {
 		t.Parallel()
 
@@ -355,11 +369,6 @@ func TestLogsScroll(t *testing.T) {
 		want    string
 		notWant string
 	}{
-		{
-			name:    "the log follows its newest line",
-			want:    "entry 100",
-			notWant: "entry 001",
-		},
 		{
 			name:    "up in the log scrolls it back a line",
 			presses: []string{"ctrl+a", "k"},

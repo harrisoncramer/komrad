@@ -208,7 +208,7 @@ func (l *logsScreen) switchSource(s panelShared) tea.Cmd {
 	l.reading = row.source.GetId()
 	l.generation++
 	l.viewer.Reset()
-	l.cursor, l.read, l.err = "", false, nil
+	l.cursor, l.read, l.err, l.logFocus = "", false, nil, false
 
 	return l.readCmd(s)
 }
