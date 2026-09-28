@@ -7,6 +7,7 @@ import (
 
 	"komrad/config"
 	"komrad/internal/errui"
+	"komrad/internal/glyph"
 	"komrad/internal/logread"
 	"komrad/internal/ui/logview"
 	"komrad/internal/ui/paint"
@@ -43,6 +44,8 @@ type logsScreen struct {
 	generation int
 	read       bool
 	err        error
+	// logFocus says the cycle key handed the keys to the log.
+	logFocus bool
 }
 
 // logSourceRow is one line of the list of log sources.
@@ -216,7 +219,11 @@ func (l *logsScreen) update(h host, s panelShared, msg tea.Msg) tea.Cmd {
 		return nil
 	}
 
-	return l.list().update(h, s, key, l.actions())
+	if l.isLogFocused(s) {
+		return l.actions(s).dispatch(h, s, key.String())
+	}
+
+	return l.list().update(h, s, key, l.actions(s))
 }
 
 func (l *logsScreen) list() screenList[logSourceRow] {
@@ -247,10 +254,10 @@ func (l *logsScreen) rows(s panelShared) []logSourceRow {
 
 func (l *logsScreen) view(s panelShared) string {
 	return s.draw.columnListView(screenListParams{
-		help:     l.help,
-		empty:    l.emptyLine(),
-		rows:     len(l.sources),
-		snapshot: func(pane listPane) view.Snapshot { return l.snapshot(s, pane) },
+		help:  l.help,
+		empty: l.emptyLine(),
+		rows:  len(l.sources),
+		lines: func(pane listPane) ([]string, int) { return l.lines(s, pane), l.rowCursor.cursor },
 	})
 }
 
@@ -262,30 +269,27 @@ func (l *logsScreen) emptyLine() string {
 	return "reading…"
 }
 
-func (l *logsScreen) snapshot(s panelShared, pane listPane) view.Snapshot {
+// lines is the list as drawn: each source's name behind the cursor, the failed run marked after it.
+func (l *logsScreen) lines(s panelShared, pane listPane) []string {
 	rows := l.rows(s)
-
-	return view.Snapshot{
-		Rows: xslice.Map(rows, func(r logSourceRow) view.Row {
-			failed := ""
-			if r.failed {
-				failed = "failed"
-			}
-
-			return view.Row{
-				Key:     r.key(),
-				Kind:    view.KindResult,
-				Name:    r.source.GetName(),
-				Process: view.ProcessNone,
-				Cells:   []view.Cell{{Text: failed, Tone: paint.ToneDanger}},
-			}
-		}),
-		Caret:         pane.caret,
-		BarBlinkedOut: pane.blinkedOut,
-		Focused:       rowKeyAt(rows, l.rowCursor.cursor),
-		Pane:          pane.width,
-		Columns:       view.Columns{{Kind: view.ColumnText, Width: len("failed")}},
+	if len(rows) == 0 {
+		return []string{dimStyle.Render("  " + l.emptyLine())}
 	}
+
+	return xslice.Map(rows, func(row logSourceRow) string {
+		hovered := row.key() == rowKeyAt(rows, l.rowCursor.cursor)
+		prefix := "  "
+		if hovered {
+			prefix = caretGlyph(pane.caret)
+		}
+
+		line := prefix + " " + nameStyle(hovered && pane.caret != view.CaretAbsent, false).Render(clipName(row.source.GetName()))
+		if row.failed {
+			line += " " + paint.Panel.Style(paint.ToneDanger).Render(s.glyphs.Spell(glyph.FailedScript))
+		}
+
+		return line
+	})
 }
 
 // block is the log drawn at the width and height of the block beside the sidebar.
@@ -343,7 +347,37 @@ func (l *logsScreen) column() columnSpec {
 	}
 }
 
+// isLogDrawn reports whether the block beside the list holds lines of the log.
+func (l *logsScreen) isLogDrawn(s panelShared) bool {
+	if _, ok := s.draw.screenColumnSplit(); !ok {
+		return false
+	}
+
+	return l.read && l.viewer.Len() > 0
+}
+
+// isLogFocused reports whether the log holds the keys.
+func (l *logsScreen) isLogFocused(s panelShared) bool {
+	return l.logFocus && l.isLogDrawn(s) && s.draw.isListFocused()
+}
+
+func (l *logsScreen) doesScrollColumn(s panelShared) bool {
+	return l.isLogDrawn(s)
+}
+
+func (l *logsScreen) scrollColumn(_ host, _ panelShared, rows int) tea.Cmd {
+	return l.scroll(rows)
+}
+
+// scroll moves the log a number of lines toward the newest, or toward the oldest for a negative count.
+func (l *logsScreen) scroll(lines int) tea.Cmd {
+	l.viewer.Scroll(lines)
+
+	return nil
+}
+
 var (
-	_ columned = (*logsScreen)(nil)
-	_ crumbed  = (*logsScreen)(nil)
+	_ columned       = (*logsScreen)(nil)
+	_ crumbed        = (*logsScreen)(nil)
+	_ columnScroller = (*logsScreen)(nil)
 )

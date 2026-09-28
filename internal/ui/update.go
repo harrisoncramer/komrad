@@ -293,7 +293,7 @@ func (m model) routeGlobalKey(key tea.KeyPressMsg) (tea.Model, tea.Cmd, bool) {
 		return m.pushMockMessage(), nil, true
 	}
 
-	if (m.isDetailsScreen() || m.screen == screenDocuments) && m.isCycleKey(key.String()) {
+	if (m.isDetailsScreen() || m.screen == screenDocuments || m.screen == screenLogs) && m.isCycleKey(key.String()) {
 		next, cmd := m.cycleView(key.String(), m.readSidebarStop())
 
 		return next, cmd, true

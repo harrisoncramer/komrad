@@ -99,3 +99,57 @@ func TestTailReset(t *testing.T) {
 	assert.Zero(t, viewer.Len())
 	assert.Empty(t, viewer.Rows(20, 3))
 }
+
+// TestTailScroll covers moving the view back through older lines and forward to follow again.
+func TestTailScroll(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		scroll []int
+		more   []string
+		want   []string
+	}{
+		{
+			name:   "back a line",
+			scroll: []int{-1},
+			want:   []string{"line 2", "line 3", "line 4"},
+		},
+		{
+			name:   "past the oldest stops with the window full",
+			scroll: []int{-100},
+			want:   []string{"line 1", "line 2", "line 3"},
+		},
+		{
+			name:   "forward past the newest follows again",
+			scroll: []int{-2, 100},
+			want:   []string{"line 3", "line 4", "line 5"},
+		},
+		{
+			name:   "scrolled back stays on its lines as more arrive",
+			scroll: []int{-1},
+			more:   numbered(6, 7),
+			want:   []string{"line 2", "line 3", "line 4"},
+		},
+		{
+			name: "following shows lines as they arrive",
+			more: numbered(6, 7),
+			want: []string{"line 5", "line 6", "line 7"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			viewer := logview.NewTail(100)
+			viewer.Append(numbered(1, 5))
+			for _, lines := range tt.scroll {
+				viewer.Scroll(lines)
+			}
+			viewer.Append(tt.more)
+
+			assert.Equal(t, tt.want, viewer.Rows(20, 3))
+		})
+	}
+}
