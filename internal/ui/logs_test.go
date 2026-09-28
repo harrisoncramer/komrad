@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 	"testing"
 
 	"komrad/lib/xptr"
@@ -21,7 +22,8 @@ const logsScreen = "the logs"
 
 const provisionRun = "001-provision-setup.log"
 
-// logReads answers each read of an agent's logs by the source and cursor it was sent with.
+// logReads answers each read of an agent's logs by the source, the pattern after a ~ when there is one, and
+// the cursor it was sent with.
 type logReads map[string]*logv1.ReadAgentLogsResponse
 
 var (
@@ -41,7 +43,11 @@ func (r logReads) answer(harness *panelHarness) {
 	answerSources(harness, serviceSource, provisionSource)
 	harness.answer(logv1connect.LogServiceReadAgentLogsProcedure, func(req connect.AnyRequest) (connect.AnyResponse, error) {
 		read, _ := req.Any().(*logv1.ReadAgentLogsRequest)
-		if resp, ok := r[read.GetSource()+"@"+read.GetCursor()]; ok {
+		source := read.GetSource()
+		if read.GetPattern() != "" {
+			source += "~" + read.GetPattern()
+		}
+		if resp, ok := r[source+"@"+read.GetCursor()]; ok {
 			return connect.NewResponse(resp), nil
 		}
 
@@ -76,6 +82,13 @@ func openLogs(t *testing.T, reads logReads, rows ...proto.Message) *panelHarness
 
 func logRead(source, cursor string) *logv1.ReadAgentLogsRequest {
 	return &logv1.ReadAgentLogsRequest{AgentIds: []string{"author"}, Source: source, Cursor: cursor, Limit: 500}
+}
+
+func serviceReadMatching(pattern, cursor string) *logv1.ReadAgentLogsRequest {
+	read := logRead("service", cursor)
+	read.Pattern = pattern
+
+	return read
 }
 
 // TestLogsOpen covers the screen opening from the subpages menu on the agent's log sources.
@@ -510,4 +523,210 @@ func TestLogsScroll(t *testing.T) {
 		assert.NotContains(t, readStageText(frame), "entry 100")
 		assert.Contains(t, readHoveredRow(frame), "service")
 	})
+}
+
+// filteredTailOfTwo is tailOfTwo with the log narrowed to its second line by a pattern for it.
+func filteredTailOfTwo() logReads {
+	reads := tailOfTwo()
+	reads["service~(?i)second@"] = &logv1.ReadAgentLogsResponse{Lines: []string{`{"body":"second line"}`}, Cursor: "10"}
+	reads["service~(?i)second@10"] = &logv1.ReadAgentLogsResponse{Cursor: "20"}
+
+	return reads
+}
+
+// lastStageRow is the lowest row of the stage that draws anything.
+func lastStageRow(frame string) string {
+	rows := readStage(frame)
+	for i := len(rows) - 1; i >= 0; i-- {
+		if strings.TrimSpace(rows[i]) != "" {
+			return rows[i]
+		}
+	}
+
+	return ""
+}
+
+// TestLogsLineFilter covers the pattern typed at the foot of the log narrowing the lines the
+// server reads, and the keys moving between the prompt, the lines and the list.
+func TestLogsLineFilter(t *testing.T) {
+	t.Parallel()
+
+	typed := []string{"ctrl+a", "/", "s", "e", "c", "o", "n", "d"}
+
+	tests := []struct {
+		name     string
+		presses  []string
+		want     []string
+		notWant  []string
+		wantLast *logv1.ReadAgentLogsRequest
+	}{
+		{
+			name:     "typing narrows the log to the lines the pattern matches",
+			presses:  typed,
+			want:     []string{"second line"},
+			notWant:  []string{"first line"},
+			wantLast: serviceReadMatching("(?i)second", ""),
+		},
+		{
+			name:     "an upper-case letter makes the pattern match case",
+			presses:  []string{"ctrl+a", "/", "S"},
+			wantLast: serviceReadMatching("S", ""),
+		},
+		{
+			name:     "a broken pattern reads nothing and keeps the lines",
+			presses:  append(slices.Clone(typed), "("),
+			want:     []string{"second line", "▽ second("},
+			notWant:  []string{"first line"},
+			wantLast: serviceReadMatching("(?i)second", ""),
+		},
+		{
+			name:     "esc on the lines clears a standing filter",
+			presses:  append(slices.Clone(typed), "enter", "esc"),
+			want:     []string{"first line", "second line"},
+			notWant:  []string{"▽ second"},
+			wantLast: logRead("service", ""),
+		},
+		{
+			name:    "esc on the lines with no filter standing goes back to the list",
+			presses: append(slices.Clone(typed), "enter", "esc", "esc", "j"),
+			want:    []string{"error: port 5470 already allocated"},
+		},
+		{
+			name:     "esc while typing drops the query and keeps the keys on the lines",
+			presses:  []string{"ctrl+a", "/", "s", "esc", "esc", "j"},
+			want:     []string{"error: port 5470 already allocated"},
+			wantLast: logRead(provisionRun, ""),
+		},
+		{
+			name:    "a pattern matching nothing says so",
+			presses: []string{"ctrl+a", "/", "z", "z", "z", "enter"},
+			want:    []string{"Nothing matching in the last 64 MB.", "▽ zzz"},
+		},
+		{
+			name:    "a pattern matching nothing keeps the keys on the lines",
+			presses: []string{"ctrl+a", "/", "z", "z", "z", "enter", "esc"},
+			want:    []string{"first line", "second line"},
+		},
+		{
+			name:     "moving to another source drops the filter",
+			presses:  append(slices.Clone(typed), "enter", "ctrl+a", "j", "k"),
+			want:     []string{"first line", "second line"},
+			notWant:  []string{"▽ second"},
+			wantLast: logRead("service", ""),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			harness := openLogs(t, filteredTailOfTwo())
+			harness.press(tt.presses...)
+
+			stage := readStageText(harness.readFrame())
+			assert.Equal(t, logsScreen, harness.readScreen())
+			for _, want := range tt.want {
+				assert.Contains(t, stage, want)
+			}
+			for _, notWant := range tt.notWant {
+				assert.NotContains(t, stage, notWant)
+			}
+			if tt.wantLast != nil {
+				sent := harness.readSent(logv1connect.LogServiceReadAgentLogsProcedure)
+				assert.True(t, proto.Equal(tt.wantLast, sent[len(sent)-1]), "the last read was %v", sent[len(sent)-1])
+			}
+		})
+	}
+
+	t.Run("the prompt is drawn on the lowest row of the log", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openLogs(t, filteredTailOfTwo())
+		harness.press(typed...)
+
+		assert.Contains(t, lastStageRow(harness.readFrame()), "▽ second")
+	})
+
+	t.Run("the prompt stands at the foot of the log before anything is typed", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openLogs(t, filteredTailOfTwo())
+
+		assert.Equal(t, "  ▽", lastStageRow(harness.readFrame()))
+	})
+
+	t.Run("the lines sit on the prompt rather than at the top of the log", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openLogs(t, filteredTailOfTwo())
+		harness.press(append(slices.Clone(typed), "enter")...)
+
+		rows := readStage(harness.readFrame())
+		foot := slices.IndexFunc(rows, func(row string) bool { return strings.Contains(row, "▽ second") })
+		assert.Positive(t, foot)
+		assert.Contains(t, rows[foot-1], "second line")
+	})
+
+	t.Run("the next read carries the pattern", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openLogs(t, filteredTailOfTwo())
+		harness.press(append(slices.Clone(typed), "enter")...)
+		harness.fireTimers()
+
+		sent := harness.readSent(logv1connect.LogServiceReadAgentLogsProcedure)
+		assert.True(t, proto.Equal(serviceReadMatching("(?i)second", "10"), sent[len(sent)-1]), "the last read was %v", sent[len(sent)-1])
+	})
+
+	t.Run("a read of the pattern typed over is dropped", func(t *testing.T) {
+		t.Parallel()
+
+		read := logv1connect.LogServiceReadAgentLogsProcedure
+		reads := filteredTailOfTwo()
+		reads["service~(?i)s@"] = &logv1.ReadAgentLogsResponse{Lines: []string{`{"body":"stale line"}`}, Cursor: "10"}
+		harness := openLogs(t, reads)
+		harness.press("ctrl+a", "/")
+		harness.hold(read)
+		harness.press("s", "e")
+		harness.release(read)
+
+		assert.NotContains(t, readStageText(harness.readFrame()), "stale line")
+	})
+}
+
+// TestLogsCopy covers the copy key putting the log line under the cursor on the clipboard.
+func TestLogsCopy(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		presses []string
+		want    []string
+	}{
+		{
+			name:    "the newest line is copied from where the cursor starts",
+			presses: []string{"ctrl+a", "y"},
+			want:    []string{`{"body":"second line"}`},
+		},
+		{
+			name:    "the line the cursor moved to is copied",
+			presses: []string{"ctrl+a", "k", "y"},
+			want:    []string{`{"body":"first line"}`},
+		},
+		{
+			name:    "the list holding the keys copies nothing",
+			presses: []string{"y"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			harness := openLogs(t, tailOfTwo())
+			harness.press(tt.presses...)
+
+			assert.Equal(t, tt.want, harness.panel.ReadCopied())
+		})
+	}
 }

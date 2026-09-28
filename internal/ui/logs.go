@@ -47,6 +47,9 @@ type logsScreen struct {
 	err        error
 	// logFocus says the cycle key handed the keys to the log.
 	logFocus bool
+	// logFilter is the pattern typed at the foot of the log, and pattern is the one the block was read with.
+	logFilter filterState
+	pattern   string
 }
 
 // logSourceRow is one line of the list of log sources.
@@ -114,10 +117,17 @@ func (l *logsScreen) readCmd(s panelShared) tea.Cmd {
 		return nil
 	}
 
-	agentID, source, cursor, generation, clients := l.agentID, l.reading, l.cursor, l.generation, s.api
+	req := &logv1.ReadAgentLogsRequest{
+		AgentIds: []string{l.agentID},
+		Cursor:   l.cursor,
+		Limit:    logsReadLimit,
+		Source:   l.reading,
+		Pattern:  l.pattern,
+	}
+	generation, clients := l.generation, s.api
 
 	return func() tea.Msg {
-		resp, err := clients.readAgentLogs(agentID, source, cursor, logsReadLimit)
+		resp, err := clients.readAgentLogs(req)
 
 		return logsReadMsg{generation: generation, resp: resp, err: err}
 	}
@@ -206,18 +216,77 @@ func (l *logsScreen) switchSource(s panelShared) tea.Cmd {
 		return nil
 	}
 
-	l.reading = row.source.GetId()
+	l.reading, l.logFocus = row.source.GetId(), false
+	l.logFilter, l.pattern = filterState{}, ""
+
+	return l.restart(s)
+}
+
+// restart drops the lines held and reads the source over again with the pattern the block is read with.
+func (l *logsScreen) restart(s panelShared) tea.Cmd {
 	l.generation++
 	l.viewer.Reset()
-	l.cursor, l.read, l.err, l.logFocus = "", false, nil, false
+	l.cursor, l.read, l.err = "", false, nil
 
 	return l.readCmd(s)
+}
+
+// openLogFilter hands the keys to the prompt at the foot of the log.
+func (l *logsScreen) openLogFilter() {
+	l.logFilter.typing = true
+	l.logFilter.mode = filterModeFilter
+}
+
+// updateLogFilter is the prompt at the foot of the log taking keys, reading the log over each time
+// the pattern changes into one that compiles.
+func (l *logsScreen) updateLogFilter(h host, s panelShared, key tea.KeyPressMsg) tea.Cmd {
+	if key.String() == "ctrl+c" {
+		return h.hide()
+	}
+
+	if !l.logFilter.takeKey(key) {
+		return nil
+	}
+	l.logFilter.mode = filterModeFilter
+
+	return l.narrow(s)
+}
+
+// narrow reads the log over with the pattern typed, unless it is broken or already the one read with.
+func (l *logsScreen) narrow(s panelShared) tea.Cmd {
+	if l.logFilter.broken {
+		return nil
+	}
+
+	pattern := ""
+	if l.logFilter.pattern != nil {
+		pattern = l.logFilter.pattern.String()
+	}
+	if pattern == l.pattern {
+		return nil
+	}
+
+	l.pattern = pattern
+
+	return l.restart(s)
+}
+
+// clearLogFilter drops the pattern standing over the log and reads it whole again.
+func (l *logsScreen) clearLogFilter(s panelShared) tea.Cmd {
+	l.logFilter.abandon()
+	l.logFilter.mode = filterModeFilter
+
+	return l.narrow(s)
 }
 
 func (l *logsScreen) update(h host, s panelShared, msg tea.Msg) tea.Cmd {
 	key, ok := msg.(tea.KeyPressMsg)
 	if !ok || l.viewer == nil {
 		return nil
+	}
+
+	if l.logFilter.typing {
+		return l.updateLogFilter(h, s, key)
 	}
 
 	if l.isLogFocused(s) {
@@ -307,8 +376,37 @@ func (l *logsScreen) lines(s panelShared, pane listPane) []string {
 	})
 }
 
-// block is the log drawn at the width and height of the block beside the sidebar.
+// block is the log drawn at the width and height of the block beside the sidebar, its lines
+// pinned to the prompt at its foot.
 func (l *logsScreen) block(m model, width int) []string {
+	split, ok := m.screenColumnSplit()
+	if !ok {
+		return nil
+	}
+
+	height := max(split.rows-1, 1)
+	rows := l.logRows(m, width, height)
+	if l.read && l.viewer.Len() > 0 {
+		rows = append(make([]string, max(height-len(rows), 0)), rows...)
+	}
+	for len(rows) < height {
+		rows = append(rows, "")
+	}
+
+	return append(rows, fitRow(blankCursor+l.logFilterLine(m.glyphs), width))
+}
+
+// logFilterLine is the prompt at the foot of the log, gray while it does not hold the keys.
+func (l *logsScreen) logFilterLine(glyphs glyph.Set) string {
+	if l.logFilter.typing {
+		return l.logFilter.line(paint.Panel, glyphs)
+	}
+
+	return dimStyle.Render(filterModeFilter.glyph(glyphs) + " " + l.logFilter.query)
+}
+
+// logRows is the lines of the log drawn in height rows, or what stands in for them.
+func (l *logsScreen) logRows(m model, width, height int) []string {
 	row, hovered := rowAt(l.rows(m.shared()), l.rowCursor.cursor)
 
 	switch {
@@ -318,18 +416,15 @@ func (l *logsScreen) block(m model, width int) []string {
 		return []string{dimStyle.Render("could not read: " + errui.GetReason(l.err))}
 	case !l.read:
 		return []string{dimStyle.Render("reading…")}
+	case l.viewer.Len() == 0 && l.pattern != "":
+		return []string{dimStyle.Render(fmt.Sprintf("Nothing matching in the last %d MB.", logread.ScanBudget>>20))}
 	case l.viewer.Len() == 0 && row.source.Run != nil:
 		return []string{dimStyle.Render("This run wrote nothing.")}
 	case l.viewer.Len() == 0:
 		return []string{dimStyle.Render(fmt.Sprintf("Nothing about this agent in the last %d MB of the log.", logread.ScanBudget>>20))}
 	}
 
-	split, ok := m.screenColumnSplit()
-	if !ok {
-		return nil
-	}
-
-	rows, cursor := l.viewer.Rows(width-len(blankCursor), split.rows)
+	rows, cursor := l.viewer.Rows(width-len(blankCursor), height)
 	focused := l.isLogFocused(m.shared())
 	for i, row := range rows {
 		prefix := blankCursor
@@ -360,7 +455,7 @@ func (l *logsScreen) doesDrawFromListing() bool {
 }
 
 func (l *logsScreen) takesEveryKey() bool {
-	return false
+	return l.logFilter.typing
 }
 
 func (l *logsScreen) column() columnSpec {
@@ -383,7 +478,15 @@ func (l *logsScreen) isLogDrawn(s panelShared) bool {
 
 // isLogFocused reports whether the log holds the keys.
 func (l *logsScreen) isLogFocused(s panelShared) bool {
-	return l.logFocus && l.isLogDrawn(s) && s.draw.isListFocused()
+	if !l.logFocus || !s.draw.isListFocused() {
+		return false
+	}
+
+	if _, ok := s.draw.screenColumnSplit(); ok && l.logFilter.isStanding() {
+		return true
+	}
+
+	return l.isLogDrawn(s)
 }
 
 func (l *logsScreen) doesScrollColumn(s panelShared) bool {

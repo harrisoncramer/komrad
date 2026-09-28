@@ -197,3 +197,34 @@ func TestTailMove(t *testing.T) {
 		})
 	}
 }
+
+// TestTailCurrent covers the line under the cursor, and none while nothing is held.
+func TestTailCurrent(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		lines  []string
+		move   int
+		want   string
+		wantOK bool
+	}{
+		{name: "nothing held", want: ""},
+		{name: "the newest line while following", lines: numbered(1, 3), want: "line 3", wantOK: true},
+		{name: "the line the cursor moved back to", lines: numbered(1, 3), move: -2, want: "line 1", wantOK: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			viewer := logview.NewTail(100)
+			viewer.Append(tt.lines)
+			viewer.Move(tt.move)
+
+			got, ok := viewer.Current()
+			assert.Equal(t, tt.want, got)
+			assert.Equal(t, tt.wantOK, ok)
+		})
+	}
+}

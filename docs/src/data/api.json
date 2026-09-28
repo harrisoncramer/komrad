@@ -6305,6 +6305,18 @@
             "at most 256 characters"
           ],
           "description": "Which of the agent's log sources to read, as list_agent_log_sources names them. The service log when unset. A script run's source reads exactly one agent."
+        },
+        {
+          "name": "pattern",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [
+            "at most 256 characters"
+          ],
+          "description": "A regular expression in Go syntax that a line must match to be answered. Every line when unset. The newest lines are searched within the last 64 MB of the source."
         }
       ]
     },

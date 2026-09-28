@@ -27,6 +27,8 @@ type LogViewer interface {
 	// Rows is the lines wrapped to width, as many rows of them as fit in height with the cursor's
 	// line among them, and the row the cursor's line starts on.
 	Rows(width, height int) ([]string, int)
+	// Current is the line the cursor is on, and false when no line is held.
+	Current() (string, bool)
 }
 
 type tail struct {
@@ -112,6 +114,14 @@ func (t *tail) Rows(width, height int) ([]string, int) {
 	}
 
 	return rows[span.Cut:], span.CursorRow
+}
+
+func (t *tail) Current() (string, bool) {
+	if len(t.lines) == 0 {
+		return "", false
+	}
+
+	return t.lines[len(t.lines)-1-t.cursor], true
 }
 
 // wrap is one held line broken into the rows it takes at width.

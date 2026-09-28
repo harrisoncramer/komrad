@@ -357,7 +357,9 @@ type ReadAgentLogsRequest struct {
 	// The most lines to answer. 200 when unset.
 	Limit int32 `protobuf:"varint,3,opt,name=limit,proto3" json:"limit,omitempty"`
 	// Which of the agent's log sources to read, as list_agent_log_sources names them. The service log when unset. A script run's source reads exactly one agent.
-	Source        string `protobuf:"bytes,4,opt,name=source,proto3" json:"source,omitempty"`
+	Source string `protobuf:"bytes,4,opt,name=source,proto3" json:"source,omitempty"`
+	// A regular expression in Go syntax that a line must match to be answered. Every line when unset. The newest lines are searched within the last 64 MB of the source.
+	Pattern       string `protobuf:"bytes,5,opt,name=pattern,proto3" json:"pattern,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -416,6 +418,13 @@ func (x *ReadAgentLogsRequest) GetLimit() int32 {
 func (x *ReadAgentLogsRequest) GetSource() string {
 	if x != nil {
 		return x.Source
+	}
+	return ""
+}
+
+func (x *ReadAgentLogsRequest) GetPattern() string {
+	if x != nil {
+		return x.Pattern
 	}
 	return ""
 }
@@ -670,14 +679,15 @@ const file_log_v1_log_proto_rawDesc = "" +
 	"\x05limit\x18\x01 \x01(\x05B\n" +
 	"\xbaH\a\x1a\x05\x18\xc8\x01(\x00R\x05limit\"H\n" +
 	"\x18ListRecentTracesResponse\x12,\n" +
-	"\x06traces\x18\x01 \x03(\v2\x14.log.v1.TraceSummaryR\x06traces\"\xa1\x01\n" +
+	"\x06traces\x18\x01 \x03(\v2\x14.log.v1.TraceSummaryR\x06traces\"\xc5\x01\n" +
 	"\x14ReadAgentLogsRequest\x12-\n" +
 	"\tagent_ids\x18\x01 \x03(\tB\x10\xbaH\r\x92\x01\n" +
 	"\b\x01\x10d\"\x04r\x02\x10\x01R\bagentIds\x12\x16\n" +
 	"\x06cursor\x18\x02 \x01(\tR\x06cursor\x12 \n" +
 	"\x05limit\x18\x03 \x01(\x05B\n" +
 	"\xbaH\a\x1a\x05\x18\xe8\a(\x00R\x05limit\x12 \n" +
-	"\x06source\x18\x04 \x01(\tB\b\xbaH\x05r\x03\x18\x80\x02R\x06source\"o\n" +
+	"\x06source\x18\x04 \x01(\tB\b\xbaH\x05r\x03\x18\x80\x02R\x06source\x12\"\n" +
+	"\apattern\x18\x05 \x01(\tB\b\xbaH\x05r\x03\x18\x80\x02R\apattern\"o\n" +
 	"\x15ReadAgentLogsResponse\x12\x14\n" +
 	"\x05lines\x18\x01 \x03(\tR\x05lines\x12\x16\n" +
 	"\x06cursor\x18\x02 \x01(\tR\x06cursor\x12\x14\n" +

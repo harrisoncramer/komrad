@@ -534,16 +534,11 @@ func (a api) writeDocument(item documentItem, version int32, body string) error 
 	})
 }
 
-func (a api) readAgentLogs(agentID, source, cursor string, limit int32) (*logv1.ReadAgentLogsResponse, error) {
+func (a api) readAgentLogs(req *logv1.ReadAgentLogsRequest) (*logv1.ReadAgentLogsResponse, error) {
 	return call(requestTimeout, func(ctx context.Context) (*logv1.ReadAgentLogsResponse, error) {
-		resp, err := a.logs.ReadAgentLogs(ctx, connect.NewRequest(&logv1.ReadAgentLogsRequest{
-			AgentIds: []string{agentID},
-			Cursor:   cursor,
-			Limit:    limit,
-			Source:   source,
-		}))
+		resp, err := a.logs.ReadAgentLogs(ctx, connect.NewRequest(req))
 		if err != nil {
-			return nil, fmt.Errorf("failed to read the %s logs of agent %q: %w", source, agentID, err)
+			return nil, fmt.Errorf("failed to read the %s logs of agents %v: %w", req.GetSource(), req.GetAgentIds(), err)
 		}
 
 		return resp.Msg, nil

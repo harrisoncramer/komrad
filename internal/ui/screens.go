@@ -217,6 +217,9 @@ type host interface {
 	beginFilter()
 	clearFilter()
 	jumpToFilterMatch(pressed string) tea.Cmd
+
+	// The clipboard is the root's.
+	copyCmd(value string) tea.Cmd
 }
 
 var _ host = (*model)(nil)
