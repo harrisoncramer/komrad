@@ -42,39 +42,35 @@ about the merits of the two editors, for a few rounds.
 
 ## How mail arrives
 
-Mail never interrupts an agent mid-turn. An agent picks up its mail when it finishes a turn. An idle agent is not finishing turns, so komrad types a short note into its terminal saying mail is waiting, and repeats it until the mail is read. It never types over something you are halfway through writing.
+Mail never interrupts an agent mid-turn. If an agent is running when mail is ready, it'll read it when it finishes it's turn. If an agent is idle when the mail arrives, komrad will "nudge" it to check it's mail.
 
-Because mail arrives when a turn ends, an agent cannot wait for a reply inside a turn. Agents are told to end their turn and let the reply come to them.
+Agents don't wait for replies to mail; it's an asynchronous communication mechanism. They'll be told to check their own mail later, when mail arrives.
 
-Mail unread past <Setting path="mail.delivery_deadline" /> expires. You can read any agent's mail from the CLI or over MCP.
+## Limits and Expiry
 
-Within a group, an implementer [agent](../agents/#agents-that-work-together) can mail its parent and its siblings, and nobody else. An implementer outside that family cannot mail it.
-
-## Conversation limits
+Implementer [agents](../agents/#agents-that-work-together) can mail their parent and siblings, and nobody else. Orchestrators can mail other orchestrators. Mail unread past <Setting path="mail.delivery_deadline" /> expires.
 
 You can limit how much mail two agents exchange by setting <Setting path="mail.max_exchange" />. It exists to stop two agents looping on each other forever. When the limit stops a message, the sender gets an error and the other agent is told, so it does not wait for a reply that will never come. Your own mail never counts.
 
-## What komrad tells an agent
+## Events and Mail
 
 Komrad also mails an agent itself when something changes that the agent should hear about.
 
 | What changed                                                                                                               | Who is told                              |
 | -------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
-| A pull request's checks failed, it conflicts with or fell behind its base, or it was approved, sent back, merged or closed | every agent on the pull request's branch |
-| You wrote or edited a [document](../documents/) in the panel                                                               | the agent that owns it                   |
-| Komrad rebased an agent's worktree                                                                                         | that agent                               |
-| A [review](../reviews/) of an agent's work was released                                                                    | the agent under review                   |
-| An agent answered in a review of its own work                                                                              | its reviewer, which is also woken        |
+| The pull request's status changed: checks failed, it conflicts, etc.                                                       | Every agent on the pull request's branch |
+| You wrote or edited a [document](../documents/) in the panel                                                               | The agent that owns it                   |
+| Komrad rebased an agent's worktree                                                                                         | That agent                               |
+| A [local review](../reviews/) of an agent's work was released                                                              | The agent under review                   |
+| An agent answered a local review of its own work                                                                           | Its reviewer, which is also woken        |
 
-An agent holds at most one unread piece of mail from komrad about any one thing. If a pull request's checks fail and then its branch conflicts before the agent has read anything, the agent gets one piece of mail saying both. A later change rewrites the unread mail rather than adding more. Once the agent has read it, the next change starts a new one.
-
-The mail says where things stand now, not what happened along the way. If checks fail and then pass again before the agent reads it, the mail says the checks are passing.
-
-Child agents sit on their parent's branch but are never told about its pull request. Not every change sends mail. Checks passing or a review going back to pending is not news on its own. Those only update mail the agent already has waiting.
+An agent holds at most one unread piece of mail from komrad about any one thing. If a pull request's checks fail and then its branch conflicts before the agent has read anything, the agent gets one piece of mail saying both. Later changes rewrites the unread mail rather than adding more. Once the agent has read it's mail, the next change starts a new one.
 
 ## How a change becomes mail
 
 Komrad records each change as an _event_ in the same database transaction as the change itself. If you save a document, the save and its event commit together. If the save fails, there is no event. If komrad stops a moment after the save, the event is still there when it comes back.
+
+This is a pattern called a _transactional outbox_. Komrad keeps its events in the same job queue it uses for other background work, and the mail table is where the messages land.
 
 ```
   one transaction
@@ -91,8 +87,7 @@ Komrad records each change as an _event_ in the same database transaction as the
   delivered the same way as any other mail
 ```
 
-A background worker picks up each event and hands it to the part of komrad that owns that kind of change. That part decides who to tell and what to say. Writing the mail and marking the event done happen together, so an event is never half handled.
+Background workers pick up each event and execute them.
 
-If the mail cannot be written yet because the agent's mailbox is full, the event is tried again later, with growing gaps, for about three weeks. The change itself is never held up. Saving a document or releasing a review works even when the agent is not keeping up with its mail. Mail for an archived agent is dropped.
+If the mail cannot be written yet because the agent's mailbox is full, the event is tried again later. The change itself is never held up. Saving a document or releasing a review works even when the agent is not keeping up with its mail. Mail for an archived agent is dropped.
 
-This is a pattern called a _transactional outbox_. Komrad keeps its events in the same job queue it uses for other background work, and the mail table is where the messages land.
