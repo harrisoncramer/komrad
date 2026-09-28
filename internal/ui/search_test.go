@@ -36,6 +36,56 @@ type searchServer struct {
 	refusals    map[string]error
 }
 
+// TestSearchQualifiers covers where the search lists the qualifiers it takes.
+func TestSearchQualifiers(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		query string
+		press []string
+		want  bool
+	}{
+		{
+			name:  "a query with the legend folded leaves them off",
+			query: "ledger",
+			press: []string{"enter"},
+		},
+		{
+			name: "an empty query lists them",
+			want: true,
+		},
+		{
+			name:  "the expanded legend lists them under a query",
+			query: "ledger",
+			press: []string{"enter", "?"},
+			want:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			harness := openSearch(t, openSearchParams{
+				server: newSearchServer(newTurnHit("a2", "payouts", "ledger")),
+				query:  tt.query,
+				rows:   buildSearchable(),
+			})
+			harness.press(tt.press...)
+
+			frame := harness.readFrame()
+			for _, qualifier := range []string{"from:agent", "since:3d", "sort:new"} {
+				if tt.want {
+					assert.Contains(t, frame, qualifier)
+				} else {
+					assert.NotContains(t, frame, qualifier)
+				}
+			}
+		})
+	}
+}
+
 // TestSearchQuery covers the query line taking every key typed into it.
 func TestSearchQuery(t *testing.T) {
 	t.Parallel()

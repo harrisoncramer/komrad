@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"komrad/internal/searchsyntax"
 	transcriptstore "komrad/internal/store/transcript"
 	"komrad/lib/xptr"
 
@@ -161,6 +162,22 @@ func TestParseQuery(t *testing.T) {
 
 			require.NoError(t, err)
 			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+// TestParseQueryKnowsEveryListedQualifier pins the list the panel shows to the qualifiers the parser reads.
+func TestParseQueryKnowsEveryListedQualifier(t *testing.T) {
+	for _, listed := range searchsyntax.Qualifiers {
+		t.Run(listed.Syntax, func(t *testing.T) {
+			got, err := ParseQuery(listed.Syntax, time.Now())
+			if err != nil {
+				require.ErrorIs(t, err, ErrBadQualifier)
+
+				return
+			}
+
+			assert.Empty(t, got.Words)
 		})
 	}
 }

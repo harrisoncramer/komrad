@@ -12,6 +12,7 @@ import (
 	"komrad/internal/client"
 	"komrad/internal/errui"
 	"komrad/internal/glyph"
+	"komrad/internal/searchsyntax"
 	"komrad/internal/ui/cursor"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/panel"
@@ -721,7 +722,16 @@ func (w *searchScreen) sidebarView(s panelShared) string {
 		query += palette.Cursor().Render(glyph.TextCursor)
 	}
 	header := s.draw.viewsBar() + query + "\n\n"
-	help := s.draw.renderHelp(w.help(s), header)
+
+	blank := strings.TrimSpace(w.query) == ""
+	var qualifiers string
+	if blank || s.chrome.helpExpanded {
+		qualifiers = qualifierLegend(s.pane)
+	}
+	help := s.draw.renderHelp(w.help(s), header, qualifiers)
+	if !blank {
+		help = qualifiers + help
+	}
 
 	if w.problem.reason != "" {
 		tone := paint.ToneDanger
@@ -733,8 +743,8 @@ func (w *searchScreen) sidebarView(s panelShared) string {
 
 	rows := w.rows(s)
 	switch {
-	case strings.TrimSpace(w.query) == "":
-		return header + dimStyle.Render("type to search transcripts") + "\n" + help
+	case blank:
+		return header + qualifiers + help
 	case len(rows) == 0 && w.problem.reason != "":
 		return header + help
 	case len(rows) == 0:
@@ -749,6 +759,15 @@ func (w *searchScreen) sidebarView(s panelShared) string {
 	})
 
 	return header + window + help
+}
+
+// qualifierLegend lays out the qualifiers a search takes the way the legend lays out keys.
+func qualifierLegend(width int) string {
+	rows := xslice.Map(searchsyntax.Qualifiers, func(q searchsyntax.Qualifier) key.Binding {
+		return key.NewBinding(key.WithKeys(q.Syntax), key.WithHelp(q.Syntax, q.Meaning))
+	})
+
+	return fitLegend(helpView(0).FullHelpView([][]key.Binding{rows}), width) + "\n\n"
 }
 
 // help is the search's legend: the query line's two keys while it is typed at, and the list's
