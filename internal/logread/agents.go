@@ -13,8 +13,8 @@ import (
 	"komrad/internal/logging"
 )
 
-// RecentBudget is how far back from the end of the log a read of the newest lines looks.
-const RecentBudget = 64 << 20
+// ScanBudget is how much of the log one read of the lines about some agents looks through.
+const ScanBudget = 64 << 20
 
 // readChunk is how much of the log one read takes in at a time.
 const readChunk = 1 << 20
@@ -22,11 +22,12 @@ const readChunk = 1 << 20
 // agentKeys are the fields a line names an agent in.
 var agentKeys = []string{logging.AgentID, logging.TargetAgentID, logging.ScriptAgentID}
 
-// Window is a run of lines about some agents and the offset just past the last line read.
+// Window is a run of lines about some agents, the offset just past the last line read, and whether more remain past it.
 type Window struct {
 	Lines  []string
 	Offset int64
 	Reset  bool
+	More   bool
 }
 
 // Recent is the newest lines about any of the agents, oldest first.
@@ -55,28 +56,43 @@ func (r *Reader) Since(agentIDs []string, offset int64, limit int) (Window, erro
 		return window, err
 	}
 
-	data := make([]byte, min(int64(r.chunk), size-offset))
-	if _, err := file.ReadAt(data, offset); err != nil && !errors.Is(err, io.EOF) {
-		return Window{}, fmt.Errorf("failed to read the log at %s: %w", r.path, err)
-	}
-
-	end := bytes.LastIndexByte(data, '\n')
-	if end < 0 {
-		if len(data) == r.chunk {
-			return Window{Offset: offset + int64(len(data))}, nil
-		}
-
-		return Window{Offset: offset}, nil
-	}
-
 	window := Window{Offset: offset}
-	for line := range bytes.SplitAfterSeq(data[:end+1], []byte{'\n'}) {
-		window.Offset += int64(len(line))
-		if isAbout(line, agentIDs) {
-			window.Lines = append(window.Lines, string(bytes.TrimRight(line, "\n")))
-		}
-		if len(window.Lines) == limit {
+	partial := []byte{}
+	pos := offset
+	for pos < size && len(window.Lines) < limit {
+		if pos-offset >= int64(r.budget) {
+			window.More = true
+			if window.Offset == offset {
+				window.Offset = pos
+			}
+
 			break
+		}
+
+		n := min(int64(r.chunk), size-pos)
+		data := make([]byte, n)
+		if _, err := file.ReadAt(data, pos); err != nil && !errors.Is(err, io.EOF) {
+			return Window{}, fmt.Errorf("failed to read the log at %s: %w", r.path, err)
+		}
+		pos += n
+
+		data = append(partial, data...)
+		end := bytes.LastIndexByte(data, '\n')
+		if end < 0 {
+			partial = data
+			continue
+		}
+		partial = slices.Clone(data[end+1:])
+
+		for line := range bytes.SplitAfterSeq(data[:end+1], []byte{'\n'}) {
+			window.Offset += int64(len(line))
+			if isAbout(line, agentIDs) {
+				window.Lines = append(window.Lines, string(bytes.TrimRight(line, "\n")))
+			}
+			if len(window.Lines) == limit {
+				window.More = window.Offset < size
+				break
+			}
 		}
 	}
 

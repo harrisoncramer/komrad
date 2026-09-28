@@ -26,7 +26,7 @@ type fakeLogReader struct {
 	reads     []agentRead
 }
 
-// agentRead is one read of agent logs as the fake saw it, with an offset of -1 for the newest.
+// agentRead is one read of agent logs as the fake saw it.
 type agentRead struct {
 	ids    []string
 	offset int64
@@ -177,9 +177,9 @@ func TestReadAgentLogs(t *testing.T) {
 		{
 			name:     "a cursor reads from where it left off",
 			req:      &logv1.ReadAgentLogsRequest{AgentIds: []string{"a1"}, Cursor: "42", Limit: 5},
-			window:   logread.Window{Lines: []string{"three"}, Offset: 90},
+			window:   logread.Window{Lines: []string{"three"}, Offset: 90, More: true},
 			wantRead: agentRead{ids: []string{"a1"}, offset: 42, limit: 5},
-			want:     &logv1.ReadAgentLogsResponse{Lines: []string{"three"}, Cursor: "90"},
+			want:     &logv1.ReadAgentLogsResponse{Lines: []string{"three"}, Cursor: "90", More: true},
 		},
 		{
 			name:     "a log that started over says so",

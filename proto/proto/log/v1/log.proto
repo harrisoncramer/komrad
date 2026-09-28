@@ -81,6 +81,8 @@ message ReadAgentLogsResponse {
   string cursor = 2;
   // Whether the log started over since the cursor, so the lines held before are gone.
   bool reset = 3;
+  // Whether more lines remain past the cursor, so reading again at once returns them.
+  bool more = 4;
 }
 
 // LogService reads the service's own log back, by the trace id its lines carry.
@@ -111,7 +113,7 @@ service LogService {
       cli: true
       mcp: true
       name: "read_agent_logs"
-      description: "Read what the service logged about one or more agents, such as every child of yours. Without a cursor it answers the newest lines. Pass back the cursor it answered to read only what was written since."
+      description: "Read what the service logged about one or more agents, such as every child of yours. Without a cursor it answers the newest lines. Pass back the cursor it answered to read only what was written since, and read again at once while it answers more."
       roles: [ROLE_ORCHESTRATOR]
     };
   }

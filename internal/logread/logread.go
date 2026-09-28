@@ -52,7 +52,7 @@ type Reader struct {
 
 // New builds a reader over the log at path.
 func New(path string) *Reader {
-	return &Reader{path: path, chunk: readChunk, budget: RecentBudget}
+	return &Reader{path: path, chunk: readChunk, budget: ScanBudget}
 }
 
 // Lines is every line written under one trace id, in the order the log holds them.

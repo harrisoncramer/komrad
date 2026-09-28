@@ -175,10 +175,12 @@ func TestSinceStopsAtTheLimit(t *testing.T) {
 	head, err := reader.Since([]string{"a1"}, 0, 2)
 	require.NoError(t, err)
 	assert.Equal(t, lines[:2], head.Lines)
+	assert.True(t, head.More)
 
 	rest, err := reader.Since([]string{"a1"}, head.Offset, 2)
 	require.NoError(t, err)
 	assert.Equal(t, lines[2:], rest.Lines)
+	assert.False(t, rest.More)
 }
 
 // TestSinceAfterATruncation covers the log starting over under a caller holding an offset.
@@ -195,18 +197,42 @@ func TestSinceAfterATruncation(t *testing.T) {
 	assert.Equal(t, int64(len(line)+1), window.Offset)
 }
 
-// TestSinceSkipsALineLongerThanARead covers a line no read can finish, which would otherwise
-// hold the offset in place forever.
-func TestSinceSkipsALineLongerThanARead(t *testing.T) {
+// TestSinceReadsPastOneChunk covers a backlog, and a line, longer than one read of the file.
+func TestSinceReadsPastOneChunk(t *testing.T) {
 	t.Parallel()
 
-	reader := New(writeLog(t, agentLine(1, "komrad.agent.id", "a1")))
+	lines := []string{
+		agentLine(1, "komrad.agent.id", "a1"),
+		agentLine(2, "komrad.agent.id", "b2"),
+		agentLine(3, "komrad.agent.id", "a1"),
+	}
+	path := writeLog(t, lines...)
+	reader := New(path)
 	reader.chunk = 8
 
 	window, err := reader.Since([]string{"a1"}, 0, 10)
 	require.NoError(t, err)
+	assert.Equal(t, []string{lines[0], lines[2]}, window.Lines)
+	assert.False(t, window.More)
+
+	info, err := os.Stat(path)
+	require.NoError(t, err)
+	assert.Equal(t, info.Size(), window.Offset)
+}
+
+// TestSinceSkipsALineLongerThanTheBudget covers a line no read can finish.
+func TestSinceSkipsALineLongerThanTheBudget(t *testing.T) {
+	t.Parallel()
+
+	reader := New(writeLog(t, agentLine(1, "komrad.agent.id", "a1")))
+	reader.chunk = 8
+	reader.budget = 16
+
+	window, err := reader.Since([]string{"a1"}, 0, 10)
+	require.NoError(t, err)
 	assert.Empty(t, window.Lines)
-	assert.Equal(t, int64(8), window.Offset)
+	assert.True(t, window.More)
+	assert.Equal(t, int64(16), window.Offset)
 }
 
 // TestAgentLogsWithoutALog covers asking before the service has ever written anything.

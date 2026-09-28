@@ -1229,7 +1229,7 @@
             "orchestrator"
           ],
           "summary": "Read what the service logged about one or more agents, such as every child of yours.",
-          "description": "Read what the service logged about one or more agents, such as every child of yours. Without a cursor it answers the newest lines. Pass back the cursor it answered to read only what was written since.",
+          "description": "Read what the service logged about one or more agents, such as every child of yours. Without a cursor it answers the newest lines. Pass back the cursor it answered to read only what was written since, and read again at once while it answers more.",
           "readOnly": true,
           "idempotent": true,
           "destructive": false,
@@ -6241,6 +6241,16 @@
           "oneof": "",
           "rules": [],
           "description": "Whether the log started over since the cursor, so the lines held before are gone."
+        },
+        {
+          "name": "more",
+          "type": "bool",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "Whether more lines remain past the cursor, so reading again at once returns them."
         }
       ]
     },

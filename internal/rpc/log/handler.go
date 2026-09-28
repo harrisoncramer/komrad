@@ -110,6 +110,7 @@ func (s *Handler) ReadAgentLogs(_ context.Context, req *logv1.ReadAgentLogsReque
 		Lines:  window.Lines,
 		Cursor: strconv.FormatInt(window.Offset, 10),
 		Reset_: window.Reset,
+		More:   window.More,
 	}, nil
 }
 

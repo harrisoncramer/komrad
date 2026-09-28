@@ -418,7 +418,9 @@ type ReadAgentLogsResponse struct {
 	// What to pass back to read only the lines written after these.
 	Cursor string `protobuf:"bytes,2,opt,name=cursor,proto3" json:"cursor,omitempty"`
 	// Whether the log started over since the cursor, so the lines held before are gone.
-	Reset_        bool `protobuf:"varint,3,opt,name=reset,proto3" json:"reset,omitempty"`
+	Reset_ bool `protobuf:"varint,3,opt,name=reset,proto3" json:"reset,omitempty"`
+	// Whether more lines remain past the cursor, so reading again at once returns them.
+	More          bool `protobuf:"varint,4,opt,name=more,proto3" json:"more,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -474,6 +476,13 @@ func (x *ReadAgentLogsResponse) GetReset_() bool {
 	return false
 }
 
+func (x *ReadAgentLogsResponse) GetMore() bool {
+	if x != nil {
+		return x.More
+	}
+	return false
+}
+
 var File_log_v1_log_proto protoreflect.FileDescriptor
 
 const file_log_v1_log_proto_rawDesc = "" +
@@ -505,16 +514,17 @@ const file_log_v1_log_proto_rawDesc = "" +
 	"\b\x01\x10d\"\x04r\x02\x10\x01R\bagentIds\x12\x16\n" +
 	"\x06cursor\x18\x02 \x01(\tR\x06cursor\x12 \n" +
 	"\x05limit\x18\x03 \x01(\x05B\n" +
-	"\xbaH\a\x1a\x05\x18\xe8\a(\x00R\x05limit\"[\n" +
+	"\xbaH\a\x1a\x05\x18\xe8\a(\x00R\x05limit\"o\n" +
 	"\x15ReadAgentLogsResponse\x12\x14\n" +
 	"\x05lines\x18\x01 \x03(\tR\x05lines\x12\x16\n" +
 	"\x06cursor\x18\x02 \x01(\tR\x06cursor\x12\x14\n" +
-	"\x05reset\x18\x03 \x01(\bR\x05reset2\xe9\b\n" +
+	"\x05reset\x18\x03 \x01(\bR\x05reset\x12\x12\n" +
+	"\x04more\x18\x04 \x01(\bR\x04more2\x97\t\n" +
 	"\n" +
 	"LogService\x12\xae\x03\n" +
 	"\vGetLogLines\x12\x1a.log.v1.GetLogLinesRequest\x1a\x1b.log.v1.GetLogLinesResponse\"\xe5\x02\x9a\xb5\x18\xdd\x02\b\x01\x10\x01\x1a\rget_log_lines\"\xc4\x02Read every log line the service wrote under one trace id, in order. A trace id covers one request end to end or one pass of a background loop; the service answers it on any call that failed, and it is on every line in the log. This is how to find out what happened behind a failure, on whichever engine the call was made to.B\x01\x03\x90\x02\x01\x12\xec\x02\n" +
-	"\x10ListRecentTraces\x12\x1f.log.v1.ListRecentTracesRequest\x1a .log.v1.ListRecentTracesResponse\"\x94\x02\x9a\xb5\x18\x8c\x02\b\x01\x10\x01\x1a\x12list_recent_traces\"\xee\x01List the traces the service's log ends with, oldest first, each with when it started, what it was about and how many lines it holds. Start here when you know what you did but not what it was called, then read its lines with get_log_lines.B\x01\x03\x90\x02\x01\x12\xba\x02\n" +
-	"\rReadAgentLogs\x12\x1c.log.v1.ReadAgentLogsRequest\x1a\x1d.log.v1.ReadAgentLogsResponse\"\xeb\x01\x9a\xb5\x18\xe3\x01\b\x01\x10\x01\x1a\x0fread_agent_logs\"\xc8\x01Read what the service logged about one or more agents, such as every child of yours. Without a cursor it answers the newest lines. Pass back the cursor it answered to read only what was written since.B\x01\x03\x90\x02\x01B\x1fZ\x1dkomrad/proto/gen/log/v1;logv1b\x06proto3"
+	"\x10ListRecentTraces\x12\x1f.log.v1.ListRecentTracesRequest\x1a .log.v1.ListRecentTracesResponse\"\x94\x02\x9a\xb5\x18\x8c\x02\b\x01\x10\x01\x1a\x12list_recent_traces\"\xee\x01List the traces the service's log ends with, oldest first, each with when it started, what it was about and how many lines it holds. Start here when you know what you did but not what it was called, then read its lines with get_log_lines.B\x01\x03\x90\x02\x01\x12\xe8\x02\n" +
+	"\rReadAgentLogs\x12\x1c.log.v1.ReadAgentLogsRequest\x1a\x1d.log.v1.ReadAgentLogsResponse\"\x99\x02\x9a\xb5\x18\x91\x02\b\x01\x10\x01\x1a\x0fread_agent_logs\"\xf6\x01Read what the service logged about one or more agents, such as every child of yours. Without a cursor it answers the newest lines. Pass back the cursor it answered to read only what was written since, and read again at once while it answers more.B\x01\x03\x90\x02\x01B\x1fZ\x1dkomrad/proto/gen/log/v1;logv1b\x06proto3"
 
 var (
 	file_log_v1_log_proto_rawDescOnce sync.Once

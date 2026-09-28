@@ -93,10 +93,9 @@ func (m *model) applyLogsRead(msg logsReadMsg) tea.Cmd {
 		l.viewer.Reset()
 	}
 	l.viewer.Append(msg.resp.GetLines())
-	caughtUp := l.cursor == "" || len(msg.resp.GetLines()) < logsReadLimit
 	l.cursor, l.read = msg.resp.GetCursor(), true
 
-	if !caughtUp {
+	if msg.resp.GetMore() {
 		return l.readCmd(m.shared())
 	}
 
@@ -179,7 +178,7 @@ func (l *logsScreen) rows(m model, width int) []string {
 	case l.viewer == nil || !l.read:
 		return []string{dimStyle.Render("reading…")}
 	case l.viewer.Len() == 0:
-		return []string{dimStyle.Render(fmt.Sprintf("Nothing about this agent in the last %d MB of the log.", logread.RecentBudget>>20))}
+		return []string{dimStyle.Render(fmt.Sprintf("Nothing about this agent in the last %d MB of the log.", logread.ScanBudget>>20))}
 	}
 
 	split, ok := m.screenColumnSplit()

@@ -2,6 +2,7 @@ package ui_test
 
 import (
 	"errors"
+	"slices"
 	"testing"
 
 	logv1 "komrad/proto/gen/log/v1"
@@ -116,6 +117,45 @@ func TestLogsTail(t *testing.T) {
 		stage := readStageText(harness.readFrame())
 		assert.Contains(t, stage, "fresh line")
 		assert.NotContains(t, stage, "first line")
+	})
+
+	t.Run("a read with more behind it reads again at once", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openLogs(t, logReads{
+			"":   {Lines: []string{`{"body":"first line"}`}, Cursor: "10", More: true},
+			"10": {Lines: []string{`{"body":"second line"}`}, Cursor: "20"},
+		})
+
+		harness.assertSentTo(logv1connect.LogServiceReadAgentLogsProcedure, logRead(""), logRead("10"))
+		assert.Contains(t, readStageText(harness.readFrame()), `›{"body":"second line"}`)
+	})
+
+	t.Run("a read answered after the screen was left and opened again is dropped", func(t *testing.T) {
+		t.Parallel()
+
+		read := logv1connect.LogServiceReadAgentLogsProcedure
+		harness := openAgents(t, buildSubpagesAgents()...)
+		harness.answer(read, func(req connect.AnyRequest) (connect.AnyResponse, error) {
+			sent, _ := req.Any().(*logv1.ReadAgentLogsRequest)
+			if slices.Contains(sent.GetAgentIds(), "author") {
+				return connect.NewResponse(&logv1.ReadAgentLogsResponse{Lines: []string{`{"body":"first line"}`}, Cursor: "10", More: true}), nil
+			}
+
+			return connect.NewResponse(&logv1.ReadAgentLogsResponse{Cursor: "30"}), nil
+		})
+		harness.hold(read)
+		moveToAgentRow(t, harness, "author")
+		harness.press("space", "l", "esc")
+		moveToAgentRow(t, harness, "quiet")
+		harness.press("space", "l")
+
+		harness.release(read)
+		harness.release(read)
+
+		quiet := &logv1.ReadAgentLogsRequest{AgentIds: []string{"quiet"}, Limit: 500}
+		assert.NotContains(t, readStageText(harness.readFrame()), "first line")
+		harness.assertSentTo(read, logRead(""), quiet)
 	})
 
 	t.Run("leaving the screen ends the reads", func(t *testing.T) {
