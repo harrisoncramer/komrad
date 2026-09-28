@@ -1,0 +1,12 @@
+#!/bin/sh
+#KOMRAD description="Give back the throwaway test instance a komrad checkout claimed. Does nothing in any other checkout."
+#KOMRAD timeout="2m"
+set -eu
+
+tree="$KOMRAD_AGENT_CWD"
+
+if [ ! -x "$tree/mise/tasks/_test_instance" ]; then
+	exit 0
+fi
+
+bash -c 'source "$1/mise/tasks/_test_instance" && komradslot down --root "$1"' _ "$tree"

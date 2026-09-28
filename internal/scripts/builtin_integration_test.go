@@ -1418,3 +1418,46 @@ func TestIntegrationBuiltinWorktreeCleanupKeepsAnAdoptedBranch(t *testing.T) {
 	assert.True(t, os.IsNotExist(statErr), "the worktree directory is gone")
 	assert.True(t, hasRef(t, repo, "refs/heads/someones/work"), "the branch outlives the agent that adopted it")
 }
+
+// TestIntegrationBuiltinTestInstanceDown covers giving back the throwaway instance a checkout claimed.
+func TestIntegrationBuiltinTestInstanceDown(t *testing.T) {
+	tests := []struct {
+		name      string
+		checkout  bool
+		wantFreed bool
+	}{
+		{name: "a komrad checkout gives back its instance", checkout: true, wantFreed: true},
+		{name: "any other checkout is left alone"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tree := t.TempDir()
+			freed := filepath.Join(t.TempDir(), "freed")
+
+			if tt.checkout {
+				tasks := filepath.Join(tree, "mise", "tasks")
+				require.NoError(t, os.MkdirAll(tasks, 0o755))
+				stub := fmt.Sprintf("komradslot() { printf '%%s' \"$*\" > %q; }\n", freed)
+				require.NoError(t, os.WriteFile(filepath.Join(tasks, "_test_instance"), []byte(stub), 0o755))
+			}
+
+			result, err := runBuiltin(t, "komrad-test-instance-down", worktreeEnv{
+				agentID:  "agent-a",
+				agentCwd: tree,
+				trigger:  "pre-delete",
+			})
+			require.NoError(t, err, "stderr: %s", result.Stderr)
+
+			said, err := os.ReadFile(freed)
+			if !tt.wantFreed {
+				assert.True(t, os.IsNotExist(err), "nothing was given back")
+
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, "down --root "+tree, string(said))
+		})
+	}
+}

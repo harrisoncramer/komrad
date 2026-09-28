@@ -13,6 +13,7 @@ import (
 	"komrad/config"
 	"komrad/internal/scripts"
 	"komrad/internal/store"
+	"komrad/lib/xslice"
 	"komrad/lib/xstr"
 
 	agentstore "komrad/internal/store/agent"
@@ -55,21 +56,38 @@ func (s *ScriptService) ListHooks() ([]scripts.Script, error) {
 		return nil, err
 	}
 
-	return scripts.List(dirs...)
+	listed, err := scripts.List(dirs...)
+	if err != nil {
+		return nil, err
+	}
+
+	return xslice.Filter(listed, s.isHook), nil
 }
 
 func (s *ScriptService) find(name string) (scripts.Script, error) {
 	return scripts.Find(name, s.builtinDirs()...)
 }
 
-// FindHook is the hook named name in the hooks directory.
+// FindHook is the hook named name in the hooks directory or among the hooks komrad ships.
 func (s *ScriptService) FindHook(name string) (scripts.Script, error) {
 	dirs, err := s.hookDirs()
 	if err != nil {
 		return scripts.Script{}, err
 	}
 
-	return scripts.Find(name, dirs...)
+	found, err := scripts.Find(name, dirs...)
+	if err != nil {
+		return scripts.Script{}, err
+	}
+	if !s.isHook(found) {
+		return scripts.Script{}, fmt.Errorf("%w: %q is komrad's own script", scripts.ErrScriptNotFound, name)
+	}
+
+	return found, nil
+}
+
+func (s *ScriptService) isHook(script scripts.Script) bool {
+	return script.GetDir() != s.builtinDir || !strings.HasPrefix(script.Name, "_")
 }
 
 func (s *ScriptService) hookDirs() ([]string, error) {
@@ -83,7 +101,7 @@ func (s *ScriptService) hookDirs() ([]string, error) {
 		return nil, err
 	}
 
-	return []string{dir}, nil
+	return []string{dir, s.builtinDir}, nil
 }
 
 // builtinDirs is where the scripts komrad ships live.

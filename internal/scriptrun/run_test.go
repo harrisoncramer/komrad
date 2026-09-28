@@ -20,6 +20,7 @@ import (
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/internal/storetest"
 	"komrad/lib/xptr"
+	"komrad/lib/xslice"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -42,6 +43,51 @@ func TestListHooks(t *testing.T) {
 
 	assert.Equal(t, "unrunnable", listed[1].Name)
 	assert.False(t, listed[1].Executable)
+}
+
+// TestShippedHooks covers the hooks komrad ships beside the ones a person writes.
+func TestShippedHooks(t *testing.T) {
+	hooksDir, builtinDir := t.TempDir(), t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(hooksDir, "install-deps"), []byte("#!/bin/sh\n"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(hooksDir, "_mine"), []byte("#!/bin/sh\n"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(hooksDir, "shadowed"), []byte("#!/bin/sh\n"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(builtinDir, "shadowed"), []byte("#!/bin/sh\n"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(builtinDir, "shipped"), []byte("#!/bin/sh\n"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(builtinDir, "_worktree_setup"), []byte("#!/bin/sh\n"), 0o755))
+
+	service := scriptService(t, hooksDir, &recordingRunner{})
+	service.builtinDir = builtinDir
+
+	listed, err := service.ListHooks()
+	require.NoError(t, err)
+	assert.Equal(t, []string{"_mine", "install-deps", "shadowed", "shipped"}, xslice.Map(listed, func(s scripts.Script) string { return s.Name }))
+
+	tests := []struct {
+		name    string
+		hook    string
+		wantDir string
+		wantIs  error
+	}{
+		{name: "a hook a person wrote", hook: "install-deps", wantDir: hooksDir},
+		{name: "a hook komrad ships", hook: "shipped", wantDir: builtinDir},
+		{name: "a person's hook named like a shipped one", hook: "shadowed", wantDir: hooksDir},
+		{name: "a person's underscored hook", hook: "_mine", wantDir: hooksDir},
+		{name: "komrad's own script", hook: "_worktree_setup", wantIs: scripts.ErrScriptNotFound},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			found, err := service.FindHook(tt.hook)
+			if tt.wantIs != nil {
+				require.ErrorIs(t, err, tt.wantIs)
+
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantDir, found.GetDir())
+		})
+	}
 }
 
 // TestListHooksWithNoDirectory pins that never having written one is the ordinary case rather
@@ -1446,11 +1492,13 @@ func TestConcurrencyGuardIsScopedNarrowly(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			dir := t.TempDir()
 			require.NoError(t, os.WriteFile(filepath.Join(dir, firedScript), []byte("#!/bin/sh\nsleep 0.3\n"), 0o755))
+			hooksDir := t.TempDir()
+			require.NoError(t, os.WriteFile(filepath.Join(hooksDir, firedScript), []byte("#!/bin/sh\nsleep 0.3\n"), 0o755))
 
 			st := storetest.Open(t)
 			first := seedFixture(t, st, fixtureAgent(), workflowstore.Config{Name: "backend"})
 			st.SeedAgent(t, agentstore.Agent{ID: otherAgentID, Name: "api", WorkflowID: first.WorkflowID})
-			svc := scriptServiceOver(t, scriptServiceOverParams{Stores: st, Dir: dir, Runner: scripts.NewRunner()})
+			svc := scriptServiceOver(t, scriptServiceOverParams{Stores: st, Dir: dir, HooksDir: hooksDir, Runner: scripts.NewRunner()})
 
 			require.NoError(t, fireScript(t.Context(), t, svc))
 
@@ -1482,10 +1530,11 @@ func scriptServiceWithLogsDir(t *testing.T, dir string, runner scriptRunner, log
 }
 
 type scriptServiceOverParams struct {
-	Stores  *storetest.Stores
-	Dir     string
-	Runner  scriptRunner
-	LogsDir string
+	Stores   *storetest.Stores
+	Dir      string
+	HooksDir string
+	Runner   scriptRunner
+	LogsDir  string
 }
 
 func scriptServiceOver(t *testing.T, params scriptServiceOverParams) *ScriptService {
@@ -1504,6 +1553,9 @@ func scriptServiceOver(t *testing.T, params scriptServiceOverParams) *ScriptServ
 		Load: func() (*config.Config, error) {
 			cfg := config.Defaults()
 			cfg.Hooks.Dir = params.Dir
+			if params.HooksDir != "" {
+				cfg.Hooks.Dir = params.HooksDir
+			}
 
 			return cfg, nil
 		},
