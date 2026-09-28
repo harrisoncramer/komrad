@@ -53,9 +53,10 @@ const defaultSearchLimit = 50
 
 const unknownTimeKey = -1e18
 
-var ErrSortChanged = fail.InvalidArgument("the cursor was handed out under another sort; search again from the first page")
-
 const minNearTermRunes = 3
+
+// ErrSortChanged is a cursor passed back under a sort other than the one it was handed out for.
+var ErrSortChanged = fail.InvalidArgument("the cursor was handed out under another sort; search again from the first page")
 
 type TranscriptStore struct {
 	queries *models.Queries
@@ -241,6 +242,25 @@ func (s *TranscriptStore) Delete(ctx context.Context, agentIDs []string) error {
 	return nil
 }
 
+// Sort is the order a search hands its hits back in.
+type Sort string
+
+const (
+	SortBest   Sort = "best"
+	SortNewest Sort = "new"
+	SortOldest Sort = "old"
+)
+
+// Validate refuses a sort this server does not know.
+func (s Sort) Validate() error {
+	switch s {
+	case SortBest, SortNewest, SortOldest:
+		return nil
+	}
+
+	return fmt.Errorf("sort %q is not one of best, new or old", string(s))
+}
+
 // Position locates one hit within its own section.
 type Position struct {
 	Key     float64 `json:"k"`
@@ -301,24 +321,7 @@ func (c Cursor) Validate() error {
 	return nil
 }
 
-type Sort string
-
-const (
-	SortBest   Sort = "best"
-	SortNewest Sort = "new"
-	SortOldest Sort = "old"
-)
-
-// Validate refuses a sort this server does not know.
-func (s Sort) Validate() error {
-	switch s {
-	case SortBest, SortNewest, SortOldest:
-		return nil
-	}
-
-	return fmt.Errorf("sort %q is not one of best, new or old", string(s))
-}
-
+// Filter narrows a search to the turns and agents it names.
 type Filter struct {
 	Speaker       *string
 	AgentName     *string
@@ -357,9 +360,7 @@ type Results struct {
 	Next *Cursor
 }
 
-// Search returns one page of each section in the order the sort asks for, answering a query
-// with neither a word to look for nor a filter with nothing and one with only a filter with the
-// turns passing it.
+// Search returns one page of each section in the order the sort asks for.
 func (s *TranscriptStore) Search(ctx context.Context, params SearchParams) (Results, error) {
 	query := strings.ReplaceAll(params.Query, "\x00", "")
 
@@ -420,10 +421,10 @@ func (s *TranscriptStore) Search(ctx context.Context, params SearchParams) (Resu
 			Lim:           int32(limit),
 			AgentID:       params.AgentID,
 			Speaker:       filter.Speaker,
-			AgentName:     containing(filter.AgentName),
-			WorkflowName:  containing(filter.WorkflowName),
-			Kinds:         nonNil(filter.Kinds),
-			ExcludedKinds: nonNil(filter.ExcludedKinds),
+			AgentName:     toContainsPattern(filter.AgentName),
+			WorkflowName:  toContainsPattern(filter.WorkflowName),
+			Kinds:         orEmpty(filter.Kinds),
+			ExcludedKinds: orEmpty(filter.ExcludedKinds),
 			Archived:      filter.Archived,
 			Since:         filter.Since,
 			Until:         filter.Until,
@@ -445,7 +446,7 @@ func (s *TranscriptStore) Search(ctx context.Context, params SearchParams) (Resu
 				ContentOffset: row.ContentOffset,
 				ContentLength: int64(row.ContentLength),
 				Snippet:       row.Snippet,
-				Rank:          rankUnder(sort, row.SortKey),
+				Rank:          toRank(sort, row.SortKey),
 				SpokenAt:      row.SpokenAt,
 				Key:           row.SortKey,
 			}
@@ -466,10 +467,10 @@ func (s *TranscriptStore) Search(ctx context.Context, params SearchParams) (Resu
 			Lim:           int32(limit),
 			AgentID:       params.AgentID,
 			Speaker:       filter.Speaker,
-			AgentName:     containing(filter.AgentName),
-			WorkflowName:  containing(filter.WorkflowName),
-			Kinds:         nonNil(filter.Kinds),
-			ExcludedKinds: nonNil(filter.ExcludedKinds),
+			AgentName:     toContainsPattern(filter.AgentName),
+			WorkflowName:  toContainsPattern(filter.WorkflowName),
+			Kinds:         orEmpty(filter.Kinds),
+			ExcludedKinds: orEmpty(filter.ExcludedKinds),
 			Archived:      filter.Archived,
 			Since:         filter.Since,
 			Until:         filter.Until,
@@ -491,7 +492,7 @@ func (s *TranscriptStore) Search(ctx context.Context, params SearchParams) (Resu
 				ContentOffset: row.ContentOffset,
 				ContentLength: int64(row.ContentLength),
 				Snippet:       markMatches(row.Snippet, terms.wanted),
-				Rank:          rankUnder(sort, row.SortKey),
+				Rank:          toRank(sort, row.SortKey),
 				SpokenAt:      row.SpokenAt,
 				Key:           row.SortKey,
 			}
@@ -539,7 +540,7 @@ func keyOf(p *Position) *float64 {
 	return &p.Key
 }
 
-func rankUnder(sort Sort, key float64) float64 {
+func toRank(sort Sort, key float64) float64 {
 	if sort != SortBest {
 		return 0
 	}
@@ -547,7 +548,7 @@ func rankUnder(sort Sort, key float64) float64 {
 	return key
 }
 
-func containing(text *string) *string {
+func toContainsPattern(text *string) *string {
 	if text == nil {
 		return nil
 	}
@@ -557,7 +558,7 @@ func containing(text *string) *string {
 	return &pattern
 }
 
-func nonNil(values []string) []string {
+func orEmpty(values []string) []string {
 	if values == nil {
 		return []string{}
 	}

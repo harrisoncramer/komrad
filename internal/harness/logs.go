@@ -16,9 +16,7 @@ func ReadAppendOnlyLog(path string, offset int64, flatten func([]byte) []Turn) (
 		return LogRead{}, nil //nolint:nilerr // a log that is not on disk yet is not an error
 	}
 
-	// A log shorter than the offset it was read at cannot be the same log, and a negative offset
-	// asks for the log to be read again, so either way the read starts over and what is already
-	// indexed is dropped.
+	// A log shorter than its offset, or a negative offset, is read again from the start.
 	read := LogRead{Restart: offset < 0 || info.Size() < offset}
 	if read.Restart {
 		offset = 0

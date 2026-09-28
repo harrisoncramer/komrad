@@ -1555,6 +1555,10 @@ func TestSearchWithOnlyAFilter(t *testing.T) {
 		want   []string
 	}{
 		{
+			name: "no filter and no word is nothing",
+			want: []string{},
+		},
+		{
 			name:   "every turn passing the filter",
 			filter: user,
 			want:   []string{"beta:0", "alpha:0", "delta:0", "delta:1"},
@@ -1564,10 +1568,6 @@ func TestSearchWithOnlyAFilter(t *testing.T) {
 			query:  "-question",
 			filter: user,
 			want:   []string{"beta:0", "delta:0", "delta:1"},
-		},
-		{
-			name: "no filter and no word is nothing",
-			want: []string{},
 		},
 	}
 

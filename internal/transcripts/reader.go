@@ -48,6 +48,7 @@ func NewTranscriptReader(params NewTranscriptReaderParams) *TranscriptReader {
 	}
 }
 
+// SearchTranscriptsParams is a search's text and page, with the agent it names and the agent asking.
 type SearchTranscriptsParams struct {
 	Query   string
 	Limit   int64
@@ -56,9 +57,7 @@ type SearchTranscriptsParams struct {
 	Caller  string
 }
 
-// SearchTranscripts runs a search over the stored transcripts narrowed by the qualifiers the
-// query holds, searching the caller's own conversation when it names no agent and no qualifier
-// names which agents to search.
+// SearchTranscripts runs a search over the stored transcripts narrowed by the qualifiers the query holds.
 func (r *TranscriptReader) SearchTranscripts(ctx context.Context, params SearchTranscriptsParams) (*transcriptstore.Results, error) {
 	query, err := ParseQuery(params.Query, r.now())
 	if err != nil {

@@ -24,6 +24,51 @@ func TestParseQuery(t *testing.T) {
 		wantErr string
 	}{
 		{
+			name:    "a value that does not parse",
+			text:    "since:yesterdy",
+			wantErr: "since:yesterdy is not a day",
+		},
+		{
+			name:    "a span too long to count back from now",
+			text:    "since:9999999999999w",
+			wantErr: "since:9999999999999w is not a day",
+		},
+		{
+			name:    "a qualifier with no value",
+			text:    "since:",
+			wantErr: "since: needs a value",
+		},
+		{
+			name:    "a qualifier given twice",
+			text:    "from:me from:agent",
+			wantErr: "from: is given twice",
+		},
+		{
+			name:    "a day and a span at once",
+			text:    "since:3d on:today",
+			wantErr: "on: cannot be given with since: or until:",
+		},
+		{
+			name:    "live and archived at once",
+			text:    "is:live is:archived",
+			wantErr: "is:live and is:archived cannot both be given",
+		},
+		{
+			name:    "a negated qualifier that has no opposite",
+			text:    "-from:me",
+			wantErr: "from: cannot be negated",
+		},
+		{
+			name:    "an unknown kind",
+			text:    "is:tester",
+			wantErr: "is:tester is not one of",
+		},
+		{
+			name:    "an unknown sort",
+			text:    "sort:loud",
+			wantErr: "sort:loud is not one of best, new or old",
+		},
+		{
 			name: "words alone stay words",
 			text: `reconciler -"stale pane" --force`,
 			want: Query{Words: `reconciler -"stale pane" --force`},
@@ -101,46 +146,6 @@ func TestParseQuery(t *testing.T) {
 			name: "a quoted qualifier is a phrase",
 			text: `"from:me"`,
 			want: Query{Words: `"from:me"`},
-		},
-		{
-			name:    "a value that does not parse",
-			text:    "since:yesterdy",
-			wantErr: "since:yesterdy is not a day",
-		},
-		{
-			name:    "a qualifier with no value",
-			text:    "since:",
-			wantErr: "since: needs a value",
-		},
-		{
-			name:    "a qualifier given twice",
-			text:    "from:me from:agent",
-			wantErr: "from: is given twice",
-		},
-		{
-			name:    "a day and a span at once",
-			text:    "since:3d on:today",
-			wantErr: "on: cannot be given with since: or until:",
-		},
-		{
-			name:    "live and archived at once",
-			text:    "is:live is:archived",
-			wantErr: "is:live and is:archived cannot both be given",
-		},
-		{
-			name:    "a negated qualifier that has no opposite",
-			text:    "-from:me",
-			wantErr: "from: cannot be negated",
-		},
-		{
-			name:    "an unknown kind",
-			text:    "is:tester",
-			wantErr: "is:tester is not one of",
-		},
-		{
-			name:    "an unknown sort",
-			text:    "sort:loud",
-			wantErr: "sort:loud is not one of best, new or old",
 		},
 	}
 

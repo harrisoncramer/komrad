@@ -10,9 +10,12 @@ import (
 	transcriptstore "komrad/internal/store/transcript"
 )
 
-var ErrBadQualifier = fail.InvalidArgument("the query holds a qualifier that does not parse")
-
 const dayLayout = "2006-01-02"
+
+const maxSpan = 100 * 365 * 24 * time.Hour
+
+// ErrBadQualifier is a query holding a qualifier whose value does not parse.
+var ErrBadQualifier = fail.InvalidArgument("the query holds a qualifier that does not parse")
 
 // Query is a search's text read as the words it looks for and the qualifiers narrowing it.
 type Query struct {
@@ -23,10 +26,10 @@ type Query struct {
 
 // Widens reports whether a qualifier names which agents to search.
 func (q Query) Widens() bool {
-	f := q.Filter
+	filter := q.Filter
 
-	return f.AgentName != nil || f.WorkflowName != nil || len(f.Kinds) > 0 ||
-		len(f.ExcludedKinds) > 0 || f.Archived != nil
+	return filter.AgentName != nil || filter.WorkflowName != nil || len(filter.Kinds) > 0 ||
+		len(filter.ExcludedKinds) > 0 || filter.Archived != nil
 }
 
 type token struct {
@@ -54,19 +57,19 @@ func ParseQuery(text string, now time.Time) (Query, error) {
 
 	var words []string
 	for _, tok := range tokenize(text) {
-		c, ok := qualifier(tok)
+		given, ok := parseQualifier(tok)
 		if !ok {
 			words = append(words, tok.raw)
 
 			continue
 		}
 
-		if c.key != "is" && p.seen[c.key] {
-			return Query{}, ErrBadQualifier.Saying("%s: is given twice", c.key)
+		if given.key != "is" && p.seen[given.key] {
+			return Query{}, ErrBadQualifier.Saying("%s: is given twice", given.key)
 		}
-		p.seen[c.key] = true
+		p.seen[given.key] = true
 
-		if err := p.apply(c); err != nil {
+		if err := p.apply(given); err != nil {
 			return Query{}, err
 		}
 	}
@@ -76,9 +79,9 @@ func ParseQuery(text string, now time.Time) (Query, error) {
 	return p.query, nil
 }
 
-func (p *parser) apply(c clause) error {
+func (p *parser) apply(given clause) error {
 	q, seen, now := &p.query, p.seen, p.now
-	key, value, negated := c.key, c.value, c.negated
+	key, value, negated := given.key, given.value, given.negated
 	if value == "" {
 		return ErrBadQualifier.Saying("%s: needs a value", key)
 	}
@@ -88,7 +91,7 @@ func (p *parser) apply(c clause) error {
 
 	switch key {
 	case "from":
-		speaker, err := speakerOf(value)
+		speaker, err := parseSpeaker(value)
 		if err != nil {
 			return err
 		}
@@ -109,7 +112,7 @@ func (p *parser) apply(c clause) error {
 		if seen["on"] {
 			return ErrBadQualifier.Saying("since: cannot be given with on:")
 		}
-		at, err := startOf(key, value, now)
+		at, err := parseStart(key, value, now)
 		if err != nil {
 			return err
 		}
@@ -118,7 +121,7 @@ func (p *parser) apply(c clause) error {
 		if seen["on"] {
 			return ErrBadQualifier.Saying("until: cannot be given with on:")
 		}
-		at, err := endOf(key, value, now)
+		at, err := parseEnd(key, value, now)
 		if err != nil {
 			return err
 		}
@@ -127,7 +130,7 @@ func (p *parser) apply(c clause) error {
 		if seen["since"] || seen["until"] {
 			return ErrBadQualifier.Saying("on: cannot be given with since: or until:")
 		}
-		day, err := dayOf(key, value, now)
+		day, err := parseDay(key, value, now)
 		if err != nil {
 			return err
 		}
@@ -161,7 +164,7 @@ func (q *Query) applyIs(value string, negated bool) error {
 	return ErrBadQualifier.Saying("is:%s is not one of implementer, reviewer, orchestrator, live or archived", value)
 }
 
-func speakerOf(value string) (string, error) {
+func parseSpeaker(value string) (string, error) {
 	switch strings.ToLower(value) {
 	case "me", "you", "user":
 		return "user", nil
@@ -172,20 +175,20 @@ func speakerOf(value string) (string, error) {
 	return "", ErrBadQualifier.Saying("from:%s is not one of me or agent", value)
 }
 
-func startOf(key, value string, now time.Time) (time.Time, error) {
-	if ago, ok := durationOf(value); ok {
+func parseStart(key, value string, now time.Time) (time.Time, error) {
+	if ago, ok := parseSpan(value); ok {
 		return now.Add(-ago), nil
 	}
 
-	return dayOf(key, value, now)
+	return parseDay(key, value, now)
 }
 
-func endOf(key, value string, now time.Time) (time.Time, error) {
-	if ago, ok := durationOf(value); ok {
+func parseEnd(key, value string, now time.Time) (time.Time, error) {
+	if ago, ok := parseSpan(value); ok {
 		return now.Add(-ago), nil
 	}
 
-	day, err := dayOf(key, value, now)
+	day, err := parseDay(key, value, now)
 	if err != nil {
 		return time.Time{}, err
 	}
@@ -193,7 +196,7 @@ func endOf(key, value string, now time.Time) (time.Time, error) {
 	return day.AddDate(0, 0, 1), nil
 }
 
-func dayOf(key, value string, now time.Time) (time.Time, error) {
+func parseDay(key, value string, now time.Time) (time.Time, error) {
 	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 
 	switch strings.ToLower(value) {
@@ -211,7 +214,7 @@ func dayOf(key, value string, now time.Time) (time.Time, error) {
 	return day, nil
 }
 
-func durationOf(value string) (time.Duration, bool) {
+func parseSpan(value string) (time.Duration, bool) {
 	if len(value) < 2 {
 		return 0, false
 	}
@@ -221,19 +224,25 @@ func durationOf(value string) (time.Duration, bool) {
 		return 0, false
 	}
 
+	var unit time.Duration
 	switch unicode.ToLower(rune(value[len(value)-1])) {
 	case 'h':
-		return time.Duration(count) * time.Hour, true
+		unit = time.Hour
 	case 'd':
-		return time.Duration(count) * 24 * time.Hour, true
+		unit = 24 * time.Hour
 	case 'w':
-		return time.Duration(count) * 7 * 24 * time.Hour, true
+		unit = 7 * 24 * time.Hour
+	default:
+		return 0, false
+	}
+	if count > int(maxSpan/unit) {
+		return 0, false
 	}
 
-	return 0, false
+	return time.Duration(count) * unit, true
 }
 
-func qualifier(tok token) (clause, bool) {
+func parseQualifier(tok token) (clause, bool) {
 	if tok.quoted {
 		return clause{}, false
 	}
