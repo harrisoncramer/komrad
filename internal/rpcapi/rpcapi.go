@@ -8,6 +8,7 @@
 package rpcapi
 
 import (
+	"context"
 	"fmt"
 	"iter"
 	"slices"
@@ -166,8 +167,11 @@ func IsDestructive(method protoreflect.MethodDescriptor, surfaces *annotationv1.
 	return true
 }
 
-// ServesRole reports whether a tool is offered to a caller holding the role, every tool being
-// offered to a caller holding none.
+// RoleOf answers what the agent was launched to do.
+type RoleOf func(ctx context.Context, agentID string) annotationv1.Role
+
+// ServesRole reports whether a method is open to a caller holding the role, every method being
+// open to a caller holding none.
 func ServesRole(surfaces *annotationv1.Surfaces, role annotationv1.Role) bool {
 	if role == annotationv1.Role_ROLE_UNSPECIFIED {
 		return true

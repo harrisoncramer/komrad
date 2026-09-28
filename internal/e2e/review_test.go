@@ -51,6 +51,18 @@ func TestIntegrationReviews(t *testing.T) {
 		instance.WaitForHarness(reviewer.GetId())
 	})
 
+	t.Run("the reviewer is refused a document of its own", func(t *testing.T) {
+		req := connect.NewRequest(&agentv1.WriteDocumentRequest{
+			Name:   "findings",
+			Kind:   agentv1.DocumentKind_DOCUMENT_KIND_REPORT,
+			Source: &agentv1.WriteDocumentRequest_Body{Body: "greet.go is fine"},
+		})
+		callAs(req, reviewer.GetId())
+
+		_, err := instance.Agents.WriteDocument(ctx, req)
+		assert.Equal(t, connect.CodePermissionDenied, connect.CodeOf(err))
+	})
+
 	var threadID string
 
 	t.Run("the reviewer takes a round of the committed branch and comments on it", func(t *testing.T) {
