@@ -66,7 +66,8 @@ WHERE
     m.to_agent_id = @to_agent_id
     AND m.kind = @kind
     AND m.subject_id = @subject_id::uuid
-    AND m.claimed_at IS NULL;
+    AND m.claimed_at IS NULL
+FOR UPDATE;
 
 -- name: DeletePendingNotice :exec
 DELETE FROM mail m

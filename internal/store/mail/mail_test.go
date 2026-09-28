@@ -14,6 +14,7 @@ import (
 	"komrad/lib/xslice"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -625,6 +626,7 @@ func TestDelete(t *testing.T) {
 
 type fixture struct {
 	*MailStore
+	pool     *pgxpool.Pool
 	agents   *agentstore.AgentStore
 	workflow string
 }
@@ -641,6 +643,7 @@ func open(t *testing.T) *fixture {
 
 	return &fixture{
 		MailStore: NewMailStore(p.GetDB()),
+		pool:      p.GetRawPool(),
 		agents:    agentstore.NewAgentStore(p.GetDB()),
 		workflow:  created.ID,
 	}
@@ -768,6 +771,35 @@ func TestPendingNoticeCarriesItsState(t *testing.T) {
 	require.NoError(t, st.DeletePendingNotice(ctx, recipient, KindPullRequestChanged, subject))
 	_, err = st.GetPendingNotice(ctx, recipient, KindPullRequestChanged, subject)
 	require.ErrorIs(t, err, store.ErrNotFound, "a withdrawn notice is gone")
+}
+
+// TestPendingNoticeHeldForRewriteIsNotClaimed pins that delivery skips a notice a rewrite is reading until the rewrite commits.
+func TestPendingNoticeHeldForRewriteIsNotClaimed(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+	recipient := seedAgent(t, st, "recipient")
+	subject := uuid.NewString()
+
+	_, err := st.UpsertNotice(ctx, UpsertNoticeParams{FromName: "komrad", ToAgentID: recipient, Body: "checks failing", Kind: KindPullRequestChanged, SubjectID: subject, Deadline: time.Hour})
+	require.NoError(t, err)
+
+	tx, err := st.pool.Begin(ctx)
+	require.NoError(t, err)
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	_, err = NewMailStore(tx).GetPendingNotice(ctx, recipient, KindPullRequestChanged, subject)
+	require.NoError(t, err)
+
+	claimed, err := st.Claim(ctx, recipient, 10)
+	require.NoError(t, err)
+	assert.Empty(t, claimed)
+
+	require.NoError(t, NewMailStore(tx).DeletePendingNotice(ctx, recipient, KindPullRequestChanged, subject))
+	require.NoError(t, tx.Commit(ctx))
+
+	claimed, err = st.Claim(ctx, recipient, 10)
+	require.NoError(t, err)
+	assert.Empty(t, claimed, "the withdrawn notice is never delivered")
 }
 
 // TestDeletePendingNoticeLeavesReadNoticesAlone pins that withdrawing a notice takes only the unread one.

@@ -9,6 +9,7 @@ import (
 	"komrad/db"
 	"komrad/internal/agents"
 	"komrad/internal/jobs/internaljobs"
+	"komrad/internal/notices"
 	"komrad/internal/schedules"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
@@ -412,4 +413,43 @@ func TestStopWaitsForALaunchInFlight(t *testing.T) {
 	job, err := client.JobGet(t.Context(), inserted.Job.ID)
 	require.NoError(t, err)
 	assert.Equal(t, rivertype.JobStateCompleted, job.State, "the firing is finished rather than left stuck as running")
+}
+
+type followUpRouter struct {
+	followUps []river.JobArgs
+}
+
+func (r followUpRouter) Route(context.Context, store.DBTX, notices.Event) ([]river.JobArgs, error) {
+	return r.followUps, nil
+}
+
+// TestNoticeRecordsItsFollowUpsWithTheEvent pins that an event completes with the jobs its handler asked for, a burst of wakes for one agent folding into one.
+func TestNoticeRecordsItsFollowUpsWithTheEvent(t *testing.T) {
+	stores := storetest.Open(t)
+	require.NoError(t, db.MigrateRiver(t.Context(), stores.Pool.GetRawPool(), stores.Pool.GetRiverSchema()))
+
+	wake := internaljobs.WakeAgentArgs{AgentID: "reviewer"}
+	client, err := NewClient(NewClientParams{
+		Schema:  stores.Pool.GetRiverSchema(),
+		Pool:    stores.Pool.GetRawPool(),
+		Running: stores.Agents,
+		Router:  followUpRouter{followUps: []river.JobArgs{wake, wake}},
+	})
+	require.NoError(t, err)
+	require.NoError(t, client.Start(t.Context()))
+	t.Cleanup(func() { _ = client.Stop(context.WithoutCancel(t.Context())) })
+
+	inserted, err := client.Insert(t.Context(), notices.Event{Topic: "review_answered", Payload: json.RawMessage(`{}`)}, nil)
+	require.NoError(t, err)
+
+	require.Eventually(t, func() bool {
+		job, err := client.JobGet(t.Context(), inserted.Job.ID)
+
+		return err == nil && job.State == rivertype.JobStateCompleted
+	}, 10*time.Second, 20*time.Millisecond)
+
+	woken, err := client.JobList(t.Context(), river.NewJobListParams().Kinds(wake.Kind()))
+	require.NoError(t, err)
+	require.Len(t, woken.Jobs, 1)
+	assert.Equal(t, rivertype.JobStateScheduled, woken.Jobs[0].State)
 }

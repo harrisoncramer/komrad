@@ -6,7 +6,6 @@ import (
 
 	"komrad/internal/notices"
 	"komrad/internal/store"
-	"komrad/lib/xslice"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/riverqueue/river"
@@ -46,13 +45,14 @@ func (w *NoticeWorker) Work(ctx context.Context, job *river.Job[notices.Event]) 
 	}
 
 	if len(followUps) > 0 {
-		inserts := xslice.Map(followUps, func(args river.JobArgs) river.InsertManyParams { return river.InsertManyParams{Args: args} })
 		client, err := river.ClientFromContextSafely[pgx.Tx](ctx)
 		if err != nil {
 			return fmt.Errorf("failed to find the client to record follow-up jobs with: %w", err)
 		}
-		if _, err := client.InsertManyTx(ctx, tx, inserts); err != nil {
-			return fmt.Errorf("failed to record %d follow-up jobs: %w", len(inserts), err)
+		for _, args := range followUps {
+			if _, err := client.InsertTx(ctx, tx, args, nil); err != nil {
+				return fmt.Errorf("failed to record a %s follow-up job: %w", args.Kind(), err)
+			}
 		}
 	}
 

@@ -229,6 +229,7 @@ WHERE
     AND m.kind = $2
     AND m.subject_id = $3::uuid
     AND m.claimed_at IS NULL
+FOR UPDATE
 `
 
 type GetPendingNoticeParams struct {
