@@ -271,6 +271,8 @@ type ViewsKeys struct {
 	Archive []string `mapstructure:"archive" default:"r"`
 	// Open the worktrees, landing on the hovered agent's own directory.
 	Worktrees []string `mapstructure:"worktrees" default:"w"`
+	// Choose another engine to move this terminal to.
+	Engine []string `mapstructure:"engine" default:"e"`
 }
 
 // TerminalKeys is the binding that opens a shell in the info pane, rooted at the hovered

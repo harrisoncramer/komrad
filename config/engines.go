@@ -11,6 +11,9 @@ import (
 
 const enginesDirVariable = "KOMRAD_ENGINES_DIR"
 
+// LocalEngine is the name that means this machine's own engine.
+const LocalEngine = "local"
+
 // EnginesDir holds one file per engine this machine knows how to reach, or is the directory
 // KOMRAD_ENGINES_DIR names.
 func EnginesDir() (string, error) {
@@ -69,7 +72,7 @@ func engineNames(dir string) []string {
 	names := make([]string, 0, len(entries))
 
 	for _, entry := range entries {
-		if entry.IsDir() || filepath.Ext(entry.Name()) != ".toml" {
+		if entry.IsDir() || filepath.Ext(entry.Name()) != ".toml" || entry.Name() == LocalEngine+".toml" {
 			continue
 		}
 

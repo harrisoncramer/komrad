@@ -56,7 +56,13 @@ the service, or call an endpoint from a script.`,
 		Args:          cobra.NoArgs,
 		SilenceUsage:  true,
 		SilenceErrors: true,
-		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
+		PersistentPreRunE: func(cmd *cobra.Command, _ []string) (err error) {
+			defer func() {
+				if err != nil {
+					err = fallBackFromLoad(cmd, configPaths, engineName, err)
+				}
+			}()
+
 			stack, err := resolveConfigStack(configPaths, engineName)
 			if err != nil {
 				return err
@@ -136,7 +142,11 @@ the service, or call an endpoint from a script.`,
 	}
 
 	root.PersistentFlags().StringArrayVar(&configPaths, "config", nil, "path to a config TOML, repeatable, later files win over earlier ones")
-	root.PersistentFlags().StringVar(&engineName, "engine", "", "engine to reach, named after a file in the config's engines directory, layered over the config")
+	root.PersistentFlags().StringVar(&engineName, "engine", "", "engine to reach: local for this machine, or a file in the config's engines directory, layered over the config")
+
+	if err := root.RegisterFlagCompletionFunc("engine", completeEngines); err != nil {
+		panic(err)
+	}
 
 	root.AddCommand(
 		doctorCmd(app),
@@ -174,6 +184,10 @@ func resolveConfigStack(flags []string, engine string) (config.Stack, error) {
 		paths = config.LayerPaths()
 	}
 
+	if engine == config.LocalEngine {
+		engine = ""
+	}
+
 	if engine != "" {
 		if _, err := config.EnginePath(engine); err != nil {
 			return config.Stack{}, err
@@ -181,6 +195,15 @@ func resolveConfigStack(flags []string, engine string) (config.Stack, error) {
 	}
 
 	return config.Stack{Paths: paths, Engine: engine}, nil
+}
+
+func completeEngines(*cobra.Command, []string, string) ([]string, cobra.ShellCompDirective) {
+	names, err := config.EngineNames()
+	if err != nil {
+		return nil, cobra.ShellCompDirectiveError
+	}
+
+	return append([]string{config.LocalEngine}, names...), cobra.ShellCompDirectiveNoFileComp
 }
 
 // configArgs is the flags that put a child process on the same config stack.

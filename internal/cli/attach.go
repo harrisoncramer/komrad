@@ -32,7 +32,7 @@ starting one is what ` + "`komrad open`" + ` is for.`,
 			state.tmux.RecordHostSocket(socket)
 			state.tmux.RecordHostPath(hostPath(socket))
 
-			return attachManagerSession(cmd.Context(), state)
+			return attachManagerSession(state)
 		},
 	}
 }

@@ -62,6 +62,7 @@ const (
 	formDocument
 	formArchiveDelete
 	formWorktreesDelete
+	formEngine
 )
 
 // isActive reports whether a form is up and holding the keys.
@@ -120,7 +121,7 @@ func formColumn(kind formKind) (columnSpec, bool) {
 	case formAgent, formChild, formAdopt, formRename, formAgentRetry, formWorkflow, formSchedule,
 		formDocument:
 		return columnSpec{floor: formColumnFloor}, true
-	case formGit, formAgentArchive, formAgentRebase, formAgentRelease, formWorkflowArchive, formScheduleArchive,
+	case formGit, formEngine, formAgentArchive, formAgentRebase, formAgentRelease, formWorkflowArchive, formScheduleArchive,
 		formArchiveDelete, formWorktreesDelete:
 		return columnSpec{floor: columnFloor}, true
 	case formNone:

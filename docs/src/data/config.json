@@ -902,6 +902,13 @@
               "type": "array",
               "description": "Open the worktrees, landing on the hovered agent's own directory.",
               "default": "[\"w\"]"
+            },
+            {
+              "key": "engine",
+              "path": "keybindings.views.engine",
+              "type": "array",
+              "description": "Choose another engine to move this terminal to.",
+              "default": "[\"e\"]"
             }
           ],
           "sections": []

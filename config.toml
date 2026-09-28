@@ -349,6 +349,8 @@ schedules = ["s"]
 archive   = ["r"]
 # Open the worktrees, landing on the hovered agent's own directory.
 worktrees = ["w"]
+# Choose another engine to move this terminal to.
+engine    = ["e"]
 
 # The bindings that create and change workflows, from the agents list.
 [keybindings.workflows]
