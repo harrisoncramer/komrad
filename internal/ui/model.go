@@ -228,8 +228,6 @@ type model struct {
 	unreachable   error
 	engines       Engines
 	engineBuild   EngineBuild
-	chooser       chooserState
-	switchErr     error
 	// writes counts the writes sent, and a write's own count is what its landing answers to.
 	writes int
 	// pending is the writes in flight.

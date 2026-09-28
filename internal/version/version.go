@@ -9,6 +9,7 @@ import (
 	"errors"
 	"io"
 	"os"
+	"regexp"
 	"runtime/debug"
 	"strings"
 	"sync"
@@ -21,6 +22,8 @@ var stampedCommit string
 const devel = "devel"
 
 const shortCommit = 7
+
+var release = regexp.MustCompile(`^v[0-9]+\.[0-9]+\.[0-9]+$`)
 
 // engineStampPrefix opens the version a deploy stamps on the engine when no release names
 // the build, followed by the commit it was built from.
@@ -50,6 +53,26 @@ func Commit() string {
 	info, _ := debug.ReadBuildInfo()
 
 	return getCommit(stampedCommit, info)
+}
+
+// Revision is the commit this binary was built from, set even when the tree held changes.
+func Revision() string {
+	if stampedCommit != "" {
+		return stampedCommit
+	}
+
+	info, _ := debug.ReadBuildInfo()
+	if info == nil {
+		return ""
+	}
+
+	for _, setting := range info.Settings {
+		if setting.Key == "vcs.revision" {
+			return setting.Value
+		}
+	}
+
+	return ""
 }
 
 func get(stamped string, info *debug.BuildInfo, buildID string) string {
@@ -105,6 +128,11 @@ func Describe(version, commit string) string {
 	}
 
 	return version + " (" + Short(commit) + ")"
+}
+
+// IsRelease reports whether a version is a tagged release.
+func IsRelease(version string) bool {
+	return release.MatchString(version)
 }
 
 // IsEngineStamp reports whether a version is a deploy's own stamp rather than a release.

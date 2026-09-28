@@ -50,6 +50,11 @@ func (m model) updateRowCursor(msg tea.Msg) (model, tea.Cmd) {
 	return m, cmd
 }
 
+// focusPalette is the panel's palette on the blink's beat, for whatever holds the keys.
+func (m model) focusPalette() paint.Palette {
+	return paint.Panel.Blinking(m.rowCursor.IsBlinked)
+}
+
 // isCursorBlinkedOut reports whether the blink has the row cursor out of sight this frame.
 func (m model) isCursorBlinkedOut(focused bool) bool {
 	return focused && !m.isTyping() && m.rowCursor.IsBlinked

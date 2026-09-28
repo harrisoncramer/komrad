@@ -158,33 +158,17 @@ Use ` + "`komrad open`" + ` to bring the panel up.`,
 	}
 }
 
-// panelEngines is the engine this panel is on and the way to the others this machine can open.
+// panelEngines is the engine this panel is on and how to ask what it runs.
 func panelEngines(ctx context.Context, state *app, addr string, startupErr error) ui.Engines {
 	var build ui.EngineBuild
 	if startupErr == nil {
 		build, _ = readEngineBuild(ctx, addr)
 	}
 
-	prober := engineProber{stack: state.configStack, checkLogin: checkEngineLogin}
-
 	return ui.Engines{
 		Name:      state.configStack.Engine,
 		Build:     build,
 		ReadBuild: func(ctx context.Context) (ui.EngineBuild, bool) { return readEngineBuild(ctx, addr) },
-		List:      func() ([]ui.EngineRow, error) { return engineRows(state.configStack) },
-		Probe:     prober.probe,
-		Switch: func(name string) error {
-			return state.tmux.HandOver(state.env.TmuxPane, switchEngineArgs(switchEngineArgsParams{
-				self:  state.selfPath(),
-				paths: state.configStack.Paths,
-				to:    name,
-				host: hostPlace{
-					socket: state.tmux.GetHostSocket(),
-					path:   state.tmux.GetHostPath(),
-				},
-				fallback: engineLabel(state.configStack.Engine),
-			}))
-		},
 	}
 }
 
@@ -195,7 +179,10 @@ func readEngineBuild(ctx context.Context, addr string) (ui.EngineBuild, bool) {
 		return ui.EngineBuild{}, false
 	}
 
-	build := ui.EngineBuild{Commit: version.Short(probe.commit)}
+	build := ui.EngineBuild{Commit: version.Short(probe.revision)}
+	if version.IsRelease(probe.version) {
+		build.Commit = probe.version
+	}
 	if probe.version != "" && !probe.current {
 		build.Stale = fmt.Sprintf("the engine runs %s and this panel %s: %s",
 			version.Describe(probe.version, probe.commit),

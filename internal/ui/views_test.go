@@ -19,10 +19,11 @@ func TestViews(t *testing.T) {
 
 		lines := splitLines(harness.readFrame())
 		require.GreaterOrEqual(t, len(lines), 2)
-		for i, want := range []string{"\U000F050C komrad", "agents  query  schedules  archive  worktrees"} {
-			list, _, _ := strings.Cut(lines[i], "│")
-			assert.Equal(t, want, strings.TrimSpace(list))
-		}
+		logo, _, _ := strings.Cut(lines[0], "│")
+		assert.True(t, strings.HasPrefix(strings.TrimSpace(logo), "\U000F050C komrad"))
+		assert.True(t, strings.HasSuffix(strings.TrimSpace(logo), "\uf444 local"))
+		views, _, _ := strings.Cut(lines[1], "│")
+		assert.Equal(t, "agents  query  schedules  archive  worktrees", strings.TrimSpace(views))
 		lit := paint.Panel.Style(paint.ToneAccent)
 		assert.Contains(t, harness.readRawFrame(), lit.Render("a")+lit.Underline(true).Render("r")+lit.Render("chive"), "the view that is up is lit with its jump key underlined")
 	})

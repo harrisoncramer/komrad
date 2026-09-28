@@ -77,12 +77,9 @@ func (m model) switcherLines() []string {
 		row.lit = m.viewIndex()
 	}
 
-	lines := []string{paint.Panel.Title(glyph.Logo + " " + komradName), row.view(paint.Panel)}
-	var logo string
-	if m.canChooseEngine() {
-		logo = m.logoLine(logo, m.paneWidth())
-	}
+	logo := m.logoLine(paint.Panel.Title(glyph.Logo+" "+komradName), m.paneWidth())
 
+	lines := []string{logo, row.view(m.focusPalette())}
 	if width := m.paneWidth(); width > 0 {
 		for i, line := range lines {
 			lines[i] = ansi.Truncate(line, width, "…")
@@ -118,8 +115,6 @@ func (m model) updateViews(key tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m.enterView(entries[stepStop(m.viewIndex(), -1, len(entries))])
 	case k == "esc":
 		m.viewsOpen = false
-	case m.canChooseEngine() && isBound(k, m.engineKeys()):
-		return m.openEngineChooser()
 	case isBound(k, m.quitKeys()):
 		m.viewsOpen = false
 
@@ -176,10 +171,6 @@ func (m model) viewsHelp() keyMap {
 	bindings := append([]key.Binding{move, done}, xslice.Map(viewEntries(), func(entry viewEntry) key.Binding {
 		return binding(entry.keys(m.keys.Views), entry.label)
 	})...)
-
-	if m.canChooseEngine() {
-		bindings = append(bindings, binding(m.engineKeys(), "engine"))
-	}
 
 	return keyMap{short: bindings, full: bindings}
 }

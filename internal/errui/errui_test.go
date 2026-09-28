@@ -126,7 +126,7 @@ func TestScreensFitTheirPane(t *testing.T) {
 	}{
 		{
 			name:     "the config screen",
-			rendered: RenderConfigError(narrowPane, err, CloseHint),
+			rendered: RenderConfigError(narrowPane, err),
 		},
 		{
 			name: "the startup screen",
@@ -134,14 +134,14 @@ func TestScreensFitTheirPane(t *testing.T) {
 				Name:   "readonly login",
 				Reason: `the least-privilege login the MCP tools connect as does not work: password authentication failed for user "komrad_readonly"`,
 				Fix:    "komrad readonly-role",
-			}}, CloseHint),
+			}}),
 		},
 		{
 			name: "the config screen carrying a detail of several lines",
 			rendered: RenderConfigError(narrowPane, errors.New(
 				"failed to parse config /home/u/.config/komrad/config.toml: "+
 					"default_harnes is not a setting; the top level takes default_harness, max_agents\n"+
-					"layout.splitt is not a setting; [layout] takes sidebar_side, sidebar_width, info_side, info_height"), CloseHint),
+					"layout.splitt is not a setting; [layout] takes sidebar_side, sidebar_width, info_side, info_height")),
 		},
 	}
 
@@ -160,7 +160,7 @@ func TestScreensFitTheirPane(t *testing.T) {
 func TestConfig(t *testing.T) {
 	err := errors.New("failed to parse config /home/u/.config/komrad/config.toml: keybindings.list is not a setting; [keybindings] takes scripts, agents, archive, filter, form, help, nav, schedules, selection, workflows")
 
-	rendered := strings.Join(strings.Fields(RenderConfigError(narrowPane, err, CloseHint)), " ")
+	rendered := strings.Join(strings.Fields(RenderConfigError(narrowPane, err)), " ")
 
 	assert.Contains(t, rendered, "Your configuration could not be read")
 	assert.Contains(t, rendered, "keybindings.list is not a setting")
@@ -173,7 +173,7 @@ func TestConfig(t *testing.T) {
 func TestStartup(t *testing.T) {
 	err := errors.New("the agent server stopped during startup: failed to reach db: dial tcp 127.0.0.1:5460: connect: connection refused")
 
-	rendered := strings.Join(strings.Fields(RenderStartupError(narrowPane, err, nil, CloseHint)), " ")
+	rendered := strings.Join(strings.Fields(RenderStartupError(narrowPane, err, nil)), " ")
 
 	assert.Contains(t, rendered, "The agent server could not be started")
 	assert.Contains(t, rendered, "connect: connection refused")
@@ -191,7 +191,7 @@ func TestStartupCarriesTheFindings(t *testing.T) {
 		Name:   "readonly login",
 		Reason: "the least-privilege login the MCP tools connect as does not work",
 		Fix:    "komrad readonly-role",
-	}}, CloseHint)), " ")
+	}})), " ")
 
 	assert.Contains(t, rendered, "readonly login")
 	assert.Contains(t, rendered, "komrad readonly-role", "the command that repairs it is on screen")
@@ -305,7 +305,7 @@ func tracedError(trace string) error {
 func TestStartupOnAnEngineRunningOtherCode(t *testing.T) {
 	err := fmt.Errorf("%w: engine v0.4.0 (8fe4a3b), this komrad devel (16cbead)", ErrEngineBuild)
 
-	rendered := strings.Join(strings.Fields(RenderStartupError(narrowPane, err, nil, CloseHint)), " ")
+	rendered := strings.Join(strings.Fields(RenderStartupError(narrowPane, err, nil)), " ")
 
 	assert.Contains(t, rendered, "The engine is running different code")
 	assert.Contains(t, rendered, "every agent on it is still running")
@@ -316,7 +316,7 @@ func TestStartupOnAnEngineRunningOtherCode(t *testing.T) {
 // TestStartupOnARebuiltPanel covers the screen a running panel puts up once its binary has
 // been replaced, where the only thing to do is open a panel from the new build.
 func TestStartupOnARebuiltPanel(t *testing.T) {
-	rendered := strings.Join(strings.Fields(RenderStartupError(narrowPane, ErrRebuilt, nil, CloseHint)), " ")
+	rendered := strings.Join(strings.Fields(RenderStartupError(narrowPane, ErrRebuilt, nil)), " ")
 
 	assert.Contains(t, rendered, "komrad was rebuilt")
 	assert.Contains(t, rendered, "Run komrad open to start a panel from the new build")

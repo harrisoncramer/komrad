@@ -39,7 +39,6 @@ const (
 	Archive
 	Search
 	Filter
-	Cursor
 	ThreadUnread
 	ThreadRead
 	ThreadSettled
@@ -53,6 +52,7 @@ const (
 	MessageInfo
 	ScheduleEnabled
 	ScheduleDisabled
+	Engine
 	// count stands one past the last glyph.
 	count
 )
@@ -83,7 +83,6 @@ var defined = [count]struct {
 	Archive:          {"lists.archive", ""},
 	Search:           {"lists.search", ""},
 	Filter:           {"lists.filter", "▽"},
-	Cursor:           {"lists.cursor", "▸"},
 	ThreadUnread:     {"review.unread", "●"},
 	ThreadRead:       {"review.read", "○"},
 	ThreadSettled:    {"review.settled", "✓"},
@@ -97,6 +96,7 @@ var defined = [count]struct {
 	MessageInfo:      {"messages.info", "·"},
 	ScheduleEnabled:  {"schedules.enabled", "◆"},
 	ScheduleDisabled: {"schedules.disabled", "◇"},
+	Engine:           {"lists.engine", "\uf444"},
 }
 
 // All is every glyph a Set spells, in the order they are declared.

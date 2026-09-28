@@ -121,6 +121,7 @@ type serverProbe struct {
 	ready     bool
 	version   string
 	commit    string
+	revision  string
 	current   bool
 }
 
@@ -137,6 +138,7 @@ func probeServer(ctx context.Context, addr string) serverProbe {
 	if err := json.NewDecoder(res.Body).Decode(&body); err == nil {
 		probe.version = body.Version
 		probe.commit = body.Commit
+		probe.revision = body.Revision
 		probe.current = isSameBuild(body, version.Version(), version.Commit())
 	}
 

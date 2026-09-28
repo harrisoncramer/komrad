@@ -526,6 +526,9 @@ type drawer interface {
 
 	// Where the keys are, as the screen's own block beside the list reads it.
 	isListFocused() bool
+
+	// focusPalette is the palette whatever holds the keys is drawn in, on the blink.
+	focusPalette() paint.Palette
 	isDetailsFocused() bool
 }
 
@@ -731,7 +734,7 @@ func (m model) headerLines(title, tally, tabs string) string {
 		header += "\n\n"
 	}
 
-	return m.viewsBar() + header + m.filter.line(paint.Panel, m.glyphs) + "\n" + tabs + "\n"
+	return m.viewsBar() + header + m.filter.line(m.focusPalette(), m.glyphs) + "\n" + tabs + "\n"
 }
 
 // headedListView draws a list under its header, padded out to the record and the legend under it.

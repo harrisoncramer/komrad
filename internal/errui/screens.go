@@ -8,9 +8,6 @@ var ErrEngineBuild = errors.New("engine build mismatch")
 // ErrRebuilt marks a panel whose binary was replaced while it was running.
 var ErrRebuilt = errors.New("komrad was rebuilt")
 
-// CloseHint is the last line of an error screen that only closes.
-const CloseHint = "Press any key to close."
-
 type Finding struct {
 	Name   string
 	Reason string
@@ -18,7 +15,7 @@ type Finding struct {
 }
 
 // RenderConfigError is shown instead of the panel when the config file could not be read.
-func RenderConfigError(width int, err error, closing string) string {
+func RenderConfigError(width int, err error) string {
 	return Screen{
 		Width: width,
 		Title: "Your configuration could not be read",
@@ -28,13 +25,13 @@ func RenderConfigError(width int, err error, closing string) string {
 		Details: []Detail{{Label: "error", Value: err.Error()}},
 		Hints: []string{
 			"Fix the file, then reopen the panel.",
-			closing,
+			"Press any key to close.",
 		},
 	}.Render()
 }
 
 // RenderStartupError is shown instead of the panel when it has no server it can talk to.
-func RenderStartupError(width int, err error, findings []Finding, closing string) string {
+func RenderStartupError(width int, err error, findings []Finding) string {
 	screen := Screen{
 		Width: width,
 		Title: "The agent server could not be started",
@@ -70,7 +67,7 @@ func RenderStartupError(width int, err error, findings []Finding, closing string
 		screen.Hints = append(screen.Hints, "Run komrad doctor for what this machine is missing.")
 	}
 
-	screen.Hints = append(screen.Hints, closing)
+	screen.Hints = append(screen.Hints, "Press any key to close.")
 
 	return screen.Render()
 }

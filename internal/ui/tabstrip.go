@@ -251,7 +251,7 @@ func (m model) tabbedHeader(title, tally string) string {
 func (m model) tabsLine() string {
 	t, _ := m.activeTabs()
 
-	return t.tabs().view(*t.tabsState(), paint.Panel, m.paneWidth()) + "\n"
+	return t.tabs().view(*t.tabsState(), m.focusPalette(), m.paneWidth()) + "\n"
 }
 
 // listFitsTabs is whether a list has the room to draw its strips, judged with the keys on the

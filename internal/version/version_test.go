@@ -278,3 +278,25 @@ func TestDescribe(t *testing.T) {
 		})
 	}
 }
+
+// TestIsRelease covers telling a tagged release from every other build.
+func TestIsRelease(t *testing.T) {
+	tests := []struct {
+		name    string
+		version string
+		want    bool
+	}{
+		{name: "a tagged release", version: "v1.4.0", want: true},
+		{name: "a dirty local build", version: "v0.0.0-local.e5bf761e3+dirty.204554"},
+		{name: "an engine stamp", version: "v0.0.0-engine.6da018b"},
+		{name: "a pseudo version", version: "v0.0.0-20260916203018-6da018be0403"},
+		{name: "a devel build", version: "devel"},
+		{name: "a release candidate", version: "v1.4.0-rc.1"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, IsRelease(tt.version))
+		})
+	}
+}

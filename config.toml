@@ -349,8 +349,6 @@ schedules = ["s"]
 archive   = ["r"]
 # Open the worktrees, landing on the hovered agent's own directory.
 worktrees = ["w"]
-# Choose another engine to move this terminal to.
-engine    = ["e"]
 
 # The bindings that create and change workflows, from the agents list.
 [keybindings.workflows]
@@ -441,8 +439,8 @@ archive  = ""
 search   = ""
 # The prompt of the filter over a list.
 filter   = "▽"
-# The cursor in a list of choices, such as the engines to connect to.
-cursor   = "▸"
+# The dot beside the engine, coloured by whether it answers.
+engine   = ""
 
 # The review screen: the marks on its threads and files, and how far a comment has got.
 [glyphs.review]

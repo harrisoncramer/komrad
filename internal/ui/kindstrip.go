@@ -36,7 +36,7 @@ func (m model) kindsLine() string {
 		row.focus, row.lit = row.lit, noStop
 	}
 
-	line := paint.Panel.Style(paint.ToneMuted).Render(headLabel(m.keys.Kinds.Focus)) + "   " + row.view(paint.Panel)
+	line := paint.Panel.Style(paint.ToneMuted).Render(headLabel(m.keys.Kinds.Focus)) + "   " + row.view(m.focusPalette())
 	if width := m.paneWidth(); width > 0 {
 		line = ansi.Truncate(line, width, "…")
 	}

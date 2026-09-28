@@ -80,8 +80,8 @@ type ListGlyphs struct {
 	Search string `mapstructure:"search"`
 	// The prompt of the filter over a list.
 	Filter string `mapstructure:"filter"`
-	// The cursor in a list of choices, such as the engines to connect to.
-	Cursor string `mapstructure:"cursor"`
+	// The dot beside the engine, coloured by whether it answers.
+	Engine string `mapstructure:"engine"`
 }
 
 // ReviewGlyphs are drawn on the review screen.

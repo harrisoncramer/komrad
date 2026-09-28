@@ -693,6 +693,10 @@ func (w *searchScreen) view(s panelShared) string {
 func (w *searchScreen) sidebarView(s panelShared) string {
 	palette := paint.Panel
 
+	if w.typing {
+		palette = s.draw.focusPalette()
+	}
+
 	query := palette.Cursor().Render("/") + " " + w.query
 	if w.typing {
 		query += palette.Cursor().Render(glyph.TextCursor)

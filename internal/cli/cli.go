@@ -56,13 +56,7 @@ the service, or call an endpoint from a script.`,
 		Args:          cobra.NoArgs,
 		SilenceUsage:  true,
 		SilenceErrors: true,
-		PersistentPreRunE: func(cmd *cobra.Command, _ []string) (err error) {
-			defer func() {
-				if err != nil {
-					err = fallBackFromLoad(cmd, configPaths, engineName, err)
-				}
-			}()
-
+		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
 			stack, err := resolveConfigStack(configPaths, engineName)
 			if err != nil {
 				return err
