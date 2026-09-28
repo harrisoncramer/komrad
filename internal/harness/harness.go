@@ -10,6 +10,7 @@ package harness
 import (
 	"fmt"
 	"strings"
+	"time"
 )
 
 const AgentIDEnv = "KOMRAD_AGENT_ID"
@@ -139,6 +140,7 @@ type Report struct {
 type Turn struct {
 	Role    string
 	Content string
+	At      time.Time
 }
 
 type LogRead struct {

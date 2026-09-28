@@ -410,6 +410,8 @@ type AgentTranscriptChunk struct {
 	Tsv           interface{}
 	// The engine that owns this row, stamped from the login that wrote it.
 	EngineID string
+	// When the turn was written, read from its line in the log, null for a turn whose log was gone before it was read with times.
+	SpokenAt *time.Time
 }
 
 // One conversation an agent has held, holding how far its log has been copied into the store.

@@ -7,6 +7,8 @@ import (
 	transcriptstore "komrad/internal/store/transcript"
 	agentv1 "komrad/proto/gen/agent/v1"
 	viewv1 "komrad/proto/gen/view/v1"
+
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // agentViewOptions is how much of an agent the view a request asked for draws.
@@ -44,7 +46,7 @@ func (p searchPage) Cursor() (transcriptstore.Cursor, error) {
 }
 
 func renderSearchHit(hit transcriptstore.SearchHit) *agentv1.SearchHit {
-	return &agentv1.SearchHit{
+	rendered := &agentv1.SearchHit{
 		AgentId:       hit.AgentID,
 		Name:          hit.Name,
 		Archived:      hit.Archived,
@@ -55,4 +57,9 @@ func renderSearchHit(hit transcriptstore.SearchHit) *agentv1.SearchHit {
 		ContentOffset: hit.ContentOffset,
 		ContentLength: hit.ContentLength,
 	}
+	if hit.SpokenAt != nil {
+		rendered.SpokenAt = timestamppb.New(*hit.SpokenAt)
+	}
+
+	return rendered
 }

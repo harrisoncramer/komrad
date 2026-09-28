@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"komrad/internal/harness"
 )
@@ -35,9 +36,11 @@ func (h *Harness) ReadLog(path string, offset int64) (harness.LogRead, error) {
 }
 
 type transcriptLine struct {
-	Type    string `json:"type"`
-	IsMeta  bool   `json:"isMeta"`
-	Message *struct {
+	Type             string    `json:"type"`
+	IsMeta           bool      `json:"isMeta"`
+	IsCompactSummary bool      `json:"isCompactSummary"`
+	Timestamp        time.Time `json:"timestamp"`
+	Message          *struct {
 		Content json.RawMessage `json:"content"`
 	} `json:"message"`
 }
@@ -59,7 +62,7 @@ func flattenTranscript(data []byte) []harness.Turn {
 		if err := json.Unmarshal([]byte(raw), &line); err != nil {
 			continue
 		}
-		if line.IsMeta || line.Message == nil {
+		if line.IsMeta || line.IsCompactSummary || line.Message == nil {
 			continue
 		}
 		if line.Type != "user" && line.Type != "assistant" {
@@ -67,7 +70,7 @@ func flattenTranscript(data []byte) []harness.Turn {
 		}
 
 		if text := blockText(line.Message.Content); text != "" {
-			turns = append(turns, harness.Turn{Role: line.Type, Content: text})
+			turns = append(turns, harness.Turn{Role: line.Type, Content: text, At: line.Timestamp})
 		}
 	}
 

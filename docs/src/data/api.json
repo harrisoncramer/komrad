@@ -436,7 +436,7 @@
             "orchestrator"
           ],
           "summary": "Search agent conversations by full text, archived ones included.",
-          "description": "Search agent conversations by full text, archived ones included. Your own conversation is searched by default; set agent_id to search another agent's. Words are matched whole and stemmed, so a turn that phrased it differently still matches. Quote a phrase to require the words in that order, and prefix a word with - to exclude it. Each hit is one turn with the match marked. Results come in two lists: matches, the turns that say the words, best first, and near, the turns that only carry the letters somewhere such as inside a path, which is consulted only once matches run short. Paging advances both lists together. Use this to find out what was discussed, and query for the SQL view of the same data.",
+          "description": "Search agent conversations by full text, archived ones included. Words are matched whole and stemmed, so a turn that phrased it differently still matches. Quote a phrase to require the words in that order, and prefix a word with - to exclude it. Narrow the search with qualifiers in the query: from:me or from:agent for who spoke, agent:NAME and workflow:NAME for agents whose name holds NAME, is:implementer, is:reviewer, is:orchestrator, is:live or is:archived for the kind of agent, with -is: to leave one out, since:, until: and on: taking 3h, 2d, 1w, today, yesterday or a date like 2026-09-20, and sort:best, sort:new or sort:old. Qualifiers with no words list the turns passing them, newest first. Your own conversation is searched by default; set agent_id, or use agent:, workflow: or is:, to search others. Each hit is one turn with the match marked. Results come in two lists: matches, the turns that say the words, and near, the turns that only carry the letters somewhere such as inside a path, which is consulted only once matches run short. Use this to find out what was discussed, and query for the SQL view of the same data.",
           "readOnly": true,
           "idempotent": true,
           "destructive": false,
@@ -4867,7 +4867,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "How well the turn matched, which is what orders the matches."
+          "description": "How well the turn matched, or zero when the hits are ordered by time."
         },
         {
           "name": "seq",
@@ -4908,6 +4908,16 @@
           "oneof": "",
           "rules": [],
           "description": "How many bytes the turn runs to from that offset."
+        },
+        {
+          "name": "spoken_at",
+          "type": "timestamp",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "When the turn was written, unset for a turn whose log was gone before its time was read."
         }
       ]
     },
@@ -4926,7 +4936,7 @@
             "required",
             "at most 500 characters"
           ],
-          "description": "The words to look for, matched whole and stemmed, with a quoted phrase required in that order and a leading minus excluding a word."
+          "description": "The words to look for, matched whole and stemmed, with a quoted phrase required in that order and a leading minus excluding a word, alongside any qualifiers narrowing the search."
         },
         {
           "name": "pagination",
@@ -4946,7 +4956,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Which agent's conversation to search, or unset to search the caller's own."
+          "description": "Which agent's conversation to search, or unset to search the caller's own unless a qualifier names which agents to search."
         }
       ]
     },
@@ -4962,7 +4972,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The turns that say the words, best first."
+          "description": "The turns that say the words, in the order the query asked for."
         },
         {
           "name": "near",

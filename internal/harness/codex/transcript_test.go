@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"komrad/internal/harness"
 
@@ -59,6 +60,11 @@ func TestFlattenRollout(t *testing.T) {
 			name: "malformed lines are ignored",
 			in:   "not json\n" + promptRecord,
 			want: []harness.Turn{{Role: "user", Content: "how do I use trigram search"}},
+		},
+		{
+			name: "a turn keeps the time its record was written",
+			in:   "{\"timestamp\":\"2026-09-27T12:00:01.500Z\",\"type\":\"response_item\",\"payload\":{\"type\":\"message\",\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"hello\"}]}}",
+			want: []harness.Turn{{Role: "user", Content: "hello", At: time.Date(2026, 9, 27, 12, 0, 1, 500_000_000, time.UTC)}},
 		},
 		{
 			name: "a NUL is dropped from the text it arrived in",

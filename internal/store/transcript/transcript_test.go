@@ -1,8 +1,10 @@
 package transcript
 
 import (
+	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"komrad/internal/dbtest"
 	"komrad/internal/store"
@@ -729,7 +731,7 @@ func TestSearchPages(t *testing.T) {
 // the query cannot use would otherwise be answered with an empty page for.
 func TestCursorValidate(t *testing.T) {
 	valid := Position{
-		Rank:    0.5,
+		Key:     0.5,
 		AgentID: "00000000-0000-7000-8000-000000000000",
 		Seq:     1,
 	}
@@ -741,11 +743,16 @@ func TestCursorValidate(t *testing.T) {
 	}{
 		{
 			name:   "a position in one section is enough",
-			cursor: Cursor{Matches: &valid},
+			cursor: Cursor{Sort: SortBest, Matches: &valid},
 		},
 		{
 			name:   "a position in each",
-			cursor: Cursor{Matches: &valid, Near: &valid},
+			cursor: Cursor{Sort: SortNewest, Matches: &valid, Near: &valid},
+		},
+		{
+			name:    "a cursor naming no sort was never handed out",
+			cursor:  Cursor{Matches: &valid},
+			wantErr: true,
 		},
 		{
 			name:    "a cursor locating neither section was never handed out",
@@ -754,7 +761,7 @@ func TestCursorValidate(t *testing.T) {
 		},
 		{
 			name:    "a position holding something that is not an agent id",
-			cursor:  Cursor{Near: &Position{AgentID: "not-an-id"}},
+			cursor:  Cursor{Sort: SortBest, Near: &Position{AgentID: "not-an-id"}},
 			wantErr: true,
 		},
 	}
@@ -1156,6 +1163,7 @@ func TestLikePattern(t *testing.T) {
 type fixture struct {
 	*TranscriptStore
 	agents   *agentstore.AgentStore
+	db       store.DBTX
 	workflow string
 }
 
@@ -1172,6 +1180,7 @@ func open(t *testing.T) *fixture {
 	return &fixture{
 		TranscriptStore: NewTranscriptStore(p.GetDB()),
 		agents:          agentstore.NewAgentStore(p.GetDB()),
+		db:              p.GetDB(),
 		workflow:        created.ID,
 	}
 }
@@ -1325,4 +1334,278 @@ func onlyHit(t *testing.T, st *fixture, id, query string) SearchHit {
 	require.Len(t, hits, 1)
 
 	return hits[0]
+}
+
+type narrowed struct {
+	*fixture
+	start time.Time
+}
+
+func seedNarrowed(t *testing.T) narrowed {
+	t.Helper()
+	st := open(t)
+	ctx := t.Context()
+	start := time.Date(2026, 9, 1, 12, 0, 0, 0, time.UTC)
+
+	web, err := workflowstore.NewWorkflowStore(st.db).Create(ctx, workflowstore.Config{Name: "komrad-web", Worktree: workflowstore.WorktreeConfig{BaseBranch: "main"}})
+	require.NoError(t, err)
+
+	alpha := seedAgentAs(t, st, agentstore.Agent{Name: "alpha", WorkflowID: st.workflow})
+	beta := seedAgentAs(t, st, agentstore.Agent{Name: "beta", Role: agentstore.RoleReviewer, WorkflowID: st.workflow})
+	gamma := seedAgentAs(t, st, agentstore.Agent{Name: "gamma", Role: agentstore.RoleOrchestrator, WorkflowID: web.ID})
+	delta := seedAgentAs(t, st, agentstore.Agent{Name: "delta", WorkflowID: st.workflow})
+
+	seedTurns(t, st, alpha, []Turn{
+		{Role: "user", Content: "a reconciler question", SpokenAt: start},
+		{Role: "assistant", Content: "a reconciler answer", SpokenAt: start.Add(time.Hour)},
+	})
+	seedTurns(t, st, beta, []Turn{{Role: "user", Content: "a reconciler review", SpokenAt: start.Add(48 * time.Hour)}})
+	seedTurns(t, st, gamma, []Turn{{Role: "assistant", Content: "a reconciler plan", SpokenAt: start.Add(72 * time.Hour)}})
+	seedTurns(t, st, delta, []Turn{
+		{Role: "user", Content: "a reconciler from before times were kept"},
+		{Role: "user", Content: "a reconciler also from before", SpokenAt: time.Time{}},
+	})
+
+	_, err = st.agents.Archive(ctx, []string{beta})
+	require.NoError(t, err)
+
+	return narrowed{fixture: st, start: start}
+}
+
+func seedAgentAs(t *testing.T, st *fixture, agent agentstore.Agent) string {
+	t.Helper()
+	agent.State = agentstore.StateIdle
+	require.NoError(t, st.agents.Create(t.Context(), agent))
+	got, err := st.agents.GetInWorkflow(t.Context(), agent.WorkflowID, agent.Name)
+	require.NoError(t, err)
+	require.NotNil(t, got)
+
+	return got.ID
+}
+
+func hitNames(hits []SearchHit) []string {
+	names := xslice.Map(hits, func(hit SearchHit) string {
+		return fmt.Sprintf("%s:%d", hit.Name, hit.Seq)
+	})
+
+	return names
+}
+
+// TestSearchFilter covers each condition a filter sets, in both sections.
+func TestSearchFilter(t *testing.T) {
+	st := seedNarrowed(t)
+	dayAfter := st.start.Add(24 * time.Hour)
+
+	tests := []struct {
+		name   string
+		query  string
+		filter Filter
+		want   []string
+	}{
+		{
+			name:   "what arrived as a prompt",
+			filter: Filter{Speaker: xptr.Ptr("user")},
+			want:   []string{"alpha:0", "beta:0", "delta:0", "delta:1"},
+		},
+		{
+			name:   "what the agent wrote",
+			filter: Filter{Speaker: xptr.Ptr("assistant")},
+			want:   []string{"alpha:1", "gamma:0"},
+		},
+		{
+			name:   "agents whose name holds the text, in any case",
+			filter: Filter{AgentName: xptr.Ptr("LPH")},
+			want:   []string{"alpha:0", "alpha:1"},
+		},
+		{
+			name:   "agents in a workflow whose name holds the text",
+			filter: Filter{WorkflowName: xptr.Ptr("web")},
+			want:   []string{"gamma:0"},
+		},
+		{
+			name:   "one kind of agent",
+			filter: Filter{Kinds: []string{"reviewer"}},
+			want:   []string{"beta:0"},
+		},
+		{
+			name:   "kinds left out",
+			filter: Filter{ExcludedKinds: []string{"reviewer", "orchestrator"}},
+			want:   []string{"alpha:0", "alpha:1", "delta:0", "delta:1"},
+		},
+		{
+			name:   "archived agents",
+			filter: Filter{Archived: xptr.Ptr(true)},
+			want:   []string{"beta:0"},
+		},
+		{
+			name:   "live agents",
+			filter: Filter{Archived: xptr.Ptr(false)},
+			want:   []string{"alpha:0", "alpha:1", "gamma:0", "delta:0", "delta:1"},
+		},
+		{
+			name:   "said since a time, leaving out turns with no time",
+			filter: Filter{Since: &dayAfter},
+			want:   []string{"beta:0", "gamma:0"},
+		},
+		{
+			name:   "said before a time",
+			filter: Filter{Until: &dayAfter},
+			want:   []string{"alpha:0", "alpha:1"},
+		},
+		{
+			name:   "the near section applies the filter too",
+			query:  "reconcil",
+			filter: Filter{Speaker: xptr.Ptr("assistant")},
+			want:   []string{"alpha:1", "gamma:0"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			query := tt.query
+			if query == "" {
+				query = "reconciler"
+			}
+
+			got, err := st.Search(t.Context(), SearchParams{Query: query, Limit: 10, Filter: tt.filter})
+			require.NoError(t, err)
+			assert.ElementsMatch(t, tt.want, hitNames(allHits(got)))
+		})
+	}
+}
+
+// TestSearchSort covers the order each sort walks the hits in, page by page, with turns that
+// have no time last.
+func TestSearchSort(t *testing.T) {
+	st := seedNarrowed(t)
+
+	tests := []struct {
+		name  string
+		query string
+		sort  Sort
+		limit int64
+		want  []string
+	}{
+		{
+			name: "newest first",
+			sort: SortNewest,
+			want: []string{"gamma:0", "beta:0", "alpha:1", "alpha:0", "delta:0", "delta:1"},
+		},
+		{
+			name: "oldest first",
+			sort: SortOldest,
+			want: []string{"alpha:0", "alpha:1", "beta:0", "gamma:0", "delta:0", "delta:1"},
+		},
+		{
+			name:  "a page ending inside the turns with no time carries on without repeating one",
+			sort:  SortNewest,
+			limit: 5,
+			want:  []string{"gamma:0", "beta:0", "alpha:1", "alpha:0", "delta:0", "delta:1"},
+		},
+		{
+			name:  "the near section in time order",
+			query: "reconcil",
+			sort:  SortNewest,
+			want:  []string{"gamma:0", "beta:0", "alpha:1", "alpha:0", "delta:0", "delta:1"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			query := tt.query
+			if query == "" {
+				query = "reconciler"
+			}
+
+			limit := tt.limit
+			if limit == 0 {
+				limit = 2
+			}
+
+			var (
+				names  []string
+				cursor *Cursor
+			)
+			for range 10 {
+				page, err := st.Search(t.Context(), SearchParams{Query: query, Limit: limit, Sort: tt.sort, Cursor: cursor})
+				require.NoError(t, err)
+
+				names = append(names, hitNames(allHits(page))...)
+				if page.Next == nil {
+					break
+				}
+				cursor = page.Next
+			}
+
+			assert.Equal(t, tt.want, names)
+		})
+	}
+}
+
+// TestSearchWithOnlyAFilter covers a query naming no word, which lists the turns passing its
+// filter newest first, from the start of each turn.
+func TestSearchWithOnlyAFilter(t *testing.T) {
+	st := seedNarrowed(t)
+	user := Filter{Speaker: xptr.Ptr("user")}
+
+	tests := []struct {
+		name   string
+		query  string
+		filter Filter
+		want   []string
+	}{
+		{
+			name: "no filter and no word is nothing",
+			want: []string{},
+		},
+		{
+			name:   "every turn passing the filter",
+			filter: user,
+			want:   []string{"beta:0", "alpha:0", "delta:0", "delta:1"},
+		},
+		{
+			name:   "less the turns saying a word left out",
+			query:  "-question",
+			filter: user,
+			want:   []string{"beta:0", "delta:0", "delta:1"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := st.Search(t.Context(), SearchParams{Query: tt.query, Limit: 10, Filter: tt.filter})
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, hitNames(allHits(got)))
+			assert.Empty(t, got.Near)
+		})
+	}
+
+	got, err := st.Search(t.Context(), SearchParams{Limit: 1, Filter: Filter{AgentName: xptr.Ptr("alpha")}})
+	require.NoError(t, err)
+	require.Len(t, got.Matches, 1)
+	assert.Equal(t, "a reconciler answer", got.Matches[0].Snippet)
+	assert.Equal(t, st.start.Add(time.Hour), got.Matches[0].SpokenAt.UTC())
+}
+
+// TestSearchRefusesACursorFromAnotherSort pins that a page token only continues the order it
+// was handed out under.
+func TestSearchRefusesACursorFromAnotherSort(t *testing.T) {
+	st := seedNarrowed(t)
+
+	first, err := st.Search(t.Context(), SearchParams{Query: "reconciler", Limit: 1, Sort: SortNewest})
+	require.NoError(t, err)
+	require.NotNil(t, first.Next)
+
+	_, err = st.Search(t.Context(), SearchParams{Query: "reconciler", Limit: 1, Cursor: first.Next})
+	require.ErrorIs(t, err, ErrSortChanged)
+}
+
+// TestAppendTurnsStoresNoTimeForATurnWithout pins that a turn read without a time is stored
+// with none, rather than as the zero time.
+func TestAppendTurnsStoresNoTimeForATurnWithout(t *testing.T) {
+	st := open(t)
+	id := seedAgent(t, st, "untimed")
+	seedTurns(t, st, id, []Turn{{Role: "user", Content: "a reconciler with no time"}})
+
+	assert.Nil(t, onlyHit(t, st, id, "reconciler").SpokenAt)
 }

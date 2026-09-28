@@ -3,6 +3,7 @@ package transcripts
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"komrad/internal/agents"
 	transcriptstore "komrad/internal/store/transcript"
@@ -23,25 +24,59 @@ type transcriptSearcher interface {
 type NewTranscriptReaderParams struct {
 	Agents      agentExistsChecker
 	Transcripts transcriptSearcher
+	Clock       func() time.Time
 }
 
 // TranscriptReader reads what agents wrote.
 type TranscriptReader struct {
 	agents      agentExistsChecker
 	transcripts transcriptSearcher
+	now         func() time.Time
 }
 
 // NewTranscriptReader builds the reader over the agent and transcript stores.
 func NewTranscriptReader(params NewTranscriptReaderParams) *TranscriptReader {
+	now := params.Clock
+	if now == nil {
+		now = time.Now
+	}
+
 	return &TranscriptReader{
 		agents:      params.Agents,
 		transcripts: params.Transcripts,
+		now:         now,
 	}
 }
 
-// SearchTranscripts runs a search over the stored transcripts.
-func (r *TranscriptReader) SearchTranscripts(ctx context.Context, params transcriptstore.SearchParams) (*transcriptstore.Results, error) {
-	results, err := r.transcripts.Search(ctx, params)
+// SearchTranscriptsParams is a search's text and page, with the agent it names and the agent asking.
+type SearchTranscriptsParams struct {
+	Query   string
+	Limit   int64
+	Cursor  *transcriptstore.Cursor
+	AgentID *string
+	Caller  string
+}
+
+// SearchTranscripts runs a search over the stored transcripts narrowed by the qualifiers the query holds.
+func (r *TranscriptReader) SearchTranscripts(ctx context.Context, params SearchTranscriptsParams) (*transcriptstore.Results, error) {
+	query, err := ParseQuery(params.Query, r.now())
+	if err != nil {
+		return nil, err
+	}
+
+	scope := params.AgentID
+	if scope == nil && params.Caller != "" && !query.Widens() {
+		scope = &params.Caller
+	}
+
+	results, err := r.transcripts.Search(ctx, transcriptstore.SearchParams{
+		Query:   query.Words,
+		Limit:   params.Limit,
+		Cursor:  params.Cursor,
+		AgentID: scope,
+		Filter:  query.Filter,
+		Sort:    query.Sort,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to search transcripts: %w", err)
 	}

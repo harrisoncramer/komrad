@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"komrad/internal/harness"
 )
@@ -35,8 +36,9 @@ func (h *Harness) ReadLog(path string, offset int64) (harness.LogRead, error) {
 }
 
 type rolloutRecord struct {
-	Type    string `json:"type"`
-	Payload struct {
+	Type      string    `json:"type"`
+	Timestamp time.Time `json:"timestamp"`
+	Payload   struct {
 		Type    string         `json:"type"`
 		Role    string         `json:"role"`
 		Content []contentBlock `json:"content"`
@@ -82,7 +84,7 @@ func flattenRollout(data []byte) []harness.Turn {
 			continue
 		}
 
-		turns = append(turns, harness.Turn{Role: record.Payload.Role, Content: text})
+		turns = append(turns, harness.Turn{Role: record.Payload.Role, Content: text, At: record.Timestamp})
 	}
 
 	return turns

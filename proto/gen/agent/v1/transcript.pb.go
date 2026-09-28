@@ -10,6 +10,7 @@ import (
 	_ "buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 	v1 "komrad/proto/gen/pagination/v1"
 	reflect "reflect"
 	sync "sync"
@@ -26,12 +27,13 @@ const (
 type SearchTranscriptsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The words to look for, matched whole and stemmed, with a quoted phrase required in that order and
-	// a leading minus excluding a word.
+	// a leading minus excluding a word, alongside any qualifiers narrowing the search.
 	Query string `protobuf:"bytes,1,opt,name=query,proto3" json:"query,omitempty"`
 	// Where to carry on from, since one page of matches and one page of near misses advance
 	// together.
 	Pagination *v1.Pagination `protobuf:"bytes,2,opt,name=pagination,proto3,oneof" json:"pagination,omitempty"`
-	// Which agent's conversation to search, or unset to search the caller's own.
+	// Which agent's conversation to search, or unset to search the caller's own unless a qualifier
+	// names which agents to search.
 	AgentId       *string `protobuf:"bytes,3,opt,name=agent_id,json=agentId,proto3,oneof" json:"agent_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -98,7 +100,7 @@ type SearchHit struct {
 	Name string `protobuf:"bytes,4,opt,name=name,proto3" json:"name,omitempty"`
 	// Whether that agent has been archived, since search spans those too.
 	Archived bool `protobuf:"varint,5,opt,name=archived,proto3" json:"archived,omitempty"`
-	// How well the turn matched, which is what orders the matches.
+	// How well the turn matched, or zero when the hits are ordered by time.
 	Score float64 `protobuf:"fixed64,6,opt,name=score,proto3" json:"score,omitempty"`
 	// Where the turn sits in the conversation, counting from the first.
 	Seq int32 `protobuf:"varint,7,opt,name=seq,proto3" json:"seq,omitempty"`
@@ -108,6 +110,8 @@ type SearchHit struct {
 	ContentOffset int64 `protobuf:"varint,9,opt,name=content_offset,json=contentOffset,proto3" json:"content_offset,omitempty"`
 	// How many bytes the turn runs to from that offset.
 	ContentLength int64 `protobuf:"varint,10,opt,name=content_length,json=contentLength,proto3" json:"content_length,omitempty"`
+	// When the turn was written, unset for a turn whose log was gone before its time was read.
+	SpokenAt      *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=spoken_at,json=spokenAt,proto3,oneof" json:"spoken_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -205,9 +209,16 @@ func (x *SearchHit) GetContentLength() int64 {
 	return 0
 }
 
+func (x *SearchHit) GetSpokenAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.SpokenAt
+	}
+	return nil
+}
+
 type SearchTranscriptsResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The turns that say the words, best first.
+	// The turns that say the words, in the order the query asked for.
 	Matches []*SearchHit `protobuf:"bytes,1,rep,name=matches,proto3" json:"matches,omitempty"`
 	// The turns that only carry the letters somewhere, such as a word glued into a path, scored on
 	// how cleanly the letters sit rather than against the matches.
@@ -573,7 +584,7 @@ var File_agent_v1_transcript_proto protoreflect.FileDescriptor
 
 const file_agent_v1_transcript_proto_rawDesc = "" +
 	"\n" +
-	"\x19agent/v1/transcript.proto\x12\bagent.v1\x1a\x1bbuf/validate/validate.proto\x1a\x1epagination/v1/pagination.proto\"\xc1\x01\n" +
+	"\x19agent/v1/transcript.proto\x12\bagent.v1\x1a\x1bbuf/validate/validate.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1epagination/v1/pagination.proto\"\xc1\x01\n" +
 	"\x18SearchTranscriptsRequest\x12 \n" +
 	"\x05query\x18\x01 \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\xf4\x03R\x05query\x12>\n" +
@@ -582,7 +593,7 @@ const file_agent_v1_transcript_proto_rawDesc = "" +
 	"pagination\x88\x01\x01\x12'\n" +
 	"\bagent_id\x18\x03 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x01R\aagentId\x88\x01\x01B\r\n" +
 	"\v_paginationB\v\n" +
-	"\t_agent_id\"\xfa\x01\n" +
+	"\t_agent_id\"\xc6\x02\n" +
 	"\tSearchHit\x12\x19\n" +
 	"\bagent_id\x18\x01 \x01(\tR\aagentId\x12\x18\n" +
 	"\asnippet\x18\x02 \x01(\tR\asnippet\x12\x12\n" +
@@ -593,7 +604,10 @@ const file_agent_v1_transcript_proto_rawDesc = "" +
 	"\x04role\x18\b \x01(\tR\x04role\x12%\n" +
 	"\x0econtent_offset\x18\t \x01(\x03R\rcontentOffset\x12%\n" +
 	"\x0econtent_length\x18\n" +
-	" \x01(\x03R\rcontentLength\"\xb4\x01\n" +
+	" \x01(\x03R\rcontentLength\x12<\n" +
+	"\tspoken_at\x18\v \x01(\v2\x1a.google.protobuf.TimestampH\x00R\bspokenAt\x88\x01\x01B\f\n" +
+	"\n" +
+	"_spoken_at\"\xb4\x01\n" +
 	"\x19SearchTranscriptsResponse\x12-\n" +
 	"\amatches\x18\x01 \x03(\v2\x13.agent.v1.SearchHitR\amatches\x12'\n" +
 	"\x04near\x18\x03 \x03(\v2\x13.agent.v1.SearchHitR\x04near\x12+\n" +
@@ -648,17 +662,19 @@ var file_agent_v1_transcript_proto_goTypes = []any{
 	(*Turn)(nil),                      // 6: agent.v1.Turn
 	(*GetLastTurnsResponse)(nil),      // 7: agent.v1.GetLastTurnsResponse
 	(*v1.Pagination)(nil),             // 8: pagination.v1.Pagination
+	(*timestamppb.Timestamp)(nil),     // 9: google.protobuf.Timestamp
 }
 var file_agent_v1_transcript_proto_depIdxs = []int32{
 	8, // 0: agent.v1.SearchTranscriptsRequest.pagination:type_name -> pagination.v1.Pagination
-	1, // 1: agent.v1.SearchTranscriptsResponse.matches:type_name -> agent.v1.SearchHit
-	1, // 2: agent.v1.SearchTranscriptsResponse.near:type_name -> agent.v1.SearchHit
-	6, // 3: agent.v1.GetLastTurnsResponse.turns:type_name -> agent.v1.Turn
-	4, // [4:4] is the sub-list for method output_type
-	4, // [4:4] is the sub-list for method input_type
-	4, // [4:4] is the sub-list for extension type_name
-	4, // [4:4] is the sub-list for extension extendee
-	0, // [0:4] is the sub-list for field type_name
+	9, // 1: agent.v1.SearchHit.spoken_at:type_name -> google.protobuf.Timestamp
+	1, // 2: agent.v1.SearchTranscriptsResponse.matches:type_name -> agent.v1.SearchHit
+	1, // 3: agent.v1.SearchTranscriptsResponse.near:type_name -> agent.v1.SearchHit
+	6, // 4: agent.v1.GetLastTurnsResponse.turns:type_name -> agent.v1.Turn
+	5, // [5:5] is the sub-list for method output_type
+	5, // [5:5] is the sub-list for method input_type
+	5, // [5:5] is the sub-list for extension type_name
+	5, // [5:5] is the sub-list for extension extendee
+	0, // [0:5] is the sub-list for field type_name
 }
 
 func init() { file_agent_v1_transcript_proto_init() }
@@ -667,6 +683,7 @@ func file_agent_v1_transcript_proto_init() {
 		return
 	}
 	file_agent_v1_transcript_proto_msgTypes[0].OneofWrappers = []any{}
+	file_agent_v1_transcript_proto_msgTypes[1].OneofWrappers = []any{}
 	file_agent_v1_transcript_proto_msgTypes[2].OneofWrappers = []any{}
 	file_agent_v1_transcript_proto_msgTypes[3].OneofWrappers = []any{}
 	file_agent_v1_transcript_proto_msgTypes[4].OneofWrappers = []any{}

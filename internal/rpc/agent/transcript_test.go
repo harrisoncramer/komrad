@@ -37,7 +37,7 @@ type fakeTranscriptReader struct {
 	turns    []transcriptstore.StoredTurn
 	results  transcriptstore.Results
 	err      error
-	searched []transcriptstore.SearchParams
+	searched []transcripts.SearchTranscriptsParams
 	listed   []transcripts.ListLastTurnsParams
 }
 
@@ -61,7 +61,7 @@ func (f *fakeTranscriptReader) ListLastTurns(_ context.Context, params transcrip
 }
 
 // SearchTranscripts records the params and answers results unless err refuses it.
-func (f *fakeTranscriptReader) SearchTranscripts(_ context.Context, params transcriptstore.SearchParams) (*transcriptstore.Results, error) {
+func (f *fakeTranscriptReader) SearchTranscripts(_ context.Context, params transcripts.SearchTranscriptsParams) (*transcriptstore.Results, error) {
 	f.searched = append(f.searched, params)
 	if f.err != nil {
 		return nil, f.err
@@ -276,37 +276,29 @@ func TestTranscriptRefusalsMapToCodes(t *testing.T) {
 	}
 }
 
-// TestSearchTranscriptsScope pins which agent a search reaches, worked out from the caller as well as the request.
+// TestSearchTranscriptsScope pins that a search passes on the agent it names and the agent asking.
 func TestSearchTranscriptsScope(t *testing.T) {
 	tests := []struct {
 		name        string
 		callerIs    string
 		asksFor     string
-		cursor      *string
 		wantAgentID *string
 	}{
 		{
-			name:        "an agent that names nobody reads its own conversation",
-			callerIs:    alphaID,
-			wantAgentID: xptr.Ptr(alphaID),
+			name:     "an agent that names nobody",
+			callerIs: alphaID,
 		},
 		{
-			name:        "an agent that names another reads that one",
+			name:        "an agent that names another",
 			callerIs:    alphaID,
 			asksFor:     betaID,
 			wantAgentID: xptr.Ptr(betaID),
 		},
 		{
-			name:        "a replayed token does not widen an agent's own search",
-			callerIs:    alphaID,
-			cursor:      proto.String("eyJtIjp7InIiOjAuNSwiaSI6IjAxYTBkMWQ3LTAwMDAtNzAwMC04MDAwLTAwMDAwMDAwMDAwYiIsInMiOjF9fQ=="),
-			wantAgentID: xptr.Ptr(alphaID),
+			name: "the panel naming nobody",
 		},
 		{
-			name: "the panel reads every conversation",
-		},
-		{
-			name:        "the panel can still narrow to one",
+			name:        "the panel naming one",
 			asksFor:     betaID,
 			wantAgentID: xptr.Ptr(betaID),
 		},
@@ -322,10 +314,7 @@ func TestSearchTranscriptsScope(t *testing.T) {
 				ctx = caller.With(ctx, caller.Caller{AgentID: tt.callerIs})
 			}
 
-			req := &agentv1.SearchTranscriptsRequest{
-				Query:      "reconciler",
-				Pagination: &paginationv1.Pagination{Cursor: tt.cursor},
-			}
+			req := &agentv1.SearchTranscriptsRequest{Query: "reconciler"}
 			if tt.asksFor != "" {
 				req.AgentId = xptr.Ptr(tt.asksFor)
 			}
@@ -335,14 +324,15 @@ func TestSearchTranscriptsScope(t *testing.T) {
 
 			require.Len(t, reader.searched, 1)
 			assert.Equal(t, tt.wantAgentID, reader.searched[0].AgentID)
+			assert.Equal(t, tt.callerIs, reader.searched[0].Caller)
 		})
 	}
 }
 
 // TestSearchTranscripts pins how each hit renders and that the store's next cursor becomes the page token.
 func TestSearchTranscripts(t *testing.T) {
-	next := transcriptstore.Cursor{Matches: &transcriptstore.Position{
-		Rank:    0.5,
+	next := transcriptstore.Cursor{Sort: transcriptstore.SortBest, Matches: &transcriptstore.Position{
+		Key:     0.5,
 		AgentID: alphaID,
 		Seq:     1,
 	}}
@@ -402,16 +392,16 @@ func TestSearchTranscripts(t *testing.T) {
 	}))
 	require.NoError(t, err)
 
-	firstPage := transcriptstore.SearchParams{
+	firstPage := transcripts.SearchTranscriptsParams{
 		Query: "reconciler",
 		Limit: 1,
 	}
-	secondPage := transcriptstore.SearchParams{
+	secondPage := transcripts.SearchTranscriptsParams{
 		Query:  "reconciler",
 		Limit:  1,
 		Cursor: &next,
 	}
-	assert.Equal(t, []transcriptstore.SearchParams{firstPage, secondPage}, reader.searched)
+	assert.Equal(t, []transcripts.SearchTranscriptsParams{firstPage, secondPage}, reader.searched)
 }
 
 // TestCrossAgentReadIsRecorded pins the line a read of somebody else's conversation leaves, and the silence a read of your own does.
@@ -420,6 +410,20 @@ func TestCrossAgentReadIsRecorded(t *testing.T) {
 		_, err := svc.SearchTranscripts(ctx, connect.NewRequest(&agentv1.SearchTranscriptsRequest{
 			Query:   "reconciler",
 			AgentId: xptr.Ptr(betaID),
+		}))
+
+		return err
+	}
+	searchArchived := func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
+		_, err := svc.SearchTranscripts(ctx, connect.NewRequest(&agentv1.SearchTranscriptsRequest{
+			Query: "is:archived reconciler",
+		}))
+
+		return err
+	}
+	searchOwn := func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
+		_, err := svc.SearchTranscripts(ctx, connect.NewRequest(&agentv1.SearchTranscriptsRequest{
+			Query: "from:me reconciler",
 		}))
 
 		return err
@@ -439,34 +443,53 @@ func TestCrossAgentReadIsRecorded(t *testing.T) {
 		name       string
 		callerIs   string
 		read       func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error
-		wantRecord bool
+		wantBody   string
+		wantTarget string
 	}{
-		{
-			name:       "an agent searching another agent",
-			callerIs:   alphaID,
-			read:       searchBeta,
-			wantRecord: true,
-		},
-		{
-			name:       "an agent fetching another agent's whole conversation",
-			callerIs:   alphaID,
-			read:       getBetaTranscript,
-			wantRecord: true,
-		},
-		{
-			name:       "an agent fetching another agent's last turns",
-			callerIs:   alphaID,
-			read:       getBetaLastTurns,
-			wantRecord: true,
-		},
 		{
 			name:     "an agent searching itself",
 			callerIs: betaID,
 			read:     searchBeta,
 		},
 		{
+			name:     "an agent searching its own conversation with a qualifier that does not widen",
+			callerIs: alphaID,
+			read:     searchOwn,
+		},
+		{
 			name: "the panel reading anyone",
 			read: getBetaTranscript,
+		},
+		{
+			name: "the panel searching every agent",
+			read: searchArchived,
+		},
+		{
+			name:       "an agent searching another agent",
+			callerIs:   alphaID,
+			read:       searchBeta,
+			wantBody:   "agent read another agent's transcript",
+			wantTarget: betaID,
+		},
+		{
+			name:       "an agent fetching another agent's whole conversation",
+			callerIs:   alphaID,
+			read:       getBetaTranscript,
+			wantBody:   "agent read another agent's transcript",
+			wantTarget: betaID,
+		},
+		{
+			name:       "an agent fetching another agent's last turns",
+			callerIs:   alphaID,
+			read:       getBetaLastTurns,
+			wantBody:   "agent read another agent's transcript",
+			wantTarget: betaID,
+		},
+		{
+			name:     "an agent widening its search to every agent with a qualifier",
+			callerIs: alphaID,
+			read:     searchArchived,
+			wantBody: "agent searched every agent's transcript",
 		},
 	}
 
@@ -482,15 +505,15 @@ func TestCrossAgentReadIsRecorded(t *testing.T) {
 
 			require.NoError(t, tt.read(ctx, svc))
 
-			if !tt.wantRecord {
+			if tt.wantBody == "" {
 				assert.Empty(t, written.String())
 
 				return
 			}
 
 			record := logtest.Record(t, written.String())
-			assert.Equal(t, "agent read another agent's transcript", record["body"])
-			assert.Equal(t, betaID, record[logging.TargetAgentID])
+			assert.Equal(t, tt.wantBody, record["body"])
+			assert.Equal(t, tt.wantTarget, record[logging.TargetAgentID])
 		})
 	}
 }
