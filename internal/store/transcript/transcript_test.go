@@ -1361,7 +1361,10 @@ func seedNarrowed(t *testing.T) narrowed {
 	})
 	seedTurns(t, st, beta, []Turn{{Role: "user", Content: "a reconciler review", SpokenAt: start.Add(48 * time.Hour)}})
 	seedTurns(t, st, gamma, []Turn{{Role: "assistant", Content: "a reconciler plan", SpokenAt: start.Add(72 * time.Hour)}})
-	seedTurns(t, st, delta, []Turn{{Role: "user", Content: "a reconciler from before times were kept"}})
+	seedTurns(t, st, delta, []Turn{
+		{Role: "user", Content: "a reconciler from before times were kept"},
+		{Role: "user", Content: "a reconciler also from before", SpokenAt: time.Time{}},
+	})
 
 	_, err = st.agents.Archive(ctx, []string{beta})
 	require.NoError(t, err)
@@ -1402,7 +1405,7 @@ func TestSearchFilter(t *testing.T) {
 		{
 			name:   "what arrived as a prompt",
 			filter: Filter{Speaker: xptr.Ptr("user")},
-			want:   []string{"alpha:0", "beta:0", "delta:0"},
+			want:   []string{"alpha:0", "beta:0", "delta:0", "delta:1"},
 		},
 		{
 			name:   "what the agent wrote",
@@ -1427,7 +1430,7 @@ func TestSearchFilter(t *testing.T) {
 		{
 			name:   "kinds left out",
 			filter: Filter{ExcludedKinds: []string{"reviewer", "orchestrator"}},
-			want:   []string{"alpha:0", "alpha:1", "delta:0"},
+			want:   []string{"alpha:0", "alpha:1", "delta:0", "delta:1"},
 		},
 		{
 			name:   "archived agents",
@@ -1437,7 +1440,7 @@ func TestSearchFilter(t *testing.T) {
 		{
 			name:   "live agents",
 			filter: Filter{Archived: xptr.Ptr(false)},
-			want:   []string{"alpha:0", "alpha:1", "gamma:0", "delta:0"},
+			want:   []string{"alpha:0", "alpha:1", "gamma:0", "delta:0", "delta:1"},
 		},
 		{
 			name:   "said since a time, leaving out turns with no time",
@@ -1480,23 +1483,30 @@ func TestSearchSort(t *testing.T) {
 		name  string
 		query string
 		sort  Sort
+		limit int64
 		want  []string
 	}{
 		{
 			name: "newest first",
 			sort: SortNewest,
-			want: []string{"gamma:0", "beta:0", "alpha:1", "alpha:0", "delta:0"},
+			want: []string{"gamma:0", "beta:0", "alpha:1", "alpha:0", "delta:0", "delta:1"},
 		},
 		{
 			name: "oldest first",
 			sort: SortOldest,
-			want: []string{"alpha:0", "alpha:1", "beta:0", "gamma:0", "delta:0"},
+			want: []string{"alpha:0", "alpha:1", "beta:0", "gamma:0", "delta:0", "delta:1"},
+		},
+		{
+			name:  "a page ending inside the turns with no time carries on without repeating one",
+			sort:  SortNewest,
+			limit: 5,
+			want:  []string{"gamma:0", "beta:0", "alpha:1", "alpha:0", "delta:0", "delta:1"},
 		},
 		{
 			name:  "the near section in time order",
 			query: "reconcil",
 			sort:  SortNewest,
-			want:  []string{"gamma:0", "beta:0", "alpha:1", "alpha:0", "delta:0"},
+			want:  []string{"gamma:0", "beta:0", "alpha:1", "alpha:0", "delta:0", "delta:1"},
 		},
 	}
 
@@ -1507,12 +1517,17 @@ func TestSearchSort(t *testing.T) {
 				query = "reconciler"
 			}
 
+			limit := tt.limit
+			if limit == 0 {
+				limit = 2
+			}
+
 			var (
 				names  []string
 				cursor *Cursor
 			)
-			for range 5 {
-				page, err := st.Search(t.Context(), SearchParams{Query: query, Limit: 2, Sort: tt.sort, Cursor: cursor})
+			for range 10 {
+				page, err := st.Search(t.Context(), SearchParams{Query: query, Limit: limit, Sort: tt.sort, Cursor: cursor})
 				require.NoError(t, err)
 
 				names = append(names, hitNames(allHits(page))...)
@@ -1542,13 +1557,13 @@ func TestSearchWithOnlyAFilter(t *testing.T) {
 		{
 			name:   "every turn passing the filter",
 			filter: user,
-			want:   []string{"beta:0", "alpha:0", "delta:0"},
+			want:   []string{"beta:0", "alpha:0", "delta:0", "delta:1"},
 		},
 		{
 			name:   "less the turns saying a word left out",
 			query:  "-question",
 			filter: user,
-			want:   []string{"beta:0", "delta:0"},
+			want:   []string{"beta:0", "delta:0", "delta:1"},
 		},
 		{
 			name: "no filter and no word is nothing",
@@ -1583,4 +1598,14 @@ func TestSearchRefusesACursorFromAnotherSort(t *testing.T) {
 
 	_, err = st.Search(t.Context(), SearchParams{Query: "reconciler", Limit: 1, Cursor: first.Next})
 	require.ErrorIs(t, err, ErrSortChanged)
+}
+
+// TestAppendTurnsStoresNoTimeForATurnWithout pins that a turn read without a time is stored
+// with none, rather than as the zero time.
+func TestAppendTurnsStoresNoTimeForATurnWithout(t *testing.T) {
+	st := open(t)
+	id := seedAgent(t, st, "untimed")
+	seedTurns(t, st, id, []Turn{{Role: "user", Content: "a reconciler with no time"}})
+
+	assert.Nil(t, onlyHit(t, st, id, "reconciler").SpokenAt)
 }

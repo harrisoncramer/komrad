@@ -49,6 +49,11 @@ func TestFlattenTranscript(t *testing.T) {
 			want: nil,
 		},
 		{
+			name: "a compaction summary is skipped, though it arrives as the user",
+			in:   `{"type":"user","isCompactSummary":true,"message":{"content":"This session is being continued from a previous conversation"}}`,
+			want: nil,
+		},
+		{
 			name: "non-conversation types are skipped",
 			in: `{"type":"mode","mode":"normal"}` + "\n" +
 				`{"type":"file-history-snapshot"}` + "\n" +
