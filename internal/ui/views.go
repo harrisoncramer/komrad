@@ -46,17 +46,21 @@ func (m model) isViewsOpen() bool {
 }
 
 // viewsBar is the logo and the switcher drawn over a list, and under them the trail down to a
-// page opened from a view, which is drawn however short the pane.
+// page opened from a view, which takes the blank row under the switcher so the list stays put.
 func (m model) viewsBar() string {
 	var lines []string
 	if m.height <= 0 || m.height >= viewsBarFloor {
 		lines = m.switcherLines()
 	}
-	if trail, _, ok := m.activeCrumbs(); ok {
+	trail, _, hasTrail := m.activeCrumbs()
+	if hasTrail {
 		lines = append(lines, trail.view(paint.Panel, m.paneWidth()))
 	}
 	if len(lines) == 0 {
 		return ""
+	}
+	if hasTrail {
+		return strings.Join(lines, "\n") + "\n"
 	}
 
 	return strings.Join(lines, "\n") + "\n\n"

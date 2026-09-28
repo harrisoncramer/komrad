@@ -204,13 +204,13 @@ func TestValidateSubmenuKeysReadsTheKeysTheMenuIsDrawnOver(t *testing.T) {
 			names:  "the menu's rebase entry",
 		},
 		{
-			name:   "a place on the key that takes the menu down",
-			rebind: func(k *config.Keybindings) { k.Places.Logs = []string{"esc"} },
+			name:   "a subpage on the key that takes the menu down",
+			rebind: func(k *config.Keybindings) { k.Subpages.Logs = []string{"esc"} },
 			names:  "logs",
 		},
 		{
-			name:   "two places on one key",
-			rebind: func(k *config.Keybindings) { k.Places.Documents = []string{"r"} },
+			name:   "two subpages on one key",
+			rebind: func(k *config.Keybindings) { k.Subpages.Documents = []string{"r"} },
 			names:  "the menu's review entry",
 		},
 	}

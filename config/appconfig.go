@@ -151,9 +151,6 @@ type Keybindings struct {
 	Marks MarksKeys `mapstructure:"marks"`
 	// Navigation, shared by every menu so movement is the same everywhere.
 	Nav NavKeys `mapstructure:"nav"`
-	// The places menu, which opens beside a list of agents and holds the screens that belong to
-	// the hovered agent.
-	Places PlacesKeys `mapstructure:"places"`
 	// The review screen, which draws an agent's diff in the stage and its review
 	// threads in the sidebar.
 	Review ReviewKeys `mapstructure:"review"`
@@ -165,6 +162,8 @@ type Keybindings struct {
 	Sidebar SidebarKeys `mapstructure:"sidebar"`
 	// Choosing several agents at once, shared by the two screens that draw a tree.
 	Selection SelectionKeys `mapstructure:"selection"`
+	// The subpages menu, which lists the screens that belong to the hovered row.
+	Subpages SubpagesKeys `mapstructure:"subpages"`
 	// The row of tabs a screen draws over its list, and the key that hands it the cursor.
 	Tabs TabsKeys `mapstructure:"tabs"`
 	// The row of kinds a screen listing more than one kind of resource draws under its tabs.
@@ -378,10 +377,10 @@ type GitKeys struct {
 	Rebase []string `mapstructure:"rebase" default:"r"`
 }
 
-// PlacesKeys are the bindings for the places menu, which opens beside the agents list and the
-// archive and holds the screens that belong to the hovered agent.
-type PlacesKeys struct {
-	// Open the places menu on the hovered agent, or its orchestrator's on a workflow's row.
+// SubpagesKeys are the bindings for the subpages menu, which lists the screens that belong to
+// the hovered row. Today that row is an agent, on the agents list or in the archive.
+type SubpagesKeys struct {
+	// Open the subpages menu on the hovered agent, or its orchestrator's on a workflow's row.
 	Open []string `mapstructure:"open" default:"space"`
 	// Open the review of the agent's diff. The entry is gray on an agent with no worktree of its
 	// own, and in the archive.

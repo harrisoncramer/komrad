@@ -231,20 +231,6 @@ top       = ["g"]
 # Move the cursor up.
 up        = ["k"]
 
-# The places menu, which opens beside a list of agents and holds the screens that belong to
-# the hovered agent.
-[keybindings.places]
-# Open the places menu on the hovered agent, or its orchestrator's on a workflow's row.
-open      = ["space"]
-# Open the review of the agent's diff. The entry is gray on an agent with no worktree of its
-# own, and in the archive.
-review    = ["r"]
-# Open the documents the agent has written. The entry is gray on an agent that has written
-# none.
-documents = ["d"]
-# Pick the agent's logs, which the panel does not draw yet, so the entry closes the menu.
-logs      = ["l"]
-
 # The review screen, which draws an agent's diff in the stage and its review
 # threads in the sidebar.
 [keybindings.review]
@@ -327,6 +313,19 @@ clear  = ["esc"]
 range  = ["V"]
 # Take the row under the cursor into the selection, or back out of it.
 toggle = ["v"]
+
+# The subpages menu, which lists the screens that belong to the hovered row.
+[keybindings.subpages]
+# Open the subpages menu on the hovered agent, or its orchestrator's on a workflow's row.
+open      = ["space"]
+# Open the review of the agent's diff. The entry is gray on an agent with no worktree of its
+# own, and in the archive.
+review    = ["r"]
+# Open the documents the agent has written. The entry is gray on an agent that has written
+# none.
+documents = ["d"]
+# Pick the agent's logs, which the panel does not draw yet, so the entry closes the menu.
+logs      = ["l"]
 
 # The row of tabs a screen draws over its list, and the key that hands it the cursor.
 [keybindings.tabs]

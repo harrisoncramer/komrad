@@ -50,16 +50,16 @@ func (a *agentsScreen) modeActions() []screenAction {
 			run:  func(h host, s panelShared, _ string) tea.Cmd { return newWorkflowForm(h, s) },
 		},
 		screenAction{
-			id:   actionPlacesOpen,
-			keys: func(k config.Keybindings) []string { return k.Places.Open },
-			when: a.holdsPlaces,
+			id:   actionSubpagesOpen,
+			keys: func(k config.Keybindings) []string { return k.Subpages.Open },
+			when: a.holdsSubpages,
 			run: func(h host, s panelShared, _ string) tea.Cmd {
 				item, ok := a.hoveredPaneItem(s)
 				if !ok {
 					return nil
 				}
 
-				return openPlaces(h, s, screenAgents, item)
+				return openAgentSubpages(h, s, screenAgents, item)
 			},
 		},
 		screenAction{
@@ -190,9 +190,9 @@ func (a *agentsScreen) isBrowsing(s panelShared) bool {
 	return a.list().isBrowsing(s)
 }
 
-// holdsPlaces reports whether the cursor is on an agent, or on a workflow with an orchestrator,
-// whose places the menu can list.
-func (a *agentsScreen) holdsPlaces(s panelShared) bool {
+// holdsSubpages reports whether the cursor is on an agent, or on a workflow with an orchestrator,
+// whose subpages the menu can list.
+func (a *agentsScreen) holdsSubpages(s panelShared) bool {
 	_, ok := a.hoveredPaneItem(s)
 
 	return a.isBrowsing(s) && ok
@@ -377,9 +377,9 @@ func (a *agentsScreen) browsingLegend() []screenLegendRow {
 			show: a.isHoveringAgent,
 		},
 		{
-			of:   []actionID{actionPlacesOpen},
-			desc: func(panelShared) string { return "places" },
-			show: a.holdsPlaces,
+			of:   []actionID{actionSubpagesOpen},
+			desc: func(panelShared) string { return "subpages" },
+			show: a.holdsSubpages,
 		},
 		{
 			of:   []actionID{actionFilterOpen},

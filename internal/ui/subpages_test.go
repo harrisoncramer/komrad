@@ -15,8 +15,8 @@ import (
 
 const reviewScreen = "the review"
 
-// TestPlaces covers the menu of an agent's places opened beside the agents list.
-func TestPlaces(t *testing.T) {
+// TestSubpages covers the menu of an agent's subpages opened beside the agents list.
+func TestSubpages(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -29,21 +29,21 @@ func TestPlaces(t *testing.T) {
 		{
 			name:       "an agent with nothing to review or read starts on logs",
 			row:        "quiet",
-			wantTitle:  "Places in quiet",
+			wantTitle:  "Subpages of quiet",
 			wantCrumb:  "agents › quiet",
 			wantCursor: "› logs",
 		},
 		{
 			name:       "a workflow's row opens its orchestrator's",
 			row:        "komrad",
-			wantTitle:  "Places in orchestrator",
+			wantTitle:  "Subpages of orchestrator",
 			wantCrumb:  "agents › orchestrator",
 			wantCursor: "› documents",
 		},
 		{
 			name:       "an agent with a checkout starts on review",
 			row:        "author",
-			wantTitle:  "Places in author",
+			wantTitle:  "Subpages of author",
 			wantCrumb:  "agents › author",
 			wantCursor: "› review",
 		},
@@ -53,7 +53,7 @@ func TestPlaces(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			harness := openPlaces(t, tt.row)
+			harness := openSubpages(t, tt.row)
 
 			frame := harness.readFrame()
 			assert.Contains(t, frame, tt.wantTitle)
@@ -65,7 +65,7 @@ func TestPlaces(t *testing.T) {
 	t.Run("an entry with nothing behind it is gray", func(t *testing.T) {
 		t.Parallel()
 
-		harness := openPlaces(t, "quiet")
+		harness := openSubpages(t, "quiet")
 
 		frame := harness.readRawFrame()
 		assert.Contains(t, frame, readOffEntry("review", "r"))
@@ -88,7 +88,7 @@ func TestPlaces(t *testing.T) {
 	t.Run("review on an agent with no checkout says why", func(t *testing.T) {
 		t.Parallel()
 
-		harness := openPlaces(t, "quiet")
+		harness := openSubpages(t, "quiet")
 		harness.press("r")
 
 		assert.Equal(t, agentsScreen, harness.readScreen())
@@ -98,45 +98,45 @@ func TestPlaces(t *testing.T) {
 	t.Run("logs closes the menu and stays on the list", func(t *testing.T) {
 		t.Parallel()
 
-		harness := openPlaces(t, "author")
+		harness := openSubpages(t, "author")
 		harness.press("l")
 
 		assert.Equal(t, agentsScreen, harness.readScreen())
-		assert.NotContains(t, harness.readFrame(), "Places in author")
+		assert.NotContains(t, harness.readFrame(), "Subpages of author")
 		harness.assertSent()
 	})
 
 	t.Run("esc closes the menu and takes the agent off the trail", func(t *testing.T) {
 		t.Parallel()
 
-		harness := openPlaces(t, "author")
+		harness := openSubpages(t, "author")
 		harness.press("esc")
 
 		frame := harness.readFrame()
-		assert.NotContains(t, frame, "Places in author")
+		assert.NotContains(t, frame, "Subpages of author")
 		assert.NotContains(t, frame, "agents › author")
 	})
 
 	t.Run("the legend offers it", func(t *testing.T) {
 		t.Parallel()
 
-		harness := openAgents(t, buildPlacesAgents()...)
+		harness := openAgents(t, buildSubpagesAgents()...)
 		harness.press(widenListPresses...)
 		moveToAgentRow(t, harness, "quiet")
 		harness.press("?")
 
-		assert.Contains(t, readLegend(harness.readFrame()), "places")
+		assert.Contains(t, readLegend(harness.readFrame()), "subpages")
 	})
 }
 
-// TestPlacesInArchive covers the menu opened beside the archive, and the way back to it.
-func TestPlacesInArchive(t *testing.T) {
+// TestSubpagesInArchive covers the menu opened beside the archive, and the way back to it.
+func TestSubpagesInArchive(t *testing.T) {
 	t.Parallel()
 
 	t.Run("review is gray, since archived work is not reviewed", func(t *testing.T) {
 		t.Parallel()
 
-		harness := openArchivedPlaces(t)
+		harness := openArchivedSubpages(t)
 
 		frame := harness.readFrame()
 		assert.Contains(t, frame, "archive › author")
@@ -147,7 +147,7 @@ func TestPlacesInArchive(t *testing.T) {
 	t.Run("documents open, and back returns to the archive", func(t *testing.T) {
 		t.Parallel()
 
-		harness := openArchivedPlaces(t)
+		harness := openArchivedSubpages(t)
 		harness.press("d")
 		harness.fireTimers()
 
@@ -161,19 +161,19 @@ func TestPlacesInArchive(t *testing.T) {
 	})
 }
 
-// openPlaces opens the places menu from the agents list on the row named.
-func openPlaces(t *testing.T, row string) *panelHarness {
+// openSubpages opens the subpages menu from the agents list on the row named.
+func openSubpages(t *testing.T, row string) *panelHarness {
 	t.Helper()
 
-	harness := openAgents(t, buildPlacesAgents()...)
+	harness := openAgents(t, buildSubpagesAgents()...)
 	moveToAgentRow(t, harness, row)
 	harness.press("space")
 
 	return harness
 }
 
-// openArchivedPlaces opens the places menu on an archived agent that has written documents.
-func openArchivedPlaces(t *testing.T) *panelHarness {
+// openArchivedSubpages opens the subpages menu on an archived agent that has written documents.
+func openArchivedSubpages(t *testing.T) *panelHarness {
 	t.Helper()
 
 	author := newArchivedAgent("author", "author", "w1")
@@ -183,12 +183,12 @@ func openArchivedPlaces(t *testing.T) *panelHarness {
 	harness := openArchive(t, newLiveWorkflow("w1", "komrad"), author)
 	newDocumentShelf().answer(harness)
 	harness.press("j", "space")
-	require.Contains(t, harness.readFrame(), "Places in author")
+	require.Contains(t, harness.readFrame(), "Subpages of author")
 
 	return harness
 }
 
-func buildPlacesAgents() []proto.Message {
+func buildSubpagesAgents() []proto.Message {
 	rows := buildDocumentAuthors()
 	author, _ := rows[2].(*agentv1.Agent)
 	author.Cwd = "/trees/author"

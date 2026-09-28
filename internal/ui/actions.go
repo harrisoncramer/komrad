@@ -33,7 +33,7 @@ const (
 	actionAgentOpen
 	actionAgentReview
 	actionGitMenu
-	actionPlacesOpen
+	actionSubpagesOpen
 	actionAgentChild
 	actionAgentRename
 	actionAgentArchive

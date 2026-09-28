@@ -8,13 +8,13 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-// place is one entry of the places menu.
-type place int
+// subpage is one entry of the subpages menu.
+type subpage int
 
 const (
-	placeReview place = iota
-	placeDocuments
-	placeLogs
+	subpageReview subpage = iota
+	subpageDocuments
+	subpageLogs
 )
 
 var (
@@ -24,22 +24,22 @@ var (
 	errNoDocuments      = errors.New("this agent has not written any documents yet")
 )
 
-// openPlaces draws the places that belong to an agent beside the list it was opened over.
-func openPlaces(h host, s panelShared, from screen, item panel.AgentRow) tea.Cmd {
+// openAgentSubpages draws the subpages of an agent beside the list it was opened over.
+func openAgentSubpages(h host, s panelShared, from screen, item panel.AgentRow) tea.Cmd {
 	agent := item.Agent
 	agentID := agent.ID
 
 	return openSubmenu(h, submenu{
-		kind:  formPlaces,
-		title: "Places in " + agent.Name,
+		kind:  formSubpages,
+		title: "Subpages of " + agent.Name,
 		crumb: agent.Name,
 		entries: []submenuEntry{
-			{label: "review", keys: s.keys.Places.Review, isOff: reviewRefusal(from, agent) != nil},
-			{label: "documents", keys: s.keys.Places.Documents, isOff: item.Documents == 0},
-			{label: "logs", keys: s.keys.Places.Logs},
+			{label: "review", keys: s.keys.Subpages.Review, isOff: reviewRefusal(from, agent) != nil},
+			{label: "documents", keys: s.keys.Subpages.Documents, isOff: item.Documents == 0},
+			{label: "logs", keys: s.keys.Subpages.Logs},
 		},
 		answer: func(m model, choice int) (tea.Model, tea.Cmd) {
-			return m.enterPlace(from, agentID, place(choice))
+			return m.enterSubpage(from, agentID, subpage(choice))
 		},
 	})
 }
@@ -59,15 +59,15 @@ func reviewRefusal(from screen, agent panel.Agent) error {
 	return nil
 }
 
-// enterPlace closes the menu and goes to the place picked, or says why the agent has nothing
+// enterSubpage closes the menu and goes to the subpage picked, or says why the agent has nothing
 // there.
-func (m model) enterPlace(from screen, agentID string, picked place) (tea.Model, tea.Cmd) {
+func (m model) enterSubpage(from screen, agentID string, picked subpage) (tea.Model, tea.Cmd) {
 	closed, back := m.closeForm()
 	next, _ := closed.(model)
 
 	item, ok := next.listing.anyAgent(agentID)
 	if !ok {
-		next.report("Could not open the place", errAgentGone)
+		next.report("Could not open the subpage", errAgentGone)
 
 		return next, back
 	}
@@ -75,7 +75,7 @@ func (m model) enterPlace(from screen, agentID string, picked place) (tea.Model,
 	name := item.Agent.Name
 
 	switch picked {
-	case placeReview:
+	case subpageReview:
 		if err := reviewRefusal(from, item.Agent); err != nil {
 			next.report("Could not open the review of "+name, err)
 
@@ -85,7 +85,7 @@ func (m model) enterPlace(from screen, agentID string, picked place) (tea.Model,
 		cmd := next.enter(screenReview, screenTarget{agentID: agentID})
 
 		return next, tea.Batch(back, cmd)
-	case placeDocuments:
+	case subpageDocuments:
 		if item.Documents == 0 {
 			next.report("Could not open the documents of "+name, errNoDocuments)
 
@@ -95,7 +95,7 @@ func (m model) enterPlace(from screen, agentID string, picked place) (tea.Model,
 		cmd := next.enter(screenDocuments, screenTarget{agentID: agentID, from: from})
 
 		return next, tea.Batch(back, cmd)
-	case placeLogs:
+	case subpageLogs:
 		return next, back
 	}
 

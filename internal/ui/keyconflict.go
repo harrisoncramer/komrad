@@ -70,10 +70,10 @@ func ValidateKeybindings(keys config.Keybindings) error {
 		return err
 	}
 
-	return validateSubmenuKeys("places menu", []submenuKeys{
-		{name: "review", keys: keys.Places.Review},
-		{name: "documents", keys: keys.Places.Documents},
-		{name: "logs", keys: keys.Places.Logs},
+	return validateSubmenuKeys("subpages menu", []submenuKeys{
+		{name: "review", keys: keys.Subpages.Review},
+		{name: "documents", keys: keys.Subpages.Documents},
+		{name: "logs", keys: keys.Subpages.Logs},
 	})
 }
 
