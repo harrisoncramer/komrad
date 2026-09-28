@@ -9,7 +9,8 @@ Wait+Screen@30s /agents\s+query\s+schedules/
 Sleep 1s
 Show
 Type "j"
-Type "D"
+Space
+Type "d"
 Wait+Screen@10s /RFC: vim\.text/
 Sleep 2s
 Type "e"
@@ -22,4 +23,3 @@ Escape
 Type ":wq"
 Enter
 Wait+Screen@10s /narrower than the marker/
-Sleep 4s

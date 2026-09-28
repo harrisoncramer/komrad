@@ -33,4 +33,3 @@ Hide
 Wait+Screen@3m /unread mail/
 Show
 Wait+Screen@4m /unread mail[\s\S]*done \d+:\d+ [AP]M/
-Sleep 3s

@@ -18,4 +18,3 @@ Sleep 1s
 Escape
 Type "j"
 Type "l"
-Sleep 2s

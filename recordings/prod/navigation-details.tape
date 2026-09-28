@@ -10,4 +10,3 @@ Type "j"
 Type "j"
 Type "j"
 Type "y"
-Sleep 1.5s

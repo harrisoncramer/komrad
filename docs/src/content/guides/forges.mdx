@@ -6,6 +6,7 @@ order: 9
 ---
 
 import Command from "../../components/Command.astro";
+import { media } from "../../site";
 
 Your `fix-login` [agent](../agents/) has pushed a branch and opened a pull request, and the panel does not know. A forge is where your code is hosted, such as GitHub or GitLab, and komrad connects to it for two reasons. It wants to show you, beside each agent, the pull request that agent's branch has open. And agents need to push and open pull requests without you doing it for them.
 
@@ -17,8 +18,20 @@ You connect a forge once, by handing komrad a token. Komrad checks it with the f
 
 While an agent is live, komrad watches the pull requests in its repository. It notices when one is opened from the agent's branch, when checks pass or fail, when it is approved, and when it is merged. That shows up as a symbol on the agent's row.
 
-<figure class="placeholder">
-  <figcaption>The agents list, with rows showing an open, an approved, a failing and a merged pull request.</figcaption>
+<figure>
+  <video
+    autoplay
+    loop
+    muted
+    playsinline
+    poster={media("forges.png")}
+    width="1440"
+    height="920"
+    aria-label="Moving down the agents list past a merged, a failing, an approved and an open pull request, with the details saying where each one stands."
+  >
+    <source src={media("forges.webm")} type="video/webm" />
+    <source src={media("forges.mp4")} type="video/mp4" />
+  </video>
 </figure>
 
 Komrad asks the forge only what changed since it last looked, and backs off when the forge says it is being asked too often.
