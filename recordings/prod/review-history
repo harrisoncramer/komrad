@@ -71,11 +71,13 @@ tree="$(komrad rpc get-agent --id "$agent" --compact | jq -r '.agent.cwd')"
 text=runtime/lua/vim/text.lua
 spec=test/functional/lua/text_spec.lua
 
-python3 - "$tree/$text" <<'EOF'
-import sys
-path = sys.argv[1]
-source = open(path).read()
-addition = '''--- Truncates {s} to at most {width} columns, ending it with {marker} when it was cut.
+base="$(mktemp -d)"
+trap 'rm -rf "$base"' EXIT
+sed '$d' "$tree/$text" >"$base/text.lua"
+sed '$d' "$tree/$spec" >"$base/text_spec.lua"
+
+cat "$base/text.lua" - >"$tree/$text" <<'LUA'
+--- Truncates {s} to at most {width} columns, ending it with {marker} when it was cut.
 ---
 --- @param s string
 --- @param width integer
@@ -92,14 +94,8 @@ function M.truncate(s, width, marker)
 end
 
 return M
-'''
-open(path, 'w').write(source[: source.rindex('return M')] + addition)
-EOF
-python3 - "$tree/$spec" <<'EOF'
-import sys
-path = sys.argv[1]
-source = open(path).read()
-addition = '''
+LUA
+cat "$base/text_spec.lua" - >"$tree/$spec" <<'LUA'
   describe('truncate()', function()
     it('leaves a short string alone', function()
       eq('abc', vim.text.truncate('abc', 5))
@@ -110,30 +106,32 @@ addition = '''
     end)
   end)
 end)
-'''
-open(path, 'w').write(source[: source.rindex('end)')] + addition.lstrip('\n'))
-EOF
+LUA
 commit "feat(text): vim.text.truncate()"
 
 bytes="$(comment "" "$text" "if #s <= width then" "This counts bytes, not columns, so a string with wide or multibyte characters gets cut in the wrong place. vim.fn.strdisplaywidth() measures what the user sees.")"
 komrad rpc release-review --agent-id "$agent" >/dev/null
 
-python3 - "$tree/$text" <<'EOF'
-import sys
-path = sys.argv[1]
-source = open(path).read()
-source = source.replace('''  if #s <= width then
-    return s
-  end
-  return s:sub(1, width - #marker) .. marker
-''', '''  if vim.fn.strdisplaywidth(s) <= width then
+cat "$base/text.lua" - >"$tree/$text" <<'LUA'
+--- Truncates {s} to at most {width} columns, ending it with {marker} when it was cut.
+---
+--- @param s string
+--- @param width integer
+--- @param marker? string Defaults to "…".
+--- @return string
+function M.truncate(s, width, marker)
+  vim.validate('s', s, 'string')
+  vim.validate('width', width, 'number')
+  marker = marker or '…'
+  if vim.fn.strdisplaywidth(s) <= width then
     return s
   end
   local keep = width - vim.fn.strdisplaywidth(marker)
   return vim.fn.strcharpart(s, 0, keep) .. marker
-''')
-open(path, 'w').write(source)
-EOF
+end
+
+return M
+LUA
 commit "fix(text): measure truncate() in display columns"
 as "$agent" add-review-message --thread-id "$bytes" --addressed \
 	--body "Switched both measurements to strdisplaywidth() and the cut to strcharpart(), so it counts columns." >/dev/null
@@ -155,21 +153,22 @@ sed -i '' "$((line + 1))a\\
 commit "docs(news): vim.text.truncate()"
 as "$agent" add-review-message --thread-id "$news" --addressed --body "Added under LUA in news.txt." >/dev/null
 
-python3 - "$tree/$spec" <<'EOF'
-import sys
-path = sys.argv[1]
-source = open(path).read()
-source = source.replace('''      eq('abcd…', vim.text.truncate('abcdefgh', 5))
+cat "$base/text_spec.lua" - >"$tree/$spec" <<'LUA'
+  describe('truncate()', function()
+    it('leaves a short string alone', function()
+      eq('abc', vim.text.truncate('abc', 5))
     end)
-''', '''      eq('abcd…', vim.text.truncate('abcdefgh', 5))
+
+    it('cuts a long string and marks it', function()
+      eq('abcd…', vim.text.truncate('abcdefgh', 5))
     end)
 
     it('counts wide characters as two columns', function()
       eq('日本…', vim.text.truncate('日本語です', 5))
     end)
-''')
-open(path, 'w').write(source)
-EOF
+  end)
+end)
+LUA
 commit "test(text): truncate() with wide characters"
 
 komrad rpc archive-agents --ids "$reviewer" >/dev/null
