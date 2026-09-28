@@ -40,6 +40,20 @@ func (l *logsScreen) table() []screenAction {
 func (l *logsScreen) legend() []screenLegendRow {
 	return slices.Concat(screenNavLegend(), []screenLegendRow{
 		{
+			of:   []actionID{actionFilterOpen},
+			desc: filterDescOf,
+		},
+		{
+			of:    []actionID{actionFilterClear},
+			desc:  filterClearDescOf,
+			strip: true,
+		},
+		{
+			of:    []actionID{actionFilterMatch},
+			desc:  func(panelShared) string { return "next/prev match" },
+			strip: true,
+		},
+		{
 			of:    []actionID{actionLogsBack},
 			desc:  func(panelShared) string { return "back" },
 			strip: true,

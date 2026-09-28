@@ -110,12 +110,11 @@ func (l *logsScreen) listCmd(s panelShared) tea.Cmd {
 }
 
 func (l *logsScreen) readCmd(s panelShared) tea.Cmd {
-	row, ok := rowAt(l.rows(s), l.rowCursor.cursor)
-	if !ok {
+	if l.reading == "" {
 		return nil
 	}
 
-	agentID, source, cursor, generation, clients := l.agentID, row.source.GetId(), l.cursor, l.generation, s.api
+	agentID, source, cursor, generation, clients := l.agentID, l.reading, l.cursor, l.generation, s.api
 
 	return func() tea.Msg {
 		resp, err := clients.readAgentLogs(agentID, source, cursor, logsReadLimit)
@@ -231,6 +230,7 @@ func (l *logsScreen) list() screenList[logSourceRow] {
 	return screenList[logSourceRow]{
 		cursor: func() *rowCursor { return &l.rowCursor },
 		rows:   l.rows,
+		name:   logSourceRowName,
 		moved: func(_ host, s panelShared) tea.Cmd {
 			return l.switchSource(s)
 		},
@@ -245,19 +245,27 @@ func (l *logsScreen) rows(s panelShared) []logSourceRow {
 		failedRun = item.FailedRunLog
 	}
 
-	return xslice.Map(l.sources, func(source *logv1.LogSource) logSourceRow {
-		return logSourceRow{
-			source: source,
-			failed: source.Run != nil && failedRun != nil && *source.Run == *failedRun,
-		}
+	return narrowed(s.chrome.filter, narrowedParams[logSourceRow]{
+		rows: xslice.Map(l.sources, func(source *logv1.LogSource) logSourceRow {
+			return logSourceRow{
+				source: source,
+				failed: source.Run != nil && failedRun != nil && *source.Run == *failedRun,
+			}
+		}),
+		depth: func(logSourceRow) int { return 0 },
+		name:  logSourceRowName,
 	})
+}
+
+func logSourceRowName(row logSourceRow) string {
+	return row.source.GetName()
 }
 
 func (l *logsScreen) view(s panelShared) string {
 	return s.draw.columnListView(screenListParams{
 		help:  l.help,
 		empty: l.emptyLine(),
-		rows:  len(l.sources),
+		rows:  len(l.rows(s)),
 		lines: func(pane listPane) ([]string, int) { return l.lines(s, pane), l.rowCursor.cursor },
 	})
 }
@@ -274,7 +282,7 @@ func (l *logsScreen) emptyLine() string {
 func (l *logsScreen) lines(s panelShared, pane listPane) []string {
 	rows := l.rows(s)
 	if len(rows) == 0 {
-		return []string{dimStyle.Render("  " + l.emptyLine())}
+		return []string{dimStyle.Render("  " + emptyLineOf(s.chrome.filter, l.emptyLine()))}
 	}
 
 	caret := pane.caret
@@ -289,7 +297,7 @@ func (l *logsScreen) lines(s panelShared, pane listPane) []string {
 			prefix = caretGlyph(caret)
 		}
 
-		line := prefix + " " + nameStyle(hovered && caret != view.CaretAbsent, false).Render(clipName(row.source.GetName()))
+		line := prefix + " " + s.chrome.filter.highlight(paint.Panel, clipName(row.source.GetName()), nameStyle(hovered && caret != view.CaretAbsent, false))
 		if row.failed {
 			line += " " + paint.Panel.Style(paint.ToneDanger).Render(s.glyphs.Spell(glyph.FailedScript))
 		}
@@ -398,4 +406,17 @@ var (
 	_ columned       = (*logsScreen)(nil)
 	_ crumbed        = (*logsScreen)(nil)
 	_ columnScroller = (*logsScreen)(nil)
+	_ filtered       = (*logsScreen)(nil)
 )
+
+func (l *logsScreen) hoveredKey(s panelShared) string {
+	return l.list().hovered(s)
+}
+
+func (l *logsScreen) placeAt(h host, s panelShared, key string) {
+	l.list().place(h, s, key)
+}
+
+func (l *logsScreen) filterRows(s panelShared) []filterRow {
+	return l.list().filterRows(s)
+}

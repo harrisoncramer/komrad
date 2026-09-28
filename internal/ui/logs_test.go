@@ -240,6 +240,65 @@ func TestLogsSources(t *testing.T) {
 	})
 }
 
+// TestLogsFilter covers searching and filtering the sources, and the log following the cursor to
+// the source it lands on.
+func TestLogsFilter(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		presses     []string
+		wantStage   string
+		notSidebar  string
+		wantSidebar string
+	}{
+		{
+			name:      "a search lands on the source it matches and reads it",
+			presses:   []string{"/", "p", "r", "o", "v", "enter"},
+			wantStage: "error: port 5470 already allocated",
+		},
+		{
+			name:       "a filter leaves only the sources it matches",
+			presses:    []string{"/", "tab", "p", "r", "o", "v", "enter"},
+			wantStage:  "error: port 5470 already allocated",
+			notSidebar: "service",
+		},
+		{
+			name:        "a filter nothing matches says so",
+			presses:     []string{"/", "tab", "z", "z", "z", "enter"},
+			wantSidebar: "nothing matches",
+		},
+		{
+			name:        "clearing the filter goes back to the source it opened on",
+			presses:     []string{"/", "tab", "p", "r", "o", "v", "enter", "esc"},
+			wantStage:   "second line",
+			wantSidebar: "001 provision setup",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			harness := openLogs(t, tailOfTwo())
+			harness.hold(logv1connect.LogServiceListAgentLogSourcesProcedure)
+			harness.press(tt.presses...)
+			harness.fireTimers()
+
+			frame := harness.readFrame()
+			if tt.wantStage != "" {
+				assert.Contains(t, readStageText(frame), tt.wantStage)
+			}
+			if tt.wantSidebar != "" {
+				assert.Contains(t, readSidebarProse(frame), tt.wantSidebar)
+			}
+			if tt.notSidebar != "" {
+				assert.NotContains(t, readSidebarProse(frame), tt.notSidebar)
+			}
+		})
+	}
+}
+
 // TestLogsTail covers the reads after the first, each from where the last left off.
 func TestLogsTail(t *testing.T) {
 	t.Parallel()
