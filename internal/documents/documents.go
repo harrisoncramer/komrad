@@ -39,6 +39,8 @@ var (
 	ErrNoVersion = fail.InvalidArgument("a rewrite needs the version it replaces, as the last read or write returned it")
 	// ErrForAnother is a rewrite naming an agent other than the one whose document it is.
 	ErrForAnother = fail.InvalidArgument("the document belongs to another agent, so leave agent_id unset to rewrite it")
+	// ErrReviewer is a reviewer writing a document of its own.
+	ErrReviewer = fail.Denied("a reviewer does not write documents, so put the text in the body of your release_review or in mail and ask your parent to write it on its own row")
 )
 
 type eventRecorder interface {
@@ -99,6 +101,9 @@ func (s *DocumentService) WriteDocument(ctx context.Context, params WriteDocumen
 	agent, err := s.agents.GetByID(ctx, params.AgentID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find the agent writing the document: %w", err)
+	}
+	if !byPerson && agent.Role == agentstore.RoleReviewer {
+		return nil, ErrReviewer
 	}
 
 	body := params.Body
