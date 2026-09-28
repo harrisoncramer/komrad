@@ -32,11 +32,11 @@ Each RPC carries one annotation, `surfaces`. It says whether the RPC gets a CLI 
 
 ## Lint
 
-Buf lint runs with a plugin we wrote. It checks shape, not style. A method named `List` must declare no side effects. A method named `Archive` must be idempotent. An id field must refuse empty. And every method must have a `surfaces` annotation that is complete. That last rule is what makes the promise in [How it works](../how-it-works/) true. A method cannot be added to one surface and forgotten on the other, because the file will not lint.
+Buf lint runs with a plugin of komrad's own. It checks shape, not style. A method named `List` must declare no side effects. A method named `Archive` must be idempotent. An id field must refuse empty. And every method must have a `surfaces` annotation that is complete. That last rule is what makes the promise in [How it works](../how-it-works/) true. A method cannot be added to one surface and forgotten on the other, because the file will not lint.
 
 ## Generation
 
-Three generators run. Two are the standard protobuf and Connect ones. The third is ours. It writes a strict interface whose methods return a typed failure instead of an `error`, and an adapter that turns the failure into a Connect code. A handler implements the strict interface, so its body is one call. The mapping from failure to code lives in one place.
+Three generators run. Two are the standard protobuf and Connect ones. The third is komrad's own. It writes a strict interface whose methods return a typed failure instead of an `error`, and an adapter that turns the failure into a Connect code. A handler implements the strict interface, so its body is one call. The mapping from failure to code lives in one place.
 
 ## The server
 

@@ -10,9 +10,9 @@ import Setting from "../../components/Setting.astro";
 
 This guide is for whoever runs a remote engine. Using one that exists is covered in [running komrad remotely](../remote/).
 
-Komrad is built on komrad. The agents that work on this repository run on an engine of its own, built exactly as this guide describes, and everything that builds and runs it is committed here. To see how we do it, start with [`infra/engine`](https://github.com/harrisoncramer/komrad/tree/main/infra/engine), which is the machine and everything around it as Terraform, then [`packer`](https://github.com/harrisoncramer/komrad/tree/main/packer), which is the machine image, then [`mise/tasks/remote`](https://github.com/harrisoncramer/komrad/tree/main/mise/tasks/remote), which is the day-to-day operations.
+Komrad is built on komrad. The agents that work on this repository run on an engine of its own, built exactly as this guide describes, and everything that builds and runs it is committed here. To see how that engine is built, start with [`infra/engine`](https://github.com/harrisoncramer/komrad/tree/main/infra/engine), which is the machine and everything around it as Terraform, then [`packer`](https://github.com/harrisoncramer/komrad/tree/main/packer), which is the machine image, then [`mise/tasks/remote`](https://github.com/harrisoncramer/komrad/tree/main/mise/tasks/remote), which is the day-to-day operations.
 
-The mise tasks named below are how our engine is run. Each one is a short script over `packer`, `terraform`, `ssh` or the AWS CLI, so if you run those tools some other way, or host the engine somewhere other than AWS, read the task to see what it does and do the same.
+The mise tasks named below are how komrad's engine is run. Each one is a short script over `packer`, `terraform`, `ssh` or the AWS CLI, so if you run those tools some other way, or host the engine somewhere other than AWS, read the task to see what it does and do the same.
 
 ## What gets built
 

@@ -31,6 +31,6 @@ The database holds only which forge and which account. The token itself sits in 
 
 Agents never hold a credential of their own. When an agent's git needs to authenticate, komrad hands it a short-lived token. No token is ever typed into a pane, so none can leak into a transcript.
 
-On your laptop, agents use whatever git and GitHub logins you already have. On our remote engine, komrad uses a GitHub App, which makes tokens that expire after an hour. [Administering the engine](../engine-admin/) sets that up.
+On your laptop, agents use whatever git and GitHub logins you already have. On komrad's remote engine, it uses a GitHub App, which makes tokens that expire after an hour. [Administering the engine](../engine-admin/) sets that up.
 
 Everything so far has run on your laptop, which sleeps. [Running komrad remotely](../remote/) moves the agents somewhere that does not.

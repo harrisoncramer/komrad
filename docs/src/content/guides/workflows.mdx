@@ -50,7 +50,7 @@ Next, run <Command path="open" /> and press <Key name="workflows.new" /> in the 
 
 ## The orchestrator
 
-Creating a workflow also starts its _orchestrator_. This is a agent that belongs to the workflow. In this case, let's tell Claude to trust the folder we're executing in.
+Creating a workflow also starts its _orchestrator_. This is a agent that belongs to the workflow. In this case, let's tell Claude to trust the folder it is running in.
 
 <figure>
   <video
@@ -76,7 +76,7 @@ You can learn more about the orchestrator and the other kinds of agent in the [a
 
 Workflows can hold _shared context_ for each implementer agent. This is where you put what you would otherwise tell each agent by hand: how tests run, how branches are named, and so forth.
 
-In our Neovim example, that might be: "Run make lint before committing any Lua change."
+In the Neovim example, that might be: "Run make lint before committing any Lua change."
 
 It comes after komrad's own briefing and your <Setting path="context">global context</Setting>, which every agent gets whatever workflow it is in. In the video below the global context says only that Neovim is the best editor, and the agent has read both.
 

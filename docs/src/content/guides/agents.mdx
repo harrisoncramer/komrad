@@ -38,7 +38,7 @@ There are three types of agents, and you've already seen one: the [orchestrator]
                     '-- reviewer
 ```
 
-Let's ask our orchestrator to spawn our first implementer agent. You can also hover over the orchestrator and press <Key name="agents.new" /> to spawn the implementer directly. Let's give the agent a name, and spawn it with a direct prompt, such as: "Where is :checkhealth implemented?"
+Let's ask the orchestrator to spawn the first implementer agent. You can also hover over the orchestrator and press <Key name="agents.new" /> to spawn the implementer directly. Let's give the agent a name, and spawn it with a direct prompt, such as: "Where is :checkhealth implemented?"
 
 <figure>
   <video
@@ -56,7 +56,7 @@ Let's ask our orchestrator to spawn our first implementer agent. You can also ho
   </video>
 </figure>
 
-The agent responds to our question. If it needs to, it can send and receive messages from the orchestrator.
+The agent responds to the question. If it needs to, it can send and receive messages from the orchestrator.
 
 Each agent is in one of several states, such as running, idle, dormant, or active. The state of the agent is reflected in the UI column.
 
@@ -64,7 +64,7 @@ Dorman agent's CLI have exited, but their conversations are kept so that you can
 
 ## Reviewer Agents
 
-Reviewer agents are attached to an implementer agent, and can be used to review it's work. Don't try to have reviewer agents run work: each change should be implemented by an implementer agent, so that isolation between edits is guaranteed. For kicks, let's ask our orchestrator to spawn three implementer agents to do some research before they start writing code:
+Reviewer agents are attached to an implementer agent, and can be used to review it's work. Don't try to have reviewer agents run work: each change should be implemented by an implementer agent, so that isolation between edits is guaranteed. For kicks, let's ask the orchestrator to spawn three implementer agents to do some research before they start writing code:
 
 <figure>
   <video
