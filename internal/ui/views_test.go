@@ -105,6 +105,16 @@ func TestViews(t *testing.T) {
 		})
 	}
 
+	t.Run("the list's arrow stands down while the switcher is open", func(t *testing.T) {
+		harness := openCrowded(t, panelHarnessParams{})
+
+		harness.press(append(widenListPresses, "o")...)
+		assert.Empty(t, readHoveredRow(harness.readFrame()))
+
+		harness.press("esc")
+		assert.NotEmpty(t, readHoveredRow(harness.readFrame()), "and the list has the keys again")
+	})
+
 	t.Run("the legend names the switcher's keys while it is open", func(t *testing.T) {
 		harness := openCrowded(t, panelHarnessParams{})
 
