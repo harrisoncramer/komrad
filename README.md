@@ -18,7 +18,7 @@ Komrad gives you one place to browse, search and talk to all of them.
 
 Every agent is a real terminal in a tmux server of komrad's own. Taking over from an agent means attaching to its pane, and any CLI that runs in a terminal works. Closing the panel, or the terminal, stops nothing.
 
-Komrad is unopinionated. It gives you [workflows](https://komrad.dev/latest/guides/workflows/), [agents](https://komrad.dev/latest/guides/agents/), [hooks](https://komrad.dev/latest/guides/hooks/), [schedules](https://komrad.dev/latest/guides/schedules/) and [mail](https://komrad.dev/latest/guides/mail/), and leaves how to combine them up to you.
+Komrad is unopinionated. It gives you [workflows](https://komrad.dev/latest/guides/workflows/), [agents](https://komrad.dev/latest/guides/agents/), [hooks](https://komrad.dev/latest/guides/hooks/), [schedules](https://komrad.dev/latest/guides/schedules/) and [events and messages](https://komrad.dev/latest/guides/events-and-messages/), and leaves how to combine them up to you.
 
 While komrad doesn't require an account or hosted service, you can run and deploy it remotely to enable "devbox" style development for hands-free or automated flows that don't have any vendor lock-in. Typically, komrad runs on your laptop directly.
 

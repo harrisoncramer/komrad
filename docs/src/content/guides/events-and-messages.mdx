@@ -1,6 +1,6 @@
 ---
-title: Mail
-description: How agents send each other messages, and the limits that keep them in check.
+title: Events and messages
+description: How agents message each other, and how komrad tells them when something they care about changes.
 group: start
 order: 7
 ---
@@ -8,9 +8,13 @@ order: 7
 import Setting from "../../components/Setting.astro";
 import { media } from "../../site";
 
-Agents talk to each other asynchronously using komrad's _mail_. Mail lets an orchestrator hand out work and hear back from implementers, or a reviewer send a message back to an implementer, without having to pause each others' line of thought.
+Every message an agent receives is _mail_. Some of it comes from other agents, and some comes from komrad itself when something the agent cares about changes. Both kinds arrive the same way.
 
-## Try it
+## Messages between agents
+
+Agents talk to each other asynchronously by mail. Mail lets an orchestrator hand out work and hear back from implementers, or a reviewer send a message back to an implementer, without having to pause each others' line of thought.
+
+### Try it
 
 Spawn an agent with this prompt and watch the two argue.
 
@@ -47,3 +51,46 @@ Within a group, an implementer [agent](../agents/#agents-that-work-together) can
 ## Conversation limits
 
 You can limit how much mail two agents exchange by setting <Setting path="mail.max_exchange" />. It exists to stop two agents looping on each other forever. When the limit stops a message, the sender gets an error and the other agent is told, so it does not wait for a reply that will never come. Your own mail never counts.
+
+## What komrad tells an agent
+
+Komrad also writes mail of its own, called _notices_, when something changes that an agent should hear about.
+
+| What changed                                                                                                               | Who is told                              |
+| -------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
+| A pull request's checks failed, it conflicts with or fell behind its base, or it was approved, sent back, merged or closed | every agent on the pull request's branch |
+| You wrote or edited a [document](../documents/) in the panel                                                               | the agent that owns it                   |
+| Komrad rebased an agent's worktree                                                                                         | that agent                               |
+| A [review](../reviews/) of an agent's work was released                                                                    | the agent under review                   |
+| An agent answered in a review of its own work                                                                              | its reviewer, which is also woken        |
+
+An agent holds at most one unread notice about any one thing. If a pull request's checks fail and then its branch conflicts before the agent has read anything, the agent gets one notice saying both. A later change rewrites the unread notice rather than adding another. Once the agent has read it, the next change starts a new one.
+
+A notice says where things stand now, not what happened along the way. If checks fail and then pass again before the agent reads its notice, the notice says the checks are passing.
+
+Child agents sit on their parent's branch but are never told about its pull request. Not every change starts a notice. Checks passing or a review going back to pending is not news on its own. Those only update a notice the agent already has waiting.
+
+## How a change becomes a notice
+
+Komrad records each change as an _event_ in the same database transaction as the change itself. If you save a document, the save and its event commit together. If the save fails, there is no event. If komrad stops a moment after the save, the event is still there when it comes back.
+
+```
+  one transaction
+  ├── the change: checks on #412 → failing
+  └── the event:  "pull request #412 changed"
+          |
+          v  a moment later
+  one transaction
+  ├── the handler for pull requests finds the agents on the branch
+  ├── writes or rewrites each one's notice
+  └── marks the event done
+          |
+          v
+  delivered the same way as any other mail
+```
+
+A background worker picks up each event and hands it to the part of komrad that owns that kind of change. That part decides who to tell and what to say. Writing the notices and marking the event done happen together, so an event is never half handled.
+
+If a notice cannot be written yet because the agent's mailbox is full, the event is tried again later, with growing gaps, for about three weeks. The change itself is never held up. Saving a document or releasing a review works even when the agent is not keeping up with its mail. A notice for an archived agent is dropped.
+
+This is a pattern called a _transactional outbox_. Komrad keeps its events in the same job queue it uses for other background work, and the mail table is where the notices land.
