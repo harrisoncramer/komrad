@@ -67,7 +67,7 @@ func (r *Reader) AboutAgentsSince(ctx context.Context, agentIDs []string, offset
 	window := Window{Offset: offset}
 	for len(window.Lines) < limit {
 		if err := ctx.Err(); err != nil {
-			return Window{}, err
+			return Window{}, fmt.Errorf("stopped reading the log at %s: %w", r.path, err)
 		}
 
 		// Past the budget the read stops and says more remains, so one call never reads the whole log.
@@ -124,7 +124,7 @@ func (r *Reader) newestAboutAgents(ctx context.Context, log openLog, agentIDs []
 
 	for {
 		if err := ctx.Err(); err != nil {
-			return Window{}, err
+			return Window{}, fmt.Errorf("stopped reading the log at %s: %w", r.path, err)
 		}
 
 		line, n, err := r.nextLine(reader)
