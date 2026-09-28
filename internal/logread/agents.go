@@ -12,8 +12,6 @@ import (
 	"slices"
 
 	"komrad/internal/logging"
-
-	"github.com/icza/backscanner"
 )
 
 // ScanBudget is how much of the log one read of the lines about some agents looks through.
@@ -60,10 +58,10 @@ func (r *Reader) AboutAgentsSince(agentIDs []string, offset int64, limit int) (W
 		return window, err
 	}
 
-	if _, err := file.Seek(offset, io.SeekStart); err != nil {
-		return Window{}, fmt.Errorf("failed to read the log at %s: %w", r.path, err)
+	reader, err := r.readFrom(file, offset, size)
+	if err != nil {
+		return Window{}, err
 	}
-	reader := bufio.NewReaderSize(io.LimitReader(file, size-offset), r.chunk)
 
 	window := Window{Offset: offset}
 	for len(window.Lines) < limit {
@@ -96,41 +94,49 @@ func (r *Reader) AboutAgentsSince(agentIDs []string, offset int64, limit int) (W
 	return window, nil
 }
 
-// newestAboutAgents reads the log backward from its end, stopping at limit lines or the budget.
+// newestAboutAgents reads the last budget of the log forward, keeping the last limit lines about the agents.
 func (r *Reader) newestAboutAgents(file *os.File, size int64, agentIDs []string, limit int) (Window, error) {
-	scanner := backscanner.NewOptions(file, int(size), &backscanner.Options{ChunkSize: r.chunk, MaxBufferSize: scanBuffer})
+	start := max(size-int64(r.budget), 0)
+	reader, err := r.readFrom(file, start, size)
+	if err != nil {
+		return Window{}, err
+	}
 
-	var found []string
-	window := Window{Offset: size}
-	for len(found) < limit {
-		line, pos, err := scanner.LineBytes()
-		if errors.Is(err, io.EOF) || errors.Is(err, backscanner.ErrLongLine) {
+	window := Window{Offset: start}
+	for {
+		line, err := reader.ReadBytes('\n')
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
 			return Window{}, fmt.Errorf("failed to read the log at %s: %w", r.path, err)
 		}
 
-		// Only the last line can run to the end of the file, and then it has no newline yet, so the next read starts at it.
-		if int64(pos+len(line)) == size {
-			window.Offset = int64(pos)
+		// A read starting partway into the log lands inside a line, so that line is dropped.
+		if window.Offset == start && start > 0 {
+			window.Offset += int64(len(line))
 
 			continue
 		}
 
-		if size-int64(pos) > int64(r.budget) {
-			break
-		}
-
+		window.Offset += int64(len(line))
 		if isAbout(line, agentIDs) {
-			found = append(found, string(line))
+			window.Lines = append(window.Lines, string(bytes.TrimSuffix(line, []byte{'\n'})))
+		}
+		if len(window.Lines) > limit {
+			window.Lines = window.Lines[1:]
 		}
 	}
 
-	slices.Reverse(found)
-	window.Lines = found
-
 	return window, nil
+}
+
+func (r *Reader) readFrom(file *os.File, offset, size int64) (*bufio.Reader, error) {
+	if _, err := file.Seek(offset, io.SeekStart); err != nil {
+		return nil, fmt.Errorf("failed to read the log at %s: %w", r.path, err)
+	}
+
+	return bufio.NewReaderSize(io.LimitReader(file, size-offset), r.chunk), nil
 }
 
 func (r *Reader) open() (*os.File, int64, error) {
