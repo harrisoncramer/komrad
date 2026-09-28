@@ -1214,12 +1214,12 @@ func (st *fixture) releaseReview(t *testing.T, review *Review, verdict Verdict) 
 	require.NotNil(t, sent)
 
 	_, err = st.ReleaseReview(t.Context(), ReleaseReviewParams{
-		ID:             review.ID,
-		Verdict:        verdict,
-		Path:           "/tmp/round-1.md",
-		DoorbellMailID: &sent.ID,
+		ID:      review.ID,
+		Verdict: verdict,
+		Path:    "/tmp/round-1.md",
 	})
 	require.NoError(t, err)
+	require.NoError(t, st.SetDoorbell(t.Context(), review.ID, sent.ID))
 
 	return sent.ID
 }

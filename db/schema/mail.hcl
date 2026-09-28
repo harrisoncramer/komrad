@@ -1,6 +1,6 @@
 enum "mail_kind" {
   schema = schema.public
-  values = ["plain", "review_activity", "exchange_capped", "document_edited"]
+  values = ["plain", "review_activity", "exchange_capped", "document_edited", "pull_request_changed", "worktree_rebased"]
 }
 
 table "mail" {
@@ -58,17 +58,12 @@ table "mail" {
     null    = false
     type    = enum.mail_kind
     default = "plain"
-    comment = "Who wrote the mail and why. Plain is mail an agent sent. The other values are notices komrad raised itself, which the panel draws differently. Komrad also counts unread notices by this value. One unread notice of a kind is enough however much is waiting behind it."
+    comment = "Who wrote the mail and why. Plain is mail an agent sent. The other values are mail komrad wrote itself, which the panel draws differently. Komrad also counts unread mail by this value. One unread mail of a kind is enough however much is waiting behind it."
   }
-  column "about_agent_id" {
+  column "subject_id" {
     null    = true
     type    = uuid
-    comment = "The other agent a komrad notice is about, null on ordinary mail. Counting unread notices by this column gives the recipient one notice per subject rather than one per kind, so an agent that hits the exchange cap with a second partner is told about that partner too. There is no foreign key here on purpose. The notice has to keep naming the agent whose exchange was cut off after that agent is gone."
-  }
-  column "about_document_id" {
-    null    = true
-    type    = uuid
-    comment = "The document a komrad notice is about, null on ordinary mail. A person editing the same document again joins the unread notice about it rather than adding another."
+    comment = "The thing mail from komrad is about, null on mail an agent sent. Its kind says what sort of thing it is: another agent, a document, a pull request or a worktree. A recipient holds at most one unread mail of a kind about one subject, and later mail rewrites it. There is no foreign key here on purpose. The mail has to keep naming its subject after the subject is gone."
   }
   column "idempotency_key" {
     null    = true
@@ -113,7 +108,7 @@ table "mail" {
   index "mail_pending" {
     columns = [column.to_agent_id, column.id]
     where   = "claimed_at IS NULL"
-    comment = "Reads the mail an agent has not claimed yet. A send is refused when that is already full, and a further review notice joins the unread one found here."
+    comment = "Reads the mail an agent has not claimed yet. A send is refused when that is already full, and further review mail joins the unread one found here."
   }
   index "mail_from_agent_id" {
     columns = [column.from_agent_id, column.to_agent_id]
@@ -121,6 +116,12 @@ table "mail" {
   }
   index "mail_reply_to" {
     columns = [column.reply_to]
+  }
+  index "mail_pending_subject" {
+    unique  = true
+    columns = [column.to_agent_id, column.kind, column.subject_id]
+    where   = "claimed_at IS NULL AND subject_id IS NOT NULL"
+    comment = "Holds a recipient to one unread mail from komrad of a kind about one subject, which later mail rewrites in place."
   }
   index "mail_idempotency_key" {
     unique  = true

@@ -3432,7 +3432,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "What to show as the sender, which is komrad's own name for a notice it raised."
+          "description": "What to show as the sender, which is komrad's own name for mail it wrote."
         },
         {
           "name": "to_agent_id",
@@ -8671,7 +8671,7 @@
     },
     "agent.v1.MailKind": {
       "name": "MailKind",
-      "description": "MailKind tells an agent's own mail from a notice komrad raised itself.",
+      "description": "MailKind tells mail an agent sent from mail komrad wrote itself.",
       "values": [
         {
           "name": "MAIL_KIND_PLAIN",
@@ -8688,6 +8688,14 @@
         {
           "name": "MAIL_KIND_DOCUMENT_EDITED",
           "description": "Komrad telling an agent that a person wrote or edited one of its documents in the panel."
+        },
+        {
+          "name": "MAIL_KIND_PULL_REQUEST_CHANGED",
+          "description": "Komrad telling an agent that a pull request on its branch changed at the forge."
+        },
+        {
+          "name": "MAIL_KIND_WORKTREE_REBASED",
+          "description": "Komrad telling an agent that it rebased the agent's worktree, or tried to."
         }
       ]
     },

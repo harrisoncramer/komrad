@@ -2,7 +2,6 @@ package reviews
 
 import (
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -55,7 +54,7 @@ func TestAddressedReply(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			fx := newReviewFixture(t, time.Hour)
+			fx := newReviewFixture(t)
 			thread := fx.releaseFirstReview(t)
 			fx.snapshots.SHA = tt.snapshot
 			if tt.homeless {
@@ -105,7 +104,7 @@ func TestPlainReplyHint(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			fx := newReviewFixture(t, time.Hour)
+			fx := newReviewFixture(t)
 			thread := fx.releaseFirstReview(t)
 			fx.snapshots.SHA = tt.snapshot
 
@@ -125,7 +124,7 @@ func TestPlainReplyHint(t *testing.T) {
 // TestReplyingToAnAnswerReopensIt pins that the person's reply to an addressed comment is a
 // release of its own, which reopens the comment and says so in the mail.
 func TestReplyingToAnAnswerReopensIt(t *testing.T) {
-	fx := newReviewFixture(t, time.Hour)
+	fx := newReviewFixture(t)
 	thread := fx.releaseFirstReview(t)
 	fx.snapshots.SHA = secondSnapshot
 	_, err := fx.service.AddReviewMessage(t.Context(), AddReviewMessageParams{

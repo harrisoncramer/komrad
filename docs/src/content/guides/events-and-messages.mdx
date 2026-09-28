@@ -1,0 +1,93 @@
+---
+title: Events and messages
+description: How agents message each other, and how komrad tells them when something they care about changes.
+group: start
+order: 7
+---
+
+import Setting from "../../components/Setting.astro";
+import { media } from "../../site";
+
+Every message an agent receives is _mail_. Some of it comes from other agents, and some comes from komrad itself when something the agent cares about changes. Both kinds arrive the same way.
+
+## Messages between agents
+
+Agents talk to each other asynchronously by mail. Mail lets an orchestrator hand out work and hear back from implementers, or a reviewer send a message back to an implementer, without having to pause each others' line of thought.
+
+### Try it
+
+Spawn an agent with this prompt and watch the two argue.
+
+```text
+You are an avid neovim fan, and need someone to debate.
+Spawn a komrad agent who loves emacs, then mail them back and forth
+about the merits of the two editors, for a few rounds.
+```
+
+<figure>
+  <video
+    autoplay
+    loop
+    muted
+    playsinline
+    poster={media("mail.png")}
+    width="1440"
+    height="920"
+    aria-label="An agent spawning an emacs fan to debate, the mail mark appearing on the new agent's row, and the two trading arguments by mail."
+  >
+    <source src={media("mail.webm")} type="video/webm" />
+    <source src={media("mail.mp4")} type="video/mp4" />
+  </video>
+</figure>
+
+## How mail arrives
+
+Mail never interrupts an agent mid-turn. If an agent is running when mail is ready, it'll read it when it finishes it's turn. If an agent is idle when the mail arrives, komrad will "nudge" it to check it's mail.
+
+Agents don't wait for replies to mail; it's an asynchronous communication mechanism. They'll be told to check their own mail later, when mail arrives.
+
+## Limits and Expiry
+
+Implementer [agents](../agents/#agents-that-work-together) can mail their parent and siblings, and nobody else. Orchestrators can mail other orchestrators. Mail unread past <Setting path="mail.delivery_deadline" /> expires.
+
+You can limit how much mail two agents exchange by setting <Setting path="mail.max_exchange" />. It exists to stop two agents looping on each other forever. When the limit stops a message, the sender gets an error and the other agent is told, so it does not wait for a reply that will never come. Your own mail never counts.
+
+## Events and Mail
+
+Komrad also mails an agent itself when something changes that the agent should hear about.
+
+| What changed                                                                                                               | Who is told                              |
+| -------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
+| The pull request's status changed: checks failed, it conflicts, etc.                                                       | Every agent on the pull request's branch |
+| You wrote or edited a [document](../documents/) in the panel                                                               | The agent that owns it                   |
+| Komrad rebased an agent's worktree                                                                                         | That agent                               |
+| A [local review](../reviews/) of an agent's work was released                                                              | The agent under review                   |
+| An agent answered a local review of its own work                                                                           | Its reviewer, which is also woken        |
+
+An agent holds at most one unread piece of mail from komrad about any one thing. If a pull request's checks fail and then its branch conflicts before the agent has read anything, the agent gets one piece of mail saying both. Later changes rewrites the unread mail rather than adding more. Once the agent has read it's mail, the next change starts a new one.
+
+## How a change becomes mail
+
+Komrad records each change as an _event_ in the same database transaction as the change itself. If you save a document, the save and its event commit together. If the save fails, there is no event. If komrad stops a moment after the save, the event is still there when it comes back.
+
+This is a pattern called a _transactional outbox_. Komrad keeps its events in the same job queue it uses for other background work, and the mail table is where the messages land.
+
+```
+  one transaction
+  ├── the change: checks on #412 → failing
+  └── the event:  "pull request #412 changed"
+          |
+          v  a moment later
+  one transaction
+  ├── the handler for pull requests finds the agents on the branch
+  ├── writes or rewrites each one's mail
+  └── marks the event done
+          |
+          v
+  delivered the same way as any other mail
+```
+
+Background workers pick up each event and execute them.
+
+If the mail cannot be written yet because the agent's mailbox is full, the event is tried again later. The change itself is never held up. Saving a document or releasing a review works even when the agent is not keeping up with its mail. Mail for an archived agent is dropped.
+

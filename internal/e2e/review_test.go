@@ -100,6 +100,7 @@ func TestIntegrationReviews(t *testing.T) {
 
 		reviewID = released.Msg.GetReview().GetId()
 
+		instance.WorkQueue()
 		assert.Equal(t, mail.DeliverySoon, instance.Deliver(worker.GetId()))
 		typed := instance.WaitForTyped(worker.GetId(), 1)
 		require.Len(t, typed, 1)
@@ -156,7 +157,7 @@ func TestIntegrationReviews(t *testing.T) {
 			rung = append(rung, readMail(t, instance, reviewer.GetId())...)
 
 			return len(rung) > 0
-		}, 15*time.Second, 100*time.Millisecond, "the notice waits out the debounce and no longer")
+		}, 15*time.Second, 100*time.Millisecond, "the mail waits out the debounce and no longer")
 		require.Len(t, rung, 1)
 		assert.Equal(t, agentv1.MailKind_MAIL_KIND_REVIEW_ACTIVITY, rung[0].GetKind())
 		assert.Contains(t, rung[0].GetBody(), "list_review_threads")

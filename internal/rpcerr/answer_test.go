@@ -72,7 +72,7 @@ func TestWrapCodes(t *testing.T) {
 		{schedules.ErrBadCron, connect.CodeInvalidArgument},
 		{agents.ErrUnknownHookEvent, connect.CodeInvalidArgument},
 		{agents.ErrUnknownHookScript, connect.CodeInvalidArgument},
-		{mail.ErrNoticeKindMissing, connect.CodeInvalidArgument},
+		{mail.ErrKindMissing, connect.CodeInvalidArgument},
 		{agents.ErrBadDirectory, connect.CodeInvalidArgument},
 		{agentdirs.ErrNoDirectory, connect.CodeInvalidArgument},
 		{agents.ErrAdoptNotABranch, connect.CodeInvalidArgument},

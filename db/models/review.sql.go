@@ -1574,10 +1574,9 @@ WITH released AS (
         released_at = NOW(),
         verdict = $1,
         body = $2,
-        path = $3,
-        doorbell_mail_id = $4
+        path = $3
     WHERE
-        v.id = $5
+        v.id = $4
     RETURNING
         id, agent_id, round_id, author_kind, author_agent_id, verdict, released_at, path, doorbell_mail_id, created_at, updated_at, body, engine_id
 ),
@@ -1612,11 +1611,10 @@ FROM
 `
 
 type ReleaseReviewParams struct {
-	Verdict        NullReviewVerdict
-	Body           string
-	Path           string
-	DoorbellMailID *string
-	ID             string
+	Verdict NullReviewVerdict
+	Body    string
+	Path    string
+	ID      string
 }
 
 type ReleaseReviewRow struct {
@@ -1640,7 +1638,6 @@ func (q *Queries) ReleaseReview(ctx context.Context, arg ReleaseReviewParams) (*
 		arg.Verdict,
 		arg.Body,
 		arg.Path,
-		arg.DoorbellMailID,
 		arg.ID,
 	)
 	var i ReleaseReviewRow
@@ -1660,6 +1657,25 @@ func (q *Queries) ReleaseReview(ctx context.Context, arg ReleaseReviewParams) (*
 		&i.EngineID,
 	)
 	return &i, err
+}
+
+const setReviewDoorbell = `-- name: SetReviewDoorbell :exec
+UPDATE
+    reviews
+SET
+    doorbell_mail_id = $1
+WHERE
+    id = $2
+`
+
+type SetReviewDoorbellParams struct {
+	DoorbellMailID *string
+	ID             string
+}
+
+func (q *Queries) SetReviewDoorbell(ctx context.Context, arg SetReviewDoorbellParams) error {
+	_, err := q.db.Exec(ctx, setReviewDoorbell, arg.DoorbellMailID, arg.ID)
+	return err
 }
 
 const setReviewThreadResolved = `-- name: SetReviewThreadResolved :one

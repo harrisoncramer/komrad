@@ -43,7 +43,7 @@ var ErrReplyToNotFound = fail.InvalidArgument("no mail holds that id")
 
 var ErrMailNotFound = fail.NotFound("no mail holds that id, deleting nothing")
 
-var ErrNoticeKindMissing = fail.InvalidArgument("a notice must name a kind other than plain")
+var ErrKindMissing = fail.InvalidArgument("mail from komrad must name a kind other than plain")
 
 var ErrAlreadySent = fail.AlreadyExists("this idempotency key already sent its mail")
 
@@ -73,8 +73,8 @@ type mailReadWriter interface {
 	GetByIdempotencyKey(ctx context.Context, key string) (*mailstore.Mail, error)
 	Claim(ctx context.Context, toAgentID string, limit int32) ([]mailstore.Mail, error)
 	CountPending(ctx context.Context, toAgentID string) (int64, error)
-	GetPendingOfKind(ctx context.Context, toAgentID string, kind mailstore.Kind, about string) (*mailstore.Mail, error)
-	GetPendingAboutDocument(ctx context.Context, toAgentID string, kind mailstore.Kind, documentID string) (*mailstore.Mail, error)
+	UpsertFromKomrad(ctx context.Context, params mailstore.UpsertFromKomradParams) (*mailstore.Mail, error)
+	GetUnreadAbout(ctx context.Context, toAgentID string, kind mailstore.Kind, subjectID string) (*mailstore.Mail, error)
 	ListPage(ctx context.Context, toAgentID string, limit int32, cursor *mailstore.Cursor) ([]mailstore.Mail, error)
 	ListSentPage(ctx context.Context, fromAgentID string, limit int32, cursor *mailstore.Cursor) ([]mailstore.Mail, error)
 	ListByID(ctx context.Context, ids []string) ([]mailstore.Mail, error)
@@ -233,51 +233,86 @@ func (s *MailService) SendScheduledMail(ctx context.Context, params SendSchedule
 	})
 }
 
-type SendNoticeParams struct {
+var ErrSubjectMissing = fail.InvalidArgument("mail from komrad must name the subject it is about")
+
+var ErrNothingUnread = fail.NotFound("the recipient holds no unread mail of this kind about this subject")
+
+type SendFromKomradParams struct {
 	ToAgentID string
 	Body      string
-	// Kind is what the notice is about.
-	Kind mailstore.Kind
-	// About is the other agent the notice concerns.
-	About         *string
-	AboutDocument *string
+	Kind      mailstore.Kind
+	// SubjectID is the agent, document, pull request or worktree the mail is about.
+	SubjectID string
+	// OnlyRewrite writes nothing when the recipient holds no unread mail of this kind about this subject.
+	OnlyRewrite bool
 }
 
-// SendNotice sends a notice as komrad itself, handing back the unread notice about the same
-// agent or document instead when the recipient is still holding one.
-func (s *MailService) SendNotice(ctx context.Context, params SendNoticeParams) (*mailstore.Mail, error) {
+// SendFromKomrad writes mail as komrad itself, rewriting the unread mail of the same kind about the
+// same subject when the recipient still holds it.
+func (s *MailService) SendFromKomrad(ctx context.Context, params SendFromKomradParams) (*mailstore.Mail, error) {
 	if params.Kind == "" || params.Kind == mailstore.KindPlain {
-		return nil, fmt.Errorf("%w: a notice needs a kind of its own to be told apart by", ErrNoticeKindMissing)
+		return nil, fmt.Errorf("%w: mail from komrad needs a kind of its own to be told apart by", ErrKindMissing)
+	}
+	if params.SubjectID == "" {
+		return nil, ErrSubjectMissing
 	}
 
-	if params.About != nil {
-		waiting, err := s.mailReadWriter.GetPendingOfKind(ctx, params.ToAgentID, params.Kind, *params.About)
-		if err != nil && !errors.Is(err, store.ErrNotFound) {
+	recipient, err := s.agents.GetByID(ctx, params.ToAgentID)
+	if errors.Is(err, store.ErrNotFound) {
+		return nil, fmt.Errorf("%w: %q", ErrRecipientNotFound, params.ToAgentID)
+	}
+	if err != nil {
+		return nil, err
+	}
+	if recipient.ArchivedAt != nil {
+		return nil, fmt.Errorf("%w: %q", ErrAgentArchived, params.ToAgentID)
+	}
+
+	_, err = s.mailReadWriter.GetUnreadAbout(ctx, recipient.ID, params.Kind, params.SubjectID)
+	if errors.Is(err, store.ErrNotFound) {
+		if params.OnlyRewrite {
+			return nil, ErrNothingUnread
+		}
+		if err := s.requireRoom(ctx, *recipient); err != nil {
 			return nil, err
 		}
-		if waiting != nil {
-			return waiting, nil
-		}
+	} else if err != nil {
+		return nil, err
 	}
 
-	if params.AboutDocument != nil {
-		waiting, err := s.mailReadWriter.GetPendingAboutDocument(ctx, params.ToAgentID, params.Kind, *params.AboutDocument)
-		if err != nil && !errors.Is(err, store.ErrNotFound) {
-			return nil, fmt.Errorf("failed to find the unread notice about document %q: %w", *params.AboutDocument, err)
-		}
-		if waiting != nil {
-			return waiting, nil
-		}
+	deadline, err := s.config.GetDeliveryDeadline()
+	if err != nil {
+		return nil, err
 	}
 
-	return s.send(ctx, sendParams{
-		ToAgentID:     params.ToAgentID,
-		Body:          params.Body,
-		Kind:          params.Kind,
-		About:         params.About,
-		AboutDocument: params.AboutDocument,
-		System:        true,
+	return s.mailReadWriter.UpsertFromKomrad(ctx, mailstore.UpsertFromKomradParams{
+		FromName:  KomradSenderName,
+		ToAgentID: recipient.ID,
+		Body:      params.Body,
+		Kind:      params.Kind,
+		SubjectID: params.SubjectID,
+		Deadline:  deadline,
 	})
+}
+
+// InTx is this service writing mail through a transaction.
+func (s *MailService) InTx(db store.DBTX) *MailService {
+	bound := *s
+	bound.mailReadWriter = mailstore.NewMailStore(db)
+
+	return &bound
+}
+
+func (s *MailService) requireRoom(ctx context.Context, recipient agentstore.Agent) error {
+	pending, err := s.mailReadWriter.CountPending(ctx, recipient.ID)
+	if err != nil {
+		return err
+	}
+	if pending >= maxPendingMail {
+		return fmt.Errorf("%w: %q is holding %d unread", ErrMailboxFull, recipient.Name, pending)
+	}
+
+	return nil
 }
 
 // familyID names a family, being a parent's own id and for a child the parent it is attached
@@ -307,13 +342,11 @@ func requireSameFamily(sender *agentstore.Agent, recipient agentstore.Agent) err
 }
 
 type sendParams struct {
-	From          string
-	ToAgentID     string
-	Body          string
-	ReplyTo       *string
-	Kind          mailstore.Kind
-	About         *string
-	AboutDocument *string
+	From      string
+	ToAgentID string
+	Body      string
+	ReplyTo   *string
+	Kind      mailstore.Kind
 	// System marks mail komrad raises itself rather than on a caller's behalf.
 	System bool
 	// SenderName names mail sent on a person's behalf by something other than an agent.
@@ -355,12 +388,8 @@ func (s *MailService) send(ctx context.Context, params sendParams) (*mailstore.M
 		}
 	}
 
-	pending, err := s.mailReadWriter.CountPending(ctx, recipient.ID)
-	if err != nil {
+	if err := s.requireRoom(ctx, *recipient); err != nil {
 		return nil, err
-	}
-	if pending >= maxPendingMail {
-		return nil, fmt.Errorf("%w: %q is holding %d unread", ErrMailboxFull, recipient.Name, pending)
 	}
 
 	if params.ReplyTo != nil {
@@ -377,13 +406,11 @@ func (s *MailService) send(ctx context.Context, params sendParams) (*mailstore.M
 	}
 
 	send := mailstore.SendParams{
-		ToAgentID:       recipient.ID,
-		Body:            params.Body,
-		Kind:            params.Kind,
-		ReplyTo:         params.ReplyTo,
-		AboutAgentID:    params.About,
-		AboutDocumentID: params.AboutDocument,
-		Deadline:        deadline,
+		ToAgentID: recipient.ID,
+		Body:      params.Body,
+		Kind:      params.Kind,
+		ReplyTo:   params.ReplyTo,
+		Deadline:  deadline,
 	}
 	if params.IdempotencyKey != "" {
 		send.IdempotencyKey = &params.IdempotencyKey
@@ -436,11 +463,11 @@ func (s *MailService) tellTheCapWasReached(ctx context.Context, sender, recipien
 	}
 
 	body := fmt.Sprintf(exchangeCappedBody, sender.Name, sender.ID, exchanged)
-	if _, err := s.SendNotice(ctx, SendNoticeParams{
+	if _, err := s.SendFromKomrad(ctx, SendFromKomradParams{
 		ToAgentID: recipient.ID,
 		Body:      body,
 		Kind:      mailstore.KindExchangeCapped,
-		About:     &sender.ID,
+		SubjectID: sender.ID,
 	}); err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to tell an agent its mail was refused by the cap",
 			append(attrs, logging.Err(err)...)...)

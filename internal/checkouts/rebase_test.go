@@ -7,14 +7,13 @@ import (
 	"testing"
 	"time"
 
-	"komrad/config"
 	"komrad/internal/agents"
 	"komrad/internal/caller"
+	"komrad/internal/events/eventstest"
 	"komrad/internal/git"
 	"komrad/internal/gittest"
 	"komrad/internal/harness"
 	"komrad/internal/harnesstest"
-	"komrad/internal/mail"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
 	mailstore "komrad/internal/store/mail"
@@ -441,9 +440,9 @@ func TestRebaseRereadsTheRowOnceTheAgentSettles(t *testing.T) {
 			rebaser := &gittest.Rebaser{State: git.TreeState{Branch: "agent/a1"}}
 
 			_, err := fixture.newService(NewRebaseServiceParams{
-				Settler:  buildSettler(channel, observer),
-				Notifier: fixture.newMailer(),
-				Rebaser:  rebaser,
+				Settler: buildSettler(channel, observer),
+				Events:  fixture.newQueue(t),
+				Rebaser: rebaser,
 			}).Rebase(t.Context(), agent.ID)
 
 			if tt.wantErr != nil {
@@ -671,13 +670,8 @@ func (f *rebaseFixture) newService(params NewRebaseServiceParams) *RebaseService
 	return NewRebaseService(params)
 }
 
-func (f *rebaseFixture) newMailer() *mail.MailService {
-	return mail.NewMailService(mail.NewMailServiceParams{
-		MailReadWriter: f.stores.Mail,
-		Agents:         f.stores.Agents,
-		Workflows:      f.stores.Workflows,
-		Config:         config.Mail{},
-	})
+func (f *rebaseFixture) newQueue(t *testing.T) *eventstest.Queue {
+	return eventstest.NewQueue(t, f.stores, NewEventHandler())
 }
 
 func (f *rebaseFixture) readInbox(t *testing.T, id string) []string {

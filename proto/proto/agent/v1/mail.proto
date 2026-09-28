@@ -7,7 +7,7 @@ import "pagination/v1/pagination.proto";
 
 option go_package = "komrad/proto/gen/agent/v1;agentv1";
 
-// MailKind tells an agent's own mail from a notice komrad raised itself.
+// MailKind tells mail an agent sent from mail komrad wrote itself.
 enum MailKind {
   // No kind was recorded, which the panel draws as a dash.
   MAIL_KIND_UNSPECIFIED = 0;
@@ -19,6 +19,10 @@ enum MailKind {
   MAIL_KIND_EXCHANGE_CAPPED = 3;
   // Komrad telling an agent that a person wrote or edited one of its documents in the panel.
   MAIL_KIND_DOCUMENT_EDITED = 4;
+  // Komrad telling an agent that a pull request on its branch changed at the forge.
+  MAIL_KIND_PULL_REQUEST_CHANGED = 5;
+  // Komrad telling an agent that it rebased the agent's worktree, or tried to.
+  MAIL_KIND_WORKTREE_REBASED = 6;
 }
 
 // MailDirection is which half of an agent's correspondence a listing asks for.
@@ -36,7 +40,7 @@ message Mail {
   string id = 1;
   // Which agent sent it, unset when komrad sent it itself.
   optional string from_agent_id = 2;
-  // What to show as the sender, which is komrad's own name for a notice it raised.
+  // What to show as the sender, which is komrad's own name for mail it wrote.
   string from_name = 3;
   // The agent it is waiting for.
   string to_agent_id = 4;

@@ -9,8 +9,10 @@ import (
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
 	workflowstore "komrad/internal/store/workflow"
+	"komrad/lib/xptr"
 	"komrad/lib/xslice"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -113,6 +115,8 @@ func TestUpsertSaysWhatItDid(t *testing.T) {
 	assert.Equal(t, first.ID, again.ID)
 	assert.False(t, again.Inserted)
 	assert.False(t, again.Changed, "the same row again is not written")
+	assert.Nil(t, first.OldState, "a new row replaced nothing")
+	assert.Nil(t, again.OldState, "an untouched row replaced nothing")
 
 	merged := openPullRequest("PR_1", 1, "agent/x")
 	mergedAt := merged.ChangedAt.Add(time.Hour)
@@ -125,6 +129,8 @@ func TestUpsertSaysWhatItDid(t *testing.T) {
 	assert.Equal(t, first.ID, moved.ID)
 	assert.False(t, moved.Inserted)
 	assert.True(t, moved.Changed)
+	require.NotNil(t, moved.OldState)
+	assert.Equal(t, "OPEN", *moved.OldState, "a changed row says what it replaced")
 
 	stored, err := h.GetByIdentity(ctx, "github.com", "PR_1")
 	require.NoError(t, err)
@@ -412,7 +418,8 @@ func TestListStaleStandingsAnswersOpenRowsOnAgentBranches(t *testing.T) {
 		t.Helper()
 		stored, err := h.GetByIdentity(ctx, "github.com", providerID)
 		require.NoError(t, err)
-		require.NoError(t, h.SetStanding(ctx, stored.ID, standing, now))
+		_, err = h.SetStanding(ctx, stored.ID, standing, now)
+		require.NoError(t, err)
 	}
 	set("PR_2", forge.Standing{
 		Decision: forge.ReviewDecisionApproved,
@@ -466,12 +473,13 @@ func TestSetStandingStampsTheRead(t *testing.T) {
 	written, err := h.Upsert(ctx, openPullRequest("PR_1", 1, "agent/x"))
 	require.NoError(t, err)
 
-	require.NoError(t, h.SetStanding(ctx, written.ID, forge.Standing{
+	_, err = h.SetStanding(ctx, written.ID, forge.Standing{
 		Decision:     forge.ReviewDecisionChangesRequested,
 		Checks:       forge.ChecksFailing,
 		Mergeability: forge.MergeabilityUnstable,
 		HeadSHA:      "abc",
-	}, readAt))
+	}, readAt)
+	require.NoError(t, err)
 	stored, err := h.GetByIdentity(ctx, "github.com", "PR_1")
 	require.NoError(t, err)
 	require.NotNil(t, stored.ReviewDecision)
@@ -487,7 +495,8 @@ func TestSetStandingStampsTheRead(t *testing.T) {
 	assert.True(t, stored.ChecksReadAt.Equal(readAt))
 
 	readAt = readAt.Add(time.Minute)
-	require.NoError(t, h.SetStanding(ctx, written.ID, forge.Standing{HeadSHA: "abc"}, readAt))
+	_, err = h.SetStanding(ctx, written.ID, forge.Standing{HeadSHA: "abc"}, readAt)
+	require.NoError(t, err)
 	stored, err = h.GetByIdentity(ctx, "github.com", "PR_1")
 	require.NoError(t, err)
 	assert.Nil(t, stored.ReviewDecision)
@@ -501,7 +510,8 @@ func TestSetStandingStampsTheRead(t *testing.T) {
 	changed.ChangedAt = changed.ChangedAt.Add(time.Hour)
 	_, err = h.Upsert(ctx, changed)
 	require.NoError(t, err)
-	require.NoError(t, h.SetStanding(ctx, written.ID, forge.Standing{HeadSHA: "abc"}, readAt))
+	_, err = h.SetStanding(ctx, written.ID, forge.Standing{HeadSHA: "abc"}, readAt)
+	require.NoError(t, err)
 	stored, err = h.GetByIdentity(ctx, "github.com", "PR_1")
 	require.NoError(t, err)
 	assert.True(t, stored.DecisionChangedAt.Equal(changed.ChangedAt), "the same decision for a later change is still a read")
@@ -574,4 +584,104 @@ func TestListPageOrdersCurrentFirst(t *testing.T) {
 	elsewhere, err := h.ListPage(ctx, ListPageParams{RepositoryURL: fixture, Limit: 10})
 	require.NoError(t, err)
 	assert.Empty(t, elsewhere)
+}
+
+// TestSetStandingKeepsTheLastKnownValue pins what each standing write reports as moved.
+func TestSetStandingKeepsTheLastKnownValue(t *testing.T) {
+	type step struct {
+		checks    forge.Checks
+		wantOld   *string
+		wantKnown *string
+	}
+	tests := []struct {
+		name  string
+		steps []step
+	}{
+		{
+			name: "the first reading replaces nothing",
+			steps: []step{
+				{checks: forge.ChecksFailing, wantKnown: xptr.Ptr("failing")},
+			},
+		},
+		{
+			name: "a blank reading leaves the last known value alone",
+			steps: []step{
+				{checks: forge.ChecksFailing, wantKnown: xptr.Ptr("failing")},
+				{checks: forge.ChecksNone, wantOld: xptr.Ptr("failing"), wantKnown: xptr.Ptr("failing")},
+				{checks: forge.ChecksFailing, wantOld: xptr.Ptr("failing"), wantKnown: xptr.Ptr("failing")},
+			},
+		},
+		{
+			name: "a new value replaces the last known one",
+			steps: []step{
+				{checks: forge.ChecksPassing, wantKnown: xptr.Ptr("passing")},
+				{checks: forge.ChecksFailing, wantOld: xptr.Ptr("passing"), wantKnown: xptr.Ptr("failing")},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			h := open(t)
+			ctx := t.Context()
+			written, err := h.Upsert(ctx, openPullRequest("PR_1", 1, "agent/x"))
+			require.NoError(t, err)
+
+			for _, s := range tt.steps {
+				change, err := h.SetStanding(ctx, written.ID, forge.Standing{Checks: s.checks, HeadSHA: "abc"}, time.Now())
+				require.NoError(t, err)
+				assert.Equal(t, s.wantOld, change.OldChecks)
+				assert.Equal(t, s.wantKnown, change.KnownChecks)
+			}
+
+			stored, err := h.GetByID(ctx, written.ID)
+			require.NoError(t, err)
+			last := tt.steps[len(tt.steps)-1]
+			assert.Equal(t, *last.wantKnown, stored.LastKnownChecks)
+			if last.checks == forge.ChecksNone {
+				assert.Nil(t, stored.Checks, "the recorded column still keeps the forge's blank")
+			}
+		})
+	}
+}
+
+// TestSetStandingOnAMissingRowChangesNothing pins that a row gone since it was read reports no change.
+func TestSetStandingOnAMissingRowChangesNothing(t *testing.T) {
+	h := open(t)
+
+	change, err := h.SetStanding(t.Context(), uuid.NewString(), forge.Standing{Checks: forge.ChecksFailing}, time.Now())
+	require.NoError(t, err)
+	assert.Equal(t, StandingChange{}, *change)
+}
+
+// TestListRecipients pins which agents hear about a pull request.
+func TestListRecipients(t *testing.T) {
+	h := open(t)
+	ctx := t.Context()
+	workflow := h.createWorkflow(t)
+
+	onBranch := h.createAgent(t, workflow, "on-branch", komrad, "agent/x")
+	h.createAgent(t, workflow, "elsewhere", komrad, "agent/y")
+	h.createAgent(t, workflow, "other-repo", "https://github.com/someone/else", "agent/x")
+	archived := h.createAgent(t, workflow, "archived", komrad, "agent/x")
+	_, err := h.agents.Archive(ctx, []string{archived})
+	require.NoError(t, err)
+	require.NoError(t, h.agents.Create(ctx, agentstore.Agent{
+		Name:          "child",
+		Pane:          "%2",
+		State:         agentstore.StateIdle,
+		WorkflowID:    workflow,
+		ParentAgentID: &onBranch,
+	}))
+	child, err := h.agents.GetInWorkflow(ctx, workflow, "child")
+	require.NoError(t, err)
+	branch, repository := "agent/x", komrad
+	require.NoError(t, h.agents.SetCheckout(ctx, child.ID, agentstore.SetCheckoutParams{RepositoryURL: &repository, Branch: &branch}))
+
+	written, err := h.Upsert(ctx, openPullRequest("PR_1", 1, "agent/x"))
+	require.NoError(t, err)
+
+	recipients, err := h.ListRecipients(ctx, written.ID)
+	require.NoError(t, err)
+	assert.Equal(t, []string{onBranch}, recipients, "only the live parent on the branch is told")
 }

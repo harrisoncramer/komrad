@@ -150,6 +150,11 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 		Scripts:            scriptService,
 		FallbackResumeRoot: params.FallbackResumeRoot,
 	})
+	inserter, err := jobs.NewInsertOnlyClient(st.pool.GetRawPool(), st.pool.GetRiverSchema())
+	if err != nil {
+		return nil, err
+	}
+	queue := jobs.NewEnqueuer(inserter, st.pool.GetRawPool())
 	reviewService := reviews.NewReviewService(reviews.NewReviewServiceParams{
 		Threads:   st.review,
 		Messages:  st.review,
@@ -159,8 +164,7 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 		Snapshots: gitClient,
 		Workflows: st.workflows,
 		Agents:    st.agents,
-		Mailer:    mailService,
-		Resumer:   resumeService,
+		Events:    queue,
 		StateDir:  stateDir,
 		Interrupter: agents.NewInterrupter(agents.NewInterrupterParams{
 			Agents:   st.agents,
@@ -176,7 +180,7 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 		Agents:    st.agents,
 		Workflows: st.workflows,
 		Settler:   settler,
-		Notifier:  mailService,
+		Events:    queue,
 		Rebaser:   gitClient,
 	})
 	adoptService := agents.NewAdoptService(agents.NewAdoptServiceParams{
@@ -185,11 +189,6 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 		Launch:    launchService,
 		Worktrees: gitClient,
 	})
-	inserter, err := jobs.NewInsertOnlyClient(st.pool.GetRawPool(), st.pool.GetRiverSchema())
-	if err != nil {
-		return nil, err
-	}
-	queue := jobs.NewEnqueuer(inserter, st.pool.GetRawPool())
 	agentDelete := jobs.NewAgentDelete(queue)
 
 	emptyWorkflows := agents.NewEmptyWorkflowDeleter(agents.NewEmptyWorkflowDeleterParams{
@@ -248,7 +247,7 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 		Forges:       forgeService,
 		PullRequests: st.pullRequests,
 		Syncs:        st.pullRequestSyncs,
-		Tx:           st.pool,
+		Events:       queue,
 	})
 	cwdSyncer := checkouts.NewCwdSyncer(checkouts.NewCwdSyncerParams{
 		Agents:       st.agents,
@@ -308,7 +307,7 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 			Reconciler: reconciler,
 		}),
 		marks:           markService,
-		documents:       documents.NewDocumentService(documents.NewDocumentServiceParams{Agents: st.agents, Documents: st.documents, Mailer: mailService}),
+		documents:       documents.NewDocumentService(documents.NewDocumentServiceParams{Agents: st.agents, Documents: st.documents, Events: queue}),
 		rebase:          rebaseService,
 		cwdSync:         cwdSyncer,
 		transcriptSync:  transcriptSyncer,

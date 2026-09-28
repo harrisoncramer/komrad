@@ -1,16 +1,13 @@
 package reviews
 
 import (
-	"context"
 	"slices"
-	"sync"
 	"testing"
-	"time"
 
-	"komrad/config"
 	"komrad/internal/agents"
+	"komrad/internal/events/eventstest"
 	"komrad/internal/gittest"
-	"komrad/internal/mail"
+	"komrad/internal/jobs/internaljobs"
 	agentstore "komrad/internal/store/agent"
 	mailstore "komrad/internal/store/mail"
 	reviewstore "komrad/internal/store/review"
@@ -18,6 +15,7 @@ import (
 	"komrad/lib/xslice"
 
 	"github.com/google/uuid"
+	"github.com/riverqueue/river"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -36,15 +34,10 @@ type reviewFixture struct {
 	reviews   *reviewstore.ReviewStore
 	stores    *storetest.Stores
 	snapshots *gittest.Snapshots
-	resumer   *recordingResumer
+	events    *eventstest.Queue
 	worker    *agentstore.Agent
 	reviewer  *agentstore.Agent
 	stranger  *agentstore.Agent
-}
-
-type recordingResumer struct {
-	mu      sync.Mutex
-	resumed []string
 }
 
 // TestReviewEntitlement pins who may make each review call on whose work.
@@ -445,7 +438,7 @@ func TestReviewEntitlement(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			fx := newReviewFixture(t, time.Hour)
+			fx := newReviewFixture(t)
 
 			err := tt.call(t, fx)
 			if tt.wantErr != nil {
@@ -501,7 +494,7 @@ func TestListReviewThreads(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			fx := newReviewFixture(t, time.Hour)
+			fx := newReviewFixture(t)
 			released := fx.releaseFirstReview(t)
 			fx.writeAnswer(t, released.ID)
 			_, err := fx.service.AddReviewMessage(t.Context(), AddReviewMessageParams{
@@ -589,7 +582,7 @@ func TestCreateReviewThreadPicksTheRound(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			fx := newReviewFixture(t, time.Hour)
+			fx := newReviewFixture(t)
 
 			written := tt.write(t, fx)
 
@@ -688,7 +681,7 @@ func TestCommentOnTheChangeAsAWhole(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			fx := newReviewFixture(t, time.Hour)
+			fx := newReviewFixture(t)
 
 			err := tt.write(t, fx)
 			if tt.wantErr != nil {
@@ -819,7 +812,7 @@ func TestASecondReview(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			fx := newReviewFixture(t, time.Hour)
+			fx := newReviewFixture(t)
 
 			err := tt.write(t, fx)
 			if tt.wantErr != nil {
@@ -880,7 +873,7 @@ func TestSetReviewThreadResolved(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			fx := newReviewFixture(t, time.Hour)
+			fx := newReviewFixture(t)
 			written := fx.writeComment(t, newAgentAuthor(fx.reviewer), "this needs a nil check")
 			fx.releaseReview(t, newAgentAuthor(fx.reviewer), reviewstore.VerdictChangesRequested)
 
@@ -905,7 +898,7 @@ func TestSetReviewThreadResolved(t *testing.T) {
 
 // TestReviewFileViewed pins that the person marks a file read and takes the mark back.
 func TestReviewFileViewed(t *testing.T) {
-	fx := newReviewFixture(t, time.Hour)
+	fx := newReviewFixture(t)
 
 	_, err := fx.service.SetReviewFileViewed(t.Context(), SetReviewFileViewedParams{
 		AgentID:     fx.worker.ID,
@@ -963,7 +956,7 @@ func TestAnsweringAReviewRingsTheReviewer(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			fx := newReviewFixture(t, time.Millisecond)
+			fx := newReviewFixture(t)
 			written := fx.writeComment(t, newAgentAuthor(fx.reviewer), "this needs a nil check")
 			fx.releaseReview(t, newAgentAuthor(fx.reviewer), reviewstore.VerdictChangesRequested)
 
@@ -975,30 +968,26 @@ func TestAnsweringAReviewRingsTheReviewer(t *testing.T) {
 			require.NoError(t, err)
 
 			if !tt.wantRung {
-				fx.service.Close()
-				assert.Empty(t, fx.listMail(t, fx.reviewer.ID), "nothing was waiting to be sent")
-				assert.Empty(t, fx.resumer.listResumed())
+				assert.Empty(t, fx.listMail(t, fx.reviewer.ID))
+				assert.Empty(t, fx.events.ListFollowUps())
 
 				return
 			}
 
-			require.Eventually(t, func() bool {
-				return len(fx.resumer.listResumed()) == 1
-			}, time.Second, 5*time.Millisecond, "mail waits for a pane rather than making one")
-			assert.Equal(t, []string{fx.reviewer.ID}, fx.resumer.listResumed())
+			assert.Equal(t, []river.JobArgs{internaljobs.WakeAgentArgs{AgentID: fx.reviewer.ID}}, fx.events.ListFollowUps())
 
 			rung := fx.listMail(t, fx.reviewer.ID)
 			require.Len(t, rung, 1)
 			assert.Equal(t, mailstore.KindReviewActivity, rung[0].Kind)
-			assert.Equal(t, &fx.worker.ID, rung[0].AboutAgentID)
+			assert.Equal(t, &fx.worker.ID, rung[0].SubjectID)
 			assert.Contains(t, rung[0].Body, "list_review_threads", "the doorbell says where to look rather than what was said")
 		})
 	}
 }
 
-// TestAnsweringAReviewSeveralTimesRingsOnce pins that answers inside the debounce wake the reviewer once.
-func TestAnsweringAReviewSeveralTimesRingsOnce(t *testing.T) {
-	fx := newReviewFixture(t, 200*time.Millisecond)
+// TestAnsweringAReviewSeveralTimesLeavesOneMail pins that answers the reviewer has not read yet are one mail.
+func TestAnsweringAReviewSeveralTimesLeavesOneMail(t *testing.T) {
+	fx := newReviewFixture(t)
 	written := fx.writeComment(t, newAgentAuthor(fx.reviewer), "this needs a nil check")
 	fx.releaseReview(t, newAgentAuthor(fx.reviewer), reviewstore.VerdictChangesRequested)
 
@@ -1006,38 +995,16 @@ func TestAnsweringAReviewSeveralTimesRingsOnce(t *testing.T) {
 		fx.writeAnswer(t, written.Thread.ID)
 	}
 
-	require.Eventually(t, func() bool {
-		return len(fx.resumer.listResumed()) == 1
-	}, time.Second, 5*time.Millisecond)
-	assert.Never(t, func() bool {
-		return len(fx.resumer.listResumed()) > 1
-	}, 300*time.Millisecond, 10*time.Millisecond, "three answers inside the window are one wake")
-
 	claimed, err := fx.stores.Mail.Claim(t.Context(), fx.reviewer.ID, 10)
 	require.NoError(t, err)
 	require.Len(t, claimed, 1)
 
 	fx.writeAnswer(t, written.Thread.ID)
 
-	require.Eventually(t, func() bool {
-		return len(fx.listMail(t, fx.reviewer.ID)) == 2
-	}, time.Second, 5*time.Millisecond, "an answer once the window has passed rings again")
+	assert.Len(t, fx.listMail(t, fx.reviewer.ID), 2, "an answer after the mail was read rings again")
 }
 
-// TestCloseSendsAPendingReviewerNotice pins that a shutdown mid-debounce tells the reviewer without waking it.
-func TestCloseSendsAPendingReviewerNotice(t *testing.T) {
-	fx := newReviewFixture(t, time.Hour)
-	written := fx.writeComment(t, newAgentAuthor(fx.reviewer), "this needs a nil check")
-	fx.releaseReview(t, newAgentAuthor(fx.reviewer), reviewstore.VerdictChangesRequested)
-	fx.writeAnswer(t, written.Thread.ID)
-
-	fx.service.Close()
-
-	assert.Len(t, fx.listMail(t, fx.reviewer.ID), 1)
-	assert.Empty(t, fx.resumer.listResumed(), "a resumed pane picks the mail up on its own")
-}
-
-func newReviewFixture(t *testing.T, debounce time.Duration) *reviewFixture {
+func newReviewFixture(t *testing.T) *reviewFixture {
 	t.Helper()
 
 	stores := storetest.Open(t)
@@ -1047,7 +1014,7 @@ func newReviewFixture(t *testing.T, debounce time.Duration) *reviewFixture {
 		BaseSHA: baseSnapshot,
 		Files:   map[string][]string{},
 	}
-	resumer := &recordingResumer{}
+	events := eventstest.NewQueue(t, stores, NewReleasedHandler(), NewAnsweredHandler())
 
 	worker := stores.SeedAgent(t, agentstore.Agent{
 		Name: "worker",
@@ -1074,14 +1041,8 @@ func newReviewFixture(t *testing.T, debounce time.Duration) *reviewFixture {
 		Snapshots: snapshots,
 		Workflows: stores.Workflows,
 		Agents:    stores.Agents,
-		Mailer: mail.NewMailService(mail.NewMailServiceParams{
-			MailReadWriter: stores.Mail,
-			Agents:         stores.Agents,
-			Config:         config.Mail{},
-		}),
-		Resumer:        resumer,
-		StateDir:       t.TempDir(),
-		NoticeDebounce: debounce,
+		Events:    events,
+		StateDir:  t.TempDir(),
 	})
 
 	_, err := service.OpenRound(t.Context(), worker.ID, personAuthor)
@@ -1092,7 +1053,7 @@ func newReviewFixture(t *testing.T, debounce time.Duration) *reviewFixture {
 		reviews:   reviews,
 		stores:    stores,
 		snapshots: snapshots,
-		resumer:   resumer,
+		events:    events,
 		worker:    worker,
 		reviewer:  reviewer,
 		stranger:  stranger,
@@ -1237,20 +1198,4 @@ func (fx *reviewFixture) listMail(t *testing.T, agentID string) []mailstore.Mail
 	slices.Reverse(listed)
 
 	return listed
-}
-
-func (r *recordingResumer) ResumeAgent(_ context.Context, id string) (*agentstore.Agent, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	r.resumed = append(r.resumed, id)
-
-	return &agentstore.Agent{ID: id}, nil
-}
-
-func (r *recordingResumer) listResumed() []string {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	return slices.Clone(r.resumed)
 }

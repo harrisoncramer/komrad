@@ -120,7 +120,7 @@ table "reviews" {
   column "doorbell_mail_id" {
     null    = true
     type    = uuid
-    comment = "The mail that told the agent a review was waiting. Deleting that mail clears this column rather than deleting the review, so a review whose notice was thrown away reads as undelivered."
+    comment = "The mail that told the agent a review was waiting. Deleting that mail clears this column rather than deleting the review, so a review whose mail was thrown away reads as undelivered."
   }
   column "created_at" {
     null    = false
@@ -196,7 +196,7 @@ table "reviews" {
   }
   index "reviews_doorbell_mail_id" {
     columns = [column.doorbell_mail_id]
-    comment = "Finds the review a piece of mail was the notice for. Deleting that mail walks this index."
+    comment = "Finds the review a piece of mail told the agent about. Deleting that mail walks this index."
   }
 }
 

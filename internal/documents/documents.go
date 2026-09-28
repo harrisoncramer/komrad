@@ -3,21 +3,20 @@ package documents
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
-	"log/slog"
 	"os"
 	"path/filepath"
 	"syscall"
 	"unicode/utf8"
 
+	"komrad/internal/events"
 	"komrad/internal/fail"
-	"komrad/internal/logging"
-	"komrad/internal/mail"
 	agentstore "komrad/internal/store/agent"
 	documentstore "komrad/internal/store/document"
-	mailstore "komrad/internal/store/mail"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/riverqueue/river"
 )
 
 // MaxBodyBytes is the most a document's body may hold.
@@ -42,22 +41,26 @@ var (
 	ErrForAnother = fail.InvalidArgument("the document belongs to another agent, so leave agent_id unset to rewrite it")
 )
 
+type eventRecorder interface {
+	InsertManyTx(ctx context.Context, build func(tx pgx.Tx) ([]river.JobArgs, error)) error
+}
+
 type NewDocumentServiceParams struct {
 	Agents    *agentstore.AgentStore
 	Documents *documentstore.DocumentStore
-	Mailer    *mail.MailService
+	Events    eventRecorder
 }
 
 type DocumentService struct {
 	agents    *agentstore.AgentStore
 	documents *documentstore.DocumentStore
-	mailer    *mail.MailService
+	events    eventRecorder
 }
 
 // NewDocumentService builds the service over the agents that write documents, the store that
-// keeps them, and the mailer that tells an author a person edited its document.
+// keeps them, and the queue that records the event telling an author a person wrote its document.
 func NewDocumentService(params NewDocumentServiceParams) *DocumentService {
-	return &DocumentService{agents: params.Agents, documents: params.Documents, mailer: params.Mailer}
+	return &DocumentService{agents: params.Agents, documents: params.Documents, events: params.Events}
 }
 
 type WriteDocumentParams struct {
@@ -110,71 +113,60 @@ func (s *DocumentService) WriteDocument(ctx context.Context, params WriteDocumen
 	}
 
 	var written *documentstore.Document
-	if params.ID == nil {
-		written, err = s.documents.Create(ctx, documentstore.CreateParams{
-			AgentID:  agent.ID,
-			Name:     params.Name,
-			Kind:     params.Kind,
-			Body:     body,
-			ByPerson: byPerson,
-		})
-	} else {
-		written, err = s.documents.Update(ctx, documentstore.UpdateParams{
-			ID:       *params.ID,
-			AgentID:  agent.ID,
-			Name:     params.Name,
-			Kind:     params.Kind,
-			Body:     body,
-			Version:  *params.Version,
-			ByPerson: byPerson,
-		})
-	}
+	err = s.events.InsertManyTx(ctx, func(tx pgx.Tx) ([]river.JobArgs, error) {
+		documents := documentstore.NewDocumentStore(tx)
+
+		var err error
+		if params.ID == nil {
+			written, err = documents.Create(ctx, documentstore.CreateParams{
+				AgentID:  agent.ID,
+				Name:     params.Name,
+				Kind:     params.Kind,
+				Body:     body,
+				ByPerson: byPerson,
+			})
+		} else {
+			written, err = documents.Update(ctx, documentstore.UpdateParams{
+				ID:       *params.ID,
+				AgentID:  agent.ID,
+				Name:     params.Name,
+				Kind:     params.Kind,
+				Body:     body,
+				Version:  *params.Version,
+				ByPerson: byPerson,
+			})
+		}
+		if err != nil {
+			return nil, err
+		}
+		if !byPerson {
+			return nil, nil
+		}
+
+		event, err := events.NewEvent(PersonWrote{DocumentID: written.ID, Created: params.ID == nil})
+		if err != nil {
+			return nil, err
+		}
+
+		return []river.JobArgs{*event}, nil
+	})
 	if err != nil {
 		return nil, err
-	}
-
-	if byPerson && params.ID == nil {
-		s.tellTheAuthor(ctx, *agent, *written, buildCreateNotice(*written))
-	} else if byPerson {
-		s.tellTheAuthor(ctx, *agent, *written, buildEditNotice(*written))
 	}
 
 	return written, nil
 }
 
-func (s *DocumentService) tellTheAuthor(ctx context.Context, author agentstore.Agent, edited documentstore.Document, notice string) {
-	if author.ArchivedAt != nil {
-		return
-	}
-
-	_, err := s.mailer.SendNotice(ctx, mail.SendNoticeParams{
-		ToAgentID:     author.ID,
-		Body:          notice,
-		Kind:          mailstore.KindDocumentEdited,
-		AboutDocument: &edited.ID,
-	})
-	if err == nil {
-		return
-	}
-
-	level := slog.LevelError
-	if errors.Is(err, mail.ErrMailboxFull) || errors.Is(err, mail.ErrAgentArchived) {
-		level = slog.LevelWarn
-	}
-	logging.From(ctx).LogAttrs(ctx, level, "failed to tell an agent a person wrote its document",
-		append([]slog.Attr{slog.String(logging.AgentID, author.ID), slog.String(logging.DocumentID, edited.ID)}, logging.Err(err)...)...)
-}
-
-func buildCreateNotice(created documentstore.Document) string {
+func buildCreateMail(created documentstore.Document) string {
 	return fmt.Sprintf("komrad: a person wrote a new document for you in the panel, %q (%s). "+
-		"Read it with get_document. Further saves before you read this send no more mail, and "+
+		"Read it with get_document. A further save before you read this rewrites this mail rather than sending another, and "+
 		"write_document is refused as failed_precondition unless you rewrite from the newest version list_document_versions lists.",
 		created.Name, created.ID)
 }
 
-func buildEditNotice(edited documentstore.Document) string {
+func buildEditMail(edited documentstore.Document) string {
 	return fmt.Sprintf("komrad: a person edited your document %q (%s) in the panel, writing version %d. "+
-		"They may have saved again since, and those saves send no more mail. "+
+		"A further save before you read this rewrites this mail rather than sending another. "+
 		"list_document_versions lists every write and marks a person's, get_document reads any version, "+
 		"and write_document is refused as failed_precondition unless you rewrite from the newest version.",
 		edited.Name, edited.ID, edited.Version)

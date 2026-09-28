@@ -23,7 +23,7 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// MailKind tells an agent's own mail from a notice komrad raised itself.
+// MailKind tells mail an agent sent from mail komrad wrote itself.
 type MailKind int32
 
 const (
@@ -37,6 +37,10 @@ const (
 	MailKind_MAIL_KIND_EXCHANGE_CAPPED MailKind = 3
 	// Komrad telling an agent that a person wrote or edited one of its documents in the panel.
 	MailKind_MAIL_KIND_DOCUMENT_EDITED MailKind = 4
+	// Komrad telling an agent that a pull request on its branch changed at the forge.
+	MailKind_MAIL_KIND_PULL_REQUEST_CHANGED MailKind = 5
+	// Komrad telling an agent that it rebased the agent's worktree, or tried to.
+	MailKind_MAIL_KIND_WORKTREE_REBASED MailKind = 6
 )
 
 // Enum value maps for MailKind.
@@ -47,13 +51,17 @@ var (
 		2: "MAIL_KIND_REVIEW_ACTIVITY",
 		3: "MAIL_KIND_EXCHANGE_CAPPED",
 		4: "MAIL_KIND_DOCUMENT_EDITED",
+		5: "MAIL_KIND_PULL_REQUEST_CHANGED",
+		6: "MAIL_KIND_WORKTREE_REBASED",
 	}
 	MailKind_value = map[string]int32{
-		"MAIL_KIND_UNSPECIFIED":     0,
-		"MAIL_KIND_PLAIN":           1,
-		"MAIL_KIND_REVIEW_ACTIVITY": 2,
-		"MAIL_KIND_EXCHANGE_CAPPED": 3,
-		"MAIL_KIND_DOCUMENT_EDITED": 4,
+		"MAIL_KIND_UNSPECIFIED":          0,
+		"MAIL_KIND_PLAIN":                1,
+		"MAIL_KIND_REVIEW_ACTIVITY":      2,
+		"MAIL_KIND_EXCHANGE_CAPPED":      3,
+		"MAIL_KIND_DOCUMENT_EDITED":      4,
+		"MAIL_KIND_PULL_REQUEST_CHANGED": 5,
+		"MAIL_KIND_WORKTREE_REBASED":     6,
 	}
 )
 
@@ -143,7 +151,7 @@ type Mail struct {
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	// Which agent sent it, unset when komrad sent it itself.
 	FromAgentId *string `protobuf:"bytes,2,opt,name=from_agent_id,json=fromAgentId,proto3,oneof" json:"from_agent_id,omitempty"`
-	// What to show as the sender, which is komrad's own name for a notice it raised.
+	// What to show as the sender, which is komrad's own name for mail it wrote.
 	FromName string `protobuf:"bytes,3,opt,name=from_name,json=fromName,proto3" json:"from_name,omitempty"`
 	// The agent it is waiting for.
 	ToAgentId string `protobuf:"bytes,4,opt,name=to_agent_id,json=toAgentId,proto3" json:"to_agent_id,omitempty"`
@@ -881,13 +889,15 @@ const file_agent_v1_mail_proto_rawDesc = "" +
 	"\x0fnext_page_token\x18\x02 \x01(\tH\x00R\rnextPageToken\x88\x01\x01B\x12\n" +
 	"\x10_next_page_token\"/\n" +
 	"\x11DeleteMailRequest\x12\x1a\n" +
-	"\x03ids\x18\x01 \x03(\tB\b\xbaH\x05\x92\x01\x02\b\x01R\x03ids*\x97\x01\n" +
+	"\x03ids\x18\x01 \x03(\tB\b\xbaH\x05\x92\x01\x02\b\x01R\x03ids*\xdb\x01\n" +
 	"\bMailKind\x12\x19\n" +
 	"\x15MAIL_KIND_UNSPECIFIED\x10\x00\x12\x13\n" +
 	"\x0fMAIL_KIND_PLAIN\x10\x01\x12\x1d\n" +
 	"\x19MAIL_KIND_REVIEW_ACTIVITY\x10\x02\x12\x1d\n" +
 	"\x19MAIL_KIND_EXCHANGE_CAPPED\x10\x03\x12\x1d\n" +
-	"\x19MAIL_KIND_DOCUMENT_EDITED\x10\x04*e\n" +
+	"\x19MAIL_KIND_DOCUMENT_EDITED\x10\x04\x12\"\n" +
+	"\x1eMAIL_KIND_PULL_REQUEST_CHANGED\x10\x05\x12\x1e\n" +
+	"\x1aMAIL_KIND_WORKTREE_REBASED\x10\x06*e\n" +
 	"\rMailDirection\x12\x1e\n" +
 	"\x1aMAIL_DIRECTION_UNSPECIFIED\x10\x00\x12\x1b\n" +
 	"\x17MAIL_DIRECTION_RECEIVED\x10\x01\x12\x17\n" +

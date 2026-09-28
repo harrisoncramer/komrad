@@ -8,11 +8,13 @@ import (
 	"testing"
 	"time"
 
+	"komrad/config"
 	"komrad/internal/mail"
 	mailstore "komrad/internal/store/mail"
 	reviewstore "komrad/internal/store/review"
 	"komrad/lib/xslice"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -38,7 +40,7 @@ func TestOpenRound(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			fx := newReviewFixture(t, time.Hour)
+			fx := newReviewFixture(t)
 			fx.snapshots.SHA = tt.snapshot
 
 			round, err := fx.service.OpenRound(t.Context(), fx.worker.ID, personAuthor)
@@ -53,7 +55,7 @@ func TestOpenRound(t *testing.T) {
 // TestOpenRoundReleasesTheRefOfARoundItFailedToWrite pins that a round whose insert fails leaves
 // no ref behind.
 func TestOpenRoundReleasesTheRefOfARoundItFailedToWrite(t *testing.T) {
-	fx := newReviewFixture(t, time.Hour)
+	fx := newReviewFixture(t)
 	fx.snapshots.SHA = secondSnapshot
 	fx.snapshots.Taking = func() {
 		_, err := fx.stores.Agents.Delete(t.Context(), []string{fx.worker.ID})
@@ -69,7 +71,7 @@ func TestOpenRoundReleasesTheRefOfARoundItFailedToWrite(t *testing.T) {
 // TestOpenRoundTakesOneRoundOfATreeOpenedTwiceAtOnce pins that two callers racing on the same
 // tree share one round.
 func TestOpenRoundTakesOneRoundOfATreeOpenedTwiceAtOnce(t *testing.T) {
-	fx := newReviewFixture(t, time.Hour)
+	fx := newReviewFixture(t)
 	fx.snapshots.SHA = secondSnapshot
 	fx.snapshots.Taking = func() {
 		time.Sleep(250 * time.Millisecond)
@@ -155,7 +157,7 @@ func TestReleaseReviewWritesTheFile(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			fx := newReviewFixture(t, time.Hour)
+			fx := newReviewFixture(t)
 
 			released := tt.write(t, fx)
 
@@ -174,7 +176,7 @@ func TestReleaseReviewWritesTheFile(t *testing.T) {
 
 // TestReleaseReviewRingsTheAgent pins that each release is one piece of mail naming it and none of its comments.
 func TestReleaseReviewRingsTheAgent(t *testing.T) {
-	fx := newReviewFixture(t, time.Hour)
+	fx := newReviewFixture(t)
 	reviewer := newAgentAuthor(fx.reviewer)
 	fx.writeComment(t, reviewer, "this needs a nil check")
 	fx.writeComment(t, reviewer, "and the caller above it")
@@ -185,9 +187,11 @@ func TestReleaseReviewRingsTheAgent(t *testing.T) {
 
 	assert.Equal(t, 3, first.Comments)
 	rung := fx.listMail(t, fx.worker.ID)
-	require.Len(t, rung, 2, "one notice per release however many comments it holds")
+	require.Len(t, rung, 2, "one mail per release however many comments it holds")
 	for i, released := range []*ReleaseReviewResult{first, second} {
-		assert.Equal(t, &rung[i].ID, released.Review.DoorbellMailID)
+		stored, err := fx.reviews.GetReview(t.Context(), released.Review.ID)
+		require.NoError(t, err)
+		assert.Equal(t, &rung[i].ID, stored.DoorbellMailID)
 		assert.Equal(t, mailstore.KindReviewActivity, rung[i].Kind)
 		assert.Contains(t, rung[i].Body, "get_review with review id "+released.Review.ID)
 		assert.Contains(t, rung[i].Body, "or read "+released.Path)
@@ -197,9 +201,9 @@ func TestReleaseReviewRingsTheAgent(t *testing.T) {
 	assert.NotContains(t, rung[0].Body, "nil check", "the mail carries no feedback")
 }
 
-// TestReleaseReviewWaitsForTheMail pins that a review the agent could not be told about stays with its author.
-func TestReleaseReviewWaitsForTheMail(t *testing.T) {
-	fx := newReviewFixture(t, time.Hour)
+// TestReleaseReviewIntoAFullMailbox pins that a release stands while its mail waits for room.
+func TestReleaseReviewIntoAFullMailbox(t *testing.T) {
+	fx := newReviewFixture(t)
 	fx.writeComment(t, newAgentAuthor(fx.reviewer), "this needs a nil check")
 	fillMailbox(t, fx)
 
@@ -208,17 +212,22 @@ func TestReleaseReviewWaitsForTheMail(t *testing.T) {
 		Verdict: reviewstore.VerdictChangesRequested,
 		Author:  newAgentAuthor(fx.reviewer),
 	})
-	require.ErrorIs(t, err, mail.ErrMailboxFull)
+	require.NoError(t, err)
+
+	errs := fx.events.TakeErrors()
+	require.Len(t, errs, 1)
+	require.ErrorIs(t, errs[0], mail.ErrMailboxFull)
 
 	listed, err := fx.service.ListReviews(t.Context(), fx.worker.ID, personAuthor)
 	require.NoError(t, err)
 	require.Len(t, listed, 1)
-	assert.Nil(t, listed[0].ReleasedAt)
+	assert.NotNil(t, listed[0].ReleasedAt)
+	assert.Nil(t, listed[0].DoorbellMailID)
 }
 
 // TestGetReview pins that a released review reads back as what went out with it, around the code it was about.
 func TestGetReview(t *testing.T) {
-	fx := newReviewFixture(t, time.Hour)
+	fx := newReviewFixture(t)
 	fx.snapshots.Files["greet.go"] = buildGreetSource()
 	opened, err := fx.service.CreateReviewThread(t.Context(), CreateReviewThreadParams{
 		AgentID:  fx.worker.ID,
@@ -283,7 +292,7 @@ func TestGetReview(t *testing.T) {
 
 // TestAReviewCarriedAcrossRounds pins that a person's draft goes out on the newest round they commented on, each comment read against its own.
 func TestAReviewCarriedAcrossRounds(t *testing.T) {
-	fx := newReviewFixture(t, time.Hour)
+	fx := newReviewFixture(t)
 	fx.snapshots.FilesAt = map[string]map[string][]string{
 		firstSnapshot:  {"greet.go": {"before the edit"}},
 		secondSnapshot: {"greet.go": {"after the edit"}},
@@ -359,7 +368,7 @@ func TestGetReviewOfAnUnreleasedReview(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			fx := newReviewFixture(t, time.Hour)
+			fx := newReviewFixture(t)
 			written := fx.writeComment(t, newAgentAuthor(fx.reviewer), "this needs a nil check")
 
 			_, err := fx.service.GetReview(t.Context(), written.Thread.ReviewID, tt.reader(fx))
@@ -409,7 +418,7 @@ func TestListReviews(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			fx := newReviewFixture(t, time.Hour)
+			fx := newReviewFixture(t)
 			fx.releaseFirstReview(t)
 			fx.writeComment(t, newAgentAuthor(fx.reviewer), "and the caller above it")
 
@@ -427,15 +436,21 @@ func TestListReviews(t *testing.T) {
 	}
 }
 
-// fillMailbox sends the worker notices until its mailbox refuses another.
+// fillMailbox sends the worker mail until its mailbox refuses another.
 func fillMailbox(t *testing.T, fx *reviewFixture) {
 	t.Helper()
 
+	mailer := mail.NewMailService(mail.NewMailServiceParams{
+		MailReadWriter: fx.stores.Mail,
+		Agents:         fx.stores.Agents,
+		Config:         config.Mail{},
+	})
 	for {
-		_, err := fx.service.mailer.SendNotice(t.Context(), mail.SendNoticeParams{
+		_, err := mailer.SendFromKomrad(t.Context(), mail.SendFromKomradParams{
 			ToAgentID: fx.worker.ID,
 			Body:      "waiting",
 			Kind:      mailstore.KindReviewActivity,
+			SubjectID: uuid.NewString(),
 		})
 		if errors.Is(err, mail.ErrMailboxFull) {
 			return

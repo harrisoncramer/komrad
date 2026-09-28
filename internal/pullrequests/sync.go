@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"time"
 
+	"komrad/internal/events"
 	"komrad/internal/fail"
 	"komrad/internal/forge"
 	"komrad/internal/git"
@@ -14,6 +15,9 @@ import (
 	forgestore "komrad/internal/store/forge"
 	pullrequeststore "komrad/internal/store/pullrequest"
 	"komrad/lib/xslice"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/riverqueue/river"
 )
 
 // pullRequestSyncBudget is how many requests one pass may make for one repository, its first
@@ -64,8 +68,8 @@ const (
 // already recorded on its connection.
 var errRateLimitSpent = fail.Exhausted("the forge's rate limit budget is spent")
 
-type txRunner interface {
-	InTx(ctx context.Context, fn func(store.DBTX) error) error
+type eventRecorder interface {
+	InsertManyTx(ctx context.Context, build func(tx pgx.Tx) ([]river.JobArgs, error)) error
 }
 
 // pullRequestForgeFinder is what the sync asks of the forge service.
@@ -108,7 +112,7 @@ type NewPullRequestSyncerParams struct {
 	Forges       pullRequestForgeFinder
 	PullRequests *pullrequeststore.PullRequestStore
 	Syncs        *pullrequeststore.PullRequestSyncStore
-	Tx           txRunner
+	Events       eventRecorder
 	// Now is the clock, time.Now when unset.
 	Now func() time.Time
 }
@@ -118,7 +122,7 @@ type PullRequestSyncer struct {
 	forges       pullRequestForgeFinder
 	pullRequests *pullrequeststore.PullRequestStore
 	syncs        *pullrequeststore.PullRequestSyncStore
-	tx           txRunner
+	events       eventRecorder
 	now          func() time.Time
 	// refusals counts rate limit refusals in a row per host that named no time to wait.
 	refusals map[string]int
@@ -136,7 +140,7 @@ func NewPullRequestSyncer(params NewPullRequestSyncerParams) *PullRequestSyncer 
 		forges:       params.Forges,
 		pullRequests: params.PullRequests,
 		syncs:        params.Syncs,
-		tx:           params.Tx,
+		events:       params.Events,
 		now:          now,
 		refusals:     map[string]int{},
 		said:         onceLog{},
@@ -758,7 +762,7 @@ func (s *PullRequestSyncer) readStandings(ctx context.Context, host *hostRead, r
 				standing = forge.Standing{HeadSHA: pullRequest.HeadSHA}
 			}
 
-			if err := s.pullRequests.SetStanding(ctx, pullRequest.ID, standing, now); err != nil {
+			if err := s.setStanding(ctx, pullRequest.ID, standing, now); err != nil {
 				return err
 			}
 			counts.standings++
@@ -823,22 +827,28 @@ func (s *PullRequestSyncer) pages(ctx context.Context, host *hostRead, params pa
 	return nil
 }
 
-// writePage upserts a page's pull requests, the standing of each that carries one, and the
-// position after it in one transaction.
+// writePage upserts a page's pull requests, the standing of each that carries one, the position
+// after it, and an event for each pull request that moved, in one transaction.
 func (s *PullRequestSyncer) writePage(ctx context.Context, pullRequests []forge.PullRequest, counts *passCount, advance func(*pullrequeststore.PullRequestSyncStore) error) error {
 	inserted, updated := 0, 0
-	err := s.tx.InTx(ctx, func(db store.DBTX) error {
-		st := pullrequeststore.NewPullRequestStore(db)
+	err := s.events.InsertManyTx(ctx, func(tx pgx.Tx) ([]river.JobArgs, error) {
+		st := pullrequeststore.NewPullRequestStore(tx)
+		var recorded []river.JobArgs
 		for _, pullRequest := range pullRequests {
-			outcome, err := st.Upsert(ctx, toUpsert(pullRequest))
+			upsert := toUpsert(pullRequest)
+			outcome, err := st.Upsert(ctx, upsert)
 			if err != nil {
-				return err
+				return nil, err
 			}
 			switch {
 			case outcome.Inserted:
 				inserted++
 			case outcome.Changed:
 				updated++
+			}
+
+			moved := []*Move{
+				Moved(FieldState, outcome.OldState, &upsert.State),
 			}
 
 			if pullRequest.Decision != nil {
@@ -849,13 +859,23 @@ func (s *PullRequestSyncer) writePage(ctx context.Context, pullRequests []forge.
 				if pullRequest.Mergeability != nil {
 					standing.Mergeability = *pullRequest.Mergeability
 				}
-				if err := st.SetStanding(ctx, outcome.ID, standing, s.now()); err != nil {
-					return err
+				change, err := st.SetStanding(ctx, outcome.ID, standing, s.now())
+				if err != nil {
+					return nil, err
 				}
+				moved = append(moved, standingMoves(change)...)
+			}
+
+			if change := NewChange(outcome.ID, moved...); change != nil {
+				event, err := events.NewEvent(change)
+				if err != nil {
+					return nil, err
+				}
+				recorded = append(recorded, *event)
 			}
 		}
 
-		return advance(pullrequeststore.NewPullRequestSyncStore(db))
+		return recorded, advance(pullrequeststore.NewPullRequestSyncStore(tx))
 	})
 	if err != nil {
 		return err
@@ -865,6 +885,36 @@ func (s *PullRequestSyncer) writePage(ctx context.Context, pullRequests []forge.
 	counts.updated += updated
 
 	return nil
+}
+
+// setStanding records one pull request's standing and the event for whatever it moved in one
+// transaction.
+func (s *PullRequestSyncer) setStanding(ctx context.Context, id string, standing forge.Standing, readAt time.Time) error {
+	return s.events.InsertManyTx(ctx, func(tx pgx.Tx) ([]river.JobArgs, error) {
+		change, err := pullrequeststore.NewPullRequestStore(tx).SetStanding(ctx, id, standing, readAt)
+		if err != nil {
+			return nil, err
+		}
+
+		moved := NewChange(id, standingMoves(change)...)
+		if moved == nil {
+			return nil, nil
+		}
+		event, err := events.NewEvent(moved)
+		if err != nil {
+			return nil, err
+		}
+
+		return []river.JobArgs{*event}, nil
+	})
+}
+
+func standingMoves(change *pullrequeststore.StandingChange) []*Move {
+	return []*Move{
+		Moved(FieldDecision, change.OldDecision, change.KnownDecision),
+		Moved(FieldChecks, change.OldChecks, change.KnownChecks),
+		Moved(FieldMergeability, change.OldMergeability, change.KnownMergeability),
+	}
 }
 
 // noteRateLimit records a spent budget on the connection so the next pass waits for the reset

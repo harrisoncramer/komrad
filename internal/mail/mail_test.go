@@ -298,7 +298,7 @@ func TestSendMailLetsThroughWhatTheCapDoesNotStop(t *testing.T) {
 	}
 }
 
-// TestSendMailTellsTheRecipientWhenTheCapRefusesASend walks the notice a refused send leaves the side that would otherwise wait on it.
+// TestSendMailTellsTheRecipientWhenTheCapRefusesASend walks the mail a refused send leaves the side that would otherwise wait on it.
 func TestSendMailTellsTheRecipientWhenTheCapRefusesASend(t *testing.T) {
 	st := storetest.Open(t)
 	svc := newMailService(st, 2)
@@ -323,35 +323,35 @@ func TestSendMailTellsTheRecipientWhenTheCapRefusesASend(t *testing.T) {
 	})
 
 	t.Run("a pair at the cap is nobody's business until a send is refused", func(t *testing.T) {
-		assert.Empty(t, listCappedNotices(t, st, parent.ID))
+		assert.Empty(t, listCappedMail(t, st, parent.ID))
 	})
 
-	t.Run("the refusal leaves the recipient a notice naming the sender", func(t *testing.T) {
+	t.Run("the refusal leaves the recipient mail naming the sender", func(t *testing.T) {
 		refuse(t, childOne)
 
-		told := listCappedNotices(t, st, parent.ID)
+		told := listCappedMail(t, st, parent.ID)
 		require.Len(t, told, 1)
 		assert.Contains(t, told[0].Body, childOne.Name)
 		assert.Contains(t, told[0].Body, childOne.ID, "the id, since two workflows may hold one name")
 	})
 
-	t.Run("an unread notice stands for the refusals behind it", func(t *testing.T) {
+	t.Run("unread mail stands for the refusals behind it", func(t *testing.T) {
 		refuse(t, childOne)
 		refuse(t, childOne)
 
-		assert.Len(t, listCappedNotices(t, st, parent.ID), 1)
+		assert.Len(t, listCappedMail(t, st, parent.ID), 1)
 	})
 
-	t.Run("a recipient that has read the notice is told again", func(t *testing.T) {
+	t.Run("a recipient that has read the mail is told again", func(t *testing.T) {
 		_, err := st.Mail.Claim(t.Context(), parent.ID, maxPendingMail)
 		require.NoError(t, err)
 
 		refuse(t, childOne)
 
-		assert.Len(t, listCappedNotices(t, st, parent.ID), 2)
+		assert.Len(t, listCappedMail(t, st, parent.ID), 2)
 	})
 
-	t.Run("a second severed pair gets a notice of its own", func(t *testing.T) {
+	t.Run("a second severed pair gets mail of its own", func(t *testing.T) {
 		exchange(t, svc, exchangeParams{
 			Child:    childTwo,
 			Parent:   parent,
@@ -359,10 +359,10 @@ func TestSendMailTellsTheRecipientWhenTheCapRefusesASend(t *testing.T) {
 		})
 		refuse(t, childTwo)
 
-		about := xslice.Map(listCappedNotices(t, st, parent.ID), func(notice mailstore.Mail) string {
-			require.NotNil(t, notice.AboutAgentID)
+		about := xslice.Map(listCappedMail(t, st, parent.ID), func(told mailstore.Mail) string {
+			require.NotNil(t, told.SubjectID)
 
-			return *notice.AboutAgentID
+			return *told.SubjectID
 		})
 		assert.ElementsMatch(t, []string{childOne.ID, childOne.ID, childTwo.ID}, about)
 	})
@@ -466,50 +466,69 @@ func TestSystemMailReachesAChild(t *testing.T) {
 	assert.Equal(t, KomradSenderName, sent.FromName)
 }
 
-// TestSendNoticeRefusesAPlainKind pins that a notice must say what it is about to be told apart from ordinary mail.
-func TestSendNoticeRefusesAPlainKind(t *testing.T) {
-	st := storetest.Open(t)
-	svc := newMailService(st, config.DefaultMaxExchange)
-	recipient := st.SeedAgent(t, agentstore.Agent{Name: "migrations"})
+// TestSendFromKomradRefusesIncompleteMail pins that mail from komrad must say what it is and what it is about.
+func TestSendFromKomradRefusesIncompleteMail(t *testing.T) {
+	tests := []struct {
+		name    string
+		params  SendFromKomradParams
+		wantErr error
+	}{
+		{
+			name:    "a plain kind",
+			params:  SendFromKomradParams{Body: "hello", Kind: mailstore.KindPlain, SubjectID: uuid.NewString()},
+			wantErr: ErrKindMissing,
+		},
+		{
+			name:    "no subject",
+			params:  SendFromKomradParams{Body: "hello", Kind: mailstore.KindDocumentEdited},
+			wantErr: ErrSubjectMissing,
+		},
+	}
 
-	sent, err := svc.SendNotice(t.Context(), SendNoticeParams{
-		ToAgentID: recipient.ID,
-		Body:      "hello",
-		Kind:      mailstore.KindPlain,
-	})
-	require.ErrorIs(t, err, ErrNoticeKindMissing)
-	assert.Nil(t, sent)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := storetest.Open(t)
+			svc := newMailService(st, config.DefaultMaxExchange)
+			tt.params.ToAgentID = st.SeedAgent(t, agentstore.Agent{Name: "migrations"}).ID
+
+			sent, err := svc.SendFromKomrad(t.Context(), tt.params)
+			require.ErrorIs(t, err, tt.wantErr)
+			assert.Nil(t, sent)
+		})
+	}
 }
 
-// TestSendNoticeAboutADocumentJoinsTheUnreadOne pins that one unread notice stands for every edit of a document until it is read.
-func TestSendNoticeAboutADocumentJoinsTheUnreadOne(t *testing.T) {
+// TestSendFromKomradRewritesTheUnreadOne pins that one unread mail stands for every change to its subject until it is read.
+func TestSendFromKomradRewritesTheUnreadOne(t *testing.T) {
 	st := storetest.Open(t)
 	svc := newMailService(st, config.DefaultMaxExchange)
 	ctx := t.Context()
 	recipient := st.SeedAgent(t, agentstore.Agent{Name: "author"})
 	one, other := uuid.NewString(), uuid.NewString()
 
-	notify := func(document string) *mailstore.Mail {
+	notify := func(document, body string) *mailstore.Mail {
 		t.Helper()
-		sent, err := svc.SendNotice(ctx, SendNoticeParams{
-			ToAgentID:     recipient.ID,
-			Body:          "a person edited your document",
-			Kind:          mailstore.KindDocumentEdited,
-			AboutDocument: &document,
+		sent, err := svc.SendFromKomrad(ctx, SendFromKomradParams{
+			ToAgentID: recipient.ID,
+			Body:      body,
+			Kind:      mailstore.KindDocumentEdited,
+			SubjectID: document,
 		})
 		require.NoError(t, err)
 
 		return sent
 	}
 
-	first := notify(one)
-	assert.Equal(t, first.ID, notify(one).ID, "a second edit joins the unread notice")
-	assert.NotEqual(t, first.ID, notify(other).ID, "an edit of another document is told apart")
+	first := notify(one, "first edit")
+	second := notify(one, "second edit")
+	assert.Equal(t, first.ID, second.ID, "a second edit rewrites the unread mail")
+	assert.Equal(t, "second edit", second.Body)
+	assert.NotEqual(t, first.ID, notify(other, "edit").ID, "an edit of another document is told apart")
 
 	_, err := svc.ClaimMail(ctx, recipient.ID)
 	require.NoError(t, err)
 
-	assert.NotEqual(t, first.ID, notify(one).ID, "an edit after the notice was read sends another")
+	assert.NotEqual(t, first.ID, notify(one, "third edit").ID, "an edit after the mail was read sends another")
 }
 
 // TestClaimMail pins that a claim is refused for an id no agent holds and takes at most one batch otherwise.
@@ -873,7 +892,7 @@ func exchange(t *testing.T, svc *MailService, params exchangeParams) {
 	}
 }
 
-func listCappedNotices(t *testing.T, st *storetest.Stores, agentID string) []mailstore.Mail {
+func listCappedMail(t *testing.T, st *storetest.Stores, agentID string) []mailstore.Mail {
 	t.Helper()
 
 	listed, err := st.Mail.ListPage(t.Context(), agentID, maxPendingMail, nil)
