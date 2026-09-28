@@ -128,7 +128,9 @@ func (m model) enterSubpage(from screen, agentID string, picked subpage) (tea.Mo
 
 		return m, m.enter(screenDocuments, screenTarget{agentID: agentID, from: from})
 	case subpageLogs:
-		return m.closeForm()
+		m.leaveForm()
+
+		return m, m.enter(screenLogs, screenTarget{agentID: agentID, from: from})
 	case subpageTerminal:
 		if err := terminalRefusal(from, item.Agent); err != nil {
 			return m.refuseSubpage("Could not open a terminal", err)

@@ -23,6 +23,7 @@ import (
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
 	"komrad/proto/gen/hook/v1/hookv1connect"
+	"komrad/proto/gen/log/v1/logv1connect"
 	paginationv1 "komrad/proto/gen/pagination/v1"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 	schedulev1 "komrad/proto/gen/schedule/v1"
@@ -95,6 +96,7 @@ type panelRemote struct {
 	schedules schedulev1connect.ScheduleServiceClient
 	hooks     hookv1connect.HookServiceClient
 	worktrees worktreev1connect.WorktreeServiceClient
+	logs      logv1connect.LogServiceClient
 }
 
 type request struct {
@@ -214,6 +216,7 @@ func newPanelHarness(t *testing.T, params panelHarnessParams) *panelHarness {
 	mux.Handle(schedulev1connect.NewScheduleServiceHandler(schedulev1connect.UnimplementedScheduleServiceHandler{}, interceptors))
 	mux.Handle(hookv1connect.NewHookServiceHandler(hookv1connect.UnimplementedHookServiceHandler{}, interceptors))
 	mux.Handle(worktreev1connect.NewWorktreeServiceHandler(worktreev1connect.UnimplementedWorktreeServiceHandler{}, interceptors))
+	mux.Handle(logv1connect.NewLogServiceHandler(logv1connect.UnimplementedLogServiceHandler{}, interceptors))
 
 	server := httptest.NewServer(mux)
 	t.Cleanup(server.Close)
@@ -226,6 +229,7 @@ func newPanelHarness(t *testing.T, params panelHarnessParams) *panelHarness {
 			schedules: schedulev1connect.NewScheduleServiceClient(server.Client(), server.URL),
 			hooks:     hookv1connect.NewHookServiceClient(server.Client(), server.URL),
 			worktrees: worktreev1connect.NewWorktreeServiceClient(server.Client(), server.URL),
+			logs:      logv1connect.NewLogServiceClient(server.Client(), server.URL),
 		}
 	}
 
@@ -259,6 +263,7 @@ func newPanelHarness(t *testing.T, params panelHarnessParams) *panelHarness {
 			Schedules:       remote.schedules,
 			Hooks:           remote.hooks,
 			Worktrees:       remote.worktrees,
+			Logs:            remote.logs,
 			Git:             reviewGit,
 			Keys:            keys,
 			DetailsHeight:   params.detailsHeight,

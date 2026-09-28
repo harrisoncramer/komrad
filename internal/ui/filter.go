@@ -155,6 +155,10 @@ func (m *model) enterScreen(next screen) {
 		*m = m.closeInfo()
 	}
 
+	if m.screen == screenLogs && next != screenLogs {
+		m.logs.leave()
+	}
+
 	if m.screen != next {
 		m.filter = filterState{}
 	}

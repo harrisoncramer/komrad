@@ -396,6 +396,14 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 		m.applyDocumentRead(msg)
 
 		return m, nil, true
+	case logsReadMsg:
+		cmd := m.applyLogsRead(msg)
+
+		return m, cmd, true
+	case logsTickMsg:
+		cmd := m.applyLogsTick(msg)
+
+		return m, cmd, true
 	case documentVersionsListedMsg:
 		cmd := m.applyDocumentVersionsListed(msg)
 
@@ -467,7 +475,7 @@ func (m *model) reconcileEditor() tea.Cmd {
 		return m.review.reconcileEditor(m, m.shared())
 	case screenDocuments:
 		return m.documents.reconcileEditor(m)
-	case screenAgents, screenSchedules, screenArchive, screenSearch, screenWorktrees:
+	case screenAgents, screenSchedules, screenArchive, screenSearch, screenWorktrees, screenLogs:
 	}
 
 	return nil

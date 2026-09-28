@@ -111,17 +111,6 @@ func TestSubpages(t *testing.T) {
 		assert.Contains(t, readOpenMessages(harness), "this agent has no checkout of its own to read")
 	})
 
-	t.Run("logs closes the menu and stays on the list", func(t *testing.T) {
-		t.Parallel()
-
-		harness := openSubpages(t, "author")
-		harness.press("l")
-
-		assert.Equal(t, agentsScreen, harness.readScreen())
-		assert.NotContains(t, harness.readFrame(), "Subpages of author")
-		harness.assertSent()
-	})
-
 	t.Run("esc closes the menu and takes the agent off the trail", func(t *testing.T) {
 		t.Parallel()
 

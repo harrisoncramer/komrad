@@ -25,6 +25,7 @@ import (
 	"komrad/internal/ui/layout"
 	"komrad/proto/gen/agent/v1/agentv1connect"
 	"komrad/proto/gen/hook/v1/hookv1connect"
+	"komrad/proto/gen/log/v1/logv1connect"
 	schedulev1connect "komrad/proto/gen/schedule/v1/schedulev1connect"
 	"komrad/proto/gen/watch/v1/watchv1connect"
 	"komrad/proto/gen/workflow/v1/workflowv1connect"
@@ -200,6 +201,7 @@ type Deps struct {
 	Schedules       schedulev1connect.ScheduleServiceClient
 	Hooks           hookv1connect.HookServiceClient
 	Worktrees       worktreev1connect.WorktreeServiceClient
+	Logs            logv1connect.LogServiceClient
 	Watch           watchv1connect.WatchServiceClient
 	Keys            config.Keybindings
 	Glyphs          glyph.Set
@@ -254,6 +256,7 @@ type model struct {
 	archive       archiveScreen
 	worktrees     worktreesScreen
 	documents     documentsScreen
+	logs          logsScreen
 	// inspections is what the service answered for each worktree directory.
 	inspections map[string]worktreeInspection
 
@@ -338,6 +341,7 @@ func newModel(deps Deps, isDark bool, post *postbox) model {
 			schedules: deps.Schedules,
 			hooks:     deps.Hooks,
 			worktrees: deps.Worktrees,
+			logs:      deps.Logs,
 		},
 		session:         deps.Session,
 		clip:            systemClipboard{},
