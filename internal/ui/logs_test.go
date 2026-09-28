@@ -359,7 +359,8 @@ func longLog() logReads {
 	}
 }
 
-// TestLogsScroll covers the cycle key handing the keys to the log and scrolling back through it.
+// TestLogsScroll covers the cycle key handing the keys to the log, its cursor moving through it,
+// and the wheel scrolling it.
 func TestLogsScroll(t *testing.T) {
 	t.Parallel()
 
@@ -370,21 +371,31 @@ func TestLogsScroll(t *testing.T) {
 		notWant string
 	}{
 		{
-			name:    "up in the log scrolls it back a line",
+			name:    "the list holding the keys draws no cursor in the log",
+			want:    "  entry 100",
+			notWant: "›",
+		},
+		{
+			name:    "the cycle key puts the cursor on the newest line",
+			presses: []string{"ctrl+a"},
+			want:    "› entry 100",
+		},
+		{
+			name:    "up in the log moves the cursor back a line",
 			presses: []string{"ctrl+a", "k"},
-			want:    "entry 099",
-			notWant: "entry 100",
+			want:    "› entry 099",
+			notWant: "› entry 100",
 		},
 		{
-			name:    "top in the log shows its oldest line",
+			name:    "top in the log moves the cursor to its oldest line",
 			presses: []string{"ctrl+a", "g", "g"},
-			want:    "entry 001",
+			want:    "› entry 001",
 			notWant: "entry 100",
 		},
 		{
-			name:    "bottom in the log follows again",
+			name:    "bottom in the log moves the cursor to the newest line",
 			presses: []string{"ctrl+a", "g", "g", "G"},
-			want:    "entry 100",
+			want:    "› entry 100",
 			notWant: "entry 001",
 		},
 		{

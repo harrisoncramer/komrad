@@ -276,14 +276,19 @@ func (l *logsScreen) lines(s panelShared, pane listPane) []string {
 		return []string{dimStyle.Render("  " + l.emptyLine())}
 	}
 
+	caret := pane.caret
+	if l.isLogFocused(s) {
+		caret = view.CaretDrawn
+	}
+
 	return xslice.Map(rows, func(row logSourceRow) string {
 		hovered := row.key() == rowKeyAt(rows, l.rowCursor.cursor)
 		prefix := "  "
 		if hovered {
-			prefix = caretGlyph(pane.caret)
+			prefix = caretGlyph(caret)
 		}
 
-		line := prefix + " " + nameStyle(hovered && pane.caret != view.CaretAbsent, false).Render(clipName(row.source.GetName()))
+		line := prefix + " " + nameStyle(hovered && caret != view.CaretAbsent, false).Render(clipName(row.source.GetName()))
 		if row.failed {
 			line += " " + paint.Panel.Style(paint.ToneDanger).Render(s.glyphs.Spell(glyph.FailedScript))
 		}
@@ -314,7 +319,17 @@ func (l *logsScreen) block(m model, width int) []string {
 		return nil
 	}
 
-	return l.viewer.Rows(width, split.rows)
+	rows, cursor := l.viewer.Rows(width-len(blankCursor), split.rows)
+	focused := l.isLogFocused(m.shared())
+	for i, row := range rows {
+		prefix := blankCursor
+		if focused && i == cursor {
+			prefix = caretGlyph(m.blinkingCaret(true))
+		}
+		rows[i] = prefix + row
+	}
+
+	return rows
 }
 
 func (l *logsScreen) parent() screen {
@@ -366,12 +381,14 @@ func (l *logsScreen) doesScrollColumn(s panelShared) bool {
 }
 
 func (l *logsScreen) scrollColumn(_ host, _ panelShared, rows int) tea.Cmd {
-	return l.scroll(rows)
+	l.viewer.Scroll(rows)
+
+	return nil
 }
 
-// scroll moves the log a number of lines toward the newest, or toward the oldest for a negative count.
-func (l *logsScreen) scroll(lines int) tea.Cmd {
-	l.viewer.Scroll(lines)
+// move moves the log's cursor a number of lines toward the newest, or toward the oldest for a negative count.
+func (l *logsScreen) move(lines int) tea.Cmd {
+	l.viewer.Move(lines)
 
 	return nil
 }

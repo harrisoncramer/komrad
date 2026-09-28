@@ -55,21 +55,21 @@ func (l *logsScreen) logActions() screenActionSpec {
 				id:   actionMove,
 				keys: func(b config.Keybindings) []string { return slices.Concat(b.Nav.Up, b.Nav.Down) },
 				run: func(_ host, s panelShared, pressed string) tea.Cmd {
-					return l.scroll(directionOf(pressed, s.keys.Nav.Up))
+					return l.move(directionOf(pressed, s.keys.Nav.Up))
 				},
 			},
 			{
 				id:   actionNavPage,
 				keys: func(b config.Keybindings) []string { return slices.Concat(b.Nav.PageUp, b.Nav.PageDown) },
 				run: func(_ host, s panelShared, pressed string) tea.Cmd {
-					return l.scroll(directionOf(pressed, s.keys.Nav.PageUp) * navPageStep)
+					return l.move(directionOf(pressed, s.keys.Nav.PageUp) * navPageStep)
 				},
 			},
 			{
 				id:   actionColumnScroll,
 				keys: func(b config.Keybindings) []string { return slices.Concat(b.Column.ScrollDown, b.Column.ScrollUp) },
 				run: func(_ host, s panelShared, pressed string) tea.Cmd {
-					return l.scroll(directionOf(pressed, s.keys.Column.ScrollUp) * columnWheelStep)
+					return l.move(directionOf(pressed, s.keys.Column.ScrollUp) * columnWheelStep)
 				},
 			},
 			{
@@ -77,10 +77,10 @@ func (l *logsScreen) logActions() screenActionSpec {
 				keys: func(b config.Keybindings) []string { return slices.Concat(b.Nav.Top, b.Nav.Bottom) },
 				run: func(_ host, s panelShared, pressed string) tea.Cmd {
 					if isBound(pressed, s.keys.Nav.Bottom) {
-						return l.scroll(l.viewer.Len())
+						return l.move(l.viewer.Len())
 					}
 
-					return l.scroll(-l.viewer.Len())
+					return l.move(-l.viewer.Len())
 				},
 			},
 			{
