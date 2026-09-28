@@ -48,7 +48,7 @@ func actionsOf(s screen) []dispatching {
 	case screenWorktrees:
 		return []dispatching{(&worktreesScreen{}).actions()}
 	case screenDocuments:
-		return []dispatching{(&documentsScreen{}).listActions(), (&documentsScreen{}).diffActions()}
+		return []dispatching{(&documentsScreen{}).listActions(), (&documentsScreen{}).diffActions(), (&documentsScreen{}).readActions()}
 	case screenLogs:
 		return []dispatching{(&logsScreen{}).listActions(), (&logsScreen{}).logActions()}
 	case screenSearch:

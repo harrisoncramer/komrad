@@ -472,6 +472,159 @@ func TestDocumentsHistory(t *testing.T) {
 	}
 }
 
+// TestDocumentsReading covers the document as it stands taking the keys, walked with a cursor
+// and searched.
+func TestDocumentsReading(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		presses []string
+		want    []string
+		wantNot []string
+	}{
+		{
+			name:    "moving in the focused document leaves the list where it is",
+			presses: []string{"ctrl+a", "j", "j"},
+			want:    []string{"Keep the cache warm."},
+			wantNot: []string{"It went out on Tuesday."},
+		},
+		{
+			name:    "leaving the document gives the keys back to the list",
+			presses: []string{"ctrl+a", "esc", "j"},
+			want:    []string{"It went out on Tuesday."},
+		},
+		{
+			name:    "searching the document lands on what it found and counts it",
+			presses: []string{"ctrl+a", "/", "w", "a", "r", "m", "enter"},
+			want:    []string{"/ warm", "1 of 1"},
+		},
+		{
+			name:    "walking off the match counts every match instead",
+			presses: []string{"ctrl+a", "/", "w", "a", "r", "m", "enter", "g", "g"},
+			want:    []string{"/ warm", "1 match"},
+			wantNot: []string{"1 of 1"},
+		},
+		{
+			name:    "the next match wraps back round to the only one",
+			presses: []string{"ctrl+a", "/", "w", "a", "r", "m", "enter", "g", "g", "n"},
+			want:    []string{"1 of 1"},
+		},
+		{
+			name:    "the previous match wraps back round to the only one",
+			presses: []string{"ctrl+a", "/", "w", "a", "r", "m", "enter", "g", "g", "N"},
+			want:    []string{"1 of 1"},
+		},
+		{
+			name:    "a pattern nothing matches says so",
+			presses: []string{"ctrl+a", "/", "z", "z", "enter", "n"},
+			want:    []string{"no matches"},
+		},
+		{
+			name:    "the next match with no search asks for one",
+			presses: []string{"ctrl+a", "n"},
+			want:    []string{"nothing to search for yet"},
+		},
+		{
+			name:    "abandoning the search drops it",
+			presses: []string{"ctrl+a", "/", "w", "a", "esc"},
+			wantNot: []string{"/ wa"},
+		},
+		{
+			name:    "stepping back from the focused document focuses the write's diff",
+			presses: []string{"ctrl+a", "<", "j", "j"},
+			want:    []string{"version 3 of 3"},
+		},
+		{
+			name:    "stepping forward past the newest keeps the keys on the document",
+			presses: []string{"ctrl+a", "<", ">", "j", "j"},
+			want:    []string{"Keep the cache warm."},
+			wantNot: []string{"version", "It went out on Tuesday."},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			harness, _ := openDocuments(t)
+			for _, key := range tt.presses {
+				harness.press(key)
+				harness.fireTimers()
+			}
+
+			stage := readStageText(harness.readFrame())
+			for _, want := range tt.want {
+				assert.Contains(t, stage, want)
+			}
+			for _, wantNot := range tt.wantNot {
+				assert.NotContains(t, stage, wantNot)
+			}
+		})
+	}
+}
+
+// TestDocumentsReadingCursor covers the cursor drawn in the document once it holds the keys, and
+// the search's hits painted in it.
+func TestDocumentsReadingCursor(t *testing.T) {
+	t.Parallel()
+
+	harness, _ := openDocuments(t)
+	line := regexp.MustCompile(`Keep the cache`)
+
+	unfocused := findRawLine(harness.readRawFrame(), line)
+	require.NotEmpty(t, unfocused)
+
+	harness.press("ctrl+a", "G")
+	focused := findRawLine(harness.readRawFrame(), line)
+	require.NotEmpty(t, focused)
+	assert.NotEqual(t, unfocused, focused, "the cursor is drawn on the line it moved to")
+
+	harness.press("/", "w", "a", "r", "m", "enter")
+	found := findRawLine(harness.readRawFrame(), line)
+	require.NotEmpty(t, found)
+	assert.NotEqual(t, focused, found, "the hit is painted")
+}
+
+// TestDocumentsReadingKeepsTheCursorShown covers the rows the search adds over a long document
+// never pushing the cursor out of the window.
+func TestDocumentsReadingKeepsTheCursorShown(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		presses []string
+	}{
+		{name: "opening the search", presses: []string{"/", "z", "z"}},
+		{name: "a jump that finds nothing", presses: []string{"n"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			harness, docs := openDocuments(t)
+			lines := make([]string, 0, 81)
+			for range 80 {
+				lines = append(lines, "Filler paragraph.\n")
+			}
+			docs.rewrite("d2", strings.Join(append(lines, "The last line."), "\n"), "2026-09-26T12:00:00Z")
+
+			author := buildDocumentAuthors()[2].(*agentv1.Agent)
+			author.DocumentsUpdatedAt = proto.String("2026-09-26T12:00:00Z")
+			harness.watch(buildPuts(author))
+
+			harness.press("j")
+			harness.fireTimers()
+			harness.press("ctrl+a", "G")
+			require.Contains(t, readStageText(harness.readFrame()), "The last line.")
+
+			harness.press(tt.presses...)
+			assert.Contains(t, readStageText(harness.readFrame()), "The last line.")
+		})
+	}
+}
+
 // TestDocumentsDiffCursor covers the cursor in a version's diff, held dim while the list has the
 // keys, lit once the diff is focused, and walking the lines from there.
 func TestDocumentsDiffCursor(t *testing.T) {

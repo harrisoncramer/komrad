@@ -3,6 +3,8 @@ package diffview
 import (
 	"regexp"
 	"slices"
+
+	"komrad/internal/ui/reader"
 )
 
 // span is where a match sits inside a row's text, as byte offsets into the drawn line including
@@ -107,28 +109,11 @@ func (v *View) MatchNumber(y int) (int, bool) {
 
 // JumpMatch is the next or previous line the pattern was found on, wrapping at the ends.
 func (v *View) JumpMatch(y, direction int) (int, bool) {
-	if v.search == nil || len(v.search.rows) == 0 {
+	if v.search == nil {
 		return y, false
 	}
 
-	rows := v.search.rows
-	if direction > 0 {
-		for _, candidate := range rows {
-			if candidate > y {
-				return candidate, true
-			}
-		}
-
-		return rows[0], true
-	}
-
-	for index := len(rows) - 1; index >= 0; index-- {
-		if rows[index] < y {
-			return rows[index], true
-		}
-	}
-
-	return rows[len(rows)-1], true
+	return reader.Jump(v.search.rows, y, direction)
 }
 
 // matchText is what a row offers to a search, which for a line is the text as drawn with its

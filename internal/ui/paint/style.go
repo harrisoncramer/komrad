@@ -65,6 +65,76 @@ func (p Palette) Highlight(text string, spans []Span, base lipgloss.Style) strin
 	return b.String()
 }
 
+// PlainText is a styled row without its escape sequences.
+func PlainText(row string) string {
+	var b strings.Builder
+	walkStyled(row, func(piece string, isText bool) {
+		if isText {
+			b.WriteString(piece)
+		}
+	})
+
+	return b.String()
+}
+
+// HighlightStyled draws a styled row with the spans a search picked out of its plain text in the
+// match style, leaving the row's own styling in force around them.
+func (p Palette) HighlightStyled(row string, spans []Span) string {
+	if len(spans) == 0 {
+		return row
+	}
+
+	var b strings.Builder
+	at, next, open := 0, 0, false
+	walkStyled(row, func(piece string, isText bool) {
+		if !isText {
+			if open {
+				b.WriteString(MarkClose)
+				open = false
+			}
+			b.WriteString(piece)
+
+			return
+		}
+
+		for next < len(spans) && spans[next].End <= at {
+			next++
+		}
+
+		inside := next < len(spans) && spans[next].Start <= at
+		switch {
+		case inside && !open:
+			b.WriteString(MarkOpen)
+		case !inside && open:
+			b.WriteString(MarkClose)
+		}
+		open = inside
+
+		b.WriteString(piece)
+		at += len(piece)
+	})
+
+	if open {
+		b.WriteString(MarkClose)
+	}
+
+	return styleMarks(b.String(), p.stageMatch())
+}
+
+// walkStyled hands each grapheme and each escape sequence of a styled row to visit in order.
+func walkStyled(row string, visit func(piece string, isText bool)) {
+	var state byte
+	for row != "" {
+		piece, _, n, next := ansi.DecodeSequence(row, state, nil)
+		if n <= 0 {
+			piece, n = row[:1], 1
+		}
+
+		visit(piece, piece[0] >= ' ' && piece[0] != 0x7f)
+		row, state = row[n:], next
+	}
+}
+
 // writeStyled adds a stretch of text in its style, an empty one carrying no escapes of its own.
 func writeStyled(b *strings.Builder, style lipgloss.Style, segment string) {
 	if segment == "" {

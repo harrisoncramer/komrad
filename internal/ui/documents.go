@@ -52,8 +52,9 @@ type documentsScreen struct {
 	bodies      map[string]documentBody
 	editing     *documentEdit
 	history     *documentHistory
-	// diffFocus says the cycle key handed the keys to the diff of a write.
-	diffFocus bool
+	// focus says the cycle key handed the keys to the block beside the list.
+	focus   bool
+	reading documentReading
 }
 
 // documentRow is one line of the documents list.
@@ -91,8 +92,18 @@ func (d *documentsScreen) update(h host, s panelShared, msg tea.Msg) tea.Cmd {
 		return d.diffKeys().updateFilter(h, s, key)
 	}
 
+	if d.reading.filter.typing {
+		return d.updateReadFilter(h, s, key)
+	}
+
 	if d.isDiffFocused(s) {
 		return d.updateDiff(h, s, key)
+	}
+
+	if d.isReadFocused(s) {
+		d.reading.said = ""
+
+		return d.actions(s).dispatch(h, s, key.String())
 	}
 
 	return d.list().update(h, s, key, d.actions(s))
@@ -105,7 +116,7 @@ func (d *documentsScreen) list() screenList[documentRow] {
 		name:   documentRowName,
 		placed: func(h host, _ panelShared) { h.stageInfo() },
 		moved: func(h host, _ panelShared) tea.Cmd {
-			d.history, d.diffFocus = nil, false
+			d.history, d.focus, d.reading = nil, false, documentReading{}
 
 			return h.waitToStage()
 		},
@@ -199,6 +210,10 @@ func documentColumns() view.Columns {
 func (d *documentsScreen) snapshot(s panelShared, pane listPane) view.Snapshot {
 	rows := d.rows(s)
 	now := time.Now()
+	caret := pane.caret
+	if d.isBlockFocused(s) {
+		caret = view.CaretDrawn
+	}
 
 	return view.Snapshot{
 		Rows: xslice.Map(rows, func(r documentRow) view.Row {
@@ -211,7 +226,7 @@ func (d *documentsScreen) snapshot(s panelShared, pane listPane) view.Snapshot {
 				Cells:   []view.Cell{mutedCell(label.AgeAt(r.item.updatedAt, now))},
 			}
 		}),
-		Caret:         pane.caret,
+		Caret:         caret,
 		BarBlinkedOut: pane.blinkedOut,
 		Focused:       rowKeyAt(rows, d.cursor),
 		Pane:          pane.width,
@@ -436,14 +451,14 @@ func (d *documentsScreen) doesDrawFromListing() bool {
 }
 
 func (d *documentsScreen) takesEveryKey() bool {
-	return d.history != nil && d.history.filter.typing
+	return (d.history != nil && d.history.filter.typing) || d.reading.filter.typing
 }
 
 func (d *documentsScreen) column() columnSpec {
 	return columnSpec{
 		floor: columnFloor,
 		docRows: func(m model, width int) []string {
-			return m.documents.docRows(m.shared(), width)
+			return m.documents.docRows(m.shared(), width, m.blinkingCaret(true))
 		},
 		holds: func(m model) bool { return m.documents.editing == nil },
 	}
