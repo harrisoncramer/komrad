@@ -187,7 +187,7 @@ func TestReleaseReviewRingsTheAgent(t *testing.T) {
 
 	assert.Equal(t, 3, first.Comments)
 	rung := fx.listMail(t, fx.worker.ID)
-	require.Len(t, rung, 2, "one notice per release however many comments it holds")
+	require.Len(t, rung, 2, "one mail per release however many comments it holds")
 	for i, released := range []*ReleaseReviewResult{first, second} {
 		stored, err := fx.reviews.GetReview(t.Context(), released.Review.ID)
 		require.NoError(t, err)
@@ -201,7 +201,7 @@ func TestReleaseReviewRingsTheAgent(t *testing.T) {
 	assert.NotContains(t, rung[0].Body, "nil check", "the mail carries no feedback")
 }
 
-// TestReleaseReviewIntoAFullMailbox pins that a release stands while its notice waits for room.
+// TestReleaseReviewIntoAFullMailbox pins that a release stands while its mail waits for room.
 func TestReleaseReviewIntoAFullMailbox(t *testing.T) {
 	fx := newReviewFixture(t)
 	fx.writeComment(t, newAgentAuthor(fx.reviewer), "this needs a nil check")
@@ -436,7 +436,7 @@ func TestListReviews(t *testing.T) {
 	}
 }
 
-// fillMailbox sends the worker notices until its mailbox refuses another.
+// fillMailbox sends the worker mail until its mailbox refuses another.
 func fillMailbox(t *testing.T, fx *reviewFixture) {
 	t.Helper()
 
@@ -446,7 +446,7 @@ func fillMailbox(t *testing.T, fx *reviewFixture) {
 		Config:         config.Mail{},
 	})
 	for {
-		_, err := mailer.SendNotice(t.Context(), mail.SendNoticeParams{
+		_, err := mailer.SendFromKomrad(t.Context(), mail.SendFromKomradParams{
 			ToAgentID: fx.worker.ID,
 			Body:      "waiting",
 			Kind:      mailstore.KindReviewActivity,

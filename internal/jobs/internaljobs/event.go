@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"komrad/internal/notices"
+	"komrad/internal/events"
 	"komrad/internal/store"
 
 	"github.com/jackc/pgx/v5"
@@ -12,27 +12,27 @@ import (
 	"github.com/riverqueue/river/riverdriver/riverpgxv5"
 )
 
-type NoticeRouter interface {
-	Route(ctx context.Context, tx store.DBTX, event notices.Event) ([]river.JobArgs, error)
+type EventRouter interface {
+	Route(ctx context.Context, tx store.DBTX, event events.Event) ([]river.JobArgs, error)
 }
 
 type TxBeginner interface {
 	Begin(ctx context.Context) (pgx.Tx, error)
 }
 
-type NoticeWorker struct {
-	river.WorkerDefaults[notices.Event]
+type EventWorker struct {
+	river.WorkerDefaults[events.Event]
 	db     TxBeginner
-	router NoticeRouter
+	router EventRouter
 }
 
-// NewNoticeWorker builds the worker that routes each event in the transaction that completes it.
-func NewNoticeWorker(db TxBeginner, router NoticeRouter) *NoticeWorker {
-	return &NoticeWorker{db: db, router: router}
+// NewEventWorker builds the worker that routes each event in the transaction that completes it.
+func NewEventWorker(db TxBeginner, router EventRouter) *EventWorker {
+	return &EventWorker{db: db, router: router}
 }
 
-// Work writes the notices an event calls for and marks the job done in one transaction.
-func (w *NoticeWorker) Work(ctx context.Context, job *river.Job[notices.Event]) error {
+// Work writes the mail an event calls for and marks the job done in one transaction.
+func (w *EventWorker) Work(ctx context.Context, job *river.Job[events.Event]) error {
 	tx, err := w.db.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
@@ -57,7 +57,7 @@ func (w *NoticeWorker) Work(ctx context.Context, job *river.Job[notices.Event]) 
 	}
 
 	if _, err := river.JobCompleteTx[*riverpgxv5.Driver](ctx, tx, job); err != nil {
-		return fmt.Errorf("failed to mark notice job %d done: %w", job.ID, err)
+		return fmt.Errorf("failed to mark event job %d done: %w", job.ID, err)
 	}
 
 	if err := tx.Commit(ctx); err != nil {

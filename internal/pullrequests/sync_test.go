@@ -12,10 +12,10 @@ import (
 	"testing"
 	"time"
 
+	"komrad/internal/events/eventstest"
 	"komrad/internal/forge"
 	"komrad/internal/git"
 	"komrad/internal/logging"
-	"komrad/internal/notices/noticestest"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
 	forgestore "komrad/internal/store/forge"
@@ -167,7 +167,7 @@ type syncFixture struct {
 	pullRequests *pullrequeststore.PullRequestStore
 	syncs        *pullrequeststore.PullRequestSyncStore
 	agents       *agentstore.AgentStore
-	events       *noticestest.Queue
+	events       *eventstest.Queue
 	stores       *storetest.Stores
 	workflow     string
 	now          time.Time
@@ -211,7 +211,7 @@ func newSyncFixture(t *testing.T) *syncFixture {
 		pullRequests: pullrequeststore.NewPullRequestStore(pool.GetDB()),
 		syncs:        pullrequeststore.NewPullRequestSyncStore(pool.GetDB()),
 		agents:       agentstore.NewAgentStore(pool.GetDB()),
-		events:       noticestest.NewQueue(t, stores, NewNoticeHandler()),
+		events:       eventstest.NewQueue(t, stores, NewEventHandler()),
 		stores:       stores,
 		workflow:     created.ID,
 		now:          syncNow,

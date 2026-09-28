@@ -1,5 +1,5 @@
-// Package noticestest routes notice events as they are recorded.
-package noticestest
+// Package eventstest routes events as they are recorded.
+package eventstest
 
 import (
 	"context"
@@ -8,29 +8,29 @@ import (
 	"testing"
 
 	"komrad/config"
+	"komrad/internal/events"
 	"komrad/internal/mail"
-	"komrad/internal/notices"
 	"komrad/internal/storetest"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/riverqueue/river"
 )
 
-// Queue commits what a producer writes and routes each notice event it records straight after.
+// Queue commits what a producer writes and routes each event it records straight after.
 type Queue struct {
 	stores    *storetest.Stores
-	router    *notices.Router
+	router    *events.Router
 	mu        sync.Mutex
-	events    []notices.Event
+	events    []events.Event
 	followUps []river.JobArgs
 	errs      []error
 }
 
 // NewQueue builds a queue that routes through the handlers and a real mail service over the test's stores.
-func NewQueue(t *testing.T, stores *storetest.Stores, handlers ...notices.Handler) *Queue {
+func NewQueue(t *testing.T, stores *storetest.Stores, handlers ...events.Handler) *Queue {
 	q := &Queue{
 		stores: stores,
-		router: notices.NewRouter(notices.NewRouterParams{
+		router: events.NewRouter(events.NewRouterParams{
 			Mailer: mail.NewMailService(mail.NewMailServiceParams{
 				MailReadWriter: stores.Mail,
 				Agents:         stores.Agents,
@@ -62,7 +62,7 @@ func (q *Queue) InsertTx(ctx context.Context, args river.JobArgs, before func(tx
 	})
 }
 
-// InsertManyTx commits what build writes and then routes every notice event it returned.
+// InsertManyTx commits what build writes and then routes every event it returned.
 func (q *Queue) InsertManyTx(ctx context.Context, build func(tx pgx.Tx) ([]river.JobArgs, error)) error {
 	tx, err := q.stores.Pool.GetRawPool().Begin(ctx)
 	if err != nil {
@@ -79,7 +79,7 @@ func (q *Queue) InsertManyTx(ctx context.Context, build func(tx pgx.Tx) ([]river
 	}
 
 	for _, job := range jobs {
-		event, ok := job.(notices.Event)
+		event, ok := job.(events.Event)
 		if !ok {
 			continue
 		}
@@ -96,12 +96,12 @@ func (q *Queue) InsertManyTx(ctx context.Context, build func(tx pgx.Tx) ([]river
 	return nil
 }
 
-// ListEvents returns every notice event recorded so far.
-func (q *Queue) ListEvents() []notices.Event {
+// ListEvents returns every event recorded so far.
+func (q *Queue) ListEvents() []events.Event {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 
-	return append([]notices.Event(nil), q.events...)
+	return append([]events.Event(nil), q.events...)
 }
 
 // ListFollowUps returns every job the handlers asked to record so far.
@@ -123,7 +123,7 @@ func (q *Queue) TakeErrors() []error {
 	return errs
 }
 
-func (q *Queue) route(ctx context.Context, event notices.Event) ([]river.JobArgs, error) {
+func (q *Queue) route(ctx context.Context, event events.Event) ([]river.JobArgs, error) {
 	tx, err := q.stores.Pool.GetRawPool().Begin(ctx)
 	if err != nil {
 		return nil, err

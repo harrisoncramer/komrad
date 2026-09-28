@@ -1,4 +1,4 @@
-package notices
+package events
 
 import (
 	"context"
@@ -18,7 +18,7 @@ import (
 // ErrUnknownTopic is an event whose topic no handler is registered for.
 var ErrUnknownTopic = fail.Internal("no handler for the event's topic")
 
-// Handler writes the notices the events of one topic call for and returns any jobs to record with them.
+// Handler writes the mail the events of one topic call for and returns any jobs to record with them.
 type Handler interface {
 	Topic() string
 	Handle(ctx context.Context, tx store.DBTX, mailer *mail.MailService, payload json.RawMessage) ([]river.JobArgs, error)
@@ -35,7 +35,7 @@ type Router struct {
 	handlers map[string]Handler
 }
 
-// NewRouter builds the router over the mail service notices are written through.
+// NewRouter builds the router over the mail service the handlers write through.
 func NewRouter(params NewRouterParams) *Router {
 	handlers := map[string]Handler{}
 	for _, handler := range params.Handlers {
@@ -45,7 +45,7 @@ func NewRouter(params NewRouterParams) *Router {
 	return &Router{mailer: params.Mailer, handlers: handlers}
 }
 
-// Route writes the notices one event calls for through tx and returns the jobs to record with them.
+// Route writes the mail one event calls for through tx and returns the jobs to record with them.
 func (r *Router) Route(ctx context.Context, tx store.DBTX, event Event) ([]river.JobArgs, error) {
 	handler, ok := r.handlers[event.Topic]
 	if !ok {
@@ -61,7 +61,7 @@ func DropUnreachable(ctx context.Context, recipient string, err error) error {
 		return err
 	}
 
-	logging.From(ctx).LogAttrs(ctx, slog.LevelInfo, "dropped a notice for an agent that is gone",
+	logging.From(ctx).LogAttrs(ctx, slog.LevelInfo, "dropped mail for an agent that is gone",
 		append([]slog.Attr{slog.String(logging.AgentID, recipient)}, logging.Err(err)...)...)
 
 	return nil

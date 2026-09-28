@@ -662,8 +662,8 @@ func seedAgent(t *testing.T, st *fixture, name string) string {
 	return got.ID
 }
 
-// TestNoticeIsOnePerSubject pins that a recipient holds one unread notice per kind and subject.
-func TestNoticeIsOnePerSubject(t *testing.T) {
+// TestKomradMailIsOnePerSubject pins that a recipient holds one unread mail from komrad per kind and subject.
+func TestKomradMailIsOnePerSubject(t *testing.T) {
 	type write struct {
 		kind    Kind
 		subject string
@@ -677,25 +677,25 @@ func TestNoticeIsOnePerSubject(t *testing.T) {
 		wantBodies []string
 	}{
 		{
-			name:       "a second notice about the same subject rewrites the first",
+			name:       "a second mail about the same subject rewrites the first",
 			writes:     []write{{KindDocumentEdited, "one", "version 1"}, {KindDocumentEdited, "one", "version 2"}},
 			wantRows:   1,
 			wantBodies: []string{"version 2"},
 		},
 		{
-			name:       "a notice about another subject waits beside it",
+			name:       "mail about another subject waits beside it",
 			writes:     []write{{KindDocumentEdited, "one", "first"}, {KindDocumentEdited, "other", "second"}},
 			wantRows:   2,
 			wantBodies: []string{"first", "second"},
 		},
 		{
-			name:       "a notice of another kind about the same subject waits beside it",
+			name:       "mail of another kind about the same subject waits beside it",
 			writes:     []write{{KindExchangeCapped, "one", "capped"}, {KindReviewActivity, "one", "reviewed"}},
 			wantRows:   2,
 			wantBodies: []string{"capped", "reviewed"},
 		},
 		{
-			name:       "a notice after the first was read is a new one",
+			name:       "mail after the first was read is new",
 			writes:     []write{{KindDocumentEdited, "one", "read"}, {KindDocumentEdited, "one", "unread"}},
 			claimFirst: true,
 			wantRows:   1,
@@ -711,7 +711,7 @@ func TestNoticeIsOnePerSubject(t *testing.T) {
 			subjects := map[string]string{"one": uuid.NewString(), "other": uuid.NewString()}
 
 			for i, w := range tt.writes {
-				_, err := st.UpsertNotice(ctx, UpsertNoticeParams{
+				_, err := st.UpsertFromKomrad(ctx, UpsertFromKomradParams{
 					FromName:  "komrad",
 					ToAgentID: recipient,
 					Body:      w.body,
@@ -737,17 +737,17 @@ func TestNoticeIsOnePerSubject(t *testing.T) {
 	}
 }
 
-// TestGetPendingNoticeFindsOnlyTheUnreadNotice pins that a notice the agent read is no longer pending.
-func TestGetPendingNoticeFindsOnlyTheUnreadNotice(t *testing.T) {
+// TestGetUnreadAboutFindsOnlyUnreadMail pins that mail the agent read is no longer unread.
+func TestGetUnreadAboutFindsOnlyUnreadMail(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
 	recipient := seedAgent(t, st, "recipient")
 	subject := uuid.NewString()
 
-	_, err := st.GetPendingNotice(ctx, recipient, KindPullRequestChanged, subject)
+	_, err := st.GetUnreadAbout(ctx, recipient, KindPullRequestChanged, subject)
 	require.ErrorIs(t, err, store.ErrNotFound)
 
-	written, err := st.UpsertNotice(ctx, UpsertNoticeParams{
+	written, err := st.UpsertFromKomrad(ctx, UpsertFromKomradParams{
 		FromName:  "komrad",
 		ToAgentID: recipient,
 		Body:      "checks failing",
@@ -757,7 +757,7 @@ func TestGetPendingNoticeFindsOnlyTheUnreadNotice(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	found, err := st.GetPendingNotice(ctx, recipient, KindPullRequestChanged, subject)
+	found, err := st.GetUnreadAbout(ctx, recipient, KindPullRequestChanged, subject)
 	require.NoError(t, err)
 	assert.Equal(t, written.ID, found.ID)
 	require.NotNil(t, found.SubjectID)
@@ -765,32 +765,32 @@ func TestGetPendingNoticeFindsOnlyTheUnreadNotice(t *testing.T) {
 
 	_, err = st.Claim(ctx, recipient, 10)
 	require.NoError(t, err)
-	_, err = st.GetPendingNotice(ctx, recipient, KindPullRequestChanged, subject)
-	require.ErrorIs(t, err, store.ErrNotFound, "a read notice is not pending")
+	_, err = st.GetUnreadAbout(ctx, recipient, KindPullRequestChanged, subject)
+	require.ErrorIs(t, err, store.ErrNotFound, "read mail is not unread")
 }
 
-// TestPendingNoticeHeldForRewriteIsNotClaimed pins that delivery skips a notice a rewrite is reading until the rewrite commits.
-func TestPendingNoticeHeldForRewriteIsNotClaimed(t *testing.T) {
+// TestUnreadMailHeldForRewriteIsNotClaimed pins that delivery skips mail a rewrite is reading until the rewrite commits.
+func TestUnreadMailHeldForRewriteIsNotClaimed(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
 	recipient := seedAgent(t, st, "recipient")
 	subject := uuid.NewString()
 
-	_, err := st.UpsertNotice(ctx, UpsertNoticeParams{FromName: "komrad", ToAgentID: recipient, Body: "checks failing", Kind: KindPullRequestChanged, SubjectID: subject, Deadline: time.Hour})
+	_, err := st.UpsertFromKomrad(ctx, UpsertFromKomradParams{FromName: "komrad", ToAgentID: recipient, Body: "checks failing", Kind: KindPullRequestChanged, SubjectID: subject, Deadline: time.Hour})
 	require.NoError(t, err)
 
 	tx, err := st.pool.Begin(ctx)
 	require.NoError(t, err)
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	_, err = NewMailStore(tx).GetPendingNotice(ctx, recipient, KindPullRequestChanged, subject)
+	_, err = NewMailStore(tx).GetUnreadAbout(ctx, recipient, KindPullRequestChanged, subject)
 	require.NoError(t, err)
 
 	claimed, err := st.Claim(ctx, recipient, 10)
 	require.NoError(t, err)
 	assert.Empty(t, claimed)
 
-	_, err = NewMailStore(tx).UpsertNotice(ctx, UpsertNoticeParams{FromName: "komrad", ToAgentID: recipient, Body: "checks passing", Kind: KindPullRequestChanged, SubjectID: subject, Deadline: time.Hour})
+	_, err = NewMailStore(tx).UpsertFromKomrad(ctx, UpsertFromKomradParams{FromName: "komrad", ToAgentID: recipient, Body: "checks passing", Kind: KindPullRequestChanged, SubjectID: subject, Deadline: time.Hour})
 	require.NoError(t, err)
 	require.NoError(t, tx.Commit(ctx))
 
@@ -799,7 +799,7 @@ func TestPendingNoticeHeldForRewriteIsNotClaimed(t *testing.T) {
 	assert.Equal(t, []string{"checks passing"}, xslice.Map(claimed, func(m Mail) string { return m.Body }))
 }
 
-// TestOrdinaryMailIsNeverDeduplicated pins that the dedupe covers only notices komrad raises.
+// TestOrdinaryMailIsNeverDeduplicated pins that the dedupe covers only mail komrad writes.
 func TestOrdinaryMailIsNeverDeduplicated(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
@@ -820,14 +820,14 @@ func TestOrdinaryMailIsNeverDeduplicated(t *testing.T) {
 	assert.Equal(t, int64(3), pending)
 }
 
-// TestExpiredNoticeComesBackWhenRewritten pins that rewriting an expired notice gives it a new deadline.
-func TestExpiredNoticeComesBackWhenRewritten(t *testing.T) {
+// TestExpiredKomradMailComesBackWhenRewritten pins that rewriting expired mail gives it a new deadline.
+func TestExpiredKomradMailComesBackWhenRewritten(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
 	recipient := seedAgent(t, st, "recipient")
 	subject := uuid.NewString()
 
-	first, err := st.UpsertNotice(ctx, UpsertNoticeParams{FromName: "komrad", ToAgentID: recipient, Body: "one", Kind: KindReviewActivity, SubjectID: subject, Deadline: -time.Hour})
+	first, err := st.UpsertFromKomrad(ctx, UpsertFromKomradParams{FromName: "komrad", ToAgentID: recipient, Body: "one", Kind: KindReviewActivity, SubjectID: subject, Deadline: -time.Hour})
 	require.NoError(t, err)
 
 	pending, err := st.CountPending(ctx, recipient)
@@ -837,17 +837,17 @@ func TestExpiredNoticeComesBackWhenRewritten(t *testing.T) {
 	for range 2 {
 		expired, err := st.ListExpired(ctx, recipient)
 		require.NoError(t, err)
-		require.Len(t, expired, 1, "an expired notice is reported, again after each revival")
+		require.Len(t, expired, 1, "expired mail is reported, again after each revival")
 
-		again, err := st.UpsertNotice(ctx, UpsertNoticeParams{FromName: "komrad", ToAgentID: recipient, Body: "two", Kind: KindReviewActivity, SubjectID: subject, Deadline: time.Hour})
+		again, err := st.UpsertFromKomrad(ctx, UpsertFromKomradParams{FromName: "komrad", ToAgentID: recipient, Body: "two", Kind: KindReviewActivity, SubjectID: subject, Deadline: time.Hour})
 		require.NoError(t, err)
-		assert.Equal(t, first.ID, again.ID, "the expired notice is brought back rather than blocking a new one")
+		assert.Equal(t, first.ID, again.ID, "expired mail is brought back rather than blocking new mail")
 
-		_, err = st.UpsertNotice(ctx, UpsertNoticeParams{FromName: "komrad", ToAgentID: recipient, Body: "one", Kind: KindReviewActivity, SubjectID: subject, Deadline: -time.Hour})
+		_, err = st.UpsertFromKomrad(ctx, UpsertFromKomradParams{FromName: "komrad", ToAgentID: recipient, Body: "one", Kind: KindReviewActivity, SubjectID: subject, Deadline: -time.Hour})
 		require.NoError(t, err)
 	}
 
-	_, err = st.UpsertNotice(ctx, UpsertNoticeParams{FromName: "komrad", ToAgentID: recipient, Body: "last", Kind: KindReviewActivity, SubjectID: subject, Deadline: time.Hour})
+	_, err = st.UpsertFromKomrad(ctx, UpsertFromKomradParams{FromName: "komrad", ToAgentID: recipient, Body: "last", Kind: KindReviewActivity, SubjectID: subject, Deadline: time.Hour})
 	require.NoError(t, err)
 	claimed, err := st.Claim(ctx, recipient, 10)
 	require.NoError(t, err)
@@ -857,7 +857,7 @@ func TestExpiredNoticeComesBackWhenRewritten(t *testing.T) {
 
 // TestCountExchangedSpansThreadsAndDirections pins what a send is refused by the size of: every
 // plain message either agent wrote the other however it was addressed, leaving out komrad's own
-// notices and anything belonging to another pair.
+// mail from komrad and anything belonging to another pair.
 func TestCountExchangedSpansThreadsAndDirections(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
@@ -897,7 +897,7 @@ func TestCountExchangedSpansThreadsAndDirections(t *testing.T) {
 
 	exchanged, err := st.CountExchanged(ctx, author, reviewer)
 	require.NoError(t, err)
-	assert.EqualValues(t, 3, exchanged, "both directions, replies included, without the notice or the stranger")
+	assert.EqualValues(t, 3, exchanged, "both directions, replies included, without komrad's mail or the stranger")
 
 	reversed, err := st.CountExchanged(ctx, reviewer, author)
 	require.NoError(t, err)

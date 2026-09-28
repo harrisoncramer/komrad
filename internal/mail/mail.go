@@ -43,7 +43,7 @@ var ErrReplyToNotFound = fail.InvalidArgument("no mail holds that id")
 
 var ErrMailNotFound = fail.NotFound("no mail holds that id, deleting nothing")
 
-var ErrNoticeKindMissing = fail.InvalidArgument("a notice must name a kind other than plain")
+var ErrKindMissing = fail.InvalidArgument("mail from komrad must name a kind other than plain")
 
 var ErrAlreadySent = fail.AlreadyExists("this idempotency key already sent its mail")
 
@@ -73,8 +73,8 @@ type mailReadWriter interface {
 	GetByIdempotencyKey(ctx context.Context, key string) (*mailstore.Mail, error)
 	Claim(ctx context.Context, toAgentID string, limit int32) ([]mailstore.Mail, error)
 	CountPending(ctx context.Context, toAgentID string) (int64, error)
-	UpsertNotice(ctx context.Context, params mailstore.UpsertNoticeParams) (*mailstore.Mail, error)
-	GetPendingNotice(ctx context.Context, toAgentID string, kind mailstore.Kind, subjectID string) (*mailstore.Mail, error)
+	UpsertFromKomrad(ctx context.Context, params mailstore.UpsertFromKomradParams) (*mailstore.Mail, error)
+	GetUnreadAbout(ctx context.Context, toAgentID string, kind mailstore.Kind, subjectID string) (*mailstore.Mail, error)
 	ListPage(ctx context.Context, toAgentID string, limit int32, cursor *mailstore.Cursor) ([]mailstore.Mail, error)
 	ListSentPage(ctx context.Context, fromAgentID string, limit int32, cursor *mailstore.Cursor) ([]mailstore.Mail, error)
 	ListByID(ctx context.Context, ids []string) ([]mailstore.Mail, error)
@@ -233,24 +233,28 @@ func (s *MailService) SendScheduledMail(ctx context.Context, params SendSchedule
 	})
 }
 
-var ErrNoticeSubjectMissing = fail.InvalidArgument("a notice must name the subject it is about")
+var ErrSubjectMissing = fail.InvalidArgument("mail from komrad must name the subject it is about")
 
-type SendNoticeParams struct {
+var ErrNothingUnread = fail.NotFound("the recipient holds no unread mail of this kind about this subject")
+
+type SendFromKomradParams struct {
 	ToAgentID string
 	Body      string
 	Kind      mailstore.Kind
-	// SubjectID is the agent, document, pull request or worktree the notice is about.
+	// SubjectID is the agent, document, pull request or worktree the mail is about.
 	SubjectID string
+	// OnlyRewrite writes nothing when the recipient holds no unread mail of this kind about this subject.
+	OnlyRewrite bool
 }
 
-// SendNotice writes a notice as komrad itself, rewriting the unread notice of the same kind about
-// the same subject when the recipient still holds one.
-func (s *MailService) SendNotice(ctx context.Context, params SendNoticeParams) (*mailstore.Mail, error) {
+// SendFromKomrad writes mail as komrad itself, rewriting the unread mail of the same kind about the
+// same subject when the recipient still holds it.
+func (s *MailService) SendFromKomrad(ctx context.Context, params SendFromKomradParams) (*mailstore.Mail, error) {
 	if params.Kind == "" || params.Kind == mailstore.KindPlain {
-		return nil, fmt.Errorf("%w: a notice needs a kind of its own to be told apart by", ErrNoticeKindMissing)
+		return nil, fmt.Errorf("%w: mail from komrad needs a kind of its own to be told apart by", ErrKindMissing)
 	}
 	if params.SubjectID == "" {
-		return nil, ErrNoticeSubjectMissing
+		return nil, ErrSubjectMissing
 	}
 
 	recipient, err := s.agents.GetByID(ctx, params.ToAgentID)
@@ -264,8 +268,11 @@ func (s *MailService) SendNotice(ctx context.Context, params SendNoticeParams) (
 		return nil, fmt.Errorf("%w: %q", ErrAgentArchived, params.ToAgentID)
 	}
 
-	_, err = s.mailReadWriter.GetPendingNotice(ctx, recipient.ID, params.Kind, params.SubjectID)
+	_, err = s.mailReadWriter.GetUnreadAbout(ctx, recipient.ID, params.Kind, params.SubjectID)
 	if errors.Is(err, store.ErrNotFound) {
+		if params.OnlyRewrite {
+			return nil, ErrNothingUnread
+		}
 		if err := s.requireRoom(ctx, *recipient); err != nil {
 			return nil, err
 		}
@@ -278,7 +285,7 @@ func (s *MailService) SendNotice(ctx context.Context, params SendNoticeParams) (
 		return nil, err
 	}
 
-	return s.mailReadWriter.UpsertNotice(ctx, mailstore.UpsertNoticeParams{
+	return s.mailReadWriter.UpsertFromKomrad(ctx, mailstore.UpsertFromKomradParams{
 		FromName:  KomradSenderName,
 		ToAgentID: recipient.ID,
 		Body:      params.Body,
@@ -286,11 +293,6 @@ func (s *MailService) SendNotice(ctx context.Context, params SendNoticeParams) (
 		SubjectID: params.SubjectID,
 		Deadline:  deadline,
 	})
-}
-
-// GetPendingNotice is the unread notice of a kind about a subject, ErrNotFound when there is none.
-func (s *MailService) GetPendingNotice(ctx context.Context, toAgentID string, kind mailstore.Kind, subjectID string) (*mailstore.Mail, error) {
-	return s.mailReadWriter.GetPendingNotice(ctx, toAgentID, kind, subjectID)
 }
 
 // InTx is this service writing mail through a transaction.
@@ -461,7 +463,7 @@ func (s *MailService) tellTheCapWasReached(ctx context.Context, sender, recipien
 	}
 
 	body := fmt.Sprintf(exchangeCappedBody, sender.Name, sender.ID, exchanged)
-	if _, err := s.SendNotice(ctx, SendNoticeParams{
+	if _, err := s.SendFromKomrad(ctx, SendFromKomradParams{
 		ToAgentID: recipient.ID,
 		Body:      body,
 		Kind:      mailstore.KindExchangeCapped,

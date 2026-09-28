@@ -23,7 +23,7 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// MailKind tells an agent's own mail from a notice komrad raised itself.
+// MailKind tells mail an agent sent from mail komrad wrote itself.
 type MailKind int32
 
 const (
@@ -151,7 +151,7 @@ type Mail struct {
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	// Which agent sent it, unset when komrad sent it itself.
 	FromAgentId *string `protobuf:"bytes,2,opt,name=from_agent_id,json=fromAgentId,proto3,oneof" json:"from_agent_id,omitempty"`
-	// What to show as the sender, which is komrad's own name for a notice it raised.
+	// What to show as the sender, which is komrad's own name for mail it wrote.
 	FromName string `protobuf:"bytes,3,opt,name=from_name,json=fromName,proto3" json:"from_name,omitempty"`
 	// The agent it is waiting for.
 	ToAgentId string `protobuf:"bytes,4,opt,name=to_agent_id,json=toAgentId,proto3" json:"to_agent_id,omitempty"`

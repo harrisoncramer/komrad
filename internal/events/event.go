@@ -1,6 +1,6 @@
-// Package notices turns the events a change records into the notices the agents it concerns
-// are sent.
-package notices
+// Package events hands each change recorded with its transaction to the handler that mails the
+// agents it concerns.
+package events
 
 import (
 	"encoding/json"
@@ -10,7 +10,7 @@ import (
 )
 
 // Queue is the River queue the router works.
-const Queue = "notices"
+const Queue = "events"
 
 const maxAttempts = 20
 
@@ -22,7 +22,7 @@ type Event struct {
 
 // Kind is the River job kind.
 func (Event) Kind() string {
-	return "notice"
+	return "event"
 }
 
 // InsertOpts puts the event on the router's queue with retries enough to outlast a full mailbox.

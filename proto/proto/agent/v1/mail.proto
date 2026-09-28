@@ -7,7 +7,7 @@ import "pagination/v1/pagination.proto";
 
 option go_package = "komrad/proto/gen/agent/v1;agentv1";
 
-// MailKind tells an agent's own mail from a notice komrad raised itself.
+// MailKind tells mail an agent sent from mail komrad wrote itself.
 enum MailKind {
   // No kind was recorded, which the panel draws as a dash.
   MAIL_KIND_UNSPECIFIED = 0;
@@ -40,7 +40,7 @@ message Mail {
   string id = 1;
   // Which agent sent it, unset when komrad sent it itself.
   optional string from_agent_id = 2;
-  // What to show as the sender, which is komrad's own name for a notice it raised.
+  // What to show as the sender, which is komrad's own name for mail it wrote.
   string from_name = 3;
   // The agent it is waiting for.
   string to_agent_id = 4;

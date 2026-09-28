@@ -6,11 +6,11 @@ import (
 	"log/slog"
 	"time"
 
+	"komrad/internal/events"
 	"komrad/internal/fail"
 	"komrad/internal/forge"
 	"komrad/internal/git"
 	"komrad/internal/logging"
-	"komrad/internal/notices"
 	"komrad/internal/store"
 	forgestore "komrad/internal/store/forge"
 	pullrequeststore "komrad/internal/store/pullrequest"
@@ -833,7 +833,7 @@ func (s *PullRequestSyncer) writePage(ctx context.Context, pullRequests []forge.
 	inserted, updated := 0, 0
 	err := s.events.InsertManyTx(ctx, func(tx pgx.Tx) ([]river.JobArgs, error) {
 		st := pullrequeststore.NewPullRequestStore(tx)
-		var events []river.JobArgs
+		var recorded []river.JobArgs
 		for _, pullRequest := range pullRequests {
 			upsert := toUpsert(pullRequest)
 			outcome, err := st.Upsert(ctx, upsert)
@@ -867,15 +867,15 @@ func (s *PullRequestSyncer) writePage(ctx context.Context, pullRequests []forge.
 			}
 
 			if change := NewChange(outcome.ID, moved...); change != nil {
-				event, err := notices.NewEvent(change)
+				event, err := events.NewEvent(change)
 				if err != nil {
 					return nil, err
 				}
-				events = append(events, *event)
+				recorded = append(recorded, *event)
 			}
 		}
 
-		return events, advance(pullrequeststore.NewPullRequestSyncStore(tx))
+		return recorded, advance(pullrequeststore.NewPullRequestSyncStore(tx))
 	})
 	if err != nil {
 		return err
@@ -900,7 +900,7 @@ func (s *PullRequestSyncer) setStanding(ctx context.Context, id string, standing
 		if moved == nil {
 			return nil, nil
 		}
-		event, err := notices.NewEvent(moved)
+		event, err := events.NewEvent(moved)
 		if err != nil {
 			return nil, err
 		}

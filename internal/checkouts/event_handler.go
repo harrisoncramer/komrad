@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"komrad/internal/events"
 	"komrad/internal/mail"
-	"komrad/internal/notices"
 	"komrad/internal/store"
 	mailstore "komrad/internal/store/mail"
 
@@ -27,21 +27,21 @@ func (Rebased) Topic() string {
 	return rebasedTopic
 }
 
-// NoticeHandler keeps one unread notice per agent saying what the last rebase of its worktree did.
-type NoticeHandler struct{}
+// EventHandler keeps one unread mail per agent saying what the last rebase of its worktree did.
+type EventHandler struct{}
 
-// NewNoticeHandler builds the handler the router is given for rebases.
-func NewNoticeHandler() *NoticeHandler {
-	return &NoticeHandler{}
+// NewEventHandler builds the handler the router is given for rebases.
+func NewEventHandler() *EventHandler {
+	return &EventHandler{}
 }
 
 // Topic is the topic of Rebased.
-func (*NoticeHandler) Topic() string {
+func (*EventHandler) Topic() string {
 	return rebasedTopic
 }
 
 // Handle tells the agent what became of its worktree.
-func (*NoticeHandler) Handle(ctx context.Context, _ store.DBTX, mailer *mail.MailService, payload json.RawMessage) ([]river.JobArgs, error) {
+func (*EventHandler) Handle(ctx context.Context, _ store.DBTX, mailer *mail.MailService, payload json.RawMessage) ([]river.JobArgs, error) {
 	var rebased Rebased
 	if err := json.Unmarshal(payload, &rebased); err != nil {
 		return nil, fmt.Errorf("failed to read a rebase: %w", err)
@@ -52,7 +52,7 @@ func (*NoticeHandler) Handle(ctx context.Context, _ store.DBTX, mailer *mail.Mai
 		body = rebaseMail(*rebased.Result)
 	}
 
-	return nil, notices.Write(ctx, mailer, notices.Notice{
+	return nil, events.Send(ctx, mailer, mail.SendFromKomradParams{
 		ToAgentID: rebased.AgentID,
 		Kind:      mailstore.KindWorktreeRebased,
 		SubjectID: rebased.AgentID,

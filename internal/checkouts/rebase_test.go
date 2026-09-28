@@ -9,11 +9,11 @@ import (
 
 	"komrad/internal/agents"
 	"komrad/internal/caller"
+	"komrad/internal/events/eventstest"
 	"komrad/internal/git"
 	"komrad/internal/gittest"
 	"komrad/internal/harness"
 	"komrad/internal/harnesstest"
-	"komrad/internal/notices/noticestest"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
 	mailstore "komrad/internal/store/mail"
@@ -670,8 +670,8 @@ func (f *rebaseFixture) newService(params NewRebaseServiceParams) *RebaseService
 	return NewRebaseService(params)
 }
 
-func (f *rebaseFixture) newQueue(t *testing.T) *noticestest.Queue {
-	return noticestest.NewQueue(t, f.stores, NewNoticeHandler())
+func (f *rebaseFixture) newQueue(t *testing.T) *eventstest.Queue {
+	return eventstest.NewQueue(t, f.stores, NewEventHandler())
 }
 
 func (f *rebaseFixture) readInbox(t *testing.T, id string) []string {

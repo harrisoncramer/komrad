@@ -197,7 +197,7 @@ func (q *Queries) GetMailByIdempotencyKey(ctx context.Context, idempotencyKey *s
 	return &i, err
 }
 
-const getPendingNotice = `-- name: GetPendingNotice :one
+const getUnreadAbout = `-- name: GetUnreadAbout :one
 SELECT
     id, from_agent_id, from_name, to_agent_id, body, reply_to, claimed_at, reported_at, expires_at, created_at, updated_at, kind, engine_id, idempotency_key, subject_id
 FROM
@@ -210,14 +210,14 @@ WHERE
 FOR UPDATE
 `
 
-type GetPendingNoticeParams struct {
+type GetUnreadAboutParams struct {
 	ToAgentID string
 	Kind      MailKind
 	SubjectID string
 }
 
-func (q *Queries) GetPendingNotice(ctx context.Context, arg GetPendingNoticeParams) (*Mail, error) {
-	row := q.db.QueryRow(ctx, getPendingNotice, arg.ToAgentID, arg.Kind, arg.SubjectID)
+func (q *Queries) GetUnreadAbout(ctx context.Context, arg GetUnreadAboutParams) (*Mail, error) {
+	row := q.db.QueryRow(ctx, getUnreadAbout, arg.ToAgentID, arg.Kind, arg.SubjectID)
 	var i Mail
 	err := row.Scan(
 		&i.ID,
@@ -607,7 +607,7 @@ func (q *Queries) ReportExpiredMail(ctx context.Context, toAgentID string) ([]*M
 	return items, nil
 }
 
-const upsertNotice = `-- name: UpsertNotice :one
+const upsertFromKomrad = `-- name: UpsertFromKomrad :one
 INSERT INTO mail(
     from_name,
     to_agent_id,
@@ -638,7 +638,7 @@ WHERE
             id, from_agent_id, from_name, to_agent_id, body, reply_to, claimed_at, reported_at, expires_at, created_at, updated_at, kind, engine_id, idempotency_key, subject_id
 `
 
-type UpsertNoticeParams struct {
+type UpsertFromKomradParams struct {
 	FromName       string
 	ToAgentID      string
 	Body           string
@@ -647,8 +647,8 @@ type UpsertNoticeParams struct {
 	DeadlineMicros int64
 }
 
-func (q *Queries) UpsertNotice(ctx context.Context, arg UpsertNoticeParams) (*Mail, error) {
-	row := q.db.QueryRow(ctx, upsertNotice,
+func (q *Queries) UpsertFromKomrad(ctx context.Context, arg UpsertFromKomradParams) (*Mail, error) {
+	row := q.db.QueryRow(ctx, upsertFromKomrad,
 		arg.FromName,
 		arg.ToAgentID,
 		arg.Body,

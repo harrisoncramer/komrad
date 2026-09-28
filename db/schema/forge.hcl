@@ -195,7 +195,7 @@ table "pull_requests" {
   column "last_known_checks" {
     null    = true
     type    = text
-    comment = "The checks as the forge last reported them when it reported anything, which a blank reading leaves alone. A notice compares against this so that a moment without an answer is not taken for a change."
+    comment = "The checks as the forge last reported them when it reported anything, which a blank reading leaves alone. An event compares against this so that a moment without an answer is not taken for a change."
   }
   column "last_known_mergeability" {
     null    = true

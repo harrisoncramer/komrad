@@ -5,9 +5,9 @@ import (
 	"testing"
 
 	"komrad/internal/agents"
+	"komrad/internal/events/eventstest"
 	"komrad/internal/gittest"
 	"komrad/internal/jobs/internaljobs"
-	"komrad/internal/notices/noticestest"
 	agentstore "komrad/internal/store/agent"
 	mailstore "komrad/internal/store/mail"
 	reviewstore "komrad/internal/store/review"
@@ -34,7 +34,7 @@ type reviewFixture struct {
 	reviews   *reviewstore.ReviewStore
 	stores    *storetest.Stores
 	snapshots *gittest.Snapshots
-	events    *noticestest.Queue
+	events    *eventstest.Queue
 	worker    *agentstore.Agent
 	reviewer  *agentstore.Agent
 	stranger  *agentstore.Agent
@@ -985,8 +985,8 @@ func TestAnsweringAReviewRingsTheReviewer(t *testing.T) {
 	}
 }
 
-// TestAnsweringAReviewSeveralTimesLeavesOneNotice pins that answers the reviewer has not read yet are one notice.
-func TestAnsweringAReviewSeveralTimesLeavesOneNotice(t *testing.T) {
+// TestAnsweringAReviewSeveralTimesLeavesOneMail pins that answers the reviewer has not read yet are one mail.
+func TestAnsweringAReviewSeveralTimesLeavesOneMail(t *testing.T) {
 	fx := newReviewFixture(t)
 	written := fx.writeComment(t, newAgentAuthor(fx.reviewer), "this needs a nil check")
 	fx.releaseReview(t, newAgentAuthor(fx.reviewer), reviewstore.VerdictChangesRequested)
@@ -1001,7 +1001,7 @@ func TestAnsweringAReviewSeveralTimesLeavesOneNotice(t *testing.T) {
 
 	fx.writeAnswer(t, written.Thread.ID)
 
-	assert.Len(t, fx.listMail(t, fx.reviewer.ID), 2, "an answer after the notice was read rings again")
+	assert.Len(t, fx.listMail(t, fx.reviewer.ID), 2, "an answer after the mail was read rings again")
 }
 
 func newReviewFixture(t *testing.T) *reviewFixture {
@@ -1014,7 +1014,7 @@ func newReviewFixture(t *testing.T) *reviewFixture {
 		BaseSHA: baseSnapshot,
 		Files:   map[string][]string{},
 	}
-	events := noticestest.NewQueue(t, stores, NewReleaseNoticeHandler(), NewAnswerNoticeHandler())
+	events := eventstest.NewQueue(t, stores, NewReleasedHandler(), NewAnsweredHandler())
 
 	worker := stores.SeedAgent(t, agentstore.Agent{
 		Name: "worker",

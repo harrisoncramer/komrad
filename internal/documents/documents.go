@@ -10,8 +10,8 @@ import (
 	"syscall"
 	"unicode/utf8"
 
+	"komrad/internal/events"
 	"komrad/internal/fail"
-	"komrad/internal/notices"
 	agentstore "komrad/internal/store/agent"
 	documentstore "komrad/internal/store/document"
 
@@ -143,7 +143,7 @@ func (s *DocumentService) WriteDocument(ctx context.Context, params WriteDocumen
 			return nil, nil
 		}
 
-		event, err := notices.NewEvent(PersonWrote{DocumentID: written.ID, Created: params.ID == nil})
+		event, err := events.NewEvent(PersonWrote{DocumentID: written.ID, Created: params.ID == nil})
 		if err != nil {
 			return nil, err
 		}
@@ -157,16 +157,16 @@ func (s *DocumentService) WriteDocument(ctx context.Context, params WriteDocumen
 	return written, nil
 }
 
-func buildCreateNotice(created documentstore.Document) string {
+func buildCreateMail(created documentstore.Document) string {
 	return fmt.Sprintf("komrad: a person wrote a new document for you in the panel, %q (%s). "+
-		"Read it with get_document. A further save before you read this rewrites this notice rather than sending another, and "+
+		"Read it with get_document. A further save before you read this rewrites this mail rather than sending another, and "+
 		"write_document is refused as failed_precondition unless you rewrite from the newest version list_document_versions lists.",
 		created.Name, created.ID)
 }
 
-func buildEditNotice(edited documentstore.Document) string {
+func buildEditMail(edited documentstore.Document) string {
 	return fmt.Sprintf("komrad: a person edited your document %q (%s) in the panel, writing version %d. "+
-		"A further save before you read this rewrites this notice rather than sending another. "+
+		"A further save before you read this rewrites this mail rather than sending another. "+
 		"list_document_versions lists every write and marks a person's, get_document reads any version, "+
 		"and write_document is refused as failed_precondition unless you rewrite from the newest version.",
 		edited.Name, edited.ID, edited.Version)

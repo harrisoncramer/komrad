@@ -522,13 +522,13 @@ type Mail struct {
 	ExpiresAt   pgtype.Timestamptz
 	CreatedAt   pgtype.Timestamptz
 	UpdatedAt   pgtype.Timestamptz
-	// Who wrote the mail and why. Plain is mail an agent sent. The other values are notices komrad raised itself, which the panel draws differently. Komrad also counts unread notices by this value. One unread notice of a kind is enough however much is waiting behind it.
+	// Who wrote the mail and why. Plain is mail an agent sent. The other values are mail komrad wrote itself, which the panel draws differently. Komrad also counts unread mail by this value. One unread mail of a kind is enough however much is waiting behind it.
 	Kind MailKind
 	// The engine that owns this row, stamped from the login that wrote it.
 	EngineID pgtype.UUID
 	// The key a retried send is recognised by, null on mail sent once.
 	IdempotencyKey *string
-	// The thing a komrad notice is about, null on ordinary mail. Its kind says what sort of thing it is: another agent, a document, a pull request or a worktree. A recipient holds at most one unread notice of a kind about one subject, and a later notice rewrites it. There is no foreign key here on purpose. The notice has to keep naming its subject after the subject is gone.
+	// The thing mail from komrad is about, null on mail an agent sent. Its kind says what sort of thing it is: another agent, a document, a pull request or a worktree. A recipient holds at most one unread mail of a kind about one subject, and later mail rewrites it. There is no foreign key here on purpose. The mail has to keep naming its subject after the subject is gone.
 	SubjectID pgtype.UUID
 }
 
@@ -590,7 +590,7 @@ type PullRequest struct {
 	Mergeability *string
 	// The engine that owns this row, stamped from the login that wrote it.
 	EngineID pgtype.UUID
-	// The checks as the forge last reported them when it reported anything, which a blank reading leaves alone. A notice compares against this so that a moment without an answer is not taken for a change.
+	// The checks as the forge last reported them when it reported anything, which a blank reading leaves alone. An event compares against this so that a moment without an answer is not taken for a change.
 	LastKnownChecks *string
 	// The mergeability as the forge last reported it when it reported anything, which a blank reading leaves alone.
 	LastKnownMergeability *string
@@ -633,7 +633,7 @@ type Review struct {
 	ReleasedAt pgtype.Timestamptz
 	// The absolute path of the file the released review was written to, empty while the review is still open. The file lives in komrad's own state directory rather than in the agent's checkout.
 	Path string
-	// The mail that told the agent a review was waiting. Deleting that mail clears this column rather than deleting the review, so a review whose notice was thrown away reads as undelivered.
+	// The mail that told the agent a review was waiting. Deleting that mail clears this column rather than deleting the review, so a review whose mail was thrown away reads as undelivered.
 	DoorbellMailID pgtype.UUID
 	CreatedAt      pgtype.Timestamptz
 	UpdatedAt      pgtype.Timestamptz

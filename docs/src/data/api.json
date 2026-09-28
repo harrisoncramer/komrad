@@ -3432,7 +3432,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "What to show as the sender, which is komrad's own name for a notice it raised."
+          "description": "What to show as the sender, which is komrad's own name for mail it wrote."
         },
         {
           "name": "to_agent_id",
@@ -8671,7 +8671,7 @@
     },
     "agent.v1.MailKind": {
       "name": "MailKind",
-      "description": "MailKind tells an agent's own mail from a notice komrad raised itself.",
+      "description": "MailKind tells mail an agent sent from mail komrad wrote itself.",
       "values": [
         {
           "name": "MAIL_KIND_PLAIN",

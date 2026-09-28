@@ -10,10 +10,10 @@ import (
 
 	"komrad/internal/agents"
 	"komrad/internal/caller"
+	"komrad/internal/events"
 	"komrad/internal/fail"
 	"komrad/internal/git"
 	"komrad/internal/logging"
-	"komrad/internal/notices"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
 	workflowstore "komrad/internal/store/workflow"
@@ -554,7 +554,7 @@ func (s *RebaseService) record(ctx context.Context, rebased Rebased) error {
 		return nil
 	}
 
-	event, err := notices.NewEvent(rebased)
+	event, err := events.NewEvent(rebased)
 	if err != nil {
 		return err
 	}

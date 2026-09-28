@@ -47,7 +47,7 @@ func (Change) Topic() string {
 	return changeTopic
 }
 
-// Opens says whether the change is news enough to start a notice rather than only update one.
+// Opens says whether the change is news enough to start mail rather than only update it.
 func (c Change) Opens() bool {
 	return slices.ContainsFunc(c.Moves, func(move Move) bool {
 		return slices.Contains(opening[move.Field], move.To)

@@ -18,12 +18,12 @@ import (
 	"komrad/internal/checkouts"
 	"komrad/internal/doctor"
 	"komrad/internal/documents"
+	"komrad/internal/events"
 	"komrad/internal/forge"
 	"komrad/internal/harness"
 	"komrad/internal/interceptors"
 	"komrad/internal/jobs"
 	"komrad/internal/mail"
-	"komrad/internal/notices"
 	"komrad/internal/pullrequests"
 	"komrad/internal/reviews"
 	"komrad/internal/store"
@@ -128,14 +128,14 @@ func NewServer(ctx context.Context, params NewServerParams) (*Server, error) {
 		Worktrees:     svc.worktreeLister,
 		Remover:       svc.remover,
 		Resumer:       svc.resume,
-		Router: notices.NewRouter(notices.NewRouterParams{
+		Router: events.NewRouter(events.NewRouterParams{
 			Mailer: svc.mail,
-			Handlers: []notices.Handler{
-				pullrequests.NewNoticeHandler(),
-				documents.NewNoticeHandler(),
-				checkouts.NewNoticeHandler(),
-				reviews.NewReleaseNoticeHandler(),
-				reviews.NewAnswerNoticeHandler(),
+			Handlers: []events.Handler{
+				pullrequests.NewEventHandler(),
+				documents.NewEventHandler(),
+				checkouts.NewEventHandler(),
+				reviews.NewReleasedHandler(),
+				reviews.NewAnsweredHandler(),
 			},
 		}),
 		Logger: params.Logger,

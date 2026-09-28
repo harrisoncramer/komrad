@@ -58,12 +58,12 @@ table "mail" {
     null    = false
     type    = enum.mail_kind
     default = "plain"
-    comment = "Who wrote the mail and why. Plain is mail an agent sent. The other values are notices komrad raised itself, which the panel draws differently. Komrad also counts unread notices by this value. One unread notice of a kind is enough however much is waiting behind it."
+    comment = "Who wrote the mail and why. Plain is mail an agent sent. The other values are mail komrad wrote itself, which the panel draws differently. Komrad also counts unread mail by this value. One unread mail of a kind is enough however much is waiting behind it."
   }
   column "subject_id" {
     null    = true
     type    = uuid
-    comment = "The thing a komrad notice is about, null on ordinary mail. Its kind says what sort of thing it is: another agent, a document, a pull request or a worktree. A recipient holds at most one unread notice of a kind about one subject, and a later notice rewrites it. There is no foreign key here on purpose. The notice has to keep naming its subject after the subject is gone."
+    comment = "The thing mail from komrad is about, null on mail an agent sent. Its kind says what sort of thing it is: another agent, a document, a pull request or a worktree. A recipient holds at most one unread mail of a kind about one subject, and later mail rewrites it. There is no foreign key here on purpose. The mail has to keep naming its subject after the subject is gone."
   }
   column "idempotency_key" {
     null    = true
@@ -108,7 +108,7 @@ table "mail" {
   index "mail_pending" {
     columns = [column.to_agent_id, column.id]
     where   = "claimed_at IS NULL"
-    comment = "Reads the mail an agent has not claimed yet. A send is refused when that is already full, and a further review notice joins the unread one found here."
+    comment = "Reads the mail an agent has not claimed yet. A send is refused when that is already full, and further review mail joins the unread one found here."
   }
   index "mail_from_agent_id" {
     columns = [column.from_agent_id, column.to_agent_id]
@@ -121,7 +121,7 @@ table "mail" {
     unique  = true
     columns = [column.to_agent_id, column.kind, column.subject_id]
     where   = "claimed_at IS NULL AND subject_id IS NOT NULL"
-    comment = "Holds a recipient to one unread notice of a kind about one subject, which a later notice rewrites in place."
+    comment = "Holds a recipient to one unread mail from komrad of a kind about one subject, which later mail rewrites in place."
   }
   index "mail_idempotency_key" {
     unique  = true

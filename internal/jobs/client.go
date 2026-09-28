@@ -8,8 +8,8 @@ import (
 	"log/slog"
 	"time"
 
+	"komrad/internal/events"
 	"komrad/internal/jobs/internaljobs"
-	"komrad/internal/notices"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -23,7 +23,7 @@ const jobTimeout = 2 * time.Minute
 
 const deleteAgentWorkers = 4
 
-const noticeWorkers = 4
+const eventWorkers = 4
 
 const wakeAgentWorkers = 2
 
@@ -40,7 +40,7 @@ type NewClientParams struct {
 	Worktrees     internaljobs.WorktreeLister
 	Remover       internaljobs.WorktreeRemover
 	Resumer       internaljobs.AgentResumer
-	Router        internaljobs.NoticeRouter
+	Router        internaljobs.EventRouter
 	Logger        *slog.Logger
 }
 
@@ -62,7 +62,7 @@ func NewClient(params NewClientParams) (*river.Client[pgx.Tx], error) {
 		Remover:   params.Remover,
 		Logger:    params.Logger,
 	}))
-	river.AddWorker(workers, internaljobs.NewNoticeWorker(params.Pool, params.Router))
+	river.AddWorker(workers, internaljobs.NewEventWorker(params.Pool, params.Router))
 	river.AddWorker(workers, internaljobs.NewWakeAgentWorker(params.Resumer))
 
 	client, err := river.NewClient(riverpgxv5.New(params.Pool), &river.Config{
@@ -75,7 +75,7 @@ func NewClient(params NewClientParams) (*river.Client[pgx.Tx], error) {
 			internaljobs.QueueLaunchAgent:     {MaxWorkers: 1},
 			internaljobs.QueueDeleteAgent:     {MaxWorkers: deleteAgentWorkers},
 			internaljobs.QueueDeleteWorktrees: {MaxWorkers: 1},
-			notices.Queue:                     {MaxWorkers: noticeWorkers},
+			events.Queue:                      {MaxWorkers: eventWorkers},
 			internaljobs.QueueWakeAgent:       {MaxWorkers: wakeAgentWorkers},
 		},
 	})

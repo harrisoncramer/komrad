@@ -54,7 +54,7 @@ You can limit how much mail two agents exchange by setting <Setting path="mail.m
 
 ## What komrad tells an agent
 
-Komrad also writes mail of its own, called _notices_, when something changes that an agent should hear about.
+Komrad also mails an agent itself when something changes that the agent should hear about.
 
 | What changed                                                                                                               | Who is told                              |
 | -------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
@@ -64,13 +64,13 @@ Komrad also writes mail of its own, called _notices_, when something changes tha
 | A [review](../reviews/) of an agent's work was released                                                                    | the agent under review                   |
 | An agent answered in a review of its own work                                                                              | its reviewer, which is also woken        |
 
-An agent holds at most one unread notice about any one thing. If a pull request's checks fail and then its branch conflicts before the agent has read anything, the agent gets one notice saying both. A later change rewrites the unread notice rather than adding another. Once the agent has read it, the next change starts a new one.
+An agent holds at most one unread piece of mail from komrad about any one thing. If a pull request's checks fail and then its branch conflicts before the agent has read anything, the agent gets one piece of mail saying both. A later change rewrites the unread mail rather than adding more. Once the agent has read it, the next change starts a new one.
 
-A notice says where things stand now, not what happened along the way. If checks fail and then pass again before the agent reads its notice, the notice says the checks are passing.
+The mail says where things stand now, not what happened along the way. If checks fail and then pass again before the agent reads it, the mail says the checks are passing.
 
-Child agents sit on their parent's branch but are never told about its pull request. Not every change starts a notice. Checks passing or a review going back to pending is not news on its own. Those only update a notice the agent already has waiting.
+Child agents sit on their parent's branch but are never told about its pull request. Not every change sends mail. Checks passing or a review going back to pending is not news on its own. Those only update mail the agent already has waiting.
 
-## How a change becomes a notice
+## How a change becomes mail
 
 Komrad records each change as an _event_ in the same database transaction as the change itself. If you save a document, the save and its event commit together. If the save fails, there is no event. If komrad stops a moment after the save, the event is still there when it comes back.
 
@@ -82,15 +82,15 @@ Komrad records each change as an _event_ in the same database transaction as the
           v  a moment later
   one transaction
   ├── the handler for pull requests finds the agents on the branch
-  ├── writes or rewrites each one's notice
+  ├── writes or rewrites each one's mail
   └── marks the event done
           |
           v
   delivered the same way as any other mail
 ```
 
-A background worker picks up each event and hands it to the part of komrad that owns that kind of change. That part decides who to tell and what to say. Writing the notices and marking the event done happen together, so an event is never half handled.
+A background worker picks up each event and hands it to the part of komrad that owns that kind of change. That part decides who to tell and what to say. Writing the mail and marking the event done happen together, so an event is never half handled.
 
-If a notice cannot be written yet because the agent's mailbox is full, the event is tried again later, with growing gaps, for about three weeks. The change itself is never held up. Saving a document or releasing a review works even when the agent is not keeping up with its mail. A notice for an archived agent is dropped.
+If the mail cannot be written yet because the agent's mailbox is full, the event is tried again later, with growing gaps, for about three weeks. The change itself is never held up. Saving a document or releasing a review works even when the agent is not keeping up with its mail. Mail for an archived agent is dropped.
 
-This is a pattern called a _transactional outbox_. Komrad keeps its events in the same job queue it uses for other background work, and the mail table is where the notices land.
+This is a pattern called a _transactional outbox_. Komrad keeps its events in the same job queue it uses for other background work, and the mail table is where the messages land.

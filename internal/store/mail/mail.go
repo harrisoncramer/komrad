@@ -18,7 +18,7 @@ import (
 // Cursor pages this listing, which resumes from one row's id.
 type Cursor = store.IDCursor
 
-// Kind separates mail an agent sent, always KindPlain, from a notice komrad raised itself.
+// Kind separates mail an agent sent, always KindPlain, from mail komrad wrote itself.
 type Kind string
 
 const (
@@ -45,7 +45,7 @@ type Mail struct {
 	Body        string
 	Kind        Kind
 	ReplyTo     *string
-	// SubjectID is the thing a notice komrad raised is about, unset on ordinary mail.
+	// SubjectID is the thing mail from komrad is about, unset on ordinary mail.
 	SubjectID *string
 	ClaimedAt *time.Time
 	ExpiresAt time.Time
@@ -100,7 +100,7 @@ func (s *MailStore) Send(ctx context.Context, params SendParams) (*Mail, error) 
 	return &sent, nil
 }
 
-type UpsertNoticeParams struct {
+type UpsertFromKomradParams struct {
 	FromName  string
 	ToAgentID string
 	Body      string
@@ -109,10 +109,10 @@ type UpsertNoticeParams struct {
 	Deadline  time.Duration
 }
 
-// UpsertNotice writes a notice komrad raised, rewriting the recipient's unread notice of the
+// UpsertFromKomrad writes mail from komrad, rewriting the recipient's unread mail of the
 // same kind about the same subject when it holds one.
-func (s *MailStore) UpsertNotice(ctx context.Context, params UpsertNoticeParams) (*Mail, error) {
-	row, err := s.queries.UpsertNotice(ctx, models.UpsertNoticeParams{
+func (s *MailStore) UpsertFromKomrad(ctx context.Context, params UpsertFromKomradParams) (*Mail, error) {
+	row, err := s.queries.UpsertFromKomrad(ctx, models.UpsertFromKomradParams{
 		FromName:       params.FromName,
 		ToAgentID:      params.ToAgentID,
 		Body:           params.Body,
@@ -121,7 +121,7 @@ func (s *MailStore) UpsertNotice(ctx context.Context, params UpsertNoticeParams)
 		DeadlineMicros: params.Deadline.Microseconds(),
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to write the %q notice for agent %q: %w", params.Kind, params.ToAgentID, err)
+		return nil, fmt.Errorf("failed to write %q mail for agent %q: %w", params.Kind, params.ToAgentID, err)
 	}
 
 	written := fromRow(row)
@@ -129,23 +129,23 @@ func (s *MailStore) UpsertNotice(ctx context.Context, params UpsertNoticeParams)
 	return &written, nil
 }
 
-// GetPendingNotice is the unread notice of a kind about a subject that its recipient holds,
+// GetUnreadAbout is the unread mail of a kind about a subject that its recipient holds,
 // expired or not, ErrNotFound when it holds none.
-func (s *MailStore) GetPendingNotice(ctx context.Context, toAgentID string, kind Kind, subjectID string) (*Mail, error) {
+func (s *MailStore) GetUnreadAbout(ctx context.Context, toAgentID string, kind Kind, subjectID string) (*Mail, error) {
 	if !store.IsID(toAgentID) || !store.IsID(subjectID) {
-		return nil, noPendingNotice(toAgentID, kind)
+		return nil, noUnreadAbout(toAgentID, kind)
 	}
 
-	row, err := s.queries.GetPendingNotice(ctx, models.GetPendingNoticeParams{
+	row, err := s.queries.GetUnreadAbout(ctx, models.GetUnreadAboutParams{
 		ToAgentID: toAgentID,
 		Kind:      models.MailKind(kind),
 		SubjectID: subjectID,
 	})
 	if db.IsNoRows(err) {
-		return nil, noPendingNotice(toAgentID, kind)
+		return nil, noUnreadAbout(toAgentID, kind)
 	}
 	if err != nil {
-		return nil, fmt.Errorf("failed to read the unread %q notice of agent %q: %w", kind, toAgentID, err)
+		return nil, fmt.Errorf("failed to read the unread %q mail of agent %q: %w", kind, toAgentID, err)
 	}
 
 	held := fromRow(row)
@@ -153,8 +153,8 @@ func (s *MailStore) GetPendingNotice(ctx context.Context, toAgentID string, kind
 	return &held, nil
 }
 
-func noPendingNotice(toAgentID string, kind Kind) error {
-	return fmt.Errorf("%w: an unread %q notice for agent %q", store.ErrNotFound, kind, toAgentID)
+func noUnreadAbout(toAgentID string, kind Kind) error {
+	return fmt.Errorf("%w: unread %q mail for agent %q", store.ErrNotFound, kind, toAgentID)
 }
 
 // GetByIdempotencyKey is the mail a send with that key already wrote, ErrNotFound when none did.
@@ -283,7 +283,7 @@ func (s *MailStore) Delete(ctx context.Context, ids []string) error {
 }
 
 // CountExchanged is how much plain mail two agents have written to each other, in either
-// direction, leaving out the notices komrad raised itself.
+// direction, leaving out the mail komrad wrote itself.
 func (s *MailStore) CountExchanged(ctx context.Context, one, other string) (int64, error) {
 	if !store.IsID(one) || !store.IsID(other) {
 		return 0, nil

@@ -8,8 +8,8 @@ import (
 
 	"komrad/db"
 	"komrad/internal/agents"
+	"komrad/internal/events"
 	"komrad/internal/jobs/internaljobs"
-	"komrad/internal/notices"
 	"komrad/internal/schedules"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
@@ -419,12 +419,12 @@ type followUpRouter struct {
 	followUps []river.JobArgs
 }
 
-func (r followUpRouter) Route(context.Context, store.DBTX, notices.Event) ([]river.JobArgs, error) {
+func (r followUpRouter) Route(context.Context, store.DBTX, events.Event) ([]river.JobArgs, error) {
 	return r.followUps, nil
 }
 
-// TestNoticeRecordsItsFollowUpsWithTheEvent pins that an event completes with the jobs its handler asked for, a burst of wakes for one agent folding into one.
-func TestNoticeRecordsItsFollowUpsWithTheEvent(t *testing.T) {
+// TestEventRecordsItsFollowUps pins that an event completes with the jobs its handler asked for, a burst of wakes for one agent folding into one.
+func TestEventRecordsItsFollowUps(t *testing.T) {
 	stores := storetest.Open(t)
 	require.NoError(t, db.MigrateRiver(t.Context(), stores.Pool.GetRawPool(), stores.Pool.GetRiverSchema()))
 
@@ -439,7 +439,7 @@ func TestNoticeRecordsItsFollowUpsWithTheEvent(t *testing.T) {
 	require.NoError(t, client.Start(t.Context()))
 	t.Cleanup(func() { _ = client.Stop(context.WithoutCancel(t.Context())) })
 
-	inserted, err := client.Insert(t.Context(), notices.Event{Topic: "review_answered", Payload: json.RawMessage(`{}`)}, nil)
+	inserted, err := client.Insert(t.Context(), events.Event{Topic: "review_answered", Payload: json.RawMessage(`{}`)}, nil)
 	require.NoError(t, err)
 
 	require.Eventually(t, func() bool {

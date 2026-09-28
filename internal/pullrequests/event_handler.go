@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"strings"
 
+	"komrad/internal/events"
 	"komrad/internal/mail"
-	"komrad/internal/notices"
 	"komrad/internal/store"
 	mailstore "komrad/internal/store/mail"
 	pullrequeststore "komrad/internal/store/pullrequest"
@@ -16,21 +16,21 @@ import (
 	"github.com/riverqueue/river"
 )
 
-// NoticeHandler keeps one unread notice per agent on a pull request's branch saying where it stands.
-type NoticeHandler struct{}
+// EventHandler keeps one unread mail per agent on a pull request's branch saying where it stands.
+type EventHandler struct{}
 
-// NewNoticeHandler builds the handler the router is given for pull request changes.
-func NewNoticeHandler() *NoticeHandler {
-	return &NoticeHandler{}
+// NewEventHandler builds the handler the router is given for pull request changes.
+func NewEventHandler() *EventHandler {
+	return &EventHandler{}
 }
 
 // Topic is the topic of a Change.
-func (*NoticeHandler) Topic() string {
+func (*EventHandler) Topic() string {
 	return changeTopic
 }
 
 // Handle tells every agent on the pull request's branch where it now stands.
-func (*NoticeHandler) Handle(ctx context.Context, tx store.DBTX, mailer *mail.MailService, payload json.RawMessage) ([]river.JobArgs, error) {
+func (*EventHandler) Handle(ctx context.Context, tx store.DBTX, mailer *mail.MailService, payload json.RawMessage) ([]river.JobArgs, error) {
 	var change Change
 	if err := json.Unmarshal(payload, &change); err != nil {
 		return nil, fmt.Errorf("failed to read a pull request change: %w", err)
@@ -52,7 +52,7 @@ func (*NoticeHandler) Handle(ctx context.Context, tx store.DBTX, mailer *mail.Ma
 
 	body := render(*pullRequest)
 	for _, recipient := range recipients {
-		err := notices.Write(ctx, mailer, notices.Notice{
+		err := events.Send(ctx, mailer, mail.SendFromKomradParams{
 			ToAgentID:   recipient,
 			Kind:        mailstore.KindPullRequestChanged,
 			SubjectID:   pullRequest.ID,

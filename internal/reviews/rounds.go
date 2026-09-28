@@ -10,10 +10,10 @@ import (
 	"strings"
 
 	"komrad/internal/agents"
+	"komrad/internal/events"
 	"komrad/internal/fail"
 	"komrad/internal/git"
 	"komrad/internal/logging"
-	"komrad/internal/notices"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
 	reviewstore "komrad/internal/store/review"
@@ -525,7 +525,7 @@ func (s *ReviewService) ReleaseReview(
 			return nil, err
 		}
 
-		event, err := notices.NewEvent(Released{
+		event, err := events.NewEvent(Released{
 			ReviewID: open.ID,
 			AgentID:  params.AgentID,
 			Ordinal:  round.Ordinal,
@@ -553,9 +553,9 @@ func (s *ReviewService) ReleaseReview(
 	}, nil
 }
 
-// reviewNotice is the whole of what the mail carries: the round, the verdict, how much there is
+// releaseMail is the whole of what the mail carries: the round, the verdict, how much there is
 // and how to read it.
-func reviewNotice(params Released) string {
+func releaseMail(params Released) string {
 	said := fmt.Sprintf("%d comment(s)", params.Comments)
 	if params.Replies > 0 {
 		said += fmt.Sprintf(", %d reply(ies) in earlier threads", params.Replies)

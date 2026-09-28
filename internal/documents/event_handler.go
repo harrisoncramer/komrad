@@ -6,8 +6,8 @@ import (
 	"errors"
 	"fmt"
 
+	"komrad/internal/events"
 	"komrad/internal/mail"
-	"komrad/internal/notices"
 	"komrad/internal/store"
 	documentstore "komrad/internal/store/document"
 	mailstore "komrad/internal/store/mail"
@@ -28,21 +28,21 @@ func (PersonWrote) Topic() string {
 	return personWroteTopic
 }
 
-// NoticeHandler keeps one unread notice per document telling its owner a person wrote it.
-type NoticeHandler struct{}
+// EventHandler keeps one unread mail per document telling its owner a person wrote it.
+type EventHandler struct{}
 
-// NewNoticeHandler builds the handler the router is given for a person's writes.
-func NewNoticeHandler() *NoticeHandler {
-	return &NoticeHandler{}
+// NewEventHandler builds the handler the router is given for a person's writes.
+func NewEventHandler() *EventHandler {
+	return &EventHandler{}
 }
 
 // Topic is the topic of PersonWrote.
-func (*NoticeHandler) Topic() string {
+func (*EventHandler) Topic() string {
 	return personWroteTopic
 }
 
 // Handle tells the owner of the document a person wrote.
-func (*NoticeHandler) Handle(ctx context.Context, tx store.DBTX, mailer *mail.MailService, payload json.RawMessage) ([]river.JobArgs, error) {
+func (*EventHandler) Handle(ctx context.Context, tx store.DBTX, mailer *mail.MailService, payload json.RawMessage) ([]river.JobArgs, error) {
 	var wrote PersonWrote
 	if err := json.Unmarshal(payload, &wrote); err != nil {
 		return nil, fmt.Errorf("failed to read a document write: %w", err)
@@ -56,12 +56,12 @@ func (*NoticeHandler) Handle(ctx context.Context, tx store.DBTX, mailer *mail.Ma
 		return nil, err
 	}
 
-	body := buildEditNotice(*document)
+	body := buildEditMail(*document)
 	if wrote.Created {
-		body = buildCreateNotice(*document)
+		body = buildCreateMail(*document)
 	}
 
-	return nil, notices.Write(ctx, mailer, notices.Notice{
+	return nil, events.Send(ctx, mailer, mail.SendFromKomradParams{
 		ToAgentID: document.AgentID,
 		Kind:      mailstore.KindDocumentEdited,
 		SubjectID: document.ID,

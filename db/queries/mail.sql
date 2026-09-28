@@ -20,7 +20,7 @@ VALUES (
 RETURNING
     *;
 
--- name: UpsertNotice :one
+-- name: UpsertFromKomrad :one
 INSERT INTO mail(
     from_name,
     to_agent_id,
@@ -50,7 +50,7 @@ WHERE
         RETURNING
             *;
 
--- name: GetPendingNotice :one
+-- name: GetUnreadAbout :one
 SELECT
     *
 FROM

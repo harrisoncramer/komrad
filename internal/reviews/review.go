@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"time"
 
+	"komrad/internal/events"
 	"komrad/internal/fail"
-	"komrad/internal/notices"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
 	reviewstore "komrad/internal/store/review"
@@ -444,7 +444,7 @@ func (s *ReviewService) AddReviewMessage(
 			return nil, nil
 		}
 
-		event, err := notices.NewEvent(Answered{AgentID: thread.AgentID})
+		event, err := events.NewEvent(Answered{AgentID: thread.AgentID})
 		if err != nil {
 			return nil, err
 		}
@@ -463,9 +463,9 @@ func (s *ReviewService) AddReviewMessage(
 	return result, nil
 }
 
-// answerNotice is the notice a reviewer gets, which says where to look rather than what was
+// answerMail is the mail a reviewer gets, which says where to look rather than what was
 // said.
-func answerNotice(authorName string) string {
+func answerMail(authorName string) string {
 	return fmt.Sprintf("komrad: %s answered your review. Read the threads with list_review_threads, "+
 		"open a round over its work as it now stands, and release a verdict on that round.", authorName)
 }

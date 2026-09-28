@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestAPullRequestChangeTellsTheAgentsOnItsBranch pins what the one unread notice on a pull request says after each pass.
+// TestAPullRequestChangeTellsTheAgentsOnItsBranch pins what the one unread mail about a pull request says after each pass.
 func TestAPullRequestChangeTellsTheAgentsOnItsBranch(t *testing.T) {
 	pending := forge.Standing{Decision: forge.ReviewDecisionPending, Checks: forge.ChecksPending}
 
@@ -36,7 +36,7 @@ func TestAPullRequestChangeTellsTheAgentsOnItsBranch(t *testing.T) {
 			standings: []forge.Standing{{Decision: forge.ReviewDecisionPending, Checks: forge.ChecksPassing}},
 		},
 		{
-			name: "two changes before the agent reads are one notice",
+			name: "two changes before the agent reads are one mail",
 			standings: []forge.Standing{
 				{Decision: forge.ReviewDecisionPending, Checks: forge.ChecksFailing},
 				{Decision: forge.ReviewDecisionPending, Checks: forge.ChecksFailing, Mergeability: forge.MergeabilityConflicting},
@@ -44,7 +44,7 @@ func TestAPullRequestChangeTellsTheAgentsOnItsBranch(t *testing.T) {
 			wantLines: []string{"  checks: failing\n", "  mergeability: conflicting with main\n"},
 		},
 		{
-			name: "a later change rewrites the notice to where things stand",
+			name: "a later change rewrites the mail to where things stand",
 			standings: []forge.Standing{
 				{Decision: forge.ReviewDecisionPending, Checks: forge.ChecksFailing},
 				{Decision: forge.ReviewDecisionPending, Checks: forge.ChecksPassing},
@@ -80,8 +80,8 @@ func TestAPullRequestChangeTellsTheAgentsOnItsBranch(t *testing.T) {
 	}
 }
 
-// TestAPullRequestChangeAfterTheNoticeWasReadStartsAnother pins that a read notice is left alone.
-func TestAPullRequestChangeAfterTheNoticeWasReadStartsAnother(t *testing.T) {
+// TestAPullRequestChangeAfterTheMailWasReadStartsAnother pins that mail the agent read is left alone.
+func TestAPullRequestChangeAfterTheMailWasReadStartsAnother(t *testing.T) {
 	f := newSyncFixture(t)
 	agentID := f.agentOn(t, "a", "agent/x")
 	f.forge.updated[""] = &forge.Page{PullRequests: []forge.PullRequest{pullRequestAt("PR_1", "agent/x", syncNow.Add(-time.Minute))}}

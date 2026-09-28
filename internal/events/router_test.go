@@ -1,4 +1,4 @@
-package notices_test
+package events_test
 
 import (
 	"context"
@@ -6,8 +6,8 @@ import (
 	"testing"
 
 	"komrad/config"
+	"komrad/internal/events"
 	"komrad/internal/mail"
-	"komrad/internal/notices"
 	"komrad/internal/store"
 	"komrad/internal/storetest"
 
@@ -54,16 +54,16 @@ func (h *pingHandler) Handle(_ context.Context, _ store.DBTX, _ *mail.MailServic
 func TestRouterHandsEachEventToItsTopic(t *testing.T) {
 	stores := storetest.Open(t)
 	handler := &pingHandler{}
-	router := notices.NewRouter(notices.NewRouterParams{
+	router := events.NewRouter(events.NewRouterParams{
 		Mailer: mail.NewMailService(mail.NewMailServiceParams{
 			MailReadWriter: stores.Mail,
 			Agents:         stores.Agents,
 			Config:         config.Mail{},
 		}),
-		Handlers: []notices.Handler{handler},
+		Handlers: []events.Handler{handler},
 	})
 
-	event, err := notices.NewEvent(pinged{Name: "a"})
+	event, err := events.NewEvent(pinged{Name: "a"})
 	require.NoError(t, err)
 
 	followUps, err := router.Route(t.Context(), stores.Pool.GetDB(), *event)
@@ -71,6 +71,6 @@ func TestRouterHandsEachEventToItsTopic(t *testing.T) {
 	assert.Equal(t, []river.JobArgs{followUp{Name: "a"}}, followUps)
 	assert.Equal(t, []string{"a"}, handler.heard)
 
-	_, err = router.Route(t.Context(), stores.Pool.GetDB(), notices.Event{Topic: "unheard", Payload: json.RawMessage(`{}`)})
-	require.ErrorIs(t, err, notices.ErrUnknownTopic)
+	_, err = router.Route(t.Context(), stores.Pool.GetDB(), events.Event{Topic: "unheard", Payload: json.RawMessage(`{}`)})
+	require.ErrorIs(t, err, events.ErrUnknownTopic)
 }
