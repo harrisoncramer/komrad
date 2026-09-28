@@ -512,6 +512,13 @@
               "default": "[\"esc\"]"
             },
             {
+              "key": "copy",
+              "path": "keybindings.logs.copy",
+              "type": "array",
+              "description": "Copy the log line the cursor is on to the system clipboard.",
+              "default": "[\"y\"]"
+            },
+            {
               "key": "quit",
               "path": "keybindings.logs.quit",
               "type": "array",

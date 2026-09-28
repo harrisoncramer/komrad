@@ -206,6 +206,8 @@ rebase            = ["r"]
 [keybindings.logs]
 # Leave the logs screen for the view it was opened from.
 back = ["esc"]
+# Copy the log line the cursor is on to the system clipboard.
+copy = ["y"]
 # Quit the panel.
 quit = ["ctrl+c"]
 

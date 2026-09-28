@@ -583,7 +583,7 @@ func TestLogsLineFilter(t *testing.T) {
 			name:     "esc on the lines clears a standing filter",
 			presses:  append(slices.Clone(typed), "enter", "esc"),
 			want:     []string{"first line", "second line"},
-			notWant:  []string{"▽"},
+			notWant:  []string{"▽ second"},
 			wantLast: logRead("service", ""),
 		},
 		{
@@ -611,7 +611,7 @@ func TestLogsLineFilter(t *testing.T) {
 			name:     "moving to another source drops the filter",
 			presses:  append(slices.Clone(typed), "enter", "ctrl+a", "j", "k"),
 			want:     []string{"first line", "second line"},
-			notWant:  []string{"▽"},
+			notWant:  []string{"▽ second"},
 			wantLast: logRead("service", ""),
 		},
 	}
@@ -647,6 +647,26 @@ func TestLogsLineFilter(t *testing.T) {
 		assert.Contains(t, lastStageRow(harness.readFrame()), "▽ second")
 	})
 
+	t.Run("the prompt stands at the foot of the log before anything is typed", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openLogs(t, filteredTailOfTwo())
+
+		assert.Equal(t, "  ▽", lastStageRow(harness.readFrame()))
+	})
+
+	t.Run("the lines sit on the prompt rather than at the top of the log", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openLogs(t, filteredTailOfTwo())
+		harness.press(append(slices.Clone(typed), "enter")...)
+
+		rows := readStage(harness.readFrame())
+		foot := slices.IndexFunc(rows, func(row string) bool { return strings.Contains(row, "▽ second") })
+		assert.Positive(t, foot)
+		assert.Contains(t, rows[foot-1], "second line")
+	})
+
 	t.Run("the next read carries the pattern", func(t *testing.T) {
 		t.Parallel()
 
@@ -672,4 +692,41 @@ func TestLogsLineFilter(t *testing.T) {
 
 		assert.NotContains(t, readStageText(harness.readFrame()), "stale line")
 	})
+}
+
+// TestLogsCopy covers the copy key putting the log line under the cursor on the clipboard.
+func TestLogsCopy(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		presses []string
+		want    []string
+	}{
+		{
+			name:    "the newest line is copied from where the cursor starts",
+			presses: []string{"ctrl+a", "y"},
+			want:    []string{`{"body":"second line"}`},
+		},
+		{
+			name:    "the line the cursor moved to is copied",
+			presses: []string{"ctrl+a", "k", "y"},
+			want:    []string{`{"body":"first line"}`},
+		},
+		{
+			name:    "the list holding the keys copies nothing",
+			presses: []string{"y"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			harness := openLogs(t, tailOfTwo())
+			harness.press(tt.presses...)
+
+			assert.Equal(t, tt.want, harness.panel.ReadCopied())
+		})
+	}
 }

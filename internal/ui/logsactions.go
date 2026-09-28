@@ -98,6 +98,18 @@ func (l *logsScreen) logActions() screenActionSpec {
 				},
 			},
 			{
+				id:   actionLogsCopy,
+				keys: func(k config.Keybindings) []string { return k.Logs.Copy },
+				run: func(h host, _ panelShared, _ string) tea.Cmd {
+					line, ok := l.viewer.Current()
+					if !ok {
+						return nil
+					}
+
+					return h.copyCmd(line)
+				},
+			},
+			{
 				id:   actionFilterOpen,
 				keys: func(config.Keybindings) []string { return []string{filterOpenKey} },
 				run: func(host, panelShared, string) tea.Cmd {
@@ -132,6 +144,11 @@ func (l *logsScreen) logActions() screenActionSpec {
 			{
 				of:   []actionID{actionFilterOpen},
 				desc: func(panelShared) string { return "filter" },
+			},
+			{
+				of:    []actionID{actionLogsCopy},
+				desc:  func(panelShared) string { return "copy line" },
+				strip: true,
 			},
 			{
 				of: []actionID{actionLogsBack},

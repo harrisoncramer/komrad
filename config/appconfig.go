@@ -421,6 +421,8 @@ type DocumentsKeys struct {
 type LogsKeys struct {
 	// Leave the logs screen for the view it was opened from.
 	Back []string `mapstructure:"back" default:"esc"`
+	// Copy the log line the cursor is on to the system clipboard.
+	Copy []string `mapstructure:"copy" default:"y"`
 	// Quit the panel.
 	Quit []string `mapstructure:"quit" default:"ctrl+c"`
 }

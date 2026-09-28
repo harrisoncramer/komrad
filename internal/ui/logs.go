@@ -376,30 +376,33 @@ func (l *logsScreen) lines(s panelShared, pane listPane) []string {
 	})
 }
 
-// block is the log drawn at the width and height of the block beside the sidebar, with the
-// pattern typed at its foot while there is one.
+// block is the log drawn at the width and height of the block beside the sidebar, its lines
+// pinned to the prompt at its foot.
 func (l *logsScreen) block(m model, width int) []string {
 	split, ok := m.screenColumnSplit()
 	if !ok {
 		return nil
 	}
 
-	if !l.isLogFilterDrawn() {
-		return l.logRows(m, width, split.rows)
-	}
-
 	height := max(split.rows-1, 1)
 	rows := l.logRows(m, width, height)
+	if l.read && l.viewer.Len() > 0 {
+		rows = append(make([]string, max(height-len(rows), 0)), rows...)
+	}
 	for len(rows) < height {
 		rows = append(rows, "")
 	}
 
-	return append(rows, fitRow(blankCursor+l.logFilter.line(paint.Panel, m.glyphs), width))
+	return append(rows, fitRow(blankCursor+l.logFilterLine(m.glyphs), width))
 }
 
-// isLogFilterDrawn reports whether the prompt at the foot of the log is up.
-func (l *logsScreen) isLogFilterDrawn() bool {
-	return l.logFilter.typing || l.logFilter.isStanding()
+// logFilterLine is the prompt at the foot of the log, gray while it does not hold the keys.
+func (l *logsScreen) logFilterLine(glyphs glyph.Set) string {
+	if l.logFilter.typing {
+		return l.logFilter.line(paint.Panel, glyphs)
+	}
+
+	return dimStyle.Render(filterModeFilter.glyph(glyphs) + " " + l.logFilter.query)
 }
 
 // logRows is the lines of the log drawn in height rows, or what stands in for them.
