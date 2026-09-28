@@ -38,7 +38,7 @@ func TestSubpages(t *testing.T) {
 			row:        "komrad",
 			wantTitle:  "Subpages of orchestrator",
 			wantCrumb:  "agents › orchestrator",
-			wantCursor: "› documents",
+			wantCursor: "› logs",
 		},
 		{
 			name:       "an agent with a checkout starts on review",
@@ -73,6 +73,17 @@ func TestSubpages(t *testing.T) {
 		assert.NotContains(t, frame, readOffEntry("logs", "l"))
 	})
 
+	t.Run("an orchestrator has no review or documents, which its workflow's agents hold", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openSubpages(t, "komrad")
+
+		frame := readStageText(harness.readFrame())
+		assert.NotContains(t, frame, "review")
+		assert.NotContains(t, frame, "documents")
+		assert.Contains(t, frame, "terminal")
+	})
+
 	t.Run("review answers its letter", func(t *testing.T) {
 		t.Parallel()
 
@@ -80,9 +91,14 @@ func TestSubpages(t *testing.T) {
 		harness := newPanelHarness(t, panelHarnessParams{git: server.repo})
 		server.serve(harness)
 		harness.watch(server.buildSnapshot())
-		harness.press("space", "r")
+		harness.press("space")
+		menuUp := len(harness.panel.ReadZooms())
+		require.True(t, harness.panel.IsZoomed())
+
+		harness.press("r")
 
 		assert.Equal(t, reviewScreen, harness.readScreen())
+		assert.NotContains(t, harness.panel.ReadZooms()[menuUp:], false, "the list is not drawn again on the way")
 	})
 
 	t.Run("review on an agent with no checkout says why", func(t *testing.T) {
@@ -117,20 +133,6 @@ func TestSubpages(t *testing.T) {
 		assert.NotContains(t, frame, "agents › author")
 	})
 
-	t.Run("the trail takes the blank row under the switcher, so the list does not move", func(t *testing.T) {
-		t.Parallel()
-
-		harness := openAgents(t, buildSubpagesAgents()...)
-		moveToAgentRow(t, harness, "author")
-		before := splitLines(harness.readFrame())
-
-		harness.press("space")
-		after := splitLines(harness.readFrame())
-
-		require.Contains(t, after[2], "agents › author")
-		assert.Equal(t, before[3], after[3])
-	})
-
 	t.Run("the legend offers it", func(t *testing.T) {
 		t.Parallel()
 
@@ -156,6 +158,7 @@ func TestSubpagesInArchive(t *testing.T) {
 		assert.Contains(t, frame, "archive › author")
 		assert.Contains(t, frame, "› documents")
 		assert.Contains(t, harness.readRawFrame(), readOffEntry("review", "r"))
+		assert.Contains(t, harness.readRawFrame(), readOffEntry("terminal", "t"))
 	})
 
 	t.Run("documents open, and back returns to the archive", func(t *testing.T) {

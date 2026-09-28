@@ -168,9 +168,6 @@ type Keybindings struct {
 	Tabs TabsKeys `mapstructure:"tabs"`
 	// The row of kinds a screen listing more than one kind of resource draws under its tabs.
 	Kinds KindsKeys `mapstructure:"kinds"`
-	// The key that opens a shell in the hovered agent's directory, shared by every
-	// screen that lists agents.
-	Terminal TerminalKeys `mapstructure:"terminal"`
 	// The switcher at the top of the panel, which moves between the agents, query,
 	// schedules, archive and worktrees from any of them.
 	Views ViewsKeys `mapstructure:"views"`
@@ -275,16 +272,6 @@ type ViewsKeys struct {
 	Worktrees []string `mapstructure:"worktrees" default:"w"`
 }
 
-// TerminalKeys is the binding that opens a shell in the info pane, rooted at the hovered
-// agent's own directory. It is its own group rather than one of a screen's, since the
-// archive lists agents with directories too. The shell stays where it opened as the cursor
-// moves, since respawning its pane would kill whatever is running in it, so pressing the key
-// hands it the keyboard and only moves it when the hovered agent is rooted somewhere else.
-type TerminalKeys struct {
-	// Open a shell in the hovered agent's directory, focus the one already there, or move it here.
-	Open []string `mapstructure:"open" default:"T"`
-}
-
 // FormKeys are the keys a form answers, read before the key reaches the box being typed into and
 // so not something a config sets.
 type FormKeys struct {
@@ -385,6 +372,10 @@ type SubpagesKeys struct {
 	Documents []string `mapstructure:"documents" default:"d"`
 	// Pick the agent's logs, which the panel does not draw yet, so the entry closes the menu.
 	Logs []string `mapstructure:"logs" default:"l"`
+	// Open a shell in the pane below the stage, rooted at the agent's directory, or hand the
+	// keyboard to the one already rooted there. The entry is gray in the archive and on an agent
+	// with no directory.
+	Terminal []string `mapstructure:"terminal" default:"t"`
 }
 
 // WorkflowsKeys are the bindings that act on a workflow.

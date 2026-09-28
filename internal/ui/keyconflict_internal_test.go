@@ -98,11 +98,6 @@ func TestValidateKeybindingsReadsTheGlobalKeys(t *testing.T) {
 			names:  "the help toggle",
 		},
 		{
-			name:   "the terminal taking a movement key",
-			rebind: func(k *config.Keybindings) { k.Terminal.Open = []string{"k"} },
-			names:  "the terminal",
-		},
-		{
 			name:   "the backward view cycle",
 			rebind: func(k *config.Keybindings) { k.Agents.Pause = []string{k.Cycle.Views[1]} },
 			names:  "the view cycle",

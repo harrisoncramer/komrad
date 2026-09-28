@@ -321,6 +321,10 @@ review    = ["r"]
 documents = ["d"]
 # Pick the agent's logs, which the panel does not draw yet, so the entry closes the menu.
 logs      = ["l"]
+# Open a shell in the pane below the stage, rooted at the agent's directory, or hand the
+# keyboard to the one already rooted there. The entry is gray in the archive and on an agent
+# with no directory.
+terminal  = ["t"]
 
 # The row of tabs a screen draws over its list, and the key that hands it the cursor.
 [keybindings.tabs]
@@ -332,12 +336,6 @@ focus = ["f"]
 # Hand the keys to the row of kinds, where tab and shift+tab switch the kind listed; escape
 # hands them back.
 focus = ["F"]
-
-# The key that opens a shell in the hovered agent's directory, shared by every
-# screen that lists agents.
-[keybindings.terminal]
-# Open a shell in the hovered agent's directory, focus the one already there, or move it here.
-open = ["T"]
 
 # The switcher at the top of the panel, which moves between the agents, query,
 # schedules, archive and worktrees from any of them.

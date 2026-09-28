@@ -832,6 +832,13 @@
               "type": "array",
               "description": "Pick the agent's logs, which the panel does not draw yet, so the entry closes the menu.",
               "default": "[\"l\"]"
+            },
+            {
+              "key": "terminal",
+              "path": "keybindings.subpages.terminal",
+              "type": "array",
+              "description": "Open a shell in the pane below the stage, rooted at the agent's directory, or hand the\nkeyboard to the one already rooted there. The entry is gray in the archive and on an agent\nwith no directory.",
+              "default": "[\"t\"]"
             }
           ],
           "sections": []
@@ -860,20 +867,6 @@
               "type": "array",
               "description": "Hand the keys to the row of kinds, where tab and shift+tab switch the kind listed; escape\nhands them back.",
               "default": "[\"F\"]"
-            }
-          ],
-          "sections": []
-        },
-        {
-          "path": "keybindings.terminal",
-          "description": "The key that opens a shell in the hovered agent's directory, shared by every\nscreen that lists agents.",
-          "settings": [
-            {
-              "key": "open",
-              "path": "keybindings.terminal.open",
-              "type": "array",
-              "description": "Open a shell in the hovered agent's directory, focus the one already there, or move it here.",
-              "default": "[\"T\"]"
             }
           ],
           "sections": []

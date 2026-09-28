@@ -15,6 +15,7 @@ const (
 	subpageReview subpage = iota
 	subpageDocuments
 	subpageLogs
+	subpageTerminal
 )
 
 var (
@@ -22,26 +23,55 @@ var (
 	errReviewChild      = errors.New("this agent works in its parent's checkout, so its work is reviewed there")
 	errReviewNoCheckout = errors.New("this agent has no checkout of its own to read")
 	errNoDocuments      = errors.New("this agent has not written any documents yet")
+	errTerminalHere     = errors.New("a terminal opens from the agents list")
 )
 
 // openAgentSubpages draws the subpages of an agent beside the list it was opened over.
 func openAgentSubpages(h host, s panelShared, from screen, item panel.AgentRow) tea.Cmd {
 	agent := item.Agent
 	agentID := agent.ID
+	pages := agentSubpages(agent)
+
+	entries := make([]submenuEntry, 0, len(pages))
+	for _, page := range pages {
+		entries = append(entries, subpageEntry(s, from, item, page))
+	}
 
 	return openSubmenu(h, submenu{
-		kind:  formSubpages,
-		title: "Subpages of " + agent.Name,
-		crumb: agent.Name,
-		entries: []submenuEntry{
-			{label: "review", keys: s.keys.Subpages.Review, isOff: reviewRefusal(from, agent) != nil},
-			{label: "documents", keys: s.keys.Subpages.Documents, isOff: item.Documents == 0},
-			{label: "logs", keys: s.keys.Subpages.Logs},
-		},
+		kind:    formSubpages,
+		title:   "Subpages of " + agent.Name,
+		crumb:   agent.Name,
+		entries: entries,
 		answer: func(m model, choice int) (tea.Model, tea.Cmd) {
-			return m.enterSubpage(from, agentID, subpage(choice))
+			return m.enterSubpage(from, agentID, pages[choice])
 		},
 	})
+}
+
+// agentSubpages is the subpages an agent has, which an orchestrator's work and writing leave out
+// since its workflow's agents hold them.
+func agentSubpages(agent panel.Agent) []subpage {
+	if agent.Role == panel.RoleOrchestrator {
+		return []subpage{subpageLogs, subpageTerminal}
+	}
+
+	return []subpage{subpageReview, subpageDocuments, subpageLogs, subpageTerminal}
+}
+
+// subpageEntry is how a subpage is drawn in an agent's menu.
+func subpageEntry(s panelShared, from screen, item panel.AgentRow, page subpage) submenuEntry {
+	switch page {
+	case subpageReview:
+		return submenuEntry{label: "review", keys: s.keys.Subpages.Review, isOff: reviewRefusal(from, item.Agent) != nil}
+	case subpageDocuments:
+		return submenuEntry{label: "documents", keys: s.keys.Subpages.Documents, isOff: item.Documents == 0}
+	case subpageLogs:
+		return submenuEntry{label: "logs", keys: s.keys.Subpages.Logs}
+	case subpageTerminal:
+		return submenuEntry{label: "terminal", keys: s.keys.Subpages.Terminal, isOff: terminalRefusal(from, item.Agent) != nil}
+	}
+
+	return submenuEntry{}
 }
 
 // reviewRefusal is why an agent's work cannot be reviewed from where the menu was opened, nil
@@ -59,17 +89,25 @@ func reviewRefusal(from screen, agent panel.Agent) error {
 	return nil
 }
 
-// enterSubpage closes the menu and goes to the subpage picked, or says why the agent has nothing
-// there.
+// terminalRefusal is why a shell cannot open on an agent from where the menu was opened, nil when
+// it can.
+func terminalRefusal(from screen, agent panel.Agent) error {
+	switch {
+	case !from.opensInfoPane():
+		return errTerminalHere
+	case agent.Cwd == "":
+		return errNoAgentDir
+	}
+
+	return nil
+}
+
+// enterSubpage goes from the menu to the subpage picked, or closes it and says why the agent has
+// nothing there.
 func (m model) enterSubpage(from screen, agentID string, picked subpage) (tea.Model, tea.Cmd) {
-	closed, back := m.closeForm()
-	next, _ := closed.(model)
-
-	item, ok := next.listing.anyAgent(agentID)
+	item, ok := m.listing.anyAgent(agentID)
 	if !ok {
-		next.report("Could not open the subpage", errAgentGone)
-
-		return next, back
+		return m.refuseSubpage("Could not open the subpage", errAgentGone)
 	}
 
 	name := item.Agent.Name
@@ -77,27 +115,42 @@ func (m model) enterSubpage(from screen, agentID string, picked subpage) (tea.Mo
 	switch picked {
 	case subpageReview:
 		if err := reviewRefusal(from, item.Agent); err != nil {
-			next.report("Could not open the review of "+name, err)
-
-			return next, back
+			return m.refuseSubpage("Could not open the review of "+name, err)
 		}
 
-		cmd := next.enter(screenReview, screenTarget{agentID: agentID})
+		m.leaveForm()
 
-		return next, tea.Batch(back, cmd)
+		return m, m.enter(screenReview, screenTarget{agentID: agentID})
 	case subpageDocuments:
 		if item.Documents == 0 {
-			next.report("Could not open the documents of "+name, errNoDocuments)
-
-			return next, back
+			return m.refuseSubpage("Could not open the documents of "+name, errNoDocuments)
 		}
 
-		cmd := next.enter(screenDocuments, screenTarget{agentID: agentID, from: from})
+		m.leaveForm()
 
-		return next, tea.Batch(back, cmd)
+		return m, m.enter(screenDocuments, screenTarget{agentID: agentID, from: from})
 	case subpageLogs:
-		return next, back
+		return m.closeForm()
+	case subpageTerminal:
+		if err := terminalRefusal(from, item.Agent); err != nil {
+			return m.refuseSubpage("Could not open a terminal", err)
+		}
+
+		closed, back := m.closeForm()
+		next, _ := closed.(model)
+		opened, cmd := next.openTerminal(item.Agent)
+
+		return opened, tea.Batch(back, cmd)
 	}
+
+	return m.closeForm()
+}
+
+// refuseSubpage closes the menu and says why the subpage picked did not open.
+func (m model) refuseSubpage(title string, err error) (tea.Model, tea.Cmd) {
+	closed, back := m.closeForm()
+	next, _ := closed.(model)
+	next.report(title, err)
 
 	return next, back
 }

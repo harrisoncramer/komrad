@@ -31,6 +31,8 @@ To move to another engine, close the panel and run <Command path="open" args="--
 
 An agent's terminal on the engine is streamed to your panel, and <Command path="terminal" args="AGENT" /> does the same in any terminal. The agent's window takes the size of the terminal attached to it, so it fills the stage and follows it when you resize.
 
+The terminal in an agent's [subpages](../navigation/#subpages) works the same way. It opens a shell on the engine, in the agent's directory there, and streams it to the pane below the stage.
+
 The exception is a window someone fixed at a size on the engine itself, for example by opening a panel there, which runs tmux's `resize-window` and sets the window's `window-size` to `manual`. That window keeps its size wherever it is attached, so a smaller terminal crops it and a larger one leaves blank space around it.
 
 ## Signing the agent CLI in

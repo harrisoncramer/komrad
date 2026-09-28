@@ -74,6 +74,7 @@ func ValidateKeybindings(keys config.Keybindings) error {
 		{name: "review", keys: keys.Subpages.Review},
 		{name: "documents", keys: keys.Subpages.Documents},
 		{name: "logs", keys: keys.Subpages.Logs},
+		{name: "terminal", keys: keys.Subpages.Terminal},
 	})
 }
 
@@ -189,12 +190,6 @@ func globalArms(s screen, keys config.Keybindings) []dispatchArm {
 		dispatchArm{describe: "the sidebar narrowing", keys: keys.Sidebar.Narrow},
 		dispatchArm{describe: "the sidebar widening", keys: keys.Sidebar.Widen},
 	)
-
-	if s.opensInfoPane() {
-		arms = append(arms,
-			dispatchArm{describe: "the terminal", keys: keys.Terminal.Open},
-		)
-	}
 
 	var zero model
 

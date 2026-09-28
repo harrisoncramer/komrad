@@ -23,35 +23,16 @@ const documentsScreen = "the documents"
 func TestDocumentsOpen(t *testing.T) {
 	t.Parallel()
 
-	tests := []struct {
-		name      string
-		row       string
-		wantAgent string
-	}{
-		{
-			name:      "an agent's row opens its own documents",
-			row:       "author",
-			wantAgent: "author",
-		},
-		{
-			name:      "a workflow's row opens its orchestrator's",
-			row:       "komrad",
-			wantAgent: "o1",
-		},
-	}
+	t.Run("an agent's row opens its own documents", func(t *testing.T) {
+		t.Parallel()
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
+		harness, _ := openDocuments(t, "author")
 
-			harness, _ := openDocuments(t, tt.row)
-
-			frame := harness.readFrame()
-			assert.Equal(t, documentsScreen, harness.readScreen())
-			assert.Contains(t, readStageText(frame), "Design the cache")
-			harness.assertSentTo(agentv1connect.AgentServiceListDocumentsProcedure, &agentv1.ListDocumentsRequest{AgentId: proto.String(tt.wantAgent)})
-		})
-	}
+		frame := harness.readFrame()
+		assert.Equal(t, documentsScreen, harness.readScreen())
+		assert.Contains(t, readStageText(frame), "Design the cache")
+		harness.assertSentTo(agentv1connect.AgentServiceListDocumentsProcedure, &agentv1.ListDocumentsRequest{AgentId: proto.String("author")})
+	})
 
 	t.Run("a row with none does not open it", func(t *testing.T) {
 		t.Parallel()

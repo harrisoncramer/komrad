@@ -390,10 +390,16 @@ func (m model) formSizeOf(msg tea.Msg) tea.Msg {
 	}
 }
 
-// closeForm drops the form and comes back to the screen it was drawn over.
-func (m model) closeForm() (tea.Model, tea.Cmd) {
+// leaveForm drops the form for an answer that goes on to another screen, which settles the window
+// itself, so the screen the form was drawn over is not drawn again on the way.
+func (m *model) leaveForm() {
 	m.held = heldWrite{}
 	m.form = formState{}
+}
+
+// closeForm drops the form and comes back to the screen it was drawn over.
+func (m model) closeForm() (tea.Model, tea.Cmd) {
+	m.leaveForm()
 	m.reconcileSolo()
 
 	cmd := m.enter(m.screen, screenTarget{})
