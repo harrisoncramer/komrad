@@ -89,9 +89,17 @@ if [ -n "$PANEL_PANE" ]; then
 	tmux -L "$KOMRAD_TMUX_SOCKET" kill-pane -t "$PANEL_PANE" 2>/dev/null || true
 fi
 
+tmux -L "$KOMRAD_TMUX_SOCKET" set-option -g default-shell "$MISE_CONFIG_ROOT/recordings/shell" 2>/dev/null || true
+
 PACE="$(sed -n 's/^# pace: *//p' recordings/settings.tape)"
 if [ -z "$PACE" ]; then
 	echo "record: recordings/settings.tape names no '# pace:'" >&2
+	exit 1
+fi
+
+HOLD="$(sed -n 's/^# hold: *//p' recordings/settings.tape)"
+if [ -z "$HOLD" ]; then
+	echo "record: recordings/settings.tape names no '# hold:'" >&2
 	exit 1
 fi
 
@@ -105,7 +113,7 @@ awk -v pace="$PACE" '
 cat >"$SCRATCH/run.tape" <<TAPE
 Source "recordings/settings.tape"
 Source "$SCRATCH/paced.tape"
-Sleep 1s
+Sleep $HOLD
 Screenshot "$OUT/$NAME.png"
 TAPE
 

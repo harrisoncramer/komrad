@@ -12,4 +12,3 @@ Type "z"
 Wait+Screen@10s /(?i)archive/
 Sleep 1.5s
 Enter
-Sleep 2s

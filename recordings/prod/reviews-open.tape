@@ -5,7 +5,8 @@ Source recordings/panel.tape
 Wait+Screen@30s /text-tru/
 Type "j"
 Sleep 3s
-Type "d"
+Space
+Type "r"
 Wait+Screen@10s /Review · text-truncate/
 Sleep 2s
 Type "]"
@@ -15,4 +16,3 @@ Sleep 3s
 Type "t"
 Sleep 3s
 Type "a"
-Sleep 4s

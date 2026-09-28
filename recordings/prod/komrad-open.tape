@@ -3,4 +3,3 @@ Source recordings/shell.tape
 Type "komrad open"
 Enter
 Wait+Screen@30s /Welcome, komrad!/
-Sleep 2s

@@ -31,4 +31,3 @@ Escape
 Sleep 1.5s
 Type "k"
 Type "k"
-Sleep 3s

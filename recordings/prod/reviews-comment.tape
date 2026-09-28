@@ -5,7 +5,8 @@
 Source recordings/panel.tape
 Wait+Screen@30s /text-tru/
 Type "j"
-Type "d"
+Space
+Type "r"
 Wait+Screen@10s /Review · text-truncate/
 Type "/"
 Type "leaves a short"
@@ -23,4 +24,3 @@ Sleep 2s
 Hide
 Wait+Screen@5m /text-truncate \d+:\d+[AP]M/
 Show
-Sleep 4s

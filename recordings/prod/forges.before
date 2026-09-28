@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+# Four agents on the neovim workflow, each with a pull request in a different place: open with
+# checks running, approved, failing, and merged. No forge is connected to the throwaway instance,
+# so the pull requests are written straight into its database the way a sync would leave them.
+set -euo pipefail
+
+here="$(dirname "$0")"
+"$here/fresh-neovim"
+
+database="${KOMRAD_DATABASE_URL%&pool_max_conns=*}"
+
+branch_of() {
+	for _ in $(seq 60); do
+		branch="$(komrad rpc get-agent --id "$1" --compact | jq -r '.agent.branch // empty')"
+		if [ -n "$branch" ]; then
+			echo "$branch"
+			return
+		fi
+		sleep 1
+	done
+	echo "agent $1 never reported a branch" >&2
+	exit 1
+}
+
+workflow="$(komrad rpc create-workflow --name neovim --cwd "$HOME/neovim" --worktree.enabled --flags "--model haiku" --compact | jq -r '.workflow.id')"
+
+number=41200
+
+pull_request() {
+	local name="$1" columns="$2" values="$3" agent branch
+	agent="$(komrad rpc create-agent --workflow-id "$workflow" --title "$name" \
+		--prompt "Reply with the single word ready, then wait." \
+		--compact | jq -r '.agent.id')"
+	branch="$(branch_of "$agent")"
+	number=$((number + 1))
+	psql "$database" -q -v ON_ERROR_STOP=1 \
+		-v agent="$agent" -v branch="$branch" -v number="$number" -v title="$name" <<SQL
+WITH opened AS (
+	INSERT INTO pull_requests (host, forge, provider_id, url, repository_url, head_repository_url, number, title,
+		head_branch, head_sha, base_branch, base_sha, draft, state, opened_at, changed_at, $columns)
+	VALUES ('github.com', 'github', :'number', 'https://github.com/neovim/neovim/pull/' || :'number',
+		'https://github.com/neovim/neovim', 'https://github.com/neovim/neovim', :number, :'title',
+		:'branch', 'head', 'master', 'base', false, $values)
+	RETURNING id
+)
+INSERT INTO agent_pull_requests (agent_id, pull_request_id) SELECT :'agent', id FROM opened;
+SQL
+}
+
+pull_request lsp-docs "checks" "'OPEN', now(), now(), 'pending'"
+pull_request checkhealth-fix "checks, review_decision, mergeability" "'OPEN', now(), now(), 'passing', 'approved', 'clean'"
+pull_request text-truncate "checks" "'OPEN', now(), now(), 'failing'"
+pull_request statusline "checks, merged_at" "'MERGED', now(), now(), 'passing', now()"

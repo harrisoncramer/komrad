@@ -24,4 +24,3 @@ Wait+Screen@3m /news-digest/
 Show
 Type "j"
 Wait+Screen@4m /done \d+:\d+ [AP]M/
-Sleep 3s

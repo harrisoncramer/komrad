@@ -7,6 +7,8 @@
 #
 # pace: 1200ms
 # mise run record follows every key a tape shows with a pause this long.
+#
+# hold: 3s
 Set Shell bash
 Set FontFamily "JetBrainsMono Nerd Font"
 Set FontSize 20

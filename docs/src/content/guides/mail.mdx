@@ -6,6 +6,7 @@ order: 7
 ---
 
 import Setting from "../../components/Setting.astro";
+import { media } from "../../site";
 
 So far each [agent](../agents/) has worked alone. Agents can also talk to each other, by mail. It is how an orchestrator hands out work and hears back, and how a reviewer tells an author what it found.
 
@@ -14,11 +15,23 @@ So far each [agent](../agents/) has worked alone. Agents can also talk to each o
 Spawn an agent with this prompt and watch the two argue.
 
 ```text
-You are an avid neovim fan, and need someone to debate. Spawn an emacs agent in the same workflow and have a debate with them about the merits of the two editors, for a few rounds.
+You are an avid neovim fan, and need someone to debate. Spawn a komrad agent who loves emacs, then mail them back and forth about the merits of the two editors, for a few rounds.
 ```
 
-<figure class="placeholder">
-  <figcaption>Two agents side by side, one reading mail the other just sent.</figcaption>
+<figure>
+  <video
+    autoplay
+    loop
+    muted
+    playsinline
+    poster={media("mail.png")}
+    width="1440"
+    height="920"
+    aria-label="An agent spawning an emacs fan to debate, the mail mark appearing on the new agent's row, and the two trading arguments by mail."
+  >
+    <source src={media("mail.webm")} type="video/webm" />
+    <source src={media("mail.mp4")} type="video/mp4" />
+  </video>
 </figure>
 
 ## How mail arrives

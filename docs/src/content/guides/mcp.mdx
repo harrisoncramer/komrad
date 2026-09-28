@@ -7,12 +7,6 @@ order: 7
 
 In the [mail](../mail/) guide, the first agent spawned the second one itself. It did that through MCP. Komrad serves its own API over MCP, the protocol agent CLIs use to call tools, so an agent can ask what the other agents are doing, read their conversations, send them mail, and start agents of its own. To komrad, a model calling a tool is one more client, the same as the panel.
 
-<figure class="placeholder">
-  <figcaption>
-    An orchestrator agent's pane, calling komrad tools to spawn two children and read their replies.
-  </figcaption>
-</figure>
-
 ## Who can reach it
 
 Every agent komrad starts is already connected. You can also add the server to your own Claude or Codex session to drive komrad from a conversation. The server listens only on your own machine and asks for no password.

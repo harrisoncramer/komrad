@@ -24,11 +24,21 @@ wait_turn() {
 	exit 1
 }
 
+hold() {
+	for _ in $(seq 30); do
+		komrad rpc hold-agent --id "$1" >/dev/null 2>&1 && return
+		sleep 1
+	done
+	echo "agent $1 could not be held" >&2
+	exit 1
+}
+
 workflow="$(komrad rpc create-workflow --name neovim --cwd "$HOME/neovim" --worktree.enabled --flags "--model haiku" --compact | jq -r '.workflow.id')"
 agent="$(komrad rpc create-agent --workflow-id "$workflow" --title text-truncate \
 	--prompt "Reply with the single word ready, then wait." \
 	--compact | jq -r '.agent.id')"
 wait_turn "$agent"
+hold "$agent"
 
 draft="$(cat <<'MD'
 # RFC: vim.text.truncate()
@@ -116,3 +126,5 @@ MD
 version="$(komrad rpc get-document --id "$doc" --compact | jq -r '.document.version')"
 KOMRAD_AGENT_ID="$agent" komrad rpc write-document --id "$doc" --version "$version" --name truncate-rfc \
 	--kind DOCUMENT_KIND_RFC --body "$revised" >/dev/null
+KOMRAD_AGENT_ID="$agent" komrad rpc read-mail >/dev/null
+komrad rpc release-agent --id "$agent" >/dev/null
