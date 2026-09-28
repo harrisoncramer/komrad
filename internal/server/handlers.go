@@ -66,6 +66,7 @@ type newMuxParams struct {
 	ReadOnly      *pgxpool.Pool
 	StopRequested chan struct{}
 	LogPath       string
+	RunLogsDir    string
 	// Doctor is this machine as the doctor's checks see it.
 	Doctor doctor.Settings
 	Watch  *watch.Broker
@@ -160,7 +161,7 @@ func newMux(params newMuxParams) (*http.ServeMux, error) {
 		}, options...))
 	mux.Handle(logv1connect.NewLogServiceHandler(
 		logv1komrad.LogServiceAdapter{
-			Impl: rpclog.NewHandler(logread.New(params.LogPath)),
+			Impl: rpclog.NewHandler(logread.New(params.LogPath), logread.NewRuns(params.RunLogsDir)),
 		}, options...))
 	mux.Handle(doctorv1connect.NewDoctorServiceHandler(
 		doctorv1komrad.DoctorServiceAdapter{

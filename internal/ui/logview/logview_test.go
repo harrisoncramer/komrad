@@ -18,49 +18,62 @@ func numbered(from, to int) []string {
 	return lines
 }
 
-// TestTailFollows covers new lines arriving while following and after moving away.
-func TestTailFollows(t *testing.T) {
+// TestTailRows covers drawing the newest lines, however many rows a line wraps to.
+func TestTailRows(t *testing.T) {
 	t.Parallel()
 
-	viewer := logview.NewTail(100)
-	viewer.Append(numbered(1, 5))
-	assert.Equal(t, []string{" line 3", " line 4", "›line 5"}, viewer.Rows(20, 3))
+	tests := []struct {
+		name   string
+		lines  []string
+		width  int
+		height int
+		want   []string
+	}{
+		{
+			name:   "nothing held",
+			width:  20,
+			height: 3,
+		},
+		{
+			name:   "fewer lines than fit",
+			lines:  numbered(1, 2),
+			width:  20,
+			height: 3,
+			want:   []string{"line 1", "line 2"},
+		},
+		{
+			name:   "more lines than fit keeps the newest",
+			lines:  numbered(1, 5),
+			width:  20,
+			height: 3,
+			want:   []string{"line 3", "line 4", "line 5"},
+		},
+		{
+			name:   "a wrapped line counts every row it takes",
+			lines:  []string{"short", "a line that wraps", "last"},
+			width:  9,
+			height: 3,
+			want:   []string{"a line th", "at wraps", "last"},
+		},
+		{
+			name:   "escape sequences and control characters are stripped",
+			lines:  []string{"\x1b[31mred\x1b[0m\ttab\rbell\a"},
+			width:  40,
+			height: 3,
+			want:   []string{"red tabbell"},
+		},
+	}
 
-	viewer.Append(numbered(6, 6))
-	assert.True(t, viewer.IsFollowing())
-	assert.Equal(t, []string{" line 4", " line 5", "›line 6"}, viewer.Rows(20, 3))
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 
-	viewer.Move(-1)
-	assert.False(t, viewer.IsFollowing())
-	viewer.Append(numbered(7, 8))
-	assert.Equal(t, []string{" line 4", "›line 5", " line 6"}, viewer.Rows(20, 3))
+			viewer := logview.NewTail(100)
+			viewer.Append(tt.lines)
 
-	viewer.Bottom()
-	assert.True(t, viewer.IsFollowing())
-	assert.Equal(t, []string{" line 6", " line 7", "›line 8"}, viewer.Rows(20, 3))
-}
-
-// TestTailMoves covers the cursor moving by log line, however many rows a line wraps to.
-func TestTailMoves(t *testing.T) {
-	t.Parallel()
-
-	viewer := logview.NewTail(100)
-	viewer.Append([]string{"short", "a line that wraps", "last"})
-	assert.Equal(t, []string{" a line t", " hat wrap", " s", "›last"}, viewer.Rows(9, 4))
-
-	viewer.Move(-1)
-	assert.Equal(t, []string{"›a line t", " hat wrap", " s", " last"}, viewer.Rows(9, 4))
-
-	viewer.Top()
-	assert.False(t, viewer.IsFollowing())
-	assert.Equal(t, []string{"›short", " a line t", " hat wrap", " s"}, viewer.Rows(9, 4))
-
-	viewer.Move(-5)
-	assert.Equal(t, "›short", viewer.Rows(9, 4)[0], "the cursor stops at the first line")
-
-	viewer.Move(10)
-	assert.Equal(t, []string{" a line t", " hat wrap", " s", "›last"}, viewer.Rows(9, 4), "and at the last")
-	assert.False(t, viewer.IsFollowing(), "moving down does not follow again")
+			assert.Equal(t, tt.want, viewer.Rows(tt.width, tt.height))
+		})
+	}
 }
 
 // TestTailCeiling covers the oldest lines dropping once the viewer holds more than it keeps.
@@ -69,37 +82,20 @@ func TestTailCeiling(t *testing.T) {
 
 	viewer := logview.NewTail(3)
 	viewer.Append(numbered(1, 3))
-	viewer.Top()
-	viewer.Move(1)
 	viewer.Append(numbered(4, 5))
 
 	assert.Equal(t, 3, viewer.Len())
-	assert.Equal(t, []string{"›line 3", " line 4", " line 5"}, viewer.Rows(20, 3), "the cursor stays on the oldest line kept")
+	assert.Equal(t, []string{"line 3", "line 4", "line 5"}, viewer.Rows(20, 5))
 }
 
-// TestTailReset covers starting over, which empties the viewer and follows again.
+// TestTailReset covers starting over, which empties the viewer.
 func TestTailReset(t *testing.T) {
 	t.Parallel()
 
 	viewer := logview.NewTail(100)
 	viewer.Append(numbered(1, 3))
-	viewer.Top()
 	viewer.Reset()
 
 	assert.Zero(t, viewer.Len())
-	assert.True(t, viewer.IsFollowing())
 	assert.Empty(t, viewer.Rows(20, 3))
-
-	viewer.Append(numbered(9, 9))
-	assert.Equal(t, []string{"›line 9"}, viewer.Rows(20, 3))
-}
-
-// TestTailSanitizes covers a line carrying escape sequences and control characters.
-func TestTailSanitizes(t *testing.T) {
-	t.Parallel()
-
-	viewer := logview.NewTail(100)
-	viewer.Append([]string{"\x1b[31mred\x1b[0m\ttab\rbell\a"})
-
-	assert.Equal(t, []string{"›red tabbell"}, viewer.Rows(40, 3))
 }

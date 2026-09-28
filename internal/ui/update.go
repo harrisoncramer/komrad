@@ -396,6 +396,10 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 		m.applyDocumentRead(msg)
 
 		return m, nil, true
+	case logsSourcesMsg:
+		cmd := m.applyLogsSources(msg)
+
+		return m, cmd, true
 	case logsReadMsg:
 		cmd := m.applyLogsRead(msg)
 
