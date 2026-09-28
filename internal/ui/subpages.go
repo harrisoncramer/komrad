@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"komrad/internal/ui/panel"
+	"komrad/lib/xslice"
 
 	tea "charm.land/bubbletea/v2"
 )
@@ -32,16 +33,13 @@ func openAgentSubpages(h host, s panelShared, from screen, item panel.AgentRow) 
 	agentID := agent.ID
 	pages := agentSubpages(agent)
 
-	entries := make([]submenuEntry, 0, len(pages))
-	for _, page := range pages {
-		entries = append(entries, subpageEntry(s, from, item, page))
-	}
-
 	return openSubmenu(h, submenu{
-		kind:    formSubpages,
-		title:   "Subpages of " + agent.Name,
-		crumb:   agent.Name,
-		entries: entries,
+		kind:  formSubpages,
+		title: "Subpages of " + agent.Name,
+		crumb: agent.Name,
+		entries: xslice.Map(pages, func(page subpage) submenuEntry {
+			return subpageEntry(s, from, item, page)
+		}),
 		answer: func(m model, choice int) (tea.Model, tea.Cmd) {
 			return m.enterSubpage(from, agentID, pages[choice])
 		},
