@@ -458,7 +458,7 @@ func (d *documentsScreen) column() columnSpec {
 	return columnSpec{
 		floor: columnFloor,
 		docRows: func(m model, width int) []string {
-			return m.documents.docRows(m.shared(), width, m.blinkingCaret(true))
+			return m.documents.docRows(m.shared(), width)
 		},
 		holds: func(m model) bool { return m.documents.editing == nil },
 	}

@@ -10,7 +10,6 @@ import (
 	"komrad/internal/ui/diffview"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/paint/label"
-	"komrad/internal/view"
 	"komrad/lib/dates"
 	agentv1 "komrad/proto/gen/agent/v1"
 
@@ -108,10 +107,10 @@ func (d *documentsScreen) isSteppingHovered(s panelShared) bool {
 
 // docRows is the document drawn beside the list at a width: the write stepped to and what it
 // changed, or the document as it stands.
-func (d *documentsScreen) docRows(s panelShared, width int, caret view.Caret) []string {
+func (d *documentsScreen) docRows(s panelShared, width int) []string {
 	item, ok := d.hovered(s)
 	if !ok || !d.isSteppingHovered(s) {
-		return d.readBlock(s, width, caret)
+		return d.readBlock(s, width)
 	}
 
 	h := d.history
@@ -147,17 +146,21 @@ func (h *documentHistory) head(item documentItem, width int, glyphs glyph.Set) [
 		return rows
 	}
 
+	count := strings.TrimRight(diffMatchCount(&h.pane, h.filter), "\n")
+
+	return append(rows, h.filter.head(count, h.said, width, glyphs)...)
+}
+
+// head is the rows over a block the filter searches: the search, what the last key said, and a
+// blank row.
+func (f filterState) head(count, said string, width int, glyphs glyph.Set) []string {
 	indent := strings.Repeat(" ", docMargin())
-	if h.filter.typing || h.filter.isStanding() {
-		count := strings.TrimRight(diffMatchCount(&h.pane, h.filter), "\n")
-		rows = append(rows, fitRow(indent+h.filter.line(paint.Panel, glyphs)+count, width))
+	head := []string{fitRow(indent+f.line(paint.Panel, glyphs)+count, width)}
+	if said != "" {
+		head = append(head, fitRow(indent+dimStyle.Render(said), width))
 	}
 
-	if h.said != "" {
-		rows = append(rows, fitRow(indent+dimStyle.Render(h.said), width))
-	}
-
-	return append(rows, "")
+	return append(head, "")
 }
 
 // diffHeight is the rows the diff is drawn in, under the rows over it.

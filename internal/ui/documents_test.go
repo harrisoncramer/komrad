@@ -7,6 +7,7 @@ import (
 	"sync"
 	"testing"
 
+	"komrad/internal/ui/paint"
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
 
@@ -572,13 +573,17 @@ func TestDocumentsReadingCursor(t *testing.T) {
 	harness, _ := openDocuments(t)
 	line := regexp.MustCompile(`Keep the cache`)
 
+	bar := paint.BackgroundSequence(paint.SelectionBackground)
+
+	assert.Equal(t, "/", strings.TrimSpace(readStage(harness.readFrame())[0]), "the search stands over the document before it is opened")
 	unfocused := findRawLine(harness.readRawFrame(), line)
 	require.NotEmpty(t, unfocused)
+	assert.NotContains(t, unfocused, bar)
 
 	harness.press("ctrl+a", "G")
 	focused := findRawLine(harness.readRawFrame(), line)
 	require.NotEmpty(t, focused)
-	assert.NotEqual(t, unfocused, focused, "the cursor is drawn on the line it moved to")
+	assert.Contains(t, focused, bar, "the cursor is drawn as a bar on the line it moved to")
 
 	harness.press("/", "w", "a", "r", "m", "enter")
 	found := findRawLine(harness.readRawFrame(), line)
