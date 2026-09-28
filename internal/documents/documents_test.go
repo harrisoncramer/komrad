@@ -28,6 +28,7 @@ func TestWrite(t *testing.T) {
 	stores := storetest.Open(t)
 	cwd := t.TempDir()
 	author := stores.SeedAgent(t, agentstore.Agent{Name: "author", Cwd: cwd})
+	reviewer := stores.SeedAgent(t, agentstore.Agent{Name: "reviewer", Cwd: cwd, ParentAgentID: &author.ID, Role: agentstore.RoleReviewer})
 	service := newService(stores, eventstest.NewQueue(t, stores, documents.NewEventHandler()))
 
 	writeFile := func(name, content string) string {
@@ -99,6 +100,11 @@ func TestWrite(t *testing.T) {
 			name:    "neither a body nor a path is refused",
 			params:  documents.WriteDocumentParams{Name: "empty"},
 			wantErr: documents.ErrNoBody,
+		},
+		{
+			name:    "a reviewer's write is refused",
+			params:  documents.WriteDocumentParams{AgentID: reviewer.ID, Name: "report", Body: "# Report"},
+			wantErr: documents.ErrReviewer,
 		},
 		{
 			name:    "an agent that does not exist is not found",
