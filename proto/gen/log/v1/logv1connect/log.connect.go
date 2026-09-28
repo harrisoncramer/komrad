@@ -38,12 +38,16 @@ const (
 	// LogServiceListRecentTracesProcedure is the fully-qualified name of the LogService's
 	// ListRecentTraces RPC.
 	LogServiceListRecentTracesProcedure = "/log.v1.LogService/ListRecentTraces"
+	// LogServiceReadAgentLogsProcedure is the fully-qualified name of the LogService's ReadAgentLogs
+	// RPC.
+	LogServiceReadAgentLogsProcedure = "/log.v1.LogService/ReadAgentLogs"
 )
 
 // LogServiceClient is a client for the log.v1.LogService service.
 type LogServiceClient interface {
 	GetLogLines(context.Context, *connect.Request[v1.GetLogLinesRequest]) (*connect.Response[v1.GetLogLinesResponse], error)
 	ListRecentTraces(context.Context, *connect.Request[v1.ListRecentTracesRequest]) (*connect.Response[v1.ListRecentTracesResponse], error)
+	ReadAgentLogs(context.Context, *connect.Request[v1.ReadAgentLogsRequest]) (*connect.Response[v1.ReadAgentLogsResponse], error)
 }
 
 // NewLogServiceClient constructs a client for the log.v1.LogService service. By default, it uses
@@ -71,6 +75,13 @@ func NewLogServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...
 			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
+		readAgentLogs: connect.NewClient[v1.ReadAgentLogsRequest, v1.ReadAgentLogsResponse](
+			httpClient,
+			baseURL+LogServiceReadAgentLogsProcedure,
+			connect.WithSchema(logServiceMethods.ByName("ReadAgentLogs")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -78,6 +89,7 @@ func NewLogServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...
 type logServiceClient struct {
 	getLogLines      *connect.Client[v1.GetLogLinesRequest, v1.GetLogLinesResponse]
 	listRecentTraces *connect.Client[v1.ListRecentTracesRequest, v1.ListRecentTracesResponse]
+	readAgentLogs    *connect.Client[v1.ReadAgentLogsRequest, v1.ReadAgentLogsResponse]
 }
 
 // GetLogLines calls log.v1.LogService.GetLogLines.
@@ -90,10 +102,16 @@ func (c *logServiceClient) ListRecentTraces(ctx context.Context, req *connect.Re
 	return c.listRecentTraces.CallUnary(ctx, req)
 }
 
+// ReadAgentLogs calls log.v1.LogService.ReadAgentLogs.
+func (c *logServiceClient) ReadAgentLogs(ctx context.Context, req *connect.Request[v1.ReadAgentLogsRequest]) (*connect.Response[v1.ReadAgentLogsResponse], error) {
+	return c.readAgentLogs.CallUnary(ctx, req)
+}
+
 // LogServiceHandler is an implementation of the log.v1.LogService service.
 type LogServiceHandler interface {
 	GetLogLines(context.Context, *connect.Request[v1.GetLogLinesRequest]) (*connect.Response[v1.GetLogLinesResponse], error)
 	ListRecentTraces(context.Context, *connect.Request[v1.ListRecentTracesRequest]) (*connect.Response[v1.ListRecentTracesResponse], error)
+	ReadAgentLogs(context.Context, *connect.Request[v1.ReadAgentLogsRequest]) (*connect.Response[v1.ReadAgentLogsResponse], error)
 }
 
 // NewLogServiceHandler builds an HTTP handler from the service implementation. It returns the path
@@ -117,12 +135,21 @@ func NewLogServiceHandler(svc LogServiceHandler, opts ...connect.HandlerOption) 
 		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
+	logServiceReadAgentLogsHandler := connect.NewUnaryHandler(
+		LogServiceReadAgentLogsProcedure,
+		svc.ReadAgentLogs,
+		connect.WithSchema(logServiceMethods.ByName("ReadAgentLogs")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/log.v1.LogService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case LogServiceGetLogLinesProcedure:
 			logServiceGetLogLinesHandler.ServeHTTP(w, r)
 		case LogServiceListRecentTracesProcedure:
 			logServiceListRecentTracesHandler.ServeHTTP(w, r)
+		case LogServiceReadAgentLogsProcedure:
+			logServiceReadAgentLogsHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -138,4 +165,8 @@ func (UnimplementedLogServiceHandler) GetLogLines(context.Context, *connect.Requ
 
 func (UnimplementedLogServiceHandler) ListRecentTraces(context.Context, *connect.Request[v1.ListRecentTracesRequest]) (*connect.Response[v1.ListRecentTracesResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("log.v1.LogService.ListRecentTraces is not implemented"))
+}
+
+func (UnimplementedLogServiceHandler) ReadAgentLogs(context.Context, *connect.Request[v1.ReadAgentLogsRequest]) (*connect.Response[v1.ReadAgentLogsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("log.v1.LogService.ReadAgentLogs is not implemented"))
 }
