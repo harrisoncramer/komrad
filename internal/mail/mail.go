@@ -2,7 +2,6 @@ package mail
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -75,9 +74,7 @@ type mailReadWriter interface {
 	Claim(ctx context.Context, toAgentID string, limit int32) ([]mailstore.Mail, error)
 	CountPending(ctx context.Context, toAgentID string) (int64, error)
 	UpsertNotice(ctx context.Context, params mailstore.UpsertNoticeParams) (*mailstore.Mail, error)
-	LockNotice(ctx context.Context, toAgentID string, kind mailstore.Kind, subjectID string) error
 	GetPendingNotice(ctx context.Context, toAgentID string, kind mailstore.Kind, subjectID string) (*mailstore.Mail, error)
-	DeletePendingNotice(ctx context.Context, toAgentID string, kind mailstore.Kind, subjectID string) error
 	ListPage(ctx context.Context, toAgentID string, limit int32, cursor *mailstore.Cursor) ([]mailstore.Mail, error)
 	ListSentPage(ctx context.Context, fromAgentID string, limit int32, cursor *mailstore.Cursor) ([]mailstore.Mail, error)
 	ListByID(ctx context.Context, ids []string) ([]mailstore.Mail, error)
@@ -243,8 +240,7 @@ type SendNoticeParams struct {
 	Body      string
 	Kind      mailstore.Kind
 	// SubjectID is the agent, document, pull request or worktree the notice is about.
-	SubjectID    string
-	SubjectState json.RawMessage
+	SubjectID string
 }
 
 // SendNotice writes a notice as komrad itself, rewriting the unread notice of the same kind about
@@ -283,29 +279,18 @@ func (s *MailService) SendNotice(ctx context.Context, params SendNoticeParams) (
 	}
 
 	return s.mailReadWriter.UpsertNotice(ctx, mailstore.UpsertNoticeParams{
-		FromName:     KomradSenderName,
-		ToAgentID:    recipient.ID,
-		Body:         params.Body,
-		Kind:         params.Kind,
-		SubjectID:    params.SubjectID,
-		SubjectState: params.SubjectState,
-		Deadline:     deadline,
+		FromName:  KomradSenderName,
+		ToAgentID: recipient.ID,
+		Body:      params.Body,
+		Kind:      params.Kind,
+		SubjectID: params.SubjectID,
+		Deadline:  deadline,
 	})
-}
-
-// LockNotice holds the recipient's notice of a kind about a subject until the transaction ends.
-func (s *MailService) LockNotice(ctx context.Context, toAgentID string, kind mailstore.Kind, subjectID string) error {
-	return s.mailReadWriter.LockNotice(ctx, toAgentID, kind, subjectID)
 }
 
 // GetPendingNotice is the unread notice of a kind about a subject, ErrNotFound when there is none.
 func (s *MailService) GetPendingNotice(ctx context.Context, toAgentID string, kind mailstore.Kind, subjectID string) (*mailstore.Mail, error) {
 	return s.mailReadWriter.GetPendingNotice(ctx, toAgentID, kind, subjectID)
-}
-
-// WithdrawNotice deletes the unread notice of a kind about a subject.
-func (s *MailService) WithdrawNotice(ctx context.Context, toAgentID string, kind mailstore.Kind, subjectID string) error {
-	return s.mailReadWriter.DeletePendingNotice(ctx, toAgentID, kind, subjectID)
 }
 
 // InTx is this service writing mail through a transaction.

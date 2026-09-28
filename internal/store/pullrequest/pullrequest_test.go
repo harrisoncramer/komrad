@@ -131,8 +131,6 @@ func TestUpsertSaysWhatItDid(t *testing.T) {
 	assert.True(t, moved.Changed)
 	require.NotNil(t, moved.OldState)
 	assert.Equal(t, "OPEN", *moved.OldState, "a changed row says what it replaced")
-	require.NotNil(t, moved.OldHeadSHA)
-	assert.Equal(t, "abc", *moved.OldHeadSHA)
 
 	stored, err := h.GetByIdentity(ctx, "github.com", "PR_1")
 	require.NoError(t, err)

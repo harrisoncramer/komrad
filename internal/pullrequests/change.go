@@ -18,11 +18,9 @@ const (
 	FieldChecks Field = "checks"
 	// FieldMergeability is where the branch stands against its base.
 	FieldMergeability Field = "mergeability"
-	// FieldHead is the commit the branch points at.
-	FieldHead Field = "head"
 )
 
-var fieldOrder = []Field{FieldState, FieldDecision, FieldChecks, FieldMergeability, FieldHead}
+var fieldOrder = []Field{FieldState, FieldDecision, FieldChecks, FieldMergeability}
 
 var opening = map[Field][]string{
 	FieldState:        {"MERGED", "CLOSED"},

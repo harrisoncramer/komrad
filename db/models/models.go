@@ -529,8 +529,6 @@ type Mail struct {
 	IdempotencyKey *string
 	// The thing a komrad notice is about, null on ordinary mail. Its kind says what sort of thing it is: another agent, a document, a pull request or a worktree. A recipient holds at most one unread notice of a kind about one subject, and a later notice rewrites it. There is no foreign key here on purpose. The notice has to keep naming its subject after the subject is gone.
 	SubjectID *string
-	// What a notice last said about its subject, kept so that a later notice about the same subject can say what moved since the recipient last heard.
-	SubjectState []byte
 }
 
 // A letter a person types to jump to one row. Each letter belongs to a single agent or a single workflow, so it always names one place.

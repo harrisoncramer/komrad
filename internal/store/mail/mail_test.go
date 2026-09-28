@@ -1,8 +1,6 @@
 package mail
 
 import (
-	"encoding/json"
-	"strconv"
 	"testing"
 	"time"
 
@@ -714,13 +712,12 @@ func TestNoticeIsOnePerSubject(t *testing.T) {
 
 			for i, w := range tt.writes {
 				_, err := st.UpsertNotice(ctx, UpsertNoticeParams{
-					FromName:     "komrad",
-					ToAgentID:    recipient,
-					Body:         w.body,
-					Kind:         w.kind,
-					SubjectID:    subjects[w.subject],
-					SubjectState: json.RawMessage(`{"n":` + strconv.Itoa(i) + `}`),
-					Deadline:     time.Hour,
+					FromName:  "komrad",
+					ToAgentID: recipient,
+					Body:      w.body,
+					Kind:      w.kind,
+					SubjectID: subjects[w.subject],
+					Deadline:  time.Hour,
 				})
 				require.NoError(t, err)
 				if tt.claimFirst && i == 0 {
@@ -740,8 +737,8 @@ func TestNoticeIsOnePerSubject(t *testing.T) {
 	}
 }
 
-// TestPendingNoticeCarriesItsState pins that the unread notice reads back with the state it was written with.
-func TestPendingNoticeCarriesItsState(t *testing.T) {
+// TestGetPendingNoticeFindsOnlyTheUnreadNotice pins that a notice the agent read is no longer pending.
+func TestGetPendingNoticeFindsOnlyTheUnreadNotice(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
 	recipient := seedAgent(t, st, "recipient")
@@ -751,13 +748,12 @@ func TestPendingNoticeCarriesItsState(t *testing.T) {
 	require.ErrorIs(t, err, store.ErrNotFound)
 
 	written, err := st.UpsertNotice(ctx, UpsertNoticeParams{
-		FromName:     "komrad",
-		ToAgentID:    recipient,
-		Body:         "checks failing",
-		Kind:         KindPullRequestChanged,
-		SubjectID:    subject,
-		SubjectState: json.RawMessage(`{"checks": {"from": "passing", "to": "failing"}}`),
-		Deadline:     time.Hour,
+		FromName:  "komrad",
+		ToAgentID: recipient,
+		Body:      "checks failing",
+		Kind:      KindPullRequestChanged,
+		SubjectID: subject,
+		Deadline:  time.Hour,
 	})
 	require.NoError(t, err)
 
@@ -766,11 +762,11 @@ func TestPendingNoticeCarriesItsState(t *testing.T) {
 	assert.Equal(t, written.ID, found.ID)
 	require.NotNil(t, found.SubjectID)
 	assert.Equal(t, subject, *found.SubjectID)
-	assert.JSONEq(t, `{"checks": {"from": "passing", "to": "failing"}}`, string(found.SubjectState))
 
-	require.NoError(t, st.DeletePendingNotice(ctx, recipient, KindPullRequestChanged, subject))
+	_, err = st.Claim(ctx, recipient, 10)
+	require.NoError(t, err)
 	_, err = st.GetPendingNotice(ctx, recipient, KindPullRequestChanged, subject)
-	require.ErrorIs(t, err, store.ErrNotFound, "a withdrawn notice is gone")
+	require.ErrorIs(t, err, store.ErrNotFound, "a read notice is not pending")
 }
 
 // TestPendingNoticeHeldForRewriteIsNotClaimed pins that delivery skips a notice a rewrite is reading until the rewrite commits.
@@ -794,31 +790,13 @@ func TestPendingNoticeHeldForRewriteIsNotClaimed(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, claimed)
 
-	require.NoError(t, NewMailStore(tx).DeletePendingNotice(ctx, recipient, KindPullRequestChanged, subject))
+	_, err = NewMailStore(tx).UpsertNotice(ctx, UpsertNoticeParams{FromName: "komrad", ToAgentID: recipient, Body: "checks passing", Kind: KindPullRequestChanged, SubjectID: subject, Deadline: time.Hour})
+	require.NoError(t, err)
 	require.NoError(t, tx.Commit(ctx))
 
 	claimed, err = st.Claim(ctx, recipient, 10)
 	require.NoError(t, err)
-	assert.Empty(t, claimed, "the withdrawn notice is never delivered")
-}
-
-// TestDeletePendingNoticeLeavesReadNoticesAlone pins that withdrawing a notice takes only the unread one.
-func TestDeletePendingNoticeLeavesReadNoticesAlone(t *testing.T) {
-	st := open(t)
-	ctx := t.Context()
-	recipient := seedAgent(t, st, "recipient")
-	subject := uuid.NewString()
-
-	written, err := st.UpsertNotice(ctx, UpsertNoticeParams{FromName: "komrad", ToAgentID: recipient, Body: "read", Kind: KindPullRequestChanged, SubjectID: subject, Deadline: time.Hour})
-	require.NoError(t, err)
-	_, err = st.Claim(ctx, recipient, 10)
-	require.NoError(t, err)
-
-	require.NoError(t, st.DeletePendingNotice(ctx, recipient, KindPullRequestChanged, subject))
-
-	kept, err := st.GetByID(ctx, written.ID)
-	require.NoError(t, err)
-	assert.NotNil(t, kept.ClaimedAt, "mail the agent already read stays in its history")
+	assert.Equal(t, []string{"checks passing"}, xslice.Map(claimed, func(m Mail) string { return m.Body }))
 }
 
 // TestOrdinaryMailIsNeverDeduplicated pins that the dedupe covers only notices komrad raises.

@@ -106,8 +106,6 @@ type Outcome struct {
 	Changed bool
 	// OldState is the state the row held before a change, nil when it is new or unchanged.
 	OldState *string
-	// OldHeadSHA is the head the row held before a change, nil when it is new or unchanged.
-	OldHeadSHA *string
 }
 
 // StandingChange is the last known standing before and after a write, a blank from the forge
@@ -167,11 +165,10 @@ func (s *PullRequestStore) Upsert(ctx context.Context, params UpsertParams) (*Ou
 	}
 
 	return &Outcome{
-		ID:         row.ID,
-		Inserted:   row.Inserted,
-		Changed:    row.Changed,
-		OldState:   row.OldState,
-		OldHeadSHA: row.OldHeadSha,
+		ID:       row.ID,
+		Inserted: row.Inserted,
+		Changed:  row.Changed,
+		OldState: row.OldState,
 	}, nil
 }
 

@@ -849,7 +849,6 @@ func (s *PullRequestSyncer) writePage(ctx context.Context, pullRequests []forge.
 
 			moved := []*Move{
 				Moved(FieldState, outcome.OldState, &upsert.State),
-				Moved(FieldHead, outcome.OldHeadSHA, &upsert.HeadSHA),
 			}
 
 			if pullRequest.Decision != nil {

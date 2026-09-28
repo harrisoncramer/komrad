@@ -950,8 +950,7 @@ func (q *Queries) StartPullRequestSweep(ctx context.Context, arg StartPullReques
 const upsertPullRequest = `-- name: UpsertPullRequest :one
 WITH prior AS (
     SELECT
-        held.state,
-        held.head_sha
+        held.state
     FROM
         pull_requests held
     WHERE
@@ -1055,8 +1054,7 @@ SELECT
     written.id,
     written.inserted,
     TRUE AS changed,
-    prior.state AS old_state,
-    prior.head_sha AS old_head_sha
+    prior.state AS old_state
 FROM
     written
     LEFT JOIN prior ON TRUE
@@ -1065,8 +1063,7 @@ SELECT
     pull_requests.id,
     FALSE AS inserted,
     FALSE AS changed,
-    NULL::text AS old_state,
-    NULL::text AS old_head_sha
+    NULL::text AS old_state
 FROM
     pull_requests
 WHERE
@@ -1101,11 +1098,10 @@ type UpsertPullRequestParams struct {
 }
 
 type UpsertPullRequestRow struct {
-	ID         string
-	Inserted   bool
-	Changed    bool
-	OldState   *string
-	OldHeadSha *string
+	ID       string
+	Inserted bool
+	Changed  bool
+	OldState *string
 }
 
 func (q *Queries) UpsertPullRequest(ctx context.Context, arg UpsertPullRequestParams) (*UpsertPullRequestRow, error) {
@@ -1135,7 +1131,6 @@ func (q *Queries) UpsertPullRequest(ctx context.Context, arg UpsertPullRequestPa
 		&i.Inserted,
 		&i.Changed,
 		&i.OldState,
-		&i.OldHeadSha,
 	)
 	return &i, err
 }

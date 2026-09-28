@@ -2,7 +2,6 @@ package pullrequests
 
 import (
 	"slices"
-	"strings"
 	"testing"
 	"time"
 
@@ -25,12 +24,12 @@ func TestAPullRequestChangeTellsTheAgentsOnItsBranch(t *testing.T) {
 		{
 			name:      "checks failing",
 			standings: []forge.Standing{{Decision: forge.ReviewDecisionPending, Checks: forge.ChecksFailing}},
-			wantLines: []string{"  checks: pending → failing\n"},
+			wantLines: []string{"  checks: failing\n"},
 		},
 		{
 			name:      "an approval",
 			standings: []forge.Standing{{Decision: forge.ReviewDecisionApproved, Checks: forge.ChecksPending}},
-			wantLines: []string{"  review: pending → approved\n"},
+			wantLines: []string{"  review: approved\n"},
 		},
 		{
 			name:      "checks passing is not news on its own",
@@ -42,22 +41,15 @@ func TestAPullRequestChangeTellsTheAgentsOnItsBranch(t *testing.T) {
 				{Decision: forge.ReviewDecisionPending, Checks: forge.ChecksFailing},
 				{Decision: forge.ReviewDecisionPending, Checks: forge.ChecksFailing, Mergeability: forge.MergeabilityConflicting},
 			},
-			wantLines: []string{"  checks: pending → failing\n", "  mergeability: clean → conflicting with main\n"},
+			wantLines: []string{"  checks: failing\n", "  mergeability: conflicting with main\n"},
 		},
 		{
-			name: "a later change joins what the notice already says",
+			name: "a later change rewrites the notice to where things stand",
 			standings: []forge.Standing{
 				{Decision: forge.ReviewDecisionPending, Checks: forge.ChecksFailing},
 				{Decision: forge.ReviewDecisionPending, Checks: forge.ChecksPassing},
 			},
-			wantLines: []string{"  checks: pending → passing\n"},
-		},
-		{
-			name: "a change undone before the agent reads withdraws the notice",
-			standings: []forge.Standing{
-				{Decision: forge.ReviewDecisionPending, Checks: forge.ChecksFailing},
-				pending,
-			},
+			wantLines: []string{"  checks: passing\n"},
 		},
 	}
 
@@ -84,7 +76,6 @@ func TestAPullRequestChangeTellsTheAgentsOnItsBranch(t *testing.T) {
 			for _, line := range tt.wantLines {
 				assert.Contains(t, told[0].Body, line)
 			}
-			assert.Len(t, strings.Split(told[0].Body, "\n"), len(tt.wantLines)+2, "the notice names nothing that did not move")
 		})
 	}
 }
@@ -106,8 +97,8 @@ func TestAPullRequestChangeAfterTheNoticeWasReadStartsAnother(t *testing.T) {
 
 	told := f.listMail(t, agentID)
 	require.Len(t, told, 2)
-	assert.Contains(t, told[1].Body, "  review: pending → approved\n")
-	assert.NotContains(t, told[1].Body, "checks:", "what the agent read is not told again")
+	assert.Contains(t, told[1].Body, "  review: approved\n")
+	assert.Contains(t, told[1].Body, "  checks: failing\n")
 }
 
 func (f *syncFixture) listMail(t *testing.T, agentID string) []mailstore.Mail {

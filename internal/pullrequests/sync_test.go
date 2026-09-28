@@ -1244,7 +1244,7 @@ func TestSyncReadsTheChecksUntilTheyLand(t *testing.T) {
 }
 
 // TestSyncRecordsWhatMovedOnAPullRequest covers the events a sync records: none on first
-// sight, the standing a read moves, and the head a push moves without the unchanged checks.
+// sight, the standing a read moves, and nothing for a push that leaves the checks where they were.
 func TestSyncRecordsWhatMovedOnAPullRequest(t *testing.T) {
 	f := newSyncFixture(t)
 	f.agentOn(t, "a", "agent/x")
@@ -1268,9 +1268,6 @@ func TestSyncRecordsWhatMovedOnAPullRequest(t *testing.T) {
 	assert.Equal(t, []Change{
 		{ID: id, Moves: []Move{
 			{Field: FieldChecks, From: string(forge.ChecksPending), To: string(forge.ChecksFailing)},
-		}},
-		{ID: id, Moves: []Move{
-			{Field: FieldHead, From: scriptedHeadSHA, To: "def"},
 		}},
 	}, f.changes(t))
 }

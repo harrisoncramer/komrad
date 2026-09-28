@@ -65,11 +65,6 @@ table "mail" {
     type    = uuid
     comment = "The thing a komrad notice is about, null on ordinary mail. Its kind says what sort of thing it is: another agent, a document, a pull request or a worktree. A recipient holds at most one unread notice of a kind about one subject, and a later notice rewrites it. There is no foreign key here on purpose. The notice has to keep naming its subject after the subject is gone."
   }
-  column "subject_state" {
-    null    = true
-    type    = jsonb
-    comment = "What a notice last said about its subject, kept so that a later notice about the same subject can say what moved since the recipient last heard."
-  }
   column "idempotency_key" {
     null    = true
     type    = text

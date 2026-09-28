@@ -28,10 +28,6 @@ func (PersonWrote) Topic() string {
 	return personWroteTopic
 }
 
-type toldState struct {
-	Created bool `json:"created"`
-}
-
 // NoticeHandler keeps one unread notice per document telling its owner a person wrote it.
 type NoticeHandler struct{}
 
@@ -60,14 +56,15 @@ func (*NoticeHandler) Handle(ctx context.Context, tx store.DBTX, mailer *mail.Ma
 		return nil, err
 	}
 
-	key := notices.Key{ToAgentID: document.AgentID, Kind: mailstore.KindDocumentEdited, SubjectID: document.ID}
+	body := buildEditNotice(*document)
+	if wrote.Created {
+		body = buildCreateNotice(*document)
+	}
 
-	return nil, notices.Rewrite(ctx, mailer, key, func(earlier toldState, _ bool) (notices.Draft[toldState], bool) {
-		told := toldState{Created: wrote.Created || earlier.Created}
-		if told.Created {
-			return notices.Draft[toldState]{Body: buildCreateNotice(*document), State: told}, true
-		}
-
-		return notices.Draft[toldState]{Body: buildEditNotice(*document), State: told}, true
+	return nil, notices.Write(ctx, mailer, notices.Notice{
+		ToAgentID: document.AgentID,
+		Kind:      mailstore.KindDocumentEdited,
+		SubjectID: document.ID,
+		Body:      body,
 	})
 }

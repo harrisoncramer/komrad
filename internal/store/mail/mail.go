@@ -4,7 +4,6 @@ package mail
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"slices"
 	"strings"
@@ -47,11 +46,10 @@ type Mail struct {
 	Kind        Kind
 	ReplyTo     *string
 	// SubjectID is the thing a notice komrad raised is about, unset on ordinary mail.
-	SubjectID    *string
-	SubjectState json.RawMessage
-	ClaimedAt    *time.Time
-	ExpiresAt    time.Time
-	CreatedAt    time.Time
+	SubjectID *string
+	ClaimedAt *time.Time
+	ExpiresAt time.Time
+	CreatedAt time.Time
 }
 
 type MailStore struct {
@@ -103,13 +101,12 @@ func (s *MailStore) Send(ctx context.Context, params SendParams) (*Mail, error) 
 }
 
 type UpsertNoticeParams struct {
-	FromName     string
-	ToAgentID    string
-	Body         string
-	Kind         Kind
-	SubjectID    string
-	SubjectState json.RawMessage
-	Deadline     time.Duration
+	FromName  string
+	ToAgentID string
+	Body      string
+	Kind      Kind
+	SubjectID string
+	Deadline  time.Duration
 }
 
 // UpsertNotice writes a notice komrad raised, rewriting the recipient's unread notice of the
@@ -121,7 +118,6 @@ func (s *MailStore) UpsertNotice(ctx context.Context, params UpsertNoticeParams)
 		Body:           params.Body,
 		Kind:           models.MailKind(params.Kind),
 		SubjectID:      params.SubjectID,
-		SubjectState:   params.SubjectState,
 		DeadlineMicros: params.Deadline.Microseconds(),
 	})
 	if err != nil {
@@ -131,20 +127,6 @@ func (s *MailStore) UpsertNotice(ctx context.Context, params UpsertNoticeParams)
 	written := fromRow(row)
 
 	return &written, nil
-}
-
-// LockNotice holds the recipient's notice of a kind about a subject until the transaction ends.
-func (s *MailStore) LockNotice(ctx context.Context, toAgentID string, kind Kind, subjectID string) error {
-	err := s.queries.LockNoticeSubject(ctx, models.LockNoticeSubjectParams{
-		ToAgentID: toAgentID,
-		Kind:      string(kind),
-		SubjectID: subjectID,
-	})
-	if err != nil {
-		return fmt.Errorf("failed to lock the %q notice of agent %q: %w", kind, toAgentID, err)
-	}
-
-	return nil
 }
 
 // GetPendingNotice is the unread notice of a kind about a subject that its recipient holds,
@@ -169,25 +151,6 @@ func (s *MailStore) GetPendingNotice(ctx context.Context, toAgentID string, kind
 	held := fromRow(row)
 
 	return &held, nil
-}
-
-// DeletePendingNotice removes the unread notice of a kind about a subject, doing nothing when
-// the recipient holds none.
-func (s *MailStore) DeletePendingNotice(ctx context.Context, toAgentID string, kind Kind, subjectID string) error {
-	if !store.IsID(toAgentID) || !store.IsID(subjectID) {
-		return nil
-	}
-
-	err := s.queries.DeletePendingNotice(ctx, models.DeletePendingNoticeParams{
-		ToAgentID: toAgentID,
-		Kind:      models.MailKind(kind),
-		SubjectID: subjectID,
-	})
-	if err != nil {
-		return fmt.Errorf("failed to delete the unread %q notice of agent %q: %w", kind, toAgentID, err)
-	}
-
-	return nil
 }
 
 func noPendingNotice(toAgentID string, kind Kind) error {
@@ -379,17 +342,16 @@ func (s *MailStore) ListExpired(ctx context.Context, toAgentID string) ([]Mail, 
 
 func fromRow(row *models.Mail) Mail {
 	return Mail{
-		ID:           row.ID,
-		FromAgentID:  row.FromAgentID,
-		FromName:     row.FromName,
-		ToAgentID:    row.ToAgentID,
-		Body:         row.Body,
-		Kind:         Kind(row.Kind),
-		ReplyTo:      row.ReplyTo,
-		SubjectID:    row.SubjectID,
-		SubjectState: row.SubjectState,
-		ClaimedAt:    row.ClaimedAt,
-		ExpiresAt:    row.ExpiresAt,
-		CreatedAt:    row.CreatedAt,
+		ID:          row.ID,
+		FromAgentID: row.FromAgentID,
+		FromName:    row.FromName,
+		ToAgentID:   row.ToAgentID,
+		Body:        row.Body,
+		Kind:        Kind(row.Kind),
+		ReplyTo:     row.ReplyTo,
+		SubjectID:   row.SubjectID,
+		ClaimedAt:   row.ClaimedAt,
+		ExpiresAt:   row.ExpiresAt,
+		CreatedAt:   row.CreatedAt,
 	}
 }

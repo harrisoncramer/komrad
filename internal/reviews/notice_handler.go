@@ -116,9 +116,11 @@ func (*AnswerNoticeHandler) Handle(ctx context.Context, tx store.DBTX, mailer *m
 		return nil, err
 	}
 
-	key := notices.Key{ToAgentID: reading.ReviewerID, Kind: mailstore.KindReviewActivity, SubjectID: author.ID}
-	err = notices.Rewrite(ctx, mailer, key, func(struct{}, bool) (notices.Draft[struct{}], bool) {
-		return notices.Draft[struct{}]{Body: answerNotice(author.Name)}, true
+	err = notices.Write(ctx, mailer, notices.Notice{
+		ToAgentID: reading.ReviewerID,
+		Kind:      mailstore.KindReviewActivity,
+		SubjectID: author.ID,
+		Body:      answerNotice(author.Name),
 	})
 	if err != nil {
 		return nil, err

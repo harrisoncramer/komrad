@@ -16,15 +16,7 @@ import (
 	"github.com/riverqueue/river"
 )
 
-const shortSHA = 7
-
-type span struct {
-	From string `json:"from"`
-	To   string `json:"to"`
-}
-
-// NoticeHandler keeps one unread notice per agent on a pull request's branch saying what moved since
-// it last read one.
+// NoticeHandler keeps one unread notice per agent on a pull request's branch saying where it stands.
 type NoticeHandler struct{}
 
 // NewNoticeHandler builds the handler the router is given for pull request changes.
@@ -37,7 +29,7 @@ func (*NoticeHandler) Topic() string {
 	return changeTopic
 }
 
-// Handle tells every agent on the pull request's branch about the change.
+// Handle tells every agent on the pull request's branch where it now stands.
 func (*NoticeHandler) Handle(ctx context.Context, tx store.DBTX, mailer *mail.MailService, payload json.RawMessage) ([]river.JobArgs, error) {
 	var change Change
 	if err := json.Unmarshal(payload, &change); err != nil {
@@ -58,10 +50,16 @@ func (*NoticeHandler) Handle(ctx context.Context, tx store.DBTX, mailer *mail.Ma
 		return nil, err
 	}
 
-	decide := decider(*pullRequest, change)
+	body := render(*pullRequest)
 	for _, recipient := range recipients {
-		key := notices.Key{ToAgentID: recipient, Kind: mailstore.KindPullRequestChanged, SubjectID: pullRequest.ID}
-		if err := notices.Rewrite(ctx, mailer, key, decide); err != nil {
+		err := notices.Write(ctx, mailer, notices.Notice{
+			ToAgentID:   recipient,
+			Kind:        mailstore.KindPullRequestChanged,
+			SubjectID:   pullRequest.ID,
+			Body:        body,
+			OnlyRewrite: !change.Opens(),
+		})
+		if err != nil {
 			return nil, err
 		}
 	}
@@ -69,66 +67,18 @@ func (*NoticeHandler) Handle(ctx context.Context, tx store.DBTX, mailer *mail.Ma
 	return nil, nil
 }
 
-func decider(pullRequest pullrequeststore.PullRequest, change Change) func(map[Field]span, bool) (notices.Draft[map[Field]span], bool) {
-	return func(earlier map[Field]span, held bool) (notices.Draft[map[Field]span], bool) {
-		if !held && !change.Opens() {
-			return notices.Draft[map[Field]span]{}, false
-		}
-
-		spans := map[Field]span{}
-		for field, told := range earlier {
-			spans[field] = told
-		}
-		for _, move := range change.Moves {
-			if _, ok := spans[move.Field]; !ok {
-				spans[move.Field] = span{From: move.From}
-			}
-		}
-
-		now := currentValues(pullRequest)
-		for field, told := range spans {
-			told.To = now[field]
-			if told.From == told.To {
-				delete(spans, field)
-
-				continue
-			}
-			spans[field] = told
-		}
-
-		return notices.Draft[map[Field]span]{Body: render(pullRequest, spans), State: spans}, worthTelling(spans)
-	}
-}
-
-func currentValues(pullRequest pullrequeststore.PullRequest) map[Field]string {
-	return map[Field]string{
+func render(pullRequest pullrequeststore.PullRequest) string {
+	now := map[Field]string{
 		FieldState:        pullRequest.State,
 		FieldDecision:     pullRequest.LastKnownDecision,
 		FieldChecks:       pullRequest.LastKnownChecks,
 		FieldMergeability: pullRequest.LastKnownMergeability,
-		FieldHead:         pullRequest.HeadSHA,
-	}
-}
-
-func worthTelling(spans map[Field]span) bool {
-	for field := range spans {
-		if field != FieldHead {
-			return true
-		}
 	}
 
-	return false
-}
-
-func render(pullRequest pullrequeststore.PullRequest, spans map[Field]span) string {
 	var body strings.Builder
-	fmt.Fprintf(&body, "komrad: pull request #%d (%s) on %s changed since you last heard.\n", pullRequest.Number, pullRequest.URL, pullRequest.HeadBranch)
+	fmt.Fprintf(&body, "komrad: pull request #%d (%s) on %s changed. It stands at:\n", pullRequest.Number, pullRequest.URL, pullRequest.HeadBranch)
 	for _, field := range fieldOrder {
-		told, ok := spans[field]
-		if !ok {
-			continue
-		}
-		fmt.Fprintf(&body, "  %s: %s → %s\n", field, describe(field, told.From, pullRequest), describe(field, told.To, pullRequest))
+		fmt.Fprintf(&body, "  %s: %s\n", field, describe(field, now[field], pullRequest))
 	}
 	fmt.Fprintf(&body, "Read it with gh pr view %d and gh pr checks %d.", pullRequest.Number, pullRequest.Number)
 
@@ -137,8 +87,6 @@ func render(pullRequest pullrequeststore.PullRequest, spans map[Field]span) stri
 
 func describe(field Field, value string, pullRequest pullrequeststore.PullRequest) string {
 	switch {
-	case field == FieldHead && len(value) > shortSHA:
-		return value[:shortSHA]
 	case field == FieldState:
 		return strings.ToLower(value)
 	case field == FieldMergeability && (value == "conflicting" || value == "behind"):

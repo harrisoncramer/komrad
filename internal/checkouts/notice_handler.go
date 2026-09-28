@@ -51,9 +51,11 @@ func (*NoticeHandler) Handle(ctx context.Context, _ store.DBTX, mailer *mail.Mai
 	if rebased.Result != nil {
 		body = rebaseMail(*rebased.Result)
 	}
-	key := notices.Key{ToAgentID: rebased.AgentID, Kind: mailstore.KindWorktreeRebased, SubjectID: rebased.AgentID}
 
-	return nil, notices.Rewrite(ctx, mailer, key, func(struct{}, bool) (notices.Draft[struct{}], bool) {
-		return notices.Draft[struct{}]{Body: body}, true
+	return nil, notices.Write(ctx, mailer, notices.Notice{
+		ToAgentID: rebased.AgentID,
+		Kind:      mailstore.KindWorktreeRebased,
+		SubjectID: rebased.AgentID,
+		Body:      body,
 	})
 }

@@ -1,8 +1,7 @@
 -- name: UpsertPullRequest :one
 WITH prior AS (
     SELECT
-        held.state,
-        held.head_sha
+        held.state
     FROM
         pull_requests held
     WHERE
@@ -106,8 +105,7 @@ SELECT
     written.id,
     written.inserted,
     TRUE AS changed,
-    prior.state AS old_state,
-    prior.head_sha AS old_head_sha
+    prior.state AS old_state
 FROM
     written
     LEFT JOIN prior ON TRUE
@@ -116,8 +114,7 @@ SELECT
     pull_requests.id,
     FALSE AS inserted,
     FALSE AS changed,
-    NULL::text AS old_state,
-    NULL::text AS old_head_sha
+    NULL::text AS old_state
 FROM
     pull_requests
 WHERE

@@ -27,7 +27,6 @@ INSERT INTO mail(
     body,
     kind,
     subject_id,
-    subject_state,
     expires_at)
 VALUES (
     @from_name,
@@ -35,7 +34,6 @@ VALUES (
     @body,
     @kind,
     @subject_id::uuid,
-    sqlc.narg('subject_state')::jsonb,
     NOW() + interval '1 microsecond' * @deadline_micros::bigint)
 ON CONFLICT (
     to_agent_id,
@@ -46,16 +44,11 @@ WHERE
     AND subject_id IS NOT NULL
         DO UPDATE SET
             body = EXCLUDED.body,
-            subject_state = EXCLUDED.subject_state,
             expires_at = EXCLUDED.expires_at,
             reported_at = NULL,
             updated_at = NOW()
         RETURNING
             *;
-
--- name: LockNoticeSubject :exec
-SELECT
-    PG_ADVISORY_XACT_LOCK(HASHTEXTEXTENDED(@to_agent_id::text || '/' || @kind::text || '/' || @subject_id::text, 0));
 
 -- name: GetPendingNotice :one
 SELECT
@@ -68,13 +61,6 @@ WHERE
     AND m.subject_id = @subject_id::uuid
     AND m.claimed_at IS NULL
 FOR UPDATE;
-
--- name: DeletePendingNotice :exec
-DELETE FROM mail m
-WHERE m.to_agent_id = @to_agent_id
-    AND m.kind = @kind
-    AND m.subject_id = @subject_id::uuid
-    AND m.claimed_at IS NULL;
 
 -- name: GetMailByIdempotencyKey :one
 SELECT
