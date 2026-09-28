@@ -123,6 +123,11 @@ func (h *Harness) FindSession(string) (string, error) {
 	return "", nil
 }
 
+// TrustDir has nothing to record, the fake agent asking no question at startup.
+func (h *Harness) TrustDir(string) error {
+	return nil
+}
+
 // BuildCommand renders the command line that puts the fake agent up, quoting everything
 // interpolated the way a real harness has to.
 func (h *Harness) BuildCommand(launch harness.Launch) (string, error) {

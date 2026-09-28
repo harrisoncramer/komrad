@@ -43,18 +43,20 @@ type NewLauncherParams struct {
 	LogPath     string
 	ContextPath string
 	// BinPath is komrad's own binary, which an agent's hooks and its gh stand-in both run.
-	BinPath string
-	Usage   config.Usage
+	BinPath         string
+	Usage           config.Usage
+	TrustLaunchDirs map[string]bool
 }
 
 type Launcher struct {
-	tmux        paneStarter
-	serverAddr  string
-	cacheDir    string
-	logPath     string
-	contextPath string
-	binPath     string
-	usage       config.Usage
+	tmux            paneStarter
+	serverAddr      string
+	cacheDir        string
+	logPath         string
+	contextPath     string
+	binPath         string
+	usage           config.Usage
+	trustLaunchDirs map[string]bool
 }
 
 // NewLauncher builds a launcher that points spawned agents at the given address.
@@ -64,13 +66,14 @@ func NewLauncher(params NewLauncherParams) *Launcher {
 	}
 
 	return &Launcher{
-		tmux:        params.Tmux,
-		serverAddr:  params.Addr,
-		cacheDir:    params.CacheDir,
-		logPath:     params.LogPath,
-		contextPath: params.ContextPath,
-		binPath:     params.BinPath,
-		usage:       params.Usage,
+		tmux:            params.Tmux,
+		serverAddr:      params.Addr,
+		cacheDir:        params.CacheDir,
+		logPath:         params.LogPath,
+		contextPath:     params.ContextPath,
+		binPath:         params.BinPath,
+		usage:           params.Usage,
+		trustLaunchDirs: params.TrustLaunchDirs,
 	}
 }
 
@@ -217,6 +220,12 @@ func (l *Launcher) launch(h harness.Harness, params launchParams) error {
 	role := params.Role
 	if role == "" {
 		role = agentstore.RoleImplementer
+	}
+
+	if l.trustLaunchDirs[h.ID()] && params.Dir != "" {
+		if err := h.TrustDir(params.Dir); err != nil {
+			return fmt.Errorf("failed to trust the launch directory: %w", err)
+		}
 	}
 
 	command, err := h.BuildCommand(harness.Launch{

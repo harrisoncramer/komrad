@@ -79,8 +79,7 @@ the service, or call an endpoint from a script.`,
 			}
 
 			codexHarness := codex.NewHarness(codex.NewHarnessParams{
-				Home:            codex.NamedHome(),
-				TrustLaunchDirs: cfg.Harness.Codex.TrustLaunchDirs,
+				Home: codex.NamedHome(),
 			})
 			claudeHarness := claude.NewHarness(claude.NewHarnessParams{
 				ConfigDir: claude.NamedConfigDir(),
@@ -129,6 +128,10 @@ the service, or call an endpoint from a script.`,
 			app.defaultFlags = map[string]string{
 				claudeHarness.ID(): cfg.Harness.Claude.Flags,
 				codexHarness.ID():  cfg.Harness.Codex.Flags,
+			}
+			app.trustDirs = map[string]bool{
+				claudeHarness.ID(): cfg.Harness.Claude.TrustLaunchDirs,
+				codexHarness.ID():  cfg.Harness.Codex.TrustLaunchDirs,
 			}
 
 			return nil

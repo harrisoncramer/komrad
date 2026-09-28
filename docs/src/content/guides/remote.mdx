@@ -37,7 +37,9 @@ The exception is a window someone fixed at a size on the engine itself, for exam
 
 ## Signing the agent CLI in
 
-Agents on the engine run a CLI that has to be logged in and has to trust the checkout it works in. Do that once on the engine: start the CLI in the checkout, log in, and accept the trust question. If it is never answered, every agent sits waiting at that question. Both answers live on the engine's data disk.
+Agents on the engine run a CLI that has to be logged in. Do that once on the engine: start the CLI and log in. The login lives on the engine's data disk.
+
+Each agent also works in a fresh worktree, and the CLI asks whether to trust every directory it has not seen. Turn on <Setting path="harness.claude.trust_launch_dirs" label="trust_launch_dirs" /> for each CLI the engine runs, so komrad answers that question before the agent starts. Without it, every new agent sits waiting at that question.
 
 ## Keeping the two builds in step
 

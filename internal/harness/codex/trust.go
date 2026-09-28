@@ -18,11 +18,8 @@ func (h *Harness) resolveConfigPath() (string, error) {
 	return filepath.Join(home, "config.toml"), nil
 }
 
-func (h *Harness) trustDir(dir string) error {
-	if !h.trustLaunchDirs || dir == "" {
-		return nil
-	}
-
+// TrustDir records dir as trusted in Codex's own config, leaving a directory already listed as it was.
+func (h *Harness) TrustDir(dir string) error {
 	configPath, err := h.resolveConfigPath()
 	if err != nil {
 		return err

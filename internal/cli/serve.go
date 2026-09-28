@@ -167,6 +167,7 @@ func serve(ctx context.Context, params serveParams) error {
 		Harnesses:      state.harnesses,
 		DefaultHarness: state.defaultHarness,
 		DefaultFlags:   state.defaultFlags,
+		TrustDirs:      state.trustDirs,
 		Usage:          state.usage,
 		ContextPath:    state.contextPath,
 		HookCommand:    getHookBinaryPath(ctx),

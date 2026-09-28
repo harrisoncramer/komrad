@@ -35,20 +35,17 @@ func originatorPrefix(agentID string) string {
 }
 
 type NewHarnessParams struct {
-	Home            string
-	TrustLaunchDirs bool
+	Home string
 }
 
 type Harness struct {
-	home            string
-	trustLaunchDirs bool
+	home string
 }
 
 // NewHarness builds a harness from opts.
 func NewHarness(params NewHarnessParams) *Harness {
 	return &Harness{
-		home:            params.Home,
-		trustLaunchDirs: params.TrustLaunchDirs,
+		home: params.Home,
 	}
 }
 

@@ -40,6 +40,7 @@ type NewServerParams struct {
 	Harnesses          *harness.Registry
 	DefaultHarness     string
 	DefaultFlags       map[string]string
+	TrustDirs          map[string]bool
 	Usage              config.Usage
 	ContextPath        string
 	HookCommand        string

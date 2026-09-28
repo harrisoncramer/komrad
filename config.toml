@@ -15,13 +15,19 @@ default_harness = "claude"
 
 [harness.claude]
 # Flags appended to every agent's command line for this CLI, ahead of the flags that agent carries itself.
-flags = ""
+flags             = ""
+# Whether to record each agent's directory as trusted in this CLI's own config
+# before launching it. The CLI asks whether a directory is trusted the first
+# time it runs there and waits for an answer, which it reads only from that
+# file, so an agent in a fresh worktree otherwise starts blocked and shows
+# here as waiting. Turning this on edits that file on your behalf.
+trust_launch_dirs = false
 
 [harness.codex]
-# Flags appended to every Codex agent's command line, ahead of the flags that agent carries itself.
+# Flags appended to every agent's command line for this CLI, ahead of the flags that agent carries itself.
 flags             = ""
-# Whether to record each agent's directory as trusted in Codex's own config
-# before launching it. Codex asks whether a directory is trusted the first
+# Whether to record each agent's directory as trusted in this CLI's own config
+# before launching it. The CLI asks whether a directory is trusted the first
 # time it runs there and waits for an answer, which it reads only from that
 # file, so an agent in a fresh worktree otherwise starts blocked and shows
 # here as waiting. Turning this on edits that file on your behalf.
