@@ -12,6 +12,8 @@ import (
 	"komrad/proto/gen/agent/v1/agentv1connect"
 	hookv1 "komrad/proto/gen/hook/v1"
 	"komrad/proto/gen/hook/v1/hookv1connect"
+	logv1 "komrad/proto/gen/log/v1"
+	"komrad/proto/gen/log/v1/logv1connect"
 	schedulev1 "komrad/proto/gen/schedule/v1"
 	schedulev1connect "komrad/proto/gen/schedule/v1/schedulev1connect"
 	workflowv1 "komrad/proto/gen/workflow/v1"
@@ -35,6 +37,7 @@ type api struct {
 	schedules schedulev1connect.ScheduleServiceClient
 	hooks     hookv1connect.HookServiceClient
 	worktrees worktreev1connect.WorktreeServiceClient
+	logs      logv1connect.LogServiceClient
 }
 
 // call runs work under its own deadline.
@@ -528,5 +531,20 @@ func (a api) writeDocument(item documentItem, version int32, body string) error 
 			Kind:    item.kind,
 			Source:  &agentv1.WriteDocumentRequest_Body{Body: body},
 		}))
+	})
+}
+
+func (a api) readAgentLogs(agentID, cursor string, limit int32) (*logv1.ReadAgentLogsResponse, error) {
+	return call(requestTimeout, func(ctx context.Context) (*logv1.ReadAgentLogsResponse, error) {
+		resp, err := a.logs.ReadAgentLogs(ctx, connect.NewRequest(&logv1.ReadAgentLogsRequest{
+			AgentIds: []string{agentID},
+			Cursor:   cursor,
+			Limit:    limit,
+		}))
+		if err != nil {
+			return nil, fmt.Errorf("failed to read the logs of agent %q: %w", agentID, err)
+		}
+
+		return resp.Msg, nil
 	})
 }

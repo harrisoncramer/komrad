@@ -19,6 +19,7 @@ import (
 	"komrad/lib/xslice"
 	"komrad/proto/gen/agent/v1/agentv1connect"
 	"komrad/proto/gen/hook/v1/hookv1connect"
+	"komrad/proto/gen/log/v1/logv1connect"
 	schedulev1connect "komrad/proto/gen/schedule/v1/schedulev1connect"
 	"komrad/proto/gen/workflow/v1/workflowv1connect"
 	"komrad/proto/gen/worktree/v1/worktreev1connect"
@@ -99,6 +100,7 @@ type NewPanelParams struct {
 	Schedules       schedulev1connect.ScheduleServiceClient
 	Hooks           hookv1connect.HookServiceClient
 	Worktrees       worktreev1connect.WorktreeServiceClient
+	Logs            logv1connect.LogServiceClient
 	Git             ReviewGit
 	Keys            config.Keybindings
 	DetailsHeight   float64
@@ -160,6 +162,7 @@ func NewPanel(params NewPanelParams) *Panel {
 			Schedules:       params.Schedules,
 			Hooks:           params.Hooks,
 			Worktrees:       params.Worktrees,
+			Logs:            params.Logs,
 			Keys:            params.Keys,
 			Layout:          layout,
 			Engine:          params.Engine,
@@ -355,6 +358,8 @@ func (p *Panel) ReadLegendKeys() []string {
 		legend = p.model.listHelpOf(p.model.worktrees.listParams(shared))
 	case screenDocuments:
 		legend = p.model.listHelpOf(p.model.documents.listParams(shared))
+	case screenLogs:
+		legend = p.model.listHelp(p.model.logs.help(shared))
 	}
 
 	var keys []string

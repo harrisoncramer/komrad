@@ -3,6 +3,7 @@
 package e2e
 
 import (
+	"encoding/json"
 	"testing"
 
 	"komrad/internal/interceptors"
@@ -53,4 +54,50 @@ func TestIntegrationLogReadsTheServersOwnLog(t *testing.T) {
 	_, err = instance.Logs.GetLogLines(ctx, connect.NewRequest(&logv1.GetLogLinesRequest{TraceId: "no-such-trace"}))
 	require.Error(t, err)
 	assert.Equal(t, connect.CodeNotFound, connect.CodeOf(err))
+}
+
+// TestIntegrationLogReadsWhatWasLoggedAboutAgents covers an orchestrator reading its children's
+// lines at once, then reading back only what was written since.
+func TestIntegrationLogReadsWhatWasLoggedAboutAgents(t *testing.T) {
+	instance := komradtest.Start(t, komradtest.Params{KeepLog: true})
+	ctx := t.Context()
+
+	workflowID := createWorkflow(t, instance, "checkout")
+	api := createAgent(t, instance, workflowID, "api")
+	migrations := createAgent(t, instance, workflowID, "migrations")
+	bystander := createAgent(t, instance, workflowID, "bystander")
+
+	logAbout := func(agentID, message string) {
+		t.Helper()
+		_, err := instance.Agents.Log(ctx, connect.NewRequest(&agentv1.LogRequest{Id: &agentID, Message: message}))
+		require.NoError(t, err)
+	}
+	messages := func(lines []string) []string {
+		t.Helper()
+		var bodies []string
+		for _, line := range lines {
+			var fields map[string]any
+			require.NoError(t, json.Unmarshal([]byte(line), &fields))
+			bodies = append(bodies, fields["body"].(string))
+		}
+
+		return bodies
+	}
+
+	logAbout(api.GetId(), "api started the refund column")
+	logAbout(bystander.GetId(), "bystander did something else")
+	logAbout(migrations.GetId(), "migrations wrote the migration")
+
+	ids := []string{api.GetId(), migrations.GetId()}
+	first, err := instance.Logs.ReadAgentLogs(ctx, connect.NewRequest(&logv1.ReadAgentLogsRequest{AgentIds: ids}))
+	require.NoError(t, err)
+	assert.Equal(t, []string{"api started the refund column", "migrations wrote the migration"}, messages(first.Msg.GetLines()))
+	assert.False(t, first.Msg.GetReset_())
+
+	logAbout(bystander.GetId(), "bystander again")
+	logAbout(api.GetId(), "api finished")
+
+	since, err := instance.Logs.ReadAgentLogs(ctx, connect.NewRequest(&logv1.ReadAgentLogsRequest{AgentIds: ids, Cursor: first.Msg.GetCursor()}))
+	require.NoError(t, err)
+	assert.Equal(t, []string{"api finished"}, messages(since.Msg.GetLines()))
 }

@@ -56,6 +56,35 @@ message ListRecentTracesResponse {
   repeated TraceSummary traces = 1;
 }
 
+message ReadAgentLogsRequest {
+  // The agents whose lines to read.
+  repeated string agent_ids = 1 [(buf.validate.field).repeated = {
+    min_items: 1
+    max_items: 100
+    items: {
+      string: {min_len: 1}
+    }
+  }];
+  // Where the last call left off. Leave it empty to read the newest lines.
+  string cursor = 2;
+  // The most lines to answer. 200 when unset.
+  int32 limit = 3 [(buf.validate.field).int32 = {
+    gte: 0
+    lte: 1000
+  }];
+}
+
+message ReadAgentLogsResponse {
+  // The lines about any of the agents, oldest first, exactly as the log holds them.
+  repeated string lines = 1;
+  // What to pass back to read only the lines written after these.
+  string cursor = 2;
+  // Whether the log started over since the cursor, so the lines held before are gone.
+  bool reset = 3;
+  // Whether more lines remain past the cursor, so reading again at once returns them.
+  bool more = 4;
+}
+
 // LogService reads the service's own log back, by the trace id its lines carry.
 service LogService {
   rpc GetLogLines(GetLogLinesRequest) returns (GetLogLinesResponse) {
@@ -75,6 +104,16 @@ service LogService {
       mcp: true
       name: "list_recent_traces"
       description: "List the traces the service's log ends with, oldest first, each with when it started, what it was about and how many lines it holds. Start here when you know what you did but not what it was called, then read its lines with get_log_lines."
+      roles: [ROLE_ORCHESTRATOR]
+    };
+  }
+  rpc ReadAgentLogs(ReadAgentLogsRequest) returns (ReadAgentLogsResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (annotation.v1.surfaces) = {
+      cli: true
+      mcp: true
+      name: "read_agent_logs"
+      description: "Read what the service logged about one or more agents, such as every child of yours. Without a cursor it answers the newest lines. Pass back the cursor it answered to read only what was written since, and read again at once while it answers more."
       roles: [ROLE_ORCHESTRATOR]
     };
   }

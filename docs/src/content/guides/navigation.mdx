@@ -13,7 +13,7 @@ import { media } from "../../site";
 
 The sidebar panel is divided into a few regions. It most of komrad's state, typically a list of whatever is in focus: agents and workflows, schedules, worktrees, or documents.
 
-The *view switcher* across the top of the sidebar moves between the agents, the query, the schedules, the archive and the worktrees. Press <Key name="views.pick" /> to reach it, then the underlined letter of the view you want.
+The _view switcher_ across the top of the sidebar moves between the agents, the query, the schedules, the archive and the worktrees. Press <Key name="views.pick" /> to reach it, then the underlined letter of the view you want.
 
 Under the sidebar is the **details pane**, which shows what is known about the row under the cursor, such as an agent's directory or its base branch.
 
@@ -27,6 +27,7 @@ The main view is the wide region beside the sidebar. It shows the agent you have
 
 Press <Key name="cycle.views" at={0} /> to move the keyboard between regions in komrad, and <Key name="cycle.views" at={1} /> to the previous one: the list, the agent on the stage, then the details. `ctrl+g` moves it to the messages. If your own
 tmux prefix is <Key name="cycle.views" at={0} />, choose another
+
 <Setting path="keybindings.cycle.views">pair of cycle keys</Setting>.
 
 <figure>

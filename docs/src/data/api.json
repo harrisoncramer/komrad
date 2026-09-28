@@ -1217,6 +1217,24 @@
           "destructive": false,
           "request": "log.v1.ListRecentTracesRequest",
           "response": "log.v1.ListRecentTracesResponse"
+        },
+        {
+          "slug": "read-agent-logs",
+          "name": "ReadAgentLogs",
+          "path": "/log.v1.LogService/ReadAgentLogs",
+          "command": "komrad rpc read-agent-logs",
+          "tool": "read_agent_logs",
+          "mcp": true,
+          "roles": [
+            "orchestrator"
+          ],
+          "summary": "Read what the service logged about one or more agents, such as every child of yours.",
+          "description": "Read what the service logged about one or more agents, such as every child of yours. Without a cursor it answers the newest lines. Pass back the cursor it answered to read only what was written since, and read again at once while it answers more.",
+          "readOnly": true,
+          "idempotent": true,
+          "destructive": false,
+          "request": "log.v1.ReadAgentLogsRequest",
+          "response": "log.v1.ReadAgentLogsResponse"
         }
       ]
     },
@@ -6147,6 +6165,92 @@
           "oneof": "",
           "rules": [],
           "description": "Everything else the line carried, keyed as the log keys it."
+        }
+      ]
+    },
+    "log.v1.ReadAgentLogsRequest": {
+      "name": "ReadAgentLogsRequest",
+      "description": "",
+      "fields": [
+        {
+          "name": "agent_ids",
+          "type": "string",
+          "ref": "",
+          "repeated": true,
+          "map": false,
+          "oneof": "",
+          "rules": [
+            "required"
+          ],
+          "description": "The agents whose lines to read."
+        },
+        {
+          "name": "cursor",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "Where the last call left off. Leave it empty to read the newest lines."
+        },
+        {
+          "name": "limit",
+          "type": "int32",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [
+            "between 0 and 1000"
+          ],
+          "description": "The most lines to answer. 200 when unset."
+        }
+      ]
+    },
+    "log.v1.ReadAgentLogsResponse": {
+      "name": "ReadAgentLogsResponse",
+      "description": "",
+      "fields": [
+        {
+          "name": "lines",
+          "type": "string",
+          "ref": "",
+          "repeated": true,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The lines about any of the agents, oldest first, exactly as the log holds them."
+        },
+        {
+          "name": "cursor",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "What to pass back to read only the lines written after these."
+        },
+        {
+          "name": "reset",
+          "type": "bool",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "Whether the log started over since the cursor, so the lines held before are gone."
+        },
+        {
+          "name": "more",
+          "type": "bool",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "Whether more lines remain past the cursor, so reading again at once returns them."
         }
       ]
     },

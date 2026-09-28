@@ -202,6 +202,13 @@ open_pull_request = ["o"]
 # says what it would do to the branch and to the files.
 rebase            = ["r"]
 
+# The logs screen, which tails what the service logged about one agent.
+[keybindings.logs]
+# Leave the logs screen for the view it was opened from.
+back = ["esc"]
+# Quit the panel.
+quit = ["ctrl+c"]
+
 # The pair of keys that move between the sidebar, the staged agent and the details.
 [keybindings.cycle]
 # Move to the next view, then the previous one. One of ["ctrl+a", "ctrl+q"],
@@ -325,7 +332,7 @@ review    = ["r"]
 # Open the documents the agent has written. The entry is gray on an agent that has written
 # none.
 documents = ["d"]
-# Pick the agent's logs, which the panel does not draw yet, so the entry closes the menu.
+# Open the agent's logs, the service log lines about it.
 logs      = ["l"]
 # Open a shell in the pane below the stage, rooted at the agent's directory, or hand the
 # keyboard to the one already rooted there. The entry is gray in the archive and on an agent

@@ -45,12 +45,14 @@ type Summary struct {
 
 // Reader reads one log file.
 type Reader struct {
-	path string
+	path    string
+	maxLine int
+	budget  int
 }
 
 // New builds a reader over the log at path.
 func New(path string) *Reader {
-	return &Reader{path: path}
+	return &Reader{path: path, maxLine: scanBuffer, budget: ScanBudget}
 }
 
 // Lines is every line written under one trace id, in the order the log holds them.

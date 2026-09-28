@@ -17,7 +17,8 @@ Hooks provide a way to run arbitrary code at a given moment in your agent's life
 You can use hooks to cover setup that komrad cannot handle out of the box, such as tearing down a docker stack, or configuring a network.
 
 <Alert variant="danger">
-  Do not use hooks to copy or link dependencies into a worktree. A [workflow](../workflows/#worktrees) already does that: its <Field message="workflow.v1.WorktreeConfig" name="copy_paths" /> and{" "}
+  Do not use hooks to copy or link dependencies into a worktree. A [workflow](../workflows/#worktrees) already does
+  that: its <Field message="workflow.v1.WorktreeConfig" name="copy_paths" /> and{" "}
   <Field message="workflow.v1.WorktreeConfig" name="symlink_paths" /> on the worktree config, are copied or linked into
   every new worktree before the agent starts.
 </Alert>

@@ -145,6 +145,8 @@ type Keybindings struct {
 	Help HelpKeys `mapstructure:"help"`
 	// The git menu on the agents list, and the actions inside it.
 	Git GitKeys `mapstructure:"git"`
+	// The logs screen, which tails what the service logged about one agent.
+	Logs LogsKeys `mapstructure:"logs"`
 	// The pair of keys that move between the sidebar, the staged agent and the details.
 	Cycle CycleKeys `mapstructure:"cycle"`
 	// The marks a person puts on rows to jump between them, as vim's own marks work.
@@ -370,7 +372,7 @@ type SubpagesKeys struct {
 	// Open the documents the agent has written. The entry is gray on an agent that has written
 	// none.
 	Documents []string `mapstructure:"documents" default:"d"`
-	// Pick the agent's logs, which the panel does not draw yet, so the entry closes the menu.
+	// Open the agent's logs, the service log lines about it.
 	Logs []string `mapstructure:"logs" default:"l"`
 	// Open a shell in the pane below the stage, rooted at the agent's directory, or hand the
 	// keyboard to the one already rooted there. The entry is gray in the archive and on an agent
@@ -410,6 +412,15 @@ type DocumentsKeys struct {
 	// Write a new document for the agent whose documents are listed, from a form asking its name
 	// and kind. It starts with a line saying it is empty, for you to edit.
 	New []string `mapstructure:"new" default:"c"`
+	// Quit the panel.
+	Quit []string `mapstructure:"quit" default:"ctrl+c"`
+}
+
+// LogsKeys are the bindings for the logs screen. Movement is the shared navigation, and
+// moving up stops following the newest line until the key that jumps to the last row.
+type LogsKeys struct {
+	// Leave the logs screen for the view it was opened from.
+	Back []string `mapstructure:"back" default:"esc"`
 	// Quit the panel.
 	Quit []string `mapstructure:"quit" default:"ctrl+c"`
 }

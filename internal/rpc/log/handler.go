@@ -3,6 +3,7 @@ package log
 
 import (
 	"context"
+	"strconv"
 
 	"komrad/internal/fail"
 	"komrad/internal/logging"
@@ -14,9 +15,16 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
+// defaultAgentLogLimit is how many lines a read of agent logs answers when the caller names no count.
+const defaultAgentLogLimit = 200
+
+var errBadCursor = fail.InvalidArgument("the cursor is not one this service answered")
+
 type logReader interface {
 	Lines(trace string) ([]logread.Line, error)
 	RecentTraces(limit int) ([]logread.Summary, error)
+	NewestAboutAgents(ctx context.Context, agentIDs []string, limit int) (*logread.Window, error)
+	AboutAgentsSince(ctx context.Context, agentIDs []string, offset int64, limit int) (*logread.Window, error)
 }
 
 type Handler struct {
@@ -70,6 +78,40 @@ func (s *Handler) ListRecentTraces(_ context.Context, req *logv1.ListRecentTrace
 	})
 
 	return &logv1.ListRecentTracesResponse{Traces: resources}, nil
+}
+
+// ReadAgentLogs is the lines about some agents, the newest without a cursor and those written since
+// it with one.
+func (s *Handler) ReadAgentLogs(ctx context.Context, req *logv1.ReadAgentLogsRequest) (*logv1.ReadAgentLogsResponse, *fail.Error) {
+	limit := int(req.GetLimit())
+	if limit == 0 {
+		limit = defaultAgentLogLimit
+	}
+
+	var (
+		window *logread.Window
+		err    error
+	)
+	if req.GetCursor() == "" {
+		window, err = s.log.NewestAboutAgents(ctx, req.GetAgentIds(), limit)
+	} else {
+		offset, parseErr := strconv.ParseInt(req.GetCursor(), 10, 64)
+		if parseErr != nil || offset < 0 {
+			return nil, errBadCursor.Saying("cursor %q is not one this service answered", req.GetCursor())
+		}
+
+		window, err = s.log.AboutAgentsSince(ctx, req.GetAgentIds(), offset, limit)
+	}
+	if err != nil {
+		return nil, rpcerr.From(err, "failed to read the agents' logs")
+	}
+
+	return &logv1.ReadAgentLogsResponse{
+		Lines:  window.Lines,
+		Cursor: strconv.FormatInt(window.Offset, 10),
+		Reset_: window.Reset,
+		More:   window.More,
+	}, nil
 }
 
 // plain leaves out the fields the line already carries on its own, and anything a Struct

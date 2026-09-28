@@ -501,6 +501,27 @@
           "sections": []
         },
         {
+          "path": "keybindings.logs",
+          "description": "The logs screen, which tails what the service logged about one agent.",
+          "settings": [
+            {
+              "key": "back",
+              "path": "keybindings.logs.back",
+              "type": "array",
+              "description": "Leave the logs screen for the view it was opened from.",
+              "default": "[\"esc\"]"
+            },
+            {
+              "key": "quit",
+              "path": "keybindings.logs.quit",
+              "type": "array",
+              "description": "Quit the panel.",
+              "default": "[\"ctrl+c\"]"
+            }
+          ],
+          "sections": []
+        },
+        {
           "path": "keybindings.cycle",
           "description": "The pair of keys that move between the sidebar, the staged agent and the details.",
           "settings": [
@@ -837,7 +858,7 @@
               "key": "logs",
               "path": "keybindings.subpages.logs",
               "type": "array",
-              "description": "Pick the agent's logs, which the panel does not draw yet, so the entry closes the menu.",
+              "description": "Open the agent's logs, the service log lines about it.",
               "default": "[\"l\"]"
             },
             {

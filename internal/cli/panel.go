@@ -20,6 +20,7 @@ import (
 	"komrad/proto/gen/agent/v1/agentv1connect"
 	"komrad/proto/gen/git/v1/gitv1connect"
 	"komrad/proto/gen/hook/v1/hookv1connect"
+	"komrad/proto/gen/log/v1/logv1connect"
 	"komrad/proto/gen/schedule/v1/schedulev1connect"
 	"komrad/proto/gen/watch/v1/watchv1connect"
 	"komrad/proto/gen/workflow/v1/workflowv1connect"
@@ -115,6 +116,7 @@ Use ` + "`komrad open`" + ` to bring the panel up.`,
 			scheduleClient := schedulev1connect.NewScheduleServiceClient(httpClient, base)
 			hookClient := hookv1connect.NewHookServiceClient(httpClient, base)
 			worktreeClient := worktreev1connect.NewWorktreeServiceClient(httpClient, base)
+			logClient := logv1connect.NewLogServiceClient(httpClient, base)
 			watchClient := watchv1connect.NewWatchServiceClient(httpClient, base)
 
 			state.session.SilenceStatus(agents.ManagerSession)
@@ -138,6 +140,7 @@ Use ` + "`komrad open`" + ` to bring the panel up.`,
 				Glyphs:          state.glyphs,
 				Hooks:           hookClient,
 				Worktrees:       worktreeClient,
+				Logs:            logClient,
 				Watch:           watchClient,
 				Layout:          state.layout,
 				Engine:          remote,

@@ -1,6 +1,7 @@
 package log
 
 import (
+	"context"
 	"errors"
 	"testing"
 
@@ -19,9 +20,40 @@ import (
 type fakeLogReader struct {
 	lines     []logread.Line
 	summaries []logread.Summary
+	window    *logread.Window
 	err       error
 	traces    []string
 	limits    []int
+	reads     []agentRead
+}
+
+// agentRead is one read of agent logs as the fake saw it.
+type agentRead struct {
+	ids    []string
+	offset int64
+	limit  int
+}
+
+// NewestAboutAgents records the read and answers window.
+func (f *fakeLogReader) NewestAboutAgents(_ context.Context, agentIDs []string, limit int) (*logread.Window, error) {
+	f.reads = append(f.reads, agentRead{ids: agentIDs, offset: -1, limit: limit})
+
+	if f.err != nil {
+		return nil, f.err
+	}
+
+	return f.window, nil
+}
+
+// AboutAgentsSince records the read and answers window.
+func (f *fakeLogReader) AboutAgentsSince(_ context.Context, agentIDs []string, offset int64, limit int) (*logread.Window, error) {
+	f.reads = append(f.reads, agentRead{ids: agentIDs, offset: offset, limit: limit})
+
+	if f.err != nil {
+		return nil, f.err
+	}
+
+	return f.window, nil
 }
 
 // Lines records the trace and answers lines unless err refuses it.
@@ -132,4 +164,67 @@ func TestListRecentTraces(t *testing.T) {
 	}}}
 	assert.Equal(t, []int{5}, reader.limits)
 	assert.Empty(t, cmp.Diff(want, resp.Msg, protocmp.Transform()))
+}
+
+// TestReadAgentLogs pins how a cursor turns into a read and how the read turns back into a cursor.
+func TestReadAgentLogs(t *testing.T) {
+	tests := []struct {
+		name     string
+		req      *logv1.ReadAgentLogsRequest
+		window   *logread.Window
+		wantRead agentRead
+		want     *logv1.ReadAgentLogsResponse
+		wantCode connect.Code
+	}{
+		{
+			name:     "a cursor this service never answered",
+			req:      &logv1.ReadAgentLogsRequest{AgentIds: []string{"a1"}, Cursor: "later"},
+			wantCode: connect.CodeInvalidArgument,
+		},
+		{
+			name:     "a cursor before the start of the log",
+			req:      &logv1.ReadAgentLogsRequest{AgentIds: []string{"a1"}, Cursor: "-1"},
+			wantCode: connect.CodeInvalidArgument,
+		},
+		{
+			name:     "no cursor reads the newest, two hundred by default",
+			req:      &logv1.ReadAgentLogsRequest{AgentIds: []string{"a1", "b2"}},
+			window:   &logread.Window{Lines: []string{"one", "two"}, Offset: 42},
+			wantRead: agentRead{ids: []string{"a1", "b2"}, offset: -1, limit: 200},
+			want:     &logv1.ReadAgentLogsResponse{Lines: []string{"one", "two"}, Cursor: "42"},
+		},
+		{
+			name:     "a cursor reads from where it left off",
+			req:      &logv1.ReadAgentLogsRequest{AgentIds: []string{"a1"}, Cursor: "42", Limit: 5},
+			window:   &logread.Window{Lines: []string{"three"}, Offset: 90, More: true},
+			wantRead: agentRead{ids: []string{"a1"}, offset: 42, limit: 5},
+			want:     &logv1.ReadAgentLogsResponse{Lines: []string{"three"}, Cursor: "90", More: true},
+		},
+		{
+			name:     "a log that started over says so",
+			req:      &logv1.ReadAgentLogsRequest{AgentIds: []string{"a1"}, Cursor: "900"},
+			window:   &logread.Window{Lines: []string{"one"}, Offset: 10, Reset: true},
+			wantRead: agentRead{ids: []string{"a1"}, offset: 900, limit: 200},
+			want:     &logv1.ReadAgentLogsResponse{Lines: []string{"one"}, Cursor: "10", Reset_: true},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			reader := &fakeLogReader{window: tt.window}
+			service := logv1komrad.LogServiceAdapter{Impl: NewHandler(reader)}
+
+			resp, err := service.ReadAgentLogs(t.Context(), connect.NewRequest(tt.req))
+			if tt.wantCode != 0 {
+				assert.Equal(t, tt.wantCode, connect.CodeOf(err))
+				assert.Empty(t, reader.reads)
+
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, []agentRead{tt.wantRead}, reader.reads)
+			assert.Empty(t, cmp.Diff(tt.want, resp.Msg, protocmp.Transform()))
+		})
+	}
 }

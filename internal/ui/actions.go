@@ -74,6 +74,7 @@ const (
 	actionDocumentsNew
 	actionDocumentsOlder
 	actionDocumentsNewer
+	actionLogsBack
 	actionDiffFile
 	actionDiffMatch
 	actionDiffPan
