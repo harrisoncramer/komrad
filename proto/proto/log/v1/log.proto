@@ -72,6 +72,8 @@ message ReadAgentLogsRequest {
     gte: 0
     lte: 1000
   }];
+  // Which of the agent's log sources to read, as list_agent_log_sources names them. The service log when unset. A script run's source reads exactly one agent.
+  string source = 4 [(buf.validate.field).string.max_len = 256];
 }
 
 message ReadAgentLogsResponse {
@@ -83,6 +85,25 @@ message ReadAgentLogsResponse {
   bool reset = 3;
   // Whether more lines remain past the cursor, so reading again at once returns them.
   bool more = 4;
+}
+
+message LogSource {
+  // What to pass as the source of read_agent_logs.
+  string id = 1;
+  // What the source is called, such as service or 003 pre-launch setup.
+  string name = 2;
+  // The number of the script run the source holds, unset for the service log.
+  optional int32 run = 3;
+}
+
+message ListAgentLogSourcesRequest {
+  // The agent whose log sources to list.
+  string agent_id = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+message ListAgentLogSourcesResponse {
+  // The service log first, then each script run the agent recorded, newest first.
+  repeated LogSource sources = 1;
 }
 
 // LogService reads the service's own log back, by the trace id its lines carry.
@@ -113,7 +134,17 @@ service LogService {
       cli: true
       mcp: true
       name: "read_agent_logs"
-      description: "Read what the service logged about one or more agents, such as every child of yours. Without a cursor it answers the newest lines. Pass back the cursor it answered to read only what was written since, and read again at once while it answers more."
+      description: "Read what the service logged about one or more agents, such as every child of yours. Without a cursor it answers the newest lines. Pass back the cursor it answered to read only what was written since, and read again at once while it answers more. Pass a source from list_agent_log_sources to read what one of its scripts printed instead."
+      roles: [ROLE_ORCHESTRATOR]
+    };
+  }
+  rpc ListAgentLogSources(ListAgentLogSourcesRequest) returns (ListAgentLogSourcesResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (annotation.v1.surfaces) = {
+      cli: true
+      mcp: true
+      name: "list_agent_log_sources"
+      description: "List where an agent's logs can be read from: the service log, then each script run the agent recorded, newest first. Read one with read_agent_logs by passing its id as the source, which is how to see what a failed provision or hook script printed."
       roles: [ROLE_ORCHESTRATOR]
     };
   }

@@ -146,6 +146,7 @@ func NewServer(ctx context.Context, params NewServerParams) (*Server, error) {
 		ReadOnly:      readOnly,
 		StopRequested: srv.stopRequested,
 		LogPath:       params.Env.LogPath(),
+		RunLogsDir:    params.Env.RunLogsDir(),
 		Doctor:        params.Doctor,
 		Watch:         broker,
 	})

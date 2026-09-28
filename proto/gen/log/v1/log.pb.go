@@ -355,7 +355,9 @@ type ReadAgentLogsRequest struct {
 	// Where the last call left off. Leave it empty to read the newest lines.
 	Cursor string `protobuf:"bytes,2,opt,name=cursor,proto3" json:"cursor,omitempty"`
 	// The most lines to answer. 200 when unset.
-	Limit         int32 `protobuf:"varint,3,opt,name=limit,proto3" json:"limit,omitempty"`
+	Limit int32 `protobuf:"varint,3,opt,name=limit,proto3" json:"limit,omitempty"`
+	// Which of the agent's log sources to read, as list_agent_log_sources names them. The service log when unset. A script run's source reads exactly one agent.
+	Source        string `protobuf:"bytes,4,opt,name=source,proto3" json:"source,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -409,6 +411,13 @@ func (x *ReadAgentLogsRequest) GetLimit() int32 {
 		return x.Limit
 	}
 	return 0
+}
+
+func (x *ReadAgentLogsRequest) GetSource() string {
+	if x != nil {
+		return x.Source
+	}
+	return ""
 }
 
 type ReadAgentLogsResponse struct {
@@ -483,6 +492,159 @@ func (x *ReadAgentLogsResponse) GetMore() bool {
 	return false
 }
 
+type LogSource struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// What to pass as the source of read_agent_logs.
+	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	// What the source is called, such as service or 003 pre-launch setup.
+	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	// The number of the script run the source holds, unset for the service log.
+	Run           *int32 `protobuf:"varint,3,opt,name=run,proto3,oneof" json:"run,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LogSource) Reset() {
+	*x = LogSource{}
+	mi := &file_log_v1_log_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LogSource) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LogSource) ProtoMessage() {}
+
+func (x *LogSource) ProtoReflect() protoreflect.Message {
+	mi := &file_log_v1_log_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LogSource.ProtoReflect.Descriptor instead.
+func (*LogSource) Descriptor() ([]byte, []int) {
+	return file_log_v1_log_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *LogSource) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *LogSource) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *LogSource) GetRun() int32 {
+	if x != nil && x.Run != nil {
+		return *x.Run
+	}
+	return 0
+}
+
+type ListAgentLogSourcesRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The agent whose log sources to list.
+	AgentId       string `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListAgentLogSourcesRequest) Reset() {
+	*x = ListAgentLogSourcesRequest{}
+	mi := &file_log_v1_log_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListAgentLogSourcesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListAgentLogSourcesRequest) ProtoMessage() {}
+
+func (x *ListAgentLogSourcesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_log_v1_log_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListAgentLogSourcesRequest.ProtoReflect.Descriptor instead.
+func (*ListAgentLogSourcesRequest) Descriptor() ([]byte, []int) {
+	return file_log_v1_log_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *ListAgentLogSourcesRequest) GetAgentId() string {
+	if x != nil {
+		return x.AgentId
+	}
+	return ""
+}
+
+type ListAgentLogSourcesResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The service log first, then each script run the agent recorded, newest first.
+	Sources       []*LogSource `protobuf:"bytes,1,rep,name=sources,proto3" json:"sources,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListAgentLogSourcesResponse) Reset() {
+	*x = ListAgentLogSourcesResponse{}
+	mi := &file_log_v1_log_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListAgentLogSourcesResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListAgentLogSourcesResponse) ProtoMessage() {}
+
+func (x *ListAgentLogSourcesResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_log_v1_log_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListAgentLogSourcesResponse.ProtoReflect.Descriptor instead.
+func (*ListAgentLogSourcesResponse) Descriptor() ([]byte, []int) {
+	return file_log_v1_log_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *ListAgentLogSourcesResponse) GetSources() []*LogSource {
+	if x != nil {
+		return x.Sources
+	}
+	return nil
+}
+
 var File_log_v1_log_proto protoreflect.FileDescriptor
 
 const file_log_v1_log_proto_rawDesc = "" +
@@ -508,23 +670,34 @@ const file_log_v1_log_proto_rawDesc = "" +
 	"\x05limit\x18\x01 \x01(\x05B\n" +
 	"\xbaH\a\x1a\x05\x18\xc8\x01(\x00R\x05limit\"H\n" +
 	"\x18ListRecentTracesResponse\x12,\n" +
-	"\x06traces\x18\x01 \x03(\v2\x14.log.v1.TraceSummaryR\x06traces\"\x7f\n" +
+	"\x06traces\x18\x01 \x03(\v2\x14.log.v1.TraceSummaryR\x06traces\"\xa1\x01\n" +
 	"\x14ReadAgentLogsRequest\x12-\n" +
 	"\tagent_ids\x18\x01 \x03(\tB\x10\xbaH\r\x92\x01\n" +
 	"\b\x01\x10d\"\x04r\x02\x10\x01R\bagentIds\x12\x16\n" +
 	"\x06cursor\x18\x02 \x01(\tR\x06cursor\x12 \n" +
 	"\x05limit\x18\x03 \x01(\x05B\n" +
-	"\xbaH\a\x1a\x05\x18\xe8\a(\x00R\x05limit\"o\n" +
+	"\xbaH\a\x1a\x05\x18\xe8\a(\x00R\x05limit\x12 \n" +
+	"\x06source\x18\x04 \x01(\tB\b\xbaH\x05r\x03\x18\x80\x02R\x06source\"o\n" +
 	"\x15ReadAgentLogsResponse\x12\x14\n" +
 	"\x05lines\x18\x01 \x03(\tR\x05lines\x12\x16\n" +
 	"\x06cursor\x18\x02 \x01(\tR\x06cursor\x12\x14\n" +
 	"\x05reset\x18\x03 \x01(\bR\x05reset\x12\x12\n" +
-	"\x04more\x18\x04 \x01(\bR\x04more2\x97\t\n" +
+	"\x04more\x18\x04 \x01(\bR\x04more\"N\n" +
+	"\tLogSource\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x15\n" +
+	"\x03run\x18\x03 \x01(\x05H\x00R\x03run\x88\x01\x01B\x06\n" +
+	"\x04_run\"@\n" +
+	"\x1aListAgentLogSourcesRequest\x12\"\n" +
+	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\"J\n" +
+	"\x1bListAgentLogSourcesResponse\x12+\n" +
+	"\asources\x18\x01 \x03(\v2\x11.log.v1.LogSourceR\asources2\xf7\f\n" +
 	"\n" +
 	"LogService\x12\xae\x03\n" +
 	"\vGetLogLines\x12\x1a.log.v1.GetLogLinesRequest\x1a\x1b.log.v1.GetLogLinesResponse\"\xe5\x02\x9a\xb5\x18\xdd\x02\b\x01\x10\x01\x1a\rget_log_lines\"\xc4\x02Read every log line the service wrote under one trace id, in order. A trace id covers one request end to end or one pass of a background loop; the service answers it on any call that failed, and it is on every line in the log. This is how to find out what happened behind a failure, on whichever engine the call was made to.B\x01\x03\x90\x02\x01\x12\xec\x02\n" +
-	"\x10ListRecentTraces\x12\x1f.log.v1.ListRecentTracesRequest\x1a .log.v1.ListRecentTracesResponse\"\x94\x02\x9a\xb5\x18\x8c\x02\b\x01\x10\x01\x1a\x12list_recent_traces\"\xee\x01List the traces the service's log ends with, oldest first, each with when it started, what it was about and how many lines it holds. Start here when you know what you did but not what it was called, then read its lines with get_log_lines.B\x01\x03\x90\x02\x01\x12\xe8\x02\n" +
-	"\rReadAgentLogs\x12\x1c.log.v1.ReadAgentLogsRequest\x1a\x1d.log.v1.ReadAgentLogsResponse\"\x99\x02\x9a\xb5\x18\x91\x02\b\x01\x10\x01\x1a\x0fread_agent_logs\"\xf6\x01Read what the service logged about one or more agents, such as every child of yours. Without a cursor it answers the newest lines. Pass back the cursor it answered to read only what was written since, and read again at once while it answers more.B\x01\x03\x90\x02\x01B\x1fZ\x1dkomrad/proto/gen/log/v1;logv1b\x06proto3"
+	"\x10ListRecentTraces\x12\x1f.log.v1.ListRecentTracesRequest\x1a .log.v1.ListRecentTracesResponse\"\x94\x02\x9a\xb5\x18\x8c\x02\b\x01\x10\x01\x1a\x12list_recent_traces\"\xee\x01List the traces the service's log ends with, oldest first, each with when it started, what it was about and how many lines it holds. Start here when you know what you did but not what it was called, then read its lines with get_log_lines.B\x01\x03\x90\x02\x01\x12\xc3\x03\n" +
+	"\rReadAgentLogs\x12\x1c.log.v1.ReadAgentLogsRequest\x1a\x1d.log.v1.ReadAgentLogsResponse\"\xf4\x02\x9a\xb5\x18\xec\x02\b\x01\x10\x01\x1a\x0fread_agent_logs\"\xd1\x02Read what the service logged about one or more agents, such as every child of yours. Without a cursor it answers the newest lines. Pass back the cursor it answered to read only what was written since, and read again at once while it answers more. Pass a source from list_agent_log_sources to read what one of its scripts printed instead.B\x01\x03\x90\x02\x01\x12\x82\x03\n" +
+	"\x13ListAgentLogSources\x12\".log.v1.ListAgentLogSourcesRequest\x1a#.log.v1.ListAgentLogSourcesResponse\"\xa1\x02\x9a\xb5\x18\x99\x02\b\x01\x10\x01\x1a\x16list_agent_log_sources\"\xf7\x01List where an agent's logs can be read from: the service log, then each script run the agent recorded, newest first. Read one with read_agent_logs by passing its id as the source, which is how to see what a failed provision or hook script printed.B\x01\x03\x90\x02\x01B\x1fZ\x1dkomrad/proto/gen/log/v1;logv1b\x06proto3"
 
 var (
 	file_log_v1_log_proto_rawDescOnce sync.Once
@@ -538,33 +711,39 @@ func file_log_v1_log_proto_rawDescGZIP() []byte {
 	return file_log_v1_log_proto_rawDescData
 }
 
-var file_log_v1_log_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
+var file_log_v1_log_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
 var file_log_v1_log_proto_goTypes = []any{
-	(*LogLine)(nil),                  // 0: log.v1.LogLine
-	(*GetLogLinesRequest)(nil),       // 1: log.v1.GetLogLinesRequest
-	(*GetLogLinesResponse)(nil),      // 2: log.v1.GetLogLinesResponse
-	(*TraceSummary)(nil),             // 3: log.v1.TraceSummary
-	(*ListRecentTracesRequest)(nil),  // 4: log.v1.ListRecentTracesRequest
-	(*ListRecentTracesResponse)(nil), // 5: log.v1.ListRecentTracesResponse
-	(*ReadAgentLogsRequest)(nil),     // 6: log.v1.ReadAgentLogsRequest
-	(*ReadAgentLogsResponse)(nil),    // 7: log.v1.ReadAgentLogsResponse
-	(*structpb.Struct)(nil),          // 8: google.protobuf.Struct
+	(*LogLine)(nil),                     // 0: log.v1.LogLine
+	(*GetLogLinesRequest)(nil),          // 1: log.v1.GetLogLinesRequest
+	(*GetLogLinesResponse)(nil),         // 2: log.v1.GetLogLinesResponse
+	(*TraceSummary)(nil),                // 3: log.v1.TraceSummary
+	(*ListRecentTracesRequest)(nil),     // 4: log.v1.ListRecentTracesRequest
+	(*ListRecentTracesResponse)(nil),    // 5: log.v1.ListRecentTracesResponse
+	(*ReadAgentLogsRequest)(nil),        // 6: log.v1.ReadAgentLogsRequest
+	(*ReadAgentLogsResponse)(nil),       // 7: log.v1.ReadAgentLogsResponse
+	(*LogSource)(nil),                   // 8: log.v1.LogSource
+	(*ListAgentLogSourcesRequest)(nil),  // 9: log.v1.ListAgentLogSourcesRequest
+	(*ListAgentLogSourcesResponse)(nil), // 10: log.v1.ListAgentLogSourcesResponse
+	(*structpb.Struct)(nil),             // 11: google.protobuf.Struct
 }
 var file_log_v1_log_proto_depIdxs = []int32{
-	8, // 0: log.v1.LogLine.fields:type_name -> google.protobuf.Struct
-	0, // 1: log.v1.GetLogLinesResponse.lines:type_name -> log.v1.LogLine
-	3, // 2: log.v1.ListRecentTracesResponse.traces:type_name -> log.v1.TraceSummary
-	1, // 3: log.v1.LogService.GetLogLines:input_type -> log.v1.GetLogLinesRequest
-	4, // 4: log.v1.LogService.ListRecentTraces:input_type -> log.v1.ListRecentTracesRequest
-	6, // 5: log.v1.LogService.ReadAgentLogs:input_type -> log.v1.ReadAgentLogsRequest
-	2, // 6: log.v1.LogService.GetLogLines:output_type -> log.v1.GetLogLinesResponse
-	5, // 7: log.v1.LogService.ListRecentTraces:output_type -> log.v1.ListRecentTracesResponse
-	7, // 8: log.v1.LogService.ReadAgentLogs:output_type -> log.v1.ReadAgentLogsResponse
-	6, // [6:9] is the sub-list for method output_type
-	3, // [3:6] is the sub-list for method input_type
-	3, // [3:3] is the sub-list for extension type_name
-	3, // [3:3] is the sub-list for extension extendee
-	0, // [0:3] is the sub-list for field type_name
+	11, // 0: log.v1.LogLine.fields:type_name -> google.protobuf.Struct
+	0,  // 1: log.v1.GetLogLinesResponse.lines:type_name -> log.v1.LogLine
+	3,  // 2: log.v1.ListRecentTracesResponse.traces:type_name -> log.v1.TraceSummary
+	8,  // 3: log.v1.ListAgentLogSourcesResponse.sources:type_name -> log.v1.LogSource
+	1,  // 4: log.v1.LogService.GetLogLines:input_type -> log.v1.GetLogLinesRequest
+	4,  // 5: log.v1.LogService.ListRecentTraces:input_type -> log.v1.ListRecentTracesRequest
+	6,  // 6: log.v1.LogService.ReadAgentLogs:input_type -> log.v1.ReadAgentLogsRequest
+	9,  // 7: log.v1.LogService.ListAgentLogSources:input_type -> log.v1.ListAgentLogSourcesRequest
+	2,  // 8: log.v1.LogService.GetLogLines:output_type -> log.v1.GetLogLinesResponse
+	5,  // 9: log.v1.LogService.ListRecentTraces:output_type -> log.v1.ListRecentTracesResponse
+	7,  // 10: log.v1.LogService.ReadAgentLogs:output_type -> log.v1.ReadAgentLogsResponse
+	10, // 11: log.v1.LogService.ListAgentLogSources:output_type -> log.v1.ListAgentLogSourcesResponse
+	8,  // [8:12] is the sub-list for method output_type
+	4,  // [4:8] is the sub-list for method input_type
+	4,  // [4:4] is the sub-list for extension type_name
+	4,  // [4:4] is the sub-list for extension extendee
+	0,  // [0:4] is the sub-list for field type_name
 }
 
 func init() { file_log_v1_log_proto_init() }
@@ -572,13 +751,14 @@ func file_log_v1_log_proto_init() {
 	if File_log_v1_log_proto != nil {
 		return
 	}
+	file_log_v1_log_proto_msgTypes[8].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_log_v1_log_proto_rawDesc), len(file_log_v1_log_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   8,
+			NumMessages:   11,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

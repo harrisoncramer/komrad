@@ -18,6 +18,7 @@ type LogServiceImpl interface {
 	GetLogLines(context.Context, *v1.GetLogLinesRequest) (*v1.GetLogLinesResponse, *fail.Error)
 	ListRecentTraces(context.Context, *v1.ListRecentTracesRequest) (*v1.ListRecentTracesResponse, *fail.Error)
 	ReadAgentLogs(context.Context, *v1.ReadAgentLogsRequest) (*v1.ReadAgentLogsResponse, *fail.Error)
+	ListAgentLogSources(context.Context, *v1.ListAgentLogSourcesRequest) (*v1.ListAgentLogSourcesResponse, *fail.Error)
 }
 
 // LogServiceAdapter carries what the implementation returned across to the signature
@@ -39,4 +40,9 @@ func (a LogServiceAdapter) ListRecentTraces(ctx context.Context, req *connect.Re
 // ReadAgentLogs answers the request as connect serves it.
 func (a LogServiceAdapter) ReadAgentLogs(ctx context.Context, req *connect.Request[v1.ReadAgentLogsRequest]) (*connect.Response[v1.ReadAgentLogsResponse], error) {
 	return rpcerr.Answer(a.Impl.ReadAgentLogs(ctx, req.Msg))
+}
+
+// ListAgentLogSources answers the request as connect serves it.
+func (a LogServiceAdapter) ListAgentLogSources(ctx context.Context, req *connect.Request[v1.ListAgentLogSourcesRequest]) (*connect.Response[v1.ListAgentLogSourcesResponse], error) {
+	return rpcerr.Answer(a.Impl.ListAgentLogSources(ctx, req.Msg))
 }

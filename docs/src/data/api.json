@@ -1229,12 +1229,30 @@
             "orchestrator"
           ],
           "summary": "Read what the service logged about one or more agents, such as every child of yours.",
-          "description": "Read what the service logged about one or more agents, such as every child of yours. Without a cursor it answers the newest lines. Pass back the cursor it answered to read only what was written since, and read again at once while it answers more.",
+          "description": "Read what the service logged about one or more agents, such as every child of yours. Without a cursor it answers the newest lines. Pass back the cursor it answered to read only what was written since, and read again at once while it answers more. Pass a source from list_agent_log_sources to read what one of its scripts printed instead.",
           "readOnly": true,
           "idempotent": true,
           "destructive": false,
           "request": "log.v1.ReadAgentLogsRequest",
           "response": "log.v1.ReadAgentLogsResponse"
+        },
+        {
+          "slug": "list-agent-log-sources",
+          "name": "ListAgentLogSources",
+          "path": "/log.v1.LogService/ListAgentLogSources",
+          "command": "komrad rpc list-agent-log-sources",
+          "tool": "list_agent_log_sources",
+          "mcp": true,
+          "roles": [
+            "orchestrator"
+          ],
+          "summary": "List where an agent's logs can be read from: the service log, then each script run the agent recorded, newest first.",
+          "description": "List where an agent's logs can be read from: the service log, then each script run the agent recorded, newest first. Read one with read_agent_logs by passing its id as the source, which is how to see what a failed provision or hook script printed.",
+          "readOnly": true,
+          "idempotent": true,
+          "destructive": false,
+          "request": "log.v1.ListAgentLogSourcesRequest",
+          "response": "log.v1.ListAgentLogSourcesResponse"
         }
       ]
     },
@@ -6088,6 +6106,40 @@
         }
       ]
     },
+    "log.v1.ListAgentLogSourcesRequest": {
+      "name": "ListAgentLogSourcesRequest",
+      "description": "",
+      "fields": [
+        {
+          "name": "agent_id",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [
+            "required"
+          ],
+          "description": "The agent whose log sources to list."
+        }
+      ]
+    },
+    "log.v1.ListAgentLogSourcesResponse": {
+      "name": "ListAgentLogSourcesResponse",
+      "description": "",
+      "fields": [
+        {
+          "name": "sources",
+          "type": "LogSource",
+          "ref": "log.v1.LogSource",
+          "repeated": true,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The service log first, then each script run the agent recorded, newest first."
+        }
+      ]
+    },
     "log.v1.ListRecentTracesRequest": {
       "name": "ListRecentTracesRequest",
       "description": "",
@@ -6168,6 +6220,42 @@
         }
       ]
     },
+    "log.v1.LogSource": {
+      "name": "LogSource",
+      "description": "",
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "What to pass as the source of read_agent_logs."
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "What the source is called, such as service or 003 pre-launch setup."
+        },
+        {
+          "name": "run",
+          "type": "int32",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The number of the script run the source holds, unset for the service log."
+        }
+      ]
+    },
     "log.v1.ReadAgentLogsRequest": {
       "name": "ReadAgentLogsRequest",
       "description": "",
@@ -6205,6 +6293,18 @@
             "between 0 and 1000"
           ],
           "description": "The most lines to answer. 200 when unset."
+        },
+        {
+          "name": "source",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [
+            "at most 256 characters"
+          ],
+          "description": "Which of the agent's log sources to read, as list_agent_log_sources names them. The service log when unset. A script run's source reads exactly one agent."
         }
       ]
     },
