@@ -4,6 +4,7 @@ package logview
 import (
 	"strings"
 
+	"komrad/internal/glyph"
 	"komrad/lib/xslice"
 
 	"github.com/charmbracelet/x/ansi"
@@ -20,9 +21,6 @@ type LogViewer interface {
 	Len() int
 	Rows(width, height int) []string
 }
-
-// cursorMark is drawn beside the first row of the line under the cursor.
-const cursorMark = "›"
 
 type tail struct {
 	lines     []string
@@ -92,7 +90,7 @@ func (t *tail) Rows(width, height int) []string {
 		return nil
 	}
 
-	textWidth := max(width-ansi.StringWidth(cursorMark), 1)
+	textWidth := max(width-ansi.StringWidth(glyph.Focus), 1)
 	wrapped := func(i int) []string {
 		return strings.Split(ansi.Hardwrap(t.lines[i], textWidth, true), "\n")
 	}
@@ -110,7 +108,7 @@ func (t *tail) Rows(width, height int) []string {
 		for j, row := range wrapped(i) {
 			mark := " "
 			if i == t.cursor && j == 0 {
-				mark = cursorMark
+				mark = glyph.Focus
 			}
 			rows = append(rows, mark+row)
 		}
