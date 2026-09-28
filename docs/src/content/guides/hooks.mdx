@@ -28,7 +28,7 @@ Hooks can also be used to clean up when an agent is destroyed. For instance, run
 
 ## Writing a hook
 
-Hooks are executable files in <Setting path="hooks.dir" />, which is `~/.config/komrad/hooks` by default. Each hook runs inside its agent's directory. Komrad also ships hooks of its own, which appear beside yours and give way to one of yours with the same name.
+Hooks are executable files in <Setting path="hooks.dir" />, which is `~/.config/komrad/hooks` by default. Each hook runs inside its agent's directory.
 
 In our example, Neovim keeps a `.git-blame-ignore-revs` file listing the commits that only reformatted code, so `git blame` can skip them. Git only honours the file when told to, and that setting lives in git's config rather than in the tree, so no checkout carries it. A hook can set it for each agent:
 

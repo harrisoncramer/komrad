@@ -13,7 +13,6 @@ import (
 	"komrad/config"
 	"komrad/internal/scripts"
 	"komrad/internal/store"
-	"komrad/lib/xslice"
 	"komrad/lib/xstr"
 
 	agentstore "komrad/internal/store/agent"
@@ -51,17 +50,12 @@ type scriptEnvParams struct {
 // ListHooks returns the available hooks in name order, the order they run in on a moment that
 // holds several.
 func (s *ScriptService) ListHooks() ([]scripts.Script, error) {
-	dirs, err := s.hookDirs()
+	dir, err := s.hooksDir()
 	if err != nil {
 		return nil, err
 	}
 
-	listed, err := scripts.List(dirs...)
-	if err != nil {
-		return nil, err
-	}
-
-	return xslice.Filter(listed, s.isHook), nil
+	return scripts.List(dir)
 }
 
 func (s *ScriptService) find(name string) (scripts.Script, error) {
@@ -70,38 +64,56 @@ func (s *ScriptService) find(name string) (scripts.Script, error) {
 
 // FindHook is the hook named name in the hooks directory or among the hooks komrad ships.
 func (s *ScriptService) FindHook(name string) (scripts.Script, error) {
-	dirs, err := s.hookDirs()
+	dir, err := s.hooksDir()
 	if err != nil {
 		return scripts.Script{}, err
 	}
 
-	found, err := scripts.Find(name, dirs...)
-	if err != nil {
+	written, err := scripts.Find(name, dir)
+	if err != nil && !errors.Is(err, scripts.ErrScriptNotFound) {
 		return scripts.Script{}, err
 	}
-	if !s.isHook(found) {
-		return scripts.Script{}, fmt.Errorf("%w: %q is komrad's own script", scripts.ErrScriptNotFound, name)
+
+	shipped, ships, shippedErr := s.findShippedHook(name)
+	if shippedErr != nil {
+		return scripts.Script{}, shippedErr
 	}
 
-	return found, nil
+	switch {
+	case err == nil && ships && written.Path != shipped.Path:
+		return scripts.Script{}, fmt.Errorf("%w: %q", ErrHookNameTaken, name)
+	case err == nil:
+		return written, nil
+	case ships:
+		return shipped, nil
+	}
+
+	return scripts.Script{}, err
 }
 
-func (s *ScriptService) isHook(script scripts.Script) bool {
-	return script.GetDir() != s.builtinDir || !strings.HasPrefix(script.Name, "_")
+func (s *ScriptService) findShippedHook(name string) (scripts.Script, bool, error) {
+	if strings.HasPrefix(name, "_") {
+		return scripts.Script{}, false, nil
+	}
+
+	shipped, err := scripts.Find(name, s.builtinDirs()...)
+	if errors.Is(err, scripts.ErrScriptNotFound) {
+		return scripts.Script{}, false, nil
+	}
+	if err != nil {
+		return scripts.Script{}, false, err
+	}
+
+	return shipped, true, nil
 }
 
-func (s *ScriptService) hookDirs() ([]string, error) {
+func (s *ScriptService) hooksDir() (string, error) {
 	cfg, err := s.load()
 	if err != nil {
-		return nil, fmt.Errorf("failed to read the config: %w", err)
+		return "", fmt.Errorf("failed to read the config: %w", err)
 	}
 
-	dir, err := cfg.GetHooksDir()
-	if err != nil {
-		return nil, err
-	}
-
-	return []string{dir, s.builtinDir}, nil
+	return cfg.GetHooksDir()
 }
 
 // builtinDirs is where the scripts komrad ships live.
