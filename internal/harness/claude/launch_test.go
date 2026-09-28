@@ -488,9 +488,9 @@ func TestBuildCommandSetsTheCompactionPoint(t *testing.T) {
 	assert.Equal(t, filepath.Join(configDir, "komrad-settings-orchestrator.json"), settingsPath(t, orchestrator))
 }
 
-// TestBuildCommandDeniesSubagents covers the deny that leaves create_agent as the only way an
-// agent spawns anything.
-func TestBuildCommandDeniesSubagents(t *testing.T) {
+// TestBuildCommandPermissions covers the allow that lets komrad's own tools run unasked, and the
+// deny that leaves create_agent as the only way an agent spawns anything.
+func TestBuildCommandPermissions(t *testing.T) {
 	tests := []struct {
 		name        string
 		hookCommand string
@@ -521,7 +521,9 @@ func TestBuildCommandDeniesSubagents(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			deny := readSettings(t, command).Permissions.Deny
+			permissions := readSettings(t, command).Permissions
+			assert.Contains(t, permissions.Allow, "mcp__komrad", "komrad's own tools never stop for a prompt")
+			deny := permissions.Deny
 			assert.Contains(t, deny, "Agent(general-purpose)")
 			assert.Contains(t, deny, "Agent(claude)")
 			assert.NotContains(t, deny, "Agent(Explore)", "searching a codebase is not spawning an agent")
@@ -539,7 +541,8 @@ type claudeSettings struct {
 		} `json:"hooks"`
 	} `json:"hooks"`
 	Permissions struct {
-		Deny []string `json:"deny"`
+		Allow []string `json:"allow"`
+		Deny  []string `json:"deny"`
 	} `json:"permissions"`
 }
 
