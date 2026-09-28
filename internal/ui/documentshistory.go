@@ -10,7 +10,6 @@ import (
 	"komrad/internal/ui/diffview"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/paint/label"
-	"komrad/internal/view"
 	"komrad/lib/dates"
 	agentv1 "komrad/proto/gen/agent/v1"
 
@@ -108,10 +107,10 @@ func (d *documentsScreen) isSteppingHovered(s panelShared) bool {
 
 // docRows is the document drawn beside the list at a width: the write stepped to and what it
 // changed, or the document as it stands.
-func (d *documentsScreen) docRows(s panelShared, width int, caret view.Caret) []string {
+func (d *documentsScreen) docRows(s panelShared, width int) []string {
 	item, ok := d.hovered(s)
 	if !ok || !d.isSteppingHovered(s) {
-		return d.readBlock(s, width, caret)
+		return d.readBlock(s, width)
 	}
 
 	h := d.history
@@ -147,17 +146,9 @@ func (h *documentHistory) head(item documentItem, width int, glyphs glyph.Set) [
 		return rows
 	}
 
-	indent := strings.Repeat(" ", docMargin())
-	if h.filter.typing || h.filter.isStanding() {
-		count := strings.TrimRight(diffMatchCount(&h.pane, h.filter), "\n")
-		rows = append(rows, fitRow(indent+h.filter.line(paint.Panel, glyphs)+count, width))
-	}
+	count := strings.TrimRight(diffMatchCount(&h.pane, h.filter), "\n")
 
-	if h.said != "" {
-		rows = append(rows, fitRow(indent+dimStyle.Render(h.said), width))
-	}
-
-	return append(rows, "")
+	return append(rows, h.filter.head(count, h.said, width, glyphs)...)
 }
 
 // diffHeight is the rows the diff is drawn in, under the rows over it.

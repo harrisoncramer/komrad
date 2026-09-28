@@ -7,7 +7,6 @@ import (
 	"komrad/config"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/reader"
-	"komrad/internal/view"
 
 	tea "charm.land/bubbletea/v2"
 )
@@ -41,38 +40,25 @@ func (d *documentsScreen) isReadFocused(s panelShared) bool {
 	return d.focus && d.history == nil && d.isReadDrawn(s) && s.draw.isListFocused()
 }
 
-// readRows is the document as it stands, rendered a cursor's width in from the edge of the block.
+// readRows is the document as it stands, rendered at the width of the block.
 func (d *documentsScreen) readRows(s panelShared, width int) []string {
-	return paint.DocStyledRows(d.doc(s), max(width-len(blankCursor), 1), columnStyle())
+	return paint.DocStyledRows(d.doc(s), max(width, 1), columnStyle())
 }
 
 // readHead is the rows over the document: the search and what the last key said.
 func (d *documentsScreen) readHead(s panelShared, rows []string, width int) []string {
 	r := d.reading
-
-	var head []string
-	if r.filter.typing || r.filter.isStanding() {
-		line := blankCursor + r.filter.line(paint.Panel, s.glyphs)
-		if r.filter.isStanding() {
-			line += dimStyle.Render("  " + reader.Count(reader.Matches(r.filter.pattern, rows), r.Line))
-		}
-		head = append(head, fitRow(line, width))
+	count := ""
+	if r.filter.isStanding() {
+		count = dimStyle.Render("  " + reader.Count(reader.Matches(r.filter.pattern, rows), r.Line))
 	}
 
-	if r.said != "" {
-		head = append(head, fitRow(blankCursor+dimStyle.Render(r.said), width))
-	}
-
-	if len(head) > 0 {
-		head = append(head, "")
-	}
-
-	return head
+	return r.filter.head(count, r.said, width, s.glyphs)
 }
 
 // readBlock is the document as it stands at the width of the block beside the list, under the
 // search over it, from where the reader has moved to.
-func (d *documentsScreen) readBlock(s panelShared, width int, caret view.Caret) []string {
+func (d *documentsScreen) readBlock(s panelShared, width int) []string {
 	rows, height, ok := d.readLayout(s)
 	if !ok {
 		rows, height = d.readRows(s, width), 1
@@ -82,12 +68,10 @@ func (d *documentsScreen) readBlock(s panelShared, width int, caret view.Caret) 
 	focused := d.isReadFocused(s)
 	drawn := make([]string, len(rows))
 	for i, row := range rows {
-		prefix := blankCursor
+		drawn[i] = paint.Panel.HighlightStyled(row, reader.Spans(r.filter.pattern, row))
 		if focused && i == r.Line {
-			prefix = caretGlyph(caret)
+			drawn[i] = paint.PaintRow(drawn[i], width)
 		}
-
-		drawn[i] = prefix + paint.Panel.HighlightStyled(row, reader.Spans(r.filter.pattern, row))
 	}
 
 	window := docWindow{rows: drawn, top: r.Top, markers: true}
@@ -240,11 +224,10 @@ func (d *documentsScreen) readActions() screenActionSpec {
 			{
 				id:   actionFilterOpen,
 				keys: func(config.Keybindings) []string { return []string{filterOpenKey} },
-				run: func(_ host, s panelShared, _ string) tea.Cmd {
+				run: func(host, panelShared, string) tea.Cmd {
 					d.reading.filter.typing = true
 					d.reading.filter.setQuery("")
 					d.reading.origin = d.reading.Line
-					d.moveReadTo(s, d.reading.Line)
 
 					return nil
 				},
