@@ -729,8 +729,12 @@ func (w *searchScreen) sidebarView(s panelShared) string {
 		qualifiers = qualifierLegend(s.pane)
 	}
 	help := s.draw.renderHelp(w.help(s), header, qualifiers)
-	if !blank && qualifiers != "" {
-		help = "\n" + qualifiers + help
+	if !blank {
+		help = qualifiers + help
+	}
+	below := help
+	if qualifiers != "" {
+		below = "\n" + help
 	}
 
 	if w.problem.reason != "" {
@@ -746,25 +750,25 @@ func (w *searchScreen) sidebarView(s panelShared) string {
 	case blank:
 		return header + qualifiers + help
 	case len(rows) == 0 && w.problem.reason != "":
-		return header + strings.TrimPrefix(help, "\n")
+		return header + help
 	case len(rows) == 0:
-		return header + dimStyle.Render("no matches") + "\n" + help
+		return header + dimStyle.Render("no matches") + "\n" + below
 	}
 
 	window := view.Window(view.WindowParams{
 		List:    prepareList(s.glyphs, w.snapshot(s, rows, s.draw.listPane(s.pane))),
 		Palette: palette,
 		Width:   s.pane,
-		Lines:   s.draw.listLines(header, help),
+		Lines:   s.draw.listLines(header, below),
 	})
 
-	return header + window + help
+	return header + window + below
 }
 
 // qualifierLegend lays out the qualifiers a search takes the way the legend lays out keys.
 func qualifierLegend(width int) string {
-	rows := xslice.Map(searchsyntax.Qualifiers, func(q searchsyntax.Qualifier) key.Binding {
-		return key.NewBinding(key.WithKeys(q.Syntax), key.WithHelp(q.Syntax, q.Meaning))
+	rows := xslice.Map(searchsyntax.Qualifiers, func(qualifier searchsyntax.Qualifier) key.Binding {
+		return key.NewBinding(key.WithKeys(qualifier.Syntax), key.WithHelp(qualifier.Syntax, qualifier.Meaning))
 	})
 
 	return fitLegend(helpView(0).FullHelpView([][]key.Binding{rows}), width) + "\n\n"

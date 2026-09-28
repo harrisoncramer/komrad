@@ -1,6 +1,7 @@
 package transcripts
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -168,15 +169,11 @@ func TestParseQuery(t *testing.T) {
 
 // TestParseQueryKnowsEveryListedQualifier pins the list the panel shows to the qualifiers the parser reads.
 func TestParseQueryKnowsEveryListedQualifier(t *testing.T) {
+	sample := strings.NewReplacer("NAME", "payouts", "DATE", "2026-09-20")
 	for _, listed := range searchsyntax.Qualifiers {
 		t.Run(listed.Syntax, func(t *testing.T) {
-			got, err := ParseQuery(listed.Syntax, time.Now())
-			if err != nil {
-				require.ErrorIs(t, err, ErrBadQualifier)
-
-				return
-			}
-
+			got, err := ParseQuery(sample.Replace(listed.Syntax), time.Now())
+			require.NoError(t, err)
 			assert.Empty(t, got.Words)
 		})
 	}
