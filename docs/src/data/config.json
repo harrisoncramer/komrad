@@ -902,13 +902,6 @@
               "type": "array",
               "description": "Open the worktrees, landing on the hovered agent's own directory.",
               "default": "[\"w\"]"
-            },
-            {
-              "key": "engine",
-              "path": "keybindings.views.engine",
-              "type": "array",
-              "description": "Choose another engine to move this terminal to.",
-              "default": "[\"e\"]"
             }
           ],
           "sections": []
@@ -1170,11 +1163,11 @@
               "default": "\"▽\""
             },
             {
-              "key": "cursor",
-              "path": "glyphs.lists.cursor",
+              "key": "engine",
+              "path": "glyphs.lists.engine",
               "type": "string",
-              "description": "The cursor in a list of choices, such as the engines to connect to.",
-              "default": "\"▸\""
+              "description": "The dot beside the engine, coloured by whether it answers.",
+              "default": "\"\""
             }
           ],
           "sections": []
