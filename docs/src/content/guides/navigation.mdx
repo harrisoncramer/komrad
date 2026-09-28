@@ -9,18 +9,23 @@ import Setting from "../../components/Setting.astro";
 import Key from "../../components/Key.astro";
 import { media } from "../../site";
 
-## The different views
+## The sidebar elements
 
-The panel is divided into a few regions.
+The sidebar panel is divided into a few regions. It most of komrad's state, typically a list of whatever is in focus: agents and workflows, schedules, worktrees, or documents.
 
-The sidebar holds a list of whatever is in focus: agents and workflows, schedules, worktrees, or documents. Under the list are the details, which show what is known about the row under the cursor, such as an agent's directory or its base branch. Under those, the messages region shows what komrad has recently reported, and the legend shows the keys that work from where you are.
+The *view switcher* across the top of the sidebar moves between the agents, the query, the schedules, the archive and the worktrees. Press <Key name="views.pick" /> to reach it, then the underlined letter of the view you want.
 
-The switcher across the top of the sidebar moves between the agents, the query, the schedules, the archive and the worktrees. Press <Key name="views.pick" /> to reach it, then the underlined letter of the view you want.
+Under the sidebar is the **details pane**, which shows what is known about the row under the cursor, such as an agent's directory or its base branch.
 
-The stage is the wide region beside the sidebar. It shows the agent you have opened, its diff on the review screen, or a document.
+Under that, the **messages pane** shows what komrad has recently reported, such as error alerts.
 
-<Key name="cycle.views" at={0} /> moves the keyboard to the next of these regions, and <Key name="cycle.views" at={1} />
-to the previous one: the list, the agent on the stage, then the details. `ctrl+g` moves it to the messages. If your own
+Finally, the **help menu** shows hotkeys that work from your current cursor position.
+
+## The main view
+
+The main view is the wide region beside the sidebar. It shows the agent you have opened, its diff on the review screen, or any other content that's focused at the moment.
+
+Press <Key name="cycle.views" at={0} /> to move the keyboard between regions in komrad, and <Key name="cycle.views" at={1} /> to the previous one: the list, the agent on the stage, then the details. `ctrl+g` moves it to the messages. If your own
 tmux prefix is <Key name="cycle.views" at={0} />, choose another
 <Setting path="keybindings.cycle.views">pair of cycle keys</Setting>.
 
@@ -40,13 +45,15 @@ tmux prefix is <Key name="cycle.views" at={0} />, choose another
   </video>
 </figure>
 
-## Basic navigation
+## Navigation, Sorting, and Filtering
 
-Every list moves the same way. <Key name="nav.down" /> and <Key name="nav.up" /> move the cursor a row, <Key name="nav.page_down" /> and <Key name="nav.page_up" /> move it a chunk of rows, and `gg` and <Key name="nav.bottom" /> jump to the first and last row. The mouse wheel scrolls whichever region it is over.
+Komrad's keybindings are heavily inspired by Vim.
 
-Press `/` to search. Typing lights up the rows that match, and <Key name="agents.open" /> puts the cursor on the nearest one. <Key name="filter.next_match" /> and <Key name="filter.prev_match" /> then step through the matches. A pattern in lower case ignores case, and a pattern is a regular expression.
+The <Key name="nav.down" /> and <Key name="nav.up" /> keys move the cursor a row, <Key name="nav.page_down" /> and <Key name="nav.page_up" /> move it a chunk of rows, and `gg` and <Key name="nav.bottom" /> jump to the first and last row. The mouse wheel scrolls whichever region it is over.
 
-While typing a search, press `tab` to turn it into a filter, which takes every row that does not match off the screen instead of stepping through them. <Key name="agents.back" /> clears either one and puts the cursor back where it started.
+Press `/` to search. Typing lights up the rows that match, and <Key name="agents.open" /> puts the cursor on the nearest one. Use the <Key name="filter.next_match" /> and <Key name="filter.prev_match" /> key to then step through the matches. Lower case text ignores case; searching supports regular expressions.
+
+You can also use the search in "filter" mode. While typing, press `tab` to turn it into a filter, which takes every row that does not match off the screen instead of stepping through them.
 
 Press <Key name="tabs.focus" /> to reach the sort strip over the list, where you pick the column to sort by. Its last stop groups the rows under their workflows, and flattening them makes the list easier to sort by activity or name.
 
@@ -71,8 +78,6 @@ You can also mark a row with <Key name="marks.set" /> and a letter, and jump bac
 ## Subpages
 
 Some screens belong to one agent rather than to a whole view. An agent has the review of its work, the documents it has written, its logs, and a terminal in its directory. Press <Key name="subpages.open" /> on an agent to open a menu of its <Setting path="keybindings.subpages">subpages</Setting> and pick one. Leaving it takes you back to the list you came from.
-
-An entry with nothing behind it is gray, such as documents on an agent that has written none. On a workflow's row the menu opens on its orchestrator.
 
 <figure>
   <video
@@ -115,8 +120,6 @@ Press <Key name="selection.toggle" /> to take the row under the cursor into a se
 ## The details
 
 The details under the list show more about the row under the cursor, such as an agent's directory, branch, pull request and recent commits. Press <Key name="cycle.views" at={0} /> until the keyboard reaches them, and press <Key name="details.copy" /> to copy the value of the field under the cursor to your clipboard. `/` searches the fields the same way it searches the list.
-
-Above the fields, each mark the row draws in the sidebar is said in words, such as unread mail, a failed script, or where its pull request stands: failing, conflicting, approved, or still a draft.
 
 <figure>
   <video

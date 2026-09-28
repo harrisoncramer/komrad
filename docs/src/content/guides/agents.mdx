@@ -18,9 +18,9 @@ Agents run your workloads. They are spawned according to workflows.
 
 Komrad currently supports just Claude and Codex agents. You can leave them working and come back, restart your machine without losing any history or context, search everything they have said, and even have agents spawn and manage other agents.
 
-This is the core value for komrad: _durable, resumable, searchable agentic compute_.
+This is komrad's core benefit: durable agentic sessions, that you can run and manage yourself.
 
-There are three types of agents, and you've already seen one: the [orchestrator](../workflows/#the-orchestrator). Orchestrator agents can spawn children called "implementer" agents, which each (typically) get their own worktree. Finally, implementer agents can spawn reviewer agents, which live inside _the same worktree_ and are responsible only for reviewing their work.
+Komrad has three types of agents, and you've already seen one: the [orchestrator](../workflows/#the-orchestrator). Orchestrator agents can spawn children called "implementer" agents, which each (typically) get their own worktree. Implementer agents can spawn reviewer agents. Reviewer agents live inside the same directory as the implementer.
 
 ```
   workflow
@@ -38,7 +38,7 @@ There are three types of agents, and you've already seen one: the [orchestrator]
                     '-- reviewer
 ```
 
-Let's ask our orchestrator to spawn our first implementer agent. You can also hover over the orchestrator and press <Key name="agents.new" /> to spawn the implementer directly. Let's give the agent a name, and spawn it with a direct prompt, such as: "Where is :checkhealth implemented?"
+Let's ask our orchestrator to spawn our first implementer agent. You can also hover over the orchestrator and press <Key name="agents.new" /> to spawn the implementer directly.
 
 <figure>
   <video
@@ -57,10 +57,6 @@ Let's ask our orchestrator to spawn our first implementer agent. You can also ho
 </figure>
 
 The agent responds to our question. If it needs to, it can send and receive messages from the orchestrator.
-
-Each agent is in one of several states, such as running, idle, dormant, or active. The state of the agent is reflected in the UI column.
-
-Dorman agent's CLI have exited, but their conversations are kept so that you can still search them, and resume them later. You can search the agent list by name, filter it, jump around it with <Setting path="keybindings.marks">marks</Setting>. Press <Key name="cycle.views" at={0} /> and <Key name="cycle.views" at={1} /> to cycle through the views: the sidebar, the agent's screen, and the info pane.
 
 ## Reviewer Agents
 
