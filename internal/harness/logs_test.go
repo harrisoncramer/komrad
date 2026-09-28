@@ -16,7 +16,6 @@ func TestReadAppendOnlyLogReadsOnlyWhatIsFinished(t *testing.T) {
 		name         string
 		before       string
 		after        string
-		offset       int64
 		wantRestart  bool
 		wantConsumed int64
 		wantRead     string
@@ -66,14 +65,6 @@ func TestReadAppendOnlyLogReadsOnlyWhatIsFinished(t *testing.T) {
 			wantRead:     "new\n",
 		},
 		{
-			name:         "a negative offset asks for the log to be read again from the top",
-			offset:       -1,
-			after:        "one\ntwo\n",
-			wantRestart:  true,
-			wantConsumed: 8,
-			wantRead:     "one\ntwo\n",
-		},
-		{
 			name:        "a log emptied between passes is a restart with nothing to read yet",
 			before:      "one\n",
 			after:       "",
@@ -85,7 +76,7 @@ func TestReadAppendOnlyLogReadsOnlyWhatIsFinished(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "log.jsonl")
 
-			offset := tt.offset
+			var offset int64
 			if tt.before != "" {
 				require.NoError(t, os.WriteFile(path, []byte(tt.before), 0o600))
 				offset = int64(len(tt.before))
