@@ -208,6 +208,7 @@ func TestWriteByAPerson(t *testing.T) {
 	stores := storetest.Open(t)
 	author := stores.SeedAgent(t, agentstore.Agent{Name: "author"})
 	other := stores.SeedAgent(t, agentstore.Agent{Name: "other"})
+	reviewer := stores.SeedAgent(t, agentstore.Agent{Name: "reviewer", ParentAgentID: &author.ID, Role: agentstore.RoleReviewer})
 	service := newService(stores, eventstest.NewQueue(t, stores, documents.NewEventHandler()))
 	ctx := t.Context()
 
@@ -215,10 +216,11 @@ func TestWriteByAPerson(t *testing.T) {
 	require.NoError(t, err)
 
 	tests := []struct {
-		name     string
-		params   documents.WriteDocumentParams
-		wantErr  error
-		wantBody string
+		name      string
+		params    documents.WriteDocumentParams
+		wantErr   error
+		wantBody  string
+		wantOwner string
 	}{
 		{
 			name:     "an id rewrites that document",
@@ -246,6 +248,12 @@ func TestWriteByAPerson(t *testing.T) {
 			wantBody: "Empty RFC.",
 		},
 		{
+			name:      "no id creates a document for a reviewer it is for",
+			params:    documents.WriteDocumentParams{For: reviewer.ID, Name: "Report", Kind: documentstore.KindReport, Body: "Report."},
+			wantBody:  "Report.",
+			wantOwner: reviewer.ID,
+		},
+		{
 			name:    "an agent it is for that does not exist is not found",
 			params:  documents.WriteDocumentParams{For: uuid.NewString(), Name: "Stray", Kind: documentstore.KindRFC, Body: "stray"},
 			wantErr: store.ErrNotFound,
@@ -270,7 +278,11 @@ func TestWriteByAPerson(t *testing.T) {
 			stored, err := stores.Documents.Get(ctx, written.ID)
 			require.NoError(t, err)
 			assert.Equal(t, tt.wantBody, stored.Body)
-			assert.Equal(t, author.ID, stored.AgentID)
+			wantOwner := author.ID
+			if tt.wantOwner != "" {
+				wantOwner = tt.wantOwner
+			}
+			assert.Equal(t, wantOwner, stored.AgentID)
 
 			_, versions, err := service.ListDocumentVersions(ctx, written.ID)
 			require.NoError(t, err)
