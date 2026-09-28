@@ -618,15 +618,8 @@ type Layout struct {
 type Harness struct {
 	// Flags appended to every agent's command line for this CLI, ahead of the flags that agent carries itself.
 	Flags string `mapstructure:"flags"`
-}
-
-// Codex is how the Codex CLI is configured. It carries one setting of its own,
-// since Codex asks a question at startup that no other CLI here does.
-type Codex struct {
-	// Flags appended to every Codex agent's command line, ahead of the flags that agent carries itself.
-	Flags string `mapstructure:"flags"`
-	// Whether to record each agent's directory as trusted in Codex's own config
-	// before launching it. Codex asks whether a directory is trusted the first
+	// Whether to record each agent's directory as trusted in this CLI's own config
+	// before launching it. The CLI asks whether a directory is trusted the first
 	// time it runs there and waits for an answer, which it reads only from that
 	// file, so an agent in a fresh worktree otherwise starts blocked and shows
 	// here as waiting. Turning this on edits that file on your behalf.
@@ -638,7 +631,7 @@ type Codex struct {
 // unknown-key check as everything else here, and this file lists what can be run.
 type Harnesses struct {
 	Claude Harness `mapstructure:"claude"`
-	Codex  Codex   `mapstructure:"codex"`
+	Codex  Harness `mapstructure:"codex"`
 }
 
 // Usage is how much agents may run and how large their conversations may grow.

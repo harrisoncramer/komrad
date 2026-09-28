@@ -26,6 +26,13 @@
               "type": "string",
               "description": "Flags appended to every agent's command line for this CLI, ahead of the flags that agent carries itself.",
               "default": "\"\""
+            },
+            {
+              "key": "trust_launch_dirs",
+              "path": "harness.claude.trust_launch_dirs",
+              "type": "boolean",
+              "description": "Whether to record each agent's directory as trusted in this CLI's own config\nbefore launching it. The CLI asks whether a directory is trusted the first\ntime it runs there and waits for an answer, which it reads only from that\nfile, so an agent in a fresh worktree otherwise starts blocked and shows\nhere as waiting. Turning this on edits that file on your behalf.",
+              "default": "false"
             }
           ],
           "sections": []
@@ -38,14 +45,14 @@
               "key": "flags",
               "path": "harness.codex.flags",
               "type": "string",
-              "description": "Flags appended to every Codex agent's command line, ahead of the flags that agent carries itself.",
+              "description": "Flags appended to every agent's command line for this CLI, ahead of the flags that agent carries itself.",
               "default": "\"\""
             },
             {
               "key": "trust_launch_dirs",
               "path": "harness.codex.trust_launch_dirs",
               "type": "boolean",
-              "description": "Whether to record each agent's directory as trusted in Codex's own config\nbefore launching it. Codex asks whether a directory is trusted the first\ntime it runs there and waits for an answer, which it reads only from that\nfile, so an agent in a fresh worktree otherwise starts blocked and shows\nhere as waiting. Turning this on edits that file on your behalf.",
+              "description": "Whether to record each agent's directory as trusted in this CLI's own config\nbefore launching it. The CLI asks whether a directory is trusted the first\ntime it runs there and waits for an answer, which it reads only from that\nfile, so an agent in a fresh worktree otherwise starts blocked and shows\nhere as waiting. Turning this on edits that file on your behalf.",
               "default": "false"
             }
           ],

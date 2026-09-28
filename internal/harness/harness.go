@@ -154,6 +154,8 @@ type Harness interface {
 
 	BuildCommand(launch Launch) (string, error)
 
+	TrustDir(dir string) error
+
 	MintSessionID() string
 
 	FindSession(agentID string) (string, error)

@@ -5,19 +5,16 @@ import (
 	"path/filepath"
 	"testing"
 
-	"komrad/internal/harness"
-
 	"github.com/pelletier/go-toml/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-// TestTrustLaunchDirs covers answering Codex's directory-trust question in its own config
+// TestTrustDir covers answering Codex's directory-trust question in its own config
 // file, which belongs to the user so most cases are about not damaging it.
-func TestTrustLaunchDirs(t *testing.T) {
+func TestTrustDir(t *testing.T) {
 	tests := []struct {
 		name        string
-		enabled     bool
 		existing    string
 		dir         string
 		wantTrusted string
@@ -25,20 +22,12 @@ func TestTrustLaunchDirs(t *testing.T) {
 		wantErr     string
 	}{
 		{
-			name:     "left off, the config is not touched and the agent meets the question itself",
-			existing: "model = \"gpt-5.6\"\n",
-			dir:      "/repo/worktree",
-			wantKept: "model = \"gpt-5.6\"",
-		},
-		{
-			name:        "turned on, the directory is recorded as trusted",
-			enabled:     true,
+			name:        "the directory is recorded as trusted",
 			dir:         "/repo/worktree",
 			wantTrusted: "trusted",
 		},
 		{
 			name:        "the rest of the user's config survives being appended to",
-			enabled:     true,
 			existing:    "model = \"gpt-5.6\"\n\n[mcp_servers.theirs]\nurl = \"http://localhost:1234/mcp\"\n",
 			dir:         "/repo/worktree",
 			wantTrusted: "trusted",
@@ -46,30 +35,22 @@ func TestTrustLaunchDirs(t *testing.T) {
 		},
 		{
 			name:        "a directory already listed is left alone rather than written twice",
-			enabled:     true,
 			existing:    "[projects.\"/repo/worktree\"]\ntrust_level = \"trusted\"\n",
 			dir:         "/repo/worktree",
 			wantTrusted: "trusted",
 		},
 		{
 			name:        "a directory the user marked untrusted stays untrusted",
-			enabled:     true,
 			existing:    "[projects.\"/repo/worktree\"]\ntrust_level = \"untrusted\"\n",
 			dir:         "/repo/worktree",
 			wantTrusted: "untrusted",
 		},
 		{
 			name:     "a config that does not parse is reported rather than overwritten",
-			enabled:  true,
 			existing: "this is not = = toml\n",
 			dir:      "/repo/worktree",
 			wantErr:  "failed to parse the codex config",
 			wantKept: "this is not",
-		},
-		{
-			name:    "no directory is nothing to record",
-			enabled: true,
-			dir:     "",
 		},
 	}
 
@@ -81,16 +62,7 @@ func TestTrustLaunchDirs(t *testing.T) {
 				require.NoError(t, os.WriteFile(path, []byte(tt.existing), 0o600))
 			}
 
-			harnessUnderTest := NewHarness(NewHarnessParams{
-				Home:            home,
-				TrustLaunchDirs: tt.enabled,
-			})
-
-			_, err := harnessUnderTest.BuildCommand(harness.Launch{
-				Prompt:   "go",
-				Dir:      tt.dir,
-				CacheDir: t.TempDir(),
-			})
+			err := NewHarness(NewHarnessParams{Home: home}).TrustDir(tt.dir)
 
 			if tt.wantErr != "" {
 				require.ErrorContains(t, err, tt.wantErr)
@@ -98,13 +70,8 @@ func TestTrustLaunchDirs(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			written, readErr := os.ReadFile(path)
-			if tt.existing == "" && tt.wantTrusted == "" {
-				assert.True(t, os.IsNotExist(readErr), "nothing is written when there is nothing to record")
-
-				return
-			}
-			require.NoError(t, readErr)
+			written, err := os.ReadFile(path)
+			require.NoError(t, err)
 
 			if tt.wantKept != "" {
 				assert.Contains(t, string(written), tt.wantKept, "the user's own config survives")

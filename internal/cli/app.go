@@ -17,6 +17,7 @@ type app struct {
 	harnesses      *harness.Registry
 	defaultHarness string
 	defaultFlags   map[string]string
+	trustDirs      map[string]bool
 	usage          config.Usage
 	logLevel       string
 	layout         config.Layout

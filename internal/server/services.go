@@ -117,13 +117,14 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 	})
 
 	harnessLauncher := agents.NewLauncher(agents.NewLauncherParams{
-		Tmux:        params.Tmux,
-		Addr:        params.Addr,
-		CacheDir:    params.Env.CacheDir,
-		LogPath:     params.Env.LogPath(),
-		ContextPath: params.ContextPath,
-		BinPath:     params.HookCommand,
-		Usage:       params.Usage,
+		Tmux:            params.Tmux,
+		Addr:            params.Addr,
+		CacheDir:        params.Env.CacheDir,
+		LogPath:         params.Env.LogPath(),
+		ContextPath:     params.ContextPath,
+		BinPath:         params.HookCommand,
+		Usage:           params.Usage,
+		TrustLaunchDirs: params.TrustDirs,
 	})
 	paneLiveness := agents.NewPaneLiveness(params.Tmux)
 	paneChannel := pane.NewPane(pane.NewPaneParams{Terminal: params.Tmux, Harnesses: params.Harnesses})

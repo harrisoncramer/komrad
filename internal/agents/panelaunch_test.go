@@ -168,6 +168,68 @@ func TestLaunchCompactsAtTheRolesPoint(t *testing.T) {
 	}
 }
 
+// TestLaunchTrustsTheDirForHarnessesThatAskIt covers the config deciding which CLIs have their
+// launch directory trusted, and a failure to trust stopping the launch.
+func TestLaunchTrustsTheDirForHarnessesThatAskIt(t *testing.T) {
+	tests := []struct {
+		name        string
+		trust       map[string]bool
+		dir         string
+		trustErr    error
+		wantTrusted []string
+		wantErr     string
+	}{
+		{
+			name:        "a harness the config trusts has its directory recorded before it starts",
+			trust:       map[string]bool{harnesstest.FakeID: true},
+			dir:         "/work",
+			wantTrusted: []string{"/work"},
+		},
+		{
+			name:  "a harness the config leaves off is left to ask",
+			trust: map[string]bool{"some-other-cli": true},
+			dir:   "/work",
+		},
+		{
+			name:  "an agent with no directory has nothing to trust",
+			trust: map[string]bool{harnesstest.FakeID: true},
+		},
+		{
+			name:        "a directory that cannot be trusted launches nothing",
+			trust:       map[string]bool{harnesstest.FakeID: true},
+			dir:         "/work",
+			trustErr:    errors.New("state is not json"),
+			wantTrusted: []string{"/work"},
+			wantErr:     "failed to trust the launch directory",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmux := tmuxtest.NewFake()
+			fakeHarness := &harnesstest.Fake{TrustErr: tt.trustErr}
+			launcher := NewLauncher(NewLauncherParams{
+				Tmux:            tmux,
+				CacheDir:        t.TempDir(),
+				TrustLaunchDirs: tt.trust,
+			})
+
+			err := launcher.launch(fakeHarness, launchParams{Pane: "pane", Dir: tt.dir})
+
+			assert.Equal(t, tt.wantTrusted, fakeHarness.Trusted)
+			if tt.wantErr != "" {
+				require.ErrorContains(t, err, tt.wantErr)
+				assert.Empty(t, fakeHarness.Launches)
+				assert.Empty(t, tmux.LastRespawn("pane").Argv)
+
+				return
+			}
+			require.NoError(t, err)
+			assert.Len(t, fakeHarness.Launches, 1)
+		})
+	}
+}
+
 const briefedLogPath = "/var/cache/komrad/komrad.log"
 
 // TestAppendedSystemPrompt pins the buildBriefing coming first, so a workflow's own context

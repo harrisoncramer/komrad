@@ -33,6 +33,8 @@ var (
 type Fake struct {
 	mu         sync.Mutex
 	Launches   []harness.Launch
+	Trusted    []string
+	TrustErr   error
 	CommandErr error
 	Name       string
 	NoSession  bool
@@ -72,6 +74,16 @@ func (f *Fake) BuildCommand(launch harness.Launch) (string, error) {
 	}
 
 	return "agent-cli --session " + launch.SessionID, nil
+}
+
+// TrustDir records the directory, failing with TrustErr.
+func (f *Fake) TrustDir(dir string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	f.Trusted = append(f.Trusted, dir)
+
+	return f.TrustErr
 }
 
 // MintSessionID is a fresh id, or nothing for a harness standing in for Codex.
