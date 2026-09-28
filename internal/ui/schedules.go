@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"komrad/config"
+	"komrad/internal/ui/cursor"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/panel"
 	"komrad/internal/view"
@@ -31,7 +32,7 @@ func (i scheduleItem) key() string {
 
 // enter lands the cursor once the root has put the screen up.
 func (w *schedulesScreen) enter(h host, s panelShared, _ screenTarget) tea.Cmd {
-	w.cursor = clampCursor(w.cursor, len(w.listRows(s)))
+	w.cursor = cursor.Clamp(w.cursor, len(w.listRows(s)))
 
 	return h.waitToStage()
 }

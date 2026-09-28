@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"komrad/internal/errui"
+	"komrad/internal/ui/cursor"
 	"komrad/internal/ui/panel"
 	"komrad/lib/dates"
 	worktreev1 "komrad/proto/gen/worktree/v1"
@@ -234,7 +235,7 @@ func (w *worktreesScreen) place(s panelShared, hovered string) {
 
 	idx := rowIndexOfKey(rows, hovered)
 	if idx < 0 {
-		idx = clampCursor(w.cursor, len(rows))
+		idx = cursor.Clamp(w.cursor, len(rows))
 	}
 
 	w.cursor = idx

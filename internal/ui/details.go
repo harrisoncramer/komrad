@@ -7,6 +7,7 @@ import (
 
 	"komrad/config"
 	"komrad/internal/glyph"
+	"komrad/internal/ui/cursor"
 	"komrad/internal/ui/paint"
 	"komrad/internal/view"
 	"komrad/lib/xslice"
@@ -92,7 +93,7 @@ func (m model) detailsCursor(held details) int {
 		return 0
 	}
 
-	return min(m.details.cursor, max(len(m.detailsRows(held))-1, 0))
+	return cursor.Clamp(m.details.cursor, len(m.detailsRows(held)))
 }
 
 func (m model) isDetailsDrawn(held details) bool {
@@ -302,7 +303,7 @@ func (m model) hoveredDetailsKey() string {
 func (m *model) placeDetailsAt(key string) {
 	held := m.hoveredDetails()
 	rows := m.detailsRows(held)
-	m.details.cursor = placeCursor(rowIndexOfKey(rows, key), m.detailsCursor(held), len(rows))
+	m.details.cursor = cursor.Place(rowIndexOfKey(rows, key), m.detailsCursor(held), len(rows))
 	m.details.row = held.id
 }
 
@@ -340,7 +341,7 @@ func (m model) pageDetailsCursor(pressed string) (tea.Model, tea.Cmd) {
 }
 
 func (m model) setDetailsCursor(held details, idx int) model {
-	m.details.cursor = clampCursor(idx, len(m.detailsRows(held)))
+	m.details.cursor = cursor.Clamp(idx, len(m.detailsRows(held)))
 	m.details.row = held.id
 
 	return m

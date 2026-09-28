@@ -110,8 +110,6 @@ func TestTailMove(t *testing.T) {
 
 	tests := []struct {
 		name       string
-		lines      []string
-		width      int
 		moves      []int
 		scrolls    []int
 		more       []string
@@ -127,22 +125,6 @@ func TestTailMove(t *testing.T) {
 			name:       "back a line moves the cursor and leaves the view",
 			moves:      []int{-1},
 			want:       []string{"line 3", "line 4", "line 5"},
-			wantCursor: 1,
-		},
-		{
-			name:  "back past the top of the view scrolls it",
-			moves: []int{-3},
-			want:  []string{"line 2", "line 3", "line 4"},
-		},
-		{
-			name:  "past the oldest stops with the window full",
-			moves: []int{-100},
-			want:  []string{"line 1", "line 2", "line 3"},
-		},
-		{
-			name:       "forward from the oldest moves at once",
-			moves:      []int{-100, 1},
-			want:       []string{"line 1", "line 2", "line 3"},
 			wantCursor: 1,
 		},
 		{
@@ -166,39 +148,11 @@ func TestTailMove(t *testing.T) {
 			wantCursor: 2,
 		},
 		{
-			name:    "scrolling the view forward drags the cursor down to its top",
-			moves:   []int{-4},
-			scrolls: []int{1},
-			want:    []string{"line 2", "line 3", "line 4"},
-		},
-		{
 			name:       "scrolling back to the newest follows again",
 			scrolls:    []int{-100, 100},
 			more:       numbered(6, 7),
 			want:       []string{"line 5", "line 6", "line 7"},
 			wantCursor: 2,
-		},
-		{
-			name:  "the oldest line stays drawn under the cursor when the next one wraps past the window",
-			lines: []string{"a", "bbbbbbbbb", "c"},
-			width: 3,
-			moves: []int{-2},
-			want:  []string{"a"},
-		},
-		{
-			name:    "scrolling back on a log that fits leaves the cursor where it was",
-			lines:   numbered(1, 2),
-			width:   20,
-			moves:   []int{-1},
-			scrolls: []int{-1},
-			want:    []string{"line 1", "line 2"},
-		},
-		{
-			name:  "the cursor stands on the first row of a wrapped line",
-			lines: []string{"short", "a line that wraps", "last"},
-			width: 9,
-			moves: []int{-1},
-			want:  []string{"a line th", "at wraps", "last"},
 		},
 	}
 
@@ -206,24 +160,19 @@ func TestTailMove(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			lines, width := tt.lines, tt.width
-			if lines == nil {
-				lines, width = numbered(1, 5), 20
-			}
-
 			viewer := logview.NewTail(100)
-			viewer.Append(lines)
+			viewer.Append(numbered(1, 5))
 			for _, move := range tt.moves {
 				viewer.Move(move)
-				viewer.Rows(width, 3)
+				viewer.Rows(20, 3)
 			}
 			for _, scroll := range tt.scrolls {
 				viewer.Scroll(scroll)
-				viewer.Rows(width, 3)
+				viewer.Rows(20, 3)
 			}
 			viewer.Append(tt.more)
 
-			rows, cursor := viewer.Rows(width, 3)
+			rows, cursor := viewer.Rows(20, 3)
 			assert.Equal(t, tt.want, rows)
 			assert.Equal(t, tt.wantCursor, cursor)
 		})

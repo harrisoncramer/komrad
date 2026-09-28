@@ -7,6 +7,7 @@ import (
 
 	"komrad/config"
 	"komrad/internal/errui"
+	"komrad/internal/ui/cursor"
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/view"
 	"komrad/lib/dates"
@@ -369,7 +370,7 @@ func (m *model) applyDocumentsListed(msg documentsListedMsg) tea.Cmd {
 	hovered := d.list().hovered(m.shared())
 	d.items, d.listedAt, d.listedCount, d.listed, d.err = msg.items, msg.written.newest, msg.written.count, true, nil
 	rows := d.rows(m.shared())
-	d.cursor = placeCursor(rowIndexOfKey(rows, hovered), d.cursor, len(rows))
+	d.cursor = cursor.Place(rowIndexOfKey(rows, hovered), d.cursor, len(rows))
 
 	return m.readDocumentsCmd()
 }

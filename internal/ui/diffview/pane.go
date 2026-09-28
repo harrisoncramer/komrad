@@ -3,6 +3,8 @@ package diffview
 import (
 	"regexp"
 	"strings"
+
+	"komrad/internal/ui/cursor"
 )
 
 // scrollMargin is how close to the edge of the pane the cursor gets before the rows scroll under
@@ -101,7 +103,7 @@ func (p *Pane) JumpFile(direction, height int) bool {
 	}
 
 	p.cursor = next
-	p.top = max(min(p.view.GetFileTopRow(next), p.view.Len()-1), 0)
+	p.top = cursor.Clamp(p.view.GetFileTopRow(next), p.view.Len())
 	p.pinTop = true
 	p.pinFloor = p.top
 	p.ScrollToCursor(height)

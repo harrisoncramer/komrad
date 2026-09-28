@@ -7,6 +7,7 @@ import (
 
 	"komrad/config"
 	"komrad/internal/glyph"
+	"komrad/internal/ui/cursor"
 	"komrad/internal/ui/paint"
 	"komrad/internal/view"
 	"komrad/lib/xslice"
@@ -184,7 +185,7 @@ func (l screenList[T]) hovered(s panelShared) string {
 func (l screenList[T]) place(h host, s panelShared, hovered string) {
 	rows := l.rows(s)
 	c := l.cursor()
-	c.cursor = placeCursor(rowIndexOfKey(rows, hovered), c.cursor, len(rows))
+	c.cursor = cursor.Place(rowIndexOfKey(rows, hovered), c.cursor, len(rows))
 	if l.placed != nil {
 		l.placed(h, s)
 	}
@@ -685,7 +686,7 @@ type rowCursor struct {
 }
 
 func (c rowCursor) move(delta, length int) (rowCursor, bool) {
-	next, ok := stepCursor(c.cursor, delta, length)
+	next, ok := cursor.Step(c.cursor, delta, length)
 	if !ok {
 		return c, false
 	}
@@ -695,7 +696,7 @@ func (c rowCursor) move(delta, length int) (rowCursor, bool) {
 }
 
 func (c rowCursor) jump(idx, length int) (rowCursor, bool) {
-	next, ok := landCursor(idx, length)
+	next, ok := cursor.Land(idx, length)
 	if !ok {
 		return c, false
 	}
@@ -811,25 +812,4 @@ func navPageDeltaOf(keys config.Keybindings, pressed string) int {
 	}
 
 	return navPageStep
-}
-
-func stepCursor(cursor, delta, length int) (int, bool) {
-	next := cursor + delta
-	if next < 0 || next >= length {
-		return cursor, false
-	}
-
-	return next, true
-}
-
-func landCursor(idx, length int) (int, bool) {
-	if length == 0 {
-		return 0, false
-	}
-
-	return clampCursor(idx, length), true
-}
-
-func clampCursor(idx, length int) int {
-	return max(min(idx, length-1), 0)
 }

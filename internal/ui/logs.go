@@ -9,6 +9,7 @@ import (
 	"komrad/internal/errui"
 	"komrad/internal/glyph"
 	"komrad/internal/logread"
+	"komrad/internal/ui/cursor"
 	"komrad/internal/ui/logview"
 	"komrad/internal/ui/paint"
 	"komrad/internal/view"
@@ -144,7 +145,7 @@ func (m *model) applyLogsSources(msg logsSourcesMsg) tea.Cmd {
 	hovered := rowKeyAt(l.rows(s), l.rowCursor.cursor)
 	l.sources = msg.sources
 	if l.listed {
-		l.rowCursor.cursor = placeCursor(rowIndexOfKey(l.rows(s), hovered), l.rowCursor.cursor, len(l.sources))
+		l.rowCursor.cursor = cursor.Place(rowIndexOfKey(l.rows(s), hovered), l.rowCursor.cursor, len(l.sources))
 
 		return l.switchSource(s)
 	}

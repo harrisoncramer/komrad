@@ -4,6 +4,7 @@ package logview
 import (
 	"strings"
 
+	"komrad/internal/ui/cursor"
 	"komrad/lib/xslice"
 
 	"github.com/charmbracelet/x/ansi"
@@ -58,7 +59,7 @@ func (t *tail) Append(lines []string) {
 	if over := len(t.lines) - t.ceiling; over > 0 {
 		t.lines = append([]string(nil), t.lines[over:]...)
 	}
-	t.cursor, t.back = t.clamp(t.cursor), t.clamp(t.back)
+	t.cursor, t.back = cursor.Clamp(t.cursor, len(t.lines)), cursor.Clamp(t.back, len(t.lines))
 }
 
 func (t *tail) Reset() {
@@ -70,90 +71,47 @@ func (t *tail) Len() int {
 }
 
 func (t *tail) Move(lines int) {
-	t.cursor = t.clamp(t.cursor - lines)
+	t.cursor = cursor.Clamp(t.cursor-lines, len(t.lines))
 	t.scrolled = false
 }
 
 func (t *tail) Scroll(lines int) {
-	t.back = t.clamp(t.back - lines)
+	t.back = cursor.Clamp(t.back-lines, len(t.lines))
 	t.scrolled = true
 	if lines > 0 && t.back == 0 {
 		t.cursor = 0
 	}
 }
 
-// clamp is a count of lines before the newest kept to the lines held.
-func (t *tail) clamp(back int) int {
-	return min(max(back, 0), max(len(t.lines)-1, 0))
-}
-
 func (t *tail) Rows(width, height int) ([]string, int) {
-	if height <= 0 || len(t.lines) == 0 {
-		return nil, -1
+	wrapped := make(map[int][]string)
+	wrap := func(i int) []string {
+		if _, ok := wrapped[i]; !ok {
+			wrapped[i] = t.wrap(i, width)
+		}
+
+		return wrapped[i]
+	}
+
+	window := cursor.Window{Height: height, Rows: func(i int) int { return len(wrap(i)) }}
+	keep := window.KeepCursor
+	if t.scrolled {
+		keep = window.KeepView
 	}
 
 	newest := len(t.lines) - 1
-	end := max(newest-t.back, t.firstFilling(width, height))
-	if !t.scrolled {
-		at := newest - t.cursor
-		end = max(t.lastBelow(at, max(end, at), width, height), t.firstFilling(width, height))
+	span, ok := keep(len(t.lines), newest-t.cursor, newest-t.back)
+	if !ok {
+		return nil, -1
 	}
-	t.back = newest - end
+	t.cursor, t.back = newest-span.Cursor, newest-span.Last
 
-	var blocks [][]string
-	first, total := end, 0
-	for i := end; i >= 0 && total < height; i-- {
-		blocks = append(blocks, t.wrap(i, width))
-		first, total = i, total+len(blocks[len(blocks)-1])
-	}
-
-	if t.scrolled {
-		top := first
-		if total > height {
-			top = min(first+1, end)
-		}
-		t.cursor = newest - min(max(newest-t.cursor, top), end)
-	}
-
-	at := newest - t.cursor
 	var rows []string
-	cursorRow := 0
-	for k := len(blocks) - 1; k >= 0; k-- {
-		if first+len(blocks)-1-k == at {
-			cursorRow = len(rows)
-		}
-		rows = append(rows, blocks[k]...)
+	for i := span.First; i <= span.Last; i++ {
+		rows = append(rows, wrap(i)...)
 	}
 
-	cut := max(len(rows)-height, 0)
-
-	return rows[cut:], max(cursorRow-cut, 0)
-}
-
-// lastBelow is the line the view ends on to keep the cursor's line at from in sight, no further
-// down than end.
-func (t *tail) lastBelow(from, end, width, height int) int {
-	last, rows := from, len(t.wrap(from, width))
-	for last < end && rows+len(t.wrap(last+1, width)) <= height {
-		last++
-		rows += len(t.wrap(last, width))
-	}
-
-	return last
-}
-
-// firstFilling is the first line the view can end on and still draw the oldest line whole, filling
-// as much of height as that allows.
-func (t *tail) firstFilling(width, height int) int {
-	filled := 0
-	for i := range t.lines {
-		filled += len(t.wrap(i, width))
-		if filled > height {
-			return max(i-1, 0)
-		}
-	}
-
-	return len(t.lines) - 1
+	return rows[span.Cut:], span.CursorRow
 }
 
 // wrap is one held line broken into the rows it takes at width.

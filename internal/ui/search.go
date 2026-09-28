@@ -11,6 +11,7 @@ import (
 	"komrad/config"
 	"komrad/internal/client"
 	"komrad/internal/glyph"
+	"komrad/internal/ui/cursor"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/panel"
 	"komrad/internal/view"
@@ -289,7 +290,7 @@ func (w *searchScreen) place(s panelShared, was string) tea.Cmd {
 	}
 
 	at := rowIndexOfKey(rows, was)
-	w.cursor = placeCursor(at, w.cursor, len(rows))
+	w.cursor = cursor.Place(at, w.cursor, len(rows))
 	if at >= 0 {
 		return nil
 	}
@@ -395,7 +396,7 @@ func (w *searchScreen) apply(h host, s panelShared, result searchResult) tea.Cmd
 		w.drawn = nil
 
 		rows := w.rows(s)
-		w.cursor = placeCursor(rowIndexOfKey(rows, was), w.cursor, len(rows))
+		w.cursor = cursor.Place(rowIndexOfKey(rows, was), w.cursor, len(rows))
 
 		return w.landOnRow(h, s)
 	}
@@ -406,7 +407,7 @@ func (w *searchScreen) apply(h host, s panelShared, result searchResult) tea.Cmd
 	w.drawn = nil
 
 	rows := w.rows(s)
-	w.cursor = clampCursor(w.cursor, len(rows))
+	w.cursor = cursor.Clamp(w.cursor, len(rows))
 	if len(rows) == 0 {
 		w.preview = searchPreview{}
 
