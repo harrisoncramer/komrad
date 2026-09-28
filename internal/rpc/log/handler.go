@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strconv"
 
@@ -29,19 +30,20 @@ const serviceSource = "service"
 var (
 	errBadCursor      = fail.InvalidArgument("the cursor is not one this service answered")
 	errOneAgentPerRun = fail.InvalidArgument("a script run's source is read for one agent at a time")
+	errBadPattern     = fail.InvalidArgument("the pattern is not a regular expression")
 )
 
 type logReader interface {
 	Lines(trace string) ([]logread.Line, error)
 	RecentTraces(limit int) ([]logread.Summary, error)
-	NewestAboutAgents(ctx context.Context, agentIDs []string, limit int) (*logread.Window, error)
-	AboutAgentsSince(ctx context.Context, agentIDs []string, offset int64, limit int) (*logread.Window, error)
+	NewestAboutAgents(ctx context.Context, agentIDs []string, query logread.Query) (*logread.Window, error)
+	AboutAgentsSince(ctx context.Context, agentIDs []string, offset int64, query logread.Query) (*logread.Window, error)
 }
 
 type runReader interface {
 	List(agentID string) []config.RunLog
-	Newest(ctx context.Context, run logread.Run, limit int) (*logread.Window, error)
-	Since(ctx context.Context, run logread.Run, offset int64, limit int) (*logread.Window, error)
+	Newest(ctx context.Context, run logread.Run, query logread.Query) (*logread.Window, error)
+	Since(ctx context.Context, run logread.Run, offset int64, query logread.Query) (*logread.Window, error)
 }
 
 type Handler struct {
@@ -101,9 +103,9 @@ func (s *Handler) ListRecentTraces(_ context.Context, req *logv1.ListRecentTrace
 // ReadAgentLogs is the lines of one of the agents' log sources, the newest without a cursor and
 // those written since it with one.
 func (s *Handler) ReadAgentLogs(ctx context.Context, req *logv1.ReadAgentLogsRequest) (*logv1.ReadAgentLogsResponse, *fail.Error) {
-	limit := int(req.GetLimit())
-	if limit == 0 {
-		limit = defaultAgentLogLimit
+	query := logread.Query{Limit: int(req.GetLimit())}
+	if query.Limit == 0 {
+		query.Limit = defaultAgentLogLimit
 	}
 
 	offset := int64(-1)
@@ -113,6 +115,14 @@ func (s *Handler) ReadAgentLogs(ctx context.Context, req *logv1.ReadAgentLogsReq
 			return nil, errBadCursor.Saying("cursor %q is not one this service answered", req.GetCursor())
 		}
 		offset = parsed
+	}
+
+	if req.GetPattern() != "" {
+		pattern, err := regexp.Compile(req.GetPattern())
+		if err != nil {
+			return nil, errBadPattern.Saying("pattern %q does not compile: %v", req.GetPattern(), err)
+		}
+		query.Pattern = pattern
 	}
 
 	isRun := req.GetSource() != "" && req.GetSource() != serviceSource
@@ -126,13 +136,13 @@ func (s *Handler) ReadAgentLogs(ctx context.Context, req *logv1.ReadAgentLogsReq
 	)
 	switch {
 	case isRun && offset < 0:
-		window, err = s.runs.Newest(ctx, logread.Run{AgentID: req.GetAgentIds()[0], Name: req.GetSource()}, limit)
+		window, err = s.runs.Newest(ctx, logread.Run{AgentID: req.GetAgentIds()[0], Name: req.GetSource()}, query)
 	case isRun:
-		window, err = s.runs.Since(ctx, logread.Run{AgentID: req.GetAgentIds()[0], Name: req.GetSource()}, offset, limit)
+		window, err = s.runs.Since(ctx, logread.Run{AgentID: req.GetAgentIds()[0], Name: req.GetSource()}, offset, query)
 	case offset < 0:
-		window, err = s.log.NewestAboutAgents(ctx, req.GetAgentIds(), limit)
+		window, err = s.log.NewestAboutAgents(ctx, req.GetAgentIds(), query)
 	default:
-		window, err = s.log.AboutAgentsSince(ctx, req.GetAgentIds(), offset, limit)
+		window, err = s.log.AboutAgentsSince(ctx, req.GetAgentIds(), offset, query)
 	}
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to read the agents' logs")

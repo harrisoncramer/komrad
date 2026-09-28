@@ -9,6 +9,7 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"regexp"
 )
 
 // ScanBudget is how much of the log one read of a window looks through.
@@ -22,14 +23,21 @@ type Window struct {
 	More   bool
 }
 
-// Newest is the last limit lines of the log, oldest first.
-func (r *Reader) Newest(ctx context.Context, limit int) (*Window, error) {
-	return r.newest(ctx, everyLine, limit)
+// Query is which lines a read answers: those Pattern matches, every one when it is nil, and at most Limit of them.
+type Query struct {
+	Pattern *regexp.Regexp
+	Limit   int
 }
 
-// Since is the lines written after offset, oldest first.
-func (r *Reader) Since(ctx context.Context, offset int64, limit int) (*Window, error) {
-	return r.since(ctx, everyLine, offset, limit)
+// matching keeps a line keep keeps that pattern also matches, and every line keep keeps when pattern is nil.
+func matching(pattern *regexp.Regexp, keep func([]byte) bool) func([]byte) bool {
+	if pattern == nil {
+		return keep
+	}
+
+	return func(line []byte) bool {
+		return pattern.Match(line) && keep(line)
+	}
 }
 
 func everyLine([]byte) bool {

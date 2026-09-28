@@ -74,6 +74,8 @@ message ReadAgentLogsRequest {
   }];
   // Which of the agent's log sources to read, as list_agent_log_sources names them. The service log when unset. A script run's source reads exactly one agent.
   string source = 4 [(buf.validate.field).string.max_len = 256];
+  // A regular expression in Go syntax that a line must match to be answered. Every line when unset. The newest lines are searched within the last 64 MB of the source.
+  string pattern = 5 [(buf.validate.field).string.max_len = 256];
 }
 
 message ReadAgentLogsResponse {

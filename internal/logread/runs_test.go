@@ -19,6 +19,7 @@ func TestRuns(t *testing.T) {
 		name    string
 		agentID string
 		run     string
+		pattern string
 		from    int
 		tail    string
 		limit   int
@@ -76,6 +77,14 @@ func TestRuns(t *testing.T) {
 			want:    output[1:],
 		},
 		{
+			name:    "a pattern keeps only the lines it matches",
+			agentID: "a1",
+			run:     "001-provision-setup.log",
+			pattern: "worktree",
+			limit:   10,
+			want:    output[:2],
+		},
+		{
 			name:    "a half-written last line is left for the next read",
 			agentID: "a1",
 			run:     "001-provision-setup.log",
@@ -108,9 +117,9 @@ func TestRuns(t *testing.T) {
 				err    error
 			)
 			if tt.from > 0 {
-				window, err = runs.Since(t.Context(), run, through(output, tt.from), tt.limit)
+				window, err = runs.Since(t.Context(), run, through(output, tt.from), Query{Pattern: patternFor(tt.pattern), Limit: tt.limit})
 			} else {
-				window, err = runs.Newest(t.Context(), run, tt.limit)
+				window, err = runs.Newest(t.Context(), run, Query{Pattern: patternFor(tt.pattern), Limit: tt.limit})
 			}
 			if tt.wantErr != nil {
 				require.ErrorIs(t, err, tt.wantErr)

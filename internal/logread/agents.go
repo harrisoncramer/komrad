@@ -12,14 +12,14 @@ import (
 // agentKeys are the fields a line names an agent in.
 var agentKeys = []string{logging.AgentID, logging.TargetAgentID, logging.ScriptAgentID}
 
-// NewestAboutAgents is the last limit lines about any of the agents, oldest first.
-func (r *Reader) NewestAboutAgents(ctx context.Context, agentIDs []string, limit int) (*Window, error) {
-	return r.newest(ctx, aboutAny(agentIDs), limit)
+// NewestAboutAgents is the newest lines about any of the agents that the query asks for, oldest first.
+func (r *Reader) NewestAboutAgents(ctx context.Context, agentIDs []string, query Query) (*Window, error) {
+	return r.newest(ctx, matching(query.Pattern, aboutAny(agentIDs)), query.Limit)
 }
 
-// AboutAgentsSince is the lines about any of the agents written after offset, oldest first.
-func (r *Reader) AboutAgentsSince(ctx context.Context, agentIDs []string, offset int64, limit int) (*Window, error) {
-	return r.since(ctx, aboutAny(agentIDs), offset, limit)
+// AboutAgentsSince is the lines about any of the agents written after offset that the query asks for, oldest first.
+func (r *Reader) AboutAgentsSince(ctx context.Context, agentIDs []string, offset int64, query Query) (*Window, error) {
+	return r.since(ctx, matching(query.Pattern, aboutAny(agentIDs)), offset, query.Limit)
 }
 
 // aboutAny keeps a line that names any of the agents in one of the fields that name an agent.

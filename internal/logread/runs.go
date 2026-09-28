@@ -36,24 +36,24 @@ func (r *Runs) List(agentID string) []config.RunLog {
 	return config.ListRunLogs(r.dir, agentID)
 }
 
-// Newest is the last limit lines of the run, oldest first.
-func (r *Runs) Newest(ctx context.Context, run Run, limit int) (*Window, error) {
+// Newest is the newest lines of the run that the query asks for, oldest first.
+func (r *Runs) Newest(ctx context.Context, run Run, query Query) (*Window, error) {
 	reader, err := r.reader(run)
 	if err != nil {
 		return nil, err
 	}
 
-	return reader.Newest(ctx, limit)
+	return reader.newest(ctx, matching(query.Pattern, everyLine), query.Limit)
 }
 
-// Since is the lines the run wrote after offset, oldest first.
-func (r *Runs) Since(ctx context.Context, run Run, offset int64, limit int) (*Window, error) {
+// Since is the lines the run wrote after offset that the query asks for, oldest first.
+func (r *Runs) Since(ctx context.Context, run Run, offset int64, query Query) (*Window, error) {
 	reader, err := r.reader(run)
 	if err != nil {
 		return nil, err
 	}
 
-	return reader.Since(ctx, offset, limit)
+	return reader.since(ctx, matching(query.Pattern, everyLine), offset, query.Limit)
 }
 
 // reader is a reader over the run the agent recorded by that name.

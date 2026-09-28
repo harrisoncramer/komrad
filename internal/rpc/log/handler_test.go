@@ -3,6 +3,7 @@ package log
 import (
 	"context"
 	"errors"
+	"regexp"
 	"testing"
 
 	"komrad/config"
@@ -32,10 +33,20 @@ type fakeLogReader struct {
 
 // agentRead is one read of agent logs as the fake saw it.
 type agentRead struct {
-	ids    []string
-	source string
-	offset int64
-	limit  int
+	ids     []string
+	source  string
+	pattern string
+	offset  int64
+	limit   int
+}
+
+// patternOf is the pattern as the read was handed it, empty for none.
+func patternOf(pattern *regexp.Regexp) string {
+	if pattern == nil {
+		return ""
+	}
+
+	return pattern.String()
 }
 
 // List answers runs.
@@ -44,13 +55,13 @@ func (f *fakeLogReader) List(string) []config.RunLog {
 }
 
 // Newest records the read of the run and answers window.
-func (f *fakeLogReader) Newest(ctx context.Context, run logread.Run, limit int) (*logread.Window, error) {
-	return f.Since(ctx, run, -1, limit)
+func (f *fakeLogReader) Newest(ctx context.Context, run logread.Run, query logread.Query) (*logread.Window, error) {
+	return f.Since(ctx, run, -1, query)
 }
 
 // Since records the read of the run and answers window.
-func (f *fakeLogReader) Since(_ context.Context, run logread.Run, offset int64, limit int) (*logread.Window, error) {
-	f.reads = append(f.reads, agentRead{ids: []string{run.AgentID}, source: run.Name, offset: offset, limit: limit})
+func (f *fakeLogReader) Since(_ context.Context, run logread.Run, offset int64, query logread.Query) (*logread.Window, error) {
+	f.reads = append(f.reads, agentRead{ids: []string{run.AgentID}, source: run.Name, pattern: patternOf(query.Pattern), offset: offset, limit: query.Limit})
 
 	if f.err != nil {
 		return nil, f.err
@@ -60,8 +71,8 @@ func (f *fakeLogReader) Since(_ context.Context, run logread.Run, offset int64, 
 }
 
 // NewestAboutAgents records the read and answers window.
-func (f *fakeLogReader) NewestAboutAgents(_ context.Context, agentIDs []string, limit int) (*logread.Window, error) {
-	f.reads = append(f.reads, agentRead{ids: agentIDs, offset: -1, limit: limit})
+func (f *fakeLogReader) NewestAboutAgents(_ context.Context, agentIDs []string, query logread.Query) (*logread.Window, error) {
+	f.reads = append(f.reads, agentRead{ids: agentIDs, pattern: patternOf(query.Pattern), offset: -1, limit: query.Limit})
 
 	if f.err != nil {
 		return nil, f.err
@@ -71,8 +82,8 @@ func (f *fakeLogReader) NewestAboutAgents(_ context.Context, agentIDs []string, 
 }
 
 // AboutAgentsSince records the read and answers window.
-func (f *fakeLogReader) AboutAgentsSince(_ context.Context, agentIDs []string, offset int64, limit int) (*logread.Window, error) {
-	f.reads = append(f.reads, agentRead{ids: agentIDs, offset: offset, limit: limit})
+func (f *fakeLogReader) AboutAgentsSince(_ context.Context, agentIDs []string, offset int64, query logread.Query) (*logread.Window, error) {
+	f.reads = append(f.reads, agentRead{ids: agentIDs, pattern: patternOf(query.Pattern), offset: offset, limit: query.Limit})
 
 	if f.err != nil {
 		return nil, f.err
@@ -266,6 +277,25 @@ func TestReadAgentLogs(t *testing.T) {
 			window:   &logread.Window{Lines: []string{"+ mise install"}, Offset: 28},
 			wantRead: agentRead{ids: []string{"a1"}, source: "001-provision-setup.log", offset: 13, limit: 200},
 			want:     &logv1.ReadAgentLogsResponse{Lines: []string{"+ mise install"}, Cursor: "28"},
+		},
+		{
+			name:     "a pattern that does not compile",
+			req:      &logv1.ReadAgentLogsRequest{AgentIds: []string{"a1"}, Pattern: "error("},
+			wantCode: connect.CodeInvalidArgument,
+		},
+		{
+			name:     "a pattern narrows the service log from its cursor",
+			req:      &logv1.ReadAgentLogsRequest{AgentIds: []string{"a1"}, Cursor: "42", Pattern: "(?i)error"},
+			window:   &logread.Window{Lines: []string{"ERROR one"}, Offset: 90},
+			wantRead: agentRead{ids: []string{"a1"}, pattern: "(?i)error", offset: 42, limit: 200},
+			want:     &logv1.ReadAgentLogsResponse{Lines: []string{"ERROR one"}, Cursor: "90"},
+		},
+		{
+			name:     "a pattern narrows a run's source",
+			req:      &logv1.ReadAgentLogsRequest{AgentIds: []string{"a1"}, Source: "001-provision-setup.log", Pattern: "mise"},
+			window:   &logread.Window{Lines: []string{"+ mise trust"}, Offset: 13},
+			wantRead: agentRead{ids: []string{"a1"}, source: "001-provision-setup.log", pattern: "mise", offset: -1, limit: 200},
+			want:     &logv1.ReadAgentLogsResponse{Lines: []string{"+ mise trust"}, Cursor: "13"},
 		},
 	}
 

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -24,6 +25,15 @@ func appendLog(t *testing.T, path, body string) {
 	_, err = file.WriteString(body)
 	require.NoError(t, err)
 	require.NoError(t, file.Close())
+}
+
+// patternFor compiles pattern, and is nil for none.
+func patternFor(pattern string) *regexp.Regexp {
+	if pattern == "" {
+		return nil
+	}
+
+	return regexp.MustCompile(pattern)
 }
 
 // through is the offset just past the first n lines of a log.
@@ -51,12 +61,13 @@ func TestNewestAboutAgents(t *testing.T) {
 	}
 
 	tests := []struct {
-		name   string
-		ids    []string
-		limit  int
-		budget int
-		tail   string
-		want   []string
+		name    string
+		ids     []string
+		pattern string
+		limit   int
+		budget  int
+		tail    string
+		want    []string
 	}{
 		{
 			name:  "an agent the log never names",
@@ -68,6 +79,19 @@ func TestNewestAboutAgents(t *testing.T) {
 			ids:   []string{"a1"},
 			limit: 10,
 			want:  []string{lines[0], lines[2], lines[6]},
+		},
+		{
+			name:    "a pattern keeps only the lines it matches",
+			ids:     []string{"a1"},
+			pattern: `"line (1|6)"`,
+			limit:   10,
+			want:    []string{lines[0], lines[6]},
+		},
+		{
+			name:    "a pattern matching only another agent's line keeps nothing",
+			ids:     []string{"a1"},
+			pattern: `"line 2"`,
+			limit:   10,
 		},
 		{
 			name:  "several agents at once",
@@ -115,7 +139,7 @@ func TestNewestAboutAgents(t *testing.T) {
 				reader.budget = tt.budget
 			}
 
-			window, err := reader.NewestAboutAgents(t.Context(), tt.ids, tt.limit)
+			window, err := reader.NewestAboutAgents(t.Context(), tt.ids, Query{Pattern: patternFor(tt.pattern), Limit: tt.limit})
 			require.NoError(t, err)
 			assert.Equal(t, tt.want, window.Lines)
 			assert.Equal(t, through(lines, len(lines)), window.Offset, "the offset is the end of the last whole line")
@@ -142,6 +166,7 @@ func TestAboutAgentsSince(t *testing.T) {
 		tail        string
 		from        int
 		pastEnd     bool
+		pattern     string
 		limit       int
 		budget      int
 		maxLine     int
@@ -217,6 +242,23 @@ func TestAboutAgentsSince(t *testing.T) {
 			wantThrough: 1,
 			wantMore:    true,
 		},
+		{
+			name:        "a pattern passes over the lines it does not match",
+			log:         short,
+			pattern:     `"line 3"`,
+			limit:       10,
+			want:        []string{short[2]},
+			wantThrough: 3,
+		},
+		{
+			name:        "a budget spent before a match says more remains",
+			log:         short,
+			pattern:     `"line 3"`,
+			limit:       10,
+			budget:      len(short[0]) + 1,
+			wantThrough: 1,
+			wantMore:    true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -244,7 +286,7 @@ func TestAboutAgentsSince(t *testing.T) {
 				offset = 1 << 20
 			}
 
-			window, err := reader.AboutAgentsSince(ctx, []string{"a1"}, offset, tt.limit)
+			window, err := reader.AboutAgentsSince(ctx, []string{"a1"}, offset, Query{Pattern: patternFor(tt.pattern), Limit: tt.limit})
 			if tt.wantErr != nil {
 				require.ErrorIs(t, err, tt.wantErr)
 
@@ -266,9 +308,9 @@ func TestAgentLogsWithoutALog(t *testing.T) {
 
 	reader := New(filepath.Join(t.TempDir(), "missing.log"))
 
-	_, err := reader.NewestAboutAgents(t.Context(), []string{"a1"}, 10)
+	_, err := reader.NewestAboutAgents(t.Context(), []string{"a1"}, Query{Limit: 10})
 	require.ErrorIs(t, err, ErrNoLog)
 
-	_, err = reader.AboutAgentsSince(t.Context(), []string{"a1"}, 0, 10)
+	_, err = reader.AboutAgentsSince(t.Context(), []string{"a1"}, 0, Query{Limit: 10})
 	require.ErrorIs(t, err, ErrNoLog)
 }
