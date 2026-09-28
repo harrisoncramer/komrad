@@ -1,12 +1,15 @@
 package cli
 
 import (
+	"context"
+	"fmt"
 	"log/slog"
 	"slices"
 	"time"
 
 	"komrad/internal/agents"
 	"komrad/internal/browser"
+	"komrad/internal/doctor"
 	"komrad/internal/engine"
 	"komrad/internal/errui"
 	"komrad/internal/git"
@@ -149,9 +152,58 @@ Use ` + "`komrad open`" + ` to bring the panel up.`,
 				ConfigErr:       state.configErr,
 				StartupErr:      startupErr,
 				StartupFindings: startupFindings,
+				Engines:         panelEngines(cmd.Context(), state, addr, startupErr),
 			})
 		},
 	}
+}
+
+// panelEngines is the engine this panel is on and the way to the others this machine can open.
+func panelEngines(ctx context.Context, state *app, addr string, startupErr error) ui.Engines {
+	var build ui.EngineBuild
+	if startupErr == nil {
+		build, _ = readEngineBuild(ctx, addr)
+	}
+
+	prober := engineProber{stack: state.configStack, checkLogin: checkEngineLogin}
+
+	return ui.Engines{
+		Name:      state.configStack.Engine,
+		Build:     build,
+		ReadBuild: func(ctx context.Context) (ui.EngineBuild, bool) { return readEngineBuild(ctx, addr) },
+		List:      func() ([]ui.EngineRow, error) { return engineRows(state.configStack) },
+		Probe:     prober.probe,
+		Switch: func(name string) error {
+			return state.tmux.HandOver(state.env.TmuxPane, switchEngineArgs(switchEngineArgsParams{
+				self:  state.selfPath(),
+				paths: state.configStack.Paths,
+				to:    name,
+				host: hostPlace{
+					socket: state.tmux.GetHostSocket(),
+					path:   state.tmux.GetHostPath(),
+				},
+				fallback: engineLabel(state.configStack.Engine),
+			}))
+		},
+	}
+}
+
+// readEngineBuild asks the server on addr what it runs, and how that differs from this panel.
+func readEngineBuild(ctx context.Context, addr string) (ui.EngineBuild, bool) {
+	probe := probeServer(ctx, addr)
+	if !probe.answering {
+		return ui.EngineBuild{}, false
+	}
+
+	build := ui.EngineBuild{Commit: version.Short(probe.commit)}
+	if probe.version != "" && !probe.current {
+		build.Stale = fmt.Sprintf("the engine runs %s and this panel %s: %s",
+			version.Describe(probe.version, probe.commit),
+			version.Describe(version.Version(), version.Commit()),
+			doctor.StaleEngineFix(probe.version, probe.commit))
+	}
+
+	return build, true
 }
 
 // installPanelLogger points the default logger at the log file for the life of the process.

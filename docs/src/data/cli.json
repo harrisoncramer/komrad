@@ -21,7 +21,7 @@
         "shorthand": "",
         "type": "string",
         "default": "",
-        "usage": "engine to reach, named after a file in the config's engines directory, layered over the config"
+        "usage": "engine to reach: local for this machine, or a file in the config's engines directory, layered over the config"
       }
     ],
     "inherited": [],
@@ -69,7 +69,7 @@
         "shorthand": "",
         "type": "string",
         "default": "",
-        "usage": "engine to reach, named after a file in the config's engines directory, layered over the config"
+        "usage": "engine to reach: local for this machine, or a file in the config's engines directory, layered over the config"
       }
     ],
     "children": []
@@ -112,7 +112,7 @@
         "shorthand": "",
         "type": "string",
         "default": "",
-        "usage": "engine to reach, named after a file in the config's engines directory, layered over the config"
+        "usage": "engine to reach: local for this machine, or a file in the config's engines directory, layered over the config"
       }
     ],
     "children": []
@@ -140,7 +140,7 @@
         "shorthand": "",
         "type": "string",
         "default": "",
-        "usage": "engine to reach, named after a file in the config's engines directory, layered over the config"
+        "usage": "engine to reach: local for this machine, or a file in the config's engines directory, layered over the config"
       }
     ],
     "children": [
@@ -170,7 +170,7 @@
         "shorthand": "",
         "type": "string",
         "default": "",
-        "usage": "engine to reach, named after a file in the config's engines directory, layered over the config"
+        "usage": "engine to reach: local for this machine, or a file in the config's engines directory, layered over the config"
       }
     ],
     "children": []
@@ -198,7 +198,7 @@
         "shorthand": "",
         "type": "string",
         "default": "",
-        "usage": "engine to reach, named after a file in the config's engines directory, layered over the config"
+        "usage": "engine to reach: local for this machine, or a file in the config's engines directory, layered over the config"
       }
     ],
     "children": [
@@ -231,7 +231,7 @@
         "shorthand": "",
         "type": "string",
         "default": "",
-        "usage": "engine to reach, named after a file in the config's engines directory, layered over the config"
+        "usage": "engine to reach: local for this machine, or a file in the config's engines directory, layered over the config"
       }
     ],
     "children": []
@@ -288,7 +288,7 @@
         "shorthand": "",
         "type": "string",
         "default": "",
-        "usage": "engine to reach, named after a file in the config's engines directory, layered over the config"
+        "usage": "engine to reach: local for this machine, or a file in the config's engines directory, layered over the config"
       }
     ],
     "children": []
@@ -316,7 +316,7 @@
         "shorthand": "",
         "type": "string",
         "default": "",
-        "usage": "engine to reach, named after a file in the config's engines directory, layered over the config"
+        "usage": "engine to reach: local for this machine, or a file in the config's engines directory, layered over the config"
       }
     ],
     "children": []
@@ -344,7 +344,7 @@
         "shorthand": "",
         "type": "string",
         "default": "",
-        "usage": "engine to reach, named after a file in the config's engines directory, layered over the config"
+        "usage": "engine to reach: local for this machine, or a file in the config's engines directory, layered over the config"
       }
     ],
     "children": []
@@ -372,7 +372,7 @@
         "shorthand": "",
         "type": "string",
         "default": "",
-        "usage": "engine to reach, named after a file in the config's engines directory, layered over the config"
+        "usage": "engine to reach: local for this machine, or a file in the config's engines directory, layered over the config"
       }
     ],
     "children": [
@@ -403,7 +403,7 @@
         "shorthand": "",
         "type": "string",
         "default": "",
-        "usage": "engine to reach, named after a file in the config's engines directory, layered over the config"
+        "usage": "engine to reach: local for this machine, or a file in the config's engines directory, layered over the config"
       }
     ],
     "children": []
@@ -446,7 +446,7 @@
         "shorthand": "",
         "type": "string",
         "default": "",
-        "usage": "engine to reach, named after a file in the config's engines directory, layered over the config"
+        "usage": "engine to reach: local for this machine, or a file in the config's engines directory, layered over the config"
       }
     ],
     "children": []
@@ -474,7 +474,7 @@
         "shorthand": "",
         "type": "string",
         "default": "",
-        "usage": "engine to reach, named after a file in the config's engines directory, layered over the config"
+        "usage": "engine to reach: local for this machine, or a file in the config's engines directory, layered over the config"
       }
     ],
     "children": [
@@ -509,7 +509,7 @@
         "shorthand": "",
         "type": "string",
         "default": "",
-        "usage": "engine to reach, named after a file in the config's engines directory, layered over the config"
+        "usage": "engine to reach: local for this machine, or a file in the config's engines directory, layered over the config"
       }
     ],
     "children": []
@@ -537,7 +537,7 @@
         "shorthand": "",
         "type": "string",
         "default": "",
-        "usage": "engine to reach, named after a file in the config's engines directory, layered over the config"
+        "usage": "engine to reach: local for this machine, or a file in the config's engines directory, layered over the config"
       }
     ],
     "children": []
@@ -565,7 +565,7 @@
         "shorthand": "",
         "type": "string",
         "default": "",
-        "usage": "engine to reach, named after a file in the config's engines directory, layered over the config"
+        "usage": "engine to reach: local for this machine, or a file in the config's engines directory, layered over the config"
       }
     ],
     "children": []
@@ -593,7 +593,7 @@
         "shorthand": "",
         "type": "string",
         "default": "",
-        "usage": "engine to reach, named after a file in the config's engines directory, layered over the config"
+        "usage": "engine to reach: local for this machine, or a file in the config's engines directory, layered over the config"
       }
     ],
     "children": []
@@ -621,7 +621,7 @@
         "shorthand": "",
         "type": "string",
         "default": "",
-        "usage": "engine to reach, named after a file in the config's engines directory, layered over the config"
+        "usage": "engine to reach: local for this machine, or a file in the config's engines directory, layered over the config"
       }
     ],
     "children": []
@@ -649,7 +649,7 @@
         "shorthand": "",
         "type": "string",
         "default": "",
-        "usage": "engine to reach, named after a file in the config's engines directory, layered over the config"
+        "usage": "engine to reach: local for this machine, or a file in the config's engines directory, layered over the config"
       }
     ],
     "children": []
@@ -685,7 +685,7 @@
         "shorthand": "",
         "type": "string",
         "default": "",
-        "usage": "engine to reach, named after a file in the config's engines directory, layered over the config"
+        "usage": "engine to reach: local for this machine, or a file in the config's engines directory, layered over the config"
       }
     ],
     "children": []
@@ -713,7 +713,7 @@
         "shorthand": "",
         "type": "string",
         "default": "",
-        "usage": "engine to reach, named after a file in the config's engines directory, layered over the config"
+        "usage": "engine to reach: local for this machine, or a file in the config's engines directory, layered over the config"
       }
     ],
     "children": []
@@ -725,7 +725,7 @@
     "usage": "komrad open [flags]",
     "aliases": [],
     "short": "Open the panel in this terminal, creating or attaching its persistent session",
-    "long": "Open the panel in this terminal.\n\nIt creates the manager session if it is not there and attaches either way, so the\npanel keeps its place between opens rather than starting over. The manager session\nlives on komrad's own tmux server, so it does not show up in `tmux ls`.\n\nWith engine files under the config's engines directory and no --engine given, it\nfirst asks which komrad to open, this machine or one of them, and runs itself again\non the one chosen. Closing that panel comes back to the question, and closing the\nquestion returns. An engine running other code than this komrad cannot be chosen.\n\nIt blocks until the client detaches. Run from inside tmux it nests the panel in the\ncurrent pane.\n\nWith --detach it creates the session and returns, which is what a script wants when\nit needs somewhere for agents to be put back into.\n\nWith --headless it creates that session holding nothing but a placeholder, for an\nengine whose panel runs on somebody else's machine and which would otherwise swap\nan agent's pane into a panel nobody is looking at.",
+    "long": "Open the panel in this terminal.\n\nIt creates the manager session if it is not there and attaches either way, so the\npanel keeps its place between opens rather than starting over. The manager session\nlives on komrad's own tmux server, so it does not show up in `tmux ls`.\n\nIt opens this machine's panel, or the engine --engine names. From inside a panel,\no then e moves the terminal to another engine's.\n\nThe terminal becomes the tmux client, so a detach returns to the shell. Run from\ninside tmux it nests the panel in the current pane.\n\nWith --detach it creates the session and returns, which is what a script wants when\nit needs somewhere for agents to be put back into.\n\nWith --headless it creates that session holding nothing but a placeholder, for an\nengine whose panel runs on somebody else's machine and which would otherwise swap\nan agent's pane into a panel nobody is looking at.",
     "example": "",
     "flags": [
       {
@@ -756,7 +756,7 @@
         "shorthand": "",
         "type": "string",
         "default": "",
-        "usage": "engine to reach, named after a file in the config's engines directory, layered over the config"
+        "usage": "engine to reach: local for this machine, or a file in the config's engines directory, layered over the config"
       }
     ],
     "children": []
@@ -784,7 +784,7 @@
         "shorthand": "",
         "type": "string",
         "default": "",
-        "usage": "engine to reach, named after a file in the config's engines directory, layered over the config"
+        "usage": "engine to reach: local for this machine, or a file in the config's engines directory, layered over the config"
       }
     ],
     "children": []
@@ -812,7 +812,7 @@
         "shorthand": "",
         "type": "string",
         "default": "",
-        "usage": "engine to reach, named after a file in the config's engines directory, layered over the config"
+        "usage": "engine to reach: local for this machine, or a file in the config's engines directory, layered over the config"
       }
     ],
     "children": [
@@ -842,7 +842,7 @@
         "shorthand": "",
         "type": "string",
         "default": "",
-        "usage": "engine to reach, named after a file in the config's engines directory, layered over the config"
+        "usage": "engine to reach: local for this machine, or a file in the config's engines directory, layered over the config"
       }
     ],
     "children": []
@@ -870,7 +870,7 @@
         "shorthand": "",
         "type": "string",
         "default": "",
-        "usage": "engine to reach, named after a file in the config's engines directory, layered over the config"
+        "usage": "engine to reach: local for this machine, or a file in the config's engines directory, layered over the config"
       }
     ],
     "children": []
@@ -906,7 +906,7 @@
         "shorthand": "",
         "type": "string",
         "default": "",
-        "usage": "engine to reach, named after a file in the config's engines directory, layered over the config"
+        "usage": "engine to reach: local for this machine, or a file in the config's engines directory, layered over the config"
       }
     ],
     "children": []
@@ -942,7 +942,7 @@
         "shorthand": "",
         "type": "string",
         "default": "",
-        "usage": "engine to reach, named after a file in the config's engines directory, layered over the config"
+        "usage": "engine to reach: local for this machine, or a file in the config's engines directory, layered over the config"
       }
     ],
     "children": []
@@ -970,7 +970,7 @@
         "shorthand": "",
         "type": "string",
         "default": "",
-        "usage": "engine to reach, named after a file in the config's engines directory, layered over the config"
+        "usage": "engine to reach: local for this machine, or a file in the config's engines directory, layered over the config"
       }
     ],
     "children": []
@@ -998,7 +998,7 @@
         "shorthand": "",
         "type": "string",
         "default": "",
-        "usage": "engine to reach, named after a file in the config's engines directory, layered over the config"
+        "usage": "engine to reach: local for this machine, or a file in the config's engines directory, layered over the config"
       }
     ],
     "children": []
@@ -1034,7 +1034,7 @@
         "shorthand": "",
         "type": "string",
         "default": "",
-        "usage": "engine to reach, named after a file in the config's engines directory, layered over the config"
+        "usage": "engine to reach: local for this machine, or a file in the config's engines directory, layered over the config"
       }
     ],
     "children": []
@@ -1062,7 +1062,7 @@
         "shorthand": "",
         "type": "string",
         "default": "",
-        "usage": "engine to reach, named after a file in the config's engines directory, layered over the config"
+        "usage": "engine to reach: local for this machine, or a file in the config's engines directory, layered over the config"
       }
     ],
     "children": []

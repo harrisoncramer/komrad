@@ -48,11 +48,11 @@ func (m model) render() string {
 // insideView is the frame the gutters surround, taking the failures in the order they happen.
 func (m model) insideView() string {
 	if m.configErr != nil {
-		return errui.RenderConfigError(m.width, m.configErr)
+		return m.fatalView(errui.RenderConfigError(m.width, m.configErr, m.fatalCloseHint()))
 	}
 
 	if m.startupErr != nil {
-		return errui.RenderStartupError(m.width, m.startupErr, m.startupFindings)
+		return m.fatalView(errui.RenderStartupError(m.width, m.startupErr, m.startupFindings, m.fatalCloseHint()))
 	}
 
 	return m.fitFrame(strings.TrimRight(m.screenView(), "\n"))

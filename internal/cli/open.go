@@ -1,28 +1,40 @@
 package cli
 
 import (
+	"bufio"
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"strings"
+	"syscall"
 
+	"komrad/config"
 	"komrad/internal/agents"
 	"komrad/internal/tmux"
-	"komrad/internal/ui/enginepick"
 	"komrad/internal/version"
 	"komrad/lib/xslice"
 
 	"github.com/spf13/cobra"
-	"golang.org/x/term"
 )
 
+// openFlags is what an open is given beyond the engine.
+type openFlags struct {
+	detach   bool
+	headless bool
+	host     hostPlace
+	fallback string
+}
+
+// hostPlace is where the user's own tmux client sits, empty when it is to be read from the
+// environment.
+type hostPlace struct {
+	socket string
+	path   string
+}
+
 func openCmd(state *app) *cobra.Command {
-	var (
-		detach   bool
-		headless bool
-	)
+	var flags openFlags
 
 	cmd := &cobra.Command{
 		Use:   "open",
@@ -33,13 +45,11 @@ It creates the manager session if it is not there and attaches either way, so th
 panel keeps its place between opens rather than starting over. The manager session
 lives on komrad's own tmux server, so it does not show up in ` + "`tmux ls`" + `.
 
-With engine files under the config's engines directory and no --engine given, it
-first asks which komrad to open, this machine or one of them, and runs itself again
-on the one chosen. Closing that panel comes back to the question, and closing the
-question returns. An engine running other code than this komrad cannot be chosen.
+It opens this machine's panel, or the engine --engine names. From inside a panel,
+o then e moves the terminal to another engine's.
 
-It blocks until the client detaches. Run from inside tmux it nests the panel in the
-current pane.
+The terminal becomes the tmux client, so a detach returns to the shell. Run from
+inside tmux it nests the panel in the current pane.
 
 With --detach it creates the session and returns, which is what a script wants when
 it needs somewhere for agents to be put back into.
@@ -51,87 +61,192 @@ an agent's pane into a panel nobody is looking at.`,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if !detach && !headless {
-				if err := refuseNesting(state); err != nil {
-					return err
-				}
+			err := runOpen(cmd.Context(), state, flags)
+			if err == nil || flags.fallback == "" {
+				return err
 			}
 
-			if !detach && !headless && state.configStack.Engine == "" && term.IsTerminal(int(os.Stdin.Fd())) {
-				rows, err := engineRows(state.configStack)
-				if err != nil {
-					return err
-				}
-
-				if len(rows) > 1 {
-					return openFromPicker(cmd.Context(), state, rows)
-				}
-			}
-
-			return openHere(cmd.Context(), state, detach, headless)
+			return fallBack(fallBackParams{
+				self:  state.selfPath(),
+				paths: state.configStack.Paths,
+				from:  state.configStack.Engine,
+				flags: flags,
+				err:   err,
+			})
 		},
 	}
 
-	cmd.Flags().BoolVar(&detach, "detach", false, "create the manager session if it is not there, then return without attaching")
-	cmd.Flags().BoolVar(&headless, "headless", false, "create the manager session with no panel in it, for an engine driven from another machine")
+	cmd.Flags().BoolVar(&flags.detach, "detach", false, "create the manager session if it is not there, then return without attaching")
+	cmd.Flags().BoolVar(&flags.headless, "headless", false, "create the manager session with no panel in it, for an engine driven from another machine")
+	cmd.Flags().StringVar(&flags.host.socket, hostSocketFlag, "", "the tmux socket the user's own client is on")
+	cmd.Flags().StringVar(&flags.host.path, hostPathFlag, "", "the directory the user's own client is in")
+	cmd.Flags().StringVar(&flags.fallback, fallbackEngineFlag, "", "the engine to open again when this open fails")
+
+	for _, name := range []string{hostSocketFlag, hostPathFlag, fallbackEngineFlag} {
+		if err := cmd.Flags().MarkHidden(name); err != nil {
+			panic(err)
+		}
+	}
 
 	return cmd
 }
 
-// openFromPicker asks which engine to open and opens it, coming back to the picker each time
-// that panel is closed until the picker itself is closed.
-func openFromPicker(ctx context.Context, state *app, rows []enginepick.Row) error {
-	for {
-		name, err := pickEngine(ctx, state, rows)
-		if errors.Is(err, errPickerClosed) {
-			return nil
-		}
-		if err != nil {
-			return err
-		}
+const (
+	hostSocketFlag     = "host-socket"
+	hostPathFlag       = "host-path"
+	fallbackEngineFlag = "fallback-engine"
+)
 
-		if name == "" {
-			err = openHere(ctx, state, false, false)
-		} else {
-			err = runOpenEngine(ctx, state.selfPath(), state.configStack, name)
-		}
-
-		if err != nil {
+func runOpen(ctx context.Context, state *app, flags openFlags) error {
+	if !flags.detach && !flags.headless {
+		if err := refuseNesting(state); err != nil {
 			return err
 		}
 	}
+
+	return openHere(ctx, state, flags)
 }
 
-// openHere puts this machine's panel up and attaches it, returning once the client detaches.
-func openHere(ctx context.Context, state *app, detach, headless bool) error {
-	if err := ensureManagerSession(ctx, state, detach, headless); err != nil {
+// fallBackParams is a failed open and the engine to go back to.
+type fallBackParams struct {
+	self  string
+	paths []string
+	from  string
+	flags openFlags
+	err   error
+}
+
+// fallBack says why the open failed and, once the user has read it, opens the engine the
+// terminal came from.
+func fallBack(params fallBackParams) error {
+	fmt.Fprintf(os.Stderr, "could not open %s: %v\npress enter to go back to %s\n", engineLabel(params.from), params.err, params.flags.fallback)
+
+	if _, readErr := bufio.NewReader(os.Stdin).ReadString('\n'); readErr != nil {
+		return params.err
+	}
+
+	args := switchEngineArgs(switchEngineArgsParams{
+		self:  params.self,
+		paths: params.paths,
+		to:    params.flags.fallback,
+		host:  params.flags.host,
+	})
+
+	if execErr := syscall.Exec(args[0], args, os.Environ()); execErr != nil {
+		return fmt.Errorf("failed to go back to %s: %w", params.flags.fallback, execErr)
+	}
+
+	return nil
+}
+
+// fallBackFromLoad is fallBack for an open that failed while its config was still being read.
+func fallBackFromLoad(cmd *cobra.Command, paths []string, engine string, err error) error {
+	if cmd.Name() != "open" {
+		return err
+	}
+
+	var flags openFlags
+	for name, value := range map[string]*string{
+		fallbackEngineFlag: &flags.fallback,
+		hostSocketFlag:     &flags.host.socket,
+		hostPathFlag:       &flags.host.path,
+	} {
+		read, flagErr := cmd.Flags().GetString(name)
+		if flagErr != nil {
+			return err
+		}
+
+		*value = read
+	}
+
+	if flags.fallback == "" {
+		return err
+	}
+
+	return fallBack(fallBackParams{self: getSelfPath(), paths: paths, from: engine, flags: flags, err: err})
+}
+
+// engineLabel names an engine as the user types it, local for this machine.
+func engineLabel(name string) string {
+	if name == "" {
+		return config.LocalEngine
+	}
+
+	return name
+}
+
+// switchEngineArgsParams is what an open on another engine is run with.
+type switchEngineArgsParams struct {
+	self     string
+	paths    []string
+	to       string
+	host     hostPlace
+	fallback string
+}
+
+// switchEngineArgs is the argv that opens another engine in the terminal a panel hands over.
+func switchEngineArgs(params switchEngineArgsParams) []string {
+	args := []string{params.self, "open", "--engine", params.to}
+
+	for _, path := range params.paths {
+		args = append(args, "--config", path)
+	}
+
+	if params.host.socket != "" {
+		args = append(args, "--"+hostSocketFlag, params.host.socket)
+	}
+
+	if params.host.path != "" {
+		args = append(args, "--"+hostPathFlag, params.host.path)
+	}
+
+	if params.fallback != "" {
+		args = append(args, "--"+fallbackEngineFlag, params.fallback)
+	}
+
+	return args
+}
+
+// openHere puts this engine's panel up and turns this process into the client attached to it.
+func openHere(ctx context.Context, state *app, flags openFlags) error {
+	if err := ensureManagerSession(ctx, state, flags.detach, flags.headless); err != nil {
 		return err
 	}
 
 	state.tmux.BlankBorders()
 	state.tmux.InsetPanelWindow(agents.ManagerSession)
 
-	if detach || headless {
+	if flags.detach || flags.headless {
 		return nil
 	}
 
 	// Only the attaching path says which window is current.
 	state.tmux.SelectWindow(state.tmux.GetPanelPane())
 
-	socket := tmux.SocketFromEnv(state.env.Tmux)
-	state.tmux.RecordHostSocket(socket)
-	state.tmux.RecordHostPath(hostPath(socket))
+	host := flags.host
+	if host.socket == "" {
+		host.socket = tmux.SocketFromEnv(state.env.Tmux)
+	}
 
-	return attachManagerSession(ctx, state)
+	if host.path == "" {
+		host.path = hostPath(host.socket)
+	}
+
+	state.tmux.RecordHostSocket(host.socket)
+	state.tmux.RecordHostPath(host.path)
+
+	return attachManagerSession(state)
 }
 
-func attachManagerSession(ctx context.Context, state *app) error {
-	attach := state.tmuxCommand(ctx, "attach-session", "-t", agents.ManagerSession)
-	attach.Stdin = os.Stdin
-	attach.Stdout = os.Stdout
-	attach.Stderr = os.Stderr
+// attachManagerSession replaces this process with the tmux client.
+func attachManagerSession(state *app) error {
+	path, err := exec.LookPath("tmux")
+	if err != nil {
+		return fmt.Errorf("failed to find tmux: %w", err)
+	}
 
-	if err := attach.Run(); err != nil {
+	args := []string{"tmux", "-L", state.env.TmuxSocket, "attach-session", "-t", agents.ManagerSession}
+	if err := syscall.Exec(path, args, envWithoutTmux()); err != nil {
 		return fmt.Errorf("failed to attach the panel: %w", err)
 	}
 

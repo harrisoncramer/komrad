@@ -36,6 +36,12 @@ func watchRows(ctx context.Context, watches watchv1connect.WatchServiceClient, p
 // draws the listing from it again.
 func (m *model) applyWatch(batch client.WatchBatch) tea.Cmd {
 	var changed assemble.Changed
+
+	var reread tea.Cmd
+	if m.unreachable != nil {
+		reread = m.readEngineBuildCmd()
+	}
+
 	listed := m.withListing(func(l *listing) {
 		for _, event := range batch {
 			if _, snapshot := event.GetEvent().(*watchv1.WatchEvent_Snapshot); snapshot {
@@ -48,7 +54,7 @@ func (m *model) applyWatch(batch client.WatchBatch) tea.Cmd {
 		l.assemble(time.Now())
 	})
 
-	return tea.Batch(listed, m.react(changed))
+	return tea.Batch(listed, m.react(changed), reread)
 }
 
 // applyWatchLost says the server is gone until the next stream's snapshot says otherwise, and

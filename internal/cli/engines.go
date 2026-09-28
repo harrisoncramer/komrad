@@ -4,9 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
-	"os/exec"
-	"strings"
 	"time"
 
 	"komrad/config"
@@ -14,13 +11,10 @@ import (
 	"komrad/internal/doctor"
 	"komrad/internal/engine"
 	"komrad/internal/store"
-	"komrad/internal/ui/enginepick"
+	"komrad/internal/ui"
 	"komrad/internal/version"
 	"komrad/lib/xslice"
 )
-
-// errPickerClosed is the picker being closed with nothing chosen.
-var errPickerClosed = errors.New("no engine was chosen")
 
 // engineSetup is one engine's config as this machine reads it.
 type engineSetup struct {
@@ -44,51 +38,51 @@ func loadEngine(stack config.Stack, name string) (*engineSetup, error) {
 	return &engineSetup{env: env, remote: remoteOf(env)}, nil
 }
 
-// engineRows is what the picker offers: this machine first, then every engine file.
-func engineRows(stack config.Stack) ([]enginepick.Row, error) {
+// engineRows is every engine this machine can open, itself first.
+func engineRows(stack config.Stack) ([]ui.EngineRow, error) {
 	names, err := config.EngineNames()
 	if err != nil {
 		return nil, err
 	}
 
-	rows := xslice.Map(names, func(name string) enginepick.Row {
+	rows := xslice.Map(names, func(name string) ui.EngineRow {
 		return describeEngine(stack, name)
 	})
 
-	return append([]enginepick.Row{describeEngine(stack, "")}, rows...), nil
+	return append([]ui.EngineRow{describeEngine(stack, "")}, rows...), nil
 }
 
-func describeEngine(stack config.Stack, name string) enginepick.Row {
-	row := enginepick.Row{Name: name}
+func describeEngine(stack config.Stack, name string) ui.EngineRow {
+	row := ui.EngineRow{Name: name}
 
 	if name != "" {
 		if path, err := config.EnginePath(name); err == nil {
-			row.Facts = append(row.Facts, enginepick.Fact{Label: "file", Value: path})
+			row.Facts = append(row.Facts, ui.EngineFact{Label: "file", Value: path})
 		}
 	}
 
 	setup, err := loadEngine(stack, name)
 	if err != nil {
-		row.Facts = append(row.Facts, enginepick.Fact{Label: "config", Value: err.Error()})
+		row.Facts = append(row.Facts, ui.EngineFact{Label: "config", Value: err.Error()})
 
 		return row
 	}
 
 	row.Facts = append(row.Facts,
-		enginepick.Fact{Label: "addr", Value: setup.env.Addr},
-		enginepick.Fact{Label: "tmux", Value: setup.env.TmuxSocket},
+		ui.EngineFact{Label: "addr", Value: setup.env.Addr},
+		ui.EngineFact{Label: "tmux", Value: setup.env.TmuxSocket},
 	)
 
 	if setup.remote.IsRemote() {
-		row.Facts = append(row.Facts, enginepick.Fact{Label: "engine", Value: setup.remote.String()})
+		row.Facts = append(row.Facts, ui.EngineFact{Label: "engine", Value: setup.remote.String()})
 	}
 
-	row.Facts = append(row.Facts, enginepick.Fact{Label: "cache", Value: setup.env.CacheDir})
+	row.Facts = append(row.Facts, ui.EngineFact{Label: "cache", Value: setup.env.CacheDir})
 
 	return row
 }
 
-// loginWait bounds the fresh database login the picker makes for an engine on this machine.
+// loginWait bounds the fresh database login the chooser makes for an engine on this machine.
 const loginWait = 3 * time.Second
 
 type engineProber struct {
@@ -109,10 +103,10 @@ func checkEngineLogin(ctx context.Context, databaseURL string) error {
 	return pool.Close()
 }
 
-func (p engineProber) probe(ctx context.Context, row enginepick.Row) enginepick.Status {
+func (p engineProber) probe(ctx context.Context, row ui.EngineRow) ui.EngineStatus {
 	setup, err := loadEngine(p.stack, row.Name)
 	if err != nil {
-		return enginepick.Status{
+		return ui.EngineStatus{
 			Build:   "config could not be read",
 			Label:   "unreadable",
 			Refused: err.Error(),
@@ -129,7 +123,7 @@ func (p engineProber) probe(ctx context.Context, row enginepick.Row) enginepick.
 	if setup.remote.IsRemote() {
 		tunnel, err := setup.remote.Dial(ctx, addr, tunnelWait)
 		if err != nil {
-			return enginepick.Status{
+			return ui.EngineStatus{
 				Build:   "not reachable",
 				Label:   "down",
 				Refused: err.Error(),
@@ -143,7 +137,7 @@ func (p engineProber) probe(ctx context.Context, row enginepick.Row) enginepick.
 
 	switch {
 	case !served.answering && setup.remote.IsRemote():
-		return enginepick.Status{
+		return ui.EngineStatus{
 			Build:   "not answering",
 			Label:   "down",
 			Refused: "the engine's server is not answering on " + addr,
@@ -151,15 +145,15 @@ func (p engineProber) probe(ctx context.Context, row enginepick.Row) enginepick.
 	case !served.answering && loginErr != nil:
 		label, reason := describeStartFailure(loginErr)
 
-		return enginepick.Status{
+		return ui.EngineStatus{
 			Build:   "nothing, and its server could not start",
 			Label:   label,
 			Refused: reason,
 		}
 	case !served.answering:
-		return enginepick.Status{Build: "nothing yet, the server starts on open"}
+		return ui.EngineStatus{Build: "nothing yet, the server starts on open"}
 	case !served.current && setup.remote.IsRemote():
-		return enginepick.Status{
+		return ui.EngineStatus{
 			Build: version.Describe(served.version, served.commit),
 			Label: "mismatch",
 			Refused: fmt.Sprintf("the engine runs other code than this komrad, %s: %s",
@@ -169,9 +163,9 @@ func (p engineProber) probe(ctx context.Context, row enginepick.Row) enginepick.
 	case loginErr != nil:
 		_, reason := describeStartFailure(loginErr)
 
-		return enginepick.Status{Build: version.Describe(served.version, served.commit) + ", but it could not start again: " + reason}
+		return ui.EngineStatus{Build: version.Describe(served.version, served.commit) + ", but it could not start again: " + reason}
 	default:
-		return enginepick.Status{Build: version.Describe(served.version, served.commit)}
+		return ui.EngineStatus{Build: version.Describe(served.version, served.commit)}
 	}
 }
 
@@ -185,58 +179,4 @@ func describeStartFailure(err error) (string, string) {
 	default:
 		return "login", "its database login fails: " + err.Error()
 	}
-}
-
-// pickEngine puts the picker up over the rows and hands back the engine chosen, empty for this
-// machine.
-func pickEngine(ctx context.Context, state *app, rows []enginepick.Row) (string, error) {
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
-	prober := engineProber{stack: state.configStack, checkLogin: checkEngineLogin}
-
-	row, chosen, err := enginepick.Run(ctx, enginepick.RunParams{
-		Rows: rows,
-		Probe: func(row enginepick.Row) enginepick.Status {
-			return prober.probe(ctx, row)
-		},
-		Self:   version.Describe(version.Version(), version.Commit()),
-		Glyphs: state.glyphs,
-	})
-	if err != nil {
-		return "", err
-	}
-
-	if !chosen {
-		return "", errPickerClosed
-	}
-
-	return row.Name, nil
-}
-
-// openEngineArgs is the argv that runs this open again on the chosen engine.
-func openEngineArgs(self string, stack config.Stack, name string) []string {
-	args := []string{self, "open", "--engine", name}
-
-	for _, path := range stack.Paths {
-		args = append(args, "--config", path)
-	}
-
-	return args
-}
-
-// runOpenEngine runs an open on the chosen engine in this terminal and returns once it closes.
-func runOpenEngine(ctx context.Context, self string, stack config.Stack, name string) error {
-	args := openEngineArgs(self, stack, name)
-
-	cmd := exec.CommandContext(ctx, self, args[1:]...)
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to open the %s engine with %s: %w", name, strings.Join(args, " "), err)
-	}
-
-	return nil
 }

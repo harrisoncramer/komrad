@@ -17,12 +17,16 @@ Keep the engine's SSH host keys in a file of their own. A rebuilt engine answers
 
 ## Choosing where to open the panel
 
-Once an engine file exists, opening komrad shows a picker listing your laptop and each engine. An engine that cannot be reached, or runs a different build from yours, is greyed out and says why.
+`komrad open` opens your laptop's panel. `komrad open --engine remote` opens the engine named `remote`, and `--engine local` names your laptop.
+
+Every panel shows which engine it is on at the top right, with the commit its server runs. A word appears beside it only when something is wrong: `down` while the server does not answer, and `mismatch` while it runs a different build from yours. The messages at the bottom say why and what to do.
+
+To move to another engine, press `o` and then `e`. A list of your laptop and each engine opens beside the agents. An engine that cannot be reached, or runs a different build from yours, says why in one word and cannot be opened. Choosing one moves your terminal to that engine's panel, and the panel you left keeps running.
+
+If the engine you moved to cannot start its panel, the error screen offers `e` too, so you can pick another engine from there.
 
 <figure class="placeholder">
-  <figcaption>
-    The engine picker, with this machine ready, one engine ready, and one greyed out for a build mismatch.
-  </figcaption>
+  <figcaption>The engine chooser, opened beside the agents, with one engine down.</figcaption>
 </figure>
 
 ## Attaching to an agent

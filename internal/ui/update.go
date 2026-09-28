@@ -81,15 +81,7 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	if m.fatal() != nil {
-		if isKey {
-			return m, tea.Quit
-		}
-
-		if _, hidden := msg.(tea.BlurMsg); hidden {
-			return m, tea.Quit
-		}
-
-		return m, nil
+		return m.routeFatal(msg)
 	}
 
 	// A mark binding owns the key after it, whatever that key is otherwise bound to.
@@ -358,6 +350,14 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 		}
 
 		return next, tea.Batch(tick(), edited), true
+	case engineProbedMsg:
+		next, cmd := m.landEngineProbe(msg)
+
+		return next, cmd, true
+	case engineBuildMsg:
+		return m.landEngineBuild(msg), nil, true
+	case engineSwitchedMsg:
+		return m.landEngineSwitch(msg), nil, true
 	case tea.BackgroundColorMsg:
 		m.isDark = msg.IsDark()
 		paint.SetDarkBackground(m.isDark)
