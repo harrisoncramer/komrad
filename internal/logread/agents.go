@@ -3,6 +3,7 @@ package logread
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -17,9 +18,6 @@ import (
 // ScanBudget is how much of the log one read of the lines about some agents looks through.
 const ScanBudget = 64 << 20
 
-// readChunk is how much of the log is read from disk at a time.
-const readChunk = 64 << 10
-
 // agentKeys are the fields a line names an agent in.
 var agentKeys = []string{logging.AgentID, logging.TargetAgentID, logging.ScriptAgentID}
 
@@ -32,39 +30,46 @@ type Window struct {
 }
 
 // NewestAboutAgents is the last limit lines about any of the agents, oldest first.
-func (r *Reader) NewestAboutAgents(agentIDs []string, limit int) (Window, error) {
-	file, size, err := r.open()
+func (r *Reader) NewestAboutAgents(ctx context.Context, agentIDs []string, limit int) (Window, error) {
+	log, err := r.open()
 	if err != nil {
 		return Window{}, err
 	}
-	defer func() { _ = file.Close() }()
+	defer func() { _ = log.file.Close() }()
 
-	return r.newestAboutAgents(file, size, agentIDs, limit)
+	return r.newestAboutAgents(ctx, log, agentIDs, limit)
 }
 
 // AboutAgentsSince is the lines about any of the agents written after offset, oldest first.
-func (r *Reader) AboutAgentsSince(agentIDs []string, offset int64, limit int) (Window, error) {
-	file, size, err := r.open()
+func (r *Reader) AboutAgentsSince(ctx context.Context, agentIDs []string, offset int64, limit int) (Window, error) {
+	log, err := r.open()
 	if err != nil {
 		return Window{}, err
 	}
-	defer func() { _ = file.Close() }()
+	defer func() { _ = log.file.Close() }()
 
 	// An offset past the end means the log was truncated, so the caller starts over from the newest lines.
-	if offset > size {
-		window, err := r.newestAboutAgents(file, size, agentIDs, limit)
+	if offset > log.size {
+		window, err := r.newestAboutAgents(ctx, log, agentIDs, limit)
+		if err != nil {
+			return Window{}, err
+		}
 		window.Reset = true
 
-		return window, err
+		return window, nil
 	}
 
-	reader, err := r.readFrom(file, offset, size)
+	reader, err := r.readFrom(log.file, offset, log.size)
 	if err != nil {
 		return Window{}, err
 	}
 
 	window := Window{Offset: offset}
 	for len(window.Lines) < limit {
+		if err := ctx.Err(); err != nil {
+			return Window{}, err
+		}
+
 		// Past the budget the read stops and says more remains, so one call never reads the whole log.
 		if window.Offset-offset >= int64(r.budget) {
 			window.More = true
@@ -72,22 +77,21 @@ func (r *Reader) AboutAgentsSince(agentIDs []string, offset int64, limit int) (W
 			break
 		}
 
-		// A last line without its newline is still being written, so it is left for the next read.
-		line, err := reader.ReadBytes('\n')
+		line, n, err := r.nextLine(reader)
 		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
-			return Window{}, fmt.Errorf("failed to read the log at %s: %w", r.path, err)
+			return Window{}, err
 		}
 
-		window.Offset += int64(len(line))
+		window.Offset += n
 		if isAbout(line, agentIDs) {
 			window.Lines = append(window.Lines, string(bytes.TrimSuffix(line, []byte{'\n'})))
 		}
 	}
 
-	if len(window.Lines) == limit && window.Offset < size {
+	if len(window.Lines) == limit && window.Offset < log.size {
 		window.More = true
 	}
 
@@ -95,31 +99,43 @@ func (r *Reader) AboutAgentsSince(agentIDs []string, offset int64, limit int) (W
 }
 
 // newestAboutAgents reads the last budget of the log forward, keeping the last limit lines about the agents.
-func (r *Reader) newestAboutAgents(file *os.File, size int64, agentIDs []string, limit int) (Window, error) {
-	start := max(size-int64(r.budget), 0)
-	reader, err := r.readFrom(file, start, size)
+func (r *Reader) newestAboutAgents(ctx context.Context, log openLog, agentIDs []string, limit int) (Window, error) {
+	start := max(log.size-int64(r.budget), 0)
+	window := Window{Offset: start}
+
+	// A read starting partway into the log begins one byte early and drops through the first newline.
+	if start > 0 {
+		window.Offset = start - 1
+	}
+	reader, err := r.readFrom(log.file, window.Offset, log.size)
 	if err != nil {
 		return Window{}, err
 	}
+	if start > 0 {
+		_, n, err := r.nextLine(reader)
+		if errors.Is(err, io.EOF) {
+			return Window{Offset: start}, nil
+		}
+		if err != nil {
+			return Window{}, err
+		}
+		window.Offset += n
+	}
 
-	window := Window{Offset: start}
 	for {
-		line, err := reader.ReadBytes('\n')
+		if err := ctx.Err(); err != nil {
+			return Window{}, err
+		}
+
+		line, n, err := r.nextLine(reader)
 		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
-			return Window{}, fmt.Errorf("failed to read the log at %s: %w", r.path, err)
+			return Window{}, err
 		}
 
-		// A read starting partway into the log lands inside a line, so that line is dropped.
-		if window.Offset == start && start > 0 {
-			window.Offset += int64(len(line))
-
-			continue
-		}
-
-		window.Offset += int64(len(line))
+		window.Offset += n
 		if isAbout(line, agentIDs) {
 			window.Lines = append(window.Lines, string(bytes.TrimSuffix(line, []byte{'\n'})))
 		}
@@ -131,31 +147,62 @@ func (r *Reader) newestAboutAgents(file *os.File, size int64, agentIDs []string,
 	return window, nil
 }
 
+// nextLine is the next whole line and the bytes it took, with a line longer than maxLine skipped as empty.
+func (r *Reader) nextLine(reader *bufio.Reader) ([]byte, int64, error) {
+	var skipped int64
+	for {
+		// A last line without its newline is still being written, so io.EOF leaves it for the next read.
+		line, err := reader.ReadSlice('\n')
+		if errors.Is(err, bufio.ErrBufferFull) {
+			skipped += int64(len(line))
+
+			continue
+		}
+		if errors.Is(err, io.EOF) {
+			return nil, 0, io.EOF
+		}
+		if err != nil {
+			return nil, 0, fmt.Errorf("failed to read the log at %s: %w", r.path, err)
+		}
+		if skipped > 0 {
+			return nil, skipped + int64(len(line)), nil
+		}
+
+		return line, int64(len(line)), nil
+	}
+}
+
 func (r *Reader) readFrom(file *os.File, offset, size int64) (*bufio.Reader, error) {
 	if _, err := file.Seek(offset, io.SeekStart); err != nil {
 		return nil, fmt.Errorf("failed to read the log at %s: %w", r.path, err)
 	}
 
-	return bufio.NewReaderSize(io.LimitReader(file, size-offset), r.chunk), nil
+	return bufio.NewReaderSize(io.LimitReader(file, size-offset), r.maxLine), nil
 }
 
-func (r *Reader) open() (*os.File, int64, error) {
+// openLog is the log file and its size when it was opened.
+type openLog struct {
+	file *os.File
+	size int64
+}
+
+func (r *Reader) open() (openLog, error) {
 	file, err := os.Open(r.path)
 	if errors.Is(err, fs.ErrNotExist) {
-		return nil, 0, ErrNoLog.Saying("nothing has been written to %s", r.path)
+		return openLog{}, ErrNoLog.Saying("nothing has been written to %s", r.path)
 	}
 	if err != nil {
-		return nil, 0, fmt.Errorf("failed to read the log at %s: %w", r.path, err)
+		return openLog{}, fmt.Errorf("failed to read the log at %s: %w", r.path, err)
 	}
 
 	info, err := file.Stat()
 	if err != nil {
 		_ = file.Close()
 
-		return nil, 0, fmt.Errorf("failed to read the log at %s: %w", r.path, err)
+		return openLog{}, fmt.Errorf("failed to read the log at %s: %w", r.path, err)
 	}
 
-	return file, info.Size(), nil
+	return openLog{file: file, size: info.Size()}, nil
 }
 
 // isAbout reports whether a line names any of the agents in one of the fields that name an agent.

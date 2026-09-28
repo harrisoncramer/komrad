@@ -1,9 +1,11 @@
 package logread
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -24,7 +26,17 @@ func appendLog(t *testing.T, path, body string) {
 	require.NoError(t, file.Close())
 }
 
-// TestNewestAboutAgents covers reading the newest lines about some agents back from the end of the log.
+// through is the offset just past the first n lines of a log.
+func through(lines []string, n int) int64 {
+	var offset int64
+	for _, line := range lines[:n] {
+		offset += int64(len(line)) + 1
+	}
+
+	return offset
+}
+
+// TestNewestAboutAgents covers reading the newest lines about some agents from the end of the log.
 func TestNewestAboutAgents(t *testing.T) {
 	t.Parallel()
 
@@ -42,10 +54,15 @@ func TestNewestAboutAgents(t *testing.T) {
 		name   string
 		ids    []string
 		limit  int
-		chunk  int
 		budget int
+		tail   string
 		want   []string
 	}{
+		{
+			name:  "an agent the log never names",
+			ids:   []string{"z9"},
+			limit: 10,
+		},
 		{
 			name:  "every key that names an agent, oldest first",
 			ids:   []string{"a1"},
@@ -65,24 +82,25 @@ func TestNewestAboutAgents(t *testing.T) {
 			want:  []string{lines[2], lines[6]},
 		},
 		{
-			name:  "lines cut across chunks are read whole",
-			ids:   []string{"a1", "b2", "c3"},
-			limit: 10,
-			chunk: 7,
-			want:  []string{lines[0], lines[1], lines[2], lines[3], lines[6]},
-		},
-		{
-			name:   "the budget stops the read before the oldest",
+			name:   "the budget drops the line it starts inside",
 			ids:    []string{"a1"},
 			limit:  10,
-			chunk:  16,
 			budget: len(lines[6]) + len(untraced) + 18,
 			want:   []string{lines[6]},
 		},
 		{
-			name:  "an agent the log never names",
-			ids:   []string{"z9"},
+			name:   "a budget starting on a line's first byte keeps that line",
+			ids:    []string{"a1", "c3"},
+			limit:  10,
+			budget: int(through(lines, 7) - through(lines, 3)),
+			want:   []string{lines[3], lines[6]},
+		},
+		{
+			name:  "a half-written last line is left for the next read",
+			ids:   []string{"a1"},
 			limit: 10,
+			tail:  `{"timestamp":"2026-09-28T10:00:07.000Z","komrad.agent.id":"a1"`,
+			want:  []string{lines[0], lines[2], lines[6]},
 		},
 	}
 
@@ -91,151 +109,155 @@ func TestNewestAboutAgents(t *testing.T) {
 			t.Parallel()
 
 			path := writeLog(t, lines...)
+			appendLog(t, path, tt.tail)
 			reader := New(path)
-			if tt.chunk > 0 {
-				reader.chunk = tt.chunk
-			}
 			if tt.budget > 0 {
 				reader.budget = tt.budget
 			}
 
-			window, err := reader.NewestAboutAgents(tt.ids, tt.limit)
+			window, err := reader.NewestAboutAgents(t.Context(), tt.ids, tt.limit)
 			require.NoError(t, err)
 			assert.Equal(t, tt.want, window.Lines)
-
-			info, err := os.Stat(path)
-			require.NoError(t, err)
-			assert.Equal(t, info.Size(), window.Offset, "the offset is the end of the last whole line")
+			assert.Equal(t, through(lines, len(lines)), window.Offset, "the offset is the end of the last whole line")
+			assert.False(t, window.More)
 		})
 	}
 }
 
-// TestNewestAboutAgentsLeavesAHalfWrittenLine covers the service still writing the last line when it is read.
-func TestNewestAboutAgentsLeavesAHalfWrittenLine(t *testing.T) {
-	t.Parallel()
-
-	whole := agentLine(1, "komrad.agent.id", "a1")
-	half := `{"timestamp":"2026-09-28T10:00:02.000Z","komrad.agent.id":"a1"`
-	path := writeLog(t, whole)
-	appendLog(t, path, half)
-
-	reader := New(path)
-	reader.chunk = 16
-
-	window, err := reader.NewestAboutAgents([]string{"a1"}, 10)
-	require.NoError(t, err)
-	assert.Equal(t, []string{whole}, window.Lines)
-	assert.Equal(t, int64(len(whole)+1), window.Offset)
-}
-
-// TestAboutAgentsSince covers reading what was written after an offset, a line at a time as it is finished.
+// TestAboutAgentsSince covers reading what was written about some agents after an offset.
 func TestAboutAgentsSince(t *testing.T) {
 	t.Parallel()
 
-	first := agentLine(1, "komrad.agent.id", "a1")
-	path := writeLog(t, first)
-	reader := New(path)
-
-	start, err := reader.NewestAboutAgents([]string{"a1"}, 10)
-	require.NoError(t, err)
-
-	nothing, err := reader.AboutAgentsSince([]string{"a1"}, start.Offset, 10)
-	require.NoError(t, err)
-	assert.Empty(t, nothing.Lines)
-	assert.Equal(t, start.Offset, nothing.Offset, "nothing new leaves the offset where it was")
-
-	other := agentLine(2, "komrad.agent.id", "b2")
-	second := agentLine(3, "komrad.agent.id", "a1")
-	appendLog(t, path, other+"\n"+second[:20])
-
-	half, err := reader.AboutAgentsSince([]string{"a1"}, start.Offset, 10)
-	require.NoError(t, err)
-	assert.Empty(t, half.Lines)
-	assert.Equal(t, start.Offset+int64(len(other)+1), half.Offset, "a half-written line is left for the next read")
-
-	appendLog(t, path, second[20:]+"\n")
-
-	done, err := reader.AboutAgentsSince([]string{"a1"}, half.Offset, 10)
-	require.NoError(t, err)
-	assert.Equal(t, []string{second}, done.Lines)
-	assert.False(t, done.Reset)
-}
-
-// TestAboutAgentsSinceStopsAtTheLimit covers a backlog longer than one read, which the next read picks up.
-func TestAboutAgentsSinceStopsAtTheLimit(t *testing.T) {
-	t.Parallel()
-
-	lines := []string{
-		agentLine(1, "komrad.agent.id", "a1"),
-		agentLine(2, "komrad.agent.id", "a1"),
-		agentLine(3, "komrad.agent.id", "a1"),
-	}
-	reader := New(writeLog(t, lines...))
-
-	head, err := reader.AboutAgentsSince([]string{"a1"}, 0, 2)
-	require.NoError(t, err)
-	assert.Equal(t, lines[:2], head.Lines)
-	assert.True(t, head.More)
-
-	rest, err := reader.AboutAgentsSince([]string{"a1"}, head.Offset, 2)
-	require.NoError(t, err)
-	assert.Equal(t, lines[2:], rest.Lines)
-	assert.False(t, rest.More)
-}
-
-// TestAboutAgentsSinceAfterATruncation covers the log starting over under a caller holding an offset.
-func TestAboutAgentsSinceAfterATruncation(t *testing.T) {
-	t.Parallel()
-
-	line := agentLine(1, "komrad.agent.id", "a1")
-	reader := New(writeLog(t, line))
-
-	window, err := reader.AboutAgentsSince([]string{"a1"}, 1<<20, 10)
-	require.NoError(t, err)
-	assert.True(t, window.Reset)
-	assert.Equal(t, []string{line}, window.Lines)
-	assert.Equal(t, int64(len(line)+1), window.Offset)
-}
-
-// TestAboutAgentsSinceReadsPastOneChunk covers a backlog, and a line, longer than one read of the file.
-func TestAboutAgentsSinceReadsPastOneChunk(t *testing.T) {
-	t.Parallel()
-
-	lines := []string{
+	short := []string{
 		agentLine(1, "komrad.agent.id", "a1"),
 		agentLine(2, "komrad.agent.id", "b2"),
 		agentLine(3, "komrad.agent.id", "a1"),
 	}
-	path := writeLog(t, lines...)
-	reader := New(path)
-	reader.chunk = 8
+	long := strings.Replace(agentLine(4, "komrad.agent.id", "a1"), "{", `{"pad":"`+strings.Repeat("x", 200)+`",`, 1)
+	withLong := []string{short[0], long, short[2]}
 
-	window, err := reader.AboutAgentsSince([]string{"a1"}, 0, 10)
-	require.NoError(t, err)
-	assert.Equal(t, []string{lines[0], lines[2]}, window.Lines)
-	assert.False(t, window.More)
-
-	info, err := os.Stat(path)
-	require.NoError(t, err)
-	assert.Equal(t, info.Size(), window.Offset)
-}
-
-// TestAboutAgentsSinceStopsAtTheBudget covers a backlog longer than one read may look through.
-func TestAboutAgentsSinceStopsAtTheBudget(t *testing.T) {
-	t.Parallel()
-
-	lines := []string{
-		agentLine(1, "komrad.agent.id", "a1"),
-		agentLine(2, "komrad.agent.id", "a1"),
+	tests := []struct {
+		name        string
+		log         []string
+		tail        string
+		from        int
+		pastEnd     bool
+		limit       int
+		budget      int
+		maxLine     int
+		cancelled   bool
+		want        []string
+		wantThrough int
+		wantMore    bool
+		wantReset   bool
+		wantErr     error
+	}{
+		{
+			name:      "a cancelled read stops",
+			log:       short,
+			limit:     10,
+			cancelled: true,
+			wantErr:   context.Canceled,
+		},
+		{
+			name:        "an offset past the end starts over from the newest",
+			log:         short,
+			pastEnd:     true,
+			limit:       10,
+			want:        []string{short[0], short[2]},
+			wantThrough: 3,
+			wantReset:   true,
+		},
+		{
+			name:        "a line longer than the cap is skipped",
+			log:         withLong,
+			limit:       10,
+			maxLine:     len(short[0]) + 16,
+			want:        []string{short[0], short[2]},
+			wantThrough: 3,
+		},
+		{
+			name:        "nothing new leaves the offset where it was",
+			log:         short,
+			from:        3,
+			limit:       10,
+			wantThrough: 3,
+		},
+		{
+			name:        "a half-written line is left for the next read",
+			log:         short,
+			tail:        short[2][:20],
+			from:        1,
+			limit:       10,
+			want:        []string{short[2]},
+			wantThrough: 3,
+		},
+		{
+			name:        "lines about other agents are passed over",
+			log:         short,
+			from:        1,
+			limit:       10,
+			want:        []string{short[2]},
+			wantThrough: 3,
+		},
+		{
+			name:        "the limit stops the read and says more remains",
+			log:         short,
+			limit:       1,
+			want:        short[:1],
+			wantThrough: 1,
+			wantMore:    true,
+		},
+		{
+			name:        "the budget stops the read and says more remains",
+			log:         short,
+			limit:       10,
+			budget:      len(short[0]) + 1,
+			want:        short[:1],
+			wantThrough: 1,
+			wantMore:    true,
+		},
 	}
-	reader := New(writeLog(t, lines...))
-	reader.budget = len(lines[0]) + 1
 
-	window, err := reader.AboutAgentsSince([]string{"a1"}, 0, 10)
-	require.NoError(t, err)
-	assert.Equal(t, lines[:1], window.Lines)
-	assert.True(t, window.More)
-	assert.Equal(t, int64(len(lines[0])+1), window.Offset)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			path := writeLog(t, tt.log...)
+			appendLog(t, path, tt.tail)
+			reader := New(path)
+			if tt.budget > 0 {
+				reader.budget = tt.budget
+			}
+			if tt.maxLine > 0 {
+				reader.maxLine = tt.maxLine
+			}
+
+			ctx, cancel := context.WithCancel(t.Context())
+			defer cancel()
+			if tt.cancelled {
+				cancel()
+			}
+
+			offset := through(tt.log, tt.from)
+			if tt.pastEnd {
+				offset = 1 << 20
+			}
+
+			window, err := reader.AboutAgentsSince(ctx, []string{"a1"}, offset, tt.limit)
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, window.Lines)
+			assert.Equal(t, through(tt.log, tt.wantThrough), window.Offset)
+			assert.Equal(t, tt.wantMore, window.More)
+			assert.Equal(t, tt.wantReset, window.Reset)
+		})
+	}
 }
 
 // TestAgentLogsWithoutALog covers asking before the service has ever written anything.
@@ -244,9 +266,9 @@ func TestAgentLogsWithoutALog(t *testing.T) {
 
 	reader := New(filepath.Join(t.TempDir(), "missing.log"))
 
-	_, err := reader.NewestAboutAgents([]string{"a1"}, 10)
+	_, err := reader.NewestAboutAgents(t.Context(), []string{"a1"}, 10)
 	require.ErrorIs(t, err, ErrNoLog)
 
-	_, err = reader.AboutAgentsSince([]string{"a1"}, 0, 10)
+	_, err = reader.AboutAgentsSince(t.Context(), []string{"a1"}, 0, 10)
 	require.ErrorIs(t, err, ErrNoLog)
 }

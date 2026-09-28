@@ -12,13 +12,21 @@ import (
 
 // LogViewer holds log lines and draws them a window at a time.
 type LogViewer interface {
+	// Append adds lines after the last, dropping the oldest past the ceiling.
 	Append(lines []string)
+	// Reset drops every line and follows the newest again.
 	Reset()
+	// Move moves the cursor by delta lines, and moving up stops following.
 	Move(delta int)
+	// Top moves the cursor to the oldest line and stops following.
 	Top()
+	// Bottom moves the cursor to the newest line and follows it.
 	Bottom()
+	// IsFollowing reports whether the cursor stays on the newest line as lines arrive.
 	IsFollowing() bool
+	// Len is how many lines are held.
 	Len() int
+	// Rows is the window of wrapped rows that keeps the cursor in view.
 	Rows(width, height int) []string
 }
 

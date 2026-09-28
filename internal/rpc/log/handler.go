@@ -15,17 +15,17 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
-type logReader interface {
-	Lines(trace string) ([]logread.Line, error)
-	RecentTraces(limit int) ([]logread.Summary, error)
-	NewestAboutAgents(agentIDs []string, limit int) (logread.Window, error)
-	AboutAgentsSince(agentIDs []string, offset int64, limit int) (logread.Window, error)
-}
-
 // defaultAgentLogLimit is how many lines a read of agent logs answers when the caller names no count.
 const defaultAgentLogLimit = 200
 
 var errBadCursor = fail.InvalidArgument("the cursor is not one this service answered")
+
+type logReader interface {
+	Lines(trace string) ([]logread.Line, error)
+	RecentTraces(limit int) ([]logread.Summary, error)
+	NewestAboutAgents(ctx context.Context, agentIDs []string, limit int) (logread.Window, error)
+	AboutAgentsSince(ctx context.Context, agentIDs []string, offset int64, limit int) (logread.Window, error)
+}
 
 type Handler struct {
 	log logReader
@@ -82,7 +82,7 @@ func (s *Handler) ListRecentTraces(_ context.Context, req *logv1.ListRecentTrace
 
 // ReadAgentLogs is the lines about some agents, the newest without a cursor and those written since
 // it with one.
-func (s *Handler) ReadAgentLogs(_ context.Context, req *logv1.ReadAgentLogsRequest) (*logv1.ReadAgentLogsResponse, *fail.Error) {
+func (s *Handler) ReadAgentLogs(ctx context.Context, req *logv1.ReadAgentLogsRequest) (*logv1.ReadAgentLogsResponse, *fail.Error) {
 	limit := int(req.GetLimit())
 	if limit == 0 {
 		limit = defaultAgentLogLimit
@@ -93,14 +93,14 @@ func (s *Handler) ReadAgentLogs(_ context.Context, req *logv1.ReadAgentLogsReque
 		err    error
 	)
 	if req.GetCursor() == "" {
-		window, err = s.log.NewestAboutAgents(req.GetAgentIds(), limit)
+		window, err = s.log.NewestAboutAgents(ctx, req.GetAgentIds(), limit)
 	} else {
 		offset, parseErr := strconv.ParseInt(req.GetCursor(), 10, 64)
 		if parseErr != nil || offset < 0 {
 			return nil, errBadCursor.Saying("cursor %q is not one this service answered", req.GetCursor())
 		}
 
-		window, err = s.log.AboutAgentsSince(req.GetAgentIds(), offset, limit)
+		window, err = s.log.AboutAgentsSince(ctx, req.GetAgentIds(), offset, limit)
 	}
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to read the agents' logs")

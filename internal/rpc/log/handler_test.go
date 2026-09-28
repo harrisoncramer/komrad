@@ -1,6 +1,7 @@
 package log
 
 import (
+	"context"
 	"errors"
 	"testing"
 
@@ -34,14 +35,14 @@ type agentRead struct {
 }
 
 // NewestAboutAgents records the read and answers window.
-func (f *fakeLogReader) NewestAboutAgents(agentIDs []string, limit int) (logread.Window, error) {
+func (f *fakeLogReader) NewestAboutAgents(_ context.Context, agentIDs []string, limit int) (logread.Window, error) {
 	f.reads = append(f.reads, agentRead{ids: agentIDs, offset: -1, limit: limit})
 
 	return f.window, f.err
 }
 
 // AboutAgentsSince records the read and answers window.
-func (f *fakeLogReader) AboutAgentsSince(agentIDs []string, offset int64, limit int) (logread.Window, error) {
+func (f *fakeLogReader) AboutAgentsSince(_ context.Context, agentIDs []string, offset int64, limit int) (logread.Window, error) {
 	f.reads = append(f.reads, agentRead{ids: agentIDs, offset: offset, limit: limit})
 
 	return f.window, f.err
@@ -168,6 +169,16 @@ func TestReadAgentLogs(t *testing.T) {
 		wantCode connect.Code
 	}{
 		{
+			name:     "a cursor this service never answered",
+			req:      &logv1.ReadAgentLogsRequest{AgentIds: []string{"a1"}, Cursor: "later"},
+			wantCode: connect.CodeInvalidArgument,
+		},
+		{
+			name:     "a cursor before the start of the log",
+			req:      &logv1.ReadAgentLogsRequest{AgentIds: []string{"a1"}, Cursor: "-1"},
+			wantCode: connect.CodeInvalidArgument,
+		},
+		{
 			name:     "no cursor reads the newest, two hundred by default",
 			req:      &logv1.ReadAgentLogsRequest{AgentIds: []string{"a1", "b2"}},
 			window:   logread.Window{Lines: []string{"one", "two"}, Offset: 42},
@@ -187,11 +198,6 @@ func TestReadAgentLogs(t *testing.T) {
 			window:   logread.Window{Lines: []string{"one"}, Offset: 10, Reset: true},
 			wantRead: agentRead{ids: []string{"a1"}, offset: 900, limit: 200},
 			want:     &logv1.ReadAgentLogsResponse{Lines: []string{"one"}, Cursor: "10", Reset_: true},
-		},
-		{
-			name:     "a cursor this service never answered",
-			req:      &logv1.ReadAgentLogsRequest{AgentIds: []string{"a1"}, Cursor: "later"},
-			wantCode: connect.CodeInvalidArgument,
 		},
 	}
 
