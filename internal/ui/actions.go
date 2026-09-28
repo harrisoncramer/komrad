@@ -33,6 +33,7 @@ const (
 	actionAgentOpen
 	actionAgentReview
 	actionGitMenu
+	actionPlacesOpen
 	actionAgentChild
 	actionAgentRename
 	actionAgentArchive
@@ -70,7 +71,6 @@ const (
 	actionWorktreesJumpToAgent
 	actionWorktreesDelete
 	actionWorktreesClear
-	actionDocumentsOpen
 	actionDocumentsBack
 	actionDocumentsEdit
 	actionDocumentsNew

@@ -294,17 +294,22 @@ func (a *agentsScreen) hasNoAgentPane(s panelShared) bool {
 
 // hoveredAgentID is the agent under the cursor, or the orchestrator behind a hovered workflow.
 func (a *agentsScreen) hoveredAgentID(s panelShared) string {
-	row, ok := a.hoveredRow(s)
+	item, ok := a.hoveredPaneItem(s)
 	if !ok {
 		return ""
 	}
 
-	item, held := row.paneItem()
-	if !held {
-		return ""
+	return item.Agent.ID
+}
+
+// hoveredPaneItem is the agent under the cursor, or the orchestrator of the workflow under it.
+func (a *agentsScreen) hoveredPaneItem(s panelShared) (panel.AgentRow, bool) {
+	row, ok := a.hoveredRow(s)
+	if !ok {
+		return panel.AgentRow{}, false
 	}
 
-	return item.Agent.ID
+	return row.paneItem()
 }
 
 func hoveredHeader(rows []agentRow, cursor int) (panel.Workflow, bool) {
@@ -437,6 +442,21 @@ func displayState(item panel.AgentRow) panel.State {
 
 func (l listing) liveAgent(id string) (panel.AgentRow, bool) {
 	for _, item := range l.agents {
+		if item.Agent.ID == id {
+			return item, true
+		}
+	}
+
+	return panel.AgentRow{}, false
+}
+
+// anyAgent is the agent with the id, live or archived.
+func (l listing) anyAgent(id string) (panel.AgentRow, bool) {
+	if item, ok := l.liveAgent(id); ok {
+		return item, true
+	}
+
+	for _, item := range l.archivedAgents {
 		if item.Agent.ID == id {
 			return item, true
 		}

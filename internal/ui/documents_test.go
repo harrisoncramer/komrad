@@ -53,27 +53,15 @@ func TestDocumentsOpen(t *testing.T) {
 		})
 	}
 
-	t.Run("the legend offers it only on a row with documents", func(t *testing.T) {
-		t.Parallel()
-
-		harness := openAgents(t, buildDocumentAuthors()...)
-		harness.press(widenListPresses...)
-		moveToAgentRow(t, harness, "author")
-		harness.press("?")
-		assert.Contains(t, readLegend(harness.readFrame()), "documents")
-
-		moveToAgentRow(t, harness, "quiet")
-		assert.NotContains(t, readLegend(harness.readFrame()), "documents")
-	})
-
 	t.Run("a row with none does not open it", func(t *testing.T) {
 		t.Parallel()
 
 		harness := openAgents(t, buildDocumentAuthors()...)
 		moveToAgentRow(t, harness, "quiet")
-		harness.press("D")
+		harness.press("space", "d")
 
 		assert.NotEqual(t, documentsScreen, harness.readScreen())
+		assert.Contains(t, readOpenMessages(harness), "this agent has not written any documents yet")
 		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceListDocumentsProcedure))
 	})
 
@@ -567,7 +555,7 @@ func openDocuments(t *testing.T, row string) (*panelHarness, *documentShelf) {
 	docs.answer(harness)
 
 	moveToAgentRow(t, harness, row)
-	harness.press("D")
+	harness.press("space", "d")
 	harness.fireTimers()
 
 	return harness, docs

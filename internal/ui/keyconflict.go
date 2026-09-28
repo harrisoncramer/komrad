@@ -63,12 +63,23 @@ func ValidateKeybindings(keys config.Keybindings) error {
 		}
 	}
 
-	return validateGitMenuKeys(keys.Git)
+	if err := validateSubmenuKeys("git menu", []submenuKeys{
+		{name: "rebase", keys: keys.Git.Rebase},
+		{name: "open_pull_request", keys: keys.Git.OpenPullRequest},
+	}); err != nil {
+		return err
+	}
+
+	return validateSubmenuKeys("places menu", []submenuKeys{
+		{name: "review", keys: keys.Places.Review},
+		{name: "documents", keys: keys.Places.Documents},
+		{name: "logs", keys: keys.Places.Logs},
+	})
 }
 
-// gitMenuReserved is every key the menu is drawn over, named as the error would name it.
-func gitMenuReserved() map[string]string {
-	km := gitMenuKeyMap(formKeys())
+// submenuReserved is every key a submenu is drawn over, named as the error would name it.
+func submenuReserved() map[string]string {
+	km := submenuKeyMap(formKeys())
 
 	arms := []struct {
 		describe string
@@ -91,22 +102,22 @@ func gitMenuReserved() map[string]string {
 	return reserved
 }
 
-// validateGitMenuKeys refuses an entry's key that the menu around it needs.
-func validateGitMenuKeys(keys config.GitKeys) error {
-	reserved := gitMenuReserved()
+// submenuKeys is one entry of a submenu as the check names it.
+type submenuKeys struct {
+	name string
+	keys []string
+}
 
-	entries := []struct {
-		name string
-		keys []string
-	}{
-		{name: "rebase", keys: keys.Rebase},
-		{name: "open_pull_request", keys: keys.OpenPullRequest},
-	}
+// validateSubmenuKeys refuses an entry's key that the submenu around it needs, or that another
+// of its entries holds.
+func validateSubmenuKeys(menu string, entries []submenuKeys) error {
+	reserved := submenuReserved()
+
 	for _, entry := range entries {
 		for _, k := range entry.keys {
 			if taken, ok := reserved[k]; ok {
-				return fmt.Errorf("keybindings: the git menu's %s is bound to %q, which is %s, and the menu answers it first",
-					entry.name, k, taken)
+				return fmt.Errorf("keybindings: the %s's %s is bound to %q, which is %s, and the menu answers it first",
+					menu, entry.name, k, taken)
 			}
 
 			reserved[k] = "the menu's " + entry.name + " entry"

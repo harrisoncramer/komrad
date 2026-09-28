@@ -201,7 +201,7 @@ func TestFormsNewAgentWorktree(t *testing.T) {
 
 		harness.press("c")
 
-		assert.Contains(t, harness.readFrame(), "> Same as workflow")
+		assert.Contains(t, harness.readFrame(), "› Same as workflow")
 	})
 
 	tests := []struct {
@@ -366,7 +366,7 @@ func TestFormsArchivePrompt(t *testing.T) {
 		harness.press("j", "z")
 
 		frame := harness.readFrame()
-		assert.Contains(t, frame, "> Archive")
+		assert.Contains(t, frame, "› Archive")
 		assert.Contains(t, frame, "Archive and delete")
 		assert.Contains(t, frame, "Cancel")
 	})
@@ -537,7 +537,7 @@ func TestFormsWorkflowHooks(t *testing.T) {
 
 		frame := harness.readFrame()
 		assert.Contains(t, frame, "install-deps")
-		assert.Contains(t, frame, "> copy-env")
+		assert.Contains(t, frame, "› copy-env")
 	})
 
 	t.Run("a hook still waiting on a chmod is offered", func(t *testing.T) {

@@ -1973,11 +1973,13 @@ func TestAgentsChildren(t *testing.T) {
 		author.Cwd = "/tmp/tree"
 		harness := openAgents(t, rows...)
 
+		off := readOffEntry("rebase with base", "r")
+
 		harness.press("j", "b")
-		assert.NotContains(t, harness.readFrame(), "no worktree of its own")
+		assert.NotContains(t, harness.readRawFrame(), off)
 
 		harness.press("esc", "j", "b")
-		assert.Contains(t, harness.readFrame(), "Rebase onto the base (r) · no worktree of its own")
+		assert.Contains(t, harness.readRawFrame(), off)
 	})
 }
 

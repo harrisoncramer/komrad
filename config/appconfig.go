@@ -151,6 +151,9 @@ type Keybindings struct {
 	Marks MarksKeys `mapstructure:"marks"`
 	// Navigation, shared by every menu so movement is the same everywhere.
 	Nav NavKeys `mapstructure:"nav"`
+	// The places menu, which opens beside a list of agents and holds the screens that belong to
+	// the hovered agent.
+	Places PlacesKeys `mapstructure:"places"`
 	// The review screen, which draws an agent's diff in the stage and its review
 	// threads in the sidebar.
 	Review ReviewKeys `mapstructure:"review"`
@@ -375,6 +378,21 @@ type GitKeys struct {
 	Rebase []string `mapstructure:"rebase" default:"r"`
 }
 
+// PlacesKeys are the bindings for the places menu, which opens beside the agents list and the
+// archive and holds the screens that belong to the hovered agent.
+type PlacesKeys struct {
+	// Open the places menu on the hovered agent, or its orchestrator's on a workflow's row.
+	Open []string `mapstructure:"open" default:"space"`
+	// Open the review of the agent's diff. The entry is gray on an agent with no worktree of its
+	// own, and in the archive.
+	Review []string `mapstructure:"review" default:"r"`
+	// Open the documents the agent has written. The entry is gray on an agent that has written
+	// none.
+	Documents []string `mapstructure:"documents" default:"d"`
+	// Pick the agent's logs, which the panel does not draw yet, so the entry closes the menu.
+	Logs []string `mapstructure:"logs" default:"l"`
+}
+
 // WorkflowsKeys are the bindings that act on a workflow.
 type WorkflowsKeys struct {
 	// Put an agent on a branch that already exists, in the workflow under the
@@ -393,7 +411,7 @@ type WorkflowsKeys struct {
 // DocumentsKeys are the bindings for the documents screen, which lists the documents one
 // agent has written and draws the one under the cursor beside the list.
 type DocumentsKeys struct {
-	// Leave the documents screen for the agents list.
+	// Leave the documents screen for the view it was opened from.
 	Back []string `mapstructure:"back" default:"esc"`
 	// Open the document under the cursor in your editor, in place of the document drawn
 	// beside the list. Quitting the editor, or pressing the key again to close it, saves what it
@@ -407,9 +425,6 @@ type DocumentsKeys struct {
 	// Write a new document for the agent whose documents are listed, from a form asking its name
 	// and kind. It starts with a line saying it is empty, for you to edit.
 	New []string `mapstructure:"new" default:"c"`
-	// Open the documents screen from the agents list, on the hovered agent's documents, or
-	// its orchestrator's on a workflow's row.
-	Open []string `mapstructure:"open" default:"D"`
 	// Quit the panel.
 	Quit []string `mapstructure:"quit" default:"ctrl+c"`
 }

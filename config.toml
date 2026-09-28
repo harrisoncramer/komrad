@@ -158,7 +158,7 @@ prev_match = ["N"]
 
 # The documents screen, which reads what the hovered agent has written for a person.
 [keybindings.documents]
-# Leave the documents screen for the agents list.
+# Leave the documents screen for the view it was opened from.
 back  = ["esc"]
 # Open the document under the cursor in your editor, in place of the document drawn
 # beside the list. Quitting the editor, or pressing the key again to close it, saves what it
@@ -172,9 +172,6 @@ newer = [">"]
 # Write a new document for the agent whose documents are listed, from a form asking its name
 # and kind. It starts with a line saying it is empty, for you to edit.
 new   = ["c"]
-# Open the documents screen from the agents list, on the hovered agent's documents, or
-# its orchestrator's on a workflow's row.
-open  = ["D"]
 # Quit the panel.
 quit  = ["ctrl+c"]
 
@@ -233,6 +230,20 @@ page_up   = ["ctrl+u"]
 top       = ["g"]
 # Move the cursor up.
 up        = ["k"]
+
+# The places menu, which opens beside a list of agents and holds the screens that belong to
+# the hovered agent.
+[keybindings.places]
+# Open the places menu on the hovered agent, or its orchestrator's on a workflow's row.
+open      = ["space"]
+# Open the review of the agent's diff. The entry is gray on an agent with no worktree of its
+# own, and in the archive.
+review    = ["r"]
+# Open the documents the agent has written. The entry is gray on an agent that has written
+# none.
+documents = ["d"]
+# Pick the agent's logs, which the panel does not draw yet, so the entry closes the menu.
+logs      = ["l"]
 
 # The review screen, which draws an agent's diff in the stage and its review
 # threads in the sidebar.

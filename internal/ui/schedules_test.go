@@ -68,7 +68,7 @@ func TestSchedulesKeys(t *testing.T) {
 			name:      "new opens the form on the first workflow",
 			rows:      buildSchedules(),
 			press:     []string{"c"},
-			wantDrawn: []string{scheduleForm, "> api"},
+			wantDrawn: []string{scheduleForm, "› api"},
 		},
 		{
 			name:      "edit opens the form over the hovered schedule",
@@ -461,7 +461,7 @@ func TestSchedulesForm(t *testing.T) {
 		harness.press(widenListPresses...)
 		harness.press("c", "down")
 		form := readStageText(harness.readFrame())
-		assert.Contains(t, form, "> orchestrator  api")
+		assert.Contains(t, form, "› orchestrator  api")
 		assert.NotContains(t, form, "┃ Workflow")
 		assert.NotContains(t, form, "Hide its runs?")
 
@@ -513,9 +513,9 @@ func TestSchedulesForm(t *testing.T) {
 		harness.press("enter", "enter")
 		typeText(harness, "check CI")
 		harness.press("shift+tab", "shift+tab", "shift+tab", "shift+tab", "down")
-		require.Contains(t, readStageText(harness.readFrame()), "> orchestrator  api")
+		require.Contains(t, readStageText(harness.readFrame()), "› orchestrator  api")
 		harness.press("up")
-		require.Contains(t, readStageText(harness.readFrame()), "> api")
+		require.Contains(t, readStageText(harness.readFrame()), "› api")
 		harness.press("down")
 
 		form := readStageText(harness.readFrame())
@@ -541,7 +541,7 @@ func TestSchedulesForm(t *testing.T) {
 		harness := openSchedules(t, newLiveWorkflow("w1", "api"), mailing, newOrchestrator())
 
 		harness.press("e")
-		require.Contains(t, readStageText(harness.readFrame()), "> orchestrator  api")
+		require.Contains(t, readStageText(harness.readFrame()), "› orchestrator  api")
 		harness.press("ctrl+s")
 
 		harness.assertSentTo(schedulev1connect.ScheduleServiceUpdateScheduleProcedure, &schedulev1.UpdateScheduleRequest{
@@ -649,7 +649,7 @@ func TestSchedulesForm(t *testing.T) {
 
 		form := readStageText(harness.readFrame())
 		assert.Contains(t, form, "bughunt  /repos/komrad")
-		assert.Contains(t, form, "> komrad  /repos/komrad")
+		assert.Contains(t, form, "› komrad  /repos/komrad")
 	})
 }
 

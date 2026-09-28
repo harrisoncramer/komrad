@@ -19,6 +19,9 @@ type formState struct {
 	kind formKind
 	form *huh.Form
 
+	// crumb is the step the form adds to the trail while it is up, empty for none.
+	crumb string
+
 	// update is the form's own message handler, so the panel need not ask which form is up before
 	// handing it a message.
 	update func(model, tea.Msg) (tea.Model, tea.Cmd)
@@ -55,6 +58,7 @@ const (
 	formAgentRetry
 	formAgentRelease
 	formGit
+	formPlaces
 	formWorkflow
 	formWorkflowArchive
 	formSchedule
@@ -120,7 +124,7 @@ func formColumn(kind formKind) (columnSpec, bool) {
 	case formAgent, formChild, formAdopt, formRename, formAgentRetry, formWorkflow, formSchedule,
 		formDocument:
 		return columnSpec{floor: formColumnFloor}, true
-	case formGit, formAgentArchive, formAgentRebase, formAgentRelease, formWorkflowArchive, formScheduleArchive,
+	case formGit, formPlaces, formAgentArchive, formAgentRebase, formAgentRelease, formWorkflowArchive, formScheduleArchive,
 		formArchiveDelete, formWorktreesDelete:
 		return columnSpec{floor: columnFloor}, true
 	case formNone:

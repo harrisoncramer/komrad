@@ -165,9 +165,9 @@ func TestValidateKeybindingsAllowsAKeyOnlyATypingModeReads(t *testing.T) {
 	}
 }
 
-// TestValidateGitMenuKeysReadsTheKeysTheMenuIsDrawnOver covers an entry bound to a key the form
+// TestValidateSubmenuKeysReadsTheKeysTheMenuIsDrawnOver covers an entry bound to a key the form
 // around it needs, which the menu would answer first.
-func TestValidateGitMenuKeysReadsTheKeysTheMenuIsDrawnOver(t *testing.T) {
+func TestValidateSubmenuKeysReadsTheKeysTheMenuIsDrawnOver(t *testing.T) {
 	tests := []struct {
 		name   string
 		rebind func(*config.Keybindings)
@@ -202,6 +202,16 @@ func TestValidateGitMenuKeysReadsTheKeysTheMenuIsDrawnOver(t *testing.T) {
 			name:   "two entries on one key, which the first answers every press of",
 			rebind: func(k *config.Keybindings) { k.Git.OpenPullRequest = []string{"r"} },
 			names:  "the menu's rebase entry",
+		},
+		{
+			name:   "a place on the key that takes the menu down",
+			rebind: func(k *config.Keybindings) { k.Places.Logs = []string{"esc"} },
+			names:  "logs",
+		},
+		{
+			name:   "two places on one key",
+			rebind: func(k *config.Keybindings) { k.Places.Documents = []string{"r"} },
+			names:  "the menu's review entry",
 		},
 	}
 

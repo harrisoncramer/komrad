@@ -38,7 +38,9 @@ type documentBody struct {
 type documentsScreen struct {
 	rowCursor
 	agentID string
-	items   []documentItem
+	// from is the view the documents were opened from, and where the way back goes.
+	from  screen
+	items []documentItem
 	// listedAt is the agent's newest write the list was read at, and listedCount how many it had
 	// written.
 	listedAt    *time.Time
@@ -68,6 +70,9 @@ func (d *documentsScreen) enter(h host, _ panelShared, target screenTarget) tea.
 	if target.agentID != d.agentID {
 		saved = d.closeEdit(h)
 		*d = documentsScreen{agentID: target.agentID}
+	}
+	if target.agentID != "" {
+		d.from = target.from
 	}
 
 	h.stageInfo()
@@ -142,7 +147,7 @@ func (d *documentsScreen) listParams(s panelShared) screenListParams {
 }
 
 func (d *documentsScreen) parent() screen {
-	return screenAgents
+	return d.from
 }
 
 // crumbs runs through the agent the documents are of down to the version stepped to, and counts
@@ -174,7 +179,7 @@ func (d *documentsScreen) emptyLine() string {
 }
 
 func (d *documentsScreen) agentName(s panelShared) string {
-	if item, ok := s.listing.liveAgent(d.agentID); ok {
+	if item, ok := s.listing.anyAgent(d.agentID); ok {
 		return item.Agent.Name
 	}
 
@@ -301,7 +306,7 @@ func (m *model) readDocumentsCmd() tea.Cmd {
 
 // documentsWritten is what the agent has written, as its row says.
 func (m *model) documentsWritten(agentID string) documentsWritten {
-	item, ok := m.listing.liveAgent(agentID)
+	item, ok := m.listing.anyAgent(agentID)
 	if !ok {
 		return documentsWritten{}
 	}

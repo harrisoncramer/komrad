@@ -157,7 +157,7 @@ func (p Palette) formStyles(isDark bool) *huh.Styles {
 	theme.Focused.Directory = theme.Focused.Directory.Foreground(p.accent.color())
 	theme.Focused.ErrorIndicator = theme.Focused.ErrorIndicator.Foreground(p.danger.color())
 	theme.Focused.ErrorMessage = theme.Focused.ErrorMessage.Foreground(p.danger.color())
-	theme.Focused.SelectSelector = theme.Focused.SelectSelector.Foreground(p.warning.color())
+	theme.Focused.SelectSelector = theme.Focused.SelectSelector.Foreground(p.accent.color()).SetString("› ")
 	theme.Focused.MultiSelectSelector = theme.Focused.MultiSelectSelector.Foreground(p.warning.color())
 	theme.Focused.SelectedOption = theme.Focused.SelectedOption.Foreground(p.accent.color())
 	theme.Focused.SelectedPrefix = theme.Focused.SelectedPrefix.Foreground(p.accent.color())
