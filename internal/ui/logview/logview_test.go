@@ -179,6 +179,21 @@ func TestTailMove(t *testing.T) {
 			wantCursor: 2,
 		},
 		{
+			name:  "the oldest line stays drawn under the cursor when the next one wraps past the window",
+			lines: []string{"a", "bbbbbbbbb", "c"},
+			width: 3,
+			moves: []int{-2},
+			want:  []string{"a"},
+		},
+		{
+			name:    "scrolling back on a log that fits leaves the cursor where it was",
+			lines:   numbered(1, 2),
+			width:   20,
+			moves:   []int{-1},
+			scrolls: []int{-1},
+			want:    []string{"line 1", "line 2"},
+		},
+		{
 			name:  "the cursor stands on the first row of a wrapped line",
 			lines: []string{"short", "a line that wraps", "last"},
 			width: 9,

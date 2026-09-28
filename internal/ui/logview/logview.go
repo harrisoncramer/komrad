@@ -77,6 +77,9 @@ func (t *tail) Move(lines int) {
 func (t *tail) Scroll(lines int) {
 	t.back = t.clamp(t.back - lines)
 	t.scrolled = true
+	if lines > 0 && t.back == 0 {
+		t.cursor = 0
+	}
 }
 
 // clamp is a count of lines before the newest kept to the lines held.
@@ -110,9 +113,6 @@ func (t *tail) Rows(width, height int) ([]string, int) {
 			top = min(first+1, end)
 		}
 		t.cursor = newest - min(max(newest-t.cursor, top), end)
-		if t.back == 0 {
-			t.cursor = 0
-		}
 	}
 
 	at := newest - t.cursor
@@ -142,13 +142,14 @@ func (t *tail) lastBelow(from, end, width, height int) int {
 	return last
 }
 
-// firstFilling is the first line the view can end on and still fill height rows.
+// firstFilling is the first line the view can end on and still draw the oldest line whole, filling
+// as much of height as that allows.
 func (t *tail) firstFilling(width, height int) int {
 	filled := 0
 	for i := range t.lines {
 		filled += len(t.wrap(i, width))
-		if filled >= height {
-			return i
+		if filled > height {
+			return max(i-1, 0)
 		}
 	}
 
