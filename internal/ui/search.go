@@ -729,8 +729,8 @@ func (w *searchScreen) sidebarView(s panelShared) string {
 		qualifiers = qualifierLegend(s.pane)
 	}
 	help := s.draw.renderHelp(w.help(s), header, qualifiers)
-	if !blank {
-		help = qualifiers + help
+	if !blank && qualifiers != "" {
+		help = "\n" + qualifiers + help
 	}
 
 	if w.problem.reason != "" {
@@ -746,7 +746,7 @@ func (w *searchScreen) sidebarView(s panelShared) string {
 	case blank:
 		return header + qualifiers + help
 	case len(rows) == 0 && w.problem.reason != "":
-		return header + help
+		return header + strings.TrimPrefix(help, "\n")
 	case len(rows) == 0:
 		return header + dimStyle.Render("no matches") + "\n" + help
 	}
