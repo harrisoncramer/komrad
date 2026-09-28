@@ -589,6 +589,9 @@ func TestDocumentsReadingCursor(t *testing.T) {
 	found := findRawLine(harness.readRawFrame(), line)
 	require.NotEmpty(t, found)
 	assert.NotEqual(t, focused, found, "the hit is painted")
+	hit := strings.Index(found, "warm")
+	require.GreaterOrEqual(t, hit, 0)
+	assert.Contains(t, found[hit:], bar, "the bar carries on past the hit")
 }
 
 // TestDocumentsReadingKeepsTheCursorShown covers the rows the search adds over a long document

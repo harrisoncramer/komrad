@@ -412,6 +412,18 @@ func (f filterState) line(palette paint.Palette, glyphs glyph.Set) string {
 	return line
 }
 
+// head is the rows over a block the filter searches: the search, what the last key said, and a
+// blank row.
+func (f filterState) head(count, said string, width int, glyphs glyph.Set) []string {
+	indent := strings.Repeat(" ", docMargin())
+	head := []string{fitRow(indent+f.line(paint.Panel, glyphs)+count, width)}
+	if said != "" {
+		head = append(head, fitRow(indent+dimStyle.Render(said), width))
+	}
+
+	return append(head, "")
+}
+
 func (m model) jumpFilterMatch(pressed string) (tea.Model, tea.Cmd) {
 	return m, m.jumpToFilterMatch(pressed)
 }

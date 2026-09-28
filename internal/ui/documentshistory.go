@@ -151,18 +151,6 @@ func (h *documentHistory) head(item documentItem, width int, glyphs glyph.Set) [
 	return append(rows, h.filter.head(count, h.said, width, glyphs)...)
 }
 
-// head is the rows over a block the filter searches: the search, what the last key said, and a
-// blank row.
-func (f filterState) head(count, said string, width int, glyphs glyph.Set) []string {
-	indent := strings.Repeat(" ", docMargin())
-	head := []string{fitRow(indent+f.line(paint.Panel, glyphs)+count, width)}
-	if said != "" {
-		head = append(head, fitRow(indent+dimStyle.Render(said), width))
-	}
-
-	return append(head, "")
-}
-
 // diffHeight is the rows the diff is drawn in, under the rows over it.
 func (d *documentsScreen) diffHeight(s panelShared) int {
 	split, ok := s.draw.screenColumnSplit()
