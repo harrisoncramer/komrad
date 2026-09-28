@@ -8688,6 +8688,14 @@
         {
           "name": "MAIL_KIND_DOCUMENT_EDITED",
           "description": "Komrad telling an agent that a person wrote or edited one of its documents in the panel."
+        },
+        {
+          "name": "MAIL_KIND_PULL_REQUEST_CHANGED",
+          "description": "Komrad telling an agent that a pull request on its branch changed at the forge."
+        },
+        {
+          "name": "MAIL_KIND_WORKTREE_REBASED",
+          "description": "Komrad telling an agent that it rebased the agent's worktree, or tried to."
         }
       ]
     },

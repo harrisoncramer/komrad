@@ -32,6 +32,10 @@ func mailKindOf(kind mailstore.Kind) agentv1.MailKind {
 		return agentv1.MailKind_MAIL_KIND_EXCHANGE_CAPPED
 	case mailstore.KindDocumentEdited:
 		return agentv1.MailKind_MAIL_KIND_DOCUMENT_EDITED
+	case mailstore.KindPullRequestChanged:
+		return agentv1.MailKind_MAIL_KIND_PULL_REQUEST_CHANGED
+	case mailstore.KindWorktreeRebased:
+		return agentv1.MailKind_MAIL_KIND_WORKTREE_REBASED
 	}
 
 	return agentv1.MailKind_MAIL_KIND_UNSPECIFIED

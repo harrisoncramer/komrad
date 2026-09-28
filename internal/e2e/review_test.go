@@ -100,6 +100,7 @@ func TestIntegrationReviews(t *testing.T) {
 
 		reviewID = released.Msg.GetReview().GetId()
 
+		instance.WorkQueue()
 		assert.Equal(t, mail.DeliverySoon, instance.Deliver(worker.GetId()))
 		typed := instance.WaitForTyped(worker.GetId(), 1)
 		require.Len(t, typed, 1)

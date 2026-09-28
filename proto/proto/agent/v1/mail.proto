@@ -19,6 +19,10 @@ enum MailKind {
   MAIL_KIND_EXCHANGE_CAPPED = 3;
   // Komrad telling an agent that a person wrote or edited one of its documents in the panel.
   MAIL_KIND_DOCUMENT_EDITED = 4;
+  // Komrad telling an agent that a pull request on its branch changed at the forge.
+  MAIL_KIND_PULL_REQUEST_CHANGED = 5;
+  // Komrad telling an agent that it rebased the agent's worktree, or tried to.
+  MAIL_KIND_WORKTREE_REBASED = 6;
 }
 
 // MailDirection is which half of an agent's correspondence a listing asks for.
