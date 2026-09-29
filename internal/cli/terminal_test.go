@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -79,10 +80,19 @@ func TestRunTerminal(t *testing.T) {
 	tests := []struct {
 		name       string
 		steps      []attachStep
+		conns      []terminalConn
+		typed      string
 		wantOut    string
 		wantCode   connect.Code
 		wantOpened int
+		wantHeard  string
 	}{
+		{
+			name:      "input a lost stream took is sent on the stream dialled after it",
+			conns:     []terminalConn{&lostConn{ended: make(chan struct{})}, &heardConn{sent: make(chan []byte, 1)}},
+			typed:     "typed",
+			wantHeard: "typed",
+		},
 		{
 			name:       "a refused attach is not dialled again",
 			steps:      []attachStep{{refuse: connect.NewError(connect.CodeNotFound, os.ErrNotExist)}},
@@ -94,6 +104,13 @@ func TestRunTerminal(t *testing.T) {
 			steps:      []attachStep{{output: "before "}, {refuse: connect.NewError(connect.CodeFailedPrecondition, os.ErrClosed)}},
 			wantOut:    "before ",
 			wantCode:   connect.CodeFailedPrecondition,
+			wantOpened: 2,
+		},
+		{
+			name:       "an attach the engine fails after a drop stops dialling",
+			steps:      []attachStep{{output: "before "}, {refuse: errors.New("the pty failed")}},
+			wantOut:    "before ",
+			wantCode:   connect.CodeUnknown,
 			wantOpened: 2,
 		},
 		{
@@ -126,10 +143,27 @@ func TestRunTerminal(t *testing.T) {
 
 			typed, typing := io.Pipe()
 			t.Cleanup(func() { _ = typing.Close() })
+			if tt.typed != "" {
+				go func() {
+					_, _ = typing.Write([]byte(tt.typed))
+					_ = typing.Close()
+				}()
+			}
 			var out syncBuffer
 
+			dial := dialAttach(client, "agent-1", "xterm-256color")
+			if tt.conns != nil {
+				conns := tt.conns
+				dial = func(context.Context, *terminalv1.Size) (terminalConn, error) {
+					conn := conns[0]
+					conns = conns[1:]
+
+					return conn, nil
+				}
+			}
+
 			_, err := runTerminal(ctx, runTerminalParams{
-				Dial:   dialAttach(client, "agent-1", "xterm-256color"),
+				Dial:   dial,
 				Redial: time.Minute,
 				In:     typed,
 				Out:    &out,
@@ -151,6 +185,11 @@ func TestRunTerminal(t *testing.T) {
 
 			assert.Equal(t, tt.wantOut, out.String())
 
+			if tt.wantHeard != "" {
+				heard := tt.conns[len(tt.conns)-1].(*heardConn)
+				assert.Equal(t, tt.wantHeard, string(heard.heard))
+			}
+
 			opened := service.readOpened()
 			require.Len(t, opened, tt.wantOpened)
 			for _, open := range opened {
@@ -161,3 +200,54 @@ func TestRunTerminal(t *testing.T) {
 		})
 	}
 }
+
+// lostConn is a stream whose connection is gone, failing the first send and then its receive.
+type lostConn struct {
+	ended chan struct{}
+}
+
+func (c *lostConn) sendInput([]byte) error {
+	close(c.ended)
+
+	return connect.NewError(connect.CodeUnavailable, io.ErrClosedPipe)
+}
+
+func (c *lostConn) sendResize(*terminalv1.Size) error { return nil }
+
+func (c *lostConn) closeInput() error { return nil }
+
+func (c *lostConn) receive() (received, error) {
+	<-c.ended
+
+	return received{}, connect.NewError(connect.CodeUnavailable, io.ErrClosedPipe)
+}
+
+func (c *lostConn) close() {}
+
+// heardConn is a stream that exits once it has been sent input or its input closes.
+type heardConn struct {
+	sent  chan []byte
+	heard []byte
+}
+
+func (c *heardConn) sendInput(input []byte) error {
+	c.sent <- input
+
+	return nil
+}
+
+func (c *heardConn) sendResize(*terminalv1.Size) error { return nil }
+
+func (c *heardConn) closeInput() error {
+	close(c.sent)
+
+	return nil
+}
+
+func (c *heardConn) receive() (received, error) {
+	c.heard = <-c.sent
+
+	return received{exit: &terminalv1.Exit{}}, nil
+}
+
+func (c *heardConn) close() {}

@@ -34,7 +34,11 @@ var (
 	errNotReady   = errors.New("the engine did not say it was ready")
 )
 
-var droppedCodes = []connect.Code{connect.CodeUnavailable, connect.CodeUnknown, connect.CodeDeadlineExceeded, connect.CodeAborted}
+// unreachableCodes are what a dial fails with when the engine could not be reached.
+var unreachableCodes = []connect.Code{connect.CodeUnavailable, connect.CodeDeadlineExceeded, connect.CodeAborted}
+
+// droppedCodes are what a carried stream fails with when its connection is lost.
+var droppedCodes = append(slices.Clone(unreachableCodes), connect.CodeUnknown)
 
 // received is one message from the engine, whichever kind of terminal it came from.
 type received struct {
@@ -290,13 +294,14 @@ func runTerminal(ctx context.Context, params runTerminalParams) (int, error) {
 	inputs := make(chan []byte)
 	go readInput(ctx, params.In, inputs)
 
+	var unsent []byte
 	for {
-		code, err := carry(ctx, carryParams{Conn: conn, Inputs: inputs, Terminal: params})
+		code, err := carry(ctx, carryParams{Conn: conn, Inputs: inputs, Unsent: &unsent, Terminal: params})
 		if err == nil {
 			return code, nil
 		}
 
-		if params.Redial == 0 || !isDropped(ctx, err) {
+		if params.Redial == 0 || !isDropped(ctx, err, droppedCodes) {
 			return 0, fmt.Errorf("failed to carry the terminal: %w", err)
 		}
 
@@ -311,8 +316,10 @@ func runTerminal(ctx context.Context, params runTerminalParams) (int, error) {
 }
 
 type carryParams struct {
-	Conn     terminalConn
-	Inputs   <-chan []byte
+	Conn   terminalConn
+	Inputs <-chan []byte
+	// Unsent is input a lost stream took and never sent, which the next stream sends first.
+	Unsent   *[]byte
 	Terminal runTerminalParams
 }
 
@@ -321,11 +328,19 @@ func carry(ctx context.Context, params carryParams) (int, error) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	go forward(ctx, params)
+	forwarded := make(chan struct{})
+	go func() {
+		defer close(forwarded)
+		forward(ctx, params)
+	}()
 
 	for {
 		message, err := params.Conn.receive()
 		if err != nil {
+			cancel()
+			params.Conn.close()
+			<-forwarded
+
 			return 0, fmt.Errorf("failed to receive from the terminal: %w", err)
 		}
 
@@ -344,6 +359,14 @@ func carry(ctx context.Context, params carryParams) (int, error) {
 // forward sends what is typed and each resize to one stream, closing its input when the typing
 // ends.
 func forward(ctx context.Context, params carryParams) {
+	if len(*params.Unsent) > 0 {
+		if err := params.Conn.sendInput(*params.Unsent); err != nil {
+			return
+		}
+
+		*params.Unsent = nil
+	}
+
 	inputs := params.Inputs
 	for {
 		select {
@@ -362,6 +385,8 @@ func forward(ctx context.Context, params carryParams) {
 			}
 
 			if err := params.Conn.sendInput(input); err != nil {
+				*params.Unsent = input
+
 				return
 			}
 		}
@@ -400,7 +425,7 @@ func redial(ctx context.Context, params runTerminalParams) (terminalConn, error)
 			return conn, nil
 		}
 
-		if !isDropped(ctx, err) || time.Now().After(deadline) {
+		if !isDropped(ctx, err, unreachableCodes) || time.Now().After(deadline) {
 			return nil, err
 		}
 
@@ -414,8 +439,8 @@ func redial(ctx context.Context, params runTerminalParams) (terminalConn, error)
 	}
 }
 
-// isDropped reports whether a stream failed from a lost connection.
-func isDropped(ctx context.Context, err error) bool {
+// isDropped reports whether a stream failed with one of codes, or ended without a word.
+func isDropped(ctx context.Context, err error, codes []connect.Code) bool {
 	if ctx.Err() != nil {
 		return false
 	}
@@ -429,7 +454,7 @@ func isDropped(ctx context.Context, err error) bool {
 		return false
 	}
 
-	return slices.Contains(droppedCodes, connectErr.Code())
+	return slices.Contains(codes, connectErr.Code())
 }
 
 func readConsoleSize(fd int) *terminalv1.Size {

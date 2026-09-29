@@ -26,8 +26,10 @@ const (
 )
 
 var (
+	// ErrNotLive refuses an attach to an agent that is archived or being deleted.
 	ErrNotLive = fail.Precondition("the agent is not live")
-	ErrNoPane  = fail.Precondition("the agent holds no pane")
+	// ErrNoPane refuses an attach to an agent that holds no pane of its own.
+	ErrNoPane = fail.Precondition("the agent holds no pane")
 )
 
 type agentGetter interface {
@@ -85,11 +87,11 @@ func (s *AttachService) Open(ctx context.Context, params OpenParams) (pty.Termin
 	}
 
 	if agent.ArchivedAt != nil || agent.DeletingAt != nil {
-		return nil, fmt.Errorf("%w: %s", ErrNotLive, agent.Name)
+		return nil, ErrNotLive.Saying("agent %s is not live", agent.Name)
 	}
 
 	if agent.Pane == "" || s.tmux.GetPaneOwner(agent.Pane) != agent.ID {
-		return nil, fmt.Errorf("%w: %s", ErrNoPane, agent.Name)
+		return nil, ErrNoPane.Saying("agent %s holds no pane", agent.Name)
 	}
 
 	view := engine.ViewSession(agent.Pane)
