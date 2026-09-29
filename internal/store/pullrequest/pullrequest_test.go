@@ -589,9 +589,12 @@ func TestListPageOrdersCurrentFirst(t *testing.T) {
 // TestSetStandingKeepsTheLastKnownValue pins what each standing write reports as moved.
 func TestSetStandingKeepsTheLastKnownValue(t *testing.T) {
 	type step struct {
-		checks    forge.Checks
-		wantOld   *string
-		wantKnown *string
+		checks       forge.Checks
+		sha          string
+		wantOld      *string
+		wantKnown    *string
+		wantOldSHA   *string
+		wantKnownSHA *string
 	}
 	tests := []struct {
 		name  string
@@ -600,22 +603,35 @@ func TestSetStandingKeepsTheLastKnownValue(t *testing.T) {
 		{
 			name: "the first reading replaces nothing",
 			steps: []step{
-				{checks: forge.ChecksFailing, wantKnown: xptr.Ptr("failing")},
+				{checks: forge.ChecksFailing, sha: "abc", wantKnown: xptr.Ptr("failing"), wantKnownSHA: xptr.Ptr("abc")},
 			},
 		},
 		{
 			name: "a blank reading leaves the last known value alone",
 			steps: []step{
-				{checks: forge.ChecksFailing, wantKnown: xptr.Ptr("failing")},
-				{checks: forge.ChecksNone, wantOld: xptr.Ptr("failing"), wantKnown: xptr.Ptr("failing")},
-				{checks: forge.ChecksFailing, wantOld: xptr.Ptr("failing"), wantKnown: xptr.Ptr("failing")},
+				{checks: forge.ChecksFailing, sha: "abc", wantKnown: xptr.Ptr("failing"), wantKnownSHA: xptr.Ptr("abc")},
+				{checks: forge.ChecksNone, sha: "def", wantOld: xptr.Ptr("failing"), wantKnown: xptr.Ptr("failing"), wantOldSHA: xptr.Ptr("abc"), wantKnownSHA: xptr.Ptr("abc")},
+				{checks: forge.ChecksFailing, sha: "abc", wantOld: xptr.Ptr("failing"), wantKnown: xptr.Ptr("failing"), wantOldSHA: xptr.Ptr("abc"), wantKnownSHA: xptr.Ptr("abc")},
 			},
 		},
 		{
 			name: "a new value replaces the last known one",
 			steps: []step{
-				{checks: forge.ChecksPassing, wantKnown: xptr.Ptr("passing")},
-				{checks: forge.ChecksFailing, wantOld: xptr.Ptr("passing"), wantKnown: xptr.Ptr("failing")},
+				{checks: forge.ChecksPassing, sha: "abc", wantKnown: xptr.Ptr("passing"), wantKnownSHA: xptr.Ptr("abc")},
+				{checks: forge.ChecksFailing, sha: "abc", wantOld: xptr.Ptr("passing"), wantKnown: xptr.Ptr("failing"), wantOldSHA: xptr.Ptr("abc"), wantKnownSHA: xptr.Ptr("abc")},
+			},
+		},
+		{
+			name: "the same value on a new head replaces the last known head",
+			steps: []step{
+				{checks: forge.ChecksFailing, sha: "abc", wantKnown: xptr.Ptr("failing"), wantKnownSHA: xptr.Ptr("abc")},
+				{checks: forge.ChecksFailing, sha: "def", wantOld: xptr.Ptr("failing"), wantKnown: xptr.Ptr("failing"), wantOldSHA: xptr.Ptr("abc"), wantKnownSHA: xptr.Ptr("def")},
+			},
+		},
+		{
+			name: "a reading with no head leaves the last known head unknown",
+			steps: []step{
+				{checks: forge.ChecksFailing, wantKnown: xptr.Ptr("failing")},
 			},
 		},
 	}
@@ -628,10 +644,12 @@ func TestSetStandingKeepsTheLastKnownValue(t *testing.T) {
 			require.NoError(t, err)
 
 			for _, s := range tt.steps {
-				change, err := h.SetStanding(ctx, written.ID, forge.Standing{Checks: s.checks, HeadSHA: "abc"}, time.Now())
+				change, err := h.SetStanding(ctx, written.ID, forge.Standing{Checks: s.checks, HeadSHA: s.sha}, time.Now())
 				require.NoError(t, err)
 				assert.Equal(t, s.wantOld, change.OldChecks)
 				assert.Equal(t, s.wantKnown, change.KnownChecks)
+				assert.Equal(t, s.wantOldSHA, change.OldChecksSHA)
+				assert.Equal(t, s.wantKnownSHA, change.KnownChecksSHA)
 			}
 
 			stored, err := h.GetByID(ctx, written.ID)

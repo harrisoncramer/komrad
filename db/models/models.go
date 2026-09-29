@@ -595,6 +595,8 @@ type PullRequest struct {
 	LastKnownMergeability *string
 	// The review decision as the forge last reported it when it reported anything, which a blank reading leaves alone.
 	LastKnownDecision *string
+	// The head commit last_known_checks was read for. The same checks on a new head are a fresh verdict, so an event compares this too.
+	LastKnownChecksSha *string
 }
 
 // Where the pull request sync is for one repository: the high-water mark the changes have been read through, the first sweep in progress if one is, and what the last pass cost.

@@ -197,6 +197,11 @@ table "pull_requests" {
     type    = text
     comment = "The checks as the forge last reported them when it reported anything, which a blank reading leaves alone. An event compares against this so that a moment without an answer is not taken for a change."
   }
+  column "last_known_checks_sha" {
+    null    = true
+    type    = text
+    comment = "The head commit last_known_checks was read for. The same checks on a new head are a fresh verdict, so an event compares this too."
+  }
   column "last_known_mergeability" {
     null    = true
     type    = text
