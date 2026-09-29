@@ -5,6 +5,7 @@ Wait+Screen@10s /git ›/
 Type "g"
 Wait+Screen@10s /rebase with base/
 Escape
+Wait+Screen@10s /agents › text-truncate +│/
 Type "d"
 Wait+Screen@10s /RFC: vim\.text/
 Escape
