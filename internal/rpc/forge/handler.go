@@ -30,20 +30,21 @@ type connector interface {
 	ForConnection(connection forgestore.Connection) (forge.Forge, error)
 }
 
-// pullRequestMerger merges a pull request through the connection for its host.
-type pullRequestMerger interface {
+// pullRequestWriter changes a pull request through the connection for its host.
+type pullRequestWriter interface {
 	MergePullRequest(ctx context.Context, address string) error
+	SetPullRequestDraft(ctx context.Context, address string, draft bool) error
 }
 
 type Handler struct {
 	forges connector
-	merger pullRequestMerger
+	writer pullRequestWriter
 	now    func() time.Time
 }
 
-// NewHandler constructs the handler over the forge service and the merger.
-func NewHandler(forges connector, merger pullRequestMerger) *Handler {
-	return &Handler{forges: forges, merger: merger, now: time.Now}
+// NewHandler constructs the handler over the forge service and the pull request writer.
+func NewHandler(forges connector, writer pullRequestWriter) *Handler {
+	return &Handler{forges: forges, writer: writer, now: time.Now}
 }
 
 // ConnectForge proves a credential against the forge and records the connection.

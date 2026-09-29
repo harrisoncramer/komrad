@@ -17,6 +17,7 @@ const (
 	gitChoiceRebase gitChoice = iota
 	gitChoiceOpenPullRequest
 	gitChoiceCopyPullRequestURL
+	gitChoiceToggleDraft
 )
 
 var (
@@ -41,6 +42,7 @@ func gitMenu(s panelShared, from screen, item panel.AgentRow) submenu {
 			{label: "rebase with base", keys: s.keys.Git.Rebase, isOff: rebaseRefusal(s.listing, from, agent) != nil},
 			{label: "open pr", keys: s.keys.Git.OpenPullRequest, isOff: item.PullRequest.URL == ""},
 			{label: "copy pr url", keys: s.keys.Git.CopyPullRequestURL, isOff: item.PullRequest.URL == ""},
+			{label: draftLabel(item), keys: s.keys.Git.ToggleDraft, isOff: draftRefusal(item) != nil},
 			nestedEntry("merge pr", s.keys.Git.Merge, mergeMenu(s, from, item)),
 		},
 		answer: func(m model, choice int) (tea.Model, tea.Cmd) {
@@ -105,6 +107,8 @@ func (m model) runGitChoice(from screen, agentID string, choice gitChoice) (mode
 		return m.openPullRequest(item)
 	case gitChoiceCopyPullRequestURL:
 		return m.copyPullRequestURL(item)
+	case gitChoiceToggleDraft:
+		return m.toggleDraft(item)
 	}
 
 	return m, nil

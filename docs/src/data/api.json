@@ -1333,6 +1333,22 @@
           "response": "google.protobuf.Empty"
         },
         {
+          "slug": "set-forge-pull-request-draft",
+          "name": "SetForgePullRequestDraft",
+          "path": "/forge.v1.ForgeService/SetForgePullRequestDraft",
+          "command": "komrad rpc set-forge-pull-request-draft",
+          "tool": "set_forge_pull_request_draft",
+          "mcp": false,
+          "roles": [],
+          "summary": "Mark a pull request a draft, or ready for review, through the forge connection for its host.",
+          "description": "Mark a pull request a draft, or ready for review, through the forge connection for its host. A pull request already standing that way is left alone, and one that has merged or closed is refused as failed_precondition.",
+          "readOnly": false,
+          "idempotent": true,
+          "destructive": true,
+          "request": "forge.v1.SetForgePullRequestDraftRequest",
+          "response": "google.protobuf.Empty"
+        },
+        {
           "slug": "disconnect-forge",
           "name": "DisconnectForge",
           "path": "/forge.v1.ForgeService/DisconnectForge",
@@ -6046,6 +6062,35 @@
             "at most 2048 characters"
           ],
           "description": "The pull request's web address, whose host picks the forge connection."
+        }
+      ]
+    },
+    "forge.v1.SetForgePullRequestDraftRequest": {
+      "name": "SetForgePullRequestDraftRequest",
+      "description": "",
+      "fields": [
+        {
+          "name": "url",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [
+            "required",
+            "at most 2048 characters"
+          ],
+          "description": "The pull request's web address, whose host picks the forge connection."
+        },
+        {
+          "name": "draft",
+          "type": "bool",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "Whether it should be a draft, false to mark it ready for review."
         }
       ]
     },

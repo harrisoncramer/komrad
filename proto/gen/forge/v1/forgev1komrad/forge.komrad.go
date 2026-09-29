@@ -21,6 +21,7 @@ type ForgeServiceImpl interface {
 	CheckForges(context.Context, *emptypb.Empty) (*v1.CheckForgesResponse, *fail.Error)
 	ListForgePullRequests(context.Context, *v1.ListForgePullRequestsRequest) (*v1.ListForgePullRequestsResponse, *fail.Error)
 	MergeForgePullRequest(context.Context, *v1.MergeForgePullRequestRequest) (*emptypb.Empty, *fail.Error)
+	SetForgePullRequestDraft(context.Context, *v1.SetForgePullRequestDraftRequest) (*emptypb.Empty, *fail.Error)
 	DisconnectForge(context.Context, *v1.DisconnectForgeRequest) (*emptypb.Empty, *fail.Error)
 }
 
@@ -53,6 +54,11 @@ func (a ForgeServiceAdapter) ListForgePullRequests(ctx context.Context, req *con
 // MergeForgePullRequest answers the request as connect serves it.
 func (a ForgeServiceAdapter) MergeForgePullRequest(ctx context.Context, req *connect.Request[v1.MergeForgePullRequestRequest]) (*connect.Response[emptypb.Empty], error) {
 	return rpcerr.Answer(a.Impl.MergeForgePullRequest(ctx, req.Msg))
+}
+
+// SetForgePullRequestDraft answers the request as connect serves it.
+func (a ForgeServiceAdapter) SetForgePullRequestDraft(ctx context.Context, req *connect.Request[v1.SetForgePullRequestDraftRequest]) (*connect.Response[emptypb.Empty], error) {
+	return rpcerr.Answer(a.Impl.SetForgePullRequestDraft(ctx, req.Msg))
 }
 
 // DisconnectForge answers the request as connect serves it.

@@ -59,7 +59,7 @@ type services struct {
 	forge            *forge.Service
 	pullRequestSync  *pullrequests.PullRequestSyncer
 	pullRequests     *pullrequests.Lister
-	merger           *pullrequests.Merger
+	writer           *pullrequests.Writer
 	worktreeLister   *worktrees.Lister
 	inspector        *worktrees.Inspector
 	remover          *worktrees.Remover
@@ -318,7 +318,7 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 		forge:           forgeService,
 		pullRequestSync: pullRequestSyncer,
 		pullRequests:    pullrequests.NewLister(pullrequests.NewListerParams{PullRequests: st.pullRequests}),
-		merger: pullrequests.NewMerger(pullrequests.NewMergerParams{
+		writer: pullrequests.NewWriter(pullrequests.NewWriterParams{
 			Forges: forgeService,
 			Sync:   wakers.pullRequestSync,
 		}),

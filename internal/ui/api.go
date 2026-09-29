@@ -162,6 +162,15 @@ func (a api) mergePullRequest(address string) error {
 	return err
 }
 
+// setPullRequestDraft asks the forge to mark the pull request at the address a draft or ready.
+func (a api) setPullRequestDraft(address string, draft bool) error {
+	_, err := call(draftTimeout, func(ctx context.Context) (any, error) {
+		return a.forges.SetForgePullRequestDraft(ctx, connect.NewRequest(&forgev1.SetForgePullRequestDraftRequest{Url: address, Draft: draft}))
+	})
+
+	return err
+}
+
 func (a api) setHidden(agent panel.Agent, hidden bool) error {
 	return mutate(func(ctx context.Context) (any, error) {
 		return a.agents.SetHidden(ctx, connect.NewRequest(&agentv1.SetHiddenRequest{Id: agent.ID, Hidden: hidden}))

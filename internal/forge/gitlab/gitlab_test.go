@@ -534,6 +534,59 @@ func TestMerge(t *testing.T) {
 	}
 }
 
+// TestSetDraft covers marking a merge request each way and GitLab's refusals.
+func TestSetDraft(t *testing.T) {
+	t.Parallel()
+
+	const address = "https://gitlab.com/harrisoncramer/komrad/-/merge_requests/7"
+
+	tests := []struct {
+		name    string
+		draft   bool
+		answer  answer
+		wantErr error
+	}{
+		{
+			name:   "a merge request is marked a draft",
+			draft:  true,
+			answer: answer{body: `{"data":{"mergeRequestSetDraft":{"errors":[]}}}`},
+		},
+		{
+			name:   "a draft is marked ready",
+			answer: answer{body: `{"data":{"mergeRequestSetDraft":{"errors":[]}}}`},
+		},
+		{
+			name:    "a merge request gitlab will not change",
+			draft:   true,
+			answer:  answer{body: `{"data":{"mergeRequestSetDraft":{"errors":["Cannot change the draft status of a merged merge request"]}}}`},
+			wantErr: forge.ErrNotDraftable,
+		},
+		{
+			name:    "a merge request gitlab does not have",
+			draft:   true,
+			answer:  answer{body: `{"data":{"mergeRequestSetDraft":null},"errors":[{"message":"The resource that you are attempting to access does not exist or you don't have permission to perform this action","locations":[{"line":2,"column":3}],"path":["mergeRequestSetDraft"]}]}`},
+			wantErr: forge.ErrNotFound,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			f, _, fake := serve(t, map[string]answer{"SetDraft": tt.answer})
+
+			err := f.SetDraft(t.Context(), address, tt.draft)
+			assert.Equal(t, map[string]any{"path": "harrisoncramer/komrad", "iid": "7", "draft": tt.draft}, fake.last(t).Variables)
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+
+				return
+			}
+			require.NoError(t, err)
+		})
+	}
+}
+
 // TestGetRefusesWhatIsNotAMergeRequest covers the addresses Get will not ask GitLab about.
 func TestGetRefusesWhatIsNotAMergeRequest(t *testing.T) {
 	t.Parallel()

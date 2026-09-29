@@ -137,6 +137,16 @@ message MergeForgePullRequestRequest {
   }];
 }
 
+message SetForgePullRequestDraftRequest {
+  // The pull request's web address, whose host picks the forge connection.
+  string url = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 2048
+  }];
+  // Whether it should be a draft, false to mark it ready for review.
+  bool draft = 2;
+}
+
 message ListForgePullRequestsResponse {
   // One page of pull requests, as the forge orders them.
   repeated ForgePullRequest pull_requests = 1;
@@ -190,6 +200,16 @@ service ForgeService {
       name: "merge_forge_pull_request"
       description: "Merge a pull request through the forge connection for its host, the way the repository merges by default. A pull request the forge will not merge, because of its checks, its reviews, its branch rules or a conflict, is refused as failed_precondition with what the forge said."
       reason: "Landing work on the base is for a person to decide."
+    };
+  }
+  rpc SetForgePullRequestDraft(SetForgePullRequestDraftRequest) returns (google.protobuf.Empty) {
+    option idempotency_level = IDEMPOTENT;
+    option (annotation.v1.surfaces) = {
+      cli: true
+      mcp: false
+      name: "set_forge_pull_request_draft"
+      description: "Mark a pull request a draft, or ready for review, through the forge connection for its host. A pull request already standing that way is left alone, and one that has merged or closed is refused as failed_precondition."
+      reason: "Saying a pull request is ready for review is for a person to decide."
     };
   }
   rpc DisconnectForge(DisconnectForgeRequest) returns (google.protobuf.Empty) {

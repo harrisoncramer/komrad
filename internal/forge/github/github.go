@@ -44,6 +44,18 @@ const mergeMutation = `mutation Merge($id: ID!, $method: PullRequestMergeMethod!
   mergePullRequest(input: {pullRequestId: $id, mergeMethod: $method}) { clientMutationId }
 }`
 
+const draftTargetQuery = `query DraftTarget($owner: String!, $name: String!, $number: Int!) {
+  repository(owner: $owner, name: $name) { pullRequest(number: $number) { id state isDraft } }
+}`
+
+const convertToDraftMutation = `mutation ConvertToDraft($id: ID!) {
+  convertPullRequestToDraft(input: {pullRequestId: $id}) { clientMutationId }
+}`
+
+const markReadyMutation = `mutation MarkReady($id: ID!) {
+  markPullRequestReadyForReview(input: {pullRequestId: $id}) { clientMutationId }
+}`
+
 const listQuery = `query List($owner: String!, $name: String!, $first: Int!, $after: String, $branch: String, $states: [PullRequestState!]) {
   repository(owner: $owner, name: $name) {
     pullRequests(first: $first, after: $after, headRefName: $branch, states: $states, orderBy: {field: CREATED_AT, direction: DESC}) {
@@ -368,6 +380,70 @@ func (f *Forge) Merge(ctx context.Context, address string) error {
 			return forge.ErrNotMergeable.Saying("github will not merge #%d: %s", number, failure.Message)
 		case "FORBIDDEN":
 			return forge.ErrUnauthorized.Saying("github will not let the credential merge %s: %s", address, failure.Message)
+		}
+	}
+
+	return failureOf(answer, "")
+}
+
+// SetDraft converts the pull request to a draft or marks it ready for review, asking nothing
+// of GitHub when it already stands that way.
+func (f *Forge) SetDraft(ctx context.Context, address string, draft bool) error {
+	owner, name, number, err := parsePullURL(address)
+	if err != nil {
+		return err
+	}
+
+	var data struct {
+		Repository *struct {
+			PullRequest *struct {
+				ID      string `json:"id"`
+				State   string `json:"state"`
+				IsDraft bool   `json:"isDraft"`
+			} `json:"pullRequest"`
+		} `json:"repository"`
+	}
+	answer, err := f.client.Query(ctx, draftTargetQuery, map[string]any{
+		"owner":  owner,
+		"name":   name,
+		"number": number,
+	}, &data)
+	if err != nil {
+		return err
+	}
+	if err := failureOf(answer, ""); err != nil {
+		return err
+	}
+	if data.Repository == nil || data.Repository.PullRequest == nil {
+		return fmt.Errorf("%w: github has no pull request %d in %s/%s", forge.ErrNotFound, number, owner, name)
+	}
+	target := data.Repository.PullRequest
+	switch target.State {
+	case "MERGED":
+		return forge.ErrNotDraftable.Saying("github will not change #%d: it has already merged", number)
+	case "CLOSED":
+		return forge.ErrNotDraftable.Saying("github will not change #%d: it was closed", number)
+	}
+	if target.IsDraft == draft {
+		return nil
+	}
+
+	mutation := markReadyMutation
+	if draft {
+		mutation = convertToDraftMutation
+	}
+
+	var changed struct{}
+	answer, err = f.client.Query(ctx, mutation, map[string]any{"id": target.ID}, &changed)
+	if err != nil {
+		return err
+	}
+	for _, failure := range answer.Errors {
+		switch failure.Type {
+		case "UNPROCESSABLE":
+			return forge.ErrNotDraftable.Saying("github will not change #%d: %s", number, failure.Message)
+		case "FORBIDDEN":
+			return forge.ErrUnauthorized.Saying("github will not let the credential change %s: %s", address, failure.Message)
 		}
 	}
 

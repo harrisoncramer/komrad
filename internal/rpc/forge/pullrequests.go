@@ -85,8 +85,18 @@ func (s *Handler) ListForgePullRequests(ctx context.Context, req *forgev1.ListFo
 
 // MergeForgePullRequest merges a pull request through the connection for its host.
 func (s *Handler) MergeForgePullRequest(ctx context.Context, req *forgev1.MergeForgePullRequestRequest) (*emptypb.Empty, *fail.Error) {
-	if err := s.merger.MergePullRequest(ctx, req.GetUrl()); err != nil {
+	if err := s.writer.MergePullRequest(ctx, req.GetUrl()); err != nil {
 		return nil, rpcerr.From(err, "failed to merge the pull request")
+	}
+
+	return &emptypb.Empty{}, nil
+}
+
+// SetForgePullRequestDraft marks a pull request a draft or ready through the connection for its
+// host.
+func (s *Handler) SetForgePullRequestDraft(ctx context.Context, req *forgev1.SetForgePullRequestDraftRequest) (*emptypb.Empty, *fail.Error) {
+	if err := s.writer.SetPullRequestDraft(ctx, req.GetUrl(), req.GetDraft()); err != nil {
+		return nil, rpcerr.From(err, "failed to change whether the pull request is a draft")
 	}
 
 	return &emptypb.Empty{}, nil

@@ -457,6 +457,10 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 		next, cmd := m.applyMerged(msg)
 
 		return next, cmd, true
+	case draftedMsg:
+		next, cmd := m.applyDrafted(msg)
+
+		return next, cmd, true
 	case formFieldEditedMsg:
 		next, cmd := m.applyFormFieldEdited(msg)
 

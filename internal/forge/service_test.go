@@ -75,6 +75,8 @@ func (f *fakeForge) Get(context.Context, string) (PullRequest, error) { return P
 
 func (f *fakeForge) Merge(context.Context, string) error { return nil }
 
+func (f *fakeForge) SetDraft(context.Context, string, bool) error { return nil }
+
 func (f *fakeForge) Standings(context.Context, git.RemoteURL, []int) (map[int]Standing, error) {
 	return map[int]Standing{}, nil
 }
