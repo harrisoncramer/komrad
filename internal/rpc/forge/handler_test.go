@@ -32,6 +32,8 @@ type fakeConnector struct {
 	disconnected []string
 	stamped      []*time.Time
 	hosts        []string
+	mergeErr     error
+	merged       []string
 }
 
 // Connect records the params and answers the first connection unless err refuses it.
@@ -90,6 +92,13 @@ func (f *fakeConnector) ConnectionFor(_ context.Context, host string) (*forgesto
 // ForConnection answers forge.
 func (f *fakeConnector) ForConnection(forgestore.Connection) (forge.Forge, error) {
 	return f.forge, nil
+}
+
+// MergePullRequest records the address and answers mergeErr.
+func (f *fakeConnector) MergePullRequest(_ context.Context, address string) error {
+	f.merged = append(f.merged, address)
+
+	return f.mergeErr
 }
 
 // TestForgeRefusalsMapToCodes pins the code each refusal reaches the caller as.

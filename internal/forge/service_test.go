@@ -32,6 +32,7 @@ type fakeForge struct {
 	login   string
 	reaches int
 	err     error
+	merge   func(address string) error
 }
 
 func (f *fakeForge) Kind() string {
@@ -73,7 +74,13 @@ func (f *fakeForge) ListChanged(context.Context, ListChangedParams) (*Page, erro
 
 func (f *fakeForge) Get(context.Context, string) (PullRequest, error) { return PullRequest{}, nil }
 
-func (f *fakeForge) Merge(context.Context, string) error { return nil }
+func (f *fakeForge) Merge(_ context.Context, address string) error {
+	if f.merge == nil {
+		return nil
+	}
+
+	return f.merge(address)
+}
 
 func (f *fakeForge) Standings(context.Context, git.RemoteURL, []int) (map[int]Standing, error) {
 	return map[int]Standing{}, nil
@@ -87,7 +94,18 @@ type fixture struct {
 	apis        []string
 	// app is what the service reads on each call that needs the App, so a test can move it
 	// between calls the way a config edit would.
-	app App
+	app             App
+	mergeErr        error
+	merged          []string
+	pullRequestSync *wakeCounter
+}
+
+type wakeCounter struct {
+	wakes int
+}
+
+func (w *wakeCounter) Wake() {
+	w.wakes++
 }
 
 func newFixture(t *testing.T, login string, verifyErr error) *fixture {
@@ -97,7 +115,7 @@ func newFixture(t *testing.T, login string, verifyErr error) *fixture {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = pool.Close() })
 
-	f := &fixture{store: forgestore.NewForgeStore(pool.GetDB()), credentials: NewFileStore(t.TempDir())}
+	f := &fixture{store: forgestore.NewForgeStore(pool.GetDB()), credentials: NewFileStore(t.TempDir()), pullRequestSync: &wakeCounter{}}
 	f.service = NewService(NewServiceParams{
 		Connections: f.store,
 		Credentials: f.credentials,
@@ -112,10 +130,16 @@ func newFixture(t *testing.T, login string, verifyErr error) *fixture {
 					login:   login,
 					reaches: 3,
 					err:     verifyErr,
+					merge: func(address string) error {
+						f.merged = append(f.merged, address)
+
+						return f.mergeErr
+					},
 				}
 			},
 		},
-		Now: func() time.Time { return time.Date(2026, 9, 18, 12, 0, 0, 0, time.UTC) },
+		Now:             func() time.Time { return time.Date(2026, 9, 18, 12, 0, 0, 0, time.UTC) },
+		PullRequestSync: f.pullRequestSync,
 	})
 
 	return f
@@ -667,4 +691,62 @@ func TestCheckPassesAMintOutageThrough(t *testing.T) {
 	row, err := f.store.Get(ctx, app.ID)
 	require.NoError(t, err)
 	assert.NotNil(t, row.VerifiedAt)
+}
+
+// TestMergePullRequest covers which connection a merge goes through and the pull request sync
+// being woken only once the forge has merged.
+func TestMergePullRequest(t *testing.T) {
+	const address = "https://github.com/harrisoncramer/komrad/pull/1"
+
+	tests := []struct {
+		name       string
+		address    string
+		mergeErr   error
+		wantErr    error
+		wantMerged []string
+		wantWakes  int
+	}{
+		{
+			name:    "an address with no host",
+			address: "harrisoncramer/komrad#1",
+			wantErr: ErrNotPullRequest,
+		},
+		{
+			name:    "a host nobody connected",
+			address: "https://gitlab.com/harrisoncramer/komrad/-/merge_requests/1",
+			wantErr: store.ErrNotFound,
+		},
+		{
+			name:       "a pull request the forge will not merge",
+			address:    address,
+			mergeErr:   ErrNotMergeable,
+			wantErr:    ErrNotMergeable,
+			wantMerged: []string{address},
+		},
+		{
+			name:       "a pull request the forge merges",
+			address:    address,
+			wantMerged: []string{address},
+			wantWakes:  1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := newFixture(t, "harrisoncramer", nil)
+			_, err := f.service.Connect(t.Context(), ConnectParams{Host: "github.com", Token: NewSecret("tok")})
+			require.NoError(t, err)
+			f.mergeErr = tt.mergeErr
+
+			err = f.service.MergePullRequest(t.Context(), tt.address)
+
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+			} else {
+				require.NoError(t, err)
+			}
+			assert.Equal(t, tt.wantMerged, f.merged)
+			assert.Equal(t, tt.wantWakes, f.pullRequestSync.wakes)
+		})
+	}
 }

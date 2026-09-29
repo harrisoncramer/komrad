@@ -28,6 +28,7 @@ type connector interface {
 	SetVerifiedAt(ctx context.Context, id string, at *time.Time) error
 	ConnectionFor(ctx context.Context, host string) (*forgestore.Connection, error)
 	ForConnection(connection forgestore.Connection) (forge.Forge, error)
+	MergePullRequest(ctx context.Context, address string) error
 }
 
 type Handler struct {

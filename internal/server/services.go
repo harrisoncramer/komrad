@@ -243,6 +243,7 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 
 			return forges.AppFrom(cfg.GitHubApp, tokenCachePath)
 		},
+		PullRequestSync: wakers.pullRequestSync,
 	})
 	pullRequestSyncer := pullrequests.NewPullRequestSyncer(pullrequests.NewPullRequestSyncerParams{
 		Forges:       forgeService,

@@ -63,6 +63,11 @@ type ConnectParams struct {
 	Token Secret
 }
 
+// loopWaker asks a background loop to run before its next tick.
+type loopWaker interface {
+	Wake()
+}
+
 // NewServiceParams says what the service writes to and which forges it can build.
 type NewServiceParams struct {
 	Connections *forgestore.ForgeStore
@@ -75,17 +80,19 @@ type NewServiceParams struct {
 	// and is unset or answers an unconfigured App when it has none.
 	LoadApp func() (App, error)
 	// Now is the clock, time.Now when unset.
-	Now func() time.Time
+	Now             func() time.Time
+	PullRequestSync loopWaker
 }
 
 // Service connects and disconnects forges, and builds one to speak to for a connection.
 type Service struct {
-	connections *forgestore.ForgeStore
-	credentials CredentialStore
-	builders    map[string]Builder
-	verified    verifiedSetter
-	loadApp     func() (App, error)
-	now         func() time.Time
+	connections     *forgestore.ForgeStore
+	credentials     CredentialStore
+	builders        map[string]Builder
+	verified        verifiedSetter
+	loadApp         func() (App, error)
+	now             func() time.Time
+	pullRequestSync loopWaker
 }
 
 // NewService builds the service.
@@ -106,12 +113,13 @@ func NewService(params NewServiceParams) *Service {
 	}
 
 	return &Service{
-		connections: params.Connections,
-		credentials: params.Credentials,
-		builders:    params.Builders,
-		verified:    verified,
-		loadApp:     loadApp,
-		now:         now,
+		connections:     params.Connections,
+		credentials:     params.Credentials,
+		builders:        params.Builders,
+		verified:        verified,
+		loadApp:         loadApp,
+		now:             now,
+		pullRequestSync: params.PullRequestSync,
 	}
 }
 
@@ -406,6 +414,32 @@ func (s *Service) ForConnection(connection forgestore.Connection) (Forge, error)
 	}
 
 	return build(connection.APIURL, auth), nil
+}
+
+// MergePullRequest merges the pull request at the address through the connection for its host.
+func (s *Service) MergePullRequest(ctx context.Context, address string) error {
+	parsed, err := url.Parse(address)
+	if err != nil || parsed.Hostname() == "" {
+		return ErrNotPullRequest.Saying("%q is not a pull request's address", address)
+	}
+
+	connection, err := s.ConnectionFor(ctx, parsed.Hostname())
+	if err != nil {
+		return fmt.Errorf("failed to find the forge for %s: %w", parsed.Hostname(), err)
+	}
+
+	f, err := s.ForConnection(*connection)
+	if err != nil {
+		return fmt.Errorf("failed to build the forge for %s: %w", parsed.Hostname(), err)
+	}
+
+	if err := f.Merge(ctx, address); err != nil {
+		return fmt.Errorf("failed to merge %s: %w", address, err)
+	}
+
+	s.pullRequestSync.Wake()
+
+	return nil
 }
 
 // staticCredential is a token held in memory for the one call that proves it.
