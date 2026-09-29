@@ -904,6 +904,7 @@ func measureWorktree(worktree *worktreev1.WatchedWorktree) {
 	switch worktree.GetDir() {
 	case "/trees/live", "/trees/archived":
 		worktree.SizeBytes = proto.Int64(49 * 1024 * 1024)
+		worktree.ShareBytes = proto.Int64(30 * 1024 * 1024)
 		worktree.MeasuredAt = proto.String(formatStampAgo(time.Hour))
 	case "/trees/orphan":
 		worktree.MeasuredAt = proto.String(formatStampAgo(time.Hour))
@@ -913,6 +914,7 @@ func measureWorktree(worktree *worktreev1.WatchedWorktree) {
 		worktree.ModifiedAt = formatStampAgo(2 * 7 * 24 * time.Hour)
 	case "/trees/admin":
 		worktree.SizeBytes = proto.Int64(1536 * 1024 * 1024)
+		worktree.ShareBytes = proto.Int64(1536 * 1024 * 1024)
 		worktree.MeasuredAt = proto.String(formatStampAgo(time.Hour))
 	}
 }
@@ -922,6 +924,7 @@ func newMeasuredWorktree(dir string, size int64) *worktreev1.WatchedWorktree {
 		worktree, _ := row.(*worktreev1.WatchedWorktree)
 		if worktree.GetDir() == dir {
 			worktree.SizeBytes = proto.Int64(size)
+			worktree.ShareBytes = proto.Int64(size)
 			worktree.MeasuredAt = proto.String(formatStampAgo(time.Minute))
 
 			return worktree

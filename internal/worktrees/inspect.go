@@ -114,13 +114,16 @@ func (i *Inspector) Inspect(ctx context.Context, params InspectParams) (*Inspect
 
 	dir := worktree.Dir
 	inspection := &Inspection{Worktree: *worktree}
-	if inspection.Bytes, inspection.Entries, err = measure(ctx, dir); err != nil {
+	measured, err := measure(ctx, dir)
+	if err != nil {
 		return nil, err
 	}
+	inspection.Bytes, inspection.Entries = measured.bytes, measured.entries
 
 	size := worktreestore.Size{
 		Dir:        dir,
-		Bytes:      inspection.Bytes,
+		Bytes:      measured.bytes,
+		Share:      measured.share,
 		MeasuredAt: i.now(),
 	}
 	if err := i.sizes.RecordSize(ctx, size); err != nil {

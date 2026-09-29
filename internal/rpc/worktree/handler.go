@@ -170,6 +170,7 @@ func renderWorktree(worktree worktrees.Worktree) *worktreev1.Worktree {
 		rendered.SizeError = size.Error
 		if size.Error == "" {
 			rendered.SizeBytes = &size.Bytes
+			rendered.ShareBytes = &size.Share
 		}
 	}
 

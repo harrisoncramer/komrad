@@ -24,6 +24,7 @@ type worktreeAgent struct {
 // worktreeSize is what a directory took when it was last walked, or why the walk failed.
 type worktreeSize struct {
 	bytes      int64
+	share      int64
 	measuredAt time.Time
 	// err is why the last walk failed, empty when it did not.
 	err string
@@ -78,6 +79,7 @@ func worktreeItemFromWatched(worktree *worktreev1.WatchedWorktree, byID map[stri
 	if worktree.MeasuredAt != nil {
 		item.size = &worktreeSize{
 			bytes:      worktree.GetSizeBytes(),
+			share:      worktree.GetShareBytes(),
 			measuredAt: dates.Parse(worktree.GetMeasuredAt()),
 			err:        worktree.GetSizeError(),
 		}

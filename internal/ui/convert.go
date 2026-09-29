@@ -232,6 +232,7 @@ func worktreeItemFrom(w *worktreev1.Worktree) worktreeItem {
 	if w.MeasuredAt != nil {
 		item.size = &worktreeSize{
 			bytes:      w.GetSizeBytes(),
+			share:      w.GetShareBytes(),
 			measuredAt: dates.Parse(w.GetMeasuredAt()),
 			err:        w.GetSizeError(),
 		}

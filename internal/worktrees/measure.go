@@ -124,7 +124,7 @@ func (m *Measurer) Measure(ctx context.Context) error {
 // forgets a directory that has gone.
 func (m *Measurer) measure(ctx context.Context, dir string) error {
 	walkCtx, cancel := context.WithTimeout(ctx, measureDeadline)
-	bytes, _, err := measure(walkCtx, dir)
+	measured, err := measure(walkCtx, dir)
 	cancel()
 
 	if ctx.Err() != nil {
@@ -138,7 +138,8 @@ func (m *Measurer) measure(ctx context.Context, dir string) error {
 	if err != nil {
 		size.Error = storableText(err.Error())
 	} else {
-		size.Bytes = bytes
+		size.Bytes = measured.bytes
+		size.Share = measured.share
 	}
 
 	return m.worktrees.RecordSize(ctx, size)

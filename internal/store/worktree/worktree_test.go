@@ -30,6 +30,7 @@ func TestUpsertLeavesTheSizeAlone(t *testing.T) {
 	require.NoError(t, worktrees.RecordSize(t.Context(), Size{
 		Dir:        "/trees/a",
 		Bytes:      42,
+		Share:      21,
 		MeasuredAt: at,
 	}))
 	require.NoError(t, worktrees.Upsert(t.Context(), Worktree{
@@ -45,6 +46,7 @@ func TestUpsertLeavesTheSizeAlone(t *testing.T) {
 	assert.Nil(t, listed[0].ModifiedAt)
 	require.NotNil(t, listed[0].Size)
 	assert.Equal(t, int64(42), listed[0].Size.Bytes)
+	assert.Equal(t, int64(21), listed[0].Size.Share)
 }
 
 // TestRecordSizeReplacesAMeasurement covers an error clearing the bytes, a later success
