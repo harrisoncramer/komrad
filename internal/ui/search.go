@@ -216,7 +216,7 @@ func debounceSearchCmd(query string) tea.Cmd {
 		return func() tea.Msg { return searchResult{query: query} }
 	}
 
-	return tea.Tick(searchDebounce, func(time.Time) tea.Msg {
+	return startTimer(searchDebounce, func(time.Time) tea.Msg {
 		return searchSettledMsg{query: query}
 	})
 }

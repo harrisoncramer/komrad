@@ -18,7 +18,7 @@ const warmupCap = 4 * time.Second
 type warmupTickMsg struct{}
 
 func warmupTick() tea.Cmd {
-	return tea.Tick(warmupPoll, func(time.Time) tea.Msg { return warmupTickMsg{} })
+	return startTimer(warmupPoll, func(time.Time) tea.Msg { return warmupTickMsg{} })
 }
 
 // warmupState is what the panel knows about panes whose harness may not have started yet: the

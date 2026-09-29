@@ -17,10 +17,12 @@ const blankCursor = "  "
 // rowCursorGlyph is the arrow a list draws on the row the cursor is standing on.
 var rowCursorGlyph = glyph.Focus + " "
 
+var rowCursorBlink = 300 * time.Millisecond
+
 // newRowCursor is the blink the lists share, focused from the start.
 func newRowCursor() cursor.Model {
 	c := cursor.New()
-	c.BlinkSpeed = 300 * time.Millisecond
+	c.BlinkSpeed = rowCursorBlink
 	_ = c.Focus()
 
 	return c

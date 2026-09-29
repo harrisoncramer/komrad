@@ -36,7 +36,7 @@ func (m *model) applyCopy(result copyResult) {
 type flashRevertMsg struct{}
 
 func flashRevertTick() tea.Cmd {
-	return tea.Tick(flashDuration, func(time.Time) tea.Msg { return flashRevertMsg{} })
+	return startTimer(flashDuration, func(time.Time) tea.Msg { return flashRevertMsg{} })
 }
 
 func (m *model) restageScreen() {
