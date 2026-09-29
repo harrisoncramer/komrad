@@ -225,12 +225,6 @@ func TestWorkflowRefusalsMapToCodes(t *testing.T) {
 			wantCode: connect.CodeNotFound,
 		},
 		{
-			name:     "deleting a workflow whose schedule another workflow's agents hold",
-			call:     deleteWorkflow,
-			err:      agents.ErrScheduleHasAgents,
-			wantCode: connect.CodeFailedPrecondition,
-		},
-		{
 			name: "listing with a page token that holds no id",
 			call: func(ctx context.Context, svc workflowv1komrad.WorkflowServiceAdapter) error {
 				_, err := svc.ListWorkflows(ctx, connect.NewRequest(&workflowv1.ListWorkflowsRequest{

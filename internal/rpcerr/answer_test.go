@@ -55,7 +55,6 @@ func TestWrapCodes(t *testing.T) {
 		{agents.ErrScriptDirMissing, connect.CodeFailedPrecondition},
 		{agents.ErrScriptAlreadyRunning, connect.CodeFailedPrecondition},
 		{agents.ErrWorkflowHasSchedules, connect.CodeFailedPrecondition},
-		{agents.ErrScheduleHasAgents, connect.CodeFailedPrecondition},
 		{agents.ErrAdoptNeedsWorktree, connect.CodeFailedPrecondition},
 		{agents.ErrAdoptBranchInUse, connect.CodeFailedPrecondition},
 		{agents.ErrParentStillArchived, connect.CodeFailedPrecondition},

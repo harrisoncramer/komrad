@@ -262,8 +262,7 @@ func (s *ScheduleStore) ListInWorkflow(ctx context.Context, workflowID string) (
 	return schedules, nil
 }
 
-// Delete permanently removes a schedule, which the caller clears off its launched agents
-// first.
+// Delete permanently removes a schedule, and the database clears it off the agents it launched.
 func (s *ScheduleStore) Delete(ctx context.Context, id string) error {
 	if !store.IsID(id) {
 		return nil

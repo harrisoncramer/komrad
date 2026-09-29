@@ -903,62 +903,6 @@ func TestDeleteWorkflow(t *testing.T) {
 	}
 }
 
-// TestDeleteWorkflowRefusesAScheduleAnotherWorkflowsAgentsHold pins the refusal landing before
-// any agent is cascaded to.
-func TestDeleteWorkflowRefusesAScheduleAnotherWorkflowsAgentsHold(t *testing.T) {
-	st := newStore(t)
-	tmux := tmuxtest.NewFake()
-	manager := newManager(tmux, st, "")
-	workflows := newWorkflowService(st, tmux)
-	ctx := t.Context()
-
-	launcher, err := workflows.NewWorkflow(ctx, workflowstore.Config{Name: "launcher"})
-	require.NoError(t, err)
-	moved, err := workflows.NewWorkflow(ctx, workflowstore.Config{Name: "moved"})
-	require.NoError(t, err)
-
-	schedule, err := st.Schedules.Create(ctx, schedulestore.Config{
-		Name:       "nightly",
-		Cron:       "0 3 * * *",
-		WorkflowID: launcher.ID,
-	})
-	require.NoError(t, err)
-
-	_, err = manager.launch.NewAgent(ctx, NewAgentParams{
-		Title:      "agent",
-		Dir:        t.TempDir(),
-		WorkflowID: launcher.ID,
-		ScheduleID: &schedule.ID,
-	})
-	require.NoError(t, err)
-
-	require.NoError(t, st.Schedules.Update(ctx, schedule.ID, schedulestore.Config{
-		Name:       "nightly",
-		Cron:       "0 3 * * *",
-		WorkflowID: moved.ID,
-	}))
-	require.NoError(t, st.Schedules.Archive(ctx, schedule.ID))
-
-	_, err = manager.launch.NewAgent(ctx, NewAgentParams{
-		Title:      "inside",
-		Dir:        t.TempDir(),
-		WorkflowID: moved.ID,
-	})
-	require.NoError(t, err)
-
-	require.NoError(t, workflows.ArchiveWorkflow(ctx, moved.ID))
-
-	require.ErrorIs(t, workflows.DeleteWorkflow(ctx, moved.ID), ErrScheduleHasAgents)
-
-	got, err := st.Workflows.GetIncludingArchived(ctx, moved.ID)
-	require.NoError(t, err)
-	assert.NotNil(t, got, "the workflow stays archived to be tried again")
-
-	all, err := st.Agents.ListAll(ctx)
-	require.NoError(t, err)
-	assert.Len(t, all, 2, "the agents inside it are left alone")
-}
-
 // TestDeleteWorkflowLeavesAStragglerAndItsWorkflowBehind covers a deprovisioner that will
 // not run: DeleteAgents cannot destroy that row, so the workflow it is still in cannot be
 // destroyed either, and neither is an error the caller sees.

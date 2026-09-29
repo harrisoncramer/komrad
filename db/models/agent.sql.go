@@ -1546,43 +1546,6 @@ func (q *Queries) ListLiveWorkflowAgents(ctx context.Context, workflowID string)
 	return items, nil
 }
 
-const listScheduleAgentNamesOutsideWorkflow = `-- name: ListScheduleAgentNamesOutsideWorkflow :many
-SELECT
-    name
-FROM
-    agents
-WHERE
-    schedule_id = $1
-    AND workflow_id <> $2
-ORDER BY
-    id DESC
-`
-
-type ListScheduleAgentNamesOutsideWorkflowParams struct {
-	ScheduleID *string
-	WorkflowID string
-}
-
-func (q *Queries) ListScheduleAgentNamesOutsideWorkflow(ctx context.Context, arg ListScheduleAgentNamesOutsideWorkflowParams) ([]string, error) {
-	rows, err := q.db.Query(ctx, listScheduleAgentNamesOutsideWorkflow, arg.ScheduleID, arg.WorkflowID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []string
-	for rows.Next() {
-		var name string
-		if err := rows.Scan(&name); err != nil {
-			return nil, err
-		}
-		items = append(items, name)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const listWatchedAgents = `-- name: ListWatchedAgents :many
 WITH watched AS (
     SELECT

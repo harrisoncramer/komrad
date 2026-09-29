@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 
 	"komrad/internal/store"
 
@@ -20,7 +19,6 @@ type emptyWorkflowGetDeleter interface {
 
 type workflowResidentLister interface {
 	ListArchivedInWorkflow(ctx context.Context, workflowID string) ([]agentstore.Agent, error)
-	ListNamesHoldingSchedule(ctx context.Context, scheduleID, workflowID string) ([]string, error)
 }
 
 type workflowScheduleListDeleter interface {
@@ -76,36 +74,15 @@ func (d *EmptyWorkflowDeleter) deleteIfEmpty(ctx context.Context, existing *work
 		return nil
 	}
 
-	schedules, err := d.heldSchedules(ctx, existing)
+	return d.deleteWithSchedules(ctx, existing)
+}
+
+func (d *EmptyWorkflowDeleter) deleteWithSchedules(ctx context.Context, existing *workflowstore.Workflow) error {
+	schedules, err := d.schedules.ListInWorkflow(ctx, existing.ID)
 	if err != nil {
 		return err
 	}
 
-	return d.deleteWithSchedules(ctx, existing, schedules)
-}
-
-// heldSchedules returns the archived schedules pointing at a workflow, refusing if any is still
-// held by an agent outside it.
-func (d *EmptyWorkflowDeleter) heldSchedules(ctx context.Context, existing *workflowstore.Workflow) ([]schedulestore.Schedule, error) {
-	schedules, err := d.schedules.ListInWorkflow(ctx, existing.ID)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, schedule := range schedules {
-		held, err := d.agents.ListNamesHoldingSchedule(ctx, schedule.ID, existing.ID)
-		if err != nil {
-			return nil, err
-		}
-		if len(held) > 0 {
-			return nil, fmt.Errorf("%w: %q is still held by %s", ErrScheduleHasAgents, schedule.Name, strings.Join(held, ", "))
-		}
-	}
-
-	return schedules, nil
-}
-
-func (d *EmptyWorkflowDeleter) deleteWithSchedules(ctx context.Context, existing *workflowstore.Workflow, schedules []schedulestore.Schedule) error {
 	for _, schedule := range schedules {
 		if err := d.schedules.Delete(ctx, schedule.ID); err != nil {
 			return err
