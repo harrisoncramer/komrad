@@ -480,10 +480,28 @@ func TestMerge(t *testing.T) {
 			wantMessage: "its merge status is locked paths",
 		},
 		{
-			name:        "a refusal gitlab will not explain",
+			name:        "a merge request gitlab will not read back gives the reason from the refusal",
 			answers:     map[string]answer{path + "/merge": refused},
 			wantErr:     forge.ErrNotMergeable,
-			wantMessage: "it did not say why",
+			wantMessage: "gitlab will not merge !7: 405 Method Not Allowed",
+		},
+		{
+			name: "a merge request that became mergeable after the refusal gives the reason from the refusal",
+			answers: map[string]answer{
+				path + "/merge": {status: http.StatusConflict, body: `{"message":"SHA does not match HEAD of source branch"}`},
+				path:            {body: `{"state":"opened","detailed_merge_status":"mergeable"}`},
+			},
+			wantErr:     forge.ErrNotMergeable,
+			wantMessage: "gitlab will not merge !7: SHA does not match HEAD of source branch",
+		},
+		{
+			name: "a merge request already being merged",
+			answers: map[string]answer{
+				path + "/merge": refused,
+				path:            {body: `{"state":"locked","detailed_merge_status":"checking"}`},
+			},
+			wantErr:     forge.ErrNotMergeable,
+			wantMessage: "gitlab will not merge !7: it is already being merged",
 		},
 		{
 			name:    "a credential gitlab will not let merge",

@@ -362,21 +362,21 @@ func (f *Forge) Merge(ctx context.Context, address string) error {
 	case http.StatusForbidden:
 		return forge.ErrUnauthorized.Saying("gitlab will not let the credential merge %s: %v", address, err)
 	case http.StatusMethodNotAllowed, http.StatusNotAcceptable, http.StatusConflict, http.StatusUnprocessableEntity:
-		return forge.ErrNotMergeable.Saying("gitlab will not merge !%d: %s", number, f.mergeRefusal(ctx, endpoint))
+		return forge.ErrNotMergeable.Saying("gitlab will not merge !%d: %s", number, f.mergeRefusal(ctx, endpoint, graphql.MessageOf(answer.Body)))
 	}
 
 	return err
 }
 
 // mergeRefusal is why GitLab says a merge request cannot merge, in a person's words.
-func (f *Forge) mergeRefusal(ctx context.Context, endpoint string) string {
+func (f *Forge) mergeRefusal(ctx context.Context, endpoint string, said string) string {
 	var standing struct {
 		State               string `json:"state"`
 		Draft               bool   `json:"draft"`
 		DetailedMergeStatus string `json:"detailed_merge_status"`
 	}
 	if _, err := f.client.Send(ctx, xhttp.JSONParams{Method: http.MethodGet, URL: endpoint}, &standing); err != nil {
-		return "it did not say why"
+		return said
 	}
 
 	switch standing.State {
@@ -385,7 +385,7 @@ func (f *Forge) mergeRefusal(ctx context.Context, endpoint string) string {
 	case "closed":
 		return "it was closed without merging"
 	case "locked":
-		return "it is locked"
+		return "it is already being merged"
 	}
 	if standing.Draft {
 		return "it is still a draft"
@@ -406,8 +406,8 @@ func (f *Forge) mergeRefusal(ctx context.Context, endpoint string) string {
 		return "it has not been approved"
 	case "discussions_not_resolved":
 		return "its threads are not all resolved"
-	case "":
-		return "it did not say why"
+	case "", "mergeable":
+		return said
 	}
 
 	return "its merge status is " + strings.ReplaceAll(standing.DetailedMergeStatus, "_", " ")
