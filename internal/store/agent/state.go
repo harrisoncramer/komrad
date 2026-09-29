@@ -322,7 +322,7 @@ func (s *AgentStore) ForgetPane(ctx context.Context, params ForgetPaneParams) (b
 // SetLastRebaseByID records what the latest rebase of an agent's checkout came to.
 func (s *AgentStore) SetLastRebaseByID(ctx context.Context, id string, rebase json.RawMessage) error {
 	if !store.IsID(id) {
-		return fmt.Errorf("%w: agent %q", store.ErrNotFound, id)
+		return store.ErrNotFound.Saying("no agent with id %q", id)
 	}
 
 	if err := s.queries.SetAgentLastRebaseByID(ctx, models.SetAgentLastRebaseByIDParams{ID: id, LastRebase: rebase}); err != nil {
