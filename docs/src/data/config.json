@@ -680,6 +680,13 @@
               "default": "[\"e\"]"
             },
             {
+              "key": "jump",
+              "path": "keybindings.review.jump",
+              "type": "array",
+              "description": "Jump from the comment under the cursor to the diff it was written against, with the\ncursor on it, or back to where you were from there.",
+              "default": "[\"J\"]"
+            },
+            {
               "key": "next_thread",
               "path": "keybindings.review.next_thread",
               "type": "array",
