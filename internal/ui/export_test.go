@@ -235,13 +235,14 @@ func NewKeyPress(key string) tea.KeyPressMsg {
 	return keyMsg(key)
 }
 
-// NewWatchLost is the message the panel hears when its watch stream ends.
+// IsPulse reports whether msg is a pulse tick.
 func IsPulse(msg tea.Msg) bool {
 	_, ok := msg.(pulseMsg)
 
 	return ok
 }
 
+// NewWatchLost is the message the panel hears when its watch stream ends.
 func NewWatchLost(err error) tea.Msg {
 	return watchLostMsg{err: err}
 }

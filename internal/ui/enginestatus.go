@@ -69,11 +69,11 @@ func (m model) engineLine(width int) string {
 		room = math.MaxInt
 	}
 
-	if flash, ok := m.messagesFlash(room); ok {
+	if flash, ok := m.drawMessagesFlash(room); ok {
 		return line + "  " + flash
 	}
 
-	tally := m.messagesTally()
+	tally := m.drawMessagesTally()
 	if tally != "" {
 		tally = "  " + tally
 	}

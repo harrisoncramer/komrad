@@ -93,7 +93,7 @@ func (m model) isMessagesPulseOn() bool {
 	return m.messages.pulse.isLit()
 }
 
-func (m model) messagesFlash(width int) (string, bool) {
+func (m model) drawMessagesFlash(width int) (string, bool) {
 	if !m.messages.flashing || len(m.messages.items) == 0 || width < 3 {
 		return "", false
 	}
@@ -107,7 +107,7 @@ func (m model) messagesFlash(width int) (string, bool) {
 	return paint.Panel.Style(kindTone(held.kind)).Render(kindIcon(m.glyphs, held.kind)) + " " + words.Render(paint.Clip(held.summary, width-2)), true
 }
 
-func (m model) messagesTally() string {
+func (m model) drawMessagesTally() string {
 	worst, count := messageInfo, 0
 	for _, held := range m.messages.items {
 		if held.kind < messageWarning {
@@ -127,22 +127,22 @@ func (m model) messagesTally() string {
 	return tally + "  " + dimStyle.Render(headLabel(m.keys.Messages.Open))
 }
 
-func messagesColumn() columnSpec {
+func buildMessagesColumn() columnSpec {
 	return columnSpec{floor: columnFloor}
 }
 
-func (m model) messagesWindow(width, rows int) docWindow {
+func (m model) buildMessagesWindow(width, rows int) docWindow {
 	body := max(width-messagesBodyIndent, 1)
 	count := len(m.messages.items)
 	at := m.messages.clampedCursor()
 
-	drawn := []string{m.messagesHeading(width, count, at), ""}
+	drawn := []string{m.drawMessagesHeading(width, count, at), ""}
 	if count == 0 {
 		drawn = append(drawn, dimStyle.Render(strings.Repeat(" ", messagesIndent)+"Komrad is running normally"))
 	}
 
 	start, end := 0, 0
-	for i, held := range m.messages.items {
+	for i := range m.messages.items {
 		if i > 0 {
 			drawn = append(drawn, "")
 		}
@@ -151,7 +151,7 @@ func (m model) messagesWindow(width, rows int) docWindow {
 			start = len(drawn)
 		}
 
-		drawn = append(drawn, m.messageRows(held, body, i == at, m.messages.flashed == i+1)...)
+		drawn = append(drawn, m.drawMessageRows(i, body)...)
 
 		if i == at {
 			end = len(drawn)
@@ -166,7 +166,7 @@ func (m model) messagesWindow(width, rows int) docWindow {
 	return doc
 }
 
-func (m model) messagesHeading(width, count, at int) string {
+func (m model) drawMessagesHeading(width, count, at int) string {
 	title := paint.Panel.Header().Render("messages")
 	if count == 0 {
 		return title
@@ -178,10 +178,12 @@ func (m model) messagesHeading(width, count, at int) string {
 	return title + strings.Repeat(" ", pad) + dimStyle.Render(tally)
 }
 
-func (m model) messageRows(held message, width int, hovered, flashed bool) []string {
+func (m model) drawMessageRows(at, width int) []string {
+	held := m.messages.items[at]
+	hovered := at == m.messages.clampedCursor()
 	summary := lipgloss.NewStyle()
 	switch {
-	case flashed:
+	case m.messages.flashed == at+1:
 		summary = flashFieldStyle(paint.Panel)
 	case hovered:
 		summary = summary.Bold(true)
@@ -235,7 +237,7 @@ func (m model) messagesCursorPrefix(hovered bool) string {
 	return caretGlyph(m.blinkingCaret(true))
 }
 
-func messageText(held message) string {
+func formatMessageText(held message) string {
 	parts := []string{held.summary, held.detail}
 	if held.hint != "" {
 		parts = append(parts, held.hint)
@@ -258,7 +260,7 @@ func (m model) copyMessage() (tea.Model, tea.Cmd) {
 	at := m.messages.clampedCursor()
 	m.messages.flashed = at + 1
 
-	return m, tea.Batch(m.copyCmd(messageText(m.messages.items[at])), flashRevertTick())
+	return m, tea.Batch(m.copyCmd(formatMessageText(m.messages.items[at])), flashRevertTick())
 }
 
 // pushMessage puts a message at the front of the stack and keeps the reader on whatever they

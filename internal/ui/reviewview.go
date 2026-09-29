@@ -102,7 +102,7 @@ func (r reviewScreen) layoutSidebar(s panelShared, above ...string) sidebarLayou
 // down to the review.
 func (r reviewScreen) layoutUnder(s panelShared, bar string, above []string) sidebarLayout {
 	help := s.draw.renderHelp(r.help(s))
-	record := s.draw.recordView(slices.Concat(above, []string{bar, help})...)
+	record := s.draw.drawRecord(slices.Concat(above, []string{bar, help})...)
 	chrome := slices.Concat(above, []string{bar, help, record})
 	spare := s.draw.listLines(chrome...)
 	head := r.headView(s, countYoursRoom(spare))

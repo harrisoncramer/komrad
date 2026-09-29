@@ -149,7 +149,7 @@ func (m model) screenColumnSplit() (columnSplit, bool) {
 // the screen's otherwise.
 func (m model) columnOf() (columnSpec, bool) {
 	if m.isMessagesFocused() {
-		return messagesColumn(), true
+		return buildMessagesColumn(), true
 	}
 
 	if m.form.isOpening() {
@@ -356,7 +356,7 @@ func (m model) dropStaleDocScroll() model {
 // columnDoc is the document the block is drawn from, scrolled where the reader left it.
 func (m model) columnDoc(split columnSplit) docWindow {
 	if m.isMessagesFocused() {
-		return m.messagesWindow(split.column, split.rows)
+		return m.buildMessagesWindow(split.column, split.rows)
 	}
 
 	doc := m.unscrolledDoc(split)

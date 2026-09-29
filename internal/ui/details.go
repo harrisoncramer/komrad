@@ -17,6 +17,10 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
+const detailsChromeLines = 2
+
+const legendRuleFloor = 2
+
 // flashFieldStyle marks a row or a field that has just been copied.
 func flashFieldStyle(palette paint.Palette) lipgloss.Style {
 	return lipgloss.NewStyle().Background(palette.Color(paint.ToneAccent)).Foreground(lipgloss.Color("0"))
@@ -406,8 +410,6 @@ func (m model) detailsWanted(held details) int {
 	return wanted
 }
 
-const detailsChromeLines = 2
-
 func (m model) detailsView() string {
 	held := m.hoveredDetails()
 	if !m.isDetailsDrawn(held) {
@@ -442,9 +444,7 @@ func (m model) detailsView() string {
 		m.detailsRule("")
 }
 
-const legendRuleFloor = 2
-
-func (m model) recordView(above ...string) string {
+func (m model) drawRecord(above ...string) string {
 	if record := m.detailsView(); record != "" {
 		return record
 	}
