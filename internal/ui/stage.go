@@ -51,13 +51,15 @@ func (m *model) applyStageTick(msg stageTickMsg) tea.Cmd {
 	case screenWorktrees:
 		m.worktrees.stage(m, m.shared())
 
-		return m.inspectWorktreeCmd()
+		return tea.Batch(m.inspectWorktreeCmd(), m.previewConversationCmd())
 	case screenDocuments:
 		m.documents.stage(m, m.shared())
 
 		return m.readDocumentsCmd()
 	case screenArchive:
 		m.archive.stage(m, m.shared())
+
+		return tea.Batch(m.previewConversationCmd(), m.inspectAgentWorktreeCmd(time.Now()))
 	case screenSchedules:
 		m.stageSelection()
 

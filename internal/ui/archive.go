@@ -45,7 +45,7 @@ func (a *archiveScreen) enter(h host, s panelShared, target screenTarget) tea.Cm
 
 	a.stage(h, s)
 
-	return nil
+	return h.waitToStage()
 }
 
 func (a *archiveScreen) update(h host, s panelShared, msg tea.Msg) tea.Cmd {
@@ -436,7 +436,7 @@ func (a *archiveScreen) doc(s panelShared) string {
 	case r.header:
 		return workflowContextMarkdown(r.workflow)
 	default:
-		return archiveDocument(r.item.Agent)
+		return archiveDocument(r.item.Agent) + "\n" + conversationPreviewMarkdown(s.conversation, r.item.Agent.ID)
 	}
 }
 

@@ -604,6 +604,39 @@ func TestWorktreesDocument(t *testing.T) {
 	})
 }
 
+// TestWorktreesConversationPreview covers the owner's conversation drawn under a worktree.
+func TestWorktreesConversationPreview(t *testing.T) {
+	t.Parallel()
+
+	t.Run("the owner's conversation is drawn under the git blocks", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openWorktrees(t)
+		answerLastTurns(harness, map[string][]*agentv1.Turn{
+			"archived": {{Role: "assistant", Content: "the reviewer approved"}},
+		})
+
+		moveToWorktree(t, harness, "reviewer")
+		harness.fireTimers()
+
+		document := readStageText(harness.readFrame())
+		assert.Contains(t, document, "Conversation Preview")
+		assert.Contains(t, document, "the reviewer approved")
+	})
+
+	t.Run("a worktree with no owner has no preview", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openWorktrees(t)
+		answerLastTurns(harness, nil)
+
+		moveToWorktree(t, harness, "agent/orphan")
+		harness.fireTimers()
+
+		assert.NotContains(t, readStageText(harness.readFrame()), "Conversation Preview")
+	})
+}
+
 // TestWorktreesInspection covers when the directory under the cursor is read.
 func TestWorktreesInspection(t *testing.T) {
 	t.Parallel()

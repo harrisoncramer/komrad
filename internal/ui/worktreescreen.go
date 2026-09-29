@@ -370,6 +370,17 @@ func worktreeWorkflowField(l listing, item worktreeItem) string {
 
 // doc is the markdown drawn beside the list for the row the cursor is on.
 func (w *worktreesScreen) doc(s panelShared) string {
+	doc := w.gitDoc(s)
+
+	row, ok := w.hovered(s)
+	if !ok || row.item.agent == nil {
+		return doc
+	}
+
+	return doc + "\n" + conversationPreviewMarkdown(s.conversation, row.item.agent.id)
+}
+
+func (w *worktreesScreen) gitDoc(s panelShared) string {
 	row, ok := rowAt(w.rows(s), w.cursor)
 	switch {
 	case !ok:

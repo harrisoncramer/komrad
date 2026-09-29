@@ -132,14 +132,7 @@ type searchHit struct {
 }
 
 func (h searchHit) lead() string {
-	speaker := h.role
-	switch h.role {
-	case "user":
-		speaker = "you"
-	case "assistant":
-		speaker = "agent"
-	}
-
+	speaker := speakerOf(h.role)
 	if speaker == "" {
 		return fmt.Sprintf("#%d", h.seq)
 	}

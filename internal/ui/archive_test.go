@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"komrad/internal/ui/paint"
+	"komrad/lib/xslice"
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
@@ -786,10 +787,7 @@ func TestArchiveSelection(t *testing.T) {
 		harness.watch(buildSnapshot(rows[0], rows[3]))
 		harness.press("r")
 
-		harness.assertSent(request{
-			procedure: agentv1connect.AgentServiceRestoreAgentsProcedure,
-			msg:       &agentv1.RestoreAgentsRequest{Ids: []string{"db"}},
-		})
+		harness.assertSentTo(agentv1connect.AgentServiceRestoreAgentsProcedure, &agentv1.RestoreAgentsRequest{Ids: []string{"db"}})
 	})
 
 	t.Run("selecting in the archive leaves the agents tree alone", func(t *testing.T) {
@@ -972,4 +970,119 @@ func newArchivedSchedule(id, name string) *schedulev1.Schedule {
 	schedule.ArchivedAt = timestamppb.New(time.Date(2026, 7, 30, 9, 0, 0, 0, time.UTC))
 
 	return schedule
+}
+
+// TestArchiveConversationPreview covers the end of a conversation drawn under an archived agent.
+func TestArchiveConversationPreview(t *testing.T) {
+	t.Run("the newest turns are asked for once the cursor rests and drawn under the document", func(t *testing.T) {
+		harness := openArchive(t, buildOneArchivedAgent()...)
+		answerLastTurns(harness, map[string][]*agentv1.Turn{
+			"a1": {
+				{Role: "user", Content: "ship the refactor"},
+				{Role: "assistant", Content: "the refactor is merged"},
+			},
+		})
+
+		harness.press("j")
+		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceGetLastTurnsProcedure), "nothing is asked while the cursor moves")
+
+		harness.fireTimers()
+
+		requireLastTurnsFor(t, harness, "a1")
+		frame := harness.readFrame()
+		for _, want := range []string{"Restore brings it back", "Conversation Preview", "you", "ship the refactor", "agent", "the refactor is merged"} {
+			assert.Contains(t, frame, want)
+		}
+	})
+
+	t.Run("an agent with nothing synced says so", func(t *testing.T) {
+		harness := openArchive(t, buildOneArchivedAgent()...)
+		answerLastTurns(harness, nil)
+
+		harness.press("j")
+		harness.fireTimers()
+
+		assert.Contains(t, harness.readFrame(), "no transcript yet")
+	})
+
+	t.Run("a refused read says why", func(t *testing.T) {
+		harness := openArchive(t, buildOneArchivedAgent()...)
+		harness.answer(agentv1connect.AgentServiceGetLastTurnsProcedure, refuseWith(connect.CodeInternal, "transcripts exploded"))
+
+		harness.press("j")
+		harness.fireTimers()
+
+		frame := harness.readFrame()
+		assert.Contains(t, frame, "could not read: transcripts exploded")
+		assert.Contains(t, frame, "Restore brings it back")
+	})
+
+	t.Run("a folder has no preview", func(t *testing.T) {
+		harness := openArchive(t, buildOneArchivedAgent()...)
+		harness.fireTimers()
+
+		assert.NotContains(t, harness.readFrame(), "Conversation Preview")
+		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceGetLastTurnsProcedure))
+	})
+
+	t.Run("an answer for an agent the cursor has left is not drawn", func(t *testing.T) {
+		harness := openArchive(t,
+			newLiveWorkflow("w1", "backend"),
+			newArchivedAgent("a1", "api-refactor", "w1"),
+			newArchivedAgent("a2", "billing", "w1"),
+		)
+		answerLastTurns(harness, map[string][]*agentv1.Turn{
+			"a1": {{Role: "assistant", Content: "words from api-refactor"}},
+			"a2": {{Role: "assistant", Content: "words from billing"}},
+		})
+		harness.hold(agentv1connect.AgentServiceGetLastTurnsProcedure)
+
+		harness.press("j")
+		harness.fireTimers()
+		harness.press("j")
+		harness.release(agentv1connect.AgentServiceGetLastTurnsProcedure)
+
+		frame := harness.readFrame()
+		assert.NotContains(t, frame, "words from api-refactor")
+		assert.NotContains(t, frame, "words from billing")
+		assert.Contains(t, frame, "reading the conversation")
+	})
+
+	t.Run("a listing that moves the cursor onto another agent asks for it", func(t *testing.T) {
+		harness := openArchive(t,
+			newLiveWorkflow("w1", "backend"),
+			newArchivedAgent("a1", "api-refactor", "w1"),
+			newArchivedAgent("a2", "billing", "w1"),
+		)
+		answerLastTurns(harness, nil)
+		harness.press("j")
+		harness.fireTimers()
+
+		requireLastTurnsFor(t, harness, "a2")
+
+		restored := newArchivedAgent("a2", "billing", "w1")
+		restored.ArchivedAt = nil
+		harness.watch(buildPuts(restored))
+
+		requireLastTurnsFor(t, harness, "a2", "a1")
+	})
+}
+
+func answerLastTurns(harness *panelHarness, turns map[string][]*agentv1.Turn) {
+	harness.answer(agentv1connect.AgentServiceGetLastTurnsProcedure, func(req connect.AnyRequest) (connect.AnyResponse, error) {
+		read, _ := req.Any().(*agentv1.GetLastTurnsRequest)
+
+		return connect.NewResponse(&agentv1.GetLastTurnsResponse{Turns: turns[read.GetAgentId()]}), nil
+	})
+}
+
+func requireLastTurnsFor(t *testing.T, harness *panelHarness, agentIDs ...string) {
+	t.Helper()
+
+	sent := xslice.Map(harness.readSent(agentv1connect.AgentServiceGetLastTurnsProcedure), func(msg proto.Message) string {
+		read, _ := msg.(*agentv1.GetLastTurnsRequest)
+
+		return read.GetAgentId()
+	})
+	require.Equal(t, agentIDs, sent)
 }
