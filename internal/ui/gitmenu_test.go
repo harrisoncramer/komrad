@@ -254,9 +254,3 @@ func newMergedPullRequest() *pullrequestv1.PullRequest {
 
 	return merged
 }
-
-func readOpenMessages(harness *panelHarness) string {
-	harness.press("ctrl+g")
-
-	return joinProse(splitLines(harness.readFrame()))
-}

@@ -3,6 +3,7 @@ package ui_test
 import (
 	"errors"
 	"regexp"
+	"slices"
 	"strings"
 	"testing"
 
@@ -47,6 +48,14 @@ func TestMessagesHeader(t *testing.T) {
 		settleFlash(harness)
 
 		assert.Equal(t, " local  ✗ 2  C-g", readEngineLine(harness.readFrame()))
+	})
+
+	t.Run("dismissing the message that landed ends its flash", func(t *testing.T) {
+		harness := openMessages(t, panelHarnessParams{sidebarWidth: 60})
+
+		harness.press("enter", "enter", "ctrl+g", "d", "esc")
+
+		assert.Equal(t, "\uf444 local  ✗ 1  C-g", readEngineLine(harness.readFrame()))
 	})
 
 	t.Run("an info message leaves nothing once the flash is over", func(t *testing.T) {
@@ -108,6 +117,22 @@ func TestMessagesPane(t *testing.T) {
 		tallies = append(tallies, readPaneTally(harness.readFrame()))
 
 		assert.Equal(t, []string{"1 of 3", "2 of 3", "3 of 3", "3 of 3", "2 of 3"}, tallies)
+	})
+
+	t.Run("the message under the cursor is drawn whole in a short pane", func(t *testing.T) {
+		for height := 9; height <= 16; height++ {
+			harness := openMessages(t, panelHarnessParams{height: height})
+			harness.press("enter", "enter", "enter", "ctrl+g")
+
+			for at := range 3 {
+				stage := readStage(harness.readFrame())
+				caret := slices.IndexFunc(stage, func(line string) bool { return strings.HasPrefix(strings.TrimSpace(line), "›") })
+				require.GreaterOrEqual(t, caret, 0, "message %d at height %d", at, height)
+				require.Less(t, caret+2, len(stage), "message %d at height %d", at, height)
+				assert.Contains(t, stage[caret+2], "komrad log "+traceID, "message %d at height %d", at, height)
+				harness.press("j")
+			}
+		}
 	})
 
 	t.Run("d dismisses the message under the cursor and the last one hands the keys back", func(t *testing.T) {
@@ -394,4 +419,10 @@ func TestMessagesRefusedWrites(t *testing.T) {
 
 		assert.Equal(t, "1 of 1", readPaneTally(harness.readFrame()), "the archive that landed pushed nothing onto the stack")
 	})
+}
+
+func readOpenMessages(harness *panelHarness) string {
+	harness.press("ctrl+g")
+
+	return joinProse(readStage(harness.readFrame()))
 }

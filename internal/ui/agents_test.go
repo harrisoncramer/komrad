@@ -678,7 +678,9 @@ func TestAgentsRecordCopy(t *testing.T) {
 
 		harness.press("ctrl+a", "y")
 		harness.fireTimers()
-		require.Contains(t, readOpenMessages(harness), "Could not copy")
+		opened := readOpenMessages(harness)
+		require.Contains(t, opened, "Could not copy")
+		require.Contains(t, opened, "no clipboard utility found")
 		harness.press("ctrl+g")
 		harness.fireTimers()
 		refused := harness.readFrame()

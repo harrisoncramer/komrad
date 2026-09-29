@@ -85,7 +85,7 @@ func (r reviewScreen) layoutSidebar(s panelShared, above ...string) sidebarLayou
 	// way before they cost the head or the record anything.
 	bare := r.layoutUnder(s, "", above)
 	barred := r.layoutUnder(s, s.draw.viewsBar(), above)
-	if barred.head != bare.head || barred.record != bare.record {
+	if barred.head != bare.head {
 		return bare
 	}
 	if strings.Count(barred.head, "\n") > barred.spare {

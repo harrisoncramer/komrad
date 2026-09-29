@@ -159,9 +159,9 @@ func (m model) messagesWindow(width, rows int) docWindow {
 	}
 
 	doc := docWindow{rows: drawn, markers: true}
-	if end > rows {
-		doc.top = doc.clamp(min(start, end+1-rows), rows)
-	}
+	shape := doc.shape()
+	shape.Top = shape.Reveal(max(end-1, 0), rows)
+	doc.top = shape.Reveal(start, rows)
 
 	return doc
 }
@@ -309,7 +309,7 @@ func (m model) isMessagesFocused() bool {
 	return m.messages.focused && m.canReadMessages()
 }
 
-// toggleMessagesFocus moves the keys between the list and the region.
+// toggleMessagesFocus opens the messages in the main pane, and closes them again.
 func (m model) toggleMessagesFocus() model {
 	if !m.messages.focused && len(m.messages.items) == 0 {
 		return m
@@ -369,6 +369,9 @@ func (m model) dismissMessage() model {
 	}
 
 	at := m.messages.clampedCursor()
+	if at == 0 {
+		m.messages.flashing = false
+	}
 	m.messages.items = slices.Delete(slices.Clone(m.messages.items), at, at+1)
 	m.messages.cursor = cursor.Clamp(at, len(m.messages.items))
 
@@ -382,11 +385,12 @@ func (m model) dismissMessage() model {
 func (m model) dismissAllMessages() model {
 	m.messages.items = nil
 	m.messages.cursor = 0
+	m.messages.flashing = false
 
 	return m.toggleMessagesFocus()
 }
 
-// pushMockMessage fills the region from the fixtures.
+// pushMockMessage pushes a message from the fixtures.
 func (m model) pushMockMessage() model {
 	m.pushMessage(mockMessages[len(m.messages.items)%len(mockMessages)])
 	m.restageScreen()
@@ -406,8 +410,7 @@ func (m model) messagesHelp() keyMap {
 	}
 }
 
-// messagesBinding is the messages key as the legend names it, which says what pressing it does
-// from where the reader is.
+// messagesBinding is the messages key as the legend names it.
 func (m model) messagesBinding() key.Binding {
 	desc := "messages"
 	if m.isMessagesFocused() {
