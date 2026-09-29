@@ -437,6 +437,11 @@ func TestMerge(t *testing.T) {
 			wantErr: forge.ErrNotMergeable,
 		},
 		{
+			name:    "a credential gitlab will not let merge",
+			answers: map[string]answer{path: {status: http.StatusForbidden, body: `{"message":"403 Forbidden"}`}},
+			wantErr: forge.ErrUnauthorized,
+		},
+		{
 			name:    "a merge request gitlab does not have",
 			wantErr: forge.ErrNotFound,
 		},

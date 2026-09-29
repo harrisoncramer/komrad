@@ -355,11 +355,16 @@ func (f *Forge) Merge(ctx context.Context, address string) error {
 	if err != nil {
 		return err
 	}
-	if len(answer.Errors) > 0 {
-		return forge.ErrNotMergeable.Saying("github refused to merge %s: %s", address, answer.Errors[0].Message)
+	for _, failure := range answer.Errors {
+		switch failure.Type {
+		case "UNPROCESSABLE":
+			return forge.ErrNotMergeable.Saying("github refused to merge %s: %s", address, failure.Message)
+		case "FORBIDDEN":
+			return forge.ErrUnauthorized.Saying("github will not let the credential merge %s: %s", address, failure.Message)
+		}
 	}
 
-	return nil
+	return failureOf(answer, "")
 }
 
 // listPullRequests reads one page of a repository's pullRequests connection, whichever query

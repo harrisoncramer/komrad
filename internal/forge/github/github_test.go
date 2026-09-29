@@ -403,6 +403,14 @@ func TestMerge(t *testing.T) {
 			wantErr: forge.ErrNotMergeable,
 		},
 		{
+			name: "a credential github will not let merge",
+			answers: map[string]answer{
+				"MergeTarget": target,
+				"Merge":       {body: `{"data":{"mergePullRequest":null},"errors":[{"type":"FORBIDDEN","path":["mergePullRequest"],"message":"Resource not accessible by integration"}]}`},
+			},
+			wantErr: forge.ErrUnauthorized,
+		},
+		{
 			name: "a pull request github does not have",
 			answers: map[string]answer{
 				"MergeTarget": {body: data(`{"repository":{"viewerDefaultMergeMethod":"MERGE","pullRequest":null}}`)},

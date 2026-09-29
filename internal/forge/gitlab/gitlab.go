@@ -340,7 +340,7 @@ func (f *Forge) Get(ctx context.Context, address string) (forge.PullRequest, err
 	return data.Project.MergeRequest.toPullRequest(false), nil
 }
 
-// Merge accepts the merge request over REST, which merges the way the project is set to.
+// Merge accepts the merge request the way the project is set to merge.
 func (f *Forge) Merge(ctx context.Context, address string) error {
 	path, number, err := parseMergeRequestURL(address)
 	if err != nil {
@@ -351,18 +351,20 @@ func (f *Forge) Merge(ctx context.Context, address string) error {
 		Method: http.MethodPut,
 		URL:    fmt.Sprintf("%s/projects/%s/merge_requests/%d/merge", f.client.API(), url.PathEscape(path), number),
 	}, nil)
-	if answer.Status == http.StatusNotFound {
-		return fmt.Errorf("%w: gitlab has no merge request %d in %s, which is also its answer for a project the credential cannot see", forge.ErrNotFound, number, path)
-	}
-	if err != nil {
-		if answer.Status >= http.StatusBadRequest && answer.Status < http.StatusInternalServerError && fail.Of(err) == nil {
-			return forge.ErrNotMergeable.Saying("gitlab refused to merge %s: %s", address, err)
-		}
-
+	if errors.Is(err, forge.ErrThrottled) {
 		return err
 	}
 
-	return nil
+	switch answer.Status {
+	case http.StatusNotFound:
+		return fmt.Errorf("%w: gitlab has no merge request %d in %s, which is also its answer for a project the credential cannot see", forge.ErrNotFound, number, path)
+	case http.StatusForbidden:
+		return forge.ErrUnauthorized.Saying("gitlab will not let the credential merge %s: %v", address, err)
+	case http.StatusMethodNotAllowed, http.StatusNotAcceptable, http.StatusConflict, http.StatusUnprocessableEntity:
+		return forge.ErrNotMergeable.Saying("gitlab refused to merge %s: %v", address, err)
+	}
+
+	return err
 }
 
 // Standings reads where the reviews and the head pipeline of up to fifty merge requests stand,
