@@ -380,7 +380,7 @@ func TestMerge(t *testing.T) {
 	t.Parallel()
 
 	const address = "https://github.com/harrisoncramer/komrad/pull/742"
-	target := answer{body: data(`{"repository":{"viewerDefaultMergeMethod":"SQUASH","pullRequest":{"id":"PR_742"}}}`)}
+	target := answer{body: data(`{"repository":{"viewerDefaultMergeMethod":"SQUASH","pullRequest":{"id":"PR_742","state":"OPEN"}}}`)}
 
 	tests := []struct {
 		name    string
@@ -409,6 +409,16 @@ func TestMerge(t *testing.T) {
 				"Merge":       {body: `{"data":{"mergePullRequest":null},"errors":[{"type":"FORBIDDEN","path":["mergePullRequest"],"message":"Resource not accessible by integration"}]}`},
 			},
 			wantErr: forge.ErrUnauthorized,
+		},
+		{
+			name:    "a pull request that has already merged is refused before github is asked to merge it",
+			answers: map[string]answer{"MergeTarget": {body: data(`{"repository":{"viewerDefaultMergeMethod":"MERGE","pullRequest":{"id":"PR_742","state":"MERGED"}}}`)}},
+			wantErr: forge.ErrNotMergeable,
+		},
+		{
+			name:    "a closed pull request is refused before github is asked to merge it",
+			answers: map[string]answer{"MergeTarget": {body: data(`{"repository":{"viewerDefaultMergeMethod":"MERGE","pullRequest":{"id":"PR_742","state":"CLOSED"}}}`)}},
+			wantErr: forge.ErrNotMergeable,
 		},
 		{
 			name: "a pull request github does not have",

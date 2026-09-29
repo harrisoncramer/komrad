@@ -37,7 +37,7 @@ const getQuery = `query Get($owner: String!, $name: String!, $number: Int!) {
 ` + pullRequestFragment
 
 const mergeTargetQuery = `query MergeTarget($owner: String!, $name: String!, $number: Int!) {
-  repository(owner: $owner, name: $name) { viewerDefaultMergeMethod pullRequest(number: $number) { id } }
+  repository(owner: $owner, name: $name) { viewerDefaultMergeMethod pullRequest(number: $number) { id state } }
 }`
 
 const mergeMutation = `mutation Merge($id: ID!, $method: PullRequestMergeMethod!) {
@@ -328,7 +328,8 @@ func (f *Forge) Merge(ctx context.Context, address string) error {
 		Repository *struct {
 			ViewerDefaultMergeMethod string `json:"viewerDefaultMergeMethod"`
 			PullRequest              *struct {
-				ID string `json:"id"`
+				ID    string `json:"id"`
+				State string `json:"state"`
 			} `json:"pullRequest"`
 		} `json:"repository"`
 	}
@@ -346,6 +347,12 @@ func (f *Forge) Merge(ctx context.Context, address string) error {
 	if data.Repository == nil || data.Repository.PullRequest == nil {
 		return fmt.Errorf("%w: github has no pull request %d in %s/%s", forge.ErrNotFound, number, owner, name)
 	}
+	switch data.Repository.PullRequest.State {
+	case "MERGED":
+		return forge.ErrNotMergeable.Saying("github will not merge #%d: it has already merged", number)
+	case "CLOSED":
+		return forge.ErrNotMergeable.Saying("github will not merge #%d: it was closed without merging", number)
+	}
 
 	var merged struct{}
 	answer, err = f.client.Query(ctx, mergeMutation, map[string]any{
@@ -358,7 +365,7 @@ func (f *Forge) Merge(ctx context.Context, address string) error {
 	for _, failure := range answer.Errors {
 		switch failure.Type {
 		case "UNPROCESSABLE":
-			return forge.ErrNotMergeable.Saying("github refused to merge %s: %s", address, failure.Message)
+			return forge.ErrNotMergeable.Saying("github will not merge #%d: %s", number, failure.Message)
 		case "FORBIDDEN":
 			return forge.ErrUnauthorized.Saying("github will not let the credential merge %s: %s", address, failure.Message)
 		}

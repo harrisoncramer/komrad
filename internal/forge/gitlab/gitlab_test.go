@@ -419,26 +419,75 @@ func TestMerge(t *testing.T) {
 
 	const (
 		address = "https://gitlab.com/harrisoncramer/komrad/-/merge_requests/7"
-		path    = "/projects/harrisoncramer%2Fkomrad/merge_requests/7/merge"
+		path    = "/projects/harrisoncramer%2Fkomrad/merge_requests/7"
 	)
 
+	refused := answer{status: http.StatusMethodNotAllowed, body: `{"message":"405 Method Not Allowed"}`}
+
 	tests := []struct {
-		name    string
-		answers map[string]answer
-		wantErr error
+		name        string
+		answers     map[string]answer
+		wantErr     error
+		wantMessage string
 	}{
 		{
 			name:    "the merge request is accepted",
-			answers: map[string]answer{path: {body: `{"iid":7,"state":"merged"}`}},
+			answers: map[string]answer{path + "/merge": {body: `{"iid":7,"state":"merged"}`}},
 		},
 		{
-			name:    "a merge request gitlab will not merge",
-			answers: map[string]answer{path: {status: http.StatusMethodNotAllowed, body: `{"message":"405 Method Not Allowed"}`}},
-			wantErr: forge.ErrNotMergeable,
+			name: "a merge request that has already merged",
+			answers: map[string]answer{
+				path + "/merge": refused,
+				path:            {body: `{"state":"merged","detailed_merge_status":"not_open"}`},
+			},
+			wantErr:     forge.ErrNotMergeable,
+			wantMessage: "gitlab will not merge !7: it has already merged",
+		},
+		{
+			name: "a merge request with conflicts",
+			answers: map[string]answer{
+				path + "/merge": {status: http.StatusNotAcceptable, body: `{"message":"Branch cannot be merged"}`},
+				path:            {body: `{"state":"opened","detailed_merge_status":"conflict"}`},
+			},
+			wantErr:     forge.ErrNotMergeable,
+			wantMessage: "gitlab will not merge !7: it has merge conflicts",
+		},
+		{
+			name: "a merge request gitlab is still checking",
+			answers: map[string]answer{
+				path + "/merge": refused,
+				path:            {body: `{"state":"opened","detailed_merge_status":"checking"}`},
+			},
+			wantErr:     forge.ErrNotMergeable,
+			wantMessage: "gitlab is still checking whether it can merge",
+		},
+		{
+			name: "a draft gitlab is rechecking",
+			answers: map[string]answer{
+				path + "/merge": refused,
+				path:            {body: `{"state":"opened","draft":true,"detailed_merge_status":"checking"}`},
+			},
+			wantErr:     forge.ErrNotMergeable,
+			wantMessage: "gitlab will not merge !7: it is still a draft",
+		},
+		{
+			name: "a merge status komrad has no words for",
+			answers: map[string]answer{
+				path + "/merge": refused,
+				path:            {body: `{"state":"opened","detailed_merge_status":"locked_paths"}`},
+			},
+			wantErr:     forge.ErrNotMergeable,
+			wantMessage: "its merge status is locked paths",
+		},
+		{
+			name:        "a refusal gitlab will not explain",
+			answers:     map[string]answer{path + "/merge": refused},
+			wantErr:     forge.ErrNotMergeable,
+			wantMessage: "it did not say why",
 		},
 		{
 			name:    "a credential gitlab will not let merge",
-			answers: map[string]answer{path: {status: http.StatusForbidden, body: `{"message":"403 Forbidden"}`}},
+			answers: map[string]answer{path + "/merge": {status: http.StatusForbidden, body: `{"message":"403 Forbidden"}`}},
 			wantErr: forge.ErrUnauthorized,
 		},
 		{
@@ -454,10 +503,11 @@ func TestMerge(t *testing.T) {
 			f, _, fake := serve(t, tt.answers)
 
 			err := f.Merge(t.Context(), address)
-			assert.Equal(t, http.MethodPut, fake.last(t).Method)
-			assert.Equal(t, path, fake.last(t).Path)
+			assert.Equal(t, http.MethodPut, fake.calls[0].Method)
+			assert.Equal(t, path+"/merge", fake.calls[0].Path)
 			if tt.wantErr != nil {
 				require.ErrorIs(t, err, tt.wantErr)
+				assert.Contains(t, err.Error(), tt.wantMessage)
 
 				return
 			}

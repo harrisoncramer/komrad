@@ -347,9 +347,10 @@ func (f *Forge) Merge(ctx context.Context, address string) error {
 		return err
 	}
 
+	endpoint := fmt.Sprintf("%s/projects/%s/merge_requests/%d", f.client.API(), url.PathEscape(path), number)
 	answer, err := f.client.Send(ctx, xhttp.JSONParams{
 		Method: http.MethodPut,
-		URL:    fmt.Sprintf("%s/projects/%s/merge_requests/%d/merge", f.client.API(), url.PathEscape(path), number),
+		URL:    endpoint + "/merge",
 	}, nil)
 	if errors.Is(err, forge.ErrThrottled) {
 		return err
@@ -361,10 +362,55 @@ func (f *Forge) Merge(ctx context.Context, address string) error {
 	case http.StatusForbidden:
 		return forge.ErrUnauthorized.Saying("gitlab will not let the credential merge %s: %v", address, err)
 	case http.StatusMethodNotAllowed, http.StatusNotAcceptable, http.StatusConflict, http.StatusUnprocessableEntity:
-		return forge.ErrNotMergeable.Saying("gitlab refused to merge %s: %v", address, err)
+		return forge.ErrNotMergeable.Saying("gitlab will not merge !%d: %s", number, f.mergeRefusal(ctx, endpoint))
 	}
 
 	return err
+}
+
+// mergeRefusal is why GitLab says a merge request cannot merge, in a person's words.
+func (f *Forge) mergeRefusal(ctx context.Context, endpoint string) string {
+	var standing struct {
+		State               string `json:"state"`
+		Draft               bool   `json:"draft"`
+		DetailedMergeStatus string `json:"detailed_merge_status"`
+	}
+	if _, err := f.client.Send(ctx, xhttp.JSONParams{Method: http.MethodGet, URL: endpoint}, &standing); err != nil {
+		return "it did not say why"
+	}
+
+	switch standing.State {
+	case "merged":
+		return "it has already merged"
+	case "closed":
+		return "it was closed without merging"
+	case "locked":
+		return "it is locked"
+	}
+	if standing.Draft {
+		return "it is still a draft"
+	}
+
+	switch standing.DetailedMergeStatus {
+	case "unchecked", "checking", "approvals_syncing", "preparing":
+		return "gitlab is still checking whether it can merge, so try again in a moment"
+	case "conflict":
+		return "it has merge conflicts"
+	case "draft_status":
+		return "it is still a draft"
+	case "need_rebase":
+		return "it has to be rebased onto its target first"
+	case "ci_must_pass", "ci_still_running":
+		return "its pipeline has to pass first"
+	case "not_approved", "requested_changes":
+		return "it has not been approved"
+	case "discussions_not_resolved":
+		return "its threads are not all resolved"
+	case "":
+		return "it did not say why"
+	}
+
+	return "its merge status is " + strings.ReplaceAll(standing.DetailedMergeStatus, "_", " ")
 }
 
 // Standings reads where the reviews and the head pipeline of up to fifty merge requests stand,
