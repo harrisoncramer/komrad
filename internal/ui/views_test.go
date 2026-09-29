@@ -149,3 +149,80 @@ func TestViews(t *testing.T) {
 		assert.Contains(t, readLegend(harness.readFrame()), "a agents • r archive • esc done")
 	})
 }
+
+// TestTrail covers the trail under the switcher, from the view that is up to the row the cursor is
+// on.
+func TestTrail(t *testing.T) {
+	tests := []struct {
+		name      string
+		press     []string
+		wantTrail string
+	}{
+		{
+			name:      "the agents trail runs to the hovered agent",
+			press:     []string{"G"},
+			wantTrail: "agents › agent39",
+		},
+		{
+			name:      "the query trail names the view alone before a search",
+			press:     []string{"o", "q"},
+			wantTrail: "query",
+		},
+		{
+			name:      "the schedules trail runs to the hovered schedule",
+			press:     []string{"o", "s", "G"},
+			wantTrail: "schedules › agent39",
+		},
+		{
+			name:      "the archive trail runs to the hovered agent",
+			press:     []string{"o", "r", "G"},
+			wantTrail: "archive › agent39",
+		},
+		{
+			name:      "the worktrees trail runs to the hovered worktree",
+			press:     []string{"o", "w", "G"},
+			wantTrail: "worktrees › agent/agent39",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			harness := openCrowded(t, panelHarnessParams{})
+
+			harness.press(tt.press...)
+
+			assert.Equal(t, tt.wantTrail, readTrail(harness.readFrame()))
+		})
+	}
+
+	t.Run("an empty view's trail is the view alone", func(t *testing.T) {
+		harness := openAgents(t)
+
+		assert.Equal(t, "agents", readTrail(harness.readFrame()))
+	})
+
+	t.Run("the trail follows the cursor", func(t *testing.T) {
+		harness := openCrowded(t, panelHarnessParams{})
+
+		harness.press("G")
+		require.Equal(t, "agents › agent39", readTrail(harness.readFrame()))
+
+		harness.press("k")
+		assert.Equal(t, "agents › agent38", readTrail(harness.readFrame()))
+	})
+
+	t.Run("a pane too short for the switcher leaves the hovered row off", func(t *testing.T) {
+		harness := openCrowded(t, panelHarnessParams{height: 16})
+
+		assert.NotContains(t, harness.readFrame(), "agents ›")
+	})
+
+	t.Run("the trail is drawn in one muted tone", func(t *testing.T) {
+		harness := openCrowded(t, panelHarnessParams{})
+
+		harness.press("o", "s", "G")
+
+		muted := paint.Panel.Style(paint.ToneMuted)
+		assert.Contains(t, harness.readRawFrame(), muted.Render("schedules › agent39"))
+	})
+}

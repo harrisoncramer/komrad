@@ -26,7 +26,7 @@ const (
 	TextCursor = "▏"
 	// Separator sits between two things said on the same line.
 	Separator = "·"
-	// Crumb sits between two steps of the trail down to an open page.
+	// Crumb sits between two steps of the trail down to the row or page the cursor is on.
 	Crumb = "›"
 	// Up points at what lies above, or ahead.
 	Up = "↑"

@@ -564,6 +564,14 @@ func (a *archiveScreen) hoveredKey(s panelShared) string {
 	return a.list().hovered(s)
 }
 
+func (a *archiveScreen) hoveredName(s panelShared) string {
+	if a.kind == archiveSchedules {
+		return a.scheduleList().hoveredName(s)
+	}
+
+	return a.list().hoveredName(s)
+}
+
 func (a *archiveScreen) placeAt(h host, s panelShared, key string) {
 	if a.kind == archiveSchedules {
 		a.scheduleList().place(h, s, key)

@@ -45,25 +45,24 @@ func (m model) isViewsOpen() bool {
 	return m.viewsOpen && m.screen.picksViews()
 }
 
-// viewsBar is the logo and the switcher drawn over a list, and under them the trail down to a
-// page opened from a view.
+// viewsBar is the logo and the switcher drawn over a list, and under them the trail down to the
+// row or page the cursor is on.
 func (m model) viewsBar() string {
+	short := m.height > 0 && m.height < viewsBarFloor
+
 	var lines []string
-	if m.height <= 0 || m.height >= viewsBarFloor {
+	if !short {
 		lines = m.switcherLines()
 	}
-	trail, _, hasTrail := m.activeCrumbs()
-	if hasTrail {
+	trail, _, opened := m.activeCrumbs()
+	if !short || opened {
 		lines = append(lines, trail.view(paint.Panel, m.paneWidth()))
 	}
 	if len(lines) == 0 {
 		return ""
 	}
-	if hasTrail {
-		return strings.Join(lines, "\n") + "\n"
-	}
 
-	return strings.Join(lines, "\n") + "\n\n"
+	return strings.Join(lines, "\n") + "\n"
 }
 
 // switcherLines is the logo and the row of views.

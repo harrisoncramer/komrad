@@ -2616,7 +2616,7 @@ func findRecordCursor(frame string) int {
 }
 
 func countCursors(frame string) int {
-	return strings.Count(frame, "›")
+	return strings.Count(strings.Join(readBelowViews(frame), "\n"), "›")
 }
 
 func isBlank(line string) bool {

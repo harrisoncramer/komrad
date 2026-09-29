@@ -426,6 +426,10 @@ func (a *agentsScreen) hoveredKey(s panelShared) string {
 	return a.list().hovered(s)
 }
 
+func (a *agentsScreen) hoveredName(s panelShared) string {
+	return a.list().hoveredName(s)
+}
+
 func (a *agentsScreen) placeAt(h host, s panelShared, key string) {
 	a.list().place(h, s, key)
 }
