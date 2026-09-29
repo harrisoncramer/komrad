@@ -11,6 +11,9 @@
 
 
 
+
+
+
 [90m─────────────────────────────────────────[m
   [90mname      [m treeview
   [90magent     [m claude
@@ -21,8 +24,5 @@
   [90magent_id  [m live
   [90msession_id[m —
 
-[90m─────────────────────────────────────────[m
-[92m✓[m No messages
-[90m  Komrad is running normally[m
 [90m─────────────────────────────────────────[m
 [90menter[m [90mopen[m[90m • [m[90m?[m [90mshow help[m [90m…[m

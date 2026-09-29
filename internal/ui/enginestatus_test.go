@@ -106,22 +106,24 @@ func TestEngineDot(t *testing.T) {
 		harness.send(ui.NewWatchLost(errors.New("connection refused")))
 		harness.watch(buildCrowdedSnapshot(""))
 
-		frame := harness.readFrame()
-		assert.Equal(t, "\uf444 remote a41c9e0", readEngineLine(frame))
+		assert.Contains(t, readEngineLine(harness.readFrame()), "The engine is running different code")
 		assert.Contains(t, harness.readRawFrame(), paint.Panel.Style(paint.ToneWarning).Render("\uf444")+" ")
-		assert.Contains(t, frame, "The engine is running different code")
+		settleFlash(harness)
+		assert.Equal(t, "\uf444 remote a41c9e0  ✗ 2  C-g", readEngineLine(harness.readFrame()))
 
 		harness.send(ui.NewWatchLost(errors.New("connection refused")))
 		harness.watch(buildCrowdedSnapshot(""))
-
-		frame = harness.readFrame()
-		assert.Contains(t, frame, "+2", "the stream lost twice and the mismatch")
-		assert.NotContains(t, frame, "+3", "a mismatch that stayed is not warned of again")
+		settleFlash(harness)
+		assert.Equal(t, "\uf444 remote a41c9e0  ✗ 3  C-g", readEngineLine(harness.readFrame()), "a mismatch that stayed is not warned of again")
 	})
 }
 
 func readEngineLine(frame string) string {
-	engine, _, _ := strings.Cut(splitLines(frame)[1], "│")
+	return readEngineRow(frame, 1)
+}
 
-	return strings.TrimSpace(engine)
+func readEngineRow(frame string, row int) string {
+	line, _, _ := strings.Cut(splitLines(frame)[row], "│")
+
+	return strings.TrimSpace(line)
 }

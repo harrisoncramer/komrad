@@ -226,6 +226,11 @@ set  = ["m"]
 # go back to where the last jump left from.
 jump = ["'"]
 
+# The messages komrad pushed, read in the main pane.
+[keybindings.messages]
+# Open every message in the main pane, and close it again.
+open = ["ctrl+g"]
+
 # Navigation, shared by every menu so movement is the same everywhere.
 [keybindings.nav]
 # Jump to the last row.

@@ -526,8 +526,7 @@ type drawer interface {
 	cycleBinding() key.Binding
 	listLines(chrome ...string) int
 	listPane(width int) listPane
-	detailsView() string
-	messagesRegion(record, help string, above ...string) string
+	drawRecord(above ...string) string
 
 	// The record under a screen composing its own sidebar, measured against the legend and the
 	// head that screen draws.
@@ -572,9 +571,10 @@ func (m model) welcomeView(params screenListParams, text string) string {
 
 func (m model) listChrome(params screenListParams) (string, string) {
 	header := m.tabbedHeader(params.title, params.tally)
-	record, help := m.detailsView(), m.renderHelp(m.listHelpOf(params), header)
+	help := m.renderHelp(m.listHelpOf(params), header)
+	record := m.drawRecord(header, help)
 
-	return header, record + m.messagesRegion(record, help, header) + help
+	return header, record + help
 }
 
 // screenListView draws a screen's list under its header with its record and its legend under
@@ -645,7 +645,6 @@ func (m model) listHelp(own keyMap) keyMap {
 			tabs,
 			[]key.Binding{
 				m.cycleBinding(),
-				m.messagesBinding(),
 			},
 			m.fullGlobalHelp(),
 		),

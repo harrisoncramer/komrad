@@ -138,7 +138,7 @@ func (m model) columnSplit() (columnSplit, bool) {
 // screenColumnSplit is the split a screen's own block is drawn across, refused while a form is
 // up.
 func (m model) screenColumnSplit() (columnSplit, bool) {
-	if m.form.isOpening() {
+	if m.form.isOpening() || m.isMessagesFocused() {
 		return columnSplit{}, false
 	}
 
@@ -148,6 +148,10 @@ func (m model) screenColumnSplit() (columnSplit, bool) {
 // columnOf is the block the panel draws beside its list, which is the form's while one is up and
 // the screen's otherwise.
 func (m model) columnOf() (columnSpec, bool) {
+	if m.isMessagesFocused() {
+		return buildMessagesColumn(), true
+	}
+
 	if m.form.isOpening() {
 		return formColumn(m.form.kind)
 	}
@@ -351,6 +355,10 @@ func (m model) dropStaleDocScroll() model {
 
 // columnDoc is the document the block is drawn from, scrolled where the reader left it.
 func (m model) columnDoc(split columnSplit) docWindow {
+	if m.isMessagesFocused() {
+		return m.buildMessagesWindow(split.column, split.rows)
+	}
+
 	doc := m.unscrolledDoc(split)
 	doc.top = m.docScroll.top
 
@@ -360,11 +368,6 @@ func (m model) columnDoc(split columnSplit) docWindow {
 // unscrolledDoc is the document the block is drawn from, and empty on a screen whose block is not
 // one.
 func (m model) unscrolledDoc(split columnSplit) docWindow {
-	// The region draws the message in its own rows, except under a form, which covers them.
-	if m.isMessagesFocused() && m.form.isOpening() {
-		return m.messagesBlock(split)
-	}
-
 	spec, ok := m.columnOf()
 	if ok && spec.docRows != nil {
 		return docWindow{

@@ -3,6 +3,7 @@ package ui
 import (
 	"context"
 	"errors"
+	"math"
 	"time"
 
 	"komrad/config"
@@ -63,16 +64,30 @@ func (m model) engineLine(width int) string {
 	muted := paint.Panel.Style(paint.ToneMuted)
 	line := paint.Panel.Style(m.engineTone()).Render(m.glyphs.Spell(glyph.Engine)) + " " + muted.Render(engineTitle(m.engineStatus.Name))
 
+	room := width - ansi.StringWidth(line) - 2
+	if width <= 0 {
+		room = math.MaxInt
+	}
+
+	if flash, ok := m.drawMessagesFlash(room); ok {
+		return line + "  " + flash
+	}
+
+	tally := m.drawMessagesTally()
+	if tally != "" {
+		tally = "  " + tally
+	}
+
 	if m.engineBuild.Commit == "" {
-		return line
+		return line + tally
 	}
 
 	withCommit := line + " " + muted.Render(m.engineBuild.Commit)
-	if width > 0 && ansi.StringWidth(withCommit) > width {
-		return line
+	if width > 0 && ansi.StringWidth(withCommit+tally) > width {
+		return line + tally
 	}
 
-	return withCommit
+	return withCommit + tally
 }
 
 // engineBuildWait bounds one read of what the engine runs.

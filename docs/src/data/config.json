@@ -564,6 +564,20 @@
           "sections": []
         },
         {
+          "path": "keybindings.messages",
+          "description": "The messages komrad pushed, read in the main pane.",
+          "settings": [
+            {
+              "key": "open",
+              "path": "keybindings.messages.open",
+              "type": "array",
+              "description": "Open every message in the main pane, and close it again.",
+              "default": "[\"ctrl+g\"]"
+            }
+          ],
+          "sections": []
+        },
+        {
           "path": "keybindings.nav",
           "description": "Navigation, shared by every menu so movement is the same everywhere.",
           "settings": [

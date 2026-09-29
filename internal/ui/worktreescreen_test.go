@@ -290,7 +290,7 @@ func TestWorktreesDeleteAnswer(t *testing.T) {
 		{
 			name:   "declining queues nothing",
 			answer: "n",
-			want:   "No messages",
+			want:   "local",
 		},
 		{
 			name:     "confirming queues every directory that can go in one call",
@@ -314,7 +314,7 @@ func TestWorktreesDeleteAnswer(t *testing.T) {
 
 			harness.assertSentTo(worktreev1connect.WorktreeServiceDeleteWorktreesProcedure, tt.wantSent...)
 			frame := harness.readFrame()
-			assert.Contains(t, frame, tt.want)
+			assert.True(t, strings.HasSuffix(readEngineLine(frame), tt.want), readEngineLine(frame))
 			assert.NotContains(t, frame, "Delete 4 worktrees?")
 		})
 	}

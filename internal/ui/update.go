@@ -111,13 +111,13 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	// Reached before the form and before a held write.
-	if isKey && m.isMessagesRegion() {
+	if isKey && m.canReadMessages() {
 		switch {
 		case m.isMessagesFocused() && m.isCycleKey(key.String()):
-			m = m.toggleMessagesFocus()
+			return m.toggleMessagesFocus(), nil
 		case m.isMessagesFocused():
 			return m.updateMessages(key)
-		case key.String() == messagesFocusKey:
+		case isBound(key.String(), m.keys.Messages.Open):
 			return m.toggleMessagesFocus(), nil
 		}
 	}
@@ -289,7 +289,7 @@ func (m model) routeGlobalKey(key tea.KeyPressMsg) (tea.Model, tea.Cmd, bool) {
 		return m.nudgeSidebar(sidebarStep), nil, true
 	}
 
-	if m.isMessagesRegion() && key.String() == messagesMockKey {
+	if m.isDetailsScreen() && m.canReadMessages() && key.String() == messagesMockKey {
 		return m.pushMockMessage(), nil, true
 	}
 
@@ -469,6 +469,8 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 		cmd := m.advancePulses()
 
 		return m, cmd, true
+	case messagesFlashDoneMsg:
+		return m.endMessagesFlash(msg), nil, true
 	case flashRevertMsg:
 		m.details.flashed = 0
 		m.messages.flashed = 0
