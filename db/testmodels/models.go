@@ -847,4 +847,6 @@ type Worktree struct {
 	Readable bool
 	// When git last wrote the directory's .git file, else the directory's own modification time.
 	Mtime pgtype.Timestamptz
+	// The directory's share of size_bytes, each hard linked file's blocks split evenly across its links, so a sum over directories counts a shared file at most once. Zero until measured and while size_error is set.
+	ShareBytes int64
 }

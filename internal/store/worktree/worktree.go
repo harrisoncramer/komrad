@@ -29,6 +29,7 @@ type Worktree struct {
 type Size struct {
 	Dir        string
 	Bytes      int64
+	Share      int64
 	MeasuredAt time.Time
 	// Error is why the last walk failed, empty when it did not.
 	Error string
@@ -94,6 +95,7 @@ func (s *WorktreeStore) RecordSize(ctx context.Context, size Size) error {
 	params := models.RecordWorktreeSizeParams{
 		Dir:        size.Dir,
 		SizeBytes:  size.Bytes,
+		ShareBytes: size.Share,
 		MeasuredAt: &size.MeasuredAt,
 	}
 	if size.Error != "" {
@@ -145,6 +147,7 @@ func worktreeFrom(row *models.ListWorktreesRow) Worktree {
 		worktree.Size = &Size{
 			Dir:        row.Dir,
 			Bytes:      row.SizeBytes,
+			Share:      row.ShareBytes,
 			MeasuredAt: *row.MeasuredAt,
 		}
 		if row.SizeError != nil {

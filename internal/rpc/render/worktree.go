@@ -21,6 +21,7 @@ func WatchedWorktree(stored worktreestore.Worktree) *worktreev1.WatchedWorktree 
 		worktree.SizeError = size.Error
 		if size.Error == "" {
 			worktree.SizeBytes = &size.Bytes
+			worktree.ShareBytes = &size.Share
 		}
 	}
 

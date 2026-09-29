@@ -40,6 +40,12 @@ table "worktrees" {
     default = 0
     comment = "Blocks taken rather than length, a hard linked file counted once. Zero until measured and while size_error is set."
   }
+  column "share_bytes" {
+    null    = false
+    type    = bigint
+    default = 0
+    comment = "The directory's share of size_bytes, each hard linked file's blocks split evenly across its links, so a sum over directories counts a shared file at most once. Zero until measured and while size_error is set."
+  }
   column "measured_at" {
     null    = true
     type    = timestamptz

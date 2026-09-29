@@ -195,7 +195,11 @@ type Worktree struct {
 	// .git file, else the directory's own modification time.
 	LastActiveAt string `protobuf:"bytes,10,opt,name=last_active_at,json=lastActiveAt,proto3" json:"last_active_at,omitempty"`
 	// Which delete path the directory takes.
-	Fate          WorktreeFate `protobuf:"varint,11,opt,name=fate,proto3,enum=worktree.v1.WorktreeFate" json:"fate,omitempty"`
+	Fate WorktreeFate `protobuf:"varint,11,opt,name=fate,proto3,enum=worktree.v1.WorktreeFate" json:"fate,omitempty"`
+	// The directory's share of size_bytes, each hard linked file's blocks split evenly across its
+	// links, so summing it over directories counts a file they share at most once. Unset with
+	// size_bytes.
+	ShareBytes    *int64 `protobuf:"varint,12,opt,name=share_bytes,json=shareBytes,proto3,oneof" json:"share_bytes,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -307,6 +311,13 @@ func (x *Worktree) GetFate() WorktreeFate {
 	return WorktreeFate_WORKTREE_FATE_UNSPECIFIED
 }
 
+func (x *Worktree) GetShareBytes() int64 {
+	if x != nil && x.ShareBytes != nil {
+		return *x.ShareBytes
+	}
+	return 0
+}
+
 // WatchedWorktree is a worktree as the filesystem holds it.
 type WatchedWorktree struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -327,7 +338,11 @@ type WatchedWorktree struct {
 	// in RFC 3339, empty when neither could be read.
 	ModifiedAt string `protobuf:"bytes,7,opt,name=modified_at,json=modifiedAt,proto3" json:"modified_at,omitempty"`
 	// Why the last walk failed, empty when it did not.
-	SizeError     string `protobuf:"bytes,8,opt,name=size_error,json=sizeError,proto3" json:"size_error,omitempty"`
+	SizeError string `protobuf:"bytes,8,opt,name=size_error,json=sizeError,proto3" json:"size_error,omitempty"`
+	// The directory's share of size_bytes, each hard linked file's blocks split evenly across its
+	// links, so summing it over directories counts a file they share at most once. Unset with
+	// size_bytes.
+	ShareBytes    *int64 `protobuf:"varint,9,opt,name=share_bytes,json=shareBytes,proto3,oneof" json:"share_bytes,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -416,6 +431,13 @@ func (x *WatchedWorktree) GetSizeError() string {
 		return x.SizeError
 	}
 	return ""
+}
+
+func (x *WatchedWorktree) GetShareBytes() int64 {
+	if x != nil && x.ShareBytes != nil {
+		return *x.ShareBytes
+	}
+	return 0
 }
 
 type ListWorktreesResponse struct {
@@ -1085,7 +1107,7 @@ const file_worktree_v1_worktree_proto_rawDesc = "" +
 	"\varchived_at\x18\x04 \x01(\tH\x00R\n" +
 	"archivedAt\x88\x01\x01\x12\x18\n" +
 	"\aadopted\x18\x05 \x01(\bR\aadoptedB\x0e\n" +
-	"\f_archived_at\"\xb4\x03\n" +
+	"\f_archived_at\"\xea\x03\n" +
 	"\bWorktree\x12\x10\n" +
 	"\x03dir\x18\x01 \x01(\tR\x03dir\x12\x19\n" +
 	"\brepo_dir\x18\x02 \x01(\tR\arepoDir\x12\x16\n" +
@@ -1101,9 +1123,12 @@ const file_worktree_v1_worktree_proto_rawDesc = "" +
 	"size_error\x18\t \x01(\tR\tsizeError\x12$\n" +
 	"\x0elast_active_at\x18\n" +
 	" \x01(\tR\flastActiveAt\x12-\n" +
-	"\x04fate\x18\v \x01(\x0e2\x19.worktree.v1.WorktreeFateR\x04fateB\r\n" +
+	"\x04fate\x18\v \x01(\x0e2\x19.worktree.v1.WorktreeFateR\x04fate\x12$\n" +
+	"\vshare_bytes\x18\f \x01(\x03H\x02R\n" +
+	"shareBytes\x88\x01\x01B\r\n" +
 	"\v_size_bytesB\x0e\n" +
-	"\f_measured_at\"\x9b\x02\n" +
+	"\f_measured_atB\x0e\n" +
+	"\f_share_bytes\"\xd1\x02\n" +
 	"\x0fWatchedWorktree\x12\x10\n" +
 	"\x03dir\x18\x01 \x01(\tR\x03dir\x12\x19\n" +
 	"\brepo_dir\x18\x02 \x01(\tR\arepoDir\x12\x16\n" +
@@ -1116,9 +1141,12 @@ const file_worktree_v1_worktree_proto_rawDesc = "" +
 	"\vmodified_at\x18\a \x01(\tR\n" +
 	"modifiedAt\x12\x1d\n" +
 	"\n" +
-	"size_error\x18\b \x01(\tR\tsizeErrorB\r\n" +
+	"size_error\x18\b \x01(\tR\tsizeError\x12$\n" +
+	"\vshare_bytes\x18\t \x01(\x03H\x02R\n" +
+	"shareBytes\x88\x01\x01B\r\n" +
 	"\v_size_bytesB\x0e\n" +
-	"\f_measured_at\"\x89\x01\n" +
+	"\f_measured_atB\x0e\n" +
+	"\f_share_bytes\"\x89\x01\n" +
 	"\x15ListWorktreesResponse\x123\n" +
 	"\tworktrees\x18\x01 \x03(\v2\x15.worktree.v1.WorktreeR\tworktrees\x12\x12\n" +
 	"\x04dirs\x18\x02 \x03(\tR\x04dirs\x12'\n" +

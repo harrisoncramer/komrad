@@ -38,6 +38,7 @@ SELECT
     w.readable,
     w.mtime,
     w.size_bytes,
+    w.share_bytes,
     w.measured_at,
     w.size_error
 FROM
@@ -63,6 +64,7 @@ type ListWatchedWorktreesRow struct {
 	Readable   bool
 	Mtime      *time.Time
 	SizeBytes  int64
+	ShareBytes int64
 	MeasuredAt *time.Time
 	SizeError  *string
 }
@@ -83,6 +85,7 @@ func (q *Queries) ListWatchedWorktrees(ctx context.Context, keys []string) ([]*L
 			&i.Readable,
 			&i.Mtime,
 			&i.SizeBytes,
+			&i.ShareBytes,
 			&i.MeasuredAt,
 			&i.SizeError,
 		); err != nil {
@@ -104,6 +107,7 @@ SELECT
     readable,
     mtime,
     size_bytes,
+    share_bytes,
     measured_at,
     size_error
 FROM
@@ -119,6 +123,7 @@ type ListWorktreesRow struct {
 	Readable   bool
 	Mtime      *time.Time
 	SizeBytes  int64
+	ShareBytes int64
 	MeasuredAt *time.Time
 	SizeError  *string
 }
@@ -139,6 +144,7 @@ func (q *Queries) ListWorktrees(ctx context.Context) ([]*ListWorktreesRow, error
 			&i.Readable,
 			&i.Mtime,
 			&i.SizeBytes,
+			&i.ShareBytes,
 			&i.MeasuredAt,
 			&i.SizeError,
 		); err != nil {
@@ -157,14 +163,16 @@ UPDATE
     worktrees
 SET
     size_bytes = $1,
-    measured_at = $2,
-    size_error = $3
+    share_bytes = $2,
+    measured_at = $3,
+    size_error = $4
 WHERE
-    dir = $4
+    dir = $5
 `
 
 type RecordWorktreeSizeParams struct {
 	SizeBytes  int64
+	ShareBytes int64
 	MeasuredAt *time.Time
 	SizeError  *string
 	Dir        string
@@ -173,6 +181,7 @@ type RecordWorktreeSizeParams struct {
 func (q *Queries) RecordWorktreeSize(ctx context.Context, arg RecordWorktreeSizeParams) error {
 	_, err := q.db.Exec(ctx, recordWorktreeSize,
 		arg.SizeBytes,
+		arg.ShareBytes,
 		arg.MeasuredAt,
 		arg.SizeError,
 		arg.Dir,

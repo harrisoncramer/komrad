@@ -114,6 +114,7 @@ func TestListWorktrees(t *testing.T) {
 	assert.Equal(t, "first-reviewer", first.GetOccupants()[0].GetName())
 	require.NotNil(t, first.SizeBytes)
 	assert.Equal(t, int64(49*1024*1024), first.GetSizeBytes())
+	assert.Equal(t, int64(20*1024*1024), first.GetShareBytes())
 	assert.Equal(t, "2026-09-19T13:00:00Z", first.GetMeasuredAt())
 	assert.Empty(t, first.GetSizeError())
 	assert.Equal(t, "2026-09-19T12:00:00Z", first.GetLastActiveAt())
@@ -124,6 +125,7 @@ func TestListWorktrees(t *testing.T) {
 	assert.Equal(t, worktreev1.WorktreeFate_WORKTREE_FATE_UNOWNED, gone.GetFate())
 	assert.False(t, gone.GetReadable())
 	assert.Nil(t, gone.SizeBytes, "a failed measurement carries no size")
+	assert.Nil(t, gone.ShareBytes)
 	assert.Equal(t, "2026-09-20T09:00:00Z", gone.GetMeasuredAt())
 	assert.Equal(t, "permission denied", gone.GetSizeError())
 	assert.Equal(t, "2026-09-20T08:00:00Z", gone.GetLastActiveAt())
@@ -342,6 +344,7 @@ func buildListedWorktree() worktrees.Worktree {
 		Size: &worktreestore.Size{
 			Dir:        "/trees/aaaa",
 			Bytes:      49 * 1024 * 1024,
+			Share:      20 * 1024 * 1024,
 			MeasuredAt: archived.Add(time.Hour),
 		},
 		LastActiveAt: archived,

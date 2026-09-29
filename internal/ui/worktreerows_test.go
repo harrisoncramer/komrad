@@ -459,14 +459,14 @@ func TestWorktreeAgentFactsOffTheWorktreeListing(t *testing.T) {
 // own repository, and each with a last activity behind the given moment.
 func measuredFixture(now time.Time) []worktreeItem {
 	items := worktreeFixture()
-	items[0].size = &worktreeSize{bytes: 49 * 1024 * 1024, measuredAt: now.Add(-time.Minute)}
+	items[0].size = &worktreeSize{bytes: 49 * 1024 * 1024, share: 30 * 1024 * 1024, measuredAt: now.Add(-time.Minute)}
 	items[0].lastActiveAt = now.Add(-30 * time.Second)
-	items[1].size = &worktreeSize{bytes: 49 * 1024 * 1024, measuredAt: now.Add(-time.Hour)}
+	items[1].size = &worktreeSize{bytes: 49 * 1024 * 1024, share: 30 * 1024 * 1024, measuredAt: now.Add(-time.Hour)}
 	items[1].lastActiveAt = now.Add(-4 * 24 * time.Hour)
 	items[2].size = &worktreeSize{measuredAt: now.Add(-time.Hour), err: "permission denied"}
 	items[2].lastActiveAt = now.Add(-3 * time.Hour)
 	items[3].lastActiveAt = now.Add(-2 * 7 * 24 * time.Hour)
-	items[4].size = &worktreeSize{bytes: 1536 * 1024 * 1024, measuredAt: now.Add(-time.Hour)}
+	items[4].size = &worktreeSize{bytes: 1536 * 1024 * 1024, share: 1536 * 1024 * 1024, measuredAt: now.Add(-time.Hour)}
 	items[4].lastActiveAt = now.Add(-12 * time.Hour)
 
 	return items
@@ -474,7 +474,7 @@ func measuredFixture(now time.Time) []worktreeItem {
 
 // TestWorktreesSnapshotCellsAreSizeThenAge covers every row's cells: the size then the age on a
 // directory, a dash for the size until it is measured or while its walk fails, and the header
-// summing the measured directories under it over the size column.
+// summing the shares of the measured directories under it over the size column.
 func TestWorktreesSnapshotCellsAreSizeThenAge(t *testing.T) {
 	now := time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC)
 	items := measuredFixture(now)
@@ -492,7 +492,7 @@ func TestWorktreesSnapshotCellsAreSizeThenAge(t *testing.T) {
 	assert.Equal(t, map[string][]string{
 		"repo:/home/h/gadgets/admin": {"1.5G"},
 		"tree:/trees/admin":          {"1.5G", "12h"},
-		"repo:/home/h/komrad":        {"98M"},
+		"repo:/home/h/komrad":        {"60M"},
 		"tree:/trees/live":           {"49M", "30s"},
 		"tree:/trees/archived":       {"49M", "4d"},
 		"tree:/trees/orphan":         {"—", "3h"},
