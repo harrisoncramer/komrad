@@ -27,9 +27,18 @@ import (
 )
 
 type rebaseFixture struct {
-	stores     *storetest.Stores
-	events     *eventstest.Queue
-	workflowID string
+	stores       *storetest.Stores
+	events       *eventstest.Queue
+	workflowID   string
+	checkoutSync *wakeCounter
+}
+
+type wakeCounter struct {
+	wakes int
+}
+
+func (w *wakeCounter) Wake() {
+	w.wakes++
 }
 
 // TestRebaseRefusals covers every state of the row a rebase declines.
@@ -154,6 +163,7 @@ func TestRebaseRefusals(t *testing.T) {
 
 			require.ErrorIs(t, err, tt.wantErr)
 			assert.Empty(t, rebaser.Calls)
+			assert.Zero(t, fixture.checkoutSync.wakes, "nothing moved, so nothing needs reading back")
 		})
 	}
 }
@@ -290,8 +300,25 @@ func TestRebaseMovesTheBranch(t *testing.T) {
 			stored, err := fixture.stores.Agents.GetByID(t.Context(), agent.ID)
 			require.NoError(t, err)
 			assert.Equal(t, tt.wantStopped, stored.SequenceInProgress)
+			assert.Equal(t, 1, fixture.checkoutSync.wakes)
 		})
 	}
+}
+
+// TestRebaseWakesTheCheckoutSyncWhenTheReplayFails covers a replay that failed part-way.
+func TestRebaseWakesTheCheckoutSyncWhenTheReplayFails(t *testing.T) {
+	fixture := newRebaseFixture(t)
+	agent := fixture.seed(t, agentstore.Agent{})
+	rebaser := &gittest.Rebaser{
+		State:      git.TreeState{Branch: "agent/a1"},
+		Prediction: git.Prediction{Replay: 1},
+		ReplayErr:  errors.New("the post-rewrite hook failed"),
+	}
+
+	_, err := fixture.newService(NewRebaseServiceParams{Rebaser: rebaser}).Rebase(t.Context(), agent.ID)
+
+	require.Error(t, err)
+	assert.Equal(t, 1, fixture.checkoutSync.wakes)
 }
 
 // TestRebaseRefusesAnAgentThatWillNotSettle covers nothing being parked or moved until the pane is seen at rest.
@@ -634,8 +661,9 @@ func newRebaseFixture(t *testing.T) *rebaseFixture {
 	stores := storetest.Open(t)
 
 	return &rebaseFixture{
-		stores: stores,
-		events: eventstest.NewQueue(t, stores, NewEventHandler()),
+		stores:       stores,
+		checkoutSync: &wakeCounter{},
+		events:       eventstest.NewQueue(t, stores, NewEventHandler()),
 		workflowID: stores.SeedWorkflow(t, workflowstore.Config{
 			Name:     "flow",
 			Worktree: workflowstore.WorktreeConfig{Enabled: true},
@@ -666,6 +694,9 @@ func (f *rebaseFixture) newService(params NewRebaseServiceParams) *RebaseService
 	params.Workflows = f.stores.Workflows
 	if params.Events == nil {
 		params.Events = f.events
+	}
+	if params.CheckoutSync == nil {
+		params.CheckoutSync = f.checkoutSync
 	}
 	if params.Rebaser == nil {
 		params.Rebaser = &gittest.Rebaser{State: git.TreeState{Branch: "agent/a1"}}

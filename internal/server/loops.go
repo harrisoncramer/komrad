@@ -45,11 +45,20 @@ const (
 	WorktreeSizeLoop      = "worktree sizes"
 )
 
+type loopWakers struct {
+	cwdSync *LoopWaker
+}
+
+func newLoopWakers() *loopWakers {
+	return &loopWakers{cwdSync: NewLoopWaker()}
+}
+
 type buildLoopsParams struct {
 	Stores   *stores
 	Services *services
 	Periodic *jobs.RiverPeriodic
 	Claimed  *jobs.WorktreeDelete
+	Wakers   *loopWakers
 }
 
 func buildLoops(params buildLoopsParams) []*Loop {
@@ -83,6 +92,7 @@ func buildLoops(params buildLoopsParams) []*Loop {
 			Interval: CwdSyncInterval,
 			Floor:    localLoopFloor,
 			Run:      params.Services.cwdSync.Sync,
+			Waker:    params.Wakers.cwdSync,
 		}),
 		NewLoop(NewLoopParams{
 			Name:     PullRequestSyncLoop,

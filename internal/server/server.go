@@ -96,7 +96,9 @@ func NewServer(ctx context.Context, params NewServerParams) (*Server, error) {
 		}
 	}()
 
-	svc, err := buildServices(params, st)
+	wakers := newLoopWakers()
+
+	svc, err := buildServices(params, st, wakers)
 	if err != nil {
 		return nil, err
 	}
@@ -179,6 +181,7 @@ func NewServer(ctx context.Context, params NewServerParams) (*Server, error) {
 		Services: svc,
 		Periodic: srv.Periodic,
 		Claimed:  jobs.NewWorktreeDelete(svc.queue),
+		Wakers:   wakers,
 	})
 
 	if err := broker.Start(); err != nil {

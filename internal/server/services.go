@@ -74,7 +74,7 @@ func BuiltinScriptsDir(cacheDir string) string {
 	return filepath.Join(cacheDir, "komrad-builtin-scripts")
 }
 
-func buildServices(params NewServerParams, st *stores) (*services, error) {
+func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*services, error) {
 	loadConfig := func() (*config.Config, error) { return config.LoadStack(params.ConfigStack) }
 	gitClient := git.NewClient()
 
@@ -177,11 +177,12 @@ func buildServices(params NewServerParams, st *stores) (*services, error) {
 		Observer: paneChannel,
 	})
 	rebaseService := checkouts.NewRebaseService(checkouts.NewRebaseServiceParams{
-		Agents:    st.agents,
-		Workflows: st.workflows,
-		Settler:   settler,
-		Events:    queue,
-		Rebaser:   gitClient,
+		Agents:       st.agents,
+		Workflows:    st.workflows,
+		Settler:      settler,
+		Events:       queue,
+		Rebaser:      gitClient,
+		CheckoutSync: wakers.cwdSync,
 	})
 	adoptService := agents.NewAdoptService(agents.NewAdoptServiceParams{
 		Agents:    st.agents,

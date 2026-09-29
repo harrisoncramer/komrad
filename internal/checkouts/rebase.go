@@ -86,24 +86,31 @@ type worktreeRebaser interface {
 	RebaseOnto(ctx context.Context, dir, ref, cutoff string) error
 }
 
+// loopWaker asks a background loop to run before its next tick.
+type loopWaker interface {
+	Wake()
+}
+
 // NewRebaseServiceParams is what a rebase service is built over.
 type NewRebaseServiceParams struct {
-	Agents    rebaseAgentReadWriter
-	Workflows workflowReader
-	Settler   agentSettler
-	Events    eventRecorder
-	Rebaser   worktreeRebaser
-	Locks     *TreeLocks
+	Agents       rebaseAgentReadWriter
+	Workflows    workflowReader
+	Settler      agentSettler
+	Events       eventRecorder
+	Rebaser      worktreeRebaser
+	Locks        *TreeLocks
+	CheckoutSync loopWaker
 }
 
 // RebaseService moves an agent's existing worktree onto the latest base without replacing it.
 type RebaseService struct {
-	agents    rebaseAgentReadWriter
-	workflows workflowReader
-	settler   agentSettler
-	events    eventRecorder
-	rebaser   worktreeRebaser
-	locks     *TreeLocks
+	agents       rebaseAgentReadWriter
+	workflows    workflowReader
+	settler      agentSettler
+	events       eventRecorder
+	rebaser      worktreeRebaser
+	locks        *TreeLocks
+	checkoutSync loopWaker
 }
 
 // NewRebaseService builds the service from its dependencies.
@@ -114,12 +121,13 @@ func NewRebaseService(params NewRebaseServiceParams) *RebaseService {
 	}
 
 	return &RebaseService{
-		agents:    params.Agents,
-		workflows: params.Workflows,
-		settler:   params.Settler,
-		events:    params.Events,
-		rebaser:   params.Rebaser,
-		locks:     locks,
+		agents:       params.Agents,
+		workflows:    params.Workflows,
+		settler:      params.Settler,
+		events:       params.Events,
+		rebaser:      params.Rebaser,
+		locks:        locks,
+		checkoutSync: params.CheckoutSync,
 	}
 }
 
@@ -280,6 +288,7 @@ func (s *RebaseService) rebase(ctx context.Context, agent agentstore.Agent) (*Re
 	if _, err := s.rebaser.Park(ctx, agent.Cwd, result.ParkedRef); err != nil {
 		return nil, err
 	}
+	defer s.checkoutSync.Wake()
 
 	if err := s.move(ctx, agent.Cwd, result); err != nil {
 		return nil, err
