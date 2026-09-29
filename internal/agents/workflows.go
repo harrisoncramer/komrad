@@ -45,6 +45,7 @@ type workflowAgentLister interface {
 	ListByID(ctx context.Context, ids []string) ([]agentstore.Agent, error)
 	ListLiveInWorkflow(ctx context.Context, workflowID string) ([]agentstore.Agent, error)
 	ListArchivedInWorkflow(ctx context.Context, workflowID string) ([]agentstore.Agent, error)
+	ListRestorableInWorkflow(ctx context.Context, workflowID string) ([]agentstore.Agent, error)
 }
 
 type workflowAgentDeleter interface {
@@ -386,7 +387,7 @@ func (w *WorkflowService) ArchiveWorkflow(ctx context.Context, id string) error 
 	return nil
 }
 
-// RestoreWorkflow brings an archived workflow back with every agent inside it, landing them
+// RestoreWorkflow brings an archived workflow back with the agents its archive took, landing them
 // dormant so a folder of twelve does not start twelve CLIs.
 func (w *WorkflowService) RestoreWorkflow(ctx context.Context, id string) (*workflowstore.Workflow, error) {
 	existing, err := w.store.GetIncludingArchived(ctx, id)
@@ -400,7 +401,7 @@ func (w *WorkflowService) RestoreWorkflow(ctx context.Context, id string) (*work
 		return nil, ErrWorkflowNotFound.Saying("no archived workflow with id %q", id)
 	}
 
-	archived, err := w.agents.ListArchivedInWorkflow(ctx, id)
+	archived, err := w.agents.ListRestorableInWorkflow(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list the archived agents of workflow %q: %w", existing.Name, err)
 	}
@@ -413,7 +414,7 @@ func (w *WorkflowService) RestoreWorkflow(ctx context.Context, id string) (*work
 		agents:    w.agents,
 		archived:  archived,
 		relist: func(ctx context.Context, agents *agentstore.AgentStore) ([]agentstore.Agent, error) {
-			return agents.ListArchivedInWorkflow(ctx, id)
+			return agents.ListRestorableInWorkflow(ctx, id)
 		},
 		restore: func(ctx context.Context, db store.DBTX) error {
 			if err := workflowstore.NewWorkflowStore(db).Restore(ctx, id); err != nil {

@@ -565,6 +565,11 @@ table "agents" {
     null = true
     type = timestamptz
   }
+  column "archive_batch_id" {
+    null    = true
+    type    = uuid
+    comment = "The archive this agent was taken out of live listings by, shared by every agent that archive took."
+  }
   column "is_hidden" {
     null    = false
     type    = boolean

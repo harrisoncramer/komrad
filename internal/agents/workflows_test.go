@@ -1003,8 +1003,8 @@ func TestDeleteWorkflowClaimsTheWorkflowWhileItsAgentsGo(t *testing.T) {
 	require.ErrorIs(t, err, store.ErrNotFound, "the last agent going takes the workflow with it")
 }
 
-// TestRestoreOfAWorkflowUnderTheChildCeiling pins the same ceiling on the other way back, for a
-// workflow archived holding two children of one parent.
+// TestRestoreOfAWorkflowUnderTheChildCeiling pins a workflow coming back with only the children
+// its own archive took.
 func TestRestoreOfAWorkflowUnderTheChildCeiling(t *testing.T) {
 	tmux := tmuxtest.NewFake()
 	st := newStore(t)
@@ -1024,17 +1024,17 @@ func TestRestoreOfAWorkflowUnderTheChildCeiling(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, manager.lifecycle.ArchiveAgents(ctx, []string{first.ID}))
 
-	_, err = manager.launch.NewAgent(ctx, childOf(parent, "second-reviewer"))
+	second, err := manager.launch.NewAgent(ctx, childOf(parent, "second-reviewer"))
 	require.NoError(t, err)
 
 	require.NoError(t, workflows.ArchiveWorkflow(ctx, parent.WorkflowID))
 
 	_, err = workflows.RestoreWorkflow(ctx, parent.WorkflowID)
-	require.ErrorIs(t, err, ErrTooManyChildren)
+	require.NoError(t, err, "the child archived before the workflow does not count against the ceiling")
 
-	held, err := st.Agents.CountLiveChildren(ctx, parent.ID)
-	require.NoError(t, err)
-	assert.Zero(t, held, "the refusal restores nothing")
+	assert.Nil(t, agentByID(t, st, parent.ID).ArchivedAt, "the parent comes back")
+	assert.Nil(t, agentByID(t, st, second.ID).ArchivedAt, "with the child the workflow's archive took")
+	assert.NotNil(t, agentByID(t, st, first.ID).ArchivedAt, "and the earlier child stays archived")
 }
 
 // TestListWorkflows pins that a listing reads the live or the archived workflows as asked.

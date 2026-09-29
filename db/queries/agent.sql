@@ -470,11 +470,16 @@ freed AS (
             SELECT
                 prior.id
             FROM
-                prior))
+                prior)
+),
+batch AS (
+    SELECT
+        gen_random_uuid() AS id)
 UPDATE
     agents a
 SET
     archived_at = NOW(),
+    archive_batch_id = batch.id,
     pane_id = '',
     alive = FALSE,
     state = CASE WHEN prior.unsettled THEN
@@ -503,7 +508,8 @@ SET
         a.interrupted_at
     END
 FROM
-    prior
+    prior,
+    batch
 WHERE
     a.id = prior.id
 RETURNING
@@ -553,13 +559,43 @@ ORDER BY
 
 -- name: MarkWorkflowAgentsRestored :exec
 UPDATE
-    agents
+    agents a
 SET
     is_hidden = FALSE,
-    archived_at = NULL
+    archived_at = NULL,
+    archive_batch_id = NULL
 WHERE
-    workflow_id = @workflow_id
-    AND archived_at IS NOT NULL;
+    a.workflow_id = @workflow_id
+    AND a.archived_at IS NOT NULL
+    AND (a.parent_agent_id IS NULL
+        OR EXISTS (
+            SELECT
+                1
+            FROM
+                agents p
+            WHERE
+                p.id = a.parent_agent_id
+                AND p.archive_batch_id = a.archive_batch_id));
+
+-- name: ListRestorableWorkflowAgents :many
+SELECT
+    *
+FROM
+    agents a
+WHERE
+    a.workflow_id = @workflow_id
+    AND a.archived_at IS NOT NULL
+    AND (a.parent_agent_id IS NULL
+        OR EXISTS (
+            SELECT
+                1
+            FROM
+                agents p
+            WHERE
+                p.id = a.parent_agent_id
+                AND p.archive_batch_id = a.archive_batch_id))
+ORDER BY
+    a.id DESC;
 
 -- name: ListArchivedWorkflowAgents :many
 SELECT
@@ -829,11 +865,16 @@ freed AS (
             SELECT
                 prior.id
             FROM
-                prior))
+                prior)
+),
+batch AS (
+    SELECT
+        gen_random_uuid() AS id)
 UPDATE
     agents a
 SET
     archived_at = NOW(),
+    archive_batch_id = batch.id,
     pane_id = '',
     alive = FALSE,
     state = CASE WHEN prior.unsettled THEN
@@ -862,7 +903,8 @@ SET
         a.interrupted_at
     END
 FROM
-    prior
+    prior,
+    batch
 WHERE
     a.id = prior.id
 RETURNING
@@ -874,7 +916,8 @@ UPDATE
     agents
 SET
     is_hidden = FALSE,
-    archived_at = NULL
+    archived_at = NULL,
+    archive_batch_id = NULL
 WHERE
     id = ANY (@ids::uuid[]);
 

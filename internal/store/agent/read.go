@@ -187,6 +187,17 @@ func (s *AgentStore) ListArchivedInWorkflow(ctx context.Context, workflowID stri
 	return FromRows(rows), nil
 }
 
+// ListRestorableInWorkflow returns the archived agents a workflow's restore brings back, leaving
+// children archived apart from their parent.
+func (s *AgentStore) ListRestorableInWorkflow(ctx context.Context, workflowID string) ([]Agent, error) {
+	rows, err := s.queries.ListRestorableWorkflowAgents(ctx, workflowID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list the restorable agents of workflow %q: %w", workflowID, err)
+	}
+
+	return FromRows(rows), nil
+}
+
 // ListChildren returns the agents attached to the given parents, archived ones included.
 func (s *AgentStore) ListChildren(ctx context.Context, parentIDs []string) ([]Agent, error) {
 	storable := store.KeepIDs(parentIDs)

@@ -1299,6 +1299,54 @@ func TestTheFamilyMovesTogether(t *testing.T) {
 			wantLive: []string{"author", "reviewer"},
 			wantKept: []string{"author", "reviewer"},
 		},
+		{
+			name: "restoring the parent brings back a child named in its archive",
+			act: func(ctx context.Context, lifecycle *LifecycleService, members family) error {
+				if err := lifecycle.ArchiveAgents(ctx, []string{members.parent.ID, members.child.ID}); err != nil {
+					return err
+				}
+
+				_, err := lifecycle.RestoreAgents(ctx, []string{members.parent.ID})
+
+				return err
+			},
+			wantLive: []string{"author", "reviewer"},
+			wantKept: []string{"author", "reviewer"},
+		},
+		{
+			name: "restoring the parent leaves a child archived before it",
+			act: func(ctx context.Context, lifecycle *LifecycleService, members family) error {
+				if err := lifecycle.ArchiveAgents(ctx, []string{members.child.ID}); err != nil {
+					return err
+				}
+				if err := lifecycle.ArchiveAgents(ctx, []string{members.parent.ID}); err != nil {
+					return err
+				}
+
+				_, err := lifecycle.RestoreAgents(ctx, []string{members.parent.ID})
+
+				return err
+			},
+			wantLive: []string{"author"},
+			wantKept: []string{"author", "reviewer"},
+		},
+		{
+			name: "restoring the parent and a child archived before it brings both back",
+			act: func(ctx context.Context, lifecycle *LifecycleService, members family) error {
+				if err := lifecycle.ArchiveAgents(ctx, []string{members.child.ID}); err != nil {
+					return err
+				}
+				if err := lifecycle.ArchiveAgents(ctx, []string{members.parent.ID}); err != nil {
+					return err
+				}
+
+				_, err := lifecycle.RestoreAgents(ctx, []string{members.parent.ID, members.child.ID})
+
+				return err
+			},
+			wantLive: []string{"author", "reviewer"},
+			wantKept: []string{"author", "reviewer"},
+		},
 	}
 
 	for _, tt := range tests {

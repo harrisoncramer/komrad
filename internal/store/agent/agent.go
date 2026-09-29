@@ -118,6 +118,9 @@ type Agent struct {
 	ScheduleID     *string
 	IdempotencyKey *string
 	ArchivedAt     *time.Time
+
+	// ArchiveBatchID is the archive that took this agent, shared by every agent it took.
+	ArchiveBatchID *string
 	DeletingAt     *time.Time
 	NudgedAt       *time.Time
 
@@ -240,6 +243,7 @@ func FromRow(agent models.Agent) Agent {
 		ScheduleID:         agent.ScheduleID,
 		IdempotencyKey:     agent.IdempotencyKey,
 		ArchivedAt:         agent.ArchivedAt,
+		ArchiveBatchID:     agent.ArchiveBatchID,
 		DeletingAt:         agent.DeletingAt,
 		NudgedAt:           agent.NudgedAt,
 		NudgeSentAt:        agent.NudgeSentAt,
