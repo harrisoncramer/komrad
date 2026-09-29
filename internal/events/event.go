@@ -12,6 +12,7 @@ import (
 // Queue is the River queue the router works.
 const Queue = "events"
 
+// maxAttempts is enough retries to outlast a full mailbox.
 const maxAttempts = 20
 
 // Event is one change recorded in the transaction that made it, for the handler of its topic.
@@ -25,7 +26,7 @@ func (Event) Kind() string {
 	return "event"
 }
 
-// InsertOpts puts the event on the router's queue with retries enough to outlast a full mailbox.
+// InsertOpts puts the event on the router's queue.
 func (Event) InsertOpts() river.InsertOpts {
 	return river.InsertOpts{
 		Queue:       Queue,

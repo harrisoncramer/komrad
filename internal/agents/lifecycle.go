@@ -144,9 +144,7 @@ func (s *LifecycleService) deleteNow(ctx context.Context, ids []string) error {
 // deleteAgents stops agents, tears each down, and removes those whose teardown worked,
 // returning only once every teardown has finished.
 func (s *LifecycleService) deleteAgents(ctx context.Context, agents []agentstore.Agent) error {
-	// A deprovisioner must not run against a directory a CLI is still working in, and since the
-	// children share their parent's, this is what keeps the parent's deprovision from tearing down a
-	// checkout one of them is still sitting in.
+	// A deprovisioner must not run against a directory a CLI is still working in.
 	killOwnedPanes(ctx, s.tmux, agents)
 
 	hooks := make(map[string][]workflowstore.Hook, len(agents))

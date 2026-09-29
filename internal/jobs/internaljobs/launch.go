@@ -173,8 +173,7 @@ func (w *LaunchAgentWorker) launch(ctx context.Context, schedule *schedulestore.
 		errors.Is(err, agents.ErrTooManyAgents) {
 		return river.JobCancel(fmt.Errorf("failed to launch schedule %q: %w", schedule.Name, err))
 	}
-	// An occurrence whose agent is already up completes rather than retrying: this attempt
-	// launched nothing, but the firing it stands for is accounted for either way.
+	// An occurrence whose agent is already up completes rather than retrying.
 	if err != nil && !errors.Is(err, agents.ErrAlreadyLaunched) {
 		return fmt.Errorf("failed to launch the agent for schedule %q: %w", schedule.Name, err)
 	}

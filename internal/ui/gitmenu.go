@@ -84,8 +84,6 @@ func (m model) runGitChoice(agentID string, choice gitChoice) (model, tea.Cmd) {
 		return m.openPullRequest(item)
 	}
 
-	// The switch carries every entry and no default, so this is what an entry added without an arm
-	// compiles to until the exhaustive check refuses it.
 	return m, nil
 }
 

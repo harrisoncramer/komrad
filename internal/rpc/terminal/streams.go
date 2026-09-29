@@ -62,7 +62,7 @@ func (s shellStream) sendExit(code int32) error {
 	return nil
 }
 
-// endInput types end of input, so a shell given piped input runs it and exits.
+// endInput types end of input.
 func (shellStream) endInput(terminal pty.Terminal) error {
 	if _, err := terminal.Write([]byte{endOfInput}); err != nil {
 		return fmt.Errorf("failed to end the shell's input: %w", err)

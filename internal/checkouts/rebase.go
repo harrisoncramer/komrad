@@ -329,8 +329,7 @@ func (s *RebaseService) move(ctx context.Context, dir string, result *RebaseResu
 	return nil
 }
 
-// recordStopped puts the stopped rebase on the agent's row now, ahead of the pass that would
-// otherwise take up to a whole interval to find it.
+// recordStopped puts the stopped rebase on the agent's row.
 func (s *RebaseService) recordStopped(ctx context.Context, agent agentstore.Agent) {
 	if err := s.agents.SetSequenceInProgressByID(ctx, agent.ID, true); err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to record that an agent's rebase stopped part-way",

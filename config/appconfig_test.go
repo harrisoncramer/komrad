@@ -22,6 +22,8 @@ func clearConnectionEnvironment(t *testing.T) {
 		"KOMRAD_ADDR",
 		"KOMRAD_TMUX_SOCKET",
 		"KOMRAD_CACHE_DIR",
+		enginesDirVariable,
+		layerVariable,
 	} {
 		t.Setenv(name, "")
 	}
