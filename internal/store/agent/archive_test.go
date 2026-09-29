@@ -151,11 +151,6 @@ func TestArchiveSettlesTheState(t *testing.T) {
 
 			return err
 		},
-		"if unchanged": func(ctx context.Context, st *fixture, agent Agent) error {
-			_, err := st.ArchiveIfUnchanged(ctx, ArchiveIfUnchangedParams{ID: agent.ID, UpdatedAt: agent.UpdatedAt})
-
-			return err
-		},
 	}
 
 	tests := []struct {

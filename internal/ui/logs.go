@@ -39,7 +39,7 @@ type logsScreen struct {
 	listed  bool
 	// reading is the id of the source the block holds lines of.
 	reading string
-	viewer  logview.LogViewer
+	viewer  *logview.Tail
 	cursor  string
 	// generation tells this visit's and this source's reads apart from an earlier one's.
 	generation int

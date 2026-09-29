@@ -454,7 +454,6 @@ linters:
               - Release
               - Rename
               - Reset
-              - Restamp
               - Restore
               - Search
               - Send

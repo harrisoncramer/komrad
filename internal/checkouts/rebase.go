@@ -19,7 +19,6 @@ import (
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/lib/xpath"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/riverqueue/river"
 )
 
@@ -70,7 +69,7 @@ type agentSettler interface {
 
 // eventRecorder queues the event that tells an agent what became of its worktree.
 type eventRecorder interface {
-	InsertTx(ctx context.Context, args river.JobArgs, before func(tx pgx.Tx) error) error
+	InsertTx(ctx context.Context, args river.JobArgs) error
 }
 
 // worktreeRebaser is the git a rebase reads the checkout through and moves the branch with.
@@ -559,5 +558,5 @@ func (s *RebaseService) record(ctx context.Context, rebased Rebased) error {
 		return err
 	}
 
-	return s.events.InsertTx(ctx, *event, nil)
+	return s.events.InsertTx(ctx, *event)
 }

@@ -2,7 +2,6 @@ package mark
 
 import (
 	"testing"
-	"time"
 
 	"komrad/internal/dbtest"
 	"komrad/internal/store"
@@ -242,24 +241,6 @@ func TestArchivingFreesTheLetter(t *testing.T) {
 		assert.Empty(t, st.marks(t))
 	})
 
-	t.Run("archiving an agent that has not changed", func(t *testing.T) {
-		st := open(t)
-		alpha := st.seedAgent(t, "alpha")
-		require.True(t, st.set(t, "a", OnAgent(alpha)))
-
-		current, err := st.agents.GetByID(t.Context(), alpha)
-		require.NoError(t, err)
-		require.NotNil(t, current)
-
-		archived, err := st.agents.ArchiveIfUnchanged(t.Context(), agentstore.ArchiveIfUnchangedParams{
-			ID:        current.ID,
-			UpdatedAt: current.UpdatedAt,
-		})
-		require.NoError(t, err)
-		require.True(t, archived)
-		assert.Empty(t, st.marks(t))
-	})
-
 	t.Run("archiving every agent of a workflow", func(t *testing.T) {
 		st := open(t)
 		alpha := st.seedAgent(t, "alpha")
@@ -268,24 +249,6 @@ func TestArchivingFreesTheLetter(t *testing.T) {
 		_, err := st.agents.ArchiveWorkflowAgents(t.Context(), st.workflow)
 		require.NoError(t, err)
 		assert.Empty(t, st.marks(t))
-	})
-
-	t.Run("an archive the row moved under keeps the letter, since the row keeps running", func(t *testing.T) {
-		st := open(t)
-		alpha := st.seedAgent(t, "alpha")
-		require.True(t, st.set(t, "a", OnAgent(alpha)))
-
-		current, err := st.agents.GetByID(t.Context(), alpha)
-		require.NoError(t, err)
-		require.NotNil(t, current)
-
-		archived, err := st.agents.ArchiveIfUnchanged(t.Context(), agentstore.ArchiveIfUnchangedParams{
-			ID:        current.ID,
-			UpdatedAt: current.UpdatedAt.Add(-time.Second),
-		})
-		require.NoError(t, err)
-		require.False(t, archived, "the row moved, so the archive is refused")
-		assert.Equal(t, map[string]string{alpha: "a"}, st.marks(t))
 	})
 
 	t.Run("archiving the workflow itself", func(t *testing.T) {

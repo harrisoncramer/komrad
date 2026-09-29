@@ -311,87 +311,6 @@ func (b *blockingLifecycle) RunResume(context.Context, agentstore.Agent, string)
 	return "", nil
 }
 
-// TestAResumeInItsSetupIsNotArchivedOutFromUnderItself pins that a resume still in its setup
-// is not archived, which its row used to read as an untouched dormant agent for seconds.
-func TestAResumeInItsSetupIsNotArchivedOutFromUnderItself(t *testing.T) {
-	st := newStore(t)
-	tmux := tmuxtest.NewFake()
-	ctx := t.Context()
-
-	created, err := st.Workflows.Create(ctx, workflowstore.Config{
-		Name:     "worktrees",
-		Cwd:      fakeCheckout(t),
-		Worktree: workflowstore.WorktreeConfig{Enabled: true, BaseBranch: "main"},
-	})
-	require.NoError(t, err)
-
-	agent := seedInWorkflow(t, st, created.ID, "agent", "", agentstore.StateIdle)
-
-	lifecycle := &blockingLifecycle{entered: make(chan struct{}), release: make(chan struct{})}
-	manager := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: &harnesstest.Fake{}}, lifecycle)
-
-	done := make(chan error, 1)
-	go func() {
-		_, resumeErr := manager.resume.ResumeAgent(context.WithoutCancel(ctx), agent.ID)
-		done <- resumeErr
-	}()
-
-	<-lifecycle.entered
-
-	assert.Equal(t, agentstore.StateSettingUp, agentByID(t, st, agent.ID).State,
-		"the row says a resume is in flight before the resume does any work")
-
-	_, err = manager.lifecycle.ArchiveUnchangedAgents(ctx, []agentstore.Agent{agent})
-	require.NoError(t, err)
-
-	assert.Nil(t, agentByID(t, st, agent.ID).ArchivedAt, "a pass landing in the window leaves the resume alone")
-
-	close(lifecycle.release)
-	select {
-	case resumeErr := <-done:
-		require.NoError(t, resumeErr)
-	case <-time.After(10 * time.Second):
-		t.Fatal("the resume never finished")
-	}
-
-	after := agentByID(t, st, agent.ID)
-	require.Nil(t, after.ArchivedAt)
-	require.NotEmpty(t, after.Pane)
-	assert.Equal(t, agentstore.StateIdle, after.State)
-
-	live, err := st.Agents.List(ctx)
-	require.NoError(t, err)
-	assert.Len(t, live, 1, "the agent whose CLI is running is one a listing shows")
-}
-
-// TestAPassArchivesAResumeThatFinishedFirst covers the other side of that window, where a
-// resume finished first and the row a pass read is still the row it archives.
-func TestAPassArchivesAResumeThatFinishedFirst(t *testing.T) {
-	st := newStore(t)
-	tmux := tmuxtest.NewFake()
-	ctx := t.Context()
-
-	created, err := st.Workflows.Create(ctx, workflowstore.Config{
-		Name:     "worktrees",
-		Cwd:      t.TempDir(),
-		Worktree: workflowstore.WorktreeConfig{Enabled: true, BaseBranch: "main"},
-	})
-	require.NoError(t, err)
-
-	agent := seedInWorkflow(t, st, created.ID, "agent", "", agentstore.StateIdle)
-
-	manager := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: &harnesstest.Fake{}}, &fakeLifecycle{})
-	resumed, err := manager.resume.ResumeAgent(ctx, agent.ID)
-	require.NoError(t, err)
-	require.NotEmpty(t, resumed.Pane)
-
-	_, err = manager.lifecycle.ArchiveUnchangedAgents(ctx, []agentstore.Agent{agentByID(t, st, agent.ID)})
-	require.NoError(t, err)
-
-	assert.NotNil(t, agentByID(t, st, agent.ID).ArchivedAt)
-	assert.Equal(t, []string{resumed.Pane}, tmux.KilledPanes, "the pane goes with the archive it belongs to")
-}
-
 // TestAResumeThatGivesUpPutsTheStateBack pins the state going back.
 func TestAResumeThatGivesUpPutsTheStateBack(t *testing.T) {
 	st := newStore(t)
@@ -480,9 +399,9 @@ func TestAResumeIsClaimableAgainAfterOneFinishes(t *testing.T) {
 	assert.Equal(t, 2, tmux.WindowsOpened())
 }
 
-// TestAPassThatArchivesBeforeTheMarkStopsTheResume pins the mark refusing an archived row,
+// TestAnArchiveBeforeTheMarkStopsTheResume pins the mark refusing an archived row,
 // which is where a resume finds out about an archive that landed while it was reading.
-func TestAPassThatArchivesBeforeTheMarkStopsTheResume(t *testing.T) {
+func TestAnArchiveBeforeTheMarkStopsTheResume(t *testing.T) {
 	st := newStore(t)
 	tmux := tmuxtest.NewFake()
 	ctx := t.Context()
@@ -500,8 +419,7 @@ func TestAPassThatArchivesBeforeTheMarkStopsTheResume(t *testing.T) {
 	var once sync.Once
 	tmux.BeforeGetOwner = func() {
 		once.Do(func() {
-			_, syncErr := manager.lifecycle.ArchiveUnchangedAgents(ctx, []agentstore.Agent{agent})
-			require.NoError(t, syncErr)
+			require.NoError(t, manager.lifecycle.ArchiveAgents(ctx, []string{agent.ID}))
 		})
 	}
 
@@ -509,7 +427,7 @@ func TestAPassThatArchivesBeforeTheMarkStopsTheResume(t *testing.T) {
 	require.ErrorIs(t, err, ErrAgentArchived)
 
 	after := agentByID(t, st, agent.ID)
-	require.NotNil(t, after.ArchivedAt, "the pass really did archive it")
+	require.NotNil(t, after.ArchivedAt, "the archive really did land")
 	assert.Empty(t, after.Pane, "and the resume wrote no pane onto the archived row")
 	assert.Empty(t, tmux.NewWindows, "the resume gave up before it opened a window")
 

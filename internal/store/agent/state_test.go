@@ -395,14 +395,6 @@ func TestAliveFollowsThePane(t *testing.T) {
 			},
 		},
 		{
-			name: "archiving an unchanged row",
-			clear: func(ctx context.Context, st *fixture, agent Agent) error {
-				_, err := st.ArchiveIfUnchanged(ctx, ArchiveIfUnchangedParams{ID: agent.ID, UpdatedAt: agent.UpdatedAt})
-
-				return err
-			},
-		},
-		{
 			name: "archiving the workflow",
 			clear: func(ctx context.Context, st *fixture, agent Agent) error {
 				_, err := st.ArchiveWorkflowAgents(ctx, agent.WorkflowID)

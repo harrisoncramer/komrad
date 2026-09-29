@@ -45,16 +45,9 @@ func NewEnqueuer(client *river.Client[pgx.Tx], db txBeginner) *Enqueuer {
 	return &Enqueuer{client: client, db: db}
 }
 
-// InsertTx records a job in one transaction with whatever before writes, so the two land or
-// fail together, and returns once the job is recorded.
-func (e *Enqueuer) InsertTx(ctx context.Context, args river.JobArgs, before func(tx pgx.Tx) error) error {
-	return e.InsertManyTx(ctx, func(tx pgx.Tx) ([]river.JobArgs, error) {
-		if before != nil {
-			if err := before(tx); err != nil {
-				return nil, err
-			}
-		}
-
+// InsertTx records one job in a transaction of its own.
+func (e *Enqueuer) InsertTx(ctx context.Context, args river.JobArgs) error {
+	return e.InsertManyTx(ctx, func(pgx.Tx) ([]river.JobArgs, error) {
 		return []river.JobArgs{args}, nil
 	})
 }

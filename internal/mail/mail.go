@@ -197,16 +197,6 @@ func (s *MailService) SendMail(ctx context.Context, params SendMailParams) (*mai
 	})
 }
 
-// SendSystemMail sends mail as komrad itself, still running every check an ordinary send does.
-func (s *MailService) SendSystemMail(ctx context.Context, toAgentID, body string) (*mailstore.Mail, error) {
-	return s.send(ctx, sendParams{
-		ToAgentID: toAgentID,
-		Body:      body,
-		Kind:      mailstore.KindPlain,
-		System:    true,
-	})
-}
-
 type SendScheduledMailParams struct {
 	ToAgentID      string
 	ScheduleName   string
@@ -347,8 +337,6 @@ type sendParams struct {
 	Body      string
 	ReplyTo   *string
 	Kind      mailstore.Kind
-	// System marks mail komrad raises itself rather than on a caller's behalf.
-	System bool
 	// SenderName names mail sent on a person's behalf by something other than an agent.
 	SenderName     string
 	IdempotencyKey string
@@ -419,8 +407,6 @@ func (s *MailService) send(ctx context.Context, params sendParams) (*mailstore.M
 	case sender != nil:
 		send.FromAgentID = &sender.ID
 		send.FromName = sender.Name
-	case params.System:
-		send.FromName = KomradSenderName
 	default:
 		send.FromName = params.SenderName
 	}

@@ -3,34 +3,11 @@ package agent
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"komrad/db/models"
 	"komrad/internal/store"
 	"komrad/lib/xslice"
 )
-
-type ArchiveIfUnchangedParams struct {
-	ID        string
-	UpdatedAt time.Time
-}
-
-// ArchiveIfUnchanged archives one agent only while its row still reads as it was observed.
-func (s *AgentStore) ArchiveIfUnchanged(ctx context.Context, params ArchiveIfUnchangedParams) (bool, error) {
-	if !store.IsID(params.ID) {
-		return false, nil
-	}
-
-	archived, err := s.queries.MarkAgentArchivedIfUnchanged(ctx, models.MarkAgentArchivedIfUnchangedParams{
-		ID:        params.ID,
-		UpdatedAt: params.UpdatedAt,
-	})
-	if err != nil {
-		return false, fmt.Errorf("failed to archive id %q: %w", params.ID, err)
-	}
-
-	return len(archived) > 0, nil
-}
 
 // Archive moves agents out of live listings, returning the pane each row held as it was
 // archived rather than the one the caller last read.
@@ -50,20 +27,6 @@ func (s *AgentStore) Archive(ctx context.Context, ids []string) ([]AgentPane, er
 	return xslice.Map(archived, func(row *models.MarkAgentsArchivedRow) AgentPane {
 		return AgentPane{AgentID: row.ID, Pane: row.PaneID}
 	}), nil
-}
-
-// RestampArchived moves the stamp of agents that are already archived to now.
-func (s *AgentStore) RestampArchived(ctx context.Context, ids []string) error {
-	storable := store.KeepIDs(ids)
-	if len(storable) == 0 {
-		return nil
-	}
-
-	if err := s.queries.RestampAgentsArchived(ctx, storable); err != nil {
-		return fmt.Errorf("failed to restamp %d archived agents: %w", len(storable), err)
-	}
-
-	return nil
 }
 
 // Restore returns archived agents to live listings.

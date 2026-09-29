@@ -888,31 +888,6 @@ func TestArchiveAgentsTakesTheWholeBatch(t *testing.T) {
 	assert.Empty(t, live, "the batch spanned both workflows")
 }
 
-// TestArchiveUnchangedAgents covers the guard a background pass needs.
-func TestArchiveUnchangedAgents(t *testing.T) {
-	st := newStore(t)
-	tmux := tmuxtest.NewFake()
-	manager := newManager(tmux, st, "")
-	ctx := t.Context()
-
-	workflowID := seedWorkflow(t, st)
-	settled := seedRunningIn(t, st, tmux, workflowID, "settled", "%1")
-	moved := seedInWorkflow(t, st, workflowID, "moved", "", agentstore.StateIdle)
-
-	observed := []agentstore.Agent{settled, moved}
-
-	require.NoError(t, st.Agents.SetStateByID(ctx, moved.ID, agentstore.StateThinking))
-
-	archived, err := manager.lifecycle.ArchiveUnchangedAgents(ctx, observed)
-	require.NoError(t, err)
-
-	require.Len(t, archived, 1)
-	assert.Equal(t, settled.ID, archived[0].ID, "only the row that still read as it was observed is archived")
-	assert.NotNil(t, agentByID(t, st, settled.ID).ArchivedAt)
-	assert.Nil(t, agentByID(t, st, moved.ID).ArchivedAt, "the row that moved since the snapshot is left for a later pass")
-	assert.Equal(t, []string{"%1"}, tmux.KilledPanes, "the pane goes with the archive it belongs to")
-}
-
 // TestArchiveAgentsRefusesTheWholeBatch pins one bad id refusing the batch.
 func TestArchiveAgentsRefusesTheWholeBatch(t *testing.T) {
 	tests := []struct {
@@ -1225,41 +1200,6 @@ func TestArchiveAgentsNamesOnlyTheFirstMissing(t *testing.T) {
 	require.ErrorContains(t, err, ids[0], "the first few are named")
 	require.ErrorContains(t, err, "and 15 more", "and the rest are counted")
 	assert.NotContains(t, err.Error(), ids[19], "rather than spelled out")
-}
-
-// TestArchiveUnchangedAgentsStampsAfterTheKill pins the ordering the transcript sync rests on:
-// an agent's archived stamp is written again once the CLI holding its log is dead.
-func TestArchiveUnchangedAgentsStampsAfterTheKill(t *testing.T) {
-	st := newStore(t)
-	tmux := tmuxtest.NewFake()
-	agents := &restampWatcher{lifecycleAgentReadWriter: st.Agents, tmux: tmux}
-	manager := newManager(tmux, st, "")
-	manager.lifecycle.agents = agents
-	ctx := t.Context()
-
-	workflowID := seedWorkflow(t, st)
-	settled := seedRunningIn(t, st, tmux, workflowID, "settled", "%1")
-
-	archived, err := manager.lifecycle.ArchiveUnchangedAgents(ctx, []agentstore.Agent{settled})
-	require.NoError(t, err)
-	require.Len(t, archived, 1)
-
-	assert.Equal(t, []string{"%1"}, agents.killedWhenRestamped,
-		"the pane is already gone when the stamp is written again")
-}
-
-// restampWatcher records which panes had been killed by the time the archived stamp was
-// written again.
-type restampWatcher struct {
-	lifecycleAgentReadWriter
-	tmux                *tmuxtest.Fake
-	killedWhenRestamped []string
-}
-
-func (r *restampWatcher) RestampArchived(ctx context.Context, ids []string) error {
-	r.killedWhenRestamped = append([]string(nil), r.tmux.KilledPanes...)
-
-	return r.lifecycleAgentReadWriter.RestampArchived(ctx, ids)
 }
 
 // TestRestoreOfAChildUnderTheChildCeiling pins that a child comes back only while its parent
