@@ -22,6 +22,9 @@ func deleteWorktreesForm(deletion worktreeDeletion, keepsBranch *bool, keys conf
 	title := fmt.Sprintf("Delete %s?", subject)
 
 	var lines []string
+	if len(deletion.live) > 0 {
+		lines = append(lines, fmt.Sprintf("This first archives %s, closing any pane still open.", promptSubject(deletion.live, deletion.children)))
+	}
 	switch n := len(deletion.agents); {
 	case n == 1:
 		lines = append(lines, "The directory goes through the agent delete, which runs the workflow's pre-delete hooks and the cleanup; the agent leaves the archive and its transcript goes with it.")

@@ -11,6 +11,7 @@ import (
 	"komrad/internal/ui/paint"
 	"komrad/lib/xslice"
 	agentv1 "komrad/proto/gen/agent/v1"
+	"komrad/proto/gen/agent/v1/agentv1connect"
 	worktreev1 "komrad/proto/gen/worktree/v1"
 	"komrad/proto/gen/worktree/v1/worktreev1connect"
 
@@ -154,10 +155,10 @@ func TestWorktreesDelete(t *testing.T) {
 			wantAbsent: "Delete",
 		},
 		{
-			name:      "a selection holding a live agent is refused",
+			name:      "a selection holding a live agent archives it first",
 			row:       "treeview",
 			press:     []string{"v", "j", "v", "d"},
-			wantDrawn: "live agent",
+			wantDrawn: `Delete 2 worktrees? This first archives agent "treeview", closing any pane still open.`,
 		},
 		{
 			name:      "a live agent is offered the archive",
@@ -317,6 +318,64 @@ func TestWorktreesDeleteAnswer(t *testing.T) {
 			assert.NotContains(t, frame, "Delete 4 worktrees?")
 		})
 	}
+
+	t.Run("confirming a selection holding a live agent archives it, then deletes every directory", func(t *testing.T) {
+		t.Parallel()
+
+		tests := []struct {
+			name     string
+			refusal  error
+			wantSent []request
+		}{
+			{
+				name: "the archive lands before the delete",
+				wantSent: []request{
+					{
+						procedure: worktreev1connect.WorktreeServiceGetWorktreeProcedure,
+						msg:       &worktreev1.GetWorktreeRequest{Dir: "/trees/live"},
+					},
+					{
+						procedure: agentv1connect.AgentServiceArchiveAgentsProcedure,
+						msg:       &agentv1.ArchiveAgentsRequest{Ids: []string{"live"}},
+					},
+					{
+						procedure: worktreev1connect.WorktreeServiceDeleteWorktreesProcedure,
+						msg:       &worktreev1.DeleteWorktreesRequest{Dirs: []string{"/trees/live", "/trees/orphan"}},
+					},
+				},
+			},
+			{
+				name:    "a refused archive deletes nothing",
+				refusal: errors.New("the hooks failed"),
+				wantSent: []request{
+					{
+						procedure: worktreev1connect.WorktreeServiceGetWorktreeProcedure,
+						msg:       &worktreev1.GetWorktreeRequest{Dir: "/trees/live"},
+					},
+					{
+						procedure: agentv1connect.AgentServiceArchiveAgentsProcedure,
+						msg:       &agentv1.ArchiveAgentsRequest{Ids: []string{"live"}},
+					},
+				},
+			},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				t.Parallel()
+
+				harness := openWorktrees(t)
+				if tt.refusal != nil {
+					harness.refuse(agentv1connect.AgentServiceArchiveAgentsProcedure, tt.refusal)
+				}
+				moveToWorktree(t, harness, "treeview")
+
+				harness.press("v", "j", "v", "d", "y")
+
+				harness.assertSent(tt.wantSent...)
+			})
+		}
+	})
 }
 
 // TestWorktreesRecord covers the record the list draws for a directory.
