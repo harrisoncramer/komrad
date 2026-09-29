@@ -3,6 +3,8 @@ package ui
 import (
 	"slices"
 
+	"komrad/internal/ui/layout"
+
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 )
@@ -15,11 +17,13 @@ const (
 	stopAgent
 	stopThread
 	stopRecord
+	// stopTerminal is the shell opened in the pane below the stage.
+	stopTerminal
 	// stopDocument is the document drawn beside the documents list, or the diff of one of its writes.
 	stopDocument
 	// stopLog is the log of the source hovered on the logs screen, drawn beside the list.
 	stopLog
-	// stopOther is a pane beside the sidebar that is not a stop, such as the info pane.
+	// stopOther is a pane beside the sidebar that is not a stop.
 	stopOther
 )
 
@@ -33,17 +37,17 @@ func (m model) cycleBinding() key.Binding {
 
 // areCycleKeysBound reports whether tmux sends the cycle keys to the panel from every pane.
 func (m model) areCycleKeysBound() bool {
-	return m.session != nil && m.frame != nil && m.focusPane() != ""
+	return m.session != nil && m.frame != nil && m.hasPaneStops()
 }
 
-// holdCycleKeys binds the cycle keys while an agent's pane is on the stage, and gives them back
-// when there is no pane beside the sidebar for them to reach.
+// holdCycleKeys binds the cycle keys while an agent's pane or a shell is beside the sidebar, and
+// gives them back when there is no pane for them to reach.
 func (m model) holdCycleKeys() {
 	if m.session == nil || m.frame == nil {
 		return
 	}
 
-	m.session.HoldCycleKeys(m.settings.Pane, m.focusPane() != "")
+	m.session.HoldCycleKeys(m.settings.Pane, m.hasPaneStops())
 }
 
 // findPressedElsewhere finds the stop a cycle key was pressed in when tmux sent it from a pane beside
@@ -59,6 +63,8 @@ func (m model) findPressedElsewhere(pressed string) (stop, bool) {
 		return stopList, false
 	case m.focusPane():
 		return stopAgent, true
+	case m.terminalPane():
+		return stopTerminal, true
 	}
 
 	return stopOther, true
@@ -119,6 +125,10 @@ func (m model) listStops() []stop {
 		stops = append(stops, stopAgent)
 	}
 
+	if m.terminalPane() != "" {
+		stops = append(stops, stopTerminal)
+	}
+
 	if m.isDetailsDrawn(m.hoveredDetails()) {
 		stops = append(stops, stopRecord)
 	}
@@ -150,6 +160,8 @@ func (m model) enterStop(to stop) (tea.Model, tea.Cmd) {
 	switch to {
 	case stopAgent:
 		m.tmux.SelectPane(m.focusPane())
+	case stopTerminal:
+		m.tmux.SelectPane(m.terminalPane())
 	case stopRecord:
 		return m.enterSidebar(to).jumpIntoDetails()
 	case stopThread:
@@ -189,4 +201,17 @@ func (m model) enterSidebar(to stop) model {
 	}
 
 	return m
+}
+
+// terminalPane is the shell the cycle stops at, empty while none is open.
+func (m model) terminalPane() string {
+	if m.frame == nil || m.info.kind != infoTerminal {
+		return ""
+	}
+
+	return m.frame.Pane(layout.RegionInfo)
+}
+
+func (m model) hasPaneStops() bool {
+	return m.focusPane() != "" || m.terminalPane() != ""
 }

@@ -22,25 +22,25 @@ type Session struct {
 }
 
 // NewSession builds the named tmux session the panel runs in over a tmux client, binding the
-// cycle keys, spelled as tmux spells them, while an agent is staged.
+// cycle keys, spelled as tmux spells them, while a pane beside the sidebar is a stop.
 func NewSession(tmux sessionTmux, session string, cycleKeys []string) *Session {
 	return &Session{tmux: tmux, session: session, cycleKeys: cycleKeys}
 }
 
-// HoldCycleKeys takes the cycle keys for sidebar while an agent's pane is on the stage beside it,
-// or gives them back to the panes when there is none.
-func (s *Session) HoldCycleKeys(sidebar string, staged bool) {
+// HoldCycleKeys takes the cycle keys for sidebar while a pane beside it is a stop, or gives them
+// back to the panes when there is none.
+func (s *Session) HoldCycleKeys(sidebar string, held bool) {
 	switch {
 	case sidebar == "":
-	case s.cycling != nil && *s.cycling == staged:
-	case staged:
+	case s.cycling != nil && *s.cycling == held:
+	case held:
 		for _, key := range s.cycleKeys {
 			s.tmux.BindRootKey(key, "send-keys", "-t", sidebar, key)
 		}
-		s.cycling = xptr.Ptr(staged)
+		s.cycling = xptr.Ptr(held)
 	default:
 		s.unbindCycleKeys()
-		s.cycling = xptr.Ptr(staged)
+		s.cycling = xptr.Ptr(held)
 	}
 }
 

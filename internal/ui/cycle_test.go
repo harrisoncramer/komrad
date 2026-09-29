@@ -184,3 +184,81 @@ func TestReviewViewCycle(t *testing.T) {
 		})
 	}
 }
+
+// TestTerminalViewCycle covers the cycle with a shell open below the stage, where the shell is a
+// stop between the agent and the record.
+func TestTerminalViewCycle(t *testing.T) {
+	sidebar, agent := "%0", "%9"
+
+	tests := []struct {
+		name         string
+		press        []string
+		from         string
+		wantSelected []string
+		wantRecord   bool
+	}{
+		{
+			name:         "forward from the agent's pane goes to the shell",
+			press:        []string{"ctrl+a"},
+			from:         agent,
+			wantSelected: []string{infoPane},
+		},
+		{
+			name:         "forward from the shell goes to the record",
+			press:        []string{"ctrl+a"},
+			from:         infoPane,
+			wantSelected: []string{sidebar},
+			wantRecord:   true,
+		},
+		{
+			name:         "backward from the shell goes to the agent's pane",
+			press:        []string{"ctrl+q"},
+			from:         infoPane,
+			wantSelected: []string{agent},
+		},
+		{
+			name:         "backward from the record goes to the shell",
+			press:        []string{"ctrl+q", "ctrl+q"},
+			wantSelected: []string{infoPane},
+			wantRecord:   true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			harness := openTerminal(t, panelHarnessParams{}, newStagedShellAgent(t.TempDir()))
+			harness.press("space", "t")
+			if tt.from != "" {
+				harness.panel.SetActivePane(tt.from)
+			}
+			selected := len(harness.panel.ReadSelectedPanes())
+
+			harness.press(tt.press...)
+
+			assert.ElementsMatch(t, tt.wantSelected, harness.panel.ReadSelectedPanes()[selected:])
+			assert.Equal(t, tt.wantRecord, readRecordCursor(harness.readFrame()) != "")
+		})
+	}
+
+	t.Run("on the schedules the shell is the stop past the list", func(t *testing.T) {
+		harness := openTerminal(t, panelHarnessParams{}, newStagedShellAgent(t.TempDir()))
+		harness.press("space", "t", "o", "s")
+		selected := len(harness.panel.ReadSelectedPanes())
+
+		harness.press("ctrl+a")
+
+		assert.Equal(t, []string{infoPane}, harness.panel.ReadSelectedPanes()[selected:])
+	})
+
+	t.Run("a shell with no agent staged holds the keys", func(t *testing.T) {
+		harness := openTerminal(t, panelHarnessParams{}, newShellAgent("a1", t.TempDir()))
+		_, bound := harness.panel.ReadRootBinding("C-a")
+		require.False(t, bound, "nothing is beside the sidebar yet")
+
+		harness.press("space", "t")
+
+		command, bound := harness.panel.ReadRootBinding("C-a")
+		require.True(t, bound)
+		assert.Equal(t, []string{"send-keys", "-t", sidebar, "C-a"}, command)
+	})
+}
