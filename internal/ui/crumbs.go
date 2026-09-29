@@ -10,10 +10,10 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
-// crumbs is the trail from a view down to the page open under it, the last step lit.
+// crumbs is the trail from a view down to the row or page the cursor is on.
 type crumbs struct {
 	trail []string
-	// tally is said after the trail, dimmed.
+	// tally is said after the trail.
 	tally string
 }
 
@@ -26,19 +26,26 @@ type crumbed interface {
 	crumbs(s panelShared) crumbs
 }
 
+// hovering is a view whose trail runs on to the row the cursor is on.
+type hovering interface {
+	hoveredName(s panelShared) string
+}
+
+var (
+	_ hovering = (*agentsScreen)(nil)
+	_ hovering = (*schedulesScreen)(nil)
+	_ hovering = (*archiveScreen)(nil)
+	_ hovering = (*worktreesScreen)(nil)
+	_ hovering = (*searchScreen)(nil)
+)
+
 func (c crumbs) view(palette paint.Palette, width int) string {
 	if len(c.trail) == 0 {
 		return ""
 	}
 
 	muted := palette.Style(paint.ToneMuted)
-	steps := make([]string, len(c.trail))
-	for i, step := range c.trail {
-		steps[i] = muted.Render(step)
-	}
-	steps[len(steps)-1] = palette.Style(paint.ToneAccent).Render(c.trail[len(c.trail)-1])
-
-	line := strings.Join(steps, muted.Render(" "+glyph.Crumb+" "))
+	line := muted.Render(strings.Join(c.trail, " "+glyph.Crumb+" "))
 	if c.tally != "" {
 		line += muted.Render(separated + c.tally)
 	}
@@ -49,19 +56,19 @@ func (c crumbs) view(palette paint.Palette, width int) string {
 	return line
 }
 
-// activeCrumbs is the trail from the view the page that is up was opened from, and false on a
-// view of its own.
+// activeCrumbs is the trail from the view the screen that is up sits under, that view, and
+// whether a page or a form is open under it.
 func (m *model) activeCrumbs() (crumbs, screen, bool) {
-	parent, trail, ok := m.pageCrumbs()
-	if !ok {
-		return crumbs{}, m.screen, false
+	parent, trail, opened := m.pageCrumbs()
+	if !opened {
+		trail = m.hoveredCrumbs()
 	}
 
 	if i := slices.IndexFunc(viewEntries(), func(entry viewEntry) bool { return entry.screen == parent }); i >= 0 {
 		trail.trail = slices.Concat([]string{viewEntries()[i].label}, trail.trail)
 	}
 
-	return trail, parent, true
+	return trail, parent, opened
 }
 
 // pageCrumbs is the trail under the view, from the page that is up or from the form open over a
@@ -76,4 +83,18 @@ func (m *model) pageCrumbs() (screen, crumbs, bool) {
 	}
 
 	return m.screen, crumbs{}, false
+}
+
+func (m *model) hoveredCrumbs() crumbs {
+	h, ok := m.active().(hovering)
+	if !ok {
+		return crumbs{}
+	}
+
+	name := h.hoveredName(m.shared())
+	if name == "" {
+		return crumbs{}
+	}
+
+	return crumbs{trail: []string{name}}
 }

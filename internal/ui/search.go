@@ -547,6 +547,19 @@ func (w *searchScreen) hovered(s panelShared) (searchRow, bool) {
 	return rowAt(w.rows(s), w.cursor)
 }
 
+func (w *searchScreen) hoveredName(s panelShared) string {
+	if w.typing {
+		return ""
+	}
+
+	agent, ok := w.hoveredAgent(s)
+	if !ok {
+		return ""
+	}
+
+	return agent.name
+}
+
 func (w *searchScreen) hoveredAgent(s panelShared) (searchAgent, bool) {
 	row, ok := w.hovered(s)
 

@@ -714,6 +714,27 @@ func TestSearchCursor(t *testing.T) {
 	})
 }
 
+// TestSearchTrail covers the trail under the switcher as a search is typed and its hits are
+// moved through.
+func TestSearchTrail(t *testing.T) {
+	t.Parallel()
+
+	harness := openSearch(t, openSearchParams{
+		server: newSearchServer(newTurnHit("a2", "payouts", "bill")),
+		query:  "bill",
+		rows:   buildSearchable(),
+	})
+	assert.Equal(t, "query", readTrail(harness.readFrame()), "the query is still being typed")
+
+	harness.press("enter")
+	assert.Equal(t, "query › billing", readTrail(harness.readFrame()), "an agent whose name says the query")
+
+	harness.press("G")
+	frame := harness.readFrame()
+	require.NotEqual(t, "payouts", readHoveredSearchRow(frame))
+	assert.Equal(t, "query › payouts", readTrail(frame), "a hit names the agent it was said by")
+}
+
 // TestSearchPreview covers the transcript the search draws beside its hits.
 func TestSearchPreview(t *testing.T) {
 	t.Parallel()

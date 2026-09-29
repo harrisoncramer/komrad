@@ -633,6 +633,16 @@ func readBelowViews(frame string) []string {
 	return lines
 }
 
+func readTrail(frame string) string {
+	lines := splitLines(frame)
+	if len(lines) < 3 {
+		return ""
+	}
+	trail, _, _ := strings.Cut(lines[2], "│")
+
+	return strings.TrimSpace(trail)
+}
+
 func readListRows(frame string) []string {
 	var rows []string
 	for _, line := range splitLines(frame) {

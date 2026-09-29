@@ -531,6 +531,10 @@ func (w *worktreesScreen) hoveredKey(s panelShared) string {
 	return w.list().hovered(s)
 }
 
+func (w *worktreesScreen) hoveredName(s panelShared) string {
+	return w.list().hoveredName(s)
+}
+
 func (w *worktreesScreen) placeAt(h host, s panelShared, key string) {
 	w.list().place(h, s, key)
 }

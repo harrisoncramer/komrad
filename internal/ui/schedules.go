@@ -357,6 +357,10 @@ func (w *schedulesScreen) hoveredKey(s panelShared) string {
 	return w.list().hovered(s)
 }
 
+func (w *schedulesScreen) hoveredName(s panelShared) string {
+	return w.list().hoveredName(s)
+}
+
 func (w *schedulesScreen) placeAt(h host, s panelShared, key string) {
 	w.list().place(h, s, key)
 }

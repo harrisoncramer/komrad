@@ -181,6 +181,15 @@ func (l screenList[T]) hovered(s panelShared) string {
 	return rowKeyAt(l.rows(s), l.cursor().cursor)
 }
 
+func (l screenList[T]) hoveredName(s panelShared) string {
+	row, ok := rowAt(l.rows(s), l.cursor().cursor)
+	if !ok || l.name == nil {
+		return ""
+	}
+
+	return l.name(row)
+}
+
 // place puts the cursor back on a row by key, or as near to where it was as the list allows.
 func (l screenList[T]) place(h host, s panelShared, hovered string) {
 	rows := l.rows(s)
