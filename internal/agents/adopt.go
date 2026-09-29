@@ -24,7 +24,11 @@ var ErrAdoptNotABranch = fail.InvalidArgument("komrad adopts a branch, and this 
 
 var ErrAdoptBranchInUse = fail.Precondition("that branch is already checked out")
 
-var ErrAdoptAlreadyAdopted = fail.AlreadyExists("that branch already has an agent on it")
+// Adoption is the agent on an adopted branch, and whether it was there before the adoption.
+type Adoption struct {
+	Agent    *agentstore.Agent
+	Existing bool
+}
 
 const worktreeListTimeout = 10 * time.Second
 
@@ -78,7 +82,7 @@ type AdoptParams struct {
 
 // Adopt puts an agent on a branch komrad did not make, running it either in a worktree of its
 // own or in the checkout already holding the branch.
-func (s *AdoptService) Adopt(ctx context.Context, params AdoptParams) (*agentstore.Agent, error) {
+func (s *AdoptService) Adopt(ctx context.Context, params AdoptParams) (*Adoption, error) {
 	branch := strings.TrimSpace(params.Ref)
 	if branch == "" {
 		return nil, fmt.Errorf("%w: nothing to adopt", ErrBadDirectory)
@@ -111,10 +115,10 @@ func (s *AdoptService) Adopt(ctx context.Context, params AdoptParams) (*agentsto
 		// A keyed retry of the call that launched it is the one repeat that means "again, safely"
 		// rather than "a second agent on this branch".
 		if isKeyedReplay(params.IdempotencyKey, *existing) {
-			return existing, nil
+			return &Adoption{Agent: existing}, nil
 		}
 
-		return nil, fmt.Errorf("%w: %s is on %s already", ErrAdoptAlreadyAdopted, existing.Name, branch)
+		return &Adoption{Agent: existing, Existing: true}, nil
 	}
 
 	create := NewAgentParams{
@@ -149,10 +153,8 @@ func (s *AdoptService) Adopt(ctx context.Context, params AdoptParams) (*agentsto
 	case !doesDirExist(trees.holder):
 		// Git still has the registration but the directory is gone, so a worktree of this agent's
 		// own is made instead.
-	case owner != nil && isAdopted(*owner, branch):
-		return nil, fmt.Errorf("%w: %s is on %s already, in %s", ErrAdoptAlreadyAdopted, owner.Name, branch, trees.holder)
 	case owner != nil:
-		return nil, fmt.Errorf("%w: %s is the worktree of agent %s, so adopting into it would hand one directory to two agents", ErrAdoptBranchInUse, trees.holder, owner.Name)
+		return &Adoption{Agent: owner, Existing: true}, nil
 	default:
 		// The checkout is somebody else's work, so the provisioner is turned off to stop the
 		// workflow making a second one and, on delete, removing a directory komrad never created.
@@ -165,7 +167,7 @@ func (s *AdoptService) Adopt(ctx context.Context, params AdoptParams) (*agentsto
 		return nil, err
 	}
 
-	return created, nil
+	return &Adoption{Agent: created}, nil
 }
 
 // agentOnBranch returns the live agent already adopted onto a branch in this workflow.

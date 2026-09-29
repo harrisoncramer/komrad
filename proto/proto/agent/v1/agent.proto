@@ -327,8 +327,10 @@ message AdoptRequest {
 }
 
 message AdoptResponse {
-  // The agent as launched, on the branch it was adopted onto.
+  // The agent on the branch, either the one just launched or the one already there.
   Agent agent = 1;
+  // True when the branch already had an agent, which is returned in place of a new one.
+  bool existing = 2;
 }
 
 message GetAgentRequest {
@@ -674,7 +676,7 @@ service AgentService {
       cli: true
       mcp: true
       name: "adopt"
-      description: "Start an agent on a branch that already exists, such as one a person pushed by hand. Name the branch, not a pull request. The workflow decides the repository and must be one that provisions worktrees. Komrad puts the agent in a worktree on that branch, or in the checkout already holding it when one exists on disk. The branch stays the person's own: nothing here creates, resets or deletes it. A branch that already has an agent on it is refused as already_exists, naming that agent."
+      description: "Start an agent on a branch that already exists, such as one a person pushed by hand. Name the branch, not a pull request. The workflow decides the repository and must be one that provisions worktrees. Komrad puts the agent in a worktree on that branch, or in the checkout already holding it when one exists on disk. The branch stays the person's own: nothing here creates, resets or deletes it. A branch that already has an agent on it launches nothing and answers with that agent, existing set."
       destructive: false
       roles: [ROLE_ORCHESTRATOR]
     };
