@@ -607,9 +607,6 @@ func (s *ReviewService) ListReviewViewedFiles(
 // interrupt stops the agent where it stands, and failing to is no reason to withhold the
 // notification.
 func (s *ReviewService) interrupt(ctx context.Context, agentID string) {
-	if s.interrupter == nil {
-		return
-	}
 	if err := s.interrupter.Interrupt(ctx, agentID); err != nil {
 		return
 	}

@@ -1,6 +1,7 @@
 package reviews
 
 import (
+	"context"
 	"slices"
 	"testing"
 
@@ -1004,6 +1005,12 @@ func TestAnsweringAReviewSeveralTimesLeavesOneMail(t *testing.T) {
 	assert.Len(t, fx.listMail(t, fx.reviewer.ID), 2, "an answer after the mail was read rings again")
 }
 
+type noInterrupter struct{}
+
+func (noInterrupter) Interrupt(context.Context, string) error {
+	return nil
+}
+
 func newReviewFixture(t *testing.T) *reviewFixture {
 	t.Helper()
 
@@ -1033,16 +1040,17 @@ func newReviewFixture(t *testing.T) *reviewFixture {
 	})
 
 	service := NewReviewService(NewReviewServiceParams{
-		Threads:   reviews,
-		Messages:  reviews,
-		Viewed:    reviews,
-		Rounds:    reviews,
-		Reviews:   reviews,
-		Snapshots: snapshots,
-		Workflows: stores.Workflows,
-		Agents:    stores.Agents,
-		Events:    events,
-		StateDir:  t.TempDir(),
+		Threads:     reviews,
+		Messages:    reviews,
+		Viewed:      reviews,
+		Rounds:      reviews,
+		Reviews:     reviews,
+		Snapshots:   snapshots,
+		Workflows:   stores.Workflows,
+		Agents:      stores.Agents,
+		Events:      events,
+		Interrupter: noInterrupter{},
+		StateDir:    t.TempDir(),
 	})
 
 	_, err := service.OpenRound(t.Context(), worker.ID, personAuthor)

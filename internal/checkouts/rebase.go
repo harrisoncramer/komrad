@@ -551,10 +551,6 @@ func refuseTreeState(state git.TreeState) error {
 }
 
 func (s *RebaseService) record(ctx context.Context, agentID string, outcome rebaseOutcome) error {
-	if s.events == nil {
-		return nil
-	}
-
 	raw, err := json.Marshal(outcome)
 	if err != nil {
 		return fmt.Errorf("failed to encode the rebase of agent %q: %w", agentID, err)

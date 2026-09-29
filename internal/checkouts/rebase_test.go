@@ -28,6 +28,7 @@ import (
 
 type rebaseFixture struct {
 	stores     *storetest.Stores
+	events     *eventstest.Queue
 	workflowID string
 }
 
@@ -441,7 +442,6 @@ func TestRebaseRereadsTheRowOnceTheAgentSettles(t *testing.T) {
 
 			_, err := fixture.newService(NewRebaseServiceParams{
 				Settler: buildSettler(channel, observer),
-				Events:  fixture.newQueue(t),
 				Rebaser: rebaser,
 			}).Rebase(t.Context(), agent.ID)
 
@@ -635,6 +635,7 @@ func newRebaseFixture(t *testing.T) *rebaseFixture {
 
 	return &rebaseFixture{
 		stores: stores,
+		events: eventstest.NewQueue(t, stores, NewEventHandler()),
 		workflowID: stores.SeedWorkflow(t, workflowstore.Config{
 			Name:     "flow",
 			Worktree: workflowstore.WorktreeConfig{Enabled: true},
@@ -663,15 +664,14 @@ func (f *rebaseFixture) seed(t *testing.T, agent agentstore.Agent) *agentstore.A
 func (f *rebaseFixture) newService(params NewRebaseServiceParams) *RebaseService {
 	params.Agents = f.stores.Agents
 	params.Workflows = f.stores.Workflows
+	if params.Events == nil {
+		params.Events = f.events
+	}
 	if params.Rebaser == nil {
 		params.Rebaser = &gittest.Rebaser{State: git.TreeState{Branch: "agent/a1"}}
 	}
 
 	return NewRebaseService(params)
-}
-
-func (f *rebaseFixture) newQueue(t *testing.T) *eventstest.Queue {
-	return eventstest.NewQueue(t, f.stores, NewEventHandler())
 }
 
 func (f *rebaseFixture) readInbox(t *testing.T, id string) []string {
@@ -718,8 +718,8 @@ func buildSettler(channel harness.Channel, observer harness.Observer) *agents.Se
 func TestALateRebaseRetryTellsTheLatestRebase(t *testing.T) {
 	fixture := newRebaseFixture(t)
 	agent := fixture.seed(t, agentstore.Agent{Pane: "%1"})
-	queue := fixture.newQueue(t)
-	service := fixture.newService(NewRebaseServiceParams{Events: queue})
+	queue := fixture.events
+	service := fixture.newService(NewRebaseServiceParams{})
 
 	require.NoError(t, service.record(t.Context(), agent.ID, rebaseOutcome{Failure: "the older rebase failed"}))
 	require.NoError(t, service.record(t.Context(), agent.ID, rebaseOutcome{Result: &RebaseResult{RebasePlan: RebasePlan{Landed: 2}, Moved: true}}))
