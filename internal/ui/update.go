@@ -231,7 +231,7 @@ func (m *model) applySizeRead(msg sizeReadMsg) tea.Cmd {
 		return nil
 	}
 
-	return tea.Tick(sizeFallback, func(time.Time) tea.Msg {
+	return startTimer(sizeFallback, func(time.Time) tea.Msg {
 		return sizeFallbackMsg(msg)
 	})
 }

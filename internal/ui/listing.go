@@ -20,12 +20,14 @@ const (
 	agentsTimeout = 2 * time.Second
 )
 
+var startTimer = tea.Tick
+
 type tickMsg struct {
 	at time.Time
 }
 
 func tick() tea.Cmd {
-	return tea.Tick(tickInterval, func(at time.Time) tea.Msg { return tickMsg{at: at} })
+	return startTimer(tickInterval, func(at time.Time) tea.Msg { return tickMsg{at: at} })
 }
 
 // reportUnreachable says the server has stopped answering the first time it is found gone.

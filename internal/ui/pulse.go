@@ -18,7 +18,7 @@ type pulse struct {
 type pulseMsg struct{}
 
 func pulseTick() tea.Cmd {
-	return tea.Tick(pulseInterval, func(time.Time) tea.Msg { return pulseMsg{} })
+	return startTimer(pulseInterval, func(time.Time) tea.Msg { return pulseMsg{} })
 }
 
 // start blinks the given number of times, lit from the frame it is asked for.

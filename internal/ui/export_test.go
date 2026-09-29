@@ -742,3 +742,13 @@ func (f *recordingClipboard) WriteAll(text string) error {
 func spellCycleKeys(keys []string) []string {
 	return xslice.Map(keys, strings.NewReplacer("ctrl+", "C-", "alt+", "M-").Replace)
 }
+
+func init() {
+	startTimer = fireAtOnce
+}
+
+func fireAtOnce(_ time.Duration, fn func(time.Time) tea.Msg) tea.Cmd {
+	return func() tea.Msg {
+		return fn(time.Now())
+	}
+}

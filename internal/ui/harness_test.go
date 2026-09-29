@@ -63,6 +63,7 @@ var timerCmds = []string{
 	"bubbletea/v2.Tick.",
 	"bubbletea/v2.Every.",
 	"cursor.(*Model).Blink.",
+	"ui.fireAtOnce.",
 }
 
 type panelHarness struct {

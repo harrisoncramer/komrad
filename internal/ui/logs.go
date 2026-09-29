@@ -217,7 +217,7 @@ func (m *model) applyLogsTick(msg logsTickMsg) tea.Cmd {
 func (l *logsScreen) tickCmd() tea.Cmd {
 	generation := l.generation
 
-	return tea.Tick(logsPollInterval, func(time.Time) tea.Msg { return logsTickMsg{generation: generation} })
+	return startTimer(logsPollInterval, func(time.Time) tea.Msg { return logsTickMsg{generation: generation} })
 }
 
 // switchSource starts the block over on the source the cursor is on, unless it is the one being read.
@@ -273,7 +273,7 @@ func (l *logsScreen) updateLogFilter(h host, s panelShared, key tea.KeyPressMsg)
 	l.edits++
 	generation, edits := l.generation, l.edits
 
-	return tea.Tick(logsFilterSettle, func(time.Time) tea.Msg { return logsSettledMsg{generation: generation, edits: edits} })
+	return startTimer(logsFilterSettle, func(time.Time) tea.Msg { return logsSettledMsg{generation: generation, edits: edits} })
 }
 
 func (m *model) applyLogsSettled(msg logsSettledMsg) tea.Cmd {

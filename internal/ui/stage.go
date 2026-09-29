@@ -38,7 +38,7 @@ func (m *model) waitToStage() tea.Cmd {
 	m.staging++
 	move := m.staging
 
-	return tea.Tick(stageDelay, func(time.Time) tea.Msg { return stageTickMsg{move: move} })
+	return startTimer(stageDelay, func(time.Time) tea.Msg { return stageTickMsg{move: move} })
 }
 
 // applyStageTick stages what the cursor came to rest on and asks for what the screen reads of it.
