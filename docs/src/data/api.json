@@ -8520,6 +8520,16 @@
           "oneof": "",
           "rules": [],
           "description": "Which delete path the directory takes."
+        },
+        {
+          "name": "share_bytes",
+          "type": "int64",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The directory's share of size_bytes, each hard linked file's blocks split evenly across its links. Unset with size_bytes."
         }
       ]
     },

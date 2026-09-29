@@ -442,6 +442,7 @@ func TestFilterWorktreeHeader(t *testing.T) {
 			Branch:     "agent/worktree-view",
 			Readable:   true,
 			SizeBytes:  proto.Int64(1 << 20),
+			ShareBytes: proto.Int64(1 << 20),
 			MeasuredAt: proto.String(archivedAt),
 		},
 		&worktreev1.WatchedWorktree{
@@ -450,6 +451,7 @@ func TestFilterWorktreeHeader(t *testing.T) {
 			Branch:     "agent/other",
 			Readable:   true,
 			SizeBytes:  proto.Int64(1 << 20),
+			ShareBytes: proto.Int64(1 << 20),
 			MeasuredAt: proto.String(archivedAt),
 		},
 	))

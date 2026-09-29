@@ -25,10 +25,11 @@ func TestMeasureSumsEveryFileUnderADirectory(t *testing.T) {
 	deep := usage(t, filepath.Join(dir, "deep/two")) + usage(t, filepath.Join(dir, "deep/down/three"))
 	require.Positive(t, one)
 
-	total, entries, err := measure(t.Context(), dir)
+	measured, err := measure(t.Context(), dir)
 	require.NoError(t, err)
 
-	assert.Equal(t, one+deep, total)
+	assert.Equal(t, one+deep, measured.bytes)
+	assert.Equal(t, measured.bytes, measured.share)
 	assert.Equal(t, []Entry{
 		{
 			Path:  "deep",
@@ -38,7 +39,7 @@ func TestMeasureSumsEveryFileUnderADirectory(t *testing.T) {
 		{Path: "one", Bytes: one},
 		{Path: "empty", Bytes: 0},
 		{Path: "linked", Bytes: 0},
-	}, entries)
+	}, measured.entries)
 }
 
 // TestMeasureCountsBlocksRatherThanApparentSize covers a sparse file, whose apparent size is a
@@ -48,11 +49,11 @@ func TestMeasureCountsBlocksRatherThanApparentSize(t *testing.T) {
 	write(t, dir, "sparse", "")
 	require.NoError(t, os.Truncate(filepath.Join(dir, "sparse"), 1<<20))
 
-	total, entries, err := measure(t.Context(), dir)
+	measured, err := measure(t.Context(), dir)
 	require.NoError(t, err)
 
-	assert.Less(t, total, int64(1<<20))
-	assert.Equal(t, []Entry{{Path: "sparse", Bytes: total}}, entries)
+	assert.Less(t, measured.bytes, int64(1<<20))
+	assert.Equal(t, []Entry{{Path: "sparse", Bytes: measured.bytes}}, measured.entries)
 }
 
 // TestMeasureCountsAHardLinkedFileOnce covers two links to one file adding up to one file,
@@ -64,10 +65,11 @@ func TestMeasureCountsAHardLinkedFileOnce(t *testing.T) {
 	require.NoError(t, os.Link(filepath.Join(dir, "b/shared"), filepath.Join(dir, "a/shared")))
 	shared := usage(t, filepath.Join(dir, "b/shared"))
 
-	total, entries, err := measure(t.Context(), dir)
+	measured, err := measure(t.Context(), dir)
 	require.NoError(t, err)
 
-	assert.Equal(t, shared, total)
+	assert.Equal(t, shared, measured.bytes)
+	assert.Equal(t, shared, measured.share)
 	assert.Equal(t, []Entry{
 		{
 			Path:  "a",
@@ -79,7 +81,30 @@ func TestMeasureCountsAHardLinkedFileOnce(t *testing.T) {
 			Bytes: 0,
 			Dir:   true,
 		},
-	}, entries)
+	}, measured.entries)
+}
+
+// TestMeasureSplitsAFileSharedWithAnotherDirectory covers each directory taking its links' part of a shared file.
+func TestMeasureSplitsAFileSharedWithAnotherDirectory(t *testing.T) {
+	root := t.TempDir()
+	write(t, root, "left/own", strings.Repeat("x", 100))
+	write(t, root, "left/shared", strings.Repeat("x", 5000))
+	require.NoError(t, os.MkdirAll(filepath.Join(root, "right/nested"), 0o755))
+	require.NoError(t, os.Link(filepath.Join(root, "left/shared"), filepath.Join(root, "right/shared")))
+	require.NoError(t, os.Link(filepath.Join(root, "left/shared"), filepath.Join(root, "right/nested/shared")))
+	own := usage(t, filepath.Join(root, "left/own"))
+	shared := usage(t, filepath.Join(root, "left/shared"))
+
+	left, err := measure(t.Context(), filepath.Join(root, "left"))
+	require.NoError(t, err)
+	right, err := measure(t.Context(), filepath.Join(root, "right"))
+	require.NoError(t, err)
+
+	assert.Equal(t, own+shared, left.bytes)
+	assert.Equal(t, shared, right.bytes)
+	assert.Equal(t, own+shared/3, left.share)
+	assert.Equal(t, shared*2/3, right.share)
+	assert.InDelta(t, own+shared, left.share+right.share, 1)
 }
 
 // TestMeasureGivesUpWhenTheContextEnds covers the walk stopping once the context has ended.
@@ -87,7 +112,7 @@ func TestMeasureGivesUpWhenTheContextEnds(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 
-	_, _, err := measure(ctx, t.TempDir())
+	_, err := measure(ctx, t.TempDir())
 
 	require.ErrorIs(t, err, context.Canceled)
 }
@@ -98,11 +123,11 @@ func TestMeasureReportsADirectoryThatIsNotThere(t *testing.T) {
 	dir := t.TempDir()
 	write(t, dir, "kept", "xx")
 
-	size, _, err := measure(t.Context(), dir)
+	measured, err := measure(t.Context(), dir)
 	require.NoError(t, err)
-	assert.Equal(t, usage(t, filepath.Join(dir, "kept")), size)
+	assert.Equal(t, usage(t, filepath.Join(dir, "kept")), measured.bytes)
 
-	_, _, err = measure(t.Context(), filepath.Join(dir, "never"))
+	_, err = measure(t.Context(), filepath.Join(dir, "never"))
 	require.ErrorIs(t, err, os.ErrNotExist)
 }
 

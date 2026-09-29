@@ -6,6 +6,7 @@ SELECT
     readable,
     mtime,
     size_bytes,
+    share_bytes,
     measured_at,
     size_error
 FROM
@@ -21,6 +22,7 @@ SELECT
     w.readable,
     w.mtime,
     w.size_bytes,
+    w.share_bytes,
     w.measured_at,
     w.size_error
 FROM
@@ -75,6 +77,7 @@ UPDATE
     worktrees
 SET
     size_bytes = @size_bytes,
+    share_bytes = @share_bytes,
     measured_at = @measured_at,
     size_error = sqlc.narg(size_error)
 WHERE

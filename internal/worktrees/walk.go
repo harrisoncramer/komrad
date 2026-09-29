@@ -35,29 +35,68 @@ type inode struct {
 	ino uint64
 }
 
+type linked struct {
+	bytes int64
+	nlink int64
+	met   int64
+}
+
+type links struct {
+	mu    sync.Mutex
+	files map[inode]*linked
+}
+
+type measurement struct {
+	bytes   int64
+	share   int64
+	entries []Entry
+}
+
 // walker sums the disk under one top-level entry, reading its directories on a pool of its own.
 type walker struct {
 	group *errgroup.Group
-	seen  *sync.Map
+	seen  *links
 	sum   *atomic.Int64
+}
+
+func (l *links) meet(key inode, bytes, nlink int64) bool {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	file, ok := l.files[key]
+	if !ok {
+		file = &linked{bytes: bytes, nlink: nlink}
+		l.files[key] = file
+	}
+	file.met++
+
+	return !ok
+}
+
+func (l *links) calculateShare(total int64) int64 {
+	for _, file := range l.files {
+		total -= file.bytes - file.bytes*min(file.met, file.nlink)/file.nlink
+	}
+
+	return total
 }
 
 // measure is the disk taken by every file under a directory and by each top-level entry,
 // following no symlink and skipping whatever vanishes while it is walked.
-func measure(ctx context.Context, dir string) (int64, []Entry, error) {
+func measure(ctx context.Context, dir string) (*measurement, error) {
 	tops, err := readDir(ctx, dir)
 	if err != nil {
-		return 0, nil, err
+		return nil, err
 	}
 
-	var seen sync.Map
+	seen := &links{files: map[inode]*linked{}}
 	var total int64
 	entries := make([]Entry, 0, len(tops))
 	for _, top := range tops {
 		var sum atomic.Int64
-		w := walker{seen: &seen, sum: &sum}
+		w := walker{seen: seen, sum: &sum}
 		if err := w.walkTop(ctx, filepath.Join(dir, top.Name()), top); err != nil {
-			return 0, nil, err
+			return nil, err
 		}
 		total += sum.Load()
 		entries = append(entries, Entry{
@@ -70,7 +109,11 @@ func measure(ctx context.Context, dir string) (int64, []Entry, error) {
 		return cmp.Compare(b.Bytes, a.Bytes)
 	})
 
-	return total, entries, nil
+	return &measurement{
+		bytes:   total,
+		share:   seen.calculateShare(total),
+		entries: entries,
+	}, nil
 }
 
 // walkTop counts a top-level file, or reads a top-level directory to the end on a fresh pool.
@@ -138,12 +181,13 @@ func (w walker) count(entry fs.DirEntry) error {
 	if !ok {
 		return fmt.Errorf("stat %s: no stat_t behind %T", entry.Name(), info.Sys())
 	}
+	bytes := stat.Blocks * blockSize
 	if stat.Nlink > 1 {
-		if _, dup := w.seen.LoadOrStore(inode{dev: int64(stat.Dev), ino: stat.Ino}, struct{}{}); dup {
+		if !w.seen.meet(inode{dev: int64(stat.Dev), ino: stat.Ino}, bytes, int64(stat.Nlink)) {
 			return nil
 		}
 	}
-	w.sum.Add(stat.Blocks * blockSize)
+	w.sum.Add(bytes)
 
 	return nil
 }

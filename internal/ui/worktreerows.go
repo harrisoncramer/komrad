@@ -338,7 +338,7 @@ func totalLabel(items []worktreeItem) string {
 			continue
 		}
 
-		total += item.size.bytes
+		total += item.size.share
 		measured = true
 	}
 
