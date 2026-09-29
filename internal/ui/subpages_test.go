@@ -34,10 +34,10 @@ func TestSubpages(t *testing.T) {
 			wantCursor: "› logs",
 		},
 		{
-			name:       "a workflow's row opens its orchestrator's",
+			name:       "a workflow's row opens its orchestrator's under the workflow's name",
 			row:        "komrad",
-			wantTitle:  "Subpages of orchestrator",
-			wantCrumb:  "agents › orchestrator",
+			wantTitle:  "Subpages of komrad",
+			wantCrumb:  "agents › komrad",
 			wantCursor: "› logs",
 		},
 		{

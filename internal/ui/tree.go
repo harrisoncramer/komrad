@@ -476,6 +476,15 @@ func (l listing) archivedAgent(id string) (panel.Agent, bool) {
 	return panel.Agent{}, false
 }
 
+// agentName is what an agent is called in the panel, its workflow's name for an orchestrator.
+func (l listing) agentName(agent panel.Agent) string {
+	if agent.Role == panel.RoleOrchestrator {
+		return l.workflowName(agent.WorkflowID)
+	}
+
+	return agent.Name
+}
+
 // workflowName is what a workflow is called, live or archived, or a dash when none has the id.
 func (l listing) workflowName(id string) string {
 	for _, w := range slices.Concat(l.workflows, l.archivedWorkflows) {
