@@ -5,9 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 
 	"komrad/internal/events"
+	"komrad/internal/logging"
 	"komrad/internal/mail"
 	"komrad/internal/store"
 	mailstore "komrad/internal/store/mail"
@@ -59,6 +61,12 @@ func (*EventHandler) Handle(ctx context.Context, tx store.DBTX, mailer *mail.Mai
 			Body:        body,
 			OnlyRewrite: !change.Opens(),
 		})
+		if errors.Is(err, mail.ErrMailboxFull) {
+			logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "skipped pull request mail for a full mailbox",
+				append([]slog.Attr{slog.String(logging.AgentID, recipient)}, logging.Err(err)...)...)
+
+			continue
+		}
 		if err != nil {
 			return nil, err
 		}
