@@ -33,8 +33,8 @@ func openGitMenu(h host, s panelShared, item panel.AgentRow) tea.Cmd {
 
 	return openSubmenu(h, submenu{
 		kind:  formGit,
-		title: "Git on " + agent.Name,
-		crumb: agent.Name,
+		title: "Git on " + s.listing.agentName(agent),
+		crumb: s.listing.agentName(agent),
 		entries: []submenuEntry{
 			{label: "rebase with base", keys: s.keys.Git.Rebase, isOff: !s.listing.isRebaseable(agent)},
 			{label: "open pr", keys: s.keys.Git.OpenPullRequest, isOff: item.PullRequest.URL == ""},

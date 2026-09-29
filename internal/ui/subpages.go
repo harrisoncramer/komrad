@@ -35,8 +35,8 @@ func openAgentSubpages(h host, s panelShared, from screen, item panel.AgentRow) 
 
 	return openSubmenu(h, submenu{
 		kind:  formSubpages,
-		title: "Subpages of " + agent.Name,
-		crumb: agent.Name,
+		title: "Subpages of " + s.listing.agentName(agent),
+		crumb: s.listing.agentName(agent),
 		entries: xslice.Map(pages, func(page subpage) submenuEntry {
 			return subpageEntry(s, from, item, page)
 		}),

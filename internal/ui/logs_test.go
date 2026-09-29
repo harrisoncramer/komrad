@@ -112,6 +112,16 @@ func TestLogsOpen(t *testing.T) {
 		harness.assertSentTo(logv1connect.LogServiceReadAgentLogsProcedure, logRead("service", ""))
 	})
 
+	t.Run("an orchestrator's logs are under its workflow's name", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openSubpages(t, "komrad")
+		harness.press("l")
+
+		assert.Equal(t, logsScreen, harness.readScreen())
+		assert.Contains(t, harness.readFrame(), "agents › komrad › logs")
+	})
+
 	t.Run("an agent with a failed run opens on it", func(t *testing.T) {
 		t.Parallel()
 

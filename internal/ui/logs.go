@@ -444,7 +444,7 @@ func (l *logsScreen) parent() screen {
 func (l *logsScreen) crumbs(s panelShared) crumbs {
 	name := l.agentID
 	if item, ok := s.listing.anyAgent(l.agentID); ok {
-		name = item.Agent.Name
+		name = s.listing.agentName(item.Agent)
 	}
 
 	return crumbs{trail: []string{name, "logs"}}
