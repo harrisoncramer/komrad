@@ -229,7 +229,11 @@ jump = ["'"]
 # The messages komrad pushed, read in the main pane.
 [keybindings.messages]
 # Open every message in the main pane, and close it again.
-open = ["ctrl+g"]
+open        = ["ctrl+g"]
+# Dismiss the message under the cursor.
+dismiss     = ["d"]
+# Dismiss every message.
+dismiss_all = ["D"]
 
 # Navigation, shared by every menu so movement is the same everywhere.
 [keybindings.nav]

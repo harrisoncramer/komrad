@@ -573,6 +573,20 @@
               "type": "array",
               "description": "Open every message in the main pane, and close it again.",
               "default": "[\"ctrl+g\"]"
+            },
+            {
+              "key": "dismiss",
+              "path": "keybindings.messages.dismiss",
+              "type": "array",
+              "description": "Dismiss the message under the cursor.",
+              "default": "[\"d\"]"
+            },
+            {
+              "key": "dismiss_all",
+              "path": "keybindings.messages.dismiss_all",
+              "type": "array",
+              "description": "Dismiss every message.",
+              "default": "[\"D\"]"
             }
           ],
           "sections": []

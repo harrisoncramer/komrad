@@ -422,6 +422,10 @@ type DocumentsKeys struct {
 type MessagesKeys struct {
 	// Open every message in the main pane, and close it again.
 	Open []string `mapstructure:"open" default:"ctrl+g"`
+	// Dismiss the message under the cursor.
+	Dismiss []string `mapstructure:"dismiss" default:"d"`
+	// Dismiss every message.
+	DismissAll []string `mapstructure:"dismiss_all" default:"D"`
 }
 
 // LogsKeys are the bindings for the logs screen. Movement is the shared navigation, and

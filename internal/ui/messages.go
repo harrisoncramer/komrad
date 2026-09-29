@@ -342,9 +342,9 @@ func (m model) updateMessages(key tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	switch {
 	case isBound(k, m.keys.Messages.Open), k == "esc":
 		return m.toggleMessagesFocus(), nil
-	case k == "d":
+	case isBound(k, m.keys.Messages.Dismiss):
 		return m.dismissMessage(), nil
-	case k == "D":
+	case isBound(k, m.keys.Messages.DismissAll):
 		return m.dismissAllMessages(), nil
 	case k == messagesMockKey:
 		return m.pushMockMessage(), nil
@@ -402,8 +402,8 @@ func (m model) pushMockMessage() model {
 
 func (m model) messagesHelp() keyMap {
 	copyMessage := binding(m.keys.Details.Copy, "copy")
-	dismiss := binding([]string{"d"}, "dismiss")
-	dismissAll := binding([]string{"D"}, "dismiss all")
+	dismiss := binding(m.keys.Messages.Dismiss, "dismiss")
+	dismissAll := binding(m.keys.Messages.DismissAll, "dismiss all")
 	back := binding(slices.Concat([]string{"esc"}, m.keys.Messages.Open), "back to list")
 
 	return keyMap{
