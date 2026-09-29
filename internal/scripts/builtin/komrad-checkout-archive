@@ -1,0 +1,19 @@
+#!/bin/sh
+#KOMRAD description="Shrink an archived komrad checkout back to its work: give back its throwaway test instance and drop the installs and builds any checkout makes again when it needs them. Does nothing in any other checkout."
+#KOMRAD timeout="2m"
+set -eu
+
+tree="$KOMRAD_AGENT_CWD"
+
+if [ ! -x "$tree/mise/tasks/_test_instance" ]; then
+	exit 0
+fi
+
+if [ "$(basename "$tree")" != "$KOMRAD_AGENT_ID" ]; then
+	echo "archive: $tree is not named after $KOMRAD_AGENT_ID, so it is not this agent's to shrink" >&2
+	exit 0
+fi
+
+"$tree/mise/tasks/_test_instance" down --root "$tree"
+
+rm -rf "$tree/docs/node_modules" "$tree/local/custom-gcl" "$tree/local/custom-gcl.sum" "$tree/local/komradslot" "$tree"/local/buf-plugin-*
