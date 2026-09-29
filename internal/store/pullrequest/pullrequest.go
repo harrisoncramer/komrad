@@ -112,9 +112,11 @@ type Outcome struct {
 // leaving the last known value as it was.
 type StandingChange struct {
 	OldChecks         *string
+	OldChecksSHA      *string
 	OldMergeability   *string
 	OldDecision       *string
 	KnownChecks       *string
+	KnownChecksSHA    *string
 	KnownMergeability *string
 	KnownDecision     *string
 }
@@ -268,9 +270,11 @@ func (s *PullRequestStore) SetStanding(ctx context.Context, id string, standing 
 
 	return &StandingChange{
 		OldChecks:         row.OldChecks,
+		OldChecksSHA:      row.OldChecksSha,
 		OldMergeability:   row.OldMergeability,
 		OldDecision:       row.OldDecision,
 		KnownChecks:       row.KnownChecks,
+		KnownChecksSHA:    row.KnownChecksSha,
 		KnownMergeability: row.KnownMergeability,
 		KnownDecision:     row.KnownDecision,
 	}, nil

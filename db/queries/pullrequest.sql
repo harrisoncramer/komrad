@@ -379,6 +379,7 @@ WITH prior AS (
     SELECT
         held.id,
         held.last_known_checks,
+        held.last_known_checks_sha,
         held.last_known_mergeability,
         held.last_known_decision
     FROM
@@ -396,6 +397,11 @@ SET
     checks_sha = @checks_sha::text,
     checks_read_at = @checks_read_at::timestamptz,
     last_known_checks = COALESCE(sqlc.narg('checks'), p.last_known_checks),
+    last_known_checks_sha = CASE WHEN sqlc.narg('checks')::text IS NULL THEN
+        p.last_known_checks_sha
+    ELSE
+        NULLIF(@checks_sha::text, '')
+    END,
     last_known_mergeability = COALESCE(sqlc.narg('mergeability'), p.last_known_mergeability),
     last_known_decision = COALESCE(sqlc.narg('review_decision'), p.last_known_decision)
 FROM
@@ -404,9 +410,11 @@ WHERE
     p.id = prior.id
 RETURNING
     prior.last_known_checks AS old_checks,
+    prior.last_known_checks_sha AS old_checks_sha,
     prior.last_known_mergeability AS old_mergeability,
     prior.last_known_decision AS old_decision,
     p.last_known_checks AS known_checks,
+    p.last_known_checks_sha AS known_checks_sha,
     p.last_known_mergeability AS known_mergeability,
     p.last_known_decision AS known_decision;
 

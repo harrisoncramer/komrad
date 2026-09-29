@@ -912,9 +912,22 @@ func (s *PullRequestSyncer) setStanding(ctx context.Context, id string, standing
 func standingMoves(change *pullrequeststore.StandingChange) []*Move {
 	return []*Move{
 		Moved(FieldDecision, change.OldDecision, change.KnownDecision),
-		Moved(FieldChecks, change.OldChecks, change.KnownChecks),
+		checksMoved(change),
 		Moved(FieldMergeability, change.OldMergeability, change.KnownMergeability),
 	}
+}
+
+// checksMoved is the move of the checks, counting the same verdict on a new head as a move so
+// that a push the checks fail again is not taken for no change.
+func checksMoved(change *pullrequeststore.StandingChange) *Move {
+	if move := Moved(FieldChecks, change.OldChecks, change.KnownChecks); move != nil {
+		return move
+	}
+	if change.OldChecks == nil || change.KnownChecks == nil || Moved(FieldChecks, change.OldChecksSHA, change.KnownChecksSHA) == nil {
+		return nil
+	}
+
+	return &Move{Field: FieldChecks, From: *change.OldChecks, To: *change.KnownChecks}
 }
 
 // noteRateLimit records a spent budget on the connection so the next pass waits for the reset

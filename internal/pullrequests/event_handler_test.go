@@ -82,23 +82,60 @@ func TestAPullRequestChangeTellsTheAgentsOnItsBranch(t *testing.T) {
 
 // TestAPullRequestChangeAfterTheMailWasReadStartsAnother pins that mail the agent read is left alone.
 func TestAPullRequestChangeAfterTheMailWasReadStartsAnother(t *testing.T) {
-	f := newSyncFixture(t)
-	agentID := f.agentOn(t, "a", "agent/x")
-	f.forge.updated[""] = &forge.Page{PullRequests: []forge.PullRequest{pullRequestAt("PR_1", "agent/x", syncNow.Add(-time.Minute))}}
-	f.forge.standings[1] = forge.Standing{Decision: forge.ReviewDecisionPending, Checks: forge.ChecksPending}
-	f.sync(t)
+	failingOnA := forge.Standing{Decision: forge.ReviewDecisionPending, Checks: forge.ChecksFailing, HeadSHA: "aaa"}
 
-	f.setStanding(t, forge.Standing{Decision: forge.ReviewDecisionPending, Checks: forge.ChecksFailing}, syncNow.Add(time.Minute))
-	claimed, err := f.stores.Mail.Claim(t.Context(), agentID, 10)
-	require.NoError(t, err)
-	require.Len(t, claimed, 1)
+	tests := []struct {
+		name      string
+		after     forge.Standing
+		wantLines []string
+	}{
+		{
+			name:      "an approval",
+			after:     forge.Standing{Decision: forge.ReviewDecisionApproved, Checks: forge.ChecksFailing, HeadSHA: "aaa"},
+			wantLines: []string{"  review: approved\n", "  checks: failing\n"},
+		},
+		{
+			name:      "the checks failing again on a new head",
+			after:     forge.Standing{Decision: forge.ReviewDecisionPending, Checks: forge.ChecksFailing, HeadSHA: "bbb"},
+			wantLines: []string{"  checks: failing\n"},
+		},
+		{
+			name:  "the checks failing again on the same head is not news",
+			after: failingOnA,
+		},
+		{
+			name:  "the checks passing on a new head is not news",
+			after: forge.Standing{Decision: forge.ReviewDecisionPending, Checks: forge.ChecksPassing, HeadSHA: "bbb"},
+		},
+	}
 
-	f.setStanding(t, forge.Standing{Decision: forge.ReviewDecisionApproved, Checks: forge.ChecksFailing}, syncNow.Add(2*time.Minute))
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := newSyncFixture(t)
+			agentID := f.agentOn(t, "a", "agent/x")
+			f.forge.updated[""] = &forge.Page{PullRequests: []forge.PullRequest{pullRequestAt("PR_1", "agent/x", syncNow.Add(-time.Minute))}}
+			f.forge.standings[1] = forge.Standing{Decision: forge.ReviewDecisionPending, Checks: forge.ChecksPending}
+			f.sync(t)
 
-	told := f.listMail(t, agentID)
-	require.Len(t, told, 2)
-	assert.Contains(t, told[1].Body, "  review: approved\n")
-	assert.Contains(t, told[1].Body, "  checks: failing\n")
+			f.setStanding(t, failingOnA, syncNow.Add(time.Minute))
+			claimed, err := f.stores.Mail.Claim(t.Context(), agentID, 10)
+			require.NoError(t, err)
+			require.Len(t, claimed, 1)
+
+			f.setStanding(t, tt.after, syncNow.Add(2*time.Minute))
+
+			told := f.listMail(t, agentID)
+			if tt.wantLines == nil {
+				assert.Len(t, told, 1)
+
+				return
+			}
+			require.Len(t, told, 2)
+			for _, line := range tt.wantLines {
+				assert.Contains(t, told[1].Body, line)
+			}
+		})
+	}
 }
 
 func (f *syncFixture) listMail(t *testing.T, agentID string) []mailstore.Mail {

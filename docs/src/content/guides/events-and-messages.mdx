@@ -8,7 +8,7 @@ order: 7
 import Setting from "../../components/Setting.astro";
 import { media } from "../../site";
 
-Every message an agent receives is _mail_. Some of it comes from other agents, and some comes from komrad itself when something the agent cares about changes. Both kinds arrive the same way.
+Every message an agent receives is _mail_. Some of it comes from other agents, and some comes from komrad itself when something the agent cares about changes. Both kinds arrive the same way. Komrad's own mail is sent through a [transactional outbox](#how-a-change-becomes-mail), so a change is never saved without its mail following, and mail is never sent for a change that was not saved.
 
 ## Messages between agents
 
@@ -56,13 +56,13 @@ You can limit how much mail two agents exchange by setting <Setting path="mail.m
 
 Komrad also mails an agent itself when something changes that the agent should hear about.
 
-| What changed                                                                                                               | Who is told                              |
-| -------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
-| The pull request's status changed: checks failed, it conflicts, etc.                                                       | Every agent on the pull request's branch |
-| You wrote or edited a [document](../documents/) in the panel                                                               | The agent that owns it                   |
-| Komrad rebased an agent's worktree                                                                                         | That agent                               |
-| A [local review](../reviews/) of an agent's work was released                                                              | The agent under review                   |
-| An agent answered a local review of its own work                                                                           | Its reviewer, which is also woken        |
+| What changed                                                         | Who is told                              |
+| -------------------------------------------------------------------- | ---------------------------------------- |
+| The pull request's status changed: checks failed, it conflicts, etc. | Every agent on the pull request's branch |
+| You wrote or edited a [document](../documents/) in the panel         | The agent that owns it                   |
+| Komrad rebased an agent's worktree                                   | That agent                               |
+| A [local review](../reviews/) of an agent's work was released        | The agent under review                   |
+| An agent answered a local review of its own work                     | Its reviewer, which is also woken        |
 
 An agent holds at most one unread piece of mail from komrad about any one thing. If a pull request's checks fail and then its branch conflicts before the agent has read anything, the agent gets one piece of mail saying both. Later changes rewrites the unread mail rather than adding more. Once the agent has read it's mail, the next change starts a new one.
 
@@ -70,7 +70,7 @@ An agent holds at most one unread piece of mail from komrad about any one thing.
 
 Komrad records each change as an _event_ in the same database transaction as the change itself. If you save a document, the save and its event commit together. If the save fails, there is no event. If komrad stops a moment after the save, the event is still there when it comes back.
 
-This is a pattern called a _transactional outbox_. Komrad keeps its events in the same job queue it uses for other background work, and the mail table is where the messages land.
+This is a pattern called a _transactional outbox_. The change and the record that announces it are saved together or not at all, and a separate worker does the announcing, retrying until it succeeds. Komrad keeps its events in the same job queue it uses for other background work, and the mail table is where the messages land.
 
 ```
   one transaction
@@ -90,4 +90,3 @@ This is a pattern called a _transactional outbox_. Komrad keeps its events in th
 Background workers pick up each event and execute them.
 
 If the mail cannot be written yet because the agent's mailbox is full, the event is tried again later. The change itself is never held up. Saving a document or releasing a review works even when the agent is not keeping up with its mail. Mail for an archived agent is dropped.
-
