@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"komrad/lib/clock"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -69,7 +71,7 @@ func TestIntegrationAwaitStoppedWaitsForTheProcessRatherThanTheAddress(t *testin
 	require.Error(t, awaitStopped(t.Context(), pid, 200*time.Millisecond), "a live process is waited on")
 
 	go func() {
-		time.Sleep(100 * time.Millisecond)
+		clock.Sleep(t.Context(), 100*time.Millisecond)
 		_ = sleeper.Process.Kill()
 		_ = sleeper.Wait()
 	}()

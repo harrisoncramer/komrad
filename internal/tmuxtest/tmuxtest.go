@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"komrad/internal/tmux"
+	"komrad/lib/clock"
 )
 
 var created atomic.Int64
@@ -93,7 +94,7 @@ func (s *Server) WaitForFrame(pane, want string) {
 			return
 		}
 
-		time.Sleep(50 * time.Millisecond)
+		clock.Sleep(s.t.Context(), 50*time.Millisecond)
 	}
 
 	s.t.Fatalf("pane %s never showed %q; last frame:\n%s", pane, want, client.CapturePane(pane))

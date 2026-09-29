@@ -114,7 +114,7 @@ func (r registry) locked(fn func() error) error {
 			return fmt.Errorf("timed out after %s waiting for the registry lock", r.lockTimeout)
 		}
 
-		time.Sleep(10 * time.Millisecond)
+		time.Sleep(10 * time.Millisecond) //nolint:forbidigo // a module of its own, which cannot import lib/clock
 	}
 
 	return fn()

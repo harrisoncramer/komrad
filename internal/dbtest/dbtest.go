@@ -122,7 +122,7 @@ func dropEngine(t *testing.T, ownerURL, login string) {
 	t.Helper()
 
 	// The test's own context is already cancelled by the time a cleanup runs.
-	ctx := context.Background() //nolint:usetesting // as above
+	ctx := context.WithoutCancel(t.Context())
 
 	owner, err := pgxpool.New(ctx, ownerURL)
 	if err != nil {

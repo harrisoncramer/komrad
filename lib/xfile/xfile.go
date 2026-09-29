@@ -46,7 +46,7 @@ func WriteAtomic(path string, content []byte, mode os.FileMode) error {
 		return fmt.Errorf("failed to write %s: %w", path, err)
 	}
 
-	if err := os.Rename(temporary.Name(), path); err != nil {
+	if err := os.Rename(temporary.Name(), path); err != nil { //nolint:forbidigo // the one rename the rule funnels every other write through
 		return fmt.Errorf("failed to replace %s: %w", path, err)
 	}
 

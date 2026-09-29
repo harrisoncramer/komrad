@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"komrad/internal/engine"
+	"komrad/lib/clock"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -241,7 +242,7 @@ func TestDialGoesBackToBorrowingWhenATakeoverCannotBind(t *testing.T) {
 
 	server := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		if silent.Load() {
-			time.Sleep(2 * time.Second)
+			clock.Sleep(t.Context(), 2*time.Second)
 		}
 
 		w.WriteHeader(http.StatusNotFound)
@@ -260,10 +261,10 @@ func TestDialGoesBackToBorrowingWhenATakeoverCannotBind(t *testing.T) {
 		"the tunnel tries a forward of its own once the port stops answering")
 
 	silent.Store(false)
-	time.Sleep(7 * time.Second)
+	clock.Sleep(t.Context(), 7*time.Second)
 
 	settled := countLines(spawns)
-	time.Sleep(3 * time.Second)
+	clock.Sleep(t.Context(), 3*time.Second)
 
 	assert.Equal(t, settled, countLines(spawns), "the port answers again, so nothing more is run")
 	assert.LessOrEqual(t, settled, 3, "a forward that cannot bind is not run every second")

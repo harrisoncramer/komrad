@@ -113,7 +113,7 @@ func TestReviewAnswer(t *testing.T) {
 		server := newLaterRepliesServer(t)
 		earlier := newAgentMessage("m0", "first try")
 		earlier.CreatedAt = "2026-09-08T09:15:00Z"
-		earlier.RoundId = proto.String("round-1")
+		earlier.RoundId = xptr.Ptr("round-1")
 		thread := server.threads[0]
 		thread.Messages = slices.Insert(thread.Messages, 1, earlier)
 		harness := openReviewAt(t, server, panelHarnessParams{height: 50})
@@ -163,7 +163,7 @@ func newLaterRepliesServer(t *testing.T) *reviewServer {
 	looking.CreatedAt = "2026-09-08T09:20:00Z"
 	answer := newAgentMessage("m3", "added it")
 	answer.CreatedAt = "2026-09-08T10:40:00Z"
-	answer.RoundId = proto.String("round-2")
+	answer.RoundId = xptr.Ptr("round-2")
 	thanks := newHumanMessage("m4", "thanks")
 	thanks.CreatedAt = "2026-09-08T10:50:00Z"
 

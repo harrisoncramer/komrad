@@ -965,7 +965,7 @@ func TestIntegrationBuiltinWorktreeCleanupRefusesATreeWhoseRepoHasMoved(t *testi
 	require.NoError(t, err)
 
 	moved := filepath.Join(t.TempDir(), "moved")
-	require.NoError(t, os.Rename(repo, moved))
+	require.NoError(t, os.Rename(repo, moved)) //nolint:forbidigo // moves a directory, which WriteAtomic does not
 
 	cleanup, err := runBuiltin(t, "_worktree_cleanup", worktreeEnv{agentID: "agent-adrift", agentCwd: tree})
 	require.Error(t, err, "the refusal is reported rather than exiting zero")
@@ -1008,7 +1008,7 @@ func TestIntegrationBuiltinWorktreeCleanupLeavesAWorktreeItDoesNotOwnAloneWhenGi
 	runGit(t, repo, "worktree", "add", "--quiet", "-b", "someone-else", theirs)
 
 	moved := filepath.Join(t.TempDir(), "moved")
-	require.NoError(t, os.Rename(repo, moved))
+	require.NoError(t, os.Rename(repo, moved)) //nolint:forbidigo // moves a directory, which WriteAtomic does not
 
 	cleanup, err := runBuiltin(t, "_worktree_cleanup", worktreeEnv{agentID: "agent-thief", agentCwd: theirs})
 	require.NoError(t, err, "stderr: %s", cleanup.Stderr)

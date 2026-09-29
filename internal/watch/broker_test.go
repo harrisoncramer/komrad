@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"komrad/lib/clock"
 	"komrad/lib/xslice"
 	watchv1 "komrad/proto/gen/watch/v1"
 
@@ -120,7 +121,7 @@ func TestNothingIsReadWithoutAWatcher(t *testing.T) {
 	broker := newTestBroker(t, stores)
 
 	broker.signal(t.Context(), watchv1.Resource_RESOURCE_AGENT, "a")
-	time.Sleep(settle)
+	clock.Sleep(t.Context(), settle)
 
 	assert.Empty(t, stores.agents.reads())
 }
@@ -315,7 +316,7 @@ func TestClosingASubscriptionEndsItsStream(t *testing.T) {
 	require.False(t, open)
 
 	broker.signal(t.Context(), watchv1.Resource_RESOURCE_AGENT, "a")
-	time.Sleep(settle)
+	clock.Sleep(t.Context(), settle)
 	assert.Empty(t, stores.agents.reads(), "nothing is read once the last watcher has gone")
 }
 

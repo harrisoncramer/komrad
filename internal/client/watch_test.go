@@ -14,6 +14,7 @@ import (
 	"komrad/proto/gen/watch/v1/watchv1connect"
 	workflowv1 "komrad/proto/gen/workflow/v1"
 
+	"komrad/lib/clock"
 	"komrad/lib/xslice"
 
 	"connectrpc.com/connect"
@@ -212,7 +213,7 @@ func TestWatchHandsOverEventsInBatches(t *testing.T) {
 	assert.Equal(t, []string{"snapshot", "01a", "01b", "s1", "w1"}, ids(got.at(0)), "every event, in order, with the heartbeat left out")
 	assert.Equal(t, 0, got.lostCount())
 
-	time.Sleep(100 * time.Millisecond)
+	clock.Sleep(t.Context(), 100*time.Millisecond)
 	assert.Equal(t, 1, got.count())
 }
 

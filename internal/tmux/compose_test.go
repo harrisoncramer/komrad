@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"komrad/lib/clock"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -216,7 +218,7 @@ func waitForFrame(t *testing.T, client *Client, pane, want string) {
 			return
 		}
 
-		time.Sleep(50 * time.Millisecond)
+		clock.Sleep(t.Context(), 50*time.Millisecond)
 	}
 
 	t.Fatalf("the pane never showed %q; it holds:\n%s", want, client.CapturePane(pane))
@@ -232,7 +234,7 @@ func waitForLastLine(t *testing.T, client *Client, pane, want string) {
 			return
 		}
 
-		time.Sleep(50 * time.Millisecond)
+		clock.Sleep(t.Context(), 50*time.Millisecond)
 	}
 
 	t.Fatalf("the pane's bottom line never came to %q; it holds:\n%s", want, client.CapturePane(pane))

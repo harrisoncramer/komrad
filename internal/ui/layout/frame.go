@@ -1,7 +1,6 @@
 package layout
 
 import (
-	"log/slog"
 	"os"
 	"slices"
 	"strconv"
@@ -190,9 +189,6 @@ func (f *Frame) reportSize() {
 	}
 
 	width, height := f.SidebarSize()
-
-	//nolint:sloglint // temporary trace, no context here to carry a logger on
-	slog.Default().Info("panel trace: frame read its own size back", "width", width, "height", height, "solo", f.solo)
 
 	if width <= 0 || height <= 0 {
 		return

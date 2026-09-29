@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"komrad/lib/clock"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -56,7 +58,7 @@ func TestIntegrationTakingTheSameTreeTwiceIsTheSameRound(t *testing.T) {
 	first, err := client.TakeSnapshot(t.Context(), TakeSnapshotParams{Dir: root, Base: "main"})
 	require.NoError(t, err)
 
-	time.Sleep(1100 * time.Millisecond)
+	clock.Sleep(t.Context(), 1100*time.Millisecond)
 
 	second, err := client.TakeSnapshot(t.Context(), TakeSnapshotParams{Dir: root, Base: "main"})
 	require.NoError(t, err)

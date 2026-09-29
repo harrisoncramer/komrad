@@ -133,7 +133,7 @@ linters:
           files:
             - "**/internal/ui/**"
           deny:
-            - pkg: komrad/internal/tmux
+            - pkg: komrad/internal/tmux$
               desc: the panel takes what it needs of tmux as a dependency, so the option names stay in the adapter
             - pkg: komrad/internal/harness
               desc: which CLI an agent runs is the service's business, and reaches the panel as data
@@ -513,19 +513,11 @@ linters:
         linters:
           - forbidigo
         text: a unit test
-      - path: (_test\.go$|^lib/xfile/)
-        linters:
-          - forbidigo
-        text: xfile.WriteAtomic
-      - path: (_test\.go$|^internal/(komradtest|tmuxtest)/)
-        linters:
-          - forbidigo
-        text: clock.Sleep
-      - path: (_test\.go$|^main\.go$|^cmd/|^internal/(cli|ui|dbtest|pgtest|komradtest|tmux)/)
+      - path: ((^|/)main\.go$|^cmd/|^internal/(cli|ui|tmux)/)
         linters:
           - forbidigo
         text: the caller's context
-      - path: (_test\.go$|^internal/(logging|cli|ui|tmux)/)
+      - path: (_test\.go$|^internal/tmux/)
         linters:
           - forbidigo
         text: a logger handed in
@@ -551,28 +543,19 @@ linters:
       # test on the spot rather than travelling as a wrong value the way it would in the server.
       # The same files shell out to git and tmux to build their fixtures, where the command
       # is bounded by the test binary's own life and has no request to be cancelled with.
+      # Tests and the fixtures they share discard errors in t.Cleanup teardown, where a
+      # failure means the throwaway server or file is already gone.
       - path: (_test\.go|internal/(pgtest|tmuxtest|storetest|harnesstest|logtest|komradtest)/)
         linters:
           - forcetypeassert
           - noctx
+          - errcheck
       # A doctor problem is a record carrying a code and a sentence, and satisfying error is
       # how it reaches a caller rather than what it is, so ProblemError would name the interface
       # instead of the thing.
       - path: ^internal/doctor/
         linters:
           - errname
-      # depguard matches a denied package by prefix, so the panel's rule against
-      # komrad/internal/tmux also catches komrad/internal/tmuxtest, which is the fixture the
-      # panel's own tests stand a real tmux server up with rather than the adapter itself.
-      - path: internal/ui/
-        linters:
-          - depguard
-        text: tmuxtest
-      # Tests and the fixtures they share discard errors in t.Cleanup teardown, where a
-      # failure means the throwaway server or file is already gone.
-      - path: (_test\.go|internal/(pgtest|tmuxtest|storetest|harnesstest|logtest|komradtest)/)
-        linters:
-          - errcheck
       # A test helper takes t and the fixture before its own arguments, so the limit that
       # holds a function to four does not fit one.
       - path: _test\.go$

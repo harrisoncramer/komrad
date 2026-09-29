@@ -19,6 +19,7 @@ import (
 	agentstore "komrad/internal/store/agent"
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/internal/storetest"
+	"komrad/lib/clock"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
 
@@ -1441,7 +1442,7 @@ func TestFiredScriptRefusesASecondConcurrentRun(t *testing.T) {
 		return fireScript(t.Context(), t, svc) == nil
 	}, 5*time.Second, 20*time.Millisecond, "the claim is released once the first run finishes")
 
-	time.Sleep(500 * time.Millisecond)
+	clock.Sleep(t.Context(), 500*time.Millisecond)
 }
 
 // TestFiredScriptReleasesTheClaimWhenItNeverStarts covers the path where Run refuses synchronously
@@ -1503,7 +1504,7 @@ func TestConcurrencyGuardIsScopedNarrowly(t *testing.T) {
 
 			require.NoError(t, tt.fire(svc))
 
-			time.Sleep(500 * time.Millisecond)
+			clock.Sleep(t.Context(), 500*time.Millisecond)
 		})
 	}
 }

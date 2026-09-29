@@ -102,7 +102,7 @@ func writeConfig(root, slotDir string) error {
 	}
 
 	if err == nil {
-		err = os.Rename(tmp.Name(), configPath(slotDir))
+		err = os.Rename(tmp.Name(), configPath(slotDir)) //nolint:forbidigo // a module of its own, which cannot import lib/xfile
 	}
 
 	if err != nil {

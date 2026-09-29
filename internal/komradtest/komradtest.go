@@ -41,6 +41,7 @@ import (
 	"komrad/internal/storetest"
 	"komrad/internal/tmux"
 	"komrad/internal/tmuxtest"
+	"komrad/lib/clock"
 	"komrad/lib/xhttp"
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
@@ -254,7 +255,7 @@ func harnessRoot(t *testing.T) string {
 			if err = os.RemoveAll(dir); err == nil {
 				return
 			}
-			time.Sleep(removalPause)
+			clock.Sleep(context.WithoutCancel(t.Context()), removalPause)
 		}
 
 		t.Logf("gave up removing the fake harness root %s: %v", dir, err)
@@ -271,7 +272,7 @@ func (i *Instance) WorkQueue() {
 	if !i.working {
 		require.NoError(i.t, i.server.Jobs.Start(context.WithoutCancel(i.t.Context())))
 		i.working = true
-		i.t.Cleanup(func() { i.server.Stop(context.Background()) })
+		i.t.Cleanup(func() { i.server.Stop(context.WithoutCancel(i.t.Context())) })
 	}
 
 	require.Eventually(i.t, func() bool {
@@ -354,7 +355,7 @@ func (i *Instance) Settle(agentID string, activity harness.Activity, want agents
 	for time.Now().Before(deadline) {
 		i.Reconcile()
 
-		stored, err := i.Stores.Agents.GetByID(context.Background(), agentID)
+		stored, err := i.Stores.Agents.GetByID(i.t.Context(), agentID)
 		require.NoError(i.t, err)
 		require.NotNil(i.t, stored)
 
@@ -362,7 +363,7 @@ func (i *Instance) Settle(agentID string, activity harness.Activity, want agents
 			return
 		}
 
-		time.Sleep(50 * time.Millisecond)
+		clock.Sleep(i.t.Context(), 50*time.Millisecond)
 	}
 
 	i.t.Fatalf("agent %s never reached %q", agentID, want)
@@ -388,7 +389,7 @@ func (i *Instance) WaitForActivity(agentID string, activity harness.Activity) {
 			return
 		}
 
-		time.Sleep(50 * time.Millisecond)
+		clock.Sleep(i.t.Context(), 50*time.Millisecond)
 	}
 
 	i.t.Fatalf("agent %s never showed activity %v in its own pane", agentID, activity)
@@ -449,7 +450,7 @@ func (i *Instance) WaitForTyped(agentID string, lines int) []string {
 			return typed
 		}
 
-		time.Sleep(50 * time.Millisecond)
+		clock.Sleep(i.t.Context(), 50*time.Millisecond)
 	}
 
 	i.t.Fatalf("agent %s was never typed at %d time(s)", agentID, lines)
