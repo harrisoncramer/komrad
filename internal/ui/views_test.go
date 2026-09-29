@@ -18,23 +18,23 @@ func TestViews(t *testing.T) {
 		harness.press(append(widenListPresses, "tab", "r")...)
 
 		lines := splitLines(harness.readFrame())
-		require.GreaterOrEqual(t, len(lines), 2)
+		require.GreaterOrEqual(t, len(lines), 4)
 		logo, _, _ := strings.Cut(lines[0], "│")
-		assert.True(t, strings.HasPrefix(strings.TrimSpace(logo), "\U000F050C komrad"))
-		assert.True(t, strings.HasSuffix(strings.TrimSpace(logo), "\uf444 local"))
-		views, _, _ := strings.Cut(lines[1], "│")
+		assert.True(t, strings.HasPrefix(strings.TrimSpace(logo), "\U000F050C komrad › archive"))
+		engine, _, _ := strings.Cut(lines[1], "│")
+		assert.Equal(t, "\uf444 local", strings.TrimSpace(engine), "the engine stands under the logo")
+		blank, _, _ := strings.Cut(lines[2], "│")
+		assert.Empty(t, strings.TrimSpace(blank), "a blank row stands under the engine")
+		views, _, _ := strings.Cut(lines[3], "│")
 		assert.Equal(t, "agents  query  schedules  archive  worktrees", strings.TrimSpace(views))
 		lit := paint.Panel.Style(paint.ToneAccent)
 		assert.Contains(t, harness.readRawFrame(), lit.Render("a")+lit.Underline(true).Render("r")+lit.Render("chive"), "the view that is up is lit with its jump key underlined")
 	})
 
-	t.Run("a page opened from a view draws the trail back to it under the switcher", func(t *testing.T) {
+	t.Run("a page opened from a view draws the trail back to it beside the logo", func(t *testing.T) {
 		harness, _ := openDocuments(t)
 
-		lines := splitLines(harness.readFrame())
-		require.GreaterOrEqual(t, len(lines), 3)
-		trail, _, _ := strings.Cut(lines[2], "│")
-		assert.True(t, strings.HasPrefix(trail, "agents › author › documents"))
+		assert.True(t, strings.HasPrefix(readTrail(harness.readFrame()), "agents › author › documents"))
 		lit := paint.Panel.Style(paint.ToneAccent)
 		assert.Contains(t, harness.readRawFrame(), lit.Underline(true).Render("a")+lit.Render("gents"), "the view it was opened from is lit")
 	})

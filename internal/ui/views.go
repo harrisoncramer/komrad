@@ -50,23 +50,20 @@ func (m model) isViewsOpen() bool {
 func (m model) viewsBar() string {
 	short := m.height > 0 && m.height < viewsBarFloor
 
-	var lines []string
-	if !short {
-		lines = m.switcherLines()
-	}
 	trail, _, opened := m.activeCrumbs()
-	if !short || opened {
-		lines = append(lines, trail.view(paint.Panel, m.paneWidth()))
-	}
-	if len(lines) == 0 {
-		return ""
+	if short {
+		if !opened {
+			return ""
+		}
+
+		return trail.view(paint.Panel, m.paneWidth()) + "\n"
 	}
 
-	return strings.Join(lines, "\n") + "\n"
+	return strings.Join(m.switcherLines(trail), "\n") + "\n"
 }
 
 // switcherLines is the logo and the row of views.
-func (m model) switcherLines() []string {
+func (m model) switcherLines(trail crumbs) []string {
 	entries := viewEntries()
 	row := stops{
 		labels: xslice.Map(entries, func(entry viewEntry) string { return entry.label }),
@@ -80,9 +77,12 @@ func (m model) switcherLines() []string {
 		row.lit = m.viewIndex()
 	}
 
-	logo := m.logoLine(paint.Panel.Title(glyph.Logo+" "+komradName), m.paneWidth())
+	logo := paint.Panel.Title(glyph.Logo + " " + komradName)
+	if path := trail.view(paint.Panel, 0); path != "" {
+		logo += paint.Panel.Style(paint.ToneMuted).Render(" "+glyph.Crumb+" ") + path
+	}
 
-	lines := []string{logo, row.view(m.focusPalette())}
+	lines := []string{logo, m.engineLine(m.paneWidth()), "", row.view(m.focusPalette())}
 	if width := m.paneWidth(); width > 0 {
 		for i, line := range lines {
 			lines[i] = ansi.Truncate(line, width, "…")

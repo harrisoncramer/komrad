@@ -740,10 +740,10 @@ func (m model) headerLines(title, tally, tabs string) string {
 		header = ansi.Truncate(header, width, "…")
 	}
 	if header != "" {
-		header += "\n\n"
+		header += "\n"
 	}
 
-	return m.viewsBar() + header + m.filter.line(m.focusPalette(), m.glyphs) + "\n" + tabs + "\n"
+	return m.viewsBar() + header + tabs + m.filter.line(m.focusPalette(), m.glyphs) + "\n\n"
 }
 
 // headedListView draws a list under its header, padded out to the record and the legend under it.

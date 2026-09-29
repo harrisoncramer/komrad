@@ -375,14 +375,14 @@ func TestAgentsLongList(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			harness := newPanelHarness(t, panelHarnessParams{height: 20})
+			harness := newPanelHarness(t, panelHarnessParams{height: 21})
 			answerWorktreeReads(harness)
 			harness.watch(buildSnapshot(rows...))
 
 			harness.press(tt.press...)
 
 			frame := harness.readFrame()
-			assert.Len(t, splitLines(frame), 20)
+			assert.Len(t, splitLines(frame), 21)
 			assert.Equal(t, tt.want, readHoveredRow(frame), "the row the cursor stands on is inside the window")
 			for _, marker := range tt.wantMore {
 				assert.Regexp(t, marker+` \d+ more`, frame)
@@ -1395,7 +1395,7 @@ func TestAgentsRecordSearch(t *testing.T) {
 				name: "a narrow pane with the legend expanded",
 				params: panelHarnessParams{
 					width:  30,
-					height: 28,
+					height: 29,
 				},
 				press: []string{"?"},
 			},

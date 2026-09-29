@@ -854,7 +854,7 @@ func TestFormsFitTheWindow(t *testing.T) {
 	}{
 		{
 			name:      "a refused form in a short window",
-			height:    24,
+			height:    25,
 			isRefused: true,
 			want:      "no such workflow",
 		},

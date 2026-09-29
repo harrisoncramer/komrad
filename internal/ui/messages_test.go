@@ -98,7 +98,7 @@ func TestMessagesRegion(t *testing.T) {
 	})
 
 	t.Run("a reason longer than the region scrolls under its pinned summary", func(t *testing.T) {
-		harness := openMessages(t, panelHarnessParams{height: 24}, strings.Repeat("the reason it gave ran on and on. ", 12))
+		harness := openMessages(t, panelHarnessParams{height: 25}, strings.Repeat("the reason it gave ran on and on. ", 12))
 		harness.press("enter", "ctrl+g")
 
 		top := readMessages(harness.readFrame())

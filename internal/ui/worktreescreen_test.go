@@ -755,7 +755,7 @@ func TestWorktreesSort(t *testing.T) {
 		harness.press("f", "tab", "j", "f", "k")
 
 		frame := harness.readFrame()
-		assert.Contains(t, readSidebar(frame)[3], "↑ last-accessed", "the focus key is not the way back")
+		assert.Contains(t, readSidebar(frame)[1], "↑ last-accessed", "the focus key is not the way back")
 		assert.Equal(t, "treeview", readRecordField(frame, "name"), "the cursor follows its row as the arrow turns")
 
 		harness.press("esc", "j")
@@ -797,7 +797,7 @@ func TestWorktreesSort(t *testing.T) {
 		harness.press("f", "shift+tab", "esc", "f", "k")
 
 		frame := harness.readFrame()
-		assert.Contains(t, readSidebar(frame)[3], "↑ size")
+		assert.Contains(t, readSidebar(frame)[1], "↑ size")
 		assert.NotContains(t, readBelowViews(frame)[0], "flat")
 	})
 }

@@ -3,7 +3,6 @@ package ui
 import (
 	"context"
 	"errors"
-	"strings"
 	"time"
 
 	"komrad/config"
@@ -74,18 +73,6 @@ func (m model) engineLine(width int) string {
 	}
 
 	return withCommit
-}
-
-// logoLine is the logo with the engine right aligned beside it.
-func (m model) logoLine(logo string, width int) string {
-	if width <= 0 {
-		return logo + "  " + m.engineLine(0)
-	}
-
-	engine := m.engineLine(width - ansi.StringWidth(logo) - 2)
-	gap := width - ansi.StringWidth(logo) - ansi.StringWidth(engine)
-
-	return logo + strings.Repeat(" ", max(gap, 2)) + engine
 }
 
 // engineBuildWait bounds one read of what the engine runs.

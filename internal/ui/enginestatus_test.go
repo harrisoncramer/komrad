@@ -53,8 +53,8 @@ func TestEngineLine(t *testing.T) {
 		{
 			name:   "a narrow pane gives up the commit",
 			width:  34,
-			engine: "staging-east",
-			want:   "\uf444 staging-east",
+			engine: "staging-east-central-one",
+			want:   "\uf444 staging-east-central-one",
 		},
 	}
 
@@ -62,9 +62,7 @@ func TestEngineLine(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			harness := openCrowded(t, panelHarnessParams{sidebarWidth: tt.width, engineStatus: newFakeEngine().on(tt.engine)})
 
-			logo := readLogoLine(harness.readFrame())
-			assert.True(t, strings.HasSuffix(logo, tt.want), "%q ends %q", logo, tt.want)
-			assert.True(t, strings.HasPrefix(logo, "\U000F050C komrad"))
+			assert.Equal(t, tt.want, readEngineLine(harness.readFrame()))
 		})
 	}
 }
@@ -109,7 +107,7 @@ func TestEngineDot(t *testing.T) {
 		harness.watch(buildCrowdedSnapshot(""))
 
 		frame := harness.readFrame()
-		assert.True(t, strings.HasSuffix(readLogoLine(frame), "\uf444 remote a41c9e0"))
+		assert.Equal(t, "\uf444 remote a41c9e0", readEngineLine(frame))
 		assert.Contains(t, harness.readRawFrame(), paint.Panel.Style(paint.ToneWarning).Render("\uf444")+" ")
 		assert.Contains(t, frame, "The engine is running different code")
 
@@ -122,8 +120,8 @@ func TestEngineDot(t *testing.T) {
 	})
 }
 
-func readLogoLine(frame string) string {
-	logo, _, _ := strings.Cut(splitLines(frame)[0], "│")
+func readEngineLine(frame string) string {
+	engine, _, _ := strings.Cut(splitLines(frame)[1], "│")
 
-	return strings.TrimSpace(logo)
+	return strings.TrimSpace(engine)
 }
