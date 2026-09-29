@@ -292,6 +292,7 @@ type fakeLifecycle struct {
 	hooks                    []ranHook
 	provision                []string
 	resumed                  []string
+	deprovisionMu            sync.Mutex
 	deprovision              []string
 	deprovisionCwd           []string
 	deprovisionCtxErr        []error
@@ -343,8 +344,17 @@ func (f *fakeLifecycle) ranHooks() []ranHook {
 	return slices.Clone(f.hooks)
 }
 
+func (f *fakeLifecycle) ranDeprovisions() []string {
+	f.deprovisionMu.Lock()
+	defer f.deprovisionMu.Unlock()
+
+	return slices.Clone(f.deprovision)
+}
+
 func (f *fakeLifecycle) RunDeprovision(ctx context.Context, agent agentstore.Agent, name string, done func(error)) error {
+	f.deprovisionMu.Lock()
 	f.deprovision = append(f.deprovision, name)
+	f.deprovisionMu.Unlock()
 	f.deprovisionCwd = append(f.deprovisionCwd, agent.Cwd)
 	f.deprovisionCtxErr = append(f.deprovisionCtxErr, ctx.Err())
 

@@ -50,7 +50,7 @@ func (h *pingHandler) Handle(_ context.Context, _ store.DBTX, _ *mail.MailServic
 	return []river.JobArgs{followUp(event)}, nil
 }
 
-// TestRouterHandsEachEventToItsTopic pins that an event reaches the handler of its topic and nothing else does.
+// TestRouterHandsEachEventToItsTopic covers the handlers of every other topic hearing nothing.
 func TestRouterHandsEachEventToItsTopic(t *testing.T) {
 	stores := storetest.Open(t)
 	handler := &pingHandler{}

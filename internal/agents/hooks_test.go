@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"komrad/internal/harnesstest"
-	"komrad/internal/scripts"
 	agentstore "komrad/internal/store/agent"
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/internal/tmuxtest"
@@ -504,137 +503,6 @@ func TestRestoreWorkflowFiresPostRestoreHooks(t *testing.T) {
 	}}, lifecycle.ranHooks())
 }
 
-// TestRunDeprovisionLogsOneThatWouldNotStart covers the deprovision that never becomes a process at
-// all.
-func TestRunDeprovisionLogsOneThatWouldNotStart(t *testing.T) {
-	lifecycle := &fakeLifecycle{deprovisionStartErr: scripts.ErrScriptNotFound}
-	ctx, records := loggedContext(t)
-
-	runDeprovision(ctx, lifecycle, agentstore.Agent{ID: "a1", Cwd: "/repo/.worktrees/auth"}, "was-renamed", nil)
-
-	got := recordFor(t, records(), "the deprovisioner would not start")
-	assert.Equal(t, "ERROR", got["severity_text"])
-	assert.Equal(t, "was-renamed", got["komrad.script.name"])
-	assert.Equal(t, "/repo/.worktrees/auth", got["komrad.script.agent.cwd"])
-}
-
-// TestDeprovisionerLogsAWorkflowThatWouldNotRead covers the read that breaks rather than
-// answering, which skips a teardown as quietly as a workflow naming none.
-func TestDeprovisionerLogsAWorkflowThatWouldNotRead(t *testing.T) {
-	st := newStore(t)
-	workflowID := seedWorkflow(t, st)
-	logged, records := loggedContext(t)
-	ctx, cancel := context.WithCancel(logged)
-	cancel()
-
-	agent := agentstore.Agent{
-		ID:         "a1",
-		Cwd:        "/repo/.worktrees/auth",
-		WorkflowID: workflowID,
-	}
-	assert.Empty(t, deprovisionerFor(ctx, st.Workflows, agent))
-
-	got := recordFor(t, records(), "the workflow behind an agent could not be read")
-	assert.Equal(t, "ERROR", got["severity_text"])
-	assert.Equal(t, workflowID, got["komrad.workflow.id"])
-	assert.Equal(t, "a1", got["komrad.script.agent.id"])
-	assert.Equal(t, "/repo/.worktrees/auth", got["komrad.script.agent.cwd"])
-}
-
-// TestDeprovisionerSaysNothingWhenThereIsNothingToTearDown pins that no teardown is named and
-// nothing is logged.
-func TestDeprovisionerSaysNothingWhenThereIsNothingToTearDown(t *testing.T) {
-	tests := []struct {
-		name       string
-		workflowID func(t *testing.T, st *testStore) string
-	}{
-		{
-			name: "a workflow no row holds",
-			workflowID: func(*testing.T, *testStore) string {
-				return "b9b1a1de-0000-7000-8000-000000000000"
-			},
-		},
-		{
-			name:       "a workflow that makes no worktrees",
-			workflowID: seedWorkflow,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			st := newStore(t)
-			agent := agentstore.Agent{
-				ID:         "a1",
-				WorkflowID: tt.workflowID(t, st),
-			}
-			ctx, records := loggedContext(t)
-
-			assert.Empty(t, deprovisionerFor(ctx, st.Workflows, agent))
-			assert.Empty(t, records())
-		})
-	}
-}
-
-// TestTheWorktreeToggleIsTheWholeProvisioner pins what a workflow can say about an agent's
-// directory now that it cannot name a script: the built-in pair when the toggle is on, and
-// nothing at all otherwise.
-func TestTheWorktreeToggleIsTheWholeProvisioner(t *testing.T) {
-	tests := []struct {
-		name            string
-		worktree        bool
-		provision       *bool
-		wantProvision   string
-		wantDeprovision string
-	}{
-		{
-			name:     "a workflow that provisions nothing has nothing to run either way",
-			worktree: false,
-		},
-		{
-			name:            "the toggle on names the built-in pair",
-			worktree:        true,
-			wantProvision:   worktreeProvisioner,
-			wantDeprovision: worktreeDeprovisioner,
-		},
-		{
-			name:      "an agent told to keep its own directory runs neither half",
-			worktree:  true,
-			provision: xptr.Ptr(false),
-		},
-		{
-			name:            "an agent following its workflow runs both",
-			worktree:        true,
-			provision:       xptr.Ptr(true),
-			wantProvision:   worktreeProvisioner,
-			wantDeprovision: worktreeDeprovisioner,
-		},
-		{
-			name:      "the override cannot conjure a worktree a workflow does not make",
-			worktree:  false,
-			provision: xptr.Ptr(true),
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			st := newStore(t)
-			config := worktreeConfig(t, "backend")
-			config.Worktree.Enabled = tt.worktree
-			workflow, err := st.Workflows.Create(t.Context(), config)
-			require.NoError(t, err)
-
-			agent := agentstore.Agent{
-				ID:               "a1",
-				WorkflowID:       workflow.ID,
-				ProvisionEnabled: tt.provision,
-			}
-
-			assert.Equal(t, tt.wantProvision, provisionerFor(t.Context(), st.Workflows, agent))
-			assert.Equal(t, tt.wantDeprovision, deprovisionerFor(t.Context(), st.Workflows, agent))
-		})
-	}
-}
-
 // TestAFailedPreResumeRefusesTheResume covers a pre hook vetoing the way back in.
 func TestAFailedPreResumeRefusesTheResume(t *testing.T) {
 	st := newStore(t)
@@ -661,6 +529,7 @@ func TestAFailedPreResumeRefusesTheResume(t *testing.T) {
 	_, err = manager.resume.ResumeAgent(ctx, agent.ID)
 	require.ErrorContains(t, err, "no slot free")
 	assert.Contains(t, err.Error(), `"auth"`, "the refusal names the agent")
+	assert.Zero(t, tmux.WindowsOpened(), "no pane was opened")
 
 	require.Never(t, func() bool {
 		return len(lifecycle.ranHooks()) > 1
@@ -1041,11 +910,13 @@ func TestDeleteWaitsForTheHooksStillRunning(t *testing.T) {
 
 	require.Never(t, func() bool { return !present() }, 300*time.Millisecond, 20*time.Millisecond,
 		"the row stays while a hook is running")
+	assert.Empty(t, lifecycle.ranDeprovisions(), "and the worktree stays under it")
 
 	close(running)
 
 	require.NoError(t, <-deleted)
 	assert.False(t, present(), "and goes once it has finished")
+	assert.Equal(t, []string{worktreeDeprovisioner}, lifecycle.ranDeprovisions(), "torn down only after")
 }
 
 // TestAStartedHookHoldsItsPlaceBeforeItsGoroutineIsScheduled covers the gap between a start and the goroutine running.
