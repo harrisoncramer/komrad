@@ -110,6 +110,8 @@ linters:
           msg: sleep with clock.Sleep so the wait ends with its context
         - pattern: ^context\.(Background|TODO)$
           msg: take the caller's context
+        - pattern: ^slog\.Default$
+          msg: log on logging.From(ctx) or a logger handed in
     depguard:
       # The layers, as docs/src/content/guides/how-it-works.md describes them. A layer may call the one below it
       # and may not reach past it, and the panel receives its adapters rather than
@@ -523,6 +525,10 @@ linters:
         linters:
           - forbidigo
         text: the caller's context
+      - path: (_test\.go$|^internal/(logging|cli|ui|tmux)/)
+        linters:
+          - forbidigo
+        text: a logger handed in
       # A binary's package comment would be the first thing a reader of the command sees on
       # pkg.go.dev, and these three exist to be run rather than to be read about.
       - path: (^main\.go$|^cmd/|^config/gen/)

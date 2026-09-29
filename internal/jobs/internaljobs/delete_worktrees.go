@@ -71,7 +71,7 @@ func NewDeleteWorktreesWorker(params NewDeleteWorktreesWorkerParams) *DeleteWork
 	return &DeleteWorktreesWorker{
 		worktrees: params.Worktrees,
 		remover:   params.Remover,
-		logger:    cmp.Or(params.Logger, slog.Default()),
+		logger:    cmp.Or(params.Logger, slog.New(slog.DiscardHandler)),
 	}
 }
 

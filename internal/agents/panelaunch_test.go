@@ -53,7 +53,7 @@ func TestLaunchStartsTheHarnessCommand(t *testing.T) {
 				CacheDir: cache,
 			})
 
-			err := launcher.launch(fakeHarness, launchParams{
+			err := launcher.launch(t.Context(), fakeHarness, launchParams{
 				Pane:      "pane",
 				Dir:       "/work",
 				SessionID: "sess",
@@ -103,7 +103,7 @@ func TestLaunchFallsBackToAPOSIXShell(t *testing.T) {
 		CacheDir: t.TempDir(),
 	})
 
-	require.NoError(t, launcher.launch(&harnesstest.Fake{}, launchParams{Pane: "pane"}))
+	require.NoError(t, launcher.launch(t.Context(), &harnesstest.Fake{}, launchParams{Pane: "pane"}))
 
 	assert.Equal(t, fallbackShell, tmux.LastRespawn("pane").Argv[0])
 }
@@ -115,7 +115,7 @@ func TestLaunchPassesWhatThePanelKnows(t *testing.T) {
 	fakeHarness := &harnesstest.Fake{}
 	launcher := NewLauncher(NewLauncherParams{Tmux: tmux, Addr: "127.0.0.1:9999"})
 
-	require.NoError(t, launcher.launch(fakeHarness, launchParams{
+	require.NoError(t, launcher.launch(t.Context(), fakeHarness, launchParams{
 		Pane:      "pane",
 		Flags:     "--model opus",
 		Prompt:    "do the thing",
@@ -160,7 +160,7 @@ func TestLaunchCompactsAtTheRolesPoint(t *testing.T) {
 				},
 			})
 
-			require.NoError(t, launcher.launch(fakeHarness, launchParams{Pane: "pane", Role: tt.role}))
+			require.NoError(t, launcher.launch(t.Context(), fakeHarness, launchParams{Pane: "pane", Role: tt.role}))
 
 			require.Len(t, fakeHarness.Launches, 1)
 			assert.Equal(t, tt.want, fakeHarness.Launches[0].AutoCompaction)
@@ -214,7 +214,7 @@ func TestLaunchTrustsTheDirForHarnessesThatAskIt(t *testing.T) {
 				TrustLaunchDirs: tt.trust,
 			})
 
-			err := launcher.launch(fakeHarness, launchParams{Pane: "pane", Dir: tt.dir})
+			err := launcher.launch(t.Context(), fakeHarness, launchParams{Pane: "pane", Dir: tt.dir})
 
 			assert.Equal(t, tt.wantTrusted, fakeHarness.Trusted)
 			if tt.wantErr != "" {
@@ -269,7 +269,7 @@ func TestAppendedSystemPrompt(t *testing.T) {
 				LogPath: briefedLogPath,
 			})
 
-			prompt := launcher.appendedSystemPrompt(launchParams{WorkflowContext: tt.context})
+			prompt := launcher.appendedSystemPrompt(t.Context(), launchParams{WorkflowContext: tt.context})
 
 			for _, want := range tt.wantContain {
 				assert.Contains(t, prompt, want)
@@ -316,7 +316,7 @@ func TestAppendedSystemPromptDelegateBriefing(t *testing.T) {
 				LogPath: briefedLogPath,
 			})
 
-			prompt := launcher.appendedSystemPrompt(launchParams{SpawnedByAgentID: tt.spawnedByAgentID, SpawnedByName: tt.spawnedByName})
+			prompt := launcher.appendedSystemPrompt(t.Context(), launchParams{SpawnedByAgentID: tt.spawnedByAgentID, SpawnedByName: tt.spawnedByName})
 
 			for _, want := range tt.wantContain {
 				assert.Contains(t, prompt, want)
@@ -378,7 +378,7 @@ func TestAppendedSystemPromptGlobalContext(t *testing.T) {
 				ContextPath: path,
 			})
 
-			prompt := launcher.appendedSystemPrompt(launchParams{WorkflowContext: tt.workflowContext})
+			prompt := launcher.appendedSystemPrompt(t.Context(), launchParams{WorkflowContext: tt.workflowContext})
 
 			for _, want := range tt.wantContain {
 				assert.Contains(t, prompt, want)
@@ -405,11 +405,11 @@ func TestGlobalContextIsReadPerLaunch(t *testing.T) {
 		LogPath:     briefedLogPath,
 		ContextPath: path,
 	})
-	require.Contains(t, launcher.appendedSystemPrompt(launchParams{}), "before-the-edit")
+	require.Contains(t, launcher.appendedSystemPrompt(t.Context(), launchParams{}), "before-the-edit")
 
 	require.NoError(t, os.WriteFile(path, []byte("after-the-edit"), 0o600))
 
-	prompt := launcher.appendedSystemPrompt(launchParams{})
+	prompt := launcher.appendedSystemPrompt(t.Context(), launchParams{})
 	assert.Contains(t, prompt, "after-the-edit")
 	assert.NotContains(t, prompt, "before-the-edit")
 }
@@ -420,8 +420,8 @@ func TestBriefingCarriesTheReviewRules(t *testing.T) {
 	launcher := NewLauncher(NewLauncherParams{Addr: "127.0.0.1:8787"})
 
 	// No context file and no workflow.
-	base := launcher.appendedSystemPrompt(launchParams{})
-	reviewer := launcher.appendedSystemPrompt(launchParams{Role: agentstore.RoleReviewer})
+	base := launcher.appendedSystemPrompt(t.Context(), launchParams{})
+	reviewer := launcher.appendedSystemPrompt(t.Context(), launchParams{Role: agentstore.RoleReviewer})
 
 	for _, want := range []string{
 		"open_review_round",
@@ -490,7 +490,7 @@ func TestAppendedSystemPromptReviewBriefing(t *testing.T) {
 				LogPath: briefedLogPath,
 			})
 
-			prompt := launcher.appendedSystemPrompt(launchParams{Role: tt.role, OwnsCheckout: tt.ownsCheckout})
+			prompt := launcher.appendedSystemPrompt(t.Context(), launchParams{Role: tt.role, OwnsCheckout: tt.ownsCheckout})
 
 			for _, want := range tt.wantContain {
 				assert.Contains(t, prompt, want)
@@ -511,7 +511,7 @@ func TestBriefingKeepsWhatEveryAgentNeeds(t *testing.T) {
 		LogPath: briefedLogPath,
 	})
 
-	prompt := launcher.appendedSystemPrompt(launchParams{})
+	prompt := launcher.appendedSystemPrompt(t.Context(), launchParams{})
 
 	assert.Contains(t, prompt, "add_review_message", "answering a review reaches every agent")
 	assert.Contains(t, prompt, "spawn that one with request_review rather than create_agent",
@@ -598,7 +598,7 @@ func TestContextBriefing(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			assert.Equal(t, tt.wantDoc, contextBriefing(tt.params))
 
-			prompt := NewLauncher(NewLauncherParams{Addr: "127.0.0.1:9999"}).appendedSystemPrompt(tt.params)
+			prompt := NewLauncher(NewLauncherParams{Addr: "127.0.0.1:9999"}).appendedSystemPrompt(t.Context(), tt.params)
 			if !tt.wantLast {
 				return
 			}
@@ -628,7 +628,7 @@ func TestLaunchGivesTheAgentAStandInForGH(t *testing.T) {
 		BinPath:  "/usr/local/bin/komrad",
 	})
 
-	require.NoError(t, launcher.launch(fakeHarness, launchParams{Pane: "pane"}))
+	require.NoError(t, launcher.launch(t.Context(), fakeHarness, launchParams{Pane: "pane"}))
 
 	require.Len(t, fakeHarness.Launches, 1)
 	tools := fakeHarness.Launches[0].ToolsDir
@@ -646,7 +646,7 @@ func TestLaunchWithoutAKomradBinaryGivesNoStandIn(t *testing.T) {
 	fakeHarness := &harnesstest.Fake{}
 	launcher := NewLauncher(NewLauncherParams{Tmux: tmuxtest.NewFake(), CacheDir: t.TempDir()})
 
-	require.NoError(t, launcher.launch(fakeHarness, launchParams{Pane: "pane"}))
+	require.NoError(t, launcher.launch(t.Context(), fakeHarness, launchParams{Pane: "pane"}))
 
 	require.Len(t, fakeHarness.Launches, 1)
 	assert.Empty(t, fakeHarness.Launches[0].ToolsDir)
@@ -660,7 +660,7 @@ func TestChildBriefingReplacesTheDelegateOne(t *testing.T) {
 		LogPath: briefedLogPath,
 	})
 
-	prompt := launcher.appendedSystemPrompt(launchParams{
+	prompt := launcher.appendedSystemPrompt(t.Context(), launchParams{
 		SpawnedByAgentID: "agent-parent",
 		SpawnedByName:    "author",
 		ParentAgentID:    "agent-parent",

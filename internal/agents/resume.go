@@ -246,7 +246,7 @@ func (s *ResumeService) resume(ctx context.Context, agent agentstore.Agent) erro
 		prompt = interruptedPrompt
 	}
 
-	if err := s.launcher.launch(hn, launchParams{
+	if err := s.launcher.launch(ctx, hn, launchParams{
 		Pane:      pane,
 		Dir:       dir,
 		Flags:     agent.Flags,
