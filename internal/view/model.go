@@ -46,9 +46,7 @@ type Line struct {
 	Mark    Cell
 	// Columns are the cells of the list's own columns, one per column in the order they are drawn.
 	Columns []Cell
-	// Tail are the cells of the columns drawn against the right edge of the pane.
-	Tail   []Cell
-	Status Cell
+	Status  Cell
 	// Rule draws the corner a child hangs off, inside the name cell rather than before it.
 	Rule bool
 	// Indent is how far this row's name is set in from the gutter.
@@ -68,6 +66,8 @@ type Line struct {
 	// Tally is how many rows this one stands in for, drawn as a number.
 	Tally    int
 	Schedule Cell
+	// Comments are the comment counts, drawn against the right edge of the pane.
+	Comments []Cell
 	Selected bool
 }
 
@@ -77,11 +77,6 @@ type ColumnKind int
 const (
 	ColumnRepo ColumnKind = iota
 	ColumnForge
-	// ColumnReviewerComments counts the comments reviewer agents left, open then resolved.
-	ColumnReviewerComments
-	// ColumnPersonComments counts the comments the person left, open then resolved, with a dot
-	// while any of them holds something unread.
-	ColumnPersonComments
 	// ColumnText is a column the row fills itself, right-aligned in the width the list declares.
 	ColumnText
 )
@@ -90,8 +85,6 @@ const (
 type Column struct {
 	Kind  ColumnKind
 	Width int
-	// Dotted keeps a place after the person's counts for the unread dot.
-	Dotted bool
 }
 
 // Columns is the gutter a list declares, in the order its columns are drawn.
@@ -105,25 +98,6 @@ func WorkColumns() Columns {
 	}
 }
 
-// CommentedWorkColumns is the agents list's gutter with the comment counts of reviewer agents and
-// of the person drawn between repo and forge, each as wide as its widest pair and left out while
-// nobody has any.
-func CommentedWorkColumns(reviewer, person int, unread bool) Columns {
-	columns := Columns{{Kind: ColumnRepo, Width: plainColumns}}
-	if reviewer > 0 {
-		columns = append(columns, Column{Kind: ColumnReviewerComments, Width: reviewer})
-	}
-	if person > 0 {
-		width := person
-		if unread {
-			width += plainColumns
-		}
-		columns = append(columns, Column{Kind: ColumnPersonComments, Width: width, Dotted: unread})
-	}
-
-	return append(columns, Column{Kind: ColumnForge, Width: plainColumns})
-}
-
 // NoColumns is the gutter of a list with nothing to say before a name.
 func NoColumns() Columns {
 	return Columns{}
@@ -133,8 +107,6 @@ func NoColumns() Columns {
 type List struct {
 	Lines   []Line
 	Columns Columns
-	// Tail is the columns drawn against the right edge of the pane.
-	Tail Columns
 	// Glyphs is the character each glyph in a cell is drawn with.
 	Glyphs glyph.Set
 }

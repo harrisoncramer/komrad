@@ -11,8 +11,9 @@
 // # Agents indent under their workflow
 //
 // A row is a fixed sequence of cells: focus, mark gutter, the columns the list declares, status
-// bar, name, then trailing marks. Every gutter cell is always drawn and holds its column whether
-// or not it has anything to say, so the gutter is identical on every row whatever kind it is.
+// bar, name, trailing marks, then the comment counts against the right edge. Every gutter cell
+// is always drawn and holds its column whether or not it has anything to say, so the gutter is
+// identical on every row whatever kind it is.
 // Only the name is indented: a workflow opens at the gutter, an agent one step in, and a child
 // one step further, on the corner it hangs off its parent by. Weight carries the same structure
 // over again, bold for a workflow and italic for a child, so neither the indent nor the

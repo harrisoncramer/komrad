@@ -102,25 +102,13 @@ type Snapshot struct {
 	Glyphs glyph.Set
 }
 
-// columns is the gutter the snapshot draws, the agents list's own where none was named, which
-// makes room for comment counts only while some row has any.
+// columns is the gutter the snapshot draws, the agents list's own where none was named.
 func (s Snapshot) columns() Columns {
 	if s.Columns != nil {
 		return s.Columns
 	}
 
-	reviewer, person, unread := 0, 0, false
-	for _, row := range s.Rows {
-		if !isOwn(row) {
-			continue
-		}
-
-		reviewer = max(reviewer, countPairColumns(row.ReviewerComments))
-		person = max(person, countPairColumns(row.PersonComments))
-		unread = unread || (row.PersonComments != nil && row.PersonComments.Unread)
-	}
-
-	return CommentedWorkColumns(reviewer, person, unread)
+	return WorkColumns()
 }
 
 // Comments is how one side's comments on an agent's work stand.

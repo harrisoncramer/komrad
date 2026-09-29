@@ -42,8 +42,9 @@ func renderLine(line Line, list List, palette paint.Palette, width int) string {
 	row := gutter + " " + strings.Repeat(" ", line.Indent) + drawRule(palette, line.Rule) +
 		drawLead(palette, line.Lead) + drawName(palette, line) + draw.trailing(line)
 
-	if tail := draw.tail(line, list.Tail); tail != "" {
-		row += strings.Repeat(" ", max(width-lipgloss.Width(row)-lipgloss.Width(tail), spaceColumns)) + tail
+	if len(line.Comments) > 0 {
+		comments := strings.Join(xslice.Map(line.Comments, draw.cell), "  ")
+		row += strings.Repeat(" ", max(width-lipgloss.Width(row)-lipgloss.Width(comments), spaceColumns)) + comments
 	}
 
 	if line.Selected {
@@ -84,27 +85,6 @@ func (d drawer) trailing(line Line) string {
 	}
 
 	return b.String()
-}
-
-// tail is the cells drawn against the right edge, nothing when the row has none to draw.
-func (d drawer) tail(line Line, tail Columns) string {
-	cells := make([]string, 0, len(tail))
-	drawn := false
-	for i, column := range tail {
-		var cell Cell
-		if i < len(line.Tail) {
-			cell = line.Tail[i]
-		}
-
-		drawn = drawn || !cell.IsBlank()
-		cells = append(cells, d.gutterCell(cell, column.Width))
-	}
-
-	if !drawn {
-		return ""
-	}
-
-	return strings.Join(cells, " ")
 }
 
 // gutterCell is a cell that holds its column whether or not it has anything to draw, its text

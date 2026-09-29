@@ -10,12 +10,11 @@ import (
 
 // Prepare turns a snapshot of the agents list into the view model a renderer draws.
 func Prepare(snapshot Snapshot) List {
-	columns, tail := splitTail(snapshot.columns())
+	columns := snapshot.columns()
 	lines := xslice.Map(snapshot.Rows, func(row Row) Line {
 		return prepareLine(prepareLineParams{
 			row:           row,
 			columns:       columns,
-			tail:          tail,
 			focused:       isFocused(row, snapshot.Focused),
 			caret:         snapshot.Caret,
 			barBlinkedOut: snapshot.BarBlinkedOut,
@@ -23,20 +22,19 @@ func Prepare(snapshot Snapshot) List {
 	})
 
 	if snapshot.Pane > 0 {
-		width := NameColumns(snapshot.Pane, columns) - TailColumns(tail)
+		width := NameColumns(snapshot.Pane, columns)
 		for i := range lines {
 			lines[i] = fitRow(lines[i], width)
 		}
 	}
 
-	return List{Lines: lines, Columns: columns, Tail: tail, Glyphs: snapshot.Glyphs}
+	return List{Lines: lines, Columns: columns, Glyphs: snapshot.Glyphs}
 }
 
 // prepareLineParams is one row and what the list around it says about that row.
 type prepareLineParams struct {
 	row           Row
 	columns       Columns
-	tail          Columns
 	focused       bool
 	caret         Caret
 	barBlinkedOut bool
@@ -51,7 +49,6 @@ func prepareLine(params prepareLineParams) Line {
 		Focus:    textCell(chromeIf(focused && params.caret == CaretDrawn, glyph.Focus), paint.ToneAccent),
 		Mark:     textCell(row.Mark, paint.ToneMuted),
 		Columns:  columnCells(row, params.columns),
-		Tail:     columnCells(row, params.tail),
 		Status:   blinkBar(StatusCell(row), row, params.barBlinkedOut),
 		Rule:     row.Kind == KindChild,
 		Indent:   indentFor(row.Kind),
@@ -67,6 +64,7 @@ func prepareLine(params prepareLineParams) Line {
 		Alert:    AlertCell(row),
 		Tally:    row.HiddenCount,
 		Schedule: markCell(row.Scheduled, glyph.Schedule, paint.ToneMuted),
+		Comments: CommentCells(row),
 		Selected: row.Selected,
 	}
 }
@@ -80,10 +78,6 @@ func columnCells(row Row, columns Columns) []Cell {
 			cells[i] = RepoCell(row)
 		case ColumnForge:
 			cells[i] = ForgeCell(row)
-		case ColumnReviewerComments:
-			cells[i] = ReviewerCommentsCell(row)
-		case ColumnPersonComments:
-			cells[i] = PersonCommentsCell(row, column.Dotted)
 		case ColumnText:
 			if i < len(row.Cells) {
 				cells[i] = row.Cells[i]
@@ -128,6 +122,19 @@ func RepoCell(row Row) Cell {
 	return Cell{Glyph: glyph.Worktree, Tone: paint.ToneMuted}
 }
 
+// CommentCells are the counts of whoever has commented on an agent's work, reviewer agents then
+// the person, leaving out a side with none.
+func CommentCells(row Row) []Cell {
+	var cells []Cell
+	for _, cell := range []Cell{ReviewerCommentsCell(row), PersonCommentsCell(row)} {
+		if !cell.IsBlank() {
+			cells = append(cells, cell)
+		}
+	}
+
+	return cells
+}
+
 // ReviewerCommentsCell counts the comments reviewer agents left on an agent's work, open then
 // resolved.
 func ReviewerCommentsCell(row Row) Cell {
@@ -140,26 +147,21 @@ func ReviewerCommentsCell(row Row) Cell {
 
 // PersonCommentsCell counts the comments the person left on an agent's work, the open count
 // standing out while there is one, and a dot after while any holds something unread.
-func PersonCommentsCell(row Row, dotted bool) Cell {
+func PersonCommentsCell(row Row) Cell {
 	if !isOwn(row) || row.PersonComments == nil {
 		return Cell{}
 	}
 
 	counts := countsCell(row.PersonComments, glyph.PersonComments, paint.ToneWarning)
-	if !dotted {
+	if !row.PersonComments.Unread {
 		return counts
 	}
 
-	dot := Cell{Text: " "}
-	if row.PersonComments.Unread {
-		dot = Cell{Glyph: glyph.Unread, Tone: paint.ToneWarning}
-	}
-
-	return Cell{Parts: append(counts.Parts, dot)}
+	return Cell{Parts: append(counts.Parts, Cell{Glyph: glyph.Unread, Tone: paint.ToneWarning})}
 }
 
-// countsCell is a pair of counts, open then resolved, with the open count in the tone given
-// while it is not zero.
+// countsCell is a pair of counts, open then resolved, after the glyph saying whose they are, the
+// glyph and the open count in the tone given while it is not zero.
 func countsCell(comments *Comments, whose glyph.Glyph, openTone paint.Tone) Cell {
 	tone := paint.ToneMuted
 	if comments.Open > 0 {
@@ -330,13 +332,17 @@ func fitRow(line Line, width int) Line {
 func shedMarks(line Line, width int) Line {
 	// The schedule and the documents are standing facts about the row, hiding and pausing are
 	// things a person did themselves, mail goes before the output nobody has read, which asks
-	// the person to look, and the failed run nobody else will mention goes last.
+	// the person to look, and the failed run nobody else will mention goes before the counts.
 	for _, shed := range []*Cell{&line.Schedule, &line.Document, &line.Hidden, &line.Held, &line.Mail, &line.Alert} {
 		if roomForName(line, width) >= 0 {
 			return line
 		}
 
 		*shed = Cell{}
+	}
+
+	if roomForName(line, width) < 0 {
+		line.Comments = nil
 	}
 
 	return line
@@ -395,20 +401,4 @@ func emphasisFor(row Row, focused bool) Emphasis {
 	}
 
 	return EmphasisNormal
-}
-
-// splitTail takes the comment counts out of a gutter to be drawn against the right edge instead.
-func splitTail(columns Columns) (Columns, Columns) {
-	var gutter, tail Columns
-	for _, column := range columns {
-		if column.Kind == ColumnReviewerComments || column.Kind == ColumnPersonComments {
-			tail = append(tail, column)
-
-			continue
-		}
-
-		gutter = append(gutter, column)
-	}
-
-	return gutter, tail
 }

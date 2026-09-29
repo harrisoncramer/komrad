@@ -166,7 +166,7 @@ func TestRenderRowShapes(t *testing.T) {
 			},
 		},
 		{
-			name:   "comment counts stand between the review and the pull request",
+			name:   "comment counts are drawn against the right edge, each marked with whose they are",
 			golden: "row-commented",
 			row: Row{
 				Kind:   KindAgent,
@@ -184,7 +184,7 @@ func TestRenderRowShapes(t *testing.T) {
 			},
 		},
 		{
-			name:   "two-digit counts widen their columns rather than clipping",
+			name:   "two-digit counts take their room from the name rather than clipping",
 			golden: "row-commented-wide",
 			row: Row{
 				Kind:   KindAgent,

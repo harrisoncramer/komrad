@@ -1,8 +1,6 @@
 package view
 
 import (
-	"strconv"
-
 	"komrad/internal/glyph"
 	"komrad/internal/ui/paint/label"
 )
@@ -25,15 +23,6 @@ func GutterColumns(columns Columns) int {
 	}
 
 	return width
-}
-
-// countPairColumns is how wide one side's pair of counts is drawn, nothing when it has none.
-func countPairColumns(comments *Comments) int {
-	if comments == nil {
-		return 0
-	}
-
-	return plainColumns + spaceColumns + len(strconv.Itoa(comments.Open)) + plainColumns + len(strconv.Itoa(comments.Resolved))
 }
 
 // NameColumns is how many columns a name has in a pane of the given width.
@@ -61,6 +50,13 @@ func trailingColumns(line Line) int {
 		columns += plainColumns + len(label.Tally(line.Tally))
 	}
 
+	for i, cell := range line.Comments {
+		columns += cellColumns(cell) + spaceColumns
+		if i > 0 {
+			columns += spaceColumns
+		}
+	}
+
 	return columns
 }
 
@@ -78,12 +74,22 @@ func roomForName(line Line, width int) int {
 	return width - spent
 }
 
-// TailColumns is how wide everything drawn against the right edge is, with the space before it.
-func TailColumns(tail Columns) int {
-	width := 0
-	for _, column := range tail {
-		width += spaceColumns + column.Width
+// cellColumns is how many columns a cell draws.
+func cellColumns(cell Cell) int {
+	if len(cell.Parts) > 0 {
+		columns := 0
+		for _, part := range cell.Parts {
+			columns += cellColumns(part)
+		}
+
+		return columns
+	}
+	if cell.Text != "" {
+		return len([]rune(cell.Text))
+	}
+	if cell.Glyph != glyph.None {
+		return plainColumns
 	}
 
-	return width
+	return 0
 }
