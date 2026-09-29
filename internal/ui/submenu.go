@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"komrad/config"
+	"komrad/internal/glyph"
 	"komrad/internal/ui/paint"
 	"komrad/lib/xslice"
 
@@ -17,7 +18,7 @@ import (
 const submenuCancel = -1
 
 // nestedMark is drawn after an entry that opens a menu of its own.
-const nestedMark = " ›"
+const nestedMark = " " + glyph.Crumb
 
 // submenu is a short list drawn beside the list it was opened over, each entry picked by its
 // own key as well as by the cursor.
