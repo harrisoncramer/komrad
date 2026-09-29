@@ -1,9 +1,12 @@
 package transcripts
 
 import (
+	"log/slog"
+	"strings"
 	"testing"
 
 	"komrad/internal/agents"
+	"komrad/internal/logging"
 	"komrad/internal/storetest"
 	"komrad/lib/xslice"
 
@@ -119,11 +122,12 @@ func TestSearchTranscriptsScope(t *testing.T) {
 	st.SeedTurns(t, beta.ID, transcriptstore.Turn{Role: "user", Content: "the reconciler"})
 
 	tests := []struct {
-		name    string
-		query   string
-		agentID *string
-		caller  string
-		want    []string
+		name       string
+		query      string
+		agentID    *string
+		caller     string
+		want       []string
+		wantLogged bool
 	}{
 		{
 			name:   "a caller naming nobody reads its own conversation",
@@ -132,16 +136,18 @@ func TestSearchTranscriptsScope(t *testing.T) {
 			want:   []string{"alpha"},
 		},
 		{
-			name:   "a qualifier naming agents widens it",
-			query:  "reconciler agent:beta",
-			caller: alpha.ID,
-			want:   []string{"beta"},
+			name:       "a qualifier naming agents widens it",
+			query:      "reconciler agent:beta",
+			caller:     alpha.ID,
+			want:       []string{"beta"},
+			wantLogged: true,
 		},
 		{
-			name:   "a qualifier naming a kind widens it",
-			query:  "reconciler is:live",
-			caller: alpha.ID,
-			want:   []string{"alpha", "beta"},
+			name:       "a qualifier naming a kind widens it",
+			query:      "reconciler is:live",
+			caller:     alpha.ID,
+			want:       []string{"alpha", "beta"},
+			wantLogged: true,
 		},
 		{
 			name:   "a qualifier naming only when or who spoke does not",
@@ -161,11 +167,19 @@ func TestSearchTranscriptsScope(t *testing.T) {
 			query: "reconciler",
 			want:  []string{"alpha", "beta"},
 		},
+		{
+			name:  "no caller widening is not logged",
+			query: "reconciler is:live",
+			want:  []string{"alpha", "beta"},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := reader.SearchTranscripts(t.Context(), SearchTranscriptsParams{
+			var written strings.Builder
+			ctx := logging.WithLogger(t.Context(), logging.New(&written, slog.LevelInfo))
+
+			got, err := reader.SearchTranscripts(ctx, SearchTranscriptsParams{
 				Query:   tt.query,
 				Limit:   10,
 				AgentID: tt.agentID,
@@ -175,6 +189,7 @@ func TestSearchTranscriptsScope(t *testing.T) {
 			assert.ElementsMatch(t, tt.want, xslice.Map(got.Matches, func(hit transcriptstore.SearchHit) string {
 				return hit.Name
 			}))
+			assert.Equal(t, tt.wantLogged, strings.Contains(written.String(), "agent searched every agent's transcript"))
 		})
 	}
 }

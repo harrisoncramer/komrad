@@ -2,7 +2,6 @@ package agent
 
 import (
 	"context"
-	"time"
 	"unicode/utf8"
 
 	"komrad/internal/caller"
@@ -35,8 +34,6 @@ func (s *Handler) SearchTranscripts(ctx context.Context, req *agentv1.SearchTran
 	if requested := req.GetAgentId(); requested != "" {
 		scope = &requested
 		logCrossAgentRead(ctx, requested, "agent read another agent's transcript")
-	} else if query, err := transcripts.ParseQuery(req.GetQuery(), time.Now()); err == nil && query.Widens() {
-		logCrossAgentRead(ctx, "", "agent searched every agent's transcript")
 	}
 
 	results, err := s.transcripts.SearchTranscripts(ctx, transcripts.SearchTranscriptsParams{

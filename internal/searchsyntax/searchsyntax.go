@@ -1,6 +1,18 @@
 // Package searchsyntax lists the qualifiers a transcript search takes, for the panel to show.
 package searchsyntax
 
+// The keys a qualifier is typed with, before its colon.
+const (
+	KeyFrom     = "from"
+	KeyAgent    = "agent"
+	KeyWorkflow = "workflow"
+	KeyIs       = "is"
+	KeySort     = "sort"
+	KeySince    = "since"
+	KeyUntil    = "until"
+	KeyOn       = "on"
+)
+
 // Qualifier is one qualifier as it is typed and what it narrows the search to.
 type Qualifier struct {
 	Syntax  string

@@ -7,6 +7,7 @@ import (
 	"unicode"
 
 	"komrad/internal/fail"
+	"komrad/internal/searchsyntax"
 	transcriptstore "komrad/internal/store/transcript"
 )
 
@@ -52,7 +53,7 @@ type parser struct {
 }
 
 // ParseQuery reads a search's text, cutting days in the time zone of now.
-func ParseQuery(text string, now time.Time) (Query, error) {
+func ParseQuery(text string, now time.Time) (*Query, error) {
 	p := parser{now: now, seen: map[string]bool{}}
 
 	var words []string
@@ -64,19 +65,19 @@ func ParseQuery(text string, now time.Time) (Query, error) {
 			continue
 		}
 
-		if given.key != "is" && p.seen[given.key] {
-			return Query{}, ErrBadQualifier.Saying("%s: is given twice", given.key)
+		if given.key != searchsyntax.KeyIs && p.seen[given.key] {
+			return nil, ErrBadQualifier.Saying("%s: is given twice", given.key)
 		}
 		p.seen[given.key] = true
 
 		if err := p.apply(given); err != nil {
-			return Query{}, err
+			return nil, err
 		}
 	}
 
 	p.query.Words = strings.Join(words, " ")
 
-	return p.query, nil
+	return &p.query, nil
 }
 
 func (p *parser) apply(given clause) error {
@@ -85,31 +86,31 @@ func (p *parser) apply(given clause) error {
 	if value == "" {
 		return ErrBadQualifier.Saying("%s: needs a value", key)
 	}
-	if negated && key != "is" {
+	if negated && key != searchsyntax.KeyIs {
 		return ErrBadQualifier.Saying("%s: cannot be negated", key)
 	}
 
 	switch key {
-	case "from":
+	case searchsyntax.KeyFrom:
 		speaker, err := parseSpeaker(value)
 		if err != nil {
 			return err
 		}
 		q.Filter.Speaker = &speaker
-	case "agent":
+	case searchsyntax.KeyAgent:
 		q.Filter.AgentName = &value
-	case "workflow":
+	case searchsyntax.KeyWorkflow:
 		q.Filter.WorkflowName = &value
-	case "is":
+	case searchsyntax.KeyIs:
 		return q.applyIs(strings.ToLower(value), negated)
-	case "sort":
+	case searchsyntax.KeySort:
 		sort := transcriptstore.Sort(strings.ToLower(value))
 		if sort.Validate() != nil {
 			return ErrBadQualifier.Saying("sort:%s is not one of best, new or old", value)
 		}
 		q.Sort = sort
-	case "since":
-		if seen["on"] {
+	case searchsyntax.KeySince:
+		if seen[searchsyntax.KeyOn] {
 			return ErrBadQualifier.Saying("since: cannot be given with on:")
 		}
 		at, err := parseStart(key, value, now)
@@ -117,8 +118,8 @@ func (p *parser) apply(given clause) error {
 			return err
 		}
 		q.Filter.Since = &at
-	case "until":
-		if seen["on"] {
+	case searchsyntax.KeyUntil:
+		if seen[searchsyntax.KeyOn] {
 			return ErrBadQualifier.Saying("until: cannot be given with on:")
 		}
 		at, err := parseEnd(key, value, now)
@@ -126,8 +127,8 @@ func (p *parser) apply(given clause) error {
 			return err
 		}
 		q.Filter.Until = &at
-	case "on":
-		if seen["since"] || seen["until"] {
+	case searchsyntax.KeyOn:
+		if seen[searchsyntax.KeySince] || seen[searchsyntax.KeyUntil] {
 			return ErrBadQualifier.Saying("on: cannot be given with since: or until:")
 		}
 		day, err := parseDay(key, value, now)
@@ -254,7 +255,8 @@ func parseQualifier(tok token) (clause, bool) {
 
 	key = strings.ToLower(key)
 	switch key {
-	case "from", "agent", "workflow", "is", "sort", "since", "until", "on":
+	case searchsyntax.KeyFrom, searchsyntax.KeyAgent, searchsyntax.KeyWorkflow, searchsyntax.KeyIs,
+		searchsyntax.KeySort, searchsyntax.KeySince, searchsyntax.KeyUntil, searchsyntax.KeyOn:
 		return clause{key: key, value: value, negated: tok.negated}, true
 	}
 
