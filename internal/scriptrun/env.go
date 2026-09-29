@@ -169,8 +169,7 @@ func (s *ScriptService) env(ctx context.Context, params scriptEnvParams) ([]stri
 
 	env = append(env, gitPromptGuardEnv()...)
 
-	// An agent that provisions nothing keeps the directory it was given, so its hooks must not
-	// be handed KOMRAD_WORKTREE_REPO pointing at a worktree nobody made for it.
+	// An agent that provisions nothing is not handed KOMRAD_WORKTREE_REPO.
 	if workflow != nil && workflow.Worktree.Enabled && !agent.IsProvisionerDisabled() {
 		worktreeEnv, err := s.worktreeEnv(*workflow, agent)
 		if err != nil {

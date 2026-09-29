@@ -18,8 +18,7 @@ type Tail struct {
 	cursor int
 	// back is how many lines the view ends before the newest.
 	back int
-	// scrolled says the view moved last, so the cursor is kept inside it rather than it around the
-	// cursor.
+	// scrolled says the view moved last.
 	scrolled bool
 }
 

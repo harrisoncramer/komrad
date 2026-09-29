@@ -46,8 +46,7 @@ func openAgentSubpages(h host, s panelShared, from screen, item panel.AgentRow) 
 	})
 }
 
-// agentSubpages is the subpages an agent has, which an orchestrator's work and writing leave out
-// since its workflow's agents hold them.
+// agentSubpages is the subpages an agent has, less an orchestrator's work and writing.
 func agentSubpages(agent panel.Agent) []subpage {
 	if agent.Role == panel.RoleOrchestrator {
 		return []subpage{subpageLogs, subpageTerminal}

@@ -25,10 +25,10 @@ func terminalContent(shell, dir string) layout.Content {
 		shell = fallbackShell
 	}
 
-	// Naming the shell matters: a pane respawned with no command reruns whatever it held last.
 	return layout.Content{
-		Key:    "terminal",
-		Dir:    dir,
+		Key: "terminal",
+		Dir: dir,
+		// A pane respawned with no command reruns whatever it held last.
 		Render: func(layout.Target) ([]string, bool) { return []string{shell}, true },
 	}
 }
@@ -52,7 +52,7 @@ func (m model) openTerminal(agent panel.Agent) (tea.Model, tea.Cmd) {
 
 	up := m.terminalDir != "" && m.frame.IsOpen(layout.RegionInfo)
 
-	// The shell is where the key asks for, so it wants the keyboard rather than a fresh start.
+	// The shell already rooted there takes the keyboard.
 	if up && agent.Cwd == m.terminalDir {
 		return focus()
 	}
@@ -61,7 +61,7 @@ func (m model) openTerminal(agent panel.Agent) (tea.Model, tea.Cmd) {
 	if err := m.checkTerminalDir(agent.Cwd); err != nil {
 		m.report("Could not open a terminal", err)
 
-		// The shell up is still worth the keyboard, and the message says why it did not move.
+		// The shell up still takes the keyboard.
 		if up {
 			return focus()
 		}

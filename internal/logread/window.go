@@ -61,7 +61,7 @@ func (r *Reader) since(ctx context.Context, keep func([]byte) bool, offset int64
 	}
 	defer func() { _ = log.file.Close() }()
 
-	// An offset past the end means the log was truncated, so the caller starts over from the newest lines.
+	// An offset past the end means the log was truncated.
 	if offset > log.size {
 		window, err := r.newestIn(ctx, log, keep, limit)
 		if err != nil {
@@ -83,7 +83,7 @@ func (r *Reader) since(ctx context.Context, keep func([]byte) bool, offset int64
 			return nil, fmt.Errorf("failed to finish reading the log at %s: %w", r.path, err)
 		}
 
-		// Past the budget the read stops and says more remains, so one call never reads the whole log.
+		// Past the budget the read stops and says more remains.
 		if window.Offset-offset >= int64(r.budget) {
 			window.More = true
 
@@ -164,7 +164,7 @@ func (r *Reader) newestIn(ctx context.Context, log *openLog, keep func([]byte) b
 func (r *Reader) nextLine(reader *bufio.Reader) ([]byte, int64, error) {
 	var skipped int64
 	for {
-		// A last line without its newline is still being written, so io.EOF leaves it for the next read.
+		// A last line without its newline is left for the next read.
 		line, err := reader.ReadSlice('\n')
 		if errors.Is(err, bufio.ErrBufferFull) {
 			skipped += int64(len(line))
