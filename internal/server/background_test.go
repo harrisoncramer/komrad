@@ -652,6 +652,7 @@ func TestBuildLoopsGivesEachLoopItsOwnWaker(t *testing.T) {
 	loops := buildLoops(buildLoopsParams{
 		Stores:   &stores{},
 		Services: &services{},
+		Wakers:   newLoopWakers(),
 	})
 
 	wakers := map[*LoopWaker]string{}
