@@ -46,6 +46,19 @@ type links struct {
 	files map[inode]*linked
 }
 
+type measurement struct {
+	bytes   int64
+	share   int64
+	entries []Entry
+}
+
+// walker sums the disk under one top-level entry, reading its directories on a pool of its own.
+type walker struct {
+	group *errgroup.Group
+	seen  *links
+	sum   *atomic.Int64
+}
+
 func (l *links) meet(key inode, bytes, nlink int64) bool {
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -60,25 +73,12 @@ func (l *links) meet(key inode, bytes, nlink int64) bool {
 	return !ok
 }
 
-func (l *links) share(total int64) int64 {
+func (l *links) calculateShare(total int64) int64 {
 	for _, file := range l.files {
 		total -= file.bytes - file.bytes*min(file.met, file.nlink)/file.nlink
 	}
 
 	return total
-}
-
-type measurement struct {
-	bytes   int64
-	share   int64
-	entries []Entry
-}
-
-// walker sums the disk under one top-level entry, reading its directories on a pool of its own.
-type walker struct {
-	group *errgroup.Group
-	seen  *links
-	sum   *atomic.Int64
 }
 
 // measure is the disk taken by every file under a directory and by each top-level entry,
@@ -109,7 +109,11 @@ func measure(ctx context.Context, dir string) (*measurement, error) {
 		return cmp.Compare(b.Bytes, a.Bytes)
 	})
 
-	return &measurement{bytes: total, share: seen.share(total), entries: entries}, nil
+	return &measurement{
+		bytes:   total,
+		share:   seen.calculateShare(total),
+		entries: entries,
+	}, nil
 }
 
 // walkTop counts a top-level file, or reads a top-level directory to the end on a fresh pool.
