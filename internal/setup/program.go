@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"komrad/internal/fail"
+	"komrad/internal/glyph"
 
 	"charm.land/bubbles/v2/spinner"
 	tea "charm.land/bubbletea/v2"
@@ -250,6 +251,12 @@ func (m model) updateForm(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 var (
+	markDone    = glyph.Defaults().Spell(glyph.MessageSuccess)
+	markFailed  = glyph.Defaults().Spell(glyph.MessageError)
+	markPending = glyph.Defaults().Spell(glyph.MessageInfo)
+)
+
+var (
 	styleDone   = lipgloss.NewStyle().Foreground(lipgloss.Color("2"))
 	styleFailed = lipgloss.NewStyle().Foreground(lipgloss.Color("1"))
 	styleMuted  = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
@@ -275,17 +282,17 @@ func (m model) mark(r row) string {
 	case stateChecking, stateRepairing:
 		return m.spinner.View()
 	case stateDone:
-		return styleDone.Render("✓")
+		return styleDone.Render(markDone)
 	case stateSkipped:
 		return styleMuted.Render("-")
 	case stateFailed:
-		return styleFailed.Render("✗")
+		return styleFailed.Render(markFailed)
 	case stateAsking:
 		return "?"
 	case statePending:
 	}
 
-	return styleMuted.Render("·")
+	return styleMuted.Render(markPending)
 }
 
 // RunUnattended walks the steps with nobody to ask, printing a line per step and taking every
@@ -310,12 +317,12 @@ func runUnattended(ctx context.Context, check Checker, step Step) (string, error
 	observation := step.observe(ctx, check)
 	switch observation.Verdict {
 	case VerdictDone:
-		return "✓ " + name + " " + observation.Detail, nil
+		return markDone + " " + name + " " + observation.Detail, nil
 	case VerdictStop:
 		return describeStop(name, observation), ErrFailed
 	case VerdictAsk:
 		if err := step.answerUnattended(); err != nil {
-			return "✗ " + name + " " + err.Error(), ErrFailed
+			return markFailed + " " + name + " " + err.Error(), ErrFailed
 		}
 	case VerdictRepair:
 	}
@@ -325,7 +332,7 @@ func runUnattended(ctx context.Context, check Checker, step Step) (string, error
 			return "- " + name + " skipped", nil
 		}
 
-		return "✗ " + name + " " + err.Error(), ErrFailed
+		return markFailed + " " + name + " " + err.Error(), ErrFailed
 	}
 
 	observation = step.observe(ctx, check)
@@ -333,11 +340,11 @@ func runUnattended(ctx context.Context, check Checker, step Step) (string, error
 		return describeStop(name, observation), ErrFailed
 	}
 
-	return "✓ " + name + " " + observation.Detail, nil
+	return markDone + " " + name + " " + observation.Detail, nil
 }
 
 func describeStop(name string, observation Observation) string {
-	line := "✗ " + name + " " + observation.Detail
+	line := markFailed + " " + name + " " + observation.Detail
 	if observation.Finding != nil && observation.Finding.Fix != "" {
 		line += "\n            fix: " + observation.Finding.Fix
 	}
