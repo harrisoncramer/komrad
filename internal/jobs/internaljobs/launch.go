@@ -120,10 +120,6 @@ func (w *LaunchAgentWorker) fire(ctx context.Context, schedule *schedulestore.Sc
 // mailOrchestrator sends the prompt to the schedule's orchestrator, skipping the firing when that
 // orchestrator has been archived or deleted.
 func (w *LaunchAgentWorker) mailOrchestrator(ctx context.Context, schedule *schedulestore.Schedule, args LaunchAgentArgs) error {
-	if schedule.OrchestratorAgentID == nil {
-		return river.JobCancel(fmt.Errorf("schedule %q names no orchestrator", schedule.Name))
-	}
-
 	orchestrator, err := w.orchestrators.RequireOrchestrator(ctx, *schedule.OrchestratorAgentID)
 	if errors.Is(err, schedules.ErrOrchestratorNotFound) ||
 		errors.Is(err, schedules.ErrOrchestratorArchived) ||

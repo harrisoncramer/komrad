@@ -358,26 +358,23 @@ func TestHideAgents(t *testing.T) {
 // TestKind pins that a schedule's kind and the orchestrator it mails are read back, and that the
 // two are only ever written together.
 func TestKind(t *testing.T) {
-	orchestrator := "00000000-0000-0000-0000-00000000000a"
-
 	tests := []struct {
-		name             string
-		kind             Kind
-		orchestratorID   *string
-		wantErr          bool
-		wantKind         Kind
-		wantOrchestrator *string
+		name              string
+		kind              Kind
+		namesOrchestrator bool
+		namesStranger     bool
+		wantErr           bool
+		wantKind          Kind
 	}{
 		{
 			name:     "a schedule given no kind launches an implementer",
 			wantKind: KindImplementer,
 		},
 		{
-			name:             "an orchestrator schedule names the orchestrator it mails",
-			kind:             KindOrchestrator,
-			orchestratorID:   &orchestrator,
-			wantKind:         KindOrchestrator,
-			wantOrchestrator: &orchestrator,
+			name:              "an orchestrator schedule names the orchestrator it mails",
+			kind:              KindOrchestrator,
+			namesOrchestrator: true,
+			wantKind:          KindOrchestrator,
 		},
 		{
 			name:    "an orchestrator schedule naming no orchestrator is refused",
@@ -385,10 +382,16 @@ func TestKind(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name:           "an implementer schedule naming an orchestrator is refused",
-			kind:           KindImplementer,
-			orchestratorID: &orchestrator,
-			wantErr:        true,
+			name:          "an orchestrator schedule naming an agent komrad does not hold is refused",
+			kind:          KindOrchestrator,
+			namesStranger: true,
+			wantErr:       true,
+		},
+		{
+			name:              "an implementer schedule naming an orchestrator is refused",
+			kind:              KindImplementer,
+			namesOrchestrator: true,
+			wantErr:           true,
 		},
 	}
 
@@ -398,12 +401,19 @@ func TestKind(t *testing.T) {
 			ctx := t.Context()
 
 			cfg := Config{
-				Name:                "nightly",
-				Cron:                "0 9 * * *",
-				Prompt:              "go",
-				WorkflowID:          seedWorkflow(t, st),
-				Kind:                tt.kind,
-				OrchestratorAgentID: tt.orchestratorID,
+				Name:       "nightly",
+				Cron:       "0 9 * * *",
+				Prompt:     "go",
+				WorkflowID: seedWorkflow(t, st),
+				Kind:       tt.kind,
+			}
+			if tt.namesOrchestrator {
+				orchestrator := seedAgent(t, st, cfg.WorkflowID)
+				cfg.OrchestratorAgentID = &orchestrator
+			}
+			if tt.namesStranger {
+				stranger := missingID
+				cfg.OrchestratorAgentID = &stranger
 			}
 
 			created, err := st.Create(ctx, cfg)
@@ -422,7 +432,7 @@ func TestKind(t *testing.T) {
 			got, err := st.Get(ctx, created.ID)
 			require.NoError(t, err)
 			assert.Equal(t, tt.wantKind, got.Kind)
-			assert.Equal(t, tt.wantOrchestrator, got.OrchestratorAgentID)
+			assert.Equal(t, cfg.OrchestratorAgentID, got.OrchestratorAgentID)
 		})
 	}
 }
@@ -711,6 +721,29 @@ func TestDelete(t *testing.T) {
 	assert.Nil(t, launched.ScheduleID, "the agent it launched stays and no longer names it")
 }
 
+// TestDeletingAnOrchestratorTakesItsSchedules pins the cascade, so a schedule cannot outlive the
+// orchestrator it mails, and a schedule mailing another orchestrator stays.
+func TestDeletingAnOrchestratorTakesItsSchedules(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+
+	workflow := seedWorkflow(t, st)
+	gone := seedAgent(t, st, workflow)
+	kept := seedAgent(t, st, workflow)
+
+	mailingGone := seed(t, st, Config{Name: "gone", Cron: "0 9 * * *", Prompt: "go", WorkflowID: workflow, Kind: KindOrchestrator, OrchestratorAgentID: &gone})
+	mailingKept := seed(t, st, Config{Name: "kept", Cron: "0 9 * * *", Prompt: "go", WorkflowID: workflow, Kind: KindOrchestrator, OrchestratorAgentID: &kept})
+
+	_, err := st.agents.Delete(ctx, []string{gone})
+	require.NoError(t, err)
+
+	_, err = st.GetIncludingArchived(ctx, mailingGone.ID)
+	require.ErrorIs(t, err, store.ErrNotFound)
+
+	_, err = st.Get(ctx, mailingKept.ID)
+	require.NoError(t, err)
+}
+
 func open(t *testing.T) *fixture {
 	t.Helper()
 
@@ -747,6 +780,20 @@ func seedWorkflow(t *testing.T, st *fixture) string {
 	require.NotNil(t, created)
 
 	return created.ID
+}
+
+func seedAgent(t *testing.T, st *fixture, workflowID string) string {
+	t.Helper()
+
+	id := uuid.NewString()
+	require.NoError(t, st.agents.Create(t.Context(), agentstore.Agent{
+		ID:         id,
+		Name:       "orchestrator-" + id,
+		WorkflowID: workflowID,
+		State:      agentstore.StateIdle,
+	}))
+
+	return id
 }
 
 func resolveSeedNames(keys []string, byName map[string]string) []string {
