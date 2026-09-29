@@ -7,6 +7,14 @@ import (
 	"path/filepath"
 )
 
+// Explainer: writing over a file in place leaves a window where a reader, or a process that
+// crashes part-way, sees half the old file and half the new one. A shell running a script
+// reads it a line at a time and would pick up the tail of a file it did not start, and a
+// token or config read mid-write would fail to parse. WriteAtomic writes a new file beside
+// the target, sets its mode, syncs it to disk and renames it over the target. A rename
+// within one directory is atomic, so a reader sees the whole old file or the whole new one,
+// and the mode is the one asked for rather than whatever the target was first created with.
+
 // WriteAtomic replaces the file at path with content written under mode.
 func WriteAtomic(path string, content []byte, mode os.FileMode) error {
 	temporary, err := os.CreateTemp(filepath.Dir(path), "."+filepath.Base(path)+".*")
