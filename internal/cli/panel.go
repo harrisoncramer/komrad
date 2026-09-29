@@ -155,20 +155,20 @@ Use ` + "`komrad open`" + ` to bring the panel up.`,
 				ConfigErr:       state.configErr,
 				StartupErr:      startupErr,
 				StartupFindings: startupFindings,
-				Engines:         panelEngines(cmd.Context(), state, addr, startupErr),
+				EngineStatus:    panelEngineStatus(cmd.Context(), state, addr, startupErr),
 			})
 		},
 	}
 }
 
-// panelEngines is the engine this panel is on and how to ask what it runs.
-func panelEngines(ctx context.Context, state *app, addr string, startupErr error) ui.Engines {
+// panelEngineStatus is the engine this panel is on and how to ask what it runs.
+func panelEngineStatus(ctx context.Context, state *app, addr string, startupErr error) ui.EngineStatus {
 	var build ui.EngineBuild
 	if startupErr == nil {
 		build, _ = readEngineBuild(ctx, addr)
 	}
 
-	return ui.Engines{
+	return ui.EngineStatus{
 		Name:      state.configStack.Engine,
 		Build:     build,
 		ReadBuild: func(ctx context.Context) (ui.EngineBuild, bool) { return readEngineBuild(ctx, addr) },

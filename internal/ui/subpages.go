@@ -91,7 +91,7 @@ func reviewRefusal(from screen, agent panel.Agent) error {
 // it can.
 func terminalRefusal(from screen, agent panel.Agent) error {
 	switch {
-	case !from.opensInfoPane():
+	case !from.opensTerminal():
 		return errTerminalHere
 	case agent.Cwd == "":
 		return errNoAgentDir

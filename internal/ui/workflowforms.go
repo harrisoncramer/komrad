@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"komrad/config"
+	"komrad/internal/glyph"
 	"komrad/internal/ui/panel"
 	"komrad/lib/xslice"
 
@@ -335,7 +336,7 @@ func hookFieldDescription(description string, available []hookChoice, scrolls bo
 	}
 
 	if scrolls {
-		return "↑/↓ for more; " + description
+		return glyph.Up + "/" + glyph.Down + " for more; " + description
 	}
 
 	return description

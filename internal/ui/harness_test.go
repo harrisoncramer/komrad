@@ -194,7 +194,7 @@ type panelHarnessParams struct {
 	browser         browser.Opener
 	tmux            ui.PanelTmux
 	remote          *panelRemote
-	engines         ui.Engines
+	engineStatus    ui.EngineStatus
 }
 
 func newPanelHarness(t *testing.T, params panelHarnessParams) *panelHarness {
@@ -282,7 +282,7 @@ func newPanelHarness(t *testing.T, params panelHarnessParams) *panelHarness {
 			Binary:          params.binary,
 			Browser:         params.browser,
 			Tmux:            params.tmux,
-			Engines:         params.engines,
+			EngineStatus:    params.engineStatus,
 		}),
 	}
 	t.Cleanup(harness.releaseParked)

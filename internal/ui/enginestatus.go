@@ -15,8 +15,8 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
-// Engines is what the panel knows of the engine it is on.
-type Engines struct {
+// EngineStatus is what the panel knows of the engine it is on.
+type EngineStatus struct {
 	// Name is the engine this panel is on, empty for this machine.
 	Name string
 	// Build is what the engine's server said it runs when the panel started.
@@ -62,7 +62,7 @@ func (m model) engineTone() paint.Tone {
 // engineLine is the engine drawn in at most width cells, dropping the commit before the name.
 func (m model) engineLine(width int) string {
 	muted := paint.Panel.Style(paint.ToneMuted)
-	line := paint.Panel.Style(m.engineTone()).Render(m.glyphs.Spell(glyph.Engine)) + " " + muted.Render(engineTitle(m.engines.Name))
+	line := paint.Panel.Style(m.engineTone()).Render(m.glyphs.Spell(glyph.Engine)) + " " + muted.Render(engineTitle(m.engineStatus.Name))
 
 	if m.engineBuild.Commit == "" {
 		return line
@@ -92,7 +92,7 @@ func (m model) logoLine(logo string, width int) string {
 const engineBuildWait = 30 * time.Second
 
 func (m model) readEngineBuildCmd() tea.Cmd {
-	read := m.engines.ReadBuild
+	read := m.engineStatus.ReadBuild
 	if read == nil {
 		return nil
 	}

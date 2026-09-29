@@ -4,19 +4,7 @@ import (
 	"komrad/internal/ui/layout"
 )
 
-type infoKind int
-
-const (
-	infoNothing infoKind = iota
-	infoTerminal
-)
-
-type infoState struct {
-	kind    infoKind
-	subject string
-}
-
-func (m *model) claimInfo(kind infoKind, subject string) bool {
+func (m *model) claimInfo(dir string) bool {
 	pane := m.frame.Open(layout.RegionInfo)
 	if pane == "" {
 		return false
@@ -24,8 +12,7 @@ func (m *model) claimInfo(kind infoKind, subject string) bool {
 
 	m.tmux.SetInfoPane(pane)
 	m.frame.Claimed(layout.RegionInfo)
-	m.info.kind = kind
-	m.info.subject = subject
+	m.terminalDir = dir
 	m.reconcileSolo()
 
 	// The stage is uncovered by handing the window back, so whatever was parked in it while it
@@ -45,28 +32,27 @@ func (m model) closeInfo() model {
 
 func (m *model) forgetInfo() {
 	m.tmux.SetInfoPane("")
-	m.info.kind = infoNothing
-	m.info.subject = ""
+	m.terminalDir = ""
 	m.reconcileSolo()
 }
 
 func (m *model) stageInfo() {
-	switch m.info.kind {
-	case infoTerminal:
-		if argv := m.frame.ShellArgv(m.info.subject); len(argv) > 0 {
-			m.frame.Show(layout.RegionInfo, remoteTerminalContent(argv))
-
-			return
-		}
-
-		m.frame.Show(layout.RegionInfo, terminalContent(m.shell, m.info.subject))
-	case infoNothing:
+	if m.terminalDir == "" {
+		return
 	}
+
+	if argv := m.frame.ShellArgv(m.terminalDir); len(argv) > 0 {
+		m.frame.Show(layout.RegionInfo, remoteTerminalContent(argv))
+
+		return
+	}
+
+	m.frame.Show(layout.RegionInfo, terminalContent(m.shell, m.terminalDir))
 }
 
 // reconcileInfo catches the info pane going away on its own.
 func (m *model) reconcileInfo() {
-	if m.info.kind == infoNothing || m.frame.IsOpen(layout.RegionInfo) {
+	if m.terminalDir == "" || m.frame.IsOpen(layout.RegionInfo) {
 		return
 	}
 

@@ -184,7 +184,7 @@ func (m model) isActiveBlockFocused() bool {
 
 // terminalPane is the shell the cycle stops at, empty while none is open.
 func (m model) terminalPane() string {
-	if m.frame == nil || m.info.kind != infoTerminal {
+	if m.frame == nil || m.terminalDir == "" {
 		return ""
 	}
 

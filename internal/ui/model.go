@@ -214,7 +214,7 @@ type Deps struct {
 	ConfigErr       error
 	StartupErr      error
 	StartupFindings []errui.Finding
-	Engines         Engines
+	EngineStatus    EngineStatus
 }
 
 type model struct {
@@ -228,7 +228,7 @@ type model struct {
 	frame         *layout.Frame
 	settings      PanelSettings
 	unreachable   error
-	engines       Engines
+	engineStatus  EngineStatus
 	engineBuild   EngineBuild
 	// writes counts the writes sent, and a write's own count is what its landing answers to.
 	writes int
@@ -245,7 +245,7 @@ type model struct {
 	// sized is the size each agent's own window was last put at, keyed by pane, so a listing that
 	// has not moved costs no tmux calls.
 	sized         map[string]string
-	info          infoState
+	terminalDir   string
 	details       detailsState
 	messages      messagesState
 	detailsHeight float64
@@ -359,8 +359,8 @@ func newModel(deps Deps, isDark bool, post *postbox) model {
 		configErr:       deps.ConfigErr,
 		startupErr:      deps.StartupErr,
 		startupFindings: deps.StartupFindings,
-		engines:         deps.Engines,
-		engineBuild:     deps.Engines.Build,
+		engineStatus:    deps.EngineStatus,
+		engineBuild:     deps.EngineStatus.Build,
 		screen:          screenAgents,
 		rowCursor:       newRowCursor(),
 		warm:            newWarmupState(),

@@ -177,7 +177,7 @@ func (m *model) reconcileSolo() {
 	// false on purpose to clear a zoom a dead panel left behind: the frame answers from what it
 	// holds, while Solo asks tmux with a subprocess, and this runs on every listing change and
 	// every cursor move.
-	want := m.holdsWindow() && m.info.kind == infoNothing
+	want := m.holdsWindow() && m.terminalDir == ""
 	if want == m.frame.IsSolo() {
 		return
 	}

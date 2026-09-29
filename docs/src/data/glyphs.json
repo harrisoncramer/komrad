@@ -1557,6 +1557,21 @@
       "name": "single right-pointing angle quotation mark"
     },
     {
+      "codePoint": "U+2191",
+      "character": "↑",
+      "name": "upwards arrow"
+    },
+    {
+      "codePoint": "U+2192",
+      "character": "→",
+      "name": "rightwards arrow"
+    },
+    {
+      "codePoint": "U+2193",
+      "character": "↓",
+      "name": "downwards arrow"
+    },
+    {
       "codePoint": "U+2500",
       "character": "─",
       "name": "box drawings light horizontal"

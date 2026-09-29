@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"komrad/internal/errui"
+	"komrad/internal/glyph"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/ui/panel"
@@ -111,8 +112,8 @@ func buildRemoteField(read worktreeInspection) recordField {
 		}
 	}
 
-	unpushed := fmt.Sprintf("↑%d unpushed", read.unpushed)
-	unpulled := fmt.Sprintf("↓%d unpulled", read.unpulled)
+	unpushed := fmt.Sprintf("%s%d unpushed", glyph.Up, read.unpushed)
+	unpulled := fmt.Sprintf("%s%d unpulled", glyph.Down, read.unpulled)
 	if read.unpulledLanded {
 		landed := fmt.Sprintf("%s"+separated+"landed on %s", unpulled, strings.TrimPrefix(read.baseRef, "origin/"))
 		pushing := dimStyle

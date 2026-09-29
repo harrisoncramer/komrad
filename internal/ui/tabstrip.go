@@ -27,10 +27,10 @@ const (
 
 func (d tabDirection) glyph() string {
 	if d == tabUp {
-		return "↑"
+		return glyph.Up
 	}
 
-	return "↓"
+	return glyph.Down
 }
 
 // stops is a row of labels the tab keys walk, the focused one drawn as the cursor and the lit one
@@ -68,18 +68,27 @@ func (s stops) parts(palette paint.Palette) []string {
 // render draws one label in its style, its mark underlined where the label holds it.
 func (s stops) render(style lipgloss.Style, i int) string {
 	label := s.labels[i]
-	if i >= len(s.marks) || s.marks[i] == "" {
+	if i >= len(s.marks) {
 		return style.Render(label)
 	}
 
-	at := strings.Index(label, s.marks[i])
-	if at < 0 {
+	before, mark, after, ok := splitMark(label, s.marks[i])
+	if !ok {
 		return style.Render(label)
 	}
 
-	end := at + len(s.marks[i])
+	return style.Render(before) + style.Underline(true).Render(mark) + style.Render(after)
+}
 
-	return style.Render(label[:at]) + style.Underline(true).Render(label[at:end]) + style.Render(label[end:])
+// splitMark cuts a label around the first place it holds mark, and reports whether it does.
+func splitMark(label, mark string) (before, marked, after string, ok bool) {
+	if mark == "" {
+		return "", "", "", false
+	}
+
+	before, after, ok = strings.Cut(label, mark)
+
+	return before, mark, after, ok
 }
 
 func (s stops) view(palette paint.Palette) string {

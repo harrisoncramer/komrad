@@ -119,7 +119,7 @@ type NewPanelParams struct {
 	Binary          BinaryWatcher
 	Browser         browser.Opener
 	Tmux            PanelTmux
-	Engines         Engines
+	EngineStatus    EngineStatus
 }
 
 // NewPanel builds the panel the way komrad panel does, over a recording tmux.
@@ -174,7 +174,7 @@ func NewPanel(params NewPanelParams) *Panel {
 			StartupErr:      params.StartupErr,
 			Binary:          params.Binary,
 			Browser:         params.Browser,
-			Engines:         params.Engines,
+			EngineStatus:    params.EngineStatus,
 		}, true, post),
 		post: post,
 		tmux: tmux,

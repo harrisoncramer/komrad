@@ -28,6 +28,12 @@ const (
 	Separator = "·"
 	// Crumb sits between two steps of the trail down to an open page.
 	Crumb = "›"
+	// Up points at what lies above, or ahead.
+	Up = "↑"
+	// Down points at what lies below, or behind.
+	Down = "↓"
+	// Right points at where something has gone.
+	Right = "→"
 )
 
 // Logo is the mark beside komrad's name at the top of the panel, outside the approved set.
@@ -48,6 +54,9 @@ func Chrome() []Named {
 		{Name: "text cursor", Text: TextCursor},
 		{Name: "separator", Text: Separator},
 		{Name: "crumb", Text: Crumb},
+		{Name: "up", Text: Up},
+		{Name: "down", Text: Down},
+		{Name: "right", Text: Right},
 	}
 }
 
