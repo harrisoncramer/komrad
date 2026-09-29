@@ -28,7 +28,13 @@ Swap `darwin-arm64` for your platform.
 
 The `tip` binary is rebuilt from main on every merge and is unstable. Stable releases have a version number and a changelog. Every release carries a `checksums.txt` file.
 
-## Create your database
+## Automatic installation
+
+Run <Command path="setup" /> once the binary is on your PATH. It walks through the machine one step at a time.
+
+## Manual installation
+
+### Create your database
 
 Komrad requires Postgres. For local development, running Postgres via Docker is the recommended approach.
 
@@ -64,7 +70,7 @@ The komrad engine is one running komrad on one machine. Several can share one da
 
 Komrad will safely auto-migrate the database after you first set it up.
 
-## Write the config
+### Write the config
 
 Komrad's configuration is stored in a TOML file.
 
@@ -78,7 +84,7 @@ database_url = "postgres://komrad_engine_laptop:8f3a1c9e2b7d4e6f@localhost:5432/
 
 The <Setting path="connection.owner_database_url" label="owner_database_url" /> is only used by <Command path="migrate" /> and <Command path="engine ensure" />. The service itself connects with <Setting path="connection.database_url" label="database_url" />.
 
-## Open the panel
+### Open the panel
 
 Komrad runs every agent in a tmux server of its own, so tmux must be installed. Using tmux yourself is optional.
 
