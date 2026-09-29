@@ -162,7 +162,7 @@ func TestParseQuery(t *testing.T) {
 			}
 
 			require.NoError(t, err)
-			assert.Equal(t, tt.want, got)
+			assert.Equal(t, &tt.want, got)
 		})
 	}
 }

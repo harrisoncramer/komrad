@@ -3,9 +3,11 @@ package transcripts
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"komrad/internal/agents"
+	"komrad/internal/logging"
 	transcriptstore "komrad/internal/store/transcript"
 )
 
@@ -65,8 +67,12 @@ func (r *TranscriptReader) SearchTranscripts(ctx context.Context, params SearchT
 	}
 
 	scope := params.AgentID
-	if scope == nil && params.Caller != "" && !query.Widens() {
-		scope = &params.Caller
+	if scope == nil && params.Caller != "" {
+		if query.Widens() {
+			logging.From(ctx).LogAttrs(ctx, slog.LevelInfo, "agent searched every agent's transcript")
+		} else {
+			scope = &params.Caller
+		}
 	}
 
 	results, err := r.transcripts.Search(ctx, transcriptstore.SearchParams{

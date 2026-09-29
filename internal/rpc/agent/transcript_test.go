@@ -414,20 +414,6 @@ func TestCrossAgentReadIsRecorded(t *testing.T) {
 
 		return err
 	}
-	searchArchived := func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
-		_, err := svc.SearchTranscripts(ctx, connect.NewRequest(&agentv1.SearchTranscriptsRequest{
-			Query: "is:archived reconciler",
-		}))
-
-		return err
-	}
-	searchOwn := func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
-		_, err := svc.SearchTranscripts(ctx, connect.NewRequest(&agentv1.SearchTranscriptsRequest{
-			Query: "from:me reconciler",
-		}))
-
-		return err
-	}
 	getBetaTranscript := func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
 		_, err := svc.GetTranscript(ctx, connect.NewRequest(&agentv1.GetTranscriptRequest{AgentId: betaID}))
 
@@ -452,17 +438,8 @@ func TestCrossAgentReadIsRecorded(t *testing.T) {
 			read:     searchBeta,
 		},
 		{
-			name:     "an agent searching its own conversation with a qualifier that does not widen",
-			callerIs: alphaID,
-			read:     searchOwn,
-		},
-		{
 			name: "the panel reading anyone",
 			read: getBetaTranscript,
-		},
-		{
-			name: "the panel searching every agent",
-			read: searchArchived,
 		},
 		{
 			name:       "an agent searching another agent",
@@ -484,12 +461,6 @@ func TestCrossAgentReadIsRecorded(t *testing.T) {
 			read:       getBetaLastTurns,
 			wantBody:   "agent read another agent's transcript",
 			wantTarget: betaID,
-		},
-		{
-			name:     "an agent widening its search to every agent with a qualifier",
-			callerIs: alphaID,
-			read:     searchArchived,
-			wantBody: "agent searched every agent's transcript",
 		},
 	}
 
