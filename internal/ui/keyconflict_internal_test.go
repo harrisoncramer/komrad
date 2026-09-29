@@ -103,8 +103,8 @@ func TestValidateKeybindingsReadsTheGlobalKeys(t *testing.T) {
 			names:  "the view cycle",
 		},
 		{
-			name:   "the key that reads the messages, which is not configurable at all",
-			rebind: func(k *config.Keybindings) { k.Details.Copy = []string{messagesFocusKey} },
+			name:   "the key that reads the messages",
+			rebind: func(k *config.Keybindings) { k.Agents.Pause = k.Messages.Open },
 			names:  "the key that reads the messages",
 		},
 		{

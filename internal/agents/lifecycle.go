@@ -305,10 +305,11 @@ func (s *LifecycleService) RestoreAgents(ctx context.Context, ids []string) ([]a
 		return nil, err
 	}
 
-	agents, err := s.withChildren(ctx, named)
+	whole, err := s.withChildren(ctx, named)
 	if err != nil {
 		return nil, err
 	}
+	agents := archivedTogether(named, whole)
 
 	if err := s.requireParentsPresent(ctx, agents); err != nil {
 		return nil, err
@@ -344,6 +345,27 @@ func (s *LifecycleService) RestoreAgents(ctx context.Context, ids []string) ([]a
 	}
 
 	return s.agents.ListByID(ctx, agentstore.IDs(agents))
+}
+
+// archivedTogether keeps the agents a call named and the children that went into the archive
+// with their parent.
+func archivedTogether(named, whole []agentstore.Agent) []agentstore.Agent {
+	batches := make(map[string]*string, len(named))
+	for _, agent := range named {
+		batches[agent.ID] = agent.ArchiveBatchID
+	}
+
+	return xslice.Filter(whole, func(agent agentstore.Agent) bool {
+		if _, ok := batches[agent.ID]; ok {
+			return true
+		}
+		if agent.ArchivedAt == nil || agent.ParentAgentID == nil {
+			return true
+		}
+		batch := batches[*agent.ParentAgentID]
+
+		return batch != nil && agent.ArchiveBatchID != nil && *batch == *agent.ArchiveBatchID
+	})
 }
 
 // requireParentsPresent refuses a child coming back while the agent it hangs under is still

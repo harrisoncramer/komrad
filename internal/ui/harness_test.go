@@ -489,6 +489,25 @@ func (h *panelHarness) fireTimers() {
 	}
 }
 
+func (h *panelHarness) firePulse() {
+	h.t.Helper()
+
+	pending := h.timers
+	h.timers = nil
+	for _, timer := range pending {
+		msg := timer()
+		if !ui.IsPulse(msg) {
+			h.timers = append(h.timers, timer)
+
+			continue
+		}
+
+		h.settle(func() tea.Msg {
+			return msg
+		})
+	}
+}
+
 func (h *panelHarness) fireTimersUnsettled() []tea.Cmd {
 	return xslice.Map(h.runTimers(), h.panel.Update)
 }

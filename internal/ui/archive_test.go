@@ -264,9 +264,8 @@ func TestArchiveReportsRefusedWrites(t *testing.T) {
 
 			harness.press(append(tt.press, widenListPresses...)...)
 
-			frame := harness.readFrame()
-			assert.Contains(t, frame, tt.wantSummary)
-			assert.Contains(t, frame, "no such agent")
+			assert.Contains(t, readEngineLine(harness.readFrame()), tt.wantSummary)
+			assert.Contains(t, readOpenMessages(harness), "no such agent")
 		})
 	}
 }
@@ -993,6 +992,25 @@ func TestArchiveConversationPreview(t *testing.T) {
 		for _, want := range []string{"Restore brings it back", "Conversation Preview", "you", "ship the refactor", "agent", "the refactor is merged"} {
 			assert.Contains(t, frame, want)
 		}
+	})
+
+	t.Run("each speaker is drawn in a colour of its own, komrad's own lines as the system", func(t *testing.T) {
+		harness := openArchive(t, buildOneArchivedAgent()...)
+		answerLastTurns(harness, map[string][]*agentv1.Turn{
+			"a1": {
+				{Role: "user", Content: "ship the refactor"},
+				{Role: "user", Content: "komrad: 1 piece(s) of unread mail, call read_mail"},
+				{Role: "assistant", Content: "the refactor is merged"},
+			},
+		})
+
+		harness.press("j")
+		harness.fireTimers()
+
+		frame := harness.readRawFrame()
+		assert.Contains(t, frame, paint.Panel.Style(paint.ToneSelf).Render("you"))
+		assert.Contains(t, frame, paint.Panel.Style(paint.ToneMuted).Render("system"))
+		assert.Contains(t, frame, paint.Panel.Style(paint.ToneOther).Render("agent"))
 	})
 
 	t.Run("a turn cut inside a code block does not swallow the turns after it", func(t *testing.T) {

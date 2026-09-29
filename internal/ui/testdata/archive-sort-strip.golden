@@ -11,6 +11,9 @@
     [90m[m   [90m│[m   [90mcargo-fix[m
 
 
+
+
+
 [90m───────────────────────────────────────────[m
   [90mname         [m komrad
   [90magents       [m 2
@@ -21,8 +24,5 @@
   [90mworkflow_id  [m w1
 
 
-[90m───────────────────────────────────────────[m
-[92m✓[m No messages
-[90m  Komrad is running normally[m
 [90m───────────────────────────────────────────[m
 [90m?[m [90mshow help[m[90m • [m[90mtab[m [90mswitch view[m

@@ -189,6 +189,7 @@ func globalArms(s screen, keys config.Keybindings) []dispatchArm {
 	}
 
 	arms = append(arms,
+		dispatchArm{describe: "the key that reads the messages", keys: keys.Messages.Open},
 		dispatchArm{describe: "the help toggle", keys: keys.Help.Toggle},
 		dispatchArm{describe: "the sidebar narrowing", keys: keys.Sidebar.Narrow},
 		dispatchArm{describe: "the sidebar widening", keys: keys.Sidebar.Widen},
@@ -210,8 +211,7 @@ func globalArms(s screen, keys config.Keybindings) []dispatchArm {
 
 	if _, ok := zero.screenOf(s).(detailed); ok {
 		arms = append(arms,
-			// All three are read ahead of the screen's own keys.
-			dispatchArm{describe: "the key that reads the messages", keys: []string{messagesFocusKey}},
+			// Both are read ahead of the screen's own keys.
 			dispatchArm{describe: "the key that pushes a fixture into the messages", keys: []string{messagesMockKey}},
 			dispatchArm{describe: "the view cycle", keys: keys.Cycle.Views},
 			// The copy key answers only while the details hold the cursor.

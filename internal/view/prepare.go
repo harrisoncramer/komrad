@@ -64,6 +64,7 @@ func prepareLine(params prepareLineParams) Line {
 		Alert:    AlertCell(row),
 		Tally:    row.HiddenCount,
 		Schedule: markCell(row.Scheduled, glyph.Schedule, paint.ToneMuted),
+		Comments: buildCommentCells(row),
 		Selected: row.Selected,
 	}
 }
@@ -77,10 +78,6 @@ func columnCells(row Row, columns Columns) []Cell {
 			cells[i] = RepoCell(row)
 		case ColumnForge:
 			cells[i] = ForgeCell(row)
-		case ColumnReviewerComments:
-			cells[i] = ReviewerCommentsCell(row)
-		case ColumnPersonComments:
-			cells[i] = PersonCommentsCell(row, column.Dotted)
 		case ColumnText:
 			if i < len(row.Cells) {
 				cells[i] = row.Cells[i]
@@ -125,46 +122,55 @@ func RepoCell(row Row) Cell {
 	return Cell{Glyph: glyph.Worktree, Tone: paint.ToneMuted}
 }
 
-// ReviewerCommentsCell counts the comments reviewer agents left on an agent's work, open then
+// buildCommentCells lays out the counts of whoever has commented on an agent's work, reviewer
+// agents then the person.
+func buildCommentCells(row Row) []Cell {
+	var cells []Cell
+	for _, cell := range []Cell{reviewerCommentsCell(row), personCommentsCell(row)} {
+		if !cell.IsBlank() {
+			cells = append(cells, cell)
+		}
+	}
+
+	return cells
+}
+
+// reviewerCommentsCell counts the comments reviewer agents left on an agent's work, open then
 // resolved.
-func ReviewerCommentsCell(row Row) Cell {
+func reviewerCommentsCell(row Row) Cell {
 	if !isOwn(row) || row.ReviewerComments == nil {
 		return Cell{}
 	}
 
-	return countsCell(row.ReviewerComments, paint.ToneMuted)
+	return countsCell(row.ReviewerComments, glyph.ReviewerComments, paint.ToneBright)
 }
 
-// PersonCommentsCell counts the comments the person left on an agent's work, the open count
+// personCommentsCell counts the comments the person left on an agent's work, the open count
 // standing out while there is one, and a dot after while any holds something unread.
-func PersonCommentsCell(row Row, dotted bool) Cell {
+func personCommentsCell(row Row) Cell {
 	if !isOwn(row) || row.PersonComments == nil {
 		return Cell{}
 	}
 
-	counts := countsCell(row.PersonComments, paint.ToneWarning)
-	if !dotted {
+	counts := countsCell(row.PersonComments, glyph.PersonComments, paint.ToneWarning)
+	if !row.PersonComments.Unread {
 		return counts
 	}
 
-	dot := Cell{Text: " "}
-	if row.PersonComments.Unread {
-		dot = Cell{Glyph: glyph.Unread, Tone: paint.ToneWarning}
-	}
-
-	return Cell{Parts: append(counts.Parts, dot)}
+	return Cell{Parts: append(counts.Parts, Cell{Glyph: glyph.Unread, Tone: paint.ToneWarning})}
 }
 
-// countsCell is a pair of counts, open then resolved, with the open count in the tone given
-// while it is not zero.
-func countsCell(comments *Comments, openTone paint.Tone) Cell {
-	open := Cell{Text: strconv.Itoa(comments.Open), Tone: paint.ToneMuted}
+// countsCell is one side's open and resolved counts after its glyph.
+func countsCell(comments *Comments, whose glyph.Glyph, openTone paint.Tone) Cell {
+	tone := paint.ToneMuted
 	if comments.Open > 0 {
-		open.Tone = openTone
+		tone = openTone
 	}
 
 	return Cell{Parts: []Cell{
-		open,
+		{Glyph: whose, Tone: tone},
+		{Text: " "},
+		{Text: strconv.Itoa(comments.Open), Tone: tone},
 		{
 			Text: "|" + strconv.Itoa(comments.Resolved),
 			Tone: paint.ToneMuted,
@@ -307,12 +313,16 @@ func indentFor(kind RowKind) int {
 	return indentColumns
 }
 
-// fitRow gives a row's width up in order: the tally, then the name, and last the marks, which
-// only a pane too narrow for the marks alone ever reaches.
+// fitRow gives a row's width up in order: the tally, then the comment counts, then the name, and
+// last the marks, which only a pane too narrow for the marks alone ever reaches.
 func fitRow(line Line, width int) Line {
 	// A tally counts rows already out of sight, so it is what gives way first.
 	if roomForName(line, width) <= 0 {
 		line.Tally = 0
+	}
+
+	if roomForName(line, width) <= 0 {
+		line.Comments = nil
 	}
 
 	line.Name, line.Matches = clipName(line.Name, line.Matches, roomForName(line, width))

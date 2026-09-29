@@ -678,9 +678,13 @@ func TestAgentsRecordCopy(t *testing.T) {
 
 		harness.press("ctrl+a", "y")
 		harness.fireTimers()
+		opened := readOpenMessages(harness)
+		require.Contains(t, opened, "Could not copy")
+		require.Contains(t, opened, "no clipboard utility found")
+		harness.press("ctrl+g")
+		harness.fireTimers()
 		refused := harness.readFrame()
-		require.Contains(t, refused, "✗ Could not copy")
-		require.Contains(t, refused, "no clipboard utility found")
+		require.Contains(t, readEngineLine(refused), "✗ 1")
 
 		harness.panel.SetClipboardErr(nil)
 		harness.press("y")
@@ -1395,7 +1399,7 @@ func TestAgentsRecordSearch(t *testing.T) {
 				name: "a narrow pane with the legend expanded",
 				params: panelHarnessParams{
 					width:  30,
-					height: 29,
+					height: 30,
 				},
 				press: []string{"?"},
 			},
@@ -1948,9 +1952,8 @@ func TestAgentsChildren(t *testing.T) {
 
 		harness.press(append([]string{"G", "C"}, widenListPresses...)...)
 
-		frame := harness.readFrame()
-		assert.Contains(t, frame, "may not have children")
-		assert.NotContains(t, frame, "C-s submit")
+		assert.NotContains(t, harness.readFrame(), "C-s submit")
+		assert.Contains(t, readOpenMessages(harness), "may not have children")
 	})
 
 	t.Run("the review subpage on a child says why rather than opening", func(t *testing.T) {

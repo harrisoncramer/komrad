@@ -199,7 +199,7 @@ func (m model) globalHelp() []key.Binding {
 
 // fullGlobalHelp is the expanded legend's share of the keys every screen answers.
 func (m model) fullGlobalHelp() []key.Binding {
-	return append(m.globalHelp(), binding(slices.Concat(m.keys.Sidebar.Narrow, m.keys.Sidebar.Widen), "resize"))
+	return append(m.globalHelp(), m.messagesBinding(), binding(slices.Concat(m.keys.Sidebar.Narrow, m.keys.Sidebar.Widen), "resize"))
 }
 
 func keyLabel(keys []string) string {

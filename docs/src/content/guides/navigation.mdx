@@ -17,15 +17,15 @@ The _view switcher_ across the top of the sidebar moves between the agents, the 
 
 Under the sidebar is the **details pane**, which shows what is known about the row under the cursor, such as an agent's directory or its base branch.
 
-Under that, the **messages pane** shows what komrad has recently reported, such as error alerts.
-
-Finally, the **help menu** shows hotkeys that work from your current cursor position.
+Under that, the **help menu** shows hotkeys that work from your current cursor position.
 
 ## The main view
 
 The main view is the wide region beside the sidebar. It shows the agent you have opened, its diff on the review screen, or any other content that's focused at the moment.
 
-Press <Key name="cycle.views" at={0} /> to move the keyboard between regions in komrad, and <Key name="cycle.views" at={1} /> to the previous one: the list, the agent on the stage, then the details. `ctrl+g` moves it to the messages. If your own tmux prefix is <Key name="cycle.views" at={0} />, choose another <Setting path="keybindings.cycle.views">pair of cycle keys</Setting>.
+Press <Key name="cycle.views" at={0} /> to move the keyboard between regions in komrad, and <Key name="cycle.views" at={1} /> to the previous one: the list, the agent on the stage, then the details. If your own tmux prefix is <Key name="cycle.views" at={0} />, choose another <Setting path="keybindings.cycle.views">pair of cycle keys</Setting>.
+
+When komrad reports something, such as an error, its summary flashes for a few seconds on the engine line at the top of the sidebar. Errors and warnings you have not dismissed are counted there once the flash is over. Press <Key name="messages.open" /> to read every message in the main view, where `d` dismisses the one under the cursor and `D` dismisses them all.
 
 <figure>
   <video
@@ -51,7 +51,7 @@ The <Key name="nav.down" /> and <Key name="nav.up" /> keys move the cursor a row
 
 Press `/` to search. Typing lights up the rows that match, and <Key name="agents.open" /> puts the cursor on the nearest one. Use the <Key name="filter.next_match" /> and <Key name="filter.prev_match" /> key to then step through the matches. Lower case text ignores case; searching supports regular expressions.
 
-You can also use the search in "filter" mode. While typing, press `tab` to turn it into a filter, which takes every row that does not match off the screen instead of stepping through them.
+You can also use the search in "filter" mode. While typing, press Tab to turn it into a filter, which takes every row that does not match off the screen instead of stepping through them.
 
 Press <Key name="tabs.focus" /> to reach the sort strip over the list, where you pick the column to sort by. Its last stop groups the rows under their workflows, and flattening them makes the list easier to sort by activity or name.
 

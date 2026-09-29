@@ -106,12 +106,27 @@ func conversationPreviewMarkdown(preview conversationPreview, agentID string) st
 		b.WriteString(noTranscriptMarkdown + "\n")
 	default:
 		for _, turn := range preview.turns {
-			b.WriteString("_" + speakerOf(turn.GetRole()) + "_\n\n")
+			b.WriteString(speakerLabel(turn) + "\n\n")
 			b.WriteString(turnMarkdown(turn) + "\n\n")
 		}
 	}
 
 	return b.String()
+}
+
+const systemTurnPrefix = "komrad:"
+
+func speakerLabel(turn *agentv1.Turn) string {
+	switch {
+	case turn.GetRole() == "user" && strings.HasPrefix(turn.GetContent(), systemTurnPrefix):
+		return paint.Panel.Style(paint.ToneMuted).Render("system")
+	case turn.GetRole() == "user":
+		return paint.Panel.Style(paint.ToneSelf).Render(speakerOf(turn.GetRole()))
+	case turn.GetRole() == "assistant":
+		return paint.Panel.Style(paint.ToneOther).Render(speakerOf(turn.GetRole()))
+	}
+
+	return speakerOf(turn.GetRole())
 }
 
 func speakerOf(role string) string {

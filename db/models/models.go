@@ -374,6 +374,8 @@ type Agent struct {
 	FailureReason string
 	// What the latest rebase of the agent's checkout came to, as the result or the failure; null until its first rebase.
 	LastRebase []byte
+	// The archive this agent was taken out of live listings by, shared by every agent that archive took.
+	ArchiveBatchID *string
 }
 
 // Which agents were seen with which pull requests, one row per pair, never re-pointed. The watch carries every pull request with a row here.

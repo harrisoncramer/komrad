@@ -11,8 +11,9 @@
 // # Agents indent under their workflow
 //
 // A row is a fixed sequence of cells: focus, mark gutter, the columns the list declares, status
-// bar, name, then trailing marks. Every gutter cell is always drawn and holds its column whether
-// or not it has anything to say, so the gutter is identical on every row whatever kind it is.
+// bar, name, trailing marks, then the comment counts against the right edge. Every gutter cell
+// is always drawn and holds its column whether or not it has anything to say, so the gutter is
+// identical on every row whatever kind it is.
 // Only the name is indented: a workflow opens at the gutter, an agent one step in, and a child
 // one step further, on the corner it hangs off its parent by. Weight carries the same structure
 // over again, bold for a workflow and italic for a child, so neither the indent nor the
@@ -64,9 +65,9 @@
 //
 // Every declared column is drawn at every pane, and a column not declared buys the name its
 // room. Nothing is given up for width but the row's own odds and ends: a row too full for what
-// is left gives up its tally and then its name, a row at a time rather than the whole list, and
-// gives up its marks only where the marks alone would not fit the pane: the schedule first, then
-// the hiding, then the pause, then the mail, and the failed run last.
+// is left gives up its tally, then its comment counts, then its name, a row at a time rather
+// than the whole list, and gives up its marks only where the marks alone would not fit the pane:
+// the schedule first, then the hiding, then the pause, then the mail, and the failed run last.
 //
 // # A list of results is not a tree
 //
