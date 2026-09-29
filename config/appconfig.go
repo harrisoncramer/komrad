@@ -488,6 +488,9 @@ type ReviewKeys struct {
 	// working rather than letting you both write at once. It is refused on a round the
 	// agent has written past, since those lines have moved on.
 	EditFile []string `mapstructure:"edit_file" default:"e"`
+	// Jump from the comment under the cursor to the diff it was written against, with the
+	// cursor on it, or back to where you were from there.
+	Jump []string `mapstructure:"jump" default:"J"`
 	// Jump to the next line carrying a review thread.
 	NextThread []string `mapstructure:"next_thread" default:"t"`
 	// Move the cursor to the next comment nobody has settled. It stops on the last one.

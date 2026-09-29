@@ -47,6 +47,7 @@ type reviewDiff struct {
 	rounds []*agentv1.ReviewRound
 	// answer is the answer to a comment on screen, nil while the diff is anything else.
 	answer *reviewAnswer
+	origin *reviewOrigin
 
 	// followedMove is the move the diff last caught up on.
 	followedMove string

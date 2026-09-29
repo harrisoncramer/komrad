@@ -37,6 +37,10 @@ func (e *roundsApartError) Error() string {
 // toggleAnswer puts the answer to the comment under the cursor on screen, or goes back to the
 // whole change from one already there.
 func (r *reviewScreen) toggleAnswer(s panelShared) tea.Cmd {
+	if r.diff.origin != nil {
+		return r.leaveOrigin(s)
+	}
+
 	if r.diff.answer != nil {
 		r.diff.widen()
 

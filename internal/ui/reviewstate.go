@@ -76,6 +76,10 @@ func (r reviewScreen) isHistory() (string, bool) {
 		return "", false
 	}
 
+	if origin := r.diff.origin; origin != nil {
+		return fmt.Sprintf("round %d", origin.Ordinal), true
+	}
+
 	at := r.diff.chapter
 	if at < 0 || at >= len(r.diff.chapters) {
 		return "an earlier chapter", true

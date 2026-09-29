@@ -51,8 +51,11 @@ type reviewLoadedMsg struct {
 	// replayed says the older side was carried across a rebase onto the newer one's base.
 	replayed bool
 	// answerBase and answerHead are the snapshots an answer on screen was measured between.
-	answerBase string
-	answerHead string
+	answerBase     string
+	answerHead     string
+	originBase     string
+	originHead     string
+	originFellBack bool
 	// notice is what the load has to say about the round it settled on.
 	notice string
 	// traced is where git says each thread's lines went, keyed by thread id, and empty for a
@@ -151,6 +154,7 @@ type loadReviewCmdParams struct {
 	Head string
 	// Answer is the answer to measure between, found among the rounds the load lists.
 	Answer *reviewAnswer
+	Origin *reviewOrigin
 	Fresh  bool
 }
 
@@ -201,6 +205,17 @@ func loadReviewCmd(s panelShared, params loadReviewCmdParams) tea.Cmd {
 			answerBase, answerHead = from.GetSnapshotSha(), to.GetSnapshotSha()
 			params.Base, params.Head = answerBase, answerHead
 			fromBase, toBase = from.GetBaseSha(), to.GetBaseSha()
+		}
+
+		var origin originDiff
+		if params.Origin != nil {
+			found, ok := findOriginDiff(rounds, params.Origin)
+			if !ok {
+				return reviewLoadedMsg{agentID: agentID, err: errCommentRoundGone}
+			}
+
+			origin = found
+			params.Base, params.Head = origin.base, origin.head
 		}
 
 		var round *agentv1.ReviewRound
@@ -254,12 +269,19 @@ func loadReviewCmd(s panelShared, params loadReviewCmdParams) tea.Cmd {
 
 		base = compared.FromSHA
 
-		patch, err := diff.Load(ctx, repo, diff.LoadParams{
+		loading := diff.LoadParams{
 			Dir:         dir,
 			BaseSHA:     base,
 			SnapshotSHA: head,
 			Exclude:     exclude,
-		})
+		}
+
+		patch, err := diff.Load(ctx, repo, loading)
+		if err != nil && origin.canFallBack() && isUnreadableBase(ctx, err) {
+			origin.base, origin.fellBack = origin.roundBase, true
+			loading.BaseSHA = origin.base
+			patch, err = diff.Load(ctx, repo, loading)
+		}
 		if err != nil {
 			return reviewLoadedMsg{
 				agentID: agentID,
@@ -288,21 +310,24 @@ func loadReviewCmd(s panelShared, params loadReviewCmdParams) tea.Cmd {
 		})
 
 		return reviewLoadedMsg{
-			agentID:    agentID,
-			round:      round,
-			patch:      patch,
-			threads:    threads,
-			viewed:     viewed,
-			earlier:    earlier,
-			earlierAt:  releasedAtOf(reviews, round),
-			pinned:     pinned,
-			chapters:   chapters,
-			rounds:     rounds,
-			replayed:   compared.Replayed,
-			traced:     traced,
-			answerBase: answerBase,
-			answerHead: answerHead,
-			notice:     notice,
+			agentID:        agentID,
+			round:          round,
+			patch:          patch,
+			threads:        threads,
+			viewed:         viewed,
+			earlier:        earlier,
+			earlierAt:      releasedAtOf(reviews, round),
+			pinned:         pinned,
+			chapters:       chapters,
+			rounds:         rounds,
+			replayed:       compared.Replayed,
+			traced:         traced,
+			answerBase:     answerBase,
+			answerHead:     answerHead,
+			originBase:     origin.base,
+			originHead:     origin.head,
+			originFellBack: origin.fellBack,
+			notice:         notice,
 			since: changedSinceLastReview(ctx, changedSinceLastReviewParams{
 				Git:         repo,
 				Dir:         dir,
@@ -371,7 +396,7 @@ func (r *reviewScreen) applyLoaded(h host, s panelShared, msg reviewLoadedMsg) t
 	}
 
 	var apart *roundsApartError
-	if errors.As(msg.err, &apart) || errors.Is(msg.err, errAnswerGone) {
+	if errors.As(msg.err, &apart) || errors.Is(msg.err, errAnswerGone) || errors.Is(msg.err, errCommentRoundGone) {
 		r.diff.widen()
 		r.notice = msg.err.Error()
 
@@ -382,10 +407,14 @@ func (r *reviewScreen) applyLoaded(h host, s panelShared, msg reviewLoadedMsg) t
 
 	// A narrowed diff drawing nothing is an answer about the agent rather than a reason to leave,
 	// so the whole change comes back with the answer said out loud.
-	if drewNothing && (r.diff.base != "" || r.diff.answer != nil) {
-		said := r.diff.baseLabel
+	if drewNothing && (r.diff.base != "" || r.diff.answer != nil || r.diff.origin != nil) {
+		said := "nothing written " + r.diff.baseLabel
+		if r.diff.origin != nil {
+			said = "nothing to draw where this comment was written"
+		}
+
 		r.diff.widen()
-		r.notice = "nothing written " + said
+		r.notice = said
 
 		return r.loadWholeCmd(s)
 	}
@@ -393,6 +422,13 @@ func (r *reviewScreen) applyLoaded(h host, s panelShared, msg reviewLoadedMsg) t
 	// Both draw nothing, so both back out rather than leaving the reader in an empty viewer.
 	if drewNothing {
 		return r.refuse(h, s, msg.err)
+	}
+
+	if msg.patch == nil && r.diff.origin != nil {
+		r.diff.widen()
+		r.notice = "could not draw where this comment was written: " + msg.err.Error()
+
+		return r.loadWholeCmd(s)
 	}
 
 	if msg.patch == nil {
@@ -455,6 +491,11 @@ func (d *reviewDiff) load(msg reviewLoadedMsg, isDark bool, glyphs glyph.Set) {
 		}
 	}
 
+	if d.origin != nil {
+		d.base, d.head = msg.originBase, msg.originHead
+		d.baseLabel = originLabel(d.origin, msg.originFellBack)
+	}
+
 	// The files the reader opened out are the view's own, so a view built again over the patch
 	// takes them from the one it replaces, or from what was kept when that one was dropped.
 	view := diffview.NewView(msg.patch, isDark)
@@ -469,11 +510,11 @@ func (d *reviewDiff) load(msg reviewLoadedMsg, isDark bool, glyphs glyph.Set) {
 	view.SetExpanded(d.expanded)
 	d.expanded = nil
 
-	view.PinThreads(threadsByChapter(threadsByChapterParams{
-		Threads:  msg.threads,
-		Chapters: d.chapters,
-		At:       d.chapter,
-	}))
+	view.PinThreads(d.threadsOnScreen(msg.threads))
+
+	if place, ok := d.originPlace(view); ok {
+		d.restore = &place
+	}
 
 	// The pattern is the screen's rather than the view's, so a view built from nothing is given
 	// it back once the marks and the threads have settled the rows it walks.
@@ -532,11 +573,7 @@ func (r *reviewScreen) applyWrote(h host, s panelShared, msg reviewWroteMsg) tea
 func (r *reviewScreen) applyThreads(s panelShared, threads []*agentv1.ReviewThread) {
 	r.threads.set(threads)
 
-	drawn := threadsByChapter(threadsByChapterParams{
-		Threads:  threads,
-		Chapters: r.diff.chapters,
-		At:       r.diff.chapter,
-	})
+	drawn := r.diff.threadsOnScreen(threads)
 
 	// Where the cursor is standing is taken before the threads are pinned again, which rebuilds
 	// the rows a settled or deleted thread takes away from under it.
@@ -577,6 +614,7 @@ func (r *reviewScreen) load(s panelShared, fresh bool) tea.Cmd {
 		Base:    r.diff.base,
 		Head:    r.diff.head,
 		Answer:  r.diff.answer,
+		Origin:  r.diff.origin,
 		Fresh:   fresh,
 	})
 }

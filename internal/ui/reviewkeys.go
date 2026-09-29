@@ -113,9 +113,14 @@ func (r *reviewScreen) refuseWrite(s panelShared) {
 // the key back to the work a comment could still ask it to change.
 func (r *reviewScreen) refuseHistory(h host, s panelShared, said string) {
 	summary := said + " is finished"
+	back := keyLabel(s.keys.Review.BaseForward) + " until the whole change is on screen"
+	if r.diff.origin != nil {
+		back = keyLabel(s.keys.Review.Jump) + " to go back to where you were, then " + back
+	}
+
 	detail := "This draws code the agent has already rewritten, so the line under the cursor is " +
-		"not in the work it has now and a comment on it could not be acted on. Press " +
-		keyLabel(s.keys.Review.BaseForward) + " until the whole change is on screen, then comment there."
+		"not in the work it has now and a comment on it could not be acted on. Press " + back +
+		", then comment there."
 
 	h.reportBrief(summary, detail)
 	r.notice = summary + ", so nothing can be written on it"
