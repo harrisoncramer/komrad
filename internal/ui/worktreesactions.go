@@ -216,15 +216,17 @@ func (w *worktreesScreen) deleteChosen(h host, s panelShared, _ string) tea.Cmd 
 
 		switch row.item.fate {
 		case fateLive:
-			h.reportBrief("A live agent is in the selection", "Archive "+row.name()+" from the agents list first; nothing bulk stops a running agent.")
-
-			return nil
+			if item, ok := s.listing.liveAgent(row.item.agent.id); ok {
+				deletion.live = append(deletion.live, item.Agent)
+			}
+			deletion.agents = append(deletion.agents, row.item)
 		case fateArchived:
 			deletion.agents = append(deletion.agents, row.item)
 		case fateUnowned:
 			deletion.unowned = append(deletion.unowned, row.item)
 		}
 	}
+	deletion.children = unnamedChildren(s.listing.liveAgents(), deletion.live)
 
 	return confirmDeleteWorktrees(h, s, deletion)
 }
@@ -254,6 +256,10 @@ func (w *worktreesScreen) clearConfirm(h host, s panelShared) tea.Cmd {
 type worktreeDeletion struct {
 	agents  []worktreeItem
 	unowned []worktreeItem
+	// live are the agents still on the agents list, which are archived before the delete.
+	live []panel.Agent
+	// children is how many agents not named in live go into the archive with them.
+	children int
 }
 
 func (d worktreeDeletion) isEmpty() bool {
@@ -276,6 +282,8 @@ func confirmDeleteWorktrees(h host, s panelShared, deletion worktreeDeletion) te
 			if !*confirmed {
 				return m, nil
 			}
+
+			m.releasePanes(deletion.live)
 
 			return m, deleteWorktreesCmd(&m, deletion)
 		}),
@@ -309,6 +317,14 @@ func deleteWorktreesCmd(h host, deletion worktreeDeletion) tea.Cmd {
 			summary: "Deleting " + subject,
 			detail:  "A background job is taking the directories. The rows are out of the list now, and one it refuses comes back, with the reason in the log.",
 		},
-		func(a api) error { return a.deleteWorktrees(dirs) },
+		func(a api) error {
+			if len(deletion.live) > 0 {
+				if err := a.archiveAgents(panel.IDs(deletion.live)); err != nil {
+					return err
+				}
+			}
+
+			return a.deleteWorktrees(dirs)
+		},
 	)
 }
