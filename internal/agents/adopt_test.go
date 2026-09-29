@@ -75,7 +75,7 @@ func TestAdoptPlacesTheAgent(t *testing.T) {
 
 			manager := newManager(tmux, st, "").withWorktrees(&gittest.Checkout{Registered: reported})
 
-			created, err := manager.adopt.Adopt(t.Context(), AdoptParams{
+			adoption, err := manager.adopt.Adopt(t.Context(), AdoptParams{
 				Ref:        "someones/work",
 				Prompt:     "look at it",
 				WorkflowID: seedWorktreeWorkflow(t, st, repo),
@@ -88,7 +88,9 @@ func TestAdoptPlacesTheAgent(t *testing.T) {
 			}
 
 			require.NoError(t, err)
-			require.NotNil(t, created)
+			require.NotNil(t, adoption)
+			assert.False(t, adoption.Existing)
+			created := adoption.Agent
 
 			stored := agentByID(t, st, created.ID)
 			assert.Equal(t, "someones/work", stored.AdoptedBranch, "the branch it was put on is recorded as asked for")
@@ -109,8 +111,8 @@ func TestAdoptPlacesTheAgent(t *testing.T) {
 	}
 }
 
-// TestAdoptRefusesADirectoryAnotherAgentHolds pins that two agents never share a worktree.
-func TestAdoptRefusesADirectoryAnotherAgentHolds(t *testing.T) {
+// TestAdoptAnswersWithTheAgentInTheDirectory pins that two agents never share a worktree.
+func TestAdoptAnswersWithTheAgentInTheDirectory(t *testing.T) {
 	tests := []struct {
 		name string
 		// branch is what the sitting agent's worktree is on, and what the adoption asks for.
@@ -155,14 +157,11 @@ func TestAdoptRefusesADirectoryAnotherAgentHolds(t *testing.T) {
 				require.NoError(t, st.SoftDelete(t.Context(), "sitting"))
 			}
 
-			_, err := manager.adopt.Adopt(t.Context(), AdoptParams{Ref: tt.branch, WorkflowID: workflow})
+			adoption, err := manager.adopt.Adopt(t.Context(), AdoptParams{Ref: tt.branch, WorkflowID: workflow})
+			require.NoError(t, err)
 
-			require.ErrorIs(t, err, ErrAdoptBranchInUse)
-			require.ErrorContains(t, err, "sitting", "the refusal names the agent already in the directory")
-
-			var exists *AgentExistsError
-			require.ErrorAs(t, err, &exists)
-			assert.Equal(t, "sitting", exists.Agent.Name, "the adoption is answered with the agent already in the directory")
+			assert.True(t, adoption.Existing)
+			assert.Equal(t, "sitting", adoption.Agent.Name, "the adoption is answered with the agent already in the directory")
 		})
 	}
 }
@@ -178,13 +177,13 @@ func TestAdoptTakesOverFromAnAgentWhoseWorktreeIsGone(t *testing.T) {
 
 	first, err := manager.adopt.Adopt(t.Context(), AdoptParams{Ref: "someones/work", WorkflowID: workflow})
 	require.NoError(t, err)
-	require.NoError(t, st.Agents.SetCheckout(t.Context(), first.ID, agentstore.SetCheckoutParams{WorktreeRemoved: true}))
+	require.NoError(t, st.Agents.SetCheckout(t.Context(), first.Agent.ID, agentstore.SetCheckoutParams{WorktreeRemoved: true}))
 
 	second, err := manager.adopt.Adopt(t.Context(), AdoptParams{Ref: "someones/work", WorkflowID: workflow})
 	require.NoError(t, err)
 
-	assert.NotEqual(t, first.ID, second.ID, "the work is taken on by a new agent rather than handed to one with nowhere to run")
-	assert.Equal(t, "someones/work", agentByID(t, st, second.ID).AdoptedBranch)
+	assert.NotEqual(t, first.Agent.ID, second.Agent.ID, "the work is taken on by a new agent rather than handed to one with nowhere to run")
+	assert.Equal(t, "someones/work", agentByID(t, st, second.Agent.ID).AdoptedBranch)
 }
 
 // TestAdoptTakesOverAWorktreeRegistrationWithNoDirectory pins that a checkout deleted by hand
@@ -213,7 +212,7 @@ func TestAdoptTakesOverAWorktreeRegistrationWithNoDirectory(t *testing.T) {
 	created, err := manager.adopt.Adopt(t.Context(), AdoptParams{Ref: "someones/work", WorkflowID: workflow})
 	require.NoError(t, err)
 
-	stored := agentByID(t, st, created.ID)
+	stored := agentByID(t, st, created.Agent.ID)
 	assert.Equal(t, "someones/work", stored.AdoptedBranch)
 	assert.Nil(t, stored.ProvisionEnabled, "a worktree of its own is made rather than the directory that is not there")
 }
@@ -233,8 +232,8 @@ func TestAdoptRefusesWithoutAWorktreeWorkflow(t *testing.T) {
 	require.ErrorIs(t, err, ErrAdoptNeedsWorktree)
 }
 
-// TestAdoptTwiceIsRefused pins asking again being a refusal naming the agent that has the branch.
-func TestAdoptTwiceIsRefused(t *testing.T) {
+// TestAdoptTwiceAnswersWithTheFirstAgent pins asking again launching nothing.
+func TestAdoptTwiceAnswersWithTheFirstAgent(t *testing.T) {
 	tmux := tmuxtest.NewFake()
 	st := newStore(t)
 	manager := newManager(tmux, st, "")
@@ -244,13 +243,10 @@ func TestAdoptTwiceIsRefused(t *testing.T) {
 	first, err := manager.adopt.Adopt(t.Context(), AdoptParams{Ref: "someones/work", WorkflowID: workflow})
 	require.NoError(t, err)
 
-	_, err = manager.adopt.Adopt(t.Context(), AdoptParams{Ref: "someones/work", WorkflowID: workflow})
-	require.ErrorIs(t, err, ErrAdoptAlreadyAdopted)
-	assert.Contains(t, err.Error(), first.Name, "the refusal names the agent holding the branch")
-
-	var exists *AgentExistsError
-	require.ErrorAs(t, err, &exists)
-	assert.Equal(t, first.ID, exists.Agent.ID, "the adoption is answered with the agent holding the branch")
+	second, err := manager.adopt.Adopt(t.Context(), AdoptParams{Ref: "someones/work", WorkflowID: workflow})
+	require.NoError(t, err)
+	assert.True(t, second.Existing)
+	assert.Equal(t, first.Agent.ID, second.Agent.ID, "the adoption is answered with the agent holding the branch")
 
 	agents, err := st.Agents.List(t.Context())
 	require.NoError(t, err)
@@ -277,14 +273,16 @@ func TestAdoptWithTheSameIdempotencyKeyIsAnsweredNotRefused(t *testing.T) {
 
 	second, err := manager.adopt.Adopt(t.Context(), params)
 	require.NoError(t, err, "a retry carrying the key that launched it is not a second adoption")
-	assert.Equal(t, first.ID, second.ID)
+	assert.Equal(t, first.Agent.ID, second.Agent.ID)
+	assert.False(t, second.Existing)
 
-	_, err = manager.adopt.Adopt(t.Context(), AdoptParams{
+	third, err := manager.adopt.Adopt(t.Context(), AdoptParams{
 		Ref:            "someones/work",
 		WorkflowID:     workflow,
 		IdempotencyKey: "another-adopt",
 	})
-	require.ErrorIs(t, err, ErrAdoptAlreadyAdopted, "another key is another caller, so the branch is taken")
+	require.NoError(t, err)
+	assert.True(t, third.Existing, "another key is another caller, so the branch is taken")
 }
 
 // TestAdoptAfterASetupFailureIsNotRefusedByTheCorpse pins a create that never launched leaving the
@@ -298,11 +296,11 @@ func TestAdoptAfterASetupFailureIsNotRefusedByTheCorpse(t *testing.T) {
 
 	first, err := manager.adopt.Adopt(t.Context(), AdoptParams{Ref: "someones/work", WorkflowID: workflow})
 	require.NoError(t, err)
-	require.NoError(t, st.Agents.SetStateByID(t.Context(), first.ID, agentstore.StateFailedToCreate))
+	require.NoError(t, st.Agents.SetStateByID(t.Context(), first.Agent.ID, agentstore.StateFailedToCreate))
 
 	second, err := manager.adopt.Adopt(t.Context(), AdoptParams{Ref: "someones/work", WorkflowID: workflow})
 	require.NoError(t, err, "the corpse does not hold the branch against a retry")
-	assert.NotEqual(t, first.ID, second.ID)
+	assert.NotEqual(t, first.Agent.ID, second.Agent.ID)
 }
 
 func seedWorktreeWorkflow(t *testing.T, st *testStore, repo string) string {

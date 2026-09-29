@@ -774,12 +774,10 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 	}
 }
 
-// TestAdoptAnswersWithTheAgentAlreadyOnTheBranch pins that a taken branch is answered with its
-// agent rather than refused.
+// TestAdoptAnswersWithTheAgentAlreadyOnTheBranch covers the service's existing flag reaching the response.
 func TestAdoptAnswersWithTheAgentAlreadyOnTheBranch(t *testing.T) {
 	svc, services := newRecordedService(t)
-	sitting := services.rows.seed(agentstore.Agent{Name: "sitting"})
-	services.err = &agents.AgentExistsError{Agent: sitting, Err: agents.ErrAdoptAlreadyAdopted}
+	services.adoptExisting = true
 
 	adopted, err := svc.Adopt(t.Context(), connect.NewRequest(&agentv1.AdoptRequest{
 		Ref:        "someones/work",
@@ -788,7 +786,7 @@ func TestAdoptAnswersWithTheAgentAlreadyOnTheBranch(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.True(t, adopted.Msg.GetExisting())
-	assert.Equal(t, sitting.ID, adopted.Msg.GetAgent().GetId())
+	assert.Equal(t, "spawned", adopted.Msg.GetAgent().GetName())
 }
 
 // TestArchiveAgentsHoldsAnAgentToItsOwnChildren pins that an agent other than an orchestrator
@@ -1360,26 +1358,27 @@ func TestLog(t *testing.T) {
 
 // recordingAgentServices stands in for every agent service the handler calls, recording each request.
 type recordingAgentServices struct {
-	rows         *fakeRowReader
-	err          error
-	spawnedAgent *agentstore.Agent
-	created      agents.NewAgentParams
-	reviewed     agents.RequestReviewParams
-	adopted      agents.AdoptParams
-	retried      agents.RetryCreateParams
-	released     agents.ReleaseParams
-	reported     agents.RecordReportParams
-	resumed      []string
-	held         []string
-	orchestrated []string
-	planned      []string
-	rebased      []string
-	deleted      []string
-	archived     []string
-	restored     []string
-	runsRead     []string
-	renamed      map[string]string
-	hidden       map[string]bool
+	rows          *fakeRowReader
+	err           error
+	spawnedAgent  *agentstore.Agent
+	created       agents.NewAgentParams
+	reviewed      agents.RequestReviewParams
+	adopted       agents.AdoptParams
+	adoptExisting bool
+	retried       agents.RetryCreateParams
+	released      agents.ReleaseParams
+	reported      agents.RecordReportParams
+	resumed       []string
+	held          []string
+	orchestrated  []string
+	planned       []string
+	rebased       []string
+	deleted       []string
+	archived      []string
+	restored      []string
+	runsRead      []string
+	renamed       map[string]string
+	hidden        map[string]bool
 }
 
 // spawn seeds the agent the fake answers with among the rows.
@@ -1424,10 +1423,14 @@ func (f *recordingAgentServices) RetryCreate(_ context.Context, params agents.Re
 	return f.answer()
 }
 
-func (f *recordingAgentServices) Adopt(_ context.Context, params agents.AdoptParams) (*agentstore.Agent, error) {
+func (f *recordingAgentServices) Adopt(_ context.Context, params agents.AdoptParams) (*agents.Adoption, error) {
 	f.adopted = params
+	agent, err := f.answer()
+	if agent == nil {
+		return nil, err
+	}
 
-	return f.answer()
+	return &agents.Adoption{Agent: agent, Existing: f.adoptExisting}, err
 }
 
 func (f *recordingAgentServices) IsAgentRunning(agentstore.Agent) bool {
