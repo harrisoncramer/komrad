@@ -54,9 +54,54 @@ func TestReviewJump(t *testing.T) {
 
 			harness.press("<", "t", "J", key)
 
-			assert.Contains(t, readStageText(harness.readFrame()), "chapter 2 of 2")
+			frame := harness.readFrame()
+			assert.Contains(t, readStageText(frame), "chapter 2 of 2")
+			assert.Contains(t, readSidebarProse(frame), "add a second file")
 		})
 	}
+
+	t.Run("the answer key leaves the jump for the whole change", func(t *testing.T) {
+		server := newEarlierReviewServer(t)
+		server.threads = []*agentv1.ReviewThread{newCommentOnRoundOne(newAnswer())}
+		harness := openReviewAt(t, server, panelHarnessParams{height: 50})
+
+		harness.press("t", "J", "a")
+
+		frame := readStageText(harness.readFrame())
+		assert.Contains(t, frame, "all changes")
+		assert.Contains(t, frame, "2 files, +4 -1")
+	})
+
+	t.Run("the jump key goes back to the answer it was pressed from", func(t *testing.T) {
+		server := newEarlierReviewServer(t)
+		server.threads = []*agentv1.ReviewThread{newCommentOnRoundOne(newAnswer())}
+		harness := openReviewAt(t, server, panelHarnessParams{height: 50})
+
+		harness.press("t", "a", "t", "J")
+		require.Contains(t, readStageText(harness.readFrame()), "where this comment was written, round 1")
+		harness.press("J")
+
+		frame := readStageText(harness.readFrame())
+		assert.Contains(t, frame, "the answer to this comment")
+		assert.Contains(t, frame, "1 file, +3 -0")
+	})
+
+	t.Run("a comment written on a narrowed chapter is drawn against that chapter's base", func(t *testing.T) {
+		server := newEarlierReviewServer(t)
+		thread := newThreadOnFirstLine(newHumanMessage("m1", "tidy the second file"))
+		thread.RoundId = "round-2"
+		thread.RoundOrdinal = 2
+		thread.BaseSha = gittest.SnapshotSHA
+		server.threads = []*agentv1.ReviewThread{thread}
+		harness := openReviewAt(t, server, panelHarnessParams{height: 50})
+
+		require.Contains(t, readStageText(harness.readFrame()), "2 files, +4 -1")
+		harness.press("t", "J")
+
+		frame := readStageText(harness.readFrame())
+		assert.Contains(t, frame, "where this comment was written, round 2")
+		assert.Contains(t, frame, "1 file, +3 -0")
+	})
 
 	t.Run("a comment whose own base is gone is drawn against its round's base", func(t *testing.T) {
 		server := newEarlierReviewServer(t)

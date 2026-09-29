@@ -115,7 +115,7 @@ func (r *reviewScreen) refuseHistory(h host, s panelShared, said string) {
 	summary := said + " is finished"
 	back := keyLabel(s.keys.Review.BaseForward) + " until the whole change is on screen"
 	if r.diff.origin != nil {
-		back = keyLabel(s.keys.Review.Jump) + " to go back"
+		back = keyLabel(s.keys.Review.Jump) + " to go back to where you were, then " + back
 	}
 
 	detail := "This draws code the agent has already rewritten, so the line under the cursor is " +

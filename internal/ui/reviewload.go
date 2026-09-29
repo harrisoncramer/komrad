@@ -277,7 +277,7 @@ func loadReviewCmd(s panelShared, params loadReviewCmdParams) tea.Cmd {
 		}
 
 		patch, err := diff.Load(ctx, repo, loading)
-		if err != nil && origin.canFallBack() {
+		if err != nil && origin.canFallBack() && isUnreadableBase(ctx, err) {
 			origin.base, origin.fellBack = origin.roundBase, true
 			loading.BaseSHA = origin.base
 			patch, err = diff.Load(ctx, repo, loading)
@@ -408,9 +408,13 @@ func (r *reviewScreen) applyLoaded(h host, s panelShared, msg reviewLoadedMsg) t
 	// A narrowed diff drawing nothing is an answer about the agent rather than a reason to leave,
 	// so the whole change comes back with the answer said out loud.
 	if drewNothing && (r.diff.base != "" || r.diff.answer != nil || r.diff.origin != nil) {
-		said := r.diff.baseLabel
+		said := "nothing written " + r.diff.baseLabel
+		if r.diff.origin != nil {
+			said = "nothing to draw where this comment was written"
+		}
+
 		r.diff.widen()
-		r.notice = "nothing written " + said
+		r.notice = said
 
 		return r.loadWholeCmd(s)
 	}

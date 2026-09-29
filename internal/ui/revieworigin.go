@@ -1,9 +1,11 @@
 package ui
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
+	"komrad/internal/diff"
 	"komrad/internal/ui/diffview"
 	agentv1 "komrad/proto/gen/agent/v1"
 
@@ -19,6 +21,7 @@ type reviewOrigin struct {
 	BaseSHA  string
 	landed   bool
 	chapter  int
+	answer   *reviewAnswer
 	place    *diffview.Place
 }
 
@@ -45,6 +48,7 @@ func (r *reviewScreen) toggleJump(s panelShared) tea.Cmd {
 		Ordinal:  round.GetOrdinal(),
 		BaseSHA:  thread.GetBaseSha(),
 		chapter:  r.diff.chapter,
+		answer:   r.diff.answer,
 	}
 	if place, ok := r.diff.View().GetPlace(r.diff.Cursor()); ok {
 		origin.place = &place
@@ -62,6 +66,11 @@ func (r *reviewScreen) leaveOrigin(s panelShared) tea.Cmd {
 	r.diff.widen()
 	if origin.chapter >= 0 {
 		r.diff.showChapter(origin.chapter)
+	}
+
+	if origin.answer != nil {
+		r.diff.answer = origin.answer
+		r.diff.baseLabel = "the answer to this comment"
 	}
 
 	cmd := r.reload(s)
@@ -158,4 +167,8 @@ func findOriginDiff(rounds []*agentv1.ReviewRound, origin *reviewOrigin) (origin
 
 func (o originDiff) canFallBack() bool {
 	return o.head != "" && !o.fellBack && o.base != o.roundBase
+}
+
+func isUnreadableBase(ctx context.Context, err error) bool {
+	return ctx.Err() == nil && !errors.Is(err, diff.ErrNoChanges) && !errors.Is(err, diff.ErrAllExcluded)
 }
