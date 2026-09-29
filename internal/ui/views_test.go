@@ -165,22 +165,22 @@ func TestTrail(t *testing.T) {
 		},
 		{
 			name:      "the query trail names the view alone before a search",
-			press:     []string{"o", "q"},
+			press:     []string{"tab", "q"},
 			wantTrail: "query",
 		},
 		{
 			name:      "the schedules trail runs to the hovered schedule",
-			press:     []string{"o", "s", "G"},
+			press:     []string{"tab", "s", "G"},
 			wantTrail: "schedules › agent39",
 		},
 		{
 			name:      "the archive trail runs to the hovered agent",
-			press:     []string{"o", "r", "G"},
+			press:     []string{"tab", "r", "G"},
 			wantTrail: "archive › agent39",
 		},
 		{
 			name:      "the worktrees trail runs to the hovered worktree",
-			press:     []string{"o", "w", "G"},
+			press:     []string{"tab", "w", "G"},
 			wantTrail: "worktrees › agent/agent39",
 		},
 	}
@@ -220,7 +220,7 @@ func TestTrail(t *testing.T) {
 	t.Run("the trail is drawn in one muted tone", func(t *testing.T) {
 		harness := openCrowded(t, panelHarnessParams{})
 
-		harness.press("o", "s", "G")
+		harness.press("tab", "s", "G")
 
 		muted := paint.Panel.Style(paint.ToneMuted)
 		assert.Contains(t, harness.readRawFrame(), muted.Render("schedules › agent39"))
