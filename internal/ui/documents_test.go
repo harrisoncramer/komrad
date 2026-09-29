@@ -7,6 +7,7 @@ import (
 	"sync"
 	"testing"
 
+	"komrad/internal/ui"
 	"komrad/internal/ui/paint"
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
@@ -169,6 +170,15 @@ func TestDocumentsEdit(t *testing.T) {
 			write: "Rewritten.",
 			close: func(h *panelHarness) {
 				h.press("esc")
+				require.Equal(t, agentsScreen, h.readScreen())
+			},
+			wantSaved: "Rewritten.",
+		},
+		{
+			name:  "a write landing on the agents screen saves what changed",
+			write: "Rewritten.",
+			close: func(h *panelHarness) {
+				h.send(ui.NewWriteLanded("author"))
 				require.Equal(t, agentsScreen, h.readScreen())
 			},
 			wantSaved: "Rewritten.",

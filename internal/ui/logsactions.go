@@ -10,7 +10,7 @@ import (
 
 // actions is the logs screen as one table and the legend that names it.
 func (l *logsScreen) actions(s panelShared) screenActionSpec {
-	if l.isLogFocused(s) {
+	if l.isBlockFocused(s) {
 		return l.logActions()
 	}
 

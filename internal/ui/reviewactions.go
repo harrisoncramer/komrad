@@ -27,7 +27,7 @@ func (r *reviewScreen) ownTable() []screenAction {
 		{
 			id:   actionReviewBack,
 			keys: func(k config.Keybindings) []string { return k.Review.Back },
-			run:  func(h host, s panelShared, _ string) tea.Cmd { return r.leave(h, s) },
+			run:  func(h host, s panelShared, _ string) tea.Cmd { return r.back(h, s) },
 		},
 		{
 			id:   actionQuit,

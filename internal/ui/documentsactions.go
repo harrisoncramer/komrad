@@ -210,8 +210,21 @@ func (d *documentsScreen) isBlockFocused(s panelShared) bool {
 	return d.isDiffFocused(s) || d.isReadFocused(s)
 }
 
-func (d *documentsScreen) doesScrollColumn(s panelShared) bool {
+func (d *documentsScreen) isBlockDrawn(s panelShared) bool {
 	return d.isDiffDrawn(s) || d.isReadDrawn(s)
+}
+
+func (d *documentsScreen) blurBlock() {
+	d.focus = false
+}
+
+// leave takes down an editor open on the stage.
+func (d *documentsScreen) leave(h host) tea.Cmd {
+	return d.closeEdit(h)
+}
+
+func (d *documentsScreen) doesScrollColumn(s panelShared) bool {
+	return d.isBlockDrawn(s)
 }
 
 func (d *documentsScreen) scrollColumn(_ host, s panelShared, rows int) tea.Cmd {

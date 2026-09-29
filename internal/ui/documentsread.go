@@ -99,8 +99,8 @@ func (d *documentsScreen) moveReadTo(s panelShared, line int) {
 	}
 }
 
-// focusRead hands the keys to the document, keeping the cursor on a row the window draws.
-func (d *documentsScreen) focusRead(s panelShared) {
+// focusBlock hands the keys to the document, keeping the cursor on a row the window draws.
+func (d *documentsScreen) focusBlock(s panelShared) {
 	d.focus = true
 	if rows, height, ok := d.readLayout(s); ok {
 		d.reading.Settle(len(rows), height)

@@ -148,18 +148,16 @@ func (m *model) beginFilter() {
 	m.placeFilteredCursor(origin)
 }
 
-func (m *model) enterScreen(next screen) {
+func (m *model) enterScreen(next screen) tea.Cmd {
 	// A pane opened on a screen that takes these keys would follow the reader onto one that does
 	// not, where no key is left to close it, so it goes while the screen it belongs to is still up.
 	if !next.opensInfoPane() && m.info.kind != infoNothing {
 		*m = m.closeInfo()
 	}
 
-	if m.screen == screenLogs && next != screenLogs {
-		m.logs.leave()
-	}
-
+	var left tea.Cmd
 	if m.screen != next {
+		left = m.leaveScreen()
 		m.filter = filterState{}
 	}
 
@@ -169,6 +167,21 @@ func (m *model) enterScreen(next screen) {
 	// this is where a screen that had taken the window hands it back rather than leaving a pane
 	// covered by a zoom nothing asked for.
 	m.reconcileSolo()
+
+	return left
+}
+
+// leaveScreen hands the keys back from the block of the screen going down and puts down what it had open.
+func (m *model) leaveScreen() tea.Cmd {
+	if b, ok := m.active().(blocked); ok {
+		b.blurBlock()
+	}
+
+	if l, ok := m.active().(leaving); ok {
+		return l.leave(m)
+	}
+
+	return nil
 }
 
 // takeKey applies one keypress to a search being typed at, and reports whether it was one of

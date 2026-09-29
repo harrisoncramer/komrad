@@ -27,7 +27,7 @@ func (r *reviewScreen) updateKey(h host, s panelShared, key tea.KeyPressMsg) tea
 	// something to draw.
 	if r.diff.View() == nil {
 		if isBound(k, s.keys.Review.Back) {
-			return r.leave(h, s)
+			return r.back(h, s)
 		}
 
 		return nil

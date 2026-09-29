@@ -440,6 +440,8 @@ var (
 	_ filtered       = (*documentsScreen)(nil)
 	_ staged         = (*documentsScreen)(nil)
 	_ columnScroller = (*documentsScreen)(nil)
+	_ blocked        = (*documentsScreen)(nil)
+	_ leaving        = (*documentsScreen)(nil)
 )
 
 func (d *documentsScreen) stage(h host, _ panelShared) {

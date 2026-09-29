@@ -66,18 +66,12 @@ func (m model) focusKinds() model {
 func (m model) updateKinds(press tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	k, _ := m.activeKinds()
 
-	switch pressed := press.String(); {
-	case pressed == tabNextKey:
-		return m, k.stepKind(&m, m.shared(), 1)
-	case pressed == tabPrevKey:
-		return m, k.stepKind(&m, m.shared(), -1)
-	case pressed == "esc":
-		*k.kindsFocused() = false
-	case isBound(pressed, m.quitKeys()):
-		return m, m.hide()
-	}
+	cmd := m.pressStrip(press.String(), stripKeys{
+		step:  func(delta int) tea.Cmd { return k.stepKind(&m, m.shared(), delta) },
+		close: func() { *k.kindsFocused() = false },
+	})
 
-	return m, nil
+	return m, cmd
 }
 
 func (m model) kindsBinding() key.Binding {

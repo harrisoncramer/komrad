@@ -240,6 +240,11 @@ func NewWatchLost(err error) tea.Msg {
 	return watchLostMsg{err: err}
 }
 
+// NewWriteLanded is a write landing with the agent it made or changed, which puts the agents screen up on it.
+func NewWriteLanded(agentID string) tea.Msg {
+	return writeResult{written: &written{row: agentRowKey(agentID), agent: agentID}}
+}
+
 // RequireGolden compares a drawn block against the file named for it under testdata.
 func RequireGolden(t *testing.T, name, got string) {
 	t.Helper()
