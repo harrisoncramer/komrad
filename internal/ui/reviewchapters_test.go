@@ -9,38 +9,19 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestChapterFilterCutsLaterReplies covers an earlier round's thread keeping only what was said while that round stood.
-func TestChapterFilterCutsLaterReplies(t *testing.T) {
-	rounds := []*agentv1.ReviewRound{
-		{
-			Ordinal:     1,
-			BaseSha:     "b",
-			SnapshotSha: "s1",
-			CreatedAt:   "2026-09-08T13:17:00-04:00",
-		},
-		{
-			Ordinal:     2,
-			BaseSha:     "b",
-			SnapshotSha: "s2",
-			CreatedAt:   "2026-09-08T13:26:00-04:00",
-		},
-		{
-			Ordinal:     3,
-			BaseSha:     "b",
-			SnapshotSha: "s3",
-			CreatedAt:   "2026-09-08T14:26:00-04:00",
-		},
-	}
+// TestThreadsByChapter covers a chapter keeping the threads opened by its round, with every reply.
+func TestThreadsByChapter(t *testing.T) {
+	rounds := buildChapterRounds()
 	reviews := []*agentv1.Review{
 		{
 			AuthorKind:   agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN,
 			RoundOrdinal: 1,
-			ReleasedAt:   "2026-09-08T13:24:00-04:00",
+			ReleasedAt:   "2026-09-08T13:30:00-04:00",
 		},
 		{
 			AuthorKind:   agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN,
 			RoundOrdinal: 2,
-			ReleasedAt:   "2026-09-08T14:25:00-04:00",
+			ReleasedAt:   "2026-09-08T14:30:00-04:00",
 		},
 	}
 	chapters := cutChapters(cutChaptersParams{
@@ -49,94 +30,105 @@ func TestChapterFilterCutsLaterReplies(t *testing.T) {
 		OnScreen: rounds[2],
 	})
 	require.Len(t, chapters, 3)
-	assert.Equal(t, "2026-09-08T13:26:00-04:00", chapters[0].Until, "round 1 closed when round 2 was taken")
 
 	thread := &agentv1.ReviewThread{
 		Id:           "t1",
 		RoundOrdinal: 1,
 		FilePath:     "greet.go",
 		Messages: []*agentv1.ReviewMessage{
-			{
-				Id:        "m1",
-				Body:      "two places",
-				CreatedAt: "2026-09-08T13:20:00-04:00",
-			},
-			{
-				Id:        "m2",
-				Body:      "pulled into nameOr",
-				CreatedAt: "2026-09-08T13:24:00-04:00",
-			},
-			{
-				Id:        "m3",
-				Body:      "sentence case?",
-				CreatedAt: "2026-09-08T14:25:00-04:00",
-			},
-			{
-				Id:        "m4",
-				Body:      "Hello now returns",
-				CreatedAt: "2026-09-08T14:27:00-04:00",
-			},
+			{Id: "m1", Body: "two places", CreatedAt: "2026-09-08T13:20:00-04:00"},
+			{Id: "m2", Body: "pulled into nameOr", CreatedAt: "2026-09-08T13:24:00-04:00"},
+			{Id: "m3", Body: "sentence case?", CreatedAt: "2026-09-08T14:25:00-04:00"},
+			{Id: "m4", Body: "Hello now returns", CreatedAt: "2026-09-08T15:27:00-04:00"},
 		},
 	}
+	opened := &agentv1.ReviewThread{
+		Id:           "t2",
+		RoundOrdinal: 2,
+		Messages:     []*agentv1.ReviewMessage{{Id: "m5", CreatedAt: "2026-09-08T14:10:00-04:00"}},
+	}
+	threads := []*agentv1.ReviewThread{thread, opened}
 
 	drawn := threadsByChapter(threadsByChapterParams{
-		Threads:  []*agentv1.ReviewThread{thread},
+		Threads:  threads,
 		Chapters: chapters,
 		At:       0,
 	})
-	require.Len(t, drawn, 1)
-	assert.Len(t, drawn[0].GetMessages(), 2, "only what was said while round 1 was the work in hand")
-	assert.Len(t, thread.GetMessages(), 4, "and the model's own thread is untouched")
+	require.Len(t, drawn, 1, "a thread opened on round 2 is not drawn on round 1")
+	assert.Len(t, drawn[0].GetMessages(), 4, "the replies written after round 1 are kept")
+
+	drawn = threadsByChapter(threadsByChapterParams{
+		Threads:  threads,
+		Chapters: chapters,
+		At:       1,
+	})
+	assert.Len(t, drawn, 2, "round 2 draws both")
 
 	whole := threadsByChapter(threadsByChapterParams{
-		Threads:  []*agentv1.ReviewThread{thread},
+		Threads:  threads,
 		Chapters: chapters,
 		At:       -1,
 	})
-	assert.Len(t, whole[0].GetMessages(), 4, "the whole change carries the whole conversation")
+	assert.Len(t, whole, 2, "the whole change carries the whole conversation")
 }
 
-// TestTheNewestChapterHidesNothing covers the chapter the reader stands on closing at nothing.
-func TestTheNewestChapterHidesNothing(t *testing.T) {
-	rounds := buildChapterRounds()
-	reviews := []*agentv1.Review{buildReleasedReview(1, "r1", "2026-09-08T13:30:00-04:00")}
-
-	chapters := cutChapters(cutChaptersParams{
-		Rounds:   rounds,
-		Reviews:  reviews,
-		OnScreen: rounds[1],
-	})
-
-	require.Len(t, chapters, 2)
-	assert.Empty(t, chapters[1].Until, "the chapter the reader is standing on closes at nothing")
-}
-
-// TestAMessageWithAnUnreadableStampIsKept covers a message whose stamp will not parse being drawn rather than hidden.
-func TestAMessageWithAnUnreadableStampIsKept(t *testing.T) {
-	chapters := []reviewChapter{{
-		ToSHA:   "s1",
-		Ordinal: 1,
-		Until:   "2026-09-08T14:00:00-04:00",
-	}}
-
-	thread := &agentv1.ReviewThread{
-		Id:           "t1",
-		RoundOrdinal: 1,
-		Messages: []*agentv1.ReviewMessage{
-			{Id: "m1", CreatedAt: "2026-09-08T13:10:00-04:00"},
-			{Id: "m2", CreatedAt: "not a stamp"},
-			{Id: "m3", CreatedAt: ""},
+// TestFindLaterStamp covers where a thread's later replies are split from what was said first.
+func TestFindLaterStamp(t *testing.T) {
+	tests := []struct {
+		name    string
+		ordinal int32
+		first   string
+		want    string
+	}{
+		{
+			name:    "a thread on round 1 splits when round 2 was taken",
+			ordinal: 1,
+			first:   "2026-09-08T13:10:00-04:00",
+			want:    "2026-09-08T14:00:00-04:00",
+		},
+		{
+			name:    "a thread written into round 1 after round 2 existed splits at round 3",
+			ordinal: 1,
+			first:   "2026-09-08T14:10:00-04:00",
+			want:    "2026-09-08T15:00:00-04:00",
+		},
+		{
+			name:    "a thread opened after round 2 was taken splits at round 3",
+			ordinal: 2,
+			first:   "2026-09-08T14:10:00-04:00",
+			want:    "2026-09-08T15:00:00-04:00",
+		},
+		{
+			name:    "a thread on the newest round has nothing after it",
+			ordinal: 3,
+			first:   "2026-09-08T15:10:00-04:00",
+			want:    "",
+		},
+		{
+			name:    "a thread written after every round has nothing after it",
+			ordinal: 1,
+			first:   "2026-09-08T16:00:00-04:00",
+			want:    "",
+		},
+		{
+			name:    "a first message whose stamp will not parse splits nowhere",
+			ordinal: 1,
+			first:   "not a stamp",
+			want:    "",
 		},
 	}
 
-	drawn := threadsByChapter(threadsByChapterParams{
-		Threads:  []*agentv1.ReviewThread{thread},
-		Chapters: chapters,
-		At:       0,
-	})
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			thread := &agentv1.ReviewThread{
+				Id:           "t1",
+				RoundOrdinal: tt.ordinal,
+				Messages:     []*agentv1.ReviewMessage{{Id: "m1", CreatedAt: tt.first}},
+			}
 
-	require.Len(t, drawn, 1)
-	assert.Len(t, drawn[0].GetMessages(), 3, "a stamp nobody can read is not a reason to hide a comment")
+			assert.Equal(t, tt.want, findLaterStamp(thread, buildChapterRounds()))
+		})
+	}
 }
 
 func buildChapterRounds() []*agentv1.ReviewRound {
@@ -162,15 +154,5 @@ func buildChapterRounds() []*agentv1.ReviewRound {
 			SnapshotSha: "s3",
 			CreatedAt:   "2026-09-08T15:00:00-04:00",
 		},
-	}
-}
-
-func buildReleasedReview(ordinal int32, roundID, at string) *agentv1.Review {
-	return &agentv1.Review{
-		Id:           "v" + roundID,
-		AuthorKind:   agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN,
-		RoundId:      roundID,
-		RoundOrdinal: ordinal,
-		ReleasedAt:   at,
 	}
 }

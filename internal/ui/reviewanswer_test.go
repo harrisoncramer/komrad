@@ -1,6 +1,7 @@
 package ui_test
 
 import (
+	"slices"
 	"testing"
 
 	"komrad/internal/git"
@@ -97,6 +98,32 @@ func TestReviewAnswer(t *testing.T) {
 		assert.Contains(t, readStageText(frame), "all changes")
 		require.Contains(t, readStageText(frame), "2 files, +4 -1")
 	})
+
+	t.Run("the whole change draws no rule but still names the answer's round", func(t *testing.T) {
+		harness := openReviewAt(t, newLaterRepliesServer(t), panelHarnessParams{height: 50})
+
+		harness.press("t")
+
+		said := readSidebarProse(harness.readFrame())
+		assert.NotContains(t, said, laterRule)
+		assert.Contains(t, said, "addressed in round 2")
+	})
+
+	t.Run("only the newest addressed reply names its round", func(t *testing.T) {
+		server := newLaterRepliesServer(t)
+		earlier := newAgentMessage("m0", "first try")
+		earlier.CreatedAt = "2026-09-08T09:15:00Z"
+		earlier.RoundId = proto.String("round-1")
+		thread := server.threads[0]
+		thread.Messages = slices.Insert(thread.Messages, 1, earlier)
+		harness := openReviewAt(t, server, panelHarnessParams{height: 50})
+
+		harness.press("t")
+
+		said := readSidebarProse(harness.readFrame())
+		assert.NotContains(t, said, "addressed in round 1")
+		assert.Contains(t, said, "addressed in round 2")
+	})
 }
 
 func newCommentOnRoundOne(replies ...*agentv1.ReviewMessage) *agentv1.ReviewThread {
@@ -112,4 +139,38 @@ func newAnswer() *agentv1.ReviewMessage {
 	answer.RoundId = proto.String("round-2")
 
 	return answer
+}
+
+const laterRule = "── later, after this code changed ──"
+
+func newLaterRepliesServer(t *testing.T) *reviewServer {
+	t.Helper()
+
+	server := newEarlierReviewServer(t)
+	server.rounds[0].CreatedAt = "2026-09-08T09:00:00Z"
+	server.rounds = append(server.rounds, &agentv1.ReviewRound{
+		Id:          "round-2",
+		AgentId:     "a1",
+		Ordinal:     2,
+		BaseSha:     gittest.BaseSHA,
+		SnapshotSha: gittest.NameSnapshot(server.repo.Tree),
+		CreatedAt:   "2026-09-08T10:30:00Z",
+	})
+
+	comment := newHumanMessage("m1", "add a second file")
+	comment.CreatedAt = "2026-09-08T09:10:00Z"
+	looking := newAgentMessage("m2", "looking")
+	looking.CreatedAt = "2026-09-08T09:20:00Z"
+	answer := newAgentMessage("m3", "added it")
+	answer.CreatedAt = "2026-09-08T10:40:00Z"
+	answer.RoundId = proto.String("round-2")
+	thanks := newHumanMessage("m4", "thanks")
+	thanks.CreatedAt = "2026-09-08T10:50:00Z"
+
+	thread := newThreadOnFirstLine(comment, looking, answer, thanks)
+	thread.RoundId = "round-1"
+	thread.RoundOrdinal = 1
+	server.threads = []*agentv1.ReviewThread{thread}
+
+	return server
 }
