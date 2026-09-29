@@ -16,6 +16,7 @@ import (
 	"komrad/internal/scripts"
 
 	agentstore "komrad/internal/store/agent"
+	workflowstore "komrad/internal/store/workflow"
 )
 
 const provisionTimeout = 10 * time.Minute
@@ -65,10 +66,14 @@ func (s *ScriptService) RunProvision(ctx context.Context, agent agentstore.Agent
 	})
 }
 
-// RunHook runs one of a workflow's hooks and waits for it, in the directory the agent was
-// provisioned rather than the one the hook was found in.
+// RunHook runs one of a workflow's hooks for an agent and waits for it.
 func (s *ScriptService) RunHook(ctx context.Context, agent agentstore.Agent, name, event string) error {
-	record := s.beginRun(ctx, agent.ID, event, name)
+	gone := event == workflowstore.HookPostDelete
+
+	var record runRecord
+	if !gone {
+		record = s.beginRun(ctx, agent.ID, event, name)
+	}
 
 	script, env, err := s.prepare(ctx, prepareParams{
 		agent:   agent,
@@ -80,10 +85,13 @@ func (s *ScriptService) RunHook(ctx context.Context, agent agentstore.Agent, nam
 		return s.refuseHook(ctx, record, name, err)
 	}
 
-	// A hook is there to work on the agent's own directory, so one that has gone is a refusal
-	// rather than a reason to run the script somewhere else.
-	if err := scripts.RequireUsableDir(agent.Cwd); err != nil {
-		return s.refuseHook(ctx, record, name, err)
+	dir := agent.Cwd
+	if err := scripts.RequireUsableDir(dir); err != nil {
+		if !gone {
+			return s.refuseHook(ctx, record, name, err)
+		}
+
+		dir = script.GetDir()
 	}
 
 	logger := s.runLogger(ctx, name, event, agent)
@@ -92,7 +100,7 @@ func (s *ScriptService) RunHook(ctx context.Context, agent agentstore.Agent, nam
 
 	result, err := s.runner.RunAndWait(ctx, scripts.RunParams{
 		Script:  script,
-		Dir:     agent.Cwd,
+		Dir:     dir,
 		Env:     env,
 		Timeout: script.Header.TimeoutOr(HookTimeout),
 	})

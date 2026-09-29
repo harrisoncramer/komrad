@@ -336,10 +336,6 @@ func (f *fakeLifecycle) RunHook(_ context.Context, agent agentstore.Agent, name,
 	return f.hookErrs[name]
 }
 
-func (f *fakeLifecycle) RunPostDeleteHook(ctx context.Context, agent agentstore.Agent, name, event string) error {
-	return f.RunHook(ctx, agent, name, event)
-}
-
 func (f *fakeLifecycle) ranHooks() []ranHook {
 	f.hooksMu.Lock()
 	defer f.hooksMu.Unlock()

@@ -468,7 +468,7 @@ func (s *RebaseService) eligible(ctx context.Context, agentID string) (*agentsto
 	if agent.ParentAgentID != nil {
 		return nil, fmt.Errorf("%w: it runs in its parent's checkout", ErrRebaseNoWorktree)
 	}
-	if agents.IsProvisionerDisabled(agent.ProvisionEnabled) {
+	if agent.IsProvisionerDisabled() {
 		return nil, fmt.Errorf("%w: it was told to keep the directory it was given", ErrRebaseNoWorktree)
 	}
 	if agent.Cwd == "" || agent.WorktreeRemoved {

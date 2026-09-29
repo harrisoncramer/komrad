@@ -165,6 +165,18 @@ func (a Agent) IsStateUnconfirmed() bool {
 	return time.Since(a.StateSeenAt) > StateSeenBound
 }
 
+// IsProvisionerDisabled reports whether the agent has been told to keep the directory it was given
+// rather than be provisioned one.
+func (a Agent) IsProvisionerDisabled() bool {
+	return IsProvisionerDisabled(a.ProvisionEnabled)
+}
+
+// IsProvisionerDisabled reports whether an override tells an agent to keep the directory it was
+// given rather than be provisioned one.
+func IsProvisionerDisabled(override *bool) bool {
+	return override != nil && !*override
+}
+
 // SanitizeName maps a name to characters tmux accepts in session names.
 func SanitizeName(name string) string {
 	return strings.Map(func(r rune) rune {

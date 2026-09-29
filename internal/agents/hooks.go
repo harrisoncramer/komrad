@@ -37,12 +37,7 @@ func runHooks(ctx context.Context, params hookRunParams) error {
 			continue
 		}
 
-		run := params.scripts.RunHook
-		if params.event == workflowstore.HookPostDelete {
-			run = params.scripts.RunPostDeleteHook
-		}
-
-		if err := run(ctx, params.agent, hook.Script, params.event); err != nil {
+		if err := params.scripts.RunHook(ctx, params.agent, hook.Script, params.event); err != nil {
 			return err
 		}
 	}
@@ -175,7 +170,7 @@ func startHooksFor(ctx context.Context, params batchHooksParams) {
 // agentHooks are the hooks a workflow lists for one of its agents, none for an agent working in
 // a directory somebody else prepared.
 func agentHooks(ctx context.Context, workflows workflowReader, agent agentstore.Agent) []workflowstore.Hook {
-	if agent.ParentAgentID != nil || IsProvisionerDisabled(agent.ProvisionEnabled) {
+	if agent.ParentAgentID != nil || agent.IsProvisionerDisabled() {
 		return nil
 	}
 
@@ -212,15 +207,9 @@ func runDeprovision(ctx context.Context, deprovision agentScriptRunner, agent ag
 	}
 }
 
-// IsProvisionerDisabled reports whether an agent has been told to keep the directory it was
-// given rather than be provisioned one.
-func IsProvisionerDisabled(override *bool) bool {
-	return override != nil && !*override
-}
-
 // doesProvisionWorktree reports whether an agent's directory is komrad's to make.
 func doesProvisionWorktree(ctx context.Context, workflows workflowReader, agent agentstore.Agent) bool {
-	if IsProvisionerDisabled(agent.ProvisionEnabled) {
+	if agent.IsProvisionerDisabled() {
 		return false
 	}
 

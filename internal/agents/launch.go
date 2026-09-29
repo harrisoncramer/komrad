@@ -319,7 +319,7 @@ func (s *LaunchService) planLaunch(ctx context.Context, params NewAgentParams) (
 
 	// The worktree is komrad's own, so an agent gets the built-in pair or nothing at all.
 	provisioner, deprovisioner := "", ""
-	provisions := wf.Worktree.Enabled && !IsProvisionerDisabled(params.ProvisionEnabled)
+	provisions := wf.Worktree.Enabled && !agentstore.IsProvisionerDisabled(params.ProvisionEnabled)
 	if provisions {
 		provisioner, deprovisioner = worktreeProvisioner, worktreeDeprovisioner
 	}
@@ -327,7 +327,7 @@ func (s *LaunchService) planLaunch(ctx context.Context, params NewAgentParams) (
 	// The hooks a workflow lists are read only for the agents that own their own directory, and a
 	// child or an agent told to keep the directory it was given was handed somebody else's.
 	hooks := wf.Hooks
-	if params.ParentAgentID != "" || IsProvisionerDisabled(params.ProvisionEnabled) {
+	if params.ParentAgentID != "" || agentstore.IsProvisionerDisabled(params.ProvisionEnabled) {
 		hooks = nil
 	}
 
