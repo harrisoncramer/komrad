@@ -21,6 +21,7 @@ for arg in "$@"; do
 done
 
 mkdir -p local
+trap 'rm -f "$MISE_CONFIG_ROOT/local/buf-plugin-komrad"' EXIT
 go build -o local/buf-plugin-komrad ./cmd/buf-plugin-komrad
 
 cd proto

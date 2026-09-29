@@ -5,20 +5,27 @@
 
 test_instance_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
 
-# komradslot runs the slot tool, building it first when its source is newer than the binary.
+# komradslot runs the slot tool, built once per source into the cache every checkout shares.
 komradslot() {
 	local bin="$test_instance_root/local/komradslot"
 	local src="$test_instance_root/tools/komradslot"
-	local tmp
+	local key entry tmp
+	key="$( (find "$src" -type f ! -name komradslot -print0 | LC_ALL=C sort -z | xargs -0 git hash-object && uname -sm) | git hash-object --stdin)"
+	entry="${XDG_CACHE_HOME:-$HOME/.cache}/komrad-dev/komradslot/$key"
 
-	if [ ! -x "$bin" ] || [ -n "$(find "$src" -newer "$bin" -print -quit)" ]; then
-		mkdir -p "$test_instance_root/local"
-		tmp="$(mktemp "$bin.XXXXXX")"
+	if [ ! -x "$entry" ]; then
+		mkdir -p "$(dirname "$entry")"
+		tmp="$(mktemp "$entry.XXXXXX")"
 		if ! go build -C "$src" -o "$tmp" .; then
 			rm -f "$tmp"
 			return 1
 		fi
-		mv -f "$tmp" "$bin"
+		mv -f "$tmp" "$entry"
+	fi
+
+	if [ "$(readlink "$bin")" != "$entry" ]; then
+		mkdir -p "$test_instance_root/local"
+		ln -sfn "$entry" "$bin"
 	fi
 
 	"$bin" "$@"

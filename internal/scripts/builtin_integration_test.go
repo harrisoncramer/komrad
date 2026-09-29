@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -1479,6 +1480,66 @@ func TestIntegrationBuiltinKomradCheckoutTeardown(t *testing.T) {
 				assert.Contains(t, string(ran), "compose -p agent-a --profile * down --volumes --remove-orphans --rmi local\n")
 			} else {
 				assert.NotContains(t, string(ran), "compose", "no stack was taken down")
+			}
+		})
+	}
+}
+
+// TestIntegrationBuiltinKomradCheckoutArchive covers shrinking an archived komrad checkout.
+func TestIntegrationBuiltinKomradCheckoutArchive(t *testing.T) {
+	rebuilt := []string{"docs/node_modules", "local/custom-gcl", "local/custom-gcl.sum", "local/komradslot", "local/buf-plugin-komrad"}
+	kept := []string{"docs/package.json", "local/recordings/tour.gif"}
+
+	tests := []struct {
+		name       string
+		checkout   bool
+		dirName    string
+		wantShrunk bool
+	}{
+		{name: "a komrad checkout gives back its instance and drops what it rebuilds", checkout: true, dirName: "agent-a", wantShrunk: true},
+		{name: "a komrad checkout not named after its agent is left alone", checkout: true, dirName: "komrad"},
+		{name: "any other checkout is left alone", dirName: "agent-a"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tree := filepath.Join(t.TempDir(), tt.dirName)
+			freed := filepath.Join(t.TempDir(), "freed")
+
+			for _, p := range append(slices.Clone(rebuilt), kept...) {
+				require.NoError(t, os.MkdirAll(filepath.Dir(filepath.Join(tree, p)), 0o755))
+				require.NoError(t, os.WriteFile(filepath.Join(tree, p), nil, 0o644))
+			}
+
+			if tt.checkout {
+				tasks := filepath.Join(tree, "mise", "tasks")
+				require.NoError(t, os.MkdirAll(tasks, 0o755))
+				stub := fmt.Sprintf("#!/bin/sh\nprintf '%%s' \"$*\" > %q\n", freed)
+				require.NoError(t, os.WriteFile(filepath.Join(tasks, "_test_instance"), []byte(stub), 0o755))
+			}
+
+			result, err := runBuiltin(t, "komrad-checkout-archive", worktreeEnv{
+				agentID:  "agent-a",
+				agentCwd: tree,
+				trigger:  "post-archive",
+			})
+			require.NoError(t, err, "stderr: %s", result.Stderr)
+
+			said, freedErr := os.ReadFile(freed)
+			if tt.wantShrunk {
+				require.NoError(t, freedErr)
+				assert.Equal(t, "down --root "+tree, string(said))
+			} else {
+				assert.True(t, os.IsNotExist(freedErr), "no instance was given back")
+			}
+
+			for _, p := range rebuilt {
+				_, statErr := os.Stat(filepath.Join(tree, p))
+				assert.Equal(t, tt.wantShrunk, os.IsNotExist(statErr), p)
+			}
+
+			for _, p := range kept {
+				assert.FileExists(t, filepath.Join(tree, p))
 			}
 		})
 	}

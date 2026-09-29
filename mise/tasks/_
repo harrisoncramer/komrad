@@ -28,8 +28,35 @@ shell_scripts() {
 
 # docs_install brings docs/node_modules in line with its lockfile, run from docs/.
 docs_install() {
-	if [ ! -f node_modules/.package-lock.json ] || [ package-lock.json -nt node_modules/.package-lock.json ]; then
-		npm install
+	local key entry tmp
+	key="$(printf '%s %s %s' "$(git hash-object package-lock.json)" "$(node --version)" "$(uname -sm)" | git hash-object --stdin)"
+	entry="$(dev_cache)/docs-node-modules/$key"
+
+	if [ "$(cat node_modules/.komrad-dev-key 2>/dev/null)" = "$key" ]; then
+		return 0
+	fi
+
+	if [ ! -d "$entry" ]; then
+		mkdir -p "$(dirname "$entry")"
+		tmp="$(mktemp -d "$entry.XXXXXX")"
+		cp package.json package-lock.json "$tmp"
+		if ! (cd "$tmp" && npm ci); then
+			rm -rf "$tmp"
+			return 1
+		fi
+		echo "$key" >"$tmp/node_modules/.komrad-dev-key"
+		if [ -d "$entry" ]; then
+			rm -rf "$tmp"
+		else
+			mv "$tmp" "$entry"
+		fi
+	fi
+
+	rm -rf node_modules
+	if [ "$(uname -s)" = Darwin ]; then
+		cp -cR "$entry/node_modules" node_modules
+	else
+		cp -R --reflink=auto "$entry/node_modules" node_modules
 	fi
 }
 
