@@ -107,7 +107,7 @@ func conversationPreviewMarkdown(preview conversationPreview, agentID string) st
 	default:
 		for _, turn := range preview.turns {
 			b.WriteString("_" + speakerOf(turn.GetRole()) + "_\n\n")
-			b.WriteString(strings.TrimSpace(paint.ScrubMarks(turn.GetContent())) + "\n\n")
+			b.WriteString(turnMarkdown(turn) + "\n\n")
 		}
 	}
 
@@ -123,4 +123,24 @@ func speakerOf(role string) string {
 	}
 
 	return role
+}
+
+func turnMarkdown(turn *agentv1.Turn) string {
+	content := strings.TrimSpace(paint.ScrubMarks(turn.GetContent()))
+	if turn.GetTruncated() && countFences(content)%2 == 1 {
+		return "```\n" + content
+	}
+
+	return content
+}
+
+func countFences(content string) int {
+	count := 0
+	for line := range strings.Lines(content) {
+		if strings.HasPrefix(strings.TrimSpace(line), "```") {
+			count++
+		}
+	}
+
+	return count
 }

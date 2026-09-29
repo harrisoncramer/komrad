@@ -995,6 +995,23 @@ func TestArchiveConversationPreview(t *testing.T) {
 		}
 	})
 
+	t.Run("a turn cut inside a code block does not swallow the turns after it", func(t *testing.T) {
+		harness := openArchive(t, buildOneArchivedAgent()...)
+		answerLastTurns(harness, map[string][]*agentv1.Turn{
+			"a1": {
+				{Role: "assistant", Content: "go build .\n```\nthe build is green", Truncated: true},
+				{Role: "user", Content: "*ship it*"},
+			},
+		})
+
+		harness.press("j")
+		harness.fireTimers()
+
+		frame := harness.readFrame()
+		assert.Contains(t, frame, "ship it")
+		assert.NotContains(t, frame, "*ship it*")
+	})
+
 	t.Run("an agent with nothing synced says so", func(t *testing.T) {
 		harness := openArchive(t, buildOneArchivedAgent()...)
 		answerLastTurns(harness, nil)
@@ -1046,6 +1063,29 @@ func TestArchiveConversationPreview(t *testing.T) {
 		assert.NotContains(t, frame, "words from api-refactor")
 		assert.NotContains(t, frame, "words from billing")
 		assert.Contains(t, frame, "reading the conversation")
+	})
+
+	t.Run("clearing a search that moved the cursor asks for the agent it lands back on", func(t *testing.T) {
+		harness := openArchive(t,
+			newLiveWorkflow("w1", "backend"),
+			newArchivedAgent("a1", "api-refactor", "w1"),
+			newArchivedAgent("a2", "billing", "w1"),
+		)
+		answerLastTurns(harness, map[string][]*agentv1.Turn{
+			"a1": {{Role: "assistant", Content: "words from api-refactor"}},
+			"a2": {{Role: "assistant", Content: "words from billing"}},
+		})
+		harness.press("j")
+		harness.fireTimers()
+
+		harness.press("/", "a", "p", "i", "enter")
+		harness.fireTimers()
+		require.Contains(t, harness.readFrame(), "words from api-refactor")
+
+		harness.press("esc")
+		harness.fireTimers()
+
+		assert.Contains(t, harness.readFrame(), "words from billing")
 	})
 
 	t.Run("a listing that moves the cursor onto another agent asks for it", func(t *testing.T) {
