@@ -50,8 +50,8 @@ func (a *agentsScreen) modeActions() []screenAction {
 			run:  func(h host, s panelShared, _ string) tea.Cmd { return newWorkflowForm(h, s) },
 		},
 		screenAction{
-			id:   actionSubpagesOpen,
-			keys: func(k config.Keybindings) []string { return k.Subpages.Open },
+			id:   actionMenuOpen,
+			keys: func(k config.Keybindings) []string { return k.Menu.Open },
 			when: a.holdsSubpages,
 			run: func(h host, s panelShared, _ string) tea.Cmd {
 				item, ok := a.hoveredPaneItem(s)
@@ -142,12 +142,6 @@ func (a *agentsScreen) rowActions() []screenAction {
 			keys: func(k config.Keybindings) []string { return k.Agents.Hide },
 			when: a.isHoveringAgent,
 			run:  a.onHoveredAgent(func(h host, item panel.AgentRow) tea.Cmd { return hideAgent(h, item.Agent) }),
-		},
-		{
-			id:   actionGitMenu,
-			keys: func(k config.Keybindings) []string { return k.Git.Open },
-			when: a.isHoveringAgent,
-			run:  a.onHoveredAgentIn(openGitMenu),
 		},
 		{
 			id:   actionAgentChild,
@@ -290,11 +284,6 @@ func (a *agentsScreen) browsingLegend() []screenLegendRow {
 			show: a.isBrowsing,
 		},
 		{
-			of:   []actionID{actionGitMenu},
-			desc: func(panelShared) string { return "git actions" },
-			show: a.isHoveringAgent,
-		},
-		{
 			of:   []actionID{actionAgentPause},
 			desc: a.pauseDesc,
 			show: a.isHoveringAgent,
@@ -363,8 +352,8 @@ func (a *agentsScreen) browsingLegend() []screenLegendRow {
 			show: a.isHoveringAgent,
 		},
 		{
-			of:   []actionID{actionSubpagesOpen},
-			desc: func(panelShared) string { return "subpages" },
+			of:   []actionID{actionMenuOpen},
+			desc: func(panelShared) string { return "menu" },
 			show: a.holdsSubpages,
 		},
 		{

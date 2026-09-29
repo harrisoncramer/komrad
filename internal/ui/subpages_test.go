@@ -29,21 +29,21 @@ func TestSubpages(t *testing.T) {
 		{
 			name:       "an agent with nothing to review or read starts on logs",
 			row:        "quiet",
-			wantTitle:  "Subpages of quiet",
+			wantTitle:  "┃ quiet",
 			wantCrumb:  "agents › quiet",
 			wantCursor: "› logs",
 		},
 		{
 			name:       "a workflow's row opens its orchestrator's under the workflow's name",
 			row:        "komrad",
-			wantTitle:  "Subpages of komrad",
+			wantTitle:  "┃ komrad",
 			wantCrumb:  "agents › komrad",
 			wantCursor: "› logs",
 		},
 		{
 			name:       "an agent with a checkout starts on review",
 			row:        "author",
-			wantTitle:  "Subpages of author",
+			wantTitle:  "┃ author",
 			wantCrumb:  "agents › author",
 			wantCursor: "› review",
 		},
@@ -118,7 +118,7 @@ func TestSubpages(t *testing.T) {
 		harness.press("esc")
 
 		frame := harness.readFrame()
-		assert.NotContains(t, frame, "Subpages of author")
+		assert.NotContains(t, frame, "┃ author")
 		assert.Equal(t, "agents › author", readTrail(frame))
 	})
 
@@ -130,7 +130,7 @@ func TestSubpages(t *testing.T) {
 		moveToAgentRow(t, harness, "quiet")
 		harness.press("?")
 
-		assert.Contains(t, readLegend(harness.readFrame()), "subpages")
+		assert.Contains(t, readLegend(harness.readFrame()), "space menu")
 	})
 }
 
@@ -148,6 +148,19 @@ func TestSubpagesInArchive(t *testing.T) {
 		assert.Contains(t, frame, "› documents")
 		assert.Contains(t, harness.readRawFrame(), readOffEntry("review", "r"))
 		assert.Contains(t, harness.readRawFrame(), readOffEntry("terminal", "t"))
+	})
+
+	t.Run("git holds rebase gray, since an archived branch is not rebased", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openArchivedSubpages(t)
+		harness.press("g")
+
+		assert.Contains(t, harness.readRawFrame(), readOffEntry("rebase with base", "r"))
+
+		harness.press("r")
+
+		assert.Contains(t, readOpenMessages(harness), "an archived agent's branch is not rebased")
 	})
 
 	t.Run("documents open, and back returns to the archive", func(t *testing.T) {
@@ -189,7 +202,7 @@ func openArchivedSubpages(t *testing.T) *panelHarness {
 	harness := openArchive(t, newLiveWorkflow("w1", "komrad"), author)
 	newDocumentShelf().answer(harness)
 	harness.press("j", "space")
-	require.Contains(t, harness.readFrame(), "Subpages of author")
+	require.Contains(t, harness.readFrame(), "┃ author")
 
 	return harness
 }

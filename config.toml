@@ -190,10 +190,8 @@ prev_match = ["N"]
 # Toggle for the keybindings
 toggle = ["?"]
 
-# The git menu on the agents list, and the actions inside it.
+# The git menu, nested under the menu on the hovered row, and the actions inside it.
 [keybindings.git]
-# Open the git menu on the hovered agent.
-open              = ["b"]
 # Open the hovered agent's current pull request in your browser: the newest one opened from
 # its branch that is not finished, else the newest finished one. The entry says so rather
 # than acting on an agent with none.
@@ -333,9 +331,10 @@ range  = ["V"]
 # Take the row under the cursor into the selection, or back out of it.
 toggle = ["v"]
 
-# The subpages menu, which lists the screens that belong to the hovered row.
-[keybindings.subpages]
-# Open the subpages menu on the hovered agent, or its orchestrator's on a workflow's row.
+# The menu on the hovered row, which lists the screens that belong to it and the menus nested
+# under it.
+[keybindings.menu]
+# Open the menu on the hovered agent, or its orchestrator's on a workflow's row.
 open      = ["space"]
 # Open the review of the agent's diff. The entry is gray on an agent with no worktree of its
 # own, and in the archive.
@@ -349,6 +348,9 @@ logs      = ["l"]
 # keyboard to the one already rooted there. The entry is gray in the archive and on an agent
 # with no directory.
 terminal  = ["t"]
+# Open the git menu to the right of this one, for rebasing the agent's branch or opening its
+# pull request.
+git       = ["g"]
 
 # The row of tabs a screen draws over its list, and the key that hands it the cursor.
 [keybindings.tabs]

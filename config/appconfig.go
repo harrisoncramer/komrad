@@ -143,7 +143,7 @@ type Keybindings struct {
 	// The key that draws the legend under a list, shared by every screen for the
 	// same reason navigation is.
 	Help HelpKeys `mapstructure:"help"`
-	// The git menu on the agents list, and the actions inside it.
+	// The git menu, nested under the menu on the hovered row, and the actions inside it.
 	Git GitKeys `mapstructure:"git"`
 	// The logs screen, which tails what the service logged about one agent.
 	Logs LogsKeys `mapstructure:"logs"`
@@ -166,8 +166,9 @@ type Keybindings struct {
 	Sidebar SidebarKeys `mapstructure:"sidebar"`
 	// Choosing several agents at once, shared by the two screens that draw a tree.
 	Selection SelectionKeys `mapstructure:"selection"`
-	// The subpages menu, which lists the screens that belong to the hovered row.
-	Subpages SubpagesKeys `mapstructure:"subpages"`
+	// The menu on the hovered row, which lists the screens that belong to it and the menus nested
+	// under it.
+	Menu MenuKeys `mapstructure:"menu"`
 	// The row of tabs a screen draws over its list, and the key that hands it the cursor.
 	Tabs TabsKeys `mapstructure:"tabs"`
 	// The row of kinds a screen listing more than one kind of resource draws under its tabs.
@@ -349,11 +350,9 @@ type MarksKeys struct {
 	Jump []string `mapstructure:"jump" default:"'"`
 }
 
-// GitKeys are the bindings for the git menu, which opens beside the agents list and holds the
-// actions that act on the hovered agent's branch.
+// GitKeys are the bindings for the git menu, which opens from the menu on the hovered agent and
+// holds the actions that act on its branch.
 type GitKeys struct {
-	// Open the git menu on the hovered agent.
-	Open []string `mapstructure:"open" default:"b"`
 	// Open the hovered agent's current pull request in your browser: the newest one opened from
 	// its branch that is not finished, else the newest finished one. The entry says so rather
 	// than acting on an agent with none.
@@ -363,10 +362,11 @@ type GitKeys struct {
 	Rebase []string `mapstructure:"rebase" default:"r"`
 }
 
-// SubpagesKeys are the bindings for the subpages menu, which lists the screens that belong to
-// the hovered row. Today that row is an agent, on the agents list or in the archive.
-type SubpagesKeys struct {
-	// Open the subpages menu on the hovered agent, or its orchestrator's on a workflow's row.
+// MenuKeys are the bindings for the menu on the hovered row, which lists the screens that belong
+// to it and the menus nested under it. Today that row is an agent, on the agents list or in the
+// archive.
+type MenuKeys struct {
+	// Open the menu on the hovered agent, or its orchestrator's on a workflow's row.
 	Open []string `mapstructure:"open" default:"space"`
 	// Open the review of the agent's diff. The entry is gray on an agent with no worktree of its
 	// own, and in the archive.
@@ -380,6 +380,9 @@ type SubpagesKeys struct {
 	// keyboard to the one already rooted there. The entry is gray in the archive and on an agent
 	// with no directory.
 	Terminal []string `mapstructure:"terminal" default:"t"`
+	// Open the git menu to the right of this one, for rebasing the agent's branch or opening its
+	// pull request.
+	Git []string `mapstructure:"git" default:"g"`
 }
 
 // WorkflowsKeys are the bindings that act on a workflow.

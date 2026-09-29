@@ -1377,9 +1377,10 @@ func TestAgentsRecordSearch(t *testing.T) {
 
 	t.Run("a focused record keeps the keys through its search in a tight pane", func(t *testing.T) {
 		tests := []struct {
-			name   string
-			params panelHarnessParams
-			press  []string
+			name       string
+			params     panelHarnessParams
+			press      []string
+			wantLegend bool
 		}{
 			{
 				name: "a pane the share only just fits",
@@ -1399,9 +1400,10 @@ func TestAgentsRecordSearch(t *testing.T) {
 				name: "a narrow pane with the legend expanded",
 				params: panelHarnessParams{
 					width:  30,
-					height: 30,
+					height: 43,
 				},
-				press: []string{"?"},
+				press:      []string{"?"},
+				wantLegend: true,
 			},
 		}
 
@@ -1411,6 +1413,9 @@ func TestAgentsRecordSearch(t *testing.T) {
 				harness.answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, answerWith(buildWorktreeRead()))
 				harness.watch(buildSnapshot(buildRecorded()...))
 				harness.press(tt.press...)
+				if tt.wantLegend {
+					require.Contains(t, readLegend(harness.readFrame()), "hide help", "the legend is expanded")
+				}
 				harness.press("ctrl+a")
 				require.NotEmpty(t, readRecordCursor(harness.readFrame()), "the share fits, so the record takes the keys")
 
@@ -1978,10 +1983,10 @@ func TestAgentsChildren(t *testing.T) {
 
 		off := readOffEntry("rebase with base", "r")
 
-		harness.press("j", "b")
+		harness.press("j", "space", "g")
 		assert.NotContains(t, harness.readRawFrame(), off)
 
-		harness.press("esc", "j", "b")
+		harness.press("esc", "esc", "j", "space", "g")
 		assert.Contains(t, harness.readRawFrame(), off)
 	})
 }

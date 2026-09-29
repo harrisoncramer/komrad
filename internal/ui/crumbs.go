@@ -78,8 +78,8 @@ func (m *model) pageCrumbs() (screen, crumbs, bool) {
 		return c.parent(), c.crumbs(m.shared()), true
 	}
 
-	if m.form.isOpening() && m.form.crumb != "" {
-		return m.screen, crumbs{trail: []string{m.form.crumb}}, true
+	if m.form.isOpening() && len(m.form.crumbs) > 0 {
+		return m.screen, crumbs{trail: m.form.crumbs}, true
 	}
 
 	return m.screen, crumbs{}, false

@@ -3,13 +3,16 @@ package ui
 import (
 	"fmt"
 	"log/slog"
+	"slices"
 	"strings"
 	"time"
 
 	"komrad/internal/errui"
 	"komrad/internal/glyph"
+	"komrad/lib/xslice"
 
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 )
 
@@ -200,9 +203,41 @@ func (m model) screenView() string {
 // than one taken off the top of the panel.
 func (m model) heldFormView() string {
 	view := m.form.form.View()
-	if !m.held.active {
-		return view
+	if m.held.active {
+		view = strings.TrimRight(view, "\n") + "\n" + dimStyle.Render(submittingNotice(m.held.since, time.Now()))
 	}
 
-	return strings.TrimRight(view, "\n") + "\n" + dimStyle.Render(submittingNotice(m.held.since, time.Now()))
+	leading, _ := m.formLeading()
+
+	return joinLeading(leading, view)
+}
+
+// joinLeading draws blocks side by side ahead of the form, a divider between each.
+func joinLeading(leading []string, form string) string {
+	if len(leading) == 0 {
+		return form
+	}
+
+	blocks := slices.Concat(leading, []string{form})
+	split := xslice.Map(blocks, func(block string) []string { return strings.Split(strings.TrimRight(block, "\n"), "\n") })
+	rows := slices.Max(xslice.Map(split, func(lines []string) int { return len(lines) }))
+
+	out := make([]string, rows)
+	for i := range rows {
+		var row strings.Builder
+
+		for b, lines := range split[:len(leading)] {
+			line := readLineAt(lines, i, 0)
+			row.WriteString(line + strings.Repeat(" ", max(lipgloss.Width(leading[b])-lipgloss.Width(line), 0)))
+			row.WriteString(drawDividerRow(false, false))
+		}
+
+		if i < len(split[len(leading)]) {
+			row.WriteString(split[len(leading)][i])
+		}
+
+		out[i] = row.String()
+	}
+
+	return strings.Join(out, "\n")
 }
