@@ -24,6 +24,7 @@ import (
 	"komrad/internal/position"
 	"komrad/internal/ui/layout"
 	"komrad/proto/gen/agent/v1/agentv1connect"
+	"komrad/proto/gen/forge/v1/forgev1connect"
 	"komrad/proto/gen/hook/v1/hookv1connect"
 	"komrad/proto/gen/log/v1/logv1connect"
 	schedulev1connect "komrad/proto/gen/schedule/v1/schedulev1connect"
@@ -202,6 +203,7 @@ type Deps struct {
 	Hooks           hookv1connect.HookServiceClient
 	Worktrees       worktreev1connect.WorktreeServiceClient
 	Logs            logv1connect.LogServiceClient
+	Forges          forgev1connect.ForgeServiceClient
 	Watch           watchv1connect.WatchServiceClient
 	Keys            config.Keybindings
 	Glyphs          glyph.Set
@@ -343,6 +345,7 @@ func newModel(deps Deps, isDark bool, post *postbox) model {
 			hooks:     deps.Hooks,
 			worktrees: deps.Worktrees,
 			logs:      deps.Logs,
+			forges:    deps.Forges,
 		},
 		session:         deps.Session,
 		clip:            systemClipboard{},

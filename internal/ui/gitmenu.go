@@ -39,6 +39,7 @@ func gitMenu(s panelShared, from screen, item panel.AgentRow) submenu {
 		entries: []submenuEntry{
 			{label: "rebase with base", keys: s.keys.Git.Rebase, isOff: rebaseRefusal(s.listing, from, agent) != nil},
 			{label: "open pr", keys: s.keys.Git.OpenPullRequest, isOff: item.PullRequest.URL == ""},
+			nestedEntry("merge pr", s.keys.Git.Merge, mergeMenu(s, from, item)),
 		},
 		answer: func(m model, choice int) (tea.Model, tea.Cmd) {
 			return confirmSubmit(func(m model) (model, tea.Cmd) { return m.runGitChoice(from, agentID, gitChoice(choice)) })(m)

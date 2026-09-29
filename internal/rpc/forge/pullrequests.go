@@ -3,6 +3,7 @@ package forge
 import (
 	"context"
 	"fmt"
+	"net/url"
 
 	"komrad/internal/fail"
 	"komrad/internal/forge"
@@ -12,6 +13,8 @@ import (
 	"komrad/lib/pagination"
 	"komrad/lib/xslice"
 	forgev1 "komrad/proto/gen/forge/v1"
+
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 // pageCursor is where a listing left off, the forge's cursor for the next page and the size
@@ -79,6 +82,30 @@ func (s *Handler) ListForgePullRequests(ctx context.Context, req *forgev1.ListFo
 	}
 
 	return response, nil
+}
+
+// MergeForgePullRequest merges a pull request through the connection for its host.
+func (s *Handler) MergeForgePullRequest(ctx context.Context, req *forgev1.MergeForgePullRequestRequest) (*emptypb.Empty, *fail.Error) {
+	address, err := url.Parse(req.GetUrl())
+	if err != nil || address.Hostname() == "" {
+		return nil, forge.ErrNotPullRequest.Saying("%q is not a pull request's address", req.GetUrl())
+	}
+
+	connection, err := s.forges.ConnectionFor(ctx, address.Hostname())
+	if err != nil {
+		return nil, rpcerr.From(err, "failed to find the forge for the pull request")
+	}
+
+	f, err := s.forges.ForConnection(*connection)
+	if err != nil {
+		return nil, rpcerr.From(err, "failed to build the forge")
+	}
+
+	if err := f.Merge(ctx, req.GetUrl()); err != nil {
+		return nil, rpcerr.From(err, "failed to merge the pull request")
+	}
+
+	return &emptypb.Empty{}, nil
 }
 
 func renderForgePullRequest(pullRequest forge.PullRequest) *forgev1.ForgePullRequest {

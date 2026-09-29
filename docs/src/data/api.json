@@ -1317,6 +1317,22 @@
           "response": "forge.v1.ListForgePullRequestsResponse"
         },
         {
+          "slug": "merge-forge-pull-request",
+          "name": "MergeForgePullRequest",
+          "path": "/forge.v1.ForgeService/MergeForgePullRequest",
+          "command": "komrad rpc merge-forge-pull-request",
+          "tool": "merge_forge_pull_request",
+          "mcp": false,
+          "roles": [],
+          "summary": "Merge a pull request through the forge connection for its host, the way the repository merges by default.",
+          "description": "Merge a pull request through the forge connection for its host, the way the repository merges by default. A pull request the forge will not merge, because of its checks, its reviews, its branch rules or a conflict, is refused as failed_precondition with what the forge said.",
+          "readOnly": false,
+          "idempotent": false,
+          "destructive": true,
+          "request": "forge.v1.MergeForgePullRequestRequest",
+          "response": "google.protobuf.Empty"
+        },
+        {
           "slug": "disconnect-forge",
           "name": "DisconnectForge",
           "path": "/forge.v1.ForgeService/DisconnectForge",
@@ -6011,6 +6027,25 @@
           "oneof": "",
           "rules": [],
           "description": "Every connection, by host."
+        }
+      ]
+    },
+    "forge.v1.MergeForgePullRequestRequest": {
+      "name": "MergeForgePullRequestRequest",
+      "description": "",
+      "fields": [
+        {
+          "name": "url",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [
+            "required",
+            "at most 2048 characters"
+          ],
+          "description": "The pull request's web address, whose host picks the forge connection."
         }
       ]
     },

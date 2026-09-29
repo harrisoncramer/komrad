@@ -20,6 +20,7 @@ type ForgeServiceImpl interface {
 	ListForges(context.Context, *emptypb.Empty) (*v1.ListForgesResponse, *fail.Error)
 	CheckForges(context.Context, *emptypb.Empty) (*v1.CheckForgesResponse, *fail.Error)
 	ListForgePullRequests(context.Context, *v1.ListForgePullRequestsRequest) (*v1.ListForgePullRequestsResponse, *fail.Error)
+	MergeForgePullRequest(context.Context, *v1.MergeForgePullRequestRequest) (*emptypb.Empty, *fail.Error)
 	DisconnectForge(context.Context, *v1.DisconnectForgeRequest) (*emptypb.Empty, *fail.Error)
 }
 
@@ -47,6 +48,11 @@ func (a ForgeServiceAdapter) CheckForges(ctx context.Context, req *connect.Reque
 // ListForgePullRequests answers the request as connect serves it.
 func (a ForgeServiceAdapter) ListForgePullRequests(ctx context.Context, req *connect.Request[v1.ListForgePullRequestsRequest]) (*connect.Response[v1.ListForgePullRequestsResponse], error) {
 	return rpcerr.Answer(a.Impl.ListForgePullRequests(ctx, req.Msg))
+}
+
+// MergeForgePullRequest answers the request as connect serves it.
+func (a ForgeServiceAdapter) MergeForgePullRequest(ctx context.Context, req *connect.Request[v1.MergeForgePullRequestRequest]) (*connect.Response[emptypb.Empty], error) {
+	return rpcerr.Answer(a.Impl.MergeForgePullRequest(ctx, req.Msg))
 }
 
 // DisconnectForge answers the request as connect serves it.

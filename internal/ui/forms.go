@@ -58,6 +58,7 @@ const (
 	formRename
 	formAgentArchive
 	formAgentRebase
+	formMerge
 	formAgentRetry
 	formAgentRelease
 	formGit
@@ -127,7 +128,7 @@ func formColumn(kind formKind) (columnSpec, bool) {
 	case formAgent, formChild, formAdopt, formRename, formAgentRetry, formWorkflow, formSchedule,
 		formDocument:
 		return columnSpec{floor: formColumnFloor}, true
-	case formGit, formMenu, formAgentArchive, formAgentRebase, formAgentRelease, formWorkflowArchive, formScheduleArchive,
+	case formGit, formMerge, formMenu, formAgentArchive, formAgentRebase, formAgentRelease, formWorkflowArchive, formScheduleArchive,
 		formArchiveDelete, formWorktreesDelete:
 		return columnSpec{floor: columnFloor}, true
 	case formNone:

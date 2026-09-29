@@ -157,7 +157,7 @@ func (c *Client) Send(ctx context.Context, params xhttp.JSONParams, into any) (x
 
 	switch answer.Status {
 	case http.StatusUnauthorized:
-		return answer, fmt.Errorf("%w: %s", forge.ErrUnauthorized, messageOf(answer.Body))
+		return answer, fmt.Errorf("%w: %s", forge.ErrUnauthorized, MessageOf(answer.Body))
 	case http.StatusNotFound:
 		return answer, nil
 	case http.StatusForbidden, http.StatusTooManyRequests:
@@ -166,7 +166,7 @@ func (c *Client) Send(ctx context.Context, params xhttp.JSONParams, into any) (x
 		}
 	}
 	if !answer.IsSuccess() {
-		return answer, fmt.Errorf("%s answered %d for %s: %s", c.dialect.Name, answer.Status, path, messageOf(answer.Body))
+		return answer, fmt.Errorf("%s answered %d for %s: %s", c.dialect.Name, answer.Status, path, MessageOf(answer.Body))
 	}
 
 	return answer, nil
@@ -195,7 +195,7 @@ func (c *Client) throttleOf(answer xhttp.Answer) *forge.ThrottledError {
 	throttled := answer.Status == http.StatusTooManyRequests ||
 		hasRetryAfter ||
 		limit.IsExhausted() ||
-		isSecondaryLimitMessage(messageOf(answer.Body))
+		isSecondaryLimitMessage(MessageOf(answer.Body))
 	if !throttled {
 		return nil
 	}
@@ -227,8 +227,8 @@ func isSecondaryLimitMessage(message string) bool {
 	return strings.Contains(lowered, "secondary rate limit") || strings.Contains(lowered, "abuse detection")
 }
 
-// messageOf is what the forge said went wrong, which its error bodies carry as message or error.
-func messageOf(body []byte) string {
+// MessageOf is what the forge said went wrong, which its error bodies carry as message or error.
+func MessageOf(body []byte) string {
 	var failure struct {
 		Message json.RawMessage `json:"message"`
 		Error   string          `json:"error"`
@@ -260,9 +260,9 @@ func pathOf(address string) string {
 	return parsed.RequestURI()
 }
 
-// OperationOf is the name a query was written with.
+// OperationOf is the name a query or mutation was written with.
 func OperationOf(operation string) string {
-	name, _, _ := strings.Cut(strings.TrimPrefix(operation, "query "), "(")
+	name, _, _ := strings.Cut(strings.TrimPrefix(strings.TrimPrefix(operation, "query "), "mutation "), "(")
 	name, _, _ = strings.Cut(name, " ")
 
 	return name

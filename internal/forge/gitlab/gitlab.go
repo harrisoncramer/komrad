@@ -18,6 +18,7 @@ import (
 	"komrad/internal/forge"
 	"komrad/internal/forge/graphql"
 	"komrad/internal/git"
+	"komrad/lib/xhttp"
 	"komrad/lib/xptr"
 )
 
@@ -337,6 +338,79 @@ func (f *Forge) Get(ctx context.Context, address string) (forge.PullRequest, err
 	}
 
 	return data.Project.MergeRequest.toPullRequest(false), nil
+}
+
+// Merge accepts the merge request the way the project is set to merge.
+func (f *Forge) Merge(ctx context.Context, address string) error {
+	path, number, err := parseMergeRequestURL(address)
+	if err != nil {
+		return err
+	}
+
+	endpoint := fmt.Sprintf("%s/projects/%s/merge_requests/%d", f.client.API(), url.PathEscape(path), number)
+	answer, err := f.client.Send(ctx, xhttp.JSONParams{
+		Method: http.MethodPut,
+		URL:    endpoint + "/merge",
+	}, nil)
+	if errors.Is(err, forge.ErrThrottled) {
+		return err
+	}
+
+	switch answer.Status {
+	case http.StatusNotFound:
+		return fmt.Errorf("%w: gitlab has no merge request %d in %s, which is also its answer for a project the credential cannot see", forge.ErrNotFound, number, path)
+	case http.StatusForbidden:
+		return forge.ErrUnauthorized.Saying("gitlab will not let the credential merge %s: %v", address, err)
+	case http.StatusMethodNotAllowed, http.StatusNotAcceptable, http.StatusConflict, http.StatusUnprocessableEntity:
+		return forge.ErrNotMergeable.Saying("gitlab will not merge !%d: %s", number, f.mergeRefusal(ctx, endpoint, graphql.MessageOf(answer.Body)))
+	}
+
+	return err
+}
+
+// mergeRefusal is why GitLab says a merge request cannot merge, in a person's words.
+func (f *Forge) mergeRefusal(ctx context.Context, endpoint string, said string) string {
+	var standing struct {
+		State               string `json:"state"`
+		Draft               bool   `json:"draft"`
+		DetailedMergeStatus string `json:"detailed_merge_status"`
+	}
+	if _, err := f.client.Send(ctx, xhttp.JSONParams{Method: http.MethodGet, URL: endpoint}, &standing); err != nil {
+		return said
+	}
+
+	switch standing.State {
+	case "merged":
+		return "it has already merged"
+	case "closed":
+		return "it was closed without merging"
+	case "locked":
+		return "it is already being merged"
+	}
+	if standing.Draft {
+		return "it is still a draft"
+	}
+
+	switch standing.DetailedMergeStatus {
+	case "unchecked", "checking", "approvals_syncing", "preparing":
+		return "gitlab is still checking whether it can merge, so try again in a moment"
+	case "conflict":
+		return "it has merge conflicts"
+	case "draft_status":
+		return "it is still a draft"
+	case "need_rebase":
+		return "it has to be rebased onto its target first"
+	case "ci_must_pass", "ci_still_running":
+		return "its pipeline has to pass first"
+	case "not_approved", "requested_changes":
+		return "it has not been approved"
+	case "discussions_not_resolved":
+		return "its threads are not all resolved"
+	case "", "mergeable":
+		return said
+	}
+
+	return "its merge status is " + strings.ReplaceAll(standing.DetailedMergeStatus, "_", " ")
 }
 
 // Standings reads where the reviews and the head pipeline of up to fifty merge requests stand,

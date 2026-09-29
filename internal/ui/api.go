@@ -10,6 +10,8 @@ import (
 	"komrad/internal/ui/panel"
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
+	forgev1 "komrad/proto/gen/forge/v1"
+	"komrad/proto/gen/forge/v1/forgev1connect"
 	hookv1 "komrad/proto/gen/hook/v1"
 	"komrad/proto/gen/hook/v1/hookv1connect"
 	logv1 "komrad/proto/gen/log/v1"
@@ -38,6 +40,7 @@ type api struct {
 	hooks     hookv1connect.HookServiceClient
 	worktrees worktreev1connect.WorktreeServiceClient
 	logs      logv1connect.LogServiceClient
+	forges    forgev1connect.ForgeServiceClient
 }
 
 // call runs work under its own deadline.
@@ -148,6 +151,15 @@ func (a api) archiveAgents(ids []string) error {
 	return mutateAwaitingHooks(func(ctx context.Context) (any, error) {
 		return a.agents.ArchiveAgents(ctx, connect.NewRequest(&agentv1.ArchiveAgentsRequest{Ids: ids}))
 	})
+}
+
+// mergePullRequest asks the forge to merge the pull request at the address.
+func (a api) mergePullRequest(address string) error {
+	_, err := call(mergeTimeout, func(ctx context.Context) (any, error) {
+		return a.forges.MergeForgePullRequest(ctx, connect.NewRequest(&forgev1.MergeForgePullRequestRequest{Url: address}))
+	})
+
+	return err
 }
 
 func (a api) setHidden(agent panel.Agent, hidden bool) error {

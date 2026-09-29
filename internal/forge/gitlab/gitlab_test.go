@@ -59,21 +59,22 @@ func (f *fakeAuth) Invalidate(context.Context) error {
 // call is one request the fake GitLab saw.
 type call struct {
 	Path      string
+	Method    string
 	Operation string
 	Query     string
 	Variables map[string]any
 	Header    http.Header
 }
 
-// answer is what the fake GitLab says to one operation.
+// answer is what the fake GitLab says to one operation or REST path.
 type answer struct {
 	status int
 	header map[string]string
 	body   string
 }
 
-// fakeGitLab answers each named GraphQL operation with one body, or whatever handle says when
-// it is set, and records every request it saw.
+// fakeGitLab answers each named GraphQL operation, and each REST path, with one body, or
+// whatever handle says when it is set, and records every request it saw.
 type fakeGitLab struct {
 	answers map[string]answer
 	handle  func(seen call) (answer, bool)
@@ -81,7 +82,8 @@ type fakeGitLab struct {
 }
 
 func (g *fakeGitLab) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	seen := call{Path: r.URL.Path, Header: r.Header}
+	seen := call{Path: r.URL.EscapedPath(), Method: r.Method, Header: r.Header}
+	key := seen.Path
 	if r.URL.Path == "/graphql" {
 		var posted struct {
 			Query     string         `json:"query"`
@@ -91,14 +93,15 @@ func (g *fakeGitLab) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		seen.Operation = graphql.OperationOf(posted.Query)
 		seen.Query = posted.Query
 		seen.Variables = posted.Variables
+		key = seen.Operation
 	}
 	g.calls = append(g.calls, seen)
 
-	reply, ok := g.answers[seen.Operation]
+	reply, ok := g.answers[key]
 	if g.handle != nil {
 		reply, ok = g.handle(seen)
 	}
-	if !ok || seen.Path != "/graphql" {
+	if !ok {
 		http.NotFound(w, r)
 
 		return
@@ -408,6 +411,127 @@ func TestGet(t *testing.T) {
 	assert.Equal(t, 256485, pullRequest.Number)
 	assert.Equal(t, "Draft: feat(reports): one template for the blockers page", pullRequest.Title)
 	assert.Equal(t, map[string]any{"path": "acme/widgets", "iid": "256485"}, fake.last(t).Variables)
+}
+
+// TestMerge covers accepting a merge request over REST and GitLab's refusals.
+func TestMerge(t *testing.T) {
+	t.Parallel()
+
+	const (
+		address = "https://gitlab.com/harrisoncramer/komrad/-/merge_requests/7"
+		path    = "/projects/harrisoncramer%2Fkomrad/merge_requests/7"
+	)
+
+	refused := answer{status: http.StatusMethodNotAllowed, body: `{"message":"405 Method Not Allowed"}`}
+
+	tests := []struct {
+		name        string
+		answers     map[string]answer
+		wantErr     error
+		wantMessage string
+	}{
+		{
+			name:    "the merge request is accepted",
+			answers: map[string]answer{path + "/merge": {body: `{"iid":7,"state":"merged"}`}},
+		},
+		{
+			name: "a merge request that has already merged",
+			answers: map[string]answer{
+				path + "/merge": refused,
+				path:            {body: `{"state":"merged","detailed_merge_status":"not_open"}`},
+			},
+			wantErr:     forge.ErrNotMergeable,
+			wantMessage: "gitlab will not merge !7: it has already merged",
+		},
+		{
+			name: "a merge request with conflicts",
+			answers: map[string]answer{
+				path + "/merge": {status: http.StatusNotAcceptable, body: `{"message":"Branch cannot be merged"}`},
+				path:            {body: `{"state":"opened","detailed_merge_status":"conflict"}`},
+			},
+			wantErr:     forge.ErrNotMergeable,
+			wantMessage: "gitlab will not merge !7: it has merge conflicts",
+		},
+		{
+			name: "a merge request gitlab is still checking",
+			answers: map[string]answer{
+				path + "/merge": refused,
+				path:            {body: `{"state":"opened","detailed_merge_status":"checking"}`},
+			},
+			wantErr:     forge.ErrNotMergeable,
+			wantMessage: "gitlab is still checking whether it can merge",
+		},
+		{
+			name: "a draft gitlab is rechecking",
+			answers: map[string]answer{
+				path + "/merge": refused,
+				path:            {body: `{"state":"opened","draft":true,"detailed_merge_status":"checking"}`},
+			},
+			wantErr:     forge.ErrNotMergeable,
+			wantMessage: "gitlab will not merge !7: it is still a draft",
+		},
+		{
+			name: "a merge status komrad has no words for",
+			answers: map[string]answer{
+				path + "/merge": refused,
+				path:            {body: `{"state":"opened","detailed_merge_status":"locked_paths"}`},
+			},
+			wantErr:     forge.ErrNotMergeable,
+			wantMessage: "its merge status is locked paths",
+		},
+		{
+			name:        "a merge request gitlab will not read back gives the reason from the refusal",
+			answers:     map[string]answer{path + "/merge": refused},
+			wantErr:     forge.ErrNotMergeable,
+			wantMessage: "gitlab will not merge !7: 405 Method Not Allowed",
+		},
+		{
+			name: "a merge request that became mergeable after the refusal gives the reason from the refusal",
+			answers: map[string]answer{
+				path + "/merge": {status: http.StatusConflict, body: `{"message":"SHA does not match HEAD of source branch"}`},
+				path:            {body: `{"state":"opened","detailed_merge_status":"mergeable"}`},
+			},
+			wantErr:     forge.ErrNotMergeable,
+			wantMessage: "gitlab will not merge !7: SHA does not match HEAD of source branch",
+		},
+		{
+			name: "a merge request already being merged",
+			answers: map[string]answer{
+				path + "/merge": refused,
+				path:            {body: `{"state":"locked","detailed_merge_status":"checking"}`},
+			},
+			wantErr:     forge.ErrNotMergeable,
+			wantMessage: "gitlab will not merge !7: it is already being merged",
+		},
+		{
+			name:    "a credential gitlab will not let merge",
+			answers: map[string]answer{path + "/merge": {status: http.StatusForbidden, body: `{"message":"403 Forbidden"}`}},
+			wantErr: forge.ErrUnauthorized,
+		},
+		{
+			name:    "a merge request gitlab does not have",
+			wantErr: forge.ErrNotFound,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			f, _, fake := serve(t, tt.answers)
+
+			err := f.Merge(t.Context(), address)
+			assert.Equal(t, http.MethodPut, fake.calls[0].Method)
+			assert.Equal(t, path+"/merge", fake.calls[0].Path)
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+				assert.Contains(t, err.Error(), tt.wantMessage)
+
+				return
+			}
+			require.NoError(t, err)
+		})
+	}
 }
 
 // TestGetRefusesWhatIsNotAMergeRequest covers the addresses Get will not ask GitLab about.
