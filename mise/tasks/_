@@ -53,7 +53,10 @@ docs_install() {
 
 	rm -rf node_modules
 	if [ "$(uname -s)" = Darwin ]; then
-		cp -cR "$entry/node_modules" node_modules
+		cp -cR "$entry/node_modules" node_modules 2>/dev/null || {
+			rm -rf node_modules
+			cp -R "$entry/node_modules" node_modules
+		}
 	else
 		cp -R --reflink=auto "$entry/node_modules" node_modules
 	fi
