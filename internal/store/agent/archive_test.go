@@ -456,19 +456,33 @@ func TestArchiveAndRestoreInBatches(t *testing.T) {
 	require.Len(t, live, 1, "the agent nobody named is untouched")
 	assert.Equal(t, "api", live[0].Name)
 
+	batches := make(map[string]*string, 2)
 	for _, name := range []string{"auth", "ui"} {
 		archived, err := st.GetByID(ctx, ids[name])
 		require.NoError(t, err)
 		require.NotNil(t, archived)
 		assert.NotNil(t, archived.ArchivedAt, "%s is archived", name)
 		assert.Empty(t, archived.Pane, "and claims no pane")
+		require.NotNil(t, archived.ArchiveBatchID, "%s carries its archive", name)
+		batches[name] = archived.ArchiveBatchID
 	}
+	assert.Equal(t, *batches["auth"], *batches["ui"], "one archive stamps one batch")
 
-	require.NoError(t, st.Restore(ctx, []string{ids["auth"], ids["ui"]}))
+	_, archiveErr = st.Archive(ctx, []string{ids["api"]})
+	require.NoError(t, archiveErr)
+	later, err := st.GetByID(ctx, ids["api"])
+	require.NoError(t, err)
+	require.NotNil(t, later.ArchiveBatchID)
+	assert.NotEqual(t, *batches["auth"], *later.ArchiveBatchID, "a second archive stamps its own")
+
+	require.NoError(t, st.Restore(ctx, []string{ids["auth"], ids["ui"], ids["api"]}))
 
 	live, err = st.List(ctx)
 	require.NoError(t, err)
 	assert.Len(t, live, 3, "the batch came back whole, across both workflows")
+	for _, agent := range live {
+		assert.Nil(t, agent.ArchiveBatchID, "%s forgets the archive it left", agent.Name)
+	}
 }
 
 // TestListForTranscriptSync pins which agents the transcript loop is handed, an agent with no

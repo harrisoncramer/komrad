@@ -470,11 +470,16 @@ freed AS (
             SELECT
                 prior.id
             FROM
-                prior))
+                prior)
+),
+batch AS (
+    SELECT
+        gen_random_uuid() AS id)
 UPDATE
     agents a
 SET
     archived_at = NOW(),
+    archive_batch_id = batch.id,
     pane_id = '',
     alive = FALSE,
     state = CASE WHEN prior.unsettled THEN
@@ -503,7 +508,8 @@ SET
         a.interrupted_at
     END
 FROM
-    prior
+    prior,
+    batch
 WHERE
     a.id = prior.id
 RETURNING
@@ -556,7 +562,8 @@ UPDATE
     agents
 SET
     is_hidden = FALSE,
-    archived_at = NULL
+    archived_at = NULL,
+    archive_batch_id = NULL
 WHERE
     workflow_id = @workflow_id
     AND archived_at IS NOT NULL;
@@ -829,11 +836,16 @@ freed AS (
             SELECT
                 prior.id
             FROM
-                prior))
+                prior)
+),
+batch AS (
+    SELECT
+        gen_random_uuid() AS id)
 UPDATE
     agents a
 SET
     archived_at = NOW(),
+    archive_batch_id = batch.id,
     pane_id = '',
     alive = FALSE,
     state = CASE WHEN prior.unsettled THEN
@@ -862,7 +874,8 @@ SET
         a.interrupted_at
     END
 FROM
-    prior
+    prior,
+    batch
 WHERE
     a.id = prior.id
 RETURNING
@@ -874,7 +887,8 @@ UPDATE
     agents
 SET
     is_hidden = FALSE,
-    archived_at = NULL
+    archived_at = NULL,
+    archive_batch_id = NULL
 WHERE
     id = ANY (@ids::uuid[]);
 
