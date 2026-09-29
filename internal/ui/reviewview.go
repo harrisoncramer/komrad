@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"komrad/internal/git"
+	"komrad/internal/glyph"
 	"komrad/internal/ui/diffview"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/paint/label"
@@ -306,7 +307,7 @@ func (r reviewScreen) threadView(s panelShared) string {
 	for i, message := range thread.GetMessages() {
 		if i > 0 && !later && stamp != "" && !doesPredate(message.GetCreatedAt(), stamp) {
 			later = true
-			out += "\n" + dimStyle.Render("── later, after this code changed ──") + "\n"
+			out += "\n" + dimStyle.Render(glyph.Rule+glyph.Rule+" later, after this code changed "+glyph.Rule+glyph.Rule) + "\n"
 		}
 
 		note := ""
