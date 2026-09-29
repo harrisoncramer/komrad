@@ -305,6 +305,23 @@ func TestRebaseMovesTheBranch(t *testing.T) {
 	}
 }
 
+// TestRebaseWakesTheCheckoutSyncWhenTheReplayFails covers a replay that failed part-way, which
+// may still have moved the checkout.
+func TestRebaseWakesTheCheckoutSyncWhenTheReplayFails(t *testing.T) {
+	fixture := newRebaseFixture(t)
+	agent := fixture.seed(t, agentstore.Agent{})
+	rebaser := &gittest.Rebaser{
+		State:      git.TreeState{Branch: "agent/a1"},
+		Prediction: git.Prediction{Replay: 1},
+		ReplayErr:  errors.New("the post-rewrite hook failed"),
+	}
+
+	_, err := fixture.newService(NewRebaseServiceParams{Rebaser: rebaser}).Rebase(t.Context(), agent.ID)
+
+	require.Error(t, err)
+	assert.Equal(t, 1, fixture.checkoutSync.wakes)
+}
+
 // TestRebaseRefusesAnAgentThatWillNotSettle covers nothing being parked or moved until the pane is seen at rest.
 func TestRebaseRefusesAnAgentThatWillNotSettle(t *testing.T) {
 	tests := []struct {

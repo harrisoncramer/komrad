@@ -257,7 +257,6 @@ func (s *RebaseService) Rebase(ctx context.Context, agentID string) (*RebaseResu
 		return nil, err
 	}
 
-	s.checkoutSync.Wake()
 	s.tell(ctx, *agent, *result)
 
 	return result, nil
@@ -289,6 +288,7 @@ func (s *RebaseService) rebase(ctx context.Context, agent agentstore.Agent) (*Re
 	if _, err := s.rebaser.Park(ctx, agent.Cwd, result.ParkedRef); err != nil {
 		return nil, err
 	}
+	defer s.checkoutSync.Wake()
 
 	if err := s.move(ctx, agent.Cwd, result); err != nil {
 		return nil, err
