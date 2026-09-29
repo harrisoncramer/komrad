@@ -12,6 +12,7 @@ komradslot() {
 	local key entry tmp
 	key="$( (find "$src" -type f ! -name komradslot -print0 | LC_ALL=C sort -z | xargs -0 git hash-object && uname -sm) | git hash-object --stdin)"
 	entry="${XDG_CACHE_HOME:-$HOME/.cache}/komrad-dev/komradslot/$key"
+	touch -c "$entry"
 
 	if [ ! -x "$entry" ]; then
 		mkdir -p "$(dirname "$entry")"
@@ -21,6 +22,7 @@ komradslot() {
 			return 1
 		fi
 		mv -f "$tmp" "$entry"
+		find "$(dirname "$entry")" -mindepth 1 -maxdepth 1 -mtime +14 -exec rm -rf {} +
 	fi
 
 	if [ "$(readlink "$bin")" != "$entry" ]; then

@@ -65,6 +65,11 @@ dev_cache() {
 	echo "${XDG_CACHE_HOME:-$HOME/.cache}/komrad-dev"
 }
 
+# dev_cache_prune drops the entries under dir nothing has used in two weeks.
+dev_cache_prune() {
+	find "$1" -mindepth 1 -maxdepth 1 -mtime +14 -exec rm -rf {} +
+}
+
 custom_gcl_sum() {
 	find tools/komradlint .custom-gcl.yml -type f -print0 | LC_ALL=C sort -z | xargs -0 git hash-object | git hash-object --stdin
 }
@@ -74,6 +79,7 @@ build_custom_gcl() {
 	sum="$(custom_gcl_sum)"
 	entry="$(dev_cache)/custom-gcl/$(printf '%s %s' "$sum" "$(go env GOVERSION GOOS GOARCH)" | git hash-object --stdin)"
 
+	touch -c "$entry"
 	rm -f local/custom-gcl
 	if [ ! -x "$entry" ]; then
 		golangci-lint custom
@@ -81,6 +87,7 @@ build_custom_gcl() {
 		tmp="$(mktemp "$entry.XXXXXX")"
 		mv -f local/custom-gcl "$tmp"
 		mv -f "$tmp" "$entry"
+		dev_cache_prune "$(dirname "$entry")"
 	fi
 
 	mkdir -p local
