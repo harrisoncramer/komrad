@@ -153,4 +153,14 @@ func TestReviewJump(t *testing.T) {
 		assert.Contains(t, readSidebarProse(frame), "is finished")
 		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceCreateReviewThreadProcedure))
 	})
+
+	t.Run("the jump splits the replies the same way", func(t *testing.T) {
+		harness := openReviewAt(t, newLaterRepliesServer(t), panelHarnessParams{height: 50})
+
+		harness.press("t", "J")
+
+		frame := harness.readFrame()
+		require.Contains(t, readStageText(frame), "where this comment was written, round 1")
+		assert.Contains(t, readSidebarProse(frame), laterRule)
+	})
 }

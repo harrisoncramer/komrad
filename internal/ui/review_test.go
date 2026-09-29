@@ -1824,6 +1824,20 @@ func TestReviewRounds(t *testing.T) {
 		assert.Contains(t, frame, "all changes")
 		assert.Contains(t, frame, "2 files, +4 -1")
 	})
+
+	t.Run("a chapter splits the replies written after the next round from the ones before", func(t *testing.T) {
+		harness := openReviewAt(t, newLaterRepliesServer(t), panelHarnessParams{height: 50})
+
+		harness.press("<", "<", "t")
+
+		frame := harness.readFrame()
+		require.Contains(t, readStageText(frame), "chapter 1 of 2")
+		said := readSidebarProse(frame)
+		assert.Contains(t, said, "thanks")
+		assert.Less(t, strings.Index(said, "looking"), strings.Index(said, laterRule))
+		assert.Less(t, strings.Index(said, laterRule), strings.Index(said, "added it"))
+		assert.Contains(t, said, "addressed in round 2")
+	})
 }
 
 // TestReviewPin covers an open batch of comments holding the diff to the round it was written on.

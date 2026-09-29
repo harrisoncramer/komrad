@@ -2,7 +2,6 @@ package ui_test
 
 import (
 	"slices"
-	"strings"
 	"testing"
 
 	"komrad/internal/git"
@@ -99,50 +98,6 @@ func TestReviewAnswer(t *testing.T) {
 		assert.Contains(t, readStageText(frame), "all changes")
 		require.Contains(t, readStageText(frame), "2 files, +4 -1")
 	})
-}
-
-func newCommentOnRoundOne(replies ...*agentv1.ReviewMessage) *agentv1.ReviewThread {
-	thread := newThreadOnFirstLine(append([]*agentv1.ReviewMessage{newHumanMessage("m1", "add a second file")}, replies...)...)
-	thread.RoundId = "round-1"
-	thread.RoundOrdinal = 1
-
-	return thread
-}
-
-func newAnswer() *agentv1.ReviewMessage {
-	answer := newAgentMessage("m2", "added it")
-	answer.RoundId = proto.String("round-2")
-
-	return answer
-}
-
-const laterRule = "── later, after this code changed ──"
-
-// TestReviewLaterReplies covers an older chapter drawing the replies written after its code changed.
-func TestReviewLaterReplies(t *testing.T) {
-	t.Run("a chapter splits the replies written after the next round from the ones before", func(t *testing.T) {
-		harness := openReviewAt(t, newLaterRepliesServer(t), panelHarnessParams{height: 50})
-
-		harness.press("<", "<", "t")
-
-		frame := harness.readFrame()
-		require.Contains(t, readStageText(frame), "chapter 1 of 2")
-		said := readSidebarProse(frame)
-		assert.Contains(t, said, "thanks")
-		assert.Less(t, strings.Index(said, "looking"), strings.Index(said, laterRule))
-		assert.Less(t, strings.Index(said, laterRule), strings.Index(said, "added it"))
-		assert.Contains(t, said, "addressed in round 2")
-	})
-
-	t.Run("the jump splits the replies the same way", func(t *testing.T) {
-		harness := openReviewAt(t, newLaterRepliesServer(t), panelHarnessParams{height: 50})
-
-		harness.press("t", "J")
-
-		frame := harness.readFrame()
-		require.Contains(t, readStageText(frame), "where this comment was written, round 1")
-		assert.Contains(t, readSidebarProse(frame), laterRule)
-	})
 
 	t.Run("the whole change draws no rule but still names the answer's round", func(t *testing.T) {
 		harness := openReviewAt(t, newLaterRepliesServer(t), panelHarnessParams{height: 50})
@@ -170,6 +125,23 @@ func TestReviewLaterReplies(t *testing.T) {
 		assert.Contains(t, said, "addressed in round 2")
 	})
 }
+
+func newCommentOnRoundOne(replies ...*agentv1.ReviewMessage) *agentv1.ReviewThread {
+	thread := newThreadOnFirstLine(append([]*agentv1.ReviewMessage{newHumanMessage("m1", "add a second file")}, replies...)...)
+	thread.RoundId = "round-1"
+	thread.RoundOrdinal = 1
+
+	return thread
+}
+
+func newAnswer() *agentv1.ReviewMessage {
+	answer := newAgentMessage("m2", "added it")
+	answer.RoundId = proto.String("round-2")
+
+	return answer
+}
+
+const laterRule = "── later, after this code changed ──"
 
 func newLaterRepliesServer(t *testing.T) *reviewServer {
 	t.Helper()
