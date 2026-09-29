@@ -12,6 +12,8 @@
 package mcp
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -55,14 +57,9 @@ func NewHandler(params NewHandlerParams) (http.Handler, error) {
 		servers[role] = server
 	}
 
-	return mcpsdk.NewStreamableHTTPHandler(
+	streamable := mcpsdk.NewStreamableHTTPHandler(
 		func(request *http.Request) *mcpsdk.Server {
-			role, err := getCallerRole(request, params.RoleOf)
-			if err != nil {
-				params.Logger.LogAttrs(request.Context(), slog.LevelWarn, "refused an mcp caller whose role could not be read", logging.Err(err)...)
-
-				return nil
-			}
+			role, _ := request.Context().Value(callerRoleKey{}).(annotationv1.Role)
 
 			server, ok := servers[role]
 			if !ok {
@@ -72,8 +69,28 @@ func NewHandler(params NewHandlerParams) (http.Handler, error) {
 			return server
 		},
 		&mcpsdk.StreamableHTTPOptions{Stateless: true},
-	), nil
+	)
+
+	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		role, err := getCallerRole(request, params.RoleOf)
+		if errors.Is(err, rpcapi.ErrUnknownCaller) {
+			http.Error(writer, err.Error(), http.StatusForbidden)
+
+			return
+		}
+		if err != nil {
+			params.Logger.LogAttrs(request.Context(), slog.LevelWarn, "refused an mcp caller whose role could not be read", logging.Err(err)...)
+			http.Error(writer, err.Error(), http.StatusServiceUnavailable)
+
+			return
+		}
+
+		streamable.ServeHTTP(writer, request.WithContext(context.WithValue(request.Context(), callerRoleKey{}, role)))
+	}), nil
 }
+
+// callerRoleKey carries the role read for a request through to the server picked for it.
+type callerRoleKey struct{}
 
 // getCallerRole reads the role of whoever is making the request.
 func getCallerRole(request *http.Request, roleOf rpcapi.RoleOf) (annotationv1.Role, error) {
