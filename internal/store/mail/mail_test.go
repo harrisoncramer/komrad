@@ -907,3 +907,33 @@ func TestCountExchangedSpansThreadsAndDirections(t *testing.T) {
 	require.NoError(t, err)
 	assert.Zero(t, quiet, "an id nothing holds counts nothing rather than failing")
 }
+
+// TestExistsReadAboutCountsOnlyReadMail pins which mail about a subject counts as the recipient having been told.
+func TestExistsReadAboutCountsOnlyReadMail(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+	recipient := seedAgent(t, st, "recipient")
+	subject := uuid.NewString()
+
+	_, err := st.UpsertFromKomrad(ctx, UpsertFromKomradParams{FromName: "komrad", ToAgentID: recipient, Body: "written", Kind: KindDocumentEdited, SubjectID: subject, Deadline: time.Hour})
+	require.NoError(t, err)
+
+	read, err := st.ExistsReadAbout(ctx, recipient, KindDocumentEdited, subject)
+	require.NoError(t, err)
+	assert.False(t, read, "unread mail is not read")
+
+	_, err = st.Claim(ctx, recipient, 10)
+	require.NoError(t, err)
+
+	read, err = st.ExistsReadAbout(ctx, recipient, KindDocumentEdited, subject)
+	require.NoError(t, err)
+	assert.True(t, read)
+
+	read, err = st.ExistsReadAbout(ctx, recipient, KindPullRequestChanged, subject)
+	require.NoError(t, err)
+	assert.False(t, read, "mail of another kind is not about this")
+
+	read, err = st.ExistsReadAbout(ctx, recipient, KindDocumentEdited, uuid.NewString())
+	require.NoError(t, err)
+	assert.False(t, read, "mail about another subject is not about this")
+}

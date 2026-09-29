@@ -2,6 +2,7 @@ package checkouts
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -19,6 +20,7 @@ import (
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/lib/xpath"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/riverqueue/river"
 )
 
@@ -69,7 +71,7 @@ type agentSettler interface {
 
 // eventRecorder queues the event that tells an agent what became of its worktree.
 type eventRecorder interface {
-	InsertTx(ctx context.Context, args river.JobArgs) error
+	InsertManyTx(ctx context.Context, build func(tx pgx.Tx) ([]river.JobArgs, error)) error
 }
 
 // worktreeRebaser is the git a rebase reads the checkout through and moves the branch with.
@@ -338,7 +340,7 @@ func (s *RebaseService) recordStopped(ctx context.Context, agent agentstore.Agen
 
 // tell says what happened in the agent's mailbox.
 func (s *RebaseService) tell(ctx context.Context, agent agentstore.Agent, result RebaseResult) {
-	if err := s.record(ctx, Rebased{AgentID: agent.ID, Result: &result}); err != nil {
+	if err := s.record(ctx, agent.ID, rebaseOutcome{Result: &result}); err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to tell an agent its worktree was rebased",
 			append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
 	}
@@ -346,7 +348,7 @@ func (s *RebaseService) tell(ctx context.Context, agent agentstore.Agent, result
 
 // tellCut says in the agent's mailbox that its turn was cut for a rebase that then failed.
 func (s *RebaseService) tellCut(ctx context.Context, agent agentstore.Agent, failure error) {
-	if err := s.record(ctx, Rebased{AgentID: agent.ID, Failure: failure.Error()}); err != nil {
+	if err := s.record(ctx, agent.ID, rebaseOutcome{Failure: failure.Error()}); err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to tell an agent its turn was cut for nothing",
 			append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
 	}
@@ -548,15 +550,26 @@ func refuseTreeState(state git.TreeState) error {
 	return nil
 }
 
-func (s *RebaseService) record(ctx context.Context, rebased Rebased) error {
+func (s *RebaseService) record(ctx context.Context, agentID string, outcome rebaseOutcome) error {
 	if s.events == nil {
 		return nil
 	}
 
-	event, err := events.NewEvent(rebased)
+	raw, err := json.Marshal(outcome)
+	if err != nil {
+		return fmt.Errorf("failed to encode the rebase of agent %q: %w", agentID, err)
+	}
+
+	event, err := events.NewEvent(Rebased{AgentID: agentID})
 	if err != nil {
 		return err
 	}
 
-	return s.events.InsertTx(ctx, *event)
+	return s.events.InsertManyTx(ctx, func(tx pgx.Tx) ([]river.JobArgs, error) {
+		if err := agentstore.NewAgentStore(tx).SetLastRebaseByID(ctx, agentID, raw); err != nil {
+			return nil, err
+		}
+
+		return []river.JobArgs{*event}, nil
+	})
 }

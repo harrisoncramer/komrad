@@ -713,3 +713,21 @@ func buildSettler(channel harness.Channel, observer harness.Observer) *agents.Se
 		},
 	})
 }
+
+// TestALateRebaseRetryTellsTheLatestRebase pins an older rebase's event routed after a newer rebase telling the agent what the newer one did.
+func TestALateRebaseRetryTellsTheLatestRebase(t *testing.T) {
+	fixture := newRebaseFixture(t)
+	agent := fixture.seed(t, agentstore.Agent{Pane: "%1"})
+	queue := fixture.newQueue(t)
+	service := fixture.newService(NewRebaseServiceParams{Events: queue})
+
+	require.NoError(t, service.record(t.Context(), agent.ID, rebaseOutcome{Failure: "the older rebase failed"}))
+	require.NoError(t, service.record(t.Context(), agent.ID, rebaseOutcome{Result: &RebaseResult{RebasePlan: RebasePlan{Landed: 2}, Moved: true}}))
+	stale := queue.ListEvents()[0]
+	require.NoError(t, queue.InsertTx(t.Context(), stale))
+
+	inbox := fixture.readInbox(t, agent.ID)
+	require.Len(t, inbox, 1)
+	assert.NotContains(t, inbox[0], "the older rebase failed")
+	assert.Contains(t, inbox[0], "already been merged")
+}

@@ -372,6 +372,7 @@ type Agent struct {
 	MovedSinceRound string
 	// Why the agent's create or cleanup failed, empty unless it is in one of the failed states.
 	FailureReason string
+	LastRebase    []byte
 }
 
 // Which agents were seen with which pull requests, one row per pair, never re-pointed. The watch carries every pull request with a row here.

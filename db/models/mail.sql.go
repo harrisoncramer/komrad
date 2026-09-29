@@ -132,6 +132,33 @@ func (q *Queries) DeleteMailByID(ctx context.Context, ids []string) error {
 	return err
 }
 
+const existsReadAbout = `-- name: ExistsReadAbout :one
+SELECT
+    EXISTS (
+        SELECT
+            1
+        FROM
+            mail m
+        WHERE
+            m.to_agent_id = $1
+            AND m.kind = $2
+            AND m.subject_id = $3::uuid
+            AND m.claimed_at IS NOT NULL)
+`
+
+type ExistsReadAboutParams struct {
+	ToAgentID string
+	Kind      MailKind
+	SubjectID string
+}
+
+func (q *Queries) ExistsReadAbout(ctx context.Context, arg ExistsReadAboutParams) (bool, error) {
+	row := q.db.QueryRow(ctx, existsReadAbout, arg.ToAgentID, arg.Kind, arg.SubjectID)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const getMail = `-- name: GetMail :one
 SELECT
     id, from_agent_id, from_name, to_agent_id, body, reply_to, claimed_at, reported_at, expires_at, created_at, updated_at, kind, engine_id, idempotency_key, subject_id

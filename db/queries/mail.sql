@@ -62,6 +62,19 @@ WHERE
     AND m.claimed_at IS NULL
 FOR UPDATE;
 
+-- name: ExistsReadAbout :one
+SELECT
+    EXISTS (
+        SELECT
+            1
+        FROM
+            mail m
+        WHERE
+            m.to_agent_id = @to_agent_id
+            AND m.kind = @kind
+            AND m.subject_id = @subject_id::uuid
+            AND m.claimed_at IS NOT NULL);
+
 -- name: GetMailByIdempotencyKey :one
 SELECT
     *
