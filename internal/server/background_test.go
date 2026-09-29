@@ -394,6 +394,7 @@ func buildRecordedLoop(starts *runStarts, interval, floor time.Duration, waker *
 		},
 	})
 }
+
 func buildHeldLoop(starts *runStarts, interval time.Duration, waker *LoopWaker, release <-chan struct{}) *Loop {
 	return NewLoop(NewLoopParams{
 		Name:     "pull request sync",
