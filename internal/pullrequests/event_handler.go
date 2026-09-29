@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 
 	"komrad/internal/events"
@@ -50,6 +51,11 @@ func (*EventHandler) Handle(ctx context.Context, tx store.DBTX, mailer *mail.Mai
 		return nil, err
 	}
 
+	if change.Recipient != "" {
+		recipients = slices.DeleteFunc(recipients, func(recipient string) bool { return recipient != change.Recipient })
+	}
+
+	var followUps []river.JobArgs
 	body := render(*pullRequest)
 	for _, recipient := range recipients {
 		err := events.Send(ctx, mailer, mail.SendFromKomradParams{
@@ -59,12 +65,22 @@ func (*EventHandler) Handle(ctx context.Context, tx store.DBTX, mailer *mail.Mai
 			Body:        body,
 			OnlyRewrite: !change.Opens(),
 		})
+		if errors.Is(err, mail.ErrMailboxFull) && change.Recipient == "" {
+			retry, err := events.NewEvent(Change{ID: change.ID, Moves: change.Moves, Recipient: recipient})
+			if err != nil {
+				return nil, err
+			}
+
+			followUps = append(followUps, *retry)
+
+			continue
+		}
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	return nil, nil
+	return followUps, nil
 }
 
 func render(pullRequest pullrequeststore.PullRequest) string {

@@ -38,8 +38,9 @@ type Move struct {
 
 // Change is the fields of one pull request that moved in one write.
 type Change struct {
-	ID    string `json:"id"`
-	Moves []Move `json:"moves"`
+	ID        string `json:"id"`
+	Moves     []Move `json:"moves"`
+	Recipient string `json:"recipient,omitempty"`
 }
 
 // Topic names the handler that tells the agents on the branch.
