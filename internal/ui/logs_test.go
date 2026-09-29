@@ -598,10 +598,10 @@ func TestLogsLineFilter(t *testing.T) {
 		},
 		{
 			name:     "a broken pattern reads nothing and keeps the lines",
-			presses:  append(slices.Clone(settled), "("),
+			presses:  append(slices.Clone(settled), "(", settle),
 			want:     []string{"second line", "▽ second("},
 			notWant:  []string{"first line"},
-			wantLast: serviceReadMatching("(?i)second", ""),
+			wantLast: serviceReadMatching("(?i)second", "10"),
 		},
 		{
 			name:     "esc on the lines clears a standing filter",
