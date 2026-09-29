@@ -721,8 +721,7 @@ func TestDelete(t *testing.T) {
 	assert.Nil(t, launched.ScheduleID, "the agent it launched stays and no longer names it")
 }
 
-// TestDeletingAnOrchestratorTakesItsSchedules pins the cascade, so a schedule cannot outlive the
-// orchestrator it mails, and a schedule mailing another orchestrator stays.
+// TestDeletingAnOrchestratorTakesItsSchedules leaves a schedule mailing another orchestrator alone.
 func TestDeletingAnOrchestratorTakesItsSchedules(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
