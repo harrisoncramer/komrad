@@ -171,7 +171,7 @@ func (a *admin) dropWhenDone(t *testing.T, name string) {
 	t.Cleanup(func() {
 		// The test's own context is already cancelled by the time a cleanup runs, and the
 		// drop still has to reach the server.
-		dropCtx := context.Background() //nolint:usetesting // as above
+		dropCtx := context.WithoutCancel(t.Context())
 
 		conn, err := pgx.Connect(dropCtx, replaceDatabase(a.baseURL, "postgres"))
 		if err != nil {

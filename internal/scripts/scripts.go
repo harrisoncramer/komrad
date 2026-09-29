@@ -127,7 +127,7 @@ type Result struct {
 
 // Run starts a script and returns once the process exists rather than once it has finished,
 // reporting only a failure to start.
-func (r Runner) Run(params RunParams) error {
+func (r Runner) Run(ctx context.Context, params RunParams) error {
 	if !params.Script.Executable {
 		return fmt.Errorf("failed to run script %s: %w", params.Script.Name, ErrNotExecutable)
 	}
@@ -138,7 +138,7 @@ func (r Runner) Run(params RunParams) error {
 
 	var output tail
 
-	ctx := context.Background()
+	ctx = context.WithoutCancel(ctx)
 	cancel := func() {}
 	if params.Timeout > 0 {
 		ctx, cancel = context.WithTimeout(ctx, params.Timeout)
@@ -164,7 +164,7 @@ func (r Runner) Run(params RunParams) error {
 	}
 
 	go func() {
-		defer logging.LogAndRepanic(context.Background())
+		defer logging.LogAndRepanic(ctx)
 		defer cancel()
 
 		waitErr := cmd.Wait()

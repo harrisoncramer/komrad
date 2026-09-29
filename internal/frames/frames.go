@@ -11,7 +11,7 @@ import (
 	"hash/fnv"
 	"os"
 	"path/filepath"
-	"sort"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -162,7 +162,7 @@ func prune(dir string, keep int) error {
 		return nil
 	}
 
-	sort.Strings(written)
+	slices.Sort(written)
 	for _, name := range written[:len(written)-keep] {
 		if err := os.Remove(filepath.Join(dir, name)); err != nil {
 			return fmt.Errorf("failed to remove %s: %w", name, err)

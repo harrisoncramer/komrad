@@ -6,6 +6,7 @@ import (
 
 	"komrad/internal/engine"
 	"komrad/internal/ui"
+	"komrad/lib/xptr"
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
 
@@ -123,7 +124,7 @@ func TestListingLandsWrites(t *testing.T) {
 
 		old := newAgent("a1", "old", "w1")
 		old.PaneId = "%1"
-		old.Alive = proto.Bool(true)
+		old.Alive = xptr.Ptr(true)
 		harness := openAgents(t, newLiveWorkflow("w1", "api"), old)
 		harness.fireTimers()
 		require.Equal(t, "%1", harness.panel.ReadGuestPane())
@@ -139,7 +140,7 @@ func TestListingLandsWrites(t *testing.T) {
 
 		created := newAgent("a2", "new", "w1")
 		created.PaneId = "%9"
-		created.Alive = proto.Bool(true)
+		created.Alive = xptr.Ptr(true)
 		harness.watch(buildPuts(created))
 
 		assert.Equal(t, "  new", readHoveredRow(harness.readFrame()))
@@ -312,7 +313,7 @@ func answerResume(harness *panelHarness) {
 func newRunning() *agentv1.Agent {
 	agent := newAgent("a1", "old", "w1")
 	agent.PaneId = "%9"
-	agent.Alive = proto.Bool(true)
+	agent.Alive = xptr.Ptr(true)
 
 	return agent
 }
@@ -402,6 +403,6 @@ func newDormant(name string) *agentv1.Agent {
 		Name:       name,
 		WorkflowId: "w1",
 		State:      agentv1.AgentState_AGENT_STATE_IDLE,
-		Alive:      proto.Bool(false),
+		Alive:      xptr.Ptr(false),
 	}
 }

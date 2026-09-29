@@ -7,9 +7,8 @@ import (
 	"context"
 	"fmt"
 
+	"komrad/lib/xptr"
 	paginationv1 "komrad/proto/gen/pagination/v1"
-
-	"google.golang.org/protobuf/proto"
 )
 
 // pageSize is the server's own cap, so a page comes back whole rather than clamped to a size the
@@ -28,9 +27,9 @@ func listAll[T any](ctx context.Context, fetch fetchPage[T]) ([]T, error) {
 	)
 
 	for range maxPages {
-		page := &paginationv1.Pagination{Limit: proto.Int32(pageSize)}
+		page := &paginationv1.Pagination{Limit: xptr.Ptr[int32](pageSize)}
 		if cursor != "" {
-			page.Cursor = proto.String(cursor)
+			page.Cursor = xptr.Ptr(cursor)
 		}
 
 		records, next, err := fetch(ctx, page)

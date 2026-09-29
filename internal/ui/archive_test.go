@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"komrad/internal/ui/paint"
+	"komrad/lib/xptr"
 	"komrad/lib/xslice"
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
@@ -304,7 +305,7 @@ func TestArchiveRows(t *testing.T) {
 					Name:       "orchestrator",
 					WorkflowId: "w1",
 					Role:       agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR,
-					ArchivedAt: proto.String(archivedAt),
+					ArchivedAt: xptr.Ptr(archivedAt),
 				},
 			},
 			wantRows: []string{"backend", "  orchestrator"},
@@ -469,8 +470,8 @@ func TestArchiveDocument(t *testing.T) {
 	t.Run("the record says what the agents list would say of it", func(t *testing.T) {
 		agent := newArchivedAgent("a1", "api-refactor", "w1")
 		agent.CreatedAt = "2026-07-29T09:00:00Z"
-		agent.Branch = proto.String("agent/a1")
-		agent.RepositoryUrl = proto.String("https://github.com/harrisoncramer/komrad")
+		agent.Branch = xptr.Ptr("agent/a1")
+		agent.RepositoryUrl = xptr.Ptr("https://github.com/harrisoncramer/komrad")
 		harness := openArchive(t,
 			newLiveWorkflow("w1", "backend"),
 			agent,
@@ -482,8 +483,8 @@ func TestArchiveDocument(t *testing.T) {
 				Number:            42,
 				State:             pullrequestv1.PullRequestState_PULL_REQUEST_STATE_MERGED,
 				OpenedAt:          "2026-07-30T08:00:00Z",
-				MergedAt:          proto.String(archivedAt),
-				ClosedAt:          proto.String(archivedAt),
+				MergedAt:          xptr.Ptr(archivedAt),
+				ClosedAt:          xptr.Ptr(archivedAt),
 			},
 			&agentv1.WatchedReview{
 				Id:           "v1",
@@ -611,7 +612,7 @@ func TestArchiveWindow(t *testing.T) {
 				Name:       "auth",
 				WorkflowId: "w1",
 				PaneId:     "%9",
-				Alive:      proto.Bool(true),
+				Alive:      xptr.Ptr(true),
 				State:      agentv1.AgentState_AGENT_STATE_IDLE,
 			},
 			newArchivedAgent("a1", "api-refactor", "w1"),
@@ -943,7 +944,7 @@ func newArchivedWorkflow(id, name string) *workflowv1.Workflow {
 	return &workflowv1.Workflow{
 		Id:         id,
 		Name:       name,
-		ArchivedAt: proto.String(archivedAt),
+		ArchivedAt: xptr.Ptr(archivedAt),
 	}
 }
 
@@ -953,13 +954,13 @@ func newArchivedAgent(id, name, workflowID string) *agentv1.Agent {
 		Name:       name,
 		WorkflowId: workflowID,
 		State:      agentv1.AgentState_AGENT_STATE_IDLE,
-		ArchivedAt: proto.String(archivedAt),
+		ArchivedAt: xptr.Ptr(archivedAt),
 	}
 }
 
 func newArchivedAgentAt(name, at string) *agentv1.Agent {
 	agent := newArchivedAgent(name, name, "w1")
-	agent.ArchivedAt = proto.String(at)
+	agent.ArchivedAt = xptr.Ptr(at)
 
 	return agent
 }

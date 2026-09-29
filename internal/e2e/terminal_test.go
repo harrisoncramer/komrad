@@ -11,6 +11,7 @@ import (
 
 	"komrad/internal/engine"
 	"komrad/internal/komradtest"
+	"komrad/lib/clock"
 	agentv1 "komrad/proto/gen/agent/v1"
 	terminalv1 "komrad/proto/gen/terminal/v1"
 	workflowv1 "komrad/proto/gen/workflow/v1"
@@ -78,7 +79,7 @@ func TestIntegrationTerminalAttachesToAnAgent(t *testing.T) {
 		deadline := time.Now().Add(5 * time.Second)
 		for slices.Contains(listSessions(instance), view) {
 			require.True(t, time.Now().Before(deadline), "view %s outlived its last attach", view)
-			time.Sleep(50 * time.Millisecond)
+			clock.Sleep(t.Context(), 50*time.Millisecond)
 		}
 
 		assert.Equal(t, pane, instance.GetOwnedPane(agent.GetId()))

@@ -9,6 +9,7 @@ import (
 
 	"komrad/internal/ui"
 	"komrad/internal/ui/paint"
+	"komrad/lib/xptr"
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
 
@@ -33,7 +34,7 @@ func TestDocumentsOpen(t *testing.T) {
 		frame := harness.readFrame()
 		assert.Equal(t, documentsScreen, harness.readScreen())
 		assert.Contains(t, readStageText(frame), "Design the cache")
-		harness.assertSentTo(agentv1connect.AgentServiceListDocumentsProcedure, &agentv1.ListDocumentsRequest{AgentId: proto.String("author")})
+		harness.assertSentTo(agentv1connect.AgentServiceListDocumentsProcedure, &agentv1.ListDocumentsRequest{AgentId: xptr.Ptr("author")})
 	})
 
 	t.Run("a row with none does not open it", func(t *testing.T) {
@@ -99,7 +100,7 @@ func TestDocumentsRead(t *testing.T) {
 		docs.rewrite("d1", "The cache is cold now.", "2026-09-26T12:00:00Z")
 
 		author := buildDocumentAuthors()[2].(*agentv1.Agent)
-		author.DocumentsUpdatedAt = proto.String("2026-09-26T12:00:00Z")
+		author.DocumentsUpdatedAt = xptr.Ptr("2026-09-26T12:00:00Z")
 		harness.watch(buildPuts(author))
 
 		assert.Len(t, harness.readSent(agentv1connect.AgentServiceListDocumentsProcedure), 2)
@@ -113,7 +114,7 @@ func TestDocumentsRead(t *testing.T) {
 		docs.rewrite("d1", "The cache is cold now.", "2026-09-25T12:00:00.5Z")
 
 		author := buildDocumentAuthors()[2].(*agentv1.Agent)
-		author.DocumentsUpdatedAt = proto.String("2026-09-25T12:00:00.5Z")
+		author.DocumentsUpdatedAt = xptr.Ptr("2026-09-25T12:00:00.5Z")
 		harness.watch(buildPuts(author))
 
 		assert.Len(t, harness.readSent(agentv1connect.AgentServiceGetDocumentProcedure), 2)
@@ -197,7 +198,7 @@ func TestDocumentsEdit(t *testing.T) {
 			between: func(h *panelHarness, docs *documentShelf) {
 				docs.rewrite("d1", "The agent's own rewrite.", "2026-09-26T12:00:00Z")
 				author := buildDocumentAuthors()[2].(*agentv1.Agent)
-				author.DocumentsUpdatedAt = proto.String("2026-09-26T12:00:00Z")
+				author.DocumentsUpdatedAt = xptr.Ptr("2026-09-26T12:00:00Z")
 				h.watch(buildPuts(author))
 			},
 			refuse:    true,
@@ -253,8 +254,8 @@ func TestDocumentsEdit(t *testing.T) {
 			}
 
 			harness.assertSentTo(agentv1connect.AgentServiceWriteDocumentProcedure, &agentv1.WriteDocumentRequest{
-				Id:      proto.String("d1"),
-				Version: proto.Int32(3),
+				Id:      xptr.Ptr("d1"),
+				Version: xptr.Ptr[int32](3),
 				Name:    "Design the cache",
 				Kind:    agentv1.DocumentKind_DOCUMENT_KIND_RFC,
 				Source:  &agentv1.WriteDocumentRequest_Body{Body: tt.wantSaved},
@@ -279,7 +280,7 @@ func TestDocumentsNew(t *testing.T) {
 			name:    "a name and the kind left alone write an RFC saying it is empty",
 			presses: []string{"c", "P", "l", "a", "n", "ctrl+s"},
 			want: &agentv1.WriteDocumentRequest{
-				AgentId: proto.String("author"),
+				AgentId: xptr.Ptr("author"),
 				Name:    "Plan",
 				Kind:    agentv1.DocumentKind_DOCUMENT_KIND_RFC,
 				Source:  &agentv1.WriteDocumentRequest_Body{Body: "Empty RFC document.\n"},
@@ -289,7 +290,7 @@ func TestDocumentsNew(t *testing.T) {
 			name:    "the kind chosen names what the document says it is",
 			presses: []string{"c", "L", "o", "g", "tab", "down", "down", "down", "ctrl+s"},
 			want: &agentv1.WriteDocumentRequest{
-				AgentId: proto.String("author"),
+				AgentId: xptr.Ptr("author"),
 				Name:    "Log",
 				Kind:    agentv1.DocumentKind_DOCUMENT_KIND_NOTES,
 				Source:  &agentv1.WriteDocumentRequest_Body{Body: "Empty notes document.\n"},
@@ -629,7 +630,7 @@ func TestDocumentsReadingKeepsTheCursorShown(t *testing.T) {
 			docs.rewrite("d2", strings.Join(append(lines, "The last line."), "\n"), "2026-09-26T12:00:00Z")
 
 			author := buildDocumentAuthors()[2].(*agentv1.Agent)
-			author.DocumentsUpdatedAt = proto.String("2026-09-26T12:00:00Z")
+			author.DocumentsUpdatedAt = xptr.Ptr("2026-09-26T12:00:00Z")
 			harness.watch(buildPuts(author))
 
 			harness.press("j")
@@ -733,11 +734,11 @@ func moveToAgentRow(t *testing.T, harness *panelHarness, name string) {
 func buildDocumentAuthors() []proto.Message {
 	orchestrator := newOrchestrator()
 	orchestrator.Documents = 2
-	orchestrator.DocumentsUpdatedAt = proto.String("2026-09-25T12:00:00Z")
+	orchestrator.DocumentsUpdatedAt = xptr.Ptr("2026-09-25T12:00:00Z")
 
 	author := newAgent("author", "author", "w1")
 	author.Documents = 2
-	author.DocumentsUpdatedAt = proto.String("2026-09-25T12:00:00Z")
+	author.DocumentsUpdatedAt = xptr.Ptr("2026-09-25T12:00:00Z")
 
 	return []proto.Message{
 		newLiveWorkflow("w1", "komrad"),

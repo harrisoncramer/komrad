@@ -6,9 +6,9 @@ import (
 
 	"komrad/internal/ui/layout"
 	"komrad/internal/ui/panel"
+	"komrad/lib/xptr"
 
 	tea "charm.land/bubbletea/v2"
-	"google.golang.org/protobuf/proto"
 )
 
 // releasePanes swaps the given agents' panes out of the stage and marks them locally as no
@@ -17,7 +17,7 @@ func (m *model) releasePanes(agents []panel.Agent) {
 	for _, agent := range agents {
 		m.frame.ReleaseGuest(agent.Pane)
 		if held, ok := m.listing.world.Agents[agent.ID]; ok {
-			held.Alive = proto.Bool(false)
+			held.Alive = xptr.Ptr(false)
 		}
 	}
 

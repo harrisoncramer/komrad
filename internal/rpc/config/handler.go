@@ -9,9 +9,9 @@ import (
 	"komrad/internal/fail"
 	"komrad/internal/rpcerr"
 	"komrad/internal/version"
+	"komrad/lib/xptr"
 	configv1 "komrad/proto/gen/config/v1"
 
-	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -34,7 +34,7 @@ func (s *Handler) GetConfig(_ context.Context, _ *emptypb.Empty) (*configv1.GetC
 	cfg, err := s.load()
 	if err != nil {
 		cfg = komradconfig.Defaults()
-		configError = proto.String(err.Error())
+		configError = xptr.Ptr(err.Error())
 	}
 
 	blob, err := renderConfig(cfg)

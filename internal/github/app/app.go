@@ -28,13 +28,13 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 
 	"komrad/internal/fail"
 	"komrad/internal/logging"
+	"komrad/lib/xfile"
 	"komrad/lib/xhttp"
 )
 
@@ -328,30 +328,7 @@ func (c Cache) Write(token Token) error {
 	// Written to a file that is always new and renamed over the target, so the mode is the one
 	// asked for rather than whatever the target was first created with, and a reader never sees
 	// half a document.
-	temporary, err := os.CreateTemp(filepath.Dir(c.Path), ".github-token-*")
-	if err != nil {
-		return fmt.Errorf("failed to record the github token at %s: %w", c.Path, err)
-	}
-
-	defer func() { _ = os.Remove(temporary.Name()) }() //nolint:errcheck // gone already on success
-
-	if err := temporary.Chmod(0o600); err != nil {
-		_ = temporary.Close()
-
-		return fmt.Errorf("failed to record the github token at %s: %w", c.Path, err)
-	}
-
-	if _, err := temporary.Write(append(encoded, '\n')); err != nil {
-		_ = temporary.Close()
-
-		return fmt.Errorf("failed to record the github token at %s: %w", c.Path, err)
-	}
-
-	if err := temporary.Close(); err != nil {
-		return fmt.Errorf("failed to record the github token at %s: %w", c.Path, err)
-	}
-
-	if err := os.Rename(temporary.Name(), c.Path); err != nil {
+	if err := xfile.WriteAtomic(c.Path, append(encoded, '\n'), 0o600); err != nil {
 		return fmt.Errorf("failed to record the github token at %s: %w", c.Path, err)
 	}
 

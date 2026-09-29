@@ -9,6 +9,7 @@ import (
 
 	"komrad/config"
 	"komrad/internal/ui/paint"
+	"komrad/lib/xptr"
 	"komrad/lib/xslice"
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
@@ -459,10 +460,10 @@ func TestSearchLiveRow(t *testing.T) {
 
 	live := newAgent("a1", "billing", "w1")
 	live.State = agentv1.AgentState_AGENT_STATE_WAITING
-	live.Alive = proto.Bool(true)
+	live.Alive = xptr.Ptr(true)
 	live.Hidden = true
 	live.HeldAt = "2026-09-20T12:00:00Z"
-	live.ScheduleId = proto.String("s1")
+	live.ScheduleId = xptr.Ptr("s1")
 	rows := []proto.Message{
 		newLiveWorkflow("w1", "core"),
 		live,
@@ -952,7 +953,7 @@ func TestSearchPreview(t *testing.T) {
 				pages: map[string]*agentv1.SearchTranscriptsResponse{
 					"": {
 						Matches:       []*agentv1.SearchHit{newMatchHit("a1", offset, length), second},
-						NextPageToken: proto.String("page-2"),
+						NextPageToken: xptr.Ptr("page-2"),
 					},
 					"page-2": {Matches: []*agentv1.SearchHit{laterBilling, laterPayouts}},
 				},
@@ -970,13 +971,13 @@ func TestSearchPreview(t *testing.T) {
 		harness.assertSentTo(agentv1connect.AgentServiceSearchTranscriptsProcedure,
 			&agentv1.SearchTranscriptsRequest{
 				Query:      "reconcile",
-				Pagination: &paginationv1.Pagination{Limit: proto.Int32(10)},
+				Pagination: &paginationv1.Pagination{Limit: xptr.Ptr[int32](10)},
 			},
 			&agentv1.SearchTranscriptsRequest{
 				Query: "reconcile",
 				Pagination: &paginationv1.Pagination{
-					Limit:  proto.Int32(10),
-					Cursor: proto.String("page-2"),
+					Limit:  xptr.Ptr[int32](10),
+					Cursor: xptr.Ptr("page-2"),
 				},
 			},
 		)
@@ -1075,7 +1076,7 @@ func buildSearchable() []proto.Message {
 func newPanedAgent(id, name, pane string) *agentv1.Agent {
 	agent := newAgent(id, name, "w1")
 	agent.PaneId = pane
-	agent.Alive = proto.Bool(true)
+	agent.Alive = xptr.Ptr(true)
 
 	return agent
 }

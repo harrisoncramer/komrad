@@ -17,6 +17,7 @@ import (
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/panel"
 	"komrad/internal/view"
+	"komrad/lib/xptr"
 	"komrad/lib/xslice"
 	agentv1 "komrad/proto/gen/agent/v1"
 	paginationv1 "komrad/proto/gen/pagination/v1"
@@ -24,7 +25,6 @@ import (
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 	"connectrpc.com/connect"
-	"google.golang.org/protobuf/proto"
 )
 
 // searchScreen is the search screen: the query being typed, the hits the server found for it,
@@ -241,7 +241,7 @@ func (w *searchScreen) searchCmd(s panelShared, query string, cursor *string) te
 			resp, err := client.SearchTranscripts(ctx, connect.NewRequest(&agentv1.SearchTranscriptsRequest{
 				Query: query,
 				Pagination: &paginationv1.Pagination{
-					Limit:  proto.Int32(searchLimit),
+					Limit:  xptr.Ptr[int32](searchLimit),
 					Cursor: cursor,
 				},
 			}))

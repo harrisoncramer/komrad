@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"komrad/lib/xfile"
 )
 
 // ToolsDirName is the directory under the cache dir holding the stand-ins komrad puts ahead of
@@ -73,30 +75,7 @@ func writeScript(path, body string) error {
 	// in place would therefore hand a gh already running in another agent the second half of a
 	// script it did not start. Renaming a finished file over the target puts a new inode there.
 	// The running invocation keeps the old one until it exits.
-	temporary, err := os.CreateTemp(filepath.Dir(path), ".gh-*")
-	if err != nil {
-		return fmt.Errorf("failed to write %q: %w", path, err)
-	}
-
-	defer func() { _ = os.Remove(temporary.Name()) }() //nolint:errcheck // gone already on success
-
-	if _, err := temporary.WriteString(body); err != nil {
-		_ = temporary.Close()
-
-		return fmt.Errorf("failed to write %q: %w", path, err)
-	}
-
-	if err := temporary.Chmod(0o755); err != nil { //nolint:gosec // a stand-in on PATH is run, not read
-		_ = temporary.Close()
-
-		return fmt.Errorf("failed to write %q: %w", path, err)
-	}
-
-	if err := temporary.Close(); err != nil {
-		return fmt.Errorf("failed to write %q: %w", path, err)
-	}
-
-	if err := os.Rename(temporary.Name(), path); err != nil {
+	if err := xfile.WriteAtomic(path, []byte(body), 0o755); err != nil {
 		return fmt.Errorf("failed to write %q: %w", path, err)
 	}
 

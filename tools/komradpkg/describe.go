@@ -10,7 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"sort"
+	"slices"
 	"strings"
 )
 
@@ -107,7 +107,7 @@ func modulesUnder(root string) ([]module, error) {
 		}
 	}
 
-	sort.Strings(dirs[1:])
+	slices.Sort(dirs[1:])
 
 	modules := make([]module, 0, len(dirs))
 

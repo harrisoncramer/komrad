@@ -10,10 +10,10 @@ import (
 	"komrad/internal/rpcerr"
 	"komrad/internal/worktrees"
 	"komrad/lib/dates"
+	"komrad/lib/xptr"
 	"komrad/lib/xslice"
 	worktreev1 "komrad/proto/gen/worktree/v1"
 
-	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -205,7 +205,7 @@ func countLines(stat *git.DiffStat) (*int32, *int32) {
 		return nil, nil
 	}
 
-	return proto.Int32(int32(stat.Added)), proto.Int32(int32(stat.Removed))
+	return xptr.Ptr(int32(stat.Added)), xptr.Ptr(int32(stat.Removed))
 }
 
 func describeBaseErr(err error) string {

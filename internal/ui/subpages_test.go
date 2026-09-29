@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"komrad/internal/ui/paint"
+	"komrad/lib/xptr"
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
 
@@ -172,7 +173,7 @@ func TestSubpagesInArchive(t *testing.T) {
 
 		require.Equal(t, documentsScreen, harness.readScreen())
 		assert.Contains(t, harness.readFrame(), "archive › author")
-		harness.assertSentTo(agentv1connect.AgentServiceListDocumentsProcedure, &agentv1.ListDocumentsRequest{AgentId: proto.String("author")})
+		harness.assertSentTo(agentv1connect.AgentServiceListDocumentsProcedure, &agentv1.ListDocumentsRequest{AgentId: xptr.Ptr("author")})
 
 		harness.press("esc")
 
@@ -197,7 +198,7 @@ func openArchivedSubpages(t *testing.T) *panelHarness {
 
 	author := newArchivedAgent("author", "author", "w1")
 	author.Documents = 2
-	author.DocumentsUpdatedAt = proto.String("2026-09-25T12:00:00Z")
+	author.DocumentsUpdatedAt = xptr.Ptr("2026-09-25T12:00:00Z")
 
 	harness := openArchive(t, newLiveWorkflow("w1", "komrad"), author)
 	newDocumentShelf().answer(harness)

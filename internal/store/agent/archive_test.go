@@ -7,6 +7,7 @@ import (
 
 	"komrad/internal/store"
 	workflowstore "komrad/internal/store/workflow"
+	"komrad/lib/clock"
 	"komrad/lib/xslice"
 
 	"github.com/stretchr/testify/assert"
@@ -416,7 +417,7 @@ func waitForBlockedArchive(t *testing.T, st *fixture) {
 			return
 		}
 
-		time.Sleep(10 * time.Millisecond)
+		clock.Sleep(t.Context(), 10*time.Millisecond)
 	}
 
 	t.Fatal("no archive ever blocked on the row, so it never reached its write")

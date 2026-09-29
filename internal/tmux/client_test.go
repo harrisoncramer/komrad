@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"komrad/internal/panes"
+	"komrad/lib/clock"
 
 	"github.com/creack/pty"
 	"github.com/stretchr/testify/assert"
@@ -710,7 +711,7 @@ func waitForLine(t *testing.T, path, want string) {
 			return
 		}
 
-		time.Sleep(50 * time.Millisecond)
+		clock.Sleep(t.Context(), 50*time.Millisecond)
 	}
 
 	t.Fatalf("the program never received %q; it holds:\n%s", want, readFile(t, path))

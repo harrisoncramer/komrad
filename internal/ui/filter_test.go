@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"komrad/lib/xptr"
 	schedulev1 "komrad/proto/gen/schedule/v1"
 	worktreev1 "komrad/proto/gen/worktree/v1"
 
@@ -441,18 +442,18 @@ func TestFilterWorktreeHeader(t *testing.T) {
 			RepoDir:    "/home/h/komrad",
 			Branch:     "agent/worktree-view",
 			Readable:   true,
-			SizeBytes:  proto.Int64(1 << 20),
-			ShareBytes: proto.Int64(1 << 20),
-			MeasuredAt: proto.String(archivedAt),
+			SizeBytes:  xptr.Ptr[int64](1 << 20),
+			ShareBytes: xptr.Ptr[int64](1 << 20),
+			MeasuredAt: xptr.Ptr(archivedAt),
 		},
 		&worktreev1.WatchedWorktree{
 			Dir:        "/trees/other",
 			RepoDir:    "/home/h/komrad",
 			Branch:     "agent/other",
 			Readable:   true,
-			SizeBytes:  proto.Int64(1 << 20),
-			ShareBytes: proto.Int64(1 << 20),
-			MeasuredAt: proto.String(archivedAt),
+			SizeBytes:  xptr.Ptr[int64](1 << 20),
+			ShareBytes: xptr.Ptr[int64](1 << 20),
+			MeasuredAt: xptr.Ptr(archivedAt),
 		},
 	))
 	harness.press("tab", "w")

@@ -27,7 +27,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/testing/protocmp"
 )
 
@@ -191,7 +190,7 @@ func TestTranscriptRefusalsMapToCodes(t *testing.T) {
 		return func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
 			req := &agentv1.GetTranscriptRequest{AgentId: alphaID}
 			if cursor != "" {
-				req.Cursor = proto.String(cursor)
+				req.Cursor = xptr.Ptr(cursor)
 			}
 
 			_, err := svc.GetTranscript(ctx, connect.NewRequest(req))
@@ -208,7 +207,7 @@ func TestTranscriptRefusalsMapToCodes(t *testing.T) {
 		return func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
 			req := &agentv1.SearchTranscriptsRequest{Query: "reconciler"}
 			if cursor != "" {
-				req.Pagination = &paginationv1.Pagination{Cursor: proto.String(cursor)}
+				req.Pagination = &paginationv1.Pagination{Cursor: xptr.Ptr(cursor)}
 			}
 
 			_, err := svc.SearchTranscripts(ctx, connect.NewRequest(req))
@@ -360,7 +359,7 @@ func TestSearchTranscripts(t *testing.T) {
 
 	first, err := svc.SearchTranscripts(t.Context(), connect.NewRequest(&agentv1.SearchTranscriptsRequest{
 		Query:      "reconciler",
-		Pagination: &paginationv1.Pagination{Limit: proto.Int32(1)},
+		Pagination: &paginationv1.Pagination{Limit: xptr.Ptr[int32](1)},
 	}))
 	require.NoError(t, err)
 
@@ -388,7 +387,7 @@ func TestSearchTranscripts(t *testing.T) {
 
 	_, err = svc.SearchTranscripts(t.Context(), connect.NewRequest(&agentv1.SearchTranscriptsRequest{
 		Query:      "reconciler",
-		Pagination: &paginationv1.Pagination{Limit: proto.Int32(1), Cursor: first.Msg.NextPageToken},
+		Pagination: &paginationv1.Pagination{Limit: xptr.Ptr[int32](1), Cursor: first.Msg.NextPageToken},
 	}))
 	require.NoError(t, err)
 
@@ -503,10 +502,10 @@ func TestGetTranscriptPagesToTheEnd(t *testing.T) {
 	for {
 		req := &agentv1.GetTranscriptRequest{
 			AgentId:  alphaID,
-			MaxBytes: proto.Int32(40),
+			MaxBytes: xptr.Ptr[int32](40),
 		}
 		if cursor != "" {
-			req.Cursor = proto.String(cursor)
+			req.Cursor = xptr.Ptr(cursor)
 		}
 
 		got, err := svc.GetTranscript(t.Context(), connect.NewRequest(req))
@@ -573,8 +572,8 @@ func TestGetLastTurns(t *testing.T) {
 		{
 			name: "a window cuts the head of a turn and says so, leaving a shorter one whole",
 			req: &agentv1.GetLastTurnsRequest{
-				Turns:    proto.Int32(2),
-				MaxBytes: proto.Int32(22),
+				Turns:    xptr.Ptr[int32](2),
+				MaxBytes: xptr.Ptr[int32](22),
 			},
 			wantTurns: 2,
 			want: []lastTurn{
@@ -654,7 +653,7 @@ func TestTranscriptRequestValidation(t *testing.T) {
 			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
 				_, err := c.SearchTranscripts(t.Context(), connect.NewRequest(&agentv1.SearchTranscriptsRequest{
 					Query:      "mcp",
-					Pagination: &paginationv1.Pagination{Limit: proto.Int32(5000)},
+					Pagination: &paginationv1.Pagination{Limit: xptr.Ptr[int32](5000)},
 				}))
 
 				return err

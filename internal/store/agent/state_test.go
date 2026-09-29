@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"komrad/internal/store"
+	"komrad/lib/clock"
 	"komrad/lib/xptr"
 
 	"github.com/stretchr/testify/assert"
@@ -203,7 +204,7 @@ func TestANudgeIsReclaimedOnTheDatabaseClock(t *testing.T) {
 	require.True(t, claimed)
 
 	require.NoError(t, st.pool.InTx(ctx, func(db store.DBTX) error {
-		time.Sleep(300 * time.Millisecond)
+		clock.Sleep(t.Context(), 300*time.Millisecond)
 
 		again, err := NewAgentStore(db).ClaimNudge(ctx, agent.ID, 200*time.Millisecond)
 		require.NoError(t, err)

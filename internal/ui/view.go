@@ -2,7 +2,6 @@ package ui
 
 import (
 	"fmt"
-	"log/slog"
 	"slices"
 	"strings"
 	"time"
@@ -28,9 +27,6 @@ func (m model) View() tea.View {
 
 // render renders the active screen inside its gutters.
 func (m model) render() string {
-	//nolint:sloglint // temporary trace, no context here to carry a logger on
-	slog.Default().Info("panel trace: drawing", "width", m.width, "height", m.height, "solo", m.frame.IsSolo(), "awaiting", m.isAwaitingSize(), "screen", int(m.screen))
-
 	if m.configErr != nil || m.startupErr != nil {
 		return m.drawInset(m.insideView())
 	}

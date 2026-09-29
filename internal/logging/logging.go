@@ -181,5 +181,5 @@ func From(ctx context.Context) *slog.Logger {
 		return logger
 	}
 
-	return slog.Default()
+	return slog.Default() //nolint:forbidigo // the one fallback every other caller reaches through From
 }

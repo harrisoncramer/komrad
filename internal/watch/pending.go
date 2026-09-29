@@ -14,10 +14,10 @@ import (
 type pendingKeys map[watchv1.Resource][]string
 
 // signal says the rows of a resource with these keys may have moved.
-func (b *Broker) signal(resource watchv1.Resource, keys ...string) {
+func (b *Broker) signal(ctx context.Context, resource watchv1.Resource, keys ...string) {
 	if !b.rows.hasLoader(resource) {
 		if b.shouldWarn("resource " + resource.String()) {
-			b.logger.LogAttrs(context.Background(), slog.LevelWarn, "a signal named a resource nothing reads", slog.String(logging.WatchResource, resource.String()))
+			b.logger.LogAttrs(ctx, slog.LevelWarn, "a signal named a resource nothing reads", slog.String(logging.WatchResource, resource.String()))
 		}
 
 		return
@@ -72,8 +72,8 @@ func (b *Broker) drainPending() pendingKeys {
 }
 
 // requeuePending puts the keys a failed render drained back for the next one.
-func (b *Broker) requeuePending(pending pendingKeys) {
+func (b *Broker) requeuePending(ctx context.Context, pending pendingKeys) {
 	for res, keys := range pending {
-		b.signal(res, keys...)
+		b.signal(ctx, res, keys...)
 	}
 }

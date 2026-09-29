@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"komrad/internal/engine"
+	"komrad/lib/xptr"
 	agentv1 "komrad/proto/gen/agent/v1"
 
 	"github.com/stretchr/testify/assert"
@@ -174,7 +175,7 @@ func newStagedShellAgent(dir string) *agentv1.Agent {
 	agent := newShellAgent("a1", dir)
 	agent.CreatedAt = "2026-09-20T12:01:00Z"
 	agent.PaneId = "%9"
-	agent.Alive = proto.Bool(true)
+	agent.Alive = xptr.Ptr(true)
 
 	return agent
 }

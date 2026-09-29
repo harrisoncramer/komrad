@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"sort"
+	"slices"
 	"strings"
 	"time"
 
@@ -122,7 +122,7 @@ func renderLogLine(line *logv1.LogLine) string {
 	for key := range fields {
 		keys = append(keys, key)
 	}
-	sort.Strings(keys)
+	slices.Sort(keys)
 
 	for _, key := range keys {
 		out.WriteString(fmt.Sprintf("  %s=%v", key, fields[key]))

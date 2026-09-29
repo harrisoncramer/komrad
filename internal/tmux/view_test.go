@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"komrad/lib/clock"
+
 	"github.com/creack/pty"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -122,7 +124,7 @@ func waitForClients(t *testing.T, client *Client, session string, want int) {
 			return
 		}
 
-		time.Sleep(50 * time.Millisecond)
+		clock.Sleep(t.Context(), 50*time.Millisecond)
 	}
 
 	t.Fatalf("session %s never had %d clients attached", session, want)

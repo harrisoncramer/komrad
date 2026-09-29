@@ -68,7 +68,7 @@ func NewClient(params NewClientParams) (*river.Client[pgx.Tx], error) {
 	client, err := river.NewClient(riverpgxv5.New(params.Pool), &river.Config{
 		Schema:      params.Schema,
 		Workers:     workers,
-		Logger:      cmp.Or(params.Logger, slog.Default()),
+		Logger:      cmp.Or(params.Logger, slog.New(slog.DiscardHandler)),
 		MaxAttempts: maxAttempts,
 		JobTimeout:  jobTimeout,
 		Queues: map[string]river.QueueConfig{

@@ -6,13 +6,13 @@ import (
 	"strings"
 	"testing"
 
+	"komrad/lib/xptr"
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
 
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/proto"
 )
 
 // TestGetFullTranscript covers the panel reading a transcript the endpoint hands over a window at
@@ -90,7 +90,7 @@ func (f *fakeTranscriptAgents) GetTranscript(
 
 	response := &agentv1.GetTranscriptResponse{Content: f.windows[index%len(f.windows)]}
 	if f.neverEnds || index+1 < len(f.windows) {
-		response.NextPageToken = proto.String(strconv.Itoa(index + 1))
+		response.NextPageToken = xptr.Ptr(strconv.Itoa(index + 1))
 	}
 
 	return connect.NewResponse(response), nil

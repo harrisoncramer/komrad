@@ -965,7 +965,7 @@ func TestIntegrationBuiltinWorktreeCleanupRefusesATreeWhoseRepoHasMoved(t *testi
 	require.NoError(t, err)
 
 	moved := filepath.Join(t.TempDir(), "moved")
-	require.NoError(t, os.Rename(repo, moved))
+	require.NoError(t, os.Rename(repo, moved)) //nolint:forbidigo // moves a directory, which WriteAtomic does not
 
 	cleanup, err := runBuiltin(t, "_worktree_cleanup", worktreeEnv{agentID: "agent-adrift", agentCwd: tree})
 	require.Error(t, err, "the refusal is reported rather than exiting zero")
@@ -1008,7 +1008,7 @@ func TestIntegrationBuiltinWorktreeCleanupLeavesAWorktreeItDoesNotOwnAloneWhenGi
 	runGit(t, repo, "worktree", "add", "--quiet", "-b", "someone-else", theirs)
 
 	moved := filepath.Join(t.TempDir(), "moved")
-	require.NoError(t, os.Rename(repo, moved))
+	require.NoError(t, os.Rename(repo, moved)) //nolint:forbidigo // moves a directory, which WriteAtomic does not
 
 	cleanup, err := runBuiltin(t, "_worktree_cleanup", worktreeEnv{agentID: "agent-thief", agentCwd: theirs})
 	require.NoError(t, err, "stderr: %s", cleanup.Stderr)
@@ -1095,7 +1095,7 @@ func runBuiltin(t *testing.T, name string, env worktreeEnv) (Result, error) {
 	require.NoError(t, err)
 	require.NoError(t, dirFile.Close())
 
-	run := runScript(scriptRun{
+	run := runScript(t.Context(), scriptRun{
 		runner:  NewRunner(),
 		script:  script,
 		env:     env,
@@ -1127,8 +1127,8 @@ type scriptRun struct {
 	dirPath string
 }
 
-func runScript(run scriptRun) outcome {
-	result, err := run.runner.RunAndWait(context.Background(), RunParams{
+func runScript(ctx context.Context, run scriptRun) outcome {
+	result, err := run.runner.RunAndWait(ctx, RunParams{
 		Script: *run.script,
 		Dir:    run.script.GetDir(),
 		Env:    append(run.env.toEnv(), "KOMRAD_SETUP_DIR_FILE="+run.dirPath),
@@ -1166,7 +1166,7 @@ func runBuiltinConcurrently(t *testing.T, name string, envs []worktreeEnv) []out
 		go func() {
 			defer wg.Done()
 
-			outcomes[i] = runScript(scriptRun{
+			outcomes[i] = runScript(t.Context(), scriptRun{
 				runner:  runner,
 				script:  script,
 				env:     env,

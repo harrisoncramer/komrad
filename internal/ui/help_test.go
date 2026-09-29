@@ -12,6 +12,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"komrad/config"
+	"komrad/lib/xptr"
 	"komrad/proto/gen/agent/v1/agentv1connect"
 	workflowv1 "komrad/proto/gen/workflow/v1"
 )
@@ -327,7 +328,7 @@ func buildDriftAgent() []proto.Message {
 	agent := newAgent("a1", "auth", "w1")
 	agent.PaneId = "%9"
 	agent.Cwd = "/repo"
-	agent.Alive = proto.Bool(true)
+	agent.Alive = xptr.Ptr(true)
 	agent.Documents = 1
 
 	return []proto.Message{

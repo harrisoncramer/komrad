@@ -530,7 +530,7 @@ func (s *LaunchService) startInPane(ctx context.Context, agent agentstore.Agent,
 		launch.ParentName = resolved.parent.Name
 	}
 
-	if err := s.launcher.launch(resolved.harness, launch); err != nil {
+	if err := s.launcher.launch(ctx, resolved.harness, launch); err != nil {
 		return nil, fmt.Errorf("failed to launch the agent for %q: %w", agent.Name, err)
 	}
 

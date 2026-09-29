@@ -143,7 +143,7 @@ func TestIntegrationRunPassesTheEnvironmentAndDirectory(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, found, 1)
 
-	require.NoError(t, NewRunner().Run(RunParams{
+	require.NoError(t, NewRunner().Run(t.Context(), RunParams{
 		Script: found[0],
 		Dir:    work,
 		Env:    []string{`KOMRAD_AGENT={"name":"auth"}`},
@@ -189,7 +189,7 @@ func TestIntegrationRunRefusesWhatItCannotStart(t *testing.T) {
 			require.NoError(t, err)
 			require.Len(t, found, 1)
 
-			err = NewRunner().Run(RunParams{Script: found[0], Dir: dir})
+			err = NewRunner().Run(t.Context(), RunParams{Script: found[0], Dir: dir})
 
 			require.Error(t, err)
 			if tt.wantIs != nil {
@@ -211,7 +211,7 @@ func TestIntegrationRunRefusesAMissingDirectory(t *testing.T) {
 
 	gone := filepath.Join(t.TempDir(), "worktree-that-was-removed")
 
-	err = NewRunner().Run(RunParams{Script: found[0], Dir: gone})
+	err = NewRunner().Run(t.Context(), RunParams{Script: found[0], Dir: gone})
 
 	require.ErrorIs(t, err, ErrDirMissing)
 	assert.Contains(t, err.Error(), gone, "the refusal names the directory, not the script")
@@ -229,7 +229,7 @@ func TestIntegrationRunRefusesADirectoryThatIsAFile(t *testing.T) {
 
 	notADir := filepath.Join(dir, "open-pr")
 
-	require.ErrorIs(t, NewRunner().Run(RunParams{Script: found[0], Dir: notADir}), ErrDirMissing)
+	require.ErrorIs(t, NewRunner().Run(t.Context(), RunParams{Script: found[0], Dir: notADir}), ErrDirMissing)
 }
 
 // TestIntegrationRunReportsTheOutcome covers the whole of what a caller with nothing waiting on an
@@ -271,7 +271,7 @@ func TestIntegrationRunReportsTheOutcome(t *testing.T) {
 			require.Len(t, found, 1)
 
 			reported := make(chan outcomeReport, 1)
-			require.NoError(t, NewRunner().Run(RunParams{
+			require.NoError(t, NewRunner().Run(t.Context(), RunParams{
 				Script: found[0],
 				Dir:    dir,
 				Done: func(result Result, err error) {
@@ -308,7 +308,7 @@ func TestIntegrationRunCapturesStdoutToo(t *testing.T) {
 	require.Len(t, found, 1)
 
 	reported := make(chan outcomeReport, 1)
-	require.NoError(t, NewRunner().Run(RunParams{
+	require.NoError(t, NewRunner().Run(t.Context(), RunParams{
 		Script: found[0],
 		Dir:    dir,
 		Done: func(result Result, _ error) {
@@ -416,7 +416,7 @@ func TestIntegrationRunStopsAtItsOwnDeadline(t *testing.T) {
 
 	failed := make(chan error, 1)
 	started := time.Now()
-	require.NoError(t, NewRunner().Run(RunParams{
+	require.NoError(t, NewRunner().Run(t.Context(), RunParams{
 		Script:  found[0],
 		Dir:     dir,
 		Timeout: 100 * time.Millisecond,

@@ -1,12 +1,12 @@
 package main
 
 import (
+	"cmp"
 	"encoding/json"
 	"fmt"
 	"io"
 	"path/filepath"
 	"slices"
-	"sort"
 )
 
 type listed struct {
@@ -61,7 +61,7 @@ func touched(pkgs []listed, moduleDir string, changedDirs, testable map[string]b
 		})
 	}
 
-	sort.Slice(refs, func(i, j int) bool { return refs[i].ImportPath < refs[j].ImportPath })
+	slices.SortFunc(refs, func(a, b pkgRef) int { return cmp.Compare(a.ImportPath, b.ImportPath) })
 
 	dependents := 0
 

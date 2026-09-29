@@ -19,6 +19,7 @@ import (
 	reviewstore "komrad/internal/store/review"
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/internal/tmuxtest"
+	"komrad/lib/clock"
 	"komrad/lib/xptr"
 
 	"github.com/google/uuid"
@@ -920,7 +921,7 @@ func (c *slowCleanupLifecycle) RunDeprovision(ctx context.Context, agent agentst
 	}
 
 	go func() {
-		time.Sleep(20 * time.Millisecond)
+		clock.Sleep(context.WithoutCancel(ctx), 20*time.Millisecond)
 		c.finished.Store(true)
 		if done != nil {
 			done(nil)

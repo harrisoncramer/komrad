@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"komrad/lib/xptr"
 	agentv1 "komrad/proto/gen/agent/v1"
 	schedulev1 "komrad/proto/gen/schedule/v1"
 	schedulev1connect "komrad/proto/gen/schedule/v1/schedulev1connect"
@@ -304,7 +305,7 @@ func TestSchedulesRecord(t *testing.T) {
 	mailing := newSchedule("s1", "morning-ci")
 	mailing.Timezone = "UTC"
 	mailing.Kind = schedulev1.ScheduleKind_SCHEDULE_KIND_ORCHESTRATOR
-	mailing.OrchestratorAgentId = proto.String("o1")
+	mailing.OrchestratorAgentId = xptr.Ptr("o1")
 
 	tests := []struct {
 		name     string
@@ -421,7 +422,7 @@ func TestSchedulesLaunchedAgent(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			launched := newAgent("a1", "morning-ci-1", "w1")
-			launched.ScheduleId = proto.String(tt.scheduleID)
+			launched.ScheduleId = xptr.Ptr(tt.scheduleID)
 			harness := openAgents(t, newLiveWorkflow("w1", "api"), newSchedule("s1", "morning-ci"), launched)
 			harness.press("j")
 
@@ -537,7 +538,7 @@ func TestSchedulesForm(t *testing.T) {
 	t.Run("an edit of an orchestrator schedule keeps the orchestrator it mails", func(t *testing.T) {
 		mailing := newSchedule("s1", "morning-ci")
 		mailing.Kind = schedulev1.ScheduleKind_SCHEDULE_KIND_ORCHESTRATOR
-		mailing.OrchestratorAgentId = proto.String("o1")
+		mailing.OrchestratorAgentId = xptr.Ptr("o1")
 		harness := openSchedules(t, newLiveWorkflow("w1", "api"), mailing, newOrchestrator())
 
 		harness.press("e")

@@ -6,11 +6,11 @@ import (
 
 	"komrad/internal/git"
 	"komrad/internal/gittest"
+	"komrad/lib/xptr"
 	agentv1 "komrad/proto/gen/agent/v1"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/proto"
 )
 
 // TestReviewAnswer covers the answer key, which draws the change an addressed reply carried.
@@ -53,7 +53,7 @@ func TestReviewAnswer(t *testing.T) {
 		harness := openReview(t, server)
 
 		answer := newAnswer()
-		answer.RoundId = proto.String("round-3")
+		answer.RoundId = xptr.Ptr("round-3")
 		server.rounds = append(server.rounds, &agentv1.ReviewRound{
 			Id:          "round-3",
 			AgentId:     "a1",
@@ -113,7 +113,7 @@ func TestReviewAnswer(t *testing.T) {
 		server := newLaterRepliesServer(t)
 		earlier := newAgentMessage("m0", "first try")
 		earlier.CreatedAt = "2026-09-08T09:15:00Z"
-		earlier.RoundId = proto.String("round-1")
+		earlier.RoundId = xptr.Ptr("round-1")
 		thread := server.threads[0]
 		thread.Messages = slices.Insert(thread.Messages, 1, earlier)
 		harness := openReviewAt(t, server, panelHarnessParams{height: 50})
@@ -136,7 +136,7 @@ func newCommentOnRoundOne(replies ...*agentv1.ReviewMessage) *agentv1.ReviewThre
 
 func newAnswer() *agentv1.ReviewMessage {
 	answer := newAgentMessage("m2", "added it")
-	answer.RoundId = proto.String("round-2")
+	answer.RoundId = xptr.Ptr("round-2")
 
 	return answer
 }
@@ -163,7 +163,7 @@ func newLaterRepliesServer(t *testing.T) *reviewServer {
 	looking.CreatedAt = "2026-09-08T09:20:00Z"
 	answer := newAgentMessage("m3", "added it")
 	answer.CreatedAt = "2026-09-08T10:40:00Z"
-	answer.RoundId = proto.String("round-2")
+	answer.RoundId = xptr.Ptr("round-2")
 	thanks := newHumanMessage("m4", "thanks")
 	thanks.CreatedAt = "2026-09-08T10:50:00Z"
 

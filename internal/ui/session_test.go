@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"komrad/internal/ui"
+	"komrad/lib/xptr"
 	agentv1 "komrad/proto/gen/agent/v1"
 
 	"github.com/stretchr/testify/assert"
@@ -112,7 +113,7 @@ func TestSessionCycleKeys(t *testing.T) {
 	t.Run("an agent whose pane goes gives the key back", func(t *testing.T) {
 		harness := openFocus(t)
 		rows := buildFocusRows()
-		rows[1].(*agentv1.Agent).Alive = proto.Bool(false)
+		rows[1].(*agentv1.Agent).Alive = xptr.Ptr(false)
 		rows[1].(*agentv1.Agent).PaneId = ""
 		given := len(harness.panel.ReadRootUnbinds())
 
@@ -184,7 +185,7 @@ func buildFocusRows() []proto.Message {
 func newFocusAgent(id, pane string) *agentv1.Agent {
 	agent := newAgentAt(id, "w1", 30)
 	agent.PaneId = pane
-	agent.Alive = proto.Bool(true)
+	agent.Alive = xptr.Ptr(true)
 
 	return agent
 }

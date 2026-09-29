@@ -39,7 +39,7 @@ var ErrHookNameTaken = fail.InvalidArgument("a hook in the hooks directory takes
 var ErrScriptAlreadyRunning = fail.Precondition("the script is already running for this agent")
 
 type scriptRunner interface {
-	Run(p scripts.RunParams) error
+	Run(ctx context.Context, p scripts.RunParams) error
 	RunAndWait(ctx context.Context, p scripts.RunParams) (scripts.Result, error)
 }
 
@@ -226,7 +226,7 @@ func (s *ScriptService) RunDeprovision(ctx context.Context, agent agentstore.Age
 	ctx = context.WithoutCancel(ctx)
 	began := time.Now()
 
-	err = s.runner.Run(scripts.RunParams{
+	err = s.runner.Run(ctx, scripts.RunParams{
 		Script:  script,
 		Dir:     script.GetDir(),
 		Env:     env,

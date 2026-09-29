@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"komrad/lib/clock"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -94,7 +96,7 @@ func TestIntegrationIsClientAtPaneWithSomebodyWhoHasStoppedTyping(t *testing.T) 
 	attachClient(t, client, "quiet")
 
 	// tmux writes the time in whole seconds, so the wait has to clear one.
-	time.Sleep(1100 * time.Millisecond)
+	clock.Sleep(t.Context(), 1100*time.Millisecond)
 
 	assert.False(t, client.IsClientAtPane(pane, time.Second))
 	assert.True(t, client.IsClientAtPane(pane, time.Minute), "and is still there over a longer window")

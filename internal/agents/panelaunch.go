@@ -1,6 +1,7 @@
 package agents
 
 import (
+	"context"
 	_ "embed"
 	"fmt"
 	"log/slog"
@@ -83,12 +84,12 @@ func (l *Launcher) buildBriefing() string {
 	return strings.ReplaceAll(text, logPathPlaceholder, l.logPath)
 }
 
-func (l *Launcher) appendedSystemPrompt(params launchParams) string {
+func (l *Launcher) appendedSystemPrompt(ctx context.Context, params launchParams) string {
 	parts := []string{
 		l.buildBriefing(),
 		roleBriefing(params),
 		relationBriefing(params),
-		l.globalContext(),
+		l.globalContext(ctx),
 		contextBriefing(params),
 		params.WorkflowContext,
 	}
@@ -151,16 +152,15 @@ You have no worktree of your own and no scripts of your own, and you go when the
 		parentName, parentAgentID)
 }
 
-func (l *Launcher) globalContext() string {
+func (l *Launcher) globalContext(ctx context.Context) string {
 	if l.contextPath == "" {
 		return ""
 	}
 
 	text, err := os.ReadFile(l.contextPath)
 	if err != nil {
-		//nolint:sloglint // as in the tmux client, there is no context here to carry a logger on
-		slog.Default().Warn("the standing context could not be read, so this agent starts without it",
-			logging.Attrs(append(logging.Err(err), slog.String("path", l.contextPath)))...)
+		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "the standing context could not be read, so this agent starts without it",
+			append(logging.Err(err), slog.String("path", l.contextPath))...)
 
 		return ""
 	}
@@ -170,12 +170,11 @@ func (l *Launcher) globalContext() string {
 
 // toolsDir is where komrad's stand-ins for the tools an agent calls are written, empty when
 // they could not be.
-func (l *Launcher) toolsDir() string {
+func (l *Launcher) toolsDir(ctx context.Context) string {
 	dir, err := harness.WriteGHShim(l.cacheDir, l.binPath)
 	if err != nil {
-		//nolint:sloglint // as in the standing context, there is no context here to carry a logger on
-		slog.Default().Warn("gh could not be given a stand-in, so this agent reaches github as the machine is logged in",
-			logging.Attrs(logging.Err(err))...)
+		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "gh could not be given a stand-in, so this agent reaches github as the machine is logged in",
+			logging.Err(err)...)
 
 		return ""
 	}
@@ -216,7 +215,7 @@ type launchParams struct {
 	Resume       bool
 }
 
-func (l *Launcher) launch(h harness.Harness, params launchParams) error {
+func (l *Launcher) launch(ctx context.Context, h harness.Harness, params launchParams) error {
 	role := params.Role
 	if role == "" {
 		role = agentstore.RoleImplementer
@@ -229,11 +228,11 @@ func (l *Launcher) launch(h harness.Harness, params launchParams) error {
 	}
 
 	command, err := h.BuildCommand(harness.Launch{
-		ToolsDir:       l.toolsDir(),
+		ToolsDir:       l.toolsDir(ctx),
 		Flags:          params.Flags,
 		Prompt:         params.Prompt,
 		Dir:            params.Dir,
-		Context:        l.appendedSystemPrompt(params),
+		Context:        l.appendedSystemPrompt(ctx, params),
 		SessionID:      params.SessionID,
 		AgentID:        params.AgentID,
 		MCPEndpoint:    l.serverAddr,

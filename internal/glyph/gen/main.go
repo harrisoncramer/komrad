@@ -6,11 +6,12 @@ package main
 
 import (
 	"bytes"
+	"cmp"
 	"encoding/json"
 	"fmt"
 	"go/format"
 	"os"
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -82,12 +83,8 @@ func run() error {
 		octicons = append(octicons, octicon{name: strings.TrimPrefix(name, prefix), point: point})
 	}
 
-	sort.Slice(octicons, func(i, j int) bool {
-		if octicons[i].point != octicons[j].point {
-			return octicons[i].point < octicons[j].point
-		}
-
-		return octicons[i].name < octicons[j].name
+	slices.SortFunc(octicons, func(left, right octicon) int {
+		return cmp.Or(cmp.Compare(left.point, right.point), cmp.Compare(left.name, right.name))
 	})
 
 	var b bytes.Buffer

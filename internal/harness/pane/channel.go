@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"time"
 
 	"komrad/internal/harness"
 	"komrad/internal/logging"
+	"komrad/lib/clock"
 )
 
 // plan is what komrad may do to an agent's input box.
@@ -165,7 +165,7 @@ func (p *Pane) cutDraft(ctx context.Context, target harness.Target) (cut bool, e
 		}
 	}()
 
-	empty, err := p.waitForAnEmptyBox(target)
+	empty, err := p.waitForAnEmptyBox(ctx, target)
 	if err != nil {
 		return false, err
 	}
@@ -180,10 +180,13 @@ func (p *Pane) cutDraft(ctx context.Context, target harness.Target) (cut bool, e
 }
 
 // waitForAnEmptyBox reads the frame until it shows the cut.
-func (p *Pane) waitForAnEmptyBox(target harness.Target) (bool, error) {
+func (p *Pane) waitForAnEmptyBox(ctx context.Context, target harness.Target) (bool, error) {
 	for read := range cutSettleReads {
 		if read > 0 {
-			time.Sleep(cutSettleInterval)
+			clock.Sleep(ctx, cutSettleInterval)
+			if err := ctx.Err(); err != nil {
+				return false, fmt.Errorf("failed to read the input box of agent %q: %w", target.AgentID, err)
+			}
 		}
 
 		// Codex draws a placeholder in an empty composer, so the box is read through the harness

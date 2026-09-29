@@ -16,6 +16,7 @@ import (
 	"komrad/internal/caller"
 	"komrad/internal/logging"
 	"komrad/internal/logtest"
+	"komrad/lib/clock"
 	"komrad/lib/xslice"
 
 	"github.com/stretchr/testify/assert"
@@ -243,7 +244,7 @@ func TestBackgroundStopWaitsForTheLoops(t *testing.T) {
 	work.stop(t.Context())
 
 	settled := runs.Load()
-	time.Sleep(10 * time.Millisecond)
+	clock.Sleep(t.Context(), 10*time.Millisecond)
 	assert.Equal(t, settled, runs.Load(), "the loop is stopped rather than still ticking")
 	assert.True(t, runner.stopped, "and the job runner is stopped after it")
 }
@@ -463,13 +464,13 @@ func TestLoopRunsOnceForATickAndAWakeTogether(t *testing.T) {
 		startLoop(t, buildHeldLoop(starts, interval, waker, release))
 		synctest.Wait()
 
-		time.Sleep(interval + interval/2)
+		clock.Sleep(t.Context(), interval+interval/2)
 		waker.Wake()
 		close(release)
 		synctest.Wait()
 		require.Equal(t, 2, starts.count())
 
-		time.Sleep(interval / 4)
+		clock.Sleep(t.Context(), interval/4)
 		synctest.Wait()
 
 		assert.Equal(t, 2, starts.count(), "the tick and the wake were answered by one run")
@@ -506,7 +507,7 @@ func TestLoopHoldsAWokenRunToItsFloor(t *testing.T) {
 		synctest.Wait()
 		require.Equal(t, 1, starts.count(), "the woken run started inside the floor")
 
-		time.Sleep(floor)
+		clock.Sleep(t.Context(), floor)
 		synctest.Wait()
 
 		recorded := starts.read()
@@ -526,12 +527,12 @@ func TestLoopKeepsItsTickAfterAWokenRun(t *testing.T) {
 		startLoop(t, buildRecordedLoop(starts, interval, 0, waker))
 		synctest.Wait()
 
-		time.Sleep(interval / 3)
+		clock.Sleep(t.Context(), interval/3)
 		waker.Wake()
 		synctest.Wait()
 		require.Equal(t, 2, starts.count())
 
-		time.Sleep(interval - interval/3)
+		clock.Sleep(t.Context(), interval-interval/3)
 		synctest.Wait()
 
 		recorded := starts.read()
@@ -552,19 +553,19 @@ func TestLoopDropsATickThatLandsInsideTheFloor(t *testing.T) {
 		startLoop(t, buildRecordedLoop(starts, interval, floor, waker))
 		synctest.Wait()
 
-		time.Sleep(70 * time.Millisecond)
+		clock.Sleep(t.Context(), 70*time.Millisecond)
 		waker.Wake()
 		synctest.Wait()
-		time.Sleep(10 * time.Millisecond)
+		clock.Sleep(t.Context(), 10*time.Millisecond)
 		waker.Wake()
-		time.Sleep(110 * time.Millisecond)
+		clock.Sleep(t.Context(), 110*time.Millisecond)
 		synctest.Wait()
 
 		recorded := starts.read()
 		require.Len(t, recorded, 3)
 		assert.Equal(t, 130*time.Millisecond, recorded[2].Sub(recorded[0]))
 
-		time.Sleep(10 * time.Millisecond)
+		clock.Sleep(t.Context(), 10*time.Millisecond)
 		synctest.Wait()
 
 		assert.Len(t, starts.read(), 4, "the next run came on the tick after the floor")

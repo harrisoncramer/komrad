@@ -6,6 +6,7 @@ import (
 	"sync"
 	"testing"
 
+	"komrad/lib/xptr"
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
 	forgev1 "komrad/proto/gen/forge/v1"
@@ -344,7 +345,7 @@ func openGitMenu(t *testing.T, rows ...proto.Message) *panelHarness {
 func buildGitAgent() []proto.Message {
 	agent := newBranchAgent("a1", "api", "agent/a1")
 	agent.Cwd = "/trees/a1"
-	agent.HeadSha = proto.String("new")
+	agent.HeadSha = xptr.Ptr("new")
 
 	return []proto.Message{
 		&workflowv1.Workflow{
@@ -379,7 +380,7 @@ func newOpenPullRequest() *pullrequestv1.PullRequest {
 func newMergedPullRequest() *pullrequestv1.PullRequest {
 	merged := newOpenPullRequest()
 	merged.State = pullrequestv1.PullRequestState_PULL_REQUEST_STATE_MERGED
-	merged.MergedAt = proto.String("2026-09-20T12:00:00Z")
+	merged.MergedAt = xptr.Ptr("2026-09-20T12:00:00Z")
 	merged.HeadSha = "old"
 
 	return merged

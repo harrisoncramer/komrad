@@ -12,6 +12,7 @@ import (
 	"komrad/internal/mail"
 	mailstore "komrad/internal/store/mail"
 	reviewstore "komrad/internal/store/review"
+	"komrad/lib/clock"
 	"komrad/lib/xslice"
 
 	"github.com/google/uuid"
@@ -74,7 +75,7 @@ func TestOpenRoundTakesOneRoundOfATreeOpenedTwiceAtOnce(t *testing.T) {
 	fx := newReviewFixture(t)
 	fx.snapshots.SHA = secondSnapshot
 	fx.snapshots.Taking = func() {
-		time.Sleep(250 * time.Millisecond)
+		clock.Sleep(t.Context(), 250*time.Millisecond)
 	}
 
 	var group sync.WaitGroup

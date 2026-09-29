@@ -9,6 +9,7 @@ import (
 	"komrad/internal/agents"
 	"komrad/internal/rpc/render"
 	"komrad/internal/store"
+	"komrad/lib/xptr"
 	paginationv1 "komrad/proto/gen/pagination/v1"
 	viewv1 "komrad/proto/gen/view/v1"
 	workflowv1 "komrad/proto/gen/workflow/v1"
@@ -228,7 +229,7 @@ func TestWorkflowRefusalsMapToCodes(t *testing.T) {
 			name: "listing with a page token that holds no id",
 			call: func(ctx context.Context, svc workflowv1komrad.WorkflowServiceAdapter) error {
 				_, err := svc.ListWorkflows(ctx, connect.NewRequest(&workflowv1.ListWorkflowsRequest{
-					Pagination: &paginationv1.Pagination{Cursor: proto.String("eyJuIjoiYWxwaGEiLCJpIjoibm90LWFuLWlkIn0=")},
+					Pagination: &paginationv1.Pagination{Cursor: xptr.Ptr("eyJuIjoiYWxwaGEiLCJpIjoibm90LWFuLWlkIn0=")},
 				}))
 
 				return err
@@ -459,7 +460,7 @@ func TestListWorkflows(t *testing.T) {
 		{
 			name: "a full page hands back a token for the next",
 			req: &workflowv1.ListWorkflowsRequest{
-				Pagination: &paginationv1.Pagination{Limit: proto.Int32(1)},
+				Pagination: &paginationv1.Pagination{Limit: xptr.Ptr[int32](1)},
 				View:       viewv1.View_VIEW_FULL,
 			},
 			wantContexts:   []string{long},
@@ -470,8 +471,8 @@ func TestListWorkflows(t *testing.T) {
 			name: "a token a listing handed back is accepted",
 			req: &workflowv1.ListWorkflowsRequest{
 				Pagination: &paginationv1.Pagination{
-					Limit:  proto.Int32(1),
-					Cursor: proto.String("eyJuIjoiYWxwaGEiLCJpIjoiMDFhMGQyMjgtMDAwMC03MDAwLTgwMDAtMDAwMDAwMDAwMGFhIn0="),
+					Limit:  xptr.Ptr[int32](1),
+					Cursor: xptr.Ptr("eyJuIjoiYWxwaGEiLCJpIjoiMDFhMGQyMjgtMDAwMC03MDAwLTgwMDAtMDAwMDAwMDAwMGFhIn0="),
 				},
 				View: viewv1.View_VIEW_FULL,
 			},

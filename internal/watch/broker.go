@@ -9,6 +9,7 @@ import (
 
 	"komrad/internal/fail"
 	"komrad/internal/logging"
+	"komrad/lib/clock"
 	"komrad/lib/xslice"
 	watchv1 "komrad/proto/gen/watch/v1"
 
@@ -84,7 +85,7 @@ type Broker struct {
 }
 
 // NewBroker builds the broker rendering through the rows, which receives nothing until Start.
-func NewBroker(params NewBrokerParams) *Broker {
+func NewBroker(ctx context.Context, params NewBrokerParams) *Broker {
 	logger := params.Logger
 	if logger == nil {
 		logger = slog.New(slog.DiscardHandler)
@@ -109,27 +110,27 @@ func NewBroker(params NewBrokerParams) *Broker {
 		stopped:     stopped,
 	}
 
-	go func() {
+	go func(ctx context.Context) {
 		// Each poke runs one pass over everything pending, and keys marked during a pass or the
 		// gap after it wait for the next.
 		for range b.wake {
 			started := time.Now()
-			if !b.render() {
-				time.Sleep(retryAfter)
+			if !b.render(ctx) {
+				clock.Sleep(ctx, retryAfter)
 
 				continue
 			}
 
-			time.Sleep(gap - time.Since(started))
+			clock.Sleep(ctx, gap-time.Since(started))
 		}
-	}()
+	}(context.WithoutCancel(ctx))
 
 	return b
 }
 
 // Start puts a connection from the pool on the watch channel, which Close ends.
-func (b *Broker) Start() error {
-	ctx, cancel := context.WithCancel(context.Background())
+func (b *Broker) Start(ctx context.Context) error {
+	ctx, cancel := context.WithCancel(context.WithoutCancel(ctx))
 	conn, err := b.connect(ctx)
 	if err != nil {
 		cancel()
@@ -151,7 +152,7 @@ func (b *Broker) Start() error {
 // render reads back everything marked pending since the last one and sends each subscriber what
 // moved for it as one pass, reporting false when the read failed and the ids are back in the
 // pending set.
-func (b *Broker) render() bool {
+func (b *Broker) render(ctx context.Context) bool {
 	pending := b.drainPending()
 
 	b.mu.Lock()
@@ -163,13 +164,13 @@ func (b *Broker) render() bool {
 		return true
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), readTimeout)
+	ctx, cancel := context.WithTimeout(ctx, readTimeout)
 	defer cancel()
 
 	changes, err := b.rows.Read(ctx, pending)
 	if err != nil {
 		b.logger.LogAttrs(ctx, slog.LevelError, "failed to read the pending rows", logging.Err(err)...)
-		b.requeuePending(pending)
+		b.requeuePending(ctx, pending)
 
 		return false
 	}

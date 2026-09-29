@@ -159,7 +159,7 @@ func (b *backgroundWork) stop(ctx context.Context) {
 	b.stopLoops()
 
 	finished := xsync.WithinTimeout(loopStopTimeout, func() {
-		defer logging.LogAndRepanic(context.Background())
+		defer logging.LogAndRepanic(ctx)
 
 		b.loops.Wait()
 	})
