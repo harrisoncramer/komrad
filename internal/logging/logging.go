@@ -52,6 +52,7 @@ const (
 	ExitCode               = "process.exit.code"
 	DurationMS             = "duration_ms"
 	Loop                   = "loop"
+	LoopWoken              = "komrad.loop.woken"
 	RepositoryURL          = "komrad.repository.url"
 	ForgeHost              = "komrad.forge.host"
 	ForgeCalls             = "komrad.forge.calls"

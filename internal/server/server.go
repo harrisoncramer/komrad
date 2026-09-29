@@ -60,7 +60,7 @@ type Server struct {
 	Periodic      *jobs.RiverPeriodic
 	Pool          *store.Pool
 	Delivery      *mail.DeliveryService
-	Loops         []Loop
+	Loops         []*Loop
 	Watch         *watch.Broker
 	logger        *slog.Logger
 	stopRequested chan struct{}

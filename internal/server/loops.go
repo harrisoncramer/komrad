@@ -27,6 +27,14 @@ const PullRequestSyncInterval = time.Minute
 // WorktreeSizeInterval is how often a few worktree directories are walked for their size.
 const WorktreeSizeInterval = 30 * time.Second
 
+// localLoopFloor is the least time between the starts of two runs of a loop that reads only this
+// machine when the second was woken.
+const localLoopFloor = time.Second
+
+// pullRequestSyncFloor is the least time between the starts of two pull request sync runs when
+// the second was woken.
+const pullRequestSyncFloor = 15 * time.Second
+
 const (
 	ScheduleReconcileLoop = "schedule reconcile"
 	ReconcileLoop         = "reconcile"
@@ -44,46 +52,53 @@ type buildLoopsParams struct {
 	Claimed  *jobs.WorktreeDelete
 }
 
-func buildLoops(params buildLoopsParams) []Loop {
-	return []Loop{
-		{
+func buildLoops(params buildLoopsParams) []*Loop {
+	return []*Loop{
+		NewLoop(NewLoopParams{
 			Name:     ScheduleReconcileLoop,
 			Interval: ScheduleReconcileInterval,
-			Pass:     internaljobs.NewScheduler(params.Stores.schedules, params.Periodic).Reconcile,
-		},
-		{
+			Floor:    localLoopFloor,
+			Run:      internaljobs.NewScheduler(params.Stores.schedules, params.Periodic).Reconcile,
+		}),
+		NewLoop(NewLoopParams{
 			Name:     ReconcileLoop,
 			Interval: ReconcileInterval,
-			Pass:     params.Services.reconciler.Reconcile,
-		},
-		{
+			Floor:    localLoopFloor,
+			Run:      params.Services.reconciler.Reconcile,
+		}),
+		NewLoop(NewLoopParams{
 			Name:     MailDeliveryLoop,
 			Interval: MailDeliveryInterval,
-			Pass:     params.Services.delivery.DeliverAll,
-		},
-		{
+			Floor:    localLoopFloor,
+			Run:      params.Services.delivery.DeliverAll,
+		}),
+		NewLoop(NewLoopParams{
 			Name:     TranscriptSyncLoop,
 			Interval: TranscriptSyncInterval,
-			Pass:     params.Services.transcriptSync.Sync,
-		},
-		{
+			Floor:    localLoopFloor,
+			Run:      params.Services.transcriptSync.Sync,
+		}),
+		NewLoop(NewLoopParams{
 			Name:     CwdSyncLoop,
 			Interval: CwdSyncInterval,
-			Pass:     params.Services.cwdSync.Sync,
-		},
-		{
+			Floor:    localLoopFloor,
+			Run:      params.Services.cwdSync.Sync,
+		}),
+		NewLoop(NewLoopParams{
 			Name:     PullRequestSyncLoop,
 			Interval: PullRequestSyncInterval,
-			Pass:     params.Services.pullRequestSync.Sync,
-		},
-		{
+			Floor:    pullRequestSyncFloor,
+			Run:      params.Services.pullRequestSync.Sync,
+		}),
+		NewLoop(NewLoopParams{
 			Name:     WorktreeSizeLoop,
 			Interval: WorktreeSizeInterval,
-			Pass: worktrees.NewMeasurer(worktrees.NewMeasurerParams{
+			Floor:    localLoopFloor,
+			Run: worktrees.NewMeasurer(worktrees.NewMeasurerParams{
 				Lister:    params.Services.worktreeLister,
 				Claimed:   params.Claimed,
 				Worktrees: params.Stores.worktrees,
 			}).Measure,
-		},
+		}),
 	}
 }
