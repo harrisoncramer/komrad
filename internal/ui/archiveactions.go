@@ -42,7 +42,7 @@ func (a *archiveScreen) scheduleTable() []screenAction {
 		screenAction{
 			id:   actionArchiveBack,
 			keys: func(k config.Keybindings) []string { return k.Archive.Back },
-			run:  func(h host, _ panelShared, _ string) tea.Cmd { return h.enter(screenAgents, screenTarget{}) },
+			run:  func(h host, _ panelShared, _ string) tea.Cmd { return h.pickView() },
 		},
 		screenAction{
 			id:   actionArchiveRestore,
@@ -77,7 +77,7 @@ func (a *archiveScreen) agentTable() []screenAction {
 			id:   actionArchiveBack,
 			keys: func(k config.Keybindings) []string { return k.Archive.Back },
 			when: list.isBrowsing,
-			run:  func(h host, _ panelShared, _ string) tea.Cmd { return h.enter(screenAgents, screenTarget{}) },
+			run:  func(h host, _ panelShared, _ string) tea.Cmd { return h.pickView() },
 		},
 		screenAction{
 			id:   actionArchiveRestore,

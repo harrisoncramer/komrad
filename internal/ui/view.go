@@ -26,13 +26,13 @@ func (m model) View() tea.View {
 // render renders the active screen inside its gutters.
 func (m model) render() string {
 	//nolint:sloglint // temporary trace, no context here to carry a logger on
-	slog.Default().Info("panel trace: drawing", "width", m.width, "height", m.height, "solo", m.frame.IsSolo(), "awaiting", m.awaitingSize, "screen", int(m.screen))
+	slog.Default().Info("panel trace: drawing", "width", m.width, "height", m.height, "solo", m.frame.IsSolo(), "awaiting", m.isAwaitingSize(), "screen", int(m.screen))
 
 	if m.configErr != nil || m.startupErr != nil {
 		return m.drawInset(m.insideView())
 	}
 
-	if m.awaitingSize && m.drawn != nil && m.drawn.text != "" {
+	if m.isAwaitingSize() && m.drawn != nil && m.drawn.text != "" {
 		return m.drawn.text
 	}
 

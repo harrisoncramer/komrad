@@ -101,11 +101,17 @@ func (m model) viewIndex() int {
 }
 
 func (m model) openViews() model {
+	m.pickView()
+
+	return m
+}
+
+func (m *model) pickView() tea.Cmd {
 	m.blurTabs()
 	m.blurKinds()
 	m.viewsOpen = true
 
-	return m
+	return nil
 }
 
 func (m model) updateViews(key tea.KeyPressMsg) (tea.Model, tea.Cmd) {

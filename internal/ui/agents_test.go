@@ -1364,7 +1364,7 @@ func TestAgentsRecordSearch(t *testing.T) {
 	t.Run("the search goes with the screen", func(t *testing.T) {
 		harness := openWorktreeRecord(t, panelHarnessParams{})
 
-		harness.press("/", "s", "i", "z", "enter", "ctrl+a", "tab", "s", "esc")
+		harness.press("/", "s", "i", "z", "enter", "ctrl+a", "tab", "s", "esc", "a")
 
 		frame := harness.readFrame()
 		assert.Equal(t, agentsScreen, harness.readScreen())

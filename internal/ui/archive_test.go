@@ -84,9 +84,9 @@ func TestArchiveKeys(t *testing.T) {
 			wantScreen: archiveScreen,
 		},
 		{
-			name:       "back returns to the agents tree",
+			name:       "back opens the view switcher",
 			rows:       buildOneArchivedAgent(),
-			press:      []string{"j", "esc"},
+			press:      []string{"j", "esc", "a"},
 			wantScreen: agentsScreen,
 		},
 		{
@@ -619,7 +619,7 @@ func TestArchiveWindow(t *testing.T) {
 		)
 		require.True(t, harness.panel.IsZoomed(), "the archive draws both columns itself")
 
-		harness.press("esc")
+		harness.press("esc", "a")
 
 		assert.False(t, harness.panel.IsZoomed(), "leaving the archive for a running agent gives the other panes their share back")
 	})
@@ -776,7 +776,7 @@ func TestArchiveSelection(t *testing.T) {
 		assert.Equal(t, archiveScreen, harness.readScreen())
 		assert.NotContains(t, readLegend(frame), "selected")
 
-		harness.press("esc")
+		harness.press("esc", "a")
 		assert.Equal(t, agentsScreen, harness.readScreen())
 	})
 
@@ -792,7 +792,7 @@ func TestArchiveSelection(t *testing.T) {
 
 	t.Run("selecting in the archive leaves the agents tree alone", func(t *testing.T) {
 		harness := openArchive(t, append(slices.Clone(rows), newAgent("a9", "live", "w1"))...)
-		harness.press("j", "v", "esc", "esc")
+		harness.press("j", "v", "esc", "esc", "a")
 
 		assert.NotContains(t, readLegend(harness.readFrame()), "selected")
 	})

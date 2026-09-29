@@ -49,7 +49,7 @@ func (w *schedulesScreen) actions() screenActionSpec {
 			{
 				id:   actionScheduleBack,
 				keys: list.back,
-				run:  func(h host, _ panelShared, _ string) tea.Cmd { return h.enter(screenAgents, screenTarget{}) },
+				run:  func(h host, _ panelShared, _ string) tea.Cmd { return h.pickView() },
 			},
 			{
 				id:   actionMove,

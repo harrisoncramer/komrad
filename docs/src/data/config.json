@@ -193,7 +193,7 @@
               "key": "back",
               "path": "keybindings.agents.back",
               "type": "array",
-              "description": "Step out of a workflow scope, or quit at the root.",
+              "description": "Step out of a workflow scope, or open the view switcher at the root.",
               "default": "[\"esc\"]"
             },
             {
@@ -277,7 +277,7 @@
               "key": "back",
               "path": "keybindings.archive.back",
               "type": "array",
-              "description": "Leave the archive for the agents list.",
+              "description": "Open the view switcher.",
               "default": "[\"esc\"]"
             },
             {
@@ -753,7 +753,7 @@
               "key": "back",
               "path": "keybindings.schedules.back",
               "type": "array",
-              "description": "Leave the schedules screen for the agents list.",
+              "description": "Open the view switcher.",
               "default": "[\"esc\"]"
             },
             {
@@ -1005,7 +1005,7 @@
               "key": "back",
               "path": "keybindings.worktrees.back",
               "type": "array",
-              "description": "Leave the worktrees screen for the agents list.",
+              "description": "Open the view switcher.",
               "default": "[\"esc\"]"
             },
             {

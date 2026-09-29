@@ -519,9 +519,9 @@ func (w *searchScreen) updateInput(h host, s panelShared, key tea.KeyPressMsg) t
 
 	switch k := key.String(); {
 	case k == "esc":
-		*w = searchScreen{}
+		w.typing = false
 
-		return h.enter(screenAgents, screenTarget{})
+		return h.pickView()
 	case k == "enter":
 		w.typing = false
 

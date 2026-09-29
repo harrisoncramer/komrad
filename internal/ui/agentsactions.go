@@ -41,7 +41,7 @@ func (a *agentsScreen) modeActions() []screenAction {
 			id:   actionAgentsBack,
 			keys: func(k config.Keybindings) []string { return k.Agents.Back },
 			when: list.isBrowsing,
-			run:  func(h host, _ panelShared, _ string) tea.Cmd { return h.hide() },
+			run:  func(h host, _ panelShared, _ string) tea.Cmd { return h.pickView() },
 		},
 		screenAction{
 			id:   actionWorkflowNew,

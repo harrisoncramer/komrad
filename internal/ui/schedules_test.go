@@ -59,9 +59,9 @@ func TestSchedulesKeys(t *testing.T) {
 			wantAbsent: []string{scheduleForm},
 		},
 		{
-			name:       "back returns to the agents tree",
+			name:       "back opens the view switcher",
 			rows:       buildSchedules(),
-			press:      []string{"esc"},
+			press:      []string{"esc", "a"},
 			wantScreen: agentsScreen,
 		},
 		{

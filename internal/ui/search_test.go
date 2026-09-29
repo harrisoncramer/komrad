@@ -219,7 +219,7 @@ func TestSearchResults(t *testing.T) {
 		t.Parallel()
 
 		harness := openAgents(t, buildSearchable()...)
-		harness.press("tab", "q", "l", "e", "d", "esc")
+		harness.press("tab", "q", "l", "e", "d", "esc", "a")
 
 		harness.fireTimers()
 
@@ -366,8 +366,8 @@ func TestSearchKeys(t *testing.T) {
 		wantTyping  bool
 	}{
 		{
-			name:       "escape in the query line leaves the screen",
-			press:      []string{"esc"},
+			name:       "escape in the query line opens the view switcher",
+			press:      []string{"esc", "a"},
 			wantScreen: agentsScreen,
 			wantTyping: false,
 		},
@@ -746,7 +746,7 @@ func TestSearchPreview(t *testing.T) {
 		harness := openPreview(t, panelHarnessParams{})
 		require.True(t, harness.panel.IsZoomed())
 
-		harness.press("esc")
+		harness.press("esc", "a")
 
 		assert.Equal(t, agentsScreen, harness.readScreen())
 		assert.False(t, harness.panel.IsZoomed())

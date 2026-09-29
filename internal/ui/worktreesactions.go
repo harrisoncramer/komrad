@@ -33,7 +33,7 @@ func (w *worktreesScreen) table() []screenAction {
 			id:   actionWorktreesBack,
 			keys: func(k config.Keybindings) []string { return k.Worktrees.Back },
 			when: list.isBrowsing,
-			run:  func(h host, _ panelShared, _ string) tea.Cmd { return h.enter(screenAgents, screenTarget{}) },
+			run:  func(h host, _ panelShared, _ string) tea.Cmd { return h.pickView() },
 		},
 		screenAction{
 			id:   actionWorktreesJumpToAgent,

@@ -3,6 +3,7 @@ package ui
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"komrad/internal/glyph"
 	"komrad/internal/ui/paint"
@@ -183,7 +184,11 @@ func (m *model) reconcileSolo() {
 	}
 
 	m.frame.Solo(want)
-	m.awaitingSize = true
+	m.awaitingSince = time.Now()
+}
+
+func (m model) isAwaitingSize() bool {
+	return !m.awaitingSince.IsZero()
 }
 
 // syncKeys puts the frame right about whether it still holds the window, which one focus report

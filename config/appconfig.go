@@ -305,7 +305,7 @@ func FixedFormKeys() FormKeys {
 type AgentsKeys struct {
 	// Archive the hovered agent, which stops it and moves it to the archive screen rather than destroying it.
 	Archive []string `mapstructure:"archive" default:"z"`
-	// Step out of a workflow scope, or quit at the root.
+	// Step out of a workflow scope, or open the view switcher at the root.
 	Back []string `mapstructure:"back" default:"esc"`
 	// Pause the hovered agent where it stands, or unpause one you have already paused. Komrad
 	// waits for the agent to come to rest before it claims the worktree, and refuses rather than
@@ -429,7 +429,7 @@ type LogsKeys struct {
 
 // WorktreesKeys are the bindings for the worktrees screen.
 type WorktreesKeys struct {
-	// Leave the worktrees screen for the agents list.
+	// Open the view switcher.
 	Back []string `mapstructure:"back" default:"esc"`
 	// Delete everything on the screen that can go: every directory whose agent is archived,
 	// through the agent delete and its hooks, and every directory no agent answers for. A
@@ -541,7 +541,7 @@ type SchedulesKeys struct {
 	// Archive the schedule under the cursor, which stops it firing. The agents it
 	// launched are kept, and the archive can restore it.
 	Archive []string `mapstructure:"archive" default:"z"`
-	// Leave the schedules screen for the agents list.
+	// Open the view switcher.
 	Back []string `mapstructure:"back" default:"esc"`
 	// Edit the schedule under the cursor.
 	Edit []string `mapstructure:"edit" default:"e"`
@@ -556,7 +556,7 @@ type SchedulesKeys struct {
 // ArchiveKeys are the bindings for the archive screen, which lists the agents
 // and schedules archived from the panel, and act on the hovered row.
 type ArchiveKeys struct {
-	// Leave the archive for the agents list.
+	// Open the view switcher.
 	Back []string `mapstructure:"back" default:"esc"`
 	// Destroy the agent or schedule under the cursor for good, with its transcript
 	// or its run history. Nothing undoes it, so it asks first.

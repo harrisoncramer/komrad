@@ -94,6 +94,31 @@ func TestViews(t *testing.T) {
 			press:      []string{"tab", "r", "tab", "a"},
 			wantScreen: agentsScreen,
 		},
+		{
+			name:       "escape on the agents opens the switcher",
+			press:      []string{"esc", "s"},
+			wantScreen: schedulesScreen,
+		},
+		{
+			name:       "escape on the schedules opens the switcher",
+			press:      []string{"tab", "s", "esc", "r"},
+			wantScreen: archiveScreen,
+		},
+		{
+			name:       "escape on the archive opens the switcher",
+			press:      []string{"tab", "r", "esc", "w"},
+			wantScreen: worktreesScreen,
+		},
+		{
+			name:       "escape on the worktrees opens the switcher",
+			press:      []string{"tab", "w", "esc", "s"},
+			wantScreen: schedulesScreen,
+		},
+		{
+			name:       "escape in the query line opens the switcher",
+			press:      []string{"tab", "q", "esc", "r"},
+			wantScreen: archiveScreen,
+		},
 	}
 
 	for _, tt := range tests {

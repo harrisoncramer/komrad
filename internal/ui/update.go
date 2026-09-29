@@ -195,7 +195,7 @@ func (m model) resizeTo(size tea.WindowSizeMsg) model {
 	m.height = max(size.Height, 0)
 	m.width = max(width, 0)
 	m.paneCols = size.Width
-	m.awaitingSize = false
+	m.awaitingSince = time.Time{}
 
 	if !m.isTabsDrawn() {
 		m.blurTabs()
@@ -221,7 +221,7 @@ func (m model) resizeTo(size tea.WindowSizeMsg) model {
 // terminal itself reports.
 func (m *model) applySizeRead(msg sizeReadMsg) tea.Cmd {
 	if msg.size.Width == m.paneCols && msg.size.Height == m.height {
-		m.awaitingSize = false
+		m.awaitingSince = time.Time{}
 
 		if width := max(m.paneCols-m.countInsetCols(), 0); width != m.width {
 			m.width = width
@@ -272,7 +272,7 @@ func (m model) nudgeSidebar(delta int) model {
 // routeGlobalKey answers the keys the panel owns whatever screen is up, reporting whether it
 // took the press so the screen underneath gets whatever it left alone.
 func (m model) routeGlobalKey(key tea.KeyPressMsg) (tea.Model, tea.Cmd, bool) {
-	if m.screen.picksViews() && isBound(key.String(), m.keys.Views.Pick) {
+	if m.screen.picksViews() && !m.isTabsFocused() && !m.isKindsFocused() && isBound(key.String(), m.keys.Views.Pick) {
 		return m.openViews(), nil, true
 	}
 
@@ -340,7 +340,10 @@ func (m model) routeScreenMessage(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 	switch msg := msg.(type) {
 	case tickMsg:
-		m.awaitingSize = false
+		if m.isAwaitingSize() && msg.at.Sub(m.awaitingSince) >= sizeFallback {
+			m.awaitingSince = time.Time{}
+		}
+
 		next := m
 		edited := next.reconcileEditor()
 

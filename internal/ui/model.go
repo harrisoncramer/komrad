@@ -299,9 +299,9 @@ type model struct {
 	// cursor came to rest on rather than for every row it passed.
 	staging int
 
-	// awaitingSize says the panel has moved its own pane and has not been told the size that
-	// leaves it.
-	awaitingSize bool
+	// awaitingSince is when the panel moved its own pane without yet being told the size that
+	// leaves it, and zero while it is not waiting.
+	awaitingSince time.Time
 
 	// windowCols is how wide the window was when the divider was last read.
 	windowCols int

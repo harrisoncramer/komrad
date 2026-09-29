@@ -202,6 +202,7 @@ type host interface {
 	openForm(f formState) tea.Cmd
 	enter(next screen, target screenTarget) tea.Cmd
 	hide() tea.Cmd
+	pickView() tea.Cmd
 	getHostPath() string
 
 	// The stage is the root's, and every list screen waits for its cursor to rest before staging.
