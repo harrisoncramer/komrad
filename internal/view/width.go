@@ -77,3 +77,13 @@ func roomForName(line Line, width int) int {
 
 	return width - spent
 }
+
+// TailColumns is how wide everything drawn against the right edge is, with the space before it.
+func TailColumns(tail Columns) int {
+	width := 0
+	for _, column := range tail {
+		width += spaceColumns + column.Width
+	}
+
+	return width
+}

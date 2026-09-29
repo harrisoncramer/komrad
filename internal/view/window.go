@@ -20,6 +20,7 @@ func Window(params WindowParams) string {
 	shown := List{
 		Lines:   params.List.Lines[window.Start:window.End],
 		Columns: params.List.Columns,
+		Tail:    params.List.Tail,
 	}
 
 	return paint.DrawWindow(Rows(shown, params.Palette, params.Width), window, total, params.Palette.Style(paint.ToneMuted))

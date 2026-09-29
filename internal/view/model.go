@@ -46,7 +46,9 @@ type Line struct {
 	Mark    Cell
 	// Columns are the cells of the list's own columns, one per column in the order they are drawn.
 	Columns []Cell
-	Status  Cell
+	// Tail are the cells of the columns drawn against the right edge of the pane.
+	Tail   []Cell
+	Status Cell
 	// Rule draws the corner a child hangs off, inside the name cell rather than before it.
 	Rule bool
 	// Indent is how far this row's name is set in from the gutter.
@@ -131,6 +133,8 @@ func NoColumns() Columns {
 type List struct {
 	Lines   []Line
 	Columns Columns
+	// Tail is the columns drawn against the right edge of the pane.
+	Tail Columns
 	// Glyphs is the character each glyph in a cell is drawn with.
 	Glyphs glyph.Set
 }

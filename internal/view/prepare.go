@@ -10,11 +10,12 @@ import (
 
 // Prepare turns a snapshot of the agents list into the view model a renderer draws.
 func Prepare(snapshot Snapshot) List {
-	columns := snapshot.columns()
+	columns, tail := splitTail(snapshot.columns())
 	lines := xslice.Map(snapshot.Rows, func(row Row) Line {
 		return prepareLine(prepareLineParams{
 			row:           row,
 			columns:       columns,
+			tail:          tail,
 			focused:       isFocused(row, snapshot.Focused),
 			caret:         snapshot.Caret,
 			barBlinkedOut: snapshot.BarBlinkedOut,
@@ -22,19 +23,20 @@ func Prepare(snapshot Snapshot) List {
 	})
 
 	if snapshot.Pane > 0 {
-		width := NameColumns(snapshot.Pane, columns)
+		width := NameColumns(snapshot.Pane, columns) - TailColumns(tail)
 		for i := range lines {
 			lines[i] = fitRow(lines[i], width)
 		}
 	}
 
-	return List{Lines: lines, Columns: columns, Glyphs: snapshot.Glyphs}
+	return List{Lines: lines, Columns: columns, Tail: tail, Glyphs: snapshot.Glyphs}
 }
 
 // prepareLineParams is one row and what the list around it says about that row.
 type prepareLineParams struct {
 	row           Row
 	columns       Columns
+	tail          Columns
 	focused       bool
 	caret         Caret
 	barBlinkedOut bool
@@ -49,6 +51,7 @@ func prepareLine(params prepareLineParams) Line {
 		Focus:    textCell(chromeIf(focused && params.caret == CaretDrawn, glyph.Focus), paint.ToneAccent),
 		Mark:     textCell(row.Mark, paint.ToneMuted),
 		Columns:  columnCells(row, params.columns),
+		Tail:     columnCells(row, params.tail),
 		Status:   blinkBar(StatusCell(row), row, params.barBlinkedOut),
 		Rule:     row.Kind == KindChild,
 		Indent:   indentFor(row.Kind),
@@ -390,4 +393,20 @@ func emphasisFor(row Row, focused bool) Emphasis {
 	}
 
 	return EmphasisNormal
+}
+
+// splitTail takes the comment counts out of a gutter to be drawn against the right edge instead.
+func splitTail(columns Columns) (Columns, Columns) {
+	var gutter, tail Columns
+	for _, column := range columns {
+		if column.Kind == ColumnReviewerComments || column.Kind == ColumnPersonComments {
+			tail = append(tail, column)
+
+			continue
+		}
+
+		gutter = append(gutter, column)
+	}
+
+	return gutter, tail
 }
