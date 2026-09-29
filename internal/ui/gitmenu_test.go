@@ -161,6 +161,12 @@ func TestGitMenuRefusals(t *testing.T) {
 			wantRefusal: "the branch has moved on since its last pull request finished",
 		},
 		{
+			name:        "the copy of a pull request address on a branch with none",
+			rows:        buildUncutAgent(),
+			press:       []string{"c"},
+			wantRefusal: "komrad has not read this agent's repository yet",
+		},
+		{
 			name:        "the merge of a branch with no pull request",
 			rows:        buildUncutAgent(),
 			press:       []string{"m", "m"},
@@ -282,6 +288,48 @@ func TestGitMenuOpensThePullRequest(t *testing.T) {
 			harness.press("space", "g", "o")
 
 			assert.Equal(t, []string{pullRequestURL}, opener.readTargets())
+			frame := harness.readFrame()
+			assert.NotContains(t, frame, gitMenuEntry)
+			if tt.wantFrame == "" {
+				assert.NotContains(t, frame, "Could not")
+
+				return
+			}
+			assert.Contains(t, frame, tt.wantFrame)
+		})
+	}
+}
+
+// TestGitMenuCopiesThePullRequestURL covers the entry putting the current pull request's address
+// on the clipboard.
+func TestGitMenuCopiesThePullRequestURL(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		refuse    error
+		wantFrame string
+	}{
+		{
+			name:      "a clipboard that refuses is reported",
+			refuse:    errors.New("no clipboard"),
+			wantFrame: "Could not copy",
+		},
+		{
+			name: "the address is copied",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			harness := openGitMenu(t, append(buildGitAgent(), newOpenPullRequest())...)
+			harness.panel.SetClipboardErr(tt.refuse)
+
+			harness.press("c")
+
+			assert.Equal(t, []string{pullRequestURL}, harness.panel.ReadCopied())
 			frame := harness.readFrame()
 			assert.NotContains(t, frame, gitMenuEntry)
 			if tt.wantFrame == "" {
