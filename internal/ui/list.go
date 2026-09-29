@@ -183,7 +183,7 @@ func (l screenList[T]) hovered(s panelShared) string {
 
 func (l screenList[T]) hoveredName(s panelShared) string {
 	row, ok := rowAt(l.rows(s), l.cursor().cursor)
-	if !ok {
+	if !ok || l.name == nil {
 		return ""
 	}
 
