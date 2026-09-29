@@ -211,7 +211,7 @@ func (s *ScheduleService) getArchived(ctx context.Context, id string) (*schedule
 
 // requireTarget checks that what a stored schedule fires at is still live.
 func (s *ScheduleService) requireTarget(ctx context.Context, schedule schedulestore.Schedule) error {
-	if schedule.Kind == schedulestore.KindOrchestrator && schedule.OrchestratorAgentID != nil {
+	if schedule.Kind == schedulestore.KindOrchestrator {
 		_, err := s.RequireOrchestrator(ctx, *schedule.OrchestratorAgentID)
 
 		return err

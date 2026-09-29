@@ -304,7 +304,6 @@ func TestLaunchAgentWorkerMailsAnOrchestrator(t *testing.T) {
 	tests := []struct {
 		name       string
 		archived   bool
-		deleted    bool
 		paused     bool
 		twice      bool
 		wantReason string
@@ -334,12 +333,6 @@ func TestLaunchAgentWorkerMailsAnOrchestrator(t *testing.T) {
 			wantReason: "orchestrator \"lead\" has been archived",
 			wantRuns:   []schedulestore.RunState{schedulestore.RunStateCancelled},
 		},
-		{
-			name:       "an orchestrator deleted since the schedule was written is skipped",
-			deleted:    true,
-			wantReason: "no agent with id",
-			wantRuns:   []schedulestore.RunState{schedulestore.RunStateCancelled},
-		},
 	}
 
 	for _, tt := range tests {
@@ -364,10 +357,6 @@ func TestLaunchAgentWorkerMailsAnOrchestrator(t *testing.T) {
 			})
 			if tt.archived {
 				_, err := stores.Agents.Archive(ctx, []string{orchestrator.ID})
-				require.NoError(t, err)
-			}
-			if tt.deleted {
-				_, err := stores.Agents.Delete(ctx, []string{orchestrator.ID})
 				require.NoError(t, err)
 			}
 
@@ -415,10 +404,6 @@ func TestLaunchAgentWorkerMailsAnOrchestrator(t *testing.T) {
 			}
 
 			assert.Empty(t, listScheduleAgents(t, stores, schedule.ID), "an orchestrator schedule launches no agent")
-
-			if tt.deleted {
-				return
-			}
 
 			waiting, err := stores.Mail.Claim(ctx, orchestrator.ID, 10)
 			require.NoError(t, err)

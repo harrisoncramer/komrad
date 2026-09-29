@@ -91,6 +91,12 @@ table "schedules" {
     on_delete   = RESTRICT
     on_update   = NO_ACTION
   }
+  foreign_key "schedules_orchestrator_agent_id_fkey" {
+    columns     = [column.engine_id, column.orchestrator_agent_id]
+    ref_columns = [table.agents.column.engine_id, table.agents.column.id]
+    on_delete   = CASCADE
+    on_update   = NO_ACTION
+  }
   index "schedules_name_active" {
     unique  = true
     columns = [column.engine_id, column.name]
