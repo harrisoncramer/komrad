@@ -65,9 +65,9 @@
 //
 // Every declared column is drawn at every pane, and a column not declared buys the name its
 // room. Nothing is given up for width but the row's own odds and ends: a row too full for what
-// is left gives up its tally and then its name, a row at a time rather than the whole list, and
-// gives up its marks only where the marks alone would not fit the pane: the schedule first, then
-// the hiding, then the pause, then the mail, and the failed run last.
+// is left gives up its tally, then its comment counts, then its name, a row at a time rather
+// than the whole list, and gives up its marks only where the marks alone would not fit the pane:
+// the schedule first, then the hiding, then the pause, then the mail, and the failed run last.
 //
 // # A list of results is not a tree
 //

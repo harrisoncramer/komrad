@@ -767,6 +767,22 @@ func TestPrepareCommentsCostOnlyTheirOwnRow(t *testing.T) {
 	assert.Equal(t, "eng-6994…", list.Lines[1].Name)
 }
 
+// TestPrepareCommentsGiveWayBeforeTheName pins that a pane too narrow for both keeps the name
+// and drops the counts, since counts with no name say nothing about whose they are.
+func TestPrepareCommentsGiveWayBeforeTheName(t *testing.T) {
+	list := Prepare(Snapshot{
+		Rows: []Row{{
+			Name:             "eng-6994-unable-to-create",
+			ReviewerComments: &Comments{Resolved: 2},
+		}},
+		Pane: 18,
+	})
+	require.Len(t, list.Lines, 1)
+
+	assert.Equal(t, "eng-6…", list.Lines[0].Name)
+	assert.Empty(t, list.Lines[0].Comments)
+}
+
 // TestPrepareCarriesRowFacts pins the fields Prepare passes through untouched, which nothing
 // else in the package decides.
 func TestPrepareCarriesRowFacts(t *testing.T) {

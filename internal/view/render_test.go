@@ -46,7 +46,7 @@ func renderOne(t *testing.T, row Row) string {
 	list := Prepare(Snapshot{Rows: []Row{row}, Pane: canonicalPane})
 	require.Len(t, list.Lines, 1)
 
-	return render(list, paint.Panel, 0)
+	return render(list, paint.Panel, canonicalPane)
 }
 
 // TestRenderStatusBar draws the four bars an agent's state is carried by.
@@ -180,6 +180,17 @@ func TestRenderRowShapes(t *testing.T) {
 				PersonComments: &Comments{
 					Open:   1,
 					Unread: true,
+				},
+			},
+		},
+		{
+			name:   "a short name leaves the counts against the right edge rather than beside it",
+			golden: "row-commented-short",
+			row: Row{
+				Kind: KindAgent,
+				Name: "iss-582",
+				ReviewerComments: &Comments{
+					Resolved: 2,
 				},
 			},
 		},

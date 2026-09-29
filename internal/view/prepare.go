@@ -314,12 +314,16 @@ func indentFor(kind RowKind) int {
 	return indentColumns
 }
 
-// fitRow gives a row's width up in order: the tally, then the name, and last the marks, which
-// only a pane too narrow for the marks alone ever reaches.
+// fitRow gives a row's width up in order: the tally, then the comment counts, then the name, and
+// last the marks, which only a pane too narrow for the marks alone ever reaches.
 func fitRow(line Line, width int) Line {
 	// A tally counts rows already out of sight, so it is what gives way first.
 	if roomForName(line, width) <= 0 {
 		line.Tally = 0
+	}
+
+	if roomForName(line, width) <= 0 {
+		line.Comments = nil
 	}
 
 	line.Name, line.Matches = clipName(line.Name, line.Matches, roomForName(line, width))
@@ -332,17 +336,13 @@ func fitRow(line Line, width int) Line {
 func shedMarks(line Line, width int) Line {
 	// The schedule and the documents are standing facts about the row, hiding and pausing are
 	// things a person did themselves, mail goes before the output nobody has read, which asks
-	// the person to look, and the failed run nobody else will mention goes before the counts.
+	// the person to look, and the failed run nobody else will mention goes last.
 	for _, shed := range []*Cell{&line.Schedule, &line.Document, &line.Hidden, &line.Held, &line.Mail, &line.Alert} {
 		if roomForName(line, width) >= 0 {
 			return line
 		}
 
 		*shed = Cell{}
-	}
-
-	if roomForName(line, width) < 0 {
-		line.Comments = nil
 	}
 
 	return line
