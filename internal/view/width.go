@@ -33,7 +33,7 @@ func countPairColumns(comments *Comments) int {
 		return 0
 	}
 
-	return len(strconv.Itoa(comments.Open)) + plainColumns + len(strconv.Itoa(comments.Resolved))
+	return plainColumns + spaceColumns + len(strconv.Itoa(comments.Open)) + plainColumns + len(strconv.Itoa(comments.Resolved))
 }
 
 // NameColumns is how many columns a name has in a pane of the given width.

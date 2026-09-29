@@ -66,6 +66,10 @@ type MarkGlyphs struct {
 	Schedule string `mapstructure:"schedule"`
 	// The agent has written documents for a person.
 	Document string `mapstructure:"document"`
+	// Beside the count of comments reviewer agents left on the agent's work.
+	ReviewerComments string `mapstructure:"reviewer_comments"`
+	// Beside the count of comments you left on the agent's work.
+	PersonComments string `mapstructure:"person_comments"`
 	// Your comments on the agent's work hold something you have not read.
 	Unread string `mapstructure:"unread"`
 }

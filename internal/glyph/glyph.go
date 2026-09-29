@@ -34,6 +34,8 @@ const (
 	Hidden
 	Schedule
 	Document
+	ReviewerComments
+	PersonComments
 	Unread
 	Workflow
 	Archive
@@ -78,6 +80,8 @@ var defined = [count]struct {
 	Hidden:           {"marks.hidden", ""},
 	Schedule:         {"marks.schedule", ""},
 	Document:         {"marks.document", ""},
+	ReviewerComments: {"marks.reviewer_comments", ""},
+	PersonComments:   {"marks.person_comments", ""},
 	Unread:           {"marks.unread", "·"},
 	Workflow:         {"lists.workflow", ""},
 	Archive:          {"lists.archive", ""},

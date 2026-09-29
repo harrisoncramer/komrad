@@ -135,7 +135,7 @@ func ReviewerCommentsCell(row Row) Cell {
 		return Cell{}
 	}
 
-	return countsCell(row.ReviewerComments, paint.ToneMuted)
+	return countsCell(row.ReviewerComments, glyph.ReviewerComments, paint.ToneBright)
 }
 
 // PersonCommentsCell counts the comments the person left on an agent's work, the open count
@@ -145,7 +145,7 @@ func PersonCommentsCell(row Row, dotted bool) Cell {
 		return Cell{}
 	}
 
-	counts := countsCell(row.PersonComments, paint.ToneWarning)
+	counts := countsCell(row.PersonComments, glyph.PersonComments, paint.ToneWarning)
 	if !dotted {
 		return counts
 	}
@@ -160,14 +160,16 @@ func PersonCommentsCell(row Row, dotted bool) Cell {
 
 // countsCell is a pair of counts, open then resolved, with the open count in the tone given
 // while it is not zero.
-func countsCell(comments *Comments, openTone paint.Tone) Cell {
-	open := Cell{Text: strconv.Itoa(comments.Open), Tone: paint.ToneMuted}
+func countsCell(comments *Comments, whose glyph.Glyph, openTone paint.Tone) Cell {
+	tone := paint.ToneMuted
 	if comments.Open > 0 {
-		open.Tone = openTone
+		tone = openTone
 	}
 
 	return Cell{Parts: []Cell{
-		open,
+		{Glyph: whose, Tone: tone},
+		{Text: " "},
+		{Text: strconv.Itoa(comments.Open), Tone: tone},
 		{
 			Text: "|" + strconv.Itoa(comments.Resolved),
 			Tone: paint.ToneMuted,
