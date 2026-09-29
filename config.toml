@@ -356,7 +356,7 @@ focus = ["F"]
 # schedules, archive and worktrees from any of them.
 [keybindings.views]
 # Hand the keys to the switcher.
-pick      = ["o"]
+pick      = ["tab"]
 # Open the agents list.
 agents    = ["a"]
 # Open the query over every conversation the panel holds, the archived ones included.

@@ -261,7 +261,7 @@ type KindsKeys struct {
 // Each view's own key opens it straight away once the switcher holds the keys.
 type ViewsKeys struct {
 	// Hand the keys to the switcher.
-	Pick []string `mapstructure:"pick" default:"o"`
+	Pick []string `mapstructure:"pick" default:"tab"`
 	// Open the agents list.
 	Agents []string `mapstructure:"agents" default:"a"`
 	// Open the query over every conversation the panel holds, the archived ones included.
