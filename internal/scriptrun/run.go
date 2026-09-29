@@ -66,8 +66,7 @@ func (s *ScriptService) RunProvision(ctx context.Context, agent agentstore.Agent
 	})
 }
 
-// RunHook runs one of a workflow's hooks and waits for it, in the directory the agent was
-// provisioned rather than the one the hook was found in.
+// RunHook runs one of a workflow's hooks for an agent and waits for it.
 func (s *ScriptService) RunHook(ctx context.Context, agent agentstore.Agent, name, event string) error {
 	gone := event == workflowstore.HookPostDelete
 
@@ -87,8 +86,6 @@ func (s *ScriptService) RunHook(ctx context.Context, agent agentstore.Agent, nam
 	}
 
 	dir := agent.Cwd
-	// A hook is there to work on the agent's own directory, so one that has gone is a refusal
-	// rather than a reason to run the script somewhere else.
 	if err := scripts.RequireUsableDir(dir); err != nil {
 		if !gone {
 			return s.refuseHook(ctx, record, name, err)
