@@ -517,6 +517,8 @@ func TestBriefingKeepsWhatEveryAgentNeeds(t *testing.T) {
 	assert.Contains(t, prompt, "spawn that one with request_review rather than create_agent",
 		"since create_agent cannot mark a reviewer, and an unmarked child is told none of this")
 	assert.Contains(t, prompt, "never touches a forge", "so does the rule against mailing one")
+	assert.Contains(t, prompt, "Never watch, poll, or wait on a pull request's checks",
+		"since a turn spent watching is one in which komrad's mail about the pull request cannot arrive")
 }
 
 // TestRoleBriefing pins which document an agent is given.
