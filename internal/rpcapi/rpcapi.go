@@ -27,6 +27,8 @@ import (
 	workflowv1 "komrad/proto/gen/workflow/v1"
 	worktreev1 "komrad/proto/gen/worktree/v1"
 
+	"komrad/internal/fail"
+
 	"buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
@@ -167,8 +169,11 @@ func IsDestructive(method protoreflect.MethodDescriptor, surfaces *annotationv1.
 	return true
 }
 
+// ErrUnknownCaller is a call naming an agent komrad holds no row for.
+var ErrUnknownCaller = fail.Denied("komrad knows no agent by that id")
+
 // RoleOf answers what the agent was launched to do.
-type RoleOf func(ctx context.Context, agentID string) annotationv1.Role
+type RoleOf func(ctx context.Context, agentID string) (annotationv1.Role, error)
 
 // ServesRole reports whether a method is open to a caller holding the role, every method being
 // open to a caller holding none.

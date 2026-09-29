@@ -13,11 +13,13 @@ package mcp
 
 import (
 	"fmt"
+	"log/slog"
 	"net/http"
 
 	annotationv1 "komrad/proto/gen/annotation/v1"
 
 	"komrad/internal/caller"
+	"komrad/internal/logging"
 	"komrad/internal/rpcapi"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -37,6 +39,7 @@ type NewHandlerParams struct {
 	BaseURL string
 	// RoleOf places the caller, serving every tool when it is nil.
 	RoleOf rpcapi.RoleOf
+	Logger *slog.Logger
 }
 
 // NewHandler builds the MCP server as an HTTP handler with no auth on it, safe only while it
@@ -54,7 +57,14 @@ func NewHandler(params NewHandlerParams) (http.Handler, error) {
 
 	return mcpsdk.NewStreamableHTTPHandler(
 		func(request *http.Request) *mcpsdk.Server {
-			server, ok := servers[getCallerRole(request, params.RoleOf)]
+			role, err := getCallerRole(request, params.RoleOf)
+			if err != nil {
+				params.Logger.LogAttrs(request.Context(), slog.LevelWarn, "refused an mcp caller whose role could not be read", logging.Err(err)...)
+
+				return nil
+			}
+
+			server, ok := servers[role]
 			if !ok {
 				return servers[annotationv1.Role_ROLE_UNSPECIFIED]
 			}
@@ -66,10 +76,10 @@ func NewHandler(params NewHandlerParams) (http.Handler, error) {
 }
 
 // getCallerRole reads the role of whoever is making the request.
-func getCallerRole(request *http.Request, roleOf rpcapi.RoleOf) annotationv1.Role {
+func getCallerRole(request *http.Request, roleOf rpcapi.RoleOf) (annotationv1.Role, error) {
 	agentID := caller.FromHeader(request.Header).AgentID
 	if roleOf == nil || agentID == "" {
-		return annotationv1.Role_ROLE_UNSPECIFIED
+		return annotationv1.Role_ROLE_UNSPECIFIED, nil
 	}
 
 	return roleOf(request.Context(), agentID)

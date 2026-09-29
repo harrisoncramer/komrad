@@ -2,6 +2,7 @@ package interceptors
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	agentv1 "komrad/proto/gen/agent/v1"
@@ -10,6 +11,7 @@ import (
 	"komrad/proto/gen/schedule/v1/schedulev1connect"
 
 	"komrad/internal/caller"
+	"komrad/internal/rpcapi"
 
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
@@ -30,14 +32,35 @@ func TestRoles(t *testing.T) {
 		name       string
 		agentID    string
 		procedure  string
-		wantErr    bool
+		wantCode   connect.Code
 		wantLookup bool
 	}{
 		{
 			name:       "a reviewer is refused a document",
 			agentID:    "reviewer",
 			procedure:  agentv1connect.AgentServiceWriteDocumentProcedure,
-			wantErr:    true,
+			wantCode:   connect.CodePermissionDenied,
+			wantLookup: true,
+		},
+		{
+			name:       "an implementer is refused a schedule",
+			agentID:    "implementer",
+			procedure:  schedulev1connect.ScheduleServiceCreateScheduleProcedure,
+			wantCode:   connect.CodePermissionDenied,
+			wantLookup: true,
+		},
+		{
+			name:       "an agent komrad does not know is refused",
+			agentID:    "unknown",
+			procedure:  agentv1connect.AgentServiceWriteDocumentProcedure,
+			wantCode:   connect.CodePermissionDenied,
+			wantLookup: true,
+		},
+		{
+			name:       "an agent whose role cannot be read is refused until it can",
+			agentID:    "unreadable",
+			procedure:  agentv1connect.AgentServiceWriteDocumentProcedure,
+			wantCode:   connect.CodeUnavailable,
 			wantLookup: true,
 		},
 		{
@@ -58,21 +81,8 @@ func TestRoles(t *testing.T) {
 			procedure: agentv1connect.AgentServiceGetDocumentProcedure,
 		},
 		{
-			name:       "an implementer is refused a schedule",
-			agentID:    "implementer",
-			procedure:  schedulev1connect.ScheduleServiceCreateScheduleProcedure,
-			wantErr:    true,
-			wantLookup: true,
-		},
-		{
 			name:      "a caller naming no agent is served everything",
 			procedure: schedulev1connect.ScheduleServiceCreateScheduleProcedure,
-		},
-		{
-			name:       "an agent with no role is served everything",
-			agentID:    "unknown",
-			procedure:  agentv1connect.AgentServiceWriteDocumentProcedure,
-			wantLookup: true,
 		},
 		{
 			name:      "a method naming no roles is open to every agent",
@@ -86,10 +96,17 @@ func TestRoles(t *testing.T) {
 			t.Parallel()
 
 			lookedUp := false
-			interceptor := NewRoles(func(_ context.Context, agentID string) annotationv1.Role {
+			interceptor := NewRoles(func(_ context.Context, agentID string) (annotationv1.Role, error) {
 				lookedUp = true
 
-				return roles[agentID]
+				switch agentID {
+				case "unknown":
+					return annotationv1.Role_ROLE_UNSPECIFIED, rpcapi.ErrUnknownCaller
+				case "unreadable":
+					return annotationv1.Role_ROLE_UNSPECIFIED, errors.New("connection refused")
+				default:
+					return roles[agentID], nil
+				}
 			})
 
 			ctx := caller.With(t.Context(), caller.Caller{AgentID: tt.agentID})
@@ -106,9 +123,9 @@ func TestRoles(t *testing.T) {
 			})
 			assert.Equal(t, tt.wantLookup, lookedUp)
 
-			if tt.wantErr {
+			if tt.wantCode != 0 {
 				require.Error(t, err)
-				assert.Equal(t, connect.CodePermissionDenied, connect.CodeOf(err))
+				assert.Equal(t, tt.wantCode, connect.CodeOf(err))
 				assert.False(t, served)
 
 				return
