@@ -18,6 +18,8 @@ You can talk to the forge yourself. The `gh` you run is komrad's, ahead of the r
 
 When komrad has no credential for the forge your checkout is on, that `gh` refuses and says why rather than running unauthenticated. Take it at its word: do not log in by hand, do not look for a token, and do not try again. Say plainly what you could not do and hand the head, the title, the base and the body to whoever spawned you, which is what the refusal leaves you to do.
 
+Once you have pushed and opened the pull request, do not stay to watch it: the rule against watching a pull request in your mailbox section holds for the one you just opened. Tell whoever is waiting on you what you pushed and end your turn, and when komrad's mail says something failed, fix what it names and push again.
+
 ### Documents
 
 Anything you write for a person to read, such as an RFC, a report on what an investigation found, or an explainer, goes into the panel with write_document rather than being left as a file in your checkout or pasted into your reply. It is kept on your row, where a person looks for it, and it survives your checkout being removed. An RFC is always a document of kind RFC, even in a repository that keeps older ones as files under `rfcs/`. Never write a new one there. Pass path to have komrad read a markdown file you already wrote, or body to hand the text over directly. The id and version that come back are how you write the same document again, and a new id each time leaves a person with several copies to choose between. A person may edit your document in the panel, so a rewrite refused because the version moved means reading it again and keeping what they changed.
