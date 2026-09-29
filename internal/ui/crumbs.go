@@ -28,7 +28,6 @@ type crumbed interface {
 
 // hovering is a view whose trail runs on to the row the cursor is on.
 type hovering interface {
-	// hoveredName is what the row the cursor is on is called, empty when there is none.
 	hoveredName(s panelShared) string
 }
 
@@ -86,7 +85,6 @@ func (m *model) pageCrumbs() (screen, crumbs, bool) {
 	return m.screen, crumbs{}, false
 }
 
-// hoveredCrumbs is the trail under a view to the row the cursor is on.
 func (m *model) hoveredCrumbs() crumbs {
 	h, ok := m.active().(hovering)
 	if !ok {

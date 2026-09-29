@@ -547,13 +547,15 @@ func (w *searchScreen) hovered(s panelShared) (searchRow, bool) {
 	return rowAt(w.rows(s), w.cursor)
 }
 
-// hoveredName is the agent the cursor landed on, empty while the query is typed.
 func (w *searchScreen) hoveredName(s panelShared) string {
 	if w.typing {
 		return ""
 	}
 
-	agent, _ := w.hoveredAgent(s)
+	agent, ok := w.hoveredAgent(s)
+	if !ok {
+		return ""
+	}
 
 	return agent.name
 }
