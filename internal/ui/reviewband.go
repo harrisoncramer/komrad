@@ -153,6 +153,8 @@ func (r reviewScreen) stepSaid(s panelShared) string {
 	forward := keyLabel(s.keys.Review.BaseForward)
 
 	switch {
+	case r.diff.origin != nil:
+		return keyLabel(s.keys.Review.Jump) + " back"
 	case r.diff.chapter < 0:
 		return back + " for the latest chapter"
 	case r.diff.chapter == 0:

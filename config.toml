@@ -272,6 +272,9 @@ compose          = ["c"]
 # working rather than letting you both write at once. It is refused on a round the
 # agent has written past, since those lines have moved on.
 edit_file        = ["e"]
+# Jump from the comment under the cursor to the diff it was written against, with the
+# cursor on it, or back to where you were from there.
+jump             = ["J"]
 # Jump to the next line carrying a review thread.
 next_thread      = ["t"]
 # Move the cursor to the next comment nobody has settled. It stops on the last one.

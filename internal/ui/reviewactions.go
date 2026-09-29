@@ -65,6 +65,12 @@ func (r *reviewScreen) ownTable() []screenAction {
 			run:  func(_ host, s panelShared, _ string) tea.Cmd { return r.toggleAnswer(s) },
 		},
 		{
+			id:   actionReviewJump,
+			keys: func(k config.Keybindings) []string { return k.Review.Jump },
+			when: func(panelShared) bool { return r.doesOfferJump() },
+			run:  func(_ host, s panelShared, _ string) tea.Cmd { return r.toggleJump(s) },
+		},
+		{
 			id:   actionReviewReload,
 			keys: func(k config.Keybindings) []string { return k.Review.Reload },
 			run:  func(_ host, s panelShared, _ string) tea.Cmd { return r.reloadFresh(s) },
@@ -90,7 +96,7 @@ func (r *reviewScreen) ownTable() []screenAction {
 		{
 			id:   actionReviewCompose,
 			keys: func(k config.Keybindings) []string { return k.Review.Compose },
-			run:  r.orRefuseWrite(func(_ host, s panelShared) tea.Cmd { return r.compose(s) }),
+			run:  r.orRefuseComment(func(_ host, s panelShared) tea.Cmd { return r.compose(s) }),
 		},
 		{
 			id: actionReviewSend,
@@ -122,6 +128,22 @@ func (r *reviewScreen) orRefuseWrite(fn func(host, panelShared) tea.Cmd) func(ho
 	}
 }
 
+func (r *reviewScreen) orRefuseComment(fn func(host, panelShared) tea.Cmd) func(host, panelShared, string) tea.Cmd {
+	return func(h host, s panelShared, pressed string) tea.Cmd {
+		if _, replying := r.diff.threadAtCursor(); !replying {
+			return r.orRefuseWrite(fn)(h, s, pressed)
+		}
+
+		if _, dead := r.isReadOnly(s); dead {
+			r.refuseWrite(s)
+
+			return nil
+		}
+
+		return fn(h, s)
+	}
+}
+
 func (r *reviewScreen) legend() []screenLegendRow {
 	// A dead agent keeps every key that reads and loses every key that sends, so the ones that
 	// would only explain their own refusal are not offered.
@@ -137,6 +159,12 @@ func (r *reviewScreen) legend() []screenLegendRow {
 		_, history := r.isHistory()
 
 		return reachable(s) && !history
+	}
+
+	commentable := func(s panelShared) bool {
+		_, replying := r.diff.threadAtCursor()
+
+		return offered(s) || (reachable(s) && replying)
 	}
 
 	return []screenLegendRow{
@@ -178,6 +206,11 @@ func (r *reviewScreen) legend() []screenLegendRow {
 			show: func(panelShared) bool { return r.doesOfferAnswer() },
 		},
 		{
+			of:   []actionID{actionReviewJump},
+			desc: func(panelShared) string { return r.diff.jumpDesc() },
+			show: func(panelShared) bool { return r.doesOfferJump() },
+		},
+		{
 			of:   []actionID{actionReviewReload},
 			desc: func(s panelShared) string { return r.reloadDesc(s) },
 		},
@@ -197,7 +230,7 @@ func (r *reviewScreen) legend() []screenLegendRow {
 		{
 			of:    []actionID{actionReviewCompose},
 			desc:  func(panelShared) string { return r.composeDesc() },
-			show:  offered,
+			show:  commentable,
 			strip: true,
 		},
 		{

@@ -51,6 +51,10 @@ type reviewChapter struct {
 // stepBase walks back a round, from the whole change to the newest round and on into the older
 // ones, and stops on the oldest.
 func (r *reviewScreen) stepBase(s panelShared) tea.Cmd {
+	if r.diff.origin != nil {
+		return r.leaveOrigin(s)
+	}
+
 	if r.diff.chapter < 0 {
 		return r.showChapter(s, len(r.diff.chapters)-1)
 	}
@@ -60,6 +64,10 @@ func (r *reviewScreen) stepBase(s panelShared) tea.Cmd {
 
 // stepBaseForward walks the other way, and stops on the whole change.
 func (r *reviewScreen) stepBaseForward(s panelShared) tea.Cmd {
+	if r.diff.origin != nil {
+		return r.leaveOrigin(s)
+	}
+
 	if r.diff.chapter < 0 {
 		return nil
 	}
@@ -94,11 +102,12 @@ func (d *reviewDiff) showChapter(at int) bool {
 		at = -1
 	}
 
-	if at == d.chapter && d.answer == nil {
+	if at == d.chapter && d.answer == nil && d.origin == nil {
 		return false
 	}
 
 	d.answer = nil
+	d.origin = nil
 	d.chapter = at
 	if at < 0 {
 		d.widen()
@@ -178,6 +187,7 @@ func (d *reviewDiff) widen() {
 	d.baseLabel = ""
 	d.chapter = -1
 	d.answer = nil
+	d.origin = nil
 }
 
 // doesFitBaseLegend reports whether the base key is worth a legend row.
