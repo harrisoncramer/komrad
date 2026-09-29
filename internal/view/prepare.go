@@ -146,18 +146,19 @@ func reviewerCommentsCell(row Row) Cell {
 }
 
 // personCommentsCell counts the comments the person left on an agent's work, the open count
-// standing out while there is one, and a dot after while any holds something unread.
+// standing out while there is one, and a column after held for the dot any unread one earns.
 func personCommentsCell(row Row) Cell {
 	if !isOwn(row) || row.PersonComments == nil {
 		return Cell{}
 	}
 
 	counts := countsCell(row.PersonComments, glyph.PersonComments, paint.ToneWarning)
-	if !row.PersonComments.Unread {
-		return counts
+	dot := Cell{Text: " "}
+	if row.PersonComments.Unread {
+		dot = Cell{Glyph: glyph.Unread, Tone: paint.ToneWarning}
 	}
 
-	return Cell{Parts: append(counts.Parts, Cell{Glyph: glyph.Unread, Tone: paint.ToneWarning})}
+	return Cell{Parts: append(counts.Parts, dot)}
 }
 
 // countsCell is one side's open and resolved counts after its glyph.
