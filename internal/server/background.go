@@ -20,10 +20,75 @@ const loopStopTimeout = 2 * time.Second
 
 const jobStopTimeout = 10 * time.Second
 
-type Loop struct {
+// LoopWaker asks one loop to run before its next tick.
+type LoopWaker struct {
+	wake chan struct{}
+}
+
+// NewLoopWaker builds a waker holding no wake.
+func NewLoopWaker() *LoopWaker {
+	return &LoopWaker{wake: make(chan struct{}, 1)}
+}
+
+// Wake asks the loop to run again, dropping the ask when one is already waiting.
+func (w *LoopWaker) Wake() {
+	select {
+	case w.wake <- struct{}{}:
+	default:
+	}
+}
+
+func (w *LoopWaker) drain() {
+	select {
+	case <-w.wake:
+	default:
+	}
+}
+
+// NewLoopParams is what a loop is built from.
+type NewLoopParams struct {
 	Name     string
 	Interval time.Duration
-	Pass     func(context.Context) error
+	// Floor is the least time after one run starts that a woken run may start.
+	Floor time.Duration
+	Run   func(context.Context) error
+	// Waker is what wakes the loop, one of its own when nil.
+	Waker *LoopWaker
+}
+
+// Loop is a function the server runs on an interval, and sooner when woken.
+type Loop struct {
+	name     string
+	interval time.Duration
+	floor    time.Duration
+	run      func(context.Context) error
+	waker    *LoopWaker
+}
+
+// NewLoop builds a loop that runs on its interval and whenever its waker is woken.
+func NewLoop(params NewLoopParams) *Loop {
+	waker := params.Waker
+	if waker == nil {
+		waker = NewLoopWaker()
+	}
+
+	return &Loop{
+		name:     params.Name,
+		interval: params.Interval,
+		floor:    params.Floor,
+		run:      params.Run,
+		waker:    waker,
+	}
+}
+
+// Name returns the loop's name.
+func (l *Loop) Name() string {
+	return l.name
+}
+
+// Run calls the loop's run function once.
+func (l *Loop) Run(ctx context.Context) error {
+	return l.run(ctx)
 }
 
 // Start begins the job queue and the background loops, which the caller tears down with
@@ -65,7 +130,7 @@ type backgroundWork struct {
 	logger    *slog.Logger
 }
 
-func startBackground(ctx context.Context, runner jobRunner, loops []Loop, logger *slog.Logger) (*backgroundWork, error) {
+func startBackground(ctx context.Context, runner jobRunner, loops []*Loop, logger *slog.Logger) (*backgroundWork, error) {
 	uncancelled := context.WithoutCancel(ctx)
 
 	if err := runner.Start(uncancelled); err != nil {
@@ -114,60 +179,98 @@ func shutdownDeadline(ctx context.Context, within time.Duration) (context.Contex
 	return context.WithTimeout(context.WithoutCancel(ctx), within)
 }
 
-func runLoop(ctx context.Context, loop Loop, logger *slog.Logger) {
-	ticker := time.NewTicker(loop.Interval)
+func runLoop(ctx context.Context, loop *Loop, logger *slog.Logger) {
+	ticker := time.NewTicker(loop.interval)
 	defer ticker.Stop()
 
-	logger = logger.With(slog.String(logging.Loop, loop.Name))
+	logger = logger.With(slog.String(logging.Loop, loop.name))
 
 	var failing string
 	var repeats int
+	var woken bool
+
+	loop.waker.drain()
 
 	for {
-		traced := tracedPass(ctx, logger)
+		started := time.Now()
+		traced := tracedRun(ctx, logger, woken)
 
-		err := runPass(traced, loop.Pass)
+		err := runOnce(traced, loop.run)
 
 		if ctx.Err() != nil {
 			return
 		}
 
-		passLogger := logging.From(traced)
+		runLogger := logging.From(traced)
 
 		switch {
 		case err == nil && failing != "":
-			passLogger.LogAttrs(traced, slog.LevelInfo, "loop recovered", slog.Int(logging.Repeats, repeats))
+			runLogger.LogAttrs(traced, slog.LevelInfo, "loop recovered", slog.Int(logging.Repeats, repeats))
 			failing, repeats = "", 0
 		case err != nil && err.Error() == failing:
 			repeats++
-			passLogger.LogAttrs(traced, slog.LevelDebug, "loop still failing", slog.Int(logging.Repeats, repeats))
+			runLogger.LogAttrs(traced, slog.LevelDebug, "loop still failing", slog.Int(logging.Repeats, repeats))
 		case err != nil:
 			failing, repeats = err.Error(), 1
-			passLogger.LogAttrs(traced, slog.LevelError, "loop pass failed", failureAttrs(err)...)
+			runLogger.LogAttrs(traced, slog.LevelError, "loop run failed", failureAttrs(err)...)
 		}
 
 		select {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
+			woken = false
+			loop.waker.drain()
+		case <-loop.waker.wake:
+			woken = true
+			if !waitUntil(ctx, started.Add(loop.floor)) {
+				return
+			}
+			select {
+			case <-ticker.C:
+			default:
+			}
 		}
 	}
 }
 
-func tracedPass(ctx context.Context, logger *slog.Logger) context.Context {
-	trace := uuid.NewString()
+// waitUntil sleeps until the moment, reporting false when the context ends first.
+func waitUntil(ctx context.Context, moment time.Time) bool {
+	wait := time.Until(moment)
+	if wait <= 0 {
+		return true
+	}
 
-	return caller.WithTrace(logging.WithLogger(ctx, logger.With(slog.String(logging.TraceID, trace))), trace)
+	timer := time.NewTimer(wait)
+	defer timer.Stop()
+
+	select {
+	case <-ctx.Done():
+		return false
+	case <-timer.C:
+		return true
+	}
 }
 
-func runPass(ctx context.Context, pass func(context.Context) error) (err error) {
+func tracedRun(ctx context.Context, logger *slog.Logger, woken bool) context.Context {
+	trace := uuid.NewString()
+
+	logger = logger.With(slog.String(logging.TraceID, trace))
+	if woken {
+		logger = logger.With(slog.Bool(logging.LoopWoken, true))
+	}
+
+	return caller.WithTrace(logging.WithLogger(ctx, logger), trace)
+}
+
+func runOnce(ctx context.Context, run func(context.Context) error) (err error) {
 	defer func() {
 		if recovered := recover(); recovered != nil {
 			err = &panicError{value: recovered, stack: string(debug.Stack())}
 		}
 	}()
 
-	return pass(ctx)
+	return run(ctx)
 }
 
 type panicError struct {
@@ -176,7 +279,7 @@ type panicError struct {
 }
 
 func (e *panicError) Error() string {
-	return fmt.Sprintf("the pass panicked: %v", e.value)
+	return fmt.Sprintf("the run panicked: %v", e.value)
 }
 
 func failureAttrs(err error) []slog.Attr {

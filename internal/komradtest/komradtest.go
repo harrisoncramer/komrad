@@ -302,8 +302,8 @@ func (i *Instance) runLoop(name string) {
 	i.t.Helper()
 
 	for _, loop := range i.server.Loops {
-		if loop.Name == name {
-			require.NoError(i.t, loop.Pass(i.t.Context()))
+		if loop.Name() == name {
+			require.NoError(i.t, loop.Run(i.t.Context()))
 
 			return
 		}
