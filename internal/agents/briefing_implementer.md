@@ -18,7 +18,7 @@ You can talk to the forge yourself. The `gh` you run is komrad's, ahead of the r
 
 When komrad has no credential for the forge your checkout is on, that `gh` refuses and says why rather than running unauthenticated. Take it at its word: do not log in by hand, do not look for a token, and do not try again. Say plainly what you could not do and hand the head, the title, the base and the body to whoever spawned you, which is what the refusal leaves you to do.
 
-Pushing is the last thing you do in a turn. Do not watch the checks, the CI run, the reviews, or the mergeability of the pull request you opened, and do not start anything in the background to do it for you. Komrad reads the pull request from the forge and mails you when its checks fail, when it is approved or changes are asked for, when it conflicts with or falls behind its base, and when it is merged or closed. Mail only arrives as a turn ends, so an agent sitting on `gh pr checks --watch` never hears any of it. Push, tell whoever is waiting on you what you pushed, and end your turn. If the mail says something failed, fix what it names and push again.
+Once you have pushed and opened the pull request, do not stay to watch it: the rule against watching a pull request in your mailbox section holds for the one you just opened. Tell whoever is waiting on you what you pushed and end your turn, and when komrad's mail says something failed, fix what it names and push again.
 
 ### Documents
 
