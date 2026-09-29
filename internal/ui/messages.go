@@ -1,8 +1,8 @@
 package ui
 
 import (
-	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -10,32 +10,17 @@ import (
 	"komrad/internal/ui/cursor"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/paint/label"
+	"komrad/lib/xslice"
 
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
-	glamouransi "charm.land/glamour/v2/ansi"
 	"charm.land/lipgloss/v2"
 )
-
-// messagesRows is the most rows the region takes, which the pane keeps back whether or not the
-// message on screen fills them.
-const messagesRows = 3
-
-// messagesRegionRows is what the region costs the pane: its rows and the rule under them.
-const messagesRegionRows = messagesRows + 1
-
-// messagesListFloor is how many rows the list keeps once the region has taken its own.
-const messagesListFloor = 2
 
 // messagesIndent is the gutter every row of a message is drawn behind, which is the cursor's.
 const messagesIndent = 2
 
-// messagesTallyWidth is the room held on the right of the summary for the count beside it.
-const messagesTallyWidth = 8
-
-// messagesFocusKey takes the region and hands it back, and is not tab, which huh binds as the
-// key moving between a form's fields.
-const messagesFocusKey = "ctrl+g"
+const messagesBodyIndent = messagesIndent + 2
 
 // messagesMockKey pushes a fixture into the stack.
 const messagesMockKey = "M"
@@ -45,6 +30,8 @@ const messagesCap = 50
 
 // messagesPulseBlinks is how many times the summary of a message blinks as it lands.
 const messagesPulseBlinks = 2
+
+const messagesFlashFor = 5 * time.Second
 
 type messageKind int
 
@@ -68,13 +55,16 @@ type messagesState struct {
 	items   []message
 	cursor  int
 	focused bool
-	// field is the piece of the message the cursor stands on, and flashed the one a copy has just
-	// taken.
-	field   int
 	flashed int
 	// landed counts the messages pushed, and pulse blinks the newest of them as it arrives.
+	landed     int
+	pulse      pulse
+	flashing   bool
+	fromRecord bool
+}
+
+type messagesFlashDoneMsg struct {
 	landed int
-	pulse  pulse
 }
 
 // pulseMessages blinks the summary when the stack has grown since the count it is given.
@@ -83,177 +73,154 @@ func (m model) pulseMessages(before int) (model, tea.Cmd) {
 		return m, nil
 	}
 
-	return m, m.startPulse(&m.messages.pulse, messagesPulseBlinks)
+	m.messages.flashing = true
+	landed := m.messages.landed
+	done := startTimer(messagesFlashFor, func(time.Time) tea.Msg { return messagesFlashDoneMsg{landed: landed} })
+
+	return m, tea.Batch(m.startPulse(&m.messages.pulse, messagesPulseBlinks), done)
+}
+
+func (m model) endMessagesFlash(msg messagesFlashDoneMsg) model {
+	if msg.landed == m.messages.landed {
+		m.messages.flashing = false
+	}
+
+	return m
 }
 
 // isMessagesPulseOn reports whether the newest message is in the lit half of a blink.
 func (m model) isMessagesPulseOn() bool {
-	return m.messages.pulse.isLit() && m.messages.clampedCursor() == 0
+	return m.messages.pulse.isLit()
 }
 
-// messagePiece is one part of a message the cursor stands on: the label it is drawn behind, the
-// text itself, and the value y copies.
-type messagePiece struct {
-	label string
-	text  string
-	value string
-	style lipgloss.Style
-	// head marks the summary.
-	head bool
+func (m model) messagesFlash(width int) (string, bool) {
+	if !m.messages.flashing || len(m.messages.items) == 0 || width < 3 {
+		return "", false
+	}
+
+	held := m.messages.items[0]
+	words := lipgloss.NewStyle()
+	if m.isMessagesPulseOn() {
+		words = words.Foreground(paint.Panel.Color(pulseTone(held.kind)))
+	}
+
+	return paint.Panel.Style(kindTone(held.kind)).Render(kindIcon(m.glyphs, held.kind)) + " " + words.Render(paint.Clip(held.summary, width-2)), true
 }
 
-// messagesRegion is the region as it is drawn under the record, given the record and the legend
-// it sits between and whatever stands above them so it can tell whether the pane has rows to
-// spare for it.
-func (m model) messagesRegion(record, help string, above ...string) string {
-	rows, ok := m.messagesFit(record, help, above...)
-	if !ok {
+func (m model) messagesTally() string {
+	worst, count := messageInfo, 0
+	for _, held := range m.messages.items {
+		if held.kind < messageWarning {
+			continue
+		}
+
+		worst = max(worst, held.kind)
+		count++
+	}
+
+	if count == 0 {
 		return ""
 	}
 
-	slot := strings.Join(m.messagesSlot(), "\n") + "\n"
-	if m.isMessagesFocused() {
-		// The summary keeps its row while the pieces under it move, so what failed and where in
-		// the stack it sits are on screen wherever the cursor has got to.
-		drawn := m.messagesRender()
-		slot = drawn.rows[0] + "\n" + paint.PadRows(paint.RenderList(drawn.rows[1:], drawn.cursorRow-1, rows-1, dimStyle), rows-1)
-	}
+	tally := paint.Panel.Style(kindTone(worst)).Render(kindIcon(m.glyphs, worst) + " " + strconv.Itoa(count))
 
-	block := slot
-	if record == "" {
-		block = m.detailsRule("") + block
-	}
-
-	return block + m.detailsRule("")
+	return tally + "  " + dimStyle.Render(headLabel(m.keys.Messages.Open))
 }
 
-// messagesFit is how many rows the region takes, refused when they would leave the list too
-// short to be worth reading.
-func (m model) messagesFit(record, help string, above ...string) (int, bool) {
-	if m.height <= 0 || !m.isMessagesRegion() {
-		return 0, false
-	}
-
-	cost := messagesRegionRows
-	if record == "" {
-		cost++
-	}
-
-	spare := m.spareLines(slices.Concat(above, []string{record, help})...) - cost
-	if spare < messagesListFloor {
-		return 0, false
-	}
-
-	if !m.isMessagesFocused() {
-		return messagesRows, true
-	}
-
-	return min(len(m.messagesRender().rows), messagesRows+spare-messagesListFloor), true
+func messagesColumn() columnSpec {
+	return columnSpec{floor: columnFloor}
 }
 
-// messagesRender is the expanded message as its rows, carrying the row the cursor stands on so
-// the window follows it.
-type messagesRender struct {
-	rows      []string
-	cursorRow int
-}
+func (m model) messagesWindow(width, rows int) docWindow {
+	body := max(width-messagesBodyIndent, 1)
+	count := len(m.messages.items)
+	at := m.messages.clampedCursor()
 
-// messagesRender draws the whole message at the width of the pane.
-func (m model) messagesRender() messagesRender {
-	pieces := m.messagePieces()
-	if len(pieces) == 0 {
-		return messagesRender{rows: m.messagesSlot()}
+	drawn := []string{m.messagesHeading(width, count, at), ""}
+	if count == 0 {
+		drawn = append(drawn, dimStyle.Render(strings.Repeat(" ", messagesIndent)+"Komrad is running normally"))
 	}
 
-	cursor := m.messagesPiece()
-
-	drawn := messagesRender{}
-	for i, piece := range pieces {
+	start, end := 0, 0
+	for i, held := range m.messages.items {
 		if i > 0 {
-			drawn.rows = append(drawn.rows, "")
+			drawn = append(drawn, "")
 		}
 
-		if i == cursor {
-			drawn.cursorRow = len(drawn.rows)
+		if i == at {
+			start = len(drawn)
 		}
 
-		drawn.rows = append(drawn.rows, m.messagePieceRows(piece, i == cursor, m.messages.flashed == i+1)...)
+		drawn = append(drawn, m.messageRows(held, body, i == at, m.messages.flashed == i+1)...)
+
+		if i == at {
+			end = len(drawn)
+		}
 	}
 
-	return drawn
+	doc := docWindow{rows: drawn, markers: true}
+	if end > rows {
+		doc.top = doc.clamp(min(start, end+1-rows), rows)
+	}
+
+	return doc
 }
 
-// messagePieces are the parts of the message the cursor moves between, each of them a value y
-// copies: what failed, the reason, what to do about it, the trace id, and when it landed.
-func (m model) messagePieces() []messagePiece {
-	if len(m.messages.items) == 0 {
-		return nil
+func (m model) messagesHeading(width, count, at int) string {
+	title := paint.Panel.Header().Render("messages")
+	if count == 0 {
+		return title
 	}
 
-	held := m.messages.items[m.messages.clampedCursor()]
-	landed := label.Friendly(held.at)
+	tally := label.OfCount(at+1, count)
+	pad := max(width-lipgloss.Width(title)-len(tally), 1)
 
-	// The reason is the one thing here somebody has to read, so it is drawn in the plain
-	// foreground and everything around it is dim.
-	pieces := []messagePiece{
-		{
-			text:  held.summary,
-			value: held.summary,
-			head:  true,
-		},
-		{
-			text:  held.detail,
-			value: held.detail,
-			style: lipgloss.NewStyle(),
-		},
-		{
-			text:  held.hint,
-			value: held.hint,
-			style: dimStyle,
-		},
-		{
-			label: "komrad log ",
-			text:  held.trace,
-			value: held.trace,
-			style: dimStyle,
-		},
-		{
-			label: kindLabel(held.kind) + separated,
-			text:  landed,
-			value: landed,
-			style: dimStyle,
-		},
-	}
-
-	return slices.DeleteFunc(pieces, func(piece messagePiece) bool { return piece.text == "" })
+	return title + strings.Repeat(" ", pad) + dimStyle.Render(tally)
 }
 
-// messagePieceRows is one piece wrapped to the pane, the cursor and the label on the first of
-// its rows and the rest under the indent the cursor leaves.
-func (m model) messagePieceRows(piece messagePiece, hovered, flashed bool) []string {
-	if piece.head {
-		return []string{m.messagesCursorPrefix(hovered) + m.messagesSummaryStyle(m.messages.items[m.messages.clampedCursor()], messagesIndent, flashed) + m.messagesTally(messagesIndent)}
+func (m model) messageRows(held message, width int, hovered, flashed bool) []string {
+	summary := lipgloss.NewStyle()
+	switch {
+	case flashed:
+		summary = flashFieldStyle(paint.Panel)
+	case hovered:
+		summary = summary.Bold(true)
 	}
 
-	style := piece.style
-	if flashed {
-		style = flashFieldStyle(paint.Panel)
-	}
+	indent := strings.Repeat(" ", messagesBodyIndent)
+	icon := paint.Panel.Style(kindTone(held.kind)).Render(kindIcon(m.glyphs, held.kind))
 
-	rows := []string{}
-	for _, line := range paint.WrapRows(piece.text, m.lineWidth()-messagesIndent-2-lipgloss.Width(piece.label)) {
-		if len(rows) == 0 {
-			label := ""
-			if piece.label != "" {
-				label = dimStyle.Render(piece.label)
-			}
-
-			rows = append(rows, m.messagesCursorPrefix(hovered)+label+style.Render(line))
+	var rows []string
+	for i, line := range paint.WrapRows(held.summary, width) {
+		if i == 0 {
+			rows = append(rows, m.messagesCursorPrefix(hovered)+icon+" "+summary.Render(line))
 
 			continue
 		}
 
-		rows = append(rows, strings.Repeat(" ", messagesIndent)+style.Render(line))
+		rows = append(rows, indent+summary.Render(line))
+	}
+
+	meta := []string{kindLabel(held.kind), label.Friendly(held.at)}
+	if held.trace != "" {
+		meta = append(meta, "komrad log "+held.trace)
+	}
+
+	for _, piece := range []struct {
+		text  string
+		style lipgloss.Style
+	}{
+		{text: held.detail, style: lipgloss.NewStyle()},
+		{text: held.hint, style: dimStyle},
+		{text: strings.Join(meta, separated), style: dimStyle},
+	} {
+		if piece.text == "" {
+			continue
+		}
+
+		rows = append(rows, xslice.Map(paint.WrapRows(piece.text, width), func(line string) string {
+			return indent + piece.style.Render(line)
+		})...)
 	}
 
 	return rows
@@ -268,103 +235,30 @@ func (m model) messagesCursorPrefix(hovered bool) string {
 	return caretGlyph(m.blinkingCaret(true))
 }
 
-// messagesPiece is the piece the cursor stands on, kept inside the pieces this message has.
-func (m model) messagesPiece() int {
-	return cursor.Clamp(m.messages.field, len(m.messagePieces()))
+func messageText(held message) string {
+	parts := []string{held.summary, held.detail}
+	if held.hint != "" {
+		parts = append(parts, held.hint)
+	}
+
+	if held.trace != "" {
+		parts = append(parts, "komrad log "+held.trace)
+	}
+
+	return strings.Join(parts, "\n\n")
 }
 
-// copyMessagePiece puts the piece under the cursor on the clipboard, flashing it the way the
+// copyMessage puts the message under the cursor on the clipboard, flashing it the way the
 // record flashes a field it has copied.
-func (m model) copyMessagePiece() (tea.Model, tea.Cmd) {
-	pieces := m.messagePieces()
-	if len(pieces) == 0 {
+func (m model) copyMessage() (tea.Model, tea.Cmd) {
+	if len(m.messages.items) == 0 {
 		return m, nil
 	}
 
-	cursor := m.messagesPiece()
-	m.messages.flashed = cursor + 1
+	at := m.messages.clampedCursor()
+	m.messages.flashed = at + 1
 
-	return m, tea.Batch(m.copyCmd(pieces[cursor].value), flashRevertTick())
-}
-
-// messagesSlot is the message the cursor is on said in the rows the region always holds: what
-// happened, as much of the reason as one line carries, and the way into the rest.
-func (m model) messagesSlot() []string {
-	if len(m.messages.items) == 0 {
-		return []string{
-			m.messagesSummaryStyle(message{kind: messageSuccess}, 0, false) + m.messagesTally(0),
-			dimStyle.Render("  Komrad is running normally"),
-		}
-	}
-
-	held := m.messages.items[m.messages.clampedCursor()]
-
-	return []string{
-		m.messagesSummaryStyle(held, 0, false) + m.messagesTally(0),
-		dimStyle.Render("  " + paint.Clip(held.detail, max(m.lineWidth()-messagesIndent, 1))),
-		dimStyle.Render("  " + messagesHint()),
-	}
-}
-
-// messagesSummaryLine is the summary row's text, clipped short of the tally so the count sits at
-// the far side.
-func (m model) messagesSummaryLine(taken int) string {
-	if len(m.messages.items) == 0 {
-		return kindIcon(m.glyphs, messageSuccess) + " No messages"
-	}
-
-	held := m.messages.items[m.messages.clampedCursor()]
-
-	return paint.Clip(kindIcon(m.glyphs, held.kind)+" "+held.summary, max(m.lineWidth()-taken-messagesTallyWidth, 1))
-}
-
-// messagesSummaryStyle is the summary row drawn with the kind on the icon alone, spreading to
-// the words on the lit half of a blink.
-func (m model) messagesSummaryStyle(held message, taken int, flashed bool) string {
-	line := m.messagesSummaryLine(taken)
-	icon, words, _ := strings.Cut(line, " ")
-
-	style := lipgloss.NewStyle()
-	if m.messages.focused {
-		style = style.Bold(true)
-	}
-	switch {
-	case flashed:
-		style = flashFieldStyle(paint.Panel)
-	case m.isMessagesPulseOn():
-		style = style.Foreground(paint.Panel.Color(pulseTone(held.kind)))
-	}
-
-	return paint.Panel.Style(kindTone(held.kind)).Render(icon) + " " + style.Render(words)
-}
-
-func messagesHint() string {
-	return messagesFocusKey + " to read"
-}
-
-// messagesTally is the count on the right of the summary, which says how much is behind this
-// message while the list has the keys, and where in the stack the reader is once it does not.
-func (m model) messagesTally(taken int) string {
-	count := len(m.messages.items)
-	if count == 0 {
-		return ""
-	}
-
-	tally := label.Tally(count - 1)
-	style := dimStyle
-	if m.messages.focused {
-		// Counted from the oldest, so the newest message is the last of them rather than the
-		// first: the stack itself is held newest first.
-		tally = label.OfCount(count-m.messages.clampedCursor(), count)
-		style = paint.Panel.Header()
-	} else if count < 2 {
-		return ""
-	}
-
-	pad := max(m.lineWidth()-taken-lipgloss.Width(m.messagesSummaryLine(taken))-len(tally), 1)
-
-	// The tally is where the region says the keys are its own.
-	return strings.Repeat(" ", pad) + style.Render(tally)
+	return m, tea.Batch(m.copyCmd(messageText(m.messages.items[at])), flashRevertTick())
 }
 
 // pushMessage puts a message at the front of the stack and keeps the reader on whatever they
@@ -403,63 +297,16 @@ func (s *messagesState) setNewestHint(hint string) {
 	s.items[0].hint = hint
 }
 
-// messagesDoc is the whole of the message the cursor is on, drawn in the block beside the list so
-// the reason is read at the width of the window.
-func (m model) messagesDoc() string {
-	if len(m.messages.items) == 0 {
-		return "_No messages_\n\nKomrad is running normally."
-	}
-
-	held := m.messages.items[m.messages.clampedCursor()]
-
-	var b strings.Builder
-	fmt.Fprintf(&b, "`%s` **%s**\n\n%s\n", kindIcon(m.glyphs, held.kind), held.summary, held.detail)
-
-	if held.hint != "" {
-		fmt.Fprintf(&b, "\n%s\n", held.hint)
-	}
-
-	fmt.Fprintf(&b, "\n_%s"+separated+"%s"+separated+"message %d of %d_\n", kindLabel(held.kind), held.at.Format("3:04pm"), len(m.messages.items)-m.messages.clampedCursor(), len(m.messages.items))
-
-	if held.trace != "" {
-		fmt.Fprintf(&b, "\n```\nkomrad log %s\n```\n", held.trace)
-	}
-
-	return b.String()
-}
-
-// messagesBlock is the message drawn in the block beside the list, asked for directly.
-func (m model) messagesBlock(split columnSplit) docWindow {
-	return docWindow{
-		rows:    paint.DocStyledRows(m.messagesDoc(), split.column, m.messagesStyleConfig()),
-		markers: true,
-	}
-}
-
-func (m model) messagesKind() messageKind {
-	if len(m.messages.items) == 0 {
-		return messageSuccess
-	}
-
-	return m.messages.items[m.messages.clampedCursor()].kind
-}
-
 func (s messagesState) clampedCursor() int {
 	return cursor.Clamp(s.cursor, len(s.items))
 }
 
-// isMessagesRegion is whether the screen on top draws the region at all, which the review screen
-// does not.
-func (m model) isMessagesRegion() bool {
-	// A screen mid-input owns every key, so the region gives up its own rather than taking a
-	// character out of a comment being typed.
-	return m.isDetailsScreen() && !m.active().takesEveryKey()
+func (m model) canReadMessages() bool {
+	return !m.active().takesEveryKey()
 }
 
-// isMessagesFocused is whether the region holds the keys, which it cannot on a screen that does
-// not draw it.
 func (m model) isMessagesFocused() bool {
-	return m.messages.focused && m.isMessagesRegion()
+	return m.messages.focused && m.canReadMessages()
 }
 
 // toggleMessagesFocus moves the keys between the list and the region.
@@ -470,12 +317,15 @@ func (m model) toggleMessagesFocus() model {
 
 	entering := !m.messages.focused
 	m.messages.focused = !m.messages.focused
-	m.details.focused = false
+	if entering {
+		m.messages.fromRecord = m.details.focused
+	}
+	m.details.focused = !entering && m.messages.fromRecord
 	m.blurTabs()
 	m.blurKinds()
 
 	if entering {
-		m.messages.field = 0
+		m.messages.cursor = 0
 	}
 
 	m.reconcileSolo()
@@ -488,39 +338,27 @@ func (m model) updateMessages(key tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	k := key.String()
 
 	switch {
-	case k == messagesFocusKey:
+	case isBound(k, m.keys.Messages.Open), k == "esc":
 		return m.toggleMessagesFocus(), nil
-	case k == "esc":
+	case k == "d":
 		return m.dismissMessage(), nil
-	// The newest message is the one on screen, so back through the stack is back through time.
-	case k == "<", k == "[":
-		m.messages.cursor = cursor.Clamp(m.messages.clampedCursor()+1, len(m.messages.items))
-		m = m.landedOnMessage()
-	case k == ">", k == "]":
-		m.messages.cursor = cursor.Clamp(m.messages.clampedCursor()-1, len(m.messages.items))
-		m = m.landedOnMessage()
+	case k == "D":
+		return m.dismissAllMessages(), nil
 	case k == messagesMockKey:
 		return m.pushMockMessage(), nil
 	case isBound(k, m.keys.Details.Copy):
-		return m.copyMessagePiece()
+		return m.copyMessage()
 	case isBound(k, m.keys.Nav.Up):
-		m.messages.field = cursor.Clamp(m.messagesPiece()-1, len(m.messagePieces()))
+		m.messages.cursor = cursor.Clamp(m.messages.clampedCursor()-1, len(m.messages.items))
 	case isBound(k, m.keys.Nav.Down):
-		m.messages.field = cursor.Clamp(m.messagesPiece()+1, len(m.messagePieces()))
+		m.messages.cursor = cursor.Clamp(m.messages.clampedCursor()+1, len(m.messages.items))
 	case isBound(k, m.keys.Nav.Top):
-		m.messages.field = 0
+		m.messages.cursor = 0
 	case isBound(k, m.keys.Nav.Bottom):
-		m.messages.field = len(m.messagePieces()) - 1
+		m.messages.cursor = len(m.messages.items) - 1
 	}
 
 	return m, nil
-}
-
-// landedOnMessage puts the cursor back on the top of a message the reader has just walked to.
-func (m model) landedOnMessage() model {
-	m.messages.field = 0
-
-	return m
 }
 
 // dismissMessage drops the message on screen and lands on the one behind it, handing the keys
@@ -533,47 +371,50 @@ func (m model) dismissMessage() model {
 	at := m.messages.clampedCursor()
 	m.messages.items = slices.Delete(slices.Clone(m.messages.items), at, at+1)
 	m.messages.cursor = cursor.Clamp(at, len(m.messages.items))
-	m = m.landedOnMessage()
 
 	if len(m.messages.items) == 0 {
 		return m.toggleMessagesFocus()
 	}
 
-	m.restageScreen()
-
 	return m
+}
+
+func (m model) dismissAllMessages() model {
+	m.messages.items = nil
+	m.messages.cursor = 0
+
+	return m.toggleMessagesFocus()
 }
 
 // pushMockMessage fills the region from the fixtures.
 func (m model) pushMockMessage() model {
 	m.pushMessage(mockMessages[len(m.messages.items)%len(mockMessages)])
-	m = m.landedOnMessage()
 	m.restageScreen()
 
 	return m
 }
 
 func (m model) messagesHelp() keyMap {
-	copyPiece := binding(m.keys.Details.Copy, "copy")
-	history := binding([]string{"<", ">"}, "history")
-	dismiss := binding([]string{"esc"}, "dismiss")
-	back := binding([]string{messagesFocusKey}, "back to list")
+	copyMessage := binding(m.keys.Details.Copy, "copy")
+	dismiss := binding([]string{"d"}, "dismiss")
+	dismissAll := binding([]string{"D"}, "dismiss all")
+	back := binding(slices.Concat([]string{"esc"}, m.keys.Messages.Open), "back to list")
 
 	return keyMap{
-		short: []key.Binding{copyPiece, history, dismiss, back, m.helpBinding()},
-		full:  []key.Binding{copyPiece, history, dismiss, back, m.moveBinding(), m.helpBinding()},
+		short: []key.Binding{copyMessage, dismiss, dismissAll, back, m.helpBinding()},
+		full:  []key.Binding{copyMessage, dismiss, dismissAll, back, m.moveBinding(), m.helpBinding()},
 	}
 }
 
-// messagesBinding is the region's own key as the legend names it, which says what pressing it
-// does from where the reader is rather than what the region is called.
+// messagesBinding is the messages key as the legend names it, which says what pressing it does
+// from where the reader is.
 func (m model) messagesBinding() key.Binding {
 	desc := "messages"
 	if m.isMessagesFocused() {
 		desc = "back to the list"
 	}
 
-	return binding([]string{messagesFocusKey}, desc)
+	return binding(m.keys.Messages.Open, desc)
 }
 
 func kindIcon(glyphs glyph.Set, kind messageKind) string {
@@ -656,19 +497,4 @@ var mockMessages = []message{
 		summary: "Archived 4 agents",
 		detail:  "komrad-bughunt-job, iss-408-reviewer, test-2 and test are hidden from the sidebar. restore them from the archive screen with Z.",
 	},
-}
-
-// messagesStyleConfig is the markdown a message is drawn in, where the kind colours the icon
-// alone.
-func (m model) messagesStyleConfig() glamouransi.StyleConfig {
-	palette := paint.Panel
-
-	style := palette.Stage()
-	style.Strong.Color = nil
-	style.Emph.Color = palette.ANSIColor(paint.ToneMuted)
-	style.Code.Color = palette.ANSIColor(kindTone(m.messagesKind()))
-	style.Code.Prefix = ""
-	style.Code.Suffix = ""
-
-	return style
 }

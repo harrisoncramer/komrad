@@ -1,0 +1,40 @@
+[1;34m[m[90m[m[90m[m[90m[m[1;34mmessages[m                                                                              [90m3 of 3[m
+[92m[m[90m[m[91m[m[90m[m[90m[m
+[90m[m  [93m![m Pane died: axle-idempotency
+[34m[m[4;34;4m[m[34m[m[90m[m[4;90;4m[m[90m[m[90m[m[4;90;4m[m[90m[m[90m[m[4;90;4m[m[90m[m[90m[m[4;90;4m[m[90m[m[90m[m    the harness exited 1 before the first turn finished, and the pane it was running in is
+[90m[m[90m[m[90m[m[90m[m[90m[m[90m[m[90m[m    gone. read the run log with l.
+[90m[m[90m[m    [90mwarning · <landed> · komrad log 91be40c2[m
+[90m[m
+[90m[m[1m[m[90m[m  [91m✗[m Nothing to review in fix-ci
+[34m[m[90m[m[90m[m[34m[m[90m[m    the worktree holds no change against the base, so there is nothing to open a round on.
+[90m[m    commit first, then ask again.
+[90m[m    [90merror · <landed> · komrad log 7c1f2a94[m
+[90m[m
+[90m[m[1;34m› [m[91m✗[m [1mCould not resume agent "api-refactor"[m
+[90m[m    no such agent
+[90m[m    [90merror · <landed> · komrad log 7c1f2a94[m
+[90m[m
+[90m[m
+[90m[m
+[90m[m
+[90m[m
+[90m[m
+[90m[m
+[90m[m
+[90m[m
+[90m[m
+[90m[m
+[90m[m
+[90m[m
+[90m[m[90m[m[90m[m
+[90m[m[90m[m
+[90m[m[90m[m
+[90m[m[90m[m
+[90m[m[90m[m
+[90m[m[90m[m
+[90m[m[90m[m
+[90m[m[90m[m
+[90m[m
+[90m[m
+[90m[m[90m[m[90m[m
+[90m[m[90m[m[90m[m[90m[m[90m[m[90m[m[90m[m[90m[m[90m[m[90m[m

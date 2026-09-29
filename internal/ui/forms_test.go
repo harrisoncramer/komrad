@@ -275,12 +275,12 @@ func TestFormsRefused(t *testing.T) {
 
 			harness.press(tt.press...)
 
-			frame := harness.readFrame()
-			assert.Contains(t, frame, "not allowed", "a refused write is reported")
-			assert.Contains(t, frame, tt.typed, "the form is still up holding what was filled in")
+			assert.Contains(t, harness.readFrame(), tt.typed, "the form is still up holding what was filled in")
 
 			harness.press("ctrl+g")
-			assert.Contains(t, harness.readFrame(), "fix and submit again", "ctrl+g opens the whole refusal over the form")
+			frame := harness.readFrame()
+			assert.Contains(t, frame, "not allowed", "a refused write is reported")
+			assert.Contains(t, frame, "fix and submit again", "ctrl+g opens the whole refusal over the form")
 
 			harness.press("ctrl+g", "!")
 			assert.Contains(t, harness.readFrame(), tt.typed+"!", "and the form takes keys again")
@@ -339,7 +339,7 @@ func TestFormsInFlight(t *testing.T) {
 		harness.watch(buildPuts(newAgent("a2", "check-ci", "w1")))
 
 		frame := harness.readFrame()
-		assert.Contains(t, frame, "No messages")
+		assert.Equal(t, "\uf444 local", readEngineLine(frame), "nothing is reported")
 		assert.Equal(t, "  author", readHoveredRow(frame), "the cursor stays where the reader left it")
 	})
 
@@ -440,9 +440,8 @@ func TestFormsArchivePrompt(t *testing.T) {
 
 		harness.press(slices.Concat([]string{"z", "ctrl+s"}, widenListPresses)...)
 
-		frame := harness.readFrame()
-		assert.Contains(t, readSidebarProse(frame), "agents still running")
-		assert.Contains(t, readListRows(frame), "api")
+		assert.Contains(t, readListRows(harness.readFrame()), "api")
+		assert.Contains(t, readOpenMessages(harness), "agents still running")
 	})
 
 	t.Run("a refused archive destroys nothing", func(t *testing.T) {
@@ -856,19 +855,19 @@ func TestFormsFitTheWindow(t *testing.T) {
 			name:      "a refused form in a short window",
 			height:    25,
 			isRefused: true,
-			want:      "no such workflow",
+			want:      "Could not create the workflow",
 		},
 		{
 			name:      "a refused form in a middling window",
 			height:    32,
 			isRefused: true,
-			want:      "no such workflow",
+			want:      "Could not create the workflow",
 		},
 		{
 			name:      "a refused form in a tall window",
 			height:    40,
 			isRefused: true,
-			want:      "no such workflow",
+			want:      "Could not create the workflow",
 		},
 		{
 			name:   "a form in a very short window",

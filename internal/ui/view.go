@@ -171,31 +171,29 @@ func drawEdgeRow(rule, facingLeft bool) string {
 }
 
 func (m model) screenView() string {
-	if !m.form.isActive() {
+	if !m.form.isActive() && !m.isMessagesFocused() {
 		return m.active().view(m.shared())
 	}
 
-	form := m.heldFormView()
-
 	split, ok := m.columnSplit()
+	if !ok && m.isMessagesFocused() {
+		return m.messagesWindow(m.width, m.height).view(m.height)
+	}
 	if !ok {
-		return form
+		return m.heldFormView()
 	}
 
 	// Asked for before either half is drawn, so the halves are laid out already knowing their
 	// column.
 	held := m.measuredAt(split.sidebar)
 
-	// The list is drawn beside the form as the context the form was opened from, and takes none of
-	// the keys while it is there.
-	block := form
 	if m.isMessagesFocused() {
-		// A reason is longer than the rows the region keeps, so reading it borrows the column the
-		// form is drawn in.
-		block = m.docColumnView(split)
+		return m.joinColumns(split, held.active().view(held.shared()), m.docColumnView(split))
 	}
 
-	return m.joinColumns(split, held.active().view(held.shared()), block)
+	// The list is drawn beside the form as the context the form was opened from, and takes none of
+	// the keys while it is there.
+	return m.joinColumns(split, held.active().view(held.shared()), m.heldFormView())
 }
 
 // heldFormView is the form with the submitting notice under it, a row the form gives up rather

@@ -442,6 +442,21 @@ func (m model) detailsView() string {
 		m.detailsRule("")
 }
 
+const legendRuleFloor = 2
+
+func (m model) recordView(above ...string) string {
+	if record := m.detailsView(); record != "" {
+		return record
+	}
+
+	rule := m.detailsRule("")
+	if m.height > 0 && m.spareLines(append(slices.Clone(above), rule)...) < legendRuleFloor {
+		return ""
+	}
+
+	return rule
+}
+
 func (m model) detailsRule(tag string) string {
 	width := m.paneWidth()
 	if width <= 0 {

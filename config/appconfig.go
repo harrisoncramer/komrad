@@ -151,6 +151,8 @@ type Keybindings struct {
 	Cycle CycleKeys `mapstructure:"cycle"`
 	// The marks a person puts on rows to jump between them, as vim's own marks work.
 	Marks MarksKeys `mapstructure:"marks"`
+	// The messages komrad pushed, read in the main pane.
+	Messages MessagesKeys `mapstructure:"messages"`
 	// Navigation, shared by every menu so movement is the same everywhere.
 	Nav NavKeys `mapstructure:"nav"`
 	// The review screen, which draws an agent's diff in the stage and its review
@@ -414,6 +416,12 @@ type DocumentsKeys struct {
 	New []string `mapstructure:"new" default:"c"`
 	// Quit the panel.
 	Quit []string `mapstructure:"quit" default:"ctrl+c"`
+}
+
+// MessagesKeys are the bindings for the messages komrad pushed.
+type MessagesKeys struct {
+	// Open every message in the main pane, and close it again.
+	Open []string `mapstructure:"open" default:"ctrl+g"`
 }
 
 // LogsKeys are the bindings for the logs screen. Movement is the shared navigation, and

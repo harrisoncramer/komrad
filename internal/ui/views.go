@@ -52,6 +52,10 @@ func (m model) viewsBar() string {
 
 	trail, _, opened := m.activeCrumbs()
 	if short {
+		if flash, ok := m.messagesFlash(m.paneWidth()); ok {
+			return flash + "\n"
+		}
+
 		if !opened {
 			return ""
 		}

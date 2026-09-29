@@ -63,7 +63,7 @@ func (r reviewScreen) sidebarView(s panelShared, above ...string) string {
 	layout := r.layoutSidebar(s, above...)
 	rest := r.threads.window(r.restView(s), layout.threadLines)
 
-	return layout.bar + paint.PadRows(layout.head+rest, layout.spare) + layout.record + layout.messages + layout.help
+	return layout.bar + paint.PadRows(layout.head+rest, layout.spare) + layout.record + layout.help
 }
 
 // sidebarLayout is the sidebar measured once, so the drawing and the thread's scroll agree on
@@ -73,7 +73,6 @@ type sidebarLayout struct {
 	bar         string
 	help        string
 	record      string
-	messages    string
 	head        string
 	spare       int
 	threadLines int
@@ -83,10 +82,10 @@ type sidebarLayout struct {
 // cursor is standing is what makes the rest of the pane mean anything.
 func (r reviewScreen) layoutSidebar(s panelShared, above ...string) sidebarLayout {
 	// The logo, the switcher and the trail take their rows from the conversation alone, and give
-	// way before they cost the head, the record or the messages anything.
+	// way before they cost the head or the record anything.
 	bare := r.layoutUnder(s, "", above)
 	barred := r.layoutUnder(s, s.draw.viewsBar(), above)
-	if barred.head != bare.head || barred.record != bare.record || barred.messages != bare.messages {
+	if barred.head != bare.head || barred.record != bare.record {
 		return bare
 	}
 	if strings.Count(barred.head, "\n") > barred.spare {
@@ -103,9 +102,8 @@ func (r reviewScreen) layoutSidebar(s panelShared, above ...string) sidebarLayou
 // down to the review.
 func (r reviewScreen) layoutUnder(s panelShared, bar string, above []string) sidebarLayout {
 	help := s.draw.renderHelp(r.help(s))
-	record := s.draw.detailsView()
-	messages := s.draw.messagesRegion(record, help, append(slices.Clone(above), bar)...)
-	chrome := slices.Concat(above, []string{bar, help, record, messages})
+	record := s.draw.recordView(slices.Concat(above, []string{bar, help})...)
+	chrome := slices.Concat(above, []string{bar, help, record})
 	spare := s.draw.listLines(chrome...)
 	head := r.headView(s, countYoursRoom(spare))
 
@@ -113,7 +111,6 @@ func (r reviewScreen) layoutUnder(s panelShared, bar string, above []string) sid
 		bar:         bar,
 		help:        help,
 		record:      record,
-		messages:    messages,
 		head:        head,
 		spare:       spare,
 		threadLines: s.draw.listLines(slices.Concat(chrome, []string{head})...),

@@ -74,7 +74,7 @@ func TestReviewOpen(t *testing.T) {
 		frame := harness.readFrame()
 		assert.False(t, harness.panel.IsZoomed())
 		assert.Contains(t, frame, "Nothing to review in auth")
-		assert.Contains(t, frame, "no change against the base branch")
+		assert.Contains(t, readOpenMessages(harness), "no change against the base branch")
 	})
 
 	t.Run("an agent whose directory has gone is not opened", func(t *testing.T) {
@@ -108,7 +108,7 @@ func TestReviewOpen(t *testing.T) {
 		frame := harness.readFrame()
 		assert.False(t, harness.panel.IsZoomed())
 		assert.Contains(t, frame, "Could not read the diff of")
-		assert.Contains(t, frame, gittest.ErrNoGit.Error())
+		assert.Contains(t, readOpenMessages(harness), gittest.ErrNoGit.Error())
 	})
 
 	t.Run("the diff is drawn beside the sidebar over the whole window", func(t *testing.T) {
@@ -1868,7 +1868,7 @@ func TestReviewPin(t *testing.T) {
 		harness := openReview(t, server)
 
 		assert.False(t, harness.panel.IsZoomed())
-		assert.Contains(t, harness.readFrame(), "the server went away")
+		assert.Contains(t, readOpenMessages(harness), "the server went away")
 	})
 
 	t.Run("the rounds failing to read fails the load only while a batch is open", func(t *testing.T) {
@@ -2297,7 +2297,7 @@ func TestReviewHold(t *testing.T) {
 
 		harness.press("P", "y", "ctrl+g")
 
-		prose := readSidebarProse(harness.readFrame())
+		prose := joinProse(splitLines(harness.readFrame()))
 		assert.Contains(t, prose, "auth: let go in s")
 		assert.Contains(t, prose, "tell it yourself about greet.go")
 	})

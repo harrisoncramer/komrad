@@ -264,9 +264,8 @@ func TestArchiveReportsRefusedWrites(t *testing.T) {
 
 			harness.press(append(tt.press, widenListPresses...)...)
 
-			frame := harness.readFrame()
-			assert.Contains(t, frame, tt.wantSummary)
-			assert.Contains(t, frame, "no such agent")
+			assert.Contains(t, readEngineLine(harness.readFrame()), tt.wantSummary)
+			assert.Contains(t, readOpenMessages(harness), "no such agent")
 		})
 	}
 }
