@@ -167,24 +167,6 @@ func (s *AgentStore) ExistsActiveName(ctx context.Context, workflowID, name stri
 	return exists, nil
 }
 
-// ListNamesHoldingSchedule returns the names of the agents outside a workflow that still point
-// at a schedule.
-func (s *AgentStore) ListNamesHoldingSchedule(ctx context.Context, scheduleID, workflowID string) ([]string, error) {
-	if !store.IsID(scheduleID) || !store.IsID(workflowID) {
-		return nil, nil
-	}
-
-	names, err := s.queries.ListScheduleAgentNamesOutsideWorkflow(ctx, models.ListScheduleAgentNamesOutsideWorkflowParams{
-		ScheduleID: &scheduleID,
-		WorkflowID: workflowID,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to list the agents of schedule %q: %w", scheduleID, err)
-	}
-
-	return names, nil
-}
-
 // ListLiveInWorkflow returns the live agents in a workflow.
 func (s *AgentStore) ListLiveInWorkflow(ctx context.Context, workflowID string) ([]Agent, error) {
 	rows, err := s.queries.ListLiveWorkflowAgents(ctx, workflowID)

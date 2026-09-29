@@ -25,8 +25,6 @@ const (
 
 var ErrWorkflowHasSchedules = fail.Precondition("workflow still has schedules")
 
-var ErrScheduleHasAgents = fail.Precondition("schedule still has agents outside the workflow being deleted")
-
 var ErrWorktreeNeedsCwd = fail.InvalidArgument("a worktree-enabled workflow needs a cwd naming the repo")
 
 var ErrWorktreeCwdNotPrimaryCheckout = fail.InvalidArgument("a worktree-enabled workflow's cwd must be a primary checkout, not a linked worktree, a bare repo, or a submodule")
@@ -506,11 +504,6 @@ func (w *WorkflowService) DeleteWorkflow(ctx context.Context, id string) error {
 		return ErrWorkflowNotFound.Saying("no archived workflow with id %q", id)
 	}
 
-	schedules, err := w.emptied.heldSchedules(ctx, existing)
-	if err != nil {
-		return err
-	}
-
 	inside, err := w.agents.ListArchivedInWorkflow(ctx, id)
 	if err != nil {
 		return err
@@ -518,7 +511,7 @@ func (w *WorkflowService) DeleteWorkflow(ctx context.Context, id string) error {
 	if len(inside) == 0 {
 		// No agent delete runs to check an empty workflow, so this is the one case that removes
 		// the row here.
-		return w.emptied.deleteWithSchedules(ctx, existing, schedules)
+		return w.emptied.deleteWithSchedules(ctx, existing)
 	}
 
 	// Deleting an agent checks the workflow it leaves behind for itself, and leaves behind any

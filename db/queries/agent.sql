@@ -1186,17 +1186,6 @@ WHERE
     AND archived_at IS NULL
     AND state IN ('thinking', 'waiting', 'uncertain');
 
--- name: ListScheduleAgentNamesOutsideWorkflow :many
-SELECT
-    name
-FROM
-    agents
-WHERE
-    schedule_id = @schedule_id
-    AND workflow_id <> @workflow_id
-ORDER BY
-    id DESC;
-
 -- name: ListAgentDirs :many
 SELECT
     id,
