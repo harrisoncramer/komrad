@@ -221,7 +221,7 @@ func buildDriftScreens() []driftScreen {
 				t.Helper()
 
 				harness := openDriftAgents(t)
-				harness.press("o", "s")
+				harness.press("tab", "s")
 
 				return harness
 			},

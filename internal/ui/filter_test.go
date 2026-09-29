@@ -141,7 +141,7 @@ func TestFilterSearch(t *testing.T) {
 	t.Run("the search stays on the screen it was typed on", func(t *testing.T) {
 		harness := openFilterable(t, "backend")
 
-		harness.press("/", "d", "b", "enter", "o", "s")
+		harness.press("/", "d", "b", "enter", "tab", "s")
 
 		assert.Equal(t, "/", readSearch(harness.readFrame()))
 	})
@@ -343,7 +343,7 @@ func TestFilterScreens(t *testing.T) {
 
 			return names, hovered
 		}
-		harness.press("o", "s")
+		harness.press("tab", "s")
 
 		harness.press("/", "l", "y", "enter")
 		names, hovered := readSchedules()
@@ -388,17 +388,17 @@ func TestFilterScreens(t *testing.T) {
 		},
 		{
 			name:  "the archive says a filter left nothing rather than that nothing is archived",
-			press: []string{"o", "r"},
+			press: []string{"tab", "r"},
 			idle:  "nothing archived",
 		},
 		{
 			name:  "the schedules say a filter left nothing rather than that there are none",
-			press: []string{"o", "s"},
+			press: []string{"tab", "s"},
 			idle:  "no schedules yet",
 		},
 		{
 			name:  "the worktrees say a filter left nothing rather than that there are none",
-			press: []string{"o", "w"},
+			press: []string{"tab", "w"},
 			idle:  "no worktrees",
 		},
 	}
@@ -453,7 +453,7 @@ func TestFilterWorktreeHeader(t *testing.T) {
 			MeasuredAt: proto.String(archivedAt),
 		},
 	))
-	harness.press("o", "w")
+	harness.press("tab", "w")
 	header := readBelowViews(harness.readFrame())[5]
 	require.Contains(t, header, "2.0M")
 

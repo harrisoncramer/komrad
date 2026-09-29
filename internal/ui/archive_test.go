@@ -642,7 +642,7 @@ func TestArchiveWindow(t *testing.T) {
 		})
 		harness.watch(buildSnapshot(buildOneArchivedAgent()...))
 
-		harness.press("o", "r", "?")
+		harness.press("tab", "r", "?")
 
 		frame := harness.readFrame()
 		assert.Equal(t, []string{"backend", "  api-refactor"}, readListRows(frame), "the list keeps its column")
@@ -679,7 +679,7 @@ func TestArchiveWindow(t *testing.T) {
 				harness := newPanelHarness(t, panelHarnessParams{height: tt.height})
 				harness.watch(buildSnapshot(workflow, newArchivedAgent("a1", "api-refactor", "w1")))
 
-				harness.press("o", "r")
+				harness.press("tab", "r")
 
 				assert.Len(t, splitLines(harness.readFrame()), tt.height)
 			})
@@ -921,7 +921,7 @@ func openArchive(t *testing.T, rows ...proto.Message) *panelHarness {
 
 	harness := newPanelHarness(t, panelHarnessParams{})
 	harness.watch(buildSnapshot(rows...))
-	harness.press("o", "r")
+	harness.press("tab", "r")
 
 	return harness
 }

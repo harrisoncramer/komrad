@@ -345,12 +345,12 @@ func TestScreensFitTheLegend(t *testing.T) {
 		},
 		{
 			name:   "the archive",
-			press:  []string{"o", "r"},
+			press:  []string{"tab", "r"},
 			screen: archiveScreen,
 		},
 		{
 			name:   "the schedules",
-			press:  []string{"o", "s"},
+			press:  []string{"tab", "s"},
 			screen: schedulesScreen,
 		},
 	}
@@ -389,12 +389,12 @@ func TestScreensPromptSitsInTheListColumn(t *testing.T) {
 		},
 		{
 			name:  "a search on the worktrees",
-			press: []string{"o", "w", "/", "d", "b", "enter"},
+			press: []string{"tab", "w", "/", "d", "b", "enter"},
 			want:  "/ db",
 		},
 		{
 			name:  "the transcript search",
-			press: []string{"o", "q", "d", "b"},
+			press: []string{"tab", "q", "d", "b"},
 			want:  "/ db",
 		},
 	}
@@ -425,12 +425,12 @@ func TestScreensRecordGivesWay(t *testing.T) {
 		},
 		{
 			name:  "the archive",
-			press: []string{"o", "r"},
+			press: []string{"tab", "r"},
 			fills: 10,
 		},
 		{
 			name:  "the schedules",
-			press: []string{"o", "s"},
+			press: []string{"tab", "s"},
 			fills: 6,
 		},
 	}
@@ -724,22 +724,22 @@ func buildListScreens() []listScreen {
 		},
 		{
 			name:   "the archive",
-			press:  []string{"o", "r"},
+			press:  []string{"tab", "r"},
 			screen: archiveScreen,
 		},
 		{
 			name:   "the schedules",
-			press:  []string{"o", "s"},
+			press:  []string{"tab", "s"},
 			screen: schedulesScreen,
 		},
 		{
 			name:   "the search",
-			press:  []string{"o", "q"},
+			press:  []string{"tab", "q"},
 			screen: searchScreen,
 		},
 		{
 			name:   "the worktrees",
-			press:  []string{"o", "w"},
+			press:  []string{"tab", "w"},
 			screen: worktreesScreen,
 		},
 	}

@@ -915,7 +915,7 @@
               "path": "keybindings.views.pick",
               "type": "array",
               "description": "Hand the keys to the switcher.",
-              "default": "[\"o\"]"
+              "default": "[\"tab\"]"
             },
             {
               "key": "agents",

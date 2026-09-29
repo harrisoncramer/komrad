@@ -33,17 +33,17 @@ func TestWorktreesOpen(t *testing.T) {
 	}{
 		{
 			name:        "from the agents list it lands on the hovered agent's directory",
-			press:       []string{"o", "w"},
+			press:       []string{"tab", "w"},
 			wantHovered: "treeview",
 		},
 		{
 			name:        "an occupant lands on the directory it works in",
-			press:       []string{"j", "o", "w"},
+			press:       []string{"j", "tab", "w"},
 			wantHovered: "treeview",
 		},
 		{
 			name:        "from the archive it lands on the archived agent's directory",
-			press:       []string{"o", "r", "j", "o", "w"},
+			press:       []string{"tab", "r", "j", "tab", "w"},
 			wantHovered: "reviewer",
 		},
 	}
@@ -69,7 +69,7 @@ func TestWorktreesOpen(t *testing.T) {
 		rows := buildWorktrees()
 		rows[1].(*agentv1.Agent).PaneId = "%7"
 		harness := openAgents(t, rows...)
-		harness.press("o", "w")
+		harness.press("tab", "w")
 
 		assert.True(t, harness.panel.IsZoomed())
 	})
@@ -810,7 +810,7 @@ func openWorktrees(t *testing.T, rows ...proto.Message) *panelHarness {
 	}
 
 	harness := openAgents(t, rows...)
-	harness.press("o", "w")
+	harness.press("tab", "w")
 
 	return harness
 }

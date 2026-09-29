@@ -58,13 +58,13 @@ func TestListScrollKeys(t *testing.T) {
 		},
 		{
 			name:   "the archive",
-			screen: []string{"o", "r"},
+			screen: []string{"tab", "r"},
 			first:  "everything",
 			second: "  agent00",
 		},
 		{
 			name:   "the schedules",
-			screen: []string{"o", "s"},
+			screen: []string{"tab", "s"},
 			first:  "agent39",
 			second: "agent38",
 		},

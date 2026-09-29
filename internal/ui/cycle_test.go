@@ -242,7 +242,7 @@ func TestTerminalViewCycle(t *testing.T) {
 
 	t.Run("on the schedules the shell is the stop past the list", func(t *testing.T) {
 		harness := openTerminal(t, panelHarnessParams{}, newStagedShellAgent(t.TempDir()))
-		harness.press("space", "t", "o", "s")
+		harness.press("space", "t", "tab", "s")
 		selected := len(harness.panel.ReadSelectedPanes())
 
 		harness.press("ctrl+a")

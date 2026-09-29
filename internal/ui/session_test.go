@@ -89,7 +89,7 @@ func TestSessionCycleKeys(t *testing.T) {
 
 		given := len(harness.panel.ReadRootUnbinds())
 
-		harness.press("o", "w")
+		harness.press("tab", "w")
 
 		assertCycleKeysGivenBack(t, harness, given)
 	})
