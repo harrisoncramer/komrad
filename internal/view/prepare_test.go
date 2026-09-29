@@ -303,10 +303,8 @@ func TestPrepareComments(t *testing.T) {
 	reviewer := func(tone paint.Tone, open, resolved string) Cell {
 		return Cell{Parts: []Cell{{Glyph: glyph.ReviewerComments, Tone: tone}, {Text: " "}, {Text: open, Tone: tone}, muted(resolved)}}
 	}
-	person := func(tone paint.Tone, open, resolved string, more ...Cell) Cell {
-		parts := []Cell{{Glyph: glyph.PersonComments, Tone: tone}, {Text: " "}, {Text: open, Tone: tone}, muted(resolved)}
-
-		return Cell{Parts: append(parts, more...)}
+	person := func(tone paint.Tone, open, resolved string, dot Cell) Cell {
+		return Cell{Parts: []Cell{{Glyph: glyph.PersonComments, Tone: tone}, {Text: " "}, {Text: open, Tone: tone}, muted(resolved), dot}}
 	}
 
 	tests := []struct {
@@ -339,7 +337,7 @@ func TestPrepareComments(t *testing.T) {
 				Kind:           KindAgent,
 				PersonComments: &Comments{Resolved: 12},
 			},
-			want: []Cell{person(paint.ToneMuted, "0", "|12")},
+			want: []Cell{person(paint.ToneMuted, "0", "|12", Cell{Text: " "})},
 		},
 		{
 			name: "open counts stand out, reviewer agents first, and an unread one earns the dot",
