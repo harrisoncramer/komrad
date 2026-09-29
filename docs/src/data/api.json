@@ -95,7 +95,7 @@
             "orchestrator"
           ],
           "summary": "Start an agent on a branch that already exists, such as one a person pushed by hand.",
-          "description": "Start an agent on a branch that already exists, such as one a person pushed by hand. Name the branch, not a pull request. The workflow decides the repository and must be one that provisions worktrees. Komrad puts the agent in a worktree on that branch, or in the checkout already holding it when one exists on disk. The branch stays the person's own: nothing here creates, resets or deletes it. A branch that already has an agent on it is refused as already_exists, naming that agent.",
+          "description": "Start an agent on a branch that already exists, such as one a person pushed by hand. Name the branch, not a pull request. The workflow decides the repository and must be one that provisions worktrees. Komrad puts the agent in a worktree on that branch, or in the checkout already holding it when one exists on disk. The branch stays the person's own: nothing here creates, resets or deletes it. A branch that already has an agent on it launches nothing and answers with that agent, existing set.",
           "readOnly": false,
           "idempotent": false,
           "destructive": false,
@@ -1622,7 +1622,17 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The agent as launched, on the branch it was adopted onto."
+          "description": "The agent on the branch, either the one just launched or the one already there."
+        },
+        {
+          "name": "existing",
+          "type": "bool",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "True when the branch already had an agent, which is returned in place of a new one."
         }
       ]
     },

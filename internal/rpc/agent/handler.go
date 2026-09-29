@@ -231,6 +231,17 @@ func (s *Handler) Adopt(ctx context.Context, req *agentv1.AdoptRequest) (*agentv
 		Harness:        req.GetHarness(),
 		IdempotencyKey: req.GetIdempotencyKey(),
 	})
+
+	var exists *agents.AgentExistsError
+	if errors.As(err, &exists) {
+		rendered, failure := s.renderOneAgent(ctx, exists.Agent.ID)
+		if failure != nil {
+			return nil, failure
+		}
+
+		return &agentv1.AdoptResponse{Agent: rendered, Existing: true}, nil
+	}
+
 	switch {
 	// A workflow with no cwd cannot host an adoption at all.
 	case errors.Is(err, agents.ErrWorktreeNeedsCwd):

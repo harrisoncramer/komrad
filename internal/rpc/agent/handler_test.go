@@ -774,6 +774,23 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 	}
 }
 
+// TestAdoptAnswersWithTheAgentAlreadyOnTheBranch pins that a taken branch is answered with its
+// agent rather than refused.
+func TestAdoptAnswersWithTheAgentAlreadyOnTheBranch(t *testing.T) {
+	svc, services := newRecordedService(t)
+	sitting := services.rows.seed(agentstore.Agent{Name: "sitting"})
+	services.err = &agents.AgentExistsError{Agent: sitting, Err: agents.ErrAdoptAlreadyAdopted}
+
+	adopted, err := svc.Adopt(t.Context(), connect.NewRequest(&agentv1.AdoptRequest{
+		Ref:        "someones/work",
+		WorkflowId: "wf-1",
+	}))
+	require.NoError(t, err)
+
+	assert.True(t, adopted.Msg.GetExisting())
+	assert.Equal(t, sitting.ID, adopted.Msg.GetAgent().GetId())
+}
+
 // TestArchiveAgentsHoldsAnAgentToItsOwnChildren pins that an agent other than an orchestrator
 // archives only its own children.
 func TestArchiveAgentsHoldsAnAgentToItsOwnChildren(t *testing.T) {

@@ -159,6 +159,10 @@ func TestAdoptRefusesADirectoryAnotherAgentHolds(t *testing.T) {
 
 			require.ErrorIs(t, err, ErrAdoptBranchInUse)
 			require.ErrorContains(t, err, "sitting", "the refusal names the agent already in the directory")
+
+			var exists *AgentExistsError
+			require.ErrorAs(t, err, &exists)
+			assert.Equal(t, "sitting", exists.Agent.Name, "the adoption is answered with the agent already in the directory")
 		})
 	}
 }
@@ -243,6 +247,10 @@ func TestAdoptTwiceIsRefused(t *testing.T) {
 	_, err = manager.adopt.Adopt(t.Context(), AdoptParams{Ref: "someones/work", WorkflowID: workflow})
 	require.ErrorIs(t, err, ErrAdoptAlreadyAdopted)
 	assert.Contains(t, err.Error(), first.Name, "the refusal names the agent holding the branch")
+
+	var exists *AgentExistsError
+	require.ErrorAs(t, err, &exists)
+	assert.Equal(t, first.ID, exists.Agent.ID, "the adoption is answered with the agent holding the branch")
 
 	agents, err := st.Agents.List(t.Context())
 	require.NoError(t, err)

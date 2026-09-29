@@ -135,6 +135,10 @@ type written struct {
 	harness string
 	// focus says the pane the write made is to be handed the keyboard once it is shown.
 	focus bool
+	// archived says the row is in the archive rather than the agents list.
+	archived bool
+	// notice is what to say once the panel has landed on the row.
+	notice *message
 }
 
 func (m *model) writeCmd(summary string, write func(api) error) tea.Cmd {
@@ -314,8 +318,30 @@ func (m *model) createCmd(params createAgentParams) tea.Cmd {
 }
 
 func (m *model) adoptCmd(params adoptParams) tea.Cmd {
-	return m.agentWriteCmd("Could not adopt", func(clients api) (*agentv1.Agent, error) {
-		return clients.adopt(params)
+	return m.rowWriteCmd("Could not adopt", func(clients api) (written, error) {
+		adopted, err := clients.adopt(params)
+		if err != nil {
+			return written{}, err
+		}
+
+		agent := adopted.GetAgent()
+		row := written{
+			row:     agentRowKey(agent.GetId()),
+			agent:   agent.GetId(),
+			pane:    agent.GetPaneId(),
+			harness: agent.GetHarness(),
+		}
+
+		if adopted.GetExisting() {
+			row.archived = agent.ArchivedAt != nil
+			row.notice = &message{
+				kind:    messageInfo,
+				summary: "This agent already exists",
+				detail:  fmt.Sprintf("%s is already on %s", agent.GetName(), params.Ref),
+			}
+		}
+
+		return row, nil
 	})
 }
 
@@ -372,8 +398,16 @@ func (m model) applyWrite(result writeResult) (tea.Model, tea.Cmd) {
 	_, walkedAway := m.detached[result.write]
 	delete(m.detached, result.write)
 
+	if result.written != nil && result.written.notice != nil {
+		m.pushMessage(*result.written.notice)
+	}
+
 	var left tea.Cmd
-	if result.written != nil && !walkedAway {
+	switch {
+	case result.written == nil || walkedAway:
+	case result.written.archived:
+		left = m.enter(screenArchive, screenTarget{agentID: result.written.agent})
+	default:
 		left = m.enterScreen(screenAgents)
 		m.landOn(*result.written, time.Now())
 

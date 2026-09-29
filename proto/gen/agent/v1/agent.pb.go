@@ -1301,8 +1301,10 @@ func (x *AdoptRequest) GetIdempotencyKey() string {
 
 type AdoptResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The agent as launched, on the branch it was adopted onto.
-	Agent         *Agent `protobuf:"bytes,1,opt,name=agent,proto3" json:"agent,omitempty"`
+	// The agent on the branch, either the one just launched or the one already there.
+	Agent *Agent `protobuf:"bytes,1,opt,name=agent,proto3" json:"agent,omitempty"`
+	// True when the branch already had an agent, which is returned in place of a new one.
+	Existing      bool `protobuf:"varint,2,opt,name=existing,proto3" json:"existing,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1342,6 +1344,13 @@ func (x *AdoptResponse) GetAgent() *Agent {
 		return x.Agent
 	}
 	return nil
+}
+
+func (x *AdoptResponse) GetExisting() bool {
+	if x != nil {
+		return x.Existing
+	}
+	return false
 }
 
 type GetAgentRequest struct {
@@ -3099,9 +3108,10 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\aharness\x18\x06 \x01(\tB\x15\xbaH\x12r\x10\x18(2\f^[a-z0-9-]*$R\aharness\x128\n" +
 	"\x0fidempotency_key\x18\a \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\xc8\x01H\x00R\x0eidempotencyKey\x88\x01\x01B\x12\n" +
-	"\x10_idempotency_key\"6\n" +
+	"\x10_idempotency_key\"R\n" +
 	"\rAdoptResponse\x12%\n" +
-	"\x05agent\x18\x01 \x01(\v2\x0f.agent.v1.AgentR\x05agent\"*\n" +
+	"\x05agent\x18\x01 \x01(\v2\x0f.agent.v1.AgentR\x05agent\x12\x1a\n" +
+	"\bexisting\x18\x02 \x01(\bR\bexisting\"*\n" +
 	"\x0fGetAgentRequest\x12\x17\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\"\xa1\x04\n" +
 	"\x10GetAgentResponse\x12%\n" +
@@ -3232,14 +3242,14 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x16AGENT_ROLE_UNSPECIFIED\x10\x00\x12\x1a\n" +
 	"\x16AGENT_ROLE_IMPLEMENTER\x10\x01\x12\x17\n" +
 	"\x13AGENT_ROLE_REVIEWER\x10\x02\x12\x1b\n" +
-	"\x17AGENT_ROLE_ORCHESTRATOR\x10\x032\xb6\xc9\x01\n" +
+	"\x17AGENT_ROLE_ORCHESTRATOR\x10\x032\xc1\xc9\x01\n" +
 	"\fAgentService\x12\x81\x04\n" +
 	"\n" +
 	"ListAgents\x12\x1b.agent.v1.ListAgentsRequest\x1a\x1c.agent.v1.ListAgentsResponse\"\xb7\x03\x9a\xb5\x18\xaf\x03\b\x01\x10\x01\x1a\vlist_agents\"\x96\x03List the agents komrad is tracking. Start here when you need an agent's id or name for another call. Agents come back a page at a time, most recently updated first. Each carries its name, state, working directory, flags and workflow, plus the opening of its prompt. To read a prompt in full, fetch that agent with get_agent. Archived agents are left out unless archived is set, which then lists only those.B\x03\x01\x02\x03\x90\x02\x01\x12\xd0\x01\n" +
 	"\bGetAgent\x12\x19.agent.v1.GetAgentRequest\x1a\x1a.agent.v1.GetAgentResponse\"\x8c\x01\x9a\xb5\x18\x84\x01\b\x01\x10\x01\x1a\tget_agent\"nFetch one agent by id, with its full prompt and what the panel draws beside it. Archived agents are found too.B\x03\x01\x02\x03\x90\x02\x01\x12\xbe\b\n" +
 	"\vCreateAgent\x12\x1c.agent.v1.CreateAgentRequest\x1a\x1d.agent.v1.CreateAgentResponse\"\xf1\a\x9a\xb5\x18\xec\a\b\x01\x10\x01\x1a\fcreate_agent\"\xd0\aLaunch a new agent with an opening prompt. The prompt is everything the agent has to go on, so it should say what the work is and where to start. The agent runs in a tmux window of its own and, when its workflow provisions worktrees, in a fresh worktree cut from the workflow's directory. Leave dir blank to take the workflow's directory, and set provision_enabled to false when the agent should work in an existing checkout rather than a new worktree. To attach the new agent to one already running, pass that agent's id as parent_agent_id. A child shares its parent's directory, may only mail its parent and its siblings, and is archived and deleted along with the parent. Use a child for an agent that reads a tree, such as a test runner, and a standalone agent for one that writes work of its own. There is a limit on how many agents may exist at once, and a call past it is refused as resource_exhausted, which means there is no room rather than that something is broken.(\x00B\x03\x01\x02\x03\x12\xc6\x06\n" +
-	"\rRequestReview\x12\x1e.agent.v1.RequestReviewRequest\x1a\x1f.agent.v1.RequestReviewResponse\"\xf3\x05\x9a\xb5\x18\xee\x05\b\x01\x10\x01\x1a\x0erequest_review\"\xd2\x05Ask for a review of an agent's work, usually your own. Commit first: the review is given against a snapshot of the checkout as it stands. This spawns a reviewer as a child of the agent being read, running in that agent's checkout and briefed to read rather than write. The prompt is the reviewer's whole briefing, so say what the change is meant to do and where you are unsure of it. One reviewer follows a change through every round, so call this once per change. Answering its threads with add_review_message is what tells it there is more to read, and asking again while it still owes an answer is refused as already_exists. Once the reviewer has approved it is finished, and the next change gets a reviewer of its own.(\x00B\x01\x01\x12\xb7\x04\n" +
-	"\x05Adopt\x12\x16.agent.v1.AdoptRequest\x1a\x17.agent.v1.AdoptResponse\"\xfc\x03\x9a\xb5\x18\xf7\x03\b\x01\x10\x01\x1a\x05adopt\"\xe4\x03Start an agent on a branch that already exists, such as one a person pushed by hand. Name the branch, not a pull request. The workflow decides the repository and must be one that provisions worktrees. Komrad puts the agent in a worktree on that branch, or in the checkout already holding it when one exists on disk. The branch stays the person's own: nothing here creates, resets or deletes it. A branch that already has an agent on it is refused as already_exists, naming that agent.(\x00B\x01\x03\x12\xeb\x01\n" +
+	"\rRequestReview\x12\x1e.agent.v1.RequestReviewRequest\x1a\x1f.agent.v1.RequestReviewResponse\"\xf3\x05\x9a\xb5\x18\xee\x05\b\x01\x10\x01\x1a\x0erequest_review\"\xd2\x05Ask for a review of an agent's work, usually your own. Commit first: the review is given against a snapshot of the checkout as it stands. This spawns a reviewer as a child of the agent being read, running in that agent's checkout and briefed to read rather than write. The prompt is the reviewer's whole briefing, so say what the change is meant to do and where you are unsure of it. One reviewer follows a change through every round, so call this once per change. Answering its threads with add_review_message is what tells it there is more to read, and asking again while it still owes an answer is refused as already_exists. Once the reviewer has approved it is finished, and the next change gets a reviewer of its own.(\x00B\x01\x01\x12\xc2\x04\n" +
+	"\x05Adopt\x12\x16.agent.v1.AdoptRequest\x1a\x17.agent.v1.AdoptResponse\"\x87\x04\x9a\xb5\x18\x82\x04\b\x01\x10\x01\x1a\x05adopt\"\xef\x03Start an agent on a branch that already exists, such as one a person pushed by hand. Name the branch, not a pull request. The workflow decides the repository and must be one that provisions worktrees. Komrad puts the agent in a worktree on that branch, or in the checkout already holding it when one exists on disk. The branch stays the person's own: nothing here creates, resets or deletes it. A branch that already has an agent on it launches nothing and answers with that agent, existing set.(\x00B\x01\x03\x12\xeb\x01\n" +
 	"\tListMarks\x12\x16.google.protobuf.Empty\x1a\x1b.agent.v1.ListMarksResponse\"\xa8\x01\x9a\xb5\x18\xa0\x01\b\x01\x10\x01\x1a\n" +
 	"list_marks\"\x88\x01List every mark with the agent or workflow it jumps to. A mark is a single letter a person types in the panel to jump straight to a row.B\x03\x01\x02\x03\x90\x02\x01\x12\xbe\x03\n" +
 	"\aSetMark\x12\x18.agent.v1.SetMarkRequest\x1a\x16.google.protobuf.Empty\"\x80\x03\x9a\xb5\x18\xf8\x02\b\x01\x10\x01\x1a\bset_mark\"\xe0\x02Put a letter on an agent's or a workflow's row so a person can jump to it from the panel. Name one of agent_id or workflow_id. A letter belongs to one row at a time, so giving it to a new row takes it off the old one. Leave letter out to clear whatever letter the row holds. Marks are the person's own way around the panel, so only move one when asked.(\x00B\x03\x01\x02\x03\x90\x02\x02\x12\xe5\x02\n" +

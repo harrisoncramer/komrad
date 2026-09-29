@@ -26,6 +26,22 @@ var ErrAdoptBranchInUse = fail.Precondition("that branch is already checked out"
 
 var ErrAdoptAlreadyAdopted = fail.AlreadyExists("that branch already has an agent on it")
 
+// AgentExistsError is an adoption answered by the agent already on the branch rather than a new one.
+type AgentExistsError struct {
+	Agent agentstore.Agent
+	Err   error
+}
+
+// Error names the agent and the branch it is on.
+func (e *AgentExistsError) Error() string {
+	return e.Err.Error()
+}
+
+// Unwrap is the refusal the adoption would otherwise have been.
+func (e *AgentExistsError) Unwrap() error {
+	return e.Err
+}
+
 const worktreeListTimeout = 10 * time.Second
 
 // worktreeLister reports the checkouts of a repository.
@@ -114,7 +130,7 @@ func (s *AdoptService) Adopt(ctx context.Context, params AdoptParams) (*agentsto
 			return existing, nil
 		}
 
-		return nil, fmt.Errorf("%w: %s is on %s already", ErrAdoptAlreadyAdopted, existing.Name, branch)
+		return nil, &AgentExistsError{Agent: *existing, Err: fmt.Errorf("%w: %s is on %s already", ErrAdoptAlreadyAdopted, existing.Name, branch)}
 	}
 
 	create := NewAgentParams{
@@ -150,9 +166,9 @@ func (s *AdoptService) Adopt(ctx context.Context, params AdoptParams) (*agentsto
 		// Git still has the registration but the directory is gone, so a worktree of this agent's
 		// own is made instead.
 	case owner != nil && isAdopted(*owner, branch):
-		return nil, fmt.Errorf("%w: %s is on %s already, in %s", ErrAdoptAlreadyAdopted, owner.Name, branch, trees.holder)
+		return nil, &AgentExistsError{Agent: *owner, Err: fmt.Errorf("%w: %s is on %s already, in %s", ErrAdoptAlreadyAdopted, owner.Name, branch, trees.holder)}
 	case owner != nil:
-		return nil, fmt.Errorf("%w: %s is the worktree of agent %s, so adopting into it would hand one directory to two agents", ErrAdoptBranchInUse, trees.holder, owner.Name)
+		return nil, &AgentExistsError{Agent: *owner, Err: fmt.Errorf("%w: %s is the worktree of agent %s, so adopting into it would hand one directory to two agents", ErrAdoptBranchInUse, trees.holder, owner.Name)}
 	default:
 		// The checkout is somebody else's work, so the provisioner is turned off to stop the
 		// workflow making a second one and, on delete, removing a directory komrad never created.
