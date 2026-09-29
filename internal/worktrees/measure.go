@@ -10,6 +10,7 @@ import (
 	"time"
 
 	worktreestore "komrad/internal/store/worktree"
+	"komrad/lib/clock"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
 )
@@ -58,7 +59,7 @@ type Measurer struct {
 func NewMeasurer(params NewMeasurerParams) *Measurer {
 	now := params.Now
 	if now == nil {
-		now = time.Now
+		now = clock.Now
 	}
 
 	return &Measurer{

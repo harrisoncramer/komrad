@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
-	"time"
 
 	"komrad/internal/agents"
 	"komrad/internal/caller"
@@ -18,6 +17,7 @@ import (
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
 	workflowstore "komrad/internal/store/workflow"
+	"komrad/lib/clock"
 	"komrad/lib/xpath"
 
 	"github.com/jackc/pgx/v5"
@@ -296,7 +296,7 @@ func (s *RebaseService) rebase(ctx context.Context, agent agentstore.Agent) (*Re
 
 // buildParkRef names where a checkout is held before it is moved.
 func buildParkRef(agentID string) string {
-	return fmt.Sprintf("refs/komrad/prerefresh/%s/%d", agentID, time.Now().UnixNano())
+	return fmt.Sprintf("refs/komrad/prerefresh/%s/%d", agentID, clock.Now().UnixNano())
 }
 
 // releaseOlderParks drops the parks this agent left behind before this one.

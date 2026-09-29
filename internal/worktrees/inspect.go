@@ -10,6 +10,7 @@ import (
 	"komrad/internal/store"
 	workflowstore "komrad/internal/store/workflow"
 	worktreestore "komrad/internal/store/worktree"
+	"komrad/lib/clock"
 )
 
 // commitLimit is how many of a branch's commits an inspection lists.
@@ -87,7 +88,7 @@ type Inspector struct {
 func NewInspector(params NewInspectorParams) *Inspector {
 	now := params.Now
 	if now == nil {
-		now = time.Now
+		now = clock.Now
 	}
 
 	return &Inspector{

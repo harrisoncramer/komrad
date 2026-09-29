@@ -10,6 +10,7 @@ import (
 	"komrad/internal/harness"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
+	"komrad/lib/clock"
 )
 
 // ErrReleaseRefused is a release that could not tell the agent to carry on, so the hold stands.
@@ -54,7 +55,7 @@ type Holder struct {
 func NewHolder(params NewHolderParams) *Holder {
 	now := params.Clock
 	if now == nil {
-		now = time.Now
+		now = clock.Now
 	}
 
 	return &Holder{

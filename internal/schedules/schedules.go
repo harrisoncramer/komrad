@@ -14,6 +14,7 @@ import (
 	agentstore "komrad/internal/store/agent"
 	schedulestore "komrad/internal/store/schedule"
 	workflowstore "komrad/internal/store/workflow"
+	"komrad/lib/clock"
 
 	"github.com/robfig/cron/v3"
 )
@@ -367,7 +368,7 @@ func ParseCron(expression, timezone string) (cron.Schedule, error) {
 
 	// A date the calendar never reaches, such as February the thirtieth, parses cleanly and then
 	// never comes round.
-	if parsed.Next(time.Now()).IsZero() {
+	if parsed.Next(clock.Now()).IsZero() {
 		return nil, fmt.Errorf("%w: %q never occurs", ErrBadCron, expression)
 	}
 

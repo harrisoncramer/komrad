@@ -14,6 +14,7 @@ import (
 	"komrad/internal/store"
 	forgestore "komrad/internal/store/forge"
 	pullrequeststore "komrad/internal/store/pullrequest"
+	"komrad/lib/clock"
 	"komrad/lib/xslice"
 
 	"github.com/jackc/pgx/v5"
@@ -133,7 +134,7 @@ type PullRequestSyncer struct {
 func NewPullRequestSyncer(params NewPullRequestSyncerParams) *PullRequestSyncer {
 	now := params.Now
 	if now == nil {
-		now = time.Now
+		now = clock.Now
 	}
 
 	return &PullRequestSyncer{

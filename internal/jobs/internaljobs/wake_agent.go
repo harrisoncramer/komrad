@@ -8,6 +8,7 @@ import (
 	"komrad/internal/agents"
 	"komrad/internal/scriptrun"
 	agentstore "komrad/internal/store/agent"
+	"komrad/lib/clock"
 
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/rivertype"
@@ -36,7 +37,7 @@ func (WakeAgentArgs) InsertOpts() river.InsertOpts {
 	return river.InsertOpts{
 		Queue:       QueueWakeAgent,
 		MaxAttempts: wakeMaxAttempts,
-		ScheduledAt: time.Now().Add(wakeDelay),
+		ScheduledAt: clock.Now().Add(wakeDelay),
 		UniqueOpts: river.UniqueOpts{
 			ByArgs: true,
 			ByState: []rivertype.JobState{

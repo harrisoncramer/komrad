@@ -12,6 +12,7 @@ import (
 	agentstore "komrad/internal/store/agent"
 	reviewstore "komrad/internal/store/review"
 	workflowstore "komrad/internal/store/workflow"
+	"komrad/lib/clock"
 	"komrad/lib/xslice"
 
 	"github.com/jackc/pgx/v5"
@@ -610,7 +611,7 @@ func (s *ReviewService) interrupt(ctx context.Context, agentID string) {
 		return
 	}
 
-	time.Sleep(interruptSettleFor)
+	clock.Sleep(ctx, interruptSettleFor)
 }
 
 // requireOwnThread refuses an id that names no thread, and refuses an agent reaching into a

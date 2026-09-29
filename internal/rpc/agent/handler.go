@@ -15,6 +15,7 @@ import (
 	"komrad/internal/rpc/render"
 	"komrad/internal/rpcerr"
 	"komrad/internal/store"
+	"komrad/lib/clock"
 	"komrad/lib/pagination"
 	"komrad/lib/xslice"
 	agentv1 "komrad/proto/gen/agent/v1"
@@ -133,7 +134,7 @@ type Handler struct {
 func NewHandler(params NewHandlerParams) *Handler {
 	now := params.Clock
 	if now == nil {
-		now = time.Now
+		now = clock.Now
 	}
 
 	return &Handler{

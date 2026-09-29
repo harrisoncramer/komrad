@@ -14,6 +14,7 @@ import (
 	"komrad/internal/fail"
 	"komrad/internal/logging"
 	"komrad/internal/scripts"
+	"komrad/lib/clock"
 
 	agentstore "komrad/internal/store/agent"
 	workflowstore "komrad/internal/store/workflow"
@@ -96,7 +97,7 @@ func (s *ScriptService) RunHook(ctx context.Context, agent agentstore.Agent, nam
 
 	logger := s.runLogger(ctx, name, event, agent)
 	logger.LogAttrs(ctx, slog.LevelInfo, "script started")
-	began := time.Now()
+	began := clock.Now()
 
 	result, err := s.runner.RunAndWait(ctx, scripts.RunParams{
 		Script:  script,
@@ -165,7 +166,7 @@ func (s *ScriptService) runAwaited(ctx context.Context, params prepareParams) (s
 	env = append(env, setupDirFileVar+"="+dirPath)
 
 	logger.LogAttrs(ctx, slog.LevelInfo, "script started")
-	began := time.Now()
+	began := clock.Now()
 
 	record := s.beginRun(ctx, params.agent.ID, params.trigger, params.name)
 
@@ -224,7 +225,7 @@ func (s *ScriptService) RunDeprovision(ctx context.Context, agent agentstore.Age
 
 	logger := s.runLogger(ctx, script.Name, TriggerDeprovision, agent)
 	ctx = context.WithoutCancel(ctx)
-	began := time.Now()
+	began := clock.Now()
 
 	err = s.runner.Run(scripts.RunParams{
 		Script:  script,

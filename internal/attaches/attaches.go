@@ -16,6 +16,7 @@ import (
 	"komrad/internal/logging"
 	"komrad/internal/pty"
 	agentstore "komrad/internal/store/agent"
+	"komrad/lib/clock"
 )
 
 const (
@@ -129,7 +130,7 @@ func (s *AttachService) claim(view, pane string) error {
 
 // release kills a view once its last stream has ended and no client is left attached to it.
 func (s *AttachService) release(ctx context.Context, view string) {
-	if !s.drop(view) || !s.isDetached(view) {
+	if !s.drop(view) || !s.isDetached(context.WithoutCancel(ctx), view) {
 		return
 	}
 
@@ -163,8 +164,8 @@ func (s *AttachService) drop(view string) bool {
 
 // isDetached reports whether a view is left with no client attached, waiting a moment for tmux to
 // see a client that was killed go.
-func (s *AttachService) isDetached(view string) bool {
-	deadline := time.Now().Add(detachGrace)
+func (s *AttachService) isDetached(ctx context.Context, view string) bool {
+	deadline := clock.Now().Add(detachGrace)
 	for {
 		clients, err := s.tmux.CountSessionClients(view)
 		if err != nil {
@@ -175,11 +176,11 @@ func (s *AttachService) isDetached(view string) bool {
 			return true
 		}
 
-		if time.Now().After(deadline) {
+		if clock.Now().After(deadline) {
 			return false
 		}
 
-		time.Sleep(detachPoll)
+		clock.Sleep(ctx, detachPoll)
 	}
 }
 
