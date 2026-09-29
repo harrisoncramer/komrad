@@ -658,6 +658,11 @@ table "agents" {
     default = false
     comment = "Whether a merge, a rebase or a cherry-pick is part-way through the agent's checkout and waiting on somebody. Komrad reads the checkout every few seconds and writes what it found here, so settling the sequence by hand clears this on its own."
   }
+  column "last_rebase" {
+    null    = true
+    type    = jsonb
+    comment = "What the latest rebase of the agent's checkout came to, as the result or the failure; null until its first rebase."
+  }
   column "head_sha" {
     null    = true
     type    = text

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 
 	"komrad/internal/events"
 	"komrad/internal/mail"
@@ -20,7 +21,6 @@ const personWroteTopic = "document_written_by_person"
 // PersonWrote is a person writing a document an agent owns.
 type PersonWrote struct {
 	DocumentID string `json:"document_id"`
-	Created    bool   `json:"created"`
 }
 
 // Topic names the handler that tells the document's owner.
@@ -48,7 +48,8 @@ func (*EventHandler) Handle(ctx context.Context, tx store.DBTX, mailer *mail.Mai
 		return nil, fmt.Errorf("failed to read a document write: %w", err)
 	}
 
-	document, err := documentstore.NewDocumentStore(tx).Get(ctx, wrote.DocumentID)
+	documents := documentstore.NewDocumentStore(tx)
+	document, err := documents.Get(ctx, wrote.DocumentID)
 	if errors.Is(err, store.ErrNotFound) {
 		return nil, nil
 	}
@@ -56,8 +57,18 @@ func (*EventHandler) Handle(ctx context.Context, tx store.DBTX, mailer *mail.Mai
 		return nil, err
 	}
 
+	versions, err := documents.ListVersions(ctx, document.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	told, err := mailstore.NewMailStore(tx).ExistsReadAbout(ctx, document.AgentID, mailstore.KindDocumentEdited, document.ID)
+	if err != nil {
+		return nil, err
+	}
+
 	body := buildEditMail(*document)
-	if wrote.Created {
+	if !told && !slices.ContainsFunc(versions, func(version documentstore.Version) bool { return !version.ByPerson }) {
 		body = buildCreateMail(*document)
 	}
 

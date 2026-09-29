@@ -304,6 +304,7 @@ func TestAPersonsWriteMailsTheAuthor(t *testing.T) {
 		full     bool
 		byPerson bool
 		creates  bool
+		then     func(t *testing.T, author string, written *documentstore.Document) *documentstore.Document
 		wantMail string
 	}{
 		{
@@ -328,6 +329,27 @@ func TestAPersonsWriteMailsTheAuthor(t *testing.T) {
 			byPerson: true,
 			creates:  true,
 			wantMail: "a person wrote a new document for you",
+		},
+		{
+			name:     "a person's edit of their new document before the author reads still calls it new",
+			byPerson: true,
+			creates:  true,
+			then: func(t *testing.T, _ string, written *documentstore.Document) *documentstore.Document {
+				return personEdits(t, service, written)
+			},
+			wantMail: "a person wrote a new document for you",
+		},
+		{
+			name:     "a person's edit of their new document after the author read it is an edit",
+			byPerson: true,
+			creates:  true,
+			then: func(t *testing.T, author string, written *documentstore.Document) *documentstore.Document {
+				_, err := stores.Mail.Claim(t.Context(), author, 10)
+				require.NoError(t, err)
+
+				return personEdits(t, service, written)
+			},
+			wantMail: "writing version 2.",
 		},
 		{
 			name:     "a person's edit sends one mail naming the version they wrote",
@@ -379,12 +401,15 @@ func TestAPersonsWriteMailsTheAuthor(t *testing.T) {
 			}
 			written, err := service.WriteDocument(ctx, params)
 			require.NoError(t, err)
+			if tt.then != nil {
+				written = tt.then(t, author.ID, written)
+			}
 
 			held, err := stores.Mail.ListPage(ctx, author.ID, 200, nil)
 			require.NoError(t, err)
 			var waiting []mailstore.Mail
 			for _, m := range held {
-				if m.Kind != mailstore.KindPlain {
+				if m.Kind != mailstore.KindPlain && m.ClaimedAt == nil {
 					waiting = append(waiting, m)
 				}
 			}
@@ -414,4 +439,19 @@ func newService(stores *storetest.Stores, events *eventstest.Queue) *documents.D
 		Documents: stores.Documents,
 		Events:    events,
 	})
+}
+
+func personEdits(t *testing.T, service *documents.DocumentService, written *documentstore.Document) *documentstore.Document {
+	t.Helper()
+
+	edited, err := service.WriteDocument(t.Context(), documents.WriteDocumentParams{
+		ID:      xptr.Ptr(written.ID),
+		Version: xptr.Ptr(written.Version),
+		Name:    written.Name,
+		Kind:    written.Kind,
+		Body:    uuid.NewString(),
+	})
+	require.NoError(t, err)
+
+	return edited
 }

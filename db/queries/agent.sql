@@ -1220,3 +1220,19 @@ WHERE
     s.workflow_id = @workflow_id
     AND s.role = 'orchestrator'
 LIMIT 1;
+
+-- name: SetAgentLastRebaseByID :exec
+UPDATE
+    agents
+SET
+    last_rebase = @last_rebase
+WHERE
+    id = @id;
+
+-- name: GetAgentLastRebaseByID :one
+SELECT
+    last_rebase
+FROM
+    agents
+WHERE
+    id = @id;

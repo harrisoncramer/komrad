@@ -153,6 +153,24 @@ func (s *MailStore) GetUnreadAbout(ctx context.Context, toAgentID string, kind K
 	return &held, nil
 }
 
+// ExistsReadAbout says whether the recipient has read any mail of a kind about a subject.
+func (s *MailStore) ExistsReadAbout(ctx context.Context, toAgentID string, kind Kind, subjectID string) (bool, error) {
+	if !store.IsID(toAgentID) || !store.IsID(subjectID) {
+		return false, nil
+	}
+
+	read, err := s.queries.ExistsReadAbout(ctx, models.ExistsReadAboutParams{
+		ToAgentID: toAgentID,
+		Kind:      models.MailKind(kind),
+		SubjectID: subjectID,
+	})
+	if err != nil {
+		return false, fmt.Errorf("failed to read whether agent %q read its %q mail: %w", toAgentID, kind, err)
+	}
+
+	return read, nil
+}
+
 func noUnreadAbout(toAgentID string, kind Kind) error {
 	return fmt.Errorf("%w: unread %q mail for agent %q", store.ErrNotFound, kind, toAgentID)
 }
