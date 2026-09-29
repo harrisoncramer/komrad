@@ -27,7 +27,7 @@ var (
 // newConfigCheck asserts the user's config layers parse and names them in merge order.
 func newConfigCheck() Check {
 	return Check{
-		Name:        "config",
+		Name:        CheckConfig,
 		Description: "the panel reads its keybindings, defaults and connection from TOML files",
 		Run: func(_ context.Context, env Env) Result {
 			if _, err := env.LoadConfig(); err != nil {
@@ -88,7 +88,7 @@ func describeConfigFix(env Env) string {
 // newDefaultHarnessCheck asserts the CLI a new agent runs is one this build knows how to run.
 func newDefaultHarnessCheck() Check {
 	return Check{
-		Name:        "default harness",
+		Name:        CheckDefaultHarness,
 		Description: "the agent CLI a new agent runs when nothing names one",
 		Needs:       []string{"config"},
 		Run: func(_ context.Context, env Env) Result {

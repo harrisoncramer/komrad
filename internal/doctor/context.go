@@ -27,7 +27,7 @@ var (
 // newContextCheck asserts the standing text every agent is started with is there to read.
 func newContextCheck() Check {
 	return Check{
-		Name:        "context",
+		Name:        CheckContext,
 		Description: "the standing text every agent is started with, whatever workflow it is in",
 		Needs:       []string{"config"},
 		Run: func(_ context.Context, env Env) Result {

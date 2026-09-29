@@ -41,7 +41,7 @@ var minTmux = tmuxVersion{major: 3, minor: 3}
 // newTmuxBinaryCheck asserts tmux is installed, without which nothing works.
 func newTmuxBinaryCheck() Check {
 	return Check{
-		Name:        "tmux",
+		Name:        CheckTmux,
 		Description: "tmux runs the panel and every agent pane",
 		Run: func(_ context.Context, env Env) Result {
 			path, err := env.LookPath("tmux")
@@ -58,7 +58,7 @@ func newTmuxBinaryCheck() Check {
 // rather than failing on a version it cannot parse.
 func newTmuxVersionCheck() Check {
 	return Check{
-		Name:        "tmux version",
+		Name:        CheckTmuxVersion,
 		Description: "the panel needs tmux " + minTmux.String() + " or newer",
 		Needs:       []string{"tmux"},
 		Run: func(ctx context.Context, env Env) Result {
@@ -140,7 +140,7 @@ func parseTmuxVersion(reported string) (tmuxVersion, error) {
 // starts an agent.
 func newTmuxShellCheck() Check {
 	return Check{
-		Name:        "tmux shell",
+		Name:        CheckTmuxShell,
 		Description: "agent panes are started through tmux's default-shell",
 		Needs:       []string{"tmux"},
 		Run: func(ctx context.Context, env Env) Result {
