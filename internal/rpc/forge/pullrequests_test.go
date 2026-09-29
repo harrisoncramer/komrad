@@ -39,6 +39,18 @@ func (f *fakeForge) List(_ context.Context, params forge.ListParams) (*forge.Pag
 	}, nil
 }
 
+// fakeMerger records each merge and answers mergeErr.
+type fakeMerger struct {
+	mergeErr error
+	merged   []string
+}
+
+func (f *fakeMerger) MergePullRequest(_ context.Context, address string) error {
+	f.merged = append(f.merged, address)
+
+	return f.mergeErr
+}
+
 // TestListForgePullRequests pins what reaches the forge and how each pull request renders.
 func TestListForgePullRequests(t *testing.T) {
 	stamp := time.Date(2026, 9, 18, 12, 0, 0, 0, time.UTC)
@@ -62,7 +74,7 @@ func TestListForgePullRequests(t *testing.T) {
 		connections: []forgestore.Connection{newConnection()},
 		forge:       listing,
 	}
-	service := forgev1komrad.ForgeServiceAdapter{Impl: NewHandler(connector)}
+	service := forgev1komrad.ForgeServiceAdapter{Impl: NewHandler(connector, nil)}
 
 	resp, err := service.ListForgePullRequests(t.Context(), connect.NewRequest(&forgev1.ListForgePullRequestsRequest{
 		RemoteUrl: "git@github.com:harrisoncramer/komrad.git",
@@ -98,7 +110,7 @@ func TestListForgePullRequestsPages(t *testing.T) {
 		connections: []forgestore.Connection{newConnection()},
 		forge:       listing,
 	}
-	service := forgev1komrad.ForgeServiceAdapter{Impl: NewHandler(connector)}
+	service := forgev1komrad.ForgeServiceAdapter{Impl: NewHandler(connector, nil)}
 
 	first, err := service.ListForgePullRequests(t.Context(), connect.NewRequest(&forgev1.ListForgePullRequestsRequest{
 		RemoteUrl:  "git@github.com:harrisoncramer/komrad.git",
@@ -148,12 +160,12 @@ func TestMergeForgePullRequest(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			connector := &fakeConnector{mergeErr: tt.refuse}
-			service := forgev1komrad.ForgeServiceAdapter{Impl: NewHandler(connector)}
+			merger := &fakeMerger{mergeErr: tt.refuse}
+			service := forgev1komrad.ForgeServiceAdapter{Impl: NewHandler(&fakeConnector{}, merger)}
 
 			_, err := service.MergeForgePullRequest(t.Context(), connect.NewRequest(&forgev1.MergeForgePullRequestRequest{Url: address}))
 
-			assert.Equal(t, []string{address}, connector.merged)
+			assert.Equal(t, []string{address}, merger.merged)
 			if tt.wantCode != 0 {
 				require.Error(t, err)
 				assert.Equal(t, tt.wantCode, connect.CodeOf(err))
