@@ -2,6 +2,7 @@ package ui
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 
 	agentv1 "komrad/proto/gen/agent/v1"
@@ -95,14 +96,35 @@ func (d reviewDiff) answerDesc() string {
 
 // findAnswerRound is the round the newest reply that addressed a comment carried.
 func findAnswerRound(thread *agentv1.ReviewThread) (string, bool) {
+	answered := findAnswer(thread)
+	if answered < 0 {
+		return "", false
+	}
+
+	return thread.GetMessages()[answered].GetRoundId(), true
+}
+
+// findAnswer is where the newest reply that addressed a comment sits in its thread, -1 for none.
+func findAnswer(thread *agentv1.ReviewThread) int {
 	said := thread.GetMessages()
 	for i := len(said) - 1; i >= 0; i-- {
-		if round := said[i].GetRoundId(); round != "" {
-			return round, true
+		if said[i].GetRoundId() != "" {
+			return i
 		}
 	}
 
-	return "", false
+	return -1
+}
+
+// addressedSaid names the round an addressed reply carried, empty for a round the review no
+// longer lists.
+func (d reviewDiff) addressedSaid(message *agentv1.ReviewMessage) string {
+	round := findRound(d.rounds, message.GetRoundId())
+	if round == nil {
+		return ""
+	}
+
+	return fmt.Sprintf("addressed in round %d", round.GetOrdinal())
 }
 
 func findRound(rounds []*agentv1.ReviewRound, id string) *agentv1.ReviewRound {

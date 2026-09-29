@@ -9,7 +9,6 @@ import (
 	agentv1 "komrad/proto/gen/agent/v1"
 
 	tea "charm.land/bubbletea/v2"
-	"google.golang.org/protobuf/proto"
 )
 
 // reviewLegendFloor is the shortest pane the expanded legend fits in once it carries the base
@@ -28,9 +27,6 @@ type reviewChapter struct {
 	At string
 	// Ordinal is the round the chapter ends at.
 	Ordinal int32
-	// Until is when the agent moved past this chapter, in RFC 3339, empty for the chapter nothing
-	// follows.
-	Until string
 	// Comparable is false for a chapter whose two ends hang off different base commits, which a
 	// rebase between two reviews leaves behind.
 	Comparable bool
@@ -245,15 +241,10 @@ func cutChapters(params cutChaptersParams) []reviewChapter {
 	fromBase := from
 	for _, milestone := range milestones {
 		chapters = append(chapters, reviewChapter{
-			FromSHA: from,
-			ToSHA:   milestone.GetSnapshotSha(),
-			At:      closed[milestone.GetOrdinal()],
-			Ordinal: milestone.GetOrdinal(),
-			Until: roundAfter(roundAfterParams{
-				Rounds:  params.Rounds,
-				After:   milestone.GetOrdinal(),
-				Ceiling: params.OnScreen.GetOrdinal(),
-			}),
+			FromSHA:     from,
+			ToSHA:       milestone.GetSnapshotSha(),
+			At:          closed[milestone.GetOrdinal()],
+			Ordinal:     milestone.GetOrdinal(),
 			Comparable:  fromBase == milestone.GetBaseSha(),
 			FromBase:    fromBase,
 			ToBase:      milestone.GetBaseSha(),
@@ -306,8 +297,8 @@ type threadsByChapterParams struct {
 	At       int
 }
 
-// threadsByChapter drops the comments written after the round on screen, and gives back the
-// whole conversation while the whole change is on screen.
+// threadsByChapter drops the threads opened after the round on screen, and gives back the whole
+// conversation while the whole change is on screen.
 func threadsByChapter(params threadsByChapterParams) []*agentv1.ReviewThread {
 	if params.At < 0 || params.At >= len(params.Chapters) {
 		return params.Threads
@@ -317,45 +308,34 @@ func threadsByChapter(params threadsByChapterParams) []*agentv1.ReviewThread {
 
 	kept := make([]*agentv1.ReviewThread, 0, len(params.Threads))
 	for _, thread := range params.Threads {
-		if thread.GetRoundOrdinal() > chapter.Ordinal {
-			continue
+		if thread.GetRoundOrdinal() <= chapter.Ordinal {
+			kept = append(kept, thread)
 		}
-
-		kept = append(kept, messagesByChapter(thread, chapter.Until))
 	}
 
 	return kept
 }
 
-// messagesByChapter is one thread with the replies written after the chapter closed left out, so
-// a conversation that carried on about later code is read as it stood then.
-func messagesByChapter(thread *agentv1.ReviewThread, until string) *agentv1.ReviewThread {
-	if until == "" {
-		return thread
+// findLaterStamp is when the first round after both a thread's own round and its first message was
+// taken, empty when no round has followed it.
+func findLaterStamp(thread *agentv1.ReviewThread, rounds []*agentv1.ReviewRound) string {
+	said := thread.GetMessages()
+	if len(said) == 0 {
+		return ""
 	}
 
-	said := thread.GetMessages()
-
-	kept := make([]*agentv1.ReviewMessage, 0, len(said))
-	for _, message := range said {
-		if doesPredate(message.GetCreatedAt(), until) {
-			kept = append(kept, message)
+	first := said[0].GetCreatedAt()
+	stamp := ""
+	for _, round := range rounds {
+		if round.GetOrdinal() <= thread.GetRoundOrdinal() || !isBefore(first, round.GetCreatedAt()) {
+			continue
+		}
+		if stamp == "" || isBefore(round.GetCreatedAt(), stamp) {
+			stamp = round.GetCreatedAt()
 		}
 	}
 
-	if len(kept) == len(said) {
-		return thread
-	}
-
-	// The threads belong to the model rather than to the view, so the shortened one is a copy.
-	trimmed, ok := proto.Clone(thread).(*agentv1.ReviewThread)
-	if !ok {
-		return thread
-	}
-
-	trimmed.Messages = kept
-
-	return trimmed
+	return stamp
 }
 
 // isBefore reports whether one stamp came before another, parsed rather than compared as text.
@@ -389,27 +369,12 @@ func doesPredate(stamp, mark string) bool {
 	return at.Before(against)
 }
 
-// roundAfterParams says which round to look past and how far the reader can see.
-type roundAfterParams struct {
-	Rounds []*agentv1.ReviewRound
-	// After is the round the chapter ends at.
-	After int32
-	// Ceiling is the round on screen, past which a round is not something the reader is reading.
-	Ceiling int32
-}
-
-// roundAfter is when the round following an ordinal was taken, and nothing when the reader is
-// standing on the last of them.
-func roundAfter(params roundAfterParams) string {
-	after := ""
-	for _, round := range params.Rounds {
-		if round.GetOrdinal() <= params.After || round.GetOrdinal() > params.Ceiling {
-			continue
-		}
-		if after == "" || isBefore(round.GetCreatedAt(), after) {
-			after = round.GetCreatedAt()
-		}
+// laterStamp is the stamp a thread's later replies are split at, empty while the diff on screen
+// is the whole change or an answer.
+func (d reviewDiff) laterStamp(thread *agentv1.ReviewThread) string {
+	if d.chapter < 0 && d.origin == nil {
+		return ""
 	}
 
-	return after
+	return findLaterStamp(thread, d.rounds)
 }

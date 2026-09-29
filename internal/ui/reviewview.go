@@ -298,9 +298,23 @@ func (r reviewScreen) threadView(s panelShared) string {
 		return dimStyle.Render("  no thread here yet") + "\n"
 	}
 
+	stamp := r.diff.laterStamp(thread)
+	answered := findAnswer(thread)
+	later := false
+
 	out := r.originView(s, thread)
-	for _, message := range thread.GetMessages() {
-		out += r.messageView(s, message)
+	for i, message := range thread.GetMessages() {
+		if i > 0 && !later && stamp != "" && !doesPredate(message.GetCreatedAt(), stamp) {
+			later = true
+			out += "\n" + dimStyle.Render("── later, after this code changed ──") + "\n"
+		}
+
+		note := ""
+		if i == answered {
+			note = r.diff.addressedSaid(message)
+		}
+
+		out += r.messageView(s, message, note)
 	}
 
 	return out
@@ -339,7 +353,7 @@ func (d reviewDiff) originSaid(thread *agentv1.ReviewThread) string {
 	return "moved since it was written" + separated + "written against"
 }
 
-func (r reviewScreen) messageView(s panelShared, message *agentv1.ReviewMessage) string {
+func (r reviewScreen) messageView(s panelShared, message *agentv1.ReviewMessage, note string) string {
 	author, tone := "you", reviewHumanTone
 	if message.GetAuthorKind() == agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT {
 		author, tone = r.agentName, reviewAgentTone
@@ -348,6 +362,9 @@ func (r reviewScreen) messageView(s panelShared, message *agentv1.ReviewMessage)
 	head := paint.Panel.Style(tone).Bold(true).Render(author)
 	if when := reviewTimeOf(message.GetCreatedAt()); when != "" {
 		head += " " + dimStyle.Render(when)
+	}
+	if note != "" {
+		head += "   " + dimStyle.Render(note)
 	}
 
 	return head + "\n" + reviewWrap(s, message.GetBody()) + "\n" + reviewDeliveryBadge(paint.Panel, s.glyphs, message) + "\n"
