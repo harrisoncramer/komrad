@@ -311,6 +311,8 @@ type panelShared struct {
 	// inspections is what the service has answered for each worktree directory.
 	inspections map[string]worktreeInspection
 
+	conversation conversationPreview
+
 	// editor is the command a file is opened in.
 	editor string
 
@@ -358,10 +360,11 @@ func (m *model) unmeasured() panelShared {
 			form:         m.form,
 			helpExpanded: m.helpExpanded,
 		},
-		inspections: m.inspections,
-		editor:      m.settings.Editor,
-		draftDir:    m.settings.DraftDir,
-		isDark:      m.isDark,
-		draw:        m,
+		inspections:  m.inspections,
+		conversation: m.conversation,
+		editor:       m.settings.Editor,
+		draftDir:     m.settings.DraftDir,
+		isDark:       m.isDark,
+		draw:         m,
 	}
 }

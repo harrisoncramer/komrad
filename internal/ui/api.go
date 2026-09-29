@@ -478,6 +478,23 @@ func (a api) listDocuments(agentID string) ([]*agentv1.Document, error) {
 	})
 }
 
+func (a api) getLastTurns(agentID string) ([]*agentv1.Turn, error) {
+	turns, maxBytes := int32(conversationPreviewTurns), int32(conversationPreviewTurnBytes)
+
+	return call(requestTimeout, func(ctx context.Context) ([]*agentv1.Turn, error) {
+		resp, err := a.agents.GetLastTurns(ctx, connect.NewRequest(&agentv1.GetLastTurnsRequest{
+			AgentId:  agentID,
+			Turns:    &turns,
+			MaxBytes: &maxBytes,
+		}))
+		if err != nil {
+			return nil, fmt.Errorf("failed to read the last turns of agent %q: %w", agentID, err)
+		}
+
+		return resp.Msg.GetTurns(), nil
+	})
+}
+
 func (a api) getDocument(id string) (*agentv1.Document, error) {
 	return call(requestTimeout, func(ctx context.Context) (*agentv1.Document, error) {
 		resp, err := a.agents.GetDocument(ctx, connect.NewRequest(&agentv1.GetDocumentRequest{Id: id}))
