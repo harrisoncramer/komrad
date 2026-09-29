@@ -10,6 +10,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"komrad/internal/caller"
@@ -393,36 +394,14 @@ func buildRecordedLoop(starts *runStarts, interval, floor time.Duration, waker *
 		},
 	})
 }
-
-// TestLoopRunsWhenWoken covers a wake bringing the next run forward rather than waiting out the
-// interval.
-func TestLoopRunsWhenWoken(t *testing.T) {
-	starts := &runStarts{}
-	waker := NewLoopWaker()
-	startLoop(t, buildRecordedLoop(starts, time.Hour, 0, waker))
-	require.Eventually(t, func() bool { return starts.count() == 1 }, 5*time.Second, time.Millisecond)
-
-	waker.Wake()
-
-	assert.Eventually(t, func() bool { return starts.count() == 2 }, 5*time.Second, time.Millisecond)
-}
-
-// TestLoopFoldsWakesDuringARun covers wakes that arrive while a run is under way costing one
-// more run between them.
-func TestLoopFoldsWakesDuringARun(t *testing.T) {
-	starts := &runStarts{}
-	waker := NewLoopWaker()
-	running := make(chan struct{})
-	release := make(chan struct{})
-
-	startLoop(t, NewLoop(NewLoopParams{
+func buildHeldLoop(starts *runStarts, interval time.Duration, waker *LoopWaker, release <-chan struct{}) *Loop {
+	return NewLoop(NewLoopParams{
 		Name:     "pull request sync",
-		Interval: time.Hour,
+		Interval: interval,
 		Waker:    waker,
 		Run: func(ctx context.Context) error {
 			starts.record()
 			if starts.count() == 1 {
-				close(running)
 				select {
 				case <-release:
 				case <-ctx.Done():
@@ -431,85 +410,187 @@ func TestLoopFoldsWakesDuringARun(t *testing.T) {
 
 			return nil
 		},
-	}))
-	<-running
+	})
+}
 
-	for range 5 {
+// TestLoopRunsWhenWoken covers a wake bringing the next run forward rather than waiting out the
+// interval.
+func TestLoopRunsWhenWoken(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		starts := &runStarts{}
+		waker := NewLoopWaker()
+		startLoop(t, buildRecordedLoop(starts, time.Hour, 0, waker))
+		synctest.Wait()
+		require.Equal(t, 1, starts.count())
+
 		waker.Wake()
-	}
-	close(release)
+		synctest.Wait()
 
-	require.Eventually(t, func() bool { return starts.count() == 2 }, 5*time.Second, time.Millisecond)
-	time.Sleep(20 * time.Millisecond)
-	assert.Equal(t, 2, starts.count(), "five wakes during one run are one more run")
+		assert.Equal(t, 2, starts.count())
+	})
+}
+
+// TestLoopFoldsWakesDuringARun covers wakes that arrive while a run is under way costing one
+// more run between them.
+func TestLoopFoldsWakesDuringARun(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		starts := &runStarts{}
+		waker := NewLoopWaker()
+		release := make(chan struct{})
+		startLoop(t, buildHeldLoop(starts, time.Hour, waker, release))
+		synctest.Wait()
+
+		for range 5 {
+			waker.Wake()
+		}
+		close(release)
+		synctest.Wait()
+
+		assert.Equal(t, 2, starts.count(), "five wakes during one run are one more run")
+	})
+}
+
+// TestLoopRunsOnceForATickAndAWakeTogether covers a tick and a wake both waiting when a run ends,
+// which the next run answers together.
+func TestLoopRunsOnceForATickAndAWakeTogether(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		const interval = 100 * time.Millisecond
+
+		starts := &runStarts{}
+		waker := NewLoopWaker()
+		release := make(chan struct{})
+		startLoop(t, buildHeldLoop(starts, interval, waker, release))
+		synctest.Wait()
+
+		time.Sleep(interval + interval/2)
+		waker.Wake()
+		close(release)
+		synctest.Wait()
+		require.Equal(t, 2, starts.count())
+
+		time.Sleep(interval / 4)
+		synctest.Wait()
+
+		assert.Equal(t, 2, starts.count(), "the tick and the wake were answered by one run")
+	})
 }
 
 // TestLoopIgnoresAWakeFromBeforeItStarted covers a wake sent before the loops start, which the
 // first run already answers.
 func TestLoopIgnoresAWakeFromBeforeItStarted(t *testing.T) {
-	starts := &runStarts{}
-	waker := NewLoopWaker()
-	waker.Wake()
+	synctest.Test(t, func(t *testing.T) {
+		starts := &runStarts{}
+		waker := NewLoopWaker()
+		waker.Wake()
 
-	startLoop(t, buildRecordedLoop(starts, time.Hour, 0, waker))
+		startLoop(t, buildRecordedLoop(starts, time.Hour, 0, waker))
+		synctest.Wait()
 
-	require.Eventually(t, func() bool { return starts.count() == 1 }, 5*time.Second, time.Millisecond)
-	time.Sleep(20 * time.Millisecond)
-	assert.Equal(t, 1, starts.count())
+		assert.Equal(t, 1, starts.count())
+	})
 }
 
 // TestLoopHoldsAWokenRunToItsFloor covers a woken run waiting out the floor after the run before
 // it started.
 func TestLoopHoldsAWokenRunToItsFloor(t *testing.T) {
-	const floor = 100 * time.Millisecond
+	synctest.Test(t, func(t *testing.T) {
+		const floor = 100 * time.Millisecond
 
-	starts := &runStarts{}
-	waker := NewLoopWaker()
-	startLoop(t, buildRecordedLoop(starts, time.Hour, floor, waker))
-	require.Eventually(t, func() bool { return starts.count() == 1 }, 5*time.Second, time.Millisecond)
+		starts := &runStarts{}
+		waker := NewLoopWaker()
+		startLoop(t, buildRecordedLoop(starts, time.Hour, floor, waker))
+		synctest.Wait()
 
-	waker.Wake()
+		waker.Wake()
+		synctest.Wait()
+		require.Equal(t, 1, starts.count(), "the woken run started inside the floor")
 
-	require.Eventually(t, func() bool { return starts.count() == 2 }, 5*time.Second, time.Millisecond)
-	recorded := starts.read()
-	assert.GreaterOrEqual(t, recorded[1].Sub(recorded[0]), floor)
+		time.Sleep(floor)
+		synctest.Wait()
+
+		recorded := starts.read()
+		require.Len(t, recorded, 2)
+		assert.Equal(t, floor, recorded[1].Sub(recorded[0]))
+	})
 }
 
 // TestLoopKeepsItsTickAfterAWokenRun covers a woken run leaving the next ticked run where it was,
 // so a wake can only add a run.
 func TestLoopKeepsItsTickAfterAWokenRun(t *testing.T) {
-	const interval = 300 * time.Millisecond
+	synctest.Test(t, func(t *testing.T) {
+		const interval = 300 * time.Millisecond
 
-	starts := &runStarts{}
-	waker := NewLoopWaker()
-	startLoop(t, buildRecordedLoop(starts, interval, 0, waker))
-	require.Eventually(t, func() bool { return starts.count() == 1 }, 5*time.Second, time.Millisecond)
+		starts := &runStarts{}
+		waker := NewLoopWaker()
+		startLoop(t, buildRecordedLoop(starts, interval, 0, waker))
+		synctest.Wait()
 
-	time.Sleep(interval / 3)
-	waker.Wake()
+		time.Sleep(interval / 3)
+		waker.Wake()
+		synctest.Wait()
+		require.Equal(t, 2, starts.count())
 
-	require.Eventually(t, func() bool { return starts.count() == 3 }, 5*time.Second, time.Millisecond)
-	recorded := starts.read()
-	assert.Less(t, recorded[2].Sub(recorded[0]), interval+interval/4, "the tick came on its schedule rather than an interval after the woken run")
+		time.Sleep(interval - interval/3)
+		synctest.Wait()
+
+		recorded := starts.read()
+		require.Len(t, recorded, 3)
+		assert.Equal(t, interval, recorded[2].Sub(recorded[0]), "the tick came on its schedule rather than an interval after the woken run")
+	})
+}
+
+// TestLoopDropsATickThatLandsInsideTheFloor covers a tick that fires while a woken run waits out
+// its floor, which the woken run answers.
+func TestLoopDropsATickThatLandsInsideTheFloor(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		const interval = 100 * time.Millisecond
+		const floor = 60 * time.Millisecond
+
+		starts := &runStarts{}
+		waker := NewLoopWaker()
+		startLoop(t, buildRecordedLoop(starts, interval, floor, waker))
+		synctest.Wait()
+
+		time.Sleep(70 * time.Millisecond)
+		waker.Wake()
+		synctest.Wait()
+		time.Sleep(10 * time.Millisecond)
+		waker.Wake()
+		time.Sleep(110 * time.Millisecond)
+		synctest.Wait()
+
+		recorded := starts.read()
+		require.Len(t, recorded, 3)
+		assert.Equal(t, 130*time.Millisecond, recorded[2].Sub(recorded[0]))
+
+		time.Sleep(10 * time.Millisecond)
+		synctest.Wait()
+
+		assert.Len(t, starts.read(), 4, "the next run came on the tick after the floor")
+	})
 }
 
 // TestLoopStopsWhileWaitingOutItsFloor covers a shutdown reaching a loop that is holding a woken
 // run back.
 func TestLoopStopsWhileWaitingOutItsFloor(t *testing.T) {
-	starts := &runStarts{}
-	waker := NewLoopWaker()
-	cancel, done := startLoop(t, buildRecordedLoop(starts, time.Hour, time.Hour, waker))
-	require.Eventually(t, func() bool { return starts.count() == 1 }, 5*time.Second, time.Millisecond)
+	synctest.Test(t, func(t *testing.T) {
+		starts := &runStarts{}
+		waker := NewLoopWaker()
+		cancel, done := startLoop(t, buildRecordedLoop(starts, time.Hour, time.Hour, waker))
+		synctest.Wait()
 
-	waker.Wake()
-	time.Sleep(10 * time.Millisecond)
-	cancel()
+		waker.Wake()
+		synctest.Wait()
+		cancel()
+		synctest.Wait()
 
-	select {
-	case <-done:
-	case <-time.After(time.Second):
-		t.Fatal("the loop waited out its floor rather than stopping")
-	}
+		select {
+		case <-done:
+		default:
+			t.Fatal("the loop waited out its floor rather than stopping")
+		}
+		assert.Equal(t, 1, starts.count())
+	})
 }
 
 // TestLoopWakerNeverBlocks covers waking a loop that is not running.

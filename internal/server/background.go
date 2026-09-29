@@ -220,10 +220,15 @@ func runLoop(ctx context.Context, loop *Loop, logger *slog.Logger) {
 			return
 		case <-ticker.C:
 			woken = false
+			loop.waker.drain()
 		case <-loop.waker.wake:
 			woken = true
 			if !waitUntil(ctx, started.Add(loop.floor)) {
 				return
+			}
+			select {
+			case <-ticker.C:
+			default:
 			}
 		}
 	}
