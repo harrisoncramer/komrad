@@ -8,6 +8,7 @@ import (
 	"komrad/internal/store"
 	forgestore "komrad/internal/store/forge"
 	"komrad/internal/storetest"
+	"komrad/internal/waketest"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -38,16 +39,8 @@ func (f *writingForge) SetDraft(_ context.Context, address string, draft bool) e
 	return f.err
 }
 
-type wakeCounter struct {
-	wakes int
-}
-
-func (w *wakeCounter) Wake() {
-	w.wakes++
-}
-
 // newTestWriter is a writer over a github.com connection whose forge is the one given.
-func newTestWriter(t *testing.T, writing *writingForge, sync *wakeCounter) *Writer {
+func newTestWriter(t *testing.T, writing *writingForge, sync *waketest.Counter) *Writer {
 	t.Helper()
 
 	stores := storetest.Open(t)
@@ -116,7 +109,7 @@ func TestMergePullRequest(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			writing := &writingForge{err: tt.mergeErr}
-			sync := &wakeCounter{}
+			sync := &waketest.Counter{}
 			writer := newTestWriter(t, writing, sync)
 
 			err := writer.MergePullRequest(t.Context(), tt.address)
@@ -127,7 +120,7 @@ func TestMergePullRequest(t *testing.T) {
 				require.NoError(t, err)
 			}
 			assert.Equal(t, tt.wantMerged, writing.merged)
-			assert.Equal(t, tt.wantWakes, sync.wakes)
+			assert.Equal(t, tt.wantWakes, sync.Wakes)
 		})
 	}
 }
@@ -177,7 +170,7 @@ func TestSetPullRequestDraft(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			writing := &writingForge{err: tt.draftErr}
-			sync := &wakeCounter{}
+			sync := &waketest.Counter{}
 			writer := newTestWriter(t, writing, sync)
 
 			err := writer.SetPullRequestDraft(t.Context(), tt.address, tt.draft)
@@ -188,7 +181,7 @@ func TestSetPullRequestDraft(t *testing.T) {
 				require.NoError(t, err)
 			}
 			assert.Equal(t, tt.wantDrafted, writing.drafted)
-			assert.Equal(t, tt.wantWakes, sync.wakes)
+			assert.Equal(t, tt.wantWakes, sync.Wakes)
 		})
 	}
 }

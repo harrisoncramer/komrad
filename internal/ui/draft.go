@@ -36,26 +36,10 @@ func draftLabel(item panel.AgentRow) string {
 	return "toggle draft on"
 }
 
-// draftRefusal is why an agent's pull request cannot be toggled, nil when it can.
-func draftRefusal(item panel.AgentRow) error {
-	if item.PullRequest.State == pullrequestv1.PullRequestState_PULL_REQUEST_STATE_MERGED {
-		return errAlreadyMerged
-	}
-	if item.PullRequest.State == pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CLOSED {
-		return errPullRequestClosed
-	}
-
-	if item.PullRequest.URL == "" {
-		return pullRequestRefusal(item)
-	}
-
-	return nil
-}
-
 // toggleDraft asks the forge to flip whether the agent's pull request is a draft, or says why it
 // cannot.
 func (m model) toggleDraft(item panel.AgentRow) (model, tea.Cmd) {
-	if err := draftRefusal(item); err != nil {
+	if err := openPullRequestRefusal(item); err != nil {
 		m.report("Could not change the pull request of "+item.Agent.Name, err)
 
 		return m, nil

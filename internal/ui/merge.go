@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"komrad/internal/ui/panel"
-	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 
 	tea "charm.land/bubbletea/v2"
 )
@@ -41,7 +40,7 @@ type mergedMsg struct {
 // mergeMenu is the ways to merge an agent's pull request, opened from the git menu.
 func mergeMenu(s panelShared, from screen, item panel.AgentRow) submenu {
 	agentID := item.Agent.ID
-	refused := mergeRefusal(item) != nil
+	refused := openPullRequestRefusal(item) != nil
 
 	return submenu{
 		kind:  formMerge,
@@ -55,22 +54,6 @@ func mergeMenu(s panelShared, from screen, item panel.AgentRow) submenu {
 			return confirmSubmit(func(m model) (model, tea.Cmd) { return m.runMerge(from, agentID, mergeChoice(choice)) })(m)
 		},
 	}
-}
-
-// mergeRefusal is why an agent's pull request cannot be merged, nil when it can.
-func mergeRefusal(item panel.AgentRow) error {
-	if item.PullRequest.State == pullrequestv1.PullRequestState_PULL_REQUEST_STATE_MERGED {
-		return errAlreadyMerged
-	}
-	if item.PullRequest.State == pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CLOSED {
-		return errPullRequestClosed
-	}
-
-	if item.PullRequest.URL == "" {
-		return pullRequestRefusal(item)
-	}
-
-	return nil
 }
 
 // runMerge asks the forge to merge the agent's pull request, or says why it cannot.
@@ -88,7 +71,7 @@ func (m model) runMerge(from screen, agentID string, choice mergeChoice) (model,
 	}
 
 	archive := choice == mergeChoiceMergeArchive
-	if err := mergeRefusal(item); err != nil {
+	if err := openPullRequestRefusal(item); err != nil {
 		m.report("Could not merge the pull request of "+item.Agent.Name, err)
 
 		return m, nil

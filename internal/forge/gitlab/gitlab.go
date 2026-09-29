@@ -372,11 +372,25 @@ func (f *Forge) Merge(ctx context.Context, address string) error {
 	return err
 }
 
-// SetDraft marks the merge request a draft or ready.
+// SetDraft marks the merge request a draft or ready, asking nothing of GitLab when it already
+// stands that way.
 func (f *Forge) SetDraft(ctx context.Context, address string, draft bool) error {
 	path, number, err := parseMergeRequestURL(address)
 	if err != nil {
 		return err
+	}
+
+	target, err := f.Get(ctx, address)
+	if err != nil {
+		return err
+	}
+	switch {
+	case target.MergedAt != nil:
+		return forge.ErrNotDraftable.Saying("gitlab will not change !%d: it has already merged", number)
+	case target.ClosedAt != nil:
+		return forge.ErrNotDraftable.Saying("gitlab will not change !%d: it was closed", number)
+	case target.Draft == draft:
+		return nil
 	}
 
 	var data struct {
@@ -393,9 +407,6 @@ func (f *Forge) SetDraft(ctx context.Context, address string, draft bool) error 
 		return err
 	}
 	if data.MergeRequestSetDraft == nil {
-		if len(answer.Errors) > 0 && strings.Contains(answer.Errors[0].Message, "does not exist") {
-			return fmt.Errorf("%w: gitlab has no merge request %d in %s, which is also its answer for a project the credential cannot see", forge.ErrNotFound, number, path)
-		}
 		if err := failureOf(answer); err != nil {
 			return err
 		}

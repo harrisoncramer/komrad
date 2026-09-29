@@ -42,7 +42,7 @@ func gitMenu(s panelShared, from screen, item panel.AgentRow) submenu {
 			{label: "rebase with base", keys: s.keys.Git.Rebase, isOff: rebaseRefusal(s.listing, from, agent) != nil},
 			{label: "open pr", keys: s.keys.Git.OpenPullRequest, isOff: item.PullRequest.URL == ""},
 			{label: "copy pr url", keys: s.keys.Git.CopyPullRequestURL, isOff: item.PullRequest.URL == ""},
-			{label: draftLabel(item), keys: s.keys.Git.ToggleDraft, isOff: draftRefusal(item) != nil},
+			{label: draftLabel(item), keys: s.keys.Git.ToggleDraft, isOff: openPullRequestRefusal(item) != nil},
 			nestedEntry("merge pr", s.keys.Git.Merge, mergeMenu(s, from, item)),
 		},
 		answer: func(m model, choice int) (tea.Model, tea.Cmd) {
@@ -74,6 +74,22 @@ func pullRequestRefusal(item panel.AgentRow) error {
 	default:
 		return errNoPullRequest
 	}
+}
+
+// openPullRequestRefusal is why an agent has no open pull request to act on, nil when it has one.
+func openPullRequestRefusal(item panel.AgentRow) error {
+	if item.PullRequest.State == pullrequestv1.PullRequestState_PULL_REQUEST_STATE_MERGED {
+		return errAlreadyMerged
+	}
+	if item.PullRequest.State == pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CLOSED {
+		return errPullRequestClosed
+	}
+
+	if item.PullRequest.URL == "" {
+		return pullRequestRefusal(item)
+	}
+
+	return nil
 }
 
 // runGitChoice does what the entry asked for, or says why this agent is not one to ask it of.

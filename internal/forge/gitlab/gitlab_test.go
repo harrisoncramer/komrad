@@ -534,37 +534,65 @@ func TestMerge(t *testing.T) {
 	}
 }
 
-// TestSetDraft covers marking a merge request each way and GitLab's refusals.
+// TestSetDraft covers marking a merge request each way, leaving one alone that already stands
+// that way, and refusing a finished one before GitLab is asked to change it.
 func TestSetDraft(t *testing.T) {
 	t.Parallel()
 
 	const address = "https://gitlab.com/harrisoncramer/komrad/-/merge_requests/7"
 
+	read := func(node string) answer {
+		return answer{body: `{"data":{"project":{"mergeRequest":` + node + `}}}`}
+	}
+	changed := answer{body: `{"data":{"mergeRequestSetDraft":{"errors":[]}}}`}
+
 	tests := []struct {
-		name    string
-		draft   bool
-		answer  answer
-		wantErr error
+		name        string
+		draft       bool
+		answers     map[string]answer
+		wantErr     error
+		wantChanged bool
 	}{
 		{
-			name:   "a merge request is marked a draft",
-			draft:  true,
-			answer: answer{body: `{"data":{"mergeRequestSetDraft":{"errors":[]}}}`},
+			name:        "an open merge request is marked a draft",
+			draft:       true,
+			answers:     map[string]answer{"Get": read(openMergeRequest), "SetDraft": changed},
+			wantChanged: true,
 		},
 		{
-			name:   "a draft is marked ready",
-			answer: answer{body: `{"data":{"mergeRequestSetDraft":{"errors":[]}}}`},
+			name:        "a draft is marked ready",
+			answers:     map[string]answer{"Get": read(draftMergeRequest), "SetDraft": changed},
+			wantChanged: true,
 		},
 		{
-			name:    "a merge request gitlab will not change",
+			name:    "a draft asked to be a draft is left alone",
 			draft:   true,
-			answer:  answer{body: `{"data":{"mergeRequestSetDraft":{"errors":["Cannot change the draft status of a merged merge request"]}}}`},
+			answers: map[string]answer{"Get": read(draftMergeRequest)},
+		},
+		{
+			name:    "a merged merge request is refused",
+			draft:   true,
+			answers: map[string]answer{"Get": read(mergedMergeRequest)},
 			wantErr: forge.ErrNotDraftable,
 		},
 		{
+			name:    "a closed merge request is refused",
+			answers: map[string]answer{"Get": read(forkMergeRequest)},
+			wantErr: forge.ErrNotDraftable,
+		},
+		{
+			name:  "a merge request gitlab will not change",
+			draft: true,
+			answers: map[string]answer{
+				"Get":      read(openMergeRequest),
+				"SetDraft": {body: `{"data":{"mergeRequestSetDraft":{"errors":["You don't have permission to update this merge request"]}}}`},
+			},
+			wantErr:     forge.ErrNotDraftable,
+			wantChanged: true,
+		},
+		{
 			name:    "a merge request gitlab does not have",
-			draft:   true,
-			answer:  answer{body: `{"data":{"mergeRequestSetDraft":null},"errors":[{"message":"The resource that you are attempting to access does not exist or you don't have permission to perform this action","locations":[{"line":2,"column":3}],"path":["mergeRequestSetDraft"]}]}`},
+			answers: map[string]answer{"Get": read("null")},
 			wantErr: forge.ErrNotFound,
 		},
 	}
@@ -573,16 +601,22 @@ func TestSetDraft(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			f, _, fake := serve(t, map[string]answer{"SetDraft": tt.answer})
+			f, _, fake := serve(t, tt.answers)
 
 			err := f.SetDraft(t.Context(), address, tt.draft)
-			assert.Equal(t, map[string]any{"path": "harrisoncramer/komrad", "iid": "7", "draft": tt.draft}, fake.last(t).Variables)
 			if tt.wantErr != nil {
 				require.ErrorIs(t, err, tt.wantErr)
+			} else {
+				require.NoError(t, err)
+			}
+			sent := xslice.Filter(fake.calls, func(c call) bool { return c.Operation == "SetDraft" })
+			if !tt.wantChanged {
+				assert.Empty(t, sent)
 
 				return
 			}
-			require.NoError(t, err)
+			require.Len(t, sent, 1)
+			assert.Equal(t, map[string]any{"path": "harrisoncramer/komrad", "iid": "7", "draft": tt.draft}, sent[0].Variables)
 		})
 	}
 }
