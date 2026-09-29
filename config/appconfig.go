@@ -355,6 +355,8 @@ type MarksKeys struct {
 // GitKeys are the bindings for the git menu, which opens from the menu on the hovered agent and
 // holds the actions that act on its branch.
 type GitKeys struct {
+	// Copy the address of the hovered agent's current pull request to your clipboard.
+	CopyPullRequestURL []string `mapstructure:"copy_pull_request_url" default:"c"`
 	// Open the merge menu to the right of this one, for merging the hovered agent's pull request
 	// on the forge and archiving the agent after.
 	Merge []string `mapstructure:"merge" default:"m"`

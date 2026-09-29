@@ -161,6 +161,12 @@ func TestGitMenuRefusals(t *testing.T) {
 			wantRefusal: "the branch has moved on since its last pull request finished",
 		},
 		{
+			name:        "the copy of a pull request address on a branch with none",
+			rows:        buildUncutAgent(),
+			press:       []string{"c"},
+			wantRefusal: "komrad has not read this agent's repository yet",
+		},
+		{
 			name:        "the merge of a branch with no pull request",
 			rows:        buildUncutAgent(),
 			press:       []string{"m", "m"},
@@ -292,6 +298,21 @@ func TestGitMenuOpensThePullRequest(t *testing.T) {
 			assert.Contains(t, frame, tt.wantFrame)
 		})
 	}
+}
+
+// TestGitMenuCopiesThePullRequestURL covers the entry putting the current pull request's address
+// on the clipboard.
+func TestGitMenuCopiesThePullRequestURL(t *testing.T) {
+	t.Parallel()
+
+	harness := openGitMenu(t, append(buildGitAgent(), newOpenPullRequest())...)
+
+	harness.press("c")
+
+	assert.Equal(t, []string{pullRequestURL}, harness.panel.ReadCopied())
+	frame := harness.readFrame()
+	assert.NotContains(t, frame, gitMenuEntry)
+	assert.NotContains(t, frame, "Could not")
 }
 
 func (r *recordingOpener) OpenURL(_ context.Context, target string) error {

@@ -192,16 +192,18 @@ toggle = ["?"]
 
 # The git menu, nested under the menu on the hovered row, and the actions inside it.
 [keybindings.git]
+# Copy the address of the hovered agent's current pull request to your clipboard.
+copy_pull_request_url = ["c"]
 # Open the merge menu to the right of this one, for merging the hovered agent's pull request
 # on the forge and archiving the agent after.
-merge             = ["m"]
+merge                 = ["m"]
 # Open the hovered agent's current pull request in your browser: the newest one opened from
 # its branch that is not finished, else the newest finished one. The entry says so rather
 # than acting on an agent with none.
-open_pull_request = ["o"]
+open_pull_request     = ["o"]
 # Bring the hovered agent's worktree up to date on the latest base, which asks first and
 # says what it would do to the branch and to the files.
-rebase            = ["r"]
+rebase                = ["r"]
 
 # The merge menu, nested under the git menu, which merges the hovered agent's pull request.
 [keybindings.merge]

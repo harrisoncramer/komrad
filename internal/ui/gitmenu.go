@@ -16,6 +16,7 @@ type gitChoice int
 const (
 	gitChoiceRebase gitChoice = iota
 	gitChoiceOpenPullRequest
+	gitChoiceCopyPullRequestURL
 )
 
 var (
@@ -39,6 +40,7 @@ func gitMenu(s panelShared, from screen, item panel.AgentRow) submenu {
 		entries: []submenuEntry{
 			{label: "rebase with base", keys: s.keys.Git.Rebase, isOff: rebaseRefusal(s.listing, from, agent) != nil},
 			{label: "open pr", keys: s.keys.Git.OpenPullRequest, isOff: item.PullRequest.URL == ""},
+			{label: "copy pr url", keys: s.keys.Git.CopyPullRequestURL, isOff: item.PullRequest.URL == ""},
 			nestedEntry("merge pr", s.keys.Git.Merge, mergeMenu(s, from, item)),
 		},
 		answer: func(m model, choice int) (tea.Model, tea.Cmd) {
@@ -60,7 +62,7 @@ func rebaseRefusal(l listing, from screen, agent panel.Agent) error {
 	return nil
 }
 
-// pullRequestRefusal is why an agent with no current pull request has none to open.
+// pullRequestRefusal is why an agent has no current pull request.
 func pullRequestRefusal(item panel.AgentRow) error {
 	switch {
 	case item.PullRequest.State != pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE:
@@ -101,6 +103,8 @@ func (m model) runGitChoice(from screen, agentID string, choice gitChoice) (mode
 		return m, cmd
 	case gitChoiceOpenPullRequest:
 		return m.openPullRequest(item)
+	case gitChoiceCopyPullRequestURL:
+		return m.copyPullRequestURL(item)
 	}
 
 	return m, nil

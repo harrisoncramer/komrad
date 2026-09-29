@@ -477,6 +477,13 @@
           "description": "The git menu, nested under the menu on the hovered row, and the actions inside it.",
           "settings": [
             {
+              "key": "copy_pull_request_url",
+              "path": "keybindings.git.copy_pull_request_url",
+              "type": "array",
+              "description": "Copy the address of the hovered agent's current pull request to your clipboard.",
+              "default": "[\"c\"]"
+            },
+            {
               "key": "merge",
               "path": "keybindings.git.merge",
               "type": "array",
