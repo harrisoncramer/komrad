@@ -30,8 +30,7 @@ const (
 	actionQuit
 	actionAgentsBack
 	actionAgentOpen
-	actionGitMenu
-	actionSubpagesOpen
+	actionMenuOpen
 	actionAgentChild
 	actionAgentRename
 	actionAgentArchive

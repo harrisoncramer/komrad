@@ -27,19 +27,20 @@ var (
 	errTerminalHere     = errors.New("a terminal opens from the agents list")
 )
 
-// openAgentSubpages draws the subpages of an agent beside the list it was opened over.
+// openAgentSubpages draws an agent's menu beside the list it was opened over.
 func openAgentSubpages(h host, s panelShared, from screen, item panel.AgentRow) tea.Cmd {
 	agent := item.Agent
 	agentID := agent.ID
 	pages := agentSubpages(agent)
 
 	return openSubmenu(h, submenu{
-		kind:  formSubpages,
-		title: "Subpages of " + s.listing.agentName(agent),
+		kind:  formMenu,
+		title: s.listing.agentName(agent),
 		crumb: s.listing.agentName(agent),
-		entries: xslice.Map(pages, func(page subpage) submenuEntry {
-			return subpageEntry(s, from, item, page)
-		}),
+		entries: append(
+			xslice.Map(pages, func(page subpage) submenuEntry { return subpageEntry(s, from, item, page) }),
+			nestedEntry("git", s.keys.Menu.Git, gitMenu(s, from, item)),
+		),
 		answer: func(m model, choice int) (tea.Model, tea.Cmd) {
 			return m.enterSubpage(from, agentID, pages[choice])
 		},
@@ -59,13 +60,13 @@ func agentSubpages(agent panel.Agent) []subpage {
 func subpageEntry(s panelShared, from screen, item panel.AgentRow, page subpage) submenuEntry {
 	switch page {
 	case subpageReview:
-		return submenuEntry{label: "review", keys: s.keys.Subpages.Review, isOff: reviewRefusal(from, item.Agent) != nil}
+		return submenuEntry{label: "review", keys: s.keys.Menu.Review, isOff: reviewRefusal(from, item.Agent) != nil}
 	case subpageDocuments:
-		return submenuEntry{label: "documents", keys: s.keys.Subpages.Documents, isOff: item.Documents == 0}
+		return submenuEntry{label: "documents", keys: s.keys.Menu.Documents, isOff: item.Documents == 0}
 	case subpageLogs:
-		return submenuEntry{label: "logs", keys: s.keys.Subpages.Logs}
+		return submenuEntry{label: "logs", keys: s.keys.Menu.Logs}
 	case subpageTerminal:
-		return submenuEntry{label: "terminal", keys: s.keys.Subpages.Terminal, isOff: terminalRefusal(from, item.Agent) != nil}
+		return submenuEntry{label: "terminal", keys: s.keys.Menu.Terminal, isOff: terminalRefusal(from, item.Agent) != nil}
 	}
 
 	return submenuEntry{}

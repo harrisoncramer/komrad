@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	gitMenuTitle   = "Git on api"
+	gitMenuEntry   = "rebase with base"
 	pullRequestURL = "https://github.com/harrisoncramer/komrad/pull/740"
 )
 
@@ -31,19 +31,17 @@ type recordingOpener struct {
 func TestGitMenu(t *testing.T) {
 	t.Parallel()
 
-	t.Run("the git key opens the menu on an agent and not on a workflow header", func(t *testing.T) {
+	t.Run("the menu opens it to its own right and names both in the trail", func(t *testing.T) {
 		t.Parallel()
 
-		harness := openAgents(t, buildGitAgent()...)
+		harness := openGitMenu(t, buildGitAgent()...)
 
-		harness.press("k", "b")
-		require.NotContains(t, harness.readFrame(), gitMenuTitle, "a workflow header has no branch of its own")
-
-		harness.press("j", "b")
-		assert.Contains(t, harness.readFrame(), gitMenuTitle)
+		frame := harness.readFrame()
+		assert.Equal(t, "agents › api › git", readTrail(frame))
+		assert.Contains(t, frame, "┃ › git ›", "the menu it came from stays drawn with its cursor on git")
 	})
 
-	t.Run("esc closes the menu without a word", func(t *testing.T) {
+	t.Run("esc goes back to the menu it came from, its cursor still on git", func(t *testing.T) {
 		t.Parallel()
 
 		harness := openGitMenu(t, buildGitAgent()...)
@@ -51,8 +49,40 @@ func TestGitMenu(t *testing.T) {
 		harness.press("esc")
 
 		frame := harness.readFrame()
-		assert.NotContains(t, frame, gitMenuTitle)
+		assert.NotContains(t, frame, gitMenuEntry)
+		assert.Contains(t, frame, "› git ›")
+		assert.Equal(t, "agents › api", readTrail(frame))
+
+		harness.press("esc")
+
+		frame = harness.readFrame()
+		assert.NotContains(t, frame, "git ›")
 		assert.NotContains(t, frame, "Could not")
+	})
+
+	t.Run("back does what esc does", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openGitMenu(t, buildGitAgent()...)
+
+		harness.press("k", "ctrl+s")
+
+		frame := harness.readFrame()
+		assert.NotContains(t, frame, gitMenuEntry)
+		assert.Contains(t, frame, "› git ›")
+	})
+
+	t.Run("a narrow panel draws only the menu on top", func(t *testing.T) {
+		t.Parallel()
+
+		harness := newPanelHarness(t, panelHarnessParams{width: 36, height: 20})
+		answerWorktreeReads(harness)
+		harness.watch(buildSnapshot(buildGitAgent()...))
+		harness.press("space", "g")
+
+		frame := harness.readFrame()
+		assert.Contains(t, frame, gitMenuEntry)
+		assert.NotContains(t, frame, "documents")
 	})
 
 	t.Run("an entry answers its own letter", func(t *testing.T) {
@@ -62,7 +92,7 @@ func TestGitMenu(t *testing.T) {
 
 		harness.press("r")
 
-		assert.NotContains(t, harness.readFrame(), gitMenuTitle)
+		assert.NotContains(t, harness.readFrame(), gitMenuEntry)
 		harness.assertSentTo(agentv1connect.AgentServicePlanRebaseProcedure, &agentv1.PlanRebaseRequest{AgentId: "a1"})
 	})
 
@@ -137,7 +167,7 @@ func TestGitMenuRefusals(t *testing.T) {
 
 			harness.press(tt.press)
 
-			assert.NotContains(t, harness.readFrame(), gitMenuTitle)
+			assert.NotContains(t, harness.readFrame(), gitMenuEntry)
 			assert.Contains(t, readOpenMessages(harness), tt.wantRefusal)
 		})
 	}
@@ -170,11 +200,11 @@ func TestGitMenuOpensThePullRequest(t *testing.T) {
 			harness := newPanelHarness(t, panelHarnessParams{browser: opener})
 			answerWorktreeReads(harness)
 			harness.watch(buildSnapshot(append(buildGitAgent(), newOpenPullRequest())...))
-			harness.press("b", "o")
+			harness.press("space", "g", "o")
 
 			assert.Equal(t, []string{pullRequestURL}, opener.readTargets())
 			frame := harness.readFrame()
-			assert.NotContains(t, frame, gitMenuTitle)
+			assert.NotContains(t, frame, gitMenuEntry)
 			if tt.wantFrame == "" {
 				assert.NotContains(t, frame, "Could not")
 
@@ -205,8 +235,8 @@ func openGitMenu(t *testing.T, rows ...proto.Message) *panelHarness {
 	t.Helper()
 
 	harness := openAgents(t, rows...)
-	harness.press("b")
-	require.Contains(t, harness.readFrame(), gitMenuTitle)
+	harness.press("space", "g")
+	require.Contains(t, harness.readFrame(), gitMenuEntry)
 
 	return harness
 }

@@ -1399,7 +1399,7 @@ func TestAgentsRecordSearch(t *testing.T) {
 				name: "a narrow pane with the legend expanded",
 				params: panelHarnessParams{
 					width:  30,
-					height: 30,
+					height: 60,
 				},
 				press: []string{"?"},
 			},
@@ -1978,10 +1978,10 @@ func TestAgentsChildren(t *testing.T) {
 
 		off := readOffEntry("rebase with base", "r")
 
-		harness.press("j", "b")
+		harness.press("j", "space", "g")
 		assert.NotContains(t, harness.readRawFrame(), off)
 
-		harness.press("esc", "j", "b")
+		harness.press("esc", "esc", "j", "space", "g")
 		assert.Contains(t, harness.readRawFrame(), off)
 	})
 }

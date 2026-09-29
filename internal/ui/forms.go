@@ -19,8 +19,11 @@ type formState struct {
 	kind formKind
 	form *huh.Form
 
-	// crumb is the step the form adds to the trail while it is up, empty for none.
-	crumb string
+	// crumbs are the steps the form adds to the trail while it is up.
+	crumbs []string
+
+	// leading draws what stands to the left of the form within its width, nil for nothing.
+	leading func(width int) []string
 
 	// update is the form's own message handler, so the panel need not ask which form is up before
 	// handing it a message.
@@ -58,7 +61,7 @@ const (
 	formAgentRetry
 	formAgentRelease
 	formGit
-	formSubpages
+	formMenu
 	formWorkflow
 	formWorkflowArchive
 	formSchedule
@@ -124,7 +127,7 @@ func formColumn(kind formKind) (columnSpec, bool) {
 	case formAgent, formChild, formAdopt, formRename, formAgentRetry, formWorkflow, formSchedule,
 		formDocument:
 		return columnSpec{floor: formColumnFloor}, true
-	case formGit, formSubpages, formAgentArchive, formAgentRebase, formAgentRelease, formWorkflowArchive, formScheduleArchive,
+	case formGit, formMenu, formAgentArchive, formAgentRebase, formAgentRelease, formWorkflowArchive, formScheduleArchive,
 		formArchiveDelete, formWorktreesDelete:
 		return columnSpec{floor: columnFloor}, true
 	case formNone:
@@ -168,11 +171,34 @@ func (m model) formBox() (width, height int) {
 		held = submittingLines
 	}
 
+	_, used := m.formLeading()
+
 	if split, ok := m.columnGeometry(); ok {
-		return split.column, max(split.rows-formHelpLines-held, 1)
+		return max(split.column-used, 1), max(split.rows-formHelpLines-held, 1)
 	}
 
-	return m.width, max(m.height-formHelpLines-held, 1)
+	return max(m.width-used, 1), max(m.height-formHelpLines-held, 1)
+}
+
+// formLeading is what the form draws to its left, and the columns that takes with its dividers.
+func (m model) formLeading() ([]string, int) {
+	if m.form.leading == nil {
+		return nil, 0
+	}
+
+	room := m.width
+	if split, ok := m.columnGeometry(); ok {
+		room = split.column
+	}
+
+	views := m.form.leading(room)
+
+	used := 0
+	for _, view := range views {
+		used += lipgloss.Width(view) + dividerCols
+	}
+
+	return views, used
 }
 
 // confirmSubmit answers a prompt by running what it asked for, holding it up while a write it began is in flight.
