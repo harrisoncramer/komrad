@@ -768,7 +768,7 @@ func TestPrepareCommentsCostOnlyTheirOwnRow(t *testing.T) {
 }
 
 // TestPrepareCommentsGiveWayBeforeTheName pins that a pane too narrow for both keeps the name
-// and drops the counts, since counts with no name say nothing about whose they are.
+// and drops the counts.
 func TestPrepareCommentsGiveWayBeforeTheName(t *testing.T) {
 	list := Prepare(Snapshot{
 		Rows: []Row{{
