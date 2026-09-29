@@ -5,11 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log/slog"
+	"slices"
 	"strings"
 
 	"komrad/internal/events"
-	"komrad/internal/logging"
 	"komrad/internal/mail"
 	"komrad/internal/store"
 	mailstore "komrad/internal/store/mail"
@@ -52,6 +51,11 @@ func (*EventHandler) Handle(ctx context.Context, tx store.DBTX, mailer *mail.Mai
 		return nil, err
 	}
 
+	if change.Recipient != "" {
+		recipients = slices.DeleteFunc(recipients, func(recipient string) bool { return recipient != change.Recipient })
+	}
+
+	var followUps []river.JobArgs
 	body := render(*pullRequest)
 	for _, recipient := range recipients {
 		err := events.Send(ctx, mailer, mail.SendFromKomradParams{
@@ -61,9 +65,13 @@ func (*EventHandler) Handle(ctx context.Context, tx store.DBTX, mailer *mail.Mai
 			Body:        body,
 			OnlyRewrite: !change.Opens(),
 		})
-		if errors.Is(err, mail.ErrMailboxFull) {
-			logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "skipped pull request mail for a full mailbox",
-				append([]slog.Attr{slog.String(logging.AgentID, recipient)}, logging.Err(err)...)...)
+		if errors.Is(err, mail.ErrMailboxFull) && change.Recipient == "" {
+			retry, err := events.NewEvent(Change{ID: change.ID, Moves: change.Moves, Recipient: recipient})
+			if err != nil {
+				return nil, err
+			}
+
+			followUps = append(followUps, *retry)
 
 			continue
 		}
@@ -72,7 +80,7 @@ func (*EventHandler) Handle(ctx context.Context, tx store.DBTX, mailer *mail.Mai
 		}
 	}
 
-	return nil, nil
+	return followUps, nil
 }
 
 func render(pullRequest pullrequeststore.PullRequest) string {
