@@ -8,6 +8,7 @@ import (
 	agentstore "komrad/internal/store/agent"
 	rowstore "komrad/internal/store/row"
 	runstore "komrad/internal/store/run"
+	"komrad/internal/waketest"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -133,7 +134,7 @@ func TestRowWriterWrites(t *testing.T) {
 }
 
 // TestRecordReport pins that a report reaches the reconciler and the row, and that only a turn
-// end stamps the turn.
+// end stamps the turn and wakes the loops that read what it left behind.
 func TestRecordReport(t *testing.T) {
 	tests := []struct {
 		name           string
@@ -141,6 +142,7 @@ func TestRecordReport(t *testing.T) {
 		wantBoundaries int
 		wantReason     string
 		wantTurnEnded  bool
+		wantWakes      int
 	}{
 		{
 			name: "a reason alone claims nothing about the turn",
@@ -156,6 +158,7 @@ func TestRecordReport(t *testing.T) {
 			},
 			wantBoundaries: 1,
 			wantTurnEnded:  true,
+			wantWakes:      1,
 		},
 	}
 
@@ -165,10 +168,19 @@ func TestRecordReport(t *testing.T) {
 			alpha := seed(t, st, "alpha", "", agentstore.StateThinking)
 			require.NoError(t, st.Agents.SetReportedReason(t.Context(), alpha.ID, "Read"))
 			reconciler := &recordingReconciler{}
+			cwdSync := &waketest.Counter{}
+			transcriptSync := &waketest.Counter{}
+			writer := NewRowWriter(NewRowWriterParams{
+				Agents:         st.Agents,
+				Runs:           st.Runs,
+				Reconciler:     reconciler,
+				CwdSync:        cwdSync,
+				TranscriptSync: transcriptSync,
+			})
 
 			params := tt.params
 			params.AgentID = alpha.ID
-			require.NoError(t, newRowWriter(st, reconciler).RecordReport(t.Context(), params))
+			require.NoError(t, writer.RecordReport(t.Context(), params))
 
 			assert.Len(t, reconciler.boundaries, tt.wantBoundaries)
 			assert.Equal(t, []string{tt.wantReason}, reconciler.reasons)
@@ -176,6 +188,8 @@ func TestRecordReport(t *testing.T) {
 			row := agentByID(t, st, alpha.ID)
 			assert.Equal(t, tt.wantReason, row.ReportedReason)
 			assert.Equal(t, tt.wantTurnEnded, row.TurnEndedAt != nil)
+			assert.Equal(t, tt.wantWakes, cwdSync.Wakes)
+			assert.Equal(t, tt.wantWakes, transcriptSync.Wakes)
 		})
 	}
 }

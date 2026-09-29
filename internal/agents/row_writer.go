@@ -22,26 +22,38 @@ type turnRecorder interface {
 	RecordReportedReason(agentID, reason string)
 }
 
+// loopWaker asks a background loop to run before its next tick.
+type loopWaker interface {
+	Wake()
+}
+
 // NewRowWriterParams is what a row writer is built over.
 type NewRowWriterParams struct {
-	Agents     rowWriteStore
-	Runs       runMarker
-	Reconciler turnRecorder
+	Agents         rowWriteStore
+	Runs           runMarker
+	Reconciler     turnRecorder
+	CwdSync        loopWaker
+	TranscriptSync loopWaker
 }
 
 // RowWriter changes what an agent's row says without moving the agent through its life.
 type RowWriter struct {
-	agents     rowWriteStore
-	runs       runMarker
-	reconciler turnRecorder
+	agents         rowWriteStore
+	runs           runMarker
+	reconciler     turnRecorder
+	cwdSync        loopWaker
+	transcriptSync loopWaker
 }
 
-// NewRowWriter builds the writer over the store, the record of runs and the reconciler.
+// NewRowWriter builds the writer over the store, the record of runs, the reconciler and the
+// wakers of the loops that read what a turn left behind.
 func NewRowWriter(params NewRowWriterParams) *RowWriter {
 	return &RowWriter{
-		agents:     params.Agents,
-		runs:       params.Runs,
-		reconciler: params.Reconciler,
+		agents:         params.Agents,
+		runs:           params.Runs,
+		reconciler:     params.Reconciler,
+		cwdSync:        params.CwdSync,
+		transcriptSync: params.TranscriptSync,
 	}
 }
 
@@ -88,13 +100,16 @@ type RecordReportParams struct {
 }
 
 // RecordReport puts the reason beside the state the pane decided and stamps a reported turn end,
-// telling the reconciler both before either reaches the store.
+// telling the reconciler both before either reaches the store, and wakes the cwd and transcript
+// syncs once a turn ends.
 func (w *RowWriter) RecordReport(ctx context.Context, params RecordReportParams) error {
 	// Both stamps are taken before either write, so a store that is down costs the flags it
 	// would have raised rather than also costing the reconciler its shortcut to idle.
 	w.reconciler.RecordReportedReason(params.AgentID, params.Reason)
 	if params.TurnEnded {
 		w.reconciler.RecordTurnBoundary(params.AgentID)
+		w.cwdSync.Wake()
+		w.transcriptSync.Wake()
 	}
 
 	if err := w.agents.SetReportedReason(ctx, params.AgentID, params.Reason); err != nil {

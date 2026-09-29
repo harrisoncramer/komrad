@@ -48,12 +48,14 @@ const (
 type loopWakers struct {
 	cwdSync         *LoopWaker
 	pullRequestSync *LoopWaker
+	transcriptSync  *LoopWaker
 }
 
 func newLoopWakers() *loopWakers {
 	return &loopWakers{
 		cwdSync:         NewLoopWaker(),
 		pullRequestSync: NewLoopWaker(),
+		transcriptSync:  NewLoopWaker(),
 	}
 }
 
@@ -90,6 +92,7 @@ func buildLoops(params buildLoopsParams) []*Loop {
 			Interval: TranscriptSyncInterval,
 			Floor:    localLoopFloor,
 			Run:      params.Services.transcriptSync.Sync,
+			Waker:    params.Wakers.transcriptSync,
 		}),
 		NewLoop(NewLoopParams{
 			Name:     CwdSyncLoop,
