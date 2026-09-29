@@ -19,6 +19,7 @@ import (
 	mailstore "komrad/internal/store/mail"
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/internal/storetest"
+	"komrad/internal/waketest"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
 
@@ -30,15 +31,7 @@ type rebaseFixture struct {
 	stores       *storetest.Stores
 	events       *eventstest.Queue
 	workflowID   string
-	checkoutSync *wakeCounter
-}
-
-type wakeCounter struct {
-	wakes int
-}
-
-func (w *wakeCounter) Wake() {
-	w.wakes++
+	checkoutSync *waketest.Counter
 }
 
 // TestRebaseRefusals covers every state of the row a rebase declines.
@@ -163,7 +156,7 @@ func TestRebaseRefusals(t *testing.T) {
 
 			require.ErrorIs(t, err, tt.wantErr)
 			assert.Empty(t, rebaser.Calls)
-			assert.Zero(t, fixture.checkoutSync.wakes, "nothing moved, so nothing needs reading back")
+			assert.Zero(t, fixture.checkoutSync.Wakes, "nothing moved, so nothing needs reading back")
 		})
 	}
 }
@@ -300,7 +293,7 @@ func TestRebaseMovesTheBranch(t *testing.T) {
 			stored, err := fixture.stores.Agents.GetByID(t.Context(), agent.ID)
 			require.NoError(t, err)
 			assert.Equal(t, tt.wantStopped, stored.SequenceInProgress)
-			assert.Equal(t, 1, fixture.checkoutSync.wakes)
+			assert.Equal(t, 1, fixture.checkoutSync.Wakes)
 		})
 	}
 }
@@ -318,7 +311,7 @@ func TestRebaseWakesTheCheckoutSyncWhenTheReplayFails(t *testing.T) {
 	_, err := fixture.newService(NewRebaseServiceParams{Rebaser: rebaser}).Rebase(t.Context(), agent.ID)
 
 	require.Error(t, err)
-	assert.Equal(t, 1, fixture.checkoutSync.wakes)
+	assert.Equal(t, 1, fixture.checkoutSync.Wakes)
 }
 
 // TestRebaseRefusesAnAgentThatWillNotSettle covers nothing being parked or moved until the pane is seen at rest.
@@ -662,7 +655,7 @@ func newRebaseFixture(t *testing.T) *rebaseFixture {
 
 	return &rebaseFixture{
 		stores:       stores,
-		checkoutSync: &wakeCounter{},
+		checkoutSync: &waketest.Counter{},
 		events:       eventstest.NewQueue(t, stores, NewEventHandler()),
 		workflowID: stores.SeedWorkflow(t, workflowstore.Config{
 			Name:     "flow",

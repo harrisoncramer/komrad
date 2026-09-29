@@ -8,6 +8,7 @@ import (
 	"komrad/internal/store"
 	forgestore "komrad/internal/store/forge"
 	"komrad/internal/storetest"
+	"komrad/internal/waketest"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -24,14 +25,6 @@ func (f *mergingForge) Merge(_ context.Context, address string) error {
 	f.merged = append(f.merged, address)
 
 	return f.mergeErr
-}
-
-type wakeCounter struct {
-	wakes int
-}
-
-func (w *wakeCounter) Wake() {
-	w.wakes++
 }
 
 // TestMergePullRequest covers which connection a merge goes through and the pull request sync
@@ -85,7 +78,7 @@ func TestMergePullRequest(t *testing.T) {
 			})
 			require.NoError(t, err)
 			merging := &mergingForge{mergeErr: tt.mergeErr}
-			sync := &wakeCounter{}
+			sync := &waketest.Counter{}
 			merger := NewMerger(NewMergerParams{
 				Forges: forge.NewService(forge.NewServiceParams{
 					Connections: connections,
@@ -107,7 +100,7 @@ func TestMergePullRequest(t *testing.T) {
 				require.NoError(t, err)
 			}
 			assert.Equal(t, tt.wantMerged, merging.merged)
-			assert.Equal(t, tt.wantWakes, sync.wakes)
+			assert.Equal(t, tt.wantWakes, sync.Wakes)
 		})
 	}
 }

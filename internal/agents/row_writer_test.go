@@ -8,6 +8,7 @@ import (
 	agentstore "komrad/internal/store/agent"
 	rowstore "komrad/internal/store/row"
 	runstore "komrad/internal/store/run"
+	"komrad/internal/waketest"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -26,6 +27,14 @@ func (r *recordingReconciler) RecordTurnBoundary(agentID string) {
 
 func (r *recordingReconciler) RecordReportedReason(_, reason string) {
 	r.reasons = append(r.reasons, reason)
+}
+
+// rowWriterFixture is a row writer and the fakes it was built over.
+type rowWriterFixture struct {
+	writer         *RowWriter
+	reconciler     *recordingReconciler
+	cwdSync        *waketest.Counter
+	transcriptSync *waketest.Counter
 }
 
 // TestRowWriterRefusals pins each write the row writer turns away.
@@ -64,7 +73,7 @@ func TestRowWriterRefusals(t *testing.T) {
 			workflowID := seedWorkflow(t, st)
 			alpha := seedInWorkflow(t, st, workflowID, "alpha", "", agentstore.StateIdle)
 			seedInWorkflow(t, st, workflowID, "beta", "", agentstore.StateIdle)
-			writer := newRowWriter(st, &recordingReconciler{})
+			writer := newRowWriter(st).writer
 
 			require.ErrorIs(t, tt.write(t.Context(), writer, alpha), tt.wantErr)
 		})
@@ -121,7 +130,7 @@ func TestRowWriterWrites(t *testing.T) {
 				ID:      failed,
 				Failure: "a hook failed",
 			}))
-			writer := newRowWriter(st, &recordingReconciler{})
+			writer := newRowWriter(st).writer
 
 			require.NoError(t, tt.write(t.Context(), writer, alpha))
 
@@ -133,7 +142,7 @@ func TestRowWriterWrites(t *testing.T) {
 }
 
 // TestRecordReport pins that a report reaches the reconciler and the row, and that only a turn
-// end stamps the turn.
+// end stamps the turn and wakes the loops that read what it left behind.
 func TestRecordReport(t *testing.T) {
 	tests := []struct {
 		name           string
@@ -141,6 +150,7 @@ func TestRecordReport(t *testing.T) {
 		wantBoundaries int
 		wantReason     string
 		wantTurnEnded  bool
+		wantWakes      int
 	}{
 		{
 			name: "a reason alone claims nothing about the turn",
@@ -156,6 +166,7 @@ func TestRecordReport(t *testing.T) {
 			},
 			wantBoundaries: 1,
 			wantTurnEnded:  true,
+			wantWakes:      1,
 		},
 	}
 
@@ -164,26 +175,37 @@ func TestRecordReport(t *testing.T) {
 			st := newStore(t)
 			alpha := seed(t, st, "alpha", "", agentstore.StateThinking)
 			require.NoError(t, st.Agents.SetReportedReason(t.Context(), alpha.ID, "Read"))
-			reconciler := &recordingReconciler{}
+			fixture := newRowWriter(st)
 
 			params := tt.params
 			params.AgentID = alpha.ID
-			require.NoError(t, newRowWriter(st, reconciler).RecordReport(t.Context(), params))
+			require.NoError(t, fixture.writer.RecordReport(t.Context(), params))
 
-			assert.Len(t, reconciler.boundaries, tt.wantBoundaries)
-			assert.Equal(t, []string{tt.wantReason}, reconciler.reasons)
+			assert.Len(t, fixture.reconciler.boundaries, tt.wantBoundaries)
+			assert.Equal(t, []string{tt.wantReason}, fixture.reconciler.reasons)
 
 			row := agentByID(t, st, alpha.ID)
 			assert.Equal(t, tt.wantReason, row.ReportedReason)
 			assert.Equal(t, tt.wantTurnEnded, row.TurnEndedAt != nil)
+			assert.Equal(t, tt.wantWakes, fixture.cwdSync.Wakes)
+			assert.Equal(t, tt.wantWakes, fixture.transcriptSync.Wakes)
 		})
 	}
 }
 
-func newRowWriter(st *testStore, reconciler *recordingReconciler) *RowWriter {
-	return NewRowWriter(NewRowWriterParams{
-		Agents:     st.Agents,
-		Runs:       st.Runs,
-		Reconciler: reconciler,
+func newRowWriter(st *testStore) rowWriterFixture {
+	fixture := rowWriterFixture{
+		reconciler:     &recordingReconciler{},
+		cwdSync:        &waketest.Counter{},
+		transcriptSync: &waketest.Counter{},
+	}
+	fixture.writer = NewRowWriter(NewRowWriterParams{
+		Agents:         st.Agents,
+		Runs:           st.Runs,
+		Reconciler:     fixture.reconciler,
+		CwdSync:        fixture.cwdSync,
+		TranscriptSync: fixture.transcriptSync,
 	})
+
+	return fixture
 }
