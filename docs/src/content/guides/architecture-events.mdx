@@ -40,7 +40,7 @@ A notification is a hint, not a record. Nothing is stored and nothing is replaye
 
 The panel and MCP see the same rows. One function joins an agent to its mail, marks, pull requests and review. The panel runs it on its streamed copy. `ListAgents` runs it on the fly.
 
-## The loops
+## Sync loops
 
 The outside world does not send notifications. tmux does not say when an agent goes idle. GitHub does not say when a pull request merges. So the service runs loops that go and look on a timer and write what they find onto a row. From there, the trigger and the stream do the rest.
 
@@ -48,13 +48,15 @@ For instance, the reconcile loop reads the bottom of each agent's pane and decid
 
 ### Waking a loop
 
-A timer alone makes komrad slow to notice its own work. When you merge a pull request from the panel, the pull request sync would not see it for up to a minute. So the service can wake a loop, which asks it to run now instead of at its next tick.
+Sometimes it's better for komrad to notice changes more quickly than background loops allow. For instance, when you merge a pull request, you should see that change right away.
 
-A wake only says "look again". It never carries what changed, and there is no separate path that refreshes one agent or one pull request. The loop runs as it always does and finds the change itself. So a wake that is dropped costs nothing but time, and the timer still catches anything a wake missed.
+Komrad doesn't handle this by patching state. State only flows into komrad's database from an external system via the loop cycle.
 
-A few actions wake the loop that reads what they changed. A rebase wakes the loop that reads each checkout's branch and head. A merge wakes the pull request sync. An agent ending its turn wakes both the checkout loop and the transcript sync, since that is when an agent has most likely committed and written new turns.
+In these cases, the service can "wake" a loop, which asks it to run now instead of at its next tick.
 
-Wakes cannot run a loop harder than it can bear. Wakes that arrive before a run starts fold into one. Each loop also has a floor, the least time between two runs when the second was woken. The checkout loop's floor is five seconds, because turn ends are frequent and each run reads every live checkout. The pull request sync's is fifteen seconds, because each run costs requests to the forge.
+The wake only says "look again". It never carries what changed, so all writes still flow through the same loop path.
+
+Example of this: a rebase wakes the loop that reads each checkout's branch and head, a merge wakes the pull request sync, and an agent ending its turn wakes both the checkout loop and the transcript sync.
 
 ## River
 
