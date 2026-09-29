@@ -279,34 +279,18 @@ func (s *LifecycleService) ArchiveAgents(ctx context.Context, ids []string) erro
 		return err
 	}
 
-	live := xslice.Filter(agents, func(agent agentstore.Agent) bool { return agent.ArchivedAt == nil })
-	if err := joinRefusals(live, runPreHooksFor(ctx, batchHooksParams{
-		scripts:     s.scripts,
-		workflows:   s.workflows,
-		agents:      live,
-		event:       workflowstore.HookPreArchive,
-		skipGoneDir: true,
-	})); err != nil {
-		return fmt.Errorf("failed to archive %d agents: %w", len(agents), err)
-	}
-
-	// Killing what was read first keeps a failed write from hiding a live CLI, leaving the row
-	// for the reconciler to tidy.
-	killOwnedPanes(ctx, s.tmux, agents)
-
-	taken, err := s.agents.Archive(ctx, agentstore.IDs(agents))
-	if err != nil {
-		return fmt.Errorf("failed to archive %d agents: %w", len(agents), err)
-	}
-	// A pane recorded in between only reaches here through what the write took off the rows.
-	killPanes(ctx, s.tmux, taken)
-
-	startHooksFor(ctx, batchHooksParams{
+	if err := archiveBatch(ctx, archiveBatchParams{
+		tmux:      s.tmux,
 		scripts:   s.scripts,
 		workflows: s.workflows,
-		agents:    live,
-		event:     workflowstore.HookPostArchive,
-	})
+		live:      xslice.Filter(agents, func(agent agentstore.Agent) bool { return agent.ArchivedAt == nil }),
+		owned:     agents,
+		archive: func(ctx context.Context) ([]agentstore.AgentPane, error) {
+			return s.agents.Archive(ctx, agentstore.IDs(agents))
+		},
+	}); err != nil {
+		return fmt.Errorf("failed to archive %d agents: %w", len(agents), err)
+	}
 
 	return nil
 }
@@ -332,72 +316,31 @@ func (s *LifecycleService) RestoreAgents(ctx context.Context, ids []string) ([]a
 		return agents, nil
 	}
 
-	if err := s.tx.InTx(ctx, func(db store.DBTX) error {
-		return claimRoomToRestore(ctx, claimRoomToRestoreParams{
-			agents:   agentstore.NewAgentStore(db),
-			usage:    s.usage,
-			archived: archived,
-		})
+	if err := restoreBatch(ctx, restoreBatchParams{
+		tx:        s.tx,
+		usage:     s.usage,
+		scripts:   s.scripts,
+		workflows: s.workflows,
+		agents:    s.agents,
+		archived:  archived,
+		restore: func(ctx context.Context, db store.DBTX) error {
+			if err := agentstore.NewAgentStore(db).Restore(ctx, agentstore.IDs(archived)); err != nil {
+				return err
+			}
+			workflowStore := workflowstore.NewWorkflowStore(db)
+			for _, id := range workflowIDs(archived) {
+				if err := workflowStore.Restore(ctx, id); err != nil {
+					return err
+				}
+			}
+
+			return nil
+		},
 	}); err != nil {
 		return nil, fmt.Errorf("failed to restore %d agents: %w", len(archived), err)
 	}
 
-	if err := joinRefusals(archived, runPreHooksFor(ctx, batchHooksParams{
-		scripts:     s.scripts,
-		workflows:   s.workflows,
-		agents:      archived,
-		event:       workflowstore.HookPreRestore,
-		skipGoneDir: true,
-	})); err != nil {
-		return nil, fmt.Errorf("failed to restore %d agents: %w", len(archived), err)
-	}
-
-	err = s.tx.InTx(ctx, func(db store.DBTX) error {
-		agentStore, workflowStore := agentstore.NewAgentStore(db), workflowstore.NewWorkflowStore(db)
-
-		if err := claimRoomToRestore(ctx, claimRoomToRestoreParams{
-			agents:   agentStore,
-			usage:    s.usage,
-			archived: archived,
-		}); err != nil {
-			return err
-		}
-		if err := agentStore.Restore(ctx, agentstore.IDs(archived)); err != nil {
-			return err
-		}
-		for _, id := range workflowIDs(archived) {
-			if err := workflowStore.Restore(ctx, id); err != nil {
-				return err
-			}
-		}
-
-		return nil
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to restore %d agents: %w", len(archived), err)
-	}
-
-	restored, err := s.agents.ListByID(ctx, agentstore.IDs(agents))
-	if err != nil {
-		return nil, err
-	}
-
-	// The read-back is every agent the caller named, and only the ones this call took out of the
-	// archive have been restored.
-	wasArchived := make(map[string]bool, len(archived))
-	for _, agent := range archived {
-		wasArchived[agent.ID] = true
-	}
-	startHooksFor(ctx, batchHooksParams{
-		scripts:   s.scripts,
-		workflows: s.workflows,
-		agents: xslice.Filter(restored, func(agent agentstore.Agent) bool {
-			return wasArchived[agent.ID]
-		}),
-		event: workflowstore.HookPostRestore,
-	})
-
-	return restored, nil
+	return s.agents.ListByID(ctx, agentstore.IDs(agents))
 }
 
 // requireParentsPresent refuses a child coming back while the agent it hangs under is still

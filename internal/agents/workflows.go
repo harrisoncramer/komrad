@@ -358,44 +358,30 @@ func (w *WorkflowService) ArchiveWorkflow(ctx context.Context, id string) error 
 		return err
 	}
 
-	if err := joinRefusals(inside, runPreHooksFor(ctx, batchHooksParams{
-		scripts:     w.scripts,
-		workflows:   w.store,
-		agents:      inside,
-		event:       workflowstore.HookPreArchive,
-		skipGoneDir: true,
-	})); err != nil {
-		return fmt.Errorf("failed to archive workflow %q: %w", existing.Name, err)
-	}
-
-	// Panes go before the commit, so a failed commit leaves rows the reconciler can still tidy
-	// rather than a live CLI hidden for good.
-	killOwnedPanes(ctx, w.tmux, inside)
-
-	var taken []agentstore.AgentPane
-	err = w.tx.InTx(ctx, func(db store.DBTX) error {
-		if err := workflowstore.NewWorkflowStore(db).Archive(ctx, id); err != nil {
-			return err
-		}
-
-		archived, err := agentstore.NewAgentStore(db).ArchiveWorkflowAgents(ctx, id)
-		taken = archived
-
-		return err
-	})
-	if err != nil {
-		return fmt.Errorf("failed to archive workflow %q: %w", id, err)
-	}
-	// A pane recorded after inside was read only ever reaches here through what the transaction
-	// took off the rows.
-	killPanes(ctx, w.tmux, taken)
-
-	startHooksFor(ctx, batchHooksParams{
+	if err := archiveBatch(ctx, archiveBatchParams{
+		tmux:      w.tmux,
 		scripts:   w.scripts,
 		workflows: w.store,
-		agents:    inside,
-		event:     workflowstore.HookPostArchive,
-	})
+		live:      inside,
+		owned:     inside,
+		archive: func(ctx context.Context) ([]agentstore.AgentPane, error) {
+			var taken []agentstore.AgentPane
+			err := w.tx.InTx(ctx, func(db store.DBTX) error {
+				if err := workflowstore.NewWorkflowStore(db).Archive(ctx, id); err != nil {
+					return err
+				}
+
+				archived, err := agentstore.NewAgentStore(db).ArchiveWorkflowAgents(ctx, id)
+				taken = archived
+
+				return err
+			})
+
+			return taken, err
+		},
+	}); err != nil {
+		return fmt.Errorf("failed to archive workflow %q: %w", existing.Name, err)
+	}
 
 	return nil
 }
@@ -419,73 +405,26 @@ func (w *WorkflowService) RestoreWorkflow(ctx context.Context, id string) (*work
 		return nil, fmt.Errorf("failed to list the archived agents of workflow %q: %w", existing.Name, err)
 	}
 
-	if err := w.tx.InTx(ctx, func(db store.DBTX) error {
-		return claimRoomToRestore(ctx, claimRoomToRestoreParams{
-			agents:   agentstore.NewAgentStore(db),
-			usage:    w.usage,
-			archived: archived,
-		})
+	if err := restoreBatch(ctx, restoreBatchParams{
+		tx:        w.tx,
+		usage:     w.usage,
+		scripts:   w.scripts,
+		workflows: w.store,
+		agents:    w.agents,
+		archived:  archived,
+		relist: func(ctx context.Context, agents *agentstore.AgentStore) ([]agentstore.Agent, error) {
+			return agents.ListArchivedInWorkflow(ctx, id)
+		},
+		restore: func(ctx context.Context, db store.DBTX) error {
+			if err := workflowstore.NewWorkflowStore(db).Restore(ctx, id); err != nil {
+				return err
+			}
+
+			return agentstore.NewAgentStore(db).RestoreWorkflowAgents(ctx, id)
+		},
 	}); err != nil {
 		return nil, fmt.Errorf("failed to restore workflow %q: %w", existing.Name, err)
 	}
-
-	if err := joinRefusals(archived, runPreHooksFor(ctx, batchHooksParams{
-		scripts:     w.scripts,
-		workflows:   w.store,
-		agents:      archived,
-		event:       workflowstore.HookPreRestore,
-		skipGoneDir: true,
-	})); err != nil {
-		return nil, fmt.Errorf("failed to restore workflow %q: %w", existing.Name, err)
-	}
-
-	var restoring []agentstore.Agent
-	err = w.tx.InTx(ctx, func(db store.DBTX) error {
-		agents := agentstore.NewAgentStore(db)
-
-		archived, err := agents.ListArchivedInWorkflow(ctx, id)
-		if err != nil {
-			return err
-		}
-		// A partial restore would read as a whole one, so the ceiling and the names live agents
-		// hold are both checked before anything is written.
-		if err := claimRoomToRestore(ctx, claimRoomToRestoreParams{
-			agents:   agents,
-			usage:    w.usage,
-			archived: archived,
-		}); err != nil {
-			return err
-		}
-
-		if err := workflowstore.NewWorkflowStore(db).Restore(ctx, id); err != nil {
-			return err
-		}
-
-		if err := agents.RestoreWorkflowAgents(ctx, id); err != nil {
-			return err
-		}
-
-		restoring = archived
-
-		return nil
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to restore workflow %q: %w", existing.Name, err)
-	}
-
-	// Restoring the folder leaves its agents in the state restoring them one at a time does, so
-	// it owes them the same hook, over the set the transaction found archived rather than
-	// everything now inside the workflow.
-	restored, err := w.agents.ListByID(ctx, agentstore.IDs(restoring))
-	if err != nil {
-		return nil, err
-	}
-	startHooksFor(ctx, batchHooksParams{
-		scripts:   w.scripts,
-		workflows: w.store,
-		agents:    restored,
-		event:     workflowstore.HookPostRestore,
-	})
 
 	return w.store.Get(ctx, id)
 }

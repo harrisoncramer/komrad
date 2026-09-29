@@ -1847,8 +1847,8 @@ func TestSilentAsyncFailureSaysWhyInItsLog(t *testing.T) {
 	assert.Contains(t, string(said), "exited non-zero", "and says what became of it")
 }
 
-// TestRunPostDeleteHookRunsInTheHooksDirectoryOnceTheWorktreeIsGone covers where the last hook of an agent's life runs.
-func TestRunPostDeleteHookRunsInTheHooksDirectoryOnceTheWorktreeIsGone(t *testing.T) {
+// TestRunHookRunsPostDeleteInTheHooksDirectoryOnceTheWorktreeIsGone covers where the last hook of an agent's life runs.
+func TestRunHookRunsPostDeleteInTheHooksDirectoryOnceTheWorktreeIsGone(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "forget"), []byte(
 		"#!/bin/sh\npwd -P >forgotten\necho \"$KOMRAD_AGENT_CWD\" >>forgotten\n",
@@ -1858,7 +1858,7 @@ func TestRunPostDeleteHookRunsInTheHooksDirectoryOnceTheWorktreeIsGone(t *testin
 	svc := scriptServiceWithLogsDir(t, dir, scripts.NewRunner(), logsDir)
 
 	gone := filepath.Join(t.TempDir(), "worktree")
-	err := svc.RunPostDeleteHook(t.Context(), agentstore.Agent{ID: fixtureAgentID, Cwd: gone}, "forget", workflowstore.HookPostDelete)
+	err := svc.RunHook(t.Context(), agentstore.Agent{ID: fixtureAgentID, Cwd: gone}, "forget", workflowstore.HookPostDelete)
 	require.NoError(t, err)
 
 	landed, readErr := os.ReadFile(filepath.Join(dir, "forgotten"))

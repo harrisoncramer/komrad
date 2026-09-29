@@ -88,9 +88,3 @@ func NewScriptService(params NewScriptServiceParams) *ScriptService {
 func isPaneOwnedBy(owner, agentID string) bool {
 	return agentID != "" && owner == agentID
 }
-
-// isProvisionerDisabled reports whether an agent has been told to keep the directory it was
-// given rather than be provisioned one.
-func isProvisionerDisabled(override *bool) bool {
-	return override != nil && !*override
-}
