@@ -322,13 +322,59 @@ func TestWorktreesDeleteAnswer(t *testing.T) {
 	t.Run("confirming a selection holding a live agent archives it, then deletes every directory", func(t *testing.T) {
 		t.Parallel()
 
-		harness := openWorktrees(t)
-		moveToWorktree(t, harness, "treeview")
+		tests := []struct {
+			name     string
+			refusal  error
+			wantSent []request
+		}{
+			{
+				name: "the archive lands before the delete",
+				wantSent: []request{
+					{
+						procedure: worktreev1connect.WorktreeServiceGetWorktreeProcedure,
+						msg:       &worktreev1.GetWorktreeRequest{Dir: "/trees/live"},
+					},
+					{
+						procedure: agentv1connect.AgentServiceArchiveAgentsProcedure,
+						msg:       &agentv1.ArchiveAgentsRequest{Ids: []string{"live"}},
+					},
+					{
+						procedure: worktreev1connect.WorktreeServiceDeleteWorktreesProcedure,
+						msg:       &worktreev1.DeleteWorktreesRequest{Dirs: []string{"/trees/live", "/trees/orphan"}},
+					},
+				},
+			},
+			{
+				name:    "a refused archive deletes nothing",
+				refusal: errors.New("the hooks failed"),
+				wantSent: []request{
+					{
+						procedure: worktreev1connect.WorktreeServiceGetWorktreeProcedure,
+						msg:       &worktreev1.GetWorktreeRequest{Dir: "/trees/live"},
+					},
+					{
+						procedure: agentv1connect.AgentServiceArchiveAgentsProcedure,
+						msg:       &agentv1.ArchiveAgentsRequest{Ids: []string{"live"}},
+					},
+				},
+			},
+		}
 
-		harness.press("v", "j", "v", "d", "y")
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				t.Parallel()
 
-		harness.assertSentTo(agentv1connect.AgentServiceArchiveAgentsProcedure, &agentv1.ArchiveAgentsRequest{Ids: []string{"live"}})
-		harness.assertSentTo(worktreev1connect.WorktreeServiceDeleteWorktreesProcedure, &worktreev1.DeleteWorktreesRequest{Dirs: []string{"/trees/live", "/trees/orphan"}})
+				harness := openWorktrees(t)
+				if tt.refusal != nil {
+					harness.refuse(agentv1connect.AgentServiceArchiveAgentsProcedure, tt.refusal)
+				}
+				moveToWorktree(t, harness, "treeview")
+
+				harness.press("v", "j", "v", "d", "y")
+
+				harness.assertSent(tt.wantSent...)
+			})
+		}
 	})
 }
 
