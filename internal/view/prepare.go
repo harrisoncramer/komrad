@@ -64,7 +64,7 @@ func prepareLine(params prepareLineParams) Line {
 		Alert:    AlertCell(row),
 		Tally:    row.HiddenCount,
 		Schedule: markCell(row.Scheduled, glyph.Schedule, paint.ToneMuted),
-		Comments: CommentCells(row),
+		Comments: buildCommentCells(row),
 		Selected: row.Selected,
 	}
 }
@@ -122,11 +122,11 @@ func RepoCell(row Row) Cell {
 	return Cell{Glyph: glyph.Worktree, Tone: paint.ToneMuted}
 }
 
-// CommentCells are the counts of whoever has commented on an agent's work, reviewer agents then
-// the person, leaving out a side with none.
-func CommentCells(row Row) []Cell {
+// buildCommentCells lays out the counts of whoever has commented on an agent's work, reviewer
+// agents then the person.
+func buildCommentCells(row Row) []Cell {
 	var cells []Cell
-	for _, cell := range []Cell{ReviewerCommentsCell(row), PersonCommentsCell(row)} {
+	for _, cell := range []Cell{reviewerCommentsCell(row), personCommentsCell(row)} {
 		if !cell.IsBlank() {
 			cells = append(cells, cell)
 		}
@@ -135,9 +135,9 @@ func CommentCells(row Row) []Cell {
 	return cells
 }
 
-// ReviewerCommentsCell counts the comments reviewer agents left on an agent's work, open then
+// reviewerCommentsCell counts the comments reviewer agents left on an agent's work, open then
 // resolved.
-func ReviewerCommentsCell(row Row) Cell {
+func reviewerCommentsCell(row Row) Cell {
 	if !isOwn(row) || row.ReviewerComments == nil {
 		return Cell{}
 	}
@@ -145,9 +145,9 @@ func ReviewerCommentsCell(row Row) Cell {
 	return countsCell(row.ReviewerComments, glyph.ReviewerComments, paint.ToneBright)
 }
 
-// PersonCommentsCell counts the comments the person left on an agent's work, the open count
+// personCommentsCell counts the comments the person left on an agent's work, the open count
 // standing out while there is one, and a dot after while any holds something unread.
-func PersonCommentsCell(row Row) Cell {
+func personCommentsCell(row Row) Cell {
 	if !isOwn(row) || row.PersonComments == nil {
 		return Cell{}
 	}
@@ -160,8 +160,7 @@ func PersonCommentsCell(row Row) Cell {
 	return Cell{Parts: append(counts.Parts, Cell{Glyph: glyph.Unread, Tone: paint.ToneWarning})}
 }
 
-// countsCell is a pair of counts, open then resolved, after the glyph saying whose they are, the
-// glyph and the open count in the tone given while it is not zero.
+// countsCell is one side's open and resolved counts after its glyph.
 func countsCell(comments *Comments, whose glyph.Glyph, openTone paint.Tone) Cell {
 	tone := paint.ToneMuted
 	if comments.Open > 0 {

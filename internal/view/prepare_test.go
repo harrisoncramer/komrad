@@ -715,72 +715,67 @@ func TestPrepareFocusSurvivesAReorder(t *testing.T) {
 // TestPrepareClipsName pins the column a name is cut to.
 func TestPrepareClipsName(t *testing.T) {
 	tests := []struct {
-		name  string
-		given string
-		pane  int
-		want  string
+		name         string
+		rows         []Row
+		pane         int
+		want         []string
+		wantComments []int
 	}{
 		{
-			name:  "a name past the column ends in an ellipsis",
-			given: "eng-6994-unable-to-create",
-			pane:  27,
-			want:  "eng-6994-unabl…",
+			name: "a name past the column ends in an ellipsis",
+			rows: []Row{{Name: "eng-6994-unable-to-create"}},
+			pane: 27,
+			want: []string{"eng-6994-unabl…"},
 		},
 		{
-			name:  "a name inside the column is left alone",
-			given: "iss-582",
-			pane:  27,
-			want:  "iss-582",
+			name: "a name inside the column is left alone",
+			rows: []Row{{Name: "iss-582"}},
+			pane: 27,
+			want: []string{"iss-582"},
 		},
 		{
-			name:  "no pane at all leaves the name whole rather than cutting it to nothing",
-			given: "research-identity-assets",
-			want:  "research-identity-assets",
+			name: "no pane at all leaves the name whole rather than cutting it to nothing",
+			rows: []Row{{Name: "research-identity-assets"}},
+			want: []string{"research-identity-assets"},
+		},
+		{
+			name: "one row's comment counts leave every other name its room",
+			rows: []Row{
+				{Name: "eng-6994-unable-to-create"},
+				{
+					Name:             "eng-6994-unable-to-create",
+					ReviewerComments: &Comments{Resolved: 2},
+				},
+			},
+			pane:         27,
+			want:         []string{"eng-6994-unabl…", "eng-6994…"},
+			wantComments: []int{0, 1},
+		},
+		{
+			name: "a pane too narrow for both keeps the name and drops the comment counts",
+			rows: []Row{{
+				Name:             "eng-6994-unable-to-create",
+				ReviewerComments: &Comments{Resolved: 2},
+			}},
+			pane:         18,
+			want:         []string{"eng-6…"},
+			wantComments: []int{0},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			list := Prepare(Snapshot{Rows: []Row{{Name: tt.given}}, Pane: tt.pane})
-			require.Len(t, list.Lines, 1)
+			list := Prepare(Snapshot{Rows: tt.rows, Pane: tt.pane})
+			require.Len(t, list.Lines, len(tt.want))
 
-			assert.Equal(t, tt.want, list.Lines[0].Name)
+			for i, want := range tt.want {
+				assert.Equal(t, want, list.Lines[i].Name)
+				if tt.wantComments != nil {
+					assert.Len(t, list.Lines[i].Comments, tt.wantComments[i])
+				}
+			}
 		})
 	}
-}
-
-// TestPrepareCommentsCostOnlyTheirOwnRow pins that one row's counts leave every other name its room.
-func TestPrepareCommentsCostOnlyTheirOwnRow(t *testing.T) {
-	list := Prepare(Snapshot{
-		Rows: []Row{
-			{Name: "eng-6994-unable-to-create"},
-			{
-				Name:             "eng-6994-unable-to-create",
-				ReviewerComments: &Comments{Resolved: 2},
-			},
-		},
-		Pane: 27,
-	})
-	require.Len(t, list.Lines, 2)
-
-	assert.Equal(t, "eng-6994-unabl…", list.Lines[0].Name)
-	assert.Equal(t, "eng-6994…", list.Lines[1].Name)
-}
-
-// TestPrepareCommentsGiveWayBeforeTheName pins that a pane too narrow for both keeps the name
-// and drops the counts.
-func TestPrepareCommentsGiveWayBeforeTheName(t *testing.T) {
-	list := Prepare(Snapshot{
-		Rows: []Row{{
-			Name:             "eng-6994-unable-to-create",
-			ReviewerComments: &Comments{Resolved: 2},
-		}},
-		Pane: 18,
-	})
-	require.Len(t, list.Lines, 1)
-
-	assert.Equal(t, "eng-6…", list.Lines[0].Name)
-	assert.Empty(t, list.Lines[0].Comments)
 }
 
 // TestPrepareCarriesRowFacts pins the fields Prepare passes through untouched, which nothing

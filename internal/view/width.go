@@ -51,7 +51,7 @@ func trailingColumns(line Line) int {
 	}
 
 	for i, cell := range line.Comments {
-		columns += cellColumns(cell) + spaceColumns
+		columns += countCellColumns(cell) + spaceColumns
 		if i > 0 {
 			columns += spaceColumns
 		}
@@ -74,12 +74,12 @@ func roomForName(line Line, width int) int {
 	return width - spent
 }
 
-// cellColumns is how many columns a cell draws.
-func cellColumns(cell Cell) int {
+// countCellColumns counts the columns a cell draws.
+func countCellColumns(cell Cell) int {
 	if len(cell.Parts) > 0 {
 		columns := 0
 		for _, part := range cell.Parts {
-			columns += cellColumns(part)
+			columns += countCellColumns(part)
 		}
 
 		return columns
