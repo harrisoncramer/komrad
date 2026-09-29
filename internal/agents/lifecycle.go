@@ -2,6 +2,7 @@ package agents
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -36,6 +37,7 @@ type lifecycleAgentReadWriter interface {
 	ListByID(ctx context.Context, ids []string) ([]agentstore.Agent, error)
 	Archive(ctx context.Context, ids []string) ([]agentstore.AgentPane, error)
 	ClearDeleting(ctx context.Context, ids []string) error
+	MarkDeleting(ctx context.Context, ids []string) ([]agentstore.Claim, error)
 }
 
 // emptyWorkflowDeleter permanently removes a workflow left with nothing archived inside it.
@@ -127,15 +129,16 @@ func (s *LifecycleService) DeleteAgent(ctx context.Context, id string, claim tim
 	return s.deleteAgents(ctx, agents)
 }
 
-// deleteWithChildren stops agents and every child they have, tears each down, and removes those
-// whose teardown worked.
-func (s *LifecycleService) deleteWithChildren(ctx context.Context, named []agentstore.Agent) error {
-	agents, err := s.withChildren(ctx, named)
+// deleteNow claims agents and runs the delete of each root the claim took, as the queued jobs do.
+func (s *LifecycleService) deleteNow(ctx context.Context, ids []string) error {
+	claims, err := s.agents.MarkDeleting(ctx, ids)
 	if err != nil {
 		return err
 	}
 
-	return s.deleteAgents(ctx, agents)
+	return errors.Join(xslice.Map(agentstore.ClaimRoots(claims), func(root agentstore.Claim) error {
+		return s.DeleteAgent(ctx, root.ID, root.DeletingAt)
+	})...)
 }
 
 // deleteAgents stops agents, tears each down, and removes those whose teardown worked,
@@ -148,10 +151,12 @@ func (s *LifecycleService) deleteAgents(ctx context.Context, agents []agentstore
 
 	hooks := make(map[string][]workflowstore.Hook, len(agents))
 	var torn []agentstore.Agent
+	var failed []error
 	for _, agent := range slices.Backward(agents) {
 		hooks[agent.ID] = agentHooks(ctx, s.workflows, agent)
 		if err := s.tearDown(ctx, agent, hooks[agent.ID]); err != nil {
 			s.failCleanup(context.WithoutCancel(ctx), agent, err)
+			failed = append(failed, fmt.Errorf("%w: agent %s: %w", ErrTeardownFailed, agent.ID, err))
 
 			continue
 		}
@@ -160,7 +165,7 @@ func (s *LifecycleService) deleteAgents(ctx context.Context, agents []agentstore
 	}
 
 	if len(torn) == 0 {
-		return nil
+		return errors.Join(failed...)
 	}
 
 	if err := s.removeAgents(ctx, agentstore.IDs(torn)); err != nil {
@@ -178,7 +183,7 @@ func (s *LifecycleService) deleteAgents(ctx context.Context, agents []agentstore
 
 	s.cleanupEmptyWorkflows(ctx, torn)
 
-	return nil
+	return errors.Join(failed...)
 }
 
 // FailDelete gives up on deleting an agent the claim still holds, leaving it in the archive as

@@ -114,7 +114,7 @@ func TestDeleteAgentMarksFailedToCleanupWhenTeardownFails(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	require.NoError(t, manager.lifecycle.deleteNow(t.Context(), []string{agent.ID}))
+	require.Error(t, manager.lifecycle.deleteNow(t.Context(), []string{agent.ID}))
 
 	agents, listErr := st.Agents.List(t.Context())
 	require.NoError(t, listErr)
@@ -174,7 +174,7 @@ func TestDeleteClaimsTheRowWhileTheTeardownRuns(t *testing.T) {
 			require.Len(t, all, 1, "and still there")
 			assert.NotNil(t, all[0].DeletingAt)
 
-			require.NoError(t, manager.lifecycle.DeleteAgent(t.Context(), agent.ID, claims[0].DeletingAt))
+			require.ErrorIs(t, manager.lifecycle.DeleteAgent(t.Context(), agent.ID, claims[0].DeletingAt), tt.teardownErr)
 
 			page, err = st.Rows.ListPage(t.Context(), rowstore.Page{Limit: 10, Archived: true})
 			require.NoError(t, err)
@@ -205,7 +205,7 @@ func TestDeleteStaysArchivedOnAFailedTeardown(t *testing.T) {
 	require.NoError(t, err)
 
 	require.NoError(t, manager.lifecycle.ArchiveAgents(t.Context(), []string{agent.ID}))
-	require.NoError(t, manager.lifecycle.deleteNow(t.Context(), []string{agent.ID}))
+	require.Error(t, manager.lifecycle.deleteNow(t.Context(), []string{agent.ID}))
 
 	live, listErr := st.Agents.List(t.Context())
 	require.NoError(t, listErr)
@@ -235,7 +235,7 @@ func TestDeleteAgentRetryRecordsTheLatestReasonOnly(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	require.NoError(t, manager.lifecycle.deleteNow(t.Context(), []string{agent.ID}))
+	require.Error(t, manager.lifecycle.deleteNow(t.Context(), []string{agent.ID}))
 
 	agents, err := st.Agents.List(t.Context())
 	require.NoError(t, err)
@@ -243,7 +243,7 @@ func TestDeleteAgentRetryRecordsTheLatestReasonOnly(t *testing.T) {
 	assert.Contains(t, agents[0].FailureReason, "worktree is dirty")
 
 	lifecycle.deprovisionRunErr = errors.New("network unreachable")
-	require.NoError(t, manager.lifecycle.deleteNow(t.Context(), []string{agent.ID}))
+	require.Error(t, manager.lifecycle.deleteNow(t.Context(), []string{agent.ID}))
 
 	agents, err = st.Agents.List(t.Context())
 	require.NoError(t, err)
@@ -282,7 +282,7 @@ func TestDeleteAgentsHandlesMixedCleanupOutcomes(t *testing.T) {
 
 	lifecycle.deprovisionRunErrByAgent = map[string]error{bad.ID: errors.New("container is still running")}
 
-	require.NoError(t, manager.lifecycle.deleteNow(t.Context(), []string{ok.ID, bad.ID}))
+	require.ErrorContains(t, manager.lifecycle.deleteNow(t.Context(), []string{ok.ID, bad.ID}), "container is still running")
 
 	agents, err := st.Agents.List(t.Context())
 	require.NoError(t, err)
@@ -340,7 +340,7 @@ func TestDeleteAgentRemovesItsRunLogs(t *testing.T) {
 			require.NoError(t, os.WriteFile(provisionPath, []byte("cloning\n"), 0o644))
 			require.NoError(t, os.WriteFile(deprovisionPath, []byte("dropping\n"), 0o644))
 
-			require.NoError(t, manager.lifecycle.deleteNow(t.Context(), []string{agent.ID}))
+			require.ErrorIs(t, manager.lifecycle.deleteNow(t.Context(), []string{agent.ID}), tt.cleanupErr)
 
 			_, dirErr := os.Stat(logDir)
 			if tt.wantRemoved {
