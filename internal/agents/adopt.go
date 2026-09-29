@@ -200,7 +200,7 @@ func isAdopted(agent agentstore.Agent, branch string) bool {
 		agent.ArchivedAt == nil
 }
 
-// agentIn returns the agent whose cwd is a directory, archived ones included.
+// agentIn returns the top-level agent whose cwd is a directory, archived ones included.
 func (s *AdoptService) agentIn(ctx context.Context, dir string) (*agentstore.Agent, error) {
 	agents, err := s.agents.ListAll(ctx)
 	if err != nil {
@@ -208,6 +208,10 @@ func (s *AdoptService) agentIn(ctx context.Context, dir string) (*agentstore.Age
 	}
 
 	for _, agent := range agents {
+		if agent.ParentAgentID != nil {
+			continue
+		}
+
 		if agent.Cwd != "" && xpath.IsSameDir(agent.Cwd, dir) {
 			return &agent, nil
 		}

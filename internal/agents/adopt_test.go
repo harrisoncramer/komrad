@@ -120,6 +120,8 @@ func TestAdoptAnswersWithTheAgentInTheDirectory(t *testing.T) {
 		// adoptedBranch is what that agent recorded, blank for one that cut its own branch.
 		adoptedBranch string
 		archived      bool
+		// reviewed says an archived reviewer shares the sitting agent's directory.
+		reviewed bool
 	}{
 		{
 			name:   "a branch a komrad agent cut for itself",
@@ -130,6 +132,11 @@ func TestAdoptAnswersWithTheAgentInTheDirectory(t *testing.T) {
 			branch:        "someones/work",
 			adoptedBranch: "someones/work",
 			archived:      true,
+		},
+		{
+			name:     "a branch whose agent has an archived reviewer in the same directory",
+			branch:   "agent/01a0ee1e-b9a1-7a77-844a-bfaabb14fb97",
+			reviewed: true,
 		},
 	}
 
@@ -155,6 +162,18 @@ func TestAdoptAnswersWithTheAgentInTheDirectory(t *testing.T) {
 			}))
 			if tt.archived {
 				require.NoError(t, st.SoftDelete(t.Context(), "sitting"))
+			}
+			if tt.reviewed {
+				parent, err := st.LiveAgentByName(t.Context(), "sitting")
+				require.NoError(t, err)
+				require.NoError(t, st.createAgent(t.Context(), agentstore.Agent{
+					Name:          "reviewer",
+					Cwd:           sitting,
+					State:         agentstore.StateIdle,
+					WorkflowID:    workflow,
+					ParentAgentID: &parent.ID,
+				}))
+				require.NoError(t, st.SoftDelete(t.Context(), "reviewer"))
 			}
 
 			adoption, err := manager.adopt.Adopt(t.Context(), AdoptParams{Ref: tt.branch, WorkflowID: workflow})
