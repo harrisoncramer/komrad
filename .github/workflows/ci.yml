@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
   workflow_call:
 
 concurrency:
@@ -15,23 +16,41 @@ permissions:
   pull-requests: read
 
 jobs:
-  # What the branch touched, which is what every job below gates on. Only a pull request
-  # is filtered; a push to main runs every job.
-  changes:
+  # One job running every check in turn. Namespace bills each job at least a minute and bills the
+  # cache volume for as long as a job holds it, so one runner costs far less than one per check. A
+  # draft pull request runs nothing; marking it ready runs the suite.
+  required:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: namespace-profile-harrisoncramer
-    outputs:
-      go: ${{ github.event_name != 'pull_request' || steps.filter.outputs.go == 'true' }}
-      shell: ${{ github.event_name != 'pull_request' || steps.filter.outputs.shell == 'true' }}
-      db: ${{ github.event_name != 'pull_request' || steps.filter.outputs.db == 'true' }}
-      proto: ${{ github.event_name != 'pull_request' || steps.filter.outputs.proto == 'true' }}
-      infra: ${{ github.event_name != 'pull_request' || steps.filter.outputs.infra == 'true' }}
-      generated: ${{ github.event_name != 'pull_request' || steps.filter.outputs.generated == 'true' }}
-      integration: ${{ github.event_name != 'pull_request' || steps.filter.outputs.integration == 'true' }}
-      docs: ${{ github.event_name != 'pull_request' || steps.filter.outputs.docs == 'true' }}
+
+    # The store tests run against a real Postgres rather than a fake, and
+    # internal/pgtest creates a database per test off the server KOMRAD_DATABASE_URL
+    # points at. Credentials match docker-compose so nothing else has to change.
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: komrad
+          POSTGRES_PASSWORD: komrad
+          POSTGRES_DB: komrad
+        ports:
+          - 5460:5432
+        options: >-
+          --health-cmd "pg_isready -U komrad"
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 15
+
+    env:
+      KOMRAD_DATABASE_URL: postgres://komrad:komrad@localhost:5460/komrad?sslmode=disable
+      ALL: ${{ github.event_name != 'pull_request' }}
+
     steps:
       - uses: actions/checkout@v4
 
-      - id: filter
+      # What the branch touched, which is what every step below gates on. Only a pull request
+      # is filtered; a push to main runs every step.
+      - id: changes
         if: github.event_name == 'pull_request'
         uses: dorny/paths-filter@v3
         with:
@@ -46,6 +65,7 @@ jobs:
               - 'tools/komradpkg/**'
               - 'tools/komradslot/**'
               - '.github/workflows/ci.yml'
+              - '.github/actions/use-mise/**'
             shell:
               - 'mise/**'
               - '**/*.sh'
@@ -74,6 +94,7 @@ jobs:
               - 'db/**'
               - 'proto/**'
               - '.github/workflows/ci.yml'
+              - '.github/actions/use-mise/**'
             docs:
               - 'docs/**'
               - 'mise/tasks/docs/**'
@@ -89,248 +110,81 @@ jobs:
               - 'mise/tasks/gen/**'
               - '.github/workflows/ci.yml'
 
-  # The shell komrad runs: the mise tasks and the builtin scripts an agent's hooks call.
-  shell:
-    needs: changes
-    if: needs.changes.outputs.shell == 'true'
-    runs-on: namespace-profile-harrisoncramer
-    steps:
-      - uses: actions/checkout@v4
-
       - name: Use Mise
         uses: ./.github/actions/use-mise
         with:
           gh-access-token: ${{ env.GH_ACCESS_TOKEN }}
 
+      # The shell komrad runs: the mise tasks and the builtin scripts an agent's hooks call.
       - name: Check the shell
+        if: env.ALL == 'true' || steps.changes.outputs.shell == 'true'
         run: |
           mise run bash:check
           mise run bash:fmt --check
 
-  proto:
-    needs: changes
-    if: needs.changes.outputs.proto == 'true'
-    runs-on: namespace-profile-harrisoncramer
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Use Mise
-        uses: ./.github/actions/use-mise
-        with:
-          gh-access-token: ${{ env.GH_ACCESS_TOKEN }}
-
       - name: Check the protobufs
+        if: env.ALL == 'true' || steps.changes.outputs.proto == 'true'
         run: |
           mise run proto:fmt --check
           mise run proto:lint
 
-  infra:
-    needs: changes
-    if: needs.changes.outputs.infra == 'true'
-    runs-on: namespace-profile-harrisoncramer
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Use Mise
-        uses: ./.github/actions/use-mise
-        with:
-          gh-access-token: ${{ env.GH_ACCESS_TOKEN }}
-
-      - name: Check the Terraform formatting
+      - name: Check the infrastructure
+        if: env.ALL == 'true' || steps.changes.outputs.infra == 'true'
         run: |
           mise run infra:engine:fmt
           mise run infra:docs:fmt
-
-      - name: Check the Packer formatting
-        run: mise run packer:fmt
-
-      - name: Validate the Packer template
-        run: mise run packer:validate
-
-  db:
-    needs: changes
-    if: needs.changes.outputs.db == 'true'
-    runs-on: namespace-profile-harrisoncramer
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Use Mise
-        uses: ./.github/actions/use-mise
-        with:
-          gh-access-token: ${{ env.GH_ACCESS_TOKEN }}
+          mise run packer:fmt
+          mise run packer:validate
 
       - name: Check the migrations
+        if: env.ALL == 'true' || steps.changes.outputs.db == 'true'
         run: |
           mise run db:fmt --check
           mise run db:validate
 
-  # The generators, which read the protobufs, the schema and the config and write Go.
-  generated:
-    needs: changes
-    if: needs.changes.outputs.generated == 'true'
-    runs-on: namespace-profile-harrisoncramer
-
-    services:
-      postgres:
-        image: postgres:18
-        env:
-          POSTGRES_USER: komrad
-          POSTGRES_PASSWORD: komrad
-          POSTGRES_DB: komrad
-        ports:
-          - 5460:5432
-        options: >-
-          --health-cmd "pg_isready -U komrad"
-          --health-interval 2s
-          --health-timeout 5s
-          --health-retries 15
-
-    env:
-      KOMRAD_DATABASE_URL: postgres://komrad:komrad@localhost:5460/komrad?sslmode=disable
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Use Mise
-        uses: ./.github/actions/use-mise
-        with:
-          gh-access-token: ${{ env.GH_ACCESS_TOKEN }}
-
+      # The generators, which read the protobufs, the schema and the config and write Go.
       - name: Check the generated files are in step
+        if: env.ALL == 'true' || steps.changes.outputs.generated == 'true'
         run: mise run gen:check
-
-  # The Go itself: formatting, the linter, and the tests that drive no external binary.
-  go:
-    needs: changes
-    if: needs.changes.outputs.go == 'true'
-    runs-on: namespace-profile-harrisoncramer
-
-    # The store tests run against a real Postgres rather than a fake, and
-    # internal/pgtest creates a database per test off the server KOMRAD_DATABASE_URL
-    # points at. Credentials match docker-compose so nothing else has to change.
-    services:
-      postgres:
-        image: postgres:18
-        env:
-          POSTGRES_USER: komrad
-          POSTGRES_PASSWORD: komrad
-          POSTGRES_DB: komrad
-        ports:
-          - 5460:5432
-        options: >-
-          --health-cmd "pg_isready -U komrad"
-          --health-interval 2s
-          --health-timeout 5s
-          --health-retries 15
-
-    env:
-      KOMRAD_DATABASE_URL: postgres://komrad:komrad@localhost:5460/komrad?sslmode=disable
-
-    steps:
-      - uses: actions/checkout@v4
-
-      # The module cache, golangci-lint's own cache and the tools are rebuilt from nothing
-      # on every run otherwise. They live on a volume attached to the runner, and Go's
-      # build and test results live in Namespace's remote Go cache. Both are shared across
-      # every branch of the repository, so a new branch starts warm where actions/cache
-      # would miss.
-      - name: Use Mise
-        uses: ./.github/actions/use-mise
-        with:
-          gh-access-token: ${{ env.GH_ACCESS_TOKEN }}
 
       # Go reuses a passing test result only when every file and folder the test read has
       # the same mtime as last time. A fresh checkout gives them all a new one, so without
       # this every test runs again, even ones whose code nothing touched.
       - name: Give the files the times the test cache expects
+        if: env.ALL == 'true' || steps.changes.outputs.go == 'true' || steps.changes.outputs.integration == 'true'
         run: mise run go:mtimehash
 
-      - name: Check the formatting
+      - name: Check the Go formatting
+        if: env.ALL == 'true' || steps.changes.outputs.go == 'true'
         run: mise run go:fmt --check
 
       - name: Lint
+        if: env.ALL == 'true' || steps.changes.outputs.go == 'true'
         run: mise run go:lint
 
       - name: Run the unit tests
+        if: env.ALL == 'true' || steps.changes.outputs.go == 'true'
         run: mise run go:test --kind unit
 
-  # The integration tests drive a real git, a real tmux and a real komrad, which is slow
-  # and flakes when the machine is busy. They carry a build tag, so this is the only job
-  # that compiles them in. The paths above are wide because these tests drive the panel
-  # end to end, so most of the module is behind them.
-  integration:
-    needs: changes
-    if: needs.changes.outputs.integration == 'true'
-    runs-on: namespace-profile-harrisoncramer
-
-    services:
-      postgres:
-        image: postgres:18
-        env:
-          POSTGRES_USER: komrad
-          POSTGRES_PASSWORD: komrad
-          POSTGRES_DB: komrad
-        ports:
-          - 5460:5432
-        options: >-
-          --health-cmd "pg_isready -U komrad"
-          --health-interval 2s
-          --health-timeout 5s
-          --health-retries 15
-
-    env:
-      KOMRAD_DATABASE_URL: postgres://komrad:komrad@localhost:5460/komrad?sslmode=disable
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Use Mise
-        uses: ./.github/actions/use-mise
-        with:
-          gh-access-token: ${{ env.GH_ACCESS_TOKEN }}
-
-      - name: Give the files the times the test cache expects
-        run: mise run go:mtimehash
-
       # A test that needs tmux fails without it rather than skipping, so this step is what
-      # keeps the job honest. less is what the panel pages a dormant agent's placeholder
-      # into a pane with.
+      # keeps the integration tests honest. less is what the panel pages a dormant agent's
+      # placeholder into a pane with.
       - name: Install tmux
+        if: env.ALL == 'true' || steps.changes.outputs.integration == 'true'
         run: sudo apt-get update && sudo apt-get install -y tmux less
 
+      # The integration tests drive a real git, a real tmux and a real komrad, which is slow
+      # and flakes when the machine is busy. They carry a build tag, so this is the only step
+      # that compiles them in.
       - name: Run the integration tests
+        if: env.ALL == 'true' || steps.changes.outputs.integration == 'true'
         run: mise run go:test --kind integration
 
-  # The docs site: formatting, the linter, the type check, and a build.
-  docs:
-    needs: changes
-    if: needs.changes.outputs.docs == 'true'
-    runs-on: namespace-profile-harrisoncramer
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Use Mise
-        uses: ./.github/actions/use-mise
-        with:
-          gh-access-token: ${{ env.GH_ACCESS_TOKEN }}
-
+      # The docs site: formatting, the linter, the type check, and a build.
       - name: Check the docs
+        if: env.ALL == 'true' || steps.changes.outputs.docs == 'true'
         run: |
           mise run docs:fmt --check
           mise run docs:lint
           mise run docs:check
           mise run docs:build
-
-  # One status check a ruleset can name, standing in for all eight. The jobs above are filtered
-  # by path, so a pull request touching only documentation leaves several of them skipped, and a
-  # ruleset naming those directly would wait forever on a check that never runs. This one runs
-  # regardless and fails only on a failure or a cancellation, so a skip passes through. Every job
-  # in this file has to appear below: one left out is a failure this gate cannot see.
-  required:
-    needs: [changes, shell, proto, infra, db, generated, go, integration, docs]
-    if: always()
-    runs-on: namespace-profile-harrisoncramer
-    steps:
-      - name: Fail when a needed job did not succeed
-        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
-        run: exit 1

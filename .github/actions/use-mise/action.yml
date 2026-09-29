@@ -37,21 +37,6 @@ runs:
       run: |
         echo "MISE_DISABLE_TOOLS=cargo:worktrunk,rust,kubectl,mc,aqua:junegunn/fzf,go:github.com/go-delve/delve/cmd/dlv,air,aqua:securego/gosec,aqua:aws/session-manager-plugin,conda:ffmpeg,conda:ttyd,aqua:charmbracelet/vhs" >> "$GITHUB_ENV"
 
-    # Go's build and test results go to Namespace's remote Go cache instead of the volume.
-    # The volume is saved whole when a job ends, and the last job to finish wins. A quick job
-    # like docs finishing after the go job replaced its copy, and the test results in it were
-    # lost. The remote cache stores each result the moment Go produces it, so every job adds
-    # to one shared store and none can overwrite another.
-    #
-    # It is early access, so the version is pinned. One known gap: a package that runs alone
-    # for over a minute, like internal/ui, loses its upload to a stale connection and reruns
-    # next time. -silent keeps its stats off stderr, where gotestsum counts them as errors.
-    - name: Use Namespace's remote Go cache
-      shell: bash
-      run: |
-        curl -fsSL https://public.namespaceblobs.com/gocacheprog/install.sh | sh -s -- --version v0.0.49
-        echo "GOCACHEPROG=$HOME/.local/bin/gocacheprog -silent" >> "$GITHUB_ENV"
-
     - name: Install mise tools
       uses: jdx/mise-action@v4
       env:
