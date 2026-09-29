@@ -31,6 +31,10 @@ const WorktreeSizeInterval = 30 * time.Second
 // machine when the second was woken.
 const localLoopFloor = time.Second
 
+// cwdSyncFloor is the least time between the starts of two cwd sync runs when the second was
+// woken.
+const cwdSyncFloor = 5 * time.Second
+
 // pullRequestSyncFloor is the least time between the starts of two pull request sync runs when
 // the second was woken.
 const pullRequestSyncFloor = 15 * time.Second
@@ -97,7 +101,7 @@ func buildLoops(params buildLoopsParams) []*Loop {
 		NewLoop(NewLoopParams{
 			Name:     CwdSyncLoop,
 			Interval: CwdSyncInterval,
-			Floor:    localLoopFloor,
+			Floor:    cwdSyncFloor,
 			Run:      params.Services.cwdSync.Sync,
 			Waker:    params.Wakers.cwdSync,
 		}),

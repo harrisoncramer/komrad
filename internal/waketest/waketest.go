@@ -1,5 +1,4 @@
-// Package waketest stands in for the waker of a background loop, so a test counts the wakes a
-// service asked for.
+// Package waketest stands in for the waker of a background loop.
 package waketest
 
 // Counter counts the wakes it was asked for.
