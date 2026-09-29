@@ -295,56 +295,55 @@ func TestPrepareRepoColumn(t *testing.T) {
 	}
 }
 
-// TestPrepareCommentColumns pins the two count pairs, reviewer agents then the person, and that the
-// gutter makes room for each only while some agent's own row has any.
-func TestPrepareCommentColumns(t *testing.T) {
+// TestPrepareComments pins the count pairs a row draws against the right edge.
+func TestPrepareComments(t *testing.T) {
 	muted := func(text string) Cell {
 		return Cell{Text: text, Tone: paint.ToneMuted}
 	}
-	blankDot := Cell{Text: " "}
-	unreadDot := Cell{Glyph: glyph.Unread, Tone: paint.ToneWarning}
+	reviewer := func(tone paint.Tone, open, resolved string) Cell {
+		return Cell{Parts: []Cell{{Glyph: glyph.ReviewerComments, Tone: tone}, {Text: " "}, {Text: open, Tone: tone}, muted(resolved)}}
+	}
+	person := func(tone paint.Tone, open, resolved string, more ...Cell) Cell {
+		parts := []Cell{{Glyph: glyph.PersonComments, Tone: tone}, {Text: " "}, {Text: open, Tone: tone}, muted(resolved)}
+
+		return Cell{Parts: append(parts, more...)}
+	}
 
 	tests := []struct {
-		name         string
-		rows         []Row
-		wantColumns  Columns
-		wantReviewer Cell
-		wantPerson   Cell
+		name string
+		row  Row
+		want []Cell
 	}{
 		{
-			name:        "a row with no comments leaves the counts out of the gutter",
-			rows:        []Row{{Kind: KindAgent}},
-			wantColumns: WorkColumns(),
+			name: "a row with no comments draws no counts",
+			row:  Row{Kind: KindAgent},
 		},
 		{
-			name: "a child row's comments take no room in the gutter",
-			rows: []Row{{
+			name: "a child row draws no counts",
+			row: Row{
 				Kind:           KindChild,
 				PersonComments: &Comments{Open: 1},
-			}},
-			wantColumns: WorkColumns(),
+			},
 		},
 		{
-			name: "a side nobody has comments on is left out of the gutter",
-			rows: []Row{{
+			name: "a side nobody has comments on is left out",
+			row: Row{
 				Kind:             KindAgent,
 				ReviewerComments: &Comments{Resolved: 2},
-			}},
-			wantColumns:  CommentedWorkColumns(3, 0, false),
-			wantReviewer: Cell{Parts: []Cell{muted("0"), muted("|2")}},
+			},
+			want: []Cell{reviewer(paint.ToneMuted, "0", "|2")},
 		},
 		{
-			name: "the person's counts take no place for a dot while nothing is unread",
-			rows: []Row{{
+			name: "the person's counts stand alone while no reviewer has commented",
+			row: Row{
 				Kind:           KindAgent,
 				PersonComments: &Comments{Resolved: 12},
-			}},
-			wantColumns: CommentedWorkColumns(0, 4, false),
-			wantPerson:  Cell{Parts: []Cell{muted("0"), muted("|12")}},
+			},
+			want: []Cell{person(paint.ToneMuted, "0", "|12")},
 		},
 		{
-			name: "the person's open count stands out and an unread one earns the dot",
-			rows: []Row{{
+			name: "open counts stand out, reviewer agents first, and an unread one earns the dot",
+			row: Row{
 				Kind: KindAgent,
 				ReviewerComments: &Comments{
 					Open:     3,
@@ -355,49 +354,20 @@ func TestPrepareCommentColumns(t *testing.T) {
 					Resolved: 4,
 					Unread:   true,
 				},
-			}},
-			wantColumns:  CommentedWorkColumns(3, 3, true),
-			wantReviewer: Cell{Parts: []Cell{muted("3"), muted("|1")}},
-			wantPerson: Cell{Parts: []Cell{
-				{
-					Text: "2",
-					Tone: paint.ToneWarning,
-				},
-				muted("|4"),
-				unreadDot,
-			}},
-		},
-		{
-			name: "a row with nothing unread pads the dot's place another row earned",
-			rows: []Row{
-				{
-					Kind:           KindAgent,
-					PersonComments: &Comments{Unread: true},
-				},
-				{
-					Kind:           KindAgent,
-					PersonComments: &Comments{Resolved: 1},
-				},
 			},
-			wantColumns: CommentedWorkColumns(0, 3, true),
-			wantPerson:  Cell{Parts: []Cell{muted("0"), muted("|1"), blankDot}},
+			want: []Cell{
+				reviewer(paint.ToneBright, "3", "|1"),
+				person(paint.ToneWarning, "2", "|4", Cell{Glyph: glyph.Unread, Tone: paint.ToneWarning}),
+			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			list := Prepare(Snapshot{Rows: tt.rows})
-			require.Len(t, list.Lines, len(tt.rows))
-			require.Equal(t, tt.wantColumns, list.Columns)
-
-			last := list.Lines[len(list.Lines)-1]
-			drawn := map[ColumnKind]Cell{}
-			for i, column := range list.Columns {
-				drawn[column.Kind] = last.Columns[i]
-			}
-
-			assert.Equal(t, tt.wantReviewer, drawn[ColumnReviewerComments])
-			assert.Equal(t, tt.wantPerson, drawn[ColumnPersonComments])
+			list := Prepare(Snapshot{Rows: []Row{tt.row}})
+			require.Len(t, list.Lines, 1)
+			assert.Equal(t, WorkColumns(), list.Columns)
+			assert.Equal(t, tt.want, list.Lines[0].Comments)
 		})
 	}
 }
@@ -745,36 +715,65 @@ func TestPrepareFocusSurvivesAReorder(t *testing.T) {
 // TestPrepareClipsName pins the column a name is cut to.
 func TestPrepareClipsName(t *testing.T) {
 	tests := []struct {
-		name  string
-		given string
-		pane  int
-		want  string
+		name         string
+		rows         []Row
+		pane         int
+		want         []string
+		wantComments []int
 	}{
 		{
-			name:  "a name past the column ends in an ellipsis",
-			given: "eng-6994-unable-to-create",
-			pane:  27,
-			want:  "eng-6994-unabl…",
+			name: "a name past the column ends in an ellipsis",
+			rows: []Row{{Name: "eng-6994-unable-to-create"}},
+			pane: 27,
+			want: []string{"eng-6994-unabl…"},
 		},
 		{
-			name:  "a name inside the column is left alone",
-			given: "iss-582",
-			pane:  27,
-			want:  "iss-582",
+			name: "a name inside the column is left alone",
+			rows: []Row{{Name: "iss-582"}},
+			pane: 27,
+			want: []string{"iss-582"},
 		},
 		{
-			name:  "no pane at all leaves the name whole rather than cutting it to nothing",
-			given: "research-identity-assets",
-			want:  "research-identity-assets",
+			name: "no pane at all leaves the name whole rather than cutting it to nothing",
+			rows: []Row{{Name: "research-identity-assets"}},
+			want: []string{"research-identity-assets"},
+		},
+		{
+			name: "one row's comment counts leave every other name its room",
+			rows: []Row{
+				{Name: "eng-6994-unable-to-create"},
+				{
+					Name:             "eng-6994-unable-to-create",
+					ReviewerComments: &Comments{Resolved: 2},
+				},
+			},
+			pane:         27,
+			want:         []string{"eng-6994-unabl…", "eng-6994…"},
+			wantComments: []int{0, 1},
+		},
+		{
+			name: "a pane too narrow for both keeps the name and drops the comment counts",
+			rows: []Row{{
+				Name:             "eng-6994-unable-to-create",
+				ReviewerComments: &Comments{Resolved: 2},
+			}},
+			pane:         18,
+			want:         []string{"eng-6…"},
+			wantComments: []int{0},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			list := Prepare(Snapshot{Rows: []Row{{Name: tt.given}}, Pane: tt.pane})
-			require.Len(t, list.Lines, 1)
+			list := Prepare(Snapshot{Rows: tt.rows, Pane: tt.pane})
+			require.Len(t, list.Lines, len(tt.want))
 
-			assert.Equal(t, tt.want, list.Lines[0].Name)
+			for i, want := range tt.want {
+				assert.Equal(t, want, list.Lines[i].Name)
+				if tt.wantComments != nil {
+					assert.Len(t, list.Lines[i].Comments, tt.wantComments[i])
+				}
+			}
 		})
 	}
 }
