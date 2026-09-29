@@ -8,9 +8,12 @@ import (
 
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
+	forgev1 "komrad/proto/gen/forge/v1"
+	"komrad/proto/gen/forge/v1/forgev1connect"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 	workflowv1 "komrad/proto/gen/workflow/v1"
 
+	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
@@ -127,19 +130,19 @@ func TestGitMenuRefusals(t *testing.T) {
 	tests := []struct {
 		name        string
 		rows        []proto.Message
-		press       string
+		press       []string
 		wantRefusal string
 	}{
 		{
 			name:        "the rebase of an agent with no worktree of its own",
 			rows:        buildUncutAgent(),
-			press:       "r",
+			press:       []string{"r"},
 			wantRefusal: "this agent has no worktree of its own, so there is no base to move it onto",
 		},
 		{
 			name:        "the pull request of a repository not read yet",
 			rows:        buildUncutAgent(),
-			press:       "o",
+			press:       []string{"o"},
 			wantRefusal: "komrad has not read this agent's repository yet",
 		},
 		{
@@ -148,14 +151,26 @@ func TestGitMenuRefusals(t *testing.T) {
 				Url:  repositoryURL,
 				Read: true,
 			}),
-			press:       "o",
+			press:       []string{"o"},
 			wantRefusal: "komrad has read the repository and nothing has been opened from this branch",
 		},
 		{
 			name:        "the pull request of a branch that has moved past its last one",
 			rows:        append(buildUncutAgent(), newMergedPullRequest()),
-			press:       "o",
+			press:       []string{"o"},
 			wantRefusal: "the branch has moved on since its last pull request finished",
+		},
+		{
+			name:        "the merge of a branch with no pull request",
+			rows:        buildUncutAgent(),
+			press:       []string{"m", "m"},
+			wantRefusal: "komrad has not read this agent's repository yet",
+		},
+		{
+			name:        "the merge of a pull request that has already merged",
+			rows:        append(buildGitAgent(), newCurrentMergedPullRequest()),
+			press:       []string{"m", "m"},
+			wantRefusal: "its pull request has already merged",
 		},
 	}
 
@@ -165,10 +180,74 @@ func TestGitMenuRefusals(t *testing.T) {
 
 			harness := openGitMenu(t, tt.rows...)
 
-			harness.press(tt.press)
+			harness.press(tt.press...)
 
 			assert.NotContains(t, harness.readFrame(), gitMenuEntry)
 			assert.Contains(t, readOpenMessages(harness), tt.wantRefusal)
+		})
+	}
+}
+
+// TestGitMenuMerges covers the merge menu merging the current pull request and archiving the
+// agent after.
+func TestGitMenuMerges(t *testing.T) {
+	t.Parallel()
+
+	merge := &forgev1.MergeForgePullRequestRequest{Url: pullRequestURL}
+
+	tests := []struct {
+		name        string
+		press       []string
+		refuse      error
+		wantMerges  []proto.Message
+		wantArchive []proto.Message
+		wantMessage string
+	}{
+		{
+			name:        "merge leaves the agent where it is",
+			press:       []string{"m"},
+			wantMerges:  []proto.Message{merge},
+			wantMessage: "api: merged #740",
+		},
+		{
+			name:        "merge and archive archives the agent once the forge has merged",
+			press:       []string{"a"},
+			wantMerges:  []proto.Message{merge},
+			wantArchive: []proto.Message{&agentv1.ArchiveAgentsRequest{Ids: []string{"a1"}}},
+			wantMessage: "api: merged #740",
+		},
+		{
+			name:  "back sends nothing",
+			press: []string{"esc"},
+		},
+		{
+			name:        "a merge the forge refuses archives nothing",
+			press:       []string{"a"},
+			refuse:      connect.NewError(connect.CodeFailedPrecondition, errors.New("github refused to merge it: Pull Request is not mergeable")),
+			wantMerges:  []proto.Message{merge},
+			wantMessage: "Pull Request is not mergeable",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			harness := openGitMenu(t, append(buildGitAgent(), newOpenPullRequest())...)
+			if tt.refuse != nil {
+				harness.refuse(forgev1connect.ForgeServiceMergeForgePullRequestProcedure, tt.refuse)
+			}
+
+			harness.press("m")
+			require.Equal(t, "agents › api › git › merge", readTrail(harness.readFrame()))
+			harness.press(tt.press...)
+
+			harness.assertSentTo(forgev1connect.ForgeServiceMergeForgePullRequestProcedure, tt.wantMerges...)
+			harness.assertSentTo(agentv1connect.AgentServiceArchiveAgentsProcedure, tt.wantArchive...)
+			assert.NotContains(t, harness.readFrame(), "merge and archive")
+			if tt.wantMessage != "" {
+				assert.Contains(t, readOpenMessages(harness), tt.wantMessage)
+			}
 		})
 	}
 }
@@ -281,6 +360,13 @@ func newMergedPullRequest() *pullrequestv1.PullRequest {
 	merged.State = pullrequestv1.PullRequestState_PULL_REQUEST_STATE_MERGED
 	merged.MergedAt = proto.String("2026-09-20T12:00:00Z")
 	merged.HeadSha = "old"
+
+	return merged
+}
+
+func newCurrentMergedPullRequest() *pullrequestv1.PullRequest {
+	merged := newMergedPullRequest()
+	merged.HeadSha = "new"
 
 	return merged
 }

@@ -36,6 +36,14 @@ const getQuery = `query Get($owner: String!, $name: String!, $number: Int!) {
 }
 ` + pullRequestFragment
 
+const mergeTargetQuery = `query MergeTarget($owner: String!, $name: String!, $number: Int!) {
+  repository(owner: $owner, name: $name) { viewerDefaultMergeMethod pullRequest(number: $number) { id } }
+}`
+
+const mergeMutation = `mutation Merge($id: ID!, $method: PullRequestMergeMethod!) {
+  mergePullRequest(input: {pullRequestId: $id, mergeMethod: $method}) { clientMutationId }
+}`
+
 const listQuery = `query List($owner: String!, $name: String!, $first: Int!, $after: String, $branch: String, $states: [PullRequestState!]) {
   repository(owner: $owner, name: $name) {
     pullRequests(first: $first, after: $after, headRefName: $branch, states: $states, orderBy: {field: CREATED_AT, direction: DESC}) {
@@ -307,6 +315,51 @@ func (f *Forge) Standings(ctx context.Context, repo git.RemoteURL, numbers []int
 	}
 
 	return standings, nil
+}
+
+// Merge lands the pull request with the method GitHub offers the credential by default.
+func (f *Forge) Merge(ctx context.Context, address string) error {
+	owner, name, number, err := parsePullURL(address)
+	if err != nil {
+		return err
+	}
+
+	var data struct {
+		Repository *struct {
+			ViewerDefaultMergeMethod string `json:"viewerDefaultMergeMethod"`
+			PullRequest              *struct {
+				ID string `json:"id"`
+			} `json:"pullRequest"`
+		} `json:"repository"`
+	}
+	answer, err := f.client.Query(ctx, mergeTargetQuery, map[string]any{
+		"owner":  owner,
+		"name":   name,
+		"number": number,
+	}, &data)
+	if err != nil {
+		return err
+	}
+	if err := failureOf(answer, ""); err != nil {
+		return err
+	}
+	if data.Repository == nil || data.Repository.PullRequest == nil {
+		return fmt.Errorf("%w: github has no pull request %d in %s/%s", forge.ErrNotFound, number, owner, name)
+	}
+
+	var merged struct{}
+	answer, err = f.client.Query(ctx, mergeMutation, map[string]any{
+		"id":     data.Repository.PullRequest.ID,
+		"method": data.Repository.ViewerDefaultMergeMethod,
+	}, &merged)
+	if err != nil {
+		return err
+	}
+	if len(answer.Errors) > 0 {
+		return forge.ErrNotMergeable.Saying("github refused to merge %s: %s", address, answer.Errors[0].Message)
+	}
+
+	return nil
 }
 
 // listPullRequests reads one page of a repository's pullRequests connection, whichever query

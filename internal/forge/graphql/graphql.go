@@ -260,9 +260,9 @@ func pathOf(address string) string {
 	return parsed.RequestURI()
 }
 
-// OperationOf is the name a query was written with.
+// OperationOf is the name a query or mutation was written with.
 func OperationOf(operation string) string {
-	name, _, _ := strings.Cut(strings.TrimPrefix(operation, "query "), "(")
+	name, _, _ := strings.Cut(strings.TrimPrefix(strings.TrimPrefix(operation, "query "), "mutation "), "(")
 	name, _, _ = strings.Cut(name, " ")
 
 	return name

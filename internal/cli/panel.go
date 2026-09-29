@@ -18,6 +18,7 @@ import (
 	"komrad/internal/version"
 	"komrad/lib/xhttp"
 	"komrad/proto/gen/agent/v1/agentv1connect"
+	"komrad/proto/gen/forge/v1/forgev1connect"
 	"komrad/proto/gen/git/v1/gitv1connect"
 	"komrad/proto/gen/hook/v1/hookv1connect"
 	"komrad/proto/gen/log/v1/logv1connect"
@@ -117,6 +118,7 @@ Use ` + "`komrad open`" + ` to bring the panel up.`,
 			hookClient := hookv1connect.NewHookServiceClient(httpClient, base)
 			worktreeClient := worktreev1connect.NewWorktreeServiceClient(httpClient, base)
 			logClient := logv1connect.NewLogServiceClient(httpClient, base)
+			forgeClient := forgev1connect.NewForgeServiceClient(httpClient, base)
 			watchClient := watchv1connect.NewWatchServiceClient(httpClient, base)
 
 			state.session.SilenceStatus(agents.ManagerSession)
@@ -141,6 +143,7 @@ Use ` + "`komrad open`" + ` to bring the panel up.`,
 				Hooks:           hookClient,
 				Worktrees:       worktreeClient,
 				Logs:            logClient,
+				Forges:          forgeClient,
 				Watch:           watchClient,
 				Layout:          state.layout,
 				Engine:          remote,

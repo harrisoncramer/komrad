@@ -18,6 +18,7 @@ import (
 	"komrad/internal/forge"
 	"komrad/internal/forge/graphql"
 	"komrad/internal/git"
+	"komrad/lib/xhttp"
 	"komrad/lib/xptr"
 )
 
@@ -337,6 +338,31 @@ func (f *Forge) Get(ctx context.Context, address string) (forge.PullRequest, err
 	}
 
 	return data.Project.MergeRequest.toPullRequest(false), nil
+}
+
+// Merge accepts the merge request over REST, which merges the way the project is set to.
+func (f *Forge) Merge(ctx context.Context, address string) error {
+	path, number, err := parseMergeRequestURL(address)
+	if err != nil {
+		return err
+	}
+
+	answer, err := f.client.Send(ctx, xhttp.JSONParams{
+		Method: http.MethodPut,
+		URL:    fmt.Sprintf("%s/projects/%s/merge_requests/%d/merge", f.client.API(), url.PathEscape(path), number),
+	}, nil)
+	if answer.Status == http.StatusNotFound {
+		return fmt.Errorf("%w: gitlab has no merge request %d in %s, which is also its answer for a project the credential cannot see", forge.ErrNotFound, number, path)
+	}
+	if err != nil {
+		if answer.Status >= http.StatusBadRequest && answer.Status < http.StatusInternalServerError && fail.Of(err) == nil {
+			return forge.ErrNotMergeable.Saying("gitlab refused to merge %s: %s", address, err)
+		}
+
+		return err
+	}
+
+	return nil
 }
 
 // Standings reads where the reviews and the head pipeline of up to fifty merge requests stand,

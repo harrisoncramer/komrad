@@ -59,21 +59,22 @@ func (f *fakeAuth) Invalidate(context.Context) error {
 // call is one request the fake GitLab saw.
 type call struct {
 	Path      string
+	Method    string
 	Operation string
 	Query     string
 	Variables map[string]any
 	Header    http.Header
 }
 
-// answer is what the fake GitLab says to one operation.
+// answer is what the fake GitLab says to one operation or REST path.
 type answer struct {
 	status int
 	header map[string]string
 	body   string
 }
 
-// fakeGitLab answers each named GraphQL operation with one body, or whatever handle says when
-// it is set, and records every request it saw.
+// fakeGitLab answers each named GraphQL operation, and each REST path, with one body, or
+// whatever handle says when it is set, and records every request it saw.
 type fakeGitLab struct {
 	answers map[string]answer
 	handle  func(seen call) (answer, bool)
@@ -81,7 +82,8 @@ type fakeGitLab struct {
 }
 
 func (g *fakeGitLab) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	seen := call{Path: r.URL.Path, Header: r.Header}
+	seen := call{Path: r.URL.EscapedPath(), Method: r.Method, Header: r.Header}
+	key := seen.Path
 	if r.URL.Path == "/graphql" {
 		var posted struct {
 			Query     string         `json:"query"`
@@ -91,14 +93,15 @@ func (g *fakeGitLab) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		seen.Operation = graphql.OperationOf(posted.Query)
 		seen.Query = posted.Query
 		seen.Variables = posted.Variables
+		key = seen.Operation
 	}
 	g.calls = append(g.calls, seen)
 
-	reply, ok := g.answers[seen.Operation]
+	reply, ok := g.answers[key]
 	if g.handle != nil {
 		reply, ok = g.handle(seen)
 	}
-	if !ok || seen.Path != "/graphql" {
+	if !ok {
 		http.NotFound(w, r)
 
 		return
@@ -408,6 +411,54 @@ func TestGet(t *testing.T) {
 	assert.Equal(t, 256485, pullRequest.Number)
 	assert.Equal(t, "Draft: feat(reports): one template for the blockers page", pullRequest.Title)
 	assert.Equal(t, map[string]any{"path": "acme/widgets", "iid": "256485"}, fake.last(t).Variables)
+}
+
+// TestMerge covers accepting a merge request over REST and GitLab's refusals.
+func TestMerge(t *testing.T) {
+	t.Parallel()
+
+	const (
+		address = "https://gitlab.com/harrisoncramer/komrad/-/merge_requests/7"
+		path    = "/projects/harrisoncramer%2Fkomrad/merge_requests/7/merge"
+	)
+
+	tests := []struct {
+		name    string
+		answers map[string]answer
+		wantErr error
+	}{
+		{
+			name:    "the merge request is accepted",
+			answers: map[string]answer{path: {body: `{"iid":7,"state":"merged"}`}},
+		},
+		{
+			name:    "a merge request gitlab will not merge",
+			answers: map[string]answer{path: {status: http.StatusMethodNotAllowed, body: `{"message":"405 Method Not Allowed"}`}},
+			wantErr: forge.ErrNotMergeable,
+		},
+		{
+			name:    "a merge request gitlab does not have",
+			wantErr: forge.ErrNotFound,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			f, _, fake := serve(t, tt.answers)
+
+			err := f.Merge(t.Context(), address)
+			assert.Equal(t, http.MethodPut, fake.last(t).Method)
+			assert.Equal(t, path, fake.last(t).Path)
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+
+				return
+			}
+			require.NoError(t, err)
+		})
+	}
 }
 
 // TestGetRefusesWhatIsNotAMergeRequest covers the addresses Get will not ask GitLab about.

@@ -145,6 +145,8 @@ type Keybindings struct {
 	Help HelpKeys `mapstructure:"help"`
 	// The git menu, nested under the menu on the hovered row, and the actions inside it.
 	Git GitKeys `mapstructure:"git"`
+	// The merge menu, nested under the git menu, which merges the hovered agent's pull request.
+	Merge MergeKeys `mapstructure:"merge"`
 	// The logs screen, which tails what the service logged about one agent.
 	Logs LogsKeys `mapstructure:"logs"`
 	// The pair of keys that move between the sidebar, the staged agent and the details.
@@ -353,6 +355,9 @@ type MarksKeys struct {
 // GitKeys are the bindings for the git menu, which opens from the menu on the hovered agent and
 // holds the actions that act on its branch.
 type GitKeys struct {
+	// Open the merge menu to the right of this one, for merging the hovered agent's pull request
+	// on the forge and archiving the agent after.
+	Merge []string `mapstructure:"merge" default:"m"`
 	// Open the hovered agent's current pull request in your browser: the newest one opened from
 	// its branch that is not finished, else the newest finished one. The entry says so rather
 	// than acting on an agent with none.
@@ -360,6 +365,14 @@ type GitKeys struct {
 	// Bring the hovered agent's worktree up to date on the latest base, which asks first and
 	// says what it would do to the branch and to the files.
 	Rebase []string `mapstructure:"rebase" default:"r"`
+}
+
+// MergeKeys are the bindings for the merge menu, which opens from the git menu.
+type MergeKeys struct {
+	// Merge the pull request and leave the agent where it is.
+	Merge []string `mapstructure:"merge" default:"m"`
+	// Merge the pull request, then archive the agent once the forge has merged it.
+	MergeArchive []string `mapstructure:"merge_archive" default:"a"`
 }
 
 // MenuKeys are the bindings for the menu on the hovered row, which lists the screens that belong
@@ -380,8 +393,8 @@ type MenuKeys struct {
 	// keyboard to the one already rooted there. The entry is gray in the archive and on an agent
 	// with no directory.
 	Terminal []string `mapstructure:"terminal" default:"t"`
-	// Open the git menu to the right of this one, for rebasing the agent's branch or opening its
-	// pull request.
+	// Open the git menu to the right of this one, for rebasing the agent's branch or opening or
+	// merging its pull request.
 	Git []string `mapstructure:"git" default:"g"`
 }
 

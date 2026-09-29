@@ -129,6 +129,14 @@ message ForgePullRequest {
   optional string closed_at = 17;
 }
 
+message MergeForgePullRequestRequest {
+  // The pull request's web address, whose host picks the forge connection.
+  string url = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 2048
+  }];
+}
+
 message ListForgePullRequestsResponse {
   // One page of pull requests, as the forge orders them.
   repeated ForgePullRequest pull_requests = 1;
@@ -173,6 +181,15 @@ service ForgeService {
       name: "list_forge_pull_requests"
       description: "List a repository's pull requests through the forge connection for its host, a page at a time: every one opened from a branch when one is named, whatever its state, or the open ones when none is. Give the repository as a git remote spells it, and pass the next_page_token back as pagination.cursor for the next page. A repository the connection's credential cannot see is answered as not found, which is also what a repository that does not exist answers. This asks the forge itself; list_pull_requests reads what komrad has stored."
       roles: [ROLE_ORCHESTRATOR]
+    };
+  }
+  rpc MergeForgePullRequest(MergeForgePullRequestRequest) returns (google.protobuf.Empty) {
+    option (annotation.v1.surfaces) = {
+      cli: true
+      mcp: false
+      name: "merge_forge_pull_request"
+      description: "Merge a pull request through the forge connection for its host, the way the repository merges by default. A pull request the forge will not merge, because of its checks, its reviews, its branch rules or a conflict, is refused as failed_precondition with what the forge said."
+      reason: "Landing work on the base is for a person to decide."
     };
   }
   rpc DisconnectForge(DisconnectForgeRequest) returns (google.protobuf.Empty) {

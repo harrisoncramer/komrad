@@ -375,6 +375,60 @@ func TestGet(t *testing.T) {
 	assert.Equal(t, map[string]any{"owner": "harrisoncramer", "name": "komrad", "number": float64(742)}, fake.last(t).Variables)
 }
 
+// TestMerge covers merging with the repository's default method and GitHub's refusals.
+func TestMerge(t *testing.T) {
+	t.Parallel()
+
+	const address = "https://github.com/harrisoncramer/komrad/pull/742"
+	target := answer{body: data(`{"repository":{"viewerDefaultMergeMethod":"SQUASH","pullRequest":{"id":"PR_742"}}}`)}
+
+	tests := []struct {
+		name    string
+		answers map[string]answer
+		wantErr error
+	}{
+		{
+			name: "the pull request merges with the method the repository defaults to",
+			answers: map[string]answer{
+				"MergeTarget": target,
+				"Merge":       {body: data(`{"mergePullRequest":{"clientMutationId":null}}`)},
+			},
+		},
+		{
+			name: "a pull request github will not merge",
+			answers: map[string]answer{
+				"MergeTarget": target,
+				"Merge":       {body: `{"data":{"mergePullRequest":null},"errors":[{"type":"UNPROCESSABLE","path":["mergePullRequest"],"message":"Pull Request is not mergeable"}]}`},
+			},
+			wantErr: forge.ErrNotMergeable,
+		},
+		{
+			name: "a pull request github does not have",
+			answers: map[string]answer{
+				"MergeTarget": {body: data(`{"repository":{"viewerDefaultMergeMethod":"MERGE","pullRequest":null}}`)},
+			},
+			wantErr: forge.ErrNotFound,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			f, _, fake := serve(t, tt.answers)
+
+			err := f.Merge(t.Context(), address)
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, map[string]any{"id": "PR_742", "method": "SQUASH"}, fake.last(t).Variables)
+		})
+	}
+}
+
 // TestGetRefusesWhatIsNotAPullRequest covers the addresses Get will not ask GitHub about.
 func TestGetRefusesWhatIsNotAPullRequest(t *testing.T) {
 	t.Parallel()

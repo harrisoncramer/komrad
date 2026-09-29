@@ -22,6 +22,7 @@ import (
 	"komrad/lib/xslice"
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
+	"komrad/proto/gen/forge/v1/forgev1connect"
 	"komrad/proto/gen/hook/v1/hookv1connect"
 	"komrad/proto/gen/log/v1/logv1connect"
 	paginationv1 "komrad/proto/gen/pagination/v1"
@@ -98,6 +99,7 @@ type panelRemote struct {
 	hooks     hookv1connect.HookServiceClient
 	worktrees worktreev1connect.WorktreeServiceClient
 	logs      logv1connect.LogServiceClient
+	forges    forgev1connect.ForgeServiceClient
 }
 
 type request struct {
@@ -218,6 +220,7 @@ func newPanelHarness(t *testing.T, params panelHarnessParams) *panelHarness {
 	mux.Handle(hookv1connect.NewHookServiceHandler(hookv1connect.UnimplementedHookServiceHandler{}, interceptors))
 	mux.Handle(worktreev1connect.NewWorktreeServiceHandler(worktreev1connect.UnimplementedWorktreeServiceHandler{}, interceptors))
 	mux.Handle(logv1connect.NewLogServiceHandler(logv1connect.UnimplementedLogServiceHandler{}, interceptors))
+	mux.Handle(forgev1connect.NewForgeServiceHandler(forgev1connect.UnimplementedForgeServiceHandler{}, interceptors))
 
 	server := httptest.NewServer(mux)
 	t.Cleanup(server.Close)
@@ -231,6 +234,7 @@ func newPanelHarness(t *testing.T, params panelHarnessParams) *panelHarness {
 			hooks:     hookv1connect.NewHookServiceClient(server.Client(), server.URL),
 			worktrees: worktreev1connect.NewWorktreeServiceClient(server.Client(), server.URL),
 			logs:      logv1connect.NewLogServiceClient(server.Client(), server.URL),
+			forges:    forgev1connect.NewForgeServiceClient(server.Client(), server.URL),
 		}
 	}
 
@@ -264,6 +268,7 @@ func newPanelHarness(t *testing.T, params panelHarnessParams) *panelHarness {
 			Schedules:       remote.schedules,
 			Hooks:           remote.hooks,
 			Worktrees:       remote.worktrees,
+			Forges:          remote.forges,
 			Logs:            remote.logs,
 			Git:             reviewGit,
 			Keys:            keys,

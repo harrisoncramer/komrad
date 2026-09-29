@@ -69,6 +69,14 @@ func ValidateKeybindings(keys config.Keybindings) error {
 	if err := validateSubmenuKeys("git menu", []submenuKeys{
 		{name: "rebase", keys: keys.Git.Rebase},
 		{name: "open_pull_request", keys: keys.Git.OpenPullRequest},
+		{name: "merge", keys: keys.Git.Merge},
+	}); err != nil {
+		return err
+	}
+
+	if err := validateSubmenuKeys("merge menu", []submenuKeys{
+		{name: "merge", keys: keys.Merge.Merge},
+		{name: "merge_archive", keys: keys.Merge.MergeArchive},
 	}); err != nil {
 		return err
 	}

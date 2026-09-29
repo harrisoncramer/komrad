@@ -477,6 +477,13 @@
           "description": "The git menu, nested under the menu on the hovered row, and the actions inside it.",
           "settings": [
             {
+              "key": "merge",
+              "path": "keybindings.git.merge",
+              "type": "array",
+              "description": "Open the merge menu to the right of this one, for merging the hovered agent's pull request\non the forge and archiving the agent after.",
+              "default": "[\"m\"]"
+            },
+            {
               "key": "open_pull_request",
               "path": "keybindings.git.open_pull_request",
               "type": "array",
@@ -489,6 +496,27 @@
               "type": "array",
               "description": "Bring the hovered agent's worktree up to date on the latest base, which asks first and\nsays what it would do to the branch and to the files.",
               "default": "[\"r\"]"
+            }
+          ],
+          "sections": []
+        },
+        {
+          "path": "keybindings.merge",
+          "description": "The merge menu, nested under the git menu, which merges the hovered agent's pull request.",
+          "settings": [
+            {
+              "key": "merge",
+              "path": "keybindings.merge.merge",
+              "type": "array",
+              "description": "Merge the pull request and leave the agent where it is.",
+              "default": "[\"m\"]"
+            },
+            {
+              "key": "merge_archive",
+              "path": "keybindings.merge.merge_archive",
+              "type": "array",
+              "description": "Merge the pull request, then archive the agent once the forge has merged it.",
+              "default": "[\"a\"]"
             }
           ],
           "sections": []
@@ -900,7 +928,7 @@
               "key": "git",
               "path": "keybindings.menu.git",
               "type": "array",
-              "description": "Open the git menu to the right of this one, for rebasing the agent's branch or opening its\npull request.",
+              "description": "Open the git menu to the right of this one, for rebasing the agent's branch or opening or\nmerging its pull request.",
               "default": "[\"g\"]"
             }
           ],
