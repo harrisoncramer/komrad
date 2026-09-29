@@ -305,8 +305,7 @@ func TestRebaseMovesTheBranch(t *testing.T) {
 	}
 }
 
-// TestRebaseWakesTheCheckoutSyncWhenTheReplayFails covers a replay that failed part-way, which
-// may still have moved the checkout.
+// TestRebaseWakesTheCheckoutSyncWhenTheReplayFails covers a replay that failed part-way.
 func TestRebaseWakesTheCheckoutSyncWhenTheReplayFails(t *testing.T) {
 	fixture := newRebaseFixture(t)
 	agent := fixture.seed(t, agentstore.Agent{})
