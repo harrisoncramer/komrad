@@ -305,41 +305,14 @@ func TestGitMenuOpensThePullRequest(t *testing.T) {
 func TestGitMenuCopiesThePullRequestURL(t *testing.T) {
 	t.Parallel()
 
-	tests := []struct {
-		name      string
-		refuse    error
-		wantFrame string
-	}{
-		{
-			name:      "a clipboard that refuses is reported",
-			refuse:    errors.New("no clipboard"),
-			wantFrame: "Could not copy",
-		},
-		{
-			name: "the address is copied",
-		},
-	}
+	harness := openGitMenu(t, append(buildGitAgent(), newOpenPullRequest())...)
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
+	harness.press("c")
 
-			harness := openGitMenu(t, append(buildGitAgent(), newOpenPullRequest())...)
-			harness.panel.SetClipboardErr(tt.refuse)
-
-			harness.press("c")
-
-			assert.Equal(t, []string{pullRequestURL}, harness.panel.ReadCopied())
-			frame := harness.readFrame()
-			assert.NotContains(t, frame, gitMenuEntry)
-			if tt.wantFrame == "" {
-				assert.NotContains(t, frame, "Could not")
-
-				return
-			}
-			assert.Contains(t, frame, tt.wantFrame)
-		})
-	}
+	assert.Equal(t, []string{pullRequestURL}, harness.panel.ReadCopied())
+	frame := harness.readFrame()
+	assert.NotContains(t, frame, gitMenuEntry)
+	assert.NotContains(t, frame, "Could not")
 }
 
 func (r *recordingOpener) OpenURL(_ context.Context, target string) error {

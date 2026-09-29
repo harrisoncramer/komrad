@@ -192,8 +192,7 @@ toggle = ["?"]
 
 # The git menu, nested under the menu on the hovered row, and the actions inside it.
 [keybindings.git]
-# Copy the address of the hovered agent's current pull request to your clipboard, the same
-# one the open entry would open.
+# Copy the address of the hovered agent's current pull request to your clipboard.
 copy_pull_request_url = ["c"]
 # Open the merge menu to the right of this one, for merging the hovered agent's pull request
 # on the forge and archiving the agent after.

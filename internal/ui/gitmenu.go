@@ -62,7 +62,7 @@ func rebaseRefusal(l listing, from screen, agent panel.Agent) error {
 	return nil
 }
 
-// pullRequestRefusal is why an agent with no current pull request has none to open.
+// pullRequestRefusal is why an agent has no current pull request.
 func pullRequestRefusal(item panel.AgentRow) error {
 	switch {
 	case item.PullRequest.State != pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE:
