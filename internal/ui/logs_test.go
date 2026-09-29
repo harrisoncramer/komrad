@@ -556,12 +556,26 @@ func lastStageRow(frame string) string {
 	return ""
 }
 
+const settle = "<settle>"
+
+func pressSettling(harness *panelHarness, presses ...string) {
+	for _, press := range presses {
+		if press == settle {
+			harness.fireTimers()
+
+			continue
+		}
+		harness.press(press)
+	}
+}
+
 // TestLogsLineFilter covers the pattern typed at the foot of the log narrowing the lines the
 // server reads, and the keys moving between the prompt, the lines and the list.
 func TestLogsLineFilter(t *testing.T) {
 	t.Parallel()
 
 	typed := []string{"ctrl+a", "/", "s", "e", "c", "o", "n", "d"}
+	settled := append(slices.Clone(typed), settle)
 
 	tests := []struct {
 		name     string
@@ -572,22 +586,22 @@ func TestLogsLineFilter(t *testing.T) {
 	}{
 		{
 			name:     "typing narrows the log to the lines the pattern matches",
-			presses:  typed,
+			presses:  settled,
 			want:     []string{"second line"},
 			notWant:  []string{"first line"},
 			wantLast: serviceReadMatching("(?i)second", ""),
 		},
 		{
 			name:     "an upper-case letter makes the pattern match case",
-			presses:  []string{"ctrl+a", "/", "S"},
+			presses:  []string{"ctrl+a", "/", "S", settle},
 			wantLast: serviceReadMatching("S", ""),
 		},
 		{
 			name:     "a broken pattern reads nothing and keeps the lines",
-			presses:  append(slices.Clone(typed), "("),
+			presses:  append(slices.Clone(settled), "(", settle),
 			want:     []string{"second line", "▽ second("},
 			notWant:  []string{"first line"},
-			wantLast: serviceReadMatching("(?i)second", ""),
+			wantLast: serviceReadMatching("(?i)second", "10"),
 		},
 		{
 			name:     "esc on the lines clears a standing filter",
@@ -631,7 +645,7 @@ func TestLogsLineFilter(t *testing.T) {
 			t.Parallel()
 
 			harness := openLogs(t, filteredTailOfTwo())
-			harness.press(tt.presses...)
+			pressSettling(harness, tt.presses...)
 
 			stage := readStageText(harness.readFrame())
 			assert.Equal(t, logsScreen, harness.readScreen())
@@ -695,12 +709,50 @@ func TestLogsLineFilter(t *testing.T) {
 		reads := filteredTailOfTwo()
 		reads["service~(?i)s@"] = &logv1.ReadAgentLogsResponse{Lines: []string{`{"body":"stale line"}`}, Cursor: "10"}
 		harness := openLogs(t, reads)
-		harness.press("ctrl+a", "/")
 		harness.hold(read)
-		harness.press("s", "e")
+		harness.press("ctrl+a", "/", "s")
+		harness.fireTimers()
+		harness.press("e", "c", "o", "n", "d")
+		harness.fireTimers()
+		for len(harness.parked) > 0 {
+			harness.release(read)
+		}
+
+		stage := readStageText(harness.readFrame())
+		assert.NotContains(t, stage, "stale line")
+		assert.Contains(t, stage, "second line")
+	})
+
+	t.Run("a pattern typed in one go is read once", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openLogs(t, filteredTailOfTwo())
+		pressSettling(harness, settled...)
+
+		narrowed := slices.DeleteFunc(harness.readSent(logv1connect.LogServiceReadAgentLogsProcedure), func(sent proto.Message) bool {
+			read, _ := sent.(*logv1.ReadAgentLogsRequest)
+
+			return read.GetPattern() == ""
+		})
+		assert.Len(t, narrowed, 1)
+	})
+
+	t.Run("keys pressed while a cleared filter is read again stay on the lines", func(t *testing.T) {
+		t.Parallel()
+
+		read := logv1connect.LogServiceReadAgentLogsProcedure
+		harness := openLogs(t, filteredTailOfTwo())
+		pressSettling(harness, append(slices.Clone(settled), "enter")...)
+		harness.hold(read)
+		harness.press("esc", "j")
 		harness.release(read)
 
-		assert.NotContains(t, readStageText(harness.readFrame()), "stale line")
+		stage := readStageText(harness.readFrame())
+		assert.Contains(t, stage, "first line")
+		assert.NotContains(t, stage, "error: port 5470 already allocated")
+		assert.False(t, slices.ContainsFunc(harness.readSent(read), func(sent proto.Message) bool {
+			return proto.Equal(logRead(provisionRun, ""), sent)
+		}), "the source under the list stays the one being read")
 	})
 }
 

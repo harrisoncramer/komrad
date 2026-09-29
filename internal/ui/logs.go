@@ -26,6 +26,7 @@ const (
 	logsCeiling = 5000
 	// logsPollInterval is how long the screen waits after a read before asking again.
 	logsPollInterval = time.Second
+	logsFilterSettle = 300 * time.Millisecond
 )
 
 // logsScreen lists where one agent's logs can be read from and draws the newest lines of the
@@ -50,6 +51,8 @@ type logsScreen struct {
 	// logFilter is the pattern typed at the foot of the log, and pattern is the one the block was read with.
 	logFilter filterState
 	pattern   string
+	edits     int
+	replacing bool
 }
 
 // logSourceRow is one line of the list of log sources.
@@ -79,6 +82,11 @@ type logsReadMsg struct {
 // logsTickMsg is the wait between two reads run out.
 type logsTickMsg struct {
 	generation int
+}
+
+type logsSettledMsg struct {
+	generation int
+	edits      int
 }
 
 // enter starts over on the agent the target names, listing where its logs can be read from.
@@ -177,9 +185,10 @@ func (m *model) applyLogsRead(msg logsReadMsg) tea.Cmd {
 		return l.tickCmd()
 	}
 
-	if msg.resp.GetReset_() {
+	if msg.resp.GetReset_() || l.replacing {
 		l.viewer.Reset()
 	}
+	l.replacing = false
 	l.viewer.Append(msg.resp.GetLines())
 	l.cursor, l.read = msg.resp.GetCursor(), true
 
@@ -226,7 +235,14 @@ func (l *logsScreen) switchSource(s panelShared) tea.Cmd {
 func (l *logsScreen) restart(s panelShared) tea.Cmd {
 	l.generation++
 	l.viewer.Reset()
-	l.cursor, l.read, l.err = "", false, nil
+	l.cursor, l.read, l.err, l.replacing = "", false, nil, false
+
+	return l.readCmd(s)
+}
+
+func (l *logsScreen) reread(s panelShared) tea.Cmd {
+	l.generation++
+	l.cursor, l.err, l.replacing = "", nil, true
 
 	return l.readCmd(s)
 }
@@ -237,8 +253,8 @@ func (l *logsScreen) openLogFilter() {
 	l.logFilter.mode = filterModeFilter
 }
 
-// updateLogFilter is the prompt at the foot of the log taking keys, reading the log over each time
-// the pattern changes into one that compiles.
+// updateLogFilter is the prompt at the foot of the log taking keys, reading the log over once the
+// pattern sits still or the prompt is left.
 func (l *logsScreen) updateLogFilter(h host, s panelShared, key tea.KeyPressMsg) tea.Cmd {
 	if key.String() == "ctrl+c" {
 		return h.hide()
@@ -248,8 +264,23 @@ func (l *logsScreen) updateLogFilter(h host, s panelShared, key tea.KeyPressMsg)
 		return nil
 	}
 	l.logFilter.mode = filterModeFilter
+	if !l.logFilter.typing {
+		return l.narrow(s)
+	}
 
-	return l.narrow(s)
+	l.edits++
+	generation, edits := l.generation, l.edits
+
+	return tea.Tick(logsFilterSettle, func(time.Time) tea.Msg { return logsSettledMsg{generation: generation, edits: edits} })
+}
+
+func (m *model) applyLogsSettled(msg logsSettledMsg) tea.Cmd {
+	l := &m.logs
+	if msg.generation != l.generation || msg.edits != l.edits {
+		return nil
+	}
+
+	return l.narrow(m.shared())
 }
 
 // narrow reads the log over with the pattern typed, unless it is broken or already the one read with.
@@ -268,7 +299,7 @@ func (l *logsScreen) narrow(s panelShared) tea.Cmd {
 
 	l.pattern = pattern
 
-	return l.restart(s)
+	return l.reread(s)
 }
 
 // clearLogFilter drops the pattern standing over the log and reads it whole again.
