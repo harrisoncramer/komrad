@@ -52,7 +52,7 @@ func TestFormsSubmit(t *testing.T) {
 		},
 		{
 			name:      "the new-agent form sends the workflow's directory and an overridden harness",
-			press:     slices.Concat([]string{"c"}, spellKeys("check CI"), []string{"enter"}, spellKeys("ci"), []string{"enter", "ctrl+u"}, spellKeys("codex"), []string{"ctrl+s"}),
+			press:     slices.Concat([]string{"c"}, spellKeys("check CI"), []string{"tab"}, spellKeys("ci"), []string{"tab", "ctrl+u"}, spellKeys("codex"), []string{"ctrl+s"}),
 			procedure: agentv1connect.AgentServiceCreateAgentProcedure,
 			want: &agentv1.CreateAgentRequest{
 				Prompt:     "check CI",
@@ -81,7 +81,7 @@ func TestFormsSubmit(t *testing.T) {
 		},
 		{
 			name: "the adopt form sends the ref and prompt into the workflow",
-			press: slices.Concat([]string{"a"}, spellKeys("https://github.com/acmecorp/admin/pull/1069"), []string{"enter"},
+			press: slices.Concat([]string{"a"}, spellKeys("https://github.com/acmecorp/admin/pull/1069"), []string{"tab"},
 				spellKeys("pick it up"), []string{"ctrl+s"}),
 			procedure: agentv1connect.AgentServiceAdoptProcedure,
 			want: &agentv1.AdoptRequest{
@@ -105,8 +105,8 @@ func TestFormsSubmit(t *testing.T) {
 		},
 		{
 			name: "the new-workflow form with no provisioner makes no worktrees",
-			press: slices.Concat([]string{"w"}, spellKeys("web"), []string{"enter"}, spellKeys("the frontend"), []string{"enter", "enter"},
-				spellKeys("/work/web"), []string{"enter"}, spellKeys("--model sonnet"), []string{"enter", "up", "ctrl+s"}),
+			press: slices.Concat([]string{"w"}, spellKeys("web"), []string{"tab"}, spellKeys("the frontend"), []string{"tab", "tab"},
+				spellKeys("/work/web"), []string{"tab"}, spellKeys("--model sonnet"), []string{"tab", "up", "ctrl+s"}),
 			procedure: workflowv1connect.WorkflowServiceCreateWorkflowProcedure,
 			want: &workflowv1.CreateWorkflowRequest{
 				Name:     "web",
@@ -118,9 +118,9 @@ func TestFormsSubmit(t *testing.T) {
 		},
 		{
 			name: "the new-workflow form with worktrees sends each path list without its blank lines",
-			press: slices.Concat([]string{"w"}, spellKeys("web"), []string{"enter", "enter", "enter", "enter", "enter", "enter"},
-				spellKeys("develop"), []string{"enter", "enter"}, spellKeys(".env"), []string{"ctrl+j", "ctrl+j"}, spellKeys("config/local.json"),
-				[]string{"enter"}, spellKeys("node_modules"), []string{"ctrl+s"}),
+			press: slices.Concat([]string{"w"}, spellKeys("web"), []string{"tab", "tab", "tab", "tab", "tab", "tab"},
+				spellKeys("develop"), []string{"tab", "tab"}, spellKeys(".env"), []string{"ctrl+j", "ctrl+j"}, spellKeys("config/local.json"),
+				[]string{"tab"}, spellKeys("node_modules"), []string{"ctrl+s"}),
 			procedure: workflowv1connect.WorkflowServiceCreateWorkflowProcedure,
 			want: &workflowv1.CreateWorkflowRequest{
 				Name: "web",
@@ -135,7 +135,7 @@ func TestFormsSubmit(t *testing.T) {
 		{
 			name:      "the workflow edit form sends the field edited and the ones that were not",
 			workflow:  newConfiguredWorkflow(),
-			press:     slices.Concat([]string{"e", "enter", "enter", "enter", "ctrl+u"}, spellKeys("/work/api-v2"), []string{"ctrl+s"}),
+			press:     slices.Concat([]string{"e", "tab", "tab", "tab", "ctrl+u"}, spellKeys("/work/api-v2"), []string{"ctrl+s"}),
 			procedure: workflowv1connect.WorkflowServiceUpdateWorkflowProcedure,
 			want: &workflowv1.UpdateWorkflowRequest{
 				Id:       "w1",
@@ -214,7 +214,7 @@ func TestFormsNewAgentWorktree(t *testing.T) {
 		},
 		{
 			name:  "choosing none is sent as an override rather than as nothing",
-			press: []string{"enter", "enter", "enter", "enter", "enter", "down"},
+			press: []string{"tab", "tab", "tab", "tab", "tab", "down"},
 			want:  proto.Bool(false),
 		},
 	}
@@ -467,6 +467,30 @@ func TestFormsKeys(t *testing.T) {
 		assert.Contains(t, harness.readFrame(), "Initial prompt")
 	})
 
+	t.Run("enter breaks a line in a text field rather than moving to the next field", func(t *testing.T) {
+		harness := openForms(t, newFormWorkflow(), newFormAuthor())
+
+		harness.press(slices.Concat([]string{"c"}, spellKeys("check CI"), []string{"enter"}, spellKeys("then fix it"), []string{"ctrl+s"})...)
+
+		sent := harness.readSent(agentv1connect.AgentServiceCreateAgentProcedure)
+		require.Len(t, sent, 1)
+		create, ok := sent[0].(*agentv1.CreateAgentRequest)
+		require.True(t, ok)
+		assert.Equal(t, "check CI\nthen fix it", create.GetPrompt())
+	})
+
+	t.Run("enter in an input leaves the cursor on it", func(t *testing.T) {
+		harness := openForms(t, newFormWorkflow(), newFormAuthor())
+
+		harness.press(slices.Concat([]string{"c", "tab"}, spellKeys("ci"), []string{"enter"}, spellKeys("-v2"), []string{"ctrl+s"})...)
+
+		sent := harness.readSent(agentv1connect.AgentServiceCreateAgentProcedure)
+		require.Len(t, sent, 1)
+		create, ok := sent[0].(*agentv1.CreateAgentRequest)
+		require.True(t, ok)
+		assert.Equal(t, "ci-v2", create.GetTitle())
+	})
+
 	t.Run("enter leaves a one-field form up too", func(t *testing.T) {
 		harness := openForms(t, newFormWorkflow(), newFormAuthor())
 
@@ -497,13 +521,13 @@ func TestFormsKeys(t *testing.T) {
 func TestFormsWorkflowProvisioner(t *testing.T) {
 	harness := openForms(t, newFormWorkflow(), newFormAuthor())
 
-	harness.press(slices.Concat([]string{"w"}, slices.Repeat([]string{"enter"}, 5))...)
+	harness.press(slices.Concat([]string{"w"}, slices.Repeat([]string{"tab"}, 5))...)
 	frame := harness.readFrame()
 	assert.Contains(t, frame, "None: agents keep the directory they are given", "neither option is hidden by the other being picked")
 	assert.Less(t, strings.Index(frame, "None: agents keep"), strings.Index(frame, "Worktree: a git worktree per agent"), "and the options keep their order")
 	assert.Contains(t, frame, "Worktree base branch", "worktree is the default, so its fields are already on screen")
 
-	harness.press(slices.Concat([]string{"enter", "enter", "enter"}, spellKeys(".env"), []string{"shift+tab", "shift+tab", "shift+tab", "up"})...)
+	harness.press(slices.Concat([]string{"tab", "tab", "tab"}, spellKeys(".env"), []string{"shift+tab", "shift+tab", "shift+tab", "up"})...)
 	frame = harness.readFrame()
 	assert.NotContains(t, frame, "Worktree base branch", "none provisions nothing, so it asks nothing about a worktree")
 	assert.Contains(t, frame, "Pre-launch hook", "the hooks are asked for whichever provisioner is chosen")
@@ -595,7 +619,7 @@ func TestFormsFieldEditor(t *testing.T) {
 	t.Run("the field under the cursor is written out for the editor", func(t *testing.T) {
 		harness := openFieldEditor(t)
 
-		harness.press("e", "enter", "ctrl+e")
+		harness.press("e", "tab", "ctrl+e")
 
 		draft, err := os.ReadFile(ui.FormFieldDraftPath("context"))
 		require.NoError(t, err)
@@ -619,7 +643,7 @@ func TestFormsFieldEditor(t *testing.T) {
 	}{
 		{
 			name:  "the context of a workflow that provisions nothing",
-			press: slices.Concat([]string{"w"}, spellKeys("web"), slices.Repeat([]string{"enter"}, 5), []string{"up", "shift+tab", "shift+tab", "shift+tab", "shift+tab"}),
+			press: slices.Concat([]string{"w"}, spellKeys("web"), slices.Repeat([]string{"tab"}, 5), []string{"up", "shift+tab", "shift+tab", "shift+tab", "shift+tab"}),
 			field: "context",
 			want: &workflowv1.CreateWorkflowRequest{
 				Name:     "web",
@@ -629,7 +653,7 @@ func TestFormsFieldEditor(t *testing.T) {
 		},
 		{
 			name:  "a list field of a workflow that makes worktrees",
-			press: slices.Concat([]string{"w"}, spellKeys("web"), slices.Repeat([]string{"enter"}, 8)),
+			press: slices.Concat([]string{"w"}, spellKeys("web"), slices.Repeat([]string{"tab"}, 8)),
 			field: "worktree_copy_paths",
 			want: &workflowv1.CreateWorkflowRequest{
 				Name: "web",
