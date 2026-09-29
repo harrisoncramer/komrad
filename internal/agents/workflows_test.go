@@ -934,7 +934,7 @@ func TestDeleteWorkflowLeavesAStragglerAndItsWorkflowBehind(t *testing.T) {
 
 	require.NoError(t, workflows.ArchiveWorkflow(ctx, created.ID))
 
-	require.Error(t, workflows.DeleteWorkflow(ctx, created.ID))
+	require.NoError(t, workflows.DeleteWorkflow(ctx, created.ID))
 
 	got, err := st.Workflows.GetIncludingArchived(ctx, created.ID)
 	require.NoError(t, err)

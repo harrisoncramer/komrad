@@ -52,6 +52,9 @@ func (w *DeleteAgentWorker) Work(ctx context.Context, job *river.Job[DeleteAgent
 	if errors.Is(err, agents.ErrChildDeleting) {
 		return river.JobSnooze(deleteAgentWait)
 	}
+	if errors.Is(err, agents.ErrTeardownFailed) {
+		return nil
+	}
 	if err == nil || job.Attempt < job.MaxAttempts {
 		return err
 	}

@@ -156,7 +156,7 @@ func (s *LifecycleService) deleteAgents(ctx context.Context, agents []agentstore
 		hooks[agent.ID] = agentHooks(ctx, s.workflows, agent)
 		if err := s.tearDown(ctx, agent, hooks[agent.ID]); err != nil {
 			s.failCleanup(context.WithoutCancel(ctx), agent, err)
-			failed = append(failed, fmt.Errorf("failed to tear down agent %s: %w", agent.ID, err))
+			failed = append(failed, fmt.Errorf("%w: agent %s: %w", ErrTeardownFailed, agent.ID, err))
 
 			continue
 		}
@@ -169,7 +169,7 @@ func (s *LifecycleService) deleteAgents(ctx context.Context, agents []agentstore
 	}
 
 	if err := s.removeAgents(ctx, agentstore.IDs(torn)); err != nil {
-		return errors.Join(append(failed, err)...)
+		return err
 	}
 
 	for _, agent := range torn {

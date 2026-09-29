@@ -29,6 +29,7 @@ var (
 	ErrTooManyChildren      = fail.Exhausted("too many children")
 	ErrTooManySpawned       = fail.Exhausted("too many spawned agents")
 	ErrChildDeleting        = fail.Precondition("a child is still being deleted by another delete")
+	ErrTeardownFailed       = fail.Internal("an agent's teardown failed")
 
 	// ErrChildNeedsParentDirectory says the agent a child was to be attached to has no directory
 	// recorded.

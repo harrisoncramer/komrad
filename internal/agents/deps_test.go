@@ -419,7 +419,16 @@ type inlineDelete struct {
 }
 
 func (d inlineDelete) DeleteAgents(ctx context.Context, ids []string) error {
-	return d.lifecycle.deleteNow(ctx, ids)
+	claims, err := d.lifecycle.agents.MarkDeleting(ctx, ids)
+	if err != nil {
+		return err
+	}
+
+	for _, root := range agentstore.ClaimRoots(claims) {
+		_ = d.lifecycle.DeleteAgent(ctx, root.ID, root.DeletingAt)
+	}
+
+	return nil
 }
 
 func seed(t *testing.T, st *testStore, name, pane string, state agentstore.State) agentstore.Agent {

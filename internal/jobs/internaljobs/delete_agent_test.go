@@ -3,6 +3,7 @@ package internaljobs
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -60,6 +61,11 @@ func TestDeleteAgentWorker(t *testing.T) {
 			attempt:    3,
 			wantErr:    true,
 			wantFailed: []string{"a1"},
+		},
+		{
+			name:      "a delete whose teardown failed is done, since the failure is already on the agent",
+			deleteErr: fmt.Errorf("%w: agent a1: worktree is dirty", agents.ErrTeardownFailed),
+			attempt:   1,
 		},
 		{
 			name:       "a delete waiting on a child's is snoozed, even on its last attempt",
