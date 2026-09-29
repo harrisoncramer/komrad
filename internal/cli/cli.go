@@ -147,6 +147,7 @@ the service, or call an endpoint from a script.`,
 
 	root.AddCommand(
 		doctorCmd(app),
+		setupCmd(app),
 		panelCmd(app),
 		openCmd(app),
 		attachCmd(app),
@@ -171,6 +172,7 @@ the service, or call an endpoint from a script.`,
 
 var commandsSurvivingBadConfig = map[string]bool{
 	"doctor":  true,
+	"setup":   true,
 	"version": true,
 	"panel":   true,
 }
