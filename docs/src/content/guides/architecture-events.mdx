@@ -46,6 +46,16 @@ The outside world does not send notifications. tmux does not say when an agent g
 
 For instance, the reconcile loop reads the bottom of each agent's pane and decides whether the agent is working, waiting, or idle. It reads the screen instead of trusting hooks, because a hook can be missed and a screen cannot lie. Other loops deliver mail, sync pull requests, and measure worktrees.
 
+### Waking a loop
+
+A timer alone makes komrad slow to notice its own work. When you merge a pull request from the panel, the pull request sync would not see it for up to a minute. So the service can wake a loop, which asks it to run now instead of at its next tick.
+
+A wake only says "look again". It never carries what changed, and there is no separate path that refreshes one agent or one pull request. The loop runs as it always does and finds the change itself. So a wake that is dropped costs nothing but time, and the timer still catches anything a wake missed.
+
+A few actions wake the loop that reads what they changed. A rebase wakes the loop that reads each checkout's branch and head. A merge wakes the pull request sync. An agent ending its turn wakes both the checkout loop and the transcript sync, since that is when an agent has most likely committed and written new turns.
+
+Wakes cannot run a loop harder than it can bear. Wakes that arrive before a run starts fold into one. Each loop also has a floor, the least time between two runs when the second was woken. The checkout loop's floor is five seconds, because turn ends are frequent and each run reads every live checkout. The pull request sync's is fifteen seconds, because each run costs requests to the forge.
+
 ## River
 
 Work that must happen later, or exactly once, goes through River, a job queue that lives in the same Postgres. Launching an agent for a schedule is a River job. So is deleting an agent, which claims the row as it queues the job, so pressing a key twice cannot queue the work twice. Each kind of job runs on a queue of its own, so a slow teardown never holds up a scheduled launch.
