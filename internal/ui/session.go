@@ -27,8 +27,8 @@ func NewSession(tmux sessionTmux, session string, cycleKeys []string) *Session {
 	return &Session{tmux: tmux, session: session, cycleKeys: cycleKeys}
 }
 
-// HoldCycleKeys takes the cycle keys for sidebar while an agent's pane is on the stage beside it,
-// or gives them back to the panes when there is none.
+// HoldCycleKeys takes the cycle keys for sidebar while a pane beside it is a stop, or gives them
+// back to the panes when there is none.
 func (s *Session) HoldCycleKeys(sidebar string, staged bool) {
 	switch {
 	case sidebar == "":
