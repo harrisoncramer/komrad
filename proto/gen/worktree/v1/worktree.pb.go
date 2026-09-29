@@ -197,8 +197,7 @@ type Worktree struct {
 	// Which delete path the directory takes.
 	Fate WorktreeFate `protobuf:"varint,11,opt,name=fate,proto3,enum=worktree.v1.WorktreeFate" json:"fate,omitempty"`
 	// The directory's share of size_bytes, each hard linked file's blocks split evenly across its
-	// links, so summing it over directories counts a file they share at most once. Unset with
-	// size_bytes.
+	// links. Unset with size_bytes.
 	ShareBytes    *int64 `protobuf:"varint,12,opt,name=share_bytes,json=shareBytes,proto3,oneof" json:"share_bytes,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -340,8 +339,7 @@ type WatchedWorktree struct {
 	// Why the last walk failed, empty when it did not.
 	SizeError string `protobuf:"bytes,8,opt,name=size_error,json=sizeError,proto3" json:"size_error,omitempty"`
 	// The directory's share of size_bytes, each hard linked file's blocks split evenly across its
-	// links, so summing it over directories counts a file they share at most once. Unset with
-	// size_bytes.
+	// links. Unset with size_bytes.
 	ShareBytes    *int64 `protobuf:"varint,9,opt,name=share_bytes,json=shareBytes,proto3,oneof" json:"share_bytes,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

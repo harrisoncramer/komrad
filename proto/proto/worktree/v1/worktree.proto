@@ -67,8 +67,7 @@ message Worktree {
   // Which delete path the directory takes.
   WorktreeFate fate = 11;
   // The directory's share of size_bytes, each hard linked file's blocks split evenly across its
-  // links, so summing it over directories counts a file they share at most once. Unset with
-  // size_bytes.
+  // links. Unset with size_bytes.
   optional int64 share_bytes = 12;
 }
 
@@ -93,8 +92,7 @@ message WatchedWorktree {
   // Why the last walk failed, empty when it did not.
   string size_error = 8;
   // The directory's share of size_bytes, each hard linked file's blocks split evenly across its
-  // links, so summing it over directories counts a file they share at most once. Unset with
-  // size_bytes.
+  // links. Unset with size_bytes.
   optional int64 share_bytes = 9;
 }
 
