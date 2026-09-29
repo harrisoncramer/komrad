@@ -1693,91 +1693,6 @@ func (q *Queries) LockAgentSlots(ctx context.Context) error {
 	return err
 }
 
-const markAgentArchivedIfUnchanged = `-- name: MarkAgentArchivedIfUnchanged :many
-WITH prior AS (
-    SELECT
-        agents.id,
-        agents.state IN ('thinking', 'waiting', 'uncertain', 'setting_up') AS unsettled,
-        agents.state IN ('thinking', 'waiting') AS unfinished
-    FROM
-        agents
-    WHERE
-        agents.id = $1
-        AND agents.archived_at IS NULL
-        AND agents.updated_at = $2
-    FOR UPDATE
-),
-freed AS (
-    DELETE FROM marks
-    WHERE marks.agent_id IN (
-            SELECT
-                prior.id
-            FROM
-                prior))
-UPDATE
-    agents a
-SET
-    archived_at = NOW(),
-    pane_id = '',
-    alive = FALSE,
-    state = CASE WHEN prior.unsettled THEN
-        'idle'
-    ELSE
-        a.state
-    END,
-    state_changed_at = CASE WHEN prior.unsettled THEN
-        NOW()
-    ELSE
-        a.state_changed_at
-    END,
-    state_seen_at = CASE WHEN prior.unsettled THEN
-        NOW()
-    ELSE
-        a.state_seen_at
-    END,
-    reported_reason = CASE WHEN prior.unsettled THEN
-        ''
-    ELSE
-        a.reported_reason
-    END,
-    interrupted_at = CASE WHEN prior.unfinished THEN
-        NOW()
-    ELSE
-        a.interrupted_at
-    END
-FROM
-    prior
-WHERE
-    a.id = prior.id
-RETURNING
-    a.id
-`
-
-type MarkAgentArchivedIfUnchangedParams struct {
-	ID        string
-	UpdatedAt time.Time
-}
-
-func (q *Queries) MarkAgentArchivedIfUnchanged(ctx context.Context, arg MarkAgentArchivedIfUnchangedParams) ([]string, error) {
-	rows, err := q.db.Query(ctx, markAgentArchivedIfUnchanged, arg.ID, arg.UpdatedAt)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []string
-	for rows.Next() {
-		var id string
-		if err := rows.Scan(&id); err != nil {
-			return nil, err
-		}
-		items = append(items, id)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const markAgentSettingUpIfFailedToCreate = `-- name: MarkAgentSettingUpIfFailedToCreate :many
 UPDATE
     agents
@@ -2368,21 +2283,6 @@ func (q *Queries) RenameAgent(ctx context.Context, arg RenameAgentParams) ([]str
 		return nil, err
 	}
 	return items, nil
-}
-
-const restampAgentsArchived = `-- name: RestampAgentsArchived :exec
-UPDATE
-    agents
-SET
-    archived_at = NOW()
-WHERE
-    id = ANY ($1::uuid[])
-    AND archived_at IS NOT NULL
-`
-
-func (q *Queries) RestampAgentsArchived(ctx context.Context, ids []string) error {
-	_, err := q.db.Exec(ctx, restampAgentsArchived, ids)
-	return err
 }
 
 const restoreAgents = `-- name: RestoreAgents :exec

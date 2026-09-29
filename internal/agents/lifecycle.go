@@ -2,7 +2,6 @@ package agents
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -36,8 +35,6 @@ type lifecycleAgentReadWriter interface {
 	childLister
 	ListByID(ctx context.Context, ids []string) ([]agentstore.Agent, error)
 	Archive(ctx context.Context, ids []string) ([]agentstore.AgentPane, error)
-	ArchiveIfUnchanged(ctx context.Context, params agentstore.ArchiveIfUnchangedParams) (bool, error)
-	RestampArchived(ctx context.Context, ids []string) error
 	ClearDeleting(ctx context.Context, ids []string) error
 }
 
@@ -312,68 +309,6 @@ func (s *LifecycleService) ArchiveAgents(ctx context.Context, ids []string) erro
 	})
 
 	return nil
-}
-
-// ArchiveUnchangedAgents archives the agents whose rows still read as the caller observed them
-// and returns the ones it archived.
-func (s *LifecycleService) ArchiveUnchangedAgents(ctx context.Context, observed []agentstore.Agent) ([]agentstore.Agent, error) {
-	var failures []error
-	var archived []agentstore.Agent
-
-	for _, agent := range observed {
-		applied, err := s.agents.ArchiveIfUnchanged(ctx, agentstore.ArchiveIfUnchangedParams{ID: agent.ID, UpdatedAt: agent.UpdatedAt})
-		if err != nil {
-			failures = append(failures, err)
-
-			continue
-		}
-		if applied {
-			archived = append(archived, agent)
-		}
-	}
-
-	children, err := s.archiveChildrenOf(ctx, archived)
-	if err != nil {
-		failures = append(failures, err)
-	}
-	archived = append(archived, children...)
-
-	killOwnedPanes(ctx, s.tmux, archived)
-
-	// The stamp stands for a CLI that is already dead.
-	if err := s.agents.RestampArchived(ctx, agentstore.IDs(archived)); err != nil {
-		failures = append(failures, err)
-	}
-
-	return archived, errors.Join(failures...)
-}
-
-// archiveChildrenOf takes the children of the agents a sweep archived, unconditionally where
-// the parents were not.
-func (s *LifecycleService) archiveChildrenOf(ctx context.Context, parents []agentstore.Agent) ([]agentstore.Agent, error) {
-	if len(parents) == 0 {
-		return nil, nil
-	}
-
-	children, err := s.agents.ListChildren(ctx, agentstore.IDs(parents))
-	if err != nil {
-		return nil, err
-	}
-
-	live := xslice.Filter(children, func(child agentstore.Agent) bool { return child.ArchivedAt == nil })
-	if len(live) == 0 {
-		return nil, nil
-	}
-
-	taken, err := s.agents.Archive(ctx, agentstore.IDs(live))
-	if err != nil {
-		return nil, fmt.Errorf("failed to archive the %d children of %d archived agents: %w", len(live), len(parents), err)
-	}
-	// A pane a child was resumed into between the read and the write only reaches here through
-	// what the write took off the rows.
-	killPanes(ctx, s.tmux, taken)
-
-	return live, nil
 }
 
 // RestoreAgents returns archived agents and their workflows to live listings.

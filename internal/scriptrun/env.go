@@ -59,7 +59,7 @@ func (s *ScriptService) ListHooks() ([]scripts.Script, error) {
 }
 
 func (s *ScriptService) find(name string) (scripts.Script, error) {
-	return scripts.Find(name, s.builtinDirs()...)
+	return scripts.Find(name, s.builtinDir)
 }
 
 // FindHook is the hook named name in the hooks directory or among the hooks komrad ships.
@@ -96,7 +96,7 @@ func (s *ScriptService) findShippedHook(name string) (scripts.Script, bool, erro
 		return scripts.Script{}, false, nil
 	}
 
-	shipped, err := scripts.Find(name, s.builtinDirs()...)
+	shipped, err := scripts.Find(name, s.builtinDir)
 	if errors.Is(err, scripts.ErrScriptNotFound) {
 		return scripts.Script{}, false, nil
 	}
@@ -114,11 +114,6 @@ func (s *ScriptService) hooksDir() (string, error) {
 	}
 
 	return cfg.GetHooksDir()
-}
-
-// builtinDirs is where the scripts komrad ships live.
-func (s *ScriptService) builtinDirs() []string {
-	return []string{s.builtinDir}
 }
 
 func (s *ScriptService) env(ctx context.Context, params scriptEnvParams) ([]string, error) {

@@ -49,15 +49,9 @@ func NewQueue(t *testing.T, stores *storetest.Stores, handlers ...events.Handler
 	return q
 }
 
-// InsertTx records one job alongside what before writes.
-func (q *Queue) InsertTx(ctx context.Context, args river.JobArgs, before func(tx pgx.Tx) error) error {
-	return q.InsertManyTx(ctx, func(tx pgx.Tx) ([]river.JobArgs, error) {
-		if before != nil {
-			if err := before(tx); err != nil {
-				return nil, err
-			}
-		}
-
+// InsertTx records one job and routes it.
+func (q *Queue) InsertTx(ctx context.Context, args river.JobArgs) error {
+	return q.InsertManyTx(ctx, func(pgx.Tx) ([]river.JobArgs, error) {
 		return []river.JobArgs{args}, nil
 	})
 }

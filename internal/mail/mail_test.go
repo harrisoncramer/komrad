@@ -125,12 +125,11 @@ func TestSendMailRefusals(t *testing.T) {
 	}
 }
 
-// TestSendMailRecordsWhoSentIt pins the sender an agent's mail, a person's, a schedule's and komrad's own each carry.
+// TestSendMailRecordsWhoSentIt pins the sender an agent's mail, a person's and a schedule's each carry.
 func TestSendMailRecordsWhoSentIt(t *testing.T) {
 	tests := []struct {
 		name         string
 		from         string
-		system       bool
 		schedule     string
 		reply        bool
 		wantFromID   bool
@@ -139,11 +138,6 @@ func TestSendMailRecordsWhoSentIt(t *testing.T) {
 		{
 			name:         "a person sending as nobody",
 			wantFromName: "",
-		},
-		{
-			name:         "komrad's own mail",
-			system:       true,
-			wantFromName: KomradSenderName,
 		},
 		{
 			name:         "a schedule sending for the person who wrote it",
@@ -187,8 +181,6 @@ func TestSendMailRecordsWhoSentIt(t *testing.T) {
 			var sent *mailstore.Mail
 			var err error
 			switch {
-			case tt.system:
-				sent, err = svc.SendSystemMail(t.Context(), recipient.ID, "your delegate was archived")
 			case tt.schedule != "":
 				sent, err = svc.SendScheduledMail(t.Context(), SendScheduledMailParams{
 					ToAgentID:    recipient.ID,
@@ -256,13 +248,7 @@ func TestSendMailLetsThroughWhatTheCapDoesNotStop(t *testing.T) {
 	tests := []struct {
 		name      string
 		exchanged int
-		system    bool
 	}{
-		{
-			name:      "komrad's own mail to an agent whose pair has reached the cap",
-			exchanged: 2,
-			system:    true,
-		},
 		{
 			name:      "a pair inside the cap",
 			exchanged: 1,
@@ -280,13 +266,6 @@ func TestSendMailLetsThroughWhatTheCapDoesNotStop(t *testing.T) {
 				Parent:   family["parent"],
 				Messages: tt.exchanged,
 			})
-
-			if tt.system {
-				_, err := svc.SendSystemMail(t.Context(), family["parent"].ID, "your delegate was archived")
-				require.NoError(t, err)
-
-				return
-			}
 
 			_, err := svc.SendMail(t.Context(), SendMailParams{
 				From:      family["child-one"].ID,
@@ -453,17 +432,6 @@ func TestFamilyMailGetsThrough(t *testing.T) {
 			assert.Equal(t, family[tt.to].ID, sent.ToAgentID)
 		})
 	}
-}
-
-// TestSystemMailReachesAChild pins that the family rule bounds what a child may do rather than what komrad may do to it.
-func TestSystemMailReachesAChild(t *testing.T) {
-	st := storetest.Open(t)
-	svc := newMailService(st, config.DefaultMaxExchange)
-	family := seedFamily(t, st)
-
-	sent, err := svc.SendSystemMail(t.Context(), family["child-one"].ID, "your parent was archived")
-	require.NoError(t, err)
-	assert.Equal(t, KomradSenderName, sent.FromName)
 }
 
 // TestSendFromKomradRefusesIncompleteMail pins that mail from komrad must say what it is and what it is about.
