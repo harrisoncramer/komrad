@@ -236,8 +236,13 @@ func formKeyMap(keys config.FormKeys) *huh.KeyMap {
 func multiFieldKeyMap(keys config.FormKeys) *huh.KeyMap {
 	submit := key.NewBinding(key.WithKeys(keys.Submit...), key.WithHelp(keyLabel(keys.Submit), "submit"))
 
+	next := key.NewBinding(key.WithKeys("tab"), key.WithHelp("tab", "next"))
+
 	km := formKeyMap(keys)
+	km.Input.Next = next
 	km.Input.Submit = submit
+	km.Text.Next = next
+	km.Text.NewLine = key.NewBinding(key.WithKeys("enter", "ctrl+j", "alt+enter"), key.WithHelp("enter", "new line"))
 	km.Text.Submit = submit
 	km.Select.Submit = submit
 	km.Confirm.Submit = submit

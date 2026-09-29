@@ -439,7 +439,7 @@ func TestSchedulesForm(t *testing.T) {
 		harness.press(widenListPresses...)
 		harness.press("c", "tab")
 		typeText(harness, "x")
-		harness.press("enter")
+		harness.press("tab")
 		typeText(harness, "0 9 * * *")
 		harness.press("ctrl+s")
 
@@ -467,7 +467,7 @@ func TestSchedulesForm(t *testing.T) {
 
 		harness.press("tab")
 		typeText(harness, "nightly")
-		harness.press("enter")
+		harness.press("tab")
 		typeText(harness, "0 9 * * *")
 		harness.press("ctrl+s")
 
@@ -490,7 +490,7 @@ func TestSchedulesForm(t *testing.T) {
 
 		harness.press("tab")
 		typeText(harness, "nightly")
-		harness.press("enter")
+		harness.press("tab")
 		typeText(harness, "0 9 * * *")
 		harness.press("ctrl+s")
 
@@ -508,9 +508,9 @@ func TestSchedulesForm(t *testing.T) {
 		harness.press(widenListPresses...)
 		harness.press("c", "tab")
 		typeText(harness, "nightly")
-		harness.press("enter")
+		harness.press("tab")
 		typeText(harness, "0 9 * * *")
-		harness.press("enter", "enter")
+		harness.press("tab", "tab")
 		typeText(harness, "check CI")
 		harness.press("shift+tab", "shift+tab", "shift+tab", "shift+tab", "down")
 		require.Contains(t, readStageText(harness.readFrame()), "› orchestrator  api")
