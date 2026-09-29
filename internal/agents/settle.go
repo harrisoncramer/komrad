@@ -8,7 +8,6 @@ import (
 	"komrad/internal/fail"
 	"komrad/internal/harness"
 	agentstore "komrad/internal/store/agent"
-	"komrad/lib/clock"
 )
 
 // settleBudget is how long komrad waits for an interrupted agent to come to rest before it gives
@@ -44,7 +43,7 @@ type Settler struct {
 func NewSettler(params NewSettlerParams) *Settler {
 	now := params.Clock
 	if now == nil {
-		now = clock.Now
+		now = time.Now
 	}
 
 	wait := params.Wait

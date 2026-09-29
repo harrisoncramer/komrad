@@ -9,7 +9,6 @@ import (
 	"komrad/internal/agents"
 	"komrad/internal/logging"
 	transcriptstore "komrad/internal/store/transcript"
-	"komrad/lib/clock"
 )
 
 const assistantRole = "assistant"
@@ -41,7 +40,7 @@ type TranscriptReader struct {
 func NewTranscriptReader(params NewTranscriptReaderParams) *TranscriptReader {
 	now := params.Clock
 	if now == nil {
-		now = clock.Now
+		now = time.Now
 	}
 
 	return &TranscriptReader{

@@ -16,7 +16,6 @@ import (
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
 	workflowstore "komrad/internal/store/workflow"
-	"komrad/lib/clock"
 )
 
 // interruptedPrompt is what a resumed agent is asked on the way back in.
@@ -218,7 +217,7 @@ func (s *ResumeService) resume(ctx context.Context, agent agentstore.Agent) erro
 	// A tmux server killed whole takes every pane and the reconciler's view of them at once, so
 	// the interrupted turn is stamped here rather than left to the reconciler.
 	if agent.InterruptedAt == nil && agent.State.IsTurnUnfinished() {
-		at := clock.Now()
+		at := time.Now()
 		if err := s.agents.SetInterruptedAtByID(ctx, agent.ID, &at); err != nil {
 			return fmt.Errorf("failed to record the cut-off turn for %q: %w", agent.Name, err)
 		}

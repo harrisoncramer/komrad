@@ -2,9 +2,9 @@ package jobs
 
 import (
 	"fmt"
+	"time"
 
 	"komrad/internal/jobs/internaljobs"
-	"komrad/lib/clock"
 
 	"github.com/riverqueue/river"
 )
@@ -36,7 +36,7 @@ func periodicJobFor(scheduleID string, cron river.PeriodicSchedule) *river.Perio
 	return river.NewPeriodicJob(
 		cron,
 		func() (river.JobArgs, *river.InsertOpts) {
-			return internaljobs.LaunchArgsFor(scheduleID, cron, clock.Now())
+			return internaljobs.LaunchArgsFor(scheduleID, cron, time.Now())
 		},
 		&river.PeriodicJobOpts{ID: scheduleID},
 	)

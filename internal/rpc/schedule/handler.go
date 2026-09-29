@@ -4,12 +4,12 @@ package schedule
 
 import (
 	"context"
+	"time"
 
 	"komrad/internal/fail"
 	"komrad/internal/rpc/render"
 	"komrad/internal/rpcerr"
 	"komrad/internal/schedules"
-	"komrad/lib/clock"
 	"komrad/lib/pagination"
 	"komrad/lib/xslice"
 	schedulev1 "komrad/proto/gen/schedule/v1"
@@ -62,7 +62,7 @@ func (s *Handler) ListSchedules(ctx context.Context, req *schedulev1.ListSchedul
 		return nil, rpcerr.From(err, "failed to list schedules")
 	}
 
-	now := clock.Now()
+	now := time.Now()
 
 	view := scheduleViewOptions(req.GetView())
 	resources := xslice.Map(page, func(stored schedulestore.Schedule) schedule { return renderSchedule(stored, now, view...) })
@@ -86,7 +86,7 @@ func (s *Handler) GetSchedule(ctx context.Context, req *schedulev1.GetScheduleRe
 	}
 
 	return &schedulev1.GetScheduleResponse{
-		Schedule: renderSchedule(*found, clock.Now()).Schedule,
+		Schedule: renderSchedule(*found, time.Now()).Schedule,
 	}, nil
 }
 
@@ -116,7 +116,7 @@ func (s *Handler) CreateSchedule(ctx context.Context, req *schedulev1.CreateSche
 	}
 
 	return &schedulev1.CreateScheduleResponse{
-		Schedule: renderSchedule(*created, clock.Now()).Schedule,
+		Schedule: renderSchedule(*created, time.Now()).Schedule,
 	}, nil
 }
 

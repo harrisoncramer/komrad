@@ -6,7 +6,6 @@ import (
 	"time"
 
 	agentstore "komrad/internal/store/agent"
-	"komrad/lib/clock"
 )
 
 const unrecognizedHoldLimit = 5
@@ -43,7 +42,7 @@ type trackedAgent struct {
 
 // newTally builds an empty tally over the wall clock.
 func newTally() *tally {
-	return &tally{tracked: map[string]trackedAgent{}, now: clock.Now}
+	return &tally{tracked: map[string]trackedAgent{}, now: time.Now}
 }
 
 // read is what earlier passes have accrued about an agent, the zero value standing for an agent

@@ -11,7 +11,6 @@ import (
 	"komrad/internal/forge"
 	"komrad/internal/rpcerr"
 	forgestore "komrad/internal/store/forge"
-	"komrad/lib/clock"
 	"komrad/lib/dates"
 	forgev1 "komrad/proto/gen/forge/v1"
 
@@ -38,7 +37,7 @@ type Handler struct {
 
 // NewHandler constructs the handler over the forge service.
 func NewHandler(forges connector) *Handler {
-	return &Handler{forges: forges, now: clock.Now}
+	return &Handler{forges: forges, now: time.Now}
 }
 
 // ConnectForge proves a credential against the forge and records the connection.

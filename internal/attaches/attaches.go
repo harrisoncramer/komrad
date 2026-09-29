@@ -165,7 +165,7 @@ func (s *AttachService) drop(view string) bool {
 // isDetached reports whether a view is left with no client attached, waiting a moment for tmux to
 // see a client that was killed go.
 func (s *AttachService) isDetached(ctx context.Context, view string) bool {
-	deadline := clock.Now().Add(detachGrace)
+	deadline := time.Now().Add(detachGrace)
 	for {
 		clients, err := s.tmux.CountSessionClients(view)
 		if err != nil {
@@ -176,7 +176,7 @@ func (s *AttachService) isDetached(ctx context.Context, view string) bool {
 			return true
 		}
 
-		if clock.Now().After(deadline) {
+		if time.Now().After(deadline) {
 			return false
 		}
 

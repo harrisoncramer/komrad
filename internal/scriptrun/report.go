@@ -9,7 +9,6 @@ import (
 
 	"komrad/internal/logging"
 	"komrad/internal/scripts"
-	"komrad/lib/clock"
 
 	agentstore "komrad/internal/store/agent"
 )
@@ -26,7 +25,7 @@ func (s *ScriptService) runLogger(ctx context.Context, name, trigger string, age
 }
 
 func elapsedMS(began time.Time) int64 {
-	return clock.Since(began).Milliseconds()
+	return time.Since(began).Milliseconds()
 }
 
 func finishedScript(result scripts.Result, began time.Time) []slog.Attr {

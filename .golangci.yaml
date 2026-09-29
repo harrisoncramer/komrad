@@ -106,8 +106,8 @@ linters:
           msg: sort with slices
         - pattern: ^os\.Rename$
           msg: write a file in place with xfile.WriteAtomic
-        - pattern: ^time\.(Now|Since|Sleep)$
-          msg: read the clock through lib/clock or the service's Now
+        - pattern: ^time\.Sleep$
+          msg: sleep with clock.Sleep so the wait ends with its context
     depguard:
       # The layers, as docs/src/content/guides/how-it-works.md describes them. A layer may call the one below it
       # and may not reach past it, and the panel receives its adapters rather than
@@ -516,11 +516,11 @@ linters:
       - path-except: ^internal/(agents|attaches|checkouts|jobs|mail|marks|pullrequests|reviews|rpc|schedules|scriptrun|transcripts|worktrees)/
         linters:
           - forbidigo
-        text: lib/clock
+        text: clock.Sleep
       - path: _test\.go$
         linters:
           - forbidigo
-        text: lib/clock
+        text: clock.Sleep
       # A binary's package comment would be the first thing a reader of the command sees on
       # pkg.go.dev, and these three exist to be run rather than to be read about.
       - path: (^main\.go$|^cmd/|^config/gen/)
