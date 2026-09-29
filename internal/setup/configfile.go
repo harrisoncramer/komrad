@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"strings"
 
+	"komrad/lib/xfile"
+
 	"github.com/pelletier/go-toml/v2"
 )
 
@@ -76,27 +78,7 @@ func writeAtomically(path string, content []byte) error {
 		return fmt.Errorf("failed to create %s: %w", dir, err)
 	}
 
-	temp, err := os.CreateTemp(dir, filepath.Base(path)+".*")
-	if err != nil {
-		return fmt.Errorf("failed to write %s: %w", path, err)
-	}
-	defer os.Remove(temp.Name()) //nolint:errcheck // gone already once the rename succeeds
-
-	if _, err := temp.Write(content); err != nil {
-		_ = temp.Close()
-
-		return fmt.Errorf("failed to write %s: %w", path, err)
-	}
-	if err := temp.Chmod(0o600); err != nil {
-		_ = temp.Close()
-
-		return fmt.Errorf("failed to write %s: %w", path, err)
-	}
-	if err := temp.Close(); err != nil {
-		return fmt.Errorf("failed to write %s: %w", path, err)
-	}
-
-	if err := os.Rename(temp.Name(), path); err != nil {
+	if err := xfile.WriteAtomic(path, content, 0o600); err != nil {
 		return fmt.Errorf("failed to write %s: %w", path, err)
 	}
 

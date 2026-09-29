@@ -12,6 +12,7 @@ import (
 	"komrad/internal/errui"
 	"komrad/internal/ui"
 	"komrad/internal/ui/paint"
+	"komrad/lib/xptr"
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
 	"komrad/proto/gen/hook/v1/hookv1connect"
@@ -173,7 +174,7 @@ func TestAgentsRows(t *testing.T) {
 
 	t.Run("a branch draws nothing on the row", func(t *testing.T) {
 		branch := newAgent("a1", "worker", "w1")
-		branch.Branch = proto.String("agent/a1")
+		branch.Branch = xptr.Ptr("agent/a1")
 
 		plain := openAgents(t, newLiveWorkflow("w1", "backend"), newAgent("a1", "worker", "w1"))
 		branched := openAgents(t, newLiveWorkflow("w1", "backend"), branch)
@@ -644,7 +645,7 @@ func TestAgentsRecordFocus(t *testing.T) {
 	t.Run("a record shortened under the cursor holds it on its last field", func(t *testing.T) {
 		rows := buildRecorded()
 		agent, _ := rows[1].(*agentv1.Agent)
-		agent.Branch = proto.String("agent/auth")
+		agent.Branch = xptr.Ptr("agent/auth")
 		harness := openAgents(t, rows...)
 		harness.press("ctrl+a", "G")
 		require.Regexp(t, `^created\s`, readRecordCursor(harness.readFrame()))
@@ -934,7 +935,7 @@ func TestAgentsRecordHeight(t *testing.T) {
 	t.Run("a record longer than its share says how much is left either side of the cursor", func(t *testing.T) {
 		rows := buildRecorded()
 		agent, _ := rows[1].(*agentv1.Agent)
-		agent.Branch = proto.String("agent/auth")
+		agent.Branch = xptr.Ptr("agent/auth")
 		harness := openAgents(t, rows...)
 		require.Equal(t, "  ↓ 3 more", readRecord(harness.readFrame())[8])
 
@@ -1163,7 +1164,7 @@ func TestAgentsRecordWorktree(t *testing.T) {
 				name: "a branch with nothing changed reads clean",
 				answer: answerWith(func() *worktreev1.GetWorktreeResponse {
 					read := buildWorktreeRead()
-					read.AddedLines, read.RemovedLines = proto.Int32(0), proto.Int32(0)
+					read.AddedLines, read.RemovedLines = xptr.Ptr[int32](0), xptr.Ptr[int32](0)
 
 					return read
 				}()),
@@ -1942,7 +1943,7 @@ func TestAgentsChildren(t *testing.T) {
 
 	t.Run("the hard delete counts the children in the archive's own rows", func(t *testing.T) {
 		reviewer := newArchivedAgent("a3", "reviewer", "w1")
-		reviewer.ParentAgentId = proto.String("a1")
+		reviewer.ParentAgentId = xptr.Ptr("a1")
 		harness := openArchive(t, newLiveWorkflow("w1", "komrad"), newArchivedAgent("a1", "author", "w1"), reviewer)
 
 		harness.press("j", "d")
@@ -2198,13 +2199,13 @@ func TestAgentsSetMark(t *testing.T) {
 		{
 			name:  "an unmarked agent takes the letter",
 			press: []string{"m", "a"},
-			want:  newMarkAuthRequest(proto.String("a")),
+			want:  newMarkAuthRequest(xptr.Ptr("a")),
 		},
 		{
 			name:  "a letter another agent holds is still set, since the service moves it",
 			marks: []proto.Message{newMark("a", "db")},
 			press: []string{"m", "a"},
-			want:  newMarkAuthRequest(proto.String("a")),
+			want:  newMarkAuthRequest(xptr.Ptr("a")),
 		},
 		{
 			name:  "the letter the agent already holds takes the mark off it",
@@ -2215,14 +2216,14 @@ func TestAgentsSetMark(t *testing.T) {
 		{
 			name:  "a key the screen acts on is read as the letter it is",
 			press: []string{"m", "h"},
-			want:  newMarkAuthRequest(proto.String("h")),
+			want:  newMarkAuthRequest(xptr.Ptr("h")),
 		},
 		{
 			name:  "a workflow header takes the letter as a workflow",
 			press: []string{"k", "m", "a"},
 			want: &agentv1.SetMarkRequest{
 				Target: &agentv1.SetMarkRequest_WorkflowId{WorkflowId: "w1"},
-				Letter: proto.String("a"),
+				Letter: xptr.Ptr("a"),
 			},
 		},
 		{
@@ -2230,7 +2231,7 @@ func TestAgentsSetMark(t *testing.T) {
 			marks: []proto.Message{&agentv1.Mark{
 				Id:         "m-w1",
 				Letter:     "a",
-				WorkflowId: proto.String("w1"),
+				WorkflowId: xptr.Ptr("w1"),
 			}},
 			press: []string{"k", "m", "a"},
 			want: &agentv1.SetMarkRequest{
@@ -2327,7 +2328,7 @@ func TestAgentsJumpMark(t *testing.T) {
 			mark: &agentv1.Mark{
 				Id:         "m-w2",
 				Letter:     "c",
-				WorkflowId: proto.String("w2"),
+				WorkflowId: xptr.Ptr("w2"),
 			},
 			press: []string{"'", "c"},
 			want:  "frontend",
@@ -2337,7 +2338,7 @@ func TestAgentsJumpMark(t *testing.T) {
 			mark: &agentv1.Mark{
 				Id:         "m-w2",
 				Letter:     "c",
-				WorkflowId: proto.String("w2"),
+				WorkflowId: xptr.Ptr("w2"),
 			},
 			press: []string{"f", "shift+tab", "j", "esc", "'", "c"},
 			want:  "frontend",
@@ -2483,9 +2484,9 @@ func buildSortable() []proto.Message {
 		return agent
 	}
 	charlie := newSortable("charlie", "w1", 25, 5)
-	charlie.ParentAgentId = proto.String("alpha")
+	charlie.ParentAgentId = xptr.Ptr("alpha")
 	bob := newSortable("bob", "w1", 5, 40)
-	bob.ParentAgentId = proto.String("alpha")
+	bob.ParentAgentId = xptr.Ptr("alpha")
 	zulu := newSortable("zulu", "w1", 20, 30)
 	zulu.Name = "Zulu"
 
@@ -2536,7 +2537,7 @@ func newHiddenAgent(id, name string) *agentv1.Agent {
 
 func newChild(id, name, parentID string) *agentv1.Agent {
 	agent := newAgent(id, name, "w1")
-	agent.ParentAgentId = proto.String(parentID)
+	agent.ParentAgentId = xptr.Ptr(parentID)
 
 	return agent
 }
@@ -2548,7 +2549,7 @@ func newOrchestrator() *agentv1.Agent {
 		WorkflowId: "w1",
 		PaneId:     "%9",
 		Harness:    "claude",
-		Alive:      proto.Bool(true),
+		Alive:      xptr.Ptr(true),
 		State:      agentv1.AgentState_AGENT_STATE_THINKING,
 		Role:       agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR,
 	}
@@ -2638,16 +2639,16 @@ func buildWorktreeRead() *worktreev1.GetWorktreeResponse {
 			Readable:   true,
 			Branch:     "agent/x",
 			Occupants:  []*worktreev1.WorktreeAgent{{Id: "a2", Name: "reader"}},
-			SizeBytes:  proto.Int64(1200 * 1024 * 1024),
-			MeasuredAt: proto.String(time.Now().Add(-5 * time.Minute).UTC().Format(time.RFC3339)),
+			SizeBytes:  xptr.Ptr[int64](1200 * 1024 * 1024),
+			MeasuredAt: xptr.Ptr(time.Now().Add(-5 * time.Minute).UTC().Format(time.RFC3339)),
 		},
 		Modified:           []string{"a.go", "b.go"},
 		Untracked:          []string{"notes.md"},
 		BaseRef:            "origin/main",
 		Ahead:              3,
 		Behind:             12,
-		AddedLines:         proto.Int32(200),
-		RemovedLines:       proto.Int32(100),
+		AddedLines:         xptr.Ptr[int32](200),
+		RemovedLines:       xptr.Ptr[int32](100),
 		Pushed:             true,
 		Unpushed:           2,
 		Unpulled:           1,
@@ -2719,7 +2720,7 @@ func newPausable(held string) *agentv1.Agent {
 		Name:       "telescope",
 		WorkflowId: "w1",
 		PaneId:     "%9",
-		Alive:      proto.Bool(true),
+		Alive:      xptr.Ptr(true),
 		State:      agentv1.AgentState_AGENT_STATE_THINKING,
 		HeldAt:     held,
 	}
@@ -2745,8 +2746,8 @@ func answerWorkflowCreate(harness *panelHarness, id string) {
 
 func newBranchAgent(id, name, branch string) *agentv1.Agent {
 	agent := newAgent(id, name, "w1")
-	agent.RepositoryUrl = proto.String(repositoryURL)
-	agent.Branch = proto.String(branch)
+	agent.RepositoryUrl = xptr.Ptr(repositoryURL)
+	agent.Branch = xptr.Ptr(branch)
 
 	return agent
 }
@@ -2767,7 +2768,7 @@ func newMark(letter, agentID string) *agentv1.Mark {
 	return &agentv1.Mark{
 		Id:      "m-" + agentID,
 		Letter:  letter,
-		AgentId: proto.String(agentID),
+		AgentId: xptr.Ptr(agentID),
 	}
 }
 

@@ -9,6 +9,7 @@ import (
 
 	"komrad/config"
 	"komrad/internal/engine"
+	"komrad/lib/xptr"
 	"komrad/proto/gen/agent/v1/agentv1connect"
 	watchv1 "komrad/proto/gen/watch/v1"
 	workflowv1 "komrad/proto/gen/workflow/v1"
@@ -663,7 +664,7 @@ func buildCrowdedSnapshot(long string) *watchv1.WatchEvent {
 		agent := newAgent("a"+name, name, "w1")
 		agent.CreatedAt = fmt.Sprintf("2026-09-20T12:%02d:00Z", crowdedCount-i)
 		archived := newArchivedAgent("r"+name, name, "w1")
-		archived.ArchivedAt = proto.String(fmt.Sprintf("2026-07-30T09:%02d:00Z", crowdedCount-i))
+		archived.ArchivedAt = xptr.Ptr(fmt.Sprintf("2026-07-30T09:%02d:00Z", crowdedCount-i))
 		schedule := newNamedSchedule("s"+name, name)
 		schedule.Cron = ""
 		worktree := &worktreev1.WatchedWorktree{

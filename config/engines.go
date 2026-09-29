@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
+	"slices"
 	"strings"
 )
 
@@ -79,7 +79,7 @@ func engineNames(dir string) []string {
 		names = append(names, strings.TrimSuffix(entry.Name(), ".toml"))
 	}
 
-	sort.Strings(names)
+	slices.Sort(names)
 
 	return names
 }

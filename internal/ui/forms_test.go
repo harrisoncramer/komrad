@@ -10,6 +10,7 @@ import (
 
 	"komrad/config"
 	"komrad/internal/ui"
+	"komrad/lib/xptr"
 	"komrad/lib/xslice"
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
@@ -70,7 +71,7 @@ func TestFormsSubmit(t *testing.T) {
 				Prompt:        "run the tests",
 				Harness:       "claude",
 				WorkflowId:    "w1",
-				ParentAgentId: proto.String("a1"),
+				ParentAgentId: xptr.Ptr("a1"),
 			},
 		},
 		{
@@ -215,7 +216,7 @@ func TestFormsNewAgentWorktree(t *testing.T) {
 		{
 			name:  "choosing none is sent as an override rather than as nothing",
 			press: []string{"tab", "tab", "tab", "tab", "tab", "down"},
-			want:  proto.Bool(false),
+			want:  xptr.Ptr(false),
 		},
 	}
 
@@ -1042,7 +1043,7 @@ func newFormAuthor() *agentv1.Agent {
 func newLiveAuthor() *agentv1.Agent {
 	author := newAgent("a1", "author", "w1")
 	author.PaneId = "%9"
-	author.Alive = proto.Bool(true)
+	author.Alive = xptr.Ptr(true)
 
 	return author
 }

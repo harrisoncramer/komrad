@@ -6,11 +6,11 @@ import (
 
 	"komrad/internal/git"
 	"komrad/internal/gittest"
+	"komrad/lib/xptr"
 	agentv1 "komrad/proto/gen/agent/v1"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/proto"
 )
 
 // TestReviewAnswer covers the answer key, which draws the change an addressed reply carried.
@@ -53,7 +53,7 @@ func TestReviewAnswer(t *testing.T) {
 		harness := openReview(t, server)
 
 		answer := newAnswer()
-		answer.RoundId = proto.String("round-3")
+		answer.RoundId = xptr.Ptr("round-3")
 		server.rounds = append(server.rounds, &agentv1.ReviewRound{
 			Id:          "round-3",
 			AgentId:     "a1",
@@ -136,7 +136,7 @@ func newCommentOnRoundOne(replies ...*agentv1.ReviewMessage) *agentv1.ReviewThre
 
 func newAnswer() *agentv1.ReviewMessage {
 	answer := newAgentMessage("m2", "added it")
-	answer.RoundId = proto.String("round-2")
+	answer.RoundId = xptr.Ptr("round-2")
 
 	return answer
 }

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"komrad/lib/xfile"
 )
 
 const trustKey = "hasTrustDialogAccepted"
@@ -75,22 +77,7 @@ func (h *Harness) TrustDir(dir string) error {
 		return fmt.Errorf("failed to create the claude state dir: %w", err)
 	}
 
-	staged, err := os.CreateTemp(filepath.Dir(statePath), ".claude.json.*")
-	if err != nil {
-		return fmt.Errorf("failed to stage the claude state: %w", err)
-	}
-	defer func() { _ = os.Remove(staged.Name()) }() //nolint:errcheck // gone already on success
-
-	if _, err := staged.Write(body); err != nil {
-		_ = staged.Close()
-
-		return fmt.Errorf("failed to write the claude state: %w", err)
-	}
-	if err := staged.Close(); err != nil {
-		return fmt.Errorf("failed to write the claude state: %w", err)
-	}
-
-	if err := os.Rename(staged.Name(), statePath); err != nil {
+	if err := xfile.WriteAtomic(statePath, body, 0o600); err != nil {
 		return fmt.Errorf("failed to replace the claude state %q: %w", statePath, err)
 	}
 

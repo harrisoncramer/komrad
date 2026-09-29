@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"komrad/internal/ui/paint"
+	"komrad/lib/xptr"
 	"komrad/lib/xslice"
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
@@ -464,7 +465,7 @@ func TestWorktreesRecordActivity(t *testing.T) {
 				Dir:        "/trees/orphan",
 				Readable:   true,
 				Branch:     "agent/orphan",
-				MeasuredAt: proto.String(formatStampAgo(5 * time.Minute)),
+				MeasuredAt: xptr.Ptr(formatStampAgo(5 * time.Minute)),
 				SizeError:  "permission denied",
 				ModifiedAt: formatStampAgo(90 * time.Minute),
 			},
@@ -478,8 +479,8 @@ func TestWorktreesRecordActivity(t *testing.T) {
 				Dir:        "/trees/archived",
 				Readable:   true,
 				Branch:     "agent/archived",
-				SizeBytes:  proto.Int64(49 * 1024 * 1024),
-				MeasuredAt: proto.String(formatStampAgo(90 * time.Minute)),
+				SizeBytes:  xptr.Ptr[int64](49 * 1024 * 1024),
+				MeasuredAt: xptr.Ptr(formatStampAgo(90 * time.Minute)),
 			},
 			row:            "reviewer",
 			wantSize:       "49M, measured 1h ago",
@@ -492,7 +493,7 @@ func TestWorktreesRecordActivity(t *testing.T) {
 			t.Parallel()
 
 			rows := buildWorktrees()
-			rows[3].(*agentv1.Agent).ArchivedAt = proto.String(formatStampAgo(4 * 24 * time.Hour))
+			rows[3].(*agentv1.Agent).ArchivedAt = xptr.Ptr(formatStampAgo(4 * 24 * time.Hour))
 			harness := openWorktrees(t, rows...)
 			harness.watch(buildPuts(tt.worktree))
 			moveToWorktree(t, harness, tt.row)
@@ -878,12 +879,12 @@ func buildWorktrees() []proto.Message {
 	live := newAgent("live", "treeview", "w1")
 	live.Harness = "claude"
 	live.Cwd = "/trees/live"
-	live.Alive = proto.Bool(true)
+	live.Alive = xptr.Ptr(true)
 	live.State = agentv1.AgentState_AGENT_STATE_THINKING
 
 	occupant := newAgent("occ", "review-607", "w1")
 	occupant.Cwd = "/trees/live"
-	occupant.Alive = proto.Bool(true)
+	occupant.Alive = xptr.Ptr(true)
 
 	archived := newArchivedAgent("archived", "reviewer", "w1")
 	archived.Harness = "claude"
@@ -953,28 +954,28 @@ func measureAgent(agent *agentv1.Agent) {
 	case "live":
 		agent.StateChangedAt = formatStampAgo(5 * time.Minute)
 	case "archived":
-		agent.ArchivedAt = proto.String(formatStampAgo(4 * 24 * time.Hour))
+		agent.ArchivedAt = xptr.Ptr(formatStampAgo(4 * 24 * time.Hour))
 	case "admin":
-		agent.ArchivedAt = proto.String(formatStampAgo(12 * time.Hour))
+		agent.ArchivedAt = xptr.Ptr(formatStampAgo(12 * time.Hour))
 	}
 }
 
 func measureWorktree(worktree *worktreev1.WatchedWorktree) {
 	switch worktree.GetDir() {
 	case "/trees/live", "/trees/archived":
-		worktree.SizeBytes = proto.Int64(49 * 1024 * 1024)
-		worktree.ShareBytes = proto.Int64(30 * 1024 * 1024)
-		worktree.MeasuredAt = proto.String(formatStampAgo(time.Hour))
+		worktree.SizeBytes = xptr.Ptr[int64](49 * 1024 * 1024)
+		worktree.ShareBytes = xptr.Ptr[int64](30 * 1024 * 1024)
+		worktree.MeasuredAt = xptr.Ptr(formatStampAgo(time.Hour))
 	case "/trees/orphan":
-		worktree.MeasuredAt = proto.String(formatStampAgo(time.Hour))
+		worktree.MeasuredAt = xptr.Ptr(formatStampAgo(time.Hour))
 		worktree.SizeError = "permission denied"
 		worktree.ModifiedAt = formatStampAgo(3 * time.Hour)
 	case "/trees/broken":
 		worktree.ModifiedAt = formatStampAgo(2 * 7 * 24 * time.Hour)
 	case "/trees/admin":
-		worktree.SizeBytes = proto.Int64(1536 * 1024 * 1024)
-		worktree.ShareBytes = proto.Int64(1536 * 1024 * 1024)
-		worktree.MeasuredAt = proto.String(formatStampAgo(time.Hour))
+		worktree.SizeBytes = xptr.Ptr[int64](1536 * 1024 * 1024)
+		worktree.ShareBytes = xptr.Ptr[int64](1536 * 1024 * 1024)
+		worktree.MeasuredAt = xptr.Ptr(formatStampAgo(time.Hour))
 	}
 }
 
@@ -982,9 +983,9 @@ func newMeasuredWorktree(dir string, size int64) *worktreev1.WatchedWorktree {
 	for _, row := range buildWatchedWorktrees() {
 		worktree, _ := row.(*worktreev1.WatchedWorktree)
 		if worktree.GetDir() == dir {
-			worktree.SizeBytes = proto.Int64(size)
-			worktree.ShareBytes = proto.Int64(size)
-			worktree.MeasuredAt = proto.String(formatStampAgo(time.Minute))
+			worktree.SizeBytes = xptr.Ptr(size)
+			worktree.ShareBytes = xptr.Ptr(size)
+			worktree.MeasuredAt = xptr.Ptr(formatStampAgo(time.Minute))
 
 			return worktree
 		}

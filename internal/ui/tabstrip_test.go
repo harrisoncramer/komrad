@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"komrad/internal/ui"
+	"komrad/lib/xptr"
 	agentv1 "komrad/proto/gen/agent/v1"
 
 	"github.com/stretchr/testify/assert"
@@ -212,7 +213,7 @@ func buildPinnedArchive() []proto.Message {
 	rows := buildWorktrees()
 	for _, row := range rows {
 		if agent, isAgent := row.(*agentv1.Agent); isAgent && agent.ArchivedAt != nil {
-			agent.ArchivedAt = proto.String(archivedAt)
+			agent.ArchivedAt = xptr.Ptr(archivedAt)
 		}
 	}
 

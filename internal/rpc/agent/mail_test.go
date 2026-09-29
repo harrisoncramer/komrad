@@ -27,7 +27,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/testing/protocmp"
 )
 
@@ -210,7 +209,7 @@ func TestMailRefusalsMapToCodes(t *testing.T) {
 			name: "listing with a page token that does not decode",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
 				_, err := svc.ListMail(ctx, connect.NewRequest(&agentv1.ListMailRequest{
-					Pagination: &paginationv1.Pagination{Cursor: proto.String("not a token")},
+					Pagination: &paginationv1.Pagination{Cursor: xptr.Ptr("not a token")},
 				}))
 
 				return err
@@ -282,7 +281,7 @@ func TestSendMail(t *testing.T) {
 	sent, err := svc.SendMail(caller.With(t.Context(), caller.Caller{AgentID: alphaID}), connect.NewRequest(&agentv1.SendMailRequest{
 		To:      "beta",
 		Body:    "which column holds the refund?",
-		ReplyTo: proto.String("mail-0"),
+		ReplyTo: xptr.Ptr("mail-0"),
 	}))
 	require.NoError(t, err)
 
@@ -291,16 +290,16 @@ func TestSendMail(t *testing.T) {
 		From:      alphaID,
 		ToAgentID: betaID,
 		Body:      "which column holds the refund?",
-		ReplyTo:   proto.String("mail-0"),
+		ReplyTo:   xptr.Ptr("mail-0"),
 	}}, mailer.sent)
 	assert.Empty(t, cmp.Diff(&agentv1.SendMailResponse{
 		Mail: &agentv1.Mail{
 			Id:          "mail-1",
-			FromAgentId: proto.String(alphaID),
+			FromAgentId: xptr.Ptr(alphaID),
 			FromName:    "alpha",
 			ToAgentId:   betaID,
 			Body:        "which column holds the refund?",
-			ReplyTo:     proto.String("mail-0"),
+			ReplyTo:     xptr.Ptr("mail-0"),
 			CreatedAt:   "2026-09-24T09:00:00Z",
 			ExpiresAt:   "2026-09-24T12:00:00Z",
 			Kind:        agentv1.MailKind_MAIL_KIND_PLAIN,
@@ -371,13 +370,13 @@ func TestReadMail(t *testing.T) {
 		{
 			name:        "an agent reading another's mailbox",
 			callerIs:    alphaID,
-			id:          proto.String(betaID),
+			id:          xptr.Ptr(betaID),
 			wantClaimed: betaID,
 			wantLogged:  betaID,
 		},
 		{
 			name:        "the panel reading an agent's mailbox",
-			id:          proto.String(betaID),
+			id:          xptr.Ptr(betaID),
 			wantClaimed: betaID,
 		},
 	}
@@ -443,7 +442,7 @@ func TestListMail(t *testing.T) {
 			name:     "sent reads what another agent wrote, and is written to the log",
 			callerIs: alphaID,
 			req: &agentv1.ListMailRequest{
-				Id:        proto.String(betaID),
+				Id:        xptr.Ptr(betaID),
 				Direction: agentv1.MailDirection_MAIL_DIRECTION_SENT,
 			},
 			stored: 1,
@@ -458,7 +457,7 @@ func TestListMail(t *testing.T) {
 			name:     "a full page hands back a token for the next",
 			callerIs: alphaID,
 			req: &agentv1.ListMailRequest{
-				Pagination: &paginationv1.Pagination{Limit: proto.Int32(2)},
+				Pagination: &paginationv1.Pagination{Limit: xptr.Ptr[int32](2)},
 			},
 			stored: 2,
 			wantListed: mail.ListMailParams{

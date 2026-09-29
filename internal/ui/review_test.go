@@ -13,6 +13,7 @@ import (
 	"komrad/internal/gittest"
 	"komrad/internal/ui"
 	"komrad/internal/ui/paint"
+	"komrad/lib/xptr"
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
 	watchv1 "komrad/proto/gen/watch/v1"
@@ -937,7 +938,7 @@ func TestReviewWatch(t *testing.T) {
 	t.Run("a comment's delivery follows its review", func(t *testing.T) {
 		server := newReviewServer(t)
 		comment := newHumanMessage("m1", "wrong greeting")
-		comment.ReviewId = proto.String("r1")
+		comment.ReviewId = xptr.Ptr("r1")
 		server.threads = []*agentv1.ReviewThread{newThreadOnFirstLine(comment)}
 		server.reviews = []*agentv1.Review{{
 			Id:         "r1",
@@ -976,7 +977,7 @@ func TestReviewWatch(t *testing.T) {
 		server.threads = []*agentv1.ReviewThread{newThreadOnFirstLine(newDeliveredComment("m1"))}
 		harness := openReview(t, server)
 
-		server.agent.ArchivedAt = proto.String("2026-09-02T11:00:00Z")
+		server.agent.ArchivedAt = xptr.Ptr("2026-09-02T11:00:00Z")
 		harness.watch(buildSnapshot(server.workflow, server.agent))
 		require.Contains(t, findLine(readStage(harness.readFrame()), "package greet"), "○")
 
@@ -1000,12 +1001,12 @@ func TestReviewOfAnAgentThatIsGone(t *testing.T) {
 	}{
 		{
 			name:  "a dormant agent",
-			leave: func(agent *agentv1.Agent) { agent.Alive = proto.Bool(false) },
+			leave: func(agent *agentv1.Agent) { agent.Alive = xptr.Ptr(false) },
 			want:  "this agent is dormant",
 		},
 		{
 			name:  "an archived agent",
-			leave: func(agent *agentv1.Agent) { agent.ArchivedAt = proto.String("2026-09-02T11:00:00Z") },
+			leave: func(agent *agentv1.Agent) { agent.ArchivedAt = xptr.Ptr("2026-09-02T11:00:00Z") },
 			want:  "this agent is archived",
 		},
 	}
@@ -1415,7 +1416,7 @@ func TestReviewRecord(t *testing.T) {
 		server := newReviewServer(t)
 		harness := openReview(t, server)
 
-		server.agent.ArchivedAt = proto.String("2026-09-02T11:00:00Z")
+		server.agent.ArchivedAt = xptr.Ptr("2026-09-02T11:00:00Z")
 		harness.watch(server.buildSnapshot())
 
 		assert.NotContains(t, harness.readFrame(), "agent_id")
@@ -2102,7 +2103,7 @@ func TestReviewHold(t *testing.T) {
 
 	t.Run("a dormant agent is edited without stopping anything", func(t *testing.T) {
 		server := newReviewServer(t)
-		server.agent.Alive = proto.Bool(false)
+		server.agent.Alive = xptr.Ptr(false)
 		harness := openReview(t, server)
 
 		harness.press("e")
@@ -2491,7 +2492,7 @@ func newReviewServerOver(repo *gittest.Repo) *reviewServer {
 			WorkflowId: "w1",
 			Cwd:        repo.Root,
 			PaneId:     "%9",
-			Alive:      proto.Bool(true),
+			Alive:      xptr.Ptr(true),
 			State:      agentv1.AgentState_AGENT_STATE_IDLE,
 		},
 	}

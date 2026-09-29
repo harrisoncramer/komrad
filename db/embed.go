@@ -16,7 +16,7 @@ import (
 	"fmt"
 	"io/fs"
 	"log/slog"
-	"sort"
+	"slices"
 	"strings"
 	"time"
 
@@ -136,7 +136,7 @@ func checkSchema(ctx context.Context, pool *pgxpool.Pool, files fs.FS) error {
 		}
 	}
 	if len(unknown) > 0 {
-		sort.Strings(unknown)
+		slices.Sort(unknown)
 
 		return fmt.Errorf("%w: %s", ErrSchemaAhead, strings.Join(unknown, ", "))
 	}
@@ -353,7 +353,7 @@ func listMigrationVersions(files fs.FS) ([]string, error) {
 
 	sqlFiles := xslice.Filter(entries, func(entry fs.DirEntry) bool { return strings.HasSuffix(entry.Name(), ".sql") })
 	versions := xslice.Map(sqlFiles, func(entry fs.DirEntry) string { return entry.Name() })
-	sort.Strings(versions)
+	slices.Sort(versions)
 
 	return versions, nil
 }

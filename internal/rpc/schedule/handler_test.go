@@ -10,6 +10,7 @@ import (
 	"komrad/internal/rpc/render"
 	"komrad/internal/schedules"
 	"komrad/internal/store"
+	"komrad/lib/xptr"
 	paginationv1 "komrad/proto/gen/pagination/v1"
 	schedulev1 "komrad/proto/gen/schedule/v1"
 	"komrad/proto/gen/schedule/v1/schedulev1komrad"
@@ -290,7 +291,7 @@ func TestScheduleRefusalsMapToCodes(t *testing.T) {
 			name: "listing with a page token that holds no id",
 			call: func(ctx context.Context, svc schedulev1komrad.ScheduleServiceAdapter) error {
 				_, err := svc.ListSchedules(ctx, connect.NewRequest(&schedulev1.ListSchedulesRequest{
-					Pagination: &paginationv1.Pagination{Cursor: proto.String("eyJpIjoibm90LWFuLWlkIn0=")},
+					Pagination: &paginationv1.Pagination{Cursor: xptr.Ptr("eyJpIjoibm90LWFuLWlkIn0=")},
 				}))
 
 				return err
@@ -476,7 +477,7 @@ func TestScheduleWritesPassDown(t *testing.T) {
 			name: "listing the archive hands down which half to list",
 			call: func(ctx context.Context, svc schedulev1komrad.ScheduleServiceAdapter) error {
 				_, err := svc.ListSchedules(ctx, connect.NewRequest(&schedulev1.ListSchedulesRequest{
-					Pagination: &paginationv1.Pagination{Limit: proto.Int32(5)},
+					Pagination: &paginationv1.Pagination{Limit: xptr.Ptr[int32](5)},
 					Archived:   true,
 				}))
 
@@ -520,7 +521,7 @@ func TestCreateSchedule(t *testing.T) {
 			name:             "an orchestrator schedule names the orchestrator it mails",
 			orchestrator:     "01a0d228-0000-7000-8000-0000000000aa",
 			wantKind:         schedulev1.ScheduleKind_SCHEDULE_KIND_ORCHESTRATOR,
-			wantOrchestrator: proto.String("01a0d228-0000-7000-8000-0000000000aa"),
+			wantOrchestrator: xptr.Ptr("01a0d228-0000-7000-8000-0000000000aa"),
 		},
 	}
 
@@ -581,7 +582,7 @@ func TestListSchedules(t *testing.T) {
 		{
 			name: "a full page hands back a token for the next",
 			req: &schedulev1.ListSchedulesRequest{
-				Pagination: &paginationv1.Pagination{Limit: proto.Int32(1)},
+				Pagination: &paginationv1.Pagination{Limit: xptr.Ptr[int32](1)},
 			},
 			wantPrompts:   []string{long[:render.SummaryHead]},
 			wantTruncated: []bool{true},

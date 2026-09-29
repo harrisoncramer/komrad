@@ -10,13 +10,13 @@ import (
 	"komrad/internal/komradtest"
 	"komrad/internal/mail"
 	agentstore "komrad/internal/store/agent"
+	"komrad/lib/xptr"
 	"komrad/lib/xslice"
 	agentv1 "komrad/proto/gen/agent/v1"
 
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/proto"
 )
 
 // TestIntegrationReviews walks one review loop, from the worker asking for a reviewer through the release and its doorbell to the answer that rings the reviewer back.
@@ -182,7 +182,7 @@ func TestIntegrationReviews(t *testing.T) {
 		require.NoError(t, err)
 		assert.NotEmpty(t, added.Msg.GetMessage().GetRoundId())
 
-		listed := connect.NewRequest(&agentv1.ListReviewThreadsRequest{AgentId: proto.String(worker.GetId())})
+		listed := connect.NewRequest(&agentv1.ListReviewThreadsRequest{AgentId: xptr.Ptr(worker.GetId())})
 		callAs(listed, worker.GetId())
 
 		threads, err := instance.Agents.ListReviewThreads(ctx, listed)

@@ -19,6 +19,7 @@ import (
 	"komrad/internal/engine"
 	"komrad/internal/gittest"
 	"komrad/internal/ui"
+	"komrad/lib/xptr"
 	"komrad/lib/xslice"
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
@@ -171,7 +172,7 @@ func TestHarnessFiresHeldTimers(t *testing.T) {
 		procedure: agentv1connect.AgentServiceSearchTranscriptsProcedure,
 		msg: &agentv1.SearchTranscriptsRequest{
 			Query:      "api",
-			Pagination: &paginationv1.Pagination{Limit: proto.Int32(10)},
+			Pagination: &paginationv1.Pagination{Limit: xptr.Ptr[int32](10)},
 		},
 	})
 }

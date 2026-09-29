@@ -10,6 +10,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"komrad/internal/ui"
+	"komrad/lib/xptr"
 	agentv1 "komrad/proto/gen/agent/v1"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 )
@@ -175,8 +176,8 @@ func newNoticed() *agentv1.Agent {
 
 func newPullRequested(state pullrequestv1.PullRequestState) []proto.Message {
 	agent := newNoticed()
-	agent.RepositoryUrl = proto.String(repositoryURL)
-	agent.Branch = proto.String("agent/n1")
+	agent.RepositoryUrl = xptr.Ptr(repositoryURL)
+	agent.Branch = xptr.Ptr("agent/n1")
 
 	return []proto.Message{
 		agent,
