@@ -108,6 +108,8 @@ linters:
           msg: write a file in place with xfile.WriteAtomic
         - pattern: ^time\.Sleep$
           msg: sleep with clock.Sleep so the wait ends with its context
+        - pattern: ^context\.(Background|TODO)$
+          msg: take the caller's context
     depguard:
       # The layers, as docs/src/content/guides/how-it-works.md describes them. A layer may call the one below it
       # and may not reach past it, and the panel receives its adapters rather than
@@ -513,14 +515,14 @@ linters:
         linters:
           - forbidigo
         text: xfile.WriteAtomic
-      - path-except: ^internal/(agents|attaches|checkouts|jobs|mail|marks|pullrequests|reviews|rpc|schedules|scriptrun|transcripts|worktrees)/
+      - path: (_test\.go$|^internal/(komradtest|tmuxtest)/)
         linters:
           - forbidigo
         text: clock.Sleep
-      - path: _test\.go$
+      - path: (_test\.go$|^main\.go$|^cmd/|^internal/(cli|ui|dbtest|pgtest|komradtest|tmux)/)
         linters:
           - forbidigo
-        text: clock.Sleep
+        text: the caller's context
       # A binary's package comment would be the first thing a reader of the command sees on
       # pkg.go.dev, and these three exist to be run rather than to be read about.
       - path: (^main\.go$|^cmd/|^config/gen/)

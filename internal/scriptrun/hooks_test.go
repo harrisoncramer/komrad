@@ -21,12 +21,12 @@ func TestHookQueueRunsAnAgentsMomentsInTheOrderTheyWereQueued(t *testing.T) {
 
 	require.NoError(t, first.Wait(t.Context()), "the first moment waits for nothing")
 	require.NoError(t, other.Wait(t.Context()), "another agent's moment waits for nothing")
-	require.Error(t, waitBriefly(second.Wait), "the second waits while the first runs")
-	require.Error(t, waitBriefly(awaitAuth), "and so does a wait for the whole queue")
+	require.Error(t, waitBriefly(t.Context(), second.Wait), "the second waits while the first runs")
+	require.Error(t, waitBriefly(t.Context(), awaitAuth), "and so does a wait for the whole queue")
 
 	first.Done()
 	require.NoError(t, second.Wait(t.Context()), "the second runs once the first has finished")
-	require.Error(t, waitBriefly(awaitAuth), "the queue holds while the second runs")
+	require.Error(t, waitBriefly(t.Context(), awaitAuth), "the queue holds while the second runs")
 
 	second.Done()
 	require.NoError(t, queue.AwaitHooks(t.Context(), "auth"), "and empties once it has finished")
@@ -42,7 +42,7 @@ func TestAHookTurnGivenUpEarlyKeepsItsPlace(t *testing.T) {
 	third := queue.QueueHooks("auth")
 
 	abandoned.Done()
-	require.Error(t, waitBriefly(third.Wait), "the third still waits for the first")
+	require.Error(t, waitBriefly(t.Context(), third.Wait), "the third still waits for the first")
 
 	first.Done()
 	require.NoError(t, third.Wait(t.Context()))
@@ -50,8 +50,8 @@ func TestAHookTurnGivenUpEarlyKeepsItsPlace(t *testing.T) {
 	require.NoError(t, queue.AwaitHooks(t.Context(), "auth"))
 }
 
-func waitBriefly(wait func(context.Context) error) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+func waitBriefly(ctx context.Context, wait func(context.Context) error) error {
+	ctx, cancel := context.WithTimeout(ctx, 50*time.Millisecond)
 	defer cancel()
 
 	return wait(ctx)

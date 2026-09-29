@@ -94,7 +94,7 @@ func (b *Broker) hold(ctx context.Context, conn *pgx.Conn) error {
 
 		switch {
 		case err == nil:
-			b.handleNotification(notification.Payload)
+			b.handleNotification(ctx, notification.Payload)
 		case ctx.Err() != nil:
 			return ctx.Err()
 		case errors.Is(err, context.DeadlineExceeded):
@@ -113,10 +113,10 @@ func (b *Broker) hold(ctx context.Context, conn *pgx.Conn) error {
 }
 
 // handleNotification signals the row a notification names.
-func (b *Broker) handleNotification(payload string) {
+func (b *Broker) handleNotification(ctx context.Context, payload string) {
 	table, key, found := strings.Cut(payload, " ")
 	if !found {
-		b.logger.LogAttrs(context.Background(), slog.LevelWarn, "a notification carried no key", slog.String(logging.WatchTable, payload))
+		b.logger.LogAttrs(ctx, slog.LevelWarn, "a notification carried no key", slog.String(logging.WatchTable, payload))
 
 		return
 	}
@@ -124,13 +124,13 @@ func (b *Broker) handleNotification(payload string) {
 	resource, ok := b.tables[table]
 	if !ok {
 		if b.shouldWarn("table " + table) {
-			b.logger.LogAttrs(context.Background(), slog.LevelWarn, "a notification named a table no resource is a row of", slog.String(logging.WatchTable, table))
+			b.logger.LogAttrs(ctx, slog.LevelWarn, "a notification named a table no resource is a row of", slog.String(logging.WatchTable, table))
 		}
 
 		return
 	}
 
-	b.signal(resource, key)
+	b.signal(ctx, resource, key)
 }
 
 // up says the listener is on the channel, so watchers may open.

@@ -18,6 +18,7 @@ import (
 	"komrad/internal/logging"
 	"komrad/internal/server"
 	"komrad/internal/version"
+	"komrad/lib/clock"
 	"komrad/lib/xhttp"
 )
 
@@ -175,7 +176,7 @@ func stopServer(ctx context.Context, addr string) (int, error) {
 		return 0, nil
 	}
 
-	if err := awaitStopped(pid, stopWaitFor); err != nil {
+	if err := awaitStopped(ctx, pid, stopWaitFor); err != nil {
 		return 0, err
 	}
 
@@ -219,7 +220,7 @@ func requestStop(ctx context.Context, addr string) (int, error) {
 	return pid, nil
 }
 
-func awaitStopped(pid int, within time.Duration) error {
+func awaitStopped(ctx context.Context, pid int, within time.Duration) error {
 	deadline := time.Now().Add(within)
 
 	for time.Now().Before(deadline) {
@@ -227,7 +228,10 @@ func awaitStopped(pid int, within time.Duration) error {
 			return nil
 		}
 
-		time.Sleep(stopPollInterval)
+		clock.Sleep(ctx, stopPollInterval)
+		if err := ctx.Err(); err != nil {
+			return fmt.Errorf("failed to wait for process %d to exit: %w", pid, err)
+		}
 	}
 
 	return fmt.Errorf("the server was asked to stop and process %d is still running after %s", pid, within)

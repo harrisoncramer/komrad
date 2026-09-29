@@ -102,7 +102,7 @@ func NewServer(ctx context.Context, params NewServerParams) (*Server, error) {
 	}
 	srv.Delivery = svc.delivery
 
-	broker := watch.NewBroker(watch.NewBrokerParams{
+	broker := watch.NewBroker(ctx, watch.NewBrokerParams{
 		Logger:    params.Logger,
 		Pool:      st.pool.GetRawPool(),
 		Rows:      svc.watchRows,
@@ -181,7 +181,7 @@ func NewServer(ctx context.Context, params NewServerParams) (*Server, error) {
 		Claimed:  jobs.NewWorktreeDelete(svc.queue),
 	})
 
-	if err := broker.Start(); err != nil {
+	if err := broker.Start(ctx); err != nil {
 		return nil, err
 	}
 

@@ -50,7 +50,7 @@ func TestIntegrationRequestStopOnAServerWithoutTheRoute(t *testing.T) {
 // TestIntegrationAwaitStoppedGivesUp covers a server that accepted the request and then carried on
 // running: the command says so rather than returning as though the reload can proceed.
 func TestIntegrationAwaitStoppedGivesUp(t *testing.T) {
-	err := awaitStopped(os.Getpid(), 300*time.Millisecond)
+	err := awaitStopped(t.Context(), os.Getpid(), 300*time.Millisecond)
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "still running")
@@ -66,7 +66,7 @@ func TestIntegrationAwaitStoppedWaitsForTheProcessRatherThanTheAddress(t *testin
 	pid := sleeper.Process.Pid
 	t.Cleanup(func() { _ = sleeper.Process.Kill() })
 
-	require.Error(t, awaitStopped(pid, 200*time.Millisecond), "a live process is waited on")
+	require.Error(t, awaitStopped(t.Context(), pid, 200*time.Millisecond), "a live process is waited on")
 
 	go func() {
 		time.Sleep(100 * time.Millisecond)
@@ -74,7 +74,7 @@ func TestIntegrationAwaitStoppedWaitsForTheProcessRatherThanTheAddress(t *testin
 		_ = sleeper.Wait()
 	}()
 
-	require.NoError(t, awaitStopped(pid, 10*time.Second), "and the wait ends when it goes")
+	require.NoError(t, awaitStopped(t.Context(), pid, 10*time.Second), "and the wait ends when it goes")
 }
 
 func strippedHost(t *testing.T, url string) string {

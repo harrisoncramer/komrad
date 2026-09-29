@@ -1615,7 +1615,7 @@ type runResult struct {
 
 // Run answers the outcome inline, so a case asserting what reached the log has nothing to
 // wait for.
-func (r *recordingRunner) Run(p scripts.RunParams) error {
+func (r *recordingRunner) Run(_ context.Context, p scripts.RunParams) error {
 	if !p.Script.Executable {
 		return scripts.ErrNotExecutable
 	}
