@@ -167,6 +167,11 @@ func TestSearchTranscriptsScope(t *testing.T) {
 			query: "reconciler",
 			want:  []string{"alpha", "beta"},
 		},
+		{
+			name:  "no caller widening is not logged",
+			query: "reconciler is:live",
+			want:  []string{"alpha", "beta"},
+		},
 	}
 
 	for _, tt := range tests {
