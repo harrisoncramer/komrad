@@ -33,7 +33,7 @@ type agentCreator interface {
 }
 
 type agentAdopter interface {
-	Adopt(ctx context.Context, p agents.AdoptParams) (*agentstore.Agent, error)
+	Adopt(ctx context.Context, p agents.AdoptParams) (*agents.Adoption, error)
 }
 
 type agentLiveness interface {
@@ -222,7 +222,7 @@ func (s *Handler) RequestReview(ctx context.Context, req *agentv1.RequestReviewR
 
 // Adopt puts an agent on a branch or pull request that already exists.
 func (s *Handler) Adopt(ctx context.Context, req *agentv1.AdoptRequest) (*agentv1.AdoptResponse, *fail.Error) {
-	created, err := s.adopter.Adopt(ctx, agents.AdoptParams{
+	adoption, err := s.adopter.Adopt(ctx, agents.AdoptParams{
 		Ref:            req.GetRef(),
 		Title:          req.GetTitle(),
 		Flags:          req.GetFlags(),
@@ -239,12 +239,12 @@ func (s *Handler) Adopt(ctx context.Context, req *agentv1.AdoptRequest) (*agentv
 		return nil, rpcerr.From(err, "failed to adopt agent")
 	}
 
-	rendered, failure := s.renderOneAgent(ctx, created.ID)
+	rendered, failure := s.renderOneAgent(ctx, adoption.Agent.ID)
 	if failure != nil {
 		return nil, failure
 	}
 
-	return &agentv1.AdoptResponse{Agent: rendered}, nil
+	return &agentv1.AdoptResponse{Agent: rendered, Existing: adoption.Existing}, nil
 }
 
 // ListAgents returns one page of stored agents, newest first, each assembled with what is

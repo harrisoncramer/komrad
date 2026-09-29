@@ -288,6 +288,47 @@ func TestFormsRefused(t *testing.T) {
 	}
 }
 
+// TestFormsAdoptExisting covers an adoption answered with the agent already on the branch.
+func TestFormsAdoptExisting(t *testing.T) {
+	tests := []struct {
+		name        string
+		existing    *agentv1.Agent
+		wantScreen  string
+		wantHovered string
+	}{
+		{
+			name:        "a live agent lands the agents list on its row",
+			existing:    newFormAuthor(),
+			wantScreen:  agentsScreen,
+			wantHovered: "author",
+		},
+		{
+			name:        "an archived agent lands the archive on its row",
+			existing:    newArchivedAgent("a3", "old-work", "w1"),
+			wantScreen:  archiveScreen,
+			wantHovered: "old-work",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			harness := openAgents(t, newFormWorkflow(), newFormAuthor(), newArchivedAgent("a3", "old-work", "w1"))
+			harness.press("g", "g")
+			harness.answer(agentv1connect.AgentServiceAdoptProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+				return connect.NewResponse(&agentv1.AdoptResponse{Agent: tt.existing, Existing: true}), nil
+			})
+
+			harness.press(slices.Concat([]string{"a"}, spellKeys("someones/work"), []string{"ctrl+s"})...)
+
+			frame := harness.readFrame()
+			assert.Equal(t, tt.wantScreen, harness.readScreen())
+			assert.Contains(t, readHoveredRow(frame), tt.wantHovered)
+			assert.Contains(t, frame, "This agent already exists")
+			assert.NotContains(t, frame, "Could not adopt")
+		})
+	}
+}
+
 // TestFormsInFlight covers the new-agent form while its create has not come back.
 func TestFormsInFlight(t *testing.T) {
 	create := agentv1connect.AgentServiceCreateAgentProcedure
