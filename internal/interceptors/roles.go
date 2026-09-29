@@ -2,6 +2,7 @@ package interceptors
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
@@ -84,7 +85,13 @@ func (r *rolesInterceptor) authorize(ctx context.Context, procedure string) erro
 		return nil
 	}
 
-	role := r.roleOf(ctx, agentID)
+	role, err := r.roleOf(ctx, agentID)
+	if errors.Is(err, rpcapi.ErrUnknownCaller) {
+		return connect.NewError(connect.CodePermissionDenied, err)
+	}
+	if err != nil {
+		return connect.NewError(connect.CodeUnavailable, err)
+	}
 	if rpcapi.ServesRole(surfaces, role) {
 		return nil
 	}

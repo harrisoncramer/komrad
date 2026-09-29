@@ -78,7 +78,7 @@ func newMux(params newMuxParams) (*http.ServeMux, error) {
 		return nil, err
 	}
 
-	roleOf := newRoleOf(params.Stores.agents, params.Logger)
+	roleOf := newRoleOf(params.Stores.agents)
 	options := []connect.HandlerOption{
 		connect.WithInterceptors(interceptors.NewLogging(params.Logger), interceptors.NewRoles(roleOf), validation),
 		interceptors.NewRecovery(),
@@ -176,6 +176,7 @@ func newMux(params newMuxParams) (*http.ServeMux, error) {
 		DB:      params.ReadOnly,
 		BaseURL: "http://" + params.Addr,
 		RoleOf:  roleOf,
+		Logger:  params.Logger,
 	})
 	if err != nil {
 		return nil, err
