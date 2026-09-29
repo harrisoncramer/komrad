@@ -31,7 +31,7 @@ func TestNoApprovedCharacterIsAnEmoji(t *testing.T) {
 // TestApprovedSetCounts pins the size of the set.
 func TestApprovedSetCounts(t *testing.T) {
 	assert.Equal(t, "3.5.1", glyph.NerdFontsVersion)
-	assert.Len(t, glyph.ApprovedSet(), 308+19)
+	assert.Len(t, glyph.ApprovedSet(), 308+22)
 }
 
 // readEmoji is every rune testdata/emoji-data.txt gives the Emoji property.

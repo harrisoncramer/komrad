@@ -50,10 +50,10 @@ func (m model) openTerminal(agent panel.Agent) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	up := m.info.kind == infoTerminal && m.frame.IsOpen(layout.RegionInfo)
+	up := m.terminalDir != "" && m.frame.IsOpen(layout.RegionInfo)
 
 	// The shell is where the key asks for, so it wants the keyboard rather than a fresh start.
-	if up && agent.Cwd == m.info.subject {
+	if up && agent.Cwd == m.terminalDir {
 		return focus()
 	}
 
@@ -69,7 +69,7 @@ func (m model) openTerminal(agent panel.Agent) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	if !m.claimInfo(infoTerminal, agent.Cwd) {
+	if !m.claimInfo(agent.Cwd) {
 		return m, nil
 	}
 	m.stageInfo()

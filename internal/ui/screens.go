@@ -23,8 +23,8 @@ const (
 	screenLogs
 )
 
-// opensInfoPane reports whether the keys that draw a pane beside the panel act on a screen.
-func (s screen) opensInfoPane() bool {
+// opensTerminal reports whether the key that opens a shell beside the panel acts on a screen.
+func (s screen) opensTerminal() bool {
 	switch s {
 	case screenAgents, screenSchedules:
 		return true

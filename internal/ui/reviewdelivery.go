@@ -72,7 +72,7 @@ func reviewDeliveryMark(glyphs glyph.Set, state agentv1.ReviewDeliveryState) str
 	case agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSENT:
 		return glyphs.Spell(glyph.Held)
 	case agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_SENT:
-		return "→"
+		return glyph.Right
 	case agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_DELIVERED:
 		return glyphs.Spell(glyph.Delivered)
 	case agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSPECIFIED:

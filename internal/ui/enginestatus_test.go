@@ -13,18 +13,18 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// fakeEngines is an engine whose server answers with whatever build it is set to.
-type fakeEngines struct {
+// fakeEngine is an engine whose server answers with whatever build it is set to.
+type fakeEngine struct {
 	mu    sync.Mutex
 	build ui.EngineBuild
 }
 
-func newFakeEngines() *fakeEngines {
-	return &fakeEngines{build: ui.EngineBuild{Commit: "d70bf5a"}}
+func newFakeEngine() *fakeEngine {
+	return &fakeEngine{build: ui.EngineBuild{Commit: "d70bf5a"}}
 }
 
-func (f *fakeEngines) on(name string) ui.Engines {
-	return ui.Engines{
+func (f *fakeEngine) on(name string) ui.EngineStatus {
+	return ui.EngineStatus{
 		Name:  name,
 		Build: f.build,
 		ReadBuild: func(context.Context) (ui.EngineBuild, bool) {
@@ -60,7 +60,7 @@ func TestEngineLine(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			harness := openCrowded(t, panelHarnessParams{sidebarWidth: tt.width, engines: newFakeEngines().on(tt.engine)})
+			harness := openCrowded(t, panelHarnessParams{sidebarWidth: tt.width, engineStatus: newFakeEngine().on(tt.engine)})
 
 			logo := readLogoLine(harness.readFrame())
 			assert.True(t, strings.HasSuffix(logo, tt.want), "%q ends %q", logo, tt.want)
@@ -82,7 +82,7 @@ func TestEngineDot(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			harness := openCrowded(t, panelHarnessParams{sidebarWidth: 60, engines: newFakeEngines().on("")})
+			harness := openCrowded(t, panelHarnessParams{sidebarWidth: 60, engineStatus: newFakeEngine().on("")})
 			if tt.lost {
 				harness.send(ui.NewWatchLost(errors.New("connection refused")))
 			}
@@ -92,7 +92,7 @@ func TestEngineDot(t *testing.T) {
 	}
 
 	t.Run("the dot turns green again when the stream comes back", func(t *testing.T) {
-		harness := openCrowded(t, panelHarnessParams{sidebarWidth: 60, engines: newFakeEngines().on("")})
+		harness := openCrowded(t, panelHarnessParams{sidebarWidth: 60, engineStatus: newFakeEngine().on("")})
 
 		harness.send(ui.NewWatchLost(errors.New("connection refused")))
 		harness.watch(buildCrowdedSnapshot(""))
@@ -101,10 +101,10 @@ func TestEngineDot(t *testing.T) {
 	})
 
 	t.Run("a server back on other code is a mismatch, warned of once", func(t *testing.T) {
-		engines := newFakeEngines()
-		harness := openCrowded(t, panelHarnessParams{sidebarWidth: 60, engines: engines.on("remote")})
+		engine := newFakeEngine()
+		harness := openCrowded(t, panelHarnessParams{sidebarWidth: 60, engineStatus: engine.on("remote")})
 
-		engines.build = ui.EngineBuild{Commit: "a41c9e0", Stale: "rebuild komrad at a41c9e0"}
+		engine.build = ui.EngineBuild{Commit: "a41c9e0", Stale: "rebuild komrad at a41c9e0"}
 		harness.send(ui.NewWatchLost(errors.New("connection refused")))
 		harness.watch(buildCrowdedSnapshot(""))
 

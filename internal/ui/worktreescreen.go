@@ -8,6 +8,7 @@ import (
 	"komrad/config"
 	"komrad/internal/errui"
 	"komrad/internal/git"
+	"komrad/internal/glyph"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/view"
@@ -310,8 +311,8 @@ func buildBaseField(read worktreeInspection) recordField {
 		}
 	}
 
-	ahead := fmt.Sprintf("↑%d", read.ahead)
-	behind := fmt.Sprintf("↓%d", read.behind)
+	ahead := fmt.Sprintf("%s%d", glyph.Up, read.ahead)
+	behind := fmt.Sprintf("%s%d", glyph.Down, read.behind)
 
 	return recordField{
 		label:  "base",

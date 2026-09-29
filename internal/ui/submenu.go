@@ -1,8 +1,6 @@
 package ui
 
 import (
-	"strings"
-
 	"komrad/config"
 	"komrad/internal/ui/paint"
 
@@ -88,12 +86,8 @@ func submenuForm(menu submenu, choice *int, keys config.FormKeys) *huh.Form {
 func submenuLabel(entry submenuEntry) string {
 	label := entry.label
 
-	if mark := headLabel(entry.keys); mark != "" {
-		if at := strings.Index(label, mark); at >= 0 {
-			end := at + len(mark)
-			label = label[:at] + ansi.Style{}.Underline(true).String() + label[at:end] +
-				ansi.Style{}.Underline(false).String() + label[end:]
-		}
+	if before, mark, after, ok := splitMark(label, headLabel(entry.keys)); ok {
+		label = before + ansi.Style{}.Underline(true).String() + mark + ansi.Style{}.Underline(false).String() + after
 	}
 
 	if entry.isOff {

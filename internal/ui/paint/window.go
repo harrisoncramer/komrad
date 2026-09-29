@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 
+	"komrad/internal/glyph"
+
 	"charm.land/lipgloss/v2"
 )
 
@@ -97,16 +99,26 @@ func DrawWindow(rows []string, window Window, total int, style lipgloss.Style) s
 
 	var b strings.Builder
 	if window.Marked && window.Start > 0 {
-		b.WriteString(style.Render(fmt.Sprintf("  ↑ %d more", window.Start)) + "\n")
+		b.WriteString(MoreAbove(window.Start, style) + "\n")
 	}
 	for _, row := range rows {
 		b.WriteString(row + "\n")
 	}
 	if rest := total - window.End; window.Marked && rest > 0 {
-		b.WriteString(style.Render(fmt.Sprintf("  ↓ %d more", rest)) + "\n")
+		b.WriteString(MoreBelow(rest, style) + "\n")
 	}
 
 	return b.String()
+}
+
+// MoreAbove is the marker over a window saying how many rows it scrolled past.
+func MoreAbove(count int, style lipgloss.Style) string {
+	return style.Render(fmt.Sprintf("  %s %d more", glyph.Up, count))
+}
+
+// MoreBelow is the marker under a window saying how many rows are left below it.
+func MoreBelow(count int, style lipgloss.Style) string {
+	return style.Render(fmt.Sprintf("  %s %d more", glyph.Down, count))
 }
 
 // CountLines is how many rows a rendered block takes, not counting the newline it ends with.
