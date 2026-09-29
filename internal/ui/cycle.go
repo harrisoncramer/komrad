@@ -15,14 +15,11 @@ type stop int
 const (
 	stopList stop = iota
 	stopAgent
-	stopThread
+	// stopBlock is the block a screen draws beside its list, the review's conversation, a document or a log.
+	stopBlock
 	stopRecord
 	// stopTerminal is the shell opened in the pane below the stage.
 	stopTerminal
-	// stopDocument is the document drawn beside the documents list, or the diff of one of its writes.
-	stopDocument
-	// stopLog is the log of the source hovered on the logs screen, drawn beside the list.
-	stopLog
 	// stopOther is a pane beside the sidebar that is not a stop.
 	stopOther
 )
@@ -93,12 +90,8 @@ func (m model) readSidebarStop() stop {
 	switch {
 	case m.isDetailsFocused():
 		return stopRecord
-	case m.screen == screenReview && m.review.isThreadTaken():
-		return stopThread
-	case m.screen == screenDocuments && m.documents.isBlockFocused(m.shared()):
-		return stopDocument
-	case m.screen == screenLogs && m.logs.isLogFocused(m.shared()):
-		return stopLog
+	case m.isActiveBlockFocused():
+		return stopBlock
 	}
 
 	return stopList
@@ -108,20 +101,11 @@ func (m model) readSidebarStop() stop {
 func (m model) listStops() []stop {
 	stops := []stop{stopList}
 
-	switch {
-	case m.screen == screenReview:
-		if _, ok := m.review.diff.threadAtCursor(); ok {
-			stops = append(stops, stopThread)
+	if b, ok := m.active().(blocked); ok {
+		if b.isBlockDrawn(m.shared()) {
+			stops = append(stops, stopBlock)
 		}
-	case m.screen == screenDocuments:
-		if m.documents.isDiffDrawn(m.shared()) || m.documents.isReadDrawn(m.shared()) {
-			stops = append(stops, stopDocument)
-		}
-	case m.screen == screenLogs:
-		if m.logs.isLogDrawn(m.shared()) {
-			stops = append(stops, stopLog)
-		}
-	case m.focusPane() != "":
+	} else if m.focusPane() != "" {
 		stops = append(stops, stopAgent)
 	}
 
@@ -164,15 +148,11 @@ func (m model) enterStop(to stop) (tea.Model, tea.Cmd) {
 		m.tmux.SelectPane(m.terminalPane())
 	case stopRecord:
 		return m.enterSidebar(to).jumpIntoDetails()
-	case stopThread:
+	case stopBlock:
 		m = m.enterSidebar(to).blurDetails()
-		m.review.threads.focus = true
-	case stopDocument:
-		m = m.enterSidebar(to).blurDetails()
-		m.documents.focusRead(m.shared())
-	case stopLog:
-		m = m.enterSidebar(to).blurDetails()
-		m.logs.logFocus = true
+		if b, ok := m.active().(blocked); ok {
+			b.focusBlock(m.shared())
+		}
 	case stopList, stopOther:
 		m = m.enterSidebar(to).blurDetails()
 	}
@@ -188,19 +168,18 @@ func (m model) enterSidebar(to stop) model {
 
 	m.blurTabs()
 	m.blurKinds()
-	if m.screen == screenReview && to != stopThread {
-		m.review.threads.blur()
-	}
-
-	if to != stopDocument {
-		m.documents.focus = false
-	}
-
-	if to != stopLog {
-		m.logs.logFocus = false
+	if b, ok := m.active().(blocked); ok && to != stopBlock {
+		b.blurBlock()
 	}
 
 	return m
+}
+
+// isActiveBlockFocused reports whether the block beside the list of the screen that is up holds the keys.
+func (m model) isActiveBlockFocused() bool {
+	b, ok := m.active().(blocked)
+
+	return ok && b.isBlockFocused(m.shared())
 }
 
 // terminalPane is the shell the cycle stops at, empty while none is open.

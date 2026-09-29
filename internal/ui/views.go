@@ -110,35 +110,31 @@ func (m model) openViews() model {
 
 func (m model) updateViews(key tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	entries := viewEntries()
-	k := key.String()
 
-	switch {
-	case k == tabNextKey:
-		return m.enterView(entries[stepStop(m.viewIndex(), 1, len(entries))])
-	case k == tabPrevKey:
-		return m.enterView(entries[stepStop(m.viewIndex(), -1, len(entries))])
-	case k == "esc":
-		m.viewsOpen = false
-	case isBound(k, m.quitKeys()):
-		m.viewsOpen = false
+	cmd := m.pressStrip(key.String(), stripKeys{
+		step: func(delta int) tea.Cmd {
+			return m.enterView(entries[stepStop(m.viewIndex(), delta, len(entries))])
+		},
+		close: func() { m.viewsOpen = false },
+		other: func(pressed string) tea.Cmd {
+			for _, entry := range entries {
+				if isBound(pressed, entry.keys(m.keys.Views)) {
+					m.viewsOpen = false
 
-		return m, m.hide()
-	default:
-		for _, entry := range entries {
-			if isBound(k, entry.keys(m.keys.Views)) {
-				m.viewsOpen = false
-
-				return m.enterView(entry)
+					return m.enterView(entry)
+				}
 			}
-		}
-	}
 
-	return m, nil
+			return nil
+		},
+	})
+
+	return m, cmd
 }
 
-func (m model) enterView(entry viewEntry) (tea.Model, tea.Cmd) {
+func (m *model) enterView(entry viewEntry) tea.Cmd {
 	if entry.screen == m.screen {
-		return m, nil
+		return nil
 	}
 
 	var target screenTarget
@@ -146,9 +142,7 @@ func (m model) enterView(entry viewEntry) (tea.Model, tea.Cmd) {
 		target.agentID = m.hoveredAgentID()
 	}
 
-	cmd := m.enter(entry.screen, target)
-
-	return m, cmd
+	return m.enter(entry.screen, target)
 }
 
 // hoveredAgentID is the agent under the cursor on a screen that lists agents.

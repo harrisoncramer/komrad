@@ -133,6 +133,23 @@ type columned interface {
 	column() columnSpec
 }
 
+// blocked is a screen whose block beside the list can take the keys from it.
+type blocked interface {
+	// isBlockDrawn is whether the block is drawn with something in it to take the keys.
+	isBlockDrawn(s panelShared) bool
+
+	// isBlockFocused is whether the block holds the keys.
+	isBlockFocused(s panelShared) bool
+
+	focusBlock(s panelShared)
+	blurBlock()
+}
+
+// leaving is a screen with something to put down when another screen goes up.
+type leaving interface {
+	leave(h host) tea.Cmd
+}
+
 // staged is a screen that puts the row the cursor is on into the stage pane.
 type staged interface {
 	stage(h host, s panelShared)
@@ -265,15 +282,6 @@ func (m *model) widenFilter() {
 
 // enter leaves whichever screen is up for the next, landing it on the target.
 func (m *model) enter(next screen, target screenTarget) tea.Cmd {
-	if m.screen == screenDocuments && next != screenDocuments {
-		return tea.Batch(m.documents.closeEdit(m), m.enterOther(next, target))
-	}
-
-	return m.enterOther(next, target)
-}
-
-// enterOther lands on the next screen.
-func (m *model) enterOther(next screen, target screenTarget) tea.Cmd {
 	// The review is the one screen that refuses a target, and it refuses before the screen goes up.
 	if next == screenReview && target.agentID != "" {
 		item, ok := m.listing.liveAgent(target.agentID)
@@ -284,9 +292,9 @@ func (m *model) enterOther(next screen, target screenTarget) tea.Cmd {
 		return m.enterReview(item.Agent)
 	}
 
-	m.enterScreen(next)
+	left := m.enterScreen(next)
 
-	return m.screenOf(next).enter(m, m.shared(), target)
+	return tea.Batch(left, m.screenOf(next).enter(m, m.shared(), target))
 }
 
 // panelShared is what the root hands a screen on every call, and nothing the screen may write.

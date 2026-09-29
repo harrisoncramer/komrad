@@ -102,8 +102,10 @@ func (l *logsScreen) enter(_ host, s panelShared, target screenTarget) tea.Cmd {
 }
 
 // leave ends the chain of reads.
-func (l *logsScreen) leave() {
+func (l *logsScreen) leave(host) tea.Cmd {
 	l.generation++
+
+	return nil
 }
 
 func (l *logsScreen) listCmd(s panelShared) tea.Cmd {
@@ -320,7 +322,7 @@ func (l *logsScreen) update(h host, s panelShared, msg tea.Msg) tea.Cmd {
 		return l.updateLogFilter(h, s, key)
 	}
 
-	if l.isLogFocused(s) {
+	if l.isBlockFocused(s) {
 		return l.actions(s).dispatch(h, s, key.String())
 	}
 
@@ -387,7 +389,7 @@ func (l *logsScreen) lines(s panelShared, pane listPane) []string {
 	}
 
 	caret := pane.caret
-	if l.isLogFocused(s) {
+	if l.isBlockFocused(s) {
 		caret = view.CaretDrawn
 	}
 
@@ -456,7 +458,7 @@ func (l *logsScreen) logRows(m model, width, height int) []string {
 	}
 
 	rows, cursor := l.viewer.Rows(width-len(blankCursor), height)
-	focused := l.isLogFocused(m.shared())
+	focused := l.isBlockFocused(m.shared())
 	for i, row := range rows {
 		prefix := blankCursor
 		if focused && i == cursor {
@@ -498,8 +500,8 @@ func (l *logsScreen) column() columnSpec {
 	}
 }
 
-// isLogDrawn reports whether the block beside the list holds lines of the log.
-func (l *logsScreen) isLogDrawn(s panelShared) bool {
+// isBlockDrawn reports whether the block beside the list holds lines of the log.
+func (l *logsScreen) isBlockDrawn(s panelShared) bool {
 	if _, ok := s.draw.screenColumnSplit(); !ok {
 		return false
 	}
@@ -507,8 +509,8 @@ func (l *logsScreen) isLogDrawn(s panelShared) bool {
 	return l.read && l.viewer.Len() > 0
 }
 
-// isLogFocused reports whether the log holds the keys.
-func (l *logsScreen) isLogFocused(s panelShared) bool {
+// isBlockFocused reports whether the log holds the keys.
+func (l *logsScreen) isBlockFocused(s panelShared) bool {
 	if !l.logFocus || !s.draw.isListFocused() {
 		return false
 	}
@@ -517,11 +519,19 @@ func (l *logsScreen) isLogFocused(s panelShared) bool {
 		return true
 	}
 
-	return l.isLogDrawn(s)
+	return l.isBlockDrawn(s)
+}
+
+func (l *logsScreen) focusBlock(panelShared) {
+	l.logFocus = true
+}
+
+func (l *logsScreen) blurBlock() {
+	l.logFocus = false
 }
 
 func (l *logsScreen) doesScrollColumn(s panelShared) bool {
-	return l.isLogDrawn(s)
+	return l.isBlockDrawn(s)
 }
 
 func (l *logsScreen) scrollColumn(_ host, _ panelShared, rows int) tea.Cmd {
@@ -541,6 +551,8 @@ var (
 	_ columned       = (*logsScreen)(nil)
 	_ crumbed        = (*logsScreen)(nil)
 	_ columnScroller = (*logsScreen)(nil)
+	_ blocked        = (*logsScreen)(nil)
+	_ leaving        = (*logsScreen)(nil)
 	_ filtered       = (*logsScreen)(nil)
 )
 

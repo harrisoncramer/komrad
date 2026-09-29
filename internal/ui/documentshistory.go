@@ -76,7 +76,7 @@ func (d *documentsScreen) stepNewer(h host, s panelShared) tea.Cmd {
 	if d.history.at == 0 {
 		d.history = nil
 		if d.focus {
-			d.focusRead(s)
+			d.focusBlock(s)
 		}
 
 		return nil

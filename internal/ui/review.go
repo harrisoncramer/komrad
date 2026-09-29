@@ -70,6 +70,24 @@ func (r reviewScreen) isThreadTaken() bool {
 	return ok
 }
 
+func (r *reviewScreen) isBlockDrawn(panelShared) bool {
+	_, ok := r.diff.threadAtCursor()
+
+	return ok
+}
+
+func (r *reviewScreen) isBlockFocused(panelShared) bool {
+	return r.isThreadTaken()
+}
+
+func (r *reviewScreen) focusBlock(panelShared) {
+	r.threads.focus = true
+}
+
+func (r *reviewScreen) blurBlock() {
+	r.threads.blur()
+}
+
 // isThreadFocused is whether the sidebar holds the keys, which it does mid-input and while the
 // conversation has been taken.
 func (r reviewScreen) isThreadFocused(s panelShared) bool {
@@ -128,14 +146,15 @@ func (m *model) enterReview(agent panel.Agent) tea.Cmd {
 		return nil
 	}
 
-	m.enterScreen(screenReview)
+	left := m.enterScreen(screenReview)
 
-	return m.review.open(m.shared(), agent)
+	return tea.Batch(left, m.review.open(m.shared(), agent))
 }
 
 var (
 	_ detailed = (*reviewScreen)(nil)
 	_ columned = (*reviewScreen)(nil)
+	_ blocked  = (*reviewScreen)(nil)
 )
 
 func (r *reviewScreen) doesDrawFromListing() bool {

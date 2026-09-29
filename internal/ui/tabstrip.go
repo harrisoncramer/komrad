@@ -91,6 +91,35 @@ func stepStop(at, delta, count int) int {
 	return (at + delta + count) % count
 }
 
+// stripKeys is how one row of stops answers the keys every row shares.
+type stripKeys struct {
+	step  func(delta int) tea.Cmd
+	close func()
+	// other takes a key the row has a use of its own for, and is nil on a row with none.
+	other func(pressed string) tea.Cmd
+}
+
+// pressStrip applies a key pressed on a row of stops: tab steps along it, esc lets it go, and
+// the quit keys let it go and hide the panel.
+func (m *model) pressStrip(pressed string, strip stripKeys) tea.Cmd {
+	switch {
+	case pressed == tabNextKey:
+		return strip.step(1)
+	case pressed == tabPrevKey:
+		return strip.step(-1)
+	case pressed == "esc":
+		strip.close()
+	case isBound(pressed, m.quitKeys()):
+		strip.close()
+
+		return m.hide()
+	case strip.other != nil:
+		return strip.other(pressed)
+	}
+
+	return nil
+}
+
 func stopsMoveBinding(desc string) key.Binding {
 	return key.NewBinding(key.WithKeys(tabNextKey, tabPrevKey), key.WithHelp("tab/S-tab", desc))
 }
@@ -303,29 +332,32 @@ func (m model) focusTabs() model {
 func (m model) updateTabs(key tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	t, _ := m.activeTabs()
 	strip, state := t.tabs(), t.tabsState()
-	k := key.String()
 	hovered := m.hoveredFilterKey()
 
-	switch {
-	case k == tabNextKey:
-		strip.step(state, 1)
-	case k == tabPrevKey:
-		strip.step(state, -1)
-	case state.onGroup && isBound(k, slices.Concat(m.keys.Nav.Down, m.keys.Nav.Up)):
-		state.flat = !state.flat
-	case isBound(k, m.keys.Nav.Down):
-		strip.choose(state, tabDown)
-	case isBound(k, m.keys.Nav.Up):
-		strip.choose(state, tabUp)
-	case k == "esc":
-		state.leave()
-	case isBound(k, m.quitKeys()):
-		return m, m.hide()
-	}
+	cmd := m.pressStrip(key.String(), stripKeys{
+		step: func(delta int) tea.Cmd {
+			strip.step(state, delta)
+
+			return nil
+		},
+		close: state.leave,
+		other: func(pressed string) tea.Cmd {
+			switch {
+			case state.onGroup && isBound(pressed, slices.Concat(m.keys.Nav.Down, m.keys.Nav.Up)):
+				state.flat = !state.flat
+			case isBound(pressed, m.keys.Nav.Down):
+				strip.choose(state, tabDown)
+			case isBound(pressed, m.keys.Nav.Up):
+				strip.choose(state, tabUp)
+			}
+
+			return nil
+		},
+	})
 
 	m.placeFilteredCursor(hovered)
 
-	return m, nil
+	return m, cmd
 }
 
 func (m model) tabsBinding() key.Binding {

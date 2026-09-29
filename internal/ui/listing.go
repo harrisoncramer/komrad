@@ -370,8 +370,9 @@ func (m model) applyWrite(result writeResult) (tea.Model, tea.Cmd) {
 	_, walkedAway := m.detached[result.write]
 	delete(m.detached, result.write)
 
+	var left tea.Cmd
 	if result.written != nil && !walkedAway {
-		m.enterScreen(screenAgents)
+		left = m.enterScreen(screenAgents)
 		m.landOn(*result.written, time.Now())
 
 		if result.written.pane != "" {
@@ -395,7 +396,7 @@ func (m model) applyWrite(result writeResult) (tea.Model, tea.Cmd) {
 		if result.err == nil && m.warm.pending != "" {
 			m.warm.closesForm = true
 
-			return m, nil
+			return m, left
 		}
 
 		m.held = heldWrite{}
@@ -403,7 +404,7 @@ func (m model) applyWrite(result writeResult) (tea.Model, tea.Cmd) {
 		if result.err == nil {
 			closed, cmd := m.closeForm()
 
-			return closed, cmd
+			return closed, tea.Batch(left, cmd)
 		}
 
 		m.messages.setNewestHint("fix and submit again")
@@ -412,10 +413,10 @@ func (m model) applyWrite(result writeResult) (tea.Model, tea.Cmd) {
 	// A refusal is reported into the region under the record, so the form is told to lay itself
 	// out again.
 	if m.form.isActive() {
-		return m, formResized()
+		return m, tea.Batch(left, formResized())
 	}
 
-	return m, nil
+	return m, left
 }
 
 // landingWait is how long a write's landing waits for the watch to deliver the row it made.

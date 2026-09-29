@@ -581,7 +581,7 @@ func (r *reviewScreen) load(s panelShared, fresh bool) tea.Cmd {
 	})
 }
 
-func (r *reviewScreen) leave(h host, s panelShared) tea.Cmd {
+func (r *reviewScreen) back(h host, s panelShared) tea.Cmd {
 	if r.hold.atEditor {
 		return r.closeEdit(h, s)
 	}
