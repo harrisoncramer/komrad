@@ -3,6 +3,12 @@ source "$MISE_CONFIG_ROOT/mise/tasks/_build"
 source "$MISE_CONFIG_ROOT/mise/tasks/_test_instance"
 #MISE description="Rebuild from an agent's worktree and restart the server, leaving the agents running."
 set -euo pipefail
+
+if [ -n "${KOMRAD_AGENT_ID:-}" ]; then
+	echo "reload: agents may not run this; it restarts the server every agent depends on" >&2
+	exit 1
+fi
+
 require_test_instance
 cd "$MISE_CONFIG_ROOT"
 
