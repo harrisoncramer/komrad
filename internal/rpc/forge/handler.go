@@ -30,14 +30,20 @@ type connector interface {
 	ForConnection(connection forgestore.Connection) (forge.Forge, error)
 }
 
+// pullRequestMerger merges a pull request through the connection for its host.
+type pullRequestMerger interface {
+	MergePullRequest(ctx context.Context, address string) error
+}
+
 type Handler struct {
 	forges connector
+	merger pullRequestMerger
 	now    func() time.Time
 }
 
-// NewHandler constructs the handler over the forge service.
-func NewHandler(forges connector) *Handler {
-	return &Handler{forges: forges, now: time.Now}
+// NewHandler constructs the handler over the forge service and the merger.
+func NewHandler(forges connector, merger pullRequestMerger) *Handler {
+	return &Handler{forges: forges, merger: merger, now: time.Now}
 }
 
 // ConnectForge proves a credential against the forge and records the connection.

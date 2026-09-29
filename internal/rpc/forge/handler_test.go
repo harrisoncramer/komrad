@@ -197,7 +197,7 @@ func TestForgeRefusalsMapToCodes(t *testing.T) {
 				err:         tt.err,
 			}
 
-			err := tt.call(t.Context(), forgev1komrad.ForgeServiceAdapter{Impl: NewHandler(connector)})
+			err := tt.call(t.Context(), forgev1komrad.ForgeServiceAdapter{Impl: NewHandler(connector, nil)})
 			require.Error(t, err)
 			assert.Equal(t, tt.wantCode, connect.CodeOf(err))
 		})
@@ -210,7 +210,7 @@ func TestConnectForge(t *testing.T) {
 		connections: []forgestore.Connection{newConnection()},
 		held:        true,
 	}
-	service := forgev1komrad.ForgeServiceAdapter{Impl: NewHandler(connector)}
+	service := forgev1komrad.ForgeServiceAdapter{Impl: NewHandler(connector, nil)}
 
 	resp, err := service.ConnectForge(t.Context(), connect.NewRequest(&forgev1.ConnectForgeRequest{
 		Host:  "github.com",
@@ -228,7 +228,7 @@ func TestConnectForge(t *testing.T) {
 // TestDisconnectForge pins that the host asked for reaches the service.
 func TestDisconnectForge(t *testing.T) {
 	connector := &fakeConnector{}
-	service := forgev1komrad.ForgeServiceAdapter{Impl: NewHandler(connector)}
+	service := forgev1komrad.ForgeServiceAdapter{Impl: NewHandler(connector, nil)}
 
 	_, err := service.DisconnectForge(t.Context(), connect.NewRequest(&forgev1.DisconnectForgeRequest{Host: "github.com"}))
 	require.NoError(t, err)
@@ -279,7 +279,7 @@ func TestCheckForges(t *testing.T) {
 				connections: []forgestore.Connection{newConnection()},
 				checkErr:    tt.checkErr,
 			}
-			service := forgev1komrad.ForgeServiceAdapter{Impl: NewHandler(connector)}
+			service := forgev1komrad.ForgeServiceAdapter{Impl: NewHandler(connector, nil)}
 
 			resp, err := service.CheckForges(t.Context(), connect.NewRequest(&emptypb.Empty{}))
 			require.NoError(t, err)

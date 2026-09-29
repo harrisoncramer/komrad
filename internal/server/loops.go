@@ -46,11 +46,15 @@ const (
 )
 
 type loopWakers struct {
-	cwdSync *LoopWaker
+	cwdSync         *LoopWaker
+	pullRequestSync *LoopWaker
 }
 
 func newLoopWakers() *loopWakers {
-	return &loopWakers{cwdSync: NewLoopWaker()}
+	return &loopWakers{
+		cwdSync:         NewLoopWaker(),
+		pullRequestSync: NewLoopWaker(),
+	}
 }
 
 type buildLoopsParams struct {
@@ -99,6 +103,7 @@ func buildLoops(params buildLoopsParams) []*Loop {
 			Interval: PullRequestSyncInterval,
 			Floor:    pullRequestSyncFloor,
 			Run:      params.Services.pullRequestSync.Sync,
+			Waker:    params.Wakers.pullRequestSync,
 		}),
 		NewLoop(NewLoopParams{
 			Name:     WorktreeSizeLoop,

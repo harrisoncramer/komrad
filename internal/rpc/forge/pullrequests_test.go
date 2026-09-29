@@ -20,21 +20,12 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 )
 
-// fakeForge answers List and Merge from its fields and records each call.
+// fakeForge answers List from its fields and records each call.
 type fakeForge struct {
 	forge.Forge
 	pullRequests []forge.PullRequest
 	hasMore      bool
 	listed       []forge.ListParams
-	mergeErr     error
-	merged       []string
-}
-
-// Merge records the address and answers mergeErr.
-func (f *fakeForge) Merge(_ context.Context, address string) error {
-	f.merged = append(f.merged, address)
-
-	return f.mergeErr
 }
 
 // List records the params and answers one page of pullRequests.
@@ -46,6 +37,18 @@ func (f *fakeForge) List(_ context.Context, params forge.ListParams) (*forge.Pag
 		HasMore:      f.hasMore,
 		Cursor:       "end-of-page",
 	}, nil
+}
+
+// fakeMerger records each merge and answers mergeErr.
+type fakeMerger struct {
+	mergeErr error
+	merged   []string
+}
+
+func (f *fakeMerger) MergePullRequest(_ context.Context, address string) error {
+	f.merged = append(f.merged, address)
+
+	return f.mergeErr
 }
 
 // TestListForgePullRequests pins what reaches the forge and how each pull request renders.
@@ -71,7 +74,7 @@ func TestListForgePullRequests(t *testing.T) {
 		connections: []forgestore.Connection{newConnection()},
 		forge:       listing,
 	}
-	service := forgev1komrad.ForgeServiceAdapter{Impl: NewHandler(connector)}
+	service := forgev1komrad.ForgeServiceAdapter{Impl: NewHandler(connector, nil)}
 
 	resp, err := service.ListForgePullRequests(t.Context(), connect.NewRequest(&forgev1.ListForgePullRequestsRequest{
 		RemoteUrl: "git@github.com:harrisoncramer/komrad.git",
@@ -107,7 +110,7 @@ func TestListForgePullRequestsPages(t *testing.T) {
 		connections: []forgestore.Connection{newConnection()},
 		forge:       listing,
 	}
-	service := forgev1komrad.ForgeServiceAdapter{Impl: NewHandler(connector)}
+	service := forgev1komrad.ForgeServiceAdapter{Impl: NewHandler(connector, nil)}
 
 	first, err := service.ListForgePullRequests(t.Context(), connect.NewRequest(&forgev1.ListForgePullRequestsRequest{
 		RemoteUrl:  "git@github.com:harrisoncramer/komrad.git",
@@ -130,53 +133,39 @@ func TestListForgePullRequestsPages(t *testing.T) {
 	assert.Nil(t, second.Msg.NextPageToken)
 }
 
-// TestMergeForgePullRequest pins which connection a merge goes through and the code a refusal
-// reaches the caller as.
+// TestMergeForgePullRequest pins the address a merge is asked for and the code a refusal reaches
+// the caller as.
 func TestMergeForgePullRequest(t *testing.T) {
 	const address = "https://github.com/harrisoncramer/komrad/pull/1"
 
 	tests := []struct {
-		name       string
-		url        string
-		refuse     error
-		wantCode   connect.Code
-		wantMerged []string
-		wantHosts  []string
+		name     string
+		refuse   error
+		wantCode connect.Code
 	}{
 		{
-			name:       "the pull request merges through its host's connection",
-			url:        address,
-			wantMerged: []string{address},
-			wantHosts:  []string{"github.com"},
-		},
-		{
-			name:     "an address with no host",
-			url:      "harrisoncramer/komrad#1",
+			name:     "an address that names no pull request",
+			refuse:   forge.ErrNotPullRequest.Saying("%q is not a pull request's address", address),
 			wantCode: connect.CodeInvalidArgument,
 		},
 		{
-			name:       "a pull request the forge will not merge",
-			url:        address,
-			refuse:     forge.ErrNotMergeable.Saying("github refused to merge it: Pull Request is not mergeable"),
-			wantCode:   connect.CodeFailedPrecondition,
-			wantMerged: []string{address},
-			wantHosts:  []string{"github.com"},
+			name:     "a pull request the forge will not merge",
+			refuse:   forge.ErrNotMergeable.Saying("github refused to merge it: Pull Request is not mergeable"),
+			wantCode: connect.CodeFailedPrecondition,
+		},
+		{
+			name: "a pull request the forge merges",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			merging := &fakeForge{mergeErr: tt.refuse}
-			connector := &fakeConnector{
-				connections: []forgestore.Connection{newConnection()},
-				forge:       merging,
-			}
-			service := forgev1komrad.ForgeServiceAdapter{Impl: NewHandler(connector)}
+			merger := &fakeMerger{mergeErr: tt.refuse}
+			service := forgev1komrad.ForgeServiceAdapter{Impl: NewHandler(&fakeConnector{}, merger)}
 
-			_, err := service.MergeForgePullRequest(t.Context(), connect.NewRequest(&forgev1.MergeForgePullRequestRequest{Url: tt.url}))
+			_, err := service.MergeForgePullRequest(t.Context(), connect.NewRequest(&forgev1.MergeForgePullRequestRequest{Url: address}))
 
-			assert.Equal(t, tt.wantHosts, connector.hosts)
-			assert.Equal(t, tt.wantMerged, merging.merged)
+			assert.Equal(t, []string{address}, merger.merged)
 			if tt.wantCode != 0 {
 				require.Error(t, err)
 				assert.Equal(t, tt.wantCode, connect.CodeOf(err))
