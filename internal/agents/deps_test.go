@@ -414,31 +414,6 @@ func (s *testStore) workflowService(options workflowServiceOptions) *WorkflowSer
 	})
 }
 
-type deletingClaimer interface {
-	MarkDeleting(ctx context.Context, ids []string) ([]agentstore.Claim, error)
-}
-
-// deleteNow claims agents and runs the delete of each root the claim took, as the queued jobs do.
-func (s *LifecycleService) deleteNow(ctx context.Context, ids []string) error {
-	claimer, ok := s.agents.(deletingClaimer)
-	if !ok {
-		return fmt.Errorf("the agent store %T cannot claim a delete", s.agents)
-	}
-
-	claims, err := claimer.MarkDeleting(ctx, ids)
-	if err != nil {
-		return err
-	}
-
-	for _, root := range agentstore.ClaimRoots(claims) {
-		if err := s.DeleteAgent(ctx, root.ID, root.DeletingAt); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
 type inlineDelete struct {
 	lifecycle *LifecycleService
 }
