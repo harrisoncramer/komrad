@@ -434,6 +434,8 @@ type DocumentsKeys struct {
 	// Write a new document for the agent whose documents are listed, from a form asking its name
 	// and type. It starts with a line saying it is empty, for you to edit.
 	New []string `mapstructure:"new" default:"c"`
+	// Rename the document under the cursor, typing over its name in the list.
+	Rename []string `mapstructure:"rename" default:"r"`
 	// Quit the panel.
 	Quit []string `mapstructure:"quit" default:"ctrl+c"`
 }
@@ -452,7 +454,8 @@ type DocumentTypesKeys struct {
 	Newer []string `mapstructure:"newer" default:">"`
 	// Define a new type, from a form asking its name and its context.
 	New []string `mapstructure:"new" default:"c"`
-	// Rename the type under the cursor, which renames it on every document written as it.
+	// Rename the type under the cursor, typing over its name in the list. Every document written
+	// as it is renamed with it.
 	Rename []string `mapstructure:"rename" default:"r"`
 	// Delete the type under the cursor, which is refused while documents are written as it.
 	Delete []string `mapstructure:"delete" default:"d"`

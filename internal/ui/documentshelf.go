@@ -37,12 +37,13 @@ func (f documentShelf) keys(k config.Keybindings) config.DocumentsKeys {
 		t := k.DocumentTypes
 
 		return config.DocumentsKeys{
-			Back:  t.Back,
-			Edit:  t.Edit,
-			Older: t.Older,
-			Newer: t.Newer,
-			New:   t.New,
-			Quit:  t.Quit,
+			Back:   t.Back,
+			Edit:   t.Edit,
+			Older:  t.Older,
+			Newer:  t.Newer,
+			New:    t.New,
+			Rename: t.Rename,
+			Quit:   t.Quit,
 		}
 	}
 

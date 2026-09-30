@@ -353,10 +353,6 @@ func (a *agentsScreen) listParams(s panelShared) screenListParams {
 }
 
 func (a *agentsScreen) help(s panelShared) keyMap {
-	if a.isRenaming() {
-		return renameHelp()
-	}
-
 	return a.actions().help(s)
 }
 
@@ -372,7 +368,7 @@ func (a *agentsScreen) snapshot(s panelShared, pane listPane) view.Snapshot {
 		blinkedOut:  pane.blinkedOut,
 		loaderFrame: s.loaderFrame,
 		matcher:     s.chrome.filter.pattern,
-		renaming:    a.renaming,
+		renaming:    a.renamingField(),
 		showHidden:  a.showHidden,
 		flat:        a.sort.flat,
 		pane:        pane.width,
@@ -419,6 +415,7 @@ var (
 	_ columned = (*agentsScreen)(nil)
 	_ staged   = (*agentsScreen)(nil)
 	_ leaving  = (*agentsScreen)(nil)
+	_ renamer  = (*agentsScreen)(nil)
 )
 
 func (a *agentsScreen) doesDrawFromListing() bool {

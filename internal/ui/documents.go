@@ -53,6 +53,7 @@ type documentsScreen struct {
 	err         error
 	bodies      map[string]documentBody
 	editing     *documentEdit
+	renaming    *documentRename
 	history     *documentHistory
 	// focus says the picker handed the keys to the diff beside the list.
 	focus bool
@@ -84,6 +85,11 @@ func (d *documentsScreen) enter(h host, _ panelShared, target screenTarget) tea.
 }
 
 func (d *documentsScreen) update(h host, s panelShared, msg tea.Msg) tea.Cmd {
+	d.reconcileRename(s)
+	if d.renaming != nil {
+		return d.updateRename(h, msg)
+	}
+
 	key, ok := msg.(tea.KeyPressMsg)
 	if !ok {
 		return nil
@@ -220,14 +226,14 @@ func (d *documentsScreen) snapshot(s panelShared, pane listPane) view.Snapshot {
 
 	return view.Snapshot{
 		Rows: xslice.Map(rows, func(r documentRow) view.Row {
-			return view.Row{
+			return d.renamingField().drawnOver(view.Row{
 				Key:     r.key(),
 				Kind:    view.KindResult,
 				Name:    r.item.name,
 				Matches: matchesIn(s.chrome.filter.pattern, r.item.name),
 				Process: view.ProcessNone,
 				Cells:   []view.Cell{mutedCell(label.AgeAt(r.item.updatedAt, now))},
-			}
+			})
 		}),
 		Caret:      caret,
 		BlinkedOut: pane.blinkedOut,
@@ -447,6 +453,7 @@ var (
 	_ columnScroller = (*documentsScreen)(nil)
 	_ blocked        = (*documentsScreen)(nil)
 	_ leaving        = (*documentsScreen)(nil)
+	_ renamer        = (*documentsScreen)(nil)
 )
 
 func (d *documentsScreen) stage(h host, _ panelShared) {
@@ -458,7 +465,7 @@ func (d *documentsScreen) doesDrawFromListing() bool {
 }
 
 func (d *documentsScreen) takesEveryKey() bool {
-	return d.history != nil && d.history.filter.typing
+	return d.renaming != nil || (d.history != nil && d.history.filter.typing)
 }
 
 func (d *documentsScreen) column() columnSpec {

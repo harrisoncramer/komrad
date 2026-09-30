@@ -177,6 +177,17 @@ func TestDocumentTypesWrite(t *testing.T) {
 			},
 		},
 		{
+			name:      "enter saves the name typed over the type",
+			presses:   []string{"r", "s", "enter"},
+			procedure: agentv1connect.AgentServiceWriteDocumentTypeProcedure,
+			want: &agentv1.WriteDocumentTypeRequest{
+				Id:      xptr.Ptr("t3"),
+				Version: xptr.Ptr[int32](2),
+				Name:    "explainers",
+				Context: "How to write an explainer.",
+			},
+		},
+		{
 			name:      "the same name renames nothing",
 			presses:   []string{"r", "ctrl+s"},
 			procedure: agentv1connect.AgentServiceWriteDocumentTypeProcedure,

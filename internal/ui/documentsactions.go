@@ -59,6 +59,13 @@ func (d *documentsScreen) table() []screenAction {
 			},
 		},
 		{
+			id:   actionDocumentsRename,
+			keys: func(k config.Keybindings) []string { return d.shelf.keys(k).Rename },
+			run: func(_ host, s panelShared, _ string) tea.Cmd {
+				return d.openRename(s)
+			},
+		},
+		{
 			id:   actionDocumentsBack,
 			keys: func(k config.Keybindings) []string { return d.shelf.keys(k).Back },
 			run: func(h host, s panelShared, _ string) tea.Cmd {
@@ -81,6 +88,10 @@ func (d *documentsScreen) legend() []screenLegendRow {
 		{
 			of:   []actionID{actionDocumentsNew},
 			desc: func(panelShared) string { return d.newDesc() },
+		},
+		{
+			of:   []actionID{actionDocumentsRename},
+			desc: func(panelShared) string { return "rename" },
 		},
 		{
 			of:   []actionID{actionDocumentsOlder},
@@ -220,6 +231,8 @@ func (d *documentsScreen) blurBlock() {
 
 // leave takes down an editor open on the stage.
 func (d *documentsScreen) leave(h host) tea.Cmd {
+	d.renaming = nil
+
 	return d.closeEdit(h)
 }
 

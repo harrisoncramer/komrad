@@ -164,21 +164,23 @@ prev_match = ["N"]
 # The documents screen, which reads what the hovered agent has written for a person.
 [keybindings.documents]
 # Leave the documents screen for the view it was opened from.
-back  = ["esc"]
+back   = ["esc"]
 # Open the document under the cursor in your editor, in place of the document drawn
 # beside the list. Quitting the editor, or pressing the key again to close it, saves what it
 # has written to the file.
-edit  = ["e"]
+edit   = ["e"]
 # Step back to an earlier write of the document under the cursor, drawing what that write
 # changed.
-older = ["<"]
+older  = ["<"]
 # Step forward to a later write, and past the newest back to the document as it stands.
-newer = [">"]
+newer  = [">"]
 # Write a new document for the agent whose documents are listed, from a form asking its name
 # and type. It starts with a line saying it is empty, for you to edit.
-new   = ["c"]
+new    = ["c"]
+# Rename the document under the cursor, typing over its name in the list.
+rename = ["r"]
 # Quit the panel.
-quit  = ["ctrl+c"]
+quit   = ["ctrl+c"]
 
 # The documents menu, nested under the menu on the hovered agent.
 [keybindings.documents_menu]
@@ -202,7 +204,8 @@ older  = ["<"]
 newer  = [">"]
 # Define a new type, from a form asking its name and its context.
 new    = ["c"]
-# Rename the type under the cursor, which renames it on every document written as it.
+# Rename the type under the cursor, typing over its name in the list. Every document written
+# as it is renamed with it.
 rename = ["r"]
 # Delete the type under the cursor, which is refused while documents are written as it.
 delete = ["d"]

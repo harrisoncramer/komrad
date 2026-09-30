@@ -103,6 +103,7 @@ func TestRenameField(t *testing.T) {
 		assert.Contains(t, readLegend(frame), "enter/C-s save")
 		assert.Contains(t, readLegend(frame), "esc cancel")
 		assert.NotContains(t, frame, "C-s submit", "no form opens")
+		assert.NotContains(t, readLegend(frame), "menu", "space is typed, not the menu")
 	})
 
 	t.Run("a paste goes in on one line", func(t *testing.T) {

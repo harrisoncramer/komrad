@@ -390,6 +390,8 @@ func (m model) applyWrite(result writeResult) (tea.Model, tea.Cmd) {
 
 	if result.renamed != "" {
 		m.agents.settleRename(m.shared(), result.renamed, result.err)
+		m.documents.settleRename(m.shared(), result.renamed, result.err)
+		m.documentTypes.settleRename(m.shared(), result.renamed, result.err)
 	}
 
 	if result.queued != nil && result.err == nil {
