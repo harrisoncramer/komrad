@@ -209,7 +209,7 @@ func parseDay(key, value string, now time.Time) (time.Time, error) {
 
 	day, err := time.ParseInLocation(dayLayout, value, now.Location())
 	if err != nil {
-		return time.Time{}, ErrBadQualifier.Saying("%s:%s is not a day; give today, yesterday, a date like 2026-09-20, or a span like 3d", key, value)
+		return time.Time{}, ErrBadQualifier.Saying("%s:%s is not a day; give today, yesterday, a date like 2026-09-20, or a span like 30m or 3d", key, value)
 	}
 
 	return day, nil
@@ -227,6 +227,8 @@ func parseSpan(value string) (time.Duration, bool) {
 
 	var unit time.Duration
 	switch unicode.ToLower(rune(value[len(value)-1])) {
+	case 'm':
+		unit = time.Minute
 	case 'h':
 		unit = time.Hour
 	case 'd':

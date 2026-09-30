@@ -117,6 +117,11 @@ func TestParseQuery(t *testing.T) {
 			}},
 		},
 		{
+			name: "a span in minutes",
+			text: "since:30m",
+			want: Query{Filter: transcriptstore.Filter{Since: xptr.Ptr(now.Add(-30 * time.Minute))}},
+		},
+		{
 			name: "since the start of today",
 			text: "since:today",
 			want: Query{Filter: transcriptstore.Filter{Since: &midnight}},
