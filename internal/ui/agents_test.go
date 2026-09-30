@@ -1133,10 +1133,17 @@ func TestAgentsRecordWorktree(t *testing.T) {
 		assert.Negative(t, findRecordLine(frame, "commits"))
 	})
 
-	t.Run("the top rule carries the lines the branch changed", func(t *testing.T) {
+	t.Run("the top rule carries where the directory stands left of the lines the branch changed", func(t *testing.T) {
+		changed := &agentv1.DiffStat{Added: 200, Removed: 100}
+		unpushed := buildWorktreeRead()
+		unpushed.Modified, unpushed.Untracked, unpushed.Unpulled = nil, nil, 0
+		unpulledLanded := buildWorktreeRead()
+		unpulledLanded.UnpulledLanded = true
 		tests := []struct {
 			name     string
+			read     *worktreev1.GetWorktreeResponse
 			diffStat *agentv1.DiffStat
+			presses  []string
 			want     string
 		}{
 			{
@@ -1149,7 +1156,51 @@ func TestAgentsRecordWorktree(t *testing.T) {
 			},
 			{
 				name:     "a branch with changes counts the lines added and removed",
-				diffStat: &agentv1.DiffStat{Added: 200, Removed: 100},
+				diffStat: changed,
+				want:     "+200 −100",
+			},
+			{
+				name:     "a directory with nothing waiting carries only the lines",
+				read:     &worktreev1.GetWorktreeResponse{Worktree: &worktreev1.Worktree{Dir: "/repo", Readable: true, Branch: "agent/x"}, BaseRef: "origin/main", Pushed: true},
+				diffStat: changed,
+				want:     "+200 −100",
+			},
+			{
+				name:     "a branch never pushed says so",
+				read:     &worktreev1.GetWorktreeResponse{Worktree: &worktreev1.Worktree{Dir: "/repo", Readable: true, Branch: "agent/x"}, BaseRef: "origin/main", Ahead: 1},
+				diffStat: changed,
+				want:     "not pushed · +200 −100",
+			},
+			{
+				name:     "commits not on origin are counted",
+				read:     unpushed,
+				diffStat: changed,
+				want:     "↑2 unpushed · +200 −100",
+			},
+			{
+				name:     "a narrow rule gives up the leftmost of what is waiting first",
+				read:     buildWorktreeRead(),
+				diffStat: changed,
+				want:     "↑2 unpushed · ↓1 unpulled · +200 −100",
+			},
+			{
+				name:     "a wide rule carries every change waiting in the directory",
+				read:     buildWorktreeRead(),
+				diffStat: changed,
+				presses:  widenListPresses,
+				want:     "2 modified · 1 untracked · ↑2 unpushed · ↓1 unpulled · +200 −100",
+			},
+			{
+				name:     "unpulled commits the base already holds are left off",
+				read:     unpulledLanded,
+				diffStat: changed,
+				presses:  widenListPresses,
+				want:     "2 modified · 1 untracked · ↑2 unpushed · +200 −100",
+			},
+			{
+				name:     "a branch the base already holds whole has nothing to push",
+				read:     &worktreev1.GetWorktreeResponse{Worktree: &worktreev1.Worktree{Dir: "/repo", Readable: true, Branch: "agent/x"}, BaseRef: "origin/main", Pushed: true, Unpushed: 2, Unpulled: 1, UnpulledLanded: true},
+				diffStat: changed,
 				want:     "+200 −100",
 			},
 		}
@@ -1159,65 +1210,11 @@ func TestAgentsRecordWorktree(t *testing.T) {
 				recorded := buildRecorded()
 				recorded[1].(*agentv1.Agent).DiffStat = tt.diffStat
 				harness := newPanelHarness(t, panelHarnessParams{})
-				harness.answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, refuseWith(connect.CodeNotFound, "/repo is not under the worktree directories"))
-				harness.watch(buildSnapshot(recorded...))
-
-				assert.Equal(t, tt.want, readRecordTag(harness.readFrame()))
-			})
-		}
-	})
-
-	t.Run("the top rule carries where the directory stands left of the lines the branch changed", func(t *testing.T) {
-		unpushed := buildWorktreeRead()
-		unpushed.Modified, unpushed.Untracked, unpushed.Unpulled = nil, nil, 0
-		unpulledLanded := buildWorktreeRead()
-		unpulledLanded.UnpulledLanded = true
-		tests := []struct {
-			name    string
-			read    *worktreev1.GetWorktreeResponse
-			presses []string
-			want    string
-		}{
-			{
-				name: "a directory with nothing waiting carries only the lines",
-				read: &worktreev1.GetWorktreeResponse{Worktree: &worktreev1.Worktree{Dir: "/repo", Readable: true, Branch: "agent/x"}, BaseRef: "origin/main", Pushed: true},
-				want: "+200 −100",
-			},
-			{
-				name: "a branch never pushed says so",
-				read: &worktreev1.GetWorktreeResponse{Worktree: &worktreev1.Worktree{Dir: "/repo", Readable: true, Branch: "agent/x"}, BaseRef: "origin/main", Ahead: 1},
-				want: "not pushed · +200 −100",
-			},
-			{
-				name: "commits not on origin are counted",
-				read: unpushed,
-				want: "↑2 unpushed · +200 −100",
-			},
-			{
-				name:    "a wide rule carries every change waiting in the directory",
-				read:    buildWorktreeRead(),
-				presses: widenListPresses,
-				want:    "2 modified · 1 untracked · ↑2 unpushed · ↓1 unpulled · +200 −100",
-			},
-			{
-				name:    "unpulled commits the base already holds are left off",
-				read:    unpulledLanded,
-				presses: widenListPresses,
-				want:    "2 modified · 1 untracked · ↑2 unpushed · +200 −100",
-			},
-			{
-				name: "a branch the base already holds whole has nothing to push",
-				read: &worktreev1.GetWorktreeResponse{Worktree: &worktreev1.Worktree{Dir: "/repo", Readable: true, Branch: "agent/x"}, BaseRef: "origin/main", Pushed: true, Unpushed: 2, Unpulled: 1, UnpulledLanded: true},
-				want: "+200 −100",
-			},
-		}
-
-		for _, tt := range tests {
-			t.Run(tt.name, func(t *testing.T) {
-				recorded := buildRecorded()
-				recorded[1].(*agentv1.Agent).DiffStat = &agentv1.DiffStat{Added: 200, Removed: 100}
-				harness := newPanelHarness(t, panelHarnessParams{})
-				harness.answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, answerWith(tt.read))
+				if tt.read == nil {
+					harness.answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, refuseWith(connect.CodeNotFound, "/repo is not under the worktree directories"))
+				} else {
+					harness.answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, answerWith(tt.read))
+				}
 				harness.watch(buildSnapshot(recorded...))
 
 				harness.press(tt.presses...)
