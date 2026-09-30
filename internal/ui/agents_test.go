@@ -12,6 +12,7 @@ import (
 	"komrad/internal/ui"
 	"komrad/internal/ui/paint"
 	"komrad/lib/xptr"
+	"komrad/lib/xslice"
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
 	"komrad/proto/gen/hook/v1/hookv1connect"
@@ -1628,15 +1629,17 @@ func TestAgentsFailedPlaceholder(t *testing.T) {
 // TestAgentsConversationPreview covers the conversation drawn beside an agent that is not running.
 func TestAgentsConversationPreview(t *testing.T) {
 	tests := []struct {
-		name       string
-		agent      *agentv1.Agent
-		want       []string
-		wantAbsent []string
+		name         string
+		agent        *agentv1.Agent
+		want         []string
+		wantAbsent   []string
+		wantTurnsFor []string
 	}{
 		{
-			name:  "a dormant agent draws its last turns under how to resume it",
-			agent: newDormant("login"),
-			want:  []string{"Press open to resume.", "Conversation Preview", "the migration is written"},
+			name:         "a dormant agent draws its last turns under how to resume it",
+			agent:        newDormant("login"),
+			want:         []string{"Press open to resume.", "Conversation Preview", "the migration is written"},
+			wantTurnsFor: []string{"a1"},
 		},
 		{
 			name: "a failed agent draws its failure and no conversation",
@@ -1647,6 +1650,16 @@ func TestAgentsConversationPreview(t *testing.T) {
 				return agent
 			}(),
 			want:       []string{"setup failed"},
+			wantAbsent: []string{"Conversation Preview"},
+		},
+		{
+			name:  "a running agent asks for no conversation",
+			agent: newPausable(""),
+		},
+		{
+			name:       "a paused agent draws how to unpause it and no conversation",
+			agent:      newPausable("1970-01-01T00:00:00Z"),
+			want:       []string{"unpause in silence"},
 			wantAbsent: []string{"Conversation Preview"},
 		},
 	}
@@ -1669,6 +1682,9 @@ func TestAgentsConversationPreview(t *testing.T) {
 			for _, absent := range tt.wantAbsent {
 				assert.NotContains(t, frame, absent)
 			}
+			harness.assertSentTo(agentv1connect.AgentServiceGetLastTurnsProcedure, xslice.Map(tt.wantTurnsFor, func(id string) proto.Message {
+				return &agentv1.GetLastTurnsRequest{AgentId: id, Turns: xptr.Ptr[int32](6), MaxBytes: xptr.Ptr[int32](1200)}
+			})...)
 		})
 	}
 
