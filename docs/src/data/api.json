@@ -304,7 +304,7 @@
             "orchestrator"
           ],
           "summary": "Let a held agent carry on, telling it what happened while it was held.",
-          "description": "Let a held agent carry on, telling it what happened while it was held. Whatever you pass as said is typed into the agent as it starts again, which is how it learns that its files moved or that its work is no longer wanted. An empty said releases it in silence. If the agent.s input would not take the words, it is released without them.",
+          "description": "Let a held agent carry on, telling it what happened while it was held. Whatever you pass as said is typed into the agent as it starts again, which is how it learns that its files moved or that its work is no longer wanted. An empty said releases it in silence. If the agent's input would not take the words, it is released without them.",
           "readOnly": false,
           "idempotent": false,
           "destructive": false,
