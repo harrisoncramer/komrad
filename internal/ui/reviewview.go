@@ -11,7 +11,6 @@ import (
 	"komrad/internal/ui/paint"
 	agentv1 "komrad/proto/gen/agent/v1"
 
-	"charm.land/bubbles/v2/key"
 	"charm.land/lipgloss/v2"
 )
 
@@ -37,50 +36,67 @@ func reviewDeadStyle(palette paint.Palette) lipgloss.Style {
 	return lipgloss.NewStyle().Foreground(lipgloss.Color("0")).Background(palette.Color(paint.ToneMuted)).Bold(true)
 }
 
-// view draws the diff and, beside it, the thread the cursor is standing on, as one frame.
+// view draws the diff and, beside it, the file tree, with the thread the cursor is standing on
+// in a popup over the diff.
 func (r reviewScreen) view(s panelShared) string {
 	split, ok := s.draw.screenColumnSplit()
 	if !ok {
 		band := r.bandView(s, s.pane)
+		layout := r.layoutSidebar(s, band)
+		column := strings.TrimRight(band+r.drawSidebar(layout), "\n")
+		cursor := paint.CountLines(band+layout.bar+layout.files+layout.offers+r.placeView()) - 1
 
-		return band + strings.TrimRight(r.sidebarView(s, band), "\n")
+		return r.overlayThread(s, column, cursor, 0)
 	}
 
 	// Trimmed so the two halves are the same height.
-	sidebar := strings.TrimRight(r.sidebarView(s), "\n")
+	sidebar := strings.TrimRight(r.drawSidebar(r.layoutSidebar(s)), "\n")
 
 	// The band stands over the diff rather than over the whole window, and what it carries acts on
 	// the patch.
-	diff := s.draw.markZone(zoneList, r.bandView(s, split.column)+r.diffView(s, split), split.column)
+	band := r.bandView(s, split.column)
+	area := r.overlayThread(s, band+r.diffView(s, split), strings.Count(band, "\n")+r.diff.GetCursorRow(split.rows), reviewPopupLeft)
+	diff := s.draw.markZone(zoneList, area, split.column)
 
 	return s.draw.joinColumns(split, sidebar, diff)
 }
 
-// sidebarView is the panel's own column: the files the change touches, where the cursor is
-// standing, and the thread hanging off it.
-func (r reviewScreen) sidebarView(s panelShared, above ...string) string {
-	layout := r.layoutSidebar(s, above...)
-	rest := r.threads.window(r.restView(s), layout.threadLines)
+// overlayThread draws the popup over an area beside the cursor's row, and leaves the area alone
+// where the popup has nothing to hold.
+func (r reviewScreen) overlayThread(s panelShared, area string, cursor, left int) string {
+	body := r.popupBody(s, measurePopupInner(s))
+	if body == "" {
+		return area
+	}
 
-	column := s.draw.markZone(zoneBlock, paint.PadRows(layout.files+layout.offers+r.placeView()+rest, layout.spare), s.pane)
+	rows := paint.CountLines(area)
+	width := lipgloss.Width(area)
+	box := drawPopup(body, measurePopupWidth(width-left), min(reviewPopupHeight, rows))
+
+	return overlayPopup(area, width, placePopup(box, cursor, rows, left))
+}
+
+// drawSidebar is the panel's own column: the files the change touches, where the cursor is
+// standing, and what the reader was last told.
+func (r reviewScreen) drawSidebar(layout sidebarLayout) string {
+	column := paint.PadRows(layout.files+layout.offers+r.placeView()+layout.notes, layout.spare)
 
 	return layout.bar + column + layout.rule + layout.help
 }
 
-// sidebarLayout is the sidebar measured once, so the drawing and the thread's scroll agree on
-// the rows the conversation has.
+// sidebarLayout is the sidebar measured once.
 type sidebarLayout struct {
-	bar         string
-	rule        string
-	help        string
-	files       string
-	offers      string
-	spare       int
-	threadLines int
+	bar    string
+	rule   string
+	help   string
+	files  string
+	offers string
+	notes  string
+	spare  int
 }
 
-// layoutSidebar splits the column between the file tree and the thread, the bar over them giving
-// way before either loses a row it needs.
+// layoutSidebar gives the column to the file tree, the bar over it giving way before the tree
+// loses a row it needs.
 func (r reviewScreen) layoutSidebar(s panelShared, above ...string) sidebarLayout {
 	bare := r.layoutUnder(s, "", above)
 	barred := r.layoutUnder(s, s.draw.viewsBar(), above)
@@ -93,11 +109,7 @@ func (r reviewScreen) layoutSidebar(s panelShared, above ...string) sidebarLayou
 		return bare
 	}
 
-	if conversation := paint.CountLines(r.restView(s)); barred.threadLines < min(bare.threadLines, conversation) {
-		return bare
-	}
-
-	if paint.CountLines(barred.files) < min(paint.CountLines(bare.files), r.filesFloor(bare.spare)) {
+	if paint.CountLines(barred.files) < min(paint.CountLines(bare.files), r.countFilesFloor(bare.spare)) {
 		return bare
 	}
 
@@ -109,14 +121,13 @@ func (r reviewScreen) layoutUnder(s panelShared, bar string, above []string) sid
 	help := s.draw.renderHelp(r.help(s), slices.Concat(above, []string{r.placeView()})...)
 	rule := s.draw.drawRecord(slices.Concat(above, []string{bar, help})...)
 	spare := s.draw.listLines(slices.Concat(above, []string{bar, help, rule})...)
-	place := paint.CountLines(r.placeView())
 
 	layout := sidebarLayout{
-		bar:         bar,
-		rule:        rule,
-		help:        help,
-		spare:       spare,
-		threadLines: paint.Unbounded,
+		bar:   bar,
+		rule:  rule,
+		help:  help,
+		notes: r.notesView(s),
+		spare: spare,
 	}
 
 	if spare < 0 {
@@ -126,48 +137,16 @@ func (r reviewScreen) layoutUnder(s panelShared, bar string, above []string) sid
 		return layout
 	}
 
-	layout.offers = r.offersView(s, countOffersRoom(spare, r.filesFloor(spare)))
-	room := spare - paint.CountLines(layout.offers)
-
-	filesLines := r.filesWindow(room)
-	if !r.isThreadDrawn() {
-		filesLines = max(room-place-paint.CountLines(r.restView(s)), r.filesFloor(room))
-	}
-
-	layout.files = r.filesView(s, min(filesLines, max(room-place, 0)))
-	layout.threadLines = max(room-paint.CountLines(layout.files)-place, 0)
+	layout.offers = r.offersView(s, countOffersRoom(spare, r.countFilesFloor(spare)))
+	room := spare - paint.CountLines(layout.offers) - paint.CountLines(r.placeView())
+	lines := max(room-paint.CountLines(layout.notes), r.countFilesFloor(spare))
+	layout.files = r.filesView(s, max(min(lines, room), 0))
 
 	return layout
 }
 
-// isThreadDrawn reports whether the sidebar is drawing a conversation or an editor, which the
-// file tree shrinks to make room for.
-func (r reviewScreen) isThreadDrawn() bool {
-	if r.isWriting() {
-		return true
-	}
-
-	_, ok := r.diff.threadAtCursor()
-
-	return ok
-}
-
-// layoutSidebarAsDrawn measures the sidebar with the band over it when the panel draws one there.
-func (r reviewScreen) layoutSidebarAsDrawn(s panelShared) sidebarLayout {
-	if _, ok := s.draw.screenColumnSplit(); !ok {
-		return r.layoutSidebar(s, r.bandView(s, s.pane))
-	}
-
-	return r.layoutSidebar(s)
-}
-
-// help keeps the strip to what the screen is for, and hands the legend to the conversation
-// while the reader has taken the keys onto it.
+// help keeps the strip to what the screen is for.
 func (r reviewScreen) help(s panelShared) keyMap {
-	if r.isThreadHolding() {
-		return r.threadHelp(s)
-	}
-
 	own := r.actions().help(s)
 
 	return keyMap{
@@ -179,54 +158,6 @@ func (r reviewScreen) help(s panelShared) keyMap {
 	}
 }
 
-// isThreadHolding reports whether the reader has taken the keys onto the conversation.
-func (r reviewScreen) isThreadHolding() bool {
-	return !r.isWriting() && r.isThreadTaken()
-}
-
-// threadHelp is the legend while the conversation holds the keys.
-func (r reviewScreen) threadHelp(s panelShared) keyMap {
-	scroll := binding(slices.Concat(s.keys.Nav.Up, s.keys.Nav.Down), "scroll the thread")
-	ends := binding(slices.Concat(s.keys.Nav.Top, s.keys.Nav.Bottom), "top/bottom")
-	back := binding([]string{"esc"}, "back to the diff")
-	reply := binding(s.keys.Review.Compose, "reply")
-	settle := binding(s.keys.Review.Resolve, r.diff.resolveDesc())
-	send := binding(formKeys().Submit, r.threads.sendDesc())
-
-	return keyMap{
-		short: slices.Concat([]key.Binding{scroll, back, reply, settle}, s.draw.globalHelp()),
-		full:  slices.Concat([]key.Binding{scroll, ends, back, reply, settle, send}, s.draw.fullGlobalHelp()),
-	}
-}
-
-// window cuts the conversation down to the rows the sidebar has, keeping its end unless the
-// reader has taken the keys and scrolled up into it.
-func (t reviewThreads) window(rendered string, lines int) string {
-	if lines <= 0 {
-		return ""
-	}
-
-	if len(strings.Split(strings.TrimRight(rendered, "\n"), "\n")) <= lines {
-		return rendered
-	}
-
-	rows := splitConversation(rendered)
-
-	// Placed from the end of the conversation rather than around a cursor, so the newest message
-	// holds its row as the thread grows and the reader walks back from there.
-	place := func(visible int) int {
-		return len(rows) - visible - min(t.scroll, len(rows)-visible)
-	}
-
-	return paint.WindowRows(rows, lines, place, reviewMarkerStyle())
-}
-
-// splitConversation is the conversation's rows once it no longer fits, without the gap that
-// parts it from the head, since a clipped thread has no row to spare on it.
-func splitConversation(rendered string) []string {
-	return strings.Split(strings.Trim(rendered, "\n"), "\n")
-}
-
 // placeView is the blank row under the file tree and the place the cursor is standing.
 func (r reviewScreen) placeView() string {
 	if r.loading || r.diff.View() == nil || r.diff.View().Len() == 0 {
@@ -236,43 +167,33 @@ func (r reviewScreen) placeView() string {
 	return "\n" + r.diff.anchorView()
 }
 
-// reviewNote is a line of prose under the conversation, wrapped into the sidebar's own column.
-func reviewNote(s panelShared, style lipgloss.Style, text string) string {
+// reviewNote is a line of prose wrapped to the width given.
+func reviewNote(width int, style lipgloss.Style, text string) string {
 	var out strings.Builder
-	for _, row := range paint.WrapRows(text, lineWidthOf(s.pane)-2) {
+	for _, row := range paint.WrapRows(text, width-2) {
 		out.WriteString(style.Render("  "+row) + "\n")
 	}
 
 	return out.String()
 }
 
-func (r reviewScreen) restView(s panelShared) string {
+// notesView is what the reader was last told under the place the cursor is standing.
+func (r reviewScreen) notesView(s panelShared) string {
 	if r.loading || r.diff.View() == nil || r.diff.View().Len() == 0 {
 		return ""
-	}
-
-	if r.threads.composing {
-		return "\n" + r.threads.editor.view() + "\n"
-	}
-
-	if r.threads.releasing {
-		return r.releaseView(s)
-	}
-
-	out := r.threadView(s)
-	if _, ok := r.diff.threadAtCursor(); ok {
-		out = "\n" + out
 	}
 
 	// A notice answers the last keypress and a keypress clears it, so what the reader is told
 	// about the diff itself stands underneath and comes back the moment the answer is gone.
 	if notice := r.notice; notice != "" {
-		out += "\n" + reviewNote(s, paint.Panel.Style(reviewNoticeTone), notice)
-	} else if since := r.diff.since; since != "" && r.diff.baseLabel == "" {
-		out += "\n" + reviewNote(s, dimStyle, since)
+		return "\n" + reviewNote(lineWidthOf(s.pane), paint.Panel.Style(reviewNoticeTone), notice)
 	}
 
-	return out
+	if since := r.diff.since; since != "" && r.diff.baseLabel == "" {
+		return "\n" + reviewNote(lineWidthOf(s.pane), dimStyle, since)
+	}
+
+	return ""
 }
 
 // anchorView names the place the cursor is standing, so the sidebar says what a new thread
@@ -307,24 +228,20 @@ func (d reviewDiff) commentWhereView(thread *agentv1.ReviewThread) string {
 }
 
 // releaseView asks what to send: an optional word about the work as a whole.
-func (r reviewScreen) releaseView(s panelShared) string {
-	out := "\n" + r.threads.editor.view() + "\n\n"
+func (r reviewScreen) releaseView(width int) string {
+	out := r.threads.editor.view() + "\n\n"
 
-	return out + reviewNote(s, dimStyle, keyLabel(formKeys().SendNow)+" send and interrupt"+separated+
+	return out + reviewNote(width, dimStyle, keyLabel(formKeys().SendNow)+" send and interrupt"+separated+
 		keyLabel(formKeys().Back)+" cancel")
 }
 
-func (r reviewScreen) threadView(s panelShared) string {
-	thread, ok := r.diff.threadAtCursor()
-	if !ok {
-		return dimStyle.Render("  no thread here"+separated+keyLabel(s.keys.Review.Compose)+" to start one") + "\n"
-	}
-
+// threadView is a thread's conversation wrapped to the width given, oldest message first.
+func (r reviewScreen) threadView(s panelShared, thread *agentv1.ReviewThread, width int) string {
 	stamp := r.diff.laterStamp(thread)
 	answered := findAnswer(thread)
 	later := false
 
-	out := r.originView(s, thread)
+	out := r.originView(thread, width)
 	for i, message := range thread.GetMessages() {
 		if i > 0 && !later && stamp != "" && !doesPredate(message.GetCreatedAt(), stamp) {
 			later = true
@@ -336,7 +253,10 @@ func (r reviewScreen) threadView(s panelShared) string {
 			note = r.diff.addressedSaid(message)
 		}
 
-		out += r.messageView(s, message, note)
+		out += r.messageView(s, message, messageViewParams{
+			note:  note,
+			width: width,
+		})
 	}
 
 	return out
@@ -344,14 +264,14 @@ func (r reviewScreen) threadView(s panelShared) string {
 
 // originView is where a thread was written and the line it was written against, drawn only once
 // that code has moved.
-func (r reviewScreen) originView(s panelShared, thread *agentv1.ReviewThread) string {
+func (r reviewScreen) originView(thread *agentv1.ReviewThread, width int) string {
 	if !r.diff.View().HasMoved(thread) {
 		return ""
 	}
 
 	out := dimStyle.Render("  "+r.diff.originSaid(thread)) + "\n"
 	for _, quoted := range thread.GetQuotedLines() {
-		out += paint.Panel.Style(reviewQuoteTone).Italic(true).Render(reviewWrap(s, "  "+quoted)) + "\n"
+		out += paint.Panel.Style(reviewQuoteTone).Italic(true).Render(reviewWrap(width, "  "+quoted)) + "\n"
 	}
 
 	return out + "\n"
@@ -375,17 +295,24 @@ func (d reviewDiff) originSaid(thread *agentv1.ReviewThread) string {
 	return "moved since it was written" + separated + "written against"
 }
 
-func (r reviewScreen) messageView(s panelShared, message *agentv1.ReviewMessage, note string) string {
+// messageViewParams is what is said beside a message and the width it is wrapped to.
+type messageViewParams struct {
+	note  string
+	width int
+}
+
+// messageView is one message: who wrote it and when, what it says, and how far it got.
+func (r reviewScreen) messageView(s panelShared, message *agentv1.ReviewMessage, params messageViewParams) string {
 	author, tone := r.authorOf(message)
 	head := paint.Panel.Style(tone).Bold(true).Render(author)
 	if when := reviewTimeOf(message.GetCreatedAt()); when != "" {
 		head += " " + dimStyle.Render(when)
 	}
-	if note != "" {
-		head += "   " + dimStyle.Render(note)
+	if params.note != "" {
+		head += "   " + dimStyle.Render(params.note)
 	}
 
-	return head + "\n" + reviewWrap(s, message.GetBody()) + "\n" + reviewDeliveryBadge(paint.Panel, s.glyphs, message) + "\n"
+	return head + "\n" + reviewWrap(params.width, message.GetBody()) + "\n" + reviewDeliveryBadge(paint.Panel, s.glyphs, message) + "\n"
 }
 
 func (r reviewScreen) authorOf(message *agentv1.ReviewMessage) (string, paint.Tone) {
@@ -409,13 +336,8 @@ func (t reviewThreads) sendDesc() string {
 	return "send a note"
 }
 
-// reviewMarkerStyle is what the counts above and below the conversation are drawn in.
-func reviewMarkerStyle() lipgloss.Style {
-	return paint.Panel.Header()
-}
-
-func reviewWrap(s panelShared, body string) string {
-	return lipgloss.NewStyle().Width(max(20, s.pane-2)).Render(body)
+func reviewWrap(width int, body string) string {
+	return lipgloss.NewStyle().Width(max(width, 1)).Render(body)
 }
 
 func reviewTimeOf(stamp string) string {

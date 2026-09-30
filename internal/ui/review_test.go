@@ -361,7 +361,7 @@ func TestReviewThreads(t *testing.T) {
 
 		harness := openReview(t, server)
 
-		sidebar := readSidebarProse(harness.readFrame())
+		sidebar := readPopupProse(harness.readFrame())
 		assert.Contains(t, sidebar, "you wrong greeting")
 	})
 
@@ -375,7 +375,7 @@ func TestReviewThreads(t *testing.T) {
 
 		harness := openReview(t, server)
 
-		sidebar := readSidebarProse(harness.readFrame())
+		sidebar := readPopupProse(harness.readFrame())
 		assert.Contains(t, sidebar, "reviewer this drops the error")
 		assert.Contains(t, sidebar, "implementer wrapped it")
 	})
@@ -420,8 +420,8 @@ func TestReviewThreads(t *testing.T) {
 
 		frame := harness.readFrame()
 		assert.Equal(t, "gone.go:12", readReviewCursor(frame))
-		assert.Contains(t, readSidebarProse(frame), "still worth reading")
-		assert.Contains(t, readSidebarProse(frame), "+what this used to say")
+		assert.Contains(t, readPopupProse(frame), "still worth reading")
+		assert.Contains(t, readPopupProse(frame), "+what this used to say")
 	})
 
 	t.Run("a thread whose file left the diff takes a reply", func(t *testing.T) {
@@ -488,7 +488,7 @@ func TestReviewThreads(t *testing.T) {
 
 		harness.press("c", "?", "l", "n")
 		frame := harness.readFrame()
-		assert.Contains(t, readSidebar(frame), "  ?ln")
+		assert.Contains(t, readPopupProse(frame), "?ln")
 		assert.Contains(t, frame, "c comment on this line")
 
 		harness.press("esc")
@@ -824,7 +824,7 @@ func TestReviewDeliveryBadge(t *testing.T) {
 
 			harness := openReview(t, server)
 
-			sidebar := readSidebarProse(harness.readFrame())
+			sidebar := readPopupProse(harness.readFrame())
 			assert.Contains(t, sidebar, tt.want)
 			assert.NotContains(t, sidebar, tt.absent)
 		})
@@ -947,7 +947,7 @@ func TestReviewWatch(t *testing.T) {
 		thread.AgentId = "a1"
 		harness.watch(buildPuts(thread))
 
-		assert.Contains(t, readSidebarProse(harness.readFrame()), "fixed it")
+		assert.Contains(t, readPopupProse(harness.readFrame()), "fixed it")
 	})
 
 	t.Run("a comment's delivery follows its review", func(t *testing.T) {
@@ -961,12 +961,12 @@ func TestReviewWatch(t *testing.T) {
 			ReleasedAt: "2026-09-02T10:00:00Z",
 		}}
 		harness := openReview(t, server)
-		require.Contains(t, readSidebarProse(harness.readFrame()), "waiting")
+		require.Contains(t, readPopupProse(harness.readFrame()), "waiting")
 
 		server.reviews[0].DeliveredAt = "2026-09-02T10:05:00Z"
 		harness.watch(server.buildSnapshot())
 
-		assert.Contains(t, readSidebarProse(harness.readFrame()), "delivered")
+		assert.Contains(t, readPopupProse(harness.readFrame()), "delivered")
 	})
 
 	t.Run("an answer arriving while the reader types waits for them to stop", func(t *testing.T) {
@@ -979,12 +979,12 @@ func TestReviewWatch(t *testing.T) {
 		harness.watch(server.buildSnapshot())
 
 		frame := harness.readFrame()
-		assert.Contains(t, readSidebar(frame), "  half a thought")
+		assert.Contains(t, readPopupProse(frame), "half a thought")
 		assert.Equal(t, "greet.go:2", readReviewCursor(frame))
-		assert.NotContains(t, readSidebarProse(frame), "fixed it")
+		assert.NotContains(t, readPopupProse(frame), "fixed it")
 
 		harness.press("esc", "k")
-		assert.Contains(t, readSidebarProse(harness.readFrame()), "fixed it")
+		assert.Contains(t, readPopupProse(harness.readFrame()), "fixed it")
 	})
 
 	t.Run("an archived agent's threads stay drawn and a settle reads them back", func(t *testing.T) {
@@ -1669,7 +1669,7 @@ func TestReviewRounds(t *testing.T) {
 
 		frame := harness.readFrame()
 		require.Contains(t, readStageText(frame), "chapter 1 of 2")
-		said := readSidebarProse(frame)
+		said := readPopupProse(frame)
 		assert.Contains(t, said, "thanks")
 		assert.Less(t, strings.Index(said, "looking"), strings.Index(said, laterRule))
 		assert.Less(t, strings.Index(said, laterRule), strings.Index(said, "added it"))
@@ -1830,7 +1830,7 @@ func TestReviewComposer(t *testing.T) {
 
 		harness.press("c")
 
-		sidebar := readSidebarProse(harness.readFrame())
+		sidebar := readPopupProse(harness.readFrame())
 		assert.Contains(t, sidebar, "Comment")
 		assert.Contains(t, sidebar, "opens $EDITOR")
 	})
@@ -1840,8 +1840,8 @@ func TestReviewComposer(t *testing.T) {
 
 		harness.press("c", "o", "n", "e", "enter", "t", "w", "o")
 
-		assert.Contains(t, readSidebar(harness.readFrame()), "  one")
-		assert.Contains(t, readSidebar(harness.readFrame()), "  two")
+		assert.Contains(t, readPopupProse(harness.readFrame()), "one")
+		assert.Contains(t, readPopupProse(harness.readFrame()), "two")
 		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceCreateReviewThreadProcedure))
 	})
 
@@ -2819,6 +2819,6 @@ func TestReviewChange(t *testing.T) {
 		harness.press("G")
 		frame := harness.readFrame()
 		assert.NotEmpty(t, findLine(readStage(frame), "on the change as a whole ──"))
-		assert.Contains(t, readSidebarProse(frame), "split this in two")
+		assert.Contains(t, readPopupProse(frame), "split this in two")
 	})
 }

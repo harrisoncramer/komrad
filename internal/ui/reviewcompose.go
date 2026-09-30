@@ -52,7 +52,7 @@ func reviewInputTitle(replying bool) string {
 	return "Comment"
 }
 
-// reviewInputWidth is the room a field has in a sidebar of the width given.
+// reviewInputWidth is the room a field has in a popup of the inner width given.
 func reviewInputWidth(pane int) int {
 	return max(pane-reviewInputBar, 1)
 }
@@ -63,9 +63,9 @@ func reviewInputHint(editor, submit []string, said string) string {
 		keyLabel(formKeys().Back) + " cancels"
 }
 
-// openInput puts a field in the sidebar, sized to the column it is drawn in.
+// openInput puts a field in the popup, sized to the room inside it.
 func (r *reviewScreen) openInput(s panelShared, params newReviewInputParams) tea.Cmd {
-	params.Width = reviewInputWidth(s.pane)
+	params.Width = reviewInputWidth(measurePopupInner(s))
 	params.Keys = formKeys()
 
 	input, cmd := newReviewInput(params)
@@ -166,7 +166,7 @@ func (r *reviewScreen) applyMessageEdited(h host, s panelShared, msg messageEdit
 		Title:       reviewInputTitle(r.threads.editing != ""),
 		Description: reviewInputHint(formKeys().Editor, key, said),
 		Body:        strings.TrimRight(msg.body, "\n"),
-		Width:       reviewInputWidth(s.pane),
+		Width:       reviewInputWidth(measurePopupInner(s)),
 		Keys:        formKeys(),
 	})
 	r.threads.editor = input

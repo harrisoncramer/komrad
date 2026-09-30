@@ -62,54 +62,10 @@ func (r reviewScreen) isBusy() bool {
 	return r.isWriting() || r.hold.isHeld()
 }
 
-// isThreadTaken reports whether the reader has taken the keys onto a conversation the cursor is
-// standing on.
-func (r reviewScreen) isThreadTaken() bool {
-	if !r.threads.focus {
-		return false
-	}
-
-	_, ok := r.diff.threadAtCursor()
-
-	return ok
-}
-
-func (r *reviewScreen) isBlockDrawn(panelShared) bool {
-	_, ok := r.diff.threadAtCursor()
-
-	return ok
-}
-
-func (r *reviewScreen) isBlockFocused(panelShared) bool {
-	return r.isThreadTaken()
-}
-
-func (r *reviewScreen) focusBlock(panelShared) {
-	r.threads.focus = true
-}
-
-func (r *reviewScreen) blurBlock() {
-	r.threads.blur()
-}
-
-// isThreadFocused is whether the sidebar holds the keys, which it does mid-input and while the
-// conversation has been taken.
-func (r reviewScreen) isThreadFocused(s panelShared) bool {
-	if r.isWriting() {
-		return true
-	}
-
-	if s.draw.isDetailsFocused() {
-		return false
-	}
-
-	return r.isThreadTaken()
-}
-
-// isDiffFocused is whether the patch holds the keys, which it does whenever the record and the
-// conversation beside it do not.
+// isDiffFocused is whether the patch holds the keys, which it does whenever the reader is not
+// writing.
 func (r reviewScreen) isDiffFocused(s panelShared) bool {
-	return s.draw.isListFocused() && !r.isThreadFocused(s)
+	return s.draw.isListFocused() && !r.isWriting()
 }
 
 // update takes the review's own answers and, once nothing in the sidebar has them, the keys.
@@ -159,10 +115,7 @@ func (m *model) enterReview(agent panel.Agent) tea.Cmd {
 	return tea.Batch(left, m.review.open(m.shared(), agent))
 }
 
-var (
-	_ columned = (*reviewScreen)(nil)
-	_ blocked  = (*reviewScreen)(nil)
-)
+var _ columned = (*reviewScreen)(nil)
 
 func (r *reviewScreen) doesDrawFromListing() bool {
 	return false

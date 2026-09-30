@@ -25,9 +25,6 @@ const reviewOfferTone = paint.ToneWarning
 // offerBodyRows is how many rows the chosen offer's comment gets.
 const offerBodyRows = 4
 
-// offersThreadRows is how many rows the conversation below the forge's comments keeps.
-const offersThreadRows = 3
-
 // offerRows is the most rows the forge's comments take, the chosen one's read-out included.
 const offerRows = 9
 
@@ -255,10 +252,10 @@ func plainOfferText(text string) string {
 	}, ansi.Strip(text))
 }
 
-// countOffersRoom counts the rows the forge's comments get once the sidebar's chrome and the
-// reader's own comments have taken theirs.
+// countOffersRoom counts the rows the forge's comments get once the place line and the file tree
+// have taken theirs.
 func countOffersRoom(spare, taken int) int {
-	return min(max(spare-2-offersThreadRows-taken, 0), offerRows)
+	return min(max(spare-2-taken, 0), offerRows)
 }
 
 // compareFirst orders true before false.

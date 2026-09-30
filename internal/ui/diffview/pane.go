@@ -230,7 +230,7 @@ func (p *Pane) ScrollToCursor(height int) {
 // Render is the window of rows the pane shows at a width and height, with the cursor's row marked
 // as given and blank rows under a view shorter than the pane.
 func (p *Pane) Render(width, height int, held Cursor) []string {
-	start := max(min(p.top, p.view.Len()-height), 0)
+	start := p.findWindowStart(height)
 
 	// Only the rows the pane can show are drawn, a nine thousand row diff taking a tenth of a
 	// second to draw whole.
@@ -249,4 +249,18 @@ func (p *Pane) Render(width, height int, held Cursor) []string {
 	}
 
 	return rows
+}
+
+// GetCursorRow is the row of a window of the given height that the cursor is drawn on.
+func (p *Pane) GetCursorRow(height int) int {
+	if p.view == nil {
+		return 0
+	}
+
+	return p.cursor - p.findWindowStart(height)
+}
+
+// findWindowStart is the first row of the view a window of the given height draws.
+func (p *Pane) findWindowStart(height int) int {
+	return max(min(p.top, p.view.Len()-height), 0)
 }

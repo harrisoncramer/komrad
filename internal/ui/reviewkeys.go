@@ -35,72 +35,7 @@ func (r *reviewScreen) updateKey(h host, s panelShared, key tea.KeyPressMsg) tea
 
 	r.notice = ""
 
-	// The conversation takes the keys ahead of the diff.
-	if r.updateThread(s, k) {
-		return nil
-	}
-
 	return r.actions().dispatch(h, s, k)
-}
-
-// updateThread is the conversation answering the keys while it holds them, reporting whether it
-// took the press so the diff underneath gets whatever it left alone.
-func (r *reviewScreen) updateThread(s panelShared, k string) bool {
-	if !r.isThreadFocused(s) {
-		return false
-	}
-
-	switch {
-	case k == "esc":
-		r.threads.blur()
-
-		return true
-	case isBound(k, s.keys.Nav.Up):
-		r.scrollThread(s, 1)
-
-		return true
-	case isBound(k, s.keys.Nav.Down):
-		r.scrollThread(s, -1)
-
-		return true
-	case isBound(k, s.keys.Nav.Top):
-		r.scrollThread(s, r.threadMax(s))
-
-		return true
-	case isBound(k, s.keys.Nav.Bottom):
-		r.scrollThread(s, -r.threads.scroll)
-
-		return true
-	case isBound(k, s.keys.Column.ScrollUp):
-		r.scrollThread(s, diffWheelStep)
-
-		return true
-	case isBound(k, s.keys.Column.ScrollDown):
-		r.scrollThread(s, -diffWheelStep)
-
-		return true
-	}
-
-	return false
-}
-
-// blur hands the keys back to the diff and drops the reader back to the end of the conversation.
-func (t *reviewThreads) blur() {
-	t.focus = false
-	t.scroll = 0
-}
-
-// scrollThread moves the sidebar's window up the conversation, counted from its end so the
-// newest message stays where it is as the thread grows.
-func (r *reviewScreen) scrollThread(s panelShared, delta int) {
-	r.threads.scroll = max(min(r.threads.scroll+delta, r.threadMax(s)), 0)
-}
-
-// threadMax is how far up the conversation the sidebar can be scrolled.
-func (r reviewScreen) threadMax(s panelShared) int {
-	lines := r.layoutSidebarAsDrawn(s).threadLines
-
-	return max(len(splitConversation(r.restView(s)))-max(lines-1, 1), 0)
 }
 
 // refuseWrite says why a key that would write to the agent did nothing.
@@ -148,10 +83,6 @@ func (r *reviewScreen) diffKeys() diffKeys {
 		notice: &r.notice,
 		height: r.diffHeight,
 		moved: func(s panelShared) tea.Cmd {
-			// The keys and the window both belong to the conversation the cursor was standing on,
-			// so neither means anything against the next one it lands on.
-			r.threads.blur()
-
 			return r.markThreadReadCmd(s)
 		},
 		refuseExpand: r.refuseExpand,
@@ -240,16 +171,6 @@ func (d reviewDiff) isOnChange() bool {
 
 func (r *reviewScreen) moveCursor(s panelShared, next int) tea.Cmd {
 	return r.diffKeys().moveTo(s, next)
-}
-
-func (r *reviewScreen) scrollList(_ host, s panelShared, rows int) tea.Cmd {
-	if _, ok := r.diff.threadAtCursor(); !ok {
-		return nil
-	}
-
-	r.scrollThread(s, -rows*diffWheelStep)
-
-	return r.markThreadReadCmd(s)
 }
 
 func (r *reviewScreen) doesScrollColumn(panelShared) bool {

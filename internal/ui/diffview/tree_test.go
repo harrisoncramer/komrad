@@ -28,20 +28,19 @@ func addedLine(number int, text string) diff.Line {
 }
 
 func describeTree(rows []TreeRow) []string {
-	kinds := map[TreeRowKind]string{
-		TreeFolder: "folder",
-		TreeFile:   "file",
-		TreeThread: "thread",
-	}
-
 	described := make([]string, 0, len(rows))
 	for _, row := range rows {
-		said := fmt.Sprintf("%s%s %s row=%d", strings.Repeat("  ", row.Depth), kinds[row.Kind], row.Name, row.Row)
-		if row.Kind == TreeThread {
-			said += fmt.Sprintf(" line=%d", row.Line)
+		kind := "file"
+		if row.Folder {
+			kind = "folder"
 		}
+
+		said := fmt.Sprintf("%s%s %s row=%d", strings.Repeat("  ", row.Depth), kind, row.Name, row.Row)
 		if row.Viewed {
 			said += " viewed"
+		}
+		if row.Counts != (ThreadCounts{}) {
+			said += fmt.Sprintf(" %+v", row.Counts)
 		}
 
 		described = append(described, said)
@@ -50,15 +49,29 @@ func describeTree(rows []TreeRow) []string {
 	return described
 }
 
-// TestFileTree covers the files laid out as folders in the order the diff draws them.
+type fileTreeCase struct {
+	name    string
+	files   []diff.File
+	viewed  map[string]bool
+	threads []*agentv1.ReviewThread
+	want    []string
+}
+
+// TestFileTree covers folders opened and merged in diff order, and what each file row carries.
 func TestFileTree(t *testing.T) {
-	tests := []struct {
-		name    string
-		files   []diff.File
-		viewed  map[string]bool
-		threads []*agentv1.ReviewThread
-		want    []string
-	}{
+	tests := []fileTreeCase{
+		{
+			name: "a comment on the change as a whole is counted on no file",
+			files: []diff.File{
+				fileAt("a.go", addedLine(1, "first")),
+			},
+			threads: []*agentv1.ReviewThread{
+				threadAt("whole", "", 0, 0, ""),
+			},
+			want: []string{
+				"file a.go row=1",
+			},
+		},
 		{
 			name: "files out of path order open a folder twice rather than being moved",
 			files: []diff.File{
@@ -114,57 +127,18 @@ func TestFileTree(t *testing.T) {
 			},
 		},
 		{
-			name: "threads sit under their file in the order the diff draws them",
+			name: "a file counts its threads, those with nothing left to stand on included",
 			files: []diff.File{
-				fileAt("a.go", addedLine(1, "first"), addedLine(2, "second")),
+				fileAt("a.go", addedLine(1, "first")),
+				fileAt("b.go", addedLine(1, "second")),
 			},
 			threads: []*agentv1.ReviewThread{
-				threadAt("later", "a.go", 0, 2, "+second"),
-				threadAt("earlier", "a.go", 0, 1, "+first"),
-			},
-			want: []string{
-				"file a.go row=1",
-				"  thread  row=3 line=1",
-				"  thread  row=4 line=2",
-			},
-		},
-		{
-			name: "a thread with nothing left to stand on is listed with no line",
-			files: []diff.File{
-				fileAt("a.go", addedLine(1, "kept")),
-			},
-			threads: []*agentv1.ReviewThread{
+				threadAt("on-line", "a.go", 0, 1, "+first"),
 				threadAt("gone", "a.go", 0, 9, "+removed"),
 			},
 			want: []string{
-				"file a.go row=1",
-				"  thread  row=5 line=0",
-			},
-		},
-		{
-			name: "a thread in a folded file has no row and keeps its line",
-			files: []diff.File{
-				fileAt("a.go", addedLine(1, "first")),
-			},
-			viewed: map[string]bool{"a.go": true},
-			threads: []*agentv1.ReviewThread{
-				threadAt("folded", "a.go", 0, 1, "+first"),
-			},
-			want: []string{
-				"file a.go row=1 viewed",
-				"  thread  row=-1 line=1",
-			},
-		},
-		{
-			name: "a comment on the change as a whole is under no file",
-			files: []diff.File{
-				fileAt("a.go", addedLine(1, "first")),
-			},
-			threads: []*agentv1.ReviewThread{
-				threadAt("whole", "", 0, 0, ""),
-			},
-			want: []string{
-				"file a.go row=1",
+				"file a.go row=1 {Unsent:0 Unread:0 Open:2 Settled:0}",
+				"file b.go row=4",
 			},
 		},
 	}
@@ -175,26 +149,19 @@ func TestFileTree(t *testing.T) {
 			view.SetViewed(tt.viewed)
 			view.PinThreads(tt.threads)
 
-			assert.Equal(t, tt.want, describeTree(view.FileTree()))
+			assert.Equal(t, tt.want, describeTree(view.GetFileTree()))
 		})
 	}
 }
 
-// TestCountThreads covers each thread counted once, under the first state that asks something of the reader.
+// TestCountThreads covers each thread counted once, under the first state it stands in.
 func TestCountThreads(t *testing.T) {
-	agentThread := func(id string) *agentv1.ReviewThread {
-		thread := threadAt(id, "a.go", 0, 1, "+first")
-		thread.Messages = []*agentv1.ReviewMessage{{AuthorKind: agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT}}
-
-		return thread
-	}
-
 	unsent := threadAt("unsent", "a.go", 0, 1, "+first")
 	unsent.Messages = []*agentv1.ReviewMessage{{Delivery: agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSENT}}
 	unsent.UnreadByHuman = true
 
-	unreadAgent := agentThread("unread-agent")
-	unreadAgent.UnreadByHuman = true
+	unread := threadAt("unread", "a.go", 0, 1, "+first")
+	unread.UnreadByHuman = true
 
 	resolvedUnread := threadAt("resolved-unread", "a.go", 0, 1, "+first")
 	resolvedUnread.ResolvedAt = "2026-09-30T00:00:00Z"
@@ -203,26 +170,36 @@ func TestCountThreads(t *testing.T) {
 	resolved := threadAt("resolved", "a.go", 0, 1, "+first")
 	resolved.ResolvedAt = "2026-09-30T00:00:00Z"
 
+	agent := threadAt("agent", "a.go", 0, 1, "+first")
+	agent.Messages = []*agentv1.ReviewMessage{{AuthorKind: agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT}}
+
 	view := NewView(patchWith(fileAt("a.go", addedLine(1, "first"))), false)
 	view.PinThreads([]*agentv1.ReviewThread{
 		unsent,
-		unreadAgent,
+		unread,
 		resolvedUnread,
 		resolved,
-		agentThread("agent"),
+		agent,
 		threadAt("open", "a.go", 0, 1, "+first"),
 	})
 
 	want := ThreadCounts{
-		Unsent: 1,
-		Unread: 2,
-		Open:   1,
+		Unsent:  1,
+		Unread:  2,
+		Open:    2,
+		Settled: 1,
 	}
 	assert.Equal(t, want, view.CountThreads())
-	assert.Equal(t, want, view.FileTree()[0].Counts)
+	assert.Equal(t, want, view.GetFileTree()[0].Counts)
 }
 
-// TestGetTreeFocus covers the file and thread a diff row belongs to.
+type treeFocusCase struct {
+	name string
+	row  int
+	want string
+}
+
+// TestGetTreeFocus covers which file a diff row, a thread row at the foot included, belongs to.
 func TestGetTreeFocus(t *testing.T) {
 	view := NewView(patchWith(
 		fileAt("a.go", addedLine(1, "first")),
@@ -233,40 +210,31 @@ func TestGetTreeFocus(t *testing.T) {
 		threadAt("adrift", "a.go", 0, 9, "+removed"),
 	})
 
-	tests := []struct {
-		name       string
-		row        int
-		wantPath   string
-		wantThread string
-	}{
+	tests := []treeFocusCase{
 		{
 			name: "the row for the change as a whole belongs to no file",
 			row:  0,
 		},
 		{
-			name:     "a file header belongs to its file",
-			row:      1,
-			wantPath: "a.go",
+			name: "a file header belongs to its file",
+			row:  1,
+			want: "a.go",
 		},
 		{
-			name:       "a line carrying a thread names the thread",
-			row:        6,
-			wantPath:   "b.go",
-			wantThread: "on-line",
+			name: "a line belongs to its file",
+			row:  6,
+			want: "b.go",
 		},
 		{
-			name:       "a thread at the foot belongs to the file it was written on",
-			row:        8,
-			wantPath:   "a.go",
-			wantThread: "adrift",
+			name: "a thread at the foot belongs to the file it was written on",
+			row:  8,
+			want: "a.go",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			path, thread := view.GetTreeFocus(tt.row)
-			assert.Equal(t, tt.wantPath, path)
-			assert.Equal(t, tt.wantThread, thread)
+			assert.Equal(t, tt.want, view.GetTreeFocus(tt.row))
 		})
 	}
 }

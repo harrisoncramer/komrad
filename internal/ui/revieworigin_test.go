@@ -28,7 +28,7 @@ func TestReviewJump(t *testing.T) {
 		frame = harness.readFrame()
 		assert.Contains(t, readStageText(frame), "where this comment was written, round 1")
 		assert.NotContains(t, readStageText(frame), "outside what is on screen")
-		assert.Contains(t, readSidebarProse(frame), "add a second file")
+		assert.Contains(t, readPopupProse(frame), "add a second file")
 		assert.Contains(t, readSidebar(frame), gittest.File+":1")
 		assert.Contains(t, readStageText(frame), "J back")
 		assert.Contains(t, readStageText(frame), "1 file, +1 -1")
@@ -43,7 +43,7 @@ func TestReviewJump(t *testing.T) {
 
 		frame := harness.readFrame()
 		assert.Contains(t, readStageText(frame), "chapter 2 of 2")
-		assert.Contains(t, readSidebarProse(frame), "add a second file")
+		assert.Contains(t, readPopupProse(frame), "add a second file")
 	})
 
 	for _, key := range []string{"<", ">"} {
@@ -56,7 +56,7 @@ func TestReviewJump(t *testing.T) {
 
 			frame := harness.readFrame()
 			assert.Contains(t, readStageText(frame), "chapter 2 of 2")
-			assert.Contains(t, readSidebarProse(frame), "add a second file")
+			assert.Contains(t, readPopupProse(frame), "add a second file")
 		})
 	}
 
@@ -114,7 +114,7 @@ func TestReviewJump(t *testing.T) {
 
 		frame := harness.readFrame()
 		assert.Contains(t, readStageText(frame), "where this comment was written, round 1, shown against the round's base")
-		assert.Contains(t, readSidebarProse(frame), "add a second file")
+		assert.Contains(t, readPopupProse(frame), "add a second file")
 	})
 
 	t.Run("a comment whose round is gone says so and stays on the diff", func(t *testing.T) {
@@ -161,6 +161,6 @@ func TestReviewJump(t *testing.T) {
 
 		frame := harness.readFrame()
 		require.Contains(t, readStageText(frame), "where this comment was written, round 1")
-		assert.Contains(t, readSidebarProse(frame), laterRule)
+		assert.Contains(t, readPopupProse(frame), laterRule)
 	})
 }

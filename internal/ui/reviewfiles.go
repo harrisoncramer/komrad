@@ -15,7 +15,6 @@ import (
 
 const (
 	filesWindowFloor = 5
-	filesWindowShare = 3
 	filesShortColumn = 12
 	filesShortWindow = 2
 	filesGutter      = 2
@@ -28,31 +27,22 @@ type filesTree struct {
 	current int
 }
 
-// readFilesTree is the tree cut down to the file the cursor is in and that file's threads.
+// readFilesTree is the tree with the file the cursor is in found.
 func (d reviewDiff) readFilesTree() filesTree {
+	tree := filesTree{current: -1}
 	view := d.View()
 	if view == nil {
-		return filesTree{current: -1}
+		return tree
 	}
 
-	path, threadID := view.GetTreeFocus(d.Cursor())
-	tree := filesTree{current: -1}
+	path := view.GetTreeFocus(d.Cursor())
+	tree.rows = view.GetFileTree()
+	for at, row := range tree.rows {
+		if !row.Folder && row.Path == path {
+			tree.current = at
 
-	for _, row := range view.FileTree() {
-		if row.Kind == diffview.TreeThread && row.Path != path {
-			continue
+			break
 		}
-
-		switch {
-		case row.Kind == diffview.TreeThread && threadID != "" && row.Thread.GetId() == threadID:
-			tree.current = len(tree.rows)
-		case row.Kind == diffview.TreeFile && row.Path == path && threadID == "":
-			tree.current = len(tree.rows)
-		case row.Kind == diffview.TreeFile && row.Path == path && tree.current < 0:
-			tree.current = len(tree.rows)
-		}
-
-		tree.rows = append(tree.rows, row)
 	}
 
 	return tree
@@ -64,26 +54,17 @@ func (r reviewScreen) countFilesRows() int {
 		return 1
 	}
 
-	return len(r.diff.readFilesTree().rows) + 1
+	return len(r.diff.View().GetFileTree()) + 1
 }
 
-// filesFloor is the fewest rows the FILES block keeps in a column of spare rows.
-func (r reviewScreen) filesFloor(spare int) int {
+// countFilesFloor is the fewest rows the FILES block keeps in a column of spare rows.
+func (r reviewScreen) countFilesFloor(spare int) int {
 	floor := filesWindowFloor
 	if spare < filesShortColumn {
 		floor = filesShortWindow
 	}
 
 	return min(floor, r.countFilesRows())
-}
-
-// filesWindow is the rows the FILES block takes while a thread shares the column with it.
-func (r reviewScreen) filesWindow(spare int) int {
-	if spare < filesShortColumn {
-		return r.filesFloor(spare)
-	}
-
-	return min(max(spare/filesWindowShare, filesWindowFloor), r.countFilesRows())
 }
 
 // filesView is the FILES block cut to lines rows, windowed on the row the cursor is in.
@@ -101,7 +82,7 @@ func (r reviewScreen) filesView(s panelShared, lines int) string {
 	tree := r.diff.readFilesTree()
 	rows := make([]string, 0, len(tree.rows))
 	for at, row := range tree.rows {
-		rows = append(rows, r.diff.fileTreeRow(s, row, at == tree.current, width))
+		rows = append(rows, renderTreeRow(s, row, at == tree.current, width))
 	}
 
 	header := r.diff.filesHeader(s, width) + "\n"
@@ -138,9 +119,9 @@ func (d reviewDiff) filesHeader(s panelShared, width int) string {
 	})
 }
 
-// fileTreeRow draws one row of the tree: its mark, its place in the tree, its name, and what it
+// renderTreeRow draws one row of the tree: its mark, its place in the tree, its name, and what it
 // holds.
-func (d reviewDiff) fileTreeRow(s panelShared, row diffview.TreeRow, current bool, width int) string {
+func renderTreeRow(s panelShared, row diffview.TreeRow, current bool, width int) string {
 	style := lipgloss.NewStyle()
 	mark := " "
 
@@ -148,54 +129,23 @@ func (d reviewDiff) fileTreeRow(s panelShared, row diffview.TreeRow, current boo
 	case current:
 		mark = s.glyphs.Spell(glyph.FileCurrent)
 		style = paint.Panel.Style(paint.ToneAccent).Bold(true)
-	case row.Kind == diffview.TreeThread:
-		style = paint.Panel.Style(paint.ToneAccent)
 	case row.Viewed:
 		mark = s.glyphs.Spell(glyph.FileViewed)
 		style = dimStyle
-	case row.Kind == diffview.TreeFile && d.isTreeFileCurrent(row.Path):
-		style = paint.Panel.Style(paint.ToneAccent)
 	}
 
 	lead := style.Render(mark) + strings.Repeat(" ", filesGutter-1+2*row.Depth)
-
-	var params fitTreeRowParams
-	switch row.Kind {
-	case diffview.TreeFolder:
-		params = fitTreeRowParams{Left: style.Render(row.Name)}
-	case diffview.TreeFile:
-		params = fitTreeRowParams{
-			Left:   style.Render(row.Name),
-			Stat:   dimStyle.Render(formatStat(row.Stat)),
-			Badges: formatCounts(s.glyphs, row.Counts),
-		}
-	case diffview.TreeThread:
-		badge, badgeStyle := d.View().MarkFor(row.Thread)
-		params = fitTreeRowParams{
-			Left:   style.Render(formatThreadLine(row) + "  " + row.Name),
-			Badges: badgeStyle.Render(badge),
-		}
+	params := fitTreeRowParams{
+		Left:  style.Render(row.Name),
+		Width: width - lipgloss.Width(lead),
 	}
 
-	params.Width = width - lipgloss.Width(lead)
+	if !row.Folder {
+		params.Stat = dimStyle.Render(formatStat(row.Stat))
+		params.Badges = formatThreadMark(s.glyphs, row.Counts)
+	}
 
 	return lead + fitTreeRow(params)
-}
-
-// isTreeFileCurrent reports whether the diff cursor is in a file.
-func (d reviewDiff) isTreeFileCurrent(path string) bool {
-	current, _ := d.View().GetTreeFocus(d.Cursor())
-
-	return current == path
-}
-
-// formatThreadLine is the line a thread row stands on, or that it has moved off every line.
-func formatThreadLine(row diffview.TreeRow) string {
-	if row.Line == 0 {
-		return "moved"
-	}
-
-	return fmt.Sprint(row.Line)
 }
 
 // formatStat is the lines a change added and removed, leaving out a side it did not touch.
@@ -211,7 +161,8 @@ func formatStat(stat diff.Stat) string {
 	return strings.Join(parts, " ")
 }
 
-// formatCounts is one badge for each state that has any threads in it.
+// formatCounts is one badge for each state that asks something of the reader and has any threads
+// in it.
 func formatCounts(glyphs glyph.Set, counts diffview.ThreadCounts) string {
 	states := []struct {
 		glyph glyph.Glyph
@@ -230,6 +181,23 @@ func formatCounts(glyphs glyph.Set, counts diffview.ThreadCounts) string {
 	}
 
 	return paint.Panel.Style(reviewHumanTone).Render(strings.Join(badges, " "))
+}
+
+// formatThreadMark is the one glyph a file's row carries for its threads, the state that asks
+// most of the reader winning.
+func formatThreadMark(glyphs glyph.Set, counts diffview.ThreadCounts) string {
+	switch {
+	case counts.Unsent > 0:
+		return paint.Panel.Style(reviewHumanTone).Render(glyphs.Spell(glyph.ThreadUnsent))
+	case counts.Unread > 0:
+		return paint.Panel.Style(reviewHumanTone).Render(glyphs.Spell(glyph.ThreadUnread))
+	case counts.Open > 0:
+		return paint.Panel.Style(reviewHumanTone).Render(glyphs.Spell(glyph.ThreadRead))
+	case counts.Settled > 0:
+		return dimStyle.Render(glyphs.Spell(glyph.ThreadSettled))
+	}
+
+	return ""
 }
 
 // fitTreeRowParams is a row's name and what is drawn to the right of it.
