@@ -110,7 +110,7 @@ func (m model) toggleStop() (tea.Model, tea.Cmd) {
 
 	at := m.atStop()
 	if at == stopList && m.isDormantHovered() {
-		cmd := m.agents.openAgent(&m, m.shared())
+		cmd := m.agents.openHovered(&m, m.shared())
 
 		return m, cmd
 	}
