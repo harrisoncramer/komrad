@@ -525,14 +525,42 @@ func TestReviewPopupScroll(t *testing.T) {
 		assert.Contains(t, readPopupProse(harness.readFrame()), "note 5")
 	})
 
-	t.Run("the wheel scrolls the conversation and leaves the diff", func(t *testing.T) {
+	t.Run("the wheel over the popup scrolls the conversation and leaves the diff", func(t *testing.T) {
 		harness := openLongThread(t)
+		x, y := readPopupMiddle(harness.readDrawn())
 
-		wheelOver(harness, 1, true)
+		harness.send(tea.MouseWheelMsg{X: x, Y: y, Button: tea.MouseWheelUp})
 
 		frame := harness.readFrame()
 		assert.NotContains(t, readPopupProse(frame), "note 5")
 		assert.Equal(t, "greet.go:1", readReviewCursor(frame))
+	})
+
+	t.Run("the wheel beside the popup moves the diff", func(t *testing.T) {
+		for _, x := range []int{1, reviewWidth - 1} {
+			harness := openLongThread(t)
+			require.Equal(t, "greet.go:1", readReviewCursor(harness.readFrame()))
+
+			harness.send(tea.MouseWheelMsg{X: x, Y: 2, Button: tea.MouseWheelDown})
+
+			assert.NotEqual(t, "greet.go:1", readReviewCursor(harness.readFrame()), "at column %d", x)
+		}
+	})
+
+	t.Run("the wheel beside a conversation with nothing to scroll moves the diff", func(t *testing.T) {
+		thread := newThreadOnFirstLine(newHumanMessage("m1", "short"))
+		thread.OldStart, thread.NewStart, thread.QuotedLines = 3, 3, []string{" func Hello() string {"}
+		server := newReviewServer(t)
+		server.threads = []*agentv1.ReviewThread{thread}
+		harness := openReviewAt(t, server, panelHarnessParams{height: 24})
+		harness.press("j", "j")
+		frame := harness.readFrame()
+		require.Equal(t, "greet.go:3", readReviewCursor(frame))
+		require.NotEmpty(t, readPopup(frame))
+
+		harness.send(tea.MouseWheelMsg{X: reviewWidth - 1, Y: 2, Button: tea.MouseWheelDown})
+
+		assert.NotEqual(t, "greet.go:3", readReviewCursor(harness.readFrame()))
 	})
 
 	t.Run("moving the diff cursor drops the scroll", func(t *testing.T) {

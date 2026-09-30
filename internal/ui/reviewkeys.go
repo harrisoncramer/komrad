@@ -184,11 +184,51 @@ func (r *reviewScreen) scrollColumn(_ host, s panelShared, rows int) tea.Cmd {
 		return nil
 	}
 
-	if r.scrollPopup(s, rows) {
+	return r.diffKeys().scrollColumn(s, rows)
+}
+
+// scrollList presses the scroll key once for every row, past the popup.
+func (r *reviewScreen) scrollList(h host, s panelShared, rows int) tea.Cmd {
+	if r.isWriting() {
 		return nil
 	}
 
-	return r.diffKeys().scrollColumn(s, rows)
+	pressed := s.keys.Column.ScrollDown
+	if rows < 0 {
+		pressed = s.keys.Column.ScrollUp
+	}
+
+	if len(pressed) == 0 {
+		return nil
+	}
+
+	var cmds []tea.Cmd
+	for range max(rows, -rows) {
+		cmds = append(cmds, r.actions(s).dispatch(h, s, pressed[0]))
+	}
+
+	return tea.Batch(cmds...)
+}
+
+// scrollPopupAt moves the conversation in the popup when the cell at x and y is inside it.
+func (r *reviewScreen) scrollPopupAt(s panelShared, x, y, rows int) bool {
+	if r.isWriting() {
+		return false
+	}
+
+	id, body, ok := r.conversationAtCursor(s, r.measurePopupInner(s))
+	if !ok {
+		return false
+	}
+
+	slot := r.placeThread(s, body)
+	if !slot.contains(x, y) {
+		return false
+	}
+
+	r.threads.scroll.move(id, body, rows*diffWheelStep, slot.room())
+
+	return true
 }
 
 // scrollToCursor moves the window only when the cursor is about to leave it.

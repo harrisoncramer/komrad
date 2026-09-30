@@ -75,7 +75,7 @@ func TestWheelScrollsTheHalfUnderTheMouse(t *testing.T) {
 				}
 
 				harness := tt.open(t)
-				harness.send(ui.NewWheelTurns(defaultHarnessWidth-1, 5))
+				harness.send(ui.NewWheelTurns(defaultHarnessWidth-1, 5, 5))
 
 				assert.Equal(t, readStage(paced.readFrame()), readStage(harness.readFrame()))
 			})

@@ -43,6 +43,10 @@ func (p popupSlot) room() int {
 	return max(p.height-2, 1)
 }
 
+func (p popupSlot) contains(x, y int) bool {
+	return x >= p.x && x < p.x+p.width && y >= p.y && y < p.y+p.height
+}
+
 // popupScroll is how far a popup is scrolled back from the end of the body it holds, and whose
 // body that is.
 type popupScroll struct {

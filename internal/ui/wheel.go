@@ -12,6 +12,7 @@ const wheelFrame = time.Second / 60
 // wheelMsg is the turns of the wheel one frame added up, down for positive rows and up for negative.
 type wheelMsg struct {
 	x    int
+	y    int
 	rows int
 }
 
@@ -25,6 +26,7 @@ type wheelFilter struct {
 	later   func(tea.Msg)
 	last    time.Time
 	x       int
+	y       int
 	rows    int
 	flushed bool
 }
@@ -54,7 +56,7 @@ func (f *wheelFilter) filter(_ tea.Model, msg tea.Msg) tea.Msg {
 		f.rows = 0
 	}
 	f.rows += turn
-	f.x = wheel.X
+	f.x, f.y = wheel.X, wheel.Y
 
 	if f.last.IsZero() || f.now().Sub(f.last) >= wheelFrame {
 		return f.release()
@@ -77,7 +79,7 @@ func (f *wheelFilter) release() tea.Msg {
 	rows := f.rows
 	f.rows = 0
 
-	return wheelMsg{x: f.x, rows: rows}
+	return wheelMsg{x: f.x, y: f.y, rows: rows}
 }
 
 // wheelTurn is the row one turn of the wheel moves, zero for a turn that is not up or down.
@@ -92,9 +94,18 @@ func wheelTurn(wheel tea.MouseWheelMsg) int {
 	}
 }
 
-// routeWheel scrolls the block beside the list when the mouse is over it, and the list otherwise.
-func (m model) routeWheel(x, rows int) (tea.Model, tea.Cmd) {
+// popupScroller is a screen with a popup the wheel scrolls while the mouse is over it.
+type popupScroller interface {
+	scrollPopupAt(s panelShared, x, y, rows int) bool
+}
+
+// routeWheel scrolls the popup, the block beside the list or the list, whichever the mouse is over.
+func (m model) routeWheel(x, y, rows int) (tea.Model, tea.Cmd) {
 	if rows == 0 || len(m.wheelKeys(rows)) == 0 {
+		return m, nil
+	}
+
+	if screen, ok := m.active().(popupScroller); ok && !m.form.isActive() && !m.held.active && screen.scrollPopupAt(m.shared(), x-m.countInsetLeft(), y, rows) {
 		return m, nil
 	}
 

@@ -288,8 +288,8 @@ func NewWheelFilter(now func() time.Time, later func(tea.Msg)) func(tea.Model, t
 }
 
 // NewWheelTurns is the message the filter lets through for turns it added up.
-func NewWheelTurns(x, rows int) tea.Msg {
-	return wheelMsg{x: x, rows: rows}
+func NewWheelTurns(x, y, rows int) tea.Msg {
+	return wheelMsg{x: x, y: y, rows: rows}
 }
 
 // NewWatchLost is the message the panel hears when its watch stream ends.

@@ -61,11 +61,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if wheel, ok := msg.(tea.MouseWheelMsg); ok {
-		return m.routeWheel(wheel.X, wheelTurn(wheel))
+		return m.routeWheel(wheel.X, wheel.Y, wheelTurn(wheel))
 	}
 
 	if wheel, ok := msg.(wheelMsg); ok {
-		return m.routeWheel(wheel.x, wheel.rows)
+		return m.routeWheel(wheel.x, wheel.y, wheel.rows)
 	}
 
 	if size, ok := msg.(tea.WindowSizeMsg); ok {

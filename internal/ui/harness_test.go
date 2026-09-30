@@ -907,6 +907,24 @@ func readPopup(frame string) []string {
 	return nil
 }
 
+// readPopupMiddle is the cell at the middle of the review's popup in a frame drawn whole.
+func readPopupMiddle(frame string) (int, int) {
+	lines := splitLines(frame)
+	for top, line := range lines {
+		start := strings.Index(line, "╭")
+		if start < 0 {
+			continue
+		}
+
+		left, width := ansi.StringWidth(line[:start]), ansi.StringWidth(line[start:strings.Index(line, "╮")])
+		height := slices.IndexFunc(lines[top:], func(row string) bool { return strings.Contains(row, "╰") })
+
+		return left + width/2, top + height/2
+	}
+
+	return -1, -1
+}
+
 func readPopupProse(frame string) string {
 	return joinProse(readPopup(frame))
 }

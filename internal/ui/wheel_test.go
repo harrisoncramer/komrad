@@ -32,22 +32,22 @@ func TestWheelFilter(t *testing.T) {
 		{
 			name:  "a lone turn goes through at once",
 			turns: []turn{{msg: down}},
-			want:  []tea.Msg{ui.NewWheelTurns(7, 1)},
+			want:  []tea.Msg{ui.NewWheelTurns(7, 0, 1)},
 		},
 		{
 			name:  "turns inside a frame go through a frame later",
 			turns: []turn{{msg: down}, {msg: down, after: time.Millisecond}, {msg: down, after: time.Millisecond}, {flush: true, after: 20 * time.Millisecond}},
-			want:  []tea.Msg{ui.NewWheelTurns(7, 1), nil, nil, ui.NewWheelTurns(7, 2)},
+			want:  []tea.Msg{ui.NewWheelTurns(7, 0, 1), nil, nil, ui.NewWheelTurns(7, 0, 2)},
 		},
 		{
 			name:  "a turn after the frame carries the turns held with it",
 			turns: []turn{{msg: down}, {msg: down, after: 6 * time.Millisecond}, {msg: down, after: 6 * time.Millisecond}, {msg: down, after: 6 * time.Millisecond}, {flush: true}},
-			want:  []tea.Msg{ui.NewWheelTurns(7, 1), nil, nil, ui.NewWheelTurns(7, 3), nil},
+			want:  []tea.Msg{ui.NewWheelTurns(7, 0, 1), nil, nil, ui.NewWheelTurns(7, 0, 3), nil},
 		},
 		{
 			name:  "a turn the other way drops the turns held",
 			turns: []turn{{msg: down}, {msg: down, after: time.Millisecond}, {msg: up, after: time.Millisecond}, {flush: true, after: 20 * time.Millisecond}},
-			want:  []tea.Msg{ui.NewWheelTurns(7, 1), nil, nil, ui.NewWheelTurns(7, -1)},
+			want:  []tea.Msg{ui.NewWheelTurns(7, 0, 1), nil, nil, ui.NewWheelTurns(7, 0, -1)},
 		},
 		{
 			name:  "a sideways turn goes through untouched",
@@ -57,7 +57,7 @@ func TestWheelFilter(t *testing.T) {
 		{
 			name:  "anything else goes through untouched",
 			turns: []turn{{msg: down}, {msg: tea.KeyPressMsg{Code: 'j'}, after: time.Millisecond}},
-			want:  []tea.Msg{ui.NewWheelTurns(7, 1), tea.KeyPressMsg{Code: 'j'}},
+			want:  []tea.Msg{ui.NewWheelTurns(7, 0, 1), tea.KeyPressMsg{Code: 'j'}},
 		},
 	}
 
