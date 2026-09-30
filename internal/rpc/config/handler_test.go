@@ -52,7 +52,7 @@ func TestGetConfig(t *testing.T) {
 			assert.Equal(t, tt.wantError, resp.Msg.GetConfigError())
 			assert.Equal(t, version.Version(), resp.Msg.GetVersion())
 			assert.Equal(t, tt.wantFlags, lookup(t, resp.Msg, "harness", "claude", "flags"))
-			assert.Equal(t, []any{"z"}, lookup(t, resp.Msg, "keybindings", "agents", "archive"))
+			assert.Equal(t, []any{"a"}, lookup(t, resp.Msg, "keybindings", "menu", "archive"))
 		})
 	}
 }
