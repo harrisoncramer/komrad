@@ -226,11 +226,11 @@ func (d *documentsScreen) snapshot(s panelShared, pane listPane) view.Snapshot {
 				Cells:   []view.Cell{mutedCell(label.AgeAt(r.item.updatedAt, now))},
 			}
 		}),
-		Caret:         caret,
-		BarBlinkedOut: pane.blinkedOut,
-		Focused:       rowKeyAt(rows, d.cursor),
-		Pane:          pane.width,
-		Columns:       documentColumns(),
+		Caret:      caret,
+		BlinkedOut: pane.blinkedOut,
+		Focused:    rowKeyAt(rows, d.cursor),
+		Pane:       pane.width,
+		Columns:    documentColumns(),
 	}
 }
 

@@ -72,6 +72,7 @@ func pullRequestWords(state pullrequestv1.PullRequestState, checks pullrequestv1
 		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE,
 		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED,
 		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_FAILING,
+		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHECKS_RUNNING,
 		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CONFLICTING,
 		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_MERGED,
 		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CLOSED:
@@ -109,6 +110,8 @@ func pullRequestStateWord(state pullrequestv1.PullRequestState) string {
 		return "ready to merge"
 	case pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHANGES_REQUESTED:
 		return "changes requested"
+	case pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHECKS_RUNNING:
+		return "checks running"
 	case pullrequestv1.PullRequestState_PULL_REQUEST_STATE_DRAFT:
 		return "draft"
 	case pullrequestv1.PullRequestState_PULL_REQUEST_STATE_MERGED:

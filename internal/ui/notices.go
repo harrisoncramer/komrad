@@ -33,6 +33,7 @@ const (
 	prFailingNotice       = "its pull request has a failing check"
 	prConflictingNotice   = "its pull request no longer merges cleanly"
 	prChangesNotice       = "its pull request has changes requested"
+	prChecksNotice        = "its pull request has checks running"
 	prApprovedNotice      = "its pull request is approved and ready to merge"
 	prWaitingNotice       = "its pull request is approved but cannot merge yet"
 	prOpenNotice          = "its pull request is open and waiting on a review"
@@ -63,6 +64,7 @@ var (
 	}
 	forgeSaid = map[view.Forge]string{
 		view.ForgeOpen:            prOpenNotice,
+		view.ForgeChecksRunning:   prChecksNotice,
 		view.ForgeApprovedWaiting: prWaitingNotice,
 		view.ForgeDraft:           prDraftNotice,
 		view.ForgeMerged:          prMergedNotice,

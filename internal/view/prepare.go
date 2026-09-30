@@ -13,11 +13,11 @@ func Prepare(snapshot Snapshot) List {
 	columns := snapshot.columns()
 	lines := xslice.Map(snapshot.Rows, func(row Row) Line {
 		return prepareLine(prepareLineParams{
-			row:           row,
-			columns:       columns,
-			focused:       isFocused(row, snapshot.Focused),
-			caret:         snapshot.Caret,
-			barBlinkedOut: snapshot.BarBlinkedOut,
+			row:        row,
+			columns:    columns,
+			focused:    isFocused(row, snapshot.Focused),
+			caret:      snapshot.Caret,
+			blinkedOut: snapshot.BlinkedOut,
 		})
 	})
 
@@ -33,11 +33,11 @@ func Prepare(snapshot Snapshot) List {
 
 // prepareLineParams is one row and what the list around it says about that row.
 type prepareLineParams struct {
-	row           Row
-	columns       Columns
-	focused       bool
-	caret         Caret
-	barBlinkedOut bool
+	row        Row
+	columns    Columns
+	focused    bool
+	caret      Caret
+	blinkedOut bool
 }
 
 // prepareLine resolves one row to the glyphs, tones and weight it is drawn in.
@@ -47,8 +47,8 @@ func prepareLine(params prepareLineParams) Line {
 	return Line{
 		Focused:  focused,
 		Focus:    textCell(chromeIf(focused && params.caret == CaretDrawn, glyph.Focus), paint.ToneAccent),
-		Columns:  columnCells(row, params.columns),
-		Status:   blinkBar(StatusCell(row), row, params.barBlinkedOut),
+		Columns:  columnCells(row, params.columns, params.blinkedOut),
+		Status:   blinkBar(StatusCell(row), row, params.blinkedOut),
 		Rule:     row.Kind == KindChild,
 		Indent:   indentFor(row.Kind),
 		Lead:     row.Lead,
@@ -69,14 +69,14 @@ func prepareLine(params prepareLineParams) Line {
 }
 
 // columnCells resolves a row's cell for each column the list draws.
-func columnCells(row Row, columns Columns) []Cell {
+func columnCells(row Row, columns Columns, blinkedOut bool) []Cell {
 	cells := make([]Cell, len(columns))
 	for i, column := range columns {
 		switch column.Kind {
 		case ColumnRepo:
 			cells[i] = RepoCell(row)
 		case ColumnForge:
-			cells[i] = ForgeCell(row)
+			cells[i] = blinkForge(ForgeCell(row), row, blinkedOut)
 		case ColumnText:
 			if i < len(row.Cells) {
 				cells[i] = row.Cells[i]
@@ -193,9 +193,11 @@ func ForgeCell(row Row) Cell {
 	case ForgeApproved:
 		return Cell{Glyph: glyph.Approved, Tone: paint.ToneSuccess}
 	case ForgeApprovedWaiting:
-		return Cell{Glyph: glyph.Approved, Tone: paint.ToneMuted}
+		return Cell{Glyph: glyph.Open, Tone: paint.ToneMuted}
 	case ForgeChangesRequested:
-		return Cell{Glyph: glyph.Open, Tone: paint.ToneWarning}
+		return Cell{Glyph: glyph.ChangesRequested, Tone: paint.ToneWarning}
+	case ForgeChecksRunning:
+		return Cell{Glyph: glyph.ChecksRunning, Tone: paint.ToneWarning}
 	case ForgeDraft:
 		return Cell{Glyph: glyph.Draft, Tone: paint.ToneMuted}
 	case ForgeFailing:
@@ -232,6 +234,15 @@ func StatusCell(row Row) Cell {
 func blinkBar(cell Cell, row Row, out bool) Cell {
 	if out && row.Status == StatusThinking && cell.Text == glyph.Busy {
 		cell.Text = glyph.Quiet
+	}
+
+	return cell
+}
+
+// blinkForge swaps a pull request with checks running to its other glyph on the blink's off beat.
+func blinkForge(cell Cell, row Row, out bool) Cell {
+	if out && row.Forge == ForgeChecksRunning && cell.Glyph == glyph.ChecksRunning {
+		cell.Glyph = glyph.ChecksRunningBlink
 	}
 
 	return cell

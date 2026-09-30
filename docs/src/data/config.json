@@ -1131,8 +1131,29 @@
               "key": "open",
               "path": "glyphs.pull_request.open",
               "type": "string",
-              "description": "An open pull request, drawn in a warning colour once changes have been requested.",
+              "description": "An open pull request, and an approved one that cannot merge yet.",
               "default": "\"\""
+            },
+            {
+              "key": "changes_requested",
+              "path": "glyphs.pull_request.changes_requested",
+              "type": "string",
+              "description": "A pull request a reviewer has asked for changes on.",
+              "default": "\"\""
+            },
+            {
+              "key": "checks_running",
+              "path": "glyphs.pull_request.checks_running",
+              "type": "string",
+              "description": "A pull request whose checks are running, on one beat of the blink.",
+              "default": "\"\""
+            },
+            {
+              "key": "checks_running_blink",
+              "path": "glyphs.pull_request.checks_running_blink",
+              "type": "string",
+              "description": "A pull request whose checks are running, on the other beat of the blink.",
+              "default": "\"\""
             },
             {
               "key": "draft",
@@ -1145,7 +1166,7 @@
               "key": "approved",
               "path": "glyphs.pull_request.approved",
               "type": "string",
-              "description": "An approved pull request, drawn muted while it cannot merge yet.",
+              "description": "A pull request the forge would merge now.",
               "default": "\"\""
             },
             {
@@ -1174,7 +1195,7 @@
               "path": "glyphs.pull_request.conflicting",
               "type": "string",
               "description": "A pull request that no longer merges cleanly.",
-              "default": "\"\""
+              "default": "\"\""
             }
           ],
           "sections": []

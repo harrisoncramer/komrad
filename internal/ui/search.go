@@ -691,11 +691,11 @@ func (w *searchScreen) snapshot(s panelShared, rows []searchRow, pane listPane) 
 
 			return w.agentRow(s, row.agent, archived)
 		}),
-		Columns:       view.NoColumns(),
-		Caret:         pane.caret,
-		BarBlinkedOut: pane.blinkedOut,
-		Focused:       rowKeyAt(rows, w.cursor),
-		Pane:          pane.width,
+		Columns:    view.NoColumns(),
+		Caret:      pane.caret,
+		BlinkedOut: pane.blinkedOut,
+		Focused:    rowKeyAt(rows, w.cursor),
+		Pane:       pane.width,
 	}
 }
 

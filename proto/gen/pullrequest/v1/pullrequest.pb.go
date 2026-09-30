@@ -51,11 +51,12 @@ const (
 	PullRequestState_PULL_REQUEST_STATE_CLOSED PullRequestState = 8
 	// Open with a failing check on its head, whatever its reviews say.
 	PullRequestState_PULL_REQUEST_STATE_FAILING PullRequestState = 9
-	// Approved on the forge but not yet mergeable: its checks are still running, its branch is
-	// behind, or a branch rule is unmet.
+	// Approved on the forge but not yet mergeable: its branch is behind or a branch rule is unmet.
 	PullRequestState_PULL_REQUEST_STATE_APPROVED_WAITING PullRequestState = 10
 	// Open and no longer merging cleanly into its base, whatever its reviews say.
 	PullRequestState_PULL_REQUEST_STATE_CONFLICTING PullRequestState = 11
+	// Open with checks still running on its head and no change request.
+	PullRequestState_PULL_REQUEST_STATE_CHECKS_RUNNING PullRequestState = 12
 )
 
 // Enum value maps for PullRequestState.
@@ -73,6 +74,7 @@ var (
 		9:  "PULL_REQUEST_STATE_FAILING",
 		10: "PULL_REQUEST_STATE_APPROVED_WAITING",
 		11: "PULL_REQUEST_STATE_CONFLICTING",
+		12: "PULL_REQUEST_STATE_CHECKS_RUNNING",
 	}
 	PullRequestState_value = map[string]int32{
 		"PULL_REQUEST_STATE_UNSPECIFIED":       0,
@@ -87,6 +89,7 @@ var (
 		"PULL_REQUEST_STATE_FAILING":           9,
 		"PULL_REQUEST_STATE_APPROVED_WAITING":  10,
 		"PULL_REQUEST_STATE_CONFLICTING":       11,
+		"PULL_REQUEST_STATE_CHECKS_RUNNING":    12,
 	}
 )
 
@@ -763,7 +766,7 @@ const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"\x18ListPullRequestsResponse\x12@\n" +
 	"\rpull_requests\x18\x01 \x03(\v2\x1b.pullrequest.v1.PullRequestR\fpullRequests\x12+\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tH\x00R\rnextPageToken\x88\x01\x01B\x12\n" +
-	"\x10_next_page_token*\xa3\x03\n" +
+	"\x10_next_page_token*\xca\x03\n" +
 	"\x10PullRequestState\x12\"\n" +
 	"\x1ePULL_REQUEST_STATE_UNSPECIFIED\x10\x00\x12\x1d\n" +
 	"\x19PULL_REQUEST_STATE_UNREAD\x10\x01\x12\x1b\n" +
@@ -777,7 +780,8 @@ const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"\x1aPULL_REQUEST_STATE_FAILING\x10\t\x12'\n" +
 	"#PULL_REQUEST_STATE_APPROVED_WAITING\x10\n" +
 	"\x12\"\n" +
-	"\x1ePULL_REQUEST_STATE_CONFLICTING\x10\v*\xca\x01\n" +
+	"\x1ePULL_REQUEST_STATE_CONFLICTING\x10\v\x12%\n" +
+	"!PULL_REQUEST_STATE_CHECKS_RUNNING\x10\f*\xca\x01\n" +
 	"\fMergeability\x12\x1c\n" +
 	"\x18MERGEABILITY_UNSPECIFIED\x10\x00\x12\x18\n" +
 	"\x14MERGEABILITY_UNKNOWN\x10\x01\x12\x16\n" +

@@ -20,8 +20,8 @@ type snapshotParams struct {
 	focused string
 	// caret is how the arrow on the focused row stands this frame.
 	caret view.Caret
-	// barBlinkedOut says the blink has the working bars in their thin half this frame.
-	barBlinkedOut bool
+	// blinkedOut says the blink is on its off beat this frame.
+	blinkedOut bool
 	// matcher is the search a person is filtering the list by, nil when they are not.
 	matcher *regexp.Regexp
 	// scheduled are the workflows at least one schedule launches into, keyed by workflow id.
@@ -41,11 +41,11 @@ func agentsSnapshot(params snapshotParams) view.Snapshot {
 	})
 
 	return view.Snapshot{
-		Rows:          rows,
-		Caret:         params.caret,
-		BarBlinkedOut: params.barBlinkedOut,
-		Focused:       params.focused,
-		Pane:          params.pane,
+		Rows:       rows,
+		Caret:      params.caret,
+		BlinkedOut: params.blinkedOut,
+		Focused:    params.focused,
+		Pane:       params.pane,
 	}
 }
 
@@ -243,6 +243,8 @@ func snapshotForge(item panel.AgentRow) view.Forge {
 		return view.ForgeApprovedWaiting
 	case pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHANGES_REQUESTED:
 		return view.ForgeChangesRequested
+	case pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHECKS_RUNNING:
+		return view.ForgeChecksRunning
 	case pullrequestv1.PullRequestState_PULL_REQUEST_STATE_DRAFT:
 		return view.ForgeDraft
 	case pullrequestv1.PullRequestState_PULL_REQUEST_STATE_MERGED:

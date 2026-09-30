@@ -276,6 +276,11 @@ func TestSnapshotForge(t *testing.T) {
 			want:  view.ForgeConflicting,
 		},
 		{
+			name:  "checks running",
+			state: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHECKS_RUNNING,
+			want:  view.ForgeChecksRunning,
+		},
+		{
 			name:  "approved waiting",
 			state: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED_WAITING,
 			want:  view.ForgeApprovedWaiting,
