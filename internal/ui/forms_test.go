@@ -345,7 +345,7 @@ func TestFormsInFlight(t *testing.T) {
 		harness.press("esc")
 
 		assert.NotContains(t, harness.readFrame(), "check CI", "the form it was holding is gone")
-		assert.Contains(t, readLegend(harness.readFrame()), "starting the agent…", "the create it left is drawn in the corner")
+		assert.Contains(t, readLegend(harness.readFrame()), "⠋ starting", "the create it left is drawn in the corner")
 		harness.press("j")
 		assert.Equal(t, "  author", readHoveredRow(harness.readFrame()), "the panel takes keys again")
 
