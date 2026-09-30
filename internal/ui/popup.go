@@ -42,7 +42,7 @@ func (p *popupScroll) move(owner, body string, rows int) {
 	p.rows = min(max(p.rows-rows, 0), most)
 }
 
-// reset forgets the scroll, so the next body opens on its end.
+// reset forgets whose body the popup is scrolled over.
 func (p *popupScroll) reset() {
 	p.owner = ""
 }
