@@ -68,12 +68,14 @@ an agent's pane into a panel nobody is looking at.`,
 
 // openHere puts this engine's panel up and turns this process into the client attached to it.
 func openHere(ctx context.Context, state *app, detach, headless bool) error {
-	if !headless {
-		setUpWorkflowHere(ctx, state)
-	}
+	settingUp := !headless && prepareAutoSetup(ctx, state)
 
 	if err := ensureManagerSession(ctx, state, detach, headless); err != nil {
 		return err
+	}
+
+	if settingUp {
+		setUpWorkflowHere(ctx, state)
 	}
 
 	state.tmux.BlankBorders()
@@ -264,16 +266,10 @@ func refuseNesting(state *app) error {
 			"another: open it from your own terminal instead", state.env.AgentID)
 }
 
-// setUpWorkflowHere runs auto_setup for the directory komrad was opened in, warning rather than
-// failing the open.
-func setUpWorkflowHere(ctx context.Context, state *app) {
+// prepareAutoSetup reports whether auto_setup runs for this open, starting the server it needs.
+func prepareAutoSetup(ctx context.Context, state *app) bool {
 	if !state.autoSetup || state.configErr != nil || state.engine().IsRemote() {
-		return
-	}
-
-	dir, err := os.Getwd()
-	if err != nil {
-		return
+		return false
 	}
 
 	if err := ensureServer(ctx, ensureServerParams{
@@ -282,6 +278,19 @@ func setUpWorkflowHere(ctx context.Context, state *app) {
 		LogPath:    state.env.LogPath(),
 		ConfigArgs: configArgs(state.configStack),
 	}); err != nil {
+		warnAutoSetup(err)
+
+		return false
+	}
+
+	return true
+}
+
+// setUpWorkflowHere runs auto_setup for the directory komrad was opened in, warning rather than
+// failing the open.
+func setUpWorkflowHere(ctx context.Context, state *app) {
+	dir, err := os.Getwd()
+	if err != nil {
 		warnAutoSetup(err)
 
 		return
