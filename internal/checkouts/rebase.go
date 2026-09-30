@@ -32,7 +32,7 @@ var (
 	ErrRebaseAdopted = fail.Precondition("this agent is on a branch komrad did not cut, so its history is not komrad's to rewrite")
 
 	// ErrRebaseDirty says the checkout holds tracked changes.
-	ErrRebaseDirty = fail.Precondition("the worktree holds uncommitted changes, so have the agent commit or stash them first")
+	ErrRebaseDirty = fail.Precondition("the worktree holds tracked changes, so commit or discard them first")
 
 	// ErrRebaseInProgress says something already owns the index.
 	ErrRebaseInProgress = fail.Precondition("the worktree is already part-way through a merge or a rebase, so finish or abort that first")
