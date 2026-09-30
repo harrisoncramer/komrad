@@ -2,7 +2,6 @@ package github
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"time"
 
@@ -62,7 +61,7 @@ func (f *Forge) ReviewThreads(ctx context.Context, repo git.RemoteURL, number in
 		return nil, noRepository(variables)
 	}
 	if data.Repository.PullRequest == nil {
-		return nil, fmt.Errorf("%w: github has no pull request %d in %s/%s", forge.ErrNotFound, number, owner, name)
+		return nil, noPullRequest(number, owner, name)
 	}
 
 	return data.Repository.PullRequest.threads(), nil
