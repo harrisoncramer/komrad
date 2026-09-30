@@ -162,7 +162,7 @@ func (w *worktreesScreen) rows(s panelShared) []worktreeRow {
 func (w *worktreesScreen) buildRows(s panelShared) []worktreeRow {
 	return narrowed(s.chrome.filter, narrowedParams[worktreeRow]{
 		rows: worktreeRows(worktreeRowsParams{
-			items: w.items,
+			items: w.shown(),
 			order: worktreesTabs().order(w.sort),
 			flat:  w.sort.flat,
 		}),

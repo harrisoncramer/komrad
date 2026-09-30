@@ -167,10 +167,44 @@ func worktreesTabs() tabStrip {
 	}
 }
 
-// tally is how many directories the listing holds, what the measured ones take, and whether
-// they are drawn as one list.
+func (w *worktreesScreen) kinds() stops {
+	return stops{
+		labels: worktreeScopeLabels,
+		focus:  noStop,
+		lit:    int(w.scope),
+	}
+}
+
+func (w *worktreesScreen) kindsFit(s panelShared) bool {
+	return s.draw.listFitsTabs(w.listParams(s))
+}
+
+func (w *worktreesScreen) kindsFocused() *bool {
+	return &w.scopeFocus
+}
+
+// kindsSwitch holds the scope while any directories are selected.
+func (w *worktreesScreen) kindsSwitch(panelShared) bool {
+	return !w.selected.isActive()
+}
+
+// stepKind moves the listing to another scope, keeping the cursor on its row when the new scope
+// lists it.
+func (w *worktreesScreen) stepKind(h host, s panelShared, delta int) tea.Cmd {
+	hovered := w.list().hovered(s)
+	w.scope = worktreeScope(stepStop(int(w.scope), delta, len(worktreeScopeLabels)))
+	w.place(s, hovered)
+
+	w.stage(h, s)
+
+	return h.waitToStage()
+}
+
+// tally is how many directories the scope lists, what the measured ones take, and whether they
+// are drawn as one list.
 func (w *worktreesScreen) tally() string {
-	tally := fmt.Sprintf("%d"+separated+"%s", len(w.items), totalLabel(w.items))
+	shown := w.shown()
+	tally := fmt.Sprintf("%d"+separated+"%s", len(shown), totalLabel(shown))
 	if w.sort.flat {
 		tally += separated + flatLabel
 	}
@@ -197,7 +231,7 @@ func (w *worktreesScreen) snapshot(s panelShared, pane listPane) view.Snapshot {
 
 	return worktreesSnapshot(worktreesSnapshotParams{
 		rows:       rows,
-		items:      w.items,
+		items:      w.shown(),
 		selected:   w.selected,
 		focused:    rowKeyAt(rows, w.cursor),
 		live:       s.listing.agents,
@@ -227,7 +261,7 @@ func (w *worktreesScreen) details(s panelShared) details {
 }
 
 func (w *worktreesScreen) countUnder(repo string) int {
-	return len(itemsUnder(w.items, repo))
+	return len(itemsUnder(w.shown(), repo))
 }
 
 func worktreeFields(s panelShared, item worktreeItem, now time.Time) []recordField {
@@ -502,6 +536,7 @@ func commitLines(commits []worktreeCommit) []string {
 var (
 	_ detailed = (*worktreesScreen)(nil)
 	_ filtered = (*worktreesScreen)(nil)
+	_ kinded   = (*worktreesScreen)(nil)
 	_ tabbed   = (*worktreesScreen)(nil)
 	_ columned = (*worktreesScreen)(nil)
 	_ staged   = (*worktreesScreen)(nil)

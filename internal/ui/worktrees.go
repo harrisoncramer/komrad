@@ -10,6 +10,7 @@ import (
 	"komrad/internal/ui/cursor"
 	"komrad/internal/ui/panel"
 	"komrad/lib/dates"
+	"komrad/lib/xslice"
 	worktreev1 "komrad/proto/gen/worktree/v1"
 )
 
@@ -204,12 +205,44 @@ func (r worktreeInspection) isSettled() bool {
 	return r.answered && errui.IsNotFound(r.err)
 }
 
+// isInactive reports whether no live agent answers for or works in the directory.
+func (i worktreeItem) isInactive() bool {
+	if i.fate == fateLive {
+		return false
+	}
+
+	return !slices.ContainsFunc(i.occupants, func(occupant worktreeAgent) bool {
+		return occupant.archivedAt == nil
+	})
+}
+
+// worktreeScope is which of the directories the worktrees screen lists.
+type worktreeScope int
+
+const (
+	scopeAll worktreeScope = iota
+	scopeInactive
+)
+
+var worktreeScopeLabels = []string{"all", "inactive"}
+
+// holds reports whether the scope lists the directory.
+func (s worktreeScope) holds(item worktreeItem) bool {
+	if s == scopeInactive {
+		return item.isInactive()
+	}
+
+	return true
+}
+
 // worktreesScreen is the worktrees screen: the directories the listing holds, the cursor in
-// them, and how they are ordered.
+// them, which of them are listed, and how they are ordered.
 type worktreesScreen struct {
 	rowCursor
-	items []worktreeItem
-	sort  tabsState
+	items      []worktreeItem
+	scope      worktreeScope
+	scopeFocus bool
+	sort       tabsState
 	// drawn is the rows built once for the frame being drawn, and nil between frames.
 	drawn []worktreeRow
 }
@@ -228,6 +261,11 @@ func (w *worktreesScreen) apply(s panelShared, items []worktreeItem, hovered str
 	}
 
 	w.place(s, hovered)
+}
+
+// shown is the directories the scope lists.
+func (w *worktreesScreen) shown() []worktreeItem {
+	return xslice.Filter(w.items, w.scope.holds)
 }
 
 // place keeps the cursor on the row it was on as the rows under it change.
