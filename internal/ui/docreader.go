@@ -25,6 +25,8 @@ type docReader struct {
 	focused bool
 	// shown names the row the document was read for.
 	shown string
+	// tail says the window stays on the last row until the reader moves it.
+	tail bool
 }
 
 // docKeyed is a screen with keys of its own that answer while its document holds the keys.
@@ -91,6 +93,9 @@ func (m model) docBlock(split columnSplit) []string {
 		top:     r.Top,
 		markers: true,
 	}
+	if r.tail {
+		window.top = len(drawn)
+	}
 
 	return append(head, strings.Split(window.view(height), "\n")...)
 }
@@ -110,8 +115,21 @@ func (m model) docLayout() ([]string, int, bool) {
 
 // moveDocTo puts the cursor on a row of the document and brings the window round to it.
 func (m *model) moveDocTo(line int) {
+	m.settleTail()
 	if rows, height, ok := m.docLayout(); ok {
 		m.reading.MoveTo(line, len(rows), height)
+	}
+}
+
+// settleTail puts the reader on the last row of a document held at its end.
+func (m *model) settleTail() {
+	if !m.reading.tail {
+		return
+	}
+
+	m.reading.tail = false
+	if rows, height, ok := m.docLayout(); ok {
+		m.reading.MoveTo(len(rows)-1, len(rows), height)
 	}
 }
 
@@ -122,6 +140,7 @@ func (m *model) focusDoc() {
 		return
 	}
 
+	m.settleTail()
 	m.reading.focused = true
 	m.reading.Settle(len(rows), height)
 }
@@ -129,6 +148,8 @@ func (m *model) focusDoc() {
 // scrollDoc moves the cursor through the document while it holds the keys, and the window over
 // it otherwise.
 func (m *model) scrollDoc(delta int) {
+	m.settleTail()
+
 	if m.isDocFocused() {
 		m.moveDocTo(m.reading.Line + delta)
 
@@ -144,7 +165,7 @@ func (m *model) scrollDoc(delta int) {
 // keys back from a document the block no longer draws.
 func (m model) dropStaleDoc() model {
 	if shown := m.docShown(); m.reading.shown != shown {
-		m.reading = docReader{shown: shown}
+		m.reading = docReader{shown: shown, tail: m.isConversationPreviewed()}
 	}
 
 	if m.reading.focused && !m.isDocReadable() {
@@ -288,6 +309,7 @@ func docActions() actionSpec {
 				id:   actionFilterOpen,
 				keys: func(config.Keybindings) []string { return []string{filterOpenKey} },
 				run: func(m model, _ string) (tea.Model, tea.Cmd) {
+					m.settleTail()
 					m.reading.filter.typing = true
 					m.reading.filter.setQuery("")
 					m.reading.origin = m.reading.Line

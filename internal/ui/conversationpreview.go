@@ -59,6 +59,12 @@ func (m *model) previewedAgentID() (string, bool) {
 	return "", false
 }
 
+func (m model) isConversationPreviewed() bool {
+	_, ok := m.previewedAgentID()
+
+	return ok
+}
+
 func (m *model) previewConversationCmd() tea.Cmd {
 	agentID, ok := m.previewedAgentID()
 	if !ok {
