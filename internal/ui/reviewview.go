@@ -146,7 +146,6 @@ func (r reviewScreen) layoutUnder(s panelShared, bar string, above []string) sid
 	return layout
 }
 
-// cutNotes keeps the first rows of the notes that fit.
 func cutNotes(notes string, rows int) string {
 	if rows >= paint.CountLines(notes) {
 		return notes
