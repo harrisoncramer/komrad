@@ -180,15 +180,48 @@ func (r *reviewScreen) doesScrollColumn(panelShared) bool {
 }
 
 func (r *reviewScreen) scrollColumn(_ host, s panelShared, rows int) tea.Cmd {
-	if r.isWriting() {
-		return nil
-	}
-
-	if r.scrollPopup(s, rows) {
+	if r.isWriting() || r.diff.View() == nil {
 		return nil
 	}
 
 	return r.diffKeys().scrollColumn(s, rows)
+}
+
+// scrollList presses the scroll key once for every row, past the popup.
+func (r *reviewScreen) scrollList(h host, s panelShared, rows int) tea.Cmd {
+	if r.isWriting() || r.diff.View() == nil {
+		return nil
+	}
+
+	pressed := s.keys.Column.ScrollDown
+	if rows < 0 {
+		pressed = s.keys.Column.ScrollUp
+	}
+
+	if len(pressed) == 0 {
+		return nil
+	}
+
+	var cmds []tea.Cmd
+	for range max(rows, -rows) {
+		cmds = append(cmds, r.actions(s).dispatch(h, s, pressed[0]))
+	}
+
+	return tea.Batch(cmds...)
+}
+
+// scrollPopupAt moves the conversation in the popup when the cell at x and y is inside it.
+func (r *reviewScreen) scrollPopupAt(s panelShared, x, y, rows int) bool {
+	body, _ := r.popupBody(s, r.measurePopupInner(s))
+	if body == "" || !r.placeThread(s, body).contains(x, y) {
+		return false
+	}
+
+	if !r.isWriting() {
+		r.scrollPopup(s, rows*diffWheelStep)
+	}
+
+	return true
 }
 
 // scrollToCursor moves the window only when the cursor is about to leave it.
