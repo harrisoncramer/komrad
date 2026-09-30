@@ -12,6 +12,7 @@ import (
 	"komrad/internal/forge"
 	"komrad/internal/mail"
 	mailstore "komrad/internal/store/mail"
+	pullrequeststore "komrad/internal/store/pullrequest"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -182,7 +183,12 @@ func (f *syncFixture) setStanding(t *testing.T, standing forge.Standing, readAt 
 	if standing.Mergeability == forge.MergeabilityUnknown {
 		standing.Mergeability = forge.MergeabilityClean
 	}
-	require.NoError(t, f.syncer.setStanding(t.Context(), f.stored(t, "PR_1").ID, standing, readAt))
+	_, err := f.syncer.setStanding(t.Context(), pullrequeststore.SetStandingParams{
+		ID:       f.stored(t, "PR_1").ID,
+		Standing: standing,
+		ReadAt:   readAt,
+	})
+	require.NoError(t, err)
 }
 
 // TestAPullRequestChangeRetriesAFullMailboxAlone pins one agent's full mailbox leaving the others on the branch told and its own mail retried once there is room.

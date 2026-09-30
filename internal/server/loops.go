@@ -37,7 +37,7 @@ const cwdSyncFloor = 5 * time.Second
 
 // pullRequestSyncFloor is the least time between the starts of two pull request sync runs when
 // the second was woken.
-const pullRequestSyncFloor = 15 * time.Second
+const pullRequestSyncFloor = 10 * time.Second
 
 const (
 	ScheduleReconcileLoop = "schedule reconcile"

@@ -28,13 +28,20 @@ const pullRequestSyncBudget = 10
 // checksPendingAfter is how long a read of a pending run is trusted before it is read again.
 const checksPendingAfter = time.Minute
 
-// checksSettleWithin is how long after a change a head with no checks or no computed
-// mergeability is read again.
+// checksSettleWithin is how long after a change a head with no checks is read again.
 const checksSettleWithin = 10 * time.Minute
 
 // checksSettledAfter is how long any read of the checks and mergeability is trusted before it
 // is read again.
 const checksSettledAfter = 10 * time.Minute
+
+// mergeabilityBlankAfter is how long after a read that found mergeability not yet computed it
+// is read again, however long ago the pull request last changed.
+const mergeabilityBlankAfter = 10 * time.Second
+
+// mergeabilityBlankWithin is how long after the forge first answers a blank mergeability for a
+// head it is read again every mergeabilityBlankAfter, before falling back to the settled pace.
+const mergeabilityBlankWithin = 2 * time.Minute
 
 // pullRequestSyncOverlap is how far below the high-water mark a search reads.
 const pullRequestSyncOverlap = 15 * time.Minute
@@ -70,6 +77,11 @@ var errRateLimitSpent = fail.Exhausted("the forge's rate limit budget is spent")
 
 type eventRecorder interface {
 	InsertManyTx(ctx context.Context, build func(tx pgx.Tx) ([]river.JobArgs, error)) error
+}
+
+// afterWaker asks the sync's own loop to run again once a wait is over.
+type afterWaker interface {
+	WakeAfter(wait time.Duration)
 }
 
 // pullRequestForgeFinder is what the sync asks of the forge service.
@@ -113,6 +125,8 @@ type NewPullRequestSyncerParams struct {
 	PullRequests *pullrequeststore.PullRequestStore
 	Syncs        *pullrequeststore.PullRequestSyncStore
 	Events       eventRecorder
+	// Recheck wakes the sync again once a mergeability the forge had not computed is due.
+	Recheck afterWaker
 	// Now is the clock, time.Now when unset.
 	Now func() time.Time
 }
@@ -123,6 +137,7 @@ type PullRequestSyncer struct {
 	pullRequests *pullrequeststore.PullRequestStore
 	syncs        *pullrequeststore.PullRequestSyncStore
 	events       eventRecorder
+	recheck      afterWaker
 	now          func() time.Time
 	// refusals counts rate limit refusals in a row per host that named no time to wait.
 	refusals map[string]int
@@ -141,6 +156,7 @@ func NewPullRequestSyncer(params NewPullRequestSyncerParams) *PullRequestSyncer 
 		pullRequests: params.PullRequests,
 		syncs:        params.Syncs,
 		events:       params.Events,
+		recheck:      params.Recheck,
 		now:          now,
 		refusals:     map[string]int{},
 		said:         onceLog{},
@@ -155,8 +171,15 @@ func (s *PullRequestSyncer) Sync(ctx context.Context) error {
 		return err
 	}
 
+	blank := false
 	for _, host := range s.groupByHost(ctx, repositories) {
 		s.syncHost(ctx, host)
+		for _, read := range host.repositories {
+			blank = blank || read.tally.blank
+		}
+	}
+	if blank {
+		s.recheck.WakeAfter(mergeabilityBlankAfter)
 	}
 
 	observed, err := s.pullRequests.Observe(ctx)
@@ -195,6 +218,8 @@ type passCount struct {
 	inserted  int
 	updated   int
 	standings int
+	// blank says a read found a mergeability the forge had not computed yet.
+	blank bool
 }
 
 // groupByHost resolves the connection and forge for each host the repositories live on,
@@ -726,11 +751,13 @@ func (s *PullRequestSyncer) readStandings(ctx context.Context, host *hostRead, r
 	repositoryURL := remote.Canonical()
 	now := s.now()
 	stale, err := s.syncs.ListStaleStandings(ctx, pullrequeststore.ListStaleStandingsParams{
-		RepositoryURL: repositoryURL,
-		Now:           now,
-		PendingAfter:  checksPendingAfter,
-		SettleWithin:  checksSettleWithin,
-		SettledAfter:  checksSettledAfter,
+		RepositoryURL:           repositoryURL,
+		Now:                     now,
+		PendingAfter:            checksPendingAfter,
+		SettleWithin:            checksSettleWithin,
+		MergeabilityBlankAfter:  mergeabilityBlankAfter,
+		MergeabilityBlankWithin: mergeabilityBlankWithin,
+		SettledAfter:            checksSettledAfter,
 	})
 	if err != nil {
 		return err
@@ -761,9 +788,17 @@ func (s *PullRequestSyncer) readStandings(ctx context.Context, host *hostRead, r
 					slog.Int(logging.PullRequestNumber, pullRequest.Number))
 				standing = forge.Standing{HeadSHA: pullRequest.HeadSHA}
 			}
-
-			if err := s.setStanding(ctx, pullRequest.ID, standing, now); err != nil {
+			change, err := s.setStanding(ctx, pullrequeststore.SetStandingParams{
+				ID:         pullRequest.ID,
+				Standing:   standing,
+				ReadAt:     now,
+				Unanswered: !answered,
+			})
+			if err != nil {
 				return err
+			}
+			if answered && change.BlankSince != nil && now.Sub(*change.BlankSince) < mergeabilityBlankWithin {
+				counts.blank = true
 			}
 			counts.standings++
 		}
@@ -859,7 +894,11 @@ func (s *PullRequestSyncer) writePage(ctx context.Context, pullRequests []forge.
 				if pullRequest.Mergeability != nil {
 					standing.Mergeability = *pullRequest.Mergeability
 				}
-				change, err := st.SetStanding(ctx, outcome.ID, standing, s.now())
+				change, err := st.SetStanding(ctx, pullrequeststore.SetStandingParams{
+					ID:       outcome.ID,
+					Standing: standing,
+					ReadAt:   s.now(),
+				})
 				if err != nil {
 					return nil, err
 				}
@@ -888,15 +927,17 @@ func (s *PullRequestSyncer) writePage(ctx context.Context, pullRequests []forge.
 }
 
 // setStanding records one pull request's standing and the event for whatever it moved in one
-// transaction.
-func (s *PullRequestSyncer) setStanding(ctx context.Context, id string, standing forge.Standing, readAt time.Time) error {
-	return s.events.InsertManyTx(ctx, func(tx pgx.Tx) ([]river.JobArgs, error) {
-		change, err := pullrequeststore.NewPullRequestStore(tx).SetStanding(ctx, id, standing, readAt)
+// transaction, and answers the change it wrote.
+func (s *PullRequestSyncer) setStanding(ctx context.Context, params pullrequeststore.SetStandingParams) (*pullrequeststore.StandingChange, error) {
+	var change *pullrequeststore.StandingChange
+	err := s.events.InsertManyTx(ctx, func(tx pgx.Tx) ([]river.JobArgs, error) {
+		written, err := pullrequeststore.NewPullRequestStore(tx).SetStanding(ctx, params)
 		if err != nil {
 			return nil, err
 		}
+		change = written
 
-		moved := NewChange(id, standingMoves(change)...)
+		moved := NewChange(params.ID, standingMoves(written)...)
 		if moved == nil {
 			return nil, nil
 		}
@@ -907,6 +948,11 @@ func (s *PullRequestSyncer) setStanding(ctx context.Context, id string, standing
 
 		return []river.JobArgs{*event}, nil
 	})
+	if err != nil {
+		return nil, err
+	}
+
+	return change, nil
 }
 
 func standingMoves(change *pullrequeststore.StandingChange) []*Move {

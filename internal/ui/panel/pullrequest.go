@@ -26,7 +26,10 @@ type PullRequest struct {
 	State        pullrequestv1.PullRequestState
 	Checks       pullrequestv1.Checks
 	Mergeability pullrequestv1.Mergeability
-	OpenedAt     time.Time
-	MergedAt     *time.Time
-	ClosedAt     *time.Time
+	// MergeabilityUnconfirmed says Mergeability is the forge's last answer for this head while it
+	// works it out again.
+	MergeabilityUnconfirmed bool
+	OpenedAt                time.Time
+	MergedAt                *time.Time
+	ClosedAt                *time.Time
 }

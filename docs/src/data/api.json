@@ -6671,7 +6671,17 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Where the forge says it stands against its base and rules."
+          "description": "Where the forge says it stands against its base and rules. While the forge is working it out again, this is the last answer it gave for the same head."
+        },
+        {
+          "name": "mergeability_unconfirmed",
+          "type": "bool",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "True when mergeability is the last answer for this head rather than the latest read."
         }
       ]
     },

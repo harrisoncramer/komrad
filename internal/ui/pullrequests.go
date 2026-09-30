@@ -32,7 +32,7 @@ func pullRequestFields(standing panel.PullRequestStanding, pullRequests []panel.
 
 	fields := []recordField{{label: pullRequestFieldKey, value: current}}
 	rest := xslice.Map(pullRequests[1:], func(pullRequest panel.PullRequest) string {
-		return fmt.Sprintf("#%d %s", pullRequest.Number, pullRequestWords(pullRequest.State, pullRequest.Checks, pullRequest.Mergeability))
+		return fmt.Sprintf("#%d %s", pullRequest.Number, pullRequestWords(pullRequest))
 	})
 	if len(rest) > 0 {
 		fields = append(fields, recordField{label: "pull requests", value: strings.Join(rest, ", ")})
@@ -44,7 +44,7 @@ func pullRequestFields(standing panel.PullRequestStanding, pullRequests []panel.
 // currentPullRequestField is the current pull request with how long ago it reached where it
 // stands: when it finished for a finished one, when it was opened otherwise.
 func currentPullRequestField(pullRequest panel.PullRequest) string {
-	word := pullRequestWords(pullRequest.State, pullRequest.Checks, pullRequest.Mergeability)
+	word := pullRequestWords(pullRequest)
 	switch {
 	case pullRequest.MergedAt != nil:
 		return fmt.Sprintf("#%d %s %s ago", pullRequest.Number, word, label.Age(*pullRequest.MergedAt))
@@ -59,18 +59,20 @@ func currentPullRequestField(pullRequest panel.PullRequest) string {
 const pullRequestFieldKey = "pull request"
 
 // pullRequestWords is the state word with what is still in the way beside it: a run in
-// flight, a branch behind or conflicting, or a rule an approval is waiting on.
-func pullRequestWords(state pullrequestv1.PullRequestState, checks pullrequestv1.Checks, mergeability pullrequestv1.Mergeability) string {
+// flight, a branch behind or conflicting, or a rule an approval is waiting on, and a ready
+// branch the forge is checking again.
+func pullRequestWords(pullRequest panel.PullRequest) string {
+	state, checks, mergeability := pullRequest.State, pullRequest.Checks, pullRequest.Mergeability
 	word := pullRequestStateWord(state)
 	switch state {
 	case pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN,
+		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED,
 		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED_WAITING,
 		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHANGES_REQUESTED,
 		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_DRAFT:
 	case pullrequestv1.PullRequestState_PULL_REQUEST_STATE_UNSPECIFIED,
 		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_UNREAD,
 		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE,
-		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED,
 		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_FAILING,
 		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHECKS_RUNNING,
 		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CONFLICTING,
@@ -80,6 +82,8 @@ func pullRequestWords(state pullrequestv1.PullRequestState, checks pullrequestv1
 	}
 
 	switch {
+	case state == pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED && pullRequest.MergeabilityUnconfirmed:
+		return word + ", forge rechecking"
 	case mergeability == pullrequestv1.Mergeability_MERGEABILITY_CONFLICTING:
 		return word + ", conflicts with the base"
 	case mergeability == pullrequestv1.Mergeability_MERGEABILITY_BEHIND:

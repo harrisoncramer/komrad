@@ -15,71 +15,106 @@ import (
 
 // TestPullRequestWords covers the state word with what is still in the way beside it.
 func TestPullRequestWords(t *testing.T) {
-	tests := []struct {
-		name         string
-		state        pullrequestv1.PullRequestState
-		checks       pullrequestv1.Checks
-		mergeability pullrequestv1.Mergeability
-		want         string
-	}{
+	type testCase struct {
+		name        string
+		pullRequest panel.PullRequest
+		want        string
+	}
+	tests := []testCase{
 		{
-			name:   "a row with its checks running names itself once",
-			state:  pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHECKS_RUNNING,
-			checks: pullrequestv1.Checks_CHECKS_PENDING,
-			want:   "checks running",
+			name: "a row with its checks running names itself once",
+			pullRequest: panel.PullRequest{
+				State:  pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHECKS_RUNNING,
+				Checks: pullrequestv1.Checks_CHECKS_PENDING,
+			},
+			want: "checks running",
 		},
 		{
-			name:   "a change request with its checks running says both",
-			state:  pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHANGES_REQUESTED,
-			checks: pullrequestv1.Checks_CHECKS_PENDING,
-			want:   "changes requested, checks running",
+			name: "a change request with its checks running says both",
+			pullRequest: panel.PullRequest{
+				State:  pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHANGES_REQUESTED,
+				Checks: pullrequestv1.Checks_CHECKS_PENDING,
+			},
+			want: "changes requested, checks running",
 		},
 		{
-			name:         "an approval behind its base",
-			state:        pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED_WAITING,
-			checks:       pullrequestv1.Checks_CHECKS_PASSING,
-			mergeability: pullrequestv1.Mergeability_MERGEABILITY_BEHIND,
-			want:         "approved, behind the base",
+			name: "an approval behind its base",
+			pullRequest: panel.PullRequest{
+				State:        pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED_WAITING,
+				Checks:       pullrequestv1.Checks_CHECKS_PASSING,
+				Mergeability: pullrequestv1.Mergeability_MERGEABILITY_BEHIND,
+			},
+			want: "approved, behind the base",
 		},
 		{
-			name:         "an approval the forge has not computed yet says so",
-			state:        pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED_WAITING,
-			checks:       pullrequestv1.Checks_CHECKS_PASSING,
-			mergeability: pullrequestv1.Mergeability_MERGEABILITY_UNKNOWN,
-			want:         "approved, forge still computing",
+			name: "an approval the forge has not computed yet says so",
+			pullRequest: panel.PullRequest{
+				State:        pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED_WAITING,
+				Checks:       pullrequestv1.Checks_CHECKS_PASSING,
+				Mergeability: pullrequestv1.Mergeability_MERGEABILITY_UNKNOWN,
+			},
+			want: "approved, forge still computing",
 		},
 		{
-			name:         "a conflicting row says so and nothing about its checks",
-			state:        pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CONFLICTING,
-			checks:       pullrequestv1.Checks_CHECKS_PENDING,
-			mergeability: pullrequestv1.Mergeability_MERGEABILITY_CONFLICTING,
-			want:         "conflicts with the base",
+			name: "an approval still blocked by a rule the forge is rechecking says the rule",
+			pullRequest: panel.PullRequest{
+				State:                   pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED_WAITING,
+				Checks:                  pullrequestv1.Checks_CHECKS_PASSING,
+				Mergeability:            pullrequestv1.Mergeability_MERGEABILITY_BLOCKED,
+				MergeabilityUnconfirmed: true,
+			},
+			want: "approved, blocked by a rule",
 		},
 		{
-			name:         "a draft conflicting with its base keeps the draft word and says so",
-			state:        pullrequestv1.PullRequestState_PULL_REQUEST_STATE_DRAFT,
-			checks:       pullrequestv1.Checks_CHECKS_PENDING,
-			mergeability: pullrequestv1.Mergeability_MERGEABILITY_CONFLICTING,
-			want:         "draft, conflicts with the base",
+			name: "a conflicting row says so and nothing about its checks",
+			pullRequest: panel.PullRequest{
+				State:        pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CONFLICTING,
+				Checks:       pullrequestv1.Checks_CHECKS_PENDING,
+				Mergeability: pullrequestv1.Mergeability_MERGEABILITY_CONFLICTING,
+			},
+			want: "conflicts with the base",
 		},
 		{
-			name:         "a branch the forge would merge says nothing more",
-			state:        pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED,
-			checks:       pullrequestv1.Checks_CHECKS_PASSING,
-			mergeability: pullrequestv1.Mergeability_MERGEABILITY_CLEAN,
-			want:         "ready to merge",
+			name: "a draft conflicting with its base keeps the draft word and says so",
+			pullRequest: panel.PullRequest{
+				State:        pullrequestv1.PullRequestState_PULL_REQUEST_STATE_DRAFT,
+				Checks:       pullrequestv1.Checks_CHECKS_PENDING,
+				Mergeability: pullrequestv1.Mergeability_MERGEABILITY_CONFLICTING,
+			},
+			want: "draft, conflicts with the base",
 		},
 		{
-			name:   "a failing run names itself once",
-			state:  pullrequestv1.PullRequestState_PULL_REQUEST_STATE_FAILING,
-			checks: pullrequestv1.Checks_CHECKS_FAILING,
-			want:   "checks failing",
+			name: "a failing run names itself once",
+			pullRequest: panel.PullRequest{
+				State:  pullrequestv1.PullRequestState_PULL_REQUEST_STATE_FAILING,
+				Checks: pullrequestv1.Checks_CHECKS_FAILING,
+			},
+			want: "checks failing",
+		},
+		{
+			name: "a ready branch the forge is rechecking says so",
+			pullRequest: panel.PullRequest{
+				State:                   pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED,
+				Checks:                  pullrequestv1.Checks_CHECKS_PASSING,
+				Mergeability:            pullrequestv1.Mergeability_MERGEABILITY_CLEAN,
+				MergeabilityUnconfirmed: true,
+			},
+			want: "ready to merge, forge rechecking",
+		},
+		{
+			name: "a branch the forge would merge says nothing more",
+			pullRequest: panel.PullRequest{
+				State:        pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED,
+				Checks:       pullrequestv1.Checks_CHECKS_PASSING,
+				Mergeability: pullrequestv1.Mergeability_MERGEABILITY_CLEAN,
+			},
+			want: "ready to merge",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, pullRequestWords(tt.state, tt.checks, tt.mergeability))
+			assert.Equal(t, tt.want, pullRequestWords(tt.pullRequest))
 		})
 	}
 }
