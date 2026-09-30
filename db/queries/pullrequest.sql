@@ -358,10 +358,11 @@ WHERE
         OR p.checks_sha IS DISTINCT FROM p.head_sha
         OR (p.checks = 'pending'
             AND p.checks_read_at < @pending_before::timestamptz)
-        OR ((p.checks IS NULL
-                OR p.mergeability IS NULL)
+        OR (p.checks IS NULL
             AND p.changed_at > @changed_since::timestamptz
             AND p.checks_read_at < @pending_before::timestamptz)
+        OR (p.mergeability IS NULL
+            AND p.checks_read_at < @mergeability_blank_before::timestamptz)
         OR (p.checks_read_at < @settled_before::timestamptz))
     AND EXISTS (
         SELECT
@@ -393,7 +394,11 @@ SET
     review_decision = sqlc.narg('review_decision'),
     decision_changed_at = p.changed_at,
     checks = sqlc.narg('checks'),
-    mergeability = sqlc.narg('mergeability'),
+    mergeability = CASE WHEN @answered::boolean THEN
+        sqlc.narg('mergeability')
+    ELSE
+        p.mergeability
+    END,
     checks_sha = @checks_sha::text,
     checks_read_at = @checks_read_at::timestamptz,
     last_known_checks = COALESCE(sqlc.narg('checks'), p.last_known_checks),
@@ -403,6 +408,11 @@ SET
         NULLIF(@checks_sha::text, '')
     END,
     last_known_mergeability = COALESCE(sqlc.narg('mergeability'), p.last_known_mergeability),
+    last_known_mergeability_sha = CASE WHEN sqlc.narg('mergeability')::text IS NULL THEN
+        p.last_known_mergeability_sha
+    ELSE
+        NULLIF(@checks_sha::text, '')
+    END,
     last_known_decision = COALESCE(sqlc.narg('review_decision'), p.last_known_decision)
 FROM
     prior

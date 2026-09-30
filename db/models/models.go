@@ -595,6 +595,8 @@ type PullRequest struct {
 	LastKnownDecision *string
 	// The head commit last_known_checks was read for. The same checks on a new head are a fresh verdict, so an event compares this too.
 	LastKnownChecksSha *string
+	// The head commit last_known_mergeability was read for. The panel draws the last known mergeability through a blank reading only while this is still the head.
+	LastKnownMergeabilitySha *string
 }
 
 // Where the pull request sync is for one repository: the high-water mark the changes have been read through, the first sweep in progress if one is, and what the last pass cost.

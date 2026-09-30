@@ -124,6 +124,93 @@ func TestPullRequestStateOf(t *testing.T) {
 	}
 }
 
+// TestPullRequestDrawsTheLastKnownMergeabilityThroughABlank covers a mergeability the forge is
+// working out again, drawn from its last answer for the same head and marked unconfirmed, and
+// never from an answer for another head.
+func TestPullRequestDrawsTheLastKnownMergeabilityThroughABlank(t *testing.T) {
+	type testCase struct {
+		name             string
+		pullRequest      pullrequeststore.PullRequest
+		wantState        pullrequestv1.PullRequestState
+		wantMergeability pullrequestv1.Mergeability
+		wantUnconfirmed  bool
+	}
+	tests := []testCase{
+		{
+			name: "a last known clean for another head is not drawn",
+			pullRequest: pullrequeststore.PullRequest{
+				HeadSHA:                  "def",
+				Checks:                   xptr.Ptr(forge.ChecksPassing),
+				LastKnownMergeability:    "clean",
+				LastKnownMergeabilitySHA: "abc",
+			},
+			wantState:        pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN,
+			wantMergeability: pullrequestv1.Mergeability_MERGEABILITY_UNKNOWN,
+			wantUnconfirmed:  false,
+		},
+		{
+			name: "a last known conflict on the same head still conflicts",
+			pullRequest: pullrequeststore.PullRequest{
+				HeadSHA:                  "abc",
+				Checks:                   xptr.Ptr(forge.ChecksPassing),
+				LastKnownMergeability:    "conflicting",
+				LastKnownMergeabilitySHA: "abc",
+			},
+			wantState:        pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CONFLICTING,
+			wantMergeability: pullrequestv1.Mergeability_MERGEABILITY_CONFLICTING,
+			wantUnconfirmed:  true,
+		},
+		{
+			name: "a last known behind on the same head still waits",
+			pullRequest: pullrequeststore.PullRequest{
+				HeadSHA:                  "abc",
+				ReviewDecision:           xptr.Ptr(forge.ReviewDecisionApproved),
+				Checks:                   xptr.Ptr(forge.ChecksPassing),
+				LastKnownMergeability:    "behind",
+				LastKnownMergeabilitySHA: "abc",
+			},
+			wantState:        pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED_WAITING,
+			wantMergeability: pullrequestv1.Mergeability_MERGEABILITY_BEHIND,
+			wantUnconfirmed:  true,
+		},
+		{
+			name: "a latest read is drawn as confirmed",
+			pullRequest: pullrequeststore.PullRequest{
+				HeadSHA:                  "abc",
+				Checks:                   xptr.Ptr(forge.ChecksPassing),
+				Mergeability:             xptr.Ptr(forge.MergeabilityBlocked),
+				LastKnownMergeability:    "clean",
+				LastKnownMergeabilitySHA: "abc",
+			},
+			wantState:        pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN,
+			wantMergeability: pullrequestv1.Mergeability_MERGEABILITY_BLOCKED,
+			wantUnconfirmed:  false,
+		},
+		{
+			name: "a last known clean on the same head is ready",
+			pullRequest: pullrequeststore.PullRequest{
+				HeadSHA:                  "abc",
+				Checks:                   xptr.Ptr(forge.ChecksPassing),
+				LastKnownMergeability:    "clean",
+				LastKnownMergeabilitySHA: "abc",
+			},
+			wantState:        pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED,
+			wantMergeability: pullrequestv1.Mergeability_MERGEABILITY_CLEAN,
+			wantUnconfirmed:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			drawn := PullRequest(tt.pullRequest)
+
+			assert.Equal(t, tt.wantState, drawn.GetState())
+			assert.Equal(t, tt.wantMergeability, drawn.GetMergeability())
+			assert.Equal(t, tt.wantUnconfirmed, drawn.GetMergeabilityUnconfirmed())
+		})
+	}
+}
+
 // TestMergeabilityOf covers each stored word and a row the forge has not computed.
 func TestMergeabilityOf(t *testing.T) {
 	assert.Equal(t, pullrequestv1.Mergeability_MERGEABILITY_UNKNOWN, MergeabilityOf(nil))

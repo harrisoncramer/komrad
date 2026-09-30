@@ -246,6 +246,7 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 		PullRequests: st.pullRequests,
 		Syncs:        st.pullRequestSyncs,
 		Events:       queue,
+		Recheck:      wakers.pullRequestSync,
 	})
 	cwdSyncer := checkouts.NewCwdSyncer(checkouts.NewCwdSyncerParams{
 		Agents:       st.agents,

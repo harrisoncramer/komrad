@@ -22,6 +22,7 @@ import (
 	pullrequeststore "komrad/internal/store/pullrequest"
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/internal/storetest"
+	"komrad/internal/waketest"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
 
@@ -172,6 +173,7 @@ type syncFixture struct {
 	syncs        *pullrequeststore.PullRequestSyncStore
 	agents       *agentstore.AgentStore
 	events       *eventstest.Queue
+	recheck      *waketest.Counter
 	stores       *storetest.Stores
 	workflow     string
 	now          time.Time
@@ -216,6 +218,7 @@ func newSyncFixture(t *testing.T) *syncFixture {
 		syncs:        pullrequeststore.NewPullRequestSyncStore(pool.GetDB()),
 		agents:       agentstore.NewAgentStore(pool.GetDB()),
 		events:       eventstest.NewQueue(t, stores, NewEventHandler()),
+		recheck:      &waketest.Counter{},
 		stores:       stores,
 		workflow:     created.ID,
 		now:          syncNow,
@@ -233,6 +236,7 @@ func newSyncFixture(t *testing.T) *syncFixture {
 		PullRequests: f.pullRequests,
 		Syncs:        f.syncs,
 		Events:       f.events,
+		Recheck:      f.recheck,
 		Now:          func() time.Time { return f.now },
 	})
 
@@ -1152,7 +1156,8 @@ func TestSyncStandingsWaitForTheBudget(t *testing.T) {
 }
 
 // TestSyncStandingTheForgeDoesNotHaveIsRead covers a pull request the forge leaves out of its
-// answer, which is stamped as read with nothing said rather than asked for again every pass.
+// answer, which is stamped as read with nothing said and its mergeability kept rather than
+// asked for again every pass.
 func TestSyncStandingTheForgeDoesNotHaveIsRead(t *testing.T) {
 	f := newSyncFixture(t)
 	f.agentOn(t, "a", "agent/x")
@@ -1160,19 +1165,27 @@ func TestSyncStandingTheForgeDoesNotHaveIsRead(t *testing.T) {
 		pullRequestAt("PR_1", "agent/x", syncNow.Add(-time.Hour)),
 		pullRequestAt("PR_2", "agent/x", syncNow.Add(-2*time.Hour)),
 	}}
+	f.forge.standings[1] = forge.Standing{Decision: forge.ReviewDecisionApproved}
+	f.sync(t)
+
+	changed := pullRequestAt("PR_1", "agent/x", syncNow.Add(time.Minute))
+	other := pullRequestAt("PR_2", "agent/x", syncNow.Add(time.Minute))
+	f.forge.changed[""] = &forge.Page{PullRequests: []forge.PullRequest{changed, other}}
 	f.forge.unknown[1] = true
 	f.forge.standings[2] = forge.Standing{Decision: forge.ReviewDecisionApproved}
-
-	f.sync(t)
+	f.pass(t, syncNow.Add(2*time.Minute))
 
 	stored := f.stored(t, "PR_1")
 	assert.Nil(t, stored.ReviewDecision)
-	assert.NotNil(t, stored.DecisionChangedAt)
+	assert.True(t, stored.DecisionChangedAt.Equal(changed.UpdatedAt))
+	require.NotNil(t, stored.Mergeability)
+	assert.Equal(t, forge.MergeabilityClean, *stored.Mergeability, "a pull request the forge did not answer for keeps its mergeability")
 	assert.Equal(t, forge.ReviewDecisionApproved, *f.stored(t, "PR_2").ReviewDecision, "the rest of the batch is still read")
+	assert.Empty(t, f.recheck.Delayed, "an unanswered pull request wakes nothing")
 
-	f.pass(t, syncNow.Add(time.Minute))
+	f.pass(t, syncNow.Add(3*time.Minute))
 
-	assert.Equal(t, []string{search(syncNow)}, f.forge.requests)
+	assert.Empty(t, f.standings())
 }
 
 // TestSyncStandingRefusalStopsTheRepository covers any other refusal, which is reported and
@@ -1319,12 +1332,12 @@ func TestSyncReadsAHeadWithNoChecksAgainWhileItSettles(t *testing.T) {
 }
 
 // TestSyncReadsMergeabilityAgainWhileTheForgeComputesIt covers a forge that has not computed
-// the mergeability yet, which is asked again each pass for ten minutes after a change and then
-// on the slow tier, and a base that moves under a settled row, which the slow tier catches.
+// the mergeability yet, which wakes the sync to ask again ten seconds later however old the
+// change, and a base that moves under a settled row, which the slow tier catches.
 func TestSyncReadsMergeabilityAgainWhileTheForgeComputesIt(t *testing.T) {
 	f := newSyncFixture(t)
 	f.agentOn(t, "a", "agent/x")
-	f.forge.updated[""] = &forge.Page{PullRequests: []forge.PullRequest{pullRequestAt("PR_1", "agent/x", syncNow.Add(-time.Minute))}}
+	f.forge.updated[""] = &forge.Page{PullRequests: []forge.PullRequest{pullRequestAt("PR_1", "agent/x", syncNow.Add(-time.Hour))}}
 	f.forge.standings[1] = forge.Standing{
 		Decision:     forge.ReviewDecisionApproved,
 		Checks:       forge.ChecksPassing,
@@ -1334,17 +1347,22 @@ func TestSyncReadsMergeabilityAgainWhileTheForgeComputesIt(t *testing.T) {
 	f.sync(t)
 
 	assert.Nil(t, f.stored(t, "PR_1").Mergeability)
+	assert.Equal(t, []time.Duration{10 * time.Second}, f.recheck.Delayed, "an uncomputed mergeability wakes the sync once it is due")
 
 	f.forge.standings[1] = forge.Standing{
 		Decision:     forge.ReviewDecisionApproved,
 		Checks:       forge.ChecksPassing,
 		Mergeability: forge.MergeabilityClean,
 	}
-	f.pass(t, syncNow.Add(2*time.Minute))
-	assert.Equal(t, []string{"standings:1"}, f.standings(), "an uncomputed mergeability is asked about again")
+	f.pass(t, syncNow.Add(5*time.Second))
+	assert.Empty(t, f.standings(), "an uncomputed mergeability waits out ten seconds")
+
+	f.pass(t, syncNow.Add(11*time.Second))
+	assert.Equal(t, []string{"standings:1"}, f.standings(), "an uncomputed mergeability on an hour old change is asked about again")
 	stored := f.stored(t, "PR_1")
 	require.NotNil(t, stored.Mergeability)
 	assert.Equal(t, forge.MergeabilityClean, *stored.Mergeability)
+	assert.Len(t, f.recheck.Delayed, 1, "a computed answer wakes nothing")
 
 	f.pass(t, syncNow.Add(4*time.Minute))
 	assert.Empty(t, f.standings(), "a computed answer is trusted")

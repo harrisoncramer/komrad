@@ -207,6 +207,11 @@ table "pull_requests" {
     type    = text
     comment = "The mergeability as the forge last reported it when it reported anything, which a blank reading leaves alone."
   }
+  column "last_known_mergeability_sha" {
+    null    = true
+    type    = text
+    comment = "The head commit last_known_mergeability was read for. The panel draws the last known mergeability through a blank reading only while this is still the head."
+  }
   column "last_known_decision" {
     null    = true
     type    = text

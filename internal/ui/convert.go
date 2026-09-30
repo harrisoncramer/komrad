@@ -118,15 +118,16 @@ func pullRequestStandingFrom(standing *agentv1.PullRequestStanding) panel.PullRe
 
 func pullRequestFrom(pullRequest *pullrequestv1.PullRequest) panel.PullRequest {
 	return panel.PullRequest{
-		Number:       pullRequest.GetNumber(),
-		URL:          pullRequest.GetUrl(),
-		Title:        pullRequest.GetTitle(),
-		State:        pullRequest.GetState(),
-		Checks:       pullRequest.GetChecks(),
-		Mergeability: pullRequest.GetMergeability(),
-		OpenedAt:     dates.Parse(pullRequest.GetOpenedAt()),
-		MergedAt:     dates.ParsePtr(pullRequest.GetMergedAt()),
-		ClosedAt:     dates.ParsePtr(pullRequest.GetClosedAt()),
+		Number:                  pullRequest.GetNumber(),
+		URL:                     pullRequest.GetUrl(),
+		Title:                   pullRequest.GetTitle(),
+		State:                   pullRequest.GetState(),
+		Checks:                  pullRequest.GetChecks(),
+		Mergeability:            pullRequest.GetMergeability(),
+		MergeabilityUnconfirmed: pullRequest.GetMergeabilityUnconfirmed(),
+		OpenedAt:                dates.Parse(pullRequest.GetOpenedAt()),
+		MergedAt:                dates.ParsePtr(pullRequest.GetMergedAt()),
+		ClosedAt:                dates.ParsePtr(pullRequest.GetClosedAt()),
 	}
 }
 

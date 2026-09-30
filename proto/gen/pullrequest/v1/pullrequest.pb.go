@@ -421,10 +421,13 @@ type PullRequest struct {
 	ReviewDecision ReviewDecision `protobuf:"varint,19,opt,name=review_decision,json=reviewDecision,proto3,enum=pullrequest.v1.ReviewDecision" json:"review_decision,omitempty"`
 	// Where the checks on its head stand.
 	Checks Checks `protobuf:"varint,20,opt,name=checks,proto3,enum=pullrequest.v1.Checks" json:"checks,omitempty"`
-	// Where the forge says it stands against its base and rules.
-	Mergeability  Mergeability `protobuf:"varint,21,opt,name=mergeability,proto3,enum=pullrequest.v1.Mergeability" json:"mergeability,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	// Where the forge says it stands against its base and rules. While the forge is working it
+	// out again, this is the last answer it gave for the same head.
+	Mergeability Mergeability `protobuf:"varint,21,opt,name=mergeability,proto3,enum=pullrequest.v1.Mergeability" json:"mergeability,omitempty"`
+	// True when mergeability is the last answer for this head rather than the latest read.
+	MergeabilityUnconfirmed bool `protobuf:"varint,22,opt,name=mergeability_unconfirmed,json=mergeabilityUnconfirmed,proto3" json:"mergeability_unconfirmed,omitempty"`
+	unknownFields           protoimpl.UnknownFields
+	sizeCache               protoimpl.SizeCache
 }
 
 func (x *PullRequest) Reset() {
@@ -604,6 +607,13 @@ func (x *PullRequest) GetMergeability() Mergeability {
 	return Mergeability_MERGEABILITY_UNSPECIFIED
 }
 
+func (x *PullRequest) GetMergeabilityUnconfirmed() bool {
+	if x != nil {
+		return x.MergeabilityUnconfirmed
+	}
+	return false
+}
+
 // Repository is one repository the pull request sync reads.
 type Repository struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -727,7 +737,7 @@ const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"\n" +
 	"pagination\x18\x03 \x01(\v2\x19.pagination.v1.PaginationH\x00R\n" +
 	"pagination\x88\x01\x01B\r\n" +
-	"\v_pagination\"\x88\x06\n" +
+	"\v_pagination\"\xc3\x06\n" +
 	"\vPullRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
 	"\x05forge\x18\x02 \x01(\tR\x05forge\x12\x1f\n" +
@@ -754,7 +764,8 @@ const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"\tclosed_at\x18\x12 \x01(\tH\x01R\bclosedAt\x88\x01\x01\x12G\n" +
 	"\x0freview_decision\x18\x13 \x01(\x0e2\x1e.pullrequest.v1.ReviewDecisionR\x0ereviewDecision\x12.\n" +
 	"\x06checks\x18\x14 \x01(\x0e2\x16.pullrequest.v1.ChecksR\x06checks\x12@\n" +
-	"\fmergeability\x18\x15 \x01(\x0e2\x1c.pullrequest.v1.MergeabilityR\fmergeabilityB\f\n" +
+	"\fmergeability\x18\x15 \x01(\x0e2\x1c.pullrequest.v1.MergeabilityR\fmergeability\x129\n" +
+	"\x18mergeability_unconfirmed\x18\x16 \x01(\bR\x17mergeabilityUnconfirmedB\f\n" +
 	"\n" +
 	"_merged_atB\f\n" +
 	"\n" +
