@@ -20,7 +20,8 @@ type reviewScreen struct {
 	exclude   []string
 	round     *agentv1.ReviewRound
 	loading   bool
-	notice    string
+	// notice is what the last load had to say about the round it settled on.
+	notice string
 
 	// diff is the patch on screen and where the reader is standing in it.
 	diff reviewDiff

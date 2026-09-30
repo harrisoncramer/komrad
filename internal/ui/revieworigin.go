@@ -25,7 +25,7 @@ type reviewOrigin struct {
 	place    *diffview.Place
 }
 
-func (r *reviewScreen) toggleJump(s panelShared) tea.Cmd {
+func (r *reviewScreen) toggleJump(h host, s panelShared) tea.Cmd {
 	if r.diff.origin != nil {
 		return r.leaveOrigin(s)
 	}
@@ -37,7 +37,7 @@ func (r *reviewScreen) toggleJump(s panelShared) tea.Cmd {
 
 	round := findRound(r.diff.rounds, thread.GetRoundId())
 	if round == nil {
-		r.notice = errCommentRoundGone.Error()
+		h.note(messageWarning, errCommentRoundGone.Error())
 
 		return nil
 	}

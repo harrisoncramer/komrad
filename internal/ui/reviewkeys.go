@@ -34,8 +34,6 @@ func (r *reviewScreen) updateKey(h host, s panelShared, key tea.KeyPressMsg) tea
 		return nil
 	}
 
-	r.notice = ""
-
 	if isBound(k, slices.Concat(s.keys.Column.ScrollDown, s.keys.Column.ScrollUp)) && r.scrollPopup(s, directionOf(k, s.keys.Column.ScrollUp)*diffWheelStep) {
 		return nil
 	}
@@ -44,9 +42,9 @@ func (r *reviewScreen) updateKey(h host, s panelShared, key tea.KeyPressMsg) tea
 }
 
 // refuseWrite says why a key that would write to the agent did nothing.
-func (r *reviewScreen) refuseWrite(s panelShared) {
+func (r *reviewScreen) refuseWrite(h host, s panelShared) {
 	reason, _ := r.isReadOnly(s)
-	r.notice = reason
+	h.note(messageWarning, reason)
 }
 
 // refuseHistory says why a write did not happen on a round the agent has moved past, and names
@@ -63,7 +61,6 @@ func (r *reviewScreen) refuseHistory(h host, s panelShared, said string) {
 		", then comment there."
 
 	h.reportBrief(summary, detail)
-	r.notice = summary + ", so nothing can be written on it"
 }
 
 // refuseViewed says why the fold key did nothing on a chapter, and names the key back to the
@@ -76,7 +73,6 @@ func (r *reviewScreen) refuseViewed(h host, s panelShared) {
 		"is on screen, then mark it there."
 
 	h.reportBrief(summary, detail)
-	r.notice = summary
 }
 
 // diffKeys is the review's own diff under the keys every diff pane shares, with the cursor
@@ -85,7 +81,6 @@ func (r *reviewScreen) diffKeys() diffKeys {
 	return diffKeys{
 		pane:   &r.diff.Pane,
 		filter: &r.diff.filter,
-		notice: &r.notice,
 		height: r.diffHeight,
 		moved: func(s panelShared) tea.Cmd {
 			r.threads.scroll.reset()
@@ -117,10 +112,10 @@ func (r *reviewScreen) diffHeight(s panelShared) int {
 }
 
 // jumpOpenThread moves to the next comment nobody has settled, stopping at the ends.
-func (r *reviewScreen) jumpOpenThread(s panelShared, direction int) tea.Cmd {
+func (r *reviewScreen) jumpOpenThread(h host, s panelShared, direction int) tea.Cmd {
 	next, ok := r.diff.View().JumpOpenThread(r.diff.Cursor(), direction)
 	if !ok || next == r.diff.Cursor() {
-		r.notice = r.diff.noOpenThreadSaid()
+		h.note(messageWarning, r.diff.noOpenThreadSaid())
 
 		return nil
 	}
@@ -204,12 +199,12 @@ func (r *reviewScreen) scrollToCursor(s panelShared) {
 // scrollPopup moves the conversation in the popup down by rows, up when rows is negative, and
 // reports whether there was a conversation there to move.
 func (r *reviewScreen) scrollPopup(s panelShared, rows int) bool {
-	id, body, ok := r.conversationAtCursor(s, measureReviewPopupInner(s))
+	id, body, ok := r.conversationAtCursor(s, r.measurePopupInner(s))
 	if !ok {
 		return false
 	}
 
-	r.threads.scroll.move(id, body, rows)
+	r.threads.scroll.move(id, body, rows, r.placeThread(s, body).room())
 
 	return true
 }

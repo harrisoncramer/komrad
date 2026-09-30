@@ -32,8 +32,6 @@ type documentHistory struct {
 	drawn drawnChange
 	// filter is the pattern being searched for in the diff.
 	filter filterState
-	// said is what the last key on the diff said.
-	said string
 }
 
 // historyVersion is one write kept of a document: which it is, the name it had and who made it where
@@ -140,7 +138,7 @@ func (d *documentsScreen) docRows(s panelShared, width int) []string {
 	return append(head, h.pane.Render(width, d.diffHeight(s), held)...)
 }
 
-// head is the rows over the change: which write it is, the search, and what the last key said.
+// head is the rows over the change: which write it is and the search.
 func (h *documentHistory) head(item documentItem, width int, glyphs glyph.Set) []string {
 	notice := "_reading its versions…_"
 	switch {
@@ -157,7 +155,7 @@ func (h *documentHistory) head(item documentItem, width int, glyphs glyph.Set) [
 
 	count := strings.TrimRight(diffMatchCount(&h.pane, h.filter), "\n")
 
-	return append(rows, h.filter.head(count, h.said, width, glyphs)...)
+	return append(rows, h.filter.head(count, "", width, glyphs)...)
 }
 
 // diffHeight is the rows the diff is drawn in, under the rows over it.

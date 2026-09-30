@@ -86,8 +86,8 @@ func dirEditorContent(editor, dir string) layout.Content {
 // before it opens the editor and closes one already open.
 func (r *reviewScreen) pressEdit(h host, s panelShared) tea.Cmd {
 	if said, history := r.isHistory(); history && !r.hold.atEditor {
-		r.notice = said + " is finished, so the worktree no longer holds these lines" + separated +
-			keyLabel(s.keys.Review.BaseForward) + " for the current work"
+		h.note(messageWarning, said+" is finished, so the worktree no longer holds these lines"+separated+
+			keyLabel(s.keys.Review.BaseForward)+" for the current work")
 
 		return nil
 	}
@@ -95,7 +95,7 @@ func (r *reviewScreen) pressEdit(h host, s panelShared) tea.Cmd {
 	// A press that arrives while the agent is still coming to a stop is the wait, not a second
 	// thing to do, and letting it through would open the editor the wait exists to hold shut.
 	if r.hold.pausing {
-		r.notice = "the agent is still stopping"
+		h.note(messageWarning, "the agent is still stopping")
 
 		return nil
 	}
@@ -105,14 +105,14 @@ func (r *reviewScreen) pressEdit(h host, s panelShared) tea.Cmd {
 	}
 
 	if h.isScratchOpen() {
-		r.notice = "close the scratch file first"
+		h.note(messageWarning, "close the scratch file first")
 
 		return nil
 	}
 
 	// The refusals are read before the agent is stopped.
 	if reason, refused := r.isEditRefused(s); refused {
-		r.notice = reason
+		h.note(messageWarning, reason)
 
 		return nil
 	}
@@ -149,20 +149,20 @@ func (r reviewScreen) isAgentUnreadable(s panelShared) (string, bool) {
 func (r *reviewScreen) editFile(h host, s panelShared) tea.Cmd {
 	path, line, ok := r.diff.View().GetEditTarget(r.diff.Cursor())
 	if !ok {
-		r.notice = "that file was deleted, so there is nothing to open"
+		h.note(messageWarning, "that file was deleted, so there is nothing to open")
 
 		return r.endHold(h, s, abandonedSaid)
 	}
 
 	if reason, busy := r.isAgentBusy(s); busy {
-		r.notice = reason
+		h.note(messageWarning, reason)
 
 		return r.endHold(h, s, abandonedSaid)
 	}
 
 	pane := h.stageEditor(editorContent(s.editor, r.root, path, line))
 	if pane == "" {
-		r.notice = "there is no room beside the sidebar for an editor"
+		h.note(messageWarning, "there is no room beside the sidebar for an editor")
 
 		return r.endHold(h, s, abandonedSaid)
 	}
