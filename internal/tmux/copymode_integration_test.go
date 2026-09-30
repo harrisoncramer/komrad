@@ -110,8 +110,6 @@ func TestIntegrationCopyStandInHoldsThePaneSlotUntilCopyModeEnds(t *testing.T) {
 	}
 }
 
-// TestIntegrationCopyStandInCutsToBlock pins y in a stand-in keeping the cells of a
-// selection that fall inside the block.
 func TestIntegrationCopyStandInCutsToBlock(t *testing.T) {
 	tests := []struct {
 		name string
