@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
 
 	"komrad/internal/gittest"
@@ -27,7 +28,11 @@ func (f *fakeAutoSetupServer) ListWorkflows(
 ) (*connect.Response[workflowv1.ListWorkflowsResponse], error) {
 	page := 0
 	if cursor := req.Msg.GetPagination().GetCursor(); cursor != "" {
-		page = int(cursor[0] - '0')
+		parsed, err := strconv.Atoi(cursor)
+		if err != nil {
+			return nil, err
+		}
+		page = parsed
 	}
 
 	resp := &workflowv1.ListWorkflowsResponse{}
@@ -35,7 +40,7 @@ func (f *fakeAutoSetupServer) ListWorkflows(
 		resp.Workflows = f.pages[page]
 	}
 	if page+1 < len(f.pages) {
-		next := string(rune('0' + page + 1))
+		next := strconv.Itoa(page + 1)
 		resp.NextPageToken = &next
 	}
 
