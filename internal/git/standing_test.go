@@ -280,8 +280,6 @@ func TestIntegrationReadDiffStat(t *testing.T) {
 	}
 }
 
-// TestIntegrationReadDiffStatLeavesTheAgentsIndexAlone covers measuring a checkout whose files are
-// stat-dirty, which a diff against the agent's own index would rewrite under its lock.
 func TestIntegrationReadDiffStatLeavesTheAgentsIndexAlone(t *testing.T) {
 	t.Parallel()
 
