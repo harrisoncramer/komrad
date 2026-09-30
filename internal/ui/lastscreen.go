@@ -142,8 +142,11 @@ func lastScreenRows(params lastScreenRowsParams) []string {
 	}
 
 	saved := shown.screen
-	banner := muted.Render(fmt.Sprintf("saved screen · %s · %dx%d",
-		label.Friendly(saved.GetCapturedAt().AsTime()), saved.GetWidth(), saved.GetHeight()))
+	banner := muted.Render(strings.Join([]string{
+		"saved screen",
+		label.Friendly(saved.GetCapturedAt().AsTime()),
+		fmt.Sprintf("%dx%d", saved.GetWidth(), saved.GetHeight()),
+	}, separated))
 	height := min(max(params.height-1, 1), int(saved.GetHeight()))
 
 	return append([]string{banner}, strings.Split(savedscreen.Fit(saved.GetFrame(), max(params.width, 1), height), "\n")...)
