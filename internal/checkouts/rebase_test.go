@@ -391,12 +391,13 @@ func TestRebaseSettlesTheAgentBeforeItMoves(t *testing.T) {
 				BeforeReadTree: func() { readsBeforeTree = observer.Reads },
 			}
 
-			_, err := fixture.newService(NewRebaseServiceParams{
+			result, err := fixture.newService(NewRebaseServiceParams{
 				Settler: buildSettler(channel, observer),
 				Rebaser: rebaser,
 			}).Rebase(t.Context(), agent.ID)
 			require.NoError(t, err)
 
+			assert.Equal(t, tt.wantInterrupts > 0, result.Interrupted)
 			assert.Equal(t, tt.wantReads, observer.Reads)
 			assert.Equal(t, tt.wantReads, readsBeforeTree, "the plan reads the tree only once the agent has stopped")
 			assert.Equal(t, tt.wantInterrupts, channel.Interrupts)
