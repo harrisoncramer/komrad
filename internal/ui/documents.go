@@ -53,9 +53,8 @@ type documentsScreen struct {
 	bodies      map[string]documentBody
 	editing     *documentEdit
 	history     *documentHistory
-	// focus says the picker handed the keys to the block beside the list.
-	focus   bool
-	reading documentReading
+	// focus says the picker handed the keys to the diff beside the list.
+	focus bool
 }
 
 // documentRow is one line of the documents list.
@@ -93,18 +92,8 @@ func (d *documentsScreen) update(h host, s panelShared, msg tea.Msg) tea.Cmd {
 		return d.diffKeys().updateFilter(h, s, key)
 	}
 
-	if d.reading.filter.typing {
-		return d.updateReadFilter(h, s, key)
-	}
-
 	if d.isDiffFocused(s) {
 		return d.updateDiff(h, s, key)
-	}
-
-	if d.isReadFocused(s) {
-		d.reading.said = ""
-
-		return d.actions(s).dispatch(h, s, key.String())
 	}
 
 	return d.list().update(h, s, key, d.actions(s))
@@ -117,7 +106,7 @@ func (d *documentsScreen) list() screenList[documentRow] {
 		name:   documentRowName,
 		placed: func(h host, _ panelShared) { h.stageInfo() },
 		moved: func(h host, _ panelShared) tea.Cmd {
-			d.history, d.focus, d.reading = nil, false, documentReading{}
+			d.history, d.focus = nil, false
 
 			return h.waitToStage()
 		},
@@ -212,7 +201,7 @@ func (d *documentsScreen) snapshot(s panelShared, pane listPane) view.Snapshot {
 	rows := d.rows(s)
 	now := time.Now()
 	caret := pane.caret
-	if d.isBlockFocused(s) {
+	if d.isDiffFocused(s) {
 		caret = view.CaretDrawn
 	}
 
@@ -451,7 +440,7 @@ func (d *documentsScreen) doesDrawFromListing() bool {
 }
 
 func (d *documentsScreen) takesEveryKey() bool {
-	return (d.history != nil && d.history.filter.typing) || d.reading.filter.typing
+	return d.history != nil && d.history.filter.typing
 }
 
 func (d *documentsScreen) column() columnSpec {
@@ -461,6 +450,7 @@ func (d *documentsScreen) column() columnSpec {
 			return m.documents.docRows(m.shared(), width)
 		},
 		holds: func(m model) bool { return m.documents.editing == nil },
+		read:  func(m model) bool { return !m.documents.isSteppingHovered(m.shared()) },
 	}
 }
 

@@ -15,8 +15,6 @@ func (d *documentsScreen) actions(s panelShared) screenActionSpec {
 		return d.diffActions()
 	case d.isDiffFocused(s):
 		return d.stepActions()
-	case d.isReadFocused(s):
-		return d.readActions()
 	}
 
 	return d.listActions()
@@ -205,13 +203,17 @@ func (d *documentsScreen) isDiffFocused(s panelShared) bool {
 	return d.focus && d.history != nil && s.draw.isListFocused()
 }
 
-// isBlockFocused reports whether the document or the diff of one of its writes holds the keys.
+// isBlockFocused reports whether the diff of one of its writes holds the keys.
 func (d *documentsScreen) isBlockFocused(s panelShared) bool {
-	return d.isDiffFocused(s) || d.isReadFocused(s)
+	return d.isDiffFocused(s)
 }
 
 func (d *documentsScreen) isBlockDrawn(s panelShared) bool {
-	return d.isDiffDrawn(s) || d.isReadDrawn(s)
+	return d.isDiffDrawn(s)
+}
+
+func (d *documentsScreen) focusBlock(panelShared) {
+	d.focus = true
 }
 
 func (d *documentsScreen) blurBlock() {
@@ -228,9 +230,33 @@ func (d *documentsScreen) doesScrollColumn(s panelShared) bool {
 }
 
 func (d *documentsScreen) scrollColumn(_ host, s panelShared, rows int) tea.Cmd {
-	if d.isReadDrawn(s) {
-		return d.scrollRead(s, rows)
-	}
-
 	return d.diffKeys().scrollColumn(s, rows)
+}
+
+// docKeys steps through the writes from the document as it stands, handing the keys to the diff.
+func (d *documentsScreen) docKeys() screenActionSpec {
+	return screenActionSpec{
+		table: []screenAction{
+			{
+				id:   actionDocumentsOlder,
+				keys: func(k config.Keybindings) []string { return k.Documents.Older },
+				run: func(h host, s panelShared, _ string) tea.Cmd {
+					d.focus = true
+
+					return d.stepOlder(h, s)
+				},
+			},
+			{
+				id:   actionQuit,
+				keys: func(k config.Keybindings) []string { return k.Documents.Quit },
+				run:  func(h host, _ panelShared, _ string) tea.Cmd { return h.hide() },
+			},
+		},
+		legend: []screenLegendRow{
+			{
+				of:   []actionID{actionDocumentsOlder},
+				desc: func(panelShared) string { return "an earlier version" },
+			},
+		},
+	}
 }

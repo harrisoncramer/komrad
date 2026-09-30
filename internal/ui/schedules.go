@@ -377,6 +377,7 @@ func (w *schedulesScreen) filterRows(s panelShared) []filterRow {
 func (w *schedulesScreen) column() columnSpec {
 	return columnSpec{
 		floor: columnFloor,
+		read:  isAlwaysRead,
 		docRows: func(m model, width int) []string {
 			return m.schedules.docRows(m.shared(), width)
 		},

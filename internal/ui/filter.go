@@ -176,6 +176,7 @@ func (m *model) leaveScreen() tea.Cmd {
 	if b, ok := m.active().(blocked); ok {
 		b.blurBlock()
 	}
+	m.reading.focused = false
 
 	if l, ok := m.active().(leaving); ok {
 		return l.leave(m)

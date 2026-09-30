@@ -23,11 +23,10 @@ const (
 func (m model) listStops() []stop {
 	stops := []stop{stopList}
 
-	if b, ok := m.active().(blocked); ok {
-		if b.isBlockDrawn(m.shared()) {
-			stops = append(stops, stopBlock)
-		}
-	} else if m.focusPane() != "" {
+	switch {
+	case m.isScreenBlockDrawn(), m.isDocReadable():
+		stops = append(stops, stopBlock)
+	case m.focusPane() != "":
 		stops = append(stops, stopAgent)
 	}
 
@@ -52,8 +51,10 @@ func (m model) enterStop(to stop) (tea.Model, tea.Cmd) {
 		return m.enterSidebar(to).jumpIntoDetails()
 	case stopBlock:
 		m = m.enterSidebar(to).blurDetails()
-		if b, ok := m.active().(blocked); ok {
+		if b, ok := m.active().(blocked); ok && m.isScreenBlockDrawn() {
 			b.focusBlock(m.shared())
+		} else {
+			m.focusDoc()
 		}
 	case stopList:
 		m = m.enterSidebar(to).blurDetails()
@@ -73,6 +74,9 @@ func (m model) enterSidebar(to stop) model {
 	if b, ok := m.active().(blocked); ok && to != stopBlock {
 		b.blurBlock()
 	}
+	if to != stopBlock {
+		m.reading.focused = false
+	}
 
 	return m
 }
@@ -84,4 +88,11 @@ func (m model) terminalPane() string {
 	}
 
 	return m.frame.Pane(layout.RegionInfo)
+}
+
+// isScreenBlockDrawn reports whether the screen is drawing a block of its own beside the list.
+func (m model) isScreenBlockDrawn() bool {
+	b, ok := m.active().(blocked)
+
+	return ok && b.isBlockDrawn(m.shared())
 }

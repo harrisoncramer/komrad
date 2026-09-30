@@ -609,6 +609,7 @@ func (a *archiveScreen) tabsFit(s panelShared) bool {
 func (a *archiveScreen) column() columnSpec {
 	return columnSpec{
 		floor: columnFloor,
+		read:  isAlwaysRead,
 		docRows: func(m model, width int) []string {
 			return m.archive.docRows(m.shared(), width)
 		},

@@ -2,6 +2,7 @@ package ui_test
 
 import (
 	"errors"
+	"fmt"
 	"slices"
 	"strings"
 	"testing"
@@ -1157,4 +1158,60 @@ func requireLastTurnsFor(t *testing.T, harness *panelHarness, agentIDs ...string
 		return read.GetAgentId()
 	})
 	require.Equal(t, agentIDs, sent)
+}
+
+// TestArchiveReading covers the keys handed to an archived agent's record.
+func TestArchiveReading(t *testing.T) {
+	turns := make([]*agentv1.Turn, 40)
+	for i := range turns {
+		turns[i] = &agentv1.Turn{Role: "assistant", Content: fmt.Sprintf("turn number %d", i)}
+	}
+
+	tests := []struct {
+		name    string
+		presses []string
+		want    []string
+		wantNot []string
+	}{
+		{
+			name:    "the bottom of the focused record is its newest turn",
+			presses: []string{"pick:block", "G"},
+			want:    []string{"turn number 39"},
+			wantNot: []string{"Restore brings it back"},
+		},
+		{
+			name:    "searching the record lands on what it found and counts it",
+			presses: []string{"pick:block", "/", "3", "8", "enter"},
+			want:    []string{"/ 38", "1 of 1", "turn number 38"},
+		},
+		{
+			name:    "leaving the record gives the keys back to the list",
+			presses: []string{"pick:block", "G", "esc", "k"},
+			want:    []string{"no shared context set"},
+			wantNot: []string{"turn number 39"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			harness := openGroupedArchive(t,
+				newLiveWorkflow("w1", "backend"),
+				newArchivedAgent("a1", "api-refactor", "w1"),
+				newArchivedAgent("a2", "billing", "w1"),
+			)
+			answerLastTurns(harness, map[string][]*agentv1.Turn{"a1": turns, "a2": turns})
+			harness.press("j")
+			harness.fireTimers()
+
+			harness.press(tt.presses...)
+
+			frame := harness.readFrame()
+			for _, want := range tt.want {
+				assert.Contains(t, frame, want)
+			}
+			for _, absent := range tt.wantNot {
+				assert.NotContains(t, frame, absent)
+			}
+		})
+	}
 }

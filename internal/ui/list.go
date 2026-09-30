@@ -545,9 +545,14 @@ var _ drawer = (*model)(nil)
 
 // listPane is the column a list is drawn in this frame and how its cursor stands.
 func (m model) listPane(width int) listPane {
+	caret := m.caretOf(sectionList)
+	if m.isDocFocused() {
+		caret = view.CaretDrawn
+	}
+
 	return listPane{
 		width:      width,
-		caret:      m.caretOf(sectionList),
+		caret:      caret,
 		blinkedOut: m.rowCursor.IsBlinked,
 	}
 }

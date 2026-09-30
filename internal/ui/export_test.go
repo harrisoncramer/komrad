@@ -319,6 +319,11 @@ func (p *Panel) ReadKilledPanes() []string {
 	return p.tmux.killed
 }
 
+// ReadDetaches is how many times the panel has detached its session's clients.
+func (p *Panel) ReadDetaches() int {
+	return p.tmux.detaches
+}
+
 // ReadResizes is every pane resize the panel has asked tmux for.
 func (p *Panel) ReadResizes() []string {
 	return p.tmux.resizes
