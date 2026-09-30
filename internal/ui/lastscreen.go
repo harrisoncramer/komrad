@@ -177,11 +177,14 @@ func (m model) screenNotice() string {
 
 	switch m.screen {
 	case screenArchive:
-		if m.archive.canRowOpen(s) {
-			return "archived" + separated + "press " + keyLabel(m.keys.Archive.RestoreOpen) + " to restore"
+		restore := m.keys.ArchiveMenu.Restore
+		if target, ok := m.archive.menuTarget(s); ok {
+			if _, err := target.opensAgent(); err == nil {
+				restore = m.keys.ArchiveMenu.RestoreOpen
+			}
 		}
 
-		return "archived" + separated + "press " + keyLabel(m.keys.Archive.Restore) + " to restore"
+		return "archived" + separated + "press " + keyLabel(m.keys.Menu.Open) + " " + keyLabel(m.keys.Menu.Archive) + " " + keyLabel(restore) + " to restore"
 	case screenAgents:
 		item, ok := m.agents.hoveredResting(s)
 		if ok && item.Agent.HeldAt != nil {
