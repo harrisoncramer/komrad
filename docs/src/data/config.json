@@ -1244,8 +1244,8 @@
               "key": "unread",
               "path": "glyphs.marks.unread",
               "type": "string",
-              "description": "Your comments on the agent's work hold something you have not read.",
-              "default": "\"·\""
+              "description": "Beside the count of your comments holding a reply you have not read.",
+              "default": "\"\""
             }
           ],
           "sections": []

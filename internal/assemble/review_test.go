@@ -132,7 +132,7 @@ func TestAgentRowsCommentCounts(t *testing.T) {
 				byReviewer(review("v2", newer, 1, stamp(-time.Hour), commented)),
 			},
 			threads: []*agentv1.ReviewThread{
-				thread("t1", "v1", false, false),
+				thread("t1", "v1", false, true),
 				thread("t2", "v1", true, true),
 				thread("t3", "v2", false, false),
 				thread("t4", "v2", false, false),
@@ -145,7 +145,7 @@ func TestAgentRowsCommentCounts(t *testing.T) {
 			wantPerson: &agentv1.CommentCounts{
 				Open:     1,
 				Resolved: 1,
-				Unread:   true,
+				Unread:   2,
 			},
 		},
 	}

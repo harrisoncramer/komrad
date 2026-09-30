@@ -295,17 +295,12 @@ func TestPrepareRepoColumn(t *testing.T) {
 	}
 }
 
-// TestPrepareComments pins the count pairs a row draws against the right edge.
+// TestPrepareComments pins the three slots a row draws against the right edge.
 func TestPrepareComments(t *testing.T) {
-	muted := func(text string) Cell {
-		return Cell{Text: text, Tone: paint.ToneMuted}
+	slot := func(mark glyph.Glyph, count string, tone paint.Tone) Cell {
+		return Cell{Parts: []Cell{{Glyph: mark, Tone: tone}, {Text: " "}, {Text: count + " ", Tone: tone}}}
 	}
-	reviewer := func(tone paint.Tone, open, resolved string) Cell {
-		return Cell{Parts: []Cell{{Glyph: glyph.ReviewerComments, Tone: tone}, {Text: " "}, {Text: open, Tone: tone}, muted(resolved)}}
-	}
-	person := func(tone paint.Tone, open, resolved string, dot Cell) Cell {
-		return Cell{Parts: []Cell{{Glyph: glyph.PersonComments, Tone: tone}, {Text: " "}, {Text: open, Tone: tone}, muted(resolved), dot}}
-	}
+	blank := Cell{Text: "    "}
 
 	tests := []struct {
 		name string
@@ -324,38 +319,40 @@ func TestPrepareComments(t *testing.T) {
 			},
 		},
 		{
-			name: "a side nobody has comments on is left out",
+			name: "a row whose comments are all resolved and read draws no counts",
 			row: Row{
 				Kind:             KindAgent,
 				ReviewerComments: &Comments{Resolved: 2},
+				PersonComments:   &Comments{Resolved: 12},
 			},
-			want: []Cell{reviewer(paint.ToneMuted, "0", "|2")},
 		},
 		{
-			name: "the person's counts stand alone while no reviewer has commented",
+			name: "a slot at zero holds its width blank",
 			row: Row{
 				Kind:           KindAgent,
-				PersonComments: &Comments{Resolved: 12},
+				PersonComments: &Comments{Open: 1, Resolved: 12},
 			},
-			want: []Cell{person(paint.ToneMuted, "0", "|12", Cell{Text: " "})},
+			want: []Cell{blank, slot(glyph.PersonComments, "1", paint.ToneMuted), blank},
 		},
 		{
-			name: "offers from the forge stand beside the person's open count in their own tone",
+			name: "offers from the forge follow the person's open count in their own tone",
 			row: Row{
 				Kind:           KindAgent,
-				PersonComments: &Comments{Open: 1, External: 3},
+				PersonComments: &Comments{External: 3},
 			},
-			want: []Cell{{Parts: []Cell{
-				{Glyph: glyph.PersonComments, Tone: paint.ToneWarning},
-				{Text: " "},
-				{Text: "1", Tone: paint.ToneWarning},
-				{Text: "+3", Tone: paint.ToneOther},
-				muted("|0"),
-				{Text: " "},
-			}}},
+			want: []Cell{
+				blank,
+				{Parts: []Cell{
+					{Glyph: glyph.PersonComments, Tone: paint.ToneMuted},
+					{Text: " "},
+					{Text: "0", Tone: paint.ToneMuted},
+					{Text: "+3", Tone: paint.ToneOther},
+				}},
+				blank,
+			},
 		},
 		{
-			name: "open counts stand out, reviewer agents first, and an unread one earns the dot",
+			name: "open comments are muted and unread replies stand out",
 			row: Row{
 				Kind: KindAgent,
 				ReviewerComments: &Comments{
@@ -365,13 +362,22 @@ func TestPrepareComments(t *testing.T) {
 				PersonComments: &Comments{
 					Open:     2,
 					Resolved: 4,
-					Unread:   true,
+					Unread:   5,
 				},
 			},
 			want: []Cell{
-				reviewer(paint.ToneBright, "3", "|1"),
-				person(paint.ToneWarning, "2", "|4", Cell{Glyph: glyph.Unread, Tone: paint.ToneWarning}),
+				slot(glyph.ReviewerComments, "3", paint.ToneMuted),
+				slot(glyph.PersonComments, "2", paint.ToneMuted),
+				slot(glyph.Unread, "5", paint.ToneWarning),
 			},
+		},
+		{
+			name: "unread replies on resolved comments still draw",
+			row: Row{
+				Kind:           KindAgent,
+				PersonComments: &Comments{Resolved: 3, Unread: 1},
+			},
+			want: []Cell{blank, blank, slot(glyph.Unread, "1", paint.ToneWarning)},
 		},
 	}
 
@@ -548,7 +554,7 @@ func TestPrepareDimRowKeepsEveryCell(t *testing.T) {
 		Forge:  ForgeMerged,
 		PersonComments: &Comments{
 			Open:   1,
-			Unread: true,
+			Unread: 1,
 		},
 		Held:       true,
 		Hidden:     true,
@@ -734,18 +740,18 @@ func TestPrepareClipsName(t *testing.T) {
 				{Name: "eng-6994-unable-to-create"},
 				{
 					Name:             "eng-6994-unable-to-create",
-					ReviewerComments: &Comments{Resolved: 2},
+					ReviewerComments: &Comments{Open: 2},
 				},
 			},
-			pane:         25,
-			want:         []string{"eng-6994-unabl…", "eng-6994…"},
-			wantComments: []int{0, 1},
+			pane:         33,
+			want:         []string{"eng-6994-unable-to-cre…", "eng-6…"},
+			wantComments: []int{0, 3},
 		},
 		{
 			name: "a pane too narrow for both keeps the name and drops the comment counts",
 			rows: []Row{{
 				Name:             "eng-6994-unable-to-create",
-				ReviewerComments: &Comments{Resolved: 2},
+				ReviewerComments: &Comments{Open: 2},
 			}},
 			pane:         16,
 			want:         []string{"eng-6…"},

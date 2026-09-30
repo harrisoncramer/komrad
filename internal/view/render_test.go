@@ -168,7 +168,7 @@ func TestRenderRowShapes(t *testing.T) {
 				},
 				PersonComments: &Comments{
 					Open:   1,
-					Unread: true,
+					Unread: 1,
 				},
 			},
 		},
@@ -179,7 +179,7 @@ func TestRenderRowShapes(t *testing.T) {
 				Kind: KindAgent,
 				Name: "iss-582",
 				ReviewerComments: &Comments{
-					Resolved: 2,
+					Open: 2,
 				},
 			},
 		},

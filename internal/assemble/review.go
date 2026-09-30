@@ -64,7 +64,9 @@ func setCommentCounts(row *agentv1.AgentRow, reviews []*agentv1.WatchedReview, t
 		} else {
 			counts.Resolved++
 		}
-		counts.Unread = counts.GetUnread() || thread.GetUnreadByHuman()
+		if thread.GetUnreadByHuman() {
+			counts.Unread++
+		}
 	}
 }
 

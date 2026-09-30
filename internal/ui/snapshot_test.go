@@ -194,7 +194,7 @@ func TestSnapshotComments(t *testing.T) {
 			item: panel.AgentRow{
 				ReviewerComments: &agentv1.CommentCounts{
 					Open:   1,
-					Unread: true,
+					Unread: 1,
 				},
 				PersonComments: &agentv1.CommentCounts{
 					Open:     2,
@@ -203,7 +203,7 @@ func TestSnapshotComments(t *testing.T) {
 			},
 			wantReviewer: &view.Comments{
 				Open:   1,
-				Unread: true,
+				Unread: 1,
 			},
 			wantPerson: &view.Comments{
 				Open:     2,

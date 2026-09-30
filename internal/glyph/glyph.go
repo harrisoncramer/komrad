@@ -84,7 +84,7 @@ var defined = [count]struct {
 	Document:         {"marks.document", ""},
 	ReviewerComments: {"marks.reviewer_comments", ""},
 	PersonComments:   {"marks.person_comments", ""},
-	Unread:           {"marks.unread", "·"},
+	Unread:           {"marks.unread", "\uf49a"},
 	Workflow:         {"lists.workflow", ""},
 	Archive:          {"lists.archive", ""},
 	Search:           {"lists.search", ""},
