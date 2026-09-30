@@ -310,10 +310,7 @@ type messageViewParams struct {
 // messageView is one message: who wrote it and when, what it says, and how far it got.
 func (r reviewScreen) messageView(s panelShared, message *agentv1.ReviewMessage, params messageViewParams) string {
 	author, tone := r.authorOf(message)
-	head := paint.Panel.Style(tone).Bold(true).Render(author)
-	if when := reviewTimeOf(message.GetCreatedAt()); when != "" {
-		head += " " + dimStyle.Render(when)
-	}
+	head := drawCommentHead(tone, author, message.GetCreatedAt())
 	if params.note != "" {
 		head += "   " + dimStyle.Render(params.note)
 	}
@@ -340,6 +337,15 @@ func (t reviewThreads) sendDesc() string {
 	}
 
 	return "send a note"
+}
+
+func drawCommentHead(tone paint.Tone, author, writtenAt string) string {
+	head := paint.Panel.Style(tone).Bold(true).Render(author)
+	if when := reviewTimeOf(writtenAt); when != "" {
+		head += " " + dimStyle.Render(when)
+	}
+
+	return head
 }
 
 func reviewWrap(width int, body string) string {

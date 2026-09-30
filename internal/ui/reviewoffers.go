@@ -9,16 +9,12 @@ import (
 
 	"komrad/internal/assemble"
 	"komrad/internal/ui/diffview"
-	"komrad/internal/ui/paint"
 	"komrad/lib/xslice"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 )
-
-// reviewOfferTone is what the forge's comments are drawn in, so they never pass for the reader's.
-const reviewOfferTone = paint.ToneWarning
 
 // listOffers is the forge's threads on the agent's open pull request, the ones on a line first in
 // the order a reader meets them, then the ones on the change as a whole.
@@ -86,10 +82,7 @@ func (r *reviewScreen) stepOffer(s panelShared) tea.Cmd {
 func (r reviewScreen) offerView(offer *pullrequestv1.ForgeThread, width int) string {
 	var out strings.Builder
 	for _, comment := range offer.GetComments() {
-		head := paint.Panel.Style(reviewOfferTone).Bold(true).Render(describeCommentAuthor(comment) + " on the forge")
-		if when := reviewTimeOf(comment.GetWrittenAt()); when != "" {
-			head += " " + dimStyle.Render(when)
-		}
+		head := drawCommentHead(diffview.OfferTone, describeCommentAuthor(comment)+" on the forge", comment.GetWrittenAt())
 		if comment.GetEditedAt() != "" {
 			head += " " + dimStyle.Render("(edited)")
 		}
@@ -112,14 +105,21 @@ func describeCommentAuthor(comment *pullrequestv1.ForgeComment) string {
 	switch {
 	case comment.GetYours():
 		return "you"
-	case comment.GetAuthorLogin() == "":
-		return "someone"
-	case comment.GetBot():
-		return "@" + comment.GetAuthorLogin() + " (bot)"
+	case comment.GetBot() && comment.GetAuthorLogin() != "":
+		return describeForgeLogin(comment.GetAuthorLogin()) + " (bot)"
 	}
 
-	return "@" + comment.GetAuthorLogin()
+	return describeForgeLogin(comment.GetAuthorLogin())
 }
+
+func describeForgeLogin(login string) string {
+	if login == "" {
+		return "someone"
+	}
+
+	return "@" + login
+}
+
 func describeOfferPlace(offer *pullrequestv1.ForgeThread) string {
 	if offer.GetPath() == "" {
 		return "change as a whole"
@@ -131,15 +131,7 @@ func describeOfferPlace(offer *pullrequestv1.ForgeThread) string {
 		return diffview.FormatLocation(offer.GetPath(), int(offer.GetLine()), 0)
 	}
 
-	return fmt.Sprintf("%s:%d", offer.GetPath(), offer.GetLine())
-}
-
-func pluralSuffix(n int, one, many string) string {
-	if n == 1 {
-		return one
-	}
-
-	return many
+	return diffview.FormatLocation(offer.GetPath(), 0, int(offer.GetLine()))
 }
 
 // plainOfferText is text a stranger wrote with its escape sequences and control characters taken

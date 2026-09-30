@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"komrad/internal/assemble"
+	"komrad/lib/xslice"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 	watchv1 "komrad/proto/gen/watch/v1"
 
@@ -106,15 +107,13 @@ func sortedAgentIDs(world assemble.World) []string {
 }
 
 func describeOfferNotice(count int, agentName string, authors []string) string {
-	named := make([]string, 0, len(authors))
-	for _, author := range authors {
-		if author == "" {
-			author = "someone"
-		} else {
-			author = "@" + author
-		}
-		named = append(named, author)
+	return fmt.Sprintf("%d comment%s on %s from %s", count, pluralSuffix(count, "", "s"), agentName, strings.Join(xslice.Map(authors, describeForgeLogin), ", "))
+}
+
+func pluralSuffix(n int, one, many string) string {
+	if n == 1 {
+		return one
 	}
 
-	return fmt.Sprintf("%d comment%s on %s from %s", count, pluralSuffix(count, "", "s"), agentName, strings.Join(named, ", "))
+	return many
 }
