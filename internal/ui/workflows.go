@@ -3,7 +3,6 @@ package ui
 import (
 	"fmt"
 	"slices"
-	"strings"
 
 	"komrad/internal/ui/panel"
 	"komrad/lib/xslice"
@@ -20,37 +19,6 @@ func newWorkflowForm(h host, s panelShared) tea.Cmd {
 	}
 
 	return openWorkflowConfigForm(h, &values, nil)
-}
-
-func renameWorkflowForm(h host, workflow panel.Workflow) tea.Cmd {
-	values := workflowFormValues{}
-
-	return openWorkflowRename(h, workflow, &values)
-}
-
-func openWorkflowRename(h host, workflow panel.Workflow, values *workflowFormValues) tea.Cmd {
-	title := fmt.Sprintf("Rename %q to", workflow.Name)
-
-	return h.openForm(redrawnForm(redrawnFormParams{
-		Kind:  formWorkflow,
-		Build: func(m model) (*huh.Form, []string) { return workflowForm(title, values, formKeys()) },
-		Submit: func(m model) (tea.Model, tea.Cmd) {
-			renamed := workflow
-
-			trimmed := strings.TrimSpace(values.Name)
-			if trimmed == "" || trimmed == workflow.Name {
-				return m.closeForm()
-			}
-
-			renamed.Name = trimmed
-			cmd := m.writeCmd(
-				fmt.Sprintf("Could not rename workflow %q", workflow.Name),
-				func(a api) error { return a.updateWorkflow(renamed) },
-			)
-
-			return m, tea.Batch(cmd, m.holdForm())
-		},
-	}))
 }
 
 func editWorkflowForm(h host, _ panelShared, workflow panel.Workflow) tea.Cmd {

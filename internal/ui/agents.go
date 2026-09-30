@@ -23,6 +23,7 @@ func (a *agentsScreen) enter(h host, s panelShared, target screenTarget) tea.Cmd
 		a.cursor = cursor.Clamp(a.cursor, len(a.rows(s)))
 	}
 
+	a.reconcileRename(s)
 	h.stageSelection()
 
 	return nil
@@ -30,9 +31,18 @@ func (a *agentsScreen) enter(h host, s panelShared, target screenTarget) tea.Cmd
 
 func (a *agentsScreen) update(h host, s panelShared, msg tea.Msg) tea.Cmd {
 	switch msg := msg.(type) {
+	case tea.PasteMsg:
+		if a.isRenaming() {
+			return a.updateRename(h, msg)
+		}
 	case reviewPausedMsg:
 		return a.applyPaused(h, s, msg)
 	case tea.KeyPressMsg:
+		a.reconcileRename(s)
+		if a.isRenaming() {
+			return a.updateRename(h, msg)
+		}
+
 		return a.list().update(h, s, msg, a.actions())
 	}
 
@@ -343,6 +353,10 @@ func (a *agentsScreen) listParams(s panelShared) screenListParams {
 }
 
 func (a *agentsScreen) help(s panelShared) keyMap {
+	if a.isRenaming() {
+		return renameHelp()
+	}
+
 	return a.actions().help(s)
 }
 
@@ -358,6 +372,7 @@ func (a *agentsScreen) snapshot(s panelShared, pane listPane) view.Snapshot {
 		blinkedOut:  pane.blinkedOut,
 		loaderFrame: s.loaderFrame,
 		matcher:     s.chrome.filter.pattern,
+		renaming:    a.renaming,
 		showHidden:  a.showHidden,
 		flat:        a.sort.flat,
 		pane:        pane.width,
@@ -411,7 +426,7 @@ func (a *agentsScreen) doesDrawFromListing() bool {
 }
 
 func (a *agentsScreen) takesEveryKey() bool {
-	return false
+	return a.isRenaming()
 }
 
 func (a *agentsScreen) detailsQuit(keys config.Keybindings) []string {

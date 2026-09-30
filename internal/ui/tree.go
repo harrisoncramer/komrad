@@ -23,8 +23,9 @@ type agentsScreen struct {
 	showHidden bool
 	sort       tabsState
 	// drawn is the rows built once for the frame being drawn, and nil between frames.
-	drawn   []agentRow
-	editing *agentEdit
+	drawn    []agentRow
+	editing  *agentEdit
+	renaming *agentRename
 }
 
 type agentRow struct {
@@ -528,6 +529,7 @@ func (a *agentsScreen) apply(s panelShared, selected string) {
 
 	a.placed = true
 	a.selected = a.selected.pruned(refsOf(a.rows(s)))
+	a.reconcileRename(s)
 }
 
 // listing is what the screens draw: the resources the watch has delivered, and the live and

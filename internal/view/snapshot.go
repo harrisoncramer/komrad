@@ -129,6 +129,8 @@ type Row struct {
 	Name string
 	// Matches are the stretches of the name a search picked out.
 	Matches []Span
+	// Editing says the name is text a person is typing into.
+	Editing bool
 	Status  Status
 	// Process says whether anything ever stood behind the row, which the bar leaves blank where
 	// nothing did and the weight greys once it has gone.

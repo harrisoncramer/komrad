@@ -58,6 +58,7 @@ func prepareLine(params prepareLineParams) Line {
 		Lead:     row.Lead,
 		Name:     row.Name,
 		Matches:  row.Matches,
+		Editing:  row.Editing,
 		Weight:   weightFor(row.Kind),
 		Emphasis: emphasisFor(row, focused && params.caret != CaretAbsent),
 		Held:     HeldCell(row),
@@ -333,7 +334,11 @@ func fitRow(line Line, width int) Line {
 		line.Comments = nil
 	}
 
-	line.Name, line.Matches = clipName(line.Name, line.Matches, roomForName(line, width))
+	if line.Editing {
+		line.Name = clipNameStart(line.Name, roomForName(line, width))
+	} else {
+		line.Name, line.Matches = clipName(line.Name, line.Matches, roomForName(line, width))
+	}
 
 	return shedMarks(line, width)
 }
@@ -408,4 +413,17 @@ func emphasisFor(row Row, focused bool) Emphasis {
 	}
 
 	return EmphasisNormal
+}
+
+// clipNameStart cuts a name being typed from its start, keeping the end in view.
+func clipNameStart(name string, width int) string {
+	runes := []rune(name)
+	switch {
+	case width <= 0:
+		return ""
+	case len(runes) <= width:
+		return name
+	}
+
+	return "…" + string(runes[len(runes)-width+1:])
 }

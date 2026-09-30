@@ -179,7 +179,7 @@ func TestMessagesPane(t *testing.T) {
 	t.Run("the messages stand in for a form opened over the list", func(t *testing.T) {
 		harness := openMessages(t, panelHarnessParams{})
 
-		harness.press("enter", "r", "ctrl+g")
+		harness.press("enter", "c", "ctrl+g")
 
 		stage := joinProse(readStage(harness.readFrame()))
 		assert.Contains(t, stage, "messages 1 of 1")

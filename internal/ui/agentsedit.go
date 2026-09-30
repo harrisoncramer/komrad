@@ -140,6 +140,8 @@ func (a *agentsScreen) reconcileEditor(h host) tea.Cmd {
 }
 
 func (a *agentsScreen) leave(h host) tea.Cmd {
+	a.renaming = nil
+
 	return a.closeEdit(h)
 }
 

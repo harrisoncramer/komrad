@@ -33,12 +33,14 @@ type snapshotParams struct {
 	flat bool
 	// pane is how many columns the list is drawn in.
 	pane int
+	// renaming is the name being typed over one row, nil when none is.
+	renaming *agentRename
 }
 
 // agentsSnapshot reads the listing into the plain data the agents list draws itself from.
 func agentsSnapshot(params snapshotParams) view.Snapshot {
 	rows := xslice.Map(params.rows, func(r agentRow) view.Row {
-		return snapshotRow(r, params)
+		return renamedRow(snapshotRow(r, params), params.renaming)
 	})
 
 	return view.Snapshot{
@@ -262,4 +264,17 @@ func snapshotForge(item panel.AgentRow) view.Forge {
 	}
 
 	return view.ForgeUnread
+}
+
+// renamedRow draws the text typed over a row's name in its place.
+func renamedRow(row view.Row, renaming *agentRename) view.Row {
+	if renaming == nil || renaming.key != row.Key {
+		return row
+	}
+
+	row.Name = renaming.typed
+	row.Matches = nil
+	row.Editing = !renaming.saving
+
+	return row
 }

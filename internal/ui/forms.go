@@ -55,7 +55,6 @@ const (
 	formAgent
 	formChild
 	formAdopt
-	formRename
 	formAgentArchive
 	formAgentRebase
 	formMerge
@@ -129,7 +128,7 @@ const formColumnFloor = 50
 // still on screen while it is answered.
 func formColumn(kind formKind) (columnSpec, bool) {
 	switch kind {
-	case formAgent, formChild, formAdopt, formRename, formAgentRetry, formWorkflow, formSchedule,
+	case formAgent, formChild, formAdopt, formAgentRetry, formWorkflow, formSchedule,
 		formDocument, formDocumentType:
 		return columnSpec{floor: formColumnFloor}, true
 	case formGit, formDocumentsMenu, formDocumentTypesMenu, formMerge, formMenu, formAgentArchive, formAgentRebase, formAgentRelease, formWorkflowArchive, formScheduleArchive,

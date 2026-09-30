@@ -119,6 +119,8 @@ type writeResult struct {
 	released *released
 	// queued is what to say once a write that queues a background job has landed.
 	queued *message
+	// renamed is the row a rename typed over it was written for.
+	renamed string
 }
 
 type released struct {
@@ -385,6 +387,10 @@ func (m model) applyWrite(result writeResult) (tea.Model, tea.Cmd) {
 	m.pending--
 
 	m.report(result.summary, result.err)
+
+	if result.renamed != "" {
+		m.agents.settleRename(m.shared(), result.renamed, result.err)
+	}
 
 	if result.queued != nil && result.err == nil {
 		m.pushMessage(*result.queued)
