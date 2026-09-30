@@ -161,7 +161,12 @@ func (m model) columnOf() (columnSpec, bool) {
 		return columnSpec{}, false
 	}
 
-	return c.column(), true
+	spec := c.column()
+	if m.isScratchOpen() {
+		spec.holds = func(model) bool { return false }
+	}
+
+	return spec, true
 }
 
 // holdsWindow reports whether the panel is drawing a block beside its own list, and so takes the

@@ -40,6 +40,8 @@ func TestListTables(t *testing.T) {
 		byName[table.Name] = table.Rows
 		assert.False(t, strings.HasPrefix(table.Name, "pg_"), "a system catalog would bury the real schema")
 	}
+	assert.NotContains(t, byName, "forge_review_comments", "the reader cannot count a table it cannot read")
+	assert.NotContains(t, byName, "forge_review_threads", "the reader cannot count a table it cannot read")
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

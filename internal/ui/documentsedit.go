@@ -25,6 +25,12 @@ func (d *documentsScreen) pressEdit(h host, s panelShared) tea.Cmd {
 		return d.closeEdit(h)
 	}
 
+	if h.isScratchOpen() {
+		h.reportBrief("could not open the editor", "close the scratch file first")
+
+		return nil
+	}
+
 	item, ok := d.hovered(s)
 	if !ok {
 		return nil

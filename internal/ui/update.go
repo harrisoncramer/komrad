@@ -164,9 +164,13 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.routeScreenMessage(msg)
 	}
 
-	// The switcher keeps the keys through every view it opens, one that types included.
+	// The switcher answers its own keys through every view it opens, one that types included.
 	if m.isViewsOpen() {
-		return m.updateViews(key)
+		if m.holdsViewsKey(key.String()) {
+			return m.updateViews(key)
+		}
+
+		m.closeViews()
 	}
 
 	if m.filter.typing {
@@ -277,8 +281,12 @@ func (m model) nudgeSidebar(delta int) model {
 // routeGlobalKey answers the keys the panel owns whatever screen is up, reporting whether it
 // took the press so the screen underneath gets whatever it left alone.
 func (m model) routeGlobalKey(key tea.KeyPressMsg) (tea.Model, tea.Cmd, bool) {
-	if m.screen.picksViews() && !m.isTabsFocused() && !m.isKindsFocused() && isBound(key.String(), m.keys.Views.Pick) {
-		return m.openViews(), nil, true
+	if m.screen.picksViews() && !m.isTabsFocused() && !m.isKindsFocused() {
+		if delta := m.viewsDelta(key.String()); delta != 0 {
+			next, cmd := m.openViews(delta)
+
+			return next, cmd, true
+		}
 	}
 
 	if isBound(key.String(), m.keys.Help.Toggle) {
@@ -324,6 +332,12 @@ func (m model) routeGlobalKey(key tea.KeyPressMsg) (tea.Model, tea.Cmd, bool) {
 		if isBound(key.String(), m.keys.Kinds.Focus) {
 			return m.focusKinds(), nil, true
 		}
+	}
+
+	if isBound(key.String(), m.keys.Menu.Open) {
+		cmd := m.openMenu()
+
+		return m, cmd, true
 	}
 
 	if m.isDetailsScreen() && m.isDetailsFocused() {
@@ -499,9 +513,14 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 	}
 }
 
-// reconcileEditor catches the info pane and a screen's editor going away on their own.
+// reconcileEditor catches the info pane, the scratch editor and a screen's editor going away on
+// their own.
 func (m *model) reconcileEditor() tea.Cmd {
 	m.reconcileInfo()
+
+	if cmd := m.reconcileScratch(); cmd != nil {
+		return cmd
+	}
 
 	switch m.screen {
 	case screenReview:

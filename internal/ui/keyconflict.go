@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"slices"
 
 	"komrad/config"
 
@@ -89,6 +90,7 @@ func ValidateKeybindings(keys config.Keybindings) error {
 		{name: "logs", keys: keys.Menu.Logs},
 		{name: "terminal", keys: keys.Menu.Terminal},
 		{name: "git", keys: keys.Menu.Git},
+		{name: "scratch", keys: keys.Menu.Scratch},
 	})
 }
 
@@ -196,7 +198,7 @@ func validateArms(s screen, arms []dispatchArm) error {
 func globalArms(s screen, keys config.Keybindings) []dispatchArm {
 	arms := []dispatchArm{{describe: "the leader", keys: []string{leaderKey}}}
 	if s.picksViews() {
-		arms = append(arms, dispatchArm{describe: "the view switcher", keys: keys.Views.Pick})
+		arms = append(arms, dispatchArm{describe: "the view switcher", keys: slices.Concat(keys.Views.Next, keys.Views.Previous)})
 	}
 
 	arms = append(arms,
@@ -219,6 +221,8 @@ func globalArms(s screen, keys config.Keybindings) []dispatchArm {
 	if s == screenDocuments {
 		arms = append(arms, dispatchArm{describe: "the view cycle", keys: keys.Cycle.Views})
 	}
+
+	arms = append(arms, dispatchArm{describe: "the menu", keys: keys.Menu.Open})
 
 	if _, ok := zero.screenOf(s).(detailed); ok {
 		arms = append(arms,

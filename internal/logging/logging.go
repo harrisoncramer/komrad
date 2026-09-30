@@ -61,6 +61,7 @@ const (
 	Observations           = "komrad.pull_request.observations"
 	SweepInProgress        = "komrad.pull_request.sweep_in_progress"
 	StandingsRead          = "komrad.pull_request.standings_read"
+	ThreadsRead            = "komrad.pull_request.threads_read"
 	PullRequestNumber      = "komrad.pull_request.number"
 	Repositories           = "komrad.repositories"
 	RowsListed             = "komrad.rows.listed"

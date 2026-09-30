@@ -259,22 +259,14 @@ type KindsKeys struct {
 	Focus []string `mapstructure:"focus" default:"F"`
 }
 
-// ViewsKeys are the bindings for the switcher at the top of the panel. Pick hands it the
-// keys, where tab and shift+tab open the next and previous view and esc hands the keys back.
-// Each view's own key opens it straight away once the switcher holds the keys.
+// ViewsKeys are the bindings for the switcher at the top of the panel. Next and Previous open the
+// next and previous view and hand the switcher the keys, where they keep stepping through the
+// views and esc hands the keys back.
 type ViewsKeys struct {
-	// Hand the keys to the switcher.
-	Pick []string `mapstructure:"pick" default:"tab"`
-	// Open the agents list.
-	Agents []string `mapstructure:"agents" default:"a"`
-	// Open the query over every conversation the panel holds, the archived ones included.
-	Query []string `mapstructure:"query" default:"q"`
-	// Open the schedules.
-	Schedules []string `mapstructure:"schedules" default:"s"`
-	// Open the archive.
-	Archive []string `mapstructure:"archive" default:"r"`
-	// Open the worktrees, landing on the hovered agent's own directory.
-	Worktrees []string `mapstructure:"worktrees" default:"w"`
+	// Open the next view.
+	Next []string `mapstructure:"next" default:"tab"`
+	// Open the previous view.
+	Previous []string `mapstructure:"previous" default:"shift+tab"`
 }
 
 // FormKeys are the keys a form answers, read before the key reaches the box being typed into and
@@ -369,11 +361,11 @@ type MergeKeys struct {
 	MergeArchive []string `mapstructure:"merge_archive" default:"a"`
 }
 
-// MenuKeys are the bindings for the menu on the hovered row, which lists the screens that belong
-// to it and the menus nested under it. Today that row is an agent, on the agents list or in the
-// archive.
+// MenuKeys are the bindings for the menu, which lists the hovered row's entries over the
+// panel's own. Today the only row with entries is an agent, on the agents list or in the archive.
 type MenuKeys struct {
-	// Open the menu on the hovered agent, or its orchestrator's on a workflow's row.
+	// Open the menu from any screen: the hovered agent's entries, or its orchestrator's on a
+	// workflow's row, over the entries that act on the panel itself.
 	Open []string `mapstructure:"open" default:"space"`
 	// Open the review of the agent's diff. The entry is gray on an agent with no worktree of its
 	// own, and in the archive.
@@ -390,6 +382,10 @@ type MenuKeys struct {
 	// Open the git menu to the right of this one, for rebasing the agent's branch or opening or
 	// merging its pull request.
 	Git []string `mapstructure:"git" default:"g"`
+	// Open this engine's scratch file in your editor in place of the pane beside the list, or
+	// close it when it is already open. Each engine keeps its own file under komrad's state
+	// directory.
+	Scratch []string `mapstructure:"scratch" default:"s"`
 }
 
 // WorkflowsKeys are the bindings that act on a workflow.
@@ -496,7 +492,8 @@ type ReviewKeys struct {
 	// agent has written past, since those lines have moved on.
 	EditFile []string `mapstructure:"edit_file" default:"e"`
 	// Jump from the comment under the cursor to the diff it was written against, with the
-	// cursor on it, or back to where you were from there.
+	// cursor on it, or back to where you were from there. Anywhere else, move to the next
+	// comment from the forge on the pull request.
 	Jump []string `mapstructure:"jump" default:"J"`
 	// Jump to the next line carrying a review thread.
 	NextThread []string `mapstructure:"next_thread" default:"t"`
@@ -575,7 +572,7 @@ type SchedulesKeys struct {
 	// Quit the panel.
 	Quit []string `mapstructure:"quit" default:"ctrl+c"`
 	// Pause or resume the schedule under the cursor.
-	Toggle []string `mapstructure:"toggle" default:"space"`
+	Toggle []string `mapstructure:"toggle" default:"p"`
 }
 
 // ArchiveKeys are the bindings for the archive screen, which lists the agents

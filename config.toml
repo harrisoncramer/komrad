@@ -282,7 +282,8 @@ compose          = ["c"]
 # agent has written past, since those lines have moved on.
 edit_file        = ["e"]
 # Jump from the comment under the cursor to the diff it was written against, with the
-# cursor on it, or back to where you were from there.
+# cursor on it, or back to where you were from there. Anywhere else, move to the next
+# comment from the forge on the pull request.
 jump             = ["J"]
 # Jump to the next line carrying a review thread.
 next_thread      = ["t"]
@@ -325,7 +326,7 @@ new     = ["c"]
 # Quit the panel.
 quit    = ["ctrl+c"]
 # Pause or resume the schedule under the cursor.
-toggle  = ["space"]
+toggle  = ["p"]
 
 # The keys that move the sidebar's edge, shared by every screen.
 [keybindings.sidebar]
@@ -346,7 +347,8 @@ toggle = ["v"]
 # The menu on the hovered row, which lists the screens that belong to it and the menus nested
 # under it.
 [keybindings.menu]
-# Open the menu on the hovered agent, or its orchestrator's on a workflow's row.
+# Open the menu from any screen: the hovered agent's entries, or its orchestrator's on a
+# workflow's row, over the entries that act on the panel itself.
 open      = ["space"]
 # Open the review of the agent's diff. The entry is gray on an agent with no worktree of its
 # own, and in the archive.
@@ -363,6 +365,10 @@ terminal  = ["t"]
 # Open the git menu to the right of this one, for rebasing the agent's branch or opening or
 # merging its pull request.
 git       = ["g"]
+# Open this engine's scratch file in your editor in place of the pane beside the list, or
+# close it when it is already open. Each engine keeps its own file under komrad's state
+# directory.
+scratch   = ["s"]
 
 # The row of tabs a screen draws over its list, and the key that hands it the cursor.
 [keybindings.tabs]
@@ -378,18 +384,10 @@ focus = ["F"]
 # The switcher at the top of the panel, which moves between the agents, query,
 # schedules, archive and worktrees from any of them.
 [keybindings.views]
-# Hand the keys to the switcher.
-pick      = ["tab"]
-# Open the agents list.
-agents    = ["a"]
-# Open the query over every conversation the panel holds, the archived ones included.
-query     = ["q"]
-# Open the schedules.
-schedules = ["s"]
-# Open the archive.
-archive   = ["r"]
-# Open the worktrees, landing on the hovered agent's own directory.
-worktrees = ["w"]
+# Open the next view.
+next     = ["tab"]
+# Open the previous view.
+previous = ["shift+tab"]
 
 # The bindings that create and change workflows, from the agents list.
 [keybindings.workflows]

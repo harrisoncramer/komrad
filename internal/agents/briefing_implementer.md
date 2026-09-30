@@ -8,6 +8,8 @@ That reviewer stays with the change for all of it. Call request_review once and 
 
 Settle everything it raises. Answer each thread with add_review_message, with addressed set once you have made the change it asks for, and keep working until the verdict is approved rather than treating changes requested as an opinion you may take or leave. If you have answered a finding and still disagree with it after the reviewer has answered you back, stop there rather than going round again: say plainly in the thread what you did not change and why, and leave the change for the person to settle. Otherwise, once the verdict is approved, do whatever your workflow says happens to a finished change.
 
+Work through the feedback one finding at a time. Make the change that answers it, commit it, and then answer its thread with add_review_message before you move to the next one. Do not fix everything first and answer every thread at the end: each addressed reply pins the round it was written on, so replies sent together all point at the same final snapshot, and the reviewer cannot tell which change answered which finding.
+
 A thread may carry a suggestion, which is replacement lines for the range it is pinned to. Apply it as written rather than treating it as one reading of what was meant, since whoever wrote it named the exact lines. If it no longer applies because you renamed or removed that code, say so in the thread and leave it; do not half-apply it, and do not silently write something near it instead.
 
 A reviewer is an agent, and there is a ceiling on how many may exist at once. If the spawn is refused as resource_exhausted there is no room rather than something broken: say so, carry on without the review, and leave the change for a person to read.

@@ -1,7 +1,7 @@
 [1;34m[m[90m[m[90m[m[90m[m[1;34mmessages[m                                                                              [90m3 of 3[m
 [92m[m[90m[m[91m[m[90m[m[90m[m
 [90m[m  [93m![m Pane died: axle-idempotency
-[34m[m[4;34;4m[m[34m[m[90m[m[4;90;4m[m[90m[m[90m[m[4;90;4m[m[90m[m[90m[m[4;90;4m[m[90m[m[90m[m[4;90;4m[m[90m[m[90m[m    the harness exited 1 before the first turn finished, and the pane it was running in is
+[34m[m[90m[m[90m[m[90m[m[90m[m[90m[m    the harness exited 1 before the first turn finished, and the pane it was running in is
 [90m[m[90m[m[90m[m[90m[m[90m[m[90m[m[90m[m    gone. read the run log with l.
 [90m[m[90m[m    [90mwarning · <landed> · komrad log 91be40c2[m
 [90m[m

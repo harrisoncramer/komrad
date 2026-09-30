@@ -189,23 +189,34 @@ func (m model) helpBinding() key.Binding {
 	return binding(m.keys.Help.Toggle, desc)
 }
 
+func (m model) menuBinding() key.Binding {
+	return binding(m.keys.Menu.Open, "menu")
+}
+
 func (m model) globalHelp() []key.Binding {
 	if !m.screen.picksViews() {
-		return []key.Binding{m.helpBinding()}
+		return []key.Binding{m.menuBinding(), m.helpBinding()}
 	}
 
-	return []key.Binding{m.viewsBinding(), m.helpBinding()}
+	return []key.Binding{m.viewsBinding(), m.menuBinding(), m.helpBinding()}
 }
 
 // fullGlobalHelp is the expanded legend's share of the keys every screen answers.
 func (m model) fullGlobalHelp() []key.Binding {
-	return append(m.globalHelp(), m.messagesBinding(), binding(slices.Concat(m.keys.Sidebar.Narrow, m.keys.Sidebar.Widen), "resize"), binding([]string{leaderKey}, "leader"))
+	full := m.globalHelp()
+	if m.screen.picksViews() {
+		full = append(full, binding(m.keys.Views.Previous, "previous view"))
+	}
+
+	return append(full, m.messagesBinding(), binding(slices.Concat(m.keys.Sidebar.Narrow, m.keys.Sidebar.Widen), "resize"), binding([]string{leaderKey}, "leader"))
 }
+
+var keyAbbreviations = strings.NewReplacer("ctrl+", "C-", "shift+", "S-")
 
 func keyLabel(keys []string) string {
 	out := make([]string, len(keys))
 	for i, k := range keys {
-		out[i] = strings.Replace(k, "ctrl+", "C-", 1)
+		out[i] = keyAbbreviations.Replace(k)
 	}
 
 	return strings.Join(out, "/")

@@ -63,6 +63,8 @@ message Row {
     agent.v1.ReviewThread review_thread = 9;
     // A worktree as the filesystem holds it.
     worktree.v1.WatchedWorktree worktree = 10;
+    // A review thread the forge holds on a watched pull request, with its comments.
+    pullrequest.v1.ForgeThread forge_thread = 11;
   }
 }
 
@@ -88,6 +90,8 @@ enum Resource {
   RESOURCE_REVIEW_THREAD = 9;
   // A row of worktrees.
   RESOURCE_WORKTREE = 10;
+  // A row of forge_review_threads.
+  RESOURCE_FORGE_THREAD = 11;
 }
 
 // Deleted names a row its watched set no longer holds, whether it was removed or claimed for a

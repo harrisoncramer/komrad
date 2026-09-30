@@ -1369,7 +1369,7 @@ func TestAgentsRecordSearch(t *testing.T) {
 	t.Run("the search goes with the screen", func(t *testing.T) {
 		harness := openWorktreeRecord(t, panelHarnessParams{})
 
-		harness.press("/", "s", "i", "z", "enter", "ctrl+a", "tab", "s", "esc", "a")
+		harness.press("/", "s", "i", "z", "enter", "ctrl+a", "tab", "shift+tab")
 
 		frame := harness.readFrame()
 		assert.Equal(t, agentsScreen, harness.readScreen())
@@ -1401,7 +1401,7 @@ func TestAgentsRecordSearch(t *testing.T) {
 				name: "a narrow pane with the legend expanded",
 				params: panelHarnessParams{
 					width:  30,
-					height: 43,
+					height: 44,
 				},
 				press:      []string{"?"},
 				wantLegend: true,
@@ -1660,7 +1660,7 @@ func TestAgentsEdit(t *testing.T) {
 			},
 			{
 				name:  "leaving the agents list",
-				close: func(h *panelHarness) { h.press("tab", "r") },
+				close: func(h *panelHarness) { h.press("shift+tab", "shift+tab") },
 			},
 		}
 
@@ -1772,7 +1772,7 @@ func TestAgentsEdit(t *testing.T) {
 		harness.hold(agentv1connect.AgentServiceHoldAgentProcedure)
 		harness.press("e")
 
-		harness.press("tab", "r")
+		harness.press("shift+tab", "shift+tab")
 		harness.release(agentv1connect.AgentServiceHoldAgentProcedure)
 
 		assert.Empty(t, harness.panel.ReadRespawns())
@@ -2138,10 +2138,10 @@ func TestAgentsChildren(t *testing.T) {
 		off := readOffEntry("rebase with base", "r")
 
 		harness.press("j", "space", "g")
-		assert.NotContains(t, harness.readRawFrame(), off)
+		assert.NotRegexp(t, off, harness.readRawFrame())
 
 		harness.press("esc", "esc", "j", "space", "g")
-		assert.Contains(t, harness.readRawFrame(), off)
+		assert.Regexp(t, off, harness.readRawFrame())
 	})
 }
 

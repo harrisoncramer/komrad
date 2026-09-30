@@ -104,6 +104,12 @@ func (r *reviewScreen) pressEdit(h host, s panelShared) tea.Cmd {
 		return r.closeEdit(h, s)
 	}
 
+	if h.isScratchOpen() {
+		r.notice = "close the scratch file first"
+
+		return nil
+	}
+
 	// The refusals are read before the agent is stopped.
 	if reason, refused := r.isEditRefused(s); refused {
 		r.notice = reason

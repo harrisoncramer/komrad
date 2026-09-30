@@ -126,6 +126,6 @@ WHERE
         AND HAS_TABLE_PRIVILEGE('komrad_engine', c.oid, 'INSERT')
         AND HAS_TABLE_PRIVILEGE('komrad_engine', c.oid, 'UPDATE')
         AND HAS_TABLE_PRIVILEGE('komrad_engine', c.oid, 'DELETE')
-        AND HAS_TABLE_PRIVILEGE('komrad_reader', c.oid, 'SELECT'))
+        AND HAS_TABLE_PRIVILEGE('komrad_reader', c.oid, 'SELECT') =(c.relname NOT IN ('forge_review_threads', 'forge_review_comments')))
 ORDER BY
     c.relname;

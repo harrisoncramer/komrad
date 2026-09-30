@@ -711,7 +711,7 @@
               "key": "jump",
               "path": "keybindings.review.jump",
               "type": "array",
-              "description": "Jump from the comment under the cursor to the diff it was written against, with the\ncursor on it, or back to where you were from there.",
+              "description": "Jump from the comment under the cursor to the diff it was written against, with the\ncursor on it, or back to where you were from there. Anywhere else, move to the next\ncomment from the forge on the pull request.",
               "default": "[\"J\"]"
             },
             {
@@ -838,7 +838,7 @@
               "path": "keybindings.schedules.toggle",
               "type": "array",
               "description": "Pause or resume the schedule under the cursor.",
-              "default": "[\"space\"]"
+              "default": "[\"p\"]"
             }
           ],
           "sections": []
@@ -900,7 +900,7 @@
               "key": "open",
               "path": "keybindings.menu.open",
               "type": "array",
-              "description": "Open the menu on the hovered agent, or its orchestrator's on a workflow's row.",
+              "description": "Open the menu from any screen: the hovered agent's entries, or its orchestrator's on a\nworkflow's row, over the entries that act on the panel itself.",
               "default": "[\"space\"]"
             },
             {
@@ -937,6 +937,13 @@
               "type": "array",
               "description": "Open the git menu to the right of this one, for rebasing the agent's branch or opening or\nmerging its pull request.",
               "default": "[\"g\"]"
+            },
+            {
+              "key": "scratch",
+              "path": "keybindings.menu.scratch",
+              "type": "array",
+              "description": "Open this engine's scratch file in your editor in place of the pane beside the list, or\nclose it when it is already open. Each engine keeps its own file under komrad's state\ndirectory.",
+              "default": "[\"s\"]"
             }
           ],
           "sections": []
@@ -974,46 +981,18 @@
           "description": "The switcher at the top of the panel, which moves between the agents, query,\nschedules, archive and worktrees from any of them.",
           "settings": [
             {
-              "key": "pick",
-              "path": "keybindings.views.pick",
+              "key": "next",
+              "path": "keybindings.views.next",
               "type": "array",
-              "description": "Hand the keys to the switcher.",
+              "description": "Open the next view.",
               "default": "[\"tab\"]"
             },
             {
-              "key": "agents",
-              "path": "keybindings.views.agents",
+              "key": "previous",
+              "path": "keybindings.views.previous",
               "type": "array",
-              "description": "Open the agents list.",
-              "default": "[\"a\"]"
-            },
-            {
-              "key": "query",
-              "path": "keybindings.views.query",
-              "type": "array",
-              "description": "Open the query over every conversation the panel holds, the archived ones included.",
-              "default": "[\"q\"]"
-            },
-            {
-              "key": "schedules",
-              "path": "keybindings.views.schedules",
-              "type": "array",
-              "description": "Open the schedules.",
-              "default": "[\"s\"]"
-            },
-            {
-              "key": "archive",
-              "path": "keybindings.views.archive",
-              "type": "array",
-              "description": "Open the archive.",
-              "default": "[\"r\"]"
-            },
-            {
-              "key": "worktrees",
-              "path": "keybindings.views.worktrees",
-              "type": "array",
-              "description": "Open the worktrees, landing on the hovered agent's own directory.",
-              "default": "[\"w\"]"
+              "description": "Open the previous view.",
+              "default": "[\"shift+tab\"]"
             }
           ],
           "sections": []

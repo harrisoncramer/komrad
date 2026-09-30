@@ -30,7 +30,6 @@ const (
 	actionQuit
 	actionAgentsBack
 	actionAgentOpen
-	actionMenuOpen
 	actionAgentChild
 	actionAgentRename
 	actionAgentArchive
@@ -90,6 +89,7 @@ const (
 	actionReviewBaseForward
 	actionReviewAnswer
 	actionReviewJump
+	actionReviewOffer
 	actionReviewCompose
 	actionReviewSend
 )

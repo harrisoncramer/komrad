@@ -51,7 +51,7 @@ func TestSchedulesKeys(t *testing.T) {
 		{
 			name:  "toggle on an empty list asks for no write",
 			rows:  []proto.Message{newLiveWorkflow("w1", "api")},
-			press: []string{"space"},
+			press: []string{"p"},
 		},
 		{
 			name:       "new with no workflows says why rather than opening the form",
@@ -62,7 +62,7 @@ func TestSchedulesKeys(t *testing.T) {
 		{
 			name:       "back opens the view switcher",
 			rows:       buildSchedules(),
-			press:      []string{"esc", "a"},
+			press:      []string{"esc", "shift+tab", "shift+tab"},
 			wantScreen: agentsScreen,
 		},
 		{
@@ -97,7 +97,7 @@ func TestSchedulesKeys(t *testing.T) {
 		{
 			name:  "toggle pauses an armed schedule with no form in between",
 			rows:  buildSchedules(),
-			press: []string{"space"},
+			press: []string{"p"},
 			wantSent: []request{{
 				procedure: schedulev1connect.ScheduleServiceSetScheduleEnabledProcedure,
 				msg:       &schedulev1.SetScheduleEnabledRequest{Id: "s1"},
@@ -106,7 +106,7 @@ func TestSchedulesKeys(t *testing.T) {
 		{
 			name:  "toggle resumes a paused schedule",
 			rows:  []proto.Message{newLiveWorkflow("w1", "api"), newPausedSchedule("s1", "nightly")},
-			press: []string{"space"},
+			press: []string{"p"},
 			wantSent: []request{{
 				procedure: schedulev1connect.ScheduleServiceSetScheduleEnabledProcedure,
 				msg: &schedulev1.SetScheduleEnabledRequest{
@@ -560,7 +560,7 @@ func TestSchedulesForm(t *testing.T) {
 		harness.refuse(schedulev1connect.ScheduleServiceSetScheduleEnabledProcedure, errors.New("cron must be five fields"))
 
 		harness.press(widenListPresses...)
-		harness.press("space")
+		harness.press("p")
 
 		assert.Contains(t, harness.readFrame(), `Could not pause schedule "morning-ci"`)
 	})
@@ -658,7 +658,7 @@ func openSchedules(t *testing.T, rows ...proto.Message) *panelHarness {
 	t.Helper()
 
 	harness := openAgents(t, rows...)
-	harness.press("tab", "s")
+	harness.press("tab", "tab")
 
 	return harness
 }

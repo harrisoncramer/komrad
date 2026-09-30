@@ -4,7 +4,6 @@ import (
 	"slices"
 	"strings"
 
-	"komrad/config"
 	"komrad/internal/glyph"
 	"komrad/internal/ui/paint"
 	"komrad/lib/xslice"
@@ -23,7 +22,6 @@ const viewsBarFloor = 20
 type viewEntry struct {
 	screen screen
 	label  string
-	keys   func(config.ViewsKeys) []string
 }
 
 func viewEntries() []viewEntry {
@@ -31,27 +29,22 @@ func viewEntries() []viewEntry {
 		{
 			screen: screenAgents,
 			label:  "agents",
-			keys:   func(k config.ViewsKeys) []string { return k.Agents },
 		},
 		{
 			screen: screenSearch,
 			label:  "query",
-			keys:   func(k config.ViewsKeys) []string { return k.Query },
 		},
 		{
 			screen: screenSchedules,
 			label:  "schedules",
-			keys:   func(k config.ViewsKeys) []string { return k.Schedules },
 		},
 		{
 			screen: screenArchive,
 			label:  "archive",
-			keys:   func(k config.ViewsKeys) []string { return k.Archive },
 		},
 		{
 			screen: screenWorktrees,
 			label:  "worktrees",
-			keys:   func(k config.ViewsKeys) []string { return k.Worktrees },
 		},
 	}
 }
@@ -91,7 +84,6 @@ func (m model) switcherLines(trail crumbs) []string {
 	entries := viewEntries()
 	row := stops{
 		labels: xslice.Map(entries, func(entry viewEntry) string { return entry.label }),
-		marks:  xslice.Map(entries, func(entry viewEntry) string { return headLabel(entry.keys(m.keys.Views)) }),
 		focus:  noStop,
 		lit:    noStop,
 	}
@@ -123,10 +115,12 @@ func (m model) viewIndex() int {
 	return slices.IndexFunc(viewEntries(), func(entry viewEntry) bool { return entry.screen == at })
 }
 
-func (m model) openViews() model {
+// openViews hands the switcher the keys and opens the view delta along from the one that is up.
+func (m model) openViews(delta int) (model, tea.Cmd) {
 	m.pickView()
+	cmd := m.stepView(delta)
 
-	return m
+	return m, cmd
 }
 
 func (m *model) pickView() tea.Cmd {
@@ -137,21 +131,46 @@ func (m *model) pickView() tea.Cmd {
 	return nil
 }
 
-func (m model) updateViews(key tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+// closeViews hands the keys back to the view that is up, closing a shell it cannot hold.
+func (m *model) closeViews() {
+	m.viewsOpen = false
+	if !m.screen.opensTerminal() && m.terminalDir != "" {
+		*m = m.closeInfo()
+	}
+}
+
+// stepView opens the view delta along from the one that is up, wrapping at both ends.
+func (m *model) stepView(delta int) tea.Cmd {
 	entries := viewEntries()
 
-	cmd := m.pressStrip(key.String(), stripKeys{
-		step: func(delta int) tea.Cmd {
-			return m.enterView(entries[stepStop(m.viewIndex(), delta, len(entries))])
-		},
-		close: func() { m.viewsOpen = false },
-		other: func(pressed string) tea.Cmd {
-			for _, entry := range entries {
-				if isBound(pressed, entry.keys(m.keys.Views)) {
-					m.viewsOpen = false
+	return m.enterView(entries[stepStop(m.viewIndex(), delta, len(entries))])
+}
 
-					return m.enterView(entry)
-				}
+// viewsDelta is how far a press steps through the views, and zero for a press that steps none.
+func (m model) viewsDelta(pressed string) int {
+	switch {
+	case isBound(pressed, m.keys.Views.Next):
+		return 1
+	case isBound(pressed, m.keys.Views.Previous):
+		return -1
+	}
+
+	return 0
+}
+
+// holdsViewsKey reports whether the open switcher answers a press, any other closing it and reaching
+// the view underneath.
+func (m model) holdsViewsKey(pressed string) bool {
+	return pressed == tabNextKey || pressed == tabPrevKey || pressed == "esc" || m.viewsDelta(pressed) != 0
+}
+
+func (m model) updateViews(key tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	cmd := m.pressStrip(key.String(), stripKeys{
+		step:  m.stepView,
+		close: m.closeViews,
+		other: func(pressed string) tea.Cmd {
+			if delta := m.viewsDelta(pressed); delta != 0 {
+				return m.stepView(delta)
 			}
 
 			return nil
@@ -188,16 +207,11 @@ func (m model) hoveredAgentID() string {
 }
 
 func (m model) viewsBinding() key.Binding {
-	return binding(m.keys.Views.Pick, "switch view")
+	return binding(m.keys.Views.Next, "switch view")
 }
 
 func (m model) viewsHelp() keyMap {
-	move := stopsMoveBinding("switch")
-	done := binding([]string{"esc"}, "done")
-
-	bindings := append([]key.Binding{move, done}, xslice.Map(viewEntries(), func(entry viewEntry) key.Binding {
-		return binding(entry.keys(m.keys.Views), entry.label)
-	})...)
+	bindings := []key.Binding{stopsMoveBinding("switch"), binding([]string{"esc"}, "done")}
 
 	return keyMap{short: bindings, full: bindings}
 }

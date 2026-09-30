@@ -101,6 +101,9 @@ func appendCommentsNotice(notices []notice, glyphs glyph.Set, comments *view.Com
 	}
 
 	text := fmt.Sprintf("%s: %d open, %d resolved", whose, comments.Open, comments.Resolved)
+	if comments.External > 0 {
+		text += fmt.Sprintf(", %d from the forge", comments.External)
+	}
 	if !dotted || !comments.Unread {
 		return appendNotice(notices, true, "", paint.ToneMuted, text)
 	}

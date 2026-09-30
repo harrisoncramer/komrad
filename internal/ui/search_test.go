@@ -133,7 +133,7 @@ func TestSearchQuery(t *testing.T) {
 			t.Parallel()
 
 			harness := openAgents(t)
-			harness.press("tab", "q")
+			harness.press("tab")
 
 			harness.press(tt.press...)
 
@@ -220,7 +220,7 @@ func TestSearchResults(t *testing.T) {
 		t.Parallel()
 
 		harness := openAgents(t, buildSearchable()...)
-		harness.press("tab", "q", "l", "e", "d", "esc", "a")
+		harness.press("tab", "l", "e", "d", "esc", "shift+tab")
 
 		harness.fireTimers()
 
@@ -330,7 +330,7 @@ func TestSearchResults(t *testing.T) {
 		harness := newPanelHarness(t, panelHarnessParams{height: 14})
 		newSearchServer(found...).serve(harness)
 		harness.watch(buildSnapshot())
-		harness.press("tab", "q")
+		harness.press("tab")
 		typeText(harness, "agent")
 		harness.fireTimers()
 
@@ -368,7 +368,7 @@ func TestSearchKeys(t *testing.T) {
 	}{
 		{
 			name:       "escape in the query line opens the view switcher",
-			press:      []string{"esc", "a"},
+			press:      []string{"esc", "shift+tab"},
 			wantScreen: agentsScreen,
 			wantTyping: false,
 		},
@@ -525,7 +525,7 @@ func TestSearchArchivedRow(t *testing.T) {
 			})
 			searched := findRow(readListRows(harness.readFrame()), "payouts")
 
-			harness.press("esc", "tab", "r")
+			harness.press("esc", "tab", "tab")
 
 			assert.Equal(t, strings.TrimSpace(findRow(readListRows(harness.readFrame()), "payouts")), searched)
 		})
@@ -767,7 +767,7 @@ func TestSearchPreview(t *testing.T) {
 		harness := openPreview(t, panelHarnessParams{})
 		require.True(t, harness.panel.IsZoomed())
 
-		harness.press("esc", "a")
+		harness.press("esc", "shift+tab")
 
 		assert.Equal(t, agentsScreen, harness.readScreen())
 		assert.False(t, harness.panel.IsZoomed())
@@ -1026,7 +1026,7 @@ func openSearch(t *testing.T, params openSearchParams) *panelHarness {
 }
 
 func searchFor(harness *panelHarness, query string) {
-	harness.press("tab", "q")
+	harness.press("tab")
 	typeText(harness, query)
 	harness.fireTimers()
 }

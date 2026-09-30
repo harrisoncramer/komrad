@@ -29,6 +29,12 @@ func (a *agentsScreen) pressEdit(h host, s panelShared) tea.Cmd {
 		return cmd
 	}
 
+	if h.isScratchOpen() {
+		h.reportBrief("could not open the editor", "close the scratch file first")
+
+		return nil
+	}
+
 	item, ok := a.selectedAgent(s)
 	if !ok {
 		return nil

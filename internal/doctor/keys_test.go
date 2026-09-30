@@ -48,12 +48,12 @@ func rootKeysEnvWithPrefix(cfg *config.Config, prefix string, rootKeys ...string
 // in its root table, where the press never reaches the panel at all.
 func TestKeybindingsCheckFindsAKeyTmuxHolds(t *testing.T) {
 	cfg := config.Defaults()
-	cfg.Keybindings.Views.Query = []string{"ctrl+y"}
+	cfg.Keybindings.Views.Next = []string{"ctrl+y"}
 
 	result := newKeybindingsCheck().Run(t.Context(), rootKeysEnv(cfg, "C-y"))
 
 	assert.Equal(t, StatusFail, result.Status,
-		"tmux answers C-y before the panel does, so search is unreachable")
+		"tmux answers C-y before the panel does, so the view switcher is unreachable")
 	assert.Equal(t, "ctrl+y", result.Detail)
 	assert.Contains(t, result.Fix, "unbind -n C-y")
 }

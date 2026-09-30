@@ -184,3 +184,42 @@ service PullRequestService {
     };
   }
 }
+
+// ForgeThread is a review thread as the forge holds it on a pull request an agent is linked to,
+// which the panel offers the person and never hands an agent.
+message ForgeThread {
+  // The handle komrad keys the row by.
+  string id = 1;
+  // The pull request the thread is on.
+  string pull_request_id = 2;
+  // The file the thread is on, empty for a comment on the change as a whole.
+  string path = 3;
+  // The line of the file the thread was written against, zero when it names none.
+  int32 line = 4;
+  // The web address of the thread's first comment on the forge.
+  string url = 5;
+  // Whether the forge reports the thread resolved.
+  bool resolved = 6;
+  // When the thread's first comment was written, in RFC 3339.
+  string written_at = 7;
+  // The comments in the thread, oldest first.
+  repeated ForgeComment comments = 8;
+}
+
+// ForgeComment is one comment in a forge review thread.
+message ForgeComment {
+  // The handle komrad keys the row by.
+  string id = 1;
+  // The forge login of whoever wrote it, empty when the forge no longer knows them.
+  string author_login = 2;
+  // Whether the forge says the author is a bot.
+  bool bot = 3;
+  // Whether the author is the login a token connection was verified as. A connection made from an App marks nothing yours.
+  bool yours = 4;
+  // What the comment says.
+  string body = 5;
+  // When it was written on the forge, in RFC 3339.
+  string written_at = 6;
+  // When it was last edited on the forge, in RFC 3339, unset while it never has been.
+  optional string edited_at = 7;
+}
