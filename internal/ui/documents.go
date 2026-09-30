@@ -76,7 +76,7 @@ func (d *documentsScreen) enter(h host, _ panelShared, target screenTarget) tea.
 		d.from = target.from
 	}
 
-	h.stageInfo()
+	h.stageTerminal()
 
 	return tea.Batch(saved, h.waitToStage())
 }
@@ -103,7 +103,7 @@ func (d *documentsScreen) list() screenList[documentRow] {
 		cursor: func() *rowCursor { return &d.rowCursor },
 		rows:   d.rows,
 		name:   documentRowName,
-		placed: func(h host, _ panelShared) { h.stageInfo() },
+		placed: func(h host, _ panelShared) { h.stageTerminal() },
 		moved: func(h host, _ panelShared) tea.Cmd {
 			d.history, d.focus = nil, false
 
@@ -448,7 +448,7 @@ var (
 )
 
 func (d *documentsScreen) stage(h host, _ panelShared) {
-	h.stageInfo()
+	h.stageTerminal()
 }
 
 func (d *documentsScreen) doesDrawFromListing() bool {

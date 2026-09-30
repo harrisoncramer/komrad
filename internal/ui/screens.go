@@ -212,7 +212,7 @@ type host interface {
 	waitToStage() tea.Cmd
 
 	// The info pane is the root's, and the archive and worktrees screens put it on the stage.
-	stageInfo()
+	stageTerminal()
 
 	// The files a reader opened over a stopped agent are the root's, noted by the review and
 	// carried by a release from the review or the agents screen.

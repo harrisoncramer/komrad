@@ -517,7 +517,7 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 // reconcileEditor catches the info pane, the scratch editor and a screen's editor going away on
 // their own.
 func (m *model) reconcileEditor() tea.Cmd {
-	m.reconcileInfo()
+	m.reconcileTerminal()
 
 	if cmd := m.reconcileScratch(); cmd != nil {
 		return cmd

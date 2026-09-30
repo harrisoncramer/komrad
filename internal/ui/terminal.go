@@ -69,10 +69,10 @@ func (m model) openTerminal(agent panel.Agent) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	if !m.claimInfo(agent.Cwd) {
+	if !m.claimTerminal(agent.Cwd) {
 		return m, nil
 	}
-	m.stageInfo()
+	m.stageTerminal()
 
 	return focus()
 }
@@ -93,4 +93,77 @@ func (m model) checkTerminalDir(dir string) error {
 	_, err := os.Stat(dir)
 
 	return err
+}
+
+func (m *model) claimTerminal(dir string) bool {
+	pane := m.frame.Open(layout.RegionInfo)
+	if pane == "" {
+		return false
+	}
+
+	m.tmux.SetInfoPane(pane)
+	m.frame.Claimed(layout.RegionInfo)
+	m.terminalDir = dir
+	m.reconcileSolo()
+
+	// The stage is uncovered by handing the window back, so whatever was parked in it while it
+	// was covered has to be put right before it is on screen again.
+	m.restageScreen()
+
+	return true
+}
+
+func (m model) closeTerminal() model {
+	m.frame.Close(layout.RegionInfo)
+	m.forgetTerminal()
+	m.restageScreen()
+
+	return m
+}
+
+func (m *model) forgetTerminal() {
+	m.tmux.SetInfoPane("")
+	m.terminalDir = ""
+	m.reconcileSolo()
+}
+
+func (m *model) stageTerminal() {
+	if m.terminalDir == "" {
+		return
+	}
+
+	if argv := m.frame.ShellArgv(m.terminalDir); len(argv) > 0 {
+		m.frame.Show(layout.RegionInfo, remoteTerminalContent(argv))
+
+		return
+	}
+
+	m.frame.Show(layout.RegionInfo, terminalContent(m.shell, m.terminalDir))
+}
+
+// reconcileTerminal catches the info pane going away on its own.
+func (m *model) reconcileTerminal() {
+	if m.terminalDir == "" || m.frame.IsOpen(layout.RegionInfo) {
+		return
+	}
+
+	m.forgetTerminal()
+}
+
+// findTerminalPane is the shell the picker stops at, empty while none is open.
+func (m model) findTerminalPane() string {
+	if m.frame == nil || m.terminalDir == "" {
+		return ""
+	}
+
+	return m.frame.Pane(layout.RegionInfo)
+}
+
+// closeTerminalLeaving closes the shell when the screen being entered cannot hold it.
+func (m *model) closeTerminalLeaving(next screen) {
+	if next.opensTerminal() || m.terminalDir == "" {
+		return
+	}
+
+	*m = m.closeTerminal()
 }

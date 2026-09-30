@@ -3,8 +3,6 @@ package ui
 import (
 	"slices"
 
-	"komrad/internal/ui/layout"
-
 	tea "charm.land/bubbletea/v2"
 )
 
@@ -32,7 +30,7 @@ func (m model) listStops() []stop {
 		stops = append(stops, stopAgent)
 	}
 
-	if m.terminalPane() != "" {
+	if m.findTerminalPane() != "" {
 		stops = append(stops, stopTerminal)
 	}
 
@@ -48,7 +46,7 @@ func (m model) enterStop(to stop) (tea.Model, tea.Cmd) {
 	case stopAgent:
 		m.tmux.SelectPane(m.focusPane())
 	case stopTerminal:
-		m.tmux.SelectPane(m.terminalPane())
+		m.tmux.SelectPane(m.findTerminalPane())
 	case stopRecord:
 		return m.enterSidebar(to).jumpIntoDetails()
 	case stopBlock:
@@ -123,15 +121,6 @@ func (m model) toggleStop() (tea.Model, tea.Cmd) {
 	}
 
 	return m.enterStop(to)
-}
-
-// terminalPane is the shell the picker stops at, empty while none is open.
-func (m model) terminalPane() string {
-	if m.frame == nil || m.terminalDir == "" {
-		return ""
-	}
-
-	return m.frame.Pane(layout.RegionInfo)
 }
 
 // isScreenBlockDrawn reports whether the screen is drawing a block of its own beside the list.

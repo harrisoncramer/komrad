@@ -134,9 +134,7 @@ func (m *model) pickView() tea.Cmd {
 // closeViews hands the keys back to the view that is up, closing a shell it cannot hold.
 func (m *model) closeViews() {
 	m.viewsOpen = false
-	if !m.screen.opensTerminal() && m.terminalDir != "" {
-		*m = m.closeInfo()
-	}
+	m.closeTerminalLeaving(m.screen)
 }
 
 // stepView opens the view delta along from the one that is up, wrapping at both ends.
