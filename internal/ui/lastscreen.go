@@ -219,15 +219,16 @@ func (m model) withLastScreen(rows []string, width int) []string {
 		return rows
 	}
 
+	notice := m.screenNotice()
 	height := m.columnHeight() - len(rows) - 1
-	if height < minScreenRows {
+	if height-len(noticeRows(notice, width))-1 < minScreenRows {
 		height = m.columnHeight()
 	}
 
 	return append(append(rows, ""), lastScreenRows(lastScreenRowsParams{
 		screen:  m.lastScreen,
 		agentID: agentID,
-		notice:  m.screenNotice(),
+		notice:  notice,
 		width:   width,
 		height:  height,
 	})...)
