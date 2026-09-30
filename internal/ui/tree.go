@@ -287,6 +287,21 @@ func (a *agentsScreen) hoveredPane(s panelShared) (panel.AgentRow, bool) {
 	return item, true
 }
 
+// hoveredDormant is the agent the row under the cursor stands for when it is not running.
+func (a *agentsScreen) hoveredDormant(s panelShared) (panel.AgentRow, bool) {
+	r, ok := a.hoveredRow(s)
+	if !ok {
+		return panel.AgentRow{}, false
+	}
+
+	item, held := r.paneItem()
+	if !held || item.Alive || item.Agent.HeldAt != nil || item.Agent.State == panel.StateSettingUp || item.Agent.State.IsFailed() {
+		return panel.AgentRow{}, false
+	}
+
+	return item, true
+}
+
 // hasNoAgentPane reports whether the row the cursor is on has no pane of its own.
 func (a *agentsScreen) hasNoAgentPane(s panelShared) bool {
 	_, ok := a.hoveredPane(s)

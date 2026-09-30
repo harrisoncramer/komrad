@@ -246,7 +246,7 @@ func (a *agentsScreen) doc(s panelShared) string {
 	case item.Agent.State.IsFailed():
 		return failedPlaceholder(item.Agent)
 	default:
-		return dormantPlaceholder
+		return dormantPlaceholder + "\n\n" + conversationPreviewMarkdown(s.conversation, item.Agent.ID)
 	}
 }
 

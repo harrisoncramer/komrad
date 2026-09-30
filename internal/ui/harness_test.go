@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"regexp"
 	"runtime"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -357,6 +358,13 @@ func (h *panelHarness) readRawFrame() string {
 	}
 
 	return strings.Join(lines, "\n")
+}
+
+func (h *panelHarness) readRequests() []request {
+	h.recorder.mu.Lock()
+	defer h.recorder.mu.Unlock()
+
+	return slices.Clone(h.recorder.seen)
 }
 
 func (h *panelHarness) assertSent(want ...request) {

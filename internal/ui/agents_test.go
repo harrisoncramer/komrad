@@ -12,6 +12,7 @@ import (
 	"komrad/internal/ui"
 	"komrad/internal/ui/paint"
 	"komrad/lib/xptr"
+	"komrad/lib/xslice"
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
 	"komrad/proto/gen/hook/v1/hookv1connect"
@@ -623,11 +624,12 @@ func TestAgentsRecordFocus(t *testing.T) {
 		harness := openAgents(t, buildRecorded()...)
 		harness.press("pick:record")
 		before := harness.readFrame()
+		sent := harness.readRequests()
 
 		harness.press("z", "r", "n", "c")
 
 		assert.Equal(t, before, harness.readFrame())
-		harness.assertSent(buildWorktreeReadRequests(2)...)
+		harness.assertSent(sent...)
 	})
 
 	t.Run("nothing listed gives the record no letter", func(t *testing.T) {
@@ -1186,11 +1188,11 @@ func TestAgentsRecordWorktree(t *testing.T) {
 
 	t.Run("the focus key reads the directory again", func(t *testing.T) {
 		harness := openAgents(t, buildRecorded()...)
-		harness.assertSent(buildWorktreeReadRequests(1)...)
+		harness.assertSentTo(worktreev1connect.WorktreeServiceGetWorktreeProcedure, buildWorktreeReads(1)...)
 
 		harness.press("pick:record")
 
-		harness.assertSent(buildWorktreeReadRequests(2)...)
+		harness.assertSentTo(worktreev1connect.WorktreeServiceGetWorktreeProcedure, buildWorktreeReads(2)...)
 	})
 
 	t.Run("a refused reread keeps the last answer beside the refusal", func(t *testing.T) {
@@ -1231,7 +1233,7 @@ func TestAgentsRecordWorktree(t *testing.T) {
 				harness.press("k", "j")
 				harness.fireTimers()
 
-				harness.assertSent(buildWorktreeReadRequests(tt.want)...)
+				harness.assertSentTo(worktreev1connect.WorktreeServiceGetWorktreeProcedure, buildWorktreeReads(tt.want)...)
 			})
 		}
 	})
@@ -1243,7 +1245,7 @@ func TestAgentsRecordWorktree(t *testing.T) {
 
 		harness.press("pick:record", "pick:list", "k", "j")
 
-		harness.assertSent(buildWorktreeReadRequests(1)...)
+		harness.assertSentTo(worktreev1connect.WorktreeServiceGetWorktreeProcedure, buildWorktreeReads(1)...)
 	})
 
 	t.Run("a focused record grows to show every field and shrinks back", func(t *testing.T) {
@@ -1624,6 +1626,91 @@ func TestAgentsFailedPlaceholder(t *testing.T) {
 	}
 }
 
+// TestAgentsConversationPreview covers the conversation drawn beside an agent that is not running.
+func TestAgentsConversationPreview(t *testing.T) {
+	tests := []struct {
+		name         string
+		agent        *agentv1.Agent
+		want         []string
+		wantAbsent   []string
+		wantTurnsFor []string
+	}{
+		{
+			name:         "a dormant agent draws its last turns under how to resume it",
+			agent:        newDormant("login"),
+			want:         []string{"Press open to resume.", "Conversation Preview", "the migration is written"},
+			wantTurnsFor: []string{"a1"},
+		},
+		{
+			name: "a failed agent draws its failure and no conversation",
+			agent: func() *agentv1.Agent {
+				agent := newDormant("login")
+				agent.State = agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE
+
+				return agent
+			}(),
+			want:       []string{"setup failed"},
+			wantAbsent: []string{"Conversation Preview"},
+		},
+		{
+			name:  "a running agent asks for no conversation",
+			agent: newPausable(""),
+		},
+		{
+			name:       "a paused agent draws how to unpause it and no conversation",
+			agent:      newPausable("1970-01-01T00:00:00Z"),
+			want:       []string{"unpause in silence"},
+			wantAbsent: []string{"Conversation Preview"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			harness := newPanelHarness(t, panelHarnessParams{})
+			answerWorktreeReads(harness)
+			answerLastTurns(harness, map[string][]*agentv1.Turn{
+				"a1": {{Role: "assistant", Content: "the migration is written"}},
+			})
+			harness.watch(buildSnapshot(newLiveWorkflow("w1", "backend"), tt.agent))
+			harness.press("j")
+			harness.fireTimers()
+
+			frame := harness.readFrame()
+			for _, want := range tt.want {
+				assert.Contains(t, frame, want)
+			}
+			for _, absent := range tt.wantAbsent {
+				assert.NotContains(t, frame, absent)
+			}
+			harness.assertSentTo(agentv1connect.AgentServiceGetLastTurnsProcedure, xslice.Map(tt.wantTurnsFor, func(id string) proto.Message {
+				return &agentv1.GetLastTurnsRequest{AgentId: id, Turns: xptr.Ptr[int32](6), MaxBytes: xptr.Ptr[int32](1200)}
+			})...)
+		})
+	}
+
+	t.Run("an agent that runs and stops again under the cursor draws its newer turns", func(t *testing.T) {
+		harness := newPanelHarness(t, panelHarnessParams{})
+		answerWorktreeReads(harness)
+		answerLastTurns(harness, map[string][]*agentv1.Turn{
+			"a1": {{Role: "assistant", Content: "the migration is written"}},
+		})
+		harness.watch(buildSnapshot(newLiveWorkflow("w1", "backend"), newDormant("login")))
+		harness.press("j")
+		harness.fireTimers()
+		require.Contains(t, harness.readFrame(), "the migration is written")
+
+		live := newDormant("login")
+		live.Alive = xptr.Ptr(true)
+		harness.watch(buildSnapshot(newLiveWorkflow("w1", "backend"), live))
+		answerLastTurns(harness, map[string][]*agentv1.Turn{
+			"a1": {{Role: "assistant", Content: "the tests pass"}},
+		})
+		harness.watch(buildSnapshot(newLiveWorkflow("w1", "backend"), newDormant("login")))
+
+		assert.Contains(t, harness.readFrame(), "the tests pass")
+	})
+}
+
 // TestAgentsEdit covers opening your editor on an agent's worktree from its row.
 func TestAgentsEdit(t *testing.T) {
 	t.Run("the edit key stops the agent and opens its worktree beside the list", func(t *testing.T) {
@@ -2001,7 +2088,7 @@ func TestAgentsOrchestrator(t *testing.T) {
 		harness.press("k")
 
 		require.Equal(t, "backend", readHoveredRow(harness.readFrame()))
-		harness.assertSent()
+		harness.assertSentTo(agentv1connect.AgentServiceStartOrchestratorProcedure)
 	})
 
 	t.Run("a flat list draws no row for the orchestrator it folded away", func(t *testing.T) {
@@ -2277,13 +2364,10 @@ func TestAgentsSelection(t *testing.T) {
 			harness.press(tt.press...)
 
 			harness.press("z")
-			harness.assertSent()
+			harness.assertSentTo(agentv1connect.AgentServiceArchiveAgentsProcedure)
 			harness.press("ctrl+s")
 
-			harness.assertSent(request{
-				procedure: agentv1connect.AgentServiceArchiveAgentsProcedure,
-				msg:       &agentv1.ArchiveAgentsRequest{Ids: tt.wantIDs},
-			})
+			harness.assertSentTo(agentv1connect.AgentServiceArchiveAgentsProcedure, &agentv1.ArchiveAgentsRequest{Ids: tt.wantIDs})
 		})
 	}
 
@@ -2318,10 +2402,7 @@ func TestAgentsSelection(t *testing.T) {
 		harness.watch(buildSnapshot(newLiveWorkflow("w2", "frontend"), newAgentAt("ui", "w2", 1)))
 		harness.press("z", "ctrl+s")
 
-		harness.assertSent(request{
-			procedure: agentv1connect.AgentServiceArchiveAgentsProcedure,
-			msg:       &agentv1.ArchiveAgentsRequest{Ids: []string{"ui"}},
-		})
+		harness.assertSentTo(agentv1connect.AgentServiceArchiveAgentsProcedure, &agentv1.ArchiveAgentsRequest{Ids: []string{"ui"}})
 	})
 
 	t.Run("so does one the hidden toggle puts away", func(t *testing.T) {
@@ -2330,10 +2411,7 @@ func TestAgentsSelection(t *testing.T) {
 
 		harness.press("z", "ctrl+s")
 
-		harness.assertSent(request{
-			procedure: agentv1connect.AgentServiceArchiveAgentsProcedure,
-			msg:       &agentv1.ArchiveAgentsRequest{Ids: []string{"auth"}},
-		})
+		harness.assertSentTo(agentv1connect.AgentServiceArchiveAgentsProcedure, &agentv1.ArchiveAgentsRequest{Ids: []string{"auth"}})
 	})
 }
 
@@ -2591,11 +2669,8 @@ func refuseWith(code connect.Code, reason string) answerFunc {
 	}
 }
 
-func buildWorktreeReadRequests(count int) []request {
-	return slices.Repeat([]request{{
-		procedure: worktreev1connect.WorktreeServiceGetWorktreeProcedure,
-		msg:       &worktreev1.GetWorktreeRequest{Dir: "/repo"},
-	}}, count)
+func buildWorktreeReads(count int) []proto.Message {
+	return slices.Repeat([]proto.Message{&worktreev1.GetWorktreeRequest{Dir: "/repo"}}, count)
 }
 
 func buildRecorded() []proto.Message {
