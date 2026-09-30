@@ -2,6 +2,7 @@ package ui
 
 import (
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -73,4 +74,67 @@ func scanZones(frame string) map[zone]panes.Rect {
 	}
 
 	return found
+}
+
+// sidebarBlock is a block the panel drew inside its own pane that the picker can land on.
+type sidebarBlock struct {
+	stop stop
+	rect panes.Rect
+}
+
+// findSidebarBlocks draws the panel once with its blocks marked and reads where each one landed.
+func (m model) findSidebarBlocks() []sidebarBlock {
+	marked := m
+	marked.markingZones = true
+
+	zones := scanZones(marked.drawInset(marked.insideView()))
+	stops := m.listStops()
+	height := m.height
+
+	var blocks []sidebarBlock
+
+	details, hasDetails := zones[zoneDetails]
+	if hasDetails && slices.Contains(stops, stopRecord) {
+		blocks = append(blocks, sidebarBlock{stop: stopRecord, rect: details})
+		height = details.Top
+	}
+
+	list := panes.Rect{Left: 0, Top: 0, Width: m.width, Height: height}
+	column, hasColumn := zones[zoneColumn]
+	if hasColumn {
+		if !m.frame.IsSidebarOnRight() {
+			list.Width = column.Left - dividerCols
+		} else {
+			list.Left = column.Left + column.Width + dividerCols
+			list.Width = m.width - list.Left
+		}
+	}
+
+	if marked, ok := zones[zoneList]; ok {
+		list = marked
+	}
+
+	block, hasBlock := zones[zoneBlock]
+	if !hasBlock {
+		block, hasBlock = column, hasColumn
+	}
+
+	if hasBlock && slices.Contains(stops, stopBlock) {
+		blocks = append(blocks, sidebarBlock{stop: stopBlock, rect: block})
+	}
+
+	return append([]sidebarBlock{{stop: stopList, rect: list}}, blocks...)
+}
+
+// clipRect is the part of rect inside bounds, and whether any of it is.
+func clipRect(rect, bounds panes.Rect) (panes.Rect, bool) {
+	left, top := max(rect.Left, bounds.Left), max(rect.Top, bounds.Top)
+	right := min(rect.Left+rect.Width, bounds.Left+bounds.Width)
+	bottom := min(rect.Top+rect.Height, bounds.Top+bounds.Height)
+
+	if right <= left || bottom <= top {
+		return panes.Rect{}, false
+	}
+
+	return panes.Rect{Pane: rect.Pane, Left: left, Top: top, Width: right - left, Height: bottom - top}, true
 }

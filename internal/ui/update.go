@@ -59,16 +59,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return routed, tea.Batch(cmd, blink, warming, spinning, pulse)
 }
 
-// focusPane is the agent's pane the picker stops at, empty where the stage holds none or the
-// panel is drawn over it.
-func (m model) focusPane() string {
-	if m.screen != screenAgents || m.frame.IsSolo() {
-		return ""
-	}
-
-	return m.frame.FocusPane()
-}
-
 func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if wheel, ok := msg.(tea.MouseWheelMsg); ok {
 		return m.routeWheel(wheel)
