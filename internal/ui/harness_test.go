@@ -660,6 +660,8 @@ func wrapRow(row proto.Message) *watchv1.Row {
 		return &watchv1.Row{Row: &watchv1.Row_PullRequest{PullRequest: row}}
 	case *pullrequestv1.Repository:
 		return &watchv1.Row{Row: &watchv1.Row_Repository{Repository: row}}
+	case *pullrequestv1.ForgeThread:
+		return &watchv1.Row{Row: &watchv1.Row_ForgeThread{ForgeThread: row}}
 	case *worktreev1.WatchedWorktree:
 		return &watchv1.Row{Row: &watchv1.Row_Worktree{Worktree: row}}
 	default:

@@ -2101,6 +2101,16 @@
           "oneof": "",
           "rules": [],
           "description": "Whether any of the comments holds something the person has not read."
+        },
+        {
+          "name": "external",
+          "type": "int32",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "Open threads from people on the forge, offered to the person and not yet counted in open."
         }
       ]
     },

@@ -711,7 +711,7 @@
               "key": "jump",
               "path": "keybindings.review.jump",
               "type": "array",
-              "description": "Jump from the comment under the cursor to the diff it was written against, with the\ncursor on it, or back to where you were from there.",
+              "description": "Jump from the comment under the cursor to the diff it was written against, with the\ncursor on it, or back to where you were from there. Anywhere else, move to the next\ncomment from the forge on the pull request.",
               "default": "[\"J\"]"
             },
             {

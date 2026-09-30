@@ -48,6 +48,10 @@ Press <Key name="review.compose" /> on a line to comment on it, or on a line tha
 
 The draft is not submitted to the agent until you submit the entire review. Take your time to read the change. While you hold the drafts, the diff is "frozen", so the lines you are commenting on do not move.
 
+## Comments from the forge
+
+When the agent's pull request has review comments on GitHub, the sidebar lists them under "From the forge", each with its author and line. Press <Key name="review.jump" /> away from a comment of your own to move to the next one and read it out, with a link to it on GitHub. They are there for you to read. Nothing from them reaches the agent unless you write it into your own review.
+
 ## Editing the code yourself
 
 Sometimes fixing a line is quicker than describing the fix. Press <Key name="review.edit_file" /> to open the file in your editor beside the diff. Komrad pauses the agent while you edit, since you are both working in its checkout. When you close the editor the agent carries on from your change, and your drafts are still there.

@@ -71,6 +71,12 @@ func (r *reviewScreen) ownTable() []screenAction {
 			run:  func(_ host, s panelShared, _ string) tea.Cmd { return r.toggleJump(s) },
 		},
 		{
+			id:   actionReviewOffer,
+			keys: func(k config.Keybindings) []string { return k.Review.Jump },
+			when: r.doesStepOffers,
+			run:  func(_ host, s panelShared, _ string) tea.Cmd { return r.stepOffer(s) },
+		},
+		{
 			id:   actionReviewReload,
 			keys: func(k config.Keybindings) []string { return k.Review.Reload },
 			run:  func(_ host, s panelShared, _ string) tea.Cmd { return r.reloadFresh(s) },
@@ -209,6 +215,11 @@ func (r *reviewScreen) legend() []screenLegendRow {
 			of:   []actionID{actionReviewJump},
 			desc: func(panelShared) string { return r.diff.jumpDesc() },
 			show: func(panelShared) bool { return r.doesOfferJump() },
+		},
+		{
+			of:   []actionID{actionReviewOffer},
+			desc: func(panelShared) string { return "next comment from the forge" },
+			show: r.doesStepOffers,
 		},
 		{
 			of:   []actionID{actionReviewReload},

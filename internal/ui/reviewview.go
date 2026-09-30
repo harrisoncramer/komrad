@@ -215,7 +215,7 @@ func (r reviewScreen) headView(s panelShared, yoursRoom int) string {
 		return dimStyle.Render(reviewEmptyWord) + "\n"
 	}
 
-	return r.yoursView(s, yoursRoom) + r.diff.anchorView()
+	return r.yoursView(s, yoursRoom) + r.offersView(s, yoursRoom) + r.diff.anchorView()
 }
 
 // reviewNote is a line of prose under the conversation, wrapped into the sidebar's own column.

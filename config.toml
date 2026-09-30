@@ -282,7 +282,8 @@ compose          = ["c"]
 # agent has written past, since those lines have moved on.
 edit_file        = ["e"]
 # Jump from the comment under the cursor to the diff it was written against, with the
-# cursor on it, or back to where you were from there.
+# cursor on it, or back to where you were from there. Anywhere else, move to the next
+# comment from the forge on the pull request.
 jump             = ["J"]
 # Jump to the next line carrying a review thread.
 next_thread      = ["t"]

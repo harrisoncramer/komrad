@@ -496,7 +496,8 @@ type ReviewKeys struct {
 	// agent has written past, since those lines have moved on.
 	EditFile []string `mapstructure:"edit_file" default:"e"`
 	// Jump from the comment under the cursor to the diff it was written against, with the
-	// cursor on it, or back to where you were from there.
+	// cursor on it, or back to where you were from there. Anywhere else, move to the next
+	// comment from the forge on the pull request.
 	Jump []string `mapstructure:"jump" default:"J"`
 	// Jump to the next line carrying a review thread.
 	NextThread []string `mapstructure:"next_thread" default:"t"`
