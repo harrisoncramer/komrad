@@ -54,8 +54,14 @@ func (a *agentsScreen) pressEdit(h host, s panelShared) tea.Cmd {
 		return nil
 	}
 
+	if agent.HeldAt != nil {
+		h.reportBrief("could not edit "+agent.Name, heldElsewhere)
+
+		return nil
+	}
+
 	a.editing = &agentEdit{agent: agent}
-	if !item.Alive || agent.HeldAt != nil {
+	if !item.Alive {
 		return a.openEditor(h, s)
 	}
 

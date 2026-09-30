@@ -76,12 +76,10 @@ func (r *reviewScreen) startHold(h host, s panelShared) tea.Cmd {
 		return r.editFile(h, s)
 	}
 
-	// An agent the person stopped themselves is already where the editor needs it, and letting it
-	// go when the editor closes is not this screen's to do.
 	if item, ok := r.agentRow(s); ok && item.Agent.HeldAt != nil {
-		r.hold.paused = true
+		h.reportBrief("could not edit "+r.agentName, heldElsewhere)
 
-		return r.editFile(h, s)
+		return nil
 	}
 
 	r.hold.pausing = true

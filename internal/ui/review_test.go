@@ -2133,6 +2133,18 @@ func TestReviewHold(t *testing.T) {
 		assert.Contains(t, readReleaseSaid(t, harness), "greet.go")
 	})
 
+	t.Run("an agent paused by somebody else opens no editor", func(t *testing.T) {
+		server := newReviewServer(t)
+		server.agent.HeldAt = heldAt
+		harness := openReview(t, server)
+
+		harness.press("e")
+
+		assert.Empty(t, harness.panel.ReadRespawns())
+		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceHoldAgentProcedure))
+		assert.Contains(t, harness.readFrame(), "could not edit")
+	})
+
 	t.Run("a pause a refused release left standing is let go with the files on the next snapshot", func(t *testing.T) {
 		server := newReviewServer(t)
 		harness := openReview(t, server)

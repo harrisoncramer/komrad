@@ -1821,6 +1821,16 @@ func TestAgentsEdit(t *testing.T) {
 		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceReleaseAgentProcedure))
 	})
 
+	t.Run("an agent paused by somebody else opens no editor", func(t *testing.T) {
+		harness := openAgents(t, newLiveWorkflow("w1", "backend"), newEditable(heldAt))
+
+		harness.press("e")
+
+		assert.Empty(t, harness.panel.ReadRespawns())
+		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceHoldAgentProcedure))
+		assert.Contains(t, harness.readFrame(), "could not edit")
+	})
+
 	t.Run("a dormant agent is neither stopped nor let go", func(t *testing.T) {
 		agent := newEditable("")
 		agent.Alive = xptr.Ptr(false)
