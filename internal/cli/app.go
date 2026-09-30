@@ -18,6 +18,7 @@ type app struct {
 	loader         loader.Style
 	harnesses      *harness.Registry
 	defaultHarness string
+	autoSetup      bool
 	defaultFlags   map[string]string
 	trustDirs      map[string]bool
 	usage          config.Usage

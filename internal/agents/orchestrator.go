@@ -68,10 +68,10 @@ func NewOrchestratorService(params NewOrchestratorServiceParams) *OrchestratorSe
 
 // Start returns the workflow's orchestrator with a pane to talk to, restoring it from the
 // archive and resuming it as far as either is needed.
-func (s *OrchestratorService) Start(ctx context.Context, workflowID string) (*agentstore.Agent, error) {
+func (s *OrchestratorService) Start(ctx context.Context, workflowID, prompt string) (*agentstore.Agent, error) {
 	found, err := s.agents.GetWorkflowOrchestrator(ctx, workflowID)
 	if errors.Is(err, store.ErrNotFound) {
-		return s.launchOrchestrator(ctx, workflowID)
+		return s.launchOrchestrator(ctx, workflowID, prompt)
 	}
 	if err != nil {
 		return nil, err
@@ -88,7 +88,7 @@ func (s *OrchestratorService) Start(ctx context.Context, workflowID string) (*ag
 			return nil, fmt.Errorf("failed to clear the orchestrator of workflow %q, which never ran: %w", workflowID, err)
 		}
 
-		return s.launchOrchestrator(ctx, workflowID)
+		return s.launchOrchestrator(ctx, workflowID, prompt)
 	}
 
 	if found.ArchivedAt != nil {
@@ -122,7 +122,7 @@ func (s *OrchestratorService) hasSpoken(ctx context.Context, agent agentstore.Ag
 	return hn.LogPath(agent.SessionID) != "", nil
 }
 
-func (s *OrchestratorService) launchOrchestrator(ctx context.Context, workflowID string) (*agentstore.Agent, error) {
+func (s *OrchestratorService) launchOrchestrator(ctx context.Context, workflowID, prompt string) (*agentstore.Agent, error) {
 	// Ahead of the directory, so nothing is written for a workflow that could never hold an
 	// orchestrator.
 	if _, err := s.workflows.Get(ctx, workflowID); err != nil {
@@ -139,11 +139,14 @@ func (s *OrchestratorService) launchOrchestrator(ctx context.Context, workflowID
 	}
 
 	provision := false
+	if strings.TrimSpace(prompt) == "" {
+		prompt = orchestratorPrompt
+	}
 
 	started, err := s.launch.NewAgent(ctx, NewAgentParams{
 		Title:            "orchestrator",
 		Dir:              dir,
-		Prompt:           orchestratorPrompt,
+		Prompt:           prompt,
 		WorkflowID:       workflowID,
 		Role:             agentstore.RoleOrchestrator,
 		ProvisionEnabled: &provision,

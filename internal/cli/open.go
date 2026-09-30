@@ -9,9 +9,13 @@ import (
 	"syscall"
 
 	"komrad/internal/agents"
+	"komrad/internal/git"
 	"komrad/internal/tmux"
 	"komrad/internal/version"
+	"komrad/lib/xhttp"
 	"komrad/lib/xslice"
+	"komrad/proto/gen/agent/v1/agentv1connect"
+	"komrad/proto/gen/workflow/v1/workflowv1connect"
 
 	"github.com/spf13/cobra"
 )
@@ -64,6 +68,10 @@ an agent's pane into a panel nobody is looking at.`,
 
 // openHere puts this engine's panel up and turns this process into the client attached to it.
 func openHere(ctx context.Context, state *app, detach, headless bool) error {
+	if !headless {
+		setUpWorkflowHere(ctx, state)
+	}
+
 	if err := ensureManagerSession(ctx, state, detach, headless); err != nil {
 		return err
 	}
@@ -254,4 +262,43 @@ func refuseNesting(state *app) error {
 	return fmt.Errorf(
 		"this is agent %s's own pane, so opening a panel here would nest one komrad inside "+
 			"another: open it from your own terminal instead", state.env.AgentID)
+}
+
+// setUpWorkflowHere runs auto_setup for the directory komrad was opened in, warning rather than
+// failing the open.
+func setUpWorkflowHere(ctx context.Context, state *app) {
+	if !state.autoSetup || state.configErr != nil || state.engine().IsRemote() {
+		return
+	}
+
+	dir, err := os.Getwd()
+	if err != nil {
+		return
+	}
+
+	if err := ensureServer(ctx, ensureServerParams{
+		Addr:       state.env.Addr,
+		Self:       getSelfPath(),
+		LogPath:    state.env.LogPath(),
+		ConfigArgs: configArgs(state.configStack),
+	}); err != nil {
+		warnAutoSetup(err)
+
+		return
+	}
+
+	base := "http://" + state.env.Addr
+	httpClient := xhttp.NewClient(0)
+	if err := autoSetup(ctx, autoSetupParams{
+		Dir:       dir,
+		Git:       git.NewClient(),
+		Workflows: workflowv1connect.NewWorkflowServiceClient(httpClient, base),
+		Agents:    agentv1connect.NewAgentServiceClient(httpClient, base),
+	}); err != nil {
+		warnAutoSetup(err)
+	}
+}
+
+func warnAutoSetup(err error) {
+	fmt.Fprintf(os.Stderr, "komrad: auto_setup skipped: %v\n", err)
 }

@@ -18,12 +18,22 @@ import (
 // SetTopLevelKey writes a string key above the file's first table, keeping every other line as
 // it was.
 func SetTopLevelKey(path, key, value string) error {
+	return setTopLevel(path, key, strconv.Quote(value))
+}
+
+// SetTopLevelBool writes a boolean key above the file's first table, keeping every other line as
+// it was.
+func SetTopLevelBool(path, key string, value bool) error {
+	return setTopLevel(path, key, strconv.FormatBool(value))
+}
+
+func setTopLevel(path, key, literal string) error {
 	existing, err := os.ReadFile(path)
 	if err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return fmt.Errorf("failed to read %s: %w", path, err)
 	}
 
-	written := setKeyLine(string(existing), key, value)
+	written := setKeyLine(string(existing), key, literal)
 
 	var parsed map[string]any
 	if err := toml.Unmarshal([]byte(written), &parsed); err != nil {
@@ -35,8 +45,8 @@ func SetTopLevelKey(path, key, value string) error {
 
 var tableHeader = regexp.MustCompile(`^\s*\[`)
 
-func setKeyLine(text, key, value string) string {
-	line := key + " = " + strconv.Quote(value)
+func setKeyLine(text, key, literal string) string {
+	line := key + " = " + literal
 	assignment := regexp.MustCompile(`^\s*` + regexp.QuoteMeta(key) + `\s*=`)
 
 	lines := strings.Split(text, "\n")

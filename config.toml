@@ -12,6 +12,10 @@
 # names one. It has to be a harness this binary implements, so it is one of
 # the names under [harness] below.
 default_harness = "claude"
+# Whether `komrad open` sets up a workflow for the git checkout it is run in, with a
+# worktree for each agent and an orchestrator standing by, when no workflow covers that
+# directory yet.
+auto_setup      = false
 
 [harness.claude]
 # Flags appended to every agent's command line for this CLI, ahead of the flags that agent carries itself.

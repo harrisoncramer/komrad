@@ -920,8 +920,12 @@ type Config struct {
 	// Which agent CLI a new agent runs when neither the agent nor its workflow
 	// names one. It has to be a harness this binary implements, so it is one of
 	// the names under [harness] below.
-	DefaultHarness string    `mapstructure:"default_harness"`
-	Harness        Harnesses `mapstructure:"harness"`
+	DefaultHarness string `mapstructure:"default_harness"`
+	// Whether `komrad open` sets up a workflow for the git checkout it is run in, with a
+	// worktree for each agent and an orchestrator standing by, when no workflow covers that
+	// directory yet.
+	AutoSetup bool      `mapstructure:"auto_setup"`
+	Harness   Harnesses `mapstructure:"harness"`
 	// How much agents may run and how large their conversations may grow.
 	Usage Usage `mapstructure:"usage"`
 	// Where the panel's sidebar, the stage beside it, and the info pane under the stage sit, and how much of the window each takes.

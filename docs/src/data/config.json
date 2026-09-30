@@ -8,6 +8,13 @@
       "type": "string",
       "description": "Which agent CLI a new agent runs when neither the agent nor its workflow\nnames one. It has to be a harness this binary implements, so it is one of\nthe names under [harness] below.",
       "default": "\"claude\""
+    },
+    {
+      "key": "auto_setup",
+      "path": "auto_setup",
+      "type": "boolean",
+      "description": "Whether `komrad open` sets up a workflow for the git checkout it is run in, with a\nworktree for each agent and an orchestrator standing by, when no workflow covers that\ndirectory yet.",
+      "default": "false"
     }
   ],
   "sections": [

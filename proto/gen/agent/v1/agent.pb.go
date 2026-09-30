@@ -1733,7 +1733,9 @@ func (x *PlanRebaseResponse) GetConflictPaths() []string {
 type StartOrchestratorRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The workflow whose orchestrator to bring back, or to start if it has never had one.
-	WorkflowId    string `protobuf:"bytes,1,opt,name=workflow_id,json=workflowId,proto3" json:"workflow_id,omitempty"`
+	WorkflowId string `protobuf:"bytes,1,opt,name=workflow_id,json=workflowId,proto3" json:"workflow_id,omitempty"`
+	// The opening briefing a fresh orchestrator is launched with, blank for komrad's own.
+	Prompt        string `protobuf:"bytes,2,opt,name=prompt,proto3" json:"prompt,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1771,6 +1773,13 @@ func (*StartOrchestratorRequest) Descriptor() ([]byte, []int) {
 func (x *StartOrchestratorRequest) GetWorkflowId() string {
 	if x != nil {
 		return x.WorkflowId
+	}
+	return ""
+}
+
+func (x *StartOrchestratorRequest) GetPrompt() string {
+	if x != nil {
+		return x.Prompt
 	}
 	return ""
 }
@@ -3008,10 +3017,11 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x0elanded_commits\x18\x05 \x01(\x05R\rlandedCommits\x12%\n" +
 	"\x0ereplay_commits\x18\b \x01(\x05R\rreplayCommits\x12\x16\n" +
 	"\x06merges\x18\x06 \x01(\x05R\x06merges\x12%\n" +
-	"\x0econflict_paths\x18\a \x03(\tR\rconflictPaths\"D\n" +
+	"\x0econflict_paths\x18\a \x03(\tR\rconflictPaths\"g\n" +
 	"\x18StartOrchestratorRequest\x12(\n" +
 	"\vworkflow_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\n" +
-	"workflowId\"B\n" +
+	"workflowId\x12!\n" +
+	"\x06prompt\x18\x02 \x01(\tB\t\xbaH\x06r\x04\x18І\x03R\x06prompt\"B\n" +
 	"\x19StartOrchestratorResponse\x12%\n" +
 	"\x05agent\x18\x01 \x01(\v2\x0f.agent.v1.AgentR\x05agent\";\n" +
 	"\x15RebaseWorktreeRequest\x12\"\n" +

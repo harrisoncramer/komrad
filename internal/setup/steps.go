@@ -228,3 +228,64 @@ func (s *ContextStep) repair(context.Context) error {
 
 	return writeAtomically(s.path, []byte(strings.TrimRight(s.text, "\n")+"\n"))
 }
+
+// AutoSetupStep offers to have `komrad open` set up a workflow for the checkout it is run in.
+type AutoSetupStep struct {
+	Path   string
+	Stack  config.Stack
+	chosen bool
+}
+
+func (s *AutoSetupStep) name() string {
+	return "workflow"
+}
+
+func (s *AutoSetupStep) observe(ctx context.Context, check Checker) Observation {
+	report := check(ctx, doctor.CheckConfig)
+	if failed := firstFailing(report); failed != nil {
+		return stopOn(failed)
+	}
+
+	cfg, err := config.LoadStack(s.Stack)
+	if err != nil {
+		return Observation{Verdict: VerdictStop, Detail: err.Error()}
+	}
+	if cfg.AutoSetup {
+		return Observation{Verdict: VerdictDone, Detail: "set up wherever komrad is opened"}
+	}
+
+	return Observation{Verdict: VerdictAsk, Detail: "set up by hand"}
+}
+
+func (s *AutoSetupStep) question() *huh.Form {
+	return huh.NewForm(huh.NewGroup(
+		huh.NewConfirm().
+			Title("Set up a workflow wherever you open komrad?").
+			Description("Opening komrad in a git checkout with no workflow creates one there, with a worktree per agent and an orchestrator standing by.").
+			Value(&s.chosen),
+	))
+}
+
+func (s *AutoSetupStep) answerUnattended() error {
+	return nil
+}
+
+func (s *AutoSetupStep) repair(context.Context) error {
+	if !s.chosen {
+		return ErrSkipped
+	}
+
+	if err := SetTopLevelBool(s.Path, "auto_setup", true); err != nil {
+		return err
+	}
+
+	cfg, err := config.LoadStack(s.Stack)
+	if err != nil {
+		return err
+	}
+	if !cfg.AutoSetup {
+		return fmt.Errorf("wrote auto_setup to %s, but a later config layer turns it off", shortenHome(s.Path))
+	}
+
+	return nil
+}
