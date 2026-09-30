@@ -774,7 +774,7 @@ func TestIntegrationInsetPanelWindowLeavesAGutterPastEveryClient(t *testing.T) {
 	}, 5*time.Second, 20*time.Millisecond, "resizing to 120x40 keeps the gutter")
 }
 
-// TestIntegrationShownPanesListsWhatTheWindowShows pins the rects the pane picker letters.
+// TestIntegrationShownPanesListsWhatTheWindowShows covers a split window, a zoomed one, and no pane.
 func TestIntegrationShownPanesListsWhatTheWindowShows(t *testing.T) {
 	client := testServer(t, "shown")
 
@@ -799,7 +799,7 @@ func TestIntegrationShownPanesListsWhatTheWindowShows(t *testing.T) {
 	assert.Empty(t, client.GetShownPanes(""))
 }
 
-// TestIntegrationCaptureScreenKeepsTrailingCells pins the capture the frozen window is drawn from.
+// TestIntegrationCaptureScreenKeepsTrailingCells covers spaces printed after the text surviving the capture.
 func TestIntegrationCaptureScreenKeepsTrailingCells(t *testing.T) {
 	client := testServer(t, "capture")
 	pane := paneAt(t, client, "capture", 0)
