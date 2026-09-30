@@ -66,7 +66,7 @@ func Run(ctx context.Context, deps Deps) error {
 
 	defer post.close()
 	defer deps.Session.ReleaseCycleKeys()
-	defer deps.Session.ReleaseVisualKeys()
+	defer deps.Session.ReleaseLeader()
 
 	if deps.Watch != nil && m.fatal() == nil {
 		watching, stop := context.WithCancel(ctx)
@@ -328,6 +328,12 @@ type model struct {
 
 	// visual is the window as visual mode froze it.
 	visual visualState
+
+	// leading is whether the leader was pressed and the key after it is still to come.
+	leading bool
+
+	// picker is the row of panes the leader opens to land the keys on one.
+	picker panePicker
 }
 
 // lastFrame is the frame on screen, which the panel draws again rather than drawing a new one at

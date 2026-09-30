@@ -173,8 +173,6 @@ type Keybindings struct {
 	Tabs TabsKeys `mapstructure:"tabs"`
 	// The row of kinds a screen listing more than one kind of resource draws under its tabs.
 	Kinds KindsKeys `mapstructure:"kinds"`
-	// Visual mode, which freezes every pane in the panel's window to copy from.
-	Visual VisualKeys `mapstructure:"visual"`
 	// The switcher at the top of the panel, which moves between the agents, query,
 	// schedules, archive and worktrees from any of them.
 	Views ViewsKeys `mapstructure:"views"`
@@ -259,12 +257,6 @@ type KindsKeys struct {
 	// Hand the keys to the row of kinds, where tab and shift+tab switch the kind listed; escape
 	// hands them back.
 	Focus []string `mapstructure:"focus" default:"F"`
-}
-
-// VisualKeys are the bindings for visual mode, which freezes every pane in the panel's window.
-type VisualKeys struct {
-	// Freeze the panes, reachable from any pane in the panel's window, and thaw them again.
-	Toggle []string `mapstructure:"toggle" default:"alt+v"`
 }
 
 // ViewsKeys are the bindings for the switcher at the top of the panel. Pick hands it the

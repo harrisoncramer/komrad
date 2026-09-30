@@ -32,7 +32,7 @@ func (m model) Init() tea.Cmd {
 	}
 
 	m.holdCycleKeys()
-	m.holdVisualKeys()
+	m.holdLeader()
 
 	return tea.Batch(tick(), cursor.Blink, tea.RequestBackgroundColor)
 }
@@ -98,8 +98,16 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	if isKey {
-		if next, cmd, handled := m.routeVisual(key); handled {
+		if next, cmd, handled := m.routeLeader(key); handled {
 			return next, cmd
+		}
+
+		if next, handled := m.routeVisual(key); handled {
+			return next, nil
+		}
+
+		if m.picker.open {
+			return m.updatePicker(key)
 		}
 	}
 

@@ -82,6 +82,9 @@ type recordingTmux struct {
 	rootBinds     map[string][]string
 	rootBindCount int
 	rootUnbinds   []string
+	tableBinds    map[string][]string
+	shown         []panes.Rect
+	screens       map[string]string
 }
 
 // PanelTmux is the tmux a panel under test drives in place of the recording one.
@@ -158,7 +161,7 @@ func NewPanel(params NewPanelParams) *Panel {
 
 	panel := &Panel{
 		model: newModel(Deps{
-			Session:         NewSession(tmux, "test-session", spellCycleKeys(params.Keys.Cycle.Views), nil),
+			Session:         NewSession(tmux, "test-session", spellCycleKeys(params.Keys.Cycle.Views)),
 			Tmux:            driven,
 			Git:             params.Git,
 			Agents:          params.Agents,
@@ -473,6 +476,18 @@ func (p *Panel) SetActivePane(pane string) {
 	p.tmux.keysElsewhere = pane != p.model.settings.Pane
 }
 
+// SetScreens is what tmux shows in the panel's window, pane by pane.
+func (p *Panel) SetScreens(shown []panes.Rect, screens map[string]string) {
+	p.tmux.shown, p.tmux.screens = shown, screens
+}
+
+// ReadTableBinding is the command a key runs in a named key table, and whether it is bound.
+func (p *Panel) ReadTableBinding(table, key string) ([]string, bool) {
+	command, bound := p.tmux.tableBinds[table+":"+key]
+
+	return command, bound
+}
+
 // SetKeysElsewhere makes tmux report whether the keyboard is in a pane other than the panel's.
 func (p *Panel) SetKeysElsewhere(elsewhere bool) {
 	p.tmux.keysElsewhere = elsewhere
@@ -579,6 +594,22 @@ func (t *recordingTmux) BindRootKey(key string, command ...string) {
 func (t *recordingTmux) UnbindRootKey(key string) {
 	delete(t.rootBinds, key)
 	t.rootUnbinds = append(t.rootUnbinds, key)
+}
+
+func (t *recordingTmux) BindTableKey(table, key string, command ...string) {
+	if t.tableBinds == nil {
+		t.tableBinds = map[string][]string{}
+	}
+
+	t.tableBinds[table+":"+key] = command
+}
+
+func (t *recordingTmux) UnbindTable(table string) {
+	for bound := range t.tableBinds {
+		if strings.HasPrefix(bound, table+":") {
+			delete(t.tableBinds, bound)
+		}
+	}
 }
 
 func (t *recordingTmux) GetHostPath() string {
@@ -779,9 +810,9 @@ func (t *recordingTmux) GetWindowID(string) string {
 }
 
 func (t *recordingTmux) GetShownPanes(string) []panes.Rect {
-	return nil
+	return t.shown
 }
 
-func (t *recordingTmux) CaptureScreen(string) string {
-	return ""
+func (t *recordingTmux) CaptureScreen(pane string) string {
+	return t.screens[pane]
 }

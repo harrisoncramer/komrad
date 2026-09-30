@@ -9,30 +9,42 @@ type sessionTmux interface {
 	SetSessionOption(target, name, value string)
 	BindRootKey(key string, command ...string)
 	UnbindRootKey(key string)
+	BindTableKey(table, key string, command ...string)
+	UnbindTable(table string)
 	GetWindowID(pane string) string
 	DetachSession(name string)
 }
 
+// LeaderKey is the key, spelled as tmux spells it, that opens the panel's leader table.
+const LeaderKey = "C-Space"
+
+// leaderTable is the tmux key table the leader opens.
+const leaderTable = "komrad-leader"
+
+// leaderPanelKeys are the leader's keys the panel answers itself.
+var leaderPanelKeys = []string{"v", "p"}
+
+// leaderLastKeys are the leader's keys that send the keyboard back to the pane it last left.
+var leaderLastKeys = []string{LeaderKey, "Space"}
+
 // Session is the tmux session the panel draws in.
 type Session struct {
-	tmux       sessionTmux
-	session    string
-	cycleKeys  []string
-	visualKeys []string
-	// visualHeld is whether the visual keys are bound.
-	visualHeld bool
+	tmux      sessionTmux
+	session   string
+	cycleKeys []string
+	// leaderHeld is whether the leader is bound.
+	leaderHeld bool
 	// cycling is whether the cycle keys are bound, nil until the panel has settled it once.
 	cycling *bool
 }
 
 // NewSession builds the named tmux session the panel runs in over a tmux client, binding the
 // cycle keys, spelled as tmux spells them, while a pane beside the sidebar is a stop.
-func NewSession(tmux sessionTmux, session string, cycleKeys, visualKeys []string) *Session {
+func NewSession(tmux sessionTmux, session string, cycleKeys []string) *Session {
 	return &Session{
-		tmux:       tmux,
-		session:    session,
-		cycleKeys:  cycleKeys,
-		visualKeys: visualKeys,
+		tmux:      tmux,
+		session:   session,
+		cycleKeys: cycleKeys,
 	}
 }
 
@@ -63,10 +75,10 @@ func (s *Session) ReleaseCycleKeys() {
 	s.cycling = nil
 }
 
-// HoldVisualKeys takes the visual keys for sidebar from every pane in its window, leaving them with
-// the panes of every other window.
-func (s *Session) HoldVisualKeys(sidebar string) {
-	if s.visualHeld || len(s.visualKeys) == 0 || sidebar == "" {
+// HoldLeader binds the leader in every pane of sidebar's window, leaving it with the panes of every
+// other window.
+func (s *Session) HoldLeader(sidebar string) {
+	if s.leaderHeld || sidebar == "" {
 		return
 	}
 
@@ -75,26 +87,29 @@ func (s *Session) HoldVisualKeys(sidebar string) {
 		return
 	}
 
-	for _, key := range s.visualKeys {
-		quoted := "'" + key + "'"
-		s.tmux.BindRootKey(key, "if-shell", "-F", "#{==:#{window_id},"+window+"}",
-			"send-keys -t "+sidebar+" "+quoted, "send-keys "+quoted)
+	s.tmux.BindRootKey(LeaderKey, "if-shell", "-F", "#{==:#{window_id},"+window+"}",
+		"switch-client -T "+leaderTable, "send-keys "+LeaderKey)
+
+	for _, key := range leaderPanelKeys {
+		s.tmux.BindTableKey(leaderTable, key, "send-keys", "-t", sidebar, LeaderKey, key)
 	}
 
-	s.visualHeld = true
+	for _, key := range leaderLastKeys {
+		s.tmux.BindTableKey(leaderTable, key, "if-shell", "-F", "#{window_zoomed_flag}", "", "last-pane")
+	}
+
+	s.leaderHeld = true
 }
 
-// ReleaseVisualKeys gives the visual keys back to the panes on the panel's way out.
-func (s *Session) ReleaseVisualKeys() {
-	if !s.visualHeld {
+// ReleaseLeader gives the leader back to the panes on the panel's way out.
+func (s *Session) ReleaseLeader() {
+	if !s.leaderHeld {
 		return
 	}
 
-	for _, key := range s.visualKeys {
-		s.tmux.UnbindRootKey(key)
-	}
-
-	s.visualHeld = false
+	s.tmux.UnbindRootKey(LeaderKey)
+	s.tmux.UnbindTable(leaderTable)
+	s.leaderHeld = false
 }
 
 func (s *Session) unbindCycleKeys() {

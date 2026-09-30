@@ -67,7 +67,7 @@ func attachState(socket string) *app {
 	return &app{
 		env:     &config.Environment{TmuxSocket: socket},
 		tmux:    servers,
-		session: ui.NewSession(servers, agents.ManagerSession, []string{"C-a", "C-q"}, nil),
+		session: ui.NewSession(servers, agents.ManagerSession, []string{"C-a", "C-q"}),
 	}
 }
 

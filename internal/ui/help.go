@@ -48,6 +48,9 @@ func (m model) renderHelp(k keyMap, above ...string) string {
 	if m.isViewsOpen() {
 		k = m.viewsHelp()
 	}
+	if m.picker.open {
+		k = m.pickerHelp()
+	}
 
 	width := m.paneWidth()
 	view := helpView(width)
@@ -199,7 +202,7 @@ func (m model) globalHelp() []key.Binding {
 
 // fullGlobalHelp is the expanded legend's share of the keys every screen answers.
 func (m model) fullGlobalHelp() []key.Binding {
-	return append(m.globalHelp(), m.messagesBinding(), binding(slices.Concat(m.keys.Sidebar.Narrow, m.keys.Sidebar.Widen), "resize"), binding(m.keys.Visual.Toggle, "visual"))
+	return append(m.globalHelp(), m.messagesBinding(), binding(slices.Concat(m.keys.Sidebar.Narrow, m.keys.Sidebar.Widen), "resize"), binding([]string{leaderKey}, "leader"))
 }
 
 func keyLabel(keys []string) string {

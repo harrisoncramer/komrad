@@ -131,7 +131,7 @@ func TestSubpages(t *testing.T) {
 		moveToAgentRow(t, harness, "quiet")
 		harness.press("?")
 
-		assert.Contains(t, readLegend(harness.readFrame()), "space menu")
+		assert.Regexp(t, `space +menu`, readLegend(harness.readFrame()))
 	})
 }
 

@@ -1,6 +1,7 @@
 package ui_test
 
 import (
+	"strings"
 	"testing"
 
 	"komrad/internal/ui"
@@ -24,14 +25,14 @@ type bindRecorder struct {
 // TestSession covers the panel's own tmux session.
 func TestSession(t *testing.T) {
 	t.Run("a client attached to the panel's session is somebody looking", func(t *testing.T) {
-		assert.True(t, ui.NewSession(&bindRecorder{client: "/dev/ttys004"}, "komrad", cycleKeys, nil).IsShown())
-		assert.False(t, ui.NewSession(&bindRecorder{}, "komrad", cycleKeys, nil).IsShown(), "the panel was hidden, which detached it")
+		assert.True(t, ui.NewSession(&bindRecorder{client: "/dev/ttys004"}, "komrad", cycleKeys).IsShown())
+		assert.False(t, ui.NewSession(&bindRecorder{}, "komrad", cycleKeys).IsShown(), "the panel was hidden, which detached it")
 	})
 
 	t.Run("the cycle keys hand a press in any pane to the sidebar", func(t *testing.T) {
 		tmux := &bindRecorder{}
 
-		ui.NewSession(tmux, "komrad", cycleKeys, nil).HoldCycleKeys("%3", true)
+		ui.NewSession(tmux, "komrad", cycleKeys).HoldCycleKeys("%3", true)
 
 		assert.Equal(t, []string{"send-keys", "-t", "%3", "C-a"}, tmux.bound["root:C-a"])
 		assert.Equal(t, []string{"send-keys", "-t", "%3", "C-q"}, tmux.bound["root:C-q"])
@@ -40,14 +41,14 @@ func TestSession(t *testing.T) {
 	t.Run("no sidebar binds nothing", func(t *testing.T) {
 		tmux := &bindRecorder{}
 
-		ui.NewSession(tmux, "komrad", cycleKeys, nil).HoldCycleKeys("", true)
+		ui.NewSession(tmux, "komrad", cycleKeys).HoldCycleKeys("", true)
 
 		assert.Empty(t, tmux.bound)
 	})
 
 	t.Run("an empty stage gives the keys back once and then says nothing", func(t *testing.T) {
 		tmux := &bindRecorder{}
-		session := ui.NewSession(tmux, "komrad", cycleKeys, nil)
+		session := ui.NewSession(tmux, "komrad", cycleKeys)
 
 		session.HoldCycleKeys("%3", true)
 		session.HoldCycleKeys("%3", false)
@@ -62,7 +63,7 @@ func TestSession(t *testing.T) {
 func TestSessionCycleKeys(t *testing.T) {
 	t.Run("the panel going gives the keys back", func(t *testing.T) {
 		tmux := &bindRecorder{}
-		session := ui.NewSession(tmux, "komrad", cycleKeys, nil)
+		session := ui.NewSession(tmux, "komrad", cycleKeys)
 
 		session.HoldCycleKeys("%3", true)
 		session.ReleaseCycleKeys()
@@ -73,7 +74,7 @@ func TestSessionCycleKeys(t *testing.T) {
 	t.Run("releasing keys nobody held says nothing to tmux", func(t *testing.T) {
 		tmux := &bindRecorder{}
 
-		ui.NewSession(tmux, "komrad", cycleKeys, nil).ReleaseCycleKeys()
+		ui.NewSession(tmux, "komrad", cycleKeys).ReleaseCycleKeys()
 
 		assert.Empty(t, tmux.unbound)
 	})
@@ -87,7 +88,7 @@ func TestSessionCycleKeys(t *testing.T) {
 			require.True(t, bound)
 			assert.Equal(t, []string{"send-keys", "-t", "%0", key}, command)
 		}
-		assert.Equal(t, 2, harness.panel.CountRootBinds(), "keys that are already right are left alone")
+		assert.Equal(t, len(cycleKeys)+1, harness.panel.CountRootBinds(), "keys that are already right are left alone, beside the leader")
 
 		given := len(harness.panel.ReadRootUnbinds())
 
@@ -108,7 +109,7 @@ func TestSessionCycleKeys(t *testing.T) {
 		require.Equal(t, "%12", harness.panel.ReadGuestPane())
 		_, bound := harness.panel.ReadRootBinding(cycleKeys[0])
 		assert.True(t, bound)
-		assert.Equal(t, 2, harness.panel.CountRootBinds(), "the keys reach the sidebar whichever agent is staged")
+		assert.Equal(t, len(cycleKeys)+1, harness.panel.CountRootBinds(), "the keys reach the sidebar whichever agent is staged")
 	})
 
 	t.Run("an agent whose pane goes gives the key back", func(t *testing.T) {
@@ -167,6 +168,22 @@ func (b *bindRecorder) BindRootKey(key string, command ...string) {
 func (b *bindRecorder) UnbindRootKey(key string) {
 	delete(b.bound, "root:"+key)
 	b.unbound = append(b.unbound, key)
+}
+
+func (b *bindRecorder) BindTableKey(table, key string, command ...string) {
+	if b.bound == nil {
+		b.bound = map[string][]string{}
+	}
+
+	b.bound[table+":"+key] = command
+}
+
+func (b *bindRecorder) UnbindTable(table string) {
+	for bound := range b.bound {
+		if strings.HasPrefix(bound, table+":") {
+			delete(b.bound, bound)
+		}
+	}
 }
 
 func openFocus(t *testing.T) *panelHarness {

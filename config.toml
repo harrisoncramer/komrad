@@ -375,11 +375,6 @@ focus = ["f"]
 # hands them back.
 focus = ["F"]
 
-# Visual mode, which freezes every pane in the panel's window to copy from.
-[keybindings.visual]
-# Freeze the panes, reachable from any pane in the panel's window, and thaw them again.
-toggle = ["alt+v"]
-
 # The switcher at the top of the panel, which moves between the agents, query,
 # schedules, archive and worktrees from any of them.
 [keybindings.views]

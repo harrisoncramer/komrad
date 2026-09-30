@@ -426,6 +426,16 @@ func (c *Client) UnbindRootKey(key string) {
 	c.run("unbind-key", "-n", key)
 }
 
+// BindTableKey binds a key in a named key table.
+func (c *Client) BindTableKey(table, key string, command ...string) {
+	c.run(append([]string{"bind-key", "-T", table, key}, command...)...)
+}
+
+// UnbindTable drops every key bound in a named key table.
+func (c *Client) UnbindTable(table string) {
+	c.run("unbind-key", "-a", "-T", table)
+}
+
 // BlankBorders draws every pane's border as blank cells, with a blank status line over each pane.
 func (c *Client) BlankBorders() {
 	c.SetGlobal("pane-border-lines", "spaces")

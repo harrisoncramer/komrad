@@ -36,37 +36,21 @@ type visualFrozenMsg struct {
 	returnTo string
 }
 
-func (m model) holdVisualKeys() {
-	if m.session == nil {
-		return
-	}
-
-	m.session.HoldVisualKeys(m.settings.Pane)
-}
-
-// routeVisual answers every key while visual mode holds the window, and the key that starts it.
-func (m model) routeVisual(key tea.KeyPressMsg) (tea.Model, tea.Cmd, bool) {
-	pressed := key.String()
-
+// routeVisual answers every key while visual mode holds the window.
+func (m model) routeVisual(key tea.KeyPressMsg) (model, bool) {
 	if !m.visual.isActive() {
-		if !isBound(pressed, m.keys.Visual.Toggle) {
-			return m, nil, false
-		}
-
-		m.visual.freezing = true
-
-		return m, m.freezeCmd(), true
+		return m, false
 	}
 
 	if m.visual.freezing {
-		return m, nil, true
+		return m, true
 	}
 
-	if pressed == "esc" || pressed == "q" || isBound(pressed, m.keys.Visual.Toggle) {
-		return m.thaw(), nil, true
+	if pressed := key.String(); pressed == "esc" || pressed == "q" {
+		return m.thaw(), true
 	}
 
-	return m, nil, true
+	return m, true
 }
 
 func (m model) freezeCmd() tea.Cmd {
