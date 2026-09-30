@@ -89,6 +89,8 @@ func (r *reviewScreen) diffKeys() diffKeys {
 		notice: &r.notice,
 		height: r.diffHeight,
 		moved: func(s panelShared) tea.Cmd {
+			r.threads.scrolled = ""
+
 			return r.markThreadReadCmd(s)
 		},
 		refuseExpand: r.refuseExpand,
