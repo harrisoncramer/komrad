@@ -316,6 +316,12 @@ func (h *panelHarness) press(keys ...string) {
 	h.t.Helper()
 
 	for _, key := range keys {
+		if to, ok := strings.CutPrefix(key, "pick:"); ok {
+			h.pick(to)
+
+			continue
+		}
+
 		h.send(ui.NewKeyPress(key))
 	}
 }
@@ -880,4 +886,20 @@ func draftedSettings(t *testing.T, settings ui.PanelSettings) ui.PanelSettings {
 	}
 
 	return settings
+}
+
+// pick lands the keys on a sidebar block, list, record or block, or on a pane, through the pane
+// picker, and is what press does with a key spelled pick:<to>.
+func (h *panelHarness) pick(to string) {
+	h.t.Helper()
+
+	h.send(ui.NewKeyPress("ctrl+space"))
+	h.send(ui.NewKeyPress("j"))
+
+	letter := h.panel.ReadPickLetter(to)
+	if letter == "" {
+		h.t.Fatalf("the picker drew no letter over %s", to)
+	}
+
+	h.send(ui.NewKeyPress(letter))
 }

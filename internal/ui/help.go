@@ -208,7 +208,7 @@ func (m model) fullGlobalHelp() []key.Binding {
 		full = append(full, binding(m.keys.Views.Previous, "previous view"))
 	}
 
-	return append(full, m.messagesBinding(), binding(slices.Concat(m.keys.Sidebar.Narrow, m.keys.Sidebar.Widen), "resize"))
+	return append(full, m.messagesBinding(), binding(slices.Concat(m.keys.Sidebar.Narrow, m.keys.Sidebar.Widen), "resize"), binding([]string{leaderKey}, "leader"))
 }
 
 var keyAbbreviations = strings.NewReplacer("ctrl+", "C-", "shift+", "S-")

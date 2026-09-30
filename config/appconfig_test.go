@@ -86,60 +86,6 @@ func TestLoad(t *testing.T) {
 	}
 }
 
-// TestLoadCycleKeys covers the cycle keys being one of the pairs on offer.
-func TestLoadCycleKeys(t *testing.T) {
-	tests := []struct {
-		name    string
-		file    string
-		want    []string
-		wantErr bool
-	}{
-		{
-			name: "a file that names no pair falls back to the default",
-			file: "default_harness = \"claude\"\n",
-			want: []string{"ctrl+a", "ctrl+q"},
-		},
-		{
-			name: "a pair on offer",
-			file: "[keybindings.cycle]\nviews = [\"alt+n\", \"alt+p\"]\n",
-			want: []string{"alt+n", "alt+p"},
-		},
-		{
-			name:    "a pair on offer given back to front",
-			file:    "[keybindings.cycle]\nviews = [\"alt+p\", \"alt+n\"]\n",
-			wantErr: true,
-		},
-		{
-			name:    "a pair that is not on offer",
-			file:    "[keybindings.cycle]\nviews = [\"ctrl+n\", \"ctrl+p\"]\n",
-			wantErr: true,
-		},
-		{
-			name:    "one key alone",
-			file:    "[keybindings.cycle]\nviews = [\"ctrl+a\"]\n",
-			wantErr: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			path := filepath.Join(t.TempDir(), "config.toml")
-			require.NoError(t, os.WriteFile(path, []byte(tt.file), 0o644))
-
-			cfg, err := LoadStack(Stack{Paths: []string{path}})
-			if tt.wantErr {
-				require.Error(t, err)
-				assert.Contains(t, err.Error(), "keybindings.cycle.views")
-
-				return
-			}
-
-			require.NoError(t, err)
-			assert.Equal(t, tt.want, cfg.Keybindings.Cycle.Views)
-		})
-	}
-}
-
 // TestLoadLayout covers the sizes and sides the panel lays its panes out at, which tmux takes as
 // either a share or a whole number of cells.
 func TestLoadLayout(t *testing.T) {

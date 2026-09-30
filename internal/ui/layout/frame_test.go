@@ -361,6 +361,38 @@ func TestFrameVacateLeavesOnlyTheSidebar(t *testing.T) {
 	assert.False(t, frame.IsOpen(RegionInfo))
 }
 
+// TestFrameFreeze covers visual mode holding the window still under a zoomed sidebar.
+func TestFrameFreeze(t *testing.T) {
+	t.Run("a move made while frozen is sent only on thaw", func(t *testing.T) {
+		tmux := &recordingTmux{}
+		frame := New(tmux, config.DefaultLayout())
+		frame.Attach("%0")
+		tmux.zooms = nil
+
+		frame.Freeze()
+		frame.ShowGuest(Guest{Agent: "agent-9", Pane: "%9"})
+		require.Zero(t, tmux.swaps)
+
+		frame.Thaw()
+
+		assert.Equal(t, 1, tmux.swaps)
+		assert.Equal(t, []bool{true, false}, tmux.zooms)
+	})
+
+	t.Run("thaw puts back a solo zoom", func(t *testing.T) {
+		tmux := &recordingTmux{}
+		frame := New(tmux, config.DefaultLayout())
+		frame.Attach("%0")
+		frame.Solo(true)
+		tmux.zooms = nil
+
+		frame.Freeze()
+		frame.Thaw()
+
+		assert.Equal(t, []bool{true, true}, tmux.zooms)
+	})
+}
+
 // TestFrameClaimedForgetsWhatWasDrawn covers a region another process has taken over, which
 // is how a script that fills the pane itself says the frame no longer knows what is in it.
 func TestFrameClaimedForgetsWhatWasDrawn(t *testing.T) {

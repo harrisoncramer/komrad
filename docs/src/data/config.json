@@ -571,20 +571,6 @@
           "sections": []
         },
         {
-          "path": "keybindings.cycle",
-          "description": "The pair of keys that move between the sidebar, the staged agent and the details.",
-          "settings": [
-            {
-              "key": "views",
-              "path": "keybindings.cycle.views",
-              "type": "array",
-              "description": "Move to the next view, then the previous one. One of [\"ctrl+a\", \"ctrl+q\"],\n[\"alt+n\", \"alt+p\"] or [\"alt+j\", \"alt+k\"].",
-              "default": "[\"ctrl+a\", \"ctrl+q\"]"
-            }
-          ],
-          "sections": []
-        },
-        {
           "path": "keybindings.messages",
           "description": "The messages komrad pushed, read in the main pane.",
           "settings": [

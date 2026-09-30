@@ -59,8 +59,9 @@ Tapes are [VHS tapes](https://github.com/charmbracelet/vhs), with two things the
   shell in the home directory, and `Source recordings/panel.tape` opens the panel out of shot.
 
 The tape runs in a bash whose `komrad` is this checkout's build. Keys a tape presses reach tmux
-the way they would from a keyboard, so the panel's `Ctrl+A` and `Ctrl+Q` cycle keys and a
-tmux prefix both work.
+the way they would from a keyboard, so the panel's `Ctrl+Space` leader and a
+tmux prefix both work. The pane picker letters its targets in reading order, so from the list
+with an agent on the stage `Ctrl+Space`, `j`, `d` is the list, `f` the details and `j` the agent.
 
     Source recordings/shell.tape
     Type "komrad open"

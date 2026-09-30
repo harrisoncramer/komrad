@@ -564,7 +564,7 @@ func TestWorktreesRecordOccupants(t *testing.T) {
 			harness := openWorktrees(t, rows...)
 			moveToWorktree(t, harness, tt.row)
 			harness.press(widenListPresses...)
-			harness.press("ctrl+a")
+			harness.press("pick:record")
 
 			frame := harness.readFrame()
 			assert.Equal(t, tt.want, readRecordField(frame, "also here"))

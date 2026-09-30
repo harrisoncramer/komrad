@@ -52,7 +52,7 @@ type documentsScreen struct {
 	bodies      map[string]documentBody
 	editing     *documentEdit
 	history     *documentHistory
-	// focus says the cycle key handed the keys to the block beside the list.
+	// focus says the picker handed the keys to the block beside the list.
 	focus   bool
 	reading documentReading
 }
