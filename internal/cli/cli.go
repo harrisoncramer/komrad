@@ -183,7 +183,7 @@ the service, or call an endpoint from a script.`,
 		logCmd(app),
 		shellCmd(app),
 		terminalCmd(app),
-		copyCmd(app),
+		visualCmd(app),
 	)
 
 	return root
@@ -194,7 +194,7 @@ var commandsSurvivingBadConfig = map[string]bool{
 	"setup":   true,
 	"version": true,
 	"panel":   true,
-	"copy":    true,
+	"visual":  true,
 }
 
 func resolveConfigStack(flags []string, engine string) (config.Stack, error) {

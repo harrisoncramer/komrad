@@ -5,6 +5,10 @@ import (
 	"komrad/internal/ui/paint"
 )
 
+// modeHooks are the tmux hooks that tell the panel whether the active pane in its window is in
+// copy-mode.
+var modeHooks = []string{"pane-mode-changed", "window-pane-changed"}
+
 type sessionTmux interface {
 	SetSessionOption(target, name, value string)
 	BindRootKey(key string, command ...string)
@@ -13,7 +17,9 @@ type sessionTmux interface {
 	UnbindTable(table string)
 	GetWindowID(pane string) string
 	DetachSession(name string)
-	TuneCopyMode(badge, copier string)
+	TuneCopyMode(selection string)
+	SetWindowHook(window, hook, command string)
+	UnsetWindowHook(window, hook string)
 	OpenCopyStandIn(params panes.CopyStandIn) error
 }
 
@@ -34,6 +40,10 @@ type Session struct {
 	leaderTable string
 	// leaderHeld is whether the leader is bound.
 	leaderHeld bool
+	// window is the window the leader is held in.
+	window string
+	// binary is the komrad binary a stand-in runs visual mode with.
+	binary string
 }
 
 // NewSession builds the named tmux session the panel runs in over a tmux client, with the leader
@@ -74,6 +84,13 @@ func (s *Session) HoldLeader(sidebar string) {
 			"send-keys -t "+sidebar+" "+s.leaderKey+" "+s.leaderKey, "last-pane")
 	}
 
+	tell := func(key string) string { return "send-keys -t " + sidebar + " " + s.leaderKey + " " + key }
+	for _, hook := range modeHooks {
+		s.tmux.SetWindowHook(window, hook, "if-shell -F -t "+window+" \"#{==:#{pane_mode},copy-mode}\" \""+
+			tell(paneCopyKey)+"\" \""+tell(paneNormalKey)+"\"")
+	}
+
+	s.window = window
 	s.leaderHeld = true
 }
 
@@ -85,6 +102,9 @@ func (s *Session) ReleaseLeader() {
 
 	s.tmux.UnbindRootKey(s.leaderKey)
 	s.tmux.UnbindTable(s.leaderTable)
+	for _, hook := range modeHooks {
+		s.tmux.UnsetWindowHook(s.window, hook)
+	}
 	s.leaderHeld = false
 }
 
@@ -98,16 +118,18 @@ func (s *Session) SilenceStatus() {
 	s.tmux.SetSessionOption(s.session, "status", "off")
 }
 
-// TuneCopyMode makes tmux's copy-mode the panel's visual mode, a copy in a stand-in cut to its
-// block by copier.
-func (s *Session) TuneCopyMode(copier string) {
-	s.tmux.TuneCopyMode(paint.Panel.TmuxVisual(visualLabel), copier)
+// TuneCopyMode makes tmux's copy-mode the panel's visual mode, run in a stand-in by binary.
+func (s *Session) TuneCopyMode(binary string) {
+	s.binary = binary
+	s.tmux.TuneCopyMode(paint.Panel.TmuxSelection())
 }
 
 // OpenCopyStandIn puts standIn in copy-mode where sidebar sits, and has it send the sidebar the
 // leader's copy key once copy-mode ends.
 func (s *Session) OpenCopyStandIn(sidebar string, standIn panes.CopyStandIn) error {
 	standIn.Pane = sidebar
+	standIn.Binary = s.binary
+	standIn.BorderStyle = paint.Panel.TmuxBorder()
 	standIn.Keys = []string{s.leaderKey, copyKey}
 
 	return s.tmux.OpenCopyStandIn(standIn)

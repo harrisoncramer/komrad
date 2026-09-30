@@ -35,6 +35,9 @@ const (
 	ToneMerged
 	ToneHighlight
 	ToneInverse
+	ToneModeNormal
+	ToneModeVisual
+	ToneModeJump
 )
 
 // Shade is the part a background plays, which the palette turns into a colour.
@@ -152,6 +155,12 @@ func (p Palette) spell(tone Tone) string {
 		return p.colors.Highlight
 	case ToneInverse:
 		return p.colors.Inverse
+	case ToneModeNormal:
+		return p.colors.Mode.Normal
+	case ToneModeVisual:
+		return p.colors.Mode.Visual
+	case ToneModeJump:
+		return p.colors.Mode.Jump
 	}
 
 	return p.colors.Muted

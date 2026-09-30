@@ -1398,7 +1398,7 @@ func TestAgentsRecordSearch(t *testing.T) {
 			{
 				name: "a narrow pane with the legend expanded",
 				params: panelHarnessParams{
-					width:  30,
+					width:  38,
 					height: 44,
 				},
 				press:      []string{"?"},

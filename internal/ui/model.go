@@ -341,6 +341,9 @@ type model struct {
 	// copying is whether a stand-in in copy-mode has the sidebar's place.
 	copying bool
 
+	// paneCopying is whether the pane holding the keys, other than the sidebar, is in copy-mode.
+	paneCopying bool
+
 	// markingZones is whether this frame carries the marks that say where each block was drawn.
 	markingZones bool
 

@@ -127,11 +127,11 @@ Use ` + "`komrad open`" + ` to bring the panel up.`,
 
 			state.session.SilenceStatus()
 			state.tmux.EnableFocusEvents()
-			copier, err := os.Executable()
+			executable, err := os.Executable()
 			if err != nil {
-				return fmt.Errorf("failed to find the komrad binary visual mode copies through: %w", err)
+				return fmt.Errorf("failed to find the komrad binary visual mode runs in: %w", err)
 			}
-			state.session.TuneCopyMode(copier)
+			state.session.TuneCopyMode(executable)
 
 			var binary ui.BinaryWatcher
 			if watch := watchExecutable(); watch != nil {

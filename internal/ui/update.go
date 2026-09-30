@@ -382,6 +382,7 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 		return m, nil, true
 	case tea.FocusMsg:
 		m.blurred = false
+		m.paneCopying = false
 		m.keysElsewhere = false
 		m.syncKeys()
 

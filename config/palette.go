@@ -31,7 +31,7 @@ type Palette struct {
 	UserGithub string `mapstructure:"user_github"`
 	// A merged pull request.
 	Merged string `mapstructure:"merged"`
-	// What is picked out for you to act on: a search match, a jump letter, the visual mode bar.
+	// What is picked out for you to act on, such as a search match.
 	Highlight string `mapstructure:"highlight"`
 	// Text drawn on a filled bar.
 	Inverse string `mapstructure:"inverse"`
@@ -45,6 +45,8 @@ type Palette struct {
 	SelectionDim Shade `mapstructure:"selection_dim"`
 	// The background of a search match in a diff.
 	Match Shade `mapstructure:"match"`
+	// The colour of each mode the panel is in, drawn as the label at the foot of the sidebar.
+	Mode Mode `mapstructure:"mode"`
 }
 
 // Shade is a background with one colour for a light terminal and one for a dark terminal.
@@ -53,6 +55,16 @@ type Shade struct {
 	Light string `mapstructure:"light"`
 	// The colour on a dark terminal.
 	Dark string `mapstructure:"dark"`
+}
+
+// Mode is the colour of each mode the panel is in.
+type Mode struct {
+	// Browsing the panel.
+	Normal string `mapstructure:"normal"`
+	// Selecting text to copy.
+	Visual string `mapstructure:"visual"`
+	// Picking a pane to jump to.
+	Jump string `mapstructure:"jump"`
 }
 
 // DefaultPalette is the palette used when the config omits it, read from the theme package.
@@ -78,6 +90,7 @@ func DefaultPalette() Palette {
 		Selection:    Shade(colors.Selection),
 		SelectionDim: Shade(colors.SelectionDim),
 		Match:        Shade(colors.Match),
+		Mode:         Mode(colors.Mode),
 	}
 }
 
@@ -102,6 +115,7 @@ func (p Palette) Colors() theme.Colors {
 		Selection:    theme.Pair(p.Selection),
 		SelectionDim: theme.Pair(p.SelectionDim),
 		Match:        theme.Pair(p.Match),
+		Mode:         theme.Modes(p.Mode),
 	}
 }
 

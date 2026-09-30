@@ -33,12 +33,20 @@ type Colors struct {
 	Selection    Pair
 	SelectionDim Pair
 	Match        Pair
+	Mode         Modes
 }
 
 // Pair is a background with one colour for a light terminal and another for a dark one.
 type Pair struct {
 	Light string
 	Dark  string
+}
+
+// Modes is the colour each of the panel's modes is drawn in.
+type Modes struct {
+	Normal string
+	Visual string
+	Jump   string
 }
 
 // namedColor is one colour and the key the config spells it under.
@@ -68,6 +76,7 @@ func Defaults() Colors {
 		Selection:    Pair{Light: "#dbeafe", Dark: "#1e3a5f"},
 		SelectionDim: Pair{Light: "#e5e7eb", Dark: "#2b3038"},
 		Match:        Pair{Light: "#fde68a", Dark: "#7c5c00"},
+		Mode:         Modes{Normal: "4", Visual: "5", Jump: "3"},
 	}
 }
 
@@ -113,6 +122,9 @@ func (c Colors) named() []namedColor {
 		{key: "selection_dim.dark", value: c.SelectionDim.Dark},
 		{key: "match.light", value: c.Match.Light},
 		{key: "match.dark", value: c.Match.Dark},
+		{key: "mode.normal", value: c.Mode.Normal},
+		{key: "mode.visual", value: c.Mode.Visual},
+		{key: "mode.jump", value: c.Mode.Jump},
 	}
 }
 

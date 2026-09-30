@@ -102,7 +102,7 @@ func TestMessagesPane(t *testing.T) {
 		assert.Contains(t, pane, "error ·")
 		assert.Contains(t, pane, "komrad log "+traceID)
 		assert.Equal(t, "  api-refactor", readHoveredRow(frame))
-		assert.Contains(t, readLegend(frame), "d dismiss")
+		assert.Contains(t, readLegend(frame), "back to list")
 	})
 
 	t.Run("the cursor walks from the newest message back", func(t *testing.T) {

@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"strings"
+
 	tea "charm.land/bubbletea/v2"
 )
 
@@ -12,6 +14,13 @@ const pickerKey = "j"
 
 // copyKey is the leader's key that starts copy-mode in the pane holding the keys.
 const copyKey = "v"
+
+// paneCopyKey and paneNormalKey are the leader's keys tmux sends the panel when the pane holding
+// the keys enters copy-mode or leaves it.
+const (
+	paneCopyKey   = "F11"
+	paneNormalKey = "F12"
+)
 
 // leaderPanelKeys are the leader's keys the panel answers itself.
 var leaderPanelKeys = []string{pickerKey}
@@ -45,6 +54,14 @@ func (m model) routeLeader(key tea.KeyPressMsg) (tea.Model, tea.Cmd, bool) {
 		next, cmd := m.toggleCopy()
 
 		return next, cmd, true
+	case strings.ToLower(paneCopyKey):
+		m.paneCopying = true
+
+		return m, nil, true
+	case strings.ToLower(paneNormalKey):
+		m.paneCopying = false
+
+		return m, nil, true
 	case pickerKey:
 		next, cmd := m.togglePicker()
 

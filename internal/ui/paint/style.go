@@ -209,12 +209,17 @@ func BackgroundSequence(background color.Color) string {
 	return ansi.NewStyle().BackgroundColor(background).String()
 }
 
-// Visual is the bar a label saying which mode holds the panel is drawn on.
-func (p Palette) Visual() lipgloss.Style {
-	return lipgloss.NewStyle().Background(p.Color(ToneHighlight)).Foreground(p.Color(ToneInverse)).Bold(true)
+// Mode is the style a label saying which mode holds the panel is drawn in, in that mode's tone.
+func (p Palette) Mode(tone Tone) lipgloss.Style {
+	return lipgloss.NewStyle().Foreground(p.Color(tone)).Bold(true)
 }
 
-// TmuxVisual is label drawn as Visual draws it, spelled in tmux's style markup.
-func (p Palette) TmuxVisual(label string) string {
-	return "#[fg=" + tmuxColor(p.colors.Inverse) + ",bg=" + tmuxColor(p.colors.Highlight) + ",bold]" + label + "#[default]"
+// TmuxBorder is the style tmux draws a pane border in to match the divider.
+func (p Palette) TmuxBorder() string {
+	return "fg=" + tmuxColor(p.colors.Muted)
+}
+
+// TmuxSelection is the style tmux draws a selection in, a bar in the visual mode's tone.
+func (p Palette) TmuxSelection() string {
+	return "fg=" + tmuxColor(p.colors.Inverse) + ",bg=" + tmuxColor(p.colors.Mode.Visual)
 }

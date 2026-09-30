@@ -86,7 +86,7 @@ type recordingTmux struct {
 	screens       map[string]string
 	standIns      []CopyStandIn
 	standInErr    error
-	copyBadge     string
+	windowHooks   map[string]string
 }
 
 // CopyStandIn is a stand-in the panel asked tmux to put in a pane's place.
@@ -634,8 +634,17 @@ func (t *recordingTmux) DetachSession(string) {
 	t.detaches++
 }
 
-func (t *recordingTmux) TuneCopyMode(badge, _ string) {
-	t.copyBadge = badge
+func (t *recordingTmux) TuneCopyMode(string) {}
+
+func (t *recordingTmux) SetWindowHook(window, hook, command string) {
+	if t.windowHooks == nil {
+		t.windowHooks = map[string]string{}
+	}
+	t.windowHooks[window+":"+hook] = command
+}
+
+func (t *recordingTmux) UnsetWindowHook(window, hook string) {
+	delete(t.windowHooks, window+":"+hook)
 }
 
 func (t *recordingTmux) OpenCopyStandIn(params panes.CopyStandIn) error {
