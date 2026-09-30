@@ -7,6 +7,7 @@ import (
 	"komrad/internal/watch"
 	watchv1 "komrad/proto/gen/watch/v1"
 
+	documenttypestore "komrad/internal/store/documenttype"
 	mailstore "komrad/internal/store/mail"
 	pullrequeststore "komrad/internal/store/pullrequest"
 	reviewstore "komrad/internal/store/review"
@@ -29,6 +30,7 @@ func buildWatchLoaders(st *stores) []watch.Loader {
 		watch.NewLoader(watchv1.Resource_RESOURCE_REVIEW_THREAD, st.reviewThreads, renderWatchedReviewThread),
 		watch.NewLoader(watchv1.Resource_RESOURCE_WORKTREE, st.worktrees, renderWatchedWorktree),
 		watch.NewLoader(watchv1.Resource_RESOURCE_FORGE_THREAD, st.forgeThreads, renderWatchedForgeThread),
+		watch.NewLoader(watchv1.Resource_RESOURCE_DOCUMENT_TYPE, st.documentTypes, renderWatchedDocumentType),
 	}
 }
 
@@ -90,4 +92,10 @@ func renderWatchedForgeThread(row pullrequeststore.ForgeThread) (string, *watchv
 	thread := render.ForgeThread(row)
 
 	return thread.GetId(), &watchv1.Row{Row: &watchv1.Row_ForgeThread{ForgeThread: thread}}
+}
+
+func renderWatchedDocumentType(row documenttypestore.Type) (string, *watchv1.Row) {
+	documentType := render.DocumentType(row)
+
+	return documentType.GetId(), &watchv1.Row{Row: &watchv1.Row_DocumentType{DocumentType: documentType}}
 }

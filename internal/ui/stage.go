@@ -56,6 +56,10 @@ func (m *model) applyStageTick(msg stageTickMsg) tea.Cmd {
 		m.documents.stage(m, m.shared())
 
 		return m.readDocumentsCmd()
+	case screenDocumentTypes:
+		m.documentTypes.stage(m, m.shared())
+
+		return m.readHistoryCmd(screenDocumentTypes)
 	case screenArchive:
 		m.archive.stage(m, m.shared())
 

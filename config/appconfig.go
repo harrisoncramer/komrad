@@ -130,6 +130,8 @@ type Keybindings struct {
 	Diff DiffKeys `mapstructure:"diff"`
 	// The documents screen, which reads what the hovered agent has written for a person.
 	Documents DocumentsKeys `mapstructure:"documents"`
+	// The document types screen, where a person defines the sorts of document agents write.
+	DocumentTypes DocumentTypesKeys `mapstructure:"document_types"`
 	// The filter over whichever list is on screen, shared by every screen that
 	// draws one. The key that opens it is "/" and is not configured.
 	Filter FilterKeys `mapstructure:"filter"`
@@ -366,6 +368,9 @@ type MenuKeys struct {
 	// Open the git menu to the right of this one, for rebasing the agent's branch or opening or
 	// merging its pull request.
 	Git []string `mapstructure:"git" default:"g"`
+	// Open the document types, where a person defines the sorts of document agents write. The
+	// entry is drawn on the views and on the documents screen.
+	DocumentTypes []string `mapstructure:"document_types" default:"y"`
 	// Open this engine's scratch file in your editor in place of the pane beside the list, or
 	// close it when it is already open. Each engine keeps its own file under komrad's state
 	// directory.
@@ -402,8 +407,33 @@ type DocumentsKeys struct {
 	// Step forward to a later write, and past the newest back to the document as it stands.
 	Newer []string `mapstructure:"newer" default:">"`
 	// Write a new document for the agent whose documents are listed, from a form asking its name
-	// and kind. It starts with a line saying it is empty, for you to edit.
+	// and type. It starts with a line saying it is empty, for you to edit.
 	New []string `mapstructure:"new" default:"c"`
+	// Open the document types, where a person defines the sorts of document agents write and
+	// the context an agent reads before writing each.
+	Types []string `mapstructure:"types" default:"t"`
+	// Quit the panel.
+	Quit []string `mapstructure:"quit" default:"ctrl+c"`
+}
+
+// DocumentTypesKeys are the bindings for the document types screen, which lists the sorts of
+// document agents write and draws the context of the one under the cursor beside the list.
+type DocumentTypesKeys struct {
+	// Leave the document types for the screen they were opened from.
+	Back []string `mapstructure:"back" default:"esc"`
+	// Open the context of the type under the cursor in your editor. Quitting the editor, or
+	// pressing the key again to close it, saves what it has written.
+	Edit []string `mapstructure:"edit" default:"e"`
+	// Step back to an earlier write of the type under the cursor, drawing what that write changed.
+	Older []string `mapstructure:"older" default:"<"`
+	// Step forward to a later write, and past the newest back to the type as it stands.
+	Newer []string `mapstructure:"newer" default:">"`
+	// Define a new type, from a form asking its name and its context.
+	New []string `mapstructure:"new" default:"c"`
+	// Rename the type under the cursor, which renames it on every document written as it.
+	Rename []string `mapstructure:"rename" default:"r"`
+	// Delete the type under the cursor, which is refused while documents are written as it.
+	Delete []string `mapstructure:"delete" default:"d"`
 	// Quit the panel.
 	Quit []string `mapstructure:"quit" default:"ctrl+c"`
 }

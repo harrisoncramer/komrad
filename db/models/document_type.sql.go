@@ -256,6 +256,46 @@ func (q *Queries) ListDocumentTypes(ctx context.Context) ([]*DocumentType, error
 	return items, nil
 }
 
+const listWatchedDocumentTypes = `-- name: ListWatchedDocumentTypes :many
+SELECT
+    id, name, context, version, created_at, updated_at, engine_id
+FROM
+    document_types
+WHERE ($1::text[] IS NULL
+    OR id = ANY ($1::uuid[]))
+ORDER BY
+    LOWER(name),
+    name
+`
+
+func (q *Queries) ListWatchedDocumentTypes(ctx context.Context, keys []string) ([]*DocumentType, error) {
+	rows, err := q.db.Query(ctx, listWatchedDocumentTypes, keys)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*DocumentType
+	for rows.Next() {
+		var i DocumentType
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Context,
+			&i.Version,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.EngineID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const updateDocumentType = `-- name: UpdateDocumentType :one
 WITH updated AS (
     UPDATE

@@ -294,7 +294,7 @@ func TestDocumentsNew(t *testing.T) {
 		},
 		{
 			name:    "the type chosen names what the document says it is",
-			presses: []string{"c", "L", "o", "g", "tab", "down", "down", "down", "ctrl+s"},
+			presses: []string{"c", "L", "o", "g", "tab", "up", "up", "ctrl+s"},
 			want: &agentv1.WriteDocumentRequest{
 				AgentId: xptr.Ptr("author"),
 				Name:    "Log",
@@ -772,6 +772,10 @@ func buildDocumentAuthors() []proto.Message {
 		orchestrator,
 		author,
 		newAgent("quiet", "quiet", "w1"),
+		newDocumentType("t1", "RFC"),
+		newDocumentType("t2", "report"),
+		newDocumentType("t3", "explainer"),
+		newDocumentType("t4", "notes"),
 	}
 }
 
@@ -858,11 +862,6 @@ func (d *documentShelf) add(document *agentv1.Document) {
 }
 
 func (d *documentShelf) answer(harness *panelHarness) {
-	harness.answer(agentv1connect.AgentServiceListDocumentTypesProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
-		return connect.NewResponse(&agentv1.ListDocumentTypesResponse{DocumentTypes: []*agentv1.DocumentType{
-			{Name: "RFC"}, {Name: "report"}, {Name: "explainer"}, {Name: "notes"},
-		}}), nil
-	})
 	harness.answer(agentv1connect.AgentServiceListDocumentsProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
 		d.mu.Lock()
 		defer d.mu.Unlock()

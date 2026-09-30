@@ -68,6 +68,8 @@ const (
 	formSchedule
 	formScheduleArchive
 	formDocument
+	formDocumentType
+	formDocumentTypeDelete
 	formArchiveDelete
 	formWorktreesDelete
 )
@@ -126,10 +128,10 @@ const formColumnFloor = 50
 func formColumn(kind formKind) (columnSpec, bool) {
 	switch kind {
 	case formAgent, formChild, formAdopt, formRename, formAgentRetry, formWorkflow, formSchedule,
-		formDocument:
+		formDocument, formDocumentType:
 		return columnSpec{floor: formColumnFloor}, true
 	case formGit, formMerge, formMenu, formAgentArchive, formAgentRebase, formAgentRelease, formWorkflowArchive, formScheduleArchive,
-		formArchiveDelete, formWorktreesDelete:
+		formArchiveDelete, formWorktreesDelete, formDocumentTypeDelete:
 		return columnSpec{floor: columnFloor}, true
 	case formNone:
 		return columnSpec{}, false

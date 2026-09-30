@@ -431,12 +431,82 @@
               "key": "new",
               "path": "keybindings.documents.new",
               "type": "array",
-              "description": "Write a new document for the agent whose documents are listed, from a form asking its name\nand kind. It starts with a line saying it is empty, for you to edit.",
+              "description": "Write a new document for the agent whose documents are listed, from a form asking its name\nand type. It starts with a line saying it is empty, for you to edit.",
               "default": "[\"c\"]"
+            },
+            {
+              "key": "types",
+              "path": "keybindings.documents.types",
+              "type": "array",
+              "description": "Open the document types, where a person defines the sorts of document agents write and\nthe context an agent reads before writing each.",
+              "default": "[\"t\"]"
             },
             {
               "key": "quit",
               "path": "keybindings.documents.quit",
+              "type": "array",
+              "description": "Quit the panel.",
+              "default": "[\"ctrl+c\"]"
+            }
+          ],
+          "sections": []
+        },
+        {
+          "path": "keybindings.document_types",
+          "description": "The document types screen, where a person defines the sorts of document agents write.",
+          "settings": [
+            {
+              "key": "back",
+              "path": "keybindings.document_types.back",
+              "type": "array",
+              "description": "Leave the document types for the screen they were opened from.",
+              "default": "[\"esc\"]"
+            },
+            {
+              "key": "edit",
+              "path": "keybindings.document_types.edit",
+              "type": "array",
+              "description": "Open the context of the type under the cursor in your editor. Quitting the editor, or\npressing the key again to close it, saves what it has written.",
+              "default": "[\"e\"]"
+            },
+            {
+              "key": "older",
+              "path": "keybindings.document_types.older",
+              "type": "array",
+              "description": "Step back to an earlier write of the type under the cursor, drawing what that write changed.",
+              "default": "[\"\u003c\"]"
+            },
+            {
+              "key": "newer",
+              "path": "keybindings.document_types.newer",
+              "type": "array",
+              "description": "Step forward to a later write, and past the newest back to the type as it stands.",
+              "default": "[\"\u003e\"]"
+            },
+            {
+              "key": "new",
+              "path": "keybindings.document_types.new",
+              "type": "array",
+              "description": "Define a new type, from a form asking its name and its context.",
+              "default": "[\"c\"]"
+            },
+            {
+              "key": "rename",
+              "path": "keybindings.document_types.rename",
+              "type": "array",
+              "description": "Rename the type under the cursor, which renames it on every document written as it.",
+              "default": "[\"r\"]"
+            },
+            {
+              "key": "delete",
+              "path": "keybindings.document_types.delete",
+              "type": "array",
+              "description": "Delete the type under the cursor, which is refused while documents are written as it.",
+              "default": "[\"d\"]"
+            },
+            {
+              "key": "quit",
+              "path": "keybindings.document_types.quit",
               "type": "array",
               "description": "Quit the panel.",
               "default": "[\"ctrl+c\"]"
@@ -923,6 +993,13 @@
               "type": "array",
               "description": "Open the git menu to the right of this one, for rebasing the agent's branch or opening or\nmerging its pull request.",
               "default": "[\"g\"]"
+            },
+            {
+              "key": "document_types",
+              "path": "keybindings.menu.document_types",
+              "type": "array",
+              "description": "Open the document types, where a person defines the sorts of document agents write. The\nentry is drawn on the views and on the documents screen.",
+              "default": "[\"y\"]"
             },
             {
               "key": "scratch",

@@ -70,6 +70,7 @@ func (m *model) withListing(change func(*listing)) tea.Cmd {
 	archiveScheduleRow := m.archive.scheduleList().hovered(m.shared())
 	worktreeRow := m.worktrees.list().hovered(m.shared())
 	searchRow := m.search.list().hovered(m.shared())
+	typeRow := m.documentTypes.list().hovered(m.shared())
 
 	before := slices.Clone(m.listing.workflows)
 	change(&m.listing)
@@ -79,6 +80,7 @@ func (m *model) withListing(change func(*listing)) tea.Cmd {
 	m.archive.place(m.shared(), archiveRow)
 	m.archive.placeSchedule(m.shared(), archiveScheduleRow)
 	m.applyWorktrees(m.listing.worktrees, worktreeRow)
+	m.documentTypes.keepCursor(m.shared(), typeRow)
 	m.sizeAgentWindows()
 
 	preview := m.search.place(m.shared(), searchRow)

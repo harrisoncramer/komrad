@@ -29,7 +29,7 @@ func (d *documentsScreen) newDocumentForm(h host, s panelShared) tea.Cmd {
 		return nil
 	}
 
-	agentID, owner, types := d.agentID, d.agentName(s), d.types
+	agentID, owner, types := d.agentID, d.agentName(s), s.listing.documentTypeNames()
 	values := &documentFormValues{Type: defaultDocumentType(types)}
 
 	return h.openForm(redrawnForm(redrawnFormParams{

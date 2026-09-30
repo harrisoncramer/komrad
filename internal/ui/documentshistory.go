@@ -11,7 +11,6 @@ import (
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/paint/label"
 	"komrad/lib/dates"
-	agentv1 "komrad/proto/gen/agent/v1"
 
 	tea "charm.land/bubbletea/v2"
 )
@@ -21,9 +20,9 @@ const documentDiffPath = "document.md"
 
 // documentHistory is one document's writes stepped through, drawing what the one stood on changed.
 type documentHistory struct {
-	id string
+	item documentItem
 	// versions is every write kept, newest first, and at the one stood on.
-	versions []*agentv1.DocumentVersion
+	versions []historyVersion
 	at       int
 	listing  bool
 	err      error
@@ -35,6 +34,14 @@ type documentHistory struct {
 	filter filterState
 	// said is what the last key on the diff said.
 	said string
+}
+
+// historyVersion is one write kept of a document: which it is, who made it where that is known, and
+// when.
+type historyVersion struct {
+	version   int32
+	by        string
+	createdAt string
 }
 
 // versionRead is one write's text as it was read, or why it could not be.
@@ -51,8 +58,8 @@ func (d *documentsScreen) stepOlder(h host, s panelShared) tea.Cmd {
 		return nil
 	}
 
-	if d.history == nil || d.history.id != item.id || d.history.err != nil {
-		d.history = &documentHistory{id: item.id}
+	if d.history == nil || d.history.item.id != item.id || d.history.err != nil {
+		d.history = &documentHistory{item: item}
 
 		return h.waitToStage()
 	}
@@ -103,7 +110,7 @@ func (h *documentHistory) forgetFailedReads() {
 func (d *documentsScreen) isSteppingHovered(s panelShared) bool {
 	item, ok := d.hovered(s)
 
-	return ok && d.history != nil && d.history.id == item.id
+	return ok && d.history != nil && d.history.item.id == item.id
 }
 
 // docRows is the document drawn beside the list at a width: the write stepped to and what it
@@ -166,13 +173,13 @@ func (d *documentsScreen) diffHeight(s panelShared) int {
 // notice names the write stepped to, who made it and how long ago.
 func (h *documentHistory) notice() string {
 	current := h.versions[h.at]
-	by := "the agent"
-	if current.GetByPerson() {
-		by = "you"
+	written := "written"
+	if current.by != "" {
+		written += " by " + current.by
 	}
 
-	notice := fmt.Sprintf("version %d of %d, written by %s %s ago",
-		current.GetVersion(), h.versions[0].GetVersion(), by, label.Age(dates.Parse(current.GetCreatedAt())))
+	notice := fmt.Sprintf("version %d of %d, %s %s ago",
+		current.version, h.versions[0].version, written, label.Age(dates.Parse(current.createdAt)))
 	if h.isOldestKeptLate() {
 		notice += ", and the writes before it were not kept"
 	}
@@ -183,17 +190,17 @@ func (h *documentHistory) notice() string {
 // isOldestKeptLate reports whether the write stood on is the oldest kept but not the first
 // written, as for a document written before its writes were kept.
 func (h *documentHistory) isOldestKeptLate() bool {
-	return h.at+1 >= len(h.versions) && h.versions[h.at].GetVersion() > 1
+	return h.at+1 >= len(h.versions) && h.versions[h.at].version > 1
 }
 
 // readChange is the write stepped to and the one kept before it, and false while either is still
 // being read.
 func (h *documentHistory) readChange() (versionRead, versionRead, bool) {
-	after, ok := h.reads[h.versions[h.at].GetVersion()]
+	after, ok := h.reads[h.versions[h.at].version]
 	before := versionRead{}
 	if h.at+1 < len(h.versions) {
 		var held bool
-		before, held = h.reads[h.versions[h.at+1].GetVersion()]
+		before, held = h.reads[h.versions[h.at+1].version]
 		ok = ok && held
 	}
 
@@ -239,9 +246,9 @@ func (h *documentHistory) isDrawn(isDark bool) bool {
 		return false
 	}
 
-	drawn := drawnChange{after: h.versions[h.at].GetVersion(), isDark: isDark}
+	drawn := drawnChange{after: h.versions[h.at].version, isDark: isDark}
 	if h.at+1 < len(h.versions) {
-		drawn.before = h.versions[h.at+1].GetVersion()
+		drawn.before = h.versions[h.at+1].version
 	}
 
 	if h.pane.View() == nil || h.drawn != drawn {
@@ -254,41 +261,44 @@ func (h *documentHistory) isDrawn(isDark bool) bool {
 	return h.pane.View().Len() > 0
 }
 
-// documentVersionsListedMsg is the writes kept of a document come back.
+// documentVersionsListedMsg is the writes kept of a document come back, to the screen that asked.
 type documentVersionsListedMsg struct {
+	on       screen
 	id       string
-	versions []*agentv1.DocumentVersion
+	versions []historyVersion
 	err      error
 }
 
-// documentVersionReadMsg is one write's text come back.
+// documentVersionReadMsg is one write's text come back, to the screen that asked.
 type documentVersionReadMsg struct {
+	on      screen
 	id      string
 	version int32
 	read    versionRead
 }
 
-// readHistoryCmd lists the writes of the document being stepped through, then reads the one
-// stood on and the one before it.
-func (m *model) readHistoryCmd() tea.Cmd {
-	d := &m.documents
+// readHistoryCmd lists the writes of the document being stepped through on a screen, then reads
+// the one stood on and the one before it.
+func (m *model) readHistoryCmd(on screen) tea.Cmd {
+	d := m.documentsOn(on)
 	if !d.isSteppingHovered(m.shared()) {
 		return nil
 	}
 
-	h, clients := d.history, m.api
+	h, clients, shelf := d.history, m.api, d.shelf
 	if h.versions == nil {
 		if h.listing || h.err != nil {
 			return nil
 		}
 
 		h.listing = true
-		id := h.id
+		id := h.item.id
 
 		return func() tea.Msg {
-			versions, err := clients.listDocumentVersions(id)
+			versions, err := shelf.listVersions(clients, id)
 
 			return documentVersionsListedMsg{
+				on:       on,
 				id:       id,
 				versions: versions,
 				err:      err,
@@ -299,16 +309,17 @@ func (m *model) readHistoryCmd() tea.Cmd {
 	var cmds []tea.Cmd
 	for _, at := range []int{h.at, h.at + 1} {
 		if at < len(h.versions) {
-			cmds = append(cmds, m.readVersionCmd(h.versions[at].GetVersion()))
+			cmds = append(cmds, m.readVersionCmd(on, h.versions[at].version))
 		}
 	}
 
 	return tea.Batch(cmds...)
 }
 
-// readVersionCmd reads one write of the document being stepped through, once.
-func (m *model) readVersionCmd(version int32) tea.Cmd {
-	h, clients := m.documents.history, m.api
+// readVersionCmd reads one write of the document being stepped through on a screen, once.
+func (m *model) readVersionCmd(on screen, version int32) tea.Cmd {
+	d := m.documentsOn(on)
+	h, clients, shelf := d.history, m.api, d.shelf
 	if _, asked := h.reads[version]; asked {
 		return nil
 	}
@@ -317,29 +328,31 @@ func (m *model) readVersionCmd(version int32) tea.Cmd {
 		h.reads = map[int32]versionRead{}
 	}
 	h.reads[version] = versionRead{pending: true}
-	id := h.id
+	item := h.item
 
 	return func() tea.Msg {
-		document, err := clients.getDocumentVersion(id, version)
+		body, err := shelf.readVersion(clients, item, version)
 		if err != nil {
 			return documentVersionReadMsg{
-				id:      id,
+				on:      on,
+				id:      item.id,
 				version: version,
 				read:    versionRead{err: err},
 			}
 		}
 
 		return documentVersionReadMsg{
-			id:      id,
+			on:      on,
+			id:      item.id,
 			version: version,
-			read:    versionRead{body: document.GetBody()},
+			read:    versionRead{body: body},
 		}
 	}
 }
 
 func (m *model) applyDocumentVersionsListed(msg documentVersionsListedMsg) tea.Cmd {
-	h := m.documents.history
-	if h == nil || h.id != msg.id {
+	h := m.documentsOn(msg.on).history
+	if h == nil || h.item.id != msg.id {
 		return nil
 	}
 
@@ -352,12 +365,12 @@ func (m *model) applyDocumentVersionsListed(msg documentVersionsListedMsg) tea.C
 
 	h.versions, h.at = msg.versions, 0
 
-	return m.readHistoryCmd()
+	return m.readHistoryCmd(msg.on)
 }
 
 func (m *model) applyDocumentVersionRead(msg documentVersionReadMsg) {
-	h := m.documents.history
-	if h == nil || h.id != msg.id || h.reads == nil {
+	h := m.documentsOn(msg.on).history
+	if h == nil || h.item.id != msg.id || h.reads == nil {
 		return
 	}
 
