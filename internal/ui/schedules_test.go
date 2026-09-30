@@ -607,9 +607,11 @@ func TestSchedulesForm(t *testing.T) {
 
 		harness.watch(buildPuts(newLiveWorkflow("w2", "brandnew")))
 
+		typeText(harness, "x")
+
 		form := readStageText(harness.readFrame())
 		assert.Contains(t, form, "brandnew  —")
-		assert.Contains(t, form, "  Cron")
+		assert.Contains(t, form, "> 0 9 * * 1-5x")
 	})
 
 	t.Run("a schedule keeps the workflow it names when that one is archived under the form", func(t *testing.T) {
