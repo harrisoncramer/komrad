@@ -770,7 +770,7 @@ table "agents" {
   column "lines_added" {
     null    = true
     type    = integer
-    comment = "How many lines the agent's checkout adds since it left its base, committed and uncommitted alike, null when there is no base to measure against. The cwd syncer rewrites it every pass."
+    comment = "How many lines the agent's checkout adds since it left its base, committed and uncommitted alike, null when there is no base to measure against. The cwd syncer rewrites it every pass while the agent is live and leaves it as it was once the agent is archived."
   }
   column "lines_removed" {
     null    = true

@@ -1,4 +1,4 @@
-h1:LSiUwvda22MynYaKy4peBCZHTf3ZKdPIM4nSLZ741u4=
+h1:Fddkz6i3wU4rDpmVXO3D1FZcr3Cku/j84m9UDNEMmUI=
 20260727000000_foundation.sql h1:/waeB4mjNLR7umaB/y9/QrlRShuqTKvbhkcmp36U/CA=
 20260727000001_agents.sql h1:09sEq2PQKxX8TSJHRrpuPpBzL4S26ZuWmx2ir6yMGNs=
 20260727000002_mail.sql h1:4TZ5X8UDgQDawws+KHLtI5i7njTt9nUtWHkJC4A4t0Q=
@@ -53,4 +53,4 @@ h1:LSiUwvda22MynYaKy4peBCZHTf3ZKdPIM4nSLZ741u4=
 20260930134027_forge_thread_dismissed.sql h1:Sg5yHpo/ydeV0EqI+uUOuEl7rGJNl5o3jJKfn3vPVgQ=
 20260930164650_worktree_standing.sql h1:Gue8nmquwbbNDzHRs7eZup+DDpz6mHawTW2lF3zhNhw=
 20260930172839_agent_screens.sql h1:nT2WtNHJfVIKc6x2daO8fDwUvT2aXsrcm9VUutDcGs0=
-20260930202526_agent_diff_stat.sql h1:1g0qLml4EBkXVRouD6m6duItTLP/P09qjukUFRxHkHw=
+20260930204337_agent_diff_stat.sql h1:i/FlZ0z63jXwb9ZRBd/wbtnawP//nOoYLczMlofqRps=
