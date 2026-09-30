@@ -105,7 +105,7 @@ func (m model) routeWheel(x, y, rows int) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	if screen, ok := m.active().(popupScroller); ok && !m.form.isActive() && !m.held.active && screen.scrollPopupAt(m.shared(), x-m.countInsetLeft(), y, rows) {
+	if screen, ok := m.active().(popupScroller); ok && !m.form.isActive() && !m.held.active && !m.isMessagesFocused() && screen.scrollPopupAt(m.shared(), x-m.countInsetLeft(), y, rows) {
 		return m, nil
 	}
 
