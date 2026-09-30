@@ -115,7 +115,7 @@ func TestOffersHoldThroughFolding(t *testing.T) {
 }
 
 // TestOffersOnAHeaderAreCountedThere covers the forge's comments with no line of their own,
-// marked on their file's header with how many there are.
+// marked on their file's header with how many there are, however little of the path fits.
 func TestOffersOnAHeaderAreCountedThere(t *testing.T) {
 	view := NewView(offerPatch(), false)
 	view.PinOffers([]Offer{
@@ -126,6 +126,8 @@ func TestOffersOnAHeaderAreCountedThere(t *testing.T) {
 	row, ok := view.GetOfferRow("a")
 	assert.True(t, ok)
 
-	drawn := ansi.Strip(view.RenderRow(row, NoCursor, 80, 0))
-	assert.Contains(t, drawn, glyph.Defaults().Spell(glyph.ThreadRead)+" 2")
+	for _, width := range []int{80, 8} {
+		drawn := ansi.Strip(view.RenderRow(row, NoCursor, width, 0))
+		assert.Contains(t, drawn, glyph.Defaults().Spell(glyph.ThreadRead)+" 2", "at width %d", width)
+	}
 }
