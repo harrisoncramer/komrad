@@ -31,8 +31,7 @@ type lastScreenMsg struct {
 	err     error
 }
 
-// screenedAgentID is the agent whose saved screen the column draws, which is one with no pane
-// on show.
+// screenedAgentID is the agent whose saved screen the column draws.
 func (m model) screenedAgentID() (string, bool) {
 	s := m.shared()
 
