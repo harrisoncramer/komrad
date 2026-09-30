@@ -154,8 +154,7 @@ WITH prior AS (
     WHERE
         workflows.id = @id
         AND workflows.archived_at IS NULL
-    FOR UPDATE
-)
+    FOR UPDATE)
 UPDATE
     workflows w
 SET
