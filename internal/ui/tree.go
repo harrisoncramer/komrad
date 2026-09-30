@@ -287,15 +287,15 @@ func (a *agentsScreen) hoveredPane(s panelShared) (panel.AgentRow, bool) {
 	return item, true
 }
 
-// hoveredDormant is the agent the row under the cursor stands for when it is not running.
-func (a *agentsScreen) hoveredDormant(s panelShared) (panel.AgentRow, bool) {
+// hoveredResting is the agent the row under the cursor stands for when it is dormant or paused.
+func (a *agentsScreen) hoveredResting(s panelShared) (panel.AgentRow, bool) {
 	r, ok := a.hoveredRow(s)
 	if !ok {
 		return panel.AgentRow{}, false
 	}
 
 	item, held := r.paneItem()
-	if !held || item.Alive || item.Agent.HeldAt != nil || item.Agent.State == panel.StateSettingUp || item.Agent.State.IsFailed() {
+	if !held || (item.Alive && item.Agent.HeldAt == nil) || item.Agent.State == panel.StateSettingUp || item.Agent.State.IsFailed() {
 		return panel.AgentRow{}, false
 	}
 

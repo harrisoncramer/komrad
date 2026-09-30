@@ -11,9 +11,12 @@ import (
 
 // Fake is a tmux that answers from its fields and records every call made of it.
 type Fake struct {
-	mu              sync.Mutex
-	Owners          map[string]string
-	Captures        map[string]string
+	mu       sync.Mutex
+	Owners   map[string]string
+	Captures map[string]string
+	// Screens is what a pane's whole visible grid holds, and Sizes how big the pane is.
+	Screens         map[string]string
+	Sizes           map[string]Size
 	Commands        map[string]string
 	InMode          map[string]bool
 	ClientDir       string
@@ -58,11 +61,19 @@ type Respawn struct {
 	Argv []string
 }
 
+// Size is how many columns and rows a pane is.
+type Size struct {
+	Width  int
+	Height int
+}
+
 // NewFake is a tmux holding no panes.
 func NewFake() *Fake {
 	return &Fake{
 		Owners:         map[string]string{},
 		Captures:       map[string]string{},
+		Screens:        map[string]string{},
+		Sizes:          map[string]Size{},
 		Commands:       map[string]string{},
 		InMode:         map[string]bool{},
 		Sent:           map[string][][]string{},
@@ -405,4 +416,28 @@ func (f *Fake) recordEdit(target, edit string) {
 		f.Edits = map[string][]string{}
 	}
 	f.Edits[target] = append(f.Edits[target], edit)
+}
+
+// CaptureScreen answers Screens for the pane.
+func (f *Fake) CaptureScreen(pane string) string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	return f.Screens[pane]
+}
+
+// GetPaneWidth answers the width Sizes holds for the pane.
+func (f *Fake) GetPaneWidth(pane string) int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	return f.Sizes[pane].Width
+}
+
+// GetPaneHeight answers the height Sizes holds for the pane.
+func (f *Fake) GetPaneHeight(pane string) int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	return f.Sizes[pane].Height
 }

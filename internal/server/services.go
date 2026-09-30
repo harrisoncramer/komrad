@@ -67,6 +67,7 @@ type services struct {
 	shells           *shells.ShellService
 	attaches         *attaches.AttachService
 	agentGit         *agentgit.GitService
+	screens          *agents.ScreenKeeper
 }
 
 // BuiltinScriptsDir is where the scripts komrad ships are installed under a cache directory,
@@ -198,6 +199,10 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 		Agents:    st.agents,
 		Schedules: st.schedules,
 	})
+	screenKeeper := agents.NewScreenKeeper(agents.NewScreenKeeperParams{
+		Panes:   params.Tmux,
+		Screens: st.screens,
+	})
 	lifecycleService := agents.NewLifecycleService(agents.NewLifecycleServiceParams{
 		Tmux:           params.Tmux,
 		Agents:         st.agents,
@@ -207,6 +212,7 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 		Scripts:        scriptService,
 		Reviews:        st.review,
 		Snapshots:      gitClient,
+		Screens:        screenKeeper,
 		LogsDir:        runLogsDir,
 		FramesDir:      params.Env.FramesDir(),
 		Usage:          params.Usage,
@@ -219,6 +225,7 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 		Emptied:      emptyWorkflows,
 		Schedules:    st.schedules,
 		Tmux:         params.Tmux,
+		Screens:      screenKeeper,
 		Tx:           st.pool,
 		Scripts:      scriptService,
 		Hooks:        scriptService,
@@ -283,10 +290,11 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 		Panes:    params.Tmux,
 		Observer: paneChannel,
 		States:   st.agents,
-	}).WithFrameRecorder(frames.NewRecorder(params.Env.FramesDir(), newFrameSettings(loadConfig).get))
+	}).WithFrameRecorder(frames.NewRecorder(params.Env.FramesDir(), newFrameSettings(loadConfig).get)).WithScreenKeeper(screenKeeper)
 
 	return &services{
 		loadConfig: loadConfig,
+		screens:    screenKeeper,
 		watchRows:  watch.NewRows(buildWatchLoaders(st)),
 		transcriptReader: transcripts.NewTranscriptReader(transcripts.NewTranscriptReaderParams{
 			Agents:      st.agents,

@@ -68,6 +68,7 @@ type NewWorkflowServiceParams struct {
 	Emptied      *EmptyWorkflowDeleter
 	Schedules    workflowScheduleCounter
 	Tmux         paneKiller
+	Screens      screenKeeper
 	Tx           txRunner
 	Scripts      agentScriptRunner
 	Hooks        workflowHookFinder
@@ -82,6 +83,7 @@ type WorkflowService struct {
 	emptied      *EmptyWorkflowDeleter
 	schedules    workflowScheduleCounter
 	tmux         paneKiller
+	screens      screenKeeper
 	tx           txRunner
 	scripts      agentScriptRunner
 	hooks        workflowHookFinder
@@ -98,6 +100,7 @@ func NewWorkflowService(params NewWorkflowServiceParams) *WorkflowService {
 		emptied:      params.Emptied,
 		schedules:    params.Schedules,
 		tmux:         params.Tmux,
+		screens:      params.Screens,
 		tx:           params.Tx,
 		scripts:      params.Scripts,
 		hooks:        params.Hooks,
@@ -369,6 +372,7 @@ func (w *WorkflowService) ArchiveWorkflow(ctx context.Context, id string) error 
 		workflows: w.store,
 		live:      inside,
 		owned:     inside,
+		screens:   w.screens,
 		archive: func(ctx context.Context) ([]agentstore.AgentPane, error) {
 			var taken []agentstore.AgentPane
 			err := w.tx.InTx(ctx, func(db store.DBTX) error {

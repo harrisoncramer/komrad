@@ -478,20 +478,18 @@ func (a api) listDocuments(agentID string) ([]*agentv1.Document, error) {
 	})
 }
 
-func (a api) getLastTurns(agentID string) ([]*agentv1.Turn, error) {
-	turns, maxBytes := int32(conversationPreviewTurns), int32(conversationPreviewTurnBytes)
-
-	return call(requestTimeout, func(ctx context.Context) ([]*agentv1.Turn, error) {
-		resp, err := a.agents.GetLastTurns(ctx, connect.NewRequest(&agentv1.GetLastTurnsRequest{
-			AgentId:  agentID,
-			Turns:    &turns,
-			MaxBytes: &maxBytes,
-		}))
-		if err != nil {
-			return nil, fmt.Errorf("failed to read the last turns of agent %q: %w", agentID, err)
+func (a api) getLastScreen(agentID string) (*agentv1.GetLastScreenResponse, error) {
+	return call(requestTimeout, func(ctx context.Context) (*agentv1.GetLastScreenResponse, error) {
+		resp, err := a.agents.GetLastScreen(ctx, connect.NewRequest(&agentv1.GetLastScreenRequest{AgentId: agentID}))
+		if connect.CodeOf(err) == connect.CodeNotFound {
+			return nil, errNoSavedScreen
 		}
 
-		return resp.Msg.GetTurns(), nil
+		if err != nil {
+			return nil, fmt.Errorf("failed to read the last screen of agent %q: %w", agentID, err)
+		}
+
+		return resp.Msg, nil
 	})
 }
 

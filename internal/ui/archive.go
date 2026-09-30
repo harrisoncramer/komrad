@@ -440,7 +440,7 @@ func (a *archiveScreen) doc(s panelShared) string {
 	case r.header:
 		return workflowContextMarkdown(r.workflow)
 	default:
-		return archiveDocument(r.item.Agent) + "\n" + conversationPreviewMarkdown(s.conversation, r.item.Agent.ID)
+		return archiveDocument(r.item.Agent)
 	}
 }
 
@@ -611,7 +611,7 @@ func (a *archiveScreen) column() columnSpec {
 		floor: columnFloor,
 		read:  isAlwaysRead,
 		docRows: func(m model, width int) []string {
-			return m.archive.docRows(m.shared(), width)
+			return m.withLastScreen(m.archive.docRows(m.shared(), width), width)
 		},
 	}
 }

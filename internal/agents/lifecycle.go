@@ -66,6 +66,7 @@ type NewLifecycleServiceParams struct {
 	Scripts        agentScriptRunner
 	Reviews        reviewReaper
 	Snapshots      snapshotReleaser
+	Screens        screenKeeper
 	LogsDir        string
 	FramesDir      string
 	Usage          config.Usage
@@ -82,6 +83,7 @@ type LifecycleService struct {
 	scripts        agentScriptRunner
 	reviews        reviewReaper
 	snapshots      snapshotReleaser
+	screens        screenKeeper
 	logsDir        string
 	framesDir      string
 	usage          config.Usage
@@ -98,6 +100,7 @@ func NewLifecycleService(params NewLifecycleServiceParams) *LifecycleService {
 		scripts:        params.Scripts,
 		reviews:        params.Reviews,
 		snapshots:      params.Snapshots,
+		screens:        params.Screens,
 		logsDir:        params.LogsDir,
 		framesDir:      params.FramesDir,
 		usage:          params.Usage,
@@ -288,6 +291,7 @@ func (s *LifecycleService) ArchiveAgents(ctx context.Context, ids []string) erro
 		workflows: s.workflows,
 		live:      xslice.Filter(agents, func(agent agentstore.Agent) bool { return agent.ArchivedAt == nil }),
 		owned:     agents,
+		screens:   s.screens,
 		archive: func(ctx context.Context) ([]agentstore.AgentPane, error) {
 			return s.agents.Archive(ctx, agentstore.IDs(agents))
 		},

@@ -83,6 +83,7 @@ type NewHandlerParams struct {
 	Rows          rowReader
 	Writer        rowWriter
 	Transcripts   transcriptReader
+	Screens       screenReader
 	Mail          mailer
 	Creator       agentCreator
 	Adopter       agentAdopter
@@ -104,6 +105,7 @@ type Handler struct {
 	rows          rowReader
 	writer        rowWriter
 	transcripts   transcriptReader
+	screens       screenReader
 	mail          mailer
 	creator       agentCreator
 	adopter       agentAdopter
@@ -133,6 +135,7 @@ func NewHandler(params NewHandlerParams) *Handler {
 		rows:          params.Rows,
 		writer:        params.Writer,
 		transcripts:   params.Transcripts,
+		screens:       params.Screens,
 		mail:          params.Mail,
 		creator:       params.Creator,
 		adopter:       params.Adopter,

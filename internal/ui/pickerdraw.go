@@ -5,12 +5,10 @@ import (
 
 	"komrad/internal/panes"
 	"komrad/internal/ui/paint"
+	"komrad/internal/ui/savedscreen"
 
 	"charm.land/lipgloss/v2"
 )
-
-// tabStop is how far apart tmux sets a pane's tab stops.
-const tabStop = 8
 
 // pickerLabel is the label drawn over the sidebar while the picker holds the window.
 const pickerLabel = " PANES "
@@ -107,30 +105,8 @@ func fitScreen(screen string, rect panes.Rect) string {
 	}
 
 	for i, line := range lines {
-		lines[i] = expandTabs(line)
+		lines[i] = savedscreen.ExpandTabs(line)
 	}
 
 	return strings.Join(lines, "\n")
-}
-
-func expandTabs(line string) string {
-	if !strings.Contains(line, "\t") {
-		return line
-	}
-
-	var b strings.Builder
-
-	col := 0
-	for i, piece := range strings.Split(line, "\t") {
-		if i > 0 {
-			pad := tabStop - col%tabStop
-			b.WriteString(strings.Repeat(" ", pad))
-			col += pad
-		}
-
-		b.WriteString(piece)
-		col += lipgloss.Width(piece)
-	}
-
-	return b.String()
 }
