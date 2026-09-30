@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -545,6 +546,43 @@ func TestReviewPopupScroll(t *testing.T) {
 		assert.Equal(t, "greet.go:1", readReviewCursor(frame))
 		assert.Contains(t, readPopupProse(frame), "note 5")
 	})
+}
+
+// TestReviewPopupPlacement covers the popup standing clear of the code on either side of the
+// divider.
+func TestReviewPopupPlacement(t *testing.T) {
+	tests := []struct {
+		name    string
+		side    string
+		crosses bool
+	}{
+		{
+			name: "with the sidebar on the left it stays inside the diff",
+			side: config.SidebarSideLeft,
+		},
+		{
+			name:    "with the sidebar on the right it runs over the divider",
+			side:    config.SidebarSideRight,
+			crosses: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := newReviewServerOver(newWideLineRepo(t))
+			server.threads = []*agentv1.ReviewThread{newLongThread()}
+			harness := openReviewAt(t, server, panelHarnessParams{width: 160, sidebarSide: tt.side})
+			lines := splitLines(ansi.Strip(harness.readFrame()))
+
+			top := slices.IndexFunc(lines, func(line string) bool { return strings.Contains(line, "╭") })
+			require.GreaterOrEqual(t, top, 0)
+			divider := readColumnOf(t, lines[0], "│")
+			left, right := readColumnOf(t, lines[top], "╭"), readColumnOf(t, lines[top], "╮")
+
+			assert.True(t, slices.ContainsFunc(lines, func(line string) bool { return strings.Contains(line, wideLine) }))
+			assert.Equal(t, tt.crosses, left < divider && divider < right)
+		})
+	}
 }
 
 // TestReviewFitsThePane covers the frame staying the pane's height whatever the sidebar holds.
@@ -2772,4 +2810,27 @@ func TestReviewChange(t *testing.T) {
 		assert.Contains(t, findLine(readStage(frame), "○ the change as a whole"), "split this in two")
 		assert.Contains(t, readPopupProse(frame), "split this in two")
 	})
+}
+
+// wideLine is a line of code long enough to leave the popup too little room inside the diff.
+const wideLine = `return "a farewell long enough to crowd the popup"`
+
+// readColumnOf is the column a glyph first stands at in a row.
+func readColumnOf(t *testing.T, line, glyph string) int {
+	t.Helper()
+
+	at := strings.Index(line, glyph)
+	require.GreaterOrEqual(t, at, 0, "no %s in %q", glyph, line)
+
+	return ansi.StringWidth(line[:at])
+}
+
+func newWideLineRepo(t *testing.T) *gittest.Repo {
+	t.Helper()
+
+	repo := gittest.NewRepo(t.TempDir())
+	repo.Patches[gittest.NamePair(gittest.BaseSHA, gittest.SnapshotSHA)] = strings.Replace(gittest.Patch, `return "goodbye"`, wideLine, 1)
+	repo.Sources[gittest.NameSource(gittest.SnapshotSHA, gittest.File)] = strings.Replace(gittest.HeadSource, `return "goodbye"`, wideLine, 1)
+
+	return repo
 }
