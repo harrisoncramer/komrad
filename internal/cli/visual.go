@@ -1,12 +1,15 @@
 package cli
 
 import (
+	"log/slog"
+
+	"komrad/internal/logging"
 	"komrad/internal/tmux"
 
 	"github.com/spf13/cobra"
 )
 
-func visualCmd(_ *app) *cobra.Command {
+func visualCmd(state *app) *cobra.Command {
 	return &cobra.Command{
 		Use:   "visual <file>",
 		Short: "Run the stand-in visual mode selects in",
@@ -22,7 +25,17 @@ ends. Nothing here is meant to be run by hand.`,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return tmux.RunCopyStandIn(cmd.Context(), args[0])
+			if err := installPanelLogger(state.env.LogPath(), state.logLevel); err != nil {
+				return err
+			}
+
+			if err := tmux.RunCopyStandIn(cmd.Context(), args[0]); err != nil {
+				logging.From(cmd.Context()).LogAttrs(cmd.Context(), slog.LevelError, "visual mode's stand-in failed", logging.Err(err)...)
+
+				return err
+			}
+
+			return nil
 		},
 	}
 }
