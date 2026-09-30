@@ -22,7 +22,7 @@ func Prepare(snapshot Snapshot) List {
 	})
 
 	if snapshot.Pane > 0 {
-		width := NameColumns(snapshot.Pane, columns)
+		width := nameColumns(snapshot.Pane, columns)
 		for i := range lines {
 			lines[i] = fitRow(lines[i], width)
 		}

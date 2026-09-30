@@ -14,8 +14,8 @@ const spaceColumns = 1
 // plainCells is the focus and the bar, which no width gives up.
 const plainCells = 2
 
-// GutterColumns is how wide everything left of a name is.
-func GutterColumns(columns Columns) int {
+// gutterColumns is how wide everything left of a name is.
+func gutterColumns(columns Columns) int {
 	// Every cell holds its width and the space after it, a cell with nothing to draw included.
 	width := plainCells * (plainColumns + spaceColumns)
 	for _, column := range columns {
@@ -25,9 +25,9 @@ func GutterColumns(columns Columns) int {
 	return width
 }
 
-// NameColumns is how many columns a name has in a pane of the given width.
-func NameColumns(pane int, columns Columns) int {
-	return max(pane-GutterColumns(columns), 0)
+// nameColumns is how many columns a name has in a pane of the given width.
+func nameColumns(pane int, columns Columns) int {
+	return max(pane-gutterColumns(columns), 0)
 }
 
 // ruleColumns is the corner a child hangs off its parent by, and the space after it.

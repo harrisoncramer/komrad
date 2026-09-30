@@ -89,8 +89,8 @@ type Column struct {
 // Columns is the gutter a list declares, in the order its columns are drawn.
 type Columns []Column
 
-// WorkColumns is the gutter of the agents list: repo and forge, one glyph each.
-func WorkColumns() Columns {
+// workColumns is the gutter of the agents list: repo and forge, one glyph each.
+func workColumns() Columns {
 	return Columns{
 		{Kind: ColumnRepo, Width: plainColumns},
 		{Kind: ColumnForge, Width: plainColumns},
