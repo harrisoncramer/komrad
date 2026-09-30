@@ -63,6 +63,8 @@ type screenTarget struct {
 	agentID string
 	// from is the view the screen was opened from.
 	from screen
+	// resume says the screen is being gone back to and keeps what it held.
+	resume bool
 }
 
 // detailed is a screen that draws a record under its list.

@@ -7,6 +7,7 @@ import (
 	"komrad/lib/xptr"
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
+	watchv1 "komrad/proto/gen/watch/v1"
 
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
@@ -17,12 +18,11 @@ import (
 
 const documentTypesScreen = "the document types"
 
-// TestDocumentTypesOpen covers the document types opening from the documents menu on any agent,
-// and leaving back to it.
+// TestDocumentTypesOpen covers the types opening from the panel's band of the menu on any screen.
 func TestDocumentTypesOpen(t *testing.T) {
 	t.Parallel()
 
-	t.Run("the documents menu opens them on the first type with its context", func(t *testing.T) {
+	t.Run("the menu opens them on the first type with its context", func(t *testing.T) {
 		t.Parallel()
 
 		harness := openDocumentTypes(t, "author")
@@ -51,6 +51,76 @@ func TestDocumentTypesOpen(t *testing.T) {
 		assert.Contains(t, readHoveredRow(harness.readFrame()), "author")
 	})
 
+	t.Run("a screen with no agent opens them and gets them back", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openSchedules(t, newLiveWorkflow("w1", "api"), newSchedule("s1", "morning-ci"))
+		answerDocumentTypes(harness)
+		harness.press("space", "T", "l")
+		harness.fireTimers()
+
+		assert.Equal(t, documentTypesScreen, harness.readScreen())
+
+		harness.press("esc")
+
+		assert.Equal(t, schedulesScreen, harness.readScreen())
+	})
+
+	t.Run("back returns to the documents they were opened over, which still go back to their own", func(t *testing.T) {
+		t.Parallel()
+
+		harness, _ := openDocuments(t)
+		answerDocumentTypes(harness)
+		harness.press("space", "T", "l")
+		harness.fireTimers()
+		harness.press("esc")
+		harness.fireTimers()
+
+		assert.Equal(t, documentsScreen, harness.readScreen())
+		assert.Contains(t, readStageText(harness.readFrame()), "Design the cache")
+
+		harness.press("esc")
+
+		assert.Equal(t, agentsScreen, harness.readScreen())
+	})
+
+	t.Run("back returns to the search with its query and hits", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openSearch(t, openSearchParams{
+			server: newSearchServer(newTurnHit("a2", "payouts", "ledger")),
+			query:  "ledger",
+			rows:   buildSearchable(),
+		})
+		answerDocumentTypes(harness)
+		harness.press("enter")
+		hits := readListRows(harness.readFrame())
+		require.NotEmpty(t, hits)
+
+		harness.press("space", "T", "l")
+		harness.fireTimers()
+		require.Equal(t, documentTypesScreen, harness.readScreen())
+		harness.press("esc")
+
+		frame := harness.readFrame()
+		assert.Equal(t, searchScreen, harness.readScreen())
+		assert.Equal(t, "/ ledger", readSearch(frame))
+		assert.Equal(t, hits, readListRows(frame))
+	})
+
+	t.Run("back from over a review whose agent has gone lands on the agents list", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openReview(t, newReviewServer(t))
+		answerDocumentTypes(harness)
+		harness.press("space", "T", "l")
+		harness.fireTimers()
+		harness.watch(buildDeleted(watchv1.Resource_RESOURCE_AGENT, "a1"))
+		harness.press("esc")
+
+		assert.Equal(t, agentsScreen, harness.readScreen())
+	})
+
 	t.Run("a type put on the watch is drawn", func(t *testing.T) {
 		t.Parallel()
 
@@ -61,15 +131,14 @@ func TestDocumentTypesOpen(t *testing.T) {
 	})
 }
 
-// TestDocumentTypesNewFromTheMenu covers defining a type from the documents menu without opening
-// the types.
+// TestDocumentTypesNewFromTheMenu covers defining a type without opening the types.
 func TestDocumentTypesNewFromTheMenu(t *testing.T) {
 	t.Parallel()
 
 	harness := openAgents(t, buildDocumentAuthors()...)
 	answerDocumentTypes(harness)
 	moveToAgentRow(t, harness, "quiet")
-	harness.press("space", "d", "t", "b", "r", "i", "e", "f", "tab", "S", "h", "o", "r", "t", "ctrl+s")
+	harness.press("space", "T", "c", "b", "r", "i", "e", "f", "tab", "S", "h", "o", "r", "t", "ctrl+s")
 
 	assert.Equal(t, agentsScreen, harness.readScreen())
 	harness.assertSentTo(agentv1connect.AgentServiceWriteDocumentTypeProcedure, &agentv1.WriteDocumentTypeRequest{Name: "brief", Context: "Short"})
@@ -222,14 +291,14 @@ func TestDocumentTypesHistory(t *testing.T) {
 	}
 }
 
-// openDocumentTypes opens the document types from the documents menu on the agent named.
+// openDocumentTypes opens the document types from the menu over the agent named.
 func openDocumentTypes(t *testing.T, name string) *panelHarness {
 	t.Helper()
 
 	harness := openAgents(t, buildDocumentAuthors()...)
 	answerDocumentTypes(harness)
 	moveToAgentRow(t, harness, name)
-	harness.press("space", "d", "l")
+	harness.press("space", "T", "l")
 	harness.fireTimers()
 
 	return harness

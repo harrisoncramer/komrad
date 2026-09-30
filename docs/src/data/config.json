@@ -461,20 +461,6 @@
               "type": "array",
               "description": "Write a new document for the agent, from a form asking its name and type. It starts with a\nline saying it is empty, for you to edit.",
               "default": "[\"c\"]"
-            },
-            {
-              "key": "new_type",
-              "path": "keybindings.documents_menu.new_type",
-              "type": "array",
-              "description": "Define a new document type, from a form asking its name and the context an agent reads\nbefore writing one.",
-              "default": "[\"t\"]"
-            },
-            {
-              "key": "types",
-              "path": "keybindings.documents_menu.types",
-              "type": "array",
-              "description": "Open the document types, where a person defines the sorts of document agents write.",
-              "default": "[\"l\"]"
             }
           ],
           "sections": []
@@ -538,6 +524,27 @@
               "type": "array",
               "description": "Quit the panel.",
               "default": "[\"ctrl+c\"]"
+            }
+          ],
+          "sections": []
+        },
+        {
+          "path": "keybindings.document_types_menu",
+          "description": "The document types menu, nested under the panel's own entries in the menu.",
+          "settings": [
+            {
+              "key": "list",
+              "path": "keybindings.document_types_menu.list",
+              "type": "array",
+              "description": "Open the document types, where a person defines the sorts of document agents write.",
+              "default": "[\"l\"]"
+            },
+            {
+              "key": "new",
+              "path": "keybindings.document_types_menu.new",
+              "type": "array",
+              "description": "Define a new document type, from a form asking its name and the context an agent reads\nbefore writing one.",
+              "default": "[\"c\"]"
             }
           ],
           "sections": []
@@ -998,7 +1005,7 @@
               "key": "documents",
               "path": "keybindings.menu.documents",
               "type": "array",
-              "description": "Open the documents menu to the right of this one, for reading the agent's documents,\nwriting a new one, or defining the types they are written as.",
+              "description": "Open the documents menu to the right of this one, for reading the agent's documents or\nwriting a new one.",
               "default": "[\"d\"]"
             },
             {
@@ -1028,6 +1035,13 @@
               "type": "array",
               "description": "Open this engine's scratch file in your editor in place of the pane beside the list, or\nclose it when it is already open. Each engine keeps its own file under komrad's state\ndirectory.",
               "default": "[\"s\"]"
+            },
+            {
+              "key": "document_types",
+              "path": "keybindings.menu.document_types",
+              "type": "array",
+              "description": "Open the document types menu to the right of this one, for listing the sorts of document\nagents write or defining a new one.",
+              "default": "[\"T\"]"
             }
           ],
           "sections": []

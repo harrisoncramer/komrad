@@ -40,8 +40,10 @@ type documentsScreen struct {
 	shelf   documentShelf
 	agentID string
 	// from is the screen the screen was opened from.
-	from  screen
-	items []documentItem
+	from screen
+	// returning is the target that puts the document types' from back as it was.
+	returning screenTarget
+	items     []documentItem
 	// listedAt is the agent's newest write the list was read at, and listedCount how many it had
 	// written.
 	listedAt    *time.Time
@@ -72,7 +74,7 @@ func (d *documentsScreen) enter(h host, _ panelShared, target screenTarget) tea.
 		saved = d.closeEdit(h)
 		*d = documentsScreen{shelf: d.shelf, agentID: target.agentID}
 	}
-	if target.agentID != "" {
+	if target.agentID != "" || d.shelf == shelfDocumentTypes {
 		d.from = target.from
 	}
 

@@ -215,7 +215,11 @@ type previewResult struct {
 }
 
 // enter opens the search fresh, with the query line waiting for the filter key.
-func (w *searchScreen) enter(h host, _ panelShared, _ screenTarget) tea.Cmd {
+func (w *searchScreen) enter(h host, _ panelShared, target screenTarget) tea.Cmd {
+	if target.resume {
+		return nil
+	}
+
 	*w = searchScreen{}
 
 	return nil

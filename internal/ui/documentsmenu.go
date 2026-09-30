@@ -12,12 +12,9 @@ type documentsChoice int
 const (
 	documentsChoiceView documentsChoice = iota
 	documentsChoiceNew
-	documentsChoiceNewType
-	documentsChoiceTypes
 )
 
-// documentsMenu is the ways into an agent's documents and the types they are written as, opened
-// from its menu.
+// documentsMenu is the ways into an agent's documents, opened from its menu.
 func documentsMenu(s panelShared, from screen, item panel.AgentRow) submenu {
 	agentID := item.Agent.ID
 
@@ -32,8 +29,6 @@ func documentsMenu(s panelShared, from screen, item panel.AgentRow) submenu {
 				isOff: item.Documents == 0,
 			},
 			{label: "new document", keys: s.keys.DocumentsMenu.New},
-			{label: "new type", keys: s.keys.DocumentsMenu.NewType},
-			{label: "list types", keys: s.keys.DocumentsMenu.Types},
 		},
 		answer: func(m model, choice int) (tea.Model, tea.Cmd) {
 			return m.runDocumentsChoice(from, agentID, documentsChoice(choice))
@@ -55,17 +50,45 @@ func (m model) runDocumentsChoice(from screen, agentID string, choice documentsC
 		cmd := newDocumentForm(&m, m.shared(), agentID)
 
 		return m, cmd
-	case documentsChoiceNewType:
-		m.leaveForm()
-		cmd := newTypeForm(&m)
-
-		return m, cmd
-	case documentsChoiceTypes:
-		m.leaveForm()
-		cmd := m.enter(screenDocumentTypes, screenTarget{agentID: agentID, from: from})
-
-		return m, cmd
 	}
 
 	return m.closeForm()
+}
+
+// documentTypesChoice is one entry of the document types menu.
+type documentTypesChoice int
+
+const (
+	documentTypesChoiceList documentTypesChoice = iota
+	documentTypesChoiceNew
+)
+
+// documentTypesMenu is the ways into the document types, opened from the panel's own entries.
+func documentTypesMenu(s panelShared, back menuPlace) submenu {
+	return submenu{
+		kind:  formDocumentTypesMenu,
+		title: "document types",
+		crumb: "document types",
+		entries: []submenuEntry{
+			{label: "list types", keys: s.keys.DocumentTypesMenu.List},
+			{label: "new type", keys: s.keys.DocumentTypesMenu.New},
+		},
+		answer: func(m model, choice int) (tea.Model, tea.Cmd) {
+			switch documentTypesChoice(choice) {
+			case documentTypesChoiceList:
+				m.leaveForm()
+				cmd := m.enter(screenDocumentTypes, screenTarget{from: back.screen})
+				m.documentTypes.returning = back.target
+
+				return m, cmd
+			case documentTypesChoiceNew:
+				m.leaveForm()
+				cmd := newTypeForm(&m)
+
+				return m, cmd
+			}
+
+			return m.closeForm()
+		},
+	}
 }
