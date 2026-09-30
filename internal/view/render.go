@@ -47,7 +47,7 @@ func renderLine(line Line, list List, palette paint.Palette, width int) string {
 	}
 
 	if line.Selected {
-		return paint.PaintRow(row, width)
+		return palette.PaintRow(row, width)
 	}
 
 	return row
@@ -151,7 +151,7 @@ func nameStyle(palette paint.Palette, weight Weight, emphasis Emphasis) lipgloss
 	case EmphasisDim:
 		style = style.Foreground(palette.Color(paint.ToneMuted))
 	case EmphasisFocused:
-		style = style.Foreground(palette.Color(paint.ToneAccent))
+		style = style.Foreground(palette.Color(paint.TonePrimary))
 	}
 
 	switch weight {

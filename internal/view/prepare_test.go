@@ -41,7 +41,7 @@ func TestPrepareStatusBar(t *testing.T) {
 		{
 			name:   "a thinking agent gets the bright bar",
 			status: StatusThinking,
-			want:   Cell{Text: glyph.Busy, Tone: paint.ToneBright},
+			want:   Cell{Text: glyph.Busy, Tone: paint.TonePrimary},
 		},
 		{
 			name:   "an idle agent gets the muted pipe",
@@ -78,7 +78,7 @@ func TestPrepareBarSaysWhatStandsBehindARow(t *testing.T) {
 		{
 			name: "a process that stopped mid-thought keeps the bar it stopped in",
 			row:  Row{Status: StatusThinking, Process: ProcessStopped},
-			want: Cell{Text: glyph.Busy, Tone: paint.ToneBright},
+			want: Cell{Text: glyph.Busy, Tone: paint.TonePrimary},
 		},
 		{
 			name: "a row that never had a process draws the quiet pipe all the same",
@@ -344,7 +344,7 @@ func TestPrepareComments(t *testing.T) {
 					{Glyph: glyph.PersonComments, Tone: paint.ToneMuted},
 					{Text: " "},
 					{Text: "0", Tone: paint.ToneMuted},
-					{Text: "+3", Tone: paint.ToneOther},
+					{Text: "+3", Tone: paint.ToneUserGithub},
 				}},
 			},
 		},
@@ -591,7 +591,7 @@ func TestPrepareDimRowKeepsItsCaret(t *testing.T) {
 	})
 	require.Len(t, list.Lines, 1)
 
-	assert.Equal(t, Cell{Text: glyph.Focus, Tone: paint.ToneAccent}, list.Lines[0].Focus)
+	assert.Equal(t, Cell{Text: glyph.Focus, Tone: paint.TonePrimary}, list.Lines[0].Focus)
 }
 
 // TestPrepareTrailingMarks pins the odds and ends drawn after a name.

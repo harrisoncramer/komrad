@@ -11,7 +11,7 @@ import (
 // The editor is the one thing on the screen that changes what the stage holds, so it gets a tone
 // apart from the rest of the band.
 const (
-	reviewWritingTone = paint.ToneMark
+	reviewWritingTone = paint.ToneSecondary
 	reviewHeldTone    = paint.ToneMuted
 )
 

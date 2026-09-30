@@ -94,7 +94,7 @@ func (m model) refusedExpansion(bindings []key.Binding) []key.Binding {
 
 func helpView(width int) help.Model {
 	view := help.New()
-	view.Styles = paint.HelpStyles()
+	view.Styles = paint.Panel.HelpStyles()
 	view.SetWidth(width)
 
 	return view

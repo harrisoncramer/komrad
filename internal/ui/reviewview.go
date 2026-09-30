@@ -17,23 +17,23 @@ import (
 // The tones the review wears, which the region drawing each one turns into a colour.
 const (
 	reviewQuoteTone  = paint.ToneMuted
-	reviewHumanTone  = paint.ToneSelf
-	reviewAgentTone  = paint.ToneOther
-	reviewerTone     = paint.ToneThird
+	reviewHumanTone  = paint.ToneUserMe
+	reviewAgentTone  = paint.ToneUserAgent
+	reviewerTone     = paint.ToneUserReviewer
 	reviewNoticeTone = paint.ToneSuccess
 	reviewAddedTone  = paint.ToneSuccess
 	// reviewMovedTone draws the catch-up notice as coloured text rather than as a filled bar, the
 	// agent writing while you read being ordinary rather than an alarm.
 	reviewMovedTone     = paint.ToneWarning
 	reviewRemovedTone   = paint.ToneDanger
-	reviewUnsentTone    = paint.ToneAccent
+	reviewUnsentTone    = paint.TonePrimary
 	reviewSentTone      = paint.ToneWarning
 	reviewDeliveredTone = paint.ToneSuccess
 )
 
 // reviewDeadStyle says there is nobody left to send a review to.
 func reviewDeadStyle(palette paint.Palette) lipgloss.Style {
-	return lipgloss.NewStyle().Foreground(lipgloss.Color("0")).Background(palette.Color(paint.ToneMuted)).Bold(true)
+	return lipgloss.NewStyle().Foreground(palette.Color(paint.ToneInverse)).Background(palette.Color(paint.ToneMuted)).Bold(true)
 }
 
 // view draws the diff and, beside it, the file tree, with the thread the cursor is standing on
@@ -196,7 +196,7 @@ func (r reviewScreen) notesView(s panelShared) string {
 	}
 
 	if since := r.diff.since; since != "" && r.diff.baseLabel == "" {
-		return "\n" + reviewNote(lineWidthOf(s.pane), dimStyle, since)
+		return "\n" + reviewNote(lineWidthOf(s.pane), dimStyle(), since)
 	}
 
 	return ""
@@ -212,7 +212,7 @@ func (d reviewDiff) anchorView() string {
 				d.commentWhereView(thread) + "\n"
 		}
 
-		return dimStyle.Render("  move onto a line to start a thread on it") + "\n"
+		return dimStyle().Render("  move onto a line to start a thread on it") + "\n"
 	}
 
 	head := paint.Panel.Title(clipName(diffview.FormatLocation(anchor.FilePath, anchor.OldStart, anchor.NewStart)))
@@ -230,14 +230,14 @@ func (d reviewDiff) commentWhereView(thread *agentv1.ReviewThread) string {
 		return ""
 	}
 
-	return dimStyle.Render(fmt.Sprintf("  %d of %d", at, total))
+	return dimStyle().Render(fmt.Sprintf("  %d of %d", at, total))
 }
 
 // releaseView asks what to send: an optional word about the work as a whole.
 func (r reviewScreen) releaseView(width int) string {
 	out := r.threads.editor.view() + "\n\n"
 
-	return out + reviewNote(width, dimStyle, keyLabel(formKeys().SendNow)+" send and interrupt"+separated+
+	return out + reviewNote(width, dimStyle(), keyLabel(formKeys().SendNow)+" send and interrupt"+separated+
 		keyLabel(formKeys().Back)+" cancel")
 }
 
@@ -251,7 +251,7 @@ func (r reviewScreen) threadView(s panelShared, thread *agentv1.ReviewThread, wi
 	for i, message := range thread.GetMessages() {
 		if i > 0 && !later && stamp != "" && !doesPredate(message.GetCreatedAt(), stamp) {
 			later = true
-			out += "\n" + dimStyle.Render(glyph.Rule+glyph.Rule+" later, after this code changed "+glyph.Rule+glyph.Rule) + "\n"
+			out += "\n" + dimStyle().Render(glyph.Rule+glyph.Rule+" later, after this code changed "+glyph.Rule+glyph.Rule) + "\n"
 		}
 
 		note := ""
@@ -275,7 +275,7 @@ func (r reviewScreen) originView(thread *agentv1.ReviewThread, width int) string
 		return ""
 	}
 
-	out := dimStyle.Render("  "+r.diff.originSaid(thread)) + "\n"
+	out := dimStyle().Render("  "+r.diff.originSaid(thread)) + "\n"
 	for _, quoted := range thread.GetQuotedLines() {
 		out += paint.Panel.Style(reviewQuoteTone).Italic(true).Render(reviewWrap(width, "  "+quoted)) + "\n"
 	}
@@ -312,7 +312,7 @@ func (r reviewScreen) messageView(s panelShared, message *agentv1.ReviewMessage,
 	author, tone := r.authorOf(message)
 	head := drawCommentHead(tone, author, message.GetCreatedAt())
 	if params.note != "" {
-		head += "   " + dimStyle.Render(params.note)
+		head += "   " + dimStyle().Render(params.note)
 	}
 
 	return head + "\n" + reviewWrap(params.width, message.GetBody()) + "\n" + reviewDeliveryBadge(paint.Panel, s.glyphs, message) + "\n"
@@ -342,7 +342,7 @@ func (t reviewThreads) sendDesc() string {
 func drawCommentHead(tone paint.Tone, author, writtenAt string) string {
 	head := paint.Panel.Style(tone).Bold(true).Render(author)
 	if when := reviewTimeOf(writtenAt); when != "" {
-		head += " " + dimStyle.Render(when)
+		head += " " + dimStyle().Render(when)
 	}
 
 	return head

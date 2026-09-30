@@ -125,9 +125,9 @@ func speakerLabel(turn *agentv1.Turn) string {
 	case turn.GetRole() == "user" && strings.HasPrefix(turn.GetContent(), systemTurnPrefix):
 		return paint.Panel.Style(paint.ToneMuted).Render("system")
 	case turn.GetRole() == "user":
-		return paint.Panel.Style(paint.ToneSelf).Render(speakerOf(turn.GetRole()))
+		return paint.Panel.Style(paint.ToneUserMe).Render(speakerOf(turn.GetRole()))
 	case turn.GetRole() == "assistant":
-		return paint.Panel.Style(paint.ToneOther).Render(speakerOf(turn.GetRole()))
+		return paint.Panel.Style(paint.ToneUserAgent).Render(speakerOf(turn.GetRole()))
 	}
 
 	return speakerOf(turn.GetRole())

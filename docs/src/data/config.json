@@ -1498,6 +1498,210 @@
       ]
     },
     {
+      "path": "palette",
+      "description": "The colours the panel draws in, one for each part a colour plays. Each is a terminal colour\nnumber from 0 to 255, which your terminal's theme decides the look of, or a hex code like\n\"#1e3a5f\".",
+      "settings": [
+        {
+          "key": "primary",
+          "path": "palette.primary",
+          "type": "string",
+          "description": "Focus, titles and whatever holds the keys.",
+          "default": "\"4\""
+        },
+        {
+          "key": "secondary",
+          "path": "palette.secondary",
+          "type": "string",
+          "description": "A second accent for what is set apart from the primary chrome, such as diff hunk headers and\ninline code.",
+          "default": "\"6\""
+        },
+        {
+          "key": "muted",
+          "path": "palette.muted",
+          "type": "string",
+          "description": "Text that matters less than what is around it.",
+          "default": "\"8\""
+        },
+        {
+          "key": "success",
+          "path": "palette.success",
+          "type": "string",
+          "description": "Something finished or approved.",
+          "default": "\"10\""
+        },
+        {
+          "key": "warning",
+          "path": "palette.warning",
+          "type": "string",
+          "description": "Something that needs your attention.",
+          "default": "\"11\""
+        },
+        {
+          "key": "danger",
+          "path": "palette.danger",
+          "type": "string",
+          "description": "Something failed or is gone.",
+          "default": "\"9\""
+        },
+        {
+          "key": "user_me",
+          "path": "palette.user_me",
+          "type": "string",
+          "description": "What you wrote.",
+          "default": "\"12\""
+        },
+        {
+          "key": "user_agent",
+          "path": "palette.user_agent",
+          "type": "string",
+          "description": "What an agent wrote.",
+          "default": "\"13\""
+        },
+        {
+          "key": "user_reviewer",
+          "path": "palette.user_reviewer",
+          "type": "string",
+          "description": "What a reviewer agent wrote.",
+          "default": "\"14\""
+        },
+        {
+          "key": "user_github",
+          "path": "palette.user_github",
+          "type": "string",
+          "description": "What came from GitHub.",
+          "default": "\"3\""
+        },
+        {
+          "key": "merged",
+          "path": "palette.merged",
+          "type": "string",
+          "description": "A merged pull request.",
+          "default": "\"5\""
+        },
+        {
+          "key": "highlight",
+          "path": "palette.highlight",
+          "type": "string",
+          "description": "What is picked out for you to act on: a search match, a jump letter, the visual mode bar.",
+          "default": "\"15\""
+        },
+        {
+          "key": "inverse",
+          "path": "palette.inverse",
+          "type": "string",
+          "description": "Text drawn on a filled bar.",
+          "default": "\"0\""
+        }
+      ],
+      "sections": [
+        {
+          "path": "palette.diff_added",
+          "description": "The background of a line a diff adds.",
+          "settings": [
+            {
+              "key": "light",
+              "path": "palette.diff_added.light",
+              "type": "string",
+              "description": "The colour on a light terminal.",
+              "default": "\"#dafbe1\""
+            },
+            {
+              "key": "dark",
+              "path": "palette.diff_added.dark",
+              "type": "string",
+              "description": "The colour on a dark terminal.",
+              "default": "\"#1b3823\""
+            }
+          ],
+          "sections": []
+        },
+        {
+          "path": "palette.diff_deleted",
+          "description": "The background of a line a diff deletes.",
+          "settings": [
+            {
+              "key": "light",
+              "path": "palette.diff_deleted.light",
+              "type": "string",
+              "description": "The colour on a light terminal.",
+              "default": "\"#ffebe9\""
+            },
+            {
+              "key": "dark",
+              "path": "palette.diff_deleted.dark",
+              "type": "string",
+              "description": "The colour on a dark terminal.",
+              "default": "\"#402222\""
+            }
+          ],
+          "sections": []
+        },
+        {
+          "path": "palette.selection",
+          "description": "The background of the row under the cursor or taken into a selection.",
+          "settings": [
+            {
+              "key": "light",
+              "path": "palette.selection.light",
+              "type": "string",
+              "description": "The colour on a light terminal.",
+              "default": "\"#dbeafe\""
+            },
+            {
+              "key": "dark",
+              "path": "palette.selection.dark",
+              "type": "string",
+              "description": "The colour on a dark terminal.",
+              "default": "\"#1e3a5f\""
+            }
+          ],
+          "sections": []
+        },
+        {
+          "path": "palette.selection_dim",
+          "description": "The background of the cursor's row while the keys are elsewhere.",
+          "settings": [
+            {
+              "key": "light",
+              "path": "palette.selection_dim.light",
+              "type": "string",
+              "description": "The colour on a light terminal.",
+              "default": "\"#e5e7eb\""
+            },
+            {
+              "key": "dark",
+              "path": "palette.selection_dim.dark",
+              "type": "string",
+              "description": "The colour on a dark terminal.",
+              "default": "\"#2b3038\""
+            }
+          ],
+          "sections": []
+        },
+        {
+          "path": "palette.match",
+          "description": "The background of a search match in a diff.",
+          "settings": [
+            {
+              "key": "light",
+              "path": "palette.match.light",
+              "type": "string",
+              "description": "The colour on a light terminal.",
+              "default": "\"#fde68a\""
+            },
+            {
+              "key": "dark",
+              "path": "palette.match.dark",
+              "type": "string",
+              "description": "The colour on a dark terminal.",
+              "default": "\"#7c5c00\""
+            }
+          ],
+          "sections": []
+        }
+      ]
+    },
+    {
       "path": "hooks",
       "description": "Where komrad finds the scripts a workflow hangs on a moment in its agents' lives.",
       "settings": [

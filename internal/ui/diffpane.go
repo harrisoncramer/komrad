@@ -360,5 +360,5 @@ func diffMatchCount(pane *diffview.Pane, filter filterState) string {
 		where += fmt.Sprintf(separated+"%d in viewed files", hidden)
 	}
 
-	return dimStyle.Render("  "+where) + "\n\n"
+	return dimStyle().Render("  "+where) + "\n\n"
 }

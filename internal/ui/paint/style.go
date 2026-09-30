@@ -16,7 +16,7 @@ var resets = []string{"\x1b[0m", ansiReset}
 
 // Header is the style a list's title is drawn in.
 func (p Palette) Header() lipgloss.Style {
-	return p.Style(ToneAccent).Bold(true)
+	return p.Style(TonePrimary).Bold(true)
 }
 
 // Cursor is the style the row cursor is drawn in.
@@ -25,7 +25,7 @@ func (p Palette) Cursor() lipgloss.Style {
 		return p.Style(ToneMuted).Bold(true)
 	}
 
-	return p.Style(ToneAccent).Bold(true)
+	return p.Style(TonePrimary).Bold(true)
 }
 
 // Blinking is the palette with its cursor style on the given beat of the blink.
@@ -42,7 +42,7 @@ func (p Palette) Title(text string) string {
 
 // Match marks a search hit in a list row.
 func (p Palette) Match() lipgloss.Style {
-	return p.Style(ToneWarning).Bold(true)
+	return p.Style(ToneHighlight).Bold(true)
 }
 
 // Highlight draws text in a base style with the spans a search picked out drawn in the match
@@ -149,10 +149,9 @@ func (p Palette) Broken() lipgloss.Style {
 	return p.Style(ToneDanger)
 }
 
-// stageMatch marks a match in rendered markdown, where the warning colour the listing marks with
-// is already spoken for by inline code, so the word gets a block behind it instead.
+// stageMatch marks a match in rendered markdown with a block behind the word.
 func (p Palette) stageMatch() lipgloss.Style {
-	return lipgloss.NewStyle().Foreground(Black).Background(p.danger.color()).Bold(true)
+	return lipgloss.NewStyle().Foreground(p.Color(ToneInverse)).Background(p.Color(ToneHighlight)).Bold(true)
 }
 
 // Mark is the shape every optional mark on a row takes: nothing when the fact it stands for is
@@ -190,15 +189,11 @@ func WrapRows(text string, width int) []string {
 	return rows
 }
 
-// SelectionBackground is the bar a row taken into a selection is drawn under, dark enough that
-// the colours the row is already carrying still read through it.
-var SelectionBackground = Adaptive{Light: lipgloss.Color("#dbeafe"), Dark: lipgloss.Color("#1e3a5f")}
-
 // PaintRow lays the selection background under one already-coloured line, setting it again after
 // every reset that line carries and filling the line out to the pane so it reads as a bar.
-func PaintRow(row string, width int) string {
+func (p Palette) PaintRow(row string, width int) string {
 	// The diff viewer threads a background into every fragment it draws instead.
-	set := BackgroundSequence(SelectionBackground)
+	set := BackgroundSequence(p.Background(ShadeSelection))
 
 	painted := set + strings.NewReplacer(resets[0], ansiReset+set, resets[1], ansiReset+set).Replace(row)
 	if padding := width - lipgloss.Width(row); padding > 0 {
@@ -216,10 +211,10 @@ func BackgroundSequence(background color.Color) string {
 
 // Visual is the bar a label saying which mode holds the panel is drawn on.
 func (p Palette) Visual() lipgloss.Style {
-	return lipgloss.NewStyle().Background(p.Color(ToneOther)).Foreground(Black).Bold(true)
+	return lipgloss.NewStyle().Background(p.Color(ToneHighlight)).Foreground(p.Color(ToneInverse)).Bold(true)
 }
 
 // TmuxVisual is label drawn as Visual draws it, spelled in tmux's style markup.
 func (p Palette) TmuxVisual(label string) string {
-	return "#[fg=colour0,bg=colour" + string(p.other) + ",bold]" + label + "#[default]"
+	return "#[fg=" + tmuxColor(p.colors.Inverse) + ",bg=" + tmuxColor(p.colors.Highlight) + ",bold]" + label + "#[default]"
 }

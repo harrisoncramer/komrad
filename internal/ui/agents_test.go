@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"komrad/internal/errui"
 	"komrad/internal/ui"
 	"komrad/internal/ui/paint"
 	"komrad/lib/xptr"
@@ -785,7 +784,7 @@ func TestAgentsRecordEmphasis(t *testing.T) {
 			paint.Panel.Style(paint.ToneSuccess).Render("+200"),
 			paint.Panel.Style(paint.ToneDanger).Render("−100"),
 			paint.Panel.Style(paint.ToneWarning).Bold(true).Render("↑2 unpushed"),
-			paint.Panel.Style(paint.ToneMark).Render("↓1 unpulled"),
+			paint.Panel.Style(paint.ToneWarning).Render("↓1 unpulled"),
 		} {
 			assert.Contains(t, frame, want)
 		}
@@ -799,7 +798,7 @@ func TestAgentsRecordEmphasis(t *testing.T) {
 		harness.watch(buildSnapshot(buildRecorded()...))
 		harness.press(append([]string{"pick:record"}, widenListPresses...)...)
 
-		assert.Contains(t, harness.readRawFrame(), errui.Dim.Render("↓0 unpulled"))
+		assert.Contains(t, harness.readRawFrame(), paint.Panel.Style(paint.ToneMuted).Render("↓0 unpulled"))
 	})
 
 	t.Run("a remote whose unpulled commits landed on the base dims what landed", func(t *testing.T) {
@@ -811,12 +810,12 @@ func TestAgentsRecordEmphasis(t *testing.T) {
 			{
 				name:  "a branch carrying work of its own keeps the warning on what it has not pushed",
 				ahead: 3,
-				want:  paint.Panel.Style(paint.ToneWarning).Bold(true).Render("↑2 unpushed") + " " + errui.Dim.Render("↓1 unpulled · landed on main"),
+				want:  paint.Panel.Style(paint.ToneWarning).Bold(true).Render("↑2 unpushed") + " " + paint.Panel.Style(paint.ToneMuted).Render("↓1 unpulled · landed on main"),
 			},
 			{
 				name:  "a branch carrying nothing of its own is dimmed whole",
 				ahead: 0,
-				want:  errui.Dim.Render("↑2 unpushed") + " " + errui.Dim.Render("↓1 unpulled · landed on main"),
+				want:  paint.Panel.Style(paint.ToneMuted).Render("↑2 unpushed") + " " + paint.Panel.Style(paint.ToneMuted).Render("↓1 unpulled · landed on main"),
 			},
 		}
 
@@ -846,7 +845,7 @@ func TestAgentsRecordEmphasis(t *testing.T) {
 	t.Run("the hovered label takes the accent only while the record has the keys", func(t *testing.T) {
 		harness := openAgents(t, buildRecorded()...)
 		label := "name      "
-		require.Contains(t, findRawLine(harness.readRawFrame(), recordNameLine), errui.Dim.Render(label))
+		require.Contains(t, findRawLine(harness.readRawFrame(), recordNameLine), paint.Panel.Style(paint.ToneMuted).Render(label))
 
 		harness.press("pick:record")
 

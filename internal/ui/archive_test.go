@@ -1019,9 +1019,9 @@ func TestArchiveConversationPreview(t *testing.T) {
 		harness.fireTimers()
 
 		frame := harness.readRawFrame()
-		assert.Contains(t, frame, paint.Panel.Style(paint.ToneSelf).Render("you"))
+		assert.Contains(t, frame, paint.Panel.Style(paint.ToneUserMe).Render("you"))
 		assert.Contains(t, frame, paint.Panel.Style(paint.ToneMuted).Render("system"))
-		assert.Contains(t, frame, paint.Panel.Style(paint.ToneOther).Render("agent"))
+		assert.Contains(t, frame, paint.Panel.Style(paint.ToneUserAgent).Render("agent"))
 	})
 
 	t.Run("a turn cut inside a code block does not swallow the turns after it", func(t *testing.T) {

@@ -407,7 +407,7 @@ func (f filterState) line(palette paint.Palette, glyphs glyph.Set) string {
 	slash := palette.Cursor()
 	switch {
 	case !f.typing && !f.isStanding():
-		slash = dimStyle
+		slash = dimStyle()
 	case !f.typing:
 		slash = palette.Blinking(false).Cursor()
 	}
@@ -426,7 +426,7 @@ func (f filterState) head(count, said string, width int, glyphs glyph.Set) []str
 	indent := strings.Repeat(" ", docMargin())
 	head := []string{fitRow(indent+f.line(paint.Panel, glyphs)+count, width)}
 	if said != "" {
-		head = append(head, fitRow(indent+dimStyle.Render(said), width))
+		head = append(head, fitRow(indent+dimStyle().Render(said), width))
 	}
 
 	return append(head, "")

@@ -637,7 +637,7 @@ func TestDocumentsReadingCursor(t *testing.T) {
 	harness, _ := openDocuments(t)
 	line := regexp.MustCompile(`Keep the cache`)
 
-	bar := paint.BackgroundSequence(paint.SelectionBackground)
+	bar := paint.BackgroundSequence(paint.Panel.Background(paint.ShadeSelection))
 
 	assert.NotEqual(t, "/", strings.TrimSpace(readStage(harness.readFrame())[0]), "the search waits for the document to hold the keys")
 	unfocused := findRawLine(harness.readRawFrame(), line)

@@ -124,7 +124,7 @@ func (m model) drawMessagesTally() string {
 
 	tally := paint.Panel.Style(kindTone(worst)).Render(kindIcon(m.glyphs, worst) + " " + strconv.Itoa(count))
 
-	return tally + "  " + dimStyle.Render(headLabel(m.keys.Messages.Open))
+	return tally + "  " + dimStyle().Render(headLabel(m.keys.Messages.Open))
 }
 
 func buildMessagesColumn() columnSpec {
@@ -138,7 +138,7 @@ func (m model) buildMessagesWindow(width, rows int) docWindow {
 
 	drawn := []string{m.drawMessagesHeading(width, count, at), ""}
 	if count == 0 {
-		drawn = append(drawn, dimStyle.Render(strings.Repeat(" ", messagesIndent)+"Komrad is running normally"))
+		drawn = append(drawn, dimStyle().Render(strings.Repeat(" ", messagesIndent)+"Komrad is running normally"))
 	}
 
 	start, end := 0, 0
@@ -175,7 +175,7 @@ func (m model) drawMessagesHeading(width, count, at int) string {
 	tally := label.OfCount(at+1, count)
 	pad := max(width-lipgloss.Width(title)-len(tally), 1)
 
-	return title + strings.Repeat(" ", pad) + dimStyle.Render(tally)
+	return title + strings.Repeat(" ", pad) + dimStyle().Render(tally)
 }
 
 func (m model) drawMessageRows(at, width int) []string {
@@ -213,8 +213,8 @@ func (m model) drawMessageRows(at, width int) []string {
 		style lipgloss.Style
 	}{
 		{text: held.detail, style: lipgloss.NewStyle()},
-		{text: held.hint, style: dimStyle},
-		{text: strings.Join(meta, separated), style: dimStyle},
+		{text: held.hint, style: dimStyle()},
+		{text: strings.Join(meta, separated), style: dimStyle()},
 	} {
 		if piece.text == "" {
 			continue
@@ -470,7 +470,7 @@ func kindTone(kind messageKind) paint.Tone {
 // pulseTone is the colour a landing message's words blink in.
 func pulseTone(kind messageKind) paint.Tone {
 	if kind == messageInfo {
-		return paint.ToneAccent
+		return paint.TonePrimary
 	}
 
 	return kindTone(kind)

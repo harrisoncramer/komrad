@@ -160,17 +160,17 @@ func (m model) drawInset(view string) string {
 func drawEdgeRow(rule, facingLeft bool) string {
 	if !rule {
 		if facingLeft {
-			return dimStyle.Render(dividerGlyph) + strings.Repeat(" ", gutter)
+			return dimStyle().Render(dividerGlyph) + strings.Repeat(" ", gutter)
 		}
 
-		return strings.Repeat(" ", gutter) + dimStyle.Render(dividerGlyph)
+		return strings.Repeat(" ", gutter) + dimStyle().Render(dividerGlyph)
 	}
 
 	if facingLeft {
-		return dimStyle.Render(glyph.TeeLeft + strings.Repeat(glyph.Rule, gutter))
+		return dimStyle().Render(glyph.TeeLeft + strings.Repeat(glyph.Rule, gutter))
 	}
 
-	return dimStyle.Render(strings.Repeat(glyph.Rule, gutter) + glyph.TeeRight)
+	return dimStyle().Render(strings.Repeat(glyph.Rule, gutter) + glyph.TeeRight)
 }
 
 func (m model) screenView() string {
@@ -204,7 +204,7 @@ func (m model) screenView() string {
 func (m model) heldFormView() string {
 	view := m.form.form.View()
 	if m.held.active {
-		view = strings.TrimRight(view, "\n") + "\n" + dimStyle.Render(submittingNotice(m.held.since, time.Now()))
+		view = strings.TrimRight(view, "\n") + "\n" + dimStyle().Render(submittingNotice(m.held.since, time.Now()))
 	}
 
 	leading, _ := m.formLeading()

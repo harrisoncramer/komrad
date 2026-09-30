@@ -41,12 +41,12 @@ func (d docWindow) view(rows int) string {
 
 	out := make([]string, 0, rows)
 	if d.markers && top > 0 {
-		out = append(out, paint.MoreAbove(top, dimStyle))
+		out = append(out, paint.MoreAbove(top, dimStyle()))
 	}
 
 	out = append(out, d.rows[top:end]...)
 	if rest := len(d.rows) - end; d.markers && rest > 0 && len(out) < rows {
-		out = append(out, paint.MoreBelow(rest, dimStyle))
+		out = append(out, paint.MoreBelow(rest, dimStyle()))
 	}
 
 	for len(out) < rows {

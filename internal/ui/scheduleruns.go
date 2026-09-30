@@ -34,7 +34,7 @@ func scheduleRunRows(runs []panel.ScheduleRun, width int) []string {
 	indent := strings.Repeat(" ", docMargin())
 
 	if len(runs) == 0 {
-		return []string{fitRow(indent+dimStyle.Render("never fired"), width)}
+		return []string{fitRow(indent+dimStyle().Render("never fired"), width)}
 	}
 
 	under := indent + strings.Repeat(" ", len(runTimeLayout)+2+runWordWidth+2)
@@ -42,15 +42,15 @@ func scheduleRunRows(runs []panel.ScheduleRun, width int) []string {
 	for _, run := range runs {
 		outcome := describeRun(run)
 
-		row := indent + dimStyle.Render(run.ScheduledFor.Format(runTimeLayout)) + "  " +
+		row := indent + dimStyle().Render(run.ScheduledFor.Format(runTimeLayout)) + "  " +
 			paint.Panel.Style(outcome.tone).Render(fmt.Sprintf("%-*s", runWordWidth, outcome.word))
 		if outcome.detail != "" {
-			row += "  " + dimStyle.Render(outcome.detail)
+			row += "  " + dimStyle().Render(outcome.detail)
 		}
 
 		rows = append(rows, fitRow(row, width))
 		if outcome.below != "" {
-			rows = append(rows, fitRow(under+dimStyle.Render(outcome.below), width))
+			rows = append(rows, fitRow(under+dimStyle().Render(outcome.below), width))
 		}
 	}
 
@@ -92,7 +92,7 @@ func describeRun(run panel.ScheduleRun) runOutcome {
 	case schedulev1.ScheduleRunState_SCHEDULE_RUN_STATE_RUNNING:
 		return runOutcome{
 			word:   "running",
-			tone:   paint.ToneAccent,
+			tone:   paint.TonePrimary,
 			detail: "attempt " + tries,
 		}
 	case schedulev1.ScheduleRunState_SCHEDULE_RUN_STATE_UNSPECIFIED,

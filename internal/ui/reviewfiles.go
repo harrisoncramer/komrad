@@ -73,9 +73,9 @@ func (r reviewScreen) filesView(s panelShared, lines int) string {
 	case lines == 0:
 		return ""
 	case r.loading:
-		return dimStyle.Render(reviewLoadingWord) + "\n"
+		return dimStyle().Render(reviewLoadingWord) + "\n"
 	case r.diff.View() == nil || r.diff.View().Len() == 0:
-		return dimStyle.Render(reviewEmptyWord) + "\n"
+		return dimStyle().Render(reviewEmptyWord) + "\n"
 	}
 
 	width := lineWidthOf(s.pane)
@@ -103,13 +103,13 @@ func (r reviewScreen) filesView(s panelShared, lines int) string {
 		return header + rows[tree.current] + "\n"
 	}
 
-	return header + paint.RenderList(rows, max(tree.current, 0), room, dimStyle)
+	return header + paint.RenderList(rows, max(tree.current, 0), room, dimStyle())
 }
 
 // filesHeader names the block and says how far through the change the reader is.
 func (d reviewDiff) filesHeader(s panelShared, width int) string {
 	read, total := d.View().CountViewedFiles()
-	left := paint.Panel.Title("FILES") + dimStyle.Render(fmt.Sprintf("  %d of %d read", read, total))
+	left := paint.Panel.Title("FILES") + dimStyle().Render(fmt.Sprintf("  %d of %d read", read, total))
 
 	return fitTreeRow(fitTreeRowParams{
 		Left:   left,
@@ -128,10 +128,10 @@ func renderTreeRow(s panelShared, row diffview.TreeRow, current bool, width int)
 	switch {
 	case current:
 		mark = s.glyphs.Spell(glyph.FileCurrent)
-		style = paint.Panel.Style(paint.ToneAccent).Bold(true)
+		style = paint.Panel.Style(paint.TonePrimary).Bold(true)
 	case row.Viewed:
 		mark = s.glyphs.Spell(glyph.FileViewed)
-		style = dimStyle
+		style = dimStyle()
 	}
 
 	lead := style.Render(mark) + strings.Repeat(" ", filesGutter-1+2*row.Depth)
@@ -194,7 +194,7 @@ func formatThreadMark(glyphs glyph.Set, counts diffview.ThreadCounts) string {
 	case counts.Open > 0:
 		return paint.Panel.Style(reviewHumanTone).Render(glyphs.Spell(glyph.ThreadRead))
 	case counts.Settled > 0:
-		return dimStyle.Render(glyphs.Spell(glyph.ThreadSettled))
+		return dimStyle().Render(glyphs.Spell(glyph.ThreadSettled))
 	}
 
 	return ""

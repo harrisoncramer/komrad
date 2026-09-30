@@ -14,7 +14,7 @@ import (
 
 // TestSelection covers the bar a chosen row is drawn under.
 func TestSelection(t *testing.T) {
-	bar := paint.BackgroundSequence(paint.SelectionBackground)
+	bar := paint.BackgroundSequence(paint.Panel.Background(paint.ShadeSelection))
 
 	tests := []struct {
 		name  string

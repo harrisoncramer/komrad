@@ -23,7 +23,7 @@ const legendRuleFloor = 2
 
 // flashFieldStyle marks a row or a field that has just been copied.
 func flashFieldStyle(palette paint.Palette) lipgloss.Style {
-	return lipgloss.NewStyle().Background(palette.Color(paint.ToneAccent)).Foreground(lipgloss.Color("0"))
+	return lipgloss.NewStyle().Background(palette.Color(paint.TonePrimary)).Foreground(palette.Color(paint.ToneInverse))
 }
 
 type detailsState struct {
@@ -435,12 +435,12 @@ func (m model) detailsView() string {
 	cursor := m.detailsCursor(held)
 	rows := m.detailFieldRows(m.detailsRows(held), cursor)
 	if len(rows) == 0 && m.filter.doesNarrow(sectionRecord) {
-		rows = []string{dimStyle.Render("  nothing matches")}
+		rows = []string{dimStyle().Render("  nothing matches")}
 	}
 
 	return m.markZone(zoneDetails, m.detailsRule(held.tag)+
 		block+
-		paint.PadRows(paint.RenderList(rows, cursor, lines, dimStyle), lines)+
+		paint.PadRows(paint.RenderList(rows, cursor, lines, dimStyle()), lines)+
 		m.detailsRule(""), m.paneWidth())
 }
 
@@ -465,10 +465,10 @@ func (m model) detailsRule(tag string) string {
 
 	tagWidth := lipgloss.Width(tag)
 	if tag == "" || tagWidth+4 > width {
-		return dimStyle.Render(strings.Repeat(glyph.Rule, width)) + "\n"
+		return dimStyle().Render(strings.Repeat(glyph.Rule, width)) + "\n"
 	}
 
-	return dimStyle.Render(strings.Repeat(glyph.Rule, width-tagWidth-3)+" ") + tag + dimStyle.Render(" "+glyph.Rule) + "\n"
+	return dimStyle().Render(strings.Repeat(glyph.Rule, width-tagWidth-3)+" ") + tag + dimStyle().Render(" "+glyph.Rule) + "\n"
 }
 
 // detailsNotices are the lines the marks on the row take above the fields, giving up a notice
@@ -518,9 +518,9 @@ func (m model) noticeLines(n notice, most int) []string {
 		icon = paint.Panel.Style(n.tone).Render(n.icon)
 	}
 
-	lines := []string{"  " + icon + " " + dimStyle.Render(text[0])}
+	lines := []string{"  " + icon + " " + dimStyle().Render(text[0])}
 	lines = append(lines, xslice.Map(text[1:], func(line string) string {
-		return indent + dimStyle.Render(line)
+		return indent + dimStyle().Render(line)
 	})...)
 
 	return lines
@@ -533,7 +533,7 @@ func (m model) detailFieldRows(fields []detailsRow, cursor int) []string {
 	const gutter = 2
 
 	for i, row := range fields {
-		prefix, labelStyle := "  ", dimStyle
+		prefix, labelStyle := "  ", dimStyle()
 		if i == cursor {
 			prefix = m.cursorPrefix(sectionRecord)
 			if m.caretOf(sectionRecord) != view.CaretAbsent {

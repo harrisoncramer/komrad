@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"komrad/internal/diff"
+	"komrad/internal/ui/paint"
 	agentv1 "komrad/proto/gen/agent/v1"
 
 	"charm.land/lipgloss/v2"
@@ -176,7 +177,7 @@ func TestFileNameMatchIsPainted(t *testing.T) {
 
 	drawn := view.RenderRow(1, NoCursor, 40, 0)
 	assert.Equal(t, "greet.go", ansi.Strip(drawn))
-	assert.Contains(t, drawn, fileStyle.Background(matchBackground).Render("eet.g"))
+	assert.Contains(t, drawn, fileStyle.Background(paint.Panel.Background(paint.ShadeMatch)).Render("eet.g"))
 
 	onCursor := view.RenderRow(0, LiveCursor, 40, 0)
 	assert.Equal(t, 40, lipgloss.Width(onCursor), "the cursor's row reaches the edge of the pane")

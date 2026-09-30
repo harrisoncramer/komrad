@@ -84,7 +84,7 @@ func (r reviewScreen) offerView(offer *pullrequestv1.ForgeThread, width int) str
 	for _, comment := range offer.GetComments() {
 		head := drawCommentHead(diffview.OfferTone, describeCommentAuthor(comment)+" on the forge", comment.GetWrittenAt())
 		if comment.GetEditedAt() != "" {
-			head += " " + dimStyle.Render("(edited)")
+			head += " " + dimStyle().Render("(edited)")
 		}
 
 		out.WriteString(head + "\n" + reviewWrap(width, strings.TrimSpace(plainOfferText(comment.GetBody()))) + "\n\n")
@@ -95,7 +95,7 @@ func (r reviewScreen) offerView(offer *pullrequestv1.ForgeThread, width int) str
 		foot = strings.TrimSpace("resolved  " + foot)
 	}
 	if foot != "" {
-		out.WriteString(dimStyle.Render(ansi.Hardwrap(foot, max(width, 1), false)) + "\n")
+		out.WriteString(dimStyle().Render(ansi.Hardwrap(foot, max(width, 1), false)) + "\n")
 	}
 
 	return out.String()

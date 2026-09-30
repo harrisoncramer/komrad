@@ -312,7 +312,7 @@ type scheduleLinesParams struct {
 // scheduleLines draws schedule rows with the cursor on one, or the idle line over none.
 func scheduleLines(s panelShared, pane listPane, params scheduleLinesParams) []string {
 	if len(params.rows) == 0 {
-		return []string{dimStyle.Render("  " + emptyLineOf(s.chrome.filter, params.idle))}
+		return []string{dimStyle().Render("  " + emptyLineOf(s.chrome.filter, params.idle))}
 	}
 
 	rows := make([]string, 0, len(params.rows))
@@ -325,7 +325,7 @@ func scheduleLines(s panelShared, pane listPane, params scheduleLinesParams) []s
 
 		name := s.chrome.filter.highlight(paint.Panel, clipName(item.schedule.Name), nameStyle(selected && pane.caret != view.CaretAbsent, !item.schedule.Enabled))
 		icon := paint.Panel.Style(scheduleTone(item.schedule.Enabled)).Render(scheduleIcon(s.glyphs, item.schedule.Enabled))
-		rows = append(rows, prefix+"  "+icon+" "+name+"  "+dimStyle.Render(item.schedule.Cron))
+		rows = append(rows, prefix+"  "+icon+" "+name+"  "+dimStyle().Render(item.schedule.Cron))
 	}
 
 	return rows

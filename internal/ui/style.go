@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"komrad/internal/errui"
 	"komrad/internal/glyph"
 	"komrad/internal/ui/paint"
 
@@ -12,7 +11,9 @@ const nameWidth = 30
 
 const separated = " " + glyph.Separator + " "
 
-var dimStyle = errui.Dim
+func dimStyle() lipgloss.Style {
+	return paint.Panel.Style(paint.ToneMuted)
+}
 
 func rowCursorStyle() lipgloss.Style {
 	return paint.Panel.Cursor()
@@ -39,7 +40,7 @@ func nameStyle(hovered, inactive bool) lipgloss.Style {
 	case hovered:
 		return rowCursorStyle()
 	case inactive:
-		return dimStyle
+		return dimStyle()
 	default:
 		return lipgloss.NewStyle()
 	}
