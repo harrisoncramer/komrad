@@ -77,6 +77,9 @@ func (v *View) RenderRow(y int, cursor Cursor, width, offset int) string {
 func (v *View) renderFileRow(y int, current row, cursor Cursor, width int) string {
 	background := getBackground(diff.Context, cursor)
 	style := fileStyle.Background(background)
+	if v.isCollapsed(current.file) {
+		style = metadataStyle.Background(background)
+	}
 
 	var out strings.Builder
 	for _, piece := range cutBy(current.text, 0, v.rawMatches(y)) {
@@ -90,7 +93,7 @@ func (v *View) renderFileRow(y int, current row, cursor Cursor, width int) strin
 
 	text := out.String()
 	if v.isCollapsed(current.file) {
-		text += style.Render("  " + v.glyphs.Spell(glyph.FileViewed) + " viewed  " + v.fileSummary(current.file))
+		text += style.Render("  " + v.fileSummary(current.file))
 	}
 	var offered string
 	if offers := v.GetOffersAt(y); len(offers) > 0 {
