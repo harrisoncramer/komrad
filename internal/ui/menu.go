@@ -113,7 +113,7 @@ func (a *agentsScreen) itemMenu(s panelShared) (submenu, bool) {
 			return submenu{}, false
 		}
 
-		return withArchive(rowMenu(describeAgents(agents)), s, agentsArchiveMenu(s, agents, true)), true
+		return withArchive(withHide(rowMenu(describeAgents(agents)), s, a.hideMenu(s, nil)), s, agentsArchiveMenu(s, agents, true)), true
 	}
 
 	if !a.isBrowsing(s) {
@@ -128,14 +128,14 @@ func (a *agentsScreen) itemMenu(s panelShared) (submenu, bool) {
 			menu = agentMenu(s, screenAgents, item)
 		}
 
-		return withArchive(menu, s, workflowArchiveMenu(s, workflow)), true
+		return withArchive(withHide(menu, s, a.hideMenu(s, nil)), s, workflowArchiveMenu(s, workflow)), true
 	}
 
 	if !hasAgent {
 		return submenu{}, false
 	}
 
-	return withArchive(agentMenu(s, screenAgents, item), s, agentsArchiveMenu(s, []panel.Agent{item.Agent}, false)), true
+	return withArchive(withHide(agentMenu(s, screenAgents, item), s, a.hideMenu(s, &item.Agent)), s, agentsArchiveMenu(s, []panel.Agent{item.Agent}, false)), true
 }
 
 func (w *schedulesScreen) itemMenu(s panelShared) (submenu, bool) {

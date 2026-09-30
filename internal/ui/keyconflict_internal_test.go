@@ -69,7 +69,7 @@ func TestValidateKeybindingsReadsEveryScreen(t *testing.T) {
 // esc clears a standing filter and otherwise steps back.
 func TestValidateKeybindingsAllowsAGuardedArmInFront(t *testing.T) {
 	keys := config.DefaultKeybindings()
-	keys.Agents.Hide = keys.Workflows.Adopt
+	keys.Agents.Child = keys.Workflows.Adopt
 
 	assert.NoError(t, ValidateKeybindings(keys),
 		"both of these read the row under the cursor before they answer, so only one is ever live")
@@ -79,7 +79,7 @@ func TestValidateKeybindingsAllowsAGuardedArmInFront(t *testing.T) {
 // kind, where the kinds key is free for its own table.
 func TestValidateKeybindingsAllowsTheKindsKeyWhereNoRowOfKindsIsDrawn(t *testing.T) {
 	keys := config.DefaultKeybindings()
-	keys.Agents.Hide = keys.Kinds.Focus
+	keys.Agents.Child = keys.Kinds.Focus
 
 	assert.NoError(t, ValidateKeybindings(keys), "only the archive answers the kinds key ahead of its own table")
 }
@@ -99,12 +99,12 @@ func TestValidateKeybindingsReadsTheGlobalKeys(t *testing.T) {
 		},
 		{
 			name:   "the key that reads the messages",
-			rebind: func(k *config.Keybindings) { k.Agents.Hide = k.Messages.Open },
+			rebind: func(k *config.Keybindings) { k.Agents.Child = k.Messages.Open },
 			names:  "the key that reads the messages",
 		},
 		{
 			name:   "the key that pushes a fixture into the messages",
-			rebind: func(k *config.Keybindings) { k.Agents.Hide = []string{messagesMockKey} },
+			rebind: func(k *config.Keybindings) { k.Agents.Child = []string{messagesMockKey} },
 			names:  "the key that pushes a fixture into the messages",
 		},
 		{
@@ -140,7 +140,7 @@ func TestValidateKeybindingsAllowsAKeyOnlyATypingModeReads(t *testing.T) {
 		},
 		{
 			name:   "backspace, which only the filter and the search box read",
-			rebind: func(k *config.Keybindings) { k.Agents.Hide = []string{"backspace"} },
+			rebind: func(k *config.Keybindings) { k.Agents.Child = []string{"backspace"} },
 		},
 	}
 

@@ -70,7 +70,7 @@ func TestRebuilt(t *testing.T) {
 				name: "a write in flight",
 				busy: func(harness *panelHarness) {
 					harness.hold(agentv1connect.AgentServiceSetHiddenProcedure)
-					harness.press("h")
+					harness.press("space", "h", "h")
 				},
 			},
 			{

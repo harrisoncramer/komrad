@@ -146,6 +146,8 @@ type Keybindings struct {
 	Help HelpKeys `mapstructure:"help"`
 	// The git menu, nested under the menu on the hovered row, and the actions inside it.
 	Git GitKeys `mapstructure:"git"`
+	// The hide menu, nested under the menu on the agents list.
+	HideMenu HideMenuKeys `mapstructure:"hide_menu"`
 	// The merge menu, nested under the git menu, which merges the hovered agent's pull request.
 	Merge MergeKeys `mapstructure:"merge"`
 	// The logs screen, which tails what the service logged about one agent.
@@ -296,8 +298,6 @@ type AgentsKeys struct {
 	// agent is paused while the editor is open, and quitting the editor, pressing the key again or
 	// leaving the agents list closes it and unpauses the agent.
 	Edit []string `mapstructure:"edit" default:"e"`
-	// Hide the hovered agent from this list.
-	Hide []string `mapstructure:"hide" default:"h"`
 	// Start a new agent.
 	New []string `mapstructure:"new" default:"c"`
 	// Attach a child agent to the hovered agent, which runs in that agent's own checkout
@@ -313,8 +313,6 @@ type AgentsKeys struct {
 	// Retry the launch of an agent that failed to create, opening a form where the flags can be
 	// corrected before confirming.
 	Retry []string `mapstructure:"retry" default:"R"`
-	// Toggles visibility of hidden agents alongside the rest.
-	ShowHidden []string `mapstructure:"show_hidden" default:"H"`
 }
 
 // GitKeys are the bindings for the git menu, which opens from the menu on the hovered agent and
@@ -334,6 +332,14 @@ type GitKeys struct {
 	Rebase []string `mapstructure:"rebase" default:"r"`
 	// Mark the hovered agent's pull request a draft, or ready for review when it is one.
 	ToggleDraft []string `mapstructure:"toggle_draft" default:"d"`
+}
+
+// HideMenuKeys are the bindings for the hide menu, which opens from the menu on the agents list.
+type HideMenuKeys struct {
+	// Hide the hovered agent from the list, or unhide it when it is hidden.
+	Hide []string `mapstructure:"hide" default:"h"`
+	// Show the hidden agents alongside the rest, or put them away again.
+	ShowHidden []string `mapstructure:"show_hidden" default:"H"`
 }
 
 // MergeKeys are the bindings for the merge menu, which opens from the git menu.
@@ -368,6 +374,9 @@ type MenuKeys struct {
 	// Open the archive menu to the right of this one, for archiving the hovered agent, workflow or
 	// schedule or every chosen agent, or for restoring or deleting a row of the archive.
 	Archive []string `mapstructure:"archive" default:"a"`
+	// Open the hide menu to the right of this one, for hiding the hovered agent or showing the
+	// hidden ones. The entry is only on the agents list.
+	Hide []string `mapstructure:"hide" default:"h"`
 	// Open this engine's scratch file in your editor in place of the pane beside the list, or
 	// close it when it is already open. Each engine keeps its own file under komrad's state
 	// directory.

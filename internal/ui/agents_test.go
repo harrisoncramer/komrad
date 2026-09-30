@@ -195,7 +195,8 @@ func TestAgentsRows(t *testing.T) {
 	})
 }
 
-// TestAgentsShowHidden covers the key that shows and puts away the hidden agents.
+// TestAgentsShowHidden covers the hide menu, which hides the hovered agent and shows and puts away
+// the hidden ones.
 func TestAgentsShowHidden(t *testing.T) {
 	rows := []proto.Message{
 		newLiveWorkflow("w1", "backend"),
@@ -210,7 +211,7 @@ func TestAgentsShowHidden(t *testing.T) {
 		harness.press("j", "j")
 		require.Equal(t, "  ui", readHoveredRow(harness.readFrame()))
 
-		harness.press("H")
+		harness.press("space", "h", "H")
 
 		frame := harness.readFrame()
 		assert.Equal(t, []string{"backend", "  chore" + hiddenMark, "  auth", "frontend", "  ui"}, readListRows(frame))
@@ -220,33 +221,46 @@ func TestAgentsShowHidden(t *testing.T) {
 	t.Run("the hidden parent's family comes back whole", func(t *testing.T) {
 		harness := openAgents(t, hideAgent(buildFamily(), "author")...)
 
-		harness.press("H")
+		harness.press("space", "h", "H")
 
 		assert.Equal(t, []string{"komrad", "  fix-gutter", "  author" + hiddenMark, "  └ test-runner", "  └ reviewer"}, readListRows(harness.readFrame()))
 	})
 
+	t.Run("the hide entry hides the hovered agent", func(t *testing.T) {
+		harness := openAgents(t, rows...)
+
+		harness.press("space", "h", "h")
+
+		harness.assertSentTo(agentv1connect.AgentServiceSetHiddenProcedure, &agentv1.SetHiddenRequest{Id: "a1", Hidden: true})
+	})
+
+	t.Run("the hide entry unhides a revealed agent", func(t *testing.T) {
+		harness := openAgents(t, rows...)
+
+		harness.press("space", "h", "H", "k", "space", "h", "h")
+
+		harness.assertSentTo(agentv1connect.AgentServiceSetHiddenProcedure, &agentv1.SetHiddenRequest{Id: "a2", Hidden: false})
+	})
+
 	tests := []struct {
-		name       string
-		press      []string
-		want       string
-		wantAbsent string
+		name  string
+		press []string
+		want  []string
 	}{
 		{
-			name:       "on a workflow header the legend offers only the toggle",
-			press:      []string{"k"},
-			want:       "show hidden",
-			wantAbsent: "hide/show hidden",
+			name:  "on a listed agent the menu offers to hide it and show the rest",
+			press: nil,
+			want:  []string{"› hide", "show hidden"},
 		},
 		{
-			name:       "on a listed agent the two keys share a line",
-			press:      nil,
-			want:       "hide/show hidden",
-			wantAbsent: "unhide",
+			name:  "on a revealed agent the menu offers to unhide it and put the rest away",
+			press: []string{"space", "h", "H", "k"},
+			want:  []string{"› unhide", "put hidden away"},
 		},
 		{
-			name:  "on a revealed agent the line offers to unhide it",
-			press: []string{"H", "k"},
-			want:  "unhide/put hidden away",
+			name:  "on a workflow header only the toggle is live",
+			press: []string{"k"},
+			want:  []string{"› show hidden"},
 		},
 	}
 
@@ -254,12 +268,11 @@ func TestAgentsShowHidden(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			harness := openAgents(t, rows...)
 
-			harness.press(append(append(tt.press, widenListPresses...), "?")...)
+			harness.press(append(tt.press, "space", "h")...)
 
-			legend := readLegend(harness.readFrame())
-			assert.Contains(t, legend, tt.want)
-			if tt.wantAbsent != "" {
-				assert.NotContains(t, legend, tt.wantAbsent)
+			frame := harness.readFrame()
+			for _, want := range tt.want {
+				assert.Contains(t, frame, want)
 			}
 		})
 	}
@@ -2390,7 +2403,7 @@ func TestAgentsSelection(t *testing.T) {
 
 	t.Run("so does one the hidden toggle puts away", func(t *testing.T) {
 		harness := openAgents(t, buildSelectable()...)
-		harness.press("H", "v", "j", "j", "j", "v", "H")
+		harness.press("space", "h", "H", "v", "j", "j", "j", "v", "space", "h", "H")
 
 		harness.press("space", "a", "ctrl+s")
 

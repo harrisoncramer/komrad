@@ -34,8 +34,6 @@ const (
 	actionAgentChild
 	actionAgentRename
 	actionAgentEdit
-	actionAgentHide
-	actionAgentShowHidden
 	actionAgentNew
 	actionAgentRetry
 	actionSearchOpen

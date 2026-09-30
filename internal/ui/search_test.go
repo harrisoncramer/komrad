@@ -475,7 +475,7 @@ func TestSearchLiveRow(t *testing.T) {
 	})
 	searched := findRow(readListRows(harness.readFrame()), "billing")
 
-	harness.press("esc", "H")
+	harness.press("esc", "space", "h", "H")
 
 	assert.Equal(t, strings.TrimSpace(findRow(readListRows(harness.readFrame()), "billing")), searched)
 }
