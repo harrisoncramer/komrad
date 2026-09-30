@@ -44,6 +44,7 @@ var (
 	hunkStyle           = lipgloss.NewStyle().Foreground(lipgloss.Color("5"))
 	agentMarkStyle      = paint.Panel.Style(paint.ToneOther)
 	humanMarkStyle      = paint.Panel.Style(paint.ToneSelf)
+	offerMarkStyle      = paint.Panel.Style(paint.ToneWarning)
 )
 
 // RenderRow draws one row of the diff at the width it is shown at, taking the cursor as an
@@ -141,6 +142,8 @@ func (v *View) renderGutter(y int, line diff.Line, background color.Color) strin
 	mark, markStyle := " ", gutterStyle
 	if thread, ok := v.GetThreadAt(y); ok {
 		mark, markStyle = v.markFor(thread)
+	} else if offers := v.GetOffersAt(y); len(offers) > 0 {
+		mark, markStyle = v.offerMarkFor(offers)
 	}
 
 	numbers := fmt.Sprintf("%4s %4s %s",

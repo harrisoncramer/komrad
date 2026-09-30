@@ -734,7 +734,7 @@ type ForgeThread struct {
 	PullRequestId string `protobuf:"bytes,2,opt,name=pull_request_id,json=pullRequestId,proto3" json:"pull_request_id,omitempty"`
 	// The file the thread is on, empty for a comment on the change as a whole.
 	Path string `protobuf:"bytes,3,opt,name=path,proto3" json:"path,omitempty"`
-	// The line of the file the thread was written against, zero when it names none.
+	// The line of the file the thread was written against, counted in commit_sha on the side old_side names, zero when it names none.
 	Line int32 `protobuf:"varint,4,opt,name=line,proto3" json:"line,omitempty"`
 	// The web address of the thread's first comment on the forge.
 	Url string `protobuf:"bytes,5,opt,name=url,proto3" json:"url,omitempty"`
@@ -743,7 +743,13 @@ type ForgeThread struct {
 	// When the thread's first comment was written, in RFC 3339.
 	WrittenAt string `protobuf:"bytes,7,opt,name=written_at,json=writtenAt,proto3" json:"written_at,omitempty"`
 	// The comments in the thread, oldest first.
-	Comments      []*ForgeComment `protobuf:"bytes,8,rep,name=comments,proto3" json:"comments,omitempty"`
+	Comments []*ForgeComment `protobuf:"bytes,8,rep,name=comments,proto3" json:"comments,omitempty"`
+	// Whether the line is counted on the old side of the forge's diff rather than the new one.
+	OldSide bool `protobuf:"varint,9,opt,name=old_side,json=oldSide,proto3" json:"old_side,omitempty"`
+	// The commit the forge counted the line in, empty when it names none.
+	CommitSha string `protobuf:"bytes,10,opt,name=commit_sha,json=commitSha,proto3" json:"commit_sha,omitempty"`
+	// The text of the line the thread was written on, as the forge's diff drew it, with its diff marker taken off.
+	Quote         string `protobuf:"bytes,11,opt,name=quote,proto3" json:"quote,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -832,6 +838,27 @@ func (x *ForgeThread) GetComments() []*ForgeComment {
 		return x.Comments
 	}
 	return nil
+}
+
+func (x *ForgeThread) GetOldSide() bool {
+	if x != nil {
+		return x.OldSide
+	}
+	return false
+}
+
+func (x *ForgeThread) GetCommitSha() string {
+	if x != nil {
+		return x.CommitSha
+	}
+	return ""
+}
+
+func (x *ForgeThread) GetQuote() string {
+	if x != nil {
+		return x.Quote
+	}
+	return ""
 }
 
 // ForgeComment is one comment in a forge review thread.
@@ -987,7 +1014,7 @@ const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"\x18ListPullRequestsResponse\x12@\n" +
 	"\rpull_requests\x18\x01 \x03(\v2\x1b.pullrequest.v1.PullRequestR\fpullRequests\x12+\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tH\x00R\rnextPageToken\x88\x01\x01B\x12\n" +
-	"\x10_next_page_token\"\xf4\x01\n" +
+	"\x10_next_page_token\"\xc4\x02\n" +
 	"\vForgeThread\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12&\n" +
 	"\x0fpull_request_id\x18\x02 \x01(\tR\rpullRequestId\x12\x12\n" +
@@ -997,7 +1024,12 @@ const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"\bresolved\x18\x06 \x01(\bR\bresolved\x12\x1d\n" +
 	"\n" +
 	"written_at\x18\a \x01(\tR\twrittenAt\x128\n" +
-	"\bcomments\x18\b \x03(\v2\x1c.pullrequest.v1.ForgeCommentR\bcomments\"\xcc\x01\n" +
+	"\bcomments\x18\b \x03(\v2\x1c.pullrequest.v1.ForgeCommentR\bcomments\x12\x19\n" +
+	"\bold_side\x18\t \x01(\bR\aoldSide\x12\x1d\n" +
+	"\n" +
+	"commit_sha\x18\n" +
+	" \x01(\tR\tcommitSha\x12\x14\n" +
+	"\x05quote\x18\v \x01(\tR\x05quote\"\xcc\x01\n" +
 	"\fForgeComment\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12!\n" +
 	"\fauthor_login\x18\x02 \x01(\tR\vauthorLogin\x12\x10\n" +

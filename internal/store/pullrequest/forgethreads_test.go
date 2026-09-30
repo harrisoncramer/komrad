@@ -18,6 +18,8 @@ func threadOn(providerID string, comments ...forge.ReviewComment) forge.ReviewTh
 		ProviderID: providerID,
 		Path:       "main.go",
 		Line:       3,
+		CommitSHA:  "c2",
+		Quote:      "func rename() {}",
 		URL:        "https://github.com/harrisoncramer/komrad/pull/1#discussion_r" + providerID,
 		Comments:   comments,
 	}
@@ -98,6 +100,9 @@ func TestSetThreads(t *testing.T) {
 				assert.True(t, byID["T_1"].Comments[1].Yours)
 				assert.Equal(t, "main.go", byID["T_1"].Path)
 				assert.Equal(t, 3, byID["T_1"].Line)
+				assert.Equal(t, "c2", byID["T_1"].CommitSHA)
+				assert.Equal(t, "func rename() {}", byID["T_1"].Quote)
+				assert.False(t, byID["T_1"].OldSide)
 				assert.Equal(t, threadWrittenAt, byID["T_1"].WrittenAt.UTC())
 			},
 		},
@@ -122,6 +127,20 @@ func TestSetThreads(t *testing.T) {
 			then: SetThreadsParams{Threads: []forge.ReviewThread{threadOn("T_1", commentBy("C_1", "dana"))}},
 			check: func(t *testing.T, stored []ForgeThread) {
 				require.Len(t, stored, 2)
+			},
+		},
+		{
+			name: "a thread on the old side keeps its side",
+			then: SetThreadsParams{Threads: []forge.ReviewThread{{ProviderID: "T_1", Path: "main.go", Line: 7, OldSide: true, CommitSHA: "c3", Quote: "\tdrop()", Comments: []forge.ReviewComment{commentBy("C_1", "dana")}}}},
+			check: func(t *testing.T, stored []ForgeThread) {
+				for _, thread := range stored {
+					if thread.ProviderID == "T_1" {
+						assert.Equal(t, 7, thread.Line)
+						assert.True(t, thread.OldSide)
+						assert.Equal(t, "c3", thread.CommitSHA)
+						assert.Equal(t, "\tdrop()", thread.Quote)
+					}
+				}
 			},
 		},
 		{

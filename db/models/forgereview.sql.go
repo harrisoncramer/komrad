@@ -179,7 +179,7 @@ func (q *Queries) ListForgeReviewThreadIDs(ctx context.Context, pullRequestID st
 
 const listWatchedForgeReviewThreads = `-- name: ListWatchedForgeReviewThreads :many
 SELECT
-    t.id, t.pull_request_id, t.provider_id, t.path, t.line, t.url, t.resolved, t.written_at, t.created_at, t.updated_at, t.engine_id
+    t.id, t.pull_request_id, t.provider_id, t.path, t.line, t.url, t.resolved, t.written_at, t.created_at, t.updated_at, t.engine_id, t.old_side, t.commit_sha, t.quote
 FROM
     forge_review_threads t
 WHERE
@@ -217,6 +217,9 @@ func (q *Queries) ListWatchedForgeReviewThreads(ctx context.Context, keys []stri
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.EngineID,
+			&i.OldSide,
+			&i.CommitSha,
+			&i.Quote,
 		); err != nil {
 			return nil, err
 		}
@@ -299,6 +302,9 @@ INSERT INTO forge_review_threads(
     provider_id,
     path,
     line,
+    old_side,
+    commit_sha,
+    quote,
     url,
     resolved,
     written_at)
@@ -309,7 +315,10 @@ VALUES (
     $4,
     $5,
     $6,
-    $7)
+    $7,
+    $8,
+    $9,
+    $10)
 ON CONFLICT (
     engine_id,
     pull_request_id,
@@ -317,13 +326,19 @@ ON CONFLICT (
     DO UPDATE SET
         path = excluded.path,
         line = excluded.line,
+        old_side = excluded.old_side,
+        commit_sha = excluded.commit_sha,
+        quote = excluded.quote,
         url = excluded.url,
         resolved = excluded.resolved,
         written_at = excluded.written_at
     WHERE (
-        forge_review_threads.path, forge_review_threads.line, forge_review_threads.url, forge_review_threads.resolved, forge_review_threads.written_at) IS DISTINCT FROM (
+        forge_review_threads.path, forge_review_threads.line, forge_review_threads.old_side, forge_review_threads.commit_sha, forge_review_threads.quote, forge_review_threads.url, forge_review_threads.resolved, forge_review_threads.written_at) IS DISTINCT FROM (
         excluded.path,
         excluded.line,
+        excluded.old_side,
+        excluded.commit_sha,
+        excluded.quote,
         excluded.url,
         excluded.resolved,
         excluded.written_at)
@@ -334,6 +349,9 @@ type UpsertForgeReviewThreadParams struct {
 	ProviderID    string
 	Path          string
 	Line          *int32
+	OldSide       bool
+	CommitSha     string
+	Quote         string
 	Url           string
 	Resolved      bool
 	WrittenAt     time.Time
@@ -345,6 +363,9 @@ func (q *Queries) UpsertForgeReviewThread(ctx context.Context, arg UpsertForgeRe
 		arg.ProviderID,
 		arg.Path,
 		arg.Line,
+		arg.OldSide,
+		arg.CommitSha,
+		arg.Quote,
 		arg.Url,
 		arg.Resolved,
 		arg.WrittenAt,

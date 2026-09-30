@@ -194,7 +194,7 @@ message ForgeThread {
   string pull_request_id = 2;
   // The file the thread is on, empty for a comment on the change as a whole.
   string path = 3;
-  // The line of the file the thread was written against, zero when it names none.
+  // The line of the file the thread was written against, counted in commit_sha on the side old_side names, zero when it names none.
   int32 line = 4;
   // The web address of the thread's first comment on the forge.
   string url = 5;
@@ -204,6 +204,12 @@ message ForgeThread {
   string written_at = 7;
   // The comments in the thread, oldest first.
   repeated ForgeComment comments = 8;
+  // Whether the line is counted on the old side of the forge's diff rather than the new one.
+  bool old_side = 9;
+  // The commit the forge counted the line in, empty when it names none.
+  string commit_sha = 10;
+  // The text of the line the thread was written on, as the forge's diff drew it, with its diff marker taken off.
+  string quote = 11;
 }
 
 // ForgeComment is one comment in a forge review thread.

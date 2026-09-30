@@ -2,6 +2,7 @@ package ui
 
 import (
 	"cmp"
+	"context"
 	"fmt"
 	"slices"
 	"strings"
@@ -58,10 +59,18 @@ func isPlacedOffer(offer *pullrequestv1.ForgeThread) bool {
 
 // stepOffer moves the cursor onto the next forge comment written on a line, and chooses it.
 func (r *reviewScreen) stepOffer(s panelShared) tea.Cmd {
+	view := r.diff.View()
 	placed := slices.DeleteFunc(r.listOffers(s), func(offer *pullrequestv1.ForgeThread) bool { return !isPlacedOffer(offer) })
-	if len(placed) == 0 || r.diff.View() == nil {
+	if len(placed) == 0 || view == nil {
 		return nil
 	}
+
+	slices.SortStableFunc(placed, func(a, b *pullrequestv1.ForgeThread) int {
+		rowA, okA := view.GetOfferRow(a.GetId())
+		rowB, okB := view.GetOfferRow(b.GetId())
+
+		return cmp.Or(compareFirst(okA, okB), cmp.Compare(rowA, rowB))
+	})
 
 	next := 0
 	if at := slices.IndexFunc(placed, func(offer *pullrequestv1.ForgeThread) bool { return offer.GetId() == r.offer }); at >= 0 {
@@ -69,8 +78,7 @@ func (r *reviewScreen) stepOffer(s panelShared) tea.Cmd {
 	}
 	r.offer = placed[next].GetId()
 
-	place := diffview.Place{FilePath: placed[next].GetPath(), NewLine: int(placed[next].GetLine()), Header: placed[next].GetLine() == 0}
-	row, ok := r.diff.View().Locate(place)
+	row, ok := view.GetOfferRow(r.offer)
 	if !ok {
 		r.notice = fmt.Sprintf("%s is not in this diff", describeOfferPlace(placed[next]))
 
@@ -102,10 +110,11 @@ func (r reviewScreen) offersView(s panelShared, room int) string {
 		dimStyle.Render(fmt.Sprintf("  %d open, %d resolved", open, len(offers)-open)) + "\n"
 
 	rows := make([][]string, len(offers))
+	chosen := r.chosenOffer()
 	chosenAt := -1
 	for i, offer := range offers {
-		rows[i] = r.offerRow(s, offer, room-1)
-		if offer.GetId() == r.offer {
+		rows[i] = r.offerRow(s, offer, offer.GetId() == chosen, room-1)
+		if offer.GetId() == chosen {
 			chosenAt = i
 		}
 	}
@@ -147,9 +156,8 @@ func fitOfferRows(rows [][]string, room int) int {
 
 // offerRow is one forge thread, who started it and where, with at most extra rows of its comment
 // under it when it is the one chosen.
-func (r reviewScreen) offerRow(s panelShared, offer *pullrequestv1.ForgeThread, extra int) []string {
+func (r reviewScreen) offerRow(s panelShared, offer *pullrequestv1.ForgeThread, chosen bool, extra int) []string {
 	style := dimStyle
-	chosen := offer.GetId() == r.offer
 	if chosen {
 		style = paint.Panel.Style(reviewOfferTone).Bold(true)
 	}
@@ -211,6 +219,9 @@ func describeOfferPlace(offer *pullrequestv1.ForgeThread) string {
 	if offer.GetLine() == 0 {
 		return offer.GetPath()
 	}
+	if offer.GetOldSide() {
+		return diffview.FormatLocation(offer.GetPath(), int(offer.GetLine()), 0)
+	}
 
 	return fmt.Sprintf("%s:%d", offer.GetPath(), offer.GetLine())
 }
@@ -244,4 +255,123 @@ func plainOfferText(text string) string {
 // reader's own comments have taken theirs.
 func countOffersRoom(spare, taken int) int {
 	return min(max(spare-2-yoursThreadRows-taken, 0), offerRows)
+}
+
+// chosenOffer is the forge comment read out in full: one the cursor is standing on, or else the
+// one J last chose.
+func (r reviewScreen) chosenOffer() string {
+	view := r.diff.View()
+	if view == nil {
+		return r.offer
+	}
+
+	here := view.GetOffersAt(r.diff.Cursor())
+	if len(here) == 0 || slices.ContainsFunc(here, func(offer diffview.Offer) bool { return offer.ID == r.offer }) {
+		return r.offer
+	}
+
+	return here[0].ID
+}
+
+// reviewOffersTracedMsg is where git says the forge's comments went, for the comments and the
+// snapshot key names.
+type reviewOffersTracedMsg struct {
+	agentID string
+	key     string
+	traced  map[string]diffview.Traced
+}
+
+// reviewOffers is the forge's comments as they were last pinned to the diff on screen.
+type reviewOffers struct {
+	key      string
+	snapshot string
+	view     *diffview.View
+	anchors  []diffview.Offer
+	traced   map[string]diffview.Traced
+}
+
+// followOffers pins the forge's comments to a diff drawn afresh, and asks git where their lines
+// went whenever the comments or the snapshot under them change.
+func (r *reviewScreen) followOffers(s panelShared) tea.Cmd {
+	view := r.diff.View()
+	if view == nil {
+		return nil
+	}
+
+	offers := r.listOffers(s)
+	key := keyOffers(view.GetSnapshotSHA(), offers)
+	if key == r.offers.key && view == r.offers.view {
+		return nil
+	}
+
+	if r.offers.snapshot != view.GetSnapshotSHA() {
+		r.offers.traced = nil
+	}
+
+	fresh := key != r.offers.key
+	r.offers.key, r.offers.snapshot, r.offers.view = key, view.GetSnapshotSHA(), view
+	r.offers.anchors = xslice.Map(offers, anchorOffer)
+	r.pinOffers()
+
+	if !fresh || s.git == nil {
+		return nil
+	}
+
+	return traceOffersCmd(r.agentID, key, traceOffersParams{
+		Git:    s.git,
+		Dir:    r.dir,
+		ToSHA:  view.GetSnapshotSHA(),
+		Offers: offers,
+	})
+}
+
+func (r *reviewScreen) applyOffersTraced(msg reviewOffersTracedMsg) {
+	if msg.agentID != r.agentID || msg.key != r.offers.key || r.diff.View() == nil {
+		return
+	}
+
+	r.offers.traced = msg.traced
+	r.pinOffers()
+}
+
+func (r *reviewScreen) pinOffers() {
+	r.offers.view.SetOfferTraced(r.offers.traced)
+	r.offers.view.PinOffers(r.offers.anchors)
+}
+
+func traceOffersCmd(agentID, key string, params traceOffersParams) tea.Cmd {
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), traceTimeout)
+		defer cancel()
+
+		return reviewOffersTracedMsg{
+			agentID: agentID,
+			key:     key,
+			traced:  traceOffers(ctx, params),
+		}
+	}
+}
+
+// keyOffers names the forge's comments by everything that places them, so a comment edited on
+// the forge does not trace its line again.
+func keyOffers(snapshot string, offers []*pullrequestv1.ForgeThread) string {
+	var key strings.Builder
+	key.WriteString(snapshot)
+	for _, offer := range offers {
+		fmt.Fprintf(&key, "\x00%s\x00%s\x00%d\x00%t\x00%s\x00%s\x00%t",
+			offer.GetId(), offer.GetPath(), offer.GetLine(), offer.GetOldSide(), offer.GetCommitSha(), offer.GetQuote(), offer.GetResolved())
+	}
+
+	return key.String()
+}
+
+func anchorOffer(offer *pullrequestv1.ForgeThread) diffview.Offer {
+	return diffview.Offer{
+		ID:       offer.GetId(),
+		FilePath: offer.GetPath(),
+		Line:     offer.GetLine(),
+		OldSide:  offer.GetOldSide(),
+		Quote:    offer.GetQuote(),
+		Resolved: offer.GetResolved(),
+	}
 }

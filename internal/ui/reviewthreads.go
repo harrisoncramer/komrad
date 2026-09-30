@@ -48,7 +48,7 @@ func (t *reviewThreads) set(threads []*agentv1.ReviewThread) {
 func (r *reviewScreen) followWorld(s panelShared) tea.Cmd {
 	r.followThreads(s)
 
-	return r.followMove(s)
+	return tea.Batch(r.followMove(s), r.followOffers(s))
 }
 
 // followThreads draws the conversation the world holds on a live agent, once the reader has stopped
