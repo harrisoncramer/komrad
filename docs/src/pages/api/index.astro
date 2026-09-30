@@ -65,7 +65,7 @@ X-Request-Id: 019991a6-8b0e-7c3d-9e1f-2a3b4c5d6e7f
     <p>
       The two <code>X-Komrad</code> headers are how an agent says who it is. The CLI and the MCP server add them from
       the agent's environment, so an agent never sets them by hand, and a method that limits what an agent may do, such
-      as archiving only its own children, decides on them. A call without them comes from a person, and a person may do
+      as archiving only itself and its own children, decides on them. A call without them comes from a person, and a person may do
       anything.
     </p>
     <p>
