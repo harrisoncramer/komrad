@@ -2,6 +2,8 @@ package cli
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"komrad/internal/gittest"
@@ -60,6 +62,10 @@ func (f *fakeAutoSetupServer) StartOrchestrator(
 
 // TestAutoSetup covers when opening komrad in a directory sets up a workflow there.
 func TestAutoSetup(t *testing.T) {
+	checkout := t.TempDir()
+	link := filepath.Join(t.TempDir(), "link")
+	require.NoError(t, os.Symlink(checkout, link))
+
 	tests := []struct {
 		name    string
 		dir     string
@@ -85,6 +91,12 @@ func TestAutoSetup(t *testing.T) {
 			dir:   "/src/app/internal",
 			git:   &gittest.Repo{Root: "/src/app"},
 			pages: [][]*workflowv1.Workflow{{{Cwd: "/src/app/internal/"}}},
+		},
+		{
+			name:  "a workflow made through a symlink to the checkout is kept",
+			dir:   checkout,
+			git:   &gittest.Repo{Root: checkout},
+			pages: [][]*workflowv1.Workflow{{{Cwd: link}}},
 		},
 		{
 			name: "a directory outside git is left alone",

@@ -43,7 +43,7 @@ func autoSetup(ctx context.Context, params autoSetupParams) error {
 		return nil
 	}
 
-	covered, err := isWorkflowAt(ctx, params.Workflows, root, filepath.Clean(params.Dir))
+	covered, err := isWorkflowAt(ctx, params.Workflows, resolvePath(root), resolvePath(params.Dir))
 	if err != nil || covered {
 		return err
 	}
@@ -84,7 +84,7 @@ func isWorkflowAt(ctx context.Context, workflows autoSetupWorkflows, dirs ...str
 		}
 
 		for _, workflow := range resp.Msg.GetWorkflows() {
-			if slices.Contains(dirs, filepath.Clean(workflow.GetCwd())) {
+			if slices.Contains(dirs, resolvePath(workflow.GetCwd())) {
 				return true, nil
 			}
 		}
@@ -94,4 +94,13 @@ func isWorkflowAt(ctx context.Context, workflows autoSetupWorkflows, dirs ...str
 		}
 		cursor = resp.Msg.NextPageToken
 	}
+}
+
+func resolvePath(path string) string {
+	resolved, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		return filepath.Clean(path)
+	}
+
+	return resolved
 }
