@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"komrad/internal/gittest"
+	"komrad/internal/ui/paint"
 	agentv1 "komrad/proto/gen/agent/v1"
 
 	"github.com/stretchr/testify/assert"
@@ -78,6 +79,16 @@ func TestReviewFiles(t *testing.T) {
 				assert.Equal(t, tt.want, readCurrentFile(harness.readFrame()))
 			})
 		}
+	})
+
+	t.Run("a file's counts wear the colours of the lines they count", func(t *testing.T) {
+		server := newReviewServer(t)
+		server.repo.Patches[gittest.NamePair(gittest.BaseSHA, gittest.SnapshotSHA)] = gittest.PatchOfBothFiles
+		harness := openReview(t, server)
+
+		frame := harness.readRawFrame()
+		assert.Contains(t, frame, paint.Panel.Style(paint.ToneSuccess).Render("+3"))
+		assert.Contains(t, frame, paint.Panel.Style(paint.ToneDanger).Render("−1"))
 	})
 
 	t.Run("a long tree is windowed on the marked row and counts what it leaves out", func(t *testing.T) {
