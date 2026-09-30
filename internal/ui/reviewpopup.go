@@ -52,14 +52,38 @@ func (r reviewScreen) stageDiff(s panelShared, split columnSplit) popupStage {
 	}
 }
 
-// measurePopupInner is the room inside the popup where it stands over the review now.
-func (r reviewScreen) measurePopupInner(s panelShared) int {
-	placed := r.stageColumn(s)
+// stage is what the popup is placed over in the layout the review is drawn in.
+func (r reviewScreen) stage(s panelShared) popupStage {
 	if split, ok := s.draw.screenColumnSplit(); ok {
-		placed = r.stageDiff(s, split)
+		return r.stageDiff(s, split)
 	}
 
-	return placePopup(placed.area, placed.anchor).inner()
+	return r.stageColumn(s)
+}
+
+// measurePopupInner is the room inside the popup where it would stand over the review now.
+func (r reviewScreen) measurePopupInner(s panelShared) int {
+	stage := r.stage(s)
+
+	return placePopup(stage.area, stage.anchor).inner()
+}
+
+// pinPopup holds the popup where it stands now for as long as the reader writes, and is the room
+// inside it.
+func (r *reviewScreen) pinPopup(s panelShared) int {
+	stage := r.stage(s)
+	r.threads.slot = placePopup(stage.area, stage.anchor)
+
+	return r.threads.slot.inner()
+}
+
+// slotOver is where the popup stands over a stage, held still while the reader writes.
+func (r reviewScreen) slotOver(stage popupStage) popupSlot {
+	if r.threads.composing || r.threads.releasing {
+		return r.threads.slot
+	}
+
+	return placePopup(stage.area, stage.anchor)
 }
 
 // popupBody is what the popup holds where the cursor stands: the editor while the reader writes,

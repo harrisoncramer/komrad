@@ -253,7 +253,7 @@ func (m model) relayout(rewrap bool) model {
 
 	// A field open in the review's sidebar is drawn in a column of this window rather than in the
 	// form's, so the size is rewritten here too.
-	m.review.threads.editor.resize(reviewInputWidth(m.review.measurePopupInner(m.shared())))
+	m.review.threads.editor.resize(reviewInputWidth(m.review.pinPopup(m.shared())))
 
 	if rewrap {
 		m.search.drawPreview(m.shared())

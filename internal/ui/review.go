@@ -89,7 +89,7 @@ func (r *reviewScreen) route(h host, s panelShared, msg tea.Msg) tea.Cmd {
 
 		return nil
 	case messageEditedMsg:
-		r.applyMessageEdited(h, s, msg)
+		r.applyMessageEdited(h, msg)
 
 		return nil
 	case tea.KeyPressMsg:

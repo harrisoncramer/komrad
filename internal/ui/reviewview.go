@@ -43,7 +43,7 @@ func (r reviewScreen) view(s panelShared) string {
 	if !ok {
 		stage := r.stageColumn(s)
 
-		return r.overlayThread(s, stage.area, placePopup(stage.area, stage.anchor))
+		return r.overlayThread(s, stage.area, r.slotOver(stage))
 	}
 
 	layout := r.layoutSidebar(s)
@@ -55,7 +55,7 @@ func (r reviewScreen) view(s panelShared) string {
 	// The band stands over the diff rather than over the whole window, and what it carries acts on
 	// the patch.
 	stage := r.stageDiff(s, split)
-	slot := placePopup(stage.area, stage.anchor)
+	slot := r.slotOver(stage)
 	diff := s.draw.markZone(zoneList, stage.area, split.column)
 
 	left := 0

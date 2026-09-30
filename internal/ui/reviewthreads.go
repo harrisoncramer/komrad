@@ -32,6 +32,8 @@ type reviewThreads struct {
 	retrying *reviewUnsent
 
 	scroll popupScroll
+	// slot is where the popup stands while the reader writes.
+	slot popupSlot
 }
 
 // set holds the conversation and its delivery counts together.
