@@ -52,7 +52,7 @@ func (d *documentsScreen) openRename(h host, s panelShared) tea.Cmd {
 
 // reconcileRename drops an open rename once the cursor leaves its row.
 func (d *documentsScreen) reconcileRename(s panelShared) {
-	if d.renaming != nil && !reconcileNameEdit(d.renaming.nameEdit, d.rows(s), d.hoveredKey(s)) {
+	if d.renaming != nil && !reconcileNameEdit(d.renaming.nameEdit, d.rows(s), d.hoveredKey(s), func(r documentRow) string { return r.item.name }) {
 		d.renaming = nil
 	}
 }
@@ -118,5 +118,5 @@ func (d *documentsScreen) settleRename(s panelShared, row string, err error) {
 }
 
 func (d *documentsScreen) isRenaming() bool {
-	return d.renaming != nil
+	return d.renaming != nil && !d.renaming.landed
 }

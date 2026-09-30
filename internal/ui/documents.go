@@ -86,7 +86,7 @@ func (d *documentsScreen) enter(h host, _ panelShared, target screenTarget) tea.
 
 func (d *documentsScreen) update(h host, s panelShared, msg tea.Msg) tea.Cmd {
 	d.reconcileRename(s)
-	if d.renaming != nil {
+	if d.isRenaming() {
 		return d.updateRename(h, s, msg)
 	}
 
@@ -465,7 +465,7 @@ func (d *documentsScreen) doesDrawFromListing() bool {
 }
 
 func (d *documentsScreen) takesEveryKey() bool {
-	return d.renaming != nil || (d.history != nil && d.history.filter.typing)
+	return d.isRenaming() || (d.history != nil && d.history.filter.typing)
 }
 
 func (d *documentsScreen) column() columnSpec {

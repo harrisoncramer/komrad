@@ -892,6 +892,19 @@ func (d *documentShelf) rewrite(id, body, at string) {
 	}
 }
 
+// rename is the document given a new name at the time given.
+func (d *documentShelf) rename(id, name, at string) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	for _, document := range d.listed {
+		if document.GetId() == id {
+			document.Name = name
+			document.UpdatedAt = at
+		}
+	}
+}
+
 // add is a document written beside the others.
 func (d *documentShelf) add(document *agentv1.Document) {
 	d.mu.Lock()

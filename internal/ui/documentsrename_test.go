@@ -116,6 +116,23 @@ func TestDocumentsRenameField(t *testing.T) {
 		assert.Contains(t, readOpenMessages(harness), `"Notes" has not been read yet`)
 	})
 
+	t.Run("a saved name stands until the listing shows it", func(t *testing.T) {
+		t.Parallel()
+
+		harness, docs := openDocuments(t)
+		harness.answer(agentv1connect.AgentServiceWriteDocumentProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+			return connect.NewResponse(&agentv1.WriteDocumentResponse{}), nil
+		})
+		harness.press(slices.Concat([]string{"r"}, spellKeys(" now"), []string{"enter"})...)
+		assert.Contains(t, readHoveredRow(harness.readFrame()), "Design the cache now", "not the old name before the list is read again")
+
+		docs.rename("d1", "Design the cache now", "2026-09-26T12:00:00Z")
+		listAgain(harness, "2026-09-26T12:00:00Z")
+		docs.rename("d1", "Design the cache later", "2026-09-27T12:00:00Z")
+		listAgain(harness, "2026-09-27T12:00:00Z")
+		assert.Contains(t, readHoveredRow(harness.readFrame()), "Design the cache later", "the list draws the name once it has caught up")
+	})
+
 	t.Run("a document the agent rewrote while its name was typed is renamed at that write", func(t *testing.T) {
 		t.Parallel()
 
@@ -138,10 +155,15 @@ func TestDocumentsRenameField(t *testing.T) {
 	})
 }
 
+// listAgain is the watch saying the author wrote at the time given.
+func listAgain(harness *panelHarness, at string) {
+	author := buildDocumentAuthors()[2].(*agentv1.Agent)
+	author.DocumentsUpdatedAt = xptr.Ptr(at)
+	harness.watch(buildPuts(author))
+}
+
 // rewriteAsTheAgent is the author rewriting the first document and the watch saying so.
 func rewriteAsTheAgent(harness *panelHarness, docs *documentShelf) {
 	docs.rewrite("d1", "The cache is cold now.", "2026-09-26T12:00:00Z")
-	author := buildDocumentAuthors()[2].(*agentv1.Agent)
-	author.DocumentsUpdatedAt = xptr.Ptr("2026-09-26T12:00:00Z")
-	harness.watch(buildPuts(author))
+	listAgain(harness, "2026-09-26T12:00:00Z")
 }

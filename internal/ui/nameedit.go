@@ -22,6 +22,8 @@ type nameEdit struct {
 	noted bool
 	// saving says the typed name has been sent and the field takes no keys until it lands.
 	saving bool
+	// landed says the typed name was written and is drawn until the listing shows it.
+	landed bool
 }
 
 // nameEditStep is what one message did to a name being typed.
@@ -39,7 +41,7 @@ func openNameEdit(key, name string) *nameEdit {
 }
 
 func (e *nameEdit) take(h host, msg tea.Msg) nameEditStep {
-	if e.saving {
+	if e.saving || e.landed {
 		return nameEditTyping
 	}
 	if e.gone {
@@ -90,11 +92,15 @@ func (e *nameEdit) takeGone(h host, msg tea.Msg) nameEditStep {
 }
 
 // reconcileNameEdit says whether a field stays open over rows whose cursor is on hovered.
-func reconcileNameEdit[T keyed](e *nameEdit, rows []T, hovered string) bool {
+func reconcileNameEdit[T keyed](e *nameEdit, rows []T, hovered string, name func(T) string) bool {
+	at := slices.IndexFunc(rows, func(r T) bool { return r.key() == e.key })
+	if e.landed {
+		return at >= 0 && name(rows[at]) != e.typed
+	}
 	if e.saving || e.gone || hovered == e.key {
 		return true
 	}
-	if slices.ContainsFunc(rows, func(r T) bool { return r.key() == e.key }) {
+	if at >= 0 {
 		return false
 	}
 
@@ -126,8 +132,9 @@ func (e *nameEdit) settle(row string, err error) bool {
 	}
 
 	e.saving = false
+	e.landed = err == nil
 
-	return err != nil
+	return true
 }
 
 // drawnOver draws the typed name in place of the row's own.
@@ -138,7 +145,7 @@ func (e *nameEdit) drawnOver(row view.Row) view.Row {
 
 	row.Name = e.typed
 	row.Matches = nil
-	row.Editing = !e.saving
+	row.Editing = !e.saving && !e.landed
 
 	return row
 }

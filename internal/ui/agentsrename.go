@@ -16,7 +16,7 @@ type agentRename struct {
 }
 
 func (a *agentsScreen) isRenaming() bool {
-	return a.renaming != nil
+	return a.renaming != nil && !a.renaming.landed
 }
 
 func (a *agentsScreen) openRename(s panelShared) tea.Cmd {
@@ -38,7 +38,7 @@ func (a *agentsScreen) openRename(s panelShared) tea.Cmd {
 
 // reconcileRename drops an open rename once the cursor leaves its row.
 func (a *agentsScreen) reconcileRename(s panelShared) {
-	if a.renaming != nil && !reconcileNameEdit(a.renaming.nameEdit, a.rows(s), a.hoveredKey(s)) {
+	if a.renaming != nil && !reconcileNameEdit(a.renaming.nameEdit, a.rows(s), a.hoveredKey(s), agentRowName) {
 		a.renaming = nil
 	}
 }
