@@ -202,7 +202,7 @@ func TestReviewCursor(t *testing.T) {
 	t.Run("the wheel over the diff turns the cursor", func(t *testing.T) {
 		harness := openReview(t, newReviewServer(t))
 
-		wheelOver(harness, defaultHarnessWidth-1, false)
+		wheelOver(harness, defaultHarnessWidth-1)
 
 		assert.Equal(t, "greet.go:4 (removed)", readReviewCursor(harness.readFrame()))
 	})
@@ -212,7 +212,7 @@ func TestReviewCursor(t *testing.T) {
 		harness.press("c")
 		typeText(harness, "still here")
 
-		wheelOver(harness, defaultHarnessWidth-1, false)
+		wheelOver(harness, defaultHarnessWidth-1)
 		harness.press("ctrl+s")
 
 		harness.assertSentTo(agentv1connect.AgentServiceCreateReviewThreadProcedure, &agentv1.CreateReviewThreadRequest{

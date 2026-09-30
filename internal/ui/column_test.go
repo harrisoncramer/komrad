@@ -51,7 +51,7 @@ func TestWheelScrollsTheHalfUnderTheMouse(t *testing.T) {
 				before := harness.readFrame()
 				require.Contains(t, before, "context line 0")
 
-				wheelOver(harness, defaultHarnessWidth-1, false)
+				wheelOver(harness, defaultHarnessWidth-1)
 
 				frame := harness.readFrame()
 				assert.NotEqual(t, readStage(before), readStage(frame))
@@ -61,7 +61,7 @@ func TestWheelScrollsTheHalfUnderTheMouse(t *testing.T) {
 			t.Run("the block opens at its top again on another row", func(t *testing.T) {
 				harness := tt.open(t)
 				top := readStage(harness.readFrame())
-				wheelOver(harness, defaultHarnessWidth-1, false)
+				wheelOver(harness, defaultHarnessWidth-1)
 
 				harness.press("j", "k")
 
@@ -71,7 +71,7 @@ func TestWheelScrollsTheHalfUnderTheMouse(t *testing.T) {
 			t.Run("turns the filter added up scroll the block as far as the same turns one by one", func(t *testing.T) {
 				paced := tt.open(t)
 				for range 5 {
-					wheelOver(paced, defaultHarnessWidth-1, false)
+					wheelOver(paced, defaultHarnessWidth-1)
 				}
 
 				harness := tt.open(t)
@@ -84,7 +84,7 @@ func TestWheelScrollsTheHalfUnderTheMouse(t *testing.T) {
 				harness := tt.open(t)
 				before := harness.readFrame()
 
-				wheelOver(harness, 1, false)
+				wheelOver(harness, 1)
 
 				frame := harness.readFrame()
 				assert.NotEqual(t, readHoveredRow(before), readHoveredRow(frame))
@@ -93,16 +93,11 @@ func TestWheelScrollsTheHalfUnderTheMouse(t *testing.T) {
 	}
 }
 
-func wheelOver(harness *panelHarness, x int, up bool) {
-	button := tea.MouseWheelDown
-	if up {
-		button = tea.MouseWheelUp
-	}
-
+func wheelOver(harness *panelHarness, x int) {
 	harness.send(tea.MouseWheelMsg{
 		X:      x,
 		Y:      5,
-		Button: button,
+		Button: tea.MouseWheelDown,
 	})
 }
 
