@@ -180,7 +180,7 @@ func (r *reviewScreen) doesScrollColumn(panelShared) bool {
 }
 
 func (r *reviewScreen) scrollColumn(_ host, s panelShared, rows int) tea.Cmd {
-	if r.isWriting() {
+	if r.isWriting() || r.diff.View() == nil {
 		return nil
 	}
 
@@ -189,7 +189,7 @@ func (r *reviewScreen) scrollColumn(_ host, s panelShared, rows int) tea.Cmd {
 
 // scrollList presses the scroll key once for every row, past the popup.
 func (r *reviewScreen) scrollList(h host, s panelShared, rows int) tea.Cmd {
-	if r.isWriting() {
+	if r.isWriting() || r.diff.View() == nil {
 		return nil
 	}
 

@@ -142,6 +142,25 @@ func TestReviewOpen(t *testing.T) {
 		assert.Contains(t, frame, "comment on this line")
 	})
 
+	t.Run("the wheel while the diff loads moves nothing", func(t *testing.T) {
+		server := newReviewServer(t)
+		harness := newPanelHarness(t, panelHarnessParams{
+			width:  reviewWidth,
+			height: 40,
+			git:    server.repo,
+		})
+		server.serve(harness)
+		harness.watch(server.buildSnapshot())
+		harness.hold("git.Diff")
+		harness.press("space", "r")
+
+		for _, x := range []int{1, reviewWidth - 1} {
+			harness.send(tea.MouseWheelMsg{X: x, Y: 2, Button: tea.MouseWheelDown})
+		}
+
+		assert.Contains(t, readStageText(harness.readFrame()), "loading the diff")
+	})
+
 	t.Run("a worktree holding only an untracked file opens", func(t *testing.T) {
 		repo := gittest.NewRepo(t.TempDir())
 		repo.Wrote(gittest.WroteParams{
