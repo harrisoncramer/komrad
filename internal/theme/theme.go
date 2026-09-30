@@ -69,7 +69,7 @@ func Defaults() Colors {
 		UserReviewer: "14",
 		UserGithub:   "3",
 		Merged:       "5",
-		Highlight:    "15",
+		Highlight:    "208",
 		Inverse:      "0",
 		DiffAdded:    Pair{Light: "#dafbe1", Dark: "#1b3823"},
 		DiffDeleted:  Pair{Light: "#ffebe9", Dark: "#402222"},

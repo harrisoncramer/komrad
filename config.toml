@@ -591,7 +591,7 @@ user_github   = "3"
 # A merged pull request.
 merged        = "5"
 # What is picked out for you to act on, such as a search match.
-highlight     = "15"
+highlight     = "208"
 # Text drawn on a filled bar.
 inverse       = "0"
 
