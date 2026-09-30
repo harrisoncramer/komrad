@@ -740,6 +740,7 @@ func TestAdoptAnswersWithTheAgentAlreadyOnTheBranch(t *testing.T) {
 	assert.Equal(t, "spawned", adopted.Msg.GetAgent().GetName())
 }
 
+// TestArchiveAgentsHoldsAnAgentToItselfAndItsOwnChildren leaves an orchestrator and the panel unrestricted.
 func TestArchiveAgentsHoldsAnAgentToItselfAndItsOwnChildren(t *testing.T) {
 	tests := []struct {
 		name     string
