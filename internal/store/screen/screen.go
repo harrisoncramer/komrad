@@ -1,5 +1,4 @@
-// Package screen keeps the last screen each agent's pane drew at rest, so the panel can show
-// where an agent left off once its pane is gone.
+// Package screen keeps the last screen each agent's pane drew at rest.
 package screen
 
 import (
