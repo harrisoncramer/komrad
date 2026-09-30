@@ -3,6 +3,7 @@ package pullrequests
 import (
 	"context"
 	"testing"
+	"time"
 
 	"komrad/internal/forge"
 	"komrad/internal/store"
@@ -68,18 +69,21 @@ func newTestWriter(t *testing.T, writing *writingForge, sync *waketest.Counter) 
 	})
 }
 
+var settleWakes = []time.Duration{10 * time.Second, 20 * time.Second, 30 * time.Second, 40 * time.Second, 50 * time.Second}
+
 // TestMergePullRequest covers which connection a merge goes through and the pull request sync
-// being woken only once the forge has merged.
+// being woken, now and every ten seconds for a minute, only once the forge has merged.
 func TestMergePullRequest(t *testing.T) {
 	const address = "https://github.com/harrisoncramer/komrad/pull/1"
 
 	tests := []struct {
-		name       string
-		address    string
-		mergeErr   error
-		wantErr    error
-		wantMerged []string
-		wantWakes  int
+		name        string
+		address     string
+		mergeErr    error
+		wantErr     error
+		wantMerged  []string
+		wantWakes   int
+		wantDelayed []time.Duration
 	}{
 		{
 			name:    "an address with no host",
@@ -99,10 +103,11 @@ func TestMergePullRequest(t *testing.T) {
 			wantMerged: []string{address},
 		},
 		{
-			name:       "a pull request the forge merges",
-			address:    address,
-			wantMerged: []string{address},
-			wantWakes:  1,
+			name:        "a pull request the forge merges",
+			address:     address,
+			wantMerged:  []string{address},
+			wantWakes:   1,
+			wantDelayed: settleWakes,
 		},
 	}
 
@@ -121,12 +126,13 @@ func TestMergePullRequest(t *testing.T) {
 			}
 			assert.Equal(t, tt.wantMerged, writing.merged)
 			assert.Equal(t, tt.wantWakes, sync.Wakes)
+			assert.Equal(t, tt.wantDelayed, sync.Delayed)
 		})
 	}
 }
 
-// TestSetPullRequestDraft covers the pull request sync being woken only once the forge has
-// changed the draft.
+// TestSetPullRequestDraft covers the pull request sync being woken, now and every ten seconds
+// for a minute, only once the forge has changed the draft.
 func TestSetPullRequestDraft(t *testing.T) {
 	const address = "https://github.com/harrisoncramer/komrad/pull/1"
 
@@ -138,6 +144,7 @@ func TestSetPullRequestDraft(t *testing.T) {
 		wantErr     error
 		wantDrafted []drafted
 		wantWakes   int
+		wantDelayed []time.Duration
 	}{
 		{
 			name:    "an address with no host",
@@ -158,12 +165,14 @@ func TestSetPullRequestDraft(t *testing.T) {
 			draft:       true,
 			wantDrafted: []drafted{{address: address, draft: true}},
 			wantWakes:   1,
+			wantDelayed: settleWakes,
 		},
 		{
 			name:        "a draft the forge marks ready",
 			address:     address,
 			wantDrafted: []drafted{{address: address, draft: false}},
 			wantWakes:   1,
+			wantDelayed: settleWakes,
 		},
 	}
 
@@ -182,6 +191,7 @@ func TestSetPullRequestDraft(t *testing.T) {
 			}
 			assert.Equal(t, tt.wantDrafted, writing.drafted)
 			assert.Equal(t, tt.wantWakes, sync.Wakes)
+			assert.Equal(t, tt.wantDelayed, sync.Delayed)
 		})
 	}
 }

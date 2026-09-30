@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"time"
 
 	"komrad/internal/forge"
 	forgestore "komrad/internal/store/forge"
@@ -18,7 +19,13 @@ type writeForgeFinder interface {
 // loopWaker asks a background loop to run before its next tick.
 type loopWaker interface {
 	Wake()
+	WakeAfter(wait time.Duration)
 }
+
+const (
+	writeSettleAfter  = 10 * time.Second
+	writeSettleWithin = time.Minute
+)
 
 // NewWriterParams is what a writer is built over.
 type NewWriterParams struct {
@@ -51,7 +58,7 @@ func (w *Writer) MergePullRequest(ctx context.Context, address string) error {
 		return err
 	}
 
-	w.sync.Wake()
+	w.wakeUntilSettled()
 
 	return nil
 }
@@ -68,7 +75,7 @@ func (w *Writer) SetPullRequestDraft(ctx context.Context, address string, draft 
 		return err
 	}
 
-	w.sync.Wake()
+	w.wakeUntilSettled()
 
 	return nil
 }
@@ -91,4 +98,11 @@ func (w *Writer) forgeFor(ctx context.Context, address string) (forge.Forge, err
 	}
 
 	return f, nil
+}
+
+func (w *Writer) wakeUntilSettled() {
+	w.sync.Wake()
+	for wait := writeSettleAfter; wait < writeSettleWithin; wait += writeSettleAfter {
+		w.sync.WakeAfter(wait)
+	}
 }
