@@ -186,10 +186,11 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 		CheckoutSync: wakers.cwdSync,
 	})
 	adoptService := agents.NewAdoptService(agents.NewAdoptServiceParams{
-		Agents:    st.agents,
-		Workflows: st.workflows,
-		Launch:    launchService,
-		Worktrees: gitClient,
+		Agents:          st.agents,
+		Workflows:       st.workflows,
+		Launch:          launchService,
+		Worktrees:       gitClient,
+		PullRequestSync: wakers.pullRequestSync,
 	})
 	agentDelete := jobs.NewAgentDelete(queue)
 

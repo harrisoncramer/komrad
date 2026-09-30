@@ -40,6 +40,8 @@ func (s *AgentStore) Create(ctx context.Context, agent Agent) error {
 		SpawnedByAgentID: agent.SpawnedByAgentID,
 		ParentAgentID:    agent.ParentAgentID,
 		AdoptedBranch:    agent.AdoptedBranch,
+		Branch:           agent.Branch,
+		RepositoryUrl:    agent.RepositoryURL,
 	}); err != nil {
 		return fmt.Errorf("failed to insert agent %q: %w", agent.Name, err)
 	}

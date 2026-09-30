@@ -32,9 +32,10 @@ type Adoption struct {
 
 const worktreeListTimeout = 10 * time.Second
 
-// worktreeLister reports the checkouts of a repository.
-type worktreeLister interface {
+// checkoutReader reports the checkouts of a repository and where its origin points.
+type checkoutReader interface {
 	ListWorktrees(ctx context.Context, repo string) ([]git.Worktree, error)
+	ReadRepositoryURL(ctx context.Context, dir string) string
 }
 
 // adoptAgentReadWriter is the slice of the agent store adoption reads.
@@ -44,28 +45,31 @@ type adoptAgentReadWriter interface {
 }
 
 type NewAdoptServiceParams struct {
-	Agents    adoptAgentReadWriter
-	Workflows workflowReader
-	Launch    *LaunchService
-	Worktrees worktreeLister
+	Agents          adoptAgentReadWriter
+	Workflows       workflowReader
+	Launch          *LaunchService
+	Worktrees       checkoutReader
+	PullRequestSync loopWaker
 }
 
 // AdoptService puts an agent on a branch somebody else made, working out which checkout is to
 // hold that branch before handing the launch over.
 type AdoptService struct {
-	agents    adoptAgentReadWriter
-	workflows workflowReader
-	launch    *LaunchService
-	worktrees worktreeLister
+	agents          adoptAgentReadWriter
+	workflows       workflowReader
+	launch          *LaunchService
+	worktrees       checkoutReader
+	pullRequestSync loopWaker
 }
 
 // NewAdoptService builds the service from its dependencies.
 func NewAdoptService(params NewAdoptServiceParams) *AdoptService {
 	return &AdoptService{
-		agents:    params.Agents,
-		workflows: params.Workflows,
-		launch:    params.Launch,
-		worktrees: params.Worktrees,
+		agents:          params.Agents,
+		workflows:       params.Workflows,
+		launch:          params.Launch,
+		worktrees:       params.Worktrees,
+		pullRequestSync: params.PullRequestSync,
 	}
 }
 
@@ -130,6 +134,8 @@ func (s *AdoptService) Adopt(ctx context.Context, params AdoptParams) (*Adoption
 		Hidden:         params.Hidden,
 		IdempotencyKey: params.IdempotencyKey,
 		AdoptedBranch:  branch,
+		Branch:         branch,
+		RepositoryURL:  s.worktrees.ReadRepositoryURL(ctx, repo),
 	}
 
 	trees, err := s.readWorktrees(ctx, repo, branch)
@@ -163,9 +169,14 @@ func (s *AdoptService) Adopt(ctx context.Context, params AdoptParams) (*Adoption
 	}
 
 	created, err := s.launch.NewAgent(ctx, create)
-	if err != nil && !errors.Is(err, ErrAlreadyLaunched) {
+	if errors.Is(err, ErrAlreadyLaunched) {
+		return &Adoption{Agent: created}, nil
+	}
+	if err != nil {
 		return nil, err
 	}
+
+	s.pullRequestSync.Wake()
 
 	return &Adoption{Agent: created}, nil
 }
