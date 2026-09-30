@@ -249,6 +249,7 @@ func (m *model) getHostPath() string {
 // stageEditor puts an editor on the stage with the keys in it, and answers the pane it was
 // given, empty where the split was refused.
 func (m *model) stageEditor(content layout.Content) string {
+	m.scratchPane = ""
 	m.frame.Show(layout.RegionStage, content)
 
 	pane := m.frame.Pane(layout.RegionStage)

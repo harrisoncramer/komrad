@@ -1,6 +1,8 @@
 package ui_test
 
 import (
+	"regexp"
+	"strings"
 	"testing"
 
 	"komrad/internal/ui/paint"
@@ -69,9 +71,9 @@ func TestSubpages(t *testing.T) {
 		harness := openSubpages(t, "quiet")
 
 		frame := harness.readRawFrame()
-		assert.Contains(t, frame, readOffEntry("review", "r"))
-		assert.Contains(t, frame, readOffEntry("documents", "d"))
-		assert.NotContains(t, frame, readOffEntry("logs", "l"))
+		assert.Regexp(t, readOffEntry("review", "r"), frame)
+		assert.Regexp(t, readOffEntry("documents", "d"), frame)
+		assert.NotRegexp(t, readOffEntry("logs", "l"), frame)
 	})
 
 	t.Run("an orchestrator has no review or documents, which its workflow's agents hold", func(t *testing.T) {
@@ -147,8 +149,8 @@ func TestSubpagesInArchive(t *testing.T) {
 		frame := harness.readFrame()
 		assert.Contains(t, frame, "archive › author")
 		assert.Contains(t, frame, "› documents")
-		assert.Contains(t, harness.readRawFrame(), readOffEntry("review", "r"))
-		assert.Contains(t, harness.readRawFrame(), readOffEntry("terminal", "t"))
+		assert.Regexp(t, readOffEntry("review", "r"), harness.readRawFrame())
+		assert.Regexp(t, readOffEntry("terminal", "t"), harness.readRawFrame())
 	})
 
 	t.Run("git holds rebase gray, since an archived branch is not rebased", func(t *testing.T) {
@@ -157,7 +159,7 @@ func TestSubpagesInArchive(t *testing.T) {
 		harness := openArchivedSubpages(t)
 		harness.press("g")
 
-		assert.Contains(t, harness.readRawFrame(), readOffEntry("rebase with base", "r"))
+		assert.Regexp(t, readOffEntry("rebase with base", "r"), harness.readRawFrame())
 
 		harness.press("r")
 
@@ -216,10 +218,10 @@ func buildSubpagesAgents() []proto.Message {
 	return rows
 }
 
-// readOffEntry is a submenu entry as it is drawn when there is nothing behind it, gray with its
-// key underlined.
-func readOffEntry(label, mark string) string {
-	underlined := ansi.Style{}.Underline(true).String() + mark + ansi.Style{}.Underline(false).String() + label[len(mark):]
+// readOffEntry matches a submenu entry as it is drawn when there is nothing behind it, gray with
+// its key right-aligned.
+func readOffEntry(label, key string) *regexp.Regexp {
+	gray, _, _ := strings.Cut(paint.Panel.Style(paint.ToneMuted).Render("x"), "x")
 
-	return paint.Panel.Style(paint.ToneMuted).Render(underlined)
+	return regexp.MustCompile(regexp.QuoteMeta(gray+label) + " +" + regexp.QuoteMeta(key))
 }

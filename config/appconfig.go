@@ -369,11 +369,11 @@ type MergeKeys struct {
 	MergeArchive []string `mapstructure:"merge_archive" default:"a"`
 }
 
-// MenuKeys are the bindings for the menu on the hovered row, which lists the screens that belong
-// to it and the menus nested under it. Today that row is an agent, on the agents list or in the
-// archive.
+// MenuKeys are the bindings for the menu, which lists the hovered row's entries over the
+// panel's own. Today the only row with entries is an agent, on the agents list or in the archive.
 type MenuKeys struct {
-	// Open the menu on the hovered agent, or its orchestrator's on a workflow's row.
+	// Open the menu from any screen: the hovered agent's entries, or its orchestrator's on a
+	// workflow's row, over the entries that act on the panel itself.
 	Open []string `mapstructure:"open" default:"space"`
 	// Open the review of the agent's diff. The entry is gray on an agent with no worktree of its
 	// own, and in the archive.
@@ -390,6 +390,10 @@ type MenuKeys struct {
 	// Open the git menu to the right of this one, for rebasing the agent's branch or opening or
 	// merging its pull request.
 	Git []string `mapstructure:"git" default:"g"`
+	// Open this engine's scratch file in your editor in place of the pane beside the list, or
+	// close it when it is already open. Each engine keeps its own file under komrad's state
+	// directory.
+	Scratch []string `mapstructure:"scratch" default:"s"`
 }
 
 // WorkflowsKeys are the bindings that act on a workflow.
@@ -575,7 +579,7 @@ type SchedulesKeys struct {
 	// Quit the panel.
 	Quit []string `mapstructure:"quit" default:"ctrl+c"`
 	// Pause or resume the schedule under the cursor.
-	Toggle []string `mapstructure:"toggle" default:"space"`
+	Toggle []string `mapstructure:"toggle" default:"p"`
 }
 
 // ArchiveKeys are the bindings for the archive screen, which lists the agents

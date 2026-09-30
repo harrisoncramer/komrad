@@ -189,12 +189,16 @@ func (m model) helpBinding() key.Binding {
 	return binding(m.keys.Help.Toggle, desc)
 }
 
+func (m model) menuBinding() key.Binding {
+	return binding(m.keys.Menu.Open, "menu")
+}
+
 func (m model) globalHelp() []key.Binding {
 	if !m.screen.picksViews() {
-		return []key.Binding{m.helpBinding()}
+		return []key.Binding{m.menuBinding(), m.helpBinding()}
 	}
 
-	return []key.Binding{m.viewsBinding(), m.helpBinding()}
+	return []key.Binding{m.viewsBinding(), m.menuBinding(), m.helpBinding()}
 }
 
 // fullGlobalHelp is the expanded legend's share of the keys every screen answers.

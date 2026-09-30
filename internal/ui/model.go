@@ -191,6 +191,8 @@ type PanelSettings struct {
 	// DraftDir is where a copy of a document is written for the editor, the system's temporary
 	// directory when empty.
 	DraftDir string
+	// ScratchDir is where each engine's scratch file is kept.
+	ScratchDir string
 }
 
 type Deps struct {
@@ -249,8 +251,10 @@ type model struct {
 
 	// sized is the size each agent's own window was last put at, keyed by pane, so a listing that
 	// has not moved costs no tmux calls.
-	sized         map[string]string
-	terminalDir   string
+	sized       map[string]string
+	terminalDir string
+	// scratchPane is the stage pane the scratch editor is open in, empty while it is closed.
+	scratchPane   string
 	details       detailsState
 	messages      messagesState
 	detailsHeight float64
