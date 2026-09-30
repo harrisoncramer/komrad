@@ -183,7 +183,7 @@ func TestPanePicker(t *testing.T) {
 			}
 
 			harness.press("ctrl+space", "j")
-			require.Contains(t, harness.readDrawn(), "PANES")
+			require.Contains(t, harness.readDrawn(), "JUMP")
 			selected := len(harness.panel.ReadSelectedPanes())
 
 			harness.press(tt.press...)

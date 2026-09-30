@@ -460,6 +460,16 @@ func (c *Client) InsetPanelWindow(session string) {
 	}
 }
 
+// SetWindowHook runs command whenever hook fires in window.
+func (c *Client) SetWindowHook(window, hook, command string) {
+	c.run("set-hook", "-w", "-t", window, hook, command)
+}
+
+// UnsetWindowHook stops hook running a command in window.
+func (c *Client) UnsetWindowHook(window, hook string) {
+	c.run("set-hook", "-u", "-w", "-t", window, hook)
+}
+
 // SetGlobal sets a global tmux option.
 func (c *Client) SetGlobal(name, value string) {
 	c.run("set-option", "-g", name, value)

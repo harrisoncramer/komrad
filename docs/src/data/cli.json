@@ -27,7 +27,6 @@
     "inherited": [],
     "children": [
       "attach",
-      "copy",
       "doctor",
       "engine",
       "forge",
@@ -45,7 +44,8 @@
       "start",
       "stop",
       "terminal",
-      "version"
+      "version",
+      "visual"
     ]
   },
   {
@@ -58,49 +58,6 @@
     "long": "Attach the running panel in this terminal.\n\nIt attaches the session `komrad open` puts up, so any number of terminals show the\nsame panel. Detaching gives this terminal back and leaves everything running.\n\nIt attaches a panel that is already up and refuses when there is none, since\nstarting one is what `komrad open` is for.",
     "example": "",
     "flags": [],
-    "inherited": [
-      {
-        "name": "config",
-        "shorthand": "",
-        "type": "stringArray",
-        "default": "[]",
-        "usage": "path to a config TOML, repeatable, later files win over earlier ones"
-      },
-      {
-        "name": "engine",
-        "shorthand": "",
-        "type": "string",
-        "default": "",
-        "usage": "engine to reach: local for this machine, or a file in the config's engines directory, layered over the config"
-      }
-    ],
-    "children": []
-  },
-  {
-    "slug": "copy",
-    "path": "komrad copy",
-    "parent": "",
-    "usage": "komrad copy \u003cfile\u003e \u003cstart-x\u003e \u003cstart-y\u003e \u003cend-x\u003e \u003cend-y\u003e \u003crectangle\u003e [flags]",
-    "aliases": [],
-    "short": "Copy a selection in visual mode from inside the block that has the keys",
-    "long": "Copy a selection in visual mode from inside the block that has the keys.\n\nVisual mode puts a picture of the whole sidebar in tmux's copy-mode, and a copy in\nit pipes the selection here with where it runs. This keeps the cells that fall\ninside the block the picture was drawn for, held in file, and puts them in tmux's\nbuffers, on the clipboard, and through the copy-command. Nothing here is meant to\nbe run by hand.",
-    "example": "",
-    "flags": [
-      {
-        "name": "copy-command",
-        "shorthand": "",
-        "type": "string",
-        "default": "",
-        "usage": "command the copy is piped into, as tmux's copy-command"
-      },
-      {
-        "name": "socket",
-        "shorthand": "",
-        "type": "string",
-        "default": "",
-        "usage": "path to the tmux server's socket"
-      }
-    ],
     "inherited": [
       {
         "name": "config",
@@ -1164,6 +1121,34 @@
     "aliases": [],
     "short": "Print which build this binary is, and which one is serving",
     "long": "Print which build this binary is, and which one is answering on the address.\n\nThe two can differ. The service is long-lived and keeps the binary it started with,\nso rebuilding replaces the file on disk without changing what is running. When the\nsecond line is not the first, restart the service.",
+    "example": "",
+    "flags": [],
+    "inherited": [
+      {
+        "name": "config",
+        "shorthand": "",
+        "type": "stringArray",
+        "default": "[]",
+        "usage": "path to a config TOML, repeatable, later files win over earlier ones"
+      },
+      {
+        "name": "engine",
+        "shorthand": "",
+        "type": "string",
+        "default": "",
+        "usage": "engine to reach: local for this machine, or a file in the config's engines directory, layered over the config"
+      }
+    ],
+    "children": []
+  },
+  {
+    "slug": "visual",
+    "path": "komrad visual",
+    "parent": "",
+    "usage": "komrad visual \u003cfile\u003e",
+    "aliases": [],
+    "short": "Run the stand-in visual mode selects in",
+    "long": "Run the stand-in visual mode selects in.\n\nVisual mode draws the sidebar as tiles on a private tmux server, one for each of\nits blocks, with only the block that has the keys in copy-mode, so a selection\nstops at that block's edge. This command builds that server from file, swaps a\nclient of it into the sidebar's place, and gives the sidebar back once copy-mode\nends. Nothing here is meant to be run by hand.",
     "example": "",
     "flags": [],
     "inherited": [

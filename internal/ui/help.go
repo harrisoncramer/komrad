@@ -56,6 +56,9 @@ func (m model) renderHelp(k keyMap, above ...string) string {
 	}
 
 	width := m.paneWidth()
+	if width > 0 {
+		width = max(width-lipgloss.Width(normalModeLabel), 1)
+	}
 	view := helpView(width)
 
 	if !m.helpExpanded {

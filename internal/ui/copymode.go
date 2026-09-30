@@ -5,13 +5,11 @@ import (
 	"unicode"
 
 	"komrad/internal/panes"
+	"komrad/internal/ui/paint"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 )
-
-// visualLabel is the label tmux draws over a pane in copy-mode.
-const visualLabel = " VISUAL "
 
 // copyOpenedMsg is the stand-in opened, or why it could not be.
 type copyOpenedMsg struct {
@@ -30,7 +28,7 @@ func (m model) toggleCopy() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	standIn := m.drawCopyBlock()
+	standIn := m.drawCopyLayout()
 	m.copying = true
 	m.frame.Hold()
 
@@ -59,9 +57,9 @@ func (m model) endCopy() model {
 	return m
 }
 
-// drawCopyBlock is the sidebar as it draws itself, the block holding the keys, and the row and
-// column that block's cursor is on, counted from one.
-func (m model) drawCopyBlock() panes.CopyStandIn {
+// drawCopyLayout is the sidebar as it draws itself, where the borders between its blocks fall, the
+// block holding the keys, and the cell that block's cursor is on.
+func (m model) drawCopyLayout() panes.CopyStandIn {
 	focused := m.atStop()
 
 	rect := panes.Rect{Width: m.width, Height: m.height}
@@ -73,29 +71,37 @@ func (m model) drawCopyBlock() panes.CopyStandIn {
 
 	drawn := m
 	drawn.rowCursor.IsBlinked = false
-	lines := strings.Split(drawn.drawInset(drawn.insideView()), "\n")
+	lines := strings.Split(drawn.drawInMode(paint.ToneModeVisual, visualModeLabel), "\n")
 
-	rows := make([]string, 0, len(lines))
-	for _, line := range lines {
-		plain := ansi.Strip(line)
-		rows = append(rows, ansi.Truncate(line, ansi.StringWidth(strings.TrimRight(plain, " ")), "")+ansi.ResetStyle)
-	}
-
-	row, col := rect.Top+1, rect.Left+1
+	row, col := rect.Top, rect.Left
 	for i := rect.Top; i < min(rect.Top+rect.Height, len(lines)); i++ {
 		plain := ansi.Strip(ansi.Cut(lines[i], rect.Left, rect.Left+rect.Width))
 		if at, ok := findCursor(plain); ok {
-			row, col = i+1, rect.Left+at+1
+			row, col = i, rect.Left+at
 
 			break
 		}
 	}
 
-	for len(rows) > row && ansi.Strip(rows[len(rows)-1]) == "" {
-		rows = rows[:len(rows)-1]
+	standIn := panes.CopyStandIn{Rows: lines, Divider: -1, Rule: -1, RuleLeft: true, Focus: rect, Row: row, Col: col}
+
+	marked := m
+	marked.markingZones = true
+	zones := scanZones(marked.drawInset(marked.insideView()))
+
+	if column, ok := zones[zoneColumn]; ok {
+		standIn.Divider = column.Left - gutter - 1
+		standIn.RuleLeft = !m.frame.IsSidebarOnRight()
+		if !standIn.RuleLeft {
+			standIn.Divider = column.Left + column.Width + gutter
+		}
 	}
 
-	return panes.CopyStandIn{Text: strings.Join(rows, "\n"), Row: row, Col: col, Block: rect}
+	if details, ok := zones[zoneDetails]; ok {
+		standIn.Rule = details.Top
+	}
+
+	return standIn
 }
 
 // findCursor is the column a row's cursor is drawn at, found only where it starts the row, which

@@ -57,10 +57,10 @@ func TestVisualMode(t *testing.T) {
 			assert.Equal(t, "%0", standIns[0].Pane)
 			assert.Equal(t, []string{"C-Space", "v"}, standIns[0].Keys, "the stand-in says when copy-mode ends")
 
-			text := ansi.Strip(standIns[0].Text)
+			text := ansi.Strip(strings.Join(standIns[0].Rows, "\n"))
 			assert.Contains(t, text, "komrad › agents", "the rest of the sidebar stays drawn")
 
-			block := cutBlock(text, standIns[0].Block)
+			block := cutBlock(text, standIns[0].Focus)
 			assert.Contains(t, block, tt.want)
 			for _, absent := range tt.wantAbsent {
 				assert.NotContains(t, block, absent)
@@ -71,8 +71,8 @@ func TestVisualMode(t *testing.T) {
 			}
 
 			rows := strings.Split(text, "\n")
-			require.GreaterOrEqual(t, len(rows), standIns[0].Row)
-			from := ansi.Cut(rows[standIns[0].Row-1], standIns[0].Col-1, ansi.StringWidth(rows[standIns[0].Row-1]))
+			require.Greater(t, len(rows), standIns[0].Row)
+			from := ansi.Cut(rows[standIns[0].Row], standIns[0].Col, ansi.StringWidth(rows[standIns[0].Row]))
 			assert.True(t, strings.HasPrefix(from, "› "), "the cursor lands on the row cursor, got %q", from)
 			assert.Contains(t, from, tt.wantCursor)
 		})
@@ -83,11 +83,11 @@ func TestVisualMode(t *testing.T) {
 
 		harness.press("ctrl+space", "v")
 		harness.press("ctrl+space", "j")
-		assert.NotContains(t, harness.readDrawn(), "PANES", "the picker waits while the stand-in has the sidebar's place")
+		assert.NotContains(t, harness.readDrawn(), "JUMP", "the picker waits while the stand-in has the sidebar's place")
 
 		harness.press("ctrl+space", "v")
 		harness.press("ctrl+space", "j")
-		assert.Contains(t, harness.readDrawn(), "PANES")
+		assert.Contains(t, harness.readDrawn(), "JUMP")
 		assert.Len(t, harness.panel.ReadStandIns(), 1)
 	})
 

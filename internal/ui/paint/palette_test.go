@@ -127,10 +127,11 @@ func TestPaletteDrawsHexAndNumbers(t *testing.T) {
 	colors := theme.Defaults()
 	colors.Highlight = "#ff8800"
 	colors.Inverse = "16"
+	colors.Mode.Visual = "#ff8800"
 
 	palette, err := NewPalette(colors)
 	require.NoError(t, err)
 
 	assert.Equal(t, lipgloss.Color("#ff8800"), palette.Color(ToneHighlight))
-	assert.Equal(t, "#[fg=colour16,bg=#ff8800,bold]visual#[default]", palette.TmuxVisual("visual"))
+	assert.Equal(t, "fg=colour16,bg=#ff8800", palette.TmuxSelection())
 }

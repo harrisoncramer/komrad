@@ -327,7 +327,7 @@ func (a *agentsScreen) view(s panelShared) string {
 	a.drawn = a.buildRows(s)
 	defer func() { a.drawn = nil }()
 
-	if len(s.listing.workflows) == 0 && len(s.listing.agents) == 0 {
+	if s.listing.isEmpty() {
 		return s.draw.welcomeView(a.listParams(s), welcomeText(s.keys))
 	}
 
@@ -475,4 +475,10 @@ func (a *agentsScreen) column() columnSpec {
 		},
 		holds: func(m model) bool { return !m.agents.isEditorOpen() && m.agents.hasNoAgentPane(m.unmeasured()) },
 	}
+}
+
+// isEmpty reports whether there is no workflow and no agent to list, which the agents screen
+// welcomes a newcomer on across the whole pane.
+func (l listing) isEmpty() bool {
+	return len(l.workflows) == 0 && len(l.agents) == 0
 }

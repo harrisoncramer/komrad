@@ -46,6 +46,7 @@ func TestSession(t *testing.T) {
 
 		session.HoldLeader("%3")
 		require.NotEmpty(t, tmux.bound)
+		assert.Contains(t, tmux.bound, "@1:pane-mode-changed", "a pane entering copy-mode tells the sidebar")
 		session.ReleaseLeader()
 
 		assert.Empty(t, tmux.bound)
@@ -125,7 +126,19 @@ func (b *bindRecorder) GetWindowID(string) string {
 	return b.window
 }
 
-func (b *bindRecorder) TuneCopyMode(string, string) {}
+func (b *bindRecorder) TuneCopyMode(string) {}
+
+func (b *bindRecorder) SetWindowHook(window, hook, command string) {
+	if b.bound == nil {
+		b.bound = map[string][]string{}
+	}
+
+	b.bound[window+":"+hook] = []string{command}
+}
+
+func (b *bindRecorder) UnsetWindowHook(window, hook string) {
+	delete(b.bound, window+":"+hook)
+}
 
 func (b *bindRecorder) OpenCopyStandIn(panes.CopyStandIn) error {
 	return nil

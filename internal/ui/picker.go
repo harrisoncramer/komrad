@@ -76,6 +76,7 @@ func (m model) freeze() (tea.Model, tea.Cmd) {
 	sidebar := m.settings.Pane
 	tmux := m.tmux
 	palette := paint.Panel
+	labelEnd := m.findModeEnd()
 
 	return m, func() tea.Msg {
 		returnTo := tmux.GetActivePane(sidebar)
@@ -86,7 +87,7 @@ func (m model) freeze() (tea.Model, tea.Cmd) {
 			screens[rect.Pane] = tmux.CaptureScreen(rect.Pane)
 		}
 
-		window := frozenWindow{shown: shown, screens: screens, sidebar: sidebar, palette: palette}
+		window := frozenWindow{shown: shown, screens: screens, sidebar: sidebar, labelEnd: labelEnd, palette: palette}
 		targets := findPickTargets(shown, sidebar, blocks)
 
 		return pickerFrozenMsg{frozen: window.drawPicker(targets), returnTo: returnTo, targets: targets}

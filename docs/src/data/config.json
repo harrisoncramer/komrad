@@ -1610,7 +1610,7 @@
           "key": "highlight",
           "path": "palette.highlight",
           "type": "string",
-          "description": "What is picked out for you to act on: a search match, a jump letter, the visual mode bar.",
+          "description": "What is picked out for you to act on, such as a search match.",
           "default": "\"15\""
         },
         {
@@ -1723,6 +1723,34 @@
               "type": "string",
               "description": "The colour on a dark terminal.",
               "default": "\"#7c5c00\""
+            }
+          ],
+          "sections": []
+        },
+        {
+          "path": "palette.mode",
+          "description": "The colour of each mode the panel is in, drawn as the label at the top of the sidebar and in\nwhat the mode draws.",
+          "settings": [
+            {
+              "key": "normal",
+              "path": "palette.mode.normal",
+              "type": "string",
+              "description": "Browsing the panel, the mode it is in until another takes over.",
+              "default": "\"4\""
+            },
+            {
+              "key": "visual",
+              "path": "palette.mode.visual",
+              "type": "string",
+              "description": "Selecting text to copy, which also colours the VISUAL badge.",
+              "default": "\"5\""
+            },
+            {
+              "key": "jump",
+              "path": "palette.mode.jump",
+              "type": "string",
+              "description": "Picking a pane to jump to, which also colours the jump letters.",
+              "default": "\"3\""
             }
           ],
           "sections": []

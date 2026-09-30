@@ -39,7 +39,7 @@ func (m model) render() string {
 		return m.drawn.text
 	}
 
-	drawn := m.drawInset(m.insideView())
+	drawn := m.drawInMode(m.findMode())
 
 	if m.drawn != nil {
 		m.drawn.text = drawn

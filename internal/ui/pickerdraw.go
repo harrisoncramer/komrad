@@ -10,9 +10,6 @@ import (
 	"charm.land/lipgloss/v2"
 )
 
-// pickerLabel is the label drawn over the sidebar while the picker holds the window.
-const pickerLabel = " PANES "
-
 // pickMargin is the blank cells cleared around a letter, across and down.
 const (
 	pickMarginX = 3
@@ -24,7 +21,9 @@ type frozenWindow struct {
 	shown   []panes.Rect
 	screens map[string]string
 	sidebar string
-	palette paint.Palette
+	// labelEnd is the column of the sidebar the mode's label ends at.
+	labelEnd int
+	palette  paint.Palette
 }
 
 // drawPicker lays each pane's screen where the pane sat, with a letter drawn over each
@@ -36,7 +35,7 @@ func (w frozenWindow) drawPicker(targets []pickTarget) string {
 	}
 
 	left, top, width, height := measureBounds(shown)
-	letter := lipgloss.NewStyle().Foreground(palette.Color(paint.ToneHighlight)).Bold(true)
+	letter := lipgloss.NewStyle().Foreground(palette.Color(paint.ToneModeJump)).Bold(true)
 
 	layers := make([]*lipgloss.Layer, 0, len(shown)+2*len(targets)+1)
 	for _, rect := range shown {
@@ -81,11 +80,11 @@ func measureBounds(shown []panes.Rect) (left, top, width, height int) {
 }
 
 func (w frozenWindow) drawLabelLayer(rect panes.Rect, left, top int) *lipgloss.Layer {
-	label := w.palette.Visual().Render(pickerLabel)
+	label := w.palette.Mode(paint.ToneModeJump).Render(jumpModeLabel)
 
 	return lipgloss.NewLayer(label).
-		X(rect.Left - left + rect.Width - lipgloss.Width(label) - gutter - 1).
-		Y(rect.Top - top).
+		X(rect.Left - left + w.labelEnd - lipgloss.Width(label)).
+		Y(rect.Top - top + rect.Height - 1).
 		Z(3)
 }
 
