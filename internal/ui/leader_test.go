@@ -5,6 +5,8 @@ import (
 	"testing"
 
 	"komrad/internal/panes"
+	agentv1 "komrad/proto/gen/agent/v1"
+	"komrad/proto/gen/agent/v1/agentv1connect"
 
 	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
@@ -63,6 +65,21 @@ func TestLeader(t *testing.T) {
 		harness.press("j", "pick:record", "esc", "ctrl+space", "ctrl+space")
 
 		assert.NotEmpty(t, readRecordCursor(harness.readFrame()), "the record holds the keys")
+	})
+
+	t.Run("the leader twice over a dormant agent resumes it", func(t *testing.T) {
+		harness := newPanelHarness(t, panelHarnessParams{})
+		answerWorktreeReads(harness)
+		answerLastScreens(harness, map[string]string{"a1": "⏺ the migration is written"})
+		answerResume(harness)
+		harness.watch(buildSnapshot(newLiveWorkflow("w1", "backend"), newDormant("login")))
+		harness.press("j")
+		harness.fireTimers()
+
+		harness.press("ctrl+space", "ctrl+space")
+
+		harness.assertSentTo(agentv1connect.AgentServiceResumeAgentProcedure, &agentv1.ResumeAgentRequest{Id: "a1"})
+		assert.NotEqual(t, "/", strings.TrimSpace(readStage(harness.readFrame())[0]), "the saved screen never holds the keys")
 	})
 
 	t.Run("an unknown key after the leader is dropped", func(t *testing.T) {
