@@ -782,10 +782,7 @@ func TestAgentsRecordEmphasis(t *testing.T) {
 	t.Run("the tag and the counts wear the tone of what they count", func(t *testing.T) {
 		recorded := buildRecorded()
 		recorded[1].(*agentv1.Agent).DiffStat = &agentv1.DiffStat{Added: 200, Removed: 100}
-		harness := newPanelHarness(t, panelHarnessParams{})
-		harness.answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, answerWith(buildWorktreeRead()))
-		harness.watch(buildSnapshot(recorded...))
-		harness.press("pick:record")
+		harness := openWorktreeRecord(t, panelHarnessParams{}, recorded...)
 		harness.press(append([]string{"pick:record"}, widenListPresses...)...)
 
 		frame := harness.readRawFrame()
@@ -2577,12 +2574,15 @@ func openCopyRecord(t *testing.T) *panelHarness {
 	return harness
 }
 
-func openWorktreeRecord(t *testing.T, params panelHarnessParams) *panelHarness {
+func openWorktreeRecord(t *testing.T, params panelHarnessParams, recorded ...proto.Message) *panelHarness {
 	t.Helper()
 
+	if len(recorded) == 0 {
+		recorded = buildRecorded()
+	}
 	harness := newPanelHarness(t, params)
 	harness.answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, answerWith(buildWorktreeRead()))
-	harness.watch(buildSnapshot(buildRecorded()...))
+	harness.watch(buildSnapshot(recorded...))
 	harness.press("pick:record")
 
 	return harness

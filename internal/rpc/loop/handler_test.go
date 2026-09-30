@@ -12,34 +12,40 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+type wakes struct {
+	cwd          int
+	transcripts  int
+	pullRequests int
+}
+
 // TestWakeLoop pins which waker each named loop reaches and the code an unknown loop gets.
 func TestWakeLoop(t *testing.T) {
 	tests := []struct {
-		name     string
-		loop     loopv1.Loop
-		wantCode connect.Code
-		want     []int
+		name      string
+		loop      loopv1.Loop
+		wantCode  connect.Code
+		wantWakes wakes
 	}{
 		{
-			name:     "a loop that names none",
-			loop:     loopv1.Loop_LOOP_UNSPECIFIED,
-			wantCode: connect.CodeInvalidArgument,
-			want:     []int{0, 0, 0},
+			name:      "a loop that names none",
+			loop:      loopv1.Loop_LOOP_UNSPECIFIED,
+			wantCode:  connect.CodeInvalidArgument,
+			wantWakes: wakes{},
 		},
 		{
-			name: "the cwd sync",
-			loop: loopv1.Loop_LOOP_CWD_SYNC,
-			want: []int{1, 0, 0},
+			name:      "the cwd sync",
+			loop:      loopv1.Loop_LOOP_CWD_SYNC,
+			wantWakes: wakes{cwd: 1},
 		},
 		{
-			name: "the transcript sync",
-			loop: loopv1.Loop_LOOP_TRANSCRIPT_SYNC,
-			want: []int{0, 1, 0},
+			name:      "the transcript sync",
+			loop:      loopv1.Loop_LOOP_TRANSCRIPT_SYNC,
+			wantWakes: wakes{transcripts: 1},
 		},
 		{
-			name: "the pull request sync",
-			loop: loopv1.Loop_LOOP_PULL_REQUEST_SYNC,
-			want: []int{0, 0, 1},
+			name:      "the pull request sync",
+			loop:      loopv1.Loop_LOOP_PULL_REQUEST_SYNC,
+			wantWakes: wakes{pullRequests: 1},
 		},
 	}
 	for _, tt := range tests {
@@ -59,7 +65,11 @@ func TestWakeLoop(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			assert.Equal(t, tt.want, []int{cwd.Wakes, transcripts.Wakes, pullRequests.Wakes})
+			assert.Equal(t, tt.wantWakes, wakes{
+				cwd:          cwd.Wakes,
+				transcripts:  transcripts.Wakes,
+				pullRequests: pullRequests.Wakes,
+			})
 		})
 	}
 }

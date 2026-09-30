@@ -318,11 +318,12 @@ func TestCwdSyncerSyncKeepsAMoveItCouldNotProbe(t *testing.T) {
 // TestCwdSyncerSyncRecordsTheDiffStat covers the lines a pass measures against the workflow's base.
 func TestCwdSyncerSyncRecordsTheDiffStat(t *testing.T) {
 	tests := []struct {
-		name      string
-		cwd       func(t *testing.T) string
-		diffStats func(cwd string) map[string]git.DiffStat
-		probe     string
-		want      *agentstore.DiffStat
+		name         string
+		cwd          func(t *testing.T) string
+		diffStats    func(cwd string) map[string]git.DiffStat
+		probe        string
+		want         *agentstore.DiffStat
+		wantMeasured bool
 	}{
 		{
 			name: "a cwd that no longer exists clears the stat",
@@ -337,6 +338,7 @@ func TestCwdSyncerSyncRecordsTheDiffStat(t *testing.T) {
 			diffStats: func(string) map[string]git.DiffStat {
 				return map[string]git.DiffStat{}
 			},
+			wantMeasured: true,
 		},
 		{
 			name: "a checkout records what it adds and removes over what an earlier pass wrote",
@@ -344,7 +346,8 @@ func TestCwdSyncerSyncRecordsTheDiffStat(t *testing.T) {
 			diffStats: func(cwd string) map[string]git.DiffStat {
 				return map[string]git.DiffStat{cwd: {Added: 12, Removed: 3}}
 			},
-			want: &agentstore.DiffStat{Added: 12, Removed: 3},
+			want:         &agentstore.DiffStat{Added: 12, Removed: 3},
+			wantMeasured: true,
 		},
 		{
 			name:  "a checkout with a round measures the tree its probe already hashed",
@@ -353,7 +356,8 @@ func TestCwdSyncerSyncRecordsTheDiffStat(t *testing.T) {
 			diffStats: func(cwd string) map[string]git.DiffStat {
 				return map[string]git.DiffStat{cwd: {Added: 12, Removed: 3}}
 			},
-			want: &agentstore.DiffStat{Added: 12, Removed: 3},
+			want:         &agentstore.DiffStat{Added: 12, Removed: 3},
+			wantMeasured: true,
 		},
 	}
 
@@ -377,9 +381,16 @@ func TestCwdSyncerSyncRecordsTheDiffStat(t *testing.T) {
 			require.NoError(t, fixture.newSyncer(NewCwdSyncerParams{Heads: buildHeads(cwd, head), Trees: trees}).Sync(t.Context()))
 
 			assert.Equal(t, tt.want, fixture.read(t, agent.ID).DiffStat)
-			for _, measured := range trees.Measured {
-				assert.Equal(t, git.ReadDiffStatParams{Dir: cwd, Ref: "origin/trunk", Tree: tt.probe, Exclude: []string{"*.lock"}}, measured)
+			var wantMeasured []git.ReadDiffStatParams
+			if tt.wantMeasured {
+				wantMeasured = []git.ReadDiffStatParams{{
+					Dir:     cwd,
+					Ref:     "origin/trunk",
+					Tree:    tt.probe,
+					Exclude: []string{"*.lock"},
+				}}
 			}
+			assert.Equal(t, wantMeasured, trees.Measured)
 		})
 	}
 }
