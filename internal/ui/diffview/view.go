@@ -92,6 +92,11 @@ type View struct {
 	headless bool
 	// glyphs is what the marks on threads and files are drawn in.
 	glyphs glyph.Set
+
+	offers      []Offer
+	offerTraced map[string]Traced
+	offered     map[int][]Offer
+	offerRows   map[string]int
 }
 
 // SetHeadless draws the hunks alone, with no row for the change as a whole and no file headers.
@@ -321,6 +326,7 @@ func (v *View) redraw() {
 
 	v.build()
 	v.PinThreads(v.threads)
+	v.PinOffers(v.offers)
 }
 
 // patchFile is a file as the patch holds it, before anything the reader has opened out.

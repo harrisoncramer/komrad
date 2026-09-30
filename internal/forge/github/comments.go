@@ -18,10 +18,10 @@ const reviewThreadsQuery = `query ReviewThreads($owner: String!, $name: String!,
       reviewThreads(first: 100) {
         pageInfo { hasNextPage }
         nodes {
-          id isResolved path line diffSide
+          id isResolved path line originalLine diffSide subjectType
           comments(first: 100) {
             pageInfo { hasNextPage }
-            nodes { id url body createdAt lastEditedAt state author { __typename login } }
+            nodes { id url body createdAt lastEditedAt state author { __typename login } diffHunk commit { oid } originalCommit { oid } }
           }
         }
       }
@@ -74,13 +74,16 @@ type authorNode struct {
 }
 
 type commentNode struct {
-	ID           string      `json:"id"`
-	URL          string      `json:"url"`
-	Body         string      `json:"body"`
-	CreatedAt    time.Time   `json:"createdAt"`
-	LastEditedAt *time.Time  `json:"lastEditedAt"`
-	State        string      `json:"state"`
-	Author       *authorNode `json:"author"`
+	ID             string      `json:"id"`
+	URL            string      `json:"url"`
+	Body           string      `json:"body"`
+	CreatedAt      time.Time   `json:"createdAt"`
+	LastEditedAt   *time.Time  `json:"lastEditedAt"`
+	State          string      `json:"state"`
+	Author         *authorNode `json:"author"`
+	DiffHunk       string      `json:"diffHunk"`
+	Commit         *commitNode `json:"commit"`
+	OriginalCommit *commitNode `json:"originalCommit"`
 }
 
 type pageInfo struct {
@@ -98,12 +101,18 @@ type commentsNode struct {
 }
 
 type reviewThreadNode struct {
-	ID         string       `json:"id"`
-	IsResolved bool         `json:"isResolved"`
-	Path       string       `json:"path"`
-	Line       *int         `json:"line"`
-	DiffSide   string       `json:"diffSide"`
-	Comments   commentsNode `json:"comments"`
+	ID           string       `json:"id"`
+	IsResolved   bool         `json:"isResolved"`
+	Path         string       `json:"path"`
+	Line         *int         `json:"line"`
+	OriginalLine *int         `json:"originalLine"`
+	DiffSide     string       `json:"diffSide"`
+	SubjectType  string       `json:"subjectType"`
+	Comments     commentsNode `json:"comments"`
+}
+
+type commitNode struct {
+	OID string `json:"oid"`
 }
 
 type reviewThreadsNode struct {
@@ -133,14 +142,14 @@ func (n reviewThreadsNode) threads() *forge.Threads {
 			continue
 		}
 
-		line := xptr.Deref(node.Line)
-		if node.DiffSide == "LEFT" {
-			line = 0
-		}
+		line, commit := node.anchorOf(submitted[0])
 		answer.Threads = append(answer.Threads, forge.ReviewThread{
 			ProviderID: node.ID,
 			Path:       node.Path,
 			Line:       line,
+			OldSide:    line > 0 && node.DiffSide == "LEFT",
+			CommitSHA:  commit,
+			Quote:      quoteOfHunk(submitted[0].DiffHunk, line),
 			URL:        submitted[0].URL,
 			Resolved:   node.IsResolved,
 			Comments:   xslice.Map(submitted, commentNode.toComment),
@@ -175,4 +184,46 @@ func (n commentNode) toComment() forge.ReviewComment {
 	}
 
 	return comment
+}
+
+// anchorOf is the line a thread stands on and the commit that line is counted in: where GitHub
+// has carried it to on the pull request's head, or where it was written once GitHub has lost it.
+func (n reviewThreadNode) anchorOf(first commentNode) (int, string) {
+	if n.SubjectType == "FILE" {
+		return 0, ""
+	}
+	if n.Line != nil {
+		return *n.Line, first.Commit.oid()
+	}
+
+	return xptr.Deref(n.OriginalLine), first.OriginalCommit.oid()
+}
+
+func (n *commitNode) oid() string {
+	if n == nil {
+		return ""
+	}
+
+	return n.OID
+}
+
+// quoteOfHunk is the line a comment was written on, which GitHub's hunk ends with, with its diff
+// marker taken off.
+func quoteOfHunk(hunk string, line int) string {
+	if line <= 0 {
+		return ""
+	}
+
+	rows := strings.Split(strings.TrimRight(hunk, "\n"), "\n")
+	last := rows[len(rows)-1]
+	if strings.HasPrefix(last, "@@") || last == "" {
+		return ""
+	}
+
+	switch last[0] {
+	case '+', '-', ' ':
+		return last[1:]
+	}
+
+	return last
 }

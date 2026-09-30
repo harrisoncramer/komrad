@@ -533,7 +533,7 @@ type ForgeReviewThread struct {
 	ProviderID string
 	// The file the thread was written on, empty for a comment on the change as a whole.
 	Path string
-	// The line of the file the thread was written against, null for a comment on the change as a whole.
+	// The line of the file the thread was written against, counted in commit_sha on the side old_side names, null for a comment on the change as a whole or on a file.
 	Line *int32
 	// The web address of the thread's first comment on the forge.
 	Url      string
@@ -544,6 +544,12 @@ type ForgeReviewThread struct {
 	UpdatedAt pgtype.Timestamptz
 	// The engine that owns this row, stamped from the login that wrote it.
 	EngineID pgtype.UUID
+	// Whether the line is counted on the old side of the forge's diff rather than the new one.
+	OldSide bool
+	// The commit the forge counted the line in, empty when it names none.
+	CommitSha string
+	// The text of the line the thread was written on as the forge's diff drew it, with its diff marker taken off.
+	Quote string
 }
 
 // One piece of mail from one agent to another, held until the recipient claims it.

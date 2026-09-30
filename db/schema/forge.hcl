@@ -425,7 +425,25 @@ table "forge_review_threads" {
   column "line" {
     null    = true
     type    = integer
-    comment = "The line of the file the thread was written against, null for a comment on the change as a whole."
+    comment = "The line of the file the thread was written against, counted in commit_sha on the side old_side names, null for a comment on the change as a whole or on a file."
+  }
+  column "old_side" {
+    null    = false
+    type    = boolean
+    default = false
+    comment = "Whether the line is counted on the old side of the forge's diff rather than the new one."
+  }
+  column "commit_sha" {
+    null    = false
+    type    = text
+    default = ""
+    comment = "The commit the forge counted the line in, empty when it names none."
+  }
+  column "quote" {
+    null    = false
+    type    = text
+    default = ""
+    comment = "The text of the line the thread was written on as the forge's diff drew it, with its diff marker taken off."
   }
   column "url" {
     null    = false

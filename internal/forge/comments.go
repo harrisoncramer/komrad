@@ -13,6 +13,9 @@ type ReviewThread struct {
 	ProviderID string
 	Path       string
 	Line       int
+	OldSide    bool
+	CommitSHA  string
+	Quote      string
 	URL        string
 	Resolved   bool
 	Comments   []ReviewComment

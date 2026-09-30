@@ -29,6 +29,9 @@ INSERT INTO forge_review_threads(
     provider_id,
     path,
     line,
+    old_side,
+    commit_sha,
+    quote,
     url,
     resolved,
     written_at)
@@ -37,6 +40,9 @@ VALUES (
     @provider_id,
     @path,
     sqlc.narg('line'),
+    @old_side,
+    @commit_sha,
+    @quote,
     @url,
     @resolved,
     @written_at)
@@ -47,13 +53,19 @@ ON CONFLICT (
     DO UPDATE SET
         path = excluded.path,
         line = excluded.line,
+        old_side = excluded.old_side,
+        commit_sha = excluded.commit_sha,
+        quote = excluded.quote,
         url = excluded.url,
         resolved = excluded.resolved,
         written_at = excluded.written_at
     WHERE (
-        forge_review_threads.path, forge_review_threads.line, forge_review_threads.url, forge_review_threads.resolved, forge_review_threads.written_at) IS DISTINCT FROM (
+        forge_review_threads.path, forge_review_threads.line, forge_review_threads.old_side, forge_review_threads.commit_sha, forge_review_threads.quote, forge_review_threads.url, forge_review_threads.resolved, forge_review_threads.written_at) IS DISTINCT FROM (
         excluded.path,
         excluded.line,
+        excluded.old_side,
+        excluded.commit_sha,
+        excluded.quote,
         excluded.url,
         excluded.resolved,
         excluded.written_at);

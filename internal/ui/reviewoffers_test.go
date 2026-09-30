@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"komrad/internal/gittest"
+	"komrad/internal/position"
 	"komrad/lib/xptr"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 
@@ -19,6 +20,7 @@ func newOffer(id, login, body string, line int32) *pullrequestv1.ForgeThread {
 		PullRequestId: "pr-1",
 		Path:          gittest.File,
 		Line:          line,
+		CommitSha:     gittest.SnapshotSHA,
 		Url:           "https://github.com/harrisoncramer/komrad/pull/7#discussion_" + id,
 		WrittenAt:     "2026-09-19T12:00:00Z",
 		Comments:      []*pullrequestv1.ForgeComment{{Id: id + "-c", AuthorLogin: login, Body: body}},
@@ -128,6 +130,66 @@ func TestReviewOffers(t *testing.T) {
 		assert.Contains(t, sidebar, "whole file")
 		assert.NotContains(t, sidebar, "not in this diff")
 		assert.Empty(t, readReviewCursor(harness.readFrame()), "the cursor rests on the file's header rather than a line")
+	})
+
+	t.Run("an offer is marked in the gutter of the line it is on", func(t *testing.T) {
+		server := newOfferedReviewServer(t, newOffer("f1", "dana", "rename this", 1))
+		harness := openReviewAt(t, server, panelHarnessParams{height: 40})
+
+		assert.Contains(t, findLine(readStage(harness.readFrame()), "package greet"), "○")
+	})
+
+	t.Run("standing on an offer's line reads it out", func(t *testing.T) {
+		server := newOfferedReviewServer(t, newOffer("f1", "dana", "rename this", 1))
+		harness := openReviewAt(t, server, panelHarnessParams{height: 40})
+
+		require.Contains(t, readReviewCursor(harness.readFrame()), gittest.File+":1")
+		assert.Contains(t, strings.Join(readSidebar(harness.readFrame()), "\n"), "rename this")
+	})
+
+	t.Run("a resolved offer is marked settled", func(t *testing.T) {
+		offer := newOffer("f1", "dana", "rename this", 1)
+		offer.Resolved = true
+		harness := openReviewAt(t, newOfferedReviewServer(t, offer), panelHarnessParams{height: 40})
+
+		assert.Contains(t, findLine(readStage(harness.readFrame()), "package greet"), "✓")
+	})
+
+	t.Run("an offer written on an earlier commit follows its line", func(t *testing.T) {
+		offer := newOffer("f1", "dana", "rename this", 9)
+		offer.CommitSha = "earlier"
+		server := newOfferedReviewServer(t, offer)
+		server.repo.Mappings = map[string][]position.Mapping{gittest.NamePair("earlier", gittest.SnapshotSHA): {{
+			File:   position.FileMapping{OldPath: gittest.File, NewPath: gittest.File},
+			Ranges: []position.RangeMapping{{Old: position.Range{Start: 1, End: 6}, New: position.Range{Start: 1, End: 1}}},
+		}}}
+		harness := openReviewAt(t, server, panelHarnessParams{height: 40})
+
+		harness.press("J")
+
+		assert.Contains(t, readReviewCursor(harness.readFrame()), gittest.File+":4")
+	})
+
+	t.Run("an offer on a commit the checkout lacks is placed by the line it quoted", func(t *testing.T) {
+		offer := newOffer("f1", "dana", "rename this", 40)
+		offer.CommitSha = "unknown"
+		offer.Quote = "func Hello() string {"
+		harness := openReviewAt(t, newOfferedReviewServer(t, offer), panelHarnessParams{height: 40})
+
+		harness.press("J")
+
+		assert.Contains(t, readReviewCursor(harness.readFrame()), gittest.File+":3")
+	})
+
+	t.Run("an offer with nothing left to place it by is not in the diff", func(t *testing.T) {
+		offer := newOffer("f1", "dana", "rename this", 40)
+		offer.CommitSha = "unknown"
+		offer.Path = "gone.go"
+		harness := openReviewAt(t, newOfferedReviewServer(t, offer), panelHarnessParams{height: 40})
+
+		harness.press("J")
+
+		assert.Contains(t, harness.readFrame(), "gone.go:40 is not in this diff")
 	})
 
 	t.Run("a review with no offers leaves J to the comment under the cursor", func(t *testing.T) {
