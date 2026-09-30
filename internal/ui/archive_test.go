@@ -1000,6 +1000,27 @@ func TestArchiveLastScreen(t *testing.T) {
 		}
 	})
 
+	t.Run("a saved screen taller than the room left is fitted under the document and its banner", func(t *testing.T) {
+		harness := openGroupedArchive(t, buildOneArchivedAgent()...)
+		harness.answer(agentv1connect.AgentServiceGetLastScreenProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+			return connect.NewResponse(&agentv1.GetLastScreenResponse{
+				Frame:      "❯ the first ask\n" + strings.Repeat("working through it\n", 60) + "⏺ the refactor is merged",
+				Width:      80,
+				Height:     62,
+				CapturedAt: timestamppb.New(time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC)),
+			}), nil
+		})
+
+		harness.press("j")
+		harness.fireTimers()
+
+		frame := harness.readFrame()
+		for _, want := range []string{"Restore brings it back", "saved screen", "⏺ the refactor is merged"} {
+			assert.Contains(t, frame, want)
+		}
+		assert.NotContains(t, frame, "the first ask")
+	})
+
 	t.Run("an agent with no saved screen says so", func(t *testing.T) {
 		harness := openGroupedArchive(t, buildOneArchivedAgent()...)
 		answerLastScreens(harness, nil)

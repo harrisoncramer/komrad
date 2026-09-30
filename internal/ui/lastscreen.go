@@ -160,6 +160,10 @@ func (m model) columnHeight() int {
 	return split.rows
 }
 
+// minScreenRows is the fewest rows a saved screen is fitted to under its document before it is
+// given the whole column to scroll to instead.
+const minScreenRows = 8
+
 // withLastScreen is a column's rows with the saved screen of the agent it screens drawn under
 // them.
 func (m model) withLastScreen(rows []string, width int) []string {
@@ -168,10 +172,15 @@ func (m model) withLastScreen(rows []string, width int) []string {
 		return rows
 	}
 
+	height := m.columnHeight() - len(rows) - 1
+	if height < minScreenRows {
+		height = m.columnHeight()
+	}
+
 	return append(append(rows, ""), lastScreenRows(lastScreenRowsParams{
 		screen:  m.lastScreen,
 		agentID: agentID,
 		width:   width,
-		height:  m.columnHeight(),
+		height:  height,
 	})...)
 }
