@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"komrad/internal/ui/paint"
+	"komrad/lib/xslice"
 
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
@@ -97,10 +98,9 @@ func drawPopup(body string, width, height int) string {
 		rows = append(rows, "")
 	}
 
-	padded := make([]string, 0, len(rows))
-	for _, row := range rows {
-		padded = append(padded, fitPopupRow(row, inner))
-	}
+	padded := xslice.Map(rows, func(row string) string {
+		return fitPopupRow(row, inner)
+	})
 
 	return lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
