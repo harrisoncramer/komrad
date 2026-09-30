@@ -268,6 +268,7 @@ type model struct {
 	archive       archiveScreen
 	worktrees     worktreesScreen
 	documents     documentsScreen
+	documentTypes documentsScreen
 	logs          logsScreen
 	// inspections is what the service answered for each worktree directory.
 	inspections  map[string]worktreeInspection
@@ -388,6 +389,7 @@ func newModel(deps Deps, isDark bool, post *postbox) model {
 		engineBuild:     deps.EngineStatus.Build,
 		screen:          screenAgents,
 		archive:         archiveScreen{sort: tabsState{flat: true}},
+		documentTypes:   documentsScreen{shelf: shelfDocumentTypes},
 		rowCursor:       newRowCursor(),
 		warm:            newWarmupState(),
 		loading:         loadingState{style: cmp.Or(deps.Loader, loader.Braille)},

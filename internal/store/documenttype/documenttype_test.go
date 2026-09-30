@@ -217,3 +217,28 @@ func TestListVersions(t *testing.T) {
 		assert.ErrorIs(t, err, store.ErrNotFound, "%s at %d", missing.id, missing.version)
 	}
 }
+
+// TestListWatched pins the watched set to every type, or the ones keyed.
+func TestListWatched(t *testing.T) {
+	stores := storetest.Open(t)
+	ctx := t.Context()
+
+	postmortem, err := stores.DocumentTypes.Create(ctx, "postmortem", "What broke and why.")
+	require.NoError(t, err)
+
+	names := func(types []documenttypestore.Type) []string {
+		return xslice.Map(types, func(t documenttypestore.Type) string { return t.Name })
+	}
+
+	every, err := stores.DocumentTypes.ListWatched(ctx, nil)
+	require.NoError(t, err)
+	assert.Equal(t, []string{"postmortem", "RFC"}, names(every))
+
+	keyed, err := stores.DocumentTypes.ListWatched(ctx, []string{postmortem.ID})
+	require.NoError(t, err)
+	assert.Equal(t, []string{"postmortem"}, names(keyed))
+
+	none, err := stores.DocumentTypes.ListWatched(ctx, []string{})
+	require.NoError(t, err)
+	assert.Empty(t, none)
+}

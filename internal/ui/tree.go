@@ -12,6 +12,7 @@ import (
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/ui/panel"
 	"komrad/lib/xslice"
+	agentv1 "komrad/proto/gen/agent/v1"
 )
 
 // agentsScreen is the agents screen: the cursor in the tree of workflows and agents, how they
@@ -525,6 +526,7 @@ type listing struct {
 	schedules         []scheduleItem
 	archivedSchedules []scheduleItem
 	worktrees         []worktreeItem
+	documentTypes     []*agentv1.DocumentType
 }
 
 // assemble draws the listings, live and archived, from the world as it stands now.
@@ -559,6 +561,7 @@ func (l *listing) assemble(now time.Time) {
 	l.archivedSchedules = slices.DeleteFunc(schedules, func(item scheduleItem) bool {
 		return !isArchivedSchedule(item)
 	})
+	l.documentTypes = documentTypesFrom(l.world.DocumentTypes)
 }
 
 // revealAgent puts the cursor on an agent, showing the hidden rows when it is one of them.

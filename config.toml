@@ -175,10 +175,44 @@ older = ["<"]
 # Step forward to a later write, and past the newest back to the document as it stands.
 newer = [">"]
 # Write a new document for the agent whose documents are listed, from a form asking its name
-# and kind. It starts with a line saying it is empty, for you to edit.
+# and type. It starts with a line saying it is empty, for you to edit.
 new   = ["c"]
 # Quit the panel.
 quit  = ["ctrl+c"]
+
+# The documents menu, nested under the menu on the hovered agent.
+[keybindings.documents_menu]
+# Open the documents the agent has written. The entry is gray on an agent that has written
+# none.
+view     = ["v"]
+# Write a new document for the agent, from a form asking its name and type. It starts with a
+# line saying it is empty, for you to edit.
+new      = ["c"]
+# Define a new document type, from a form asking its name and the context an agent reads
+# before writing one.
+new_type = ["t"]
+# Open the document types, where a person defines the sorts of document agents write.
+types    = ["l"]
+
+# The document types screen, where a person defines the sorts of document agents write.
+[keybindings.document_types]
+# Leave the document types for the screen they were opened from.
+back   = ["esc"]
+# Open the context of the type under the cursor in your editor. Quitting the editor, or
+# pressing the key again to close it, saves what it has written.
+edit   = ["e"]
+# Step back to an earlier write of the type under the cursor, drawing what that write changed.
+older  = ["<"]
+# Step forward to a later write, and past the newest back to the type as it stands.
+newer  = [">"]
+# Define a new type, from a form asking its name and its context.
+new    = ["c"]
+# Rename the type under the cursor, which renames it on every document written as it.
+rename = ["r"]
+# Delete the type under the cursor, which is refused while documents are written as it.
+delete = ["d"]
+# Quit the panel.
+quit   = ["ctrl+c"]
 
 # The filter over whichever list is on screen, shared by every screen that
 # draws one. The key that opens it is "/" and is not configured.
@@ -347,8 +381,8 @@ open      = ["space"]
 # Open the review of the agent's diff. The entry is gray on an agent with no worktree of its
 # own, and in the archive.
 review    = ["r"]
-# Open the documents the agent has written. The entry is gray on an agent that has written
-# none.
+# Open the documents menu to the right of this one, for reading the agent's documents,
+# writing a new one, or defining the types they are written as.
 documents = ["d"]
 # Open the agent's logs, the service log lines about it.
 logs      = ["l"]

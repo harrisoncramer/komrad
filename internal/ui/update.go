@@ -522,8 +522,8 @@ func (m *model) reconcileEditor() tea.Cmd {
 	switch m.screen {
 	case screenReview:
 		return m.review.reconcileEditor(m, m.shared())
-	case screenDocuments:
-		return m.documents.reconcileEditor(m)
+	case screenDocuments, screenDocumentTypes:
+		return m.documentsOn(m.screen).reconcileEditor(m)
 	case screenAgents:
 		return m.agents.reconcileEditor(m)
 	case screenSchedules, screenArchive, screenSearch, screenWorktrees, screenLogs:

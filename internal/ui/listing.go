@@ -70,8 +70,10 @@ func (m *model) withListing(change func(*listing)) tea.Cmd {
 	archiveScheduleRow := m.archive.scheduleList().hovered(m.shared())
 	worktreeRow := m.worktrees.list().hovered(m.shared())
 	searchRow := m.search.list().hovered(m.shared())
+	typeRow := m.documentTypes.list().hovered(m.shared())
 
 	before := slices.Clone(m.listing.workflows)
+	beforeTypes := m.listing.documentTypeNames()
 	change(&m.listing)
 
 	m.agents.apply(m.shared(), m.landedRow(treeRow, time.Now()))
@@ -79,6 +81,7 @@ func (m *model) withListing(change func(*listing)) tea.Cmd {
 	m.archive.place(m.shared(), archiveRow)
 	m.archive.placeSchedule(m.shared(), archiveScheduleRow)
 	m.applyWorktrees(m.listing.worktrees, worktreeRow)
+	m.documentTypes.keepCursor(m.shared(), typeRow)
 	m.sizeAgentWindows()
 
 	preview := m.search.place(m.shared(), searchRow)
@@ -86,7 +89,7 @@ func (m *model) withListing(change func(*listing)) tea.Cmd {
 	// A form draws its options from the listing it was built over, so it is drawn again when
 	// that listing moves under it.
 	var redrawn tea.Cmd
-	if !reflect.DeepEqual(before, m.listing.workflows) {
+	if !reflect.DeepEqual(before, m.listing.workflows) || !slices.Equal(beforeTypes, m.listing.documentTypeNames()) {
 		redrawn = m.redrawOpenForm()
 	}
 

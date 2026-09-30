@@ -11,14 +11,15 @@ import (
 
 // screenNames are the screens as an error names them.
 var screenNames = map[screen]string{
-	screenAgents:    "the agents list",
-	screenSchedules: "the schedules",
-	screenArchive:   "the archive",
-	screenReview:    "the review",
-	screenSearch:    "the search",
-	screenWorktrees: "the worktrees",
-	screenDocuments: "the documents",
-	screenLogs:      "the logs",
+	screenAgents:        "the agents list",
+	screenSchedules:     "the schedules",
+	screenArchive:       "the archive",
+	screenReview:        "the review",
+	screenSearch:        "the search",
+	screenWorktrees:     "the worktrees",
+	screenDocuments:     "the documents",
+	screenLogs:          "the logs",
+	screenDocumentTypes: "the document types",
 }
 
 // dispatchArm is one arm of the order a press is offered to, described for the error it would be
@@ -52,6 +53,10 @@ func actionsOf(s screen) []dispatching {
 		return []dispatching{(&documentsScreen{}).listActions(), (&documentsScreen{}).diffActions(), docActions(), (&documentsScreen{}).docKeys()}
 	case screenLogs:
 		return []dispatching{(&logsScreen{}).listActions(), (&logsScreen{}).logActions()}
+	case screenDocumentTypes:
+		types := &documentsScreen{shelf: shelfDocumentTypes}
+
+		return []dispatching{types.listActions(), types.diffActions(), docActions(), types.docKeys()}
 	case screenSearch:
 		return []dispatching{(&searchScreen{}).actions()}
 	}
@@ -61,7 +66,7 @@ func actionsOf(s screen) []dispatching {
 
 // ValidateKeybindings rejects the bindings a screen could not dispatch.
 func ValidateKeybindings(keys config.Keybindings) error {
-	for _, s := range []screen{screenAgents, screenSchedules, screenArchive, screenReview, screenWorktrees, screenDocuments, screenLogs, screenSearch} {
+	for _, s := range []screen{screenAgents, screenSchedules, screenArchive, screenReview, screenWorktrees, screenDocuments, screenLogs, screenSearch, screenDocumentTypes} {
 		if err := validateScreenKeys(s, keys); err != nil {
 			return err
 		}
@@ -73,6 +78,15 @@ func ValidateKeybindings(keys config.Keybindings) error {
 		{name: "copy_pull_request_url", keys: keys.Git.CopyPullRequestURL},
 		{name: "toggle_draft", keys: keys.Git.ToggleDraft},
 		{name: "merge", keys: keys.Git.Merge},
+	}); err != nil {
+		return err
+	}
+
+	if err := validateSubmenuKeys("documents menu", []submenuKeys{
+		{name: "view", keys: keys.DocumentsMenu.View},
+		{name: "new", keys: keys.DocumentsMenu.New},
+		{name: "new_type", keys: keys.DocumentsMenu.NewType},
+		{name: "types", keys: keys.DocumentsMenu.Types},
 	}); err != nil {
 		return err
 	}

@@ -476,17 +476,6 @@ func (a api) listDocuments(agentID string) ([]*agentv1.Document, error) {
 	})
 }
 
-func (a api) listDocumentTypes() ([]*agentv1.DocumentType, error) {
-	return call(requestTimeout, func(ctx context.Context) ([]*agentv1.DocumentType, error) {
-		resp, err := a.agents.ListDocumentTypes(ctx, connect.NewRequest(&emptypb.Empty{}))
-		if err != nil {
-			return nil, fmt.Errorf("failed to list the document types: %w", err)
-		}
-
-		return resp.Msg.GetDocumentTypes(), nil
-	})
-}
-
 func (a api) getLastTurns(agentID string) ([]*agentv1.Turn, error) {
 	turns, maxBytes := int32(conversationPreviewTurns), int32(conversationPreviewTurnBytes)
 
@@ -557,6 +546,54 @@ func (a api) writeDocument(item documentItem, version int32, body string) error 
 			Type:    item.typeName,
 			Source:  &agentv1.WriteDocumentRequest_Body{Body: body},
 		}))
+	})
+}
+
+func (a api) getDocumentTypeVersion(name string, version int32) (*agentv1.DocumentType, error) {
+	return call(requestTimeout, func(ctx context.Context) (*agentv1.DocumentType, error) {
+		resp, err := a.agents.GetDocumentType(ctx, connect.NewRequest(&agentv1.GetDocumentTypeRequest{Name: name, Version: &version}))
+		if err != nil {
+			return nil, fmt.Errorf("failed to read version %d of document type %q: %w", version, name, err)
+		}
+
+		return resp.Msg.GetDocumentType(), nil
+	})
+}
+
+func (a api) listDocumentTypeVersions(id string) ([]*agentv1.DocumentTypeVersion, error) {
+	return call(requestTimeout, func(ctx context.Context) ([]*agentv1.DocumentTypeVersion, error) {
+		resp, err := a.agents.ListDocumentTypeVersions(ctx, connect.NewRequest(&agentv1.ListDocumentTypeVersionsRequest{Id: id}))
+		if err != nil {
+			return nil, fmt.Errorf("failed to list the versions of document type %q: %w", id, err)
+		}
+
+		return resp.Msg.GetVersions(), nil
+	})
+}
+
+func (a api) createDocumentType(name, typeContext string) error {
+	return mutate(func(ctx context.Context) (any, error) {
+		return a.agents.WriteDocumentType(ctx, connect.NewRequest(&agentv1.WriteDocumentTypeRequest{
+			Name:    name,
+			Context: typeContext,
+		}))
+	})
+}
+
+func (a api) writeDocumentType(item documentItem, version int32, name, typeContext string) error {
+	return mutate(func(ctx context.Context) (any, error) {
+		return a.agents.WriteDocumentType(ctx, connect.NewRequest(&agentv1.WriteDocumentTypeRequest{
+			Id:      &item.id,
+			Version: &version,
+			Name:    name,
+			Context: typeContext,
+		}))
+	})
+}
+
+func (a api) deleteDocumentType(id string) error {
+	return mutate(func(ctx context.Context) (any, error) {
+		return a.agents.DeleteDocumentType(ctx, connect.NewRequest(&agentv1.DeleteDocumentTypeRequest{Id: id}))
 	})
 }
 

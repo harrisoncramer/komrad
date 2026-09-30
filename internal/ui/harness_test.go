@@ -670,6 +670,8 @@ func wrapRow(row proto.Message) *watchv1.Row {
 		return &watchv1.Row{Row: &watchv1.Row_ForgeThread{ForgeThread: row}}
 	case *worktreev1.WatchedWorktree:
 		return &watchv1.Row{Row: &watchv1.Row_Worktree{Worktree: row}}
+	case *agentv1.DocumentType:
+		return &watchv1.Row{Row: &watchv1.Row_DocumentType{DocumentType: row}}
 	default:
 		panic(fmt.Sprintf("no watch row holds a %T", row))
 	}

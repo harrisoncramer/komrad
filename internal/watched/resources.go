@@ -4,6 +4,7 @@ package watched
 import (
 	"komrad/internal/watch"
 
+	documenttypestore "komrad/internal/store/documenttype"
 	mailstore "komrad/internal/store/mail"
 	pullrequeststore "komrad/internal/store/pullrequest"
 	reviewstore "komrad/internal/store/review"
@@ -26,5 +27,6 @@ func All() []watch.Resource {
 		reviewstore.WatchedReviews,
 		reviewstore.WatchedReviewThreads,
 		worktreestore.WatchedWorktrees,
+		documenttypestore.WatchedDocumentTypes,
 	}
 }

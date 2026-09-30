@@ -22,19 +22,17 @@ type documentFormValues struct {
 	Type string
 }
 
-// newDocumentForm puts up the form for a document written for the agent whose documents are
-// listed.
-func (d *documentsScreen) newDocumentForm(h host, s panelShared) tea.Cmd {
-	if d.editing != nil {
-		return nil
+// newDocumentForm puts up the form for a document written for an agent.
+func newDocumentForm(h host, s panelShared, agentID string) tea.Cmd {
+	owner, types := agentID, s.listing.documentTypeNames()
+	if item, ok := s.listing.anyAgent(agentID); ok {
+		owner = item.Agent.Name
 	}
-
-	agentID, owner, types := d.agentID, d.agentName(s), d.types
 	values := &documentFormValues{Type: defaultDocumentType(types)}
 
 	return h.openForm(redrawnForm(redrawnFormParams{
 		Kind:  formDocument,
-		Build: func(model) (*huh.Form, []string) { return documentForm(values, types) },
+		Build: func(m model) (*huh.Form, []string) { return documentForm(values, m.listing.documentTypeNames()) },
 		Submit: func(m model) (tea.Model, tea.Cmd) {
 			if checkDocumentName(values.Name) != nil {
 				return m.closeForm()

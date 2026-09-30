@@ -43,7 +43,7 @@ func TestDocumentsOpen(t *testing.T) {
 
 		harness := openAgents(t, buildDocumentAuthors()...)
 		moveToAgentRow(t, harness, "quiet")
-		harness.press("space", "d")
+		harness.press("space", "d", "v")
 
 		assert.NotEqual(t, documentsScreen, harness.readScreen())
 		assert.Contains(t, readOpenMessages(harness), "this agent has not written any documents yet")
@@ -294,7 +294,7 @@ func TestDocumentsNew(t *testing.T) {
 		},
 		{
 			name:    "the type chosen names what the document says it is",
-			presses: []string{"c", "L", "o", "g", "tab", "down", "down", "down", "ctrl+s"},
+			presses: []string{"c", "L", "o", "g", "tab", "up", "up", "ctrl+s"},
 			want: &agentv1.WriteDocumentRequest{
 				AgentId: xptr.Ptr("author"),
 				Name:    "Log",
@@ -326,6 +326,41 @@ func TestDocumentsNew(t *testing.T) {
 			harness.assertSentTo(agentv1connect.AgentServiceWriteDocumentProcedure, tt.want)
 		})
 	}
+}
+
+// TestDocumentsNewRedrawsTheTypes covers the new document form offering a type defined while it is
+// open.
+func TestDocumentsNewRedrawsTheTypes(t *testing.T) {
+	t.Parallel()
+
+	harness, _ := openDocuments(t)
+	harness.press("c")
+	require.NotContains(t, harness.readFrame(), "brief")
+
+	harness.watch(buildPuts(newDocumentType("t5", "brief")))
+
+	assert.Contains(t, harness.readFrame(), "brief")
+}
+
+// TestDocumentsNewFromTheMenu covers writing a first document for an agent that has none, from the
+// documents menu.
+func TestDocumentsNewFromTheMenu(t *testing.T) {
+	t.Parallel()
+
+	harness := openAgents(t, buildDocumentAuthors()...)
+	harness.answer(agentv1connect.AgentServiceWriteDocumentProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+		return connect.NewResponse(&agentv1.WriteDocumentResponse{}), nil
+	})
+	moveToAgentRow(t, harness, "quiet")
+	harness.press("space", "d", "c", "P", "l", "a", "n", "ctrl+s")
+
+	assert.Equal(t, agentsScreen, harness.readScreen())
+	harness.assertSentTo(agentv1connect.AgentServiceWriteDocumentProcedure, &agentv1.WriteDocumentRequest{
+		AgentId: xptr.Ptr("quiet"),
+		Name:    "Plan",
+		Type:    "RFC",
+		Source:  &agentv1.WriteDocumentRequest_Body{Body: "Empty RFC document.\n"},
+	})
 }
 
 // TestDocumentsHistory covers stepping back and forward through a document's writes, drawing
@@ -735,7 +770,7 @@ func openDocumentsWith(t *testing.T, params panelHarnessParams) (*panelHarness, 
 	docs.answer(harness)
 
 	moveToAgentRow(t, harness, "author")
-	harness.press("space", "d")
+	harness.press("space", "d", "v")
 	harness.fireTimers()
 
 	return harness, docs
@@ -772,6 +807,10 @@ func buildDocumentAuthors() []proto.Message {
 		orchestrator,
 		author,
 		newAgent("quiet", "quiet", "w1"),
+		newDocumentType("t1", "RFC"),
+		newDocumentType("t2", "report"),
+		newDocumentType("t3", "explainer"),
+		newDocumentType("t4", "notes"),
 	}
 }
 
@@ -858,11 +897,6 @@ func (d *documentShelf) add(document *agentv1.Document) {
 }
 
 func (d *documentShelf) answer(harness *panelHarness) {
-	harness.answer(agentv1connect.AgentServiceListDocumentTypesProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
-		return connect.NewResponse(&agentv1.ListDocumentTypesResponse{DocumentTypes: []*agentv1.DocumentType{
-			{Name: "RFC"}, {Name: "report"}, {Name: "explainer"}, {Name: "notes"},
-		}}), nil
-	})
 	harness.answer(agentv1connect.AgentServiceListDocumentsProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
 		d.mu.Lock()
 		defer d.mu.Unlock()

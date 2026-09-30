@@ -3,6 +3,7 @@ syntax = "proto3";
 package watch.v1;
 
 import "agent/v1/agent.proto";
+import "agent/v1/document.proto";
 import "agent/v1/mail.proto";
 import "agent/v1/review.proto";
 import "annotation/v1/tool.proto";
@@ -65,6 +66,8 @@ message Row {
     worktree.v1.WatchedWorktree worktree = 10;
     // A review thread the forge holds on a watched pull request, with its comments.
     pullrequest.v1.ForgeThread forge_thread = 11;
+    // A document type with its context.
+    agent.v1.DocumentType document_type = 12;
   }
 }
 
@@ -92,6 +95,8 @@ enum Resource {
   RESOURCE_WORKTREE = 10;
   // A row of forge_review_threads.
   RESOURCE_FORGE_THREAD = 11;
+  // A row of document_types.
+  RESOURCE_DOCUMENT_TYPE = 12;
 }
 
 // Deleted names a row its watched set no longer holds, whether it was removed or claimed for a

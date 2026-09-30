@@ -73,6 +73,8 @@ const (
 	actionDocumentsNew
 	actionDocumentsOlder
 	actionDocumentsNewer
+	actionDocumentTypesRename
+	actionDocumentTypesDelete
 	actionLogsBack
 	actionLogsCopy
 	actionDiffFile

@@ -7,7 +7,6 @@ import (
 
 	"komrad/config"
 	"komrad/internal/errui"
-	"komrad/internal/ui/cursor"
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/view"
 	"komrad/lib/dates"
@@ -34,15 +33,15 @@ type documentBody struct {
 	err       error
 }
 
-// documentsScreen lists the documents one agent has written and draws the one under the cursor
-// beside the list.
+// documentsScreen lists a shelf of documents, the ones one agent has written or the document
+// types, and draws the one under the cursor beside the list.
 type documentsScreen struct {
 	rowCursor
+	shelf   documentShelf
 	agentID string
-	// from is the view the screen was opened from.
+	// from is the screen the screen was opened from.
 	from  screen
 	items []documentItem
-	types []string
 	// listedAt is the agent's newest write the list was read at, and listedCount how many it had
 	// written.
 	listedAt    *time.Time
@@ -71,7 +70,7 @@ func (d *documentsScreen) enter(h host, _ panelShared, target screenTarget) tea.
 	var saved tea.Cmd
 	if target.agentID != d.agentID {
 		saved = d.closeEdit(h)
-		*d = documentsScreen{agentID: target.agentID}
+		*d = documentsScreen{shelf: d.shelf, agentID: target.agentID}
 	}
 	if target.agentID != "" {
 		d.from = target.from
@@ -110,14 +109,14 @@ func (d *documentsScreen) list() screenList[documentRow] {
 
 			return h.waitToStage()
 		},
-		quit: func(k config.Keybindings) []string { return k.Documents.Quit },
-		back: func(k config.Keybindings) []string { return k.Documents.Back },
+		quit: func(k config.Keybindings) []string { return d.shelf.keys(k).Quit },
+		back: func(k config.Keybindings) []string { return d.shelf.keys(k).Back },
 	}
 }
 
 func (d *documentsScreen) rows(s panelShared) []documentRow {
 	return narrowed(s.chrome.filter, narrowedParams[documentRow]{
-		rows: xslice.Map(d.items, func(item documentItem) documentRow {
+		rows: xslice.Map(d.itemsOf(s), func(item documentItem) documentRow {
 			return documentRow{item: item}
 		}),
 		depth: func(documentRow) int { return 0 },
@@ -148,6 +147,7 @@ func (d *documentsScreen) listParams(s panelShared) screenListParams {
 	}
 }
 
+// parent is the view the documents were opened from.
 func (d *documentsScreen) parent() screen {
 	return d.from
 }
@@ -155,26 +155,37 @@ func (d *documentsScreen) parent() screen {
 // crumbs runs through the agent the documents are of down to the version stepped to, and counts
 // the documents while none is.
 func (d *documentsScreen) crumbs(s panelShared) crumbs {
-	trail := crumbs{trail: []string{d.agentName(s), "documents"}}
-	if item, ok := d.hovered(s); ok && d.history != nil && d.history.id == item.id && len(d.history.versions) > 0 {
+	trail := crumbs{trail: d.crumbRoot(s)}
+	if item, ok := d.hovered(s); ok && d.history != nil && d.history.item.id == item.id && len(d.history.versions) > 0 {
 		current := d.history.versions[d.history.at]
-		trail.trail = append(trail.trail, item.name, fmt.Sprintf("v%d of %d", current.GetVersion(), d.history.versions[0].GetVersion()))
+		trail.trail = append(trail.trail, item.name, fmt.Sprintf("v%d of %d", current.version, d.history.versions[0].version))
 
 		return trail
 	}
-	if d.listed {
-		trail.tally = fmt.Sprint(len(d.items))
+	if d.isListed() {
+		trail.tally = fmt.Sprint(len(d.itemsOf(s)))
 	}
 
 	return trail
+}
+
+// crumbRoot is the trail down to the shelf: the agent the documents are of, or the document types.
+func (d *documentsScreen) crumbRoot(s panelShared) []string {
+	if d.shelf != shelfDocumentTypes {
+		return []string{d.agentName(s), "documents"}
+	}
+
+	return []string{"document types"}
 }
 
 func (d *documentsScreen) emptyLine() string {
 	switch {
 	case d.err != nil:
 		return "could not list: " + errui.GetReason(d.err)
-	case !d.listed:
+	case !d.isListed():
 		return "reading…"
+	case d.shelf == shelfDocumentTypes:
+		return "no document types"
 	}
 
 	return "no documents"
@@ -228,11 +239,14 @@ func (d *documentsScreen) snapshot(s panelShared, pane listPane) view.Snapshot {
 func (d *documentsScreen) doc(s panelShared) string {
 	item, ok := d.hovered(s)
 	if !ok {
-		return renderDocument(d.agentName(s), "_"+d.emptyLine()+"_", "", "")
+		return renderDocument(d.emptyTitle(s), "_"+d.emptyLine()+"_", "", "")
 	}
 
+	read, asked := d.bodyOf(s, item.id)
 	notice := fmt.Sprintf("_%s, written %s ago_", item.typeName, label.Age(item.updatedAt))
-	read, asked := d.bodies[item.id]
+	if d.shelf == shelfDocumentTypes {
+		notice = fmt.Sprintf("_version %d, written %s ago_", read.version, label.Age(item.updatedAt))
+	}
 	switch {
 	case !asked || (read.pending && read.body == ""):
 		return renderDocument(item.name, notice, "_reading…_", "")
@@ -241,6 +255,15 @@ func (d *documentsScreen) doc(s panelShared) string {
 	}
 
 	return renderDocument(item.name, notice, documentProse(item.name, read.body), "")
+}
+
+// emptyTitle heads the block beside an empty list.
+func (d *documentsScreen) emptyTitle(s panelShared) string {
+	if d.shelf == shelfDocumentTypes {
+		return "Document types"
+	}
+
+	return d.agentName(s)
 }
 
 // documentProse is a document's text without the heading that opens it when that heading only
@@ -261,7 +284,6 @@ type documentsListedMsg struct {
 	agentID string
 	written documentsWritten
 	items   []documentItem
-	types   []string
 	err     error
 }
 
@@ -291,7 +313,7 @@ func (m *model) readDocumentsCmd() tea.Cmd {
 		return m.listDocumentsCmd(written)
 	}
 
-	return tea.Batch(m.readHoveredDocumentCmd(), m.readHistoryCmd())
+	return tea.Batch(m.readHoveredDocumentCmd(), m.readHistoryCmd(screenDocuments))
 }
 
 // documentsWritten is what the agent has written, as its row says.
@@ -323,11 +345,7 @@ func (m *model) listDocumentsCmd(written documentsWritten) tea.Cmd {
 	agentID, clients := d.agentID, m.api
 
 	return func() tea.Msg {
-		var types []*agentv1.DocumentType
 		documents, err := clients.listDocuments(agentID)
-		if err == nil {
-			types, err = clients.listDocumentTypes()
-		}
 		if err != nil {
 			return documentsListedMsg{
 				agentID: agentID,
@@ -339,7 +357,6 @@ func (m *model) listDocumentsCmd(written documentsWritten) tea.Cmd {
 		return documentsListedMsg{
 			agentID: agentID,
 			written: written,
-			types:   xslice.Map(types, func(t *agentv1.DocumentType) string { return t.GetName() }),
 			items: xslice.Map(documents, func(document *agentv1.Document) documentItem {
 				return documentItem{
 					id:        document.GetId(),
@@ -366,9 +383,8 @@ func (m *model) applyDocumentsListed(msg documentsListedMsg) tea.Cmd {
 	}
 
 	hovered := d.list().hovered(m.shared())
-	d.items, d.types, d.listedAt, d.listedCount, d.listed, d.err = msg.items, msg.types, msg.written.newest, msg.written.count, true, nil
-	rows := d.rows(m.shared())
-	d.cursor = cursor.Place(rowIndexOfKey(rows, hovered), d.cursor, len(rows))
+	d.items, d.listedAt, d.listedCount, d.listed, d.err = msg.items, msg.written.newest, msg.written.count, true, nil
+	d.keepCursor(m.shared(), hovered)
 
 	return m.readDocumentsCmd()
 }
@@ -444,13 +460,15 @@ func (d *documentsScreen) takesEveryKey() bool {
 }
 
 func (d *documentsScreen) column() columnSpec {
+	on := d.shelf.screen()
+
 	return columnSpec{
 		floor: columnFloor,
 		docRows: func(m model, width int) []string {
-			return m.documents.docRows(m.shared(), width)
+			return m.documentsOn(on).docRows(m.shared(), width)
 		},
-		holds: func(m model) bool { return m.documents.editing == nil },
-		read:  func(m model) bool { return !m.documents.isSteppingHovered(m.shared()) },
+		holds: func(m model) bool { return m.documentsOn(on).editing == nil },
+		read:  func(m model) bool { return !m.documentsOn(on).isSteppingHovered(m.shared()) },
 	}
 }
 

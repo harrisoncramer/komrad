@@ -132,7 +132,7 @@ func (m model) isPassing(agentID string) bool {
 		return m.review.agentID == agentID && m.review.hold.pausing
 	case screenAgents:
 		return m.agents.isPausing(agentID)
-	case screenSchedules, screenArchive, screenSearch, screenWorktrees, screenDocuments, screenLogs:
+	case screenSchedules, screenArchive, screenSearch, screenWorktrees, screenDocuments, screenLogs, screenDocumentTypes:
 	}
 
 	return false

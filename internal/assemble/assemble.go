@@ -31,6 +31,7 @@ type World struct {
 	ReviewThreads map[string]*agentv1.ReviewThread
 	Worktrees     map[string]*worktreev1.WatchedWorktree
 	ForgeThreads  map[string]*pullrequestv1.ForgeThread
+	DocumentTypes map[string]*agentv1.DocumentType
 }
 
 // Changed is the keys a message put or dropped, by resource.
@@ -135,6 +136,10 @@ func (w *World) put(row *watchv1.Row) (watchv1.Resource, string) {
 		w.ForgeThreads[row.ForgeThread.GetId()] = row.ForgeThread
 
 		return watchv1.Resource_RESOURCE_FORGE_THREAD, row.ForgeThread.GetId()
+	case *watchv1.Row_DocumentType:
+		w.DocumentTypes[row.DocumentType.GetId()] = row.DocumentType
+
+		return watchv1.Resource_RESOURCE_DOCUMENT_TYPE, row.DocumentType.GetId()
 	case nil:
 	}
 
@@ -172,6 +177,9 @@ func (w *World) ensureMaps() {
 	if w.ForgeThreads == nil {
 		w.ForgeThreads = map[string]*pullrequestv1.ForgeThread{}
 	}
+	if w.DocumentTypes == nil {
+		w.DocumentTypes = map[string]*agentv1.DocumentType{}
+	}
 }
 
 func (w *World) drop(deleted *watchv1.Deleted) {
@@ -197,6 +205,8 @@ func (w *World) drop(deleted *watchv1.Deleted) {
 		delete(w.Worktrees, key)
 	case watchv1.Resource_RESOURCE_FORGE_THREAD:
 		delete(w.ForgeThreads, key)
+	case watchv1.Resource_RESOURCE_DOCUMENT_TYPE:
+		delete(w.DocumentTypes, key)
 	case watchv1.Resource_RESOURCE_UNSPECIFIED:
 	}
 }

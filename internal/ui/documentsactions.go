@@ -29,43 +29,43 @@ func (d *documentsScreen) listActions() screenActionSpec {
 }
 
 func (d *documentsScreen) table() []screenAction {
-	return append(d.list().actions(),
-		screenAction{
+	return slices.Concat(d.list().actions(), []screenAction{
+		{
 			id:   actionDocumentsEdit,
-			keys: func(k config.Keybindings) []string { return k.Documents.Edit },
+			keys: func(k config.Keybindings) []string { return d.shelf.keys(k).Edit },
 			run: func(h host, s panelShared, _ string) tea.Cmd {
 				return d.pressEdit(h, s)
 			},
 		},
-		screenAction{
+		{
 			id:   actionDocumentsNew,
-			keys: func(k config.Keybindings) []string { return k.Documents.New },
+			keys: func(k config.Keybindings) []string { return d.shelf.keys(k).New },
 			run: func(h host, s panelShared, _ string) tea.Cmd {
-				return d.newDocumentForm(h, s)
+				return d.pressNew(h, s)
 			},
 		},
-		screenAction{
+		{
 			id:   actionDocumentsOlder,
-			keys: func(k config.Keybindings) []string { return k.Documents.Older },
+			keys: func(k config.Keybindings) []string { return d.shelf.keys(k).Older },
 			run: func(h host, s panelShared, _ string) tea.Cmd {
 				return d.stepOlder(h, s)
 			},
 		},
-		screenAction{
+		{
 			id:   actionDocumentsNewer,
-			keys: func(k config.Keybindings) []string { return k.Documents.Newer },
+			keys: func(k config.Keybindings) []string { return d.shelf.keys(k).Newer },
 			run: func(h host, s panelShared, _ string) tea.Cmd {
 				return d.stepNewer(h, s)
 			},
 		},
-		screenAction{
+		{
 			id:   actionDocumentsBack,
-			keys: func(k config.Keybindings) []string { return k.Documents.Back },
+			keys: func(k config.Keybindings) []string { return d.shelf.keys(k).Back },
 			run: func(h host, _ panelShared, _ string) tea.Cmd {
-				return h.enter(d.from, screenTarget{agentID: d.agentID})
+				return d.back(h)
 			},
 		},
-	)
+	}, d.shelfActions())
 }
 
 func (d *documentsScreen) legend() []screenLegendRow {
@@ -80,7 +80,7 @@ func (d *documentsScreen) legend() []screenLegendRow {
 		},
 		{
 			of:   []actionID{actionDocumentsNew},
-			desc: func(panelShared) string { return "new document" },
+			desc: func(panelShared) string { return d.newDesc() },
 		},
 		{
 			of:   []actionID{actionDocumentsOlder},
@@ -90,6 +90,7 @@ func (d *documentsScreen) legend() []screenLegendRow {
 			of:   []actionID{actionDocumentsNewer},
 			desc: func(panelShared) string { return "a later version" },
 		},
+	}, d.shelfLegend(), []screenLegendRow{
 		{
 			of:    []actionID{actionFilterClear},
 			desc:  filterClearDescOf,
@@ -126,7 +127,7 @@ func (d *documentsScreen) stepActions() screenActionSpec {
 		table: []screenAction{
 			{
 				id:   actionDocumentsBack,
-				keys: func(k config.Keybindings) []string { return k.Documents.Back },
+				keys: func(k config.Keybindings) []string { return d.shelf.keys(k).Back },
 				run: func(host, panelShared, string) tea.Cmd {
 					d.focus = false
 
@@ -135,17 +136,17 @@ func (d *documentsScreen) stepActions() screenActionSpec {
 			},
 			{
 				id:   actionQuit,
-				keys: func(k config.Keybindings) []string { return k.Documents.Quit },
+				keys: func(k config.Keybindings) []string { return d.shelf.keys(k).Quit },
 				run:  func(h host, _ panelShared, _ string) tea.Cmd { return h.hide() },
 			},
 			{
 				id:   actionDocumentsOlder,
-				keys: func(k config.Keybindings) []string { return k.Documents.Older },
+				keys: func(k config.Keybindings) []string { return d.shelf.keys(k).Older },
 				run:  func(h host, s panelShared, _ string) tea.Cmd { return d.stepOlder(h, s) },
 			},
 			{
 				id:   actionDocumentsNewer,
-				keys: func(k config.Keybindings) []string { return k.Documents.Newer },
+				keys: func(k config.Keybindings) []string { return d.shelf.keys(k).Newer },
 				run:  func(h host, s panelShared, _ string) tea.Cmd { return d.stepNewer(h, s) },
 			},
 		},

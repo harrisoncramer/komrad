@@ -33,10 +33,10 @@ func TestMenu(t *testing.T) {
 		t.Parallel()
 
 		harness := openSubpages(t, "quiet")
-		require.Contains(t, harness.readFrame(), "› logs")
+		require.Contains(t, harness.readFrame(), "› documents")
 		require.Contains(t, harness.readFrame(), "───")
 
-		harness.press("down", "down", "down")
+		harness.press("down", "down", "down", "down")
 
 		assert.Contains(t, harness.readFrame(), "› scratch")
 	})

@@ -122,3 +122,14 @@ FROM
 WHERE
     document_type_id = @document_type_id
     AND version = @version;
+
+-- name: ListWatchedDocumentTypes :many
+SELECT
+    *
+FROM
+    document_types
+WHERE (sqlc.narg('keys')::text[] IS NULL
+    OR id = ANY (sqlc.narg('keys')::uuid[]))
+ORDER BY
+    LOWER(name),
+    name;

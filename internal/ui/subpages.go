@@ -66,11 +66,7 @@ func subpageEntry(s panelShared, from screen, item panel.AgentRow, page subpage)
 			isOff: reviewRefusal(from, item.Agent) != nil,
 		}
 	case subpageDocuments:
-		return submenuEntry{
-			label: "documents",
-			keys:  s.keys.Menu.Documents,
-			isOff: item.Documents == 0,
-		}
+		return nestedEntry("documents", s.keys.Menu.Documents, documentsMenu(s, from, item))
 	case subpageLogs:
 		return submenuEntry{label: "logs", keys: s.keys.Menu.Logs}
 	case subpageTerminal:

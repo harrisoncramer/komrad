@@ -49,7 +49,7 @@ func (m *model) previewedAgentID() (string, bool) {
 		}
 
 		return row.item.agent.id, true
-	case screenAgents, screenSchedules, screenSearch, screenReview, screenDocuments, screenLogs:
+	case screenAgents, screenSchedules, screenSearch, screenReview, screenDocuments, screenLogs, screenDocumentTypes:
 	}
 
 	return "", false
