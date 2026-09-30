@@ -46,7 +46,7 @@ func drive(t *testing.T, level slog.Level, each []func(context.Context) error) s
 
 	go func() {
 		defer close(done)
-		runLoop(ctx, NewLoop(NewLoopParams{
+		runLoop(ctx, newLoop(newLoopParams{
 			Name:     "reconcile",
 			Interval: time.Millisecond,
 			Run: func(ctx context.Context) error {
@@ -165,7 +165,7 @@ func TestLoopSaysNothingOnceCancelled(t *testing.T) {
 
 	go func() {
 		defer close(done)
-		runLoop(ctx, NewLoop(NewLoopParams{
+		runLoop(ctx, newLoop(newLoopParams{
 			Name:     "transcript sync",
 			Interval: time.Millisecond,
 			Run: func(ctx context.Context) error {
@@ -228,7 +228,7 @@ func TestBackgroundStopWaitsForTheLoops(t *testing.T) {
 	var runs atomic.Int64
 	runner := &fakeRunner{}
 
-	work, err := startBackground(t.Context(), runner, []*Loop{NewLoop(NewLoopParams{
+	work, err := startBackground(t.Context(), runner, []*Loop{newLoop(newLoopParams{
 		Name:     "reconcile",
 		Interval: time.Millisecond,
 		Run: func(context.Context) error {
@@ -382,8 +382,8 @@ func startLoop(t *testing.T, loop *Loop) (context.CancelFunc, <-chan struct{}) {
 	return cancel, done
 }
 
-func buildRecordedLoop(starts *runStarts, interval, floor time.Duration, waker *LoopWaker) *Loop {
-	return NewLoop(NewLoopParams{
+func buildRecordedLoop(starts *runStarts, interval, floor time.Duration, waker *loopWaker) *Loop {
+	return newLoop(newLoopParams{
 		Name:     "pull request sync",
 		Interval: interval,
 		Floor:    floor,
@@ -396,8 +396,8 @@ func buildRecordedLoop(starts *runStarts, interval, floor time.Duration, waker *
 	})
 }
 
-func buildHeldLoop(starts *runStarts, interval time.Duration, waker *LoopWaker, release <-chan struct{}) *Loop {
-	return NewLoop(NewLoopParams{
+func buildHeldLoop(starts *runStarts, interval time.Duration, waker *loopWaker, release <-chan struct{}) *Loop {
+	return newLoop(newLoopParams{
 		Name:     "pull request sync",
 		Interval: interval,
 		Waker:    waker,
@@ -420,7 +420,7 @@ func buildHeldLoop(starts *runStarts, interval time.Duration, waker *LoopWaker, 
 func TestLoopRunsWhenWoken(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		starts := &runStarts{}
-		waker := NewLoopWaker()
+		waker := newLoopWaker()
 		startLoop(t, buildRecordedLoop(starts, time.Hour, 0, waker))
 		synctest.Wait()
 		require.Equal(t, 1, starts.count())
@@ -437,7 +437,7 @@ func TestLoopRunsWhenWoken(t *testing.T) {
 func TestLoopRunsOnceADelayedWakeIsDue(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		starts := &runStarts{}
-		waker := NewLoopWaker()
+		waker := newLoopWaker()
 		startLoop(t, buildRecordedLoop(starts, time.Hour, 0, waker))
 		synctest.Wait()
 		require.Equal(t, 1, starts.count())
@@ -459,7 +459,7 @@ func TestLoopRunsOnceADelayedWakeIsDue(t *testing.T) {
 func TestLoopFoldsWakesDuringARun(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		starts := &runStarts{}
-		waker := NewLoopWaker()
+		waker := newLoopWaker()
 		release := make(chan struct{})
 		startLoop(t, buildHeldLoop(starts, time.Hour, waker, release))
 		synctest.Wait()
@@ -481,7 +481,7 @@ func TestLoopRunsOnceForATickAndAWakeTogether(t *testing.T) {
 		const interval = 100 * time.Millisecond
 
 		starts := &runStarts{}
-		waker := NewLoopWaker()
+		waker := newLoopWaker()
 		release := make(chan struct{})
 		startLoop(t, buildHeldLoop(starts, interval, waker, release))
 		synctest.Wait()
@@ -504,7 +504,7 @@ func TestLoopRunsOnceForATickAndAWakeTogether(t *testing.T) {
 func TestLoopIgnoresAWakeFromBeforeItStarted(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		starts := &runStarts{}
-		waker := NewLoopWaker()
+		waker := newLoopWaker()
 		waker.Wake()
 
 		startLoop(t, buildRecordedLoop(starts, time.Hour, 0, waker))
@@ -521,7 +521,7 @@ func TestLoopHoldsAWokenRunToItsFloor(t *testing.T) {
 		const floor = 100 * time.Millisecond
 
 		starts := &runStarts{}
-		waker := NewLoopWaker()
+		waker := newLoopWaker()
 		startLoop(t, buildRecordedLoop(starts, time.Hour, floor, waker))
 		synctest.Wait()
 
@@ -545,7 +545,7 @@ func TestLoopKeepsItsTickAfterAWokenRun(t *testing.T) {
 		const interval = 300 * time.Millisecond
 
 		starts := &runStarts{}
-		waker := NewLoopWaker()
+		waker := newLoopWaker()
 		startLoop(t, buildRecordedLoop(starts, interval, 0, waker))
 		synctest.Wait()
 
@@ -571,7 +571,7 @@ func TestLoopDropsATickThatLandsInsideTheFloor(t *testing.T) {
 		const floor = 60 * time.Millisecond
 
 		starts := &runStarts{}
-		waker := NewLoopWaker()
+		waker := newLoopWaker()
 		startLoop(t, buildRecordedLoop(starts, interval, floor, waker))
 		synctest.Wait()
 
@@ -599,7 +599,7 @@ func TestLoopDropsATickThatLandsInsideTheFloor(t *testing.T) {
 func TestLoopStopsWhileWaitingOutItsFloor(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		starts := &runStarts{}
-		waker := NewLoopWaker()
+		waker := newLoopWaker()
 		cancel, done := startLoop(t, buildRecordedLoop(starts, time.Hour, time.Hour, waker))
 		synctest.Wait()
 
@@ -619,7 +619,7 @@ func TestLoopStopsWhileWaitingOutItsFloor(t *testing.T) {
 
 // TestLoopWakerNeverBlocks covers waking a loop that is not running.
 func TestLoopWakerNeverBlocks(t *testing.T) {
-	waker := NewLoopWaker()
+	waker := newLoopWaker()
 
 	woke := make(chan struct{})
 	go func() {
@@ -639,14 +639,14 @@ func TestLoopWakerNeverBlocks(t *testing.T) {
 // TestLoopLogsAWokenRun covers a run brought forward by a wake saying so on its log lines.
 func TestLoopLogsAWokenRun(t *testing.T) {
 	var out syncBuffer
-	waker := NewLoopWaker()
+	waker := newLoopWaker()
 	starts := &runStarts{}
 
 	ctx, cancel := context.WithCancel(t.Context())
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		runLoop(ctx, NewLoop(NewLoopParams{
+		runLoop(ctx, newLoop(newLoopParams{
 			Name:     "pull request sync",
 			Interval: time.Hour,
 			Waker:    waker,
@@ -678,7 +678,7 @@ func TestBuildLoopsGivesEachLoopItsOwnWaker(t *testing.T) {
 		Wakers:   newLoopWakers(),
 	})
 
-	wakers := map[*LoopWaker]string{}
+	wakers := map[*loopWaker]string{}
 	for _, loop := range loops {
 		other, ok := wakers[loop.waker]
 		require.False(t, ok, "%s shares a waker with %s", loop.Name(), other)

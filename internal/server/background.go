@@ -20,18 +20,18 @@ const loopStopTimeout = 2 * time.Second
 
 const jobStopTimeout = 10 * time.Second
 
-// LoopWaker asks one loop to run before its next tick.
-type LoopWaker struct {
+// loopWaker asks one loop to run before its next tick.
+type loopWaker struct {
 	wake chan struct{}
 }
 
-// NewLoopWaker builds a waker holding no wake.
-func NewLoopWaker() *LoopWaker {
-	return &LoopWaker{wake: make(chan struct{}, 1)}
+// newLoopWaker builds a waker holding no wake.
+func newLoopWaker() *loopWaker {
+	return &loopWaker{wake: make(chan struct{}, 1)}
 }
 
 // Wake asks the loop to run again, dropping the ask when one is already waiting.
-func (w *LoopWaker) Wake() {
+func (w *loopWaker) Wake() {
 	select {
 	case w.wake <- struct{}{}:
 	default:
@@ -39,26 +39,26 @@ func (w *LoopWaker) Wake() {
 }
 
 // WakeAfter asks the loop to run again once the wait is over.
-func (w *LoopWaker) WakeAfter(wait time.Duration) {
+func (w *loopWaker) WakeAfter(wait time.Duration) {
 	time.AfterFunc(wait, w.Wake)
 }
 
-func (w *LoopWaker) drain() {
+func (w *loopWaker) drain() {
 	select {
 	case <-w.wake:
 	default:
 	}
 }
 
-// NewLoopParams is what a loop is built from.
-type NewLoopParams struct {
+// newLoopParams is what a loop is built from.
+type newLoopParams struct {
 	Name     string
 	Interval time.Duration
 	// Floor is the least time after one run starts that a woken run may start.
 	Floor time.Duration
 	Run   func(context.Context) error
 	// Waker is what wakes the loop, one of its own when nil.
-	Waker *LoopWaker
+	Waker *loopWaker
 }
 
 // Loop is a function the server runs on an interval, and sooner when woken.
@@ -67,14 +67,14 @@ type Loop struct {
 	interval time.Duration
 	floor    time.Duration
 	run      func(context.Context) error
-	waker    *LoopWaker
+	waker    *loopWaker
 }
 
-// NewLoop builds a loop that runs on its interval and whenever its waker is woken.
-func NewLoop(params NewLoopParams) *Loop {
+// newLoop builds a loop that runs on its interval and whenever its waker is woken.
+func newLoop(params newLoopParams) *Loop {
 	waker := params.Waker
 	if waker == nil {
-		waker = NewLoopWaker()
+		waker = newLoopWaker()
 	}
 
 	return &Loop{

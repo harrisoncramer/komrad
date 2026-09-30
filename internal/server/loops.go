@@ -8,27 +8,29 @@ import (
 	"komrad/internal/worktrees"
 )
 
-const ReconcileInterval = 2 * time.Second
+const (
+	reconcileInterval = 2 * time.Second
 
-const ScheduleReconcileInterval = 10 * time.Second
+	scheduleReconcileInterval = 10 * time.Second
 
-const MailDeliveryInterval = 2 * time.Second
+	mailDeliveryInterval = 2 * time.Second
 
-// TranscriptSyncInterval is how often an agent's log is read for new turns, which decides how
-// soon a conversation is searchable.
-const TranscriptSyncInterval = 15 * time.Second
+	// transcriptSyncInterval is how often an agent's log is read for new turns, which decides how
+	// soon a conversation is searchable.
+	transcriptSyncInterval = 15 * time.Second
 
-const CwdSyncInterval = 15 * time.Second
+	cwdSyncInterval = 15 * time.Second
 
-// PullRequestSyncInterval is how often the forges are asked what changed, which costs a request
-// per repository live agents sit on and is what makes a pull request appear without a nudge.
-const PullRequestSyncInterval = time.Minute
+	// pullRequestSyncInterval is how often the forges are asked what changed, which costs a request
+	// per repository live agents sit on and is what makes a pull request appear without a nudge.
+	pullRequestSyncInterval = time.Minute
 
-// CommentSyncInterval is how often the forges are asked whether the review comments on the pull requests agents are linked to moved.
-const CommentSyncInterval = time.Minute
+	// commentSyncInterval is how often the forges are asked whether the review comments on the pull requests agents are linked to moved.
+	commentSyncInterval = time.Minute
 
-// WorktreeSizeInterval is how often a few worktree directories are walked for their size.
-const WorktreeSizeInterval = 30 * time.Second
+	// worktreeSizeInterval is how often a few worktree directories are walked for their size.
+	worktreeSizeInterval = 30 * time.Second
+)
 
 // localLoopFloor is the least time between the starts of two runs of a loop that reads only this
 // machine when the second was woken.
@@ -43,9 +45,9 @@ const cwdSyncFloor = 5 * time.Second
 const pullRequestSyncFloor = 10 * time.Second
 
 const (
-	ScheduleReconcileLoop = "schedule reconcile"
+	scheduleReconcileLoop = "schedule reconcile"
 	ReconcileLoop         = "reconcile"
-	MailDeliveryLoop      = "mail delivery"
+	mailDeliveryLoop      = "mail delivery"
 	TranscriptSyncLoop    = "transcript sync"
 	CwdSyncLoop           = "cwd sync"
 	PullRequestSyncLoop   = "pull request sync"
@@ -54,16 +56,16 @@ const (
 )
 
 type loopWakers struct {
-	cwdSync         *LoopWaker
-	pullRequestSync *LoopWaker
-	transcriptSync  *LoopWaker
+	cwdSync         *loopWaker
+	pullRequestSync *loopWaker
+	transcriptSync  *loopWaker
 }
 
 func newLoopWakers() *loopWakers {
 	return &loopWakers{
-		cwdSync:         NewLoopWaker(),
-		pullRequestSync: NewLoopWaker(),
-		transcriptSync:  NewLoopWaker(),
+		cwdSync:         newLoopWaker(),
+		pullRequestSync: newLoopWaker(),
+		transcriptSync:  newLoopWaker(),
 	}
 }
 
@@ -77,54 +79,54 @@ type buildLoopsParams struct {
 
 func buildLoops(params buildLoopsParams) []*Loop {
 	return []*Loop{
-		NewLoop(NewLoopParams{
-			Name:     ScheduleReconcileLoop,
-			Interval: ScheduleReconcileInterval,
+		newLoop(newLoopParams{
+			Name:     scheduleReconcileLoop,
+			Interval: scheduleReconcileInterval,
 			Floor:    localLoopFloor,
 			Run:      internaljobs.NewScheduler(params.Stores.schedules, params.Periodic).Reconcile,
 		}),
-		NewLoop(NewLoopParams{
+		newLoop(newLoopParams{
 			Name:     ReconcileLoop,
-			Interval: ReconcileInterval,
+			Interval: reconcileInterval,
 			Floor:    localLoopFloor,
 			Run:      params.Services.reconciler.Reconcile,
 		}),
-		NewLoop(NewLoopParams{
-			Name:     MailDeliveryLoop,
-			Interval: MailDeliveryInterval,
+		newLoop(newLoopParams{
+			Name:     mailDeliveryLoop,
+			Interval: mailDeliveryInterval,
 			Floor:    localLoopFloor,
 			Run:      params.Services.delivery.DeliverAll,
 		}),
-		NewLoop(NewLoopParams{
+		newLoop(newLoopParams{
 			Name:     TranscriptSyncLoop,
-			Interval: TranscriptSyncInterval,
+			Interval: transcriptSyncInterval,
 			Floor:    localLoopFloor,
 			Run:      params.Services.transcriptSync.Sync,
 			Waker:    params.Wakers.transcriptSync,
 		}),
-		NewLoop(NewLoopParams{
+		newLoop(newLoopParams{
 			Name:     CwdSyncLoop,
-			Interval: CwdSyncInterval,
+			Interval: cwdSyncInterval,
 			Floor:    cwdSyncFloor,
 			Run:      params.Services.cwdSync.Sync,
 			Waker:    params.Wakers.cwdSync,
 		}),
-		NewLoop(NewLoopParams{
+		newLoop(newLoopParams{
 			Name:     PullRequestSyncLoop,
-			Interval: PullRequestSyncInterval,
+			Interval: pullRequestSyncInterval,
 			Floor:    pullRequestSyncFloor,
 			Run:      params.Services.pullRequestSync.Sync,
 			Waker:    params.Wakers.pullRequestSync,
 		}),
-		NewLoop(NewLoopParams{
+		newLoop(newLoopParams{
 			Name:     CommentSyncLoop,
-			Interval: CommentSyncInterval,
+			Interval: commentSyncInterval,
 			Floor:    pullRequestSyncFloor,
 			Run:      params.Services.commentSync.Sync,
 		}),
-		NewLoop(NewLoopParams{
+		newLoop(newLoopParams{
 			Name:     WorktreeSizeLoop,
-			Interval: WorktreeSizeInterval,
+			Interval: worktreeSizeInterval,
 			Floor:    localLoopFloor,
 			Run: worktrees.NewMeasurer(worktrees.NewMeasurerParams{
 				Lister:    params.Services.worktreeLister,
