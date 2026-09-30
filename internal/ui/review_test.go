@@ -54,6 +54,7 @@ type reviewServer struct {
 	repo       *gittest.Repo
 	workflow   *workflowv1.Workflow
 	agent      *agentv1.Agent
+	children   []*agentv1.Agent
 	threads    []*agentv1.ReviewThread
 	viewed     []*agentv1.ReviewViewedFile
 	rounds     []*agentv1.ReviewRound
@@ -364,6 +365,22 @@ func TestReviewThreads(t *testing.T) {
 
 		sidebar := readSidebarProse(harness.readFrame())
 		assert.Contains(t, sidebar, "you wrong greeting")
+	})
+
+	t.Run("the agent under review and its reviewer are each named in the thread", func(t *testing.T) {
+		server := newReviewServer(t)
+		server.children = []*agentv1.Agent{{Id: "r1", Name: "review-auth", ParentAgentId: xptr.Ptr("a1"), WorkflowId: "w1", Role: agentv1.AgentRole_AGENT_ROLE_REVIEWER}}
+		asked := newAgentMessage("m1", "this drops the error")
+		asked.AuthorAgentId = xptr.Ptr("r1")
+		answered := newAgentMessage("m2", "wrapped it")
+		answered.AuthorAgentId = xptr.Ptr("a1")
+		server.threads = []*agentv1.ReviewThread{newThreadOnFirstLine(asked, answered)}
+
+		harness := openReview(t, server)
+
+		sidebar := readSidebarProse(harness.readFrame())
+		assert.Contains(t, sidebar, "review-auth this drops the error")
+		assert.Contains(t, sidebar, "auth wrapped it")
 	})
 
 	t.Run("the compose key on a line with a thread replies in it", func(t *testing.T) {
@@ -2552,6 +2569,9 @@ func openReviewAt(t *testing.T, server *reviewServer, params panelHarnessParams)
 
 func (s *reviewServer) buildSnapshot() *watchv1.WatchEvent {
 	rows := []proto.Message{s.workflow, s.agent}
+	for _, child := range s.children {
+		rows = append(rows, child)
+	}
 	for _, thread := range s.threads {
 		if thread.GetAgentId() == "" {
 			thread.AgentId = s.agent.GetId()
