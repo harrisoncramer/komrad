@@ -197,6 +197,13 @@
               "default": "[\"esc\"]"
             },
             {
+              "key": "edit",
+              "path": "keybindings.agents.edit",
+              "type": "array",
+              "description": "Open your editor on the hovered agent's worktree, in place of its pane beside the list. The\nagent is paused while the editor is open, and quitting the editor, pressing the key again or\nleaving the agents list closes it and unpauses the agent.",
+              "default": "[\"e\"]"
+            },
+            {
               "key": "pause",
               "path": "keybindings.agents.pause",
               "type": "array",
