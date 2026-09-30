@@ -50,12 +50,9 @@ ON CONFLICT (
         url = excluded.url,
         resolved = excluded.resolved,
         written_at = excluded.written_at
-    WHERE (forge_review_threads.path,
-        forge_review_threads.line,
-        forge_review_threads.url,
-        forge_review_threads.resolved,
-        forge_review_threads.written_at)
-    IS DISTINCT FROM (excluded.path,
+    WHERE (
+        forge_review_threads.path, forge_review_threads.line, forge_review_threads.url, forge_review_threads.resolved, forge_review_threads.written_at) IS DISTINCT FROM (
+        excluded.path,
         excluded.line,
         excluded.url,
         excluded.resolved,
@@ -107,13 +104,9 @@ ON CONFLICT (
         body = excluded.body,
         written_at = excluded.written_at,
         edited_at = excluded.edited_at
-    WHERE (forge_review_comments.author_login,
-        forge_review_comments.author_is_bot,
-        forge_review_comments.yours,
-        forge_review_comments.body,
-        forge_review_comments.written_at,
-        forge_review_comments.edited_at)
-    IS DISTINCT FROM (excluded.author_login,
+    WHERE (
+        forge_review_comments.author_login, forge_review_comments.author_is_bot, forge_review_comments.yours, forge_review_comments.body, forge_review_comments.written_at, forge_review_comments.edited_at) IS DISTINCT FROM (
+        excluded.author_login,
         excluded.author_is_bot,
         excluded.yours,
         excluded.body,
