@@ -83,8 +83,7 @@ func (r *Reconciler) WithFrameRecorder(recorder frameRecorder) *Reconciler {
 	return r
 }
 
-// WithScreenKeeper attaches somewhere to save the screen each agent rests on, nothing being
-// saved while it is unset.
+// WithScreenKeeper attaches somewhere to save the screen each agent rests on.
 func (r *Reconciler) WithScreenKeeper(keeper screenKeeper) *Reconciler {
 	r.screens = keeper
 
