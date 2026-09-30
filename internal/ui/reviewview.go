@@ -37,16 +37,13 @@ func reviewDeadStyle(palette paint.Palette) lipgloss.Style {
 }
 
 // view draws the diff and, beside it, the file tree, with the thread the cursor is standing on
-// in a popup over the diff.
+// in a popup over them.
 func (r reviewScreen) view(s panelShared) string {
 	split, ok := s.draw.screenColumnSplit()
 	if !ok {
-		band := r.bandView(s, s.pane)
-		layout := r.layoutSidebar(s, band)
-		column := strings.TrimRight(band+r.drawSidebar(layout), "\n")
-		cursor := paint.CountLines(band+layout.bar+layout.files+r.placeView()) - 1
+		stage := r.stageColumn(s)
 
-		return r.overlayThread(s, column, cursor, 0)
+		return r.overlayThread(s, stage.area, placePopup(stage.area, stage.anchor))
 	}
 
 	layout := r.layoutSidebar(s)
@@ -57,17 +54,26 @@ func (r reviewScreen) view(s panelShared) string {
 
 	// The band stands over the diff rather than over the whole window, and what it carries acts on
 	// the patch.
-	band := r.bandView(s, split.column)
-	area := r.overlayThread(s, band+r.diffView(s, split), strings.Count(band, "\n")+r.diff.GetCursorRow(split.rows), reviewPopupLeft)
-	diff := s.draw.markZone(zoneList, area, split.column)
+	stage := r.stageDiff(s, split)
+	slot := placePopup(stage.area, stage.anchor)
+	diff := s.draw.markZone(zoneList, stage.area, split.column)
 
-	return s.draw.joinColumns(split, sidebar, diff)
+	left := 0
+	if !s.draw.isSidebarOnRight() {
+		left = split.sidebar + dividerCols
+	}
+
+	return r.overlayThread(s, s.draw.joinColumns(split, sidebar, diff), slot.shift(left))
 }
 
-// overlayThread draws the popup over an area beside the cursor's row, and leaves the area alone
-// where the popup has nothing to hold.
-func (r reviewScreen) overlayThread(s panelShared, area string, cursor, left int) string {
-	return overlayPopup(area, r.popupBody(s, measureReviewPopupInner(s)), cursor, left)
+// overlayThread draws the popup at a slot of an area, and leaves the area alone where the popup
+// has nothing to hold or the frame is drawn to find its blocks.
+func (r reviewScreen) overlayThread(s panelShared, area string, slot popupSlot) string {
+	if s.draw.isMarkingZones() {
+		return area
+	}
+
+	return overlayPopup(area, r.popupBody(s, slot.inner()), slot)
 }
 
 // drawSidebar is the panel's own column: the files the change touches, where the cursor is

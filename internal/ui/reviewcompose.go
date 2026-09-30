@@ -65,7 +65,7 @@ func reviewInputHint(editor, submit []string, said string) string {
 
 // openInput puts a field in the popup, sized to the room inside it.
 func (r *reviewScreen) openInput(s panelShared, params newReviewInputParams) tea.Cmd {
-	params.Width = reviewInputWidth(measureReviewPopupInner(s))
+	params.Width = reviewInputWidth(r.measurePopupInner(s))
 	params.Keys = formKeys()
 
 	input, cmd := newReviewInput(params)
@@ -166,7 +166,7 @@ func (r *reviewScreen) applyMessageEdited(h host, s panelShared, msg messageEdit
 		Title:       reviewInputTitle(r.threads.editing != ""),
 		Description: reviewInputHint(formKeys().Editor, key, said),
 		Body:        strings.TrimRight(msg.body, "\n"),
-		Width:       reviewInputWidth(measureReviewPopupInner(s)),
+		Width:       reviewInputWidth(r.measurePopupInner(s)),
 		Keys:        formKeys(),
 	})
 	r.threads.editor = input

@@ -11,16 +11,44 @@ import (
 )
 
 const (
-	popupWidth  = 92
-	popupHeight = 14
-	popupChrome = 4
+	popupWidth    = 92
+	popupMinWidth = 40
+	popupHeight   = 14
+	popupChrome   = 4
 )
 
-// popupFrame is the box a popup is drawn in over an area, and where it stands.
-type popupFrame struct {
-	box string
-	x   int
-	y   int
+// popupAnchor is what a popup is placed by over an area.
+type popupAnchor struct {
+	// cursor is the row the popup stands beside.
+	cursor int
+	// edge is the column the popup's right edge stands against where it has room.
+	edge int
+	// right is the farthest column the popup reaches, which may lie past the area.
+	right int
+	// code is the column from which the text on the rows the popup covers is kept clear.
+	code int
+	// keepsClear reports whether any text is kept clear.
+	keepsClear bool
+}
+
+// popupSlot is where a popup stands over an area and how big it is.
+type popupSlot struct {
+	x      int
+	y      int
+	width  int
+	height int
+}
+
+// inner is the room inside the popup.
+func (p popupSlot) inner() int {
+	return p.width - popupChrome
+}
+
+// shift moves the slot right by columns.
+func (p popupSlot) shift(columns int) popupSlot {
+	p.x += columns
+
+	return p
 }
 
 // popupScroll is how far a popup is scrolled back from the end of the body it holds, and whose
@@ -57,31 +85,64 @@ func (p popupScroll) cut(owner, body string) string {
 	return cutPopupEnd(body, p.rows)
 }
 
-// measurePopupWidth is the width a popup takes over a column of the width given.
-func measurePopupWidth(column int) int {
-	return max(min(popupWidth, column), popupChrome+1)
+// placePopup stands a popup over the cursor's row of an area, or under it when there is no room
+// above, against the anchor's edge and clear of the text it covers where there is room.
+func placePopup(area string, anchor popupAnchor) popupSlot {
+	lines := strings.Split(area, "\n")
+	height := min(popupHeight, len(lines))
+
+	y := anchor.cursor - height
+	if y < 0 {
+		y = anchor.cursor + 1
+	}
+	if y+height > len(lines) {
+		y = max(len(lines)-height, 0)
+	}
+
+	start := 0
+	if anchor.keepsClear {
+		start = measureTextEnd(lines[y:y+height], anchor.code) + 1
+	}
+
+	width := min(popupWidth, anchor.right-start)
+	x := max(anchor.edge-width, start)
+	if width < popupMinWidth {
+		width = max(min(popupMinWidth, anchor.right), popupChrome+1)
+		x = max(anchor.edge-width, 0)
+	}
+
+	return popupSlot{
+		x:      x,
+		y:      y,
+		width:  width,
+		height: height,
+	}
 }
 
-// measurePopupInner is the room inside a popup over a column of the width given.
-func measurePopupInner(column int) int {
-	return measurePopupWidth(column) - popupChrome
+// measureTextEnd is the column past the last character of text any of the lines holds from the
+// column from, and from itself when none holds any.
+func measureTextEnd(lines []string, from int) int {
+	end := from
+	for _, line := range lines {
+		text := strings.TrimRight(ansi.Strip(ansi.TruncateLeft(line, from, "")), " ")
+		end = max(end, from+ansi.StringWidth(text))
+	}
+
+	return end
 }
 
-// overlayPopup draws a body in a popup beside the cursor's row of an area, from the column left,
-// and leaves the area alone when the body is empty.
-func overlayPopup(area, body string, cursor, left int) string {
+// overlayPopup draws a body in a popup at a slot of an area, and leaves the area alone when the
+// body is empty.
+func overlayPopup(area, body string, slot popupSlot) string {
 	if body == "" {
 		return area
 	}
 
-	rows := paint.CountLines(area)
-	width := lipgloss.Width(area)
-	box := drawPopup(body, measurePopupWidth(width-left), min(popupHeight, rows))
-	frame := placePopup(box, cursor, rows, left)
+	box := drawPopup(body, slot.width, slot.height)
 
-	return compose(width, strings.Count(area, "\n")+1, []*lipgloss.Layer{
+	return compose(lipgloss.Width(area), strings.Count(area, "\n")+1, []*lipgloss.Layer{
 		lipgloss.NewLayer(area),
-		lipgloss.NewLayer(frame.box).X(frame.x).Y(frame.y).Z(1),
+		lipgloss.NewLayer(box).X(slot.x).Y(slot.y).Z(1),
 	})
 }
 
@@ -115,22 +176,6 @@ func drawPopup(body string, width, height int) string {
 		BorderForeground(paint.Panel.Color(paint.ToneMuted)).
 		Padding(0, 1).
 		Render(strings.Join(padded, "\n"))
-}
-
-// placePopup stands a popup under the cursor's row, or over it when there is no room beneath,
-// inside an area of the rows given.
-func placePopup(box string, cursor, rows, left int) popupFrame {
-	height := paint.CountLines(box)
-	y := cursor + 1
-	if y+height > rows {
-		y = max(cursor-height, 0)
-	}
-
-	return popupFrame{
-		box: box,
-		x:   left,
-		y:   y,
-	}
 }
 
 // fitPopupRow cuts or pads a row to the popup's inner width, so the area under it never shows
