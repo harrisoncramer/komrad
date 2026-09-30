@@ -1466,6 +1466,20 @@ func TestReconcileFailedTurn(t *testing.T) {
 			want:   agentstore.StateIdle,
 		},
 		{
+			name:   "a failed turn on an agent a resume wrote idle",
+			state:  agentstore.StateIdle,
+			frame:  harnesstest.FrameIdle,
+			passes: 1,
+			want:   agentstore.StateErrored,
+		},
+		{
+			name:   "a failed turn on an agent that passed through uncertain",
+			state:  agentstore.StateUncertain,
+			frame:  harnesstest.FrameIdle,
+			passes: 1,
+			want:   agentstore.StateErrored,
+		},
+		{
 			name:   "an errored agent given a new turn",
 			state:  agentstore.StateErrored,
 			frame:  harnesstest.FrameWorking,

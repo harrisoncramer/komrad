@@ -248,7 +248,7 @@ func isTurnFailureStanding(agent agentstore.Agent) bool {
 		return false
 	}
 
-	return agent.State == agentstore.StateErrored || !agent.TurnFailedAt.Before(agent.StateChangedAt)
+	return !agent.State.IsTurnUnfinished() || !agent.TurnFailedAt.Before(agent.StateChangedAt)
 }
 
 // settle moves an agent to where a frame that has stopped moving lands, taking either the
