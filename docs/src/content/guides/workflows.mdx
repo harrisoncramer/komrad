@@ -21,7 +21,7 @@ You can have multiple workflows per directory, such as a bugfix workflow, and a 
 
 Each workflow also has one orchestrator agent, responssible for managing every implementer agent within it.
 
-Reviewers can run a different CLI from the rest of the workflow. Set the reviewer agent and reviewer flags on the workflow, say Codex reviewing work Claude wrote, and every reviewer spawned there takes them. Left blank, reviewers run the same CLI and flags as everything else.
+Reviewers can run a different CLI from the rest of the workflow. Set the reviewer agent and reviewer flags on the workflow, say Codex reviewing work Claude wrote, and every reviewer spawned there takes them. With both left blank, reviewers run the same CLI and flags as everything else. A reviewer agent set without reviewer flags launches with no workflow flags, since those were written for the other CLI.
 
 ## Creating your first Workflow
 

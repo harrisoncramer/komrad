@@ -1568,7 +1568,7 @@ func TestWorkflowFlagsFollowItsHarness(t *testing.T) {
 	}
 }
 
-// TestReviewerTakesTheWorkflowsReviewerLaunch pins a reviewer launching on the CLI and flags its workflow names for reviewers.
+// TestReviewerTakesTheWorkflowsReviewerLaunch pins that blank reviewer flags fall back to the workflow's only on the workflow's own CLI.
 func TestReviewerTakesTheWorkflowsReviewerLaunch(t *testing.T) {
 	tests := []struct {
 		name            string
