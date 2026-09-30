@@ -87,45 +87,62 @@ func TestDocumentsRenameField(t *testing.T) {
 
 		assert.Contains(t, readHoveredRow(harness.readFrame()), "Rollout report")
 	})
+
+	t.Run("the field opens while an agent's write is being read again", func(t *testing.T) {
+		t.Parallel()
+
+		harness, docs := openDocuments(t)
+		harness.hold(agentv1connect.AgentServiceGetDocumentProcedure)
+		rewriteAsTheAgent(harness, docs)
+
+		harness.press(slices.Concat([]string{"r"}, spellKeys(" now"))...)
+
+		assert.Contains(t, readHoveredRow(harness.readFrame()), "Design the cache now▏")
+	})
+
+	t.Run("a document not read yet says so instead of opening the field", func(t *testing.T) {
+		t.Parallel()
+
+		harness, docs := openDocuments(t)
+		harness.hold(agentv1connect.AgentServiceGetDocumentProcedure)
+		docs.add(&agentv1.Document{Id: "d3", Name: "Notes", Type: "notes", Version: 1, UpdatedAt: "2026-09-20T12:00:00Z"})
+		author := buildDocumentAuthors()[2].(*agentv1.Agent)
+		author.DocumentsUpdatedAt = xptr.Ptr("2026-09-26T12:00:00Z")
+		harness.watch(buildPuts(author))
+
+		harness.press("G", "r", "x")
+
+		assert.NotContains(t, readHoveredRow(harness.readFrame()), "▏")
+		assert.Contains(t, readOpenMessages(harness), `"Notes" has not been read yet`)
+	})
+
+	t.Run("a document the agent rewrote while its name was typed is renamed at that write", func(t *testing.T) {
+		t.Parallel()
+
+		harness, docs := openDocuments(t)
+		harness.answer(agentv1connect.AgentServiceWriteDocumentProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+			return connect.NewResponse(&agentv1.WriteDocumentResponse{}), nil
+		})
+		harness.press(slices.Concat([]string{"r"}, spellKeys(" now"))...)
+
+		rewriteAsTheAgent(harness, docs)
+		harness.press("enter")
+
+		harness.assertSentTo(agentv1connect.AgentServiceWriteDocumentProcedure, &agentv1.WriteDocumentRequest{
+			Id:      xptr.Ptr("d1"),
+			Version: xptr.Ptr[int32](4),
+			Name:    "Design the cache now",
+			Type:    "RFC",
+			Source:  &agentv1.WriteDocumentRequest_Body{Body: "The cache is cold now."},
+		})
+	})
 }
 
-// TestDocumentsRenameAfterAWrite covers a document the agent rewrote while its name was being typed.
-func TestDocumentsRenameAfterAWrite(t *testing.T) {
-	t.Parallel()
-
-	harness, docs := openDocuments(t)
-	harness.answer(agentv1connect.AgentServiceWriteDocumentProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
-		return connect.NewResponse(&agentv1.WriteDocumentResponse{}), nil
-	})
-	harness.press(slices.Concat([]string{"r"}, spellKeys(" now"))...)
-
+// rewriteAsTheAgent is the author rewriting the first document and the watch saying so.
+func rewriteAsTheAgent(harness *panelHarness, docs *documentShelf) {
 	docs.rewrite("d1", "The cache is cold now.", "2026-09-26T12:00:00Z")
 	author := buildDocumentAuthors()[2].(*agentv1.Agent)
 	author.DocumentsUpdatedAt = xptr.Ptr("2026-09-26T12:00:00Z")
 	harness.watch(buildPuts(author))
-	harness.press("enter")
-
-	harness.assertSentTo(agentv1connect.AgentServiceWriteDocumentProcedure, &agentv1.WriteDocumentRequest{
-		Id:      xptr.Ptr("d1"),
-		Version: xptr.Ptr[int32](4),
-		Name:    "Design the cache now",
-		Type:    "RFC",
-		Source:  &agentv1.WriteDocumentRequest_Body{Body: "The cache is cold now."},
-	})
 }
 
-// TestDocumentsRenameWhileRereading covers the field opening while an agent's write is being read.
-func TestDocumentsRenameWhileRereading(t *testing.T) {
-	t.Parallel()
-
-	harness, docs := openDocuments(t)
-	harness.hold(agentv1connect.AgentServiceGetDocumentProcedure)
-	docs.rewrite("d1", "The cache is cold now.", "2026-09-26T12:00:00Z")
-	author := buildDocumentAuthors()[2].(*agentv1.Agent)
-	author.DocumentsUpdatedAt = xptr.Ptr("2026-09-26T12:00:00Z")
-	harness.watch(buildPuts(author))
-
-	harness.press(slices.Concat([]string{"r"}, spellKeys(" now"))...)
-
-	assert.Contains(t, readHoveredRow(harness.readFrame()), "Design the cache now▏")
-}
