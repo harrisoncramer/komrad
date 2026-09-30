@@ -31,71 +31,20 @@ import (
 
 	agentstore "komrad/internal/store/agent"
 	mailstore "komrad/internal/store/mail"
-	markstore "komrad/internal/store/mark"
 	pullrequeststore "komrad/internal/store/pullrequest"
 	reviewstore "komrad/internal/store/review"
 	rowstore "komrad/internal/store/row"
 	workflowstore "komrad/internal/store/workflow"
 
 	"connectrpc.com/connect"
-	"github.com/google/go-cmp/cmp"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/testing/protocmp"
-	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 const missingID = "00000000-0000-0000-0000-000000000000"
 
 const komradRepository = "https://github.com/harrisoncramer/komrad"
-
-type markCall struct {
-	mark   string
-	target markstore.Target
-}
-
-// fakeMarkReadWriter answers from its fields and records each letter set and cleared.
-type fakeMarkReadWriter struct {
-	marks   []markstore.Mark
-	unlive  bool
-	err     error
-	set     []markCall
-	cleared []markstore.Target
-}
-
-// SetMark records the letter and answers whether the row was live unless err refuses it.
-func (f *fakeMarkReadWriter) SetMark(_ context.Context, mark string, target markstore.Target) (bool, error) {
-	f.set = append(f.set, markCall{
-		mark:   mark,
-		target: target,
-	})
-
-	if f.err != nil {
-		return false, f.err
-	}
-
-	return !f.unlive, nil
-}
-
-// ClearMark records the target and answers err.
-func (f *fakeMarkReadWriter) ClearMark(_ context.Context, target markstore.Target) (bool, error) {
-	f.cleared = append(f.cleared, target)
-	if f.err != nil {
-		return false, f.err
-	}
-
-	return true, nil
-}
-
-// ListMarks answers marks unless err refuses it.
-func (f *fakeMarkReadWriter) ListMarks(context.Context) ([]markstore.Mark, error) {
-	if f.err != nil {
-		return nil, f.err
-	}
-
-	return f.marks, nil
-}
 
 // fakeRowReader answers from the rows and surroundings a test seeds and records each page asked for.
 type fakeRowReader struct {
@@ -1018,13 +967,6 @@ func TestGetAgent(t *testing.T) {
 			},
 		},
 		surroundings: agents.Surroundings{
-			Marks: []markstore.Mark{
-				{
-					ID:      "m1",
-					Mark:    "a",
-					AgentID: xptr.Ptr(alphaID),
-				},
-			},
 			Mail: []mailstore.Mail{
 				{
 					ID:        "mail-1",
@@ -1061,8 +1003,7 @@ func TestGetAgent(t *testing.T) {
 	got, err := newRowHandler(rows).GetAgent(t.Context(), connect.NewRequest(&agentv1.GetAgentRequest{Id: alphaID}))
 	require.NoError(t, err)
 
-	assert.Equal(t, "a", got.Msg.GetMark(), "the agent is drawn beside its surroundings")
-	assert.True(t, got.Msg.GetUnreadMail())
+	assert.True(t, got.Msg.GetUnreadMail(), "the agent is drawn beside its surroundings")
 	require.Len(t, got.Msg.GetPullRequests(), 1)
 	assert.Equal(t, int32(740), got.Msg.GetPullRequests()[0].GetNumber(), "with every pull request on its branch")
 	assert.Equal(t, int32(740), got.Msg.GetPullRequest().GetNumber(), "and the current one's standing")
@@ -1109,159 +1050,6 @@ func TestGetAgentResponseMirrorsAgentRow(t *testing.T) {
 			assert.Equal(t, want.Enum().FullName(), got.Enum().FullName(), "%q is of a different enum", want.Name())
 		}
 	}
-}
-
-// TestMarkRefusalsMapToCodes pins the code each refusal of the marks reaches the caller as.
-func TestMarkRefusalsMapToCodes(t *testing.T) {
-	setMark := func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
-		_, err := svc.SetMark(ctx, connect.NewRequest(&agentv1.SetMarkRequest{
-			Target: &agentv1.SetMarkRequest_AgentId{AgentId: alphaID},
-			Letter: xptr.Ptr("a"),
-		}))
-
-		return err
-	}
-	clearMark := func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
-		_, err := svc.SetMark(ctx, connect.NewRequest(&agentv1.SetMarkRequest{
-			Target: &agentv1.SetMarkRequest_AgentId{AgentId: alphaID},
-		}))
-
-		return err
-	}
-	listMarks := func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
-		_, err := svc.ListMarks(ctx, connect.NewRequest(&emptypb.Empty{}))
-
-		return err
-	}
-
-	tests := []struct {
-		name     string
-		call     func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error
-		marks    fakeMarkReadWriter
-		wantCode connect.Code
-	}{
-		{
-			name:     "a letter for a row that is not live",
-			call:     setMark,
-			marks:    fakeMarkReadWriter{unlive: true},
-			wantCode: connect.CodeNotFound,
-		},
-		{
-			name:     "a letter the store cannot write",
-			call:     setMark,
-			marks:    fakeMarkReadWriter{err: errors.New("connection refused")},
-			wantCode: connect.CodeInternal,
-		},
-		{
-			name:     "a clear the store cannot write",
-			call:     clearMark,
-			marks:    fakeMarkReadWriter{err: errors.New("connection refused")},
-			wantCode: connect.CodeInternal,
-		},
-		{
-			name:     "a listing the store cannot read",
-			call:     listMarks,
-			marks:    fakeMarkReadWriter{err: errors.New("connection refused")},
-			wantCode: connect.CodeInternal,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := tt.call(t.Context(), newMarkHandler(&tt.marks))
-
-			assert.Equal(t, tt.wantCode, connect.CodeOf(err))
-		})
-	}
-}
-
-// TestMarkRequestsReachTheService pins which row each mark request names.
-func TestMarkRequestsReachTheService(t *testing.T) {
-	tests := []struct {
-		name        string
-		req         *agentv1.SetMarkRequest
-		wantSet     []markCall
-		wantCleared []markstore.Target
-	}{
-		{
-			name: "a letter for an agent",
-			req: &agentv1.SetMarkRequest{
-				Target: &agentv1.SetMarkRequest_AgentId{AgentId: alphaID},
-				Letter: xptr.Ptr("a"),
-			},
-			wantSet: []markCall{
-				{
-					mark:   "a",
-					target: markstore.OnAgent(alphaID),
-				},
-			},
-		},
-		{
-			name: "a letter for a workflow",
-			req: &agentv1.SetMarkRequest{
-				Target: &agentv1.SetMarkRequest_WorkflowId{WorkflowId: "wf-1"},
-				Letter: xptr.Ptr("b"),
-			},
-			wantSet: []markCall{
-				{
-					mark:   "b",
-					target: markstore.OnWorkflow("wf-1"),
-				},
-			},
-		},
-		{
-			name: "no letter clears the one the row carries",
-			req: &agentv1.SetMarkRequest{
-				Target: &agentv1.SetMarkRequest_AgentId{AgentId: alphaID},
-			},
-			wantCleared: []markstore.Target{markstore.OnAgent(alphaID)},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			marks := &fakeMarkReadWriter{}
-
-			_, err := newMarkHandler(marks).SetMark(t.Context(), connect.NewRequest(tt.req))
-			require.NoError(t, err)
-
-			assert.Equal(t, tt.wantSet, marks.set)
-			assert.Equal(t, tt.wantCleared, marks.cleared)
-		})
-	}
-}
-
-// TestListMarks pins that each mark names the one row it jumps to.
-func TestListMarks(t *testing.T) {
-	marks := &fakeMarkReadWriter{marks: []markstore.Mark{
-		{
-			ID:      "m1",
-			Mark:    "a",
-			AgentID: xptr.Ptr(alphaID),
-		},
-		{
-			ID:         "m2",
-			Mark:       "b",
-			WorkflowID: xptr.Ptr("wf-1"),
-		},
-	}}
-
-	listed, err := newMarkHandler(marks).ListMarks(t.Context(), connect.NewRequest(&emptypb.Empty{}))
-	require.NoError(t, err)
-
-	want := &agentv1.ListMarksResponse{Marks: []*agentv1.Mark{
-		{
-			Id:      "m1",
-			Letter:  "a",
-			AgentId: xptr.Ptr(alphaID),
-		},
-		{
-			Id:         "m2",
-			Letter:     "b",
-			WorkflowId: xptr.Ptr("wf-1"),
-		},
-	}}
-	assert.Empty(t, cmp.Diff(want, listed.Msg, protocmp.Transform()))
 }
 
 // TestLog covers the channel a running script uses to say what it did, and the refusal of an
@@ -1559,11 +1347,6 @@ func restoreAlpha(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) er
 	return err
 }
 
-// newMarkHandler is the handler over a fake of the marks alone.
-func newMarkHandler(marks *fakeMarkReadWriter) agentv1komrad.AgentServiceAdapter {
-	return agentv1komrad.AgentServiceAdapter{Impl: NewHandler(NewHandlerParams{Marks: marks})}
-}
-
 // newRowHandler is the handler over a fake of the rows, reading every agent as dormant.
 func newRowHandler(rows *fakeRowReader) agentv1komrad.AgentServiceAdapter {
 	return agentv1komrad.AgentServiceAdapter{Impl: NewHandler(NewHandlerParams{
@@ -1585,7 +1368,6 @@ func newRecordedService(t *testing.T) (agentv1komrad.AgentServiceAdapter, *recor
 		Writer:       services,
 		Transcripts:  &fakeTranscriptReader{},
 		Mail:         &fakeMailer{},
-		Marks:        &fakeMarkReadWriter{},
 		Creator:      services,
 		Adopter:      services,
 		Liveness:     services,
@@ -1772,80 +1554,6 @@ func TestRequestValidation(t *testing.T) {
 				}
 
 				_, err := c.RestoreAgents(t.Context(), connect.NewRequest(&agentv1.RestoreAgentsRequest{Ids: ids}))
-
-				return err
-			},
-		},
-		{
-			name: "a mark of more than one letter is refused, since it is drawn into one cell",
-			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
-				_, err := c.SetMark(t.Context(), connect.NewRequest(&agentv1.SetMarkRequest{
-					Target: &agentv1.SetMarkRequest_AgentId{AgentId: uuid.NewString()},
-					Letter: xptr.Ptr("ab"),
-				}))
-
-				return err
-			},
-			wantErr: true,
-		},
-		{
-			name: "an empty mark is refused, since clearing a mark is leaving it out",
-			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
-				_, err := c.SetMark(t.Context(), connect.NewRequest(&agentv1.SetMarkRequest{
-					Target: &agentv1.SetMarkRequest_AgentId{AgentId: uuid.NewString()},
-					Letter: xptr.Ptr(""),
-				}))
-
-				return err
-			},
-			wantErr: true,
-		},
-		{
-			name: "an uppercase mark is refused, since a mark is one lowercase letter",
-			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
-				_, err := c.SetMark(t.Context(), connect.NewRequest(&agentv1.SetMarkRequest{
-					Target: &agentv1.SetMarkRequest_AgentId{AgentId: uuid.NewString()},
-					Letter: xptr.Ptr("A"),
-				}))
-
-				return err
-			},
-			wantErr: true,
-		},
-		{
-			name: "a mark that is not a letter at all is refused",
-			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
-				_, err := c.SetMark(t.Context(), connect.NewRequest(&agentv1.SetMarkRequest{
-					Target: &agentv1.SetMarkRequest_AgentId{AgentId: uuid.NewString()},
-					Letter: xptr.Ptr("◐"),
-				}))
-
-				return err
-			},
-			wantErr: true,
-		},
-		{
-			name: "a mark with no agent to put it on is refused",
-			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
-				_, err := c.SetMark(t.Context(), connect.NewRequest(&agentv1.SetMarkRequest{
-					Letter: xptr.Ptr("a"),
-				}))
-
-				return err
-			},
-			wantErr: true,
-		},
-		{
-			name: "a letter is not what the constraint stops",
-			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
-				_, err := c.SetMark(t.Context(), connect.NewRequest(&agentv1.SetMarkRequest{
-					Target: &agentv1.SetMarkRequest_AgentId{AgentId: uuid.NewString()},
-					Letter: xptr.Ptr("a"),
-				}))
-
-				if connect.CodeOf(err) == connect.CodeNotFound {
-					return nil
-				}
 
 				return err
 			},

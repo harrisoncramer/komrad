@@ -51,8 +51,6 @@ message Row {
     workflow.v1.Workflow workflow = 2;
     // A schedule as ListSchedules renders it.
     schedule.v1.Schedule schedule = 3;
-    // A mark as ListMarks renders it.
-    agent.v1.Mark mark = 4;
     // A piece of mail as ListMail renders it.
     agent.v1.Mail mail = 5;
     // A pull request as ListPullRequests renders it.
@@ -78,8 +76,6 @@ enum Resource {
   RESOURCE_WORKFLOW = 2;
   // A row of schedules.
   RESOURCE_SCHEDULE = 3;
-  // A row of marks.
-  RESOURCE_MARK = 4;
   // A row of mail.
   RESOURCE_MAIL = 5;
   // A row of pull_requests.

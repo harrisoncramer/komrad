@@ -467,7 +467,6 @@ func TestSearchLiveRow(t *testing.T) {
 	rows := []proto.Message{
 		newLiveWorkflow("w1", "core"),
 		live,
-		newMark("a", "a1"),
 		newUnreadMail("a1"),
 	}
 	harness := openSearch(t, openSearchParams{
@@ -578,7 +577,7 @@ func TestSearchUnknownRow(t *testing.T) {
 			})
 
 			assert.Equal(t, "billing", strings.TrimPrefix(findRow(readListRows(harness.readFrame()), "billing"), "  "))
-			assert.Contains(t, readSidebar(harness.readFrame()), "›   │ billing")
+			assert.Contains(t, readSidebar(harness.readFrame()), "› │ billing")
 		})
 	}
 }

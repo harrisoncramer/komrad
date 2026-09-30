@@ -18,7 +18,6 @@ import (
 	"komrad/internal/harness/pane"
 	"komrad/internal/jobs"
 	"komrad/internal/mail"
-	"komrad/internal/marks"
 	"komrad/internal/pullrequests"
 	"komrad/internal/reviews"
 	"komrad/internal/schedules"
@@ -50,7 +49,6 @@ type services struct {
 	workflow         *agents.WorkflowService
 	delivery         *mail.DeliveryService
 	reconciler       *agents.Reconciler
-	marks            *marks.MarkService
 	documents        *documents.DocumentService
 	holder           *agents.Holder
 	rebase           *checkouts.RebaseService
@@ -225,8 +223,6 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 		Usage:        params.Usage,
 	})
 
-	markService := marks.NewMarkService(marks.NewMarkServiceParams{Marks: st.marks, Tx: st.pool})
-
 	builders := params.ForgeBuilders
 	if builders == nil {
 		builders = forges.Builders
@@ -296,7 +292,6 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 		rowReader: agents.NewRowReader(agents.NewRowReaderParams{
 			Agents:       st.agents,
 			Rows:         st.rows,
-			Marks:        st.marks,
 			Mail:         st.mail,
 			PullRequests: st.pullRequests,
 			Repositories: st.pullRequestSyncs,
@@ -310,7 +305,6 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 			CwdSync:        wakers.cwdSync,
 			TranscriptSync: wakers.transcriptSync,
 		}),
-		marks:           markService,
 		documents:       documents.NewDocumentService(documents.NewDocumentServiceParams{Agents: st.agents, Documents: st.documents, Events: queue}),
 		rebase:          rebaseService,
 		cwdSync:         cwdSyncer,

@@ -348,7 +348,6 @@ func (a *agentsScreen) snapshot(s panelShared, pane listPane) view.Snapshot {
 
 	return agentsSnapshot(snapshotParams{
 		rows:          rows,
-		marks:         s.listing.marks,
 		selected:      a.selected,
 		scheduled:     s.listing.scheduledWorkflows(),
 		focused:       rowKeyAt(rows, a.cursor),

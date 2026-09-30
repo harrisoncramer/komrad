@@ -131,9 +131,9 @@ func currentStanding(p pullRequest) *agentv1.PullRequestStanding {
 	}
 }
 
-// TestAgentRows covers every rule the row is drawn by: the mark whose agent it is, mail that
-// is unclaimed and not yet expired, the pull requests on its branch unless that is the base
-// branch, the current one first, and the standing when there is none.
+// TestAgentRows covers every rule the row is drawn by: mail that is unclaimed and not yet
+// expired, the pull requests on its branch unless that is the base branch, the current one
+// first, and the standing when there is none.
 func TestAgentRows(t *testing.T) {
 	t.Parallel()
 
@@ -201,36 +201,6 @@ func TestAgentRows(t *testing.T) {
 			world: assemble.World{Agents: map[string]*agentv1.Agent{newer: agent(newer)}, Repositories: readRepositories(fork)},
 			want: []*agentv1.AgentRow{
 				{Agent: agent(newer), PullRequest: standing(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_UNREAD)},
-			},
-		},
-		{
-			name: "the mark on the agent is drawn, and a workflow's is not",
-			world: assemble.World{
-				Agents: map[string]*agentv1.Agent{newer: agent(newer)},
-				Marks: map[string]*agentv1.Mark{
-					"mark-a": {
-						Id:      "mark-a",
-						Letter:  "a",
-						AgentId: xptr.Ptr(newer),
-					},
-					"mark-w": {
-						Id:         "mark-w",
-						Letter:     "w",
-						WorkflowId: xptr.Ptr(flowID),
-					},
-					"mark-o": {
-						Id:      "mark-o",
-						Letter:  "o",
-						AgentId: xptr.Ptr(older),
-					},
-				},
-			},
-			want: []*agentv1.AgentRow{
-				{
-					Agent:       agent(newer),
-					Mark:        xptr.Ptr("a"),
-					PullRequest: standing(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_UNREAD),
-				},
 			},
 		},
 		{
@@ -446,28 +416,6 @@ func TestAgentRows(t *testing.T) {
 	}
 }
 
-// TestMarks is the letter by the id of the agent or workflow it is on, and a mark on neither
-// is nowhere.
-func TestMarks(t *testing.T) {
-	t.Parallel()
-
-	world := assemble.World{Marks: map[string]*agentv1.Mark{
-		"mark-a": {
-			Id:      "mark-a",
-			Letter:  "a",
-			AgentId: xptr.Ptr(newer),
-		},
-		"mark-w": {
-			Id:         "mark-w",
-			Letter:     "w",
-			WorkflowId: xptr.Ptr(flowID),
-		},
-		"mark-x": {Id: "mark-x", Letter: "x"},
-	}}
-
-	assert.Equal(t, map[string]string{newer: "a", flowID: "w"}, assemble.Marks(world))
-}
-
 func put(row *watchv1.Row) *watchv1.WatchEvent {
 	return &watchv1.WatchEvent{Event: &watchv1.WatchEvent_Changes{Changes: &watchv1.Changes{Puts: []*watchv1.Row{row}}}}
 }
@@ -488,24 +436,17 @@ func TestApplyOrdering(t *testing.T) {
 
 	var world assemble.World
 
-	world.Apply(put(&watchv1.Row{Row: &watchv1.Row_Mark{Mark: &agentv1.Mark{
-		Id:      "mark-a",
-		Letter:  "a",
-		AgentId: xptr.Ptr(newer),
-	}}}))
 	world.Apply(put(&watchv1.Row{Row: &watchv1.Row_Mail{Mail: mail("m1", newer, time.Minute)}}))
-	assert.Empty(t, assemble.AgentRows(world, now), "a mark and a mail whose agent is not held draw nothing")
+	assert.Empty(t, assemble.AgentRows(world, now), "a mail whose agent is not held draws nothing")
 
 	world.Apply(put(agentRow(agent(newer))))
 	rows := assemble.AgentRows(world, now)
 	require.Len(t, rows, 1)
-	assert.Equal(t, xptr.Ptr("a"), rows[0].Mark)
 	assert.True(t, rows[0].UnreadMail)
 
 	world.Apply(deleted(watchv1.Resource_RESOURCE_AGENT, newer))
 	assert.Empty(t, assemble.AgentRows(world, now), "the tombstone drops the row and everything drawn on it")
-	assert.Len(t, world.Marks, 1, "the children stay held for their own tombstones")
-	assert.Len(t, world.Mail, 1)
+	assert.Len(t, world.Mail, 1, "the children stay held for their own tombstones")
 }
 
 // TestApplyRepository pins that an agent reads as unread until its repository is held as read.
@@ -562,14 +503,14 @@ func TestApplyReportsChanged(t *testing.T) {
 			msg: &watchv1.WatchEvent{Event: &watchv1.WatchEvent_Snapshot{Snapshot: &watchv1.Snapshot{
 				Rows: []*watchv1.Row{
 					agentRow(agent(older)),
-					{Row: &watchv1.Row_Mark{Mark: &agentv1.Mark{Id: "mark-a", Letter: "a"}}},
+					{Row: &watchv1.Row_Mail{Mail: mail("m1", older, time.Minute)}},
 				},
 			}}},
 			want: assemble.Changed{
 				Replaced: true,
 				Keys: map[watchv1.Resource][]string{
 					watchv1.Resource_RESOURCE_AGENT: {older},
-					watchv1.Resource_RESOURCE_MARK:  {"mark-a"},
+					watchv1.Resource_RESOURCE_MAIL:  {"m1"},
 				},
 			},
 		},
@@ -592,14 +533,14 @@ func TestApplySnapshotReplacesTheWorld(t *testing.T) {
 
 	var world assemble.World
 	world.Apply(put(agentRow(agent(newer))))
-	world.Apply(put(&watchv1.Row{Row: &watchv1.Row_Mark{Mark: &agentv1.Mark{Id: "mark-a", Letter: "a"}}}))
+	world.Apply(put(&watchv1.Row{Row: &watchv1.Row_Mail{Mail: mail("m1", newer, time.Minute)}}))
 
 	world.Apply(&watchv1.WatchEvent{Event: &watchv1.WatchEvent_Snapshot{Snapshot: &watchv1.Snapshot{
 		Rows: []*watchv1.Row{agentRow(agent(older))},
 	}}})
 
 	assert.Equal(t, map[string]*agentv1.Agent{older: agent(older)}, world.Agents)
-	assert.Empty(t, world.Marks)
+	assert.Empty(t, world.Mail)
 }
 
 // TestChangedMerge is how a batch's changes fold together, a snapshot discarding what came

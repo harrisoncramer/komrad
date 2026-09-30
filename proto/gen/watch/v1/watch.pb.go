@@ -40,8 +40,6 @@ const (
 	Resource_RESOURCE_WORKFLOW Resource = 2
 	// A row of schedules.
 	Resource_RESOURCE_SCHEDULE Resource = 3
-	// A row of marks.
-	Resource_RESOURCE_MARK Resource = 4
 	// A row of mail.
 	Resource_RESOURCE_MAIL Resource = 5
 	// A row of pull_requests.
@@ -63,7 +61,6 @@ var (
 		1:  "RESOURCE_AGENT",
 		2:  "RESOURCE_WORKFLOW",
 		3:  "RESOURCE_SCHEDULE",
-		4:  "RESOURCE_MARK",
 		5:  "RESOURCE_MAIL",
 		6:  "RESOURCE_PULL_REQUEST",
 		7:  "RESOURCE_REPOSITORY",
@@ -76,7 +73,6 @@ var (
 		"RESOURCE_AGENT":         1,
 		"RESOURCE_WORKFLOW":      2,
 		"RESOURCE_SCHEDULE":      3,
-		"RESOURCE_MARK":          4,
 		"RESOURCE_MAIL":          5,
 		"RESOURCE_PULL_REQUEST":  6,
 		"RESOURCE_REPOSITORY":    7,
@@ -328,7 +324,6 @@ type Row struct {
 	//	*Row_Agent
 	//	*Row_Workflow
 	//	*Row_Schedule
-	//	*Row_Mark
 	//	*Row_Mail
 	//	*Row_PullRequest
 	//	*Row_Repository
@@ -399,15 +394,6 @@ func (x *Row) GetSchedule() *v12.Schedule {
 	if x != nil {
 		if x, ok := x.Row.(*Row_Schedule); ok {
 			return x.Schedule
-		}
-	}
-	return nil
-}
-
-func (x *Row) GetMark() *v1.Mark {
-	if x != nil {
-		if x, ok := x.Row.(*Row_Mark); ok {
-			return x.Mark
 		}
 	}
 	return nil
@@ -486,11 +472,6 @@ type Row_Schedule struct {
 	Schedule *v12.Schedule `protobuf:"bytes,3,opt,name=schedule,proto3,oneof"`
 }
 
-type Row_Mark struct {
-	// A mark as ListMarks renders it.
-	Mark *v1.Mark `protobuf:"bytes,4,opt,name=mark,proto3,oneof"`
-}
-
 type Row_Mail struct {
 	// A piece of mail as ListMail renders it.
 	Mail *v1.Mail `protobuf:"bytes,5,opt,name=mail,proto3,oneof"`
@@ -526,8 +507,6 @@ func (*Row_Agent) isRow_Row() {}
 func (*Row_Workflow) isRow_Row() {}
 
 func (*Row_Schedule) isRow_Row() {}
-
-func (*Row_Mark) isRow_Row() {}
 
 func (*Row_Mail) isRow_Row() {}
 
@@ -612,12 +591,11 @@ const file_watch_v1_watch_proto_rawDesc = "" +
 	"\x04rows\x18\x01 \x03(\v2\r.watch.v1.RowR\x04rows\"Y\n" +
 	"\aChanges\x12!\n" +
 	"\x04puts\x18\x01 \x03(\v2\r.watch.v1.RowR\x04puts\x12+\n" +
-	"\adeleted\x18\x02 \x03(\v2\x11.watch.v1.DeletedR\adeleted\"\x99\x04\n" +
+	"\adeleted\x18\x02 \x03(\v2\x11.watch.v1.DeletedR\adeleted\"\xf3\x03\n" +
 	"\x03Row\x12'\n" +
 	"\x05agent\x18\x01 \x01(\v2\x0f.agent.v1.AgentH\x00R\x05agent\x123\n" +
 	"\bworkflow\x18\x02 \x01(\v2\x15.workflow.v1.WorkflowH\x00R\bworkflow\x123\n" +
 	"\bschedule\x18\x03 \x01(\v2\x15.schedule.v1.ScheduleH\x00R\bschedule\x12$\n" +
-	"\x04mark\x18\x04 \x01(\v2\x0e.agent.v1.MarkH\x00R\x04mark\x12$\n" +
 	"\x04mail\x18\x05 \x01(\v2\x0e.agent.v1.MailH\x00R\x04mail\x12@\n" +
 	"\fpull_request\x18\x06 \x01(\v2\x1b.pullrequest.v1.PullRequestH\x00R\vpullRequest\x12<\n" +
 	"\n" +
@@ -630,13 +608,12 @@ const file_watch_v1_watch_proto_rawDesc = "" +
 	"\x03row\"K\n" +
 	"\aDeleted\x12.\n" +
 	"\bresource\x18\x01 \x01(\x0e2\x12.watch.v1.ResourceR\bresource\x12\x10\n" +
-	"\x03key\x18\x02 \x01(\tR\x03key*\x88\x02\n" +
+	"\x03key\x18\x02 \x01(\tR\x03key*\xf5\x01\n" +
 	"\bResource\x12\x18\n" +
 	"\x14RESOURCE_UNSPECIFIED\x10\x00\x12\x12\n" +
 	"\x0eRESOURCE_AGENT\x10\x01\x12\x15\n" +
 	"\x11RESOURCE_WORKFLOW\x10\x02\x12\x15\n" +
 	"\x11RESOURCE_SCHEDULE\x10\x03\x12\x11\n" +
-	"\rRESOURCE_MARK\x10\x04\x12\x11\n" +
 	"\rRESOURCE_MAIL\x10\x05\x12\x19\n" +
 	"\x15RESOURCE_PULL_REQUEST\x10\x06\x12\x17\n" +
 	"\x13RESOURCE_REPOSITORY\x10\a\x12\x13\n" +
@@ -672,13 +649,12 @@ var file_watch_v1_watch_proto_goTypes = []any{
 	(*v1.Agent)(nil),            // 7: agent.v1.Agent
 	(*v11.Workflow)(nil),        // 8: workflow.v1.Workflow
 	(*v12.Schedule)(nil),        // 9: schedule.v1.Schedule
-	(*v1.Mark)(nil),             // 10: agent.v1.Mark
-	(*v1.Mail)(nil),             // 11: agent.v1.Mail
-	(*v13.PullRequest)(nil),     // 12: pullrequest.v1.PullRequest
-	(*v13.Repository)(nil),      // 13: pullrequest.v1.Repository
-	(*v1.WatchedReview)(nil),    // 14: agent.v1.WatchedReview
-	(*v1.ReviewThread)(nil),     // 15: agent.v1.ReviewThread
-	(*v14.WatchedWorktree)(nil), // 16: worktree.v1.WatchedWorktree
+	(*v1.Mail)(nil),             // 10: agent.v1.Mail
+	(*v13.PullRequest)(nil),     // 11: pullrequest.v1.PullRequest
+	(*v13.Repository)(nil),      // 12: pullrequest.v1.Repository
+	(*v1.WatchedReview)(nil),    // 13: agent.v1.WatchedReview
+	(*v1.ReviewThread)(nil),     // 14: agent.v1.ReviewThread
+	(*v14.WatchedWorktree)(nil), // 15: worktree.v1.WatchedWorktree
 }
 var file_watch_v1_watch_proto_depIdxs = []int32{
 	2,  // 0: watch.v1.WatchEvent.snapshot:type_name -> watch.v1.Snapshot
@@ -690,21 +666,20 @@ var file_watch_v1_watch_proto_depIdxs = []int32{
 	7,  // 6: watch.v1.Row.agent:type_name -> agent.v1.Agent
 	8,  // 7: watch.v1.Row.workflow:type_name -> workflow.v1.Workflow
 	9,  // 8: watch.v1.Row.schedule:type_name -> schedule.v1.Schedule
-	10, // 9: watch.v1.Row.mark:type_name -> agent.v1.Mark
-	11, // 10: watch.v1.Row.mail:type_name -> agent.v1.Mail
-	12, // 11: watch.v1.Row.pull_request:type_name -> pullrequest.v1.PullRequest
-	13, // 12: watch.v1.Row.repository:type_name -> pullrequest.v1.Repository
-	14, // 13: watch.v1.Row.review:type_name -> agent.v1.WatchedReview
-	15, // 14: watch.v1.Row.review_thread:type_name -> agent.v1.ReviewThread
-	16, // 15: watch.v1.Row.worktree:type_name -> worktree.v1.WatchedWorktree
-	0,  // 16: watch.v1.Deleted.resource:type_name -> watch.v1.Resource
-	6,  // 17: watch.v1.WatchService.Watch:input_type -> google.protobuf.Empty
-	1,  // 18: watch.v1.WatchService.Watch:output_type -> watch.v1.WatchEvent
-	18, // [18:19] is the sub-list for method output_type
-	17, // [17:18] is the sub-list for method input_type
-	17, // [17:17] is the sub-list for extension type_name
-	17, // [17:17] is the sub-list for extension extendee
-	0,  // [0:17] is the sub-list for field type_name
+	10, // 9: watch.v1.Row.mail:type_name -> agent.v1.Mail
+	11, // 10: watch.v1.Row.pull_request:type_name -> pullrequest.v1.PullRequest
+	12, // 11: watch.v1.Row.repository:type_name -> pullrequest.v1.Repository
+	13, // 12: watch.v1.Row.review:type_name -> agent.v1.WatchedReview
+	14, // 13: watch.v1.Row.review_thread:type_name -> agent.v1.ReviewThread
+	15, // 14: watch.v1.Row.worktree:type_name -> worktree.v1.WatchedWorktree
+	0,  // 15: watch.v1.Deleted.resource:type_name -> watch.v1.Resource
+	6,  // 16: watch.v1.WatchService.Watch:input_type -> google.protobuf.Empty
+	1,  // 17: watch.v1.WatchService.Watch:output_type -> watch.v1.WatchEvent
+	17, // [17:18] is the sub-list for method output_type
+	16, // [16:17] is the sub-list for method input_type
+	16, // [16:16] is the sub-list for extension type_name
+	16, // [16:16] is the sub-list for extension extendee
+	0,  // [0:16] is the sub-list for field type_name
 }
 
 func init() { file_watch_v1_watch_proto_init() }
@@ -721,7 +696,6 @@ func file_watch_v1_watch_proto_init() {
 		(*Row_Agent)(nil),
 		(*Row_Workflow)(nil),
 		(*Row_Schedule)(nil),
-		(*Row_Mark)(nil),
 		(*Row_Mail)(nil),
 		(*Row_PullRequest)(nil),
 		(*Row_Repository)(nil),

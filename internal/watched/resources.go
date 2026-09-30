@@ -5,7 +5,6 @@ import (
 	"komrad/internal/watch"
 
 	mailstore "komrad/internal/store/mail"
-	markstore "komrad/internal/store/mark"
 	pullrequeststore "komrad/internal/store/pullrequest"
 	reviewstore "komrad/internal/store/review"
 	rowstore "komrad/internal/store/row"
@@ -20,7 +19,6 @@ func All() []watch.Resource {
 		rowstore.WatchedAgents,
 		workflowstore.WatchedWorkflows,
 		schedulestore.WatchedSchedules,
-		markstore.WatchedMarks,
 		mailstore.WatchedMail,
 		pullrequeststore.WatchedPullRequests,
 		pullrequeststore.WatchedRepositories,

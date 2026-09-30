@@ -125,8 +125,6 @@ type Row struct {
 	Kind RowKind
 	Lead string
 	Name string
-	// Mark is the letter a person typed onto this row, empty when none is on it.
-	Mark string
 	// Matches are the stretches of the name a search picked out.
 	Matches []Span
 	Status  Status

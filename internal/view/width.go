@@ -11,8 +11,8 @@ const plainColumns = glyph.Columns
 // spaceColumns is the space a cell carries after its glyph.
 const spaceColumns = 1
 
-// plainCells is the focus, the mark and the bar, which no width gives up.
-const plainCells = 3
+// plainCells is the focus and the bar, which no width gives up.
+const plainCells = 2
 
 // GutterColumns is how wide everything left of a name is.
 func GutterColumns(columns Columns) int {

@@ -464,14 +464,6 @@ WITH prior AS (
         AND agents.archived_at IS NULL
     FOR UPDATE
 ),
-freed AS (
-    DELETE FROM marks
-    WHERE marks.agent_id IN (
-            SELECT
-                prior.id
-            FROM
-                prior)
-),
 batch AS (
     SELECT
         gen_random_uuid() AS id)
@@ -858,14 +850,6 @@ WITH prior AS (
         id = ANY (@ids::uuid[])
         AND archived_at IS NULL
     FOR UPDATE
-),
-freed AS (
-    DELETE FROM marks
-    WHERE marks.agent_id IN (
-            SELECT
-                prior.id
-            FROM
-                prior)
 ),
 batch AS (
     SELECT

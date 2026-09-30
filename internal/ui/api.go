@@ -208,33 +208,6 @@ func (a api) release(agent panel.Agent, said string) error {
 	})
 }
 
-func (a api) setMark(target markTargetRef, mark string) error {
-	return a.writeMark(markRequest(target, &mark))
-}
-
-func (a api) clearMark(target markTargetRef) error {
-	return a.writeMark(markRequest(target, nil))
-}
-
-func (a api) writeMark(req *agentv1.SetMarkRequest) error {
-	return mutate(func(ctx context.Context) (any, error) {
-		return a.agents.SetMark(ctx, connect.NewRequest(req))
-	})
-}
-
-func markRequest(target markTargetRef, mark *string) *agentv1.SetMarkRequest {
-	req := &agentv1.SetMarkRequest{Letter: mark}
-	if target.workflowID != "" {
-		req.Target = &agentv1.SetMarkRequest_WorkflowId{WorkflowId: target.workflowID}
-
-		return req
-	}
-
-	req.Target = &agentv1.SetMarkRequest_AgentId{AgentId: target.agentID}
-
-	return req
-}
-
 func (a api) restoreAgents(ids []string) error {
 	return mutateAwaitingHooks(func(ctx context.Context) (any, error) {
 		resp, err := a.agents.RestoreAgents(ctx, connect.NewRequest(&agentv1.RestoreAgentsRequest{Ids: ids}))

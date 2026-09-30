@@ -151,8 +151,6 @@ type Keybindings struct {
 	Logs LogsKeys `mapstructure:"logs"`
 	// The pair of keys that move between the sidebar, the staged agent and the details.
 	Cycle CycleKeys `mapstructure:"cycle"`
-	// The marks a person puts on rows to jump between them, as vim's own marks work.
-	Marks MarksKeys `mapstructure:"marks"`
 	// The messages komrad pushed, read in the main pane.
 	Messages MessagesKeys `mapstructure:"messages"`
 	// Navigation, shared by every menu so movement is the same everywhere.
@@ -338,18 +336,6 @@ type AgentsKeys struct {
 	Retry []string `mapstructure:"retry" default:"R"`
 	// Toggles visibility of hidden agents alongside the rest.
 	ShowHidden []string `mapstructure:"show_hidden" default:"H"`
-}
-
-// MarksKeys are the bindings for the marks a person puts on rows, which work the way vim's own
-// do: one lowercase letter, held by at most one row whether that is an agent or a workflow, set
-// by the key and then the letter, and lost when the row is archived.
-type MarksKeys struct {
-	// Set a mark on the row under the cursor, agent or workflow, then the letter to set, or
-	// the letter it already holds to take the mark off it.
-	Set []string `mapstructure:"set" default:"m"`
-	// Jump the cursor to a marked row, then the letter to jump to, or the jump key again to
-	// go back to where the last jump left from.
-	Jump []string `mapstructure:"jump" default:"'"`
 }
 
 // GitKeys are the bindings for the git menu, which opens from the menu on the hovered agent and

@@ -549,14 +549,7 @@ WITH prior AS (
         workflows.id = $1
         AND workflows.archived_at IS NULL
     FOR UPDATE
-),
-freed AS (
-    DELETE FROM marks
-    WHERE marks.workflow_id IN (
-            SELECT
-                prior.id
-            FROM
-                prior))
+)
 UPDATE
     workflows w
 SET

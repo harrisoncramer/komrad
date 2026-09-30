@@ -1,15 +1,15 @@
-  [90ma[m     [90m│[m [1madmin[m [90m+2[m
-    [90m[m [90m[m [97m┃[m   eng-6994-unable-to-crea…
-        [90m│[m   [90m└[m [3meng-6994-reviewer[m
-    [90m[m   [97m┃[m   research-identity-assets
-  [90mo[m     [90m│[m [1mops[m
-    [90m[m [90m[m [90m│[m   rds-backup-hardening
-[34m›[m   [90m[m   [93m┃[m   [34mstrip-demo[m [90m[m
-  [90mw[m     [90m│[m [1mkomrad[m [90m+3[m [90m[m
-    [90m[m   [93m┃[m   frozen-review-bug
-    [90m[m [92m[m [93m┃[m   pr-metadata-fixes [90m[m [90m[m
-    [93m[m   [90m│[m   iss-582 [90m[m
-    [91m[m   [91m┃[m   gone-worktree [91m[m
-    [90m[m [91m[m [90m│[m   iss-641-reviewer [90m[m
-    [90m[m [35m[m [90m│[m   [90mshipped-yesterday[m
-        [90m│[m [1mkomrad-bughunt-job[m [90m+5[m [90m[m
+      [90m│[m [1madmin[m [90m+2[m
+  [90m[m [90m[m [97m┃[m   eng-6994-unable-to-create…
+      [90m│[m   [90m└[m [3meng-6994-reviewer[m
+  [90m[m   [97m┃[m   research-identity-assets
+      [90m│[m [1mops[m
+  [90m[m [90m[m [90m│[m   rds-backup-hardening
+[34m›[m [90m[m   [93m┃[m   [34mstrip-demo[m [90m[m
+      [90m│[m [1mkomrad[m [90m+3[m [90m[m
+  [90m[m   [93m┃[m   frozen-review-bug
+  [90m[m [92m[m [93m┃[m   pr-metadata-fixes [90m[m [90m[m
+  [93m[m   [90m│[m   iss-582 [90m[m
+  [91m[m   [91m┃[m   gone-worktree [91m[m
+  [90m[m [91m[m [90m│[m   iss-641-reviewer [90m[m
+  [90m[m [35m[m [90m│[m   [90mshipped-yesterday[m
+      [90m│[m [1mkomrad-bughunt-job[m [90m+5[m [90m[m

@@ -10,7 +10,6 @@ import (
 
 	agentstore "komrad/internal/store/agent"
 	mailstore "komrad/internal/store/mail"
-	markstore "komrad/internal/store/mark"
 	pullrequeststore "komrad/internal/store/pullrequest"
 	rowstore "komrad/internal/store/row"
 	schedulestore "komrad/internal/store/schedule"
@@ -49,12 +48,6 @@ func TestEveryWatchedRendererKeysAndWrapsItsRow(t *testing.T) {
 			name: "schedule",
 			render: func() (string, *watchv1.Row) {
 				return renderWatchedSchedule(schedulestore.Schedule{ID: "k"})
-			},
-		},
-		{
-			name: "mark",
-			render: func() (string, *watchv1.Row) {
-				return renderWatchedMark(markstore.Mark{ID: "k"})
 			},
 		},
 		{

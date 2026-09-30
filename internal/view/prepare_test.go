@@ -482,33 +482,6 @@ func TestPrepareWeight(t *testing.T) {
 	}
 }
 
-// TestPrepareMarkKeepsItsOwnColumn pins that a letter in the gutter is a cell of its own rather
-// than something that moves the name.
-func TestPrepareMarkKeepsItsOwnColumn(t *testing.T) {
-	tests := []struct {
-		name string
-		row  Row
-		want Cell
-	}{
-		{
-			name: "an unmarked row draws nothing in the gutter",
-			row:  Row{},
-			want: Cell{},
-		},
-		{
-			name: "a marked row carries the letter and the mark tone",
-			row:  Row{Mark: "a"},
-			want: Cell{Text: "a", Tone: paint.ToneMuted},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, prepareOne(t, tt.row).Mark)
-		})
-	}
-}
-
 // TestPrepareEmphasis pins how brightly a name is drawn.
 func TestPrepareEmphasis(t *testing.T) {
 	tests := []struct {
@@ -574,7 +547,6 @@ func TestPrepareDimRowKeepsEveryCell(t *testing.T) {
 		lit, greyed := prepareOne(t, row), prepareOne(t, dimmed)
 		require.Equal(t, EmphasisDim, greyed.Emphasis)
 
-		assert.Equal(t, lit.Mark, greyed.Mark)
 		assert.Equal(t, lit.Columns, greyed.Columns)
 		assert.Equal(t, lit.Held, greyed.Held)
 		assert.Equal(t, lit.Hidden, greyed.Hidden)
@@ -722,13 +694,13 @@ func TestPrepareClipsName(t *testing.T) {
 		{
 			name: "a name past the column ends in an ellipsis",
 			rows: []Row{{Name: "eng-6994-unable-to-create"}},
-			pane: 27,
+			pane: 25,
 			want: []string{"eng-6994-unabl…"},
 		},
 		{
 			name: "a name inside the column is left alone",
 			rows: []Row{{Name: "iss-582"}},
-			pane: 27,
+			pane: 25,
 			want: []string{"iss-582"},
 		},
 		{
@@ -745,7 +717,7 @@ func TestPrepareClipsName(t *testing.T) {
 					ReviewerComments: &Comments{Resolved: 2},
 				},
 			},
-			pane:         27,
+			pane:         25,
 			want:         []string{"eng-6994-unabl…", "eng-6994…"},
 			wantComments: []int{0, 1},
 		},
@@ -755,7 +727,7 @@ func TestPrepareClipsName(t *testing.T) {
 				Name:             "eng-6994-unable-to-create",
 				ReviewerComments: &Comments{Resolved: 2},
 			}},
-			pane:         18,
+			pane:         16,
 			want:         []string{"eng-6…"},
 			wantComments: []int{0},
 		},
@@ -781,12 +753,10 @@ func TestPrepareClipsName(t *testing.T) {
 func TestPrepareCarriesRowFacts(t *testing.T) {
 	line := prepareOne(t, Row{
 		Name:     "strip-demo",
-		Mark:     "a",
 		Selected: true,
 	})
 
 	assert.Equal(t, "strip-demo", line.Name)
-	assert.Equal(t, "a", line.Mark.Text)
 	assert.True(t, line.Selected)
 }
 
@@ -882,19 +852,19 @@ func TestPrepareClipsMatchesWithTheName(t *testing.T) {
 		{
 			name:    "a match wholly past the cut is dropped",
 			matches: []Span{{Start: 10, End: 14}},
-			pane:    19,
+			pane:    17,
 			want:    nil,
 		},
 		{
 			name:    "a match the cut runs through is shortened to what is left",
 			matches: []Span{{Start: 3, End: 14}},
-			pane:    19,
+			pane:    17,
 			want:    []Span{{Start: 3, End: 6}},
 		},
 		{
 			name:    "a match before the cut is left alone",
 			matches: []Span{{Start: 0, End: 4}},
-			pane:    19,
+			pane:    17,
 			want:    []Span{{Start: 0, End: 4}},
 		},
 		{
@@ -966,19 +936,19 @@ func TestPrepareGivesTheTallyUpBeforeTheMarks(t *testing.T) {
 	}{
 		{
 			name:      "a pane with nothing left for a name gives the tally up and spends what it frees",
-			pane:      15,
+			pane:      13,
 			wantName:  "an…",
 			wantTally: 0,
 		},
 		{
 			name:      "the default sidebar has room for both",
-			pane:      28,
+			pane:      26,
 			wantName:  "an agent wi…",
 			wantTally: 12,
 		},
 		{
 			name:      "a wide sidebar cuts nothing at all",
-			pane:      60,
+			pane:      58,
 			wantName:  "an agent with a very long name indeed",
 			wantTally: 12,
 		},
@@ -1018,32 +988,32 @@ func TestPrepareShedsMarksOnlyWhereTheMarksAloneWillNotFit(t *testing.T) {
 	}{
 		{
 			name: "a pane with room for one mark keeps the failed run alone",
-			pane: 15,
+			pane: 13,
 			want: []glyph.Glyph{glyph.FailedScript},
 		},
 		{
 			name: "a pane two wider keeps the mail as well",
-			pane: 17,
+			pane: 15,
 			want: []glyph.Glyph{glyph.Mail, glyph.FailedScript},
 		},
 		{
 			name: "a pane one wider keeps the pause too",
-			pane: 18,
+			pane: 16,
 			want: []glyph.Glyph{glyph.Paused, glyph.Mail, glyph.FailedScript},
 		},
 		{
 			name: "the next keeps the hiding, which goes before the pause",
-			pane: 20,
+			pane: 18,
 			want: []glyph.Glyph{glyph.Paused, glyph.Hidden, glyph.Mail, glyph.FailedScript},
 		},
 		{
 			name: "the next keeps the documents, which go before the hiding",
-			pane: 22,
+			pane: 20,
 			want: []glyph.Glyph{glyph.Paused, glyph.Hidden, glyph.Document, glyph.Mail, glyph.FailedScript},
 		},
 		{
 			name: "wider still keeps every mark, the schedule last",
-			pane: 24,
+			pane: 22,
 			want: []glyph.Glyph{glyph.Paused, glyph.Hidden, glyph.Document, glyph.Mail, glyph.FailedScript, glyph.Schedule},
 		},
 	}
@@ -1181,7 +1151,7 @@ func TestUndeclaredColumnsBuyTheNameTheirRoom(t *testing.T) {
 
 // drawnResultNameColumn is the column a result list opens its name at, counted off the drawing
 // by hand rather than from the package's own arithmetic.
-const drawnResultNameColumn = 6
+const drawnResultNameColumn = 4
 
 // resultRows are the rows a list of search hits is made of.
 func resultRows() []Row {

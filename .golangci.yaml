@@ -166,7 +166,6 @@ linters:
             - "**/internal/agents/**"
             - "**/internal/checkouts/**"
             - "**/internal/mail/**"
-            - "**/internal/marks/**"
             - "**/internal/pullrequests/**"
             - "**/internal/reviews/**"
             - "**/internal/schedules/**"

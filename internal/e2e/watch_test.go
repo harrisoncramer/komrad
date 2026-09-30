@@ -21,7 +21,6 @@ import (
 
 	agentstore "komrad/internal/store/agent"
 	mailstore "komrad/internal/store/mail"
-	markstore "komrad/internal/store/mark"
 	pullrequeststore "komrad/internal/store/pullrequest"
 	reviewstore "komrad/internal/store/review"
 	rowstore "komrad/internal/store/row"
@@ -38,7 +37,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/testing/protocmp"
-	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 const (
@@ -77,12 +75,6 @@ func TestIntegrationTheWatchAndTheStoresAgree(t *testing.T) {
 	_, err := st.Agents.Archive(ctx, []string{gone.ID})
 	require.NoError(t, err)
 
-	// A mark on an agent and one on a workflow.
-	_, err = st.Marks.Set(ctx, "a", markstore.OnAgent(api.ID))
-	require.NoError(t, err)
-	_, err = st.Marks.Set(ctx, "d", markstore.OnWorkflow(docs.ID))
-	require.NoError(t, err)
-
 	// Mail waiting for one agent, and mail another has already claimed.
 	_, err = st.Mail.Send(ctx, mailstore.SendParams{
 		FromName:  "panel",
@@ -119,14 +111,12 @@ func TestIntegrationTheWatchAndTheStoresAgree(t *testing.T) {
 
 	// The stores draw the fixture, so agreement below is over rows that hold something.
 	seeded := viewOf(worldFromStores(t, st), time.Now())
-	require.Equal(t, "a", seeded.agents[api.ID].GetMark())
 	require.True(t, seeded.agents[api.ID].GetUnreadMail())
 	require.Len(t, seeded.agents[api.ID].GetPullRequests(), 2)
 	require.Equal(t, int32(2), seeded.agents[api.ID].GetPullRequest().GetNumber(), "the open pull request is current")
 	require.Empty(t, seeded.agents[base.ID].GetPullRequests(), "a pull request on the base branch is nobody's")
 	require.False(t, seeded.agents[quiet.ID].GetUnreadMail())
 	require.Equal(t, pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE, seeded.agents[quiet.ID].GetPullRequest().GetState())
-	require.Equal(t, "d", seeded.marks[docs.ID])
 	require.NotEmpty(t, seeded.agents[gone.ID].GetAgent().GetArchivedAt(), "the archived agent is watched as archived")
 	require.Len(t, seeded.schedules, 1)
 
@@ -142,20 +132,6 @@ func TestIntegrationTheWatchAndTheStoresAgree(t *testing.T) {
 		write func(t *testing.T)
 		took  func(t *testing.T, stores view)
 	}{
-		{
-			name: "a mark moves from an agent to a workflow",
-			write: func(t *testing.T) {
-				_, err := instance.Agents.SetMark(ctx, connect.NewRequest(&agentv1.SetMarkRequest{
-					Target: &agentv1.SetMarkRequest_WorkflowId{WorkflowId: pipeline.ID},
-					Letter: xptr.Ptr("a"),
-				}))
-				require.NoError(t, err)
-			},
-			took: func(t *testing.T, stores view) {
-				assert.Nil(t, stores.agents[api.ID].Mark)
-				assert.Equal(t, "a", stores.marks[pipeline.ID])
-			},
-		},
 		{
 			name: "a mail is claimed",
 			write: func(t *testing.T) {
@@ -241,11 +217,10 @@ func TestIntegrationTheWatchAndTheStoresAgree(t *testing.T) {
 	}
 }
 
-// view is what every reader of the resources is compared on: the agent rows by id, the letter
-// on each row, and the workflows and schedules by id.
+// view is what every reader of the resources is compared on: the agent rows, workflows and
+// schedules by id.
 type view struct {
 	agents    map[string]*agentv1.AgentRow
-	marks     map[string]string
 	workflows map[string]*workflowv1.Workflow
 	schedules map[string]*schedulev1.Schedule
 }
@@ -254,7 +229,6 @@ type view struct {
 func viewOf(w assemble.World, now time.Time) view {
 	return view{
 		agents:    xslice.KeyBy(assemble.AgentRows(w, now), func(row *agentv1.AgentRow) string { return row.GetAgent().GetId() }),
-		marks:     assemble.Marks(w),
 		workflows: w.Workflows,
 		schedules: w.Schedules,
 	}
@@ -273,9 +247,6 @@ func viewFromRPCs(t *testing.T, instance *komradtest.Instance) view {
 	require.NoError(t, err)
 	require.Empty(t, archived.Msg.GetNextPageToken(), "the archive fits one page")
 
-	marks, err := instance.Agents.ListMarks(ctx, connect.NewRequest(&emptypb.Empty{}))
-	require.NoError(t, err)
-
 	workflows, err := instance.Workflows.ListWorkflows(ctx, connect.NewRequest(&workflowv1.ListWorkflowsRequest{View: viewv1.View_VIEW_FULL}))
 	require.NoError(t, err)
 
@@ -284,7 +255,6 @@ func viewFromRPCs(t *testing.T, instance *komradtest.Instance) view {
 
 	return view{
 		agents:    xslice.KeyBy(slices.Concat(agents.Msg.GetAgents(), archived.Msg.GetAgents()), func(row *agentv1.AgentRow) string { return row.GetAgent().GetId() }),
-		marks:     assemble.Marks(assemble.World{Marks: xslice.KeyBy(marks.Msg.GetMarks(), func(m *agentv1.Mark) string { return m.GetLetter() })}),
 		workflows: xslice.KeyBy(workflows.Msg.GetWorkflows(), func(w *workflowv1.Workflow) string { return w.GetId() }),
 		schedules: xslice.KeyBy(schedules.Msg.GetSchedules(), func(s *schedulev1.Schedule) string { return s.GetId() }),
 	}
@@ -297,7 +267,6 @@ func viewFromGets(t *testing.T, instance *komradtest.Instance, listed view) view
 
 	got := view{
 		agents:    map[string]*agentv1.AgentRow{},
-		marks:     listed.marks,
 		workflows: listed.workflows,
 		schedules: listed.schedules,
 	}
@@ -306,7 +275,6 @@ func viewFromGets(t *testing.T, instance *komradtest.Instance, listed view) view
 		require.NoError(t, err)
 		got.agents[id] = &agentv1.AgentRow{
 			Agent:             one.Msg.GetAgent(),
-			Mark:              one.Msg.Mark,
 			UnreadMail:        one.Msg.GetUnreadMail(),
 			PullRequest:       one.Msg.GetPullRequest(),
 			PullRequests:      one.Msg.GetPullRequests(),
@@ -320,7 +288,7 @@ func viewFromGets(t *testing.T, instance *komradtest.Instance, listed view) view
 }
 
 // worldFromStores reads the watched set the way the agent handler reads a page: the live and
-// archived rows, every mark, the unclaimed mail, the pull requests an agent was seen with,
+// archived rows, the unclaimed mail, the pull requests an agent was seen with,
 // the repositories they sit on, the reviews of their work and their workflows, with the live
 // schedules beside them.
 func worldFromStores(t *testing.T, st *storetest.Stores) assemble.World {
@@ -333,9 +301,6 @@ func worldFromStores(t *testing.T, st *storetest.Stores) assemble.World {
 	require.NoError(t, err)
 	rows := slices.Concat(live, archived)
 	agentIDs := xslice.Map(rows, func(row rowstore.Row) string { return row.ID })
-
-	marks, err := st.Marks.ListWatched(ctx, nil)
-	require.NoError(t, err)
 
 	mail, err := st.Mail.ListWatched(ctx, nil)
 	require.NoError(t, err)
@@ -370,8 +335,7 @@ func worldFromStores(t *testing.T, st *storetest.Stores) assemble.World {
 		Schedules: xslice.KeyBy(xslice.Map(schedules, func(s schedulestore.Schedule) *schedulev1.Schedule {
 			return render.Schedule(s, now, render.ScheduleOptions{})
 		}), func(s *schedulev1.Schedule) string { return s.GetId() }),
-		Marks: xslice.KeyBy(xslice.Map(marks, render.Mark), func(m *agentv1.Mark) string { return m.GetLetter() }),
-		Mail:  xslice.KeyBy(xslice.Map(mail, render.Mail), func(m *agentv1.Mail) string { return m.GetId() }),
+		Mail: xslice.KeyBy(xslice.Map(mail, render.Mail), func(m *agentv1.Mail) string { return m.GetId() }),
 		PullRequests: xslice.KeyBy(xslice.Map(pullRequests, render.PullRequest), func(p *pullrequestv1.PullRequest) string {
 			return p.GetId()
 		}),
@@ -432,11 +396,6 @@ func differences(aName string, a view, bName string, b view) []string {
 	for _, id := range keysOf(a.agents, b.agents) {
 		if diff := cmp.Diff(a.agents[id], b.agents[id], protocmp.Transform()); diff != "" {
 			report("agent", nameOf(a.agents[id], b.agents[id]), diff)
-		}
-	}
-	for _, id := range keysOf(a.marks, b.marks) {
-		if a.marks[id] != b.marks[id] {
-			report("mark on", id, fmt.Sprintf("%q vs %q", a.marks[id], b.marks[id]))
 		}
 	}
 	for _, id := range keysOf(a.workflows, b.workflows) {

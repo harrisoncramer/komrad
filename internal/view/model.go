@@ -43,7 +43,6 @@ type Line struct {
 	// Focused says the keyboard is standing on this row, which the caret in Focus is drawn from.
 	Focused bool
 	Focus   Cell
-	Mark    Cell
 	// Columns are the cells of the list's own columns, one per column in the order they are drawn.
 	Columns []Cell
 	Status  Cell

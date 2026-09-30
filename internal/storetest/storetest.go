@@ -12,7 +12,6 @@ import (
 	agentstore "komrad/internal/store/agent"
 	documentstore "komrad/internal/store/document"
 	mailstore "komrad/internal/store/mail"
-	markstore "komrad/internal/store/mark"
 	pullrequeststore "komrad/internal/store/pullrequest"
 	rowstore "komrad/internal/store/row"
 	runstore "komrad/internal/store/run"
@@ -36,7 +35,6 @@ type Stores struct {
 	Mail             *mailstore.MailStore
 	Documents        *documentstore.DocumentStore
 	Runs             *runstore.RunStore
-	Marks            *markstore.MarkStore
 	PullRequests     *pullrequeststore.PullRequestStore
 	PullRequestSyncs *pullrequeststore.PullRequestSyncStore
 }
@@ -64,7 +62,6 @@ func Open(t *testing.T) *Stores {
 		Mail:             mailstore.NewMailStore(pool.GetDB()),
 		Documents:        documentstore.NewDocumentStore(pool.GetDB()),
 		Runs:             runstore.NewRunStore(pool.GetDB()),
-		Marks:            markstore.NewMarkStore(pool.GetDB()),
 		PullRequests:     pullrequeststore.NewPullRequestStore(pool.GetDB()),
 		PullRequestSyncs: pullrequeststore.NewPullRequestSyncStore(pool.GetDB()),
 	}

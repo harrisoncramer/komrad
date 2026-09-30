@@ -535,17 +535,6 @@ type Mail struct {
 	SubjectID *string
 }
 
-// A letter a person types to jump to one row. Each letter belongs to a single agent or a single workflow, so it always names one place.
-type Mark struct {
-	Mark       string
-	AgentID    *string
-	WorkflowID *string
-	CreatedAt  time.Time
-	ID         string
-	// The engine that owns this row, stamped from the login that wrote it.
-	EngineID string
-}
-
 // A pull request komrad has read from a forge, one row per forge identity and none owned by an agent. Finished is derived: merged when merged_at is set, closed when closed_at is set and merged_at is not, open otherwise.
 type PullRequest struct {
 	ID string

@@ -34,7 +34,7 @@ func TestTheMigratedTriggerFunctionsAreTheDeclaredOnes(t *testing.T) {
 func TestBuildTriggersWritesKeysIgnoredColumnsAndFeeders(t *testing.T) {
 	resources := []Resource{
 		{
-			Table:     "marks",
+			Table:     "schedules",
 			KeyColumn: "id",
 		},
 		{
@@ -62,7 +62,7 @@ func TestBuildTriggersWritesKeysIgnoredColumnsAndFeeders(t *testing.T) {
 	assert.Equal(t, []Trigger{
 		{
 			Name:     "watch_notify",
-			Table:    "marks",
+			Table:    "schedules",
 			Function: "watch_notify",
 			Args:     []string{"id"},
 		},

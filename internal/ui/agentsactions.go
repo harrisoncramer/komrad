@@ -62,18 +62,6 @@ func (a *agentsScreen) modeActions() []screenAction {
 				return openAgentSubpages(h, s, screenAgents, item)
 			},
 		},
-		screenAction{
-			id:   actionMarkJump,
-			keys: func(k config.Keybindings) []string { return k.Marks.Jump },
-			when: list.isBrowsing,
-			run:  func(host, panelShared, string) tea.Cmd { return a.beginMark(markPendingJump) },
-		},
-		screenAction{
-			id:   actionMarkSet,
-			keys: func(k config.Keybindings) []string { return k.Marks.Set },
-			when: list.isBrowsing,
-			run:  func(host, panelShared, string) tea.Cmd { return a.beginMark(markPendingSet) },
-		},
 	)
 }
 
@@ -292,16 +280,6 @@ func (a *agentsScreen) browsingLegend() []screenLegendRow {
 			of:   []actionID{actionAgentReleaseSilently},
 			desc: func(panelShared) string { return "unpause in silence" },
 			show: a.isHeldAgent,
-		},
-		{
-			of:   []actionID{actionMarkSet},
-			desc: func(panelShared) string { return "set mark" },
-			show: a.isBrowsing,
-		},
-		{
-			of:   []actionID{actionMarkJump},
-			desc: func(panelShared) string { return "jump to mark" },
-			show: a.isBrowsing,
 		},
 		{
 			of:   []actionID{actionAgentHide, actionAgentShowHidden},

@@ -51,8 +51,6 @@ const (
 	actionSelectToggle
 	actionSelectRange
 	actionSelectClear
-	actionMarkSet
-	actionMarkJump
 	actionScheduleNew
 	actionScheduleEdit
 	actionScheduleToggle
