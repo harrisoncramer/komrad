@@ -509,8 +509,7 @@ func (cs *CwdSyncer) probeTree(ctx context.Context, head git.HeadState) (string,
 	return cs.trees.ProbeTree(ctx, head.Root)
 }
 
-// measure records on the look the lines the checkout adds and removes since it left its base,
-// nil where the clone holds no base or the branch shares no history with it.
+// measure records on the look the lines the checkout adds and removes since it left its base.
 func (cs *CwdSyncer) measure(ctx context.Context, look *cwdLook, config workflowstore.WorktreeConfig) {
 	ctx, cancel := context.WithTimeout(ctx, cwdLookTimeout)
 	defer cancel()
