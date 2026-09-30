@@ -133,7 +133,7 @@ func TestFilterSearch(t *testing.T) {
 	t.Run("a selection survives a search", func(t *testing.T) {
 		harness := openFilterable(t, "  auth")
 
-		harness.press("v", "j", "v", "/", "d", "b", "enter", "z")
+		harness.press("v", "j", "v", "/", "d", "b", "enter", "space", "a")
 
 		assert.Contains(t, harness.readFrame(), "Archive 2 agents")
 	})

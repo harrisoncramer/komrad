@@ -376,7 +376,7 @@ func TestMessagesRefusedWrites(t *testing.T) {
 			agent:       newDormant("api-refactor"),
 			refused:     agentv1connect.AgentServiceArchiveAgentsProcedure,
 			reason:      "already archived",
-			press:       []string{"j", "z", "ctrl+s"},
+			press:       []string{"j", "space", "a", "ctrl+s"},
 			wantSummary: `Could not archive agent "api-refactor"`,
 		},
 		{
@@ -407,7 +407,7 @@ func TestMessagesRefusedWrites(t *testing.T) {
 		harness := openAgents(t, newLiveWorkflow("w1", "backend"), newDormant("api-refactor"))
 		harness.refuse(agentv1connect.AgentServiceResumeAgentProcedure, connect.NewError(connect.CodeNotFound, errors.New("no such agent")))
 
-		harness.press("j", "enter", "z", "ctrl+s", "ctrl+g")
+		harness.press("j", "enter", "space", "a", "ctrl+s", "ctrl+g")
 
 		assert.Equal(t, "1 of 1", readPaneTally(harness.readFrame()), "the archive that landed pushed nothing onto the stack")
 	})

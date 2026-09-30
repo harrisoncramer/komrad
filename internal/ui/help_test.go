@@ -26,13 +26,13 @@ func TestHelp(t *testing.T) {
 		legend := readLegend(collapsed)
 		assert.Contains(t, legend, "open", "it keeps what the row does first")
 		assert.Contains(t, legend, "show help")
-		assert.NotContains(t, legend, "archive", "and drops what the row also does")
+		assert.NotContains(t, legend, "rename", "and drops what the row also does")
 
 		harness.press("?")
 
 		expanded := harness.readFrame()
 		legend = readLegend(expanded)
-		assert.Contains(t, legend, "archive", "the expanded legend names every binding")
+		assert.Contains(t, legend, "rename", "the expanded legend names every binding")
 		assert.Contains(t, legend, "hide help")
 		assert.Less(t, findRule(expanded), findRule(collapsed), "the rows the legend takes are the list's")
 

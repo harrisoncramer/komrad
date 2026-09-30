@@ -55,7 +55,7 @@ func TestSelection(t *testing.T) {
 		harness := openAgents(t, buildSelectable()...)
 		harness.press("j", "v")
 
-		harness.press("z")
+		harness.press("space", "a")
 		require.Contains(t, harness.readFrame(), `Archive agent "api"?`)
 
 		assert.Contains(t, findDrawnRow(t, harness, "api"), bar)

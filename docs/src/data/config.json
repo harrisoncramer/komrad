@@ -183,13 +183,6 @@
           "description": "The agents list, the panel's main screen.",
           "settings": [
             {
-              "key": "archive",
-              "path": "keybindings.agents.archive",
-              "type": "array",
-              "description": "Archive the hovered agent, which stops it and moves it to the archive screen rather than destroying it.",
-              "default": "[\"z\"]"
-            },
-            {
               "key": "back",
               "path": "keybindings.agents.back",
               "type": "array",
@@ -904,13 +897,6 @@
           "description": "The schedules screen.",
           "settings": [
             {
-              "key": "archive",
-              "path": "keybindings.schedules.archive",
-              "type": "array",
-              "description": "Archive the schedule under the cursor, which stops it firing. The agents it\nlaunched are kept, and the archive can restore it.",
-              "default": "[\"z\"]"
-            },
-            {
               "key": "back",
               "path": "keybindings.schedules.back",
               "type": "array",
@@ -1012,7 +998,7 @@
               "key": "open",
               "path": "keybindings.menu.open",
               "type": "array",
-              "description": "Open the menu from any screen: the hovered agent's entries, or its orchestrator's on a\nworkflow's row, over the entries that act on the panel itself.",
+              "description": "Open the menu from any screen: the hovered row's entries, or the chosen agents', over the\nentries that act on the panel itself.",
               "default": "[\"space\"]"
             },
             {
@@ -1054,7 +1040,7 @@
               "key": "archive",
               "path": "keybindings.menu.archive",
               "type": "array",
-              "description": "Open the archive menu to the right of this one, for restoring or deleting the hovered row of\nthe archive, or every chosen agent.",
+              "description": "Archive the hovered agent, workflow or schedule, or every chosen agent. In the archive it\nopens the archive menu to the right of this one instead, for restoring or deleting the row.",
               "default": "[\"a\"]"
             },
             {
@@ -1133,13 +1119,6 @@
               "type": "array",
               "description": "Put an agent on a branch that already exists, in the workflow under the\ncursor.",
               "default": "[\"a\"]"
-            },
-            {
-              "key": "archive",
-              "path": "keybindings.workflows.archive",
-              "type": "array",
-              "description": "Archive the workflow under the cursor, which archives the agents inside it.",
-              "default": "[\"z\"]"
             },
             {
               "key": "edit",

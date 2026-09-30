@@ -69,7 +69,7 @@ func TestValidateKeybindingsReadsEveryScreen(t *testing.T) {
 // esc clears a standing filter and otherwise steps back.
 func TestValidateKeybindingsAllowsAGuardedArmInFront(t *testing.T) {
 	keys := config.DefaultKeybindings()
-	keys.Agents.Hide = keys.Agents.Archive
+	keys.Agents.Hide = keys.Workflows.Adopt
 
 	assert.NoError(t, ValidateKeybindings(keys),
 		"both of these read the row under the cursor before they answer, so only one is ever live")

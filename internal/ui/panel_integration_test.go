@@ -41,7 +41,7 @@ func TestIntegrationPanel(t *testing.T) {
 		relist(t, instance, harness)
 		require.Equal(t, []string{"backend", "  login"}, readListRows(harness.readFrame()))
 
-		harness.press("z")
+		harness.press("space", "a")
 		require.Contains(t, harness.readFrame(), "C-s submit", "the key opens the confirm prompt rather than archiving outright")
 		harness.press("ctrl+s")
 
@@ -77,7 +77,7 @@ func TestIntegrationPanel(t *testing.T) {
 		dragged := readPaneWidth(t, served.instance, served.agentPane)
 		require.NotEqual(t, configured, dragged, "the drag moved the divider off the configured width")
 
-		served.harness.press("k", "z")
+		served.harness.press("k", "space", "a")
 		require.Contains(t, served.harness.readFrame(), "Archive workflow")
 		served.harness.press("ctrl+s")
 		relist(t, served.instance, served.harness)
