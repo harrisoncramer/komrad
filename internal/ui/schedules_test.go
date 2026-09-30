@@ -22,7 +22,7 @@ import (
 const (
 	schedulesScreen = "the schedules"
 	scheduleForm    = "minute hour day month weekday"
-	archiveAsk      = `Archive schedule "morning-ci"?`
+	archiveMenu     = "morning-ci › archive"
 )
 
 // TestSchedulesKeys covers what each key does on the schedule under the cursor.
@@ -79,17 +79,17 @@ func TestSchedulesKeys(t *testing.T) {
 			wantDrawn: []string{"> morning-ci", "> 0 9 * * 1-5", "check CI"},
 		},
 		{
-			name:      "archive asks first",
+			name:      "archive opens its menu",
 			rows:      buildSchedules(),
 			press:     []string{"space", "a"},
-			wantDrawn: []string{archiveAsk},
+			wantDrawn: []string{archiveMenu},
 		},
 		{
-			name:       "archive once confirmed archives the hovered schedule and lands back on the schedules",
+			name:       "archive from its menu archives the hovered schedule and lands back on the schedules",
 			rows:       buildSchedules(),
-			press:      []string{"space", "a", "y"},
+			press:      []string{"space", "a", "a"},
 			wantScreen: schedulesScreen,
-			wantAbsent: []string{archiveAsk},
+			wantAbsent: []string{archiveMenu},
 			wantSent: []request{{
 				procedure: schedulev1connect.ScheduleServiceArchiveScheduleProcedure,
 				msg:       &schedulev1.ArchiveScheduleRequest{Id: "s1"},

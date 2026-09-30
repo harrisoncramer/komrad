@@ -407,17 +407,17 @@ func TestFormsInFlight(t *testing.T) {
 	})
 }
 
-// TestFormsArchivePrompt covers the three ways the agent archive prompt can be answered.
+// TestFormsArchivePrompt covers the ways the agent archive menu can be answered.
 func TestFormsArchivePrompt(t *testing.T) {
-	t.Run("the prompt opens on the reversible answer", func(t *testing.T) {
+	t.Run("the menu opens on the reversible answer", func(t *testing.T) {
 		harness := openForms(t, newFormWorkflow(), newFormAuthor())
 
 		harness.press("j", "space", "a")
 
 		frame := harness.readFrame()
-		assert.Contains(t, frame, "› Archive")
-		assert.Contains(t, frame, "Archive and delete")
-		assert.Contains(t, frame, "Cancel")
+		assert.Contains(t, frame, "› archive  ")
+		assert.Contains(t, frame, "archive and delete for good")
+		assert.Contains(t, frame, "back")
 	})
 
 	tests := []struct {
@@ -434,8 +434,8 @@ func TestFormsArchivePrompt(t *testing.T) {
 			}},
 		},
 		{
-			name:  "one row down archives and then destroys",
-			press: []string{"down", "ctrl+s"},
+			name:  "one row down archives and then destroys once confirmed",
+			press: []string{"down", "ctrl+s", "y"},
 			wantSent: []request{
 				{
 					procedure: agentv1connect.AgentServiceArchiveAgentsProcedure,
@@ -523,7 +523,7 @@ func TestFormsArchivePrompt(t *testing.T) {
 		harness := openForms(t, newFormWorkflow(), newFormAuthor())
 		harness.refuse(agentv1connect.AgentServiceArchiveAgentsProcedure, connect.NewError(connect.CodeFailedPrecondition, errors.New("already archived")))
 
-		harness.press(slices.Concat([]string{"j", "space", "a", "down", "ctrl+s"}, widenListPresses)...)
+		harness.press(slices.Concat([]string{"j", "space", "a", "down", "ctrl+s", "y"}, widenListPresses)...)
 
 		assert.Contains(t, harness.readFrame(), `Could not archive and delete agent "author"`)
 		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceDeleteAgentsProcedure))
@@ -760,8 +760,8 @@ func TestFormsLayout(t *testing.T) {
 		},
 		{
 			name:  "a confirmation takes the window beside the list",
-			press: []string{"space", "a"},
-			want:  `Archive agent "author"?`,
+			press: []string{"space", "a", "d"},
+			want:  `Permanently delete agent "author"?`,
 		},
 	}
 
