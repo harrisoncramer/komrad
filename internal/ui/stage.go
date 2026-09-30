@@ -118,7 +118,7 @@ func (m *model) afterStaging() {
 	m.frame.Flush()
 }
 
-// sizeAgentWindow puts an agent's own window at the size of the stage before it is swapped in.
+// sizeAgentWindow puts an agent's own window at the size of the stage.
 func (m *model) sizeAgentWindow(pane string) {
 	// A remote agent's window is sized by the terminal stream attached to it, which is the stage
 	// pane itself, so there is nothing here to set and the pane id names a window on another server.
