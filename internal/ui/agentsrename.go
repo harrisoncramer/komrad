@@ -74,7 +74,7 @@ func (a *agentsScreen) updateRename(h host, msg tea.Msg) tea.Cmd {
 			return h.hide()
 		case k == "esc":
 			a.renaming = nil
-		case k == "enter":
+		case k == "enter" || isBound(k, formKeys().Submit):
 			return a.saveRename(h)
 		case k == "backspace":
 			rename.typed = paint.TrimLastRune(rename.typed)
@@ -150,7 +150,7 @@ func (a *agentsScreen) settleRename(s panelShared, row string, err error) {
 }
 
 func renameHelp() keyMap {
-	save := binding([]string{"enter"}, "save")
+	save := binding(append([]string{"enter"}, formKeys().Submit...), "save")
 	cancel := binding([]string{"esc"}, "cancel")
 
 	return keyMap{short: []key.Binding{save, cancel}, full: []key.Binding{save, cancel}}

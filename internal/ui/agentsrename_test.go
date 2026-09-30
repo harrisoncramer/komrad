@@ -32,6 +32,12 @@ func TestRenameSends(t *testing.T) {
 			want:      []proto.Message{&agentv1.UpdateAgentRequest{Id: "a1", Name: "author-v2"}},
 		},
 		{
+			name:      "the form submit key saves too",
+			press:     slices.Concat([]string{"j", "r"}, spellKeys("-v2"), []string{"ctrl+s"}),
+			procedure: agentv1connect.AgentServiceUpdateAgentProcedure,
+			want:      []proto.Message{&agentv1.UpdateAgentRequest{Id: "a1", Name: "author-v2"}},
+		},
+		{
 			name:      "keys bound elsewhere are typed into the name",
 			press:     slices.Concat([]string{"j", "r"}, spellKeys("jkq"), []string{"enter"}),
 			procedure: agentv1connect.AgentServiceUpdateAgentProcedure,
@@ -94,7 +100,7 @@ func TestRenameField(t *testing.T) {
 
 		frame := harness.readFrame()
 		assert.Equal(t, "  author▏", readHoveredRow(frame))
-		assert.Contains(t, readLegend(frame), "enter save")
+		assert.Contains(t, readLegend(frame), "enter/C-s save")
 		assert.Contains(t, readLegend(frame), "esc cancel")
 		assert.NotContains(t, frame, "C-s submit", "no form opens")
 	})
