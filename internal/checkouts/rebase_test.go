@@ -310,7 +310,7 @@ func TestRebaseRefusesAnAgentThatWillNotSettle(t *testing.T) {
 		},
 		{
 			name:       "a pane that could not be read",
-			observeErr: errors.New("the pane is gone"),
+			observeErr: errors.New("the frame could not be captured"),
 			wantSaid:   "could not be read",
 		},
 		{

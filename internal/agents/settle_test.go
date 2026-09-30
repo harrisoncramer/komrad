@@ -48,14 +48,31 @@ func TestSettleLeavesAPaneItsCLIHasLeft(t *testing.T) {
 	}
 }
 
-// TestSettleRefusesAPaneItCannotAskAbout covers a failure to ask what the pane runs being no evidence the CLI has left.
-func TestSettleRefusesAPaneItCannotAskAbout(t *testing.T) {
-	channel := &harnesstest.Channel{}
-	observer := &harnesstest.Observer{RunningErr: errors.New("tmux gave up waiting")}
-	agent := agentstore.Agent{ID: "a1", Name: "telescope", Pane: "%1", Harness: "claude"}
+// TestSettleRefusesAPaneItCannotRead covers a pane whose CLI is not known to have left being refused.
+func TestSettleRefusesAPaneItCannotRead(t *testing.T) {
+	tests := []struct {
+		name     string
+		observer *harnesstest.Observer
+	}{
+		{
+			name:     "a pane tmux could not say anything about",
+			observer: &harnesstest.Observer{RunningErr: errors.New("tmux gave up waiting")},
+		},
+		{
+			name:     "a CLI still running whose frame could not be captured",
+			observer: &harnesstest.Observer{Err: errors.New("the frame could not be captured")},
+		},
+	}
 
-	_, err := settlerOver(channel, observer).Settle(t.Context(), agent)
-	require.ErrorIs(t, err, ErrUnsettled)
-	assert.Contains(t, err.Error(), "could not be read")
-	assert.Zero(t, channel.Interrupts)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			channel := &harnesstest.Channel{}
+			agent := agentstore.Agent{ID: "a1", Name: "telescope", Pane: "%1", Harness: "claude"}
+
+			_, err := settlerOver(channel, tt.observer).Settle(t.Context(), agent)
+			require.ErrorIs(t, err, ErrUnsettled)
+			assert.Contains(t, err.Error(), "could not be read")
+			assert.Zero(t, channel.Interrupts)
+		})
+	}
 }
