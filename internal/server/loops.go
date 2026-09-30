@@ -9,25 +9,16 @@ import (
 )
 
 const (
-	reconcileInterval = 2 * time.Second
-
+	reconcileInterval         = 2 * time.Second
 	scheduleReconcileInterval = 10 * time.Second
-
-	mailDeliveryInterval = 2 * time.Second
-
-	// transcriptSyncInterval is how often an agent's log is read for new turns, which decides how
-	// soon a conversation is searchable.
+	mailDeliveryInterval      = 2 * time.Second
+	// transcriptSyncInterval is how often an agent's log is read for new turns.
 	transcriptSyncInterval = 15 * time.Second
-
-	cwdSyncInterval = 15 * time.Second
-
-	// pullRequestSyncInterval is how often the forges are asked what changed, which costs a request
-	// per repository live agents sit on and is what makes a pull request appear without a nudge.
+	cwdSyncInterval        = 15 * time.Second
+	// pullRequestSyncInterval is how often the forges are asked what changed.
 	pullRequestSyncInterval = time.Minute
-
-	// commentSyncInterval is how often the forges are asked whether the review comments on the pull requests agents are linked to moved.
+	// commentSyncInterval is how often the forges are asked whether review comments moved.
 	commentSyncInterval = time.Minute
-
 	// worktreeSizeInterval is how often a few worktree directories are walked for their size.
 	worktreeSizeInterval = 30 * time.Second
 )
