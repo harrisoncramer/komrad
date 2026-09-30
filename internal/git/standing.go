@@ -54,6 +54,29 @@ func (c *Client) ReadChanges(ctx context.Context, dir string) (Changes, error) {
 	return Changes{Modified: modified, Untracked: untracked}, nil
 }
 
+// PeekChanges is every uncommitted path in a checkout, read without writing the index.
+func (c *Client) PeekChanges(ctx context.Context, dir string) (Changes, error) {
+	entries, err := pathList(ctx, dir, "--no-optional-locks", "status", "--porcelain=v1", "-z", "--no-renames", "--untracked-files=all")
+	if err != nil {
+		return Changes{}, fmt.Errorf("failed to read what %q has changed: %w", dir, err)
+	}
+
+	changes := Changes{}
+	for _, entry := range entries {
+		if len(entry) < 4 {
+			continue
+		}
+		status, path := entry[:2], entry[3:]
+		if status == "??" {
+			changes.Untracked = append(changes.Untracked, path)
+		} else {
+			changes.Modified = append(changes.Modified, path)
+		}
+	}
+
+	return changes, nil
+}
+
 // pathList runs a git command that prints NUL-separated paths.
 func pathList(ctx context.Context, dir string, args ...string) ([]string, error) {
 	out, err := RunBytes(ctx, dir, args...)

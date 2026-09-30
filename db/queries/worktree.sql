@@ -8,7 +8,12 @@ SELECT
     size_bytes,
     share_bytes,
     measured_at,
-    size_error
+    size_error,
+    standing_read_at,
+    dirty,
+    sequencing,
+    unlanded,
+    standing_error
 FROM
     worktrees
 ORDER BY
@@ -24,7 +29,12 @@ SELECT
     w.size_bytes,
     w.share_bytes,
     w.measured_at,
-    w.size_error
+    w.size_error,
+    w.standing_read_at,
+    w.dirty,
+    w.sequencing,
+    w.unlanded,
+    w.standing_error
 FROM
     worktrees w
 WHERE (sqlc.narg(keys)::text[] IS NULL
@@ -90,3 +100,15 @@ WHERE dir = ANY (@dirs::text[]);
 -- name: DeleteWorktreesByName :exec
 DELETE FROM worktrees
 WHERE name = ANY (@names::text[]);
+
+-- name: RecordWorktreeStanding :exec
+UPDATE
+    worktrees
+SET
+    standing_read_at = @standing_read_at,
+    dirty = @dirty,
+    sequencing = @sequencing,
+    unlanded = @unlanded,
+    standing_error = sqlc.narg(standing_error)
+WHERE
+    dir = @dir;

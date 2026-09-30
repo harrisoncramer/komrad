@@ -43,7 +43,7 @@ func TestTabStrip(t *testing.T) {
 			press:  []string{"shift+tab"},
 			screen: worktreesScreen,
 			second: "last-accessed",
-			kinds:  "F   all  inactive",
+			kinds:  "F   all  inactive  merged",
 		},
 	}
 

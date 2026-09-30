@@ -24,6 +24,15 @@ func WatchedWorktree(stored worktreestore.Worktree) *worktreev1.WatchedWorktree 
 			worktree.ShareBytes = &size.Share
 		}
 	}
+	if standing := stored.Standing; standing != nil {
+		worktree.Standing = &worktreev1.WorktreeStanding{
+			ReadAt:     dates.Stamp(standing.ReadAt),
+			Dirty:      standing.Dirty,
+			Sequencing: standing.Sequencing,
+			Unlanded:   int32(standing.Unlanded),
+			Error:      standing.Error,
+		}
+	}
 
 	return worktree
 }

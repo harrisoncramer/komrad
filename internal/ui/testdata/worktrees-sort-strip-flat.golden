@@ -4,14 +4,14 @@
 [90magents[m  [90mquery[m  [90mschedules[m  [90marchive[m  [34mworktre…[m
 [90m5 · 1.6G · flat[m
 [90mf[m   [90m↓ size[m  [90mlast-accessed[m  [90m·[m  [90mflat[m
-[90mF[m   [34mall[m  [90minactive[m
+[90mF[m   [34mall[m  [90minactive[m  [90mmerged[m
 [90m/[m
 
-  [90m1.5G[m  [90m12h[m [90m│[m [90mcargo-fix[m
-   [90m49M[m   [90m4d[m [90m│[m [90mreviewer[m
-[34m›[m  [90m49M[m   [90m5m[m [34m┃[m [34mtreeview[m
-     [90m—[m   [90m2w[m [90m│[m [90mbroken[m
-     [90m—[m   [90m3h[m [90m│[m [90magent/orphan[m
+  [90m1.5G[m  [90m12h[m [90mmerged[m [90m│[m [90mcargo-fix[m
+   [90m49M[m   [90m4d[m     [90m↑2[m [90m│[m [90mreviewer[m
+[34m›[m  [90m49M[m   [90m5m[m     [90m↑2[m [34m┃[m [34mtreeview[m
+     [90m—[m   [90m2w[m      [90m—[m [90m│[m [90mbroken[m
+     [90m—[m   [90m3h[m      [90m—[m [90m│[m [90magent/orphan[m
 
 
 [90m───────────────────────────────────────────[m

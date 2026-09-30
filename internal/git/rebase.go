@@ -454,6 +454,12 @@ func refreshIndex(ctx context.Context, dir string) {
 	}
 }
 
+// IsSequenceInProgress reports whether git is mid-merge, mid-rebase or mid-cherry-pick, without
+// touching the index.
+func (c *Client) IsSequenceInProgress(ctx context.Context, dir string) (bool, error) {
+	return isSequenceInProgress(ctx, dir)
+}
+
 // isSequenceInProgress reports whether git is mid-merge, mid-rebase or mid-cherry-pick.
 func isSequenceInProgress(ctx context.Context, dir string) (bool, error) {
 	gitDir, err := Run(ctx, dir, "rev-parse", "--absolute-git-dir")
