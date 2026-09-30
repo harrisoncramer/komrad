@@ -103,6 +103,8 @@ type ReviewGlyphs struct {
 	Settled string `mapstructure:"settled"`
 	// A thread holding a comment nobody has sent yet.
 	Unsent string `mapstructure:"unsent"`
+	// A comment from the forge you dismissed, drawn but no longer counted.
+	Dismissed string `mapstructure:"dismissed"`
 	// The row of the file tree beside the diff that the cursor is in.
 	Current string `mapstructure:"current"`
 	// A comment the agent has been given.

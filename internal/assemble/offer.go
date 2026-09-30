@@ -33,7 +33,7 @@ func isBotOffer(thread *pullrequestv1.ForgeThread) bool {
 func isCountedOffer(thread *pullrequestv1.ForgeThread) bool {
 	comments := thread.GetComments()
 
-	return thread.GetPath() != "" && !thread.GetResolved() && len(comments) > 0 && !comments[0].GetYours() && !isBotOffer(thread)
+	return thread.GetPath() != "" && !thread.GetResolved() && !thread.GetDismissed() && len(comments) > 0 && !comments[0].GetYours() && !isBotOffer(thread)
 }
 
 func getOpenPullRequest(pullRequests []*pullrequestv1.PullRequest) *pullrequestv1.PullRequest {

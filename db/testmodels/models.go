@@ -550,6 +550,8 @@ type ForgeReviewThread struct {
 	CommitSha string
 	// The text of the line the thread was written on as the forge's diff drew it, with its diff marker taken off.
 	Quote string
+	// When the person dismissed the thread in their review, null while they never have. A dismissed thread is still drawn but no longer counted. The sync leaves it alone, and a comment written on the forge after it makes the thread active again.
+	DismissedAt pgtype.Timestamptz
 }
 
 // One piece of mail from one agent to another, held until the recipient claims it.

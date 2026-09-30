@@ -187,13 +187,14 @@ func openServedPanel(t *testing.T, windowWidth int) *servedPanel {
 
 func newPanelRemote(instance *komradtest.Instance) *panelRemote {
 	return &panelRemote{
-		agents:    instance.Agents,
-		workflows: instance.Workflows,
-		schedules: instance.Schedules,
-		hooks:     instance.Hooks,
-		worktrees: instance.Worktrees,
-		forges:    instance.Forges,
-		logs:      instance.Logs,
+		agents:       instance.Agents,
+		workflows:    instance.Workflows,
+		schedules:    instance.Schedules,
+		hooks:        instance.Hooks,
+		worktrees:    instance.Worktrees,
+		forges:       instance.Forges,
+		pullRequests: instance.PullRequests,
+		logs:         instance.Logs,
 	}
 }
 

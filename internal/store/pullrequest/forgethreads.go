@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"komrad/db"
 	"komrad/db/models"
 	"komrad/internal/forge"
 	"komrad/internal/store"
@@ -47,6 +48,7 @@ type ForgeThread struct {
 	URL           string
 	Resolved      bool
 	WrittenAt     time.Time
+	Dismissed     bool
 	Comments      []ForgeComment
 }
 
@@ -196,7 +198,9 @@ func (s *ForgeThreadStore) ListWatched(ctx context.Context, keys []string) ([]Fo
 	}
 
 	byThread := map[string][]ForgeComment{}
+	stored := map[string]time.Time{}
 	for _, row := range comments {
+		stored[row.ThreadID] = latest(stored[row.ThreadID], row.CreatedAt)
 		byThread[row.ThreadID] = append(byThread[row.ThreadID], ForgeComment{
 			ID:          row.ID,
 			ProviderID:  row.ProviderID,
@@ -210,7 +214,7 @@ func (s *ForgeThreadStore) ListWatched(ctx context.Context, keys []string) ([]Fo
 	}
 
 	return xslice.Map(rows, func(row *models.ForgeReviewThread) ForgeThread {
-		return threadFromRow(row, byThread[row.ID])
+		return threadFromRow(row, byThread[row.ID], stored[row.ID])
 	}), nil
 }
 
@@ -235,7 +239,7 @@ func toThreadUpsert(pullRequestID string, thread forge.ReviewThread) models.Upse
 	return params
 }
 
-func threadFromRow(row *models.ForgeReviewThread, comments []ForgeComment) ForgeThread {
+func threadFromRow(row *models.ForgeReviewThread, comments []ForgeComment, stored time.Time) ForgeThread {
 	return ForgeThread{
 		ID:            row.ID,
 		PullRequestID: row.PullRequestID,
@@ -248,6 +252,36 @@ func threadFromRow(row *models.ForgeReviewThread, comments []ForgeComment) Forge
 		URL:           row.Url,
 		Resolved:      row.Resolved,
 		WrittenAt:     row.WrittenAt,
+		Dismissed:     row.DismissedAt != nil && !stored.After(*row.DismissedAt),
 		Comments:      comments,
 	}
+}
+
+// latest is the later of two times.
+func latest(a, b time.Time) time.Time {
+	if b.After(a) {
+		return b
+	}
+
+	return a
+}
+
+// SetDismissed stamps a forge thread dismissed, or clears the stamp, or ErrNotFound.
+func (s *ForgeThreadStore) SetDismissed(ctx context.Context, id string, dismissed bool) error {
+	if !store.IsID(id) {
+		return store.ErrNotFound.Saying("no forge thread %s", id)
+	}
+
+	_, err := s.queries.SetForgeReviewThreadDismissed(ctx, models.SetForgeReviewThreadDismissedParams{
+		Dismissed: dismissed,
+		ID:        id,
+	})
+	if db.IsNoRows(err) {
+		return store.ErrNotFound.Saying("no forge thread %s", id)
+	}
+	if err != nil {
+		return fmt.Errorf("failed to set forge thread %s dismissed: %w", id, err)
+	}
+
+	return nil
 }

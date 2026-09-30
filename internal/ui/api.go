@@ -16,6 +16,7 @@ import (
 	"komrad/proto/gen/hook/v1/hookv1connect"
 	logv1 "komrad/proto/gen/log/v1"
 	"komrad/proto/gen/log/v1/logv1connect"
+	"komrad/proto/gen/pullrequest/v1/pullrequestv1connect"
 	schedulev1 "komrad/proto/gen/schedule/v1"
 	schedulev1connect "komrad/proto/gen/schedule/v1/schedulev1connect"
 	workflowv1 "komrad/proto/gen/workflow/v1"
@@ -34,13 +35,14 @@ const requestTimeout = 10 * time.Second
 const createAgentTimeout = 11 * time.Minute
 
 type api struct {
-	agents    agentv1connect.AgentServiceClient
-	workflows workflowv1connect.WorkflowServiceClient
-	schedules schedulev1connect.ScheduleServiceClient
-	hooks     hookv1connect.HookServiceClient
-	worktrees worktreev1connect.WorktreeServiceClient
-	logs      logv1connect.LogServiceClient
-	forges    forgev1connect.ForgeServiceClient
+	agents       agentv1connect.AgentServiceClient
+	workflows    workflowv1connect.WorkflowServiceClient
+	schedules    schedulev1connect.ScheduleServiceClient
+	hooks        hookv1connect.HookServiceClient
+	worktrees    worktreev1connect.WorktreeServiceClient
+	logs         logv1connect.LogServiceClient
+	forges       forgev1connect.ForgeServiceClient
+	pullRequests pullrequestv1connect.PullRequestServiceClient
 }
 
 // call runs work under its own deadline.

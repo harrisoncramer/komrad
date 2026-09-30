@@ -43,6 +43,8 @@ func answeredByDana(thread *pullrequestv1.ForgeThread) {
 	thread.Comments = append(thread.Comments, &pullrequestv1.ForgeComment{Id: thread.GetId() + "-r", AuthorLogin: "dana"})
 }
 
+func dismissed(thread *pullrequestv1.ForgeThread) { thread.Dismissed = true }
+
 func offers(threads ...*pullrequestv1.ForgeThread) map[string]*pullrequestv1.ForgeThread {
 	rows := map[string]*pullrequestv1.ForgeThread{}
 	for _, thread := range threads {
@@ -105,6 +107,15 @@ func TestAgentRowsOfferCounts(t *testing.T) {
 			name:        "threads the person started are left out",
 			pullRequest: open,
 			threads:     []*pullrequestv1.ForgeThread{offer("f1", "p1", time.Hour, fromYou)},
+		},
+		{
+			name:        "a dismissed offer is left out",
+			pullRequest: open,
+			threads: []*pullrequestv1.ForgeThread{
+				offer("f1", "p1", 2*time.Hour, dismissed),
+				offer("f2", "p1", 3*time.Hour),
+			},
+			want: &agentv1.CommentCounts{External: 1},
 		},
 		{
 			name:        "offers on a finished pull request are not counted",

@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"komrad/internal/forge"
+	"komrad/internal/store"
 	"komrad/lib/xslice"
 
 	"github.com/stretchr/testify/assert"
@@ -183,4 +184,55 @@ func TestSetThreads(t *testing.T) {
 			tt.check(t, stored)
 		})
 	}
+}
+
+// TestSetDismissed covers a dismissal outlasting the sync until a new comment is stored on the thread or the person clears it.
+func TestSetDismissed(t *testing.T) {
+	h := open(t)
+	ctx := t.Context()
+	threads := NewForgeThreadStore(h.pool.GetDB())
+
+	h.createAgent(t, h.createWorkflow(t), "live", komrad, "agent/x")
+	written := SetThreadsParams{
+		PullRequestID: h.linkedPullRequest(t, "PR_1", 1, "agent/x"),
+		Viewer:        "harrisoncramer",
+		Threads:       []forge.ReviewThread{threadOn("T_1", commentBy("C_1", "dana"))},
+		Prune:         true,
+	}
+	require.NoError(t, threads.SetThreads(ctx, written))
+
+	stored, err := threads.ListWatched(ctx, nil)
+	require.NoError(t, err)
+	require.Len(t, stored, 1)
+	assert.False(t, stored[0].Dismissed)
+
+	require.NoError(t, threads.SetDismissed(ctx, stored[0].ID, true))
+
+	written.Threads[0].Resolved = true
+	require.NoError(t, threads.SetThreads(ctx, written))
+
+	stored, err = threads.ListWatched(ctx, nil)
+	require.NoError(t, err)
+	require.Len(t, stored, 1)
+	assert.True(t, stored[0].Dismissed)
+	assert.True(t, stored[0].Resolved)
+
+	written.Threads[0].Comments = append(written.Threads[0].Comments, commentBy("C_2", "lee"))
+	require.NoError(t, threads.SetThreads(ctx, written))
+
+	stored, err = threads.ListWatched(ctx, nil)
+	require.NoError(t, err)
+	require.Len(t, stored, 1)
+	assert.False(t, stored[0].Dismissed)
+
+	require.NoError(t, threads.SetDismissed(ctx, stored[0].ID, true))
+	require.NoError(t, threads.SetDismissed(ctx, stored[0].ID, false))
+
+	stored, err = threads.ListWatched(ctx, nil)
+	require.NoError(t, err)
+	require.Len(t, stored, 1)
+	assert.False(t, stored[0].Dismissed)
+
+	require.ErrorIs(t, threads.SetDismissed(ctx, "01a0f025-00bd-7db3-90c0-a0198677e92e", true), store.ErrNotFound)
+	require.ErrorIs(t, threads.SetDismissed(ctx, "T_1", true), store.ErrNotFound)
 }
