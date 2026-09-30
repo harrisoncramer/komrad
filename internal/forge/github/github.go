@@ -376,7 +376,7 @@ func (f *Forge) Merge(ctx context.Context, address string) error {
 		return err
 	}
 
-	return mutationRefusal{sentinel: forge.ErrNotMergeable, verb: "merge"}.failureOf(answer, address, number)
+	return mutationRefusal{sentinel: forge.ErrNotMergeable, verb: "merge"}.explain(answer, address, number)
 }
 
 // SetDraft converts the pull request to a draft or marks it ready for review, asking nothing
@@ -432,7 +432,7 @@ func (f *Forge) SetDraft(ctx context.Context, address string, draft bool) error 
 		return err
 	}
 
-	return mutationRefusal{sentinel: forge.ErrNotDraftable, verb: "change"}.failureOf(answer, address, number)
+	return mutationRefusal{sentinel: forge.ErrNotDraftable, verb: "change"}.explain(answer, address, number)
 }
 
 // listPullRequests reads one page of a repository's pullRequests connection, whichever query
@@ -473,7 +473,7 @@ type mutationRefusal struct {
 	verb     string
 }
 
-func (r mutationRefusal) failureOf(answer *graphql.Answer, address string, number int) error {
+func (r mutationRefusal) explain(answer *graphql.Answer, address string, number int) error {
 	for _, failure := range answer.Errors {
 		switch failure.Type {
 		case "UNPROCESSABLE":
