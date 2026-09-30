@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"komrad/internal/ui"
 	workflowv1 "komrad/proto/gen/workflow/v1"
 
 	tea "charm.land/bubbletea/v2"
@@ -65,6 +66,18 @@ func TestWheelScrollsTheHalfUnderTheMouse(t *testing.T) {
 				harness.press("j", "k")
 
 				assert.Equal(t, top, readStage(harness.readFrame()))
+			})
+
+			t.Run("turns the filter added up scroll the block as far as the same turns one by one", func(t *testing.T) {
+				paced := tt.open(t)
+				for range 5 {
+					wheelOver(paced, defaultHarnessWidth-1, false)
+				}
+
+				harness := tt.open(t)
+				harness.send(ui.NewWheelTurns(defaultHarnessWidth-1, 5))
+
+				assert.Equal(t, readStage(paced.readFrame()), readStage(harness.readFrame()))
 			})
 
 			t.Run("over the list it moves the list and leaves the block", func(t *testing.T) {

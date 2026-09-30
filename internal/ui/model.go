@@ -62,7 +62,7 @@ func Run(ctx context.Context, deps Deps) error {
 	post := newPostbox()
 
 	m := newModel(deps, true, post)
-	program := tea.NewProgram(m, tea.WithColorProfile(colorprofile.TrueColor))
+	program := tea.NewProgram(m, tea.WithColorProfile(colorprofile.TrueColor), tea.WithFilter(newWheelFilter(time.Now).filter))
 	post.attach(program)
 
 	defer post.close()
