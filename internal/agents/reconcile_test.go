@@ -1434,8 +1434,6 @@ func TestReconcileReturnsAHoldWhenTheListingComesBack(t *testing.T) {
 	}
 }
 
-// TestReconcileFailedTurn pins that a pane at rest after an API error ended its turn reads as
-// errored, and that the pane moving again or a later turn ending takes it back off.
 func TestReconcileFailedTurn(t *testing.T) {
 	tests := []struct {
 		name   string

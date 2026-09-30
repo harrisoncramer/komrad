@@ -461,8 +461,6 @@ func TestIntegrationTurnEndHookRecordsTheBoundary(t *testing.T) {
 	}
 }
 
-// TestIntegrationStopFailureHookRecordsTheFailure covers the hook Claude runs in place of Stop
-// when an API error ends the turn.
 func TestIntegrationStopFailureHookRecordsTheFailure(t *testing.T) {
 	var asked caller.Caller
 	var logged []string

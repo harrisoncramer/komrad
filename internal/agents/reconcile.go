@@ -143,7 +143,7 @@ func (r *Reconciler) reconcileAgent(ctx context.Context, agent agentstore.Agent,
 
 	if !isPaneOwnedBy(pane.Owner, agent.ID) {
 		if r.forget(ctx, agent, false) {
-			r.apply(ctx, agent, restingState(agent))
+			r.apply(ctx, agent, decideRestingState(agent))
 		}
 
 		return
@@ -155,7 +155,7 @@ func (r *Reconciler) reconcileAgent(ctx context.Context, agent agentstore.Agent,
 		}
 
 		if r.forget(ctx, agent, true) {
-			r.apply(ctx, agent, restingState(agent))
+			r.apply(ctx, agent, decideRestingState(agent))
 		}
 
 		return
@@ -233,8 +233,8 @@ func doesReadingDispute(activity harness.Activity, state agentstore.State) bool 
 	return false
 }
 
-// restingState is where an agent whose pane stopped moving lands.
-func restingState(agent agentstore.Agent) agentstore.State {
+// decideRestingState decides where an agent whose pane stopped moving lands.
+func decideRestingState(agent agentstore.Agent) agentstore.State {
 	if isTurnFailureStanding(agent) {
 		return agentstore.StateErrored
 	}

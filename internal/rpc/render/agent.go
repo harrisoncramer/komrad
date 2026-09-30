@@ -45,7 +45,7 @@ func Agent(row rowstore.Row, options AgentOptions) *agentv1.Agent {
 		StateChangedAt:     dates.Stamp(stored.StateChangedAt),
 		ReportedReason:     stored.ReportedReason,
 		FailureReason:      stored.FailureReason,
-		TurnError:          turnErrorOf(stored),
+		TurnError:          readTurnError(stored),
 		ArchivedAt:         dates.StampPtr(stored.ArchivedAt),
 		Alive:              xptr.Ptr(stored.Alive),
 		Hidden:             stored.Hidden,
@@ -136,7 +136,7 @@ func AgentRoleOf(role agentstore.Role) agentv1.AgentRole {
 	return agentv1.AgentRole_AGENT_ROLE_UNSPECIFIED
 }
 
-func turnErrorOf(stored agentstore.Agent) string {
+func readTurnError(stored agentstore.Agent) string {
 	if !stored.IsLastTurnFailed() {
 		return ""
 	}

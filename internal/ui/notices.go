@@ -78,7 +78,7 @@ var (
 func agentNotices(glyphs glyph.Set, loaderFrame string, r agentRow) []notice {
 	item, row := r.item, snapshotRow(r, snapshotParams{loaderFrame: loaderFrame})
 
-	notices := appendCellNotice(nil, glyphs, view.StatusCell(row), failureNoticeText(item))
+	notices := appendCellNotice(nil, glyphs, view.StatusCell(row), describeFailure(item))
 	notices = appendCellNotice(notices, glyphs, view.AlertCell(row), failedRunNotice)
 	notices = appendCellNotice(notices, glyphs, view.ForgeCell(row), forgeAlertSaid[row.Forge])
 	notices = appendCellNotice(notices, glyphs, view.MailCell(row), unreadMailNotice)
@@ -126,8 +126,8 @@ func appendNotice(notices []notice, show bool, icon string, tone paint.Tone, tex
 	})
 }
 
-// failureNoticeText is what the status column drawn broken says about how an agent got there.
-func failureNoticeText(item panel.AgentRow) string {
+// describeFailure says what the status column drawn broken means about how an agent got there.
+func describeFailure(item panel.AgentRow) string {
 	state := displayState(item)
 	if state != panel.StateErrored {
 		return failureSaid[state]
