@@ -165,7 +165,7 @@ UPDATE
     forge_review_threads t
 SET
     dismissed_at = CASE WHEN @dismissed::boolean THEN
-        now()
+        NOW()
     END
 WHERE
     t.id = @id
