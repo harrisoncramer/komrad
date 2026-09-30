@@ -367,7 +367,7 @@ func TestReviewThreads(t *testing.T) {
 		assert.Contains(t, sidebar, "you wrong greeting")
 	})
 
-	t.Run("the agent under review and its reviewer are each named in the thread", func(t *testing.T) {
+	t.Run("the agent under review and its reviewer are each named by role in the thread", func(t *testing.T) {
 		server := newReviewServer(t)
 		server.children = []*agentv1.Agent{{Id: "r1", Name: "review-auth", ParentAgentId: xptr.Ptr("a1"), WorkflowId: "w1", Role: agentv1.AgentRole_AGENT_ROLE_REVIEWER}}
 		asked := newAgentMessage("m1", "this drops the error")
@@ -378,8 +378,8 @@ func TestReviewThreads(t *testing.T) {
 		harness := openReview(t, server)
 
 		sidebar := readSidebarProse(harness.readFrame())
-		assert.Contains(t, sidebar, "review-auth this drops the error")
-		assert.Contains(t, sidebar, "auth wrapped it")
+		assert.Contains(t, sidebar, "reviewer this drops the error")
+		assert.Contains(t, sidebar, "implementer wrapped it")
 	})
 
 	t.Run("the compose key on a line with a thread replies in it", func(t *testing.T) {
