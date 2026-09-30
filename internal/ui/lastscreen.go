@@ -184,7 +184,7 @@ func (m model) screenNotice() string {
 		return "archived" + separated + "press " + keyLabel(m.keys.Archive.Restore) + " to restore"
 	case screenAgents:
 		item, ok := m.agents.hoveredResting(s)
-		if ok && item.Alive {
+		if ok && item.Agent.HeldAt != nil {
 			return "paused" + separated + "press " + keyLabel(m.keys.Agents.Pause) + " to unpause"
 		}
 
