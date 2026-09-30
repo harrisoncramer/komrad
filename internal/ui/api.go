@@ -476,6 +476,17 @@ func (a api) listDocuments(agentID string) ([]*agentv1.Document, error) {
 	})
 }
 
+func (a api) listDocumentTypes() ([]*agentv1.DocumentType, error) {
+	return call(requestTimeout, func(ctx context.Context) ([]*agentv1.DocumentType, error) {
+		resp, err := a.agents.ListDocumentTypes(ctx, connect.NewRequest(&emptypb.Empty{}))
+		if err != nil {
+			return nil, fmt.Errorf("failed to list the document types: %w", err)
+		}
+
+		return resp.Msg.GetDocumentTypes(), nil
+	})
+}
+
 func (a api) getLastTurns(agentID string) ([]*agentv1.Turn, error) {
 	turns, maxBytes := int32(conversationPreviewTurns), int32(conversationPreviewTurnBytes)
 
@@ -526,12 +537,12 @@ func (a api) listDocumentVersions(id string) ([]*agentv1.DocumentVersion, error)
 	})
 }
 
-func (a api) createDocument(agentID, name string, kind agentv1.DocumentKind, body string) error {
+func (a api) createDocument(agentID, name, typeName, body string) error {
 	return mutate(func(ctx context.Context) (any, error) {
 		return a.agents.WriteDocument(ctx, connect.NewRequest(&agentv1.WriteDocumentRequest{
 			AgentId: &agentID,
 			Name:    name,
-			Kind:    kind,
+			Type:    typeName,
 			Source:  &agentv1.WriteDocumentRequest_Body{Body: body},
 		}))
 	})
@@ -543,7 +554,7 @@ func (a api) writeDocument(item documentItem, version int32, body string) error 
 			Id:      &item.id,
 			Version: &version,
 			Name:    item.name,
-			Kind:    item.kind,
+			Type:    item.typeName,
 			Source:  &agentv1.WriteDocumentRequest_Body{Body: body},
 		}))
 	})

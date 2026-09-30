@@ -18,6 +18,7 @@ import (
 // TestCreate pins which names a new document may take.
 func TestCreate(t *testing.T) {
 	stores := storetest.Open(t)
+	stores.SeedDocumentTypes(t, "notes", "report")
 	ctx := t.Context()
 	author := stores.SeedAgent(t, agentstore.Agent{Name: "author"})
 	other := stores.SeedAgent(t, agentstore.Agent{Name: "other"})
@@ -25,7 +26,7 @@ func TestCreate(t *testing.T) {
 	first, err := stores.Documents.Create(ctx, documentstore.CreateParams{
 		AgentID: author.ID,
 		Name:    "Documents",
-		Kind:    documentstore.KindRFC,
+		Type:    "RFC",
 		Body:    "# Documents",
 	})
 	require.NoError(t, err)
@@ -42,7 +43,7 @@ func TestCreate(t *testing.T) {
 			params: documentstore.CreateParams{
 				AgentID: author.ID,
 				Name:    "Documents",
-				Kind:    documentstore.KindNotes,
+				Type:    "notes",
 				Body:    "again",
 			},
 			wantErr: store.ErrNameTaken,
@@ -53,7 +54,7 @@ func TestCreate(t *testing.T) {
 			params: documentstore.CreateParams{
 				AgentID: other.ID,
 				Name:    "Documents",
-				Kind:    documentstore.KindNotes,
+				Type:    "notes",
 				Body:    "mine",
 			},
 		},
@@ -62,16 +63,26 @@ func TestCreate(t *testing.T) {
 			params: documentstore.CreateParams{
 				AgentID: author.ID,
 				Name:    "Findings",
-				Kind:    documentstore.KindReport,
+				Type:    "report",
 				Body:    "found",
 			},
+		},
+		{
+			name: "a type that does not exist is refused",
+			params: documentstore.CreateParams{
+				AgentID: author.ID,
+				Name:    "Untyped",
+				Type:    "postmortem",
+				Body:    "# Untyped",
+			},
+			wantErr: documentstore.ErrUnknownType,
 		},
 		{
 			name: "an empty body is refused",
 			params: documentstore.CreateParams{
 				AgentID: author.ID,
 				Name:    "Blank",
-				Kind:    documentstore.KindNotes,
+				Type:    "notes",
 			},
 			wantConstraint: "documents_body_written",
 		},
@@ -80,7 +91,7 @@ func TestCreate(t *testing.T) {
 			params: documentstore.CreateParams{
 				AgentID:  author.ID,
 				Name:     "Plan",
-				Kind:     documentstore.KindRFC,
+				Type:     "RFC",
 				Body:     "Empty RFC document.",
 				ByPerson: true,
 			},
@@ -108,7 +119,7 @@ func TestCreate(t *testing.T) {
 			got, err := stores.Documents.Get(ctx, created.ID)
 			require.NoError(t, err)
 			assert.Equal(t, tt.params.Body, got.Body)
-			assert.Equal(t, tt.params.Kind, got.Kind)
+			assert.Equal(t, tt.params.Type, got.Type)
 
 			versions, err := stores.Documents.ListVersions(ctx, created.ID)
 			require.NoError(t, err)
@@ -122,6 +133,7 @@ func TestCreate(t *testing.T) {
 // TestUpdate pins which rewrites land and that a refused one changes nothing.
 func TestUpdate(t *testing.T) {
 	stores := storetest.Open(t)
+	stores.SeedDocumentTypes(t, "notes", "report")
 	ctx := t.Context()
 	author := stores.SeedAgent(t, agentstore.Agent{Name: "author"})
 	other := stores.SeedAgent(t, agentstore.Agent{Name: "other"})
@@ -132,7 +144,7 @@ func TestUpdate(t *testing.T) {
 		created, err := stores.Documents.Create(ctx, documentstore.CreateParams{
 			AgentID: author.ID,
 			Name:    name,
-			Kind:    documentstore.KindRFC,
+			Type:    "RFC",
 			Body:    "draft",
 		})
 		require.NoError(t, err)
@@ -146,13 +158,13 @@ func TestUpdate(t *testing.T) {
 		wantErr error
 	}{
 		{
-			name: "the name, kind and body all change and the document keeps its id",
+			name: "the name, type and body all change and the document keeps its id",
 			params: func(doc *documentstore.Document) documentstore.UpdateParams {
 				return documentstore.UpdateParams{
 					ID:      doc.ID,
 					AgentID: author.ID,
 					Name:    "renamed",
-					Kind:    documentstore.KindReport,
+					Type:    "report",
 					Body:    "final",
 					Version: doc.Version,
 				}
@@ -165,7 +177,7 @@ func TestUpdate(t *testing.T) {
 					ID:      doc.ID,
 					AgentID: other.ID,
 					Name:    doc.Name,
-					Kind:    doc.Kind,
+					Type:    doc.Type,
 					Body:    "stolen",
 					Version: doc.Version,
 				}
@@ -179,7 +191,7 @@ func TestUpdate(t *testing.T) {
 					ID:      uuid.NewString(),
 					AgentID: author.ID,
 					Name:    doc.Name,
-					Kind:    doc.Kind,
+					Type:    doc.Type,
 					Body:    "lost",
 					Version: doc.Version,
 				}
@@ -193,7 +205,7 @@ func TestUpdate(t *testing.T) {
 					ID:      "not-an-id",
 					AgentID: author.ID,
 					Name:    doc.Name,
-					Kind:    doc.Kind,
+					Type:    doc.Type,
 					Body:    "lost",
 					Version: doc.Version,
 				}
@@ -207,7 +219,7 @@ func TestUpdate(t *testing.T) {
 					ID:      doc.ID,
 					AgentID: author.ID,
 					Name:    "taken",
-					Kind:    doc.Kind,
+					Type:    doc.Type,
 					Body:    "clash",
 					Version: doc.Version,
 				}
@@ -221,7 +233,7 @@ func TestUpdate(t *testing.T) {
 					ID:      doc.ID,
 					AgentID: author.ID,
 					Name:    doc.Name,
-					Kind:    doc.Kind,
+					Type:    doc.Type,
 					Body:    "stale",
 					Version: doc.Version + 1,
 				}
@@ -249,7 +261,7 @@ func TestUpdate(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, doc.ID, updated.ID)
 			assert.Equal(t, params.Name, updated.Name)
-			assert.Equal(t, params.Kind, updated.Kind)
+			assert.Equal(t, params.Type, updated.Type)
 			assert.Equal(t, params.Body, updated.Body)
 			assert.Equal(t, doc.Version+1, updated.Version)
 			assert.False(t, updated.UpdatedAt.Before(doc.UpdatedAt))
@@ -270,40 +282,41 @@ func TestGet(t *testing.T) {
 // TestList pins whose documents a listing holds and in what order.
 func TestList(t *testing.T) {
 	stores := storetest.Open(t)
+	stores.SeedDocumentTypes(t, "notes", "report")
 	ctx := t.Context()
 	author := stores.SeedAgent(t, agentstore.Agent{Name: "author"})
 	other := stores.SeedAgent(t, agentstore.Agent{Name: "other"})
 
-	write := func(agentID, name string, kind documentstore.Kind) string {
+	write := func(agentID, name string, typeName string) string {
 		created, err := stores.Documents.Create(ctx, documentstore.CreateParams{
 			AgentID: agentID,
 			Name:    name,
-			Kind:    kind,
+			Type:    typeName,
 			Body:    "body of " + name,
 		})
 		require.NoError(t, err)
 
 		return created.ID
 	}
-	rfc := write(author.ID, "design", documentstore.KindRFC)
-	notes := write(author.ID, "scratch", documentstore.KindNotes)
-	write(other.ID, "elsewhere", documentstore.KindRFC)
+	rfc := write(author.ID, "design", "RFC")
+	notes := write(author.ID, "scratch", "notes")
+	write(other.ID, "elsewhere", "RFC")
 
 	_, err := stores.Documents.Update(ctx, documentstore.UpdateParams{
 		ID:      rfc,
 		AgentID: author.ID,
 		Name:    "design",
-		Kind:    documentstore.KindRFC,
+		Type:    "RFC",
 		Body:    "revised",
 		Version: 1,
 	})
 	require.NoError(t, err)
 
 	tests := []struct {
-		name    string
-		agentID string
-		kind    *documentstore.Kind
-		want    []string
+		name     string
+		agentID  string
+		typeName *string
+		want     []string
 	}{
 		{
 			name:    "an agent's own documents, the newest write first",
@@ -311,10 +324,10 @@ func TestList(t *testing.T) {
 			want:    []string{rfc, notes},
 		},
 		{
-			name:    "narrowed to one kind",
-			agentID: author.ID,
-			kind:    xptr.Ptr(documentstore.KindNotes),
-			want:    []string{notes},
+			name:     "narrowed to one type",
+			agentID:  author.ID,
+			typeName: xptr.Ptr("notes"),
+			want:     []string{notes},
 		},
 		{name: "an agent with none", agentID: uuid.NewString()},
 		{name: "a value that is not an id", agentID: "not-an-id"},
@@ -322,7 +335,7 @@ func TestList(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			listed, err := stores.Documents.List(ctx, tt.agentID, tt.kind)
+			listed, err := stores.Documents.List(ctx, tt.agentID, tt.typeName)
 			require.NoError(t, err)
 
 			ids := make([]string, 0, len(listed))
@@ -341,13 +354,14 @@ func TestList(t *testing.T) {
 // TestDeletingTheAgentDeletesItsDocuments pins that archiving keeps an agent's documents and deleting it removes them.
 func TestDeletingTheAgentDeletesItsDocuments(t *testing.T) {
 	stores := storetest.Open(t)
+	stores.SeedDocumentTypes(t, "notes", "report")
 	ctx := t.Context()
 	author := stores.SeedAgent(t, agentstore.Agent{Name: "author"})
 
 	created, err := stores.Documents.Create(ctx, documentstore.CreateParams{
 		AgentID: author.ID,
 		Name:    "gone",
-		Kind:    documentstore.KindNotes,
+		Type:    "notes",
 		Body:    "soon",
 	})
 	require.NoError(t, err)
@@ -370,13 +384,14 @@ func TestDeletingTheAgentDeletesItsDocuments(t *testing.T) {
 // and that a refused rewrite keeps nothing.
 func TestListVersions(t *testing.T) {
 	stores := storetest.Open(t)
+	stores.SeedDocumentTypes(t, "notes", "report")
 	ctx := t.Context()
 	author := stores.SeedAgent(t, agentstore.Agent{Name: "author"})
 
 	draft, err := stores.Documents.Create(ctx, documentstore.CreateParams{
 		AgentID: author.ID,
 		Name:    "design",
-		Kind:    documentstore.KindNotes,
+		Type:    "notes",
 		Body:    "draft",
 	})
 	require.NoError(t, err)
@@ -384,7 +399,7 @@ func TestListVersions(t *testing.T) {
 		ID:      draft.ID,
 		AgentID: author.ID,
 		Name:    "design",
-		Kind:    documentstore.KindRFC,
+		Type:    "RFC",
 		Body:    "revised",
 		Version: draft.Version,
 	})
@@ -393,7 +408,7 @@ func TestListVersions(t *testing.T) {
 		ID:      draft.ID,
 		AgentID: author.ID,
 		Name:    "design",
-		Kind:    documentstore.KindRFC,
+		Type:    "RFC",
 		Body:    "stale",
 		Version: draft.Version,
 	})
@@ -402,7 +417,7 @@ func TestListVersions(t *testing.T) {
 		ID:       draft.ID,
 		AgentID:  author.ID,
 		Name:     "design, edited",
-		Kind:     documentstore.KindRFC,
+		Type:     "RFC",
 		Body:     "edited",
 		Version:  revised.Version,
 		ByPerson: true,
@@ -415,29 +430,29 @@ func TestListVersions(t *testing.T) {
 	for i, want := range []struct {
 		version  int32
 		name     string
-		kind     documentstore.Kind
+		typeName string
 		byPerson bool
 	}{
 		{
 			version:  3,
 			name:     "design, edited",
-			kind:     documentstore.KindRFC,
+			typeName: "RFC",
 			byPerson: true,
 		},
 		{
-			version: 2,
-			name:    "design",
-			kind:    documentstore.KindRFC,
+			version:  2,
+			name:     "design",
+			typeName: "RFC",
 		},
 		{
-			version: 1,
-			name:    "design",
-			kind:    documentstore.KindNotes,
+			version:  1,
+			name:     "design",
+			typeName: "notes",
 		},
 	} {
 		assert.Equal(t, want.version, versions[i].Version)
 		assert.Equal(t, want.name, versions[i].Name)
-		assert.Equal(t, want.kind, versions[i].Kind)
+		assert.Equal(t, want.typeName, versions[i].Type)
 		assert.Equal(t, want.byPerson, versions[i].ByPerson)
 		assert.Empty(t, versions[i].Body, "a listing carries no bodies")
 	}

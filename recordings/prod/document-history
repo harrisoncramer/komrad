@@ -59,7 +59,7 @@ fits in `width`, and otherwise cuts it and ends it with `marker`, which defaults
 Cases in `test/functional/lua/text_spec.lua` for a short string and a long one.
 MD
 )"
-doc="$(KOMRAD_AGENT_ID="$agent" komrad rpc write-document --name truncate-rfc --kind DOCUMENT_KIND_RFC \
+doc="$(KOMRAD_AGENT_ID="$agent" komrad rpc write-document --name truncate-rfc --type RFC \
 	--body "$draft" --compact | jq -r '.document.id')"
 
 edited="$(cat <<'MD'
@@ -89,7 +89,7 @@ MD
 )"
 version="$(komrad rpc get-document --id "$doc" --compact | jq -r '.document.version')"
 komrad rpc write-document --agent-id "$agent" --id "$doc" --version "$version" --name truncate-rfc \
-	--kind DOCUMENT_KIND_RFC --body "$edited" >/dev/null
+	--type RFC --body "$edited" >/dev/null
 
 revised="$(cat <<'MD'
 # RFC: vim.text.truncate()
@@ -125,6 +125,6 @@ MD
 )"
 version="$(komrad rpc get-document --id "$doc" --compact | jq -r '.document.version')"
 KOMRAD_AGENT_ID="$agent" komrad rpc write-document --id "$doc" --version "$version" --name truncate-rfc \
-	--kind DOCUMENT_KIND_RFC --body "$revised" >/dev/null
+	--type RFC --body "$revised" >/dev/null
 KOMRAD_AGENT_ID="$agent" komrad rpc read-mail >/dev/null
 komrad rpc release-agent --id "$agent" >/dev/null

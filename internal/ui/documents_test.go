@@ -128,7 +128,7 @@ func TestDocumentsRead(t *testing.T) {
 		docs.add(&agentv1.Document{
 			Id:        "d3",
 			Name:      "Cache notes",
-			Kind:      agentv1.DocumentKind_DOCUMENT_KIND_NOTES,
+			Type:      "notes",
 			UpdatedAt: "2026-09-25T12:00:00Z",
 		})
 
@@ -262,7 +262,7 @@ func TestDocumentsEdit(t *testing.T) {
 				Id:      xptr.Ptr("d1"),
 				Version: xptr.Ptr[int32](3),
 				Name:    "Design the cache",
-				Kind:    agentv1.DocumentKind_DOCUMENT_KIND_RFC,
+				Type:    "RFC",
 				Source:  &agentv1.WriteDocumentRequest_Body{Body: tt.wantSaved},
 			})
 			if !tt.wantKept {
@@ -282,22 +282,22 @@ func TestDocumentsNew(t *testing.T) {
 		want    *agentv1.WriteDocumentRequest
 	}{
 		{
-			name:    "a name and the kind left alone write an RFC saying it is empty",
+			name:    "a name and the type left alone write an RFC saying it is empty",
 			presses: []string{"c", "P", "l", "a", "n", "ctrl+s"},
 			want: &agentv1.WriteDocumentRequest{
 				AgentId: xptr.Ptr("author"),
 				Name:    "Plan",
-				Kind:    agentv1.DocumentKind_DOCUMENT_KIND_RFC,
+				Type:    "RFC",
 				Source:  &agentv1.WriteDocumentRequest_Body{Body: "Empty RFC document.\n"},
 			},
 		},
 		{
-			name:    "the kind chosen names what the document says it is",
+			name:    "the type chosen names what the document says it is",
 			presses: []string{"c", "L", "o", "g", "tab", "down", "down", "down", "ctrl+s"},
 			want: &agentv1.WriteDocumentRequest{
 				AgentId: xptr.Ptr("author"),
 				Name:    "Log",
-				Kind:    agentv1.DocumentKind_DOCUMENT_KIND_NOTES,
+				Type:    "notes",
 				Source:  &agentv1.WriteDocumentRequest_Body{Body: "Empty notes document.\n"},
 			},
 		},
@@ -778,14 +778,14 @@ func newDocumentShelf() *documentShelf {
 			{
 				Id:        "d1",
 				Name:      "Design the cache",
-				Kind:      agentv1.DocumentKind_DOCUMENT_KIND_RFC,
+				Type:      "RFC",
 				Version:   3,
 				UpdatedAt: "2026-09-25T12:00:00Z",
 			},
 			{
 				Id:        "d2",
 				Name:      "Rollout report",
-				Kind:      agentv1.DocumentKind_DOCUMENT_KIND_REPORT,
+				Type:      "report",
 				Version:   5,
 				UpdatedAt: "2026-09-24T12:00:00Z",
 			},
@@ -836,6 +836,11 @@ func (d *documentShelf) add(document *agentv1.Document) {
 }
 
 func (d *documentShelf) answer(harness *panelHarness) {
+	harness.answer(agentv1connect.AgentServiceListDocumentTypesProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+		return connect.NewResponse(&agentv1.ListDocumentTypesResponse{DocumentTypes: []*agentv1.DocumentType{
+			{Name: "RFC"}, {Name: "report"}, {Name: "explainer"}, {Name: "notes"},
+		}}), nil
+	})
 	harness.answer(agentv1connect.AgentServiceListDocumentsProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
 		d.mu.Lock()
 		defer d.mu.Unlock()

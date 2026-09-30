@@ -6,6 +6,7 @@ import (
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
 	documentstore "komrad/internal/store/document"
+	documenttypestore "komrad/internal/store/documenttype"
 	forgestore "komrad/internal/store/forge"
 	mailstore "komrad/internal/store/mail"
 	pullrequeststore "komrad/internal/store/pullrequest"
@@ -30,6 +31,7 @@ type stores struct {
 	reviewThreads    *reviewstore.ThreadStore
 	runs             *runstore.RunStore
 	documents        *documentstore.DocumentStore
+	documentTypes    *documenttypestore.DocumentTypeStore
 	forges           *forgestore.ForgeStore
 	pullRequests     *pullrequeststore.PullRequestStore
 	pullRequestSyncs *pullrequeststore.PullRequestSyncStore
@@ -57,6 +59,7 @@ func openStores(ctx context.Context, databaseURL string) (*stores, error) {
 		reviewThreads:    reviewstore.NewThreadStore(db),
 		runs:             runstore.NewRunStore(db),
 		documents:        documentstore.NewDocumentStore(db),
+		documentTypes:    documenttypestore.NewDocumentTypeStore(db),
 		forges:           forgestore.NewForgeStore(db),
 		pullRequests:     pullrequeststore.NewPullRequestStore(db),
 		pullRequestSyncs: pullrequeststore.NewPullRequestSyncStore(db),

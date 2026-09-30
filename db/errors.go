@@ -8,8 +8,10 @@ import (
 )
 
 const (
-	uniqueViolation = "23505"
-	undefinedTable  = "42P01"
+	foreignKeyViolation = "23503"
+	uniqueViolation     = "23505"
+	restrictViolation   = "23001"
+	undefinedTable      = "42P01"
 )
 
 // IsNoRows reports whether an error is Postgres finding nothing.
@@ -20,6 +22,13 @@ func IsNoRows(err error) bool {
 // IsUniqueViolation reports whether an error is a unique index refusing a write.
 func IsUniqueViolation(err error) bool {
 	return hasCode(err, uniqueViolation)
+}
+
+// IsForeignKeyViolation reports whether an error is the named foreign key refusing a write.
+func IsForeignKeyViolation(err error, constraint string) bool {
+	var pgErr *pgconn.PgError
+
+	return errors.As(err, &pgErr) && (pgErr.Code == foreignKeyViolation || pgErr.Code == restrictViolation) && pgErr.ConstraintName == constraint
 }
 
 // isUndefinedTable reports whether an error is a query against a table that does not exist.

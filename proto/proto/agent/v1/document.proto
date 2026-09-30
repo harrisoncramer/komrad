@@ -6,20 +6,6 @@ import "buf/validate/validate.proto";
 
 option go_package = "komrad/proto/gen/agent/v1;agentv1";
 
-// DocumentKind is what sort of document it is.
-enum DocumentKind {
-  // No kind was given.
-  DOCUMENT_KIND_UNSPECIFIED = 0;
-  // A proposal for a change, written before building it.
-  DOCUMENT_KIND_RFC = 1;
-  // What an investigation found.
-  DOCUMENT_KIND_REPORT = 2;
-  // How something that already exists works.
-  DOCUMENT_KIND_EXPLAINER = 3;
-  // Anything else worth keeping.
-  DOCUMENT_KIND_NOTES = 4;
-}
-
 message Document {
   // Pass this back to write_document to rewrite the document.
   string id = 1;
@@ -27,8 +13,8 @@ message Document {
   string agent_id = 2;
   // The title a person reads, unique among one agent's documents.
   string name = 3;
-  // What sort of document it is.
-  DocumentKind kind = 4;
+  // The name of the document type it was written as.
+  string type = 4;
   // The markdown text, empty in a listing.
   string body = 5;
   // When it was first written, in RFC 3339.
@@ -47,10 +33,10 @@ message WriteDocumentRequest {
     min_len: 1
     max_len: 200
   }];
-  // What sort of document it is.
-  DocumentKind kind = 3 [(buf.validate.field).enum = {
-    defined_only: true
-    not_in: [0]
+  // The name of the document type to write it as, one list_document_types returns.
+  string type = 3 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 100
   }];
   // Where the markdown comes from.
   oneof source {
@@ -78,10 +64,10 @@ message WriteDocumentResponse {
 message ListDocumentsRequest {
   // Whose documents to list, or unset for the caller's own.
   optional string agent_id = 1 [(buf.validate.field).string.min_len = 1];
-  // Only documents of this kind, or unset for every kind.
-  optional DocumentKind kind = 2 [(buf.validate.field).enum = {
-    defined_only: true
-    not_in: [0]
+  // Only documents of this type, or unset for every type.
+  optional string type = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 100
   }];
 }
 
@@ -108,8 +94,8 @@ message DocumentVersion {
   int32 version = 1;
   // The title it had.
   string name = 2;
-  // What sort of document it was.
-  DocumentKind kind = 3;
+  // The name of the document type it was written as.
+  string type = 3;
   // Whether a person wrote it in the panel rather than the agent that owns the document.
   bool by_person = 4;
   // When it was written, in RFC 3339.
@@ -124,4 +110,82 @@ message ListDocumentVersionsRequest {
 message ListDocumentVersionsResponse {
   // Every write of the document, the newest first.
   repeated DocumentVersion versions = 1;
+}
+
+// DocumentType is one sort of document and the context an agent follows when writing one.
+message DocumentType {
+  // Pass this back to write_document_type or delete_document_type.
+  string id = 1;
+  // What documents name as their type.
+  string name = 2;
+  // The markdown an agent reads before writing a document of this type.
+  string context = 3;
+  // How many times it has been written, which a rewrite passes back to say what it replaces.
+  int32 version = 4;
+  // When it was last written, in RFC 3339.
+  string updated_at = 5;
+}
+
+message ListDocumentTypesResponse {
+  // Every document type, by name, each with its context.
+  repeated DocumentType document_types = 1;
+}
+
+message GetDocumentTypeRequest {
+  // The name of the type to read.
+  string name = 1 [(buf.validate.field).string.min_len = 1];
+  // An earlier write to read as it was, or unset for the type as it stands.
+  optional int32 version = 2 [(buf.validate.field).int32.gt = 0];
+}
+
+message GetDocumentTypeResponse {
+  // The type with its context.
+  DocumentType document_type = 1;
+}
+
+// DocumentTypeVersion is one write of a document type, without its context.
+message DocumentTypeVersion {
+  // Pass this to get_document_type to read the type as this write left it.
+  int32 version = 1;
+  // The name it had.
+  string name = 2;
+  // When it was written, in RFC 3339.
+  string created_at = 3;
+}
+
+message ListDocumentTypeVersionsRequest {
+  // The type whose writes to list.
+  string id = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+message ListDocumentTypeVersionsResponse {
+  // Every write of the type, the newest first.
+  repeated DocumentTypeVersion versions = 1;
+}
+
+message WriteDocumentTypeRequest {
+  // The type to rewrite, or unset to create one.
+  optional string id = 1 [(buf.validate.field).string.min_len = 1];
+  // What documents name as their type. Renaming a type carries its documents with it.
+  string name = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 100
+  }];
+  // The markdown an agent reads before writing a document of this type.
+  string context = 3 [(buf.validate.field).string = {
+    min_len: 1
+    max_bytes: 1048576
+  }];
+  // The version a rewrite replaces, as the last read or write returned it, and required with id.
+  optional int32 version = 4 [(buf.validate.field).int32.gt = 0];
+}
+
+message WriteDocumentTypeResponse {
+  // The type as stored.
+  DocumentType document_type = 1;
+}
+
+message DeleteDocumentTypeRequest {
+  // The type to delete.
+  string id = 1 [(buf.validate.field).string.min_len = 1];
 }

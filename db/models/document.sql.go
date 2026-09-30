@@ -12,7 +12,7 @@ import (
 
 const getDocument = `-- name: GetDocument :one
 SELECT
-    id, agent_id, name, kind, body, created_at, updated_at, engine_id, version
+    id, agent_id, name, body, created_at, updated_at, engine_id, version, type
 FROM
     documents
 WHERE
@@ -26,12 +26,12 @@ func (q *Queries) GetDocument(ctx context.Context, id string) (*Document, error)
 		&i.ID,
 		&i.AgentID,
 		&i.Name,
-		&i.Kind,
 		&i.Body,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.EngineID,
 		&i.Version,
+		&i.Type,
 	)
 	return &i, err
 }
@@ -60,7 +60,7 @@ func (q *Queries) GetDocumentIDByName(ctx context.Context, arg GetDocumentIDByNa
 
 const getDocumentVersion = `-- name: GetDocumentVersion :one
 SELECT
-    document_id, version, name, kind, body, by_person, created_at, engine_id
+    document_id, version, name, body, by_person, created_at, engine_id, type
 FROM
     document_versions
 WHERE
@@ -80,11 +80,11 @@ func (q *Queries) GetDocumentVersion(ctx context.Context, arg GetDocumentVersion
 		&i.DocumentID,
 		&i.Version,
 		&i.Name,
-		&i.Kind,
 		&i.Body,
 		&i.ByPerson,
 		&i.CreatedAt,
 		&i.EngineID,
+		&i.Type,
 	)
 	return &i, err
 }
@@ -94,7 +94,7 @@ WITH inserted AS (
     INSERT INTO documents(
         agent_id,
         name,
-        kind,
+        type,
         body)
     VALUES (
         $1,
@@ -102,14 +102,14 @@ WITH inserted AS (
         $3,
         $4)
 RETURNING
-    id, agent_id, name, kind, body, created_at, updated_at, engine_id, version
+    id, agent_id, name, body, created_at, updated_at, engine_id, version, type
 ),
 recorded AS (
     INSERT INTO document_versions(
         document_id,
         version,
         name,
-        kind,
+        type,
         body,
         by_person,
         created_at)
@@ -117,7 +117,7 @@ recorded AS (
         id,
         version,
         name,
-        kind,
+        type,
         body,
         $5,
         updated_at
@@ -125,7 +125,7 @@ recorded AS (
         inserted
 )
 SELECT
-    id, agent_id, name, kind, body, created_at, updated_at, engine_id, version
+    id, agent_id, name, body, created_at, updated_at, engine_id, version, type
 FROM
     inserted
 `
@@ -133,7 +133,7 @@ FROM
 type InsertDocumentParams struct {
 	AgentID  string
 	Name     string
-	Kind     DocumentKind
+	Type     string
 	Body     string
 	ByPerson bool
 }
@@ -142,19 +142,19 @@ type InsertDocumentRow struct {
 	ID        string
 	AgentID   string
 	Name      string
-	Kind      DocumentKind
 	Body      string
 	CreatedAt time.Time
 	UpdatedAt time.Time
 	EngineID  string
 	Version   int32
+	Type      string
 }
 
 func (q *Queries) InsertDocument(ctx context.Context, arg InsertDocumentParams) (*InsertDocumentRow, error) {
 	row := q.db.QueryRow(ctx, insertDocument,
 		arg.AgentID,
 		arg.Name,
-		arg.Kind,
+		arg.Type,
 		arg.Body,
 		arg.ByPerson,
 	)
@@ -163,12 +163,12 @@ func (q *Queries) InsertDocument(ctx context.Context, arg InsertDocumentParams) 
 		&i.ID,
 		&i.AgentID,
 		&i.Name,
-		&i.Kind,
 		&i.Body,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.EngineID,
 		&i.Version,
+		&i.Type,
 	)
 	return &i, err
 }
@@ -178,7 +178,7 @@ SELECT
     id,
     agent_id,
     name,
-    kind,
+    type,
     version,
     created_at,
     updated_at
@@ -186,8 +186,8 @@ FROM
     documents
 WHERE
     agent_id = $1
-    AND ($2::document_kind IS NULL
-        OR kind = $2::document_kind)
+    AND ($2::text IS NULL
+        OR type = $2::text)
 ORDER BY
     updated_at DESC,
     id DESC
@@ -195,21 +195,21 @@ ORDER BY
 
 type ListAgentDocumentsParams struct {
 	AgentID string
-	Kind    NullDocumentKind
+	Type    *string
 }
 
 type ListAgentDocumentsRow struct {
 	ID        string
 	AgentID   string
 	Name      string
-	Kind      DocumentKind
+	Type      string
 	Version   int32
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
 
 func (q *Queries) ListAgentDocuments(ctx context.Context, arg ListAgentDocumentsParams) ([]*ListAgentDocumentsRow, error) {
-	rows, err := q.db.Query(ctx, listAgentDocuments, arg.AgentID, arg.Kind)
+	rows, err := q.db.Query(ctx, listAgentDocuments, arg.AgentID, arg.Type)
 	if err != nil {
 		return nil, err
 	}
@@ -221,7 +221,7 @@ func (q *Queries) ListAgentDocuments(ctx context.Context, arg ListAgentDocuments
 			&i.ID,
 			&i.AgentID,
 			&i.Name,
-			&i.Kind,
+			&i.Type,
 			&i.Version,
 			&i.CreatedAt,
 			&i.UpdatedAt,
@@ -240,7 +240,7 @@ const listDocumentVersions = `-- name: ListDocumentVersions :many
 SELECT
     version,
     name,
-    kind,
+    type,
     by_person,
     created_at
 FROM
@@ -254,7 +254,7 @@ ORDER BY
 type ListDocumentVersionsRow struct {
 	Version   int32
 	Name      string
-	Kind      DocumentKind
+	Type      string
 	ByPerson  bool
 	CreatedAt time.Time
 }
@@ -271,7 +271,7 @@ func (q *Queries) ListDocumentVersions(ctx context.Context, documentID string) (
 		if err := rows.Scan(
 			&i.Version,
 			&i.Name,
-			&i.Kind,
+			&i.Type,
 			&i.ByPerson,
 			&i.CreatedAt,
 		); err != nil {
@@ -291,7 +291,7 @@ WITH updated AS (
         documents
     SET
         name = $1,
-        kind = $2,
+        type = $2,
         body = $3,
         version = documents.version + 1
     WHERE
@@ -299,14 +299,14 @@ WITH updated AS (
         AND documents.agent_id = $5
         AND documents.version = $6
     RETURNING
-        id, agent_id, name, kind, body, created_at, updated_at, engine_id, version
+        id, agent_id, name, body, created_at, updated_at, engine_id, version, type
 ),
 recorded AS (
     INSERT INTO document_versions(
         document_id,
         version,
         name,
-        kind,
+        type,
         body,
         by_person,
         created_at)
@@ -314,7 +314,7 @@ recorded AS (
         id,
         version,
         name,
-        kind,
+        type,
         body,
         $7,
         updated_at
@@ -322,14 +322,14 @@ recorded AS (
         updated
 )
 SELECT
-    id, agent_id, name, kind, body, created_at, updated_at, engine_id, version
+    id, agent_id, name, body, created_at, updated_at, engine_id, version, type
 FROM
     updated
 `
 
 type UpdateDocumentParams struct {
 	Name        string
-	Kind        DocumentKind
+	Type        string
 	Body        string
 	ID          string
 	AgentID     string
@@ -341,18 +341,18 @@ type UpdateDocumentRow struct {
 	ID        string
 	AgentID   string
 	Name      string
-	Kind      DocumentKind
 	Body      string
 	CreatedAt time.Time
 	UpdatedAt time.Time
 	EngineID  string
 	Version   int32
+	Type      string
 }
 
 func (q *Queries) UpdateDocument(ctx context.Context, arg UpdateDocumentParams) (*UpdateDocumentRow, error) {
 	row := q.db.QueryRow(ctx, updateDocument,
 		arg.Name,
-		arg.Kind,
+		arg.Type,
 		arg.Body,
 		arg.ID,
 		arg.AgentID,
@@ -364,12 +364,12 @@ func (q *Queries) UpdateDocument(ctx context.Context, arg UpdateDocumentParams) 
 		&i.ID,
 		&i.AgentID,
 		&i.Name,
-		&i.Kind,
 		&i.Body,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.EngineID,
 		&i.Version,
+		&i.Type,
 	)
 	return &i, err
 }

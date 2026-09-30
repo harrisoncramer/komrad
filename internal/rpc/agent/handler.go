@@ -79,43 +79,45 @@ type agentDeleter interface {
 }
 
 type NewHandlerParams struct {
-	Agents       agentReader
-	Rows         rowReader
-	Writer       rowWriter
-	Transcripts  transcriptReader
-	Mail         mailer
-	Creator      agentCreator
-	Adopter      agentAdopter
-	Liveness     agentLiveness
-	Lifecycle    agentLifecycle
-	Resumer      agentResumer
-	Holder       agentHolder
-	Deleter      agentDeleter
-	Review       reviewConversation
-	Documents    documentReadWriter
-	Rebaser      worktreeRebaser
-	Orchestrator orchestratorStarter
-	Clock        func() time.Time
+	Agents        agentReader
+	Rows          rowReader
+	Writer        rowWriter
+	Transcripts   transcriptReader
+	Mail          mailer
+	Creator       agentCreator
+	Adopter       agentAdopter
+	Liveness      agentLiveness
+	Lifecycle     agentLifecycle
+	Resumer       agentResumer
+	Holder        agentHolder
+	Deleter       agentDeleter
+	Review        reviewConversation
+	Documents     documentReadWriter
+	DocumentTypes documentTypeKeeper
+	Rebaser       worktreeRebaser
+	Orchestrator  orchestratorStarter
+	Clock         func() time.Time
 }
 
 type Handler struct {
-	agents       agentReader
-	rows         rowReader
-	writer       rowWriter
-	transcripts  transcriptReader
-	mail         mailer
-	creator      agentCreator
-	adopter      agentAdopter
-	liveness     agentLiveness
-	lifecycle    agentLifecycle
-	resumer      agentResumer
-	holder       agentHolder
-	deleter      agentDeleter
-	review       reviewConversation
-	documents    documentReadWriter
-	rebaser      worktreeRebaser
-	orchestrator orchestratorStarter
-	now          func() time.Time
+	agents        agentReader
+	rows          rowReader
+	writer        rowWriter
+	transcripts   transcriptReader
+	mail          mailer
+	creator       agentCreator
+	adopter       agentAdopter
+	liveness      agentLiveness
+	lifecycle     agentLifecycle
+	resumer       agentResumer
+	holder        agentHolder
+	deleter       agentDeleter
+	review        reviewConversation
+	documents     documentReadWriter
+	documentTypes documentTypeKeeper
+	rebaser       worktreeRebaser
+	orchestrator  orchestratorStarter
+	now           func() time.Time
 }
 
 // NewHandler constructs the handler from the stores it reads and the services that move agents
@@ -127,23 +129,24 @@ func NewHandler(params NewHandlerParams) *Handler {
 	}
 
 	return &Handler{
-		agents:       params.Agents,
-		rows:         params.Rows,
-		writer:       params.Writer,
-		transcripts:  params.Transcripts,
-		mail:         params.Mail,
-		creator:      params.Creator,
-		adopter:      params.Adopter,
-		liveness:     params.Liveness,
-		lifecycle:    params.Lifecycle,
-		resumer:      params.Resumer,
-		holder:       params.Holder,
-		deleter:      params.Deleter,
-		review:       params.Review,
-		documents:    params.Documents,
-		rebaser:      params.Rebaser,
-		orchestrator: params.Orchestrator,
-		now:          now,
+		agents:        params.Agents,
+		rows:          params.Rows,
+		writer:        params.Writer,
+		transcripts:   params.Transcripts,
+		mail:          params.Mail,
+		creator:       params.Creator,
+		adopter:       params.Adopter,
+		liveness:      params.Liveness,
+		lifecycle:     params.Lifecycle,
+		resumer:       params.Resumer,
+		holder:        params.Holder,
+		deleter:       params.Deleter,
+		review:        params.Review,
+		documents:     params.Documents,
+		documentTypes: params.DocumentTypes,
+		rebaser:       params.Rebaser,
+		orchestrator:  params.Orchestrator,
+		now:           now,
 	}
 }
 
