@@ -83,8 +83,7 @@ func (v *View) offerRowByTrace(index lineIndex, offer Offer) (int, bool) {
 	return y, ok
 }
 
-// offerRowByQuote is the one row on the offer's side drawing the line it was written on, which
-// refuses two matches rather than guessing between them.
+// offerRowByQuote is the one row on the offer's side drawing the line it was written on.
 func (v *View) offerRowByQuote(index lineIndex, offer Offer) (int, bool) {
 	if offer.Quote == "" {
 		return 0, false
