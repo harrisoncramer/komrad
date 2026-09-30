@@ -82,8 +82,6 @@ details_height = 9
 
 # The agents list, the panel's main screen.
 [keybindings.agents]
-# Archive the hovered agent, which stops it and moves it to the archive screen rather than destroying it.
-archive     = ["z"]
 # Step out of a workflow scope, or open the view switcher at the root.
 back        = ["esc"]
 # Open your editor on the hovered agent's worktree, in place of its pane beside the list. The
@@ -349,21 +347,18 @@ scroll_up   = ["ctrl+p"]
 
 # The schedules screen.
 [keybindings.schedules]
-# Archive the schedule under the cursor, which stops it firing. The agents it
-# launched are kept, and the archive can restore it.
-archive = ["z"]
 # Open the view switcher.
-back    = ["esc"]
+back   = ["esc"]
 # Edit the schedule under the cursor.
-edit    = ["e"]
+edit   = ["e"]
 # Write a new schedule.
-new     = ["c"]
+new    = ["c"]
 # Quit the panel.
-quit    = ["ctrl+c"]
+quit   = ["ctrl+c"]
 # Rename the schedule under the cursor, typed over its row.
-rename  = ["r"]
+rename = ["r"]
 # Pause or resume the schedule under the cursor.
-toggle  = ["p"]
+toggle = ["p"]
 
 # The keys that move the sidebar's edge, shared by every screen.
 [keybindings.sidebar]
@@ -402,8 +397,8 @@ terminal       = ["t"]
 # Open the git menu to the right of this one, for rebasing the agent's branch or opening or
 # merging its pull request.
 git            = ["g"]
-# Open the archive menu to the right of this one, for restoring or deleting the hovered row of
-# the archive, or every chosen agent.
+# Archive the hovered agent, workflow or schedule, or every chosen agent. In the archive it
+# opens the archive menu to the right of this one instead, for restoring or deleting the row.
 archive        = ["a"]
 # Open this engine's scratch file in your editor in place of the pane beside the list, or
 # close it when it is already open. Each engine keeps its own file under komrad's state
@@ -436,15 +431,13 @@ previous = ["shift+tab"]
 [keybindings.workflows]
 # Put an agent on a branch that already exists, in the workflow under the
 # cursor.
-adopt   = ["a"]
-# Archive the workflow under the cursor, which archives the agents inside it.
-archive = ["z"]
+adopt  = ["a"]
 # Edit the workflow under the cursor.
-edit    = ["e"]
+edit   = ["e"]
 # Create a workflow. Works from anywhere in the list.
-new     = ["w"]
+new    = ["w"]
 # Rename the workflow under the cursor.
-rename  = ["r"]
+rename = ["r"]
 
 # The worktrees screen, which lists every directory komrad cut for an agent.
 [keybindings.worktrees]

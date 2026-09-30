@@ -68,10 +68,6 @@ func (a *agentsScreen) stage(h host, _ panelShared) {
 	h.stageSelection()
 }
 
-func (a *agentsScreen) archiveChosen(h host, s panelShared, _ string) tea.Cmd {
-	return confirmArchiveAgents(h, s.listing.liveAgents(), chosenAgents(a.selected, a.rows(s)))
-}
-
 func (m model) archiveAgents(agents []panel.Agent) (model, tea.Cmd) {
 	if len(agents) == 0 {
 		return m, nil

@@ -20,7 +20,7 @@ func TestMenu(t *testing.T) {
 	t.Run("a screen with no hovered row opens only the panel's entries", func(t *testing.T) {
 		t.Parallel()
 
-		harness := openSchedules(t, buildSchedules()...)
+		harness := openSchedules(t, newLiveWorkflow("w1", "api"))
 		harness.press("space")
 
 		frame := harness.readFrame()
@@ -36,7 +36,7 @@ func TestMenu(t *testing.T) {
 		require.Contains(t, harness.readFrame(), "› documents")
 		require.Contains(t, harness.readFrame(), "───")
 
-		harness.press("down", "down", "down", "down")
+		harness.press("down", "down", "down", "down", "down")
 
 		assert.Contains(t, harness.readFrame(), "› scratch")
 	})

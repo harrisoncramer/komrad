@@ -46,7 +46,7 @@ func TestSchedulesKeys(t *testing.T) {
 		{
 			name:       "archive on an empty list opens no prompt",
 			rows:       []proto.Message{newLiveWorkflow("w1", "api")},
-			press:      []string{"z"},
+			press:      []string{"space", "a"},
 			wantAbsent: []string{"Archive schedule"},
 		},
 		{
@@ -81,13 +81,13 @@ func TestSchedulesKeys(t *testing.T) {
 		{
 			name:      "archive asks first",
 			rows:      buildSchedules(),
-			press:     []string{"z"},
+			press:     []string{"space", "a"},
 			wantDrawn: []string{archiveAsk},
 		},
 		{
 			name:       "archive once confirmed archives the hovered schedule and lands back on the schedules",
 			rows:       buildSchedules(),
-			press:      []string{"z", "y"},
+			press:      []string{"space", "a", "y"},
 			wantScreen: schedulesScreen,
 			wantAbsent: []string{archiveAsk},
 			wantSent: []request{{

@@ -27,12 +27,6 @@ func (a *agentsScreen) modeActions() []screenAction {
 
 	return append(list.actions(),
 		screenAction{
-			id:   actionArchiveSelected,
-			keys: func(k config.Keybindings) []string { return k.Agents.Archive },
-			when: list.isSelecting,
-			run:  a.archiveChosen,
-		},
-		screenAction{
 			id:   actionAgentShowHidden,
 			keys: func(k config.Keybindings) []string { return k.Agents.ShowHidden },
 			run:  a.toggleHidden,
@@ -89,12 +83,6 @@ func (a *agentsScreen) rowActions() []screenAction {
 			run:  a.onHoveredWorkflowIn(editWorkflowForm),
 		},
 		{
-			id:   actionWorkflowArchive,
-			keys: func(k config.Keybindings) []string { return k.Workflows.Archive },
-			when: a.isHoveringWorkflow,
-			run:  a.onHoveredWorkflow(archiveWorkflowConfirm),
-		},
-		{
 			id:   actionAgentOpen,
 			keys: func(k config.Keybindings) []string { return k.Agents.Open },
 			when: list.isBrowsing,
@@ -130,27 +118,11 @@ func (a *agentsScreen) rowActions() []screenAction {
 			when: a.isRetryableAgent,
 			run:  a.onHoveredAgent(func(h host, item panel.AgentRow) tea.Cmd { return openRetryForm(h, item.Agent) }),
 		},
-		{
-			id:   actionAgentArchive,
-			keys: func(k config.Keybindings) []string { return k.Agents.Archive },
-			when: a.isHoveringAgent,
-			run: a.onHoveredAgentIn(func(h host, s panelShared, item panel.AgentRow) tea.Cmd {
-				return confirmArchiveAgents(h, s.listing.liveAgents(), []panel.Agent{item.Agent})
-			}),
-		},
 	}
 }
 
 func (a *agentsScreen) isBrowsing(s panelShared) bool {
 	return a.list().isBrowsing(s)
-}
-
-// holdsSubpages reports whether the cursor is on an agent, or on a workflow with an orchestrator,
-// whose subpages the menu can list.
-func (a *agentsScreen) holdsSubpages(s panelShared) bool {
-	_, ok := a.hoveredPaneItem(s)
-
-	return a.isBrowsing(s) && ok
 }
 
 func (a *agentsScreen) isHoveringWorkflow(s panelShared) bool {
@@ -214,11 +186,6 @@ func (a *agentsScreen) selectionLegend() []screenLegendRow {
 	list := a.list()
 
 	return append(list.selectionLegend(),
-		screenLegendRow{
-			of:   []actionID{actionArchiveSelected},
-			desc: func(panelShared) string { return "archive all" },
-			show: list.isSelecting,
-		},
 		screenLegendRow{
 			of:   []actionID{actionAgentShowHidden},
 			desc: a.showHiddenDescOf,
@@ -287,16 +254,6 @@ func (a *agentsScreen) browsingLegend() []screenLegendRow {
 		{
 			of:   []actionID{actionWorkflowEdit},
 			desc: func(panelShared) string { return "edit" },
-		},
-		{
-			of:   []actionID{actionWorkflowArchive},
-			desc: func(panelShared) string { return "archive" },
-			show: a.isHoveringWorkflow,
-		},
-		{
-			of:   []actionID{actionAgentArchive},
-			desc: func(panelShared) string { return "archive" },
-			show: a.isHoveringAgent,
 		},
 		{
 			of:   []actionID{actionFilterOpen},

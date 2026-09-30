@@ -290,8 +290,6 @@ func FixedFormKeys() FormKeys {
 
 // AgentsKeys are the bindings for the agents list.
 type AgentsKeys struct {
-	// Archive the hovered agent, which stops it and moves it to the archive screen rather than destroying it.
-	Archive []string `mapstructure:"archive" default:"z"`
 	// Step out of a workflow scope, or open the view switcher at the root.
 	Back []string `mapstructure:"back" default:"esc"`
 	// Open your editor on the hovered agent's worktree, in place of its pane beside the list. The
@@ -347,7 +345,7 @@ type MergeKeys struct {
 }
 
 // MenuKeys are the bindings for the menu, which lists the hovered row's entries over the
-// panel's own. The rows with entries are an agent, and every row of the archive.
+// panel's own. The rows with entries are an agent, a workflow, a schedule, and every row of the archive.
 type MenuKeys struct {
 	// Open the menu from any screen: the hovered agent's entries, or its orchestrator's on a
 	// workflow's row, over the entries that act on the panel itself.
@@ -367,8 +365,8 @@ type MenuKeys struct {
 	// Open the git menu to the right of this one, for rebasing the agent's branch or opening or
 	// merging its pull request.
 	Git []string `mapstructure:"git" default:"g"`
-	// Open the archive menu to the right of this one, for restoring or deleting the hovered row of
-	// the archive, or every chosen agent.
+	// Archive the hovered agent, workflow or schedule, or every chosen agent. In the archive it
+	// opens the archive menu to the right of this one instead, for restoring or deleting the row.
 	Archive []string `mapstructure:"archive" default:"a"`
 	// Open this engine's scratch file in your editor in place of the pane beside the list, or
 	// close it when it is already open. Each engine keeps its own file under komrad's state
@@ -384,8 +382,6 @@ type WorkflowsKeys struct {
 	// Put an agent on a branch that already exists, in the workflow under the
 	// cursor.
 	Adopt []string `mapstructure:"adopt" default:"a"`
-	// Archive the workflow under the cursor, which archives the agents inside it.
-	Archive []string `mapstructure:"archive" default:"z"`
 	// Edit the workflow under the cursor.
 	Edit []string `mapstructure:"edit" default:"e"`
 	// Create a workflow. Works from anywhere in the list.
@@ -601,9 +597,6 @@ type SidebarKeys struct {
 // SchedulesKeys are the bindings for the schedules screen, which is its own view
 // rather than part of the agents tree, and act on the hovered schedule.
 type SchedulesKeys struct {
-	// Archive the schedule under the cursor, which stops it firing. The agents it
-	// launched are kept, and the archive can restore it.
-	Archive []string `mapstructure:"archive" default:"z"`
 	// Open the view switcher.
 	Back []string `mapstructure:"back" default:"esc"`
 	// Edit the schedule under the cursor.

@@ -33,8 +33,6 @@ const (
 	actionAgentOpen
 	actionAgentChild
 	actionAgentRename
-	actionAgentArchive
-	actionArchiveSelected
 	actionAgentEdit
 	actionAgentHide
 	actionAgentShowHidden
@@ -47,7 +45,6 @@ const (
 	actionWorkflowAdopt
 	actionWorkflowRename
 	actionWorkflowEdit
-	actionWorkflowArchive
 	actionSelectToggle
 	actionSelectRange
 	actionSelectClear
@@ -55,7 +52,6 @@ const (
 	actionScheduleEdit
 	actionScheduleToggle
 	actionScheduleRename
-	actionScheduleArchive
 	actionScheduleBack
 	actionArchiveRename
 	actionArchiveBack

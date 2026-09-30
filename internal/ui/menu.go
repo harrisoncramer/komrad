@@ -3,6 +3,8 @@ package ui
 import (
 	"slices"
 
+	"komrad/internal/ui/panel"
+
 	tea "charm.land/bubbletea/v2"
 )
 
@@ -105,16 +107,84 @@ func joinMenus(top, bottom submenu) submenu {
 }
 
 func (a *agentsScreen) itemMenu(s panelShared) (submenu, bool) {
-	if !a.holdsSubpages(s) {
+	if a.list().isSelecting(s) {
+		agents := chosenAgents(a.selected, a.rows(s))
+		if len(agents) == 0 {
+			return submenu{}, false
+		}
+
+		return withArchive(rowMenu(describeAgents(agents)), s, "archive all", func(m *model) tea.Cmd {
+			return confirmArchiveAgents(m, m.listing.liveAgents(), agents)
+		}), true
+	}
+
+	if !a.isBrowsing(s) {
 		return submenu{}, false
 	}
 
-	item, ok := a.hoveredPaneItem(s)
+	item, hasAgent := a.hoveredPaneItem(s)
+
+	if workflow, ok := a.hoveredWorkflow(s); ok {
+		menu := rowMenu(workflow.Name)
+		if hasAgent {
+			menu = agentMenu(s, screenAgents, item)
+		}
+
+		return withArchive(menu, s, "archive workflow", func(m *model) tea.Cmd {
+			return archiveWorkflowConfirm(m, workflow)
+		}), true
+	}
+
+	if !hasAgent {
+		return submenu{}, false
+	}
+
+	return withArchive(agentMenu(s, screenAgents, item), s, "archive", func(m *model) tea.Cmd {
+		return confirmArchiveAgents(m, m.listing.liveAgents(), []panel.Agent{item.Agent})
+	}), true
+}
+
+func (w *schedulesScreen) itemMenu(s panelShared) (submenu, bool) {
+	item, ok := w.selected(s)
 	if !ok {
 		return submenu{}, false
 	}
 
-	return agentMenu(s, screenAgents, item), true
+	schedule := item.schedule
+
+	return withArchive(rowMenu(schedule.Name), s, "archive", func(m *model) tea.Cmd {
+		return archiveScheduleConfirm(m, schedule)
+	}), true
+}
+
+// rowMenu is a band titled for a row that has no entries of its own.
+func rowMenu(name string) submenu {
+	return submenu{
+		kind:   formMenu,
+		title:  name,
+		crumb:  name,
+		answer: func(m model, _ int) (tea.Model, tea.Cmd) { return m.closeForm() },
+	}
+}
+
+// withArchive is a band with an archive entry at its foot.
+func withArchive(menu submenu, s panelShared, label string, confirm func(*model) tea.Cmd) submenu {
+	at := len(menu.entries)
+	answer := menu.answer
+
+	menu.entries = append(menu.entries[:at:at], submenuEntry{label: label, keys: s.keys.Menu.Archive})
+	menu.answer = func(m model, choice int) (tea.Model, tea.Cmd) {
+		if choice != at {
+			return answer(m, choice)
+		}
+
+		m.leaveForm()
+		cmd := confirm(&m)
+
+		return m, cmd
+	}
+
+	return menu
 }
 
 func (a *archiveScreen) itemMenu(s panelShared) (submenu, bool) {
@@ -132,18 +202,14 @@ func (a *archiveScreen) itemMenu(s panelShared) (submenu, bool) {
 		return menu, true
 	}
 
-	name := target.name(s.listing)
+	menu := rowMenu(target.name(s.listing))
+	menu.entries = []submenuEntry{entry}
 
-	return submenu{
-		kind:    formMenu,
-		title:   name,
-		crumb:   name,
-		entries: []submenuEntry{entry},
-		answer:  func(m model, _ int) (tea.Model, tea.Cmd) { return m.closeForm() },
-	}, true
+	return menu, true
 }
 
 var (
 	_ itemMenued = (*agentsScreen)(nil)
 	_ itemMenued = (*archiveScreen)(nil)
+	_ itemMenued = (*schedulesScreen)(nil)
 )

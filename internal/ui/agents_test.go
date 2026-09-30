@@ -628,7 +628,7 @@ func TestAgentsRecordFocus(t *testing.T) {
 		before := harness.readFrame()
 		sent := harness.readRequests()
 
-		harness.press("z", "r", "n", "c")
+		harness.press("r", "n", "c")
 
 		assert.Equal(t, before, harness.readFrame())
 		harness.assertSent(sent...)
@@ -2135,17 +2135,17 @@ func TestAgentsChildren(t *testing.T) {
 	}{
 		{
 			name:  "one agent with nothing attached",
-			press: []string{"z"},
+			press: []string{"space", "a"},
 			want:  `Archive agent "fix-gutter"?`,
 		},
 		{
 			name:  "one agent with children",
-			press: []string{"j", "z"},
+			press: []string{"j", "space", "a"},
 			want:  `Archive agent "author" and its 2 children?`,
 		},
 		{
 			name:  "a selection of agents counts every child that goes with it",
-			press: []string{"v", "j", "v", "z"},
+			press: []string{"v", "j", "v", "space", "a"},
 			want:  "Archive 2 agents and 2 children?",
 		},
 	}
@@ -2346,7 +2346,7 @@ func TestAgentsSelection(t *testing.T) {
 			harness := openAgents(t, buildSelectable()...)
 			harness.press(tt.press...)
 
-			harness.press("z")
+			harness.press("space", "a")
 			harness.assertSentTo(agentv1connect.AgentServiceArchiveAgentsProcedure)
 			harness.press("ctrl+s")
 
@@ -2383,7 +2383,7 @@ func TestAgentsSelection(t *testing.T) {
 		harness.press("v", "G", "v")
 
 		harness.watch(buildSnapshot(newLiveWorkflow("w2", "frontend"), newAgentAt("ui", "w2", 1)))
-		harness.press("z", "ctrl+s")
+		harness.press("space", "a", "ctrl+s")
 
 		harness.assertSentTo(agentv1connect.AgentServiceArchiveAgentsProcedure, &agentv1.ArchiveAgentsRequest{Ids: []string{"ui"}})
 	})
@@ -2392,7 +2392,7 @@ func TestAgentsSelection(t *testing.T) {
 		harness := openAgents(t, buildSelectable()...)
 		harness.press("H", "v", "j", "j", "j", "v", "H")
 
-		harness.press("z", "ctrl+s")
+		harness.press("space", "a", "ctrl+s")
 
 		harness.assertSentTo(agentv1connect.AgentServiceArchiveAgentsProcedure, &agentv1.ArchiveAgentsRequest{Ids: []string{"auth"}})
 	})

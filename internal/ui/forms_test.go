@@ -146,7 +146,7 @@ func TestFormsSubmit(t *testing.T) {
 		},
 		{
 			name:      "the workflow archive prompt archives the workflow",
-			press:     []string{"z", "ctrl+s"},
+			press:     []string{"space", "a", "ctrl+s"},
 			procedure: workflowv1connect.WorkflowServiceArchiveWorkflowProcedure,
 			want:      &workflowv1.ArchiveWorkflowRequest{Id: "w1"},
 		},
@@ -377,7 +377,7 @@ func TestFormsArchivePrompt(t *testing.T) {
 	t.Run("the prompt opens on the reversible answer", func(t *testing.T) {
 		harness := openForms(t, newFormWorkflow(), newFormAuthor())
 
-		harness.press("j", "z")
+		harness.press("j", "space", "a")
 
 		frame := harness.readFrame()
 		assert.Contains(t, frame, "› Archive")
@@ -421,7 +421,7 @@ func TestFormsArchivePrompt(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			harness := openForms(t, newFormWorkflow(), newFormAuthor())
-			harness.press("j", "z")
+			harness.press("j", "space", "a")
 			before := harness.readRequests()
 
 			harness.press(tt.press...)
@@ -437,7 +437,7 @@ func TestFormsArchivePrompt(t *testing.T) {
 		answerWorktreeReads(harness)
 		harness.watch(buildSnapshot(newFormWorkflow(), newFormAuthor()))
 		harness.hold(agentv1connect.AgentServiceArchiveAgentsProcedure)
-		harness.press("g", "g", "j", "z", "ctrl+s")
+		harness.press("g", "g", "j", "space", "a", "ctrl+s")
 
 		binary.isReplaced = true
 		harness.fireTimers()
@@ -452,7 +452,7 @@ func TestFormsArchivePrompt(t *testing.T) {
 		harness := openForms(t, newFormWorkflow(), newFormAuthor())
 		harness.refuse(workflowv1connect.WorkflowServiceArchiveWorkflowProcedure, connect.NewError(connect.CodeFailedPrecondition, errors.New("agents still running")))
 
-		harness.press(slices.Concat([]string{"z", "ctrl+s"}, widenListPresses)...)
+		harness.press(slices.Concat([]string{"space", "a", "ctrl+s"}, widenListPresses)...)
 
 		assert.Contains(t, readListRows(harness.readFrame()), "api")
 		assert.Contains(t, readOpenMessages(harness), "agents still running")
@@ -462,7 +462,7 @@ func TestFormsArchivePrompt(t *testing.T) {
 		harness := openForms(t, newFormWorkflow(), newFormAuthor())
 		harness.refuse(agentv1connect.AgentServiceArchiveAgentsProcedure, connect.NewError(connect.CodeFailedPrecondition, errors.New("already archived")))
 
-		harness.press(slices.Concat([]string{"j", "z", "down", "ctrl+s"}, widenListPresses)...)
+		harness.press(slices.Concat([]string{"j", "space", "a", "down", "ctrl+s"}, widenListPresses)...)
 
 		assert.Contains(t, harness.readFrame(), `Could not archive and delete agent "author"`)
 		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceDeleteAgentsProcedure))
@@ -699,7 +699,7 @@ func TestFormsLayout(t *testing.T) {
 		},
 		{
 			name:  "a confirmation takes the window beside the list",
-			press: []string{"z"},
+			press: []string{"space", "a"},
 			want:  `Archive agent "author"?`,
 		},
 	}

@@ -264,14 +264,7 @@ func (l listing) liveOrchestrators() []panel.Agent {
 	return orchestrators
 }
 
-func (w *schedulesScreen) archiveConfirm(h host, s panelShared) tea.Cmd {
-	item, ok := w.selected(s)
-	if !ok {
-		return nil
-	}
-
-	target := item.schedule
-
+func archiveScheduleConfirm(h host, target panel.Schedule) tea.Cmd {
 	form, confirmed := archiveScheduleForm(target.Name, formKeys())
 
 	return h.openForm(formState{
