@@ -3,7 +3,6 @@ package ui
 import (
 	"errors"
 	"fmt"
-	"slices"
 	"strings"
 	"unicode/utf8"
 
@@ -16,27 +15,16 @@ import (
 // documentTypeNameLimit is the longest name the service takes for a document type.
 const documentTypeNameLimit = 100
 
-var errDocumentTypesHere = errors.New("the document types open from a view or from the documents")
-
 // documentTypeFormValues is what the new document type form asks for.
 type documentTypeFormValues struct {
 	Name    string
 	Context string
 }
 
-// shelfActions is the keys only one shelf has: the way to the types from the documents, and
-// renaming and deleting a type.
+// shelfActions is the keys only the document types have: renaming and deleting a type.
 func (d *documentsScreen) shelfActions() []screenAction {
 	if d.shelf != shelfDocumentTypes {
-		return []screenAction{
-			{
-				id:   actionDocumentsTypes,
-				keys: func(k config.Keybindings) []string { return k.Documents.Types },
-				run: func(h host, _ panelShared, _ string) tea.Cmd {
-					return h.enter(screenDocumentTypes, screenTarget{agentID: d.agentID, from: screenDocuments, under: d.from})
-				},
-			},
-		}
+		return nil
 	}
 
 	return []screenAction{
@@ -55,12 +43,7 @@ func (d *documentsScreen) shelfActions() []screenAction {
 
 func (d *documentsScreen) shelfLegend() []screenLegendRow {
 	if d.shelf != shelfDocumentTypes {
-		return []screenLegendRow{
-			{
-				of:   []actionID{actionDocumentsTypes},
-				desc: func(panelShared) string { return "document types" },
-			},
-		}
+		return nil
 	}
 
 	return []screenLegendRow{
@@ -75,13 +58,8 @@ func (d *documentsScreen) shelfLegend() []screenLegendRow {
 	}
 }
 
-// back leaves for the screen the shelf was opened from, and back to the documents it was opened
-// over for the types.
+// back leaves for the screen the shelf was opened from.
 func (d *documentsScreen) back(h host) tea.Cmd {
-	if d.shelf == shelfDocumentTypes {
-		return h.enter(d.from, screenTarget{agentID: d.agentID, from: screenDocumentTypes})
-	}
-
 	return h.enter(d.from, screenTarget{agentID: d.agentID})
 }
 
@@ -95,19 +73,19 @@ func (d *documentsScreen) newDesc() string {
 
 // pressNew puts up the form for a new document, or for a new type.
 func (d *documentsScreen) pressNew(h host, s panelShared) tea.Cmd {
-	if d.shelf == shelfDocumentTypes {
-		return d.newTypeForm(h)
-	}
-
-	return d.newDocumentForm(h, s)
-}
-
-// newTypeForm puts up the form for a document type, asking its name and its context.
-func (d *documentsScreen) newTypeForm(h host) tea.Cmd {
 	if d.editing != nil {
 		return nil
 	}
 
+	if d.shelf == shelfDocumentTypes {
+		return newTypeForm(h)
+	}
+
+	return newDocumentForm(h, s, d.agentID)
+}
+
+// newTypeForm puts up the form for a document type, asking its name and its context.
+func newTypeForm(h host) tea.Cmd {
 	values := &documentTypeFormValues{}
 
 	return h.openForm(redrawnForm(redrawnFormParams{
@@ -221,22 +199,4 @@ func checkDocumentTypeContext(typeContext string) error {
 	}
 
 	return nil
-}
-
-// isView reports whether a screen is one of the views on the switcher.
-func (s screen) isView() bool {
-	return slices.ContainsFunc(viewEntries(), func(entry viewEntry) bool { return entry.screen == s })
-}
-
-// documentTypesTarget is where the document types open from the screen that is up, and false on
-// a screen they do not open from.
-func (m *model) documentTypesTarget() (screenTarget, bool) {
-	switch {
-	case m.screen == screenDocuments:
-		return screenTarget{agentID: m.documents.agentID, from: screenDocuments, under: m.documents.from}, true
-	case m.screen.isView():
-		return screenTarget{agentID: m.hoveredAgentID(), from: m.screen, under: m.screen}, true
-	}
-
-	return screenTarget{}, false
 }

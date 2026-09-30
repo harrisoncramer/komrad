@@ -435,18 +435,46 @@
               "default": "[\"c\"]"
             },
             {
-              "key": "types",
-              "path": "keybindings.documents.types",
-              "type": "array",
-              "description": "Open the document types, where a person defines the sorts of document agents write and\nthe context an agent reads before writing each.",
-              "default": "[\"t\"]"
-            },
-            {
               "key": "quit",
               "path": "keybindings.documents.quit",
               "type": "array",
               "description": "Quit the panel.",
               "default": "[\"ctrl+c\"]"
+            }
+          ],
+          "sections": []
+        },
+        {
+          "path": "keybindings.documents_menu",
+          "description": "The documents menu, nested under the menu on the hovered agent.",
+          "settings": [
+            {
+              "key": "view",
+              "path": "keybindings.documents_menu.view",
+              "type": "array",
+              "description": "Open the documents the agent has written. The entry is gray on an agent that has written\nnone.",
+              "default": "[\"v\"]"
+            },
+            {
+              "key": "new",
+              "path": "keybindings.documents_menu.new",
+              "type": "array",
+              "description": "Write a new document for the agent, from a form asking its name and type. It starts with a\nline saying it is empty, for you to edit.",
+              "default": "[\"c\"]"
+            },
+            {
+              "key": "new_type",
+              "path": "keybindings.documents_menu.new_type",
+              "type": "array",
+              "description": "Define a new document type, from a form asking its name and the context an agent reads\nbefore writing one.",
+              "default": "[\"t\"]"
+            },
+            {
+              "key": "types",
+              "path": "keybindings.documents_menu.types",
+              "type": "array",
+              "description": "Open the document types, where a person defines the sorts of document agents write.",
+              "default": "[\"l\"]"
             }
           ],
           "sections": []
@@ -970,7 +998,7 @@
               "key": "documents",
               "path": "keybindings.menu.documents",
               "type": "array",
-              "description": "Open the documents the agent has written. The entry is gray on an agent that has written\nnone.",
+              "description": "Open the documents menu to the right of this one, for reading the agent's documents,\nwriting a new one, or defining the types they are written as.",
               "default": "[\"d\"]"
             },
             {
@@ -993,13 +1021,6 @@
               "type": "array",
               "description": "Open the git menu to the right of this one, for rebasing the agent's branch or opening or\nmerging its pull request.",
               "default": "[\"g\"]"
-            },
-            {
-              "key": "document_types",
-              "path": "keybindings.menu.document_types",
-              "type": "array",
-              "description": "Open the document types, where a person defines the sorts of document agents write. The\nentry is drawn on the views and on the documents screen.",
-              "default": "[\"y\"]"
             },
             {
               "key": "scratch",

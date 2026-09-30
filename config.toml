@@ -177,11 +177,22 @@ newer = [">"]
 # Write a new document for the agent whose documents are listed, from a form asking its name
 # and type. It starts with a line saying it is empty, for you to edit.
 new   = ["c"]
-# Open the document types, where a person defines the sorts of document agents write and
-# the context an agent reads before writing each.
-types = ["t"]
 # Quit the panel.
 quit  = ["ctrl+c"]
+
+# The documents menu, nested under the menu on the hovered agent.
+[keybindings.documents_menu]
+# Open the documents the agent has written. The entry is gray on an agent that has written
+# none.
+view     = ["v"]
+# Write a new document for the agent, from a form asking its name and type. It starts with a
+# line saying it is empty, for you to edit.
+new      = ["c"]
+# Define a new document type, from a form asking its name and the context an agent reads
+# before writing one.
+new_type = ["t"]
+# Open the document types, where a person defines the sorts of document agents write.
+types    = ["l"]
 
 # The document types screen, where a person defines the sorts of document agents write.
 [keybindings.document_types]
@@ -366,29 +377,26 @@ toggle = ["v"]
 [keybindings.menu]
 # Open the menu from any screen: the hovered agent's entries, or its orchestrator's on a
 # workflow's row, over the entries that act on the panel itself.
-open           = ["space"]
+open      = ["space"]
 # Open the review of the agent's diff. The entry is gray on an agent with no worktree of its
 # own, and in the archive.
-review         = ["r"]
-# Open the documents the agent has written. The entry is gray on an agent that has written
-# none.
-documents      = ["d"]
+review    = ["r"]
+# Open the documents menu to the right of this one, for reading the agent's documents,
+# writing a new one, or defining the types they are written as.
+documents = ["d"]
 # Open the agent's logs, the service log lines about it.
-logs           = ["l"]
+logs      = ["l"]
 # Open a shell in the pane below the stage, rooted at the agent's directory, or hand the
 # keyboard to the one already rooted there. The entry is gray in the archive and on an agent
 # with no directory.
-terminal       = ["t"]
+terminal  = ["t"]
 # Open the git menu to the right of this one, for rebasing the agent's branch or opening or
 # merging its pull request.
-git            = ["g"]
-# Open the document types, where a person defines the sorts of document agents write. The
-# entry is drawn on the views and on the documents screen.
-document_types = ["y"]
+git       = ["g"]
 # Open this engine's scratch file in your editor in place of the pane beside the list, or
 # close it when it is already open. Each engine keeps its own file under komrad's state
 # directory.
-scratch        = ["s"]
+scratch   = ["s"]
 
 # The row of tabs a screen draws over its list, and the key that hands it the cursor.
 [keybindings.tabs]

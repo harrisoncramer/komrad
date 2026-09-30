@@ -82,6 +82,15 @@ func ValidateKeybindings(keys config.Keybindings) error {
 		return err
 	}
 
+	if err := validateSubmenuKeys("documents menu", []submenuKeys{
+		{name: "view", keys: keys.DocumentsMenu.View},
+		{name: "new", keys: keys.DocumentsMenu.New},
+		{name: "new_type", keys: keys.DocumentsMenu.NewType},
+		{name: "types", keys: keys.DocumentsMenu.Types},
+	}); err != nil {
+		return err
+	}
+
 	if err := validateSubmenuKeys("merge menu", []submenuKeys{
 		{name: "merge", keys: keys.Merge.Merge},
 		{name: "merge_archive", keys: keys.Merge.MergeArchive},
@@ -96,7 +105,6 @@ func ValidateKeybindings(keys config.Keybindings) error {
 		{name: "terminal", keys: keys.Menu.Terminal},
 		{name: "git", keys: keys.Menu.Git},
 		{name: "scratch", keys: keys.Menu.Scratch},
-		{name: "document_types", keys: keys.Menu.DocumentTypes},
 	})
 }
 

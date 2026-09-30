@@ -63,8 +63,6 @@ type screenTarget struct {
 	agentID string
 	// from is the view the screen was opened from.
 	from screen
-	// under is the view the screen it was opened from sits under.
-	under screen
 }
 
 // detailed is a screen that draws a record under its list.

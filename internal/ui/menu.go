@@ -11,7 +11,6 @@ type panelChoice int
 
 const (
 	panelChoiceScratch panelChoice = iota
-	panelChoiceDocumentTypes
 )
 
 // itemMenued is a screen whose hovered row has a band of its own in the menu.
@@ -22,8 +21,7 @@ type itemMenued interface {
 // openMenu draws the menu, the hovered row's band over the panel's own.
 func (m *model) openMenu() tea.Cmd {
 	s := m.shared()
-	_, typesHere := m.documentTypesTarget()
-	menu := panelMenu(s, m.isScratchOpen(), typesHere)
+	menu := panelMenu(s, m.isScratchOpen())
 
 	if screen, ok := m.active().(itemMenued); ok && !m.isDetailsFocused() {
 		if item, ok := screen.itemMenu(s); ok {
@@ -34,9 +32,8 @@ func (m *model) openMenu() tea.Cmd {
 	return openSubmenu(m, menu)
 }
 
-// panelMenu is the band of the menu that acts on the panel whatever is hovered, the document types
-// gray on a screen they do not open from.
-func panelMenu(s panelShared, scratchOpen, typesHere bool) submenu {
+// panelMenu is the band of the menu that acts on the panel whatever is hovered.
+func panelMenu(s panelShared, scratchOpen bool) submenu {
 	scratch := "scratch"
 	if scratchOpen {
 		scratch = "close scratch"
@@ -48,24 +45,13 @@ func panelMenu(s panelShared, scratchOpen, typesHere bool) submenu {
 		crumb: "komrad",
 		entries: []submenuEntry{
 			{label: scratch, keys: s.keys.Menu.Scratch},
-			{label: "document types", keys: s.keys.Menu.DocumentTypes, isOff: !typesHere},
 		},
 		answer: func(m model, choice int) (tea.Model, tea.Cmd) {
-			switch panelChoice(choice) {
-			case panelChoiceScratch:
+			if panelChoice(choice) == panelChoiceScratch {
 				m.leaveForm()
 				cmd := m.toggleScratch()
 
 				return m, cmd
-			case panelChoiceDocumentTypes:
-				target, ok := m.documentTypesTarget()
-				if !ok {
-					return m.refuseSubpage("Could not open the document types", errDocumentTypesHere)
-				}
-
-				m.leaveForm()
-
-				return m, m.enter(screenDocumentTypes, target)
 			}
 
 			return m.closeForm()

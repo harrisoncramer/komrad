@@ -39,9 +39,8 @@ type documentsScreen struct {
 	rowCursor
 	shelf   documentShelf
 	agentID string
-	// from is the screen the screen was opened from, and under the view that one sits under.
+	// from is the screen the screen was opened from.
 	from  screen
-	under screen
 	items []documentItem
 	// listedAt is the agent's newest write the list was read at, and listedCount how many it had
 	// written.
@@ -66,18 +65,15 @@ func (r documentRow) key() string {
 	return "doc:" + r.item.id
 }
 
-// enter opens on the documents of the agent the target names, forgetting another agent's, and
-// keeps where the documents were opened from when coming back from the document types.
+// enter opens on the documents of the agent the target names, forgetting another agent's.
 func (d *documentsScreen) enter(h host, _ panelShared, target screenTarget) tea.Cmd {
 	var saved tea.Cmd
 	if target.agentID != d.agentID {
 		saved = d.closeEdit(h)
 		*d = documentsScreen{shelf: d.shelf, agentID: target.agentID}
 	}
-	switch {
-	case target.from == screenDocumentTypes:
-	case d.shelf == shelfDocumentTypes || target.agentID != "":
-		d.from, d.under = target.from, target.under
+	if target.agentID != "" {
+		d.from = target.from
 	}
 
 	h.stageInfo()
@@ -151,13 +147,8 @@ func (d *documentsScreen) listParams(s panelShared) screenListParams {
 	}
 }
 
-// parent is the view the documents were opened from, or the one the documents the document types
-// were opened from sit under.
+// parent is the view the documents were opened from.
 func (d *documentsScreen) parent() screen {
-	if d.shelf == shelfDocumentTypes {
-		return d.under
-	}
-
 	return d.from
 }
 
@@ -178,15 +169,10 @@ func (d *documentsScreen) crumbs(s panelShared) crumbs {
 	return trail
 }
 
-// crumbRoot is the trail down to the shelf: the agent the documents are of, and the document types
-// under the documents they were opened from.
+// crumbRoot is the trail down to the shelf: the agent the documents are of, or the document types.
 func (d *documentsScreen) crumbRoot(s panelShared) []string {
 	if d.shelf != shelfDocumentTypes {
 		return []string{d.agentName(s), "documents"}
-	}
-
-	if d.from == screenDocuments {
-		return []string{d.agentName(s), "documents", "types"}
 	}
 
 	return []string{"document types"}

@@ -43,7 +43,7 @@ func TestDocumentsOpen(t *testing.T) {
 
 		harness := openAgents(t, buildDocumentAuthors()...)
 		moveToAgentRow(t, harness, "quiet")
-		harness.press("space", "d")
+		harness.press("space", "d", "v")
 
 		assert.NotEqual(t, documentsScreen, harness.readScreen())
 		assert.Contains(t, readOpenMessages(harness), "this agent has not written any documents yet")
@@ -326,6 +326,27 @@ func TestDocumentsNew(t *testing.T) {
 			harness.assertSentTo(agentv1connect.AgentServiceWriteDocumentProcedure, tt.want)
 		})
 	}
+}
+
+// TestDocumentsNewFromTheMenu covers writing a first document for an agent that has none, from the
+// documents menu.
+func TestDocumentsNewFromTheMenu(t *testing.T) {
+	t.Parallel()
+
+	harness := openAgents(t, buildDocumentAuthors()...)
+	harness.answer(agentv1connect.AgentServiceWriteDocumentProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+		return connect.NewResponse(&agentv1.WriteDocumentResponse{}), nil
+	})
+	moveToAgentRow(t, harness, "quiet")
+	harness.press("space", "d", "c", "P", "l", "a", "n", "ctrl+s")
+
+	assert.Equal(t, agentsScreen, harness.readScreen())
+	harness.assertSentTo(agentv1connect.AgentServiceWriteDocumentProcedure, &agentv1.WriteDocumentRequest{
+		AgentId: xptr.Ptr("quiet"),
+		Name:    "Plan",
+		Type:    "RFC",
+		Source:  &agentv1.WriteDocumentRequest_Body{Body: "Empty RFC document.\n"},
+	})
 }
 
 // TestDocumentsHistory covers stepping back and forward through a document's writes, drawing
@@ -735,7 +756,7 @@ func openDocumentsWith(t *testing.T, params panelHarnessParams) (*panelHarness, 
 	docs.answer(harness)
 
 	moveToAgentRow(t, harness, "author")
-	harness.press("space", "d")
+	harness.press("space", "d", "v")
 	harness.fireTimers()
 
 	return harness, docs

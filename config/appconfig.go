@@ -130,6 +130,8 @@ type Keybindings struct {
 	Diff DiffKeys `mapstructure:"diff"`
 	// The documents screen, which reads what the hovered agent has written for a person.
 	Documents DocumentsKeys `mapstructure:"documents"`
+	// The documents menu, nested under the menu on the hovered agent.
+	DocumentsMenu DocumentsMenuKeys `mapstructure:"documents_menu"`
 	// The document types screen, where a person defines the sorts of document agents write.
 	DocumentTypes DocumentTypesKeys `mapstructure:"document_types"`
 	// The filter over whichever list is on screen, shared by every screen that
@@ -356,8 +358,8 @@ type MenuKeys struct {
 	// Open the review of the agent's diff. The entry is gray on an agent with no worktree of its
 	// own, and in the archive.
 	Review []string `mapstructure:"review" default:"r"`
-	// Open the documents the agent has written. The entry is gray on an agent that has written
-	// none.
+	// Open the documents menu to the right of this one, for reading the agent's documents,
+	// writing a new one, or defining the types they are written as.
 	Documents []string `mapstructure:"documents" default:"d"`
 	// Open the agent's logs, the service log lines about it.
 	Logs []string `mapstructure:"logs" default:"l"`
@@ -368,9 +370,6 @@ type MenuKeys struct {
 	// Open the git menu to the right of this one, for rebasing the agent's branch or opening or
 	// merging its pull request.
 	Git []string `mapstructure:"git" default:"g"`
-	// Open the document types, where a person defines the sorts of document agents write. The
-	// entry is drawn on the views and on the documents screen.
-	DocumentTypes []string `mapstructure:"document_types" default:"y"`
 	// Open this engine's scratch file in your editor in place of the pane beside the list, or
 	// close it when it is already open. Each engine keeps its own file under komrad's state
 	// directory.
@@ -392,6 +391,22 @@ type WorkflowsKeys struct {
 	Rename []string `mapstructure:"rename" default:"r"`
 }
 
+// DocumentsMenuKeys are the bindings for the documents menu, which opens from the menu on the
+// hovered agent.
+type DocumentsMenuKeys struct {
+	// Open the documents the agent has written. The entry is gray on an agent that has written
+	// none.
+	View []string `mapstructure:"view" default:"v"`
+	// Write a new document for the agent, from a form asking its name and type. It starts with a
+	// line saying it is empty, for you to edit.
+	New []string `mapstructure:"new" default:"c"`
+	// Define a new document type, from a form asking its name and the context an agent reads
+	// before writing one.
+	NewType []string `mapstructure:"new_type" default:"t"`
+	// Open the document types, where a person defines the sorts of document agents write.
+	Types []string `mapstructure:"types" default:"l"`
+}
+
 // DocumentsKeys are the bindings for the documents screen, which lists the documents one
 // agent has written and draws the one under the cursor beside the list.
 type DocumentsKeys struct {
@@ -409,9 +424,6 @@ type DocumentsKeys struct {
 	// Write a new document for the agent whose documents are listed, from a form asking its name
 	// and type. It starts with a line saying it is empty, for you to edit.
 	New []string `mapstructure:"new" default:"c"`
-	// Open the document types, where a person defines the sorts of document agents write and
-	// the context an agent reads before writing each.
-	Types []string `mapstructure:"types" default:"t"`
 	// Quit the panel.
 	Quit []string `mapstructure:"quit" default:"ctrl+c"`
 }
