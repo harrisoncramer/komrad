@@ -44,7 +44,7 @@ var (
 	hunkStyle           = lipgloss.NewStyle().Foreground(lipgloss.Color("5"))
 	agentMarkStyle      = paint.Panel.Style(paint.ToneOther)
 	humanMarkStyle      = paint.Panel.Style(paint.ToneSelf)
-	offerMarkStyle      = paint.Panel.Style(paint.ToneWarning)
+	offerMarkStyle      = paint.Panel.Style(OfferTone)
 )
 
 // RenderRow draws one row of the diff at the width it is shown at, taking the cursor as an

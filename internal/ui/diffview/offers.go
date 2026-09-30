@@ -4,9 +4,13 @@ import (
 	"slices"
 
 	"komrad/internal/glyph"
+	"komrad/internal/ui/paint"
 
 	"charm.land/lipgloss/v2"
 )
+
+// OfferTone is the tone the forge's comments are drawn in.
+const OfferTone = paint.ToneWarning
 
 // Offer is a comment the forge holds on a file, placed on the diff the way a thread is and kept
 // apart from the reader's own.
