@@ -151,8 +151,7 @@ func TestIntegrationCopyStandInHoldsThePaneSlotUntilCopyModeEnds(t *testing.T) {
 	}
 }
 
-// buildStandInPath is a PATH holding only what a stand-in runs, so a copy in it never reaches the
-// clipboard of the machine the tests run on.
+// buildStandInPath is a PATH holding only what a stand-in runs.
 func buildStandInPath(t *testing.T) string {
 	t.Helper()
 

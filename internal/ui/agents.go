@@ -477,8 +477,7 @@ func (a *agentsScreen) column() columnSpec {
 	}
 }
 
-// isEmpty reports whether there is no workflow and no agent to list, which the agents screen
-// welcomes a newcomer on across the whole pane.
+// isEmpty reports whether there is no workflow and no agent to list.
 func (l listing) isEmpty() bool {
 	return len(l.workflows) == 0 && len(l.agents) == 0
 }

@@ -9,8 +9,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
-// The labels naming the mode that holds the panel, all one width so that one drawn over another
-// covers it.
+// The labels naming the mode that holds the panel.
 const (
 	normalModeLabel = " NORMAL "
 	visualModeLabel = " VISUAL "

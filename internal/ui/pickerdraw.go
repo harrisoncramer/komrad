@@ -18,10 +18,9 @@ const (
 
 // frozenWindow is every pane on show in the panel's window and what each was showing.
 type frozenWindow struct {
-	shown   []panes.Rect
-	screens map[string]string
-	sidebar string
-	// labelEnd is the column of the sidebar the mode's label ends at.
+	shown    []panes.Rect
+	screens  map[string]string
+	sidebar  string
 	labelEnd int
 	palette  paint.Palette
 }

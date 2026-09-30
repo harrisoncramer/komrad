@@ -16,7 +16,7 @@ const pickerKey = "j"
 const copyKey = "v"
 
 // paneCopyKey and paneNormalKey are the leader's keys tmux sends the panel when the pane holding
-// the keys enters copy-mode or leaves it, spelled as tmux spells them.
+// the keys enters copy-mode or leaves it.
 const (
 	paneCopyKey   = "F11"
 	paneNormalKey = "F12"
