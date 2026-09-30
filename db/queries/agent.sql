@@ -727,19 +727,31 @@ UPDATE
 SET
     held_at = @held_at,
     held_mid_turn = @held_mid_turn,
-    state = 'idle',
-    state_changed_at = CASE WHEN state IS DISTINCT FROM 'idle' THEN
+    state = CASE WHEN state IN ('thinking', 'waiting', 'uncertain') THEN
+        'idle'
+    ELSE
+        state
+    END,
+    state_changed_at = CASE WHEN state IN ('thinking', 'waiting', 'uncertain') THEN
         NOW()
     ELSE
         state_changed_at
     END,
-    turn_ended_at = CASE WHEN state IS DISTINCT FROM 'idle' THEN
+    turn_ended_at = CASE WHEN state IN ('thinking', 'waiting', 'uncertain') THEN
         NOW()
     ELSE
         turn_ended_at
     END,
-    reported_reason = '',
-    state_seen_at = NOW()
+    reported_reason = CASE WHEN state IN ('thinking', 'waiting', 'uncertain', 'idle') THEN
+        ''
+    ELSE
+        reported_reason
+    END,
+    state_seen_at = CASE WHEN state IN ('thinking', 'waiting', 'uncertain', 'idle') THEN
+        NOW()
+    ELSE
+        state_seen_at
+    END
 WHERE
     id = @id
     AND archived_at IS NULL
