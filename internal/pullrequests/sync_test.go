@@ -1260,16 +1260,34 @@ func TestSyncReadsTheChecksUntilTheyLand(t *testing.T) {
 	assert.Empty(t, f.standings(), "a failing run read four minutes ago is trusted")
 }
 
-// TestSyncRecordsWhatMovedOnAPullRequest covers the events a sync records: none on first
-// sight, the standing a read moves, and the checks again on a push they fail as well.
+// TestSyncRecordsWhatMovedOnAPullRequest covers the events a sync records: none on a first
+// sight that stands well, one on a first sight that stands badly, the standing a read moves,
+// and the checks again on a push they fail as well.
 func TestSyncRecordsWhatMovedOnAPullRequest(t *testing.T) {
 	f := newSyncFixture(t)
 	f.agentOn(t, "a", "agent/x")
-	f.forge.updated[""] = &forge.Page{PullRequests: []forge.PullRequest{pullRequestAt("PR_1", "agent/x", syncNow.Add(-time.Hour))}}
+	merged := decided(pullRequestAt("PR_4", "agent/x", syncNow.Add(-4*time.Hour)), forge.ReviewDecisionChangesRequested)
+	merged.State = "MERGED"
+	merged.Checks = xptr.Ptr(forge.ChecksFailing)
+	f.forge.updated[""] = &forge.Page{PullRequests: []forge.PullRequest{
+		pullRequestAt("PR_1", "agent/x", syncNow.Add(-time.Hour)),
+		pullRequestAt("PR_2", "agent/x", syncNow.Add(-2*time.Hour)),
+		pullRequestAt("PR_3", "agent/x", syncNow.Add(-3*time.Hour)),
+		merged,
+	}}
 	f.forge.standings[1] = forge.Standing{Decision: forge.ReviewDecisionPending, Checks: forge.ChecksPending}
+	f.forge.standings[2] = forge.Standing{Decision: forge.ReviewDecisionApproved, Checks: forge.ChecksPassing, Mergeability: forge.MergeabilityClean}
+	f.forge.standings[3] = forge.Standing{Decision: forge.ReviewDecisionChangesRequested, Checks: forge.ChecksFailing, Mergeability: forge.MergeabilityConflicting}
 
 	f.sync(t)
-	assert.Empty(t, f.changes(t), "a pull request seen for the first time moved nothing")
+	badly := f.stored(t, "PR_3").ID
+	assert.Equal(t, []Change{
+		{ID: badly, Moves: []Move{
+			{Field: FieldDecision, To: string(forge.ReviewDecisionChangesRequested)},
+			{Field: FieldChecks, To: string(forge.ChecksFailing)},
+			{Field: FieldMergeability, To: string(forge.MergeabilityConflicting)},
+		}},
+	}, f.changes(t), "only the pull request first seen standing badly moved")
 	id := f.stored(t, "PR_1").ID
 
 	f.forge.standings[1] = forge.Standing{Decision: forge.ReviewDecisionPending, Checks: forge.ChecksFailing}
@@ -1287,6 +1305,11 @@ func TestSyncRecordsWhatMovedOnAPullRequest(t *testing.T) {
 	f.pass(t, syncNow.Add(time.Hour+time.Minute))
 
 	assert.Equal(t, []Change{
+		{ID: badly, Moves: []Move{
+			{Field: FieldDecision, To: string(forge.ReviewDecisionChangesRequested)},
+			{Field: FieldChecks, To: string(forge.ChecksFailing)},
+			{Field: FieldMergeability, To: string(forge.MergeabilityConflicting)},
+		}},
 		{ID: id, Moves: []Move{
 			{
 				Field: FieldChecks,
