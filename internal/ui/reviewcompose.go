@@ -67,6 +67,7 @@ func reviewInputHint(editor, submit []string, said string) string {
 func (r *reviewScreen) openInput(s panelShared, params newReviewInputParams) tea.Cmd {
 	params.Width = reviewInputWidth(r.measurePopupInner(s))
 	params.Keys = formKeys()
+	params.Register = s.register
 
 	input, cmd := newReviewInput(params)
 	r.threads.editor = input
@@ -80,6 +81,10 @@ func (r *reviewScreen) refuseLine(h host) {
 }
 
 func (r *reviewScreen) updateComposer(h host, s panelShared, key tea.KeyPressMsg) tea.Cmd {
+	if r.threads.editor.updateVim(key) {
+		return nil
+	}
+
 	k := key.String()
 
 	// Every other key is a character being typed into the message, so the keys that leave it, and
@@ -409,6 +414,10 @@ func (r *reviewScreen) openRelease(s panelShared) tea.Cmd {
 // updateRelease takes every key while the panel is up: the submit key sends, escape abandons,
 // and everything else is a word being typed about the work.
 func (r *reviewScreen) updateRelease(h host, s panelShared, key tea.KeyPressMsg) tea.Cmd {
+	if r.threads.editor.updateVim(key) {
+		return nil
+	}
+
 	k := key.String()
 
 	switch {

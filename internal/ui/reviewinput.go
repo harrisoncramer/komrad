@@ -3,6 +3,7 @@ package ui
 import (
 	"komrad/config"
 	"komrad/internal/ui/paint"
+	"komrad/internal/vim"
 
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
@@ -24,6 +25,8 @@ type reviewInput struct {
 	// width the field is given.
 	title       string
 	description string
+	// vim is vim's state for the field, nil when vim is off.
+	vim *fieldVim
 }
 
 // newReviewInputParams is what a field is opened with.
@@ -35,6 +38,8 @@ type newReviewInputParams struct {
 	Body  string
 	Width int
 	Keys  config.FormKeys
+	// Register is the panel's vim register, nil when vim is off.
+	Register *vim.Register
 }
 
 // newReviewInput builds the field around the words it opens on.
@@ -59,6 +64,7 @@ func newReviewInput(params newReviewInputParams) (reviewInput, tea.Cmd) {
 		body:        body,
 		title:       params.Title,
 		description: params.Description,
+		vim:         newFieldVim(params.Register),
 	}
 
 	return input, tea.Batch(form.Init(), input.resize(params.Width))
@@ -126,4 +132,34 @@ func reviewInputKeyMap(keys config.FormKeys) *huh.KeyMap {
 	km.Text.Editor = key.NewBinding()
 
 	return km
+}
+
+// updateVim hands a key to vim, and reports whether vim kept it.
+func (i reviewInput) updateVim(key tea.KeyPressMsg) bool {
+	if i.form == nil || i.vim == nil {
+		return false
+	}
+
+	focused := i.form.GetFocusedField()
+	if focused == nil {
+		return false
+	}
+
+	outcome, ok := i.vim.press(focused, key.String())
+
+	return ok && (outcome == vim.Consumed || outcome == vim.EdgeUp || outcome == vim.EdgeDown)
+}
+
+// modeLabel names the mode the field is in.
+func (i reviewInput) modeLabel() string {
+	if i.form == nil {
+		return editModeLabel
+	}
+
+	focused := i.form.GetFocusedField()
+	if focused == nil {
+		return editModeLabel
+	}
+
+	return i.vim.label(focused.GetKey())
 }

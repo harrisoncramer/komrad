@@ -105,6 +105,7 @@ the service, or call an endpoint from a script.`,
 			app.env = env
 			app.configSources = report.Sources
 			app.keys = cfg.Keybindings
+			app.vimMode = cfg.VimMode
 			app.loader, err = loader.Parse(cfg.Glyphs.Loader)
 			if err != nil && app.configErr == nil {
 				app.configErr = fmt.Errorf("failed to read glyphs.loader: %w", err)

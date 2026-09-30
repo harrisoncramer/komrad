@@ -55,6 +55,10 @@ func (m model) findMode() (paint.Tone, string) {
 		return paint.ToneModeVisual, visualModeLabel
 	}
 
+	if label, ok := m.findEditMode(); ok {
+		return paint.ToneModeEdit, label
+	}
+
 	return paint.ToneModeNormal, normalModeLabel
 }
 
@@ -67,4 +71,26 @@ func stampMode(row string, end int, tone paint.Tone, label string) string {
 	}
 
 	return ansi.Truncate(row, at, "") + badge + ansi.Cut(row, end, ansi.StringWidth(row))
+}
+
+// findEditMode is the label of the text field holding the keys, if one is.
+func (m model) findEditMode() (string, bool) {
+	if m.form.isActive() {
+		focused := m.form.form.GetFocusedField()
+		if focused == nil || !isTextField(focused) {
+			return "", false
+		}
+
+		return m.form.vim.label(focused.GetKey()), true
+	}
+
+	if m.screen == screenReview && m.review.isWriting() {
+		return m.review.threads.editor.modeLabel(), true
+	}
+
+	if m.isTyping() {
+		return editModeLabel, true
+	}
+
+	return "", false
 }

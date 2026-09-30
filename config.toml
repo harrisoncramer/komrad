@@ -16,6 +16,9 @@ default_harness = "claude"
 # worktree for each agent and an orchestrator standing by, when no workflow covers that
 # directory yet.
 auto_setup      = false
+# Edit the panel's text fields the way vim does. A field opens in insert mode, esc goes to normal
+# mode, and a second esc closes the form.
+vim_mode        = false
 
 [harness.claude]
 # Flags appended to every agent's command line for this CLI, ahead of the flags that agent carries itself.
@@ -644,6 +647,8 @@ normal = "4"
 visual = "5"
 # Picking a pane to jump to.
 jump   = "3"
+# Typing into a text field.
+edit   = "3"
 
 # Where komrad finds the scripts a workflow hangs on a moment in its agents' lives.
 [hooks]

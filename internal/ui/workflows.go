@@ -135,6 +135,12 @@ func (m model) updateWorkflowForm(msg tea.Msg, values *workflowFormValues, build
 		return m.answerForm()
 	}
 
+	if key, ok := msg.(tea.KeyPressMsg); ok {
+		if next, cmd, kept := m.updateFormVim(key); kept {
+			return next, cmd
+		}
+	}
+
 	was := values.Provisioner
 
 	cmd := m.stepForm(msg)

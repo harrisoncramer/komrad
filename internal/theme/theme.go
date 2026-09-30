@@ -47,6 +47,7 @@ type Modes struct {
 	Normal string
 	Visual string
 	Jump   string
+	Edit   string
 }
 
 // namedColor is one colour and the key the config spells it under.
@@ -76,7 +77,7 @@ func Defaults() Colors {
 		Selection:    Pair{Light: "#dbeafe", Dark: "#1e3a5f"},
 		SelectionDim: Pair{Light: "#e5e7eb", Dark: "#2b3038"},
 		Match:        Pair{Light: "#fde68a", Dark: "#7c5c00"},
-		Mode:         Modes{Normal: "4", Visual: "5", Jump: "3"},
+		Mode:         Modes{Normal: "4", Visual: "5", Jump: "3", Edit: "3"},
 	}
 }
 
@@ -125,6 +126,7 @@ func (c Colors) named() []namedColor {
 		{key: "mode.normal", value: c.Mode.Normal},
 		{key: "mode.visual", value: c.Mode.Visual},
 		{key: "mode.jump", value: c.Mode.Jump},
+		{key: "mode.edit", value: c.Mode.Edit},
 	}
 }
 
