@@ -1,0 +1,42 @@
+[38;5;231m⏺[39m The replication is running, and I've paused all RFC work until it finishes.
+
+  [1mSetup.[0m This worktree's test instance is up at 127.0.0.1:8805 (Postgres 5470, database komrad_5), with GitHub
+  connected through stdin. It has a workflow [38;5;153mrfc0130-probe[39m and one idle agent, [38;5;153mrfc0130-holder[39m, sitting on
+  [38;5;153mrfc0130/blank-mergeability[39m. That branch has PR #27 open on weave-forge-fixture. At 22:04:49 UTC I pushed a commit
+  (7723f90) to fixture main to move the base.
+
+  [1mFound so far on the fixture repo[0m (nothing else reads it):
+  - A query asking only for mergeStateStatus returns UNKNOWN, but it also starts GitHub's computation. The next
+    read, 10 seconds later, came back CLEAN.
+  - So the first read after any base move is always blank, and the real answer is ready within seconds.
+  - The chariot PRs looked stuck because komrad waits 10 minutes before re-reading an older PR, not because GitHub
+    keeps answering UNKNOWN.
+
+  [1mExpected in the test instance.[0m The read around 22:14:34 blanks mergeability, which was unstable before the move.
+  Last-known stays unstable, and the wire mergeability goes to UNKNOWN. The row then stays blank until the settled
+  re-read around 22:24:34, because by then changed_at is more than 10 minutes old. #27's checks are failing, so the
+  drawn state should stay FAILING either way. The recorder logs the database row and the drawn state until about
+  22:30 and will notify me when it finishes.
+
+  This changes how I plan to answer your [38;5;153mmergeability_read_at[39m question. The draft's one-minute retry is the right
+  fix. A time bound on it looks unnecessary: a blank clears on the next read, so a truly stuck row would cost at
+  most one request per minute until the forge answers. I'll settle that once the test confirms the timing. Then
+  I'll write the RFC, have a child review it, and clean up the test workflow, agent and PR.
+
+[38;5;246m✻[39m [38;5;246mCogitated for 2m 11s · done 6:05 PM[39m
+
+[38;5;220m⏺[39m Background command "Record DB and rendered state of #27 for 25 minutes" was stopped after reaching its background
+time limit
+
+[38;5;220m⏺[39m [38;5;220mAPI Error: Can't reach the API server — check your internet or DNS (ENOTFOUND)[39m
+
+[38;5;246m✻[39m [38;5;246mWorked for 1h 37m 47s · done 8:20 PM[39m
+
+[38;5;246m⏺[39m [38;5;246mcc-plugin-agents-md: no CLAUDE.md found; AGENTS.md loaded: [39m
+  [38;5;246m/Users/harrisoncramer/.local/state/komrad/worktrees/01a0ef11-4de0-7dda-b129-6c81f62b1a7a/AGENTS.md[39m
+
+[38;5;244m───────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+[39m❯ 
+[38;5;244m───────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+[39m  [38;5;246m-- INSERT --[39m [38;5;211m⏵⏵ bypass permissions on[38;5;246m (shift+tab to cycle) · ← 3 agents[39m
