@@ -25,11 +25,53 @@ func TestLoaderSpinsWhileChecksRun(t *testing.T) {
 	assert.Equal(t, []string{"◜", "◝", "◞", "◟", "◜"}, drawn)
 }
 
-// TestLoaderStaysStillWithNothingLoading covers the loader tick staying off while no pull request has checks running.
-func TestLoaderStaysStillWithNothingLoading(t *testing.T) {
-	harness := openNoticed(t, panelHarnessParams{loader: loader.Arcs}, newPullRequested(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN)...)
+// TestLoaderStopsTicking covers the loader tick going quiet once no drawn row is loading.
+func TestLoaderStopsTicking(t *testing.T) {
+	tests := []struct {
+		name  string
+		state pullrequestv1.PullRequestState
+		leave func(harness *panelHarness)
+	}{
+		{
+			name:  "nothing loading never starts it",
+			state: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN,
+		},
+		{
+			name:  "checks finishing stop it",
+			state: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHECKS_RUNNING,
+			leave: func(harness *panelHarness) {
+				harness.watch(buildPuts(newPullRequested(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN)...))
+			},
+		},
+		{
+			name:  "leaving the agents list stops it",
+			state: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHECKS_RUNNING,
+			leave: func(harness *panelHarness) {
+				harness.press("tab", "s")
+			},
+		},
+		{
+			name:  "filtering the row out stops it",
+			state: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHECKS_RUNNING,
+			leave: func(harness *panelHarness) {
+				harness.press("/", "tab", "z", "q", "x", "enter")
+			},
+		},
+	}
 
-	assert.False(t, harness.fireLoader())
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			harness := openNoticed(t, panelHarnessParams{loader: loader.Arcs}, newPullRequested(tt.state)...)
+
+			if tt.leave != nil {
+				require.True(t, harness.fireLoader(), "the loader never started")
+				tt.leave(harness)
+				harness.fireLoader()
+			}
+
+			assert.False(t, harness.fireLoader())
+		})
+	}
 }
 
 func readChecksFrame(t *testing.T, harness *panelHarness) string {

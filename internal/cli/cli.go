@@ -17,6 +17,7 @@ import (
 	"komrad/internal/harness"
 	"komrad/internal/harness/claude"
 	"komrad/internal/harness/codex"
+	"komrad/internal/loader"
 	"komrad/internal/logging"
 	"komrad/internal/tmux"
 	"komrad/internal/ui"
@@ -104,7 +105,10 @@ the service, or call an endpoint from a script.`,
 			app.env = env
 			app.configSources = report.Sources
 			app.keys = cfg.Keybindings
-			app.loader = cfg.Glyphs.LoaderStyle()
+			app.loader, err = loader.Parse(cfg.Glyphs.Loader)
+			if err != nil && app.configErr == nil {
+				app.configErr = fmt.Errorf("failed to read glyphs.loader: %w", err)
+			}
 			app.glyphs, err = cfg.Glyphs.Set()
 			if err != nil {
 				if app.configErr == nil {

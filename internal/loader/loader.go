@@ -47,16 +47,15 @@ func Parse(name string) (Style, error) {
 
 // Frames is every frame the style cycles through, in order.
 func (s Style) Frames() []string {
-	if drawn, ok := frames[s]; ok {
-		return drawn
-	}
-
-	return frames[Braille]
+	return frames[s]
 }
 
 // Frame is the frame the style draws at the given step.
 func (s Style) Frame(step int) string {
 	drawn := s.Frames()
+	if len(drawn) == 0 {
+		return ""
+	}
 
 	return drawn[((step%len(drawn))+len(drawn))%len(drawn)]
 }

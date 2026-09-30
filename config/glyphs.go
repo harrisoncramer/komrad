@@ -179,16 +179,6 @@ func (g Glyphs) Set() (glyph.Set, error) {
 	return set, nil
 }
 
-// LoaderStyle is the spinner the panel draws while something is loading.
-func (g Glyphs) LoaderStyle() loader.Style {
-	style, err := loader.Parse(g.Loader)
-	if err != nil {
-		return loader.Braille
-	}
-
-	return style
-}
-
 // validateGlyphs refuses a glyph outside the approved set, naming the key it was written under.
 func validateGlyphs(glyphs Glyphs) error {
 	if _, err := loader.Parse(glyphs.Loader); err != nil {

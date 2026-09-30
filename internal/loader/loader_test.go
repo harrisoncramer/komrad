@@ -18,12 +18,42 @@ func TestFrame(t *testing.T) {
 		step  int
 		want  string
 	}{
-		{name: "braille starts on its first frame", style: loader.Braille, step: 0, want: "⠋"},
-		{name: "braille wraps after its last frame", style: loader.Braille, step: 10, want: "⠋"},
-		{name: "arcs turn a quarter a step", style: loader.Arcs, step: 1, want: "◝"},
-		{name: "ascii wraps after four steps", style: loader.ASCII, step: 7, want: `\`},
-		{name: "a negative step still lands on a frame", style: loader.ASCII, step: -1, want: `\`},
-		{name: "an unknown style draws braille", style: loader.Style("dots"), step: 1, want: "⠙"},
+		{
+			name:  "an unknown style draws nothing",
+			style: loader.Style("dots"),
+			step:  1,
+			want:  "",
+		},
+		{
+			name:  "a negative step still lands on a frame",
+			style: loader.ASCII,
+			step:  -1,
+			want:  `\`,
+		},
+		{
+			name:  "braille starts on its first frame",
+			style: loader.Braille,
+			step:  0,
+			want:  "⠋",
+		},
+		{
+			name:  "braille wraps after its last frame",
+			style: loader.Braille,
+			step:  10,
+			want:  "⠋",
+		},
+		{
+			name:  "arcs turn a quarter a step",
+			style: loader.Arcs,
+			step:  1,
+			want:  "◝",
+		},
+		{
+			name:  "ascii wraps after four steps",
+			style: loader.ASCII,
+			step:  7,
+			want:  `\`,
+		},
 	}
 
 	for _, tt := range tests {
@@ -36,6 +66,8 @@ func TestFrame(t *testing.T) {
 // TestEveryFrameIsOneColumn covers every frame fitting the one column a glyph takes.
 func TestEveryFrameIsOneColumn(t *testing.T) {
 	for _, style := range loader.Styles() {
+		require.NotEmpty(t, style.Frames(), "%s draws no frames", style)
+
 		for _, frame := range style.Frames() {
 			assert.Equal(t, 1, ansi.StringWidth(frame), "%s draws %q", style, frame)
 		}
@@ -50,11 +82,31 @@ func TestParse(t *testing.T) {
 		want    loader.Style
 		wantErr string
 	}{
-		{name: "braille", in: "braille", want: loader.Braille},
-		{name: "arcs", in: "arcs", want: loader.Arcs},
-		{name: "ascii with spaces around it", in: " ascii ", want: loader.ASCII},
-		{name: "a style the panel cannot draw", in: "dots", wantErr: `"dots" is not one of braille, arcs, ascii`},
-		{name: "nothing at all", in: "", wantErr: `"" is not one of braille, arcs, ascii`},
+		{
+			name:    "a style the panel cannot draw",
+			in:      "dots",
+			wantErr: `"dots" is not one of braille, arcs, ascii`,
+		},
+		{
+			name:    "nothing at all",
+			in:      "",
+			wantErr: `"" is not one of braille, arcs, ascii`,
+		},
+		{
+			name: "braille",
+			in:   "braille",
+			want: loader.Braille,
+		},
+		{
+			name: "arcs",
+			in:   "arcs",
+			want: loader.Arcs,
+		},
+		{
+			name: "ascii with spaces around it",
+			in:   " ascii ",
+			want: loader.ASCII,
+		},
 	}
 
 	for _, tt := range tests {

@@ -303,10 +303,10 @@ type panelShared struct {
 	listing listing
 	keys    config.Keybindings
 	// glyphs is the character each icon is drawn with.
-	glyphs glyph.Set
-	loader string
-	width  int
-	height int
+	glyphs      glyph.Set
+	loaderFrame string
+	width       int
+	height      int
 
 	// api is the service a screen builds its own reads and writes on.
 	api api
@@ -356,14 +356,14 @@ func (m *model) shared() panelShared {
 // unmeasured is the root as a screen sees it before the column has been measured.
 func (m *model) unmeasured() panelShared {
 	return panelShared{
-		listing: m.listing,
-		keys:    m.keys,
-		glyphs:  m.glyphs,
-		loader:  m.loading.frame(),
-		width:   m.width,
-		height:  m.height,
-		api:     m.api,
-		git:     m.git,
+		listing:     m.listing,
+		keys:        m.keys,
+		glyphs:      m.glyphs,
+		loaderFrame: m.loading.frame(),
+		width:       m.width,
+		height:      m.height,
+		api:         m.api,
+		git:         m.git,
 		chrome: chromeState{
 			details:      m.details,
 			filter:       m.filter,

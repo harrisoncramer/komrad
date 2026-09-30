@@ -21,8 +21,8 @@ type snapshotParams struct {
 	// caret is how the arrow on the focused row stands this frame.
 	caret view.Caret
 	// blinkedOut says the blink is on its off beat this frame.
-	blinkedOut bool
-	loader     string
+	blinkedOut  bool
+	loaderFrame string
 	// matcher is the search a person is filtering the list by, nil when they are not.
 	matcher *regexp.Regexp
 	// scheduled are the workflows at least one schedule launches into, keyed by workflow id.
@@ -90,7 +90,7 @@ func snapshotRow(r agentRow, params snapshotParams) view.Row {
 	row.Repo = snapshotRepo(item.Agent)
 	row.ReviewerComments, row.PersonComments = readSnapshotComments(item)
 	row.Forge = snapshotForge(item)
-	row.Loader = params.loader
+	row.LoaderFrame = params.loaderFrame
 	row.Selected = params.selected.has(key)
 
 	return row

@@ -442,7 +442,7 @@ func TestPrepareForgeColumn(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, prepareOne(t, Row{Forge: tt.forge, Loader: "⠙"}).Columns[1])
+			assert.Equal(t, tt.want, prepareOne(t, Row{Forge: tt.forge, LoaderFrame: "⠙"}).Columns[1])
 		})
 	}
 
