@@ -359,7 +359,7 @@ func (d reviewDiff) originSaid(thread *agentv1.ReviewThread) string {
 }
 
 func (r reviewScreen) messageView(s panelShared, message *agentv1.ReviewMessage, note string) string {
-	author, tone := r.authorOf(s, message)
+	author, tone := r.authorOf(message)
 	head := paint.Panel.Style(tone).Bold(true).Render(author)
 	if when := reviewTimeOf(message.GetCreatedAt()); when != "" {
 		head += " " + dimStyle.Render(when)
@@ -371,18 +371,13 @@ func (r reviewScreen) messageView(s panelShared, message *agentv1.ReviewMessage,
 	return head + "\n" + reviewWrap(s, message.GetBody()) + "\n" + reviewDeliveryBadge(paint.Panel, s.glyphs, message) + "\n"
 }
 
-func (r reviewScreen) authorOf(s panelShared, message *agentv1.ReviewMessage) (string, paint.Tone) {
+func (r reviewScreen) authorOf(message *agentv1.ReviewMessage) (string, paint.Tone) {
 	if message.GetAuthorKind() != agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT {
 		return "you", reviewHumanTone
 	}
 
-	id := message.GetAuthorAgentId()
-	if id == r.agentID {
-		return r.agentName, reviewAgentTone
-	}
-
-	if item, ok := s.listing.anyAgent(id); ok {
-		return item.Agent.Name, reviewerTone
+	if message.GetAuthorAgentId() == r.agentID {
+		return "implementer", reviewAgentTone
 	}
 
 	return "reviewer", reviewerTone
