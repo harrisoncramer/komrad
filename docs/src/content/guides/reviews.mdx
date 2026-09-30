@@ -22,7 +22,7 @@ Komrad's local review model is quite similar to how <a href="https://www.gerritc
 
 ## Opening a review
 
-Put the cursor on an agent, press <Key name="menu.open" /> to open its [menu](../navigation/#the-agent-menu), and pick review with <Key name="menu.review" />. The main panel then shows everything the agent changed since its branch left the base. The sidebar lists the files the change touches, marks the one the cursor is in along with its threads, and shows the conversation on the line under the cursor.
+Put the cursor on an agent, press <Key name="menu.open" /> to open its [menu](../navigation/#the-agent-menu), and pick review with <Key name="menu.review" />. The main panel then shows everything the agent changed since its branch left the base. The sidebar holds a tree of the files the change touches, marking the one the cursor is in along with its threads, and the conversation on the line under the cursor opens in a popup beside it. Press `ctrl+space ctrl+space` to move into the tree, and <Key name="review.toggle_viewed" /> to mark a file viewed.
 
 <figure>
   <video
@@ -40,7 +40,7 @@ Put the cursor on an agent, press <Key name="menu.open" /> to open its [menu](..
   </video>
 </figure>
 
-The agents list keeps count between visits. Each agent shows its open and settled comments at the right end of its row, a robot before the reviewer agents' and a person before yours, and marks a thread the agent has answered that you have not read yet.
+The agents list keeps count between visits. Each agent shows its open comments at the right end of its row, a robot before the reviewer agents' and a person before yours, and a bell before the replies you have not read yet.
 
 ## Leaving comments
 

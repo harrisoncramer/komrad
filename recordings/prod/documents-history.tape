@@ -5,6 +5,7 @@ Source recordings/panel.tape
 Type "j"
 Space
 Type "d"
+Type "v"
 Wait+Screen@10s /RFC: vim\.text/
 Sleep 2s
 Type "<"

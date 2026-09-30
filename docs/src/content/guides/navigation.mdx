@@ -23,7 +23,7 @@ Under that, the **help menu** shows hotkeys that work from your current cursor p
 
 The main view is the wide region beside the sidebar. It shows the agent you have opened, its diff on the review screen, or any other content that's focused at the moment.
 
-Komrad keeps its own keys behind a leader, `ctrl+space`. Press `ctrl+space j` to jump between regions: a big letter is drawn over the list, the details, the agent on the stage and every other pane, and pressing a letter hands the keyboard to that region. `ctrl+space ctrl+space` goes back to the region you were in last. `ctrl+space v` starts visual mode in the region you are in, which is tmux's copy-mode with vi keys: move the cursor, start a selection with v, and press y to copy it to your clipboard. In the sidebar it holds only the block you are in, so a selection never runs from the list into the details. If your own tmux prefix is `ctrl+space`, give your tmux a different one.
+Komrad keeps its own keys behind a leader, `ctrl+space`. Press `ctrl+space j` to jump between regions: a big letter is drawn over the list, the details, the agent on the stage and every other pane, and pressing a letter hands the keyboard to that region. `ctrl+space ctrl+space` goes back to the region you were in last, or resumes the agent under the cursor when it is not running. `ctrl+space v` starts visual mode in the region you are in, which is tmux's copy-mode with vi keys: move the cursor, start a selection with v, and press y to copy it to your clipboard. In the sidebar it holds only the block you are in, so a selection never runs from the list into the details. The bottom right of the sidebar names the mode you are in. If your own tmux prefix is `ctrl+space`, give your tmux a different one.
 
 When komrad reports something, such as an error, its summary flashes for a few seconds on the engine line at the top of the sidebar. Errors and warnings you have not dismissed are counted there once the flash is over. Press <Key name="messages.open" /> to read every message in the main view, where <Key name="messages.dismiss" /> dismisses the one under the cursor and <Key name="messages.dismiss_all" /> dismisses them all.
 
@@ -73,7 +73,7 @@ Press <Key name="tabs.focus" /> to reach the sort strip over the list, where you
 
 ## The agent menu
 
-Some screens belong to one agent rather than to a whole view. An agent has the review of its work, the documents it has written, its logs, and a terminal in its directory. Press <Key name="menu.open" /> on an agent to open its <Setting path="keybindings.menu">menu</Setting> and pick one. Leaving it takes you back to the list you came from.
+Some screens belong to one agent rather than to a whole view. An agent has the review of its work, the documents it has written, its logs, and a terminal in its directory. Press <Key name="menu.open" /> on an agent to open its <Setting path="keybindings.menu">menu</Setting> and pick one. Leaving it takes you back to the list you came from. The menu opens on every screen, with the panel's own entries under the agent's, such as a scratch file and [document types](../documents/).
 
 <figure>
   <video
@@ -91,11 +91,11 @@ Some screens belong to one agent rather than to a whole view. An agent has the r
   </video>
 </figure>
 
-Menus nest. Press <Key name="menu.git" /> in the agent menu to open the <Setting path="keybindings.git">git menu</Setting> to its right, for rebasing the agent's branch with <Key name="git.rebase" />, opening its pull request with <Key name="git.open_pull_request" />, copying its address with <Key name="git.copy_pull_request_url" />, or merging it on the forge with <Key name="git.merge" />. That opens the <Setting path="keybindings.merge">merge menu</Setting>, which merges with <Key name="merge.merge" /> or merges and then archives the agent with <Key name="merge.merge_archive" />. The menu it came from stays on screen in gray, and going back returns to it.
+Menus nest. Press <Key name="menu.git" /> in the agent menu to open the <Setting path="keybindings.git">git menu</Setting> to its right, for rebasing the agent's branch with <Key name="git.rebase" />, opening its pull request with <Key name="git.open_pull_request" />, copying its address with <Key name="git.copy_pull_request_url" />, toggling its draft with <Key name="git.toggle_draft" />, or merging it on the forge with <Key name="git.merge" />. That opens the <Setting path="keybindings.merge">merge menu</Setting>, which merges with <Key name="merge.merge" /> or merges and then archives the agent with <Key name="merge.merge_archive" />. The menu it came from stays on screen in gray, and going back returns to it.
 
 ## Visual selection
 
-Press <Key name="selection.toggle" /> to take the row under the cursor into a selection, and <Key name="selection.range" /> to take in every row between the cursor and the nearest selected one. An action that works on one agent then works on all of them, such as archiving, or restoring and deleting on the archive screen.
+Press <Key name="selection.toggle" /> to take the row under the cursor into a selection, and <Key name="selection.range" /> to take in every row between the cursor and the nearest selected one. An action that works on one agent then works on all of them, such as archiving, or restoring and deleting from the archive's menu.
 
 <figure>
   <video
@@ -115,7 +115,7 @@ Press <Key name="selection.toggle" /> to take the row under the cursor into a se
 
 ## The details
 
-The details under the list show more about the row under the cursor, such as an agent's directory, branch, pull request and recent commits. Press `ctrl+space j` and the letter over them to move the keyboard there, and press <Key name="details.copy" /> to copy the value of the field under the cursor to your clipboard. `/` searches the fields the same way it searches the list.
+The details under the list show more about the row under the cursor, such as an agent's directory, branch and pull request. Press `ctrl+space j` and the letter over them to move the keyboard there, and press <Key name="details.copy" /> to copy the value of the field under the cursor to your clipboard. `/` searches the fields the same way it searches the list.
 
 <figure>
   <video

@@ -38,7 +38,7 @@ Ctrl+S
 Sleep 2s
 Type "c"
 Type "Does git blame here skip the commits in .git-blame-ignore-revs? Answer in one line."
-Enter
+Tab
 Type "check-blame"
 Ctrl+S
 Sleep 2s
