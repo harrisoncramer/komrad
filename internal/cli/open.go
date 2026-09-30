@@ -288,8 +288,7 @@ func prepareAutoSetup(ctx context.Context, state *app) bool {
 	return true
 }
 
-// setUpWorkflowHere runs auto_setup for the directory komrad was opened in, warning rather than
-// failing the open.
+// setUpWorkflowHere runs auto_setup for the directory komrad was opened in.
 func setUpWorkflowHere(ctx context.Context, state *app) {
 	dir, err := os.Getwd()
 	if err != nil {
