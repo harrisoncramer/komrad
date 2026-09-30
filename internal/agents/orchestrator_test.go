@@ -37,7 +37,7 @@ func TestStartOrchestratorLaunchesOne(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	started, err := manager.orchestrator.Start(t.Context(), workflow.ID)
+	started, err := manager.orchestrator.Start(t.Context(), workflow.ID, "")
 	require.NoError(t, err)
 
 	assert.Equal(t, agentstore.RoleOrchestrator, started.Role)
@@ -80,7 +80,7 @@ func TestStartOrchestratorRefusesAWorkflowThatIsNotThere(t *testing.T) {
 				stateDir:  stateDir,
 			})
 
-			_, err := manager.orchestrator.Start(t.Context(), tt.workflowID)
+			_, err := manager.orchestrator.Start(t.Context(), tt.workflowID, "")
 			require.ErrorIs(t, err, ErrWorkflowNotFound)
 
 			assert.NoDirExists(t, filepath.Join(stateDir, orchestratorDirName),
@@ -103,12 +103,12 @@ func TestStartOrchestratorTakesTheOneAnotherCallerWon(t *testing.T) {
 	ctx := t.Context()
 	workflow := seedWorkflow(t, st)
 
-	won, err := manager.orchestrator.Start(ctx, workflow)
+	won, err := manager.orchestrator.Start(ctx, workflow, "")
 	require.NoError(t, err)
 
 	// The lookup Start opens with is what a racing caller misses, so the launch is driven
 	// straight into the index instead.
-	raced, err := manager.orchestrator.launchOrchestrator(ctx, workflow)
+	raced, err := manager.orchestrator.launchOrchestrator(ctx, workflow, "")
 	require.NoError(t, err)
 	assert.Equal(t, won.ID, raced.ID, "the conflict hands back the orchestrator that exists")
 }
@@ -137,7 +137,7 @@ func TestStartOrchestratorReturnsTheOneTheWorkflowHas(t *testing.T) {
 			ctx := t.Context()
 			workflow := seedWorkflow(t, st)
 
-			first, err := manager.orchestrator.Start(ctx, workflow)
+			first, err := manager.orchestrator.Start(ctx, workflow, "")
 			require.NoError(t, err)
 			st.SeedTranscript(t, first.ID, "why this workflow was split three ways")
 
@@ -145,7 +145,7 @@ func TestStartOrchestratorReturnsTheOneTheWorkflowHas(t *testing.T) {
 				require.NoError(t, manager.lifecycle.ArchiveAgents(ctx, []string{first.ID}))
 			}
 
-			second, err := manager.orchestrator.Start(ctx, workflow)
+			second, err := manager.orchestrator.Start(ctx, workflow, "")
 			require.NoError(t, err)
 
 			assert.Equal(t, first.ID, second.ID, "the workflow points at one orchestrator for life")
@@ -173,7 +173,7 @@ func TestOrchestratorSpawnsOnlyIntoItsOwnWorkflow(t *testing.T) {
 
 	mine, theirs := seedWorkflow(t, st), seedWorkflow(t, st)
 
-	orchestrator, err := manager.orchestrator.Start(ctx, mine)
+	orchestrator, err := manager.orchestrator.Start(ctx, mine, "")
 	require.NoError(t, err)
 
 	spawning := caller.With(ctx, caller.Caller{AgentID: orchestrator.ID})
@@ -207,7 +207,7 @@ func TestOrchestratorIsRefusedAReview(t *testing.T) {
 	})
 	ctx := t.Context()
 
-	orchestrator, err := manager.orchestrator.Start(ctx, seedWorkflow(t, st))
+	orchestrator, err := manager.orchestrator.Start(ctx, seedWorkflow(t, st), "")
 	require.NoError(t, err)
 
 	_, _, err = manager.launch.RequestReview(ctx, RequestReviewParams{
@@ -231,7 +231,7 @@ func TestStartOrchestratorReplacesOneThatNeverRan(t *testing.T) {
 	ctx := t.Context()
 	workflow := seedWorkflow(t, st)
 
-	first, err := manager.orchestrator.Start(ctx, workflow)
+	first, err := manager.orchestrator.Start(ctx, workflow, "")
 	require.NoError(t, err)
 
 	// What a launch the person refused leaves behind: the row stands and the reconciler takes
@@ -244,7 +244,7 @@ func TestStartOrchestratorReplacesOneThatNeverRan(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, forgotten)
 
-	again, err := manager.orchestrator.Start(ctx, workflow)
+	again, err := manager.orchestrator.Start(ctx, workflow, "")
 	require.NoError(t, err)
 
 	assert.NotEqual(t, first.ID, again.ID, "the row that never spoke is replaced rather than resumed")
@@ -265,11 +265,11 @@ func TestStartOrchestratorKeepsOneStillRunning(t *testing.T) {
 	ctx := t.Context()
 	workflow := seedWorkflow(t, st)
 
-	first, err := manager.orchestrator.Start(ctx, workflow)
+	first, err := manager.orchestrator.Start(ctx, workflow, "")
 	require.NoError(t, err)
 	require.NotEmpty(t, first.Pane)
 
-	again, err := manager.orchestrator.Start(ctx, workflow)
+	again, err := manager.orchestrator.Start(ctx, workflow, "")
 	require.NoError(t, err)
 	assert.Equal(t, first.ID, again.ID, "a running orchestrator is handed back, not replaced")
 }
@@ -288,15 +288,43 @@ func TestStartOrchestratorKeepsOneThatHasSpoken(t *testing.T) {
 	ctx := t.Context()
 	workflow := seedWorkflow(t, st)
 
-	first, err := manager.orchestrator.Start(ctx, workflow)
+	first, err := manager.orchestrator.Start(ctx, workflow, "")
 	require.NoError(t, err)
 	st.SeedTranscript(t, first.ID, "why this workflow was split three ways")
 
-	again, err := manager.orchestrator.Start(ctx, workflow)
+	again, err := manager.orchestrator.Start(ctx, workflow, "")
 	require.NoError(t, err)
 	assert.Equal(t, first.ID, again.ID)
 
 	stored, err := st.GetTranscript(ctx, again.ID)
 	require.NoError(t, err)
 	assert.Equal(t, "why this workflow was split three ways", stored)
+}
+
+// TestStartOrchestratorOpensOnThePromptGiven covers which briefing a fresh orchestrator is launched with.
+func TestStartOrchestratorOpensOnThePromptGiven(t *testing.T) {
+	tests := []struct {
+		name   string
+		prompt string
+		want   string
+	}{
+		{name: "komrad's own when none is given", prompt: "", want: orchestratorPrompt},
+		{name: "the one given", prompt: "Stand by for instructions.", want: "Stand by for instructions."},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := newStore(t)
+			manager := st.agentService(agentServiceOptions{
+				tmux:      tmuxtest.NewFake(),
+				harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}},
+				addr:      "127.0.0.1:9999",
+				stateDir:  t.TempDir(),
+			})
+
+			started, err := manager.orchestrator.Start(t.Context(), seedWorkflow(t, st), tt.prompt)
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, started.Prompt)
+		})
+	}
 }

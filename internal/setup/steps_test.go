@@ -154,3 +154,33 @@ func TestContextStep(t *testing.T) {
 		assert.Equal(t, VerdictDone, step.observe(t.Context(), check).Verdict)
 	})
 }
+
+// TestAutoSetupStep covers that only a yes writes auto_setup.
+func TestAutoSetupStep(t *testing.T) {
+	configPath := filepath.Join(t.TempDir(), "config.toml")
+	require.NoError(t, os.WriteFile(configPath, []byte("default_harness = \"claude\"\n"), 0o600))
+	stack := config.Stack{Paths: []string{configPath}}
+	check := fakeChecker(ok(doctor.CheckConfig, ""))
+
+	t.Run("a no writes nothing", func(t *testing.T) {
+		step := &AutoSetupStep{Path: configPath, Stack: stack}
+		assert.Equal(t, VerdictAsk, step.observe(t.Context(), check).Verdict)
+
+		require.ErrorIs(t, step.repair(t.Context()), ErrSkipped)
+
+		written, err := os.ReadFile(configPath)
+		require.NoError(t, err)
+		assert.Equal(t, "default_harness = \"claude\"\n", string(written))
+	})
+
+	t.Run("a yes turns it on", func(t *testing.T) {
+		step := &AutoSetupStep{Path: configPath, Stack: stack, chosen: true}
+
+		require.NoError(t, step.repair(t.Context()))
+
+		written, err := os.ReadFile(configPath)
+		require.NoError(t, err)
+		assert.Equal(t, "default_harness = \"claude\"\nauto_setup = true\n", string(written))
+		assert.Equal(t, VerdictDone, step.observe(t.Context(), check).Verdict)
+	})
+}

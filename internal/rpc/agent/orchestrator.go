@@ -11,7 +11,7 @@ import (
 )
 
 type orchestratorStarter interface {
-	Start(ctx context.Context, workflowID string) (*agentstore.Agent, error)
+	Start(ctx context.Context, workflowID, prompt string) (*agentstore.Agent, error)
 }
 
 // StartOrchestrator returns a workflow's orchestrator with a pane to talk to, starting the one
@@ -20,7 +20,7 @@ func (s *Handler) StartOrchestrator(
 	ctx context.Context,
 	req *agentv1.StartOrchestratorRequest,
 ) (*agentv1.StartOrchestratorResponse, *fail.Error) {
-	started, err := s.orchestrator.Start(ctx, req.GetWorkflowId())
+	started, err := s.orchestrator.Start(ctx, req.GetWorkflowId(), req.GetPrompt())
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to start the orchestrator")
 	}

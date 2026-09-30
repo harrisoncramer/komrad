@@ -3,15 +3,21 @@ package cli
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"os/exec"
 	"strings"
 	"syscall"
 
 	"komrad/internal/agents"
+	"komrad/internal/git"
+	"komrad/internal/logging"
 	"komrad/internal/tmux"
 	"komrad/internal/version"
+	"komrad/lib/xhttp"
 	"komrad/lib/xslice"
+	"komrad/proto/gen/agent/v1/agentv1connect"
+	"komrad/proto/gen/workflow/v1/workflowv1connect"
 
 	"github.com/spf13/cobra"
 )
@@ -64,8 +70,14 @@ an agent's pane into a panel nobody is looking at.`,
 
 // openHere puts this engine's panel up and turns this process into the client attached to it.
 func openHere(ctx context.Context, state *app, detach, headless bool) error {
+	settingUp := !headless && prepareAutoSetup(ctx, state)
+
 	if err := ensureManagerSession(ctx, state, detach, headless); err != nil {
 		return err
+	}
+
+	if settingUp {
+		setUpWorkflowHere(ctx, state)
 	}
 
 	state.tmux.BlankBorders()
@@ -254,4 +266,58 @@ func refuseNesting(state *app) error {
 	return fmt.Errorf(
 		"this is agent %s's own pane, so opening a panel here would nest one komrad inside "+
 			"another: open it from your own terminal instead", state.env.AgentID)
+}
+
+// prepareAutoSetup reports whether auto_setup runs for this open, starting the server it needs.
+func prepareAutoSetup(ctx context.Context, state *app) bool {
+	if !state.autoSetup || state.configErr != nil || state.engine().IsRemote() {
+		return false
+	}
+
+	if err := ensureServer(ctx, ensureServerParams{
+		Addr:       state.env.Addr,
+		Self:       getSelfPath(),
+		LogPath:    state.env.LogPath(),
+		ConfigArgs: configArgs(state.configStack),
+	}); err != nil {
+		warnAutoSetup(ctx, state, err)
+
+		return false
+	}
+
+	return true
+}
+
+// setUpWorkflowHere runs auto_setup for the directory komrad was opened in.
+func setUpWorkflowHere(ctx context.Context, state *app) {
+	dir, err := os.Getwd()
+	if err != nil {
+		warnAutoSetup(ctx, state, err)
+
+		return
+	}
+
+	base := "http://" + state.env.Addr
+	httpClient := xhttp.NewClient(0)
+	if err := autoSetup(ctx, autoSetupParams{
+		Dir:       dir,
+		Git:       git.NewClient(),
+		Workflows: workflowv1connect.NewWorkflowServiceClient(httpClient, base),
+		Agents:    agentv1connect.NewAgentServiceClient(httpClient, base),
+	}); err != nil {
+		warnAutoSetup(ctx, state, err)
+	}
+}
+
+func warnAutoSetup(ctx context.Context, state *app, err error) {
+	fmt.Fprintf(os.Stderr, "komrad: auto_setup skipped: %v\n", err)
+
+	file, openErr := openLogFile(state.env.LogPath())
+	if openErr != nil {
+		return
+	}
+	defer func() { _ = file.Close() }()
+
+	logging.New(file, slog.LevelWarn).With(slog.String(logging.ProcessName, logging.ProcessOpen)).
+		LogAttrs(ctx, slog.LevelWarn, "auto_setup skipped", logging.Err(err)...)
 }

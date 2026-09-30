@@ -1276,7 +1276,7 @@ func (f *recordingAgentServices) Release(_ context.Context, params agents.Releas
 	return f.answer()
 }
 
-func (f *recordingAgentServices) Start(_ context.Context, workflowID string) (*agentstore.Agent, error) {
+func (f *recordingAgentServices) Start(_ context.Context, workflowID, _ string) (*agentstore.Agent, error) {
 	f.orchestrated = append(f.orchestrated, workflowID)
 
 	return f.answer()

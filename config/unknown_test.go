@@ -21,7 +21,7 @@ func TestLoadNamesWhatTheTableTakes(t *testing.T) {
 		{
 			name: "a misspelled top-level key",
 			file: "default_harnes = \"codex\"\n",
-			want: []string{"default_harnes is not a setting; the top level takes default_harness, harness, usage"},
+			want: []string{"default_harnes is not a setting; the top level takes default_harness, auto_setup, harness, usage"},
 		},
 		{
 			name: "a misspelled key inside a table",

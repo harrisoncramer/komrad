@@ -107,5 +107,6 @@ func (a *app) setupSteps(harnessFlag string) ([]setup.Step, error) {
 			Flag:      harnessFlag,
 		},
 		&setup.ContextStep{Stack: a.configStack},
+		&setup.AutoSetupStep{Path: path, Stack: a.configStack},
 	}, nil
 }

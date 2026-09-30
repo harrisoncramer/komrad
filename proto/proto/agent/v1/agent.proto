@@ -405,6 +405,8 @@ message PlanRebaseResponse {
 message StartOrchestratorRequest {
   // The workflow whose orchestrator to bring back, or to start if it has never had one.
   string workflow_id = 1 [(buf.validate.field).string.min_len = 1];
+  // The opening briefing a fresh orchestrator is launched with, blank for komrad's own.
+  string prompt = 2 [(buf.validate.field).string.max_len = 50000];
 }
 
 message StartOrchestratorResponse {

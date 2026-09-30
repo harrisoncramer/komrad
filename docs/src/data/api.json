@@ -5434,6 +5434,18 @@
             "required"
           ],
           "description": "The workflow whose orchestrator to bring back, or to start if it has never had one."
+        },
+        {
+          "name": "prompt",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [
+            "at most 50000 characters"
+          ],
+          "description": "The opening briefing a fresh orchestrator is launched with, blank for komrad's own."
         }
       ]
     },

@@ -125,6 +125,7 @@ the service, or call an endpoint from a script.`,
 			}
 			paint.Use(*palette)
 			app.defaultHarness = cfg.DefaultHarness
+			app.autoSetup = cfg.AutoSetup
 			app.usage = cfg.Usage
 
 			app.tmux = tmux.NewClient(env.TmuxSocket)
