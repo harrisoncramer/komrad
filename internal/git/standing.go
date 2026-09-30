@@ -3,7 +3,9 @@ package git
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
+	"os/exec"
 	"strconv"
 	"strings"
 	"time"
@@ -123,28 +125,23 @@ func (c *Client) CountAheadBehind(ctx context.Context, dir, ref string) (ahead, 
 type ReadDiffStatParams struct {
 	Dir string
 	Ref string
-	// Tree is the worktree already hashed, hashed here when empty.
+	// Tree is the worktree already hashed, empty when ReadDiffStat should hash it.
 	Tree    string
 	Exclude []string
 }
 
 // ReadDiffStat is the lines the working tree, untracked files included, adds and removes since it left ref.
 func (c *Client) ReadDiffStat(ctx context.Context, params ReadDiffStatParams) (*DiffStat, error) {
-	related, err := doesShareHistory(ctx, params.Dir, params.Ref, "HEAD")
-	if err != nil {
-		return nil, fmt.Errorf("failed to relate %q to %s: %w", params.Dir, params.Ref, err)
-	}
-
-	if !related {
+	mergeBase, err := Run(ctx, params.Dir, "merge-base", params.Ref, "HEAD")
+	var exit *exec.ExitError
+	if errors.As(err, &exit) && exit.ExitCode() == 1 {
 		return nil, fmt.Errorf("%w: %s", ErrBaseUnrelated, params.Ref)
 	}
-
-	mergeBase, err := Run(ctx, params.Dir, "merge-base", params.Ref, "HEAD")
 	if err != nil {
 		return nil, fmt.Errorf("failed to find where %q left %s: %w", params.Dir, params.Ref, err)
 	}
 
-	tree, err := hashTree(ctx, params)
+	tree, err := hashTree(ctx, params.Dir, params.Tree)
 	if err != nil {
 		return nil, err
 	}
@@ -353,13 +350,13 @@ func readNumstatCount(field string) (int, error) {
 	return count, nil
 }
 
-// hashTree is the tree the params already hold, or the working tree hashed in an index of its own.
-func hashTree(ctx context.Context, params ReadDiffStatParams) (string, error) {
-	if params.Tree != "" {
-		return params.Tree, nil
+// hashTree is the tree already hashed, or the working tree at dir hashed in an index of its own.
+func hashTree(ctx context.Context, dir, tree string) (string, error) {
+	if tree != "" {
+		return tree, nil
 	}
 
-	root, err := getRoot(ctx, params.Dir)
+	root, err := getRoot(ctx, dir)
 	if err != nil {
 		return "", err
 	}
