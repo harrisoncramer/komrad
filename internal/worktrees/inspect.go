@@ -235,11 +235,11 @@ func (i *Inspector) readSettled(ctx context.Context, inspection *Inspection, par
 	}
 	inspection.BaseRef = ref
 
-	readCheckout := i.readCheckout
+	read := i.readCheckout
 	if params.peek {
-		readCheckout = i.peekCheckout
+		read = i.peekCheckout
 	}
-	if err := readCheckout(ctx, inspection); err != nil {
+	if err := read(ctx, inspection); err != nil {
 		return nil, err
 	}
 
