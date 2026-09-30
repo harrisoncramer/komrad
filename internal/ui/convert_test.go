@@ -28,6 +28,7 @@ func TestProtoToAgentCarriesTheSyncedColumns(t *testing.T) {
 	assert.True(t, converted.WorktreeRemoved)
 }
 
+// TestProtoToAgentCarriesAFailedTurn pins the text a turn an API error ended is drawn with.
 func TestProtoToAgentCarriesAFailedTurn(t *testing.T) {
 	assert.Equal(t, "Overloaded", agentFrom(&agentv1.Agent{Id: "a1", TurnError: "Overloaded"}).TurnError)
 }

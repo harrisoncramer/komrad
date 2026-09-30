@@ -283,6 +283,8 @@ func TestSetReportedReasonRoundTrips(t *testing.T) {
 	assert.Empty(t, cleared.ReportedReason)
 }
 
+// TestAFailedTurnStandsUntilAnotherEnds pins that a failure ends the turn it failed and that the
+// next turn to end clears it.
 func TestAFailedTurnStandsUntilAnotherEnds(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
