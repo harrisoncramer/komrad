@@ -174,8 +174,13 @@ func agentHooks(ctx context.Context, workflows workflowReader, agent agentstore.
 		return nil
 	}
 
-	wf := workflowFor(ctx, workflows, agent)
-	if wf == nil {
+	return hooksFor(workflowFor(ctx, workflows, agent), agent.ParentAgentID != nil, agent.ProvisionEnabled)
+}
+
+func hooksFor(wf *workflowstore.Workflow, hasParent bool, provisionEnabled *bool) []workflowstore.Hook {
+	// The hooks a workflow lists are read only for the agents that own their own directory, and a
+	// child or an agent told to keep the directory it was given was handed somebody else's.
+	if wf == nil || hasParent || agentstore.IsProvisionerDisabled(provisionEnabled) {
 		return nil
 	}
 

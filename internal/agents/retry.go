@@ -64,11 +64,10 @@ func (s *LaunchService) RetryCreate(ctx context.Context, params RetryCreateParam
 		agent.Prompt = prompt
 	}
 
-	provisioner := provisionerFor(ctx, s.workflows, *agent)
-	deprovisioner := deprovisionerFor(ctx, s.workflows, *agent)
-	hooks := agentHooks(ctx, s.workflows, *agent)
-
 	wf := workflowFor(ctx, s.workflows, *agent)
+	provisioner, deprovisioner := worktreeScripts(wf, agent.ProvisionEnabled)
+	hooks := hooksFor(wf, agent.ParentAgentID != nil, agent.ProvisionEnabled)
+
 	workflowContext := ""
 	if wf != nil {
 		workflowContext = wf.Context
