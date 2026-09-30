@@ -586,8 +586,7 @@ func (a *archiveScreen) column() columnSpec {
 	}
 }
 
-// renameable is the row under the cursor when it can be renamed: an agent, or the folder of a
-// workflow still live, since an archived workflow takes no writes.
+// renameable is the row under the cursor when it can be renamed: an agent, or a live workflow's folder.
 func (a *archiveScreen) renameable(s panelShared) (agentRow, bool) {
 	if a.onSchedules(s) || a.selected.isActive() {
 		return agentRow{}, false
