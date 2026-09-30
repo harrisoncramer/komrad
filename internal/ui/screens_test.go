@@ -395,7 +395,7 @@ func TestScreensPromptSitsInTheListColumn(t *testing.T) {
 		},
 		{
 			name:  "the transcript search",
-			press: []string{"tab", "d", "b"},
+			press: []string{"tab", "/", "d", "b"},
 			want:  "/ db",
 		},
 	}
@@ -735,7 +735,7 @@ func buildListScreens() []listScreen {
 		},
 		{
 			name:   "the search",
-			press:  []string{"tab"},
+			press:  []string{"tab", "/"},
 			screen: searchScreen,
 		},
 		{
