@@ -898,7 +898,7 @@ func (h *panelHarness) pick(to string) {
 
 	letter := h.panel.ReadPickLetter(to)
 	if letter == "" {
-		letter = "esc"
+		h.t.Fatalf("the picker drew no letter over %s", to)
 	}
 
 	h.send(ui.NewKeyPress(letter))

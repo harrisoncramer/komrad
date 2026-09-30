@@ -632,14 +632,12 @@ func TestAgentsRecordFocus(t *testing.T) {
 		harness.assertSent(buildWorktreeReadRequests(2)...)
 	})
 
-	t.Run("nothing listed leaves the keys with the list", func(t *testing.T) {
+	t.Run("nothing listed gives the record no letter", func(t *testing.T) {
 		harness := openAgents(t)
 
-		harness.press("pick:record")
+		harness.press("ctrl+space", "j")
 
-		frame := harness.readFrame()
-		assert.Empty(t, readRecordCursor(frame))
-		assert.NotContains(t, readLegend(frame), "back to the list")
+		assert.Empty(t, harness.panel.ReadPickLetter("record"))
 	})
 
 	t.Run("a record shortened under the cursor holds it on its last field", func(t *testing.T) {
@@ -1462,7 +1460,7 @@ func TestAgentsRecordSearch(t *testing.T) {
 		answerWorktreeReads(harness)
 		harness.watch(buildSnapshot(buildRecorded()...))
 
-		harness.press("?", "pick:record", "/", "a", "tab", "enter")
+		harness.press("pick:record", "?", "/", "a", "tab", "enter")
 
 		frame := harness.readFrame()
 		assert.False(t, isRecordDrawn(frame))
