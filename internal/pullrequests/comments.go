@@ -35,13 +35,13 @@ type NewCommentSyncerParams struct {
 
 // CommentSyncer keeps the forge's review threads in step on the open pull requests live agents are linked to.
 type CommentSyncer struct {
-	forges   pullRequestForgeFinder
-	threads  *pullrequeststore.ForgeThreadStore
-	tx       transactor
-	now      func() time.Time
-	refusals map[string]int
-	said     onceLog
-	next     int
+	forges  pullRequestForgeFinder
+	threads *pullrequeststore.ForgeThreadStore
+	tx      transactor
+	now     func() time.Time
+	backoff *hostBackoff
+	said    onceLog
+	next    int
 }
 
 // NewCommentSyncer builds a comment syncer over the forge service and the store.
@@ -52,12 +52,12 @@ func NewCommentSyncer(params NewCommentSyncerParams) *CommentSyncer {
 	}
 
 	return &CommentSyncer{
-		forges:   params.Forges,
-		threads:  params.Threads,
-		tx:       params.Tx,
-		now:      now,
-		refusals: map[string]int{},
-		said:     onceLog{},
+		forges:  params.Forges,
+		threads: params.Threads,
+		tx:      params.Tx,
+		now:     now,
+		backoff: newHostBackoff(params.Forges, now),
+		said:    onceLog{},
 	}
 }
 
@@ -105,7 +105,7 @@ func (s *CommentSyncer) Sync(ctx context.Context) error {
 
 	for _, host := range hosts {
 		if host != nil && !host.throttled {
-			delete(s.refusals, host.host)
+			s.backoff.reset(host.host)
 			s.said.forget(saidRefused, host.host)
 		}
 	}
@@ -194,10 +194,10 @@ func (s *CommentSyncer) settle(ctx context.Context, host *commentHost, remote gi
 	switch {
 	case errors.As(err, &throttled):
 		host.throttled = true
-		s.recordThrottle(ctx, host, throttled.RetryAt)
+		s.backoff.record(ctx, host.host, host.connectionID, throttled.RetryAt)
 	case errors.Is(err, forge.ErrUnauthorized):
 		host.throttled = true
-		s.recordThrottle(ctx, host, time.Time{})
+		s.backoff.record(ctx, host.host, host.connectionID, time.Time{})
 		if s.said.first(saidRefused, host.host) {
 			logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "the forge refused the connection's credential, so review comments wait for it to be accepted again",
 				append([]slog.Attr{slog.String(logging.ForgeHost, host.host)}, logging.Err(err)...)...)
@@ -206,21 +206,5 @@ func (s *CommentSyncer) settle(ctx context.Context, host *commentHost, remote gi
 	default:
 		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to sync the review comments",
 			append([]slog.Attr{slog.String(logging.RepositoryURL, remote.Canonical())}, logging.Err(err)...)...)
-	}
-}
-
-func (s *CommentSyncer) recordThrottle(ctx context.Context, host *commentHost, retryAt time.Time) {
-	until := retryAt
-	if until.IsZero() {
-		wait := pullRequestThrottleFloor
-		for range s.refusals[host.host] {
-			wait = min(wait*2, pullRequestThrottleCeiling)
-		}
-		s.refusals[host.host]++
-		until = s.now().Add(wait)
-	}
-
-	if err := s.forges.SetThrottledUntil(ctx, host.connectionID, &until); err != nil {
-		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to record the forge's rate limit", logging.Err(err)...)
 	}
 }
