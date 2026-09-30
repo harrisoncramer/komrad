@@ -32,6 +32,7 @@ func TestFormsSubmit(t *testing.T) {
 	tests := []struct {
 		name      string
 		workflow  *workflowv1.Workflow
+		author    *agentv1.Agent
 		empty     bool
 		hostPath  string
 		press     []string
@@ -150,6 +151,13 @@ func TestFormsSubmit(t *testing.T) {
 			procedure: workflowv1connect.WorkflowServiceArchiveWorkflowProcedure,
 			want:      &workflowv1.ArchiveWorkflowRequest{Id: "w1"},
 		},
+		{
+			name:      "the workflow archive prompt archives the workflow from its orchestrator's menu",
+			author:    newOrchestrator(),
+			press:     []string{"space", "a", "ctrl+s"},
+			procedure: workflowv1connect.WorkflowServiceArchiveWorkflowProcedure,
+			want:      &workflowv1.ArchiveWorkflowRequest{Id: "w1"},
+		},
 	}
 
 	for _, tt := range tests {
@@ -158,11 +166,15 @@ func TestFormsSubmit(t *testing.T) {
 			if workflow == nil {
 				workflow = newFormWorkflow()
 			}
+			author := tt.author
+			if author == nil {
+				author = newFormAuthor()
+			}
 			var harness *panelHarness
 			if tt.empty {
 				harness = openAgents(t)
 			} else {
-				harness = openForms(t, workflow, newFormAuthor())
+				harness = openForms(t, workflow, author)
 			}
 			harness.panel.SetHostPath(tt.hostPath)
 
