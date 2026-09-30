@@ -503,31 +503,19 @@ func TestWorktreesSnapshotCellsAreSizeAgeThenStanding(t *testing.T) {
 		now:   now,
 	})
 
-	figures := map[string][]string{}
-	standings := map[string]view.Cell{}
+	cells := map[string][]view.Cell{}
 	for _, row := range snapshot.Rows {
-		texts := xslice.Map(row.Cells, func(cell view.Cell) string { return cell.Text })
-		figures[row.Key] = texts[:min(len(texts), 2)]
-		if len(row.Cells) == 3 {
-			standings[row.Key] = row.Cells[2]
-		}
+		cells[row.Key] = row.Cells
 	}
 
-	assert.Equal(t, map[string][]string{
-		"repo:/home/h/gadgets/admin": {"1.5G"},
-		"tree:/trees/admin":          {"1.5G", "12h"},
-		"repo:/home/h/komrad":        {"60M"},
-		"tree:/trees/live":           {"49M", "30s"},
-		"tree:/trees/archived":       {"49M", "4d"},
-		"tree:/trees/orphan":         {"—", "3h"},
-		"repo:/var/folders/T/repo":   {"—"},
-		"tree:/trees/broken":         {"—", "2w"},
-	}, figures)
-	assert.Equal(t, map[string]view.Cell{
-		"tree:/trees/admin":    {Glyph: glyph.Merged, Tone: paint.ToneMerged},
-		"tree:/trees/live":     {Glyph: glyph.Worktree, Tone: paint.ToneWarning},
-		"tree:/trees/archived": {Glyph: glyph.Worktree, Tone: paint.ToneMuted},
-		"tree:/trees/orphan":   mutedCell("—"),
-		"tree:/trees/broken":   {Glyph: glyph.WorktreeGone, Tone: paint.ToneDanger},
-	}, standings)
+	assert.Equal(t, map[string][]view.Cell{
+		"repo:/home/h/gadgets/admin": {mutedCell("1.5G")},
+		"tree:/trees/admin":          {mutedCell("1.5G"), mutedCell("12h"), {Glyph: glyph.Merged, Tone: paint.ToneMerged}},
+		"repo:/home/h/komrad":        {mutedCell("60M")},
+		"tree:/trees/live":           {mutedCell("49M"), mutedCell("30s"), {Glyph: glyph.Worktree, Tone: paint.ToneWarning}},
+		"tree:/trees/archived":       {mutedCell("49M"), mutedCell("4d"), {Glyph: glyph.Worktree, Tone: paint.ToneMuted}},
+		"tree:/trees/orphan":         {mutedCell("—"), mutedCell("3h"), mutedCell("—")},
+		"repo:/var/folders/T/repo":   {mutedCell("—")},
+		"tree:/trees/broken":         {mutedCell("—"), mutedCell("2w"), {Glyph: glyph.WorktreeGone, Tone: paint.ToneDanger}},
+	}, cells)
 }
