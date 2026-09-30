@@ -3,11 +3,9 @@ package ui
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"strings"
 	"time"
 
-	"komrad/internal/logging"
 	"komrad/internal/rpcapi"
 	"komrad/internal/ui/panel"
 	agentv1 "komrad/proto/gen/agent/v1"
@@ -624,13 +622,9 @@ func (a api) listAgentLogSources(agentID string) ([]*logv1.LogSource, error) {
 	})
 }
 
-// wakeLoop asks the service to run a background loop before its next tick, logging a refusal.
-func (a api) wakeLoop(loop loopv1.Loop) {
-	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
-	defer cancel()
-
-	if _, err := a.loops.WakeLoop(ctx, connect.NewRequest(&loopv1.WakeLoopRequest{Loop: loop})); err != nil {
-		attrs := append([]slog.Attr{slog.String("loop", loop.String())}, logging.Err(err)...)
-		logging.From(ctx).LogAttrs(ctx, slog.LevelDebug, "failed to wake a loop", attrs...)
-	}
+// wakeLoop asks the service to run a background loop before its next tick.
+func (a api) wakeLoop(loop loopv1.Loop) error {
+	return mutate(func(ctx context.Context) (any, error) {
+		return a.loops.WakeLoop(ctx, connect.NewRequest(&loopv1.WakeLoopRequest{Loop: loop}))
+	})
 }

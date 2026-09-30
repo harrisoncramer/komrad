@@ -1,12 +1,15 @@
 package ui
 
 import (
+	"context"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
 	"komrad/internal/errui"
 	"komrad/internal/glyph"
+	"komrad/internal/logging"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/ui/panel"
@@ -44,7 +47,10 @@ func (m *model) wakeCwdSyncCmd() tea.Cmd {
 	clients := m.api
 
 	return func() tea.Msg {
-		clients.wakeLoop(loopv1.Loop_LOOP_CWD_SYNC)
+		if err := clients.wakeLoop(loopv1.Loop_LOOP_CWD_SYNC); err != nil {
+			ctx := context.Background()
+			logging.From(ctx).LogAttrs(ctx, slog.LevelDebug, "failed to wake the cwd sync", logging.Err(err)...)
+		}
 
 		return nil
 	}
