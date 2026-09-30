@@ -624,8 +624,7 @@ func (a api) listAgentLogSources(agentID string) ([]*logv1.LogSource, error) {
 	})
 }
 
-// wakeLoop asks the service to run a background loop before its next tick, logging a refusal
-// rather than drawing it since the loop runs on its own tick anyway.
+// wakeLoop asks the service to run a background loop before its next tick, logging a refusal.
 func (a api) wakeLoop(loop loopv1.Loop) {
 	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
 	defer cancel()
