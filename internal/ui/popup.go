@@ -26,8 +26,7 @@ type popupAnchor struct {
 	// right is the farthest column the popup reaches, which may lie past the area.
 	right int
 	// code is the column from which the text on the rows the popup covers is kept clear.
-	code int
-	// keepsClear reports whether any text is kept clear.
+	code       int
 	keepsClear bool
 }
 
@@ -39,12 +38,10 @@ type popupSlot struct {
 	height int
 }
 
-// inner is the room inside the popup.
 func (p popupSlot) inner() int {
 	return p.width - popupChrome
 }
 
-// shift moves the slot right by columns.
 func (p popupSlot) shift(columns int) popupSlot {
 	p.x += columns
 
