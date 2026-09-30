@@ -34,8 +34,13 @@ func TestWheelFilter(t *testing.T) {
 		},
 		{
 			name:  "turns inside a frame are held for the first turn after it",
-			turns: []turn{{msg: down}, {msg: down, after: time.Millisecond}, {msg: down, after: time.Millisecond}, {msg: down, after: 20 * time.Millisecond}},
+			turns: []turn{{msg: down}, {msg: down, after: 6 * time.Millisecond}, {msg: down, after: 6 * time.Millisecond}, {msg: down, after: 6 * time.Millisecond}},
 			want:  []tea.Msg{ui.NewWheelTurns(7, 1), nil, nil, ui.NewWheelTurns(7, 3)},
+		},
+		{
+			name:  "turns held when the wheel stops are dropped",
+			turns: []turn{{msg: down}, {msg: down, after: time.Millisecond}, {msg: down, after: time.Millisecond}, {msg: down, after: 10 * time.Second}},
+			want:  []tea.Msg{ui.NewWheelTurns(7, 1), nil, nil, ui.NewWheelTurns(7, 1)},
 		},
 		{
 			name:  "a turn the other way drops the turns held",

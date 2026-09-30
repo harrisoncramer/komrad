@@ -20,6 +20,7 @@ type wheelMsg struct {
 type wheelFilter struct {
 	now  func() time.Time
 	last time.Time
+	seen time.Time
 	rows int
 }
 
@@ -38,12 +39,13 @@ func (f *wheelFilter) filter(_ tea.Model, msg tea.Msg) tea.Msg {
 		return msg
 	}
 
-	if f.rows*turn < 0 {
+	at := f.now()
+	if f.rows*turn < 0 || at.Sub(f.seen) > wheelFrame {
 		f.rows = 0
 	}
+	f.seen = at
 	f.rows += turn
 
-	at := f.now()
 	if !f.last.IsZero() && at.Sub(f.last) < wheelFrame {
 		return nil
 	}
