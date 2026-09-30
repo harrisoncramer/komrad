@@ -6,7 +6,9 @@ import (
 	"komrad/internal/git"
 	"komrad/internal/gittest"
 	"komrad/internal/position"
+	"komrad/internal/ui/diffview"
 	agentv1 "komrad/proto/gen/agent/v1"
+	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -324,4 +326,34 @@ func TestTraceThreadsMarksEveryRoundHoldingTheSnapshotOnScreen(t *testing.T) {
 	assert.True(t, found.Exact)
 	assert.Equal(t, int32(8), found.NewStart)
 	assert.Empty(t, repo.MappingsAsked(), "the round it was written against is the one on screen")
+}
+
+// TestTraceOffers covers which forge comments git is asked about and what each answer becomes: a
+// line counted in the snapshot on screen stands where it is, one counted in an earlier commit
+// follows the mapping, and a commit this checkout cannot read leaves the comment to its text.
+func TestTraceOffers(t *testing.T) {
+	repo := &gittest.Repo{Mappings: map[string][]position.Mapping{gittest.NamePair(firstSHA, secondSHA): insertedAHelper}}
+	offer := func(id string, line int32, sha string, oldSide bool) *pullrequestv1.ForgeThread {
+		return &pullrequestv1.ForgeThread{Id: id, Path: tracedFile, Line: line, CommitSha: sha, OldSide: oldSide}
+	}
+
+	traced := traceOffers(t.Context(), traceOffersParams{
+		Git:   repo,
+		Dir:   traceDir,
+		ToSHA: secondSHA,
+		Offers: []*pullrequestv1.ForgeThread{
+			offer("earlier", 4, firstSHA, false),
+			offer("on-screen", 2, secondSHA, false),
+			offer("unreadable", 4, unreadableSHA, false),
+			offer("old-side", 4, firstSHA, true),
+			offer("no-commit", 4, "", false),
+			offer("on-the-file", 0, firstSHA, false),
+		},
+	})
+
+	assert.Equal(t, map[string]diffview.Traced{
+		"earlier":   {FilePath: tracedFile, NewStart: 8},
+		"on-screen": {FilePath: tracedFile, NewStart: 2, Exact: true},
+	}, traced)
+	assert.Len(t, repo.MappingsAsked(), 2, "one diff for each commit the comments were counted in")
 }

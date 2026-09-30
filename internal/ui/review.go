@@ -34,6 +34,8 @@ type reviewScreen struct {
 
 	// offer is the forge thread J last chose, empty until it has chosen one.
 	offer string
+
+	offers reviewOffers
 }
 
 func (r reviewScreen) parent() screen {
@@ -126,6 +128,10 @@ func (r *reviewScreen) route(h host, s panelShared, msg tea.Msg) tea.Cmd {
 		return r.applyPaused(h, s, msg)
 	case reviewWroteMsg:
 		return r.applyWrote(h, s, msg)
+	case reviewOffersTracedMsg:
+		r.applyOffersTraced(msg)
+
+		return nil
 	case messageEditedMsg:
 		r.applyMessageEdited(h, s, msg)
 

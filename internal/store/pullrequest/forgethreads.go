@@ -41,6 +41,9 @@ type ForgeThread struct {
 	ProviderID    string
 	Path          string
 	Line          int
+	OldSide       bool
+	CommitSHA     string
+	Quote         string
 	URL           string
 	Resolved      bool
 	WrittenAt     time.Time
@@ -164,6 +167,9 @@ func toThreadUpsert(pullRequestID string, thread forge.ReviewThread) models.Upse
 		PullRequestID: pullRequestID,
 		ProviderID:    thread.ProviderID,
 		Path:          thread.Path,
+		OldSide:       thread.OldSide,
+		CommitSha:     thread.CommitSHA,
+		Quote:         thread.Quote,
 		Url:           thread.URL,
 		Resolved:      thread.Resolved,
 	}
@@ -219,6 +225,9 @@ func (s *ForgeThreadStore) ListWatched(ctx context.Context, keys []string) ([]Fo
 			ProviderID:    row.ProviderID,
 			Path:          row.Path,
 			Line:          int(xptr.Deref(row.Line)),
+			OldSide:       row.OldSide,
+			CommitSHA:     row.CommitSha,
+			Quote:         row.Quote,
 			URL:           row.Url,
 			Resolved:      row.Resolved,
 			WrittenAt:     row.WrittenAt,

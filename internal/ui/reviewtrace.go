@@ -10,6 +10,7 @@ import (
 	"komrad/internal/ui/diffview"
 	"komrad/lib/xslice"
 	agentv1 "komrad/proto/gen/agent/v1"
+	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 )
 
 // traceTimeout is how long every pair together may take, kept apart from the load's own budget
@@ -136,26 +137,41 @@ type traceOneParams struct {
 // traceOne moves every thread of one snapshot pair, keeping the file when the lines are gone so
 // a thread whose code was rewritten still says which file it was about.
 func traceOne(params traceOneParams) map[string]diffview.Traced {
-	positions := xslice.Map(params.Threads, func(thread *agentv1.ReviewThread) position.Position {
-		return position.Position{
-			Path:  thread.GetFilePath(),
-			Lines: threadRange(thread),
-		}
+	return traceAnchors(traceAnchorsParams{
+		Mappings: params.Mappings,
+		IDs:      xslice.Map(params.Threads, (*agentv1.ReviewThread).GetId),
+		Positions: xslice.Map(params.Threads, func(thread *agentv1.ReviewThread) position.Position {
+			return position.Position{
+				Path:  thread.GetFilePath(),
+				Lines: threadRange(thread),
+			}
+		}),
 	})
+}
 
+// traceAnchorsParams is one pair of snapshots and the places written against the earlier one,
+// each under its id.
+type traceAnchorsParams struct {
+	Mappings  []position.Mapping
+	IDs       []string
+	Positions []position.Position
+}
+
+// traceAnchors moves every place of one snapshot pair.
+func traceAnchors(params traceAnchorsParams) map[string]diffview.Traced {
 	results := position.Transform(position.TransformParams{
-		Positions: positions,
+		Positions: params.Positions,
 		Mappings:  params.Mappings,
 		Policy:    position.FileOnConflict,
 	})
 
 	traced := map[string]diffview.Traced{}
 	for _, result := range results {
-		if result.Index < 0 || result.Index >= len(params.Threads) {
+		if result.Index < 0 || result.Index >= len(params.IDs) {
 			continue
 		}
 
-		id := params.Threads[result.Index].GetId()
+		id := params.IDs[result.Index]
 
 		// A file copied to two paths answers twice, and the first answer is kept rather than
 		// drawing one comment against whichever copy came last.
@@ -198,4 +214,62 @@ func threadRange(thread *agentv1.ReviewThread) position.Range {
 	}
 
 	return position.Range{Start: int(start), End: int(end) + 1}
+}
+
+// traceOffersParams says which of the forge's comments to trace, where to read the repository,
+// and which snapshot the diff on screen was drawn to.
+type traceOffersParams struct {
+	Git    ReviewGit
+	Dir    string
+	ToSHA  string
+	Offers []*pullrequestv1.ForgeThread
+}
+
+// traceOffers asks git where each forge comment's line went between the commit the forge counted
+// it in and the snapshot on screen, leaving a commit this checkout does not hold to be placed by
+// its text.
+func traceOffers(ctx context.Context, params traceOffersParams) map[string]diffview.Traced {
+	traced := map[string]diffview.Traced{}
+	if params.ToSHA == "" {
+		return traced
+	}
+
+	byFrom := map[string][]*pullrequestv1.ForgeThread{}
+	for _, offer := range params.Offers {
+		from := offer.GetCommitSha()
+		if offer.GetPath() == "" || offer.GetLine() <= 0 || offer.GetOldSide() || from == "" {
+			continue
+		}
+
+		if from == params.ToSHA {
+			traced[offer.GetId()] = diffview.Traced{FilePath: offer.GetPath(), NewStart: offer.GetLine(), Exact: true}
+
+			continue
+		}
+
+		byFrom[from] = append(byFrom[from], offer)
+	}
+
+	for from, offers := range byFrom {
+		mappings, err := params.Git.MapRanges(ctx, git.MapRangesParams{
+			Dir:     params.Dir,
+			FromSHA: from,
+			ToSHA:   params.ToSHA,
+		})
+		if err != nil {
+			continue
+		}
+
+		maps.Copy(traced, traceAnchors(traceAnchorsParams{
+			Mappings: mappings,
+			IDs:      xslice.Map(offers, (*pullrequestv1.ForgeThread).GetId),
+			Positions: xslice.Map(offers, func(offer *pullrequestv1.ForgeThread) position.Position {
+				line := int(offer.GetLine())
+
+				return position.Position{Path: offer.GetPath(), Lines: position.Range{Start: line, End: line + 1}}
+			}),
+		}))
+	}
+
+	return traced
 }
