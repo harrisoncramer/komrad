@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"fmt"
+	"slices"
 	"strings"
 
 	"komrad/internal/ui/paint"
@@ -15,6 +17,9 @@ type nameEdit struct {
 	key   string
 	was   string
 	typed string
+	// gone says the row was taken out of the list while its name was being typed.
+	gone  bool
+	noted bool
 	// saving says the typed name has been sent and the field takes no keys until it lands.
 	saving bool
 }
@@ -33,9 +38,12 @@ func openNameEdit(key, name string) *nameEdit {
 	return &nameEdit{key: key, was: name, typed: name}
 }
 
-func (e *nameEdit) take(msg tea.Msg) nameEditStep {
+func (e *nameEdit) take(h host, msg tea.Msg) nameEditStep {
 	if e.saving {
 		return nameEditTyping
+	}
+	if e.gone {
+		return e.takeGone(h, msg)
 	}
 
 	switch msg := msg.(type) {
@@ -57,6 +65,42 @@ func (e *nameEdit) take(msg tea.Msg) nameEditStep {
 	}
 
 	return nameEditTyping
+}
+
+// takeGone holds the keys of a field whose row is gone until it is let go.
+func (e *nameEdit) takeGone(h host, msg tea.Msg) nameEditStep {
+	key, ok := msg.(tea.KeyPressMsg)
+	if !ok {
+		return nameEditTyping
+	}
+
+	switch k := key.String(); {
+	case k == "ctrl+c":
+		return nameEditHidden
+	case k == "esc" || k == "enter" || isBound(k, formKeys().Submit):
+		return nameEditCancelled
+	}
+
+	if !e.noted {
+		e.noted = true
+		h.note(messageWarning, fmt.Sprintf("%q is gone, so there is nothing to rename; esc to stop", e.was))
+	}
+
+	return nameEditTyping
+}
+
+// reconcileNameEdit says whether a field stays open over rows whose cursor is on hovered.
+func reconcileNameEdit[T keyed](e *nameEdit, rows []T, hovered string) bool {
+	if e.saving || e.gone || hovered == e.key {
+		return true
+	}
+	if slices.ContainsFunc(rows, func(r T) bool { return r.key() == e.key }) {
+		return false
+	}
+
+	e.gone = true
+
+	return true
 }
 
 // submit marks the field saving and gives the name to send, or false when there is nothing to.

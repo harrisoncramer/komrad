@@ -36,17 +36,15 @@ func (a *agentsScreen) openRename(s panelShared) tea.Cmd {
 	return nil
 }
 
-// reconcileRename drops an open rename whose row the cursor is no longer on.
+// reconcileRename drops an open rename once the cursor leaves its row.
 func (a *agentsScreen) reconcileRename(s panelShared) {
-	if a.renaming == nil || a.renaming.saving || a.hoveredKey(s) == a.renaming.key {
-		return
+	if a.renaming != nil && !reconcileNameEdit(a.renaming.nameEdit, a.rows(s), a.hoveredKey(s)) {
+		a.renaming = nil
 	}
-
-	a.renaming = nil
 }
 
 func (a *agentsScreen) updateRename(h host, msg tea.Msg) tea.Cmd {
-	switch a.renaming.take(msg) {
+	switch a.renaming.take(h, msg) {
 	case nameEditHidden:
 		return h.hide()
 	case nameEditCancelled:

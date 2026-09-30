@@ -124,15 +124,19 @@ func TestRenameField(t *testing.T) {
 		assert.Contains(t, readListRows(harness.readFrame()), "  author")
 	})
 
-	t.Run("the field closes when its row leaves the list", func(t *testing.T) {
+	t.Run("a row that leaves the list holds the keys until esc or enter and says it is gone", func(t *testing.T) {
 		harness := openForms(t, newFormWorkflow(), newFormAuthor())
 		harness.press(slices.Concat([]string{"j", "r"}, spellKeys("-v2"))...)
 
 		harness.watch(buildSnapshot(newFormWorkflow()))
-		harness.press("x")
+		harness.press("c", "enter")
 
-		assert.NotContains(t, harness.readFrame(), "author-v2")
+		assert.NotContains(t, harness.readFrame(), "C-s submit", "no action ran on the row the cursor landed on")
 		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceUpdateAgentProcedure))
+		assert.Contains(t, readOpenMessages(harness), `"author" is gone`)
+
+		harness.press("esc", "c")
+		assert.Contains(t, harness.readFrame(), "C-s submit", "the keys are the list's again")
 	})
 
 	t.Run("a listing landing under the field leaves it open", func(t *testing.T) {
