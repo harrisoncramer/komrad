@@ -159,6 +159,8 @@ message CommentCounts {
   int32 resolved = 2;
   // Whether any of the comments holds something the person has not read.
   bool unread = 3;
+  // Open threads from people on the forge, offered to the person and not yet counted in open.
+  int32 external = 4;
 }
 
 message PullRequestStanding {

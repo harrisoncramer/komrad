@@ -194,6 +194,8 @@ type Forge interface {
 	// Standings is where the forge says the reviews, checks and mergeability of up to fifty
 	// pull requests stand, by number, leaving out any the forge does not have.
 	Standings(ctx context.Context, repo git.RemoteURL, numbers []int) (map[int]Standing, error)
+	// ReviewThreads is the review threads on one pull request with the comments they hold.
+	ReviewThreads(ctx context.Context, repo git.RemoteURL, number int) (*Threads, error)
 	// Merge lands the pull request at the web address on its base.
 	Merge(ctx context.Context, url string) error
 	// SetDraft marks the pull request at the web address a draft, or ready for review.

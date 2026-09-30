@@ -106,7 +106,7 @@ func (r reviewScreen) layoutUnder(s panelShared, bar string, above []string) sid
 	record := s.draw.drawRecord(slices.Concat(above, []string{bar, help})...)
 	chrome := slices.Concat(above, []string{bar, help, record})
 	spare := s.draw.listLines(chrome...)
-	head := r.headView(s, countYoursRoom(spare))
+	head := r.headView(s, spare)
 
 	return sidebarLayout{
 		bar:         bar,
@@ -205,9 +205,9 @@ func (r reviewScreen) detailsRoom(s panelShared) int {
 	return s.draw.sidebarDetailsRoom(r.help, r.headView(s, 0))
 }
 
-// headView is the fixed top of the sidebar: the reader's own comments, then the place the cursor
-// is standing.
-func (r reviewScreen) headView(s panelShared, yoursRoom int) string {
+// headView is the fixed top of the sidebar: the reader's own comments, the forge's, then the
+// place the cursor is standing.
+func (r reviewScreen) headView(s panelShared, spare int) string {
 	switch {
 	case r.loading:
 		return dimStyle.Render(reviewLoadingWord) + "\n"
@@ -215,7 +215,9 @@ func (r reviewScreen) headView(s panelShared, yoursRoom int) string {
 		return dimStyle.Render(reviewEmptyWord) + "\n"
 	}
 
-	return r.yoursView(s, yoursRoom) + r.diff.anchorView()
+	yours := r.yoursView(s, countYoursRoom(spare))
+
+	return yours + r.offersView(s, countOffersRoom(spare, strings.Count(yours, "\n"))) + r.diff.anchorView()
 }
 
 // reviewNote is a line of prose under the conversation, wrapped into the sidebar's own column.

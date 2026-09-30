@@ -58,6 +58,7 @@ type reviewServer struct {
 	viewed     []*agentv1.ReviewViewedFile
 	rounds     []*agentv1.ReviewRound
 	reviews    []*agentv1.Review
+	forge      []proto.Message
 	reviewsErr error
 	roundsErr  error
 	openErr    error
@@ -2573,6 +2574,7 @@ func (s *reviewServer) buildSnapshot() *watchv1.WatchEvent {
 			DeliveredAt:  review.GetDeliveredAt(),
 		})
 	}
+	rows = append(rows, s.forge...)
 
 	return buildSnapshot(rows...)
 }

@@ -56,6 +56,7 @@ type services struct {
 	transcriptSync   *transcripts.TranscriptSyncer
 	forge            *forge.Service
 	pullRequestSync  *pullrequests.PullRequestSyncer
+	commentSync      *pullrequests.CommentSyncer
 	pullRequests     *pullrequests.Lister
 	writer           *pullrequests.Writer
 	worktreeLister   *worktrees.Lister
@@ -316,7 +317,12 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 		transcriptSync:  transcriptSyncer,
 		forge:           forgeService,
 		pullRequestSync: pullRequestSyncer,
-		pullRequests:    pullrequests.NewLister(pullrequests.NewListerParams{PullRequests: st.pullRequests}),
+		commentSync: pullrequests.NewCommentSyncer(pullrequests.NewCommentSyncerParams{
+			Forges:  forgeService,
+			Threads: st.forgeThreads,
+			Tx:      st.pool,
+		}),
+		pullRequests: pullrequests.NewLister(pullrequests.NewListerParams{PullRequests: st.pullRequests}),
 		writer: pullrequests.NewWriter(pullrequests.NewWriterParams{
 			Forges: forgeService,
 			Sync:   wakers.pullRequestSync,

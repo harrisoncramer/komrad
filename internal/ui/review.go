@@ -31,6 +31,9 @@ type reviewScreen struct {
 
 	// hold is the reader's own hold over the work, and the editor it may hold open.
 	hold reviewHold
+
+	// offer is the forge thread J last chose, empty until it has chosen one.
+	offer string
 }
 
 func (r reviewScreen) parent() screen {

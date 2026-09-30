@@ -331,6 +331,12 @@ func (i *Instance) SyncPullRequests() {
 	i.runLoop(server.PullRequestSyncLoop)
 }
 
+// SyncComments runs one pass of the loop that reads the forges' review comments.
+func (i *Instance) SyncComments() {
+	i.t.Helper()
+	i.runLoop(server.CommentSyncLoop)
+}
+
 // SyncTranscripts runs one pass of the loop that folds what was said into the search index.
 func (i *Instance) SyncTranscripts() {
 	i.t.Helper()

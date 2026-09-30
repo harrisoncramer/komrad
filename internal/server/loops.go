@@ -24,6 +24,9 @@ const CwdSyncInterval = 15 * time.Second
 // per repository live agents sit on and is what makes a pull request appear without a nudge.
 const PullRequestSyncInterval = time.Minute
 
+// CommentSyncInterval is how often the forges are asked whether the review comments on the pull requests agents are linked to moved.
+const CommentSyncInterval = time.Minute
+
 // WorktreeSizeInterval is how often a few worktree directories are walked for their size.
 const WorktreeSizeInterval = 30 * time.Second
 
@@ -46,6 +49,7 @@ const (
 	TranscriptSyncLoop    = "transcript sync"
 	CwdSyncLoop           = "cwd sync"
 	PullRequestSyncLoop   = "pull request sync"
+	CommentSyncLoop       = "review comment sync"
 	WorktreeSizeLoop      = "worktree sizes"
 )
 
@@ -111,6 +115,12 @@ func buildLoops(params buildLoopsParams) []*Loop {
 			Floor:    pullRequestSyncFloor,
 			Run:      params.Services.pullRequestSync.Sync,
 			Waker:    params.Wakers.pullRequestSync,
+		}),
+		NewLoop(NewLoopParams{
+			Name:     CommentSyncLoop,
+			Interval: CommentSyncInterval,
+			Floor:    pullRequestSyncFloor,
+			Run:      params.Services.commentSync.Sync,
 		}),
 		NewLoop(NewLoopParams{
 			Name:     WorktreeSizeLoop,

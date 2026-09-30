@@ -62,6 +62,7 @@ type scriptedForge struct {
 	requests []string
 	// searches is the parameters of every search, in order.
 	searches []forge.ListChangedParams
+	threads  map[int]*forge.Threads
 }
 
 func (f *scriptedForge) Kind() string { return forge.KindGitHub }
@@ -1502,4 +1503,17 @@ func (f *syncFixture) changes(t *testing.T) []Change {
 	}
 
 	return changes
+}
+
+func (f *scriptedForge) ReviewThreads(_ context.Context, _ git.RemoteURL, number int) (*forge.Threads, error) {
+	f.requests = append(f.requests, "threads:"+strconv.Itoa(number))
+	if f.refuse != nil {
+		return nil, f.refuse
+	}
+
+	if answer, ok := f.threads[number]; ok {
+		return answer, nil
+	}
+
+	return &forge.Threads{}, nil
 }

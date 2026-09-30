@@ -100,7 +100,7 @@ func render(pullRequest pullrequeststore.PullRequest) string {
 	for _, field := range fieldOrder {
 		fmt.Fprintf(&body, "  %s: %s\n", field, describe(field, now[field], pullRequest))
 	}
-	fmt.Fprintf(&body, "Read it with gh pr view %d and gh pr checks %d.", pullRequest.Number, pullRequest.Number)
+	fmt.Fprintf(&body, "Read its checks with gh pr checks %d. Review comments reach you through the person's review in komrad, so do not fetch them from the forge.", pullRequest.Number)
 
 	return body.String()
 }

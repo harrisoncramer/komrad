@@ -518,6 +518,50 @@ type ForgeConnection struct {
 	EngineID pgtype.UUID
 }
 
+// One comment in a forge review thread, which the comment sync owns and overwrites. Nothing here reaches an agent, and the reader role has no grant on it.
+type ForgeReviewComment struct {
+	ID       pgtype.UUID
+	ThreadID pgtype.UUID
+	// The forge's own identifier for the comment.
+	ProviderID string
+	// The forge login of whoever wrote the comment, empty when the forge no longer knows them.
+	AuthorLogin string
+	// Whether the forge says the author is a bot.
+	AuthorIsBot bool
+	// Whether the author is the login the forge connection was verified as.
+	Yours bool
+	Body  string
+	// When the comment was written on the forge.
+	WrittenAt pgtype.Timestamptz
+	// When the comment was last edited on the forge, null while it never has been.
+	EditedAt  pgtype.Timestamptz
+	CreatedAt pgtype.Timestamptz
+	UpdatedAt pgtype.Timestamptz
+	// The engine that owns this row, stamped from the login that wrote it.
+	EngineID pgtype.UUID
+}
+
+// A review thread as the forge holds it on a pull request a live agent is linked to, which the comment sync owns and overwrites. Nothing here reaches an agent, and the reader role has no grant on it.
+type ForgeReviewThread struct {
+	ID            pgtype.UUID
+	PullRequestID pgtype.UUID
+	// The forge's own identifier for the thread: a review thread's node id, or the comment's own id for a comment on the change as a whole.
+	ProviderID string
+	// The file the thread was written on, empty for a comment on the change as a whole.
+	Path string
+	// The line of the file the thread was written against, null for a comment on the change as a whole.
+	Line *int32
+	// The web address of the thread's first comment on the forge.
+	Url      string
+	Resolved bool
+	// When the thread's first comment was written on the forge.
+	WrittenAt pgtype.Timestamptz
+	CreatedAt pgtype.Timestamptz
+	UpdatedAt pgtype.Timestamptz
+	// The engine that owns this row, stamped from the login that wrote it.
+	EngineID pgtype.UUID
+}
+
 // One piece of mail from one agent to another, held until the recipient claims it.
 type Mail struct {
 	ID          pgtype.UUID

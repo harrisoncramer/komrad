@@ -625,7 +625,9 @@ type CommentCounts struct {
 	// Comments resolved on rounds not yet merged into the base branch.
 	Resolved int32 `protobuf:"varint,2,opt,name=resolved,proto3" json:"resolved,omitempty"`
 	// Whether any of the comments holds something the person has not read.
-	Unread        bool `protobuf:"varint,3,opt,name=unread,proto3" json:"unread,omitempty"`
+	Unread bool `protobuf:"varint,3,opt,name=unread,proto3" json:"unread,omitempty"`
+	// Open threads from people on the forge, offered to the person and not yet counted in open.
+	External      int32 `protobuf:"varint,4,opt,name=external,proto3" json:"external,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -679,6 +681,13 @@ func (x *CommentCounts) GetUnread() bool {
 		return x.Unread
 	}
 	return false
+}
+
+func (x *CommentCounts) GetExternal() int32 {
+	if x != nil {
+		return x.External
+	}
+	return 0
 }
 
 type PullRequestStanding struct {
@@ -2830,11 +2839,12 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x0fperson_comments\x18\n" +
 	" \x01(\v2\x17.agent.v1.CommentCountsH\x01R\x0epersonComments\x88\x01\x01B\x14\n" +
 	"\x12_reviewer_commentsB\x12\n" +
-	"\x10_person_commentsJ\x04\b\a\x10\bJ\x04\b\b\x10\tR\x14local_review_verdictR\x11local_review_tree\"W\n" +
+	"\x10_person_commentsJ\x04\b\a\x10\bJ\x04\b\b\x10\tR\x14local_review_verdictR\x11local_review_tree\"s\n" +
 	"\rCommentCounts\x12\x12\n" +
 	"\x04open\x18\x01 \x01(\x05R\x04open\x12\x1a\n" +
 	"\bresolved\x18\x02 \x01(\x05R\bresolved\x12\x16\n" +
-	"\x06unread\x18\x03 \x01(\bR\x06unread\"\xab\x02\n" +
+	"\x06unread\x18\x03 \x01(\bR\x06unread\x12\x1a\n" +
+	"\bexternal\x18\x04 \x01(\x05R\bexternal\"\xab\x02\n" +
 	"\x13PullRequestStanding\x126\n" +
 	"\x05state\x18\x01 \x01(\x0e2 .pullrequest.v1.PullRequestStateR\x05state\x12\x1b\n" +
 	"\x06number\x18\x02 \x01(\x05H\x00R\x06number\x88\x01\x01\x12\x15\n" +
