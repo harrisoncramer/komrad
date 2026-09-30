@@ -145,4 +145,3 @@ func rewriteAsTheAgent(harness *panelHarness, docs *documentShelf) {
 	author.DocumentsUpdatedAt = xptr.Ptr("2026-09-26T12:00:00Z")
 	harness.watch(buildPuts(author))
 }
-
