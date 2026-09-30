@@ -31,12 +31,12 @@ func measurePopupWidth(column int) int {
 
 // measurePopupInner is the room inside a popup over the review's diff.
 func measurePopupInner(s panelShared) int {
-	column := s.pane
+	column, left := s.pane, 0
 	if split, ok := s.draw.screenColumnSplit(); ok {
-		column = split.column
+		column, left = split.column, reviewPopupLeft
 	}
 
-	return measurePopupWidth(column) - reviewPopupChrome
+	return measurePopupWidth(column-left) - reviewPopupChrome
 }
 
 // popupBody is what the popup holds where the cursor stands: the editor while the reader writes,

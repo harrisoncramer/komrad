@@ -533,6 +533,18 @@ func TestReviewPopupScroll(t *testing.T) {
 		assert.NotContains(t, readPopupProse(frame), "note 5")
 		assert.Equal(t, "greet.go:1", readReviewCursor(frame))
 	})
+
+	t.Run("moving the diff cursor drops the scroll", func(t *testing.T) {
+		harness := openLongThread(t)
+		harness.press("ctrl+p")
+		require.NotContains(t, readPopupProse(harness.readFrame()), "note 5")
+
+		harness.press("j", "k")
+
+		frame := harness.readFrame()
+		assert.Equal(t, "greet.go:1", readReviewCursor(frame))
+		assert.Contains(t, readPopupProse(frame), "note 5")
+	})
 }
 
 // TestReviewFitsThePane covers the frame staying the pane's height whatever the sidebar holds.
@@ -1813,6 +1825,15 @@ func TestReviewComposer(t *testing.T) {
 		widened := findWidestPopupRow(harness.readFrame())
 		assert.Greater(t, widened, built)
 		assert.LessOrEqual(t, widened, reviewWidth-config.DefaultSidebarWidth)
+	})
+
+	t.Run("a note wraps inside a popup narrower than its widest", func(t *testing.T) {
+		const note = "a note long enough to wrap once the field it is typed in has been narrowed"
+		harness := openReviewAt(t, newReviewServer(t), panelHarnessParams{width: 90})
+		harness.press("c")
+		typeText(harness, note)
+
+		assert.Contains(t, readPopupProse(harness.readFrame()), note)
 	})
 
 	t.Run("every line typed is drawn at a narrow sidebar", func(t *testing.T) {
