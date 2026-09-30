@@ -48,7 +48,7 @@ func isPlacedOffer(offer *pullrequestv1.ForgeThread) bool {
 }
 
 // stepOffer moves the cursor onto the next forge comment written on a line, and chooses it.
-func (r *reviewScreen) stepOffer(s panelShared) tea.Cmd {
+func (r *reviewScreen) stepOffer(h host, s panelShared) tea.Cmd {
 	view := r.diff.View()
 	placed := slices.DeleteFunc(r.listOffers(s), func(offer *pullrequestv1.ForgeThread) bool { return !isPlacedOffer(offer) })
 	if len(placed) == 0 || view == nil {
@@ -70,7 +70,7 @@ func (r *reviewScreen) stepOffer(s panelShared) tea.Cmd {
 
 	row, ok := view.GetOfferRow(r.offer)
 	if !ok {
-		r.notice = fmt.Sprintf("%s is not in this diff", describeOfferPlace(placed[next]))
+		h.note(messageWarning, describeOfferPlace(placed[next])+" is not in this diff")
 
 		return nil
 	}

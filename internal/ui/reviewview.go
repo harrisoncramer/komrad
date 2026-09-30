@@ -41,9 +41,10 @@ func reviewDeadStyle(palette paint.Palette) lipgloss.Style {
 func (r reviewScreen) view(s panelShared) string {
 	split, ok := s.draw.screenColumnSplit()
 	if !ok {
-		stage := r.stageColumn(s)
+		band := r.bandView(s, s.pane)
+		layout := r.layoutSidebar(s, band)
 
-		return r.overlayThread(s, stage.area, r.slotOver(stage))
+		return r.overlayThread(s, strings.TrimRight(band+r.drawSidebar(layout), "\n"))
 	}
 
 	layout := r.layoutSidebar(s)
@@ -54,26 +55,26 @@ func (r reviewScreen) view(s panelShared) string {
 
 	// The band stands over the diff rather than over the whole window, and what it carries acts on
 	// the patch.
-	stage := r.stageDiff(s, split)
-	slot := r.slotOver(stage)
-	diff := s.draw.markZone(zoneList, stage.area, split.column)
+	band := r.bandView(s, split.column)
+	area := band + r.diffView(s, split)
+	diff := s.draw.markZone(zoneList, area, split.column)
 
-	left := 0
-	if !s.draw.isSidebarOnRight() {
-		left = split.sidebar + dividerCols
-	}
-
-	return r.overlayThread(s, s.draw.joinColumns(split, sidebar, diff), slot.shift(left))
+	return r.overlayThread(s, s.draw.joinColumns(split, sidebar, diff))
 }
 
-// overlayThread draws the popup at a slot of an area, and leaves the area alone where the popup
-// has nothing to hold or the frame is drawn to find its blocks.
-func (r reviewScreen) overlayThread(s panelShared, area string, slot popupSlot) string {
+// overlayThread draws the popup over an area, and leaves the area alone where the popup has
+// nothing to hold or the frame is drawn to find its blocks.
+func (r reviewScreen) overlayThread(s panelShared, area string) string {
 	if s.draw.isMarkingZones() {
 		return area
 	}
 
-	return overlayPopup(area, r.popupBody(s, slot.inner()), slot)
+	body, back := r.popupBody(s, r.measurePopupInner(s))
+	if body == "" {
+		return area
+	}
+
+	return overlayPopup(area, body, back, r.placeThread(s, body))
 }
 
 // drawSidebar is the panel's own column: the files the change touches, where the cursor is
@@ -189,8 +190,6 @@ func (r reviewScreen) notesView(s panelShared) string {
 		return ""
 	}
 
-	// A notice answers the last keypress and a keypress clears it, so what the reader is told
-	// about the diff itself stands underneath and comes back the moment the answer is gone.
 	if notice := r.notice; notice != "" {
 		return "\n" + reviewNote(lineWidthOf(s.pane), paint.Panel.Style(reviewNoticeTone), notice)
 	}

@@ -398,7 +398,7 @@ func (r *reviewScreen) applyLoaded(h host, s panelShared, msg reviewLoadedMsg) t
 	var apart *roundsApartError
 	if errors.As(msg.err, &apart) || errors.Is(msg.err, errAnswerGone) || errors.Is(msg.err, errCommentRoundGone) {
 		r.diff.widen()
-		r.notice = msg.err.Error()
+		h.note(messageWarning, msg.err.Error())
 
 		return r.loadWholeCmd(s)
 	}
@@ -414,7 +414,7 @@ func (r *reviewScreen) applyLoaded(h host, s panelShared, msg reviewLoadedMsg) t
 		}
 
 		r.diff.widen()
-		r.notice = said
+		h.note(messageWarning, said)
 
 		return r.loadWholeCmd(s)
 	}
@@ -426,7 +426,7 @@ func (r *reviewScreen) applyLoaded(h host, s panelShared, msg reviewLoadedMsg) t
 
 	if msg.patch == nil && r.diff.origin != nil {
 		r.diff.widen()
-		r.notice = "could not draw where this comment was written: " + msg.err.Error()
+		h.note(messageWarning, "could not draw where this comment was written: "+msg.err.Error())
 
 		return r.loadWholeCmd(s)
 	}
@@ -450,9 +450,7 @@ func (r *reviewScreen) applyLoaded(h host, s panelShared, msg reviewLoadedMsg) t
 		return r.loadWholeCmd(s)
 	}
 
-	if msg.notice != "" {
-		r.notice = msg.notice
-	}
+	r.notice = msg.notice
 
 	r.root = msg.patch.Root
 	r.round = msg.round
@@ -556,7 +554,9 @@ func (r *reviewScreen) applyWrote(h host, s panelShared, msg reviewWroteMsg) tea
 		return nil
 	}
 
-	r.notice = msg.notice
+	if msg.notice != "" {
+		h.note(messageSuccess, msg.notice)
+	}
 
 	switch {
 	case !msg.readBack:

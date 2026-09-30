@@ -1,65 +1,105 @@
 package ui
 
 import (
-	"slices"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
 
-// TestPlacePopup covers where a popup stands beside the cursor and how it keeps clear of code.
+// TestPlacePopup covers where a popup stands beside the cursor and the code.
 func TestPlacePopup(t *testing.T) {
 	tests := []struct {
 		name   string
-		text   int
 		anchor popupAnchor
+		top    int
+		cursor int
+		tall   int
 		want   popupSlot
 	}{
 		{
 			name:   "it stands over the cursor's row when there is room above",
-			text:   20,
-			anchor: popupAnchor{cursor: 20, edge: 150, right: 150, code: 13, keepsClear: true},
-			want:   popupSlot{x: 58, y: 6, width: popupWidth, height: popupHeight},
+			anchor: popupAnchor{right: 61, codeOnRight: true},
+			cursor: 30,
+			tall:   10,
+			want:   popupSlot{x: 0, y: 20, width: 61, height: 10},
 		},
 		{
 			name:   "it stands under the cursor's row when there is no room above",
-			text:   20,
-			anchor: popupAnchor{cursor: 3, edge: 150, right: 150, code: 13, keepsClear: true},
-			want:   popupSlot{x: 58, y: 4, width: popupWidth, height: popupHeight},
+			anchor: popupAnchor{right: 61, codeOnRight: true},
+			cursor: 3,
+			tall:   10,
+			want:   popupSlot{x: 0, y: 4, width: 61, height: 10},
 		},
 		{
-			name:   "it runs past its edge to keep clear of long code",
-			text:   70,
-			anchor: popupAnchor{cursor: 20, edge: 100, right: 150, code: 13, keepsClear: true},
-			want:   popupSlot{x: 71, y: 6, width: 79, height: popupHeight},
+			name:   "it grows no taller than its tallest",
+			anchor: popupAnchor{right: 61, codeOnRight: true},
+			cursor: 30,
+			tall:   100,
+			want:   popupSlot{x: 0, y: 30 - popupHeight, width: 61, height: popupHeight},
 		},
 		{
-			name:   "it covers code rather than shrink past its narrowest",
-			text:   70,
-			anchor: popupAnchor{cursor: 20, edge: 100, right: 100, code: 13, keepsClear: true},
-			want:   popupSlot{x: 60, y: 6, width: popupMinWidth, height: popupHeight},
+			name:   "it shrinks into the room above when neither side holds it and above is roomier",
+			anchor: popupAnchor{right: 61, codeOnRight: true},
+			cursor: 20,
+			tall:   30,
+			want:   popupSlot{x: 0, y: 0, width: 61, height: 20},
 		},
 		{
-			name:   "it slides over the room past its edge before covering code",
-			text:   115,
-			anchor: popupAnchor{cursor: 20, edge: 100, right: 150, code: 13, keepsClear: true},
-			want:   popupSlot{x: 110, y: 6, width: popupMinWidth, height: popupHeight},
+			name:   "it shrinks into the room below when neither side holds it and below is roomier",
+			anchor: popupAnchor{right: 61, codeOnRight: true},
+			cursor: 18,
+			tall:   30,
+			want:   popupSlot{x: 0, y: 19, width: 61, height: 21},
 		},
 		{
-			name:   "it takes the whole width when it keeps nothing clear",
-			text:   60,
-			anchor: popupAnchor{cursor: 20, edge: 60, right: 60},
-			want:   popupSlot{x: 0, y: 6, width: 60, height: popupHeight},
+			name:   "it stands under the cursor's row when the rows kept clear at the top leave no room above",
+			anchor: popupAnchor{right: 61, codeOnRight: true},
+			top:    4,
+			cursor: 10,
+			tall:   10,
+			want:   popupSlot{x: 0, y: 11, width: 61, height: 10},
+		},
+		{
+			name:   "it shrinks into the room above no higher than the rows kept clear at the top",
+			anchor: popupAnchor{right: 61, codeOnRight: true},
+			top:    4,
+			cursor: 24,
+			tall:   30,
+			want:   popupSlot{x: 0, y: 4, width: 61, height: 20},
+		},
+		{
+			name:   "it stands against code on its right",
+			anchor: popupAnchor{right: 120, codeOnRight: true},
+			cursor: 30,
+			tall:   10,
+			want:   popupSlot{x: 28, y: 20, width: popupWidth, height: 10},
+		},
+		{
+			name:   "it stands against code on its left",
+			anchor: popupAnchor{left: 110, right: 160},
+			cursor: 30,
+			tall:   10,
+			want:   popupSlot{x: 110, y: 20, width: 50, height: 10},
+		},
+		{
+			name:   "it runs into code on its right rather than shrink past its narrowest",
+			anchor: popupAnchor{right: 30, codeOnRight: true},
+			cursor: 30,
+			tall:   10,
+			want:   popupSlot{x: 0, y: 20, width: popupMinWidth, height: 10},
+		},
+		{
+			name:   "it runs into code on its left rather than shrink past its narrowest",
+			anchor: popupAnchor{left: 140, right: 160},
+			cursor: 30,
+			tall:   10,
+			want:   popupSlot{x: 120, y: 20, width: popupMinWidth, height: 10},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			line := strings.Repeat("x", tt.text)
-			area := strings.Join(slices.Repeat([]string{line}, 30), "\n")
-
-			assert.Equal(t, tt.want, placePopup(area, tt.anchor))
+			assert.Equal(t, tt.want, placePopup(tt.anchor, popupStage{top: tt.top, cursor: tt.cursor, rows: 40}, tt.tall))
 		})
 	}
 }

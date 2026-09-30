@@ -21,7 +21,7 @@ func TestReviewJump(t *testing.T) {
 		harness.press("<", "t")
 		frame := harness.readFrame()
 		require.Contains(t, readStageText(frame), "chapter 2 of 2")
-		require.Contains(t, readStageText(frame), "still in the change, outside what is on screen")
+		require.Contains(t, readPopupProse(frame), "still in the change, outside what is on screen")
 
 		harness.press("J")
 
@@ -29,7 +29,7 @@ func TestReviewJump(t *testing.T) {
 		assert.Contains(t, readStageText(frame), "where this comment was written, round 1")
 		assert.NotContains(t, readStageText(frame), "outside what is on screen")
 		assert.Contains(t, readPopupProse(frame), "add a second file")
-		assert.Contains(t, readSidebar(frame), gittest.File+":1")
+		assert.Contains(t, findLine(readStage(frame), "package greet"), "○")
 		assert.Contains(t, readStageText(frame), "J back")
 		assert.Contains(t, readStageText(frame), "1 file, +1 -1")
 	})
@@ -127,7 +127,7 @@ func TestReviewJump(t *testing.T) {
 		harness.press("t", "J")
 
 		frame := harness.readFrame()
-		assert.Contains(t, readSidebarProse(frame), "the round this comment was written on is gone")
+		assert.Contains(t, readOpenMessages(harness), "the round this comment was written on is gone")
 		assert.Contains(t, readStageText(frame), "all changes")
 	})
 
@@ -150,7 +150,7 @@ func TestReviewJump(t *testing.T) {
 
 		frame := harness.readFrame()
 		assert.NotContains(t, frame, "  Comment")
-		assert.Contains(t, readSidebarProse(frame), "is finished")
+		assert.Contains(t, readEngineLine(frame), "is finished")
 		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceCreateReviewThreadProcedure))
 	})
 

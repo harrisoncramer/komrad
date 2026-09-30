@@ -178,15 +178,12 @@ func (d *documentsScreen) diffKeys() diffKeys {
 	return diffKeys{
 		pane:   &h.pane,
 		filter: &h.filter,
-		notice: &h.said,
 		height: d.diffHeight,
 	}
 }
 
 // updateDiff is the diff taking the keys.
 func (d *documentsScreen) updateDiff(h host, s panelShared, key tea.KeyPressMsg) tea.Cmd {
-	d.history.said = ""
-
 	return d.actions(s).dispatch(h, s, key.String())
 }
 

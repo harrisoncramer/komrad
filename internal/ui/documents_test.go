@@ -375,6 +375,7 @@ func TestDocumentsHistory(t *testing.T) {
 		relisted bool
 		want     []string
 		wantNot  []string
+		note     string
 	}{
 		{
 			name:    "stepping back draws what the newest write changed",
@@ -460,7 +461,7 @@ func TestDocumentsHistory(t *testing.T) {
 		{
 			name:    "a match past the last is said to be missing",
 			presses: []string{"<", "pick:block", "/", "z", "z", "enter", "n"},
-			want:    []string{"no matches"},
+			note:    "no matches",
 		},
 		{
 			name:    "the diff keeps the keys across a write it cannot draw",
@@ -475,7 +476,7 @@ func TestDocumentsHistory(t *testing.T) {
 		{
 			name:    "a document drawn whole has no more to show",
 			presses: []string{"<", "pick:block", "j", "E"},
-			want:    []string{"there is no more of that file to show"},
+			note:    "there is no more of that file to show",
 		},
 		{
 			name:     "writes that could not be listed are listed again on the next step",
@@ -520,6 +521,9 @@ func TestDocumentsHistory(t *testing.T) {
 			}
 			for _, wantNot := range tt.wantNot {
 				assert.NotContains(t, stage, wantNot)
+			}
+			if tt.note != "" {
+				assert.Contains(t, readOpenMessages(harness), tt.note)
 			}
 		})
 	}

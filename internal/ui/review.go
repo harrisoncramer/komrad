@@ -20,7 +20,8 @@ type reviewScreen struct {
 	exclude   []string
 	round     *agentv1.ReviewRound
 	loading   bool
-	notice    string
+	// notice is what the last load had to say about the round it settled on.
+	notice string
 
 	// diff is the patch on screen and where the reader is standing in it.
 	diff reviewDiff
@@ -89,7 +90,7 @@ func (r *reviewScreen) route(h host, s panelShared, msg tea.Msg) tea.Cmd {
 
 		return nil
 	case messageEditedMsg:
-		r.applyMessageEdited(h, msg)
+		r.applyMessageEdited(h, s, msg)
 
 		return nil
 	case tea.KeyPressMsg:

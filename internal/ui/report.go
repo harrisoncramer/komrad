@@ -11,6 +11,15 @@ func (m *model) reportBrief(summary, detail string) {
 	})
 }
 
+// note answers a keypress with a line that needs no more said about it.
+func (m *model) note(kind messageKind, summary string) {
+	m.pushMessage(message{
+		kind:    kind,
+		summary: summary,
+		detail:  summary,
+	})
+}
+
 func (m *model) report(summary string, err error) {
 	if err == nil {
 		return

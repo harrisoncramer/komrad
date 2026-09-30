@@ -30,7 +30,7 @@ func TestReviewAnswer(t *testing.T) {
 	t.Run("the answer key draws the change between the comment's round and the answer's", func(t *testing.T) {
 		server := newEarlierReviewServer(t)
 		server.threads = []*agentv1.ReviewThread{newCommentOnRoundOne(newAnswer())}
-		harness := openReview(t, server)
+		harness := openReviewAt(t, server, panelHarnessParams{height: 60})
 
 		harness.press("t", "?")
 		require.Contains(t, readLegend(harness.readFrame()), "the answer")
@@ -94,7 +94,7 @@ func TestReviewAnswer(t *testing.T) {
 		harness.press("t", "a")
 
 		frame := harness.readFrame()
-		assert.Contains(t, readSidebarProse(frame), "the answer can't be compared across the rebase, conflicts in greet.go, second.go")
+		assert.Contains(t, readOpenMessages(harness), "the answer can't be compared across the rebase, conflicts in greet.go, second.go")
 		assert.Contains(t, readStageText(frame), "all changes")
 		require.Contains(t, readStageText(frame), "2 files, +4 -1")
 	})

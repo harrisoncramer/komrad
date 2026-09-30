@@ -77,13 +77,13 @@ func (r *reviewScreen) ownTable() []screenAction {
 			id:   actionReviewJump,
 			keys: func(k config.Keybindings) []string { return k.Review.Jump },
 			when: func(panelShared) bool { return r.doesOfferJump() },
-			run:  func(_ host, s panelShared, _ string) tea.Cmd { return r.toggleJump(s) },
+			run:  func(h host, s panelShared, _ string) tea.Cmd { return r.toggleJump(h, s) },
 		},
 		{
 			id:   actionReviewOffer,
 			keys: func(k config.Keybindings) []string { return k.Review.Jump },
 			when: r.doesStepOffers,
-			run:  func(_ host, s panelShared, _ string) tea.Cmd { return r.stepOffer(s) },
+			run:  func(h host, s panelShared, _ string) tea.Cmd { return r.stepOffer(h, s) },
 		},
 		{
 			id:   actionReviewDismiss,
@@ -117,7 +117,7 @@ func (r *reviewScreen) ownTable() []screenAction {
 		{
 			id:   actionReviewCompose,
 			keys: func(k config.Keybindings) []string { return k.Review.Compose },
-			run:  r.orRefuseComment(func(_ host, s panelShared) tea.Cmd { return r.compose(s) }),
+			run:  r.orRefuseComment(func(h host, s panelShared) tea.Cmd { return r.compose(h, s) }),
 		},
 		{
 			id: actionReviewSend,
@@ -134,7 +134,7 @@ func (r *reviewScreen) ownTable() []screenAction {
 func (r *reviewScreen) orRefuseWrite(fn func(host, panelShared) tea.Cmd) func(host, panelShared, string) tea.Cmd {
 	return func(h host, s panelShared, _ string) tea.Cmd {
 		if _, dead := r.isReadOnly(s); dead {
-			r.refuseWrite(s)
+			r.refuseWrite(h, s)
 
 			return nil
 		}
@@ -156,7 +156,7 @@ func (r *reviewScreen) orRefuseComment(fn func(host, panelShared) tea.Cmd) func(
 		}
 
 		if _, dead := r.isReadOnly(s); dead {
-			r.refuseWrite(s)
+			r.refuseWrite(h, s)
 
 			return nil
 		}
@@ -277,12 +277,12 @@ func (r *reviewScreen) legend() []screenLegendRow {
 }
 
 // stepOpenThread walks the comments nobody has settled.
-func (r *reviewScreen) stepOpenThread(_ host, s panelShared, pressed string) tea.Cmd {
+func (r *reviewScreen) stepOpenThread(h host, s panelShared, pressed string) tea.Cmd {
 	if isBound(pressed, s.keys.Review.PrevOpenThread) {
-		return r.jumpOpenThread(s, -1)
+		return r.jumpOpenThread(h, s, -1)
 	}
 
-	return r.jumpOpenThread(s, 1)
+	return r.jumpOpenThread(h, s, 1)
 }
 
 func (r *reviewScreen) stepThread(_ host, s panelShared, pressed string) tea.Cmd {

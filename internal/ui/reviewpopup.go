@@ -7,103 +7,45 @@ import (
 	"komrad/internal/ui/paint"
 )
 
-// popupStage is the area the review's popup is placed over and how it is placed there.
-type popupStage struct {
-	area   string
-	anchor popupAnchor
-}
-
-// stageColumn is the band and sidebar drawn as one column, with the popup beside the reader's place
-// in it.
-func (r reviewScreen) stageColumn(s panelShared) popupStage {
-	band := r.bandView(s, s.pane)
-	layout := r.layoutSidebar(s, band)
-	area := strings.TrimRight(band+r.drawSidebar(layout), "\n")
-
-	return popupStage{
-		area: area,
-		anchor: popupAnchor{
-			cursor: paint.CountLines(band+layout.bar+layout.files+r.placeView()) - 1,
-			edge:   s.pane,
-			right:  s.pane,
-		},
+// popupAnchor is the columns the popup takes beside the diff's code: the sidebar, the divider and
+// the gutter when the sidebar stands to the left, the divider and the sidebar when it stands to
+// the right, and the whole pane without a split.
+func (r reviewScreen) popupAnchor(s panelShared) popupAnchor {
+	split, ok := s.draw.screenColumnSplit()
+	switch {
+	case !ok:
+		return popupAnchor{right: s.pane}
+	case s.draw.isSidebarOnRight():
+		return popupAnchor{left: split.column, right: split.column + dividerCols + split.sidebar}
+	default:
+		return popupAnchor{right: split.sidebar + dividerCols + diffview.GutterWidth, codeOnRight: true}
 	}
 }
 
-// stageDiff is the band and the diff under it, with the popup kept clear of the code and free to
-// run over the sidebar when it stands to the right.
-func (r reviewScreen) stageDiff(s panelShared, split columnSplit) popupStage {
-	band := r.bandView(s, split.column)
-
-	right := split.column
-	if s.draw.isSidebarOnRight() {
-		right += dividerCols + split.sidebar
-	}
-
-	return popupStage{
-		area: band + r.diffView(s, split),
-		anchor: popupAnchor{
-			cursor:     strings.Count(band, "\n") + r.diff.GetCursorRow(split.rows),
-			edge:       split.column,
-			right:      right,
-			code:       diffview.GutterWidth,
-			keepsClear: true,
-		},
-	}
-}
-
-// stage is what the popup is placed over in the layout the review is drawn in.
-func (r reviewScreen) stage(s panelShared) popupStage {
-	if split, ok := s.draw.screenColumnSplit(); ok {
-		return r.stageDiff(s, split)
-	}
-
-	return r.stageColumn(s)
-}
-
-// measurePopupInner is the room inside the popup where it would stand over the review now.
+// measurePopupInner is the room inside the popup over the review.
 func (r reviewScreen) measurePopupInner(s panelShared) int {
-	stage := r.stage(s)
-
-	return placePopup(stage.area, stage.anchor).inner()
+	return r.popupAnchor(s).measureWidth() - popupChrome
 }
 
-// pinPopup holds the popup where it stands now for as long as the reader writes, and is the room
-// inside it.
-func (r *reviewScreen) pinPopup(s panelShared) int {
-	stage := r.stage(s)
-	r.threads.slot = placePopup(stage.area, stage.anchor)
-
-	return r.threads.slot.inner()
-}
-
-// slotOver is where the popup stands over a stage, held still while the reader writes.
-func (r reviewScreen) slotOver(stage popupStage) popupSlot {
-	if r.threads.composing || r.threads.releasing {
-		return r.threads.slot
-	}
-
-	return placePopup(stage.area, stage.anchor)
-}
-
-// popupBody is what the popup holds where the cursor stands: the editor while the reader writes,
-// the conversation on the line otherwise, and nothing on a line with no thread.
-func (r reviewScreen) popupBody(s panelShared, inner int) string {
+// popupBody is what the popup holds where the cursor stands and how far it is scrolled back from
+// the end: the editor while the reader writes, the conversation on the line otherwise, and nothing
+// on a line with no thread.
+func (r reviewScreen) popupBody(s panelShared, inner int) (string, int) {
 	switch {
 	case r.loading || r.diff.View() == nil || r.diff.View().Len() == 0:
-		return ""
+		return "", 0
 	case r.threads.composing:
-		return r.threads.editor.view()
+		return r.threads.editor.view(), 0
 	case r.threads.releasing:
-		return r.releaseView(inner)
+		return r.releaseView(inner), 0
 	}
 
 	id, body, ok := r.conversationAtCursor(s, inner)
 	if !ok {
-		return ""
+		return "", 0
 	}
 
-	return r.threads.scroll.cut(id, body)
+	return body, r.threads.scroll.back(id)
 }
 
 // conversationAtCursor is the conversation on the cursor's row, a thread of the reader's ahead of
@@ -118,4 +60,33 @@ func (r reviewScreen) conversationAtCursor(s panelShared, inner int) (string, st
 	}
 
 	return "", "", false
+}
+
+// placeThread is where a popup holding a body stands beside the cursor's row of the review.
+func (r reviewScreen) placeThread(s panelShared, body string) popupSlot {
+	return placePopup(r.popupAnchor(s), r.measurePopupStage(s), len(splitPopupRows(body))+2)
+}
+
+// measurePopupStage is the rows the popup stands over, the band and the diff beside the sidebar or
+// the band and the sidebar without a split, less the bar at the top that carries the messages.
+func (r reviewScreen) measurePopupStage(s panelShared) popupStage {
+	split, ok := s.draw.screenColumnSplit()
+	if !ok {
+		band := r.bandView(s, s.pane)
+		layout := r.layoutSidebar(s, band)
+
+		return popupStage{
+			top:    paint.CountLines(band + layout.bar),
+			cursor: paint.CountLines(band+layout.bar+layout.files+r.placeView()) - 1,
+			rows:   paint.CountLines(strings.TrimRight(band+r.drawSidebar(layout), "\n")),
+		}
+	}
+
+	above := strings.Count(r.bandView(s, split.column), "\n")
+
+	return popupStage{
+		top:    strings.Count(r.layoutSidebar(s).bar, "\n"),
+		cursor: above + r.diff.GetCursorRow(split.rows),
+		rows:   above + split.rows,
+	}
 }

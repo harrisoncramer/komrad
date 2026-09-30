@@ -18,13 +18,13 @@ import (
 
 // compose opens the editor on the line under the cursor, replying in the thread already there
 // or opening a new one, writing prose alone rather than editing the round.
-func (r *reviewScreen) compose(s panelShared) tea.Cmd {
+func (r *reviewScreen) compose(h host, s panelShared) tea.Cmd {
 	thread, replying := r.diff.threadAtCursor()
 
 	// A thread whose code is gone has no line to anchor a new thread to, but replying to it is
 	// what it is still on screen for.
 	if _, ok := r.diff.View().GetAnchor(r.diff.Cursor()); !ok && !replying {
-		r.refuseLine()
+		r.refuseLine(h)
 
 		return nil
 	}
@@ -65,7 +65,7 @@ func reviewInputHint(editor, submit []string, said string) string {
 
 // openInput puts a field in the popup, sized to the room inside it.
 func (r *reviewScreen) openInput(s panelShared, params newReviewInputParams) tea.Cmd {
-	params.Width = reviewInputWidth(r.pinPopup(s))
+	params.Width = reviewInputWidth(r.measurePopupInner(s))
 	params.Keys = formKeys()
 
 	input, cmd := newReviewInput(params)
@@ -75,8 +75,8 @@ func (r *reviewScreen) openInput(s panelShared, params newReviewInputParams) tea
 }
 
 // refuseLine says why nothing opened on a row that is not a line of code.
-func (r *reviewScreen) refuseLine() {
-	r.notice = "put the cursor on a line of the diff to comment on it"
+func (r *reviewScreen) refuseLine(h host) {
+	h.note(messageWarning, "put the cursor on a line of the diff to comment on it")
 }
 
 func (r *reviewScreen) updateComposer(h host, s panelShared, key tea.KeyPressMsg) tea.Cmd {
@@ -146,7 +146,7 @@ func messageDraftPath(agentID string) string {
 }
 
 // applyMessageEdited puts what the editor wrote back into the composer.
-func (r *reviewScreen) applyMessageEdited(h host, msg messageEditedMsg) {
+func (r *reviewScreen) applyMessageEdited(h host, s panelShared, msg messageEditedMsg) {
 	if msg.agentID != r.agentID || (!r.threads.composing && !r.threads.releasing) {
 		return
 	}
@@ -166,7 +166,7 @@ func (r *reviewScreen) applyMessageEdited(h host, msg messageEditedMsg) {
 		Title:       reviewInputTitle(r.threads.editing != ""),
 		Description: reviewInputHint(formKeys().Editor, key, said),
 		Body:        strings.TrimRight(msg.body, "\n"),
-		Width:       reviewInputWidth(r.threads.slot.inner()),
+		Width:       reviewInputWidth(r.measurePopupInner(s)),
 		Keys:        formKeys(),
 	})
 	r.threads.editor = input
@@ -398,7 +398,6 @@ func (r reviewScreen) markThreadReadCmd(s panelShared) tea.Cmd {
 // openRelease asks what to send rather than sending.
 func (r *reviewScreen) openRelease(s panelShared) tea.Cmd {
 	r.threads.releasing = true
-	r.notice = ""
 
 	return r.openInput(s, newReviewInputParams{
 		Title:       "Anything about the work as a whole?",
