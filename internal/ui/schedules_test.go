@@ -463,7 +463,7 @@ func TestSchedulesForm(t *testing.T) {
 		harness.press("c", "down")
 		form := readStageText(harness.readFrame())
 		assert.Contains(t, form, "› orchestrator  api")
-		assert.NotContains(t, form, "┃ Workflow")
+		assert.NotContains(t, form, "  Workflow")
 		assert.NotContains(t, form, "Hide its runs?")
 
 		harness.press("tab")
@@ -591,7 +591,7 @@ func TestSchedulesForm(t *testing.T) {
 
 		var indents []int
 		for _, line := range readStage(harness.readFrame()) {
-			buttons := strings.TrimLeft(strings.TrimLeft(line, "┃"), " ")
+			buttons := strings.TrimLeft(line, " ")
 			if strings.HasPrefix(buttons, "Armed ") || strings.HasPrefix(buttons, "Hidden ") {
 				indents = append(indents, len(line)-len(buttons))
 			}
@@ -609,7 +609,7 @@ func TestSchedulesForm(t *testing.T) {
 
 		form := readStageText(harness.readFrame())
 		assert.Contains(t, form, "brandnew  —")
-		assert.Contains(t, form, "┃ Cron")
+		assert.Contains(t, form, "  Cron")
 	})
 
 	t.Run("a schedule keeps the workflow it names when that one is archived under the form", func(t *testing.T) {

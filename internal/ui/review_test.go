@@ -289,10 +289,10 @@ func TestReviewCursor(t *testing.T) {
 		assert.Contains(t, readLegend(harness.readFrame()), "i       comment on this line")
 
 		harness.press("c")
-		assert.NotContains(t, harness.readFrame(), "┃ Comment")
+		assert.NotContains(t, harness.readFrame(), "  Comment")
 
 		harness.press("i")
-		assert.Contains(t, harness.readFrame(), "┃ Comment")
+		assert.Contains(t, harness.readFrame(), "  Comment")
 	})
 }
 
@@ -317,7 +317,7 @@ func TestReviewThreads(t *testing.T) {
 			BaseSha:     gittest.BaseSHA,
 			SnapshotSha: gittest.SnapshotSHA,
 		})
-		assert.NotContains(t, harness.readFrame(), "┃ Comment")
+		assert.NotContains(t, harness.readFrame(), "  Comment")
 	})
 
 	t.Run("a comment the service refuses stays in the composer", func(t *testing.T) {
@@ -330,7 +330,7 @@ func TestReviewThreads(t *testing.T) {
 		harness.press("ctrl+s")
 
 		frame := harness.readFrame()
-		assert.Contains(t, frame, "┃ Comment")
+		assert.Contains(t, frame, "  Comment")
 		assert.Contains(t, frame, "this should say hello")
 	})
 
@@ -474,11 +474,11 @@ func TestReviewThreads(t *testing.T) {
 
 		harness.press("c", "?", "l", "n")
 		frame := harness.readFrame()
-		assert.Contains(t, readSidebar(frame), "┃ ?ln")
+		assert.Contains(t, readSidebar(frame), "  ?ln")
 		assert.Contains(t, frame, "c comment on this line")
 
 		harness.press("esc")
-		assert.NotContains(t, harness.readFrame(), "┃ Comment")
+		assert.NotContains(t, harness.readFrame(), "  Comment")
 	})
 }
 
@@ -965,7 +965,7 @@ func TestReviewWatch(t *testing.T) {
 		harness.watch(server.buildSnapshot())
 
 		frame := harness.readFrame()
-		assert.Contains(t, readSidebar(frame), "┃ half a thought")
+		assert.Contains(t, readSidebar(frame), "  half a thought")
 		assert.Equal(t, "greet.go:2", readReviewCursor(frame))
 		assert.NotContains(t, readSidebarProse(frame), "fixed it")
 
@@ -1031,7 +1031,7 @@ func TestReviewOfAnAgentThatIsGone(t *testing.T) {
 			harness.press("?")
 
 			harness.press("c")
-			assert.NotContains(t, harness.readFrame(), "┃ Comment")
+			assert.NotContains(t, harness.readFrame(), "  Comment")
 			harness.press("ctrl+s", "ctrl+s")
 			assert.Empty(t, harness.readSent(agentv1connect.AgentServiceReleaseReviewProcedure))
 			assert.Empty(t, harness.readSent(agentv1connect.AgentServiceAddReviewMessageProcedure))
@@ -1276,7 +1276,7 @@ func TestReviewYours(t *testing.T) {
 
 		harness.press("c")
 
-		assert.Contains(t, harness.readFrame(), "┃ Comment")
+		assert.Contains(t, harness.readFrame(), "  Comment")
 	})
 
 	t.Run("an open comment leaves the editor free to open", func(t *testing.T) {
@@ -1758,7 +1758,7 @@ func TestReviewRounds(t *testing.T) {
 			harness.press(key)
 
 			frame := harness.readFrame()
-			assert.NotContains(t, frame, "┃ Comment")
+			assert.NotContains(t, frame, "  Comment")
 			assert.Contains(t, readSidebarProse(frame), "chapter 1 of 2 is finished")
 		}
 		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceCreateReviewThreadProcedure))
@@ -1805,10 +1805,10 @@ func TestReviewRounds(t *testing.T) {
 
 		harness.press("c")
 		typeText(harness, "hello")
-		require.Contains(t, harness.readFrame(), "┃ Comment")
+		require.Contains(t, harness.readFrame(), "  Comment")
 		harness.release(agentv1connect.AgentServiceListReviewRoundsProcedure)
 
-		assert.NotContains(t, harness.readFrame(), "┃ Comment")
+		assert.NotContains(t, harness.readFrame(), "  Comment")
 		harness.press("ctrl+s")
 		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceCreateReviewThreadProcedure))
 	})
@@ -1996,7 +1996,7 @@ func TestReviewComposer(t *testing.T) {
 		harness.press("c")
 
 		sidebar := readSidebarProse(harness.readFrame())
-		assert.Contains(t, sidebar, "┃ Comment")
+		assert.Contains(t, sidebar, "Comment")
 		assert.Contains(t, sidebar, "opens $EDITOR")
 	})
 
@@ -2005,8 +2005,8 @@ func TestReviewComposer(t *testing.T) {
 
 		harness.press("c", "o", "n", "e", "enter", "t", "w", "o")
 
-		assert.Contains(t, readSidebar(harness.readFrame()), "┃ one")
-		assert.Contains(t, readSidebar(harness.readFrame()), "┃ two")
+		assert.Contains(t, readSidebar(harness.readFrame()), "  one")
+		assert.Contains(t, readSidebar(harness.readFrame()), "  two")
 		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceCreateReviewThreadProcedure))
 	})
 
@@ -2034,7 +2034,7 @@ func TestReviewComposer(t *testing.T) {
 
 		frame := harness.readFrame()
 		for _, word := range []string{"one", "two", "three", "four"} {
-			assert.Contains(t, frame, "┃ "+word)
+			assert.Contains(t, frame, "  "+word)
 		}
 	})
 
@@ -2046,7 +2046,7 @@ func TestReviewComposer(t *testing.T) {
 		harness.press("enter", "c")
 
 		frame := harness.readFrame()
-		assert.NotContains(t, frame, "┃ Comment")
+		assert.NotContains(t, frame, "  Comment")
 		assert.Contains(t, readSidebarProse(frame), "put the cursor on a line of the diff")
 	})
 }
@@ -2141,7 +2141,7 @@ func TestReviewHold(t *testing.T) {
 
 		harness.press("c")
 
-		assert.Contains(t, harness.readFrame(), "┃ Comment")
+		assert.Contains(t, harness.readFrame(), "  Comment")
 		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceHoldAgentProcedure))
 	})
 
@@ -2944,7 +2944,10 @@ func newMovedBaseServer(t *testing.T, replayed *git.Replayed) *reviewServer {
 func findWidestFieldRow(frame string) int {
 	widest := 0
 	for _, line := range readSidebar(frame) {
-		if strings.HasPrefix(line, "┃") {
+		if strings.HasPrefix(line, "─") {
+			break
+		}
+		if strings.HasPrefix(line, "  ") {
 			widest = max(widest, ansi.StringWidth(line))
 		}
 	}

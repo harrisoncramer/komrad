@@ -31,21 +31,21 @@ func TestSubpages(t *testing.T) {
 		{
 			name:       "an agent with nothing to review or read starts on logs",
 			row:        "quiet",
-			wantTitle:  "┃ quiet",
+			wantTitle:  "  quiet",
 			wantCrumb:  "agents › quiet",
 			wantCursor: "› logs",
 		},
 		{
 			name:       "a workflow's row opens its orchestrator's under the workflow's name",
 			row:        "komrad",
-			wantTitle:  "┃ komrad",
+			wantTitle:  "  komrad",
 			wantCrumb:  "agents › komrad",
 			wantCursor: "› logs",
 		},
 		{
 			name:       "an agent with a checkout starts on review",
 			row:        "author",
-			wantTitle:  "┃ author",
+			wantTitle:  "  author",
 			wantCrumb:  "agents › author",
 			wantCursor: "› review",
 		},
@@ -120,7 +120,7 @@ func TestSubpages(t *testing.T) {
 		harness.press("esc")
 
 		frame := harness.readFrame()
-		assert.NotContains(t, frame, "┃ author")
+		assert.NotContains(t, frame, "› review")
 		assert.Equal(t, "agents › author", readTrail(frame))
 	})
 
@@ -204,7 +204,7 @@ func openArchivedSubpages(t *testing.T) *panelHarness {
 	harness := openArchive(t, newLiveWorkflow("w1", "komrad"), author)
 	newDocumentShelf().answer(harness)
 	harness.press("j", "space")
-	require.Contains(t, harness.readFrame(), "┃ author")
+	require.Contains(t, harness.readFrame(), "  author")
 
 	return harness
 }

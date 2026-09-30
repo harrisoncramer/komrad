@@ -1026,7 +1026,7 @@ func formatStampAgo(ago time.Duration) string {
 
 func readFormProse(frame string) string {
 	lines := xslice.Map(readStage(frame), func(line string) string {
-		return strings.TrimPrefix(strings.TrimSpace(line), "┃")
+		return strings.TrimSpace(line)
 	})
 
 	return joinProse(lines)
