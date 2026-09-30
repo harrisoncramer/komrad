@@ -88,14 +88,14 @@ func agentNotices(glyphs glyph.Set, loaderFrame string, r agentRow) []notice {
 	notices = appendCellNotice(notices, glyphs, view.HiddenCell(row), hiddenNotice)
 	notices = appendCellNotice(notices, glyphs, view.DocumentCell(row), documentsNotice)
 	notices = appendCellNotice(notices, glyphs, view.ForgeCell(row), forgeSaid[row.Forge])
-	notices = appendCommentsNotice(notices, glyphs, row.ReviewerComments, "reviewer agents' comments", false)
+	notices = appendCommentsNotice(notices, row.ReviewerComments, "reviewer agents' comments")
+	notices = appendCommentsNotice(notices, row.PersonComments, "your comments")
 
-	return appendCommentsNotice(notices, glyphs, row.PersonComments, "your comments", true)
+	return appendUnreadNotice(notices, glyphs, row.PersonComments)
 }
 
-// appendCommentsNotice says how one side's comments stand, marked with the dot on a side whose
-// column draws one while any of them holds something unread.
-func appendCommentsNotice(notices []notice, glyphs glyph.Set, comments *view.Comments, whose string, dotted bool) []notice { //nolint:revive // a params struct is the follow-up
+// appendCommentsNotice says how one side's comments stand.
+func appendCommentsNotice(notices []notice, comments *view.Comments, whose string) []notice {
 	if comments == nil {
 		return notices
 	}
@@ -104,11 +104,19 @@ func appendCommentsNotice(notices []notice, glyphs glyph.Set, comments *view.Com
 	if comments.External > 0 {
 		text += fmt.Sprintf(", %d from the forge", comments.External)
 	}
-	if !dotted || !comments.Unread {
-		return appendNotice(notices, true, "", paint.ToneMuted, text)
+
+	return appendNotice(notices, true, "", paint.ToneMuted, text)
+}
+
+// appendUnreadNotice says how many of the person's comments hold a reply they have not read.
+func appendUnreadNotice(notices []notice, glyphs glyph.Set, comments *view.Comments) []notice {
+	if comments == nil || comments.Unread == 0 {
+		return notices
 	}
 
-	return appendNotice(notices, true, glyphs.Spell(glyph.Unread), paint.ToneWarning, text+", with something you have not read")
+	text := fmt.Sprintf("your comments with a reply you have not read: %d", comments.Unread)
+
+	return appendNotice(notices, true, glyphs.Spell(glyph.Unread), paint.ToneWarning, text)
 }
 
 // appendCellNotice says in words what a cell of the row stands for, taking the glyph and the tone

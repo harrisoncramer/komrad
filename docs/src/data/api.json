@@ -2104,13 +2104,13 @@
         },
         {
           "name": "unread",
-          "type": "bool",
+          "type": "int32",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whether any of the comments holds something the person has not read."
+          "description": "How many of the comments hold a reply the person has not read."
         },
         {
           "name": "external",

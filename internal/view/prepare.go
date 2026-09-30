@@ -1,8 +1,9 @@
 package view
 
 import (
-	"slices"
+	"fmt"
 	"strconv"
+	"strings"
 
 	"komrad/internal/glyph"
 	"komrad/internal/ui/paint"
@@ -126,63 +127,62 @@ func RepoCell(row Row) Cell {
 	return Cell{Glyph: glyph.Worktree, Tone: paint.ToneMuted}
 }
 
-// buildCommentCells lays out the counts of whoever has commented on an agent's work, reviewer
-// agents then the person.
+// buildCommentCells lays out what is outstanding on an agent's work in three slots, the open
+// comments of reviewer agents, the open comments of the person with any the forge offers them, and the replies the person has
+// not read, drawing nothing while all three are zero.
 func buildCommentCells(row Row) []Cell {
-	var cells []Cell
-	for _, cell := range []Cell{reviewerCommentsCell(row), personCommentsCell(row)} {
-		if !cell.IsBlank() {
-			cells = append(cells, cell)
-		}
+	if !isOwn(row) {
+		return nil
 	}
 
-	return cells
+	reviewerOpen, personOpen, external, unread := 0, 0, 0, 0
+	if row.ReviewerComments != nil {
+		reviewerOpen = row.ReviewerComments.Open
+	}
+	if row.PersonComments != nil {
+		personOpen = row.PersonComments.Open
+		external = row.PersonComments.External
+		unread = row.PersonComments.Unread
+	}
+
+	if reviewerOpen == 0 && personOpen == 0 && external == 0 && unread == 0 {
+		return nil
+	}
+
+	return []Cell{
+		countCell(glyph.ReviewerComments, reviewerOpen, paint.ToneMuted),
+		personCell(personOpen, external),
+		countCell(glyph.Unread, unread, paint.ToneWarning),
+	}
 }
 
-// reviewerCommentsCell counts the comments reviewer agents left on an agent's work, open then
-// resolved.
-func reviewerCommentsCell(row Row) Cell {
-	if !isOwn(row) || row.ReviewerComments == nil {
-		return Cell{}
-	}
+// countDigits is how many digits of a count a slot holds room for.
+const countDigits = 2
 
-	return countsCell(row.ReviewerComments, glyph.ReviewerComments, paint.ToneBright)
-}
-
-// personCommentsCell counts the comments the person left on an agent's work, the open count
-// standing out while there is one, and a column after held for the dot any unread one earns.
-func personCommentsCell(row Row) Cell {
-	if !isOwn(row) || row.PersonComments == nil {
-		return Cell{}
-	}
-
-	counts := countsCell(row.PersonComments, glyph.PersonComments, paint.ToneWarning)
-	if row.PersonComments.External > 0 {
-		counts.Parts = slices.Insert(counts.Parts, 3, Cell{Text: "+" + strconv.Itoa(row.PersonComments.External), Tone: paint.ToneOther})
-	}
-	dot := Cell{Text: " "}
-	if row.PersonComments.Unread {
-		dot = Cell{Glyph: glyph.Unread, Tone: paint.ToneWarning}
-	}
-
-	return Cell{Parts: append(counts.Parts, dot)}
-}
-
-// countsCell is one side's open and resolved counts after its glyph.
-func countsCell(comments *Comments, whose glyph.Glyph, openTone paint.Tone) Cell {
-	tone := paint.ToneMuted
-	if comments.Open > 0 {
-		tone = openTone
+// countCell is one slot's glyph and count, or a blank of the same width while the count is zero.
+func countCell(mark glyph.Glyph, count int, tone paint.Tone) Cell {
+	if count == 0 {
+		return Cell{Text: strings.Repeat(" ", plainColumns+spaceColumns+countDigits)}
 	}
 
 	return Cell{Parts: []Cell{
-		{Glyph: whose, Tone: tone},
+		{Glyph: mark, Tone: tone},
 		{Text: " "},
-		{Text: strconv.Itoa(comments.Open), Tone: tone},
-		{
-			Text: "|" + strconv.Itoa(comments.Resolved),
-			Tone: paint.ToneMuted,
-		},
+		{Text: fmt.Sprintf("%-*d", countDigits, count), Tone: tone},
+	}}
+}
+
+// personCell is the person's slot, carrying the count the forge offers them after their own.
+func personCell(open, external int) Cell {
+	if external == 0 {
+		return countCell(glyph.PersonComments, open, paint.ToneMuted)
+	}
+
+	return Cell{Parts: []Cell{
+		{Glyph: glyph.PersonComments, Tone: paint.ToneMuted},
+		{Text: " "},
+		{Text: strconv.Itoa(open), Tone: paint.ToneMuted},
+		{Text: "+" + strconv.Itoa(external), Tone: paint.ToneOther},
 	}}
 }
 
