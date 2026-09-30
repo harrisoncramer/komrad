@@ -5,8 +5,9 @@ import (
 	"komrad/internal/ui/paint"
 )
 
-// modeHook is the tmux hook that tells the panel a pane in its window entered copy-mode or left it.
-const modeHook = "pane-mode-changed"
+// modeHooks are the tmux hooks that tell the panel whether the active pane in its window is in
+// copy-mode.
+var modeHooks = []string{"pane-mode-changed", "window-pane-changed"}
 
 type sessionTmux interface {
 	SetSessionOption(target, name, value string)
@@ -84,8 +85,10 @@ func (s *Session) HoldLeader(sidebar string) {
 	}
 
 	tell := func(key string) string { return "send-keys -t " + sidebar + " " + s.leaderKey + " " + key }
-	s.tmux.SetWindowHook(window, modeHook, "if-shell -F \"#{&&:#{pane_active},#{==:#{pane_mode},copy-mode}}\" \""+
-		tell(paneCopyKey)+"\" \""+tell(paneNormalKey)+"\"")
+	for _, hook := range modeHooks {
+		s.tmux.SetWindowHook(window, hook, "if-shell -F -t "+window+" \"#{==:#{pane_mode},copy-mode}\" \""+
+			tell(paneCopyKey)+"\" \""+tell(paneNormalKey)+"\"")
+	}
 
 	s.window = window
 	s.leaderHeld = true
@@ -99,7 +102,9 @@ func (s *Session) ReleaseLeader() {
 
 	s.tmux.UnbindRootKey(s.leaderKey)
 	s.tmux.UnbindTable(s.leaderTable)
-	s.tmux.UnsetWindowHook(s.window, modeHook)
+	for _, hook := range modeHooks {
+		s.tmux.UnsetWindowHook(s.window, hook)
+	}
 	s.leaderHeld = false
 }
 

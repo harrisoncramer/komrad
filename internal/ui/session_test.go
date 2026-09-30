@@ -47,6 +47,7 @@ func TestSession(t *testing.T) {
 		session.HoldLeader("%3")
 		require.NotEmpty(t, tmux.bound)
 		assert.Contains(t, tmux.bound, "@1:pane-mode-changed", "a pane entering copy-mode tells the sidebar")
+		assert.Contains(t, tmux.bound, "@1:window-pane-changed", "so does the keys moving to a pane in copy-mode")
 		session.ReleaseLeader()
 
 		assert.Empty(t, tmux.bound)
