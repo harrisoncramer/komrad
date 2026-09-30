@@ -95,7 +95,7 @@ func (e *nameEdit) takeGone(h host, msg tea.Msg) nameEditStep {
 func reconcileNameEdit[T keyed](e *nameEdit, rows []T, hovered string, name func(T) string) bool {
 	at := slices.IndexFunc(rows, func(r T) bool { return r.key() == e.key })
 	if e.landed {
-		return at >= 0 && name(rows[at]) != e.typed
+		return at >= 0 && name(rows[at]) == e.was
 	}
 	if e.saving || e.gone || hovered == e.key {
 		return true
