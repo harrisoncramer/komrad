@@ -271,6 +271,44 @@ func TestQueryRejectsWrite(t *testing.T) {
 	}
 }
 
+// TestQueryCannotReadForgeComments covers the reader role holding no grant on the forge's review tables.
+func TestQueryCannotReadForgeComments(t *testing.T) {
+	tests := []struct {
+		name string
+		sql  string
+	}{
+		{
+			name: "the comments",
+			sql:  "SELECT body FROM forge_review_comments",
+		},
+		{
+			name: "the threads",
+			sql:  "SELECT diff_hunk FROM forge_review_threads",
+		},
+		{
+			name: "the comments through a common table expression",
+			sql:  "WITH c AS (SELECT * FROM forge_review_comments) SELECT body FROM c",
+		},
+		{
+			name: "the comments joined from a table the reader can see",
+			sql:  "SELECT c.body FROM pull_requests p JOIN forge_review_threads t ON t.pull_request_id = p.id JOIN forge_review_comments c ON c.thread_id = t.id",
+		},
+		{
+			name: "the comments by a catalog function",
+			sql:  "SELECT query_to_xml('SELECT body FROM forge_review_comments', true, false, '')",
+		},
+	}
+
+	tools := openTools(t)
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := tools.query(t.Context(), tt.sql)
+			require.ErrorContains(t, err, "permission denied")
+		})
+	}
+}
+
 // TestCapString covers the per-cell limit, which keeps one wide column from
 // filling a response on its own.
 func TestCapString(t *testing.T) {

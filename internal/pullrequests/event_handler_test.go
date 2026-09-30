@@ -35,7 +35,7 @@ func TestAPullRequestChangeTellsTheAgentsOnItsBranch(t *testing.T) {
 		{
 			name:      "an approval",
 			standings: []forge.Standing{{Decision: forge.ReviewDecisionApproved, Checks: forge.ChecksPending}},
-			wantLines: []string{"  review: approved\n"},
+			wantLines: []string{"  review: approved\n", "do not fetch them from the forge"},
 		},
 		{
 			name:      "checks passing is not news on its own",
