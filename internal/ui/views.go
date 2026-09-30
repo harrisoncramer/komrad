@@ -131,6 +131,14 @@ func (m *model) pickView() tea.Cmd {
 	return nil
 }
 
+// closeViews hands the keys back to the view that is up, closing a shell it cannot hold.
+func (m *model) closeViews() {
+	m.viewsOpen = false
+	if !m.screen.opensTerminal() && m.terminalDir != "" {
+		*m = m.closeInfo()
+	}
+}
+
 // stepView opens the view delta along from the one that is up, wrapping at both ends.
 func (m *model) stepView(delta int) tea.Cmd {
 	entries := viewEntries()
@@ -159,7 +167,7 @@ func (m model) holdsViewsKey(pressed string) bool {
 func (m model) updateViews(key tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	cmd := m.pressStrip(key.String(), stripKeys{
 		step:  m.stepView,
-		close: func() { m.viewsOpen = false },
+		close: m.closeViews,
 		other: func(pressed string) tea.Cmd {
 			if delta := m.viewsDelta(pressed); delta != 0 {
 				return m.stepView(delta)
@@ -199,7 +207,7 @@ func (m model) hoveredAgentID() string {
 }
 
 func (m model) viewsBinding() key.Binding {
-	return binding(slices.Concat(m.keys.Views.Next, m.keys.Views.Previous), "switch view")
+	return binding(m.keys.Views.Next, "switch view")
 }
 
 func (m model) viewsHelp() keyMap {

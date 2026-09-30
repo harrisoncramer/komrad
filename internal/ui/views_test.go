@@ -85,11 +85,6 @@ func TestViews(t *testing.T) {
 			wantScreen: searchScreen,
 		},
 		{
-			name:       "a key the switcher has no use for closes it and reaches the view",
-			press:      []string{"shift+tab", "shift+tab", "esc", "esc"},
-			wantScreen: archiveScreen,
-		},
-		{
 			name:       "escape on the agents opens the switcher without moving",
 			press:      []string{"esc"},
 			wantScreen: agentsScreen,
@@ -139,6 +134,17 @@ func TestViews(t *testing.T) {
 
 		harness.press("esc")
 		assert.NotEmpty(t, readHoveredRow(harness.readFrame()), "and the list has the keys again")
+	})
+
+	t.Run("a key the switcher has no use for closes it and reaches the view", func(t *testing.T) {
+		harness := openCrowded(t, panelHarnessParams{})
+
+		harness.press(append(widenListPresses, "tab", "tab", "G")...)
+
+		frame := harness.readFrame()
+		assert.Equal(t, schedulesScreen, harness.readScreen())
+		assert.NotEmpty(t, readHoveredRow(frame), "the switcher let the list have the keys")
+		assert.Equal(t, "schedules › agent39", readTrail(frame), "and the list took the key")
 	})
 
 	t.Run("the legend names the switcher's keys while it is open", func(t *testing.T) {

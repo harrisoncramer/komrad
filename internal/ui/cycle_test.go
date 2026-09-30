@@ -240,6 +240,16 @@ func TestTerminalViewCycle(t *testing.T) {
 		})
 	}
 
+	t.Run("on the schedules the shell is the stop past the list", func(t *testing.T) {
+		harness := openTerminal(t, panelHarnessParams{}, newStagedShellAgent(t.TempDir()))
+		harness.press("space", "t", "tab", "tab", "esc")
+		selected := len(harness.panel.ReadSelectedPanes())
+
+		harness.press("ctrl+a")
+
+		assert.Equal(t, []string{infoPane}, harness.panel.ReadSelectedPanes()[selected:])
+	})
+
 	t.Run("a shell with no agent staged holds the keys", func(t *testing.T) {
 		harness := openTerminal(t, panelHarnessParams{}, newShellAgent("a1", t.TempDir()))
 		_, bound := harness.panel.ReadRootBinding("C-a")

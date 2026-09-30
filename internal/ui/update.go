@@ -155,7 +155,7 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.updateViews(key)
 		}
 
-		m.viewsOpen = false
+		m.closeViews()
 	}
 
 	if m.filter.typing {

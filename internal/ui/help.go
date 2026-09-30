@@ -203,7 +203,12 @@ func (m model) globalHelp() []key.Binding {
 
 // fullGlobalHelp is the expanded legend's share of the keys every screen answers.
 func (m model) fullGlobalHelp() []key.Binding {
-	return append(m.globalHelp(), m.messagesBinding(), binding(slices.Concat(m.keys.Sidebar.Narrow, m.keys.Sidebar.Widen), "resize"))
+	full := m.globalHelp()
+	if m.screen.picksViews() {
+		full = append(full, binding(m.keys.Views.Previous, "previous view"))
+	}
+
+	return append(full, m.messagesBinding(), binding(slices.Concat(m.keys.Sidebar.Narrow, m.keys.Sidebar.Widen), "resize"))
 }
 
 var keyAbbreviations = strings.NewReplacer("ctrl+", "C-", "shift+", "S-")
