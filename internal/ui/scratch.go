@@ -12,8 +12,12 @@ import (
 
 var errNoScratchDir = errors.New("the panel was started without a directory for scratch files")
 
+type scratchEditor struct {
+	pane string
+}
+
 func (m *model) isScratchOpen() bool {
-	return m.scratchPane != ""
+	return m.scratch != nil
 }
 
 // toggleScratch puts the engine's scratch file on the stage in the user's editor, or takes it
@@ -38,21 +42,23 @@ func (m *model) toggleScratch() tea.Cmd {
 
 	left := m.leaveScreen()
 
-	pane := m.stageEditor(editorContent(m.settings.Editor, filepath.Dir(path), path, 1))
-	if pane == "" {
+	m.scratch = &scratchEditor{}
+	m.reconcileSolo()
+
+	m.scratch.pane = m.showEditor(editorContent(m.settings.Editor, filepath.Dir(path), path, 1))
+	if m.scratch.pane == "" {
+		m.scratch = nil
+		m.reconcileSolo()
 		m.reportBrief("could not open the scratch file", "there is no room beside the sidebar for an editor")
 
 		return tea.Batch(left, m.waitToStage())
 	}
 
-	m.scratchPane = pane
-	m.reconcileSolo()
-
 	return left
 }
 
 func (m *model) closeScratch() tea.Cmd {
-	m.scratchPane = ""
+	m.scratch = nil
 	m.unstageEditor()
 	m.reconcileSolo()
 
@@ -61,7 +67,7 @@ func (m *model) closeScratch() tea.Cmd {
 
 // reconcileScratch catches the scratch editor quitting on its own.
 func (m *model) reconcileScratch() tea.Cmd {
-	if !m.isScratchOpen() || m.tmux.IsPaneAlive(m.scratchPane) {
+	if !m.isScratchOpen() || m.tmux.IsPaneAlive(m.scratch.pane) {
 		return nil
 	}
 

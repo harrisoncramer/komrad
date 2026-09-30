@@ -47,17 +47,14 @@ func panelMenu(s panelShared, scratchOpen bool) submenu {
 			{label: scratch, keys: s.keys.Menu.Scratch},
 		},
 		answer: func(m model, choice int) (tea.Model, tea.Cmd) {
-			closed, back := m.closeForm()
-			next, _ := closed.(model)
+			if panelChoice(choice) == panelChoiceScratch {
+				m.leaveForm()
+				cmd := m.toggleScratch()
 
-			switch panelChoice(choice) {
-			case panelChoiceScratch:
-				cmd := next.toggleScratch()
-
-				return next, tea.Batch(back, cmd)
+				return m, cmd
 			}
 
-			return next, back
+			return m.closeForm()
 		},
 	}
 }

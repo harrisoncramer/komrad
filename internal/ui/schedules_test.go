@@ -51,7 +51,7 @@ func TestSchedulesKeys(t *testing.T) {
 		{
 			name:  "toggle on an empty list asks for no write",
 			rows:  []proto.Message{newLiveWorkflow("w1", "api")},
-			press: []string{"space"},
+			press: []string{"p"},
 		},
 		{
 			name:       "new with no workflows says why rather than opening the form",
@@ -97,7 +97,7 @@ func TestSchedulesKeys(t *testing.T) {
 		{
 			name:  "toggle pauses an armed schedule with no form in between",
 			rows:  buildSchedules(),
-			press: []string{"space"},
+			press: []string{"p"},
 			wantSent: []request{{
 				procedure: schedulev1connect.ScheduleServiceSetScheduleEnabledProcedure,
 				msg:       &schedulev1.SetScheduleEnabledRequest{Id: "s1"},
@@ -106,7 +106,7 @@ func TestSchedulesKeys(t *testing.T) {
 		{
 			name:  "toggle resumes a paused schedule",
 			rows:  []proto.Message{newLiveWorkflow("w1", "api"), newPausedSchedule("s1", "nightly")},
-			press: []string{"space"},
+			press: []string{"p"},
 			wantSent: []request{{
 				procedure: schedulev1connect.ScheduleServiceSetScheduleEnabledProcedure,
 				msg: &schedulev1.SetScheduleEnabledRequest{

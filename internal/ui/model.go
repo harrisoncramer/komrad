@@ -253,8 +253,8 @@ type model struct {
 	// has not moved costs no tmux calls.
 	sized       map[string]string
 	terminalDir string
-	// scratchPane is the stage pane the scratch editor is open in, empty while it is closed.
-	scratchPane   string
+	// scratch is the scratch editor on the stage, nil while it is closed.
+	scratch       *scratchEditor
 	details       detailsState
 	messages      messagesState
 	detailsHeight float64
