@@ -405,14 +405,7 @@ func worktreeWorkflowField(l listing, item worktreeItem) string {
 
 // doc is the markdown drawn beside the list for the row the cursor is on.
 func (w *worktreesScreen) doc(s panelShared) string {
-	doc := w.gitDoc(s)
-
-	row, ok := w.hovered(s)
-	if !ok || row.item.agent == nil {
-		return doc
-	}
-
-	return doc + "\n" + conversationPreviewMarkdown(s.conversation, row.item.agent.id)
+	return w.gitDoc(s)
 }
 
 func (w *worktreesScreen) gitDoc(s panelShared) string {
@@ -594,6 +587,8 @@ func (w *worktreesScreen) column() columnSpec {
 	return columnSpec{
 		floor: columnFloor,
 		read:  isAlwaysRead,
-		doc:   func(m model) string { return m.worktrees.doc(m.shared()) },
+		docRows: func(m model, width int) []string {
+			return m.withLastScreen(paint.DocStyledRows(m.worktrees.doc(m.shared()), max(width, 1), columnStyle()), width)
+		},
 	}
 }

@@ -165,7 +165,7 @@ func (m *model) scrollDoc(delta int) {
 // keys back from a document the block no longer draws.
 func (m model) dropStaleDoc() model {
 	if shown := m.docShown(); m.reading.shown != shown {
-		m.reading = docReader{shown: shown, tail: m.isConversationPreviewed()}
+		m.reading = docReader{shown: shown, tail: m.isScreenShown()}
 	}
 
 	if m.reading.focused && !m.isDocReadable() {

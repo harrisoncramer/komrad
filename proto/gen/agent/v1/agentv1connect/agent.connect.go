@@ -92,6 +92,9 @@ const (
 	// AgentServiceGetLastTurnsProcedure is the fully-qualified name of the AgentService's GetLastTurns
 	// RPC.
 	AgentServiceGetLastTurnsProcedure = "/agent.v1.AgentService/GetLastTurns"
+	// AgentServiceGetLastScreenProcedure is the fully-qualified name of the AgentService's
+	// GetLastScreen RPC.
+	AgentServiceGetLastScreenProcedure = "/agent.v1.AgentService/GetLastScreen"
 	// AgentServiceWriteDocumentProcedure is the fully-qualified name of the AgentService's
 	// WriteDocument RPC.
 	AgentServiceWriteDocumentProcedure = "/agent.v1.AgentService/WriteDocument"
@@ -198,6 +201,7 @@ type AgentServiceClient interface {
 	SearchTranscripts(context.Context, *connect.Request[v1.SearchTranscriptsRequest]) (*connect.Response[v1.SearchTranscriptsResponse], error)
 	GetTranscript(context.Context, *connect.Request[v1.GetTranscriptRequest]) (*connect.Response[v1.GetTranscriptResponse], error)
 	GetLastTurns(context.Context, *connect.Request[v1.GetLastTurnsRequest]) (*connect.Response[v1.GetLastTurnsResponse], error)
+	GetLastScreen(context.Context, *connect.Request[v1.GetLastScreenRequest]) (*connect.Response[v1.GetLastScreenResponse], error)
 	WriteDocument(context.Context, *connect.Request[v1.WriteDocumentRequest]) (*connect.Response[v1.WriteDocumentResponse], error)
 	ListDocuments(context.Context, *connect.Request[v1.ListDocumentsRequest]) (*connect.Response[v1.ListDocumentsResponse], error)
 	GetDocument(context.Context, *connect.Request[v1.GetDocumentRequest]) (*connect.Response[v1.GetDocumentResponse], error)
@@ -386,6 +390,13 @@ func NewAgentServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			httpClient,
 			baseURL+AgentServiceGetLastTurnsProcedure,
 			connect.WithSchema(agentServiceMethods.ByName("GetLastTurns")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+			connect.WithClientOptions(opts...),
+		),
+		getLastScreen: connect.NewClient[v1.GetLastScreenRequest, v1.GetLastScreenResponse](
+			httpClient,
+			baseURL+AgentServiceGetLastScreenProcedure,
+			connect.WithSchema(agentServiceMethods.ByName("GetLastScreen")),
 			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
@@ -598,6 +609,7 @@ type agentServiceClient struct {
 	searchTranscripts        *connect.Client[v1.SearchTranscriptsRequest, v1.SearchTranscriptsResponse]
 	getTranscript            *connect.Client[v1.GetTranscriptRequest, v1.GetTranscriptResponse]
 	getLastTurns             *connect.Client[v1.GetLastTurnsRequest, v1.GetLastTurnsResponse]
+	getLastScreen            *connect.Client[v1.GetLastScreenRequest, v1.GetLastScreenResponse]
 	writeDocument            *connect.Client[v1.WriteDocumentRequest, v1.WriteDocumentResponse]
 	listDocuments            *connect.Client[v1.ListDocumentsRequest, v1.ListDocumentsResponse]
 	getDocument              *connect.Client[v1.GetDocumentRequest, v1.GetDocumentResponse]
@@ -740,6 +752,11 @@ func (c *agentServiceClient) GetTranscript(ctx context.Context, req *connect.Req
 // GetLastTurns calls agent.v1.AgentService.GetLastTurns.
 func (c *agentServiceClient) GetLastTurns(ctx context.Context, req *connect.Request[v1.GetLastTurnsRequest]) (*connect.Response[v1.GetLastTurnsResponse], error) {
 	return c.getLastTurns.CallUnary(ctx, req)
+}
+
+// GetLastScreen calls agent.v1.AgentService.GetLastScreen.
+func (c *agentServiceClient) GetLastScreen(ctx context.Context, req *connect.Request[v1.GetLastScreenRequest]) (*connect.Response[v1.GetLastScreenResponse], error) {
+	return c.getLastScreen.CallUnary(ctx, req)
 }
 
 // WriteDocument calls agent.v1.AgentService.WriteDocument.
@@ -902,6 +919,7 @@ type AgentServiceHandler interface {
 	SearchTranscripts(context.Context, *connect.Request[v1.SearchTranscriptsRequest]) (*connect.Response[v1.SearchTranscriptsResponse], error)
 	GetTranscript(context.Context, *connect.Request[v1.GetTranscriptRequest]) (*connect.Response[v1.GetTranscriptResponse], error)
 	GetLastTurns(context.Context, *connect.Request[v1.GetLastTurnsRequest]) (*connect.Response[v1.GetLastTurnsResponse], error)
+	GetLastScreen(context.Context, *connect.Request[v1.GetLastScreenRequest]) (*connect.Response[v1.GetLastScreenResponse], error)
 	WriteDocument(context.Context, *connect.Request[v1.WriteDocumentRequest]) (*connect.Response[v1.WriteDocumentResponse], error)
 	ListDocuments(context.Context, *connect.Request[v1.ListDocumentsRequest]) (*connect.Response[v1.ListDocumentsResponse], error)
 	GetDocument(context.Context, *connect.Request[v1.GetDocumentRequest]) (*connect.Response[v1.GetDocumentResponse], error)
@@ -1086,6 +1104,13 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 		AgentServiceGetLastTurnsProcedure,
 		svc.GetLastTurns,
 		connect.WithSchema(agentServiceMethods.ByName("GetLastTurns")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+		connect.WithHandlerOptions(opts...),
+	)
+	agentServiceGetLastScreenHandler := connect.NewUnaryHandler(
+		AgentServiceGetLastScreenProcedure,
+		svc.GetLastScreen,
+		connect.WithSchema(agentServiceMethods.ByName("GetLastScreen")),
 		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
@@ -1318,6 +1343,8 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 			agentServiceGetTranscriptHandler.ServeHTTP(w, r)
 		case AgentServiceGetLastTurnsProcedure:
 			agentServiceGetLastTurnsHandler.ServeHTTP(w, r)
+		case AgentServiceGetLastScreenProcedure:
+			agentServiceGetLastScreenHandler.ServeHTTP(w, r)
 		case AgentServiceWriteDocumentProcedure:
 			agentServiceWriteDocumentHandler.ServeHTTP(w, r)
 		case AgentServiceListDocumentsProcedure:
@@ -1471,6 +1498,10 @@ func (UnimplementedAgentServiceHandler) GetTranscript(context.Context, *connect.
 
 func (UnimplementedAgentServiceHandler) GetLastTurns(context.Context, *connect.Request[v1.GetLastTurnsRequest]) (*connect.Response[v1.GetLastTurnsResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.GetLastTurns is not implemented"))
+}
+
+func (UnimplementedAgentServiceHandler) GetLastScreen(context.Context, *connect.Request[v1.GetLastScreenRequest]) (*connect.Response[v1.GetLastScreenResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.GetLastScreen is not implemented"))
 }
 
 func (UnimplementedAgentServiceHandler) WriteDocument(context.Context, *connect.Request[v1.WriteDocumentRequest]) (*connect.Response[v1.WriteDocumentResponse], error) {

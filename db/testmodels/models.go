@@ -367,6 +367,18 @@ type AgentRun struct {
 	EngineID pgtype.UUID
 }
 
+// The last screen an agent's pane drew while it was at rest, kept so the panel can show it once the pane is gone.
+type AgentScreen struct {
+	AgentID pgtype.UUID
+	// The pane's visible grid as tmux captured it, colour escapes included.
+	Frame      string
+	Width      int32
+	Height     int32
+	CapturedAt pgtype.Timestamptz
+	// The engine that owns this row, stamped from the login that wrote it.
+	EngineID pgtype.UUID
+}
+
 // One turn of an agent's conversation, indexed so it can be searched by word.
 type AgentTranscriptChunk struct {
 	AgentID       pgtype.UUID

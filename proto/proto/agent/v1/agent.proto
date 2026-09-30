@@ -5,6 +5,7 @@ package agent.v1;
 import "agent/v1/document.proto";
 import "agent/v1/mail.proto";
 import "agent/v1/review.proto";
+import "agent/v1/screen.proto";
 import "agent/v1/transcript.proto";
 import "annotation/v1/tool.proto";
 import "buf/validate/validate.proto";
@@ -881,6 +882,14 @@ service AgentService {
         ROLE_REVIEWER,
         ROLE_ORCHESTRATOR
       ]
+    };
+  }
+  rpc GetLastScreen(GetLastScreenRequest) returns (GetLastScreenResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (annotation.v1.surfaces) = {
+      cli: false
+      mcp: false
+      reason: "The saved screen is drawn for a person looking at an agent whose pane is gone, and an agent reads the same conversation better through get_last_turns."
     };
   }
   rpc WriteDocument(WriteDocumentRequest) returns (WriteDocumentResponse) {

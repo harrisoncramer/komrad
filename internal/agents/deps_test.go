@@ -219,6 +219,7 @@ func (s *testStore) agentService(options agentServiceOptions) *testAgents {
 			Scripts:        options.lifecycle,
 			Reviews:        reviewstore.NewReviewStore(s.Pool.GetDB()),
 			Snapshots:      snapshots,
+			Screens:        NewScreenKeeper(NewScreenKeeperParams{Panes: options.tmux, Screens: s.Screens}),
 			LogsDir:        options.logsDir,
 			FramesDir:      options.framesDir,
 			Usage:          options.usage,
@@ -259,6 +260,7 @@ func (a *testAgents) withWorktrees(worktrees checkoutReader) *testAgents {
 type fakeTmuxController interface {
 	paneController
 	paneStarter
+	screenCapturer
 	SendKeys(target string, keys ...string) error
 }
 
@@ -427,6 +429,7 @@ func (s *testStore) workflowService(options workflowServiceOptions) *WorkflowSer
 		Emptied:      deleter.emptied,
 		Schedules:    s.Schedules,
 		Tmux:         options.tmux,
+		Screens:      NewScreenKeeper(NewScreenKeeperParams{Panes: options.tmux, Screens: s.Screens}),
 		Tx:           s.Pool,
 		Scripts:      options.lifecycle,
 		Hooks:        hooks,

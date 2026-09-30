@@ -6,6 +6,7 @@ import (
 
 	"komrad/config"
 	"komrad/internal/ui/cursor"
+	"komrad/internal/ui/paint"
 	"komrad/internal/ui/panel"
 	"komrad/internal/view"
 	agentv1 "komrad/proto/gen/agent/v1"
@@ -246,7 +247,7 @@ func (a *agentsScreen) doc(s panelShared) string {
 	case item.Agent.State.IsFailed():
 		return failedPlaceholder(item.Agent)
 	default:
-		return dormantPlaceholder + "\n\n" + conversationPreviewMarkdown(s.conversation, item.Agent.ID)
+		return dormantPlaceholder
 	}
 }
 
@@ -457,7 +458,9 @@ func (a *agentsScreen) column() columnSpec {
 	return columnSpec{
 		floor: columnFloor,
 		read:  isAlwaysRead,
-		doc:   func(m model) string { return m.agents.doc(m.shared()) },
+		docRows: func(m model, width int) []string {
+			return m.withLastScreen(paint.DocStyledRows(m.agents.doc(m.shared()), max(width, 1), columnStyle()), width)
+		},
 		holds: func(m model) bool { return !m.agents.isEditorOpen() && m.agents.hasNoAgentPane(m.unmeasured()) },
 	}
 }

@@ -46,6 +46,7 @@ type Reconciler struct {
 	observer harness.Observer
 	store    agentStateReadWriter
 	frames   frameRecorder
+	screens  screenKeeper
 
 	// unrecognizedTotal is only ever touched by the reconcile pass, so it needs none of the
 	// locking the tally below does.
@@ -82,6 +83,13 @@ func (r *Reconciler) WithFrameRecorder(recorder frameRecorder) *Reconciler {
 	return r
 }
 
+// WithScreenKeeper attaches somewhere to save the screen each agent rests on.
+func (r *Reconciler) WithScreenKeeper(keeper screenKeeper) *Reconciler {
+	r.screens = keeper
+
+	return r
+}
+
 // Reconcile observes every tracked agent once and corrects any stored state reality has moved
 // past, leaving an agent that already matches untouched.
 func (r *Reconciler) Reconcile(ctx context.Context) error {
@@ -114,6 +122,9 @@ func (r *Reconciler) Reconcile(ctx context.Context) error {
 	r.tally.prune(known)
 	if r.frames != nil {
 		r.frames.Forget(known)
+	}
+	if r.screens != nil {
+		r.screens.Forget(known)
 	}
 
 	return nil
@@ -169,6 +180,9 @@ func (r *Reconciler) reconcileAgent(ctx context.Context, agent agentstore.Agent,
 
 	activity := observed.Activity
 	r.recordFrame(ctx, agent, observed.Frame, activity)
+	if r.screens != nil {
+		r.screens.Keep(ctx, KeepParams{Agent: agent, Frame: observed.Frame, Activity: activity})
+	}
 
 	switch activity {
 	case harness.ActivityWorking:

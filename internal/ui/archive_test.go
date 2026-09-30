@@ -982,97 +982,73 @@ func newArchivedSchedule(id, name string) *schedulev1.Schedule {
 	return schedule
 }
 
-// TestArchiveConversationPreview covers the end of a conversation drawn under an archived agent.
-func TestArchiveConversationPreview(t *testing.T) {
-	t.Run("the newest turns are asked for once the cursor rests and drawn under the document", func(t *testing.T) {
+// TestArchiveLastScreen covers the saved screen drawn under an archived agent.
+func TestArchiveLastScreen(t *testing.T) {
+	t.Run("the saved screen is asked for once the cursor rests and drawn under the document", func(t *testing.T) {
 		harness := openGroupedArchive(t, buildOneArchivedAgent()...)
-		answerLastTurns(harness, map[string][]*agentv1.Turn{
-			"a1": {
-				{Role: "user", Content: "ship the refactor"},
-				{Role: "assistant", Content: "the refactor is merged"},
-			},
-		})
+		answerLastScreens(harness, map[string]string{"a1": "❯ ship the refactor\n⏺ the refactor is merged"})
 
 		harness.press("j")
-		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceGetLastTurnsProcedure), "nothing is asked while the cursor moves")
+		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceGetLastScreenProcedure), "nothing is asked while the cursor moves")
 
 		harness.fireTimers()
 
-		requireLastTurnsFor(t, harness, "a1")
+		requireLastScreenFor(t, harness, "a1")
 		frame := harness.readFrame()
-		for _, want := range []string{"Restore brings it back", "Conversation Preview", "you", "ship the refactor", "agent", "the refactor is merged"} {
+		for _, want := range []string{"Restore brings it back", "saved screen", "80x24", "❯ ship the refactor", "⏺ the refactor is merged"} {
 			assert.Contains(t, frame, want)
 		}
 	})
 
-	t.Run("each speaker is drawn in a colour of its own, komrad's own lines as the system", func(t *testing.T) {
+	t.Run("a saved screen taller than the room left is fitted under the document and its banner", func(t *testing.T) {
 		harness := openGroupedArchive(t, buildOneArchivedAgent()...)
-		answerLastTurns(harness, map[string][]*agentv1.Turn{
-			"a1": {
-				{Role: "user", Content: "ship the refactor"},
-				{Role: "user", Content: "komrad: 1 piece(s) of unread mail, call read_mail"},
-				{Role: "assistant", Content: "the refactor is merged"},
-			},
-		})
-
-		harness.press("j")
-		harness.fireTimers()
-
-		frame := harness.readRawFrame()
-		assert.Contains(t, frame, paint.Panel.Style(paint.ToneUserMe).Render("you"))
-		assert.Contains(t, frame, paint.Panel.Style(paint.ToneMuted).Render("system"))
-		assert.Contains(t, frame, paint.Panel.Style(paint.ToneUserAgent).Render("agent"))
-	})
-
-	t.Run("a turn cut inside a code block does not swallow the turns after it", func(t *testing.T) {
-		harness := openGroupedArchive(t, buildOneArchivedAgent()...)
-		answerLastTurns(harness, map[string][]*agentv1.Turn{
-			"a1": {
-				{
-					Role:      "assistant",
-					Content:   "go build .\n```\nthe build is green",
-					Truncated: true,
-				},
-				{Role: "user", Content: "*ship it*"},
-			},
+		harness.answer(agentv1connect.AgentServiceGetLastScreenProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+			return connect.NewResponse(&agentv1.GetLastScreenResponse{
+				Frame:      "❯ the first ask\n" + strings.Repeat("working through it\n", 60) + "⏺ the refactor is merged",
+				Width:      80,
+				Height:     62,
+				CapturedAt: timestamppb.New(time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC)),
+			}), nil
 		})
 
 		harness.press("j")
 		harness.fireTimers()
 
 		frame := harness.readFrame()
-		assert.Contains(t, frame, "ship it")
-		assert.NotContains(t, frame, "*ship it*")
+		for _, want := range []string{"Restore brings it back", "saved screen", "⏺ the refactor is merged"} {
+			assert.Contains(t, frame, want)
+		}
+		assert.NotContains(t, frame, "the first ask")
 	})
 
-	t.Run("an agent with nothing synced says so", func(t *testing.T) {
+	t.Run("an agent with no saved screen says so", func(t *testing.T) {
 		harness := openGroupedArchive(t, buildOneArchivedAgent()...)
-		answerLastTurns(harness, nil)
+		answerLastScreens(harness, nil)
 
 		harness.press("j")
 		harness.fireTimers()
 
-		assert.Contains(t, harness.readFrame(), "no transcript yet")
+		assert.Contains(t, harness.readFrame(), "no saved screen")
 	})
 
 	t.Run("a refused read says why", func(t *testing.T) {
 		harness := openGroupedArchive(t, buildOneArchivedAgent()...)
-		harness.answer(agentv1connect.AgentServiceGetLastTurnsProcedure, refuseWith(connect.CodeInternal, "transcripts exploded"))
+		harness.answer(agentv1connect.AgentServiceGetLastScreenProcedure, refuseWith(connect.CodeInternal, "screens exploded"))
 
 		harness.press("j")
 		harness.fireTimers()
 
 		frame := harness.readFrame()
-		assert.Contains(t, frame, "could not read: transcripts exploded")
+		assert.Contains(t, frame, "could not read the saved screen: screens exploded")
 		assert.Contains(t, frame, "Restore brings it back")
 	})
 
-	t.Run("a folder has no preview", func(t *testing.T) {
+	t.Run("a folder has no saved screen", func(t *testing.T) {
 		harness := openGroupedArchive(t, buildOneArchivedAgent()...)
 		harness.fireTimers()
 
-		assert.NotContains(t, harness.readFrame(), "Conversation Preview")
-		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceGetLastTurnsProcedure))
+		assert.NotContains(t, harness.readFrame(), "saved screen")
+		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceGetLastScreenProcedure))
 	})
 
 	t.Run("an answer for an agent the cursor has left is not drawn", func(t *testing.T) {
@@ -1081,21 +1057,21 @@ func TestArchiveConversationPreview(t *testing.T) {
 			newArchivedAgent("a1", "api-refactor", "w1"),
 			newArchivedAgent("a2", "billing", "w1"),
 		)
-		answerLastTurns(harness, map[string][]*agentv1.Turn{
-			"a1": {{Role: "assistant", Content: "words from api-refactor"}},
-			"a2": {{Role: "assistant", Content: "words from billing"}},
+		answerLastScreens(harness, map[string]string{
+			"a1": "words from api-refactor",
+			"a2": "words from billing",
 		})
-		harness.hold(agentv1connect.AgentServiceGetLastTurnsProcedure)
+		harness.hold(agentv1connect.AgentServiceGetLastScreenProcedure)
 
 		harness.press("j")
 		harness.fireTimers()
 		harness.press("j")
-		harness.release(agentv1connect.AgentServiceGetLastTurnsProcedure)
+		harness.release(agentv1connect.AgentServiceGetLastScreenProcedure)
 
 		frame := harness.readFrame()
 		assert.NotContains(t, frame, "words from api-refactor")
 		assert.NotContains(t, frame, "words from billing")
-		assert.Contains(t, frame, "reading the conversation")
+		assert.Contains(t, frame, "reading the saved screen")
 	})
 
 	t.Run("clearing a search that moved the cursor asks for the agent it lands back on", func(t *testing.T) {
@@ -1104,9 +1080,9 @@ func TestArchiveConversationPreview(t *testing.T) {
 			newArchivedAgent("a1", "api-refactor", "w1"),
 			newArchivedAgent("a2", "billing", "w1"),
 		)
-		answerLastTurns(harness, map[string][]*agentv1.Turn{
-			"a1": {{Role: "assistant", Content: "words from api-refactor"}},
-			"a2": {{Role: "assistant", Content: "words from billing"}},
+		answerLastScreens(harness, map[string]string{
+			"a1": "words from api-refactor",
+			"a2": "words from billing",
 		})
 		harness.press("j")
 		harness.fireTimers()
@@ -1127,33 +1103,44 @@ func TestArchiveConversationPreview(t *testing.T) {
 			newArchivedAgent("a1", "api-refactor", "w1"),
 			newArchivedAgent("a2", "billing", "w1"),
 		)
-		answerLastTurns(harness, nil)
+		answerLastScreens(harness, nil)
 		harness.press("j")
 		harness.fireTimers()
 
-		requireLastTurnsFor(t, harness, "a2")
+		requireLastScreenFor(t, harness, "a2")
 
 		restored := newArchivedAgent("a2", "billing", "w1")
 		restored.ArchivedAt = nil
 		harness.watch(buildPuts(restored))
 
-		requireLastTurnsFor(t, harness, "a2", "a1")
+		requireLastScreenFor(t, harness, "a2", "a1")
 	})
 }
 
-func answerLastTurns(harness *panelHarness, turns map[string][]*agentv1.Turn) {
-	harness.answer(agentv1connect.AgentServiceGetLastTurnsProcedure, func(req connect.AnyRequest) (connect.AnyResponse, error) {
-		read, _ := req.Any().(*agentv1.GetLastTurnsRequest)
+// answerLastScreens answers each agent's saved screen at 80x24, and not found for any other.
+func answerLastScreens(harness *panelHarness, screens map[string]string) {
+	harness.answer(agentv1connect.AgentServiceGetLastScreenProcedure, func(req connect.AnyRequest) (connect.AnyResponse, error) {
+		read, _ := req.Any().(*agentv1.GetLastScreenRequest)
 
-		return connect.NewResponse(&agentv1.GetLastTurnsResponse{Turns: turns[read.GetAgentId()]}), nil
+		frame, ok := screens[read.GetAgentId()]
+		if !ok {
+			return nil, connect.NewError(connect.CodeNotFound, errors.New("no saved screen"))
+		}
+
+		return connect.NewResponse(&agentv1.GetLastScreenResponse{
+			Frame:      frame,
+			Width:      80,
+			Height:     24,
+			CapturedAt: timestamppb.New(time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC)),
+		}), nil
 	})
 }
 
-func requireLastTurnsFor(t *testing.T, harness *panelHarness, agentIDs ...string) {
+func requireLastScreenFor(t *testing.T, harness *panelHarness, agentIDs ...string) {
 	t.Helper()
 
-	sent := xslice.Map(harness.readSent(agentv1connect.AgentServiceGetLastTurnsProcedure), func(msg proto.Message) string {
-		read, _ := msg.(*agentv1.GetLastTurnsRequest)
+	sent := xslice.Map(harness.readSent(agentv1connect.AgentServiceGetLastScreenProcedure), func(msg proto.Message) string {
+		read, _ := msg.(*agentv1.GetLastScreenRequest)
 
 		return read.GetAgentId()
 	})
@@ -1162,10 +1149,11 @@ func requireLastTurnsFor(t *testing.T, harness *panelHarness, agentIDs ...string
 
 // TestArchiveReading covers the keys handed to an archived agent's record.
 func TestArchiveReading(t *testing.T) {
-	turns := make([]*agentv1.Turn, 40)
-	for i := range turns {
-		turns[i] = &agentv1.Turn{Role: "assistant", Content: fmt.Sprintf("turn number %d", i)}
+	lines := make([]string, 40)
+	for i := range lines {
+		lines[i] = fmt.Sprintf("line number %d", i)
 	}
+	screen := strings.Join(lines, "\n")
 
 	tests := []struct {
 		name    string
@@ -1174,21 +1162,21 @@ func TestArchiveReading(t *testing.T) {
 		wantNot []string
 	}{
 		{
-			name:    "the bottom of the focused record is its newest turn",
+			name:    "the bottom of the focused record is the bottom of its saved screen",
 			presses: []string{"pick:block", "G"},
-			want:    []string{"turn number 39"},
-			wantNot: []string{"Restore brings it back"},
+			want:    []string{"line number 39"},
+			wantNot: []string{"line number 15"},
 		},
 		{
 			name:    "searching the record lands on what it found and counts it",
 			presses: []string{"pick:block", "/", "3", "8", "enter"},
-			want:    []string{"/ 38", "1 of 1", "turn number 38"},
+			want:    []string{"/ 38", "1 of 1", "line number 38"},
 		},
 		{
 			name:    "leaving the record gives the keys back to the list",
 			presses: []string{"pick:block", "G", "esc", "k"},
 			want:    []string{"no shared context set"},
-			wantNot: []string{"turn number 39"},
+			wantNot: []string{"line number 39"},
 		},
 	}
 
@@ -1199,7 +1187,7 @@ func TestArchiveReading(t *testing.T) {
 				newArchivedAgent("a1", "api-refactor", "w1"),
 				newArchivedAgent("a2", "billing", "w1"),
 			)
-			answerLastTurns(harness, map[string][]*agentv1.Turn{"a1": turns, "a2": turns})
+			answerLastScreens(harness, map[string]string{"a1": screen, "a2": screen})
 			harness.press("j")
 			harness.fireTimers()
 

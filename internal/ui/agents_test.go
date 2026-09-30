@@ -1626,23 +1626,23 @@ func TestAgentsFailedPlaceholder(t *testing.T) {
 	}
 }
 
-// TestAgentsConversationPreview covers the conversation drawn beside an agent that is not running.
-func TestAgentsConversationPreview(t *testing.T) {
+// TestAgentsLastScreen covers the saved screen drawn beside an agent that is not running.
+func TestAgentsLastScreen(t *testing.T) {
 	tests := []struct {
-		name         string
-		agent        *agentv1.Agent
-		want         []string
-		wantAbsent   []string
-		wantTurnsFor []string
+		name          string
+		agent         *agentv1.Agent
+		want          []string
+		wantAbsent    []string
+		wantScreenFor []string
 	}{
 		{
-			name:         "a dormant agent draws its last turns under how to resume it",
-			agent:        newDormant("login"),
-			want:         []string{"Press open to resume.", "Conversation Preview", "the migration is written"},
-			wantTurnsFor: []string{"a1"},
+			name:          "a dormant agent draws its saved screen under how to resume it",
+			agent:         newDormant("login"),
+			want:          []string{"Press open to resume.", "saved screen", "the migration is written"},
+			wantScreenFor: []string{"a1"},
 		},
 		{
-			name: "a failed agent draws its failure and no conversation",
+			name: "a failed agent draws its failure and no saved screen",
 			agent: func() *agentv1.Agent {
 				agent := newDormant("login")
 				agent.State = agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE
@@ -1650,17 +1650,17 @@ func TestAgentsConversationPreview(t *testing.T) {
 				return agent
 			}(),
 			want:       []string{"setup failed"},
-			wantAbsent: []string{"Conversation Preview"},
+			wantAbsent: []string{"saved screen"},
 		},
 		{
-			name:  "a running agent asks for no conversation",
+			name:  "a running agent asks for no saved screen",
 			agent: newPausable(""),
 		},
 		{
-			name:       "a paused agent draws how to unpause it and no conversation",
-			agent:      newPausable("1970-01-01T00:00:00Z"),
-			want:       []string{"unpause in silence"},
-			wantAbsent: []string{"Conversation Preview"},
+			name:          "a paused agent draws how to unpause it over its saved screen",
+			agent:         newPausable("1970-01-01T00:00:00Z"),
+			want:          []string{"unpause in silence", "saved screen", "the migration is written"},
+			wantScreenFor: []string{"a1"},
 		},
 	}
 
@@ -1668,9 +1668,7 @@ func TestAgentsConversationPreview(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			harness := newPanelHarness(t, panelHarnessParams{})
 			answerWorktreeReads(harness)
-			answerLastTurns(harness, map[string][]*agentv1.Turn{
-				"a1": {{Role: "assistant", Content: "the migration is written"}},
-			})
+			answerLastScreens(harness, map[string]string{"a1": "⏺ the migration is written"})
 			harness.watch(buildSnapshot(newLiveWorkflow("w1", "backend"), tt.agent))
 			harness.press("j")
 			harness.fireTimers()
@@ -1682,18 +1680,16 @@ func TestAgentsConversationPreview(t *testing.T) {
 			for _, absent := range tt.wantAbsent {
 				assert.NotContains(t, frame, absent)
 			}
-			harness.assertSentTo(agentv1connect.AgentServiceGetLastTurnsProcedure, xslice.Map(tt.wantTurnsFor, func(id string) proto.Message {
-				return &agentv1.GetLastTurnsRequest{AgentId: id, Turns: xptr.Ptr[int32](6), MaxBytes: xptr.Ptr[int32](1200)}
+			harness.assertSentTo(agentv1connect.AgentServiceGetLastScreenProcedure, xslice.Map(tt.wantScreenFor, func(id string) proto.Message {
+				return &agentv1.GetLastScreenRequest{AgentId: id}
 			})...)
 		})
 	}
 
-	t.Run("an agent that runs and stops again under the cursor draws its newer turns", func(t *testing.T) {
+	t.Run("an agent that runs and stops again under the cursor draws its newer screen", func(t *testing.T) {
 		harness := newPanelHarness(t, panelHarnessParams{})
 		answerWorktreeReads(harness)
-		answerLastTurns(harness, map[string][]*agentv1.Turn{
-			"a1": {{Role: "assistant", Content: "the migration is written"}},
-		})
+		answerLastScreens(harness, map[string]string{"a1": "⏺ the migration is written"})
 		harness.watch(buildSnapshot(newLiveWorkflow("w1", "backend"), newDormant("login")))
 		harness.press("j")
 		harness.fireTimers()
@@ -1702,23 +1698,17 @@ func TestAgentsConversationPreview(t *testing.T) {
 		live := newDormant("login")
 		live.Alive = xptr.Ptr(true)
 		harness.watch(buildSnapshot(newLiveWorkflow("w1", "backend"), live))
-		answerLastTurns(harness, map[string][]*agentv1.Turn{
-			"a1": {{Role: "assistant", Content: "the tests pass"}},
-		})
+		answerLastScreens(harness, map[string]string{"a1": "⏺ the tests pass"})
 		harness.watch(buildSnapshot(newLiveWorkflow("w1", "backend"), newDormant("login")))
 
 		assert.Contains(t, harness.readFrame(), "the tests pass")
 	})
 
-	t.Run("a conversation longer than the window opens on its last turn", func(t *testing.T) {
+	t.Run("a saved screen taller than the window opens on its bottom", func(t *testing.T) {
 		harness := newPanelHarness(t, panelHarnessParams{})
 		answerWorktreeReads(harness)
-		answerLastTurns(harness, map[string][]*agentv1.Turn{
-			"a1": {
-				{Role: "user", Content: "the first ask"},
-				{Role: "assistant", Content: strings.Repeat("working through it\n\n", 60)},
-				{Role: "assistant", Content: "the migration is written"},
-			},
+		answerLastScreens(harness, map[string]string{
+			"a1": "❯ the first ask\n" + strings.Repeat("working through it\n", 60) + "⏺ the migration is written",
 		})
 		harness.watch(buildSnapshot(newLiveWorkflow("w1", "backend"), newDormant("login")))
 		harness.press("j")
@@ -1958,7 +1948,10 @@ func TestAgentsPause(t *testing.T) {
 
 		harness.press("enter")
 
-		harness.assertSent()
+		harness.assertSent(request{
+			procedure: agentv1connect.AgentServiceGetLastScreenProcedure,
+			msg:       &agentv1.GetLastScreenRequest{AgentId: "a1"},
+		})
 		assert.Contains(t, harness.readFrame(), "Press unpause to let it carry on")
 	})
 

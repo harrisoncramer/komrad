@@ -846,3 +846,14 @@ func (w *searchScreen) takesEveryKey() bool {
 func (w *searchScreen) column() columnSpec {
 	return searchColumn()
 }
+
+func speakerOf(role string) string {
+	switch role {
+	case "user":
+		return "you"
+	case "assistant":
+		return "agent"
+	}
+
+	return role
+}

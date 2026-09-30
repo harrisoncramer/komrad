@@ -401,8 +401,8 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 		cmd := m.applyStageTick(msg)
 
 		return m, cmd, true
-	case conversationPreviewMsg:
-		m.applyConversationPreview(msg)
+	case lastScreenMsg:
+		m.applyLastScreen(msg)
 
 		return m, nil, true
 	case worktreeInspectedMsg:

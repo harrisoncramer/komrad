@@ -423,6 +423,55 @@ table "agent_transcript_chunks" {
   }
 }
 
+table "agent_screens" {
+  schema  = schema.public
+  comment = "The last screen an agent's pane drew while it was at rest, kept so the panel can show it once the pane is gone."
+  column "agent_id" {
+    null = false
+    type = uuid
+  }
+  column "frame" {
+    null    = false
+    type    = text
+    comment = "The pane's visible grid as tmux captured it, colour escapes included."
+  }
+  column "width" {
+    null = false
+    type = integer
+  }
+  column "height" {
+    null = false
+    type = integer
+  }
+  column "captured_at" {
+    null = false
+    type = timestamptz
+  }
+  column "engine_id" {
+    null    = false
+    type    = uuid
+    comment = "The engine that owns this row, stamped from the login that wrote it."
+  }
+  primary_key {
+    columns = [column.agent_id]
+  }
+  foreign_key "agent_screens_engine_id_fkey" {
+    columns     = [column.engine_id]
+    ref_columns = [table.engines.column.id]
+    on_delete   = RESTRICT
+    on_update   = NO_ACTION
+  }
+  foreign_key "agent_screens_agent_id_fkey" {
+    columns     = [column.engine_id, column.agent_id]
+    ref_columns = [table.agents.column.engine_id, table.agents.column.id]
+    on_delete   = CASCADE
+    on_update   = NO_ACTION
+  }
+  check "agent_screens_sized" {
+    expr = "width > 0 AND height > 0"
+  }
+}
+
 table "agent_runs" {
   schema  = schema.public
   comment = "One run of a script komrad fired for an agent. The output stays on disk and this row says where to find it."

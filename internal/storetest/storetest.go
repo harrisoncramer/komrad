@@ -17,6 +17,7 @@ import (
 	rowstore "komrad/internal/store/row"
 	runstore "komrad/internal/store/run"
 	schedulestore "komrad/internal/store/schedule"
+	screenstore "komrad/internal/store/screen"
 	transcriptstore "komrad/internal/store/transcript"
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/lib/xslice"
@@ -37,6 +38,7 @@ type Stores struct {
 	Documents        *documentstore.DocumentStore
 	DocumentTypes    *documenttypestore.DocumentTypeStore
 	Runs             *runstore.RunStore
+	Screens          *screenstore.ScreenStore
 	PullRequests     *pullrequeststore.PullRequestStore
 	PullRequestSyncs *pullrequeststore.PullRequestSyncStore
 }
@@ -65,6 +67,7 @@ func Open(t *testing.T) *Stores {
 		Documents:        documentstore.NewDocumentStore(pool.GetDB()),
 		DocumentTypes:    documenttypestore.NewDocumentTypeStore(pool.GetDB()),
 		Runs:             runstore.NewRunStore(pool.GetDB()),
+		Screens:          screenstore.NewScreenStore(pool.GetDB()),
 		PullRequests:     pullrequeststore.NewPullRequestStore(pool.GetDB()),
 		PullRequestSyncs: pullrequeststore.NewPullRequestSyncStore(pool.GetDB()),
 	}
