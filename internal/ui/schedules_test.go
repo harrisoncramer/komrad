@@ -560,7 +560,7 @@ func TestSchedulesForm(t *testing.T) {
 		harness.refuse(schedulev1connect.ScheduleServiceSetScheduleEnabledProcedure, errors.New("cron must be five fields"))
 
 		harness.press(widenListPresses...)
-		harness.press("space")
+		harness.press("p")
 
 		assert.Contains(t, harness.readFrame(), `Could not pause schedule "morning-ci"`)
 	})
