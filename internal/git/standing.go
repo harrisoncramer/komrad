@@ -121,8 +121,10 @@ func (c *Client) CountAheadBehind(ctx context.Context, dir, ref string) (ahead, 
 
 // ReadDiffStatParams says which checkout to measure, from which base, and which paths to leave out.
 type ReadDiffStatParams struct {
-	Dir     string
-	Ref     string
+	Dir string
+	Ref string
+	// Tree is the worktree already hashed, hashed here when empty.
+	Tree    string
 	Exclude []string
 }
 
@@ -142,12 +144,7 @@ func (c *Client) ReadDiffStat(ctx context.Context, params ReadDiffStatParams) (*
 		return nil, fmt.Errorf("failed to find where %q left %s: %w", params.Dir, params.Ref, err)
 	}
 
-	root, err := getRoot(ctx, params.Dir)
-	if err != nil {
-		return nil, err
-	}
-
-	tree, err := writeTree(ctx, root)
+	tree, err := hashTree(ctx, params)
 	if err != nil {
 		return nil, err
 	}
@@ -354,4 +351,18 @@ func readNumstatCount(field string) (int, error) {
 	}
 
 	return count, nil
+}
+
+// hashTree is the tree the params already hold, or the working tree hashed in an index of its own.
+func hashTree(ctx context.Context, params ReadDiffStatParams) (string, error) {
+	if params.Tree != "" {
+		return params.Tree, nil
+	}
+
+	root, err := getRoot(ctx, params.Dir)
+	if err != nil {
+		return "", err
+	}
+
+	return writeTree(ctx, root)
 }

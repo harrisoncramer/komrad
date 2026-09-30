@@ -321,6 +321,7 @@ func TestCwdSyncerSyncRecordsTheDiffStat(t *testing.T) {
 		name      string
 		cwd       func(t *testing.T) string
 		diffStats func(cwd string) map[string]git.DiffStat
+		probe     string
 		want      *agentstore.DiffStat
 	}{
 		{
@@ -345,6 +346,15 @@ func TestCwdSyncerSyncRecordsTheDiffStat(t *testing.T) {
 			},
 			want: &agentstore.DiffStat{Added: 12, Removed: 3},
 		},
+		{
+			name:  "a checkout with a round measures the tree its probe already hashed",
+			cwd:   makeCheckout,
+			probe: "probed-tree",
+			diffStats: func(cwd string) map[string]git.DiffStat {
+				return map[string]git.DiffStat{cwd: {Added: 12, Removed: 3}}
+			},
+			want: &agentstore.DiffStat{Added: 12, Removed: 3},
+		},
 	}
 
 	for _, tt := range tests {
@@ -358,12 +368,17 @@ func TestCwdSyncerSyncRecordsTheDiffStat(t *testing.T) {
 			agent := fixture.seed(t, "a", cwd)
 			require.NoError(t, fixture.stores.Agents.SetDiffStat(t.Context(), agent.ID, &agentstore.DiffStat{Added: 1, Removed: 1}))
 			trees := &gittest.Trees{DiffStats: tt.diffStats(cwd)}
+			head := git.HeadState{Root: cwd}
+			if tt.probe != "" {
+				trees.Probes = map[string]string{cwd: tt.probe}
+				head.SnapshotTree = "round-tree"
+			}
 
-			require.NoError(t, fixture.newSyncer(NewCwdSyncerParams{Heads: buildHeads(cwd, git.HeadState{Root: cwd}), Trees: trees}).Sync(t.Context()))
+			require.NoError(t, fixture.newSyncer(NewCwdSyncerParams{Heads: buildHeads(cwd, head), Trees: trees}).Sync(t.Context()))
 
 			assert.Equal(t, tt.want, fixture.read(t, agent.ID).DiffStat)
 			for _, measured := range trees.Measured {
-				assert.Equal(t, git.ReadDiffStatParams{Dir: cwd, Ref: "origin/trunk", Exclude: []string{"*.lock"}}, measured)
+				assert.Equal(t, git.ReadDiffStatParams{Dir: cwd, Ref: "origin/trunk", Tree: tt.probe, Exclude: []string{"*.lock"}}, measured)
 			}
 		})
 	}

@@ -116,7 +116,9 @@ type cwdLook struct {
 	walkedAt string
 	// diffStat is the lines the checkout adds and removes since its base, nil where there is none.
 	diffStat *agentstore.DiffStat
-	err      error
+	// tree is the worktree as the probe hashed it, empty when there was no round to probe against.
+	tree string
+	err  error
 }
 
 // Sync looks at every live agent's cwd once and writes what changed, clearing the branch and
@@ -289,6 +291,7 @@ func (cs *CwdSyncer) look(ctx context.Context, agent agentstore.Agent, newest st
 		return look
 	}
 
+	look.tree = probe
 	if look.head.SnapshotTree != "" && probe != look.head.SnapshotTree {
 		look.movedSinceRound = newest
 	}
@@ -526,6 +529,7 @@ func (cs *CwdSyncer) measure(ctx context.Context, look *cwdLook, config workflow
 	stat, err := cs.trees.ReadDiffStat(ctx, git.ReadDiffStatParams{
 		Dir:     root,
 		Ref:     ref,
+		Tree:    look.tree,
 		Exclude: config.DiffExclude,
 	})
 	if errors.Is(err, git.ErrBaseUnrelated) {
