@@ -148,3 +148,13 @@ func (a *agentsScreen) editDesc(panelShared) string {
 
 	return "edit worktree"
 }
+
+func (a *agentsScreen) isEditingHovered(s panelShared) bool {
+	item, ok := a.selectedAgent(s)
+
+	return ok && a.editing != nil && a.editing.agent.ID == item.Agent.ID
+}
+
+func (a *agentsScreen) isPausable(s panelShared) bool {
+	return a.isHoveringAgent(s) && !a.isEditingHovered(s)
+}

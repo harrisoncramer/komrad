@@ -1680,6 +1680,20 @@ func TestAgentsEdit(t *testing.T) {
 		}
 	})
 
+	t.Run("the pause keys leave alone the agent being edited", func(t *testing.T) {
+		harness := openAgents(t, newLiveWorkflow("w1", "backend"), newEditable(""))
+		said := recordRelease(harness)
+		harness.press("e")
+		harness.watch(buildSnapshot(newLiveWorkflow("w1", "backend"), newEditable(heldAt)))
+
+		harness.press("p", "P")
+		require.Empty(t, *said)
+
+		harness.press("e")
+		require.Len(t, *said, 1)
+		assert.Contains(t, (*said)[0].GetSaid(), "while I had your worktree open")
+	})
+
 	t.Run("moving the cursor keeps the editor on the stage", func(t *testing.T) {
 		other := newEditable("")
 		other.Id, other.Name, other.PaneId = "a2", "comet", "%10"

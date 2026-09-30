@@ -122,7 +122,7 @@ func (a *agentsScreen) rowActions() []screenAction {
 		{
 			id:   actionAgentPause,
 			keys: func(k config.Keybindings) []string { return k.Agents.Pause },
-			when: a.isHoveringAgent,
+			when: a.isPausable,
 			run:  a.onHoveredAgent(func(h host, item panel.AgentRow) tea.Cmd { return pauseAgent(h, item.Agent) }),
 		},
 		{
@@ -194,7 +194,7 @@ func (a *agentsScreen) isHoveringAgent(s panelShared) bool {
 func (a *agentsScreen) isHeldAgent(s panelShared) bool {
 	item, ok := a.selectedAgent(s)
 
-	return a.isHoveringAgent(s) && ok && item.Agent.HeldAt != nil
+	return a.isHoveringAgent(s) && ok && item.Agent.HeldAt != nil && !a.isEditingHovered(s)
 }
 
 func (a *agentsScreen) isRetryableAgent(s panelShared) bool {
@@ -285,7 +285,7 @@ func (a *agentsScreen) browsingLegend() []screenLegendRow {
 		{
 			of:   []actionID{actionAgentPause},
 			desc: a.pauseDesc,
-			show: a.isHoveringAgent,
+			show: a.isPausable,
 		},
 		{
 			of:   []actionID{actionAgentReleaseSilently},
