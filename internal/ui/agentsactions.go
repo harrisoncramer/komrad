@@ -98,7 +98,7 @@ func (a *agentsScreen) rowActions() []screenAction {
 		{
 			id:   actionWorkflowEdit,
 			keys: func(k config.Keybindings) []string { return k.Workflows.Edit },
-			when: a.isHoveringWorkflow,
+			when: func(s panelShared) bool { return a.editing == nil && a.isHoveringWorkflow(s) },
 			run:  a.onHoveredWorkflowIn(editWorkflowForm),
 		},
 		{
@@ -114,9 +114,15 @@ func (a *agentsScreen) rowActions() []screenAction {
 			run:  func(h host, s panelShared, _ string) tea.Cmd { return a.openHovered(h, s) },
 		},
 		{
+			id:   actionAgentEdit,
+			keys: func(k config.Keybindings) []string { return k.Agents.Edit },
+			when: a.isEditable,
+			run:  func(h host, s panelShared, _ string) tea.Cmd { return a.pressEdit(h, s) },
+		},
+		{
 			id:   actionAgentPause,
 			keys: func(k config.Keybindings) []string { return k.Agents.Pause },
-			when: a.isHoveringAgent,
+			when: a.isPausable,
 			run:  a.onHoveredAgent(func(h host, item panel.AgentRow) tea.Cmd { return pauseAgent(h, item.Agent) }),
 		},
 		{
@@ -188,7 +194,7 @@ func (a *agentsScreen) isHoveringAgent(s panelShared) bool {
 func (a *agentsScreen) isHeldAgent(s panelShared) bool {
 	item, ok := a.selectedAgent(s)
 
-	return a.isHoveringAgent(s) && ok && item.Agent.HeldAt != nil
+	return a.isHoveringAgent(s) && ok && item.Agent.HeldAt != nil && !a.isEditingHovered(s)
 }
 
 func (a *agentsScreen) isRetryableAgent(s panelShared) bool {
@@ -272,9 +278,14 @@ func (a *agentsScreen) browsingLegend() []screenLegendRow {
 			show: a.isBrowsing,
 		},
 		{
+			of:   []actionID{actionAgentEdit},
+			desc: a.editDesc,
+			show: a.isEditable,
+		},
+		{
 			of:   []actionID{actionAgentPause},
 			desc: a.pauseDesc,
-			show: a.isHoveringAgent,
+			show: a.isPausable,
 		},
 		{
 			of:   []actionID{actionAgentReleaseSilently},

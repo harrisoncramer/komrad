@@ -499,3 +499,64 @@ func TestLastRebaseRoundTrips(t *testing.T) {
 	_, err = st.GetLastRebaseByID(ctx, "00000000-0000-0000-0000-0000000000ff")
 	require.ErrorIs(t, err, store.ErrNotFound)
 }
+
+// TestHoldSettlesTheState pins that a hold records a state the pane decides as idle and leaves a
+// failure as it was.
+func TestHoldSettlesTheState(t *testing.T) {
+	tests := []struct {
+		name         string
+		state        State
+		wantState    State
+		wantReason   string
+		wantTurnEnds bool
+	}{
+		{
+			name:         "a working agent is held idle and its turn ends",
+			state:        StateThinking,
+			wantState:    StateIdle,
+			wantTurnEnds: true,
+		},
+		{
+			name:         "a waiting agent is held idle and its turn ends",
+			state:        StateWaiting,
+			wantState:    StateIdle,
+			wantTurnEnds: true,
+		},
+		{
+			name:      "an idle agent keeps the turn it last ended",
+			state:     StateIdle,
+			wantState: StateIdle,
+		},
+		{
+			name:       "a failed agent keeps its failure",
+			state:      StateFailedToCleanup,
+			wantState:  StateFailedToCleanup,
+			wantReason: "Bash",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := open(t)
+			ctx := t.Context()
+
+			require.NoError(t, st.Create(ctx, Agent{Name: "agent", State: tt.state}))
+			created, err := st.Get(ctx, "agent")
+			require.NoError(t, err)
+			require.NotNil(t, created)
+			require.NoError(t, st.SetReportedReason(ctx, created.ID, "Bash"))
+
+			held, err := st.Hold(ctx, HoldParams{ID: created.ID, At: time.Now(), MidTurn: tt.wantTurnEnds})
+			require.NoError(t, err)
+			require.True(t, held)
+
+			after, err := st.Get(ctx, "agent")
+			require.NoError(t, err)
+			require.NotNil(t, after)
+			assert.NotNil(t, after.HeldAt)
+			assert.Equal(t, tt.wantState, after.State)
+			assert.Equal(t, tt.wantReason, after.ReportedReason)
+			assert.Equal(t, tt.wantTurnEnds, after.TurnEndedAt != nil)
+		})
+	}
+}

@@ -565,7 +565,32 @@ UPDATE
     agents
 SET
     held_at = $1,
-    held_mid_turn = $2
+    held_mid_turn = $2,
+    state = CASE WHEN state IN ('thinking', 'waiting', 'uncertain') THEN
+        'idle'
+    ELSE
+        state
+    END,
+    state_changed_at = CASE WHEN state IN ('thinking', 'waiting', 'uncertain') THEN
+        NOW()
+    ELSE
+        state_changed_at
+    END,
+    turn_ended_at = CASE WHEN state IN ('thinking', 'waiting', 'uncertain') THEN
+        NOW()
+    ELSE
+        turn_ended_at
+    END,
+    reported_reason = CASE WHEN state IN ('thinking', 'waiting', 'uncertain', 'idle') THEN
+        ''
+    ELSE
+        reported_reason
+    END,
+    state_seen_at = CASE WHEN state IN ('thinking', 'waiting', 'uncertain', 'idle') THEN
+        NOW()
+    ELSE
+        state_seen_at
+    END
 WHERE
     id = $3
     AND archived_at IS NULL
