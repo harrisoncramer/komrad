@@ -18,7 +18,6 @@ import (
 
 type attachment struct {
 	*exec.Cmd
-
 	done chan struct{}
 }
 

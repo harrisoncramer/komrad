@@ -123,7 +123,13 @@ func (w world) registry(dir string) (registry, error) {
 		dir = filepath.Join(home, ".local", "state", "komrad-test", "instances")
 	}
 
-	return registry{dir: dir, lockTimeout: 30 * time.Second, cmds: w.cmds, log: w.log, listening: isListening}, nil
+	return registry{
+		dir:         dir,
+		lockTimeout: 30 * time.Second,
+		cmds:        w.cmds,
+		log:         w.log,
+		listening:   isListening,
+	}, nil
 }
 
 func isListening(ctx context.Context, addr string) bool {

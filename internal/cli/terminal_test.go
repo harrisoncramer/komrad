@@ -29,7 +29,6 @@ type attachStep struct {
 
 type fakeAttachService struct {
 	terminalv1connect.UnimplementedTerminalServiceHandler
-
 	mu     sync.Mutex
 	steps  []attachStep
 	opened []*terminalv1.OpenAttach

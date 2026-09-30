@@ -420,7 +420,11 @@ func TestKind(t *testing.T) {
 			if tt.wantErr {
 				require.Error(t, err)
 
-				existing := seed(t, st, Config{Name: "existing", Cron: "0 9 * * *", Prompt: "go"})
+				existing := seed(t, st, Config{
+					Name:   "existing",
+					Cron:   "0 9 * * *",
+					Prompt: "go",
+				})
 				cfg.Name = existing.Name
 				cfg.WorkflowID = existing.WorkflowID
 				require.Error(t, st.Update(ctx, existing.ID, cfg), "nor is one rewritten that way")
@@ -730,8 +734,22 @@ func TestDeletingAnOrchestratorTakesItsSchedules(t *testing.T) {
 	gone := seedAgent(t, st, workflow)
 	kept := seedAgent(t, st, workflow)
 
-	mailingGone := seed(t, st, Config{Name: "gone", Cron: "0 9 * * *", Prompt: "go", WorkflowID: workflow, Kind: KindOrchestrator, OrchestratorAgentID: &gone})
-	mailingKept := seed(t, st, Config{Name: "kept", Cron: "0 9 * * *", Prompt: "go", WorkflowID: workflow, Kind: KindOrchestrator, OrchestratorAgentID: &kept})
+	mailingGone := seed(t, st, Config{
+		Name:                "gone",
+		Cron:                "0 9 * * *",
+		Prompt:              "go",
+		WorkflowID:          workflow,
+		Kind:                KindOrchestrator,
+		OrchestratorAgentID: &gone,
+	})
+	mailingKept := seed(t, st, Config{
+		Name:                "kept",
+		Cron:                "0 9 * * *",
+		Prompt:              "go",
+		WorkflowID:          workflow,
+		Kind:                KindOrchestrator,
+		OrchestratorAgentID: &kept,
+	})
 
 	_, err := st.agents.Delete(ctx, []string{gone})
 	require.NoError(t, err)

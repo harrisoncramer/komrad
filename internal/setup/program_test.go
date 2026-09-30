@@ -127,7 +127,11 @@ func TestRunUnattended(t *testing.T) {
 		later := &fakeStep{observations: []Observation{{Verdict: VerdictDone}}}
 
 		err := RunUnattended(t.Context(), &out, nil, []Step{
-			&fakeStep{observations: []Observation{{Verdict: VerdictStop, Detail: "no tmux", Finding: &doctor.Finding{Fix: "install tmux"}}}},
+			&fakeStep{observations: []Observation{{
+				Verdict: VerdictStop,
+				Detail:  "no tmux",
+				Finding: &doctor.Finding{Fix: "install tmux"},
+			}}},
 			later,
 		})
 

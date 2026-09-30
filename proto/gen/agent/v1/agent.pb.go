@@ -48,6 +48,8 @@ const (
 	AgentState_AGENT_STATE_FAILED_TO_CLEANUP AgentState = 6
 	// The pane could be read but its tail decided nothing.
 	AgentState_AGENT_STATE_UNCERTAIN AgentState = 7
+	// The pane is at rest after an API error ended the last turn, and turn_error says which.
+	AgentState_AGENT_STATE_ERRORED AgentState = 8
 )
 
 // Enum value maps for AgentState.
@@ -61,6 +63,7 @@ var (
 		5: "AGENT_STATE_FAILED_TO_CREATE",
 		6: "AGENT_STATE_FAILED_TO_CLEANUP",
 		7: "AGENT_STATE_UNCERTAIN",
+		8: "AGENT_STATE_ERRORED",
 	}
 	AgentState_value = map[string]int32{
 		"AGENT_STATE_UNSPECIFIED":       0,
@@ -71,6 +74,7 @@ var (
 		"AGENT_STATE_FAILED_TO_CREATE":  5,
 		"AGENT_STATE_FAILED_TO_CLEANUP": 6,
 		"AGENT_STATE_UNCERTAIN":         7,
+		"AGENT_STATE_ERRORED":           8,
 	}
 )
 
@@ -223,6 +227,8 @@ type Agent struct {
 	ReportedReason string `protobuf:"bytes,29,opt,name=reported_reason,json=reportedReason,proto3" json:"reported_reason,omitempty"`
 	// Why its create or cleanup last failed, empty when neither has.
 	FailureReason string `protobuf:"bytes,43,opt,name=failure_reason,json=failureReason,proto3" json:"failure_reason,omitempty"`
+	// What its CLI printed when an API error ended its last turn, empty when that turn did not fail.
+	TurnError string `protobuf:"bytes,46,opt,name=turn_error,json=turnError,proto3" json:"turn_error,omitempty"`
 	// What the agent was launched to do.
 	Role AgentRole `protobuf:"varint,30,opt,name=role,proto3,enum=agent.v1.AgentRole" json:"role,omitempty"`
 	// Whether prompt holds only its opening, as a summary listing returns it.
@@ -471,6 +477,13 @@ func (x *Agent) GetReportedReason() string {
 func (x *Agent) GetFailureReason() string {
 	if x != nil {
 		return x.FailureReason
+	}
+	return ""
+}
+
+func (x *Agent) GetTurnError() string {
+	if x != nil {
+		return x.TurnError
 	}
 	return ""
 }
@@ -1955,7 +1968,9 @@ type RecordReportRequest struct {
 	// What the CLI says it is doing, which annotates the state the pane decided.
 	Reason string `protobuf:"bytes,1,opt,name=reason,proto3" json:"reason,omitempty"`
 	// Whether the CLI has finished a turn.
-	TurnEnded     bool `protobuf:"varint,2,opt,name=turn_ended,json=turnEnded,proto3" json:"turn_ended,omitempty"`
+	TurnEnded bool `protobuf:"varint,2,opt,name=turn_ended,json=turnEnded,proto3" json:"turn_ended,omitempty"`
+	// What the CLI printed when an API error ended the turn, empty when the turn ended without one.
+	TurnError     string `protobuf:"bytes,3,opt,name=turn_error,json=turnError,proto3" json:"turn_error,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2002,6 +2017,13 @@ func (x *RecordReportRequest) GetTurnEnded() bool {
 		return x.TurnEnded
 	}
 	return false
+}
+
+func (x *RecordReportRequest) GetTurnError() string {
+	if x != nil {
+		return x.TurnError
+	}
+	return ""
 }
 
 type MarkRunsReadRequest struct {
@@ -2749,7 +2771,7 @@ var File_agent_v1_agent_proto protoreflect.FileDescriptor
 
 const file_agent_v1_agent_proto_rawDesc = "" +
 	"\n" +
-	"\x14agent/v1/agent.proto\x12\bagent.v1\x1a\x17agent/v1/document.proto\x1a\x13agent/v1/mail.proto\x1a\x15agent/v1/review.proto\x1a\x19agent/v1/transcript.proto\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1epagination/v1/pagination.proto\x1a pullrequest/v1/pullrequest.proto\x1a\x14rules/v1/rules.proto\x1a\x12view/v1/view.proto\"\x9e\v\n" +
+	"\x14agent/v1/agent.proto\x12\bagent.v1\x1a\x17agent/v1/document.proto\x1a\x13agent/v1/mail.proto\x1a\x15agent/v1/review.proto\x1a\x19agent/v1/transcript.proto\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1epagination/v1/pagination.proto\x1a pullrequest/v1/pullrequest.proto\x1a\x14rules/v1/rules.proto\x1a\x12view/v1/view.proto\"\xbd\v\n" +
 	"\x05Agent\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x10\n" +
@@ -2788,7 +2810,9 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"R\x12documentsUpdatedAt\x88\x01\x01\x12(\n" +
 	"\x10state_changed_at\x18\x19 \x01(\tR\x0estateChangedAt\x12'\n" +
 	"\x0freported_reason\x18\x1d \x01(\tR\x0ereportedReason\x12%\n" +
-	"\x0efailure_reason\x18+ \x01(\tR\rfailureReason\x12'\n" +
+	"\x0efailure_reason\x18+ \x01(\tR\rfailureReason\x12\x1d\n" +
+	"\n" +
+	"turn_error\x18. \x01(\tR\tturnError\x12'\n" +
 	"\x04role\x18\x1e \x01(\x0e2\x13.agent.v1.AgentRoleR\x04role\x12)\n" +
 	"\x10prompt_truncated\x18  \x01(\bR\x0fpromptTruncated\x12*\n" +
 	"\x11moved_since_round\x18* \x01(\tR\x0fmovedSinceRound\x12\x17\n" +
@@ -2934,12 +2958,15 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x0ereplay_commits\x18\b \x01(\x05R\rreplayCommits\"C\n" +
 	"\x10SetHiddenRequest\x12\x17\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\x12\x16\n" +
-	"\x06hidden\x18\x02 \x01(\bR\x06hidden\"\xc1\x01\n" +
+	"\x06hidden\x18\x02 \x01(\bR\x06hidden\"\xdd\x02\n" +
 	"\x13RecordReportRequest\x12\x8a\x01\n" +
 	"\x06reason\x18\x01 \x01(\tBr\xbaHo\xba\x01g\n" +
 	"\x17report.reason.printable\x12*reason must not contain control characters\x1a !this.matches('[\\x00-\\x1f\\x7f]')r\x03\x18\xc8\x01R\x06reason\x12\x1d\n" +
 	"\n" +
-	"turn_ended\x18\x02 \x01(\bR\tturnEnded\".\n" +
+	"turn_ended\x18\x02 \x01(\bR\tturnEnded\x12\x99\x01\n" +
+	"\n" +
+	"turn_error\x18\x03 \x01(\tBz\xbaHw\xba\x01o\n" +
+	"\x1breport.turn_error.printable\x12.turn_error must not contain control characters\x1a !this.matches('[\\x00-\\x1f\\x7f]')r\x03\x18\xc8\x01R\tturnError\".\n" +
 	"\x13MarkRunsReadRequest\x12\x17\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\"\xf2\x01\n" +
 	"\n" +
@@ -2984,7 +3011,7 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x12UpdateAgentRequest\x12\x17\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\x12\xfd\x01\n" +
 	"\x04name\x18\x02 \x01(\tB\xe8\x01\xbaH\xe4\x01\xba\x01\xd9\x01\n" +
-	"\rname.storable\x12Jname must not contain spaces, colons, dots, slashes, or control characters\x1a|!this.contains(' ') && !this.contains(':') && !this.contains('.') && !this.contains('/') && !this.matches('[\\x00-\\x1f\\x7f]')r\x05\x10\x01\x18\xc8\x01R\x04name*\xee\x01\n" +
+	"\rname.storable\x12Jname must not contain spaces, colons, dots, slashes, or control characters\x1a|!this.contains(' ') && !this.contains(':') && !this.contains('.') && !this.contains('/') && !this.matches('[\\x00-\\x1f\\x7f]')r\x05\x10\x01\x18\xc8\x01R\x04name*\x87\x02\n" +
 	"\n" +
 	"AgentState\x12\x1b\n" +
 	"\x17AGENT_STATE_UNSPECIFIED\x10\x00\x12\x14\n" +
@@ -2994,7 +3021,8 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x16AGENT_STATE_SETTING_UP\x10\x04\x12 \n" +
 	"\x1cAGENT_STATE_FAILED_TO_CREATE\x10\x05\x12!\n" +
 	"\x1dAGENT_STATE_FAILED_TO_CLEANUP\x10\x06\x12\x19\n" +
-	"\x15AGENT_STATE_UNCERTAIN\x10\a*y\n" +
+	"\x15AGENT_STATE_UNCERTAIN\x10\a\x12\x17\n" +
+	"\x13AGENT_STATE_ERRORED\x10\b*y\n" +
 	"\tAgentRole\x12\x1a\n" +
 	"\x16AGENT_ROLE_UNSPECIFIED\x10\x00\x12\x1a\n" +
 	"\x16AGENT_ROLE_IMPLEMENTER\x10\x01\x12\x17\n" +

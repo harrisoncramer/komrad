@@ -381,7 +381,8 @@ func finishedPullRequest(providerID string, number int, branch string) UpsertPar
 // TestListStaleStandingsAnswersOpenRowsOnAgentBranches covers which pull requests cost a
 // standing read: open and not draft, on a branch an agent sits on whether or not it is archived,
 // and never read, read before the last change, read for another head, or read as pending, as
-// none right after a change, or as settled longer ago than the params trust.
+// no checks right after a change, as a mergeability not yet computed however old the change, or
+// as settled longer ago than the params trust.
 func TestListStaleStandingsAnswersOpenRowsOnAgentBranches(t *testing.T) {
 	h := open(t)
 	ctx := t.Context()
@@ -409,7 +410,8 @@ func TestListStaleStandingsAnswersOpenRowsOnAgentBranches(t *testing.T) {
 	settling := openPullRequest("PR_12", 12, "agent/x")
 	settling.ChangedAt = now
 	settled := openPullRequest("PR_13", 13, "agent/x")
-	for _, params := range []UpsertParams{unread, readSince, changedSince, draft, merged, noAgent, onArchived, fork, pushed, pending, failing, settling, settled} {
+	blank := openPullRequest("PR_14", 14, "agent/x")
+	for _, params := range []UpsertParams{unread, readSince, changedSince, draft, merged, noAgent, onArchived, fork, pushed, pending, failing, settling, settled, blank} {
 		_, err := h.Upsert(ctx, params)
 		require.NoError(t, err)
 	}
@@ -418,24 +420,43 @@ func TestListStaleStandingsAnswersOpenRowsOnAgentBranches(t *testing.T) {
 		t.Helper()
 		stored, err := h.GetByIdentity(ctx, "github.com", providerID)
 		require.NoError(t, err)
-		_, err = h.SetStanding(ctx, stored.ID, standing, now)
+		_, err = h.SetStanding(ctx, SetStandingParams{
+			ID:       stored.ID,
+			Standing: standing,
+			ReadAt:   now,
+		})
 		require.NoError(t, err)
 	}
 	set("PR_2", forge.Standing{
-		Decision: forge.ReviewDecisionApproved,
-		Checks:   forge.ChecksPassing,
-		HeadSHA:  "abc",
+		Decision:     forge.ReviewDecisionApproved,
+		Checks:       forge.ChecksPassing,
+		Mergeability: forge.MergeabilityClean,
+		HeadSHA:      "abc",
 	})
 	set("PR_3", forge.Standing{
-		Decision: forge.ReviewDecisionApproved,
-		Checks:   forge.ChecksPassing,
-		HeadSHA:  "abc",
+		Decision:     forge.ReviewDecisionApproved,
+		Checks:       forge.ChecksPassing,
+		Mergeability: forge.MergeabilityClean,
+		HeadSHA:      "abc",
 	})
-	set("PR_9", forge.Standing{Checks: forge.ChecksPassing, HeadSHA: "before-the-push"})
-	set("PR_10", forge.Standing{Checks: forge.ChecksPending, HeadSHA: "abc"})
-	set("PR_11", forge.Standing{Checks: forge.ChecksFailing, HeadSHA: "abc"})
-	set("PR_12", forge.Standing{HeadSHA: "abc"})
-	set("PR_13", forge.Standing{HeadSHA: "abc"})
+	set("PR_9", forge.Standing{
+		Checks:       forge.ChecksPassing,
+		Mergeability: forge.MergeabilityClean,
+		HeadSHA:      "before-the-push",
+	})
+	set("PR_10", forge.Standing{
+		Checks:       forge.ChecksPending,
+		Mergeability: forge.MergeabilityUnstable,
+		HeadSHA:      "abc",
+	})
+	set("PR_11", forge.Standing{
+		Checks:       forge.ChecksFailing,
+		Mergeability: forge.MergeabilityUnstable,
+		HeadSHA:      "abc",
+	})
+	set("PR_12", forge.Standing{Mergeability: forge.MergeabilityClean, HeadSHA: "abc"})
+	set("PR_13", forge.Standing{Mergeability: forge.MergeabilityClean, HeadSHA: "abc"})
+	set("PR_14", forge.Standing{Checks: forge.ChecksPassing, HeadSHA: "abc"})
 	changedSince.ChangedAt = changedSince.ChangedAt.Add(time.Hour)
 	_, err = h.Upsert(ctx, changedSince)
 	require.NoError(t, err)
@@ -443,11 +464,13 @@ func TestListStaleStandingsAnswersOpenRowsOnAgentBranches(t *testing.T) {
 	list := func(now time.Time) []int {
 		t.Helper()
 		stale, err := h.syncs.ListStaleStandings(ctx, ListStaleStandingsParams{
-			RepositoryURL: komrad,
-			Now:           now,
-			PendingAfter:  time.Minute,
-			SettleWithin:  10 * time.Minute,
-			SettledAfter:  10 * time.Minute,
+			RepositoryURL:           komrad,
+			Now:                     now,
+			PendingAfter:            time.Minute,
+			SettleWithin:            10 * time.Minute,
+			MergeabilityBlankAfter:  10 * time.Second,
+			MergeabilityBlankWithin: 2 * time.Minute,
+			SettledAfter:            10 * time.Minute,
 		})
 		require.NoError(t, err)
 
@@ -457,8 +480,10 @@ func TestListStaleStandingsAnswersOpenRowsOnAgentBranches(t *testing.T) {
 	}
 
 	assert.ElementsMatch(t, []int{1, 3, 7, 9}, list(now), "never read, changed since, and pushed since are stale the moment they are written, an archived agent's branch included")
-	assert.ElementsMatch(t, []int{1, 3, 7, 9, 10, 12}, list(now.Add(2*time.Minute)), "a pending run and a fresh change with no checks are read again after a minute")
-	assert.ElementsMatch(t, []int{1, 2, 3, 7, 9, 10, 11, 12, 13}, list(now.Add(11*time.Minute)), "every row is read again after ten minutes")
+	assert.ElementsMatch(t, []int{1, 3, 7, 9}, list(now.Add(5*time.Second)), "a mergeability not yet computed waits out ten seconds")
+	assert.ElementsMatch(t, []int{1, 3, 7, 9, 14}, list(now.Add(11*time.Second)), "a mergeability not yet computed is read again after ten seconds however old the change")
+	assert.ElementsMatch(t, []int{1, 3, 7, 9, 10, 12}, list(now.Add(2*time.Minute)), "a pending run and a fresh change with no checks are read again after a minute, an old change with no checks is not, nor a blank that began two minutes ago")
+	assert.ElementsMatch(t, []int{1, 2, 3, 7, 9, 10, 11, 12, 13, 14}, list(now.Add(11*time.Minute)), "every row is read again after ten minutes")
 	assert.Equal(t, 3, list(now)[0], "newest change first")
 }
 
@@ -473,12 +498,16 @@ func TestSetStandingStampsTheRead(t *testing.T) {
 	written, err := h.Upsert(ctx, openPullRequest("PR_1", 1, "agent/x"))
 	require.NoError(t, err)
 
-	_, err = h.SetStanding(ctx, written.ID, forge.Standing{
-		Decision:     forge.ReviewDecisionChangesRequested,
-		Checks:       forge.ChecksFailing,
-		Mergeability: forge.MergeabilityUnstable,
-		HeadSHA:      "abc",
-	}, readAt)
+	_, err = h.SetStanding(ctx, SetStandingParams{
+		ID: written.ID,
+		Standing: forge.Standing{
+			Decision:     forge.ReviewDecisionChangesRequested,
+			Checks:       forge.ChecksFailing,
+			Mergeability: forge.MergeabilityUnstable,
+			HeadSHA:      "abc",
+		},
+		ReadAt: readAt,
+	})
 	require.NoError(t, err)
 	stored, err := h.GetByIdentity(ctx, "github.com", "PR_1")
 	require.NoError(t, err)
@@ -495,7 +524,11 @@ func TestSetStandingStampsTheRead(t *testing.T) {
 	assert.True(t, stored.ChecksReadAt.Equal(readAt))
 
 	readAt = readAt.Add(time.Minute)
-	_, err = h.SetStanding(ctx, written.ID, forge.Standing{HeadSHA: "abc"}, readAt)
+	_, err = h.SetStanding(ctx, SetStandingParams{
+		ID:       written.ID,
+		Standing: forge.Standing{HeadSHA: "abc"},
+		ReadAt:   readAt,
+	})
 	require.NoError(t, err)
 	stored, err = h.GetByIdentity(ctx, "github.com", "PR_1")
 	require.NoError(t, err)
@@ -510,7 +543,11 @@ func TestSetStandingStampsTheRead(t *testing.T) {
 	changed.ChangedAt = changed.ChangedAt.Add(time.Hour)
 	_, err = h.Upsert(ctx, changed)
 	require.NoError(t, err)
-	_, err = h.SetStanding(ctx, written.ID, forge.Standing{HeadSHA: "abc"}, readAt)
+	_, err = h.SetStanding(ctx, SetStandingParams{
+		ID:       written.ID,
+		Standing: forge.Standing{HeadSHA: "abc"},
+		ReadAt:   readAt,
+	})
 	require.NoError(t, err)
 	stored, err = h.GetByIdentity(ctx, "github.com", "PR_1")
 	require.NoError(t, err)
@@ -603,29 +640,77 @@ func TestSetStandingKeepsTheLastKnownValue(t *testing.T) {
 		{
 			name: "the first reading replaces nothing",
 			steps: []step{
-				{checks: forge.ChecksFailing, sha: "abc", wantKnown: xptr.Ptr("failing"), wantKnownSHA: xptr.Ptr("abc")},
+				{
+					checks:       forge.ChecksFailing,
+					sha:          "abc",
+					wantKnown:    xptr.Ptr("failing"),
+					wantKnownSHA: xptr.Ptr("abc"),
+				},
 			},
 		},
 		{
 			name: "a blank reading leaves the last known value alone",
 			steps: []step{
-				{checks: forge.ChecksFailing, sha: "abc", wantKnown: xptr.Ptr("failing"), wantKnownSHA: xptr.Ptr("abc")},
-				{checks: forge.ChecksNone, sha: "def", wantOld: xptr.Ptr("failing"), wantKnown: xptr.Ptr("failing"), wantOldSHA: xptr.Ptr("abc"), wantKnownSHA: xptr.Ptr("abc")},
-				{checks: forge.ChecksFailing, sha: "abc", wantOld: xptr.Ptr("failing"), wantKnown: xptr.Ptr("failing"), wantOldSHA: xptr.Ptr("abc"), wantKnownSHA: xptr.Ptr("abc")},
+				{
+					checks:       forge.ChecksFailing,
+					sha:          "abc",
+					wantKnown:    xptr.Ptr("failing"),
+					wantKnownSHA: xptr.Ptr("abc"),
+				},
+				{
+					checks:       forge.ChecksNone,
+					sha:          "def",
+					wantOld:      xptr.Ptr("failing"),
+					wantKnown:    xptr.Ptr("failing"),
+					wantOldSHA:   xptr.Ptr("abc"),
+					wantKnownSHA: xptr.Ptr("abc"),
+				},
+				{
+					checks:       forge.ChecksFailing,
+					sha:          "abc",
+					wantOld:      xptr.Ptr("failing"),
+					wantKnown:    xptr.Ptr("failing"),
+					wantOldSHA:   xptr.Ptr("abc"),
+					wantKnownSHA: xptr.Ptr("abc"),
+				},
 			},
 		},
 		{
 			name: "a new value replaces the last known one",
 			steps: []step{
-				{checks: forge.ChecksPassing, sha: "abc", wantKnown: xptr.Ptr("passing"), wantKnownSHA: xptr.Ptr("abc")},
-				{checks: forge.ChecksFailing, sha: "abc", wantOld: xptr.Ptr("passing"), wantKnown: xptr.Ptr("failing"), wantOldSHA: xptr.Ptr("abc"), wantKnownSHA: xptr.Ptr("abc")},
+				{
+					checks:       forge.ChecksPassing,
+					sha:          "abc",
+					wantKnown:    xptr.Ptr("passing"),
+					wantKnownSHA: xptr.Ptr("abc"),
+				},
+				{
+					checks:       forge.ChecksFailing,
+					sha:          "abc",
+					wantOld:      xptr.Ptr("passing"),
+					wantKnown:    xptr.Ptr("failing"),
+					wantOldSHA:   xptr.Ptr("abc"),
+					wantKnownSHA: xptr.Ptr("abc"),
+				},
 			},
 		},
 		{
 			name: "the same value on a new head replaces the last known head",
 			steps: []step{
-				{checks: forge.ChecksFailing, sha: "abc", wantKnown: xptr.Ptr("failing"), wantKnownSHA: xptr.Ptr("abc")},
-				{checks: forge.ChecksFailing, sha: "def", wantOld: xptr.Ptr("failing"), wantKnown: xptr.Ptr("failing"), wantOldSHA: xptr.Ptr("abc"), wantKnownSHA: xptr.Ptr("def")},
+				{
+					checks:       forge.ChecksFailing,
+					sha:          "abc",
+					wantKnown:    xptr.Ptr("failing"),
+					wantKnownSHA: xptr.Ptr("abc"),
+				},
+				{
+					checks:       forge.ChecksFailing,
+					sha:          "def",
+					wantOld:      xptr.Ptr("failing"),
+					wantKnown:    xptr.Ptr("failing"),
+					wantOldSHA:   xptr.Ptr("abc"),
+					wantKnownSHA: xptr.Ptr("def"),
+				},
 			},
 		},
 		{
@@ -644,7 +729,11 @@ func TestSetStandingKeepsTheLastKnownValue(t *testing.T) {
 			require.NoError(t, err)
 
 			for _, s := range tt.steps {
-				change, err := h.SetStanding(ctx, written.ID, forge.Standing{Checks: s.checks, HeadSHA: s.sha}, time.Now())
+				change, err := h.SetStanding(ctx, SetStandingParams{
+					ID:       written.ID,
+					Standing: forge.Standing{Checks: s.checks, HeadSHA: s.sha},
+					ReadAt:   time.Now(),
+				})
 				require.NoError(t, err)
 				assert.Equal(t, s.wantOld, change.OldChecks)
 				assert.Equal(t, s.wantKnown, change.KnownChecks)
@@ -663,11 +752,243 @@ func TestSetStandingKeepsTheLastKnownValue(t *testing.T) {
 	}
 }
 
+// TestSetStandingRemembersWhichHeadMergeabilityWasReadFor covers the head the last known
+// mergeability belongs to, and a pull request the forge did not answer for keeping its
+// mergeability while its checks are cleared for the head.
+func TestSetStandingRemembersWhichHeadMergeabilityWasReadFor(t *testing.T) {
+	type read struct {
+		standing   forge.Standing
+		unanswered bool
+	}
+	type testCase struct {
+		name             string
+		reads            []read
+		wantMergeability *forge.Mergeability
+		wantKnown        string
+		wantKnownSHA     string
+		wantChecks       *forge.Checks
+		wantChecksSHA    string
+	}
+	tests := []testCase{
+		{
+			name: "an unanswered read keeps the mergeability and clears the checks for the head",
+			reads: []read{
+				{
+					standing: forge.Standing{
+						Checks:       forge.ChecksPassing,
+						Mergeability: forge.MergeabilityClean,
+						HeadSHA:      "abc",
+					},
+				},
+				{
+					standing: forge.Standing{
+						HeadSHA: "def",
+					},
+					unanswered: true,
+				},
+			},
+			wantMergeability: xptr.Ptr(forge.MergeabilityClean),
+			wantKnown:        "clean",
+			wantKnownSHA:     "abc",
+			wantChecks:       nil,
+			wantChecksSHA:    "def",
+		},
+		{
+			name: "a blank read leaves the last known head alone",
+			reads: []read{
+				{
+					standing: forge.Standing{
+						Mergeability: forge.MergeabilityClean,
+						HeadSHA:      "abc",
+					},
+				},
+				{
+					standing: forge.Standing{
+						HeadSHA: "def",
+					},
+				},
+			},
+			wantMergeability: nil,
+			wantKnown:        "clean",
+			wantKnownSHA:     "abc",
+			wantChecks:       nil,
+			wantChecksSHA:    "def",
+		},
+		{
+			name: "an answer stamps the head it was read for",
+			reads: []read{
+				{
+					standing: forge.Standing{
+						Mergeability: forge.MergeabilityClean,
+						HeadSHA:      "abc",
+					},
+				},
+				{
+					standing: forge.Standing{
+						Checks:       forge.ChecksPassing,
+						Mergeability: forge.MergeabilityBehind,
+						HeadSHA:      "def",
+					},
+				},
+			},
+			wantMergeability: xptr.Ptr(forge.MergeabilityBehind),
+			wantKnown:        "behind",
+			wantKnownSHA:     "def",
+			wantChecks:       xptr.Ptr(forge.ChecksPassing),
+			wantChecksSHA:    "def",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			h := open(t)
+			ctx := t.Context()
+			written, err := h.Upsert(ctx, openPullRequest("PR_1", 1, "agent/x"))
+			require.NoError(t, err)
+
+			for _, r := range tt.reads {
+				_, err := h.SetStanding(ctx, SetStandingParams{
+					ID:         written.ID,
+					Standing:   r.standing,
+					ReadAt:     time.Now(),
+					Unanswered: r.unanswered,
+				})
+				require.NoError(t, err)
+			}
+
+			stored, err := h.GetByID(ctx, written.ID)
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantMergeability, stored.Mergeability)
+			assert.Equal(t, tt.wantKnown, stored.LastKnownMergeability)
+			assert.Equal(t, tt.wantKnownSHA, stored.LastKnownMergeabilitySHA)
+			assert.Equal(t, tt.wantChecks, stored.Checks)
+			assert.Equal(t, tt.wantChecksSHA, stored.ChecksSHA)
+		})
+	}
+}
+
+// TestSetStandingAnswersWhenABlankBegan covers the blank mergeability's start holding through
+// later blanks on one head and starting again on a new head or clearing on an answer.
+func TestSetStandingAnswersWhenABlankBegan(t *testing.T) {
+	began := time.Date(2026, 9, 21, 12, 0, 0, 0, time.UTC)
+	later := began.Add(time.Minute)
+	type read struct {
+		standing   forge.Standing
+		unanswered bool
+		at         time.Time
+	}
+	type testCase struct {
+		name      string
+		reads     []read
+		wantSince *time.Time
+	}
+	tests := []testCase{
+		{
+			name: "an answer clears the blank",
+			reads: []read{
+				{
+					standing: forge.Standing{HeadSHA: "abc"},
+					at:       began,
+				},
+				{
+					standing: forge.Standing{
+						Mergeability: forge.MergeabilityClean,
+						HeadSHA:      "abc",
+					},
+					at: later,
+				},
+			},
+			wantSince: nil,
+		},
+		{
+			name: "a blank on a new head begins again",
+			reads: []read{
+				{
+					standing: forge.Standing{HeadSHA: "abc"},
+					at:       began,
+				},
+				{
+					standing: forge.Standing{HeadSHA: "def"},
+					at:       later,
+				},
+			},
+			wantSince: &later,
+		},
+		{
+			name: "an unanswered read keeps when the blank began",
+			reads: []read{
+				{
+					standing: forge.Standing{HeadSHA: "abc"},
+					at:       began,
+				},
+				{
+					standing:   forge.Standing{HeadSHA: "abc"},
+					unanswered: true,
+					at:         later,
+				},
+			},
+			wantSince: &began,
+		},
+		{
+			name: "a blank that stays blank keeps when it began",
+			reads: []read{
+				{
+					standing: forge.Standing{
+						Mergeability: forge.MergeabilityClean,
+						HeadSHA:      "abc",
+					},
+					at: began.Add(-time.Minute),
+				},
+				{
+					standing: forge.Standing{HeadSHA: "abc"},
+					at:       began,
+				},
+				{
+					standing: forge.Standing{HeadSHA: "abc"},
+					at:       later,
+				},
+			},
+			wantSince: &began,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			h := open(t)
+			ctx := t.Context()
+			written, err := h.Upsert(ctx, openPullRequest("PR_1", 1, "agent/x"))
+			require.NoError(t, err)
+
+			var change *StandingChange
+			for _, r := range tt.reads {
+				change, err = h.SetStanding(ctx, SetStandingParams{
+					ID:         written.ID,
+					Standing:   r.standing,
+					ReadAt:     r.at,
+					Unanswered: r.unanswered,
+				})
+				require.NoError(t, err)
+			}
+
+			if tt.wantSince == nil {
+				assert.Nil(t, change.BlankSince)
+				return
+			}
+			require.NotNil(t, change.BlankSince)
+			assert.True(t, tt.wantSince.Equal(*change.BlankSince), "began %s, want %s", *change.BlankSince, *tt.wantSince)
+		})
+	}
+}
+
 // TestSetStandingOnAMissingRowChangesNothing pins that a row gone since it was read reports no change.
 func TestSetStandingOnAMissingRowChangesNothing(t *testing.T) {
 	h := open(t)
 
-	change, err := h.SetStanding(t.Context(), uuid.NewString(), forge.Standing{Checks: forge.ChecksFailing}, time.Now())
+	change, err := h.SetStanding(t.Context(), SetStandingParams{
+		ID:       uuid.NewString(),
+		Standing: forge.Standing{Checks: forge.ChecksFailing},
+		ReadAt:   time.Now(),
+	})
 	require.NoError(t, err)
 	assert.Equal(t, StandingChange{}, *change)
 }

@@ -70,7 +70,11 @@ func (a *archiveScreen) onSchedules(panelShared) bool {
 }
 
 func (a *archiveScreen) kinds() stops {
-	return stops{labels: []string{"agents", "schedules"}, focus: noStop, lit: int(a.kind)}
+	return stops{
+		labels: []string{"agents", "schedules"},
+		focus:  noStop,
+		lit:    int(a.kind),
+	}
 }
 
 func (a *archiveScreen) kindsFit(s panelShared) bool {

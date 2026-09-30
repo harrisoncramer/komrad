@@ -64,6 +64,7 @@ const (
 	AgentStateFailedToCreate  AgentState = "failed_to_create"
 	AgentStateFailedToCleanup AgentState = "failed_to_cleanup"
 	AgentStateUncertain       AgentState = "uncertain"
+	AgentStateErrored         AgentState = "errored"
 )
 
 func (e *AgentState) Scan(src interface{}) error {
@@ -326,7 +327,7 @@ type Agent struct {
 	Flags  string
 	Prompt string
 	PaneID string
-	// What the agent is doing. Komrad captures the agent's terminal every couple of seconds and writes here what it read there. Uncertain means the terminal was captured but could not be understood. The setup and failure values never come from reading a terminal, so something else sets those.
+	// What the agent is doing. Komrad captures the agent's terminal every couple of seconds and writes here what it read there. Uncertain means the terminal was captured but could not be understood. Errored means the terminal is at rest after an API error ended the last turn. The setup and failure values never come from reading a terminal, so something else sets those.
 	State            AgentState
 	StateChangedAt   pgtype.Timestamptz
 	Harness          string
@@ -377,6 +378,10 @@ type Agent struct {
 	LastRebase []byte
 	// The archive this agent was taken out of live listings by, shared by every agent that archive took.
 	ArchiveBatchID pgtype.UUID
+	// When an API error last ended one of the agent's turns. The last turn failed while this is no older than turn_ended_at.
+	TurnFailedAt pgtype.Timestamptz
+	// What the agent's CLI printed when an API error last ended one of its turns.
+	TurnError string
 }
 
 // Which agents were seen with which pull requests, one row per pair, never re-pointed. The watch carries every pull request with a row here.
@@ -635,6 +640,10 @@ type PullRequest struct {
 	LastKnownDecision *string
 	// The head commit last_known_checks was read for. The same checks on a new head are a fresh verdict, so an event compares this too.
 	LastKnownChecksSha *string
+	// The head commit last_known_mergeability was read for. The panel draws the last known mergeability through a blank reading only while this is still the head.
+	LastKnownMergeabilitySha *string
+	// When the forge first answered a blank mergeability for checks_sha, which bounds how long a blank is read again quickly.
+	MergeabilityBlankSince pgtype.Timestamptz
 }
 
 // Where the pull request sync is for one repository: the high-water mark the changes have been read through, the first sweep in progress if one is, and what the last pass cost.

@@ -49,19 +49,6 @@ func (a *agentsScreen) modeActions() []screenAction {
 			when: list.isBrowsing,
 			run:  func(h host, s panelShared, _ string) tea.Cmd { return newWorkflowForm(h, s) },
 		},
-		screenAction{
-			id:   actionMenuOpen,
-			keys: func(k config.Keybindings) []string { return k.Menu.Open },
-			when: a.holdsSubpages,
-			run: func(h host, s panelShared, _ string) tea.Cmd {
-				item, ok := a.hoveredPaneItem(s)
-				if !ok {
-					return nil
-				}
-
-				return openAgentSubpages(h, s, screenAgents, item)
-			},
-		},
 	)
 }
 
@@ -339,11 +326,6 @@ func (a *agentsScreen) browsingLegend() []screenLegendRow {
 			of:   []actionID{actionAgentArchive},
 			desc: func(panelShared) string { return "archive" },
 			show: a.isHoveringAgent,
-		},
-		{
-			of:   []actionID{actionMenuOpen},
-			desc: func(panelShared) string { return "menu" },
-			show: a.holdsSubpages,
 		},
 		{
 			of:   []actionID{actionFilterOpen},

@@ -64,6 +64,39 @@ func TestAgent(t *testing.T) {
 			},
 		},
 		{
+			name: "an agent whose last turn ended after one that failed",
+			stored: agentstore.Agent{
+				ID:           "a4",
+				Name:         "recovered",
+				TurnEndedAt:  xptr.Ptr(changed.Add(time.Minute)),
+				TurnFailedAt: xptr.Ptr(changed),
+				TurnError:    "Overloaded",
+			},
+			want: &agentv1.Agent{
+				Id:    "a4",
+				Name:  "recovered",
+				Alive: xptr.Ptr(false),
+			},
+		},
+		{
+			name: "an agent whose last turn failed",
+			stored: agentstore.Agent{
+				ID:           "a5",
+				Name:         "failed",
+				State:        agentstore.StateErrored,
+				TurnEndedAt:  xptr.Ptr(changed),
+				TurnFailedAt: xptr.Ptr(changed),
+				TurnError:    "Overloaded",
+			},
+			want: &agentv1.Agent{
+				Id:        "a5",
+				Name:      "failed",
+				State:     agentv1.AgentState_AGENT_STATE_ERRORED,
+				TurnError: "Overloaded",
+				Alive:     xptr.Ptr(false),
+			},
+		},
+		{
 			name: "an agent that has written documents, stamped to within the second",
 			stored: agentstore.Agent{
 				ID:   "a3",
@@ -151,6 +184,7 @@ func TestAgentStateOf(t *testing.T) {
 		agentstore.StateFailedToCreate:  agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE,
 		agentstore.StateFailedToCleanup: agentv1.AgentState_AGENT_STATE_FAILED_TO_CLEANUP,
 		agentstore.StateUncertain:       agentv1.AgentState_AGENT_STATE_UNCERTAIN,
+		agentstore.StateErrored:         agentv1.AgentState_AGENT_STATE_ERRORED,
 	}
 	for stored, wire := range states {
 		assert.Equal(t, wire, AgentStateOf(stored), string(stored))

@@ -333,6 +333,8 @@ func TestReadActivityOnCapturedFrames(t *testing.T) {
 		{file: "a_plan_picker_under_its_path_footer.txt", want: harness.ActivityWaiting},
 		{file: "api_retry_banner.txt", want: harness.ActivityWorking},
 		{file: "api_error_ended_the_turn.txt", want: harness.ActivityIdle},
+		{file: "api_retry_last_attempt_beside_an_update_notice.txt", want: harness.ActivityWorking},
+		{file: "api_error_then_a_hook_note_after_the_turn.txt", want: harness.ActivityIdle},
 		{file: "a_title_on_the_box_above_a_spinner.txt", want: harness.ActivityWorking},
 		{file: "a_title_on_the_box_over_a_greyed_prompt.txt", want: harness.ActivityWorking},
 		{file: "a_title_on_the_box_over_an_empty_prompt.txt", want: harness.ActivityIdle},

@@ -191,6 +191,8 @@ type PanelSettings struct {
 	// DraftDir is where a copy of a document is written for the editor, the system's temporary
 	// directory when empty.
 	DraftDir string
+	// ScratchDir is where each engine's scratch file is kept.
+	ScratchDir string
 }
 
 type Deps struct {
@@ -249,8 +251,10 @@ type model struct {
 
 	// sized is the size each agent's own window was last put at, keyed by pane, so a listing that
 	// has not moved costs no tmux calls.
-	sized         map[string]string
-	terminalDir   string
+	sized       map[string]string
+	terminalDir string
+	// scratch is the scratch editor on the stage, nil while it is closed.
+	scratch       *scratchEditor
 	details       detailsState
 	messages      messagesState
 	detailsHeight float64
@@ -265,13 +269,12 @@ type model struct {
 	// inspections is what the service answered for each worktree directory.
 	inspections  map[string]worktreeInspection
 	conversation conversationPreview
-
-	search    searchScreen
-	review    reviewScreen
-	filter    filterState
-	rowCursor cursor.Model
-	form      formState
-	held      heldWrite
+	search       searchScreen
+	review       reviewScreen
+	filter       filterState
+	rowCursor    cursor.Model
+	form         formState
+	held         heldWrite
 	// detached holds the writes a person escaped out of, which land without taking the screen to
 	// what they made.
 	detached map[int]struct{}

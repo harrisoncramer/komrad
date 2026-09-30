@@ -4,12 +4,12 @@ on:
   push:
     branches: [main]
   pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
+    types: [opened, synchronize, reopened, ready_for_review, closed]
   workflow_call:
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || github.ref != 'refs/heads/main' }}
 
 permissions:
   contents: read
@@ -20,7 +20,7 @@ jobs:
   # cache volume for as long as a job holds it, so one runner costs far less than one per check. A
   # draft pull request runs nothing; marking it ready runs the suite.
   required:
-    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    if: github.event_name != 'pull_request' || (github.event.action != 'closed' && !github.event.pull_request.draft)
     runs-on: namespace-profile-harrisoncramer
 
     # The store tests run against a real Postgres rather than a fake, and

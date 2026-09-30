@@ -29,6 +29,12 @@ var opening = map[Field][]string{
 	FieldMergeability: {"conflicting", "behind"},
 }
 
+var alarming = map[Field][]string{
+	FieldDecision:     {"changes_requested"},
+	FieldChecks:       {"failing"},
+	FieldMergeability: {"conflicting", "behind"},
+}
+
 // Move is one field of a pull request going from one value to another.
 type Move struct {
 	Field Field  `json:"field"`
@@ -55,14 +61,21 @@ func (c Change) Opens() bool {
 	})
 }
 
-// Moved is the move between two known values of a field, nil when either is unknown or they
-// are the same.
+// Moved is the move between two values of a field, nil when they are the same or when either
+// is unknown and the new one does not alarm.
 func Moved(field Field, from, to *string) *Move {
+	if from == nil && to != nil && slices.Contains(alarming[field], *to) {
+		return &Move{Field: field, To: *to}
+	}
 	if from == nil || to == nil || *from == *to {
 		return nil
 	}
 
-	return &Move{Field: field, From: *from, To: *to}
+	return &Move{
+		Field: field,
+		From:  *from,
+		To:    *to,
+	}
 }
 
 // NewChange is the change for the fields of a pull request that moved, nil when none did.

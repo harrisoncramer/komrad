@@ -104,6 +104,12 @@ func (r *reviewScreen) pressEdit(h host, s panelShared) tea.Cmd {
 		return r.closeEdit(h, s)
 	}
 
+	if h.isScratchOpen() {
+		r.notice = "close the scratch file first"
+
+		return nil
+	}
+
 	// The refusals are read before the agent is stopped.
 	if reason, refused := r.isEditRefused(s); refused {
 		r.notice = reason
@@ -187,7 +193,7 @@ func (r reviewScreen) isAgentBusy(s panelShared) (string, bool) {
 			"two writers in one checkout cannot both win, so stop it before you edit", true
 	case panel.StateUncertain:
 		return r.isAgentUnreadable(s)
-	case panel.StateWaiting, panel.StateIdle, panel.StateSettingUp,
+	case panel.StateWaiting, panel.StateIdle, panel.StateErrored, panel.StateSettingUp,
 		panel.StateFailedToCreate, panel.StateFailedToCleanup:
 	}
 

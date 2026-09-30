@@ -1018,7 +1018,11 @@ func TestArchiveConversationPreview(t *testing.T) {
 		harness := openArchive(t, buildOneArchivedAgent()...)
 		answerLastTurns(harness, map[string][]*agentv1.Turn{
 			"a1": {
-				{Role: "assistant", Content: "go build .\n```\nthe build is green", Truncated: true},
+				{
+					Role:      "assistant",
+					Content:   "go build .\n```\nthe build is green",
+					Truncated: true,
+				},
 				{Role: "user", Content: "*ship it*"},
 			},
 		})

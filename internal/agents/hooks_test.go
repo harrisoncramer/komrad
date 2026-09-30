@@ -865,8 +865,16 @@ func TestDeleteFiresPreDeleteThenPostDelete(t *testing.T) {
 	}, 5*time.Second, 10*time.Millisecond, "post-delete runs once the row is dropped")
 
 	assert.Equal(t, []ranHook{
-		{Event: workflowstore.HookPreDelete, Script: "say-goodbye", Cwd: agent.Cwd},
-		{Event: workflowstore.HookPostDelete, Script: "forget", Cwd: agent.Cwd},
+		{
+			Event:  workflowstore.HookPreDelete,
+			Script: "say-goodbye",
+			Cwd:    agent.Cwd,
+		},
+		{
+			Event:  workflowstore.HookPostDelete,
+			Script: "forget",
+			Cwd:    agent.Cwd,
+		},
 	}, lifecycle.ranHooks())
 
 	remaining, err := st.Agents.ListAll(ctx)

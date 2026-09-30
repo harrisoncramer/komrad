@@ -286,7 +286,11 @@ func TestIsRelease(t *testing.T) {
 		version string
 		want    bool
 	}{
-		{name: "a tagged release", version: "v1.4.0", want: true},
+		{
+			name:    "a tagged release",
+			version: "v1.4.0",
+			want:    true,
+		},
 		{name: "a dirty local build", version: "v0.0.0-local.e5bf761e3+dirty.204554"},
 		{name: "an engine stamp", version: "v0.0.0-engine.6da018b"},
 		{name: "a pseudo version", version: "v0.0.0-20260916203018-6da018be0403"},

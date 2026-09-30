@@ -161,7 +161,11 @@ func (s *testStore) agentService(options agentServiceOptions) *testAgents {
 		tx = s.Pool
 	}
 
-	launcher := NewLauncher(NewLauncherParams{Tmux: options.tmux, Addr: options.addr, Usage: options.usage})
+	launcher := NewLauncher(NewLauncherParams{
+		Tmux:  options.tmux,
+		Addr:  options.addr,
+		Usage: options.usage,
+	})
 	emptied := NewEmptyWorkflowDeleter(NewEmptyWorkflowDeleterParams{
 		Workflows: s.Workflows,
 		Agents:    s.Agents,

@@ -235,7 +235,11 @@ func (s tabStrip) view(state tabsState, palette paint.Palette, width int) string
 		labels = append(labels, s.groupLabel(state))
 	}
 
-	row := stops{labels: labels, focus: noStop, lit: noStop}
+	row := stops{
+		labels: labels,
+		focus:  noStop,
+		lit:    noStop,
+	}
 	if state.focused {
 		row.focus = s.focusIndex(state)
 	}

@@ -28,11 +28,31 @@ type viewEntry struct {
 
 func viewEntries() []viewEntry {
 	return []viewEntry{
-		{screen: screenAgents, label: "agents", keys: func(k config.ViewsKeys) []string { return k.Agents }},
-		{screen: screenSearch, label: "query", keys: func(k config.ViewsKeys) []string { return k.Query }},
-		{screen: screenSchedules, label: "schedules", keys: func(k config.ViewsKeys) []string { return k.Schedules }},
-		{screen: screenArchive, label: "archive", keys: func(k config.ViewsKeys) []string { return k.Archive }},
-		{screen: screenWorktrees, label: "worktrees", keys: func(k config.ViewsKeys) []string { return k.Worktrees }},
+		{
+			screen: screenAgents,
+			label:  "agents",
+			keys:   func(k config.ViewsKeys) []string { return k.Agents },
+		},
+		{
+			screen: screenSearch,
+			label:  "query",
+			keys:   func(k config.ViewsKeys) []string { return k.Query },
+		},
+		{
+			screen: screenSchedules,
+			label:  "schedules",
+			keys:   func(k config.ViewsKeys) []string { return k.Schedules },
+		},
+		{
+			screen: screenArchive,
+			label:  "archive",
+			keys:   func(k config.ViewsKeys) []string { return k.Archive },
+		},
+		{
+			screen: screenWorktrees,
+			label:  "worktrees",
+			keys:   func(k config.ViewsKeys) []string { return k.Worktrees },
+		},
 	}
 }
 

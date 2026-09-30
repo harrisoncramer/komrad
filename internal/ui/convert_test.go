@@ -28,6 +28,11 @@ func TestProtoToAgentCarriesTheSyncedColumns(t *testing.T) {
 	assert.True(t, converted.WorktreeRemoved)
 }
 
+// TestProtoToAgentCarriesAFailedTurn pins the text a turn an API error ended is drawn with.
+func TestProtoToAgentCarriesAFailedTurn(t *testing.T) {
+	assert.Equal(t, "Overloaded", agentFrom(&agentv1.Agent{Id: "a1", TurnError: "Overloaded"}).TurnError)
+}
+
 // TestProtoToAgentCarriesTheStateChange pins the timestamp the row's state is dated by.
 func TestProtoToAgentCarriesTheStateChange(t *testing.T) {
 	changed := time.Date(2026, time.September, 1, 9, 9, 0, 0, time.UTC)
@@ -103,6 +108,7 @@ func TestStateFromReadsEveryWireState(t *testing.T) {
 		agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE:  panel.StateFailedToCreate,
 		agentv1.AgentState_AGENT_STATE_FAILED_TO_CLEANUP: panel.StateFailedToCleanup,
 		agentv1.AgentState_AGENT_STATE_UNCERTAIN:         panel.StateUncertain,
+		agentv1.AgentState_AGENT_STATE_ERRORED:           panel.StateErrored,
 	}
 	assert.Len(t, states, len(agentv1.AgentState_name), "every wire state is answered for")
 	for wire, want := range states {

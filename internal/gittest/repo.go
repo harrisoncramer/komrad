@@ -181,8 +181,7 @@ type Repo struct {
 	// Mappings is where each line of one snapshot sits in another, keyed by the pair.
 	Mappings map[string][]position.Mapping
 	// Before runs ahead of every read, when set, with the read's name such as git.Diff.
-	Before func(ctx context.Context, name string)
-
+	Before        func(ctx context.Context, name string)
 	mu            sync.Mutex
 	countsAsked   []git.CountChangedFilesParams
 	mappingsAsked []git.MapRangesParams

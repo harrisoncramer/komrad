@@ -143,10 +143,22 @@ func TestLaunchCompactsAtTheRolesPoint(t *testing.T) {
 		role agentstore.Role
 		want int
 	}{
-		{name: "an implementer", role: agentstore.RoleImplementer, want: 250000},
+		{
+			name: "an implementer",
+			role: agentstore.RoleImplementer,
+			want: 250000,
+		},
 		{name: "an agent created without naming a role", want: 250000},
-		{name: "an orchestrator", role: agentstore.RoleOrchestrator, want: 150000},
-		{name: "a role the config leaves to the CLI", role: agentstore.RoleReviewer, want: 0},
+		{
+			name: "an orchestrator",
+			role: agentstore.RoleOrchestrator,
+			want: 150000,
+		},
+		{
+			name: "a role the config leaves to the CLI",
+			role: agentstore.RoleReviewer,
+			want: 0,
+		},
 	}
 
 	for _, tt := range tests {

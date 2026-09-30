@@ -29,7 +29,11 @@ func Prepare(snapshot Snapshot) List {
 		}
 	}
 
-	return List{Lines: lines, Columns: columns, Glyphs: snapshot.Glyphs}
+	return List{
+		Lines:   lines,
+		Columns: columns,
+		Glyphs:  snapshot.Glyphs,
+	}
 }
 
 // prepareLineParams is one row and what the list around it says about that row.

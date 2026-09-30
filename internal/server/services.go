@@ -247,6 +247,7 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 		PullRequests: st.pullRequests,
 		Syncs:        st.pullRequestSyncs,
 		Events:       queue,
+		Recheck:      wakers.pullRequestSync,
 	})
 	cwdSyncer := checkouts.NewCwdSyncer(checkouts.NewCwdSyncerParams{
 		Agents:       st.agents,
@@ -306,7 +307,11 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 			CwdSync:        wakers.cwdSync,
 			TranscriptSync: wakers.transcriptSync,
 		}),
-		documents:       documents.NewDocumentService(documents.NewDocumentServiceParams{Agents: st.agents, Documents: st.documents, Events: queue}),
+		documents: documents.NewDocumentService(documents.NewDocumentServiceParams{
+			Agents:    st.agents,
+			Documents: st.documents,
+			Events:    queue,
+		}),
 		rebase:          rebaseService,
 		cwdSync:         cwdSyncer,
 		transcriptSync:  transcriptSyncer,

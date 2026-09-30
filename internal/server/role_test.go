@@ -28,8 +28,18 @@ func TestRoleOf(t *testing.T) {
 	stores := storetest.Open(t)
 	roleOf := newRoleOf(stores.Agents)
 
-	reviewer := stores.SeedAgent(t, agentstore.Agent{ID: uuid.NewString(), Name: "reviewer", Cwd: "/repo", Role: agentstore.RoleReviewer})
-	archived := stores.SeedAgent(t, agentstore.Agent{ID: uuid.NewString(), Name: "archived", Cwd: "/repo", Role: agentstore.RoleOrchestrator})
+	reviewer := stores.SeedAgent(t, agentstore.Agent{
+		ID:   uuid.NewString(),
+		Name: "reviewer",
+		Cwd:  "/repo",
+		Role: agentstore.RoleReviewer,
+	})
+	archived := stores.SeedAgent(t, agentstore.Agent{
+		ID:   uuid.NewString(),
+		Name: "archived",
+		Cwd:  "/repo",
+		Role: agentstore.RoleOrchestrator,
+	})
 	_, err := stores.Agents.Archive(t.Context(), []string{archived.ID})
 	require.NoError(t, err)
 

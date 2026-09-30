@@ -257,7 +257,11 @@ func parseQualifier(tok token) (clause, bool) {
 	switch key {
 	case searchsyntax.KeyFrom, searchsyntax.KeyAgent, searchsyntax.KeyWorkflow, searchsyntax.KeyIs,
 		searchsyntax.KeySort, searchsyntax.KeySince, searchsyntax.KeyUntil, searchsyntax.KeyOn:
-		return clause{key: key, value: value, negated: tok.negated}, true
+		return clause{
+			key:     key,
+			value:   value,
+			negated: tok.negated,
+		}, true
 	}
 
 	return clause{}, false

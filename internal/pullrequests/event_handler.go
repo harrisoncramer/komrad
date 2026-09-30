@@ -66,7 +66,11 @@ func (*EventHandler) Handle(ctx context.Context, tx store.DBTX, mailer *mail.Mai
 			OnlyRewrite: !change.Opens(),
 		})
 		if errors.Is(err, mail.ErrMailboxFull) && change.Recipient == "" {
-			retry, err := events.NewEvent(Change{ID: change.ID, Moves: change.Moves, Recipient: recipient})
+			retry, err := events.NewEvent(Change{
+				ID:        change.ID,
+				Moves:     change.Moves,
+				Recipient: recipient,
+			})
 			if err != nil {
 				return nil, err
 			}

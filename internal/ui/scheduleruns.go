@@ -64,15 +64,37 @@ func describeRun(run panel.ScheduleRun) runOutcome {
 
 	switch run.State {
 	case schedulev1.ScheduleRunState_SCHEDULE_RUN_STATE_COMPLETED:
-		return runOutcome{word: "launched", tone: paint.ToneSuccess, detail: label.Count(run.Attempt, "attempt", "attempts")}
+		return runOutcome{
+			word:   "launched",
+			tone:   paint.ToneSuccess,
+			detail: label.Count(run.Attempt, "attempt", "attempts"),
+		}
 	case schedulev1.ScheduleRunState_SCHEDULE_RUN_STATE_CANCELLED:
-		return runOutcome{word: "skipped", tone: paint.ToneWarning, detail: message}
+		return runOutcome{
+			word:   "skipped",
+			tone:   paint.ToneWarning,
+			detail: message,
+		}
 	case schedulev1.ScheduleRunState_SCHEDULE_RUN_STATE_DISCARDED:
-		return runOutcome{word: "failed", tone: paint.ToneDanger, detail: tries + " attempts", below: message}
+		return runOutcome{
+			word:   "failed",
+			tone:   paint.ToneDanger,
+			detail: tries + " attempts",
+			below:  message,
+		}
 	case schedulev1.ScheduleRunState_SCHEDULE_RUN_STATE_RETRYABLE:
-		return runOutcome{word: "retrying", tone: paint.ToneWarning, detail: "attempt " + tries, below: message}
+		return runOutcome{
+			word:   "retrying",
+			tone:   paint.ToneWarning,
+			detail: "attempt " + tries,
+			below:  message,
+		}
 	case schedulev1.ScheduleRunState_SCHEDULE_RUN_STATE_RUNNING:
-		return runOutcome{word: "running", tone: paint.ToneAccent, detail: "attempt " + tries}
+		return runOutcome{
+			word:   "running",
+			tone:   paint.ToneAccent,
+			detail: "attempt " + tries,
+		}
 	case schedulev1.ScheduleRunState_SCHEDULE_RUN_STATE_UNSPECIFIED,
 		schedulev1.ScheduleRunState_SCHEDULE_RUN_STATE_AVAILABLE,
 		schedulev1.ScheduleRunState_SCHEDULE_RUN_STATE_PENDING,

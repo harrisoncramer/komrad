@@ -838,7 +838,7 @@
               "path": "keybindings.schedules.toggle",
               "type": "array",
               "description": "Pause or resume the schedule under the cursor.",
-              "default": "[\"space\"]"
+              "default": "[\"p\"]"
             }
           ],
           "sections": []
@@ -900,7 +900,7 @@
               "key": "open",
               "path": "keybindings.menu.open",
               "type": "array",
-              "description": "Open the menu on the hovered agent, or its orchestrator's on a workflow's row.",
+              "description": "Open the menu from any screen: the hovered agent's entries, or its orchestrator's on a\nworkflow's row, over the entries that act on the panel itself.",
               "default": "[\"space\"]"
             },
             {
@@ -937,6 +937,13 @@
               "type": "array",
               "description": "Open the git menu to the right of this one, for rebasing the agent's branch or opening or\nmerging its pull request.",
               "default": "[\"g\"]"
+            },
+            {
+              "key": "scratch",
+              "path": "keybindings.menu.scratch",
+              "type": "array",
+              "description": "Open this engine's scratch file in your editor in place of the pane beside the list, or\nclose it when it is already open. Each engine keeps its own file under komrad's state\ndirectory.",
+              "default": "[\"s\"]"
             }
           ],
           "sections": []

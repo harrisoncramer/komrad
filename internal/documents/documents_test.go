@@ -101,8 +101,12 @@ func TestWrite(t *testing.T) {
 			wantErr: documents.ErrNoBody,
 		},
 		{
-			name:    "an agent that does not exist is not found",
-			params:  documents.WriteDocumentParams{AgentID: uuid.NewString(), Name: "orphan", Body: "# Orphan"},
+			name: "an agent that does not exist is not found",
+			params: documents.WriteDocumentParams{
+				AgentID: uuid.NewString(),
+				Name:    "orphan",
+				Body:    "# Orphan",
+			},
 			wantErr: store.ErrNotFound,
 		},
 	}
@@ -137,7 +141,12 @@ func TestWriteWithAnIDRewritesThatDocument(t *testing.T) {
 	service := newService(stores, eventstest.NewQueue(t, stores, documents.NewEventHandler()))
 	ctx := t.Context()
 
-	draft, err := service.WriteDocument(ctx, documents.WriteDocumentParams{AgentID: author.ID, Name: "Documents", Kind: documentstore.KindRFC, Body: "draft"})
+	draft, err := service.WriteDocument(ctx, documents.WriteDocumentParams{
+		AgentID: author.ID,
+		Name:    "Documents",
+		Kind:    documentstore.KindRFC,
+		Body:    "draft",
+	})
 	require.NoError(t, err)
 
 	revised, err := service.WriteDocument(ctx, documents.WriteDocumentParams{
@@ -165,7 +174,12 @@ func TestReadAnEarlierWrite(t *testing.T) {
 	service := newService(stores, eventstest.NewQueue(t, stores, documents.NewEventHandler()))
 	ctx := t.Context()
 
-	draft, err := service.WriteDocument(ctx, documents.WriteDocumentParams{AgentID: author.ID, Name: "Draft", Kind: documentstore.KindNotes, Body: "draft"})
+	draft, err := service.WriteDocument(ctx, documents.WriteDocumentParams{
+		AgentID: author.ID,
+		Name:    "Draft",
+		Kind:    documentstore.KindNotes,
+		Body:    "draft",
+	})
 	require.NoError(t, err)
 	_, err = service.WriteDocument(ctx, documents.WriteDocumentParams{
 		AgentID: author.ID,
@@ -205,7 +219,12 @@ func TestWriteByAPerson(t *testing.T) {
 	service := newService(stores, eventstest.NewQueue(t, stores, documents.NewEventHandler()))
 	ctx := t.Context()
 
-	draft, err := service.WriteDocument(ctx, documents.WriteDocumentParams{AgentID: author.ID, Name: "Documents", Kind: documentstore.KindRFC, Body: "draft"})
+	draft, err := service.WriteDocument(ctx, documents.WriteDocumentParams{
+		AgentID: author.ID,
+		Name:    "Documents",
+		Kind:    documentstore.KindRFC,
+		Body:    "draft",
+	})
 	require.NoError(t, err)
 
 	tests := []struct {
@@ -216,44 +235,87 @@ func TestWriteByAPerson(t *testing.T) {
 		wantOwner string
 	}{
 		{
-			name:     "an id rewrites that document",
-			params:   documents.WriteDocumentParams{ID: xptr.Ptr(draft.ID), Version: xptr.Ptr(draft.Version), Name: "Documents", Kind: documentstore.KindRFC, Body: "edited"},
+			name: "an id rewrites that document",
+			params: documents.WriteDocumentParams{
+				ID:      xptr.Ptr(draft.ID),
+				Version: xptr.Ptr(draft.Version),
+				Name:    "Documents",
+				Kind:    documentstore.KindRFC,
+				Body:    "edited",
+			},
 			wantBody: "edited",
 		},
 		{
-			name:    "a rewrite naming no version is refused",
-			params:  documents.WriteDocumentParams{ID: xptr.Ptr(draft.ID), Name: "Documents", Kind: documentstore.KindRFC, Body: "blind"},
+			name: "a rewrite naming no version is refused",
+			params: documents.WriteDocumentParams{
+				ID:   xptr.Ptr(draft.ID),
+				Name: "Documents",
+				Kind: documentstore.KindRFC,
+				Body: "blind",
+			},
 			wantErr: documents.ErrNoVersion,
 		},
 		{
-			name:    "an id naming an agent other than its owner is refused",
-			params:  documents.WriteDocumentParams{ID: xptr.Ptr(draft.ID), Version: xptr.Ptr(draft.Version), For: other.ID, Name: "Documents", Kind: documentstore.KindRFC, Body: "moved"},
+			name: "an id naming an agent other than its owner is refused",
+			params: documents.WriteDocumentParams{
+				ID:      xptr.Ptr(draft.ID),
+				Version: xptr.Ptr(draft.Version),
+				For:     other.ID,
+				Name:    "Documents",
+				Kind:    documentstore.KindRFC,
+				Body:    "moved",
+			},
 			wantErr: documents.ErrForAnother,
 		},
 		{
-			name:    "no id and no agent it is for is refused",
-			params:  documents.WriteDocumentParams{Name: "Fresh", Kind: documentstore.KindRFC, Body: "new"},
+			name: "no id and no agent it is for is refused",
+			params: documents.WriteDocumentParams{
+				Name: "Fresh",
+				Kind: documentstore.KindRFC,
+				Body: "new",
+			},
 			wantErr: documents.ErrNoAuthor,
 		},
 		{
-			name:     "no id creates a document for the agent it is for",
-			params:   documents.WriteDocumentParams{For: author.ID, Name: "Fresh", Kind: documentstore.KindRFC, Body: "Empty RFC."},
+			name: "no id creates a document for the agent it is for",
+			params: documents.WriteDocumentParams{
+				For:  author.ID,
+				Name: "Fresh",
+				Kind: documentstore.KindRFC,
+				Body: "Empty RFC.",
+			},
 			wantBody: "Empty RFC.",
 		},
 		{
-			name:      "no id creates a document owned by the agent it is for",
-			params:    documents.WriteDocumentParams{For: other.ID, Name: "Report", Kind: documentstore.KindReport, Body: "Report."},
+			name: "no id creates a document owned by the agent it is for",
+			params: documents.WriteDocumentParams{
+				For:  other.ID,
+				Name: "Report",
+				Kind: documentstore.KindReport,
+				Body: "Report.",
+			},
 			wantBody:  "Report.",
 			wantOwner: other.ID,
 		},
 		{
-			name:    "an agent it is for that does not exist is not found",
-			params:  documents.WriteDocumentParams{For: uuid.NewString(), Name: "Stray", Kind: documentstore.KindRFC, Body: "stray"},
+			name: "an agent it is for that does not exist is not found",
+			params: documents.WriteDocumentParams{
+				For:  uuid.NewString(),
+				Name: "Stray",
+				Kind: documentstore.KindRFC,
+				Body: "stray",
+			},
 			wantErr: store.ErrNotFound,
 		},
 		{
-			name:    "an id no document holds is not found",
-			params:  documents.WriteDocumentParams{ID: xptr.Ptr(uuid.NewString()), Version: xptr.Ptr(int32(1)), Name: "Lost", Kind: documentstore.KindRFC, Body: "lost"},
+			name: "an id no document holds is not found",
+			params: documents.WriteDocumentParams{
+				ID:      xptr.Ptr(uuid.NewString()),
+				Version: xptr.Ptr(int32(1)),
+				Name:    "Lost",
+				Kind:    documentstore.KindRFC,
+				Body:    "lost",
+			},
 			wantErr: store.ErrNotFound,
 		},
 	}

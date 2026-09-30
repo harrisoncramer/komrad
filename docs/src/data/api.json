@@ -1933,6 +1933,16 @@
           "description": "Why its create or cleanup last failed, empty when neither has."
         },
         {
+          "name": "turn_error",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "What its CLI printed when an API error ended its last turn, empty when that turn did not fail."
+        },
+        {
           "name": "role",
           "type": "AgentRole",
           "ref": "agent.v1.AgentRole",
@@ -6671,7 +6681,17 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Where the forge says it stands against its base and rules."
+          "description": "Where the forge says it stands against its base and rules. While the forge is working it out again, this is the last answer it gave for the same head."
+        },
+        {
+          "name": "mergeability_unconfirmed",
+          "type": "bool",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "True when mergeability is the last answer for this head rather than the latest read."
         }
       ]
     },
@@ -8582,6 +8602,10 @@
         {
           "name": "AGENT_STATE_UNCERTAIN",
           "description": "The pane could be read but its tail decided nothing."
+        },
+        {
+          "name": "AGENT_STATE_ERRORED",
+          "description": "The pane is at rest after an API error ended the last turn, and turn_error says which."
         }
       ]
     },

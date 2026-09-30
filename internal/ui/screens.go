@@ -219,6 +219,7 @@ type host interface {
 	// The review and the documents put an editor on the stage.
 	stageEditor(content layout.Content) string
 	unstageEditor()
+	isScratchOpen() bool
 	isPaneAlive(pane string) bool
 
 	// The pane on the stage is the agents cursor's, and only the agents screen stages it and
@@ -319,8 +320,7 @@ type panelShared struct {
 	chrome chromeState
 
 	// inspections is what the service has answered for each worktree directory.
-	inspections map[string]worktreeInspection
-
+	inspections  map[string]worktreeInspection
 	conversation conversationPreview
 
 	// editor is the command a file is opened in.

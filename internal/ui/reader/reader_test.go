@@ -21,11 +21,53 @@ func TestWindowSpan(t *testing.T) {
 		wantFirst int
 		wantEnd   int
 	}{
-		{name: "a document shorter than the window is drawn whole", window: reader.Window{Len: 3, Top: 2, Markers: true}, height: 5, wantFirst: 0, wantEnd: 3},
-		{name: "the top of a long document leaves a row for the marker under it", window: reader.Window{Len: 20, Markers: true}, height: 5, wantFirst: 0, wantEnd: 4},
-		{name: "the middle leaves a row for a marker either side", window: reader.Window{Len: 20, Top: 6, Markers: true}, height: 5, wantFirst: 6, wantEnd: 9},
-		{name: "the bottom leaves a row for the marker over it", window: reader.Window{Len: 20, Top: 99, Markers: true}, height: 5, wantFirst: 16, wantEnd: 20},
-		{name: "without markers every row is text", window: reader.Window{Len: 20, Top: 6}, height: 5, wantFirst: 6, wantEnd: 11},
+		{
+			name: "a document shorter than the window is drawn whole",
+			window: reader.Window{
+				Len:     3,
+				Top:     2,
+				Markers: true,
+			},
+			height:    5,
+			wantFirst: 0,
+			wantEnd:   3,
+		},
+		{
+			name:      "the top of a long document leaves a row for the marker under it",
+			window:    reader.Window{Len: 20, Markers: true},
+			height:    5,
+			wantFirst: 0,
+			wantEnd:   4,
+		},
+		{
+			name: "the middle leaves a row for a marker either side",
+			window: reader.Window{
+				Len:     20,
+				Top:     6,
+				Markers: true,
+			},
+			height:    5,
+			wantFirst: 6,
+			wantEnd:   9,
+		},
+		{
+			name: "the bottom leaves a row for the marker over it",
+			window: reader.Window{
+				Len:     20,
+				Top:     99,
+				Markers: true,
+			},
+			height:    5,
+			wantFirst: 16,
+			wantEnd:   20,
+		},
+		{
+			name:      "without markers every row is text",
+			window:    reader.Window{Len: 20, Top: 6},
+			height:    5,
+			wantFirst: 6,
+			wantEnd:   11,
+		},
 	}
 
 	for _, tt := range tests {
@@ -50,11 +92,49 @@ func TestWindowReveal(t *testing.T) {
 		height int
 		want   int
 	}{
-		{name: "a row already drawn leaves the window alone", window: reader.Window{Len: 20, Top: 6, Markers: true}, row: 7, height: 5, want: 6},
-		{name: "a row above brings the window up to it", window: reader.Window{Len: 20, Top: 6, Markers: true}, row: 2, height: 5, want: 2},
-		{name: "a row below brings the window down just far enough", window: reader.Window{Len: 20, Markers: true}, row: 10, height: 5, want: 8},
-		{name: "the last row lands the window on the bottom", window: reader.Window{Len: 20, Markers: true}, row: 19, height: 5, want: 16},
-		{name: "a window too short to draw any text still settles on the row", window: reader.Window{Len: 20, Markers: true}, row: 10, height: 1, want: 10},
+		{
+			name: "a row already drawn leaves the window alone",
+			window: reader.Window{
+				Len:     20,
+				Top:     6,
+				Markers: true,
+			},
+			row:    7,
+			height: 5,
+			want:   6,
+		},
+		{
+			name: "a row above brings the window up to it",
+			window: reader.Window{
+				Len:     20,
+				Top:     6,
+				Markers: true,
+			},
+			row:    2,
+			height: 5,
+			want:   2,
+		},
+		{
+			name:   "a row below brings the window down just far enough",
+			window: reader.Window{Len: 20, Markers: true},
+			row:    10,
+			height: 5,
+			want:   8,
+		},
+		{
+			name:   "the last row lands the window on the bottom",
+			window: reader.Window{Len: 20, Markers: true},
+			row:    19,
+			height: 5,
+			want:   16,
+		},
+		{
+			name:   "a window too short to draw any text still settles on the row",
+			window: reader.Window{Len: 20, Markers: true},
+			row:    10,
+			height: 1,
+			want:   10,
+		},
 	}
 
 	for _, tt := range tests {
@@ -150,11 +230,44 @@ func TestJump(t *testing.T) {
 		want      int
 		wantFound bool
 	}{
-		{name: "forward lands on the next match", found: found, from: 2, direction: 1, want: 5, wantFound: true},
-		{name: "forward past the last wraps to the first", found: found, from: 9, direction: 1, want: 2, wantFound: true},
-		{name: "backward lands on the previous match", found: found, from: 5, direction: -1, want: 2, wantFound: true},
-		{name: "backward before the first wraps to the last", found: found, from: 1, direction: -1, want: 9, wantFound: true},
-		{name: "nothing found stays put", from: 4, direction: 1, want: 4},
+		{
+			name:      "forward lands on the next match",
+			found:     found,
+			from:      2,
+			direction: 1,
+			want:      5,
+			wantFound: true,
+		},
+		{
+			name:      "forward past the last wraps to the first",
+			found:     found,
+			from:      9,
+			direction: 1,
+			want:      2,
+			wantFound: true,
+		},
+		{
+			name:      "backward lands on the previous match",
+			found:     found,
+			from:      5,
+			direction: -1,
+			want:      2,
+			wantFound: true,
+		},
+		{
+			name:      "backward before the first wraps to the last",
+			found:     found,
+			from:      1,
+			direction: -1,
+			want:      9,
+			wantFound: true,
+		},
+		{
+			name:      "nothing found stays put",
+			from:      4,
+			direction: 1,
+			want:      4,
+		},
 	}
 
 	for _, tt := range tests {
@@ -180,10 +293,32 @@ func TestFrom(t *testing.T) {
 		want      int
 		wantFound bool
 	}{
-		{name: "a match on the row itself is taken", found: found, from: 5, want: 5, wantFound: true},
-		{name: "the next match after the row is taken", found: found, from: 6, want: 9, wantFound: true},
-		{name: "past the last wraps to the first", found: found, from: 10, want: 2, wantFound: true},
-		{name: "nothing found stays put", from: 3, want: 3},
+		{
+			name:      "a match on the row itself is taken",
+			found:     found,
+			from:      5,
+			want:      5,
+			wantFound: true,
+		},
+		{
+			name:      "the next match after the row is taken",
+			found:     found,
+			from:      6,
+			want:      9,
+			wantFound: true,
+		},
+		{
+			name:      "past the last wraps to the first",
+			found:     found,
+			from:      10,
+			want:      2,
+			wantFound: true,
+		},
+		{
+			name: "nothing found stays put",
+			from: 3,
+			want: 3,
+		},
 	}
 
 	for _, tt := range tests {

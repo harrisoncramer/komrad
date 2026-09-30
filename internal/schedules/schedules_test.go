@@ -430,11 +430,19 @@ func TestOrchestratorSchedule(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			st := storetest.Open(t)
 			ctx := t.Context()
-			svc := NewScheduleService(NewScheduleServiceParams{Schedules: st.Schedules, Workflows: st.Workflows, Agents: st.Agents})
+			svc := NewScheduleService(NewScheduleServiceParams{
+				Schedules: st.Schedules,
+				Workflows: st.Workflows,
+				Agents:    st.Agents,
+			})
 
 			home := st.SeedWorkflow(t, workflowstore.Config{Name: "home"}).ID
 			elsewhere := st.SeedWorkflow(t, workflowstore.Config{Name: "elsewhere"}).ID
-			agent := st.SeedAgent(t, agentstore.Agent{Name: "lead", Role: tt.role, WorkflowID: home})
+			agent := st.SeedAgent(t, agentstore.Agent{
+				Name:       "lead",
+				Role:       tt.role,
+				WorkflowID: home,
+			})
 			if tt.archived {
 				_, err := st.Agents.Archive(ctx, []string{agent.ID})
 				require.NoError(t, err)
@@ -465,7 +473,11 @@ func TestOrchestratorSchedule(t *testing.T) {
 					assert.Contains(t, err.Error(), tt.wantSaying)
 				}
 
-				existing := st.SeedSchedule(t, schedulestore.Config{Name: "existing", Cron: "0 9 * * *", Prompt: "go"})
+				existing := st.SeedSchedule(t, schedulestore.Config{
+					Name:   "existing",
+					Cron:   "0 9 * * *",
+					Prompt: "go",
+				})
 				require.ErrorIs(t, svc.UpdateSchedule(ctx, existing.ID, cfg), tt.wantErr, "nor is one turned into it")
 
 				return
@@ -537,7 +549,11 @@ func TestRestoreSchedule(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			st := storetest.Open(t)
 			ctx := t.Context()
-			svc := NewScheduleService(NewScheduleServiceParams{Schedules: st.Schedules, Workflows: st.Workflows, Agents: st.Agents})
+			svc := NewScheduleService(NewScheduleServiceParams{
+				Schedules: st.Schedules,
+				Workflows: st.Workflows,
+				Agents:    st.Agents,
+			})
 
 			workflow := st.SeedWorkflow(t, workflowstore.Config{Name: "backend"}).ID
 			cfg := schedulestore.Config{
@@ -548,7 +564,11 @@ func TestRestoreSchedule(t *testing.T) {
 			}
 			var lead *agentstore.Agent
 			if tt.orchestrator {
-				lead = st.SeedAgent(t, agentstore.Agent{Name: "lead", Role: agentstore.RoleOrchestrator, WorkflowID: workflow})
+				lead = st.SeedAgent(t, agentstore.Agent{
+					Name:       "lead",
+					Role:       agentstore.RoleOrchestrator,
+					WorkflowID: workflow,
+				})
 				cfg.Kind = schedulestore.KindOrchestrator
 				cfg.OrchestratorAgentID = &lead.ID
 			}
@@ -603,7 +623,11 @@ func TestDeleteSchedule(t *testing.T) {
 			ctx := t.Context()
 			svc := NewScheduleService(NewScheduleServiceParams{Schedules: st.Schedules, Workflows: st.Workflows})
 
-			created := st.SeedSchedule(t, schedulestore.Config{Name: "nightly", Cron: "0 9 * * *", Prompt: "go"})
+			created := st.SeedSchedule(t, schedulestore.Config{
+				Name:   "nightly",
+				Cron:   "0 9 * * *",
+				Prompt: "go",
+			})
 			if !tt.live {
 				require.NoError(t, svc.ArchiveSchedule(ctx, created.ID))
 			}

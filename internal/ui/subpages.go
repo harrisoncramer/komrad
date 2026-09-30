@@ -27,13 +27,13 @@ var (
 	errTerminalHere     = errors.New("a terminal opens from the agents list")
 )
 
-// openAgentSubpages draws an agent's menu beside the list it was opened over.
-func openAgentSubpages(h host, s panelShared, from screen, item panel.AgentRow) tea.Cmd {
+// agentMenu is the band of the menu that acts on an agent.
+func agentMenu(s panelShared, from screen, item panel.AgentRow) submenu {
 	agent := item.Agent
 	agentID := agent.ID
 	pages := agentSubpages(agent)
 
-	return openSubmenu(h, submenu{
+	return submenu{
 		kind:  formMenu,
 		title: s.listing.agentName(agent),
 		crumb: s.listing.agentName(agent),
@@ -44,7 +44,7 @@ func openAgentSubpages(h host, s panelShared, from screen, item panel.AgentRow) 
 		answer: func(m model, choice int) (tea.Model, tea.Cmd) {
 			return m.enterSubpage(from, agentID, pages[choice])
 		},
-	})
+	}
 }
 
 // agentSubpages is the subpages an agent has, less an orchestrator's work and writing.
@@ -60,13 +60,25 @@ func agentSubpages(agent panel.Agent) []subpage {
 func subpageEntry(s panelShared, from screen, item panel.AgentRow, page subpage) submenuEntry {
 	switch page {
 	case subpageReview:
-		return submenuEntry{label: "review", keys: s.keys.Menu.Review, isOff: reviewRefusal(from, item.Agent) != nil}
+		return submenuEntry{
+			label: "review",
+			keys:  s.keys.Menu.Review,
+			isOff: reviewRefusal(from, item.Agent) != nil,
+		}
 	case subpageDocuments:
-		return submenuEntry{label: "documents", keys: s.keys.Menu.Documents, isOff: item.Documents == 0}
+		return submenuEntry{
+			label: "documents",
+			keys:  s.keys.Menu.Documents,
+			isOff: item.Documents == 0,
+		}
 	case subpageLogs:
 		return submenuEntry{label: "logs", keys: s.keys.Menu.Logs}
 	case subpageTerminal:
-		return submenuEntry{label: "terminal", keys: s.keys.Menu.Terminal, isOff: terminalRefusal(from, item.Agent) != nil}
+		return submenuEntry{
+			label: "terminal",
+			keys:  s.keys.Menu.Terminal,
+			isOff: terminalRefusal(from, item.Agent) != nil,
+		}
 	}
 
 	return submenuEntry{}

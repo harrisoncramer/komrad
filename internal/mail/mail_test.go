@@ -442,8 +442,12 @@ func TestSendFromKomradRefusesIncompleteMail(t *testing.T) {
 		wantErr error
 	}{
 		{
-			name:    "a plain kind",
-			params:  SendFromKomradParams{Body: "hello", Kind: mailstore.KindPlain, SubjectID: uuid.NewString()},
+			name: "a plain kind",
+			params: SendFromKomradParams{
+				Body:      "hello",
+				Kind:      mailstore.KindPlain,
+				SubjectID: uuid.NewString(),
+			},
 			wantErr: ErrKindMissing,
 		},
 		{

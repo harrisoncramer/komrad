@@ -1430,9 +1430,25 @@ func TestIntegrationBuiltinKomradCheckoutTeardown(t *testing.T) {
 		wantFreed   bool
 		wantCompose bool
 	}{
-		{name: "a komrad checkout gives back its instance and stack", checkout: true, dirName: "agent-a", wantFreed: true, wantCompose: true},
-		{name: "a komrad checkout with docker down still gives back its instance", checkout: true, dirName: "agent-a", dockerDown: true, wantFreed: true},
-		{name: "a komrad checkout not named after its agent is left alone", checkout: true, dirName: "komrad"},
+		{
+			name:        "a komrad checkout gives back its instance and stack",
+			checkout:    true,
+			dirName:     "agent-a",
+			wantFreed:   true,
+			wantCompose: true,
+		},
+		{
+			name:       "a komrad checkout with docker down still gives back its instance",
+			checkout:   true,
+			dirName:    "agent-a",
+			dockerDown: true,
+			wantFreed:  true,
+		},
+		{
+			name:     "a komrad checkout not named after its agent is left alone",
+			checkout: true,
+			dirName:  "komrad",
+		},
 		{name: "any other checkout is left alone", dirName: "agent-a"},
 	}
 
@@ -1496,8 +1512,17 @@ func TestIntegrationBuiltinKomradCheckoutArchive(t *testing.T) {
 		dirName    string
 		wantShrunk bool
 	}{
-		{name: "a komrad checkout gives back its instance and drops what it rebuilds", checkout: true, dirName: "agent-a", wantShrunk: true},
-		{name: "a komrad checkout not named after its agent is left alone", checkout: true, dirName: "komrad"},
+		{
+			name:       "a komrad checkout gives back its instance and drops what it rebuilds",
+			checkout:   true,
+			dirName:    "agent-a",
+			wantShrunk: true,
+		},
+		{
+			name:     "a komrad checkout not named after its agent is left alone",
+			checkout: true,
+			dirName:  "komrad",
+		},
 		{name: "any other checkout is left alone", dirName: "agent-a"},
 	}
 

@@ -4,33 +4,37 @@ import (
 	"komrad/internal/forge"
 	pullrequeststore "komrad/internal/store/pullrequest"
 	"komrad/lib/dates"
+	"komrad/lib/xptr"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 )
 
 // PullRequest draws one stored pull request as the wire carries it.
 func PullRequest(stored pullrequeststore.PullRequest) *pullrequestv1.PullRequest {
+	mergeability, unconfirmed := drawnMergeability(stored)
+
 	return &pullrequestv1.PullRequest{
-		Id:                stored.ID,
-		Forge:             stored.Forge,
-		ProviderId:        stored.ProviderID,
-		Url:               stored.URL,
-		RepositoryUrl:     stored.RepositoryURL,
-		HeadRepositoryUrl: stored.HeadRepositoryURL,
-		Number:            int32(stored.Number),
-		Title:             stored.Title,
-		HeadBranch:        stored.HeadBranch,
-		HeadSha:           stored.HeadSHA,
-		BaseBranch:        stored.BaseBranch,
-		BaseSha:           stored.BaseSHA,
-		Draft:             stored.Draft,
-		State:             PullRequestStateOf(stored),
-		OpenedAt:          dates.Stamp(stored.OpenedAt),
-		ChangedAt:         dates.Stamp(stored.ChangedAt),
-		MergedAt:          dates.StampPtr(stored.MergedAt),
-		ClosedAt:          dates.StampPtr(stored.ClosedAt),
-		ReviewDecision:    ReviewDecisionOf(stored.ReviewDecision),
-		Checks:            ChecksOf(stored.Checks),
-		Mergeability:      MergeabilityOf(stored.Mergeability),
+		Id:                      stored.ID,
+		Forge:                   stored.Forge,
+		ProviderId:              stored.ProviderID,
+		Url:                     stored.URL,
+		RepositoryUrl:           stored.RepositoryURL,
+		HeadRepositoryUrl:       stored.HeadRepositoryURL,
+		Number:                  int32(stored.Number),
+		Title:                   stored.Title,
+		HeadBranch:              stored.HeadBranch,
+		HeadSha:                 stored.HeadSHA,
+		BaseBranch:              stored.BaseBranch,
+		BaseSha:                 stored.BaseSHA,
+		Draft:                   stored.Draft,
+		State:                   PullRequestStateOf(stored),
+		OpenedAt:                dates.Stamp(stored.OpenedAt),
+		ChangedAt:               dates.Stamp(stored.ChangedAt),
+		MergedAt:                dates.StampPtr(stored.MergedAt),
+		ClosedAt:                dates.StampPtr(stored.ClosedAt),
+		ReviewDecision:          ReviewDecisionOf(stored.ReviewDecision),
+		Checks:                  ChecksOf(stored.Checks),
+		Mergeability:            MergeabilityOf(mergeability),
+		MergeabilityUnconfirmed: unconfirmed,
 	}
 }
 
@@ -43,6 +47,7 @@ func PullRequestStateOf(pullRequest pullrequeststore.PullRequest) pullrequestv1.
 	if pullRequest.Checks != nil {
 		checks = *pullRequest.Checks
 	}
+	mergeability, _ := drawnMergeability(pullRequest)
 
 	switch {
 	case pullRequest.MergedAt != nil:
@@ -53,7 +58,7 @@ func PullRequestStateOf(pullRequest pullrequeststore.PullRequest) pullrequestv1.
 		return pullrequestv1.PullRequestState_PULL_REQUEST_STATE_DRAFT
 	case checks == forge.ChecksFailing:
 		return pullrequestv1.PullRequestState_PULL_REQUEST_STATE_FAILING
-	case pullRequest.Mergeability != nil && *pullRequest.Mergeability == forge.MergeabilityConflicting:
+	case mergeability != nil && *mergeability == forge.MergeabilityConflicting:
 		return pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CONFLICTING
 	}
 
@@ -67,7 +72,7 @@ func PullRequestStateOf(pullRequest pullrequeststore.PullRequest) pullrequestv1.
 		return pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHANGES_REQUESTED
 	case checks == forge.ChecksPending:
 		return pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHECKS_RUNNING
-	case pullRequest.Mergeability != nil && *pullRequest.Mergeability == forge.MergeabilityClean:
+	case mergeability != nil && *mergeability == forge.MergeabilityClean:
 		return pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED
 	case decision == forge.ReviewDecisionApproved:
 		return pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED_WAITING
@@ -146,4 +151,18 @@ func Repository(sync pullrequeststore.Sync) *pullrequestv1.Repository {
 		Url:  sync.RepositoryURL,
 		Read: sync.IsSwept(),
 	}
+}
+
+// drawnMergeability is the mergeability a pull request is drawn with and whether it is
+// unconfirmed: the latest read, or while the forge is working it out again the last answer it
+// gave for the same head.
+func drawnMergeability(pullRequest pullrequeststore.PullRequest) (*forge.Mergeability, bool) {
+	if pullRequest.Mergeability != nil {
+		return pullRequest.Mergeability, false
+	}
+	if pullRequest.LastKnownMergeability == "" || pullRequest.LastKnownMergeabilitySHA != pullRequest.HeadSHA {
+		return nil, false
+	}
+
+	return xptr.Ptr(forge.Mergeability(pullRequest.LastKnownMergeability)), true
 }

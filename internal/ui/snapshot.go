@@ -147,7 +147,7 @@ func snapshotStatus(item panel.AgentRow) view.Status {
 		return view.StatusThinking
 	case panel.StateWaiting, panel.StateUncertain:
 		return view.StatusWaiting
-	case panel.StateFailedToCreate, panel.StateFailedToCleanup:
+	case panel.StateFailedToCreate, panel.StateFailedToCleanup, panel.StateErrored:
 		return view.StatusBroken
 	case panel.StateIdle:
 		return view.StatusIdle
@@ -183,7 +183,7 @@ func isHeldWorking(item panel.AgentRow) bool {
 	switch item.Agent.State {
 	case panel.StateThinking, panel.StateWaiting:
 		return true
-	case panel.StateIdle, panel.StateUncertain, panel.StateSettingUp,
+	case panel.StateIdle, panel.StateErrored, panel.StateUncertain, panel.StateSettingUp,
 		panel.StateFailedToCreate, panel.StateFailedToCleanup:
 		return false
 	}

@@ -24,7 +24,11 @@ type Session struct {
 // NewSession builds the named tmux session the panel runs in over a tmux client, binding the
 // cycle keys, spelled as tmux spells them, while a pane beside the sidebar is a stop.
 func NewSession(tmux sessionTmux, session string, cycleKeys []string) *Session {
-	return &Session{tmux: tmux, session: session, cycleKeys: cycleKeys}
+	return &Session{
+		tmux:      tmux,
+		session:   session,
+		cycleKeys: cycleKeys,
+	}
 }
 
 // HoldCycleKeys takes the cycle keys for sidebar while a pane beside it is a stop, or gives them

@@ -28,8 +28,16 @@ type logReads map[string]*logv1.ReadAgentLogsResponse
 
 var (
 	serviceSource   = &logv1.LogSource{Id: "service", Name: "service"}
-	provisionSource = &logv1.LogSource{Id: provisionRun, Name: "001 provision setup", Run: xptr.Ptr[int32](1)}
-	launchSource    = &logv1.LogSource{Id: "002-pre-launch-setup.log", Name: "002 pre-launch setup", Run: xptr.Ptr[int32](2)}
+	provisionSource = &logv1.LogSource{
+		Id:   provisionRun,
+		Name: "001 provision setup",
+		Run:  xptr.Ptr[int32](1),
+	}
+	launchSource = &logv1.LogSource{
+		Id:   "002-pre-launch-setup.log",
+		Name: "002 pre-launch setup",
+		Run:  xptr.Ptr[int32](2),
+	}
 )
 
 // answerSources lists the sources given for every agent.
@@ -81,7 +89,12 @@ func openLogs(t *testing.T, reads logReads, rows ...proto.Message) *panelHarness
 }
 
 func logRead(source, cursor string) *logv1.ReadAgentLogsRequest {
-	return &logv1.ReadAgentLogsRequest{AgentIds: []string{"author"}, Source: source, Cursor: cursor, Limit: 500}
+	return &logv1.ReadAgentLogsRequest{
+		AgentIds: []string{"author"},
+		Source:   source,
+		Cursor:   cursor,
+		Limit:    500,
+	}
 }
 
 func serviceReadMatching(pattern, cursor string) *logv1.ReadAgentLogsRequest {
@@ -356,8 +369,12 @@ func TestLogsTail(t *testing.T) {
 		t.Parallel()
 
 		harness := openLogs(t, logReads{
-			"service@":   {Lines: []string{`{"body":"first line"}`}, Cursor: "10"},
-			"service@10": {Lines: []string{`{"body":"fresh line"}`}, Cursor: "4", Reset_: true},
+			"service@": {Lines: []string{`{"body":"first line"}`}, Cursor: "10"},
+			"service@10": {
+				Lines:  []string{`{"body":"fresh line"}`},
+				Cursor: "4",
+				Reset_: true,
+			},
 		})
 		harness.fireTimers()
 
@@ -370,7 +387,11 @@ func TestLogsTail(t *testing.T) {
 		t.Parallel()
 
 		harness := openLogs(t, logReads{
-			"service@":   {Lines: []string{`{"body":"first line"}`}, Cursor: "10", More: true},
+			"service@": {
+				Lines:  []string{`{"body":"first line"}`},
+				Cursor: "10",
+				More:   true,
+			},
 			"service@10": {Lines: []string{`{"body":"second line"}`}, Cursor: "20"},
 		})
 
@@ -387,7 +408,11 @@ func TestLogsTail(t *testing.T) {
 		harness.answer(read, func(req connect.AnyRequest) (connect.AnyResponse, error) {
 			sent, _ := req.Any().(*logv1.ReadAgentLogsRequest)
 			if slices.Contains(sent.GetAgentIds(), "author") {
-				return connect.NewResponse(&logv1.ReadAgentLogsResponse{Lines: []string{`{"body":"first line"}`}, Cursor: "10", More: true}), nil
+				return connect.NewResponse(&logv1.ReadAgentLogsResponse{
+					Lines:  []string{`{"body":"first line"}`},
+					Cursor: "10",
+					More:   true,
+				}), nil
 			}
 
 			return connect.NewResponse(&logv1.ReadAgentLogsResponse{Cursor: "30"}), nil
@@ -401,7 +426,11 @@ func TestLogsTail(t *testing.T) {
 		harness.release(read)
 		harness.release(read)
 
-		quiet := &logv1.ReadAgentLogsRequest{AgentIds: []string{"quiet"}, Source: "service", Limit: 500}
+		quiet := &logv1.ReadAgentLogsRequest{
+			AgentIds: []string{"quiet"},
+			Source:   "service",
+			Limit:    500,
+		}
 		assert.NotContains(t, readStageText(harness.readFrame()), "first line")
 		harness.assertSentTo(read, logRead("service", ""), quiet)
 	})
@@ -527,7 +556,11 @@ func TestLogsScroll(t *testing.T) {
 		t.Parallel()
 
 		harness := openLogs(t, longLog())
-		harness.send(tea.MouseWheelMsg{X: defaultHarnessWidth - 1, Y: 5, Button: tea.MouseWheelUp})
+		harness.send(tea.MouseWheelMsg{
+			X:      defaultHarnessWidth - 1,
+			Y:      5,
+			Button: tea.MouseWheelUp,
+		})
 
 		frame := harness.readFrame()
 		assert.NotContains(t, readStageText(frame), "entry 100")

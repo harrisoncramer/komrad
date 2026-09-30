@@ -64,8 +64,11 @@ message PullRequest {
   ReviewDecision review_decision = 19;
   // Where the checks on its head stand.
   Checks checks = 20;
-  // Where the forge says it stands against its base and rules.
+  // Where the forge says it stands against its base and rules. While the forge is working it
+  // out again, this is the last answer it gave for the same head.
   Mergeability mergeability = 21;
+  // True when mergeability is the last answer for this head rather than the latest read.
+  bool mergeability_unconfirmed = 22;
 }
 
 // Repository is one repository the pull request sync reads.

@@ -296,7 +296,11 @@ func (w *schedulesScreen) help(s panelShared) keyMap {
 
 // lines is the list as drawn: each row's cursor, icon, name and cron, or one line over no rows.
 func (w *schedulesScreen) lines(s panelShared, pane listPane) []string {
-	return scheduleLines(s, pane, scheduleLinesParams{rows: w.listRows(s), cursor: w.cursor, idle: "no schedules yet"})
+	return scheduleLines(s, pane, scheduleLinesParams{
+		rows:   w.listRows(s),
+		cursor: w.cursor,
+		idle:   "no schedules yet",
+	})
 }
 
 type scheduleLinesParams struct {

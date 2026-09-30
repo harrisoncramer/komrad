@@ -144,7 +144,11 @@ func TestDeletingClaimReturnsWhatItTook(t *testing.T) {
 	require.NoError(t, f.Create(ctx, Agent{Name: "author", State: StateIdle}))
 	parent, err := f.Get(ctx, "author")
 	require.NoError(t, err)
-	require.NoError(t, f.Create(ctx, Agent{Name: "reviewer", ParentAgentID: &parent.ID, State: StateIdle}))
+	require.NoError(t, f.Create(ctx, Agent{
+		Name:          "reviewer",
+		ParentAgentID: &parent.ID,
+		State:         StateIdle,
+	}))
 	child, err := f.Get(ctx, "reviewer")
 	require.NoError(t, err)
 	require.NoError(t, f.Create(ctx, Agent{Name: "other", State: StateIdle}))
@@ -176,7 +180,11 @@ func TestAChildClaimedBeforeItsParentIsARoot(t *testing.T) {
 	require.NoError(t, f.Create(ctx, Agent{Name: "author", State: StateIdle}))
 	parent, err := f.Get(ctx, "author")
 	require.NoError(t, err)
-	require.NoError(t, f.Create(ctx, Agent{Name: "reviewer", ParentAgentID: &parent.ID, State: StateIdle}))
+	require.NoError(t, f.Create(ctx, Agent{
+		Name:          "reviewer",
+		ParentAgentID: &parent.ID,
+		State:         StateIdle,
+	}))
 	child, err := f.Get(ctx, "reviewer")
 	require.NoError(t, err)
 
@@ -200,7 +208,11 @@ func TestClaimRoots(t *testing.T) {
 		claims []Claim
 		want   []string
 	}{
-		{name: "nothing claimed", claims: nil, want: []string{}},
+		{
+			name:   "nothing claimed",
+			claims: nil,
+			want:   []string{},
+		},
 		{
 			name:   "a child claimed with its parent goes with it",
 			claims: []Claim{{ID: parent}, {ID: "c", ParentAgentID: &parent}},

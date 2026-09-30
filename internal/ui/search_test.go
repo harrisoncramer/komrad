@@ -823,7 +823,11 @@ func TestSearchPreview(t *testing.T) {
 		harness := openPreview(t, panelHarnessParams{})
 		before := harness.readFrame()
 
-		harness.send(tea.MouseWheelMsg{X: defaultHarnessWidth - 1, Y: 5, Button: tea.MouseWheelDown})
+		harness.send(tea.MouseWheelMsg{
+			X:      defaultHarnessWidth - 1,
+			Y:      5,
+			Button: tea.MouseWheelDown,
+		})
 
 		frame := harness.readFrame()
 		assert.NotEqual(t, readStage(before)[0], readStage(frame)[0])
@@ -836,7 +840,11 @@ func TestSearchPreview(t *testing.T) {
 		harness := openPreview(t, panelHarnessParams{})
 		before := harness.readFrame()
 
-		harness.send(tea.MouseWheelMsg{X: 1, Y: 5, Button: tea.MouseWheelDown})
+		harness.send(tea.MouseWheelMsg{
+			X:      1,
+			Y:      5,
+			Button: tea.MouseWheelDown,
+		})
 
 		frame := harness.readFrame()
 		assert.NotEqual(t, readHoveredSearchRow(before), readHoveredSearchRow(frame))

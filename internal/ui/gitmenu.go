@@ -39,10 +39,26 @@ func gitMenu(s panelShared, from screen, item panel.AgentRow) submenu {
 		title: "git",
 		crumb: "git",
 		entries: []submenuEntry{
-			{label: "rebase with base", keys: s.keys.Git.Rebase, isOff: rebaseRefusal(s.listing, from, agent) != nil},
-			{label: "open pr", keys: s.keys.Git.OpenPullRequest, isOff: item.PullRequest.URL == ""},
-			{label: "copy pr url", keys: s.keys.Git.CopyPullRequestURL, isOff: item.PullRequest.URL == ""},
-			{label: draftLabel(item), keys: s.keys.Git.ToggleDraft, isOff: openPullRequestRefusal(item) != nil},
+			{
+				label: "rebase with base",
+				keys:  s.keys.Git.Rebase,
+				isOff: rebaseRefusal(s.listing, from, agent) != nil,
+			},
+			{
+				label: "open pr",
+				keys:  s.keys.Git.OpenPullRequest,
+				isOff: item.PullRequest.URL == "",
+			},
+			{
+				label: "copy pr url",
+				keys:  s.keys.Git.CopyPullRequestURL,
+				isOff: item.PullRequest.URL == "",
+			},
+			{
+				label: draftLabel(item),
+				keys:  s.keys.Git.ToggleDraft,
+				isOff: openPullRequestRefusal(item) != nil,
+			},
 			nestedEntry("merge pr", s.keys.Git.Merge, mergeMenu(s, from, item)),
 		},
 		answer: func(m model, choice int) (tea.Model, tea.Cmd) {

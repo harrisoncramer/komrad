@@ -25,14 +25,15 @@ const (
 	StateFailedToCreate  State = State(models.AgentStateFailedToCreate)
 	StateFailedToCleanup State = State(models.AgentStateFailedToCleanup)
 	StateUncertain       State = State(models.AgentStateUncertain)
+	StateErrored         State = State(models.AgentStateErrored)
 )
 
 // DoesPaneDecide reports whether reading the agent's terminal is what decides this state.
 func (s State) DoesPaneDecide() bool {
-	// Written without a default so an eighth state has to be answered for here rather than
-	// falling in with whichever answer the existing seven happen to share.
+	// Written without a default so a ninth state has to be answered for here rather than
+	// falling in with whichever answer the existing eight happen to share.
 	switch s {
-	case StateIdle, StateThinking, StateWaiting, StateUncertain:
+	case StateIdle, StateThinking, StateWaiting, StateUncertain, StateErrored:
 		return true
 	case StateSettingUp, StateFailedToCreate, StateFailedToCleanup:
 		return false
@@ -53,10 +54,10 @@ func (s State) IsTurnUnfinished() bool {
 
 // IsAtRest reports whether a state says the agent is doing nothing komrad could disturb.
 func (s State) IsAtRest() bool {
-	// Written without a default so an eighth state has to be answered for here rather than
-	// falling in with whichever answer the existing seven happen to share.
+	// Written without a default so a ninth state has to be answered for here rather than
+	// falling in with whichever answer the existing eight happen to share.
 	switch s {
-	case StateIdle, StateFailedToCreate, StateFailedToCleanup:
+	case StateIdle, StateErrored, StateFailedToCreate, StateFailedToCleanup:
 		return true
 	case StateThinking, StateWaiting, StateSettingUp, StateUncertain:
 		return false
@@ -104,7 +105,9 @@ type Agent struct {
 	StateSeenAt    time.Time
 	// TurnEndedAt is when a turn of the agent's last ended, reported by its own CLI or, when
 	// nothing reported one, settled off the pane by the reconciler.
-	TurnEndedAt *time.Time
+	TurnEndedAt  *time.Time
+	TurnFailedAt *time.Time
+	TurnError    string
 
 	// ReportedReason is what the agent's own CLI last said it was doing, cleared whenever the
 	// state changes.
@@ -161,6 +164,15 @@ type Agent struct {
 	Alive bool
 	// MovedSinceRound is the newest round's snapshot while the worktree no longer hashes to it.
 	MovedSinceRound string
+}
+
+// IsLastTurnFailed reports whether an API error ended the agent's last turn.
+func (a Agent) IsLastTurnFailed() bool {
+	if a.TurnFailedAt == nil {
+		return false
+	}
+
+	return a.TurnEndedAt == nil || !a.TurnFailedAt.Before(*a.TurnEndedAt)
 }
 
 // IsStateUnconfirmed reports whether the agent's state was last read longer ago than the bound.
@@ -235,6 +247,8 @@ func FromRow(agent models.Agent) Agent {
 		StateChangedAt:     agent.StateChangedAt,
 		StateSeenAt:        agent.StateSeenAt,
 		TurnEndedAt:        agent.TurnEndedAt,
+		TurnFailedAt:       agent.TurnFailedAt,
+		TurnError:          agent.TurnError,
 		ReportedReason:     agent.ReportedReason,
 		FailureReason:      agent.FailureReason,
 		Harness:            agent.Harness,

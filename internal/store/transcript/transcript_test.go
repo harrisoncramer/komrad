@@ -746,8 +746,12 @@ func TestCursorValidate(t *testing.T) {
 			cursor: Cursor{Sort: SortBest, Matches: &valid},
 		},
 		{
-			name:   "a position in each",
-			cursor: Cursor{Sort: SortNewest, Matches: &valid, Near: &valid},
+			name: "a position in each",
+			cursor: Cursor{
+				Sort:    SortNewest,
+				Matches: &valid,
+				Near:    &valid,
+			},
 		},
 		{
 			name:    "a cursor naming no sort was never handed out",
@@ -1351,19 +1355,47 @@ func seedNarrowed(t *testing.T) narrowed {
 	require.NoError(t, err)
 
 	alpha := seedAgentAs(t, st, agentstore.Agent{Name: "alpha", WorkflowID: st.workflow})
-	beta := seedAgentAs(t, st, agentstore.Agent{Name: "beta", Role: agentstore.RoleReviewer, WorkflowID: st.workflow})
-	gamma := seedAgentAs(t, st, agentstore.Agent{Name: "gamma", Role: agentstore.RoleOrchestrator, WorkflowID: web.ID})
+	beta := seedAgentAs(t, st, agentstore.Agent{
+		Name:       "beta",
+		Role:       agentstore.RoleReviewer,
+		WorkflowID: st.workflow,
+	})
+	gamma := seedAgentAs(t, st, agentstore.Agent{
+		Name:       "gamma",
+		Role:       agentstore.RoleOrchestrator,
+		WorkflowID: web.ID,
+	})
 	delta := seedAgentAs(t, st, agentstore.Agent{Name: "delta", WorkflowID: st.workflow})
 
 	seedTurns(t, st, alpha, []Turn{
-		{Role: "user", Content: "a reconciler question", SpokenAt: start},
-		{Role: "assistant", Content: "a reconciler answer", SpokenAt: start.Add(time.Hour)},
+		{
+			Role:     "user",
+			Content:  "a reconciler question",
+			SpokenAt: start,
+		},
+		{
+			Role:     "assistant",
+			Content:  "a reconciler answer",
+			SpokenAt: start.Add(time.Hour),
+		},
 	})
-	seedTurns(t, st, beta, []Turn{{Role: "user", Content: "a reconciler review", SpokenAt: start.Add(48 * time.Hour)}})
-	seedTurns(t, st, gamma, []Turn{{Role: "assistant", Content: "a reconciler plan", SpokenAt: start.Add(72 * time.Hour)}})
+	seedTurns(t, st, beta, []Turn{{
+		Role:     "user",
+		Content:  "a reconciler review",
+		SpokenAt: start.Add(48 * time.Hour),
+	}})
+	seedTurns(t, st, gamma, []Turn{{
+		Role:     "assistant",
+		Content:  "a reconciler plan",
+		SpokenAt: start.Add(72 * time.Hour),
+	}})
 	seedTurns(t, st, delta, []Turn{
 		{Role: "user", Content: "a reconciler from before times were kept"},
-		{Role: "user", Content: "a reconciler also from before", SpokenAt: time.Time{}},
+		{
+			Role:     "user",
+			Content:  "a reconciler also from before",
+			SpokenAt: time.Time{},
+		},
 	})
 
 	_, err = st.agents.Archive(ctx, []string{beta})
@@ -1467,7 +1499,11 @@ func TestSearchFilter(t *testing.T) {
 				query = "reconciler"
 			}
 
-			got, err := st.Search(t.Context(), SearchParams{Query: query, Limit: 10, Filter: tt.filter})
+			got, err := st.Search(t.Context(), SearchParams{
+				Query:  query,
+				Limit:  10,
+				Filter: tt.filter,
+			})
 			require.NoError(t, err)
 			assert.ElementsMatch(t, tt.want, hitNames(allHits(got)))
 		})
@@ -1527,7 +1563,12 @@ func TestSearchSort(t *testing.T) {
 				cursor *Cursor
 			)
 			for range 10 {
-				page, err := st.Search(t.Context(), SearchParams{Query: query, Limit: limit, Sort: tt.sort, Cursor: cursor})
+				page, err := st.Search(t.Context(), SearchParams{
+					Query:  query,
+					Limit:  limit,
+					Sort:   tt.sort,
+					Cursor: cursor,
+				})
 				require.NoError(t, err)
 
 				names = append(names, hitNames(allHits(page))...)
@@ -1573,7 +1614,11 @@ func TestSearchWithOnlyAFilter(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := st.Search(t.Context(), SearchParams{Query: tt.query, Limit: 10, Filter: tt.filter})
+			got, err := st.Search(t.Context(), SearchParams{
+				Query:  tt.query,
+				Limit:  10,
+				Filter: tt.filter,
+			})
 			require.NoError(t, err)
 			assert.Equal(t, tt.want, hitNames(allHits(got)))
 			assert.Empty(t, got.Near)
@@ -1592,11 +1637,19 @@ func TestSearchWithOnlyAFilter(t *testing.T) {
 func TestSearchRefusesACursorFromAnotherSort(t *testing.T) {
 	st := seedNarrowed(t)
 
-	first, err := st.Search(t.Context(), SearchParams{Query: "reconciler", Limit: 1, Sort: SortNewest})
+	first, err := st.Search(t.Context(), SearchParams{
+		Query: "reconciler",
+		Limit: 1,
+		Sort:  SortNewest,
+	})
 	require.NoError(t, err)
 	require.NotNil(t, first.Next)
 
-	_, err = st.Search(t.Context(), SearchParams{Query: "reconciler", Limit: 1, Cursor: first.Next})
+	_, err = st.Search(t.Context(), SearchParams{
+		Query:  "reconciler",
+		Limit:  1,
+		Cursor: first.Next,
+	})
 	require.ErrorIs(t, err, ErrSortChanged)
 }
 

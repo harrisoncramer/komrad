@@ -360,6 +360,7 @@ func (s *Handler) RecordReport(ctx context.Context, req *agentv1.RecordReportReq
 		AgentID:   id,
 		Reason:    req.GetReason(),
 		TurnEnded: req.GetTurnEnded(),
+		TurnError: req.GetTurnError(),
 	})
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to record what the agent reported")

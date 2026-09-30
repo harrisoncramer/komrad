@@ -86,7 +86,11 @@ func wheelOver(harness *panelHarness, x int, up bool) {
 		button = tea.MouseWheelUp
 	}
 
-	harness.send(tea.MouseWheelMsg{X: x, Y: 5, Button: button})
+	harness.send(tea.MouseWheelMsg{
+		X:      x,
+		Y:      5,
+		Button: button,
+	})
 }
 
 func withLongContext(workflow *workflowv1.Workflow) *workflowv1.Workflow {

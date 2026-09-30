@@ -12,6 +12,7 @@ import (
 	"komrad/internal/forge"
 	"komrad/internal/mail"
 	mailstore "komrad/internal/store/mail"
+	pullrequeststore "komrad/internal/store/pullrequest"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -45,7 +46,11 @@ func TestAPullRequestChangeTellsTheAgentsOnItsBranch(t *testing.T) {
 			name: "two changes before the agent reads are one mail",
 			standings: []forge.Standing{
 				{Decision: forge.ReviewDecisionPending, Checks: forge.ChecksFailing},
-				{Decision: forge.ReviewDecisionPending, Checks: forge.ChecksFailing, Mergeability: forge.MergeabilityConflicting},
+				{
+					Decision:     forge.ReviewDecisionPending,
+					Checks:       forge.ChecksFailing,
+					Mergeability: forge.MergeabilityConflicting,
+				},
 			},
 			wantLines: []string{"  checks: failing\n", "  mergeability: conflicting with main\n"},
 		},
@@ -88,7 +93,11 @@ func TestAPullRequestChangeTellsTheAgentsOnItsBranch(t *testing.T) {
 
 // TestAPullRequestChangeAfterTheMailWasReadStartsAnother pins that mail the agent read is left alone.
 func TestAPullRequestChangeAfterTheMailWasReadStartsAnother(t *testing.T) {
-	failingOnA := forge.Standing{Decision: forge.ReviewDecisionPending, Checks: forge.ChecksFailing, HeadSHA: "aaa"}
+	failingOnA := forge.Standing{
+		Decision: forge.ReviewDecisionPending,
+		Checks:   forge.ChecksFailing,
+		HeadSHA:  "aaa",
+	}
 
 	tests := []struct {
 		name      string
@@ -96,13 +105,21 @@ func TestAPullRequestChangeAfterTheMailWasReadStartsAnother(t *testing.T) {
 		wantLines []string
 	}{
 		{
-			name:      "an approval",
-			after:     forge.Standing{Decision: forge.ReviewDecisionApproved, Checks: forge.ChecksFailing, HeadSHA: "aaa"},
+			name: "an approval",
+			after: forge.Standing{
+				Decision: forge.ReviewDecisionApproved,
+				Checks:   forge.ChecksFailing,
+				HeadSHA:  "aaa",
+			},
 			wantLines: []string{"  review: approved\n", "  checks: failing\n"},
 		},
 		{
-			name:      "the checks failing again on a new head",
-			after:     forge.Standing{Decision: forge.ReviewDecisionPending, Checks: forge.ChecksFailing, HeadSHA: "bbb"},
+			name: "the checks failing again on a new head",
+			after: forge.Standing{
+				Decision: forge.ReviewDecisionPending,
+				Checks:   forge.ChecksFailing,
+				HeadSHA:  "bbb",
+			},
 			wantLines: []string{"  checks: failing\n"},
 		},
 		{
@@ -110,8 +127,12 @@ func TestAPullRequestChangeAfterTheMailWasReadStartsAnother(t *testing.T) {
 			after: failingOnA,
 		},
 		{
-			name:  "the checks passing on a new head is not news",
-			after: forge.Standing{Decision: forge.ReviewDecisionPending, Checks: forge.ChecksPassing, HeadSHA: "bbb"},
+			name: "the checks passing on a new head is not news",
+			after: forge.Standing{
+				Decision: forge.ReviewDecisionPending,
+				Checks:   forge.ChecksPassing,
+				HeadSHA:  "bbb",
+			},
 		},
 	}
 
@@ -162,7 +183,12 @@ func (f *syncFixture) setStanding(t *testing.T, standing forge.Standing, readAt 
 	if standing.Mergeability == forge.MergeabilityUnknown {
 		standing.Mergeability = forge.MergeabilityClean
 	}
-	require.NoError(t, f.syncer.setStanding(t.Context(), f.stored(t, "PR_1").ID, standing, readAt))
+	_, err := f.syncer.setStanding(t.Context(), pullrequeststore.SetStandingParams{
+		ID:       f.stored(t, "PR_1").ID,
+		Standing: standing,
+		ReadAt:   readAt,
+	})
+	require.NoError(t, err)
 }
 
 // TestAPullRequestChangeRetriesAFullMailboxAlone pins one agent's full mailbox leaving the others on the branch told and its own mail retried once there is room.

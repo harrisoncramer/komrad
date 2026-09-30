@@ -41,7 +41,11 @@ func TestWakeAgentWorker(t *testing.T) {
 		{name: "an archived agent", resumeErr: agents.ErrAgentArchived},
 		{name: "a held agent", resumeErr: agents.ErrAgentHeld},
 		{name: "a deleted agent", resumeErr: agents.ErrAgentNotFound},
-		{name: "a failure that might pass", resumeErr: failed, wantErr: failed},
+		{
+			name:      "a failure that might pass",
+			resumeErr: failed,
+			wantErr:   failed,
+		},
 	}
 
 	for _, tt := range tests {

@@ -44,7 +44,11 @@ type Handler struct {
 
 // NewHandler constructs the handler over the forge service and the pull request writer.
 func NewHandler(forges connector, writer pullRequestWriter) *Handler {
-	return &Handler{forges: forges, writer: writer, now: time.Now}
+	return &Handler{
+		forges: forges,
+		writer: writer,
+		now:    time.Now,
+	}
 }
 
 // ConnectForge proves a credential against the forge and records the connection.

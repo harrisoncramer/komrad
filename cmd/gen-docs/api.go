@@ -73,7 +73,11 @@ type enumValueDoc struct {
 var firstSentence = regexp.MustCompile(`^.*?[.!?](\s|$)`)
 
 func buildAPI(notes comments) apiDoc {
-	doc := apiDoc{Services: []serviceDoc{}, Messages: map[string]messageDoc{}, Enums: map[string]enumDoc{}}
+	doc := apiDoc{
+		Services: []serviceDoc{},
+		Messages: map[string]messageDoc{},
+		Enums:    map[string]enumDoc{},
+	}
 	index := map[protoreflect.FullName]int{}
 
 	for exposed := range rpcapi.GetMethods() {
@@ -129,7 +133,11 @@ func addMessage(doc apiDoc, notes comments, message protoreflect.MessageDescript
 		return
 	}
 
-	entry := messageDoc{Name: string(message.Name()), Description: notes.of(message), Fields: []fieldDoc{}}
+	entry := messageDoc{
+		Name:        string(message.Name()),
+		Description: notes.of(message),
+		Fields:      []fieldDoc{},
+	}
 	doc.Messages[name] = entry
 
 	for i := range message.Fields().Len() {
@@ -173,7 +181,11 @@ func addEnum(doc apiDoc, notes comments, enum protoreflect.EnumDescriptor) {
 		return
 	}
 
-	entry := enumDoc{Name: string(enum.Name()), Description: notes.of(enum), Values: []enumValueDoc{}}
+	entry := enumDoc{
+		Name:        string(enum.Name()),
+		Description: notes.of(enum),
+		Values:      []enumValueDoc{},
+	}
 	for i := range enum.Values().Len() {
 		value := enum.Values().Get(i)
 		if value.Number() == 0 {

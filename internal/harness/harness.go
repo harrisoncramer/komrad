@@ -135,6 +135,7 @@ type Report struct {
 
 	// TurnEnded says the payload reported a turn of the agent's ending.
 	TurnEnded bool
+	TurnError string
 }
 
 type Turn struct {

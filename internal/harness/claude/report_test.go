@@ -39,6 +39,30 @@ func TestReadReport(t *testing.T) {
 			want:  harness.Report{TurnEnded: true},
 		},
 		{
+			name:    "a turn an API error ended",
+			event:   EventStopFailure,
+			payload: `{"error":"server_error","last_assistant_message":"API Error: Can't reach the API server"}`,
+			want:    harness.Report{TurnEnded: true, TurnError: "Can't reach the API server"},
+		},
+		{
+			name:    "a turn an API error ended without a message",
+			event:   EventStopFailure,
+			payload: `{"error":"rate_limit"}`,
+			want:    harness.Report{TurnEnded: true, TurnError: "rate_limit"},
+		},
+		{
+			name:    "a turn an API error ended without saying which",
+			event:   EventStopFailure,
+			payload: `{}`,
+			want:    harness.Report{TurnEnded: true, TurnError: "unknown"},
+		},
+		{
+			name:    "a failed turn komrad could not read",
+			event:   EventStopFailure,
+			payload: `{`,
+			wantErr: true,
+		},
+		{
 			name:    "a tool call starting",
 			event:   EventPreToolUse,
 			payload: `{"tool_name":"Bash","tool_input":{"command":"echo hi"}}`,

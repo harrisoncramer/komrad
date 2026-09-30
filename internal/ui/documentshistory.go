@@ -287,7 +287,11 @@ func (m *model) readHistoryCmd() tea.Cmd {
 		return func() tea.Msg {
 			versions, err := clients.listDocumentVersions(id)
 
-			return documentVersionsListedMsg{id: id, versions: versions, err: err}
+			return documentVersionsListedMsg{
+				id:       id,
+				versions: versions,
+				err:      err,
+			}
 		}
 	}
 
@@ -317,10 +321,18 @@ func (m *model) readVersionCmd(version int32) tea.Cmd {
 	return func() tea.Msg {
 		document, err := clients.getDocumentVersion(id, version)
 		if err != nil {
-			return documentVersionReadMsg{id: id, version: version, read: versionRead{err: err}}
+			return documentVersionReadMsg{
+				id:      id,
+				version: version,
+				read:    versionRead{err: err},
+			}
 		}
 
-		return documentVersionReadMsg{id: id, version: version, read: versionRead{body: document.GetBody()}}
+		return documentVersionReadMsg{
+			id:      id,
+			version: version,
+			read:    versionRead{body: document.GetBody()},
+		}
 	}
 }
 

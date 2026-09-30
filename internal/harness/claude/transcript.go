@@ -70,7 +70,11 @@ func flattenTranscript(data []byte) []harness.Turn {
 		}
 
 		if text := blockText(line.Message.Content); text != "" {
-			turns = append(turns, harness.Turn{Role: line.Type, Content: text, At: line.Timestamp})
+			turns = append(turns, harness.Turn{
+				Role:    line.Type,
+				Content: text,
+				At:      line.Timestamp,
+			})
 		}
 	}
 
