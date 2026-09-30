@@ -481,3 +481,24 @@ func (a *agentsScreen) column() columnSpec {
 func (l listing) isEmpty() bool {
 	return len(l.workflows) == 0 && len(l.agents) == 0
 }
+
+func (a *agentsScreen) openRename(s panelShared) tea.Cmd {
+	row, ok := a.hoveredRow(s)
+	if !ok {
+		return nil
+	}
+
+	a.renaming = renameAgentRow(row)
+
+	return nil
+}
+
+func (a *agentsScreen) reconcileRename(s panelShared) {
+	reconcileRename(&a.renameSlot, a.rows(s), a.hoveredKey(s), agentRowName)
+}
+
+func (a *agentsScreen) settleRename(s panelShared, row string, err error) {
+	if a.settleField(row, err) {
+		a.reconcileRename(s)
+	}
+}

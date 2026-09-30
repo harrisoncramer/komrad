@@ -123,6 +123,8 @@ type Keybindings struct {
 	Agents AgentsKeys `mapstructure:"agents"`
 	// The archive screen.
 	Archive ArchiveKeys `mapstructure:"archive"`
+	// The archive menu, nested under the menu on the hovered row of the archive.
+	ArchiveMenu ArchiveMenuKeys `mapstructure:"archive_menu"`
 	// The details under whichever list is on screen: the key that hands them the
 	// cursor, and the key that copies the field it lands on.
 	Details DetailsKeys `mapstructure:"details"`
@@ -352,7 +354,7 @@ type MergeKeys struct {
 }
 
 // MenuKeys are the bindings for the menu, which lists the hovered row's entries over the
-// panel's own. Today the only row with entries is an agent, on the agents list or in the archive.
+// panel's own. The rows with entries are an agent, and every row of the archive.
 type MenuKeys struct {
 	// Open the menu from any screen: the hovered agent's entries, or its orchestrator's on a
 	// workflow's row, over the entries that act on the panel itself.
@@ -372,6 +374,9 @@ type MenuKeys struct {
 	// Open the git menu to the right of this one, for rebasing the agent's branch or opening or
 	// merging its pull request.
 	Git []string `mapstructure:"git" default:"g"`
+	// Open the archive menu to the right of this one, for restoring or deleting the hovered row of
+	// the archive, or every chosen agent.
+	Archive []string `mapstructure:"archive" default:"a"`
 	// Open this engine's scratch file in your editor in place of the pane beside the list, or
 	// close it when it is already open. Each engine keeps its own file under komrad's state
 	// directory.
@@ -614,26 +619,34 @@ type SchedulesKeys struct {
 	New []string `mapstructure:"new" default:"c"`
 	// Quit the panel.
 	Quit []string `mapstructure:"quit" default:"ctrl+c"`
+	// Rename the schedule under the cursor, typed over its row.
+	Rename []string `mapstructure:"rename" default:"r"`
 	// Pause or resume the schedule under the cursor.
 	Toggle []string `mapstructure:"toggle" default:"p"`
 }
 
-// ArchiveKeys are the bindings for the archive screen, which lists the agents
-// and schedules archived from the panel, and act on the hovered row.
+// ArchiveKeys are the bindings for the archive screen, which lists the agents, workflows and
+// schedules archived from the panel. Restoring and deleting are in the menu on the hovered row.
 type ArchiveKeys struct {
 	// Open the view switcher.
 	Back []string `mapstructure:"back" default:"esc"`
-	// Destroy the agent or schedule under the cursor for good, with its transcript
-	// or its run history. Nothing undoes it, so it asks first.
-	Delete []string `mapstructure:"delete" default:"d"`
 	// Quit the panel.
 	Quit []string `mapstructure:"quit" default:"ctrl+c"`
-	// Put the agent or schedule under the cursor back in the panel.
+	// Rename the agent or live workflow under the cursor, typed over its row.
+	Rename []string `mapstructure:"rename" default:"r"`
+}
+
+// ArchiveMenuKeys are the bindings for the archive menu, which opens from the menu on the hovered
+// row of the archive and acts on every chosen agent while some are.
+type ArchiveMenuKeys struct {
+	// Destroy the row for good, with its transcript or its run history. Nothing undoes it, so it
+	// asks first.
+	Delete []string `mapstructure:"delete" default:"d"`
+	// Put the row back in the panel.
 	Restore []string `mapstructure:"restore" default:"r"`
-	// Put the agent under the cursor back in the panel and open it, which relaunches its
-	// conversation in a pane and takes you to it. An agent that never got as far as
-	// starting is only restored.
-	RestoreOpen []string `mapstructure:"restore_open" default:"R"`
+	// Put the agent back in the panel and open it, which relaunches its conversation in a pane
+	// and takes you to it. The entry is gray on an agent that never got as far as starting.
+	RestoreOpen []string `mapstructure:"restore_open" default:"o"`
 }
 
 // Hooks is where komrad finds the scripts a workflow hangs on a moment in its agents' lives.

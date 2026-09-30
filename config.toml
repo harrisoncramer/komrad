@@ -120,18 +120,22 @@ show_hidden      = ["H"]
 # The archive screen.
 [keybindings.archive]
 # Open the view switcher.
-back         = ["esc"]
-# Destroy the agent or schedule under the cursor for good, with its transcript
-# or its run history. Nothing undoes it, so it asks first.
-delete       = ["d"]
+back   = ["esc"]
 # Quit the panel.
-quit         = ["ctrl+c"]
-# Put the agent or schedule under the cursor back in the panel.
+quit   = ["ctrl+c"]
+# Rename the agent or live workflow under the cursor, typed over its row.
+rename = ["r"]
+
+# The archive menu, nested under the menu on the hovered row of the archive.
+[keybindings.archive_menu]
+# Destroy the row for good, with its transcript or its run history. Nothing undoes it, so it
+# asks first.
+delete       = ["d"]
+# Put the row back in the panel.
 restore      = ["r"]
-# Put the agent under the cursor back in the panel and open it, which relaunches its
-# conversation in a pane and takes you to it. An agent that never got as far as
-# starting is only restored.
-restore_open = ["R"]
+# Put the agent back in the panel and open it, which relaunches its conversation in a pane
+# and takes you to it. The entry is gray on an agent that never got as far as starting.
+restore_open = ["o"]
 
 # The details under whichever list is on screen: the key that hands them the
 # cursor, and the key that copies the field it lands on.
@@ -363,6 +367,8 @@ edit    = ["e"]
 new     = ["c"]
 # Quit the panel.
 quit    = ["ctrl+c"]
+# Rename the schedule under the cursor, typed over its row.
+rename  = ["r"]
 # Pause or resume the schedule under the cursor.
 toggle  = ["p"]
 
@@ -403,6 +409,9 @@ terminal       = ["t"]
 # Open the git menu to the right of this one, for rebasing the agent's branch or opening or
 # merging its pull request.
 git            = ["g"]
+# Open the archive menu to the right of this one, for restoring or deleting the hovered row of
+# the archive, or every chosen agent.
+archive        = ["a"]
 # Open this engine's scratch file in your editor in place of the pane beside the list, or
 # close it when it is already open. Each engine keeps its own file under komrad's state
 # directory.

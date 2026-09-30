@@ -34,6 +34,7 @@ type archiveScreen struct {
 	// rows is the rows built once for the frame being drawn, and nil between frames.
 	rows         []agentRow
 	scheduleRows []scheduleItem
+	renameSlot
 }
 
 // enter lands on the agent the target names.
@@ -49,9 +50,18 @@ func (a *archiveScreen) enter(h host, s panelShared, target screenTarget) tea.Cm
 }
 
 func (a *archiveScreen) update(h host, s panelShared, msg tea.Msg) tea.Cmd {
+	if _, ok := msg.(tea.PasteMsg); ok && a.isRenaming() {
+		return a.updateRename(h, msg)
+	}
+
 	key, ok := msg.(tea.KeyPressMsg)
 	if !ok {
 		return nil
+	}
+
+	a.reconcileRename(s)
+	if a.isRenaming() {
+		return a.updateRename(h, msg)
 	}
 
 	if a.kind == archiveSchedules {
@@ -154,25 +164,8 @@ func (a *archiveScreen) hoveredSchedule(s panelShared) (panel.Schedule, bool) {
 	return item.schedule, ok
 }
 
-func (a *archiveScreen) restoreSchedule(h host, s panelShared) tea.Cmd {
-	schedule, ok := a.hoveredSchedule(s)
-	if !ok {
-		return nil
-	}
-
-	return h.writeCmd(
-		fmt.Sprintf("Could not restore schedule %q", schedule.Name),
-		func(c api) error { return c.restoreSchedule(schedule.ID) },
-	)
-}
-
-// confirmDeleteSchedule asks before the hovered archived schedule is deleted for good.
-func (a *archiveScreen) confirmDeleteSchedule(h host, s panelShared) tea.Cmd {
-	schedule, ok := a.hoveredSchedule(s)
-	if !ok {
-		return nil
-	}
-
+// confirmDeleteSchedule asks before an archived schedule is deleted for good.
+func confirmDeleteSchedule(h host, schedule panel.Schedule) tea.Cmd {
 	form, confirmed := deleteScheduleForm(schedule.Name, formKeys())
 
 	return h.openForm(formState{
@@ -272,12 +265,14 @@ func (a *archiveScreen) place(s panelShared, hovered string) {
 	a.selected = a.selected.pruned(refsOf(rows))
 
 	a.cursor = cursor.Place(rowIndexOfKey(rows, hovered), a.cursor, len(rows))
+	a.reconcileRename(s)
 }
 
 // placeSchedule keeps the cursor on the archived schedule it was on as the rows under it change.
 func (a *archiveScreen) placeSchedule(s panelShared, hovered string) {
 	rows := a.scheduleListRows(s)
 	a.schedules.cursor = cursor.Place(rowIndexOfKey(rows, hovered), a.schedules.cursor, len(rows))
+	a.reconcileRename(s)
 }
 
 // hoveredAgent is the archived agent the cursor is on, and none on a folder.
@@ -299,32 +294,6 @@ func (a *archiveScreen) hoveredWorkflow(s panelShared) (panel.Workflow, bool) {
 	}
 
 	return workflow, true
-}
-
-func (a *archiveScreen) restore(h host, s panelShared) tea.Cmd {
-	if workflow, ok := a.hoveredWorkflow(s); ok {
-		return h.writeCmd(
-			fmt.Sprintf("Could not restore workflow %q", workflow.Name),
-			func(c api) error { return c.restoreWorkflow(workflow.ID) },
-		)
-	}
-
-	agent, ok := a.hoveredAgent(s)
-	if !ok {
-		return nil
-	}
-
-	return restoreAgentsCmd(h, []panel.Agent{agent})
-}
-
-// restoreAndOpen puts the hovered agent back and relaunches its conversation.
-func (a *archiveScreen) restoreAndOpen(h host, s panelShared) tea.Cmd {
-	agent, ok := a.hoveredAgent(s)
-	if !ok {
-		return nil
-	}
-
-	return restoreAndResumeCmd(h, agent)
 }
 
 // restoreAndResumeCmd takes one agent out of the archive and puts its conversation back in a
@@ -514,6 +483,7 @@ func (a *archiveScreen) snapshot(s panelShared, pane listPane) view.Snapshot {
 		blinkedOut:  pane.blinkedOut,
 		loaderFrame: s.loaderFrame,
 		matcher:     s.chrome.filter.pattern,
+		renaming:    a.renamingField(),
 		showHidden:  true,
 		flat:        a.sort.flat,
 		pane:        pane.width,
@@ -537,6 +507,7 @@ var (
 	_ tabbed   = (*archiveScreen)(nil)
 	_ columned = (*archiveScreen)(nil)
 	_ staged   = (*archiveScreen)(nil)
+	_ renamer  = (*archiveScreen)(nil)
 )
 
 func (a *archiveScreen) doesDrawFromListing() bool {
@@ -544,7 +515,7 @@ func (a *archiveScreen) doesDrawFromListing() bool {
 }
 
 func (a *archiveScreen) takesEveryKey() bool {
-	return false
+	return a.isRenaming()
 }
 
 func (a *archiveScreen) detailsQuit(keys config.Keybindings) []string {
@@ -612,5 +583,38 @@ func (a *archiveScreen) column() columnSpec {
 		docRows: func(m model, width int) []string {
 			return m.withLastScreen(m.archive.docRows(m.shared(), width), width)
 		},
+	}
+}
+
+// renameable is the row under the cursor when it can be renamed: an agent, or a live workflow's folder.
+func (a *archiveScreen) renameable(s panelShared) (agentRow, bool) {
+	if a.onSchedules(s) || a.selected.isActive() {
+		return agentRow{}, false
+	}
+
+	row, ok := rowAt(a.listRows(s), a.cursor)
+	if !ok || (row.header && row.workflow.ArchivedAt != nil) {
+		return agentRow{}, false
+	}
+
+	return row, true
+}
+
+// openRename types over the name of the agent or live folder under the cursor.
+func (a *archiveScreen) openRename(s panelShared) tea.Cmd {
+	if row, ok := a.renameable(s); ok {
+		a.renaming = renameAgentRow(row)
+	}
+
+	return nil
+}
+
+func (a *archiveScreen) reconcileRename(s panelShared) {
+	reconcileRename(&a.renameSlot, a.listRows(s), a.list().hovered(s), agentRowName)
+}
+
+func (a *archiveScreen) settleRename(s panelShared, row string, err error) {
+	if a.settleField(row, err) {
+		a.reconcileRename(s)
 	}
 }

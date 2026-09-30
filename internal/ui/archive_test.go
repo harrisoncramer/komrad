@@ -3,6 +3,7 @@ package ui_test
 import (
 	"errors"
 	"fmt"
+	"regexp"
 	"slices"
 	"strings"
 	"testing"
@@ -36,8 +37,8 @@ const (
 
 var widenListPresses = slices.Repeat([]string{"}"}, 10)
 
-// TestArchiveKeys covers what each key does on the row under the cursor.
-func TestArchiveKeys(t *testing.T) {
+// TestArchiveMenu covers what each entry of the archive menu does on the row under the cursor.
+func TestArchiveMenu(t *testing.T) {
 	neverStarted := newArchivedAgent("a1", "api-refactor", "w1")
 	neverStarted.State = agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE
 
@@ -46,44 +47,56 @@ func TestArchiveKeys(t *testing.T) {
 		rows       []proto.Message
 		press      []string
 		wantScreen string
-		wantPrompt string
+		wantFrame  string
 		wantSent   []request
 	}{
 		{
 			name:       "restore on an empty archive asks for no write",
 			rows:       []proto.Message{newLiveWorkflow("w1", "backend")},
-			press:      []string{"r"},
+			press:      []string{"space", "a", "r"},
 			wantScreen: archiveScreen,
 		},
 		{
 			name:       "delete on an empty archive opens no prompt",
 			rows:       []proto.Message{newLiveWorkflow("w1", "backend")},
-			press:      []string{"d"},
+			press:      []string{"space", "a", "d"},
 			wantScreen: archiveScreen,
 		},
 		{
 			name:       "restore on a live folder's header asks for no write",
 			rows:       buildOneArchivedAgent(),
-			press:      []string{"r"},
+			press:      []string{"space", "a", "r"},
 			wantScreen: archiveScreen,
 		},
 		{
 			name:       "delete on a live folder's header opens no prompt",
 			rows:       buildOneArchivedAgent(),
-			press:      []string{"d"},
+			press:      []string{"space", "a", "d"},
 			wantScreen: archiveScreen,
 		},
 		{
 			name:       "restore and open passes over a folder",
 			rows:       buildOneArchivedAgent(),
-			press:      []string{"R"},
+			press:      []string{"space", "a", "o"},
 			wantScreen: archiveScreen,
 		},
 		{
 			name:       "restore and open passes over an agent that never started",
 			rows:       []proto.Message{newLiveWorkflow("w1", "backend"), neverStarted},
-			press:      []string{"j", "R"},
+			press:      []string{"j", "space", "a", "o", "ctrl+g"},
 			wantScreen: archiveScreen,
+			wantFrame:  "no conversation to open",
+		},
+		{
+			name: "restore and open refuses a selection, which is not one agent",
+			rows: []proto.Message{
+				newLiveWorkflow("w1", "backend"),
+				newArchivedAgent("a1", "api-refactor", "w1"),
+				newArchivedAgent("a2", "db-tune", "w1"),
+			},
+			press:      []string{"j", "v", "j", "v", "space", "a", "o", "ctrl+g"},
+			wantScreen: archiveScreen,
+			wantFrame:  "one agent's conversation back in a pane",
 		},
 		{
 			name:       "back opens the view switcher",
@@ -94,7 +107,7 @@ func TestArchiveKeys(t *testing.T) {
 		{
 			name:       "restore puts the hovered agent back and stays on the archive",
 			rows:       buildOneArchivedAgent(),
-			press:      []string{"j", "r"},
+			press:      []string{"j", "space", "a", "r"},
 			wantScreen: archiveScreen,
 			wantSent: []request{{
 				procedure: agentv1connect.AgentServiceRestoreAgentsProcedure,
@@ -104,7 +117,7 @@ func TestArchiveKeys(t *testing.T) {
 		{
 			name:       "restore and open puts the agent back and opens it",
 			rows:       buildOneArchivedAgent(),
-			press:      []string{"j", "R"},
+			press:      []string{"j", "space", "a", "o"},
 			wantScreen: agentsScreen,
 			wantSent: []request{
 				{
@@ -120,7 +133,7 @@ func TestArchiveKeys(t *testing.T) {
 		{
 			name:       "restore on an archived folder restores the workflow",
 			rows:       []proto.Message{newArchivedWorkflow("w1", "backend")},
-			press:      []string{"r"},
+			press:      []string{"space", "a", "r"},
 			wantScreen: archiveScreen,
 			wantSent: []request{{
 				procedure: workflowv1connect.WorkflowServiceRestoreWorkflowProcedure,
@@ -130,23 +143,23 @@ func TestArchiveKeys(t *testing.T) {
 		{
 			name:       "delete on an agent opens the confirm prompt rather than destroying",
 			rows:       buildOneArchivedAgent(),
-			press:      []string{"j", "d"},
+			press:      []string{"j", "space", "a", "d"},
 			wantScreen: archiveScreen,
-			wantPrompt: `Permanently delete agent "api-refactor"?`,
+			wantFrame:  `Permanently delete agent "api-refactor"?`,
 		},
 		{
 			name:       "delete on an archived folder opens the confirm prompt",
 			rows:       []proto.Message{newArchivedWorkflow("w1", "backend")},
-			press:      []string{"d"},
+			press:      []string{"space", "a", "d"},
 			wantScreen: archiveScreen,
-			wantPrompt: `Permanently delete workflow "backend"?`,
+			wantFrame:  `Permanently delete workflow "backend"?`,
 		},
 		{
 			name:       "delete on an archived folder says the agent inside it goes too",
 			rows:       []proto.Message{newArchivedWorkflow("w1", "backend"), newArchivedAgent("a1", "api-refactor", "w1")},
-			press:      []string{"d"},
+			press:      []string{"space", "a", "d"},
 			wantScreen: archiveScreen,
-			wantPrompt: "The one agent still archived inside it goes with it",
+			wantFrame:  "The one agent still archived inside it goes with it",
 		},
 	}
 
@@ -158,10 +171,10 @@ func TestArchiveKeys(t *testing.T) {
 
 			frame := harness.readFrame()
 			assert.Equal(t, tt.wantScreen, harness.readScreen())
-			if tt.wantPrompt == "" {
+			if tt.wantFrame == "" {
 				assert.NotContains(t, frame, deletePrompt)
 			} else {
-				assert.Contains(t, frame, tt.wantPrompt)
+				assert.Contains(t, frame, tt.wantFrame)
 			}
 			harness.assertSent(tt.wantSent...)
 		})
@@ -179,17 +192,17 @@ func TestArchivePrompts(t *testing.T) {
 		{
 			name:  "declining the delete destroys nothing",
 			rows:  buildOneArchivedAgent(),
-			press: []string{"j", "d", "n"},
+			press: []string{"j", "space", "a", "d", "n"},
 		},
 		{
 			name:  "declining the workflow delete destroys nothing",
 			rows:  []proto.Message{newArchivedWorkflow("w1", "backend")},
-			press: []string{"d", "n"},
+			press: []string{"space", "a", "d", "n"},
 		},
 		{
 			name:  "confirming the delete destroys the agent it was opened on",
 			rows:  buildOneArchivedAgent(),
-			press: []string{"j", "d", "y"},
+			press: []string{"j", "space", "a", "d", "y"},
 			wantSent: []request{{
 				procedure: agentv1connect.AgentServiceDeleteAgentsProcedure,
 				msg:       &agentv1.DeleteAgentsRequest{Ids: []string{"a1"}},
@@ -198,7 +211,7 @@ func TestArchivePrompts(t *testing.T) {
 		{
 			name:  "confirming the workflow delete destroys the workflow it was opened on",
 			rows:  []proto.Message{newArchivedWorkflow("w1", "backend")},
-			press: []string{"d", "y"},
+			press: []string{"space", "a", "d", "y"},
 			wantSent: []request{{
 				procedure: workflowv1connect.WorkflowServiceDeleteWorkflowProcedure,
 				msg:       &workflowv1.DeleteWorkflowRequest{Id: "w1"},
@@ -233,28 +246,28 @@ func TestArchiveReportsRefusedWrites(t *testing.T) {
 			name:        "a refused restore",
 			rows:        buildOneArchivedAgent(),
 			refused:     agentv1connect.AgentServiceRestoreAgentsProcedure,
-			press:       []string{"j", "r"},
+			press:       []string{"j", "space", "a", "r"},
 			wantSummary: `Could not restore agent "api-refactor"`,
 		},
 		{
 			name:        "a refused workflow restore",
 			rows:        []proto.Message{newArchivedWorkflow("w1", "backend")},
 			refused:     workflowv1connect.WorkflowServiceRestoreWorkflowProcedure,
-			press:       []string{"r"},
+			press:       []string{"space", "a", "r"},
 			wantSummary: `Could not restore workflow "backend"`,
 		},
 		{
 			name:        "a refused restore and open",
 			rows:        buildOneArchivedAgent(),
 			refused:     agentv1connect.AgentServiceRestoreAgentsProcedure,
-			press:       []string{"j", "R"},
+			press:       []string{"j", "space", "a", "o"},
 			wantSummary: `Could not restore and open agent "api-refactor"`,
 		},
 		{
 			name:        "a refused delete",
 			rows:        buildOneArchivedAgent(),
 			refused:     agentv1connect.AgentServiceDeleteAgentsProcedure,
-			press:       []string{"j", "d", "y"},
+			press:       []string{"j", "space", "a", "d", "y"},
 			wantSummary: `Could not delete agent "api-refactor"`,
 		},
 	}
@@ -363,35 +376,38 @@ func TestArchiveRowEmphasis(t *testing.T) {
 	})
 }
 
-// TestArchiveLegend covers the legend naming what the hovered row takes.
-func TestArchiveLegend(t *testing.T) {
+// TestArchiveMenuEntries covers the archive menu naming what the hovered row takes.
+func TestArchiveMenuEntries(t *testing.T) {
 	neverStarted := newArchivedAgent("a1", "api-refactor", "w1")
 	neverStarted.State = agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE
+	openOff := readOffEntry("restore and open", "o")
+	archiveEntry := regexp.MustCompile(`archive ›\s+a`)
 
 	tests := []struct {
-		name       string
-		rows       []proto.Message
-		press      []string
-		want       []string
-		wantAbsent []string
+		name     string
+		rows     []proto.Message
+		press    []string
+		want     []string
+		wantOff  bool
+		wantNone bool
 	}{
 		{
-			name:       "on a live folder",
-			rows:       buildOneArchivedAgent(),
-			wantAbsent: []string{"restore", "delete for good"},
+			name:     "on a live folder",
+			rows:     buildOneArchivedAgent(),
+			wantNone: true,
 		},
 		{
-			name:       "on an archived folder",
-			rows:       []proto.Message{newArchivedWorkflow("w1", "backend")},
-			want:       []string{"restore workflow"},
-			wantAbsent: []string{"delete for good"},
+			name:    "on an archived folder",
+			rows:    []proto.Message{newArchivedWorkflow("w1", "backend")},
+			want:    []string{"restore", "delete for good"},
+			wantOff: true,
 		},
 		{
-			name:       "on an agent that never started",
-			rows:       []proto.Message{newLiveWorkflow("w1", "backend"), neverStarted},
-			press:      []string{"j"},
-			want:       []string{"restore", "delete for good"},
-			wantAbsent: []string{"restore and open"},
+			name:    "on an agent that never started",
+			rows:    []proto.Message{newLiveWorkflow("w1", "backend"), neverStarted},
+			press:   []string{"j"},
+			want:    []string{"restore", "delete for good"},
+			wantOff: true,
 		},
 		{
 			name:  "on an agent",
@@ -399,21 +415,105 @@ func TestArchiveLegend(t *testing.T) {
 			press: []string{"j"},
 			want:  []string{"restore", "restore and open", "delete for good"},
 		},
+		{
+			name:    "on a selection",
+			rows:    buildOneArchivedAgent(),
+			press:   []string{"j", "v"},
+			want:    []string{"restore all", "delete all for good"},
+			wantOff: true,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			harness := openGroupedArchive(t, tt.rows...)
 
-			harness.press(append(tt.press, "?")...)
+			harness.press(append(tt.press, "space")...)
+			if tt.wantNone {
+				assert.NotRegexp(t, archiveEntry, harness.readFrame())
 
-			got := readLegend(harness.readFrame())
+				return
+			}
+			require.Regexp(t, archiveEntry, harness.readFrame())
+
+			harness.press("a")
+			frame := harness.readFrame()
 			for _, want := range tt.want {
-				assert.Contains(t, got, want)
+				assert.Contains(t, frame, want)
 			}
-			for _, absent := range tt.wantAbsent {
-				assert.NotContains(t, got, absent)
+			if tt.wantOff {
+				assert.Regexp(t, openOff, harness.readRawFrame())
+			} else {
+				assert.NotRegexp(t, openOff, harness.readRawFrame())
 			}
+		})
+	}
+}
+
+// TestArchiveRename covers a name typed over an archive row going out as its rename.
+func TestArchiveRename(t *testing.T) {
+	archived := []proto.Message{
+		newArchivedWorkflow("w1", "backend"),
+		newArchivedAgent("a1", "api-refactor", "w1"),
+		newArchivedSchedule("s2", "weekly-gone"),
+	}
+	live := []proto.Message{
+		newLiveWorkflow("w1", "backend"),
+		newArchivedAgent("a1", "api-refactor", "w1"),
+	}
+
+	tests := []struct {
+		name      string
+		rows      []proto.Message
+		press     []string
+		procedure string
+		want      proto.Message
+	}{
+		{
+			name:      "an archived agent",
+			rows:      archived,
+			press:     slices.Concat([]string{"j", "r"}, spellKeys("-2"), []string{"enter"}),
+			procedure: agentv1connect.AgentServiceUpdateAgentProcedure,
+			want:      &agentv1.UpdateAgentRequest{Id: "a1", Name: "api-refactor-2"},
+		},
+		{
+			name:      "a live workflow's folder",
+			rows:      live,
+			press:     slices.Concat([]string{"r"}, spellKeys("-2"), []string{"enter"}),
+			procedure: workflowv1connect.WorkflowServiceUpdateWorkflowProcedure,
+			want:      &workflowv1.UpdateWorkflowRequest{Id: "w1", Name: "backend-2", Worktree: &workflowv1.WorktreeConfig{}},
+		},
+		{
+			name:  "an archived workflow's folder takes no writes, so opens no field",
+			rows:  archived,
+			press: []string{"r"},
+		},
+		{
+			name:  "an archived schedule takes no writes, so opens no field",
+			rows:  archived,
+			press: []string{"F", "tab", "esc", "r"},
+		},
+		{
+			name:  "a selection opens no field",
+			rows:  archived,
+			press: []string{"j", "v", "r"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			harness := openGroupedArchive(t, tt.rows...)
+
+			harness.press(tt.press...)
+
+			assert.Equal(t, archiveScreen, harness.readScreen())
+			if tt.want == nil {
+				assert.NotContains(t, harness.readFrame(), "▏")
+				harness.assertSent()
+
+				return
+			}
+			harness.assertSentTo(tt.procedure, tt.want)
 		})
 	}
 }
@@ -648,7 +748,7 @@ func TestArchiveWindow(t *testing.T) {
 		require.True(t, harness.panel.IsZoomed())
 		answerResume(harness)
 
-		harness.press("j", "R")
+		harness.press("j", "space", "a", "o")
 
 		assert.False(t, harness.panel.IsZoomed(), "the pane it made is not left under the archive's own zoom")
 		assert.Equal(t, "%9", harness.panel.ReadGuestPane())
@@ -722,7 +822,7 @@ func TestArchiveSelection(t *testing.T) {
 	}{
 		{
 			name:  "a header takes its whole folder",
-			press: []string{"v", "r"},
+			press: []string{"v", "space", "a", "r"},
 			wantSent: []request{{
 				procedure: agentv1connect.AgentServiceRestoreAgentsProcedure,
 				msg:       &agentv1.RestoreAgentsRequest{Ids: []string{"auth", "api", "db"}},
@@ -730,7 +830,7 @@ func TestArchiveSelection(t *testing.T) {
 		},
 		{
 			name:  "the range key reaches back to the nearest selection",
-			press: []string{"j", "v", "j", "j", "V", "r"},
+			press: []string{"j", "v", "j", "j", "V", "space", "a", "r"},
 			wantSent: []request{{
 				procedure: agentv1connect.AgentServiceRestoreAgentsProcedure,
 				msg:       &agentv1.RestoreAgentsRequest{Ids: []string{"auth", "api", "db"}},
@@ -738,7 +838,7 @@ func TestArchiveSelection(t *testing.T) {
 		},
 		{
 			name:  "restore takes the whole selection rather than the hovered row",
-			press: []string{"j", "v", "j", "v", "j", "r"},
+			press: []string{"j", "v", "j", "v", "j", "space", "a", "r"},
 			wantSent: []request{{
 				procedure: agentv1connect.AgentServiceRestoreAgentsProcedure,
 				msg:       &agentv1.RestoreAgentsRequest{Ids: []string{"auth", "api"}},
@@ -746,7 +846,7 @@ func TestArchiveSelection(t *testing.T) {
 		},
 		{
 			name:  "delete opens its prompt over the archive on the whole selection",
-			press: []string{"j", "v", "j", "v", "j", "d", "y"},
+			press: []string{"j", "v", "j", "v", "j", "space", "a", "d", "y"},
 			wantSent: []request{{
 				procedure: agentv1connect.AgentServiceDeleteAgentsProcedure,
 				msg:       &agentv1.DeleteAgentsRequest{Ids: []string{"auth", "api"}},
@@ -768,7 +868,7 @@ func TestArchiveSelection(t *testing.T) {
 	t.Run("a folder restore stands down while a selection is up", func(t *testing.T) {
 		harness := openGroupedArchive(t, newArchivedWorkflow("w1", "backend"), newArchivedAgent("a1", "auth", "w1"))
 
-		harness.press("j", "v", "g", "g", "r")
+		harness.press("j", "v", "g", "g", "space", "a", "r")
 
 		harness.assertSent(request{
 			procedure: agentv1connect.AgentServiceRestoreAgentsProcedure,
@@ -780,7 +880,7 @@ func TestArchiveSelection(t *testing.T) {
 		harness := openGroupedArchive(t, rows...)
 		harness.refuse(agentv1connect.AgentServiceRestoreAgentsProcedure, connect.NewError(connect.CodeUnavailable, errors.New("down")))
 
-		harness.press("j", "v", "r")
+		harness.press("j", "v", "space", "a", "r")
 
 		assert.Contains(t, readLegend(harness.readFrame()), "1 selected")
 	})
@@ -804,7 +904,7 @@ func TestArchiveSelection(t *testing.T) {
 		harness.press("j", "v", "G", "v")
 
 		harness.watch(buildSnapshot(rows[0], rows[3]))
-		harness.press("r")
+		harness.press("space", "a", "r")
 
 		harness.assertSentTo(agentv1connect.AgentServiceRestoreAgentsProcedure, &agentv1.RestoreAgentsRequest{Ids: []string{"db"}})
 	})
@@ -836,8 +936,8 @@ func TestArchiveSchedules(t *testing.T) {
 		{
 			name:       "the row of kinds lists the archived schedules and none of the live ones",
 			press:      []string{"F", "tab", "esc"},
-			want:       []string{"weekly-gone", "archived — kept until deleted", "r restore schedule"},
-			wantAbsent: []string{"nightly-live", "api-refactor"},
+			want:       []string{"weekly-gone", "archived — kept until deleted"},
+			wantAbsent: []string{"nightly-live", "api-refactor", "r rename"},
 		},
 		{
 			name:       "the row of kinds again goes back to the agents",
@@ -847,7 +947,7 @@ func TestArchiveSchedules(t *testing.T) {
 		},
 		{
 			name:  "restore puts the hovered schedule back",
-			press: []string{"F", "tab", "esc", "r"},
+			press: []string{"F", "tab", "esc", "space", "a", "r"},
 			want:  []string{"weekly-gone"},
 			wantSent: []request{{
 				procedure: schedulev1connect.ScheduleServiceRestoreScheduleProcedure,
@@ -856,17 +956,17 @@ func TestArchiveSchedules(t *testing.T) {
 		},
 		{
 			name:  "delete asks first",
-			press: []string{"F", "tab", "esc", "d"},
+			press: []string{"F", "tab", "esc", "space", "a", "d"},
 			want:  []string{`Permanently delete schedule "weekly-gone"?`},
 		},
 		{
 			name:       "declining the delete destroys nothing",
-			press:      []string{"F", "tab", "esc", "d", "n"},
+			press:      []string{"F", "tab", "esc", "space", "a", "d", "n"},
 			wantAbsent: []string{deletePrompt},
 		},
 		{
 			name:       "confirming the delete destroys the schedule",
-			press:      []string{"F", "tab", "esc", "d", "y"},
+			press:      []string{"F", "tab", "esc", "space", "a", "d", "y"},
 			wantAbsent: []string{deletePrompt},
 			wantSent: []request{{
 				procedure: schedulev1connect.ScheduleServiceDeleteScheduleProcedure,

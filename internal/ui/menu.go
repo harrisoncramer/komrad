@@ -118,16 +118,29 @@ func (a *agentsScreen) itemMenu(s panelShared) (submenu, bool) {
 }
 
 func (a *archiveScreen) itemMenu(s panelShared) (submenu, bool) {
-	if !a.holdsAnAgent(s) {
+	target, ok := a.menuTarget(s)
+	if !ok {
 		return submenu{}, false
 	}
 
-	row, ok := rowAt(a.listRows(s), a.cursor)
-	if !ok || row.header {
-		return submenu{}, false
+	entry := nestedEntry("archive", s.keys.Menu.Archive, archiveMenu(s, target))
+
+	if row, ok := rowAt(a.listRows(s), a.cursor); ok && a.holdsAnAgent(s) && !row.header {
+		menu := agentMenu(s, screenArchive, row.item)
+		menu.entries = append(menu.entries, entry)
+
+		return menu, true
 	}
 
-	return agentMenu(s, screenArchive, row.item), true
+	name := target.name(s.listing)
+
+	return submenu{
+		kind:    formMenu,
+		title:   name,
+		crumb:   name,
+		entries: []submenuEntry{entry},
+		answer:  func(m model, _ int) (tea.Model, tea.Cmd) { return m.closeForm() },
+	}, true
 }
 
 var (

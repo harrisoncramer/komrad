@@ -2203,7 +2203,7 @@ func TestAgentsChildren(t *testing.T) {
 		reviewer.ParentAgentId = xptr.Ptr("a1")
 		harness := openGroupedArchive(t, newLiveWorkflow("w1", "komrad"), newArchivedAgent("a1", "author", "w1"), reviewer)
 
-		harness.press("j", "d")
+		harness.press("j", "space", "a", "d")
 
 		frame := harness.readFrame()
 		assert.Contains(t, frame, `Permanently delete agent "author" and its child?`)

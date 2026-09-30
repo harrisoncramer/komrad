@@ -5,11 +5,13 @@ import (
 	"slices"
 	"strings"
 
+	"komrad/internal/glyph"
 	"komrad/internal/ui/paint"
 	"komrad/internal/view"
 
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 )
 
 // nameEdit is a row's name being typed over where the row is drawn.
@@ -171,4 +173,14 @@ func renameHelp() keyMap {
 // renamer is a screen that types over a row's name in its list.
 type renamer interface {
 	isRenaming() bool
+}
+
+// drawnName is the typed name in a row's lettering, cut from its start to fit.
+func drawnName(e *nameEdit, style lipgloss.Style) string {
+	name := style.Render(paint.ClipStart(e.typed, nameWidth))
+	if e.saving || e.landed {
+		return name
+	}
+
+	return name + paint.Panel.Cursor().Render(glyph.TextCursor)
 }

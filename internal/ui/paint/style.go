@@ -223,3 +223,13 @@ func (p Palette) TmuxBorder() string {
 func (p Palette) TmuxSelection() string {
 	return "fg=" + tmuxColor(p.colors.Inverse) + ",bg=" + tmuxColor(p.colors.Mode.Visual)
 }
+
+// ClipStart cuts text to a width from its start, beginning it in an ellipsis.
+func ClipStart(text string, width int) string {
+	runes := []rune(text)
+	if len(runes) <= width {
+		return text
+	}
+
+	return "…" + string(runes[len(runes)-width+1:])
+}
