@@ -21,7 +21,10 @@ func TestIntegrationTuneCopyModeMakesCopyModeVisualMode(t *testing.T) {
 	client.TuneCopyMode("#[fg=colour0] VISUAL #[default]")
 
 	assert.Equal(t, "vi", client.ShowGlobal("mode-keys"))
-	assert.Equal(t, "#[align=right]#[fg=colour0] VISUAL #[default]", client.ShowGlobal("copy-mode-position-format"))
+	if _, err := client.query("show-options", "-g", "copy-mode-position-format"); err == nil {
+		assert.Equal(t, "#[align=right]#[fg=colour0] VISUAL #[default]", client.ShowGlobal("copy-mode-position-format"),
+			"a tmux older than the option draws copy-mode's own position instead")
+	}
 
 	bindings, err := client.getKeys(copyModeTable)
 	require.NoError(t, err)

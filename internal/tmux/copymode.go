@@ -85,7 +85,7 @@ func (c *Client) OpenCopyStandIn(pane, text string, row int, keys ...string) err
 
 	c.ResizeWindow(standIn, width, height)
 
-	script := fmt.Sprintf(`cat "$0"; rm -f "$0"; printf '\033[%d;1H'; "$1" copy-mode; exec sleep 2147483647`, max(row, 1))
+	script := fmt.Sprintf(`cat "$0"; rm -f "$0"; printf '\033[%d;1H'; "$1" copy-mode -t "$TMUX_PANE"; exec sleep 2147483647`, max(row, 1))
 	if err := c.RespawnPane(standIn, "", "sh", "-c", script, file, tmuxPath); err != nil {
 		c.KillPane(standIn)
 
@@ -98,7 +98,7 @@ func (c *Client) OpenCopyStandIn(pane, text string, row int, keys ...string) err
 	}
 	restore = append(restore, "kill-pane -t "+standIn)
 
-	hook := `if-shell -F "#{pane_in_mode}" "" "` + strings.Join(restore, " ; ") + `"`
+	hook := `if-shell -F -t ` + standIn + ` "#{pane_in_mode}" "" "` + strings.Join(restore, " ; ") + `"`
 	if _, err := c.query("set-hook", "-p", "-t", standIn, "pane-mode-changed", hook); err != nil {
 		c.KillPane(standIn)
 
