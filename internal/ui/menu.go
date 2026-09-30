@@ -32,31 +32,35 @@ func (m *model) openMenu() tea.Cmd {
 	return openSubmenu(m, menu)
 }
 
-// menuReturn is the screen the menu was opened on and the agent it was showing.
-func (m *model) menuReturn(s panelShared) screenTarget {
-	here := screenTarget{from: m.screen}
+// menuPlace is a screen and the target that puts it back as it was.
+type menuPlace struct {
+	screen screen
+	target screenTarget
+}
 
+// menuReturn is the screen the menu was opened on and the agent it was showing.
+func (m *model) menuReturn(s panelShared) menuPlace {
 	switch m.screen {
 	case screenAgents:
-		here.agentID = m.agents.hoveredAgentID(s)
+		return menuPlace{screen: m.screen, target: screenTarget{agentID: m.agents.hoveredAgentID(s)}}
 	case screenArchive:
-		here.agentID = m.archive.hoveredAgentID(s)
+		return menuPlace{screen: m.screen, target: screenTarget{agentID: m.archive.hoveredAgentID(s)}}
 	case screenDocuments:
-		here.agentID = m.documents.agentID
+		return menuPlace{screen: m.screen, target: screenTarget{agentID: m.documents.agentID, from: m.documents.from}}
 	case screenLogs:
-		here.agentID = m.logs.agentID
+		return menuPlace{screen: m.screen, target: screenTarget{agentID: m.logs.agentID, from: m.logs.from}}
 	case screenReview:
-		here.agentID = m.review.agentID
+		return menuPlace{screen: m.screen, target: screenTarget{agentID: m.review.agentID}}
 	case screenDocumentTypes:
-		return screenTarget{agentID: m.documentTypes.agentID, from: m.documentTypes.from}
+		return menuPlace{screen: m.documentTypes.from, target: m.documentTypes.returning}
 	case screenSchedules, screenSearch, screenWorktrees:
 	}
 
-	return here
+	return menuPlace{screen: m.screen}
 }
 
 // panelMenu is the band of the menu that acts on the panel whatever is hovered.
-func panelMenu(s panelShared, scratchOpen bool, back screenTarget) submenu {
+func panelMenu(s panelShared, scratchOpen bool, back menuPlace) submenu {
 	scratch := "scratch"
 	if scratchOpen {
 		scratch = "close scratch"

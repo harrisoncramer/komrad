@@ -60,6 +60,10 @@ func (d *documentsScreen) shelfLegend() []screenLegendRow {
 
 // back leaves for the screen the shelf was opened from.
 func (d *documentsScreen) back(h host) tea.Cmd {
+	if d.shelf == shelfDocumentTypes {
+		return h.enter(d.from, d.returning)
+	}
+
 	return h.enter(d.from, screenTarget{agentID: d.agentID})
 }
 

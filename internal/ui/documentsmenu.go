@@ -64,7 +64,7 @@ const (
 )
 
 // documentTypesMenu is the ways into the document types, opened from the panel's own entries.
-func documentTypesMenu(s panelShared, back screenTarget) submenu {
+func documentTypesMenu(s panelShared, back menuPlace) submenu {
 	return submenu{
 		kind:  formDocumentTypesMenu,
 		title: "document types",
@@ -77,7 +77,8 @@ func documentTypesMenu(s panelShared, back screenTarget) submenu {
 			switch documentTypesChoice(choice) {
 			case documentTypesChoiceList:
 				m.leaveForm()
-				cmd := m.enter(screenDocumentTypes, back)
+				cmd := m.enter(screenDocumentTypes, screenTarget{from: back.screen})
+				m.documentTypes.returning = back.target
 
 				return m, cmd
 			case documentTypesChoiceNew:

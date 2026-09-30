@@ -66,6 +66,24 @@ func TestDocumentTypesOpen(t *testing.T) {
 		assert.Equal(t, schedulesScreen, harness.readScreen())
 	})
 
+	t.Run("back returns to the documents they were opened over, which still go back to their own", func(t *testing.T) {
+		t.Parallel()
+
+		harness, _ := openDocuments(t)
+		answerDocumentTypes(harness)
+		harness.press("space", "T", "l")
+		harness.fireTimers()
+		harness.press("esc")
+		harness.fireTimers()
+
+		assert.Equal(t, documentsScreen, harness.readScreen())
+		assert.Contains(t, readStageText(harness.readFrame()), "Design the cache")
+
+		harness.press("esc")
+
+		assert.Equal(t, agentsScreen, harness.readScreen())
+	})
+
 	t.Run("a type put on the watch is drawn", func(t *testing.T) {
 		t.Parallel()
 
