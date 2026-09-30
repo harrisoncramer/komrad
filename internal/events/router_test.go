@@ -32,28 +32,15 @@ func (followUp) Kind() string {
 	return "follow_up"
 }
 
-type pingHandler struct {
-	heard []string
-}
-
-func (*pingHandler) Topic() string {
-	return "pinged"
-}
-
-func (h *pingHandler) Handle(_ context.Context, _ store.DBTX, _ *mail.MailService, payload json.RawMessage) ([]river.JobArgs, error) {
-	var event pinged
-	if err := json.Unmarshal(payload, &event); err != nil {
-		return nil, err
-	}
-	h.heard = append(h.heard, event.Name)
-
-	return []river.JobArgs{followUp(event)}, nil
-}
-
 // TestRouterHandsEachEventToItsTopic covers the handlers of every other topic hearing nothing.
 func TestRouterHandsEachEventToItsTopic(t *testing.T) {
 	stores := storetest.Open(t)
-	handler := &pingHandler{}
+	var heard []string
+	handler := events.HandlerFor[pinged](func(_ context.Context, _ store.DBTX, _ *mail.MailService, event pinged) ([]river.JobArgs, error) {
+		heard = append(heard, event.Name)
+
+		return []river.JobArgs{followUp(event)}, nil
+	})
 	router := events.NewRouter(events.NewRouterParams{
 		Mailer: mail.NewMailService(mail.NewMailServiceParams{
 			MailReadWriter: stores.Mail,
@@ -69,7 +56,11 @@ func TestRouterHandsEachEventToItsTopic(t *testing.T) {
 	followUps, err := router.Route(t.Context(), stores.Pool.GetDB(), *event)
 	require.NoError(t, err)
 	assert.Equal(t, []river.JobArgs{followUp{Name: "a"}}, followUps)
-	assert.Equal(t, []string{"a"}, handler.heard)
+	assert.Equal(t, []string{"a"}, heard)
+
+	_, err = router.Route(t.Context(), stores.Pool.GetDB(), events.Event{Topic: "pinged", Payload: json.RawMessage(`{"name": 1}`)})
+	require.Error(t, err)
+	assert.Equal(t, []string{"a"}, heard)
 
 	_, err = router.Route(t.Context(), stores.Pool.GetDB(), events.Event{Topic: "unheard", Payload: json.RawMessage(`{}`)})
 	require.ErrorIs(t, err, events.ErrUnknownTopic)

@@ -2,7 +2,6 @@ package pullrequests
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"slices"
@@ -17,26 +16,13 @@ import (
 	"github.com/riverqueue/river"
 )
 
-// EventHandler keeps one unread mail per agent on a pull request's branch saying where it stands.
-type EventHandler struct{}
-
 // NewEventHandler builds the handler the router is given for pull request changes.
-func NewEventHandler() *EventHandler {
-	return &EventHandler{}
+func NewEventHandler() events.HandlerFor[Change] {
+	return handleChange
 }
 
-// Topic is the topic of a Change.
-func (*EventHandler) Topic() string {
-	return changeTopic
-}
-
-// Handle tells every agent on the pull request's branch where it now stands.
-func (*EventHandler) Handle(ctx context.Context, tx store.DBTX, mailer *mail.MailService, payload json.RawMessage) ([]river.JobArgs, error) {
-	var change Change
-	if err := json.Unmarshal(payload, &change); err != nil {
-		return nil, fmt.Errorf("failed to read a pull request change: %w", err)
-	}
-
+// handleChange tells every agent on the pull request's branch where it now stands.
+func handleChange(ctx context.Context, tx store.DBTX, mailer *mail.MailService, change Change) ([]river.JobArgs, error) {
 	pullRequests := pullrequeststore.NewPullRequestStore(tx)
 	pullRequest, err := pullRequests.GetByID(ctx, change.ID)
 	if errors.Is(err, store.ErrNotFound) {
