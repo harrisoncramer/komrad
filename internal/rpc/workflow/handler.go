@@ -58,7 +58,7 @@ func (s *Handler) ListWorkflows(ctx context.Context, req *workflowv1.ListWorkflo
 	}
 
 	view := workflowViewOptions(req.GetView())
-	resources := xslice.Map(stored, func(w workflowstore.Workflow) workflow { return renderWorkflow(w, view...) })
+	resources := xslice.Map(stored, func(w workflowstore.Workflow) workflow { return renderWorkflow(w, view) })
 
 	next, err := paginator.NextToken(resources)
 	if err != nil {
@@ -78,53 +78,27 @@ func (s *Handler) GetWorkflow(ctx context.Context, req *workflowv1.GetWorkflowRe
 		return nil, rpcerr.From(err, "failed to get workflow")
 	}
 
-	return &workflowv1.GetWorkflowResponse{Workflow: renderWorkflow(*found).Workflow}, nil
+	return &workflowv1.GetWorkflowResponse{Workflow: renderWorkflow(*found, render.WorkflowOptions{}).Workflow}, nil
 }
 
 // CreateWorkflow adds a workflow and returns it as stored.
 func (s *Handler) CreateWorkflow(ctx context.Context, req *workflowv1.CreateWorkflowRequest) (*workflowv1.CreateWorkflowResponse, *fail.Error) {
-	created, err := s.workflows.NewWorkflow(ctx, workflowstore.Config{
-		Name:            req.GetName(),
-		Context:         req.GetContext(),
-		Harness:         req.GetHarness(),
-		Cwd:             req.GetCwd(),
-		Flags:           req.GetFlags(),
-		ReviewerHarness: req.GetReviewerHarness(),
-		ReviewerFlags:   req.GetReviewerFlags(),
-		Worktree:        render.WorktreeConfigFromProto(req.GetWorktree()),
-		Hooks:           hooksFromProto(req.GetHooks()),
-	})
+	created, err := s.workflows.NewWorkflow(ctx, configFromRequest(req))
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to create workflow")
 	}
 
-	return &workflowv1.CreateWorkflowResponse{Workflow: renderWorkflow(*created).Workflow}, nil
+	return &workflowv1.CreateWorkflowResponse{Workflow: renderWorkflow(*created, render.WorkflowOptions{}).Workflow}, nil
 }
 
 // UpdateWorkflow replaces a workflow's editable fields.
 func (s *Handler) UpdateWorkflow(ctx context.Context, req *workflowv1.UpdateWorkflowRequest) (*emptypb.Empty, *fail.Error) {
-	err := s.workflows.UpdateWorkflow(ctx, req.GetId(), workflowstore.Config{
-		Name:            req.GetName(),
-		Context:         req.GetContext(),
-		Harness:         req.GetHarness(),
-		Cwd:             req.GetCwd(),
-		Flags:           req.GetFlags(),
-		ReviewerHarness: req.GetReviewerHarness(),
-		ReviewerFlags:   req.GetReviewerFlags(),
-		Worktree:        render.WorktreeConfigFromProto(req.GetWorktree()),
-		Hooks:           hooksFromProto(req.GetHooks()),
-	})
+	err := s.workflows.UpdateWorkflow(ctx, req.GetId(), configFromRequest(req))
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to update workflow")
 	}
 
 	return &emptypb.Empty{}, nil
-}
-
-func hooksFromProto(hooks []*workflowv1.WorkflowHook) []workflowstore.Hook {
-	return xslice.Map(hooks, func(hook *workflowv1.WorkflowHook) workflowstore.Hook {
-		return workflowstore.Hook{Event: hook.GetEvent(), Script: hook.GetScript()}
-	})
 }
 
 // ArchiveWorkflow hides a workflow and archives the agents inside it.
@@ -143,7 +117,7 @@ func (s *Handler) RestoreWorkflow(ctx context.Context, req *workflowv1.RestoreWo
 		return nil, rpcerr.From(err, "failed to restore workflow")
 	}
 
-	return &workflowv1.RestoreWorkflowResponse{Workflow: renderWorkflow(*restored).Workflow}, nil
+	return &workflowv1.RestoreWorkflowResponse{Workflow: renderWorkflow(*restored, render.WorkflowOptions{}).Workflow}, nil
 }
 
 // DeleteWorkflow permanently removes an archived workflow, the archived agents still inside
@@ -154,4 +128,47 @@ func (s *Handler) DeleteWorkflow(ctx context.Context, req *workflowv1.DeleteWork
 	}
 
 	return &emptypb.Empty{}, nil
+}
+
+type workflowConfigGetter interface {
+	GetName() string
+	GetContext() string
+	GetHarness() string
+	GetCwd() string
+	GetFlags() string
+	GetReviewerHarness() string
+	GetReviewerFlags() string
+	GetWorktree() *workflowv1.WorktreeConfig
+	GetHooks() []*workflowv1.WorkflowHook
+}
+
+func configFromRequest(req workflowConfigGetter) workflowstore.Config {
+	return workflowstore.Config{
+		Name:            req.GetName(),
+		Context:         req.GetContext(),
+		Harness:         req.GetHarness(),
+		Cwd:             req.GetCwd(),
+		Flags:           req.GetFlags(),
+		ReviewerHarness: req.GetReviewerHarness(),
+		ReviewerFlags:   req.GetReviewerFlags(),
+		Worktree:        worktreeConfigFromProto(req.GetWorktree()),
+		Hooks:           hooksFromProto(req.GetHooks()),
+	}
+}
+
+func hooksFromProto(hooks []*workflowv1.WorkflowHook) []workflowstore.Hook {
+	return xslice.Map(hooks, func(hook *workflowv1.WorkflowHook) workflowstore.Hook {
+		return workflowstore.Hook{Event: hook.GetEvent(), Script: hook.GetScript()}
+	})
+}
+
+func worktreeConfigFromProto(w *workflowv1.WorktreeConfig) workflowstore.WorktreeConfig {
+	return workflowstore.WorktreeConfig{
+		Enabled:      w.GetEnabled(),
+		BaseBranch:   w.GetBaseBranch(),
+		Dir:          w.GetDir(),
+		CopyPaths:    w.GetCopyPaths(),
+		SymlinkPaths: w.GetSymlinkPaths(),
+		DiffExclude:  w.GetDiffExclude(),
+	}
 }
