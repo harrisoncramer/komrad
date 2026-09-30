@@ -31,7 +31,7 @@ func (m model) Init() tea.Cmd {
 		return nil
 	}
 
-	m.holdCycleKeys()
+	m.holdLeader()
 
 	return tea.Batch(tick(), cursor.Blink, tea.RequestBackgroundColor)
 }
@@ -51,12 +51,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	routed, pulse := routed.pulseMessages(m.messages.landed)
 	routed = routed.releaseHiddenDetails()
 	routed = routed.dropStaleDocScroll()
-	routed.holdCycleKeys()
 
 	return routed, tea.Batch(cmd, blink, warming, spinning, pulse)
 }
 
-// focusPane is the agent's pane the cycle stops at, empty where the stage holds none or the
+// focusPane is the agent's pane the picker stops at, empty where the stage holds none or the
 // panel is drawn over it.
 func (m model) focusPane() string {
 	if m.screen != screenAgents || m.frame.IsSolo() {
@@ -92,10 +91,17 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	// A cycle key pressed in another pane is answered ahead of every mode.
+	if frozen, ok := msg.(visualFrozenMsg); ok {
+		return m.applyFreeze(frozen), nil
+	}
+
 	if isKey {
-		if from, ok := m.findPressedElsewhere(key.String()); ok {
-			return m.cycleFromElsewhere(key.String(), from)
+		if next, cmd, handled := m.routeLeader(key); handled {
+			return next, cmd
+		}
+
+		if next, cmd, handled := m.routeVisual(key); handled {
+			return next, cmd
 		}
 	}
 
@@ -106,8 +112,6 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// Reached before the form and before a held write.
 	if isKey && m.canReadMessages() {
 		switch {
-		case m.isMessagesFocused() && m.isCycleKey(key.String()):
-			return m.toggleMessagesFocus(), nil
 		case m.isMessagesFocused():
 			return m.updateMessages(key)
 		case isBound(key.String(), m.keys.Messages.Open):
@@ -289,12 +293,6 @@ func (m model) routeGlobalKey(key tea.KeyPressMsg) (tea.Model, tea.Cmd, bool) {
 
 	if m.isDetailsScreen() && m.canReadMessages() && key.String() == messagesMockKey {
 		return m.pushMockMessage(), nil, true
-	}
-
-	if _, ok := m.active().(blocked); (ok || m.isDetailsScreen()) && m.isCycleKey(key.String()) {
-		next, cmd := m.cycleView(key.String(), m.readSidebarStop())
-
-		return next, cmd, true
 	}
 
 	if _, ok := m.activeTabs(); ok {

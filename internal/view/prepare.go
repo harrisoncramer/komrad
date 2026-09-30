@@ -1,9 +1,7 @@
 package view
 
 import (
-	"fmt"
 	"strconv"
-	"strings"
 
 	"komrad/internal/glyph"
 	"komrad/internal/ui/paint"
@@ -127,9 +125,9 @@ func RepoCell(row Row) Cell {
 	return Cell{Glyph: glyph.Worktree, Tone: paint.ToneMuted}
 }
 
-// buildCommentCells lays out what is outstanding on an agent's work in three slots, the open
-// comments of reviewer agents, the open comments of the person with any the forge offers them, and the replies the person has
-// not read, drawing nothing while all three are zero.
+// buildCommentCells lays out what is outstanding on an agent's work against the right edge: the
+// open comments of reviewer agents, the open comments of the person with any the forge offers
+// them, and the replies the person has not read, each drawn only while it is above zero.
 func buildCommentCells(row Row) []Cell {
 	if !isOwn(row) {
 		return nil
@@ -145,34 +143,34 @@ func buildCommentCells(row Row) []Cell {
 		unread = row.PersonComments.Unread
 	}
 
-	if reviewerOpen == 0 && personOpen == 0 && external == 0 && unread == 0 {
-		return nil
-	}
-
-	return []Cell{
+	var cells []Cell
+	for _, cell := range []Cell{
 		countCell(glyph.ReviewerComments, reviewerOpen, paint.ToneMuted),
 		personCell(personOpen, external),
 		countCell(glyph.Unread, unread, paint.ToneWarning),
+	} {
+		if !cell.IsBlank() {
+			cells = append(cells, cell)
+		}
 	}
+
+	return cells
 }
 
-// countDigits is how many digits of a count a slot holds room for.
-const countDigits = 2
-
-// countCell is one slot's glyph and count, or a blank of the same width while the count is zero.
+// countCell is one count after its glyph, and nothing while the count is zero.
 func countCell(mark glyph.Glyph, count int, tone paint.Tone) Cell {
 	if count == 0 {
-		return Cell{Text: strings.Repeat(" ", plainColumns+spaceColumns+countDigits)}
+		return Cell{}
 	}
 
 	return Cell{Parts: []Cell{
 		{Glyph: mark, Tone: tone},
 		{Text: " "},
-		{Text: fmt.Sprintf("%-*d", countDigits, count), Tone: tone},
+		{Text: strconv.Itoa(count), Tone: tone},
 	}}
 }
 
-// personCell is the person's slot, carrying the count the forge offers them after their own.
+// personCell is the person's count, carrying the count the forge offers them after their own.
 func personCell(open, external int) Cell {
 	if external == 0 {
 		return countCell(glyph.PersonComments, open, paint.ToneMuted)

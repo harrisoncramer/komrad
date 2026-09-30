@@ -227,12 +227,6 @@ copy = ["y"]
 # Quit the panel.
 quit = ["ctrl+c"]
 
-# The pair of keys that move between the sidebar, the staged agent and the details.
-[keybindings.cycle]
-# Move to the next view, then the previous one. One of ["ctrl+a", "ctrl+q"],
-# ["alt+n", "alt+p"] or ["alt+j", "alt+k"].
-views = ["ctrl+a", "ctrl+q"]
-
 # The messages komrad pushed, read in the main pane.
 [keybindings.messages]
 # Open every message in the main pane, and close it again.

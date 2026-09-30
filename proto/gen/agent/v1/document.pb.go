@@ -22,67 +22,6 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// DocumentKind is what sort of document it is.
-type DocumentKind int32
-
-const (
-	// No kind was given.
-	DocumentKind_DOCUMENT_KIND_UNSPECIFIED DocumentKind = 0
-	// A proposal for a change, written before building it.
-	DocumentKind_DOCUMENT_KIND_RFC DocumentKind = 1
-	// What an investigation found.
-	DocumentKind_DOCUMENT_KIND_REPORT DocumentKind = 2
-	// How something that already exists works.
-	DocumentKind_DOCUMENT_KIND_EXPLAINER DocumentKind = 3
-	// Anything else worth keeping.
-	DocumentKind_DOCUMENT_KIND_NOTES DocumentKind = 4
-)
-
-// Enum value maps for DocumentKind.
-var (
-	DocumentKind_name = map[int32]string{
-		0: "DOCUMENT_KIND_UNSPECIFIED",
-		1: "DOCUMENT_KIND_RFC",
-		2: "DOCUMENT_KIND_REPORT",
-		3: "DOCUMENT_KIND_EXPLAINER",
-		4: "DOCUMENT_KIND_NOTES",
-	}
-	DocumentKind_value = map[string]int32{
-		"DOCUMENT_KIND_UNSPECIFIED": 0,
-		"DOCUMENT_KIND_RFC":         1,
-		"DOCUMENT_KIND_REPORT":      2,
-		"DOCUMENT_KIND_EXPLAINER":   3,
-		"DOCUMENT_KIND_NOTES":       4,
-	}
-)
-
-func (x DocumentKind) Enum() *DocumentKind {
-	p := new(DocumentKind)
-	*p = x
-	return p
-}
-
-func (x DocumentKind) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (DocumentKind) Descriptor() protoreflect.EnumDescriptor {
-	return file_agent_v1_document_proto_enumTypes[0].Descriptor()
-}
-
-func (DocumentKind) Type() protoreflect.EnumType {
-	return &file_agent_v1_document_proto_enumTypes[0]
-}
-
-func (x DocumentKind) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use DocumentKind.Descriptor instead.
-func (DocumentKind) EnumDescriptor() ([]byte, []int) {
-	return file_agent_v1_document_proto_rawDescGZIP(), []int{0}
-}
-
 type Document struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Pass this back to write_document to rewrite the document.
@@ -91,8 +30,8 @@ type Document struct {
 	AgentId string `protobuf:"bytes,2,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
 	// The title a person reads, unique among one agent's documents.
 	Name string `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
-	// What sort of document it is.
-	Kind DocumentKind `protobuf:"varint,4,opt,name=kind,proto3,enum=agent.v1.DocumentKind" json:"kind,omitempty"`
+	// The name of the document type it was written as.
+	Type string `protobuf:"bytes,4,opt,name=type,proto3" json:"type,omitempty"`
 	// The markdown text, empty in a listing.
 	Body string `protobuf:"bytes,5,opt,name=body,proto3" json:"body,omitempty"`
 	// When it was first written, in RFC 3339.
@@ -156,11 +95,11 @@ func (x *Document) GetName() string {
 	return ""
 }
 
-func (x *Document) GetKind() DocumentKind {
+func (x *Document) GetType() string {
 	if x != nil {
-		return x.Kind
+		return x.Type
 	}
-	return DocumentKind_DOCUMENT_KIND_UNSPECIFIED
+	return ""
 }
 
 func (x *Document) GetBody() string {
@@ -197,8 +136,8 @@ type WriteDocumentRequest struct {
 	Id *string `protobuf:"bytes,1,opt,name=id,proto3,oneof" json:"id,omitempty"`
 	// The title a person reads.
 	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	// What sort of document it is.
-	Kind DocumentKind `protobuf:"varint,3,opt,name=kind,proto3,enum=agent.v1.DocumentKind" json:"kind,omitempty"`
+	// The name of the document type to write it as, one list_document_types returns.
+	Type string `protobuf:"bytes,3,opt,name=type,proto3" json:"type,omitempty"`
 	// Where the markdown comes from.
 	//
 	// Types that are valid to be assigned to Source:
@@ -258,11 +197,11 @@ func (x *WriteDocumentRequest) GetName() string {
 	return ""
 }
 
-func (x *WriteDocumentRequest) GetKind() DocumentKind {
+func (x *WriteDocumentRequest) GetType() string {
 	if x != nil {
-		return x.Kind
+		return x.Type
 	}
-	return DocumentKind_DOCUMENT_KIND_UNSPECIFIED
+	return ""
 }
 
 func (x *WriteDocumentRequest) GetSource() isWriteDocumentRequest_Source {
@@ -372,8 +311,8 @@ type ListDocumentsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Whose documents to list, or unset for the caller's own.
 	AgentId *string `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3,oneof" json:"agent_id,omitempty"`
-	// Only documents of this kind, or unset for every kind.
-	Kind          *DocumentKind `protobuf:"varint,2,opt,name=kind,proto3,enum=agent.v1.DocumentKind,oneof" json:"kind,omitempty"`
+	// Only documents of this type, or unset for every type.
+	Type          *string `protobuf:"bytes,2,opt,name=type,proto3,oneof" json:"type,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -415,11 +354,11 @@ func (x *ListDocumentsRequest) GetAgentId() string {
 	return ""
 }
 
-func (x *ListDocumentsRequest) GetKind() DocumentKind {
-	if x != nil && x.Kind != nil {
-		return *x.Kind
+func (x *ListDocumentsRequest) GetType() string {
+	if x != nil && x.Type != nil {
+		return *x.Type
 	}
-	return DocumentKind_DOCUMENT_KIND_UNSPECIFIED
+	return ""
 }
 
 type ListDocumentsResponse struct {
@@ -573,8 +512,8 @@ type DocumentVersion struct {
 	Version int32 `protobuf:"varint,1,opt,name=version,proto3" json:"version,omitempty"`
 	// The title it had.
 	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	// What sort of document it was.
-	Kind DocumentKind `protobuf:"varint,3,opt,name=kind,proto3,enum=agent.v1.DocumentKind" json:"kind,omitempty"`
+	// The name of the document type it was written as.
+	Type string `protobuf:"bytes,3,opt,name=type,proto3" json:"type,omitempty"`
 	// Whether a person wrote it in the panel rather than the agent that owns the document.
 	ByPerson bool `protobuf:"varint,4,opt,name=by_person,json=byPerson,proto3" json:"by_person,omitempty"`
 	// When it was written, in RFC 3339.
@@ -627,11 +566,11 @@ func (x *DocumentVersion) GetName() string {
 	return ""
 }
 
-func (x *DocumentVersion) GetKind() DocumentKind {
+func (x *DocumentVersion) GetType() string {
 	if x != nil {
-		return x.Kind
+		return x.Type
 	}
-	return DocumentKind_DOCUMENT_KIND_UNSPECIFIED
+	return ""
 }
 
 func (x *DocumentVersion) GetByPerson() bool {
@@ -738,28 +677,569 @@ func (x *ListDocumentVersionsResponse) GetVersions() []*DocumentVersion {
 	return nil
 }
 
+// DocumentType is one sort of document and the context an agent follows when writing one.
+type DocumentType struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Pass this back to write_document_type or delete_document_type.
+	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	// What documents name as their type.
+	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	// The markdown an agent reads before writing a document of this type.
+	Context string `protobuf:"bytes,3,opt,name=context,proto3" json:"context,omitempty"`
+	// How many times it has been written, which a rewrite passes back to say what it replaces.
+	Version int32 `protobuf:"varint,4,opt,name=version,proto3" json:"version,omitempty"`
+	// When it was last written, in RFC 3339.
+	UpdatedAt     string `protobuf:"bytes,5,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DocumentType) Reset() {
+	*x = DocumentType{}
+	mi := &file_agent_v1_document_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DocumentType) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DocumentType) ProtoMessage() {}
+
+func (x *DocumentType) ProtoReflect() protoreflect.Message {
+	mi := &file_agent_v1_document_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DocumentType.ProtoReflect.Descriptor instead.
+func (*DocumentType) Descriptor() ([]byte, []int) {
+	return file_agent_v1_document_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *DocumentType) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *DocumentType) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *DocumentType) GetContext() string {
+	if x != nil {
+		return x.Context
+	}
+	return ""
+}
+
+func (x *DocumentType) GetVersion() int32 {
+	if x != nil {
+		return x.Version
+	}
+	return 0
+}
+
+func (x *DocumentType) GetUpdatedAt() string {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return ""
+}
+
+type ListDocumentTypesResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Every document type, by name, each with its context.
+	DocumentTypes []*DocumentType `protobuf:"bytes,1,rep,name=document_types,json=documentTypes,proto3" json:"document_types,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListDocumentTypesResponse) Reset() {
+	*x = ListDocumentTypesResponse{}
+	mi := &file_agent_v1_document_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListDocumentTypesResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListDocumentTypesResponse) ProtoMessage() {}
+
+func (x *ListDocumentTypesResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_agent_v1_document_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListDocumentTypesResponse.ProtoReflect.Descriptor instead.
+func (*ListDocumentTypesResponse) Descriptor() ([]byte, []int) {
+	return file_agent_v1_document_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *ListDocumentTypesResponse) GetDocumentTypes() []*DocumentType {
+	if x != nil {
+		return x.DocumentTypes
+	}
+	return nil
+}
+
+type GetDocumentTypeRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The name of the type to read.
+	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	// An earlier write to read as it was, or unset for the type as it stands.
+	Version       *int32 `protobuf:"varint,2,opt,name=version,proto3,oneof" json:"version,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetDocumentTypeRequest) Reset() {
+	*x = GetDocumentTypeRequest{}
+	mi := &file_agent_v1_document_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetDocumentTypeRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetDocumentTypeRequest) ProtoMessage() {}
+
+func (x *GetDocumentTypeRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_agent_v1_document_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetDocumentTypeRequest.ProtoReflect.Descriptor instead.
+func (*GetDocumentTypeRequest) Descriptor() ([]byte, []int) {
+	return file_agent_v1_document_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *GetDocumentTypeRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *GetDocumentTypeRequest) GetVersion() int32 {
+	if x != nil && x.Version != nil {
+		return *x.Version
+	}
+	return 0
+}
+
+type GetDocumentTypeResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The type with its context.
+	DocumentType  *DocumentType `protobuf:"bytes,1,opt,name=document_type,json=documentType,proto3" json:"document_type,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetDocumentTypeResponse) Reset() {
+	*x = GetDocumentTypeResponse{}
+	mi := &file_agent_v1_document_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetDocumentTypeResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetDocumentTypeResponse) ProtoMessage() {}
+
+func (x *GetDocumentTypeResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_agent_v1_document_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetDocumentTypeResponse.ProtoReflect.Descriptor instead.
+func (*GetDocumentTypeResponse) Descriptor() ([]byte, []int) {
+	return file_agent_v1_document_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *GetDocumentTypeResponse) GetDocumentType() *DocumentType {
+	if x != nil {
+		return x.DocumentType
+	}
+	return nil
+}
+
+// DocumentTypeVersion is one write of a document type, without its context.
+type DocumentTypeVersion struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Pass this to get_document_type to read the type as this write left it.
+	Version int32 `protobuf:"varint,1,opt,name=version,proto3" json:"version,omitempty"`
+	// The name it had.
+	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	// When it was written, in RFC 3339.
+	CreatedAt     string `protobuf:"bytes,3,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DocumentTypeVersion) Reset() {
+	*x = DocumentTypeVersion{}
+	mi := &file_agent_v1_document_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DocumentTypeVersion) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DocumentTypeVersion) ProtoMessage() {}
+
+func (x *DocumentTypeVersion) ProtoReflect() protoreflect.Message {
+	mi := &file_agent_v1_document_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DocumentTypeVersion.ProtoReflect.Descriptor instead.
+func (*DocumentTypeVersion) Descriptor() ([]byte, []int) {
+	return file_agent_v1_document_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *DocumentTypeVersion) GetVersion() int32 {
+	if x != nil {
+		return x.Version
+	}
+	return 0
+}
+
+func (x *DocumentTypeVersion) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *DocumentTypeVersion) GetCreatedAt() string {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return ""
+}
+
+type ListDocumentTypeVersionsRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The type whose writes to list.
+	Id            string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListDocumentTypeVersionsRequest) Reset() {
+	*x = ListDocumentTypeVersionsRequest{}
+	mi := &file_agent_v1_document_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListDocumentTypeVersionsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListDocumentTypeVersionsRequest) ProtoMessage() {}
+
+func (x *ListDocumentTypeVersionsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_agent_v1_document_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListDocumentTypeVersionsRequest.ProtoReflect.Descriptor instead.
+func (*ListDocumentTypeVersionsRequest) Descriptor() ([]byte, []int) {
+	return file_agent_v1_document_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *ListDocumentTypeVersionsRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+type ListDocumentTypeVersionsResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Every write of the type, the newest first.
+	Versions      []*DocumentTypeVersion `protobuf:"bytes,1,rep,name=versions,proto3" json:"versions,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListDocumentTypeVersionsResponse) Reset() {
+	*x = ListDocumentTypeVersionsResponse{}
+	mi := &file_agent_v1_document_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListDocumentTypeVersionsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListDocumentTypeVersionsResponse) ProtoMessage() {}
+
+func (x *ListDocumentTypeVersionsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_agent_v1_document_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListDocumentTypeVersionsResponse.ProtoReflect.Descriptor instead.
+func (*ListDocumentTypeVersionsResponse) Descriptor() ([]byte, []int) {
+	return file_agent_v1_document_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *ListDocumentTypeVersionsResponse) GetVersions() []*DocumentTypeVersion {
+	if x != nil {
+		return x.Versions
+	}
+	return nil
+}
+
+type WriteDocumentTypeRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The type to rewrite, or unset to create one.
+	Id *string `protobuf:"bytes,1,opt,name=id,proto3,oneof" json:"id,omitempty"`
+	// What documents name as their type. Renaming a type carries its documents with it.
+	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	// The markdown an agent reads before writing a document of this type.
+	Context string `protobuf:"bytes,3,opt,name=context,proto3" json:"context,omitempty"`
+	// The version a rewrite replaces, as the last read or write returned it, and required with id.
+	Version       *int32 `protobuf:"varint,4,opt,name=version,proto3,oneof" json:"version,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *WriteDocumentTypeRequest) Reset() {
+	*x = WriteDocumentTypeRequest{}
+	mi := &file_agent_v1_document_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *WriteDocumentTypeRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*WriteDocumentTypeRequest) ProtoMessage() {}
+
+func (x *WriteDocumentTypeRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_agent_v1_document_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use WriteDocumentTypeRequest.ProtoReflect.Descriptor instead.
+func (*WriteDocumentTypeRequest) Descriptor() ([]byte, []int) {
+	return file_agent_v1_document_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *WriteDocumentTypeRequest) GetId() string {
+	if x != nil && x.Id != nil {
+		return *x.Id
+	}
+	return ""
+}
+
+func (x *WriteDocumentTypeRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *WriteDocumentTypeRequest) GetContext() string {
+	if x != nil {
+		return x.Context
+	}
+	return ""
+}
+
+func (x *WriteDocumentTypeRequest) GetVersion() int32 {
+	if x != nil && x.Version != nil {
+		return *x.Version
+	}
+	return 0
+}
+
+type WriteDocumentTypeResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The type as stored.
+	DocumentType  *DocumentType `protobuf:"bytes,1,opt,name=document_type,json=documentType,proto3" json:"document_type,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *WriteDocumentTypeResponse) Reset() {
+	*x = WriteDocumentTypeResponse{}
+	mi := &file_agent_v1_document_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *WriteDocumentTypeResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*WriteDocumentTypeResponse) ProtoMessage() {}
+
+func (x *WriteDocumentTypeResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_agent_v1_document_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use WriteDocumentTypeResponse.ProtoReflect.Descriptor instead.
+func (*WriteDocumentTypeResponse) Descriptor() ([]byte, []int) {
+	return file_agent_v1_document_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *WriteDocumentTypeResponse) GetDocumentType() *DocumentType {
+	if x != nil {
+		return x.DocumentType
+	}
+	return nil
+}
+
+type DeleteDocumentTypeRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The type to delete.
+	Id            string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteDocumentTypeRequest) Reset() {
+	*x = DeleteDocumentTypeRequest{}
+	mi := &file_agent_v1_document_proto_msgTypes[19]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteDocumentTypeRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteDocumentTypeRequest) ProtoMessage() {}
+
+func (x *DeleteDocumentTypeRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_agent_v1_document_proto_msgTypes[19]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteDocumentTypeRequest.ProtoReflect.Descriptor instead.
+func (*DeleteDocumentTypeRequest) Descriptor() ([]byte, []int) {
+	return file_agent_v1_document_proto_rawDescGZIP(), []int{19}
+}
+
+func (x *DeleteDocumentTypeRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
 var File_agent_v1_document_proto protoreflect.FileDescriptor
 
 const file_agent_v1_document_proto_rawDesc = "" +
 	"\n" +
-	"\x17agent/v1/document.proto\x12\bagent.v1\x1a\x1bbuf/validate/validate.proto\"\xe1\x01\n" +
+	"\x17agent/v1/document.proto\x12\bagent.v1\x1a\x1bbuf/validate/validate.proto\"\xc9\x01\n" +
 	"\bDocument\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x19\n" +
 	"\bagent_id\x18\x02 \x01(\tR\aagentId\x12\x12\n" +
-	"\x04name\x18\x03 \x01(\tR\x04name\x12*\n" +
-	"\x04kind\x18\x04 \x01(\x0e2\x16.agent.v1.DocumentKindR\x04kind\x12\x12\n" +
+	"\x04name\x18\x03 \x01(\tR\x04name\x12\x12\n" +
+	"\x04type\x18\x04 \x01(\tR\x04type\x12\x12\n" +
 	"\x04body\x18\x05 \x01(\tR\x04body\x12\x1d\n" +
 	"\n" +
 	"created_at\x18\x06 \x01(\tR\tcreatedAt\x12\x1d\n" +
 	"\n" +
 	"updated_at\x18\a \x01(\tR\tupdatedAt\x12\x18\n" +
-	"\aversion\x18\b \x01(\x05R\aversion\"\xd0\x02\n" +
+	"\aversion\x18\b \x01(\x05R\aversion\"\xb7\x02\n" +
 	"\x14WriteDocumentRequest\x12\x1c\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x01R\x02id\x88\x01\x01\x12\x1e\n" +
 	"\x04name\x18\x02 \x01(\tB\n" +
-	"\xbaH\ar\x05\x10\x01\x18\xc8\x01R\x04name\x126\n" +
-	"\x04kind\x18\x03 \x01(\x0e2\x16.agent.v1.DocumentKindB\n" +
-	"\xbaH\a\x82\x01\x04\x10\x01 \x00R\x04kind\x12!\n" +
+	"\xbaH\ar\x05\x10\x01\x18\xc8\x01R\x04name\x12\x1d\n" +
+	"\x04type\x18\x03 \x01(\tB\t\xbaH\x06r\x04\x10\x01\x18dR\x04type\x12!\n" +
 	"\x04body\x18\x04 \x01(\tB\v\xbaH\br\x06\x10\x01(\x80\x80@H\x00R\x04body\x12\x1d\n" +
 	"\x04path\x18\x05 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\x04path\x12&\n" +
 	"\aversion\x18\x06 \x01(\x05B\a\xbaH\x04\x1a\x02 \x00H\x02R\aversion\x88\x01\x01\x12'\n" +
@@ -770,13 +1250,12 @@ const file_agent_v1_document_proto_rawDesc = "" +
 	"\b_versionB\v\n" +
 	"\t_agent_id\"G\n" +
 	"\x15WriteDocumentResponse\x12.\n" +
-	"\bdocument\x18\x01 \x01(\v2\x12.agent.v1.DocumentR\bdocument\"\x92\x01\n" +
+	"\bdocument\x18\x01 \x01(\v2\x12.agent.v1.DocumentR\bdocument\"y\n" +
 	"\x14ListDocumentsRequest\x12'\n" +
-	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\aagentId\x88\x01\x01\x12;\n" +
-	"\x04kind\x18\x02 \x01(\x0e2\x16.agent.v1.DocumentKindB\n" +
-	"\xbaH\a\x82\x01\x04\x10\x01 \x00H\x01R\x04kind\x88\x01\x01B\v\n" +
+	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\aagentId\x88\x01\x01\x12\"\n" +
+	"\x04type\x18\x02 \x01(\tB\t\xbaH\x06r\x04\x10\x01\x18dH\x01R\x04type\x88\x01\x01B\v\n" +
 	"\t_agent_idB\a\n" +
-	"\x05_kind\"I\n" +
+	"\x05_type\"I\n" +
 	"\x15ListDocumentsResponse\x120\n" +
 	"\tdocuments\x18\x01 \x03(\v2\x12.agent.v1.DocumentR\tdocuments\"a\n" +
 	"\x12GetDocumentRequest\x12\x17\n" +
@@ -785,24 +1264,55 @@ const file_agent_v1_document_proto_rawDesc = "" +
 	"\n" +
 	"\b_version\"E\n" +
 	"\x13GetDocumentResponse\x12.\n" +
-	"\bdocument\x18\x01 \x01(\v2\x12.agent.v1.DocumentR\bdocument\"\xa7\x01\n" +
+	"\bdocument\x18\x01 \x01(\v2\x12.agent.v1.DocumentR\bdocument\"\x8f\x01\n" +
 	"\x0fDocumentVersion\x12\x18\n" +
 	"\aversion\x18\x01 \x01(\x05R\aversion\x12\x12\n" +
-	"\x04name\x18\x02 \x01(\tR\x04name\x12*\n" +
-	"\x04kind\x18\x03 \x01(\x0e2\x16.agent.v1.DocumentKindR\x04kind\x12\x1b\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x12\n" +
+	"\x04type\x18\x03 \x01(\tR\x04type\x12\x1b\n" +
 	"\tby_person\x18\x04 \x01(\bR\bbyPerson\x12\x1d\n" +
 	"\n" +
 	"created_at\x18\x05 \x01(\tR\tcreatedAt\"6\n" +
 	"\x1bListDocumentVersionsRequest\x12\x17\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\"U\n" +
 	"\x1cListDocumentVersionsResponse\x125\n" +
-	"\bversions\x18\x01 \x03(\v2\x19.agent.v1.DocumentVersionR\bversions*\x94\x01\n" +
-	"\fDocumentKind\x12\x1d\n" +
-	"\x19DOCUMENT_KIND_UNSPECIFIED\x10\x00\x12\x15\n" +
-	"\x11DOCUMENT_KIND_RFC\x10\x01\x12\x18\n" +
-	"\x14DOCUMENT_KIND_REPORT\x10\x02\x12\x1b\n" +
-	"\x17DOCUMENT_KIND_EXPLAINER\x10\x03\x12\x17\n" +
-	"\x13DOCUMENT_KIND_NOTES\x10\x04B#Z!komrad/proto/gen/agent/v1;agentv1b\x06proto3"
+	"\bversions\x18\x01 \x03(\v2\x19.agent.v1.DocumentVersionR\bversions\"\x85\x01\n" +
+	"\fDocumentType\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x18\n" +
+	"\acontext\x18\x03 \x01(\tR\acontext\x12\x18\n" +
+	"\aversion\x18\x04 \x01(\x05R\aversion\x12\x1d\n" +
+	"\n" +
+	"updated_at\x18\x05 \x01(\tR\tupdatedAt\"Z\n" +
+	"\x19ListDocumentTypesResponse\x12=\n" +
+	"\x0edocument_types\x18\x01 \x03(\v2\x16.agent.v1.DocumentTypeR\rdocumentTypes\"i\n" +
+	"\x16GetDocumentTypeRequest\x12\x1b\n" +
+	"\x04name\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x04name\x12&\n" +
+	"\aversion\x18\x02 \x01(\x05B\a\xbaH\x04\x1a\x02 \x00H\x00R\aversion\x88\x01\x01B\n" +
+	"\n" +
+	"\b_version\"V\n" +
+	"\x17GetDocumentTypeResponse\x12;\n" +
+	"\rdocument_type\x18\x01 \x01(\v2\x16.agent.v1.DocumentTypeR\fdocumentType\"b\n" +
+	"\x13DocumentTypeVersion\x12\x18\n" +
+	"\aversion\x18\x01 \x01(\x05R\aversion\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1d\n" +
+	"\n" +
+	"created_at\x18\x03 \x01(\tR\tcreatedAt\":\n" +
+	"\x1fListDocumentTypeVersionsRequest\x12\x17\n" +
+	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\"]\n" +
+	" ListDocumentTypeVersionsResponse\x129\n" +
+	"\bversions\x18\x01 \x03(\v2\x1d.agent.v1.DocumentTypeVersionR\bversions\"\xb9\x01\n" +
+	"\x18WriteDocumentTypeRequest\x12\x1c\n" +
+	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\x02id\x88\x01\x01\x12\x1d\n" +
+	"\x04name\x18\x02 \x01(\tB\t\xbaH\x06r\x04\x10\x01\x18dR\x04name\x12%\n" +
+	"\acontext\x18\x03 \x01(\tB\v\xbaH\br\x06\x10\x01(\x80\x80@R\acontext\x12&\n" +
+	"\aversion\x18\x04 \x01(\x05B\a\xbaH\x04\x1a\x02 \x00H\x01R\aversion\x88\x01\x01B\x05\n" +
+	"\x03_idB\n" +
+	"\n" +
+	"\b_version\"X\n" +
+	"\x19WriteDocumentTypeResponse\x12;\n" +
+	"\rdocument_type\x18\x01 \x01(\v2\x16.agent.v1.DocumentTypeR\fdocumentType\"4\n" +
+	"\x19DeleteDocumentTypeRequest\x12\x17\n" +
+	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02idB#Z!komrad/proto/gen/agent/v1;agentv1b\x06proto3"
 
 var (
 	file_agent_v1_document_proto_rawDescOnce sync.Once
@@ -816,35 +1326,43 @@ func file_agent_v1_document_proto_rawDescGZIP() []byte {
 	return file_agent_v1_document_proto_rawDescData
 }
 
-var file_agent_v1_document_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_agent_v1_document_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
+var file_agent_v1_document_proto_msgTypes = make([]protoimpl.MessageInfo, 20)
 var file_agent_v1_document_proto_goTypes = []any{
-	(DocumentKind)(0),                    // 0: agent.v1.DocumentKind
-	(*Document)(nil),                     // 1: agent.v1.Document
-	(*WriteDocumentRequest)(nil),         // 2: agent.v1.WriteDocumentRequest
-	(*WriteDocumentResponse)(nil),        // 3: agent.v1.WriteDocumentResponse
-	(*ListDocumentsRequest)(nil),         // 4: agent.v1.ListDocumentsRequest
-	(*ListDocumentsResponse)(nil),        // 5: agent.v1.ListDocumentsResponse
-	(*GetDocumentRequest)(nil),           // 6: agent.v1.GetDocumentRequest
-	(*GetDocumentResponse)(nil),          // 7: agent.v1.GetDocumentResponse
-	(*DocumentVersion)(nil),              // 8: agent.v1.DocumentVersion
-	(*ListDocumentVersionsRequest)(nil),  // 9: agent.v1.ListDocumentVersionsRequest
-	(*ListDocumentVersionsResponse)(nil), // 10: agent.v1.ListDocumentVersionsResponse
+	(*Document)(nil),                         // 0: agent.v1.Document
+	(*WriteDocumentRequest)(nil),             // 1: agent.v1.WriteDocumentRequest
+	(*WriteDocumentResponse)(nil),            // 2: agent.v1.WriteDocumentResponse
+	(*ListDocumentsRequest)(nil),             // 3: agent.v1.ListDocumentsRequest
+	(*ListDocumentsResponse)(nil),            // 4: agent.v1.ListDocumentsResponse
+	(*GetDocumentRequest)(nil),               // 5: agent.v1.GetDocumentRequest
+	(*GetDocumentResponse)(nil),              // 6: agent.v1.GetDocumentResponse
+	(*DocumentVersion)(nil),                  // 7: agent.v1.DocumentVersion
+	(*ListDocumentVersionsRequest)(nil),      // 8: agent.v1.ListDocumentVersionsRequest
+	(*ListDocumentVersionsResponse)(nil),     // 9: agent.v1.ListDocumentVersionsResponse
+	(*DocumentType)(nil),                     // 10: agent.v1.DocumentType
+	(*ListDocumentTypesResponse)(nil),        // 11: agent.v1.ListDocumentTypesResponse
+	(*GetDocumentTypeRequest)(nil),           // 12: agent.v1.GetDocumentTypeRequest
+	(*GetDocumentTypeResponse)(nil),          // 13: agent.v1.GetDocumentTypeResponse
+	(*DocumentTypeVersion)(nil),              // 14: agent.v1.DocumentTypeVersion
+	(*ListDocumentTypeVersionsRequest)(nil),  // 15: agent.v1.ListDocumentTypeVersionsRequest
+	(*ListDocumentTypeVersionsResponse)(nil), // 16: agent.v1.ListDocumentTypeVersionsResponse
+	(*WriteDocumentTypeRequest)(nil),         // 17: agent.v1.WriteDocumentTypeRequest
+	(*WriteDocumentTypeResponse)(nil),        // 18: agent.v1.WriteDocumentTypeResponse
+	(*DeleteDocumentTypeRequest)(nil),        // 19: agent.v1.DeleteDocumentTypeRequest
 }
 var file_agent_v1_document_proto_depIdxs = []int32{
-	0, // 0: agent.v1.Document.kind:type_name -> agent.v1.DocumentKind
-	0, // 1: agent.v1.WriteDocumentRequest.kind:type_name -> agent.v1.DocumentKind
-	1, // 2: agent.v1.WriteDocumentResponse.document:type_name -> agent.v1.Document
-	0, // 3: agent.v1.ListDocumentsRequest.kind:type_name -> agent.v1.DocumentKind
-	1, // 4: agent.v1.ListDocumentsResponse.documents:type_name -> agent.v1.Document
-	1, // 5: agent.v1.GetDocumentResponse.document:type_name -> agent.v1.Document
-	0, // 6: agent.v1.DocumentVersion.kind:type_name -> agent.v1.DocumentKind
-	8, // 7: agent.v1.ListDocumentVersionsResponse.versions:type_name -> agent.v1.DocumentVersion
-	8, // [8:8] is the sub-list for method output_type
-	8, // [8:8] is the sub-list for method input_type
-	8, // [8:8] is the sub-list for extension type_name
-	8, // [8:8] is the sub-list for extension extendee
-	0, // [0:8] is the sub-list for field type_name
+	0,  // 0: agent.v1.WriteDocumentResponse.document:type_name -> agent.v1.Document
+	0,  // 1: agent.v1.ListDocumentsResponse.documents:type_name -> agent.v1.Document
+	0,  // 2: agent.v1.GetDocumentResponse.document:type_name -> agent.v1.Document
+	7,  // 3: agent.v1.ListDocumentVersionsResponse.versions:type_name -> agent.v1.DocumentVersion
+	10, // 4: agent.v1.ListDocumentTypesResponse.document_types:type_name -> agent.v1.DocumentType
+	10, // 5: agent.v1.GetDocumentTypeResponse.document_type:type_name -> agent.v1.DocumentType
+	14, // 6: agent.v1.ListDocumentTypeVersionsResponse.versions:type_name -> agent.v1.DocumentTypeVersion
+	10, // 7: agent.v1.WriteDocumentTypeResponse.document_type:type_name -> agent.v1.DocumentType
+	8,  // [8:8] is the sub-list for method output_type
+	8,  // [8:8] is the sub-list for method input_type
+	8,  // [8:8] is the sub-list for extension type_name
+	8,  // [8:8] is the sub-list for extension extendee
+	0,  // [0:8] is the sub-list for field type_name
 }
 
 func init() { file_agent_v1_document_proto_init() }
@@ -858,19 +1376,20 @@ func file_agent_v1_document_proto_init() {
 	}
 	file_agent_v1_document_proto_msgTypes[3].OneofWrappers = []any{}
 	file_agent_v1_document_proto_msgTypes[5].OneofWrappers = []any{}
+	file_agent_v1_document_proto_msgTypes[12].OneofWrappers = []any{}
+	file_agent_v1_document_proto_msgTypes[17].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_agent_v1_document_proto_rawDesc), len(file_agent_v1_document_proto_rawDesc)),
-			NumEnums:      1,
-			NumMessages:   10,
+			NumEnums:      0,
+			NumMessages:   20,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
 		GoTypes:           file_agent_v1_document_proto_goTypes,
 		DependencyIndexes: file_agent_v1_document_proto_depIdxs,
-		EnumInfos:         file_agent_v1_document_proto_enumTypes,
 		MessageInfos:      file_agent_v1_document_proto_msgTypes,
 	}.Build()
 	File_agent_v1_document_proto = out.File

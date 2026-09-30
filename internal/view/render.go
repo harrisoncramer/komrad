@@ -42,7 +42,7 @@ func renderLine(line Line, list List, palette paint.Palette, width int) string {
 		drawLead(palette, line.Lead) + drawName(palette, line) + draw.trailing(line)
 
 	if len(line.Comments) > 0 {
-		comments := strings.Join(xslice.Map(line.Comments, draw.cell), "  ")
+		comments := strings.Join(xslice.Map(line.Comments, draw.cell), " ")
 		row += strings.Repeat(" ", max(width-lipgloss.Width(row)-lipgloss.Width(comments), spaceColumns)) + comments
 	}
 

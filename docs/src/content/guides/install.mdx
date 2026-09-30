@@ -103,7 +103,7 @@ Run <Command path="open" /> to open the panel. The first open starts the service
 
 The panel takes over the terminal you open it in, and a tmux pane works like any other. <Command path="attach" /> shows the same panel in a second terminal. Closing the panel with <Key name="agents.quit" /> only detaches it, so the service and your agents keep running.
 
-If your own tmux prefix is <Key name="cycle.views" at={0} />, change the <Setting path="keybindings.cycle.views">cycle keys</Setting> so the panel still sees them.
+If your own tmux prefix is `ctrl+space`, give your tmux a different one, since the panel keeps its own keys behind it.
 
 ## Upgrading
 

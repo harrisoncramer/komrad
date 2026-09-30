@@ -17,6 +17,12 @@ const panelWheel = "send-keys -M -t ="
 // wheelPaneFormat is true of the panel's pane outside copy-mode.
 const wheelPaneFormat = "#{&&:" + panelPaneFormat + ",#{==:#{pane_in_mode},0}}"
 
+// LeaderKey is the key, spelled as tmux spells it, that opens the panel's leader table.
+const LeaderKey = "C-Space"
+
+// LeaderTable is the tmux key table the leader opens.
+const LeaderTable = "komrad-leader"
+
 var keyNames = map[string]string{
 	"space":     "Space",
 	"enter":     "Enter",
@@ -129,6 +135,11 @@ func (c *Client) TakePanelWheel() error {
 // IsPanelPassThrough reports whether a root binding is one the panel made for itself.
 func IsPanelPassThrough(command string) bool {
 	return strings.HasPrefix(command, "if-shell") && strings.Contains(command, panelPaneFormat)
+}
+
+// IsPanelLeader reports whether a root binding is the leader the panel bound.
+func IsPanelLeader(command string) bool {
+	return strings.Contains(command, "switch-client -T "+LeaderTable)
 }
 
 func (c *Client) passKeyToPanel(key, command string) error {

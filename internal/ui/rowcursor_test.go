@@ -75,7 +75,7 @@ func TestRowCursor(t *testing.T) {
 	t.Run("the record holding the keys takes the arrow and blinks it", func(t *testing.T) {
 		harness := openAgents(t, buildSelectable()...)
 
-		harness.press("ctrl+a")
+		harness.press("pick:record")
 
 		shown := harness.readFrame()
 		assert.False(t, strings.HasPrefix(findRowWith(t, shown, "auth"), "›"), "the list draws no arrow")

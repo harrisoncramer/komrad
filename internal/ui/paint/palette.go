@@ -25,6 +25,7 @@ const (
 	muted        colorNumber = "8"
 	speakerSelf  colorNumber = "12"
 	speakerOther colorNumber = "13"
+	speakerThird colorNumber = "14"
 	// bright is a foreground above the terminal's own default.
 	bright colorNumber = "15"
 	// merged is the plain magenta, kept off the bright one the other voice in a conversation
@@ -52,9 +53,10 @@ const (
 	ToneWarning
 	ToneDanger
 	ToneMark
-	// ToneSelf and ToneOther are the two voices in a conversation, told apart at a glance.
+	// ToneSelf, ToneOther and ToneThird are the voices in a conversation, told apart at a glance.
 	ToneSelf
 	ToneOther
+	ToneThird
 	ToneBright
 	ToneMerged
 )
@@ -69,6 +71,7 @@ type Palette struct {
 	mark    colorNumber
 	self    colorNumber
 	other   colorNumber
+	third   colorNumber
 	bright  colorNumber
 	merged  colorNumber
 
@@ -89,6 +92,7 @@ var Panel = withStage(Palette{
 	mark:    markColor,
 	self:    speakerSelf,
 	other:   speakerOther,
+	third:   speakerThird,
 	bright:  bright,
 	merged:  merged,
 })
@@ -129,6 +133,8 @@ func (p Palette) number(tone Tone) colorNumber {
 		return p.self
 	case ToneOther:
 		return p.other
+	case ToneThird:
+		return p.third
 	case ToneBright:
 		return p.bright
 	case ToneMerged:
@@ -151,7 +157,8 @@ func (p Palette) FormTheme() huh.Theme {
 func (p Palette) formStyles(isDark bool) *huh.Styles {
 	theme := huh.ThemeBase(isDark)
 
-	theme.Focused.Base = theme.Focused.Base.BorderForeground(p.muted.color())
+	theme.Focused.Base = theme.Focused.Base.BorderStyle(lipgloss.HiddenBorder())
+	theme.Focused.Card = theme.Focused.Base
 	theme.Focused.Title = theme.Focused.Title.Foreground(p.accent.color()).Bold(true)
 	theme.Focused.NoteTitle = theme.Focused.NoteTitle.Foreground(p.accent.color()).Bold(true)
 	theme.Focused.Description = theme.Focused.Description.Foreground(p.muted.color())
@@ -170,8 +177,6 @@ func (p Palette) formStyles(isDark bool) *huh.Styles {
 	theme.Focused.TextInput.Placeholder = theme.Focused.TextInput.Placeholder.Foreground(p.muted.color())
 
 	theme.Blurred = theme.Focused
-	theme.Blurred.Base = theme.Blurred.Base.BorderStyle(lipgloss.HiddenBorder())
-	theme.Blurred.Card = theme.Blurred.Base
 	theme.Blurred.Title = theme.Blurred.Title.Foreground(p.muted.color()).Bold(false)
 	theme.Blurred.NoteTitle = theme.Blurred.NoteTitle.Foreground(p.muted.color()).Bold(false)
 	theme.Blurred.TextInput.Prompt = theme.Blurred.TextInput.Prompt.Foreground(p.muted.color())

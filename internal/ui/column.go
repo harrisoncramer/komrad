@@ -228,7 +228,7 @@ func (m model) isOverColumn(x int) bool {
 func (m model) joinColumns(split columnSplit, sidebar, column string) string {
 	// Trimmed so the two halves are the same height.
 	sidebar = fitColumn(strings.TrimRight(sidebar, "\n"), split.sidebar)
-	column = fitColumn(column, split.column)
+	column = m.markZone(zoneColumn, fitColumn(column, split.column), split.column)
 
 	left, right := sidebar, column
 	if m.frame.IsSidebarOnRight() {

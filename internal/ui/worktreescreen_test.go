@@ -564,7 +564,7 @@ func TestWorktreesRecordOccupants(t *testing.T) {
 			harness := openWorktrees(t, rows...)
 			moveToWorktree(t, harness, tt.row)
 			harness.press(widenListPresses...)
-			harness.press("ctrl+a")
+			harness.press("pick:record")
 
 			frame := harness.readFrame()
 			assert.Equal(t, tt.want, readRecordField(frame, "also here"))
@@ -1025,9 +1025,7 @@ func formatStampAgo(ago time.Duration) string {
 }
 
 func readFormProse(frame string) string {
-	lines := xslice.Map(readStage(frame), func(line string) string {
-		return strings.TrimPrefix(strings.TrimSpace(line), "┃")
-	})
+	lines := xslice.Map(readStage(frame), strings.TrimSpace)
 
 	return joinProse(lines)
 }

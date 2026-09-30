@@ -11,6 +11,7 @@ import (
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
 	documentstore "komrad/internal/store/document"
+	documenttypestore "komrad/internal/store/documenttype"
 	mailstore "komrad/internal/store/mail"
 	pullrequeststore "komrad/internal/store/pullrequest"
 	rowstore "komrad/internal/store/row"
@@ -34,6 +35,7 @@ type Stores struct {
 	Transcripts      *transcriptstore.TranscriptStore
 	Mail             *mailstore.MailStore
 	Documents        *documentstore.DocumentStore
+	DocumentTypes    *documenttypestore.DocumentTypeStore
 	Runs             *runstore.RunStore
 	PullRequests     *pullrequeststore.PullRequestStore
 	PullRequestSyncs *pullrequeststore.PullRequestSyncStore
@@ -61,6 +63,7 @@ func Open(t *testing.T) *Stores {
 		Transcripts:      transcriptstore.NewTranscriptStore(pool.GetDB()),
 		Mail:             mailstore.NewMailStore(pool.GetDB()),
 		Documents:        documentstore.NewDocumentStore(pool.GetDB()),
+		DocumentTypes:    documenttypestore.NewDocumentTypeStore(pool.GetDB()),
 		Runs:             runstore.NewRunStore(pool.GetDB()),
 		PullRequests:     pullrequeststore.NewPullRequestStore(pool.GetDB()),
 		PullRequestSyncs: pullrequeststore.NewPullRequestSyncStore(pool.GetDB()),
@@ -115,6 +118,16 @@ func (s *Stores) SeedTranscript(t *testing.T, agentID string, turns ...string) {
 	s.SeedTurns(t, agentID, xslice.Map(turns, func(text string) transcriptstore.Turn {
 		return transcriptstore.Turn{Role: "user", Content: text}
 	})...)
+}
+
+// SeedDocumentTypes creates a document type for each name, with a context naming it.
+func (s *Stores) SeedDocumentTypes(t *testing.T, names ...string) {
+	t.Helper()
+
+	for _, name := range names {
+		_, err := s.DocumentTypes.Create(t.Context(), name, "How to write a "+name+".")
+		require.NoError(t, err)
+	}
 }
 
 // SeedTurns stores turns for an agent under a session of its own.

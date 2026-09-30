@@ -2,6 +2,7 @@ package render
 
 import (
 	documentstore "komrad/internal/store/document"
+	documenttypestore "komrad/internal/store/documenttype"
 	"komrad/lib/dates"
 	agentv1 "komrad/proto/gen/agent/v1"
 )
@@ -12,7 +13,7 @@ func Document(stored documentstore.Document) *agentv1.Document {
 		Id:        stored.ID,
 		AgentId:   stored.AgentID,
 		Name:      stored.Name,
-		Kind:      DocumentKind(stored.Kind),
+		Type:      stored.Type,
 		Body:      stored.Body,
 		Version:   stored.Version,
 		CreatedAt: dates.Stamp(stored.CreatedAt),
@@ -25,24 +26,28 @@ func DocumentVersion(stored documentstore.Version) *agentv1.DocumentVersion {
 	return &agentv1.DocumentVersion{
 		Version:   stored.Version,
 		Name:      stored.Name,
-		Kind:      DocumentKind(stored.Kind),
+		Type:      stored.Type,
 		ByPerson:  stored.ByPerson,
 		CreatedAt: dates.PreciseStamp(stored.CreatedAt),
 	}
 }
 
-// DocumentKind is the wire's name for a kind of document.
-func DocumentKind(kind documentstore.Kind) agentv1.DocumentKind {
-	switch kind {
-	case documentstore.KindRFC:
-		return agentv1.DocumentKind_DOCUMENT_KIND_RFC
-	case documentstore.KindReport:
-		return agentv1.DocumentKind_DOCUMENT_KIND_REPORT
-	case documentstore.KindExplainer:
-		return agentv1.DocumentKind_DOCUMENT_KIND_EXPLAINER
-	case documentstore.KindNotes:
-		return agentv1.DocumentKind_DOCUMENT_KIND_NOTES
+// DocumentType draws one document type as the wire carries it.
+func DocumentType(stored documenttypestore.Type) *agentv1.DocumentType {
+	return &agentv1.DocumentType{
+		Id:        stored.ID,
+		Name:      stored.Name,
+		Context:   stored.Context,
+		Version:   stored.Version,
+		UpdatedAt: dates.PreciseStamp(stored.UpdatedAt),
 	}
+}
 
-	return agentv1.DocumentKind_DOCUMENT_KIND_UNSPECIFIED
+// DocumentTypeVersion draws one write of a document type, without its context.
+func DocumentTypeVersion(stored documenttypestore.Version) *agentv1.DocumentTypeVersion {
+	return &agentv1.DocumentTypeVersion{
+		Version:   stored.Version,
+		Name:      stored.Name,
+		CreatedAt: dates.PreciseStamp(stored.CreatedAt),
+	}
 }

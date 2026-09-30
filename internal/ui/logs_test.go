@@ -250,7 +250,7 @@ func TestLogsSources(t *testing.T) {
 		reads := tailOfTwo()
 		reads[launchSource.GetId()+"@"] = &logv1.ReadAgentLogsResponse{Lines: []string{"launching"}, Cursor: "9"}
 		harness := openLogs(t, reads)
-		harness.press("j", "ctrl+a")
+		harness.press("j", "pick:block")
 		answerSources(harness, serviceSource, launchSource)
 		harness.fireTimers()
 		harness.press("k")
@@ -486,7 +486,7 @@ func longLog() logReads {
 	}
 }
 
-// TestLogsScroll covers the cycle key handing the keys to the log, its cursor moving through it,
+// TestLogsScroll covers the picker handing the keys to the log, its cursor moving through it,
 // and the wheel scrolling it.
 func TestLogsScroll(t *testing.T) {
 	t.Parallel()
@@ -503,36 +503,36 @@ func TestLogsScroll(t *testing.T) {
 			notWant: "›",
 		},
 		{
-			name:    "the cycle key puts the cursor on the newest line",
-			presses: []string{"ctrl+a"},
+			name:    "the picker puts the cursor on the newest line",
+			presses: []string{"pick:block"},
 			want:    "› entry 100",
 		},
 		{
 			name:    "up in the log moves the cursor back a line",
-			presses: []string{"ctrl+a", "k"},
+			presses: []string{"pick:block", "k"},
 			want:    "› entry 099",
 			notWant: "› entry 100",
 		},
 		{
 			name:    "top in the log moves the cursor to its oldest line",
-			presses: []string{"ctrl+a", "g", "g"},
+			presses: []string{"pick:block", "g", "g"},
 			want:    "› entry 001",
 			notWant: "entry 100",
 		},
 		{
 			name:    "bottom in the log moves the cursor to the newest line",
-			presses: []string{"ctrl+a", "g", "g", "G"},
+			presses: []string{"pick:block", "g", "g", "G"},
 			want:    "› entry 100",
 			notWant: "entry 001",
 		},
 		{
 			name:    "back from the log hands the keys to the list",
-			presses: []string{"ctrl+a", "esc", "j"},
+			presses: []string{"pick:block", "esc", "j"},
 			want:    "error: port 5470 already allocated",
 		},
 		{
-			name:    "the cycle key from the log hands the keys to the list",
-			presses: []string{"ctrl+a", "ctrl+a", "j"},
+			name:    "the list's letter from the log hands the keys to the list",
+			presses: []string{"pick:block", "pick:list", "j"},
 			want:    "error: port 5470 already allocated",
 		},
 	}
@@ -607,7 +607,7 @@ func pressSettling(harness *panelHarness, presses ...string) {
 func TestLogsLineFilter(t *testing.T) {
 	t.Parallel()
 
-	typed := []string{"ctrl+a", "/", "s", "e", "c", "o", "n", "d"}
+	typed := []string{"pick:block", "/", "s", "e", "c", "o", "n", "d"}
 	settled := append(slices.Clone(typed), settle)
 
 	tests := []struct {
@@ -626,7 +626,7 @@ func TestLogsLineFilter(t *testing.T) {
 		},
 		{
 			name:     "an upper-case letter makes the pattern match case",
-			presses:  []string{"ctrl+a", "/", "S", settle},
+			presses:  []string{"pick:block", "/", "S", settle},
 			wantLast: serviceReadMatching("S", ""),
 		},
 		{
@@ -650,23 +650,23 @@ func TestLogsLineFilter(t *testing.T) {
 		},
 		{
 			name:     "esc while typing drops the query and keeps the keys on the lines",
-			presses:  []string{"ctrl+a", "/", "s", "esc", "esc", "j"},
+			presses:  []string{"pick:block", "/", "s", "esc", "esc", "j"},
 			want:     []string{"error: port 5470 already allocated"},
 			wantLast: logRead(provisionRun, ""),
 		},
 		{
 			name:    "a pattern matching nothing says so",
-			presses: []string{"ctrl+a", "/", "z", "z", "z", "enter"},
+			presses: []string{"pick:block", "/", "z", "z", "z", "enter"},
 			want:    []string{"Nothing matching in the last 64 MB.", "▽ zzz"},
 		},
 		{
 			name:    "a pattern matching nothing keeps the keys on the lines",
-			presses: []string{"ctrl+a", "/", "z", "z", "z", "enter", "esc"},
+			presses: []string{"pick:block", "/", "z", "z", "z", "enter", "esc"},
 			want:    []string{"first line", "second line"},
 		},
 		{
 			name:     "moving to another source drops the filter",
-			presses:  append(slices.Clone(typed), "enter", "ctrl+a", "j", "k"),
+			presses:  append(slices.Clone(typed), "enter", "pick:list", "j", "k"),
 			want:     []string{"first line", "second line"},
 			notWant:  []string{"▽ second"},
 			wantLast: logRead("service", ""),
@@ -743,7 +743,7 @@ func TestLogsLineFilter(t *testing.T) {
 		reads["service~(?i)s@"] = &logv1.ReadAgentLogsResponse{Lines: []string{`{"body":"stale line"}`}, Cursor: "10"}
 		harness := openLogs(t, reads)
 		harness.hold(read)
-		harness.press("ctrl+a", "/", "s")
+		harness.press("pick:block", "/", "s")
 		harness.fireTimers()
 		harness.press("e", "c", "o", "n", "d")
 		harness.fireTimers()
@@ -800,12 +800,12 @@ func TestLogsCopy(t *testing.T) {
 	}{
 		{
 			name:    "the newest line is copied from where the cursor starts",
-			presses: []string{"ctrl+a", "y"},
+			presses: []string{"pick:block", "y"},
 			want:    []string{`{"body":"second line"}`},
 		},
 		{
 			name:    "the line the cursor moved to is copied",
-			presses: []string{"ctrl+a", "k", "y"},
+			presses: []string{"pick:block", "k", "y"},
 			want:    []string{`{"body":"first line"}`},
 		},
 		{

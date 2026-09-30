@@ -438,10 +438,10 @@ func (m model) detailsView() string {
 		rows = []string{dimStyle.Render("  nothing matches")}
 	}
 
-	return m.detailsRule(held.tag) +
-		block +
-		paint.PadRows(paint.RenderList(rows, cursor, lines, dimStyle), lines) +
-		m.detailsRule("")
+	return m.markZone(zoneDetails, m.detailsRule(held.tag)+
+		block+
+		paint.PadRows(paint.RenderList(rows, cursor, lines, dimStyle), lines)+
+		m.detailsRule(""), m.paneWidth())
 }
 
 func (m model) drawRecord(above ...string) string {

@@ -17,7 +17,6 @@ import (
 	"komrad/internal/loader"
 	"komrad/internal/panes"
 	"komrad/internal/ui/layout"
-	"komrad/lib/xslice"
 	"komrad/proto/gen/agent/v1/agentv1connect"
 	"komrad/proto/gen/forge/v1/forgev1connect"
 	"komrad/proto/gen/hook/v1/hookv1connect"
@@ -51,6 +50,8 @@ type unsplittableTmux struct {
 }
 
 type recordingTmux struct {
+	// panelSize is the size the panel was last told its pane is.
+	panelSize   tea.WindowSizeMsg
 	resizes     []string
 	path        string
 	swaps       int
@@ -82,6 +83,9 @@ type recordingTmux struct {
 	rootBinds     map[string][]string
 	rootBindCount int
 	rootUnbinds   []string
+	tableBinds    map[string][]string
+	shown         []panes.Rect
+	screens       map[string]string
 }
 
 // PanelTmux is the tmux a panel under test drives in place of the recording one.
@@ -158,7 +162,7 @@ func NewPanel(params NewPanelParams) *Panel {
 
 	panel := &Panel{
 		model: newModel(Deps{
-			Session:         NewSession(tmux, "test-session", spellCycleKeys(params.Keys.Cycle.Views)),
+			Session:         NewSession(tmux, "test-session", "C-Space", "komrad-leader"),
 			Tmux:            driven,
 			Git:             params.Git,
 			Agents:          params.Agents,
@@ -198,6 +202,10 @@ func (p *Panel) Init() tea.Cmd {
 
 // Update hands the panel one message.
 func (p *Panel) Update(msg tea.Msg) tea.Cmd {
+	if size, ok := msg.(tea.WindowSizeMsg); ok {
+		p.tmux.panelSize = size
+	}
+
 	next, cmd := p.model.Update(msg)
 	if updated, ok := next.(model); ok {
 		p.model = updated
@@ -473,6 +481,31 @@ func (p *Panel) SetActivePane(pane string) {
 	p.tmux.keysElsewhere = pane != p.model.settings.Pane
 }
 
+// SetScreens is what tmux shows in the panel's window, pane by pane.
+func (p *Panel) SetScreens(shown []panes.Rect, screens map[string]string) {
+	p.tmux.shown, p.tmux.screens = shown, screens
+}
+
+// ReadPickLetter is the letter the pane picker drew over a sidebar block, list, record or block, or
+// over a pane.
+func (p *Panel) ReadPickLetter(to string) string {
+	block, isBlock := map[string]stop{"list": stopList, "record": stopRecord, "block": stopBlock}[to]
+	for _, target := range p.model.visual.targets {
+		if isBlock && target.pane == "" && target.stop == block || !isBlock && target.pane == to {
+			return target.letter
+		}
+	}
+
+	return ""
+}
+
+// ReadTableBinding is the command a key runs in a named key table, and whether it is bound.
+func (p *Panel) ReadTableBinding(table, key string) ([]string, bool) {
+	command, bound := p.tmux.tableBinds[table+":"+key]
+
+	return command, bound
+}
+
 // SetKeysElsewhere makes tmux report whether the keyboard is in a pane other than the panel's.
 func (p *Panel) SetKeysElsewhere(elsewhere bool) {
 	p.tmux.keysElsewhere = elsewhere
@@ -579,6 +612,22 @@ func (t *recordingTmux) BindRootKey(key string, command ...string) {
 func (t *recordingTmux) UnbindRootKey(key string) {
 	delete(t.rootBinds, key)
 	t.rootUnbinds = append(t.rootUnbinds, key)
+}
+
+func (t *recordingTmux) BindTableKey(table, key string, command ...string) {
+	if t.tableBinds == nil {
+		t.tableBinds = map[string][]string{}
+	}
+
+	t.tableBinds[table+":"+key] = command
+}
+
+func (t *recordingTmux) UnbindTable(table string) {
+	for bound := range t.tableBinds {
+		if strings.HasPrefix(bound, table+":") {
+			delete(t.tableBinds, bound)
+		}
+	}
 }
 
 func (t *recordingTmux) GetHostPath() string {
@@ -759,10 +808,6 @@ func (f *recordingClipboard) WriteAll(text string) error {
 	return f.err
 }
 
-func spellCycleKeys(keys []string) []string {
-	return xslice.Map(keys, strings.NewReplacer("ctrl+", "C-", "alt+", "M-").Replace)
-}
-
 func init() {
 	startTimer = fireAtOnce
 	rowCursorBlink = time.Nanosecond
@@ -772,4 +817,20 @@ func fireAtOnce(_ time.Duration, fn func(time.Time) tea.Msg) tea.Cmd {
 	return func() tea.Msg {
 		return fn(time.Now())
 	}
+}
+
+func (t *recordingTmux) GetWindowID(string) string {
+	return "@1"
+}
+
+func (t *recordingTmux) GetShownPanes(sidebar string) []panes.Rect {
+	if t.shown == nil {
+		return []panes.Rect{{Pane: sidebar, Width: t.panelSize.Width, Height: t.panelSize.Height}}
+	}
+
+	return t.shown
+}
+
+func (t *recordingTmux) CaptureScreen(pane string) string {
+	return t.screens[pane]
 }

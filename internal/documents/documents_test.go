@@ -26,6 +26,7 @@ import (
 // TestWrite pins where a body comes from and which bodies are refused.
 func TestWrite(t *testing.T) {
 	stores := storetest.Open(t)
+	stores.SeedDocumentTypes(t, "notes", "report")
 	cwd := t.TempDir()
 	author := stores.SeedAgent(t, agentstore.Agent{Name: "author", Cwd: cwd})
 	service := newService(stores, eventstest.NewQueue(t, stores, documents.NewEventHandler()))
@@ -101,6 +102,11 @@ func TestWrite(t *testing.T) {
 			wantErr: documents.ErrNoBody,
 		},
 		{
+			name:    "a type that does not exist is refused",
+			params:  documents.WriteDocumentParams{Name: "untyped", Type: "postmortem", Body: "# Untyped"},
+			wantErr: documentstore.ErrUnknownType,
+		},
+		{
 			name: "an agent that does not exist is not found",
 			params: documents.WriteDocumentParams{
 				AgentID: uuid.NewString(),
@@ -117,7 +123,9 @@ func TestWrite(t *testing.T) {
 			if params.AgentID == "" {
 				params.AgentID = author.ID
 			}
-			params.Kind = documentstore.KindNotes
+			if params.Type == "" {
+				params.Type = "notes"
+			}
 
 			written, err := service.WriteDocument(t.Context(), params)
 			if tt.wantErr != nil {
@@ -144,7 +152,7 @@ func TestWriteWithAnIDRewritesThatDocument(t *testing.T) {
 	draft, err := service.WriteDocument(ctx, documents.WriteDocumentParams{
 		AgentID: author.ID,
 		Name:    "Documents",
-		Kind:    documentstore.KindRFC,
+		Type:    "RFC",
 		Body:    "draft",
 	})
 	require.NoError(t, err)
@@ -154,7 +162,7 @@ func TestWriteWithAnIDRewritesThatDocument(t *testing.T) {
 		ID:      xptr.Ptr(draft.ID),
 		Version: xptr.Ptr(draft.Version),
 		Name:    "Documents RFC",
-		Kind:    documentstore.KindRFC,
+		Type:    "RFC",
 		Body:    "revised",
 	})
 	require.NoError(t, err)
@@ -170,6 +178,7 @@ func TestWriteWithAnIDRewritesThatDocument(t *testing.T) {
 // or document nobody made is not found.
 func TestReadAnEarlierWrite(t *testing.T) {
 	stores := storetest.Open(t)
+	stores.SeedDocumentTypes(t, "notes", "report")
 	author := stores.SeedAgent(t, agentstore.Agent{Name: "author"})
 	service := newService(stores, eventstest.NewQueue(t, stores, documents.NewEventHandler()))
 	ctx := t.Context()
@@ -177,7 +186,7 @@ func TestReadAnEarlierWrite(t *testing.T) {
 	draft, err := service.WriteDocument(ctx, documents.WriteDocumentParams{
 		AgentID: author.ID,
 		Name:    "Draft",
-		Kind:    documentstore.KindNotes,
+		Type:    "notes",
 		Body:    "draft",
 	})
 	require.NoError(t, err)
@@ -186,7 +195,7 @@ func TestReadAnEarlierWrite(t *testing.T) {
 		ID:      xptr.Ptr(draft.ID),
 		Version: xptr.Ptr(draft.Version),
 		Name:    "Documents",
-		Kind:    documentstore.KindRFC,
+		Type:    "RFC",
 		Body:    "revised",
 	})
 	require.NoError(t, err)
@@ -196,7 +205,7 @@ func TestReadAnEarlierWrite(t *testing.T) {
 	assert.Equal(t, draft.ID, first.ID)
 	assert.Equal(t, author.ID, first.AgentID)
 	assert.Equal(t, "Draft", first.Name)
-	assert.Equal(t, documentstore.KindNotes, first.Kind)
+	assert.Equal(t, "notes", first.Type)
 	assert.Equal(t, "draft", first.Body)
 	assert.Equal(t, int32(1), first.Version)
 
@@ -214,6 +223,7 @@ func TestReadAnEarlierWrite(t *testing.T) {
 // creates one for the agent it is for, and leaves it with that agent.
 func TestWriteByAPerson(t *testing.T) {
 	stores := storetest.Open(t)
+	stores.SeedDocumentTypes(t, "notes", "report")
 	author := stores.SeedAgent(t, agentstore.Agent{Name: "author"})
 	other := stores.SeedAgent(t, agentstore.Agent{Name: "other"})
 	service := newService(stores, eventstest.NewQueue(t, stores, documents.NewEventHandler()))
@@ -222,7 +232,7 @@ func TestWriteByAPerson(t *testing.T) {
 	draft, err := service.WriteDocument(ctx, documents.WriteDocumentParams{
 		AgentID: author.ID,
 		Name:    "Documents",
-		Kind:    documentstore.KindRFC,
+		Type:    "RFC",
 		Body:    "draft",
 	})
 	require.NoError(t, err)
@@ -240,7 +250,7 @@ func TestWriteByAPerson(t *testing.T) {
 				ID:      xptr.Ptr(draft.ID),
 				Version: xptr.Ptr(draft.Version),
 				Name:    "Documents",
-				Kind:    documentstore.KindRFC,
+				Type:    "RFC",
 				Body:    "edited",
 			},
 			wantBody: "edited",
@@ -250,7 +260,7 @@ func TestWriteByAPerson(t *testing.T) {
 			params: documents.WriteDocumentParams{
 				ID:   xptr.Ptr(draft.ID),
 				Name: "Documents",
-				Kind: documentstore.KindRFC,
+				Type: "RFC",
 				Body: "blind",
 			},
 			wantErr: documents.ErrNoVersion,
@@ -262,7 +272,7 @@ func TestWriteByAPerson(t *testing.T) {
 				Version: xptr.Ptr(draft.Version),
 				For:     other.ID,
 				Name:    "Documents",
-				Kind:    documentstore.KindRFC,
+				Type:    "RFC",
 				Body:    "moved",
 			},
 			wantErr: documents.ErrForAnother,
@@ -271,7 +281,7 @@ func TestWriteByAPerson(t *testing.T) {
 			name: "no id and no agent it is for is refused",
 			params: documents.WriteDocumentParams{
 				Name: "Fresh",
-				Kind: documentstore.KindRFC,
+				Type: "RFC",
 				Body: "new",
 			},
 			wantErr: documents.ErrNoAuthor,
@@ -281,7 +291,7 @@ func TestWriteByAPerson(t *testing.T) {
 			params: documents.WriteDocumentParams{
 				For:  author.ID,
 				Name: "Fresh",
-				Kind: documentstore.KindRFC,
+				Type: "RFC",
 				Body: "Empty RFC.",
 			},
 			wantBody: "Empty RFC.",
@@ -291,7 +301,7 @@ func TestWriteByAPerson(t *testing.T) {
 			params: documents.WriteDocumentParams{
 				For:  other.ID,
 				Name: "Report",
-				Kind: documentstore.KindReport,
+				Type: "report",
 				Body: "Report.",
 			},
 			wantBody:  "Report.",
@@ -302,7 +312,7 @@ func TestWriteByAPerson(t *testing.T) {
 			params: documents.WriteDocumentParams{
 				For:  uuid.NewString(),
 				Name: "Stray",
-				Kind: documentstore.KindRFC,
+				Type: "RFC",
 				Body: "stray",
 			},
 			wantErr: store.ErrNotFound,
@@ -313,7 +323,7 @@ func TestWriteByAPerson(t *testing.T) {
 				ID:      xptr.Ptr(uuid.NewString()),
 				Version: xptr.Ptr(int32(1)),
 				Name:    "Lost",
-				Kind:    documentstore.KindRFC,
+				Type:    "RFC",
 				Body:    "lost",
 			},
 			wantErr: store.ErrNotFound,
@@ -434,14 +444,14 @@ func TestAPersonsWriteMailsTheAuthor(t *testing.T) {
 
 			params := documents.WriteDocumentParams{
 				Name: "Documents",
-				Kind: documentstore.KindRFC,
+				Type: "RFC",
 				Body: uuid.NewString(),
 			}
 			if !tt.creates {
 				draft, err := service.WriteDocument(ctx, documents.WriteDocumentParams{
 					AgentID: author.ID,
 					Name:    params.Name,
-					Kind:    params.Kind,
+					Type:    params.Type,
 					Body:    "draft",
 				})
 				require.NoError(t, err)
@@ -492,6 +502,7 @@ func newService(stores *storetest.Stores, events *eventstest.Queue) *documents.D
 	return documents.NewDocumentService(documents.NewDocumentServiceParams{
 		Agents:    stores.Agents,
 		Documents: stores.Documents,
+		Types:     stores.DocumentTypes,
 		Events:    events,
 	})
 }
@@ -503,7 +514,7 @@ func personEdits(t *testing.T, service *documents.DocumentService, written *docu
 		ID:      xptr.Ptr(written.ID),
 		Version: xptr.Ptr(written.Version),
 		Name:    written.Name,
-		Kind:    written.Kind,
+		Type:    written.Type,
 		Body:    uuid.NewString(),
 	})
 	require.NoError(t, err)

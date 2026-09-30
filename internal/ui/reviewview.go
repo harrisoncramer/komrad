@@ -23,6 +23,7 @@ const (
 	reviewQuoteTone  = paint.ToneMuted
 	reviewHumanTone  = paint.ToneSelf
 	reviewAgentTone  = paint.ToneOther
+	reviewerTone     = paint.ToneThird
 	reviewNoticeTone = paint.ToneSuccess
 	reviewAddedTone  = paint.ToneSuccess
 	// reviewMovedTone draws the catch-up notice as coloured text rather than as a filled bar, the
@@ -53,7 +54,7 @@ func (r reviewScreen) view(s panelShared) string {
 
 	// The band stands over the diff rather than over the whole window, and what it carries acts on
 	// the patch.
-	diff := r.bandView(s, split.column) + r.diffView(s, split)
+	diff := s.draw.markZone(zoneList, r.bandView(s, split.column)+r.diffView(s, split), split.column)
 
 	return s.draw.joinColumns(split, sidebar, diff)
 }
@@ -64,7 +65,9 @@ func (r reviewScreen) sidebarView(s panelShared, above ...string) string {
 	layout := r.layoutSidebar(s, above...)
 	rest := r.threads.window(r.restView(s), layout.threadLines)
 
-	return layout.bar + paint.PadRows(layout.head+rest, layout.spare) + layout.record + layout.help
+	thread := s.draw.markZone(zoneBlock, paint.PadRows(layout.head+rest, layout.spare), s.pane)
+
+	return layout.bar + thread + layout.record + layout.help
 }
 
 // sidebarLayout is the sidebar measured once, so the drawing and the thread's scroll agree on
@@ -140,7 +143,6 @@ func (r reviewScreen) help(s panelShared) keyMap {
 		short: slices.Concat(own.short, s.draw.globalHelp()),
 		full: slices.Concat(
 			own.full,
-			[]key.Binding{s.draw.cycleBinding()},
 			s.draw.fullGlobalHelp(),
 		),
 	}
@@ -357,11 +359,7 @@ func (d reviewDiff) originSaid(thread *agentv1.ReviewThread) string {
 }
 
 func (r reviewScreen) messageView(s panelShared, message *agentv1.ReviewMessage, note string) string {
-	author, tone := "you", reviewHumanTone
-	if message.GetAuthorKind() == agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT {
-		author, tone = r.agentName, reviewAgentTone
-	}
-
+	author, tone := r.authorOf(s, message)
 	head := paint.Panel.Style(tone).Bold(true).Render(author)
 	if when := reviewTimeOf(message.GetCreatedAt()); when != "" {
 		head += " " + dimStyle.Render(when)
@@ -371,6 +369,23 @@ func (r reviewScreen) messageView(s panelShared, message *agentv1.ReviewMessage,
 	}
 
 	return head + "\n" + reviewWrap(s, message.GetBody()) + "\n" + reviewDeliveryBadge(paint.Panel, s.glyphs, message) + "\n"
+}
+
+func (r reviewScreen) authorOf(s panelShared, message *agentv1.ReviewMessage) (string, paint.Tone) {
+	if message.GetAuthorKind() != agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT {
+		return "you", reviewHumanTone
+	}
+
+	id := message.GetAuthorAgentId()
+	if id == r.agentID {
+		return r.agentName, reviewAgentTone
+	}
+
+	if item, ok := s.listing.anyAgent(id); ok {
+		return item.Agent.Name, reviewerTone
+	}
+
+	return "reviewer", reviewerTone
 }
 
 // sendDesc says what the send key opens.

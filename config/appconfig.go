@@ -114,13 +114,6 @@ const (
 	InfoSideAbove    = "above"
 )
 
-// cycleKeyChoices are the pairs the cycle keys may be set to, forward key first.
-var cycleKeyChoices = [][]string{
-	{"ctrl+a", "ctrl+q"},
-	{"alt+n", "alt+p"},
-	{"alt+j", "alt+k"},
-}
-
 // Keybindings scopes bindings to the screen they act in. Each binding is a list of
 // bubbletea key strings such as "enter", "ctrl+d", or "esc". Every default is a
 // single key, leaving the alternatives to you. A binding left unset falls back to
@@ -149,8 +142,6 @@ type Keybindings struct {
 	Merge MergeKeys `mapstructure:"merge"`
 	// The logs screen, which tails what the service logged about one agent.
 	Logs LogsKeys `mapstructure:"logs"`
-	// The pair of keys that move between the sidebar, the staged agent and the details.
-	Cycle CycleKeys `mapstructure:"cycle"`
 	// The messages komrad pushed, read in the main pane.
 	Messages MessagesKeys `mapstructure:"messages"`
 	// Navigation, shared by every menu so movement is the same everywhere.
@@ -180,13 +171,6 @@ type Keybindings struct {
 	Workflows WorkflowsKeys `mapstructure:"workflows"`
 	// The worktrees screen, which lists every directory komrad cut for an agent.
 	Worktrees WorktreesKeys `mapstructure:"worktrees"`
-}
-
-// CycleKeys are the keys that move between the panel's views.
-type CycleKeys struct {
-	// Move to the next view, then the previous one. One of ["ctrl+a", "ctrl+q"],
-	// ["alt+n", "alt+p"] or ["alt+j", "alt+k"].
-	Views []string `mapstructure:"views" default:"ctrl+a,ctrl+q"`
 }
 
 // NavKeys are the shared navigation bindings every menu uses, so movement is the
@@ -986,17 +970,6 @@ func defaultKeys(field reflect.StructField) []string {
 	return strings.Split(tag, ",")
 }
 
-func validateCycleKeys(keys CycleKeys) error {
-	isChoice := slices.ContainsFunc(cycleKeyChoices, func(choice []string) bool {
-		return slices.Equal(choice, keys.Views)
-	})
-	if isChoice {
-		return nil
-	}
-
-	return fmt.Errorf("keybindings.cycle.views: %q is not one of the pairs on offer: %q", keys.Views, cycleKeyChoices)
-}
-
 // validateLayout rejects a layout tmux could not lay the panes out at. Zero is how an omitted
 // size reads, so it falls back to the default rather than being called a mistake.
 func validateLayout(layout Layout) error {
@@ -1049,9 +1022,6 @@ func (c Config) validate() error {
 		return err
 	}
 	if err := newKeyChecker().checkKeybindings(c.Keybindings); err != nil {
-		return err
-	}
-	if err := validateCycleKeys(c.Keybindings.Cycle); err != nil {
 		return err
 	}
 	if err := validateMail(c.Mail); err != nil {

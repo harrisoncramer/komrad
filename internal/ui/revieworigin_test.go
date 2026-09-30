@@ -137,7 +137,7 @@ func TestReviewJump(t *testing.T) {
 		harness := openReviewAt(t, server, panelHarnessParams{height: 50})
 
 		harness.press("<", "t", "c")
-		require.Contains(t, harness.readFrame(), "┃ Reply")
+		require.Contains(t, harness.readFrame(), "  Reply")
 		typeText(harness, "still wrong")
 		harness.press("ctrl+s")
 
@@ -149,7 +149,7 @@ func TestReviewJump(t *testing.T) {
 		harness.press("J", "j", "c")
 
 		frame := harness.readFrame()
-		assert.NotContains(t, frame, "┃ Comment")
+		assert.NotContains(t, frame, "  Comment")
 		assert.Contains(t, readSidebarProse(frame), "is finished")
 		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceCreateReviewThreadProcedure))
 	})

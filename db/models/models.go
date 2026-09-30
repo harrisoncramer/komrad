@@ -101,50 +101,6 @@ func (ns NullAgentState) Value() (driver.Value, error) {
 	return string(ns.AgentState), nil
 }
 
-type DocumentKind string
-
-const (
-	DocumentKindRfc       DocumentKind = "rfc"
-	DocumentKindReport    DocumentKind = "report"
-	DocumentKindExplainer DocumentKind = "explainer"
-	DocumentKindNotes     DocumentKind = "notes"
-)
-
-func (e *DocumentKind) Scan(src interface{}) error {
-	switch s := src.(type) {
-	case []byte:
-		*e = DocumentKind(s)
-	case string:
-		*e = DocumentKind(s)
-	default:
-		return fmt.Errorf("unsupported scan type for DocumentKind: %T", src)
-	}
-	return nil
-}
-
-type NullDocumentKind struct {
-	DocumentKind DocumentKind
-	Valid        bool // Valid is true if DocumentKind is not NULL
-}
-
-// Scan implements the Scanner interface.
-func (ns *NullDocumentKind) Scan(value interface{}) error {
-	if value == nil {
-		ns.DocumentKind, ns.Valid = "", false
-		return nil
-	}
-	ns.Valid = true
-	return ns.DocumentKind.Scan(value)
-}
-
-// Value implements the driver Valuer interface.
-func (ns NullDocumentKind) Value() (driver.Value, error) {
-	if !ns.Valid {
-		return nil, nil
-	}
-	return string(ns.DocumentKind), nil
-}
-
 type MailKind string
 
 const (
@@ -455,7 +411,6 @@ type Document struct {
 	AgentID string
 	// The title a person reads, unique among one agent's documents.
 	Name      string
-	Kind      DocumentKind
 	Body      string
 	CreatedAt time.Time
 	UpdatedAt time.Time
@@ -463,6 +418,34 @@ type Document struct {
 	EngineID string
 	// How many times the document has been written, which a rewrite names to say what it replaces.
 	Version int32
+	// The name of the document type it was written as.
+	Type string
+}
+
+// A sort of document a person defines, with the instructions an agent follows when writing one.
+type DocumentType struct {
+	ID string
+	// What agents and people call the type, unique within an engine.
+	Name string
+	// The markdown an agent reads before writing a document of this type.
+	Context string
+	// How many times the type has been written, which a rewrite names to say what it replaces.
+	Version   int32
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	// The engine that owns this row, stamped from the login that wrote it.
+	EngineID string
+}
+
+// Every write of a document type as it was written, so a person can step back through its context.
+type DocumentTypeVersion struct {
+	DocumentTypeID string
+	Version        int32
+	Name           string
+	Context        string
+	CreatedAt      time.Time
+	// The engine that owns this row, stamped from the login that wrote it.
+	EngineID string
 }
 
 // Every write of a document as it was written, so a person can step back through it.
@@ -470,13 +453,14 @@ type DocumentVersion struct {
 	DocumentID string
 	Version    int32
 	Name       string
-	Kind       DocumentKind
 	Body       string
 	// Whether a person wrote this version in the panel rather than the agent that owns the document.
 	ByPerson  bool
 	CreatedAt time.Time
 	// The engine that owns this row, stamped from the login that wrote it.
 	EngineID string
+	// The name of the document type this version was written as.
+	Type string
 }
 
 // An engine, the owner of every row it writes.

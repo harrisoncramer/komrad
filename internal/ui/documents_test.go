@@ -128,7 +128,7 @@ func TestDocumentsRead(t *testing.T) {
 		docs.add(&agentv1.Document{
 			Id:        "d3",
 			Name:      "Cache notes",
-			Kind:      agentv1.DocumentKind_DOCUMENT_KIND_NOTES,
+			Type:      "notes",
 			UpdatedAt: "2026-09-25T12:00:00Z",
 		})
 
@@ -262,7 +262,7 @@ func TestDocumentsEdit(t *testing.T) {
 				Id:      xptr.Ptr("d1"),
 				Version: xptr.Ptr[int32](3),
 				Name:    "Design the cache",
-				Kind:    agentv1.DocumentKind_DOCUMENT_KIND_RFC,
+				Type:    "RFC",
 				Source:  &agentv1.WriteDocumentRequest_Body{Body: tt.wantSaved},
 			})
 			if !tt.wantKept {
@@ -282,22 +282,22 @@ func TestDocumentsNew(t *testing.T) {
 		want    *agentv1.WriteDocumentRequest
 	}{
 		{
-			name:    "a name and the kind left alone write an RFC saying it is empty",
+			name:    "a name and the type left alone write an RFC saying it is empty",
 			presses: []string{"c", "P", "l", "a", "n", "ctrl+s"},
 			want: &agentv1.WriteDocumentRequest{
 				AgentId: xptr.Ptr("author"),
 				Name:    "Plan",
-				Kind:    agentv1.DocumentKind_DOCUMENT_KIND_RFC,
+				Type:    "RFC",
 				Source:  &agentv1.WriteDocumentRequest_Body{Body: "Empty RFC document.\n"},
 			},
 		},
 		{
-			name:    "the kind chosen names what the document says it is",
+			name:    "the type chosen names what the document says it is",
 			presses: []string{"c", "L", "o", "g", "tab", "down", "down", "down", "ctrl+s"},
 			want: &agentv1.WriteDocumentRequest{
 				AgentId: xptr.Ptr("author"),
 				Name:    "Log",
-				Kind:    agentv1.DocumentKind_DOCUMENT_KIND_NOTES,
+				Type:    "notes",
 				Source:  &agentv1.WriteDocumentRequest_Body{Body: "Empty notes document.\n"},
 			},
 		},
@@ -386,7 +386,7 @@ func TestDocumentsHistory(t *testing.T) {
 		},
 		{
 			name:    "panning slides the lines under the gutter",
-			presses: []string{"<", "ctrl+a", "l"},
+			presses: []string{"<", "pick:block", "l"},
 			want:    []string{"        3 +"},
 			wantNot: []string{"Keep the cache warm."},
 		},
@@ -397,48 +397,48 @@ func TestDocumentsHistory(t *testing.T) {
 		},
 		{
 			name:    "panning back to the start draws the lines whole",
-			presses: []string{"<", "ctrl+a", "l", "0"},
+			presses: []string{"<", "pick:block", "l", "0"},
 			want:    []string{"3 +  Keep the cache warm."},
 		},
 		{
 			name:    "stepping to another write starts its lines at the left",
-			presses: []string{"<", "ctrl+a", "l", "<"},
+			presses: []string{"<", "pick:block", "l", "<"},
 			want:    []string{"version 2 of 3", "5 +  Evict nightly."},
 		},
 		{
 			name:    "moving in the focused diff leaves the list where it is",
-			presses: []string{"<", "ctrl+a", "j", "j"},
+			presses: []string{"<", "pick:block", "j", "j"},
 			want:    []string{"version 3 of 3"},
 		},
 		{
 			name:    "leaving the diff gives the keys back to the list",
-			presses: []string{"<", "ctrl+a", "esc", "j"},
+			presses: []string{"<", "pick:block", "esc", "j"},
 			want:    []string{"It went out on Tuesday."},
 			wantNot: []string{"version"},
 		},
 		{
 			name:    "searching the diff counts what it found",
-			presses: []string{"<", "ctrl+a", "/", "w", "a", "r", "m", "enter"},
+			presses: []string{"<", "pick:block", "/", "w", "a", "r", "m", "enter"},
 			want:    []string{"/ warm", "1 of 1"},
 		},
 		{
 			name:    "a match past the last is said to be missing",
-			presses: []string{"<", "ctrl+a", "/", "z", "z", "enter", "n"},
+			presses: []string{"<", "pick:block", "/", "z", "z", "enter", "n"},
 			want:    []string{"no matches"},
 		},
 		{
 			name:    "the diff keeps the keys across a write it cannot draw",
-			presses: []string{"j", "<", "ctrl+a", "<", "k"},
+			presses: []string{"j", "<", "pick:block", "<", "k"},
 			want:    []string{"version 4 of 5"},
 		},
 		{
 			name:    "leaving a write it cannot draw stays on the screen",
-			presses: []string{"j", "<", "ctrl+a", "<", "esc", ">"},
+			presses: []string{"j", "<", "pick:block", "<", "esc", ">"},
 			want:    []string{"version 5 of 5"},
 		},
 		{
 			name:    "a document drawn whole has no more to show",
-			presses: []string{"<", "ctrl+a", "j", "E"},
+			presses: []string{"<", "pick:block", "j", "E"},
 			want:    []string{"there is no more of that file to show"},
 		},
 		{
@@ -502,59 +502,59 @@ func TestDocumentsReading(t *testing.T) {
 	}{
 		{
 			name:    "moving in the focused document leaves the list where it is",
-			presses: []string{"ctrl+a", "j", "j"},
+			presses: []string{"pick:block", "j", "j"},
 			want:    []string{"Keep the cache warm."},
 			wantNot: []string{"It went out on Tuesday."},
 		},
 		{
 			name:    "leaving the document gives the keys back to the list",
-			presses: []string{"ctrl+a", "esc", "j"},
+			presses: []string{"pick:block", "esc", "j"},
 			want:    []string{"It went out on Tuesday."},
 		},
 		{
 			name:    "searching the document lands on what it found and counts it",
-			presses: []string{"ctrl+a", "/", "w", "a", "r", "m", "enter"},
+			presses: []string{"pick:block", "/", "w", "a", "r", "m", "enter"},
 			want:    []string{"/ warm", "1 of 1"},
 		},
 		{
 			name:    "walking off the match counts every match instead",
-			presses: []string{"ctrl+a", "/", "w", "a", "r", "m", "enter", "g", "g"},
+			presses: []string{"pick:block", "/", "w", "a", "r", "m", "enter", "g", "g"},
 			want:    []string{"/ warm", "1 match"},
 			wantNot: []string{"1 of 1"},
 		},
 		{
 			name:    "the next match wraps back round to the only one",
-			presses: []string{"ctrl+a", "/", "w", "a", "r", "m", "enter", "g", "g", "n"},
+			presses: []string{"pick:block", "/", "w", "a", "r", "m", "enter", "g", "g", "n"},
 			want:    []string{"1 of 1"},
 		},
 		{
 			name:    "the previous match wraps back round to the only one",
-			presses: []string{"ctrl+a", "/", "w", "a", "r", "m", "enter", "g", "g", "N"},
+			presses: []string{"pick:block", "/", "w", "a", "r", "m", "enter", "g", "g", "N"},
 			want:    []string{"1 of 1"},
 		},
 		{
 			name:    "a pattern nothing matches says so",
-			presses: []string{"ctrl+a", "/", "z", "z", "enter", "n"},
+			presses: []string{"pick:block", "/", "z", "z", "enter", "n"},
 			want:    []string{"no matches"},
 		},
 		{
 			name:    "the next match with no search asks for one",
-			presses: []string{"ctrl+a", "n"},
+			presses: []string{"pick:block", "n"},
 			want:    []string{"nothing to search for yet"},
 		},
 		{
 			name:    "abandoning the search drops it",
-			presses: []string{"ctrl+a", "/", "w", "a", "esc"},
+			presses: []string{"pick:block", "/", "w", "a", "esc"},
 			wantNot: []string{"/ wa"},
 		},
 		{
 			name:    "stepping back from the focused document focuses the write's diff",
-			presses: []string{"ctrl+a", "<", "j", "j"},
+			presses: []string{"pick:block", "<", "j", "j"},
 			want:    []string{"version 3 of 3"},
 		},
 		{
 			name:    "stepping forward past the newest keeps the keys on the document",
-			presses: []string{"ctrl+a", "<", ">", "j", "j"},
+			presses: []string{"pick:block", "<", ">", "j", "j"},
 			want:    []string{"Keep the cache warm."},
 			wantNot: []string{"version", "It went out on Tuesday."},
 		},
@@ -596,7 +596,7 @@ func TestDocumentsReadingCursor(t *testing.T) {
 	require.NotEmpty(t, unfocused)
 	assert.NotContains(t, unfocused, bar)
 
-	harness.press("ctrl+a", "G")
+	harness.press("pick:block", "G")
 	focused := findRawLine(harness.readRawFrame(), line)
 	require.NotEmpty(t, focused)
 	assert.Contains(t, focused, bar, "the cursor is drawn as a bar on the line it moved to")
@@ -640,7 +640,7 @@ func TestDocumentsReadingKeepsTheCursorShown(t *testing.T) {
 
 			harness.press("j")
 			harness.fireTimers()
-			harness.press("ctrl+a", "G")
+			harness.press("pick:block", "G")
 			require.Contains(t, readStageText(harness.readFrame()), "The last line.")
 
 			harness.press(tt.presses...)
@@ -662,7 +662,7 @@ func TestDocumentsDiffCursor(t *testing.T) {
 	dim := findRawLine(harness.readRawFrame(), heading)
 	require.NotEmpty(t, dim)
 
-	harness.press("ctrl+a")
+	harness.press("pick:block")
 	live := findRawLine(harness.readRawFrame(), heading)
 	require.NotEmpty(t, live)
 	assert.NotEqual(t, dim, live, "focusing the diff lights the cursor")
@@ -682,7 +682,7 @@ func TestDocumentsDiffSearchOutlastsTheSplit(t *testing.T) {
 	harness, _ := openDocuments(t)
 	harness.press("<")
 	harness.fireTimers()
-	harness.press("ctrl+a", "/", "w")
+	harness.press("pick:block", "/", "w")
 
 	harness.send(tea.WindowSizeMsg{Width: 50, Height: 40})
 	harness.press("a", "r", "m", "enter")
@@ -778,14 +778,14 @@ func newDocumentShelf() *documentShelf {
 			{
 				Id:        "d1",
 				Name:      "Design the cache",
-				Kind:      agentv1.DocumentKind_DOCUMENT_KIND_RFC,
+				Type:      "RFC",
 				Version:   3,
 				UpdatedAt: "2026-09-25T12:00:00Z",
 			},
 			{
 				Id:        "d2",
 				Name:      "Rollout report",
-				Kind:      agentv1.DocumentKind_DOCUMENT_KIND_REPORT,
+				Type:      "report",
 				Version:   5,
 				UpdatedAt: "2026-09-24T12:00:00Z",
 			},
@@ -836,6 +836,11 @@ func (d *documentShelf) add(document *agentv1.Document) {
 }
 
 func (d *documentShelf) answer(harness *panelHarness) {
+	harness.answer(agentv1connect.AgentServiceListDocumentTypesProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+		return connect.NewResponse(&agentv1.ListDocumentTypesResponse{DocumentTypes: []*agentv1.DocumentType{
+			{Name: "RFC"}, {Name: "report"}, {Name: "explainer"}, {Name: "notes"},
+		}}), nil
+	})
 	harness.answer(agentv1connect.AgentServiceListDocumentsProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
 		d.mu.Lock()
 		defer d.mu.Unlock()

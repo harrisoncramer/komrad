@@ -295,12 +295,11 @@ func TestPrepareRepoColumn(t *testing.T) {
 	}
 }
 
-// TestPrepareComments pins the three slots a row draws against the right edge.
+// TestPrepareComments pins the counts a row draws against the right edge.
 func TestPrepareComments(t *testing.T) {
 	slot := func(mark glyph.Glyph, count string, tone paint.Tone) Cell {
-		return Cell{Parts: []Cell{{Glyph: mark, Tone: tone}, {Text: " "}, {Text: count + " ", Tone: tone}}}
+		return Cell{Parts: []Cell{{Glyph: mark, Tone: tone}, {Text: " "}, {Text: count, Tone: tone}}}
 	}
-	blank := Cell{Text: "    "}
 
 	tests := []struct {
 		name string
@@ -327,12 +326,12 @@ func TestPrepareComments(t *testing.T) {
 			},
 		},
 		{
-			name: "a slot at zero holds its width blank",
+			name: "a count at zero is left out",
 			row: Row{
 				Kind:           KindAgent,
 				PersonComments: &Comments{Open: 1, Resolved: 12},
 			},
-			want: []Cell{blank, slot(glyph.PersonComments, "1", paint.ToneMuted), blank},
+			want: []Cell{slot(glyph.PersonComments, "1", paint.ToneMuted)},
 		},
 		{
 			name: "offers from the forge follow the person's open count in their own tone",
@@ -341,14 +340,12 @@ func TestPrepareComments(t *testing.T) {
 				PersonComments: &Comments{External: 3},
 			},
 			want: []Cell{
-				blank,
 				{Parts: []Cell{
 					{Glyph: glyph.PersonComments, Tone: paint.ToneMuted},
 					{Text: " "},
 					{Text: "0", Tone: paint.ToneMuted},
 					{Text: "+3", Tone: paint.ToneOther},
 				}},
-				blank,
 			},
 		},
 		{
@@ -377,7 +374,7 @@ func TestPrepareComments(t *testing.T) {
 				Kind:           KindAgent,
 				PersonComments: &Comments{Resolved: 3, Unread: 1},
 			},
-			want: []Cell{blank, blank, slot(glyph.Unread, "1", paint.ToneWarning)},
+			want: []Cell{slot(glyph.Unread, "1", paint.ToneWarning)},
 		},
 	}
 
@@ -743,9 +740,9 @@ func TestPrepareClipsName(t *testing.T) {
 					ReviewerComments: &Comments{Open: 2},
 				},
 			},
-			pane:         33,
-			want:         []string{"eng-6994-unable-to-cre…", "eng-6…"},
-			wantComments: []int{0, 3},
+			pane:         25,
+			want:         []string{"eng-6994-unabl…", "eng-6994-u…"},
+			wantComments: []int{0, 1},
 		},
 		{
 			name: "a pane too narrow for both keeps the name and drops the comment counts",
@@ -753,8 +750,8 @@ func TestPrepareClipsName(t *testing.T) {
 				Name:             "eng-6994-unable-to-create",
 				ReviewerComments: &Comments{Open: 2},
 			}},
-			pane:         16,
-			want:         []string{"eng-6…"},
+			pane:         13,
+			want:         []string{"en…"},
 			wantComments: []int{0},
 		},
 	}

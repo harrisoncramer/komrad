@@ -1,0 +1,87 @@
+package ui
+
+import (
+	"komrad/internal/ui/layout"
+
+	tea "charm.land/bubbletea/v2"
+)
+
+// stop is a place that holds the keys and shows something about the hovered row.
+type stop int
+
+const (
+	stopList stop = iota
+	stopAgent
+	// stopBlock is the block a screen draws beside its list, the review's conversation, a document or a log.
+	stopBlock
+	stopRecord
+	// stopTerminal is the shell opened in the pane below the stage.
+	stopTerminal
+)
+
+// listStops lists the screen's stops in forward order, leaving out any it is not drawing.
+func (m model) listStops() []stop {
+	stops := []stop{stopList}
+
+	if b, ok := m.active().(blocked); ok {
+		if b.isBlockDrawn(m.shared()) {
+			stops = append(stops, stopBlock)
+		}
+	} else if m.focusPane() != "" {
+		stops = append(stops, stopAgent)
+	}
+
+	if m.terminalPane() != "" {
+		stops = append(stops, stopTerminal)
+	}
+
+	if m.isDetailsDrawn(m.hoveredDetails()) {
+		stops = append(stops, stopRecord)
+	}
+
+	return stops
+}
+
+func (m model) enterStop(to stop) (tea.Model, tea.Cmd) {
+	switch to {
+	case stopAgent:
+		m.tmux.SelectPane(m.focusPane())
+	case stopTerminal:
+		m.tmux.SelectPane(m.terminalPane())
+	case stopRecord:
+		return m.enterSidebar(to).jumpIntoDetails()
+	case stopBlock:
+		m = m.enterSidebar(to).blurDetails()
+		if b, ok := m.active().(blocked); ok {
+			b.focusBlock(m.shared())
+		}
+	case stopList:
+		m = m.enterSidebar(to).blurDetails()
+	}
+
+	return m, nil
+}
+
+func (m model) enterSidebar(to stop) model {
+	if m.keysElsewhere {
+		m.tmux.SelectPane(m.settings.Pane)
+		m.keysElsewhere = false
+	}
+
+	m.blurTabs()
+	m.blurKinds()
+	if b, ok := m.active().(blocked); ok && to != stopBlock {
+		b.blurBlock()
+	}
+
+	return m
+}
+
+// terminalPane is the shell the picker stops at, empty while none is open.
+func (m model) terminalPane() string {
+	if m.frame == nil || m.terminalDir == "" {
+		return ""
+	}
+
+	return m.frame.Pane(layout.RegionInfo)
+}

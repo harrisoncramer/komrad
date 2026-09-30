@@ -213,3 +213,8 @@ func PaintRow(row string, width int) string {
 func BackgroundSequence(background color.Color) string {
 	return ansi.NewStyle().BackgroundColor(background).String()
 }
+
+// Visual is the bar the header says visual mode is on in.
+func (p Palette) Visual() lipgloss.Style {
+	return lipgloss.NewStyle().Background(p.Color(ToneOther)).Foreground(Black).Bold(true)
+}
