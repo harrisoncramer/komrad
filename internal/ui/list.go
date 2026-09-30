@@ -528,11 +528,6 @@ type drawer interface {
 	listPane(width int) listPane
 	drawRecord(above ...string) string
 
-	// The record under a screen composing its own sidebar, measured against the legend and the
-	// head that screen draws.
-	sidebarFitsDetails(help func(panelShared) keyMap, head string) bool
-	sidebarDetailsRoom(help func(panelShared) keyMap, head string) int
-
 	// Where the keys are, as the screen's own block beside the list reads it.
 	isListFocused() bool
 
@@ -607,24 +602,6 @@ func (m model) screenListView(params screenListParams) string {
 	})
 
 	return headedBlockView(header, window, lines, below)
-}
-
-// sidebarFitsDetails is whether the record fits under the head, judged against the taller of the
-// screen's legend and the record's own.
-func (m model) sidebarFitsDetails(help func(panelShared) keyMap, head string) bool {
-	m.details.focused = false
-	legend := m.renderHelp(help(m.shared()))
-
-	if focused := m.renderHelp(m.detailsHelp()); strings.Count(focused, "\n") > strings.Count(legend, "\n") {
-		legend = focused
-	}
-
-	return m.spareLines(legend, head) > m.detailsLines()+detailsChromeLines
-}
-
-// sidebarDetailsRoom is the rows the sidebar has under the head and the legend it is drawing.
-func (m model) sidebarDetailsRoom(help func(panelShared) keyMap, head string) int {
-	return m.spareLines(m.renderHelp(help(m.shared())), head)
 }
 
 // listHelpOf is a screen's legend as the root draws it under the list.

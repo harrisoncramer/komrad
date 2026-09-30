@@ -3,7 +3,6 @@ package ui
 import (
 	"time"
 
-	"komrad/config"
 	"komrad/internal/ui/panel"
 	agentv1 "komrad/proto/gen/agent/v1"
 
@@ -161,17 +160,12 @@ func (m *model) enterReview(agent panel.Agent) tea.Cmd {
 }
 
 var (
-	_ detailed = (*reviewScreen)(nil)
 	_ columned = (*reviewScreen)(nil)
 	_ blocked  = (*reviewScreen)(nil)
 )
 
 func (r *reviewScreen) doesDrawFromListing() bool {
 	return false
-}
-
-func (r *reviewScreen) detailsQuit(keys config.Keybindings) []string {
-	return keys.Review.Quit
 }
 
 func (r *reviewScreen) column() columnSpec {

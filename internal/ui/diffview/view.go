@@ -86,6 +86,7 @@ type View struct {
 	// that rebuilding left.
 	threads []*agentv1.ReviewThread
 	search  *search
+	tree    []TreeRow
 	// narrowed says the patch is a slice of the change rather than the whole of it.
 	narrowed bool
 	// headless leaves out the row for the change as a whole and each file's header.
@@ -139,6 +140,7 @@ func NewView(patch *diff.Patch, isDark bool) *View {
 	}
 
 	v.build()
+	v.buildTree()
 
 	return v
 }

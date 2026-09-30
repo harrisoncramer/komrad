@@ -530,6 +530,8 @@ settled   = "✓"
 unsent    = "◇"
 # The header of a file you have read and folded away.
 viewed    = "✓"
+# The row of the file tree beside the diff that the cursor is in.
+current   = "▸"
 # A comment the agent has been given.
 delivered = "✓"
 # A comment held back until you send it.

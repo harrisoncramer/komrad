@@ -146,7 +146,7 @@ func (v *View) countOpenThreadsIn(path string) int {
 func (v *View) renderGutter(y int, line diff.Line, background color.Color) string {
 	mark, markStyle := " ", gutterStyle
 	if thread, ok := v.GetThreadAt(y); ok {
-		mark, markStyle = v.markFor(thread)
+		mark, markStyle = v.MarkFor(thread)
 	} else if offers := v.GetOffersAt(y); len(offers) > 0 {
 		mark, markStyle = v.offerMarkFor(offers)
 	}
@@ -159,8 +159,8 @@ func (v *View) renderGutter(y int, line diff.Line, background color.Color) strin
 		gutterStyle.Background(background).Render(" ")
 }
 
-// markFor is the glyph a thread gets in the gutter, drawn in the colour of whoever opened it.
-func (v *View) markFor(thread *agentv1.ReviewThread) (string, lipgloss.Style) {
+// MarkFor is the glyph a thread gets in the gutter, drawn in the colour of whoever opened it.
+func (v *View) MarkFor(thread *agentv1.ReviewThread) (string, lipgloss.Style) {
 	style := markStyleFor(thread)
 
 	switch {
@@ -194,7 +194,7 @@ func doesHoldDelivery(thread *agentv1.ReviewThread, state agentv1.ReviewDelivery
 // renderThreadRow draws a thread with no line left to stand on, saying where it was written and
 // what it opened with.
 func (v *View) renderThreadRow(current row, cursor Cursor, width int) string {
-	mark, markStyle := v.markFor(current.thread)
+	mark, markStyle := v.MarkFor(current.thread)
 
 	said := FormatThreadLocation(current.thread)
 	if opening := firstLine(current.thread); opening != "" {

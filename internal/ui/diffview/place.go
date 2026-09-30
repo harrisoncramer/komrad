@@ -89,6 +89,7 @@ func (v *View) PinThreads(threads []*agentv1.ReviewThread) {
 	}
 
 	v.appendAdrift(pending)
+	v.buildTree()
 
 	// The foot section is rebuilt here, so any search holding row numbers from the old one is
 	// run again rather than left pointing at rows that have moved.

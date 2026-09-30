@@ -6,12 +6,9 @@ import (
 	"strings"
 	"time"
 
-	"komrad/internal/git"
 	"komrad/internal/glyph"
 	"komrad/internal/ui/diffview"
 	"komrad/internal/ui/paint"
-	"komrad/internal/ui/paint/label"
-	"komrad/internal/ui/panel"
 	agentv1 "komrad/proto/gen/agent/v1"
 
 	"charm.land/bubbles/v2/key"
@@ -59,66 +56,100 @@ func (r reviewScreen) view(s panelShared) string {
 	return s.draw.joinColumns(split, sidebar, diff)
 }
 
-// sidebarView is the panel's own column: where the cursor is standing, and the thread hanging
-// off it.
+// sidebarView is the panel's own column: the files the change touches, where the cursor is
+// standing, and the thread hanging off it.
 func (r reviewScreen) sidebarView(s panelShared, above ...string) string {
 	layout := r.layoutSidebar(s, above...)
 	rest := r.threads.window(r.restView(s), layout.threadLines)
 
-	thread := s.draw.markZone(zoneBlock, paint.PadRows(layout.head+rest, layout.spare), s.pane)
+	column := s.draw.markZone(zoneBlock, paint.PadRows(layout.files+layout.offers+r.placeView()+rest, layout.spare), s.pane)
 
-	return layout.bar + thread + layout.record + layout.help
+	return layout.bar + column + layout.rule + layout.help
 }
 
 // sidebarLayout is the sidebar measured once, so the drawing and the thread's scroll agree on
 // the rows the conversation has.
 type sidebarLayout struct {
-	// bar is the logo, the switcher and the trail down to the review, over the head.
 	bar         string
+	rule        string
 	help        string
-	record      string
-	head        string
+	files       string
+	offers      string
 	spare       int
 	threadLines int
 }
 
-// layoutSidebar pins the head and hands the conversation whatever the chrome leaves: where the
-// cursor is standing is what makes the rest of the pane mean anything.
+// layoutSidebar splits the column between the file tree and the thread, the bar over them giving
+// way before either loses a row it needs.
 func (r reviewScreen) layoutSidebar(s panelShared, above ...string) sidebarLayout {
-	// The logo, the switcher and the trail take their rows from the conversation alone, and give
-	// way before they cost the head or the record anything.
 	bare := r.layoutUnder(s, "", above)
 	barred := r.layoutUnder(s, s.draw.viewsBar(), above)
-	if barred.head != bare.head {
+
+	if barred.help != bare.help {
 		return bare
 	}
-	if strings.Count(barred.head, "\n") > barred.spare {
+
+	if barred.spare >= 0 && paint.CountLines(barred.files+barred.offers+r.placeView()) > barred.spare {
 		return bare
 	}
-	if conversation := strings.Count(r.restView(s), "\n"); barred.threadLines < min(bare.threadLines, conversation) {
+
+	if conversation := paint.CountLines(r.restView(s)); barred.threadLines < min(bare.threadLines, conversation) {
+		return bare
+	}
+
+	if paint.CountLines(barred.files) < min(paint.CountLines(bare.files), r.filesFloor(bare.spare)) {
 		return bare
 	}
 
 	return barred
 }
 
-// layoutUnder measures the sidebar with bar over its head, the logo, the switcher and the trail
-// down to the review.
+// layoutUnder measures the sidebar with bar over it.
 func (r reviewScreen) layoutUnder(s panelShared, bar string, above []string) sidebarLayout {
-	help := s.draw.renderHelp(r.help(s))
-	record := s.draw.drawRecord(slices.Concat(above, []string{bar, help})...)
-	chrome := slices.Concat(above, []string{bar, help, record})
-	spare := s.draw.listLines(chrome...)
-	head := r.headView(s, spare)
+	help := s.draw.renderHelp(r.help(s), slices.Concat(above, []string{r.placeView()})...)
+	rule := s.draw.drawRecord(slices.Concat(above, []string{bar, help})...)
+	spare := s.draw.listLines(slices.Concat(above, []string{bar, help, rule})...)
+	place := paint.CountLines(r.placeView())
 
-	return sidebarLayout{
+	layout := sidebarLayout{
 		bar:         bar,
+		rule:        rule,
 		help:        help,
-		record:      record,
-		head:        head,
 		spare:       spare,
-		threadLines: s.draw.listLines(slices.Concat(chrome, []string{head})...),
+		threadLines: paint.Unbounded,
 	}
+
+	if spare < 0 {
+		layout.files = r.filesView(s, paint.Unbounded)
+		layout.offers = r.offersView(s, offerRows)
+
+		return layout
+	}
+
+	layout.offers = r.offersView(s, countOffersRoom(spare, r.filesFloor(spare)))
+	room := spare - paint.CountLines(layout.offers)
+
+	filesLines := r.filesWindow(room)
+	if !r.isThreadDrawn() {
+		filesLines = max(room-place-paint.CountLines(r.restView(s)), r.filesFloor(room))
+	}
+
+	layout.files = r.filesView(s, min(filesLines, max(room-place, 0)))
+	layout.threadLines = max(room-paint.CountLines(layout.files)-place, 0)
+
+	return layout
+}
+
+// isThreadDrawn reports whether the sidebar is drawing a conversation or an editor, which the
+// file tree shrinks to make room for.
+func (r reviewScreen) isThreadDrawn() bool {
+	if r.isWriting() {
+		return true
+	}
+
+	_, ok := r.diff.threadAtCursor()
+
+	return ok
 }
 
 // layoutSidebarAsDrawn measures the sidebar with the band over it when the panel draws one there.
@@ -196,30 +227,13 @@ func splitConversation(rendered string) []string {
 	return strings.Split(strings.Trim(rendered, "\n"), "\n")
 }
 
-// detailsFit reports whether the sidebar has a line left over once the record has taken its
-// share.
-func (r reviewScreen) detailsFit(s panelShared) bool {
-	return s.draw.sidebarFitsDetails(r.help, r.headView(s, 0))
-}
-
-// detailsRoom is the rows the sidebar has under the head and the legend it is drawing.
-func (r reviewScreen) detailsRoom(s panelShared) int {
-	return s.draw.sidebarDetailsRoom(r.help, r.headView(s, 0))
-}
-
-// headView is the fixed top of the sidebar: the reader's own comments, the forge's, then the
-// place the cursor is standing.
-func (r reviewScreen) headView(s panelShared, spare int) string {
-	switch {
-	case r.loading:
-		return dimStyle.Render(reviewLoadingWord) + "\n"
-	case r.diff.View() == nil || r.diff.View().Len() == 0:
-		return dimStyle.Render(reviewEmptyWord) + "\n"
+// placeView is the blank row under the file tree and the place the cursor is standing.
+func (r reviewScreen) placeView() string {
+	if r.loading || r.diff.View() == nil || r.diff.View().Len() == 0 {
+		return ""
 	}
 
-	yours := r.yoursView(s, countYoursRoom(spare))
-
-	return yours + r.offersView(s, countOffersRoom(spare, strings.Count(yours, "\n"))) + r.diff.anchorView()
+	return "\n" + r.diff.anchorView()
 }
 
 // reviewNote is a line of prose under the conversation, wrapped into the sidebar's own column.
@@ -245,7 +259,10 @@ func (r reviewScreen) restView(s panelShared) string {
 		return r.releaseView(s)
 	}
 
-	out := "\n" + r.threadView(s)
+	out := r.threadView(s)
+	if _, ok := r.diff.threadAtCursor(); ok {
+		out = "\n" + out
+	}
 
 	// A notice answers the last keypress and a keypress clears it, so what the reader is told
 	// about the diff itself stands underneath and comes back the moment the answer is gone.
@@ -300,7 +317,7 @@ func (r reviewScreen) releaseView(s panelShared) string {
 func (r reviewScreen) threadView(s panelShared) string {
 	thread, ok := r.diff.threadAtCursor()
 	if !ok {
-		return dimStyle.Render("  no thread here yet") + "\n"
+		return dimStyle.Render("  no thread here"+separated+keyLabel(s.keys.Review.Compose)+" to start one") + "\n"
 	}
 
 	stamp := r.diff.laterStamp(thread)
@@ -390,45 +407,6 @@ func (t reviewThreads) sendDesc() string {
 	}
 
 	return "send a note"
-}
-
-// details is the record drawn under the review sidebar.
-func (r reviewScreen) details(s panelShared) details {
-	index := slices.IndexFunc(s.listing.agents, func(item panel.AgentRow) bool { return item.Agent.ID == r.agentID })
-	if index < 0 {
-		return details{}
-	}
-
-	item := s.listing.agents[index]
-	agent := item.Agent
-	fields := agentDetailFields(s, item)
-
-	// The notices read the row the list would draw, and which columns that row fills depends on
-	// whether the agent owns its checkout, which only its workflow says.
-	row := agentRow{item: item}
-	if workflow := workflowByID(s.listing.workflows, agent.WorkflowID); workflow != nil {
-		row.workflow = *workflow
-	}
-
-	return details{
-		id:      agent.ID,
-		notices: agentNotices(s.glyphs, s.loaderFrame, row),
-		fields:  append(fields, r.fields()...),
-	}
-}
-
-// fields are the facts the diff itself carries, which the agent's own record does not hold: what
-// it was measured against and what was kept out of it.
-func (r reviewScreen) fields() []recordField {
-	fields := []recordField{
-		{label: "base", value: label.OrDash(git.ShortSHA(r.round.GetBaseSha()))},
-		{label: "snapshot", value: label.OrDash(git.ShortSHA(r.round.GetSnapshotSha()))},
-	}
-	if len(r.exclude) > 0 {
-		fields = append(fields, recordField{label: "excludes", value: strings.Join(r.exclude, ", ")})
-	}
-
-	return fields
 }
 
 // reviewMarkerStyle is what the counts above and below the conversation are drawn in.

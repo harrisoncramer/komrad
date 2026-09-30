@@ -15,6 +15,7 @@ import (
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 )
 
@@ -23,6 +24,9 @@ const reviewOfferTone = paint.ToneWarning
 
 // offerBodyRows is how many rows the chosen offer's comment gets.
 const offerBodyRows = 4
+
+// offersThreadRows is how many rows the conversation below the forge's comments keeps.
+const offersThreadRows = 3
 
 // offerRows is the most rows the forge's comments take, the chosen one's read-out included.
 const offerRows = 9
@@ -90,7 +94,7 @@ func (r *reviewScreen) stepOffer(s panelShared) tea.Cmd {
 
 // offersView is the forge's comments on the pull request, the chosen one read out in full.
 func (r reviewScreen) offersView(s panelShared, room int) string {
-	if room <= 0 || !r.isYoursDrawn() {
+	if _, history := r.isHistory(); room <= 0 || history {
 		return ""
 	}
 
@@ -254,7 +258,28 @@ func plainOfferText(text string) string {
 // countOffersRoom counts the rows the forge's comments get once the sidebar's chrome and the
 // reader's own comments have taken theirs.
 func countOffersRoom(spare, taken int) int {
-	return min(max(spare-2-yoursThreadRows-taken, 0), offerRows)
+	return min(max(spare-2-offersThreadRows-taken, 0), offerRows)
+}
+
+// compareFirst orders true before false.
+func compareFirst(a, b bool) int {
+	switch {
+	case a == b:
+		return 0
+	case a:
+		return -1
+	}
+
+	return 1
+}
+
+// clipToTail cuts a path from its front so its line number survives.
+func clipToTail(said string, room int) string {
+	if lipgloss.Width(said) <= room {
+		return said
+	}
+
+	return ansi.TruncateLeft(said, lipgloss.Width(said)-room+1, "…")
 }
 
 // chosenOffer is the forge comment read out in full: one the cursor is standing on, or else the
