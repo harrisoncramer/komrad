@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"fmt"
 	"slices"
 
 	"komrad/config"
@@ -111,13 +110,4 @@ func orchestratorField(values *panel.ScheduleConfig, orchestrators []panel.Agent
 	}
 
 	return huh.NewSelect[string]().Key("orchestrator").Title("Orchestrator").Description("receives the prompt as mail").Options(options...).Value(&values.OrchestratorID)
-}
-
-func archiveScheduleForm(name string, keys config.FormKeys) (*huh.Form, *bool) {
-	return confirmForm(
-		fmt.Sprintf("Archive schedule %q?", name),
-		"The agents it already launched are kept, and the archive can restore it.",
-		"Archive",
-		keys,
-	)
 }
