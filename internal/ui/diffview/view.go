@@ -497,9 +497,9 @@ func (v *View) GetPlace(y int) (Place, bool) {
 	}, true
 }
 
-// Locate is the row standing where place was in a patch that has since been read again, falling
+// locate is the row standing where place was in a patch that has since been read again, falling
 // back to the nearest row of the same file when the exact line has moved.
-func (v *View) Locate(place Place) (int, bool) {
+func (v *View) locate(place Place) (int, bool) {
 	exact, nearest, distance := -1, -1, 0
 
 	if place.ThreadID != "" {
@@ -857,9 +857,4 @@ func (v *View) GetThreadRow(id string) (int, bool) {
 	}
 
 	return 0, false
-}
-
-// IsFoldedAway reports whether a thread stands in a file the reader has read and folded away.
-func (v *View) IsFoldedAway(thread *agentv1.ReviewThread) bool {
-	return v.placed[thread.GetId()] == collapsed
 }

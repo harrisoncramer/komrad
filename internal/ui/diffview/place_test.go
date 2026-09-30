@@ -166,7 +166,7 @@ func TestAdriftThreadGetsItsOwnRow(t *testing.T) {
 	require.True(t, ok, "the cursor's place has to survive the diff being read again")
 	assert.Equal(t, "t1", place.ThreadID)
 
-	found2, ok := view.Locate(place)
+	found2, ok := view.locate(place)
 	require.True(t, ok)
 	assert.Equal(t, last, found2)
 }

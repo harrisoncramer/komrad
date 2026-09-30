@@ -91,23 +91,23 @@ func TestMarkForSaysWhichThreadIsWhich(t *testing.T) {
 	thread := threadAt("t1", "greet.go", 1, 1, " package greet")
 	view.PinThreads([]*agentv1.ReviewThread{thread})
 
-	mark, style := view.MarkFor(thread)
+	mark, style := view.markFor(thread)
 	assert.Equal(t, glyph.Defaults().Spell(glyph.ThreadRead), mark)
 	assert.Equal(t, paint.Panel.Style(paint.ToneUserMe), style, "a thread the person opened is drawn in their colour")
 
 	thread.ResolvedAt = "2026-08-27T12:00:00Z"
-	mark, style = view.MarkFor(thread)
+	mark, style = view.markFor(thread)
 	assert.Equal(t, glyph.Defaults().Spell(glyph.ThreadSettled), mark)
 	assert.Equal(t, paint.Panel.Style(paint.ToneUserMe), style, "and the check keeps the author's colour")
 
 	thread.UnreadByHuman = true
-	mark, _ = view.MarkFor(thread)
+	mark, _ = view.markFor(thread)
 	assert.Equal(t, glyph.Defaults().Spell(glyph.ThreadUnread), mark,
 		"a reply nobody has read outranks the settling, the gutter being the only place it is said")
 
 	thread.Messages = []*agentv1.ReviewMessage{
 		{AuthorKind: agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT},
 	}
-	_, style = view.MarkFor(thread)
+	_, style = view.markFor(thread)
 	assert.Equal(t, paint.Panel.Style(paint.ToneUserAgent), style, "a thread the agent opened is drawn in its own colour")
 }

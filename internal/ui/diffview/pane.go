@@ -61,7 +61,7 @@ func (p *Pane) Replace(view *View, place *Place) {
 		return
 	}
 
-	if found, ok := view.Locate(*place); ok {
+	if found, ok := view.locate(*place); ok {
 		p.cursor = found
 	}
 }
@@ -143,7 +143,7 @@ func (p *Pane) Keep(place Place, ok bool) {
 
 	p.cursor = min(p.cursor, p.view.GetLastRow())
 	if ok {
-		if found, located := p.view.Locate(place); located {
+		if found, located := p.view.locate(place); located {
 			p.cursor = found
 		}
 	}
