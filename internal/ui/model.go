@@ -21,6 +21,7 @@ import (
 	"komrad/internal/errui"
 	"komrad/internal/git"
 	"komrad/internal/glyph"
+	"komrad/internal/loader"
 	"komrad/internal/position"
 	"komrad/internal/ui/layout"
 	"komrad/proto/gen/agent/v1/agentv1connect"
@@ -207,6 +208,7 @@ type Deps struct {
 	Watch           watchv1connect.WatchServiceClient
 	Keys            config.Keybindings
 	Glyphs          glyph.Set
+	Loader          loader.Style
 	Layout          config.Layout
 	Engine          engine.Remote
 	ShellCommand    []string
@@ -317,7 +319,8 @@ type model struct {
 
 	// warm is the panes whose harness the panel has seen start, which it waits for before giving
 	// one the stage.
-	warm warmupState
+	warm    warmupState
+	loading loadingState
 }
 
 // lastFrame is the frame on screen, which the panel draws again rather than drawing a new one at
@@ -367,6 +370,7 @@ func newModel(deps Deps, isDark bool, post *postbox) model {
 		screen:          screenAgents,
 		rowCursor:       newRowCursor(),
 		warm:            newWarmupState(),
+		loading:         loadingState{style: deps.Loader},
 		reactors:        newWorldReactors(),
 	}
 

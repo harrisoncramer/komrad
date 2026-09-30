@@ -217,7 +217,7 @@ func TestAgentNotices(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, readNoticeTexts(agentNotices(glyph.Defaults(), tt.row)))
+			assert.Equal(t, tt.want, readNoticeTexts(agentNotices(glyph.Defaults(), "", tt.row)))
 		})
 	}
 }
@@ -246,7 +246,7 @@ func TestAgentNoticesWearTheGlyphTheRowDraws(t *testing.T) {
 		heldPromptedNotice: line.Held,
 	}
 
-	notices := agentNotices(glyph.Defaults(), buildNoticeRow(item))
+	notices := agentNotices(glyph.Defaults(), "", buildNoticeRow(item))
 	require.Len(t, notices, len(want))
 
 	for _, notice := range notices {
@@ -276,7 +276,7 @@ func TestAgentNoticesSpeakForEveryColumnState(t *testing.T) {
 		}
 
 		want := 0
-		if !view.ForgeCell(view.Row{Kind: view.KindAgent, Forge: forge}).IsBlank() {
+		if !view.ForgeCell(view.Row{Kind: view.KindAgent, Forge: forge, Loader: "⠋"}).IsBlank() {
 			want = 1
 		}
 
@@ -297,12 +297,12 @@ func TestAgentNoticesLeaveAStoppedRowToItsBar(t *testing.T) {
 	require.Equal(t, view.ProcessStopped, row.Process)
 	require.Equal(t, glyph.Quiet, view.StatusCell(row).Text)
 	assert.Equal(t, view.EmphasisDim, view.Prepare(view.Snapshot{Rows: []view.Row{row}}).Lines[0].Emphasis)
-	assert.Empty(t, readNoticeTexts(agentNotices(glyph.Defaults(), stopped)))
+	assert.Empty(t, readNoticeTexts(agentNotices(glyph.Defaults(), "", stopped)))
 
 	failed := buildNoticeRow(panel.AgentRow{Agent: panel.Agent{State: panel.StateFailedToCreate}})
 
 	require.Equal(t, view.ProcessAlive, snapshotRow(failed, snapshotParams{}).Process, "a failed create is not a stopped process")
-	assert.Contains(t, readNoticeTexts(agentNotices(glyph.Defaults(), failed)), failedToCreateNotice)
+	assert.Contains(t, readNoticeTexts(agentNotices(glyph.Defaults(), "", failed)), failedToCreateNotice)
 }
 
 func buildNoticeRow(item panel.AgentRow) agentRow {

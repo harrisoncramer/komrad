@@ -5,6 +5,7 @@ import (
 	"komrad/internal/engine"
 	"komrad/internal/glyph"
 	"komrad/internal/harness"
+	"komrad/internal/loader"
 	"komrad/internal/tmux"
 	"komrad/internal/ui"
 )
@@ -14,6 +15,7 @@ type app struct {
 	env            *config.Environment
 	keys           config.Keybindings
 	glyphs         glyph.Set
+	loader         loader.Style
 	harnesses      *harness.Registry
 	defaultHarness string
 	defaultFlags   map[string]string

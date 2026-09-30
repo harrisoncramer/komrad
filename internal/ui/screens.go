@@ -304,6 +304,7 @@ type panelShared struct {
 	keys    config.Keybindings
 	// glyphs is the character each icon is drawn with.
 	glyphs glyph.Set
+	loader string
 	width  int
 	height int
 
@@ -358,6 +359,7 @@ func (m *model) unmeasured() panelShared {
 		listing: m.listing,
 		keys:    m.keys,
 		glyphs:  m.glyphs,
+		loader:  m.loading.frame(),
 		width:   m.width,
 		height:  m.height,
 		api:     m.api,

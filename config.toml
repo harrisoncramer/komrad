@@ -419,10 +419,13 @@ jump_to_agent = ["J"]
 # Quit the panel.
 quit          = ["ctrl+c"]
 
-# The icons the panel draws, grouped by where each one is drawn. Every value is one character
+# The icons the panel draws, grouped by where each one is drawn. Every icon is one character
 # from the approved set, the Nerd Fonts octicons and a few named characters. The chrome the
 # layout is drawn with, such as the status bars, dividers and rules, is fixed and not
 # configured here.
+[glyphs]
+# The spinner drawn while something is loading, one of braille, arcs or ascii.
+loader = "braille"
 
 # The repo column of the sidebar, which says where an agent's own checkout stands.
 [glyphs.row]
@@ -435,25 +438,21 @@ worktree_gone = ""
 # The forge column of the sidebar, which says where the pull request from an agent's branch stands.
 [glyphs.pull_request]
 # An open pull request, and an approved one that cannot merge yet.
-open                 = ""
+open              = ""
 # A pull request a reviewer has asked for changes on.
-changes_requested    = ""
-# A pull request whose checks are running, on one beat of the blink.
-checks_running       = ""
-# A pull request whose checks are running, on the other beat of the blink.
-checks_running_blink = ""
+changes_requested = ""
 # A draft pull request.
-draft                = ""
+draft             = ""
 # A pull request the forge would merge now.
-approved             = ""
+approved          = ""
 # A merged pull request.
-merged               = ""
+merged            = ""
 # A pull request closed without merging.
-closed               = ""
+closed            = ""
 # A pull request with a failing check.
-failing              = ""
+failing           = ""
 # A pull request that no longer merges cleanly.
-conflicting          = ""
+conflicting       = ""
 
 # The marks drawn after a row's name in the sidebar and beside what they say in the details.
 [glyphs.marks]

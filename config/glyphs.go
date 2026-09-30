@@ -5,10 +5,13 @@ import (
 	"reflect"
 
 	"komrad/internal/glyph"
+	"komrad/internal/loader"
 )
 
 // Glyphs are the icons the panel draws, grouped by where each one is drawn.
 type Glyphs struct {
+	// The spinner drawn while something is loading, one of braille, arcs or ascii.
+	Loader string `mapstructure:"loader"`
 	// The repo column of the sidebar, which says where an agent's own checkout stands.
 	Row RowGlyphs `mapstructure:"row"`
 	// The forge column of the sidebar, which says where the pull request from an agent's branch stands.
@@ -40,10 +43,6 @@ type PullRequestGlyphs struct {
 	Open string `mapstructure:"open"`
 	// A pull request a reviewer has asked for changes on.
 	ChangesRequested string `mapstructure:"changes_requested"`
-	// A pull request whose checks are running, on one beat of the blink.
-	ChecksRunning string `mapstructure:"checks_running"`
-	// A pull request whose checks are running, on the other beat of the blink.
-	ChecksRunningBlink string `mapstructure:"checks_running_blink"`
 	// A draft pull request.
 	Draft string `mapstructure:"draft"`
 	// A pull request the forge would merge now.
@@ -134,7 +133,7 @@ type ScheduleGlyphs struct {
 
 // DefaultGlyphs are the icons used when the config omits them, read from the glyph package.
 func DefaultGlyphs() Glyphs {
-	var glyphs Glyphs
+	glyphs := Glyphs{Loader: string(loader.Braille)}
 	defaults := glyph.Defaults()
 
 	eachGlyphField(&glyphs, func(key string, field reflect.Value) {
@@ -180,8 +179,22 @@ func (g Glyphs) Set() (glyph.Set, error) {
 	return set, nil
 }
 
+// LoaderStyle is the spinner the panel draws while something is loading.
+func (g Glyphs) LoaderStyle() loader.Style {
+	style, err := loader.Parse(g.Loader)
+	if err != nil {
+		return loader.Braille
+	}
+
+	return style
+}
+
 // validateGlyphs refuses a glyph outside the approved set, naming the key it was written under.
 func validateGlyphs(glyphs Glyphs) error {
+	if _, err := loader.Parse(glyphs.Loader); err != nil {
+		return fmt.Errorf("glyphs.loader: %w", err)
+	}
+
 	var err error
 	eachGlyphField(&glyphs, func(key string, field reflect.Value) {
 		if err != nil {
@@ -201,6 +214,10 @@ func eachGlyphField(glyphs *Glyphs, visit func(key string, field reflect.Value))
 	groups := reflect.ValueOf(glyphs).Elem()
 	for i := range groups.NumField() {
 		group := groups.Field(i)
+		if group.Kind() != reflect.Struct {
+			continue
+		}
+
 		groupName := groups.Type().Field(i).Tag.Get("mapstructure")
 
 		for j := range group.NumField() {

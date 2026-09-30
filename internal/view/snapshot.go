@@ -134,6 +134,7 @@ type Row struct {
 	Process Process
 	Repo    Repo
 	Forge   Forge
+	Loader  string
 	// ReviewerComments counts the comments reviewer agents left, nil while there are none to show.
 	ReviewerComments *Comments
 	// PersonComments counts the comments the person left, nil while there are none to show.

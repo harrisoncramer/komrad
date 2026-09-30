@@ -14,6 +14,7 @@ import (
 	"komrad/config"
 	"komrad/internal/browser"
 	"komrad/internal/engine"
+	"komrad/internal/loader"
 	"komrad/internal/panes"
 	"komrad/internal/ui/layout"
 	"komrad/lib/xslice"
@@ -122,6 +123,7 @@ type NewPanelParams struct {
 	Browser         browser.Opener
 	Tmux            PanelTmux
 	EngineStatus    EngineStatus
+	Loader          loader.Style
 }
 
 // NewPanel builds the panel the way komrad panel does, over a recording tmux.
@@ -178,6 +180,7 @@ func NewPanel(params NewPanelParams) *Panel {
 			Binary:          params.Binary,
 			Browser:         params.Browser,
 			EngineStatus:    params.EngineStatus,
+			Loader:          params.Loader,
 		}, true, post),
 		post: post,
 		tmux: tmux,
@@ -241,6 +244,13 @@ func NewKeyPress(key string) tea.KeyPressMsg {
 // IsPulse reports whether msg is a pulse tick.
 func IsPulse(msg tea.Msg) bool {
 	_, ok := msg.(pulseMsg)
+
+	return ok
+}
+
+// IsLoaderTick reports whether msg is a loader tick.
+func IsLoaderTick(msg tea.Msg) bool {
+	_, ok := msg.(loaderTickMsg)
 
 	return ok
 }

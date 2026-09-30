@@ -1099,8 +1099,16 @@
     },
     {
       "path": "glyphs",
-      "description": "The icons the panel draws, grouped by where each one is drawn. Every value is one character\nfrom the approved set, the Nerd Fonts octicons and a few named characters. The chrome the\nlayout is drawn with, such as the status bars, dividers and rules, is fixed and not\nconfigured here.",
-      "settings": [],
+      "description": "The icons the panel draws, grouped by where each one is drawn. Every icon is one character\nfrom the approved set, the Nerd Fonts octicons and a few named characters. The chrome the\nlayout is drawn with, such as the status bars, dividers and rules, is fixed and not\nconfigured here.",
+      "settings": [
+        {
+          "key": "loader",
+          "path": "glyphs.loader",
+          "type": "string",
+          "description": "The spinner drawn while something is loading, one of braille, arcs or ascii.",
+          "default": "\"braille\""
+        }
+      ],
       "sections": [
         {
           "path": "glyphs.row",
@@ -1140,20 +1148,6 @@
               "type": "string",
               "description": "A pull request a reviewer has asked for changes on.",
               "default": "\"\""
-            },
-            {
-              "key": "checks_running",
-              "path": "glyphs.pull_request.checks_running",
-              "type": "string",
-              "description": "A pull request whose checks are running, on one beat of the blink.",
-              "default": "\"\""
-            },
-            {
-              "key": "checks_running_blink",
-              "path": "glyphs.pull_request.checks_running_blink",
-              "type": "string",
-              "description": "A pull request whose checks are running, on the other beat of the blink.",
-              "default": "\"\""
             },
             {
               "key": "draft",

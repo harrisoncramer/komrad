@@ -47,12 +47,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	routed, blink := routed.updateRowCursor(msg)
 	warming := routed.warm.poll()
+	spinning := routed.spinLoader()
 	routed, pulse := routed.pulseMessages(m.messages.landed)
 	routed = routed.releaseHiddenDetails()
 	routed = routed.dropStaleDocScroll()
 	routed.holdCycleKeys()
 
-	return routed, tea.Batch(cmd, blink, warming, pulse)
+	return routed, tea.Batch(cmd, blink, warming, spinning, pulse)
 }
 
 // focusPane is the agent's pane the cycle stops at, empty where the stage holds none or the
@@ -464,6 +465,10 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 		return m, nil, true
 	case pulseMsg:
 		cmd := m.advancePulses()
+
+		return m, cmd, true
+	case loaderTickMsg:
+		cmd := m.advanceLoader()
 
 		return m, cmd, true
 	case messagesFlashDoneMsg:

@@ -196,7 +196,7 @@ func (a *agentsScreen) details(s panelShared) details {
 
 	return details{
 		id:      r.item.Agent.ID,
-		notices: agentNotices(s.glyphs, r),
+		notices: agentNotices(s.glyphs, s.loader, r),
 		fields:  agentDetailFields(s, r.item),
 		tag:     buildDiffStatTag(agentWorktree(s.inspections, r.item.Agent.Cwd)),
 	}
@@ -353,6 +353,7 @@ func (a *agentsScreen) snapshot(s panelShared, pane listPane) view.Snapshot {
 		focused:    rowKeyAt(rows, a.cursor),
 		caret:      pane.caret,
 		blinkedOut: pane.blinkedOut,
+		loader:     s.loader,
 		matcher:    s.chrome.filter.pattern,
 		showHidden: a.showHidden,
 		flat:       a.sort.flat,

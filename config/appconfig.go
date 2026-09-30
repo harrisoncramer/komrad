@@ -871,7 +871,7 @@ type Config struct {
 	Layout Layout `mapstructure:"layout"`
 	// Panel keybindings, scoped to the screen each binding acts in.
 	Keybindings Keybindings `mapstructure:"keybindings"`
-	// The icons the panel draws, grouped by where each one is drawn. Every value is one character
+	// The icons the panel draws, grouped by where each one is drawn. Every icon is one character
 	// from the approved set, the Nerd Fonts octicons and a few named characters. The chrome the
 	// layout is drawn with, such as the status bars, dividers and rules, is fixed and not
 	// configured here.
