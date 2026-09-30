@@ -48,7 +48,9 @@ func (m *model) wakeCwdSyncCmd() tea.Cmd {
 
 	return func() tea.Msg {
 		if err := clients.wakeLoop(loopv1.Loop_LOOP_CWD_SYNC); err != nil {
-			ctx := context.Background()
+			ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
+			defer cancel()
+
 			logging.From(ctx).LogAttrs(ctx, slog.LevelDebug, "failed to wake the cwd sync", logging.Err(err)...)
 		}
 
