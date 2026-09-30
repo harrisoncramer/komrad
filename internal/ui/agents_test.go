@@ -1369,7 +1369,7 @@ func TestAgentsRecordSearch(t *testing.T) {
 	t.Run("the search goes with the screen", func(t *testing.T) {
 		harness := openWorktreeRecord(t, panelHarnessParams{})
 
-		harness.press("/", "s", "i", "z", "enter", "ctrl+a", "tab", "s", "esc", "a")
+		harness.press("/", "s", "i", "z", "enter", "ctrl+a", "tab", "shift+tab")
 
 		frame := harness.readFrame()
 		assert.Equal(t, agentsScreen, harness.readScreen())
@@ -1660,7 +1660,7 @@ func TestAgentsEdit(t *testing.T) {
 			},
 			{
 				name:  "leaving the agents list",
-				close: func(h *panelHarness) { h.press("tab", "r") },
+				close: func(h *panelHarness) { h.press("shift+tab", "shift+tab") },
 			},
 		}
 
@@ -1772,7 +1772,7 @@ func TestAgentsEdit(t *testing.T) {
 		harness.hold(agentv1connect.AgentServiceHoldAgentProcedure)
 		harness.press("e")
 
-		harness.press("tab", "r")
+		harness.press("shift+tab", "shift+tab")
 		harness.release(agentv1connect.AgentServiceHoldAgentProcedure)
 
 		assert.Empty(t, harness.panel.ReadRespawns())

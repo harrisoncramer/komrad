@@ -9,7 +9,6 @@ import (
 
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
-	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 )
 
@@ -37,10 +36,8 @@ func (d tabDirection) glyph() string {
 // as the choice in force.
 type stops struct {
 	labels []string
-	// marks is the letter underlined in each label, the key that jumps to it.
-	marks []string
-	focus int
-	lit   int
+	focus  int
+	lit    int
 }
 
 // noStop is a focus or a lit stop that stands on none of the row.
@@ -59,36 +56,10 @@ func (s stops) parts(palette paint.Palette) []string {
 		case s.lit:
 			style = lit
 		}
-		parts[i] = s.render(style, i)
+		parts[i] = style.Render(s.labels[i])
 	}
 
 	return parts
-}
-
-// render draws one label in its style, its mark underlined where the label holds it.
-func (s stops) render(style lipgloss.Style, i int) string {
-	label := s.labels[i]
-	if i >= len(s.marks) {
-		return style.Render(label)
-	}
-
-	before, mark, after, ok := splitMark(label, s.marks[i])
-	if !ok {
-		return style.Render(label)
-	}
-
-	return style.Render(before) + style.Underline(true).Render(mark) + style.Render(after)
-}
-
-// splitMark cuts a label around the first place it holds mark, and reports whether it does.
-func splitMark(label, mark string) (before, marked, after string, ok bool) {
-	if mark == "" {
-		return "", "", "", false
-	}
-
-	before, after, ok = strings.Cut(label, mark)
-
-	return before, mark, after, ok
 }
 
 func (s stops) view(palette paint.Palette) string {

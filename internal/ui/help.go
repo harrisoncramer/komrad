@@ -206,10 +206,12 @@ func (m model) fullGlobalHelp() []key.Binding {
 	return append(m.globalHelp(), m.messagesBinding(), binding(slices.Concat(m.keys.Sidebar.Narrow, m.keys.Sidebar.Widen), "resize"))
 }
 
+var keyAbbreviations = strings.NewReplacer("ctrl+", "C-", "shift+", "S-")
+
 func keyLabel(keys []string) string {
 	out := make([]string, len(keys))
 	for i, k := range keys {
-		out[i] = strings.Replace(k, "ctrl+", "C-", 1)
+		out[i] = keyAbbreviations.Replace(k)
 	}
 
 	return strings.Join(out, "/")

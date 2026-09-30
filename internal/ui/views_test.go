@@ -15,7 +15,7 @@ func TestViews(t *testing.T) {
 	t.Run("the logo and every view open the frame, the current one lit", func(t *testing.T) {
 		harness := openCrowded(t, panelHarnessParams{})
 
-		harness.press(append(widenListPresses, "tab", "r")...)
+		harness.press(append(widenListPresses, "shift+tab", "shift+tab", "esc")...)
 
 		lines := splitLines(harness.readFrame())
 		require.GreaterOrEqual(t, len(lines), 4)
@@ -28,7 +28,7 @@ func TestViews(t *testing.T) {
 		views, _, _ := strings.Cut(lines[3], "│")
 		assert.Equal(t, "agents  query  schedules  archive  worktrees", strings.TrimSpace(views))
 		lit := paint.Panel.Style(paint.ToneAccent)
-		assert.Contains(t, harness.readRawFrame(), lit.Render("a")+lit.Underline(true).Render("r")+lit.Render("chive"), "the view that is up is lit with its jump key underlined")
+		assert.Contains(t, harness.readRawFrame(), lit.Render("archive"), "the view that is up is lit")
 	})
 
 	t.Run("a page opened from a view draws the trail back to it beside the logo", func(t *testing.T) {
@@ -36,7 +36,7 @@ func TestViews(t *testing.T) {
 
 		assert.True(t, strings.HasPrefix(readTrail(harness.readFrame()), "agents › author › documents"))
 		lit := paint.Panel.Style(paint.ToneAccent)
-		assert.Contains(t, harness.readRawFrame(), lit.Underline(true).Render("a")+lit.Render("gents"), "the view it was opened from is lit")
+		assert.Contains(t, harness.readRawFrame(), lit.Render("agents"), "the view it was opened from is lit")
 	})
 
 	t.Run("a pane too short for the switcher still draws the trail", func(t *testing.T) {
@@ -60,64 +60,64 @@ func TestViews(t *testing.T) {
 		wantScreen string
 	}{
 		{
-			name:       "a letter jumps to its view",
-			press:      []string{"tab", "s"},
-			wantScreen: schedulesScreen,
-		},
-		{
 			name:       "tab opens the next view",
-			press:      []string{"tab", "tab"},
+			press:      []string{"tab"},
 			wantScreen: searchScreen,
 		},
 		{
-			name:       "the switcher keeps the keys through each view it opens",
-			press:      []string{"tab", "tab", "tab"},
-			wantScreen: schedulesScreen,
-		},
-		{
-			name:       "shift-tab wraps to the last view",
-			press:      []string{"tab", "shift+tab"},
+			name:       "shift-tab opens the previous view, wrapping to the last",
+			press:      []string{"shift+tab"},
 			wantScreen: worktreesScreen,
 		},
 		{
-			name:       "escape hands the keys back to the view it stands on",
-			press:      []string{"tab", "tab", "esc", "x"},
-			wantScreen: searchScreen,
+			name:       "the switcher keeps tab through each view it opens",
+			press:      []string{"tab", "tab"},
+			wantScreen: schedulesScreen,
 		},
 		{
-			name:       "a letter closes the switcher behind it",
-			press:      []string{"tab", "r", "tab"},
+			name:       "the switcher keeps shift-tab through each view it opens",
+			press:      []string{"shift+tab", "shift+tab"},
 			wantScreen: archiveScreen,
 		},
 		{
-			name:       "the switcher answers from a view it opened",
-			press:      []string{"tab", "r", "tab", "a"},
+			name:       "escape hands the keys back to the view it stands on",
+			press:      []string{"tab", "esc", "x"},
+			wantScreen: searchScreen,
+		},
+		{
+			name:       "a key the switcher has no use for closes it and reaches the view",
+			press:      []string{"shift+tab", "shift+tab", "esc", "esc"},
+			wantScreen: archiveScreen,
+		},
+		{
+			name:       "escape on the agents opens the switcher without moving",
+			press:      []string{"esc"},
 			wantScreen: agentsScreen,
 		},
 		{
-			name:       "escape on the agents opens the switcher",
-			press:      []string{"esc", "s"},
+			name:       "escape on the agents hands tab to the switcher",
+			press:      []string{"esc", "tab", "tab"},
 			wantScreen: schedulesScreen,
 		},
 		{
 			name:       "escape on the schedules opens the switcher",
-			press:      []string{"tab", "s", "esc", "r"},
+			press:      []string{"tab", "tab", "esc", "esc", "tab"},
 			wantScreen: archiveScreen,
 		},
 		{
 			name:       "escape on the archive opens the switcher",
-			press:      []string{"tab", "r", "esc", "w"},
+			press:      []string{"shift+tab", "shift+tab", "esc", "esc", "tab"},
 			wantScreen: worktreesScreen,
 		},
 		{
 			name:       "escape on the worktrees opens the switcher",
-			press:      []string{"tab", "w", "esc", "s"},
-			wantScreen: schedulesScreen,
+			press:      []string{"shift+tab", "esc", "esc", "tab"},
+			wantScreen: agentsScreen,
 		},
 		{
 			name:       "escape in the query line opens the switcher",
-			press:      []string{"tab", "q", "esc", "r"},
-			wantScreen: archiveScreen,
+			press:      []string{"tab", "esc", "esc", "tab"},
+			wantScreen: schedulesScreen,
 		},
 	}
 
@@ -134,7 +134,7 @@ func TestViews(t *testing.T) {
 	t.Run("the list's arrow stands down while the switcher is open", func(t *testing.T) {
 		harness := openCrowded(t, panelHarnessParams{})
 
-		harness.press(append(widenListPresses, "tab")...)
+		harness.press(append(widenListPresses, "esc")...)
 		assert.Empty(t, readHoveredRow(harness.readFrame()))
 
 		harness.press("esc")
@@ -144,9 +144,9 @@ func TestViews(t *testing.T) {
 	t.Run("the legend names the switcher's keys while it is open", func(t *testing.T) {
 		harness := openCrowded(t, panelHarnessParams{})
 
-		harness.press(append(widenListPresses, "tab")...)
+		harness.press(append(widenListPresses, "esc")...)
 
-		assert.Contains(t, readLegend(harness.readFrame()), "a agents • r archive • esc done")
+		assert.Contains(t, readLegend(harness.readFrame()), "esc done • tab/S-tab switch")
 	})
 }
 
@@ -165,22 +165,22 @@ func TestTrail(t *testing.T) {
 		},
 		{
 			name:      "the query trail names the view alone before a search",
-			press:     []string{"tab", "q"},
+			press:     []string{"tab"},
 			wantTrail: "query",
 		},
 		{
 			name:      "the schedules trail runs to the hovered schedule",
-			press:     []string{"tab", "s", "G"},
+			press:     []string{"tab", "tab", "G"},
 			wantTrail: "schedules › agent39",
 		},
 		{
 			name:      "the archive trail runs to the hovered agent",
-			press:     []string{"tab", "r", "G"},
+			press:     []string{"shift+tab", "shift+tab", "G"},
 			wantTrail: "archive › agent39",
 		},
 		{
 			name:      "the worktrees trail runs to the hovered worktree",
-			press:     []string{"tab", "w", "G"},
+			press:     []string{"shift+tab", "G"},
 			wantTrail: "worktrees › agent/agent39",
 		},
 	}
@@ -220,7 +220,7 @@ func TestTrail(t *testing.T) {
 	t.Run("the trail is drawn in one muted tone", func(t *testing.T) {
 		harness := openCrowded(t, panelHarnessParams{})
 
-		harness.press("tab", "s", "G")
+		harness.press("tab", "tab", "G")
 
 		muted := paint.Panel.Style(paint.ToneMuted)
 		assert.Contains(t, harness.readRawFrame(), muted.Render("schedules › agent39"))

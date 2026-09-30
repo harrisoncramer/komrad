@@ -87,7 +87,7 @@ func TestArchiveKeys(t *testing.T) {
 		{
 			name:       "back opens the view switcher",
 			rows:       buildOneArchivedAgent(),
-			press:      []string{"j", "esc", "a"},
+			press:      []string{"j", "esc", "tab", "tab"},
 			wantScreen: agentsScreen,
 		},
 		{
@@ -619,7 +619,7 @@ func TestArchiveWindow(t *testing.T) {
 		)
 		require.True(t, harness.panel.IsZoomed(), "the archive draws both columns itself")
 
-		harness.press("esc", "a")
+		harness.press("esc", "tab", "tab")
 
 		assert.False(t, harness.panel.IsZoomed(), "leaving the archive for a running agent gives the other panes their share back")
 	})
@@ -642,7 +642,7 @@ func TestArchiveWindow(t *testing.T) {
 		})
 		harness.watch(buildSnapshot(buildOneArchivedAgent()...))
 
-		harness.press("tab", "r", "?")
+		harness.press("shift+tab", "shift+tab", "?")
 
 		frame := harness.readFrame()
 		assert.Equal(t, []string{"backend", "  api-refactor"}, readListRows(frame), "the list keeps its column")
@@ -679,7 +679,7 @@ func TestArchiveWindow(t *testing.T) {
 				harness := newPanelHarness(t, panelHarnessParams{height: tt.height})
 				harness.watch(buildSnapshot(workflow, newArchivedAgent("a1", "api-refactor", "w1")))
 
-				harness.press("tab", "r")
+				harness.press("shift+tab", "shift+tab")
 
 				assert.Len(t, splitLines(harness.readFrame()), tt.height)
 			})
@@ -776,7 +776,7 @@ func TestArchiveSelection(t *testing.T) {
 		assert.Equal(t, archiveScreen, harness.readScreen())
 		assert.NotContains(t, readLegend(frame), "selected")
 
-		harness.press("esc", "a")
+		harness.press("esc", "tab", "tab")
 		assert.Equal(t, agentsScreen, harness.readScreen())
 	})
 
@@ -792,7 +792,7 @@ func TestArchiveSelection(t *testing.T) {
 
 	t.Run("selecting in the archive leaves the agents tree alone", func(t *testing.T) {
 		harness := openArchive(t, append(slices.Clone(rows), newAgent("a9", "live", "w1"))...)
-		harness.press("j", "v", "esc", "esc", "a")
+		harness.press("j", "v", "esc", "esc", "tab", "tab")
 
 		assert.NotContains(t, readLegend(harness.readFrame()), "selected")
 	})
@@ -856,7 +856,7 @@ func TestArchiveSchedules(t *testing.T) {
 		},
 		{
 			name:       "tab on the list leaves the kind alone",
-			press:      []string{"tab"},
+			press:      []string{"tab", "shift+tab", "esc"},
 			want:       []string{"api-refactor"},
 			wantAbsent: []string{"weekly-gone"},
 		},
@@ -868,7 +868,7 @@ func TestArchiveSchedules(t *testing.T) {
 		},
 		{
 			name:       "the row of kinds waits while agents are selected",
-			press:      []string{"j", "v", "F", "tab", "esc"},
+			press:      []string{"j", "v", "F", "tab", "shift+tab", "esc"},
 			want:       []string{"api-refactor"},
 			wantAbsent: []string{"weekly-gone"},
 		},
@@ -921,7 +921,7 @@ func openArchive(t *testing.T, rows ...proto.Message) *panelHarness {
 
 	harness := newPanelHarness(t, panelHarnessParams{})
 	harness.watch(buildSnapshot(rows...))
-	harness.press("tab", "r")
+	harness.press("shift+tab", "shift+tab", "esc")
 
 	return harness
 }

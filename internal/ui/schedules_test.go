@@ -62,7 +62,7 @@ func TestSchedulesKeys(t *testing.T) {
 		{
 			name:       "back opens the view switcher",
 			rows:       buildSchedules(),
-			press:      []string{"esc", "a"},
+			press:      []string{"esc", "shift+tab", "shift+tab"},
 			wantScreen: agentsScreen,
 		},
 		{
@@ -658,7 +658,7 @@ func openSchedules(t *testing.T, rows ...proto.Message) *panelHarness {
 	t.Helper()
 
 	harness := openAgents(t, rows...)
-	harness.press("tab", "s")
+	harness.press("tab", "tab")
 
 	return harness
 }

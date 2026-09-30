@@ -33,14 +33,14 @@ func TestTabStrip(t *testing.T) {
 		},
 		{
 			name:   "the archive",
-			press:  []string{"tab", "r"},
+			press:  []string{"shift+tab", "shift+tab"},
 			screen: archiveScreen,
 			second: "name",
 			kinds:  true,
 		},
 		{
 			name:   "the worktrees",
-			press:  []string{"tab", "w"},
+			press:  []string{"shift+tab"},
 			screen: worktreesScreen,
 			second: "last-accessed",
 		},
@@ -110,7 +110,7 @@ func TestTabStrip(t *testing.T) {
 			width:  80,
 			height: 5,
 		})
-		harness.press("tab", "w", "G")
+		harness.press("shift+tab", "G")
 		frame := harness.readFrame()
 		require.NotContains(t, readSidebar(frame)[1], "f ", "the strip gives up its row")
 		assert.Contains(t, frame, "/trees/agent39", "to the row the cursor stands on")
@@ -127,7 +127,7 @@ func TestTabStrip(t *testing.T) {
 			width:  80,
 			height: 6,
 		})
-		harness.press("tab", "w", "G")
+		harness.press("shift+tab", "G")
 
 		frame := harness.readFrame()
 		assert.Contains(t, readSidebar(frame)[1], "f ")
@@ -140,7 +140,7 @@ func TestTabStrip(t *testing.T) {
 			width:  80,
 			height: 6,
 		})
-		harness.press("tab", "w", "G", "f")
+		harness.press("shift+tab", "G", "f")
 		require.Contains(t, readLastLine(harness.readFrame()), stripLegend)
 
 		resize(harness, 80, 5)
@@ -172,17 +172,17 @@ func TestTabStripGolden(t *testing.T) {
 		{
 			name:  "archive-sort-strip",
 			rows:  buildPinnedArchive(),
-			press: []string{"tab", "r"},
+			press: []string{"shift+tab", "shift+tab", "esc"},
 		},
 		{
 			name:  "archive-sort-strip-flat",
 			rows:  buildPinnedArchive(),
-			press: []string{"tab", "r", "f", "shift+tab", "j", "esc"},
+			press: []string{"shift+tab", "shift+tab", "f", "shift+tab", "j", "esc"},
 		},
 		{
 			name:  "worktrees-sort-strip",
 			rows:  buildMeasuredWorktrees(),
-			press: []string{"tab", "w"},
+			press: []string{"shift+tab", "esc"},
 		},
 		{
 			name:  "worktrees-sort-strip-flat",

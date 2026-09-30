@@ -383,18 +383,10 @@ focus = ["F"]
 # The switcher at the top of the panel, which moves between the agents, query,
 # schedules, archive and worktrees from any of them.
 [keybindings.views]
-# Hand the keys to the switcher.
-pick      = ["tab"]
-# Open the agents list.
-agents    = ["a"]
-# Open the query over every conversation the panel holds, the archived ones included.
-query     = ["q"]
-# Open the schedules.
-schedules = ["s"]
-# Open the archive.
-archive   = ["r"]
-# Open the worktrees, landing on the hovered agent's own directory.
-worktrees = ["w"]
+# Open the next view.
+next     = ["tab"]
+# Open the previous view.
+previous = ["shift+tab"]
 
 # The bindings that create and change workflows, from the agents list.
 [keybindings.workflows]

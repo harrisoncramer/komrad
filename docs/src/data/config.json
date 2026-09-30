@@ -981,46 +981,18 @@
           "description": "The switcher at the top of the panel, which moves between the agents, query,\nschedules, archive and worktrees from any of them.",
           "settings": [
             {
-              "key": "pick",
-              "path": "keybindings.views.pick",
+              "key": "next",
+              "path": "keybindings.views.next",
               "type": "array",
-              "description": "Hand the keys to the switcher.",
+              "description": "Open the next view.",
               "default": "[\"tab\"]"
             },
             {
-              "key": "agents",
-              "path": "keybindings.views.agents",
+              "key": "previous",
+              "path": "keybindings.views.previous",
               "type": "array",
-              "description": "Open the agents list.",
-              "default": "[\"a\"]"
-            },
-            {
-              "key": "query",
-              "path": "keybindings.views.query",
-              "type": "array",
-              "description": "Open the query over every conversation the panel holds, the archived ones included.",
-              "default": "[\"q\"]"
-            },
-            {
-              "key": "schedules",
-              "path": "keybindings.views.schedules",
-              "type": "array",
-              "description": "Open the schedules.",
-              "default": "[\"s\"]"
-            },
-            {
-              "key": "archive",
-              "path": "keybindings.views.archive",
-              "type": "array",
-              "description": "Open the archive.",
-              "default": "[\"r\"]"
-            },
-            {
-              "key": "worktrees",
-              "path": "keybindings.views.worktrees",
-              "type": "array",
-              "description": "Open the worktrees, landing on the hovered agent's own directory.",
-              "default": "[\"w\"]"
+              "description": "Open the previous view.",
+              "default": "[\"shift+tab\"]"
             }
           ],
           "sections": []

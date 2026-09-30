@@ -259,22 +259,14 @@ type KindsKeys struct {
 	Focus []string `mapstructure:"focus" default:"F"`
 }
 
-// ViewsKeys are the bindings for the switcher at the top of the panel. Pick hands it the
-// keys, where tab and shift+tab open the next and previous view and esc hands the keys back.
-// Each view's own key opens it straight away once the switcher holds the keys.
+// ViewsKeys are the bindings for the switcher at the top of the panel. Next and Previous open the
+// next and previous view and hand the switcher the keys, where they keep stepping through the
+// views and esc hands the keys back.
 type ViewsKeys struct {
-	// Hand the keys to the switcher.
-	Pick []string `mapstructure:"pick" default:"tab"`
-	// Open the agents list.
-	Agents []string `mapstructure:"agents" default:"a"`
-	// Open the query over every conversation the panel holds, the archived ones included.
-	Query []string `mapstructure:"query" default:"q"`
-	// Open the schedules.
-	Schedules []string `mapstructure:"schedules" default:"s"`
-	// Open the archive.
-	Archive []string `mapstructure:"archive" default:"r"`
-	// Open the worktrees, landing on the hovered agent's own directory.
-	Worktrees []string `mapstructure:"worktrees" default:"w"`
+	// Open the next view.
+	Next []string `mapstructure:"next" default:"tab"`
+	// Open the previous view.
+	Previous []string `mapstructure:"previous" default:"shift+tab"`
 }
 
 // FormKeys are the keys a form answers, read before the key reaches the box being typed into and
