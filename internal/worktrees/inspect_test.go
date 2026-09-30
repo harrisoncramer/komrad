@@ -285,18 +285,16 @@ func sumEntryBytes(entries []Entry) int64 {
 }
 
 // TestInspectRecordsWhereTheDirectoryStands covers the reading git gave being written to the
-// worktree store under the time of the call, merged only when nothing is left to land.
+// worktree store under the time of the call.
 func TestInspectRecordsWhereTheDirectoryStands(t *testing.T) {
 	tests := []struct {
-		name   string
-		setup  func(fixture *worktreeFixture)
-		want   worktreestore.Standing
-		merged bool
+		name  string
+		setup func(fixture *worktreeFixture)
+		want  worktreestore.Standing
 	}{
 		{
-			name:   "a clean branch the base holds whole",
-			setup:  func(fixture *worktreeFixture) { fixture.git.Prediction = git.Prediction{Landed: 3} },
-			merged: true,
+			name:  "a clean branch the base holds whole",
+			setup: func(fixture *worktreeFixture) { fixture.git.Prediction = git.Prediction{Landed: 3} },
 		},
 		{
 			name: "a branch with changes on disk",
@@ -345,7 +343,6 @@ func TestInspectRecordsWhereTheDirectoryStands(t *testing.T) {
 			stored.ReadAt = time.Time{}
 			tt.want.Dir = dir
 			assert.Equal(t, tt.want, stored)
-			assert.Equal(t, tt.merged, stored.IsMerged())
 		})
 	}
 }

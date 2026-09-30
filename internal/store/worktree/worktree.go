@@ -52,11 +52,6 @@ type Standing struct {
 	Error string
 }
 
-// IsMerged reports whether the base holds everything the directory has.
-func (s Standing) IsMerged() bool {
-	return s.Error == "" && !s.Dirty && !s.Sequencing && s.Unlanded == 0
-}
-
 // WorktreeStore reads and writes worktree directories.
 type WorktreeStore struct {
 	queries *models.Queries
