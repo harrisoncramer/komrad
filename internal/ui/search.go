@@ -707,6 +707,10 @@ func archivedSearchRow(row view.Row, id string, archived map[string]panel.AgentR
 // snapshot is the rows the search found, as the list draws them.
 func (w *searchScreen) snapshot(s panelShared, rows []searchRow, pane listPane) view.Snapshot {
 	archived := archivedByID(s.listing.archivedAgents)
+	caret := pane.caret
+	if w.isBlockFocused(s) {
+		caret = view.CaretDrawn
+	}
 
 	return view.Snapshot{
 		Rows: xslice.Map(rows, func(row searchRow) view.Row {
@@ -717,7 +721,7 @@ func (w *searchScreen) snapshot(s panelShared, rows []searchRow, pane listPane) 
 			return w.agentRow(s, row.agent, archived)
 		}),
 		Columns:    view.NoColumns(),
-		Caret:      pane.caret,
+		Caret:      caret,
 		BlinkedOut: pane.blinkedOut,
 		Focused:    rowKeyAt(rows, w.cursor),
 		Pane:       pane.width,

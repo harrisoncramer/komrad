@@ -861,6 +861,9 @@ func TestSearchPreview(t *testing.T) {
 		assert.Contains(t, readStageText(frame), "line 0 of the conversation before")
 		assert.Equal(t, hovered, readHoveredSearchRow(frame))
 
+		harness.fireTimers()
+		assert.Equal(t, hovered, readHoveredSearchRow(harness.readFrame()), "the hits hold their arrow still")
+
 		harness.press("esc", "j")
 		assert.NotEqual(t, hovered, readHoveredSearchRow(harness.readFrame()))
 	})
