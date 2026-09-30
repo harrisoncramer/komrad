@@ -7,6 +7,7 @@ import (
 	"sync"
 	"testing"
 
+	"komrad/config"
 	"komrad/internal/ui"
 	"komrad/internal/ui/paint"
 	"komrad/lib/xptr"
@@ -579,6 +580,18 @@ func TestDocumentsReading(t *testing.T) {
 			}
 		})
 	}
+
+	t.Run("the focused document quits on the documents screen's own key", func(t *testing.T) {
+		t.Parallel()
+
+		keys := config.DefaultKeybindings()
+		keys.Documents.Quit = []string{"ctrl+x"}
+		harness, _ := openDocumentsWith(t, panelHarnessParams{keys: &keys})
+
+		harness.press("pick:block", "ctrl+x")
+
+		assert.Equal(t, 1, harness.panel.ReadDetaches())
+	})
 }
 
 // TestDocumentsReadingCursor covers the cursor drawn in the document once it holds the keys, and
@@ -709,8 +722,16 @@ func readEditedPath(t *testing.T, respawn string) string {
 func openDocuments(t *testing.T) (*panelHarness, *documentShelf) {
 	t.Helper()
 
+	return openDocumentsWith(t, panelHarnessParams{})
+}
+
+func openDocumentsWith(t *testing.T, params panelHarnessParams) (*panelHarness, *documentShelf) {
+	t.Helper()
+
 	docs := newDocumentShelf()
-	harness := openAgents(t, buildDocumentAuthors()...)
+	harness := newPanelHarness(t, params)
+	answerWorktreeReads(harness)
+	harness.watch(buildSnapshot(buildDocumentAuthors()...))
 	docs.answer(harness)
 
 	moveToAgentRow(t, harness, "author")

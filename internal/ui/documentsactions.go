@@ -246,6 +246,11 @@ func (d *documentsScreen) docKeys() screenActionSpec {
 					return d.stepOlder(h, s)
 				},
 			},
+			{
+				id:   actionQuit,
+				keys: func(k config.Keybindings) []string { return k.Documents.Quit },
+				run:  func(h host, _ panelShared, _ string) tea.Cmd { return h.hide() },
+			},
 		},
 		legend: []screenLegendRow{
 			{

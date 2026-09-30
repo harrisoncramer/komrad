@@ -214,7 +214,7 @@ func (m model) updateDoc(key tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	m.reading.said = ""
 
 	k := key.String()
-	if isBound(k, m.quitKeys()) {
+	if _, ok := m.active().(detailed); ok && isBound(k, m.quitKeys()) {
 		return m, m.hide()
 	}
 
