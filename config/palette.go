@@ -45,8 +45,7 @@ type Palette struct {
 	SelectionDim Shade `mapstructure:"selection_dim"`
 	// The background of a search match in a diff.
 	Match Shade `mapstructure:"match"`
-	// The colour of each mode the panel is in, drawn as the label at the top of the sidebar and in
-	// what the mode draws.
+	// The colour of each mode the panel is in, drawn as the label at the foot of the sidebar.
 	Mode Mode `mapstructure:"mode"`
 }
 
@@ -60,11 +59,11 @@ type Shade struct {
 
 // Mode is the colour of each mode the panel is in.
 type Mode struct {
-	// Browsing the panel, the mode it is in until another takes over.
+	// Browsing the panel.
 	Normal string `mapstructure:"normal"`
-	// Selecting text to copy, which also colours the VISUAL badge.
+	// Selecting text to copy.
 	Visual string `mapstructure:"visual"`
-	// Picking a pane to jump to, which also colours the jump letters.
+	// Picking a pane to jump to.
 	Jump string `mapstructure:"jump"`
 }
 
