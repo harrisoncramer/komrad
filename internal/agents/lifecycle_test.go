@@ -464,6 +464,25 @@ func TestArchiveKillsAPaneWrittenBeforeItsOwnWrite(t *testing.T) {
 	assert.Contains(t, tmux.KilledPanes, "%9", "so the archive kills the pane its write took")
 }
 
+// TestArchiveFinishesAfterKillingTheCallersOwnPane covers an agent archiving itself, whose request dies with its pane.
+func TestArchiveFinishesAfterKillingTheCallersOwnPane(t *testing.T) {
+	st := newStore(t)
+	tmux := tmuxtest.NewFake()
+	manager := newManager(tmux, st, "")
+
+	agent := seedRunning(t, st, tmux, "self", "%1", agentstore.StateThinking)
+
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	tmux.AfterKillPane = func(string) { cancel() }
+
+	require.NoError(t, manager.lifecycle.ArchiveAgents(ctx, []string{agent.ID}))
+
+	after := agentByID(t, st, agent.ID)
+	assert.Contains(t, tmux.KilledPanes, "%1")
+	assert.NotNil(t, after.ArchivedAt, "the write outlives the request the kill cancelled")
+}
+
 // TestDeleteKillsAPaneWrittenBeforeItsOwnWrite is the same gap on the delete, whose row goes
 // entirely rather than being hidden, so a pane written into the gap is even further out of
 // reach afterwards.

@@ -740,9 +740,8 @@ func TestAdoptAnswersWithTheAgentAlreadyOnTheBranch(t *testing.T) {
 	assert.Equal(t, "spawned", adopted.Msg.GetAgent().GetName())
 }
 
-// TestArchiveAgentsHoldsAnAgentToItsOwnChildren pins that an agent other than an orchestrator
-// archives only its own children.
-func TestArchiveAgentsHoldsAnAgentToItsOwnChildren(t *testing.T) {
+// TestArchiveAgentsHoldsAnAgentToItselfAndItsOwnChildren leaves an orchestrator and the panel unrestricted.
+func TestArchiveAgentsHoldsAnAgentToItselfAndItsOwnChildren(t *testing.T) {
 	tests := []struct {
 		name     string
 		from     string
@@ -765,6 +764,22 @@ func TestArchiveAgentsHoldsAnAgentToItsOwnChildren(t *testing.T) {
 			name:    "an agent archiving its own child",
 			from:    "parent",
 			archive: []string{"child"},
+		},
+		{
+			name:    "an agent archiving itself",
+			from:    "parent",
+			archive: []string{"parent"},
+		},
+		{
+			name:    "an agent archiving itself and its own child",
+			from:    "parent",
+			archive: []string{"parent", "child"},
+		},
+		{
+			name:     "a child archiving its parent",
+			from:     "child",
+			archive:  []string{"parent"},
+			wantCode: connect.CodePermissionDenied,
 		},
 		{
 			name:    "an orchestrator archiving anybody",

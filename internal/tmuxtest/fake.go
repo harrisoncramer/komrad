@@ -26,6 +26,7 @@ type Fake struct {
 	NewWindowErr    error
 	BeforeNewWindow func()
 	AfterGetPanes   func()
+	AfterKillPane   func(pane string)
 	BeforeGetOwner  func()
 	AfterSetOwner   func()
 	NewWindowCalls  int
@@ -331,9 +332,14 @@ func (f *Fake) recordOwner(pane, agentID string) error {
 // KillPane records the pane and forgets its owner.
 func (f *Fake) KillPane(pane string) {
 	f.mu.Lock()
-	defer f.mu.Unlock()
 	f.KilledPanes = append(f.KilledPanes, pane)
 	delete(f.Owners, pane)
+	after := f.AfterKillPane
+	f.mu.Unlock()
+
+	if after != nil {
+		after(pane)
+	}
 }
 
 // IsPaneInMode answers InMode for the pane.

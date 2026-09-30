@@ -407,7 +407,7 @@ func (s *Handler) DeleteAgents(ctx context.Context, req *agentv1.DeleteAgentsReq
 	return &emptypb.Empty{}, nil
 }
 
-var errArchiveNotYours = fail.Denied("an agent may archive only its own children")
+var errArchiveNotYours = fail.Denied("an agent may archive only itself and its own children")
 
 // ArchiveAgents stops agents and hides them, keeping the records and transcripts.
 func (s *Handler) ArchiveAgents(ctx context.Context, req *agentv1.ArchiveAgentsRequest) (*emptypb.Empty, *fail.Error) {
@@ -422,7 +422,7 @@ func (s *Handler) ArchiveAgents(ctx context.Context, req *agentv1.ArchiveAgentsR
 	return &emptypb.Empty{}, nil
 }
 
-// refuseArchivingOthers holds an agent other than an orchestrator to its own children, leaving the panel unrestricted.
+// refuseArchivingOthers holds an agent other than an orchestrator to itself and its own children, leaving the panel unrestricted.
 func (s *Handler) refuseArchivingOthers(ctx context.Context, ids []string) error {
 	from := caller.From(ctx).AgentID
 	if from == "" {
@@ -438,6 +438,10 @@ func (s *Handler) refuseArchivingOthers(ctx context.Context, ids []string) error
 	}
 
 	for _, id := range ids {
+		if id == from {
+			continue
+		}
+
 		target, err := s.agents.GetAgent(ctx, id)
 		if errors.Is(err, store.ErrNotFound) {
 			continue
