@@ -113,6 +113,8 @@ func TestIntegrationCopyStandInHoldsThePaneSlotUntilCopyModeEnds(t *testing.T) {
 	}
 }
 
+// TestIntegrationCopyStandInCutsToBlock pins the cut against real tmux, whose cursor steps over a wide
+// character and whose selection ends are inclusive, through to the buffer and the copy-command.
 func TestIntegrationCopyStandInCutsToBlock(t *testing.T) {
 	tests := []struct {
 		name string
@@ -179,8 +181,8 @@ func TestIntegrationCopyStandInCutsToBlock(t *testing.T) {
 				_, err := client.query(append([]string{"send-keys", "-t", standIn}, keys...)...)
 				require.NoError(t, err)
 			}
-			copy := cmp.Or(tt.copy, "y")
-			_, err = client.query("send-keys", "-t", standIn, copy)
+			key := cmp.Or(tt.copy, "y")
+			_, err = client.query("send-keys", "-t", standIn, key)
 			require.NoError(t, err)
 
 			var copied string
