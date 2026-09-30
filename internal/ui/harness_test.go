@@ -28,6 +28,7 @@ import (
 	"komrad/proto/gen/forge/v1/forgev1connect"
 	"komrad/proto/gen/hook/v1/hookv1connect"
 	"komrad/proto/gen/log/v1/logv1connect"
+	"komrad/proto/gen/loop/v1/loopv1connect"
 	paginationv1 "komrad/proto/gen/pagination/v1"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 	"komrad/proto/gen/pullrequest/v1/pullrequestv1connect"
@@ -105,6 +106,7 @@ type panelRemote struct {
 	logs         logv1connect.LogServiceClient
 	forges       forgev1connect.ForgeServiceClient
 	pullRequests pullrequestv1connect.PullRequestServiceClient
+	loops        loopv1connect.LoopServiceClient
 }
 
 type request struct {
@@ -228,6 +230,7 @@ func newPanelHarness(t *testing.T, params panelHarnessParams) *panelHarness {
 	mux.Handle(logv1connect.NewLogServiceHandler(logv1connect.UnimplementedLogServiceHandler{}, interceptors))
 	mux.Handle(forgev1connect.NewForgeServiceHandler(forgev1connect.UnimplementedForgeServiceHandler{}, interceptors))
 	mux.Handle(pullrequestv1connect.NewPullRequestServiceHandler(pullrequestv1connect.UnimplementedPullRequestServiceHandler{}, interceptors))
+	mux.Handle(loopv1connect.NewLoopServiceHandler(loopv1connect.UnimplementedLoopServiceHandler{}, interceptors))
 
 	server := httptest.NewServer(mux)
 	t.Cleanup(server.Close)
@@ -243,6 +246,7 @@ func newPanelHarness(t *testing.T, params panelHarnessParams) *panelHarness {
 			logs:         logv1connect.NewLogServiceClient(server.Client(), server.URL),
 			forges:       forgev1connect.NewForgeServiceClient(server.Client(), server.URL),
 			pullRequests: pullrequestv1connect.NewPullRequestServiceClient(server.Client(), server.URL),
+			loops:        loopv1connect.NewLoopServiceClient(server.Client(), server.URL),
 		}
 	}
 
@@ -278,6 +282,7 @@ func newPanelHarness(t *testing.T, params panelHarnessParams) *panelHarness {
 			Worktrees:       remote.worktrees,
 			Forges:          remote.forges,
 			PullRequests:    remote.pullRequests,
+			Loops:           remote.loops,
 			Logs:            remote.logs,
 			Git:             reviewGit,
 			Keys:            keys,

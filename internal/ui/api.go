@@ -16,6 +16,8 @@ import (
 	"komrad/proto/gen/hook/v1/hookv1connect"
 	logv1 "komrad/proto/gen/log/v1"
 	"komrad/proto/gen/log/v1/logv1connect"
+	loopv1 "komrad/proto/gen/loop/v1"
+	"komrad/proto/gen/loop/v1/loopv1connect"
 	"komrad/proto/gen/pullrequest/v1/pullrequestv1connect"
 	schedulev1 "komrad/proto/gen/schedule/v1"
 	schedulev1connect "komrad/proto/gen/schedule/v1/schedulev1connect"
@@ -43,6 +45,7 @@ type api struct {
 	logs         logv1connect.LogServiceClient
 	forges       forgev1connect.ForgeServiceClient
 	pullRequests pullrequestv1connect.PullRequestServiceClient
+	loops        loopv1connect.LoopServiceClient
 }
 
 // call runs work under its own deadline.
@@ -616,5 +619,12 @@ func (a api) listAgentLogSources(agentID string) ([]*logv1.LogSource, error) {
 		}
 
 		return resp.Msg.GetSources(), nil
+	})
+}
+
+// wakeLoop asks the service to run a background loop before its next tick.
+func (a api) wakeLoop(loop loopv1.Loop) error {
+	return mutate(func(ctx context.Context) (any, error) {
+		return a.loops.WakeLoop(ctx, connect.NewRequest(&loopv1.WakeLoopRequest{Loop: loop}))
 	})
 }

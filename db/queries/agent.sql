@@ -834,6 +834,15 @@ SET
 WHERE
     id = @id;
 
+-- name: SetAgentDiffStatByID :exec
+UPDATE
+    agents
+SET
+    lines_added = sqlc.narg('lines_added'),
+    lines_removed = sqlc.narg('lines_removed')
+WHERE
+    id = @id;
+
 -- name: SetAgentHidden :many
 UPDATE
     agents

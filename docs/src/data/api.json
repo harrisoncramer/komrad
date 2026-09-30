@@ -2065,6 +2065,16 @@
           "description": "The snapshot of its newest round while its worktree no longer hashes to it, empty otherwise."
         },
         {
+          "name": "diff_stat",
+          "type": "DiffStat",
+          "ref": "agent.v1.DiffStat",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "How many lines its checkout adds and removes since it left its base, unset where there is no base to measure against."
+        },
+        {
           "name": "held_at",
           "type": "string",
           "ref": "",
@@ -2532,6 +2542,32 @@
             "required"
           ],
           "description": "The mail to erase, read or not, which the recipient will then never see."
+        }
+      ]
+    },
+    "agent.v1.DiffStat": {
+      "name": "DiffStat",
+      "description": "DiffStat is how many lines a checkout adds and removes, committed and uncommitted alike.",
+      "fields": [
+        {
+          "name": "added",
+          "type": "int32",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The lines it adds."
+        },
+        {
+          "name": "removed",
+          "type": "int32",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The lines it removes."
         }
       ]
     },

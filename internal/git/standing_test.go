@@ -227,6 +227,15 @@ func TestIntegrationReadDiffStat(t *testing.T) {
 			},
 		},
 		{
+			name: "an untracked file counts its lines",
+			change: func(t *testing.T, root string) {
+				write(t, root, "loose.go", "package main\n\nvar loose = 1\n")
+			},
+			want: DiffStat{
+				Added: 3,
+			},
+		},
+		{
 			name: "committed, staged and unstaged lines all count",
 			change: func(t *testing.T, root string) {
 				write(t, root, "one.go", "package main\n\nvar one = 1\n")
@@ -269,6 +278,48 @@ func TestIntegrationReadDiffStat(t *testing.T) {
 			assert.Equal(t, &tt.want, stat)
 		})
 	}
+}
+
+// TestIntegrationReadDiffStatMeasuresTheTreeItIsGiven covers a tree hashed before the worktree moved on.
+func TestIntegrationReadDiffStatMeasuresTheTreeItIsGiven(t *testing.T) {
+	t.Parallel()
+
+	root := repo(t)
+	write(t, root, "kept.go", "package main\n\nvar kept = 1\n")
+	tree, err := client.ProbeTree(t.Context(), root)
+	require.NoError(t, err)
+	write(t, root, "later.go", "package main\n")
+
+	stat, err := client.ReadDiffStat(t.Context(), ReadDiffStatParams{
+		Dir:  root,
+		Ref:  "main",
+		Tree: tree,
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, &DiffStat{Added: 2}, stat)
+}
+
+// TestIntegrationReadDiffStatLeavesTheAgentsIndexAlone covers a checkout whose files are stat-dirty.
+func TestIntegrationReadDiffStatLeavesTheAgentsIndexAlone(t *testing.T) {
+	t.Parallel()
+
+	root := repo(t)
+	index := filepath.Join(root, ".git", "index")
+	past := time.Now().Add(-time.Hour)
+	require.NoError(t, os.Chtimes(filepath.Join(root, "kept.go"), past, past))
+	before, err := os.Stat(index)
+	require.NoError(t, err)
+
+	_, err = client.ReadDiffStat(t.Context(), ReadDiffStatParams{
+		Dir: root,
+		Ref: "main",
+	})
+	require.NoError(t, err)
+
+	after, err := os.Stat(index)
+	require.NoError(t, err)
+	assert.Equal(t, before.ModTime(), after.ModTime())
 }
 
 // TestIntegrationCountAgainstRemote covers where a branch stands against its copy on origin.

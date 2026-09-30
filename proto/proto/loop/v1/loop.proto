@@ -1,0 +1,42 @@
+syntax = "proto3";
+
+package loop.v1;
+
+import "annotation/v1/tool.proto";
+import "buf/validate/validate.proto";
+import "google/protobuf/empty.proto";
+
+option go_package = "komrad/proto/gen/loop/v1;loopv1";
+
+// Loop names a background loop the service runs that can be woken before its next tick.
+enum Loop {
+  // No loop was named, which a wake refuses.
+  LOOP_UNSPECIFIED = 0;
+  // Reads each live agent's working directory for its branch, its head and the lines it changed.
+  LOOP_CWD_SYNC = 1;
+  // Reads each agent's conversation log for new turns.
+  LOOP_TRANSCRIPT_SYNC = 2;
+  // Asks the forges what changed on the pull requests opened from agents' branches.
+  LOOP_PULL_REQUEST_SYNC = 3;
+}
+
+message WakeLoopRequest {
+  // The loop to wake.
+  Loop loop = 1 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+}
+
+// LoopService wakes the service's background loops.
+service LoopService {
+  // WakeLoop asks a loop to run before its next tick, no sooner than its floor allows.
+  rpc WakeLoop(WakeLoopRequest) returns (google.protobuf.Empty) {
+    option idempotency_level = IDEMPOTENT;
+    option (annotation.v1.surfaces) = {
+      cli: false
+      mcp: false
+      reason: "the panel wakes a loop when a person looks at what it reads"
+    };
+  }
+}

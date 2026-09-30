@@ -99,6 +99,7 @@ func agentRowFrom(row *agentv1.AgentRow) panel.AgentRow {
 		PullRequest:        pullRequestStandingFrom(row.GetPullRequest()),
 		PullRequests:       xslice.Map(row.GetPullRequests(), pullRequestFrom),
 		MovedSinceRound:    agent.GetMovedSinceRound(),
+		DiffStat:           agent.GetDiffStat(),
 		ReviewerComments:   row.GetReviewerComments(),
 		PersonComments:     row.GetPersonComments(),
 	}
@@ -287,9 +288,6 @@ func worktreeInspectionFrom(read *worktreev1.GetWorktreeResponse, now time.Time)
 		baseError:      read.GetBaseError(),
 		ahead:          int(read.GetAhead()),
 		behind:         int(read.GetBehind()),
-		measured:       read.AddedLines != nil,
-		added:          int(read.GetAddedLines()),
-		removed:        int(read.GetRemovedLines()),
 		pushed:         read.GetPushed(),
 		unpushed:       int(read.GetUnpushed()),
 		unpulled:       int(read.GetUnpulled()),

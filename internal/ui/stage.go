@@ -47,6 +47,11 @@ func (m *model) applyStageTick(msg stageTickMsg) tea.Cmd {
 		return nil
 	}
 
+	return tea.Batch(m.stageRestingRow(), m.wakeCwdSyncCmd())
+}
+
+// stageRestingRow stages the row the cursor came to rest on and asks for what the screen reads of it.
+func (m *model) stageRestingRow() tea.Cmd {
 	switch m.screen {
 	case screenWorktrees:
 		m.worktrees.stage(m, m.shared())

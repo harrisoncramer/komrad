@@ -9,6 +9,7 @@ import (
 	"komrad/db"
 	"komrad/db/models"
 	"komrad/internal/store"
+	"komrad/lib/xptr"
 )
 
 // ClaimNudge takes the right to tell an agent about waiting mail, checking and stamping in
@@ -299,6 +300,24 @@ func (s *AgentStore) SetMovedSinceRound(ctx context.Context, id, snapshotSHA str
 		MovedSinceRound: snapshotSHA,
 	}); err != nil {
 		return fmt.Errorf("failed to set the round moved since for id %q: %w", id, err)
+	}
+
+	return nil
+}
+
+// SetDiffStat records the lines the agent's checkout adds and removes, or clears them with nil.
+func (s *AgentStore) SetDiffStat(ctx context.Context, id string, stat *DiffStat) error {
+	if !store.IsID(id) {
+		return store.ErrNotFound.Saying("no agent with id %q", id)
+	}
+
+	params := models.SetAgentDiffStatByIDParams{ID: id}
+	if stat != nil {
+		params.LinesAdded, params.LinesRemoved = xptr.Ptr(int32(stat.Added)), xptr.Ptr(int32(stat.Removed))
+	}
+
+	if err := s.queries.SetAgentDiffStatByID(ctx, params); err != nil {
+		return fmt.Errorf("failed to set the diff stat for id %q: %w", id, err)
 	}
 
 	return nil

@@ -3,7 +3,9 @@ package git
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
+	"os/exec"
 	"strconv"
 	"strings"
 	"time"
@@ -121,28 +123,34 @@ func (c *Client) CountAheadBehind(ctx context.Context, dir, ref string) (ahead, 
 
 // ReadDiffStatParams says which checkout to measure, from which base, and which paths to leave out.
 type ReadDiffStatParams struct {
-	Dir     string
-	Ref     string
+	Dir string
+	Ref string
+	// Tree is the worktree already hashed, empty when ReadDiffStat should hash it.
+	Tree    string
 	Exclude []string
 }
 
-// ReadDiffStat is the lines the working tree adds and removes since it left ref, refused with
-// ErrBaseUnrelated when the branch shares no history with ref.
+// ReadDiffStat is the lines the working tree, untracked files included, adds and removes since it left ref.
 func (c *Client) ReadDiffStat(ctx context.Context, params ReadDiffStatParams) (*DiffStat, error) {
-	related, err := doesShareHistory(ctx, params.Dir, params.Ref, "HEAD")
+	mergeBase, err := Run(ctx, params.Dir, "merge-base", params.Ref, "HEAD")
+	var exit *exec.ExitError
+	if errors.As(err, &exit) && exit.ExitCode() == 1 {
+		return nil, fmt.Errorf("%w: %s", ErrBaseUnrelated, params.Ref)
+	}
 	if err != nil {
-		return nil, fmt.Errorf("failed to relate %q to %s: %w", params.Dir, params.Ref, err)
+		return nil, fmt.Errorf("failed to find where %q left %s: %w", params.Dir, params.Ref, err)
 	}
 
-	if !related {
-		return nil, fmt.Errorf("%w: %s", ErrBaseUnrelated, params.Ref)
+	tree, err := hashTree(ctx, params.Dir, params.Tree)
+	if err != nil {
+		return nil, err
 	}
 
 	args := append([]string{
 		"-c", "core.quotepath=false",
 		"--no-pager", "diff",
 		"--no-ext-diff", "--no-color", "--find-renames", "--numstat", "-z",
-		"--merge-base", params.Ref, "--", ".",
+		mergeBase, tree, "--", ".",
 	}, excludePathspecs(params.Exclude)...)
 
 	out, err := RunBytes(ctx, params.Dir, args...)
@@ -340,4 +348,18 @@ func readNumstatCount(field string) (int, error) {
 	}
 
 	return count, nil
+}
+
+// hashTree is the tree already hashed, or the working tree at dir hashed in an index of its own.
+func hashTree(ctx context.Context, dir, tree string) (string, error) {
+	if tree != "" {
+		return tree, nil
+	}
+
+	root, err := getRoot(ctx, dir)
+	if err != nil {
+		return "", err
+	}
+
+	return writeTree(ctx, root)
 }

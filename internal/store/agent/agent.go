@@ -150,6 +150,15 @@ type Agent struct {
 	Alive bool
 	// MovedSinceRound is the newest round's snapshot while the worktree no longer hashes to it.
 	MovedSinceRound string
+	// DiffStat is the lines the checkout adds and removes since it left its base, nil where there is
+	// no base to measure against.
+	DiffStat *DiffStat
+}
+
+// DiffStat is how many lines a checkout adds and removes.
+type DiffStat struct {
+	Added   int
+	Removed int
 }
 
 // IsLastTurnFailed reports whether an API error ended the agent's last turn.
@@ -263,5 +272,14 @@ func FromRow(agent models.Agent) Agent {
 		HeldMidTurn:        agent.HeldMidTurn,
 		Alive:              agent.Alive,
 		MovedSinceRound:    agent.MovedSinceRound,
+		DiffStat:           diffStatFrom(agent.LinesAdded, agent.LinesRemoved),
 	}
+}
+
+func diffStatFrom(added, removed *int32) *DiffStat {
+	if added == nil || removed == nil {
+		return nil
+	}
+
+	return &DiffStat{Added: int(*added), Removed: int(*removed)}
 }

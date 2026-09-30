@@ -422,7 +422,6 @@ func (a *archiveScreen) details(s panelShared) details {
 		id:      r.item.Agent.ID,
 		notices: agentNotices(s.glyphs, s.loaderFrame, r),
 		fields:  agentDetailFields(s, r.item),
-		tag:     buildDiffStatTag(agentWorktree(s.inspections, r.item.Agent.Cwd)),
 	}
 }
 

@@ -62,6 +62,7 @@ func Agent(row rowstore.Row, options AgentOptions) *agentv1.Agent {
 		Documents:          row.Documents,
 		DocumentsUpdatedAt: dates.PreciseStampPtr(row.DocumentsUpdatedAt),
 		MovedSinceRound:    stored.MovedSinceRound,
+		DiffStat:           diffStatOf(stored.DiffStat),
 		HeldAt:             heldStamp(stored.HeldAt),
 	}
 }
@@ -87,6 +88,14 @@ func ReviewVerdictOf(verdict reviewstore.Verdict) agentv1.ReviewVerdict {
 	default:
 		return agentv1.ReviewVerdict_REVIEW_VERDICT_UNSPECIFIED
 	}
+}
+
+func diffStatOf(stat *agentstore.DiffStat) *agentv1.DiffStat {
+	if stat == nil {
+		return nil
+	}
+
+	return &agentv1.DiffStat{Added: int32(stat.Added), Removed: int32(stat.Removed)}
 }
 
 // heldStamp is when a person took the agent's worktree, empty while nobody has.

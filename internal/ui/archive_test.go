@@ -423,6 +423,8 @@ func TestArchiveDocument(t *testing.T) {
 	stuck := newArchivedAgent("a1", "api-refactor", "w1")
 	stuck.State = agentv1.AgentState_AGENT_STATE_FAILED_TO_CLEANUP
 	stuck.FailureReason = "the worktree is dirty"
+	measured := newArchivedAgent("a1", "api-refactor", "w1")
+	measured.DiffStat = &agentv1.DiffStat{Added: 200, Removed: 100}
 
 	tests := []struct {
 		name       string
@@ -449,6 +451,13 @@ func TestArchiveDocument(t *testing.T) {
 			press:      []string{"j"},
 			want:       []string{"archived — kept until deleted", "Restore brings it back"},
 			wantAbsent: []string{"dormant"},
+		},
+		{
+			name:       "an archived agent draws no diff stat",
+			rows:       []proto.Message{newLiveWorkflow("w1", "backend"), measured},
+			press:      []string{"j"},
+			want:       []string{"archived — kept until deleted"},
+			wantAbsent: []string{"+200"},
 		},
 	}
 
