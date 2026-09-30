@@ -40,11 +40,23 @@ A notification is a hint, not a record. Nothing is stored and nothing is replaye
 
 The panel and MCP see the same rows. One function joins an agent to its mail, pull requests and review. The panel runs it on its streamed copy. `ListAgents` runs it on the fly.
 
-## The loops
+## Sync loops
 
 The outside world does not send notifications. tmux does not say when an agent goes idle. GitHub does not say when a pull request merges. So the service runs loops that go and look on a timer and write what they find onto a row. From there, the trigger and the stream do the rest.
 
 For instance, the reconcile loop reads the bottom of each agent's pane and decides whether the agent is working, waiting, or idle. It reads the screen instead of trusting hooks, because a hook can be missed and a screen cannot lie. Other loops deliver mail, sync pull requests, and measure worktrees.
+
+### Waking a loop
+
+Sometimes it's better for komrad to notice changes more quickly than background loops allow. For instance, when you merge a pull request, you should see that change right away.
+
+Komrad doesn't handle this by patching state. State only flows into komrad's database from an external system via the loop cycle.
+
+In these cases, the service can "wake" a loop, which asks it to run now instead of at its next tick.
+
+The wake only says "look again". It never carries what changed, so all writes still flow through the same loop path.
+
+Example of this: a rebase wakes the loop that reads each checkout's branch and head, a merge wakes the pull request sync, and an agent ending its turn wakes both the checkout loop and the transcript sync.
 
 ## River
 
