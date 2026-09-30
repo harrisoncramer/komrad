@@ -46,7 +46,7 @@ func actionsOf(s screen) []dispatching {
 	case screenArchive:
 		return []dispatching{(&archiveScreen{}).actions()}
 	case screenReview:
-		return []dispatching{(&reviewScreen{}).actions()}
+		return []dispatching{(&reviewScreen{}).diffActions(), (&reviewScreen{}).filesActions()}
 	case screenWorktrees:
 		return []dispatching{(&worktreesScreen{}).actions()}
 	case screenDocuments:
@@ -58,7 +58,7 @@ func actionsOf(s screen) []dispatching {
 
 		return []dispatching{types.listActions(), types.diffActions(), docActions(), types.docKeys()}
 	case screenSearch:
-		return []dispatching{(&searchScreen{}).actions()}
+		return []dispatching{(&searchScreen{}).listActions(), (&searchScreen{}).previewActions()}
 	}
 
 	return nil

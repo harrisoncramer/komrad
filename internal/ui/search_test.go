@@ -849,6 +849,22 @@ func TestSearchPreview(t *testing.T) {
 		assert.Equal(t, readStage(before)[0], readStage(frame)[0])
 	})
 
+	t.Run("the leader twice hands the keys to the transcript and esc hands them back to the hits", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openPreview(t, panelHarnessParams{})
+		harness.press("enter")
+		hovered := readHoveredSearchRow(harness.readFrame())
+
+		harness.press("ctrl+space", "ctrl+space", "g")
+		frame := harness.readFrame()
+		assert.Contains(t, readStageText(frame), "line 0 of the conversation before")
+		assert.Equal(t, hovered, readHoveredSearchRow(frame))
+
+		harness.press("esc", "j")
+		assert.NotEqual(t, hovered, readHoveredSearchRow(harness.readFrame()))
+	})
+
 	t.Run("a height change keeps the reader's place", func(t *testing.T) {
 		t.Parallel()
 

@@ -42,6 +42,8 @@ type searchScreen struct {
 	problem searchProblem
 	// preview is the transcript of the agent the cursor is standing on, drawn beside the list.
 	preview searchPreview
+
+	previewFocused bool
 }
 
 func (w *searchScreen) list() screenList[searchRow] {
@@ -74,8 +76,17 @@ func (w *searchScreen) landOnRow(_ host, s panelShared) tea.Cmd {
 	return tea.Batch(cmds...)
 }
 
-// actions is the search screen as one table once the query line has given the keys up.
-func (w *searchScreen) actions() screenActionSpec {
+// actions is the keys of whichever of the list and the transcript holds them.
+func (w *searchScreen) actions(s panelShared) screenActionSpec {
+	if w.isBlockFocused(s) {
+		return w.previewActions()
+	}
+
+	return w.listActions()
+}
+
+// listActions is the search screen as one table once the query line has given the keys up.
+func (w *searchScreen) listActions() screenActionSpec {
 	list := w.list()
 	shared := slices.DeleteFunc(list.actions(), func(a screenAction) bool { return a.id == actionColumnScroll })
 
@@ -515,7 +526,11 @@ func (w *searchScreen) update(h host, s panelShared, msg tea.Msg) tea.Cmd {
 			return w.updateInput(h, s, msg)
 		}
 
-		return w.list().update(h, s, msg, w.actions())
+		if w.isBlockFocused(s) {
+			return w.previewActions().dispatch(h, s, msg.String())
+		}
+
+		return w.list().update(h, s, msg, w.listActions())
 	}
 
 	return nil
@@ -524,7 +539,7 @@ func (w *searchScreen) update(h host, s panelShared, msg tea.Msg) tea.Cmd {
 func (w *searchScreen) updateInput(h host, s panelShared, key tea.KeyPressMsg) tea.Cmd {
 	passes := slices.Concat(s.keys.Nav.PageUp, s.keys.Nav.PageDown, s.keys.Column.ScrollDown, s.keys.Column.ScrollUp)
 	if typedText(key) == "" && isBound(key.String(), passes) {
-		return w.actions().dispatch(h, s, key.String())
+		return w.listActions().dispatch(h, s, key.String())
 	}
 
 	switch k := key.String(); {
@@ -799,7 +814,7 @@ func (w *searchScreen) help(s panelShared) keyMap {
 		return keyMap{short: []key.Binding{done, leave}, full: []key.Binding{done, leave}}
 	}
 
-	own := w.actions().help(s)
+	own := w.actions(s).help(s)
 
 	return keyMap{
 		short: slices.Concat(own.short, s.draw.globalHelp()),
@@ -807,7 +822,10 @@ func (w *searchScreen) help(s panelShared) keyMap {
 	}
 }
 
-var _ columned = (*searchScreen)(nil)
+var (
+	_ columned = (*searchScreen)(nil)
+	_ blocked  = (*searchScreen)(nil)
+)
 
 func (w *searchScreen) doesDrawFromListing() bool {
 	return false
