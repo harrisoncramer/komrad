@@ -217,6 +217,16 @@ func TestRenderRowShapes(t *testing.T) {
 			row:    Row{Kind: KindAgent, Name: "eng-6994-unable-to-create-a-grant"},
 		},
 		{
+			name:   "a name being typed carries the text cursor after it",
+			golden: "row-editing",
+			row:    Row{Kind: KindAgent, Name: "pr-metadata-fixes-v2", Editing: true},
+		},
+		{
+			name:   "a name being typed past the column is cut from its start",
+			golden: "row-editing-clipped",
+			row:    Row{Kind: KindAgent, Name: "eng-6994-unable-to-create-a-grant", Editing: true},
+		},
+		{
 			name:   "a selected row is painted under a bar",
 			golden: "row-selected",
 			row: Row{

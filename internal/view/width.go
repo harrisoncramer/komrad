@@ -30,6 +30,9 @@ func nameColumns(pane int, columns Columns) int {
 	return max(pane-gutterColumns(columns), 0)
 }
 
+// textCursorColumns is the text cursor drawn after a name being typed.
+const textCursorColumns = 1
+
 // ruleColumns is the corner a child hangs off its parent by, and the space after it.
 const ruleColumns = 2
 
@@ -40,6 +43,10 @@ const indentColumns = 2
 // precedes it.
 func trailingColumns(line Line) int {
 	columns := 0
+	if line.Editing {
+		columns += textCursorColumns
+	}
+
 	for _, cell := range []Cell{line.Held, line.Hidden, line.Document, line.Mail, line.Alert, line.Schedule} {
 		if !cell.IsBlank() {
 			columns += plainColumns + spaceColumns

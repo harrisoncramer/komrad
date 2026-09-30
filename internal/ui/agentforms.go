@@ -113,18 +113,6 @@ func (m model) submitRetry(agent panel.Agent, values retryFormValues) (tea.Model
 	return m, tea.Batch(cmd, m.holdForm())
 }
 
-func openRename(h host, agent panel.Agent) tea.Cmd {
-	return openRenameForm(h, agent, new(string))
-}
-
-func openRenameForm(h host, agent panel.Agent, name *string) tea.Cmd {
-	return h.openForm(redrawnForm(redrawnFormParams{
-		Kind:   formRename,
-		Build:  func(m model) (*huh.Form, []string) { return renameForm(agent.Name, name, formKeys()) },
-		Submit: func(m model) (tea.Model, tea.Cmd) { return m.submitRename(agent, *name) },
-	}))
-}
-
 func openAdopt(h host, workflow *panel.Workflow) tea.Cmd {
 	if workflow == nil {
 		h.report("Could not adopt", errNoWorkflow)
@@ -160,16 +148,6 @@ func (m model) submitAdopt(workflow panel.Workflow, values adoptFormValues) (tea
 		Flags:      values.Flags,
 		WorkflowID: workflow.ID,
 	})
-
-	return m, tea.Batch(cmd, m.holdForm())
-}
-
-func (m model) submitRename(agent panel.Agent, typed string) (tea.Model, tea.Cmd) {
-	name := strings.TrimSpace(typed)
-	cmd := m.writeCmd(
-		fmt.Sprintf("Could not rename agent %q", agent.Name),
-		func(a api) error { return a.renameAgent(agent, name) },
-	)
 
 	return m, tea.Batch(cmd, m.holdForm())
 }
@@ -309,10 +287,6 @@ func retryAgentForm(keys config.FormKeys, values *retryFormValues) (*huh.Form, [
 		huh.NewInput().Key("harness").Title("Agent").Placeholder("claude").Value(&values.Harness),
 		huh.NewInput().Key("flags").Title("Flags").Placeholder("--model opus").Value(&values.Flags),
 	)
-}
-
-func renameForm(current string, name *string, keys config.FormKeys) (*huh.Form, []string) {
-	return formOf(keys, huh.NewInput().Key("name").Title(fmt.Sprintf("Rename %q to", current)).Value(name))
 }
 
 func releaseInSilenceForm(name string, keys config.FormKeys) (*huh.Form, *bool) {

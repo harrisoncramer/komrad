@@ -435,6 +435,13 @@
               "default": "[\"c\"]"
             },
             {
+              "key": "rename",
+              "path": "keybindings.documents.rename",
+              "type": "array",
+              "description": "Rename the document under the cursor, typing over its name in the list.",
+              "default": "[\"r\"]"
+            },
+            {
               "key": "quit",
               "path": "keybindings.documents.quit",
               "type": "array",
@@ -508,7 +515,7 @@
               "key": "rename",
               "path": "keybindings.document_types.rename",
               "type": "array",
-              "description": "Rename the type under the cursor, which renames it on every document written as it.",
+              "description": "Rename the type under the cursor, typing over its name in the list. Every document written\nas it is renamed with it.",
               "default": "[\"r\"]"
             },
             {

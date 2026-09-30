@@ -80,7 +80,7 @@ func (a *agentsScreen) rowActions() []screenAction {
 			id:   actionWorkflowRename,
 			keys: func(k config.Keybindings) []string { return k.Workflows.Rename },
 			when: a.isHoveringWorkflow,
-			run:  a.onHoveredWorkflow(renameWorkflowForm),
+			run:  func(_ host, s panelShared, _ string) tea.Cmd { return a.openRename(s) },
 		},
 		{
 			id:   actionWorkflowEdit,
@@ -134,7 +134,7 @@ func (a *agentsScreen) rowActions() []screenAction {
 			id:   actionAgentRename,
 			keys: func(k config.Keybindings) []string { return k.Agents.Rename },
 			when: a.isHoveringAgent,
-			run:  a.onHoveredAgent(func(h host, item panel.AgentRow) tea.Cmd { return openRename(h, item.Agent) }),
+			run:  func(_ host, s panelShared, _ string) tea.Cmd { return a.openRename(s) },
 		},
 		{
 			id:   actionAgentRetry,

@@ -33,12 +33,14 @@ type snapshotParams struct {
 	flat bool
 	// pane is how many columns the list is drawn in.
 	pane int
+	// renaming is the name being typed over one row, nil when none is.
+	renaming *nameEdit
 }
 
 // agentsSnapshot reads the listing into the plain data the agents list draws itself from.
 func agentsSnapshot(params snapshotParams) view.Snapshot {
 	rows := xslice.Map(params.rows, func(r agentRow) view.Row {
-		return snapshotRow(r, params)
+		return params.renaming.drawnOver(snapshotRow(r, params))
 	})
 
 	return view.Snapshot{

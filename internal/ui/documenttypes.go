@@ -29,11 +29,6 @@ func (d *documentsScreen) shelfActions() []screenAction {
 
 	return []screenAction{
 		{
-			id:   actionDocumentTypesRename,
-			keys: func(k config.Keybindings) []string { return k.DocumentTypes.Rename },
-			run:  func(h host, s panelShared, _ string) tea.Cmd { return d.renameTypeForm(h, s) },
-		},
-		{
 			id:   actionDocumentTypesDelete,
 			keys: func(k config.Keybindings) []string { return k.DocumentTypes.Delete },
 			run:  func(h host, s panelShared, _ string) tea.Cmd { return d.confirmDeleteType(h, s) },
@@ -47,10 +42,6 @@ func (d *documentsScreen) shelfLegend() []screenLegendRow {
 	}
 
 	return []screenLegendRow{
-		{
-			of:   []actionID{actionDocumentTypesRename},
-			desc: func(panelShared) string { return "rename" },
-		},
 		{
 			of:   []actionID{actionDocumentTypesDelete},
 			desc: func(panelShared) string { return "delete" },
@@ -123,39 +114,6 @@ func documentTypeForm(values *documentTypeFormValues, keys config.FormKeys) (*hu
 			Description(fmt.Sprintf("what an agent reads before writing one; %s opens $EDITOR", keyLabel(keys.Editor))).
 			Lines(6).Value(&values.Context).Validate(checkDocumentTypeContext),
 	)
-}
-
-// renameTypeForm puts up the form renaming the type under the cursor.
-func (d *documentsScreen) renameTypeForm(h host, s panelShared) tea.Cmd {
-	item, ok := d.hovered(s)
-	if !ok || d.editing != nil {
-		return nil
-	}
-
-	read, _ := d.bodyOf(s, item.id)
-	name := item.name
-
-	return h.openForm(redrawnForm(redrawnFormParams{
-		Kind: formDocumentType,
-		Build: func(model) (*huh.Form, []string) {
-			return formOf(formKeys(),
-				huh.NewInput().Key("name").Title(fmt.Sprintf("Rename %q", item.name)).Value(&name).Validate(checkDocumentTypeName),
-			)
-		},
-		Submit: func(m model) (tea.Model, tea.Cmd) {
-			renamed := strings.TrimSpace(name)
-			if checkDocumentTypeName(renamed) != nil || renamed == item.name {
-				return m.closeForm()
-			}
-
-			cmd := m.writeCmd(
-				fmt.Sprintf("Could not rename document type %q", item.name),
-				func(a api) error { return a.writeDocumentType(item, read.version, renamed, read.body) },
-			)
-
-			return m, tea.Batch(cmd, m.holdForm())
-		},
-	}))
 }
 
 // confirmDeleteType asks before the type under the cursor is deleted.

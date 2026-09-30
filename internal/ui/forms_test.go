@@ -74,12 +74,6 @@ func TestFormsSubmit(t *testing.T) {
 			},
 		},
 		{
-			name:      "the rename form sends the new name",
-			press:     slices.Concat([]string{"j", "r"}, spellKeys("api-v2"), []string{"ctrl+s"}),
-			procedure: agentv1connect.AgentServiceUpdateAgentProcedure,
-			want:      &agentv1.UpdateAgentRequest{Id: "a1", Name: "api-v2"},
-		},
-		{
 			name: "the adopt form sends the ref and prompt into the workflow",
 			press: slices.Concat([]string{"a"}, spellKeys("https://github.com/acmecorp/admin/pull/1069"), []string{"tab"},
 				spellKeys("pick it up"), []string{"ctrl+s"}),
@@ -148,19 +142,6 @@ func TestFormsSubmit(t *testing.T) {
 				Flags:    "--model opus",
 				Harness:  "claude",
 				Worktree: &workflowv1.WorktreeConfig{Enabled: true},
-			},
-		},
-		{
-			name:      "the workflow rename form carries the config it is not changing",
-			press:     slices.Concat([]string{"r"}, spellKeys("backend"), []string{"ctrl+s"}),
-			procedure: workflowv1connect.WorkflowServiceUpdateWorkflowProcedure,
-			want: &workflowv1.UpdateWorkflowRequest{
-				Id:       "w1",
-				Name:     "backend",
-				Cwd:      "/work/api",
-				Flags:    "--model opus",
-				Harness:  "claude",
-				Worktree: &workflowv1.WorktreeConfig{},
 			},
 		},
 		{
@@ -252,22 +233,10 @@ func TestFormsRefused(t *testing.T) {
 			typed:     "check CI",
 		},
 		{
-			name:      "the rename form",
-			procedure: agentv1connect.AgentServiceUpdateAgentProcedure,
-			press:     slices.Concat([]string{"j", "r"}, spellKeys("api-v2"), []string{"ctrl+s"}),
-			typed:     "api-v2",
-		},
-		{
 			name:      "the new-workflow form",
 			procedure: workflowv1connect.WorkflowServiceCreateWorkflowProcedure,
 			press:     slices.Concat([]string{"w"}, spellKeys("web"), []string{"ctrl+s"}),
 			typed:     "web",
-		},
-		{
-			name:      "the workflow rename form",
-			procedure: workflowv1connect.WorkflowServiceUpdateWorkflowProcedure,
-			press:     slices.Concat([]string{"r"}, spellKeys("backend"), []string{"ctrl+s"}),
-			typed:     "backend",
 		},
 	}
 
@@ -534,14 +503,6 @@ func TestFormsKeys(t *testing.T) {
 		assert.Equal(t, "ci-v2", create.GetTitle())
 	})
 
-	t.Run("enter leaves a one-field form up too", func(t *testing.T) {
-		harness := openForms(t, newFormWorkflow(), newFormAuthor())
-
-		harness.press(slices.Concat([]string{"j", "r"}, spellKeys("api-v2"), []string{"enter"})...)
-
-		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceUpdateAgentProcedure))
-	})
-
 	t.Run("a workflow edited to a blank name sends nothing", func(t *testing.T) {
 		harness := openForms(t, newFormWorkflow(), newFormAuthor())
 
@@ -739,11 +700,6 @@ func TestFormsLayout(t *testing.T) {
 			name:  "a confirmation takes the window beside the list",
 			press: []string{"z"},
 			want:  `Archive agent "author"?`,
-		},
-		{
-			name:  "the rename form takes the window beside the list",
-			press: []string{"r"},
-			want:  `Rename "author" to`,
 		},
 	}
 

@@ -144,10 +144,6 @@ func splitLines(text string) []string {
 	return lines
 }
 
-func workflowForm(title string, values *workflowFormValues, keys config.FormKeys) (*huh.Form, []string) {
-	return formOf(keys, huh.NewInput().Key("name").Title(title).Value(&values.Name))
-}
-
 const provisionerKey = "provisioner"
 
 func provisionerOptions() []huh.Option[string] {

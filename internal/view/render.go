@@ -56,7 +56,12 @@ func renderLine(line Line, list List, palette paint.Palette, width int) string {
 // drawName is a name in its own lettering, with whatever a search picked out of it drawn in the
 // match colour instead.
 func drawName(palette paint.Palette, line Line) string {
-	return palette.Highlight(line.Name, line.Matches, nameStyle(palette, line.Weight, line.Emphasis))
+	name := palette.Highlight(line.Name, line.Matches, nameStyle(palette, line.Weight, line.Emphasis))
+	if line.Editing {
+		name += palette.Cursor().Render(glyph.TextCursor)
+	}
+
+	return name
 }
 
 // drawer spells cells out in a palette and a set of glyphs.
