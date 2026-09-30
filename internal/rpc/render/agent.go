@@ -90,7 +90,6 @@ func ReviewVerdictOf(verdict reviewstore.Verdict) agentv1.ReviewVerdict {
 	}
 }
 
-// heldStamp is when a person took the agent's worktree, empty while nobody has.
 func diffStatOf(stat *agentstore.DiffStat) *agentv1.DiffStat {
 	if stat == nil {
 		return nil
@@ -99,6 +98,7 @@ func diffStatOf(stat *agentstore.DiffStat) *agentv1.DiffStat {
 	return &agentv1.DiffStat{Added: int32(stat.Added), Removed: int32(stat.Removed)}
 }
 
+// heldStamp is when a person took the agent's worktree, empty while nobody has.
 func heldStamp(at *time.Time) string {
 	if at == nil {
 		return ""
