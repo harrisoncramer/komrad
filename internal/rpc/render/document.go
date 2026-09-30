@@ -42,3 +42,12 @@ func DocumentType(stored documenttypestore.Type) *agentv1.DocumentType {
 		UpdatedAt: dates.PreciseStamp(stored.UpdatedAt),
 	}
 }
+
+// DocumentTypeVersion draws one write of a document type, without its context.
+func DocumentTypeVersion(stored documenttypestore.Version) *agentv1.DocumentTypeVersion {
+	return &agentv1.DocumentTypeVersion{
+		Version:   stored.Version,
+		Name:      stored.Name,
+		CreatedAt: dates.PreciseStamp(stored.CreatedAt),
+	}
+}

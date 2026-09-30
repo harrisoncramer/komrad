@@ -959,7 +959,21 @@ service AgentService {
       cli: true
       mcp: true
       name: "get_document_type"
-      description: "Read one document type and its context by name."
+      description: "Read one document type and its context by name, or as an earlier write left it when version names one."
+      roles: [
+        ROLE_IMPLEMENTER,
+        ROLE_REVIEWER,
+        ROLE_ORCHESTRATOR
+      ]
+    };
+  }
+  rpc ListDocumentTypeVersions(ListDocumentTypeVersionsRequest) returns (ListDocumentTypeVersionsResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (annotation.v1.surfaces) = {
+      cli: true
+      mcp: true
+      name: "list_document_type_versions"
+      description: "List every write of a document type, newest first. Read any one with get_document_type and its version, which is how you see how a person changed a type's context."
       roles: [
         ROLE_IMPLEMENTER,
         ROLE_REVIEWER,

@@ -25,7 +25,8 @@ type documentReadWriter interface {
 
 type documentTypeKeeper interface {
 	ListDocumentTypes(ctx context.Context) ([]documenttypestore.Type, error)
-	GetDocumentType(ctx context.Context, name string) (*documenttypestore.Type, error)
+	GetDocumentType(ctx context.Context, name string, version *int32) (*documenttypestore.Type, error)
+	ListDocumentTypeVersions(ctx context.Context, id string) ([]documenttypestore.Version, error)
 	WriteDocumentType(ctx context.Context, params documents.WriteDocumentTypeParams) (*documenttypestore.Type, error)
 	DeleteDocumentType(ctx context.Context, id string) error
 }
@@ -112,14 +113,24 @@ func (s *Handler) ListDocumentTypes(ctx context.Context, _ *emptypb.Empty) (*age
 	return &agentv1.ListDocumentTypesResponse{DocumentTypes: xslice.Map(types, render.DocumentType)}, nil
 }
 
-// GetDocumentType returns one document type by name.
+// GetDocumentType returns one document type by name, or as an earlier write left it.
 func (s *Handler) GetDocumentType(ctx context.Context, req *agentv1.GetDocumentTypeRequest) (*agentv1.GetDocumentTypeResponse, *fail.Error) {
-	got, err := s.documentTypes.GetDocumentType(ctx, req.GetName())
+	got, err := s.documentTypes.GetDocumentType(ctx, req.GetName(), req.Version)
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to get the document type")
 	}
 
 	return &agentv1.GetDocumentTypeResponse{DocumentType: render.DocumentType(*got)}, nil
+}
+
+// ListDocumentTypeVersions returns every write of a document type, the newest first.
+func (s *Handler) ListDocumentTypeVersions(ctx context.Context, req *agentv1.ListDocumentTypeVersionsRequest) (*agentv1.ListDocumentTypeVersionsResponse, *fail.Error) {
+	versions, err := s.documentTypes.ListDocumentTypeVersions(ctx, req.GetId())
+	if err != nil {
+		return nil, rpcerr.From(err, "failed to list the document type's versions")
+	}
+
+	return &agentv1.ListDocumentTypeVersionsResponse{Versions: xslice.Map(versions, render.DocumentTypeVersion)}, nil
 }
 
 // WriteDocumentType creates a document type, or renames or rewrites one.

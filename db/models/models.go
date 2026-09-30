@@ -437,6 +437,17 @@ type DocumentType struct {
 	EngineID string
 }
 
+// Every write of a document type as it was written, so a person can step back through its context.
+type DocumentTypeVersion struct {
+	DocumentTypeID string
+	Version        int32
+	Name           string
+	Context        string
+	CreatedAt      time.Time
+	// The engine that owns this row, stamped from the login that wrote it.
+	EngineID string
+}
+
 // Every write of a document as it was written, so a person can step back through it.
 type DocumentVersion struct {
 	DocumentID string

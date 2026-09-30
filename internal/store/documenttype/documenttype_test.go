@@ -3,6 +3,7 @@ package documenttype_test
 import (
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -24,6 +25,11 @@ func TestAnEngineStartsWithTheRFCType(t *testing.T) {
 	require.Len(t, types, 1)
 	assert.Equal(t, "RFC", types[0].Name)
 	assert.NotEmpty(t, types[0].Context)
+
+	versions, err := stores.DocumentTypes.ListVersions(t.Context(), types[0].ID)
+	require.NoError(t, err)
+	require.Len(t, versions, 1, "the seeded type keeps its first write")
+	assert.Equal(t, int32(1), versions[0].Version)
 }
 
 // TestCreate pins that types list by name and a name is taken once.
@@ -146,5 +152,68 @@ func TestDelete(t *testing.T) {
 			_, err = stores.DocumentTypes.Get(ctx, tt.id)
 			require.ErrorIs(t, err, store.ErrNotFound)
 		})
+	}
+}
+
+// TestListVersions pins that every write of a type is kept as it was written, the newest first,
+// and that a refused rewrite keeps nothing.
+func TestListVersions(t *testing.T) {
+	stores := storetest.Open(t)
+	ctx := t.Context()
+
+	draft, err := stores.DocumentTypes.Create(ctx, "postmortem", "draft")
+	require.NoError(t, err)
+	revised, err := stores.DocumentTypes.Update(ctx, documenttypestore.UpdateParams{
+		ID:      draft.ID,
+		Name:    "postmortem",
+		Context: "revised",
+		Version: draft.Version,
+	})
+	require.NoError(t, err)
+	_, err = stores.DocumentTypes.Update(ctx, documenttypestore.UpdateParams{
+		ID:      draft.ID,
+		Name:    "postmortem",
+		Context: "stale",
+		Version: draft.Version,
+	})
+	require.ErrorIs(t, err, documenttypestore.ErrChanged)
+	_, err = stores.DocumentTypes.Update(ctx, documenttypestore.UpdateParams{
+		ID:      draft.ID,
+		Name:    "incident",
+		Context: "renamed",
+		Version: revised.Version,
+	})
+	require.NoError(t, err)
+
+	versions, err := stores.DocumentTypes.ListVersions(ctx, draft.ID)
+	require.NoError(t, err)
+	require.Len(t, versions, 3)
+	for i, want := range []struct {
+		version int32
+		name    string
+	}{
+		{version: 3, name: "incident"},
+		{version: 2, name: "postmortem"},
+		{version: 1, name: "postmortem"},
+	} {
+		assert.Equal(t, want.version, versions[i].Version)
+		assert.Equal(t, want.name, versions[i].Name)
+		assert.Empty(t, versions[i].Context, "a listing carries no contexts")
+	}
+
+	first, err := stores.DocumentTypes.GetVersion(ctx, draft.ID, 1)
+	require.NoError(t, err)
+	assert.Equal(t, "draft", first.Context)
+
+	for _, missing := range []struct {
+		id      string
+		version int32
+	}{
+		{id: draft.ID, version: 4},
+		{id: uuid.NewString(), version: 1},
+		{id: "not-an-id", version: 1},
+	} {
+		_, err := stores.DocumentTypes.GetVersion(ctx, missing.id, missing.version)
+		assert.ErrorIs(t, err, store.ErrNotFound, "%s at %d", missing.id, missing.version)
 	}
 }

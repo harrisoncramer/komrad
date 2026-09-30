@@ -111,7 +111,7 @@ func (s *DocumentService) WriteDocument(ctx context.Context, params WriteDocumen
 		return nil, fmt.Errorf("failed to find the agent writing the document: %w", err)
 	}
 
-	if _, err := s.GetDocumentType(ctx, params.Type); err != nil {
+	if _, err := s.GetDocumentType(ctx, params.Type, nil); err != nil {
 		return nil, err
 	}
 

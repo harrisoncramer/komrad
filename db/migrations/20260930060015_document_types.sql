@@ -27,6 +27,23 @@ COMMENT ON COLUMN "document_types"."context" IS 'The markdown an agent reads bef
 COMMENT ON COLUMN "document_types"."version" IS 'How many times the type has been written, which a rewrite names to say what it replaces.';
 -- Set comment to column: "engine_id" on table: "document_types"
 COMMENT ON COLUMN "document_types"."engine_id" IS 'The engine that owns this row, stamped from the login that wrote it.';
+-- Create "document_type_versions" table
+CREATE TABLE "document_type_versions" (
+  "document_type_id" uuid NOT NULL,
+  "version" integer NOT NULL,
+  "name" text NOT NULL,
+  "context" text NOT NULL,
+  "created_at" timestamptz NOT NULL DEFAULT now(),
+  "engine_id" uuid NOT NULL,
+  PRIMARY KEY ("document_type_id", "version"),
+  CONSTRAINT "document_type_versions_document_type_id_fkey" FOREIGN KEY ("engine_id", "document_type_id") REFERENCES "document_types" ("engine_id", "id") ON UPDATE NO ACTION ON DELETE CASCADE,
+  CONSTRAINT "document_type_versions_engine_id_fkey" FOREIGN KEY ("engine_id") REFERENCES "engines" ("id") ON UPDATE NO ACTION ON DELETE RESTRICT,
+  CONSTRAINT "document_type_versions_context_written" CHECK (context <> ''::text)
+);
+-- Set comment to table: "document_type_versions"
+COMMENT ON TABLE "document_type_versions" IS 'Every write of a document type as it was written, so a person can step back through its context.';
+-- Set comment to column: "engine_id" on table: "document_type_versions"
+COMMENT ON COLUMN "document_type_versions"."engine_id" IS 'The engine that owns this row, stamped from the login that wrote it.';
 -- Modify "documents" table
 ALTER TABLE "documents" DROP COLUMN "kind", ADD COLUMN "type" text NOT NULL, ADD CONSTRAINT "documents_type_fkey" FOREIGN KEY ("engine_id", "type") REFERENCES "document_types" ("engine_id", "name") ON UPDATE CASCADE ON DELETE RESTRICT;
 -- Set comment to column: "type" on table: "documents"
@@ -36,9 +53,15 @@ DROP TYPE "document_kind";
 
 CREATE TRIGGER stamp_engine BEFORE INSERT ON document_types FOR EACH ROW EXECUTE FUNCTION stamp_engine();
 
+CREATE TRIGGER stamp_engine BEFORE INSERT ON document_type_versions FOR EACH ROW EXECUTE FUNCTION stamp_engine();
+
 ALTER TABLE document_types ENABLE ROW LEVEL SECURITY;
 
+ALTER TABLE document_type_versions ENABLE ROW LEVEL SECURITY;
+
 CREATE POLICY engine_isolation ON document_types USING (engine_id = (SELECT current_engine())) WITH CHECK (engine_id = (SELECT current_engine()));
+
+CREATE POLICY engine_isolation ON document_type_versions USING (engine_id = (SELECT current_engine())) WITH CHECK (engine_id = (SELECT current_engine()));
 
 SELECT attach_updated_at_triggers();
 
@@ -46,15 +69,29 @@ CREATE OR REPLACE FUNCTION seed_document_types()
     RETURNS TRIGGER
     AS $$
 BEGIN
-    INSERT INTO document_types (engine_id, name, context)
-        VALUES (NEW.id, 'RFC', $context$A proposal for a change, written before building it.
+    WITH seeded AS (
+        INSERT INTO document_types (engine_id, name, context)
+            VALUES (NEW.id, 'RFC', $context$A proposal for a change, written before building it.
 
 Number it after the highest-numbered RFC already written, and title it the way the others are, such as "RFC 0012: A short title".
 
 Say why the change is needed and what is wrong today, then how the change works. Include a mockup of any screen it changes.
 
 An RFC lives in the panel as a document. Never write one as a file in the repository.
-$context$);
+$context$)
+        RETURNING
+            *
+    )
+    INSERT INTO document_type_versions (document_type_id, version, name, context, created_at, engine_id)
+    SELECT
+        id,
+        version,
+        name,
+        context,
+        updated_at,
+        engine_id
+    FROM
+        seeded;
     RETURN NULL;
 END;
 $$

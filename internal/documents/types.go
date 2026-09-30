@@ -17,21 +17,37 @@ func (s *DocumentService) ListDocumentTypes(ctx context.Context) ([]documenttype
 	return s.types.List(ctx)
 }
 
-// GetDocumentType returns the type a name names, refusing an unknown one with the names that exist.
-func (s *DocumentService) GetDocumentType(ctx context.Context, name string) (*documenttypestore.Type, error) {
+// GetDocumentType returns the type a name names, or as an earlier write left it when version names
+// one, refusing an unknown name with the names that exist.
+func (s *DocumentService) GetDocumentType(ctx context.Context, name string, version *int32) (*documenttypestore.Type, error) {
 	got, err := s.types.GetByName(ctx, name)
-	if !errors.Is(err, store.ErrNotFound) {
+	if errors.Is(err, store.ErrNotFound) {
+		return nil, s.unknownType(ctx, name)
+	}
+	if err != nil || version == nil {
 		return got, err
 	}
 
+	written, err := s.types.GetVersion(ctx, got.ID, *version)
+	if err != nil {
+		return nil, err
+	}
+
+	got.Name, got.Context = written.Name, written.Context
+	got.Version, got.UpdatedAt = written.Version, written.CreatedAt
+
+	return got, nil
+}
+
+func (s *DocumentService) unknownType(ctx context.Context, name string) error {
 	types, err := s.types.List(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %q", documentstore.ErrUnknownType, name)
+		return fmt.Errorf("%w: %q", documentstore.ErrUnknownType, name)
 	}
 
 	names := xslice.Map(types, func(t documenttypestore.Type) string { return t.Name })
 
-	return nil, fmt.Errorf("%w: %q, and the types are %s", documentstore.ErrUnknownType, name, strings.Join(names, ", "))
+	return fmt.Errorf("%w: %q, and the types are %s", documentstore.ErrUnknownType, name, strings.Join(names, ", "))
 }
 
 type WriteDocumentTypeParams struct {
@@ -63,4 +79,13 @@ func (s *DocumentService) WriteDocumentType(ctx context.Context, params WriteDoc
 // DeleteDocumentType removes a document type no document is written as.
 func (s *DocumentService) DeleteDocumentType(ctx context.Context, id string) error {
 	return s.types.Delete(ctx, id)
+}
+
+// ListDocumentTypeVersions returns every write of a document type, the newest first.
+func (s *DocumentService) ListDocumentTypeVersions(ctx context.Context, id string) ([]documenttypestore.Version, error) {
+	if _, err := s.types.Get(ctx, id); err != nil {
+		return nil, err
+	}
+
+	return s.types.ListVersions(ctx, id)
 }

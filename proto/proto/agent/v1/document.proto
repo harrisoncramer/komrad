@@ -134,11 +134,33 @@ message ListDocumentTypesResponse {
 message GetDocumentTypeRequest {
   // The name of the type to read.
   string name = 1 [(buf.validate.field).string.min_len = 1];
+  // An earlier write to read as it was, or unset for the type as it stands.
+  optional int32 version = 2 [(buf.validate.field).int32.gt = 0];
 }
 
 message GetDocumentTypeResponse {
   // The type with its context.
   DocumentType document_type = 1;
+}
+
+// DocumentTypeVersion is one write of a document type, without its context.
+message DocumentTypeVersion {
+  // Pass this to get_document_type to read the type as this write left it.
+  int32 version = 1;
+  // The name it had.
+  string name = 2;
+  // When it was written, in RFC 3339.
+  string created_at = 3;
+}
+
+message ListDocumentTypeVersionsRequest {
+  // The type whose writes to list.
+  string id = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+message ListDocumentTypeVersionsResponse {
+  // Every write of the type, the newest first.
+  repeated DocumentTypeVersion versions = 1;
 }
 
 message WriteDocumentTypeRequest {

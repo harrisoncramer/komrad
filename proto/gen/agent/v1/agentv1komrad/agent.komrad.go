@@ -45,6 +45,7 @@ type AgentServiceImpl interface {
 	ListDocumentVersions(context.Context, *v1.ListDocumentVersionsRequest) (*v1.ListDocumentVersionsResponse, *fail.Error)
 	ListDocumentTypes(context.Context, *emptypb.Empty) (*v1.ListDocumentTypesResponse, *fail.Error)
 	GetDocumentType(context.Context, *v1.GetDocumentTypeRequest) (*v1.GetDocumentTypeResponse, *fail.Error)
+	ListDocumentTypeVersions(context.Context, *v1.ListDocumentTypeVersionsRequest) (*v1.ListDocumentTypeVersionsResponse, *fail.Error)
 	WriteDocumentType(context.Context, *v1.WriteDocumentTypeRequest) (*v1.WriteDocumentTypeResponse, *fail.Error)
 	DeleteDocumentType(context.Context, *v1.DeleteDocumentTypeRequest) (*emptypb.Empty, *fail.Error)
 	RecordReport(context.Context, *v1.RecordReportRequest) (*emptypb.Empty, *fail.Error)
@@ -216,6 +217,11 @@ func (a AgentServiceAdapter) ListDocumentTypes(ctx context.Context, req *connect
 // GetDocumentType answers the request as connect serves it.
 func (a AgentServiceAdapter) GetDocumentType(ctx context.Context, req *connect.Request[v1.GetDocumentTypeRequest]) (*connect.Response[v1.GetDocumentTypeResponse], error) {
 	return rpcerr.Answer(a.Impl.GetDocumentType(ctx, req.Msg))
+}
+
+// ListDocumentTypeVersions answers the request as connect serves it.
+func (a AgentServiceAdapter) ListDocumentTypeVersions(ctx context.Context, req *connect.Request[v1.ListDocumentTypeVersionsRequest]) (*connect.Response[v1.ListDocumentTypeVersionsResponse], error) {
+	return rpcerr.Answer(a.Impl.ListDocumentTypeVersions(ctx, req.Msg))
 }
 
 // WriteDocumentType answers the request as connect serves it.

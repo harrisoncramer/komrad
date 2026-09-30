@@ -104,7 +104,7 @@ func (s *DocumentTypeStore) Create(ctx context.Context, name, typeContext string
 		return nil, fmt.Errorf("failed to create document type %q: %w", name, err)
 	}
 
-	created := fromTypeRow(row)
+	created := fromTypeRow((*models.DocumentType)(row))
 
 	return &created, nil
 }
@@ -135,7 +135,8 @@ func (s *DocumentTypeStore) Update(ctx context.Context, params UpdateParams) (*T
 			return nil, err
 		}
 
-		return nil, fmt.Errorf("%w: version %d was read, and it is at version %d", ErrChanged, params.Version, held.Version)
+		return nil, fmt.Errorf("%w: version %d was read, and it is at version %d, last written %s",
+			ErrChanged, params.Version, held.Version, held.UpdatedAt.Format(time.RFC3339))
 	}
 	if db.IsUniqueViolation(err) {
 		return nil, fmt.Errorf("%w: a document type is already named %q", store.ErrNameTaken, params.Name)
@@ -144,7 +145,7 @@ func (s *DocumentTypeStore) Update(ctx context.Context, params UpdateParams) (*T
 		return nil, fmt.Errorf("failed to update document type %q: %w", params.ID, err)
 	}
 
-	updated := fromTypeRow(row)
+	updated := fromTypeRow((*models.DocumentType)(row))
 
 	return &updated, nil
 }
@@ -173,4 +174,55 @@ func (s *DocumentTypeStore) Delete(ctx context.Context, id string) error {
 	}
 
 	return nil
+}
+
+// Version is one write of a document type as it was written, with an empty Context when it came
+// from a listing.
+type Version struct {
+	Version   int32
+	Name      string
+	Context   string
+	CreatedAt time.Time
+}
+
+// ListVersions returns every write of a document type, the newest first.
+func (s *DocumentTypeStore) ListVersions(ctx context.Context, documentTypeID string) ([]Version, error) {
+	if !store.IsID(documentTypeID) {
+		return nil, nil
+	}
+
+	rows, err := s.queries.ListDocumentTypeVersions(ctx, documentTypeID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list the versions of document type %q: %w", documentTypeID, err)
+	}
+
+	return xslice.Map(rows, func(row *models.ListDocumentTypeVersionsRow) Version {
+		return Version{
+			Version:   row.Version,
+			Name:      row.Name,
+			CreatedAt: row.CreatedAt,
+		}
+	}), nil
+}
+
+// GetVersion returns one write of a document type whole.
+func (s *DocumentTypeStore) GetVersion(ctx context.Context, documentTypeID string, version int32) (*Version, error) {
+	if !store.IsID(documentTypeID) {
+		return nil, fmt.Errorf("%w: document type %q", store.ErrNotFound, documentTypeID)
+	}
+
+	row, err := s.queries.GetDocumentTypeVersion(ctx, models.GetDocumentTypeVersionParams{DocumentTypeID: documentTypeID, Version: version})
+	if db.IsNoRows(err) {
+		return nil, fmt.Errorf("%w: version %d of document type %q", store.ErrNotFound, version, documentTypeID)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get version %d of document type %q: %w", version, documentTypeID, err)
+	}
+
+	return &Version{
+		Version:   row.Version,
+		Name:      row.Name,
+		Context:   row.Context,
+		CreatedAt: row.CreatedAt,
+	}, nil
 }

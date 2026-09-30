@@ -110,6 +110,9 @@ const (
 	// AgentServiceGetDocumentTypeProcedure is the fully-qualified name of the AgentService's
 	// GetDocumentType RPC.
 	AgentServiceGetDocumentTypeProcedure = "/agent.v1.AgentService/GetDocumentType"
+	// AgentServiceListDocumentTypeVersionsProcedure is the fully-qualified name of the AgentService's
+	// ListDocumentTypeVersions RPC.
+	AgentServiceListDocumentTypeVersionsProcedure = "/agent.v1.AgentService/ListDocumentTypeVersions"
 	// AgentServiceWriteDocumentTypeProcedure is the fully-qualified name of the AgentService's
 	// WriteDocumentType RPC.
 	AgentServiceWriteDocumentTypeProcedure = "/agent.v1.AgentService/WriteDocumentType"
@@ -201,6 +204,7 @@ type AgentServiceClient interface {
 	ListDocumentVersions(context.Context, *connect.Request[v1.ListDocumentVersionsRequest]) (*connect.Response[v1.ListDocumentVersionsResponse], error)
 	ListDocumentTypes(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[v1.ListDocumentTypesResponse], error)
 	GetDocumentType(context.Context, *connect.Request[v1.GetDocumentTypeRequest]) (*connect.Response[v1.GetDocumentTypeResponse], error)
+	ListDocumentTypeVersions(context.Context, *connect.Request[v1.ListDocumentTypeVersionsRequest]) (*connect.Response[v1.ListDocumentTypeVersionsResponse], error)
 	WriteDocumentType(context.Context, *connect.Request[v1.WriteDocumentTypeRequest]) (*connect.Response[v1.WriteDocumentTypeResponse], error)
 	DeleteDocumentType(context.Context, *connect.Request[v1.DeleteDocumentTypeRequest]) (*connect.Response[emptypb.Empty], error)
 	RecordReport(context.Context, *connect.Request[v1.RecordReportRequest]) (*connect.Response[emptypb.Empty], error)
@@ -426,6 +430,13 @@ func NewAgentServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
+		listDocumentTypeVersions: connect.NewClient[v1.ListDocumentTypeVersionsRequest, v1.ListDocumentTypeVersionsResponse](
+			httpClient,
+			baseURL+AgentServiceListDocumentTypeVersionsProcedure,
+			connect.WithSchema(agentServiceMethods.ByName("ListDocumentTypeVersions")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+			connect.WithClientOptions(opts...),
+		),
 		writeDocumentType: connect.NewClient[v1.WriteDocumentTypeRequest, v1.WriteDocumentTypeResponse](
 			httpClient,
 			baseURL+AgentServiceWriteDocumentTypeProcedure,
@@ -564,55 +575,56 @@ func NewAgentServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 
 // agentServiceClient implements AgentServiceClient.
 type agentServiceClient struct {
-	listAgents              *connect.Client[v1.ListAgentsRequest, v1.ListAgentsResponse]
-	getAgent                *connect.Client[v1.GetAgentRequest, v1.GetAgentResponse]
-	createAgent             *connect.Client[v1.CreateAgentRequest, v1.CreateAgentResponse]
-	requestReview           *connect.Client[v1.RequestReviewRequest, v1.RequestReviewResponse]
-	adopt                   *connect.Client[v1.AdoptRequest, v1.AdoptResponse]
-	setHidden               *connect.Client[v1.SetHiddenRequest, emptypb.Empty]
-	log                     *connect.Client[v1.LogRequest, emptypb.Empty]
-	sendMail                *connect.Client[v1.SendMailRequest, v1.SendMailResponse]
-	forwardLastTurns        *connect.Client[v1.ForwardLastTurnsRequest, v1.ForwardLastTurnsResponse]
-	readMail                *connect.Client[v1.ReadMailRequest, v1.ReadMailResponse]
-	listMail                *connect.Client[v1.ListMailRequest, v1.ListMailResponse]
-	deleteMail              *connect.Client[v1.DeleteMailRequest, emptypb.Empty]
-	archiveAgents           *connect.Client[v1.ArchiveAgentsRequest, emptypb.Empty]
-	restoreAgents           *connect.Client[v1.RestoreAgentsRequest, v1.RestoreAgentsResponse]
-	holdAgent               *connect.Client[v1.HoldAgentRequest, v1.HoldAgentResponse]
-	releaseAgent            *connect.Client[v1.ReleaseAgentRequest, v1.ReleaseAgentResponse]
-	resumeAgent             *connect.Client[v1.ResumeAgentRequest, v1.ResumeAgentResponse]
-	retryAgent              *connect.Client[v1.RetryAgentRequest, v1.RetryAgentResponse]
-	deleteAgents            *connect.Client[v1.DeleteAgentsRequest, emptypb.Empty]
-	updateAgent             *connect.Client[v1.UpdateAgentRequest, emptypb.Empty]
-	searchTranscripts       *connect.Client[v1.SearchTranscriptsRequest, v1.SearchTranscriptsResponse]
-	getTranscript           *connect.Client[v1.GetTranscriptRequest, v1.GetTranscriptResponse]
-	getLastTurns            *connect.Client[v1.GetLastTurnsRequest, v1.GetLastTurnsResponse]
-	writeDocument           *connect.Client[v1.WriteDocumentRequest, v1.WriteDocumentResponse]
-	listDocuments           *connect.Client[v1.ListDocumentsRequest, v1.ListDocumentsResponse]
-	getDocument             *connect.Client[v1.GetDocumentRequest, v1.GetDocumentResponse]
-	listDocumentVersions    *connect.Client[v1.ListDocumentVersionsRequest, v1.ListDocumentVersionsResponse]
-	listDocumentTypes       *connect.Client[emptypb.Empty, v1.ListDocumentTypesResponse]
-	getDocumentType         *connect.Client[v1.GetDocumentTypeRequest, v1.GetDocumentTypeResponse]
-	writeDocumentType       *connect.Client[v1.WriteDocumentTypeRequest, v1.WriteDocumentTypeResponse]
-	deleteDocumentType      *connect.Client[v1.DeleteDocumentTypeRequest, emptypb.Empty]
-	recordReport            *connect.Client[v1.RecordReportRequest, emptypb.Empty]
-	markRunsRead            *connect.Client[v1.MarkRunsReadRequest, emptypb.Empty]
-	listReviewThreads       *connect.Client[v1.ListReviewThreadsRequest, v1.ListReviewThreadsResponse]
-	createReviewThread      *connect.Client[v1.CreateReviewThreadRequest, v1.CreateReviewThreadResponse]
-	addReviewMessage        *connect.Client[v1.AddReviewMessageRequest, v1.AddReviewMessageResponse]
-	editReviewMessage       *connect.Client[v1.EditReviewMessageRequest, v1.EditReviewMessageResponse]
-	planRebase              *connect.Client[v1.PlanRebaseRequest, v1.PlanRebaseResponse]
-	rebaseWorktree          *connect.Client[v1.RebaseWorktreeRequest, v1.RebaseWorktreeResponse]
-	startOrchestrator       *connect.Client[v1.StartOrchestratorRequest, v1.StartOrchestratorResponse]
-	markReviewThreadRead    *connect.Client[v1.MarkReviewThreadReadRequest, v1.MarkReviewThreadReadResponse]
-	setReviewThreadResolved *connect.Client[v1.SetReviewThreadResolvedRequest, v1.SetReviewThreadResolvedResponse]
-	openReviewRound         *connect.Client[v1.OpenReviewRoundRequest, v1.OpenReviewRoundResponse]
-	listReviewRounds        *connect.Client[v1.ListReviewRoundsRequest, v1.ListReviewRoundsResponse]
-	listReviews             *connect.Client[v1.ListReviewsRequest, v1.ListReviewsResponse]
-	getReview               *connect.Client[v1.GetReviewRequest, v1.GetReviewResponse]
-	releaseReview           *connect.Client[v1.ReleaseReviewRequest, v1.ReleaseReviewResponse]
-	setReviewFileViewed     *connect.Client[v1.SetReviewFileViewedRequest, v1.SetReviewFileViewedResponse]
-	listReviewViewedFiles   *connect.Client[v1.ListReviewViewedFilesRequest, v1.ListReviewViewedFilesResponse]
+	listAgents               *connect.Client[v1.ListAgentsRequest, v1.ListAgentsResponse]
+	getAgent                 *connect.Client[v1.GetAgentRequest, v1.GetAgentResponse]
+	createAgent              *connect.Client[v1.CreateAgentRequest, v1.CreateAgentResponse]
+	requestReview            *connect.Client[v1.RequestReviewRequest, v1.RequestReviewResponse]
+	adopt                    *connect.Client[v1.AdoptRequest, v1.AdoptResponse]
+	setHidden                *connect.Client[v1.SetHiddenRequest, emptypb.Empty]
+	log                      *connect.Client[v1.LogRequest, emptypb.Empty]
+	sendMail                 *connect.Client[v1.SendMailRequest, v1.SendMailResponse]
+	forwardLastTurns         *connect.Client[v1.ForwardLastTurnsRequest, v1.ForwardLastTurnsResponse]
+	readMail                 *connect.Client[v1.ReadMailRequest, v1.ReadMailResponse]
+	listMail                 *connect.Client[v1.ListMailRequest, v1.ListMailResponse]
+	deleteMail               *connect.Client[v1.DeleteMailRequest, emptypb.Empty]
+	archiveAgents            *connect.Client[v1.ArchiveAgentsRequest, emptypb.Empty]
+	restoreAgents            *connect.Client[v1.RestoreAgentsRequest, v1.RestoreAgentsResponse]
+	holdAgent                *connect.Client[v1.HoldAgentRequest, v1.HoldAgentResponse]
+	releaseAgent             *connect.Client[v1.ReleaseAgentRequest, v1.ReleaseAgentResponse]
+	resumeAgent              *connect.Client[v1.ResumeAgentRequest, v1.ResumeAgentResponse]
+	retryAgent               *connect.Client[v1.RetryAgentRequest, v1.RetryAgentResponse]
+	deleteAgents             *connect.Client[v1.DeleteAgentsRequest, emptypb.Empty]
+	updateAgent              *connect.Client[v1.UpdateAgentRequest, emptypb.Empty]
+	searchTranscripts        *connect.Client[v1.SearchTranscriptsRequest, v1.SearchTranscriptsResponse]
+	getTranscript            *connect.Client[v1.GetTranscriptRequest, v1.GetTranscriptResponse]
+	getLastTurns             *connect.Client[v1.GetLastTurnsRequest, v1.GetLastTurnsResponse]
+	writeDocument            *connect.Client[v1.WriteDocumentRequest, v1.WriteDocumentResponse]
+	listDocuments            *connect.Client[v1.ListDocumentsRequest, v1.ListDocumentsResponse]
+	getDocument              *connect.Client[v1.GetDocumentRequest, v1.GetDocumentResponse]
+	listDocumentVersions     *connect.Client[v1.ListDocumentVersionsRequest, v1.ListDocumentVersionsResponse]
+	listDocumentTypes        *connect.Client[emptypb.Empty, v1.ListDocumentTypesResponse]
+	getDocumentType          *connect.Client[v1.GetDocumentTypeRequest, v1.GetDocumentTypeResponse]
+	listDocumentTypeVersions *connect.Client[v1.ListDocumentTypeVersionsRequest, v1.ListDocumentTypeVersionsResponse]
+	writeDocumentType        *connect.Client[v1.WriteDocumentTypeRequest, v1.WriteDocumentTypeResponse]
+	deleteDocumentType       *connect.Client[v1.DeleteDocumentTypeRequest, emptypb.Empty]
+	recordReport             *connect.Client[v1.RecordReportRequest, emptypb.Empty]
+	markRunsRead             *connect.Client[v1.MarkRunsReadRequest, emptypb.Empty]
+	listReviewThreads        *connect.Client[v1.ListReviewThreadsRequest, v1.ListReviewThreadsResponse]
+	createReviewThread       *connect.Client[v1.CreateReviewThreadRequest, v1.CreateReviewThreadResponse]
+	addReviewMessage         *connect.Client[v1.AddReviewMessageRequest, v1.AddReviewMessageResponse]
+	editReviewMessage        *connect.Client[v1.EditReviewMessageRequest, v1.EditReviewMessageResponse]
+	planRebase               *connect.Client[v1.PlanRebaseRequest, v1.PlanRebaseResponse]
+	rebaseWorktree           *connect.Client[v1.RebaseWorktreeRequest, v1.RebaseWorktreeResponse]
+	startOrchestrator        *connect.Client[v1.StartOrchestratorRequest, v1.StartOrchestratorResponse]
+	markReviewThreadRead     *connect.Client[v1.MarkReviewThreadReadRequest, v1.MarkReviewThreadReadResponse]
+	setReviewThreadResolved  *connect.Client[v1.SetReviewThreadResolvedRequest, v1.SetReviewThreadResolvedResponse]
+	openReviewRound          *connect.Client[v1.OpenReviewRoundRequest, v1.OpenReviewRoundResponse]
+	listReviewRounds         *connect.Client[v1.ListReviewRoundsRequest, v1.ListReviewRoundsResponse]
+	listReviews              *connect.Client[v1.ListReviewsRequest, v1.ListReviewsResponse]
+	getReview                *connect.Client[v1.GetReviewRequest, v1.GetReviewResponse]
+	releaseReview            *connect.Client[v1.ReleaseReviewRequest, v1.ReleaseReviewResponse]
+	setReviewFileViewed      *connect.Client[v1.SetReviewFileViewedRequest, v1.SetReviewFileViewedResponse]
+	listReviewViewedFiles    *connect.Client[v1.ListReviewViewedFilesRequest, v1.ListReviewViewedFilesResponse]
 }
 
 // ListAgents calls agent.v1.AgentService.ListAgents.
@@ -760,6 +772,11 @@ func (c *agentServiceClient) GetDocumentType(ctx context.Context, req *connect.R
 	return c.getDocumentType.CallUnary(ctx, req)
 }
 
+// ListDocumentTypeVersions calls agent.v1.AgentService.ListDocumentTypeVersions.
+func (c *agentServiceClient) ListDocumentTypeVersions(ctx context.Context, req *connect.Request[v1.ListDocumentTypeVersionsRequest]) (*connect.Response[v1.ListDocumentTypeVersionsResponse], error) {
+	return c.listDocumentTypeVersions.CallUnary(ctx, req)
+}
+
 // WriteDocumentType calls agent.v1.AgentService.WriteDocumentType.
 func (c *agentServiceClient) WriteDocumentType(ctx context.Context, req *connect.Request[v1.WriteDocumentTypeRequest]) (*connect.Response[v1.WriteDocumentTypeResponse], error) {
 	return c.writeDocumentType.CallUnary(ctx, req)
@@ -891,6 +908,7 @@ type AgentServiceHandler interface {
 	ListDocumentVersions(context.Context, *connect.Request[v1.ListDocumentVersionsRequest]) (*connect.Response[v1.ListDocumentVersionsResponse], error)
 	ListDocumentTypes(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[v1.ListDocumentTypesResponse], error)
 	GetDocumentType(context.Context, *connect.Request[v1.GetDocumentTypeRequest]) (*connect.Response[v1.GetDocumentTypeResponse], error)
+	ListDocumentTypeVersions(context.Context, *connect.Request[v1.ListDocumentTypeVersionsRequest]) (*connect.Response[v1.ListDocumentTypeVersionsResponse], error)
 	WriteDocumentType(context.Context, *connect.Request[v1.WriteDocumentTypeRequest]) (*connect.Response[v1.WriteDocumentTypeResponse], error)
 	DeleteDocumentType(context.Context, *connect.Request[v1.DeleteDocumentTypeRequest]) (*connect.Response[emptypb.Empty], error)
 	RecordReport(context.Context, *connect.Request[v1.RecordReportRequest]) (*connect.Response[emptypb.Empty], error)
@@ -1112,6 +1130,13 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
+	agentServiceListDocumentTypeVersionsHandler := connect.NewUnaryHandler(
+		AgentServiceListDocumentTypeVersionsProcedure,
+		svc.ListDocumentTypeVersions,
+		connect.WithSchema(agentServiceMethods.ByName("ListDocumentTypeVersions")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+		connect.WithHandlerOptions(opts...),
+	)
 	agentServiceWriteDocumentTypeHandler := connect.NewUnaryHandler(
 		AgentServiceWriteDocumentTypeProcedure,
 		svc.WriteDocumentType,
@@ -1305,6 +1330,8 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 			agentServiceListDocumentTypesHandler.ServeHTTP(w, r)
 		case AgentServiceGetDocumentTypeProcedure:
 			agentServiceGetDocumentTypeHandler.ServeHTTP(w, r)
+		case AgentServiceListDocumentTypeVersionsProcedure:
+			agentServiceListDocumentTypeVersionsHandler.ServeHTTP(w, r)
 		case AgentServiceWriteDocumentTypeProcedure:
 			agentServiceWriteDocumentTypeHandler.ServeHTTP(w, r)
 		case AgentServiceDeleteDocumentTypeProcedure:
@@ -1468,6 +1495,10 @@ func (UnimplementedAgentServiceHandler) ListDocumentTypes(context.Context, *conn
 
 func (UnimplementedAgentServiceHandler) GetDocumentType(context.Context, *connect.Request[v1.GetDocumentTypeRequest]) (*connect.Response[v1.GetDocumentTypeResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.GetDocumentType is not implemented"))
+}
+
+func (UnimplementedAgentServiceHandler) ListDocumentTypeVersions(context.Context, *connect.Request[v1.ListDocumentTypeVersionsRequest]) (*connect.Response[v1.ListDocumentTypeVersionsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.ListDocumentTypeVersions is not implemented"))
 }
 
 func (UnimplementedAgentServiceHandler) WriteDocumentType(context.Context, *connect.Request[v1.WriteDocumentTypeRequest]) (*connect.Response[v1.WriteDocumentTypeResponse], error) {

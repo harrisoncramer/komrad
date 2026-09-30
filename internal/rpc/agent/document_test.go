@@ -34,9 +34,12 @@ type fakeDocuments struct {
 	written []documents.WriteDocumentParams
 	listed  []fakeDocumentsList
 	// versions is every write of stored, and read the versions a get asked for.
-	versions     []documentstore.Version
-	read         []*int32
+	versions []documentstore.Version
+	read     []*int32
+	// typeVersions is every write of a type, and readTypes the versions a get of a type asked for.
 	types        []documenttypestore.Type
+	typeVersions []documenttypestore.Version
+	readTypes    []*int32
 	writtenTypes []documents.WriteDocumentTypeParams
 	deletedTypes []string
 }
@@ -99,14 +102,20 @@ func (f *fakeDocuments) ListDocumentTypes(_ context.Context) ([]documenttypestor
 	return f.types, f.err
 }
 
-// GetDocumentType answers the first of types unless err refuses it.
-func (f *fakeDocuments) GetDocumentType(_ context.Context, _ string) (*documenttypestore.Type, error) {
+// GetDocumentType records the version asked for and answers the first of types unless err refuses it.
+func (f *fakeDocuments) GetDocumentType(_ context.Context, _ string, version *int32) (*documenttypestore.Type, error) {
+	f.readTypes = append(f.readTypes, version)
 	if f.err != nil {
 		return nil, f.err
 	}
 	got := f.types[0]
 
 	return &got, nil
+}
+
+// ListDocumentTypeVersions answers typeVersions unless err refuses it.
+func (f *fakeDocuments) ListDocumentTypeVersions(_ context.Context, _ string) ([]documenttypestore.Version, error) {
+	return f.typeVersions, f.err
 }
 
 // WriteDocumentType records the write and answers it as stored unless err refuses it.
@@ -163,6 +172,11 @@ func TestDocumentErrors(t *testing.T) {
 	}
 	versions := func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
 		_, err := svc.ListDocumentVersions(ctx, connect.NewRequest(&agentv1.ListDocumentVersionsRequest{Id: documentID}))
+
+		return err
+	}
+	typeVersions := func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
+		_, err := svc.ListDocumentTypeVersions(ctx, connect.NewRequest(&agentv1.ListDocumentTypeVersionsRequest{Id: documentTypeID}))
 
 		return err
 	}
@@ -270,6 +284,12 @@ func TestDocumentErrors(t *testing.T) {
 			call:     getType,
 			err:      documentstore.ErrUnknownType,
 			wantCode: connect.CodeInvalidArgument,
+		},
+		{
+			name:     "listing the versions of a type that does not exist",
+			call:     typeVersions,
+			err:      store.ErrNotFound,
+			wantCode: connect.CodeNotFound,
 		},
 		{
 			name:     "an agent writing a type",
@@ -685,4 +705,44 @@ func TestListDocumentTypes(t *testing.T) {
 		UpdatedAt: dates.PreciseStamp(updated),
 	}}
 	assert.Empty(t, cmp.Diff(want, listed.Msg.GetDocumentTypes(), protocmp.Transform()))
+}
+
+// TestGetDocumentType pins that a get of a type passes on the version asked for and renders the type.
+func TestGetDocumentType(t *testing.T) {
+	tests := []struct {
+		name    string
+		version *int32
+	}{
+		{name: "the type as it stands"},
+		{name: "an earlier write", version: xptr.Ptr(int32(1))},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			docs := &fakeDocuments{types: []documenttypestore.Type{{ID: documentTypeID, Name: "RFC", Context: "A proposal.", Version: 1}}}
+			svc := newDocumentHandler(docs)
+
+			got, err := svc.GetDocumentType(t.Context(), connect.NewRequest(&agentv1.GetDocumentTypeRequest{Name: "RFC", Version: tt.version}))
+			require.NoError(t, err)
+
+			assert.Equal(t, []*int32{tt.version}, docs.readTypes)
+			assert.Equal(t, "A proposal.", got.Msg.GetDocumentType().GetContext())
+		})
+	}
+}
+
+// TestListDocumentTypeVersions pins how a type's writes are rendered.
+func TestListDocumentTypeVersions(t *testing.T) {
+	svc := newDocumentHandler(&fakeDocuments{typeVersions: []documenttypestore.Version{
+		{Version: 2, Name: "incident", CreatedAt: time.Date(2026, time.September, 30, 10, 0, 0, 0, time.UTC)},
+		{Version: 1, Name: "postmortem", CreatedAt: time.Date(2026, time.September, 30, 9, 0, 0, 0, time.UTC)},
+	}})
+
+	listed, err := svc.ListDocumentTypeVersions(t.Context(), connect.NewRequest(&agentv1.ListDocumentTypeVersionsRequest{Id: documentTypeID}))
+	require.NoError(t, err)
+
+	assert.Empty(t, cmp.Diff([]*agentv1.DocumentTypeVersion{
+		{Version: 2, Name: "incident", CreatedAt: "2026-09-30T10:00:00Z"},
+		{Version: 1, Name: "postmortem", CreatedAt: "2026-09-30T09:00:00Z"},
+	}, listed.Msg.GetVersions(), protocmp.Transform()))
 }

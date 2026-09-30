@@ -7,6 +7,7 @@ package models
 
 import (
 	"context"
+	"time"
 )
 
 const countDocumentsOfType = `-- name: CountDocumentsOfType :one
@@ -86,15 +87,66 @@ func (q *Queries) GetDocumentTypeByName(ctx context.Context, name string) (*Docu
 	return &i, err
 }
 
+const getDocumentTypeVersion = `-- name: GetDocumentTypeVersion :one
+SELECT
+    document_type_id, version, name, context, created_at, engine_id
+FROM
+    document_type_versions
+WHERE
+    document_type_id = $1
+    AND version = $2
+`
+
+type GetDocumentTypeVersionParams struct {
+	DocumentTypeID string
+	Version        int32
+}
+
+func (q *Queries) GetDocumentTypeVersion(ctx context.Context, arg GetDocumentTypeVersionParams) (*DocumentTypeVersion, error) {
+	row := q.db.QueryRow(ctx, getDocumentTypeVersion, arg.DocumentTypeID, arg.Version)
+	var i DocumentTypeVersion
+	err := row.Scan(
+		&i.DocumentTypeID,
+		&i.Version,
+		&i.Name,
+		&i.Context,
+		&i.CreatedAt,
+		&i.EngineID,
+	)
+	return &i, err
+}
+
 const insertDocumentType = `-- name: InsertDocumentType :one
-INSERT INTO document_types(
-    name,
-    context)
-VALUES (
-    $1,
-    $2)
+WITH inserted AS (
+    INSERT INTO document_types(
+        name,
+        context)
+    VALUES (
+        $1,
+        $2)
 RETURNING
     id, name, context, version, created_at, updated_at, engine_id
+),
+recorded AS (
+    INSERT INTO document_type_versions(
+        document_type_id,
+        version,
+        name,
+        context,
+        created_at)
+    SELECT
+        id,
+        version,
+        name,
+        context,
+        updated_at
+    FROM
+        inserted
+)
+SELECT
+    id, name, context, version, created_at, updated_at, engine_id
+FROM
+    inserted
 `
 
 type InsertDocumentTypeParams struct {
@@ -102,9 +154,19 @@ type InsertDocumentTypeParams struct {
 	Context string
 }
 
-func (q *Queries) InsertDocumentType(ctx context.Context, arg InsertDocumentTypeParams) (*DocumentType, error) {
+type InsertDocumentTypeRow struct {
+	ID        string
+	Name      string
+	Context   string
+	Version   int32
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	EngineID  string
+}
+
+func (q *Queries) InsertDocumentType(ctx context.Context, arg InsertDocumentTypeParams) (*InsertDocumentTypeRow, error) {
 	row := q.db.QueryRow(ctx, insertDocumentType, arg.Name, arg.Context)
-	var i DocumentType
+	var i InsertDocumentTypeRow
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
@@ -115,6 +177,45 @@ func (q *Queries) InsertDocumentType(ctx context.Context, arg InsertDocumentType
 		&i.EngineID,
 	)
 	return &i, err
+}
+
+const listDocumentTypeVersions = `-- name: ListDocumentTypeVersions :many
+SELECT
+    version,
+    name,
+    created_at
+FROM
+    document_type_versions
+WHERE
+    document_type_id = $1
+ORDER BY
+    version DESC
+`
+
+type ListDocumentTypeVersionsRow struct {
+	Version   int32
+	Name      string
+	CreatedAt time.Time
+}
+
+func (q *Queries) ListDocumentTypeVersions(ctx context.Context, documentTypeID string) ([]*ListDocumentTypeVersionsRow, error) {
+	rows, err := q.db.Query(ctx, listDocumentTypeVersions, documentTypeID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*ListDocumentTypeVersionsRow
+	for rows.Next() {
+		var i ListDocumentTypeVersionsRow
+		if err := rows.Scan(&i.Version, &i.Name, &i.CreatedAt); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listDocumentTypes = `-- name: ListDocumentTypes :many
@@ -156,17 +257,39 @@ func (q *Queries) ListDocumentTypes(ctx context.Context) ([]*DocumentType, error
 }
 
 const updateDocumentType = `-- name: UpdateDocumentType :one
-UPDATE
-    document_types
-SET
-    name = $1,
-    context = $2,
-    version = document_types.version + 1
-WHERE
-    id = $3
-    AND version = $4
-RETURNING
+WITH updated AS (
+    UPDATE
+        document_types
+    SET
+        name = $1,
+        context = $2,
+        version = document_types.version + 1
+    WHERE
+        document_types.id = $3
+        AND document_types.version = $4
+    RETURNING
+        id, name, context, version, created_at, updated_at, engine_id
+),
+recorded AS (
+    INSERT INTO document_type_versions(
+        document_type_id,
+        version,
+        name,
+        context,
+        created_at)
+    SELECT
+        id,
+        version,
+        name,
+        context,
+        updated_at
+    FROM
+        updated
+)
+SELECT
     id, name, context, version, created_at, updated_at, engine_id
+FROM
+    updated
 `
 
 type UpdateDocumentTypeParams struct {
@@ -176,14 +299,24 @@ type UpdateDocumentTypeParams struct {
 	ReadVersion int32
 }
 
-func (q *Queries) UpdateDocumentType(ctx context.Context, arg UpdateDocumentTypeParams) (*DocumentType, error) {
+type UpdateDocumentTypeRow struct {
+	ID        string
+	Name      string
+	Context   string
+	Version   int32
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	EngineID  string
+}
+
+func (q *Queries) UpdateDocumentType(ctx context.Context, arg UpdateDocumentTypeParams) (*UpdateDocumentTypeRow, error) {
 	row := q.db.QueryRow(ctx, updateDocumentType,
 		arg.Name,
 		arg.Context,
 		arg.ID,
 		arg.ReadVersion,
 	)
-	var i DocumentType
+	var i UpdateDocumentTypeRow
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
