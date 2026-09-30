@@ -340,6 +340,21 @@ func TestPrepareComments(t *testing.T) {
 			want: []Cell{person(paint.ToneMuted, "0", "|12", Cell{Text: " "})},
 		},
 		{
+			name: "offers from the forge stand beside the person's open count in their own tone",
+			row: Row{
+				Kind:           KindAgent,
+				PersonComments: &Comments{Open: 1, External: 3},
+			},
+			want: []Cell{{Parts: []Cell{
+				{Glyph: glyph.PersonComments, Tone: paint.ToneWarning},
+				{Text: " "},
+				{Text: "1", Tone: paint.ToneWarning},
+				{Text: "+3", Tone: paint.ToneOther},
+				muted("|0"),
+				{Text: " "},
+			}}},
+		},
+		{
 			name: "open counts stand out, reviewer agents first, and an unread one earns the dot",
 			row: Row{
 				Kind: KindAgent,

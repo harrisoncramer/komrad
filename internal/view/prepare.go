@@ -1,6 +1,7 @@
 package view
 
 import (
+	"slices"
 	"strconv"
 
 	"komrad/internal/glyph"
@@ -152,6 +153,9 @@ func personCommentsCell(row Row) Cell {
 	}
 
 	counts := countsCell(row.PersonComments, glyph.PersonComments, paint.ToneWarning)
+	if row.PersonComments.External > 0 {
+		counts.Parts = slices.Insert(counts.Parts, 3, Cell{Text: "+" + strconv.Itoa(row.PersonComments.External), Tone: paint.ToneOther})
+	}
 	dot := Cell{Text: " "}
 	if row.PersonComments.Unread {
 		dot = Cell{Glyph: glyph.Unread, Tone: paint.ToneWarning}

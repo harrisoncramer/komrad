@@ -228,6 +228,7 @@ func convertComments(counts *agentv1.CommentCounts) *view.Comments {
 		Open:     int(counts.GetOpen()),
 		Resolved: int(counts.GetResolved()),
 		Unread:   counts.GetUnread(),
+		External: int(counts.GetExternal()),
 	}
 }
 

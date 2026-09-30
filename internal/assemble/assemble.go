@@ -30,6 +30,7 @@ type World struct {
 	Reviews       map[string]*agentv1.WatchedReview
 	ReviewThreads map[string]*agentv1.ReviewThread
 	Worktrees     map[string]*worktreev1.WatchedWorktree
+	ForgeThreads  map[string]*pullrequestv1.ForgeThread
 }
 
 // Changed is the keys a message put or dropped, by resource.
@@ -130,6 +131,10 @@ func (w *World) put(row *watchv1.Row) (watchv1.Resource, string) {
 		w.Worktrees[row.Worktree.GetDir()] = row.Worktree
 
 		return watchv1.Resource_RESOURCE_WORKTREE, row.Worktree.GetDir()
+	case *watchv1.Row_ForgeThread:
+		w.ForgeThreads[row.ForgeThread.GetId()] = row.ForgeThread
+
+		return watchv1.Resource_RESOURCE_FORGE_THREAD, row.ForgeThread.GetId()
 	case nil:
 	}
 
@@ -164,6 +169,9 @@ func (w *World) ensureMaps() {
 	if w.Worktrees == nil {
 		w.Worktrees = map[string]*worktreev1.WatchedWorktree{}
 	}
+	if w.ForgeThreads == nil {
+		w.ForgeThreads = map[string]*pullrequestv1.ForgeThread{}
+	}
 }
 
 func (w *World) drop(deleted *watchv1.Deleted) {
@@ -187,6 +195,8 @@ func (w *World) drop(deleted *watchv1.Deleted) {
 		delete(w.ReviewThreads, key)
 	case watchv1.Resource_RESOURCE_WORKTREE:
 		delete(w.Worktrees, key)
+	case watchv1.Resource_RESOURCE_FORGE_THREAD:
+		delete(w.ForgeThreads, key)
 	case watchv1.Resource_RESOURCE_UNSPECIFIED:
 	}
 }
@@ -198,6 +208,7 @@ func AgentRows(w World, now time.Time) []*agentv1.AgentRow {
 	onBranch := groupPullRequestsByBranch(w.PullRequests)
 	reviewed := groupReviewsByAgent(w.Reviews)
 	threaded := groupThreadsByAgent(w.ReviewThreads)
+	offered := groupOffersByPullRequest(w.ForgeThreads)
 
 	rows := make([]*agentv1.AgentRow, 0, len(w.Agents))
 	for _, agent := range w.Agents {
@@ -211,6 +222,9 @@ func AgentRows(w World, now time.Time) []*agentv1.AgentRow {
 		}
 		setLocalReview(row, reviewed[agent.GetId()])
 		setCommentCounts(row, reviewed[agent.GetId()], threaded[agent.GetId()])
+		if current := getOpenPullRequest(pullRequests); current != nil {
+			setOfferCounts(row, offered[current.GetId()])
+		}
 
 		rows = append(rows, row)
 	}
