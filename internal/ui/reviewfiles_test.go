@@ -6,10 +6,10 @@ import (
 	"testing"
 
 	"komrad/internal/gittest"
+	"komrad/internal/ui/paint"
 	agentv1 "komrad/proto/gen/agent/v1"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 // TestReviewFiles covers the file tree drawn above the thread, which follows the diff cursor.
@@ -33,13 +33,13 @@ func TestReviewFiles(t *testing.T) {
 				keys: []string{"k"},
 			},
 			{
-				name: "a thread at the foot marks its row under the file it was written on",
+				name: "a thread at the foot marks the file it was written on",
 				threads: []*agentv1.ReviewThread{
 					whole,
 					adrift,
 				},
 				keys: []string{"G"},
-				want: "▸ moved this line went away ○",
+				want: "▸ greet.go +1 −1 ○",
 			},
 			{
 				name: "a comment on the change as a whole marks nothing",
@@ -59,11 +59,11 @@ func TestReviewFiles(t *testing.T) {
 				want: "▸ second.go +3",
 			},
 			{
-				name: "a line carrying a thread marks the thread",
+				name: "a line carrying a thread marks its file with the thread",
 				threads: []*agentv1.ReviewThread{
 					newThreadOnFirstLine(newHumanMessage("m3", "rename the package")),
 				},
-				want: "▸ 1 rename the package ○",
+				want: "▸ greet.go +1 −1 ○",
 			},
 		}
 
@@ -81,16 +81,14 @@ func TestReviewFiles(t *testing.T) {
 		}
 	})
 
-	t.Run("a thread is listed only while the cursor is in its file", func(t *testing.T) {
+	t.Run("a file's counts wear the colours of the lines they count", func(t *testing.T) {
 		server := newReviewServer(t)
 		server.repo.Patches[gittest.NamePair(gittest.BaseSHA, gittest.SnapshotSHA)] = gittest.PatchOfBothFiles
-		server.threads = []*agentv1.ReviewThread{newThreadOnFirstLine(newHumanMessage("m1", "rename the package"))}
 		harness := openReview(t, server)
-		require.Contains(t, strings.Join(readFilesBlock(harness.readFrame()), "\n"), "1 rename the package")
 
-		harness.press("]")
-
-		assert.NotContains(t, strings.Join(readFilesBlock(harness.readFrame()), "\n"), "rename the package")
+		frame := harness.readRawFrame()
+		assert.Contains(t, frame, paint.Panel.Style(paint.ToneSuccess).Render("+3"))
+		assert.Contains(t, frame, paint.Panel.Style(paint.ToneDanger).Render("−1"))
 	})
 
 	t.Run("a long tree is windowed on the marked row and counts what it leaves out", func(t *testing.T) {

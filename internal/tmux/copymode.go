@@ -7,6 +7,8 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+
+	"komrad/internal/panes"
 )
 
 // copyModeTable is the key table tmux reads keys from in copy-mode with vi keys.
@@ -54,7 +56,8 @@ func findClipboardCommand() string {
 // OpenCopyStandIn swaps a pane printing text into pane's place and puts it in copy-mode with the
 // cursor at row and col, and once copy-mode ends swaps pane back, sends it keys and kills the
 // stand-in.
-func (c *Client) OpenCopyStandIn(pane, text string, row, col int, keys ...string) error {
+func (c *Client) OpenCopyStandIn(params panes.CopyStandIn) error {
+	pane, text, row, col, keys := params.Pane, params.Text, params.Row, params.Col, params.Keys
 	if pane == "" {
 		return errors.New("refusing to stand in for an empty pane")
 	}

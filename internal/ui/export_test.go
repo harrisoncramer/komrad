@@ -92,13 +92,7 @@ type recordingTmux struct {
 }
 
 // CopyStandIn is a stand-in the panel asked tmux to put in a pane's place.
-type CopyStandIn struct {
-	Pane string
-	Text string
-	Row  int
-	Col  int
-	Keys []string
-}
+type CopyStandIn = panes.CopyStandIn
 
 // PanelTmux is the tmux a panel under test drives in place of the recording one.
 type PanelTmux = uiTmux
@@ -633,8 +627,8 @@ func (t *recordingTmux) TuneCopyMode(badge string) {
 	t.copyBadge = badge
 }
 
-func (t *recordingTmux) OpenCopyStandIn(pane, text string, row, col int, keys ...string) error {
-	t.standIns = append(t.standIns, CopyStandIn{Pane: pane, Text: text, Row: row, Col: col, Keys: keys})
+func (t *recordingTmux) OpenCopyStandIn(params panes.CopyStandIn) error {
+	t.standIns = append(t.standIns, params)
 
 	return t.standInErr
 }

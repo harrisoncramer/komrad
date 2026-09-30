@@ -1,6 +1,9 @@
 package ui
 
-import "komrad/internal/ui/paint"
+import (
+	"komrad/internal/panes"
+	"komrad/internal/ui/paint"
+)
 
 type sessionTmux interface {
 	GetSessionClient(session string) string
@@ -12,7 +15,7 @@ type sessionTmux interface {
 	GetWindowID(pane string) string
 	DetachSession(name string)
 	TuneCopyMode(badge string)
-	OpenCopyStandIn(pane, text string, row, col int, keys ...string) error
+	OpenCopyStandIn(params panes.CopyStandIn) error
 }
 
 // leaderPanelKeys are the leader's keys the panel answers itself.
@@ -107,5 +110,11 @@ func (s *Session) TuneCopyMode() {
 // OpenCopyStandIn puts a stand-in showing text in copy-mode where sidebar sits, with the cursor at
 // row and col, and has it send the sidebar the leader's copy key once copy-mode ends.
 func (s *Session) OpenCopyStandIn(sidebar, text string, row, col int) error {
-	return s.tmux.OpenCopyStandIn(sidebar, text, row, col, s.leaderKey, copyKey)
+	return s.tmux.OpenCopyStandIn(panes.CopyStandIn{
+		Pane: sidebar,
+		Text: text,
+		Row:  row,
+		Col:  col,
+		Keys: []string{s.leaderKey, copyKey},
+	})
 }

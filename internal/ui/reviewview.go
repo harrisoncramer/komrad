@@ -138,8 +138,17 @@ func (r reviewScreen) layoutUnder(s panelShared, bar string, above []string) sid
 	room := spare - paint.CountLines(r.placeView())
 	lines := max(room-paint.CountLines(layout.notes), r.countFilesFloor(spare))
 	layout.files = r.filesView(s, max(min(lines, room), 0))
+	layout.notes = cutNotes(layout.notes, room-paint.CountLines(layout.files))
 
 	return layout
+}
+
+func cutNotes(notes string, rows int) string {
+	if rows >= paint.CountLines(notes) {
+		return notes
+	}
+
+	return strings.Join(strings.SplitAfter(notes, "\n")[:max(rows, 0)], "")
 }
 
 // help keeps the strip to what the screen is for.
