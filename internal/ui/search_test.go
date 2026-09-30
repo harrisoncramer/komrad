@@ -1212,7 +1212,7 @@ func findRow(rows []string, name string) string {
 }
 
 func findPreviewCursor(raw string) int {
-	selected := paint.BackgroundSequence(paint.SelectionBackground)
+	selected := paint.BackgroundSequence(paint.Panel.Background(paint.ShadeSelection))
 	for i, line := range splitLines(raw) {
 		stage := ansi.TruncateLeft(line, config.DefaultSidebarWidth, "")
 		if strings.Contains(stage, selected) {

@@ -141,7 +141,7 @@ func (w *searchScreen) previewView(s panelShared, split columnSplit) string {
 	if w.isBlockFocused(s) {
 		line := w.previewLine(split.rows)
 		doc.rows = slices.Clone(doc.rows)
-		doc.rows[line] = paint.PaintRow(doc.rows[line], split.column)
+		doc.rows[line] = paint.Panel.PaintRow(doc.rows[line], split.column)
 	}
 
 	return doc.view(split.rows)
