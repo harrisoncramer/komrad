@@ -740,8 +740,6 @@ func TestAdoptAnswersWithTheAgentAlreadyOnTheBranch(t *testing.T) {
 	assert.Equal(t, "spawned", adopted.Msg.GetAgent().GetName())
 }
 
-// TestArchiveAgentsHoldsAnAgentToItselfAndItsOwnChildren pins that an agent other than an
-// orchestrator archives only itself and its own children.
 func TestArchiveAgentsHoldsAnAgentToItselfAndItsOwnChildren(t *testing.T) {
 	tests := []struct {
 		name     string
