@@ -30,6 +30,7 @@ type cwdSetter interface {
 	List(ctx context.Context) ([]agentstore.Agent, error)
 	SetCheckout(ctx context.Context, id string, params agentstore.SetCheckoutParams) error
 	SetMovedSinceRound(ctx context.Context, id, snapshotSHA string) error
+	SetDiffStat(ctx context.Context, id string, stat *agentstore.DiffStat) error
 }
 
 // headReader reads a checkout's HEAD.
@@ -42,6 +43,8 @@ type treeReader interface {
 	ReadBaseTip(ctx context.Context, dir, base string) (string, error)
 	HasLanded(ctx context.Context, params git.HasLandedParams) (bool, error)
 	FetchBase(ctx context.Context, dir, base string) (ref, sha string, err error)
+	ResolveBase(ctx context.Context, dir, base string) (string, error)
+	ReadDiffStat(ctx context.Context, params git.ReadDiffStatParams) (*git.DiffStat, error)
 }
 
 type workflowLister interface {
@@ -64,7 +67,7 @@ type NewCwdSyncerParams struct {
 	Heads        headReader
 	Trees        treeReader
 	Rounds       roundLister
-	Bases        workflowLister
+	Workflows    workflowLister
 	PullRequests pullRequestObserver
 }
 
@@ -75,7 +78,7 @@ type CwdSyncer struct {
 	heads        headReader
 	trees        treeReader
 	rounds       roundLister
-	bases        workflowLister
+	workflows    workflowLister
 	pullRequests pullRequestObserver
 	// walkedMu guards walked and fetched.
 	walkedMu sync.Mutex
@@ -93,7 +96,7 @@ func NewCwdSyncer(params NewCwdSyncerParams) *CwdSyncer {
 		heads:        params.Heads,
 		trees:        params.Trees,
 		rounds:       params.Rounds,
-		bases:        params.Bases,
+		workflows:    params.Workflows,
 		pullRequests: params.PullRequests,
 		walked:       map[string]string{},
 		fetched:      map[string]time.Time{},
@@ -111,6 +114,8 @@ type cwdLook struct {
 	landed int32
 	// walkedAt is the base tip and newest round the landing walk read, empty when it did not walk.
 	walkedAt string
+	// diffStat is the lines the checkout adds and removes since its base, nil where there is none.
+	diffStat *agentstore.DiffStat
 	err      error
 }
 
@@ -128,7 +133,7 @@ func (cs *CwdSyncer) Sync(ctx context.Context) error {
 		return err
 	}
 
-	bases, err := cs.listBases(ctx)
+	worktrees, err := cs.listWorktreeConfigs(ctx)
 	if err != nil {
 		return err
 	}
@@ -139,10 +144,10 @@ func (cs *CwdSyncer) Sync(ctx context.Context) error {
 	}
 
 	looks, err := cs.lookAtAll(ctx, lookAtAllParams{
-		Agents:   agents,
-		Rounds:   rounds,
-		Unlanded: unlanded,
-		Bases:    bases,
+		Agents:    agents,
+		Rounds:    rounds,
+		Unlanded:  unlanded,
+		Worktrees: worktrees,
 	})
 	if err != nil {
 		return err
@@ -162,6 +167,9 @@ func (cs *CwdSyncer) Sync(ctx context.Context) error {
 			failures = append(failures, err)
 		}
 		if err := cs.writeLanded(ctx, look); err != nil {
+			failures = append(failures, err)
+		}
+		if err := cs.writeDiffStat(ctx, look); err != nil {
 			failures = append(failures, err)
 		}
 	}
@@ -190,26 +198,26 @@ func (cs *CwdSyncer) listNewestRounds(ctx context.Context) (map[string]string, e
 	return rounds, nil
 }
 
-// listBases is the branch each workflow cuts its worktrees from, by workflow id.
-func (cs *CwdSyncer) listBases(ctx context.Context) (map[string]string, error) {
-	flows, err := cs.bases.List(ctx)
+// listWorktreeConfigs is the worktree settings of each workflow, by workflow id.
+func (cs *CwdSyncer) listWorktreeConfigs(ctx context.Context) (map[string]workflowstore.WorktreeConfig, error) {
+	flows, err := cs.workflows.List(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list the workflows for cwd sync: %w", err)
 	}
 
-	bases := map[string]string{}
+	configs := map[string]workflowstore.WorktreeConfig{}
 	for _, flow := range flows {
-		bases[flow.ID] = flow.Worktree.BaseBranch
+		configs[flow.ID] = flow.Worktree
 	}
 
-	return bases, nil
+	return configs, nil
 }
 
 type lookAtAllParams struct {
-	Agents   []agentstore.Agent
-	Rounds   map[string]string
-	Unlanded map[string][]reviewstore.UnlandedRound
-	Bases    map[string]string
+	Agents    []agentstore.Agent
+	Rounds    map[string]string
+	Unlanded  map[string][]reviewstore.UnlandedRound
+	Worktrees map[string]workflowstore.WorktreeConfig
 }
 
 func (cs *CwdSyncer) lookAtAll(ctx context.Context, params lookAtAllParams) ([]cwdLook, error) {
@@ -222,13 +230,16 @@ func (cs *CwdSyncer) lookAtAll(ctx context.Context, params lookAtAllParams) ([]c
 				return look, nil
 			}
 
+			config := params.Worktrees[agent.WorkflowID]
 			landed, walkedAt, err := cs.walkLanding(ctx, walkLandingParams{
 				Agent:  agent,
 				Rounds: params.Unlanded[agent.ID],
-				Base:   params.Bases[agent.WorkflowID],
+				Base:   config.BaseBranch,
 			})
 			look.landed, look.walkedAt = landed, walkedAt
 			look.err = errors.Join(look.err, err)
+
+			cs.measure(ctx, &look, config)
 
 			return look, nil
 		},
@@ -349,6 +360,20 @@ func (cs *CwdSyncer) writeLanded(ctx context.Context, look cwdLook) error {
 		cs.walkedMu.Lock()
 		cs.walked[look.agent.ID] = look.walkedAt
 		cs.walkedMu.Unlock()
+	}
+
+	return nil
+}
+
+// writeDiffStat records the lines the look measured, when the row says otherwise.
+func (cs *CwdSyncer) writeDiffStat(ctx context.Context, look cwdLook) error {
+	agent := look.agent
+	if xptr.Equal(agent.DiffStat, look.diffStat) {
+		return nil
+	}
+
+	if err := cs.agents.SetDiffStat(ctx, agent.ID, look.diffStat); err != nil {
+		return fmt.Errorf("failed to set the diff stat of %q: %w", agent.Name, err)
 	}
 
 	return nil
@@ -479,4 +504,44 @@ func (cs *CwdSyncer) probeTree(ctx context.Context, head git.HeadState) (string,
 	defer cancel()
 
 	return cs.trees.ProbeTree(ctx, head.Root)
+}
+
+// measure records on the look the lines the checkout adds and removes since it left its base,
+// nil where the clone holds no base or the branch shares no history with it.
+func (cs *CwdSyncer) measure(ctx context.Context, look *cwdLook, config workflowstore.WorktreeConfig) {
+	ctx, cancel := context.WithTimeout(ctx, cwdLookTimeout)
+	defer cancel()
+
+	root := look.head.Root
+	ref, err := cs.trees.ResolveBase(ctx, root, config.BaseBranch)
+	if errors.Is(err, git.ErrBaseMissing) {
+		return
+	}
+	if err != nil {
+		look.keepDiffStat(err)
+
+		return
+	}
+
+	stat, err := cs.trees.ReadDiffStat(ctx, git.ReadDiffStatParams{
+		Dir:     root,
+		Ref:     ref,
+		Exclude: config.DiffExclude,
+	})
+	if errors.Is(err, git.ErrBaseUnrelated) {
+		return
+	}
+	if err != nil {
+		look.keepDiffStat(err)
+
+		return
+	}
+
+	look.diffStat = &agentstore.DiffStat{Added: stat.Added, Removed: stat.Removed}
+}
+
+// keepDiffStat leaves the row's diff stat standing when git could not measure the checkout.
+func (cl *cwdLook) keepDiffStat(err error) {
+	cl.diffStat = cl.agent.DiffStat
+	cl.err = errors.Join(cl.err, fmt.Errorf("failed to measure the checkout of %q: %w", cl.agent.Name, err))
 }

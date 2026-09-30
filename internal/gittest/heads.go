@@ -35,6 +35,10 @@ type Trees struct {
 	Fetched  []string
 	Landed   map[string]bool
 	Walked   []string
+	// DiffStats is what each directory measures against its base.
+	DiffStats map[string]git.DiffStat
+	DiffErr   error
+	Measured  []git.ReadDiffStatParams
 }
 
 // ProbeTree records the root and answers what Probes holds for it, refusing when there are no
@@ -84,4 +88,32 @@ func (t *Trees) HasLanded(_ context.Context, params git.HasLandedParams) (bool, 
 	t.Walked = append(t.Walked, params.SnapshotSHA)
 
 	return t.Landed[params.SnapshotSHA], nil
+}
+
+// ResolveBase answers origin's copy of the base, refusing as a missing base when none is named.
+func (t *Trees) ResolveBase(_ context.Context, _, base string) (string, error) {
+	if base == "" {
+		return "", git.ErrBaseMissing
+	}
+
+	return "origin/" + base, nil
+}
+
+// ReadDiffStat records what was measured and answers what DiffStats holds for the directory,
+// refusing as unrelated when it names none.
+func (t *Trees) ReadDiffStat(_ context.Context, params git.ReadDiffStatParams) (*git.DiffStat, error) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.Measured = append(t.Measured, params)
+
+	if t.DiffErr != nil {
+		return nil, t.DiffErr
+	}
+
+	stat, ok := t.DiffStats[params.Dir]
+	if !ok {
+		return nil, git.ErrBaseUnrelated
+	}
+
+	return &stat, nil
 }

@@ -767,6 +767,16 @@ table "agents" {
     default = ""
     comment = "The snapshot of the agent's newest review round when its worktree no longer hashes to it, empty while it still does or when there is no round. The cwd syncer rewrites it every pass."
   }
+  column "lines_added" {
+    null    = true
+    type    = integer
+    comment = "How many lines the agent's checkout adds since it left its base, committed and uncommitted alike, null when there is no base to measure against. The cwd syncer rewrites it every pass."
+  }
+  column "lines_removed" {
+    null    = true
+    type    = integer
+    comment = "How many lines the agent's checkout removes since it left its base, null whenever lines_added is."
+  }
   column "engine_id" {
     null    = false
     type    = uuid

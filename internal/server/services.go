@@ -263,7 +263,7 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 		Heads:        gitClient,
 		Trees:        gitClient,
 		Rounds:       st.review,
-		Bases:        st.workflows,
+		Workflows:    st.workflows,
 		PullRequests: st.pullRequests,
 	})
 

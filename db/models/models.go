@@ -337,6 +337,10 @@ type Agent struct {
 	TurnFailedAt *time.Time
 	// What the agent's CLI printed when an API error last ended one of its turns.
 	TurnError string
+	// How many lines the agent's checkout adds since it left its base, committed and uncommitted alike, null when there is no base to measure against. The cwd syncer rewrites it every pass.
+	LinesAdded *int32
+	// How many lines the agent's checkout removes since it left its base, null whenever lines_added is.
+	LinesRemoved *int32
 }
 
 // Which agents were seen with which pull requests, one row per pair, never re-pointed. The watch carries every pull request with a row here.

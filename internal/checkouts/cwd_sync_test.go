@@ -315,6 +315,78 @@ func TestCwdSyncerSyncKeepsAMoveItCouldNotProbe(t *testing.T) {
 	assert.Equal(t, "snapshot-one", fixture.read(t, agent.ID).MovedSinceRound)
 }
 
+// TestCwdSyncerSyncRecordsTheDiffStat covers the lines a pass measures against the workflow's base.
+func TestCwdSyncerSyncRecordsTheDiffStat(t *testing.T) {
+	tests := []struct {
+		name      string
+		cwd       func(t *testing.T) string
+		diffStats func(cwd string) map[string]git.DiffStat
+		want      *agentstore.DiffStat
+	}{
+		{
+			name: "a cwd that no longer exists clears the stat",
+			cwd:  makeRemovedDir,
+			diffStats: func(cwd string) map[string]git.DiffStat {
+				return map[string]git.DiffStat{cwd: {Added: 4}}
+			},
+		},
+		{
+			name: "a branch that shares no history with the base clears the stat",
+			cwd:  makeCheckout,
+			diffStats: func(string) map[string]git.DiffStat {
+				return map[string]git.DiffStat{}
+			},
+		},
+		{
+			name: "a checkout records what it adds and removes over what an earlier pass wrote",
+			cwd:  makeCheckout,
+			diffStats: func(cwd string) map[string]git.DiffStat {
+				return map[string]git.DiffStat{cwd: {Added: 12, Removed: 3}}
+			},
+			want: &agentstore.DiffStat{Added: 12, Removed: 3},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fixture := newSyncFixture(t)
+			fixture.workflowID = fixture.stores.SeedWorkflow(t, workflowstore.Config{
+				Name:     "measured",
+				Worktree: workflowstore.WorktreeConfig{BaseBranch: "trunk", DiffExclude: []string{"*.lock"}},
+			}).ID
+			cwd := tt.cwd(t)
+			agent := fixture.seed(t, "a", cwd)
+			require.NoError(t, fixture.stores.Agents.SetDiffStat(t.Context(), agent.ID, &agentstore.DiffStat{Added: 1, Removed: 1}))
+			trees := &gittest.Trees{DiffStats: tt.diffStats(cwd)}
+
+			require.NoError(t, fixture.newSyncer(NewCwdSyncerParams{Heads: buildHeads(cwd, git.HeadState{Root: cwd}), Trees: trees}).Sync(t.Context()))
+
+			assert.Equal(t, tt.want, fixture.read(t, agent.ID).DiffStat)
+			for _, measured := range trees.Measured {
+				assert.Equal(t, git.ReadDiffStatParams{Dir: cwd, Ref: "origin/trunk", Exclude: []string{"*.lock"}}, measured)
+			}
+		})
+	}
+}
+
+// TestCwdSyncerSyncKeepsADiffStatItCouldNotMeasure covers a failed measure leaving the recorded stat alone.
+func TestCwdSyncerSyncKeepsADiffStatItCouldNotMeasure(t *testing.T) {
+	fixture := newSyncFixture(t)
+	cwd := makeCheckout(t)
+	agent := fixture.seed(t, "a", cwd)
+	trees := &gittest.Trees{DiffStats: map[string]git.DiffStat{cwd: {Added: 7, Removed: 2}}}
+	syncer := fixture.newSyncer(NewCwdSyncerParams{Heads: buildHeads(cwd, git.HeadState{Root: cwd}), Trees: trees})
+
+	require.NoError(t, syncer.Sync(t.Context()))
+	require.Equal(t, &agentstore.DiffStat{Added: 7, Removed: 2}, fixture.read(t, agent.ID).DiffStat)
+
+	trees.DiffErr = errors.New("the index could not be read")
+	err := syncer.Sync(t.Context())
+
+	require.ErrorContains(t, err, `failed to measure the checkout of "a"`)
+	assert.Equal(t, &agentstore.DiffStat{Added: 7, Removed: 2}, fixture.read(t, agent.ID).DiffStat)
+}
+
 // TestCwdSyncerSyncLandsTheRoundsTheBaseHolds covers the walk from the newest round down to the
 // first one the base holds whole.
 func TestCwdSyncerSyncLandsTheRoundsTheBaseHolds(t *testing.T) {
@@ -531,7 +603,7 @@ func (f *syncFixture) newSyncer(params NewCwdSyncerParams) *CwdSyncer {
 		params.PullRequests = &countingPullRequestObserver{}
 	}
 	params.Rounds = f.reviews
-	params.Bases = f.stores.Workflows
+	params.Workflows = f.stores.Workflows
 
 	return NewCwdSyncer(params)
 }
