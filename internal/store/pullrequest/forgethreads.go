@@ -124,7 +124,12 @@ func (s *ForgeThreadStore) SetThreads(ctx context.Context, params SetThreadsPara
 	}
 
 	for _, thread := range params.Threads {
-		if err := s.setComments(ctx, ids[thread.ProviderID], thread.Comments, params); err != nil {
+		if err := s.setComments(ctx, setCommentsParams{
+			ThreadID: ids[thread.ProviderID],
+			Comments: thread.Comments,
+			Viewer:   params.Viewer,
+			Prune:    params.Prune,
+		}); err != nil {
 			return err
 		}
 	}
@@ -132,10 +137,17 @@ func (s *ForgeThreadStore) SetThreads(ctx context.Context, params SetThreadsPara
 	return nil
 }
 
-func (s *ForgeThreadStore) setComments(ctx context.Context, threadID string, comments []forge.ReviewComment, params SetThreadsParams) error {
-	for _, comment := range comments {
+type setCommentsParams struct {
+	ThreadID string
+	Comments []forge.ReviewComment
+	Viewer   string
+	Prune    bool
+}
+
+func (s *ForgeThreadStore) setComments(ctx context.Context, params setCommentsParams) error {
+	for _, comment := range params.Comments {
 		if err := s.queries.UpsertForgeReviewComment(ctx, models.UpsertForgeReviewCommentParams{
-			ThreadID:    threadID,
+			ThreadID:    params.ThreadID,
 			ProviderID:  comment.ProviderID,
 			AuthorLogin: comment.Login,
 			AuthorIsBot: comment.Bot,
@@ -153,34 +165,13 @@ func (s *ForgeThreadStore) setComments(ctx context.Context, threadID string, com
 	}
 
 	if err := s.queries.DeleteForgeReviewCommentsExcept(ctx, models.DeleteForgeReviewCommentsExceptParams{
-		ThreadID: threadID,
-		Kept:     xslice.Map(comments, func(comment forge.ReviewComment) string { return comment.ProviderID }),
+		ThreadID: params.ThreadID,
+		Kept:     xslice.Map(params.Comments, func(comment forge.ReviewComment) string { return comment.ProviderID }),
 	}); err != nil {
-		return fmt.Errorf("failed to remove the comments of forge thread %s: %w", threadID, err)
+		return fmt.Errorf("failed to remove the comments of forge thread %s: %w", params.ThreadID, err)
 	}
 
 	return nil
-}
-
-func toThreadUpsert(pullRequestID string, thread forge.ReviewThread) models.UpsertForgeReviewThreadParams {
-	params := models.UpsertForgeReviewThreadParams{
-		PullRequestID: pullRequestID,
-		ProviderID:    thread.ProviderID,
-		Path:          thread.Path,
-		OldSide:       thread.OldSide,
-		CommitSha:     thread.CommitSHA,
-		Quote:         thread.Quote,
-		Url:           thread.URL,
-		Resolved:      thread.Resolved,
-	}
-	if thread.Line > 0 {
-		params.Line = xptr.Ptr(int32(thread.Line))
-	}
-	if len(thread.Comments) > 0 {
-		params.WrittenAt = thread.Comments[0].WrittenAt
-	}
-
-	return params
 }
 
 // ListWatched returns whichever of keys are still forge threads on a watched pull request, or every one when keys is nil.
@@ -219,19 +210,44 @@ func (s *ForgeThreadStore) ListWatched(ctx context.Context, keys []string) ([]Fo
 	}
 
 	return xslice.Map(rows, func(row *models.ForgeReviewThread) ForgeThread {
-		return ForgeThread{
-			ID:            row.ID,
-			PullRequestID: row.PullRequestID,
-			ProviderID:    row.ProviderID,
-			Path:          row.Path,
-			Line:          int(xptr.Deref(row.Line)),
-			OldSide:       row.OldSide,
-			CommitSHA:     row.CommitSha,
-			Quote:         row.Quote,
-			URL:           row.Url,
-			Resolved:      row.Resolved,
-			WrittenAt:     row.WrittenAt,
-			Comments:      byThread[row.ID],
-		}
+		return threadFromRow(row, byThread[row.ID])
 	}), nil
+}
+
+func toThreadUpsert(pullRequestID string, thread forge.ReviewThread) models.UpsertForgeReviewThreadParams {
+	params := models.UpsertForgeReviewThreadParams{
+		PullRequestID: pullRequestID,
+		ProviderID:    thread.ProviderID,
+		Path:          thread.Path,
+		OldSide:       thread.OldSide,
+		CommitSha:     thread.CommitSHA,
+		Quote:         thread.Quote,
+		Url:           thread.URL,
+		Resolved:      thread.Resolved,
+	}
+	if thread.Line > 0 {
+		params.Line = xptr.Ptr(int32(thread.Line))
+	}
+	if len(thread.Comments) > 0 {
+		params.WrittenAt = thread.Comments[0].WrittenAt
+	}
+
+	return params
+}
+
+func threadFromRow(row *models.ForgeReviewThread, comments []ForgeComment) ForgeThread {
+	return ForgeThread{
+		ID:            row.ID,
+		PullRequestID: row.PullRequestID,
+		ProviderID:    row.ProviderID,
+		Path:          row.Path,
+		Line:          int(xptr.Deref(row.Line)),
+		OldSide:       row.OldSide,
+		CommitSHA:     row.CommitSha,
+		Quote:         row.Quote,
+		URL:           row.Url,
+		Resolved:      row.Resolved,
+		WrittenAt:     row.WrittenAt,
+		Comments:      comments,
+	}
 }
