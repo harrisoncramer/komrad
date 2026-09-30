@@ -266,7 +266,7 @@ func latest(a, b time.Time) time.Time {
 	return a
 }
 
-// MarkDismissed stamps a forge thread dismissed, so the review stops counting it until a comment is written on it after now, or ErrNotFound.
+// MarkDismissed stamps a forge thread dismissed, or ErrNotFound.
 func (s *ForgeThreadStore) MarkDismissed(ctx context.Context, id string) error {
 	if !store.IsID(id) {
 		return store.ErrNotFound.Saying("no forge thread %s", id)

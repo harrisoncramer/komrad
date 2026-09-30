@@ -35,7 +35,7 @@ type DismissForgeThreadParams struct {
 	AgentID string
 }
 
-// DismissForgeThread marks a forge thread dismissed, still drawn but no longer counted until someone writes on it again, and is the person's alone.
+// DismissForgeThread marks a forge thread dismissed for the person.
 func (d *Dismisser) DismissForgeThread(ctx context.Context, params DismissForgeThreadParams) error {
 	if params.AgentID != "" {
 		return fmt.Errorf("%w: agent %s", ErrDismissHumanOnly, params.AgentID)

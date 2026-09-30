@@ -309,7 +309,7 @@ func (r reviewScreen) doesDismissOffer(s panelShared) bool {
 	return ok && !offer.GetDismissed()
 }
 
-// dismissOfferCmd marks the forge comment under the cursor dismissed, which only komrad keeps.
+// dismissOfferCmd marks the forge comment under the cursor dismissed.
 func (r reviewScreen) dismissOfferCmd(s panelShared) tea.Cmd {
 	offer, ok := r.offerAtCursor(s)
 	if !ok {
