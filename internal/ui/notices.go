@@ -74,8 +74,8 @@ var (
 
 // agentNotices orders the marks by how much each wants a person's attention, reading the row the
 // list would draw so a column the row leaves empty is a column the record says nothing about.
-func agentNotices(glyphs glyph.Set, loading string, r agentRow) []notice {
-	item, row := r.item, snapshotRow(r, snapshotParams{loader: loading})
+func agentNotices(glyphs glyph.Set, loaderFrame string, r agentRow) []notice {
+	item, row := r.item, snapshotRow(r, snapshotParams{loaderFrame: loaderFrame})
 
 	notices := appendCellNotice(nil, glyphs, view.StatusCell(row), failureSaid[displayState(item)])
 	notices = appendCellNotice(notices, glyphs, view.AlertCell(row), failedRunNotice)

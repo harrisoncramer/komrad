@@ -27,28 +27,32 @@ func (l loadingState) frame() string {
 	return l.style.Frame(l.step)
 }
 
-func (s screen) drawsLoaders() bool {
-	switch s {
-	case screenAgents, screenArchive, screenReview:
-		return true
-	case screenSchedules, screenSearch, screenWorktrees, screenDocuments, screenLogs:
-		return false
-	}
-
-	return false
+type loaderScreen interface {
+	isLoading(s panelShared) bool
 }
 
-func (m model) isLoading() bool {
-	if !m.screen.drawsLoaders() {
-		return false
-	}
+func (m *model) isLoading() bool {
+	screen, ok := m.active().(loaderScreen)
 
-	rows := m.listing.agents
-	if m.screen == screenArchive {
-		rows = m.listing.archivedAgents
-	}
+	return ok && screen.isLoading(m.shared())
+}
 
-	return slices.ContainsFunc(rows, isChecksRunning)
+func (a *agentsScreen) isLoading(s panelShared) bool {
+	return slices.ContainsFunc(a.rows(s), isRowLoading)
+}
+
+func (a *archiveScreen) isLoading(s panelShared) bool {
+	return a.kind == archiveAgents && slices.ContainsFunc(a.listRows(s), isRowLoading)
+}
+
+func (r reviewScreen) isLoading(s panelShared) bool {
+	item, ok := s.listing.liveAgent(r.agentID)
+
+	return ok && isChecksRunning(item)
+}
+
+func isRowLoading(r agentRow) bool {
+	return !r.header && isChecksRunning(r.item)
 }
 
 func isChecksRunning(row panel.AgentRow) bool {

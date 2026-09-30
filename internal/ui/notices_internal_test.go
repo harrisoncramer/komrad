@@ -276,7 +276,7 @@ func TestAgentNoticesSpeakForEveryColumnState(t *testing.T) {
 		}
 
 		want := 0
-		if !view.ForgeCell(view.Row{Kind: view.KindAgent, Forge: forge, Loader: "⠋"}).IsBlank() {
+		if !view.ForgeCell(view.Row{Kind: view.KindAgent, Forge: forge, LoaderFrame: "⠋"}).IsBlank() {
 			want = 1
 		}
 

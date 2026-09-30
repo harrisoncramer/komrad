@@ -88,7 +88,7 @@ func TestLoadGlyphs(t *testing.T) {
 			}
 			require.NoError(t, err)
 
-			assert.Equal(t, tt.loader, cfg.Glyphs.LoaderStyle())
+			assert.Equal(t, tt.loader, loader.Style(cfg.Glyphs.Loader))
 
 			set, err := cfg.Glyphs.Set()
 			require.NoError(t, err)

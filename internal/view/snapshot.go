@@ -131,10 +131,10 @@ type Row struct {
 	Status  Status
 	// Process says whether anything ever stood behind the row, which the bar leaves blank where
 	// nothing did and the weight greys once it has gone.
-	Process Process
-	Repo    Repo
-	Forge   Forge
-	Loader  string
+	Process     Process
+	Repo        Repo
+	Forge       Forge
+	LoaderFrame string
 	// ReviewerComments counts the comments reviewer agents left, nil while there are none to show.
 	ReviewerComments *Comments
 	// PersonComments counts the comments the person left, nil while there are none to show.

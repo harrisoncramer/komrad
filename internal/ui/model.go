@@ -8,6 +8,7 @@
 package ui
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"os"
@@ -370,7 +371,7 @@ func newModel(deps Deps, isDark bool, post *postbox) model {
 		screen:          screenAgents,
 		rowCursor:       newRowCursor(),
 		warm:            newWarmupState(),
-		loading:         loadingState{style: deps.Loader},
+		loading:         loadingState{style: cmp.Or(deps.Loader, loader.Braille)},
 		reactors:        newWorldReactors(),
 	}
 

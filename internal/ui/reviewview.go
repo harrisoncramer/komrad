@@ -400,7 +400,7 @@ func (r reviewScreen) details(s panelShared) details {
 
 	return details{
 		id:      agent.ID,
-		notices: agentNotices(s.glyphs, s.loader, row),
+		notices: agentNotices(s.glyphs, s.loaderFrame, row),
 		fields:  append(fields, r.fields()...),
 	}
 }
