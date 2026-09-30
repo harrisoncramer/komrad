@@ -2133,115 +2133,7 @@ func TestReviewHold(t *testing.T) {
 		assert.Contains(t, readReleaseSaid(t, harness), "greet.go")
 	})
 
-	t.Run("a pause the reader took is theirs to let go and keeps the files", func(t *testing.T) {
-		tests := []struct {
-			name       string
-			keys       []string
-			unreadable bool
-		}{
-			{
-				name:       "the diff becoming unreadable leaves the pause standing",
-				keys:       []string{"R"},
-				unreadable: true,
-			},
-			{
-				name: "closing the editor and leaving the screen leaves the pause standing",
-				keys: []string{"e", "esc"},
-			},
-		}
-
-		for _, tt := range tests {
-			t.Run(tt.name, func(t *testing.T) {
-				server := newReviewServer(t)
-				server.agent.HeldAt = heldAt
-				server.agent.State = agentv1.AgentState_AGENT_STATE_THINKING
-				harness := openReview(t, server)
-				harness.press("e")
-
-				if tt.unreadable {
-					server.repo.RootErr = gittest.ErrNoGit
-				}
-				harness.press(tt.keys...)
-				assert.Empty(t, harness.readSent(agentv1connect.AgentServiceHoldAgentProcedure))
-				assert.Empty(t, harness.readSent(agentv1connect.AgentServiceReleaseAgentProcedure))
-
-				harness.press("p")
-				assert.Contains(t, readReleaseSaid(t, harness), "greet.go")
-			})
-		}
-	})
-
-	t.Run("an unpause forgets the files it carried", func(t *testing.T) {
-		tests := []struct {
-			name    string
-			unpause []string
-		}{
-			{
-				name:    "one that told the agent about them",
-				unpause: []string{"p"},
-			},
-			{
-				name:    "one let go in silence",
-				unpause: []string{"P", "y"},
-			},
-		}
-
-		for _, tt := range tests {
-			t.Run(tt.name, func(t *testing.T) {
-				harness := openPausedReview(t, newReviewServer(t))
-				harness.press("e", "e", "esc")
-
-				harness.press(tt.unpause...)
-				harness.press("p")
-
-				sent := harness.readSent(agentv1connect.AgentServiceReleaseAgentProcedure)
-				require.Len(t, sent, 2)
-				again, _ := sent[1].(*agentv1.ReleaseAgentRequest)
-				assert.NotContains(t, again.GetSaid(), "greet.go")
-			})
-		}
-	})
-
-	t.Run("an unpause in silence says which files the agent was not told about", func(t *testing.T) {
-		harness := openPausedReview(t, newReviewServer(t))
-		harness.press("e", "e", "esc")
-
-		harness.press("P", "y", "ctrl+g")
-
-		prose := joinProse(splitLines(harness.readFrame()))
-		assert.Contains(t, prose, "auth: let go in s")
-		assert.Contains(t, prose, "tell it yourself about greet.go")
-	})
-
-	t.Run("a file opened while an unpause flew is kept for the next", func(t *testing.T) {
-		server := newReviewServer(t)
-		server.repo.Wrote(gittest.WroteParams{
-			Tree:  secondTree,
-			Whole: gittest.PatchOfBothFiles,
-			Sources: map[string]string{
-				gittest.File: gittest.HeadSource,
-				"second.go":  "package greet\n\nfunc Second() {}\n",
-			},
-		})
-		harness := openPausedReview(t, server)
-		harness.press("e", "e", "esc")
-		harness.hold(agentv1connect.AgentServiceReleaseAgentProcedure)
-		harness.press("p")
-
-		harness.press("space", "r", "/")
-		typeText(harness, "Second")
-		harness.press("enter", "e", "e", "esc")
-		harness.release(agentv1connect.AgentServiceReleaseAgentProcedure)
-		harness.press("p")
-
-		sent := harness.readSent(agentv1connect.AgentServiceReleaseAgentProcedure)
-		require.Len(t, sent, 2)
-		again, _ := sent[1].(*agentv1.ReleaseAgentRequest)
-		assert.Contains(t, again.GetSaid(), "second.go")
-		assert.NotContains(t, again.GetSaid(), "greet.go")
-	})
-
-	t.Run("a refused release at the end of a pass keeps the files for the next", func(t *testing.T) {
+	t.Run("a pause a refused release left standing is let go with the files on the next snapshot", func(t *testing.T) {
 		server := newReviewServer(t)
 		harness := openReview(t, server)
 		refusals := 1
@@ -2258,7 +2150,6 @@ func TestReviewHold(t *testing.T) {
 		harness.press("e", "e")
 		server.agent.HeldAt = heldAt
 		harness.watch(server.buildSnapshot())
-		harness.press("esc", "p")
 
 		sent := harness.readSent(agentv1connect.AgentServiceReleaseAgentProcedure)
 		require.Len(t, sent, 2)
@@ -2350,15 +2241,6 @@ func openReview(t *testing.T, server *reviewServer) *panelHarness {
 	t.Helper()
 
 	return openReviewAt(t, server, panelHarnessParams{})
-}
-
-func openPausedReview(t *testing.T, server *reviewServer) *panelHarness {
-	t.Helper()
-
-	server.agent.HeldAt = heldAt
-	server.agent.State = agentv1.AgentState_AGENT_STATE_THINKING
-
-	return openReview(t, server)
 }
 
 func openLongThread(t *testing.T) *panelHarness {

@@ -1666,9 +1666,9 @@ func TestAgentsLastScreen(t *testing.T) {
 			agent: newPausable(""),
 		},
 		{
-			name:          "a paused agent draws how to unpause it over its saved screen",
+			name:          "a paused agent draws that it is paused over its saved screen",
 			agent:         newPausable("1970-01-01T00:00:00Z"),
-			want:          []string{"paused · press p to unpause", "unpause in silence", "saved screen", "the migration is written"},
+			want:          []string{"paused", "saved screen", "the migration is written"},
 			wantScreenFor: []string{"a1"},
 		},
 		{
@@ -1679,7 +1679,7 @@ func TestAgentsLastScreen(t *testing.T) {
 
 				return agent
 			}(),
-			want:          []string{"paused · press p to unpause", "saved screen", "the migration is written"},
+			want:          []string{"paused", "saved screen", "the migration is written"},
 			wantAbsent:    []string{"dormant · press"},
 			wantScreenFor: []string{"a1"},
 		},
@@ -1793,13 +1793,11 @@ func TestAgentsEdit(t *testing.T) {
 		}
 	})
 
-	t.Run("the pause keys leave alone the agent being edited", func(t *testing.T) {
+	t.Run("a snapshot leaves alone the pause the editor holds", func(t *testing.T) {
 		harness := openAgents(t, newLiveWorkflow("w1", "backend"), newEditable(""))
 		said := recordRelease(harness)
 		harness.press("e")
 		harness.watch(buildSnapshot(newLiveWorkflow("w1", "backend"), newEditable(heldAt)))
-
-		harness.press("p", "P")
 		require.Empty(t, *said)
 
 		harness.press("e")
@@ -1823,38 +1821,17 @@ func TestAgentsEdit(t *testing.T) {
 		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceReleaseAgentProcedure))
 	})
 
-	t.Run("an agent that is not the editor's to stop is not let go", func(t *testing.T) {
-		tests := []struct {
-			name  string
-			agent *agentv1.Agent
-		}{
-			{
-				name:  "one you paused yourself",
-				agent: newEditable(heldAt),
-			},
-			{
-				name: "a dormant one",
-				agent: func() *agentv1.Agent {
-					agent := newEditable("")
-					agent.Alive = xptr.Ptr(false)
+	t.Run("a dormant agent is neither stopped nor let go", func(t *testing.T) {
+		agent := newEditable("")
+		agent.Alive = xptr.Ptr(false)
+		harness := openAgents(t, newLiveWorkflow("w1", "backend"), agent)
 
-					return agent
-				}(),
-			},
-		}
+		harness.press("e")
+		require.NotEmpty(t, harness.panel.ReadRespawns())
+		harness.press("e")
 
-		for _, tt := range tests {
-			t.Run(tt.name, func(t *testing.T) {
-				harness := openAgents(t, newLiveWorkflow("w1", "backend"), tt.agent)
-
-				harness.press("e")
-				require.NotEmpty(t, harness.panel.ReadRespawns())
-				harness.press("e")
-
-				assert.Empty(t, harness.readSent(agentv1connect.AgentServiceHoldAgentProcedure))
-				assert.Empty(t, harness.readSent(agentv1connect.AgentServiceReleaseAgentProcedure))
-			})
-		}
+		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceHoldAgentProcedure))
+		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceReleaseAgentProcedure))
 	})
 
 	t.Run("an agent that will not stop opens no editor", func(t *testing.T) {
@@ -1894,103 +1871,31 @@ func TestAgentsEdit(t *testing.T) {
 	})
 }
 
-// TestAgentsPause covers pausing an agent and letting it go again.
-func TestAgentsPause(t *testing.T) {
-	t.Run("pausing takes the agent and says nothing to it", func(t *testing.T) {
-		harness := openAgents(t, newLiveWorkflow("w1", "backend"), newPausable(""))
-
-		harness.press("p")
-
-		harness.assertSent(request{
-			procedure: agentv1connect.AgentServiceHoldAgentProcedure,
-			msg:       &agentv1.HoldAgentRequest{Id: "a1"},
-		})
-	})
-
-	t.Run("unpausing tells the agent to carry on", func(t *testing.T) {
-		harness := openAgents(t, newLiveWorkflow("w1", "backend"), newPausable(heldAt))
+// TestAgentsStrandedPause covers a pause no screen of the panel holds.
+func TestAgentsStrandedPause(t *testing.T) {
+	t.Run("the snapshot lets it go and tells it why", func(t *testing.T) {
+		harness := newPanelHarness(t, panelHarnessParams{})
+		answerWorktreeReads(harness)
 		said := recordRelease(harness)
 
-		harness.press("p")
+		harness.watch(buildSnapshot(newLiveWorkflow("w1", "backend"), newPausable(heldAt)))
 
 		require.Len(t, *said, 1)
 		assert.Equal(t, "a1", (*said)[0].GetId())
-		assert.NotEmpty(t, (*said)[0].GetSaid(), "an unpaused agent is told to carry on rather than left stopped")
+		assert.Contains(t, (*said)[0].GetSaid(), "lost track of the pause")
 	})
 
-	t.Run("unpausing in silence asks first", func(t *testing.T) {
-		tests := []struct {
-			name     string
-			answer   string
-			wantSent int
-		}{
-			{
-				name:   "declining keeps the hold",
-				answer: "n",
-			},
-			{
-				name:     "confirming lets it go without saying anything",
-				answer:   "y",
-				wantSent: 1,
-			},
-		}
-
-		for _, tt := range tests {
-			t.Run(tt.name, func(t *testing.T) {
-				harness := openAgents(t, newLiveWorkflow("w1", "backend"), newPausable(heldAt))
-				said := recordRelease(harness)
-
-				harness.press("P")
-				require.Empty(t, *said, "the key asks before it drops the words")
-
-				harness.press(tt.answer)
-
-				require.Len(t, *said, tt.wantSent)
-				if tt.wantSent > 0 {
-					assert.Equal(t, "a1", (*said)[0].GetId())
-					assert.Empty(t, (*said)[0].GetSaid(), "nothing is typed at an agent let go in silence")
-				}
-			})
-		}
-	})
-
-	t.Run("unpausing in silence is only for a paused agent", func(t *testing.T) {
+	t.Run("an agent nobody paused is left alone", func(t *testing.T) {
 		harness := openAgents(t, newLiveWorkflow("w1", "backend"), newPausable(""))
-		before := harness.readFrame()
 
-		harness.press("P")
-
-		assert.Equal(t, before, harness.readFrame(), "no prompt opens")
-		harness.assertSent()
-	})
-
-	t.Run("the open key does nothing for a paused agent", func(t *testing.T) {
-		harness := openAgents(t, newLiveWorkflow("w1", "backend"), newPausable(heldAt))
-
-		harness.press("enter")
-
-		harness.assertSent(request{
-			procedure: agentv1connect.AgentServiceGetLastScreenProcedure,
-			msg:       &agentv1.GetLastScreenRequest{AgentId: "a1"},
-		})
-		assert.Contains(t, harness.readFrame(), "Press unpause to let it carry on")
+		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceReleaseAgentProcedure))
 	})
 
 	t.Run("a paused agent draws its document in place of its pane", func(t *testing.T) {
 		harness := openAgents(t, newLiveWorkflow("w1", "backend"), newPausable(heldAt))
 
 		assert.True(t, harness.panel.IsZoomed(), "the panel keeps the window")
-		assert.Contains(t, harness.readFrame(), "Press unpause to let it carry on")
-	})
-
-	t.Run("the legend names the way out of a pause only on a paused row", func(t *testing.T) {
-		paused := openAgents(t, newLiveWorkflow("w1", "backend"), newPausable(heldAt))
-		paused.press(append(widenListPresses, "?")...)
-		assert.Contains(t, readLegend(paused.readFrame()), "unpause in silence")
-
-		loose := openAgents(t, newLiveWorkflow("w1", "backend"), newPausable(""))
-		loose.press(append(widenListPresses, "?")...)
-		assert.NotContains(t, readLegend(loose.readFrame()), "unpause in silence")
+		assert.Contains(t, harness.readFrame(), "Paused while its worktree is open in your editor")
 	})
 
 	tests := []struct {

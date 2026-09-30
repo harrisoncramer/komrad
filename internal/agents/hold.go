@@ -4,16 +4,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"komrad/internal/fail"
 	"komrad/internal/harness"
+	"komrad/internal/logging"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
 )
-
-// ErrReleaseRefused is a release that could not tell the agent to carry on, so the hold stands.
-var ErrReleaseRefused = fail.Precondition("the agent could not be told to carry on")
 
 // ErrNotHeld is a release of an agent nobody was holding.
 var ErrNotHeld = fail.Precondition("nobody is holding this agent")
@@ -108,8 +107,7 @@ type ReleaseParams struct {
 	Said string
 }
 
-// Release lets go of an agent, typing what happened into it only when the hold cut a turn short,
-// and keeping the hold when the agent's input box would not take the words.
+// Release lets go of an agent, typing what happened into it only when the hold cut a turn short.
 func (h *Holder) Release(ctx context.Context, params ReleaseParams) (*agentstore.Agent, error) {
 	agent, err := h.get(ctx, params.AgentID)
 	if err != nil {
@@ -122,12 +120,9 @@ func (h *Holder) Release(ctx context.Context, params ReleaseParams) (*agentstore
 
 	if agent.HeldMidTurn && params.Said != "" && agent.Pane != "" {
 		said, err := h.channel.Send(ctx, buildTarget(*agent), params.Said)
-		if err != nil {
-			return nil, fmt.Errorf("failed to say what changed to %q: %w", agent.Name, err)
-		}
-		if !said {
-			return nil, ErrReleaseRefused.Saying(
-				"%q could not be told to carry on, since its input box would not take the words, so unpause it in silence to let it go regardless", agent.Name)
+		if err != nil || !said {
+			logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "released a held agent without telling it what changed",
+				append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
 		}
 	}
 

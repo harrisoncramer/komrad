@@ -291,9 +291,8 @@ func TestHoldReadsThePaneRatherThanTheRow(t *testing.T) {
 	assert.True(t, held.HeldMidTurn, "so letting go has a turn to carry on with")
 }
 
-// TestReleaseKeepsTheHoldWhenTheBoxRefuses covers the box that will not take the words: letting go
-// there would leave an interrupted agent with nothing to carry on from and call it success.
-func TestReleaseKeepsTheHoldWhenTheBoxRefuses(t *testing.T) {
+// TestReleaseLetsGoWhenTheBoxRefuses covers the box that will not take the words.
+func TestReleaseLetsGoWhenTheBoxRefuses(t *testing.T) {
 	st := newStore(t)
 	agent := seed(t, st, "telescope", "%1", agentstore.StateThinking)
 
@@ -308,16 +307,14 @@ func TestReleaseKeepsTheHoldWhenTheBoxRefuses(t *testing.T) {
 
 	channel.RefuseSend = true
 
-	_, err = holder.Release(t.Context(), ReleaseParams{AgentID: agent.ID, Said: "carry on"})
-	require.ErrorIs(t, err, ErrReleaseRefused)
+	released, err := holder.Release(t.Context(), ReleaseParams{AgentID: agent.ID, Said: "carry on"})
+	require.NoError(t, err)
 
-	after := agentByID(t, st, agent.ID)
-	require.NotNil(t, after.HeldAt, "the hold stands, so pressing the key again is the recovery")
-	assert.True(t, after.HeldMidTurn)
+	assert.Nil(t, released.HeldAt, "a hold nobody can end would strand the agent")
+	assert.Empty(t, channel.Sent)
 }
 
-// TestReleasingInSilenceLetsGoOfAnInterruptedAgent covers the way out of a hold whose words have
-// nowhere to go, a release asking for nothing to be said letting go without touching the pane.
+// TestReleasingInSilenceLetsGoOfAnInterruptedAgent covers a release asking for nothing to be said.
 func TestReleasingInSilenceLetsGoOfAnInterruptedAgent(t *testing.T) {
 	st := newStore(t)
 	agent := seed(t, st, "telescope", "%1", agentstore.StateThinking)

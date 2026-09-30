@@ -805,7 +805,7 @@ service AgentService {
       cli: true
       mcp: true
       name: "release_agent"
-      description: "Let a held agent carry on, telling it what happened while it was held. Whatever you pass as said is typed into the agent as it starts again, which is how it learns that its files moved or that its work is no longer wanted. An empty said releases it in silence. If the agent's input would not take the words, the hold still stands: call again with said empty to release it without typing at it."
+      description: "Let a held agent carry on, telling it what happened while it was held. Whatever you pass as said is typed into the agent as it starts again, which is how it learns that its files moved or that its work is no longer wanted. An empty said releases it in silence. If the agent.s input would not take the words, it is released without them."
       destructive: false
       roles: [ROLE_ORCHESTRATOR]
     };

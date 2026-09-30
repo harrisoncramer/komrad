@@ -182,13 +182,6 @@ func (a api) setHidden(agent panel.Agent, hidden bool) error {
 	})
 }
 
-// hold stops an agent so the person may take its worktree.
-func (a api) hold(agent panel.Agent) error {
-	return mutate(func(ctx context.Context) (any, error) {
-		return a.agents.HoldAgent(ctx, connect.NewRequest(&agentv1.HoldAgentRequest{Id: agent.ID}))
-	})
-}
-
 // startOrchestrator brings a workflow's orchestrator back, starting the one it has never had.
 func (a api) startOrchestrator(workflowID string) (*agentv1.Agent, error) {
 	return call(createAgentTimeout, func(ctx context.Context) (*agentv1.Agent, error) {

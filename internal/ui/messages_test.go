@@ -387,14 +387,6 @@ func TestMessagesRefusedWrites(t *testing.T) {
 			press:       []string{"j", "enter"},
 			wantSummary: `Could not resume agent "api-refactor"`,
 		},
-		{
-			name:        "a refused pause",
-			agent:       newPausable(""),
-			refused:     agentv1connect.AgentServiceHoldAgentProcedure,
-			reason:      `"telescope" would not stop`,
-			press:       []string{"j", "p"},
-			wantSummary: `Could not pause agent "telescope"`,
-		},
 	}
 
 	for _, tt := range tests {

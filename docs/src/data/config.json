@@ -204,20 +204,6 @@
               "default": "[\"e\"]"
             },
             {
-              "key": "pause",
-              "path": "keybindings.agents.pause",
-              "type": "array",
-              "description": "Pause the hovered agent where it stands, or unpause one you have already paused. Komrad\nwaits for the agent to come to rest before it claims the worktree, and refuses rather than\nclaiming it when the agent will not stop or its pane cannot be read.",
-              "default": "[\"p\"]"
-            },
-            {
-              "key": "release_silently",
-              "path": "keybindings.agents.release_silently",
-              "type": "array",
-              "description": "Unpause the hovered agent without typing anything at it, which is the way out of a pause\nwhose agent will not take the words komrad normally sends it.",
-              "default": "[\"P\"]"
-            },
-            {
               "key": "hide",
               "path": "keybindings.agents.hide",
               "type": "array",
