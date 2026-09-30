@@ -283,7 +283,7 @@ func TestQueryCannotReadForgeComments(t *testing.T) {
 		},
 		{
 			name: "the threads",
-			sql:  "SELECT diff_hunk FROM forge_review_threads",
+			sql:  "SELECT path FROM forge_review_threads",
 		},
 		{
 			name: "the comments through a common table expression",

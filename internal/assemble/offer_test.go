@@ -19,6 +19,8 @@ func offer(id, pullRequestID string, writtenAgo time.Duration, set ...func(*pull
 	thread := &pullrequestv1.ForgeThread{
 		Id:            id,
 		PullRequestId: pullRequestID,
+		Path:          "main.go",
+		Line:          3,
 		WrittenAt:     stamp(-writtenAgo),
 		Comments:      []*pullrequestv1.ForgeComment{{Id: id + "-c", AuthorLogin: "dana"}},
 	}
@@ -33,6 +35,14 @@ func resolved(thread *pullrequestv1.ForgeThread) { thread.Resolved = true }
 
 func fromBot(thread *pullrequestv1.ForgeThread) { thread.Comments[0].Bot = true }
 
+func fromYou(thread *pullrequestv1.ForgeThread) { thread.Comments[0].Yours = true }
+
+func onTheWhole(thread *pullrequestv1.ForgeThread) { thread.Path, thread.Line = "", 0 }
+
+func answeredByDana(thread *pullrequestv1.ForgeThread) {
+	thread.Comments = append(thread.Comments, &pullrequestv1.ForgeComment{Id: thread.GetId() + "-r", AuthorLogin: "dana"})
+}
+
 func offers(threads ...*pullrequestv1.ForgeThread) map[string]*pullrequestv1.ForgeThread {
 	rows := map[string]*pullrequestv1.ForgeThread{}
 	for _, thread := range threads {
@@ -42,7 +52,7 @@ func offers(threads ...*pullrequestv1.ForgeThread) map[string]*pullrequestv1.For
 	return rows
 }
 
-// TestAgentRowsOfferCounts leaves resolved threads, bots and other pull requests out of the external count.
+// TestAgentRowsOfferCounts counts only open line threads a person other than the viewer started on the current pull request.
 func TestAgentRowsOfferCounts(t *testing.T) {
 	t.Parallel()
 
@@ -79,6 +89,22 @@ func TestAgentRowsOfferCounts(t *testing.T) {
 			name:        "only bot offers draw nothing",
 			pullRequest: open,
 			threads:     []*pullrequestv1.ForgeThread{offer("f1", "p1", time.Hour, fromBot)},
+		},
+		{
+			name:        "a bot thread a person answered counts",
+			pullRequest: open,
+			threads:     []*pullrequestv1.ForgeThread{offer("f1", "p1", time.Hour, fromBot, answeredByDana)},
+			want:        &agentv1.CommentCounts{External: 1},
+		},
+		{
+			name:        "comments on the change as a whole are left out",
+			pullRequest: open,
+			threads:     []*pullrequestv1.ForgeThread{offer("f1", "p1", time.Hour, onTheWhole)},
+		},
+		{
+			name:        "threads the person started are left out",
+			pullRequest: open,
+			threads:     []*pullrequestv1.ForgeThread{offer("f1", "p1", time.Hour, fromYou)},
 		},
 		{
 			name:        "offers on a finished pull request are not counted",

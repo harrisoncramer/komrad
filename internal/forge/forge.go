@@ -23,8 +23,8 @@ var ErrNotPullRequest = fail.InvalidArgument("not a pull request on this forge")
 // ErrUnauthorized says the forge refused the credential.
 var ErrUnauthorized = fail.Denied("the forge refused the credential")
 
-// ErrTooManyPullRequests says one call asked about more pull requests than it may.
-var ErrTooManyPullRequests = fail.InvalidArgument("too many pull requests for one call")
+// ErrTooManyStandings says one Standings call asked about more pull requests than it may.
+var ErrTooManyStandings = fail.InvalidArgument("too many standings for one call")
 
 // ErrNotMergeable says the forge refused to merge a pull request.
 var ErrNotMergeable = fail.Precondition("the forge will not merge the pull request")
@@ -194,18 +194,16 @@ type Forge interface {
 	// Standings is where the forge says the reviews, checks and mergeability of up to fifty
 	// pull requests stand, by number, leaving out any the forge does not have.
 	Standings(ctx context.Context, repo git.RemoteURL, numbers []int) (map[int]Standing, error)
-	// CommentMarks is a fingerprint of the comments on up to fifty pull requests, by number.
-	CommentMarks(ctx context.Context, repo git.RemoteURL, numbers []int) (map[int]string, error)
-	// ReviewThreads is every review thread on one pull request with the comments it holds.
-	ReviewThreads(ctx context.Context, repo git.RemoteURL, number int) ([]ReviewThread, error)
+	// ReviewThreads is the review threads on one pull request with the comments they hold.
+	ReviewThreads(ctx context.Context, repo git.RemoteURL, number int) (*Threads, error)
 	// Merge lands the pull request at the web address on its base.
 	Merge(ctx context.Context, url string) error
 	// SetDraft marks the pull request at the web address a draft, or ready for review.
 	SetDraft(ctx context.Context, url string, draft bool) error
 }
 
-// MaxPullRequestsPerCall is the most pull requests one Standings or CommentMarks call asks about.
-const MaxPullRequestsPerCall = 50
+// MaxStandings is the most pull requests one Standings call asks about.
+const MaxStandings = 50
 
 // ListParams says which pull requests to list and where in them to start.
 type ListParams struct {

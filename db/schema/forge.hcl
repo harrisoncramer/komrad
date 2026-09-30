@@ -212,16 +212,6 @@ table "pull_requests" {
     type    = text
     comment = "The review decision as the forge last reported it when it reported anything, which a blank reading leaves alone."
   }
-  column "comments_mark" {
-    null    = true
-    type    = text
-    comment = "What the forge last said about the pull request's comments in its cheap check, the thread count and the latest comment's stamp run together. The comment sync reads the threads again only when this moves."
-  }
-  column "comments_read_at" {
-    null    = true
-    type    = timestamptz
-    comment = "When the comment sync last read the pull request's review threads whole, which paces the re-read that catches a resolution the cheap check cannot see."
-  }
   column "engine_id" {
     null    = false
     type    = uuid
@@ -414,7 +404,7 @@ table "forge_review_threads" {
   column "provider_id" {
     null    = false
     type    = text
-    comment = "The forge's own identifier for the thread: a review thread's node id on GitHub, a discussion id on GitLab, or the comment's own id for a comment on the change as a whole."
+    comment = "The forge's own identifier for the thread: a review thread's node id, or the comment's own id for a comment on the change as a whole."
   }
   column "path" {
     null    = false
@@ -422,54 +412,21 @@ table "forge_review_threads" {
     default = ""
     comment = "The file the thread was written on, empty for a comment on the change as a whole."
   }
-  column "side" {
+  column "line" {
+    null    = true
+    type    = integer
+    comment = "The line of the file the thread was written against, null for a comment on the change as a whole."
+  }
+  column "url" {
     null    = false
     type    = text
     default = ""
-    comment = "Which side of the diff the lines were counted on: old, new, or empty for a comment on the change as a whole."
-  }
-  column "commit_sha" {
-    null    = false
-    type    = text
-    default = ""
-    comment = "The pushed commit the forge pinned the thread to, empty when it named none."
-  }
-  column "base_sha" {
-    null    = false
-    type    = text
-    default = ""
-    comment = "The commit the pull request measured from when the thread was read, which is the other end of the diff the thread was written against."
-  }
-  column "start_line" {
-    null = true
-    type = integer
-  }
-  column "end_line" {
-    null = true
-    type = integer
-  }
-  column "diff_hunk" {
-    null    = false
-    type    = text
-    default = ""
-    comment = "The stretch of the diff the forge quotes above the thread, ending on the line it was written against."
-  }
-  column "quoted_lines" {
-    null    = false
-    type    = sql("text[]")
-    default = sql("'{}'::text[]")
-    comment = "The lines the thread was written against, read out of the diff hunk without their diff markers. The panel places the thread where these lines appear exactly once."
+    comment = "The web address of the thread's first comment on the forge."
   }
   column "resolved" {
     null    = false
     type    = boolean
     default = false
-  }
-  column "outdated" {
-    null    = false
-    type    = boolean
-    default = false
-    comment = "Whether the forge says the code under the thread has changed since it was written."
   }
   column "written_at" {
     null    = false
@@ -543,7 +500,13 @@ table "forge_review_comments" {
     null    = false
     type    = boolean
     default = false
-    comment = "Whether the forge says the author is a bot. Logins the config names as bots are recognised when the row is drawn, not here."
+    comment = "Whether the forge says the author is a bot."
+  }
+  column "yours" {
+    null    = false
+    type    = boolean
+    default = false
+    comment = "Whether the author is the login the forge connection was verified as."
   }
   column "body" {
     null = false

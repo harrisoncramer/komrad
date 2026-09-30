@@ -46,13 +46,12 @@ const listCommentSyncPullRequests = `-- name: ListCommentSyncPullRequests :many
 SELECT
     p.id,
     p.repository_url,
-    p.number,
-    p.comments_mark,
-    p.comments_read_at
+    p.number
 FROM
     pull_requests p
 WHERE
-    p.merged_at IS NULL
+    p.forge = 'github'
+    AND p.merged_at IS NULL
     AND p.closed_at IS NULL
     AND EXISTS (
         SELECT
@@ -65,17 +64,14 @@ WHERE
             AND a.archived_at IS NULL
             AND a.deleting_at IS NULL)
 ORDER BY
-    p.host,
     p.repository_url,
     p.number
 `
 
 type ListCommentSyncPullRequestsRow struct {
-	ID             string
-	RepositoryUrl  string
-	Number         int32
-	CommentsMark   *string
-	CommentsReadAt *time.Time
+	ID            string
+	RepositoryUrl string
+	Number        int32
 }
 
 func (q *Queries) ListCommentSyncPullRequests(ctx context.Context) ([]*ListCommentSyncPullRequestsRow, error) {
@@ -87,13 +83,7 @@ func (q *Queries) ListCommentSyncPullRequests(ctx context.Context) ([]*ListComme
 	var items []*ListCommentSyncPullRequestsRow
 	for rows.Next() {
 		var i ListCommentSyncPullRequestsRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.RepositoryUrl,
-			&i.Number,
-			&i.CommentsMark,
-			&i.CommentsReadAt,
-		); err != nil {
+		if err := rows.Scan(&i.ID, &i.RepositoryUrl, &i.Number); err != nil {
 			return nil, err
 		}
 		items = append(items, &i)
@@ -106,7 +96,7 @@ func (q *Queries) ListCommentSyncPullRequests(ctx context.Context) ([]*ListComme
 
 const listForgeReviewCommentsOfThreads = `-- name: ListForgeReviewCommentsOfThreads :many
 SELECT
-    c.id, c.thread_id, c.provider_id, c.author_login, c.author_is_bot, c.body, c.written_at, c.edited_at, c.created_at, c.updated_at, c.engine_id
+    c.id, c.thread_id, c.provider_id, c.author_login, c.author_is_bot, c.yours, c.body, c.written_at, c.edited_at, c.created_at, c.updated_at, c.engine_id
 FROM
     forge_review_comments c
 WHERE
@@ -132,6 +122,7 @@ func (q *Queries) ListForgeReviewCommentsOfThreads(ctx context.Context, threadId
 			&i.ProviderID,
 			&i.AuthorLogin,
 			&i.AuthorIsBot,
+			&i.Yours,
 			&i.Body,
 			&i.WrittenAt,
 			&i.EditedAt,
@@ -188,7 +179,7 @@ func (q *Queries) ListForgeReviewThreadIDs(ctx context.Context, pullRequestID st
 
 const listWatchedForgeReviewThreads = `-- name: ListWatchedForgeReviewThreads :many
 SELECT
-    t.id, t.pull_request_id, t.provider_id, t.path, t.side, t.commit_sha, t.base_sha, t.start_line, t.end_line, t.diff_hunk, t.quoted_lines, t.resolved, t.outdated, t.written_at, t.created_at, t.updated_at, t.engine_id
+    t.id, t.pull_request_id, t.provider_id, t.path, t.line, t.url, t.resolved, t.written_at, t.created_at, t.updated_at, t.engine_id
 FROM
     forge_review_threads t
 WHERE
@@ -219,15 +210,9 @@ func (q *Queries) ListWatchedForgeReviewThreads(ctx context.Context, keys []stri
 			&i.PullRequestID,
 			&i.ProviderID,
 			&i.Path,
-			&i.Side,
-			&i.CommitSha,
-			&i.BaseSha,
-			&i.StartLine,
-			&i.EndLine,
-			&i.DiffHunk,
-			&i.QuotedLines,
+			&i.Line,
+			&i.Url,
 			&i.Resolved,
-			&i.Outdated,
 			&i.WrittenAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
@@ -243,33 +228,13 @@ func (q *Queries) ListWatchedForgeReviewThreads(ctx context.Context, keys []stri
 	return items, nil
 }
 
-const markPullRequestCommentsRead = `-- name: MarkPullRequestCommentsRead :exec
-UPDATE
-    pull_requests
-SET
-    comments_mark = $1,
-    comments_read_at = $2
-WHERE
-    id = $3
-`
-
-type MarkPullRequestCommentsReadParams struct {
-	CommentsMark *string
-	ReadAt       *time.Time
-	ID           string
-}
-
-func (q *Queries) MarkPullRequestCommentsRead(ctx context.Context, arg MarkPullRequestCommentsReadParams) error {
-	_, err := q.db.Exec(ctx, markPullRequestCommentsRead, arg.CommentsMark, arg.ReadAt, arg.ID)
-	return err
-}
-
 const upsertForgeReviewComment = `-- name: UpsertForgeReviewComment :exec
 INSERT INTO forge_review_comments(
     thread_id,
     provider_id,
     author_login,
     author_is_bot,
+    yours,
     body,
     written_at,
     edited_at)
@@ -280,7 +245,8 @@ VALUES (
     $4,
     $5,
     $6,
-    $7)
+    $7,
+    $8)
 ON CONFLICT (
     engine_id,
     thread_id,
@@ -288,16 +254,19 @@ ON CONFLICT (
     DO UPDATE SET
         author_login = excluded.author_login,
         author_is_bot = excluded.author_is_bot,
+        yours = excluded.yours,
         body = excluded.body,
         written_at = excluded.written_at,
         edited_at = excluded.edited_at
     WHERE (forge_review_comments.author_login,
         forge_review_comments.author_is_bot,
+        forge_review_comments.yours,
         forge_review_comments.body,
         forge_review_comments.written_at,
         forge_review_comments.edited_at)
     IS DISTINCT FROM (excluded.author_login,
         excluded.author_is_bot,
+        excluded.yours,
         excluded.body,
         excluded.written_at,
         excluded.edited_at)
@@ -308,6 +277,7 @@ type UpsertForgeReviewCommentParams struct {
 	ProviderID  string
 	AuthorLogin string
 	AuthorIsBot bool
+	Yours       bool
 	Body        string
 	WrittenAt   time.Time
 	EditedAt    *time.Time
@@ -319,6 +289,7 @@ func (q *Queries) UpsertForgeReviewComment(ctx context.Context, arg UpsertForgeR
 		arg.ProviderID,
 		arg.AuthorLogin,
 		arg.AuthorIsBot,
+		arg.Yours,
 		arg.Body,
 		arg.WrittenAt,
 		arg.EditedAt,
@@ -331,15 +302,9 @@ INSERT INTO forge_review_threads(
     pull_request_id,
     provider_id,
     path,
-    side,
-    commit_sha,
-    base_sha,
-    start_line,
-    end_line,
-    diff_hunk,
-    quoted_lines,
+    line,
+    url,
     resolved,
-    outdated,
     written_at)
 VALUES (
     $1,
@@ -348,50 +313,26 @@ VALUES (
     $4,
     $5,
     $6,
-    $7,
-    $8,
-    $9,
-    $10::text[],
-    $11,
-    $12,
-    $13)
+    $7)
 ON CONFLICT (
     engine_id,
     pull_request_id,
     provider_id)
     DO UPDATE SET
         path = excluded.path,
-        side = excluded.side,
-        commit_sha = excluded.commit_sha,
-        base_sha = excluded.base_sha,
-        start_line = excluded.start_line,
-        end_line = excluded.end_line,
-        diff_hunk = excluded.diff_hunk,
-        quoted_lines = excluded.quoted_lines,
+        line = excluded.line,
+        url = excluded.url,
         resolved = excluded.resolved,
-        outdated = excluded.outdated,
         written_at = excluded.written_at
     WHERE (forge_review_threads.path,
-        forge_review_threads.side,
-        forge_review_threads.commit_sha,
-        forge_review_threads.base_sha,
-        forge_review_threads.start_line,
-        forge_review_threads.end_line,
-        forge_review_threads.diff_hunk,
-        forge_review_threads.quoted_lines,
+        forge_review_threads.line,
+        forge_review_threads.url,
         forge_review_threads.resolved,
-        forge_review_threads.outdated,
         forge_review_threads.written_at)
     IS DISTINCT FROM (excluded.path,
-        excluded.side,
-        excluded.commit_sha,
-        excluded.base_sha,
-        excluded.start_line,
-        excluded.end_line,
-        excluded.diff_hunk,
-        excluded.quoted_lines,
+        excluded.line,
+        excluded.url,
         excluded.resolved,
-        excluded.outdated,
         excluded.written_at)
 `
 
@@ -399,15 +340,9 @@ type UpsertForgeReviewThreadParams struct {
 	PullRequestID string
 	ProviderID    string
 	Path          string
-	Side          string
-	CommitSha     string
-	BaseSha       string
-	StartLine     *int32
-	EndLine       *int32
-	DiffHunk      string
-	QuotedLines   []string
+	Line          *int32
+	Url           string
 	Resolved      bool
-	Outdated      bool
 	WrittenAt     time.Time
 }
 
@@ -416,15 +351,9 @@ func (q *Queries) UpsertForgeReviewThread(ctx context.Context, arg UpsertForgeRe
 		arg.PullRequestID,
 		arg.ProviderID,
 		arg.Path,
-		arg.Side,
-		arg.CommitSha,
-		arg.BaseSha,
-		arg.StartLine,
-		arg.EndLine,
-		arg.DiffHunk,
-		arg.QuotedLines,
+		arg.Line,
+		arg.Url,
 		arg.Resolved,
-		arg.Outdated,
 		arg.WrittenAt,
 	)
 	return err

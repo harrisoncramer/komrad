@@ -2,13 +2,12 @@
 SELECT
     p.id,
     p.repository_url,
-    p.number,
-    p.comments_mark,
-    p.comments_read_at
+    p.number
 FROM
     pull_requests p
 WHERE
-    p.merged_at IS NULL
+    p.forge = 'github'
+    AND p.merged_at IS NULL
     AND p.closed_at IS NULL
     AND EXISTS (
         SELECT
@@ -21,47 +20,25 @@ WHERE
             AND a.archived_at IS NULL
             AND a.deleting_at IS NULL)
 ORDER BY
-    p.host,
     p.repository_url,
     p.number;
-
--- name: MarkPullRequestCommentsRead :exec
-UPDATE
-    pull_requests
-SET
-    comments_mark = @comments_mark,
-    comments_read_at = @read_at
-WHERE
-    id = @id;
 
 -- name: UpsertForgeReviewThread :exec
 INSERT INTO forge_review_threads(
     pull_request_id,
     provider_id,
     path,
-    side,
-    commit_sha,
-    base_sha,
-    start_line,
-    end_line,
-    diff_hunk,
-    quoted_lines,
+    line,
+    url,
     resolved,
-    outdated,
     written_at)
 VALUES (
     @pull_request_id,
     @provider_id,
     @path,
-    @side,
-    @commit_sha,
-    @base_sha,
-    sqlc.narg('start_line'),
-    sqlc.narg('end_line'),
-    @diff_hunk,
-    @quoted_lines::text[],
+    sqlc.narg('line'),
+    @url,
     @resolved,
-    @outdated,
     @written_at)
 ON CONFLICT (
     engine_id,
@@ -69,37 +46,19 @@ ON CONFLICT (
     provider_id)
     DO UPDATE SET
         path = excluded.path,
-        side = excluded.side,
-        commit_sha = excluded.commit_sha,
-        base_sha = excluded.base_sha,
-        start_line = excluded.start_line,
-        end_line = excluded.end_line,
-        diff_hunk = excluded.diff_hunk,
-        quoted_lines = excluded.quoted_lines,
+        line = excluded.line,
+        url = excluded.url,
         resolved = excluded.resolved,
-        outdated = excluded.outdated,
         written_at = excluded.written_at
     WHERE (forge_review_threads.path,
-        forge_review_threads.side,
-        forge_review_threads.commit_sha,
-        forge_review_threads.base_sha,
-        forge_review_threads.start_line,
-        forge_review_threads.end_line,
-        forge_review_threads.diff_hunk,
-        forge_review_threads.quoted_lines,
+        forge_review_threads.line,
+        forge_review_threads.url,
         forge_review_threads.resolved,
-        forge_review_threads.outdated,
         forge_review_threads.written_at)
     IS DISTINCT FROM (excluded.path,
-        excluded.side,
-        excluded.commit_sha,
-        excluded.base_sha,
-        excluded.start_line,
-        excluded.end_line,
-        excluded.diff_hunk,
-        excluded.quoted_lines,
+        excluded.line,
+        excluded.url,
         excluded.resolved,
-        excluded.outdated,
         excluded.written_at);
 
 -- name: ListForgeReviewThreadIDs :many
@@ -124,6 +83,7 @@ INSERT INTO forge_review_comments(
     provider_id,
     author_login,
     author_is_bot,
+    yours,
     body,
     written_at,
     edited_at)
@@ -132,6 +92,7 @@ VALUES (
     @provider_id,
     @author_login,
     @author_is_bot,
+    @yours,
     @body,
     @written_at,
     sqlc.narg('edited_at'))
@@ -142,16 +103,19 @@ ON CONFLICT (
     DO UPDATE SET
         author_login = excluded.author_login,
         author_is_bot = excluded.author_is_bot,
+        yours = excluded.yours,
         body = excluded.body,
         written_at = excluded.written_at,
         edited_at = excluded.edited_at
     WHERE (forge_review_comments.author_login,
         forge_review_comments.author_is_bot,
+        forge_review_comments.yours,
         forge_review_comments.body,
         forge_review_comments.written_at,
         forge_review_comments.edited_at)
     IS DISTINCT FROM (excluded.author_login,
         excluded.author_is_bot,
+        excluded.yours,
         excluded.body,
         excluded.written_at,
         excluded.edited_at);

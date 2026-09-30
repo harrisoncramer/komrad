@@ -520,9 +520,11 @@ type ForgeReviewComment struct {
 	ProviderID string
 	// The forge login of whoever wrote the comment, empty when the forge no longer knows them.
 	AuthorLogin string
-	// Whether the forge says the author is a bot. Logins the config names as bots are recognised when the row is drawn, not here.
+	// Whether the forge says the author is a bot.
 	AuthorIsBot bool
-	Body        string
+	// Whether the author is the login the forge connection was verified as.
+	Yours bool
+	Body  string
 	// When the comment was written on the forge.
 	WrittenAt time.Time
 	// When the comment was last edited on the forge, null while it never has been.
@@ -537,25 +539,15 @@ type ForgeReviewComment struct {
 type ForgeReviewThread struct {
 	ID            string
 	PullRequestID string
-	// The forge's own identifier for the thread: a review thread's node id on GitHub, a discussion id on GitLab, or the comment's own id for a comment on the change as a whole.
+	// The forge's own identifier for the thread: a review thread's node id, or the comment's own id for a comment on the change as a whole.
 	ProviderID string
 	// The file the thread was written on, empty for a comment on the change as a whole.
 	Path string
-	// Which side of the diff the lines were counted on: old, new, or empty for a comment on the change as a whole.
-	Side string
-	// The pushed commit the forge pinned the thread to, empty when it named none.
-	CommitSha string
-	// The commit the pull request measured from when the thread was read, which is the other end of the diff the thread was written against.
-	BaseSha   string
-	StartLine *int32
-	EndLine   *int32
-	// The stretch of the diff the forge quotes above the thread, ending on the line it was written against.
-	DiffHunk string
-	// The lines the thread was written against, read out of the diff hunk without their diff markers. The panel places the thread where these lines appear exactly once.
-	QuotedLines []string
-	Resolved    bool
-	// Whether the forge says the code under the thread has changed since it was written.
-	Outdated bool
+	// The line of the file the thread was written against, null for a comment on the change as a whole.
+	Line *int32
+	// The web address of the thread's first comment on the forge.
+	Url      string
+	Resolved bool
 	// When the thread's first comment was written on the forge.
 	WrittenAt time.Time
 	CreatedAt time.Time
@@ -642,10 +634,6 @@ type PullRequest struct {
 	LastKnownDecision *string
 	// The head commit last_known_checks was read for. The same checks on a new head are a fresh verdict, so an event compares this too.
 	LastKnownChecksSha *string
-	// What the forge last said about the pull request's comments in its cheap check, the thread count and the latest comment's stamp run together. The comment sync reads the threads again only when this moves.
-	CommentsMark *string
-	// When the comment sync last read the pull request's review threads whole, which paces the re-read that catches a resolution the cheap check cannot see.
-	CommentsReadAt *time.Time
 }
 
 // Where the pull request sync is for one repository: the high-water mark the changes have been read through, the first sweep in progress if one is, and what the last pass cost.

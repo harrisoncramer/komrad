@@ -739,7 +739,7 @@ func (s *PullRequestSyncer) readStandings(ctx context.Context, host *hostRead, r
 	for len(stale) > 0 && counts.budget > 0 {
 		counts.budget--
 
-		batch := stale[:min(len(stale), forge.MaxPullRequestsPerCall)]
+		batch := stale[:min(len(stale), forge.MaxStandings)]
 		stale = stale[len(batch):]
 		numbers := xslice.Map(batch, func(pullRequest pullrequeststore.PullRequest) int {
 			return pullRequest.Number

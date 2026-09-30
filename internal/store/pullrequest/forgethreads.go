@@ -27,13 +27,11 @@ var WatchedForgeThreads = watch.Resource{
 	},
 }
 
-// CommentSyncTarget is an open pull request a live agent is linked to, and what the comment sync last read of it.
+// CommentSyncTarget is an open pull request a live agent is linked to.
 type CommentSyncTarget struct {
 	ID            string
 	RepositoryURL string
 	Number        int
-	Mark          string
-	ReadAt        *time.Time
 }
 
 // ForgeThread is one review thread as the forge holds it, with its comments oldest first.
@@ -42,14 +40,9 @@ type ForgeThread struct {
 	PullRequestID string
 	ProviderID    string
 	Path          string
-	Side          forge.Side
-	CommitSHA     string
-	BaseSHA       string
-	StartLine     int
-	EndLine       int
-	QuotedLines   []string
+	Line          int
+	URL           string
 	Resolved      bool
-	Outdated      bool
 	WrittenAt     time.Time
 	Comments      []ForgeComment
 }
@@ -60,17 +53,18 @@ type ForgeComment struct {
 	ProviderID  string
 	AuthorLogin string
 	AuthorIsBot bool
+	Yours       bool
 	Body        string
 	WrittenAt   time.Time
 	EditedAt    *time.Time
 }
 
-// SetThreadsParams is every thread the forge holds on one pull request, and the mark it was read under.
+// SetThreadsParams is what the forge answered for one pull request's threads, read as Viewer.
 type SetThreadsParams struct {
 	PullRequestID string
-	Mark          string
-	ReadAt        time.Time
+	Viewer        string
 	Threads       []forge.ReviewThread
+	Prune         bool
 }
 
 // ForgeThreadStore holds the forge's copy of the review threads on the pull requests agents are linked to.
@@ -83,7 +77,7 @@ func NewForgeThreadStore(db store.DBTX) *ForgeThreadStore {
 	return &ForgeThreadStore{queries: models.New(db)}
 }
 
-// ListCommentSyncTargets returns every open pull request a live agent is linked to, drafts included.
+// ListCommentSyncTargets returns every open GitHub pull request a live agent is linked to, drafts included.
 func (s *ForgeThreadStore) ListCommentSyncTargets(ctx context.Context) ([]CommentSyncTarget, error) {
 	rows, err := s.queries.ListCommentSyncPullRequests(ctx)
 	if err != nil {
@@ -95,27 +89,25 @@ func (s *ForgeThreadStore) ListCommentSyncTargets(ctx context.Context) ([]Commen
 			ID:            row.ID,
 			RepositoryURL: row.RepositoryUrl,
 			Number:        int(row.Number),
-			Mark:          xptr.Deref(row.CommentsMark),
-			ReadAt:        row.CommentsReadAt,
 		}
 	}), nil
 }
 
-// SetThreads writes every thread and comment the forge holds on a pull request, removes the ones it no longer does, and records the read.
+// SetThreads writes every thread and comment the forge answered on a pull request, and when Prune is set removes the ones it no longer holds.
 func (s *ForgeThreadStore) SetThreads(ctx context.Context, params SetThreadsParams) error {
-	kept := make([]string, 0, len(params.Threads))
 	for _, thread := range params.Threads {
-		kept = append(kept, thread.ProviderID)
 		if err := s.queries.UpsertForgeReviewThread(ctx, toThreadUpsert(params.PullRequestID, thread)); err != nil {
 			return fmt.Errorf("failed to write forge thread %s: %w", thread.ProviderID, err)
 		}
 	}
 
-	if err := s.queries.DeleteForgeReviewThreadsExcept(ctx, models.DeleteForgeReviewThreadsExceptParams{
-		PullRequestID: params.PullRequestID,
-		Kept:          kept,
-	}); err != nil {
-		return fmt.Errorf("failed to remove the forge threads of pull request %s: %w", params.PullRequestID, err)
+	if params.Prune {
+		if err := s.queries.DeleteForgeReviewThreadsExcept(ctx, models.DeleteForgeReviewThreadsExceptParams{
+			PullRequestID: params.PullRequestID,
+			Kept:          xslice.Map(params.Threads, func(thread forge.ReviewThread) string { return thread.ProviderID }),
+		}); err != nil {
+			return fmt.Errorf("failed to remove the forge threads of pull request %s: %w", params.PullRequestID, err)
+		}
 	}
 
 	held, err := s.queries.ListForgeReviewThreadIDs(ctx, params.PullRequestID)
@@ -129,31 +121,22 @@ func (s *ForgeThreadStore) SetThreads(ctx context.Context, params SetThreadsPara
 	}
 
 	for _, thread := range params.Threads {
-		if err := s.replaceComments(ctx, ids[thread.ProviderID], thread.Comments); err != nil {
+		if err := s.setComments(ctx, ids[thread.ProviderID], thread.Comments, params); err != nil {
 			return err
 		}
-	}
-
-	if err := s.queries.MarkPullRequestCommentsRead(ctx, models.MarkPullRequestCommentsReadParams{
-		ID:           params.PullRequestID,
-		CommentsMark: &params.Mark,
-		ReadAt:       &params.ReadAt,
-	}); err != nil {
-		return fmt.Errorf("failed to record the comment read of pull request %s: %w", params.PullRequestID, err)
 	}
 
 	return nil
 }
 
-func (s *ForgeThreadStore) replaceComments(ctx context.Context, threadID string, comments []forge.ReviewComment) error {
-	kept := make([]string, 0, len(comments))
+func (s *ForgeThreadStore) setComments(ctx context.Context, threadID string, comments []forge.ReviewComment, params SetThreadsParams) error {
 	for _, comment := range comments {
-		kept = append(kept, comment.ProviderID)
 		if err := s.queries.UpsertForgeReviewComment(ctx, models.UpsertForgeReviewCommentParams{
 			ThreadID:    threadID,
 			ProviderID:  comment.ProviderID,
 			AuthorLogin: comment.Login,
 			AuthorIsBot: comment.Bot,
+			Yours:       comment.Login != "" && comment.Login == params.Viewer,
 			Body:        comment.Body,
 			WrittenAt:   comment.WrittenAt,
 			EditedAt:    comment.EditedAt,
@@ -162,9 +145,13 @@ func (s *ForgeThreadStore) replaceComments(ctx context.Context, threadID string,
 		}
 	}
 
+	if !params.Prune {
+		return nil
+	}
+
 	if err := s.queries.DeleteForgeReviewCommentsExcept(ctx, models.DeleteForgeReviewCommentsExceptParams{
 		ThreadID: threadID,
-		Kept:     kept,
+		Kept:     xslice.Map(comments, func(comment forge.ReviewComment) string { return comment.ProviderID }),
 	}); err != nil {
 		return fmt.Errorf("failed to remove the comments of forge thread %s: %w", threadID, err)
 	}
@@ -177,22 +164,11 @@ func toThreadUpsert(pullRequestID string, thread forge.ReviewThread) models.Upse
 		PullRequestID: pullRequestID,
 		ProviderID:    thread.ProviderID,
 		Path:          thread.Path,
-		Side:          string(thread.Side),
-		CommitSha:     thread.CommitSHA,
-		BaseSha:       thread.BaseSHA,
-		DiffHunk:      thread.DiffHunk,
-		QuotedLines:   thread.QuotedLines(),
+		Url:           thread.URL,
 		Resolved:      thread.Resolved,
-		Outdated:      thread.Outdated,
 	}
-	if params.QuotedLines == nil {
-		params.QuotedLines = []string{}
-	}
-	if thread.StartLine > 0 {
-		params.StartLine = xptr.Ptr(int32(thread.StartLine))
-	}
-	if thread.EndLine > 0 {
-		params.EndLine = xptr.Ptr(int32(thread.EndLine))
+	if thread.Line > 0 {
+		params.Line = xptr.Ptr(int32(thread.Line))
 	}
 	if len(thread.Comments) > 0 {
 		params.WrittenAt = thread.Comments[0].WrittenAt
@@ -229,6 +205,7 @@ func (s *ForgeThreadStore) ListWatched(ctx context.Context, keys []string) ([]Fo
 			ProviderID:  row.ProviderID,
 			AuthorLogin: row.AuthorLogin,
 			AuthorIsBot: row.AuthorIsBot,
+			Yours:       row.Yours,
 			Body:        row.Body,
 			WrittenAt:   row.WrittenAt,
 			EditedAt:    row.EditedAt,
@@ -241,13 +218,9 @@ func (s *ForgeThreadStore) ListWatched(ctx context.Context, keys []string) ([]Fo
 			PullRequestID: row.PullRequestID,
 			ProviderID:    row.ProviderID,
 			Path:          row.Path,
-			Side:          forge.Side(row.Side),
-			CommitSHA:     row.CommitSha,
-			StartLine:     int(xptr.Deref(row.StartLine)),
-			EndLine:       int(xptr.Deref(row.EndLine)),
-			QuotedLines:   row.QuotedLines,
+			Line:          int(xptr.Deref(row.Line)),
+			URL:           row.Url,
 			Resolved:      row.Resolved,
-			Outdated:      row.Outdated,
 			WrittenAt:     row.WrittenAt,
 			Comments:      byThread[row.ID],
 		}

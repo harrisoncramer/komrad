@@ -285,7 +285,7 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 
 	return &services{
 		loadConfig: loadConfig,
-		watchRows:  watch.NewRows(buildWatchLoaders(st, loadConfig)),
+		watchRows:  watch.NewRows(buildWatchLoaders(st)),
 		transcriptReader: transcripts.NewTranscriptReader(transcripts.NewTranscriptReaderParams{
 			Agents:      st.agents,
 			Transcripts: st.transcripts,

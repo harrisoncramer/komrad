@@ -575,15 +575,6 @@ delivery_deadline = "3h"
 # negative limit is refused.
 max_exchange      = 40
 
-# Who the person and the bots are on the forge, for the review comments komrad reads from it.
-[forge]
-# The person's own login on the forge. Their comments there are offered back to them marked
-# as theirs. Left empty they arrive like anybody else's.
-login = ""
-# Logins whose comments are treated as a bot's, for CI users and linters that post from
-# ordinary accounts. Bot comments are left out of the counts and never flash a notice.
-bots  = []
-
 # The log the background service writes, which the panel's log key pages.
 [log]
 # How much is written, one of debug, info, warn, or error.

@@ -94,7 +94,7 @@ CREATE TRIGGER watch_subresource_workflows AFTER INSERT OR UPDATE OR DELETE ON w
 CREATE TRIGGER watch_notify AFTER INSERT OR UPDATE OR DELETE ON schedules FOR EACH ROW EXECUTE FUNCTION watch_notify('id');
 CREATE TRIGGER watch_subresource_schedules AFTER INSERT OR UPDATE OR DELETE ON schedule_runs FOR EACH ROW EXECUTE FUNCTION watch_subresource('schedules', 'schedule_id');
 CREATE TRIGGER watch_notify AFTER INSERT OR UPDATE OR DELETE ON mail FOR EACH ROW EXECUTE FUNCTION watch_notify('id');
-CREATE TRIGGER watch_notify AFTER INSERT OR UPDATE OR DELETE ON pull_requests FOR EACH ROW EXECUTE FUNCTION watch_notify('id', 'comments_mark', 'comments_read_at');
+CREATE TRIGGER watch_notify AFTER INSERT OR UPDATE OR DELETE ON pull_requests FOR EACH ROW EXECUTE FUNCTION watch_notify('id');
 CREATE TRIGGER watch_subresource_pull_requests AFTER INSERT OR UPDATE OR DELETE ON agent_pull_requests FOR EACH ROW EXECUTE FUNCTION watch_subresource('pull_requests', 'pull_request_id');
 CREATE TRIGGER watch_notify AFTER INSERT OR UPDATE OR DELETE ON pull_request_syncs FOR EACH ROW EXECUTE FUNCTION watch_notify('repository_url', 'calls', 'listed_at', 'read_at', 'sweep_cursor', 'sweep_newest');
 CREATE TRIGGER watch_notify AFTER INSERT OR UPDATE OR DELETE ON forge_review_threads FOR EACH ROW EXECUTE FUNCTION watch_notify('id');

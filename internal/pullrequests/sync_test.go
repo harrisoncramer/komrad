@@ -61,8 +61,7 @@ type scriptedForge struct {
 	requests []string
 	// searches is the parameters of every search, in order.
 	searches []forge.ListChangedParams
-	marks    map[int]string
-	threads  map[int][]forge.ReviewThread
+	threads  map[int]*forge.Threads
 }
 
 func (f *scriptedForge) Kind() string { return forge.KindGitHub }
@@ -1116,7 +1115,7 @@ func TestSyncStandingsGoFiftyToARequest(t *testing.T) {
 
 	require.Len(t, f.forge.requests, 5)
 	first := strings.Split(strings.TrimPrefix(f.forge.requests[3], "standings:"), ",")
-	assert.Len(t, first, forge.MaxPullRequestsPerCall)
+	assert.Len(t, first, forge.MaxStandings)
 	assert.Equal(t, "1", first[0])
 	assert.Equal(t, "50", first[49])
 	assert.Equal(t, "standings:51,52,53,54,55,56,57,58,59,60", f.forge.requests[4])
@@ -1406,27 +1405,15 @@ func (f *syncFixture) changes(t *testing.T) []Change {
 	return changes
 }
 
-func (f *scriptedForge) CommentMarks(_ context.Context, _ git.RemoteURL, numbers []int) (map[int]string, error) {
-	f.requests = append(f.requests, "marks:"+strings.Join(xslice.Map(numbers, strconv.Itoa), ","))
-	if f.refuse != nil {
-		return nil, f.refuse
-	}
-
-	marks := map[int]string{}
-	for _, number := range numbers {
-		if mark, ok := f.marks[number]; ok {
-			marks[number] = mark
-		}
-	}
-
-	return marks, nil
-}
-
-func (f *scriptedForge) ReviewThreads(_ context.Context, _ git.RemoteURL, number int) ([]forge.ReviewThread, error) {
+func (f *scriptedForge) ReviewThreads(_ context.Context, _ git.RemoteURL, number int) (*forge.Threads, error) {
 	f.requests = append(f.requests, "threads:"+strconv.Itoa(number))
 	if f.refuse != nil {
 		return nil, f.refuse
 	}
 
-	return f.threads[number], nil
+	if answer, ok := f.threads[number]; ok {
+		return answer, nil
+	}
+
+	return &forge.Threads{}, nil
 }

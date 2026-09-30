@@ -671,10 +671,6 @@ func TestCheckPassesAMintOutageThrough(t *testing.T) {
 	assert.NotNil(t, row.VerifiedAt)
 }
 
-func (f *fakeForge) CommentMarks(context.Context, git.RemoteURL, []int) (map[int]string, error) {
-	return map[int]string{}, nil
-}
-
-func (f *fakeForge) ReviewThreads(context.Context, git.RemoteURL, int) ([]ReviewThread, error) {
-	return nil, nil
+func (f *fakeForge) ReviewThreads(context.Context, git.RemoteURL, int) (*Threads, error) {
+	return &Threads{}, nil
 }

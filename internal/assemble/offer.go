@@ -27,7 +27,13 @@ func Offers(w World, agentID string) []*pullrequestv1.ForgeThread {
 func isBotOffer(thread *pullrequestv1.ForgeThread) bool {
 	comments := thread.GetComments()
 
-	return len(comments) > 0 && comments[0].GetBot()
+	return len(comments) > 0 && !slices.ContainsFunc(comments, func(comment *pullrequestv1.ForgeComment) bool { return !comment.GetBot() })
+}
+
+func isCountedOffer(thread *pullrequestv1.ForgeThread) bool {
+	comments := thread.GetComments()
+
+	return thread.GetPath() != "" && !thread.GetResolved() && len(comments) > 0 && !comments[0].GetYours() && !isBotOffer(thread)
 }
 
 func getOpenPullRequest(pullRequests []*pullrequestv1.PullRequest) *pullrequestv1.PullRequest {
@@ -59,7 +65,7 @@ func groupOffersByPullRequest(threads map[string]*pullrequestv1.ForgeThread) map
 func setOfferCounts(row *agentv1.AgentRow, offers []*pullrequestv1.ForgeThread) {
 	external := 0
 	for _, offer := range offers {
-		if !offer.GetResolved() && !isBotOffer(offer) {
+		if isCountedOffer(offer) {
 			external++
 		}
 	}

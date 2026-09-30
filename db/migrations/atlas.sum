@@ -1,4 +1,4 @@
-h1:1fFkOTKLJQbgY0x8344U58+J0L6jbhfHbirWQzpsVso=
+h1:PMpr5H3RNBwdCCfqsba/2NNNe+VbScPrJEGFmWCBKao=
 20260727000000_foundation.sql h1:/waeB4mjNLR7umaB/y9/QrlRShuqTKvbhkcmp36U/CA=
 20260727000001_agents.sql h1:09sEq2PQKxX8TSJHRrpuPpBzL4S26ZuWmx2ir6yMGNs=
 20260727000002_mail.sql h1:4TZ5X8UDgQDawws+KHLtI5i7njTt9nUtWHkJC4A4t0Q=
@@ -42,5 +42,5 @@ h1:1fFkOTKLJQbgY0x8344U58+J0L6jbhfHbirWQzpsVso=
 20260929043514_worktree_share_bytes.sql h1:yXdwKVUum2byQmcr1gJUI7wiIlkdkN2+LzDtiiTe60g=
 20260929134840_archive_batch_id.sql h1:PNcVhgrCp3gM6oRDaOKBQR2GR5qwidRgRN/RmH7wxXU=
 20260930010349_drop_marks.sql h1:Ium1HIYFRI/189zyJyfk36ijitAwbcfY6Xq+9JsPYGY=
-20260930023605_forge_review_comments.sql h1:LXBLYlQ3901oOBsiaYAgiieXOynMPKu1NA2nzYcWQ+4=
-20260930024032_watch_forge_threads.sql h1:fAujEhMo2wTMorb5FpCrjipAI2vfUNpLUXdN+mULoJE=
+20260930040011_forge_review_comments.sql h1:ea0gX22mZWVfSH8jORr0RenLyXD+u6gwrfiy9EwmaaQ=
+20260930040614_watch_forge_threads.sql h1:zTypct1CqwXK2/Tktqb1dhSSIzjTVRPwW2EfiG+k93k=

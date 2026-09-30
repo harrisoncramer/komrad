@@ -11,11 +11,9 @@ import (
 	"komrad/internal/logging"
 	"komrad/internal/store"
 	pullrequeststore "komrad/internal/store/pullrequest"
-	"komrad/lib/xslice"
 )
 
-// commentRereadAfter is how long a read of a pull request's threads is trusted while its mark holds still.
-const commentRereadAfter = 10 * time.Minute
+const saidTruncated = "truncated"
 
 type transactor interface {
 	InTx(ctx context.Context, fn func(store.DBTX) error) error
@@ -59,26 +57,49 @@ func NewCommentSyncer(params NewCommentSyncerParams) *CommentSyncer {
 type commentHost struct {
 	host         string
 	connectionID string
+	login        string
 	forge        forge.Forge
-	repositories []*commentRepository
 	throttled    bool
 }
 
-type commentRepository struct {
-	remote  git.RemoteURL
-	targets []pullrequeststore.CommentSyncTarget
-}
-
-// Sync reads each pull request's comment mark and rereads the threads of the ones whose mark moved or whose last read has gone stale.
+// Sync rereads the review threads of every open pull request a live agent is linked to.
 func (s *CommentSyncer) Sync(ctx context.Context) error {
 	targets, err := s.threads.ListCommentSyncTargets(ctx)
 	if err != nil {
 		return err
 	}
 
+	hosts := map[string]*commentHost{}
 	read := 0
-	for _, host := range s.groupByHost(ctx, targets) {
-		read += s.syncHost(ctx, host)
+	for _, target := range targets {
+		remote, err := git.ParseRemoteURL(target.RepositoryURL)
+		if err != nil || remote.Host == "" {
+			continue
+		}
+
+		host, ok := hosts[remote.Host]
+		if !ok {
+			host = s.openHost(ctx, remote.Host)
+			hosts[remote.Host] = host
+		}
+		if host == nil || host.throttled {
+			continue
+		}
+
+		if err := s.readThreads(ctx, host, remote, target); err != nil {
+			s.settle(ctx, host, remote, err)
+
+			continue
+		}
+
+		read++
+	}
+
+	for _, host := range hosts {
+		if host != nil && !host.throttled {
+			delete(s.refusals, host.host)
+			s.said.forget(saidRefused, host.host)
+		}
 	}
 
 	logging.From(ctx).LogAttrs(ctx, slog.LevelDebug, "review comment sync pass",
@@ -86,43 +107,6 @@ func (s *CommentSyncer) Sync(ctx context.Context) error {
 		slog.Int(logging.ThreadsRead, read))
 
 	return nil
-}
-
-func (s *CommentSyncer) groupByHost(ctx context.Context, targets []pullrequeststore.CommentSyncTarget) []*commentHost {
-	hosts := []*commentHost{}
-	byHost := map[string]*commentHost{}
-	byRepository := map[string]*commentRepository{}
-	skipped := map[string]bool{}
-	for _, target := range targets {
-		remote, err := git.ParseRemoteURL(target.RepositoryURL)
-		if err != nil || remote.Host == "" || skipped[remote.Host] {
-			continue
-		}
-
-		host, ok := byHost[remote.Host]
-		if !ok {
-			host = s.openHost(ctx, remote.Host)
-			if host == nil {
-				skipped[remote.Host] = true
-
-				continue
-			}
-
-			byHost[remote.Host] = host
-			hosts = append(hosts, host)
-		}
-
-		repository, ok := byRepository[remote.Canonical()]
-		if !ok {
-			repository = &commentRepository{remote: remote}
-			byRepository[remote.Canonical()] = repository
-			host.repositories = append(host.repositories, repository)
-		}
-
-		repository.targets = append(repository.targets, target)
-	}
-
-	return hosts
 }
 
 func (s *CommentSyncer) openHost(ctx context.Context, hostname string) *commentHost {
@@ -148,76 +132,25 @@ func (s *CommentSyncer) openHost(ctx context.Context, hostname string) *commentH
 		return nil
 	}
 
-	return &commentHost{host: hostname, connectionID: connection.ID, forge: f}
-}
-
-func (s *CommentSyncer) syncHost(ctx context.Context, host *commentHost) int {
-	read := 0
-	for _, repository := range host.repositories {
-		for start := 0; start < len(repository.targets) && !host.throttled; start += forge.MaxPullRequestsPerCall {
-			batch := repository.targets[start:min(start+forge.MaxPullRequestsPerCall, len(repository.targets))]
-			read += s.syncBatch(ctx, host, repository.remote, batch)
-		}
-	}
-	if !host.throttled {
-		delete(s.refusals, host.host)
-		s.said.forget(saidRefused, host.host)
-	}
-
-	return read
-}
-
-func (s *CommentSyncer) syncBatch(ctx context.Context, host *commentHost, remote git.RemoteURL, batch []pullrequeststore.CommentSyncTarget) int {
-	numbers := xslice.Map(batch, func(target pullrequeststore.CommentSyncTarget) int { return target.Number })
-
-	marks, err := host.forge.CommentMarks(ctx, remote, numbers)
-	if err != nil {
-		s.settle(ctx, host, remote, err)
-
-		return 0
-	}
-
-	read := 0
-	for _, target := range batch {
-		mark, ok := marks[target.Number]
-		if !ok || !s.isDue(target, mark) {
-			continue
-		}
-
-		target.Mark = mark
-		if err := s.readThreads(ctx, host, remote, target); err != nil {
-			s.settle(ctx, host, remote, err)
-			if host.throttled {
-				return read
-			}
-
-			continue
-		}
-
-		read++
-	}
-
-	return read
-}
-
-func (s *CommentSyncer) isDue(target pullrequeststore.CommentSyncTarget, mark string) bool {
-	return mark != target.Mark || target.ReadAt == nil || s.now().Sub(*target.ReadAt) >= commentRereadAfter
+	return &commentHost{host: hostname, connectionID: connection.ID, login: connection.Login, forge: f}
 }
 
 func (s *CommentSyncer) readThreads(ctx context.Context, host *commentHost, remote git.RemoteURL, target pullrequeststore.CommentSyncTarget) error {
-	threads, err := host.forge.ReviewThreads(ctx, remote, target.Number)
+	answer, err := host.forge.ReviewThreads(ctx, remote, target.Number)
 	if err != nil {
 		return err
 	}
-
-	readAt := s.now()
+	if answer.Truncated && s.said.first(saidTruncated, target.ID) {
+		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "the pull request holds more review comments than one read returns, so none are removed until it holds fewer",
+			slog.String(logging.RepositoryURL, remote.Canonical()), slog.Int(logging.PullRequestNumber, target.Number))
+	}
 
 	return s.tx.InTx(ctx, func(db store.DBTX) error {
 		return pullrequeststore.NewForgeThreadStore(db).SetThreads(ctx, pullrequeststore.SetThreadsParams{
 			PullRequestID: target.ID,
-			Mark:          target.Mark,
-			ReadAt:        readAt,
-			Threads:       threads,
+			Viewer:        host.login,
+			Threads:       answer.Threads,
+			Prune:         !answer.Truncated,
 		})
 	})
 }
@@ -235,7 +168,7 @@ func (s *CommentSyncer) settle(ctx context.Context, host *commentHost, remote gi
 			logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "the forge refused the connection's credential, so review comments wait for it to be accepted again",
 				append([]slog.Attr{slog.String(logging.ForgeHost, host.host)}, logging.Err(err)...)...)
 		}
-	case errors.Is(err, forge.ErrNotFound):
+	case errors.Is(err, forge.ErrNotFound), errors.Is(err, errors.ErrUnsupported):
 	default:
 		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to sync the review comments",
 			append([]slog.Attr{slog.String(logging.RepositoryURL, remote.Canonical())}, logging.Err(err)...)...)
