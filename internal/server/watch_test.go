@@ -21,7 +21,7 @@ import (
 // TestEveryWatchedResourceHasOneLoader pins one loader per declared resource and nothing else.
 func TestEveryWatchedResourceHasOneLoader(t *testing.T) {
 	declared := xslice.Map(watched.All(), func(resource watch.Resource) watchv1.Resource { return resource.Enum })
-	loaded := xslice.Map(buildWatchLoaders(&stores{}), func(loader watch.Loader) watchv1.Resource { return loader.Resource })
+	loaded := xslice.Map(buildWatchLoaders(&stores{}, nil), func(loader watch.Loader) watchv1.Resource { return loader.Resource })
 
 	assert.ElementsMatch(t, declared, loaded)
 }

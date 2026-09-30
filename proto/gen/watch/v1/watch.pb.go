@@ -52,6 +52,8 @@ const (
 	Resource_RESOURCE_REVIEW_THREAD Resource = 9
 	// A row of worktrees.
 	Resource_RESOURCE_WORKTREE Resource = 10
+	// A row of forge_review_threads.
+	Resource_RESOURCE_FORGE_THREAD Resource = 11
 )
 
 // Enum value maps for Resource.
@@ -67,6 +69,7 @@ var (
 		8:  "RESOURCE_REVIEW",
 		9:  "RESOURCE_REVIEW_THREAD",
 		10: "RESOURCE_WORKTREE",
+		11: "RESOURCE_FORGE_THREAD",
 	}
 	Resource_value = map[string]int32{
 		"RESOURCE_UNSPECIFIED":   0,
@@ -79,6 +82,7 @@ var (
 		"RESOURCE_REVIEW":        8,
 		"RESOURCE_REVIEW_THREAD": 9,
 		"RESOURCE_WORKTREE":      10,
+		"RESOURCE_FORGE_THREAD":  11,
 	}
 )
 
@@ -330,6 +334,7 @@ type Row struct {
 	//	*Row_Review
 	//	*Row_ReviewThread
 	//	*Row_Worktree
+	//	*Row_ForgeThread
 	Row           isRow_Row `protobuf_oneof:"row"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -453,6 +458,15 @@ func (x *Row) GetWorktree() *v14.WatchedWorktree {
 	return nil
 }
 
+func (x *Row) GetForgeThread() *v13.ForgeThread {
+	if x != nil {
+		if x, ok := x.Row.(*Row_ForgeThread); ok {
+			return x.ForgeThread
+		}
+	}
+	return nil
+}
+
 type isRow_Row interface {
 	isRow_Row()
 }
@@ -502,6 +516,11 @@ type Row_Worktree struct {
 	Worktree *v14.WatchedWorktree `protobuf:"bytes,10,opt,name=worktree,proto3,oneof"`
 }
 
+type Row_ForgeThread struct {
+	// A review thread the forge holds on a watched pull request, with its comments.
+	ForgeThread *v13.ForgeThread `protobuf:"bytes,11,opt,name=forge_thread,json=forgeThread,proto3,oneof"`
+}
+
 func (*Row_Agent) isRow_Row() {}
 
 func (*Row_Workflow) isRow_Row() {}
@@ -519,6 +538,8 @@ func (*Row_Review) isRow_Row() {}
 func (*Row_ReviewThread) isRow_Row() {}
 
 func (*Row_Worktree) isRow_Row() {}
+
+func (*Row_ForgeThread) isRow_Row() {}
 
 // Deleted names a row its watched set no longer holds, whether it was removed or claimed for a
 // delete.
@@ -591,7 +612,7 @@ const file_watch_v1_watch_proto_rawDesc = "" +
 	"\x04rows\x18\x01 \x03(\v2\r.watch.v1.RowR\x04rows\"Y\n" +
 	"\aChanges\x12!\n" +
 	"\x04puts\x18\x01 \x03(\v2\r.watch.v1.RowR\x04puts\x12+\n" +
-	"\adeleted\x18\x02 \x03(\v2\x11.watch.v1.DeletedR\adeleted\"\xf3\x03\n" +
+	"\adeleted\x18\x02 \x03(\v2\x11.watch.v1.DeletedR\adeleted\"\xb5\x04\n" +
 	"\x03Row\x12'\n" +
 	"\x05agent\x18\x01 \x01(\v2\x0f.agent.v1.AgentH\x00R\x05agent\x123\n" +
 	"\bworkflow\x18\x02 \x01(\v2\x15.workflow.v1.WorkflowH\x00R\bworkflow\x123\n" +
@@ -604,11 +625,12 @@ const file_watch_v1_watch_proto_rawDesc = "" +
 	"\x06review\x18\b \x01(\v2\x17.agent.v1.WatchedReviewH\x00R\x06review\x12=\n" +
 	"\rreview_thread\x18\t \x01(\v2\x16.agent.v1.ReviewThreadH\x00R\freviewThread\x12:\n" +
 	"\bworktree\x18\n" +
-	" \x01(\v2\x1c.worktree.v1.WatchedWorktreeH\x00R\bworktreeB\x05\n" +
+	" \x01(\v2\x1c.worktree.v1.WatchedWorktreeH\x00R\bworktree\x12@\n" +
+	"\fforge_thread\x18\v \x01(\v2\x1b.pullrequest.v1.ForgeThreadH\x00R\vforgeThreadB\x05\n" +
 	"\x03row\"K\n" +
 	"\aDeleted\x12.\n" +
 	"\bresource\x18\x01 \x01(\x0e2\x12.watch.v1.ResourceR\bresource\x12\x10\n" +
-	"\x03key\x18\x02 \x01(\tR\x03key*\xf5\x01\n" +
+	"\x03key\x18\x02 \x01(\tR\x03key*\x90\x02\n" +
 	"\bResource\x12\x18\n" +
 	"\x14RESOURCE_UNSPECIFIED\x10\x00\x12\x12\n" +
 	"\x0eRESOURCE_AGENT\x10\x01\x12\x15\n" +
@@ -620,7 +642,8 @@ const file_watch_v1_watch_proto_rawDesc = "" +
 	"\x0fRESOURCE_REVIEW\x10\b\x12\x1a\n" +
 	"\x16RESOURCE_REVIEW_THREAD\x10\t\x12\x15\n" +
 	"\x11RESOURCE_WORKTREE\x10\n" +
-	"2\x93\x01\n" +
+	"\x12\x19\n" +
+	"\x15RESOURCE_FORGE_THREAD\x10\v2\x93\x01\n" +
 	"\fWatchService\x12\x82\x01\n" +
 	"\x05Watch\x12\x16.google.protobuf.Empty\x1a\x14.watch.v1.WatchEvent\"I\x9a\xb5\x18B:@a stream the panel holds open; a model or a script lists instead\x90\x02\x010\x01B#Z!komrad/proto/gen/watch/v1;watchv1b\x06proto3"
 
@@ -655,6 +678,7 @@ var file_watch_v1_watch_proto_goTypes = []any{
 	(*v1.WatchedReview)(nil),    // 13: agent.v1.WatchedReview
 	(*v1.ReviewThread)(nil),     // 14: agent.v1.ReviewThread
 	(*v14.WatchedWorktree)(nil), // 15: worktree.v1.WatchedWorktree
+	(*v13.ForgeThread)(nil),     // 16: pullrequest.v1.ForgeThread
 }
 var file_watch_v1_watch_proto_depIdxs = []int32{
 	2,  // 0: watch.v1.WatchEvent.snapshot:type_name -> watch.v1.Snapshot
@@ -672,14 +696,15 @@ var file_watch_v1_watch_proto_depIdxs = []int32{
 	13, // 12: watch.v1.Row.review:type_name -> agent.v1.WatchedReview
 	14, // 13: watch.v1.Row.review_thread:type_name -> agent.v1.ReviewThread
 	15, // 14: watch.v1.Row.worktree:type_name -> worktree.v1.WatchedWorktree
-	0,  // 15: watch.v1.Deleted.resource:type_name -> watch.v1.Resource
-	6,  // 16: watch.v1.WatchService.Watch:input_type -> google.protobuf.Empty
-	1,  // 17: watch.v1.WatchService.Watch:output_type -> watch.v1.WatchEvent
-	17, // [17:18] is the sub-list for method output_type
-	16, // [16:17] is the sub-list for method input_type
-	16, // [16:16] is the sub-list for extension type_name
-	16, // [16:16] is the sub-list for extension extendee
-	0,  // [0:16] is the sub-list for field type_name
+	16, // 15: watch.v1.Row.forge_thread:type_name -> pullrequest.v1.ForgeThread
+	0,  // 16: watch.v1.Deleted.resource:type_name -> watch.v1.Resource
+	6,  // 17: watch.v1.WatchService.Watch:input_type -> google.protobuf.Empty
+	1,  // 18: watch.v1.WatchService.Watch:output_type -> watch.v1.WatchEvent
+	18, // [18:19] is the sub-list for method output_type
+	17, // [17:18] is the sub-list for method input_type
+	17, // [17:17] is the sub-list for extension type_name
+	17, // [17:17] is the sub-list for extension extendee
+	0,  // [0:17] is the sub-list for field type_name
 }
 
 func init() { file_watch_v1_watch_proto_init() }
@@ -702,6 +727,7 @@ func file_watch_v1_watch_proto_init() {
 		(*Row_Review)(nil),
 		(*Row_ReviewThread)(nil),
 		(*Row_Worktree)(nil),
+		(*Row_ForgeThread)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{

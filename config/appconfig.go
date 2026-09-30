@@ -804,6 +804,26 @@ func (m Mail) GetMaxExchange() (int, error) {
 	return m.MaxExchange, nil
 }
 
+// Forge is who the person and the bots are on the forges komrad reads review comments from.
+type Forge struct {
+	// The person's own login on the forge. Their comments there are offered back to them marked
+	// as theirs. Left empty they arrive like anybody else's.
+	Login string `mapstructure:"login"`
+	// Logins whose comments are treated as a bot's, for CI users and linters that post from
+	// ordinary accounts. Bot comments are left out of the counts and never flash a notice.
+	Bots []string `mapstructure:"bots"`
+}
+
+// IsBot says whether a login is on the bot list.
+func (f Forge) IsBot(login string) bool {
+	return login != "" && slices.Contains(f.Bots, login)
+}
+
+// IsYours says whether a login is the person's own.
+func (f Forge) IsYours(login string) bool {
+	return login != "" && f.Login == login
+}
+
 // Debug is what komrad records about its own reading of an agent.
 type Debug struct {
 	// Whether the pane capture behind each reading of an agent is kept under the cache
@@ -890,6 +910,8 @@ type Config struct {
 	Context Context `mapstructure:"context"`
 	// How mail between agents is delivered.
 	Mail Mail `mapstructure:"mail"`
+	// Who the person and the bots are on the forge, for the review comments komrad reads from it.
+	Forge Forge `mapstructure:"forge"`
 	// The log the background service writes, which the panel's log key pages.
 	Log Log `mapstructure:"log"`
 	// Puts komrad into debug mode which records additional information used to help diagnose issues.

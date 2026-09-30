@@ -181,3 +181,62 @@ service PullRequestService {
     };
   }
 }
+
+// ForgeThread is a review thread as the forge holds it on a pull request an agent is linked to,
+// which the panel offers the person and never hands an agent.
+message ForgeThread {
+  // The handle komrad keys the row by.
+  string id = 1;
+  // The pull request the thread is on.
+  string pull_request_id = 2;
+  // The file the thread is on, empty for a comment on the change as a whole.
+  string path = 3;
+  // Which side of the diff the lines were counted on.
+  ForgeSide side = 4;
+  // The pushed commit the forge pinned the thread to, empty when it named none.
+  string commit_sha = 5;
+  // The commit the pull request measured from when the thread was read.
+  string base_sha = 6;
+  // The first line the thread was written against, zero when it names none.
+  int32 start_line = 7;
+  // The last line the thread was written against, zero when it names none.
+  int32 end_line = 8;
+  // The lines the thread was written against, without their diff markers.
+  repeated string quoted_lines = 9;
+  // Whether the forge reports the thread resolved.
+  bool resolved = 10;
+  // Whether the forge reports the code under the thread changed since it was written.
+  bool outdated = 11;
+  // When the thread's first comment was written, in RFC 3339.
+  string written_at = 12;
+  // The comments in the thread, oldest first.
+  repeated ForgeComment comments = 13;
+}
+
+// ForgeComment is one comment in a forge review thread.
+message ForgeComment {
+  // The handle komrad keys the row by.
+  string id = 1;
+  // The forge login of whoever wrote it, empty when the forge no longer knows them.
+  string author_login = 2;
+  // Whether the forge or the config's bot list says the author is a bot.
+  bool bot = 3;
+  // Whether the author is the login the config names as the person's own.
+  bool yours = 4;
+  // What the comment says.
+  string body = 5;
+  // When it was written on the forge, in RFC 3339.
+  string written_at = 6;
+  // When it was last edited on the forge, in RFC 3339, unset while it never has been.
+  optional string edited_at = 7;
+}
+
+// ForgeSide is which side of a diff a forge thread's lines were counted on.
+enum ForgeSide {
+  // A comment on the change as a whole.
+  FORGE_SIDE_UNSPECIFIED = 0;
+  // Lines of the base.
+  FORGE_SIDE_OLD = 1;
+  // Lines of the head.
+  FORGE_SIDE_NEW = 2;
+}

@@ -1,7 +1,11 @@
 package server
 
 import (
+	"context"
 	"time"
+
+	"komrad/config"
+	"komrad/lib/xslice"
 
 	"komrad/internal/rpc/render"
 	"komrad/internal/watch"
@@ -17,7 +21,7 @@ import (
 )
 
 // buildWatchLoaders pairs each watched resource's lister with its renderer.
-func buildWatchLoaders(st *stores) []watch.Loader {
+func buildWatchLoaders(st *stores, loadConfig func() (*config.Config, error)) []watch.Loader {
 	return []watch.Loader{
 		watch.NewLoader(watchv1.Resource_RESOURCE_AGENT, st.rows, renderWatchedAgent),
 		watch.NewLoader(watchv1.Resource_RESOURCE_WORKFLOW, st.workflows, renderWatchedWorkflow),
@@ -28,6 +32,7 @@ func buildWatchLoaders(st *stores) []watch.Loader {
 		watch.NewLoader(watchv1.Resource_RESOURCE_REVIEW, st.review, renderWatchedReview),
 		watch.NewLoader(watchv1.Resource_RESOURCE_REVIEW_THREAD, st.reviewThreads, renderWatchedReviewThread),
 		watch.NewLoader(watchv1.Resource_RESOURCE_WORKTREE, st.worktrees, renderWatchedWorktree),
+		watch.NewLoader(watchv1.Resource_RESOURCE_FORGE_THREAD, forgeThreadLister{threads: st.forgeThreads, loadConfig: loadConfig}, renderWatchedForgeThread),
 	}
 }
 
@@ -83,4 +88,36 @@ func renderWatchedWorktree(row worktreestore.Worktree) (string, *watchv1.Row) {
 	worktree := render.WatchedWorktree(row)
 
 	return worktree.GetDir(), &watchv1.Row{Row: &watchv1.Row_Worktree{Worktree: worktree}}
+}
+
+type identifiedForgeThread struct {
+	thread   pullrequeststore.ForgeThread
+	identity config.Forge
+}
+
+type forgeThreadLister struct {
+	threads    *pullrequeststore.ForgeThreadStore
+	loadConfig func() (*config.Config, error)
+}
+
+func (l forgeThreadLister) ListWatched(ctx context.Context, keys []string) ([]identifiedForgeThread, error) {
+	cfg, err := l.loadConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	threads, err := l.threads.ListWatched(ctx, keys)
+	if err != nil {
+		return nil, err
+	}
+
+	return xslice.Map(threads, func(thread pullrequeststore.ForgeThread) identifiedForgeThread {
+		return identifiedForgeThread{thread: thread, identity: cfg.Forge}
+	}), nil
+}
+
+func renderWatchedForgeThread(row identifiedForgeThread) (string, *watchv1.Row) {
+	thread := render.ForgeThread(row.thread, row.identity)
+
+	return thread.GetId(), &watchv1.Row{Row: &watchv1.Row_ForgeThread{ForgeThread: thread}}
 }

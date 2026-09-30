@@ -210,7 +210,7 @@ func TestEngineIsolationHoldsForEveryTable(t *testing.T) {
 		{
 			name:  "grants",
 			list:  queries.ListTablesEnginesCannotReach,
-			cause: "komrad_engine or komrad_reader cannot reach these tables",
+			cause: "komrad_engine cannot reach these tables, or komrad_reader reaches the wrong ones",
 		},
 	}
 

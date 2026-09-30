@@ -11,9 +11,10 @@ import (
 
 // WatchedPullRequests declares the pull requests to the watch.
 var WatchedPullRequests = watch.Resource{
-	Enum:      watchv1.Resource_RESOURCE_PULL_REQUEST,
-	Table:     "pull_requests",
-	KeyColumn: "id",
+	Enum:           watchv1.Resource_RESOURCE_PULL_REQUEST,
+	Table:          "pull_requests",
+	KeyColumn:      "id",
+	IgnoredColumns: []string{"comments_mark", "comments_read_at"},
 	Feeders: []watch.Feeder{
 		{
 			Table:  "agent_pull_requests",

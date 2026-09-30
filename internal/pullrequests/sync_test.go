@@ -61,6 +61,9 @@ type scriptedForge struct {
 	requests []string
 	// searches is the parameters of every search, in order.
 	searches []forge.ListChangedParams
+	// marks is the comment mark of each pull request by number, and threads its review threads.
+	marks   map[int]string
+	threads map[int][]forge.ReviewThread
 }
 
 func (f *scriptedForge) Kind() string { return forge.KindGitHub }
@@ -1402,4 +1405,29 @@ func (f *syncFixture) changes(t *testing.T) []Change {
 	}
 
 	return changes
+}
+
+func (f *scriptedForge) CommentMarks(_ context.Context, _ git.RemoteURL, numbers []int) (map[int]string, error) {
+	f.requests = append(f.requests, "marks:"+strings.Join(xslice.Map(numbers, strconv.Itoa), ","))
+	if f.refuse != nil {
+		return nil, f.refuse
+	}
+
+	marks := map[int]string{}
+	for _, number := range numbers {
+		if mark, ok := f.marks[number]; ok {
+			marks[number] = mark
+		}
+	}
+
+	return marks, nil
+}
+
+func (f *scriptedForge) ReviewThreads(_ context.Context, _ git.RemoteURL, number int) ([]forge.ReviewThread, error) {
+	f.requests = append(f.requests, "threads:"+strconv.Itoa(number))
+	if f.refuse != nil {
+		return nil, f.refuse
+	}
+
+	return f.threads[number], nil
 }

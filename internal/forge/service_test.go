@@ -670,3 +670,11 @@ func TestCheckPassesAMintOutageThrough(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotNil(t, row.VerifiedAt)
 }
+
+func (f *fakeForge) CommentMarks(context.Context, git.RemoteURL, []int) (map[int]string, error) {
+	return map[int]string{}, nil
+}
+
+func (f *fakeForge) ReviewThreads(context.Context, git.RemoteURL, int) ([]ReviewThread, error) {
+	return nil, nil
+}

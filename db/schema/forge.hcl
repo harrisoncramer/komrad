@@ -212,6 +212,16 @@ table "pull_requests" {
     type    = text
     comment = "The review decision as the forge last reported it when it reported anything, which a blank reading leaves alone."
   }
+  column "comments_mark" {
+    null    = true
+    type    = text
+    comment = "What the forge last said about the pull request's comments in its cheap check, the thread count and the latest comment's stamp run together. The comment sync reads the threads again only when this moves."
+  }
+  column "comments_read_at" {
+    null    = true
+    type    = timestamptz
+    comment = "When the comment sync last read the pull request's review threads whole, which paces the re-read that catches a resolution the cheap check cannot see."
+  }
   column "engine_id" {
     null    = false
     type    = uuid
@@ -386,5 +396,203 @@ table "branch_scans" {
     ref_columns = [table.engines.column.id]
     on_delete   = RESTRICT
     on_update   = NO_ACTION
+  }
+}
+
+table "forge_review_threads" {
+  schema  = schema.public
+  comment = "A review thread as the forge holds it on a pull request a live agent is linked to, which the comment sync owns and overwrites. Nothing here reaches an agent, and the reader role has no grant on it."
+  column "id" {
+    null    = false
+    type    = uuid
+    default = sql("uuidv7()")
+  }
+  column "pull_request_id" {
+    null = false
+    type = uuid
+  }
+  column "provider_id" {
+    null    = false
+    type    = text
+    comment = "The forge's own identifier for the thread: a review thread's node id on GitHub, a discussion id on GitLab, or the comment's own id for a comment on the change as a whole."
+  }
+  column "path" {
+    null    = false
+    type    = text
+    default = ""
+    comment = "The file the thread was written on, empty for a comment on the change as a whole."
+  }
+  column "side" {
+    null    = false
+    type    = text
+    default = ""
+    comment = "Which side of the diff the lines were counted on: old, new, or empty for a comment on the change as a whole."
+  }
+  column "commit_sha" {
+    null    = false
+    type    = text
+    default = ""
+    comment = "The pushed commit the forge pinned the thread to, empty when it named none."
+  }
+  column "base_sha" {
+    null    = false
+    type    = text
+    default = ""
+    comment = "The commit the pull request measured from when the thread was read, which is the other end of the diff the thread was written against."
+  }
+  column "start_line" {
+    null = true
+    type = integer
+  }
+  column "end_line" {
+    null = true
+    type = integer
+  }
+  column "diff_hunk" {
+    null    = false
+    type    = text
+    default = ""
+    comment = "The stretch of the diff the forge quotes above the thread, ending on the line it was written against."
+  }
+  column "quoted_lines" {
+    null    = false
+    type    = sql("text[]")
+    default = sql("'{}'::text[]")
+    comment = "The lines the thread was written against, read out of the diff hunk without their diff markers. The panel places the thread where these lines appear exactly once."
+  }
+  column "resolved" {
+    null    = false
+    type    = boolean
+    default = false
+  }
+  column "outdated" {
+    null    = false
+    type    = boolean
+    default = false
+    comment = "Whether the forge says the code under the thread has changed since it was written."
+  }
+  column "written_at" {
+    null    = false
+    type    = timestamptz
+    comment = "When the thread's first comment was written on the forge."
+  }
+  column "created_at" {
+    null    = false
+    type    = timestamptz
+    default = sql("now()")
+  }
+  column "updated_at" {
+    null    = false
+    type    = timestamptz
+    default = sql("now()")
+  }
+  column "engine_id" {
+    null    = false
+    type    = uuid
+    comment = "The engine that owns this row, stamped from the login that wrote it."
+  }
+  primary_key {
+    columns = [column.id]
+  }
+  unique "forge_review_threads_engine_id_id_key" {
+    columns = [column.engine_id, column.id]
+  }
+  unique "forge_review_threads_provider_id_key" {
+    columns = [column.engine_id, column.pull_request_id, column.provider_id]
+  }
+  foreign_key "forge_review_threads_engine_id_fkey" {
+    columns     = [column.engine_id]
+    ref_columns = [table.engines.column.id]
+    on_delete   = RESTRICT
+    on_update   = NO_ACTION
+  }
+  foreign_key "forge_review_threads_pull_request_id_fkey" {
+    columns     = [column.engine_id, column.pull_request_id]
+    ref_columns = [table.pull_requests.column.engine_id, table.pull_requests.column.id]
+    on_delete   = CASCADE
+    on_update   = NO_ACTION
+  }
+  index "forge_review_threads_pull_request_id" {
+    columns = [column.pull_request_id]
+  }
+}
+
+table "forge_review_comments" {
+  schema  = schema.public
+  comment = "One comment in a forge review thread, which the comment sync owns and overwrites. Nothing here reaches an agent, and the reader role has no grant on it."
+  column "id" {
+    null    = false
+    type    = uuid
+    default = sql("uuidv7()")
+  }
+  column "thread_id" {
+    null = false
+    type = uuid
+  }
+  column "provider_id" {
+    null    = false
+    type    = text
+    comment = "The forge's own identifier for the comment."
+  }
+  column "author_login" {
+    null    = false
+    type    = text
+    comment = "The forge login of whoever wrote the comment, empty when the forge no longer knows them."
+  }
+  column "author_is_bot" {
+    null    = false
+    type    = boolean
+    default = false
+    comment = "Whether the forge says the author is a bot. Logins the config names as bots are recognised when the row is drawn, not here."
+  }
+  column "body" {
+    null = false
+    type = text
+  }
+  column "written_at" {
+    null    = false
+    type    = timestamptz
+    comment = "When the comment was written on the forge."
+  }
+  column "edited_at" {
+    null    = true
+    type    = timestamptz
+    comment = "When the comment was last edited on the forge, null while it never has been."
+  }
+  column "created_at" {
+    null    = false
+    type    = timestamptz
+    default = sql("now()")
+  }
+  column "updated_at" {
+    null    = false
+    type    = timestamptz
+    default = sql("now()")
+  }
+  column "engine_id" {
+    null    = false
+    type    = uuid
+    comment = "The engine that owns this row, stamped from the login that wrote it."
+  }
+  primary_key {
+    columns = [column.id]
+  }
+  unique "forge_review_comments_provider_id_key" {
+    columns = [column.engine_id, column.thread_id, column.provider_id]
+  }
+  foreign_key "forge_review_comments_engine_id_fkey" {
+    columns     = [column.engine_id]
+    ref_columns = [table.engines.column.id]
+    on_delete   = RESTRICT
+    on_update   = NO_ACTION
+  }
+  foreign_key "forge_review_comments_thread_id_fkey" {
+    columns     = [column.engine_id, column.thread_id]
+    ref_columns = [table.forge_review_threads.column.engine_id, table.forge_review_threads.column.id]
+    on_delete   = CASCADE
+    on_update   = NO_ACTION
+  }
+  index "forge_review_comments_thread_id" {
+    columns = [column.thread_id]
   }
 }
