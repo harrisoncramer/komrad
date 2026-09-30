@@ -37,7 +37,7 @@ type details struct {
 	id      string
 	notices []notice
 	fields  []recordField
-	tag     string
+	tags    []string
 }
 
 // detailsRow is one field as the record draws it, keyed by its place in the whole record.
@@ -438,10 +438,10 @@ func (m model) detailsView() string {
 		rows = []string{dimStyle().Render("  nothing matches")}
 	}
 
-	return m.markZone(zoneDetails, m.detailsRule(held.tag)+
+	return m.markZone(zoneDetails, m.detailsRule(held.tags...)+
 		block+
 		paint.PadRows(paint.RenderList(rows, cursor, lines, dimStyle()), lines)+
-		m.detailsRule(""), m.paneWidth())
+		m.detailsRule(), m.paneWidth())
 }
 
 func (m model) drawRecord(above ...string) string {
@@ -449,7 +449,7 @@ func (m model) drawRecord(above ...string) string {
 		return record
 	}
 
-	rule := m.detailsRule("")
+	rule := m.detailsRule()
 	if m.height > 0 && m.spareLines(append(slices.Clone(above), rule)...) < legendRuleFloor {
 		return ""
 	}
@@ -457,10 +457,19 @@ func (m model) drawRecord(above ...string) string {
 	return rule
 }
 
-func (m model) detailsRule(tag string) string {
+// detailsRule is the rule over the record, carrying as many of its tags as fit with the leftmost
+// given up first.
+func (m model) detailsRule(tags ...string) string {
 	width := m.paneWidth()
 	if width <= 0 {
 		return "\n"
+	}
+
+	tags = slices.DeleteFunc(slices.Clone(tags), func(tag string) bool { return tag == "" })
+	tag := strings.Join(tags, dimStyle().Render(separated))
+	for len(tags) > 1 && lipgloss.Width(tag)+4 > width {
+		tags = tags[1:]
+		tag = strings.Join(tags, dimStyle().Render(separated))
 	}
 
 	tagWidth := lipgloss.Width(tag)

@@ -160,6 +160,41 @@ func buildRemoteField(read worktreeInspection) recordField {
 	}
 }
 
+// agentDetailsTags is what the record's rule carries for an agent.
+func agentDetailsTags(s panelShared, item panel.AgentRow) []string {
+	worktree, _ := agentWorktree(s.inspections, item.Agent.Cwd)
+
+	return append(buildWorktreeStateTags(worktree), buildDiffStatTag(item.DiffStat))
+}
+
+// buildWorktreeStateTags is what is uncommitted, unpushed and unpulled in the directory.
+func buildWorktreeStateTags(read worktreeInspection) []string {
+	if !read.isRead() || !read.item.readable {
+		return nil
+	}
+
+	warning := paint.Panel.Style(paint.ToneWarning)
+	var parts []string
+	if n := len(read.modified); n > 0 {
+		parts = append(parts, warning.Render(label.Count(n, "modified", "modified")))
+	}
+	if n := len(read.untracked); n > 0 {
+		parts = append(parts, warning.Render(label.Count(n, "untracked", "untracked")))
+	}
+	switch {
+	case read.item.branch == "":
+	case !read.pushed && (read.baseRef == "" || read.ahead > 0):
+		parts = append(parts, warning.Render("not pushed"))
+	case read.pushed && read.unpushed > 0:
+		parts = append(parts, warning.Render(fmt.Sprintf("%s%d unpushed", glyph.Up, read.unpushed)))
+	}
+	if read.pushed && read.unpulled > 0 && !read.unpulledLanded {
+		parts = append(parts, warning.Render(fmt.Sprintf("%s%d unpulled", glyph.Down, read.unpulled)))
+	}
+
+	return parts
+}
+
 // buildDiffStatTag is the lines the branch adds and removes since its base, and nothing where no
 // base could be measured against.
 func buildDiffStatTag(stat *agentv1.DiffStat) string {

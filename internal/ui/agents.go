@@ -180,7 +180,7 @@ func (a *agentsScreen) details(s panelShared) details {
 		id:      r.item.Agent.ID,
 		notices: agentNotices(s.glyphs, s.loaderFrame, r),
 		fields:  agentDetailFields(s, r.item),
-		tag:     buildDiffStatTag(r.item.DiffStat),
+		tags:    agentDetailsTags(s, r.item),
 	}
 }
 
