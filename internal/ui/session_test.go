@@ -18,19 +18,20 @@ type bindRecorder struct {
 	client  string
 	bound   map[string][]string
 	unbound []string
+	window  string
 }
 
 // TestSession covers the panel's own tmux session.
 func TestSession(t *testing.T) {
 	t.Run("a client attached to the panel's session is somebody looking", func(t *testing.T) {
-		assert.True(t, ui.NewSession(&bindRecorder{client: "/dev/ttys004"}, "komrad", cycleKeys).IsShown())
-		assert.False(t, ui.NewSession(&bindRecorder{}, "komrad", cycleKeys).IsShown(), "the panel was hidden, which detached it")
+		assert.True(t, ui.NewSession(&bindRecorder{client: "/dev/ttys004"}, "komrad", cycleKeys, nil).IsShown())
+		assert.False(t, ui.NewSession(&bindRecorder{}, "komrad", cycleKeys, nil).IsShown(), "the panel was hidden, which detached it")
 	})
 
 	t.Run("the cycle keys hand a press in any pane to the sidebar", func(t *testing.T) {
 		tmux := &bindRecorder{}
 
-		ui.NewSession(tmux, "komrad", cycleKeys).HoldCycleKeys("%3", true)
+		ui.NewSession(tmux, "komrad", cycleKeys, nil).HoldCycleKeys("%3", true)
 
 		assert.Equal(t, []string{"send-keys", "-t", "%3", "C-a"}, tmux.bound["root:C-a"])
 		assert.Equal(t, []string{"send-keys", "-t", "%3", "C-q"}, tmux.bound["root:C-q"])
@@ -39,14 +40,14 @@ func TestSession(t *testing.T) {
 	t.Run("no sidebar binds nothing", func(t *testing.T) {
 		tmux := &bindRecorder{}
 
-		ui.NewSession(tmux, "komrad", cycleKeys).HoldCycleKeys("", true)
+		ui.NewSession(tmux, "komrad", cycleKeys, nil).HoldCycleKeys("", true)
 
 		assert.Empty(t, tmux.bound)
 	})
 
 	t.Run("an empty stage gives the keys back once and then says nothing", func(t *testing.T) {
 		tmux := &bindRecorder{}
-		session := ui.NewSession(tmux, "komrad", cycleKeys)
+		session := ui.NewSession(tmux, "komrad", cycleKeys, nil)
 
 		session.HoldCycleKeys("%3", true)
 		session.HoldCycleKeys("%3", false)
@@ -61,7 +62,7 @@ func TestSession(t *testing.T) {
 func TestSessionCycleKeys(t *testing.T) {
 	t.Run("the panel going gives the keys back", func(t *testing.T) {
 		tmux := &bindRecorder{}
-		session := ui.NewSession(tmux, "komrad", cycleKeys)
+		session := ui.NewSession(tmux, "komrad", cycleKeys, nil)
 
 		session.HoldCycleKeys("%3", true)
 		session.ReleaseCycleKeys()
@@ -72,7 +73,7 @@ func TestSessionCycleKeys(t *testing.T) {
 	t.Run("releasing keys nobody held says nothing to tmux", func(t *testing.T) {
 		tmux := &bindRecorder{}
 
-		ui.NewSession(tmux, "komrad", cycleKeys).ReleaseCycleKeys()
+		ui.NewSession(tmux, "komrad", cycleKeys, nil).ReleaseCycleKeys()
 
 		assert.Empty(t, tmux.unbound)
 	})
@@ -198,4 +199,8 @@ func assertCycleKeysGivenBack(t *testing.T, harness *panelHarness, given int) {
 		assert.False(t, bound)
 	}
 	assert.Equal(t, cycleKeys, harness.panel.ReadRootUnbinds()[given:], "given back once")
+}
+
+func (b *bindRecorder) GetWindowID(string) string {
+	return b.window
 }

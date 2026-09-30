@@ -158,7 +158,7 @@ func NewPanel(params NewPanelParams) *Panel {
 
 	panel := &Panel{
 		model: newModel(Deps{
-			Session:         NewSession(tmux, "test-session", spellCycleKeys(params.Keys.Cycle.Views)),
+			Session:         NewSession(tmux, "test-session", spellCycleKeys(params.Keys.Cycle.Views), nil),
 			Tmux:            driven,
 			Git:             params.Git,
 			Agents:          params.Agents,
@@ -772,4 +772,16 @@ func fireAtOnce(_ time.Duration, fn func(time.Time) tea.Msg) tea.Cmd {
 	return func() tea.Msg {
 		return fn(time.Now())
 	}
+}
+
+func (t *recordingTmux) GetWindowID(string) string {
+	return "@1"
+}
+
+func (t *recordingTmux) GetShownPanes(string) []panes.Rect {
+	return nil
+}
+
+func (t *recordingTmux) CaptureScreen(string) string {
+	return ""
 }

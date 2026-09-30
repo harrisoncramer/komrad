@@ -121,7 +121,7 @@ the service, or call an endpoint from a script.`,
 
 			app.tmux = tmux.NewClient(env.TmuxSocket)
 
-			app.session = ui.NewSession(app.tmux, agents.ManagerSession, xslice.Map(cfg.Keybindings.Cycle.Views, tmux.SpellKey))
+			app.session = ui.NewSession(app.tmux, agents.ManagerSession, xslice.Map(cfg.Keybindings.Cycle.Views, tmux.SpellKey), xslice.Map(cfg.Keybindings.Visual.Toggle, tmux.SpellKey))
 			contextPath, err := cfg.GetContextFile()
 			if err != nil {
 				ctx := cmd.Context()

@@ -23,6 +23,7 @@ import (
 	"komrad/internal/git"
 	"komrad/internal/glyph"
 	"komrad/internal/loader"
+	"komrad/internal/panes"
 	"komrad/internal/position"
 	"komrad/internal/ui/layout"
 	"komrad/proto/gen/agent/v1/agentv1connect"
@@ -65,6 +66,7 @@ func Run(ctx context.Context, deps Deps) error {
 
 	defer post.close()
 	defer deps.Session.ReleaseCycleKeys()
+	defer deps.Session.ReleaseVisualKeys()
 
 	if deps.Watch != nil && m.fatal() == nil {
 		watching, stop := context.WithCancel(ctx)
@@ -161,6 +163,8 @@ type uiTmux interface {
 	SelectPane(pane string)
 	GetActivePane(pane string) string
 	SendKeys(target string, keys ...string) error
+	GetShownPanes(pane string) []panes.Rect
+	CaptureScreen(pane string) string
 }
 
 // ReviewGit is the git the review screen reads a round through.
@@ -321,6 +325,9 @@ type model struct {
 	// one the stage.
 	warm    warmupState
 	loading loadingState
+
+	// visual is the window as visual mode froze it.
+	visual visualState
 }
 
 // lastFrame is the frame on screen, which the panel draws again rather than drawing a new one at

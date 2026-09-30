@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"komrad/internal/logging"
+	"komrad/internal/panes"
 )
 
 const paneOwnerOption = "@komrad_agent_id"
@@ -562,7 +563,72 @@ func (c *Client) CapturePane(pane string) string {
 	return c.value("capture-pane", "-p", "-e", "-t", pane)
 }
 
+// CaptureScreen returns the visible screen of a pane with colors and trailing cells preserved.
+func (c *Client) CaptureScreen(pane string) string {
+	out, err := c.queryRaw("capture-pane", "-p", "-e", "-N", "-t", pane)
+	if err != nil {
+		//nolint:sloglint // as in MovePanes, there is no context here to carry a logger on
+		slog.Default().Debug("a tmux query failed", logging.Attrs(logging.Err(err))...)
+	}
+
+	return out
+}
+
+// GetShownPanes returns where each pane showing in a pane's window sits, only the zoomed one
+// while the window is zoomed.
+func (c *Client) GetShownPanes(pane string) []panes.Rect {
+	if pane == "" {
+		return nil
+	}
+
+	listed, err := c.query("list-panes", "-t", pane, "-F",
+		"#{pane_id} #{pane_left} #{pane_top} #{pane_width} #{pane_height} #{window_zoomed_flag} #{pane_active}")
+	if err != nil {
+		return nil
+	}
+
+	var shown []panes.Rect
+	for line := range strings.SplitSeq(listed, "\n") {
+		fields := strings.Fields(line)
+		if len(fields) != 7 {
+			continue
+		}
+
+		numbers := make([]int, 4)
+		for i, field := range fields[1:5] {
+			numbers[i], err = strconv.Atoi(field)
+			if err != nil {
+				return nil
+			}
+		}
+
+		rect := panes.Rect{Pane: fields[0], Left: numbers[0], Top: numbers[1], Width: numbers[2], Height: numbers[3]}
+		if fields[5] == "1" && fields[6] == "1" {
+			return []panes.Rect{rect}
+		}
+
+		shown = append(shown, rect)
+	}
+
+	return shown
+}
+
+// GetWindowID returns the id of the window a pane sits in.
+func (c *Client) GetWindowID(pane string) string {
+	if pane == "" {
+		return ""
+	}
+
+	return c.value("display-message", "-p", "-t", pane, "#{window_id}")
+}
+
 func (c *Client) query(args ...string) (string, error) {
+	out, err := c.queryRaw(args...)
+
+	return strings.TrimSpace(out), err
+}
+
+func (c *Client) queryRaw(args ...string) (string, error) {
 	command := slices.Concat(c.server, args)
 
 	ctx, cancel := context.WithTimeout(context.Background(), queryTimeout)
@@ -578,11 +644,11 @@ func (c *Client) query(args ...string) (string, error) {
 	}
 
 	if err != nil {
-		return strings.TrimSpace(string(out)), fmt.Errorf("tmux %s: %w%s",
+		return string(out), fmt.Errorf("tmux %s: %w%s",
 			strings.Join(command, " "), err, stderrDetail(err))
 	}
 
-	return strings.TrimSpace(string(out)), nil
+	return string(out), nil
 }
 
 func stderrDetail(err error) string {

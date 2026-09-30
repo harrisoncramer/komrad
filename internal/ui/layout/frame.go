@@ -56,6 +56,10 @@ type Frame struct {
 	// empty when the engine is this machine.
 	terminalCommand []string
 
+	// frozen is whether visual mode holds the window, with held the moves it is keeping back until it thaws.
+	frozen bool
+	held   []panes.Move
+
 	// remoteGuest is the agent whose terminal the stage is attached to, on a server this one does
 	// not hold.
 	remoteGuest string
@@ -199,6 +203,12 @@ func (f *Frame) reportSize() {
 
 // move records a pane move, sending it at once unless a change is being collected around it.
 func (f *Frame) move(m panes.Move) {
+	if f.frozen {
+		f.held = append(f.held, m)
+
+		return
+	}
+
 	f.pending = append(f.pending, m)
 
 	if m.Kind == panes.KindZoom {
@@ -324,6 +334,42 @@ func (f *Frame) Solo(on bool) {
 	f.move(panes.Zoom(f.sidebar, on))
 }
 
+// Freeze zooms the sidebar over the window for visual mode, holding back every move after it
+// until Thaw.
+func (f *Frame) Freeze() {
+	if f.sidebar == "" || f.frozen {
+		return
+	}
+
+	f.move(panes.Zoom(f.sidebar, true))
+	f.Flush()
+	f.frozen = true
+}
+
+// Thaw sends the moves Freeze held back and puts the zoom back to where Solo left it.
+func (f *Frame) Thaw() {
+	if !f.frozen {
+		return
+	}
+
+	held := f.held
+	f.frozen, f.held = false, nil
+
+	f.Begin()
+
+	for _, m := range held {
+		f.move(m)
+	}
+
+	f.move(panes.Zoom(f.sidebar, f.solo))
+	f.Flush()
+}
+
+// IsFrozen reports whether visual mode holds the window.
+func (f *Frame) IsFrozen() bool {
+	return f.frozen
+}
+
 // IsSolo reports whether the sidebar is holding the whole window.
 func (f *Frame) IsSolo() bool {
 	return f.solo
@@ -336,8 +382,13 @@ func (f *Frame) SyncKeys() {
 	}
 
 	active, zoomed := f.tmux.GetPaneFocus(f.sidebar)
-	f.solo = zoomed
 	f.keys = active
+
+	if f.frozen {
+		return
+	}
+
+	f.solo = zoomed
 
 	if !zoomed {
 		f.payOwed()
@@ -431,7 +482,7 @@ func (f *Frame) WindowCols() int {
 // SyncSplit measures the divider between the sidebar and the pane beside it, so a sidebar drawn
 // over the whole window keeps the width the user has dragged the divider to.
 func (f *Frame) SyncSplit() {
-	if f.owed {
+	if f.owed || f.frozen {
 		return
 	}
 

@@ -194,7 +194,7 @@ func validateArms(s screen, arms []dispatchArm) error {
 // globalArms are the keys the panel answers on one screen ahead of that screen's own table, in
 // the order it reads them.
 func globalArms(s screen, keys config.Keybindings) []dispatchArm {
-	var arms []dispatchArm
+	arms := []dispatchArm{{describe: "the visual mode toggle", keys: keys.Visual.Toggle}}
 	if s.picksViews() {
 		arms = append(arms, dispatchArm{describe: "the view switcher", keys: keys.Views.Pick})
 	}

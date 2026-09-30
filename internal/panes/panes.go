@@ -68,3 +68,12 @@ func Resize(pane string, width int) Move {
 		Width: width,
 	}
 }
+
+// Rect is where a pane sits in its window, in cells.
+type Rect struct {
+	Pane   string
+	Left   int
+	Top    int
+	Width  int
+	Height int
+}

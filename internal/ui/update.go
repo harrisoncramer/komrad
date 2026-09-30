@@ -32,6 +32,7 @@ func (m model) Init() tea.Cmd {
 	}
 
 	m.holdCycleKeys()
+	m.holdVisualKeys()
 
 	return tea.Batch(tick(), cursor.Blink, tea.RequestBackgroundColor)
 }
@@ -90,6 +91,16 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		return m, nil
+	}
+
+	if frozen, ok := msg.(visualFrozenMsg); ok {
+		return m.applyFreeze(frozen), nil
+	}
+
+	if isKey {
+		if next, cmd, handled := m.routeVisual(key); handled {
+			return next, cmd
+		}
 	}
 
 	// A cycle key pressed in another pane is answered ahead of every mode.
