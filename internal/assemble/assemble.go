@@ -24,7 +24,6 @@ type World struct {
 	Agents        map[string]*agentv1.Agent
 	Workflows     map[string]*workflowv1.Workflow
 	Schedules     map[string]*schedulev1.Schedule
-	Marks         map[string]*agentv1.Mark
 	Mail          map[string]*agentv1.Mail
 	PullRequests  map[string]*pullrequestv1.PullRequest
 	Repositories  map[string]*pullrequestv1.Repository
@@ -107,10 +106,6 @@ func (w *World) put(row *watchv1.Row) (watchv1.Resource, string) {
 		w.Schedules[row.Schedule.GetId()] = row.Schedule
 
 		return watchv1.Resource_RESOURCE_SCHEDULE, row.Schedule.GetId()
-	case *watchv1.Row_Mark:
-		w.Marks[row.Mark.GetId()] = row.Mark
-
-		return watchv1.Resource_RESOURCE_MARK, row.Mark.GetId()
 	case *watchv1.Row_Mail:
 		w.Mail[row.Mail.GetId()] = row.Mail
 
@@ -151,9 +146,6 @@ func (w *World) ensureMaps() {
 	if w.Schedules == nil {
 		w.Schedules = map[string]*schedulev1.Schedule{}
 	}
-	if w.Marks == nil {
-		w.Marks = map[string]*agentv1.Mark{}
-	}
 	if w.Mail == nil {
 		w.Mail = map[string]*agentv1.Mail{}
 	}
@@ -183,8 +175,6 @@ func (w *World) drop(deleted *watchv1.Deleted) {
 		delete(w.Workflows, key)
 	case watchv1.Resource_RESOURCE_SCHEDULE:
 		delete(w.Schedules, key)
-	case watchv1.Resource_RESOURCE_MARK:
-		delete(w.Marks, key)
 	case watchv1.Resource_RESOURCE_MAIL:
 		delete(w.Mail, key)
 	case watchv1.Resource_RESOURCE_PULL_REQUEST:
@@ -201,10 +191,9 @@ func (w *World) drop(deleted *watchv1.Deleted) {
 	}
 }
 
-// AgentRows draws every agent in the world with its mark, its unread mail, its pull requests
-// and where the local review of its work stands, newest first.
+// AgentRows draws every agent in the world with its unread mail, its pull requests and where the
+// local review of its work stands, newest first.
 func AgentRows(w World, now time.Time) []*agentv1.AgentRow {
-	marks := Marks(w)
 	unread := getAgentsWithUnreadMail(w.Mail, now)
 	onBranch := groupPullRequestsByBranch(w.PullRequests)
 	reviewed := groupReviewsByAgent(w.Reviews)
@@ -220,9 +209,6 @@ func AgentRows(w World, now time.Time) []*agentv1.AgentRow {
 			PullRequest:  calculatePullRequestStanding(agent, w.Repositories[agent.GetRepositoryUrl()], pullRequests),
 			PullRequests: pullRequests,
 		}
-		if mark, ok := marks[agent.GetId()]; ok {
-			row.Mark = &mark
-		}
 		setLocalReview(row, reviewed[agent.GetId()])
 		setCommentCounts(row, reviewed[agent.GetId()], threaded[agent.GetId()])
 
@@ -234,21 +220,6 @@ func AgentRows(w World, now time.Time) []*agentv1.AgentRow {
 	})
 
 	return rows
-}
-
-// Marks is the letter on each row, agent or workflow, by the id of the one it is on.
-func Marks(w World) map[string]string {
-	marks := make(map[string]string, len(w.Marks))
-	for _, mark := range w.Marks {
-		switch {
-		case mark.AgentId != nil:
-			marks[mark.GetAgentId()] = mark.GetLetter()
-		case mark.WorkflowId != nil:
-			marks[mark.GetWorkflowId()] = mark.GetLetter()
-		}
-	}
-
-	return marks
 }
 
 // branch is where a pull request was opened from.

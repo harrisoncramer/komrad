@@ -104,7 +104,6 @@ func newMux(params newMuxParams) (*http.ServeMux, error) {
 			Holder:       params.Services.holder,
 			Deleter:      params.Services.agentDelete,
 			Review:       params.Services.review,
-			Marks:        params.Services.marks,
 			Documents:    params.Services.documents,
 			Rebaser:      params.Services.rebase,
 			Orchestrator: params.Services.orchestrator,

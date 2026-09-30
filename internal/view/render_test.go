@@ -134,23 +134,12 @@ func TestRenderRowShapes(t *testing.T) {
 			row:    Row{Kind: KindChild, Name: "eng-6994-reviewer"},
 		},
 		{
-			name:   "a marked workflow is bold and opens where its letter leaves off",
+			name:   "a workflow is bold and opens at the gutter",
 			golden: "row-workflow",
 			row: Row{
 				Kind:        KindWorkflow,
 				Name:        "komrad",
-				Mark:        "w",
 				HiddenCount: 3,
-				Scheduled:   true,
-			},
-		},
-		{
-			name:   "an unmarked workflow is bold and opens where an agent does",
-			golden: "row-workflow-unmarked",
-			row: Row{
-				Kind:        KindWorkflow,
-				Name:        "komrad-bughunt-job",
-				HiddenCount: 5,
 				Scheduled:   true,
 			},
 		},
@@ -397,7 +386,6 @@ func livePanelRows() []Row {
 			Key:     "admin",
 			Kind:    KindWorkflow,
 			Name:    "admin",
-			Mark:    "a",
 			Process: ProcessNone,
 		},
 		{
@@ -435,7 +423,6 @@ func livePanelRows() []Row {
 		{
 			Kind:    KindWorkflow,
 			Name:    "ops",
-			Mark:    "o",
 			Process: ProcessNone,
 		},
 		{
@@ -457,7 +444,6 @@ func livePanelRows() []Row {
 		{
 			Kind:        KindWorkflow,
 			Name:        "komrad",
-			Mark:        "w",
 			Process:     ProcessNone,
 			HiddenCount: 4,
 		},
@@ -552,54 +538,6 @@ func TestRenderIndentsEachKindUnderTheOneAbove(t *testing.T) {
 	}
 }
 
-// TestRenderIndentsEveryKindBesideItsTwin pins the case the settled design cannot express on
-// its own: each kind of row beside its marked and unmarked twin, indented alike.
-func TestRenderIndentsEveryKindBesideItsTwin(t *testing.T) {
-	rows := []Row{
-		{
-			Key:  "marked-workflow",
-			Kind: KindWorkflow,
-			Name: "marked-workflow",
-			Mark: "m",
-		},
-		{
-			Key:  "plain-workflow",
-			Kind: KindWorkflow,
-			Name: "plain-workflow",
-		},
-		{
-			Key:  "marked-agent",
-			Kind: KindAgent,
-			Name: "marked-agent",
-			Mark: "a",
-		},
-		{
-			Key:  "plain-agent",
-			Kind: KindAgent,
-			Name: "plain-agent",
-		},
-		{
-			Key:  "marked-child",
-			Kind: KindChild,
-			Name: "marked-child",
-			Mark: "c",
-		},
-		{
-			Key:  "plain-child",
-			Kind: KindChild,
-			Name: "plain-child",
-		},
-	}
-
-	list := Prepare(Snapshot{Rows: rows, Focused: "plain-agent"})
-	drawn := strings.Split(ansiEscapes.ReplaceAllString(render(list, paint.Panel, 0), ""), "\n")
-	require.Len(t, drawn, len(rows))
-
-	for i, line := range list.Lines {
-		assert.Equal(t, wantNameColumn(rows[i].Kind), nameColumnOf(drawn[i], line), "row %q", drawn[i])
-	}
-}
-
 // TestRenderBlankBarKeepsTheNameColumn pins that the empty status cell holds its column, so a
 // row with no bar opens its name where a row of its kind does.
 func TestRenderBlankBarKeepsTheNameColumn(t *testing.T) {
@@ -653,12 +591,12 @@ func TestNarrowSidebarsKeepTheirColumns(t *testing.T) {
 		{
 			name:     "a sidebar narrower than a name keeps the columns and cuts the name",
 			pane:     16,
-			wantName: 6,
+			wantName: 8,
 		},
 		{
 			name:     "the default sidebar draws both with room to spare",
 			pane:     30,
-			wantName: 20,
+			wantName: 22,
 		},
 	}
 
@@ -731,7 +669,7 @@ func TestGutterColumnsAgreesWithWhatIsDrawn(t *testing.T) {
 
 // drawnNameColumn is the column the settled design opens a workflow's name at, counted off the
 // drawing by hand rather than from the package's own arithmetic.
-const drawnNameColumn = 10
+const drawnNameColumn = 8
 
 // drawnIndentStep is how far each level of the tree sets its name in, written out here rather
 // than taken from the package so a change to the package's own constant fails these tests.
@@ -813,7 +751,6 @@ func canonicalRows() []Row {
 			Key:         "admin",
 			Kind:        KindWorkflow,
 			Name:        "admin",
-			Mark:        "a",
 			HiddenCount: 2,
 		},
 		{
@@ -831,7 +768,6 @@ func canonicalRows() []Row {
 		{
 			Kind: KindWorkflow,
 			Name: "ops",
-			Mark: "o",
 		},
 		{
 			Kind:  KindAgent,
@@ -848,7 +784,6 @@ func canonicalRows() []Row {
 		{
 			Kind:        KindWorkflow,
 			Name:        "komrad",
-			Mark:        "w",
 			HiddenCount: 3,
 			Scheduled:   true,
 		},
@@ -906,8 +841,8 @@ const archivePane = 39
 
 // drawnArchiveNameColumn is the column a workflow opens its name at on a screen that draws none
 // of the three columns, counted off the drawing by hand rather than from the package's own
-// arithmetic: the caret, the mark and the bar, each a space apart, and a space before the name.
-const drawnArchiveNameColumn = 6
+// arithmetic: the caret and the bar, a space apart, and a space before the name.
+const drawnArchiveNameColumn = 4
 
 // archiveRows is a list shaped like the archive: everything put away and so greyed, with a
 // workflow still live above the agents archived out of it.
@@ -1084,9 +1019,9 @@ func TestRenderTextColumnsSitBesideTheBar(t *testing.T) {
 		assert.Equalf(t, want, nameColumnOf(line, list.Lines[i]), "row %d opens its name past the gutter", i)
 	}
 
-	assert.Equal(t, "     24G      │ ~/komrad", lines[0])
-	assert.Equal(t, "    9.2M  12h │   issue-607-p…", lines[2])
-	assert.Equal(t, "              │   └ review-607", lines[3])
+	assert.Equal(t, "   24G      │ ~/komrad", lines[0])
+	assert.Equal(t, "  9.2M  12h │   issue-607-pan…", lines[2])
+	assert.Equal(t, "            │   └ review-607", lines[3])
 }
 
 // TestRenderTextCellIsClippedToItsColumn pins a figure wider than its column being cut rather
@@ -1100,12 +1035,12 @@ func TestRenderTextCellIsClippedToItsColumn(t *testing.T) {
 		{
 			name:  "a column of no width draws nothing",
 			width: 0,
-			want:  "     │ komrad",
+			want:  "   │ komrad",
 		},
 		{
 			name:  "a figure wider than its column is cut",
 			width: 4,
-			want:  "    123… │ komrad",
+			want:  "  123… │ komrad",
 		},
 	}
 

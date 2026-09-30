@@ -1870,14 +1870,6 @@ WITH prior AS (
         AND archived_at IS NULL
     FOR UPDATE
 ),
-freed AS (
-    DELETE FROM marks
-    WHERE marks.agent_id IN (
-            SELECT
-                prior.id
-            FROM
-                prior)
-),
 batch AS (
     SELECT
         gen_random_uuid() AS id)
@@ -2129,14 +2121,6 @@ WITH prior AS (
         agents.workflow_id = $1
         AND agents.archived_at IS NULL
     FOR UPDATE
-),
-freed AS (
-    DELETE FROM marks
-    WHERE marks.agent_id IN (
-            SELECT
-                prior.id
-            FROM
-                prior)
 ),
 batch AS (
     SELECT

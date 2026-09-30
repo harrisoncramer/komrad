@@ -47,7 +47,6 @@ func prepareLine(params prepareLineParams) Line {
 	return Line{
 		Focused:  focused,
 		Focus:    textCell(chromeIf(focused && params.caret == CaretDrawn, glyph.Focus), paint.ToneAccent),
-		Mark:     textCell(row.Mark, paint.ToneMuted),
 		Columns:  columnCells(row, params.columns),
 		Status:   blinkBar(StatusCell(row), row, params.barBlinkedOut),
 		Rule:     row.Kind == KindChild,

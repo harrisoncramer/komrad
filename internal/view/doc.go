@@ -10,8 +10,8 @@
 //
 // # Agents indent under their workflow
 //
-// A row is a fixed sequence of cells: focus, mark gutter, the columns the list declares, status
-// bar, name, trailing marks, then the comment counts against the right edge. Every gutter cell
+// A row is a fixed sequence of cells: focus, the columns the list declares, status bar, name,
+// trailing marks, then the comment counts against the right edge. Every gutter cell
 // is always drawn and holds its column whether or not it has anything to say, so the gutter is
 // identical on every row whatever kind it is.
 // Only the name is indented: a workflow opens at the gutter, an agent one step in, and a child

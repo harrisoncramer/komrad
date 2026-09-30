@@ -46,10 +46,6 @@ const (
 	AgentServiceRequestReviewProcedure = "/agent.v1.AgentService/RequestReview"
 	// AgentServiceAdoptProcedure is the fully-qualified name of the AgentService's Adopt RPC.
 	AgentServiceAdoptProcedure = "/agent.v1.AgentService/Adopt"
-	// AgentServiceListMarksProcedure is the fully-qualified name of the AgentService's ListMarks RPC.
-	AgentServiceListMarksProcedure = "/agent.v1.AgentService/ListMarks"
-	// AgentServiceSetMarkProcedure is the fully-qualified name of the AgentService's SetMark RPC.
-	AgentServiceSetMarkProcedure = "/agent.v1.AgentService/SetMark"
 	// AgentServiceSetHiddenProcedure is the fully-qualified name of the AgentService's SetHidden RPC.
 	AgentServiceSetHiddenProcedure = "/agent.v1.AgentService/SetHidden"
 	// AgentServiceLogProcedure is the fully-qualified name of the AgentService's Log RPC.
@@ -169,8 +165,6 @@ type AgentServiceClient interface {
 	CreateAgent(context.Context, *connect.Request[v1.CreateAgentRequest]) (*connect.Response[v1.CreateAgentResponse], error)
 	RequestReview(context.Context, *connect.Request[v1.RequestReviewRequest]) (*connect.Response[v1.RequestReviewResponse], error)
 	Adopt(context.Context, *connect.Request[v1.AdoptRequest]) (*connect.Response[v1.AdoptResponse], error)
-	ListMarks(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[v1.ListMarksResponse], error)
-	SetMark(context.Context, *connect.Request[v1.SetMarkRequest]) (*connect.Response[emptypb.Empty], error)
 	SetHidden(context.Context, *connect.Request[v1.SetHiddenRequest]) (*connect.Response[emptypb.Empty], error)
 	Log(context.Context, *connect.Request[v1.LogRequest]) (*connect.Response[emptypb.Empty], error)
 	SendMail(context.Context, *connect.Request[v1.SendMailRequest]) (*connect.Response[v1.SendMailResponse], error)
@@ -254,20 +248,6 @@ func NewAgentServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			httpClient,
 			baseURL+AgentServiceAdoptProcedure,
 			connect.WithSchema(agentServiceMethods.ByName("Adopt")),
-			connect.WithClientOptions(opts...),
-		),
-		listMarks: connect.NewClient[emptypb.Empty, v1.ListMarksResponse](
-			httpClient,
-			baseURL+AgentServiceListMarksProcedure,
-			connect.WithSchema(agentServiceMethods.ByName("ListMarks")),
-			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
-			connect.WithClientOptions(opts...),
-		),
-		setMark: connect.NewClient[v1.SetMarkRequest, emptypb.Empty](
-			httpClient,
-			baseURL+AgentServiceSetMarkProcedure,
-			connect.WithSchema(agentServiceMethods.ByName("SetMark")),
-			connect.WithIdempotency(connect.IdempotencyIdempotent),
 			connect.WithClientOptions(opts...),
 		),
 		setHidden: connect.NewClient[v1.SetHiddenRequest, emptypb.Empty](
@@ -546,8 +526,6 @@ type agentServiceClient struct {
 	createAgent             *connect.Client[v1.CreateAgentRequest, v1.CreateAgentResponse]
 	requestReview           *connect.Client[v1.RequestReviewRequest, v1.RequestReviewResponse]
 	adopt                   *connect.Client[v1.AdoptRequest, v1.AdoptResponse]
-	listMarks               *connect.Client[emptypb.Empty, v1.ListMarksResponse]
-	setMark                 *connect.Client[v1.SetMarkRequest, emptypb.Empty]
 	setHidden               *connect.Client[v1.SetHiddenRequest, emptypb.Empty]
 	log                     *connect.Client[v1.LogRequest, emptypb.Empty]
 	sendMail                *connect.Client[v1.SendMailRequest, v1.SendMailResponse]
@@ -613,16 +591,6 @@ func (c *agentServiceClient) RequestReview(ctx context.Context, req *connect.Req
 // Adopt calls agent.v1.AgentService.Adopt.
 func (c *agentServiceClient) Adopt(ctx context.Context, req *connect.Request[v1.AdoptRequest]) (*connect.Response[v1.AdoptResponse], error) {
 	return c.adopt.CallUnary(ctx, req)
-}
-
-// ListMarks calls agent.v1.AgentService.ListMarks.
-func (c *agentServiceClient) ListMarks(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[v1.ListMarksResponse], error) {
-	return c.listMarks.CallUnary(ctx, req)
-}
-
-// SetMark calls agent.v1.AgentService.SetMark.
-func (c *agentServiceClient) SetMark(ctx context.Context, req *connect.Request[v1.SetMarkRequest]) (*connect.Response[emptypb.Empty], error) {
-	return c.setMark.CallUnary(ctx, req)
 }
 
 // SetHidden calls agent.v1.AgentService.SetHidden.
@@ -832,8 +800,6 @@ type AgentServiceHandler interface {
 	CreateAgent(context.Context, *connect.Request[v1.CreateAgentRequest]) (*connect.Response[v1.CreateAgentResponse], error)
 	RequestReview(context.Context, *connect.Request[v1.RequestReviewRequest]) (*connect.Response[v1.RequestReviewResponse], error)
 	Adopt(context.Context, *connect.Request[v1.AdoptRequest]) (*connect.Response[v1.AdoptResponse], error)
-	ListMarks(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[v1.ListMarksResponse], error)
-	SetMark(context.Context, *connect.Request[v1.SetMarkRequest]) (*connect.Response[emptypb.Empty], error)
 	SetHidden(context.Context, *connect.Request[v1.SetHiddenRequest]) (*connect.Response[emptypb.Empty], error)
 	Log(context.Context, *connect.Request[v1.LogRequest]) (*connect.Response[emptypb.Empty], error)
 	SendMail(context.Context, *connect.Request[v1.SendMailRequest]) (*connect.Response[v1.SendMailResponse], error)
@@ -913,20 +879,6 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 		AgentServiceAdoptProcedure,
 		svc.Adopt,
 		connect.WithSchema(agentServiceMethods.ByName("Adopt")),
-		connect.WithHandlerOptions(opts...),
-	)
-	agentServiceListMarksHandler := connect.NewUnaryHandler(
-		AgentServiceListMarksProcedure,
-		svc.ListMarks,
-		connect.WithSchema(agentServiceMethods.ByName("ListMarks")),
-		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
-		connect.WithHandlerOptions(opts...),
-	)
-	agentServiceSetMarkHandler := connect.NewUnaryHandler(
-		AgentServiceSetMarkProcedure,
-		svc.SetMark,
-		connect.WithSchema(agentServiceMethods.ByName("SetMark")),
-		connect.WithIdempotency(connect.IdempotencyIdempotent),
 		connect.WithHandlerOptions(opts...),
 	)
 	agentServiceSetHiddenHandler := connect.NewUnaryHandler(
@@ -1207,10 +1159,6 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 			agentServiceRequestReviewHandler.ServeHTTP(w, r)
 		case AgentServiceAdoptProcedure:
 			agentServiceAdoptHandler.ServeHTTP(w, r)
-		case AgentServiceListMarksProcedure:
-			agentServiceListMarksHandler.ServeHTTP(w, r)
-		case AgentServiceSetMarkProcedure:
-			agentServiceSetMarkHandler.ServeHTTP(w, r)
 		case AgentServiceSetHiddenProcedure:
 			agentServiceSetHiddenHandler.ServeHTTP(w, r)
 		case AgentServiceLogProcedure:
@@ -1318,14 +1266,6 @@ func (UnimplementedAgentServiceHandler) RequestReview(context.Context, *connect.
 
 func (UnimplementedAgentServiceHandler) Adopt(context.Context, *connect.Request[v1.AdoptRequest]) (*connect.Response[v1.AdoptResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.Adopt is not implemented"))
-}
-
-func (UnimplementedAgentServiceHandler) ListMarks(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[v1.ListMarksResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.ListMarks is not implemented"))
-}
-
-func (UnimplementedAgentServiceHandler) SetMark(context.Context, *connect.Request[v1.SetMarkRequest]) (*connect.Response[emptypb.Empty], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.SetMark is not implemented"))
 }
 
 func (UnimplementedAgentServiceHandler) SetHidden(context.Context, *connect.Request[v1.SetHiddenRequest]) (*connect.Response[emptypb.Empty], error) {

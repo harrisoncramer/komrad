@@ -103,46 +103,6 @@
           "response": "agent.v1.AdoptResponse"
         },
         {
-          "slug": "list-marks",
-          "name": "ListMarks",
-          "path": "/agent.v1.AgentService/ListMarks",
-          "command": "komrad rpc list-marks",
-          "tool": "list_marks",
-          "mcp": true,
-          "roles": [
-            "implementer",
-            "reviewer",
-            "orchestrator"
-          ],
-          "summary": "List every mark with the agent or workflow it jumps to.",
-          "description": "List every mark with the agent or workflow it jumps to. A mark is a single letter a person types in the panel to jump straight to a row.",
-          "readOnly": true,
-          "idempotent": true,
-          "destructive": false,
-          "request": "google.protobuf.Empty",
-          "response": "agent.v1.ListMarksResponse"
-        },
-        {
-          "slug": "set-mark",
-          "name": "SetMark",
-          "path": "/agent.v1.AgentService/SetMark",
-          "command": "komrad rpc set-mark",
-          "tool": "set_mark",
-          "mcp": true,
-          "roles": [
-            "implementer",
-            "reviewer",
-            "orchestrator"
-          ],
-          "summary": "Put a letter on an agent's or a workflow's row so a person can jump to it from the panel.",
-          "description": "Put a letter on an agent's or a workflow's row so a person can jump to it from the panel. Name one of agent_id or workflow_id. A letter belongs to one row at a time, so giving it to a new row takes it off the old one. Leave letter out to clear whatever letter the row holds. Marks are the person's own way around the panel, so only move one when asked.",
-          "readOnly": false,
-          "idempotent": true,
-          "destructive": false,
-          "request": "agent.v1.SetMarkRequest",
-          "response": "google.protobuf.Empty"
-        },
-        {
           "slug": "set-agent-hidden",
           "name": "SetHidden",
           "path": "/agent.v1.AgentService/SetHidden",
@@ -2016,7 +1976,7 @@
     },
     "agent.v1.AgentRow": {
       "name": "AgentRow",
-      "description": "AgentRow is an agent with what the panel draws beside it: its mark, its waiting mail, the pull requests on its branch and where its local review stands.",
+      "description": "AgentRow is an agent with what the panel draws beside it: its waiting mail, the pull requests on its branch and where its local review stands.",
       "fields": [
         {
           "name": "agent",
@@ -2027,16 +1987,6 @@
           "oneof": "",
           "rules": [],
           "description": "The agent itself."
-        },
-        {
-          "name": "mark",
-          "type": "string",
-          "ref": "",
-          "repeated": false,
-          "map": false,
-          "oneof": "",
-          "rules": [],
-          "description": "The letter a person jumps to it by in the panel, if it holds one."
         },
         {
           "name": "unread_mail",
@@ -2760,16 +2710,6 @@
           "description": "The agent, its prompt whole."
         },
         {
-          "name": "mark",
-          "type": "string",
-          "ref": "",
-          "repeated": false,
-          "map": false,
-          "oneof": "",
-          "rules": [],
-          "description": "The letter a person jumps to it by in the panel, if it holds one."
-        },
-        {
           "name": "unread_mail",
           "type": "bool",
           "ref": "",
@@ -3285,22 +3225,6 @@
         }
       ]
     },
-    "agent.v1.ListMarksResponse": {
-      "name": "ListMarksResponse",
-      "description": "",
-      "fields": [
-        {
-          "name": "marks",
-          "type": "Mark",
-          "ref": "agent.v1.Mark",
-          "repeated": true,
-          "map": false,
-          "oneof": "",
-          "rules": [],
-          "description": "Every mark, by letter."
-        }
-      ]
-    },
     "agent.v1.ListReviewRoundsRequest": {
       "name": "ListReviewRoundsRequest",
       "description": "",
@@ -3545,52 +3469,6 @@
           "oneof": "",
           "rules": [],
           "description": "Whether an agent wrote it or komrad raised it."
-        }
-      ]
-    },
-    "agent.v1.Mark": {
-      "name": "Mark",
-      "description": "Mark is one letter a person types to jump to a row, held by one agent or one workflow.",
-      "fields": [
-        {
-          "name": "letter",
-          "type": "string",
-          "ref": "",
-          "repeated": false,
-          "map": false,
-          "oneof": "",
-          "rules": [],
-          "description": "The letter."
-        },
-        {
-          "name": "agent_id",
-          "type": "string",
-          "ref": "",
-          "repeated": false,
-          "map": false,
-          "oneof": "",
-          "rules": [],
-          "description": "The agent it jumps to, unset when it is on a workflow."
-        },
-        {
-          "name": "workflow_id",
-          "type": "string",
-          "ref": "",
-          "repeated": false,
-          "map": false,
-          "oneof": "",
-          "rules": [],
-          "description": "The workflow it jumps to, unset when it is on an agent."
-        },
-        {
-          "name": "id",
-          "type": "string",
-          "ref": "",
-          "repeated": false,
-          "map": false,
-          "oneof": "",
-          "rules": [],
-          "description": "The mark's id."
         }
       ]
     },
@@ -5130,42 +5008,6 @@
           "oneof": "",
           "rules": [],
           "description": "True to hide the row, false to draw it again."
-        }
-      ]
-    },
-    "agent.v1.SetMarkRequest": {
-      "name": "SetMarkRequest",
-      "description": "",
-      "fields": [
-        {
-          "name": "agent_id",
-          "type": "string",
-          "ref": "",
-          "repeated": false,
-          "map": false,
-          "oneof": "target",
-          "rules": [],
-          "description": "The agent to mark."
-        },
-        {
-          "name": "workflow_id",
-          "type": "string",
-          "ref": "",
-          "repeated": false,
-          "map": false,
-          "oneof": "target",
-          "rules": [],
-          "description": "The workflow to mark."
-        },
-        {
-          "name": "letter",
-          "type": "string",
-          "ref": "",
-          "repeated": false,
-          "map": false,
-          "oneof": "",
-          "rules": [],
-          "description": "The letter to put on it, left out to take off whichever letter the row answers to."
         }
       ]
     },

@@ -20,7 +20,6 @@ import (
 	agentv1 "komrad/proto/gen/agent/v1"
 
 	agentstore "komrad/internal/store/agent"
-	markstore "komrad/internal/store/mark"
 	rowstore "komrad/internal/store/row"
 
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -75,13 +74,6 @@ type rowWriter interface {
 	RecordReport(ctx context.Context, params agents.RecordReportParams) error
 }
 
-// markReadWriter reads and writes the letters a person types to jump to a row.
-type markReadWriter interface {
-	SetMark(ctx context.Context, mark string, target markstore.Target) (bool, error)
-	ClearMark(ctx context.Context, target markstore.Target) (bool, error)
-	ListMarks(ctx context.Context) ([]markstore.Mark, error)
-}
-
 type agentDeleter interface {
 	DeleteAgents(ctx context.Context, ids []string) error
 }
@@ -100,7 +92,6 @@ type NewHandlerParams struct {
 	Holder       agentHolder
 	Deleter      agentDeleter
 	Review       reviewConversation
-	Marks        markReadWriter
 	Documents    documentReadWriter
 	Rebaser      worktreeRebaser
 	Orchestrator orchestratorStarter
@@ -121,7 +112,6 @@ type Handler struct {
 	holder       agentHolder
 	deleter      agentDeleter
 	review       reviewConversation
-	marks        markReadWriter
 	documents    documentReadWriter
 	rebaser      worktreeRebaser
 	orchestrator orchestratorStarter
@@ -150,7 +140,6 @@ func NewHandler(params NewHandlerParams) *Handler {
 		holder:       params.Holder,
 		deleter:      params.Deleter,
 		review:       params.Review,
-		marks:        params.Marks,
 		documents:    params.Documents,
 		rebaser:      params.Rebaser,
 		orchestrator: params.Orchestrator,
@@ -306,7 +295,6 @@ func (s *Handler) GetAgent(ctx context.Context, req *agentv1.GetAgentRequest) (*
 
 	return &agentv1.GetAgentResponse{
 		Agent:             drawn.GetAgent(),
-		Mark:              drawn.Mark,
 		UnreadMail:        drawn.GetUnreadMail(),
 		PullRequest:       drawn.GetPullRequest(),
 		PullRequests:      drawn.GetPullRequests(),
@@ -314,46 +302,6 @@ func (s *Handler) GetAgent(ctx context.Context, req *agentv1.GetAgentRequest) (*
 		ReviewerComments:  drawn.ReviewerComments,
 		PersonComments:    drawn.PersonComments,
 	}, nil
-}
-
-// ListMarks is every mark, by letter.
-func (s *Handler) ListMarks(ctx context.Context, _ *emptypb.Empty) (*agentv1.ListMarksResponse, *fail.Error) {
-	marks, err := s.marks.ListMarks(ctx)
-	if err != nil {
-		return nil, rpcerr.From(err, "failed to list the marks")
-	}
-
-	return &agentv1.ListMarksResponse{Marks: xslice.Map(marks, render.Mark)}, nil
-}
-
-// SetMark puts a letter on an agent or a workflow, taking it off whichever row held it, and
-// carries no tool annotation because a mark is the person's own.
-func (s *Handler) SetMark(ctx context.Context, req *agentv1.SetMarkRequest) (*emptypb.Empty, *fail.Error) {
-	target := markstore.Target{}
-	switch {
-	case req.GetAgentId() != "":
-		target = markstore.OnAgent(req.GetAgentId())
-	case req.GetWorkflowId() != "":
-		target = markstore.OnWorkflow(req.GetWorkflowId())
-	}
-
-	if req.Letter == nil {
-		if _, err := s.marks.ClearMark(ctx, target); err != nil {
-			return nil, rpcerr.From(err, "failed to clear the mark")
-		}
-
-		return &emptypb.Empty{}, nil
-	}
-
-	marked, err := s.marks.SetMark(ctx, req.GetLetter(), target)
-	if err != nil {
-		return nil, rpcerr.From(err, "failed to set the mark")
-	}
-	if !marked {
-		return nil, store.ErrNotFound.Saying("%s is not a live row to mark", target)
-	}
-
-	return &emptypb.Empty{}, nil
 }
 
 // SetHidden hides an agent from the panel's sidebar or brings it back.

@@ -21,8 +21,6 @@ type AgentServiceImpl interface {
 	CreateAgent(context.Context, *v1.CreateAgentRequest) (*v1.CreateAgentResponse, *fail.Error)
 	RequestReview(context.Context, *v1.RequestReviewRequest) (*v1.RequestReviewResponse, *fail.Error)
 	Adopt(context.Context, *v1.AdoptRequest) (*v1.AdoptResponse, *fail.Error)
-	ListMarks(context.Context, *emptypb.Empty) (*v1.ListMarksResponse, *fail.Error)
-	SetMark(context.Context, *v1.SetMarkRequest) (*emptypb.Empty, *fail.Error)
 	SetHidden(context.Context, *v1.SetHiddenRequest) (*emptypb.Empty, *fail.Error)
 	Log(context.Context, *v1.LogRequest) (*emptypb.Empty, *fail.Error)
 	SendMail(context.Context, *v1.SendMailRequest) (*v1.SendMailResponse, *fail.Error)
@@ -94,16 +92,6 @@ func (a AgentServiceAdapter) RequestReview(ctx context.Context, req *connect.Req
 // Adopt answers the request as connect serves it.
 func (a AgentServiceAdapter) Adopt(ctx context.Context, req *connect.Request[v1.AdoptRequest]) (*connect.Response[v1.AdoptResponse], error) {
 	return rpcerr.Answer(a.Impl.Adopt(ctx, req.Msg))
-}
-
-// ListMarks answers the request as connect serves it.
-func (a AgentServiceAdapter) ListMarks(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[v1.ListMarksResponse], error) {
-	return rpcerr.Answer(a.Impl.ListMarks(ctx, req.Msg))
-}
-
-// SetMark answers the request as connect serves it.
-func (a AgentServiceAdapter) SetMark(ctx context.Context, req *connect.Request[v1.SetMarkRequest]) (*connect.Response[emptypb.Empty], error) {
-	return rpcerr.Answer(a.Impl.SetMark(ctx, req.Msg))
 }
 
 // SetHidden answers the request as connect serves it.

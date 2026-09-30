@@ -9,7 +9,6 @@ import (
 
 	agentstore "komrad/internal/store/agent"
 	mailstore "komrad/internal/store/mail"
-	markstore "komrad/internal/store/mark"
 	pullrequeststore "komrad/internal/store/pullrequest"
 	reviewstore "komrad/internal/store/review"
 	rowstore "komrad/internal/store/row"
@@ -40,7 +39,6 @@ type agentReviewLister interface {
 type NewRowReaderParams struct {
 	Agents       agentGetter
 	Rows         rowPageReader
-	Marks        watchedLister[markstore.Mark]
 	Mail         watchedLister[mailstore.Mail]
 	PullRequests observedPullRequestLister
 	Repositories watchedLister[pullrequeststore.Sync]
@@ -52,7 +50,6 @@ type NewRowReaderParams struct {
 type RowReader struct {
 	agents       agentGetter
 	rows         rowPageReader
-	marks        watchedLister[markstore.Mark]
 	mail         watchedLister[mailstore.Mail]
 	pullRequests observedPullRequestLister
 	repositories watchedLister[pullrequeststore.Sync]
@@ -65,7 +62,6 @@ func NewRowReader(params NewRowReaderParams) *RowReader {
 	return &RowReader{
 		agents:       params.Agents,
 		rows:         params.Rows,
-		marks:        params.Marks,
 		mail:         params.Mail,
 		pullRequests: params.PullRequests,
 		repositories: params.Repositories,
@@ -76,7 +72,6 @@ func NewRowReader(params NewRowReaderParams) *RowReader {
 
 // Surroundings are the watched rows a page of agents is drawn beside, the same ones the watch streams.
 type Surroundings struct {
-	Marks        []markstore.Mark
 	Mail         []mailstore.Mail
 	PullRequests []pullrequeststore.PullRequest
 	Repositories []pullrequeststore.Sync
@@ -124,15 +119,10 @@ func (r *RowReader) GetRow(ctx context.Context, id string) (*rowstore.Row, error
 	return row, nil
 }
 
-// ListSurroundings reads every mark and unclaimed mail, and the pull requests, repositories,
-// reviews and workflows of the agents on the rows.
+// ListSurroundings reads every unclaimed mail, and the pull requests, repositories, reviews and
+// workflows of the agents on the rows.
 func (r *RowReader) ListSurroundings(ctx context.Context, rows []rowstore.Row) (*Surroundings, error) {
 	agentIDs := xslice.Map(rows, func(row rowstore.Row) string { return row.ID })
-
-	marks, err := r.marks.ListWatched(ctx, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list the marks: %w", err)
-	}
 
 	mail, err := r.mail.ListWatched(ctx, nil)
 	if err != nil {
@@ -174,7 +164,6 @@ func (r *RowReader) ListSurroundings(ctx context.Context, rows []rowstore.Row) (
 	}
 
 	return &Surroundings{
-		Marks:        marks,
 		Mail:         mail,
 		PullRequests: pullRequests,
 		Repositories: repositories,

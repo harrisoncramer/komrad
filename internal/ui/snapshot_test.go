@@ -660,8 +660,8 @@ func TestSnapshotHiddenTally(t *testing.T) {
 	}
 }
 
-// TestSnapshotListing pins what the whole listing carries: the letters typed onto rows, the
-// selection, the focused row and the column names are cut to.
+// TestSnapshotListing pins what the whole listing carries: the selection, the focused row and
+// the column names are cut to.
 func TestSnapshotListing(t *testing.T) {
 	params := snapshotParams{
 		rows: []agentRow{
@@ -669,7 +669,6 @@ func TestSnapshotListing(t *testing.T) {
 			{item: panel.AgentRow{Agent: panel.Agent{ID: "a1", Name: "picked"}}},
 			{item: panel.AgentRow{Agent: panel.Agent{ID: "a2", Name: "passed over"}}},
 		},
-		marks:    map[string]string{"w1": "w", "a2": "p"},
 		selected: selectAgents([]string{"a1"}...),
 		focused:  "agent:a1",
 		pane:     40,
@@ -680,9 +679,6 @@ func TestSnapshotListing(t *testing.T) {
 	assert.Equal(t, "agent:a1", snapshot.Focused)
 	assert.Equal(t, 40, snapshot.Pane)
 	require.Len(t, snapshot.Rows, 3)
-	assert.Equal(t, "w", snapshot.Rows[0].Mark)
-	assert.Empty(t, snapshot.Rows[1].Mark)
-	assert.Equal(t, "p", snapshot.Rows[2].Mark)
 	assert.True(t, snapshot.Rows[1].Selected)
 	assert.False(t, snapshot.Rows[2].Selected)
 }

@@ -26,7 +26,6 @@ func renderLine(line Line, list List, palette paint.Palette, width int) string {
 	draw := drawer{palette: palette, glyphs: list.Glyphs}
 	cells := []string{
 		draw.gutterCell(line.Focus, plainColumns),
-		draw.gutterCell(line.Mark, plainColumns),
 	}
 	for i, column := range list.Columns {
 		var cell Cell

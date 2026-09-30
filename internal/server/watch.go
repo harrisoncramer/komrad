@@ -8,7 +8,6 @@ import (
 	watchv1 "komrad/proto/gen/watch/v1"
 
 	mailstore "komrad/internal/store/mail"
-	markstore "komrad/internal/store/mark"
 	pullrequeststore "komrad/internal/store/pullrequest"
 	reviewstore "komrad/internal/store/review"
 	rowstore "komrad/internal/store/row"
@@ -23,7 +22,6 @@ func buildWatchLoaders(st *stores) []watch.Loader {
 		watch.NewLoader(watchv1.Resource_RESOURCE_AGENT, st.rows, renderWatchedAgent),
 		watch.NewLoader(watchv1.Resource_RESOURCE_WORKFLOW, st.workflows, renderWatchedWorkflow),
 		watch.NewLoader(watchv1.Resource_RESOURCE_SCHEDULE, st.schedules, renderWatchedSchedule),
-		watch.NewLoader(watchv1.Resource_RESOURCE_MARK, st.marks, renderWatchedMark),
 		watch.NewLoader(watchv1.Resource_RESOURCE_MAIL, st.mail, renderWatchedMail),
 		watch.NewLoader(watchv1.Resource_RESOURCE_PULL_REQUEST, st.pullRequests, renderWatchedPullRequest),
 		watch.NewLoader(watchv1.Resource_RESOURCE_REPOSITORY, st.pullRequestSyncs, renderWatchedRepository),
@@ -49,12 +47,6 @@ func renderWatchedSchedule(row schedulestore.Schedule) (string, *watchv1.Row) {
 	schedule := render.Schedule(row, time.Now(), render.ScheduleOptions{})
 
 	return schedule.GetId(), &watchv1.Row{Row: &watchv1.Row_Schedule{Schedule: schedule}}
-}
-
-func renderWatchedMark(row markstore.Mark) (string, *watchv1.Row) {
-	mark := render.Mark(row)
-
-	return mark.GetId(), &watchv1.Row{Row: &watchv1.Row_Mark{Mark: mark}}
 }
 
 func renderWatchedMail(row mailstore.Mail) (string, *watchv1.Row) {

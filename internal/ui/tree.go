@@ -15,13 +15,12 @@ import (
 )
 
 // agentsScreen is the agents screen: the cursor in the tree of workflows and agents, how they
-// are ordered, whether the hidden ones are drawn, and the mark press waiting on its letter.
+// are ordered and whether the hidden ones are drawn.
 type agentsScreen struct {
 	rowCursor
 	placed     bool
 	showHidden bool
 	sort       tabsState
-	marks      markState
 	// drawn is the rows built once for the frame being drawn, and nil between frames.
 	drawn []agentRow
 }
@@ -386,15 +385,6 @@ func agentRowKey(id string) string {
 	return "agent:" + id
 }
 
-// rowID is the id of what a row stands for: the workflow of a header, else the agent.
-func rowID(row agentRow) string {
-	if row.header {
-		return row.workflow.ID
-	}
-
-	return row.item.Agent.ID
-}
-
 const workflowRowPrefix = "workflow:"
 
 func workflowRowKey(id string) string {
@@ -534,12 +524,9 @@ type listing struct {
 	schedules         []scheduleItem
 	archivedSchedules []scheduleItem
 	worktrees         []worktreeItem
-	// marks are the letters a person types to jump to rows, keyed by the id of the agent or
-	// workflow each is on.
-	marks map[string]string
 }
 
-// assemble draws the listings, live and archived, and the marks from the world as it stands now.
+// assemble draws the listings, live and archived, from the world as it stands now.
 func (l *listing) assemble(now time.Time) {
 	agents := agentRowsFrom(assemble.AgentRows(l.world, now))
 	l.worktrees = worktreeItemsFrom(l.world.Worktrees, agents)
@@ -571,7 +558,6 @@ func (l *listing) assemble(now time.Time) {
 	l.archivedSchedules = slices.DeleteFunc(schedules, func(item scheduleItem) bool {
 		return !isArchivedSchedule(item)
 	})
-	l.marks = assemble.Marks(l.world)
 }
 
 // revealAgent puts the cursor on an agent, showing the hidden rows when it is one of them.

@@ -11,7 +11,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/proto"
 )
 
 var filterableRows = []string{"backend", "  auth", "  └ api", "  db", "frontend", "  ui"}
@@ -276,27 +275,6 @@ func TestFilterNarrow(t *testing.T) {
 			assert.Equal(t, tt.wantSearch, readSearch(frame))
 		})
 	}
-
-	t.Run("a jump to a row the filter took away turns the filter back to a search", func(t *testing.T) {
-		harness := openFilterable(t, "backend +1", newHiddenAgent("sweep", "sweep"), newMark("c", "db"))
-
-		harness.press("/", "tab", "a", "u", "t", "h", "enter", "'", "c")
-
-		frame := harness.readFrame()
-		assert.Equal(t, "  db", readHoveredRow(frame))
-		assert.Equal(t, "/ auth", readSearch(frame))
-		assert.NotContains(t, readListRows(frame), "  sweep"+hiddenMark, "the hidden rows stay hidden")
-	})
-
-	t.Run("a jump to a hidden row the filter keeps reveals it with the filter standing", func(t *testing.T) {
-		harness := openFilterable(t, "backend +1", newHiddenAgent("sweep", "sweep"), newMark("c", "sweep"))
-
-		harness.press("/", "tab", "s", "w", "e", "e", "p", "enter", "'", "c")
-
-		frame := harness.readFrame()
-		assert.Equal(t, "  sweep"+hiddenMark, readHoveredRow(frame))
-		assert.Equal(t, "▽ sweep", readSearch(frame))
-	})
 }
 
 // TestFilterScreens covers every list screen answering the same search and filter keys.
@@ -468,17 +446,17 @@ func TestFilterWorktreeHeader(t *testing.T) {
 	assert.Contains(t, frame, "2 worktrees", "as does its count")
 }
 
-func openFilterable(t *testing.T, from string, rows ...proto.Message) *panelHarness {
+func openFilterable(t *testing.T, from string) *panelHarness {
 	t.Helper()
 
-	harness := openAgents(t, append([]proto.Message{
+	harness := openAgents(t,
 		newLiveWorkflow("w1", "backend"),
 		newLiveWorkflow("w2", "frontend"),
 		newAgentAt("auth", "w1", 5),
 		newChild("api", "api", "auth"),
 		newAgentAt("db", "w1", 3),
 		newAgentAt("ui", "w2", 1),
-	}, rows...)...)
+	)
 
 	harness.press("g", "g")
 	for range filterableRows {

@@ -578,27 +578,6 @@
           "sections": []
         },
         {
-          "path": "keybindings.marks",
-          "description": "The marks a person puts on rows to jump between them, as vim's own marks work.",
-          "settings": [
-            {
-              "key": "set",
-              "path": "keybindings.marks.set",
-              "type": "array",
-              "description": "Set a mark on the row under the cursor, agent or workflow, then the letter to set, or\nthe letter it already holds to take the mark off it.",
-              "default": "[\"m\"]"
-            },
-            {
-              "key": "jump",
-              "path": "keybindings.marks.jump",
-              "type": "array",
-              "description": "Jump the cursor to a marked row, then the letter to jump to, or the jump key again to\ngo back to where the last jump left from.",
-              "default": "[\"'\"]"
-            }
-          ],
-          "sections": []
-        },
-        {
           "path": "keybindings.messages",
           "description": "The messages komrad pushed, read in the main pane.",
           "settings": [

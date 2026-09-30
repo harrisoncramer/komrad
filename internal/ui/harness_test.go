@@ -624,8 +624,6 @@ func wrapRow(row proto.Message) *watchv1.Row {
 		return &watchv1.Row{Row: &watchv1.Row_Workflow{Workflow: row}}
 	case *schedulev1.Schedule:
 		return &watchv1.Row{Row: &watchv1.Row_Schedule{Schedule: row}}
-	case *agentv1.Mark:
-		return &watchv1.Row{Row: &watchv1.Row_Mark{Mark: row}}
 	case *agentv1.WatchedReview:
 		return &watchv1.Row{Row: &watchv1.Row_Review{Review: row}}
 	case *agentv1.ReviewThread:

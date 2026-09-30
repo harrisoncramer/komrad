@@ -25,7 +25,6 @@ func TestWatch(t *testing.T) {
 			newLiveWorkflow("w1", "api"),
 			newLiveWorkflow("w2", "web"),
 			newAgentAt("older", "w1", 1),
-			newMark("a", "older"),
 		)
 		require.Equal(t, []string{"api", "  older", "web"}, readListRows(harness.readFrame()))
 
@@ -34,47 +33,11 @@ func TestWatch(t *testing.T) {
 			newAgentAt("two", "w1", 3),
 			newAgentAt("older", "w1", 1),
 		))
-		harness.press("k", "'", "a")
 
-		frame := harness.readFrame()
-		assert.Equal(t, []string{"api", "  two", "  older"}, readListRows(frame))
-		assert.Equal(t, "  two", readHoveredRow(frame), "the mark went with the stream that carried it")
+		assert.Equal(t, []string{"api", "  two", "  older"}, readListRows(harness.readFrame()))
 	})
 
-	t.Run("a mark for an agent not yet listed is worn once the agent arrives", func(t *testing.T) {
-		t.Parallel()
-
-		harness := openAgents(t, newLiveWorkflow("w1", "api"), newAgentAt("two", "w1", 2))
-
-		harness.watch(buildPuts(newMark("a", "one")))
-		require.Equal(t, []string{"api", "  two"}, readListRows(harness.readFrame()), "the mark draws no row of its own")
-
-		harness.watch(buildPuts(newAgentAt("one", "w1", 1)))
-		harness.press("'", "a")
-
-		assert.Equal(t, "  one", readHoveredRow(harness.readFrame()))
-	})
-
-	t.Run("a mark's tombstone takes the letter off", func(t *testing.T) {
-		t.Parallel()
-
-		harness := openAgents(t,
-			newLiveWorkflow("w1", "api"),
-			newAgentAt("two", "w1", 2),
-			newAgentAt("one", "w1", 1),
-			newMark("a", "one"),
-		)
-		harness.press("'", "a")
-		require.Equal(t, "  one", readHoveredRow(harness.readFrame()))
-		harness.press("k")
-
-		harness.watch(buildDeleted(watchv1.Resource_RESOURCE_MARK, "m-one"))
-		harness.press("'", "a")
-
-		assert.Equal(t, "  two", readHoveredRow(harness.readFrame()))
-	})
-
-	t.Run("an agent's tombstone takes its children and its mark with it", func(t *testing.T) {
+	t.Run("an agent's tombstone takes its children with it", func(t *testing.T) {
 		t.Parallel()
 
 		harness := openAgents(t,
@@ -82,13 +45,11 @@ func TestWatch(t *testing.T) {
 			newAgent("a1", "parent", "w1"),
 			newChild("a2", "child", "a1"),
 			newAgent("a3", "other", "w1"),
-			newMark("a", "a1"),
 		)
 		require.Len(t, readListRows(harness.readFrame()), 4)
 
 		harness.watch(
 			buildDeleted(watchv1.Resource_RESOURCE_AGENT, "a1"),
-			buildDeleted(watchv1.Resource_RESOURCE_MARK, "m-a1"),
 			buildDeleted(watchv1.Resource_RESOURCE_AGENT, "a2"),
 		)
 

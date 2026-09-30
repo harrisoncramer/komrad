@@ -536,17 +536,6 @@ type Mail struct {
 	SubjectID pgtype.UUID
 }
 
-// A letter a person types to jump to one row. Each letter belongs to a single agent or a single workflow, so it always names one place.
-type Mark struct {
-	Mark       string
-	AgentID    pgtype.UUID
-	WorkflowID pgtype.UUID
-	CreatedAt  pgtype.Timestamptz
-	ID         pgtype.UUID
-	// The engine that owns this row, stamped from the login that wrote it.
-	EngineID pgtype.UUID
-}
-
 // A pull request komrad has read from a forge, one row per forge identity and none owned by an agent. Finished is derived: merged when merged_at is set, closed when closed_at is set and merged_at is not, open otherwise.
 type PullRequest struct {
 	ID pgtype.UUID

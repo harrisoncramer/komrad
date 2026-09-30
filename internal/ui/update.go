@@ -91,13 +91,6 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	// A mark binding owns the key after it, whatever that key is otherwise bound to.
-	if isKey && m.agents.isMarkPending() {
-		cmd := m.agents.readMark(&m, m.shared(), key)
-
-		return m, cmd
-	}
-
 	// A cycle key pressed in another pane is answered ahead of every mode.
 	if isKey {
 		if from, ok := m.findPressedElsewhere(key.String()); ok {

@@ -11,7 +11,6 @@ import (
 
 	agentstore "komrad/internal/store/agent"
 	mailstore "komrad/internal/store/mail"
-	markstore "komrad/internal/store/mark"
 	pullrequeststore "komrad/internal/store/pullrequest"
 	reviewstore "komrad/internal/store/review"
 	rowstore "komrad/internal/store/row"
@@ -29,7 +28,6 @@ func newRowReader(st *storetest.Stores) *RowReader {
 	return NewRowReader(NewRowReaderParams{
 		Agents:       st.Agents,
 		Rows:         st.Rows,
-		Marks:        st.Marks,
 		Mail:         st.Mail,
 		PullRequests: st.PullRequests,
 		Repositories: st.PullRequestSyncs,
@@ -48,9 +46,7 @@ func TestListSurroundings(t *testing.T) {
 	elsewhere := seedAgentOnBranch(t, st, "elsewhere", "https://github.com/harrisoncramer/unread", "agent/x")
 	bystander := st.SeedWorkflow(t, workflowstore.Config{Name: "bystander"})
 
-	_, err := st.Marks.Set(ctx, "a", markstore.OnAgent(elsewhere.ID))
-	require.NoError(t, err)
-	_, err = st.Mail.Send(ctx, mailstore.SendParams{
+	_, err := st.Mail.Send(ctx, mailstore.SendParams{
 		FromName:  "beta",
 		ToAgentID: elsewhere.ID,
 		Body:      "refunded_cents",
@@ -89,7 +85,6 @@ func TestListSurroundings(t *testing.T) {
 	surroundings, err := reader.ListSurroundings(ctx, rows)
 	require.NoError(t, err)
 
-	assert.Len(t, surroundings.Marks, 1, "every mark, whichever row it is on")
 	assert.Len(t, surroundings.Mail, 1, "every unclaimed piece of mail, whoever it is to")
 	assert.Equal(t, []string{written.ID}, xslice.Map(surroundings.PullRequests, func(p pullrequeststore.PullRequest) string {
 		return p.ID

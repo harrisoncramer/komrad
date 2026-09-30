@@ -14,8 +14,6 @@ import (
 // data so the reading below needs nothing else.
 type snapshotParams struct {
 	rows []agentRow
-	// marks are the letters a person typed onto rows, keyed by the row key each names.
-	marks map[string]string
 	// selected are the agents taken into a selection several rows wide.
 	selected selection
 	// focused is the key of the row the cursor stands on, empty when it stands on none.
@@ -57,7 +55,6 @@ func snapshotRow(r agentRow, params snapshotParams) view.Row {
 	key := rowKey(r)
 	row := view.Row{
 		Key:         key,
-		Mark:        params.marks[rowID(r)],
 		HiddenCount: standingIn(r.hiddenCount, params.showHidden),
 	}
 

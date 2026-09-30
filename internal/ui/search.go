@@ -607,7 +607,6 @@ func (w *searchScreen) agentRow(s panelShared, agent searchAgent, archived map[s
 		Kind:    view.KindResult,
 		Name:    agent.name,
 		Matches: nameMatches(agent.name, w.query),
-		Mark:    s.listing.marks[agent.id],
 		Process: view.ProcessNone,
 	}
 

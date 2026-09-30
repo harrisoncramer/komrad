@@ -143,12 +143,12 @@ func TestSnapshotCarriesEveryWatchedSet(t *testing.T) {
 func TestAFailedSnapshotNamesItsResource(t *testing.T) {
 	boom := errors.New("boom")
 	rows := NewRows([]Loader{
-		NewLoader(watchv1.Resource_RESOURCE_MARK, failingLister{err: boom}, renderTestAgent),
+		NewLoader(watchv1.Resource_RESOURCE_SCHEDULE, failingLister{err: boom}, renderTestAgent),
 	})
 
 	_, err := rows.Snapshot(t.Context())
 	require.ErrorIs(t, err, boom)
-	assert.Contains(t, err.Error(), watchv1.Resource_RESOURCE_MARK.String())
+	assert.Contains(t, err.Error(), watchv1.Resource_RESOURCE_SCHEDULE.String())
 }
 
 // failingLister answers every read with its error.

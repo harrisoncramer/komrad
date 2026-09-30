@@ -40,10 +40,7 @@ The agents screen is the root's twin, and the line between them is drawn by who 
 state. The stage, the warm-up and the write result's landing are the root's, since a pane on
 the stage is a panel concern and is shown on the schedules screen as well; each asks the
 agents screen for the row its cursor is on through a named method, hoveredPane, selectedAgent
-and focusOn, and the screen asks the root to stage that row through host.stageSelection. The
-marks are the screen's: the letters live on the listing, but the press waiting on a letter and
-the row a jump left only ever exist while the agents list is up, so update.go asks the screen
-whether it is reading a mark before anything else sees the key.
+and focusOn, and the screen asks the root to stage that row through host.stageSelection.
 
 Everything else in the package is one of those three for one screen.
 
@@ -53,7 +50,7 @@ The state divides into four kinds, and knowing which is which is most of underst
 package.
 
 The listing is what the watch has delivered, held as one map per resource, and the rows
-assembled from those maps: the agents with their marks, mail and pull requests, the workflows
+assembled from those maps: the agents with their mail and pull requests, the workflows
 and the schedules, with the archive and the worktrees beside them while a screen that draws
 them is up. It belongs to the panel rather than to any one screen, because the schedule form
 and the archive both draw the workflows the agents list is drawn from.
@@ -80,15 +77,15 @@ the keybindings, the dimensions of its own pane.
 ## How data arrives
 
 The panel is told. It holds the service's watch stream open for its whole life: the stream
-opens with a snapshot of every resource the panel draws, agents, workflows, schedules, marks,
+opens with a snapshot of every resource the panel draws, agents, workflows, schedules,
 unclaimed mail, the pull requests an agent was seen with, repositories, reviews, the review
 threads of live agents and worktree directories, then carries one row per
 change, and the client in internal/client hands the changes over in batches a few tens of
 milliseconds wide. Each row goes into the World in internal/assemble, one map per kind, or
 comes out of it on a tombstone, and the rows the screens draw are assembled again from those
 maps after every batch by assemble.AgentRows, the one function that says how an agent's row is
-joined to its mark, its mail and its pull requests, which the agent handler calls too for
-list_agents. The stream promises no order between resources, so a mark or a pull
+joined to its mail and its pull requests, which the agent handler calls too for
+list_agents. The stream promises no order between resources, so mail or a pull
 request may arrive before the agent it is for: it is held and drawn once the agent is. A
 stream that closes or goes quiet is reported as the server gone and opened again, and the next
 snapshot replaces what the last stream built. Nothing about an agent is discovered here: the
@@ -151,7 +148,7 @@ holds the window and when it gives it up.
 ## The files
 
 Screens, each a type behind screens.go holding its own rows, keys, and view: agents.go, with
-tree.go for the rows and the cursor, marks.go for the letters that jump between rows,
+tree.go for the rows and the cursor,
 workflows.go for the keys that act on a folder header, and selection.go for the multi-select;
 stage.go and warmup.go are the root's, the pane it puts beside the list for that screen. Then
 archive.go, schedules.go, search.go, and worktreescreen.go, with worktrees.go and
