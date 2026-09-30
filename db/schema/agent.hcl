@@ -725,6 +725,11 @@ table "agents" {
     default = false
     comment = "Whether the hold cut a turn that was still running, which is what decides whether letting go has to type the agent back into motion or merely stop holding it."
   }
+  column "held_by_agent_id" {
+    null    = true
+    type    = uuid
+    comment = "The agent that took the hold, null when the panel took it."
+  }
   column "nudge_sent_at" {
     null = true
     type = timestamptz

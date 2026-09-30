@@ -1901,6 +1901,41 @@ func TestAgentsStrandedPause(t *testing.T) {
 		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceReleaseAgentProcedure))
 	})
 
+	t.Run("a pause another agent holds", func(t *testing.T) {
+		holder := newPausable("")
+		holder.Id, holder.Name, holder.PaneId = "a2", "conductor", "%10"
+
+		tests := []struct {
+			name     string
+			rows     []proto.Message
+			wantSent int
+		}{
+			{
+				name: "is left alone while that agent is listed",
+				rows: []proto.Message{newLiveWorkflow("w1", "backend"), holder},
+			},
+			{
+				name:     "is let go once that agent is gone",
+				rows:     []proto.Message{newLiveWorkflow("w1", "backend")},
+				wantSent: 1,
+			},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				held := newPausable(heldAt)
+				held.HeldByAgentId = "a2"
+				harness := newPanelHarness(t, panelHarnessParams{})
+				answerWorktreeReads(harness)
+				said := recordRelease(harness)
+
+				harness.watch(buildSnapshot(append(tt.rows, held)...))
+
+				assert.Len(t, *said, tt.wantSent)
+			})
+		}
+	})
+
 	t.Run("a paused agent draws its document in place of its pane", func(t *testing.T) {
 		harness := openAgents(t, newLiveWorkflow("w1", "backend"), newPausable(heldAt))
 

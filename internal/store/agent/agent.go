@@ -145,6 +145,8 @@ type Agent struct {
 	HeldAt *time.Time
 	// HeldMidTurn says the hold cut a turn that was still running.
 	HeldMidTurn bool
+	// HeldByAgentID is the agent that took the hold, nil when the panel took it.
+	HeldByAgentID *string
 
 	// Alive is whether the agent still owns the pane its row names.
 	Alive bool
@@ -270,6 +272,7 @@ func FromRow(agent models.Agent) Agent {
 		SequenceInProgress: agent.SequenceInProgress,
 		HeldAt:             agent.HeldAt,
 		HeldMidTurn:        agent.HeldMidTurn,
+		HeldByAgentID:      agent.HeldByAgentID,
 		Alive:              agent.Alive,
 		MovedSinceRound:    agent.MovedSinceRound,
 		DiffStat:           diffStatFrom(agent.LinesAdded, agent.LinesRemoved),

@@ -136,6 +136,8 @@ message Agent {
   optional DiffStat diff_stat = 47;
   // When a person stopped this agent and took its worktree, empty while nobody is holding it.
   string held_at = 35;
+  // The agent that took the hold, empty when the panel took it or nobody is holding it.
+  string held_by_agent_id = 48;
 
   reserved 31, 33;
   reserved "tree_standing", "tree_standing_sha";

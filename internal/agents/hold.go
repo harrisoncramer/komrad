@@ -12,6 +12,7 @@ import (
 	"komrad/internal/logging"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
+	"komrad/lib/xptr"
 )
 
 // ErrNotHeld is a release of an agent nobody was holding.
@@ -64,10 +65,16 @@ func NewHolder(params NewHolderParams) *Holder {
 	}
 }
 
-// Hold stops an agent and records that the person has it, refusing unless the agent is observed to
-// come to rest.
-func (h *Holder) Hold(ctx context.Context, agentID string) (*agentstore.Agent, error) {
-	agent, err := h.get(ctx, agentID)
+// HoldParams is the agent being held and the agent holding it.
+type HoldParams struct {
+	AgentID string
+	// ByAgentID is the agent taking the hold, empty for the panel.
+	ByAgentID string
+}
+
+// Hold stops an agent and records who has it, refusing unless the agent is observed to come to rest.
+func (h *Holder) Hold(ctx context.Context, params HoldParams) (*agentstore.Agent, error) {
+	agent, err := h.get(ctx, params.AgentID)
 	if err != nil {
 		return nil, err
 	}
@@ -86,9 +93,10 @@ func (h *Holder) Hold(ctx context.Context, agentID string) (*agentstore.Agent, e
 	}
 
 	held, err := h.agents.Hold(ctx, agentstore.HoldParams{
-		ID:      agent.ID,
-		At:      h.now(),
-		MidTurn: interrupted,
+		ID:        agent.ID,
+		At:        h.now(),
+		MidTurn:   interrupted,
+		ByAgentID: xptr.NonEmpty(params.ByAgentID),
 	})
 	if err != nil {
 		return nil, err
@@ -97,7 +105,7 @@ func (h *Holder) Hold(ctx context.Context, agentID string) (*agentstore.Agent, e
 		return nil, ErrAlreadyHeld.Saying("%q is already paused", agent.Name)
 	}
 
-	return h.get(ctx, agentID)
+	return h.get(ctx, params.AgentID)
 }
 
 // ReleaseParams is the agent being let go and what to tell it happened while it was held.

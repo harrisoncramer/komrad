@@ -741,6 +741,7 @@ UPDATE
 SET
     held_at = @held_at,
     held_mid_turn = @held_mid_turn,
+    held_by_agent_id = sqlc.narg(held_by_agent_id),
     state = CASE WHEN state IN ('thinking', 'waiting', 'uncertain') THEN
         'idle'
     ELSE
@@ -778,7 +779,8 @@ UPDATE
     agents
 SET
     held_at = NULL,
-    held_mid_turn = FALSE
+    held_mid_turn = FALSE,
+    held_by_agent_id = NULL
 WHERE
     id = @id
     AND held_at IS NOT NULL

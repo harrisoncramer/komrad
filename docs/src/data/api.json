@@ -2083,6 +2083,16 @@
           "oneof": "",
           "rules": [],
           "description": "When a person stopped this agent and took its worktree, empty while nobody is holding it."
+        },
+        {
+          "name": "held_by_agent_id",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The agent that took the hold, empty when the panel took it or nobody is holding it."
         }
       ]
     },

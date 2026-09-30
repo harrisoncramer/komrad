@@ -2,6 +2,7 @@ package ui
 
 import (
 	"komrad/internal/assemble"
+	"komrad/internal/ui/panel"
 
 	tea "charm.land/bubbletea/v2"
 )
@@ -18,7 +19,7 @@ func (strandedHoldReactor) react(m *model, changed assemble.Changed) tea.Cmd {
 
 	var cmds []tea.Cmd
 	for _, agent := range m.listing.liveAgents() {
-		if agent.HeldAt == nil || m.ownsHold(agent.ID) {
+		if !m.isStranded(agent) {
 			continue
 		}
 
@@ -26,6 +27,20 @@ func (strandedHoldReactor) react(m *model, changed assemble.Changed) tea.Cmd {
 	}
 
 	return tea.Batch(cmds...)
+}
+
+func (m *model) isStranded(agent panel.Agent) bool {
+	if agent.HeldAt == nil || m.ownsHold(agent.ID) {
+		return false
+	}
+
+	if agent.HeldByAgentID == "" {
+		return true
+	}
+
+	_, holderLives := m.listing.liveAgent(agent.HeldByAgentID)
+
+	return !holderLives
 }
 
 func (m *model) ownsHold(agentID string) bool {

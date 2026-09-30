@@ -202,9 +202,10 @@ func (s *AgentStore) Hold(ctx context.Context, params HoldParams) (bool, error) 
 	}
 
 	held, err := s.queries.HoldAgentByID(ctx, models.HoldAgentByIDParams{
-		ID:          params.ID,
-		HeldAt:      &params.At,
-		HeldMidTurn: params.MidTurn,
+		ID:            params.ID,
+		HeldAt:        &params.At,
+		HeldMidTurn:   params.MidTurn,
+		HeldByAgentID: params.ByAgentID,
 	})
 	if err != nil {
 		return false, fmt.Errorf("failed to hold agent %q: %w", params.ID, err)
@@ -219,6 +220,8 @@ type HoldParams struct {
 	At time.Time
 	// MidTurn says the interrupt cut a turn that was still running.
 	MidTurn bool
+	// ByAgentID is the agent taking the hold, nil for the panel.
+	ByAgentID *string
 }
 
 // Release lets go of an agent, and reports false when nobody was holding it.

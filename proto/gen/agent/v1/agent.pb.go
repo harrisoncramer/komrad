@@ -294,7 +294,9 @@ type Agent struct {
 	// base to measure against.
 	DiffStat *DiffStat `protobuf:"bytes,47,opt,name=diff_stat,json=diffStat,proto3,oneof" json:"diff_stat,omitempty"`
 	// When a person stopped this agent and took its worktree, empty while nobody is holding it.
-	HeldAt        string `protobuf:"bytes,35,opt,name=held_at,json=heldAt,proto3" json:"held_at,omitempty"`
+	HeldAt string `protobuf:"bytes,35,opt,name=held_at,json=heldAt,proto3" json:"held_at,omitempty"`
+	// The agent that took the hold, empty when the panel took it or nobody is holding it.
+	HeldByAgentId string `protobuf:"bytes,48,opt,name=held_by_agent_id,json=heldByAgentId,proto3" json:"held_by_agent_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -577,6 +579,13 @@ func (x *Agent) GetDiffStat() *DiffStat {
 func (x *Agent) GetHeldAt() string {
 	if x != nil {
 		return x.HeldAt
+	}
+	return ""
+}
+
+func (x *Agent) GetHeldByAgentId() string {
+	if x != nil {
+		return x.HeldByAgentId
 	}
 	return ""
 }
@@ -2839,7 +2848,7 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x14agent/v1/agent.proto\x12\bagent.v1\x1a\x17agent/v1/document.proto\x1a\x13agent/v1/mail.proto\x1a\x15agent/v1/review.proto\x1a\x15agent/v1/screen.proto\x1a\x19agent/v1/transcript.proto\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1epagination/v1/pagination.proto\x1a pullrequest/v1/pullrequest.proto\x1a\x14rules/v1/rules.proto\x1a\x12view/v1/view.proto\":\n" +
 	"\bDiffStat\x12\x14\n" +
 	"\x05added\x18\x01 \x01(\x05R\x05added\x12\x18\n" +
-	"\aremoved\x18\x02 \x01(\x05R\aremoved\"\x81\f\n" +
+	"\aremoved\x18\x02 \x01(\x05R\aremoved\"\xaa\f\n" +
 	"\x05Agent\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x10\n" +
@@ -2885,7 +2894,8 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x10prompt_truncated\x18  \x01(\bR\x0fpromptTruncated\x12*\n" +
 	"\x11moved_since_round\x18* \x01(\tR\x0fmovedSinceRound\x124\n" +
 	"\tdiff_stat\x18/ \x01(\v2\x12.agent.v1.DiffStatH\vR\bdiffStat\x88\x01\x01\x12\x17\n" +
-	"\aheld_at\x18# \x01(\tR\x06heldAtB\x0e\n" +
+	"\aheld_at\x18# \x01(\tR\x06heldAt\x12'\n" +
+	"\x10held_by_agent_id\x180 \x01(\tR\rheldByAgentIdB\x0e\n" +
 	"\f_archived_atB\x0e\n" +
 	"\f_schedule_idB\b\n" +
 	"\x06_aliveB\x12\n" +

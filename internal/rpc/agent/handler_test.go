@@ -534,7 +534,23 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 			},
 			wantAnswer: "spawned",
 			check: func(t *testing.T, services *recordingAgentServices, ids []string) {
-				assert.Equal(t, ids[:1], services.held)
+				assert.Equal(t, []agents.HoldParams{{AgentID: ids[0]}}, services.held)
+			},
+		},
+		{
+			name: "holding from an agent",
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, ids []string) (string, error) {
+				ctx = caller.With(ctx, caller.Caller{AgentID: betaID})
+				held, err := svc.HoldAgent(ctx, connect.NewRequest(&agentv1.HoldAgentRequest{Id: ids[0]}))
+				if err != nil {
+					return "", err
+				}
+
+				return held.Msg.GetAgent().GetName(), nil
+			},
+			wantAnswer: "spawned",
+			check: func(t *testing.T, services *recordingAgentServices, ids []string) {
+				assert.Equal(t, []agents.HoldParams{{AgentID: ids[0], ByAgentID: betaID}}, services.held)
 			},
 		},
 		{
@@ -1174,7 +1190,7 @@ type recordingAgentServices struct {
 	released      agents.ReleaseParams
 	reported      agents.RecordReportParams
 	resumed       []string
-	held          []string
+	held          []agents.HoldParams
 	orchestrated  []string
 	planned       []string
 	rebased       []string
@@ -1248,8 +1264,8 @@ func (f *recordingAgentServices) ResumeAgent(_ context.Context, id string) (*age
 	return f.answer()
 }
 
-func (f *recordingAgentServices) Hold(_ context.Context, agentID string) (*agentstore.Agent, error) {
-	f.held = append(f.held, agentID)
+func (f *recordingAgentServices) Hold(_ context.Context, params agents.HoldParams) (*agentstore.Agent, error) {
+	f.held = append(f.held, params)
 
 	return f.answer()
 }
