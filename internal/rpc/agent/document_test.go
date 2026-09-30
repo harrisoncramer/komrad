@@ -127,7 +127,7 @@ func (f *fakeDocuments) DeleteDocumentType(_ context.Context, id string) error {
 }
 
 func newDocumentHandler(docs *fakeDocuments) agentv1komrad.AgentServiceAdapter {
-	return agentv1komrad.AgentServiceAdapter{Impl: NewHandler(NewHandlerParams{Documents: docs})}
+	return agentv1komrad.AgentServiceAdapter{Impl: NewHandler(NewHandlerParams{Documents: docs, DocumentTypes: docs})}
 }
 
 // TestDocumentErrors pins which connect code each refusal of a document call becomes.

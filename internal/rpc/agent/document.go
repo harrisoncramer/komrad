@@ -21,6 +21,9 @@ type documentReadWriter interface {
 	GetDocument(ctx context.Context, id string, version *int32) (*documentstore.Document, error)
 	ListDocumentVersions(ctx context.Context, id string) (string, []documentstore.Version, error)
 	ListDocuments(ctx context.Context, agentID string, typeName *string) ([]documentstore.Document, error)
+}
+
+type documentTypeKeeper interface {
 	ListDocumentTypes(ctx context.Context) ([]documenttypestore.Type, error)
 	GetDocumentType(ctx context.Context, name string) (*documenttypestore.Type, error)
 	WriteDocumentType(ctx context.Context, params documents.WriteDocumentTypeParams) (*documenttypestore.Type, error)
@@ -101,7 +104,7 @@ func (s *Handler) ListDocumentVersions(ctx context.Context, req *agentv1.ListDoc
 
 // ListDocumentTypes returns every document type with its context.
 func (s *Handler) ListDocumentTypes(ctx context.Context, _ *emptypb.Empty) (*agentv1.ListDocumentTypesResponse, *fail.Error) {
-	types, err := s.documents.ListDocumentTypes(ctx)
+	types, err := s.documentTypes.ListDocumentTypes(ctx)
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to list document types")
 	}
@@ -111,7 +114,7 @@ func (s *Handler) ListDocumentTypes(ctx context.Context, _ *emptypb.Empty) (*age
 
 // GetDocumentType returns one document type by name.
 func (s *Handler) GetDocumentType(ctx context.Context, req *agentv1.GetDocumentTypeRequest) (*agentv1.GetDocumentTypeResponse, *fail.Error) {
-	got, err := s.documents.GetDocumentType(ctx, req.GetName())
+	got, err := s.documentTypes.GetDocumentType(ctx, req.GetName())
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to get the document type")
 	}
@@ -125,7 +128,7 @@ func (s *Handler) WriteDocumentType(ctx context.Context, req *agentv1.WriteDocum
 		return nil, errDocumentTypeByAgent
 	}
 
-	written, err := s.documents.WriteDocumentType(ctx, documents.WriteDocumentTypeParams{
+	written, err := s.documentTypes.WriteDocumentType(ctx, documents.WriteDocumentTypeParams{
 		ID:      req.Id,
 		Version: req.Version,
 		Name:    req.GetName(),
@@ -144,7 +147,7 @@ func (s *Handler) DeleteDocumentType(ctx context.Context, req *agentv1.DeleteDoc
 		return nil, errDocumentTypeByAgent
 	}
 
-	if err := s.documents.DeleteDocumentType(ctx, req.GetId()); err != nil {
+	if err := s.documentTypes.DeleteDocumentType(ctx, req.GetId()); err != nil {
 		return nil, rpcerr.From(err, "failed to delete the document type")
 	}
 
