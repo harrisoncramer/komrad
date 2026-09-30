@@ -5,6 +5,9 @@ import (
 	"testing"
 
 	"komrad/internal/panes"
+	"komrad/lib/xptr"
+	agentv1 "komrad/proto/gen/agent/v1"
+	"komrad/proto/gen/agent/v1/agentv1connect"
 
 	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
@@ -64,6 +67,44 @@ func TestLeader(t *testing.T) {
 
 		assert.NotEmpty(t, readRecordCursor(harness.readFrame()), "the record holds the keys")
 	})
+
+	dormantOrchestrator := newOrchestrator()
+	dormantOrchestrator.Alive = xptr.Ptr(false)
+	dormantOrchestrator.State = agentv1.AgentState_AGENT_STATE_IDLE
+
+	for _, tt := range []struct {
+		name     string
+		agent    *agentv1.Agent
+		press    []string
+		wantSent request
+	}{
+		{
+			name:     "the leader twice over a dormant agent resumes it",
+			agent:    newDormant("login"),
+			press:    []string{"j"},
+			wantSent: request{procedure: agentv1connect.AgentServiceResumeAgentProcedure, msg: &agentv1.ResumeAgentRequest{Id: "a1"}},
+		},
+		{
+			name:     "the leader twice over a dormant orchestrator's workflow starts it",
+			agent:    dormantOrchestrator,
+			wantSent: request{procedure: agentv1connect.AgentServiceStartOrchestratorProcedure, msg: &agentv1.StartOrchestratorRequest{WorkflowId: "w1"}},
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			harness := newPanelHarness(t, panelHarnessParams{})
+			answerWorktreeReads(harness)
+			answerLastScreens(harness, map[string]string{tt.agent.GetId(): "⏺ the migration is written"})
+			answerResume(harness)
+			harness.watch(buildSnapshot(newLiveWorkflow("w1", "backend"), tt.agent))
+			harness.press(tt.press...)
+			harness.fireTimers()
+
+			harness.press("ctrl+space", "ctrl+space")
+
+			harness.assertSentTo(tt.wantSent.procedure, tt.wantSent.msg)
+			assert.NotEqual(t, "/", strings.TrimSpace(readStage(harness.readFrame())[0]), "the saved screen never holds the keys")
+		})
+	}
 
 	t.Run("an unknown key after the leader is dropped", func(t *testing.T) {
 		harness := openFocus(t)

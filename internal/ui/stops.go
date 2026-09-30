@@ -24,7 +24,7 @@ func (m model) listStops() []stop {
 	stops := []stop{stopList}
 
 	switch {
-	case m.isScreenBlockDrawn(), m.isDocReadable():
+	case m.isScreenBlockDrawn(), m.isDocReadable() && !m.isDormantHovered():
 		stops = append(stops, stopBlock)
 	case m.findFocusPane() != "":
 		stops = append(stops, stopAgent)
@@ -101,14 +101,20 @@ func (m model) atStop() stop {
 	return stopList
 }
 
-// toggleStop hands the keys back to the stop they last left, or on to the next stop when there is
-// none to go back to.
+// toggleStop resumes the hovered dormant agent, or hands the keys back to the stop they last left,
+// or on to the next stop when there is none to go back to.
 func (m model) toggleStop() (tea.Model, tea.Cmd) {
 	if m.keysElsewhere {
 		return m, nil
 	}
 
 	at := m.atStop()
+	if at == stopList && m.isDormantHovered() {
+		cmd := m.agents.openHovered(&m, m.shared())
+
+		return m, cmd
+	}
+
 	stops := m.listStops()
 
 	to := m.leftStop
@@ -121,6 +127,17 @@ func (m model) toggleStop() (tea.Model, tea.Cmd) {
 	}
 
 	return m.enterStop(to)
+}
+
+// isDormantHovered reports whether the agents screen is drawing the saved screen of a dormant agent.
+func (m model) isDormantHovered() bool {
+	if m.screen != screenAgents {
+		return false
+	}
+
+	item, ok := m.agents.hoveredResting(m.shared())
+
+	return ok && !item.Alive
 }
 
 // isScreenBlockDrawn reports whether the screen is drawing a block of its own beside the list.
