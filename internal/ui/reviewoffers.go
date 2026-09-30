@@ -352,8 +352,7 @@ func traceOffersCmd(agentID, key string, params traceOffersParams) tea.Cmd {
 	}
 }
 
-// keyOffers names the forge's comments by everything that places them, so a comment edited on
-// the forge does not trace its line again.
+// keyOffers names the forge's comments by the snapshot and everything that places them.
 func keyOffers(snapshot string, offers []*pullrequestv1.ForgeThread) string {
 	var key strings.Builder
 	key.WriteString(snapshot)
