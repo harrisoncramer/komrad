@@ -53,12 +53,14 @@ func TestProtoToAgentWithoutAStateChange(t *testing.T) {
 // TestWorkflowsFromCarriesTheWholeWorkflow covers the listing conversion field by field.
 func TestWorkflowsFromCarriesTheWholeWorkflow(t *testing.T) {
 	got := workflowsFrom([]*workflowv1.Workflow{{
-		Id:      "w1",
-		Name:    "api",
-		Context: "shared notes",
-		Harness: "claude",
-		Cwd:     "/work/api",
-		Flags:   "--model opus",
+		Id:              "w1",
+		Name:            "api",
+		Context:         "shared notes",
+		Harness:         "claude",
+		Cwd:             "/work/api",
+		Flags:           "--model opus",
+		ReviewerHarness: "codex",
+		ReviewerFlags:   "--model gpt-5",
 		Worktree: &workflowv1.WorktreeConfig{
 			Enabled:      true,
 			BaseBranch:   "develop",
@@ -74,12 +76,14 @@ func TestWorkflowsFromCarriesTheWholeWorkflow(t *testing.T) {
 
 	require.Len(t, got, 1)
 	assert.Equal(t, panel.Workflow{
-		ID:      "w1",
-		Name:    "api",
-		Context: "shared notes",
-		Harness: "claude",
-		Cwd:     "/work/api",
-		Flags:   "--model opus",
+		ID:              "w1",
+		Name:            "api",
+		Context:         "shared notes",
+		Harness:         "claude",
+		Cwd:             "/work/api",
+		Flags:           "--model opus",
+		ReviewerHarness: "codex",
+		ReviewerFlags:   "--model gpt-5",
 		Hooks: []panel.Hook{
 			{Event: "pre-launch", Script: "install-deps"},
 			{Event: "post-launch", Script: "announce"},

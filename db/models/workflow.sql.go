@@ -84,7 +84,7 @@ func (q *Queries) DeleteWorkflowProvisionerConfig(ctx context.Context, id string
 const getWorkflow = `-- name: GetWorkflow :one
 SELECT
     w.id, w.name, w.context, w.workflow_config_id, w.provisioner_config_id, w.archived_at, w.created_at, w.updated_at, w.deleting_at, w.engine_id,
-    wc.id, wc.harness, wc.cwd, wc.flags, wc.created_at, wc.updated_at, wc.engine_id,
+    wc.id, wc.harness, wc.cwd, wc.flags, wc.created_at, wc.updated_at, wc.engine_id, wc.reviewer_harness, wc.reviewer_flags,
     pc.id, pc.worktree_enabled, pc.worktree_base_branch, pc.worktree_copy_paths, pc.worktree_symlink_paths, pc.created_at, pc.updated_at, pc.worktree_diff_exclude, pc.worktree_dir, pc.engine_id
 FROM
     workflows w
@@ -129,6 +129,8 @@ func (q *Queries) GetWorkflow(ctx context.Context, arg GetWorkflowParams) (*GetW
 		&i.WorkflowConfig.CreatedAt,
 		&i.WorkflowConfig.UpdatedAt,
 		&i.WorkflowConfig.EngineID,
+		&i.WorkflowConfig.ReviewerHarness,
+		&i.WorkflowConfig.ReviewerFlags,
 		&i.WorkflowProvisionerConfig.ID,
 		&i.WorkflowProvisionerConfig.WorktreeEnabled,
 		&i.WorkflowProvisionerConfig.WorktreeBaseBranch,
@@ -192,23 +194,35 @@ const insertWorkflowConfig = `-- name: InsertWorkflowConfig :one
 INSERT INTO workflow_configs(
     harness,
     cwd,
-    flags)
+    flags,
+    reviewer_harness,
+    reviewer_flags)
 VALUES (
     $1,
     $2,
-    $3)
+    $3,
+    $4,
+    $5)
 RETURNING
-    id, harness, cwd, flags, created_at, updated_at, engine_id
+    id, harness, cwd, flags, created_at, updated_at, engine_id, reviewer_harness, reviewer_flags
 `
 
 type InsertWorkflowConfigParams struct {
-	Harness string
-	Cwd     string
-	Flags   string
+	Harness         string
+	Cwd             string
+	Flags           string
+	ReviewerHarness string
+	ReviewerFlags   string
 }
 
 func (q *Queries) InsertWorkflowConfig(ctx context.Context, arg InsertWorkflowConfigParams) (*WorkflowConfig, error) {
-	row := q.db.QueryRow(ctx, insertWorkflowConfig, arg.Harness, arg.Cwd, arg.Flags)
+	row := q.db.QueryRow(ctx, insertWorkflowConfig,
+		arg.Harness,
+		arg.Cwd,
+		arg.Flags,
+		arg.ReviewerHarness,
+		arg.ReviewerFlags,
+	)
 	var i WorkflowConfig
 	err := row.Scan(
 		&i.ID,
@@ -218,6 +232,8 @@ func (q *Queries) InsertWorkflowConfig(ctx context.Context, arg InsertWorkflowCo
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.EngineID,
+		&i.ReviewerHarness,
+		&i.ReviewerFlags,
 	)
 	return &i, err
 }
@@ -387,7 +403,7 @@ func (q *Queries) ListHooksForWorkflows(ctx context.Context, workflowIds []strin
 const listWatchedWorkflows = `-- name: ListWatchedWorkflows :many
 SELECT
     w.id, w.name, w.context, w.workflow_config_id, w.provisioner_config_id, w.archived_at, w.created_at, w.updated_at, w.deleting_at, w.engine_id,
-    wc.id, wc.harness, wc.cwd, wc.flags, wc.created_at, wc.updated_at, wc.engine_id,
+    wc.id, wc.harness, wc.cwd, wc.flags, wc.created_at, wc.updated_at, wc.engine_id, wc.reviewer_harness, wc.reviewer_flags,
     pc.id, pc.worktree_enabled, pc.worktree_base_branch, pc.worktree_copy_paths, pc.worktree_symlink_paths, pc.created_at, pc.updated_at, pc.worktree_diff_exclude, pc.worktree_dir, pc.engine_id
 FROM
     workflows w
@@ -436,6 +452,8 @@ func (q *Queries) ListWatchedWorkflows(ctx context.Context, keys []string) ([]*L
 			&i.WorkflowConfig.CreatedAt,
 			&i.WorkflowConfig.UpdatedAt,
 			&i.WorkflowConfig.EngineID,
+			&i.WorkflowConfig.ReviewerHarness,
+			&i.WorkflowConfig.ReviewerFlags,
 			&i.WorkflowProvisionerConfig.ID,
 			&i.WorkflowProvisionerConfig.WorktreeEnabled,
 			&i.WorkflowProvisionerConfig.WorktreeBaseBranch,
@@ -665,7 +683,9 @@ UPDATE
 SET
     harness = $1,
     cwd = $2,
-    flags = $3
+    flags = $3,
+    reviewer_harness = $4,
+    reviewer_flags = $5
 WHERE
     id =(
         SELECT
@@ -673,14 +693,16 @@ WHERE
         FROM
             workflows
         WHERE
-            workflows.id = $4)
+            workflows.id = $6)
 `
 
 type UpdateWorkflowConfigParams struct {
-	Harness    string
-	Cwd        string
-	Flags      string
-	WorkflowID string
+	Harness         string
+	Cwd             string
+	Flags           string
+	ReviewerHarness string
+	ReviewerFlags   string
+	WorkflowID      string
 }
 
 func (q *Queries) UpdateWorkflowConfig(ctx context.Context, arg UpdateWorkflowConfigParams) error {
@@ -688,6 +710,8 @@ func (q *Queries) UpdateWorkflowConfig(ctx context.Context, arg UpdateWorkflowCo
 		arg.Harness,
 		arg.Cwd,
 		arg.Flags,
+		arg.ReviewerHarness,
+		arg.ReviewerFlags,
 		arg.WorkflowID,
 	)
 	return err

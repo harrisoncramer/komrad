@@ -34,6 +34,18 @@ table "workflow_configs" {
     type    = text
     default = ""
   }
+  column "reviewer_harness" {
+    null    = false
+    type    = text
+    default = ""
+    comment = "The harness the workflow's reviewers run, blank meaning the one its other agents run."
+  }
+  column "reviewer_flags" {
+    null    = false
+    type    = text
+    default = ""
+    comment = "The flags the workflow's reviewers are launched with, blank meaning the other agents' flags when the harness is the same."
+  }
   column "created_at" {
     null    = false
     type    = timestamptz

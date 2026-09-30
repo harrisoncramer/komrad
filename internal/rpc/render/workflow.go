@@ -53,6 +53,8 @@ func Workflow(w workflowstore.Workflow, options WorkflowOptions) *workflowv1.Wor
 		Harness:          w.Harness,
 		Cwd:              w.Cwd,
 		Flags:            w.Flags,
+		ReviewerHarness:  w.ReviewerHarness,
+		ReviewerFlags:    w.ReviewerFlags,
 		ArchivedAt:       dates.StampPtr(w.ArchivedAt),
 		ContextTruncated: contextTruncated,
 		Worktree:         WorktreeConfigToProto(w.Worktree),

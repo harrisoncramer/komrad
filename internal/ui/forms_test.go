@@ -107,19 +107,22 @@ func TestFormsSubmit(t *testing.T) {
 		{
 			name: "the new-workflow form with no provisioner makes no worktrees",
 			press: slices.Concat([]string{"w"}, spellKeys("web"), []string{"tab"}, spellKeys("the frontend"), []string{"tab", "tab"},
-				spellKeys("/work/web"), []string{"tab"}, spellKeys("--model sonnet"), []string{"tab", "up", "ctrl+s"}),
+				spellKeys("/work/web"), []string{"tab"}, spellKeys("--model sonnet"), []string{"tab"}, spellKeys("codex"),
+				[]string{"tab"}, spellKeys("--model gpt-5"), []string{"tab", "up", "ctrl+s"}),
 			procedure: workflowv1connect.WorkflowServiceCreateWorkflowProcedure,
 			want: &workflowv1.CreateWorkflowRequest{
-				Name:     "web",
-				Context:  "the frontend",
-				Cwd:      "/work/web",
-				Flags:    "--model sonnet",
-				Worktree: &workflowv1.WorktreeConfig{},
+				Name:            "web",
+				Context:         "the frontend",
+				Cwd:             "/work/web",
+				Flags:           "--model sonnet",
+				ReviewerHarness: "codex",
+				ReviewerFlags:   "--model gpt-5",
+				Worktree:        &workflowv1.WorktreeConfig{},
 			},
 		},
 		{
 			name: "the new-workflow form with worktrees sends each path list without its blank lines",
-			press: slices.Concat([]string{"w"}, spellKeys("web"), []string{"tab", "tab", "tab", "tab", "tab", "tab"},
+			press: slices.Concat([]string{"w"}, spellKeys("web"), slices.Repeat([]string{"tab"}, 8),
 				spellKeys("develop"), []string{"tab", "tab"}, spellKeys(".env"), []string{"ctrl+j", "ctrl+j"}, spellKeys("config/local.json"),
 				[]string{"tab"}, spellKeys("node_modules"), []string{"ctrl+s"}),
 			procedure: workflowv1connect.WorkflowServiceCreateWorkflowProcedure,
@@ -562,7 +565,7 @@ func TestFormsKeys(t *testing.T) {
 func TestFormsWorkflowProvisioner(t *testing.T) {
 	harness := openForms(t, newFormWorkflow(), newFormAuthor())
 
-	harness.press(slices.Concat([]string{"w"}, slices.Repeat([]string{"tab"}, 5))...)
+	harness.press(slices.Concat([]string{"w"}, slices.Repeat([]string{"tab"}, 7))...)
 	frame := harness.readFrame()
 	assert.Contains(t, frame, "None: agents keep the directory they are given", "neither option is hidden by the other being picked")
 	assert.Less(t, strings.Index(frame, "None: agents keep"), strings.Index(frame, "Worktree: a git worktree per agent"), "and the options keep their order")
@@ -684,7 +687,7 @@ func TestFormsFieldEditor(t *testing.T) {
 	}{
 		{
 			name:  "the context of a workflow that provisions nothing",
-			press: slices.Concat([]string{"w"}, spellKeys("web"), slices.Repeat([]string{"tab"}, 5), []string{"up", "shift+tab", "shift+tab", "shift+tab", "shift+tab"}),
+			press: slices.Concat([]string{"w"}, spellKeys("web"), slices.Repeat([]string{"tab"}, 7), []string{"up"}, slices.Repeat([]string{"shift+tab"}, 6)),
 			field: "context",
 			want: &workflowv1.CreateWorkflowRequest{
 				Name:     "web",
@@ -694,7 +697,7 @@ func TestFormsFieldEditor(t *testing.T) {
 		},
 		{
 			name:  "a list field of a workflow that makes worktrees",
-			press: slices.Concat([]string{"w"}, spellKeys("web"), slices.Repeat([]string{"tab"}, 8)),
+			press: slices.Concat([]string{"w"}, spellKeys("web"), slices.Repeat([]string{"tab"}, 10)),
 			field: "worktree_copy_paths",
 			want: &workflowv1.CreateWorkflowRequest{
 				Name: "web",
