@@ -84,6 +84,30 @@ func TestDocumentTypesOpen(t *testing.T) {
 		assert.Equal(t, agentsScreen, harness.readScreen())
 	})
 
+	t.Run("back returns to the search with its query and hits", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openSearch(t, openSearchParams{
+			server: newSearchServer(newTurnHit("a2", "payouts", "ledger")),
+			query:  "ledger",
+			rows:   buildSearchable(),
+		})
+		answerDocumentTypes(harness)
+		harness.press("enter")
+		hits := readListRows(harness.readFrame())
+		require.NotEmpty(t, hits)
+
+		harness.press("space", "T", "l")
+		harness.fireTimers()
+		require.Equal(t, documentTypesScreen, harness.readScreen())
+		harness.press("esc")
+
+		frame := harness.readFrame()
+		assert.Equal(t, searchScreen, harness.readScreen())
+		assert.Equal(t, "/ ledger", readSearch(frame))
+		assert.Equal(t, hits, readListRows(frame))
+	})
+
 	t.Run("back from over a review whose agent has gone lands on the agents list", func(t *testing.T) {
 		t.Parallel()
 

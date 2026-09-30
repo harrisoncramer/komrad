@@ -49,7 +49,9 @@ func (m *model) menuReturn() menuPlace {
 		return menuPlace{screen: m.screen, target: screenTarget{agentID: m.review.agentID}}
 	case screenDocumentTypes:
 		return menuPlace{screen: m.documentTypes.from, target: m.documentTypes.returning}
-	case screenAgents, screenArchive, screenSchedules, screenSearch, screenWorktrees:
+	case screenSearch:
+		return menuPlace{screen: m.screen, target: screenTarget{resume: true}}
+	case screenAgents, screenArchive, screenSchedules, screenWorktrees:
 	}
 
 	return menuPlace{screen: m.screen, target: screenTarget{agentID: m.hoveredAgentID()}}
