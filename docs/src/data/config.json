@@ -298,7 +298,7 @@
               "key": "rename",
               "path": "keybindings.archive.rename",
               "type": "array",
-              "description": "Rename the agent, workflow or schedule under the cursor, typed over its row.",
+              "description": "Rename the agent or live workflow under the cursor, typed over its row.",
               "default": "[\"r\"]"
             }
           ],

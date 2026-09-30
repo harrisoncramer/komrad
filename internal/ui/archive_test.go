@@ -47,7 +47,7 @@ func TestArchiveMenu(t *testing.T) {
 		rows       []proto.Message
 		press      []string
 		wantScreen string
-		wantPrompt string
+		wantFrame  string
 		wantSent   []request
 	}{
 		{
@@ -83,8 +83,20 @@ func TestArchiveMenu(t *testing.T) {
 		{
 			name:       "restore and open passes over an agent that never started",
 			rows:       []proto.Message{newLiveWorkflow("w1", "backend"), neverStarted},
-			press:      []string{"j", "space", "a", "o"},
+			press:      []string{"j", "space", "a", "o", "ctrl+g"},
 			wantScreen: archiveScreen,
+			wantFrame:  "no conversation to open",
+		},
+		{
+			name: "restore and open refuses a selection, which is not one agent",
+			rows: []proto.Message{
+				newLiveWorkflow("w1", "backend"),
+				newArchivedAgent("a1", "api-refactor", "w1"),
+				newArchivedAgent("a2", "db-tune", "w1"),
+			},
+			press:      []string{"j", "v", "j", "v", "space", "a", "o", "ctrl+g"},
+			wantScreen: archiveScreen,
+			wantFrame:  "one agent's conversation back in a pane",
 		},
 		{
 			name:       "back opens the view switcher",
@@ -133,21 +145,21 @@ func TestArchiveMenu(t *testing.T) {
 			rows:       buildOneArchivedAgent(),
 			press:      []string{"j", "space", "a", "d"},
 			wantScreen: archiveScreen,
-			wantPrompt: `Permanently delete agent "api-refactor"?`,
+			wantFrame:  `Permanently delete agent "api-refactor"?`,
 		},
 		{
 			name:       "delete on an archived folder opens the confirm prompt",
 			rows:       []proto.Message{newArchivedWorkflow("w1", "backend")},
 			press:      []string{"space", "a", "d"},
 			wantScreen: archiveScreen,
-			wantPrompt: `Permanently delete workflow "backend"?`,
+			wantFrame:  `Permanently delete workflow "backend"?`,
 		},
 		{
 			name:       "delete on an archived folder says the agent inside it goes too",
 			rows:       []proto.Message{newArchivedWorkflow("w1", "backend"), newArchivedAgent("a1", "api-refactor", "w1")},
 			press:      []string{"space", "a", "d"},
 			wantScreen: archiveScreen,
-			wantPrompt: "The one agent still archived inside it goes with it",
+			wantFrame:  "The one agent still archived inside it goes with it",
 		},
 	}
 
@@ -159,10 +171,10 @@ func TestArchiveMenu(t *testing.T) {
 
 			frame := harness.readFrame()
 			assert.Equal(t, tt.wantScreen, harness.readScreen())
-			if tt.wantPrompt == "" {
+			if tt.wantFrame == "" {
 				assert.NotContains(t, frame, deletePrompt)
 			} else {
-				assert.Contains(t, frame, tt.wantPrompt)
+				assert.Contains(t, frame, tt.wantFrame)
 			}
 			harness.assertSent(tt.wantSent...)
 		})
@@ -438,73 +450,72 @@ func TestArchiveMenuEntries(t *testing.T) {
 	}
 }
 
-// TestArchiveRename covers a name typed over an archived row going out as its rename.
+// TestArchiveRename covers a name typed over an archive row going out as its rename.
 func TestArchiveRename(t *testing.T) {
-	rows := []proto.Message{
+	archived := []proto.Message{
 		newArchivedWorkflow("w1", "backend"),
 		newArchivedAgent("a1", "api-refactor", "w1"),
 		newArchivedSchedule("s2", "weekly-gone"),
 	}
+	live := []proto.Message{
+		newLiveWorkflow("w1", "backend"),
+		newArchivedAgent("a1", "api-refactor", "w1"),
+	}
 
 	tests := []struct {
 		name      string
+		rows      []proto.Message
 		press     []string
 		procedure string
 		want      proto.Message
 	}{
 		{
 			name:      "an archived agent",
+			rows:      archived,
 			press:     slices.Concat([]string{"j", "r"}, spellKeys("-2"), []string{"enter"}),
 			procedure: agentv1connect.AgentServiceUpdateAgentProcedure,
 			want:      &agentv1.UpdateAgentRequest{Id: "a1", Name: "api-refactor-2"},
 		},
 		{
-			name:      "an archived workflow's folder",
+			name:      "a live workflow's folder",
+			rows:      live,
 			press:     slices.Concat([]string{"r"}, spellKeys("-2"), []string{"enter"}),
 			procedure: workflowv1connect.WorkflowServiceUpdateWorkflowProcedure,
 			want:      &workflowv1.UpdateWorkflowRequest{Id: "w1", Name: "backend-2", Worktree: &workflowv1.WorktreeConfig{}},
 		},
 		{
-			name:      "an archived schedule",
-			press:     slices.Concat([]string{"F", "tab", "esc", "r"}, spellKeys("-2"), []string{"enter"}),
-			procedure: schedulev1connect.ScheduleServiceUpdateScheduleProcedure,
-			want: &schedulev1.UpdateScheduleRequest{
-				Id:      "s2",
-				Name:    "weekly-gone-2",
-				Cron:    "0 9 * * 1-5",
-				Enabled: true,
-				Prompt:  "check CI",
-				Target:  &schedulev1.UpdateScheduleRequest_WorkflowId{WorkflowId: "w1"},
-			},
+			name:  "an archived workflow's folder takes no writes, so opens no field",
+			rows:  archived,
+			press: []string{"r"},
+		},
+		{
+			name:  "an archived schedule takes no writes, so opens no field",
+			rows:  archived,
+			press: []string{"F", "tab", "esc", "r"},
+		},
+		{
+			name:  "a selection opens no field",
+			rows:  archived,
+			press: []string{"j", "v", "r"},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			harness := openGroupedArchive(t, rows...)
+			harness := openGroupedArchive(t, tt.rows...)
 
 			harness.press(tt.press...)
 
-			harness.assertSentTo(tt.procedure, tt.want)
 			assert.Equal(t, archiveScreen, harness.readScreen())
+			if tt.want == nil {
+				assert.NotContains(t, harness.readFrame(), "▏")
+				harness.assertSent()
+
+				return
+			}
+			harness.assertSentTo(tt.procedure, tt.want)
 		})
 	}
-
-	t.Run("the field is drawn over an archived schedule's row", func(t *testing.T) {
-		harness := openGroupedArchive(t, rows...)
-
-		harness.press(slices.Concat([]string{"F", "tab", "esc", "r"}, spellKeys("-2"))...)
-
-		assert.Contains(t, readHoveredRow(harness.readFrame()), "weekly-gone-2▏")
-	})
-
-	t.Run("a selection is not renamed", func(t *testing.T) {
-		harness := openGroupedArchive(t, rows...)
-
-		harness.press("j", "v", "r")
-
-		assert.NotContains(t, harness.readFrame(), "▏")
-	})
 }
 
 // TestArchiveDocument covers what is drawn beside the list for the hovered row.
@@ -925,8 +936,8 @@ func TestArchiveSchedules(t *testing.T) {
 		{
 			name:       "the row of kinds lists the archived schedules and none of the live ones",
 			press:      []string{"F", "tab", "esc"},
-			want:       []string{"weekly-gone", "archived — kept until deleted", "r rename"},
-			wantAbsent: []string{"nightly-live", "api-refactor"},
+			want:       []string{"weekly-gone", "archived — kept until deleted"},
+			wantAbsent: []string{"nightly-live", "api-refactor", "r rename"},
 		},
 		{
 			name:       "the row of kinds again goes back to the agents",

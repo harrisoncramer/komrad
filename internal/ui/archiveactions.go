@@ -43,11 +43,6 @@ func (a *archiveScreen) scheduleTable() []screenAction {
 			keys: func(k config.Keybindings) []string { return k.Archive.Back },
 			run:  func(h host, _ panelShared, _ string) tea.Cmd { return h.pickView() },
 		},
-		screenAction{
-			id:   actionArchiveRename,
-			keys: func(k config.Keybindings) []string { return k.Archive.Rename },
-			run:  func(_ host, s panelShared, _ string) tea.Cmd { return a.openRename(s) },
-		},
 	)
 }
 
@@ -77,13 +72,13 @@ func (a *archiveScreen) legend() []screenLegendRow {
 		{
 			of:    []actionID{actionArchiveRename},
 			desc:  func(panelShared) string { return "rename" },
-			show:  a.holdsARow,
+			show:  a.holdsARenameable,
 			strip: true,
 		},
 		{
 			of:   []actionID{actionSelectToggle},
 			desc: list.toggleDesc,
-			show: func(s panelShared) bool { return a.onAgents(s) && a.holdsARow(s) },
+			show: a.holdsAChoosable,
 		},
 		{
 			of:   []actionID{actionFilterOpen},
@@ -107,17 +102,22 @@ func (a *archiveScreen) legend() []screenLegendRow {
 	})
 }
 
-// holdsARow reports whether the cursor is on a row that can be renamed.
-func (a *archiveScreen) holdsARow(s panelShared) bool {
-	if a.onSchedules(s) {
-		_, ok := a.hoveredSchedule(s)
-
-		return ok
+// holdsAChoosable reports whether the cursor is on an agents row while no selection is active.
+func (a *archiveScreen) holdsAChoosable(s panelShared) bool {
+	if a.onSchedules(s) || a.selected.isActive() {
+		return false
 	}
 
 	_, ok := rowAt(a.listRows(s), a.cursor)
 
-	return ok && !a.selected.isActive()
+	return ok
+}
+
+// holdsARenameable reports whether the cursor is on a row that can be renamed.
+func (a *archiveScreen) holdsARenameable(s panelShared) bool {
+	_, ok := a.renameable(s)
+
+	return ok
 }
 
 // holdsAnAgent reports whether the cursor is on an archived agent rather than on the folder

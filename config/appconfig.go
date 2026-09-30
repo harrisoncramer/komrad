@@ -632,7 +632,7 @@ type ArchiveKeys struct {
 	Back []string `mapstructure:"back" default:"esc"`
 	// Quit the panel.
 	Quit []string `mapstructure:"quit" default:"ctrl+c"`
-	// Rename the agent, workflow or schedule under the cursor, typed over its row.
+	// Rename the agent or live workflow under the cursor, typed over its row.
 	Rename []string `mapstructure:"rename" default:"r"`
 }
 

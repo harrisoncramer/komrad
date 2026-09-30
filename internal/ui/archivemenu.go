@@ -18,7 +18,10 @@ const (
 	archiveMenuDelete
 )
 
-var errNeverStarted = errors.New("this agent never got as far as starting, so there is no conversation to open")
+var (
+	errNeverStarted  = errors.New("this agent never got as far as starting, so there is no conversation to open")
+	errOpensOneAgent = errors.New("restore and open puts one agent's conversation back in a pane, so it needs a single agent")
+)
 
 // archived is what the archive menu acts on: chosen or hovered agents, a workflow, or a schedule.
 type archived struct {
@@ -42,13 +45,17 @@ func (t archived) name(l listing) string {
 	return l.agentName(t.agents[0])
 }
 
-// opensAgent is the one agent whose conversation can be put back in a pane.
-func (t archived) opensAgent() (panel.Agent, bool) {
-	if t.chosen || len(t.agents) != 1 || !t.agents[0].State.DoesPaneDecide() {
-		return panel.Agent{}, false
+// opensAgent is the one agent whose conversation can be put back in a pane, or why there is none.
+func (t archived) opensAgent() (*panel.Agent, error) {
+	if t.chosen || len(t.agents) != 1 {
+		return nil, errOpensOneAgent
 	}
 
-	return t.agents[0], true
+	if !t.agents[0].State.DoesPaneDecide() {
+		return nil, errNeverStarted
+	}
+
+	return &t.agents[0], nil
 }
 
 // menuTarget is what the archive menu would act on, and none on the folder of a live workflow.
@@ -81,7 +88,7 @@ func archiveMenu(s panelShared, target archived) submenu {
 		restore, remove = "restore all", "delete all for good"
 	}
 
-	_, opens := target.opensAgent()
+	_, err := target.opensAgent()
 
 	return submenu{
 		kind:  formArchiveMenu,
@@ -89,7 +96,7 @@ func archiveMenu(s panelShared, target archived) submenu {
 		crumb: "archive",
 		entries: []submenuEntry{
 			{label: restore, keys: s.keys.ArchiveMenu.Restore},
-			{label: "restore and open", keys: s.keys.ArchiveMenu.RestoreOpen, isOff: !opens},
+			{label: "restore and open", keys: s.keys.ArchiveMenu.RestoreOpen, isOff: err != nil},
 			{label: remove, keys: s.keys.ArchiveMenu.Delete},
 		},
 		answer: func(m model, choice int) (tea.Model, tea.Cmd) {
@@ -104,12 +111,12 @@ func (m model) runArchiveChoice(target archived, choice archiveMenuChoice) (tea.
 	case archiveMenuRestore:
 		return m.closeMenuThen(func(h host) tea.Cmd { return restoreArchived(h, target) })
 	case archiveMenuRestoreOpen:
-		agent, ok := target.opensAgent()
-		if !ok {
-			return m.refuseSubpage("Could not restore and open "+target.name(m.listing), errNeverStarted)
+		agent, err := target.opensAgent()
+		if err != nil {
+			return m.refuseSubpage("Could not restore and open "+target.name(m.listing), err)
 		}
 
-		return m.closeMenuThen(func(h host) tea.Cmd { return restoreAndResumeCmd(h, agent) })
+		return m.closeMenuThen(func(h host) tea.Cmd { return restoreAndResumeCmd(h, *agent) })
 	case archiveMenuDelete:
 		m.leaveForm()
 		cmd := confirmDeleteArchivedRow(&m, m.shared(), target)

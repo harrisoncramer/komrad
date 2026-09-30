@@ -450,10 +450,9 @@ func (a *archiveScreen) listParams(s panelShared) screenListParams {
 			rows: len(a.scheduleListRows(s)),
 			lines: func(pane listPane) ([]string, int) {
 				return scheduleLines(s, pane, scheduleLinesParams{
-					rows:     a.scheduleListRows(s),
-					cursor:   a.schedules.cursor,
-					idle:     "no archived schedules",
-					renaming: a.renamingField(),
+					rows:   a.scheduleListRows(s),
+					cursor: a.schedules.cursor,
+					idle:   "no archived schedules",
 				}), a.schedules.cursor
 			},
 		}
@@ -587,17 +586,24 @@ func (a *archiveScreen) column() columnSpec {
 	}
 }
 
-// openRename types over the name of the agent, workflow or schedule under the cursor.
-func (a *archiveScreen) openRename(s panelShared) tea.Cmd {
-	if a.onSchedules(s) {
-		if item, ok := rowAt(a.scheduleListRows(s), a.schedules.cursor); ok {
-			a.renaming = renameScheduleRow(item)
-		}
-
-		return nil
+// renameable is the row under the cursor when it can be renamed: an agent, or the folder of a
+// workflow still live, since an archived workflow takes no writes.
+func (a *archiveScreen) renameable(s panelShared) (agentRow, bool) {
+	if a.onSchedules(s) || a.selected.isActive() {
+		return agentRow{}, false
 	}
 
-	if row, ok := rowAt(a.listRows(s), a.cursor); ok && !a.selected.isActive() {
+	row, ok := rowAt(a.listRows(s), a.cursor)
+	if !ok || (row.header && row.workflow.ArchivedAt != nil) {
+		return agentRow{}, false
+	}
+
+	return row, true
+}
+
+// openRename types over the name of the agent or live folder under the cursor.
+func (a *archiveScreen) openRename(s panelShared) tea.Cmd {
+	if row, ok := a.renameable(s); ok {
 		a.renaming = renameAgentRow(row)
 	}
 
@@ -605,12 +611,6 @@ func (a *archiveScreen) openRename(s panelShared) tea.Cmd {
 }
 
 func (a *archiveScreen) reconcileRename(s panelShared) {
-	if a.renaming != nil && a.renaming.schedule != nil {
-		reconcileRename(&a.renameSlot, a.scheduleListRows(s), a.scheduleList().hovered(s), scheduleItemName)
-
-		return
-	}
-
 	reconcileRename(&a.renameSlot, a.listRows(s), a.list().hovered(s), agentRowName)
 }
 

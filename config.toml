@@ -123,7 +123,7 @@ show_hidden      = ["H"]
 back   = ["esc"]
 # Quit the panel.
 quit   = ["ctrl+c"]
-# Rename the agent, workflow or schedule under the cursor, typed over its row.
+# Rename the agent or live workflow under the cursor, typed over its row.
 rename = ["r"]
 
 # The archive menu, nested under the menu on the hovered row of the archive.
