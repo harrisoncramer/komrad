@@ -41,12 +41,6 @@ type RemoteStanding struct {
 func (c *Client) ReadChanges(ctx context.Context, dir string) (Changes, error) {
 	refreshIndex(ctx, dir)
 
-	return c.PeekChanges(ctx, dir)
-}
-
-// PeekChanges is every uncommitted path in a checkout read without refreshing the index, so it
-// never takes the index lock and a file whose stat data alone moved reads as modified.
-func (c *Client) PeekChanges(ctx context.Context, dir string) (Changes, error) {
 	modified, err := pathList(ctx, dir, "diff-index", "--name-only", "-z", "HEAD", "--")
 	if err != nil {
 		return Changes{}, fmt.Errorf("failed to read what %q has changed: %w", dir, err)
@@ -58,6 +52,30 @@ func (c *Client) PeekChanges(ctx context.Context, dir string) (Changes, error) {
 	}
 
 	return Changes{Modified: modified, Untracked: untracked}, nil
+}
+
+// PeekChanges is every uncommitted path in a checkout, read with the index refreshed in memory
+// and never written back, which leaves the index lock free for whoever else is using the checkout.
+func (c *Client) PeekChanges(ctx context.Context, dir string) (Changes, error) {
+	entries, err := pathList(ctx, dir, "--no-optional-locks", "status", "--porcelain=v1", "-z", "--no-renames", "--untracked-files=all")
+	if err != nil {
+		return Changes{}, fmt.Errorf("failed to read what %q has changed: %w", dir, err)
+	}
+
+	changes := Changes{}
+	for _, entry := range entries {
+		if len(entry) < 4 {
+			continue
+		}
+		status, path := entry[:2], entry[3:]
+		if status == "??" {
+			changes.Untracked = append(changes.Untracked, path)
+		} else {
+			changes.Modified = append(changes.Modified, path)
+		}
+	}
+
+	return changes, nil
 }
 
 // pathList runs a git command that prints NUL-separated paths.

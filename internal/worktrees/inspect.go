@@ -206,7 +206,7 @@ func (i *Inspector) readAll(ctx context.Context, inspection *Inspection, fetch b
 
 type readSettledParams struct {
 	fetch bool
-	// peek reads the checkout without refreshing the index, so git never takes its lock.
+	// peek reads the checkout without writing its index or taking the index lock.
 	peek bool
 }
 
@@ -235,7 +235,11 @@ func (i *Inspector) readSettled(ctx context.Context, inspection *Inspection, par
 	}
 	inspection.BaseRef = ref
 
-	if err := i.readCheckout(ctx, inspection, params.peek); err != nil {
+	readCheckout := i.readCheckout
+	if params.peek {
+		readCheckout = i.peekCheckout
+	}
+	if err := readCheckout(ctx, inspection); err != nil {
 		return nil, err
 	}
 
@@ -254,21 +258,9 @@ func (i *Inspector) readSettled(ctx context.Context, inspection *Inspection, par
 }
 
 // readCheckout reads whether a sequence is part-way through and what is uncommitted, refreshing
-// the index first unless asked to peek.
-func (i *Inspector) readCheckout(ctx context.Context, inspection *Inspection, peek bool) error {
+// the index first.
+func (i *Inspector) readCheckout(ctx context.Context, inspection *Inspection) error {
 	dir := inspection.Worktree.Dir
-	if peek {
-		inProgress, err := i.git.IsSequenceInProgress(ctx, dir)
-		if err != nil {
-			return err
-		}
-		inspection.SequenceInProgress = inProgress
-
-		inspection.Changes, err = i.git.PeekChanges(ctx, dir)
-
-		return err
-	}
-
 	state, err := i.git.ReadTreeState(ctx, dir)
 	if err != nil {
 		return err
@@ -276,6 +268,20 @@ func (i *Inspector) readCheckout(ctx context.Context, inspection *Inspection, pe
 	inspection.SequenceInProgress = state.InProgress
 
 	inspection.Changes, err = i.git.ReadChanges(ctx, dir)
+
+	return err
+}
+
+// peekCheckout reads what readCheckout does without writing the index.
+func (i *Inspector) peekCheckout(ctx context.Context, inspection *Inspection) error {
+	dir := inspection.Worktree.Dir
+	inProgress, err := i.git.IsSequenceInProgress(ctx, dir)
+	if err != nil {
+		return err
+	}
+	inspection.SequenceInProgress = inProgress
+
+	inspection.Changes, err = i.git.PeekChanges(ctx, dir)
 
 	return err
 }
