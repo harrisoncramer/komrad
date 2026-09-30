@@ -136,6 +136,8 @@ message Agent {
   optional DiffStat diff_stat = 47;
   // When a person stopped this agent and took its worktree, empty while nobody is holding it.
   string held_at = 35;
+  // The agent that took the hold, empty when the panel took it or nobody is holding it.
+  string held_by_agent_id = 48;
 
   reserved 31, 33;
   reserved "tree_standing", "tree_standing_sha";
@@ -805,7 +807,7 @@ service AgentService {
       cli: true
       mcp: true
       name: "release_agent"
-      description: "Let a held agent carry on, telling it what happened while it was held. Whatever you pass as said is typed into the agent as it starts again, which is how it learns that its files moved or that its work is no longer wanted. An empty said releases it in silence. If the agent's input would not take the words, the hold still stands: call again with said empty to release it without typing at it."
+      description: "Let a held agent carry on, telling it what happened while it was held. Whatever you pass as said is typed into the agent as it starts again, which is how it learns that its files moved or that its work is no longer wanted. An empty said releases it in silence. If the agent's input would not take the words, it is released without them."
       destructive: false
       roles: [ROLE_ORCHESTRATOR]
     };

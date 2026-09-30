@@ -16,6 +16,7 @@ func newWorldReactors() []worldReactor {
 	return []worldReactor{
 		reviewWorldReactor{},
 		newOfferNoticeReactor(),
+		strandedHoldReactor{},
 	}
 }
 

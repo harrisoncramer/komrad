@@ -294,7 +294,9 @@ type Agent struct {
 	// base to measure against.
 	DiffStat *DiffStat `protobuf:"bytes,47,opt,name=diff_stat,json=diffStat,proto3,oneof" json:"diff_stat,omitempty"`
 	// When a person stopped this agent and took its worktree, empty while nobody is holding it.
-	HeldAt        string `protobuf:"bytes,35,opt,name=held_at,json=heldAt,proto3" json:"held_at,omitempty"`
+	HeldAt string `protobuf:"bytes,35,opt,name=held_at,json=heldAt,proto3" json:"held_at,omitempty"`
+	// The agent that took the hold, empty when the panel took it or nobody is holding it.
+	HeldByAgentId string `protobuf:"bytes,48,opt,name=held_by_agent_id,json=heldByAgentId,proto3" json:"held_by_agent_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -577,6 +579,13 @@ func (x *Agent) GetDiffStat() *DiffStat {
 func (x *Agent) GetHeldAt() string {
 	if x != nil {
 		return x.HeldAt
+	}
+	return ""
+}
+
+func (x *Agent) GetHeldByAgentId() string {
+	if x != nil {
+		return x.HeldByAgentId
 	}
 	return ""
 }
@@ -2839,7 +2848,7 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x14agent/v1/agent.proto\x12\bagent.v1\x1a\x17agent/v1/document.proto\x1a\x13agent/v1/mail.proto\x1a\x15agent/v1/review.proto\x1a\x15agent/v1/screen.proto\x1a\x19agent/v1/transcript.proto\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1epagination/v1/pagination.proto\x1a pullrequest/v1/pullrequest.proto\x1a\x14rules/v1/rules.proto\x1a\x12view/v1/view.proto\":\n" +
 	"\bDiffStat\x12\x14\n" +
 	"\x05added\x18\x01 \x01(\x05R\x05added\x12\x18\n" +
-	"\aremoved\x18\x02 \x01(\x05R\aremoved\"\x81\f\n" +
+	"\aremoved\x18\x02 \x01(\x05R\aremoved\"\xaa\f\n" +
 	"\x05Agent\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x10\n" +
@@ -2885,7 +2894,8 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x10prompt_truncated\x18  \x01(\bR\x0fpromptTruncated\x12*\n" +
 	"\x11moved_since_round\x18* \x01(\tR\x0fmovedSinceRound\x124\n" +
 	"\tdiff_stat\x18/ \x01(\v2\x12.agent.v1.DiffStatH\vR\bdiffStat\x88\x01\x01\x12\x17\n" +
-	"\aheld_at\x18# \x01(\tR\x06heldAtB\x0e\n" +
+	"\aheld_at\x18# \x01(\tR\x06heldAt\x12'\n" +
+	"\x10held_by_agent_id\x180 \x01(\tR\rheldByAgentIdB\x0e\n" +
 	"\f_archived_atB\x0e\n" +
 	"\f_schedule_idB\b\n" +
 	"\x06_aliveB\x12\n" +
@@ -3098,7 +3108,7 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x16AGENT_ROLE_UNSPECIFIED\x10\x00\x12\x1a\n" +
 	"\x16AGENT_ROLE_IMPLEMENTER\x10\x01\x12\x17\n" +
 	"\x13AGENT_ROLE_REVIEWER\x10\x02\x12\x1b\n" +
-	"\x17AGENT_ROLE_ORCHESTRATOR\x10\x032\xe6\xd3\x01\n" +
+	"\x17AGENT_ROLE_ORCHESTRATOR\x10\x032\xad\xd3\x01\n" +
 	"\fAgentService\x12\x81\x04\n" +
 	"\n" +
 	"ListAgents\x12\x1b.agent.v1.ListAgentsRequest\x1a\x1c.agent.v1.ListAgentsResponse\"\xb7\x03\x9a\xb5\x18\xaf\x03\b\x01\x10\x01\x1a\vlist_agents\"\x96\x03List the agents komrad is tracking. Start here when you need an agent's id or name for another call. Agents come back a page at a time, most recently updated first. Each carries its name, state, working directory, flags and workflow, plus the opening of its prompt. To read a prompt in full, fetch that agent with get_agent. Archived agents are left out unless archived is set, which then lists only those.B\x03\x01\x02\x03\x90\x02\x01\x12\xd0\x01\n" +
@@ -3117,8 +3127,8 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\rArchiveAgents\x12\x1e.agent.v1.ArchiveAgentsRequest\x1a\x16.google.protobuf.Empty\"\xe9\x04\x9a\xb5\x18\xe1\x04\b\x01\x10\x01\x1a\x0earchive_agents\"\xc4\x04Stop a list of agents and hide them from the panel. Their records and transcripts are kept, search still finds their conversations, and restore_agents brings them back, so prefer this to delete_agents. An agent's children are archived with it. A child named on its own is archived alone, which is how you finish with a reviewer while the agent it was reading keeps working. The batch goes whole or not at all, and the call waits for each agent's pre-archive hook, one that fails refusing the batch. An agent other than an orchestrator may archive only itself and its own children.(\x00B\x02\x01\x03\x90\x02\x02\x12\xc1\x05\n" +
 	"\rRestoreAgents\x12\x1e.agent.v1.RestoreAgentsRequest\x1a\x1f.agent.v1.RestoreAgentsResponse\"\xee\x04\x9a\xb5\x18\xe6\x04\b\x01\x10\x01\x1a\x0erestore_agents\"\xca\x04Bring archived agents back, along with the workflows they belong to. They come back dormant, with no pane, so call resume_agent on each one you want running again. Agents that are not archived are returned as they stand. The batch goes whole or not at all: it is refused when any id is unknown, when a live agent has taken a returning agent's name, or when the panel has no room for all of them. A child comes back with its parent, and cannot be restored on its own while its parent stays archived. The call waits for each agent's pre-restore hook, and one that fails refuses the batch.(\x00B\x01\x03\x90\x02\x02\x12\xf8\x04\n" +
 	"\tHoldAgent\x12\x1a.agent.v1.HoldAgentRequest\x1a\x1b.agent.v1.HoldAgentResponse\"\xb1\x04\x9a\xb5\x18\xac\x04\b\x01\x10\x01\x1a\n" +
-	"hold_agent\"\x94\x04Stop an agent and hold it still, which is what to do before editing files it is working in. Its current turn is interrupted, and the hold is granted once the agent is seen to have come to rest. A held agent runs nothing until release_agent lets it go, and komrad refuses to rebase, archive or otherwise move it meanwhile. Never hold yourself: the interrupt would end the very turn that asked for it, so your own id is refused. Holding an agent stops its work, so hold one because you were asked to and not to get it out of your way.(\x00B\x01\x03\x12\xf9\x03\n" +
-	"\fReleaseAgent\x12\x1d.agent.v1.ReleaseAgentRequest\x1a\x1e.agent.v1.ReleaseAgentResponse\"\xa9\x03\x9a\xb5\x18\xa4\x03\b\x01\x10\x01\x1a\rrelease_agent\"\x89\x03Let a held agent carry on, telling it what happened while it was held. Whatever you pass as said is typed into the agent as it starts again, which is how it learns that its files moved or that its work is no longer wanted. An empty said releases it in silence. If the agent's input would not take the words, the hold still stands: call again with said empty to release it without typing at it.(\x00B\x01\x03\x12\xc7\x04\n" +
+	"hold_agent\"\x94\x04Stop an agent and hold it still, which is what to do before editing files it is working in. Its current turn is interrupted, and the hold is granted once the agent is seen to have come to rest. A held agent runs nothing until release_agent lets it go, and komrad refuses to rebase, archive or otherwise move it meanwhile. Never hold yourself: the interrupt would end the very turn that asked for it, so your own id is refused. Holding an agent stops its work, so hold one because you were asked to and not to get it out of your way.(\x00B\x01\x03\x12\xc0\x03\n" +
+	"\fReleaseAgent\x12\x1d.agent.v1.ReleaseAgentRequest\x1a\x1e.agent.v1.ReleaseAgentResponse\"\xf0\x02\x9a\xb5\x18\xeb\x02\b\x01\x10\x01\x1a\rrelease_agent\"\xd0\x02Let a held agent carry on, telling it what happened while it was held. Whatever you pass as said is typed into the agent as it starts again, which is how it learns that its files moved or that its work is no longer wanted. An empty said releases it in silence. If the agent's input would not take the words, it is released without them.(\x00B\x01\x03\x12\xc7\x04\n" +
 	"\vResumeAgent\x12\x1c.agent.v1.ResumeAgentRequest\x1a\x1d.agent.v1.ResumeAgentResponse\"\xfa\x03\x9a\xb5\x18\xf2\x03\b\x01\x10\x01\x1a\fresume_agent\"\xd8\x03Relaunch an agent's CLI on the same conversation, which is how to reach an agent whose pane has died or that was just restored from the archive. An agent already running is returned as it stands. An archived agent is refused, so call restore_agents first. One already part-way through resuming is refused as failed_precondition, which means wait for the pane rather than call again. The call waits for the workflow's pre-resume hook, and one that fails refuses the resume.(\x00B\x01\x03\x90\x02\x02\x12\xa0\x02\n" +
 	"\n" +
 	"RetryAgent\x12\x1b.agent.v1.RetryAgentRequest\x1a\x1c.agent.v1.RetryAgentResponse\"\xd6\x01\x9a\xb5\x18\xd1\x01\b\x01\x10\x01\x1a\vretry_agent\"\xb8\x01Relaunch an agent whose create failed, optionally with corrected flags, prompt or harness. Only an agent in AGENT_STATE_FAILED_TO_CREATE can be retried, and an archived one is refused.(\x00B\x01\x03\x12\x82\x05\n" +

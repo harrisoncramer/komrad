@@ -129,8 +129,6 @@ type released struct {
 	name string
 	// files is the files a reader had open over the agent.
 	files []string
-	// silent says the release named none of them.
-	silent bool
 }
 
 // written is the row a write made, as the write answered with it.
@@ -203,20 +201,6 @@ func (m *model) releaseCmd(summary string, agent panel.Agent, said string) tea.C
 
 	return stampRelease(m.writeCmd("letting "+agent.Name+" go", summary, func(a api) error {
 		return a.release(agent, said+touchedSaid(let.files))
-	}), let)
-}
-
-// releaseInSilenceCmd lets an agent go without typing at it.
-func (m *model) releaseInSilenceCmd(summary string, agent panel.Agent) tea.Cmd {
-	let := released{
-		id:     agent.ID,
-		name:   agent.Name,
-		files:  slices.Clone(m.edited[agent.ID]),
-		silent: true,
-	}
-
-	return stampRelease(m.writeCmd("letting "+agent.Name+" go", summary, func(a api) error {
-		return a.release(agent, "")
 	}), let)
 }
 
@@ -420,10 +404,6 @@ func (m model) applyWrite(result writeResult) (tea.Model, tea.Cmd) {
 
 	if result.released != nil && result.err == nil {
 		m.forgetSpoken(result.released.id, result.released.files)
-
-		if result.released.silent {
-			m.reportDropped(result.released.name, result.released.files)
-		}
 	}
 
 	_, walkedAway := m.detached[result.write]

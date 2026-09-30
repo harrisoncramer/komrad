@@ -58,7 +58,7 @@ type agentResumer interface {
 }
 
 type agentHolder interface {
-	Hold(ctx context.Context, agentID string) (*agentstore.Agent, error)
+	Hold(ctx context.Context, params agents.HoldParams) (*agentstore.Agent, error)
 	Release(ctx context.Context, params agents.ReleaseParams) (*agentstore.Agent, error)
 }
 
@@ -515,11 +515,12 @@ func (s *Handler) RetryAgent(ctx context.Context, req *agentv1.RetryAgentRequest
 // HoldAgent stops an agent so a person may take its worktree, refusing unless it is seen to come
 // to rest and refusing an agent that asks to hold itself.
 func (s *Handler) HoldAgent(ctx context.Context, req *agentv1.HoldAgentRequest) (*agentv1.HoldAgentResponse, *fail.Error) {
-	if from := caller.From(ctx).AgentID; from != "" && from == req.GetId() {
+	from := caller.From(ctx).AgentID
+	if from != "" && from == req.GetId() {
 		return nil, agents.ErrHoldSelf
 	}
 
-	held, err := s.holder.Hold(ctx, req.GetId())
+	held, err := s.holder.Hold(ctx, agents.HoldParams{AgentID: req.GetId(), ByAgentID: from})
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to hold agent")
 	}

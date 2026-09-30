@@ -64,6 +64,7 @@ func Agent(row rowstore.Row, options AgentOptions) *agentv1.Agent {
 		MovedSinceRound:    stored.MovedSinceRound,
 		DiffStat:           diffStatOf(stored.DiffStat),
 		HeldAt:             heldStamp(stored.HeldAt),
+		HeldByAgentId:      xptr.Deref(stored.HeldByAgentID),
 	}
 }
 

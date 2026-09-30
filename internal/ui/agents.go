@@ -163,39 +163,6 @@ func hideAgent(h host, agent panel.Agent) tea.Cmd {
 	return h.writeCmd(doing, failure, func(a api) error { return a.setHidden(agent, !agent.Hidden) })
 }
 
-// unpauseSaid is what an unpaused agent is told.
-const unpauseSaid = "I paused you for a moment and have let you go now. " +
-	"Look at your worktree as it stands before carrying on. It may have changed while you were paused."
-
-// pauseAgent stops the agent where it stands, or starts one already paused.
-func pauseAgent(h host, agent panel.Agent) tea.Cmd {
-	if agent.HeldAt != nil {
-		return h.releaseCmd(fmt.Sprintf("Could not unpause agent %q", agent.Name), agent, unpauseSaid)
-	}
-
-	return h.writeCmd("pausing "+agent.Name, fmt.Sprintf("Could not pause agent %q", agent.Name), func(a api) error {
-		return a.hold(agent)
-	})
-}
-
-// releaseInSilenceConfirm lets an agent go without typing at it.
-func releaseInSilenceConfirm(h host, agent panel.Agent) tea.Cmd {
-	form, confirmed := releaseInSilenceForm(agent.Name, formKeys())
-
-	return h.openForm(formState{
-		kind:   formAgentRelease,
-		form:   form,
-		update: model.updateForm,
-		submit: confirmSubmit(func(m model) (model, tea.Cmd) {
-			if !*confirmed {
-				return m, nil
-			}
-
-			return m, m.releaseInSilenceCmd(fmt.Sprintf("Could not unpause agent %q", agent.Name), agent)
-		}),
-	})
-}
-
 func (a *agentsScreen) details(s panelShared) details {
 	r, ok := a.hoveredRow(s)
 	if !ok {
@@ -293,7 +260,9 @@ func (l listing) scheduleName(agent panel.Agent) string {
 	return ""
 }
 
-const heldPlaceholder = "Press unpause to let it carry on, or unpause in silence to let it go without typing at it."
+const heldPlaceholder = "Paused."
+
+const stillPaused = "it is still paused"
 
 func welcomeText(keys config.Keybindings) string {
 	return fmt.Sprintf("Welcome, komrad!\n\nPress '%s' to set up your first workflow", firstKey(keys.Workflows.New, "w"))

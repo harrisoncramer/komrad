@@ -54,8 +54,14 @@ func (a *agentsScreen) pressEdit(h host, s panelShared) tea.Cmd {
 		return nil
 	}
 
+	if agent.HeldAt != nil {
+		h.reportBrief("could not edit "+agent.Name, stillPaused)
+
+		return nil
+	}
+
 	a.editing = &agentEdit{agent: agent}
-	if !item.Alive || agent.HeldAt != nil {
+	if !item.Alive {
 		return a.openEditor(h, s)
 	}
 
@@ -155,14 +161,4 @@ func (a *agentsScreen) editDesc(panelShared) string {
 	}
 
 	return "edit worktree"
-}
-
-func (a *agentsScreen) isEditingHovered(s panelShared) bool {
-	item, ok := a.selectedAgent(s)
-
-	return ok && a.editing != nil && a.editing.agent.ID == item.Agent.ID
-}
-
-func (a *agentsScreen) isPausable(s panelShared) bool {
-	return a.isHoveringAgent(s) && !a.isEditingHovered(s)
 }

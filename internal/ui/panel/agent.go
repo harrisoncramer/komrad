@@ -78,6 +78,8 @@ type Agent struct {
 	SequenceInProgress bool
 	// HeldAt is when a person stopped this agent and took its worktree, nil while nobody holds it.
 	HeldAt *time.Time
+	// HeldByAgentID is the agent that took the hold, empty when the panel took it.
+	HeldByAgentID string
 }
 
 // AgentRow is an agent as the listing draws it: the agent, whether its pane is alive, the mail

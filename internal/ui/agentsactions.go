@@ -107,18 +107,6 @@ func (a *agentsScreen) rowActions() []screenAction {
 			run:  func(h host, s panelShared, _ string) tea.Cmd { return a.pressEdit(h, s) },
 		},
 		{
-			id:   actionAgentPause,
-			keys: func(k config.Keybindings) []string { return k.Agents.Pause },
-			when: a.isPausable,
-			run:  a.onHoveredAgent(func(h host, item panel.AgentRow) tea.Cmd { return pauseAgent(h, item.Agent) }),
-		},
-		{
-			id:   actionAgentReleaseSilently,
-			keys: func(k config.Keybindings) []string { return k.Agents.ReleaseSilently },
-			when: a.isHeldAgent,
-			run:  a.onHoveredAgent(func(h host, item panel.AgentRow) tea.Cmd { return releaseInSilenceConfirm(h, item.Agent) }),
-		},
-		{
 			id:   actionAgentHide,
 			keys: func(k config.Keybindings) []string { return k.Agents.Hide },
 			when: a.isHoveringAgent,
@@ -175,13 +163,6 @@ func (a *agentsScreen) isHoveringAgent(s panelShared) bool {
 	_, ok := a.hoveredWorkflow(s)
 
 	return a.isBrowsing(s) && !ok
-}
-
-// isHeldAgent reports whether the row under the cursor is an agent somebody has paused.
-func (a *agentsScreen) isHeldAgent(s panelShared) bool {
-	item, ok := a.selectedAgent(s)
-
-	return a.isHoveringAgent(s) && ok && item.Agent.HeldAt != nil && !a.isEditingHovered(s)
 }
 
 func (a *agentsScreen) isRetryableAgent(s panelShared) bool {
@@ -270,16 +251,6 @@ func (a *agentsScreen) browsingLegend() []screenLegendRow {
 			show: a.isEditable,
 		},
 		{
-			of:   []actionID{actionAgentPause},
-			desc: a.pauseDesc,
-			show: a.isPausable,
-		},
-		{
-			of:   []actionID{actionAgentReleaseSilently},
-			desc: func(panelShared) string { return "unpause in silence" },
-			show: a.isHeldAgent,
-		},
-		{
 			of:   []actionID{actionAgentHide, actionAgentShowHidden},
 			desc: a.hideDesc,
 			show: a.isHoveringAgent,
@@ -353,15 +324,6 @@ func (a *agentsScreen) showHiddenDesc() string {
 	}
 
 	return "show hidden"
-}
-
-// pauseDesc names the pause key for what pressing it would do to the row under the cursor.
-func (a *agentsScreen) pauseDesc(s panelShared) string {
-	if item, ok := a.selectedAgent(s); ok && item.Agent.HeldAt != nil {
-		return "unpause it"
-	}
-
-	return "pause it"
 }
 
 func (a *agentsScreen) hideDesc(s panelShared) string {

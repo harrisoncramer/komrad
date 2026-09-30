@@ -39,6 +39,7 @@ func agentFrom(s *agentv1.Agent) panel.Agent {
 		SequenceInProgress: s.GetSequenceInProgress(),
 		ParentAgentID:      s.ParentAgentId,
 		HeldAt:             dates.ParsePtr(s.GetHeldAt()),
+		HeldByAgentID:      s.GetHeldByAgentId(),
 	}
 }
 

@@ -304,7 +304,7 @@
             "orchestrator"
           ],
           "summary": "Let a held agent carry on, telling it what happened while it was held.",
-          "description": "Let a held agent carry on, telling it what happened while it was held. Whatever you pass as said is typed into the agent as it starts again, which is how it learns that its files moved or that its work is no longer wanted. An empty said releases it in silence. If the agent's input would not take the words, the hold still stands: call again with said empty to release it without typing at it.",
+          "description": "Let a held agent carry on, telling it what happened while it was held. Whatever you pass as said is typed into the agent as it starts again, which is how it learns that its files moved or that its work is no longer wanted. An empty said releases it in silence. If the agent's input would not take the words, it is released without them.",
           "readOnly": false,
           "idempotent": false,
           "destructive": false,
@@ -2083,6 +2083,16 @@
           "oneof": "",
           "rules": [],
           "description": "When a person stopped this agent and took its worktree, empty while nobody is holding it."
+        },
+        {
+          "name": "held_by_agent_id",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The agent that took the hold, empty when the panel took it or nobody is holding it."
         }
       ]
     },

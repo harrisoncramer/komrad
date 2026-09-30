@@ -342,6 +342,8 @@ type Agent struct {
 	LinesAdded *int32
 	// How many lines the agent's checkout removes since it left its base, null whenever lines_added is.
 	LinesRemoved *int32
+	// The agent that took the hold, null when the panel took it.
+	HeldByAgentID pgtype.UUID
 }
 
 // Which agents were seen with which pull requests, one row per pair, never re-pointed. The watch carries every pull request with a row here.

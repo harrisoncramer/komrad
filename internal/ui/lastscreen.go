@@ -189,7 +189,7 @@ func (m model) screenNotice() string {
 	case screenAgents:
 		item, ok := m.agents.hoveredResting(s)
 		if ok && item.Agent.HeldAt != nil {
-			return "paused" + separated + "press " + keyLabel(m.keys.Agents.Pause) + " to unpause"
+			return "paused"
 		}
 
 		return "dormant" + separated + "press " + keyLabel(m.keys.Agents.Open) + " to restore"

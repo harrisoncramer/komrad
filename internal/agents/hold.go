@@ -4,16 +4,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"komrad/internal/fail"
 	"komrad/internal/harness"
+	"komrad/internal/logging"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
+	"komrad/lib/xptr"
 )
-
-// ErrReleaseRefused is a release that could not tell the agent to carry on, so the hold stands.
-var ErrReleaseRefused = fail.Precondition("the agent could not be told to carry on")
 
 // ErrNotHeld is a release of an agent nobody was holding.
 var ErrNotHeld = fail.Precondition("nobody is holding this agent")
@@ -65,10 +65,16 @@ func NewHolder(params NewHolderParams) *Holder {
 	}
 }
 
-// Hold stops an agent and records that the person has it, refusing unless the agent is observed to
-// come to rest.
-func (h *Holder) Hold(ctx context.Context, agentID string) (*agentstore.Agent, error) {
-	agent, err := h.get(ctx, agentID)
+// HoldParams is the agent being held and the agent holding it.
+type HoldParams struct {
+	AgentID string
+	// ByAgentID is the agent taking the hold, empty for the panel.
+	ByAgentID string
+}
+
+// Hold stops an agent and records who has it, refusing unless the agent is observed to come to rest.
+func (h *Holder) Hold(ctx context.Context, params HoldParams) (*agentstore.Agent, error) {
+	agent, err := h.get(ctx, params.AgentID)
 	if err != nil {
 		return nil, err
 	}
@@ -87,9 +93,10 @@ func (h *Holder) Hold(ctx context.Context, agentID string) (*agentstore.Agent, e
 	}
 
 	held, err := h.agents.Hold(ctx, agentstore.HoldParams{
-		ID:      agent.ID,
-		At:      h.now(),
-		MidTurn: interrupted,
+		ID:        agent.ID,
+		At:        h.now(),
+		MidTurn:   interrupted,
+		ByAgentID: xptr.NonEmpty(params.ByAgentID),
 	})
 	if err != nil {
 		return nil, err
@@ -98,7 +105,7 @@ func (h *Holder) Hold(ctx context.Context, agentID string) (*agentstore.Agent, e
 		return nil, ErrAlreadyHeld.Saying("%q is already paused", agent.Name)
 	}
 
-	return h.get(ctx, agentID)
+	return h.get(ctx, params.AgentID)
 }
 
 // ReleaseParams is the agent being let go and what to tell it happened while it was held.
@@ -108,8 +115,7 @@ type ReleaseParams struct {
 	Said string
 }
 
-// Release lets go of an agent, typing what happened into it only when the hold cut a turn short,
-// and keeping the hold when the agent's input box would not take the words.
+// Release lets go of an agent, typing what happened into it only when the hold cut a turn short.
 func (h *Holder) Release(ctx context.Context, params ReleaseParams) (*agentstore.Agent, error) {
 	agent, err := h.get(ctx, params.AgentID)
 	if err != nil {
@@ -122,12 +128,9 @@ func (h *Holder) Release(ctx context.Context, params ReleaseParams) (*agentstore
 
 	if agent.HeldMidTurn && params.Said != "" && agent.Pane != "" {
 		said, err := h.channel.Send(ctx, buildTarget(*agent), params.Said)
-		if err != nil {
-			return nil, fmt.Errorf("failed to say what changed to %q: %w", agent.Name, err)
-		}
-		if !said {
-			return nil, ErrReleaseRefused.Saying(
-				"%q could not be told to carry on, since its input box would not take the words, so unpause it in silence to let it go regardless", agent.Name)
+		if err != nil || !said {
+			logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "released a held agent without telling it what changed",
+				append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
 		}
 	}
 
