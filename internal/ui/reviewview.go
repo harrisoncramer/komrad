@@ -425,3 +425,12 @@ func (d reviewDiff) fileDesc() string {
 
 	return "fold / whole file"
 }
+
+// viewedDesc names what the viewed key does to the file the cursor is in.
+func (d reviewDiff) viewedDesc() string {
+	if file, ok := d.View().GetPatchFileAt(d.Cursor()); ok && d.View().IsViewed(file.Path()) {
+		return "open the file"
+	}
+
+	return "mark the file viewed"
+}

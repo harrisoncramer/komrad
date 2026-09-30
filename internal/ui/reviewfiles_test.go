@@ -10,6 +10,7 @@ import (
 	agentv1 "komrad/proto/gen/agent/v1"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // TestReviewFiles covers the file tree drawn above the thread, which follows the diff cursor.
@@ -132,6 +133,18 @@ func TestReviewFiles(t *testing.T) {
 
 		harness.press("ctrl+space", "ctrl+space", "k")
 		assert.Contains(t, readFilesBlock(harness.readFrame()), "› greet.go +1 −1")
+	})
+
+	t.Run("the viewed key on the tree marks the file it is on", func(t *testing.T) {
+		server := newReviewServer(t)
+		server.repo.Patches[gittest.NamePair(gittest.BaseSHA, gittest.SnapshotSHA)] = gittest.PatchOfBothFiles
+		harness := openReview(t, server)
+
+		harness.press("ctrl+space", "ctrl+space", "j", "v")
+
+		assert.Equal(t, "FILES 1 of 2 read +4 −1", readFilesBlock(harness.readFrame())[0])
+		require.Len(t, server.viewed, 1)
+		assert.Equal(t, "second.go", server.viewed[0].GetFilePath())
 	})
 }
 

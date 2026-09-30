@@ -309,6 +309,11 @@ func (r *reviewScreen) filesActions() screenActionSpec {
 				keys: func(k config.Keybindings) []string { return k.Review.Quit },
 				run:  func(h host, _ panelShared, _ string) tea.Cmd { return h.hide() },
 			},
+			{
+				id:   actionReviewViewed,
+				keys: func(k config.Keybindings) []string { return k.Review.ToggleViewed },
+				run:  func(h host, s panelShared, _ string) tea.Cmd { return r.toggleViewed(h, s) },
+			},
 		},
 		legend: []screenLegendRow{
 			{
@@ -316,6 +321,11 @@ func (r *reviewScreen) filesActions() screenActionSpec {
 				desc:  func(panelShared) string { return "move between files" },
 				label: moveLabel,
 				strip: true,
+			},
+			{
+				of:   []actionID{actionReviewViewed},
+				desc: func(panelShared) string { return r.diff.viewedDesc() },
+				show: func(panelShared) bool { return !r.diff.isNarrowed() },
 			},
 			{
 				of:    []actionID{actionReviewBack},
