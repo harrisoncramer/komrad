@@ -156,7 +156,7 @@ func TestReviewOffers(t *testing.T) {
 
 	t.Run("a dismissed offer is still drawn, marked skipped, and J passes it by", func(t *testing.T) {
 		dismissed := newOffer("f1", "dana", "rename this", 1)
-		dismissed.DismissedAt = xptr.Ptr("2026-09-20T12:00:00Z")
+		dismissed.Dismissed = true
 		server := newOfferedReviewServer(t, dismissed, newOffer("f2", "lee", "and this", 4))
 		harness := openReviewAt(t, server, panelHarnessParams{height: 40})
 

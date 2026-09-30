@@ -44,7 +44,7 @@ func (r reviewScreen) doesStepOffers(s panelShared) bool {
 }
 
 func isPlacedOffer(offer *pullrequestv1.ForgeThread) bool {
-	return offer.GetPath() != "" && !assemble.IsDismissedOffer(offer)
+	return offer.GetPath() != "" && !offer.GetDismissed()
 }
 
 // stepOffer moves the cursor onto the next forge comment written on a line, and chooses it.
@@ -95,7 +95,7 @@ func (r reviewScreen) offerView(offer *pullrequestv1.ForgeThread, width int) str
 	if offer.GetResolved() {
 		foot = strings.TrimSpace("resolved  " + foot)
 	}
-	if assemble.IsDismissedOffer(offer) {
+	if offer.GetDismissed() {
 		foot = strings.TrimSpace("dismissed  " + foot)
 	}
 	if foot != "" {
@@ -279,7 +279,7 @@ func keyOffers(snapshot string, offers []*pullrequestv1.ForgeThread) string {
 	key.WriteString(snapshot)
 	for _, offer := range offers {
 		fmt.Fprintf(&key, "\x00%s\x00%s\x00%d\x00%t\x00%s\x00%s\x00%t\x00%t",
-			offer.GetId(), offer.GetPath(), offer.GetLine(), offer.GetOldSide(), offer.GetCommitSha(), offer.GetQuote(), offer.GetResolved(), assemble.IsDismissedOffer(offer))
+			offer.GetId(), offer.GetPath(), offer.GetLine(), offer.GetOldSide(), offer.GetCommitSha(), offer.GetQuote(), offer.GetResolved(), offer.GetDismissed())
 	}
 
 	return key.String()
@@ -293,7 +293,7 @@ func anchorOffer(offer *pullrequestv1.ForgeThread) diffview.Offer {
 		OldSide:   offer.GetOldSide(),
 		Quote:     offer.GetQuote(),
 		Resolved:  offer.GetResolved(),
-		Dismissed: assemble.IsDismissedOffer(offer),
+		Dismissed: offer.GetDismissed(),
 	}
 }
 
@@ -306,7 +306,7 @@ func (r reviewScreen) doesDismissOffer(s panelShared) bool {
 
 	offer, ok := r.offerAtCursor(s)
 
-	return ok && !assemble.IsDismissedOffer(offer)
+	return ok && !offer.GetDismissed()
 }
 
 // dismissOfferCmd marks the forge comment under the cursor dismissed, which only komrad keeps.

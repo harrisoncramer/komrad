@@ -43,7 +43,7 @@ func (o offerNoticeReactor) react(m *model, changed assemble.Changed) tea.Cmd {
 		var authors []string
 		count := 0
 		for _, offer := range assemble.Offers(world, agentID) {
-			if assemble.IsDismissedOffer(offer) {
+			if offer.GetDismissed() {
 				continue
 			}
 			if !slices.Contains(touched, offer.GetId()) {

@@ -224,8 +224,8 @@ message ForgeThread {
   string commit_sha = 10;
   // The text of the line the thread was written on, as the forge's diff drew it, with its diff marker taken off.
   string quote = 11;
-  // When the person dismissed the thread in their review, in RFC 3339, unset while they never have. A dismissed thread is still drawn but no longer counted, and a comment written after it makes it active again.
-  optional string dismissed_at = 12;
+  // Whether the person dismissed the thread in their review and no comment has come in on it since. A dismissed thread is still drawn but no longer counted.
+  bool dismissed = 12;
 }
 
 // ForgeComment is one comment in a forge review thread.

@@ -796,8 +796,8 @@ type ForgeThread struct {
 	CommitSha string `protobuf:"bytes,10,opt,name=commit_sha,json=commitSha,proto3" json:"commit_sha,omitempty"`
 	// The text of the line the thread was written on, as the forge's diff drew it, with its diff marker taken off.
 	Quote string `protobuf:"bytes,11,opt,name=quote,proto3" json:"quote,omitempty"`
-	// When the person dismissed the thread in their review, in RFC 3339, unset while they never have. A dismissed thread is still drawn but no longer counted, and a comment written after it makes it active again.
-	DismissedAt   *string `protobuf:"bytes,12,opt,name=dismissed_at,json=dismissedAt,proto3,oneof" json:"dismissed_at,omitempty"`
+	// Whether the person dismissed the thread in their review and no comment has come in on it since. A dismissed thread is still drawn but no longer counted.
+	Dismissed     bool `protobuf:"varint,12,opt,name=dismissed,proto3" json:"dismissed,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -909,11 +909,11 @@ func (x *ForgeThread) GetQuote() string {
 	return ""
 }
 
-func (x *ForgeThread) GetDismissedAt() string {
-	if x != nil && x.DismissedAt != nil {
-		return *x.DismissedAt
+func (x *ForgeThread) GetDismissed() bool {
+	if x != nil {
+		return x.Dismissed
 	}
-	return ""
+	return false
 }
 
 // ForgeComment is one comment in a forge review thread.
@@ -1071,7 +1071,7 @@ const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"\x0fnext_page_token\x18\x02 \x01(\tH\x00R\rnextPageToken\x88\x01\x01B\x12\n" +
 	"\x10_next_page_token\"4\n" +
 	"\x19DismissForgeThreadRequest\x12\x17\n" +
-	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\"\xfd\x02\n" +
+	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\"\xe2\x02\n" +
 	"\vForgeThread\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12&\n" +
 	"\x0fpull_request_id\x18\x02 \x01(\tR\rpullRequestId\x12\x12\n" +
@@ -1086,9 +1086,8 @@ const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"\n" +
 	"commit_sha\x18\n" +
 	" \x01(\tR\tcommitSha\x12\x14\n" +
-	"\x05quote\x18\v \x01(\tR\x05quote\x12&\n" +
-	"\fdismissed_at\x18\f \x01(\tH\x00R\vdismissedAt\x88\x01\x01B\x0f\n" +
-	"\r_dismissed_at\"\xcc\x01\n" +
+	"\x05quote\x18\v \x01(\tR\x05quote\x12\x1c\n" +
+	"\tdismissed\x18\f \x01(\bR\tdismissed\"\xcc\x01\n" +
 	"\fForgeComment\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12!\n" +
 	"\fauthor_login\x18\x02 \x01(\tR\vauthorLogin\x12\x10\n" +
@@ -1195,7 +1194,6 @@ func file_pullrequest_v1_pullrequest_proto_init() {
 	file_pullrequest_v1_pullrequest_proto_msgTypes[0].OneofWrappers = []any{}
 	file_pullrequest_v1_pullrequest_proto_msgTypes[1].OneofWrappers = []any{}
 	file_pullrequest_v1_pullrequest_proto_msgTypes[3].OneofWrappers = []any{}
-	file_pullrequest_v1_pullrequest_proto_msgTypes[5].OneofWrappers = []any{}
 	file_pullrequest_v1_pullrequest_proto_msgTypes[6].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{

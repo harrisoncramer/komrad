@@ -43,7 +43,7 @@ func TestDismissForgeThread(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			assert.Equal(t, tt.dismissed, f.stored(t)[0].DismissedAt != nil)
+			assert.Equal(t, tt.dismissed, f.stored(t)[0].Dismissed)
 		})
 	}
 }

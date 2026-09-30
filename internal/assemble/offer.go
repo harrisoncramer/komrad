@@ -5,7 +5,6 @@ import (
 	"slices"
 	"strings"
 
-	"komrad/lib/dates"
 	agentv1 "komrad/proto/gen/agent/v1"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 )
@@ -34,7 +33,7 @@ func isBotOffer(thread *pullrequestv1.ForgeThread) bool {
 func isCountedOffer(thread *pullrequestv1.ForgeThread) bool {
 	comments := thread.GetComments()
 
-	return thread.GetPath() != "" && !thread.GetResolved() && !IsDismissedOffer(thread) && len(comments) > 0 && !comments[0].GetYours() && !isBotOffer(thread)
+	return thread.GetPath() != "" && !thread.GetResolved() && !thread.GetDismissed() && len(comments) > 0 && !comments[0].GetYours() && !isBotOffer(thread)
 }
 
 func getOpenPullRequest(pullRequests []*pullrequestv1.PullRequest) *pullrequestv1.PullRequest {
@@ -78,17 +77,4 @@ func setOfferCounts(row *agentv1.AgentRow, offers []*pullrequestv1.ForgeThread) 
 		row.PersonComments = &agentv1.CommentCounts{}
 	}
 	row.PersonComments.External = int32(external)
-}
-
-// IsDismissedOffer reports whether the person hid a forge thread from their review and nobody has written on it since.
-func IsDismissedOffer(thread *pullrequestv1.ForgeThread) bool {
-	if thread.DismissedAt == nil {
-		return false
-	}
-
-	dismissed := dates.Parse(thread.GetDismissedAt())
-
-	return !slices.ContainsFunc(thread.GetComments(), func(comment *pullrequestv1.ForgeComment) bool {
-		return dates.Parse(comment.GetWrittenAt()).After(dismissed)
-	})
 }

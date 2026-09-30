@@ -186,7 +186,7 @@ func TestSetThreads(t *testing.T) {
 	}
 }
 
-// TestMarkDismissed covers stamping a forge thread dismissed, and the sync writing over it without clearing the stamp.
+// TestMarkDismissed covers a dismissal outlasting the sync until a new comment is stored on the thread.
 func TestMarkDismissed(t *testing.T) {
 	h := open(t)
 	ctx := t.Context()
@@ -204,7 +204,7 @@ func TestMarkDismissed(t *testing.T) {
 	stored, err := threads.ListWatched(ctx, nil)
 	require.NoError(t, err)
 	require.Len(t, stored, 1)
-	assert.Nil(t, stored[0].DismissedAt)
+	assert.False(t, stored[0].Dismissed)
 
 	require.NoError(t, threads.MarkDismissed(ctx, stored[0].ID))
 
@@ -214,8 +214,16 @@ func TestMarkDismissed(t *testing.T) {
 	stored, err = threads.ListWatched(ctx, nil)
 	require.NoError(t, err)
 	require.Len(t, stored, 1)
-	assert.NotNil(t, stored[0].DismissedAt)
+	assert.True(t, stored[0].Dismissed)
 	assert.True(t, stored[0].Resolved)
+
+	written.Threads[0].Comments = append(written.Threads[0].Comments, commentBy("C_2", "lee"))
+	require.NoError(t, threads.SetThreads(ctx, written))
+
+	stored, err = threads.ListWatched(ctx, nil)
+	require.NoError(t, err)
+	require.Len(t, stored, 1)
+	assert.False(t, stored[0].Dismissed)
 
 	require.ErrorIs(t, threads.MarkDismissed(ctx, "01a0f025-00bd-7db3-90c0-a0198677e92e"), store.ErrNotFound)
 	require.ErrorIs(t, threads.MarkDismissed(ctx, "T_1"), store.ErrNotFound)

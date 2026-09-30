@@ -21,7 +21,7 @@ func ForgeThread(stored pullrequeststore.ForgeThread) *pullrequestv1.ForgeThread
 		Url:           stored.URL,
 		Resolved:      stored.Resolved,
 		WrittenAt:     dates.Stamp(stored.WrittenAt),
-		DismissedAt:   dates.StampPtr(stored.DismissedAt),
+		Dismissed:     stored.Dismissed,
 		Comments: xslice.Map(stored.Comments, func(comment pullrequeststore.ForgeComment) *pullrequestv1.ForgeComment {
 			return &pullrequestv1.ForgeComment{
 				Id:          comment.ID,
