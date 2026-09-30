@@ -109,7 +109,7 @@ func TestValidateKeybindingsReadsTheGlobalKeys(t *testing.T) {
 		},
 		{
 			name:   "an archive key on the row of kinds",
-			rebind: func(k *config.Keybindings) { k.Archive.Restore = k.Kinds.Focus },
+			rebind: func(k *config.Keybindings) { k.Archive.Rename = k.Kinds.Focus },
 			names:  "the kinds focus",
 		},
 	}

@@ -2,6 +2,7 @@ package ui_test
 
 import (
 	"errors"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -93,6 +94,34 @@ func TestSchedulesKeys(t *testing.T) {
 				procedure: schedulev1connect.ScheduleServiceArchiveScheduleProcedure,
 				msg:       &schedulev1.ArchiveScheduleRequest{Id: "s1"},
 			}},
+		},
+		{
+			name:      "rename types over the hovered schedule's name",
+			rows:      buildSchedules(),
+			press:     slices.Concat([]string{"r"}, spellKeys("-2")),
+			wantDrawn: []string{"morning-ci-2▏", "enter/C-s save"},
+		},
+		{
+			name:  "rename sends the typed name with the rest of the schedule as it was",
+			rows:  buildSchedules(),
+			press: slices.Concat([]string{"r"}, spellKeys("-2"), []string{"enter"}),
+			wantSent: []request{{
+				procedure: schedulev1connect.ScheduleServiceUpdateScheduleProcedure,
+				msg: &schedulev1.UpdateScheduleRequest{
+					Id:      "s1",
+					Name:    "morning-ci-2",
+					Cron:    "0 9 * * 1-5",
+					Enabled: true,
+					Prompt:  "check CI",
+					Target:  &schedulev1.UpdateScheduleRequest_WorkflowId{WorkflowId: "w1"},
+				},
+			}},
+		},
+		{
+			name:       "esc on the name renames nothing",
+			rows:       buildSchedules(),
+			press:      slices.Concat([]string{"r"}, spellKeys("-2"), []string{"esc"}),
+			wantAbsent: []string{"▏"},
 		},
 		{
 			name:  "toggle pauses an armed schedule with no form in between",

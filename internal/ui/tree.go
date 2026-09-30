@@ -23,9 +23,9 @@ type agentsScreen struct {
 	showHidden bool
 	sort       tabsState
 	// drawn is the rows built once for the frame being drawn, and nil between frames.
-	drawn    []agentRow
-	editing  *agentEdit
-	renaming *agentRename
+	drawn   []agentRow
+	editing *agentEdit
+	renameSlot
 }
 
 type agentRow struct {

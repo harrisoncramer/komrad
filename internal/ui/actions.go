@@ -56,13 +56,11 @@ const (
 	actionScheduleNew
 	actionScheduleEdit
 	actionScheduleToggle
+	actionScheduleRename
 	actionScheduleArchive
 	actionScheduleBack
-	actionArchiveRestore
-	actionArchiveRestoreOpen
-	actionArchiveDelete
+	actionArchiveRename
 	actionArchiveBack
-	actionRestoreSelected
 	actionDeleteSelected
 	actionWorktreesBack
 	actionWorktreesJumpToAgent

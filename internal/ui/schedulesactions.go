@@ -77,6 +77,11 @@ func (w *schedulesScreen) actions() screenActionSpec {
 				run:  func(h host, s panelShared, _ string) tea.Cmd { return w.editForm(h, s) },
 			},
 			{
+				id:   actionScheduleRename,
+				keys: func(k config.Keybindings) []string { return k.Schedules.Rename },
+				run:  func(_ host, s panelShared, _ string) tea.Cmd { return w.openRename(s) },
+			},
+			{
 				id:   actionScheduleToggle,
 				keys: func(k config.Keybindings) []string { return k.Schedules.Toggle },
 				run:  func(h host, s panelShared, _ string) tea.Cmd { return w.toggle(h, s) },
@@ -96,6 +101,10 @@ func (w *schedulesScreen) actions() screenActionSpec {
 				of:    []actionID{actionScheduleEdit},
 				desc:  func(panelShared) string { return "edit" },
 				strip: true,
+			},
+			{
+				of:   []actionID{actionScheduleRename},
+				desc: func(panelShared) string { return "rename" },
 			},
 			{
 				of:   []actionID{actionScheduleToggle},

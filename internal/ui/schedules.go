@@ -19,6 +19,7 @@ import (
 type schedulesScreen struct {
 	rowCursor
 	rows []scheduleItem
+	renameSlot
 }
 
 type scheduleItem struct {
@@ -30,6 +31,10 @@ func (i scheduleItem) key() string {
 	return i.schedule.ID
 }
 
+func scheduleItemName(item scheduleItem) string {
+	return item.schedule.Name
+}
+
 // enter lands the cursor once the root has put the screen up.
 func (w *schedulesScreen) enter(h host, s panelShared, _ screenTarget) tea.Cmd {
 	w.cursor = cursor.Clamp(w.cursor, len(w.listRows(s)))
@@ -38,9 +43,18 @@ func (w *schedulesScreen) enter(h host, s panelShared, _ screenTarget) tea.Cmd {
 }
 
 func (w *schedulesScreen) update(h host, s panelShared, msg tea.Msg) tea.Cmd {
+	if _, ok := msg.(tea.PasteMsg); ok && w.isRenaming() {
+		return w.updateRename(h, msg)
+	}
+
 	key, ok := msg.(tea.KeyPressMsg)
 	if !ok {
 		return nil
+	}
+
+	w.reconcileRename(s)
+	if w.isRenaming() {
+		return w.updateRename(h, msg)
 	}
 
 	return w.actions().dispatch(h, s, key.String())
@@ -50,7 +64,7 @@ func (w *schedulesScreen) list() screenList[scheduleItem] {
 	return screenList[scheduleItem]{
 		cursor: func() *rowCursor { return &w.rowCursor },
 		rows:   w.listRows,
-		name:   func(item scheduleItem) string { return item.schedule.Name },
+		name:   scheduleItemName,
 		moved:  func(h host, _ panelShared) tea.Cmd { return h.waitToStage() },
 		quit:   func(k config.Keybindings) []string { return k.Schedules.Quit },
 		back:   func(k config.Keybindings) []string { return k.Schedules.Back },
@@ -70,7 +84,7 @@ func (w *schedulesScreen) buildRows(s panelShared) []scheduleItem {
 	return narrowed(s.chrome.filter, narrowedParams[scheduleItem]{
 		rows:  s.listing.schedules,
 		depth: func(scheduleItem) int { return 0 },
-		name:  func(item scheduleItem) string { return item.schedule.Name },
+		name:  scheduleItemName,
 	})
 }
 
@@ -81,6 +95,7 @@ func (w *schedulesScreen) selected(s panelShared) (scheduleItem, bool) {
 // apply takes a fresh listing, keeping the cursor on the schedule it was on.
 func (w *schedulesScreen) apply(h host, s panelShared, hovered string) {
 	w.list().place(h, s, hovered)
+	w.reconcileRename(s)
 }
 
 func (w *schedulesScreen) details(s panelShared) details {
@@ -297,16 +312,18 @@ func (w *schedulesScreen) help(s panelShared) keyMap {
 // lines is the list as drawn: each row's cursor, icon, name and cron, or one line over no rows.
 func (w *schedulesScreen) lines(s panelShared, pane listPane) []string {
 	return scheduleLines(s, pane, scheduleLinesParams{
-		rows:   w.listRows(s),
-		cursor: w.cursor,
-		idle:   "no schedules yet",
+		rows:     w.listRows(s),
+		cursor:   w.cursor,
+		idle:     "no schedules yet",
+		renaming: w.renamingField(),
 	})
 }
 
 type scheduleLinesParams struct {
-	rows   []scheduleItem
-	cursor int
-	idle   string
+	rows     []scheduleItem
+	cursor   int
+	idle     string
+	renaming *nameEdit
 }
 
 // scheduleLines draws schedule rows with the cursor on one, or the idle line over none.
@@ -323,7 +340,11 @@ func scheduleLines(s panelShared, pane listPane, params scheduleLinesParams) []s
 			prefix = caretGlyph(pane.caret)
 		}
 
-		name := s.chrome.filter.highlight(paint.Panel, clipName(item.schedule.Name), nameStyle(selected && pane.caret != view.CaretAbsent, !item.schedule.Enabled))
+		style := nameStyle(selected && pane.caret != view.CaretAbsent, !item.schedule.Enabled)
+		name := s.chrome.filter.highlight(paint.Panel, clipName(item.schedule.Name), style)
+		if e := params.renaming; e != nil && e.key == item.key() {
+			name = drawnName(e, style)
+		}
 		icon := paint.Panel.Style(scheduleTone(item.schedule.Enabled)).Render(scheduleIcon(s.glyphs, item.schedule.Enabled))
 		rows = append(rows, prefix+"  "+icon+" "+name+"  "+dimStyle().Render(item.schedule.Cron))
 	}
@@ -335,6 +356,7 @@ var (
 	_ detailed = (*schedulesScreen)(nil)
 	_ filtered = (*schedulesScreen)(nil)
 	_ columned = (*schedulesScreen)(nil)
+	_ renamer  = (*schedulesScreen)(nil)
 )
 
 func (w *schedulesScreen) doesDrawFromListing() bool {
@@ -342,7 +364,7 @@ func (w *schedulesScreen) doesDrawFromListing() bool {
 }
 
 func (w *schedulesScreen) takesEveryKey() bool {
-	return false
+	return w.isRenaming()
 }
 
 func (w *schedulesScreen) detailsQuit(keys config.Keybindings) []string {
@@ -381,5 +403,23 @@ func (w *schedulesScreen) column() columnSpec {
 		docRows: func(m model, width int) []string {
 			return m.schedules.docRows(m.shared(), width)
 		},
+	}
+}
+
+func (w *schedulesScreen) openRename(s panelShared) tea.Cmd {
+	if item, ok := w.selected(s); ok {
+		w.renaming = renameScheduleRow(item)
+	}
+
+	return nil
+}
+
+func (w *schedulesScreen) reconcileRename(s panelShared) {
+	reconcileRename(&w.renameSlot, w.listRows(s), w.hoveredKey(s), scheduleItemName)
+}
+
+func (w *schedulesScreen) settleRename(s panelShared, row string, err error) {
+	if w.settleField(row, err) {
+		w.reconcileRename(s)
 	}
 }
