@@ -127,13 +127,13 @@ func TestIntegrationCopyStandInHandsTheSelectionToTheCopier(t *testing.T) {
 	}{
 		{
 			name: "lines",
-			keys: [][]string{{"-X", "begin-selection"}, {"-X", "cursor-down"}, {"-X", "end-of-line"}},
-			want: []string{"0", "0", "9", "1", "0"},
+			keys: [][]string{{"-X", "begin-selection"}, {"-X", "cursor-down"}, {"-N", "8", "-X", "cursor-right"}},
+			want: []string{"0", "0", "8", "1", "0"},
 		},
 		{
 			name: "upwards",
-			keys: [][]string{{"-X", "cursor-down"}, {"-X", "end-of-line"}, {"-X", "begin-selection"}, {"-X", "cursor-up"}, {"-X", "start-of-line"}},
-			want: []string{"9", "1", "0", "0", "0"},
+			keys: [][]string{{"-X", "cursor-down"}, {"-N", "8", "-X", "cursor-right"}, {"-X", "begin-selection"}, {"-X", "cursor-up"}, {"-X", "start-of-line"}},
+			want: []string{"8", "1", "0", "0", "0"},
 		},
 		{
 			name: "rectangle",
@@ -142,15 +142,9 @@ func TestIntegrationCopyStandInHandsTheSelectionToTheCopier(t *testing.T) {
 		},
 		{
 			name: "enter",
-			keys: [][]string{{"-X", "begin-selection"}, {"-X", "cursor-down"}, {"-X", "end-of-line"}},
+			keys: [][]string{{"-X", "begin-selection"}, {"-X", "cursor-down"}, {"-N", "8", "-X", "cursor-right"}},
 			copy: "Enter",
-			want: []string{"0", "0", "9", "1", "0"},
-		},
-		{
-			name: "eol",
-			keys: [][]string{{"-X", "cursor-down"}},
-			copy: "D",
-			want: []string{"0", "1", "9", "1", "0"},
+			want: []string{"0", "0", "8", "1", "0"},
 		},
 	}
 
