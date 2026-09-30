@@ -1647,7 +1647,7 @@ func TestAgentsLastScreen(t *testing.T) {
 		{
 			name:          "a dormant agent draws its saved screen under how to resume it",
 			agent:         newDormant("login"),
-			want:          []string{"Press open to resume.", "saved screen", "the migration is written"},
+			want:          []string{"dormant · press enter to restore", "Press open to resume.", "saved screen", "the migration is written"},
 			wantScreenFor: []string{"a1"},
 		},
 		{
@@ -1668,7 +1668,19 @@ func TestAgentsLastScreen(t *testing.T) {
 		{
 			name:          "a paused agent draws how to unpause it over its saved screen",
 			agent:         newPausable("1970-01-01T00:00:00Z"),
-			want:          []string{"unpause in silence", "saved screen", "the migration is written"},
+			want:          []string{"paused · press p to unpause", "unpause in silence", "saved screen", "the migration is written"},
+			wantScreenFor: []string{"a1"},
+		},
+		{
+			name: "a paused agent whose pane died is still drawn as paused",
+			agent: func() *agentv1.Agent {
+				agent := newPausable("1970-01-01T00:00:00Z")
+				agent.Alive = xptr.Ptr(false)
+
+				return agent
+			}(),
+			want:          []string{"paused · press p to unpause", "saved screen", "the migration is written"},
+			wantAbsent:    []string{"dormant · press"},
 			wantScreenFor: []string{"a1"},
 		},
 	}

@@ -1104,7 +1104,7 @@ func TestArchiveLastScreen(t *testing.T) {
 
 		requireLastScreenFor(t, harness, "a1")
 		frame := harness.readFrame()
-		for _, want := range []string{"Restore brings it back", "saved screen", "80x24", "❯ ship the refactor", "⏺ the refactor is merged"} {
+		for _, want := range []string{"archived · press R to restore", "Restore brings it back", "saved screen", "80x24", "❯ ship the refactor", "⏺ the refactor is merged"} {
 			assert.Contains(t, frame, want)
 		}
 	})

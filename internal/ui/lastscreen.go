@@ -3,6 +3,7 @@ package ui
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 
 	"komrad/internal/errui"
@@ -12,6 +13,8 @@ import (
 	agentv1 "komrad/proto/gen/agent/v1"
 
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 )
 
 // errNoSavedScreen is an agent whose pane was never saved.
@@ -122,23 +125,25 @@ func (m *model) applyLastScreen(msg lastScreenMsg) {
 type lastScreenRowsParams struct {
 	screen  lastScreen
 	agentID string
+	notice  string
 	width   int
 	height  int
 }
 
-// lastScreenRows is the saved screen under a line saying when it was taken, fitted to the
-// column, or one line saying why there is none.
+// lastScreenRows is the saved screen under a notice block and a line saying when it was taken,
+// fitted to the column, or the notice and one line saying why there is none.
 func lastScreenRows(params lastScreenRowsParams) []string {
 	muted := paint.Panel.Style(paint.ToneMuted)
 	shown := params.screen
+	notice := noticeRows(params.notice, params.width)
 
 	switch {
 	case shown.agentID != params.agentID || !shown.answered:
-		return []string{muted.Render("reading the saved screen…")}
+		return append(notice, muted.Render("reading the saved screen…"))
 	case errors.Is(shown.err, errNoSavedScreen):
-		return []string{muted.Render("no saved screen")}
+		return append(notice, muted.Render("no saved screen"))
 	case shown.err != nil:
-		return []string{muted.Render("could not read the saved screen: " + errui.GetReason(shown.err))}
+		return append(notice, muted.Render("could not read the saved screen: "+errui.GetReason(shown.err)))
 	}
 
 	saved := shown.screen
@@ -147,9 +152,49 @@ func lastScreenRows(params lastScreenRowsParams) []string {
 		label.Friendly(saved.GetCapturedAt().AsTime()),
 		fmt.Sprintf("%dx%d", saved.GetWidth(), saved.GetHeight()),
 	}, separated))
-	height := min(max(params.height-1, 1), int(saved.GetHeight()))
+	height := min(max(params.height-len(notice)-1, 1), int(saved.GetHeight()))
 
-	return append([]string{banner}, strings.Split(savedscreen.Fit(saved.GetFrame(), max(params.width, 1), height), "\n")...)
+	return slices.Concat(notice, []string{banner}, strings.Split(savedscreen.Fit(saved.GetFrame(), max(params.width, 1), height), "\n"))
+}
+
+func noticeRows(notice string, width int) []string {
+	if notice == "" {
+		return nil
+	}
+
+	palette := paint.Panel
+	fill := lipgloss.NewStyle().
+		Background(palette.Color(paint.ToneWarning)).
+		Foreground(palette.Color(paint.ToneInverse)).
+		Width(max(width, 1))
+	bar := fill.Render("")
+
+	return []string{bar, fill.Bold(true).Align(lipgloss.Center).Render(ansi.Truncate(notice, max(width, 1), "…")), bar}
+}
+
+func (m model) screenNotice() string {
+	s := m.shared()
+
+	switch m.screen {
+	case screenArchive:
+		if m.archive.canRowOpen(s) {
+			return "archived" + separated + "press " + keyLabel(m.keys.Archive.RestoreOpen) + " to restore"
+		}
+
+		return "archived" + separated + "press " + keyLabel(m.keys.Archive.Restore) + " to restore"
+	case screenAgents:
+		item, ok := m.agents.hoveredResting(s)
+		if ok && item.Agent.HeldAt != nil {
+			return "paused" + separated + "press " + keyLabel(m.keys.Agents.Pause) + " to unpause"
+		}
+
+		return "dormant" + separated + "press " + keyLabel(m.keys.Agents.Open) + " to restore"
+	case screenWorktrees:
+		return "not running"
+	case screenSchedules, screenSearch, screenReview, screenDocuments, screenLogs, screenDocumentTypes:
+	}
+
+	return ""
 }
 
 // columnHeight is the rows the block beside the list is drawn in.
@@ -174,14 +219,16 @@ func (m model) withLastScreen(rows []string, width int) []string {
 		return rows
 	}
 
+	notice := m.screenNotice()
 	height := m.columnHeight() - len(rows) - 1
-	if height < minScreenRows {
+	if height-len(noticeRows(notice, width))-1 < minScreenRows {
 		height = m.columnHeight()
 	}
 
 	return append(append(rows, ""), lastScreenRows(lastScreenRowsParams{
 		screen:  m.lastScreen,
 		agentID: agentID,
+		notice:  notice,
 		width:   width,
 		height:  height,
 	})...)
