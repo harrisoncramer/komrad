@@ -239,6 +239,9 @@ type host interface {
 
 	// The clipboard is the root's.
 	copyCmd(value string) tea.Cmd
+
+	// The document beside the list is the root's to hand the keys to.
+	focusDoc()
 }
 
 var _ host = (*model)(nil)

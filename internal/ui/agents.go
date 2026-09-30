@@ -456,6 +456,7 @@ func (a *agentsScreen) tabsFit(s panelShared) bool {
 func (a *agentsScreen) column() columnSpec {
 	return columnSpec{
 		floor: columnFloor,
+		read:  isAlwaysRead,
 		doc:   func(m model) string { return m.agents.doc(m.shared()) },
 		holds: func(m model) bool { return !m.agents.isEditorOpen() && m.agents.hasNoAgentPane(m.unmeasured()) },
 	}

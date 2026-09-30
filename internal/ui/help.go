@@ -33,6 +33,9 @@ func (m model) renderHelp(k keyMap, above ...string) string {
 	if m.isDetailsFocused() {
 		k = m.detailsHelp()
 	}
+	if m.isDocFocused() {
+		k = m.docHelp()
+	}
 	if m.isTabsFocused() {
 		k = m.tabsHelp()
 	}

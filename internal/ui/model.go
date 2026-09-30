@@ -321,8 +321,8 @@ type model struct {
 	// what it drew.
 	drawn *lastFrame
 
-	// docScroll is where the reader has scrolled the block beside the list to.
-	docScroll docScroll
+	// reading is where the reader stands in the document beside the list.
+	reading docReader
 
 	// warm is the panes whose harness the panel has seen start, which it waits for before giving
 	// one the stage.

@@ -558,6 +558,7 @@ func (w *worktreesScreen) tabsFit(s panelShared) bool {
 func (w *worktreesScreen) column() columnSpec {
 	return columnSpec{
 		floor: columnFloor,
+		read:  isAlwaysRead,
 		doc:   func(m model) string { return m.worktrees.doc(m.shared()) },
 	}
 }

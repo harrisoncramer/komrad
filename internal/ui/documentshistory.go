@@ -76,7 +76,8 @@ func (d *documentsScreen) stepNewer(h host, s panelShared) tea.Cmd {
 	if d.history.at == 0 {
 		d.history = nil
 		if d.focus {
-			d.focusBlock(s)
+			d.focus = false
+			h.focusDoc()
 		}
 
 		return nil
@@ -110,7 +111,7 @@ func (d *documentsScreen) isSteppingHovered(s panelShared) bool {
 func (d *documentsScreen) docRows(s panelShared, width int) []string {
 	item, ok := d.hovered(s)
 	if !ok || !d.isSteppingHovered(s) {
-		return d.readBlock(s, width)
+		return paint.DocStyledRows(d.doc(s), max(width, 1), columnStyle())
 	}
 
 	h := d.history

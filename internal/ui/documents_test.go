@@ -591,12 +591,13 @@ func TestDocumentsReadingCursor(t *testing.T) {
 
 	bar := paint.BackgroundSequence(paint.SelectionBackground)
 
-	assert.Equal(t, "/", strings.TrimSpace(readStage(harness.readFrame())[0]), "the search stands over the document before it is opened")
+	assert.NotEqual(t, "/", strings.TrimSpace(readStage(harness.readFrame())[0]), "the search waits for the document to hold the keys")
 	unfocused := findRawLine(harness.readRawFrame(), line)
 	require.NotEmpty(t, unfocused)
 	assert.NotContains(t, unfocused, bar)
 
 	harness.press("pick:block", "G")
+	assert.Equal(t, "/", strings.TrimSpace(readStage(harness.readFrame())[0]), "the search stands over the focused document")
 	focused := findRawLine(harness.readRawFrame(), line)
 	require.NotEmpty(t, focused)
 	assert.Contains(t, focused, bar, "the cursor is drawn as a bar on the line it moved to")

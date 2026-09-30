@@ -50,7 +50,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	spinning := routed.spinLoader()
 	routed, pulse := routed.pulseMessages(m.messages.landed)
 	routed = routed.releaseHiddenDetails()
-	routed = routed.dropStaleDocScroll()
+	routed = routed.dropStaleDoc()
 
 	return routed, tea.Batch(cmd, blink, warming, spinning, pulse)
 }
@@ -164,6 +164,10 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	if m.filter.typing {
 		return m.updateFilterInput(key)
+	}
+
+	if m.reading.filter.typing && m.isDocReadable() {
+		return m.updateDocFilter(key)
 	}
 
 	// The filter has gone by here, so what is left is the screen's own input, which owns the
@@ -325,6 +329,12 @@ func (m model) routeGlobalKey(key tea.KeyPressMsg) (tea.Model, tea.Cmd, bool) {
 
 	if m.isDetailsScreen() && m.isDetailsFocused() {
 		next, cmd := m.updateDetails(key)
+
+		return next, cmd, true
+	}
+
+	if m.isDocFocused() {
+		next, cmd := m.updateDoc(key)
 
 		return next, cmd, true
 	}
@@ -518,10 +528,10 @@ func (m *model) reconcileEditor() tea.Cmd {
 	return nil
 }
 
-// isTyping reports whether the panel's own bindings are off: the list's filter, a text input the
-// screen put up, or a key prefix waiting on the key that completes it.
+// isTyping reports whether the panel's own bindings are off: the list's filter, the document's
+// search, a text input the screen put up, or a key prefix waiting on the key that completes it.
 func (m model) isTyping() bool {
-	if m.filter.typing {
+	if m.filter.typing || (m.reading.filter.typing && m.isDocReadable()) {
 		return true
 	}
 

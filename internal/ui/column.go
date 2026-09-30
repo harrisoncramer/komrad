@@ -61,6 +61,10 @@ type columnSpec struct {
 	// cannot style.
 	docRows func(model, int) []string
 
+	// read reports whether the block is a document the keys can be handed to, and is nil on a
+	// screen whose block never is.
+	read func(model) bool
+
 	// holds reports whether the screen is drawing its own block at all, and is nil on a screen that
 	// always is.
 	holds func(model) bool
@@ -325,69 +329,45 @@ func (m model) docColumnView(split columnSplit) string {
 	return m.columnDoc(split).view(split.rows)
 }
 
-// docScroll is how far down the block beside the list the reader has scrolled, and what the block
-// was showing when they did.
-type docScroll struct {
-	shown string
-	top   int
-}
-
-// docShown names what the block beside the list is showing, so a scroll is dropped once it changes.
+// docShown names what the block beside the list is showing, so the reader is dropped once it
+// changes.
 func (m model) docShown() string {
-	return fmt.Sprintf("%d/%s/%t", m.screen, m.hoveredDetails().id, m.isMessagesFocused())
-}
-
-// scrollDoc moves the block beside the list, stopping at either end.
-func (m *model) scrollDoc(rows int) {
-	split, ok := m.screenColumnSplit()
-	if !ok {
-		return
+	hovered := m.hoveredDetails().id
+	if f, ok := m.active().(filtered); ok {
+		hovered = f.hoveredKey(m.shared())
 	}
 
-	doc := m.columnDoc(split)
-	top := doc.clamp(doc.top, split.rows)
-	m.docScroll = docScroll{shown: m.docShown(), top: doc.clamp(top+rows, split.rows)}
+	return fmt.Sprintf("%d/%s/%t", m.screen, hovered, m.isMessagesFocused())
 }
 
-// dropStaleDocScroll forgets a scroll once the block shows something else.
-func (m model) dropStaleDocScroll() model {
-	if m.docScroll.shown != m.docShown() {
-		m.docScroll = docScroll{}
-	}
-
-	return m
-}
-
-// columnDoc is the document the block is drawn from, scrolled where the reader left it.
+// columnDoc is the document the block is drawn from, read where the reader left it.
 func (m model) columnDoc(split columnSplit) docWindow {
 	if m.isMessagesFocused() {
 		return m.buildMessagesWindow(split.column, split.rows)
 	}
 
-	doc := m.unscrolledDoc(split)
-	doc.top = m.docScroll.top
-
-	return doc
-}
-
-// unscrolledDoc is the document the block is drawn from, and empty on a screen whose block is not
-// one.
-func (m model) unscrolledDoc(split columnSplit) docWindow {
-	spec, ok := m.columnOf()
-	if ok && spec.docRows != nil {
-		return docWindow{
-			rows:    spec.docRows(m, split.column),
-			markers: true,
-		}
-	}
-	if !ok || spec.doc == nil {
-		return docWindow{}
+	if m.isDocReadable() {
+		return docWindow{rows: m.docBlock(split)}
 	}
 
 	return docWindow{
-		rows:    paint.DocStyledRows(spec.doc(m), split.column, columnStyle()),
+		rows:    m.columnRows(split),
 		markers: true,
 	}
+}
+
+// columnRows is the block rendered at its width, and empty on a screen whose block is not a
+// document.
+func (m model) columnRows(split columnSplit) []string {
+	spec, ok := m.columnOf()
+	if ok && spec.docRows != nil {
+		return spec.docRows(m, split.column)
+	}
+	if !ok || spec.doc == nil {
+		return nil
+	}
+
+	return paint.DocStyledRows(spec.doc(m), max(split.column, 1), columnStyle())
 }
 
 // fitColumn squares a block off at a width.

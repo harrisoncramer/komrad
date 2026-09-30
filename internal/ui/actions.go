@@ -21,6 +21,7 @@ const (
 	actionJump
 	actionNavPage
 	actionColumnScroll
+	actionColumnBack
 	actionDetails
 	actionDetailsCopy
 	actionMessages
