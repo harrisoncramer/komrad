@@ -25,6 +25,11 @@ func (p *Pane) Observe(_ context.Context, target harness.Target) (harness.Observ
 	}, nil
 }
 
+// IsRunning reports whether the agent's CLI is still the program in its pane.
+func (p *Pane) IsRunning(_ context.Context, target harness.Target) bool {
+	return p.terminal.IsPaneRunningCLI(target.Pane)
+}
+
 // readFrame is what the named harness reads out of one capture.
 func (p *Pane) readFrame(harnessID, frame string) (harness.Input, error) {
 	found, err := p.harnesses.GetByID(harnessID)

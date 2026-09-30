@@ -63,6 +63,9 @@ func NewSettler(params NewSettlerParams) *Settler {
 // come to rest, reporting whether a turn was cut.
 func (s *Settler) Settle(ctx context.Context, agent agentstore.Agent) (bool, error) {
 	target := buildTarget(agent)
+	if !s.observer.IsRunning(ctx, target) {
+		return false, nil
+	}
 
 	observed, err := s.observer.Observe(ctx, target)
 	read := err == nil && (isMidTurn(observed.Activity) || isAtRest(observed.Activity))

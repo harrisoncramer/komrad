@@ -225,6 +225,8 @@ type Observer struct {
 	Observations []harness.Observation
 	Err          error
 	Reads        int
+	// Exited says the agent's CLI has left its pane.
+	Exited bool
 	// BeforeFirst runs ahead of the first observation.
 	BeforeFirst func()
 	began       bool
@@ -250,6 +252,14 @@ func (o *Observer) Observe(context.Context, harness.Target) (harness.Observation
 	o.Reads++
 
 	return o.Observations[at], nil
+}
+
+// IsRunning answers whether the CLI is still in its pane.
+func (o *Observer) IsRunning(context.Context, harness.Target) bool {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+
+	return !o.Exited
 }
 
 // NewActivityObserver is an observer answering a run of bare activities.
