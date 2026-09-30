@@ -153,7 +153,7 @@ func (c *Client) OpenCopyStandIn(params panes.CopyStandIn) error {
 		restore = append(restore, "send-keys -t "+pane+" "+strings.Join(keys, " "))
 	}
 	if cut != "" {
-		restore = append(restore, "run-shell -b 'sleep 5; rm -rf "+cut+"'")
+		restore = append(restore, "run-shell -b -t "+standIn+" 'sleep 5; rm -rf #{q:"+standInCopyOption+"}'")
 	}
 	restore = append(restore, "kill-pane -t "+standIn)
 
