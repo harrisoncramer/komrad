@@ -453,7 +453,7 @@ func TestArchiveDocument(t *testing.T) {
 			wantAbsent: []string{"dormant"},
 		},
 		{
-			name:       "an archived agent draws no diff stat, since nothing measures it any more",
+			name:       "an archived agent draws no diff stat",
 			rows:       []proto.Message{newLiveWorkflow("w1", "backend"), measured},
 			press:      []string{"j"},
 			want:       []string{"archived — kept until deleted"},
