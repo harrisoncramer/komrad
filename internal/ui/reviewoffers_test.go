@@ -49,16 +49,14 @@ func newOfferedReviewServer(t *testing.T, offers ...*pullrequestv1.ForgeThread) 
 	return server
 }
 
-// TestReviewOffers covers the forge's comments in the review's sidebar and the key that walks them.
+// TestReviewOffers covers the forge's comments read in the review's popup and the key that walks
+// them.
 func TestReviewOffers(t *testing.T) {
-	t.Run("the sidebar names each offer by its author and line", func(t *testing.T) {
+	t.Run("an offer is read out only once the cursor is on its line", func(t *testing.T) {
 		server := newOfferedReviewServer(t, newOffer("f1", "dana", "rename this", 4))
 		harness := openReviewAt(t, server, panelHarnessParams{height: 40})
 
-		sidebar := strings.Join(readSidebar(harness.readFrame()), "\n")
-		assert.Contains(t, sidebar, "From the forge  1 open, 0 resolved")
-		assert.Contains(t, sidebar, "@dana  "+gittest.File+":4")
-		assert.NotContains(t, sidebar, "rename this", "an offer is read out only once chosen")
+		assert.NotContains(t, readPopupProse(harness.readFrame()), "rename this")
 	})
 
 	t.Run("J moves to an offer's line and reads it out", func(t *testing.T) {
@@ -68,9 +66,10 @@ func TestReviewOffers(t *testing.T) {
 		harness.press("J")
 
 		frame := harness.readFrame()
-		sidebar := strings.Join(readSidebar(frame), "\n")
-		assert.Contains(t, sidebar, "rename this")
-		assert.Contains(t, strings.ReplaceAll(sidebar, "\n    ", ""), "https://github.com/harrisoncramer/komrad/pull/7#discussion_f1")
+		popup := readPopupProse(frame)
+		assert.Contains(t, popup, "@dana on the forge")
+		assert.Contains(t, popup, "rename this")
+		assert.Contains(t, strings.Join(readPopup(frame), ""), "https://github.com/harrisoncramer/komrad/pull/7#discussion_f1")
 		assert.Contains(t, readReviewCursor(frame), gittest.File+":4")
 	})
 
@@ -82,11 +81,11 @@ func TestReviewOffers(t *testing.T) {
 		harness := openReviewAt(t, server, panelHarnessParams{height: 40})
 
 		harness.press("J")
-		require.Contains(t, strings.Join(readSidebar(harness.readFrame()), "\n"), "and this")
+		require.Contains(t, readPopupProse(harness.readFrame()), "and this")
 		harness.press("J")
-		require.Contains(t, strings.Join(readSidebar(harness.readFrame()), "\n"), "rename this")
+		require.Contains(t, readPopupProse(harness.readFrame()), "rename this")
 		harness.press("J")
-		assert.Contains(t, strings.Join(readSidebar(harness.readFrame()), "\n"), "and this")
+		assert.Contains(t, readPopupProse(harness.readFrame()), "and this")
 	})
 
 	t.Run("an offer's body reaches the terminal without its escape sequences", func(t *testing.T) {
@@ -99,25 +98,7 @@ func TestReviewOffers(t *testing.T) {
 		assert.NotContains(t, raw, "evil.example")
 		assert.NotContains(t, raw, "\x1b[5m")
 		assert.NotContains(t, raw, "\x07")
-		assert.Contains(t, strings.Join(readSidebar(harness.readFrame()), "\n"), "click here")
-	})
-
-	t.Run("a short sidebar keeps the legend and the chosen offer's read-out", func(t *testing.T) {
-		server := newOfferedReviewServer(t,
-			newOffer("f1", "dana", "rename this", 4),
-			newOffer("f2", "lee", "and this", 1),
-			newOffer("f3", "kim", "whole file", 0),
-		)
-		harness := openReviewAt(t, server, panelHarnessParams{height: 24})
-
-		harness.press("J")
-		harness.press("J")
-
-		frame := harness.readFrame()
-		sidebar := strings.Join(readSidebar(frame), "\n")
-		assert.Contains(t, sidebar, "and this")
-		assert.Contains(t, sidebar, "@dana")
-		assert.Contains(t, readLegend(frame), "comment on this line")
+		assert.Contains(t, readPopupProse(harness.readFrame()), "click here")
 	})
 
 	t.Run("J takes an offer on a file with no line to the file", func(t *testing.T) {
@@ -126,10 +107,10 @@ func TestReviewOffers(t *testing.T) {
 
 		harness.press("J")
 
-		sidebar := strings.Join(readSidebar(harness.readFrame()), "\n")
-		assert.Contains(t, sidebar, "whole file")
-		assert.NotContains(t, sidebar, "not in this diff")
-		assert.Empty(t, readReviewCursor(harness.readFrame()), "the cursor rests on the file's header rather than a line")
+		frame := harness.readFrame()
+		assert.Contains(t, readPopupProse(frame), "whole file")
+		assert.NotContains(t, frame, "not in this diff")
+		assert.Empty(t, readReviewCursor(frame), "the cursor rests on the file's header rather than a line")
 	})
 
 	t.Run("an offer is marked in the gutter of the line it is on", func(t *testing.T) {
@@ -144,7 +125,7 @@ func TestReviewOffers(t *testing.T) {
 		harness := openReviewAt(t, server, panelHarnessParams{height: 40})
 
 		require.Contains(t, readReviewCursor(harness.readFrame()), gittest.File+":1")
-		assert.Contains(t, strings.Join(readSidebar(harness.readFrame()), "\n"), "rename this")
+		assert.Contains(t, readPopupProse(harness.readFrame()), "rename this")
 	})
 
 	t.Run("a resolved offer is marked settled", func(t *testing.T) {
@@ -196,6 +177,5 @@ func TestReviewOffers(t *testing.T) {
 		harness := openReviewAt(t, newReviewServer(t), panelHarnessParams{height: 40})
 
 		assert.NotContains(t, readLegend(harness.readFrame()), "next comment from the forge")
-		assert.NotContains(t, strings.Join(readSidebar(harness.readFrame()), "\n"), "From the forge")
 	})
 }
