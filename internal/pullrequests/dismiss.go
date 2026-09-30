@@ -31,7 +31,7 @@ func NewDismisser(params NewDismisserParams) *Dismisser {
 // DismissForgeThreadParams names the forge thread to dismiss and who is asking.
 type DismissForgeThreadParams struct {
 	ID string
-	// Restore makes the thread active again rather than dismissing it.
+	// Restore makes the thread active again.
 	Restore bool
 	// AgentID is the agent asking, empty for the person.
 	AgentID string
