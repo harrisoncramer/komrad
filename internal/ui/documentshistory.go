@@ -233,7 +233,7 @@ func (h *documentHistory) changeRows(width int) []string {
 	before, after, ok := h.readChange()
 	switch {
 	case !ok:
-		return []string{fitRow(indent+dimStyle.Render("reading…"), width)}
+		return []string{fitRow(indent+dimStyle().Render("reading…"), width)}
 	case after.err != nil:
 		return []string{fitRow(indent+"could not read: "+errui.GetReason(after.err), width)}
 	case before.err != nil:
@@ -242,7 +242,7 @@ func (h *documentHistory) changeRows(width int) []string {
 		return paint.DocStyledRows(after.body+"\n", width, columnStyle())
 	}
 
-	return []string{fitRow(indent+dimStyle.Render("no change to the text"), width)}
+	return []string{fitRow(indent+dimStyle().Render("no change to the text"), width)}
 }
 
 // drawnChange is the two writes a change view was built between, and the background it was

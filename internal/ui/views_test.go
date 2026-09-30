@@ -27,7 +27,7 @@ func TestViews(t *testing.T) {
 		assert.Empty(t, strings.TrimSpace(blank), "a blank row stands under the engine")
 		views, _, _ := strings.Cut(lines[3], "│")
 		assert.Equal(t, "agents  query  schedules  archive  worktrees", strings.TrimSpace(views))
-		lit := paint.Panel.Style(paint.ToneAccent)
+		lit := paint.Panel.Style(paint.TonePrimary)
 		assert.Contains(t, harness.readRawFrame(), lit.Render("archive"), "the view that is up is lit")
 	})
 
@@ -35,7 +35,7 @@ func TestViews(t *testing.T) {
 		harness, _ := openDocuments(t)
 
 		assert.True(t, strings.HasPrefix(readTrail(harness.readFrame()), "agents › author › documents"))
-		lit := paint.Panel.Style(paint.ToneAccent)
+		lit := paint.Panel.Style(paint.TonePrimary)
 		assert.Contains(t, harness.readRawFrame(), lit.Render("agents"), "the view it was opened from is lit")
 	})
 

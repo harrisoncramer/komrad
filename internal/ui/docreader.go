@@ -63,7 +63,7 @@ func (m model) docHead(rows []string, width int) []string {
 
 	count := ""
 	if r.filter.isStanding() {
-		count = dimStyle.Render("  " + reader.Count(reader.Matches(r.filter.pattern, rows), r.Line))
+		count = dimStyle().Render("  " + reader.Count(reader.Matches(r.filter.pattern, rows), r.Line))
 	}
 
 	return r.filter.head(count, r.said, width, m.glyphs)
@@ -82,7 +82,7 @@ func (m model) docBlock(split columnSplit) []string {
 	for i, row := range rows {
 		drawn[i] = paint.Panel.HighlightStyled(row, reader.Spans(r.filter.pattern, row))
 		if focused && i == r.Line {
-			drawn[i] = paint.PaintRow(drawn[i], split.column)
+			drawn[i] = paint.Panel.PaintRow(drawn[i], split.column)
 		}
 	}
 

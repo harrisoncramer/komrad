@@ -10,7 +10,7 @@ import (
 )
 
 // OfferTone is the tone the forge's comments are drawn in.
-const OfferTone = paint.ToneWarning
+const OfferTone = paint.ToneUserGithub
 
 // Offer is a comment the forge holds on a file, placed on the diff the way a thread is and kept
 // apart from the reader's own.
@@ -126,8 +126,8 @@ func (v *View) GetOfferRow(id string) (int, bool) {
 // one of them is resolved.
 func (v *View) offerMarkFor(offers []Offer) (string, lipgloss.Style) {
 	if slices.ContainsFunc(offers, func(offer Offer) bool { return !offer.Resolved }) {
-		return v.glyphs.Spell(glyph.ThreadRead), offerMarkStyle
+		return v.glyphs.Spell(glyph.ThreadRead), paint.Panel.Style(OfferTone)
 	}
 
-	return v.glyphs.Spell(glyph.ThreadSettled), offerMarkStyle
+	return v.glyphs.Spell(glyph.ThreadSettled), paint.Panel.Style(OfferTone)
 }

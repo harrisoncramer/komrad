@@ -307,7 +307,7 @@ func buildBaseField(read worktreeInspection) recordField {
 		return recordField{
 			label:  "base",
 			value:  read.baseRef + "  even",
-			styled: read.baseRef + "  " + dimStyle.Render("even"),
+			styled: read.baseRef + "  " + dimStyle().Render("even"),
 		}
 	}
 
@@ -317,7 +317,7 @@ func buildBaseField(read worktreeInspection) recordField {
 	return recordField{
 		label:  "base",
 		value:  read.baseRef + "  " + ahead + " " + behind,
-		styled: read.baseRef + "  " + countStyle(read.ahead, paint.Panel.Style(paint.ToneSuccess)).Render(ahead) + " " + countStyle(read.behind, paint.Panel.Style(paint.ToneMark)).Render(behind),
+		styled: read.baseRef + "  " + countStyle(read.ahead, paint.Panel.Style(paint.ToneSuccess)).Render(ahead) + " " + countStyle(read.behind, paint.Panel.Style(paint.ToneWarning)).Render(behind),
 	}
 }
 

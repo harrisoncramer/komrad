@@ -50,7 +50,7 @@ func prepareLine(params prepareLineParams) Line {
 
 	return Line{
 		Focused:  focused,
-		Focus:    textCell(chromeIf(focused && params.caret == CaretDrawn, glyph.Focus), paint.ToneAccent),
+		Focus:    textCell(chromeIf(focused && params.caret == CaretDrawn, glyph.Focus), paint.TonePrimary),
 		Columns:  columnCells(row, params.columns),
 		Status:   blinkBar(StatusCell(row), row, params.blinkedOut),
 		Rule:     row.Kind == KindChild,
@@ -180,7 +180,7 @@ func personCell(open, external int) Cell {
 		{Glyph: glyph.PersonComments, Tone: paint.ToneMuted},
 		{Text: " "},
 		{Text: strconv.Itoa(open), Tone: paint.ToneMuted},
-		{Text: "+" + strconv.Itoa(external), Tone: paint.ToneOther},
+		{Text: "+" + strconv.Itoa(external), Tone: paint.ToneUserGithub},
 	}}
 }
 
@@ -226,7 +226,7 @@ func StatusCell(row Row) Cell {
 	case StatusIdle:
 		return Cell{Text: glyph.Quiet, Tone: paint.ToneMuted}
 	case StatusThinking:
-		return Cell{Text: glyph.Busy, Tone: paint.ToneBright}
+		return Cell{Text: glyph.Busy, Tone: paint.TonePrimary}
 	case StatusWaiting:
 		return Cell{Text: glyph.Busy, Tone: paint.ToneWarning}
 	case StatusBroken:

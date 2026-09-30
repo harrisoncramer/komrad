@@ -38,7 +38,7 @@ func (w frozenWindow) drawPicker(targets []pickTarget) string {
 	}
 
 	left, top, width, height := measureBounds(shown)
-	letter := lipgloss.NewStyle().Foreground(palette.Color(paint.ToneOther)).Bold(true)
+	letter := lipgloss.NewStyle().Foreground(palette.Color(paint.ToneHighlight)).Bold(true)
 
 	layers := make([]*lipgloss.Layer, 0, len(shown)+2*len(targets)+1)
 	for _, rect := range shown {

@@ -433,7 +433,7 @@ func TestWorktreesRecord(t *testing.T) {
 		assert.Equal(t, "1 modified, 2 untracked", readRecordField(frame, "changes"))
 		raw := harness.readRawFrame()
 		assert.Contains(t, raw, paint.Panel.Style(paint.ToneSuccess).Render("↑2"))
-		assert.Contains(t, raw, paint.Panel.Style(paint.ToneMark).Render("↓12"))
+		assert.Contains(t, raw, paint.Panel.Style(paint.ToneWarning).Render("↓12"))
 	})
 }
 

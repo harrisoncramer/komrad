@@ -105,5 +105,5 @@ func (t reviewThreads) deliveryCountView() string {
 		parts = append(parts, paint.Panel.Style(drawn.tone).Render(fmt.Sprintf("%d %s", count, drawn.word)))
 	}
 
-	return strings.Join(parts, dimStyle.Render(separated))
+	return strings.Join(parts, dimStyle().Render(separated))
 }

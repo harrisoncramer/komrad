@@ -283,13 +283,13 @@ func drawDividerRow(fromLeft, fromRight bool) string {
 
 	leftPad, rightPad := strings.Repeat(" ", gutter), strings.Repeat(" ", gutter)
 	if fromLeft {
-		leftPad = dimStyle.Render(strings.Repeat(glyph.Rule, gutter))
+		leftPad = dimStyle().Render(strings.Repeat(glyph.Rule, gutter))
 	}
 	if fromRight {
-		rightPad = dimStyle.Render(strings.Repeat(glyph.Rule, gutter))
+		rightPad = dimStyle().Render(strings.Repeat(glyph.Rule, gutter))
 	}
 
-	return leftPad + dimStyle.Render(junction) + rightPad
+	return leftPad + dimStyle().Render(junction) + rightPad
 }
 
 // paneWidth is the column the panel draws its own list, record and legend in, which is the whole

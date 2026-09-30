@@ -32,19 +32,9 @@ const (
 )
 
 var (
-	addedBackground     = paint.Adaptive{Light: lipgloss.Color("#dafbe1"), Dark: lipgloss.Color("#1b3823")}
-	deletedBackground   = paint.Adaptive{Light: lipgloss.Color("#ffebe9"), Dark: lipgloss.Color("#402222")}
-	cursorBackground    = paint.Adaptive{Light: lipgloss.Color("#dbeafe"), Dark: lipgloss.Color("#1e3a5f")}
-	dimCursorBackground = paint.Adaptive{Light: lipgloss.Color("#e5e7eb"), Dark: lipgloss.Color("#2b3038")}
-	matchBackground     = paint.Adaptive{Light: lipgloss.Color("#fde68a"), Dark: lipgloss.Color("#7c5c00")}
-	plainBackground     = lipgloss.NoColor{}
-	gutterStyle         = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
-	fileStyle           = lipgloss.NewStyle().Bold(true)
-	metadataStyle       = lipgloss.NewStyle().Faint(true)
-	hunkStyle           = lipgloss.NewStyle().Foreground(lipgloss.Color("5"))
-	agentMarkStyle      = paint.Panel.Style(paint.ToneOther)
-	humanMarkStyle      = paint.Panel.Style(paint.ToneSelf)
-	offerMarkStyle      = paint.Panel.Style(OfferTone)
+	plainBackground = lipgloss.NoColor{}
+	fileStyle       = lipgloss.NewStyle().Bold(true)
+	metadataStyle   = lipgloss.NewStyle().Faint(true)
 )
 
 // RenderRow draws one row of the diff at the width it is shown at, taking the cursor as an
@@ -61,7 +51,7 @@ func (v *View) RenderRow(y int, cursor Cursor, width, offset int) string {
 	case metadataRow:
 		return ansi.Truncate(metadataStyle.Render("  "+current.text), width, "…")
 	case hunkRow:
-		return ansi.Truncate(hunkStyle.Render(current.text), width, "…")
+		return ansi.Truncate(paint.Panel.Style(paint.ToneSecondary).Render(current.text), width, "…")
 	case threadRow:
 		return v.renderThreadRow(current, cursor, width)
 	case changeRow:
@@ -92,7 +82,7 @@ func (v *View) renderFileRow(y int, current row, cursor Cursor, width int) strin
 	for _, piece := range cutBy(current.text, 0, v.rawMatches(y)) {
 		pieceStyle := style
 		if piece.matched {
-			pieceStyle = style.Background(matchBackground)
+			pieceStyle = style.Background(paint.Panel.Background(paint.ShadeMatch))
 		}
 
 		out.WriteString(pieceStyle.Render(piece.text))
@@ -144,7 +134,7 @@ func (v *View) countOpenThreadsIn(path string) int {
 // renderGutter draws the line numbers, what the diff did to the line, and whether a thread is
 // pinned to it.
 func (v *View) renderGutter(y int, line diff.Line, background color.Color) string {
-	mark, markStyle := " ", gutterStyle
+	mark, markStyle := " ", paint.Panel.Style(paint.ToneMuted)
 	if thread, ok := v.GetThreadAt(y); ok {
 		mark, markStyle = v.MarkFor(thread)
 	} else if offers := v.GetOffersAt(y); len(offers) > 0 {
@@ -154,9 +144,9 @@ func (v *View) renderGutter(y int, line diff.Line, background color.Color) strin
 	numbers := fmt.Sprintf("%4s %4s %s",
 		formatNumber(line.OldNumber), formatNumber(line.NewNumber), markerFor(line.Kind))
 
-	return gutterStyle.Background(background).Render(numbers) +
+	return paint.Panel.Style(paint.ToneMuted).Background(background).Render(numbers) +
 		markStyle.Background(background).Render(mark) +
-		gutterStyle.Background(background).Render(" ")
+		paint.Panel.Style(paint.ToneMuted).Background(background).Render(" ")
 }
 
 // MarkFor is the glyph a thread gets in the gutter, drawn in the colour of whoever opened it.
@@ -178,10 +168,10 @@ func (v *View) MarkFor(thread *agentv1.ReviewThread) (string, lipgloss.Style) {
 // markStyleFor is the colour a thread is drawn in, which says who opened it.
 func markStyleFor(thread *agentv1.ReviewThread) lipgloss.Style {
 	if isAgentThread(thread) {
-		return agentMarkStyle
+		return paint.Panel.Style(paint.ToneUserAgent)
 	}
 
-	return humanMarkStyle
+	return paint.Panel.Style(paint.ToneUserMe)
 }
 
 // doesHoldDelivery reports whether any comment in a thread stands in one delivery state.
@@ -220,7 +210,7 @@ func (v *View) renderChangeRow(current row, cursor Cursor, width int) string {
 
 	return renderSaidRow(renderSaidRowParams{
 		Mark:      " ",
-		MarkStyle: gutterStyle,
+		MarkStyle: paint.Panel.Style(paint.ToneMuted),
 		Said:      said,
 		Cursor:    cursor,
 		Width:     width,
@@ -253,7 +243,7 @@ func renderSaidRow(params renderSaidRowParams) string {
 	background := getBackground(diff.Context, params.Cursor)
 	style := lipgloss.NewStyle().Background(background)
 	head := strings.Repeat(" ", max(GutterWidth-2, 0))
-	said := style.Foreground(lipgloss.Color("8")).Italic(true).Render(params.Said)
+	said := style.Foreground(paint.Panel.Color(paint.ToneMuted)).Italic(true).Render(params.Said)
 
 	return ansi.Truncate(
 		style.Render(head)+params.MarkStyle.Background(background).Render(params.Mark)+style.Render(" ")+
@@ -282,17 +272,17 @@ func formatNumber(value int) string {
 func getBackground(kind diff.LineKind, cursor Cursor) color.Color {
 	switch cursor {
 	case LiveCursor:
-		return cursorBackground
+		return paint.Panel.Background(paint.ShadeSelection)
 	case DimCursor:
-		return dimCursorBackground
+		return paint.Panel.Background(paint.ShadeSelectionDim)
 	case NoCursor:
 	}
 
 	switch kind {
 	case diff.Addition:
-		return addedBackground
+		return paint.Panel.Background(paint.ShadeDiffAdded)
 	case diff.Deletion:
-		return deletedBackground
+		return paint.Panel.Background(paint.ShadeDiffDeleted)
 	case diff.Context:
 	}
 
@@ -320,7 +310,7 @@ func renderTokens(line styledLine, fallback string, background color.Color, foun
 		for _, piece := range cutBy(current.text, at, found) {
 			pieceStyle := style
 			if piece.matched {
-				pieceStyle = style.Background(matchBackground)
+				pieceStyle = style.Background(paint.Panel.Background(paint.ShadeMatch))
 			}
 
 			out.WriteString(pieceStyle.Render(expandTabs(piece.text)))

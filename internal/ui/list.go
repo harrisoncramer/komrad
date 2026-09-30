@@ -589,7 +589,7 @@ func (m model) screenListView(params screenListParams) string {
 	}
 
 	if params.rows == 0 && (params.empty != "" || m.filter.doesNarrow(sectionList)) {
-		return m.headedListView(header, []string{dimStyle.Render(m.emptyListLine(params.empty))}, 0, below)
+		return m.headedListView(header, []string{dimStyle().Render(m.emptyListLine(params.empty))}, 0, below)
 	}
 
 	pane := m.paneWidth()
@@ -710,9 +710,9 @@ func (m model) headerLines(title, tally, tabs string) string {
 	switch {
 	case tally == "":
 	case header == "":
-		header = dimStyle.Render(tally)
+		header = dimStyle().Render(tally)
 	default:
-		header += dimStyle.Render("  " + tally)
+		header += dimStyle().Render("  " + tally)
 	}
 	if width := m.paneWidth(); width > 0 {
 		header = ansi.Truncate(header, width, "…")
@@ -728,7 +728,7 @@ func (m model) headerLines(title, tally, tabs string) string {
 func (m model) headedListView(header string, rows []string, cursor int, help string) string {
 	lines := m.listLines(header, help)
 
-	return headedBlockView(header, paint.RenderList(rows, cursor, lines, dimStyle), lines, help)
+	return headedBlockView(header, paint.RenderList(rows, cursor, lines, dimStyle()), lines, help)
 }
 
 // emptyListLine is what a screen says over no rows.

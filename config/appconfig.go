@@ -903,6 +903,10 @@ type Config struct {
 	// layout is drawn with, such as the status bars, dividers and rules, is fixed and not
 	// configured here.
 	Glyphs Glyphs `mapstructure:"glyphs"`
+	// The colours the panel draws in, one for each part a colour plays. Each is a terminal colour
+	// number from 0 to 255, which your terminal's theme decides the look of, or a hex code like
+	// "#1e3a5f".
+	Palette Palette `mapstructure:"palette"`
 	// Where komrad finds the scripts a workflow hangs on a moment in its agents' lives.
 	Hooks Hooks `mapstructure:"hooks"`
 	// Where a workflow's generated worktree provisioner creates its worktrees.
@@ -930,6 +934,7 @@ func Defaults() *Config {
 		Layout:         DefaultLayout(),
 		Keybindings:    DefaultKeybindings(),
 		Glyphs:         DefaultGlyphs(),
+		Palette:        DefaultPalette(),
 		Mail:           Mail{DeliveryDeadline: DefaultDeliveryDeadline, MaxExchange: DefaultMaxExchange},
 		Log:            Log{Level: DefaultLogLevel},
 		Debug:          Debug{FrameHistory: DefaultFrameHistory},
@@ -1070,6 +1075,9 @@ func (c Config) validate() error {
 		return err
 	}
 	if err := validateGlyphs(c.Glyphs); err != nil {
+		return err
+	}
+	if err := validatePalette(c.Palette); err != nil {
 		return err
 	}
 	if err := validateConnection(c.Connection); err != nil {

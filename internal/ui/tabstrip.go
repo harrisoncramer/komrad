@@ -45,7 +45,7 @@ const noStop = -1
 
 func (s stops) parts(palette paint.Palette) []string {
 	muted := palette.Style(paint.ToneMuted)
-	lit := palette.Style(paint.ToneAccent)
+	lit := palette.Style(paint.TonePrimary)
 
 	parts := make([]string, len(s.labels))
 	for i := range s.labels {

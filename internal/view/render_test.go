@@ -300,7 +300,7 @@ func TestRenderSelectedRowUnderTheCursorKeepsBoth(t *testing.T) {
 
 	// The golden alone would be satisfied by regenerating it, so the fact it is here for is
 	// asserted against the escape the name itself opens in.
-	assert.Contains(t, drawn, paint.BackgroundSequence(paint.SelectionBackground))
+	assert.Contains(t, drawn, paint.BackgroundSequence(paint.Panel.Background(paint.ShadeSelection)))
 
 	unfocused := render(Prepare(Snapshot{
 		Rows: []Row{{
@@ -312,7 +312,7 @@ func TestRenderSelectedRowUnderTheCursorKeepsBoth(t *testing.T) {
 		Pane: canonicalPane,
 	}), paint.Panel, 40)
 
-	assert.Contains(t, unfocused, paint.BackgroundSequence(paint.SelectionBackground))
+	assert.Contains(t, unfocused, paint.BackgroundSequence(paint.Panel.Background(paint.ShadeSelection)))
 	assert.NotEqual(t, styleOfName(unfocused, "iss-582"), styleOfName(drawn, "iss-582"),
 		"the bar flattened the cursor off the name")
 }

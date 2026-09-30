@@ -393,7 +393,7 @@ func (l *logsScreen) emptyLine() string {
 func (l *logsScreen) lines(s panelShared, pane listPane) []string {
 	rows := l.rows(s)
 	if len(rows) == 0 {
-		return []string{dimStyle.Render("  " + emptyLineOf(s.chrome.filter, l.emptyLine()))}
+		return []string{dimStyle().Render("  " + emptyLineOf(s.chrome.filter, l.emptyLine()))}
 	}
 
 	caret := pane.caret
@@ -443,7 +443,7 @@ func (l *logsScreen) logFilterLine(glyphs glyph.Set) string {
 		return l.logFilter.line(paint.Panel, glyphs)
 	}
 
-	return dimStyle.Render(filterModeFilter.glyph(glyphs) + " " + l.logFilter.query)
+	return dimStyle().Render(filterModeFilter.glyph(glyphs) + " " + l.logFilter.query)
 }
 
 // logRows is the lines of the log drawn in height rows, or what stands in for them.
@@ -454,15 +454,15 @@ func (l *logsScreen) logRows(m model, width, height int) []string {
 	case !hovered:
 		return nil
 	case !l.read && l.err != nil:
-		return []string{dimStyle.Render("could not read: " + errui.GetReason(l.err))}
+		return []string{dimStyle().Render("could not read: " + errui.GetReason(l.err))}
 	case !l.read:
-		return []string{dimStyle.Render("reading…")}
+		return []string{dimStyle().Render("reading…")}
 	case l.viewer.Len() == 0 && l.pattern != "":
-		return []string{dimStyle.Render(fmt.Sprintf("Nothing matching in the last %d MB.", logread.ScanBudget>>20))}
+		return []string{dimStyle().Render(fmt.Sprintf("Nothing matching in the last %d MB.", logread.ScanBudget>>20))}
 	case l.viewer.Len() == 0 && row.source.Run != nil:
-		return []string{dimStyle.Render("This run wrote nothing.")}
+		return []string{dimStyle().Render("This run wrote nothing.")}
 	case l.viewer.Len() == 0:
-		return []string{dimStyle.Render(fmt.Sprintf("Nothing about this agent in the last %d MB of the log.", logread.ScanBudget>>20))}
+		return []string{dimStyle().Render(fmt.Sprintf("Nothing about this agent in the last %d MB of the log.", logread.ScanBudget>>20))}
 	}
 
 	rows, cursor := l.viewer.Rows(width-len(blankCursor), height)

@@ -9,11 +9,11 @@ import (
 
 	"komrad/internal/fail"
 	"komrad/internal/glyph"
+	"komrad/internal/ui/paint"
 
 	"charm.land/bubbles/v2/spinner"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/huh/v2"
-	"charm.land/lipgloss/v2"
 )
 
 type state int
@@ -256,16 +256,10 @@ var (
 	markPending = glyph.Defaults().Spell(glyph.MessageInfo)
 )
 
-var (
-	styleDone   = lipgloss.NewStyle().Foreground(lipgloss.Color("2"))
-	styleFailed = lipgloss.NewStyle().Foreground(lipgloss.Color("1"))
-	styleMuted  = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
-)
-
 func (m model) View() tea.View {
 	var b strings.Builder
 	for i, r := range m.rows {
-		fmt.Fprintf(&b, "%s %-9s %s\n", m.mark(r), r.step.name(), styleMuted.Render(r.detail))
+		fmt.Fprintf(&b, "%s %-9s %s\n", m.mark(r), r.step.name(), paint.Panel.Style(paint.ToneMuted).Render(r.detail))
 		if r.state == stateFailed && r.fix != "" {
 			fmt.Fprintf(&b, "            fix: %s\n", r.fix)
 		}
@@ -282,17 +276,17 @@ func (m model) mark(r row) string {
 	case stateChecking, stateRepairing:
 		return m.spinner.View()
 	case stateDone:
-		return styleDone.Render(markDone)
+		return paint.Panel.Style(paint.ToneSuccess).Render(markDone)
 	case stateSkipped:
-		return styleMuted.Render("-")
+		return paint.Panel.Style(paint.ToneMuted).Render("-")
 	case stateFailed:
-		return styleFailed.Render(markFailed)
+		return paint.Panel.Style(paint.ToneDanger).Render(markFailed)
 	case stateAsking:
 		return "?"
 	case statePending:
 	}
 
-	return styleMuted.Render(markPending)
+	return paint.Panel.Style(paint.ToneMuted).Render(markPending)
 }
 
 // RunUnattended walks the steps with nobody to ask, printing a line per step and taking every

@@ -96,7 +96,7 @@ func buildRemoteField(read worktreeInspection) recordField {
 		return recordField{
 			label:  "remote",
 			value:  "nothing to push",
-			styled: dimStyle.Render("nothing to push"),
+			styled: dimStyle().Render("nothing to push"),
 		}
 	case !read.pushed:
 		return recordField{
@@ -108,7 +108,7 @@ func buildRemoteField(read worktreeInspection) recordField {
 		return recordField{
 			label:  "remote",
 			value:  "even",
-			styled: dimStyle.Render("even"),
+			styled: dimStyle().Render("even"),
 		}
 	}
 
@@ -116,7 +116,7 @@ func buildRemoteField(read worktreeInspection) recordField {
 	unpulled := fmt.Sprintf("%s%d unpulled", glyph.Down, read.unpulled)
 	if read.unpulledLanded {
 		landed := fmt.Sprintf("%s"+separated+"landed on %s", unpulled, strings.TrimPrefix(read.baseRef, "origin/"))
-		pushing := dimStyle
+		pushing := dimStyle()
 		if read.ahead > 0 {
 			pushing = countStyle(read.unpushed, warning.Bold(true))
 		}
@@ -124,14 +124,14 @@ func buildRemoteField(read worktreeInspection) recordField {
 		return recordField{
 			label:  "remote",
 			value:  unpushed + " " + landed,
-			styled: pushing.Render(unpushed) + " " + dimStyle.Render(landed),
+			styled: pushing.Render(unpushed) + " " + dimStyle().Render(landed),
 		}
 	}
 
 	return recordField{
 		label:  "remote",
 		value:  unpushed + " " + unpulled,
-		styled: countStyle(read.unpushed, warning.Bold(true)).Render(unpushed) + " " + countStyle(read.unpulled, paint.Panel.Style(paint.ToneMark)).Render(unpulled),
+		styled: countStyle(read.unpushed, warning.Bold(true)).Render(unpushed) + " " + countStyle(read.unpulled, paint.Panel.Style(paint.ToneWarning)).Render(unpulled),
 	}
 }
 
@@ -142,7 +142,7 @@ func buildDiffStatTag(read worktreeInspection, ok bool) string {
 		return ""
 	}
 	if read.added == 0 && read.removed == 0 {
-		return dimStyle.Render("clean")
+		return dimStyle().Render("clean")
 	}
 
 	return paint.Panel.Style(paint.ToneSuccess).Render(fmt.Sprintf("+%d", read.added)) + " " + paint.Panel.Style(paint.ToneDanger).Render(fmt.Sprintf("−%d", read.removed))
@@ -150,7 +150,7 @@ func buildDiffStatTag(read worktreeInspection, ok bool) string {
 
 func countStyle(count int, style lipgloss.Style) lipgloss.Style {
 	if count == 0 {
-		return dimStyle
+		return dimStyle()
 	}
 
 	return style

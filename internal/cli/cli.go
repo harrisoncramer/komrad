@@ -21,6 +21,7 @@ import (
 	"komrad/internal/logging"
 	"komrad/internal/tmux"
 	"komrad/internal/ui"
+	"komrad/internal/ui/paint"
 
 	"github.com/spf13/cobra"
 )
@@ -115,6 +116,14 @@ the service, or call an endpoint from a script.`,
 				}
 				app.glyphs = glyph.Defaults()
 			}
+			palette, err := paint.NewPalette(cfg.Palette.Colors())
+			if err != nil {
+				if app.configErr == nil {
+					app.configErr = err
+				}
+				palette = &paint.Panel
+			}
+			paint.Use(*palette)
 			app.defaultHarness = cfg.DefaultHarness
 			app.usage = cfg.Usage
 

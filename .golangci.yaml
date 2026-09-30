@@ -235,6 +235,7 @@ linters:
           allow:
             - komrad/internal/glyph
             - komrad/internal/loader
+            - komrad/internal/theme
           deny:
             - pkg: komrad/internal
               desc: config is read by everything and so may depend on nothing

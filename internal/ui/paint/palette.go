@@ -1,9 +1,11 @@
 package paint
 
 import (
+	"fmt"
 	"image/color"
 
 	"komrad/internal/glyph"
+	"komrad/internal/theme"
 	"komrad/lib/xptr"
 
 	"charm.land/bubbles/v2/help"
@@ -13,67 +15,42 @@ import (
 	"charm.land/lipgloss/v2"
 )
 
-// colorNumber is a terminal colour number, so a theme the user has set decides what it looks like.
-type colorNumber string
-
-// The panel's whole palette.
-const (
-	accent       colorNumber = "4"
-	success      colorNumber = "10"
-	warning      colorNumber = "11"
-	danger       colorNumber = "9"
-	muted        colorNumber = "8"
-	speakerSelf  colorNumber = "12"
-	speakerOther colorNumber = "13"
-	speakerThird colorNumber = "14"
-	// bright is a foreground above the terminal's own default.
-	bright colorNumber = "15"
-	// merged is the plain magenta, kept off the bright one the other voice in a conversation
-	// wears so retuning the speakers leaves a landed change alone.
-	merged colorNumber = "5"
-	// markColor is the plain yellow rather than the bright one a thinking agent is drawn in, so
-	// a mark in the gutter cannot be read as a lifecycle state.
-	markColor colorNumber = "3"
-)
-
-// Black is the terminal's own black, drawn on a coloured bar.
-var Black = lipgloss.Color("0")
-
-func (c colorNumber) color() color.Color {
-	return lipgloss.Color(string(c))
-}
+// Panel is the palette the panel draws in.
+var Panel = defaultPalette()
 
 // Tone is the part a piece of the panel plays, which the palette turns into a colour.
 type Tone int
 
 const (
 	ToneMuted Tone = iota
-	ToneAccent
+	TonePrimary
+	ToneSecondary
 	ToneSuccess
 	ToneWarning
 	ToneDanger
-	ToneMark
-	// ToneSelf, ToneOther and ToneThird are the voices in a conversation, told apart at a glance.
-	ToneSelf
-	ToneOther
-	ToneThird
-	ToneBright
+	ToneUserMe
+	ToneUserAgent
+	ToneUserReviewer
+	ToneUserGithub
 	ToneMerged
+	ToneHighlight
+	ToneInverse
+)
+
+// Shade is the part a background plays, which the palette turns into a colour.
+type Shade int
+
+const (
+	ShadeDiffAdded Shade = iota
+	ShadeDiffDeleted
+	ShadeSelection
+	ShadeSelectionDim
+	ShadeMatch
 )
 
 // Palette is the colours the panel draws in.
 type Palette struct {
-	accent  colorNumber
-	success colorNumber
-	warning colorNumber
-	danger  colorNumber
-	muted   colorNumber
-	mark    colorNumber
-	self    colorNumber
-	other   colorNumber
-	third   colorNumber
-	bright  colorNumber
-	merged  colorNumber
+	colors theme.Colors
 
 	// blinkedOut is the off beat of the blink whatever holds the keys is drawn on.
 	blinkedOut bool
@@ -82,66 +59,39 @@ type Palette struct {
 	stage *ansi.StyleConfig
 }
 
-// Panel is the palette the panel draws in.
-var Panel = withStage(Palette{
-	accent:  accent,
-	success: success,
-	warning: warning,
-	danger:  danger,
-	muted:   muted,
-	mark:    markColor,
-	self:    speakerSelf,
-	other:   speakerOther,
-	third:   speakerThird,
-	bright:  bright,
-	merged:  merged,
-})
+// NewPalette is the palette drawing in the given colours, refusing one it cannot draw.
+func NewPalette(colors theme.Colors) (*Palette, error) {
+	if err := theme.Check(colors); err != nil {
+		return nil, fmt.Errorf("failed to build the palette: %w", err)
+	}
 
-// withStage fills in the markdown styling a palette's own colours make.
-func withStage(palette Palette) Palette {
+	palette := Palette{colors: colors}
 	style := stageStyle(palette)
 	palette.stage = &style
 
-	return palette
+	return &palette, nil
+}
+
+// Use makes palette the one the panel draws in.
+func Use(palette Palette) {
+	Panel = palette
 }
 
 // Color is what a tone looks like in this palette.
 func (p Palette) Color(tone Tone) color.Color {
-	return p.number(tone).color()
+	return lipgloss.Color(p.spell(tone))
 }
 
 // ANSIColor is a tone in the form glamour's style config wants it.
 func (p Palette) ANSIColor(tone Tone) *string {
-	return ANSIColor(p.number(tone))
+	return xptr.Ptr(p.spell(tone))
 }
 
-func (p Palette) number(tone Tone) colorNumber {
-	switch tone {
-	case ToneAccent:
-		return p.accent
-	case ToneSuccess:
-		return p.success
-	case ToneWarning:
-		return p.warning
-	case ToneDanger:
-		return p.danger
-	case ToneMuted:
-		return p.muted
-	case ToneMark:
-		return p.mark
-	case ToneSelf:
-		return p.self
-	case ToneOther:
-		return p.other
-	case ToneThird:
-		return p.third
-	case ToneBright:
-		return p.bright
-	case ToneMerged:
-		return p.merged
-	}
+// Background is what a shade looks like in this palette on the terminal's own background.
+func (p Palette) Background(shade Shade) Adaptive {
+	pair := p.pair(shade)
 
-	return p.muted
+	return Adaptive{Light: lipgloss.Color(pair.Light), Dark: lipgloss.Color(pair.Dark)}
 }
 
 // Style is a foreground of one tone and nothing else.
@@ -154,43 +104,9 @@ func (p Palette) FormTheme() huh.Theme {
 	return huh.ThemeFunc(p.formStyles)
 }
 
-func (p Palette) formStyles(isDark bool) *huh.Styles {
-	theme := huh.ThemeBase(isDark)
-
-	theme.Focused.Base = theme.Focused.Base.BorderStyle(lipgloss.HiddenBorder())
-	theme.Focused.Card = theme.Focused.Base
-	theme.Focused.Title = theme.Focused.Title.Foreground(p.accent.color()).Bold(true)
-	theme.Focused.NoteTitle = theme.Focused.NoteTitle.Foreground(p.accent.color()).Bold(true)
-	theme.Focused.Description = theme.Focused.Description.Foreground(p.muted.color())
-	theme.Focused.Directory = theme.Focused.Directory.Foreground(p.accent.color())
-	theme.Focused.ErrorIndicator = theme.Focused.ErrorIndicator.Foreground(p.danger.color())
-	theme.Focused.ErrorMessage = theme.Focused.ErrorMessage.Foreground(p.danger.color())
-	theme.Focused.SelectSelector = theme.Focused.SelectSelector.Foreground(p.accent.color()).SetString(glyph.Focus + " ")
-	theme.Focused.MultiSelectSelector = theme.Focused.MultiSelectSelector.Foreground(p.warning.color())
-	theme.Focused.SelectedOption = theme.Focused.SelectedOption.Foreground(p.accent.color())
-	theme.Focused.SelectedPrefix = theme.Focused.SelectedPrefix.Foreground(p.accent.color())
-	theme.Focused.NextIndicator = theme.Focused.NextIndicator.Foreground(p.accent.color())
-	theme.Focused.PrevIndicator = theme.Focused.PrevIndicator.Foreground(p.accent.color())
-	theme.Focused.FocusedButton = theme.Focused.FocusedButton.Foreground(Black).Background(p.accent.color())
-	theme.Focused.TextInput.Cursor = theme.Focused.TextInput.Cursor.Foreground(p.warning.color())
-	theme.Focused.TextInput.Prompt = theme.Focused.TextInput.Prompt.Foreground(p.accent.color())
-	theme.Focused.TextInput.Placeholder = theme.Focused.TextInput.Placeholder.Foreground(p.muted.color())
-
-	theme.Blurred = theme.Focused
-	theme.Blurred.Title = theme.Blurred.Title.Foreground(p.muted.color()).Bold(false)
-	theme.Blurred.NoteTitle = theme.Blurred.NoteTitle.Foreground(p.muted.color()).Bold(false)
-	theme.Blurred.TextInput.Prompt = theme.Blurred.TextInput.Prompt.Foreground(p.muted.color())
-	theme.Blurred.NextIndicator = lipgloss.NewStyle()
-	theme.Blurred.PrevIndicator = lipgloss.NewStyle()
-
-	theme.Help = HelpStyles()
-
-	return theme
-}
-
 // HelpStyles is the legend's styling, muted throughout.
-func HelpStyles() help.Styles {
-	dim := lipgloss.NewStyle().Foreground(muted.color())
+func (p Palette) HelpStyles() help.Styles {
+	dim := p.Style(ToneMuted)
 
 	return help.Styles{
 		ShortKey:       dim,
@@ -208,6 +124,110 @@ func (p Palette) Stage() ansi.StyleConfig {
 	return *p.stage
 }
 
+func (p Palette) spell(tone Tone) string {
+	switch tone {
+	case TonePrimary:
+		return p.colors.Primary
+	case ToneSecondary:
+		return p.colors.Secondary
+	case ToneSuccess:
+		return p.colors.Success
+	case ToneWarning:
+		return p.colors.Warning
+	case ToneDanger:
+		return p.colors.Danger
+	case ToneMuted:
+		return p.colors.Muted
+	case ToneUserMe:
+		return p.colors.UserMe
+	case ToneUserAgent:
+		return p.colors.UserAgent
+	case ToneUserReviewer:
+		return p.colors.UserReviewer
+	case ToneUserGithub:
+		return p.colors.UserGithub
+	case ToneMerged:
+		return p.colors.Merged
+	case ToneHighlight:
+		return p.colors.Highlight
+	case ToneInverse:
+		return p.colors.Inverse
+	}
+
+	return p.colors.Muted
+}
+
+func (p Palette) pair(shade Shade) theme.Pair {
+	switch shade {
+	case ShadeDiffAdded:
+		return p.colors.DiffAdded
+	case ShadeDiffDeleted:
+		return p.colors.DiffDeleted
+	case ShadeSelection:
+		return p.colors.Selection
+	case ShadeSelectionDim:
+		return p.colors.SelectionDim
+	case ShadeMatch:
+		return p.colors.Match
+	}
+
+	return p.colors.Selection
+}
+
+func (p Palette) formStyles(isDark bool) *huh.Styles {
+	theme := huh.ThemeBase(isDark)
+	primary, muted, danger := p.Color(TonePrimary), p.Color(ToneMuted), p.Color(ToneDanger)
+
+	theme.Focused.Base = theme.Focused.Base.BorderStyle(lipgloss.HiddenBorder())
+	theme.Focused.Card = theme.Focused.Base
+	theme.Focused.Title = theme.Focused.Title.Foreground(primary).Bold(true)
+	theme.Focused.NoteTitle = theme.Focused.NoteTitle.Foreground(primary).Bold(true)
+	theme.Focused.Description = theme.Focused.Description.Foreground(muted)
+	theme.Focused.Directory = theme.Focused.Directory.Foreground(primary)
+	theme.Focused.ErrorIndicator = theme.Focused.ErrorIndicator.Foreground(danger)
+	theme.Focused.ErrorMessage = theme.Focused.ErrorMessage.Foreground(danger)
+	theme.Focused.SelectSelector = theme.Focused.SelectSelector.Foreground(primary).SetString(glyph.Focus + " ")
+	theme.Focused.MultiSelectSelector = theme.Focused.MultiSelectSelector.Foreground(primary)
+	theme.Focused.SelectedOption = theme.Focused.SelectedOption.Foreground(primary)
+	theme.Focused.SelectedPrefix = theme.Focused.SelectedPrefix.Foreground(primary)
+	theme.Focused.NextIndicator = theme.Focused.NextIndicator.Foreground(primary)
+	theme.Focused.PrevIndicator = theme.Focused.PrevIndicator.Foreground(primary)
+	theme.Focused.FocusedButton = theme.Focused.FocusedButton.Foreground(p.Color(ToneInverse)).Background(primary)
+	theme.Focused.TextInput.Cursor = theme.Focused.TextInput.Cursor.Foreground(primary)
+	theme.Focused.TextInput.Prompt = theme.Focused.TextInput.Prompt.Foreground(primary)
+	theme.Focused.TextInput.Placeholder = theme.Focused.TextInput.Placeholder.Foreground(muted)
+
+	theme.Blurred = theme.Focused
+	theme.Blurred.Title = theme.Blurred.Title.Foreground(muted).Bold(false)
+	theme.Blurred.NoteTitle = theme.Blurred.NoteTitle.Foreground(muted).Bold(false)
+	theme.Blurred.TextInput.Prompt = theme.Blurred.TextInput.Prompt.Foreground(muted)
+	theme.Blurred.NextIndicator = lipgloss.NewStyle()
+	theme.Blurred.PrevIndicator = lipgloss.NewStyle()
+
+	theme.Help = p.HelpStyles()
+
+	return theme
+}
+
+// defaultPalette is the palette drawing in the default colours.
+func defaultPalette() Palette {
+	palette, err := NewPalette(theme.Defaults())
+	if err != nil {
+		panic(fmt.Sprintf("the default colours do not draw: %v", err))
+	}
+
+	return *palette
+}
+
+// tmuxColor is a colour spelled the way tmux's style markup wants it.
+func tmuxColor(spelled string) string {
+	if theme.IsNumber(spelled) {
+		return "colour" + spelled
+	}
+
+	return spelled
+}
+
 // stageStyle is the markdown styling of one palette.
 func stageStyle(palette Palette) ansi.StyleConfig {
 	style := styles.DarkStyleConfig
@@ -217,42 +237,37 @@ func stageStyle(palette Palette) ansi.StyleConfig {
 	style.Document.BlockSuffix = ""
 	style.Document.Margin = nil
 	style.Text.Color = nil
-	style.Heading.Color = ANSIColor(palette.accent)
-	style.H1.Color = ANSIColor(palette.accent)
+	style.Heading.Color = palette.ANSIColor(TonePrimary)
+	style.H1.Color = palette.ANSIColor(TonePrimary)
 	style.H1.BackgroundColor = nil
-	style.H2.Color = ANSIColor(palette.accent)
-	style.H3.Color = ANSIColor(palette.accent)
-	style.H4.Color = ANSIColor(palette.accent)
-	style.H5.Color = ANSIColor(palette.accent)
-	style.H6.Color = ANSIColor(palette.accent)
-	style.BlockQuote.Color = ANSIColor(palette.muted)
-	style.Item.Color = ANSIColor(palette.success)
-	style.Enumeration.Color = ANSIColor(palette.success)
+	style.H2.Color = palette.ANSIColor(TonePrimary)
+	style.H3.Color = palette.ANSIColor(TonePrimary)
+	style.H4.Color = palette.ANSIColor(TonePrimary)
+	style.H5.Color = palette.ANSIColor(TonePrimary)
+	style.H6.Color = palette.ANSIColor(TonePrimary)
+	style.BlockQuote.Color = palette.ANSIColor(ToneMuted)
+	style.Item.Color = palette.ANSIColor(ToneSecondary)
+	style.Enumeration.Color = palette.ANSIColor(ToneSecondary)
 
 	style.Enumeration.BlockPrefix = ") "
-	style.Task.Color = ANSIColor(palette.success)
-	style.Emph.Color = ANSIColor(palette.warning)
-	style.Strong.Color = ANSIColor(palette.warning)
-	style.HorizontalRule.Color = ANSIColor(palette.muted)
-	style.Link.Color = ANSIColor(palette.accent)
-	style.LinkText.Color = ANSIColor(palette.warning)
-	style.Image.Color = ANSIColor(palette.accent)
-	style.ImageText.Color = ANSIColor(palette.muted)
-	style.Code.Color = ANSIColor(palette.warning)
+	style.Task.Color = palette.ANSIColor(ToneSecondary)
+	style.Emph.Color = palette.ANSIColor(ToneSecondary)
+	style.Strong.Color = palette.ANSIColor(ToneSecondary)
+	style.HorizontalRule.Color = palette.ANSIColor(ToneMuted)
+	style.Link.Color = palette.ANSIColor(ToneMuted)
+	style.LinkText.Color = palette.ANSIColor(TonePrimary)
+	style.Image.Color = palette.ANSIColor(ToneMuted)
+	style.ImageText.Color = palette.ANSIColor(TonePrimary)
+	style.Code.Color = palette.ANSIColor(ToneSecondary)
 	style.Code.BackgroundColor = nil
 	style.CodeBlock.Color = nil
 
 	style.CodeBlock.Chroma = nil
 	style.Table.Color = nil
-	style.DefinitionTerm.Color = ANSIColor(palette.accent)
+	style.DefinitionTerm.Color = palette.ANSIColor(TonePrimary)
 	style.DefinitionDescription.Color = nil
-	style.HTMLBlock.Color = ANSIColor(palette.muted)
-	style.HTMLSpan.Color = ANSIColor(palette.muted)
+	style.HTMLBlock.Color = palette.ANSIColor(ToneMuted)
+	style.HTMLSpan.Color = palette.ANSIColor(ToneMuted)
 
 	return style
-}
-
-// ANSIColor is a colour number in the form glamour's style config wants it.
-func ANSIColor(number colorNumber) *string {
-	return xptr.Ptr(string(number))
 }

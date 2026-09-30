@@ -16,7 +16,7 @@ import (
 const reviewBandFloor = 5
 
 // reviewScopeOnTone is the half of the scope switch that is in force.
-const reviewScopeOnTone = paint.ToneAccent
+const reviewScopeOnTone = paint.TonePrimary
 
 // bandView is what stands over the diff: what is being read, how big it is, what the reader
 // has sent, and the pattern they are searching it for.
@@ -115,12 +115,12 @@ func (d reviewDiff) statView() string {
 		return ""
 	}
 
-	out := dimStyle.Render(label.Counted(stat.Files, "file")+", ") +
+	out := dimStyle().Render(label.Counted(stat.Files, "file")+", ") +
 		paint.Panel.Style(reviewAddedTone).Render(fmt.Sprintf("+%d", stat.Added)) + " " +
 		paint.Panel.Style(reviewRemovedTone).Render(fmt.Sprintf("-%d", stat.Removed))
 
 	if read, total := d.View().CountViewedFiles(); read > 0 {
-		out += dimStyle.Render(fmt.Sprintf("  %d/%d viewed", read, total))
+		out += dimStyle().Render(fmt.Sprintf("  %d/%d viewed", read, total))
 	}
 
 	return out + "\n"
@@ -141,7 +141,7 @@ func (r reviewScreen) scopeView(s panelShared) string {
 	out := paint.Panel.Style(reviewScopeOnTone).Bold(true).Render(from)
 
 	if r.doesFitBaseLegend(s) {
-		out += dimStyle.Render(separated + r.stepSaid(s))
+		out += dimStyle().Render(separated + r.stepSaid(s))
 	}
 
 	return out + "\n"
@@ -176,7 +176,7 @@ func bandRow(s panelShared, tone paint.Tone, state, hint string) string {
 		return style.Render(paint.Clip(state, width)) + "\n"
 	}
 
-	return style.Render(state) + dimStyle.Render(separated+paint.Clip(hint, room)) + "\n"
+	return style.Render(state) + dimStyle().Render(separated+paint.Clip(hint, room)) + "\n"
 }
 
 // reviewColumnStyle is the markdown a notice standing in for the patch is drawn in.

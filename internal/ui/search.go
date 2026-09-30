@@ -767,7 +767,7 @@ func (w *searchScreen) sidebarView(s panelShared) string {
 	case len(rows) == 0 && w.problem.reason != "":
 		return header + help
 	case len(rows) == 0:
-		return header + dimStyle.Render("no matches") + "\n" + below
+		return header + dimStyle().Render("no matches") + "\n" + below
 	}
 
 	window := view.Window(view.WindowParams{

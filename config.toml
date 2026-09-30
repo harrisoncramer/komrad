@@ -555,6 +555,73 @@ enabled  = "◆"
 # A schedule that is paused.
 disabled = "◇"
 
+# The colours the panel draws in, one for each part a colour plays. Each is a terminal colour
+# number from 0 to 255, which your terminal's theme decides the look of, or a hex code like
+# "#1e3a5f".
+[palette]
+# Focus, titles and whatever holds the keys.
+primary       = "4"
+# A second accent for what is set apart from the primary chrome, such as diff hunk headers and
+# inline code.
+secondary     = "6"
+# Text that matters less than what is around it.
+muted         = "8"
+# Something finished or approved.
+success       = "10"
+# Something that needs your attention.
+warning       = "11"
+# Something failed or is gone.
+danger        = "9"
+# What you wrote.
+user_me       = "12"
+# What an agent wrote.
+user_agent    = "13"
+# What a reviewer agent wrote.
+user_reviewer = "14"
+# What came from GitHub.
+user_github   = "3"
+# A merged pull request.
+merged        = "5"
+# What is picked out for you to act on: a search match, a jump letter, the visual mode bar.
+highlight     = "15"
+# Text drawn on a filled bar.
+inverse       = "0"
+
+# The background of a line a diff adds.
+[palette.diff_added]
+# The colour on a light terminal.
+light = "#dafbe1"
+# The colour on a dark terminal.
+dark  = "#1b3823"
+
+# The background of a line a diff deletes.
+[palette.diff_deleted]
+# The colour on a light terminal.
+light = "#ffebe9"
+# The colour on a dark terminal.
+dark  = "#402222"
+
+# The background of the row under the cursor or taken into a selection.
+[palette.selection]
+# The colour on a light terminal.
+light = "#dbeafe"
+# The colour on a dark terminal.
+dark  = "#1e3a5f"
+
+# The background of the cursor's row while the keys are elsewhere.
+[palette.selection_dim]
+# The colour on a light terminal.
+light = "#e5e7eb"
+# The colour on a dark terminal.
+dark  = "#2b3038"
+
+# The background of a search match in a diff.
+[palette.match]
+# The colour on a light terminal.
+light = "#fde68a"
+# The colour on a dark terminal.
+dark  = "#7c5c00"
+
 # Where komrad finds the scripts a workflow hangs on a moment in its agents' lives.
 [hooks]
 # Directory for hooks: one executable file per hook, named after the hook.

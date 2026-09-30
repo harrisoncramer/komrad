@@ -11,12 +11,9 @@ import (
 	"fmt"
 	"strings"
 
-	"charm.land/lipgloss/v2"
-)
+	"komrad/internal/ui/paint"
 
-var (
-	Red = lipgloss.NewStyle().Foreground(lipgloss.Color("9")).Bold(true)
-	Dim = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
+	"charm.land/lipgloss/v2"
 )
 
 type Screen struct {
@@ -38,7 +35,7 @@ func (s Screen) Render() string {
 
 	var b strings.Builder
 
-	b.WriteString(styled(Red, fold(s.Title, width, "")) + "\n\n")
+	b.WriteString(styled(paint.Panel.Style(paint.ToneDanger).Bold(true), fold(s.Title, width, "")) + "\n\n")
 
 	for _, paragraph := range s.Body {
 		b.WriteString(fold(paragraph, width, "") + "\n")
@@ -49,13 +46,13 @@ func (s Screen) Render() string {
 
 	for _, detail := range s.Details {
 		label := fmt.Sprintf("%-*s", labelWidth, detail.Label)
-		b.WriteString(Dim.Render(label) + fold(detail.Value, width, strings.Repeat(" ", len(label))) + "\n")
+		b.WriteString(paint.Panel.Style(paint.ToneMuted).Render(label) + fold(detail.Value, width, strings.Repeat(" ", len(label))) + "\n")
 	}
 
 	if len(s.Hints) > 0 {
 		b.WriteString("\n")
 		for _, hint := range s.Hints {
-			b.WriteString(styled(Dim, fold(hint, width, "")) + "\n")
+			b.WriteString(styled(paint.Panel.Style(paint.ToneMuted), fold(hint, width, "")) + "\n")
 		}
 	}
 

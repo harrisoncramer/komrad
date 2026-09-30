@@ -5,7 +5,10 @@ import (
 	"strings"
 	"testing"
 
+	"komrad/internal/theme"
+
 	"charm.land/glamour/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -56,8 +59,8 @@ func TestPaletteFollowsTheTerminal(t *testing.T) {
 		want string
 	}{
 		{
-			name: "accent is the scheme's blue",
-			tone: ToneAccent,
+			name: "primary is the scheme's blue",
+			tone: TonePrimary,
 			want: "\x1b[34m",
 		},
 		{
@@ -94,7 +97,7 @@ func TestPaletteFollowsTheTerminal(t *testing.T) {
 func TestEveryToneIsItsOwnColour(t *testing.T) {
 	seen := map[color.Color]Tone{}
 
-	for _, tone := range []Tone{ToneMuted, ToneAccent, ToneSuccess, ToneWarning, ToneDanger, ToneMark, ToneSelf, ToneOther, ToneThird, ToneBright, ToneMerged} {
+	for _, tone := range []Tone{ToneMuted, TonePrimary, ToneSecondary, ToneSuccess, ToneWarning, ToneDanger, ToneUserMe, ToneUserAgent, ToneUserReviewer, ToneUserGithub, ToneMerged, ToneHighlight, ToneInverse} {
 		color := Panel.Color(tone)
 		other, taken := seen[color]
 		assert.False(t, taken, "tone %d draws in the same colour as tone %d", tone, other)
@@ -108,12 +111,26 @@ func TestStageCarriesTheTones(t *testing.T) {
 
 	require.NotNil(t, stage.H1.Color)
 	require.NotNil(t, stage.Item.Color)
-	assert.Equal(t, string(accent), *stage.H1.Color)
-	assert.Equal(t, string(success), *stage.Item.Color)
+	assert.Equal(t, theme.Defaults().Primary, *stage.H1.Color)
+	assert.Equal(t, theme.Defaults().Secondary, *stage.Item.Color)
 }
 
 // TestMarkTakesItsToneFromThePalette covers the shape every optional mark on a row is drawn in.
 func TestMarkTakesItsToneFromThePalette(t *testing.T) {
 	assert.Empty(t, Panel.Mark(false, "✓", ToneSuccess), "a fact that is not true draws nothing")
 	assert.Equal(t, " "+Panel.Style(ToneSuccess).Render("✓"), Panel.Mark(true, "✓", ToneSuccess))
+}
+
+// TestPaletteDrawsHexAndNumbers covers a palette spelling some colours as hex codes and others
+// as colour numbers.
+func TestPaletteDrawsHexAndNumbers(t *testing.T) {
+	colors := theme.Defaults()
+	colors.Highlight = "#ff8800"
+	colors.Inverse = "16"
+
+	palette, err := NewPalette(colors)
+	require.NoError(t, err)
+
+	assert.Equal(t, lipgloss.Color("#ff8800"), palette.Color(ToneHighlight))
+	assert.Equal(t, "#[fg=colour16,bg=#ff8800,bold]visual#[default]", palette.TmuxVisual("visual"))
 }

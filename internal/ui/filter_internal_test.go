@@ -82,7 +82,7 @@ func TestFilterLine(t *testing.T) {
 		{
 			name:       "an idle line is dim",
 			filter:     filterState{},
-			want:       dimStyle.Render("/"),
+			want:       dimStyle().Render("/"),
 			wantAbsent: paint.Panel.Cursor().Render("/"),
 		},
 		{

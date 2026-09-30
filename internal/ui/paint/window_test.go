@@ -159,10 +159,10 @@ func TestWindowRowsNeverOutgrowsThePane(t *testing.T) {
 
 // TestPaintRow covers laying a background under a row that is already coloured.
 func TestPaintRow(t *testing.T) {
-	set := BackgroundSequence(SelectionBackground)
-	row := "  " + Panel.Style(ToneAccent).Render("api") + " " + dim.Render("1m")
+	set := BackgroundSequence(Panel.Background(ShadeSelection))
+	row := "  " + Panel.Style(TonePrimary).Render("api") + " " + dim.Render("1m")
 
-	painted := PaintRow(row, 20)
+	painted := Panel.PaintRow(row, 20)
 
 	assert.True(t, strings.HasPrefix(painted, set), "the row opens under the background")
 	assert.Equal(t, strings.Count(row, ansiReset), strings.Count(painted, ansiReset+set),
@@ -170,6 +170,6 @@ func TestPaintRow(t *testing.T) {
 	assert.Equal(t, 20, lipgloss.Width(painted), "the bar is filled out to the pane")
 	assert.True(t, strings.HasSuffix(painted, ansiReset), "and closes")
 
-	assert.Equal(t, lipgloss.Width(row), lipgloss.Width(PaintRow(row, 2)),
+	assert.Equal(t, lipgloss.Width(row), lipgloss.Width(Panel.PaintRow(row, 2)),
 		"a row wider than the pane is painted as it stands rather than padded")
 }
