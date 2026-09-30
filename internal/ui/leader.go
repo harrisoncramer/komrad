@@ -36,7 +36,7 @@ func (m model) routeLeader(key tea.KeyPressMsg) (tea.Model, tea.Cmd, bool) {
 		next, cmd := m.toggleFrozen(frozenVisual)
 
 		return next, cmd, true
-	case "p":
+	case "j":
 		next, cmd := m.toggleFrozen(frozenPicker)
 
 		return next, cmd, true

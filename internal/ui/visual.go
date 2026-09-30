@@ -9,7 +9,6 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
-	"github.com/charmbracelet/x/ansi"
 )
 
 // tabStop is how far apart tmux sets a pane's tab stops.
@@ -297,7 +296,7 @@ func (w frozenWindow) drawVisual() string {
 	return compose(width, height, layers)
 }
 
-// drawPicker lays each pane's screen dimmed where the pane sat, with a letter drawn over each
+// drawPicker lays each pane's screen where the pane sat, with a letter drawn over each
 // target on a patch of blank cells.
 func (w frozenWindow) drawPicker(targets []pickTarget) string {
 	shown, palette := w.shown, w.palette
@@ -306,12 +305,11 @@ func (w frozenWindow) drawPicker(targets []pickTarget) string {
 	}
 
 	left, top, width, height := boundsOf(shown)
-	dim := palette.Style(paint.ToneMuted).Faint(true)
 	letter := lipgloss.NewStyle().Foreground(palette.Color(paint.ToneOther)).Bold(true)
 
 	layers := make([]*lipgloss.Layer, 0, len(shown)+2*len(targets)+1)
 	for _, rect := range shown {
-		layers = append(layers, lipgloss.NewLayer(dimScreen(w.screens[rect.Pane], rect, dim)).X(rect.Left-left).Y(rect.Top-top))
+		layers = append(layers, lipgloss.NewLayer(fitScreen(w.screens[rect.Pane], rect)).X(rect.Left-left).Y(rect.Top-top))
 
 		if rect.Pane == w.sidebar {
 			layers = append(layers, w.labelLayer(rect, left, top, frozenPicker))
@@ -365,16 +363,6 @@ func compose(width, height int, layers []*lipgloss.Layer) string {
 	canvas.Compose(lipgloss.NewCompositor(layers...))
 
 	return canvas.Render()
-}
-
-// dimScreen is a captured screen cut to its pane with its colours dropped for one faint style.
-func dimScreen(screen string, rect panes.Rect, dim lipgloss.Style) string {
-	lines := strings.Split(fitScreen(screen, rect), "\n")
-	for i, line := range lines {
-		lines[i] = dim.Render(ansi.Strip(line))
-	}
-
-	return strings.Join(lines, "\n")
 }
 
 // fitScreen is a captured screen cut to its pane's rows, with its tabs spent as the spaces tmux

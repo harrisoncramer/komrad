@@ -22,7 +22,7 @@ const LeaderKey = "C-Space"
 const leaderTable = "komrad-leader"
 
 // leaderPanelKeys are the leader's keys the panel answers itself.
-var leaderPanelKeys = []string{"v", "p"}
+var leaderPanelKeys = []string{"v", "j"}
 
 // leaderLastKeys are the leader's keys that send the keyboard back to the pane it last left.
 var leaderLastKeys = []string{LeaderKey, "Space"}

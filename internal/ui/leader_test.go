@@ -22,7 +22,7 @@ func TestLeader(t *testing.T) {
 		require.True(t, bound)
 		assert.Equal(t, []string{"if-shell", "-F", "#{==:#{window_id},@1}", "switch-client -T komrad-leader", "send-keys C-Space"}, command)
 
-		for _, key := range []string{"v", "p"} {
+		for _, key := range []string{"v", "j"} {
 			command, bound := harness.panel.ReadTableBinding("komrad-leader", key)
 			require.True(t, bound, key)
 			assert.Equal(t, []string{"send-keys", "-t", sidebar, "C-Space", key}, command)
@@ -131,7 +131,7 @@ func TestPanePicker(t *testing.T) {
 				harness.panel.SetActivePane(tt.from)
 			}
 
-			harness.press("ctrl+space", "p")
+			harness.press("ctrl+space", "j")
 			require.Contains(t, harness.readDrawn(), "PANES")
 			selected := len(harness.panel.ReadSelectedPanes())
 
@@ -149,7 +149,7 @@ func TestPanePicker(t *testing.T) {
 		harness := openFocus(t)
 		harness.panel.SetScreens(window(sidebarRect, agentRect, infoRect))
 
-		harness.press("ctrl+space", "p")
+		harness.press("ctrl+space", "j")
 
 		lines := strings.Split(harness.readDrawn(), "\n")
 		rows := func(left, right int) []int {
