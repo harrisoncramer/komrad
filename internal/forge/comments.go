@@ -5,9 +5,6 @@ import (
 	"time"
 )
 
-// MaxCommentMarks is the most pull requests one CommentMarks call asks about.
-const MaxCommentMarks = 50
-
 // Side is which side of a diff a review thread's lines were counted on.
 type Side string
 
@@ -23,32 +20,26 @@ const (
 // ReviewThread is one conversation a forge holds on a pull request, as the forge holds it.
 type ReviewThread struct {
 	ProviderID string
-	// Path is the file the thread is on, empty for a comment on the change as a whole.
-	Path string
-	Side Side
-	// CommitSHA is the commit the forge pinned the thread to, empty when it named none.
-	CommitSHA string
-	// BaseSHA is the commit the pull request measures from.
-	BaseSHA string
-	// StartLine and EndLine are the lines the thread was written against, zero when it names none.
-	StartLine int
-	EndLine   int
-	// DiffHunk is the stretch of the diff the forge quotes, ending on the thread's last line.
-	DiffHunk string
-	Resolved bool
-	Outdated bool
-	Comments []ReviewComment
+	Path       string
+	Side       Side
+	CommitSHA  string
+	BaseSHA    string
+	StartLine  int
+	EndLine    int
+	DiffHunk   string
+	Resolved   bool
+	Outdated   bool
+	Comments   []ReviewComment
 }
 
 // ReviewComment is one comment in a forge review thread.
 type ReviewComment struct {
 	ProviderID string
 	Login      string
-	// Bot says the forge reports the author as a bot.
-	Bot       bool
-	Body      string
-	WrittenAt time.Time
-	EditedAt  *time.Time
+	Bot        bool
+	Body       string
+	WrittenAt  time.Time
+	EditedAt   *time.Time
 }
 
 // QuotedLines is the lines the thread was written against, read off the end of its diff hunk on its side without their diff markers.

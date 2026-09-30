@@ -1,11 +1,8 @@
 -- name: ListCommentSyncPullRequests :many
 SELECT
     p.id,
-    p.host,
-    p.forge,
     p.repository_url,
     p.number,
-    p.base_sha,
     p.comments_mark,
     p.comments_read_at
 FROM

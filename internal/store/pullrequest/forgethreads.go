@@ -30,15 +30,10 @@ var WatchedForgeThreads = watch.Resource{
 // CommentSyncTarget is an open pull request a live agent is linked to, and what the comment sync last read of it.
 type CommentSyncTarget struct {
 	ID            string
-	Host          string
-	Forge         string
 	RepositoryURL string
 	Number        int
-	BaseSHA       string
-	// Mark is the comment fingerprint the forge last answered, empty before it ever has.
-	Mark string
-	// ReadAt is when the threads were last read whole, nil before they ever have been.
-	ReadAt *time.Time
+	Mark          string
+	ReadAt        *time.Time
 }
 
 // ForgeThread is one review thread as the forge holds it, with its comments oldest first.
@@ -98,11 +93,8 @@ func (s *ForgeThreadStore) ListCommentSyncTargets(ctx context.Context) ([]Commen
 	return xslice.Map(rows, func(row *models.ListCommentSyncPullRequestsRow) CommentSyncTarget {
 		return CommentSyncTarget{
 			ID:            row.ID,
-			Host:          row.Host,
-			Forge:         row.Forge,
 			RepositoryURL: row.RepositoryUrl,
 			Number:        int(row.Number),
-			BaseSHA:       row.BaseSha,
 			Mark:          xptr.Deref(row.CommentsMark),
 			ReadAt:        row.CommentsReadAt,
 		}
@@ -251,7 +243,6 @@ func (s *ForgeThreadStore) ListWatched(ctx context.Context, keys []string) ([]Fo
 			Path:          row.Path,
 			Side:          forge.Side(row.Side),
 			CommitSHA:     row.CommitSha,
-			BaseSHA:       row.BaseSha,
 			StartLine:     int(xptr.Deref(row.StartLine)),
 			EndLine:       int(xptr.Deref(row.EndLine)),
 			QuotedLines:   row.QuotedLines,

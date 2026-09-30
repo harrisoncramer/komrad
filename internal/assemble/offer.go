@@ -24,8 +24,7 @@ func Offers(w World, agentID string) []*pullrequestv1.ForgeThread {
 	return groupOffersByPullRequest(w.ForgeThreads)[current.GetId()]
 }
 
-// IsBotOffer says whether a forge thread was started by a bot.
-func IsBotOffer(thread *pullrequestv1.ForgeThread) bool {
+func isBotOffer(thread *pullrequestv1.ForgeThread) bool {
 	comments := thread.GetComments()
 
 	return len(comments) > 0 && comments[0].GetBot()
@@ -57,11 +56,10 @@ func groupOffersByPullRequest(threads map[string]*pullrequestv1.ForgeThread) map
 	return byPullRequest
 }
 
-// setOfferCounts counts the open offers people left on the forge toward the person's side.
 func setOfferCounts(row *agentv1.AgentRow, offers []*pullrequestv1.ForgeThread) {
 	external := 0
 	for _, offer := range offers {
-		if !offer.GetResolved() && !IsBotOffer(offer) {
+		if !offer.GetResolved() && !isBotOffer(offer) {
 			external++
 		}
 	}

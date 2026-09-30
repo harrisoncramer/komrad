@@ -271,7 +271,7 @@ func TestQueryRejectsWrite(t *testing.T) {
 	}
 }
 
-// TestQueryCannotReadForgeComments covers the reader role holding no grant on the forge's review tables.
+// TestQueryCannotReadForgeComments covers a plain read, a join, a CTE and a query_to_xml wrapper all being refused.
 func TestQueryCannotReadForgeComments(t *testing.T) {
 	tests := []struct {
 		name string

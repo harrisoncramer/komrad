@@ -45,11 +45,8 @@ func (q *Queries) DeleteForgeReviewThreadsExcept(ctx context.Context, arg Delete
 const listCommentSyncPullRequests = `-- name: ListCommentSyncPullRequests :many
 SELECT
     p.id,
-    p.host,
-    p.forge,
     p.repository_url,
     p.number,
-    p.base_sha,
     p.comments_mark,
     p.comments_read_at
 FROM
@@ -75,11 +72,8 @@ ORDER BY
 
 type ListCommentSyncPullRequestsRow struct {
 	ID             string
-	Host           string
-	Forge          string
 	RepositoryUrl  string
 	Number         int32
-	BaseSha        string
 	CommentsMark   *string
 	CommentsReadAt *time.Time
 }
@@ -95,11 +89,8 @@ func (q *Queries) ListCommentSyncPullRequests(ctx context.Context) ([]*ListComme
 		var i ListCommentSyncPullRequestsRow
 		if err := rows.Scan(
 			&i.ID,
-			&i.Host,
-			&i.Forge,
 			&i.RepositoryUrl,
 			&i.Number,
-			&i.BaseSha,
 			&i.CommentsMark,
 			&i.CommentsReadAt,
 		); err != nil {

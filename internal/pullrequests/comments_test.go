@@ -17,8 +17,6 @@ type commentFixture struct {
 	threads  *pullrequeststore.ForgeThreadStore
 }
 
-// newCommentFixture is a sync fixture whose agent on agent/x has an open pull request, a draft,
-// and a merged one, with a fourth open on a branch nobody works on.
 func newCommentFixture(t *testing.T) *commentFixture {
 	t.Helper()
 

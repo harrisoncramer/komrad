@@ -473,8 +473,8 @@ func (f *Forge) Standings(ctx context.Context, repo git.RemoteURL, numbers []int
 	if err != nil {
 		return nil, err
 	}
-	if len(numbers) > forge.MaxStandings {
-		return nil, forge.ErrTooManyStandings.Saying("at most %d standings can be read in one call, not %d", forge.MaxStandings, len(numbers))
+	if len(numbers) > forge.MaxPullRequestsPerCall {
+		return nil, forge.ErrTooManyPullRequests.Saying("at most %d standings can be read in one call, not %d", forge.MaxPullRequestsPerCall, len(numbers))
 	}
 
 	standings := make(map[int]forge.Standing, len(numbers))

@@ -42,7 +42,7 @@ func offers(threads ...*pullrequestv1.ForgeThread) map[string]*pullrequestv1.For
 	return rows
 }
 
-// TestAgentRowsOfferCounts pins which forge threads count toward the person's side of the row.
+// TestAgentRowsOfferCounts leaves resolved threads, bots and other pull requests out of the external count.
 func TestAgentRowsOfferCounts(t *testing.T) {
 	t.Parallel()
 
@@ -108,7 +108,7 @@ func TestAgentRowsOfferCounts(t *testing.T) {
 	}
 }
 
-// TestOffers pins the forge threads the review screen offers for an agent.
+// TestOffers orders an agent's offers oldest first and keeps only its open pull request's.
 func TestOffers(t *testing.T) {
 	t.Parallel()
 

@@ -44,8 +44,8 @@ func (f *Forge) CommentMarks(ctx context.Context, repo git.RemoteURL, numbers []
 	if err != nil {
 		return nil, err
 	}
-	if len(numbers) > forge.MaxCommentMarks {
-		return nil, forge.ErrTooManyStandings.Saying("at most %d comment marks can be read in one call, not %d", forge.MaxCommentMarks, len(numbers))
+	if len(numbers) > forge.MaxPullRequestsPerCall {
+		return nil, forge.ErrTooManyPullRequests.Saying("at most %d comment marks can be read in one call, not %d", forge.MaxPullRequestsPerCall, len(numbers))
 	}
 
 	marks := make(map[int]string, len(numbers))

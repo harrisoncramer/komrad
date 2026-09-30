@@ -117,7 +117,6 @@ type Comments struct {
 	Open     int
 	Resolved int
 	Unread   bool
-	// External is the open threads people left on the forge, offered to the person.
 	External int
 }
 

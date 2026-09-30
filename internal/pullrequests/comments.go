@@ -26,8 +26,7 @@ type NewCommentSyncerParams struct {
 	Forges  pullRequestForgeFinder
 	Threads *pullrequeststore.ForgeThreadStore
 	Tx      transactor
-	// Now is the clock, time.Now when unset.
-	Now func() time.Time
+	Now     func() time.Time
 }
 
 // CommentSyncer keeps the forge's review threads in step on the open pull requests live agents are linked to.
@@ -155,8 +154,8 @@ func (s *CommentSyncer) openHost(ctx context.Context, hostname string) *commentH
 func (s *CommentSyncer) syncHost(ctx context.Context, host *commentHost) int {
 	read := 0
 	for _, repository := range host.repositories {
-		for start := 0; start < len(repository.targets) && !host.throttled; start += forge.MaxCommentMarks {
-			batch := repository.targets[start:min(start+forge.MaxCommentMarks, len(repository.targets))]
+		for start := 0; start < len(repository.targets) && !host.throttled; start += forge.MaxPullRequestsPerCall {
+			batch := repository.targets[start:min(start+forge.MaxPullRequestsPerCall, len(repository.targets))]
 			read += s.syncBatch(ctx, host, repository.remote, batch)
 		}
 	}

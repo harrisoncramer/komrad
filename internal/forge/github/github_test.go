@@ -925,7 +925,7 @@ func TestStandingsRefusals(t *testing.T) {
 	_, err = f.Standings(t.Context(), git.RemoteURL{Host: "github.com", Path: "group/sub/repo"}, []int{1})
 	require.ErrorIs(t, err, forge.ErrNotRepository)
 
-	numbers := make([]int, forge.MaxStandings+1)
+	numbers := make([]int, forge.MaxPullRequestsPerCall+1)
 	for i := range numbers {
 		numbers[i] = i + 1
 	}

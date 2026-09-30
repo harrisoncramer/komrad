@@ -61,9 +61,8 @@ type scriptedForge struct {
 	requests []string
 	// searches is the parameters of every search, in order.
 	searches []forge.ListChangedParams
-	// marks is the comment mark of each pull request by number, and threads its review threads.
-	marks   map[int]string
-	threads map[int][]forge.ReviewThread
+	marks    map[int]string
+	threads  map[int][]forge.ReviewThread
 }
 
 func (f *scriptedForge) Kind() string { return forge.KindGitHub }
@@ -1117,7 +1116,7 @@ func TestSyncStandingsGoFiftyToARequest(t *testing.T) {
 
 	require.Len(t, f.forge.requests, 5)
 	first := strings.Split(strings.TrimPrefix(f.forge.requests[3], "standings:"), ",")
-	assert.Len(t, first, forge.MaxStandings)
+	assert.Len(t, first, forge.MaxPullRequestsPerCall)
 	assert.Equal(t, "1", first[0])
 	assert.Equal(t, "50", first[49])
 	assert.Equal(t, "standings:51,52,53,54,55,56,57,58,59,60", f.forge.requests[4])

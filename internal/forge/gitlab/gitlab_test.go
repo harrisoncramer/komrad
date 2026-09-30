@@ -931,13 +931,13 @@ func TestStandingsSplitsOnComplexity(t *testing.T) {
 		return answer{body: `{"data":{"project":{` + strings.Join(fields, ",") + `},"queryComplexity":{"score":` + strconv.Itoa(15*count) + `,"limit":200}}}`}, true
 	}
 
-	numbers := make([]int, 0, forge.MaxStandings)
-	for i := range forge.MaxStandings {
+	numbers := make([]int, 0, forge.MaxPullRequestsPerCall)
+	for i := range forge.MaxPullRequestsPerCall {
 		numbers = append(numbers, i+1)
 	}
 	standings, err := f.Standings(t.Context(), gitlabOrg, numbers)
 	require.NoError(t, err)
-	assert.Len(t, standings, forge.MaxStandings)
+	assert.Len(t, standings, forge.MaxPullRequestsPerCall)
 	assert.Equal(t, forge.ReviewDecisionApproved, standings[50].Decision)
 
 	batches := xslice.Map(fake.calls, func(seen call) int {
@@ -953,7 +953,7 @@ func TestStandingsRefusesTooMany(t *testing.T) {
 
 	f, _, fake := serve(t, nil)
 
-	numbers := make([]int, forge.MaxStandings+1)
+	numbers := make([]int, forge.MaxPullRequestsPerCall+1)
 	for i := range numbers {
 		numbers[i] = i + 1
 	}

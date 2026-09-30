@@ -9,6 +9,7 @@ import (
 
 	"komrad/internal/forge"
 	"komrad/internal/git"
+	"komrad/lib/xptr"
 	"komrad/lib/xslice"
 )
 
@@ -43,8 +44,8 @@ func (f *Forge) CommentMarks(ctx context.Context, repo git.RemoteURL, numbers []
 	if err != nil {
 		return nil, err
 	}
-	if len(numbers) > forge.MaxCommentMarks {
-		return nil, forge.ErrTooManyStandings.Saying("at most %d comment marks can be read in one call, not %d", forge.MaxCommentMarks, len(numbers))
+	if len(numbers) > forge.MaxPullRequestsPerCall {
+		return nil, forge.ErrTooManyPullRequests.Saying("at most %d comment marks can be read in one call, not %d", forge.MaxPullRequestsPerCall, len(numbers))
 	}
 
 	var fields strings.Builder
@@ -200,8 +201,8 @@ func (n reviewThreadsNode) threads() []forge.ReviewThread {
 			Path:       node.Path,
 			Side:       sideOf(node.DiffSide),
 			BaseSHA:    n.BaseRefOid,
-			EndLine:    derefLine(node.OriginalLine),
-			StartLine:  derefLine(node.OriginalStartLine),
+			EndLine:    xptr.Deref(node.OriginalLine),
+			StartLine:  xptr.Deref(node.OriginalStartLine),
 			DiffHunk:   first.DiffHunk,
 			Resolved:   node.IsResolved,
 			Outdated:   node.IsOutdated,
@@ -250,12 +251,4 @@ func sideOf(diffSide string) forge.Side {
 	}
 
 	return forge.SideNew
-}
-
-func derefLine(line *int) int {
-	if line == nil {
-		return 0
-	}
-
-	return *line
 }
