@@ -82,33 +82,8 @@ const paneStatusRows = 1
 
 // sizeAgentWindows keeps every agent's own window at the size of the pane it is shown in.
 func (m *model) sizeAgentWindows() {
-	if m.frame.IsRemote() {
-		return
-	}
-
-	width, height := m.frame.StageCols(), m.height+paneStatusRows
-	if width <= 0 || m.height <= 0 {
-		return
-	}
-
-	if m.sized == nil {
-		m.sized = map[string]string{}
-	}
-
-	want := fmt.Sprintf("%dx%d", width, height)
-	guest := m.frame.GuestPane()
-
 	for _, item := range m.listing.agents {
-		pane := item.Agent.Pane
-
-		// The guest is standing in the panel's own window, so resizing its window would resize the
-		// terminal komrad is drawn in.
-		if pane == "" || pane == guest || m.sized[pane] == want {
-			continue
-		}
-
-		m.tmux.ResizeWindow(pane, width, height)
-		m.sized[pane] = want
+		m.sizeAgentWindow(item.Agent.Pane)
 	}
 }
 
@@ -128,7 +103,7 @@ func (m *model) stageSelection() {
 
 	switch {
 	case ok && m.isPaneStageable(staged.Agent.Pane, staged.Agent.Harness):
-		m.sizeGuestWindow(staged.Agent.Pane)
+		m.sizeAgentWindow(staged.Agent.Pane)
 		m.frame.ShowGuest(layout.Guest{Agent: staged.Agent.ID, Pane: staged.Agent.Pane})
 	case m.frame.IsSolo() && m.isGuestLive():
 	default:
@@ -143,8 +118,8 @@ func (m *model) afterStaging() {
 	m.frame.Flush()
 }
 
-// sizeGuestWindow puts an agent's own window at the size of the stage before it is swapped in.
-func (m *model) sizeGuestWindow(pane string) {
+// sizeAgentWindow puts an agent's own window at the size of the stage before it is swapped in.
+func (m *model) sizeAgentWindow(pane string) {
 	// A remote agent's window is sized by the terminal stream attached to it, which is the stage
 	// pane itself, so there is nothing here to set and the pane id names a window on another server.
 	if m.frame.IsRemote() {
@@ -152,6 +127,9 @@ func (m *model) sizeGuestWindow(pane string) {
 	}
 
 	width, height := m.frame.StageCols(), m.height+paneStatusRows
+
+	// The guest is standing in the panel's own window, so resizing its window would resize the
+	// terminal komrad is drawn in.
 	if pane == "" || pane == m.frame.GuestPane() || width <= 0 || m.height <= 0 {
 		return
 	}
