@@ -172,12 +172,12 @@ func TestTabStripGolden(t *testing.T) {
 		{
 			name:  "archive-sort-strip",
 			rows:  buildPinnedArchive(),
-			press: []string{"shift+tab", "shift+tab", "esc"},
+			press: []string{"shift+tab", "shift+tab", "f", "shift+tab", "j", "esc", "k"},
 		},
 		{
 			name:  "archive-sort-strip-flat",
 			rows:  buildPinnedArchive(),
-			press: []string{"shift+tab", "shift+tab", "f", "shift+tab", "j", "esc"},
+			press: []string{"shift+tab", "shift+tab", "esc"},
 		},
 		{
 			name:  "worktrees-sort-strip",
