@@ -104,7 +104,7 @@ func TestReviewAnswer(t *testing.T) {
 
 		harness.press("t")
 
-		said := readSidebarProse(harness.readFrame())
+		said := readPopupProse(harness.readFrame())
 		assert.NotContains(t, said, laterRule)
 		assert.Contains(t, said, "addressed in round 2")
 	})
@@ -120,7 +120,7 @@ func TestReviewAnswer(t *testing.T) {
 
 		harness.press("t")
 
-		said := readSidebarProse(harness.readFrame())
+		said := readPopupProse(harness.readFrame())
 		assert.NotContains(t, said, "addressed in round 1")
 		assert.Contains(t, said, "addressed in round 2")
 	})

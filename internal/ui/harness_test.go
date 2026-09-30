@@ -859,6 +859,36 @@ func readSidebarProse(frame string) string {
 	return joinProse(readSidebar(frame))
 }
 
+// readPopup is the rows inside the review's popup, empty while none is drawn.
+func readPopup(frame string) []string {
+	lines := splitLines(frame)
+	for top, line := range lines {
+		start, end := strings.Index(line, "╭"), strings.Index(line, "╮")
+		if start < 0 || end < 0 {
+			continue
+		}
+
+		left, right := ansi.StringWidth(line[:start]), ansi.StringWidth(line[:end])+1
+		var rows []string
+		for _, row := range lines[top+1:] {
+			cell := ansi.Cut(row, left, right)
+			if strings.HasPrefix(cell, "╰") {
+				return rows
+			}
+
+			rows = append(rows, strings.TrimSpace(strings.Trim(cell, "│")))
+		}
+
+		return rows
+	}
+
+	return nil
+}
+
+func readPopupProse(frame string) string {
+	return joinProse(readPopup(frame))
+}
+
 func joinProse(lines []string) string {
 	return strings.Join(strings.Fields(strings.Join(lines, " ")), " ")
 }

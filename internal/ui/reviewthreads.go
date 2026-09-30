@@ -21,11 +21,6 @@ type reviewThreads struct {
 	// delivery is how many of the conversation's comments stand in each delivery state.
 	delivery [reviewDeliveryStates]int
 
-	// focus is set while the keys are on the conversation in the sidebar rather than on the
-	// diff.
-	focus bool
-	// scroll is how far up from the end of the conversation the sidebar is showing.
-	scroll    int
 	composing bool
 	// releasing is set while the panel is asking what to send.
 	releasing bool

@@ -47,6 +47,7 @@ const (
 	ThreadSettled
 	ThreadUnsent
 	FileViewed
+	FileCurrent
 	Delivered
 	Held
 	MessageError
@@ -94,6 +95,7 @@ var defined = [count]struct {
 	ThreadSettled:    {"review.settled", "✓"},
 	ThreadUnsent:     {"review.unsent", "◇"},
 	FileViewed:       {"review.viewed", "✓"},
+	FileCurrent:      {"review.current", "▸"},
 	Delivered:        {"review.delivered", "✓"},
 	Held:             {"review.held", "◇"},
 	MessageError:     {"messages.error", "✗"},

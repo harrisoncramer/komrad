@@ -105,6 +105,8 @@ type ReviewGlyphs struct {
 	Unsent string `mapstructure:"unsent"`
 	// The header of a file you have read and folded away.
 	Viewed string `mapstructure:"viewed"`
+	// The row of the file tree beside the diff that the cursor is in.
+	Current string `mapstructure:"current"`
 	// A comment the agent has been given.
 	Delivered string `mapstructure:"delivered"`
 	// A comment held back until you send it.

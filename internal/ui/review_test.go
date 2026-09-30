@@ -8,11 +8,9 @@ import (
 	"testing"
 
 	"komrad/config"
-	"komrad/internal/errui"
 	"komrad/internal/git"
 	"komrad/internal/gittest"
 	"komrad/internal/ui"
-	"komrad/internal/ui/paint"
 	"komrad/lib/xptr"
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
@@ -363,7 +361,7 @@ func TestReviewThreads(t *testing.T) {
 
 		harness := openReview(t, server)
 
-		sidebar := readSidebarProse(harness.readFrame())
+		sidebar := readPopupProse(harness.readFrame())
 		assert.Contains(t, sidebar, "you wrong greeting")
 	})
 
@@ -377,7 +375,7 @@ func TestReviewThreads(t *testing.T) {
 
 		harness := openReview(t, server)
 
-		sidebar := readSidebarProse(harness.readFrame())
+		sidebar := readPopupProse(harness.readFrame())
 		assert.Contains(t, sidebar, "reviewer this drops the error")
 		assert.Contains(t, sidebar, "implementer wrapped it")
 	})
@@ -422,8 +420,8 @@ func TestReviewThreads(t *testing.T) {
 
 		frame := harness.readFrame()
 		assert.Equal(t, "gone.go:12", readReviewCursor(frame))
-		assert.Contains(t, readSidebarProse(frame), "still worth reading")
-		assert.Contains(t, readSidebarProse(frame), "+what this used to say")
+		assert.Contains(t, readPopupProse(frame), "still worth reading")
+		assert.Contains(t, readPopupProse(frame), "+what this used to say")
 	})
 
 	t.Run("a thread whose file left the diff takes a reply", func(t *testing.T) {
@@ -490,7 +488,7 @@ func TestReviewThreads(t *testing.T) {
 
 		harness.press("c", "?", "l", "n")
 		frame := harness.readFrame()
-		assert.Contains(t, readSidebar(frame), "  ?ln")
+		assert.Contains(t, readPopupProse(frame), "?ln")
 		assert.Contains(t, frame, "c comment on this line")
 
 		harness.press("esc")
@@ -502,7 +500,7 @@ func TestReviewThreads(t *testing.T) {
 func TestReviewThreadFocus(t *testing.T) {
 	t.Run("the thread scrolls back to its start and escape hands the keys back", func(t *testing.T) {
 		harness := openLongThread(t)
-		require.NotContains(t, readSidebarProse(harness.readFrame()), "note 0")
+		require.NotContains(t, readSidebarProse(harness.readFrame()), "you note 0")
 
 		harness.press("pick:block")
 		for range 20 {
@@ -510,7 +508,7 @@ func TestReviewThreadFocus(t *testing.T) {
 		}
 
 		frame := harness.readFrame()
-		assert.Contains(t, readSidebarProse(frame), "note 0")
+		assert.Contains(t, readSidebarProse(frame), "you note 0")
 		assert.NotContains(t, readSidebarProse(frame), "note 5")
 		assert.Equal(t, "greet.go:1", readReviewCursor(frame))
 
@@ -518,7 +516,7 @@ func TestReviewThreadFocus(t *testing.T) {
 
 		frame = harness.readFrame()
 		assert.True(t, harness.panel.IsZoomed())
-		assert.NotContains(t, readSidebarProse(frame), "note 0")
+		assert.NotContains(t, readSidebarProse(frame), "you note 0")
 	})
 
 	t.Run("the scroll keys move the thread while it holds the keys", func(t *testing.T) {
@@ -561,7 +559,6 @@ func TestReviewThreadFocus(t *testing.T) {
 		harness.press("ctrl+space", "j")
 
 		assert.Empty(t, harness.panel.ReadPickLetter("block"))
-		assert.NotEmpty(t, harness.panel.ReadPickLetter("record"))
 	})
 }
 
@@ -827,7 +824,7 @@ func TestReviewDeliveryBadge(t *testing.T) {
 
 			harness := openReview(t, server)
 
-			sidebar := readSidebarProse(harness.readFrame())
+			sidebar := readPopupProse(harness.readFrame())
 			assert.Contains(t, sidebar, tt.want)
 			assert.NotContains(t, sidebar, tt.absent)
 		})
@@ -950,7 +947,7 @@ func TestReviewWatch(t *testing.T) {
 		thread.AgentId = "a1"
 		harness.watch(buildPuts(thread))
 
-		assert.Contains(t, readSidebarProse(harness.readFrame()), "fixed it")
+		assert.Contains(t, readPopupProse(harness.readFrame()), "fixed it")
 	})
 
 	t.Run("a comment's delivery follows its review", func(t *testing.T) {
@@ -964,12 +961,12 @@ func TestReviewWatch(t *testing.T) {
 			ReleasedAt: "2026-09-02T10:00:00Z",
 		}}
 		harness := openReview(t, server)
-		require.Contains(t, readSidebarProse(harness.readFrame()), "waiting")
+		require.Contains(t, readPopupProse(harness.readFrame()), "waiting")
 
 		server.reviews[0].DeliveredAt = "2026-09-02T10:05:00Z"
 		harness.watch(server.buildSnapshot())
 
-		assert.Contains(t, readSidebarProse(harness.readFrame()), "delivered")
+		assert.Contains(t, readPopupProse(harness.readFrame()), "delivered")
 	})
 
 	t.Run("an answer arriving while the reader types waits for them to stop", func(t *testing.T) {
@@ -982,12 +979,12 @@ func TestReviewWatch(t *testing.T) {
 		harness.watch(server.buildSnapshot())
 
 		frame := harness.readFrame()
-		assert.Contains(t, readSidebar(frame), "  half a thought")
+		assert.Contains(t, readPopupProse(frame), "half a thought")
 		assert.Equal(t, "greet.go:2", readReviewCursor(frame))
-		assert.NotContains(t, readSidebarProse(frame), "fixed it")
+		assert.NotContains(t, readPopupProse(frame), "fixed it")
 
 		harness.press("esc", "k")
-		assert.Contains(t, readSidebarProse(harness.readFrame()), "fixed it")
+		assert.Contains(t, readPopupProse(harness.readFrame()), "fixed it")
 	})
 
 	t.Run("an archived agent's threads stay drawn and a settle reads them back", func(t *testing.T) {
@@ -1217,77 +1214,8 @@ func TestReviewReload(t *testing.T) {
 	})
 }
 
-// TestReviewYours covers the list of comments the reader started, open and resolved.
-func TestReviewYours(t *testing.T) {
-	t.Run("the list names each comment and what it is waiting for", func(t *testing.T) {
-		answered := newYourThread("b.txt", 5)
-		answered.Messages = append(answered.Messages, newAgentMessage("m9", "rewrote the header"))
-		reopened := newYourThread("c.txt", 3)
-		reopened.Messages = append(reopened.Messages,
-			newAgentMessage("m10", "renamed it"),
-			newHumanMessage("m11", "the caller still uses the old name"),
-		)
-		harness := openReview(t, newYoursServer(t, newYourThread("a.txt", 2), answered, reopened))
-
-		sidebar := readSidebarProse(harness.readFrame())
-		assert.Contains(t, sidebar, "Yours 3 open, 0 resolved")
-		assert.Contains(t, sidebar, "a.txt:2 no reply")
-		assert.Contains(t, sidebar, "b.txt:5 answered")
-		assert.Contains(t, sidebar, "c.txt:3 no reply", "the person's word after the answer waits for another")
-	})
-
-	t.Run("a resolved comment stays on the list and is counted apart", func(t *testing.T) {
-		server := newYoursServer(t, newYourThread("a.txt", 2), newYourThread("b.txt", 5))
-		harness := openReview(t, server)
-
-		server.threads[0].ResolvedAt = "2026-09-13T11:00:00Z"
-		harness.watch(server.buildSnapshot())
-
-		sidebar := readSidebarProse(harness.readFrame())
-		assert.Contains(t, sidebar, "Yours 1 open, 1 resolved")
-		assert.Contains(t, sidebar, "a.txt:2 resolved")
-		assert.Less(t, strings.Index(sidebar, "b.txt:5"), strings.Index(sidebar, "a.txt:2"))
-	})
-
-	t.Run("a comment with something unread goes first", func(t *testing.T) {
-		unread := newYourThread("b.txt", 5)
-		unread.UnreadByHuman = true
-		harness := openReview(t, newYoursServer(t, newYourThread("a.txt", 2), unread))
-
-		sidebar := readSidebarProse(harness.readFrame())
-		assert.Contains(t, sidebar, "b.txt:5 unread")
-		assert.Less(t, strings.Index(sidebar, "b.txt:5"), strings.Index(sidebar, "a.txt:2"))
-	})
-
-	t.Run("the list counts what it has no room to draw", func(t *testing.T) {
-		threads := make([]*agentv1.ReviewThread, 0, 6)
-		for i := range 6 {
-			threads = append(threads, newYourThread(fmt.Sprintf("f%d.txt", i), int32(i+1)))
-		}
-
-		harness := openReview(t, newYoursServer(t, threads...))
-
-		sidebar := readSidebarProse(harness.readFrame())
-		assert.Contains(t, sidebar, "Yours 6 open, 0 resolved")
-		assert.Contains(t, sidebar, "+ 3 more")
-	})
-
-	t.Run("the list leaves out the comments an agent started", func(t *testing.T) {
-		reviewer := newYourThread("a.txt", 2)
-		reviewer.Messages = []*agentv1.ReviewMessage{newAgentMessage("m1", "rename this")}
-		harness := openReview(t, newYoursServer(t, reviewer))
-
-		assert.NotRegexp(t, `Yours \d+ open`, readSidebarProse(harness.readFrame()))
-	})
-
-	t.Run("the list says when a comment is folded away", func(t *testing.T) {
-		harness := openReview(t, newYoursServer(t, newYourThread(gittest.File, 2)))
-
-		harness.press("v")
-
-		assert.Contains(t, readSidebarProse(harness.readFrame()), "folded away")
-	})
-
+// TestReviewOwnComments covers the comments the reader started and the keys that walk the open ones.
+func TestReviewOwnComments(t *testing.T) {
 	t.Run("an open comment leaves the reader free to write another", func(t *testing.T) {
 		harness := openReview(t, newYoursServer(t, newYourThread("a.txt", 2)))
 
@@ -1402,115 +1330,6 @@ func TestReviewYours(t *testing.T) {
 	})
 }
 
-// TestReviewRecord covers the agent's record drawn beside the diff.
-func TestReviewRecord(t *testing.T) {
-	t.Run("the record names the agent and the two commits the diff is between", func(t *testing.T) {
-		harness := openReviewAt(t, newReviewServer(t), panelHarnessParams{height: 50})
-		harness.press("pick:record")
-
-		frame := harness.readFrame()
-		assert.Equal(t, "auth", readRecordField(frame, "name"))
-		assert.Equal(t, gittest.BaseSHA[:12], readRecordField(frame, "base"))
-		assert.Equal(t, gittest.SnapshotSHA[:12], readRecordField(frame, "snapshot"))
-		assert.Empty(t, readRecordField(frame, "round"))
-	})
-
-	t.Run("the focus key hands the keys to the record and back", func(t *testing.T) {
-		harness := openReviewAt(t, newReviewServer(t), panelHarnessParams{height: 50})
-		respawns, sentKeys := harness.panel.CountRespawns(), harness.panel.CountSentKeys()
-
-		harness.press("pick:record", "j")
-		frame := harness.readFrame()
-		assert.Equal(t, respawns, harness.panel.CountRespawns())
-		assert.Equal(t, sentKeys, harness.panel.CountSentKeys())
-		assert.Equal(t, "greet.go:1", readReviewCursor(frame))
-		assert.True(t, strings.HasPrefix(readRecordCursor(frame), "agent"))
-
-		harness.press("pick:list", "j")
-		assert.Equal(t, "greet.go:2", readReviewCursor(harness.readFrame()))
-	})
-
-	t.Run("the record says nothing of an agent that is gone", func(t *testing.T) {
-		server := newReviewServer(t)
-		harness := openReview(t, server)
-
-		server.agent.ArchivedAt = xptr.Ptr("2026-09-02T11:00:00Z")
-		harness.watch(server.buildSnapshot())
-
-		assert.NotContains(t, harness.readFrame(), "agent_id")
-	})
-
-	t.Run("the record takes the keys at every height it is given a letter", func(t *testing.T) {
-		tests := []struct {
-			name     string
-			query    string
-			expanded bool
-		}{
-			{
-				name: "a bare diff",
-			},
-			{
-				name:     "an expanded legend",
-				expanded: true,
-			},
-			{
-				name:  "a standing search",
-				query: "hello",
-			},
-			{
-				name:     "a standing search under an expanded legend",
-				query:    "hello",
-				expanded: true,
-			},
-		}
-
-		for _, tt := range tests {
-			t.Run(tt.name, func(t *testing.T) {
-				harness := openReview(t, newReviewServer(t))
-				if tt.query != "" {
-					harness.press("/")
-					typeText(harness, tt.query)
-					harness.press("enter")
-				}
-				if tt.expanded {
-					harness.press("?")
-				}
-
-				taken := 0
-				for height := range 60 {
-					harness.send(tea.WindowSizeMsg{Width: reviewWidth, Height: height})
-					harness.press("ctrl+space", "j")
-					letter := harness.panel.ReadPickLetter("record")
-					harness.press("esc")
-					if letter == "none" {
-						continue
-					}
-
-					harness.press("pick:record")
-					assert.NotEmpty(t, readRecordCursor(harness.readFrame()), "the record's letter at height %d gave it the keys", height)
-					taken++
-					harness.press("esc")
-				}
-
-				assert.Positive(t, taken)
-			})
-		}
-	})
-
-	t.Run("a shrink under a focused record gives the keys back to the diff", func(t *testing.T) {
-		harness := openReview(t, newReviewServer(t))
-		harness.press("pick:record")
-		require.NotEmpty(t, readRecordCursor(harness.readFrame()))
-
-		harness.press("?")
-		harness.send(tea.WindowSizeMsg{Width: reviewWidth, Height: 12})
-		require.Empty(t, readRecordCursor(harness.readFrame()))
-		harness.press("j")
-
-		assert.Equal(t, "greet.go:2", readReviewCursor(harness.readFrame()))
-	})
-}
-
 // TestReviewLayout covers where the diff and the sidebar stand and that the frame fits the pane.
 func TestReviewLayout(t *testing.T) {
 	t.Run("the sidebar stands on the side the layout names", func(t *testing.T) {
@@ -1540,14 +1359,14 @@ func TestReviewLayout(t *testing.T) {
 		}
 	})
 
-	t.Run("the switcher and the trail give way before the head does", func(t *testing.T) {
-		harness := openReviewAt(t, newReviewServer(t), panelHarnessParams{height: 22})
+	t.Run("the switcher and the trail give way before the legend does", func(t *testing.T) {
+		harness := openReviewAt(t, newReviewServer(t), panelHarnessParams{height: 24})
 		require.Contains(t, splitLines(harness.readFrame())[0], "komrad")
 
 		harness.press("?")
 
 		assert.NotContains(t, harness.readFrame(), "komrad")
-		assert.Equal(t, "greet.go:1", readReviewCursor(harness.readFrame()), "the head is whole")
+		assert.Equal(t, "greet.go:1", readReviewCursor(harness.readFrame()))
 	})
 
 	t.Run("a window too narrow for both keeps the sidebar and drops the diff", func(t *testing.T) {
@@ -1850,7 +1669,7 @@ func TestReviewRounds(t *testing.T) {
 
 		frame := harness.readFrame()
 		require.Contains(t, readStageText(frame), "chapter 1 of 2")
-		said := readSidebarProse(frame)
+		said := readPopupProse(frame)
 		assert.Contains(t, said, "thanks")
 		assert.Less(t, strings.Index(said, "looking"), strings.Index(said, laterRule))
 		assert.Less(t, strings.Index(said, laterRule), strings.Index(said, "added it"))
@@ -2011,7 +1830,7 @@ func TestReviewComposer(t *testing.T) {
 
 		harness.press("c")
 
-		sidebar := readSidebarProse(harness.readFrame())
+		sidebar := readPopupProse(harness.readFrame())
 		assert.Contains(t, sidebar, "Comment")
 		assert.Contains(t, sidebar, "opens $EDITOR")
 	})
@@ -2021,8 +1840,8 @@ func TestReviewComposer(t *testing.T) {
 
 		harness.press("c", "o", "n", "e", "enter", "t", "w", "o")
 
-		assert.Contains(t, readSidebar(harness.readFrame()), "  one")
-		assert.Contains(t, readSidebar(harness.readFrame()), "  two")
+		assert.Contains(t, readPopupProse(harness.readFrame()), "one")
+		assert.Contains(t, readPopupProse(harness.readFrame()), "two")
 		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceCreateReviewThreadProcedure))
 	})
 
@@ -2443,36 +2262,11 @@ func TestReviewHold(t *testing.T) {
 
 // TestReviewEmphasis covers what the review says in colour and weight rather than in text.
 func TestReviewEmphasis(t *testing.T) {
-	t.Run("the owed list brightens a comment only while its line is on screen", func(t *testing.T) {
-		server := newReviewServerOver(gittest.NewTallRepo(t.TempDir()))
-		thread := newYourThread(gittest.TallFile, 5)
-		thread.QuotedLines = []string{" func One() {}"}
-		server.threads = []*agentv1.ReviewThread{thread}
-		server.reviews = []*agentv1.Review{{
-			Id:          "r1",
-			AuthorKind:  agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN,
-			ReleasedAt:  "2026-09-13T10:00:00Z",
-			OpenThreads: 1,
-		}}
-		harness := openReviewAt(t, server, panelHarnessParams{
-			height:        12,
-			detailsHeight: 0.01,
-		})
-		pin := gittest.TallFile + ":5"
-		require.Contains(t, harness.readRawFrame(), paint.Panel.Style(paint.ToneAccent).Bold(true).Render(pin))
-
-		harness.press("G")
-
-		frame := harness.readRawFrame()
-		assert.NotContains(t, frame, paint.Panel.Style(paint.ToneAccent).Bold(true).Render(pin))
-		assert.Contains(t, frame, errui.Dim.Render(pin))
-	})
-
-	t.Run("the cursor row dims while the record has the keys", func(t *testing.T) {
-		harness := openReview(t, newReviewServer(t))
+	t.Run("the cursor row dims while the thread has the keys", func(t *testing.T) {
+		harness := openLongThread(t)
 		live := readRawCursorRow(harness)
 
-		harness.press("pick:record")
+		harness.press("pick:block")
 		dimmed := readRawCursorRow(harness)
 		require.NotEmpty(t, ansi.Strip(live))
 		assert.Equal(t, ansi.Strip(live), ansi.Strip(dimmed), "the same row, restyled")
@@ -3025,6 +2819,6 @@ func TestReviewChange(t *testing.T) {
 		harness.press("G")
 		frame := harness.readFrame()
 		assert.NotEmpty(t, findLine(readStage(frame), "on the change as a whole ──"))
-		assert.Contains(t, readSidebarProse(frame), "split this in two")
+		assert.Contains(t, readPopupProse(frame), "split this in two")
 	})
 }
