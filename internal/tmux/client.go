@@ -699,14 +699,24 @@ func (c *Client) paneID(target string) (string, error) {
 // IsPaneRunningCLI reports whether a pane's foreground program is something other than a plain
 // shell.
 func (c *Client) IsPaneRunningCLI(pane string) bool {
+	running, err := c.CheckPaneRunningCLI(pane)
+
+	return err == nil && running
+}
+
+// CheckPaneRunningCLI is IsPaneRunningCLI failing when tmux could not answer.
+func (c *Client) CheckPaneRunningCLI(pane string) (bool, error) {
 	if pane == "" {
-		return false
+		return false, nil
 	}
 
 	command, err := c.query("display-message", "-p", "-t", pane, "#{pane_current_command}")
-	if err != nil || command == "" {
-		return false
+	if err != nil && strings.Contains(err.Error(), "can't find pane") {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
 	}
 
-	return !PaneStatus{Command: command}.IsRunningShell()
+	return command != "" && !PaneStatus{Command: command}.IsRunningShell(), nil
 }

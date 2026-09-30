@@ -47,3 +47,15 @@ func TestSettleLeavesAPaneItsCLIHasLeft(t *testing.T) {
 		})
 	}
 }
+
+// TestSettleRefusesAPaneItCannotAskAbout covers a failure to ask what the pane runs being no evidence the CLI has left.
+func TestSettleRefusesAPaneItCannotAskAbout(t *testing.T) {
+	channel := &harnesstest.Channel{}
+	observer := &harnesstest.Observer{RunningErr: errors.New("tmux gave up waiting")}
+	agent := agentstore.Agent{ID: "a1", Name: "telescope", Pane: "%1", Harness: "claude"}
+
+	_, err := settlerOver(channel, observer).Settle(t.Context(), agent)
+	require.ErrorIs(t, err, ErrUnsettled)
+	assert.Contains(t, err.Error(), "could not be read")
+	assert.Zero(t, channel.Interrupts)
+}

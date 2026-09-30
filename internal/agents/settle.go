@@ -63,7 +63,11 @@ func NewSettler(params NewSettlerParams) *Settler {
 // come to rest, reporting whether a turn was cut.
 func (s *Settler) Settle(ctx context.Context, agent agentstore.Agent) (bool, error) {
 	target := buildTarget(agent)
-	if !s.observer.IsRunning(ctx, target) {
+	running, err := s.observer.IsRunning(ctx, target)
+	if err != nil {
+		return false, ErrUnsettled.Saying("%q could not be read, so nothing here can say it stopped", agent.Name)
+	}
+	if !running {
 		return false, nil
 	}
 

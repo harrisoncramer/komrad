@@ -24,7 +24,7 @@ type Channel interface {
 type Observer interface {
 	Observe(ctx context.Context, target Target) (Observation, error)
 
-	IsRunning(ctx context.Context, target Target) bool
+	IsRunning(ctx context.Context, target Target) (bool, error)
 }
 
 // Observation is one reading of an agent, however it was taken.
