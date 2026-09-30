@@ -333,8 +333,7 @@ func sizeLabel(item worktreeItem) string {
 	return label.Bytes(item.size.bytes)
 }
 
-// standingCell is where a directory stands against its base in the glyphs an agent's row draws
-// its worktree and pull request with, or a dash while git has not said.
+// standingCell is where a directory stands against its base, or a dash while git has not said.
 func standingCell(item worktreeItem) view.Cell {
 	standing := item.standing
 	switch {
