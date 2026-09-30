@@ -52,20 +52,6 @@ func (s State) IsTurnUnfinished() bool {
 	return s == StateThinking || s == StateWaiting
 }
 
-// IsAtRest reports whether a state says the agent is doing nothing komrad could disturb.
-func (s State) IsAtRest() bool {
-	// Written without a default so a ninth state has to be answered for here rather than
-	// falling in with whichever answer the existing eight happen to share.
-	switch s {
-	case StateIdle, StateErrored, StateFailedToCreate, StateFailedToCleanup:
-		return true
-	case StateThinking, StateWaiting, StateSettingUp, StateUncertain:
-		return false
-	}
-
-	return false
-}
-
 // Role is what an agent was launched to do.
 type Role string
 
