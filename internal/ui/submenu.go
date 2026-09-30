@@ -38,6 +38,8 @@ type submenuEntry struct {
 	keys  []string
 	// isOff says the entry would do nothing here.
 	isOff bool
+	// isDivider says the row is a rule between two bands of entries.
+	isDivider bool
 	// opens is the menu the entry opens to the right of its own.
 	opens *submenu
 }
@@ -57,6 +59,8 @@ func nestedEntry(label string, keys []string, menu submenu) submenuEntry {
 		opens: &menu,
 	}
 }
+
+var dividerEntry = submenuEntry{isOff: true, isDivider: true}
 
 // openSubmenu draws a submenu, its cursor on the first entry that would do something.
 func openSubmenu(h host, menu submenu) tea.Cmd {
@@ -128,9 +132,11 @@ func (s submenu) firstOn() int {
 func submenuForm(level submenuLevel, nested bool, keys config.FormKeys) *huh.Form {
 	menu := level.menu
 
+	labelCols, keyCols := submenuColumns(menu.entries)
+
 	options := make([]huh.Option[int], 0, len(menu.entries)+1)
 	for i, entry := range menu.entries {
-		options = append(options, huh.NewOption(submenuLabel(entry), i))
+		options = append(options, huh.NewOption(submenuLabel(entry, labelCols, keyCols), i))
 	}
 
 	last := "cancel"
@@ -183,24 +189,50 @@ func frozenSubmenu(level submenuLevel, nested bool) string {
 	}), "\n")
 }
 
-// submenuLabel is an entry's label with the key that picks it underlined, and gray when it
-// would do nothing.
-func submenuLabel(entry submenuEntry) string {
-	label := entry.label
+// submenuColumns is the widest label and the widest key among a menu's entries.
+func submenuColumns(entries []submenuEntry) (labelCols, keyCols int) {
+	for _, entry := range entries {
+		if entry.isDivider {
+			continue
+		}
 
-	if before, mark, after, ok := splitMark(label, headLabel(entry.keys)); ok {
-		label = before + ansi.Style{}.Underline(true).String() + mark + ansi.Style{}.Underline(false).String() + after
+		labelCols = max(labelCols, ansi.StringWidth(entryText(entry)))
+		keyCols = max(keyCols, ansi.StringWidth(headLabel(entry.keys)))
 	}
 
+	return labelCols, keyCols
+}
+
+func entryText(entry submenuEntry) string {
 	if entry.opens != nil {
-		label += nestedMark
+		return entry.label + nestedMark
 	}
+
+	return entry.label
+}
+
+// submenuKeyGap is the columns between an entry's label and its key.
+const submenuKeyGap = 4
+
+// submenuLabel is an entry's label with the key that picks it right-aligned beside it, and gray
+// when it would do nothing.
+func submenuLabel(entry submenuEntry, labelCols, keyCols int) string {
+	muted := paint.Panel.Style(paint.ToneMuted)
+	width := labelCols + submenuKeyGap + keyCols
+
+	if entry.isDivider {
+		return muted.Render(strings.Repeat(glyph.Rule, width))
+	}
+
+	text := entryText(entry)
+	key := headLabel(entry.keys)
+	pad := strings.Repeat(" ", max(width-ansi.StringWidth(text)-ansi.StringWidth(key), 1))
 
 	if entry.isOff {
-		return paint.Panel.Style(paint.ToneMuted).Render(label)
+		return muted.Render(text + pad + key)
 	}
 
-	return label
+	return text + pad + muted.Render(key)
 }
 
 // submenuKeyMap is the form's own keys without the select's filter.
@@ -231,5 +263,23 @@ func (m model) updateSubmenu(msg tea.Msg, parents []submenuLevel, level submenuL
 		}
 	}
 
-	return m.updateForm(msg)
+	next, cmd := m.updateForm(msg)
+	if !level.isOnDivider() {
+		return next, cmd
+	}
+
+	moved, ok := next.(model)
+	if !ok {
+		return next, cmd
+	}
+
+	past, more := moved.updateForm(msg)
+
+	return past, tea.Batch(cmd, more)
+}
+
+func (l submenuLevel) isOnDivider() bool {
+	choice := *l.choice
+
+	return choice >= 0 && choice < len(l.menu.entries) && l.menu.entries[choice].isDivider
 }

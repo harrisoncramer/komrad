@@ -187,6 +187,7 @@ func (m model) revealCreated(guest layout.Guest, focus bool) (model, tea.Cmd) {
 		cmd = closing
 	}
 
+	m.dropScratch()
 	m.frame.Solo(false)
 	m.frame.ShowGuest(guest)
 	m.frame.Flush()

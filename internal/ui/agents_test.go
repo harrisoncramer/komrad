@@ -2138,10 +2138,10 @@ func TestAgentsChildren(t *testing.T) {
 		off := readOffEntry("rebase with base", "r")
 
 		harness.press("j", "space", "g")
-		assert.NotContains(t, harness.readRawFrame(), off)
+		assert.NotRegexp(t, off, harness.readRawFrame())
 
 		harness.press("esc", "esc", "j", "space", "g")
-		assert.Contains(t, harness.readRawFrame(), off)
+		assert.Regexp(t, off, harness.readRawFrame())
 	})
 }
 

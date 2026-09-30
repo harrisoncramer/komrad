@@ -40,6 +40,10 @@ func flashRevertTick() tea.Cmd {
 }
 
 func (m *model) restageScreen() {
+	if m.isScratchOpen() {
+		return
+	}
+
 	if s, ok := m.active().(staged); ok {
 		s.stage(m, m.shared())
 	}

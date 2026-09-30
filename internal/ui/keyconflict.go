@@ -89,6 +89,7 @@ func ValidateKeybindings(keys config.Keybindings) error {
 		{name: "logs", keys: keys.Menu.Logs},
 		{name: "terminal", keys: keys.Menu.Terminal},
 		{name: "git", keys: keys.Menu.Git},
+		{name: "scratch", keys: keys.Menu.Scratch},
 	})
 }
 
@@ -219,6 +220,8 @@ func globalArms(s screen, keys config.Keybindings) []dispatchArm {
 	if s == screenDocuments {
 		arms = append(arms, dispatchArm{describe: "the view cycle", keys: keys.Cycle.Views})
 	}
+
+	arms = append(arms, dispatchArm{describe: "the menu", keys: keys.Menu.Open})
 
 	if _, ok := zero.screenOf(s).(detailed); ok {
 		arms = append(arms,
