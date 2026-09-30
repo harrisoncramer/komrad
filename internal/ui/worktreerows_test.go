@@ -4,6 +4,8 @@ import (
 	"testing"
 	"time"
 
+	"komrad/internal/glyph"
+	"komrad/internal/ui/paint"
 	"komrad/internal/ui/panel"
 	"komrad/internal/view"
 	"komrad/lib/xslice"
@@ -251,7 +253,7 @@ func TestWorktreesSnapshotDrawsFlatRowsAtTheHeadingIndent(t *testing.T) {
 	for _, row := range snapshot.Rows {
 		assert.Equal(t, view.KindResult, row.Kind)
 	}
-	assert.Equal(t, []view.Cell{mutedCell("1.5G"), mutedCell("12h"), mutedCell("merged")}, snapshot.Rows[0].Cells)
+	assert.Equal(t, []view.Cell{mutedCell("1.5G"), mutedCell("12h"), {Glyph: glyph.Merged, Tone: paint.ToneMerged}}, snapshot.Rows[0].Cells)
 }
 
 // TestWorktreeRowsLeaveTheOccupantOffTheList covers an agent working in another's directory
@@ -488,9 +490,10 @@ func measuredFixture(now time.Time) []worktreeItem {
 	return items
 }
 
-// TestWorktreesSnapshotCellsAreSizeAgeThenStanding covers every row's cells: the size, the age
-// and the standing on a directory, a dash for the size until it is measured or while its walk
-// fails, a dash for the standing until git has answered or while it cannot, and the header summing the shares of the measured directories under it over the size column.
+// TestWorktreesSnapshotCellsAreSizeAgeThenStanding covers every row's cells: the size and the age
+// on a directory with a dash for the size until it is measured or while its walk fails, the
+// standing in the glyphs an agent's row draws, and the header summing the shares of the measured
+// directories under it over the size column.
 func TestWorktreesSnapshotCellsAreSizeAgeThenStanding(t *testing.T) {
 	now := time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC)
 	items := measuredFixture(now)
@@ -500,19 +503,31 @@ func TestWorktreesSnapshotCellsAreSizeAgeThenStanding(t *testing.T) {
 		now:   now,
 	})
 
-	cells := map[string][]string{}
+	figures := map[string][]string{}
+	standings := map[string]view.Cell{}
 	for _, row := range snapshot.Rows {
-		cells[row.Key] = xslice.Map(row.Cells, func(cell view.Cell) string { return cell.Text })
+		texts := xslice.Map(row.Cells, func(cell view.Cell) string { return cell.Text })
+		figures[row.Key] = texts[:min(len(texts), 2)]
+		if len(row.Cells) == 3 {
+			standings[row.Key] = row.Cells[2]
+		}
 	}
 
 	assert.Equal(t, map[string][]string{
 		"repo:/home/h/gadgets/admin": {"1.5G"},
-		"tree:/trees/admin":          {"1.5G", "12h", "merged"},
+		"tree:/trees/admin":          {"1.5G", "12h"},
 		"repo:/home/h/komrad":        {"60M"},
-		"tree:/trees/live":           {"49M", "30s", "dirty"},
-		"tree:/trees/archived":       {"49M", "4d", "↑3"},
-		"tree:/trees/orphan":         {"—", "3h", "—"},
+		"tree:/trees/live":           {"49M", "30s"},
+		"tree:/trees/archived":       {"49M", "4d"},
+		"tree:/trees/orphan":         {"—", "3h"},
 		"repo:/var/folders/T/repo":   {"—"},
-		"tree:/trees/broken":         {"—", "2w", "—"},
-	}, cells)
+		"tree:/trees/broken":         {"—", "2w"},
+	}, figures)
+	assert.Equal(t, map[string]view.Cell{
+		"tree:/trees/admin":    {Glyph: glyph.Merged, Tone: paint.ToneMerged},
+		"tree:/trees/live":     {Glyph: glyph.Worktree, Tone: paint.ToneWarning},
+		"tree:/trees/archived": {Glyph: glyph.Worktree, Tone: paint.ToneMuted},
+		"tree:/trees/orphan":   mutedCell("—"),
+		"tree:/trees/broken":   {Glyph: glyph.WorktreeGone, Tone: paint.ToneDanger},
+	}, standings)
 }

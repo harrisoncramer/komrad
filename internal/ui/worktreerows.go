@@ -2,7 +2,6 @@ package ui
 
 import (
 	"cmp"
-	"fmt"
 	"path/filepath"
 	"regexp"
 	"slices"
@@ -32,15 +31,14 @@ func worktreeColumns() view.Columns {
 	return view.Columns{
 		{Kind: view.ColumnText, Width: sizeColumns},
 		{Kind: view.ColumnText, Width: ageColumns},
-		{Kind: view.ColumnText, Width: standingColumns},
+		{Kind: view.ColumnText, Width: glyph.Columns},
 	}
 }
 
-// sizeColumns, ageColumns and standingColumns are how wide the three figures are drawn.
+// sizeColumns and ageColumns are how wide the two figures are drawn.
 const (
-	sizeColumns     = 4
-	ageColumns      = 4
-	standingColumns = 6
+	sizeColumns = 4
+	ageColumns  = 4
 )
 
 // noRepository heads the directories whose .git file names nothing.
@@ -313,7 +311,7 @@ func rowCells(item worktreeItem, now time.Time) []view.Cell {
 	return []view.Cell{
 		mutedCell(sizeLabel(item)),
 		mutedCell(label.AgeAt(item.lastActiveAt, now)),
-		mutedCell(standingLabel(item)),
+		standingCell(item),
 	}
 }
 
@@ -335,19 +333,22 @@ func sizeLabel(item worktreeItem) string {
 	return label.Bytes(item.size.bytes)
 }
 
-// standingLabel is where a directory stands against its base, or a dash while git has not said.
-func standingLabel(item worktreeItem) string {
+// standingCell is where a directory stands against its base in the glyphs an agent's row draws
+// its worktree and pull request with, or a dash while git has not said.
+func standingCell(item worktreeItem) view.Cell {
 	standing := item.standing
 	switch {
+	case !item.readable:
+		return view.Cell{Glyph: glyph.WorktreeGone, Tone: paint.ToneDanger}
 	case standing == nil || standing.err != "":
-		return label.Dash
+		return mutedCell(label.Dash)
 	case standing.dirty || standing.sequencing:
-		return "dirty"
+		return view.Cell{Glyph: glyph.Worktree, Tone: paint.ToneWarning}
 	case standing.unlanded > 0:
-		return fmt.Sprintf("%s%d", glyph.Up, standing.unlanded)
+		return view.Cell{Glyph: glyph.Worktree, Tone: paint.ToneMuted}
 	}
 
-	return "merged"
+	return view.Cell{Glyph: glyph.Merged, Tone: paint.ToneMerged}
 }
 
 // totalLabel is what the measured directories take together.
