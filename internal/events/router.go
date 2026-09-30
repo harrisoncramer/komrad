@@ -24,6 +24,7 @@ type Handler interface {
 	Handle(ctx context.Context, tx store.DBTX, mailer *mail.MailService, payload json.RawMessage) ([]river.JobArgs, error)
 }
 
+// NewRouterParams is what NewRouter builds a router from.
 type NewRouterParams struct {
 	Mailer   *mail.MailService
 	Handlers []Handler

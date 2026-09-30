@@ -33,26 +33,13 @@ type rebaseOutcome struct {
 	Failure string        `json:"failure,omitempty"`
 }
 
-// EventHandler keeps one unread mail per agent saying what the last rebase of its worktree did.
-type EventHandler struct{}
-
 // NewEventHandler builds the handler the router is given for rebases.
-func NewEventHandler() *EventHandler {
-	return &EventHandler{}
+func NewEventHandler() events.HandlerFor[Rebased] {
+	return handleRebased
 }
 
-// Topic is the topic of Rebased.
-func (*EventHandler) Topic() string {
-	return rebasedTopic
-}
-
-// Handle tells the agent what the latest rebase of its worktree came to.
-func (*EventHandler) Handle(ctx context.Context, tx store.DBTX, mailer *mail.MailService, payload json.RawMessage) ([]river.JobArgs, error) {
-	var rebased Rebased
-	if err := json.Unmarshal(payload, &rebased); err != nil {
-		return nil, fmt.Errorf("failed to read a rebase: %w", err)
-	}
-
+// handleRebased tells the agent what the latest rebase of its worktree came to.
+func handleRebased(ctx context.Context, tx store.DBTX, mailer *mail.MailService, rebased Rebased) ([]river.JobArgs, error) {
 	raw, err := agentstore.NewAgentStore(tx).GetLastRebaseByID(ctx, rebased.AgentID)
 	if errors.Is(err, store.ErrNotFound) || (err == nil && raw == nil) {
 		return nil, nil

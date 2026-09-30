@@ -171,21 +171,6 @@ func (s *DocumentService) WriteDocument(ctx context.Context, params WriteDocumen
 	return written, nil
 }
 
-func buildCreateMail(created documentstore.Document) string {
-	return fmt.Sprintf("komrad: a person wrote a new document for you in the panel, %q (%s). "+
-		"Read it with get_document. A further save before you read this rewrites this mail rather than sending another, and "+
-		"write_document is refused as failed_precondition unless you rewrite from the newest version list_document_versions lists.",
-		created.Name, created.ID)
-}
-
-func buildEditMail(edited documentstore.Document) string {
-	return fmt.Sprintf("komrad: a person edited your document %q (%s) in the panel, writing version %d. "+
-		"A further save before you read this rewrites this mail rather than sending another. "+
-		"list_document_versions lists every write and marks a person's, get_document reads any version, "+
-		"and write_document is refused as failed_precondition unless you rewrite from the newest version.",
-		edited.Name, edited.ID, edited.Version)
-}
-
 // ownerFor is the agent a person's write is to: the owner of the document it rewrites, or the
 // agent it names for a new one.
 func (s *DocumentService) ownerFor(ctx context.Context, params WriteDocumentParams) (string, error) {

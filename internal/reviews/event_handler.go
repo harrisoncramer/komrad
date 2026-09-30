@@ -2,9 +2,7 @@ package reviews
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
-	"fmt"
 
 	"komrad/internal/events"
 	"komrad/internal/jobs/internaljobs"
@@ -50,26 +48,13 @@ func (Answered) Topic() string {
 	return answeredTopic
 }
 
-// ReleasedHandler tells an agent a review of its work was released and records that mail on the review.
-type ReleasedHandler struct{}
-
 // NewReleasedHandler builds the handler the router is given for released reviews.
-func NewReleasedHandler() *ReleasedHandler {
-	return &ReleasedHandler{}
+func NewReleasedHandler() events.HandlerFor[Released] {
+	return handleReleased
 }
 
-// Topic is the topic of Released.
-func (*ReleasedHandler) Topic() string {
-	return releasedTopic
-}
-
-// Handle tells the agent under review and stamps the review with the mail that told it.
-func (*ReleasedHandler) Handle(ctx context.Context, tx store.DBTX, mailer *mail.MailService, payload json.RawMessage) ([]river.JobArgs, error) {
-	var released Released
-	if err := json.Unmarshal(payload, &released); err != nil {
-		return nil, fmt.Errorf("failed to read a released review: %w", err)
-	}
-
+// handleReleased tells the agent under review and stamps the review with the mail that told it.
+func handleReleased(ctx context.Context, tx store.DBTX, mailer *mail.MailService, released Released) ([]river.JobArgs, error) {
 	sent, err := mailer.SendFromKomrad(ctx, mail.SendFromKomradParams{
 		ToAgentID: released.AgentID,
 		Body:      releaseMail(released),
@@ -83,26 +68,13 @@ func (*ReleasedHandler) Handle(ctx context.Context, tx store.DBTX, mailer *mail.
 	return nil, reviewstore.NewReviewStore(tx).SetDoorbell(ctx, released.ReviewID, sent.ID)
 }
 
-// AnsweredHandler keeps one unread mail per author telling its reviewer it answered, and wakes the reviewer.
-type AnsweredHandler struct{}
-
 // NewAnsweredHandler builds the handler the router is given for answers to a review.
-func NewAnsweredHandler() *AnsweredHandler {
-	return &AnsweredHandler{}
+func NewAnsweredHandler() events.HandlerFor[Answered] {
+	return handleAnswered
 }
 
-// Topic is the topic of Answered.
-func (*AnsweredHandler) Topic() string {
-	return answeredTopic
-}
-
-// Handle tells the author's live reviewer and asks for it to be woken.
-func (*AnsweredHandler) Handle(ctx context.Context, tx store.DBTX, mailer *mail.MailService, payload json.RawMessage) ([]river.JobArgs, error) {
-	var answered Answered
-	if err := json.Unmarshal(payload, &answered); err != nil {
-		return nil, fmt.Errorf("failed to read an answer to a review: %w", err)
-	}
-
+// handleAnswered tells the author's live reviewer and asks for it to be woken.
+func handleAnswered(ctx context.Context, tx store.DBTX, mailer *mail.MailService, answered Answered) ([]river.JobArgs, error) {
 	reading, err := reviewstore.NewReviewStore(tx).GetLiveReviewerOf(ctx, answered.AgentID)
 	if errors.Is(err, store.ErrNotFound) {
 		return nil, nil
