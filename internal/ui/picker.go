@@ -14,21 +14,8 @@ import (
 // tabStop is how far apart tmux sets a pane's tab stops.
 const tabStop = 8
 
-// frozenMode is what the window was frozen for.
-type frozenMode int
-
-const (
-	frozenVisual frozenMode = iota
-	frozenPicker
-)
-
-func (f frozenMode) label() string {
-	if f == frozenPicker {
-		return " PANES "
-	}
-
-	return " VISUAL "
-}
+// pickerLabel is the label drawn over the sidebar while the picker holds the window.
+const pickerLabel = " PANES "
 
 // pickLetters are the keys the picker hands out, one per target in reading order.
 var pickLetters = []string{"d", "f", "j", "k", "l", "s", "a"}
@@ -39,9 +26,8 @@ const (
 	pickMarginY = 1
 )
 
-// visualState is the window as it was frozen.
-type visualState struct {
-	mode frozenMode
+// pickerState is the window as the pane picker froze it.
+type pickerState struct {
 	// freezing is whether a snapshot is being taken.
 	freezing bool
 	// frozen is the window drawn as it stood, empty while nothing is frozen.
@@ -51,8 +37,8 @@ type visualState struct {
 	targets  []pickTarget
 }
 
-func (v visualState) isActive() bool {
-	return v.freezing || v.frozen != ""
+func (p pickerState) isActive() bool {
+	return p.freezing || p.frozen != ""
 }
 
 // pickTarget is one place the picker can land the keys, in the window's cells.
@@ -71,20 +57,20 @@ type sidebarBlock struct {
 	rect panes.Rect
 }
 
-// visualFrozenMsg is the snapshot of the window, taken off the update loop.
-type visualFrozenMsg struct {
+// pickerFrozenMsg is the snapshot of the window, taken off the update loop.
+type pickerFrozenMsg struct {
 	frozen   string
 	returnTo string
 	targets  []pickTarget
 }
 
-// routeVisual answers every key while the window is frozen.
-func (m model) routeVisual(key tea.KeyPressMsg) (tea.Model, tea.Cmd, bool) {
-	if !m.visual.isActive() {
+// routePicker answers every key while the picker holds the window.
+func (m model) routePicker(key tea.KeyPressMsg) (tea.Model, tea.Cmd, bool) {
+	if !m.picker.isActive() {
 		return m, nil, false
 	}
 
-	if m.visual.freezing {
+	if m.picker.freezing {
 		return m, nil, true
 	}
 
@@ -93,28 +79,20 @@ func (m model) routeVisual(key tea.KeyPressMsg) (tea.Model, tea.Cmd, bool) {
 		return m.thaw(), nil, true
 	}
 
-	if m.visual.mode != frozenPicker {
-		return m, nil, true
-	}
-
-	at := slices.IndexFunc(m.visual.targets, func(t pickTarget) bool { return t.letter == pressed })
+	at := slices.IndexFunc(m.picker.targets, func(t pickTarget) bool { return t.letter == pressed })
 	if at < 0 {
 		return m, nil, true
 	}
 
-	next, cmd := m.land(m.visual.targets[at])
+	next, cmd := m.land(m.picker.targets[at])
 
 	return next, cmd, true
 }
 
-func (m model) freeze(mode frozenMode) (tea.Model, tea.Cmd) {
-	m.visual = visualState{mode: mode, freezing: true}
+func (m model) freeze() (tea.Model, tea.Cmd) {
+	m.picker = pickerState{freezing: true}
 
-	var blocks []sidebarBlock
-	if mode == frozenPicker {
-		blocks = m.findSidebarBlocks()
-	}
-
+	blocks := m.findSidebarBlocks()
 	sidebar := m.settings.Pane
 	tmux := m.tmux
 	palette := paint.Panel
@@ -129,13 +107,9 @@ func (m model) freeze(mode frozenMode) (tea.Model, tea.Cmd) {
 		}
 
 		window := frozenWindow{shown: shown, screens: screens, sidebar: sidebar, palette: palette}
-		if mode == frozenVisual {
-			return visualFrozenMsg{frozen: window.drawVisual(), returnTo: returnTo}
-		}
-
 		targets := findPickTargets(shown, sidebar, blocks)
 
-		return visualFrozenMsg{frozen: window.drawPicker(targets), returnTo: returnTo, targets: targets}
+		return pickerFrozenMsg{frozen: window.drawPicker(targets), returnTo: returnTo, targets: targets}
 	}
 }
 
@@ -230,26 +204,26 @@ func findPickTargets(shown []panes.Rect, sidebar string, blocks []sidebarBlock) 
 	return targets
 }
 
-func (m model) applyFreeze(msg visualFrozenMsg) model {
-	if !m.visual.freezing {
+func (m model) applyFreeze(msg pickerFrozenMsg) model {
+	if !m.picker.freezing {
 		return m
 	}
 
 	if msg.frozen == "" {
-		m.visual = visualState{}
+		m.picker = pickerState{}
 
 		return m
 	}
 
-	m.visual = visualState{mode: m.visual.mode, frozen: msg.frozen, returnTo: msg.returnTo, targets: msg.targets}
+	m.picker = pickerState{frozen: msg.frozen, returnTo: msg.returnTo, targets: msg.targets}
 	m.frame.Freeze()
 
 	return m
 }
 
 func (m model) thaw() model {
-	returnTo := m.visual.returnTo
-	m.visual = visualState{}
+	returnTo := m.picker.returnTo
+	m.picker = pickerState{}
 
 	m.frame.Thaw()
 
@@ -262,7 +236,7 @@ func (m model) thaw() model {
 
 // land thaws the window and hands the keys to a target.
 func (m model) land(target pickTarget) (tea.Model, tea.Cmd) {
-	m.visual = visualState{}
+	m.picker = pickerState{}
 	m.frame.Thaw()
 
 	if target.pane != "" {
@@ -288,27 +262,6 @@ type frozenWindow struct {
 	palette paint.Palette
 }
 
-// drawVisual lays each pane's screen where the pane sat, with the visual label over the right of
-// the sidebar's first row.
-func (w frozenWindow) drawVisual() string {
-	if len(w.shown) == 0 {
-		return ""
-	}
-
-	left, top, width, height := boundsOf(w.shown)
-
-	layers := make([]*lipgloss.Layer, 0, len(w.shown)+1)
-	for _, rect := range w.shown {
-		layers = append(layers, lipgloss.NewLayer(fitScreen(w.screens[rect.Pane], rect)).X(rect.Left-left).Y(rect.Top-top))
-
-		if rect.Pane == w.sidebar {
-			layers = append(layers, w.labelLayer(rect, left, top, frozenVisual))
-		}
-	}
-
-	return compose(width, height, layers)
-}
-
 // drawPicker lays each pane's screen where the pane sat, with a letter drawn over each
 // target on a patch of blank cells.
 func (w frozenWindow) drawPicker(targets []pickTarget) string {
@@ -325,7 +278,7 @@ func (w frozenWindow) drawPicker(targets []pickTarget) string {
 		layers = append(layers, lipgloss.NewLayer(fitScreen(w.screens[rect.Pane], rect)).X(rect.Left-left).Y(rect.Top-top))
 
 		if rect.Pane == w.sidebar {
-			layers = append(layers, w.labelLayer(rect, left, top, frozenPicker))
+			layers = append(layers, w.labelLayer(rect, left, top))
 		}
 	}
 
@@ -362,8 +315,8 @@ func boundsOf(shown []panes.Rect) (left, top, width, height int) {
 	return left, top, right - left, bottom - top
 }
 
-func (w frozenWindow) labelLayer(rect panes.Rect, left, top int, mode frozenMode) *lipgloss.Layer {
-	label := w.palette.Visual().Render(mode.label())
+func (w frozenWindow) labelLayer(rect panes.Rect, left, top int) *lipgloss.Layer {
+	label := w.palette.Visual().Render(pickerLabel)
 
 	return lipgloss.NewLayer(label).
 		X(rect.Left - left + rect.Width - lipgloss.Width(label) - gutter - 1).

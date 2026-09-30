@@ -95,8 +95,12 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	if frozen, ok := msg.(visualFrozenMsg); ok {
+	if frozen, ok := msg.(pickerFrozenMsg); ok {
 		return m.applyFreeze(frozen), nil
+	}
+
+	if opened, ok := msg.(copyOpenedMsg); ok {
+		return m.applyCopyOpened(opened), nil
 	}
 
 	if isKey {
@@ -104,7 +108,7 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return next, cmd
 		}
 
-		if next, cmd, handled := m.routeVisual(key); handled {
+		if next, cmd, handled := m.routePicker(key); handled {
 			return next, cmd
 		}
 	}

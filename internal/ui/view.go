@@ -31,8 +31,8 @@ func (m model) render() string {
 		return m.drawInset(m.insideView())
 	}
 
-	if m.visual.frozen != "" {
-		return m.fitFrame(m.visual.frozen)
+	if m.picker.frozen != "" {
+		return m.fitFrame(m.picker.frozen)
 	}
 
 	if m.isAwaitingSize() && m.drawn != nil && m.drawn.text != "" {

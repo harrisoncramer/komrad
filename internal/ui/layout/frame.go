@@ -56,7 +56,7 @@ type Frame struct {
 	// empty when the engine is this machine.
 	terminalCommand []string
 
-	// frozen is whether visual mode holds the window, with held the moves it is keeping back until it thaws.
+	// frozen is whether the window is held still, with held the moves it is keeping back until it thaws.
 	frozen bool
 	held   []panes.Move
 
@@ -334,7 +334,7 @@ func (f *Frame) Solo(on bool) {
 	f.move(panes.Zoom(f.sidebar, on))
 }
 
-// Freeze zooms the sidebar over the window for visual mode, holding back every move after it
+// Freeze zooms the sidebar over the window for the pane picker, holding back every move after it
 // until Thaw.
 func (f *Frame) Freeze() {
 	if f.sidebar == "" || f.frozen {
@@ -343,6 +343,16 @@ func (f *Frame) Freeze() {
 
 	f.move(panes.Zoom(f.sidebar, true))
 	f.Flush()
+	f.frozen = true
+}
+
+// Hold holds back every move until Thaw, leaving the window as it stands while a stand-in has the
+// sidebar's place.
+func (f *Frame) Hold() {
+	if f.sidebar == "" {
+		return
+	}
+
 	f.frozen = true
 }
 
@@ -365,7 +375,7 @@ func (f *Frame) Thaw() {
 	f.Flush()
 }
 
-// IsFrozen reports whether visual mode holds the window.
+// IsFrozen reports whether the pane picker or a stand-in holds the window.
 func (f *Frame) IsFrozen() bool {
 	return f.frozen
 }

@@ -361,8 +361,25 @@ func TestFrameVacateLeavesOnlyTheSidebar(t *testing.T) {
 	assert.False(t, frame.IsOpen(RegionInfo))
 }
 
-// TestFrameFreeze covers visual mode holding the window still under a zoomed sidebar.
+// TestFrameFreeze covers the pane picker and a stand-in holding the window still.
 func TestFrameFreeze(t *testing.T) {
+	t.Run("a hold keeps back moves without zooming", func(t *testing.T) {
+		tmux := &recordingTmux{}
+		frame := New(tmux, config.DefaultLayout())
+		frame.Attach("%0")
+		tmux.zooms = nil
+
+		frame.Hold()
+		frame.ShowGuest(Guest{Agent: "agent-9", Pane: "%9"})
+		require.Zero(t, tmux.swaps)
+		require.Empty(t, tmux.zooms)
+
+		frame.Thaw()
+
+		assert.Equal(t, 1, tmux.swaps)
+		assert.Equal(t, []bool{false}, tmux.zooms)
+	})
+
 	t.Run("a move made while frozen is sent only on thaw", func(t *testing.T) {
 		tmux := &recordingTmux{}
 		frame := New(tmux, config.DefaultLayout())

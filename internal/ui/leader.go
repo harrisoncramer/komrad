@@ -32,12 +32,12 @@ func (m model) routeLeader(key tea.KeyPressMsg) (tea.Model, tea.Cmd, bool) {
 	m.leading = false
 
 	switch pressed {
-	case "v":
-		next, cmd := m.toggleFrozen(frozenVisual)
+	case copyKey:
+		next, cmd := m.toggleCopy()
 
 		return next, cmd, true
 	case "j":
-		next, cmd := m.toggleFrozen(frozenPicker)
+		next, cmd := m.togglePicker()
 
 		return next, cmd, true
 	case leaderKey:
@@ -49,16 +49,14 @@ func (m model) routeLeader(key tea.KeyPressMsg) (tea.Model, tea.Cmd, bool) {
 	return m, nil, true
 }
 
-// toggleFrozen freezes the window in a mode, or thaws it when that mode already holds it.
-func (m model) toggleFrozen(mode frozenMode) (tea.Model, tea.Cmd) {
+// togglePicker freezes the window under the pane picker, or thaws it when the picker holds it.
+func (m model) togglePicker() (tea.Model, tea.Cmd) {
 	switch {
-	case m.visual.freezing:
+	case m.picker.freezing, m.copying:
 		return m, nil
-	case m.visual.frozen != "" && m.visual.mode == mode:
+	case m.picker.frozen != "":
 		return m.thaw(), nil
-	case m.visual.frozen != "":
-		return m, nil
 	}
 
-	return m.freeze(mode)
+	return m.freeze()
 }

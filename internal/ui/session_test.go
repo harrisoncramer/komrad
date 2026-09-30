@@ -118,3 +118,9 @@ func newFocusAgent(id, pane string) *agentv1.Agent {
 func (b *bindRecorder) GetWindowID(string) string {
 	return b.window
 }
+
+func (b *bindRecorder) TuneCopyMode(string) {}
+
+func (b *bindRecorder) OpenCopyStandIn(string, string, int, ...string) error {
+	return nil
+}
