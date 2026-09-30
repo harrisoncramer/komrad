@@ -901,9 +901,16 @@ func TestWorktreesScope(t *testing.T) {
 			wantTally: "3 · ",
 		},
 		{
-			name:      "the row wraps back to every directory",
+			name:      "merged keeps the inactive directories the base holds whole",
 			rows:      buildMeasuredWorktrees(),
 			press:     []string{"F", "tab", "tab", "esc"},
+			want:      []string{"cargo-fix"},
+			wantTally: "1 · ",
+		},
+		{
+			name:      "the row wraps back to every directory",
+			rows:      buildMeasuredWorktrees(),
+			press:     []string{"F", "tab", "tab", "tab", "esc"},
 			want:      []string{"cargo-fix", "reviewer", "treeview", "broken", "agent/orphan"},
 			wantTally: "5 · ",
 		},
@@ -1059,9 +1066,11 @@ func measureWorktree(worktree *worktreev1.WatchedWorktree) {
 		worktree.SizeBytes = xptr.Ptr[int64](49 * 1024 * 1024)
 		worktree.ShareBytes = xptr.Ptr[int64](30 * 1024 * 1024)
 		worktree.MeasuredAt = xptr.Ptr(formatStampAgo(time.Hour))
+		worktree.Standing = &worktreev1.WorktreeStanding{ReadAt: formatStampAgo(time.Hour), Unlanded: 2}
 	case "/trees/orphan":
 		worktree.MeasuredAt = xptr.Ptr(formatStampAgo(time.Hour))
 		worktree.SizeError = "permission denied"
+		worktree.Standing = &worktreev1.WorktreeStanding{ReadAt: formatStampAgo(time.Hour), Error: "git cannot read the directory"}
 		worktree.ModifiedAt = formatStampAgo(3 * time.Hour)
 	case "/trees/broken":
 		worktree.ModifiedAt = formatStampAgo(2 * 7 * 24 * time.Hour)
@@ -1069,6 +1078,7 @@ func measureWorktree(worktree *worktreev1.WatchedWorktree) {
 		worktree.SizeBytes = xptr.Ptr[int64](1536 * 1024 * 1024)
 		worktree.ShareBytes = xptr.Ptr[int64](1536 * 1024 * 1024)
 		worktree.MeasuredAt = xptr.Ptr(formatStampAgo(time.Hour))
+		worktree.Standing = &worktreev1.WorktreeStanding{ReadAt: formatStampAgo(time.Hour)}
 	}
 }
 

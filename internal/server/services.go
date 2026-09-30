@@ -349,7 +349,7 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 			Lister:    worktreeLister,
 			Git:       gitClient,
 			Workflows: st.workflows,
-			Sizes:     st.worktrees,
+			Worktrees: st.worktrees,
 		}),
 		remover: worktrees.NewRemover(worktrees.NewRemoverParams{
 			Lister: worktreeLister,

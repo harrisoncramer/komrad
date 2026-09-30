@@ -35,22 +35,30 @@ type worktreeReadWriter interface {
 	List(ctx context.Context) ([]worktreestore.Worktree, error)
 	Upsert(ctx context.Context, worktree worktreestore.Worktree) error
 	RecordSize(ctx context.Context, size worktreestore.Size) error
+	RecordStanding(ctx context.Context, standing worktreestore.Standing) error
 	Delete(ctx context.Context, dirs []string) error
+}
+
+type standingReader interface {
+	ReadStanding(ctx context.Context, worktree Worktree) worktreestore.Standing
 }
 
 type NewMeasurerParams struct {
 	Lister    worktreeLister
 	Claimed   claimedDirLister
 	Worktrees worktreeReadWriter
+	Standings standingReader
 	// Now is the clock, time.Now when unset.
 	Now func() time.Time
 }
 
-// Measurer records the worktree directories and walks a few of them a pass for their size.
+// Measurer records the worktree directories and walks a few of them a pass for their size and
+// where they stand.
 type Measurer struct {
 	lister    worktreeLister
 	claimed   claimedDirLister
 	worktrees worktreeReadWriter
+	standings standingReader
 	now       func() time.Time
 }
 
@@ -65,12 +73,13 @@ func NewMeasurer(params NewMeasurerParams) *Measurer {
 		lister:    params.Lister,
 		claimed:   params.Claimed,
 		worktrees: params.Worktrees,
+		standings: params.Standings,
 		now:       now,
 	}
 }
 
 // Measure records every directory no delete names, forgets the rest, and walks the few most in
-// need of a size, carrying on past one it cannot record.
+// need of a size and reads where they stand, carrying on past one it cannot record.
 func (m *Measurer) Measure(ctx context.Context) error {
 	listing, err := m.lister.List(ctx)
 	if err != nil {
@@ -106,9 +115,10 @@ func (m *Measurer) Measure(ctx context.Context) error {
 		}
 	}
 
+	byDir := xslice.KeyBy(present, func(worktree Worktree) string { return worktree.Dir })
 	dirs := xslice.Map(present, func(worktree Worktree) string { return worktree.Dir })
 	for _, dir := range choose(dirs, sizes, m.now()) {
-		if err := m.measure(ctx, dir); err != nil {
+		if err := m.measure(ctx, byDir[dir]); err != nil {
 			if ctx.Err() != nil {
 				return err
 			}
@@ -120,9 +130,10 @@ func (m *Measurer) Measure(ctx context.Context) error {
 	return errors.Join(failed...)
 }
 
-// measure walks one directory under the deadline and records the size or the failure, or
-// forgets a directory that has gone.
-func (m *Measurer) measure(ctx context.Context, dir string) error {
+// measure walks one directory under the deadline and records the size or the failure and where
+// it stands, or forgets a directory that has gone.
+func (m *Measurer) measure(ctx context.Context, worktree Worktree) error {
+	dir := worktree.Dir
 	walkCtx, cancel := context.WithTimeout(ctx, measureDeadline)
 	measured, err := measure(walkCtx, dir)
 	cancel()
@@ -142,7 +153,19 @@ func (m *Measurer) measure(ctx context.Context, dir string) error {
 		size.Share = measured.share
 	}
 
-	return m.worktrees.RecordSize(ctx, size)
+	if err := m.worktrees.RecordSize(ctx, size); err != nil {
+		return err
+	}
+
+	readCtx, cancel := context.WithTimeout(ctx, measureDeadline)
+	standing := m.standings.ReadStanding(readCtx, worktree)
+	cancel()
+
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
+
+	return m.worktrees.RecordStanding(ctx, standing)
 }
 
 // recordOf is what the filesystem says of a directory, as its row holds it.

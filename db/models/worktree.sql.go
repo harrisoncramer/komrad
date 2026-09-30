@@ -40,7 +40,12 @@ SELECT
     w.size_bytes,
     w.share_bytes,
     w.measured_at,
-    w.size_error
+    w.size_error,
+    w.standing_read_at,
+    w.dirty,
+    w.sequencing,
+    w.unlanded,
+    w.standing_error
 FROM
     worktrees w
 WHERE ($1::text[] IS NULL
@@ -58,15 +63,20 @@ ORDER BY
 `
 
 type ListWatchedWorktreesRow struct {
-	Dir        string
-	RepoDir    string
-	Branch     string
-	Readable   bool
-	Mtime      *time.Time
-	SizeBytes  int64
-	ShareBytes int64
-	MeasuredAt *time.Time
-	SizeError  *string
+	Dir            string
+	RepoDir        string
+	Branch         string
+	Readable       bool
+	Mtime          *time.Time
+	SizeBytes      int64
+	ShareBytes     int64
+	MeasuredAt     *time.Time
+	SizeError      *string
+	StandingReadAt *time.Time
+	Dirty          bool
+	Sequencing     bool
+	Unlanded       int32
+	StandingError  *string
 }
 
 func (q *Queries) ListWatchedWorktrees(ctx context.Context, keys []string) ([]*ListWatchedWorktreesRow, error) {
@@ -88,6 +98,11 @@ func (q *Queries) ListWatchedWorktrees(ctx context.Context, keys []string) ([]*L
 			&i.ShareBytes,
 			&i.MeasuredAt,
 			&i.SizeError,
+			&i.StandingReadAt,
+			&i.Dirty,
+			&i.Sequencing,
+			&i.Unlanded,
+			&i.StandingError,
 		); err != nil {
 			return nil, err
 		}
@@ -109,7 +124,12 @@ SELECT
     size_bytes,
     share_bytes,
     measured_at,
-    size_error
+    size_error,
+    standing_read_at,
+    dirty,
+    sequencing,
+    unlanded,
+    standing_error
 FROM
     worktrees
 ORDER BY
@@ -117,15 +137,20 @@ ORDER BY
 `
 
 type ListWorktreesRow struct {
-	Dir        string
-	RepoDir    string
-	Branch     string
-	Readable   bool
-	Mtime      *time.Time
-	SizeBytes  int64
-	ShareBytes int64
-	MeasuredAt *time.Time
-	SizeError  *string
+	Dir            string
+	RepoDir        string
+	Branch         string
+	Readable       bool
+	Mtime          *time.Time
+	SizeBytes      int64
+	ShareBytes     int64
+	MeasuredAt     *time.Time
+	SizeError      *string
+	StandingReadAt *time.Time
+	Dirty          bool
+	Sequencing     bool
+	Unlanded       int32
+	StandingError  *string
 }
 
 func (q *Queries) ListWorktrees(ctx context.Context) ([]*ListWorktreesRow, error) {
@@ -147,6 +172,11 @@ func (q *Queries) ListWorktrees(ctx context.Context) ([]*ListWorktreesRow, error
 			&i.ShareBytes,
 			&i.MeasuredAt,
 			&i.SizeError,
+			&i.StandingReadAt,
+			&i.Dirty,
+			&i.Sequencing,
+			&i.Unlanded,
+			&i.StandingError,
 		); err != nil {
 			return nil, err
 		}
@@ -184,6 +214,40 @@ func (q *Queries) RecordWorktreeSize(ctx context.Context, arg RecordWorktreeSize
 		arg.ShareBytes,
 		arg.MeasuredAt,
 		arg.SizeError,
+		arg.Dir,
+	)
+	return err
+}
+
+const recordWorktreeStanding = `-- name: RecordWorktreeStanding :exec
+UPDATE
+    worktrees
+SET
+    standing_read_at = $1,
+    dirty = $2,
+    sequencing = $3,
+    unlanded = $4,
+    standing_error = $5
+WHERE
+    dir = $6
+`
+
+type RecordWorktreeStandingParams struct {
+	StandingReadAt *time.Time
+	Dirty          bool
+	Sequencing     bool
+	Unlanded       int32
+	StandingError  *string
+	Dir            string
+}
+
+func (q *Queries) RecordWorktreeStanding(ctx context.Context, arg RecordWorktreeStandingParams) error {
+	_, err := q.db.Exec(ctx, recordWorktreeStanding,
+		arg.StandingReadAt,
+		arg.Dirty,
+		arg.Sequencing,
+		arg.Unlanded,
+		arg.StandingError,
 		arg.Dir,
 	)
 	return err

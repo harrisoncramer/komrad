@@ -283,3 +283,69 @@ func sumEntryBytes(entries []Entry) int64 {
 
 	return total
 }
+
+// TestInspectRecordsWhereTheDirectoryStands covers the reading git gave being written to the
+// worktree store under the time of the call, merged only when nothing is left to land.
+func TestInspectRecordsWhereTheDirectoryStands(t *testing.T) {
+	tests := []struct {
+		name   string
+		setup  func(fixture *worktreeFixture)
+		want   worktreestore.Standing
+		merged bool
+	}{
+		{
+			name:   "a clean branch the base holds whole",
+			setup:  func(fixture *worktreeFixture) { fixture.git.Prediction = git.Prediction{Landed: 3} },
+			merged: true,
+		},
+		{
+			name: "a branch with changes on disk",
+			setup: func(fixture *worktreeFixture) {
+				fixture.git.Changes = git.Changes{Untracked: []string{"scratch.txt"}}
+			},
+			want: worktreestore.Standing{Dirty: true},
+		},
+		{
+			name: "a branch part-way through a rebase",
+			setup: func(fixture *worktreeFixture) {
+				fixture.git.State = git.TreeState{InProgress: true}
+			},
+			want: worktreestore.Standing{Sequencing: true},
+		},
+		{
+			name:  "a branch with commits still to land",
+			setup: func(fixture *worktreeFixture) { fixture.git.Prediction = git.Prediction{Landed: 1, Replay: 2} },
+			want:  worktreestore.Standing{Unlanded: 2},
+		},
+		{
+			name:  "a base the clone does not hold",
+			setup: func(fixture *worktreeFixture) { fixture.git.Unresolved = true },
+			want:  worktreestore.Standing{Error: git.ErrBaseMissing.Error() + ": the clone has no origin/main"},
+		},
+		{
+			name:  "a branch sharing no history with its base",
+			setup: func(fixture *worktreeFixture) { fixture.git.PredictErr = git.ErrBaseUnrelated },
+			want:  worktreestore.Standing{Error: "the branch shares no history with origin/main"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fixture := newFixture(t)
+			dir := fixture.cut(t)
+			main := fixture.stores.SeedWorkflow(t, workflowstore.Config{Name: "main", Worktree: workflowstore.WorktreeConfig{BaseBranch: "main"}})
+			require.NoError(t, fixture.worktrees.Upsert(t.Context(), worktreestore.Worktree{Dir: dir}))
+			fixture.own(t, dir, agentstore.Agent{Name: "standing", WorkflowID: main.ID})
+			tt.setup(fixture)
+
+			_, err := fixture.newInspector().Inspect(t.Context(), InspectParams{Dir: dir})
+			require.NoError(t, err)
+
+			stored := fixture.readStanding(t, dir)
+			assert.True(t, stored.ReadAt.Equal(fixture.now))
+			stored.ReadAt = time.Time{}
+			tt.want.Dir = dir
+			assert.Equal(t, tt.want, stored)
+			assert.Equal(t, tt.merged, stored.IsMerged())
+		})
+	}
+}

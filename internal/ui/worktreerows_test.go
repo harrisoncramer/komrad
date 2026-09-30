@@ -251,7 +251,7 @@ func TestWorktreesSnapshotDrawsFlatRowsAtTheHeadingIndent(t *testing.T) {
 	for _, row := range snapshot.Rows {
 		assert.Equal(t, view.KindResult, row.Kind)
 	}
-	assert.Equal(t, []view.Cell{mutedCell("1.5G"), mutedCell("12h")}, snapshot.Rows[0].Cells)
+	assert.Equal(t, []view.Cell{mutedCell("1.5G"), mutedCell("12h"), mutedCell("merged")}, snapshot.Rows[0].Cells)
 }
 
 // TestWorktreeRowsLeaveTheOccupantOffTheList covers an agent working in another's directory
@@ -480,14 +480,18 @@ func measuredFixture(now time.Time) []worktreeItem {
 		measuredAt: now.Add(-time.Hour),
 	}
 	items[4].lastActiveAt = now.Add(-12 * time.Hour)
+	items[0].standing = &worktreeStanding{dirty: true}
+	items[1].standing = &worktreeStanding{unlanded: 3}
+	items[2].standing = &worktreeStanding{err: "git cannot read the directory"}
+	items[4].standing = &worktreeStanding{}
 
 	return items
 }
 
-// TestWorktreesSnapshotCellsAreSizeThenAge covers every row's cells: the size then the age on a
-// directory, a dash for the size until it is measured or while its walk fails, and the header
-// summing the shares of the measured directories under it over the size column.
-func TestWorktreesSnapshotCellsAreSizeThenAge(t *testing.T) {
+// TestWorktreesSnapshotCellsAreSizeAgeThenStanding covers every row's cells: the size, the age
+// and the standing on a directory, a dash for the size until it is measured or while its walk
+// fails, a dash for the standing until git has answered or while it cannot, and the header summing the shares of the measured directories under it over the size column.
+func TestWorktreesSnapshotCellsAreSizeAgeThenStanding(t *testing.T) {
 	now := time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC)
 	items := measuredFixture(now)
 	snapshot := worktreesSnapshot(worktreesSnapshotParams{
@@ -503,12 +507,12 @@ func TestWorktreesSnapshotCellsAreSizeThenAge(t *testing.T) {
 
 	assert.Equal(t, map[string][]string{
 		"repo:/home/h/gadgets/admin": {"1.5G"},
-		"tree:/trees/admin":          {"1.5G", "12h"},
+		"tree:/trees/admin":          {"1.5G", "12h", "merged"},
 		"repo:/home/h/komrad":        {"60M"},
-		"tree:/trees/live":           {"49M", "30s"},
-		"tree:/trees/archived":       {"49M", "4d"},
-		"tree:/trees/orphan":         {"—", "3h"},
+		"tree:/trees/live":           {"49M", "30s", "dirty"},
+		"tree:/trees/archived":       {"49M", "4d", "↑3"},
+		"tree:/trees/orphan":         {"—", "3h", "—"},
 		"repo:/var/folders/T/repo":   {"—"},
-		"tree:/trees/broken":         {"—", "2w"},
+		"tree:/trees/broken":         {"—", "2w", "—"},
 	}, cells)
 }

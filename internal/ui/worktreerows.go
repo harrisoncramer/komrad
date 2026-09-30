@@ -2,12 +2,14 @@ package ui
 
 import (
 	"cmp"
+	"fmt"
 	"path/filepath"
 	"regexp"
 	"slices"
 	"strings"
 	"time"
 
+	"komrad/internal/glyph"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/ui/panel"
@@ -24,18 +26,21 @@ type worktreeRow struct {
 	item worktreeItem
 }
 
-// worktreeColumns is the gutter of the worktrees list: a directory's size, then its age.
+// worktreeColumns is the gutter of the worktrees list: a directory's size, its age, then where
+// it stands against its base.
 func worktreeColumns() view.Columns {
 	return view.Columns{
 		{Kind: view.ColumnText, Width: sizeColumns},
 		{Kind: view.ColumnText, Width: ageColumns},
+		{Kind: view.ColumnText, Width: standingColumns},
 	}
 }
 
-// sizeColumns and ageColumns are how wide the two figures are drawn.
+// sizeColumns, ageColumns and standingColumns are how wide the three figures are drawn.
 const (
-	sizeColumns = 4
-	ageColumns  = 4
+	sizeColumns     = 4
+	ageColumns      = 4
+	standingColumns = 6
 )
 
 // noRepository heads the directories whose .git file names nothing.
@@ -303,11 +308,12 @@ func worktreeAgentFacts(row view.Row, agent worktreeAgent, live map[string]panel
 	return agentFacts(row, item)
 }
 
-// rowCells are a directory's size then its age.
+// rowCells are a directory's size, its age, then where it stands.
 func rowCells(item worktreeItem, now time.Time) []view.Cell {
 	return []view.Cell{
 		mutedCell(sizeLabel(item)),
 		mutedCell(label.AgeAt(item.lastActiveAt, now)),
+		mutedCell(standingLabel(item)),
 	}
 }
 
@@ -327,6 +333,21 @@ func sizeLabel(item worktreeItem) string {
 	}
 
 	return label.Bytes(item.size.bytes)
+}
+
+// standingLabel is where a directory stands against its base, or a dash while git has not said.
+func standingLabel(item worktreeItem) string {
+	standing := item.standing
+	switch {
+	case standing == nil || standing.err != "":
+		return label.Dash
+	case standing.dirty || standing.sequencing:
+		return "dirty"
+	case standing.unlanded > 0:
+		return fmt.Sprintf("%s%d", glyph.Up, standing.unlanded)
+	}
+
+	return "merged"
 }
 
 // totalLabel is what the measured directories take together.

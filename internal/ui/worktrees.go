@@ -31,6 +31,16 @@ type worktreeSize struct {
 	err string
 }
 
+// worktreeStanding is where a directory stood against its base when git was last asked, or why
+// git could not say.
+type worktreeStanding struct {
+	dirty      bool
+	sequencing bool
+	unlanded   int
+	// err is why the last reading failed, empty when it did not.
+	err string
+}
+
 // worktreeItem is one directory as the listing reported it.
 type worktreeItem struct {
 	dir      string
@@ -41,7 +51,9 @@ type worktreeItem struct {
 	// occupants are the other agents working in the directory.
 	occupants []worktreeAgent
 	// size is the last measurement, nil until the loop has reached the directory.
-	size         *worktreeSize
+	size *worktreeSize
+	// standing is the last reading of git, nil until one has been taken.
+	standing     *worktreeStanding
 	lastActiveAt time.Time
 	fate         worktreeFate
 }
@@ -49,6 +61,13 @@ type worktreeItem struct {
 // isMeasured reports whether the directory carries a size.
 func (i worktreeItem) isMeasured() bool {
 	return i.size != nil && i.size.err == ""
+}
+
+// isMerged reports whether the base holds everything the directory has, leaving nothing on disk.
+func (i worktreeItem) isMerged() bool {
+	standing := i.standing
+
+	return standing != nil && standing.err == "" && !standing.dirty && !standing.sequencing && standing.unlanded == 0
 }
 
 // worktreeItemsFrom draws every directory in the world with the agents that answer for it.
@@ -83,6 +102,14 @@ func worktreeItemFromWatched(worktree *worktreev1.WatchedWorktree, byID map[stri
 			share:      worktree.GetShareBytes(),
 			measuredAt: dates.Parse(worktree.GetMeasuredAt()),
 			err:        worktree.GetSizeError(),
+		}
+	}
+	if standing := worktree.GetStanding(); standing != nil {
+		item.standing = &worktreeStanding{
+			dirty:      standing.GetDirty(),
+			sequencing: standing.GetSequencing(),
+			unlanded:   int(standing.GetUnlanded()),
+			err:        standing.GetError(),
 		}
 	}
 
@@ -222,14 +249,19 @@ type worktreeScope int
 const (
 	scopeAll worktreeScope = iota
 	scopeInactive
+	scopeMerged
 )
 
-var worktreeScopeLabels = []string{"all", "inactive"}
+var worktreeScopeLabels = []string{"all", "inactive", "merged"}
 
 // holds reports whether the scope lists the directory.
 func (s worktreeScope) holds(item worktreeItem) bool {
-	if s == scopeInactive {
+	switch s {
+	case scopeInactive:
 		return item.isInactive()
+	case scopeMerged:
+		return item.isInactive() && item.isMerged()
+	case scopeAll:
 	}
 
 	return true
