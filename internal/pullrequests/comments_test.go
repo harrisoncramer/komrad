@@ -5,7 +5,9 @@ import (
 	"time"
 
 	"komrad/internal/forge"
+	forgestore "komrad/internal/store/forge"
 	pullrequeststore "komrad/internal/store/pullrequest"
+	"komrad/lib/xslice"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -134,4 +136,47 @@ func TestCommentSyncThrottlesTheConnection(t *testing.T) {
 
 	f.commentPass(t, syncNow.Add(30*time.Second))
 	assert.Empty(t, f.forge.requests, "nothing is asked while the connection waits")
+}
+
+// TestCommentSyncReadsInTurns covers a pass reading only a few pull requests, picking up where the
+// last pass stopped.
+func TestCommentSyncReadsInTurns(t *testing.T) {
+	var targets []pullrequeststore.CommentSyncTarget
+	for number := 1; number <= 7; number++ {
+		targets = append(targets, pullrequeststore.CommentSyncTarget{Number: number})
+	}
+	numbers := func(turn []pullrequeststore.CommentSyncTarget) []int {
+		return xslice.Map(turn, func(target pullrequeststore.CommentSyncTarget) int { return target.Number })
+	}
+
+	syncer := NewCommentSyncer(NewCommentSyncerParams{})
+	assert.Equal(t, []int{1, 2, 3, 4, 5}, numbers(syncer.takeTurn(targets)))
+	assert.Equal(t, []int{6, 7, 1, 2, 3}, numbers(syncer.takeTurn(targets)))
+	assert.Equal(t, []int{4, 5, 6, 7, 1}, numbers(syncer.takeTurn(targets)))
+	assert.Equal(t, []int{1, 2}, numbers(syncer.takeTurn(targets[:2])))
+	assert.Equal(t, []int{1, 2, 3, 4, 5}, numbers(syncer.takeTurn(targets)))
+}
+
+// TestCommentSyncViewer covers whose comments count as the person's own on each kind of connection.
+func TestCommentSyncViewer(t *testing.T) {
+	tests := []struct {
+		name       string
+		connection forgestore.Connection
+		want       string
+	}{
+		{
+			name:       "a token reads as the login it was verified as",
+			connection: forgestore.Connection{Method: forge.MethodToken, Login: "harrisoncramer"},
+			want:       "harrisoncramer",
+		},
+		{
+			name:       "an App reads as nobody, since its login is the App's",
+			connection: forgestore.Connection{Method: forge.MethodGitHubApp, Login: "komrad-app"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, viewerOf(tt.connection))
+		})
+	}
 }

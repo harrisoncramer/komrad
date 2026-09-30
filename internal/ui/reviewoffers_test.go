@@ -87,6 +87,49 @@ func TestReviewOffers(t *testing.T) {
 		assert.Contains(t, strings.Join(readSidebar(harness.readFrame()), "\n"), "and this")
 	})
 
+	t.Run("an offer's body reaches the terminal without its escape sequences", func(t *testing.T) {
+		server := newOfferedReviewServer(t, newOffer("f1", "dana", "\x1b]8;;https://evil.example\x07click\x1b]8;;\x07 \x1b[5mhere\x1b[0m\x07", 4))
+		harness := openReviewAt(t, server, panelHarnessParams{height: 40})
+
+		harness.press("J")
+
+		raw := harness.readRawFrame()
+		assert.NotContains(t, raw, "evil.example")
+		assert.NotContains(t, raw, "\x1b[5m")
+		assert.NotContains(t, raw, "\x07")
+		assert.Contains(t, strings.Join(readSidebar(harness.readFrame()), "\n"), "click here")
+	})
+
+	t.Run("a short sidebar keeps the legend and the chosen offer's read-out", func(t *testing.T) {
+		server := newOfferedReviewServer(t,
+			newOffer("f1", "dana", "rename this", 4),
+			newOffer("f2", "lee", "and this", 1),
+			newOffer("f3", "kim", "whole file", 0),
+		)
+		harness := openReviewAt(t, server, panelHarnessParams{height: 24})
+
+		harness.press("J")
+		harness.press("J")
+
+		frame := harness.readFrame()
+		sidebar := strings.Join(readSidebar(frame), "\n")
+		assert.Contains(t, sidebar, "and this")
+		assert.Contains(t, sidebar, "@dana")
+		assert.Contains(t, readLegend(frame), "comment on this line")
+	})
+
+	t.Run("J takes an offer on a file with no line to the file", func(t *testing.T) {
+		server := newOfferedReviewServer(t, newOffer("f1", "kim", "whole file", 0))
+		harness := openReviewAt(t, server, panelHarnessParams{height: 40})
+
+		harness.press("J")
+
+		sidebar := strings.Join(readSidebar(harness.readFrame()), "\n")
+		assert.Contains(t, sidebar, "whole file")
+		assert.NotContains(t, sidebar, "not in this diff")
+		assert.Empty(t, readReviewCursor(harness.readFrame()), "the cursor rests on the file's header rather than a line")
+	})
+
 	t.Run("a review with no offers leaves J to the comment under the cursor", func(t *testing.T) {
 		harness := openReviewAt(t, newReviewServer(t), panelHarnessParams{height: 40})
 

@@ -10,6 +10,7 @@ import (
 	"komrad/internal/glyph"
 	"komrad/internal/ui/diffview"
 	"komrad/internal/ui/paint"
+	"komrad/lib/xslice"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 
 	tea "charm.land/bubbletea/v2"
@@ -21,6 +22,9 @@ const reviewOfferTone = paint.ToneWarning
 
 // offerBodyRows is how many rows the chosen offer's comment gets.
 const offerBodyRows = 4
+
+// offerRows is the most rows the forge's comments take, the chosen one's read-out included.
+const offerRows = 9
 
 // listOffers is the forge's threads on the agent's open pull request, the ones on a line first in
 // the order a reader meets them, then the ones on the change as a whole.
@@ -65,7 +69,8 @@ func (r *reviewScreen) stepOffer(s panelShared) tea.Cmd {
 	}
 	r.offer = placed[next].GetId()
 
-	row, ok := r.diff.View().Locate(diffview.Place{FilePath: placed[next].GetPath(), NewLine: int(placed[next].GetLine())})
+	place := diffview.Place{FilePath: placed[next].GetPath(), NewLine: int(placed[next].GetLine()), Header: placed[next].GetLine() == 0}
+	row, ok := r.diff.View().Locate(place)
 	if !ok {
 		r.notice = fmt.Sprintf("%s is not in this diff", describeOfferPlace(placed[next]))
 
@@ -96,9 +101,23 @@ func (r reviewScreen) offersView(s panelShared, room int) string {
 	out := paint.Panel.Style(reviewOfferTone).Bold(true).Render("From the forge") +
 		dimStyle.Render(fmt.Sprintf("  %d open, %d resolved", open, len(offers)-open)) + "\n"
 
-	shown := min(room, len(offers))
-	for _, offer := range offers[:shown] {
-		out += r.offerRow(s, offer)
+	rows := make([][]string, len(offers))
+	chosenAt := -1
+	for i, offer := range offers {
+		rows[i] = r.offerRow(s, offer, room-1)
+		if offer.GetId() == r.offer {
+			chosenAt = i
+		}
+	}
+
+	start := 0
+	shown := fitOfferRows(rows, room)
+	if chosenAt >= shown {
+		start = chosenAt
+		shown = fitOfferRows(rows[start:], room)
+	}
+	for _, row := range rows[start : start+shown] {
+		out += strings.Join(row, "\n") + "\n"
 	}
 
 	if left := len(offers) - shown; left > 0 {
@@ -108,9 +127,27 @@ func (r reviewScreen) offersView(s panelShared, room int) string {
 	return out
 }
 
-// offerRow is one forge thread, who started it and where, with its comment under it when it is
-// the one chosen.
-func (r reviewScreen) offerRow(s panelShared, offer *pullrequestv1.ForgeThread) string {
+// fitOfferRows is how many offers from the first fit in room, keeping a row for the count of the
+// rest when they do not all fit.
+func fitOfferRows(rows [][]string, room int) int {
+	used := 0
+	for i, row := range rows {
+		need := len(row)
+		if i < len(rows)-1 {
+			need++
+		}
+		if used+need > room {
+			return i
+		}
+		used += len(row)
+	}
+
+	return len(rows)
+}
+
+// offerRow is one forge thread, who started it and where, with at most extra rows of its comment
+// under it when it is the one chosen.
+func (r reviewScreen) offerRow(s panelShared, offer *pullrequestv1.ForgeThread, extra int) []string {
 	style := dimStyle
 	chosen := offer.GetId() == r.offer
 	if chosen {
@@ -124,34 +161,28 @@ func (r reviewScreen) offerRow(s panelShared, offer *pullrequestv1.ForgeThread) 
 		where += " (resolved)"
 	}
 
-	out := paint.Panel.Style(reviewOfferTone).Render(" "+glyph.Right+" ") +
-		style.Render(author) + dimStyle.Render("  "+where) + "\n"
-	if !chosen {
-		return out
-	}
-
+	head := paint.Panel.Style(reviewOfferTone).Render(" "+glyph.Right+" ") +
+		style.Render(author) + dimStyle.Render("  "+where)
 	comments := offer.GetComments()
-	if len(comments) == 0 {
-		return out
+	if !chosen || len(comments) == 0 || extra <= 0 {
+		return []string{head}
 	}
 
-	body := paint.WrapRows(strings.TrimSpace(comments[0].GetBody()), max(lineWidthOf(s.pane)-4, 1))
+	body := paint.WrapRows(strings.TrimSpace(plainOfferText(comments[0].GetBody())), max(lineWidthOf(s.pane)-4, 1))
 	if len(body) > offerBodyRows {
 		body = append(body[:offerBodyRows-1], "…")
 	}
-	for _, row := range body {
-		out += "    " + row + "\n"
-	}
+	under := xslice.Map(body, func(row string) string { return "    " + row })
 	if replies := len(comments) - 1; replies > 0 {
-		out += dimStyle.Render(fmt.Sprintf("    + %d repl%s", replies, pluralSuffix(replies, "y", "ies"))) + "\n"
+		under = append(under, dimStyle.Render(fmt.Sprintf("    + %d repl%s", replies, pluralSuffix(replies, "y", "ies"))))
 	}
-	for _, row := range strings.Split(ansi.Hardwrap(offer.GetUrl(), max(lineWidthOf(s.pane)-4, 1), false), "\n") {
+	for _, row := range strings.Split(ansi.Hardwrap(plainOfferText(offer.GetUrl()), max(lineWidthOf(s.pane)-4, 1), false), "\n") {
 		if row != "" {
-			out += dimStyle.Render("    "+row) + "\n"
+			under = append(under, dimStyle.Render("    "+row))
 		}
 	}
 
-	return out
+	return append([]string{head}, under[:min(len(under), extra)]...)
 }
 
 func describeOfferAuthor(offer *pullrequestv1.ForgeThread) string {
@@ -190,4 +221,27 @@ func pluralSuffix(n int, one, many string) string {
 	}
 
 	return many
+}
+
+// plainOfferText is text a stranger wrote with its escape sequences and control characters taken
+// out, so it can never restyle the panel or reach the terminal.
+func plainOfferText(text string) string {
+	return strings.Map(func(r rune) rune {
+		switch {
+		case r == '\n':
+			return r
+		case r == '\t':
+			return ' '
+		case r < ' ', r == 0x7f, r >= 0x80 && r <= 0x9f:
+			return -1
+		default:
+			return r
+		}
+	}, ansi.Strip(text))
+}
+
+// countOffersRoom counts the rows the forge's comments get once the sidebar's chrome and the
+// reader's own comments have taken theirs.
+func countOffersRoom(spare, taken int) int {
+	return min(max(spare-2-yoursThreadRows-taken, 0), offerRows)
 }

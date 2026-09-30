@@ -833,7 +833,7 @@ type ForgeComment struct {
 	AuthorLogin string `protobuf:"bytes,2,opt,name=author_login,json=authorLogin,proto3" json:"author_login,omitempty"`
 	// Whether the forge says the author is a bot.
 	Bot bool `protobuf:"varint,3,opt,name=bot,proto3" json:"bot,omitempty"`
-	// Whether the author is the login the forge connection was verified as.
+	// Whether the author is the login a token connection was verified as. A connection made from an App marks nothing yours.
 	Yours bool `protobuf:"varint,4,opt,name=yours,proto3" json:"yours,omitempty"`
 	// What the comment says.
 	Body string `protobuf:"bytes,5,opt,name=body,proto3" json:"body,omitempty"`

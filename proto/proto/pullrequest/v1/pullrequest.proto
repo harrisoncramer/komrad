@@ -211,7 +211,7 @@ message ForgeComment {
   string author_login = 2;
   // Whether the forge says the author is a bot.
   bool bot = 3;
-  // Whether the author is the login the forge connection was verified as.
+  // Whether the author is the login a token connection was verified as. A connection made from an App marks nothing yours.
   bool yours = 4;
   // What the comment says.
   string body = 5;

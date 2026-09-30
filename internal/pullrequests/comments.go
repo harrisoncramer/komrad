@@ -4,16 +4,22 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"slices"
 	"time"
 
 	"komrad/internal/forge"
 	"komrad/internal/git"
 	"komrad/internal/logging"
 	"komrad/internal/store"
+	forgestore "komrad/internal/store/forge"
 	pullrequeststore "komrad/internal/store/pullrequest"
 )
 
 const saidTruncated = "truncated"
+
+// commentReadsPerPass is the most pull requests one pass reads, so the comments never spend the
+// rate limit the pull request sync shares with them.
+const commentReadsPerPass = 5
 
 type transactor interface {
 	InTx(ctx context.Context, fn func(store.DBTX) error) error
@@ -35,6 +41,7 @@ type CommentSyncer struct {
 	now      func() time.Time
 	refusals map[string]int
 	said     onceLog
+	next     int
 }
 
 // NewCommentSyncer builds a comment syncer over the forge service and the store.
@@ -62,12 +69,13 @@ type commentHost struct {
 	throttled    bool
 }
 
-// Sync rereads the review threads of every open pull request a live agent is linked to.
+// Sync rereads the review threads of the next few open pull requests live agents are linked to.
 func (s *CommentSyncer) Sync(ctx context.Context) error {
 	targets, err := s.threads.ListCommentSyncTargets(ctx)
 	if err != nil {
 		return err
 	}
+	targets = s.takeTurn(targets)
 
 	hosts := map[string]*commentHost{}
 	read := 0
@@ -109,6 +117,22 @@ func (s *CommentSyncer) Sync(ctx context.Context) error {
 	return nil
 }
 
+// takeTurn is the next few targets after the ones the last pass read, wrapping round, so every
+// pull request is read in turn however many there are.
+func (s *CommentSyncer) takeTurn(targets []pullrequeststore.CommentSyncTarget) []pullrequeststore.CommentSyncTarget {
+	if len(targets) <= commentReadsPerPass {
+		s.next = 0
+
+		return targets
+	}
+
+	start := s.next % len(targets)
+	turn := slices.Concat(targets[start:], targets[:start])[:commentReadsPerPass]
+	s.next = start + commentReadsPerPass
+
+	return turn
+}
+
 func (s *CommentSyncer) openHost(ctx context.Context, hostname string) *commentHost {
 	connection, err := s.forges.ConnectionFor(ctx, hostname)
 	if errors.Is(err, store.ErrNotFound) {
@@ -132,7 +156,17 @@ func (s *CommentSyncer) openHost(ctx context.Context, hostname string) *commentH
 		return nil
 	}
 
-	return &commentHost{host: hostname, connectionID: connection.ID, login: connection.Login, forge: f}
+	return &commentHost{host: hostname, connectionID: connection.ID, login: viewerOf(*connection), forge: f}
+}
+
+// viewerOf is the person a connection reads as, or empty for one made from an App, whose login is
+// the App rather than anybody who comments.
+func viewerOf(connection forgestore.Connection) string {
+	if connection.Method == forge.MethodGitHubApp {
+		return ""
+	}
+
+	return connection.Login
 }
 
 func (s *CommentSyncer) readThreads(ctx context.Context, host *commentHost, remote git.RemoteURL, target pullrequeststore.CommentSyncTarget) error {

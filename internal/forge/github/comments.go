@@ -18,7 +18,7 @@ const reviewThreadsQuery = `query ReviewThreads($owner: String!, $name: String!,
       reviewThreads(first: 100) {
         pageInfo { hasNextPage }
         nodes {
-          id isResolved path line originalLine
+          id isResolved path line diffSide
           comments(first: 100) {
             pageInfo { hasNextPage }
             nodes { id url body createdAt lastEditedAt state author { __typename login } }
@@ -98,12 +98,12 @@ type commentsNode struct {
 }
 
 type reviewThreadNode struct {
-	ID           string       `json:"id"`
-	IsResolved   bool         `json:"isResolved"`
-	Path         string       `json:"path"`
-	Line         *int         `json:"line"`
-	OriginalLine *int         `json:"originalLine"`
-	Comments     commentsNode `json:"comments"`
+	ID         string       `json:"id"`
+	IsResolved bool         `json:"isResolved"`
+	Path       string       `json:"path"`
+	Line       *int         `json:"line"`
+	DiffSide   string       `json:"diffSide"`
+	Comments   commentsNode `json:"comments"`
 }
 
 type reviewThreadsNode struct {
@@ -134,8 +134,8 @@ func (n reviewThreadsNode) threads() *forge.Threads {
 		}
 
 		line := xptr.Deref(node.Line)
-		if line == 0 {
-			line = xptr.Deref(node.OriginalLine)
+		if node.DiffSide == "LEFT" {
+			line = 0
 		}
 		answer.Threads = append(answer.Threads, forge.ReviewThread{
 			ProviderID: node.ID,

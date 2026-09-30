@@ -12,15 +12,18 @@ import (
 
 const reviewThreadsAnswer = `{"repository":{"pullRequest":{
   "reviewThreads":{"pageInfo":{"hasNextPage":false},"nodes":[
-    {"id":"T_1","isResolved":false,"path":"main.go","line":3,"originalLine":2,"comments":{"pageInfo":{"hasNextPage":false},"nodes":[
+    {"id":"T_1","isResolved":false,"path":"main.go","line":3,"diffSide":"RIGHT","comments":{"pageInfo":{"hasNextPage":false},"nodes":[
       {"id":"C_1","url":"https://github.com/harrisoncramer/komrad/pull/1#discussion_r1","body":"rename this","createdAt":"2026-09-20T10:00:00Z","lastEditedAt":null,"state":"SUBMITTED","author":{"__typename":"User","login":"dana"}},
       {"id":"C_2","url":"https://github.com/harrisoncramer/komrad/pull/1#discussion_r2","body":"draft reply","createdAt":"2026-09-20T11:00:00Z","lastEditedAt":null,"state":"PENDING","author":{"__typename":"User","login":"harrisoncramer"}}
     ]}},
-    {"id":"T_2","isResolved":true,"path":"main.go","line":null,"originalLine":9,"comments":{"pageInfo":{"hasNextPage":false},"nodes":[
+    {"id":"T_2","isResolved":true,"path":"main.go","line":null,"diffSide":"RIGHT","comments":{"pageInfo":{"hasNextPage":false},"nodes":[
       {"id":"C_3","url":"https://github.com/harrisoncramer/komrad/pull/1#discussion_r3","body":"lint","createdAt":"2026-09-20T10:30:00Z","lastEditedAt":"2026-09-20T10:40:00Z","state":"SUBMITTED","author":{"__typename":"Bot","login":"coderabbitai"}}
     ]}},
-    {"id":"T_3","isResolved":false,"path":"main.go","line":5,"originalLine":5,"comments":{"pageInfo":{"hasNextPage":false},"nodes":[
+    {"id":"T_3","isResolved":false,"path":"main.go","line":5,"diffSide":"RIGHT","comments":{"pageInfo":{"hasNextPage":false},"nodes":[
       {"id":"C_4","url":"https://github.com/harrisoncramer/komrad/pull/1#discussion_r4","body":"unsent","createdAt":"2026-09-20T10:30:00Z","lastEditedAt":null,"state":"PENDING","author":{"__typename":"User","login":"harrisoncramer"}}
+    ]}},
+    {"id":"T_4","isResolved":false,"path":"main.go","line":7,"diffSide":"LEFT","comments":{"pageInfo":{"hasNextPage":false},"nodes":[
+      {"id":"C_5","url":"https://github.com/harrisoncramer/komrad/pull/1#discussion_r5","body":"why drop this","createdAt":"2026-09-20T10:50:00Z","lastEditedAt":null,"state":"SUBMITTED","author":{"__typename":"User","login":"dana"}}
     ]}}
   ]},
   "comments":{"pageInfo":{"hasPreviousPage":false},"nodes":[
@@ -55,11 +58,18 @@ func TestReviewThreads(t *testing.T) {
 		{
 			ProviderID: "T_2",
 			Path:       "main.go",
-			Line:       9,
 			URL:        "https://github.com/harrisoncramer/komrad/pull/1#discussion_r3",
 			Resolved:   true,
 			Comments: []forge.ReviewComment{
 				{ProviderID: "C_3", Login: "coderabbitai", Bot: true, Body: "lint", WrittenAt: time.Date(2026, 9, 20, 10, 30, 0, 0, time.UTC), EditedAt: &edited},
+			},
+		},
+		{
+			ProviderID: "T_4",
+			Path:       "main.go",
+			URL:        "https://github.com/harrisoncramer/komrad/pull/1#discussion_r5",
+			Comments: []forge.ReviewComment{
+				{ProviderID: "C_5", Login: "dana", Body: "why drop this", WrittenAt: time.Date(2026, 9, 20, 10, 50, 0, 0, time.UTC)},
 			},
 		},
 		{
