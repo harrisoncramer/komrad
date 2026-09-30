@@ -61,11 +61,10 @@ type dialFunc func(ctx context.Context, size *terminalv1.Size) (terminalConn, er
 
 // streamConn is a terminal stream spoken in one service's messages.
 type streamConn[Req, Res any] struct {
-	stream *connect.BidiStreamForClient[Req, Res]
-	input  func(input []byte) *Req
-	resize func(size *terminalv1.Size) *Req
-	read   func(response *Res) received
-
+	stream  *connect.BidiStreamForClient[Req, Res]
+	input   func(input []byte) *Req
+	resize  func(size *terminalv1.Size) *Req
+	read    func(response *Res) received
 	sending sync.Mutex
 }
 
@@ -296,7 +295,12 @@ func runTerminal(ctx context.Context, params runTerminalParams) (int, error) {
 
 	var unsent []byte
 	for {
-		code, err := carry(ctx, carryParams{Conn: conn, Inputs: inputs, Unsent: &unsent, Terminal: params})
+		code, err := carry(ctx, carryParams{
+			Conn:     conn,
+			Inputs:   inputs,
+			Unsent:   &unsent,
+			Terminal: params,
+		})
 		if err == nil {
 			return code, nil
 		}

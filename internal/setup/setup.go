@@ -68,7 +68,11 @@ func findingNamed(report doctor.Report, name string) doctor.Finding {
 }
 
 func stopOn(finding *doctor.Finding) Observation {
-	return Observation{Verdict: VerdictStop, Detail: finding.Error, Finding: finding}
+	return Observation{
+		Verdict: VerdictStop,
+		Detail:  finding.Error,
+		Finding: finding,
+	}
 }
 
 func shortenHome(path string) string {

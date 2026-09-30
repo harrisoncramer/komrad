@@ -40,7 +40,11 @@ func (r failingRouter) Route(ctx context.Context, tx store.DBTX, _ events.Event)
 // TestEventWorkerRollsBackAFailedHandler pins a handler that fails part way leaving no mail behind and its job to be retried.
 func TestEventWorkerRollsBackAFailedHandler(t *testing.T) {
 	stores := storetest.Open(t)
-	agent := stores.SeedAgent(t, agentstore.Agent{ID: uuid.NewString(), Name: "a", Cwd: "/repo"})
+	agent := stores.SeedAgent(t, agentstore.Agent{
+		ID:   uuid.NewString(),
+		Name: "a",
+		Cwd:  "/repo",
+	})
 	worker := NewEventWorker(stores.Pool.GetRawPool(), failingRouter{recipient: agent.ID})
 
 	err := worker.Work(t.Context(), &river.Job[events.Event]{

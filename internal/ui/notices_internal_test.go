@@ -58,7 +58,11 @@ func TestAgentNotices(t *testing.T) {
 		{
 			name: "a turn an API error ended, on an agent somebody paused",
 			row: buildNoticeRow(panel.AgentRow{
-				Agent: panel.Agent{State: panel.StateErrored, TurnError: "Overloaded", HeldAt: xptr.Ptr(time.Now())},
+				Agent: panel.Agent{
+					State:     panel.StateErrored,
+					TurnError: "Overloaded",
+					HeldAt:    xptr.Ptr(time.Now()),
+				},
 				Alive: true,
 			}),
 			want: []string{heldNotice},
@@ -292,7 +296,11 @@ func TestAgentNoticesSpeakForEveryColumnState(t *testing.T) {
 		}
 
 		want := 0
-		if !view.ForgeCell(view.Row{Kind: view.KindAgent, Forge: forge, LoaderFrame: "⠋"}).IsBlank() {
+		if !view.ForgeCell(view.Row{
+			Kind:        view.KindAgent,
+			Forge:       forge,
+			LoaderFrame: "⠋",
+		}).IsBlank() {
 			want = 1
 		}
 

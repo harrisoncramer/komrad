@@ -44,8 +44,12 @@ func TestReviewThreadsWorksOutDelivery(t *testing.T) {
 			sentAt:   "2026-09-02T10:00:00Z",
 		},
 		{
-			name:        "a comment whose notice the agent claimed",
-			review:      &agentv1.WatchedReview{Id: "r1", ReleasedAt: "2026-09-02T10:00:00Z", DeliveredAt: "2026-09-02T10:05:00Z"},
+			name: "a comment whose notice the agent claimed",
+			review: &agentv1.WatchedReview{
+				Id:          "r1",
+				ReleasedAt:  "2026-09-02T10:00:00Z",
+				DeliveredAt: "2026-09-02T10:05:00Z",
+			},
 			reviewID:    xptr.Ptr("r1"),
 			wants:       agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_DELIVERED,
 			sentAt:      "2026-09-02T10:00:00Z",

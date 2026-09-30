@@ -67,7 +67,11 @@ func (m *model) previewConversationCmd() tea.Cmd {
 	return func() tea.Msg {
 		turns, err := clients.getLastTurns(agentID)
 
-		return conversationPreviewMsg{agentID: agentID, turns: turns, err: err}
+		return conversationPreviewMsg{
+			agentID: agentID,
+			turns:   turns,
+			err:     err,
+		}
 	}
 }
 

@@ -74,7 +74,11 @@ func (d *documentsScreen) readBlock(s panelShared, width int) []string {
 		}
 	}
 
-	window := docWindow{rows: drawn, top: r.Top, markers: true}
+	window := docWindow{
+		rows:    drawn,
+		top:     r.Top,
+		markers: true,
+	}
 
 	return append(d.readHead(s, rows, width), strings.Split(window.view(height), "\n")...)
 }

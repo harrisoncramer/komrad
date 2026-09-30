@@ -305,7 +305,11 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 			CwdSync:        wakers.cwdSync,
 			TranscriptSync: wakers.transcriptSync,
 		}),
-		documents:       documents.NewDocumentService(documents.NewDocumentServiceParams{Agents: st.agents, Documents: st.documents, Events: queue}),
+		documents: documents.NewDocumentService(documents.NewDocumentServiceParams{
+			Agents:    st.agents,
+			Documents: st.documents,
+			Events:    queue,
+		}),
 		rebase:          rebaseService,
 		cwdSync:         cwdSyncer,
 		transcriptSync:  transcriptSyncer,

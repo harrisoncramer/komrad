@@ -118,7 +118,11 @@ func (l *logsScreen) listCmd(s panelShared) tea.Cmd {
 	return func() tea.Msg {
 		sources, err := clients.listAgentLogSources(agentID)
 
-		return logsSourcesMsg{generation: generation, sources: sources, err: err}
+		return logsSourcesMsg{
+			generation: generation,
+			sources:    sources,
+			err:        err,
+		}
 	}
 }
 
@@ -139,7 +143,11 @@ func (l *logsScreen) readCmd(s panelShared) tea.Cmd {
 	return func() tea.Msg {
 		resp, err := clients.readAgentLogs(req)
 
-		return logsReadMsg{generation: generation, resp: resp, err: err}
+		return logsReadMsg{
+			generation: generation,
+			resp:       resp,
+			err:        err,
+		}
 	}
 }
 

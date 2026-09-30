@@ -62,7 +62,11 @@ func Moved(field Field, from, to *string) *Move {
 		return nil
 	}
 
-	return &Move{Field: field, From: *from, To: *to}
+	return &Move{
+		Field: field,
+		From:  *from,
+		To:    *to,
+	}
 }
 
 // NewChange is the change for the fields of a pull request that moved, nil when none did.

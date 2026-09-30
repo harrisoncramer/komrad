@@ -351,7 +351,11 @@ func (m *model) listDocumentsCmd(written documentsWritten) tea.Cmd {
 	return func() tea.Msg {
 		documents, err := clients.listDocuments(agentID)
 		if err != nil {
-			return documentsListedMsg{agentID: agentID, written: written, err: err}
+			return documentsListedMsg{
+				agentID: agentID,
+				written: written,
+				err:     err,
+			}
 		}
 
 		return documentsListedMsg{
@@ -415,7 +419,11 @@ func (m *model) readHoveredDocumentCmd() tea.Cmd {
 	return func() tea.Msg {
 		document, err := clients.getDocument(item.id)
 		if err != nil {
-			return documentReadMsg{agentID: agentID, id: item.id, read: documentBody{updatedAt: item.updatedAt, err: err}}
+			return documentReadMsg{
+				agentID: agentID,
+				id:      item.id,
+				read:    documentBody{updatedAt: item.updatedAt, err: err},
+			}
 		}
 
 		return documentReadMsg{agentID: agentID, id: item.id, read: documentBody{

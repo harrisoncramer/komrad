@@ -53,7 +53,13 @@ func (d *documentsScreen) pressEdit(h host, s panelShared) tea.Cmd {
 	}
 
 	d.history = nil
-	d.editing = &documentEdit{item: item, version: read.version, path: path, pane: pane, body: read.body}
+	d.editing = &documentEdit{
+		item:    item,
+		version: read.version,
+		path:    path,
+		pane:    pane,
+		body:    read.body,
+	}
 
 	return nil
 }

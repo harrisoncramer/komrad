@@ -61,7 +61,13 @@ func (f *fakeLogReader) Newest(ctx context.Context, run logread.Run, query logre
 
 // Since records the read of the run and answers window.
 func (f *fakeLogReader) Since(_ context.Context, run logread.Run, offset int64, query logread.Query) (*logread.Window, error) {
-	f.reads = append(f.reads, agentRead{ids: []string{run.AgentID}, source: run.Name, pattern: patternOf(query.Pattern), offset: offset, limit: query.Limit})
+	f.reads = append(f.reads, agentRead{
+		ids:     []string{run.AgentID},
+		source:  run.Name,
+		pattern: patternOf(query.Pattern),
+		offset:  offset,
+		limit:   query.Limit,
+	})
 
 	if f.err != nil {
 		return nil, f.err
@@ -72,7 +78,12 @@ func (f *fakeLogReader) Since(_ context.Context, run logread.Run, offset int64, 
 
 // NewestAboutAgents records the read and answers window.
 func (f *fakeLogReader) NewestAboutAgents(_ context.Context, agentIDs []string, query logread.Query) (*logread.Window, error) {
-	f.reads = append(f.reads, agentRead{ids: agentIDs, pattern: patternOf(query.Pattern), offset: -1, limit: query.Limit})
+	f.reads = append(f.reads, agentRead{
+		ids:     agentIDs,
+		pattern: patternOf(query.Pattern),
+		offset:  -1,
+		limit:   query.Limit,
+	})
 
 	if f.err != nil {
 		return nil, f.err
@@ -83,7 +94,12 @@ func (f *fakeLogReader) NewestAboutAgents(_ context.Context, agentIDs []string, 
 
 // AboutAgentsSince records the read and answers window.
 func (f *fakeLogReader) AboutAgentsSince(_ context.Context, agentIDs []string, offset int64, query logread.Query) (*logread.Window, error) {
-	f.reads = append(f.reads, agentRead{ids: agentIDs, pattern: patternOf(query.Pattern), offset: offset, limit: query.Limit})
+	f.reads = append(f.reads, agentRead{
+		ids:     agentIDs,
+		pattern: patternOf(query.Pattern),
+		offset:  offset,
+		limit:   query.Limit,
+	})
 
 	if f.err != nil {
 		return nil, f.err
@@ -232,25 +248,57 @@ func TestReadAgentLogs(t *testing.T) {
 			wantCode: connect.CodeInvalidArgument,
 		},
 		{
-			name:     "no cursor reads the newest, two hundred by default",
-			req:      &logv1.ReadAgentLogsRequest{AgentIds: []string{"a1", "b2"}},
-			window:   &logread.Window{Lines: []string{"one", "two"}, Offset: 42},
-			wantRead: agentRead{ids: []string{"a1", "b2"}, offset: -1, limit: 200},
-			want:     &logv1.ReadAgentLogsResponse{Lines: []string{"one", "two"}, Cursor: "42"},
+			name:   "no cursor reads the newest, two hundred by default",
+			req:    &logv1.ReadAgentLogsRequest{AgentIds: []string{"a1", "b2"}},
+			window: &logread.Window{Lines: []string{"one", "two"}, Offset: 42},
+			wantRead: agentRead{
+				ids:    []string{"a1", "b2"},
+				offset: -1,
+				limit:  200,
+			},
+			want: &logv1.ReadAgentLogsResponse{Lines: []string{"one", "two"}, Cursor: "42"},
 		},
 		{
-			name:     "a cursor reads from where it left off",
-			req:      &logv1.ReadAgentLogsRequest{AgentIds: []string{"a1"}, Cursor: "42", Limit: 5},
-			window:   &logread.Window{Lines: []string{"three"}, Offset: 90, More: true},
-			wantRead: agentRead{ids: []string{"a1"}, offset: 42, limit: 5},
-			want:     &logv1.ReadAgentLogsResponse{Lines: []string{"three"}, Cursor: "90", More: true},
+			name: "a cursor reads from where it left off",
+			req: &logv1.ReadAgentLogsRequest{
+				AgentIds: []string{"a1"},
+				Cursor:   "42",
+				Limit:    5,
+			},
+			window: &logread.Window{
+				Lines:  []string{"three"},
+				Offset: 90,
+				More:   true,
+			},
+			wantRead: agentRead{
+				ids:    []string{"a1"},
+				offset: 42,
+				limit:  5,
+			},
+			want: &logv1.ReadAgentLogsResponse{
+				Lines:  []string{"three"},
+				Cursor: "90",
+				More:   true,
+			},
 		},
 		{
-			name:     "a log that started over says so",
-			req:      &logv1.ReadAgentLogsRequest{AgentIds: []string{"a1"}, Cursor: "900"},
-			window:   &logread.Window{Lines: []string{"one"}, Offset: 10, Reset: true},
-			wantRead: agentRead{ids: []string{"a1"}, offset: 900, limit: 200},
-			want:     &logv1.ReadAgentLogsResponse{Lines: []string{"one"}, Cursor: "10", Reset_: true},
+			name: "a log that started over says so",
+			req:  &logv1.ReadAgentLogsRequest{AgentIds: []string{"a1"}, Cursor: "900"},
+			window: &logread.Window{
+				Lines:  []string{"one"},
+				Offset: 10,
+				Reset:  true,
+			},
+			wantRead: agentRead{
+				ids:    []string{"a1"},
+				offset: 900,
+				limit:  200,
+			},
+			want: &logv1.ReadAgentLogsResponse{
+				Lines:  []string{"one"},
+				Cursor: "10",
+				Reset_: true,
+			},
 		},
 		{
 			name:     "a run's source asked of two agents",
@@ -258,25 +306,43 @@ func TestReadAgentLogs(t *testing.T) {
 			wantCode: connect.CodeInvalidArgument,
 		},
 		{
-			name:     "the service source reads the service log",
-			req:      &logv1.ReadAgentLogsRequest{AgentIds: []string{"a1"}, Source: "service"},
-			window:   &logread.Window{Lines: []string{"one"}, Offset: 42},
-			wantRead: agentRead{ids: []string{"a1"}, offset: -1, limit: 200},
-			want:     &logv1.ReadAgentLogsResponse{Lines: []string{"one"}, Cursor: "42"},
+			name:   "the service source reads the service log",
+			req:    &logv1.ReadAgentLogsRequest{AgentIds: []string{"a1"}, Source: "service"},
+			window: &logread.Window{Lines: []string{"one"}, Offset: 42},
+			wantRead: agentRead{
+				ids:    []string{"a1"},
+				offset: -1,
+				limit:  200,
+			},
+			want: &logv1.ReadAgentLogsResponse{Lines: []string{"one"}, Cursor: "42"},
 		},
 		{
-			name:     "a run's source reads the newest of that run",
-			req:      &logv1.ReadAgentLogsRequest{AgentIds: []string{"a1"}, Source: "001-provision-setup.log"},
-			window:   &logread.Window{Lines: []string{"+ mise trust"}, Offset: 13},
-			wantRead: agentRead{ids: []string{"a1"}, source: "001-provision-setup.log", offset: -1, limit: 200},
-			want:     &logv1.ReadAgentLogsResponse{Lines: []string{"+ mise trust"}, Cursor: "13"},
+			name:   "a run's source reads the newest of that run",
+			req:    &logv1.ReadAgentLogsRequest{AgentIds: []string{"a1"}, Source: "001-provision-setup.log"},
+			window: &logread.Window{Lines: []string{"+ mise trust"}, Offset: 13},
+			wantRead: agentRead{
+				ids:    []string{"a1"},
+				source: "001-provision-setup.log",
+				offset: -1,
+				limit:  200,
+			},
+			want: &logv1.ReadAgentLogsResponse{Lines: []string{"+ mise trust"}, Cursor: "13"},
 		},
 		{
-			name:     "a run's source reads from its cursor",
-			req:      &logv1.ReadAgentLogsRequest{AgentIds: []string{"a1"}, Source: "001-provision-setup.log", Cursor: "13"},
-			window:   &logread.Window{Lines: []string{"+ mise install"}, Offset: 28},
-			wantRead: agentRead{ids: []string{"a1"}, source: "001-provision-setup.log", offset: 13, limit: 200},
-			want:     &logv1.ReadAgentLogsResponse{Lines: []string{"+ mise install"}, Cursor: "28"},
+			name: "a run's source reads from its cursor",
+			req: &logv1.ReadAgentLogsRequest{
+				AgentIds: []string{"a1"},
+				Source:   "001-provision-setup.log",
+				Cursor:   "13",
+			},
+			window: &logread.Window{Lines: []string{"+ mise install"}, Offset: 28},
+			wantRead: agentRead{
+				ids:    []string{"a1"},
+				source: "001-provision-setup.log",
+				offset: 13,
+				limit:  200,
+			},
+			want: &logv1.ReadAgentLogsResponse{Lines: []string{"+ mise install"}, Cursor: "28"},
 		},
 		{
 			name:     "a pattern that does not compile",
@@ -284,18 +350,37 @@ func TestReadAgentLogs(t *testing.T) {
 			wantCode: connect.CodeInvalidArgument,
 		},
 		{
-			name:     "a pattern narrows the service log from its cursor",
-			req:      &logv1.ReadAgentLogsRequest{AgentIds: []string{"a1"}, Cursor: "42", Pattern: "(?i)error"},
-			window:   &logread.Window{Lines: []string{"ERROR one"}, Offset: 90},
-			wantRead: agentRead{ids: []string{"a1"}, pattern: "(?i)error", offset: 42, limit: 200},
-			want:     &logv1.ReadAgentLogsResponse{Lines: []string{"ERROR one"}, Cursor: "90"},
+			name: "a pattern narrows the service log from its cursor",
+			req: &logv1.ReadAgentLogsRequest{
+				AgentIds: []string{"a1"},
+				Cursor:   "42",
+				Pattern:  "(?i)error",
+			},
+			window: &logread.Window{Lines: []string{"ERROR one"}, Offset: 90},
+			wantRead: agentRead{
+				ids:     []string{"a1"},
+				pattern: "(?i)error",
+				offset:  42,
+				limit:   200,
+			},
+			want: &logv1.ReadAgentLogsResponse{Lines: []string{"ERROR one"}, Cursor: "90"},
 		},
 		{
-			name:     "a pattern narrows a run's source",
-			req:      &logv1.ReadAgentLogsRequest{AgentIds: []string{"a1"}, Source: "001-provision-setup.log", Pattern: "mise"},
-			window:   &logread.Window{Lines: []string{"+ mise trust"}, Offset: 13},
-			wantRead: agentRead{ids: []string{"a1"}, source: "001-provision-setup.log", pattern: "mise", offset: -1, limit: 200},
-			want:     &logv1.ReadAgentLogsResponse{Lines: []string{"+ mise trust"}, Cursor: "13"},
+			name: "a pattern narrows a run's source",
+			req: &logv1.ReadAgentLogsRequest{
+				AgentIds: []string{"a1"},
+				Source:   "001-provision-setup.log",
+				Pattern:  "mise",
+			},
+			window: &logread.Window{Lines: []string{"+ mise trust"}, Offset: 13},
+			wantRead: agentRead{
+				ids:     []string{"a1"},
+				source:  "001-provision-setup.log",
+				pattern: "mise",
+				offset:  -1,
+				limit:   200,
+			},
+			want: &logv1.ReadAgentLogsResponse{Lines: []string{"+ mise trust"}, Cursor: "13"},
 		},
 	}
 
@@ -323,8 +408,18 @@ func TestReadAgentLogs(t *testing.T) {
 // its number, trigger and script.
 func TestListAgentLogSources(t *testing.T) {
 	reader := &fakeLogReader{runs: []config.RunLog{
-		{Number: 2, Trigger: "pre-launch", Script: "setup", Path: "/runs/a1/002-pre-launch-setup.log"},
-		{Number: 1, Trigger: "provision", Script: "_worktree_setup", Path: "/runs/a1/001-provision-_worktree_setup.log"},
+		{
+			Number:  2,
+			Trigger: "pre-launch",
+			Script:  "setup",
+			Path:    "/runs/a1/002-pre-launch-setup.log",
+		},
+		{
+			Number:  1,
+			Trigger: "provision",
+			Script:  "_worktree_setup",
+			Path:    "/runs/a1/001-provision-_worktree_setup.log",
+		},
 	}}
 	service := logv1komrad.LogServiceAdapter{Impl: NewHandler(reader, reader)}
 
@@ -333,8 +428,16 @@ func TestListAgentLogSources(t *testing.T) {
 
 	want := &logv1.ListAgentLogSourcesResponse{Sources: []*logv1.LogSource{
 		{Id: "service", Name: "service"},
-		{Id: "002-pre-launch-setup.log", Name: "002 pre-launch setup", Run: xptr.Ptr[int32](2)},
-		{Id: "001-provision-_worktree_setup.log", Name: "001 provision _worktree_setup", Run: xptr.Ptr[int32](1)},
+		{
+			Id:   "002-pre-launch-setup.log",
+			Name: "002 pre-launch setup",
+			Run:  xptr.Ptr[int32](2),
+		},
+		{
+			Id:   "001-provision-_worktree_setup.log",
+			Name: "001 provision _worktree_setup",
+			Run:  xptr.Ptr[int32](1),
+		},
 	}}
 	assert.Empty(t, cmp.Diff(want, resp.Msg, protocmp.Transform()))
 }

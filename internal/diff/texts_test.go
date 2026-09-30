@@ -33,8 +33,16 @@ func TestFromTexts(t *testing.T) {
 				Header:   "@@ -0,0 +1,2 @@",
 				NewStart: 1,
 				Lines: []Line{
-					{Kind: Addition, Text: "one", NewNumber: 1},
-					{Kind: Addition, Text: "two", NewNumber: 2},
+					{
+						Kind:      Addition,
+						Text:      "one",
+						NewNumber: 1,
+					},
+					{
+						Kind:      Addition,
+						Text:      "two",
+						NewNumber: 2,
+					},
 				},
 			}},
 		},
@@ -44,7 +52,11 @@ func TestFromTexts(t *testing.T) {
 			want: []Hunk{{
 				Header:   "@@ -1 +0,0 @@",
 				NewStart: 1,
-				Lines:    []Line{{Kind: Deletion, Text: "one", OldNumber: 1}},
+				Lines: []Line{{
+					Kind:      Deletion,
+					Text:      "one",
+					OldNumber: 1,
+				}},
 			}},
 		},
 		{
@@ -55,10 +67,28 @@ func TestFromTexts(t *testing.T) {
 				Header:   "@@ -1,3 +1,3 @@",
 				NewStart: 1,
 				Lines: []Line{
-					{Kind: Context, Text: "one", OldNumber: 1, NewNumber: 1},
-					{Kind: Deletion, Text: "two", OldNumber: 2},
-					{Kind: Addition, Text: "2", NewNumber: 2},
-					{Kind: Context, Text: "three", OldNumber: 3, NewNumber: 3},
+					{
+						Kind:      Context,
+						Text:      "one",
+						OldNumber: 1,
+						NewNumber: 1,
+					},
+					{
+						Kind:      Deletion,
+						Text:      "two",
+						OldNumber: 2,
+					},
+					{
+						Kind:      Addition,
+						Text:      "2",
+						NewNumber: 2,
+					},
+					{
+						Kind:      Context,
+						Text:      "three",
+						OldNumber: 3,
+						NewNumber: 3,
+					},
 				},
 			}},
 		},

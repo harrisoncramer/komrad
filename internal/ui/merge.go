@@ -47,8 +47,16 @@ func mergeMenu(s panelShared, from screen, item panel.AgentRow) submenu {
 		title: "merge",
 		crumb: "merge",
 		entries: []submenuEntry{
-			{label: "merge", keys: s.keys.Merge.Merge, isOff: refused},
-			{label: "merge and archive", keys: s.keys.Merge.MergeArchive, isOff: refused || from == screenArchive},
+			{
+				label: "merge",
+				keys:  s.keys.Merge.Merge,
+				isOff: refused,
+			},
+			{
+				label: "merge and archive",
+				keys:  s.keys.Merge.MergeArchive,
+				isOff: refused || from == screenArchive,
+			},
 		},
 		answer: func(m model, choice int) (tea.Model, tea.Cmd) {
 			return confirmSubmit(func(m model) (model, tea.Cmd) { return m.runMerge(from, agentID, mergeChoice(choice)) })(m)

@@ -81,7 +81,11 @@ type Reader struct {
 }
 
 func (r Reader) window(rows int) Window {
-	return Window{Len: rows, Top: r.Top, Markers: true}
+	return Window{
+		Len:     rows,
+		Top:     r.Top,
+		Markers: true,
+	}
 }
 
 // MoveTo puts the cursor on a row and brings the window round to it.

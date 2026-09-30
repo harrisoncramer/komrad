@@ -93,7 +93,13 @@ func (w Window) span(end, at int) Span {
 		before += w.Rows(i)
 	}
 
-	return Span{First: first, Last: end, Cursor: at, Cut: cut, CursorRow: max(before-cut, 0)}
+	return Span{
+		First:     first,
+		Last:      end,
+		Cursor:    at,
+		Cut:       cut,
+		CursorRow: max(before-cut, 0),
+	}
 }
 
 // above is the first line of a view ending on end, and the rows the lines from it to end take.

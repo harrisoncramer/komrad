@@ -57,7 +57,6 @@ type AttachService struct {
 	agents  agentGetter
 	tmux    viewAttacher
 	session string
-
 	mu      sync.Mutex
 	streams map[string]int
 }
@@ -187,7 +186,6 @@ func (s *AttachService) isDetached(ctx context.Context, view string) bool {
 // attached is a terminal attached to a view, which lets the view go once it has ended.
 type attached struct {
 	*pty.Session
-
 	release func()
 	once    sync.Once
 }

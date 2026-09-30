@@ -69,12 +69,36 @@ func TestShippedHooks(t *testing.T) {
 		wantDir string
 		wantIs  error
 	}{
-		{name: "a hook a person wrote", hook: "install-deps", wantDir: hooksDir},
-		{name: "a hook komrad ships", hook: "shipped", wantDir: builtinDir},
-		{name: "a person's underscored hook", hook: "_mine", wantDir: hooksDir},
-		{name: "a person's hook named like a shipped one", hook: "taken", wantIs: ErrHookNameTaken},
-		{name: "komrad's own script", hook: "_worktree_setup", wantIs: scripts.ErrScriptNotFound},
-		{name: "a hook nobody has", hook: "absent", wantIs: scripts.ErrScriptNotFound},
+		{
+			name:    "a hook a person wrote",
+			hook:    "install-deps",
+			wantDir: hooksDir,
+		},
+		{
+			name:    "a hook komrad ships",
+			hook:    "shipped",
+			wantDir: builtinDir,
+		},
+		{
+			name:    "a person's underscored hook",
+			hook:    "_mine",
+			wantDir: hooksDir,
+		},
+		{
+			name:   "a person's hook named like a shipped one",
+			hook:   "taken",
+			wantIs: ErrHookNameTaken,
+		},
+		{
+			name:   "komrad's own script",
+			hook:   "_worktree_setup",
+			wantIs: scripts.ErrScriptNotFound,
+		},
+		{
+			name:   "a hook nobody has",
+			hook:   "absent",
+			wantIs: scripts.ErrScriptNotFound,
+		},
 	}
 
 	for _, tt := range tests {
@@ -240,7 +264,11 @@ func TestWorktreeEnvOnlyWhenTheAgentIsProvisionedOne(t *testing.T) {
 				Name:             "auth",
 				Cwd:              "/worktrees/a1",
 				ProvisionEnabled: tt.provision,
-			}, workflowstore.Config{Name: "backend", Cwd: "/repo", Worktree: tt.worktree})
+			}, workflowstore.Config{
+				Name:     "backend",
+				Cwd:      "/repo",
+				Worktree: tt.worktree,
+			})
 
 			runner := &recordingRunner{}
 			service := NewScriptService(NewScriptServiceParams{
@@ -298,7 +326,11 @@ func TestRunScriptNamesAnArchivedWorkflow(t *testing.T) {
 	st := storetest.Open(t)
 	agent := seedFixture(t, st, fixtureAgent(), workflowstore.Config{Name: "backend"})
 	require.NoError(t, st.Workflows.Archive(t.Context(), agent.WorkflowID))
-	service := scriptServiceOver(t, scriptServiceOverParams{Stores: st, Dir: dir, Runner: runner})
+	service := scriptServiceOver(t, scriptServiceOverParams{
+		Stores: st,
+		Dir:    dir,
+		Runner: runner,
+	})
 
 	require.NoError(t, fireScript(t.Context(), t, service))
 
@@ -326,7 +358,11 @@ func TestRunScriptBoundsALongPrompt(t *testing.T) {
 		Cwd:    "/repo",
 		Prompt: strings.Repeat("prompt ", maxScriptPrompt),
 	}, workflowstore.Config{Name: "backend"})
-	service := scriptServiceOver(t, scriptServiceOverParams{Stores: st, Dir: dir, Runner: runner})
+	service := scriptServiceOver(t, scriptServiceOverParams{
+		Stores: st,
+		Dir:    dir,
+		Runner: runner,
+	})
 
 	require.NoError(t, fireScript(t.Context(), t, service))
 
@@ -381,7 +417,11 @@ func TestFiredScriptWithTheAgentDirectoryGone(t *testing.T) {
 		Name: "auth",
 		Cwd:  gone,
 	}, workflowstore.Config{Name: "backend"})
-	service := scriptServiceOver(t, scriptServiceOverParams{Stores: st, Dir: dir, Runner: runner})
+	service := scriptServiceOver(t, scriptServiceOverParams{
+		Stores: st,
+		Dir:    dir,
+		Runner: runner,
+	})
 
 	require.NoError(t, fireScript(t.Context(), t, service))
 
@@ -1497,8 +1537,16 @@ func TestConcurrencyGuardIsScopedNarrowly(t *testing.T) {
 
 			st := storetest.Open(t)
 			first := seedFixture(t, st, fixtureAgent(), workflowstore.Config{Name: "backend"})
-			st.SeedAgent(t, agentstore.Agent{ID: otherAgentID, Name: "api", WorkflowID: first.WorkflowID})
-			svc := scriptServiceOver(t, scriptServiceOverParams{Stores: st, Dir: dir, Runner: scripts.NewRunner()})
+			st.SeedAgent(t, agentstore.Agent{
+				ID:         otherAgentID,
+				Name:       "api",
+				WorkflowID: first.WorkflowID,
+			})
+			svc := scriptServiceOver(t, scriptServiceOverParams{
+				Stores: st,
+				Dir:    dir,
+				Runner: scripts.NewRunner(),
+			})
 
 			require.NoError(t, fireScript(t.Context(), t, svc))
 

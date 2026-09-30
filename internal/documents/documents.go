@@ -60,7 +60,11 @@ type DocumentService struct {
 // NewDocumentService builds the service over the agents that write documents, the store that
 // keeps them, and the queue that records the event telling an author a person wrote its document.
 func NewDocumentService(params NewDocumentServiceParams) *DocumentService {
-	return &DocumentService{agents: params.Agents, documents: params.Documents, events: params.Events}
+	return &DocumentService{
+		agents:    params.Agents,
+		documents: params.Documents,
+		events:    params.Events,
+	}
 }
 
 type WriteDocumentParams struct {

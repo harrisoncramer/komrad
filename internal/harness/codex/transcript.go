@@ -84,7 +84,11 @@ func flattenRollout(data []byte) []harness.Turn {
 			continue
 		}
 
-		turns = append(turns, harness.Turn{Role: record.Payload.Role, Content: text, At: record.Timestamp})
+		turns = append(turns, harness.Turn{
+			Role:    record.Payload.Role,
+			Content: text,
+			At:      record.Timestamp,
+		})
 	}
 
 	return turns

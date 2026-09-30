@@ -25,7 +25,6 @@ import (
 
 type fakeTerminalService struct {
 	terminalv1connect.UnimplementedTerminalServiceHandler
-
 	refuse   error
 	received chan *terminalv1.ShellRequest
 	respond  chan *terminalv1.ShellResponse

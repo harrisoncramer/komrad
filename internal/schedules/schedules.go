@@ -66,7 +66,11 @@ type ScheduleService struct {
 
 // NewScheduleService builds the service from its dependencies.
 func NewScheduleService(params NewScheduleServiceParams) *ScheduleService {
-	return &ScheduleService{store: params.Schedules, workflows: params.Workflows, agents: params.Agents}
+	return &ScheduleService{
+		store:     params.Schedules,
+		workflows: params.Workflows,
+		agents:    params.Agents,
+	}
 }
 
 // GetSchedule returns a schedule by id, or nil when none has that id.

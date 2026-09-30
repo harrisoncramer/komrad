@@ -22,7 +22,11 @@ func TestFlattenTranscript(t *testing.T) {
 		{
 			name: "a turn keeps the time its line was written",
 			in:   `{"type":"user","timestamp":"2026-09-27T12:00:01.500Z","message":{"content":"hello there"}}`,
-			want: []harness.Turn{{Role: "user", Content: "hello there", At: time.Date(2026, 9, 27, 12, 0, 1, 500_000_000, time.UTC)}},
+			want: []harness.Turn{{
+				Role:    "user",
+				Content: "hello there",
+				At:      time.Date(2026, 9, 27, 12, 0, 1, 500_000_000, time.UTC),
+			}},
 		},
 		{
 			name: "string user prompt is kept",

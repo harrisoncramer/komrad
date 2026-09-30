@@ -603,29 +603,77 @@ func TestSetStandingKeepsTheLastKnownValue(t *testing.T) {
 		{
 			name: "the first reading replaces nothing",
 			steps: []step{
-				{checks: forge.ChecksFailing, sha: "abc", wantKnown: xptr.Ptr("failing"), wantKnownSHA: xptr.Ptr("abc")},
+				{
+					checks:       forge.ChecksFailing,
+					sha:          "abc",
+					wantKnown:    xptr.Ptr("failing"),
+					wantKnownSHA: xptr.Ptr("abc"),
+				},
 			},
 		},
 		{
 			name: "a blank reading leaves the last known value alone",
 			steps: []step{
-				{checks: forge.ChecksFailing, sha: "abc", wantKnown: xptr.Ptr("failing"), wantKnownSHA: xptr.Ptr("abc")},
-				{checks: forge.ChecksNone, sha: "def", wantOld: xptr.Ptr("failing"), wantKnown: xptr.Ptr("failing"), wantOldSHA: xptr.Ptr("abc"), wantKnownSHA: xptr.Ptr("abc")},
-				{checks: forge.ChecksFailing, sha: "abc", wantOld: xptr.Ptr("failing"), wantKnown: xptr.Ptr("failing"), wantOldSHA: xptr.Ptr("abc"), wantKnownSHA: xptr.Ptr("abc")},
+				{
+					checks:       forge.ChecksFailing,
+					sha:          "abc",
+					wantKnown:    xptr.Ptr("failing"),
+					wantKnownSHA: xptr.Ptr("abc"),
+				},
+				{
+					checks:       forge.ChecksNone,
+					sha:          "def",
+					wantOld:      xptr.Ptr("failing"),
+					wantKnown:    xptr.Ptr("failing"),
+					wantOldSHA:   xptr.Ptr("abc"),
+					wantKnownSHA: xptr.Ptr("abc"),
+				},
+				{
+					checks:       forge.ChecksFailing,
+					sha:          "abc",
+					wantOld:      xptr.Ptr("failing"),
+					wantKnown:    xptr.Ptr("failing"),
+					wantOldSHA:   xptr.Ptr("abc"),
+					wantKnownSHA: xptr.Ptr("abc"),
+				},
 			},
 		},
 		{
 			name: "a new value replaces the last known one",
 			steps: []step{
-				{checks: forge.ChecksPassing, sha: "abc", wantKnown: xptr.Ptr("passing"), wantKnownSHA: xptr.Ptr("abc")},
-				{checks: forge.ChecksFailing, sha: "abc", wantOld: xptr.Ptr("passing"), wantKnown: xptr.Ptr("failing"), wantOldSHA: xptr.Ptr("abc"), wantKnownSHA: xptr.Ptr("abc")},
+				{
+					checks:       forge.ChecksPassing,
+					sha:          "abc",
+					wantKnown:    xptr.Ptr("passing"),
+					wantKnownSHA: xptr.Ptr("abc"),
+				},
+				{
+					checks:       forge.ChecksFailing,
+					sha:          "abc",
+					wantOld:      xptr.Ptr("passing"),
+					wantKnown:    xptr.Ptr("failing"),
+					wantOldSHA:   xptr.Ptr("abc"),
+					wantKnownSHA: xptr.Ptr("abc"),
+				},
 			},
 		},
 		{
 			name: "the same value on a new head replaces the last known head",
 			steps: []step{
-				{checks: forge.ChecksFailing, sha: "abc", wantKnown: xptr.Ptr("failing"), wantKnownSHA: xptr.Ptr("abc")},
-				{checks: forge.ChecksFailing, sha: "def", wantOld: xptr.Ptr("failing"), wantKnown: xptr.Ptr("failing"), wantOldSHA: xptr.Ptr("abc"), wantKnownSHA: xptr.Ptr("def")},
+				{
+					checks:       forge.ChecksFailing,
+					sha:          "abc",
+					wantKnown:    xptr.Ptr("failing"),
+					wantKnownSHA: xptr.Ptr("abc"),
+				},
+				{
+					checks:       forge.ChecksFailing,
+					sha:          "def",
+					wantOld:      xptr.Ptr("failing"),
+					wantKnown:    xptr.Ptr("failing"),
+					wantOldSHA:   xptr.Ptr("abc"),
+					wantKnownSHA: xptr.Ptr("def"),
+				},
 			},
 		},
 		{

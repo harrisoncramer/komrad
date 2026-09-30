@@ -126,7 +126,11 @@ var InstalledHooks = map[harness.Event]HookInstall{
 	EventPreToolUse:        {Subcommand: "pre-tool-use"},
 	EventPostToolUse:       {Subcommand: "post-tool-use"},
 	EventPermissionRequest: {Subcommand: "permission-request"},
-	EventSessionStart:      {Subcommand: "compacted", Matcher: CompactMatcher, TakesNoReading: true},
+	EventSessionStart: {
+		Subcommand:     "compacted",
+		Matcher:        CompactMatcher,
+		TakesNoReading: true,
+	},
 }
 
 // hookSettings is the hooks block Claude loads at session start, empty when komrad has no binary

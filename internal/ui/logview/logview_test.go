@@ -210,8 +210,19 @@ func TestTailCurrent(t *testing.T) {
 		wantOK bool
 	}{
 		{name: "nothing held", want: ""},
-		{name: "the newest line while following", lines: numbered(1, 3), want: "line 3", wantOK: true},
-		{name: "the line the cursor moved back to", lines: numbered(1, 3), move: -2, want: "line 1", wantOK: true},
+		{
+			name:   "the newest line while following",
+			lines:  numbered(1, 3),
+			want:   "line 3",
+			wantOK: true,
+		},
+		{
+			name:   "the line the cursor moved back to",
+			lines:  numbered(1, 3),
+			move:   -2,
+			want:   "line 1",
+			wantOK: true,
+		},
 	}
 
 	for _, tt := range tests {

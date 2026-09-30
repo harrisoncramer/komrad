@@ -51,10 +51,18 @@ func hunkOf(group []difflib.OpCode, a, b []string) Hunk {
 		}
 
 		for i := op.I1; i < op.I2; i++ {
-			hunk.Lines = append(hunk.Lines, Line{Kind: Deletion, Text: a[i], OldNumber: i + 1})
+			hunk.Lines = append(hunk.Lines, Line{
+				Kind:      Deletion,
+				Text:      a[i],
+				OldNumber: i + 1,
+			})
 		}
 		for j := op.J1; j < op.J2; j++ {
-			hunk.Lines = append(hunk.Lines, Line{Kind: Addition, Text: b[j], NewNumber: j + 1})
+			hunk.Lines = append(hunk.Lines, Line{
+				Kind:      Addition,
+				Text:      b[j],
+				NewNumber: j + 1,
+			})
 		}
 	}
 

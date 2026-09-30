@@ -60,13 +60,25 @@ func agentSubpages(agent panel.Agent) []subpage {
 func subpageEntry(s panelShared, from screen, item panel.AgentRow, page subpage) submenuEntry {
 	switch page {
 	case subpageReview:
-		return submenuEntry{label: "review", keys: s.keys.Menu.Review, isOff: reviewRefusal(from, item.Agent) != nil}
+		return submenuEntry{
+			label: "review",
+			keys:  s.keys.Menu.Review,
+			isOff: reviewRefusal(from, item.Agent) != nil,
+		}
 	case subpageDocuments:
-		return submenuEntry{label: "documents", keys: s.keys.Menu.Documents, isOff: item.Documents == 0}
+		return submenuEntry{
+			label: "documents",
+			keys:  s.keys.Menu.Documents,
+			isOff: item.Documents == 0,
+		}
 	case subpageLogs:
 		return submenuEntry{label: "logs", keys: s.keys.Menu.Logs}
 	case subpageTerminal:
-		return submenuEntry{label: "terminal", keys: s.keys.Menu.Terminal, isOff: terminalRefusal(from, item.Agent) != nil}
+		return submenuEntry{
+			label: "terminal",
+			keys:  s.keys.Menu.Terminal,
+			isOff: terminalRefusal(from, item.Agent) != nil,
+		}
 	}
 
 	return submenuEntry{}

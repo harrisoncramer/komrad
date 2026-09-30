@@ -575,7 +575,11 @@ func TestHoldSettlesTheState(t *testing.T) {
 			require.NotNil(t, created)
 			require.NoError(t, st.SetReportedReason(ctx, created.ID, "Bash"))
 
-			held, err := st.Hold(ctx, HoldParams{ID: created.ID, At: time.Now(), MidTurn: tt.wantTurnEnds})
+			held, err := st.Hold(ctx, HoldParams{
+				ID:      created.ID,
+				At:      time.Now(),
+				MidTurn: tt.wantTurnEnds,
+			})
 			require.NoError(t, err)
 			require.True(t, held)
 

@@ -84,7 +84,11 @@ func (m *model) rebaseCmd(agentID, name string) tea.Cmd {
 	return func() tea.Msg {
 		result, err := clients.rebaseWorktree(agentID)
 		if err != nil {
-			return rebasedMsg{name: name, err: err, write: write}
+			return rebasedMsg{
+				name:  name,
+				err:   err,
+				write: write,
+			}
 		}
 
 		return rebasedMsg{

@@ -36,10 +36,26 @@ func TestThreadsByChapter(t *testing.T) {
 		RoundOrdinal: 1,
 		FilePath:     "greet.go",
 		Messages: []*agentv1.ReviewMessage{
-			{Id: "m1", Body: "two places", CreatedAt: "2026-09-08T13:20:00-04:00"},
-			{Id: "m2", Body: "pulled into nameOr", CreatedAt: "2026-09-08T13:24:00-04:00"},
-			{Id: "m3", Body: "sentence case?", CreatedAt: "2026-09-08T14:25:00-04:00"},
-			{Id: "m4", Body: "Hello now returns", CreatedAt: "2026-09-08T15:27:00-04:00"},
+			{
+				Id:        "m1",
+				Body:      "two places",
+				CreatedAt: "2026-09-08T13:20:00-04:00",
+			},
+			{
+				Id:        "m2",
+				Body:      "pulled into nameOr",
+				CreatedAt: "2026-09-08T13:24:00-04:00",
+			},
+			{
+				Id:        "m3",
+				Body:      "sentence case?",
+				CreatedAt: "2026-09-08T14:25:00-04:00",
+			},
+			{
+				Id:        "m4",
+				Body:      "Hello now returns",
+				CreatedAt: "2026-09-08T15:27:00-04:00",
+			},
 		},
 	}
 	opened := &agentv1.ReviewThread{

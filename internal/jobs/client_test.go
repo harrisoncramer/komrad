@@ -165,8 +165,18 @@ func TestWorktreeDeleteClaimsWhatItQueues(t *testing.T) {
 
 	workflow, err := stores.Workflows.Create(ctx, workflowstore.Config{Name: "backend", Worktree: workflowstore.WorktreeConfig{BaseBranch: "main"}})
 	require.NoError(t, err)
-	live := agentstore.Agent{ID: newID(t), Name: "live", WorkflowID: workflow.ID, State: agentstore.StateIdle}
-	archived := agentstore.Agent{ID: newID(t), Name: "archived", WorkflowID: workflow.ID, State: agentstore.StateIdle}
+	live := agentstore.Agent{
+		ID:         newID(t),
+		Name:       "live",
+		WorkflowID: workflow.ID,
+		State:      agentstore.StateIdle,
+	}
+	archived := agentstore.Agent{
+		ID:         newID(t),
+		Name:       "archived",
+		WorkflowID: workflow.ID,
+		State:      agentstore.StateIdle,
+	}
 	require.NoError(t, stores.Agents.Create(ctx, live))
 	require.NoError(t, stores.Agents.Create(ctx, archived))
 	_, err = stores.Agents.Archive(ctx, []string{archived.ID})

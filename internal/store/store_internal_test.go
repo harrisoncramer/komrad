@@ -232,8 +232,16 @@ func TestParseConfigCapsThePool(t *testing.T) {
 		url  string
 		want int32
 	}{
-		{name: "a url without a cap takes the one it is given", url: "postgres://komrad:komrad@localhost:5460/komrad?sslmode=disable", want: 7},
-		{name: "a url with a cap keeps its own", url: "postgres://komrad:komrad@localhost:5460/komrad?sslmode=disable&pool_max_conns=2", want: 2},
+		{
+			name: "a url without a cap takes the one it is given",
+			url:  "postgres://komrad:komrad@localhost:5460/komrad?sslmode=disable",
+			want: 7,
+		},
+		{
+			name: "a url with a cap keeps its own",
+			url:  "postgres://komrad:komrad@localhost:5460/komrad?sslmode=disable&pool_max_conns=2",
+			want: 2,
+		},
 	}
 
 	for _, tt := range tests {

@@ -38,27 +38,52 @@ func TestCreate(t *testing.T) {
 		wantConstraint string
 	}{
 		{
-			name:    "a name the agent already uses is refused, naming the document that holds it",
-			params:  documentstore.CreateParams{AgentID: author.ID, Name: "Documents", Kind: documentstore.KindNotes, Body: "again"},
+			name: "a name the agent already uses is refused, naming the document that holds it",
+			params: documentstore.CreateParams{
+				AgentID: author.ID,
+				Name:    "Documents",
+				Kind:    documentstore.KindNotes,
+				Body:    "again",
+			},
 			wantErr: store.ErrNameTaken,
 			wantID:  true,
 		},
 		{
-			name:   "another agent may use the same name",
-			params: documentstore.CreateParams{AgentID: other.ID, Name: "Documents", Kind: documentstore.KindNotes, Body: "mine"},
+			name: "another agent may use the same name",
+			params: documentstore.CreateParams{
+				AgentID: other.ID,
+				Name:    "Documents",
+				Kind:    documentstore.KindNotes,
+				Body:    "mine",
+			},
 		},
 		{
-			name:   "a second name for the same agent is its own document",
-			params: documentstore.CreateParams{AgentID: author.ID, Name: "Findings", Kind: documentstore.KindReport, Body: "found"},
+			name: "a second name for the same agent is its own document",
+			params: documentstore.CreateParams{
+				AgentID: author.ID,
+				Name:    "Findings",
+				Kind:    documentstore.KindReport,
+				Body:    "found",
+			},
 		},
 		{
-			name:           "an empty body is refused",
-			params:         documentstore.CreateParams{AgentID: author.ID, Name: "Blank", Kind: documentstore.KindNotes},
+			name: "an empty body is refused",
+			params: documentstore.CreateParams{
+				AgentID: author.ID,
+				Name:    "Blank",
+				Kind:    documentstore.KindNotes,
+			},
 			wantConstraint: "documents_body_written",
 		},
 		{
-			name:   "a document a person creates keeps its first version as theirs",
-			params: documentstore.CreateParams{AgentID: author.ID, Name: "Plan", Kind: documentstore.KindRFC, Body: "Empty RFC document.", ByPerson: true},
+			name: "a document a person creates keeps its first version as theirs",
+			params: documentstore.CreateParams{
+				AgentID:  author.ID,
+				Name:     "Plan",
+				Kind:     documentstore.KindRFC,
+				Body:     "Empty RFC document.",
+				ByPerson: true,
+			},
 		},
 	}
 
@@ -123,41 +148,83 @@ func TestUpdate(t *testing.T) {
 		{
 			name: "the name, kind and body all change and the document keeps its id",
 			params: func(doc *documentstore.Document) documentstore.UpdateParams {
-				return documentstore.UpdateParams{ID: doc.ID, AgentID: author.ID, Name: "renamed", Kind: documentstore.KindReport, Body: "final", Version: doc.Version}
+				return documentstore.UpdateParams{
+					ID:      doc.ID,
+					AgentID: author.ID,
+					Name:    "renamed",
+					Kind:    documentstore.KindReport,
+					Body:    "final",
+					Version: doc.Version,
+				}
 			},
 		},
 		{
 			name: "another agent's document is not found",
 			params: func(doc *documentstore.Document) documentstore.UpdateParams {
-				return documentstore.UpdateParams{ID: doc.ID, AgentID: other.ID, Name: doc.Name, Kind: doc.Kind, Body: "stolen", Version: doc.Version}
+				return documentstore.UpdateParams{
+					ID:      doc.ID,
+					AgentID: other.ID,
+					Name:    doc.Name,
+					Kind:    doc.Kind,
+					Body:    "stolen",
+					Version: doc.Version,
+				}
 			},
 			wantErr: store.ErrNotFound,
 		},
 		{
 			name: "an id no document holds is not found",
 			params: func(doc *documentstore.Document) documentstore.UpdateParams {
-				return documentstore.UpdateParams{ID: uuid.NewString(), AgentID: author.ID, Name: doc.Name, Kind: doc.Kind, Body: "lost", Version: doc.Version}
+				return documentstore.UpdateParams{
+					ID:      uuid.NewString(),
+					AgentID: author.ID,
+					Name:    doc.Name,
+					Kind:    doc.Kind,
+					Body:    "lost",
+					Version: doc.Version,
+				}
 			},
 			wantErr: store.ErrNotFound,
 		},
 		{
 			name: "a value that is not an id is not found",
 			params: func(doc *documentstore.Document) documentstore.UpdateParams {
-				return documentstore.UpdateParams{ID: "not-an-id", AgentID: author.ID, Name: doc.Name, Kind: doc.Kind, Body: "lost", Version: doc.Version}
+				return documentstore.UpdateParams{
+					ID:      "not-an-id",
+					AgentID: author.ID,
+					Name:    doc.Name,
+					Kind:    doc.Kind,
+					Body:    "lost",
+					Version: doc.Version,
+				}
 			},
 			wantErr: store.ErrNotFound,
 		},
 		{
 			name: "a name another of the agent's documents holds is refused",
 			params: func(doc *documentstore.Document) documentstore.UpdateParams {
-				return documentstore.UpdateParams{ID: doc.ID, AgentID: author.ID, Name: "taken", Kind: doc.Kind, Body: "clash", Version: doc.Version}
+				return documentstore.UpdateParams{
+					ID:      doc.ID,
+					AgentID: author.ID,
+					Name:    "taken",
+					Kind:    doc.Kind,
+					Body:    "clash",
+					Version: doc.Version,
+				}
 			},
 			wantErr: store.ErrNameTaken,
 		},
 		{
 			name: "a version the document is no longer at is refused",
 			params: func(doc *documentstore.Document) documentstore.UpdateParams {
-				return documentstore.UpdateParams{ID: doc.ID, AgentID: author.ID, Name: doc.Name, Kind: doc.Kind, Body: "stale", Version: doc.Version + 1}
+				return documentstore.UpdateParams{
+					ID:      doc.ID,
+					AgentID: author.ID,
+					Name:    doc.Name,
+					Kind:    doc.Kind,
+					Body:    "stale",
+					Version: doc.Version + 1,
+				}
 			},
 			wantErr: documentstore.ErrChanged,
 		},
@@ -208,7 +275,12 @@ func TestList(t *testing.T) {
 	other := stores.SeedAgent(t, agentstore.Agent{Name: "other"})
 
 	write := func(agentID, name string, kind documentstore.Kind) string {
-		created, err := stores.Documents.Create(ctx, documentstore.CreateParams{AgentID: agentID, Name: name, Kind: kind, Body: "body of " + name})
+		created, err := stores.Documents.Create(ctx, documentstore.CreateParams{
+			AgentID: agentID,
+			Name:    name,
+			Kind:    kind,
+			Body:    "body of " + name,
+		})
 		require.NoError(t, err)
 
 		return created.ID
@@ -217,7 +289,14 @@ func TestList(t *testing.T) {
 	notes := write(author.ID, "scratch", documentstore.KindNotes)
 	write(other.ID, "elsewhere", documentstore.KindRFC)
 
-	_, err := stores.Documents.Update(ctx, documentstore.UpdateParams{ID: rfc, AgentID: author.ID, Name: "design", Kind: documentstore.KindRFC, Body: "revised", Version: 1})
+	_, err := stores.Documents.Update(ctx, documentstore.UpdateParams{
+		ID:      rfc,
+		AgentID: author.ID,
+		Name:    "design",
+		Kind:    documentstore.KindRFC,
+		Body:    "revised",
+		Version: 1,
+	})
 	require.NoError(t, err)
 
 	tests := []struct {
@@ -226,8 +305,17 @@ func TestList(t *testing.T) {
 		kind    *documentstore.Kind
 		want    []string
 	}{
-		{name: "an agent's own documents, the newest write first", agentID: author.ID, want: []string{rfc, notes}},
-		{name: "narrowed to one kind", agentID: author.ID, kind: xptr.Ptr(documentstore.KindNotes), want: []string{notes}},
+		{
+			name:    "an agent's own documents, the newest write first",
+			agentID: author.ID,
+			want:    []string{rfc, notes},
+		},
+		{
+			name:    "narrowed to one kind",
+			agentID: author.ID,
+			kind:    xptr.Ptr(documentstore.KindNotes),
+			want:    []string{notes},
+		},
 		{name: "an agent with none", agentID: uuid.NewString()},
 		{name: "a value that is not an id", agentID: "not-an-id"},
 	}
@@ -256,7 +344,12 @@ func TestDeletingTheAgentDeletesItsDocuments(t *testing.T) {
 	ctx := t.Context()
 	author := stores.SeedAgent(t, agentstore.Agent{Name: "author"})
 
-	created, err := stores.Documents.Create(ctx, documentstore.CreateParams{AgentID: author.ID, Name: "gone", Kind: documentstore.KindNotes, Body: "soon"})
+	created, err := stores.Documents.Create(ctx, documentstore.CreateParams{
+		AgentID: author.ID,
+		Name:    "gone",
+		Kind:    documentstore.KindNotes,
+		Body:    "soon",
+	})
 	require.NoError(t, err)
 
 	_, err = stores.Agents.Archive(ctx, []string{author.ID})
@@ -280,13 +373,40 @@ func TestListVersions(t *testing.T) {
 	ctx := t.Context()
 	author := stores.SeedAgent(t, agentstore.Agent{Name: "author"})
 
-	draft, err := stores.Documents.Create(ctx, documentstore.CreateParams{AgentID: author.ID, Name: "design", Kind: documentstore.KindNotes, Body: "draft"})
+	draft, err := stores.Documents.Create(ctx, documentstore.CreateParams{
+		AgentID: author.ID,
+		Name:    "design",
+		Kind:    documentstore.KindNotes,
+		Body:    "draft",
+	})
 	require.NoError(t, err)
-	revised, err := stores.Documents.Update(ctx, documentstore.UpdateParams{ID: draft.ID, AgentID: author.ID, Name: "design", Kind: documentstore.KindRFC, Body: "revised", Version: draft.Version})
+	revised, err := stores.Documents.Update(ctx, documentstore.UpdateParams{
+		ID:      draft.ID,
+		AgentID: author.ID,
+		Name:    "design",
+		Kind:    documentstore.KindRFC,
+		Body:    "revised",
+		Version: draft.Version,
+	})
 	require.NoError(t, err)
-	_, err = stores.Documents.Update(ctx, documentstore.UpdateParams{ID: draft.ID, AgentID: author.ID, Name: "design", Kind: documentstore.KindRFC, Body: "stale", Version: draft.Version})
+	_, err = stores.Documents.Update(ctx, documentstore.UpdateParams{
+		ID:      draft.ID,
+		AgentID: author.ID,
+		Name:    "design",
+		Kind:    documentstore.KindRFC,
+		Body:    "stale",
+		Version: draft.Version,
+	})
 	require.ErrorIs(t, err, documentstore.ErrChanged)
-	_, err = stores.Documents.Update(ctx, documentstore.UpdateParams{ID: draft.ID, AgentID: author.ID, Name: "design, edited", Kind: documentstore.KindRFC, Body: "edited", Version: revised.Version, ByPerson: true})
+	_, err = stores.Documents.Update(ctx, documentstore.UpdateParams{
+		ID:       draft.ID,
+		AgentID:  author.ID,
+		Name:     "design, edited",
+		Kind:     documentstore.KindRFC,
+		Body:     "edited",
+		Version:  revised.Version,
+		ByPerson: true,
+	})
 	require.NoError(t, err)
 
 	versions, err := stores.Documents.ListVersions(ctx, draft.ID)
@@ -298,9 +418,22 @@ func TestListVersions(t *testing.T) {
 		kind     documentstore.Kind
 		byPerson bool
 	}{
-		{version: 3, name: "design, edited", kind: documentstore.KindRFC, byPerson: true},
-		{version: 2, name: "design", kind: documentstore.KindRFC},
-		{version: 1, name: "design", kind: documentstore.KindNotes},
+		{
+			version:  3,
+			name:     "design, edited",
+			kind:     documentstore.KindRFC,
+			byPerson: true,
+		},
+		{
+			version: 2,
+			name:    "design",
+			kind:    documentstore.KindRFC,
+		},
+		{
+			version: 1,
+			name:    "design",
+			kind:    documentstore.KindNotes,
+		},
 	} {
 		assert.Equal(t, want.version, versions[i].Version)
 		assert.Equal(t, want.name, versions[i].Name)

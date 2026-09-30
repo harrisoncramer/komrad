@@ -157,6 +157,10 @@ func readLog(hn harness.Harness, sessionID string, offset int64) (harness.LogRea
 
 func turns(read []harness.Turn) []transcriptstore.Turn {
 	return xslice.Map(read, func(turn harness.Turn) transcriptstore.Turn {
-		return transcriptstore.Turn{Role: turn.Role, Content: turn.Content, SpokenAt: turn.At}
+		return transcriptstore.Turn{
+			Role:     turn.Role,
+			Content:  turn.Content,
+			SpokenAt: turn.At,
+		}
 	})
 }

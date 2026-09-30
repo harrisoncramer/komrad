@@ -467,7 +467,12 @@ func TestArchiveWorkflowKillsAPaneWrittenBeforeItsOwnWrite(t *testing.T) {
 		Agents:    st.Agents,
 		Schedules: st.Schedules,
 		Tmux:      tmux,
-		Tx:        txWritingPaneFirst{txRunner: st.Pool, inTheGap: buildResumeWrite(t, buildResumeWriteParams{Store: st, Tmux: tmux, Agent: agent, Pane: "%9"})},
+		Tx: txWritingPaneFirst{txRunner: st.Pool, inTheGap: buildResumeWrite(t, buildResumeWriteParams{
+			Store: st,
+			Tmux:  tmux,
+			Agent: agent,
+			Pane:  "%9",
+		})},
 	})
 
 	require.NoError(t, workflows.ArchiveWorkflow(ctx, workflowID))

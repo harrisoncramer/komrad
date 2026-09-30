@@ -86,7 +86,6 @@ type HarnessStep struct {
 	Stack     config.Stack
 	Harnesses []string
 	Flag      string
-
 	installed []string
 	chosen    string
 }
@@ -175,9 +174,8 @@ func describeHarnesses(chosen string, installed []string) string {
 // one that is already there.
 type ContextStep struct {
 	Stack config.Stack
-
-	path string
-	text string
+	path  string
+	text  string
 }
 
 func (s *ContextStep) name() string {

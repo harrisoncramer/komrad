@@ -35,8 +35,7 @@ const (
 
 	// maxAge is deliberately longer than the ten minutes Go allows a test binary, leaving a run
 	// under a debugger or a raised timeout its own database.
-	maxAge = 2 * time.Hour
-
+	maxAge         = 2 * time.Hour
 	templateMaxAge = 24 * time.Hour
 
 	// templateLockClass is the advisory lock class the template build is serialised under.

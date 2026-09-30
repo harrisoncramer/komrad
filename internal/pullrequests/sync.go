@@ -927,7 +927,11 @@ func checksMoved(change *pullrequeststore.StandingChange) *Move {
 		return nil
 	}
 
-	return &Move{Field: FieldChecks, From: *change.OldChecks, To: *change.KnownChecks}
+	return &Move{
+		Field: FieldChecks,
+		From:  *change.OldChecks,
+		To:    *change.KnownChecks,
+	}
 }
 
 // noteRateLimit records a spent budget on the connection so the next pass waits for the reset

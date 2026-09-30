@@ -319,8 +319,7 @@ type panelShared struct {
 	chrome chromeState
 
 	// inspections is what the service has answered for each worktree directory.
-	inspections map[string]worktreeInspection
-
+	inspections  map[string]worktreeInspection
 	conversation conversationPreview
 
 	// editor is the command a file is opened in.

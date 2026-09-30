@@ -776,7 +776,14 @@ func TestUnreadMailHeldForRewriteIsNotClaimed(t *testing.T) {
 	recipient := seedAgent(t, st, "recipient")
 	subject := uuid.NewString()
 
-	_, err := st.UpsertFromKomrad(ctx, UpsertFromKomradParams{FromName: "komrad", ToAgentID: recipient, Body: "checks failing", Kind: KindPullRequestChanged, SubjectID: subject, Deadline: time.Hour})
+	_, err := st.UpsertFromKomrad(ctx, UpsertFromKomradParams{
+		FromName:  "komrad",
+		ToAgentID: recipient,
+		Body:      "checks failing",
+		Kind:      KindPullRequestChanged,
+		SubjectID: subject,
+		Deadline:  time.Hour,
+	})
 	require.NoError(t, err)
 
 	tx, err := st.pool.Begin(ctx)
@@ -790,7 +797,14 @@ func TestUnreadMailHeldForRewriteIsNotClaimed(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, claimed)
 
-	_, err = NewMailStore(tx).UpsertFromKomrad(ctx, UpsertFromKomradParams{FromName: "komrad", ToAgentID: recipient, Body: "checks passing", Kind: KindPullRequestChanged, SubjectID: subject, Deadline: time.Hour})
+	_, err = NewMailStore(tx).UpsertFromKomrad(ctx, UpsertFromKomradParams{
+		FromName:  "komrad",
+		ToAgentID: recipient,
+		Body:      "checks passing",
+		Kind:      KindPullRequestChanged,
+		SubjectID: subject,
+		Deadline:  time.Hour,
+	})
 	require.NoError(t, err)
 	require.NoError(t, tx.Commit(ctx))
 
@@ -827,7 +841,14 @@ func TestExpiredKomradMailComesBackWhenRewritten(t *testing.T) {
 	recipient := seedAgent(t, st, "recipient")
 	subject := uuid.NewString()
 
-	first, err := st.UpsertFromKomrad(ctx, UpsertFromKomradParams{FromName: "komrad", ToAgentID: recipient, Body: "one", Kind: KindReviewActivity, SubjectID: subject, Deadline: -time.Hour})
+	first, err := st.UpsertFromKomrad(ctx, UpsertFromKomradParams{
+		FromName:  "komrad",
+		ToAgentID: recipient,
+		Body:      "one",
+		Kind:      KindReviewActivity,
+		SubjectID: subject,
+		Deadline:  -time.Hour,
+	})
 	require.NoError(t, err)
 
 	pending, err := st.CountPending(ctx, recipient)
@@ -839,15 +860,36 @@ func TestExpiredKomradMailComesBackWhenRewritten(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, expired, 1, "expired mail is reported, again after each revival")
 
-		again, err := st.UpsertFromKomrad(ctx, UpsertFromKomradParams{FromName: "komrad", ToAgentID: recipient, Body: "two", Kind: KindReviewActivity, SubjectID: subject, Deadline: time.Hour})
+		again, err := st.UpsertFromKomrad(ctx, UpsertFromKomradParams{
+			FromName:  "komrad",
+			ToAgentID: recipient,
+			Body:      "two",
+			Kind:      KindReviewActivity,
+			SubjectID: subject,
+			Deadline:  time.Hour,
+		})
 		require.NoError(t, err)
 		assert.Equal(t, first.ID, again.ID, "expired mail is brought back rather than blocking new mail")
 
-		_, err = st.UpsertFromKomrad(ctx, UpsertFromKomradParams{FromName: "komrad", ToAgentID: recipient, Body: "one", Kind: KindReviewActivity, SubjectID: subject, Deadline: -time.Hour})
+		_, err = st.UpsertFromKomrad(ctx, UpsertFromKomradParams{
+			FromName:  "komrad",
+			ToAgentID: recipient,
+			Body:      "one",
+			Kind:      KindReviewActivity,
+			SubjectID: subject,
+			Deadline:  -time.Hour,
+		})
 		require.NoError(t, err)
 	}
 
-	_, err = st.UpsertFromKomrad(ctx, UpsertFromKomradParams{FromName: "komrad", ToAgentID: recipient, Body: "last", Kind: KindReviewActivity, SubjectID: subject, Deadline: time.Hour})
+	_, err = st.UpsertFromKomrad(ctx, UpsertFromKomradParams{
+		FromName:  "komrad",
+		ToAgentID: recipient,
+		Body:      "last",
+		Kind:      KindReviewActivity,
+		SubjectID: subject,
+		Deadline:  time.Hour,
+	})
 	require.NoError(t, err)
 	claimed, err := st.Claim(ctx, recipient, 10)
 	require.NoError(t, err)
@@ -915,7 +957,14 @@ func TestExistsReadAboutCountsOnlyReadMail(t *testing.T) {
 	recipient := seedAgent(t, st, "recipient")
 	subject := uuid.NewString()
 
-	_, err := st.UpsertFromKomrad(ctx, UpsertFromKomradParams{FromName: "komrad", ToAgentID: recipient, Body: "written", Kind: KindDocumentEdited, SubjectID: subject, Deadline: time.Hour})
+	_, err := st.UpsertFromKomrad(ctx, UpsertFromKomradParams{
+		FromName:  "komrad",
+		ToAgentID: recipient,
+		Body:      "written",
+		Kind:      KindDocumentEdited,
+		SubjectID: subject,
+		Deadline:  time.Hour,
+	})
 	require.NoError(t, err)
 
 	read, err := st.ExistsReadAbout(ctx, recipient, KindDocumentEdited, subject)

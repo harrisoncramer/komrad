@@ -82,7 +82,11 @@ type fakeGitLab struct {
 }
 
 func (g *fakeGitLab) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	seen := call{Path: r.URL.EscapedPath(), Method: r.Method, Header: r.Header}
+	seen := call{
+		Path:   r.URL.EscapedPath(),
+		Method: r.Method,
+		Header: r.Header,
+	}
 	key := seen.Path
 	if r.URL.Path == "/graphql" {
 		var posted struct {

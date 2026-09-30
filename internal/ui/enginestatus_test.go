@@ -75,7 +75,11 @@ func TestEngineDot(t *testing.T) {
 		want paint.Tone
 	}{
 		{name: "the dot is green while the heartbeat arrives", want: paint.ToneSuccess},
-		{name: "the dot is red once the heartbeat stops", lost: true, want: paint.ToneDanger},
+		{
+			name: "the dot is red once the heartbeat stops",
+			lost: true,
+			want: paint.ToneDanger,
+		},
 	}
 
 	for _, tt := range tests {

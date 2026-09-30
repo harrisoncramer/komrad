@@ -125,7 +125,12 @@ func TestDocumentsRead(t *testing.T) {
 		t.Parallel()
 
 		harness, docs := openDocuments(t)
-		docs.add(&agentv1.Document{Id: "d3", Name: "Cache notes", Kind: agentv1.DocumentKind_DOCUMENT_KIND_NOTES, UpdatedAt: "2026-09-25T12:00:00Z"})
+		docs.add(&agentv1.Document{
+			Id:        "d3",
+			Name:      "Cache notes",
+			Kind:      agentv1.DocumentKind_DOCUMENT_KIND_NOTES,
+			UpdatedAt: "2026-09-25T12:00:00Z",
+		})
 
 		author := buildDocumentAuthors()[2].(*agentv1.Agent)
 		author.Documents = 3
@@ -770,8 +775,20 @@ type documentWrite struct {
 func newDocumentShelf() *documentShelf {
 	return &documentShelf{
 		listed: []*agentv1.Document{
-			{Id: "d1", Name: "Design the cache", Kind: agentv1.DocumentKind_DOCUMENT_KIND_RFC, Version: 3, UpdatedAt: "2026-09-25T12:00:00Z"},
-			{Id: "d2", Name: "Rollout report", Kind: agentv1.DocumentKind_DOCUMENT_KIND_REPORT, Version: 5, UpdatedAt: "2026-09-24T12:00:00Z"},
+			{
+				Id:        "d1",
+				Name:      "Design the cache",
+				Kind:      agentv1.DocumentKind_DOCUMENT_KIND_RFC,
+				Version:   3,
+				UpdatedAt: "2026-09-25T12:00:00Z",
+			},
+			{
+				Id:        "d2",
+				Name:      "Rollout report",
+				Kind:      agentv1.DocumentKind_DOCUMENT_KIND_REPORT,
+				Version:   5,
+				UpdatedAt: "2026-09-24T12:00:00Z",
+			},
 		},
 		bodies: map[string]string{
 			"d1": "# Design the cache\n\nKeep the cache warm.",
@@ -781,7 +798,11 @@ func newDocumentShelf() *documentShelf {
 			"d1": {
 				{version: 1, body: "# Design the cache\n\nKeep the cache cold."},
 				{version: 2, body: "# Design the cache\n\nKeep the cache cold.\n\nEvict nightly."},
-				{version: 3, body: "# Design the cache\n\nKeep the cache warm.", byPerson: true},
+				{
+					version:  3,
+					body:     "# Design the cache\n\nKeep the cache warm.",
+					byPerson: true,
+				},
 			},
 			"d2": {
 				{version: 4, body: "It went out on Monday."},

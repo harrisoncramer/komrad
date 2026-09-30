@@ -21,7 +21,11 @@ type docWindow struct {
 
 // shape is the window as the reader package measures it.
 func (d docWindow) shape() reader.Window {
-	return reader.Window{Len: len(d.rows), Top: d.top, Markers: d.markers}
+	return reader.Window{
+		Len:     len(d.rows),
+		Top:     d.top,
+		Markers: d.markers,
+	}
 }
 
 // clamp keeps the window inside the document.

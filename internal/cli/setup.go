@@ -44,7 +44,11 @@ answer takes it from a flag, and names the flag when none was given.`,
 			check := func(ctx context.Context, names ...string) doctor.Report {
 				env, settings, err := state.buildDoctor()
 				if err != nil {
-					return doctor.Report{Findings: []doctor.Finding{{Name: "checks", Status: doctor.StatusFail, Error: err.Error()}}}
+					return doctor.Report{Findings: []doctor.Finding{{
+						Name:   "checks",
+						Status: doctor.StatusFail,
+						Error:  err.Error(),
+					}}}
 				}
 
 				return doctor.Run(ctx, env, doctor.Select(doctor.Checks(settings), names...))

@@ -29,7 +29,11 @@ func fakeChecker(findings ...doctor.Finding) Checker {
 }
 
 func ok(name, detail string) doctor.Finding {
-	return doctor.Finding{Name: name, Status: doctor.StatusOK, Detail: detail}
+	return doctor.Finding{
+		Name:   name,
+		Status: doctor.StatusOK,
+		Detail: detail,
+	}
 }
 
 // TestHarnessStep covers when the harness step is done, repairs alone, asks, or stops.
@@ -66,7 +70,11 @@ func TestHarnessStep(t *testing.T) {
 			name: "none installed stops",
 			findings: []doctor.Finding{
 				ok(doctor.CheckDefaultHarness, "claude"),
-				{Name: "claude", Status: doctor.StatusFail, Fix: "install claude"},
+				{
+					Name:   "claude",
+					Status: doctor.StatusFail,
+					Fix:    "install claude",
+				},
 				{Name: "codex", Status: doctor.StatusWarn},
 			},
 			verdict: VerdictStop,
@@ -100,7 +108,11 @@ func TestHarnessStepRepairRefusesAnOverridingLayer(t *testing.T) {
 	lower, upper := filepath.Join(dir, "lower.toml"), filepath.Join(dir, "upper.toml")
 	require.NoError(t, os.WriteFile(upper, []byte("default_harness = \"claude\"\n"), 0o600))
 
-	step := &HarnessStep{Path: lower, Stack: config.Stack{Paths: []string{lower, upper}}, chosen: "codex"}
+	step := &HarnessStep{
+		Path:   lower,
+		Stack:  config.Stack{Paths: []string{lower, upper}},
+		chosen: "codex",
+	}
 
 	err := step.repair(t.Context())
 

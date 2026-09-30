@@ -1266,15 +1266,27 @@ func TestSyncRecordsWhatMovedOnAPullRequest(t *testing.T) {
 	pushed.HeadSHA = "def"
 	f.forge.changed[""] = &forge.Page{PullRequests: []forge.PullRequest{pushed}}
 	f.forge.updated[""] = &forge.Page{PullRequests: []forge.PullRequest{pushed}}
-	f.forge.standings[1] = forge.Standing{Decision: forge.ReviewDecisionPending, Checks: forge.ChecksFailing, HeadSHA: "def"}
+	f.forge.standings[1] = forge.Standing{
+		Decision: forge.ReviewDecisionPending,
+		Checks:   forge.ChecksFailing,
+		HeadSHA:  "def",
+	}
 	f.pass(t, syncNow.Add(time.Hour+time.Minute))
 
 	assert.Equal(t, []Change{
 		{ID: id, Moves: []Move{
-			{Field: FieldChecks, From: string(forge.ChecksPending), To: string(forge.ChecksFailing)},
+			{
+				Field: FieldChecks,
+				From:  string(forge.ChecksPending),
+				To:    string(forge.ChecksFailing),
+			},
 		}},
 		{ID: id, Moves: []Move{
-			{Field: FieldChecks, From: string(forge.ChecksFailing), To: string(forge.ChecksFailing)},
+			{
+				Field: FieldChecks,
+				From:  string(forge.ChecksFailing),
+				To:    string(forge.ChecksFailing),
+			},
 		}},
 	}, f.changes(t))
 }

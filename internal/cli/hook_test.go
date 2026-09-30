@@ -343,7 +343,11 @@ func fakeMailServer(t *testing.T, params fakeMailParams) string {
 
 		w.Header().Set("Content-Type", "application/json")
 		resp := &agentv1.ReadMailResponse{Mail: xslice.Map(params.mail, func(item mailItem) *agentv1.Mail {
-			m := &agentv1.Mail{Id: item.ID, FromName: item.FromName, Body: item.Body}
+			m := &agentv1.Mail{
+				Id:       item.ID,
+				FromName: item.FromName,
+				Body:     item.Body,
+			}
 			if item.FromAgent != "" {
 				m.FromAgentId = &item.FromAgent
 			}
@@ -487,6 +491,10 @@ func TestIntegrationStopFailureHookRecordsTheFailure(t *testing.T) {
 
 	require.NoError(t, cmd.Execute())
 	require.Len(t, reports, 1)
-	assert.Equal(t, recordedReport{agentID: "agent-a", turnEnded: true, turnError: "Rate limit reached"}, reports[0])
+	assert.Equal(t, recordedReport{
+		agentID:   "agent-a",
+		turnEnded: true,
+		turnError: "Rate limit reached",
+	}, reports[0])
 	assert.Empty(t, out.String(), "Claude ignores what a StopFailure hook prints")
 }

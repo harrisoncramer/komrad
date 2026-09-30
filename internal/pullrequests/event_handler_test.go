@@ -45,7 +45,11 @@ func TestAPullRequestChangeTellsTheAgentsOnItsBranch(t *testing.T) {
 			name: "two changes before the agent reads are one mail",
 			standings: []forge.Standing{
 				{Decision: forge.ReviewDecisionPending, Checks: forge.ChecksFailing},
-				{Decision: forge.ReviewDecisionPending, Checks: forge.ChecksFailing, Mergeability: forge.MergeabilityConflicting},
+				{
+					Decision:     forge.ReviewDecisionPending,
+					Checks:       forge.ChecksFailing,
+					Mergeability: forge.MergeabilityConflicting,
+				},
 			},
 			wantLines: []string{"  checks: failing\n", "  mergeability: conflicting with main\n"},
 		},
@@ -88,7 +92,11 @@ func TestAPullRequestChangeTellsTheAgentsOnItsBranch(t *testing.T) {
 
 // TestAPullRequestChangeAfterTheMailWasReadStartsAnother pins that mail the agent read is left alone.
 func TestAPullRequestChangeAfterTheMailWasReadStartsAnother(t *testing.T) {
-	failingOnA := forge.Standing{Decision: forge.ReviewDecisionPending, Checks: forge.ChecksFailing, HeadSHA: "aaa"}
+	failingOnA := forge.Standing{
+		Decision: forge.ReviewDecisionPending,
+		Checks:   forge.ChecksFailing,
+		HeadSHA:  "aaa",
+	}
 
 	tests := []struct {
 		name      string
@@ -96,13 +104,21 @@ func TestAPullRequestChangeAfterTheMailWasReadStartsAnother(t *testing.T) {
 		wantLines []string
 	}{
 		{
-			name:      "an approval",
-			after:     forge.Standing{Decision: forge.ReviewDecisionApproved, Checks: forge.ChecksFailing, HeadSHA: "aaa"},
+			name: "an approval",
+			after: forge.Standing{
+				Decision: forge.ReviewDecisionApproved,
+				Checks:   forge.ChecksFailing,
+				HeadSHA:  "aaa",
+			},
 			wantLines: []string{"  review: approved\n", "  checks: failing\n"},
 		},
 		{
-			name:      "the checks failing again on a new head",
-			after:     forge.Standing{Decision: forge.ReviewDecisionPending, Checks: forge.ChecksFailing, HeadSHA: "bbb"},
+			name: "the checks failing again on a new head",
+			after: forge.Standing{
+				Decision: forge.ReviewDecisionPending,
+				Checks:   forge.ChecksFailing,
+				HeadSHA:  "bbb",
+			},
 			wantLines: []string{"  checks: failing\n"},
 		},
 		{
@@ -110,8 +126,12 @@ func TestAPullRequestChangeAfterTheMailWasReadStartsAnother(t *testing.T) {
 			after: failingOnA,
 		},
 		{
-			name:  "the checks passing on a new head is not news",
-			after: forge.Standing{Decision: forge.ReviewDecisionPending, Checks: forge.ChecksPassing, HeadSHA: "bbb"},
+			name: "the checks passing on a new head is not news",
+			after: forge.Standing{
+				Decision: forge.ReviewDecisionPending,
+				Checks:   forge.ChecksPassing,
+				HeadSHA:  "bbb",
+			},
 		},
 	}
 
