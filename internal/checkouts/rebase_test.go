@@ -349,6 +349,7 @@ func TestRebaseSettlesTheAgentBeforeItMoves(t *testing.T) {
 		pane           string
 		state          agentstore.State
 		readings       []harness.Activity
+		prediction     git.Prediction
 		wantInterrupts int
 		wantReads      int
 	}{
@@ -377,6 +378,13 @@ func TestRebaseSettlesTheAgentBeforeItMoves(t *testing.T) {
 			name:     "an agent with no pane, which has nothing running",
 			readings: []harness.Activity{harness.ActivityWorking},
 		},
+		{
+			name:       "a working agent whose branch already holds the base, which is left alone",
+			pane:       "%1",
+			state:      agentstore.StateThinking,
+			readings:   []harness.Activity{harness.ActivityWorking},
+			prediction: git.Prediction{Contained: true},
+		},
 	}
 
 	for _, tt := range tests {
@@ -388,6 +396,7 @@ func TestRebaseSettlesTheAgentBeforeItMoves(t *testing.T) {
 			readsBeforeTree := 0
 			rebaser := &gittest.Rebaser{
 				State:          git.TreeState{Branch: "agent/a1"},
+				Prediction:     tt.prediction,
 				BeforeReadTree: func() { readsBeforeTree = observer.Reads },
 			}
 
@@ -401,6 +410,12 @@ func TestRebaseSettlesTheAgentBeforeItMoves(t *testing.T) {
 			assert.Equal(t, tt.wantReads, observer.Reads)
 			assert.Equal(t, tt.wantReads, readsBeforeTree, "the plan reads the tree only once the agent has stopped")
 			assert.Equal(t, tt.wantInterrupts, channel.Interrupts)
+			if tt.prediction.Contained {
+				assert.Empty(t, rebaser.Calls)
+				assert.Empty(t, fixture.readInbox(t, agent.ID))
+
+				return
+			}
 			assert.Equal(t, []string{"park", "rebase"}, rebaser.Calls)
 		})
 	}

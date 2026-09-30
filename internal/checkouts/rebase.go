@@ -149,6 +149,8 @@ type RebasePlan struct {
 	Merges int `json:"merges"`
 	// ConflictPaths are the paths a merge of the base into the branch could not settle.
 	ConflictPaths []string `json:"conflict_paths"`
+	// UpToDate says the branch already holds the base.
+	UpToDate bool `json:"up_to_date"`
 }
 
 // RebaseResult is what a rebase did.
@@ -225,6 +227,7 @@ func (s *RebaseService) plan(ctx context.Context, agent agentstore.Agent) (*Reba
 		Replay:        prediction.Replay,
 		Merges:        prediction.Merges,
 		ConflictPaths: prediction.ConflictPaths,
+		UpToDate:      prediction.Contained,
 	}, nil
 }
 
@@ -241,8 +244,12 @@ func (s *RebaseService) Rebase(ctx context.Context, agentID string) (*RebaseResu
 	}
 	defer unlock()
 
-	if _, err := s.readTreeState(ctx, *agent); err != nil {
+	plan, err := s.plan(ctx, *agent)
+	if err != nil {
 		return nil, err
+	}
+	if plan.UpToDate {
+		return &RebaseResult{RebasePlan: *plan}, nil
 	}
 
 	interrupted, err := s.settle(ctx, *agent)

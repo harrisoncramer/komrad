@@ -48,6 +48,8 @@ type Prediction struct {
 	Merges int
 	// ConflictPaths are the paths a three-way merge of the base into the branch cannot settle.
 	ConflictPaths []string
+	// Contained says the branch already holds the base.
+	Contained bool
 }
 
 // ReadTreeState reads the three things about a checkout a rebase has to decide on.
@@ -169,6 +171,7 @@ func (c *Client) PredictRebase(ctx context.Context, dir, ref string) (Prediction
 		MaybeAncestor: ref,
 		Of:            "HEAD",
 	})
+	prediction.Contained = contained
 	if err != nil || contained {
 		return prediction, err
 	}

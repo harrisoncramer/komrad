@@ -402,6 +402,7 @@ func TestIntegrationPredictRebaseFindsNoCutoffOnAnOrdinaryBranch(t *testing.T) {
 	assert.Empty(t, prediction.Cutoff)
 	assert.Zero(t, prediction.Landed)
 	assert.Equal(t, 1, prediction.Replay)
+	assert.False(t, prediction.Contained)
 }
 
 // TestIntegrationPredictRebaseWalksRatherThanHalves pins the property that decides the implementation: a
@@ -444,6 +445,7 @@ func TestIntegrationPredictRebaseRefusesABaseTheBranchAlreadyContains(t *testing
 
 	assert.Empty(t, prediction.Cutoff, "the base is already contained, so nothing is dropped")
 	assert.Equal(t, 2, prediction.Replay)
+	assert.True(t, prediction.Contained)
 }
 
 // TestIntegrationPredictRebaseRefusesAnUnrelatedBase covers a base sharing no history, where every question
