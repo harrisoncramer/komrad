@@ -1416,6 +1416,13 @@
               "default": "\"✓\""
             },
             {
+              "key": "current",
+              "path": "glyphs.review.current",
+              "type": "string",
+              "description": "The row of the file tree beside the diff that the cursor is in.",
+              "default": "\"▸\""
+            },
+            {
               "key": "delivered",
               "path": "glyphs.review.delivered",
               "type": "string",
