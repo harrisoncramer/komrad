@@ -3,6 +3,7 @@
 package tmux
 
 import (
+	"cmp"
 	"os"
 	"path/filepath"
 	"strings"
@@ -32,8 +33,10 @@ func TestIntegrationTuneCopyModeMakesCopyModeVisualMode(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "send-keys -X begin-selection", bindings["v"], "v starts a selection as it does in vim")
 	assert.Equal(t, `send-keys -X begin-selection \; send-keys -X rectangle-on`, bindings["C-v"], "ctrl+v starts a block")
-	assert.Contains(t, bindings["y"], "copy-pipe-and-cancel", "y copies as tmux does outside a stand-in")
-	assert.Contains(t, bindings["y"], "pipe-and-cancel 'sh #{q:"+standInCopyOption+"}", "y in a stand-in copies only from its block")
+	for _, key := range []string{"y", "Enter", "C-j", "D", "MouseDragEnd1Pane", "DoubleClick1Pane", "TripleClick1Pane"} {
+		assert.Contains(t, bindings[key], "copy-pipe-and-cancel", "%s copies as tmux does outside a stand-in", key)
+		assert.Contains(t, bindings[key], "pipe-and-cancel 'sh #{q:"+standInCopyOption+"}", "%s in a stand-in copies only from its block", key)
+	}
 	assert.Contains(t, bindings["Escape"], "clear-selection", "esc drops a selection before it leaves copy-mode")
 }
 
@@ -114,6 +117,7 @@ func TestIntegrationCopyStandInCutsToBlock(t *testing.T) {
 	tests := []struct {
 		name string
 		keys [][]string
+		copy string
 		want string
 	}{
 		{
@@ -130,6 +134,18 @@ func TestIntegrationCopyStandInCutsToBlock(t *testing.T) {
 			name: "rectangle",
 			keys: [][]string{{"-X", "begin-selection"}, {"-X", "rectangle-on"}, {"-N", "2", "-X", "cursor-down"}, {"-N", "7", "-X", "cursor-right"}},
 			want: "o\nt\n三",
+		},
+		{
+			name: "enter",
+			keys: [][]string{{"-X", "begin-selection"}, {"-X", "cursor-down"}, {"-X", "end-of-line"}},
+			copy: "Enter",
+			want: "one\ntwo",
+		},
+		{
+			name: "eol",
+			keys: [][]string{{"-X", "cursor-down"}},
+			copy: "D",
+			want: "two",
 		},
 	}
 
@@ -163,7 +179,8 @@ func TestIntegrationCopyStandInCutsToBlock(t *testing.T) {
 				_, err := client.query(append([]string{"send-keys", "-t", standIn}, keys...)...)
 				require.NoError(t, err)
 			}
-			_, err = client.query("send-keys", "-t", standIn, "y")
+			copy := cmp.Or(tt.copy, "y")
+			_, err = client.query("send-keys", "-t", standIn, copy)
 			require.NoError(t, err)
 
 			var copied string

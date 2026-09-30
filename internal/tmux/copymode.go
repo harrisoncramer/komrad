@@ -55,6 +55,9 @@ printf '%%s' "$out" | %s -S "$socket" load-buffer -w -
 if [ -n "$copy" ]; then printf '%%s' "$out" | sh -c "$copy"; fi
 `
 
+// copySelection copies the selection as tmux does, or only the cells inside the block in a stand-in.
+const copySelection = `if-shell -F "#{` + standInCopyOption + `}" "send-keys -X pipe-and-cancel '` + cutCopy + `'" "send-keys -X copy-pipe-and-cancel"`
+
 // clipboardCommands are the tools copy-mode can pipe a copy into, the first one installed winning.
 var clipboardCommands = [][]string{
 	{"pbcopy"},
@@ -76,8 +79,12 @@ func (c *Client) TuneCopyMode(badge string) {
 
 	c.BindTableKey(copyModeTable, "v", "send-keys", "-X", "begin-selection")
 	c.BindTableKey(copyModeTable, "C-v", "send-keys -X begin-selection ; send-keys -X rectangle-on")
-	c.BindTableKey(copyModeTable, "y", "if-shell", "-F", "#{"+standInCopyOption+"}",
-		"send-keys -X pipe-and-cancel '"+cutCopy+"'", "send-keys -X copy-pipe-and-cancel")
+	for _, key := range []string{"y", "Enter", "C-j", "MouseDragEnd1Pane"} {
+		c.BindTableKey(copyModeTable, key, copySelection)
+	}
+	c.BindTableKey(copyModeTable, "D", "send-keys -X begin-selection ; send-keys -X end-of-line ; "+copySelection)
+	c.BindTableKey(copyModeTable, "DoubleClick1Pane", "select-pane ; send-keys -X select-word ; run-shell -d 0.3 ; "+copySelection)
+	c.BindTableKey(copyModeTable, "TripleClick1Pane", "select-pane ; send-keys -X select-line ; run-shell -d 0.3 ; "+copySelection)
 	c.BindTableKey(copyModeTable, "Escape", "if-shell", "-F", "#{selection_present}",
 		"send-keys -X clear-selection", "send-keys -X cancel")
 }
