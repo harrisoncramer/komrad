@@ -1266,10 +1266,14 @@ func TestSyncReadsTheChecksUntilTheyLand(t *testing.T) {
 func TestSyncRecordsWhatMovedOnAPullRequest(t *testing.T) {
 	f := newSyncFixture(t)
 	f.agentOn(t, "a", "agent/x")
+	merged := decided(pullRequestAt("PR_4", "agent/x", syncNow.Add(-4*time.Hour)), forge.ReviewDecisionChangesRequested)
+	merged.State = "MERGED"
+	merged.Checks = xptr.Ptr(forge.ChecksFailing)
 	f.forge.updated[""] = &forge.Page{PullRequests: []forge.PullRequest{
 		pullRequestAt("PR_1", "agent/x", syncNow.Add(-time.Hour)),
 		pullRequestAt("PR_2", "agent/x", syncNow.Add(-2*time.Hour)),
 		pullRequestAt("PR_3", "agent/x", syncNow.Add(-3*time.Hour)),
+		merged,
 	}}
 	f.forge.standings[1] = forge.Standing{Decision: forge.ReviewDecisionPending, Checks: forge.ChecksPending}
 	f.forge.standings[2] = forge.Standing{Decision: forge.ReviewDecisionApproved, Checks: forge.ChecksPassing, Mergeability: forge.MergeabilityClean}

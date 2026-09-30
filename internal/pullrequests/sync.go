@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"slices"
 	"time"
 
 	"komrad/internal/events"
@@ -902,7 +903,13 @@ func (s *PullRequestSyncer) writePage(ctx context.Context, pullRequests []forge.
 				if err != nil {
 					return nil, err
 				}
-				moved = append(moved, standingMoves(change)...)
+				standingMoved := standingMoves(change)
+				if upsert.State != "OPEN" {
+					standingMoved = slices.DeleteFunc(standingMoved, func(move *Move) bool {
+						return move != nil && move.From == ""
+					})
+				}
+				moved = append(moved, standingMoved...)
 			}
 
 			if change := NewChange(outcome.ID, moved...); change != nil {
