@@ -165,7 +165,12 @@ func NewPanel(params NewPanelParams) *Panel {
 
 	panel := &Panel{
 		model: newModel(Deps{
-			Session:         NewSession(NewSessionParams{Tmux: tmux, Session: "test-session", LeaderKey: "C-Space", LeaderTable: "komrad-leader"}),
+			Session: NewSession(NewSessionParams{
+				Tmux:        tmux,
+				Session:     "test-session",
+				LeaderKey:   "C-Space",
+				LeaderTable: "komrad-leader",
+			}),
 			Tmux:            driven,
 			Git:             params.Git,
 			Agents:          params.Agents,

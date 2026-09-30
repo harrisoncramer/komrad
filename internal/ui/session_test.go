@@ -25,14 +25,24 @@ func TestSession(t *testing.T) {
 	t.Run("no sidebar binds nothing", func(t *testing.T) {
 		tmux := &bindRecorder{window: "@1"}
 
-		ui.NewSession(ui.NewSessionParams{Tmux: tmux, Session: "komrad", LeaderKey: "C-Space", LeaderTable: "komrad-leader"}).HoldLeader("")
+		ui.NewSession(ui.NewSessionParams{
+			Tmux:        tmux,
+			Session:     "komrad",
+			LeaderKey:   "C-Space",
+			LeaderTable: "komrad-leader",
+		}).HoldLeader("")
 
 		assert.Empty(t, tmux.bound)
 	})
 
 	t.Run("the panel going gives the leader back", func(t *testing.T) {
 		tmux := &bindRecorder{window: "@1"}
-		session := ui.NewSession(ui.NewSessionParams{Tmux: tmux, Session: "komrad", LeaderKey: "C-Space", LeaderTable: "komrad-leader"})
+		session := ui.NewSession(ui.NewSessionParams{
+			Tmux:        tmux,
+			Session:     "komrad",
+			LeaderKey:   "C-Space",
+			LeaderTable: "komrad-leader",
+		})
 
 		session.HoldLeader("%3")
 		require.NotEmpty(t, tmux.bound)
@@ -45,7 +55,12 @@ func TestSession(t *testing.T) {
 	t.Run("releasing a leader nobody held says nothing to tmux", func(t *testing.T) {
 		tmux := &bindRecorder{}
 
-		ui.NewSession(ui.NewSessionParams{Tmux: tmux, Session: "komrad", LeaderKey: "C-Space", LeaderTable: "komrad-leader"}).ReleaseLeader()
+		ui.NewSession(ui.NewSessionParams{
+			Tmux:        tmux,
+			Session:     "komrad",
+			LeaderKey:   "C-Space",
+			LeaderTable: "komrad-leader",
+		}).ReleaseLeader()
 
 		assert.Empty(t, tmux.unbound)
 	})
