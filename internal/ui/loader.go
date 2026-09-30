@@ -42,7 +42,7 @@ func (a *agentsScreen) isLoading(s panelShared) bool {
 }
 
 func (a *archiveScreen) isLoading(s panelShared) bool {
-	return slices.ContainsFunc(a.listRows(s), isRowLoading)
+	return a.kind == archiveAgents && slices.ContainsFunc(a.listRows(s), isRowLoading)
 }
 
 func (r reviewScreen) isLoading(s panelShared) bool {
