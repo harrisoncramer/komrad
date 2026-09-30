@@ -9,6 +9,7 @@ import (
 	"komrad/internal/ui/diffview"
 	"komrad/internal/ui/paint"
 
+	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 )
@@ -80,9 +81,10 @@ func (r reviewScreen) filesView(s panelShared, lines int) string {
 
 	width := lineWidthOf(s.pane)
 	tree := r.diff.readFilesTree()
+	focused := r.isBlockFocused(s)
 	rows := make([]string, 0, len(tree.rows))
 	for at, row := range tree.rows {
-		rows = append(rows, renderTreeRow(s, row, at == tree.current, width))
+		rows = append(rows, renderTreeRow(s, renderTreeRowParams{Row: row, Current: at == tree.current, Focused: focused, Width: width}))
 	}
 
 	header := r.diff.filesHeader(s, width) + "\n"
@@ -119,14 +121,23 @@ func (d reviewDiff) filesHeader(s panelShared, width int) string {
 	})
 }
 
+// renderTreeRowParams is one row of the tree and whether it is the one the cursor is in.
+type renderTreeRowParams struct {
+	Row     diffview.TreeRow
+	Current bool
+	Focused bool
+	Width   int
+}
+
 // renderTreeRow draws one row of the tree: its mark, its place in the tree, its name, and what it
 // holds.
-func renderTreeRow(s panelShared, row diffview.TreeRow, current bool, width int) string {
+func renderTreeRow(s panelShared, params renderTreeRowParams) string {
+	row, width := params.Row, params.Width
 	style := lipgloss.NewStyle()
 	mark := " "
 
 	switch {
-	case current:
+	case params.Current:
 		mark = s.glyphs.Spell(glyph.FileCurrent)
 		style = paint.Panel.Style(paint.TonePrimary).Bold(true)
 	case row.Viewed:
@@ -135,17 +146,20 @@ func renderTreeRow(s panelShared, row diffview.TreeRow, current bool, width int)
 	}
 
 	lead := style.Render(mark) + strings.Repeat(" ", filesGutter-1+2*row.Depth)
-	params := fitTreeRowParams{
+	if params.Current && params.Focused {
+		lead = caretGlyph(s.draw.listPane(width).caret) + strings.Repeat(" ", filesGutter-2+2*row.Depth)
+	}
+	fit := fitTreeRowParams{
 		Left:  style.Render(row.Name),
 		Width: width - lipgloss.Width(lead),
 	}
 
 	if !row.Folder {
-		params.Stat = formatStat(row.Stat)
-		params.Badges = formatThreadMark(s.glyphs, row.Counts)
+		fit.Stat = formatStat(row.Stat)
+		fit.Badges = formatThreadMark(s.glyphs, row.Counts)
 	}
 
-	return lead + fitTreeRow(params)
+	return lead + fitTreeRow(fit)
 }
 
 // formatStat is the lines a change added and removed, leaving out a side it did not touch.
@@ -241,4 +255,35 @@ func joinRight(stat, badges string) string {
 	}
 
 	return stat + "  " + badges
+}
+
+func (r *reviewScreen) isBlockDrawn(s panelShared) bool {
+	if _, ok := s.draw.screenColumnSplit(); !ok {
+		return false
+	}
+
+	return !r.loading && r.diff.View() != nil && r.diff.View().Len() > 0
+}
+
+func (r *reviewScreen) isBlockFocused(s panelShared) bool {
+	return r.filesFocused && s.draw.isListFocused() && !r.isWriting() && r.isBlockDrawn(s)
+}
+
+func (r *reviewScreen) focusBlock(panelShared) {
+	r.filesFocused = true
+}
+
+func (r *reviewScreen) blurBlock() {
+	r.filesFocused = false
+}
+
+// stepFile moves the diff to the next file in the tree, or the previous one for a negative
+// direction.
+func (r *reviewScreen) stepFile(s panelShared, direction int) tea.Cmd {
+	keys := r.diffKeys()
+	if !keys.pane.JumpFile(direction, keys.height(s)) {
+		return nil
+	}
+
+	return keys.land(s)
 }

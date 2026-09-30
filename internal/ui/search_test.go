@@ -849,6 +849,65 @@ func TestSearchPreview(t *testing.T) {
 		assert.Equal(t, readStage(before)[0], readStage(frame)[0])
 	})
 
+	t.Run("the leader twice hands the keys to the transcript and esc hands them back to the hits", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openPreview(t, panelHarnessParams{})
+		harness.press("enter")
+		hovered := readHoveredSearchRow(harness.readFrame())
+
+		harness.press("ctrl+space", "ctrl+space", "g")
+		frame := harness.readFrame()
+		assert.Contains(t, readStageText(frame), "line 0 of the conversation before")
+		assert.Equal(t, hovered, readHoveredSearchRow(frame))
+
+		harness.fireTimers()
+		assert.Equal(t, hovered, readHoveredSearchRow(harness.readFrame()), "the hits hold their arrow still")
+
+		harness.press("esc", "j")
+		assert.NotEqual(t, hovered, readHoveredSearchRow(harness.readFrame()))
+	})
+
+	t.Run("the transcript takes the keys with its cursor on the match", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openPreview(t, panelHarnessParams{})
+		harness.press("enter", "ctrl+space", "ctrl+space")
+
+		raw := harness.readRawFrame()
+		at := findPreviewCursor(raw)
+		require.GreaterOrEqual(t, at, 0)
+		assert.Contains(t, readStage(ansi.Strip(raw))[at], matchedTurn)
+	})
+
+	t.Run("the wheel over the focused transcript carries its cursor with the window", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openPreview(t, panelHarnessParams{})
+		harness.press("enter", "ctrl+space", "ctrl+space", "j")
+		before := harness.readRawFrame()
+		at := findPreviewCursor(before)
+		require.GreaterOrEqual(t, at, 0)
+
+		harness.send(tea.MouseWheelMsg{X: defaultHarnessWidth - 1, Y: 5, Button: tea.MouseWheelDown})
+
+		after := harness.readRawFrame()
+		assert.Equal(t, at, findPreviewCursor(after))
+		assert.NotEqual(t, readStage(ansi.Strip(before))[at], readStage(ansi.Strip(after))[at])
+	})
+
+	t.Run("a width change keeps the focused transcript's cursor in the window", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openPreview(t, panelHarnessParams{})
+		harness.press("enter", "ctrl+space", "ctrl+space", "G")
+		require.GreaterOrEqual(t, findPreviewCursor(harness.readRawFrame()), 0)
+
+		harness.send(tea.WindowSizeMsg{Width: defaultHarnessWidth + 40, Height: defaultHarnessHeight})
+
+		assert.GreaterOrEqual(t, findPreviewCursor(harness.readRawFrame()), 0)
+	})
+
 	t.Run("a height change keeps the reader's place", func(t *testing.T) {
 		t.Parallel()
 
@@ -1150,4 +1209,16 @@ func findRow(rows []string, name string) string {
 	}
 
 	return ""
+}
+
+func findPreviewCursor(raw string) int {
+	selected := paint.BackgroundSequence(paint.Panel.Background(paint.ShadeSelection))
+	for i, line := range splitLines(raw) {
+		stage := ansi.TruncateLeft(line, config.DefaultSidebarWidth, "")
+		if strings.Contains(stage, selected) {
+			return i
+		}
+	}
+
+	return -1
 }

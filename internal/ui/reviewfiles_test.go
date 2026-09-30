@@ -118,6 +118,21 @@ func TestReviewFiles(t *testing.T) {
 
 		assert.Equal(t, "FILES 1 of 2 read +4 −1 ○1", readFilesBlock(harness.readFrame())[0])
 	})
+
+	t.Run("the leader twice hands the keys to the tree, which walks the diff a file at a time", func(t *testing.T) {
+		server := newReviewServer(t)
+		server.repo.Patches[gittest.NamePair(gittest.BaseSHA, gittest.SnapshotSHA)] = gittest.PatchOfBothFiles
+		harness := openReview(t, server)
+
+		harness.press("ctrl+space", "ctrl+space", "j")
+		assert.Contains(t, readFilesBlock(harness.readFrame()), "› second.go +3")
+
+		harness.press("esc")
+		assert.Equal(t, "▸ second.go +3", readCurrentFile(harness.readFrame()), "the diff holds the keys again")
+
+		harness.press("ctrl+space", "ctrl+space", "k")
+		assert.Contains(t, readFilesBlock(harness.readFrame()), "› greet.go +1 −1")
+	})
 }
 
 func readFilesBlock(frame string) []string {

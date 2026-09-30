@@ -1,8 +1,10 @@
 package ui
 
 import (
+	"slices"
 	"strings"
 
+	"komrad/config"
 	"komrad/internal/ui/paint"
 
 	tea "charm.land/bubbletea/v2"
@@ -24,6 +26,8 @@ type searchPreview struct {
 	spans        []paint.Span
 	open         int
 	doc          docWindow
+	row          int
+	match        int
 }
 
 // searchColumn is the transcript drawn beside the list, which stands whether or not anything has
@@ -85,6 +89,7 @@ func (w *searchScreen) drawPreview(s panelShared) {
 	preview.doc.rows = strings.Split(strings.TrimRight(text, "\n"), "\n")
 
 	preview.doc.top = 0
+	preview.match = line - 1
 	if line > 0 {
 		preview.doc.top = max(line-1-transcriptPreviewBefore, 0)
 	}
@@ -133,6 +138,12 @@ func (w *searchScreen) previewView(s panelShared, split columnSplit) string {
 		doc = docWindow{rows: paint.Panel.DocRows(w.previewNotice(s), split.column)}
 	}
 
+	if w.isBlockFocused(s) {
+		line := w.previewLine(split.rows)
+		doc.rows = slices.Clone(doc.rows)
+		doc.rows[line] = paint.Panel.PaintRow(doc.rows[line], split.column)
+	}
+
 	return doc.view(split.rows)
 }
 
@@ -146,4 +157,127 @@ func (w *searchScreen) previewNotice(s panelShared) string {
 	default:
 		return searchLoadingMarkdown
 	}
+}
+
+func (w *searchScreen) isBlockDrawn(s panelShared) bool {
+	if _, ok := s.draw.screenColumnSplit(); !ok {
+		return false
+	}
+
+	return w.preview.conversation != "" && len(w.preview.doc.rows) > 0
+}
+
+func (w *searchScreen) isBlockFocused(s panelShared) bool {
+	return w.previewFocused && s.draw.isListFocused() && !w.typing && w.isBlockDrawn(s)
+}
+
+func (w *searchScreen) focusBlock(s panelShared) {
+	w.previewFocused = true
+	w.preview.row = 0
+
+	split, ok := s.draw.screenColumnSplit()
+	if !ok {
+		return
+	}
+
+	if row := w.preview.match - w.preview.doc.top; w.preview.match >= 0 && row >= 0 && row < split.rows {
+		w.preview.row = row
+	}
+}
+
+func (w *searchScreen) blurBlock() {
+	w.previewFocused = false
+}
+
+// movePreview puts the cursor a number of rows down the transcript, or up it for a negative
+// count, and brings the window round to it.
+func (w *searchScreen) movePreview(s panelShared, delta int) tea.Cmd {
+	split, ok := s.draw.screenColumnSplit()
+	if !ok {
+		return nil
+	}
+
+	doc := &w.preview.doc
+	line := max(min(w.previewLine(split.rows)+delta, len(doc.rows)-1), 0)
+	doc.top = doc.shape().Reveal(line, split.rows)
+	w.preview.row = line - doc.top
+
+	return nil
+}
+
+// previewActions is the keys on the transcript while it holds them.
+func (w *searchScreen) previewActions() screenActionSpec {
+	return screenActionSpec{
+		table: []screenAction{
+			{
+				id:   actionMove,
+				keys: func(k config.Keybindings) []string { return slices.Concat(k.Nav.Up, k.Nav.Down) },
+				run: func(_ host, s panelShared, pressed string) tea.Cmd {
+					return w.movePreview(s, directionOf(pressed, s.keys.Nav.Up))
+				},
+			},
+			{
+				id:   actionNavPage,
+				keys: func(k config.Keybindings) []string { return slices.Concat(k.Nav.PageUp, k.Nav.PageDown) },
+				run: func(_ host, s panelShared, pressed string) tea.Cmd {
+					return w.movePreview(s, directionOf(pressed, s.keys.Nav.PageUp)*navPageStep)
+				},
+			},
+			{
+				id:   actionColumnScroll,
+				keys: func(k config.Keybindings) []string { return slices.Concat(k.Column.ScrollDown, k.Column.ScrollUp) },
+				run: func(_ host, s panelShared, pressed string) tea.Cmd {
+					return w.movePreview(s, directionOf(pressed, s.keys.Column.ScrollUp)*previewWheelStep)
+				},
+			},
+			{
+				id:   actionJump,
+				keys: func(k config.Keybindings) []string { return slices.Concat(k.Nav.Top, k.Nav.Bottom) },
+				run: func(_ host, s panelShared, pressed string) tea.Cmd {
+					return w.movePreview(s, directionOf(pressed, s.keys.Nav.Top)*len(w.preview.doc.rows))
+				},
+			},
+			{
+				id:   actionSearchOpen,
+				keys: func(config.Keybindings) []string { return []string{"enter"} },
+				run:  func(h host, s panelShared, _ string) tea.Cmd { return w.jumpToAgent(h, s) },
+			},
+			{
+				id:   actionSearchBack,
+				keys: func(config.Keybindings) []string { return []string{"esc"} },
+				run: func(host, panelShared, string) tea.Cmd {
+					w.blurBlock()
+
+					return nil
+				},
+			},
+			{
+				id:   actionQuit,
+				keys: func(config.Keybindings) []string { return []string{"ctrl+c"} },
+				run:  func(h host, _ panelShared, _ string) tea.Cmd { return h.hide() },
+			},
+		},
+		legend: []screenLegendRow{
+			diffMoveRow(),
+			diffPageRow(),
+			diffJumpRow(),
+			{
+				of:    []actionID{actionSearchOpen},
+				desc:  func(panelShared) string { return "go to it" },
+				strip: true,
+			},
+			{
+				of:    []actionID{actionSearchBack},
+				desc:  func(panelShared) string { return "back to the list" },
+				strip: true,
+			},
+		},
+	}
+}
+
+// previewLine is the row of the transcript the cursor is on, kept inside the window and the rows.
+func (w *searchScreen) previewLine(height int) int {
+	doc := w.preview.doc
+
+	return max(min(doc.top+w.preview.row, doc.top+height-1, len(doc.rows)-1), 0)
 }

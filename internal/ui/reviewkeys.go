@@ -40,7 +40,7 @@ func (r *reviewScreen) updateKey(h host, s panelShared, key tea.KeyPressMsg) tea
 		return nil
 	}
 
-	return r.actions().dispatch(h, s, k)
+	return r.actions(s).dispatch(h, s, k)
 }
 
 // refuseWrite says why a key that would write to the agent did nothing.

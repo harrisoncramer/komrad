@@ -8,9 +8,18 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-// actions is the review screen as one table, walked in precedence order by the dispatch and
+// actions is the keys of whichever of the diff and the file tree holds them.
+func (r *reviewScreen) actions(s panelShared) screenActionSpec {
+	if r.isBlockFocused(s) {
+		return r.filesActions()
+	}
+
+	return r.diffActions()
+}
+
+// diffActions is the review screen as one table, walked in precedence order by the dispatch and
 // named in reading order by a legend of the same ids.
-func (r *reviewScreen) actions() screenActionSpec {
+func (r *reviewScreen) diffActions() screenActionSpec {
 	return screenActionSpec{
 		table:  r.table(),
 		legend: r.legend(),
@@ -271,4 +280,48 @@ func (r *reviewScreen) stepThread(_ host, s panelShared, pressed string) tea.Cmd
 	}
 
 	return r.moveCursor(s, r.diff.View().JumpThread(r.diff.Cursor(), 1))
+}
+
+// filesActions is the keys on the file tree, which walk the diff a file at a time.
+func (r *reviewScreen) filesActions() screenActionSpec {
+	return screenActionSpec{
+		table: []screenAction{
+			{
+				id: actionMove,
+				keys: func(k config.Keybindings) []string {
+					return slices.Concat(k.Nav.Up, k.Nav.Down, k.Diff.NextFile, k.Diff.PrevFile)
+				},
+				run: func(_ host, s panelShared, pressed string) tea.Cmd {
+					return r.stepFile(s, directionOf(pressed, slices.Concat(s.keys.Nav.Up, s.keys.Diff.PrevFile)))
+				},
+			},
+			{
+				id:   actionReviewBack,
+				keys: func(k config.Keybindings) []string { return k.Review.Back },
+				run: func(host, panelShared, string) tea.Cmd {
+					r.blurBlock()
+
+					return nil
+				},
+			},
+			{
+				id:   actionQuit,
+				keys: func(k config.Keybindings) []string { return k.Review.Quit },
+				run:  func(h host, _ panelShared, _ string) tea.Cmd { return h.hide() },
+			},
+		},
+		legend: []screenLegendRow{
+			{
+				of:    []actionID{actionMove},
+				desc:  func(panelShared) string { return "move between files" },
+				label: moveLabel,
+				strip: true,
+			},
+			{
+				of:    []actionID{actionReviewBack},
+				desc:  func(panelShared) string { return "back to the diff" },
+				strip: true,
+			},
+		},
+	}
 }

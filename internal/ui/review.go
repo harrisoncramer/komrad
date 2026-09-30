@@ -35,6 +35,8 @@ type reviewScreen struct {
 	offer string
 
 	offers reviewOffers
+
+	filesFocused bool
 }
 
 func (r reviewScreen) parent() screen {
@@ -62,10 +64,9 @@ func (r reviewScreen) isBusy() bool {
 	return r.isWriting() || r.hold.isHeld()
 }
 
-// isDiffFocused is whether the patch holds the keys, which it does whenever the reader is not
-// writing.
+// isDiffFocused is whether the patch holds the keys.
 func (r reviewScreen) isDiffFocused(s panelShared) bool {
-	return s.draw.isListFocused() && !r.isWriting()
+	return s.draw.isListFocused() && !r.isWriting() && !r.isBlockFocused(s)
 }
 
 // update takes the review's own answers and, once nothing in the sidebar has them, the keys.
@@ -115,7 +116,10 @@ func (m *model) enterReview(agent panel.Agent) tea.Cmd {
 	return tea.Batch(left, m.review.open(m.shared(), agent))
 }
 
-var _ columned = (*reviewScreen)(nil)
+var (
+	_ columned = (*reviewScreen)(nil)
+	_ blocked  = (*reviewScreen)(nil)
+)
 
 func (r *reviewScreen) doesDrawFromListing() bool {
 	return false

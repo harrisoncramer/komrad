@@ -49,8 +49,11 @@ func (r reviewScreen) view(s panelShared) string {
 		return r.overlayThread(s, column, cursor, 0)
 	}
 
+	layout := r.layoutSidebar(s)
+	layout.files = s.draw.markZone(zoneBlock, layout.files, lineWidthOf(s.pane))
+
 	// Trimmed so the two halves are the same height.
-	sidebar := strings.TrimRight(r.drawSidebar(r.layoutSidebar(s)), "\n")
+	sidebar := strings.TrimRight(r.drawSidebar(layout), "\n")
 
 	// The band stands over the diff rather than over the whole window, and what it carries acts on
 	// the patch.
@@ -144,7 +147,7 @@ func cutNotes(notes string, rows int) string {
 
 // help keeps the strip to what the screen is for.
 func (r reviewScreen) help(s panelShared) keyMap {
-	own := r.actions().help(s)
+	own := r.actions(s).help(s)
 
 	return keyMap{
 		short: slices.Concat(own.short, s.draw.globalHelp()),
