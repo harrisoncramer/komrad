@@ -252,7 +252,7 @@ func TestFoldingKeepsTheCursorInTheFile(t *testing.T) {
 
 	view.SetFileViewed("greet.go", true)
 
-	header, ok := view.Locate(place)
+	header, ok := view.locate(place)
 	require.True(t, ok)
 	assert.Equal(t, 1, header, "the header is what is left of the file to come back to")
 
@@ -261,7 +261,7 @@ func TestFoldingKeepsTheCursorInTheFile(t *testing.T) {
 
 	view.SetFileViewed("greet.go", false)
 
-	back, ok := view.Locate(place)
+	back, ok := view.locate(place)
 	require.True(t, ok)
 
 	file, ok := view.GetDrawnFileAt(back)
@@ -286,7 +286,7 @@ func TestHeaderFoundByASearchIsHeldAcrossARebuild(t *testing.T) {
 
 	view.PinThreads(nil)
 
-	back, ok := view.Locate(place)
+	back, ok := view.locate(place)
 	require.True(t, ok)
 	assert.Equal(t, header, back, "the header the search found is where the reader is put back")
 }
@@ -302,7 +302,7 @@ func TestHeaderFoundByASearchSurvivesTheFold(t *testing.T) {
 
 	view.SetFileViewed("greet.go", true)
 
-	back, ok := view.Locate(place)
+	back, ok := view.locate(place)
 	require.True(t, ok)
 	assert.Equal(t, 1, back)
 }
@@ -330,7 +330,7 @@ func TestHeaderOfAFileWithNoLinesIsHeld(t *testing.T) {
 	place, ok := view.GetPlace(0)
 	require.True(t, ok)
 
-	back, ok := view.Locate(place)
+	back, ok := view.locate(place)
 	require.True(t, ok)
 	assert.Equal(t, 0, back)
 }
@@ -422,7 +422,7 @@ func TestChangeRowStandsAboveTheFirstFile(t *testing.T) {
 	require.True(t, ok)
 	assert.True(t, place.Change)
 
-	back, ok := view.Locate(place)
+	back, ok := view.locate(place)
 	require.True(t, ok)
 	assert.Equal(t, 0, back)
 
@@ -435,7 +435,7 @@ func TestChangeRowStandsAboveTheFirstFile(t *testing.T) {
 func TestChangeRowIsAbsentWithNothingToReview(t *testing.T) {
 	view := NewView(patchWith(), false)
 
-	_, ok := view.Locate(Place{Change: true})
+	_, ok := view.locate(Place{Change: true})
 	assert.False(t, ok)
 }
 
@@ -457,6 +457,6 @@ func TestHeadlessViewDrawsItsHunksAlone(t *testing.T) {
 		"        2 +  2",
 	}, rows)
 
-	_, ok := view.Locate(Place{Change: true})
+	_, ok := view.locate(Place{Change: true})
 	assert.False(t, ok)
 }
