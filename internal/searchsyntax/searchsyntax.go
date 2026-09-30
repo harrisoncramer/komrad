@@ -28,7 +28,7 @@ var Qualifiers = []Qualifier{
 	{Syntax: "is:reviewer", Meaning: "or implementer, orchestrator"},
 	{Syntax: "-is:reviewer", Meaning: "leave that kind out"},
 	{Syntax: "is:live", Meaning: "or is:archived"},
-	{Syntax: "since:3d", Meaning: "or 5h, 2w, today, a date"},
+	{Syntax: "since:3d", Meaning: "or 30m, 5h, 2w, today, a date"},
 	{Syntax: "until:DATE", Meaning: "up to the end of that day"},
 	{Syntax: "on:DATE", Meaning: "that one day"},
 	{Syntax: "sort:new", Meaning: "or sort:old, sort:best"},

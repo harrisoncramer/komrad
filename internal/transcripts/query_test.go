@@ -110,10 +110,10 @@ func TestParseQuery(t *testing.T) {
 		},
 		{
 			name: "a span back from now",
-			text: "since:3d until:2h",
+			text: "since:3d until:30m",
 			want: Query{Filter: transcriptstore.Filter{
 				Since: xptr.Ptr(now.Add(-72 * time.Hour)),
-				Until: xptr.Ptr(now.Add(-2 * time.Hour)),
+				Until: xptr.Ptr(now.Add(-30 * time.Minute)),
 			}},
 		},
 		{
