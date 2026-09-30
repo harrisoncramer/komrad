@@ -203,17 +203,17 @@ func (r *reviewScreen) scrollToCursor(s panelShared) {
 // scrollPopup moves the conversation in the popup down by rows, up when rows is negative, and
 // reports whether there was a conversation there to move.
 func (r *reviewScreen) scrollPopup(s panelShared, rows int) bool {
-	thread, ok := r.diff.threadAtCursor()
+	id, body, ok := r.conversationAtCursor(s, measurePopupInner(s))
 	if !ok {
 		return false
 	}
 
-	if r.threads.scrolled != thread.GetId() {
-		r.threads.scrolled = thread.GetId()
+	if r.threads.scrolled != id {
+		r.threads.scrolled = id
 		r.threads.scroll = 0
 	}
 
-	drawn := paint.CountLines(r.threadView(s, thread, measurePopupInner(s)))
+	drawn := paint.CountLines(body)
 	most := max(drawn-(reviewPopupHeight-2), 0)
 	r.threads.scroll = min(max(r.threads.scroll-rows, 0), most)
 

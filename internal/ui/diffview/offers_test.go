@@ -131,3 +131,15 @@ func TestOffersOnAHeaderAreCountedThere(t *testing.T) {
 		assert.Contains(t, drawn, glyph.Defaults().Spell(glyph.ThreadRead)+" 2", "at width %d", width)
 	}
 }
+
+// TestJumpThreadStopsOnOffers covers t walking onto the forge's comments as it walks the
+// reader's threads.
+func TestJumpThreadStopsOnOffers(t *testing.T) {
+	view := NewView(offerPatch(), false)
+	view.PinOffers([]Offer{{ID: "o", FilePath: "greet.go", Line: 1, Quote: "package greet"}})
+
+	row, ok := view.GetOfferRow("o")
+	assert.True(t, ok)
+	assert.Equal(t, row, view.JumpThread(0, 1))
+	assert.Equal(t, row, view.JumpThread(view.Len()-1, -1))
+}

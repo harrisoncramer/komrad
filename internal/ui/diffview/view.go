@@ -659,10 +659,10 @@ func (v *View) GetFileTopRow(y int) int {
 	return y
 }
 
-// JumpThread moves to the next or previous line carrying a thread.
+// JumpThread moves to the next or previous row carrying a thread or a comment from the forge.
 func (v *View) JumpThread(y, direction int) int {
 	for next := y + direction; next >= 0 && next < len(v.rows); next += direction {
-		if _, ok := v.GetThreadAt(next); ok {
+		if _, ok := v.GetThreadAt(next); ok || len(v.offered[next]) > 0 {
 			return next
 		}
 	}

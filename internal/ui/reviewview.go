@@ -44,7 +44,7 @@ func (r reviewScreen) view(s panelShared) string {
 		band := r.bandView(s, s.pane)
 		layout := r.layoutSidebar(s, band)
 		column := strings.TrimRight(band+r.drawSidebar(layout), "\n")
-		cursor := paint.CountLines(band+layout.bar+layout.files+layout.offers+r.placeView()) - 1
+		cursor := paint.CountLines(band+layout.bar+layout.files+r.placeView()) - 1
 
 		return r.overlayThread(s, column, cursor, 0)
 	}
@@ -79,20 +79,19 @@ func (r reviewScreen) overlayThread(s panelShared, area string, cursor, left int
 // drawSidebar is the panel's own column: the files the change touches, where the cursor is
 // standing, and what the reader was last told.
 func (r reviewScreen) drawSidebar(layout sidebarLayout) string {
-	column := paint.PadRows(layout.files+layout.offers+r.placeView()+layout.notes, layout.spare)
+	column := paint.PadRows(layout.files+r.placeView()+layout.notes, layout.spare)
 
 	return layout.bar + column + layout.rule + layout.help
 }
 
 // sidebarLayout is the sidebar measured once.
 type sidebarLayout struct {
-	bar    string
-	rule   string
-	help   string
-	files  string
-	offers string
-	notes  string
-	spare  int
+	bar   string
+	rule  string
+	help  string
+	files string
+	notes string
+	spare int
 }
 
 // layoutSidebar gives the column to the file tree, the bar over it giving way before the tree
@@ -105,7 +104,7 @@ func (r reviewScreen) layoutSidebar(s panelShared, above ...string) sidebarLayou
 		return bare
 	}
 
-	if barred.spare >= 0 && paint.CountLines(barred.files+barred.offers+r.placeView()) > barred.spare {
+	if barred.spare >= 0 && paint.CountLines(barred.files+r.placeView()) > barred.spare {
 		return bare
 	}
 
@@ -132,13 +131,11 @@ func (r reviewScreen) layoutUnder(s panelShared, bar string, above []string) sid
 
 	if spare < 0 {
 		layout.files = r.filesView(s, paint.Unbounded)
-		layout.offers = r.offersView(s, offerRows)
 
 		return layout
 	}
 
-	layout.offers = r.offersView(s, countOffersRoom(spare, r.countFilesFloor(spare)))
-	room := spare - paint.CountLines(layout.offers) - paint.CountLines(r.placeView())
+	room := spare - paint.CountLines(r.placeView())
 	lines := max(room-paint.CountLines(layout.notes), r.countFilesFloor(spare))
 	layout.files = r.filesView(s, max(min(lines, room), 0))
 

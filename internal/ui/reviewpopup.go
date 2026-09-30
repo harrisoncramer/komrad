@@ -50,17 +50,30 @@ func (r reviewScreen) popupBody(s panelShared, inner int) string {
 		return r.releaseView(inner)
 	}
 
-	thread, ok := r.diff.threadAtCursor()
+	id, body, ok := r.conversationAtCursor(s, inner)
 	if !ok {
 		return ""
 	}
 
-	body := r.threadView(s, thread, inner)
-	if r.threads.scrolled != thread.GetId() {
+	if r.threads.scrolled != id {
 		return body
 	}
 
 	return cutPopupEnd(body, r.threads.scroll)
+}
+
+// conversationAtCursor is the conversation on the cursor's row, a thread of the reader's ahead of
+// the forge's, wrapped to inner.
+func (r reviewScreen) conversationAtCursor(s panelShared, inner int) (string, string, bool) {
+	if thread, ok := r.diff.threadAtCursor(); ok {
+		return thread.GetId(), r.threadView(s, thread, inner), true
+	}
+
+	if offer, ok := r.offerAtCursor(s); ok {
+		return offer.GetId(), r.offerView(offer, inner), true
+	}
+
+	return "", "", false
 }
 
 // cutPopupEnd drops rows off the end of a body, never leaving fewer than the popup shows.
