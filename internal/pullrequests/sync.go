@@ -65,13 +65,6 @@ const pullRequestSearchCap = 1000
 // pullRequestScanPageSize is the page a branch scan asks for, the most a forge hands over.
 const pullRequestScanPageSize = 100
 
-// pullRequestThrottleFloor is the wait after a rate limit refusal that named no time, doubled
-// on each refusal in a row from the same host up to pullRequestThrottleCeiling.
-const (
-	pullRequestThrottleFloor   = time.Minute
-	pullRequestThrottleCeiling = time.Hour
-)
-
 // errRateLimitSpent says a host's budget ran out part way through a pass, after the reset was
 // already recorded on its connection.
 var errRateLimitSpent = fail.Exhausted("the forge's rate limit budget is spent")
@@ -140,9 +133,8 @@ type PullRequestSyncer struct {
 	events       eventRecorder
 	recheck      afterWaker
 	now          func() time.Time
-	// refusals counts rate limit refusals in a row per host that named no time to wait.
-	refusals map[string]int
-	said     onceLog
+	backoff      *hostBackoff
+	said         onceLog
 }
 
 // NewPullRequestSyncer builds a syncer over the forge service and the stores.
@@ -159,7 +151,7 @@ func NewPullRequestSyncer(params NewPullRequestSyncerParams) *PullRequestSyncer 
 		events:       params.Events,
 		recheck:      params.Recheck,
 		now:          now,
-		refusals:     map[string]int{},
+		backoff:      newHostBackoff(params.Forges, now),
 		said:         onceLog{},
 	}
 }
@@ -371,7 +363,7 @@ func (s *PullRequestSyncer) settleHostError(ctx context.Context, host *hostRead,
 // again, and says so.
 func (s *PullRequestSyncer) throttleHost(ctx context.Context, host *hostRead, retryAt time.Time) {
 	host.throttled = true
-	until := s.recordThrottle(ctx, host.host, host.connection.ID, retryAt)
+	until := s.backoff.record(ctx, host.host, host.connection.ID, retryAt)
 	if until.IsZero() {
 		return
 	}
@@ -385,7 +377,7 @@ func (s *PullRequestSyncer) throttleHost(ctx context.Context, host *hostRead, re
 // way a rate limit refusal that named no time does, and says so once per host.
 func (s *PullRequestSyncer) refuseHost(ctx context.Context, host *hostRead, err error) {
 	host.throttled = true
-	s.recordThrottle(ctx, host.host, host.connection.ID, time.Time{})
+	s.backoff.record(ctx, host.host, host.connection.ID, time.Time{})
 	if !s.said.first(saidRefused, host.host) {
 		return
 	}
@@ -991,7 +983,7 @@ func checksMoved(change *pullrequeststore.StandingChange) *Move {
 // rather than spending a request to be refused, and says whether it was spent.
 func (s *PullRequestSyncer) noteRateLimit(ctx context.Context, host *hostRead, limit forge.RateLimit) bool {
 	if limit.Known {
-		delete(s.refusals, host.host)
+		s.backoff.reset(host.host)
 	}
 	if !limit.IsExhausted() {
 		return false
@@ -1000,29 +992,6 @@ func (s *PullRequestSyncer) noteRateLimit(ctx context.Context, host *hostRead, l
 	s.throttleHost(ctx, host, limit.ResetAt)
 
 	return true
-}
-
-// recordThrottle writes when to try the host again, which is what the forge said or, when it
-// said nothing, a wait that doubles with every refusal in a row, and answers it, zero when
-// the write failed.
-func (s *PullRequestSyncer) recordThrottle(ctx context.Context, host, connectionID string, retryAt time.Time) time.Time {
-	until := retryAt
-	if until.IsZero() {
-		wait := pullRequestThrottleFloor
-		for range s.refusals[host] {
-			wait = min(wait*2, pullRequestThrottleCeiling)
-		}
-		s.refusals[host]++
-		until = s.now().Add(wait)
-	}
-
-	if err := s.forges.SetThrottledUntil(ctx, connectionID, &until); err != nil {
-		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to record the forge's rate limit", logging.Err(err)...)
-
-		return time.Time{}
-	}
-
-	return until
 }
 
 // toUpsert is a pull request as the forge described it, in the store's terms.
