@@ -9,30 +9,29 @@ import (
 	"komrad/internal/rpc/render"
 	"komrad/internal/rpcerr"
 	documentstore "komrad/internal/store/document"
+	documenttypestore "komrad/internal/store/documenttype"
 	"komrad/lib/xslice"
 	agentv1 "komrad/proto/gen/agent/v1"
+
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type documentReadWriter interface {
 	WriteDocument(ctx context.Context, params documents.WriteDocumentParams) (*documentstore.Document, error)
 	GetDocument(ctx context.Context, id string, version *int32) (*documentstore.Document, error)
 	ListDocumentVersions(ctx context.Context, id string) (string, []documentstore.Version, error)
-	ListDocuments(ctx context.Context, agentID string, kind *documentstore.Kind) ([]documentstore.Document, error)
+	ListDocuments(ctx context.Context, agentID string, typeName *string) ([]documentstore.Document, error)
+	ListDocumentTypes(ctx context.Context) ([]documenttypestore.Type, error)
+	GetDocumentType(ctx context.Context, name string) (*documenttypestore.Type, error)
+	WriteDocumentType(ctx context.Context, params documents.WriteDocumentTypeParams) (*documenttypestore.Type, error)
+	DeleteDocumentType(ctx context.Context, id string) error
 }
 
-var (
-	errUnknownDocumentKind = fail.InvalidArgument("unknown document kind")
-	errWritingForAnother   = fail.InvalidArgument("an agent writes only its own documents, so leave agent_id unset")
-)
+var errWritingForAnother = fail.InvalidArgument("an agent writes only its own documents, so leave agent_id unset")
 
 // WriteDocument creates or rewrites one of the calling agent's documents, or lets a caller that
 // is not an agent rewrite any one or create one for the agent it names.
 func (s *Handler) WriteDocument(ctx context.Context, req *agentv1.WriteDocumentRequest) (*agentv1.WriteDocumentResponse, *fail.Error) {
-	kind, failure := documentKindOf(req.GetKind())
-	if failure != nil {
-		return nil, failure
-	}
-
 	agentID := caller.From(ctx).AgentID
 	if agentID != "" && req.AgentId != nil && req.GetAgentId() != agentID {
 		return nil, errWritingForAnother
@@ -44,7 +43,7 @@ func (s *Handler) WriteDocument(ctx context.Context, req *agentv1.WriteDocumentR
 		ID:      req.Id,
 		Version: req.Version,
 		Name:    req.GetName(),
-		Kind:    kind,
+		Type:    req.GetType(),
 		Body:    req.GetBody(),
 		Path:    req.GetPath(),
 	})
@@ -64,18 +63,9 @@ func (s *Handler) ListDocuments(ctx context.Context, req *agentv1.ListDocumentsR
 		return nil, failure
 	}
 
-	var kind *documentstore.Kind
-	if req.Kind != nil {
-		named, failure := documentKindOf(req.GetKind())
-		if failure != nil {
-			return nil, failure
-		}
-		kind = &named
-	}
-
 	logCrossAgentRead(ctx, id, "agent listed another agent's documents")
 
-	listed, err := s.documents.ListDocuments(ctx, id, kind)
+	listed, err := s.documents.ListDocuments(ctx, id, req.Type)
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to list documents")
 	}
@@ -107,18 +97,46 @@ func (s *Handler) ListDocumentVersions(ctx context.Context, req *agentv1.ListDoc
 	return &agentv1.ListDocumentVersionsResponse{Versions: xslice.Map(versions, render.DocumentVersion)}, nil
 }
 
-func documentKindOf(kind agentv1.DocumentKind) (documentstore.Kind, *fail.Error) {
-	switch kind {
-	case agentv1.DocumentKind_DOCUMENT_KIND_RFC:
-		return documentstore.KindRFC, nil
-	case agentv1.DocumentKind_DOCUMENT_KIND_REPORT:
-		return documentstore.KindReport, nil
-	case agentv1.DocumentKind_DOCUMENT_KIND_EXPLAINER:
-		return documentstore.KindExplainer, nil
-	case agentv1.DocumentKind_DOCUMENT_KIND_NOTES:
-		return documentstore.KindNotes, nil
-	case agentv1.DocumentKind_DOCUMENT_KIND_UNSPECIFIED:
+// ListDocumentTypes returns every document type with its context.
+func (s *Handler) ListDocumentTypes(ctx context.Context, _ *emptypb.Empty) (*agentv1.ListDocumentTypesResponse, *fail.Error) {
+	types, err := s.documents.ListDocumentTypes(ctx)
+	if err != nil {
+		return nil, rpcerr.From(err, "failed to list document types")
 	}
 
-	return "", errUnknownDocumentKind
+	return &agentv1.ListDocumentTypesResponse{DocumentTypes: xslice.Map(types, render.DocumentType)}, nil
+}
+
+// GetDocumentType returns one document type by name.
+func (s *Handler) GetDocumentType(ctx context.Context, req *agentv1.GetDocumentTypeRequest) (*agentv1.GetDocumentTypeResponse, *fail.Error) {
+	got, err := s.documents.GetDocumentType(ctx, req.GetName())
+	if err != nil {
+		return nil, rpcerr.From(err, "failed to get the document type")
+	}
+
+	return &agentv1.GetDocumentTypeResponse{DocumentType: render.DocumentType(*got)}, nil
+}
+
+// WriteDocumentType creates a document type, or renames or rewrites one.
+func (s *Handler) WriteDocumentType(ctx context.Context, req *agentv1.WriteDocumentTypeRequest) (*agentv1.WriteDocumentTypeResponse, *fail.Error) {
+	written, err := s.documents.WriteDocumentType(ctx, documents.WriteDocumentTypeParams{
+		ID:      req.Id,
+		Version: req.Version,
+		Name:    req.GetName(),
+		Context: req.GetContext(),
+	})
+	if err != nil {
+		return nil, rpcerr.From(err, "failed to write the document type")
+	}
+
+	return &agentv1.WriteDocumentTypeResponse{DocumentType: render.DocumentType(*written)}, nil
+}
+
+// DeleteDocumentType removes a document type no document is written as.
+func (s *Handler) DeleteDocumentType(ctx context.Context, req *agentv1.DeleteDocumentTypeRequest) (*emptypb.Empty, *fail.Error) {
+	if err := s.documents.DeleteDocumentType(ctx, req.GetId()); err != nil {
+		return nil, rpcerr.From(err, "failed to delete the document type")
+	}
+
+	return &emptypb.Empty{}, nil
 }

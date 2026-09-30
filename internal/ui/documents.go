@@ -21,7 +21,7 @@ import (
 type documentItem struct {
 	id        string
 	name      string
-	kind      agentv1.DocumentKind
+	typeName  string
 	updatedAt time.Time
 }
 
@@ -42,6 +42,7 @@ type documentsScreen struct {
 	// from is the view the screen was opened from.
 	from  screen
 	items []documentItem
+	types []string
 	// listedAt is the agent's newest write the list was read at, and listedCount how many it had
 	// written.
 	listedAt    *time.Time
@@ -234,23 +235,6 @@ func (d *documentsScreen) snapshot(s panelShared, pane listPane) view.Snapshot {
 	}
 }
 
-// documentKindLabel is a document's kind as the screen names it.
-func documentKindLabel(kind agentv1.DocumentKind) string {
-	switch kind {
-	case agentv1.DocumentKind_DOCUMENT_KIND_RFC:
-		return "RFC"
-	case agentv1.DocumentKind_DOCUMENT_KIND_REPORT:
-		return "report"
-	case agentv1.DocumentKind_DOCUMENT_KIND_EXPLAINER:
-		return "explainer"
-	case agentv1.DocumentKind_DOCUMENT_KIND_NOTES:
-		return "notes"
-	case agentv1.DocumentKind_DOCUMENT_KIND_UNSPECIFIED:
-	}
-
-	return "document"
-}
-
 // doc is the markdown drawn beside the list for the document the cursor is on.
 func (d *documentsScreen) doc(s panelShared) string {
 	item, ok := d.hovered(s)
@@ -258,7 +242,7 @@ func (d *documentsScreen) doc(s panelShared) string {
 		return renderDocument(d.agentName(s), "_"+d.emptyLine()+"_", "", "")
 	}
 
-	notice := fmt.Sprintf("_%s, written %s ago_", documentKindLabel(item.kind), label.Age(item.updatedAt))
+	notice := fmt.Sprintf("_%s, written %s ago_", item.typeName, label.Age(item.updatedAt))
 	read, asked := d.bodies[item.id]
 	switch {
 	case !asked || (read.pending && read.body == ""):
@@ -288,6 +272,7 @@ type documentsListedMsg struct {
 	agentID string
 	written documentsWritten
 	items   []documentItem
+	types   []string
 	err     error
 }
 
@@ -349,7 +334,11 @@ func (m *model) listDocumentsCmd(written documentsWritten) tea.Cmd {
 	agentID, clients := d.agentID, m.api
 
 	return func() tea.Msg {
+		var types []*agentv1.DocumentType
 		documents, err := clients.listDocuments(agentID)
+		if err == nil {
+			types, err = clients.listDocumentTypes()
+		}
 		if err != nil {
 			return documentsListedMsg{
 				agentID: agentID,
@@ -361,11 +350,12 @@ func (m *model) listDocumentsCmd(written documentsWritten) tea.Cmd {
 		return documentsListedMsg{
 			agentID: agentID,
 			written: written,
+			types:   xslice.Map(types, func(t *agentv1.DocumentType) string { return t.GetName() }),
 			items: xslice.Map(documents, func(document *agentv1.Document) documentItem {
 				return documentItem{
 					id:        document.GetId(),
 					name:      document.GetName(),
-					kind:      document.GetKind(),
+					typeName:  document.GetType(),
 					updatedAt: dates.Parse(document.GetUpdatedAt()),
 				}
 			}),
@@ -387,7 +377,7 @@ func (m *model) applyDocumentsListed(msg documentsListedMsg) tea.Cmd {
 	}
 
 	hovered := d.list().hovered(m.shared())
-	d.items, d.listedAt, d.listedCount, d.listed, d.err = msg.items, msg.written.newest, msg.written.count, true, nil
+	d.items, d.types, d.listedAt, d.listedCount, d.listed, d.err = msg.items, msg.types, msg.written.newest, msg.written.count, true, nil
 	rows := d.rows(m.shared())
 	d.cursor = cursor.Place(rowIndexOfKey(rows, hovered), d.cursor, len(rows))
 

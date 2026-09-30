@@ -14,6 +14,7 @@ import (
 	"komrad/internal/fail"
 	agentstore "komrad/internal/store/agent"
 	documentstore "komrad/internal/store/document"
+	documenttypestore "komrad/internal/store/documenttype"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/riverqueue/river"
@@ -37,6 +38,8 @@ var (
 	ErrNoAuthor = fail.InvalidArgument("a document created by something that is not an agent needs the agent it is for")
 	// ErrNoVersion is a rewrite that does not say which version it replaces.
 	ErrNoVersion = fail.InvalidArgument("a rewrite needs the version it replaces, as the last read or write returned it")
+	// ErrNoTypeVersion is a type rewrite that does not say which version it replaces.
+	ErrNoTypeVersion = fail.InvalidArgument("a document type rewrite needs the version it replaces, as the last read or write returned it")
 	// ErrForAnother is a rewrite naming an agent other than the one whose document it is.
 	ErrForAnother = fail.InvalidArgument("the document belongs to another agent, so leave agent_id unset to rewrite it")
 )
@@ -48,12 +51,14 @@ type eventRecorder interface {
 type NewDocumentServiceParams struct {
 	Agents    *agentstore.AgentStore
 	Documents *documentstore.DocumentStore
+	Types     *documenttypestore.DocumentTypeStore
 	Events    eventRecorder
 }
 
 type DocumentService struct {
 	agents    *agentstore.AgentStore
 	documents *documentstore.DocumentStore
+	types     *documenttypestore.DocumentTypeStore
 	events    eventRecorder
 }
 
@@ -63,6 +68,7 @@ func NewDocumentService(params NewDocumentServiceParams) *DocumentService {
 	return &DocumentService{
 		agents:    params.Agents,
 		documents: params.Documents,
+		types:     params.Types,
 		events:    params.Events,
 	}
 }
@@ -78,7 +84,7 @@ type WriteDocumentParams struct {
 	// Version is the version a rewrite replaces, required with ID.
 	Version *int32
 	Name    string
-	Kind    documentstore.Kind
+	Type    string
 	Body    string
 	// Path is a file on this machine to read the body from, resolved against the agent's
 	// working directory when relative.
@@ -105,6 +111,10 @@ func (s *DocumentService) WriteDocument(ctx context.Context, params WriteDocumen
 		return nil, fmt.Errorf("failed to find the agent writing the document: %w", err)
 	}
 
+	if _, err := s.GetDocumentType(ctx, params.Type); err != nil {
+		return nil, err
+	}
+
 	body := params.Body
 	if params.Path != "" {
 		body, err = readBody(agent.Cwd, params.Path)
@@ -125,7 +135,7 @@ func (s *DocumentService) WriteDocument(ctx context.Context, params WriteDocumen
 			written, err = documents.Create(ctx, documentstore.CreateParams{
 				AgentID:  agent.ID,
 				Name:     params.Name,
-				Kind:     params.Kind,
+				Type:     params.Type,
 				Body:     body,
 				ByPerson: byPerson,
 			})
@@ -134,7 +144,7 @@ func (s *DocumentService) WriteDocument(ctx context.Context, params WriteDocumen
 				ID:       *params.ID,
 				AgentID:  agent.ID,
 				Name:     params.Name,
-				Kind:     params.Kind,
+				Type:     params.Type,
 				Body:     body,
 				Version:  *params.Version,
 				ByPerson: byPerson,
@@ -257,7 +267,7 @@ func (s *DocumentService) GetDocument(ctx context.Context, id string, version *i
 		return nil, err
 	}
 
-	got.Name, got.Kind, got.Body = written.Name, written.Kind, written.Body
+	got.Name, got.Type, got.Body = written.Name, written.Type, written.Body
 	got.Version, got.UpdatedAt = written.Version, written.CreatedAt
 
 	return got, nil
@@ -279,6 +289,6 @@ func (s *DocumentService) ListDocumentVersions(ctx context.Context, id string) (
 }
 
 // ListDocuments returns an agent's documents without their bodies, newest write first.
-func (s *DocumentService) ListDocuments(ctx context.Context, agentID string, kind *documentstore.Kind) ([]documentstore.Document, error) {
-	return s.documents.List(ctx, agentID, kind)
+func (s *DocumentService) ListDocuments(ctx context.Context, agentID string, typeName *string) ([]documentstore.Document, error) {
+	return s.documents.List(ctx, agentID, typeName)
 }

@@ -454,8 +454,8 @@
             "implementer",
             "orchestrator"
           ],
-          "summary": "Write a markdown document for a person to read, such as an RFC, a report or an explainer.",
-          "description": "Write a markdown document for a person to read, such as an RFC, a report or an explainer. Give the text as body, or as path to a file you already wrote. It creates a document unless id names one of yours, which it rewrites, name and kind included. A rewrite passes the version the last read or write gave, and is refused as failed_precondition when the document has been written since, a person's edit included, so read it again with get_document and rewrite from that. A person writing or editing one of your documents in the panel mails you, naming the version they wrote. A name you already use is refused as already_exists, naming the id to pass instead.",
+          "summary": "Write a markdown document for a person to read, as one of the types list_document_types returns, following that type's context.",
+          "description": "Write a markdown document for a person to read, as one of the types list_document_types returns, following that type's context. Give the text as body, or as path to a file you already wrote. It creates a document unless id names one of yours, which it rewrites, name and type included. A rewrite passes the version the last read or write gave, and is refused as failed_precondition when the document has been written since, a person's edit included, so read it again with get_document and rewrite from that. A person writing or editing one of your documents in the panel mails you, naming the version they wrote. A name you already use is refused as already_exists, naming the id to pass instead.",
           "readOnly": false,
           "idempotent": false,
           "destructive": false,
@@ -521,6 +521,78 @@
           "destructive": false,
           "request": "agent.v1.ListDocumentVersionsRequest",
           "response": "agent.v1.ListDocumentVersionsResponse"
+        },
+        {
+          "slug": "list-document-types",
+          "name": "ListDocumentTypes",
+          "path": "/agent.v1.AgentService/ListDocumentTypes",
+          "command": "komrad rpc list-document-types",
+          "tool": "list_document_types",
+          "mcp": true,
+          "roles": [
+            "implementer",
+            "reviewer",
+            "orchestrator"
+          ],
+          "summary": "List the types a document can be written as, each with its context.",
+          "description": "List the types a document can be written as, each with its context. Call this before write_document and follow the context of the type you write, since a person keeps these up to date and they change without notice.",
+          "readOnly": true,
+          "idempotent": true,
+          "destructive": false,
+          "request": "google.protobuf.Empty",
+          "response": "agent.v1.ListDocumentTypesResponse"
+        },
+        {
+          "slug": "get-document-type",
+          "name": "GetDocumentType",
+          "path": "/agent.v1.AgentService/GetDocumentType",
+          "command": "komrad rpc get-document-type",
+          "tool": "get_document_type",
+          "mcp": true,
+          "roles": [
+            "implementer",
+            "reviewer",
+            "orchestrator"
+          ],
+          "summary": "Read one document type and its context by name.",
+          "description": "Read one document type and its context by name.",
+          "readOnly": true,
+          "idempotent": true,
+          "destructive": false,
+          "request": "agent.v1.GetDocumentTypeRequest",
+          "response": "agent.v1.GetDocumentTypeResponse"
+        },
+        {
+          "slug": "write-document-type",
+          "name": "WriteDocumentType",
+          "path": "/agent.v1.AgentService/WriteDocumentType",
+          "command": "komrad rpc write-document-type",
+          "tool": "write_document_type",
+          "mcp": false,
+          "roles": [],
+          "summary": "Create a document type, or rename or rewrite the one id names.",
+          "description": "Create a document type, or rename or rewrite the one id names. A rewrite passes the version the last read or write gave, and is refused as failed_precondition when the type has been written since.",
+          "readOnly": false,
+          "idempotent": false,
+          "destructive": true,
+          "request": "agent.v1.WriteDocumentTypeRequest",
+          "response": "agent.v1.WriteDocumentTypeResponse"
+        },
+        {
+          "slug": "delete-document-type",
+          "name": "DeleteDocumentType",
+          "path": "/agent.v1.AgentService/DeleteDocumentType",
+          "command": "komrad rpc delete-document-type",
+          "tool": "delete_document_type",
+          "mcp": false,
+          "roles": [],
+          "summary": "Delete a document type, refused as failed_precondition while documents are still written as it.",
+          "description": "Delete a document type, refused as failed_precondition while documents are still written as it.",
+          "readOnly": false,
+          "idempotent": true,
+          "destructive": true,
+          "request": "agent.v1.DeleteDocumentTypeRequest",
+          "response": "google.protobuf.Empty"
         },
         {
           "slug": "list-review-threads",
@@ -2407,6 +2479,24 @@
         }
       ]
     },
+    "agent.v1.DeleteDocumentTypeRequest": {
+      "name": "DeleteDocumentTypeRequest",
+      "description": "",
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [
+            "required"
+          ],
+          "description": "The type to delete."
+        }
+      ]
+    },
     "agent.v1.DeleteMailRequest": {
       "name": "DeleteMailRequest",
       "description": "",
@@ -2460,14 +2550,14 @@
           "description": "The title a person reads, unique among one agent's documents."
         },
         {
-          "name": "kind",
-          "type": "DocumentKind",
-          "ref": "agent.v1.DocumentKind",
+          "name": "type",
+          "type": "string",
+          "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "What sort of document it is."
+          "description": "The name of the document type it was written as."
         },
         {
           "name": "body",
@@ -2511,6 +2601,62 @@
         }
       ]
     },
+    "agent.v1.DocumentType": {
+      "name": "DocumentType",
+      "description": "DocumentType is one sort of document and the context an agent follows when writing one.",
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "Pass this back to write_document_type or delete_document_type."
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "What documents name as their type."
+        },
+        {
+          "name": "context",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The markdown an agent reads before writing a document of this type."
+        },
+        {
+          "name": "version",
+          "type": "int32",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "How many times it has been written, which a rewrite passes back to say what it replaces."
+        },
+        {
+          "name": "updated_at",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "When it was last written, in RFC 3339."
+        }
+      ]
+    },
     "agent.v1.DocumentVersion": {
       "name": "DocumentVersion",
       "description": "DocumentVersion is one write of a document, without its body.",
@@ -2536,14 +2682,14 @@
           "description": "The title it had."
         },
         {
-          "name": "kind",
-          "type": "DocumentKind",
-          "ref": "agent.v1.DocumentKind",
+          "name": "type",
+          "type": "string",
+          "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "What sort of document it was."
+          "description": "The name of the document type it was written as."
         },
         {
           "name": "by_person",
@@ -2835,6 +2981,40 @@
         }
       ]
     },
+    "agent.v1.GetDocumentTypeRequest": {
+      "name": "GetDocumentTypeRequest",
+      "description": "",
+      "fields": [
+        {
+          "name": "name",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [
+            "required"
+          ],
+          "description": "The name of the type to read."
+        }
+      ]
+    },
+    "agent.v1.GetDocumentTypeResponse": {
+      "name": "GetDocumentTypeResponse",
+      "description": "",
+      "fields": [
+        {
+          "name": "document_type",
+          "type": "DocumentType",
+          "ref": "agent.v1.DocumentType",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The type with its context."
+        }
+      ]
+    },
     "agent.v1.GetLastTurnsRequest": {
       "name": "GetLastTurnsRequest",
       "description": "",
@@ -3107,6 +3287,22 @@
         }
       ]
     },
+    "agent.v1.ListDocumentTypesResponse": {
+      "name": "ListDocumentTypesResponse",
+      "description": "",
+      "fields": [
+        {
+          "name": "document_types",
+          "type": "DocumentType",
+          "ref": "agent.v1.DocumentType",
+          "repeated": true,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "Every document type, by name, each with its context."
+        }
+      ]
+    },
     "agent.v1.ListDocumentVersionsRequest": {
       "name": "ListDocumentVersionsRequest",
       "description": "",
@@ -3156,14 +3352,16 @@
           "description": "Whose documents to list, or unset for the caller's own."
         },
         {
-          "name": "kind",
-          "type": "DocumentKind",
-          "ref": "agent.v1.DocumentKind",
+          "name": "type",
+          "type": "string",
+          "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "",
-          "rules": [],
-          "description": "Only documents of this kind, or unset for every kind."
+          "rules": [
+            "at most 100 characters"
+          ],
+          "description": "Only documents of this type, or unset for every type."
         }
       ]
     },
@@ -5214,14 +5412,17 @@
           "description": "The title a person reads."
         },
         {
-          "name": "kind",
-          "type": "DocumentKind",
-          "ref": "agent.v1.DocumentKind",
+          "name": "type",
+          "type": "string",
+          "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "",
-          "rules": [],
-          "description": "What sort of document it is."
+          "rules": [
+            "required",
+            "at most 100 characters"
+          ],
+          "description": "The name of the document type to write it as, one list_document_types returns."
         },
         {
           "name": "body",
@@ -5278,6 +5479,73 @@
           "oneof": "",
           "rules": [],
           "description": "The document as stored, without its body."
+        }
+      ]
+    },
+    "agent.v1.WriteDocumentTypeRequest": {
+      "name": "WriteDocumentTypeRequest",
+      "description": "",
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The type to rewrite, or unset to create one."
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [
+            "required",
+            "at most 100 characters"
+          ],
+          "description": "What documents name as their type. Renaming a type carries its documents with it."
+        },
+        {
+          "name": "context",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [
+            "required"
+          ],
+          "description": "The markdown an agent reads before writing a document of this type."
+        },
+        {
+          "name": "version",
+          "type": "int32",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The version a rewrite replaces, as the last read or write returned it, and required with id."
+        }
+      ]
+    },
+    "agent.v1.WriteDocumentTypeResponse": {
+      "name": "WriteDocumentTypeResponse",
+      "description": "",
+      "fields": [
+        {
+          "name": "document_type",
+          "type": "DocumentType",
+          "ref": "agent.v1.DocumentType",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The type as stored."
         }
       ]
     },
@@ -8676,28 +8944,6 @@
         {
           "name": "AGENT_STATE_ERRORED",
           "description": "The pane is at rest after an API error ended the last turn, and turn_error says which."
-        }
-      ]
-    },
-    "agent.v1.DocumentKind": {
-      "name": "DocumentKind",
-      "description": "DocumentKind is what sort of document it is.",
-      "values": [
-        {
-          "name": "DOCUMENT_KIND_RFC",
-          "description": "A proposal for a change, written before building it."
-        },
-        {
-          "name": "DOCUMENT_KIND_REPORT",
-          "description": "What an investigation found."
-        },
-        {
-          "name": "DOCUMENT_KIND_EXPLAINER",
-          "description": "How something that already exists works."
-        },
-        {
-          "name": "DOCUMENT_KIND_NOTES",
-          "description": "Anything else worth keeping."
         }
       ]
     },

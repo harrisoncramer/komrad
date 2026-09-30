@@ -104,6 +104,18 @@ const (
 	// AgentServiceListDocumentVersionsProcedure is the fully-qualified name of the AgentService's
 	// ListDocumentVersions RPC.
 	AgentServiceListDocumentVersionsProcedure = "/agent.v1.AgentService/ListDocumentVersions"
+	// AgentServiceListDocumentTypesProcedure is the fully-qualified name of the AgentService's
+	// ListDocumentTypes RPC.
+	AgentServiceListDocumentTypesProcedure = "/agent.v1.AgentService/ListDocumentTypes"
+	// AgentServiceGetDocumentTypeProcedure is the fully-qualified name of the AgentService's
+	// GetDocumentType RPC.
+	AgentServiceGetDocumentTypeProcedure = "/agent.v1.AgentService/GetDocumentType"
+	// AgentServiceWriteDocumentTypeProcedure is the fully-qualified name of the AgentService's
+	// WriteDocumentType RPC.
+	AgentServiceWriteDocumentTypeProcedure = "/agent.v1.AgentService/WriteDocumentType"
+	// AgentServiceDeleteDocumentTypeProcedure is the fully-qualified name of the AgentService's
+	// DeleteDocumentType RPC.
+	AgentServiceDeleteDocumentTypeProcedure = "/agent.v1.AgentService/DeleteDocumentType"
 	// AgentServiceRecordReportProcedure is the fully-qualified name of the AgentService's RecordReport
 	// RPC.
 	AgentServiceRecordReportProcedure = "/agent.v1.AgentService/RecordReport"
@@ -187,6 +199,10 @@ type AgentServiceClient interface {
 	ListDocuments(context.Context, *connect.Request[v1.ListDocumentsRequest]) (*connect.Response[v1.ListDocumentsResponse], error)
 	GetDocument(context.Context, *connect.Request[v1.GetDocumentRequest]) (*connect.Response[v1.GetDocumentResponse], error)
 	ListDocumentVersions(context.Context, *connect.Request[v1.ListDocumentVersionsRequest]) (*connect.Response[v1.ListDocumentVersionsResponse], error)
+	ListDocumentTypes(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[v1.ListDocumentTypesResponse], error)
+	GetDocumentType(context.Context, *connect.Request[v1.GetDocumentTypeRequest]) (*connect.Response[v1.GetDocumentTypeResponse], error)
+	WriteDocumentType(context.Context, *connect.Request[v1.WriteDocumentTypeRequest]) (*connect.Response[v1.WriteDocumentTypeResponse], error)
+	DeleteDocumentType(context.Context, *connect.Request[v1.DeleteDocumentTypeRequest]) (*connect.Response[emptypb.Empty], error)
 	RecordReport(context.Context, *connect.Request[v1.RecordReportRequest]) (*connect.Response[emptypb.Empty], error)
 	MarkRunsRead(context.Context, *connect.Request[v1.MarkRunsReadRequest]) (*connect.Response[emptypb.Empty], error)
 	ListReviewThreads(context.Context, *connect.Request[v1.ListReviewThreadsRequest]) (*connect.Response[v1.ListReviewThreadsResponse], error)
@@ -396,6 +412,33 @@ func NewAgentServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
+		listDocumentTypes: connect.NewClient[emptypb.Empty, v1.ListDocumentTypesResponse](
+			httpClient,
+			baseURL+AgentServiceListDocumentTypesProcedure,
+			connect.WithSchema(agentServiceMethods.ByName("ListDocumentTypes")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+			connect.WithClientOptions(opts...),
+		),
+		getDocumentType: connect.NewClient[v1.GetDocumentTypeRequest, v1.GetDocumentTypeResponse](
+			httpClient,
+			baseURL+AgentServiceGetDocumentTypeProcedure,
+			connect.WithSchema(agentServiceMethods.ByName("GetDocumentType")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+			connect.WithClientOptions(opts...),
+		),
+		writeDocumentType: connect.NewClient[v1.WriteDocumentTypeRequest, v1.WriteDocumentTypeResponse](
+			httpClient,
+			baseURL+AgentServiceWriteDocumentTypeProcedure,
+			connect.WithSchema(agentServiceMethods.ByName("WriteDocumentType")),
+			connect.WithClientOptions(opts...),
+		),
+		deleteDocumentType: connect.NewClient[v1.DeleteDocumentTypeRequest, emptypb.Empty](
+			httpClient,
+			baseURL+AgentServiceDeleteDocumentTypeProcedure,
+			connect.WithSchema(agentServiceMethods.ByName("DeleteDocumentType")),
+			connect.WithIdempotency(connect.IdempotencyIdempotent),
+			connect.WithClientOptions(opts...),
+		),
 		recordReport: connect.NewClient[v1.RecordReportRequest, emptypb.Empty](
 			httpClient,
 			baseURL+AgentServiceRecordReportProcedure,
@@ -548,6 +591,10 @@ type agentServiceClient struct {
 	listDocuments           *connect.Client[v1.ListDocumentsRequest, v1.ListDocumentsResponse]
 	getDocument             *connect.Client[v1.GetDocumentRequest, v1.GetDocumentResponse]
 	listDocumentVersions    *connect.Client[v1.ListDocumentVersionsRequest, v1.ListDocumentVersionsResponse]
+	listDocumentTypes       *connect.Client[emptypb.Empty, v1.ListDocumentTypesResponse]
+	getDocumentType         *connect.Client[v1.GetDocumentTypeRequest, v1.GetDocumentTypeResponse]
+	writeDocumentType       *connect.Client[v1.WriteDocumentTypeRequest, v1.WriteDocumentTypeResponse]
+	deleteDocumentType      *connect.Client[v1.DeleteDocumentTypeRequest, emptypb.Empty]
 	recordReport            *connect.Client[v1.RecordReportRequest, emptypb.Empty]
 	markRunsRead            *connect.Client[v1.MarkRunsReadRequest, emptypb.Empty]
 	listReviewThreads       *connect.Client[v1.ListReviewThreadsRequest, v1.ListReviewThreadsResponse]
@@ -703,6 +750,26 @@ func (c *agentServiceClient) ListDocumentVersions(ctx context.Context, req *conn
 	return c.listDocumentVersions.CallUnary(ctx, req)
 }
 
+// ListDocumentTypes calls agent.v1.AgentService.ListDocumentTypes.
+func (c *agentServiceClient) ListDocumentTypes(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[v1.ListDocumentTypesResponse], error) {
+	return c.listDocumentTypes.CallUnary(ctx, req)
+}
+
+// GetDocumentType calls agent.v1.AgentService.GetDocumentType.
+func (c *agentServiceClient) GetDocumentType(ctx context.Context, req *connect.Request[v1.GetDocumentTypeRequest]) (*connect.Response[v1.GetDocumentTypeResponse], error) {
+	return c.getDocumentType.CallUnary(ctx, req)
+}
+
+// WriteDocumentType calls agent.v1.AgentService.WriteDocumentType.
+func (c *agentServiceClient) WriteDocumentType(ctx context.Context, req *connect.Request[v1.WriteDocumentTypeRequest]) (*connect.Response[v1.WriteDocumentTypeResponse], error) {
+	return c.writeDocumentType.CallUnary(ctx, req)
+}
+
+// DeleteDocumentType calls agent.v1.AgentService.DeleteDocumentType.
+func (c *agentServiceClient) DeleteDocumentType(ctx context.Context, req *connect.Request[v1.DeleteDocumentTypeRequest]) (*connect.Response[emptypb.Empty], error) {
+	return c.deleteDocumentType.CallUnary(ctx, req)
+}
+
 // RecordReport calls agent.v1.AgentService.RecordReport.
 func (c *agentServiceClient) RecordReport(ctx context.Context, req *connect.Request[v1.RecordReportRequest]) (*connect.Response[emptypb.Empty], error) {
 	return c.recordReport.CallUnary(ctx, req)
@@ -822,6 +889,10 @@ type AgentServiceHandler interface {
 	ListDocuments(context.Context, *connect.Request[v1.ListDocumentsRequest]) (*connect.Response[v1.ListDocumentsResponse], error)
 	GetDocument(context.Context, *connect.Request[v1.GetDocumentRequest]) (*connect.Response[v1.GetDocumentResponse], error)
 	ListDocumentVersions(context.Context, *connect.Request[v1.ListDocumentVersionsRequest]) (*connect.Response[v1.ListDocumentVersionsResponse], error)
+	ListDocumentTypes(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[v1.ListDocumentTypesResponse], error)
+	GetDocumentType(context.Context, *connect.Request[v1.GetDocumentTypeRequest]) (*connect.Response[v1.GetDocumentTypeResponse], error)
+	WriteDocumentType(context.Context, *connect.Request[v1.WriteDocumentTypeRequest]) (*connect.Response[v1.WriteDocumentTypeResponse], error)
+	DeleteDocumentType(context.Context, *connect.Request[v1.DeleteDocumentTypeRequest]) (*connect.Response[emptypb.Empty], error)
 	RecordReport(context.Context, *connect.Request[v1.RecordReportRequest]) (*connect.Response[emptypb.Empty], error)
 	MarkRunsRead(context.Context, *connect.Request[v1.MarkRunsReadRequest]) (*connect.Response[emptypb.Empty], error)
 	ListReviewThreads(context.Context, *connect.Request[v1.ListReviewThreadsRequest]) (*connect.Response[v1.ListReviewThreadsResponse], error)
@@ -1027,6 +1098,33 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
+	agentServiceListDocumentTypesHandler := connect.NewUnaryHandler(
+		AgentServiceListDocumentTypesProcedure,
+		svc.ListDocumentTypes,
+		connect.WithSchema(agentServiceMethods.ByName("ListDocumentTypes")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+		connect.WithHandlerOptions(opts...),
+	)
+	agentServiceGetDocumentTypeHandler := connect.NewUnaryHandler(
+		AgentServiceGetDocumentTypeProcedure,
+		svc.GetDocumentType,
+		connect.WithSchema(agentServiceMethods.ByName("GetDocumentType")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+		connect.WithHandlerOptions(opts...),
+	)
+	agentServiceWriteDocumentTypeHandler := connect.NewUnaryHandler(
+		AgentServiceWriteDocumentTypeProcedure,
+		svc.WriteDocumentType,
+		connect.WithSchema(agentServiceMethods.ByName("WriteDocumentType")),
+		connect.WithHandlerOptions(opts...),
+	)
+	agentServiceDeleteDocumentTypeHandler := connect.NewUnaryHandler(
+		AgentServiceDeleteDocumentTypeProcedure,
+		svc.DeleteDocumentType,
+		connect.WithSchema(agentServiceMethods.ByName("DeleteDocumentType")),
+		connect.WithIdempotency(connect.IdempotencyIdempotent),
+		connect.WithHandlerOptions(opts...),
+	)
 	agentServiceRecordReportHandler := connect.NewUnaryHandler(
 		AgentServiceRecordReportProcedure,
 		svc.RecordReport,
@@ -1203,6 +1301,14 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 			agentServiceGetDocumentHandler.ServeHTTP(w, r)
 		case AgentServiceListDocumentVersionsProcedure:
 			agentServiceListDocumentVersionsHandler.ServeHTTP(w, r)
+		case AgentServiceListDocumentTypesProcedure:
+			agentServiceListDocumentTypesHandler.ServeHTTP(w, r)
+		case AgentServiceGetDocumentTypeProcedure:
+			agentServiceGetDocumentTypeHandler.ServeHTTP(w, r)
+		case AgentServiceWriteDocumentTypeProcedure:
+			agentServiceWriteDocumentTypeHandler.ServeHTTP(w, r)
+		case AgentServiceDeleteDocumentTypeProcedure:
+			agentServiceDeleteDocumentTypeHandler.ServeHTTP(w, r)
 		case AgentServiceRecordReportProcedure:
 			agentServiceRecordReportHandler.ServeHTTP(w, r)
 		case AgentServiceMarkRunsReadProcedure:
@@ -1354,6 +1460,22 @@ func (UnimplementedAgentServiceHandler) GetDocument(context.Context, *connect.Re
 
 func (UnimplementedAgentServiceHandler) ListDocumentVersions(context.Context, *connect.Request[v1.ListDocumentVersionsRequest]) (*connect.Response[v1.ListDocumentVersionsResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.ListDocumentVersions is not implemented"))
+}
+
+func (UnimplementedAgentServiceHandler) ListDocumentTypes(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[v1.ListDocumentTypesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.ListDocumentTypes is not implemented"))
+}
+
+func (UnimplementedAgentServiceHandler) GetDocumentType(context.Context, *connect.Request[v1.GetDocumentTypeRequest]) (*connect.Response[v1.GetDocumentTypeResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.GetDocumentType is not implemented"))
+}
+
+func (UnimplementedAgentServiceHandler) WriteDocumentType(context.Context, *connect.Request[v1.WriteDocumentTypeRequest]) (*connect.Response[v1.WriteDocumentTypeResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.WriteDocumentType is not implemented"))
+}
+
+func (UnimplementedAgentServiceHandler) DeleteDocumentType(context.Context, *connect.Request[v1.DeleteDocumentTypeRequest]) (*connect.Response[emptypb.Empty], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.DeleteDocumentType is not implemented"))
 }
 
 func (UnimplementedAgentServiceHandler) RecordReport(context.Context, *connect.Request[v1.RecordReportRequest]) (*connect.Response[emptypb.Empty], error) {

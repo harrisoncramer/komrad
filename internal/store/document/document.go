@@ -13,15 +13,8 @@ import (
 	"komrad/lib/xslice"
 )
 
-// Kind is what sort of document it is.
-type Kind string
-
-const (
-	KindRFC       Kind = Kind(models.DocumentKindRfc)
-	KindReport    Kind = Kind(models.DocumentKindReport)
-	KindExplainer Kind = Kind(models.DocumentKindExplainer)
-	KindNotes     Kind = Kind(models.DocumentKindNotes)
-)
+// ErrUnknownType is a document naming a type that does not exist.
+var ErrUnknownType = fail.InvalidArgument("no document type has that name")
 
 // ErrChanged is a rewrite naming a version the document has already moved past.
 var ErrChanged = fail.Precondition("the document has been written since that version was read")
@@ -31,7 +24,7 @@ type Document struct {
 	ID        string
 	AgentID   string
 	Name      string
-	Kind      Kind
+	Type      string
 	Body      string
 	Version   int32
 	CreatedAt time.Time
@@ -52,7 +45,7 @@ func fromRow(row *models.Document) Document {
 		ID:        row.ID,
 		AgentID:   row.AgentID,
 		Name:      row.Name,
-		Kind:      Kind(row.Kind),
+		Type:      row.Type,
 		Body:      row.Body,
 		Version:   row.Version,
 		CreatedAt: row.CreatedAt,
@@ -65,7 +58,7 @@ func fromListRow(row *models.ListAgentDocumentsRow) Document {
 		ID:        row.ID,
 		AgentID:   row.AgentID,
 		Name:      row.Name,
-		Kind:      Kind(row.Kind),
+		Type:      row.Type,
 		Version:   row.Version,
 		CreatedAt: row.CreatedAt,
 		UpdatedAt: row.UpdatedAt,
@@ -75,7 +68,7 @@ func fromListRow(row *models.ListAgentDocumentsRow) Document {
 type CreateParams struct {
 	AgentID string
 	Name    string
-	Kind    Kind
+	Type    string
 	Body    string
 	// ByPerson is whether a person wrote it rather than the agent that owns it.
 	ByPerson bool
@@ -86,12 +79,15 @@ func (s *DocumentStore) Create(ctx context.Context, params CreateParams) (*Docum
 	row, err := s.queries.InsertDocument(ctx, models.InsertDocumentParams{
 		AgentID:  params.AgentID,
 		Name:     params.Name,
-		Kind:     models.DocumentKind(params.Kind),
+		Type:     params.Type,
 		Body:     params.Body,
 		ByPerson: params.ByPerson,
 	})
 	if db.IsUniqueViolation(err) {
 		return nil, s.nameTaken(ctx, params.AgentID, params.Name)
+	}
+	if unknownType(err) {
+		return nil, fmt.Errorf("%w: %q", ErrUnknownType, params.Type)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to create document %q: %w", params.Name, err)
@@ -106,7 +102,7 @@ type UpdateParams struct {
 	ID      string
 	AgentID string
 	Name    string
-	Kind    Kind
+	Type    string
 	Body    string
 	// Version is the version the rewrite replaces.
 	Version int32
@@ -124,7 +120,7 @@ func (s *DocumentStore) Update(ctx context.Context, params UpdateParams) (*Docum
 		ID:          params.ID,
 		AgentID:     params.AgentID,
 		Name:        params.Name,
-		Kind:        models.DocumentKind(params.Kind),
+		Type:        params.Type,
 		Body:        params.Body,
 		ReadVersion: params.Version,
 		ByPerson:    params.ByPerson,
@@ -134,6 +130,9 @@ func (s *DocumentStore) Update(ctx context.Context, params UpdateParams) (*Docum
 	}
 	if db.IsUniqueViolation(err) {
 		return nil, s.nameTaken(ctx, params.AgentID, params.Name)
+	}
+	if unknownType(err) {
+		return nil, fmt.Errorf("%w: %q", ErrUnknownType, params.Type)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to update document %q: %w", params.ID, err)
@@ -156,6 +155,10 @@ func (s *DocumentStore) missedUpdate(ctx context.Context, params UpdateParams) e
 
 	return fmt.Errorf("%w: version %d was read, and it is at version %d, last written %s",
 		ErrChanged, params.Version, held.Version, held.UpdatedAt.Format(time.RFC3339))
+}
+
+func unknownType(err error) bool {
+	return db.IsForeignKeyViolation(err, "documents_type_fkey")
 }
 
 func (s *DocumentStore) nameTaken(ctx context.Context, agentID, name string) error {
@@ -187,17 +190,12 @@ func (s *DocumentStore) Get(ctx context.Context, id string) (*Document, error) {
 }
 
 // List returns an agent's documents without their bodies, newest write first.
-func (s *DocumentStore) List(ctx context.Context, agentID string, kind *Kind) ([]Document, error) {
+func (s *DocumentStore) List(ctx context.Context, agentID string, typeName *string) ([]Document, error) {
 	if !store.IsID(agentID) {
 		return nil, nil
 	}
 
-	var filter models.NullDocumentKind
-	if kind != nil {
-		filter = models.NullDocumentKind{DocumentKind: models.DocumentKind(*kind), Valid: true}
-	}
-
-	rows, err := s.queries.ListAgentDocuments(ctx, models.ListAgentDocumentsParams{AgentID: agentID, Kind: filter})
+	rows, err := s.queries.ListAgentDocuments(ctx, models.ListAgentDocumentsParams{AgentID: agentID, Type: typeName})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list the documents of agent %q: %w", agentID, err)
 	}
@@ -210,7 +208,7 @@ func (s *DocumentStore) List(ctx context.Context, agentID string, kind *Kind) ([
 type Version struct {
 	Version   int32
 	Name      string
-	Kind      Kind
+	Type      string
 	Body      string
 	ByPerson  bool
 	CreatedAt time.Time
@@ -231,7 +229,7 @@ func (s *DocumentStore) ListVersions(ctx context.Context, documentID string) ([]
 		return Version{
 			Version:   row.Version,
 			Name:      row.Name,
-			Kind:      Kind(row.Kind),
+			Type:      row.Type,
 			ByPerson:  row.ByPerson,
 			CreatedAt: row.CreatedAt,
 		}
@@ -255,7 +253,7 @@ func (s *DocumentStore) GetVersion(ctx context.Context, documentID string, versi
 	return &Version{
 		Version:   row.Version,
 		Name:      row.Name,
-		Kind:      Kind(row.Kind),
+		Type:      row.Type,
 		Body:      row.Body,
 		ByPerson:  row.ByPerson,
 		CreatedAt: row.CreatedAt,

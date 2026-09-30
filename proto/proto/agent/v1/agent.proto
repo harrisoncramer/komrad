@@ -888,7 +888,7 @@ service AgentService {
       cli: true
       mcp: true
       name: "write_document"
-      description: "Write a markdown document for a person to read, such as an RFC, a report or an explainer. Give the text as body, or as path to a file you already wrote. It creates a document unless id names one of yours, which it rewrites, name and kind included. A rewrite passes the version the last read or write gave, and is refused as failed_precondition when the document has been written since, a person's edit included, so read it again with get_document and rewrite from that. A person writing or editing one of your documents in the panel mails you, naming the version they wrote. A name you already use is refused as already_exists, naming the id to pass instead."
+      description: "Write a markdown document for a person to read, as one of the types list_document_types returns, following that type's context. Give the text as body, or as path to a file you already wrote. It creates a document unless id names one of yours, which it rewrites, name and type included. A rewrite passes the version the last read or write gave, and is refused as failed_precondition when the document has been written since, a person's edit included, so read it again with get_document and rewrite from that. A person writing or editing one of your documents in the panel mails you, naming the version they wrote. A name you already use is refused as already_exists, naming the id to pass instead."
       destructive: false
       idempotent: false
       roles: [
@@ -937,6 +937,53 @@ service AgentService {
         ROLE_REVIEWER,
         ROLE_ORCHESTRATOR
       ]
+    };
+  }
+  rpc ListDocumentTypes(google.protobuf.Empty) returns (ListDocumentTypesResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (annotation.v1.surfaces) = {
+      cli: true
+      mcp: true
+      name: "list_document_types"
+      description: "List the types a document can be written as, each with its context. Call this before write_document and follow the context of the type you write, since a person keeps these up to date and they change without notice."
+      roles: [
+        ROLE_IMPLEMENTER,
+        ROLE_REVIEWER,
+        ROLE_ORCHESTRATOR
+      ]
+    };
+  }
+  rpc GetDocumentType(GetDocumentTypeRequest) returns (GetDocumentTypeResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (annotation.v1.surfaces) = {
+      cli: true
+      mcp: true
+      name: "get_document_type"
+      description: "Read one document type and its context by name."
+      roles: [
+        ROLE_IMPLEMENTER,
+        ROLE_REVIEWER,
+        ROLE_ORCHESTRATOR
+      ]
+    };
+  }
+  rpc WriteDocumentType(WriteDocumentTypeRequest) returns (WriteDocumentTypeResponse) {
+    option (annotation.v1.surfaces) = {
+      cli: true
+      mcp: false
+      name: "write_document_type"
+      description: "Create a document type, or rename or rewrite the one id names. A rewrite passes the version the last read or write gave, and is refused as failed_precondition when the type has been written since."
+      reason: "A document type's context is instructions every agent follows, so only a person decides what it says."
+    };
+  }
+  rpc DeleteDocumentType(DeleteDocumentTypeRequest) returns (google.protobuf.Empty) {
+    option idempotency_level = IDEMPOTENT;
+    option (annotation.v1.surfaces) = {
+      cli: true
+      mcp: false
+      name: "delete_document_type"
+      description: "Delete a document type, refused as failed_precondition while documents are still written as it."
+      reason: "A document type's context is instructions every agent follows, so only a person decides which exist."
     };
   }
   rpc RecordReport(RecordReportRequest) returns (google.protobuf.Empty) {

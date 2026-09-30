@@ -9,6 +9,8 @@ import (
 	"komrad/internal/documents"
 	"komrad/internal/store"
 	documentstore "komrad/internal/store/document"
+	documenttypestore "komrad/internal/store/documenttype"
+	"komrad/lib/dates"
 	"komrad/lib/xptr"
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1komrad"
@@ -18,9 +20,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/testing/protocmp"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 const documentID = "01a0d1d7-0000-7000-8000-0000000000d0"
+
+const documentTypeID = "01a0d1d7-0000-7000-8000-0000000000e0"
 
 // fakeDocuments answers from its fields and records what each call asked of it.
 type fakeDocuments struct {
@@ -29,13 +34,16 @@ type fakeDocuments struct {
 	written []documents.WriteDocumentParams
 	listed  []fakeDocumentsList
 	// versions is every write of stored, and read the versions a get asked for.
-	versions []documentstore.Version
-	read     []*int32
+	versions     []documentstore.Version
+	read         []*int32
+	types        []documenttypestore.Type
+	writtenTypes []documents.WriteDocumentTypeParams
+	deletedTypes []string
 }
 
 type fakeDocumentsList struct {
 	AgentID string
-	Kind    *documentstore.Kind
+	Type    *string
 }
 
 // WriteDocument records the write and answers stored with the written fields unless err refuses it.
@@ -48,7 +56,7 @@ func (f *fakeDocuments) WriteDocument(_ context.Context, params documents.WriteD
 	written := f.stored
 	written.AgentID = params.AgentID
 	written.Name = params.Name
-	written.Kind = params.Kind
+	written.Type = params.Type
 	written.Body = params.Body
 
 	return &written, nil
@@ -66,8 +74,8 @@ func (f *fakeDocuments) GetDocument(_ context.Context, _ string, version *int32)
 }
 
 // ListDocuments records whose documents were asked for and answers stored without its body.
-func (f *fakeDocuments) ListDocuments(_ context.Context, agentID string, kind *documentstore.Kind) ([]documentstore.Document, error) {
-	f.listed = append(f.listed, fakeDocumentsList{AgentID: agentID, Kind: kind})
+func (f *fakeDocuments) ListDocuments(_ context.Context, agentID string, typeName *string) ([]documentstore.Document, error) {
+	f.listed = append(f.listed, fakeDocumentsList{AgentID: agentID, Type: typeName})
 	if f.err != nil {
 		return nil, f.err
 	}
@@ -86,6 +94,38 @@ func (f *fakeDocuments) ListDocumentVersions(_ context.Context, _ string) (strin
 	return f.stored.AgentID, f.versions, nil
 }
 
+// ListDocumentTypes answers types unless err refuses it.
+func (f *fakeDocuments) ListDocumentTypes(_ context.Context) ([]documenttypestore.Type, error) {
+	return f.types, f.err
+}
+
+// GetDocumentType answers the first of types unless err refuses it.
+func (f *fakeDocuments) GetDocumentType(_ context.Context, _ string) (*documenttypestore.Type, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
+	got := f.types[0]
+
+	return &got, nil
+}
+
+// WriteDocumentType records the write and answers it as stored unless err refuses it.
+func (f *fakeDocuments) WriteDocumentType(_ context.Context, params documents.WriteDocumentTypeParams) (*documenttypestore.Type, error) {
+	f.writtenTypes = append(f.writtenTypes, params)
+	if f.err != nil {
+		return nil, f.err
+	}
+
+	return &documenttypestore.Type{ID: documentTypeID, Name: params.Name, Context: params.Context, Version: 1}, nil
+}
+
+// DeleteDocumentType records the delete unless err refuses it.
+func (f *fakeDocuments) DeleteDocumentType(_ context.Context, id string) error {
+	f.deletedTypes = append(f.deletedTypes, id)
+
+	return f.err
+}
+
 func newDocumentHandler(docs *fakeDocuments) agentv1komrad.AgentServiceAdapter {
 	return agentv1komrad.AgentServiceAdapter{Impl: NewHandler(NewHandlerParams{Documents: docs})}
 }
@@ -95,7 +135,7 @@ func TestDocumentErrors(t *testing.T) {
 	write := func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
 		_, err := svc.WriteDocument(ctx, connect.NewRequest(&agentv1.WriteDocumentRequest{
 			Name:   "Documents",
-			Kind:   agentv1.DocumentKind_DOCUMENT_KIND_RFC,
+			Type:   "RFC",
 			Source: &agentv1.WriteDocumentRequest_Body{Body: "# Documents"},
 		}))
 
@@ -105,7 +145,7 @@ func TestDocumentErrors(t *testing.T) {
 		_, err := svc.WriteDocument(ctx, connect.NewRequest(&agentv1.WriteDocumentRequest{
 			AgentId: xptr.Ptr(betaID),
 			Name:    "Documents",
-			Kind:    agentv1.DocumentKind_DOCUMENT_KIND_RFC,
+			Type:    "RFC",
 			Source:  &agentv1.WriteDocumentRequest_Body{Body: "# Documents"},
 		}))
 
@@ -123,6 +163,26 @@ func TestDocumentErrors(t *testing.T) {
 	}
 	versions := func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
 		_, err := svc.ListDocumentVersions(ctx, connect.NewRequest(&agentv1.ListDocumentVersionsRequest{Id: documentID}))
+
+		return err
+	}
+	getType := func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
+		_, err := svc.GetDocumentType(ctx, connect.NewRequest(&agentv1.GetDocumentTypeRequest{Name: "postmortem"}))
+
+		return err
+	}
+	writeType := func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
+		_, err := svc.WriteDocumentType(ctx, connect.NewRequest(&agentv1.WriteDocumentTypeRequest{
+			Id:      xptr.Ptr(documentTypeID),
+			Version: xptr.Ptr(int32(1)),
+			Name:    "postmortem",
+			Context: "What broke and why.",
+		}))
+
+		return err
+	}
+	deleteType := func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
+		_, err := svc.DeleteDocumentType(ctx, connect.NewRequest(&agentv1.DeleteDocumentTypeRequest{Id: documentTypeID}))
 
 		return err
 	}
@@ -199,6 +259,48 @@ func TestDocumentErrors(t *testing.T) {
 			err:      store.ErrNotFound,
 			wantCode: connect.CodeNotFound,
 		},
+		{
+			name:     "writing a document as a type that does not exist",
+			call:     write,
+			err:      documentstore.ErrUnknownType,
+			wantCode: connect.CodeInvalidArgument,
+		},
+		{
+			name:     "getting a type that does not exist",
+			call:     getType,
+			err:      documentstore.ErrUnknownType,
+			wantCode: connect.CodeInvalidArgument,
+		},
+		{
+			name:     "naming a type a name another type has",
+			call:     writeType,
+			err:      store.ErrNameTaken,
+			wantCode: connect.CodeAlreadyExists,
+		},
+		{
+			name:     "rewriting a type with no version",
+			call:     writeType,
+			err:      documents.ErrNoTypeVersion,
+			wantCode: connect.CodeInvalidArgument,
+		},
+		{
+			name:     "rewriting a type written since it was read",
+			call:     writeType,
+			err:      documenttypestore.ErrChanged,
+			wantCode: connect.CodeFailedPrecondition,
+		},
+		{
+			name:     "deleting a type documents are written as",
+			call:     deleteType,
+			err:      documenttypestore.ErrInUse,
+			wantCode: connect.CodeFailedPrecondition,
+		},
+		{
+			name:     "deleting a type that does not exist",
+			call:     deleteType,
+			err:      store.ErrNotFound,
+			wantCode: connect.CodeNotFound,
+		},
 	}
 
 	for _, tt := range tests {
@@ -231,13 +333,13 @@ func TestWriteDocument(t *testing.T) {
 			name: "a body creates a document",
 			req: &agentv1.WriteDocumentRequest{
 				Name:   "Documents",
-				Kind:   agentv1.DocumentKind_DOCUMENT_KIND_RFC,
+				Type:   "RFC",
 				Source: &agentv1.WriteDocumentRequest_Body{Body: "# Documents"},
 			},
 			want: documents.WriteDocumentParams{
 				AgentID: alphaID,
 				Name:    "Documents",
-				Kind:    documentstore.KindRFC,
+				Type:    "RFC",
 				Body:    "# Documents",
 			},
 		},
@@ -247,7 +349,7 @@ func TestWriteDocument(t *testing.T) {
 				Id:      xptr.Ptr(documentID),
 				Version: xptr.Ptr(int32(2)),
 				Name:    "Findings",
-				Kind:    agentv1.DocumentKind_DOCUMENT_KIND_REPORT,
+				Type:    "report",
 				Source:  &agentv1.WriteDocumentRequest_Path{Path: "rfcs/findings.md"},
 			},
 			want: documents.WriteDocumentParams{
@@ -255,7 +357,7 @@ func TestWriteDocument(t *testing.T) {
 				ID:      xptr.Ptr(documentID),
 				Version: xptr.Ptr(int32(2)),
 				Name:    "Findings",
-				Kind:    documentstore.KindReport,
+				Type:    "report",
 				Path:    "rfcs/findings.md",
 			},
 		},
@@ -264,14 +366,14 @@ func TestWriteDocument(t *testing.T) {
 			req: &agentv1.WriteDocumentRequest{
 				Id:     xptr.Ptr(documentID),
 				Name:   "Findings",
-				Kind:   agentv1.DocumentKind_DOCUMENT_KIND_REPORT,
+				Type:   "report",
 				Source: &agentv1.WriteDocumentRequest_Body{Body: "edited"},
 			},
 			asNobody: true,
 			want: documents.WriteDocumentParams{
 				ID:   xptr.Ptr(documentID),
 				Name: "Findings",
-				Kind: documentstore.KindReport,
+				Type: "report",
 				Body: "edited",
 			},
 		},
@@ -280,14 +382,14 @@ func TestWriteDocument(t *testing.T) {
 			req: &agentv1.WriteDocumentRequest{
 				AgentId: xptr.Ptr(betaID),
 				Name:    "Findings",
-				Kind:    agentv1.DocumentKind_DOCUMENT_KIND_REPORT,
+				Type:    "report",
 				Source:  &agentv1.WriteDocumentRequest_Body{Body: "Empty report."},
 			},
 			asNobody: true,
 			want: documents.WriteDocumentParams{
 				For:  betaID,
 				Name: "Findings",
-				Kind: documentstore.KindReport,
+				Type: "report",
 				Body: "Empty report.",
 			},
 		},
@@ -296,14 +398,14 @@ func TestWriteDocument(t *testing.T) {
 			req: &agentv1.WriteDocumentRequest{
 				AgentId: xptr.Ptr(alphaID),
 				Name:    "Documents",
-				Kind:    agentv1.DocumentKind_DOCUMENT_KIND_RFC,
+				Type:    "RFC",
 				Source:  &agentv1.WriteDocumentRequest_Body{Body: "# Documents"},
 			},
 			want: documents.WriteDocumentParams{
 				AgentID: alphaID,
 				For:     alphaID,
 				Name:    "Documents",
-				Kind:    documentstore.KindRFC,
+				Type:    "RFC",
 				Body:    "# Documents",
 			},
 		},
@@ -343,9 +445,9 @@ func TestListDocuments(t *testing.T) {
 			wantListed: fakeDocumentsList{AgentID: alphaID},
 		},
 		{
-			name:       "a kind narrows the listing",
-			req:        &agentv1.ListDocumentsRequest{Kind: agentv1.DocumentKind_DOCUMENT_KIND_NOTES.Enum()},
-			wantListed: fakeDocumentsList{AgentID: alphaID, Kind: xptr.Ptr(documentstore.KindNotes)},
+			name:       "a type narrows the listing",
+			req:        &agentv1.ListDocumentsRequest{Type: xptr.Ptr("notes")},
+			wantListed: fakeDocumentsList{AgentID: alphaID, Type: xptr.Ptr("notes")},
 		},
 		{
 			name:       "another agent's documents are a recorded read",
@@ -386,7 +488,7 @@ func TestGetDocument(t *testing.T) {
 		ID:        documentID,
 		AgentID:   betaID,
 		Name:      "Documents",
-		Kind:      documentstore.KindExplainer,
+		Type:      "explainer",
 		Body:      "# How documents work",
 		CreatedAt: time.Date(2026, time.September, 26, 9, 0, 0, 0, time.UTC),
 		UpdatedAt: time.Date(2026, time.September, 26, 10, 0, 0, 0, time.UTC),
@@ -426,7 +528,7 @@ func TestGetDocument(t *testing.T) {
 				Id:        documentID,
 				AgentId:   betaID,
 				Name:      "Documents",
-				Kind:      agentv1.DocumentKind_DOCUMENT_KIND_EXPLAINER,
+				Type:      "explainer",
 				Body:      "# How documents work",
 				CreatedAt: "2026-09-26T09:00:00Z",
 				UpdatedAt: "2026-09-26T10:00:00Z",
@@ -464,14 +566,14 @@ func TestListDocumentVersions(t *testing.T) {
 					{
 						Version:   2,
 						Name:      "Documents",
-						Kind:      documentstore.KindRFC,
+						Type:      "RFC",
 						ByPerson:  true,
 						CreatedAt: time.Date(2026, time.September, 26, 10, 0, 0, 0, time.UTC),
 					},
 					{
 						Version:   1,
 						Name:      "Draft",
-						Kind:      documentstore.KindNotes,
+						Type:      "notes",
 						CreatedAt: time.Date(2026, time.September, 26, 9, 0, 0, 0, time.UTC),
 					},
 				},
@@ -485,14 +587,14 @@ func TestListDocumentVersions(t *testing.T) {
 				{
 					Version:   2,
 					Name:      "Documents",
-					Kind:      agentv1.DocumentKind_DOCUMENT_KIND_RFC,
+					Type:      "RFC",
 					ByPerson:  true,
 					CreatedAt: "2026-09-26T10:00:00Z",
 				},
 				{
 					Version:   1,
 					Name:      "Draft",
-					Kind:      agentv1.DocumentKind_DOCUMENT_KIND_NOTES,
+					Type:      "notes",
 					CreatedAt: "2026-09-26T09:00:00Z",
 				},
 			}, listed.Msg.GetVersions(), protocmp.Transform()))
@@ -503,4 +605,69 @@ func TestListDocumentVersions(t *testing.T) {
 			})
 		})
 	}
+}
+
+// TestWriteDocumentType pins what a write of a type sends the service and renders back.
+func TestWriteDocumentType(t *testing.T) {
+	tests := []struct {
+		name string
+		req  *agentv1.WriteDocumentTypeRequest
+		want documents.WriteDocumentTypeParams
+	}{
+		{
+			name: "no id creates a type",
+			req:  &agentv1.WriteDocumentTypeRequest{Name: "postmortem", Context: "What broke and why."},
+			want: documents.WriteDocumentTypeParams{Name: "postmortem", Context: "What broke and why."},
+		},
+		{
+			name: "an id and version rewrite that type",
+			req: &agentv1.WriteDocumentTypeRequest{
+				Id:      xptr.Ptr(documentTypeID),
+				Version: xptr.Ptr(int32(3)),
+				Name:    "incident",
+				Context: "What broke and why.",
+			},
+			want: documents.WriteDocumentTypeParams{
+				ID:      xptr.Ptr(documentTypeID),
+				Version: xptr.Ptr(int32(3)),
+				Name:    "incident",
+				Context: "What broke and why.",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			docs := &fakeDocuments{}
+			svc := newDocumentHandler(docs)
+
+			written, err := svc.WriteDocumentType(t.Context(), connect.NewRequest(tt.req))
+			require.NoError(t, err)
+
+			assert.Equal(t, []documents.WriteDocumentTypeParams{tt.want}, docs.writtenTypes)
+			assert.Equal(t, documentTypeID, written.Msg.GetDocumentType().GetId())
+			assert.Equal(t, tt.want.Context, written.Msg.GetDocumentType().GetContext())
+		})
+	}
+}
+
+// TestListDocumentTypes pins how the types are rendered.
+func TestListDocumentTypes(t *testing.T) {
+	updated := time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC)
+	docs := &fakeDocuments{types: []documenttypestore.Type{
+		{ID: documentTypeID, Name: "RFC", Context: "A proposal.", Version: 2, UpdatedAt: updated},
+	}}
+	svc := newDocumentHandler(docs)
+
+	listed, err := svc.ListDocumentTypes(caller.With(t.Context(), caller.Caller{AgentID: alphaID}), connect.NewRequest(&emptypb.Empty{}))
+	require.NoError(t, err)
+
+	want := []*agentv1.DocumentType{{
+		Id:        documentTypeID,
+		Name:      "RFC",
+		Context:   "A proposal.",
+		Version:   2,
+		UpdatedAt: dates.PreciseStamp(updated),
+	}}
+	assert.Empty(t, cmp.Diff(want, listed.Msg.GetDocumentTypes(), protocmp.Transform()))
 }

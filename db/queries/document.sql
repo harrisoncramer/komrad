@@ -3,12 +3,12 @@ WITH inserted AS (
     INSERT INTO documents(
         agent_id,
         name,
-        kind,
+        type,
         body)
     VALUES (
         @agent_id,
         @name,
-        @kind,
+        @type,
         @body)
 RETURNING
     *
@@ -18,7 +18,7 @@ recorded AS (
         document_id,
         version,
         name,
-        kind,
+        type,
         body,
         by_person,
         created_at)
@@ -26,7 +26,7 @@ recorded AS (
         id,
         version,
         name,
-        kind,
+        type,
         body,
         @by_person,
         updated_at
@@ -44,7 +44,7 @@ WITH updated AS (
         documents
     SET
         name = @name,
-        kind = @kind,
+        type = @type,
         body = @body,
         version = documents.version + 1
     WHERE
@@ -59,7 +59,7 @@ recorded AS (
         document_id,
         version,
         name,
-        kind,
+        type,
         body,
         by_person,
         created_at)
@@ -67,7 +67,7 @@ recorded AS (
         id,
         version,
         name,
-        kind,
+        type,
         body,
         @by_person,
         updated_at
@@ -101,7 +101,7 @@ SELECT
     id,
     agent_id,
     name,
-    kind,
+    type,
     version,
     created_at,
     updated_at
@@ -109,8 +109,8 @@ FROM
     documents
 WHERE
     agent_id = @agent_id
-    AND (sqlc.narg('kind')::document_kind IS NULL
-        OR kind = sqlc.narg('kind')::document_kind)
+    AND (sqlc.narg('type')::text IS NULL
+        OR type = sqlc.narg('type')::text)
 ORDER BY
     updated_at DESC,
     id DESC;
@@ -119,7 +119,7 @@ ORDER BY
 SELECT
     version,
     name,
-    kind,
+    type,
     by_person,
     created_at
 FROM
