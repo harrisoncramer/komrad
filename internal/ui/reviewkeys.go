@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"slices"
 
-	"komrad/internal/ui/paint"
 	agentv1 "komrad/proto/gen/agent/v1"
 
 	tea "charm.land/bubbletea/v2"
@@ -89,7 +88,7 @@ func (r *reviewScreen) diffKeys() diffKeys {
 		notice: &r.notice,
 		height: r.diffHeight,
 		moved: func(s panelShared) tea.Cmd {
-			r.threads.scrolled = ""
+			r.threads.scroll.reset()
 
 			return r.markThreadReadCmd(s)
 		},
@@ -205,19 +204,12 @@ func (r *reviewScreen) scrollToCursor(s panelShared) {
 // scrollPopup moves the conversation in the popup down by rows, up when rows is negative, and
 // reports whether there was a conversation there to move.
 func (r *reviewScreen) scrollPopup(s panelShared, rows int) bool {
-	id, body, ok := r.conversationAtCursor(s, measurePopupInner(s))
+	id, body, ok := r.conversationAtCursor(s, measureReviewPopupInner(s))
 	if !ok {
 		return false
 	}
 
-	if r.threads.scrolled != id {
-		r.threads.scrolled = id
-		r.threads.scroll = 0
-	}
-
-	drawn := paint.CountLines(body)
-	most := max(drawn-(reviewPopupHeight-2), 0)
-	r.threads.scroll = min(max(r.threads.scroll-rows, 0), most)
+	r.threads.scroll.move(id, body, rows)
 
 	return true
 }

@@ -64,16 +64,7 @@ func (r reviewScreen) view(s panelShared) string {
 // overlayThread draws the popup over an area beside the cursor's row, and leaves the area alone
 // where the popup has nothing to hold.
 func (r reviewScreen) overlayThread(s panelShared, area string, cursor, left int) string {
-	body := r.popupBody(s, measurePopupInner(s))
-	if body == "" {
-		return area
-	}
-
-	rows := paint.CountLines(area)
-	width := lipgloss.Width(area)
-	box := drawPopup(body, measurePopupWidth(width-left), min(reviewPopupHeight, rows))
-
-	return overlayPopup(area, width, placePopup(box, cursor, rows, left))
+	return overlayPopup(area, r.popupBody(s, measureReviewPopupInner(s)), cursor, left)
 }
 
 // drawSidebar is the panel's own column: the files the change touches, where the cursor is
