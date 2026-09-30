@@ -7,6 +7,7 @@ import (
 	"komrad/lib/xptr"
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
+	watchv1 "komrad/proto/gen/watch/v1"
 
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
@@ -78,6 +79,19 @@ func TestDocumentTypesOpen(t *testing.T) {
 		assert.Equal(t, documentsScreen, harness.readScreen())
 		assert.Contains(t, readStageText(harness.readFrame()), "Design the cache")
 
+		harness.press("esc")
+
+		assert.Equal(t, agentsScreen, harness.readScreen())
+	})
+
+	t.Run("back from over a review whose agent has gone lands on the agents list", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openReview(t, newReviewServer(t))
+		answerDocumentTypes(harness)
+		harness.press("space", "T", "l")
+		harness.fireTimers()
+		harness.watch(buildDeleted(watchv1.Resource_RESOURCE_AGENT, "a1"))
 		harness.press("esc")
 
 		assert.Equal(t, agentsScreen, harness.readScreen())

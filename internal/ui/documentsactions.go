@@ -61,8 +61,8 @@ func (d *documentsScreen) table() []screenAction {
 		{
 			id:   actionDocumentsBack,
 			keys: func(k config.Keybindings) []string { return d.shelf.keys(k).Back },
-			run: func(h host, _ panelShared, _ string) tea.Cmd {
-				return d.back(h)
+			run: func(h host, s panelShared, _ string) tea.Cmd {
+				return d.back(h, s)
 			},
 		},
 	}, d.shelfActions())

@@ -59,8 +59,12 @@ func (d *documentsScreen) shelfLegend() []screenLegendRow {
 }
 
 // back leaves for the screen the shelf was opened from.
-func (d *documentsScreen) back(h host) tea.Cmd {
+func (d *documentsScreen) back(h host, s panelShared) tea.Cmd {
 	if d.shelf == shelfDocumentTypes {
+		if _, ok := s.listing.liveAgent(d.returning.agentID); d.from == screenReview && !ok {
+			return h.enter(screenAgents, screenTarget{})
+		}
+
 		return h.enter(d.from, d.returning)
 	}
 
