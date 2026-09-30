@@ -159,7 +159,7 @@ func (m model) findSidebarBlocks() []sidebarBlock {
 	list := panes.Rect{Left: 0, Top: 0, Width: m.width, Height: height}
 	column, hasColumn := zones[zoneColumn]
 	if hasColumn {
-		if column.Left+column.Width/2 > m.width/2 {
+		if !m.frame.IsSidebarOnRight() {
 			list.Width = column.Left - dividerCols
 		} else {
 			list.Left = column.Left + column.Width + dividerCols
