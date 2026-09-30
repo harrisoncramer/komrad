@@ -260,7 +260,7 @@ func (l listing) scheduleName(agent panel.Agent) string {
 	return ""
 }
 
-const heldPlaceholder = "Paused while its worktree is open in your editor."
+const heldPlaceholder = "Paused."
 
 func welcomeText(keys config.Keybindings) string {
 	return fmt.Sprintf("Welcome, komrad!\n\nPress '%s' to set up your first workflow", firstKey(keys.Workflows.New, "w"))

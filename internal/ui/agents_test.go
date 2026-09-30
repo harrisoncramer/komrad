@@ -1895,7 +1895,7 @@ func TestAgentsStrandedPause(t *testing.T) {
 		harness := openAgents(t, newLiveWorkflow("w1", "backend"), newPausable(heldAt))
 
 		assert.True(t, harness.panel.IsZoomed(), "the panel keeps the window")
-		assert.Contains(t, harness.readFrame(), "Paused while its worktree is open in your editor")
+		assert.Contains(t, harness.readFrame(), "Paused.")
 	})
 
 	tests := []struct {
