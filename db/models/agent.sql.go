@@ -565,7 +565,20 @@ UPDATE
     agents
 SET
     held_at = $1,
-    held_mid_turn = $2
+    held_mid_turn = $2,
+    state = 'idle',
+    state_changed_at = CASE WHEN state IS DISTINCT FROM 'idle' THEN
+        NOW()
+    ELSE
+        state_changed_at
+    END,
+    turn_ended_at = CASE WHEN state IS DISTINCT FROM 'idle' THEN
+        NOW()
+    ELSE
+        turn_ended_at
+    END,
+    reported_reason = '',
+    state_seen_at = NOW()
 WHERE
     id = $3
     AND archived_at IS NULL

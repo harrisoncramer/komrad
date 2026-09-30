@@ -726,7 +726,20 @@ UPDATE
     agents
 SET
     held_at = @held_at,
-    held_mid_turn = @held_mid_turn
+    held_mid_turn = @held_mid_turn,
+    state = 'idle',
+    state_changed_at = CASE WHEN state IS DISTINCT FROM 'idle' THEN
+        NOW()
+    ELSE
+        state_changed_at
+    END,
+    turn_ended_at = CASE WHEN state IS DISTINCT FROM 'idle' THEN
+        NOW()
+    ELSE
+        turn_ended_at
+    END,
+    reported_reason = '',
+    state_seen_at = NOW()
 WHERE
     id = @id
     AND archived_at IS NULL
