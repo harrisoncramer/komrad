@@ -56,7 +56,8 @@ func (s *Session) HoldLeader(sidebar string) {
 	}
 
 	for _, key := range []string{s.leaderKey, "Space"} {
-		s.tmux.BindTableKey(s.leaderTable, key, "if-shell", "-F", "#{window_zoomed_flag}", "", "last-pane")
+		s.tmux.BindTableKey(s.leaderTable, key, "if-shell", "-F", "#{window_zoomed_flag}",
+			"send-keys -t "+sidebar+" "+s.leaderKey+" "+s.leaderKey, "last-pane")
 	}
 
 	s.leaderHeld = true

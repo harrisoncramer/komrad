@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"slices"
+
 	"komrad/internal/ui/layout"
 
 	tea "charm.land/bubbletea/v2"
@@ -79,6 +81,48 @@ func (m model) enterSidebar(to stop) model {
 	}
 
 	return m
+}
+
+// atStop is the stop inside the panel that holds the keys.
+func (m model) atStop() stop {
+	switch {
+	case m.isDetailsFocused():
+		return stopRecord
+	case m.isDocFocused():
+		return stopBlock
+	}
+
+	if b, ok := m.active().(blocked); ok && b.isBlockFocused(m.shared()) {
+		return stopBlock
+	}
+
+	return stopList
+}
+
+// toggleStop hands the keys back to the stop they last left, or on to the next stop when there is
+// none to go back to.
+func (m model) toggleStop() (tea.Model, tea.Cmd) {
+	if m.keysElsewhere {
+		return m, nil
+	}
+
+	at := m.atStop()
+	stops := m.listStops()
+
+	to := m.leftStop
+	if to == at || !slices.Contains(stops, to) {
+		to = stops[(slices.Index(stops, at)+1)%len(stops)]
+	}
+
+	if to == at {
+		return m, nil
+	}
+
+	if to != stopList {
+		m.filter.typing = false
+	}
+
+	return m.enterStop(to)
 }
 
 // terminalPane is the shell the picker stops at, empty while none is open.

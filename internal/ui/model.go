@@ -337,6 +337,9 @@ type model struct {
 
 	// leading is whether the leader was pressed and the key after it is still to come.
 	leading bool
+
+	// leftStop is the stop the keys last left.
+	leftStop stop
 }
 
 // lastFrame is the frame on screen, which the panel draws again rather than drawing a new one at

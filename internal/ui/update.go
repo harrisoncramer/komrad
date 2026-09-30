@@ -38,6 +38,7 @@ func (m model) Init() tea.Cmd {
 
 // Update routes a message to the screen that owns it, and keeps the row cursor blinking.
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	was := m.atStop()
 	next, cmd := m.route(msg)
 
 	routed, ok := next.(model)
@@ -51,6 +52,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	routed, pulse := routed.pulseMessages(m.messages.landed)
 	routed = routed.releaseHiddenDetails()
 	routed = routed.dropStaleDoc()
+	if routed.atStop() != was {
+		routed.leftStop = was
+	}
 
 	return routed, tea.Batch(cmd, blink, warming, spinning, pulse)
 }

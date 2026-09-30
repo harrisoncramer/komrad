@@ -28,10 +28,11 @@ func TestLeader(t *testing.T) {
 			assert.Equal(t, []string{"send-keys", "-t", sidebar, "C-Space", key}, command)
 		}
 
+		leader := "C-Space"
 		for _, key := range []string{"C-Space", "Space"} {
 			command, bound := harness.panel.ReadTableBinding("komrad-leader", key)
 			require.True(t, bound, key)
-			assert.Equal(t, []string{"if-shell", "-F", "#{window_zoomed_flag}", "", "last-pane"}, command)
+			assert.Equal(t, []string{"if-shell", "-F", "#{window_zoomed_flag}", "send-keys -t " + sidebar + " " + leader + " " + leader, "last-pane"}, command)
 		}
 	})
 
@@ -53,6 +54,32 @@ func TestLeader(t *testing.T) {
 
 		assert.NotContains(t, harness.readDrawn(), "VISUAL")
 		assert.False(t, harness.panel.IsZoomed())
+	})
+
+	t.Run("the leader twice with nowhere to go back to hands the keys to the next stop", func(t *testing.T) {
+		harness, _ := openDocuments(t)
+
+		harness.press("ctrl+space", "ctrl+space")
+
+		assert.Equal(t, "/", strings.TrimSpace(readStage(harness.readFrame())[0]), "the document holds the keys")
+	})
+
+	t.Run("the leader twice goes back to the stop the keys last left", func(t *testing.T) {
+		harness, _ := openDocuments(t)
+
+		harness.press("ctrl+space", "ctrl+space", "ctrl+space", "ctrl+space")
+		assert.NotEqual(t, "/", strings.TrimSpace(readStage(harness.readFrame())[0]), "the list holds the keys again")
+
+		harness.press("ctrl+space", "ctrl+space")
+		assert.Equal(t, "/", strings.TrimSpace(readStage(harness.readFrame())[0]), "the document holds the keys again")
+	})
+
+	t.Run("the leader twice returns to the record rather than moving on to the next stop", func(t *testing.T) {
+		harness := openGroupedArchive(t, buildOneArchivedAgent()...)
+
+		harness.press("j", "pick:record", "esc", "ctrl+space", "ctrl+space")
+
+		assert.NotEmpty(t, readRecordCursor(harness.readFrame()), "the record holds the keys")
 	})
 
 	t.Run("an unknown key after the leader is dropped", func(t *testing.T) {

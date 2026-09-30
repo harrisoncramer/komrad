@@ -40,6 +40,10 @@ func (m model) routeLeader(key tea.KeyPressMsg) (tea.Model, tea.Cmd, bool) {
 		next, cmd := m.toggleFrozen(frozenPicker)
 
 		return next, cmd, true
+	case leaderKey:
+		next, cmd := m.toggleStop()
+
+		return next, cmd, true
 	}
 
 	return m, nil, true
