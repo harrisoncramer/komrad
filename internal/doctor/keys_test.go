@@ -14,8 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var defaultCycleKeys = []string{"C-a", "C-q"}
-
 // rootKeysEnv answers tmux with a root table holding the given bindings and a prefix of C-b.
 func rootKeysEnv(cfg *config.Config, rootKeys ...string) Env {
 	return rootKeysEnvWithPrefix(cfg, "C-b", rootKeys...)
@@ -66,16 +64,15 @@ func TestKeybindingsCheckPassesWhenTmuxHoldsNothing(t *testing.T) {
 	assert.Equal(t, StatusOK, result.Status)
 }
 
-// TestKeybindingsCheckIgnoresThePanelsOwnCycleBindings covers the cycle keys the panel binds itself.
-func TestKeybindingsCheckIgnoresThePanelsOwnCycleBindings(t *testing.T) {
+// TestKeybindingsCheckIgnoresThePanelsOwnLeader covers the leader the panel binds itself.
+func TestKeybindingsCheckIgnoresThePanelsOwnLeader(t *testing.T) {
 	env := configEnv(config.Defaults(), nil, true)
 	env.TmuxSocket = "komrad"
 	env.ValidateKeybindings = ui.ValidateKeybindings
 	env.IsPanelRunning = func(context.Context) bool { return true }
 	env.Output = func(_ context.Context, _ string, args ...string) (string, error) {
 		if slices.Contains(args, "list-keys") {
-			return `bind-key  -T root C-a    send-keys -t "%3" C-a
-bind-key  -T root C-q    send-keys -t "%3" C-q`, nil
+			return `bind-key  -T root C-Space    if-shell -F "#{==:#{window_id},@1}" "switch-client -T komrad-leader" "send-keys C-Space"`, nil
 		}
 
 		return "C-b\n", nil
@@ -130,40 +127,22 @@ func TestKeybindingsCheckFindsAKeyThePanelCouldNotTake(t *testing.T) {
 	assert.Contains(t, result.Fix, "unbind -n C-d")
 }
 
-// TestKeybindingsCheckFindsAPrefixOnACycleKey covers a prefix set to a cycle key, which tmux reads
-// before the root table, so the cycle key installs and never fires.
-func TestKeybindingsCheckFindsAPrefixOnACycleKey(t *testing.T) {
-	for _, key := range defaultCycleKeys {
-		t.Run(key, func(t *testing.T) {
-			result := newKeybindingsCheck().Run(t.Context(), rootKeysEnvWithPrefix(config.Defaults(), key))
+// TestKeybindingsCheckFindsTheLeaderUnavailable covers the leader as the prefix, which tmux reads
+// before the root table, and the leader bound in the root table by the user's own tmux config.
+func TestKeybindingsCheckFindsTheLeaderUnavailable(t *testing.T) {
+	t.Run("as the prefix", func(t *testing.T) {
+		result := newKeybindingsCheck().Run(t.Context(), rootKeysEnvWithPrefix(config.Defaults(), "C-Space"))
 
-			assert.Equal(t, StatusFail, result.Status, "the prefix is read first, so the cycle key is dead")
-			assert.Contains(t, result.Fix, "prefix")
-		})
-	}
-
-	t.Run("another pair leaves the prefix alone", func(t *testing.T) {
-		cfg := config.Defaults()
-		cfg.Keybindings.Cycle.Views = []string{"alt+n", "alt+p"}
-
-		assert.Equal(t, StatusOK, newKeybindingsCheck().Run(t.Context(), rootKeysEnvWithPrefix(cfg, "C-a")).Status)
-
-		result := newKeybindingsCheck().Run(t.Context(), rootKeysEnvWithPrefix(cfg, "M-n"))
-		assert.Equal(t, StatusFail, result.Status)
+		assert.Equal(t, StatusFail, result.Status, "the prefix is read first, so the leader is dead")
+		assert.Contains(t, result.Fix, "prefix")
 	})
-}
 
-// TestKeybindingsCheckFindsACycleKeyTakenByTmux covers a cycle key already bound in the root table
-// by the user's own tmux config, which the panel would overwrite and then give back.
-func TestKeybindingsCheckFindsACycleKeyTakenByTmux(t *testing.T) {
-	for _, key := range defaultCycleKeys {
-		t.Run(key, func(t *testing.T) {
-			result := newKeybindingsCheck().Run(t.Context(), rootKeysEnv(config.Defaults(), key))
+	t.Run("bound in the root table", func(t *testing.T) {
+		result := newKeybindingsCheck().Run(t.Context(), rootKeysEnv(config.Defaults(), "C-Space"))
 
-			assert.Equal(t, StatusFail, result.Status)
-			assert.Contains(t, result.Fix, "unbind -n "+key)
-		})
-	}
+		assert.Equal(t, StatusFail, result.Status)
+		assert.Contains(t, result.Fix, "unbind -n C-Space")
+	})
 }
 
 // TestTheKeybindingsCheckIsRun pins the check being one doctor makes.
@@ -209,18 +188,18 @@ func TestYourTmuxKeysCheck(t *testing.T) {
 			wantDetail: "C-d, C-u",
 		},
 		{
-			name:       "a cycle key bound by the user is lost",
+			name:       "the leader bound by the user is lost",
 			insideTmux: "/tmp/tmux-501/default,1,0",
-			listed:     "bind-key  -T root C-a    last-window",
+			listed:     "bind-key  -T root C-Space    last-window",
 			want:       StatusWarn,
-			wantDetail: "C-a",
+			wantDetail: "C-Space",
 		},
 		{
-			name:       "a prefix on a cycle key is lost",
+			name:       "a prefix on the leader is lost",
 			insideTmux: "/tmp/tmux-501/default,1,0",
-			prefix:     "C-a",
+			prefix:     "C-Space",
 			want:       StatusWarn,
-			wantDetail: "prefix C-a",
+			wantDetail: "prefix C-Space",
 		},
 		{
 			name:       "a prefix on no panel key lets everything through",

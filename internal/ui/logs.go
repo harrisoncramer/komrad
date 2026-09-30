@@ -46,7 +46,7 @@ type logsScreen struct {
 	generation int
 	read       bool
 	err        error
-	// logFocus says the cycle key handed the keys to the log.
+	// logFocus says the picker handed the keys to the log.
 	logFocus bool
 	// logFilter is the pattern typed at the foot of the log, and pattern is the one the block was read with.
 	logFilter filterState

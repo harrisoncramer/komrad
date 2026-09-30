@@ -11,7 +11,10 @@ Enter
 Up
 Ctrl+S
 Sleep 2s
-Ctrl+A
+Ctrl+Space
+Type "j"
+Sleep 1s
+Type "d"
 Type "c"
 Type "reply with the single word ok"
 Ctrl+S

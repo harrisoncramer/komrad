@@ -487,12 +487,12 @@ func TestScreensFitATightPane(t *testing.T) {
 		{
 			name:  "with the record focused under the expanded legend",
 			width: 30,
-			press: []string{"?", "ctrl+q"},
+			press: []string{"?", "pick:record"},
 		},
 		{
 			name:  "with the record focused under the expanded legend at the width its own legend folds",
 			width: 35,
-			press: []string{"?", "ctrl+q"},
+			press: []string{"?", "pick:record"},
 		},
 		{
 			name:  "with a search standing under the expanded legend",
@@ -507,7 +507,7 @@ func TestScreensFitATightPane(t *testing.T) {
 		{
 			name:  "with a search being typed over the focused record",
 			width: 30,
-			press: []string{"?", "ctrl+q", "/", "a"},
+			press: []string{"?", "pick:record", "/", "a"},
 		},
 	}
 

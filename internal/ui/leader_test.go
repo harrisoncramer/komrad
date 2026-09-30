@@ -59,9 +59,9 @@ func TestLeader(t *testing.T) {
 		harness := openFocus(t)
 		selected := len(harness.panel.ReadSelectedPanes())
 
-		harness.press("ctrl+space", "ctrl+a")
+		harness.press("ctrl+space", "enter")
 
-		assert.Empty(t, harness.panel.ReadSelectedPanes()[selected:], "the cycle key went to the leader")
+		assert.Empty(t, harness.panel.ReadSelectedPanes()[selected:], "the key went to the leader")
 	})
 }
 

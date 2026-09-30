@@ -500,7 +500,7 @@ func TestArchiveDocument(t *testing.T) {
 			},
 		)
 
-		harness.press(append([]string{"j", "ctrl+a"}, widenListPresses...)...)
+		harness.press(append([]string{"j", "pick:record"}, widenListPresses...)...)
 
 		frame := harness.readFrame()
 		assert.Contains(t, frame, "agent/a1")

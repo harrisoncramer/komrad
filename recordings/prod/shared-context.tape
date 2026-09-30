@@ -15,7 +15,10 @@ Enter
 Type "Run make lint before committing any Lua change."
 Ctrl+S
 Sleep 2s
-Ctrl+Q
+Ctrl+Space
+Type "j"
+Sleep 1s
+Type "d"
 Type "c"
 Type "I changed runtime/lua/vim/lsp.lua. What should I run before committing? Also, which editor is best?"
 Enter

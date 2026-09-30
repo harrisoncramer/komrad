@@ -61,7 +61,7 @@ func (l *logsScreen) legend() []screenLegendRow {
 	})
 }
 
-// logActions is the keys on the log once the cycle key has handed them to it.
+// logActions is the keys on the log once the picker has handed them to it.
 func (l *logsScreen) logActions() screenActionSpec {
 	return screenActionSpec{
 		table: []screenAction{

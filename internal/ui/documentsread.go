@@ -181,7 +181,7 @@ func (d *documentsScreen) jumpReadMatch(s panelShared, direction int) tea.Cmd {
 	return nil
 }
 
-// readActions is the keys on the document as it stands once the cycle key has handed them to it.
+// readActions is the keys on the document as it stands once the picker has handed them to it.
 func (d *documentsScreen) readActions() screenActionSpec {
 	step := d.stepActions()
 

@@ -83,12 +83,12 @@ func TestTabStrip(t *testing.T) {
 	t.Run("the record and the strip take the keys from each other", func(t *testing.T) {
 		harness := openAgents(t, buildSelectable()...)
 
-		harness.press("ctrl+a", "f")
+		harness.press("pick:record", "f")
 		frame := harness.readFrame()
 		assert.Contains(t, readLegend(frame), stripLegend)
 		assert.Empty(t, readRecordCursor(frame))
 
-		harness.press("esc", "ctrl+a")
+		harness.press("esc", "pick:record")
 		assert.NotEmpty(t, readRecordCursor(harness.readFrame()))
 	})
 

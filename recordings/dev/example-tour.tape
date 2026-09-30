@@ -5,7 +5,10 @@ Type "j"
 Type "j"
 Enter
 Wait+Screen@30s /Enter to confirm/
-Ctrl+A
+Ctrl+Space
+Type "j"
+Sleep 1s
+Type "d"
 Type "o"
 Type "q"
 Type "probe"

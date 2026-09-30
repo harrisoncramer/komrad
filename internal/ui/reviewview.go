@@ -53,7 +53,7 @@ func (r reviewScreen) view(s panelShared) string {
 
 	// The band stands over the diff rather than over the whole window, and what it carries acts on
 	// the patch.
-	diff := r.bandView(s, split.column) + r.diffView(s, split)
+	diff := s.draw.markZone(zoneList, r.bandView(s, split.column)+r.diffView(s, split), split.column)
 
 	return s.draw.joinColumns(split, sidebar, diff)
 }
@@ -64,7 +64,9 @@ func (r reviewScreen) sidebarView(s panelShared, above ...string) string {
 	layout := r.layoutSidebar(s, above...)
 	rest := r.threads.window(r.restView(s), layout.threadLines)
 
-	return layout.bar + paint.PadRows(layout.head+rest, layout.spare) + layout.record + layout.help
+	thread := s.draw.markZone(zoneBlock, paint.PadRows(layout.head+rest, layout.spare), s.pane)
+
+	return layout.bar + thread + layout.record + layout.help
 }
 
 // sidebarLayout is the sidebar measured once, so the drawing and the thread's scroll agree on
@@ -140,7 +142,6 @@ func (r reviewScreen) help(s panelShared) keyMap {
 		short: slices.Concat(own.short, s.draw.globalHelp()),
 		full: slices.Concat(
 			own.full,
-			[]key.Binding{s.draw.cycleBinding()},
 			s.draw.fullGlobalHelp(),
 		),
 	}

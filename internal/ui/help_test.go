@@ -103,7 +103,7 @@ func TestHelpFitsEveryScreen(t *testing.T) {
 		},
 		{
 			name:  "the record fits every width",
-			press: []string{"ctrl+q"},
+			press: []string{"pick:record"},
 		},
 		{
 			name:  "the message region fits every width",
@@ -157,7 +157,7 @@ type driftScreen struct {
 
 // TestHelpKeyDrift covers every key a screen answers being named in that screen's legend.
 func TestHelpKeyDrift(t *testing.T) {
-	pressable := append(readConfiguredKeys(t, config.DefaultKeybindings()), "ctrl+a", "ctrl+q")
+	pressable := readConfiguredKeys(t, config.DefaultKeybindings())
 
 	for _, screen := range buildDriftScreens() {
 		t.Run("the "+screen.name+" legend names every key it answers", func(t *testing.T) {

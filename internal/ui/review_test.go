@@ -488,7 +488,7 @@ func TestReviewThreadFocus(t *testing.T) {
 		harness := openLongThread(t)
 		require.NotContains(t, readSidebarProse(harness.readFrame()), "note 0")
 
-		harness.press("ctrl+a")
+		harness.press("pick:block")
 		for range 20 {
 			harness.press("k")
 		}
@@ -507,7 +507,7 @@ func TestReviewThreadFocus(t *testing.T) {
 
 	t.Run("the scroll keys move the thread while it holds the keys", func(t *testing.T) {
 		harness := openLongThread(t)
-		harness.press("ctrl+a")
+		harness.press("pick:block")
 
 		harness.press("ctrl+p")
 		assert.NotContains(t, readSidebarProse(harness.readFrame()), "note 5")
@@ -529,7 +529,7 @@ func TestReviewThreadFocus(t *testing.T) {
 
 	t.Run("moving the diff cursor drops the scroll and the keys", func(t *testing.T) {
 		harness := openLongThread(t)
-		harness.press("ctrl+a", "k")
+		harness.press("pick:block", "k")
 		require.Contains(t, readLegend(harness.readFrame()), "back to the diff")
 
 		harness.press("ctrl+d")
@@ -539,12 +539,13 @@ func TestReviewThreadFocus(t *testing.T) {
 		assert.NotContains(t, readLegend(frame), "back to the diff")
 	})
 
-	t.Run("a line with no thread is passed over for the record", func(t *testing.T) {
+	t.Run("a line with no thread takes no letter", func(t *testing.T) {
 		harness := openReview(t, newReviewServer(t))
 
-		harness.press("ctrl+a")
+		harness.press("ctrl+space", "j")
 
-		assert.NotEmpty(t, readRecordCursor(harness.readFrame()))
+		assert.Empty(t, harness.panel.ReadPickLetter("block"))
+		assert.NotEmpty(t, harness.panel.ReadPickLetter("record"))
 	})
 }
 
@@ -558,7 +559,7 @@ func TestReviewFitsThePane(t *testing.T) {
 
 			assert.Len(t, splitLines(harness.readFrame()), height)
 
-			harness.press("ctrl+a", "k", "k", "k", "k", "k")
+			harness.press("pick:block", "k", "k", "k", "k", "k")
 			assert.Len(t, splitLines(harness.readFrame()), height)
 
 			harness.press("esc", "c")
@@ -1375,12 +1376,12 @@ func TestReviewYours(t *testing.T) {
 		diff := readLegend(harness.readFrame())
 		require.NotContains(t, diff, "scroll the thread")
 
-		harness.press("ctrl+a")
+		harness.press("pick:block")
 		thread := readLegend(harness.readFrame())
 		assert.Contains(t, thread, "scroll the thread")
 		assert.Contains(t, thread, "back to the diff")
 
-		harness.press("ctrl+q")
+		harness.press("pick:list")
 		assert.Equal(t, diff, readLegend(harness.readFrame()))
 	})
 }
@@ -1389,7 +1390,7 @@ func TestReviewYours(t *testing.T) {
 func TestReviewRecord(t *testing.T) {
 	t.Run("the record names the agent and the two commits the diff is between", func(t *testing.T) {
 		harness := openReviewAt(t, newReviewServer(t), panelHarnessParams{height: 50})
-		harness.press("ctrl+q")
+		harness.press("pick:record")
 
 		frame := harness.readFrame()
 		assert.Equal(t, "auth", readRecordField(frame, "name"))
@@ -1402,14 +1403,14 @@ func TestReviewRecord(t *testing.T) {
 		harness := openReviewAt(t, newReviewServer(t), panelHarnessParams{height: 50})
 		respawns, sentKeys := harness.panel.CountRespawns(), harness.panel.CountSentKeys()
 
-		harness.press("ctrl+q", "j")
+		harness.press("pick:record", "j")
 		frame := harness.readFrame()
 		assert.Equal(t, respawns, harness.panel.CountRespawns())
 		assert.Equal(t, sentKeys, harness.panel.CountSentKeys())
 		assert.Equal(t, "greet.go:1", readReviewCursor(frame))
 		assert.True(t, strings.HasPrefix(readRecordCursor(frame), "agent"))
 
-		harness.press("ctrl+a", "j")
+		harness.press("pick:list", "j")
 		assert.Equal(t, "greet.go:2", readReviewCursor(harness.readFrame()))
 	})
 
@@ -1423,7 +1424,7 @@ func TestReviewRecord(t *testing.T) {
 		assert.NotContains(t, harness.readFrame(), "agent_id")
 	})
 
-	t.Run("the record takes the keys only at a height it is drawn at", func(t *testing.T) {
+	t.Run("the record takes the keys at every height it is given a letter", func(t *testing.T) {
 		tests := []struct {
 			name     string
 			query    string
@@ -1462,18 +1463,17 @@ func TestReviewRecord(t *testing.T) {
 				taken := 0
 				for height := range 60 {
 					harness.send(tea.WindowSizeMsg{Width: reviewWidth, Height: height})
-					harness.press("ctrl+q")
-					if readRecordCursor(harness.readFrame()) == "" {
-						harness.press("j")
-						assert.NotEqual(t, "greet.go:1", readReviewCursor(harness.readFrame()),
-							"the record took the keys at height %d without being drawn", height)
-						harness.press("g", "g")
-
+					harness.press("ctrl+space", "j")
+					letter := harness.panel.ReadPickLetter("record")
+					harness.press("esc")
+					if letter == "none" {
 						continue
 					}
 
+					harness.press("pick:record")
+					assert.NotEmpty(t, readRecordCursor(harness.readFrame()), "the record's letter at height %d gave it the keys", height)
 					taken++
-					harness.press("ctrl+a")
+					harness.press("esc")
 				}
 
 				assert.Positive(t, taken)
@@ -1483,7 +1483,7 @@ func TestReviewRecord(t *testing.T) {
 
 	t.Run("a shrink under a focused record gives the keys back to the diff", func(t *testing.T) {
 		harness := openReview(t, newReviewServer(t))
-		harness.press("ctrl+q")
+		harness.press("pick:record")
 		require.NotEmpty(t, readRecordCursor(harness.readFrame()))
 
 		harness.press("?")
@@ -2456,13 +2456,13 @@ func TestReviewEmphasis(t *testing.T) {
 		harness := openReview(t, newReviewServer(t))
 		live := readRawCursorRow(harness)
 
-		harness.press("ctrl+q")
+		harness.press("pick:record")
 		dimmed := readRawCursorRow(harness)
 		require.NotEmpty(t, ansi.Strip(live))
 		assert.Equal(t, ansi.Strip(live), ansi.Strip(dimmed), "the same row, restyled")
 		assert.NotEqual(t, live, dimmed)
 
-		harness.press("ctrl+a")
+		harness.press("pick:list")
 		assert.Equal(t, live, readRawCursorRow(harness))
 	})
 }

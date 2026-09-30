@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"komrad/internal/tmux"
-	"komrad/lib/xslice"
 )
 
 var (
@@ -20,9 +19,9 @@ var (
 		Code:    "key_on_two_actions",
 		Message: "one key is bound to two actions a screen answers, so the panel would refuse to draw",
 	}
-	errCycleKeyUnavailable = &ProblemError{
-		Code:    "cycle_key_unavailable",
-		Message: "a key that moves between the panel's views and an agent's pane cannot be bound",
+	errLeaderKeyUnavailable = &ProblemError{
+		Code:    "leader_key_unavailable",
+		Message: "the leader, which opens the panel's pane picker and visual mode, cannot be bound",
 	}
 	errKeyHeldByYourTmux = &ProblemError{
 		Code:    "key_held_by_your_tmux",
@@ -56,24 +55,22 @@ func newKeybindingsCheck() Check {
 			rootKeys := readRootKeys(ctx, env)
 
 			prefix := readTmuxPrefix(ctx, env)
-			for _, key := range xslice.Map(cfg.Keybindings.Cycle.Views, tmux.SpellKey) {
-				if prefix == key {
-					return fail(
-						fmt.Errorf("%w: %s is your tmux prefix, which tmux reads before the root table",
-							errCycleKeyUnavailable, key),
-						"prefix "+prefix,
-						"set-option -g prefix to something other than "+key+", or pick another pair in keybindings.cycle.views",
-					)
-				}
+			if prefix == tmux.LeaderKey {
+				return fail(
+					fmt.Errorf("%w: %s is your tmux prefix, which tmux reads before the root table",
+						errLeaderKeyUnavailable, prefix),
+					"prefix "+prefix,
+					"set-option -g prefix to something other than "+prefix,
+				)
+			}
 
-				if held, ok := heldByAnythingElse(rootKeys, key); ok {
-					return fail(
-						fmt.Errorf("%w: %s is bound in your tmux root table to %s",
-							errCycleKeyUnavailable, key, held),
-						key,
-						"unbind -n "+key+" in your tmux config",
-					)
-				}
+			if held, ok := heldByAnythingElse(rootKeys, tmux.LeaderKey); ok {
+				return fail(
+					fmt.Errorf("%w: %s is bound in your tmux root table to %s",
+						errLeaderKeyUnavailable, tmux.LeaderKey, held),
+					tmux.LeaderKey,
+					"unbind -n "+tmux.LeaderKey+" in your tmux config",
+				)
 			}
 
 			var waiting []string
@@ -150,7 +147,7 @@ func newYourTmuxKeysCheck() Check {
 			}
 
 			var held []string
-			for _, key := range slices.Concat(cfg.Keybindings.Cycle.Views, cfg.Keybindings.GetBoundKeys()) {
+			for _, key := range slices.Concat([]string{tmux.LeaderKey}, cfg.Keybindings.GetBoundKeys()) {
 				spelled := tmux.SpellKey(key)
 				if slices.Contains(held, spelled) {
 					continue
@@ -161,7 +158,7 @@ func newYourTmuxKeysCheck() Check {
 						Status: StatusWarn,
 						Detail: "prefix " + spelled,
 						Err:    fmt.Errorf("%w: %s is your tmux prefix", errKeyHeldByYourTmux, spelled),
-						Fix:    "pick another pair in keybindings.cycle.views, or give your tmux a different prefix",
+						Fix:    "give your tmux a different prefix",
 					}
 				}
 
@@ -235,16 +232,11 @@ func parseRootBinding(line string) (key, command string, ok bool) {
 // the panel holds itself.
 func heldByAnythingElse(rootKeys map[string]string, key string) (string, bool) {
 	command, held := rootKeys[key]
-	if !held || isPanelCycleBinding(command) || tmux.IsPanelPassThrough(command) {
+	if !held || tmux.IsPanelLeader(command) || tmux.IsPanelPassThrough(command) {
 		return "", false
 	}
 
 	return command, true
-}
-
-// isPanelCycleBinding reports whether a root binding is one the panel moves between views with.
-func isPanelCycleBinding(command string) bool {
-	return strings.HasPrefix(strings.ReplaceAll(command, `"`, ""), "send-keys -t %")
 }
 
 func readTmuxPrefix(ctx context.Context, env Env) string {

@@ -15,13 +15,19 @@ Type "j"
 Sleep 1.5s
 Enter
 Sleep 4s
-Ctrl+Q
+Ctrl+Space
+Type "j"
+Sleep 1s
+Type "d"
 Sleep 1.5s
 Type "j"
 Type "j"
 Enter
 Sleep 4s
-Ctrl+Q
+Ctrl+Space
+Type "j"
+Sleep 1s
+Type "d"
 Sleep 1.5s
 Type "o"
 Type "q"

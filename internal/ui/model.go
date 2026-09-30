@@ -65,7 +65,6 @@ func Run(ctx context.Context, deps Deps) error {
 	post.attach(program)
 
 	defer post.close()
-	defer deps.Session.ReleaseCycleKeys()
 	defer deps.Session.ReleaseLeader()
 
 	if deps.Watch != nil && m.fatal() == nil {

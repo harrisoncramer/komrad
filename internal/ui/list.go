@@ -520,10 +520,10 @@ type drawer interface {
 	viewsBar() string
 	screenColumnSplit() (columnSplit, bool)
 	joinColumns(split columnSplit, sidebar, column string) string
+	markZone(name zone, block string, width int) string
 	renderHelp(k keyMap, above ...string) string
 	globalHelp() []key.Binding
 	fullGlobalHelp() []key.Binding
-	cycleBinding() key.Binding
 	listLines(chrome ...string) int
 	listPane(width int) listPane
 	drawRecord(above ...string) string
@@ -643,9 +643,6 @@ func (m model) listHelp(own keyMap) keyMap {
 		full: slices.Concat(
 			own.full,
 			tabs,
-			[]key.Binding{
-				m.cycleBinding(),
-			},
 			m.fullGlobalHelp(),
 		),
 	}

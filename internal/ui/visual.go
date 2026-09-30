@@ -157,17 +157,27 @@ func (m model) findSidebarBlocks() []sidebarBlock {
 	}
 
 	list := panes.Rect{Left: 0, Top: 0, Width: m.width, Height: height}
-	if column, ok := zones[zoneColumn]; ok {
-		if column.Left > m.width/2 {
+	column, hasColumn := zones[zoneColumn]
+	if hasColumn {
+		if column.Left+column.Width/2 > m.width/2 {
 			list.Width = column.Left - dividerCols
 		} else {
 			list.Left = column.Left + column.Width + dividerCols
 			list.Width = m.width - list.Left
 		}
+	}
 
-		if slices.Contains(stops, stopBlock) {
-			blocks = append(blocks, sidebarBlock{stop: stopBlock, rect: column})
-		}
+	if marked, ok := zones[zoneList]; ok {
+		list = marked
+	}
+
+	block, hasBlock := zones[zoneBlock]
+	if !hasBlock {
+		block, hasBlock = column, hasColumn
+	}
+
+	if hasBlock && slices.Contains(stops, stopBlock) {
+		blocks = append(blocks, sidebarBlock{stop: stopBlock, rect: block})
 	}
 
 	return append([]sidebarBlock{{stop: stopList, rect: list}}, blocks...)
@@ -263,6 +273,9 @@ func (m model) land(target pickTarget) (tea.Model, tea.Cmd) {
 	}
 
 	m.keysElsewhere = false
+	if target.stop != stopList {
+		m.filter.typing = false
+	}
 
 	return m.enterStop(target.stop)
 }
