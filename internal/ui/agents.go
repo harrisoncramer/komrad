@@ -28,12 +28,14 @@ func (a *agentsScreen) enter(h host, s panelShared, target screenTarget) tea.Cmd
 }
 
 func (a *agentsScreen) update(h host, s panelShared, msg tea.Msg) tea.Cmd {
-	key, ok := msg.(tea.KeyPressMsg)
-	if !ok {
-		return nil
+	switch msg := msg.(type) {
+	case reviewPausedMsg:
+		return a.applyPaused(h, s, msg)
+	case tea.KeyPressMsg:
+		return a.list().update(h, s, msg, a.actions())
 	}
 
-	return a.list().update(h, s, key, a.actions())
+	return nil
 }
 
 func (a *agentsScreen) list() screenList[agentRow] {
@@ -399,6 +401,7 @@ var (
 	_ tabbed   = (*agentsScreen)(nil)
 	_ columned = (*agentsScreen)(nil)
 	_ staged   = (*agentsScreen)(nil)
+	_ leaving  = (*agentsScreen)(nil)
 )
 
 func (a *agentsScreen) doesDrawFromListing() bool {
@@ -453,6 +456,6 @@ func (a *agentsScreen) column() columnSpec {
 	return columnSpec{
 		floor: columnFloor,
 		doc:   func(m model) string { return m.agents.doc(m.shared()) },
-		holds: func(m model) bool { return m.agents.hasNoAgentPane(m.unmeasured()) },
+		holds: func(m model) bool { return !m.agents.isEditorOpen() && m.agents.hasNoAgentPane(m.unmeasured()) },
 	}
 }

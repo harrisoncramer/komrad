@@ -98,7 +98,7 @@ func (a *agentsScreen) rowActions() []screenAction {
 		{
 			id:   actionWorkflowEdit,
 			keys: func(k config.Keybindings) []string { return k.Workflows.Edit },
-			when: a.isHoveringWorkflow,
+			when: func(s panelShared) bool { return a.editing == nil && a.isHoveringWorkflow(s) },
 			run:  a.onHoveredWorkflowIn(editWorkflowForm),
 		},
 		{
@@ -112,6 +112,12 @@ func (a *agentsScreen) rowActions() []screenAction {
 			keys: func(k config.Keybindings) []string { return k.Agents.Open },
 			when: list.isBrowsing,
 			run:  func(h host, s panelShared, _ string) tea.Cmd { return a.openHovered(h, s) },
+		},
+		{
+			id:   actionAgentEdit,
+			keys: func(k config.Keybindings) []string { return k.Agents.Edit },
+			when: a.isEditable,
+			run:  func(h host, s panelShared, _ string) tea.Cmd { return a.pressEdit(h, s) },
 		},
 		{
 			id:   actionAgentPause,
@@ -270,6 +276,11 @@ func (a *agentsScreen) browsingLegend() []screenLegendRow {
 			of:   []actionID{actionSelectToggle},
 			desc: a.list().toggleDesc,
 			show: a.isBrowsing,
+		},
+		{
+			of:   []actionID{actionAgentEdit},
+			desc: a.editDesc,
+			show: a.isEditable,
 		},
 		{
 			of:   []actionID{actionAgentPause},

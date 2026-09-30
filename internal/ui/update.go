@@ -479,8 +479,7 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 	}
 }
 
-// reconcileEditor catches the info pane and the review's or the documents' editor going away on
-// their own.
+// reconcileEditor catches the info pane and a screen's editor going away on their own.
 func (m *model) reconcileEditor() tea.Cmd {
 	m.reconcileInfo()
 
@@ -489,7 +488,9 @@ func (m *model) reconcileEditor() tea.Cmd {
 		return m.review.reconcileEditor(m, m.shared())
 	case screenDocuments:
 		return m.documents.reconcileEditor(m)
-	case screenAgents, screenSchedules, screenArchive, screenSearch, screenWorktrees, screenLogs:
+	case screenAgents:
+		return m.agents.reconcileEditor(m)
+	case screenSchedules, screenArchive, screenSearch, screenWorktrees, screenLogs:
 	}
 
 	return nil

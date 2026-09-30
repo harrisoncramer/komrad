@@ -16,13 +16,19 @@ const defaultEditor = "vi"
 
 // editorShell is the shell line that runs the user's editor on a file, on one line of it.
 func editorShell(editor, path string, line int) string {
-	command := strings.TrimSpace(editor)
-	if command == "" {
-		command = defaultEditor
-	}
+	command := editorCommand(editor)
 
 	// The editor is left unquoted so an EDITOR of several words stays several words.
 	return "exec " + command + " " + strings.Join(editorLineArgs(command, path, line), " ")
+}
+
+func editorCommand(editor string) string {
+	command := strings.TrimSpace(editor)
+	if command == "" {
+		return defaultEditor
+	}
+
+	return command
 }
 
 // editorLineArgs is how one editor is told which line to open a file on, defaulting to the +line
@@ -61,6 +67,16 @@ func editorContent(editor, dir, path string, line int) layout.Content {
 
 	return layout.Content{
 		Key:    fmt.Sprintf("edit:%s:%d", path, line),
+		Dir:    dir,
+		Render: func(layout.Target) ([]string, bool) { return []string{"sh", "-c", open}, true },
+	}
+}
+
+func dirEditorContent(editor, dir string) layout.Content {
+	open := "exec " + editorCommand(editor) + " " + shellQuote(dir)
+
+	return layout.Content{
+		Key:    "edit:" + dir,
 		Dir:    dir,
 		Render: func(layout.Target) ([]string, bool) { return []string{"sh", "-c", open}, true },
 	}

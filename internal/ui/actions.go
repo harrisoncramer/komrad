@@ -35,6 +35,7 @@ const (
 	actionAgentRename
 	actionAgentArchive
 	actionArchiveSelected
+	actionAgentEdit
 	actionAgentPause
 	actionAgentReleaseSilently
 	actionAgentHide

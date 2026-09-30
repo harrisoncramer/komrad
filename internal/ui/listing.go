@@ -412,6 +412,7 @@ func (m model) applyWrite(result writeResult) (tea.Model, tea.Cmd) {
 		m.landOn(*result.written, time.Now())
 
 		if result.written.pane != "" {
+			left = tea.Batch(left, m.agents.closeEdit(&m))
 			guest := layout.Guest{Agent: result.written.agent, Pane: result.written.pane}
 			if m.isPaneWarm(result.written.pane, result.written.harness) {
 				m.frame.Solo(false)

@@ -1628,6 +1628,145 @@ func TestAgentsFailedPlaceholder(t *testing.T) {
 	}
 }
 
+// TestAgentsEdit covers opening your editor on an agent's worktree from its row.
+func TestAgentsEdit(t *testing.T) {
+	t.Run("the edit key stops the agent and opens its worktree beside the list", func(t *testing.T) {
+		harness := openAgents(t, newLiveWorkflow("w1", "backend"), newEditable(""))
+
+		harness.press("e")
+
+		harness.assertSentTo(agentv1connect.AgentServiceHoldAgentProcedure, &agentv1.HoldAgentRequest{Id: "a1"})
+		require.NotEmpty(t, harness.panel.ReadRespawns())
+		assert.Contains(t, harness.panel.ReadRespawns()[0], "'/work/telescope'")
+		assert.Equal(t, "/work/telescope", harness.panel.ReadRespawnDirs()[0])
+	})
+
+	t.Run("closing the editor lets the agent go", func(t *testing.T) {
+		tests := []struct {
+			name  string
+			close func(*panelHarness)
+		}{
+			{
+				name:  "the key again",
+				close: func(h *panelHarness) { h.press("e") },
+			},
+			{
+				name: "the editor quitting",
+				close: func(h *panelHarness) {
+					editors := h.panel.ReadRespawnPanes()
+					h.panel.SetPaneDead(editors[len(editors)-1])
+					h.fireTimers()
+				},
+			},
+			{
+				name:  "leaving the agents list",
+				close: func(h *panelHarness) { h.press("tab", "r") },
+			},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				harness := openAgents(t, newLiveWorkflow("w1", "backend"), newEditable(""))
+				said := recordRelease(harness)
+				harness.press("e")
+				require.Empty(t, *said)
+
+				tt.close(harness)
+
+				require.Len(t, *said, 1)
+				assert.Equal(t, "a1", (*said)[0].GetId())
+				assert.Contains(t, (*said)[0].GetSaid(), "while I had your worktree open")
+			})
+		}
+	})
+
+	t.Run("moving the cursor keeps the editor on the stage", func(t *testing.T) {
+		other := newEditable("")
+		other.Id, other.Name, other.PaneId = "a2", "comet", "%10"
+		harness := openAgents(t, newLiveWorkflow("w1", "backend"), newEditable(""), other)
+		moveToAgentRow(t, harness, "telescope")
+		harness.press("e")
+		respawns, swaps := harness.panel.CountRespawns(), harness.panel.CountSwaps()
+
+		harness.press("j")
+		harness.fireTimers()
+
+		assert.Equal(t, respawns, harness.panel.CountRespawns())
+		assert.Equal(t, swaps, harness.panel.CountSwaps())
+		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceReleaseAgentProcedure))
+	})
+
+	t.Run("an agent that is not the editor's to stop is not let go", func(t *testing.T) {
+		tests := []struct {
+			name  string
+			agent *agentv1.Agent
+		}{
+			{
+				name:  "one you paused yourself",
+				agent: newEditable(heldAt),
+			},
+			{
+				name: "a dormant one",
+				agent: func() *agentv1.Agent {
+					agent := newEditable("")
+					agent.Alive = xptr.Ptr(false)
+
+					return agent
+				}(),
+			},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				harness := openAgents(t, newLiveWorkflow("w1", "backend"), tt.agent)
+
+				harness.press("e")
+				require.NotEmpty(t, harness.panel.ReadRespawns())
+				harness.press("e")
+
+				assert.Empty(t, harness.readSent(agentv1connect.AgentServiceHoldAgentProcedure))
+				assert.Empty(t, harness.readSent(agentv1connect.AgentServiceReleaseAgentProcedure))
+			})
+		}
+	})
+
+	t.Run("an agent that will not stop opens no editor", func(t *testing.T) {
+		harness := openAgents(t, newLiveWorkflow("w1", "backend"), newEditable(""))
+		harness.answer(agentv1connect.AgentServiceHoldAgentProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+			return nil, errors.New("the agent did not stop")
+		})
+
+		harness.press("e")
+
+		assert.Empty(t, harness.panel.ReadRespawns())
+	})
+
+	t.Run("an unreadable pane refuses the key and stops nothing", func(t *testing.T) {
+		agent := newEditable("")
+		agent.State = agentv1.AgentState_AGENT_STATE_UNCERTAIN
+		harness := openAgents(t, newLiveWorkflow("w1", "backend"), agent)
+
+		harness.press("e")
+
+		assert.Empty(t, harness.panel.ReadRespawns())
+		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceHoldAgentProcedure))
+	})
+
+	t.Run("an edit given up before the agent stops lets it go", func(t *testing.T) {
+		harness := openAgents(t, newLiveWorkflow("w1", "backend"), newEditable(""))
+		said := recordRelease(harness)
+		harness.hold(agentv1connect.AgentServiceHoldAgentProcedure)
+		harness.press("e")
+
+		harness.press("tab", "r")
+		harness.release(agentv1connect.AgentServiceHoldAgentProcedure)
+
+		assert.Empty(t, harness.panel.ReadRespawns())
+		require.Len(t, *said, 1)
+		assert.Contains(t, (*said)[0].GetSaid(), "without opening it")
+	})
+}
+
 // TestAgentsPause covers pausing an agent and letting it go again.
 func TestAgentsPause(t *testing.T) {
 	t.Run("pausing takes the agent and says nothing to it", func(t *testing.T) {
@@ -2513,4 +2652,11 @@ func buildSelectable() []proto.Message {
 		newHiddenAgent("sweep", "sweep"),
 		newAgentAt("ui", "w2", 1),
 	}
+}
+
+func newEditable(held string) *agentv1.Agent {
+	agent := newPausable(held)
+	agent.Cwd = "/work/telescope"
+
+	return agent
 }

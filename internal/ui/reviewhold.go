@@ -86,12 +86,12 @@ func (r *reviewScreen) startHold(h host, s panelShared) tea.Cmd {
 
 	r.hold.pausing = true
 
-	return r.holdAgentCmd(s)
+	return holdAgentCmd(s, r.agentID)
 }
 
 // holdAgentCmd asks for the agent to stop and reports what came back.
-func (r reviewScreen) holdAgentCmd(s panelShared) tea.Cmd {
-	agents, agentID := s.api.agents, r.agentID
+func holdAgentCmd(s panelShared, agentID string) tea.Cmd {
+	agents := s.api.agents
 
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), reviewTimeout)
@@ -127,7 +127,15 @@ func (r *reviewScreen) applyPaused(h host, s panelShared, msg reviewPausedMsg) t
 }
 
 func (m model) isPassing(agentID string) bool {
-	return m.screen == screenReview && m.review.agentID == agentID && m.review.hold.pausing
+	switch m.screen {
+	case screenReview:
+		return m.review.agentID == agentID && m.review.hold.pausing
+	case screenAgents:
+		return m.agents.isPausing(agentID)
+	case screenSchedules, screenArchive, screenSearch, screenWorktrees, screenDocuments, screenLogs:
+	}
+
+	return false
 }
 
 func (m *model) releaseAbandonedPause(msg reviewPausedMsg) tea.Cmd {

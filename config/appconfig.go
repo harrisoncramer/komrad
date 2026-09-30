@@ -310,6 +310,10 @@ type AgentsKeys struct {
 	Archive []string `mapstructure:"archive" default:"z"`
 	// Step out of a workflow scope, or open the view switcher at the root.
 	Back []string `mapstructure:"back" default:"esc"`
+	// Open your editor on the hovered agent's worktree, in place of its pane beside the list. The
+	// agent is paused while the editor is open, and quitting the editor, pressing the key again or
+	// leaving the agents list closes it and unpauses the agent.
+	Edit []string `mapstructure:"edit" default:"e"`
 	// Pause the hovered agent where it stands, or unpause one you have already paused. Komrad
 	// waits for the agent to come to rest before it claims the worktree, and refuses rather than
 	// claiming it when the agent will not stop or its pane cannot be read.
