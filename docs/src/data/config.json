@@ -998,7 +998,7 @@
               "key": "open",
               "path": "keybindings.menu.open",
               "type": "array",
-              "description": "Open the menu from any screen: the hovered agent's entries, or its orchestrator's on a\nworkflow's row, over the entries that act on the panel itself.",
+              "description": "Open the menu from any screen: the hovered row's entries, or the chosen agents', over the\nentries that act on the panel itself.",
               "default": "[\"space\"]"
             },
             {
