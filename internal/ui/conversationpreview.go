@@ -81,7 +81,13 @@ func (m *model) previewConversationCmd() tea.Cmd {
 
 func (m *model) previewMovedConversationCmd() tea.Cmd {
 	agentID, ok := m.previewedAgentID()
-	if !ok || agentID == m.conversation.agentID {
+	if !ok {
+		m.conversation = conversationPreview{}
+
+		return nil
+	}
+
+	if agentID == m.conversation.agentID {
 		return nil
 	}
 

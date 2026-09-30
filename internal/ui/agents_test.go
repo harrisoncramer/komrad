@@ -1671,6 +1671,28 @@ func TestAgentsConversationPreview(t *testing.T) {
 			}
 		})
 	}
+
+	t.Run("an agent that runs and stops again under the cursor draws its newer turns", func(t *testing.T) {
+		harness := newPanelHarness(t, panelHarnessParams{})
+		answerWorktreeReads(harness)
+		answerLastTurns(harness, map[string][]*agentv1.Turn{
+			"a1": {{Role: "assistant", Content: "the migration is written"}},
+		})
+		harness.watch(buildSnapshot(newLiveWorkflow("w1", "backend"), newDormant("login")))
+		harness.press("j")
+		harness.fireTimers()
+		require.Contains(t, harness.readFrame(), "the migration is written")
+
+		live := newDormant("login")
+		live.Alive = xptr.Ptr(true)
+		harness.watch(buildSnapshot(newLiveWorkflow("w1", "backend"), live))
+		answerLastTurns(harness, map[string][]*agentv1.Turn{
+			"a1": {{Role: "assistant", Content: "the tests pass"}},
+		})
+		harness.watch(buildSnapshot(newLiveWorkflow("w1", "backend"), newDormant("login")))
+
+		assert.Contains(t, harness.readFrame(), "the tests pass")
+	})
 }
 
 // TestAgentsEdit covers opening your editor on an agent's worktree from its row.
