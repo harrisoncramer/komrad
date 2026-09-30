@@ -34,6 +34,8 @@ func (c *Client) TuneCopyMode(badge string) {
 		c.SetGlobal("copy-command", command)
 	}
 
+	c.BindTableKey(copyModeTable, "v", "send-keys", "-X", "begin-selection")
+	c.BindTableKey(copyModeTable, "C-v", "send-keys -X begin-selection ; send-keys -X rectangle-on")
 	c.BindTableKey(copyModeTable, "y", "send-keys", "-X", "copy-pipe-and-cancel")
 	c.BindTableKey(copyModeTable, "Escape", "if-shell", "-F", "#{selection_present}",
 		"send-keys -X clear-selection", "send-keys -X cancel")

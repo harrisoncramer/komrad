@@ -25,6 +25,8 @@ func TestIntegrationTuneCopyModeMakesCopyModeVisualMode(t *testing.T) {
 
 	bindings, err := client.getKeys(copyModeTable)
 	require.NoError(t, err)
+	assert.Equal(t, "send-keys -X begin-selection", bindings["v"], "v starts a selection as it does in vim")
+	assert.Equal(t, `send-keys -X begin-selection \; send-keys -X rectangle-on`, bindings["C-v"], "ctrl+v starts a block")
 	assert.Equal(t, "send-keys -X copy-pipe-and-cancel", bindings["y"])
 	assert.Contains(t, bindings["Escape"], "clear-selection", "esc drops a selection before it leaves copy-mode")
 }
