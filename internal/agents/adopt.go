@@ -135,7 +135,6 @@ func (s *AdoptService) Adopt(ctx context.Context, params AdoptParams) (*Adoption
 		IdempotencyKey: params.IdempotencyKey,
 		AdoptedBranch:  branch,
 		Branch:         branch,
-		RepositoryURL:  s.worktrees.ReadRepositoryURL(ctx, repo),
 	}
 
 	trees, err := s.readWorktrees(ctx, repo, branch)
@@ -168,6 +167,7 @@ func (s *AdoptService) Adopt(ctx context.Context, params AdoptParams) (*Adoption
 		create.ProvisionEnabled = xptr.Ptr(false)
 	}
 
+	create.RepositoryURL = s.worktrees.ReadRepositoryURL(ctx, repo)
 	created, err := s.launch.NewAgent(ctx, create)
 	if errors.Is(err, ErrAlreadyLaunched) {
 		return &Adoption{Agent: created}, nil
