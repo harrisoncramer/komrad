@@ -91,9 +91,9 @@ func newTypeForm(h host) tea.Cmd {
 		Kind:     formDocumentType,
 		Build:    func(model) (*huh.Form, []string) { return documentTypeForm(values, formKeys()) },
 		Editable: []editableText{{key: "context", value: &values.Context}},
-		Submit: func(m model) (tea.Model, tea.Cmd) {
+		Submit: holdSubmit(func(m model) (model, tea.Cmd) {
 			if checkDocumentTypeName(values.Name) != nil || checkDocumentTypeContext(values.Context) != nil {
-				return m.closeForm()
+				return m, nil
 			}
 
 			name, typeContext := strings.TrimSpace(values.Name), values.Context
@@ -103,8 +103,8 @@ func newTypeForm(h host) tea.Cmd {
 				func(a api) error { return a.createDocumentType(name, typeContext) },
 			)
 
-			return m, tea.Batch(cmd, m.holdForm())
-		},
+			return m, cmd
+		}),
 	}))
 }
 
@@ -135,7 +135,7 @@ func (d *documentsScreen) confirmDeleteType(h host, s panelShared) tea.Cmd {
 		kind:   formDocumentTypeDelete,
 		form:   form,
 		update: model.updateForm,
-		submit: confirmSubmit(func(m model) (model, tea.Cmd) {
+		submit: holdSubmit(func(m model) (model, tea.Cmd) {
 			if !*confirmed {
 				return m, nil
 			}

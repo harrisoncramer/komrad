@@ -62,7 +62,7 @@ func gitMenu(s panelShared, from screen, item panel.AgentRow) submenu {
 			nestedEntry("merge pr", s.keys.Git.Merge, mergeMenu(s, from, item)),
 		},
 		answer: func(m model, choice int) (tea.Model, tea.Cmd) {
-			return confirmSubmit(func(m model) (model, tea.Cmd) { return m.runGitChoice(from, agentID, gitChoice(choice)) })(m)
+			return holdSubmit(func(m model) (model, tea.Cmd) { return m.runGitChoice(from, agentID, gitChoice(choice)) })(m)
 		},
 	}
 }

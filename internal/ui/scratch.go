@@ -7,8 +7,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"komrad/internal/ui/layout"
-
 	tea "charm.land/bubbletea/v2"
 )
 
@@ -43,14 +41,7 @@ func (m *model) toggleScratch() tea.Cmd {
 	}
 
 	m.scratch = &scratchEditor{}
-	editor := editorContent(m.settings.Editor, filepath.Dir(path), path, 1)
-
-	m.frame.Begin()
-	m.reconcileSolo()
-	m.frame.Show(layout.RegionStage, editor)
-	m.frame.Flush()
-
-	m.scratch.pane = m.stageEditor(editor)
+	m.scratch.pane = m.stageEditor(editorContent(m.settings.Editor, filepath.Dir(path), path, 1))
 	if m.scratch.pane == "" {
 		m.scratch = nil
 		m.reconcileSolo()
@@ -78,6 +69,9 @@ func (m *model) dropScratch() {
 }
 
 func (m *model) closeScratch() tea.Cmd {
+	m.frame.Begin()
+	defer m.frame.Flush()
+
 	m.scratch = nil
 	m.unstageEditor()
 	m.reconcileSolo()

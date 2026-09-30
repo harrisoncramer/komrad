@@ -59,7 +59,7 @@ func mergeMenu(s panelShared, from screen, item panel.AgentRow) submenu {
 			},
 		},
 		answer: func(m model, choice int) (tea.Model, tea.Cmd) {
-			return confirmSubmit(func(m model) (model, tea.Cmd) { return m.runMerge(from, agentID, mergeChoice(choice)) })(m)
+			return holdSubmit(func(m model) (model, tea.Cmd) { return m.runMerge(from, agentID, mergeChoice(choice)) })(m)
 		},
 	}
 }
