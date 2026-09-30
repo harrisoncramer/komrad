@@ -484,6 +484,7 @@
       "hook/post-tool-use",
       "hook/pre-tool-use",
       "hook/stop",
+      "hook/stop-failure",
       "hook/turn-end"
     ]
   },
@@ -607,6 +608,34 @@
     "aliases": [],
     "short": "Deliver an agent's unread mail as its turn ends",
     "long": "Deliver an agent's unread mail as its turn ends.\n\nThe agent CLI runs this on its Stop event. It reads the agent's mail and prints it\nback as additional context, which the CLI hands the model as another turn. An\nagent with no mail, or a panel that cannot be reached, prints nothing and lets the\nturn end.",
+    "example": "",
+    "flags": [],
+    "inherited": [
+      {
+        "name": "config",
+        "shorthand": "",
+        "type": "stringArray",
+        "default": "[]",
+        "usage": "path to a config TOML, repeatable, later files win over earlier ones"
+      },
+      {
+        "name": "engine",
+        "shorthand": "",
+        "type": "string",
+        "default": "",
+        "usage": "engine to reach: local for this machine, or a file in the config's engines directory, layered over the config"
+      }
+    ],
+    "children": []
+  },
+  {
+    "slug": "hook/stop-failure",
+    "path": "komrad hook stop-failure",
+    "parent": "hook",
+    "usage": "komrad hook stop-failure",
+    "aliases": [],
+    "short": "Record that an API error ended an agent's turn",
+    "long": "Record that an API error ended an agent's turn.\n\nClaude runs this in place of its Stop hook when a rate limit, an outage or any\nother API error ends the turn. Komrad keeps the error against the agent so the\npanel can say the turn failed rather than finished.",
     "example": "",
     "flags": [],
     "inherited": [

@@ -138,6 +138,10 @@ func TestSettersRefuseAnIDThatIsNotOne(t *testing.T) {
 			write: func(s *AgentStore, id string) error { return s.SetReportedReason(t.Context(), id, "Bash") },
 		},
 		{
+			name:  "the failed turn",
+			write: func(s *AgentStore, id string) error { return s.SetTurnFailed(t.Context(), id, "overloaded") },
+		},
+		{
 			name: "the last rebase",
 			write: func(s *AgentStore, id string) error {
 				return s.SetLastRebaseByID(t.Context(), id, json.RawMessage(`{}`))
@@ -277,6 +281,31 @@ func TestSetReportedReasonRoundTrips(t *testing.T) {
 	cleared, err := st.Get(ctx, "agent")
 	require.NoError(t, err)
 	assert.Empty(t, cleared.ReportedReason)
+}
+
+// TestAFailedTurnStandsUntilAnotherEnds pins that a failure ends the turn it failed and that the
+// next turn to end clears it.
+func TestAFailedTurnStandsUntilAnotherEnds(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+
+	require.NoError(t, st.Create(ctx, Agent{Name: "agent", State: StateThinking}))
+	created, err := st.Get(ctx, "agent")
+	require.NoError(t, err)
+	require.NotNil(t, created)
+	require.False(t, created.IsLastTurnFailed(), "a fresh agent has failed nothing")
+
+	require.NoError(t, st.SetTurnFailed(ctx, created.ID, "Overloaded"))
+	failed, err := st.Get(ctx, "agent")
+	require.NoError(t, err)
+	require.NotNil(t, failed.TurnEndedAt)
+	assert.True(t, failed.IsLastTurnFailed())
+	assert.Equal(t, "Overloaded", failed.TurnError)
+
+	require.NoError(t, st.SetTurnEnded(ctx, created.ID))
+	ended, err := st.Get(ctx, "agent")
+	require.NoError(t, err)
+	assert.False(t, ended.IsLastTurnFailed(), "a later turn ended without an error")
 }
 
 // TestSetStateByIDClearsTheReportedReason pins that a reason lives as long as the turn rather

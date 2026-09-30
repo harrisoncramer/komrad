@@ -45,6 +45,7 @@ func Agent(row rowstore.Row, options AgentOptions) *agentv1.Agent {
 		StateChangedAt:     dates.Stamp(stored.StateChangedAt),
 		ReportedReason:     stored.ReportedReason,
 		FailureReason:      stored.FailureReason,
+		TurnError:          turnErrorOf(stored),
 		ArchivedAt:         dates.StampPtr(stored.ArchivedAt),
 		Alive:              xptr.Ptr(stored.Alive),
 		Hidden:             stored.Hidden,
@@ -114,6 +115,8 @@ func AgentStateOf(state agentstore.State) agentv1.AgentState {
 		return agentv1.AgentState_AGENT_STATE_FAILED_TO_CLEANUP
 	case agentstore.StateUncertain:
 		return agentv1.AgentState_AGENT_STATE_UNCERTAIN
+	case agentstore.StateErrored:
+		return agentv1.AgentState_AGENT_STATE_ERRORED
 	}
 
 	return agentv1.AgentState_AGENT_STATE_UNSPECIFIED
@@ -131,4 +134,12 @@ func AgentRoleOf(role agentstore.Role) agentv1.AgentRole {
 	}
 
 	return agentv1.AgentRole_AGENT_ROLE_UNSPECIFIED
+}
+
+func turnErrorOf(stored agentstore.Agent) string {
+	if !stored.IsLastTurnFailed() {
+		return ""
+	}
+
+	return stored.TurnError
 }

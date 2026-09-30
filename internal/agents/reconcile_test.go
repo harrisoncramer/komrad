@@ -1433,3 +1433,104 @@ func TestReconcileReturnsAHoldWhenTheListingComesBack(t *testing.T) {
 		assert.Nil(t, after.InterruptedAt, "%s records no interruption", agent.Name)
 	}
 }
+
+// TestReconcileFailedTurn pins that a pane at rest after an API error ended its turn reads as
+// errored, and that the pane moving again or a later turn ending takes it back off.
+func TestReconcileFailedTurn(t *testing.T) {
+	tests := []struct {
+		name   string
+		state  agentstore.State
+		before func(t *testing.T, st *testStore, id string)
+		frame  string
+		passes int
+		want   agentstore.State
+	}{
+		{
+			name:  "a failure from a turn before the one the pane just finished",
+			state: agentstore.StateErrored,
+			before: func(t *testing.T, st *testStore, id string) {
+				require.NoError(t, st.Agents.SetStateByID(t.Context(), id, agentstore.StateThinking))
+			},
+			frame:  harnesstest.FrameIdle,
+			passes: reconcileMisses,
+			want:   agentstore.StateIdle,
+		},
+		{
+			name:  "a failure a later turn ending cleared",
+			state: agentstore.StateThinking,
+			before: func(t *testing.T, st *testStore, id string) {
+				require.NoError(t, st.Agents.SetTurnEnded(t.Context(), id))
+			},
+			frame:  harnesstest.FrameIdle,
+			passes: reconcileMisses,
+			want:   agentstore.StateIdle,
+		},
+		{
+			name:   "an errored agent given a new turn",
+			state:  agentstore.StateErrored,
+			frame:  harnesstest.FrameWorking,
+			passes: 1,
+			want:   agentstore.StateThinking,
+		},
+		{
+			name:   "an errored agent put a dialog up",
+			state:  agentstore.StateErrored,
+			frame:  harnesstest.FrameWaiting,
+			passes: 1,
+			want:   agentstore.StateWaiting,
+		},
+		{
+			name:   "a failed turn whose pane went",
+			state:  agentstore.StateThinking,
+			passes: listingsBeforePaneGone,
+			want:   agentstore.StateErrored,
+		},
+		{
+			name:   "an errored agent someone started typing to",
+			state:  agentstore.StateErrored,
+			frame:  harnesstest.FrameComposing,
+			passes: 1,
+			want:   agentstore.StateErrored,
+		},
+		{
+			name:   "a failed turn whose pane came to rest",
+			state:  agentstore.StateThinking,
+			frame:  harnesstest.FrameIdle,
+			passes: 1,
+			want:   agentstore.StateErrored,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := newStore(t)
+			ctx := t.Context()
+			agent := seed(t, st, "agent", "%1", agentstore.StateThinking)
+			require.NoError(t, st.Agents.SetTurnFailed(ctx, agent.ID, "Overloaded"))
+			if tt.state != agentstore.StateThinking {
+				require.NoError(t, st.Agents.SetStateByID(ctx, agent.ID, tt.state))
+			}
+			if tt.before != nil {
+				tt.before(t, st, agent.ID)
+			}
+
+			tmux := tmuxtest.NewFake()
+			if tt.frame != "" {
+				tmux.Owners["%1"] = agent.ID
+				tmux.Captures["%1"] = tt.frame
+			}
+
+			rec := NewReconciler(NewReconcilerParams{
+				Panes:    tmux,
+				Observer: pane.NewPane(pane.NewPaneParams{Terminal: tmux, Harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}}}),
+				States:   st.Agents,
+			})
+
+			for range tt.passes {
+				require.NoError(t, rec.Reconcile(ctx))
+			}
+
+			assert.Equal(t, tt.want, stateOf(t, st, "agent"))
+		})
+	}
+}

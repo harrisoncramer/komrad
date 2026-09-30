@@ -187,7 +187,7 @@ func (r reviewScreen) isAgentBusy(s panelShared) (string, bool) {
 			"two writers in one checkout cannot both win, so stop it before you edit", true
 	case panel.StateUncertain:
 		return r.isAgentUnreadable(s)
-	case panel.StateWaiting, panel.StateIdle, panel.StateSettingUp,
+	case panel.StateWaiting, panel.StateIdle, panel.StateErrored, panel.StateSettingUp,
 		panel.StateFailedToCreate, panel.StateFailedToCleanup:
 	}
 

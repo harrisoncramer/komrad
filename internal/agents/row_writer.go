@@ -10,6 +10,7 @@ type rowWriteStore interface {
 	Rename(ctx context.Context, id, name string) (bool, error)
 	SetReportedReason(ctx context.Context, id, reason string) error
 	SetTurnEnded(ctx context.Context, id string) error
+	SetTurnFailed(ctx context.Context, id, turnError string) error
 }
 
 type runMarker interface {
@@ -97,6 +98,7 @@ type RecordReportParams struct {
 	AgentID   string
 	Reason    string
 	TurnEnded bool
+	TurnError string
 }
 
 // RecordReport puts the reason beside the state the pane decided and stamps a reported turn end,
@@ -117,6 +119,14 @@ func (w *RowWriter) RecordReport(ctx context.Context, params RecordReportParams)
 	}
 
 	if !params.TurnEnded {
+		return nil
+	}
+
+	if params.TurnError != "" {
+		if err := w.agents.SetTurnFailed(ctx, params.AgentID, params.TurnError); err != nil {
+			return fmt.Errorf("failed to record the failed turn of agent %q: %w", params.AgentID, err)
+		}
+
 		return nil
 	}
 

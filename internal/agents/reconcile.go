@@ -143,7 +143,7 @@ func (r *Reconciler) reconcileAgent(ctx context.Context, agent agentstore.Agent,
 
 	if !isPaneOwnedBy(pane.Owner, agent.ID) {
 		if r.forget(ctx, agent, false) {
-			r.apply(ctx, agent, agentstore.StateIdle)
+			r.apply(ctx, agent, restingState(agent))
 		}
 
 		return
@@ -155,7 +155,7 @@ func (r *Reconciler) reconcileAgent(ctx context.Context, agent agentstore.Agent,
 		}
 
 		if r.forget(ctx, agent, true) {
-			r.apply(ctx, agent, agentstore.StateIdle)
+			r.apply(ctx, agent, restingState(agent))
 		}
 
 		return
@@ -178,6 +178,12 @@ func (r *Reconciler) reconcileAgent(ctx context.Context, agent agentstore.Agent,
 	case harness.ActivityUnknown:
 
 	case harness.ActivityIdle, harness.ActivityComposing:
+		if isTurnFailureStanding(agent) {
+			r.apply(ctx, agent, agentstore.StateErrored)
+
+			break
+		}
+
 		r.settle(ctx, agent, agentstore.StateIdle)
 
 	case harness.ActivityUnrecognized:
@@ -215,7 +221,7 @@ func doesReadingDispute(activity harness.Activity, state agentstore.State) bool 
 		return state != agentstore.StateWaiting
 
 	case harness.ActivityIdle, harness.ActivityComposing:
-		return state != agentstore.StateIdle
+		return state != agentstore.StateIdle && state != agentstore.StateErrored
 	case harness.ActivityUnrecognized:
 		return state != agentstore.StateUncertain
 
@@ -225,6 +231,24 @@ func doesReadingDispute(activity harness.Activity, state agentstore.State) bool 
 	}
 
 	return false
+}
+
+// restingState is where an agent whose pane stopped moving lands.
+func restingState(agent agentstore.Agent) agentstore.State {
+	if isTurnFailureStanding(agent) {
+		return agentstore.StateErrored
+	}
+
+	return agentstore.StateIdle
+}
+
+// isTurnFailureStanding reports whether the failed turn on record is the one the pane came to rest from.
+func isTurnFailureStanding(agent agentstore.Agent) bool {
+	if !agent.IsLastTurnFailed() {
+		return false
+	}
+
+	return agent.State == agentstore.StateErrored || !agent.TurnFailedAt.Before(agent.StateChangedAt)
 }
 
 // settle moves an agent to where a frame that has stopped moving lands, taking either the

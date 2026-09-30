@@ -70,6 +70,16 @@ func TestSnapshotStatus(t *testing.T) {
 			want: view.StatusBroken,
 		},
 		{
+			name: "a turn an API error ended is broken",
+			item: panel.AgentRow{Agent: panel.Agent{State: panel.StateErrored}, Alive: true},
+			want: view.StatusBroken,
+		},
+		{
+			name: "a turn an API error ended stays broken once the pane has gone",
+			item: panel.AgentRow{Agent: panel.Agent{State: panel.StateErrored}},
+			want: view.StatusBroken,
+		},
+		{
 			name: "an agent stopped at a prompt wants you",
 			item: panel.AgentRow{Agent: panel.Agent{State: panel.StateWaiting}, Alive: true},
 			want: view.StatusWaiting,

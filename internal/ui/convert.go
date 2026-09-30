@@ -25,6 +25,7 @@ func agentFrom(s *agentv1.Agent) panel.Agent {
 		State:              stateFrom(s.GetState()),
 		Role:               roleFrom(s.GetRole()),
 		FailureReason:      s.GetFailureReason(),
+		TurnError:          s.GetTurnError(),
 		Harness:            s.GetHarness(),
 		SessionID:          s.GetSessionId(),
 		WorkflowID:         s.GetWorkflowId(),
@@ -56,6 +57,8 @@ func stateFrom(state agentv1.AgentState) panel.State {
 		return panel.StateFailedToCreate
 	case agentv1.AgentState_AGENT_STATE_FAILED_TO_CLEANUP:
 		return panel.StateFailedToCleanup
+	case agentv1.AgentState_AGENT_STATE_ERRORED:
+		return panel.StateErrored
 	case agentv1.AgentState_AGENT_STATE_UNCERTAIN, agentv1.AgentState_AGENT_STATE_UNSPECIFIED:
 	}
 
