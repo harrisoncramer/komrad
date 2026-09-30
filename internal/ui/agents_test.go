@@ -1205,6 +1205,11 @@ func TestAgentsRecordWorktree(t *testing.T) {
 				presses: widenListPresses,
 				want:    "2 modified · 1 untracked · ↑2 unpushed · +200 −100",
 			},
+			{
+				name: "a branch the base already holds whole has nothing to push",
+				read: &worktreev1.GetWorktreeResponse{Worktree: &worktreev1.Worktree{Dir: "/repo", Readable: true, Branch: "agent/x"}, BaseRef: "origin/main", Pushed: true, Unpushed: 2, Unpulled: 1, UnpulledLanded: true},
+				want: "+200 −100",
+			},
 		}
 
 		for _, tt := range tests {

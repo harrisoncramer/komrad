@@ -185,7 +185,7 @@ func buildWorktreeStateTags(read worktreeInspection) []string {
 	case read.item.branch == "":
 	case !read.pushed && (read.baseRef == "" || read.ahead > 0):
 		parts = append(parts, warning.Render("not pushed"))
-	case read.pushed && read.unpushed > 0:
+	case read.pushed && read.unpushed > 0 && (read.ahead > 0 || !read.unpulledLanded):
 		parts = append(parts, warning.Render(fmt.Sprintf("%s%d unpushed", glyph.Up, read.unpushed)))
 	}
 	if read.pushed && read.unpulled > 0 && !read.unpulledLanded {
