@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// TestWheelFilter covers the wheel's turns being added up ahead of the update loop.
 func TestWheelFilter(t *testing.T) {
 	t.Parallel()
 
