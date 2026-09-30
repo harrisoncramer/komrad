@@ -32,7 +32,7 @@ func newDocumentForm(h host, s panelShared, agentID string) tea.Cmd {
 
 	return h.openForm(redrawnForm(redrawnFormParams{
 		Kind:  formDocument,
-		Build: func(model) (*huh.Form, []string) { return documentForm(values, types) },
+		Build: func(m model) (*huh.Form, []string) { return documentForm(values, m.listing.documentTypeNames()) },
 		Submit: func(m model) (tea.Model, tea.Cmd) {
 			if checkDocumentName(values.Name) != nil {
 				return m.closeForm()

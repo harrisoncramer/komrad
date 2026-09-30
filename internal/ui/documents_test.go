@@ -328,6 +328,20 @@ func TestDocumentsNew(t *testing.T) {
 	}
 }
 
+// TestDocumentsNewRedrawsTheTypes covers the new document form offering a type defined while it is
+// open.
+func TestDocumentsNewRedrawsTheTypes(t *testing.T) {
+	t.Parallel()
+
+	harness, _ := openDocuments(t)
+	harness.press("c")
+	require.NotContains(t, harness.readFrame(), "brief")
+
+	harness.watch(buildPuts(newDocumentType("t5", "brief")))
+
+	assert.Contains(t, harness.readFrame(), "brief")
+}
+
 // TestDocumentsNewFromTheMenu covers writing a first document for an agent that has none, from the
 // documents menu.
 func TestDocumentsNewFromTheMenu(t *testing.T) {
