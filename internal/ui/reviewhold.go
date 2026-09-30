@@ -77,7 +77,7 @@ func (r *reviewScreen) startHold(h host, s panelShared) tea.Cmd {
 	}
 
 	if item, ok := r.agentRow(s); ok && item.Agent.HeldAt != nil {
-		h.reportBrief("could not edit "+r.agentName, heldElsewhere)
+		h.reportBrief("could not edit "+r.agentName, stillPaused)
 
 		return nil
 	}

@@ -55,7 +55,7 @@ func (a *agentsScreen) pressEdit(h host, s panelShared) tea.Cmd {
 	}
 
 	if agent.HeldAt != nil {
-		h.reportBrief("could not edit "+agent.Name, heldElsewhere)
+		h.reportBrief("could not edit "+agent.Name, stillPaused)
 
 		return nil
 	}

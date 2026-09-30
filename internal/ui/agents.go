@@ -262,7 +262,7 @@ func (l listing) scheduleName(agent panel.Agent) string {
 
 const heldPlaceholder = "Paused."
 
-const heldElsewhere = "it is already paused, and not by this panel"
+const stillPaused = "it is still paused"
 
 func welcomeText(keys config.Keybindings) string {
 	return fmt.Sprintf("Welcome, komrad!\n\nPress '%s' to set up your first workflow", firstKey(keys.Workflows.New, "w"))
