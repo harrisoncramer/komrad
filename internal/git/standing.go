@@ -126,7 +126,8 @@ type ReadDiffStatParams struct {
 	Exclude []string
 }
 
-// ReadDiffStat is the lines the working tree adds and removes since it left ref, refused with
+// ReadDiffStat is the lines the working tree, untracked files included, adds and removes since it
+// left ref, hashed in an index of its own so the agent's index is never locked, refused with
 // ErrBaseUnrelated when the branch shares no history with ref.
 func (c *Client) ReadDiffStat(ctx context.Context, params ReadDiffStatParams) (*DiffStat, error) {
 	related, err := doesShareHistory(ctx, params.Dir, params.Ref, "HEAD")
@@ -138,11 +139,26 @@ func (c *Client) ReadDiffStat(ctx context.Context, params ReadDiffStatParams) (*
 		return nil, fmt.Errorf("%w: %s", ErrBaseUnrelated, params.Ref)
 	}
 
+	mergeBase, err := Run(ctx, params.Dir, "merge-base", params.Ref, "HEAD")
+	if err != nil {
+		return nil, fmt.Errorf("failed to find where %q left %s: %w", params.Dir, params.Ref, err)
+	}
+
+	root, err := getRoot(ctx, params.Dir)
+	if err != nil {
+		return nil, err
+	}
+
+	tree, err := writeTree(ctx, root)
+	if err != nil {
+		return nil, err
+	}
+
 	args := append([]string{
 		"-c", "core.quotepath=false",
 		"--no-pager", "diff",
 		"--no-ext-diff", "--no-color", "--find-renames", "--numstat", "-z",
-		"--merge-base", params.Ref, "--", ".",
+		mergeBase, tree, "--", ".",
 	}, excludePathspecs(params.Exclude)...)
 
 	out, err := RunBytes(ctx, params.Dir, args...)

@@ -227,6 +227,15 @@ func TestIntegrationReadDiffStat(t *testing.T) {
 			},
 		},
 		{
+			name: "an untracked file counts its lines",
+			change: func(t *testing.T, root string) {
+				write(t, root, "loose.go", "package main\n\nvar loose = 1\n")
+			},
+			want: DiffStat{
+				Added: 3,
+			},
+		},
+		{
 			name: "committed, staged and unstaged lines all count",
 			change: func(t *testing.T, root string) {
 				write(t, root, "one.go", "package main\n\nvar one = 1\n")
@@ -269,6 +278,29 @@ func TestIntegrationReadDiffStat(t *testing.T) {
 			assert.Equal(t, &tt.want, stat)
 		})
 	}
+}
+
+// TestIntegrationReadDiffStatLeavesTheAgentsIndexAlone covers measuring a checkout whose files are
+// stat-dirty, which a diff against the agent's own index would rewrite under its lock.
+func TestIntegrationReadDiffStatLeavesTheAgentsIndexAlone(t *testing.T) {
+	t.Parallel()
+
+	root := repo(t)
+	index := filepath.Join(root, ".git", "index")
+	past := time.Now().Add(-time.Hour)
+	require.NoError(t, os.Chtimes(filepath.Join(root, "kept.go"), past, past))
+	before, err := os.Stat(index)
+	require.NoError(t, err)
+
+	_, err = client.ReadDiffStat(t.Context(), ReadDiffStatParams{
+		Dir: root,
+		Ref: "main",
+	})
+	require.NoError(t, err)
+
+	after, err := os.Stat(index)
+	require.NoError(t, err)
+	assert.Equal(t, before.ModTime(), after.ModTime())
 }
 
 // TestIntegrationCountAgainstRemote covers where a branch stands against its copy on origin.
