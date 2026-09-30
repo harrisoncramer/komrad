@@ -372,6 +372,7 @@ func newModel(deps Deps, isDark bool, post *postbox) model {
 		engineStatus:    deps.EngineStatus,
 		engineBuild:     deps.EngineStatus.Build,
 		screen:          screenAgents,
+		archive:         archiveScreen{sort: tabsState{flat: true}},
 		rowCursor:       newRowCursor(),
 		warm:            newWarmupState(),
 		loading:         loadingState{style: cmp.Or(deps.Loader, loader.Braille)},

@@ -280,7 +280,7 @@ func TestFilterNarrow(t *testing.T) {
 // TestFilterScreens covers every list screen answering the same search and filter keys.
 func TestFilterScreens(t *testing.T) {
 	t.Run("the archive walks its matches and clears back to where it opened", func(t *testing.T) {
-		harness := openArchive(t,
+		harness := openGroupedArchive(t,
 			newLiveWorkflow("w1", "backend"),
 			newArchivedAgentAt("api-refactor", "2026-07-30T09:00:00Z"),
 			newArchivedAgentAt("auth-fix", "2026-07-30T08:00:00Z"),
