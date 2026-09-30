@@ -160,6 +160,17 @@ func TestRenameField(t *testing.T) {
 		assert.Equal(t, "api", readHoveredRow(harness.readFrame()), "and the keys go back to the list once it lands")
 	})
 
+	t.Run("a saved name stands until the listing shows it", func(t *testing.T) {
+		harness := openForms(t, newFormWorkflow(), newFormAuthor())
+
+		harness.press(slices.Concat([]string{"j", "r"}, spellKeys("-v2"), []string{"enter"})...)
+		assert.Equal(t, "  author-v2", readHoveredRow(harness.readFrame()), "not the old name before the watch catches up")
+
+		harness.watch(buildSnapshot(newFormWorkflow(), newAgent("a1", "author-v2", "w1")))
+		harness.watch(buildSnapshot(newFormWorkflow(), newAgent("a1", "author-v3", "w1")))
+		assert.Equal(t, "  author-v3", readHoveredRow(harness.readFrame()), "the listing draws the name once it has caught up")
+	})
+
 	t.Run("a refused name opens the field again holding it", func(t *testing.T) {
 		harness := openForms(t, newFormWorkflow(), newFormAuthor())
 		harness.refuse(agentv1connect.AgentServiceUpdateAgentProcedure, connect.NewError(connect.CodeAlreadyExists, errors.New("name taken")))

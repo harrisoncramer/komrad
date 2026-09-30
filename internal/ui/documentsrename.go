@@ -52,7 +52,7 @@ func (d *documentsScreen) openRename(h host, s panelShared) tea.Cmd {
 
 // reconcileRename drops an open rename once the cursor leaves its row.
 func (d *documentsScreen) reconcileRename(s panelShared) {
-	if d.renaming != nil && !reconcileNameEdit(d.renaming.nameEdit, d.rows(s), d.hoveredKey(s)) {
+	if d.renaming != nil && !reconcileNameEdit(d.renaming.nameEdit, d.rows(s), d.hoveredKey(s), func(r documentRow) string { return r.item.name }) {
 		d.renaming = nil
 	}
 }
@@ -102,21 +102,17 @@ func (d *documentsScreen) saveRename(h host, s panelShared) tea.Cmd {
 	), rename.key)
 }
 
-// settleRename closes the field once its write has landed, and opens it again for another try
-// when the write failed.
+// settleRename marks the field saved once its write has landed, or open for another try when it
+// failed.
 func (d *documentsScreen) settleRename(s panelShared, row string, err error) {
 	if d.renaming == nil {
 		return
 	}
-	if !d.renaming.settle(row, err) {
-		d.renaming = nil
-
-		return
-	}
+	d.renaming.settle(row, err)
 
 	d.reconcileRename(s)
 }
 
 func (d *documentsScreen) isRenaming() bool {
-	return d.renaming != nil
+	return d.renaming != nil && !d.renaming.landed
 }

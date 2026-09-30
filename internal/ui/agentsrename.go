@@ -16,7 +16,7 @@ type agentRename struct {
 }
 
 func (a *agentsScreen) isRenaming() bool {
-	return a.renaming != nil
+	return a.renaming != nil && !a.renaming.landed
 }
 
 func (a *agentsScreen) openRename(s panelShared) tea.Cmd {
@@ -38,7 +38,7 @@ func (a *agentsScreen) openRename(s panelShared) tea.Cmd {
 
 // reconcileRename drops an open rename once the cursor leaves its row.
 func (a *agentsScreen) reconcileRename(s panelShared) {
-	if a.renaming != nil && !reconcileNameEdit(a.renaming.nameEdit, a.rows(s), a.hoveredKey(s)) {
+	if a.renaming != nil && !reconcileNameEdit(a.renaming.nameEdit, a.rows(s), a.hoveredKey(s), agentRowName) {
 		a.renaming = nil
 	}
 }
@@ -84,17 +84,13 @@ func (a *agentsScreen) saveRename(h host) tea.Cmd {
 	), rename.key)
 }
 
-// settleRename closes the field once its write has landed, and opens it again for another try
-// when the write failed.
+// settleRename marks the field saved once its write has landed, or open for another try when it
+// failed.
 func (a *agentsScreen) settleRename(s panelShared, row string, err error) {
 	if a.renaming == nil {
 		return
 	}
-	if !a.renaming.settle(row, err) {
-		a.renaming = nil
-
-		return
-	}
+	a.renaming.settle(row, err)
 
 	a.reconcileRename(s)
 }

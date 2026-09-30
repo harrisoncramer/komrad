@@ -186,4 +186,5 @@ func (d *documentsScreen) isListed() bool {
 func (d *documentsScreen) keepCursor(s panelShared, hovered string) {
 	rows := d.rows(s)
 	d.cursor = cursor.Place(rowIndexOfKey(rows, hovered), d.cursor, len(rows))
+	d.reconcileRename(s)
 }
