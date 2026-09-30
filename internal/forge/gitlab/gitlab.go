@@ -57,6 +57,10 @@ const getQuery = `query Get($path: ID!, $iid: String!) {
 }
 ` + mergeRequestFragment
 
+const setDraftMutation = `mutation SetDraft($path: ID!, $iid: String!, $draft: Boolean!) {
+  mergeRequestSetDraft(input: {projectPath: $path, iid: $iid, draft: $draft}) { errors }
+}`
+
 const listQuery = `query List($path: ID!, $first: Int!, $after: String, $branches: [String!], $state: MergeRequestState) {
   project(fullPath: $path) {
     mergeRequests(sourceBranches: $branches, state: $state, sort: CREATED_DESC, first: $first, after: $after) {
@@ -366,6 +370,54 @@ func (f *Forge) Merge(ctx context.Context, address string) error {
 	}
 
 	return err
+}
+
+// SetDraft marks the merge request a draft or ready, asking nothing of GitLab when it already
+// stands that way.
+func (f *Forge) SetDraft(ctx context.Context, address string, draft bool) error {
+	path, number, err := parseMergeRequestURL(address)
+	if err != nil {
+		return err
+	}
+
+	target, err := f.Get(ctx, address)
+	if err != nil {
+		return err
+	}
+	switch {
+	case target.MergedAt != nil:
+		return forge.ErrNotDraftable.Saying("gitlab will not change !%d: it has already merged", number)
+	case target.ClosedAt != nil:
+		return forge.ErrNotDraftable.Saying("gitlab will not change !%d: it was closed", number)
+	case target.Draft == draft:
+		return nil
+	}
+
+	var data struct {
+		MergeRequestSetDraft *struct {
+			Errors []string `json:"errors"`
+		} `json:"mergeRequestSetDraft"`
+	}
+	answer, err := f.client.Query(ctx, setDraftMutation, map[string]any{
+		"path":  path,
+		"iid":   strconv.Itoa(number),
+		"draft": draft,
+	}, &data)
+	if err != nil {
+		return err
+	}
+	if data.MergeRequestSetDraft == nil {
+		if err := failureOf(answer); err != nil {
+			return err
+		}
+
+		return fmt.Errorf("%w: gitlab has no merge request %d in %s", forge.ErrNotFound, number, path)
+	}
+	if said := data.MergeRequestSetDraft.Errors; len(said) > 0 {
+		return forge.ErrNotDraftable.Saying("gitlab will not change !%d: %s", number, strings.Join(said, "; "))
+	}
+
+	return failureOf(answer)
 }
 
 // mergeRefusal is why GitLab says a merge request cannot merge, in a person's words.

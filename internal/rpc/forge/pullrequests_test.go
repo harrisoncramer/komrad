@@ -39,16 +39,23 @@ func (f *fakeForge) List(_ context.Context, params forge.ListParams) (*forge.Pag
 	}, nil
 }
 
-// fakeMerger records each merge and answers mergeErr.
-type fakeMerger struct {
-	mergeErr error
-	merged   []string
+// fakeWriter records each merge and draft change and answers err.
+type fakeWriter struct {
+	err     error
+	merged  []string
+	drafted []bool
 }
 
-func (f *fakeMerger) MergePullRequest(_ context.Context, address string) error {
+func (f *fakeWriter) MergePullRequest(_ context.Context, address string) error {
 	f.merged = append(f.merged, address)
 
-	return f.mergeErr
+	return f.err
+}
+
+func (f *fakeWriter) SetPullRequestDraft(_ context.Context, _ string, draft bool) error {
+	f.drafted = append(f.drafted, draft)
+
+	return f.err
 }
 
 // TestListForgePullRequests pins what reaches the forge and how each pull request renders.
@@ -160,12 +167,51 @@ func TestMergeForgePullRequest(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			merger := &fakeMerger{mergeErr: tt.refuse}
-			service := forgev1komrad.ForgeServiceAdapter{Impl: NewHandler(&fakeConnector{}, merger)}
+			writer := &fakeWriter{err: tt.refuse}
+			service := forgev1komrad.ForgeServiceAdapter{Impl: NewHandler(&fakeConnector{}, writer)}
 
 			_, err := service.MergeForgePullRequest(t.Context(), connect.NewRequest(&forgev1.MergeForgePullRequestRequest{Url: address}))
 
-			assert.Equal(t, []string{address}, merger.merged)
+			assert.Equal(t, []string{address}, writer.merged)
+			if tt.wantCode != 0 {
+				require.Error(t, err)
+				assert.Equal(t, tt.wantCode, connect.CodeOf(err))
+
+				return
+			}
+			require.NoError(t, err)
+		})
+	}
+}
+
+// TestSetForgePullRequestDraft pins the draft asked for and the code a refusal reaches the
+// caller as.
+func TestSetForgePullRequestDraft(t *testing.T) {
+	const address = "https://github.com/harrisoncramer/komrad/pull/1"
+
+	tests := []struct {
+		name     string
+		refuse   error
+		wantCode connect.Code
+	}{
+		{
+			name:     "a pull request the forge will not change",
+			refuse:   forge.ErrNotDraftable.Saying("github will not change #1: it has already merged"),
+			wantCode: connect.CodeFailedPrecondition,
+		},
+		{
+			name: "a pull request the forge marks a draft",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			writer := &fakeWriter{err: tt.refuse}
+			service := forgev1komrad.ForgeServiceAdapter{Impl: NewHandler(&fakeConnector{}, writer)}
+
+			_, err := service.SetForgePullRequestDraft(t.Context(), connect.NewRequest(&forgev1.SetForgePullRequestDraftRequest{Url: address, Draft: true}))
+
+			assert.Equal(t, []bool{true}, writer.drafted)
 			if tt.wantCode != 0 {
 				require.Error(t, err)
 				assert.Equal(t, tt.wantCode, connect.CodeOf(err))

@@ -113,6 +113,8 @@ func (f *scriptedForge) ListChanged(_ context.Context, params forge.ListChangedP
 
 func (f *scriptedForge) Merge(context.Context, string) error { return nil }
 
+func (f *scriptedForge) SetDraft(context.Context, string, bool) error { return nil }
+
 func (f *scriptedForge) Standings(_ context.Context, _ git.RemoteURL, numbers []int) (map[int]forge.Standing, error) {
 	spelled := xslice.Map(numbers, strconv.Itoa)
 	f.requests = append(f.requests, "standings:"+strings.Join(spelled, ","))

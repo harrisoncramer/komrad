@@ -29,6 +29,9 @@ var ErrTooManyStandings = fail.InvalidArgument("too many standings for one call"
 // ErrNotMergeable says the forge refused to merge a pull request.
 var ErrNotMergeable = fail.Precondition("the forge will not merge the pull request")
 
+// ErrNotDraftable says the forge refused to change whether a pull request is a draft.
+var ErrNotDraftable = fail.Precondition("the forge will not change whether the pull request is a draft")
+
 // ErrThrottled says the forge refused for its rate limit rather than for anything about the
 // request.
 var ErrThrottled = fail.Exhausted("the forge is rate limiting this credential")
@@ -193,6 +196,8 @@ type Forge interface {
 	Standings(ctx context.Context, repo git.RemoteURL, numbers []int) (map[int]Standing, error)
 	// Merge lands the pull request at the web address on its base.
 	Merge(ctx context.Context, url string) error
+	// SetDraft marks the pull request at the web address a draft, or ready for review.
+	SetDraft(ctx context.Context, url string, draft bool) error
 }
 
 // MaxStandings is the most pull requests one Standings call asks about.

@@ -70,6 +70,7 @@ func ValidateKeybindings(keys config.Keybindings) error {
 		{name: "rebase", keys: keys.Git.Rebase},
 		{name: "open_pull_request", keys: keys.Git.OpenPullRequest},
 		{name: "copy_pull_request_url", keys: keys.Git.CopyPullRequestURL},
+		{name: "toggle_draft", keys: keys.Git.ToggleDraft},
 		{name: "merge", keys: keys.Git.Merge},
 	}); err != nil {
 		return err

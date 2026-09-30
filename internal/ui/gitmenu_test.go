@@ -179,6 +179,12 @@ func TestGitMenuRefusals(t *testing.T) {
 			press:       []string{"m", "m"},
 			wantRefusal: "its pull request has already merged",
 		},
+		{
+			name:        "the draft toggle of a pull request that has already merged",
+			rows:        append(buildGitAgent(), newCurrentMergedPullRequest()),
+			press:       []string{"d"},
+			wantRefusal: "its pull request has already merged",
+		},
 	}
 
 	for _, tt := range tests {
@@ -255,6 +261,65 @@ func TestGitMenuMerges(t *testing.T) {
 			if tt.wantMessage != "" {
 				assert.Contains(t, readOpenMessages(harness), tt.wantMessage)
 			}
+		})
+	}
+}
+
+// TestGitMenuTogglesDraft covers the entry naming which way it goes and flipping the draft.
+func TestGitMenuTogglesDraft(t *testing.T) {
+	t.Parallel()
+
+	drafted := newOpenPullRequest()
+	drafted.State = pullrequestv1.PullRequestState_PULL_REQUEST_STATE_DRAFT
+	drafted.Draft = true
+
+	tests := []struct {
+		name        string
+		pullRequest *pullrequestv1.PullRequest
+		refuse      error
+		wantLabel   string
+		wantSent    proto.Message
+		wantMessage string
+	}{
+		{
+			name:        "an open pull request is made a draft",
+			pullRequest: newOpenPullRequest(),
+			wantLabel:   "toggle draft on",
+			wantSent:    &forgev1.SetForgePullRequestDraftRequest{Url: pullRequestURL, Draft: true},
+			wantMessage: "api: #740 is a draft",
+		},
+		{
+			name:        "a draft is marked ready for review",
+			pullRequest: drafted,
+			wantLabel:   "toggle draft off",
+			wantSent:    &forgev1.SetForgePullRequestDraftRequest{Url: pullRequestURL},
+			wantMessage: "api: #740 is ready for review",
+		},
+		{
+			name:        "a change the forge refuses says why",
+			pullRequest: newOpenPullRequest(),
+			refuse:      connect.NewError(connect.CodeFailedPrecondition, errors.New("github will not change #740: Draft pull requests are not supported")),
+			wantLabel:   "toggle draft on",
+			wantSent:    &forgev1.SetForgePullRequestDraftRequest{Url: pullRequestURL, Draft: true},
+			wantMessage: "Draft pull requests are not supported",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			harness := openGitMenu(t, append(buildGitAgent(), tt.pullRequest)...)
+			if tt.refuse != nil {
+				harness.refuse(forgev1connect.ForgeServiceSetForgePullRequestDraftProcedure, tt.refuse)
+			}
+			require.Contains(t, harness.readFrame(), tt.wantLabel)
+
+			harness.press("d")
+
+			harness.assertSentTo(forgev1connect.ForgeServiceSetForgePullRequestDraftProcedure, tt.wantSent)
+			assert.NotContains(t, harness.readFrame(), gitMenuEntry)
+			assert.Contains(t, readOpenMessages(harness), tt.wantMessage)
 		})
 	}
 }

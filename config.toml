@@ -204,6 +204,8 @@ open_pull_request     = ["o"]
 # Bring the hovered agent's worktree up to date on the latest base, which asks first and
 # says what it would do to the branch and to the files.
 rebase                = ["r"]
+# Mark the hovered agent's pull request a draft, or ready for review when it is one.
+toggle_draft          = ["d"]
 
 # The merge menu, nested under the git menu, which merges the hovered agent's pull request.
 [keybindings.merge]

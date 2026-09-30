@@ -503,6 +503,13 @@
               "type": "array",
               "description": "Bring the hovered agent's worktree up to date on the latest base, which asks first and\nsays what it would do to the branch and to the files.",
               "default": "[\"r\"]"
+            },
+            {
+              "key": "toggle_draft",
+              "path": "keybindings.git.toggle_draft",
+              "type": "array",
+              "description": "Mark the hovered agent's pull request a draft, or ready for review when it is one.",
+              "default": "[\"d\"]"
             }
           ],
           "sections": []

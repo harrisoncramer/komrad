@@ -367,6 +367,8 @@ type GitKeys struct {
 	// Bring the hovered agent's worktree up to date on the latest base, which asks first and
 	// says what it would do to the branch and to the files.
 	Rebase []string `mapstructure:"rebase" default:"r"`
+	// Mark the hovered agent's pull request a draft, or ready for review when it is one.
+	ToggleDraft []string `mapstructure:"toggle_draft" default:"d"`
 }
 
 // MergeKeys are the bindings for the merge menu, which opens from the git menu.

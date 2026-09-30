@@ -129,7 +129,7 @@ func newMux(params newMuxParams) (*http.ServeMux, error) {
 		}, options...))
 	mux.Handle(forgev1connect.NewForgeServiceHandler(
 		forgev1komrad.ForgeServiceAdapter{
-			Impl: rpcforge.NewHandler(params.Services.forge, params.Services.merger),
+			Impl: rpcforge.NewHandler(params.Services.forge, params.Services.writer),
 		}, options...))
 	mux.Handle(pullrequestv1connect.NewPullRequestServiceHandler(
 		pullrequestv1komrad.PullRequestServiceAdapter{
