@@ -529,6 +529,10 @@ func TestIntegrationPaneRunningCLIReadsTheForegroundProgram(t *testing.T) {
 
 	for _, absent := range []string{"", "%999"} {
 		assert.False(t, client.IsPaneRunningCLI(absent), "%q is not a pane running anything", absent)
+
+		running, err := client.CheckPaneRunningCLI(absent)
+		require.NoError(t, err, "a pane that is gone is an answer rather than a failure")
+		assert.False(t, running)
 	}
 }
 

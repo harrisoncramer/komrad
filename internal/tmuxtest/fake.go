@@ -360,6 +360,11 @@ func (f *Fake) IsPaneRunningCLI(pane string) bool {
 	return command != "" && !tmux.PaneStatus{Command: command}.IsRunningShell()
 }
 
+// CheckPaneRunningCLI is IsPaneRunningCLI, which never fails here.
+func (f *Fake) CheckPaneRunningCLI(pane string) (bool, error) {
+	return f.IsPaneRunningCLI(pane), nil
+}
+
 // IsClientAtPane answers ClientAt for the pane.
 func (f *Fake) IsClientAtPane(pane string, _ time.Duration) bool {
 	f.mu.Lock()

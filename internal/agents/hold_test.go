@@ -89,7 +89,7 @@ func TestHoldRefusesAPaneItCannotRead(t *testing.T) {
 	st := newStore(t)
 	agent := seed(t, st, "telescope", "%1", agentstore.StateThinking)
 
-	observer := &harnesstest.Observer{Err: errors.New("the pane is gone")}
+	observer := &harnesstest.Observer{Err: errors.New("the frame could not be captured")}
 
 	_, err := newHolder(st, &harnesstest.Channel{}, observer).Hold(t.Context(), agent.ID)
 	require.ErrorIs(t, err, ErrUnsettled)
