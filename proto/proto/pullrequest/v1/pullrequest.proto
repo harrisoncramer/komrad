@@ -169,7 +169,7 @@ enum Checks {
   CHECKS_FAILING = 4;
 }
 
-// PullRequestService reads the pull requests komrad has stored from its forges, and lets the person dismiss the forge's comments in their review.
+// PullRequestService reads the pull requests komrad has stored from its forges, and lets the person dismiss the forge's comments in their review or restore them.
 service PullRequestService {
   rpc ListPullRequests(ListPullRequestsRequest) returns (ListPullRequestsResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
@@ -197,6 +197,8 @@ service PullRequestService {
 message DismissForgeThreadRequest {
   // Which forge thread to dismiss in the person's review.
   string id = 1 [(buf.validate.field).string.min_len = 1];
+  // Whether to make the thread active again rather than dismiss it.
+  bool restore = 2;
 }
 
 // ForgeThread is a review thread as the forge holds it on a pull request an agent is linked to,

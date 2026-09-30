@@ -266,18 +266,21 @@ func latest(a, b time.Time) time.Time {
 	return a
 }
 
-// MarkDismissed stamps a forge thread dismissed, or ErrNotFound.
-func (s *ForgeThreadStore) MarkDismissed(ctx context.Context, id string) error {
+// SetDismissed stamps a forge thread dismissed, or clears the stamp, or ErrNotFound.
+func (s *ForgeThreadStore) SetDismissed(ctx context.Context, id string, dismissed bool) error {
 	if !store.IsID(id) {
 		return store.ErrNotFound.Saying("no forge thread %s", id)
 	}
 
-	_, err := s.queries.DismissForgeReviewThread(ctx, id)
+	_, err := s.queries.SetForgeReviewThreadDismissed(ctx, models.SetForgeReviewThreadDismissedParams{
+		Dismissed: dismissed,
+		ID:        id,
+	})
 	if db.IsNoRows(err) {
 		return store.ErrNotFound.Saying("no forge thread %s", id)
 	}
 	if err != nil {
-		return fmt.Errorf("failed to dismiss forge thread %s: %w", id, err)
+		return fmt.Errorf("failed to set forge thread %s dismissed: %w", id, err)
 	}
 
 	return nil

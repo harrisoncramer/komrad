@@ -42,23 +42,6 @@ func (q *Queries) DeleteForgeReviewThreadsExcept(ctx context.Context, arg Delete
 	return err
 }
 
-const dismissForgeReviewThread = `-- name: DismissForgeReviewThread :one
-UPDATE
-    forge_review_threads t
-SET
-    dismissed_at = now()
-WHERE
-    t.id = $1
-RETURNING
-    t.id
-`
-
-func (q *Queries) DismissForgeReviewThread(ctx context.Context, id string) (string, error) {
-	row := q.db.QueryRow(ctx, dismissForgeReviewThread, id)
-	err := row.Scan(&id)
-	return id, err
-}
-
 const listCommentSyncPullRequests = `-- name: ListCommentSyncPullRequests :many
 SELECT
     p.id,
@@ -247,6 +230,31 @@ func (q *Queries) ListWatchedForgeReviewThreads(ctx context.Context, keys []stri
 		return nil, err
 	}
 	return items, nil
+}
+
+const setForgeReviewThreadDismissed = `-- name: SetForgeReviewThreadDismissed :one
+UPDATE
+    forge_review_threads t
+SET
+    dismissed_at = CASE WHEN $1::boolean THEN
+        now()
+    END
+WHERE
+    t.id = $2
+RETURNING
+    t.id
+`
+
+type SetForgeReviewThreadDismissedParams struct {
+	Dismissed bool
+	ID        string
+}
+
+func (q *Queries) SetForgeReviewThreadDismissed(ctx context.Context, arg SetForgeReviewThreadDismissedParams) (string, error) {
+	row := q.db.QueryRow(ctx, setForgeReviewThreadDismissed, arg.Dismissed, arg.ID)
+	var id string
+	err := row.Scan(&id)
+	return id, err
 }
 
 const upsertForgeReviewComment = `-- name: UpsertForgeReviewComment :exec

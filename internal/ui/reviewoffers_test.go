@@ -151,7 +151,24 @@ func TestReviewOffers(t *testing.T) {
 
 		sent := harness.readSent(pullrequestv1connect.PullRequestServiceDismissForgeThreadProcedure)
 		require.Len(t, sent, 1)
-		assert.Equal(t, "f1", sent[0].(*pullrequestv1.DismissForgeThreadRequest).GetId())
+		assert.False(t, sent[0].(*pullrequestv1.DismissForgeThreadRequest).GetRestore())
+	})
+
+	t.Run("x restores a dismissed offer under the cursor", func(t *testing.T) {
+		dismissed := newOffer("f1", "dana", "rename this", 1)
+		dismissed.Dismissed = true
+		harness := openReviewAt(t, newOfferedReviewServer(t, dismissed), panelHarnessParams{height: 40})
+		harness.answer(pullrequestv1connect.PullRequestServiceDismissForgeThreadProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+			return connect.NewResponse(&emptypb.Empty{}), nil
+		})
+		harness.press("?")
+		require.Contains(t, readLegend(harness.readFrame()), "restore the forge comment")
+
+		harness.press("x")
+
+		sent := harness.readSent(pullrequestv1connect.PullRequestServiceDismissForgeThreadProcedure)
+		require.Len(t, sent, 1)
+		assert.True(t, sent[0].(*pullrequestv1.DismissForgeThreadRequest).GetRestore())
 	})
 
 	t.Run("a dismissed offer is still drawn, marked skipped, and J passes it by", func(t *testing.T) {
@@ -164,7 +181,6 @@ func TestReviewOffers(t *testing.T) {
 		assert.Contains(t, findLine(readStage(frame), "package greet"), "")
 		assert.Contains(t, readPopupProse(frame), "rename this")
 		assert.Contains(t, strings.Join(readPopup(frame), ""), "dismissed")
-		assert.NotContains(t, readLegend(frame), "dismiss the forge comment")
 
 		harness.press("J")
 		require.Contains(t, readReviewCursor(harness.readFrame()), gittest.File+":4")

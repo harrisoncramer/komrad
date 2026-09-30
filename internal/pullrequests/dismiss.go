@@ -11,7 +11,7 @@ import (
 var ErrDismissHumanOnly = fail.Denied("only the person reviewing can dismiss a comment from the forge")
 
 type threadDismisser interface {
-	MarkDismissed(ctx context.Context, id string) error
+	SetDismissed(ctx context.Context, id string, dismissed bool) error
 }
 
 type NewDismisserParams struct {
@@ -31,15 +31,17 @@ func NewDismisser(params NewDismisserParams) *Dismisser {
 // DismissForgeThreadParams names the forge thread to dismiss and who is asking.
 type DismissForgeThreadParams struct {
 	ID string
+	// Restore makes the thread active again rather than dismissing it.
+	Restore bool
 	// AgentID is the agent asking, empty for the person.
 	AgentID string
 }
 
-// DismissForgeThread marks a forge thread dismissed for the person.
+// DismissForgeThread marks a forge thread dismissed for the person, or active again.
 func (d *Dismisser) DismissForgeThread(ctx context.Context, params DismissForgeThreadParams) error {
 	if params.AgentID != "" {
 		return fmt.Errorf("%w: agent %s", ErrDismissHumanOnly, params.AgentID)
 	}
 
-	return d.threads.MarkDismissed(ctx, params.ID)
+	return d.threads.SetDismissed(ctx, params.ID, !params.Restore)
 }

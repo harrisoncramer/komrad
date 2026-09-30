@@ -45,10 +45,11 @@ func NewHandler(params NewHandlerParams) *Handler {
 	}
 }
 
-// DismissForgeThread marks one forge thread dismissed in the person's review.
+// DismissForgeThread marks one forge thread dismissed in the person's review, or active again.
 func (s *Handler) DismissForgeThread(ctx context.Context, req *pullrequestv1.DismissForgeThreadRequest) (*emptypb.Empty, *fail.Error) {
 	if err := s.dismisser.DismissForgeThread(ctx, pullrequests.DismissForgeThreadParams{
 		ID:      req.GetId(),
+		Restore: req.GetRestore(),
 		AgentID: caller.From(ctx).AgentID,
 	}); err != nil {
 		return nil, rpcerr.From(err, "failed to dismiss the forge thread")

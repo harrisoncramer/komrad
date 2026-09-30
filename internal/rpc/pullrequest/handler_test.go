@@ -172,6 +172,11 @@ func TestDismissForgeThread(t *testing.T) {
 			want: []pullrequests.DismissForgeThreadParams{{ID: threadID}},
 		},
 		{
+			name: "a restore is passed on",
+			req:  &pullrequestv1.DismissForgeThreadRequest{Id: threadID, Restore: true},
+			want: []pullrequests.DismissForgeThreadParams{{ID: threadID, Restore: true}},
+		},
+		{
 			name:     "an agent's dismissal names it and is refused",
 			req:      &pullrequestv1.DismissForgeThreadRequest{Id: threadID},
 			caller:   caller.Caller{AgentID: "01a0d1d7-0000-7000-8000-000000000004"},

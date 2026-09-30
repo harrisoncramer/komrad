@@ -728,7 +728,9 @@ func (x *ListPullRequestsResponse) GetNextPageToken() string {
 type DismissForgeThreadRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Which forge thread to dismiss in the person's review.
-	Id            string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	// Whether to make the thread active again rather than dismiss it.
+	Restore       bool `protobuf:"varint,2,opt,name=restore,proto3" json:"restore,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -768,6 +770,13 @@ func (x *DismissForgeThreadRequest) GetId() string {
 		return x.Id
 	}
 	return ""
+}
+
+func (x *DismissForgeThreadRequest) GetRestore() bool {
+	if x != nil {
+		return x.Restore
+	}
+	return false
 }
 
 // ForgeThread is a review thread as the forge holds it on a pull request an agent is linked to,
@@ -1069,9 +1078,10 @@ const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"\x18ListPullRequestsResponse\x12@\n" +
 	"\rpull_requests\x18\x01 \x03(\v2\x1b.pullrequest.v1.PullRequestR\fpullRequests\x12+\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tH\x00R\rnextPageToken\x88\x01\x01B\x12\n" +
-	"\x10_next_page_token\"4\n" +
+	"\x10_next_page_token\"N\n" +
 	"\x19DismissForgeThreadRequest\x12\x17\n" +
-	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\"\xe2\x02\n" +
+	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\x12\x18\n" +
+	"\arestore\x18\x02 \x01(\bR\arestore\"\xe2\x02\n" +
 	"\vForgeThread\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12&\n" +
 	"\x0fpull_request_id\x18\x02 \x01(\tR\rpullRequestId\x12\x12\n" +

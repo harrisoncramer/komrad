@@ -297,29 +297,42 @@ func anchorOffer(offer *pullrequestv1.ForgeThread) diffview.Offer {
 	}
 }
 
-// doesDismissOffer reports whether the cursor stands on a forge comment that is still active, with
-// no thread of the reader's in front of it.
+// doesDismissOffer reports whether the cursor stands on a forge comment, with no thread of the
+// reader's in front of it.
 func (r reviewScreen) doesDismissOffer(s panelShared) bool {
 	if _, ok := r.diff.threadAtCursor(); ok {
 		return false
 	}
 
-	offer, ok := r.offerAtCursor(s)
+	_, ok := r.offerAtCursor(s)
 
-	return ok && !offer.GetDismissed()
+	return ok
 }
 
-// dismissOfferCmd marks the forge comment under the cursor dismissed.
+// dismissOfferDesc names what the dismiss key does to the forge comment under the cursor.
+func (r reviewScreen) dismissOfferDesc(s panelShared) string {
+	if offer, ok := r.offerAtCursor(s); ok && offer.GetDismissed() {
+		return "restore the forge comment"
+	}
+
+	return "dismiss the forge comment"
+}
+
+// dismissOfferCmd marks the forge comment under the cursor dismissed, or active again when it was.
 func (r reviewScreen) dismissOfferCmd(s panelShared) tea.Cmd {
 	offer, ok := r.offerAtCursor(s)
 	if !ok {
 		return nil
 	}
 
-	pullRequests, id := s.api.pullRequests, offer.GetId()
+	pullRequests, id, restore := s.api.pullRequests, offer.GetId(), offer.GetDismissed()
+	said := "dismissed the comment from the forge"
+	if restore {
+		said = "restored the comment from the forge"
+	}
 
-	return r.writeCmd(s, "dismissed the comment from the forge", func(ctx context.Context) error {
-		_, err := pullRequests.DismissForgeThread(ctx, connect.NewRequest(&pullrequestv1.DismissForgeThreadRequest{Id: id}))
+	return r.writeCmd(s, said, func(ctx context.Context) error {
+		_, err := pullRequests.DismissForgeThread(ctx, connect.NewRequest(&pullrequestv1.DismissForgeThreadRequest{Id: id, Restore: restore}))
 
 		return err
 	})

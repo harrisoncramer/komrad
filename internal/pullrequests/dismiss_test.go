@@ -9,17 +9,24 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestDismissForgeThread covers who may hide a forge thread from the review.
+// TestDismissForgeThread covers who may hide a forge thread from the review, and bringing one back.
 func TestDismissForgeThread(t *testing.T) {
 	tests := []struct {
 		name      string
 		agentID   string
+		before    bool
+		restore   bool
 		wantErr   error
 		dismissed bool
 	}{
 		{
 			name:      "the person hides it",
 			dismissed: true,
+		},
+		{
+			name:    "the person brings back one they hid",
+			before:  true,
+			restore: true,
 		},
 		{
 			name:    "an agent is refused and the thread stays",
@@ -36,7 +43,8 @@ func TestDismissForgeThread(t *testing.T) {
 			require.Len(t, threads, 1)
 
 			dismisser := NewDismisser(NewDismisserParams{Threads: f.threads})
-			err := dismisser.DismissForgeThread(t.Context(), DismissForgeThreadParams{ID: threads[0].ID, AgentID: tt.agentID})
+			require.NoError(t, f.threads.SetDismissed(t.Context(), threads[0].ID, tt.before))
+			err := dismisser.DismissForgeThread(t.Context(), DismissForgeThreadParams{ID: threads[0].ID, Restore: tt.restore, AgentID: tt.agentID})
 			if tt.wantErr != nil {
 				require.ErrorIs(t, err, tt.wantErr)
 			} else {

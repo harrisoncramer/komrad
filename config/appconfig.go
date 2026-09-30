@@ -521,9 +521,9 @@ type ReviewKeys struct {
 	// Write a message on the line under the cursor, replying in the thread already there
 	// or opening a new one.
 	Compose []string `mapstructure:"compose" default:"c"`
-	// Dismiss the comment from the forge under the cursor. It is still drawn, marked apart and
-	// no longer counted. Nothing is written to the forge, and a reply written there afterwards
-	// makes it active again.
+	// Dismiss the comment from the forge under the cursor, or restore one you dismissed. A
+	// dismissed comment is still drawn, marked apart and no longer counted. Nothing is written to
+	// the forge, and a reply written there afterwards makes it active again.
 	Dismiss []string `mapstructure:"dismiss" default:"x"`
 	// Open the file under the cursor in your editor, beside the diff, on the line the
 	// cursor is on. This is the agent's own worktree rather than a copy of it, so what

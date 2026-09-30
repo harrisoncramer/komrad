@@ -238,7 +238,7 @@ func (r *reviewScreen) legend() []screenLegendRow {
 		},
 		{
 			of:   []actionID{actionReviewDismiss},
-			desc: func(panelShared) string { return "dismiss the forge comment" },
+			desc: r.dismissOfferDesc,
 			show: r.doesDismissOffer,
 		},
 		{

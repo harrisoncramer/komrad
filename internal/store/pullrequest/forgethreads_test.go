@@ -186,8 +186,8 @@ func TestSetThreads(t *testing.T) {
 	}
 }
 
-// TestMarkDismissed covers a dismissal outlasting the sync until a new comment is stored on the thread.
-func TestMarkDismissed(t *testing.T) {
+// TestSetDismissed covers a dismissal outlasting the sync until a new comment is stored on the thread or the person clears it.
+func TestSetDismissed(t *testing.T) {
 	h := open(t)
 	ctx := t.Context()
 	threads := NewForgeThreadStore(h.pool.GetDB())
@@ -206,7 +206,7 @@ func TestMarkDismissed(t *testing.T) {
 	require.Len(t, stored, 1)
 	assert.False(t, stored[0].Dismissed)
 
-	require.NoError(t, threads.MarkDismissed(ctx, stored[0].ID))
+	require.NoError(t, threads.SetDismissed(ctx, stored[0].ID, true))
 
 	written.Threads[0].Resolved = true
 	require.NoError(t, threads.SetThreads(ctx, written))
@@ -225,6 +225,14 @@ func TestMarkDismissed(t *testing.T) {
 	require.Len(t, stored, 1)
 	assert.False(t, stored[0].Dismissed)
 
-	require.ErrorIs(t, threads.MarkDismissed(ctx, "01a0f025-00bd-7db3-90c0-a0198677e92e"), store.ErrNotFound)
-	require.ErrorIs(t, threads.MarkDismissed(ctx, "T_1"), store.ErrNotFound)
+	require.NoError(t, threads.SetDismissed(ctx, stored[0].ID, true))
+	require.NoError(t, threads.SetDismissed(ctx, stored[0].ID, false))
+
+	stored, err = threads.ListWatched(ctx, nil)
+	require.NoError(t, err)
+	require.Len(t, stored, 1)
+	assert.False(t, stored[0].Dismissed)
+
+	require.ErrorIs(t, threads.SetDismissed(ctx, "01a0f025-00bd-7db3-90c0-a0198677e92e", true), store.ErrNotFound)
+	require.ErrorIs(t, threads.SetDismissed(ctx, "T_1", true), store.ErrNotFound)
 }

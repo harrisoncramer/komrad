@@ -795,7 +795,7 @@
               "key": "dismiss",
               "path": "keybindings.review.dismiss",
               "type": "array",
-              "description": "Dismiss the comment from the forge under the cursor. It is still drawn, marked apart and\nno longer counted. Nothing is written to the forge, and a reply written there afterwards\nmakes it active again.",
+              "description": "Dismiss the comment from the forge under the cursor, or restore one you dismissed. A\ndismissed comment is still drawn, marked apart and no longer counted. Nothing is written to\nthe forge, and a reply written there afterwards makes it active again.",
               "default": "[\"x\"]"
             },
             {

@@ -160,11 +160,13 @@ ORDER BY
     c.written_at,
     c.id;
 
--- name: DismissForgeReviewThread :one
+-- name: SetForgeReviewThreadDismissed :one
 UPDATE
     forge_review_threads t
 SET
-    dismissed_at = now()
+    dismissed_at = CASE WHEN @dismissed::boolean THEN
+        now()
+    END
 WHERE
     t.id = @id
 RETURNING
