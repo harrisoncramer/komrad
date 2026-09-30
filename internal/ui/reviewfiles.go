@@ -113,7 +113,7 @@ func (d reviewDiff) filesHeader(s panelShared, width int) string {
 
 	return fitTreeRow(fitTreeRowParams{
 		Left:   left,
-		Stat:   dimStyle.Render(formatStat(d.View().Stat())),
+		Stat:   formatStat(d.View().Stat()),
 		Badges: formatCounts(s.glyphs, d.View().CountThreads()),
 		Width:  width,
 	})
@@ -141,7 +141,7 @@ func renderTreeRow(s panelShared, row diffview.TreeRow, current bool, width int)
 	}
 
 	if !row.Folder {
-		params.Stat = dimStyle.Render(formatStat(row.Stat))
+		params.Stat = formatStat(row.Stat)
 		params.Badges = formatThreadMark(s.glyphs, row.Counts)
 	}
 
@@ -152,10 +152,10 @@ func renderTreeRow(s panelShared, row diffview.TreeRow, current bool, width int)
 func formatStat(stat diff.Stat) string {
 	var parts []string
 	if stat.Added > 0 {
-		parts = append(parts, fmt.Sprintf("+%d", stat.Added))
+		parts = append(parts, paint.Panel.Style(reviewAddedTone).Render(fmt.Sprintf("+%d", stat.Added)))
 	}
 	if stat.Removed > 0 {
-		parts = append(parts, fmt.Sprintf("−%d", stat.Removed))
+		parts = append(parts, paint.Panel.Style(reviewRemovedTone).Render(fmt.Sprintf("−%d", stat.Removed)))
 	}
 
 	return strings.Join(parts, " ")

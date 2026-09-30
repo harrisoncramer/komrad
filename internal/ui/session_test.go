@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"komrad/internal/panes"
 	"komrad/internal/ui"
 	"komrad/lib/xptr"
 	agentv1 "komrad/proto/gen/agent/v1"
@@ -121,6 +122,6 @@ func (b *bindRecorder) GetWindowID(string) string {
 
 func (b *bindRecorder) TuneCopyMode(string) {}
 
-func (b *bindRecorder) OpenCopyStandIn(string, string, int, int, ...string) error {
+func (b *bindRecorder) OpenCopyStandIn(panes.CopyStandIn) error {
 	return nil
 }

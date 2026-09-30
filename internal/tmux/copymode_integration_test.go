@@ -37,7 +37,7 @@ func TestIntegrationTuneCopyModeMakesCopyModeVisualMode(t *testing.T) {
 // TestIntegrationCopyStandInHoldsThePaneSlotUntilCopyModeEnds pins the stand-in's life: it takes the
 // pane's slot and the keys in copy-mode, and on leaving copy-mode gives both back and goes.
 func TestIntegrationCopyStandInHoldsThePaneSlotUntilCopyModeEnds(t *testing.T) {
-	cases := []struct {
+	tests := []struct {
 		name   string
 		zoomed bool
 	}{
@@ -45,8 +45,8 @@ func TestIntegrationCopyStandInHoldsThePaneSlotUntilCopyModeEnds(t *testing.T) {
 		{name: "zoomed", zoomed: true},
 	}
 
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
 			client := testServer(t, "standin")
 
 			sidebar, err := client.paneID("standin:0.0")
@@ -55,7 +55,7 @@ func TestIntegrationCopyStandInHoldsThePaneSlotUntilCopyModeEnds(t *testing.T) {
 			_, err = client.query("split-window", "-h", "-t", sidebar, "--", "sh")
 			require.NoError(t, err)
 
-			if tc.zoomed {
+			if tt.zoomed {
 				_, err = client.query("resize-pane", "-Z", "-t", sidebar)
 				require.NoError(t, err)
 			}
@@ -63,7 +63,13 @@ func TestIntegrationCopyStandInHoldsThePaneSlotUntilCopyModeEnds(t *testing.T) {
 			window := client.GetWindowID(sidebar)
 			before := client.GetShownPanes(sidebar)
 
-			require.NoError(t, client.OpenCopyStandIn(sidebar, "one\ntwo\nthree", 2, 3, "x", "y"))
+			require.NoError(t, client.OpenCopyStandIn(panes.CopyStandIn{
+				Pane: sidebar,
+				Text: "one\ntwo\nthree",
+				Row:  2,
+				Col:  3,
+				Keys: []string{"x", "y"},
+			}))
 
 			var standIn string
 			require.Eventually(t, func() bool {
@@ -78,7 +84,7 @@ func TestIntegrationCopyStandInHoldsThePaneSlotUntilCopyModeEnds(t *testing.T) {
 			assert.Contains(t, client.CapturePane(standIn), "two")
 			assert.Equal(t, slotOf(before, sidebar), slotOf(client.GetShownPanes(standIn), standIn),
 				"the stand-in fills the slot the pane left")
-			assert.Equal(t, tc.zoomed, paneOption(t, client, standIn, "window_zoomed_flag") == "1",
+			assert.Equal(t, tt.zoomed, paneOption(t, client, standIn, "window_zoomed_flag") == "1",
 				"the stand-in keeps the window's zoom")
 			assert.NotEqual(t, window, client.GetWindowID(sidebar), "the pane waits in another window")
 
@@ -89,7 +95,7 @@ func TestIntegrationCopyStandInHoldsThePaneSlotUntilCopyModeEnds(t *testing.T) {
 				return client.GetWindowID(sidebar) == window && client.GetActivePane(window) == sidebar
 			}, 5*time.Second, 20*time.Millisecond, "the pane is swapped back and given the keys")
 
-			assert.Equal(t, tc.zoomed, paneOption(t, client, sidebar, "window_zoomed_flag") == "1",
+			assert.Equal(t, tt.zoomed, paneOption(t, client, sidebar, "window_zoomed_flag") == "1",
 				"the pane gets the window back zoomed as it left it")
 
 			require.Eventually(t, func() bool {
