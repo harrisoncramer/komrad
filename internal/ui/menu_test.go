@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"komrad/internal/ui"
+	"komrad/proto/gen/log/v1/logv1connect"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -107,15 +108,20 @@ func TestScratch(t *testing.T) {
 			t.Run(tt.name, func(t *testing.T) {
 				t.Parallel()
 
-				harness, _ := openScratchPanel(t, buildSubpagesAgents()...)
+				harness, _ := openScratchPanel(t, newLiveWorkflow("w1", "api"), newRunning())
+				harness.press("j")
+				harness.fireTimers()
 				harness.press("space", "s", "space")
+				require.Empty(t, harness.panel.ReadGuestPane())
 				require.Contains(t, harness.readFrame(), "close scratch")
 				harness.press("esc")
 
 				tt.close(harness)
+				harness.fireTimers()
 				harness.press("space")
 
 				assert.NotContains(t, harness.readFrame(), "close scratch")
+				assert.Equal(t, "%9", harness.panel.ReadGuestPane(), "the hovered agent goes back on the stage")
 			})
 		}
 	})
@@ -132,6 +138,74 @@ func TestScratch(t *testing.T) {
 
 		assert.Equal(t, respawns, harness.panel.CountRespawns())
 		assert.Equal(t, swaps, harness.panel.CountSwaps())
+	})
+
+	t.Run("the logs under it keep reading once it closes", func(t *testing.T) {
+		t.Parallel()
+
+		harness, _ := openScratchPanel(t, buildSubpagesAgents()...)
+		tailOfTwo().answer(harness)
+		moveToAgentRow(t, harness, "author")
+		harness.press("space", "l")
+
+		harness.press("space", "s", "space", "s")
+		harness.fireTimers()
+
+		harness.assertSentTo(logv1connect.LogServiceReadAgentLogsProcedure, logRead("service", ""), logRead("service", "10"))
+	})
+
+	t.Run("a created agent taking the stage closes it", func(t *testing.T) {
+		t.Parallel()
+
+		harness, _ := openScratchPanel(t, newLiveWorkflow("w1", "api"), newAgent("a1", "old", "w1"))
+		answerAgentCreate(harness, "%9")
+		harness.press("j", "space", "s")
+
+		harness.press("c", "h", "i", "ctrl+s")
+		harness.press("space")
+
+		assert.Equal(t, "%9", harness.panel.ReadGuestPane())
+		assert.NotContains(t, harness.readFrame(), "close scratch")
+	})
+
+	t.Run("it and another editor never share the stage", func(t *testing.T) {
+		t.Parallel()
+
+		tests := []struct {
+			name  string
+			first []string
+			then  []string
+			want  string
+		}{
+			{
+				name:  "the worktree editor over it",
+				first: []string{"space", "s"},
+				then:  []string{"e"},
+				want:  "could not open the editor",
+			},
+			{
+				name:  "it over the worktree editor",
+				first: []string{"e"},
+				then:  []string{"space", "s"},
+				want:  "could not open the scratch file",
+			},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				t.Parallel()
+
+				harness, _ := openScratchPanel(t, buildSubpagesAgents()...)
+				moveToAgentRow(t, harness, "author")
+				harness.press(tt.first...)
+				respawns := harness.panel.CountRespawns()
+
+				harness.press(tt.then...)
+
+				assert.Contains(t, harness.readFrame(), tt.want)
+				assert.Equal(t, respawns, harness.panel.CountRespawns())
+			})
+		}
 	})
 }
 

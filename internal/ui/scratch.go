@@ -27,8 +27,8 @@ func (m *model) toggleScratch() tea.Cmd {
 		return m.closeScratch()
 	}
 
-	if m.screen == screenReview && m.review.hold.atEditor {
-		m.reportBrief("could not open the scratch file", "close the review's editor first")
+	if m.isEditorHeld() {
+		m.reportBrief("could not open the scratch file", "close the editor on the stage first")
 
 		return nil
 	}
@@ -40,21 +40,34 @@ func (m *model) toggleScratch() tea.Cmd {
 		return nil
 	}
 
-	left := m.leaveScreen()
-
 	m.scratch = &scratchEditor{}
 	m.reconcileSolo()
 
-	m.scratch.pane = m.showEditor(editorContent(m.settings.Editor, filepath.Dir(path), path, 1))
+	m.scratch.pane = m.stageEditor(editorContent(m.settings.Editor, filepath.Dir(path), path, 1))
 	if m.scratch.pane == "" {
 		m.scratch = nil
 		m.reconcileSolo()
 		m.reportBrief("could not open the scratch file", "there is no room beside the sidebar for an editor")
 
-		return tea.Batch(left, m.waitToStage())
+		return m.waitToStage()
 	}
 
-	return left
+	return nil
+}
+
+// isEditorHeld reports whether another editor holds the stage or is waiting on an agent to stop
+// before it does.
+func (m *model) isEditorHeld() bool {
+	return m.agents.editing != nil || m.documents.editing != nil ||
+		(m.screen == screenReview && (m.review.hold.pausing || m.review.hold.atEditor))
+}
+
+// dropScratch takes the scratch editor down for a pane that is about to take the stage.
+func (m *model) dropScratch() {
+	if m.isScratchOpen() {
+		m.scratch = nil
+		m.unstageEditor()
+	}
 }
 
 func (m *model) closeScratch() tea.Cmd {
