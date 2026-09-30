@@ -336,6 +336,29 @@ func TestFormsInFlight(t *testing.T) {
 		assert.NotContains(t, frame, "check CI", "the form goes once the create has landed")
 	})
 
+	t.Run("the form keeps saying so while the pane the create made warms up", func(t *testing.T) {
+		frames := &drawReporter{}
+		harness := newPanelHarness(t, panelHarnessParams{harnessFrames: frames})
+		answerWorktreeReads(harness)
+		harness.watch(buildSnapshot(newFormWorkflow(), newFormAuthor()))
+		answerAgentCreate(harness, "%9")
+		harness.press("g", "g")
+
+		harness.press(submit...)
+
+		frame := harness.readFrame()
+		assert.Contains(t, frame, "starting the agent…")
+		assert.Contains(t, frame, "check CI", "the form is still up")
+
+		frames.isDrawn = true
+		harness.fireTimers()
+
+		frame = harness.readFrame()
+		assert.NotContains(t, frame, "starting the agent…")
+		assert.NotContains(t, frame, "check CI", "the form goes with the reveal")
+		assert.Equal(t, "%9", harness.panel.ReadGuestPane())
+	})
+
 	t.Run("a second submit sends nothing", func(t *testing.T) {
 		harness := openForms(t, newFormWorkflow(), newFormAuthor())
 		harness.hold(create)
@@ -442,6 +465,32 @@ func TestFormsArchivePrompt(t *testing.T) {
 			assert.Equal(t, agentsScreen, harness.readScreen(), "every answer lands back on the list")
 		})
 	}
+
+	t.Run("the workflow menu stays up until the archive lands", func(t *testing.T) {
+		archive := workflowv1connect.WorkflowServiceArchiveWorkflowProcedure
+		harness := openForms(t, newFormWorkflow(), newFormAuthor())
+		harness.hold(archive)
+
+		harness.press("space", "a", "a")
+
+		frame := harness.readFrame()
+		assert.Contains(t, frame, "archive with its agents", "the menu is still drawn")
+		assert.Contains(t, frame, "archiving api…")
+
+		harness.release(archive)
+
+		assert.NotContains(t, harness.readFrame(), "archive with its agents")
+	})
+
+	t.Run("a refused archive takes the menu down", func(t *testing.T) {
+		harness := openForms(t, newFormWorkflow(), newFormAuthor())
+		harness.refuse(agentv1connect.AgentServiceArchiveAgentsProcedure, connect.NewError(connect.CodeFailedPrecondition, errors.New("already archived")))
+
+		harness.press("j", "space", "a", "a")
+
+		assert.NotContains(t, harness.readFrame(), "archive and delete for good")
+		assert.Equal(t, agentsScreen, harness.readScreen())
+	})
 
 	t.Run("a confirmed archive still in flight keeps a rebuilt panel up", func(t *testing.T) {
 		binary := &fakeBinary{}

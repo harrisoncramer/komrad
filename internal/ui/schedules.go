@@ -208,7 +208,7 @@ func (w *schedulesScreen) openForm(h host, values *panel.ScheduleConfig, target 
 		},
 		Reshaped: func() bool { return values.Kind != drawnKind },
 		Editable: []editableText{{key: "prompt", value: &values.Prompt}},
-		Submit: func(m model) (tea.Model, tea.Cmd) {
+		Submit: holdSubmit(func(m model) (model, tea.Cmd) {
 			var cmd tea.Cmd
 			if target == nil {
 				cmd = m.writeCmd("creating schedule "+values.Name, "Could not create the schedule", func(a api) error { return a.createSchedule(*values) })
@@ -220,8 +220,8 @@ func (w *schedulesScreen) openForm(h host, values *panel.ScheduleConfig, target 
 				)
 			}
 
-			return m, tea.Batch(cmd, m.holdForm())
-		},
+			return m, cmd
+		}),
 	}))
 }
 

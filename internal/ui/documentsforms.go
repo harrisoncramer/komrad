@@ -33,9 +33,9 @@ func newDocumentForm(h host, s panelShared, agentID string) tea.Cmd {
 	return h.openForm(redrawnForm(redrawnFormParams{
 		Kind:  formDocument,
 		Build: func(m model) (*huh.Form, []string) { return documentForm(values, m.listing.documentTypeNames()) },
-		Submit: func(m model) (tea.Model, tea.Cmd) {
+		Submit: holdSubmit(func(m model) (model, tea.Cmd) {
 			if checkDocumentName(values.Name) != nil {
-				return m.closeForm()
+				return m, nil
 			}
 
 			name, typeName := strings.TrimSpace(values.Name), values.Type
@@ -45,8 +45,8 @@ func newDocumentForm(h host, s panelShared, agentID string) tea.Cmd {
 				func(a api) error { return a.createDocument(agentID, name, typeName, documentPlaceholder(typeName)) },
 			)
 
-			return m, tea.Batch(cmd, m.holdForm())
-		},
+			return m, cmd
+		}),
 	}))
 }
 

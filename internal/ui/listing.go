@@ -386,8 +386,6 @@ func (m *model) landWrite(write int) {
 }
 
 func (m model) applyWrite(result writeResult) (tea.Model, tea.Cmd) {
-	m.landWrite(result.write)
-
 	m.report(result.summary, result.err)
 
 	if result.renamed != "" {
@@ -427,22 +425,40 @@ func (m model) applyWrite(result writeResult) (tea.Model, tea.Cmd) {
 			m.dropScratch()
 			guest := layout.Guest{Agent: result.written.agent, Pane: result.written.pane}
 			if m.isPaneWarm(result.written.pane, result.written.harness) {
+				m.frame.Begin()
+
+				if m.held.owns(result.write) {
+					m.held = heldWrite{}
+
+					closed, closing := m.closeForm()
+					if next, ok := closed.(model); ok {
+						m = next
+					}
+
+					left = tea.Batch(left, closing)
+				}
+
 				m.frame.Solo(false)
 				m.frame.ShowGuest(guest)
+				m.frame.Flush()
 
 				if result.written.focus && m.frame.GuestPane() == result.written.pane {
 					m.tmux.SelectPane(result.written.pane)
 				}
 			} else {
-				m.warm.hold(guest, result.written.harness, result.written.focus)
+				m.holdReveal(guest, result.written.harness, result.written.focus, result.write)
 			}
 		}
+	}
+
+	if m.warm.pendingWrite != result.write {
+		m.landWrite(result.write)
 	}
 
 	if m.held.owns(result.write) {
 		// A form taken down now would leave the panel drawn over the whole window until the pane
 		// it made turns up, so it is left standing and closed by the reveal instead.
-		if result.err == nil && m.warm.pending != "" {
+		if result.err == nil && m.warm.pendingWrite == result.write {
 			m.warm.closesForm = true
 
 			return m, left
@@ -450,7 +466,7 @@ func (m model) applyWrite(result writeResult) (tea.Model, tea.Cmd) {
 
 		m.held = heldWrite{}
 
-		if result.err == nil {
+		if result.err == nil || !m.form.keepsOnRefusal {
 			closed, cmd := m.closeForm()
 
 			return closed, tea.Batch(left, cmd)

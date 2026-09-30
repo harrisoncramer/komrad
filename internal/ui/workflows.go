@@ -46,7 +46,8 @@ func openWorkflowConfigForm(h host, values *workflowFormValues, target *panel.Wo
 	}
 
 	return h.openForm(formState{
-		kind: formWorkflow,
+		kind:           formWorkflow,
+		keepsOnRefusal: true,
 		update: func(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.updateWorkflowForm(msg, values, build)
 		},
@@ -56,7 +57,7 @@ func openWorkflowConfigForm(h host, values *workflowFormValues, target *panel.Wo
 			{key: "worktree_symlink_paths", value: &values.WorktreeSymlinkPaths},
 			{key: "worktree_diff_exclude", value: &values.WorktreeDiffExclude},
 		},
-		submit: func(m model) (tea.Model, tea.Cmd) {
+		submit: holdSubmit(func(m model) (model, tea.Cmd) {
 			var cmd tea.Cmd
 			if target == nil {
 				cmd = m.createWorkflowCmd(values.toConfig())
@@ -69,8 +70,8 @@ func openWorkflowConfigForm(h host, values *workflowFormValues, target *panel.Wo
 				)
 			}
 
-			return m, tea.Batch(cmd, m.holdForm())
-		},
+			return m, cmd
+		}),
 		rebuild: build,
 	})
 }
@@ -136,10 +137,7 @@ func (m model) updateWorkflowForm(msg tea.Msg, values *workflowFormValues, build
 
 	was := values.Provisioner
 
-	form, cmd := m.form.form.Update(msg)
-	if updated, ok := form.(*huh.Form); ok {
-		m.form.form = updated
-	}
+	cmd := m.stepForm(msg)
 
 	switch m.form.form.State {
 	case huh.StateCompleted:

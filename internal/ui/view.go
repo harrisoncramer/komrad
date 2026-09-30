@@ -9,6 +9,7 @@ import (
 	"komrad/lib/xslice"
 
 	tea "charm.land/bubbletea/v2"
+	"charm.land/huh/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 )
@@ -184,6 +185,9 @@ func (m model) screenView() string {
 // than one taken off the top of the panel.
 func (m model) heldFormView() string {
 	view := m.form.form.View()
+	if m.form.form.State == huh.StateCompleted {
+		view = m.form.frozen
+	}
 	if write, ok := m.heldWrite(); ok {
 		width, _ := m.formBox()
 		view = strings.TrimRight(view, "\n") + "\n" + write.Notice(m.submittingParams(width))

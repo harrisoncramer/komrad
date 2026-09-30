@@ -36,6 +36,8 @@ type warmupState struct {
 	closesForm bool
 	// pendingFocus says the reveal hands the pane the keyboard.
 	pendingFocus bool
+	// pendingWrite is the write kept in flight until the reveal.
+	pendingWrite int
 }
 
 func newWarmupState() warmupState {
@@ -115,12 +117,15 @@ func (w *warmupState) markWarm(pane string) {
 	delete(w.since, pane)
 }
 
-// hold remembers the pane a write wants shown once its harness is up.
-func (w *warmupState) hold(guest layout.Guest, harnessID string, focus bool) {
-	w.pending = guest.Pane
-	w.pendingAgent = guest.Agent
-	w.pendingHarness = harnessID
-	w.pendingFocus = focus
+// holdReveal remembers the pane a write wants shown once its harness is up, keeping the write in flight until it is.
+func (m *model) holdReveal(guest layout.Guest, harnessID string, focus bool, write int) {
+	m.landWrite(m.warm.pendingWrite)
+
+	m.warm.pending = guest.Pane
+	m.warm.pendingAgent = guest.Agent
+	m.warm.pendingHarness = harnessID
+	m.warm.pendingFocus = focus
+	m.warm.pendingWrite = write
 }
 
 // applyWarmupTick shows the pane a write is holding the stage for once it is warm, and otherwise
@@ -135,7 +140,8 @@ func (m model) applyWarmupTick() (model, tea.Cmd) {
 
 		guest := layout.Guest{Agent: m.warm.pendingAgent, Pane: pane}
 		focus := m.warm.pendingFocus
-		m.warm.pending, m.warm.pendingAgent, m.warm.pendingHarness, m.warm.pendingFocus = "", "", "", false
+		m.landWrite(m.warm.pendingWrite)
+		m.warm.pending, m.warm.pendingAgent, m.warm.pendingHarness, m.warm.pendingFocus, m.warm.pendingWrite = "", "", "", false, 0
 
 		return m.revealCreated(guest, focus)
 	}
