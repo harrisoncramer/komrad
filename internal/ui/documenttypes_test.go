@@ -184,6 +184,11 @@ func TestDocumentTypesHistory(t *testing.T) {
 			wantNot: []string{"written by"},
 		},
 		{
+			name:    "a write that renamed the type says what it was named",
+			presses: []string{"<"},
+			want:    []string{`renamed from "explanation"`},
+		},
+		{
 			name:    "stepping back again draws the first write",
 			presses: []string{"<", "<"},
 			want:    []string{"version 1 of 2", "1 +  How to write one."},
@@ -245,7 +250,8 @@ func newDocumentType(id, name string) *agentv1.DocumentType {
 	}
 }
 
-// answerDocumentTypes answers the writes to the types, and keeps two writes of each.
+// answerDocumentTypes answers the writes to the types, and keeps two writes of each, the second of
+// the explainer's renaming it.
 func answerDocumentTypes(harness *panelHarness) {
 	harness.answer(agentv1connect.AgentServiceWriteDocumentTypeProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
 		return connect.NewResponse(&agentv1.WriteDocumentTypeResponse{}), nil
@@ -253,10 +259,22 @@ func answerDocumentTypes(harness *panelHarness) {
 	harness.answer(agentv1connect.AgentServiceDeleteDocumentTypeProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
 		return connect.NewResponse(&emptypb.Empty{}), nil
 	})
-	harness.answer(agentv1connect.AgentServiceListDocumentTypeVersionsProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+	harness.answer(agentv1connect.AgentServiceListDocumentTypeVersionsProcedure, func(req connect.AnyRequest) (connect.AnyResponse, error) {
+		listed, _ := req.Any().(*agentv1.ListDocumentTypeVersionsRequest)
+		name := ""
+		for _, row := range buildDocumentAuthors() {
+			if documentType, ok := row.(*agentv1.DocumentType); ok && documentType.GetId() == listed.GetId() {
+				name = documentType.GetName()
+			}
+		}
+		first := name
+		if name == "explainer" {
+			first = "explanation"
+		}
+
 		return connect.NewResponse(&agentv1.ListDocumentTypeVersionsResponse{Versions: []*agentv1.DocumentTypeVersion{
-			{Version: 2, CreatedAt: "2026-09-25T12:00:00Z"},
-			{Version: 1, CreatedAt: "2026-09-24T12:00:00Z"},
+			{Version: 2, Name: name, CreatedAt: "2026-09-25T12:00:00Z"},
+			{Version: 1, Name: first, CreatedAt: "2026-09-24T12:00:00Z"},
 		}}), nil
 	})
 	harness.answer(agentv1connect.AgentServiceGetDocumentTypeProcedure, func(req connect.AnyRequest) (connect.AnyResponse, error) {

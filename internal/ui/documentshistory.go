@@ -36,10 +36,11 @@ type documentHistory struct {
 	said string
 }
 
-// historyVersion is one write kept of a document: which it is, who made it where that is known, and
-// when.
+// historyVersion is one write kept of a document: which it is, the name it had and who made it where
+// those are known, and when.
 type historyVersion struct {
 	version   int32
+	name      string
 	by        string
 	createdAt string
 }
@@ -180,11 +181,29 @@ func (h *documentHistory) notice() string {
 
 	notice := fmt.Sprintf("version %d of %d, %s %s ago",
 		current.version, h.versions[0].version, written, label.Age(dates.Parse(current.createdAt)))
+	if renamed := h.renamedFrom(); renamed != "" {
+		notice += fmt.Sprintf(", renamed from %q", renamed)
+	}
 	if h.isOldestKeptLate() {
 		notice += ", and the writes before it were not kept"
 	}
 
 	return "_" + notice + "_"
+}
+
+// renamedFrom is the name the write before the one stood on had, where the write stood on renamed
+// it, and empty otherwise.
+func (h *documentHistory) renamedFrom() string {
+	if h.at+1 >= len(h.versions) {
+		return ""
+	}
+
+	before, current := h.versions[h.at+1].name, h.versions[h.at].name
+	if before == "" || current == "" || before == current {
+		return ""
+	}
+
+	return before
 }
 
 // isOldestKeptLate reports whether the write stood on is the oldest kept but not the first

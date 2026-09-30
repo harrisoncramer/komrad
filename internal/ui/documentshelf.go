@@ -69,6 +69,7 @@ func (f documentShelf) listVersions(a api, id string) ([]historyVersion, error) 
 		return xslice.Map(versions, func(v *agentv1.DocumentTypeVersion) historyVersion {
 			return historyVersion{
 				version:   v.GetVersion(),
+				name:      v.GetName(),
 				createdAt: v.GetCreatedAt(),
 			}
 		}), nil
