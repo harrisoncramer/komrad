@@ -129,7 +129,12 @@ the service, or call an endpoint from a script.`,
 
 			app.tmux = tmux.NewClient(env.TmuxSocket)
 
-			app.session = ui.NewSession(app.tmux, agents.ManagerSession, tmux.LeaderKey, tmux.LeaderTable)
+			app.session = ui.NewSession(ui.NewSessionParams{
+				Tmux:        app.tmux,
+				Session:     agents.ManagerSession,
+				LeaderKey:   tmux.LeaderKey,
+				LeaderTable: tmux.LeaderTable,
+			})
 			contextPath, err := cfg.GetContextFile()
 			if err != nil {
 				ctx := cmd.Context()

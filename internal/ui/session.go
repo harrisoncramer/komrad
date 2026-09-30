@@ -6,7 +6,6 @@ import (
 )
 
 type sessionTmux interface {
-	GetSessionClient(session string) string
 	SetSessionOption(target, name, value string)
 	BindRootKey(key string, command ...string)
 	UnbindRootKey(key string)
@@ -18,11 +17,13 @@ type sessionTmux interface {
 	OpenCopyStandIn(params panes.CopyStandIn) error
 }
 
-// leaderPanelKeys are the leader's keys the panel answers itself.
-var leaderPanelKeys = []string{"j"}
-
-// copyKey is the leader's key that starts copy-mode in the pane holding the keys.
-const copyKey = "v"
+// NewSessionParams is what NewSession builds a Session from.
+type NewSessionParams struct {
+	Tmux        sessionTmux
+	Session     string
+	LeaderKey   string
+	LeaderTable string
+}
 
 // Session is the tmux session the panel draws in.
 type Session struct {
@@ -37,12 +38,12 @@ type Session struct {
 
 // NewSession builds the named tmux session the panel runs in over a tmux client, with the leader
 // key opening the leader table.
-func NewSession(tmux sessionTmux, session, leaderKey, leaderTable string) *Session {
+func NewSession(params NewSessionParams) *Session {
 	return &Session{
-		tmux:        tmux,
-		session:     session,
-		leaderKey:   leaderKey,
-		leaderTable: leaderTable,
+		tmux:        params.Tmux,
+		session:     params.Session,
+		leaderKey:   params.LeaderKey,
+		leaderTable: params.LeaderTable,
 	}
 }
 
@@ -87,19 +88,14 @@ func (s *Session) ReleaseLeader() {
 	s.leaderHeld = false
 }
 
-// IsShown reports whether anything is attached to the panel's session.
-func (s *Session) IsShown() bool {
-	return s.tmux.GetSessionClient(s.session) != ""
-}
-
 // Hide detaches every client from the panel's session, leaving the session alive for the next attach.
 func (s *Session) Hide() {
 	s.tmux.DetachSession(s.session)
 }
 
-// SilenceStatus turns off a session's tmux status bar.
-func (s *Session) SilenceStatus(session string) {
-	s.tmux.SetSessionOption(session, "status", "off")
+// SilenceStatus turns off the panel session's tmux status bar.
+func (s *Session) SilenceStatus() {
+	s.tmux.SetSessionOption(s.session, "status", "off")
 }
 
 // TuneCopyMode makes tmux's copy-mode the panel's visual mode.
