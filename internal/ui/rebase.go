@@ -54,7 +54,7 @@ type rebasedMsg struct {
 // planRebaseCmd asks what a rebase would do.
 func (m *model) planRebaseCmd(agentID, name string) tea.Cmd {
 	clients := m.api
-	write := m.beginWrite()
+	write := m.beginWrite("planning the rebase of " + name)
 
 	return func() tea.Msg {
 		plan, err := clients.planRebase(agentID)
@@ -79,7 +79,7 @@ func (m *model) planRebaseCmd(agentID, name string) tea.Cmd {
 // rebaseCmd runs the rebase and reports what it did.
 func (m *model) rebaseCmd(agentID, name string) tea.Cmd {
 	clients := m.api
-	write := m.beginWrite()
+	write := m.beginWrite("rebasing " + name)
 
 	return func() tea.Msg {
 		result, err := clients.rebaseWorktree(agentID)

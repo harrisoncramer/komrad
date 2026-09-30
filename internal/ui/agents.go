@@ -80,6 +80,7 @@ func (m model) archiveAgents(agents []panel.Agent) (model, tea.Cmd) {
 	m.releasePanes(agents)
 
 	return m, m.writeCmd(
+		"archiving "+describeAgents(agents),
 		fmt.Sprintf("Could not archive %s", describeAgents(agents)),
 		func(a api) error { return a.archiveAgents(panel.IDs(agents)) },
 	)
@@ -95,6 +96,7 @@ func (m model) archiveAndDeleteAgents(agents []panel.Agent) (model, tea.Cmd) {
 	ids := panel.IDs(agents)
 
 	return m, m.writeCmd(
+		"archiving and deleting "+describeAgents(agents),
 		fmt.Sprintf("Could not archive and delete %s", describeAgents(agents)),
 		func(a api) error {
 			if err := a.archiveAgents(ids); err != nil {
@@ -134,7 +136,7 @@ func (a *agentsScreen) openAgent(h host, s panelShared) tea.Cmd {
 		return nil
 	}
 
-	return h.openingWriteCmd(fmt.Sprintf("Could not resume agent %q", item.Agent.Name), func(c api) (*agentv1.Agent, error) {
+	return h.openingWriteCmd("resuming "+item.Agent.Name, fmt.Sprintf("Could not resume agent %q", item.Agent.Name), func(c api) (*agentv1.Agent, error) {
 		return c.resumeAgent(item.Agent.ID)
 	})
 }
@@ -153,12 +155,12 @@ func (a *agentsScreen) toggleHidden(h host, s panelShared, _ string) tea.Cmd {
 }
 
 func hideAgent(h host, agent panel.Agent) tea.Cmd {
-	failure := fmt.Sprintf("Could not hide agent %q", agent.Name)
+	doing, failure := "hiding "+agent.Name, fmt.Sprintf("Could not hide agent %q", agent.Name)
 	if agent.Hidden {
-		failure = fmt.Sprintf("Could not unhide agent %q", agent.Name)
+		doing, failure = "unhiding "+agent.Name, fmt.Sprintf("Could not unhide agent %q", agent.Name)
 	}
 
-	return h.writeCmd(failure, func(a api) error { return a.setHidden(agent, !agent.Hidden) })
+	return h.writeCmd(doing, failure, func(a api) error { return a.setHidden(agent, !agent.Hidden) })
 }
 
 // unpauseSaid is what an unpaused agent is told.
@@ -171,7 +173,7 @@ func pauseAgent(h host, agent panel.Agent) tea.Cmd {
 		return h.releaseCmd(fmt.Sprintf("Could not unpause agent %q", agent.Name), agent, unpauseSaid)
 	}
 
-	return h.writeCmd(fmt.Sprintf("Could not pause agent %q", agent.Name), func(a api) error {
+	return h.writeCmd("pausing "+agent.Name, fmt.Sprintf("Could not pause agent %q", agent.Name), func(a api) error {
 		return a.hold(agent)
 	})
 }
@@ -386,6 +388,7 @@ func (l listing) scheduledWorkflows() map[string]bool {
 // startOrchestrator brings the workflow's orchestrator back and puts the keyboard in its pane.
 func startOrchestrator(h host, workflow panel.Workflow) tea.Cmd {
 	return h.rowWriteCmd(
+		"starting the orchestrator of "+workflow.Name,
 		fmt.Sprintf("Could not reach the orchestrator of workflow %q", workflow.Name),
 		func(a api) (written, error) {
 			agent, err := a.startOrchestrator(workflow.ID)

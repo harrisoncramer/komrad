@@ -1,8 +1,6 @@
 package ui
 
 import (
-	"time"
-
 	"komrad/config"
 
 	"komrad/internal/ui/paint"
@@ -157,10 +155,9 @@ const formHelpLines = 1
 // submittingLines is the notice drawn under a held form.
 const submittingLines = 1
 
-// heldWrite is the write a form is being kept up for: when it was sent, and which write it is.
+// heldWrite is the write a form is being kept up for.
 type heldWrite struct {
 	active bool
-	since  time.Time
 	write  int
 }
 
@@ -308,7 +305,6 @@ func confirmFormStartingOn(confirmed bool, title, description, affirmative strin
 func (m *model) holdForm() tea.Cmd {
 	m.held = heldWrite{
 		active: true,
-		since:  time.Now(),
 		write:  m.writes,
 	}
 
@@ -364,7 +360,7 @@ func (m model) detachForm() (tea.Model, tea.Cmd) {
 
 // landHeld counts a write back in, and reports whether the form on screen was held for it.
 func (m *model) landHeld(write int) bool {
-	m.pending--
+	m.landWrite(write)
 	delete(m.detached, write)
 
 	if !m.held.owns(write) {

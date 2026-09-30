@@ -311,6 +311,7 @@ func deleteWorktreesCmd(h host, deletion worktreeDeletion) tea.Cmd {
 	subject := label.Count(len(dirs), "worktree", "worktrees")
 
 	return h.queuedCmd(
+		"deleting "+subject,
 		"Could not delete "+subject,
 		message{
 			kind:    messageInfo,

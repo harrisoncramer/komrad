@@ -194,10 +194,10 @@ func (m *model) screenOf(s screen) screenModel {
 // host is what a screen asks of the root in the same turn.
 type host interface {
 	// A write lands its result as a message every screen's writes share.
-	writeCmd(summary string, write func(api) error) tea.Cmd
-	rowWriteCmd(summary string, write func(api) (written, error)) tea.Cmd
-	openingWriteCmd(summary string, write func(api) (*agentv1.Agent, error)) tea.Cmd
-	queuedCmd(summary string, queued message, write func(api) error) tea.Cmd
+	writeCmd(doing, summary string, write func(api) error) tea.Cmd
+	rowWriteCmd(doing, summary string, write func(api) (written, error)) tea.Cmd
+	openingWriteCmd(doing, summary string, write func(api) (*agentv1.Agent, error)) tea.Cmd
+	queuedCmd(doing, summary string, queued message, write func(api) error) tea.Cmd
 
 	// A failure lands in the messages region.
 	report(summary string, err error)

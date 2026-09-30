@@ -1,6 +1,7 @@
 package ui_test
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -8,6 +9,7 @@ import (
 	"komrad/lib/xptr"
 	agentv1 "komrad/proto/gen/agent/v1"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
+	"komrad/proto/gen/workflow/v1/workflowv1connect"
 
 	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
@@ -113,6 +115,48 @@ func readChecksFrame(t *testing.T, harness *panelHarness) string {
 	}
 
 	require.Fail(t, "no notice says the checks are running")
+
+	return ""
+}
+
+// TestLoaderSpinsWhileAWriteIsInFlight covers a held form's notice drawing the configured loader a frame a tick until its write lands.
+func TestLoaderSpinsWhileAWriteIsInFlight(t *testing.T) {
+	create := workflowv1connect.WorkflowServiceCreateWorkflowProcedure
+	harness := newPanelHarness(t, panelHarnessParams{width: 160, height: 40, loader: loader.Arcs})
+	answerWorktreeReads(harness)
+	harness.watch(buildSnapshot(newFormWorkflow()))
+	harness.hold(create)
+	harness.press(slices.Concat([]string{"w"}, spellKeys("web"), []string{"ctrl+s"})...)
+
+	var drawn []string
+	for range 3 {
+		drawn = append(drawn, readWriteFrame(t, harness.readFrame(), "creating workflow web…"))
+		require.True(t, harness.fireLoader(), "the loader stopped ticking with the write in flight")
+	}
+
+	assert.Equal(t, []string{"◜", "◝", "◞"}, drawn)
+
+	harness.release(create)
+	harness.fireLoader()
+	assert.False(t, harness.fireLoader(), "the loader goes quiet once the write lands")
+}
+
+func readWriteFrame(t *testing.T, frame, doing string) string {
+	t.Helper()
+
+	for _, line := range splitLines(ansi.Strip(frame)) {
+		at := strings.Index(line, doing)
+		if at < 0 {
+			continue
+		}
+
+		fields := strings.Fields(line[:at])
+		require.NotEmpty(t, fields)
+
+		return fields[len(fields)-1]
+	}
+
+	require.Fail(t, "nothing is drawn doing "+doing)
 
 	return ""
 }

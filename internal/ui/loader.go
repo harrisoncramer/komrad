@@ -5,7 +5,9 @@ import (
 	"time"
 
 	"komrad/internal/loader"
+	"komrad/internal/ui/paint"
 	"komrad/internal/ui/panel"
+	"komrad/internal/ui/submitting"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 
 	tea "charm.land/bubbletea/v2"
@@ -32,6 +34,10 @@ type loaderScreen interface {
 }
 
 func (m *model) isLoading() bool {
+	if len(m.inflight) > 0 {
+		return true
+	}
+
 	screen, ok := m.active().(loaderScreen)
 
 	return ok && screen.isLoading(m.shared())
@@ -79,4 +85,38 @@ func (m *model) advanceLoader() tea.Cmd {
 	m.loading.ticking = true
 
 	return loaderTick()
+}
+
+// heldWrite is the write the form on screen is held for.
+func (m model) heldWrite() (submitting.Write, bool) {
+	if !m.held.active {
+		return submitting.Write{}, false
+	}
+
+	write, ok := m.inflight[m.held.write]
+
+	return write, ok
+}
+
+// looseWrites are the writes in flight that no form on screen is held for.
+func (m model) looseWrites() []submitting.Write {
+	loose := make([]submitting.Write, 0, len(m.inflight))
+	for id, write := range m.inflight {
+		if m.held.owns(id) {
+			continue
+		}
+
+		loose = append(loose, write)
+	}
+
+	return loose
+}
+
+func (m model) submittingParams(width int) submitting.Params {
+	return submitting.Params{
+		Palette: paint.Panel,
+		Frame:   m.loading.frame(),
+		Now:     time.Now(),
+		Width:   width,
+	}
 }

@@ -40,6 +40,7 @@ func newDocumentForm(h host, s panelShared, agentID string) tea.Cmd {
 
 			name, typeName := strings.TrimSpace(values.Name), values.Type
 			cmd := m.writeCmd(
+				"writing "+name,
 				fmt.Sprintf("Could not write a document for %s", owner),
 				func(a api) error { return a.createDocument(agentID, name, typeName, documentPlaceholder(typeName)) },
 			)

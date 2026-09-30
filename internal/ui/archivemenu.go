@@ -133,6 +133,7 @@ func restoreArchived(h host, target archived) tea.Cmd {
 		schedule := *target.schedule
 
 		return h.writeCmd(
+			"restoring "+schedule.Name,
 			fmt.Sprintf("Could not restore schedule %q", schedule.Name),
 			func(c api) error { return c.restoreSchedule(schedule.ID) },
 		)
@@ -140,6 +141,7 @@ func restoreArchived(h host, target archived) tea.Cmd {
 		workflow := *target.workflow
 
 		return h.writeCmd(
+			"restoring "+workflow.Name,
 			fmt.Sprintf("Could not restore workflow %q", workflow.Name),
 			func(c api) error { return c.restoreWorkflow(workflow.ID) },
 		)

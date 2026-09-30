@@ -46,6 +46,7 @@ func (r *rowRename) save(h host) (tea.Cmd, bool) {
 		id := r.schedule.ID
 
 		return stampRename(h.writeCmd(
+			"renaming "+r.was,
 			fmt.Sprintf("Could not rename schedule %q", r.was),
 			func(a api) error { return a.updateSchedule(id, renamed) },
 		), r.key), true
@@ -54,6 +55,7 @@ func (r *rowRename) save(h host) (tea.Cmd, bool) {
 		renamed.Name = name
 
 		return stampRename(h.writeCmd(
+			"renaming "+r.was,
 			fmt.Sprintf("Could not rename workflow %q", r.was),
 			func(a api) error { return a.updateWorkflow(renamed) },
 		), r.key), true
@@ -62,6 +64,7 @@ func (r *rowRename) save(h host) (tea.Cmd, bool) {
 	agent := r.agent
 
 	return stampRename(h.writeCmd(
+		"renaming "+r.was,
 		fmt.Sprintf("Could not rename agent %q", r.was),
 		func(a api) error { return a.renameAgent(agent, name) },
 	), r.key), true

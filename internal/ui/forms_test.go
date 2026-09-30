@@ -313,14 +313,14 @@ func TestFormsInFlight(t *testing.T) {
 		harness.press(submit...)
 
 		frame := harness.readFrame()
-		assert.Contains(t, frame, "submitting…")
+		assert.Contains(t, frame, "starting the agent…")
 		assert.Contains(t, frame, "check CI", "the form is still up")
 		assert.Empty(t, harness.panel.ReadRespawns(), "no pane is opened for the provisioner")
 
 		harness.release(create)
 
 		frame = harness.readFrame()
-		assert.NotContains(t, frame, "submitting…")
+		assert.NotContains(t, frame, "starting the agent…")
 		assert.NotContains(t, frame, "check CI", "the form goes once the create has landed")
 	})
 
@@ -344,7 +344,8 @@ func TestFormsInFlight(t *testing.T) {
 
 		harness.press("esc")
 
-		assert.NotContains(t, harness.readFrame(), "submitting…", "the form it was holding is gone")
+		assert.NotContains(t, harness.readFrame(), "check CI", "the form it was holding is gone")
+		assert.Contains(t, readLegend(harness.readFrame()), "⠋ starting", "the create it left is drawn in the corner")
 		harness.press("j")
 		assert.Equal(t, "  author", readHoveredRow(harness.readFrame()), "the panel takes keys again")
 
@@ -366,7 +367,7 @@ func TestFormsInFlight(t *testing.T) {
 		harness.release(create)
 
 		frame := harness.readFrame()
-		assert.Contains(t, frame, "submitting…", "the second form is still held")
+		assert.Contains(t, frame, "starting the agent…", "the second form is still held")
 		assert.Contains(t, frame, "the second one")
 	})
 }
@@ -802,8 +803,8 @@ func TestFormsLayout(t *testing.T) {
 
 				lines := splitLines(strings.TrimSuffix(harness.readFrame(), "\n"))
 				assert.Len(t, lines, tt.height)
-				assert.NotContains(t, lines[0], "submitting", "the panel keeps its top row")
-				assert.Contains(t, findLastFilled(lines), "submitting…", "the notice sits under the form")
+				assert.NotContains(t, lines[0], "creating workflow", "the panel keeps its top row")
+				assert.Contains(t, findLastFilled(lines), "creating workflow web…", "the notice sits under the form")
 			})
 		}
 	})

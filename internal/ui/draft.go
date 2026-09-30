@@ -52,8 +52,8 @@ func (m model) toggleDraft(item panel.AgentRow) (model, tea.Cmd) {
 		number: standing.Number,
 		title:  standing.Title,
 		draft:  !isDraft(item),
-		write:  m.beginWrite(),
 	}
+	drafted.write = m.beginWrite(draftingLabel(drafted))
 
 	return m, func() tea.Msg {
 		drafted.err = clients.setPullRequestDraft(standing.URL, drafted.draft)
@@ -88,4 +88,12 @@ func (m model) applyDrafted(msg draftedMsg) (tea.Model, tea.Cmd) {
 	}
 
 	return m.closeForm()
+}
+
+func draftingLabel(drafted draftedMsg) string {
+	if drafted.draft {
+		return fmt.Sprintf("marking #%d a draft", drafted.number)
+	}
+
+	return fmt.Sprintf("marking #%d ready", drafted.number)
 }

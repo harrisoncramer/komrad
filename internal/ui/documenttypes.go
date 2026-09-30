@@ -98,6 +98,7 @@ func newTypeForm(h host) tea.Cmd {
 
 			name, typeContext := strings.TrimSpace(values.Name), values.Context
 			cmd := m.writeCmd(
+				"defining "+name,
 				fmt.Sprintf("Could not define document type %q", name),
 				func(a api) error { return a.createDocumentType(name, typeContext) },
 			)
@@ -140,6 +141,7 @@ func (d *documentsScreen) confirmDeleteType(h host, s panelShared) tea.Cmd {
 			}
 
 			return m, m.writeCmd(
+				"deleting "+item.name,
 				fmt.Sprintf("Could not delete document type %q", item.name),
 				func(a api) error { return a.deleteDocumentType(item.id) },
 			)
