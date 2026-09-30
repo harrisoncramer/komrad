@@ -21,7 +21,7 @@ type itemMenued interface {
 // openMenu draws the menu, the hovered row's band over the panel's own.
 func (m *model) openMenu() tea.Cmd {
 	s := m.shared()
-	menu := panelMenu(s, m.isScratchOpen(), m.menuReturn(s))
+	menu := panelMenu(s, m.isScratchOpen(), m.menuReturn())
 
 	if screen, ok := m.active().(itemMenued); ok && !m.isDetailsFocused() {
 		if item, ok := screen.itemMenu(s); ok {
@@ -39,12 +39,8 @@ type menuPlace struct {
 }
 
 // menuReturn is the screen the menu was opened on and the agent it was showing.
-func (m *model) menuReturn(s panelShared) menuPlace {
+func (m *model) menuReturn() menuPlace {
 	switch m.screen {
-	case screenAgents:
-		return menuPlace{screen: m.screen, target: screenTarget{agentID: m.agents.hoveredAgentID(s)}}
-	case screenArchive:
-		return menuPlace{screen: m.screen, target: screenTarget{agentID: m.archive.hoveredAgentID(s)}}
 	case screenDocuments:
 		return menuPlace{screen: m.screen, target: screenTarget{agentID: m.documents.agentID, from: m.documents.from}}
 	case screenLogs:
@@ -53,10 +49,10 @@ func (m *model) menuReturn(s panelShared) menuPlace {
 		return menuPlace{screen: m.screen, target: screenTarget{agentID: m.review.agentID}}
 	case screenDocumentTypes:
 		return menuPlace{screen: m.documentTypes.from, target: m.documentTypes.returning}
-	case screenSchedules, screenSearch, screenWorktrees:
+	case screenAgents, screenArchive, screenSchedules, screenSearch, screenWorktrees:
 	}
 
-	return menuPlace{screen: m.screen}
+	return menuPlace{screen: m.screen, target: screenTarget{agentID: m.hoveredAgentID()}}
 }
 
 // panelMenu is the band of the menu that acts on the panel whatever is hovered.
