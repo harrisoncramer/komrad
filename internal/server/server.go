@@ -166,6 +166,7 @@ func NewServer(ctx context.Context, params NewServerParams) (*Server, error) {
 		RunLogsDir:    params.Env.RunLogsDir(),
 		Doctor:        params.Doctor,
 		Watch:         broker,
+		Wakers:        wakers,
 	})
 	if err != nil {
 		return nil, err

@@ -16,6 +16,8 @@ import (
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
 	"komrad/proto/gen/hook/v1/hookv1connect"
+	loopv1 "komrad/proto/gen/loop/v1"
+	"komrad/proto/gen/loop/v1/loopv1connect"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 	workflowv1 "komrad/proto/gen/workflow/v1"
 	"komrad/proto/gen/workflow/v1/workflowv1connect"
@@ -778,7 +780,12 @@ func TestAgentsRecordEmphasis(t *testing.T) {
 	})
 
 	t.Run("the tag and the counts wear the tone of what they count", func(t *testing.T) {
-		harness := openWorktreeRecord(t, panelHarnessParams{})
+		recorded := buildRecorded()
+		recorded[1].(*agentv1.Agent).DiffStat = &agentv1.DiffStat{Added: 200, Removed: 100}
+		harness := newPanelHarness(t, panelHarnessParams{})
+		harness.answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, answerWith(buildWorktreeRead()))
+		harness.watch(buildSnapshot(recorded...))
+		harness.press("pick:record")
 		harness.press(append([]string{"pick:record"}, widenListPresses...)...)
 
 		frame := harness.readRawFrame()
@@ -1131,55 +1138,32 @@ func TestAgentsRecordWorktree(t *testing.T) {
 
 	t.Run("the top rule carries the lines the branch changed", func(t *testing.T) {
 		tests := []struct {
-			name   string
-			answer answerFunc
-			want   string
+			name     string
+			diffStat *agentv1.DiffStat
+			want     string
 		}{
 			{
-				name:   "a directory komrad does not hold carries nothing",
-				answer: refuseWith(connect.CodeNotFound, "/repo is not under the worktree directories"),
+				name: "an agent with no base to count against carries nothing",
 			},
 			{
-				name: "a branch with no base to count against carries nothing",
-				answer: answerWith(func() *worktreev1.GetWorktreeResponse {
-					read := buildWorktreeRead()
-					read.BaseRef, read.BaseError = "", "no base branch"
-					read.AddedLines, read.RemovedLines = nil, nil
-
-					return read
-				}()),
+				name:     "a branch with nothing changed reads clean",
+				diffStat: &agentv1.DiffStat{},
+				want:     "clean",
 			},
 			{
-				name: "a base the branch shares no history with carries nothing",
-				answer: answerWith(func() *worktreev1.GetWorktreeResponse {
-					read := buildWorktreeRead()
-					read.AddedLines, read.RemovedLines = nil, nil
-
-					return read
-				}()),
-			},
-			{
-				name: "a branch with nothing changed reads clean",
-				answer: answerWith(func() *worktreev1.GetWorktreeResponse {
-					read := buildWorktreeRead()
-					read.AddedLines, read.RemovedLines = xptr.Ptr[int32](0), xptr.Ptr[int32](0)
-
-					return read
-				}()),
-				want: "clean",
-			},
-			{
-				name:   "a branch with changes counts the lines added and removed",
-				answer: answerWith(buildWorktreeRead()),
-				want:   "+200 −100",
+				name:     "a branch with changes counts the lines added and removed",
+				diffStat: &agentv1.DiffStat{Added: 200, Removed: 100},
+				want:     "+200 −100",
 			},
 		}
 
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
+				recorded := buildRecorded()
+				recorded[1].(*agentv1.Agent).DiffStat = tt.diffStat
 				harness := newPanelHarness(t, panelHarnessParams{})
-				harness.answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, tt.answer)
-				harness.watch(buildSnapshot(buildRecorded()...))
+				harness.answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, refuseWith(connect.CodeNotFound, "/repo is not under the worktree directories"))
+				harness.watch(buildSnapshot(recorded...))
 
 				assert.Equal(t, tt.want, readRecordTag(harness.readFrame()))
 			})
@@ -1193,6 +1177,34 @@ func TestAgentsRecordWorktree(t *testing.T) {
 		harness.press("pick:record")
 
 		harness.assertSentTo(worktreev1connect.WorktreeServiceGetWorktreeProcedure, buildWorktreeReads(2)...)
+	})
+
+	t.Run("looking at a live agent wakes the cwd sync to measure it", func(t *testing.T) {
+		tests := []struct {
+			name    string
+			presses []string
+		}{
+			{
+				name:    "the cursor coming to rest",
+				presses: []string{"k", "j"},
+			},
+			{
+				name:    "the focus key",
+				presses: []string{"pick:record"},
+			},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				harness := openAgents(t, buildRecorded()...)
+				harness.assertSentTo(loopv1connect.LoopServiceWakeLoopProcedure)
+
+				harness.press(tt.presses...)
+				harness.fireTimers()
+
+				harness.assertSentTo(loopv1connect.LoopServiceWakeLoopProcedure, &loopv1.WakeLoopRequest{Loop: loopv1.Loop_LOOP_CWD_SYNC})
+			})
+		}
 	})
 
 	t.Run("a refused reread keeps the last answer beside the refusal", func(t *testing.T) {
@@ -2637,8 +2649,6 @@ func buildWorktreeRead() *worktreev1.GetWorktreeResponse {
 		BaseRef:            "origin/main",
 		Ahead:              3,
 		Behind:             12,
-		AddedLines:         xptr.Ptr[int32](200),
-		RemovedLines:       xptr.Ptr[int32](100),
 		Pushed:             true,
 		Unpushed:           2,
 		Unpulled:           1,

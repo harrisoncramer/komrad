@@ -16,6 +16,7 @@ import (
 	rpcgit "komrad/internal/rpc/git"
 	rpchook "komrad/internal/rpc/hook"
 	rpclog "komrad/internal/rpc/log"
+	rpcloop "komrad/internal/rpc/loop"
 	rpcpullrequest "komrad/internal/rpc/pullrequest"
 	rpcschedule "komrad/internal/rpc/schedule"
 	rpcterminal "komrad/internal/rpc/terminal"
@@ -38,6 +39,8 @@ import (
 	hookv1komrad "komrad/proto/gen/hook/v1/hookv1komrad"
 	"komrad/proto/gen/log/v1/logv1connect"
 	logv1komrad "komrad/proto/gen/log/v1/logv1komrad"
+	"komrad/proto/gen/loop/v1/loopv1connect"
+	loopv1komrad "komrad/proto/gen/loop/v1/loopv1komrad"
 	"komrad/proto/gen/pullrequest/v1/pullrequestv1connect"
 	pullrequestv1komrad "komrad/proto/gen/pullrequest/v1/pullrequestv1komrad"
 	"komrad/proto/gen/schedule/v1/schedulev1connect"
@@ -70,6 +73,7 @@ type newMuxParams struct {
 	// Doctor is this machine as the doctor's checks see it.
 	Doctor doctor.Settings
 	Watch  *watch.Broker
+	Wakers *loopWakers
 }
 
 func newMux(params newMuxParams) (*http.ServeMux, error) {
@@ -167,6 +171,14 @@ func newMux(params newMuxParams) (*http.ServeMux, error) {
 	mux.Handle(logv1connect.NewLogServiceHandler(
 		logv1komrad.LogServiceAdapter{
 			Impl: rpclog.NewHandler(logread.New(params.LogPath), logread.NewRuns(params.RunLogsDir)),
+		}, options...))
+	mux.Handle(loopv1connect.NewLoopServiceHandler(
+		loopv1komrad.LoopServiceAdapter{
+			Impl: rpcloop.NewHandler(rpcloop.NewHandlerParams{
+				CwdSync:         params.Wakers.cwdSync,
+				TranscriptSync:  params.Wakers.transcriptSync,
+				PullRequestSync: params.Wakers.pullRequestSync,
+			}),
 		}, options...))
 	mux.Handle(doctorv1connect.NewDoctorServiceHandler(
 		doctorv1komrad.DoctorServiceAdapter{

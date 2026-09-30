@@ -535,6 +535,7 @@ func TestLastRebaseRoundTrips(t *testing.T) {
 	require.ErrorIs(t, err, store.ErrNotFound)
 }
 
+// TestDiffStatRoundTrips covers a diff stat written, read back and cleared.
 func TestDiffStatRoundTrips(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()

@@ -10,6 +10,8 @@ import (
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/ui/panel"
+	agentv1 "komrad/proto/gen/agent/v1"
+	loopv1 "komrad/proto/gen/loop/v1"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
@@ -31,6 +33,22 @@ func (m *model) inspectAgentWorktreeCmd(now time.Time) tea.Cmd {
 	}
 
 	return m.readWorktreeCmd(item.Agent.Cwd)
+}
+
+// wakeCwdSyncCmd asks the service to measure the live agents' checkouts again when the cursor
+// rests on a live one, so its diff stat catches up sooner than the next tick.
+func (m *model) wakeCwdSyncCmd() tea.Cmd {
+	item, ok := m.hoveredRecordAgent()
+	if !ok || item.Agent.Cwd == "" || item.Agent.ArchivedAt != nil {
+		return nil
+	}
+	clients := m.api
+
+	return func() tea.Msg {
+		clients.wakeLoop(loopv1.Loop_LOOP_CWD_SYNC)
+
+		return nil
+	}
 }
 
 // rereadAgentWorktreeCmd asks for the hovered agent's directory again however fresh what stands
@@ -137,15 +155,15 @@ func buildRemoteField(read worktreeInspection) recordField {
 
 // buildDiffStatTag is the lines the branch adds and removes since its base, and nothing where no
 // base could be measured against.
-func buildDiffStatTag(read worktreeInspection, ok bool) string {
-	if !ok || !read.isRead() || !read.item.readable || !read.measured {
+func buildDiffStatTag(stat *agentv1.DiffStat) string {
+	if stat == nil {
 		return ""
 	}
-	if read.added == 0 && read.removed == 0 {
+	if stat.GetAdded() == 0 && stat.GetRemoved() == 0 {
 		return dimStyle().Render("clean")
 	}
 
-	return paint.Panel.Style(paint.ToneSuccess).Render(fmt.Sprintf("+%d", read.added)) + " " + paint.Panel.Style(paint.ToneDanger).Render(fmt.Sprintf("−%d", read.removed))
+	return paint.Panel.Style(paint.ToneSuccess).Render(fmt.Sprintf("+%d", stat.GetAdded())) + " " + paint.Panel.Style(paint.ToneDanger).Render(fmt.Sprintf("−%d", stat.GetRemoved()))
 }
 
 func countStyle(count int, style lipgloss.Style) lipgloss.Style {

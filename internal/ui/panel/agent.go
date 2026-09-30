@@ -95,6 +95,8 @@ type AgentRow struct {
 	DocumentsUpdatedAt *time.Time
 	// MovedSinceRound is the newest round's snapshot while the worktree no longer hashes to it.
 	MovedSinceRound string
+	// DiffStat is the lines its checkout adds and removes since its base, nil where there is none.
+	DiffStat *agentv1.DiffStat
 	// ReviewerComments counts the comments reviewer agents left on its work, nil while there
 	// are none to show.
 	ReviewerComments *agentv1.CommentCounts

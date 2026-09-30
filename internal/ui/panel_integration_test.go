@@ -194,6 +194,7 @@ func newPanelRemote(instance *komradtest.Instance) *panelRemote {
 		worktrees:    instance.Worktrees,
 		forges:       instance.Forges,
 		pullRequests: instance.PullRequests,
+		loops:        instance.Loops,
 		logs:         instance.Logs,
 	}
 }
