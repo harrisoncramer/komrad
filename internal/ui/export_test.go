@@ -30,8 +30,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const panelViewer = "/dev/ttys004"
-
 var updateGoldens = flag.Bool("update", false, "rewrite the golden files")
 
 // FormFieldDraftPath is the file a form field is written out to for the editor.
@@ -61,21 +59,20 @@ type recordingTmux struct {
 	width       int
 	height      int
 	// paneWidths is one pane's own width, falling back to width where a pane has no entry.
-	paneWidths    map[string]int
-	windowWidth   int
-	sentKeys      []string
-	detaches      int
-	killed        []string
-	belowAnchors  []string
-	globals       map[string]string
-	infoPane      string
-	selected      []string
-	respawnPanes  []string
-	respawnDirs   []string
-	deadPanes     map[string]bool
-	sessionClient string
-	zoomed        bool
-	zooms         []bool
+	paneWidths   map[string]int
+	windowWidth  int
+	sentKeys     []string
+	detaches     int
+	killed       []string
+	belowAnchors []string
+	globals      map[string]string
+	infoPane     string
+	selected     []string
+	respawnPanes []string
+	respawnDirs  []string
+	deadPanes    map[string]bool
+	zoomed       bool
+	zooms        []bool
 	// keysElsewhere is the keyboard sitting in a pane other than the one being asked about.
 	keysElsewhere bool
 	// activePane is the pane the window sends keys to, where a test has put them somewhere named.
@@ -168,7 +165,12 @@ func NewPanel(params NewPanelParams) *Panel {
 
 	panel := &Panel{
 		model: newModel(Deps{
-			Session:         NewSession(tmux, "test-session", "C-Space", "komrad-leader"),
+			Session: NewSession(NewSessionParams{
+				Tmux:        tmux,
+				Session:     "test-session",
+				LeaderKey:   "C-Space",
+				LeaderTable: "komrad-leader",
+			}),
 			Tmux:            driven,
 			Git:             params.Git,
 			Agents:          params.Agents,
@@ -553,14 +555,6 @@ func (p *Panel) SetPaneDead(pane string) {
 	p.tmux.deadPanes[pane] = true
 }
 
-// SetShown makes tmux report whether a client is looking at the panel's session.
-func (p *Panel) SetShown(isShown bool) {
-	p.tmux.sessionClient = ""
-	if isShown {
-		p.tmux.sessionClient = panelViewer
-	}
-}
-
 // SetHostPath makes tmux report the directory of the client the panel was invoked from.
 func (p *Panel) SetHostPath(path string) {
 	p.tmux.path = path
@@ -605,10 +599,6 @@ func (unsplittableTmux) SplitLeft(string, string, string) string {
 
 func (t *recordingTmux) ShowGlobal(name string) string {
 	return t.globals[name]
-}
-
-func (t *recordingTmux) GetSessionClient(string) string {
-	return t.sessionClient
 }
 
 func (t *recordingTmux) SetSessionOption(_, name, value string) {

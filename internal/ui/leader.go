@@ -7,6 +7,15 @@ import (
 // leaderKey is the leader as the panel reads it.
 const leaderKey = "ctrl+space"
 
+// pickerKey is the leader's key that toggles the pane picker.
+const pickerKey = "j"
+
+// copyKey is the leader's key that starts copy-mode in the pane holding the keys.
+const copyKey = "v"
+
+// leaderPanelKeys are the leader's keys the panel answers itself.
+var leaderPanelKeys = []string{pickerKey}
+
 func (m model) holdLeader() {
 	if m.session == nil {
 		return
@@ -36,7 +45,7 @@ func (m model) routeLeader(key tea.KeyPressMsg) (tea.Model, tea.Cmd, bool) {
 		next, cmd := m.toggleCopy()
 
 		return next, cmd, true
-	case "j":
+	case pickerKey:
 		next, cmd := m.togglePicker()
 
 		return next, cmd, true

@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"komrad/config"
-	"komrad/internal/agents"
 	"komrad/internal/browser"
 	"komrad/internal/doctor"
 	"komrad/internal/engine"
@@ -123,7 +122,7 @@ Use ` + "`komrad open`" + ` to bring the panel up.`,
 			forgeClient := forgev1connect.NewForgeServiceClient(httpClient, base)
 			watchClient := watchv1connect.NewWatchServiceClient(httpClient, base)
 
-			state.session.SilenceStatus(agents.ManagerSession)
+			state.session.SilenceStatus()
 			state.tmux.EnableFocusEvents()
 			state.session.TuneCopyMode()
 
