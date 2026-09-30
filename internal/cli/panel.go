@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"os"
 	"path/filepath"
 	"slices"
 	"time"
@@ -126,7 +127,11 @@ Use ` + "`komrad open`" + ` to bring the panel up.`,
 
 			state.session.SilenceStatus()
 			state.tmux.EnableFocusEvents()
-			state.session.TuneCopyMode()
+			copier, err := os.Executable()
+			if err != nil {
+				return fmt.Errorf("failed to find the komrad binary visual mode copies through: %w", err)
+			}
+			state.session.TuneCopyMode(copier)
 
 			var binary ui.BinaryWatcher
 			if watch := watchExecutable(); watch != nil {

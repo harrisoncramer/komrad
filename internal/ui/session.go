@@ -13,7 +13,7 @@ type sessionTmux interface {
 	UnbindTable(table string)
 	GetWindowID(pane string) string
 	DetachSession(name string)
-	TuneCopyMode(badge string)
+	TuneCopyMode(badge, copier string)
 	OpenCopyStandIn(params panes.CopyStandIn) error
 }
 
@@ -98,9 +98,10 @@ func (s *Session) SilenceStatus() {
 	s.tmux.SetSessionOption(s.session, "status", "off")
 }
 
-// TuneCopyMode makes tmux's copy-mode the panel's visual mode.
-func (s *Session) TuneCopyMode() {
-	s.tmux.TuneCopyMode(paint.Panel.TmuxVisual(visualLabel))
+// TuneCopyMode makes tmux's copy-mode the panel's visual mode, a copy in a stand-in cut to its
+// block by copier.
+func (s *Session) TuneCopyMode(copier string) {
+	s.tmux.TuneCopyMode(paint.Panel.TmuxVisual(visualLabel), copier)
 }
 
 // OpenCopyStandIn puts standIn in copy-mode where sidebar sits, and has it send the sidebar the

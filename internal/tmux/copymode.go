@@ -5,14 +5,10 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strconv"
 	"strings"
 
 	"komrad/internal/panes"
-
-	"github.com/charmbracelet/x/ansi"
-	"github.com/rivo/uniseg"
 )
 
 // copyModeTable is the key table tmux reads keys from in copy-mode with vi keys.
@@ -21,39 +17,16 @@ const copyModeTable = "copy-mode-vi"
 // standInName is the name of the window a stand-in waits in until it is swapped in.
 const standInName = "komrad-copy"
 
-// standInCopyOption is the pane option naming the directory a stand-in's copy is cut to its block from.
+// standInCopyOption is the pane option naming the file a stand-in's copy is cut to its block from.
 const standInCopyOption = "@komrad_copy"
 
-// cellSeparator divides a row of the block's cells in the file a copy is cut from.
-const cellSeparator = "\x1f"
+// copierOption is the global option naming the binary a stand-in's copy is cut by.
+const copierOption = "@komrad_copier"
 
-// cutCopy is what y in a stand-in pipes the selection through.
-const cutCopy = `sh #{q:` + standInCopyOption + `}/cut #{selection_start_x} #{selection_start_y} ` +
-	`#{selection_end_x} #{selection_end_y} #{rectangle_toggle} #{q:socket_path} #{q:copy-command}`
-
-// cutScript keeps the cells of a selection that fall inside the block and puts them on the clipboard.
-const cutScript = `cat >/dev/null
-socket=$6 copy=$7
-out=$(awk -F "$(printf '\037')" -v top=%d -v left=%d -v sx="$1" -v sy="$2" -v ex="$3" -v ey="$4" -v rect="$5" '
-BEGIN {
-	if (sy > ey || (sy == ey && sx > ex)) { t = sx; sx = ex; ex = t; t = sy; sy = ey; ey = t }
-	if (rect && sx > ex) { t = sx; sx = ex; ex = t }
-}
-{
-	y = top + NR - 1
-	if (y < sy || y > ey) next
-	from = left; to = left + NF - 1
-	if ((rect || y == sy) && sx > from) from = sx
-	if ((rect || y == ey) && ex < to) to = ex
-	s = ""
-	for (c = from; c <= to; c++) s = s $(c - left + 1)
-	sub(/ +$/, "", s)
-	printf "%%s%%s", sep, s
-	sep = "\n"
-}' "$(dirname "$0")/cells")
-printf '%%s' "$out" | %s -S "$socket" load-buffer -w -
-if [ -n "$copy" ]; then printf '%%s' "$out" | sh -c "$copy"; fi
-`
+// cutCopy is what a copy in a stand-in pipes the selection through.
+const cutCopy = `#{q:` + copierOption + `} copy #{q:` + standInCopyOption + `} ` +
+	`#{selection_start_x} #{selection_start_y} #{selection_end_x} #{selection_end_y} #{rectangle_toggle} ` +
+	`--socket=#{q:socket_path} --copy-command=#{q:copy-command}`
 
 // copySelection copies the selection as tmux does, or only the cells inside the block in a stand-in.
 const copySelection = `if-shell -F "#{` + standInCopyOption + `}" "send-keys -X pipe-and-cancel '` + cutCopy + `'" "send-keys -X copy-pipe-and-cancel"`
@@ -67,11 +40,13 @@ var clipboardCommands = [][]string{
 }
 
 // TuneCopyMode sets copy-mode up as the panel's visual mode, with vi keys, badge over the top
-// right of the pane, and a copy landing on the system clipboard.
-func (c *Client) TuneCopyMode(badge string) {
+// right of the pane, and a copy landing on the system clipboard, cut to its block by copier in a
+// stand-in.
+func (c *Client) TuneCopyMode(badge, copier string) {
 	c.SetGlobal("mode-keys", "vi")
 	c.SetGlobal("set-clipboard", "on")
 	c.SetGlobal("copy-mode-position-format", "#[align=right]"+badge)
+	c.SetGlobal(copierOption, copier)
 
 	if command := findClipboardCommand(); command != "" {
 		c.SetGlobal("copy-command", command)
@@ -128,7 +103,7 @@ func (c *Client) OpenCopyStandIn(params panes.CopyStandIn) error {
 		return err
 	}
 
-	cut, err := writeCut(text, params.Block, tmuxPath)
+	cut, err := writeCut(text, params.Block)
 	if err != nil {
 		return errors.Join(err, os.Remove(file))
 	}
@@ -160,7 +135,7 @@ func (c *Client) OpenCopyStandIn(params panes.CopyStandIn) error {
 		restore = append(restore, "send-keys -t "+pane+" "+strings.Join(keys, " "))
 	}
 	if cut != "" {
-		restore = append(restore, "run-shell -b -t "+standIn+" 'sleep 5; rm -rf #{q:"+standInCopyOption+"}'")
+		restore = append(restore, "run-shell -b -t "+standIn+" 'sleep 5; rm -f #{q:"+standInCopyOption+"}'")
 	}
 	restore = append(restore, "kill-pane -t "+standIn)
 
@@ -214,80 +189,4 @@ func writeStandInText(text string) (string, error) {
 	}
 
 	return file.Name(), nil
-}
-
-// writeCut writes the directory a copy in the stand-in is cut to block from, or nothing for a block
-// with no cells.
-func writeCut(text string, block panes.Rect, tmuxPath string) (string, error) {
-	if block.Width <= 0 || block.Height <= 0 {
-		return "", nil
-	}
-
-	dir, err := os.MkdirTemp("", "komrad-copy-*")
-	if err != nil {
-		return "", fmt.Errorf("failed to hold the block to copy from: %w", err)
-	}
-
-	lines := strings.Split(text, "\n")
-	rows := make([]string, 0, block.Height)
-	for y := block.Top; y < block.Top+block.Height; y++ {
-		line := ""
-		if y < len(lines) {
-			line = lines[y]
-		}
-
-		cells := splitCells(ansi.Strip(line))
-		row := make([]string, block.Width)
-		for i := range row {
-			row[i] = " "
-			if at := block.Left + i; at < len(cells) {
-				row[i] = cells[at]
-			}
-		}
-
-		rows = append(rows, strings.Join(row, cellSeparator))
-	}
-
-	script := fmt.Sprintf(cutScript, block.Top, block.Left, "'"+strings.ReplaceAll(tmuxPath, "'", `'\''`)+"'")
-	writeErr := errors.Join(
-		os.WriteFile(filepath.Join(dir, "cells"), []byte(strings.Join(rows, "\n")+"\n"), 0o600),
-		os.WriteFile(filepath.Join(dir, "cut"), []byte(script), 0o600),
-	)
-	if writeErr != nil {
-		return "", errors.Join(fmt.Errorf("failed to hold the block to copy from: %w", writeErr), os.RemoveAll(dir))
-	}
-
-	return dir, nil
-}
-
-func removeCut(dir string) error {
-	if dir == "" {
-		return nil
-	}
-
-	return os.RemoveAll(dir)
-}
-
-// splitCells is a row as the cells it fills, a wide character's second cell left empty.
-func splitCells(plain string) []string {
-	var cells []string
-
-	graphemes := uniseg.NewGraphemes(plain)
-	for graphemes.Next() {
-		width := graphemes.Width()
-		if width == 0 {
-			if len(cells) > 0 {
-				cells[len(cells)-1] += graphemes.Str()
-			}
-
-			continue
-		}
-
-		cells = append(cells, graphemes.Str())
-		for range width - 1 {
-			cells = append(cells, "")
-		}
-	}
-
-	return cells
 }
