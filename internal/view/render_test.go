@@ -249,19 +249,19 @@ func TestNameColumnsTakesTheGutterOffThePane(t *testing.T) {
 		},
 		{
 			name: "a pane exactly the gutter leaves no column at all",
-			pane: GutterColumns(everyColumn()),
+			pane: gutterColumns(everyColumn()),
 			want: 0,
 		},
 		{
 			name: "a wider pane leaves what is left over",
-			pane: GutterColumns(everyColumn()) + 24,
+			pane: gutterColumns(everyColumn()) + 24,
 			want: 24,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, NameColumns(tt.pane, everyColumn()))
+			assert.Equal(t, tt.want, nameColumns(tt.pane, everyColumn()))
 		})
 	}
 }
@@ -609,7 +609,7 @@ func TestNarrowSidebarsKeepTheirColumns(t *testing.T) {
 			})
 
 			assert.Equal(t, everyColumn(), list.Columns)
-			assert.Equal(t, tt.wantName, NameColumns(tt.pane, list.Columns))
+			assert.Equal(t, tt.wantName, nameColumns(tt.pane, list.Columns))
 
 			for _, drawn := range strings.Split(ansiEscapes.ReplaceAllString(render(list, paint.Panel, 0), ""), "\n") {
 				assert.LessOrEqual(t, drawnColumns(drawn), tt.pane, "row %q draws past the pane", drawn)
@@ -664,7 +664,7 @@ func reachableRows() []Row {
 // TestGutterColumnsAgreesWithWhatIsDrawn pins the arithmetic a caller sizes a name by against
 // the row the renderer actually draws, so the two cannot drift apart.
 func TestGutterColumnsAgreesWithWhatIsDrawn(t *testing.T) {
-	assert.Equal(t, drawnNameColumn, GutterColumns(everyColumn()))
+	assert.Equal(t, drawnNameColumn, gutterColumns(everyColumn()))
 }
 
 // drawnNameColumn is the column the settled design opens a workflow's name at, counted off the
@@ -909,7 +909,7 @@ func TestArchiveNameOpensPastTheGutterItHas(t *testing.T) {
 	})
 	require.Len(t, list.Lines, len(archiveRows()))
 
-	assert.Equal(t, drawnArchiveNameColumn, GutterColumns(list.Columns))
+	assert.Equal(t, drawnArchiveNameColumn, gutterColumns(list.Columns))
 
 	rows := archiveRows()
 	for i, drawn := range Rows(list, paint.Panel, archivePane) {
@@ -1015,7 +1015,7 @@ func TestRenderTextColumnsSitBesideTheBar(t *testing.T) {
 
 	for i, line := range lines {
 		assert.LessOrEqualf(t, lipgloss.Width(line), 30, "row %d draws past the pane", i)
-		want := GutterColumns(figureColumns()) + wantNameColumn(rows[i].Kind) - drawnNameColumn
+		want := gutterColumns(figureColumns()) + wantNameColumn(rows[i].Kind) - drawnNameColumn
 		assert.Equalf(t, want, nameColumnOf(line, list.Lines[i]), "row %d opens its name past the gutter", i)
 	}
 

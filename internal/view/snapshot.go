@@ -109,7 +109,7 @@ func (s Snapshot) columns() Columns {
 		return s.Columns
 	}
 
-	return WorkColumns()
+	return workColumns()
 }
 
 // Comments is how one side's comments on an agent's work stand.

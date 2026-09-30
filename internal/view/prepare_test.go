@@ -382,7 +382,7 @@ func TestPrepareComments(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			list := Prepare(Snapshot{Rows: []Row{tt.row}})
 			require.Len(t, list.Lines, 1)
-			assert.Equal(t, WorkColumns(), list.Columns)
+			assert.Equal(t, workColumns(), list.Columns)
 			assert.Equal(t, tt.want, list.Lines[0].Comments)
 		})
 	}
@@ -1168,7 +1168,7 @@ func TestUndeclaredColumnsBuyTheNameTheirRoom(t *testing.T) {
 		Columns: NoColumns(),
 	})
 
-	assert.Equal(t, 4, NameColumns(pane, none.Columns)-NameColumns(pane, every.Columns),
+	assert.Equal(t, 4, nameColumns(pane, none.Columns)-nameColumns(pane, every.Columns),
 		"each of the two costs an Octicon and the space after it")
 }
 
