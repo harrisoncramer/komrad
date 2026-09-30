@@ -19,35 +19,18 @@ func (s schedule) Cursor() (schedulestore.Cursor, error) {
 	return s.cursor, nil
 }
 
-// scheduleOptions is how much of a schedule is drawn.
-type scheduleOptions struct {
-	promptHead int
-}
-
-type scheduleOption = render.LoadOption[scheduleOptions]
-
-// SetPromptHead sets how much of the prompt is drawn.
-func (o *scheduleOptions) SetPromptHead(limit int) {
-	o.promptHead = limit
-}
-
 // scheduleViewOptions turns the view a request asked for into rendering options.
-func scheduleViewOptions(view viewv1.View) []scheduleOption {
+func scheduleViewOptions(view viewv1.View) render.ScheduleOptions {
 	if view == viewv1.View_VIEW_FULL {
-		return nil
+		return render.ScheduleOptions{}
 	}
 
-	return []scheduleOption{render.WithPromptHead[scheduleOptions](render.SummaryHead)}
+	return render.ScheduleOptions{PromptHead: render.SummaryHead}
 }
 
-func renderSchedule(s schedulestore.Schedule, now time.Time, opts ...scheduleOption) schedule {
-	options := scheduleOptions{}
-	for _, opt := range opts {
-		opt(&options)
-	}
-
+func renderSchedule(s schedulestore.Schedule, now time.Time, options render.ScheduleOptions) schedule {
 	return schedule{
-		Schedule: render.Schedule(s, now, render.ScheduleOptions{PromptHead: options.promptHead}),
+		Schedule: render.Schedule(s, now, options),
 		cursor:   schedulestore.Cursor{ID: s.ID},
 	}
 }

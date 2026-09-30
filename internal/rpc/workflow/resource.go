@@ -18,35 +18,18 @@ func (w workflow) Cursor() (workflowstore.Cursor, error) {
 	return w.cursor, nil
 }
 
-// workflowOptions is how much of a workflow is drawn.
-type workflowOptions struct {
-	contextHead int
-}
-
-type workflowOption = render.LoadOption[workflowOptions]
-
-// withContextHead draws the opening of the context rather than the whole of it.
-func withContextHead(limit int) workflowOption {
-	return func(o *workflowOptions) { o.contextHead = limit }
-}
-
 // workflowViewOptions turns the view a request asked for into rendering options.
-func workflowViewOptions(view viewv1.View) []workflowOption {
+func workflowViewOptions(view viewv1.View) render.WorkflowOptions {
 	if view == viewv1.View_VIEW_FULL {
-		return nil
+		return render.WorkflowOptions{}
 	}
 
-	return []workflowOption{withContextHead(render.SummaryHead)}
+	return render.WorkflowOptions{ContextHead: render.SummaryHead}
 }
 
-func renderWorkflow(w workflowstore.Workflow, opts ...workflowOption) workflow {
-	options := workflowOptions{}
-	for _, opt := range opts {
-		opt(&options)
-	}
-
+func renderWorkflow(w workflowstore.Workflow, options render.WorkflowOptions) workflow {
 	return workflow{
-		Workflow: render.Workflow(w, render.WorkflowOptions{ContextHead: options.contextHead}),
+		Workflow: render.Workflow(w, options),
 		cursor:   workflowstore.Cursor{Name: w.Name, ID: w.ID},
 	}
 }

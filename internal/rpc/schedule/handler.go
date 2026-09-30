@@ -65,7 +65,7 @@ func (s *Handler) ListSchedules(ctx context.Context, req *schedulev1.ListSchedul
 	now := time.Now()
 
 	view := scheduleViewOptions(req.GetView())
-	resources := xslice.Map(page, func(stored schedulestore.Schedule) schedule { return renderSchedule(stored, now, view...) })
+	resources := xslice.Map(page, func(stored schedulestore.Schedule) schedule { return renderSchedule(stored, now, view) })
 
 	next, err := paginator.NextToken(resources)
 	if err != nil {
@@ -86,7 +86,7 @@ func (s *Handler) GetSchedule(ctx context.Context, req *schedulev1.GetScheduleRe
 	}
 
 	return &schedulev1.GetScheduleResponse{
-		Schedule: renderSchedule(*found, time.Now()).Schedule,
+		Schedule: renderSchedule(*found, time.Now(), render.ScheduleOptions{}).Schedule,
 	}, nil
 }
 
@@ -116,7 +116,7 @@ func (s *Handler) CreateSchedule(ctx context.Context, req *schedulev1.CreateSche
 	}
 
 	return &schedulev1.CreateScheduleResponse{
-		Schedule: renderSchedule(*created, time.Now()).Schedule,
+		Schedule: renderSchedule(*created, time.Now(), render.ScheduleOptions{}).Schedule,
 	}, nil
 }
 
