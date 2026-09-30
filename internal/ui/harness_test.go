@@ -322,6 +322,12 @@ func (h *panelHarness) press(keys ...string) {
 	h.t.Helper()
 
 	for _, key := range keys {
+		if key == rest {
+			h.fireRest()
+
+			continue
+		}
+
 		if to, ok := strings.CutPrefix(key, "pick:"); ok {
 			h.pick(to)
 
@@ -520,23 +526,26 @@ func (h *panelHarness) fireTimers() {
 func (h *panelHarness) firePulse() {
 	h.t.Helper()
 
-	pending := h.timers
-	h.timers = nil
-	for _, timer := range pending {
-		msg := timer()
-		if !ui.IsPulse(msg) {
-			h.timers = append(h.timers, timer)
-
-			continue
-		}
-
-		h.settle(func() tea.Msg {
-			return msg
-		})
-	}
+	h.fireMatching(ui.IsPulse)
 }
 
 func (h *panelHarness) fireLoader() bool {
+	h.t.Helper()
+
+	return h.fireMatching(ui.IsLoaderTick)
+}
+
+// rest is a press that lets the cursor come to rest on the row it was moved to.
+const rest = "<rest>"
+
+// fireRest lets the cursor come to rest on the row it was moved to.
+func (h *panelHarness) fireRest() {
+	h.t.Helper()
+
+	h.fireMatching(ui.IsStageTick)
+}
+
+func (h *panelHarness) fireMatching(is func(tea.Msg) bool) bool {
 	h.t.Helper()
 
 	pending := h.timers
@@ -544,7 +553,7 @@ func (h *panelHarness) fireLoader() bool {
 	fired := false
 	for _, timer := range pending {
 		msg := timer()
-		if !ui.IsLoaderTick(msg) {
+		if !is(msg) {
 			h.timers = append(h.timers, timer)
 
 			continue

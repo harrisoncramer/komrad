@@ -274,6 +274,23 @@ func IsLoaderTick(msg tea.Msg) bool {
 	return ok
 }
 
+// IsStageTick reports whether msg is the rest a cursor move waited for.
+func IsStageTick(msg tea.Msg) bool {
+	_, ok := msg.(stageTickMsg)
+
+	return ok
+}
+
+// NewWheelFilter is the filter the panel's program adds the wheel's turns up in, reading the time from now.
+func NewWheelFilter(now func() time.Time) func(tea.Model, tea.Msg) tea.Msg {
+	return newWheelFilter(now).filter
+}
+
+// NewWheelTurns is the message the filter lets through for turns it added up.
+func NewWheelTurns(x, rows int) tea.Msg {
+	return wheelMsg{x: x, rows: rows}
+}
+
 // NewWatchLost is the message the panel hears when its watch stream ends.
 func NewWatchLost(err error) tea.Msg {
 	return watchLostMsg{err: err}
