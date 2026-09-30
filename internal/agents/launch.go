@@ -290,7 +290,7 @@ func (s *LaunchService) planLaunch(ctx context.Context, params NewAgentParams) (
 		return nil, fmt.Errorf("failed to look up workflow %q: %w", params.WorkflowID, err)
 	}
 
-	workflowHarness := s.workflowHarness(wf)
+	workflowHarness, workflowFlags := s.roleDefaults(wf, params.Role)
 
 	harnessID := strings.TrimSpace(params.Harness)
 	if harnessID == "" {
@@ -340,7 +340,7 @@ func (s *LaunchService) planLaunch(ctx context.Context, params NewAgentParams) (
 			harnessID:       harnessID,
 			workflowHarness: workflowHarness,
 			agentFlags:      params.Flags,
-			workflowFlags:   wf.Flags,
+			workflowFlags:   workflowFlags,
 		}),
 		workflowContext: wf.Context,
 		provisioner:     provisioner,
@@ -379,6 +379,27 @@ func (s *LaunchService) workflowHarness(wf *workflowstore.Workflow) string {
 	}
 
 	return s.userDefaultHarness
+}
+
+// roleDefaults is the CLI and flags a workflow gives an agent in role that names none of its own.
+func (s *LaunchService) roleDefaults(wf *workflowstore.Workflow, role agentstore.Role) (string, string) {
+	harnessID := s.workflowHarness(wf)
+	if wf == nil {
+		return harnessID, ""
+	}
+	if role != agentstore.RoleReviewer {
+		return harnessID, wf.Flags
+	}
+
+	reviewerHarness := strings.TrimSpace(wf.ReviewerHarness)
+	if reviewerHarness == "" {
+		reviewerHarness = harnessID
+	}
+	if flags := strings.TrimSpace(wf.ReviewerFlags); flags != "" || reviewerHarness != harnessID {
+		return reviewerHarness, flags
+	}
+
+	return reviewerHarness, wf.Flags
 }
 
 func (p *launchPlan) agent(params NewAgentParams, id, sessionID, dir, pane string, spawner *agentstore.Agent) agentstore.Agent { //nolint:revive // a params struct is the follow-up

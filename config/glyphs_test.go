@@ -39,7 +39,7 @@ func TestLoadGlyphs(t *testing.T) {
 		{
 			name:   "a file that names no glyphs draws the defaults",
 			file:   "default_harness = \"claude\"\n",
-			want:   map[glyph.Glyph]string{glyph.FailedScript: "\uf489", glyph.Unread: "·"},
+			want:   map[glyph.Glyph]string{glyph.FailedScript: "\uf489", glyph.Unread: "\uf49a"},
 			loader: loader.Braille,
 		},
 		{

@@ -157,8 +157,8 @@ message CommentCounts {
   int32 open = 1;
   // Comments resolved on rounds not yet merged into the base branch.
   int32 resolved = 2;
-  // Whether any of the comments holds something the person has not read.
-  bool unread = 3;
+  // How many of the comments hold a reply the person has not read.
+  int32 unread = 3;
   // Open threads from people on the forge, offered to the person and not yet counted in open.
   int32 external = 4;
 }

@@ -624,8 +624,8 @@ type CommentCounts struct {
 	Open int32 `protobuf:"varint,1,opt,name=open,proto3" json:"open,omitempty"`
 	// Comments resolved on rounds not yet merged into the base branch.
 	Resolved int32 `protobuf:"varint,2,opt,name=resolved,proto3" json:"resolved,omitempty"`
-	// Whether any of the comments holds something the person has not read.
-	Unread bool `protobuf:"varint,3,opt,name=unread,proto3" json:"unread,omitempty"`
+	// How many of the comments hold a reply the person has not read.
+	Unread int32 `protobuf:"varint,3,opt,name=unread,proto3" json:"unread,omitempty"`
 	// Open threads from people on the forge, offered to the person and not yet counted in open.
 	External      int32 `protobuf:"varint,4,opt,name=external,proto3" json:"external,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -676,11 +676,11 @@ func (x *CommentCounts) GetResolved() int32 {
 	return 0
 }
 
-func (x *CommentCounts) GetUnread() bool {
+func (x *CommentCounts) GetUnread() int32 {
 	if x != nil {
 		return x.Unread
 	}
-	return false
+	return 0
 }
 
 func (x *CommentCounts) GetExternal() int32 {
@@ -2843,7 +2843,7 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\rCommentCounts\x12\x12\n" +
 	"\x04open\x18\x01 \x01(\x05R\x04open\x12\x1a\n" +
 	"\bresolved\x18\x02 \x01(\x05R\bresolved\x12\x16\n" +
-	"\x06unread\x18\x03 \x01(\bR\x06unread\x12\x1a\n" +
+	"\x06unread\x18\x03 \x01(\x05R\x06unread\x12\x1a\n" +
 	"\bexternal\x18\x04 \x01(\x05R\bexternal\"\xab\x02\n" +
 	"\x13PullRequestStanding\x126\n" +
 	"\x05state\x18\x01 \x01(\x0e2 .pullrequest.v1.PullRequestStateR\x05state\x12\x1b\n" +

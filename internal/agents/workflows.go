@@ -141,6 +141,8 @@ func (w *WorkflowService) NewWorkflow(ctx context.Context, cfg workflowstore.Con
 
 	cfg.Cwd = config.ExpandHome(strings.TrimSpace(cfg.Cwd))
 	cfg.Flags = strings.TrimSpace(cfg.Flags)
+	cfg.ReviewerHarness = strings.TrimSpace(cfg.ReviewerHarness)
+	cfg.ReviewerFlags = strings.TrimSpace(cfg.ReviewerFlags)
 	normalizeWorktree(&cfg)
 	if cfg.Worktree.BaseBranch == "" {
 		cfg.Worktree.BaseBranch = git.DefaultBase(ctx, cfg.Cwd)
@@ -196,6 +198,8 @@ func (w *WorkflowService) UpdateWorkflow(ctx context.Context, id string, cfg wor
 
 	cfg.Cwd = config.ExpandHome(strings.TrimSpace(cfg.Cwd))
 	cfg.Flags = strings.TrimSpace(cfg.Flags)
+	cfg.ReviewerHarness = strings.TrimSpace(cfg.ReviewerHarness)
+	cfg.ReviewerFlags = strings.TrimSpace(cfg.ReviewerFlags)
 	normalizeWorktree(&cfg)
 	if cfg.Worktree.BaseBranch == "" {
 		return ErrWorktreeNeedsBase

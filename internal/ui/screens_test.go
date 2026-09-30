@@ -395,7 +395,7 @@ func TestScreensPromptSitsInTheListColumn(t *testing.T) {
 		},
 		{
 			name:  "the transcript search",
-			press: []string{"tab", "d", "b"},
+			press: []string{"tab", "/", "d", "b"},
 			want:  "/ db",
 		},
 	}
@@ -584,7 +584,7 @@ func TestScreensCutLongNames(t *testing.T) {
 	})
 
 	t.Run("a workflow in the archive", func(t *testing.T) {
-		harness := openArchive(t, newArchivedWorkflow("w1", long))
+		harness := openGroupedArchive(t, newArchivedWorkflow("w1", long))
 
 		assert.Contains(t, findRowWith(t, harness.readFrame(), long[:10]), "…")
 	})
@@ -735,7 +735,7 @@ func buildListScreens() []listScreen {
 		},
 		{
 			name:   "the search",
-			press:  []string{"tab"},
+			press:  []string{"tab", "/"},
 			screen: searchScreen,
 		},
 		{

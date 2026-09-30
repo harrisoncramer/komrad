@@ -137,13 +137,15 @@ func workflowsFrom(listed []*workflowv1.Workflow) []panel.Workflow {
 
 func workflowFrom(w *workflowv1.Workflow) panel.Workflow {
 	return panel.Workflow{
-		ID:       w.GetId(),
-		Name:     w.GetName(),
-		Context:  w.GetContext(),
-		Harness:  w.GetHarness(),
-		Cwd:      w.GetCwd(),
-		Flags:    w.GetFlags(),
-		Worktree: worktreeConfigFrom(w.GetWorktree()),
+		ID:              w.GetId(),
+		Name:            w.GetName(),
+		Context:         w.GetContext(),
+		Harness:         w.GetHarness(),
+		Cwd:             w.GetCwd(),
+		Flags:           w.GetFlags(),
+		ReviewerHarness: w.GetReviewerHarness(),
+		ReviewerFlags:   w.GetReviewerFlags(),
+		Worktree:        worktreeConfigFrom(w.GetWorktree()),
 		Hooks: xslice.Map(w.GetHooks(), func(hook *workflowv1.WorkflowHook) panel.Hook {
 			return panel.Hook{Event: hook.GetEvent(), Script: hook.GetScript()}
 		}),

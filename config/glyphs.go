@@ -75,7 +75,7 @@ type MarkGlyphs struct {
 	ReviewerComments string `mapstructure:"reviewer_comments"`
 	// Beside the count of comments you left on the agent's work.
 	PersonComments string `mapstructure:"person_comments"`
-	// Your comments on the agent's work hold something you have not read.
+	// Beside the count of your comments holding a reply you have not read.
 	Unread string `mapstructure:"unread"`
 }
 

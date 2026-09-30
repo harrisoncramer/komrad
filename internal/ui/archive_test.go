@@ -151,7 +151,7 @@ func TestArchiveKeys(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			harness := openArchive(t, tt.rows...)
+			harness := openGroupedArchive(t, tt.rows...)
 
 			harness.press(tt.press...)
 
@@ -207,7 +207,7 @@ func TestArchivePrompts(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			harness := openArchive(t, tt.rows...)
+			harness := openGroupedArchive(t, tt.rows...)
 
 			harness.press(tt.press...)
 
@@ -260,7 +260,7 @@ func TestArchiveReportsRefusedWrites(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			harness := openArchive(t, tt.rows...)
+			harness := openGroupedArchive(t, tt.rows...)
 			harness.refuse(tt.refused, connect.NewError(connect.CodeNotFound, errors.New("no such agent")))
 
 			harness.press(append(tt.press, widenListPresses...)...)
@@ -325,7 +325,7 @@ func TestArchiveRows(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			harness := openArchive(t, tt.rows...)
+			harness := openGroupedArchive(t, tt.rows...)
 
 			assert.Equal(t, tt.wantRows, readListRows(harness.readFrame()))
 		})
@@ -335,7 +335,7 @@ func TestArchiveRows(t *testing.T) {
 // TestArchiveRowEmphasis covers what the archive's rows say in colour and in their bar.
 func TestArchiveRowEmphasis(t *testing.T) {
 	t.Run("an archived folder is greyed and a live one is not", func(t *testing.T) {
-		harness := openArchive(t,
+		harness := openGroupedArchive(t,
 			newLiveWorkflow("w1", "backend"),
 			newArchivedAgent("a1", "auth", "w1"),
 			newArchivedWorkflow("w2", "frontend"),
@@ -353,7 +353,7 @@ func TestArchiveRowEmphasis(t *testing.T) {
 	t.Run("an agent a delete could not destroy draws a busy bar", func(t *testing.T) {
 		stuck := newArchivedAgent("a2", "stuck", "w1")
 		stuck.State = agentv1.AgentState_AGENT_STATE_FAILED_TO_CLEANUP
-		harness := openArchive(t, newLiveWorkflow("w1", "backend"), newArchivedAgent("a1", "auth", "w1"), stuck)
+		harness := openGroupedArchive(t, newLiveWorkflow("w1", "backend"), newArchivedAgent("a1", "auth", "w1"), stuck)
 
 		frame := harness.readFrame()
 
@@ -402,7 +402,7 @@ func TestArchiveLegend(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			harness := openArchive(t, tt.rows...)
+			harness := openGroupedArchive(t, tt.rows...)
 
 			harness.press(append(tt.press, "?")...)
 
@@ -453,7 +453,7 @@ func TestArchiveDocument(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			harness := openArchive(t, tt.rows...)
+			harness := openGroupedArchive(t, tt.rows...)
 
 			harness.press(tt.press...)
 
@@ -472,7 +472,7 @@ func TestArchiveDocument(t *testing.T) {
 		agent.CreatedAt = "2026-07-29T09:00:00Z"
 		agent.Branch = xptr.Ptr("agent/a1")
 		agent.RepositoryUrl = xptr.Ptr("https://github.com/harrisoncramer/komrad")
-		harness := openArchive(t,
+		harness := openGroupedArchive(t,
 			newLiveWorkflow("w1", "backend"),
 			agent,
 			&pullrequestv1.PullRequest{
@@ -514,7 +514,7 @@ func TestArchiveDocument(t *testing.T) {
 	t.Run("the document follows the cursor onto the folder", func(t *testing.T) {
 		workflow := newLiveWorkflow("w1", "backend")
 		workflow.Context = "the shared notes"
-		harness := openArchive(t, workflow, newArchivedAgent("a1", "api-refactor", "w1"))
+		harness := openGroupedArchive(t, workflow, newArchivedAgent("a1", "api-refactor", "w1"))
 
 		frame := harness.readFrame()
 		assert.Contains(t, frame, "the shared notes")
@@ -561,7 +561,7 @@ func TestArchiveSort(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			harness := openArchive(t, unsorted...)
+			harness := openGroupedArchive(t, unsorted...)
 
 			harness.press(tt.press...)
 
@@ -569,8 +569,17 @@ func TestArchiveSort(t *testing.T) {
 		})
 	}
 
+	t.Run("the archive opens flat, the most recently archived first", func(t *testing.T) {
+		harness := newPanelHarness(t, panelHarnessParams{})
+		harness.watch(buildSnapshot(unsorted...))
+
+		harness.press("shift+tab", "shift+tab")
+
+		assert.Equal(t, []string{"mid", "zeta", "alpha"}, readListRows(harness.readFrame()))
+	})
+
 	t.Run("the top and bottom keys walk the archive's own rows", func(t *testing.T) {
-		harness := openArchive(t, unsorted...)
+		harness := openGroupedArchive(t, unsorted...)
 
 		harness.press("G")
 		assert.Equal(t, "  alpha", readHoveredRow(harness.readFrame()))
@@ -583,7 +592,7 @@ func TestArchiveSort(t *testing.T) {
 	})
 
 	t.Run("the cursor keeps its row as the archive is reordered", func(t *testing.T) {
-		harness := openArchive(t, unsorted...)
+		harness := openGroupedArchive(t, unsorted...)
 		harness.press("j", "j", "j")
 		require.Equal(t, "  alpha", readHoveredRow(harness.readFrame()))
 
@@ -598,14 +607,14 @@ func TestArchiveSort(t *testing.T) {
 // TestArchiveWindow covers the archive holding the window and the keyboard.
 func TestArchiveWindow(t *testing.T) {
 	t.Run("entering the archive asks for nothing", func(t *testing.T) {
-		harness := openArchive(t, buildOneArchivedAgent()...)
+		harness := openGroupedArchive(t, buildOneArchivedAgent()...)
 
 		assert.Contains(t, harness.readFrame(), "api-refactor")
 		harness.assertSent()
 	})
 
 	t.Run("the archive takes the window and gives it back for a running agent", func(t *testing.T) {
-		harness := openArchive(t,
+		harness := openGroupedArchive(t,
 			newLiveWorkflow("w1", "backend"),
 			&agentv1.Agent{
 				Id:         "a2",
@@ -625,7 +634,7 @@ func TestArchiveWindow(t *testing.T) {
 	})
 
 	t.Run("restoring and opening an agent hands the window to the pane it opens", func(t *testing.T) {
-		harness := openArchive(t, buildOneArchivedAgent()...)
+		harness := openGroupedArchive(t, buildOneArchivedAgent()...)
 		require.True(t, harness.panel.IsZoomed())
 		answerResume(harness)
 
@@ -645,8 +654,8 @@ func TestArchiveWindow(t *testing.T) {
 		harness.press("shift+tab", "shift+tab", "?")
 
 		frame := harness.readFrame()
-		assert.Equal(t, []string{"backend", "  api-refactor"}, readListRows(frame), "the list keeps its column")
-		assert.Contains(t, frame, "no shared context set", "beside the hovered row's document")
+		assert.Equal(t, []string{"api-refactor"}, readListRows(frame), "the list keeps its column")
+		assert.Contains(t, frame, "archived — kept until deleted", "beside the hovered row's document")
 		assert.Len(t, splitLines(frame), 10, "the view is exactly the pane")
 		assert.Contains(t, frame, "show help", "the legend gave up its expansion for the rows")
 		assert.NotContains(t, frame, "hide help")
@@ -737,7 +746,7 @@ func TestArchiveSelection(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			harness := openArchive(t, rows...)
+			harness := openGroupedArchive(t, rows...)
 
 			harness.press(tt.press...)
 
@@ -747,7 +756,7 @@ func TestArchiveSelection(t *testing.T) {
 	}
 
 	t.Run("a folder restore stands down while a selection is up", func(t *testing.T) {
-		harness := openArchive(t, newArchivedWorkflow("w1", "backend"), newArchivedAgent("a1", "auth", "w1"))
+		harness := openGroupedArchive(t, newArchivedWorkflow("w1", "backend"), newArchivedAgent("a1", "auth", "w1"))
 
 		harness.press("j", "v", "g", "g", "r")
 
@@ -758,7 +767,7 @@ func TestArchiveSelection(t *testing.T) {
 	})
 
 	t.Run("the selection outlives a refused restore", func(t *testing.T) {
-		harness := openArchive(t, rows...)
+		harness := openGroupedArchive(t, rows...)
 		harness.refuse(agentv1connect.AgentServiceRestoreAgentsProcedure, connect.NewError(connect.CodeUnavailable, errors.New("down")))
 
 		harness.press("j", "v", "r")
@@ -767,7 +776,7 @@ func TestArchiveSelection(t *testing.T) {
 	})
 
 	t.Run("escape clears the selection before it leaves the archive", func(t *testing.T) {
-		harness := openArchive(t, rows...)
+		harness := openGroupedArchive(t, rows...)
 		harness.press("j", "v")
 
 		harness.press("esc")
@@ -781,7 +790,7 @@ func TestArchiveSelection(t *testing.T) {
 	})
 
 	t.Run("an agent gone from the archive drops out of the selection", func(t *testing.T) {
-		harness := openArchive(t, rows...)
+		harness := openGroupedArchive(t, rows...)
 		harness.press("j", "v", "G", "v")
 
 		harness.watch(buildSnapshot(rows[0], rows[3]))
@@ -791,7 +800,7 @@ func TestArchiveSelection(t *testing.T) {
 	})
 
 	t.Run("selecting in the archive leaves the agents tree alone", func(t *testing.T) {
-		harness := openArchive(t, append(slices.Clone(rows), newAgent("a9", "live", "w1"))...)
+		harness := openGroupedArchive(t, append(slices.Clone(rows), newAgent("a9", "live", "w1"))...)
 		harness.press("j", "v", "esc", "esc", "tab", "tab")
 
 		assert.NotContains(t, readLegend(harness.readFrame()), "selected")
@@ -876,7 +885,7 @@ func TestArchiveSchedules(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			harness := openArchive(t, rows...)
+			harness := openGroupedArchive(t, rows...)
 
 			harness.press(append(tt.press, widenListPresses...)...)
 
@@ -893,7 +902,7 @@ func TestArchiveSchedules(t *testing.T) {
 	}
 
 	t.Run("the row of kinds refuses the keys while agents are selected", func(t *testing.T) {
-		harness := openArchive(t, rows...)
+		harness := openGroupedArchive(t, rows...)
 
 		harness.press(append(widenListPresses, "j", "v", "F", "?")...)
 		frame := harness.readFrame()
@@ -902,7 +911,7 @@ func TestArchiveSchedules(t *testing.T) {
 	})
 
 	t.Run("the row of kinds holds the keys until escape", func(t *testing.T) {
-		harness := openArchive(t, rows...)
+		harness := openGroupedArchive(t, rows...)
 
 		harness.press(append(widenListPresses, "F")...)
 		frame := harness.readFrame()
@@ -916,12 +925,12 @@ func TestArchiveSchedules(t *testing.T) {
 	})
 }
 
-func openArchive(t *testing.T, rows ...proto.Message) *panelHarness {
+func openGroupedArchive(t *testing.T, rows ...proto.Message) *panelHarness {
 	t.Helper()
 
 	harness := newPanelHarness(t, panelHarnessParams{})
+	harness.press("shift+tab", "shift+tab", "esc", "f", "shift+tab", "j", "esc")
 	harness.watch(buildSnapshot(rows...))
-	harness.press("shift+tab", "shift+tab", "esc")
 
 	return harness
 }
@@ -975,7 +984,7 @@ func newArchivedSchedule(id, name string) *schedulev1.Schedule {
 // TestArchiveConversationPreview covers the end of a conversation drawn under an archived agent.
 func TestArchiveConversationPreview(t *testing.T) {
 	t.Run("the newest turns are asked for once the cursor rests and drawn under the document", func(t *testing.T) {
-		harness := openArchive(t, buildOneArchivedAgent()...)
+		harness := openGroupedArchive(t, buildOneArchivedAgent()...)
 		answerLastTurns(harness, map[string][]*agentv1.Turn{
 			"a1": {
 				{Role: "user", Content: "ship the refactor"},
@@ -996,7 +1005,7 @@ func TestArchiveConversationPreview(t *testing.T) {
 	})
 
 	t.Run("each speaker is drawn in a colour of its own, komrad's own lines as the system", func(t *testing.T) {
-		harness := openArchive(t, buildOneArchivedAgent()...)
+		harness := openGroupedArchive(t, buildOneArchivedAgent()...)
 		answerLastTurns(harness, map[string][]*agentv1.Turn{
 			"a1": {
 				{Role: "user", Content: "ship the refactor"},
@@ -1015,7 +1024,7 @@ func TestArchiveConversationPreview(t *testing.T) {
 	})
 
 	t.Run("a turn cut inside a code block does not swallow the turns after it", func(t *testing.T) {
-		harness := openArchive(t, buildOneArchivedAgent()...)
+		harness := openGroupedArchive(t, buildOneArchivedAgent()...)
 		answerLastTurns(harness, map[string][]*agentv1.Turn{
 			"a1": {
 				{
@@ -1036,7 +1045,7 @@ func TestArchiveConversationPreview(t *testing.T) {
 	})
 
 	t.Run("an agent with nothing synced says so", func(t *testing.T) {
-		harness := openArchive(t, buildOneArchivedAgent()...)
+		harness := openGroupedArchive(t, buildOneArchivedAgent()...)
 		answerLastTurns(harness, nil)
 
 		harness.press("j")
@@ -1046,7 +1055,7 @@ func TestArchiveConversationPreview(t *testing.T) {
 	})
 
 	t.Run("a refused read says why", func(t *testing.T) {
-		harness := openArchive(t, buildOneArchivedAgent()...)
+		harness := openGroupedArchive(t, buildOneArchivedAgent()...)
 		harness.answer(agentv1connect.AgentServiceGetLastTurnsProcedure, refuseWith(connect.CodeInternal, "transcripts exploded"))
 
 		harness.press("j")
@@ -1058,7 +1067,7 @@ func TestArchiveConversationPreview(t *testing.T) {
 	})
 
 	t.Run("a folder has no preview", func(t *testing.T) {
-		harness := openArchive(t, buildOneArchivedAgent()...)
+		harness := openGroupedArchive(t, buildOneArchivedAgent()...)
 		harness.fireTimers()
 
 		assert.NotContains(t, harness.readFrame(), "Conversation Preview")
@@ -1066,7 +1075,7 @@ func TestArchiveConversationPreview(t *testing.T) {
 	})
 
 	t.Run("an answer for an agent the cursor has left is not drawn", func(t *testing.T) {
-		harness := openArchive(t,
+		harness := openGroupedArchive(t,
 			newLiveWorkflow("w1", "backend"),
 			newArchivedAgent("a1", "api-refactor", "w1"),
 			newArchivedAgent("a2", "billing", "w1"),
@@ -1089,7 +1098,7 @@ func TestArchiveConversationPreview(t *testing.T) {
 	})
 
 	t.Run("clearing a search that moved the cursor asks for the agent it lands back on", func(t *testing.T) {
-		harness := openArchive(t,
+		harness := openGroupedArchive(t,
 			newLiveWorkflow("w1", "backend"),
 			newArchivedAgent("a1", "api-refactor", "w1"),
 			newArchivedAgent("a2", "billing", "w1"),
@@ -1112,7 +1121,7 @@ func TestArchiveConversationPreview(t *testing.T) {
 	})
 
 	t.Run("a listing that moves the cursor onto another agent asks for it", func(t *testing.T) {
-		harness := openArchive(t,
+		harness := openGroupedArchive(t,
 			newLiveWorkflow("w1", "backend"),
 			newArchivedAgent("a1", "api-refactor", "w1"),
 			newArchivedAgent("a2", "billing", "w1"),

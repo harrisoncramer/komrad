@@ -10,53 +10,61 @@ import (
 )
 
 type Workflow struct {
-	ID         string
-	Name       string
-	Context    string
-	Harness    string
-	Cwd        string
-	Flags      string
-	Worktree   WorktreeConfig
-	Hooks      []Hook
-	ArchivedAt *time.Time
-	DeletingAt *time.Time
-	UpdatedAt  time.Time
+	ID              string
+	Name            string
+	Context         string
+	Harness         string
+	Cwd             string
+	Flags           string
+	ReviewerHarness string
+	ReviewerFlags   string
+	Worktree        WorktreeConfig
+	Hooks           []Hook
+	ArchivedAt      *time.Time
+	DeletingAt      *time.Time
+	UpdatedAt       time.Time
 }
 
 type Config struct {
-	Name     string
-	Context  string
-	Harness  string
-	Cwd      string
-	Flags    string
-	Worktree WorktreeConfig
-	Hooks    []Hook
+	Name            string
+	Context         string
+	Harness         string
+	Cwd             string
+	Flags           string
+	ReviewerHarness string
+	ReviewerFlags   string
+	Worktree        WorktreeConfig
+	Hooks           []Hook
 }
 
 // Config is what an update writes, being every field of a workflow but its id.
 func (w Workflow) Config() Config {
 	return Config{
-		Name:     w.Name,
-		Context:  w.Context,
-		Harness:  w.Harness,
-		Cwd:      w.Cwd,
-		Flags:    w.Flags,
-		Worktree: w.Worktree,
-		Hooks:    w.Hooks,
+		Name:            w.Name,
+		Context:         w.Context,
+		Harness:         w.Harness,
+		Cwd:             w.Cwd,
+		Flags:           w.Flags,
+		ReviewerHarness: w.ReviewerHarness,
+		ReviewerFlags:   w.ReviewerFlags,
+		Worktree:        w.Worktree,
+		Hooks:           w.Hooks,
 	}
 }
 
 // Workflow is the config under an existing id, ready to be written back.
 func (c Config) Workflow(id string) Workflow {
 	return Workflow{
-		ID:       id,
-		Name:     c.Name,
-		Context:  c.Context,
-		Harness:  c.Harness,
-		Cwd:      c.Cwd,
-		Flags:    c.Flags,
-		Worktree: c.Worktree,
-		Hooks:    c.Hooks,
+		ID:              id,
+		Name:            c.Name,
+		Context:         c.Context,
+		Harness:         c.Harness,
+		Cwd:             c.Cwd,
+		Flags:           c.Flags,
+		ReviewerHarness: c.ReviewerHarness,
+		ReviewerFlags:   c.ReviewerFlags,
+		Worktree:        c.Worktree,
+		Hooks:           c.Hooks,
 	}
 }
 
@@ -88,12 +96,14 @@ func orEmpty(paths []string) []string {
 
 func workflowFromRow(w models.Workflow, cfg models.WorkflowConfig, prov models.WorkflowProvisionerConfig, hooks []Hook) Workflow {
 	return Workflow{
-		ID:      w.ID,
-		Name:    w.Name,
-		Context: w.Context,
-		Harness: cfg.Harness,
-		Cwd:     cfg.Cwd,
-		Flags:   cfg.Flags,
+		ID:              w.ID,
+		Name:            w.Name,
+		Context:         w.Context,
+		Harness:         cfg.Harness,
+		Cwd:             cfg.Cwd,
+		Flags:           cfg.Flags,
+		ReviewerHarness: cfg.ReviewerHarness,
+		ReviewerFlags:   cfg.ReviewerFlags,
 		Worktree: WorktreeConfig{
 			Enabled:      prov.WorktreeEnabled,
 			BaseBranch:   prov.WorktreeBaseBranch,

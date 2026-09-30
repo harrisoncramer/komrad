@@ -84,13 +84,15 @@ func (s *Handler) GetWorkflow(ctx context.Context, req *workflowv1.GetWorkflowRe
 // CreateWorkflow adds a workflow and returns it as stored.
 func (s *Handler) CreateWorkflow(ctx context.Context, req *workflowv1.CreateWorkflowRequest) (*workflowv1.CreateWorkflowResponse, *fail.Error) {
 	created, err := s.workflows.NewWorkflow(ctx, workflowstore.Config{
-		Name:     req.GetName(),
-		Context:  req.GetContext(),
-		Harness:  req.GetHarness(),
-		Cwd:      req.GetCwd(),
-		Flags:    req.GetFlags(),
-		Worktree: render.WorktreeConfigFromProto(req.GetWorktree()),
-		Hooks:    hooksFromProto(req.GetHooks()),
+		Name:            req.GetName(),
+		Context:         req.GetContext(),
+		Harness:         req.GetHarness(),
+		Cwd:             req.GetCwd(),
+		Flags:           req.GetFlags(),
+		ReviewerHarness: req.GetReviewerHarness(),
+		ReviewerFlags:   req.GetReviewerFlags(),
+		Worktree:        render.WorktreeConfigFromProto(req.GetWorktree()),
+		Hooks:           hooksFromProto(req.GetHooks()),
 	})
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to create workflow")
@@ -102,13 +104,15 @@ func (s *Handler) CreateWorkflow(ctx context.Context, req *workflowv1.CreateWork
 // UpdateWorkflow replaces a workflow's editable fields.
 func (s *Handler) UpdateWorkflow(ctx context.Context, req *workflowv1.UpdateWorkflowRequest) (*emptypb.Empty, *fail.Error) {
 	err := s.workflows.UpdateWorkflow(ctx, req.GetId(), workflowstore.Config{
-		Name:     req.GetName(),
-		Context:  req.GetContext(),
-		Harness:  req.GetHarness(),
-		Cwd:      req.GetCwd(),
-		Flags:    req.GetFlags(),
-		Worktree: render.WorktreeConfigFromProto(req.GetWorktree()),
-		Hooks:    hooksFromProto(req.GetHooks()),
+		Name:            req.GetName(),
+		Context:         req.GetContext(),
+		Harness:         req.GetHarness(),
+		Cwd:             req.GetCwd(),
+		Flags:           req.GetFlags(),
+		ReviewerHarness: req.GetReviewerHarness(),
+		ReviewerFlags:   req.GetReviewerFlags(),
+		Worktree:        render.WorktreeConfigFromProto(req.GetWorktree()),
+		Hooks:           hooksFromProto(req.GetHooks()),
 	})
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to update workflow")

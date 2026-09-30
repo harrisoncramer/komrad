@@ -15,14 +15,14 @@
 
 
 [90m───────────────────────────────────────────[m
-  [90mname         [m komrad
-  [90magents       [m 2
-  [90mdefault agent[m —
-  [90mdirectory    [m —
-  [90mflags        [m —
-  [90mworktree     [m off
-  [90mworkflow_id  [m w1
-
-
+  [90mname          [m komrad
+  [90magents        [m 2
+  [90mdefault agent [m —
+  [90mdirectory     [m —
+  [90mflags         [m —
+  [90mworktree      [m off
+  [90mreviewer agent[m —
+  [90mreviewer flags[m —
+  [90mworkflow_id   [m w1
 [90m───────────────────────────────────────────[m
 [90mspace[m [90mmenu[m[90m • [m[90m?[m [90mshow help[m[90m • [m[90mtab[m [90mswitch view[m

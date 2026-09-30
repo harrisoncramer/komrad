@@ -8,52 +8,60 @@ import (
 
 // Workflow is one workflow as the service listed it.
 type Workflow struct {
-	ID         string
-	Name       string
-	Context    string
-	Harness    string
-	Cwd        string
-	Flags      string
-	Worktree   WorktreeConfig
-	Hooks      []Hook
-	ArchivedAt *time.Time
+	ID              string
+	Name            string
+	Context         string
+	Harness         string
+	Cwd             string
+	Flags           string
+	ReviewerHarness string
+	ReviewerFlags   string
+	Worktree        WorktreeConfig
+	Hooks           []Hook
+	ArchivedAt      *time.Time
 }
 
 // WorkflowConfig is every field of a workflow but its id, which is what a form fills.
 type WorkflowConfig struct {
-	Name     string
-	Context  string
-	Harness  string
-	Cwd      string
-	Flags    string
-	Worktree WorktreeConfig
-	Hooks    []Hook
+	Name            string
+	Context         string
+	Harness         string
+	Cwd             string
+	Flags           string
+	ReviewerHarness string
+	ReviewerFlags   string
+	Worktree        WorktreeConfig
+	Hooks           []Hook
 }
 
 // Config is the workflow with its id left off.
 func (w Workflow) Config() WorkflowConfig {
 	return WorkflowConfig{
-		Name:     w.Name,
-		Context:  w.Context,
-		Harness:  w.Harness,
-		Cwd:      w.Cwd,
-		Flags:    w.Flags,
-		Worktree: w.Worktree,
-		Hooks:    w.Hooks,
+		Name:            w.Name,
+		Context:         w.Context,
+		Harness:         w.Harness,
+		Cwd:             w.Cwd,
+		Flags:           w.Flags,
+		ReviewerHarness: w.ReviewerHarness,
+		ReviewerFlags:   w.ReviewerFlags,
+		Worktree:        w.Worktree,
+		Hooks:           w.Hooks,
 	}
 }
 
 // Workflow is the config under an existing id.
 func (c WorkflowConfig) Workflow(id string) Workflow {
 	return Workflow{
-		ID:       id,
-		Name:     c.Name,
-		Context:  c.Context,
-		Harness:  c.Harness,
-		Cwd:      c.Cwd,
-		Flags:    c.Flags,
-		Worktree: c.Worktree,
-		Hooks:    c.Hooks,
+		ID:              id,
+		Name:            c.Name,
+		Context:         c.Context,
+		Harness:         c.Harness,
+		Cwd:             c.Cwd,
+		Flags:           c.Flags,
+		ReviewerHarness: c.ReviewerHarness,
+		ReviewerFlags:   c.ReviewerFlags,
+		Worktree:        c.Worktree,
+		Hooks:           c.Hooks,
 	}
 }
 

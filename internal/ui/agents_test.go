@@ -2097,7 +2097,7 @@ func TestAgentsChildren(t *testing.T) {
 	t.Run("the hard delete counts the children in the archive's own rows", func(t *testing.T) {
 		reviewer := newArchivedAgent("a3", "reviewer", "w1")
 		reviewer.ParentAgentId = xptr.Ptr("a1")
-		harness := openArchive(t, newLiveWorkflow("w1", "komrad"), newArchivedAgent("a1", "author", "w1"), reviewer)
+		harness := openGroupedArchive(t, newLiveWorkflow("w1", "komrad"), newArchivedAgent("a1", "author", "w1"), reviewer)
 
 		harness.press("j", "d")
 

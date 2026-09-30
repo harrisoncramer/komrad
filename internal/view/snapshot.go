@@ -116,7 +116,7 @@ func (s Snapshot) columns() Columns {
 type Comments struct {
 	Open     int
 	Resolved int
-	Unread   bool
+	Unread   int
 	External int
 }
 

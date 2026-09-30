@@ -846,6 +846,10 @@ type WorkflowConfig struct {
 	UpdatedAt pgtype.Timestamptz
 	// The engine that owns this row, stamped from the login that wrote it.
 	EngineID pgtype.UUID
+	// The harness the workflow's reviewers run, blank meaning the one its other agents run.
+	ReviewerHarness string
+	// The flags the workflow's reviewers are launched with, blank meaning the other agents' flags when the harness is the same.
+	ReviewerFlags string
 }
 
 // Scripts a workflow runs at one point in an agent's life, in position order.
