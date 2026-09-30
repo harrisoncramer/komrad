@@ -159,7 +159,7 @@ func TestDocumentsEdit(t *testing.T) {
 		{
 			name:      "the key again saves what changed",
 			write:     "# Design the cache\n\nKeep the cache cold.",
-			close:     func(h *panelHarness) { h.press("e") },
+			close:     func(h *panelHarness) { h.press("space", "e") },
 			wantSaved: "# Design the cache\n\nKeep the cache cold.",
 		},
 		{
@@ -194,7 +194,7 @@ func TestDocumentsEdit(t *testing.T) {
 			name:      "a refused write keeps the copy",
 			write:     "Rewritten.",
 			refuse:    true,
-			close:     func(h *panelHarness) { h.press("e") },
+			close:     func(h *panelHarness) { h.press("space", "e") },
 			wantSaved: "Rewritten.",
 			wantKept:  true,
 		},
@@ -208,19 +208,19 @@ func TestDocumentsEdit(t *testing.T) {
 				h.watch(buildPuts(author))
 			},
 			refuse:    true,
-			close:     func(h *panelHarness) { h.press("e") },
+			close:     func(h *panelHarness) { h.press("space", "e") },
 			wantSaved: "Rewritten.",
 			wantKept:  true,
 		},
 		{
 			name:  "nothing changed saves nothing",
 			write: "# Design the cache\n\nKeep the cache warm.",
-			close: func(h *panelHarness) { h.press("e") },
+			close: func(h *panelHarness) { h.press("space", "e") },
 		},
 		{
 			name:  "an emptied document is not saved",
 			write: "  \n",
-			close: func(h *panelHarness) { h.press("e") },
+			close: func(h *panelHarness) { h.press("space", "e") },
 		},
 	}
 
@@ -236,7 +236,7 @@ func TestDocumentsEdit(t *testing.T) {
 
 				return connect.NewResponse(&agentv1.WriteDocumentResponse{}), nil
 			})
-			harness.press("e")
+			harness.press("space", "e")
 
 			respawns := harness.panel.ReadRespawns()
 			require.NotEmpty(t, respawns)
@@ -284,7 +284,7 @@ func TestDocumentsNew(t *testing.T) {
 	}{
 		{
 			name:    "a name and the type left alone write an RFC saying it is empty",
-			presses: []string{"c", "P", "l", "a", "n", "ctrl+s"},
+			presses: []string{"space", "c", "P", "l", "a", "n", "ctrl+s"},
 			want: &agentv1.WriteDocumentRequest{
 				AgentId: xptr.Ptr("author"),
 				Name:    "Plan",
@@ -294,7 +294,7 @@ func TestDocumentsNew(t *testing.T) {
 		},
 		{
 			name:    "the type chosen names what the document says it is",
-			presses: []string{"c", "L", "o", "g", "tab", "up", "up", "ctrl+s"},
+			presses: []string{"space", "c", "L", "o", "g", "tab", "up", "up", "ctrl+s"},
 			want: &agentv1.WriteDocumentRequest{
 				AgentId: xptr.Ptr("author"),
 				Name:    "Log",
@@ -304,7 +304,7 @@ func TestDocumentsNew(t *testing.T) {
 		},
 		{
 			name:    "a blank name writes nothing",
-			presses: []string{"c", " ", "ctrl+s"},
+			presses: []string{"space", "c", " ", "ctrl+s"},
 		},
 	}
 
@@ -334,7 +334,7 @@ func TestDocumentsNewRedrawsTheTypes(t *testing.T) {
 	t.Parallel()
 
 	harness, _ := openDocuments(t)
-	harness.press("c")
+	harness.press("space", "c")
 	require.NotContains(t, harness.readFrame(), "brief")
 
 	harness.watch(buildPuts(newDocumentType("t5", "brief")))

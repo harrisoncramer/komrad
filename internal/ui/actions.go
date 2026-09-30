@@ -61,12 +61,8 @@ const (
 	actionWorktreesDelete
 	actionWorktreesClear
 	actionDocumentsBack
-	actionDocumentsEdit
-	actionDocumentsNew
 	actionDocumentsOlder
 	actionDocumentsNewer
-	actionDocumentsRename
-	actionDocumentTypesDelete
 	actionLogsBack
 	actionLogsCopy
 	actionDiffFile

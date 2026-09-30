@@ -31,20 +31,6 @@ func (d *documentsScreen) listActions() screenActionSpec {
 func (d *documentsScreen) table() []screenAction {
 	return slices.Concat(d.list().actions(), []screenAction{
 		{
-			id:   actionDocumentsEdit,
-			keys: func(k config.Keybindings) []string { return d.shelf.keys(k).Edit },
-			run: func(h host, s panelShared, _ string) tea.Cmd {
-				return d.pressEdit(h, s)
-			},
-		},
-		{
-			id:   actionDocumentsNew,
-			keys: func(k config.Keybindings) []string { return d.shelf.keys(k).New },
-			run: func(h host, s panelShared, _ string) tea.Cmd {
-				return d.pressNew(h, s)
-			},
-		},
-		{
 			id:   actionDocumentsOlder,
 			keys: func(k config.Keybindings) []string { return d.shelf.keys(k).Older },
 			run: func(h host, s panelShared, _ string) tea.Cmd {
@@ -59,20 +45,13 @@ func (d *documentsScreen) table() []screenAction {
 			},
 		},
 		{
-			id:   actionDocumentsRename,
-			keys: func(k config.Keybindings) []string { return d.shelf.keys(k).Rename },
-			run: func(h host, s panelShared, _ string) tea.Cmd {
-				return d.openRename(h, s)
-			},
-		},
-		{
 			id:   actionDocumentsBack,
 			keys: func(k config.Keybindings) []string { return d.shelf.keys(k).Back },
 			run: func(h host, s panelShared, _ string) tea.Cmd {
 				return d.back(h, s)
 			},
 		},
-	}, d.shelfActions())
+	})
 }
 
 func (d *documentsScreen) legend() []screenLegendRow {
@@ -82,18 +61,6 @@ func (d *documentsScreen) legend() []screenLegendRow {
 			desc: filterDescOf,
 		},
 		{
-			of:   []actionID{actionDocumentsEdit},
-			desc: func(panelShared) string { return d.editDesc() },
-		},
-		{
-			of:   []actionID{actionDocumentsNew},
-			desc: func(panelShared) string { return d.newDesc() },
-		},
-		{
-			of:   []actionID{actionDocumentsRename},
-			desc: func(panelShared) string { return "rename" },
-		},
-		{
 			of:   []actionID{actionDocumentsOlder},
 			desc: func(panelShared) string { return "an earlier version" },
 		},
@@ -101,7 +68,6 @@ func (d *documentsScreen) legend() []screenLegendRow {
 			of:   []actionID{actionDocumentsNewer},
 			desc: func(panelShared) string { return "a later version" },
 		},
-	}, d.shelfLegend(), []screenLegendRow{
 		{
 			of:    []actionID{actionFilterClear},
 			desc:  filterClearDescOf,

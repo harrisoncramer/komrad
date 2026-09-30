@@ -23,7 +23,7 @@ func TestDocumentsRename(t *testing.T) {
 	}{
 		{
 			name:    "a new name rewrites the document under it, keeping its text",
-			presses: slices.Concat([]string{"r"}, spellKeys(" now"), []string{"enter"}),
+			presses: slices.Concat([]string{"space", "r"}, spellKeys(" now"), []string{"enter"}),
 			want: &agentv1.WriteDocumentRequest{
 				Id:      xptr.Ptr("d1"),
 				Version: xptr.Ptr[int32](3),
@@ -34,11 +34,11 @@ func TestDocumentsRename(t *testing.T) {
 		},
 		{
 			name:    "esc renames nothing",
-			presses: slices.Concat([]string{"r"}, spellKeys(" now"), []string{"esc"}),
+			presses: slices.Concat([]string{"space", "r"}, spellKeys(" now"), []string{"esc"}),
 		},
 		{
 			name:    "the same name renames nothing",
-			presses: []string{"r", "enter"},
+			presses: []string{"space", "r", "enter"},
 		},
 	}
 
@@ -71,7 +71,7 @@ func TestDocumentsRenameField(t *testing.T) {
 		t.Parallel()
 
 		harness, _ := openDocuments(t)
-		harness.press(slices.Concat([]string{"r"}, spellKeys("jec"))...)
+		harness.press(slices.Concat([]string{"space", "r"}, spellKeys("jec"))...)
 
 		frame := harness.readFrame()
 		assert.Contains(t, readHoveredRow(frame), "Design the cachejec▏")
@@ -83,7 +83,7 @@ func TestDocumentsRenameField(t *testing.T) {
 		t.Parallel()
 
 		harness, _ := openDocuments(t)
-		harness.press("r", "esc", "j")
+		harness.press("space", "r", "esc", "j")
 
 		assert.Contains(t, readHoveredRow(harness.readFrame()), "Rollout report")
 	})
@@ -95,7 +95,7 @@ func TestDocumentsRenameField(t *testing.T) {
 		harness.hold(agentv1connect.AgentServiceGetDocumentProcedure)
 		rewriteAsTheAgent(harness, docs)
 
-		harness.press(slices.Concat([]string{"r"}, spellKeys(" now"))...)
+		harness.press(slices.Concat([]string{"space", "r"}, spellKeys(" now"))...)
 
 		assert.Contains(t, readHoveredRow(harness.readFrame()), "Design the cache now▏")
 	})
@@ -110,7 +110,7 @@ func TestDocumentsRenameField(t *testing.T) {
 		author.DocumentsUpdatedAt = xptr.Ptr("2026-09-26T12:00:00Z")
 		harness.watch(buildPuts(author))
 
-		harness.press("G", "r", "x")
+		harness.press("G", "space", "r", "x")
 
 		assert.NotContains(t, readHoveredRow(harness.readFrame()), "▏")
 		assert.Contains(t, readOpenMessages(harness), `"Notes" has not been read yet`)
@@ -123,7 +123,7 @@ func TestDocumentsRenameField(t *testing.T) {
 		harness.answer(agentv1connect.AgentServiceWriteDocumentProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
 			return connect.NewResponse(&agentv1.WriteDocumentResponse{}), nil
 		})
-		harness.press(slices.Concat([]string{"r"}, spellKeys(" now"), []string{"enter"})...)
+		harness.press(slices.Concat([]string{"space", "r"}, spellKeys(" now"), []string{"enter"})...)
 		assert.Contains(t, readHoveredRow(harness.readFrame()), "Design the cache now", "not the old name before the list is read again")
 
 		docs.rename("d1", "Design the cache now", "2026-09-26T12:00:00Z")
@@ -140,7 +140,7 @@ func TestDocumentsRenameField(t *testing.T) {
 		harness.answer(agentv1connect.AgentServiceWriteDocumentProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
 			return connect.NewResponse(&agentv1.WriteDocumentResponse{}), nil
 		})
-		harness.press(slices.Concat([]string{"r"}, spellKeys(" now"))...)
+		harness.press(slices.Concat([]string{"space", "r"}, spellKeys(" now"))...)
 
 		rewriteAsTheAgent(harness, docs)
 		harness.press("enter")

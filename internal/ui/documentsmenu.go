@@ -1,7 +1,10 @@
 package ui
 
 import (
+	"strings"
+
 	"komrad/internal/ui/panel"
+	"komrad/lib/xslice"
 
 	tea "charm.land/bubbletea/v2"
 )
@@ -89,6 +92,65 @@ func documentTypesMenu(s panelShared, back menuPlace) submenu {
 			}
 
 			return m.closeForm()
+		},
+	}
+}
+
+// documentEntry is one entry of the menu on a document or a document type.
+type documentEntry struct {
+	entry submenuEntry
+	run   func(d *documentsScreen, h host, s panelShared) tea.Cmd
+}
+
+func (d *documentsScreen) itemMenu(s panelShared) (submenu, bool) {
+	if d.isDiffFocused(s) {
+		return submenu{}, false
+	}
+
+	return documentMenu(s, d), true
+}
+
+// documentMenu is the actions on the hovered document or type, and on the shelf it is listed on.
+func documentMenu(s panelShared, d *documentsScreen) submenu {
+	item, hovered := d.hovered(s)
+	title := strings.Join(d.crumbRoot(s), " ")
+	if hovered {
+		title = item.name
+	}
+
+	entries := []documentEntry{
+		{
+			entry: submenuEntry{label: d.editLabel(), keys: s.keys.DocumentMenu.Edit, isOff: !hovered && d.editing == nil},
+			run:   (*documentsScreen).pressEdit,
+		},
+		{
+			entry: submenuEntry{label: "rename", keys: s.keys.DocumentMenu.Rename, isOff: !hovered || d.editing != nil},
+			run:   (*documentsScreen).openRename,
+		},
+		{
+			entry: submenuEntry{label: d.newDesc(), keys: s.keys.DocumentMenu.New, isOff: d.editing != nil},
+			run:   (*documentsScreen).pressNew,
+		},
+	}
+	if d.shelf == shelfDocumentTypes {
+		entries = append(entries, documentEntry{
+			entry: submenuEntry{label: "delete", keys: s.keys.DocumentMenu.Delete, isOff: !hovered || d.editing != nil},
+			run:   (*documentsScreen).confirmDeleteType,
+		})
+	}
+
+	on := d.shelf.screen()
+
+	return submenu{
+		kind:    formMenu,
+		title:   title,
+		crumb:   title,
+		entries: xslice.Map(entries, func(e documentEntry) submenuEntry { return e.entry }),
+		answer: func(m model, choice int) (tea.Model, tea.Cmd) {
+			m.leaveForm()
+			cmd := entries[choice].run(m.documentsOn(on), &m, m.shared())
+
+			return m, cmd
 		},
 	}
 }

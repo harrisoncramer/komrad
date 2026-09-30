@@ -190,4 +190,5 @@ var (
 	_ itemMenued = (*agentsScreen)(nil)
 	_ itemMenued = (*archiveScreen)(nil)
 	_ itemMenued = (*schedulesScreen)(nil)
+	_ itemMenued = (*documentsScreen)(nil)
 )

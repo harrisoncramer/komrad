@@ -21,34 +21,6 @@ type documentTypeFormValues struct {
 	Context string
 }
 
-// shelfActions is the keys only the document types have: renaming and deleting a type.
-func (d *documentsScreen) shelfActions() []screenAction {
-	if d.shelf != shelfDocumentTypes {
-		return nil
-	}
-
-	return []screenAction{
-		{
-			id:   actionDocumentTypesDelete,
-			keys: func(k config.Keybindings) []string { return k.DocumentTypes.Delete },
-			run:  func(h host, s panelShared, _ string) tea.Cmd { return d.confirmDeleteType(h, s) },
-		},
-	}
-}
-
-func (d *documentsScreen) shelfLegend() []screenLegendRow {
-	if d.shelf != shelfDocumentTypes {
-		return nil
-	}
-
-	return []screenLegendRow{
-		{
-			of:   []actionID{actionDocumentTypesDelete},
-			desc: func(panelShared) string { return "delete" },
-		},
-	}
-}
-
 // back leaves for the screen the shelf was opened from.
 func (d *documentsScreen) back(h host, s panelShared) tea.Cmd {
 	if d.shelf == shelfDocumentTypes {
