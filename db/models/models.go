@@ -900,4 +900,14 @@ type Worktree struct {
 	Mtime *time.Time
 	// The directory's share of size_bytes, each hard linked file's blocks split evenly across its links. Zero until measured and while size_error is set.
 	ShareBytes int64
+	// When git was last asked where the directory stands against its base, whether or not it answered, null until the first reading.
+	StandingReadAt *time.Time
+	// Whether the directory held modified or untracked files at the last reading.
+	Dirty bool
+	// Whether a merge, a rebase or a cherry-pick was part-way through at the last reading.
+	Sequencing bool
+	// How many of the branch's own commits the base did not yet hold at the last reading.
+	Unlanded int32
+	// Why the last reading failed, null when it did not.
+	StandingError *string
 }

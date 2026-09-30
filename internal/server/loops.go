@@ -123,6 +123,7 @@ func buildLoops(params buildLoopsParams) []*Loop {
 				Lister:    params.Services.worktreeLister,
 				Claimed:   params.Claimed,
 				Worktrees: params.Stores.worktrees,
+				Standings: params.Services.inspector,
 			}).Measure,
 		}),
 	}

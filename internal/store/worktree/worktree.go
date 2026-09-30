@@ -9,6 +9,7 @@ import (
 
 	"komrad/db/models"
 	"komrad/internal/store"
+	"komrad/lib/xptr"
 	"komrad/lib/xslice"
 )
 
@@ -23,6 +24,8 @@ type Worktree struct {
 	ModifiedAt *time.Time
 	// Size is the last measurement, nil until the first walk.
 	Size *Size
+	// Standing is the last git reading, nil until the first.
+	Standing *Standing
 }
 
 // Size is what one directory took when it was last walked, or why the walk failed.
@@ -32,6 +35,20 @@ type Size struct {
 	Share      int64
 	MeasuredAt time.Time
 	// Error is why the last walk failed, empty when it did not.
+	Error string
+}
+
+// Standing is where one directory stood against its base when git was last asked, or why git
+// could not say.
+type Standing struct {
+	Dir    string
+	ReadAt time.Time
+	// Dirty says the directory held modified or untracked files.
+	Dirty      bool
+	Sequencing bool
+	// Unlanded is how many of the branch's own commits the base does not yet hold.
+	Unlanded int
+	// Error is why the reading failed, empty when it did not.
 	Error string
 }
 
@@ -109,6 +126,26 @@ func (s *WorktreeStore) RecordSize(ctx context.Context, size Size) error {
 	return nil
 }
 
+// RecordStanding writes a directory's git reading, and nothing for a directory with no row.
+func (s *WorktreeStore) RecordStanding(ctx context.Context, standing Standing) error {
+	params := models.RecordWorktreeStandingParams{
+		Dir:            standing.Dir,
+		StandingReadAt: &standing.ReadAt,
+		Dirty:          standing.Dirty,
+		Sequencing:     standing.Sequencing,
+		Unlanded:       int32(standing.Unlanded),
+	}
+	if standing.Error != "" {
+		params.StandingError = &standing.Error
+	}
+
+	if err := s.queries.RecordWorktreeStanding(ctx, params); err != nil {
+		return fmt.Errorf("failed to record where %s stands: %w", standing.Dir, err)
+	}
+
+	return nil
+}
+
 // Delete forgets the directories named.
 func (s *WorktreeStore) Delete(ctx context.Context, dirs []string) error {
 	if len(dirs) == 0 {
@@ -152,6 +189,16 @@ func worktreeFrom(row *models.ListWorktreesRow) Worktree {
 		}
 		if row.SizeError != nil {
 			worktree.Size.Error = *row.SizeError
+		}
+	}
+	if row.StandingReadAt != nil {
+		worktree.Standing = &Standing{
+			Dir:        row.Dir,
+			ReadAt:     *row.StandingReadAt,
+			Dirty:      row.Dirty,
+			Sequencing: row.Sequencing,
+			Unlanded:   int(row.Unlanded),
+			Error:      xptr.Deref(row.StandingError),
 		}
 	}
 

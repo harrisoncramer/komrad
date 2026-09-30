@@ -24,7 +24,7 @@ func TestTabStrip(t *testing.T) {
 		press  []string
 		screen string
 		second string
-		kinds  bool
+		kinds  string
 	}{
 		{
 			name:   "the agents tree",
@@ -36,13 +36,14 @@ func TestTabStrip(t *testing.T) {
 			press:  []string{"shift+tab", "shift+tab"},
 			screen: archiveScreen,
 			second: "name",
-			kinds:  true,
+			kinds:  "F   agents  schedules",
 		},
 		{
 			name:   "the worktrees",
 			press:  []string{"shift+tab"},
 			screen: worktreesScreen,
 			second: "last-accessed",
+			kinds:  "F   all  inactive  merged",
 		},
 	}
 
@@ -56,8 +57,8 @@ func TestTabStrip(t *testing.T) {
 			require.GreaterOrEqual(t, strip, 0)
 			require.Greater(t, len(sidebar), strip+3)
 			gap := strip + 1
-			if tt.kinds {
-				assert.Equal(t, "F   agents  schedules", sidebar[gap], "the row of kinds stands under the strip")
+			if tt.kinds != "" {
+				assert.Equal(t, tt.kinds, sidebar[gap], "the row of kinds stands under the strip")
 				gap++
 			}
 			assert.True(t, strings.HasPrefix(sidebar[gap], "/"), "the search stands under the strips")
@@ -108,7 +109,7 @@ func TestTabStrip(t *testing.T) {
 	t.Run("a pane too short for the strip and a row draws no strip and takes no keys", func(t *testing.T) {
 		harness := openCrowded(t, panelHarnessParams{
 			width:  80,
-			height: 5,
+			height: 6,
 		})
 		harness.press("shift+tab", "G")
 		frame := harness.readFrame()
@@ -118,35 +119,35 @@ func TestTabStrip(t *testing.T) {
 		harness.press("f")
 		assert.NotContains(t, readLastLine(harness.readFrame()), stripLegend)
 
-		resize(harness, 80, 6)
+		resize(harness, 80, 7)
 		assert.NotContains(t, readLastLine(harness.readFrame()), stripLegend, "and the refused press does not wake once the pane grows")
 	})
 
 	t.Run("a pane one row taller draws the strip and still the cursor's row", func(t *testing.T) {
 		harness := openCrowded(t, panelHarnessParams{
 			width:  80,
-			height: 6,
+			height: 7,
 		})
 		harness.press("shift+tab", "G")
 
 		frame := harness.readFrame()
 		assert.Contains(t, readSidebar(frame)[1], "f ")
 		assert.Contains(t, frame, "/trees/agent39")
-		assert.Len(t, splitLines(frame), 6)
+		assert.Len(t, splitLines(frame), 7)
 	})
 
 	t.Run("a shrink past the strip gives the keys back to the list for good", func(t *testing.T) {
 		harness := openCrowded(t, panelHarnessParams{
 			width:  80,
-			height: 6,
+			height: 7,
 		})
 		harness.press("shift+tab", "G", "f")
 		require.Contains(t, readLastLine(harness.readFrame()), stripLegend)
 
-		resize(harness, 80, 5)
+		resize(harness, 80, 6)
 		assert.NotContains(t, readLastLine(harness.readFrame()), stripLegend)
 
-		resize(harness, 80, 6)
+		resize(harness, 80, 7)
 		harness.press("k")
 		assert.Contains(t, harness.readFrame(), "/trees/agent38", "the next press moves the list")
 	})
@@ -182,12 +183,12 @@ func TestTabStripGolden(t *testing.T) {
 		{
 			name:  "worktrees-sort-strip",
 			rows:  buildMeasuredWorktrees(),
-			press: []string{"shift+tab", "esc"},
+			press: []string{"shift+tab", "esc", "f", "shift+tab", "j", "esc"},
 		},
 		{
 			name:  "worktrees-sort-strip-flat",
 			rows:  buildMeasuredWorktrees(),
-			press: []string{"t", "f", "shift+tab", "j", "esc"},
+			press: []string{"shift+tab", "esc"},
 		},
 	}
 

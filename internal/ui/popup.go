@@ -11,16 +11,36 @@ import (
 )
 
 const (
-	popupWidth  = 92
-	popupHeight = 14
-	popupChrome = 4
+	popupWidth    = 92
+	popupMinWidth = 40
+	popupHeight   = 24
+	popupChrome   = 4
 )
 
-// popupFrame is the box a popup is drawn in over an area, and where it stands.
-type popupFrame struct {
-	box string
-	x   int
-	y   int
+// popupAnchor is the columns beside the code a popup fills from the side facing the code.
+type popupAnchor struct {
+	left  int
+	right int
+	// codeOnRight is set when the code lies right of the columns.
+	codeOnRight bool
+}
+
+// measureWidth is how wide a popup stands in the anchor's columns, running into the code only to
+// keep its narrowest width.
+func (a popupAnchor) measureWidth() int {
+	return max(min(popupWidth, a.right-a.left), popupMinWidth)
+}
+
+// popupSlot is where a popup stands over an area and how big it is.
+type popupSlot struct {
+	x      int
+	y      int
+	width  int
+	height int
+}
+
+func (p popupSlot) room() int {
+	return max(p.height-2, 1)
 }
 
 // popupScroll is how far a popup is scrolled back from the end of the body it holds, and whose
@@ -30,15 +50,15 @@ type popupScroll struct {
 	rows  int
 }
 
-// move scrolls the popup down by rows, up when rows is negative, starting over when the body is
-// another owner's.
-func (p *popupScroll) move(owner, body string, rows int) {
+// move scrolls the popup down by rows, up when rows is negative, in a popup showing room rows of
+// the body, starting over when the body is another owner's.
+func (p *popupScroll) move(owner, body string, rows, room int) {
 	if p.owner != owner {
 		p.owner = owner
 		p.rows = 0
 	}
 
-	most := max(paint.CountLines(body)-(popupHeight-2), 0)
+	most := max(len(splitPopupRows(body))-room, 0)
 	p.rows = min(max(p.rows-rows, 0), most)
 }
 
@@ -47,67 +67,87 @@ func (p *popupScroll) reset() {
 	p.owner = ""
 }
 
-// cut is the body as far as the popup is scrolled, the whole of it when the scroll is another
-// owner's.
-func (p popupScroll) cut(owner, body string) string {
+// back is how many rows the popup is scrolled back from the end of an owner's body, none when the
+// scroll is another owner's.
+func (p popupScroll) back(owner string) int {
 	if p.owner != owner {
-		return body
+		return 0
 	}
 
-	return cutPopupEnd(body, p.rows)
+	return p.rows
 }
 
-// measurePopupWidth is the width a popup takes over a column of the width given.
-func measurePopupWidth(column int) int {
-	return max(min(popupWidth, column), popupChrome+1)
+// popupStage is the rows a popup stands over: the first it may take, the row the cursor is drawn
+// on and how many there are.
+type popupStage struct {
+	top    int
+	cursor int
+	rows   int
 }
 
-// measurePopupInner is the room inside a popup over a column of the width given.
-func measurePopupInner(column int) int {
-	return measurePopupWidth(column) - popupChrome
-}
+// placePopup stands a popup as tall as asked, up to its tallest, over the cursor's row of a stage,
+// or under it when there is no room above, shrinking into the roomier side when neither holds it
+// whole, against the code beside the anchor's columns.
+func placePopup(anchor popupAnchor, stage popupStage, tall int) popupSlot {
+	above, below := stage.cursor-stage.top, stage.rows-stage.cursor-1
 
-// overlayPopup draws a body in a popup beside the cursor's row of an area, from the column left,
-// and leaves the area alone when the body is empty.
-func overlayPopup(area, body string, cursor, left int) string {
-	if body == "" {
-		return area
+	want := min(tall, popupHeight)
+	height, y := want, stage.cursor-want
+	switch {
+	case above >= want:
+	case below >= want:
+		y = stage.cursor + 1
+	case above >= below:
+		height, y = above, stage.top
+	default:
+		height, y = below, stage.cursor+1
 	}
 
-	rows := paint.CountLines(area)
-	width := lipgloss.Width(area)
-	box := drawPopup(body, measurePopupWidth(width-left), min(popupHeight, rows))
-	frame := placePopup(box, cursor, rows, left)
+	width := anchor.measureWidth()
+	x := anchor.left
+	if anchor.codeOnRight == (width <= anchor.right-anchor.left) {
+		x = anchor.right - width
+	}
 
-	return compose(width, strings.Count(area, "\n")+1, []*lipgloss.Layer{
+	return popupSlot{
+		x:      max(x, 0),
+		y:      y,
+		width:  width,
+		height: height,
+	}
+}
+
+// overlayPopup draws a body in a popup at a slot of an area, scrolled back rows from its end.
+func overlayPopup(area, body string, back int, slot popupSlot) string {
+	box := drawPopup(body, back, slot)
+
+	return compose(lipgloss.Width(area), strings.Count(area, "\n")+1, []*lipgloss.Layer{
 		lipgloss.NewLayer(area),
-		lipgloss.NewLayer(frame.box).X(frame.x).Y(frame.y).Z(1),
+		lipgloss.NewLayer(box).X(slot.x).Y(slot.y).Z(1),
 	})
 }
 
-// cutPopupEnd drops rows off the end of a body, never leaving fewer than the popup shows.
-func cutPopupEnd(body string, rows int) string {
-	lines := strings.Split(strings.TrimRight(body, "\n"), "\n")
-	keep := max(len(lines)-rows, min(popupHeight-2, len(lines)))
+// drawPopup boxes a body at a slot's width and height, showing the rows back rows from its end
+// and marking what runs past the box above and below.
+func drawPopup(body string, back int, slot popupSlot) string {
+	room := slot.room()
+	lines := splitPopupRows(body)
+	window := paint.WindowOf(len(lines), room, func(visible int) int {
+		if back >= len(lines)-room {
+			return 0
+		}
 
-	return strings.Join(lines[:keep], "\n")
-}
+		return max(len(lines)-visible-back, 0)
+	})
 
-// drawPopup boxes a body at the popup's width and height, keeping the end of it when it runs
-// longer than the box.
-func drawPopup(body string, width, height int) string {
-	inner := width - popupChrome
-	rows := strings.Split(strings.TrimRight(body, "\n"), "\n")
-	if room := max(height-2, 1); len(rows) > room {
-		rows = rows[len(rows)-room:]
-	}
-
-	for len(rows) < height-2 {
+	shown := paint.DrawWindow(lines[window.Start:window.End], window, len(lines), dimStyle())
+	rows := strings.Split(strings.TrimSuffix(shown, "\n"), "\n")
+	for len(rows) < room {
 		rows = append(rows, "")
 	}
 
 	padded := xslice.Map(rows, func(row string) string {
-		return fitPopupRow(row, inner)
+		return fitPopupRow(row, slot.width-popupChrome)
 	})
 
 	return lipgloss.NewStyle().
@@ -117,26 +157,15 @@ func drawPopup(body string, width, height int) string {
 		Render(strings.Join(padded, "\n"))
 }
 
-// placePopup stands a popup under the cursor's row, or over it when there is no room beneath,
-// inside an area of the rows given.
-func placePopup(box string, cursor, rows, left int) popupFrame {
-	height := paint.CountLines(box)
-	y := cursor + 1
-	if y+height > rows {
-		y = max(cursor-height, 0)
-	}
-
-	return popupFrame{
-		box: box,
-		x:   left,
-		y:   y,
-	}
-}
-
 // fitPopupRow cuts or pads a row to the popup's inner width, so the area under it never shows
 // through.
 func fitPopupRow(row string, width int) string {
 	row = ansi.Truncate(row, width, "…")
 
 	return row + strings.Repeat(" ", max(width-lipgloss.Width(row), 0))
+}
+
+// splitPopupRows is the rows of a body a popup holds, less the empty rows it ends with.
+func splitPopupRows(body string) []string {
+	return strings.Split(strings.TrimRight(body, "\n"), "\n")
 }

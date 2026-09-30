@@ -127,7 +127,6 @@ func TestReviewOffers(t *testing.T) {
 		server := newOfferedReviewServer(t, newOffer("f1", "dana", "rename this", 1))
 		harness := openReviewAt(t, server, panelHarnessParams{height: 40})
 
-		require.Contains(t, readReviewCursor(harness.readFrame()), gittest.File+":1")
 		assert.Contains(t, readPopupProse(harness.readFrame()), "rename this")
 	})
 
@@ -211,7 +210,9 @@ func TestReviewOffers(t *testing.T) {
 
 		harness.press("J")
 
-		assert.Contains(t, readReviewCursor(harness.readFrame()), gittest.File+":3")
+		frame := harness.readFrame()
+		assert.Contains(t, findLine(readStage(frame), "func Hello() string {"), "○")
+		assert.Contains(t, readPopupProse(frame), "rename this")
 	})
 
 	t.Run("an offer with nothing left to place it by is not in the diff", func(t *testing.T) {

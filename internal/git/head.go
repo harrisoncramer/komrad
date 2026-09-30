@@ -78,6 +78,11 @@ func (c *Client) ReadHeadState(ctx context.Context, params ReadHeadStateParams) 
 	}
 }
 
+// ReadRepositoryURL is the canonical address of the repository a checkout's origin points at, empty when it has none.
+func (c *Client) ReadRepositoryURL(ctx context.Context, dir string) string {
+	return readRepositoryURL(ctx, dir)
+}
+
 func readRepositoryURL(ctx context.Context, dir string) string {
 	raw, err := Run(ctx, dir, "config", "--get", "remote.origin.url")
 	if err != nil {

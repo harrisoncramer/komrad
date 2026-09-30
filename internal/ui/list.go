@@ -521,6 +521,8 @@ type drawer interface {
 	screenColumnSplit() (columnSplit, bool)
 	joinColumns(split columnSplit, sidebar, column string) string
 	markZone(name zone, block string, width int) string
+	isMarkingZones() bool
+	isSidebarOnRight() bool
 	renderHelp(k keyMap, above ...string) string
 	globalHelp() []key.Binding
 	fullGlobalHelp() []key.Binding

@@ -31,6 +31,9 @@ func archiveBatch(ctx context.Context, params archiveBatchParams) error {
 		return err
 	}
 
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), teardownTimeout)
+	defer cancel()
+
 	// Killing what was read first keeps a failed write from hiding a live CLI, leaving the row
 	// for the reconciler to tidy.
 	captureOwnedScreens(ctx, captureOwnedScreensParams{tmux: params.tmux, screens: params.screens, agents: params.owned})

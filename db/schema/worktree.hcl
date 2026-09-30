@@ -56,6 +56,34 @@ table "worktrees" {
     type    = text
     comment = "Why the last walk failed, null when it did not."
   }
+  column "standing_read_at" {
+    null    = true
+    type    = timestamptz
+    comment = "When git was last asked where the directory stands against its base, whether or not it answered, null until the first reading."
+  }
+  column "dirty" {
+    null    = false
+    type    = boolean
+    default = false
+    comment = "Whether the directory held modified or untracked files at the last reading."
+  }
+  column "sequencing" {
+    null    = false
+    type    = boolean
+    default = false
+    comment = "Whether a merge, a rebase or a cherry-pick was part-way through at the last reading."
+  }
+  column "unlanded" {
+    null    = false
+    type    = integer
+    default = 0
+    comment = "How many of the branch's own commits the base did not yet hold at the last reading."
+  }
+  column "standing_error" {
+    null    = true
+    type    = text
+    comment = "Why the last reading failed, null when it did not."
+  }
   column "engine_id" {
     null    = false
     type    = uuid

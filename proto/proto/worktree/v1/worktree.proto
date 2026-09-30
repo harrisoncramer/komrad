@@ -94,6 +94,22 @@ message WatchedWorktree {
   // The directory's share of size_bytes, each hard linked file's blocks split evenly across its
   // links. Unset with size_bytes.
   optional int64 share_bytes = 9;
+  // Where the directory stood against its base when git was last asked, unset until then.
+  WorktreeStanding standing = 10;
+}
+
+// WorktreeStanding is where a worktree stood against its base when git was last asked.
+message WorktreeStanding {
+  // When git was asked, in RFC 3339.
+  string read_at = 1;
+  // Whether the directory held modified or untracked files.
+  bool dirty = 2;
+  // Whether a merge, a rebase or a cherry-pick was part-way through.
+  bool sequencing = 3;
+  // How many of the branch's own commits the base did not yet hold.
+  int32 unlanded = 4;
+  // Why git could not say, empty when it could.
+  string error = 5;
 }
 
 message ListWorktreesResponse {

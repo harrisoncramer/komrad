@@ -760,7 +760,7 @@ service AgentService {
       cli: true
       mcp: true
       name: "archive_agents"
-      description: "Stop a list of agents and hide them from the panel. Their records and transcripts are kept, search still finds their conversations, and restore_agents brings them back, so prefer this to delete_agents. An agent's children are archived with it. A child named on its own is archived alone, which is how you finish with a reviewer while the agent it was reading keeps working. The batch goes whole or not at all, and the call waits for each agent\x27s pre-archive hook, one that fails refusing the batch. An agent other than an orchestrator may archive only its own children."
+      description: "Stop a list of agents and hide them from the panel. Their records and transcripts are kept, search still finds their conversations, and restore_agents brings them back, so prefer this to delete_agents. An agent's children are archived with it. A child named on its own is archived alone, which is how you finish with a reviewer while the agent it was reading keeps working. The batch goes whole or not at all, and the call waits for each agent\x27s pre-archive hook, one that fails refusing the batch. An agent other than an orchestrator may archive only itself and its own children."
       destructive: false
       roles: [
         ROLE_IMPLEMENTER,

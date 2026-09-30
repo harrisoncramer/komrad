@@ -7,7 +7,9 @@ import (
 	"testing"
 	"time"
 
+	"komrad/internal/git"
 	agentstore "komrad/internal/store/agent"
+	workflowstore "komrad/internal/store/workflow"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -37,6 +39,26 @@ func TestMeasureTakesTheUnmeasuredFirstThenTheStaleOldestFirst(t *testing.T) {
 
 	assert.Equal(t, []string{older}, fixture.listMeasuredAt(t, fixture.now), "the newer stale directory waits for the next pass")
 	assert.Equal(t, int64(1), fixture.readSize(t, fresh).Bytes, "a fresh measurement is left alone")
+}
+
+// TestMeasureReadsWhereEachWalkedDirectoryStands covers a pass reading git for the directories
+// it walks without refreshing their index, and leaving one it does not walk unread.
+func TestMeasureReadsWhereEachWalkedDirectoryStands(t *testing.T) {
+	fixture := newFixture(t)
+	walked, fresh := fixture.cut(t), fixture.cut(t)
+	main := fixture.stores.SeedWorkflow(t, workflowstore.Config{Name: "main", Worktree: workflowstore.WorktreeConfig{BaseBranch: "main"}})
+	fixture.own(t, walked, agentstore.Agent{Name: "walked", WorkflowID: main.ID})
+	fixture.recordSize(t, fresh, fixture.now.Add(-10*time.Minute))
+	fixture.git.Prediction = git.Prediction{Replay: 4}
+
+	require.NoError(t, fixture.newMeasurer().Measure(t.Context()))
+
+	standing := fixture.readStanding(t, walked)
+	assert.True(t, standing.ReadAt.Equal(fixture.now))
+	assert.Equal(t, 4, standing.Unlanded)
+	assert.Empty(t, standing.Error)
+	assert.Nil(t, fixture.listStored(t)[fresh].Standing)
+	assert.Zero(t, fixture.git.Refreshes, "a pass never takes the index lock of a checkout an agent may be using")
 }
 
 // TestMeasureRecordsAFailedWalkAndDoesNotRetryIt covers a walk that fails being recorded with

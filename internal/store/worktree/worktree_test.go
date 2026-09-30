@@ -93,6 +93,57 @@ func TestRecordSizeReplacesAMeasurement(t *testing.T) {
 	assert.True(t, sizes[0].MeasuredAt.Equal(first.Add(time.Hour)))
 }
 
+// TestRecordStandingReplacesAReading covers an error clearing a reading, a later success clearing
+// the error, and a directory with no row taking no reading.
+func TestRecordStandingReplacesAReading(t *testing.T) {
+	worktrees := openWorktreeStore(t)
+	first := time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC)
+	require.NoError(t, worktrees.Upsert(t.Context(), Worktree{Dir: "/trees/a"}))
+
+	listed, err := worktrees.List(t.Context())
+	require.NoError(t, err)
+	require.Len(t, listed, 1)
+	assert.Nil(t, listed[0].Standing, "a directory is unread until git is first asked")
+
+	require.NoError(t, worktrees.RecordStanding(t.Context(), Standing{
+		Dir:      "/trees/a",
+		ReadAt:   first,
+		Dirty:    true,
+		Unlanded: 3,
+	}))
+	require.NoError(t, worktrees.RecordStanding(t.Context(), Standing{
+		Dir:    "/trees/a",
+		ReadAt: first.Add(time.Hour),
+		Error:  "no base",
+	}))
+	require.NoError(t, worktrees.RecordStanding(t.Context(), Standing{
+		Dir:    "/trees/never",
+		ReadAt: first,
+	}))
+
+	listed, err = worktrees.List(t.Context())
+	require.NoError(t, err)
+	require.Len(t, listed, 1)
+	require.NotNil(t, listed[0].Standing)
+	assert.Equal(t, "no base", listed[0].Standing.Error)
+	assert.False(t, listed[0].Standing.Dirty)
+	assert.Zero(t, listed[0].Standing.Unlanded)
+	assert.True(t, listed[0].Standing.ReadAt.Equal(first.Add(time.Hour)))
+
+	require.NoError(t, worktrees.RecordStanding(t.Context(), Standing{
+		Dir:        "/trees/a",
+		ReadAt:     first.Add(2 * time.Hour),
+		Sequencing: true,
+	}))
+
+	watched, err := worktrees.ListWatched(t.Context(), nil)
+	require.NoError(t, err)
+	require.Len(t, watched, 1)
+	require.NotNil(t, watched[0].Standing)
+	assert.Empty(t, watched[0].Standing.Error)
+	assert.True(t, watched[0].Standing.Sequencing)
+}
+
 // TestDeleteForgetsOnlyTheDirectoriesNamed covers the rows named going and the rest staying,
 // with nothing named touching nothing.
 func TestDeleteForgetsOnlyTheDirectoriesNamed(t *testing.T) {

@@ -187,10 +187,11 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 		CheckoutSync: wakers.cwdSync,
 	})
 	adoptService := agents.NewAdoptService(agents.NewAdoptServiceParams{
-		Agents:    st.agents,
-		Workflows: st.workflows,
-		Launch:    launchService,
-		Worktrees: gitClient,
+		Agents:          st.agents,
+		Workflows:       st.workflows,
+		Launch:          launchService,
+		Worktrees:       gitClient,
+		PullRequestSync: wakers.pullRequestSync,
 	})
 	agentDelete := jobs.NewAgentDelete(queue)
 
@@ -356,7 +357,7 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 			Lister:    worktreeLister,
 			Git:       gitClient,
 			Workflows: st.workflows,
-			Sizes:     st.worktrees,
+			Worktrees: st.worktrees,
 		}),
 		remover: worktrees.NewRemover(worktrees.NewRemoverParams{
 			Lister: worktreeLister,

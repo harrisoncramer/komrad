@@ -4,6 +4,8 @@ import (
 	"testing"
 	"time"
 
+	"komrad/internal/glyph"
+	"komrad/internal/ui/paint"
 	"komrad/internal/ui/panel"
 	"komrad/internal/view"
 	"komrad/lib/xslice"
@@ -251,7 +253,7 @@ func TestWorktreesSnapshotDrawsFlatRowsAtTheHeadingIndent(t *testing.T) {
 	for _, row := range snapshot.Rows {
 		assert.Equal(t, view.KindResult, row.Kind)
 	}
-	assert.Equal(t, []view.Cell{mutedCell("1.5G"), mutedCell("12h")}, snapshot.Rows[0].Cells)
+	assert.Equal(t, []view.Cell{mutedCell("1.5G"), mutedCell("12h"), {Glyph: glyph.Merged, Tone: paint.ToneMerged}}, snapshot.Rows[0].Cells)
 }
 
 // TestWorktreeRowsLeaveTheOccupantOffTheList covers an agent working in another's directory
@@ -480,14 +482,19 @@ func measuredFixture(now time.Time) []worktreeItem {
 		measuredAt: now.Add(-time.Hour),
 	}
 	items[4].lastActiveAt = now.Add(-12 * time.Hour)
+	items[0].standing = &worktreeStanding{dirty: true}
+	items[1].standing = &worktreeStanding{unlanded: 3}
+	items[2].standing = &worktreeStanding{err: "git cannot read the directory"}
+	items[4].standing = &worktreeStanding{}
 
 	return items
 }
 
-// TestWorktreesSnapshotCellsAreSizeThenAge covers every row's cells: the size then the age on a
-// directory, a dash for the size until it is measured or while its walk fails, and the header
-// summing the shares of the measured directories under it over the size column.
-func TestWorktreesSnapshotCellsAreSizeThenAge(t *testing.T) {
+// TestWorktreesSnapshotCellsAreSizeAgeThenStanding covers every row's cells: the size and the age
+// on a directory with a dash for the size until it is measured or while its walk fails, the
+// standing in the glyphs an agent's row draws, and the header summing the shares of the measured
+// directories under it over the size column.
+func TestWorktreesSnapshotCellsAreSizeAgeThenStanding(t *testing.T) {
 	now := time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC)
 	items := measuredFixture(now)
 	snapshot := worktreesSnapshot(worktreesSnapshotParams{
@@ -496,19 +503,19 @@ func TestWorktreesSnapshotCellsAreSizeThenAge(t *testing.T) {
 		now:   now,
 	})
 
-	cells := map[string][]string{}
+	cells := map[string][]view.Cell{}
 	for _, row := range snapshot.Rows {
-		cells[row.Key] = xslice.Map(row.Cells, func(cell view.Cell) string { return cell.Text })
+		cells[row.Key] = row.Cells
 	}
 
-	assert.Equal(t, map[string][]string{
-		"repo:/home/h/gadgets/admin": {"1.5G"},
-		"tree:/trees/admin":          {"1.5G", "12h"},
-		"repo:/home/h/komrad":        {"60M"},
-		"tree:/trees/live":           {"49M", "30s"},
-		"tree:/trees/archived":       {"49M", "4d"},
-		"tree:/trees/orphan":         {"—", "3h"},
-		"repo:/var/folders/T/repo":   {"—"},
-		"tree:/trees/broken":         {"—", "2w"},
+	assert.Equal(t, map[string][]view.Cell{
+		"repo:/home/h/gadgets/admin": {mutedCell("1.5G")},
+		"tree:/trees/admin":          {mutedCell("1.5G"), mutedCell("12h"), {Glyph: glyph.Merged, Tone: paint.ToneMerged}},
+		"repo:/home/h/komrad":        {mutedCell("60M")},
+		"tree:/trees/live":           {mutedCell("49M"), mutedCell("30s"), {Glyph: glyph.Worktree, Tone: paint.ToneWarning}},
+		"tree:/trees/archived":       {mutedCell("49M"), mutedCell("4d"), {Glyph: glyph.Worktree, Tone: paint.ToneMuted}},
+		"tree:/trees/orphan":         {mutedCell("—"), mutedCell("3h"), mutedCell("—")},
+		"repo:/var/folders/T/repo":   {mutedCell("—")},
+		"tree:/trees/broken":         {mutedCell("—"), mutedCell("2w"), {Glyph: glyph.WorktreeGone, Tone: paint.ToneDanger}},
 	}, cells)
 }

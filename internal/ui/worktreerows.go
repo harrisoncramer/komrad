@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"komrad/internal/glyph"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/ui/panel"
@@ -24,11 +25,13 @@ type worktreeRow struct {
 	item worktreeItem
 }
 
-// worktreeColumns is the gutter of the worktrees list: a directory's size, then its age.
+// worktreeColumns is the gutter of the worktrees list: a directory's size, its age, then where
+// it stands against its base.
 func worktreeColumns() view.Columns {
 	return view.Columns{
 		{Kind: view.ColumnText, Width: sizeColumns},
 		{Kind: view.ColumnText, Width: ageColumns},
+		{Kind: view.ColumnText, Width: glyph.Columns},
 	}
 }
 
@@ -162,7 +165,7 @@ func (w *worktreesScreen) rows(s panelShared) []worktreeRow {
 func (w *worktreesScreen) buildRows(s panelShared) []worktreeRow {
 	return narrowed(s.chrome.filter, narrowedParams[worktreeRow]{
 		rows: worktreeRows(worktreeRowsParams{
-			items: w.items,
+			items: w.shown(),
 			order: worktreesTabs().order(w.sort),
 			flat:  w.sort.flat,
 		}),
@@ -303,11 +306,12 @@ func worktreeAgentFacts(row view.Row, agent worktreeAgent, live map[string]panel
 	return agentFacts(row, item)
 }
 
-// rowCells are a directory's size then its age.
+// rowCells are a directory's size, its age, then where it stands.
 func rowCells(item worktreeItem, now time.Time) []view.Cell {
 	return []view.Cell{
 		mutedCell(sizeLabel(item)),
 		mutedCell(label.AgeAt(item.lastActiveAt, now)),
+		standingCell(item),
 	}
 }
 
@@ -327,6 +331,23 @@ func sizeLabel(item worktreeItem) string {
 	}
 
 	return label.Bytes(item.size.bytes)
+}
+
+// standingCell is where a directory stands against its base, or a dash while git has not said.
+func standingCell(item worktreeItem) view.Cell {
+	standing := item.standing
+	switch {
+	case !item.readable:
+		return view.Cell{Glyph: glyph.WorktreeGone, Tone: paint.ToneDanger}
+	case standing == nil || standing.err != "":
+		return mutedCell(label.Dash)
+	case standing.dirty || standing.sequencing:
+		return view.Cell{Glyph: glyph.Worktree, Tone: paint.ToneWarning}
+	case standing.unlanded > 0:
+		return view.Cell{Glyph: glyph.Worktree, Tone: paint.ToneMuted}
+	}
+
+	return view.Cell{Glyph: glyph.Merged, Tone: paint.ToneMerged}
 }
 
 // totalLabel is what the measured directories take together.

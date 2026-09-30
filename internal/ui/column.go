@@ -227,6 +227,10 @@ func (m model) isOverColumn(x int) bool {
 	return x >= split.sidebar+dividerCols
 }
 
+func (m model) isSidebarOnRight() bool {
+	return m.frame.IsSidebarOnRight()
+}
+
 // joinColumns lays the two halves of the window side by side, on the side the frame puts the
 // sidebar, having squared each off at its share first.
 func (m model) joinColumns(split columnSplit, sidebar, column string) string {

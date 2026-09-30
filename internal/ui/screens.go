@@ -202,6 +202,8 @@ type host interface {
 	// A failure lands in the messages region.
 	report(summary string, err error)
 	reportBrief(summary, detail string)
+	// A note answers a keypress in the messages region.
+	note(kind messageKind, summary string)
 
 	// The form, the popup, the screen that is up and the archive and worktree listings are the root's.
 	openForm(f formState) tea.Cmd

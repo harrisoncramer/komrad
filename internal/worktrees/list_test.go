@@ -588,12 +588,21 @@ func (f *worktreeFixture) readSize(t *testing.T, dir string) worktreestore.Size 
 	return *size
 }
 
+func (f *worktreeFixture) readStanding(t *testing.T, dir string) worktreestore.Standing {
+	t.Helper()
+
+	standing := f.listStored(t)[dir].Standing
+	require.NotNil(t, standing, "%s has no standing", dir)
+
+	return *standing
+}
+
 func (f *worktreeFixture) newInspector() *Inspector {
 	return NewInspector(NewInspectorParams{
 		Lister:    f.lister,
 		Git:       f.git,
 		Workflows: f.stores.Workflows,
-		Sizes:     f.worktrees,
+		Worktrees: f.worktrees,
 		Now: func() time.Time {
 			return f.now
 		},
@@ -609,6 +618,7 @@ func (f *worktreeFixture) newMeasurerOver(lister worktreeLister) *Measurer {
 		Lister:    lister,
 		Claimed:   f.claims,
 		Worktrees: f.worktrees,
+		Standings: f.newInspector(),
 		Now: func() time.Time {
 			return f.now
 		},

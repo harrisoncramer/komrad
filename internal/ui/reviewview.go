@@ -37,16 +37,14 @@ func reviewDeadStyle(palette paint.Palette) lipgloss.Style {
 }
 
 // view draws the diff and, beside it, the file tree, with the thread the cursor is standing on
-// in a popup over the diff.
+// in a popup over them.
 func (r reviewScreen) view(s panelShared) string {
 	split, ok := s.draw.screenColumnSplit()
 	if !ok {
 		band := r.bandView(s, s.pane)
 		layout := r.layoutSidebar(s, band)
-		column := strings.TrimRight(band+r.drawSidebar(layout), "\n")
-		cursor := paint.CountLines(band+layout.bar+layout.files+r.placeView()) - 1
 
-		return r.overlayThread(s, column, cursor, 0)
+		return r.overlayThread(s, strings.TrimRight(band+r.drawSidebar(layout), "\n"))
 	}
 
 	layout := r.layoutSidebar(s)
@@ -58,16 +56,25 @@ func (r reviewScreen) view(s panelShared) string {
 	// The band stands over the diff rather than over the whole window, and what it carries acts on
 	// the patch.
 	band := r.bandView(s, split.column)
-	area := r.overlayThread(s, band+r.diffView(s, split), strings.Count(band, "\n")+r.diff.GetCursorRow(split.rows), reviewPopupLeft)
+	area := band + r.diffView(s, split)
 	diff := s.draw.markZone(zoneList, area, split.column)
 
-	return s.draw.joinColumns(split, sidebar, diff)
+	return r.overlayThread(s, s.draw.joinColumns(split, sidebar, diff))
 }
 
-// overlayThread draws the popup over an area beside the cursor's row, and leaves the area alone
-// where the popup has nothing to hold.
-func (r reviewScreen) overlayThread(s panelShared, area string, cursor, left int) string {
-	return overlayPopup(area, r.popupBody(s, measureReviewPopupInner(s)), cursor, left)
+// overlayThread draws the popup over an area, and leaves the area alone where the popup has
+// nothing to hold or the frame is drawn to find its blocks.
+func (r reviewScreen) overlayThread(s panelShared, area string) string {
+	if s.draw.isMarkingZones() {
+		return area
+	}
+
+	body, back := r.popupBody(s, r.measurePopupInner(s))
+	if body == "" {
+		return area
+	}
+
+	return overlayPopup(area, body, back, r.placeThread(s, body))
 }
 
 // drawSidebar is the panel's own column: the files the change touches, where the cursor is
@@ -183,8 +190,6 @@ func (r reviewScreen) notesView(s panelShared) string {
 		return ""
 	}
 
-	// A notice answers the last keypress and a keypress clears it, so what the reader is told
-	// about the diff itself stands underneath and comes back the moment the answer is gone.
 	if notice := r.notice; notice != "" {
 		return "\n" + reviewNote(lineWidthOf(s.pane), paint.Panel.Style(reviewNoticeTone), notice)
 	}

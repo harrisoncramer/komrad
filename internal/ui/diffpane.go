@@ -25,7 +25,6 @@ const diffFloor = diffview.GutterWidth + 20
 type diffKeys struct {
 	pane   *diffview.Pane
 	filter *filterState
-	notice *string
 	// height is the rows the pane is drawn in.
 	height func(panelShared) int
 	// moved is what the screen does once the reader lands somewhere new, and is nil on a screen
@@ -95,8 +94,8 @@ func (k diffKeys) table() []screenAction {
 		{
 			id:   actionDiffMatch,
 			keys: func(b config.Keybindings) []string { return slices.Concat(b.Diff.NextMatch, b.Diff.PrevMatch) },
-			run: func(_ host, s panelShared, pressed string) tea.Cmd {
-				return k.jumpMatch(s, directionOf(pressed, s.keys.Diff.PrevMatch))
+			run: func(h host, s panelShared, pressed string) tea.Cmd {
+				return k.jumpMatch(h, s, directionOf(pressed, s.keys.Diff.PrevMatch))
 			},
 		},
 		{
@@ -120,7 +119,7 @@ func (k diffKeys) table() []screenAction {
 		{
 			id:   actionDiffExpand,
 			keys: func(b config.Keybindings) []string { return b.Diff.Expand },
-			run:  func(_ host, s panelShared, _ string) tea.Cmd { return k.toggleExpanded(s) },
+			run:  func(h host, s panelShared, _ string) tea.Cmd { return k.toggleExpanded(h, s) },
 		},
 	}
 }
@@ -252,13 +251,14 @@ func (k diffKeys) search(s panelShared) {
 }
 
 // jumpMatch steps to the next or previous line the search found, wrapping at the ends.
-func (k diffKeys) jumpMatch(s panelShared, direction int) tea.Cmd {
+func (k diffKeys) jumpMatch(h host, s panelShared, direction int) tea.Cmd {
 	moved, found := k.pane.JumpMatch(direction, k.height(s))
 	if !found {
-		*k.notice = "nothing to search for yet"
+		said := "nothing to search for yet"
 		if k.filter.isStanding() {
-			*k.notice = "no matches"
+			said = "no matches"
 		}
+		h.note(messageWarning, said)
 
 		return nil
 	}
@@ -272,10 +272,10 @@ func (k diffKeys) jumpMatch(s panelShared, direction int) tea.Cmd {
 
 // toggleExpanded draws the whole of the file the cursor is in, or gives back the changed lines
 // and the few around them.
-func (k diffKeys) toggleExpanded(s panelShared) tea.Cmd {
+func (k diffKeys) toggleExpanded(h host, s panelShared) tea.Cmd {
 	if k.refuseExpand != nil {
 		if refused := k.refuseExpand(s); refused != "" {
-			*k.notice = refused
+			h.note(messageWarning, refused)
 
 			return nil
 		}
@@ -285,13 +285,13 @@ func (k diffKeys) toggleExpanded(s panelShared) tea.Cmd {
 	case diffview.ExpandNothing:
 		return nil
 	case diffview.ExpandNoMore:
-		*k.notice = "there is no more of that file to show"
+		h.note(messageWarning, "there is no more of that file to show")
 
 		return nil
 	case diffview.ExpandWhole:
-		*k.notice = "showing the whole file"
+		h.note(messageInfo, "showing the whole file")
 	case diffview.ExpandChanged:
-		*k.notice = "showing the changed lines"
+		h.note(messageInfo, "showing the changed lines")
 	}
 
 	return k.land(s)

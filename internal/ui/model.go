@@ -395,6 +395,7 @@ func newModel(deps Deps, isDark bool, post *postbox) model {
 		engineBuild:     deps.EngineStatus.Build,
 		screen:          screenAgents,
 		archive:         archiveScreen{sort: tabsState{flat: true}},
+		worktrees:       worktreesScreen{sort: tabsState{flat: true}},
 		documentTypes:   documentsScreen{shelf: shelfDocumentTypes},
 		rowCursor:       newRowCursor(),
 		warm:            newWarmupState(),

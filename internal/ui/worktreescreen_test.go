@@ -197,7 +197,7 @@ func TestWorktreesDelete(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			harness := openWorktrees(t)
+			harness := openGroupedWorktrees(t)
 			moveToWorktree(t, harness, tt.row)
 
 			harness.press(tt.press...)
@@ -285,7 +285,7 @@ func TestWorktreesDeleteAnswer(t *testing.T) {
 			name:     "a queue that refuses is reported",
 			refusal:  errors.New("the queue is away"),
 			answer:   "y",
-			wantSent: []proto.Message{&worktreev1.DeleteWorktreesRequest{Dirs: []string{"/trees/admin", "/trees/archived", "/trees/orphan", "/trees/broken"}}},
+			wantSent: []proto.Message{&worktreev1.DeleteWorktreesRequest{Dirs: []string{"/trees/admin", "/trees/archived", "/trees/broken", "/trees/orphan"}}},
 			want:     "Could not delete 4 worktrees",
 		},
 		{
@@ -296,7 +296,7 @@ func TestWorktreesDeleteAnswer(t *testing.T) {
 		{
 			name:     "confirming queues every directory that can go in one call",
 			answer:   "y",
-			wantSent: []proto.Message{&worktreev1.DeleteWorktreesRequest{Dirs: []string{"/trees/admin", "/trees/archived", "/trees/orphan", "/trees/broken"}}},
+			wantSent: []proto.Message{&worktreev1.DeleteWorktreesRequest{Dirs: []string{"/trees/admin", "/trees/archived", "/trees/broken", "/trees/orphan"}}},
 			want:     "Deleting 4 worktrees",
 		},
 	}
@@ -702,7 +702,7 @@ func TestWorktreesInspection(t *testing.T) {
 	t.Run("the cursor coming to rest reads the directory it rests on, not the ones it passed", func(t *testing.T) {
 		t.Parallel()
 
-		harness := openWorktrees(t)
+		harness := openGroupedWorktrees(t)
 		read := &worktreev1.GetWorktreeRequest{Dir: "/trees/live"}
 
 		harness.press("g", "g", "j", "j", "j")
@@ -796,7 +796,7 @@ func TestWorktreesSort(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			harness := openWorktrees(t, buildMeasuredWorktrees()...)
+			harness := openGroupedWorktrees(t, buildMeasuredWorktrees()...)
 
 			harness.press(tt.press...)
 
@@ -809,7 +809,7 @@ func TestWorktreesSort(t *testing.T) {
 	t.Run("the arrow turns under the cursor and the list takes the keys back", func(t *testing.T) {
 		t.Parallel()
 
-		harness := openWorktrees(t, buildMeasuredWorktrees()...)
+		harness := openGroupedWorktrees(t, buildMeasuredWorktrees()...)
 		harness.press("f", "tab", "j", "f", "k")
 
 		frame := harness.readFrame()
@@ -823,7 +823,7 @@ func TestWorktreesSort(t *testing.T) {
 	t.Run("the stop flips the headings back and escape keeps what it chose", func(t *testing.T) {
 		t.Parallel()
 
-		harness := openWorktrees(t, buildMeasuredWorktrees()...)
+		harness := openGroupedWorktrees(t, buildMeasuredWorktrees()...)
 		harness.press("f", "tab", "tab", "j")
 		require.Contains(t, readBelowViews(harness.readFrame())[0], "flat")
 
@@ -839,7 +839,7 @@ func TestWorktreesSort(t *testing.T) {
 	t.Run("a cursor on a heading lands on a row once the headings go", func(t *testing.T) {
 		t.Parallel()
 
-		harness := openWorktrees(t, buildMeasuredWorktrees()...)
+		harness := openGroupedWorktrees(t, buildMeasuredWorktrees()...)
 		harness.press("k", "k")
 		require.Equal(t, "/home/h/komrad", readHoveredWorktree(harness.readFrame()))
 
@@ -851,12 +851,103 @@ func TestWorktreesSort(t *testing.T) {
 	t.Run("the strip left from the stop comes back on its chosen column", func(t *testing.T) {
 		t.Parallel()
 
-		harness := openWorktrees(t, buildMeasuredWorktrees()...)
+		harness := openGroupedWorktrees(t, buildMeasuredWorktrees()...)
 		harness.press("f", "shift+tab", "esc", "f", "k")
 
 		frame := harness.readFrame()
 		assert.Contains(t, readSidebar(frame)[1], "↑ size")
 		assert.NotContains(t, readBelowViews(frame)[0], "flat")
+	})
+}
+
+// TestWorktreesScope covers the row of scopes narrowing which directories are listed.
+func TestWorktreesScope(t *testing.T) {
+	t.Parallel()
+
+	occupied := buildMeasuredWorktrees()
+	for _, row := range occupied {
+		if agent, isAgent := row.(*agentv1.Agent); isAgent && agent.GetId() == "occ" {
+			agent.Cwd = "/trees/archived"
+		}
+	}
+
+	tests := []struct {
+		name      string
+		rows      []proto.Message
+		press     []string
+		want      []string
+		wantTally string
+	}{
+		{
+			name:      "the listing opens flat on every directory, the largest first",
+			rows:      buildMeasuredWorktrees(),
+			want:      []string{"cargo-fix", "reviewer", "treeview", "broken", "agent/orphan"},
+			wantTally: "5 · ",
+		},
+		{
+			name:      "inactive leaves out the directory a live agent answers for",
+			rows:      buildMeasuredWorktrees(),
+			press:     []string{"F", "tab", "esc"},
+			want:      []string{"cargo-fix", "reviewer", "broken", "agent/orphan"},
+			wantTally: "4 · ",
+		},
+		{
+			name:      "inactive leaves out an archived agent's directory a live agent works in",
+			rows:      occupied,
+			press:     []string{"F", "tab", "esc"},
+			want:      []string{"cargo-fix", "broken", "agent/orphan"},
+			wantTally: "3 · ",
+		},
+		{
+			name:      "merged keeps the inactive directories the base holds whole",
+			rows:      buildMeasuredWorktrees(),
+			press:     []string{"F", "tab", "tab", "esc"},
+			want:      []string{"cargo-fix"},
+			wantTally: "1 · ",
+		},
+		{
+			name:      "the row wraps back to every directory",
+			rows:      buildMeasuredWorktrees(),
+			press:     []string{"F", "tab", "tab", "tab", "esc"},
+			want:      []string{"cargo-fix", "reviewer", "treeview", "broken", "agent/orphan"},
+			wantTally: "5 · ",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			harness := openWorktrees(t, tt.rows...)
+			moveToWorktree(t, harness, "reviewer")
+
+			harness.press(tt.press...)
+
+			frame := harness.readFrame()
+			assert.Equal(t, tt.want, readListRows(frame))
+			assert.True(t, strings.HasPrefix(readBelowViews(frame)[0], tt.wantTally), readBelowViews(frame)[0])
+		})
+	}
+
+	t.Run("a directory both scopes list keeps the cursor", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openWorktrees(t, buildMeasuredWorktrees()...)
+		moveToWorktree(t, harness, "broken")
+
+		harness.press("F", "tab", "esc")
+		assert.Equal(t, "broken", readHoveredWorktree(harness.readFrame()))
+	})
+
+	t.Run("the scope holds while directories are selected", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openWorktrees(t, buildMeasuredWorktrees()...)
+		harness.press(append(widenListPresses, "v", "F", "?")...)
+
+		frame := harness.readFrame()
+		assert.NotEmpty(t, readHoveredRow(frame), "the list keeps the keys")
+		assert.NotContains(t, readLegend(frame), "F kind")
 	})
 }
 
@@ -869,6 +960,15 @@ func openWorktrees(t *testing.T, rows ...proto.Message) *panelHarness {
 
 	harness := openAgents(t, rows...)
 	harness.press("shift+tab", "esc")
+
+	return harness
+}
+
+func openGroupedWorktrees(t *testing.T, rows ...proto.Message) *panelHarness {
+	t.Helper()
+
+	harness := openWorktrees(t, rows...)
+	harness.press("f", "shift+tab", "j", "esc")
 
 	return harness
 }
@@ -964,9 +1064,11 @@ func measureWorktree(worktree *worktreev1.WatchedWorktree) {
 		worktree.SizeBytes = xptr.Ptr[int64](49 * 1024 * 1024)
 		worktree.ShareBytes = xptr.Ptr[int64](30 * 1024 * 1024)
 		worktree.MeasuredAt = xptr.Ptr(formatStampAgo(time.Hour))
+		worktree.Standing = &worktreev1.WorktreeStanding{ReadAt: formatStampAgo(time.Hour), Unlanded: 2}
 	case "/trees/orphan":
 		worktree.MeasuredAt = xptr.Ptr(formatStampAgo(time.Hour))
 		worktree.SizeError = "permission denied"
+		worktree.Standing = &worktreev1.WorktreeStanding{ReadAt: formatStampAgo(time.Hour), Error: "git cannot read the directory"}
 		worktree.ModifiedAt = formatStampAgo(3 * time.Hour)
 	case "/trees/broken":
 		worktree.ModifiedAt = formatStampAgo(2 * 7 * 24 * time.Hour)
@@ -974,6 +1076,7 @@ func measureWorktree(worktree *worktreev1.WatchedWorktree) {
 		worktree.SizeBytes = xptr.Ptr[int64](1536 * 1024 * 1024)
 		worktree.ShareBytes = xptr.Ptr[int64](1536 * 1024 * 1024)
 		worktree.MeasuredAt = xptr.Ptr(formatStampAgo(time.Hour))
+		worktree.Standing = &worktreev1.WorktreeStanding{ReadAt: formatStampAgo(time.Hour)}
 	}
 }
 

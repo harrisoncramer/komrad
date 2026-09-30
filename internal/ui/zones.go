@@ -34,6 +34,11 @@ func (m model) markZone(name zone, block string, width int) string {
 	return "\x1b_kzs:" + string(name) + ":" + strconv.Itoa(width) + "\x1b\\" + block + "\x1b_kze:" + string(name) + ":\x1b\\"
 }
 
+// isMarkingZones reports whether this frame is drawn to find where its blocks landed.
+func (m model) isMarkingZones() bool {
+	return m.markingZones
+}
+
 // scanZones finds where each marked zone sits in a frame, in cells from its top left.
 func scanZones(frame string) map[zone]panes.Rect {
 	type opened struct {

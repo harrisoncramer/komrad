@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -420,4 +421,28 @@ func TestIntegrationDoesBaseHoldRemote(t *testing.T) {
 			assert.Equal(t, tt.want, held)
 		})
 	}
+}
+
+// TestIntegrationPeekChangesLeavesTheIndexAlone covers a peek reading the checkout as a refreshing
+// read would, a file whose stat data alone moved included, while the index stays as it was.
+func TestIntegrationPeekChangesLeavesTheIndexAlone(t *testing.T) {
+	root := repo(t)
+	index := filepath.Join(root, ".git", "index")
+	later := time.Now().Add(time.Hour)
+	require.NoError(t, os.Chtimes(filepath.Join(root, "kept.go"), later, later))
+	write(t, root, "staged.go", "package main\n")
+	run(t, root, "add", "staged.go")
+	require.NoError(t, os.Remove(filepath.Join(root, "proto/gen/api.pb.go")))
+	write(t, root, "notes/todo.txt", "untracked\n")
+	before, err := os.ReadFile(index)
+	require.NoError(t, err)
+
+	changes, err := client.PeekChanges(t.Context(), root)
+	require.NoError(t, err)
+
+	after, err := os.ReadFile(index)
+	require.NoError(t, err)
+	assert.Equal(t, before, after)
+	assert.Equal(t, []string{"proto/gen/api.pb.go", "staged.go"}, changes.Modified)
+	assert.Equal(t, []string{"notes/todo.txt"}, changes.Untracked)
 }

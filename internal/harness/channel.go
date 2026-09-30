@@ -23,6 +23,8 @@ type Channel interface {
 // Observer is how komrad learns what an agent is doing.
 type Observer interface {
 	Observe(ctx context.Context, target Target) (Observation, error)
+
+	IsRunning(ctx context.Context, target Target) (bool, error)
 }
 
 // Observation is one reading of an agent, however it was taken.
