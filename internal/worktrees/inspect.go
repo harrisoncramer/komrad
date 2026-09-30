@@ -206,7 +206,7 @@ func (i *Inspector) readAll(ctx context.Context, inspection *Inspection, fetch b
 
 type readSettledParams struct {
 	fetch bool
-	// peek reads the checkout without writing its index or taking the index lock.
+	// peek reads the checkout without writing the index.
 	peek bool
 }
 

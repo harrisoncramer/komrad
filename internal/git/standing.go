@@ -54,8 +54,7 @@ func (c *Client) ReadChanges(ctx context.Context, dir string) (Changes, error) {
 	return Changes{Modified: modified, Untracked: untracked}, nil
 }
 
-// PeekChanges is every uncommitted path in a checkout, read with the index refreshed in memory
-// and never written back, which leaves the index lock free for whoever else is using the checkout.
+// PeekChanges is every uncommitted path in a checkout, read without writing the index.
 func (c *Client) PeekChanges(ctx context.Context, dir string) (Changes, error) {
 	entries, err := pathList(ctx, dir, "--no-optional-locks", "status", "--porcelain=v1", "-z", "--no-renames", "--untracked-files=all")
 	if err != nil {
