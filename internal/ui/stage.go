@@ -135,7 +135,7 @@ func (m *model) stageSelection() {
 		m.frame.Show(layout.RegionStage, newBlankContent())
 	}
 
-	m.stageInfo()
+	m.stageTerminal()
 }
 
 // afterStaging sends the pane moves staging collected.

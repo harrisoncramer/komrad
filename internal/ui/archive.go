@@ -428,7 +428,7 @@ func (a *archiveScreen) details(s panelShared) details {
 
 // stage keeps the info pane on the row the cursor is standing on.
 func (a *archiveScreen) stage(h host, _ panelShared) {
-	h.stageInfo()
+	h.stageTerminal()
 }
 
 // doc is the markdown drawn beside the list for the row the cursor is on.

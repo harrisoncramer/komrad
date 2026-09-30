@@ -151,8 +151,8 @@ func (m *model) beginFilter() {
 func (m *model) enterScreen(next screen) tea.Cmd {
 	// A pane opened on a screen that takes these keys would follow the reader onto one that does
 	// not, where no key is left to close it, so it goes while the screen it belongs to is still up.
-	if !next.opensTerminal() && m.terminalDir != "" && !m.isViewsOpen() {
-		*m = m.closeInfo()
+	if !m.isViewsOpen() {
+		m.closeTerminalLeaving(next)
 	}
 
 	var left tea.Cmd

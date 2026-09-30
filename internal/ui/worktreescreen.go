@@ -65,7 +65,7 @@ func (w *worktreesScreen) hovered(s panelShared) (worktreeRow, bool) {
 }
 
 func (w *worktreesScreen) stage(h host, _ panelShared) {
-	h.stageInfo()
+	h.stageTerminal()
 }
 
 // inspectWorktreeCmd asks the service for the hovered directory's standing.
