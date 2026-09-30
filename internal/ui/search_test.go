@@ -868,6 +868,18 @@ func TestSearchPreview(t *testing.T) {
 		assert.NotEqual(t, hovered, readHoveredSearchRow(harness.readFrame()))
 	})
 
+	t.Run("the transcript takes the keys with its cursor on the match", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openPreview(t, panelHarnessParams{})
+		harness.press("enter", "ctrl+space", "ctrl+space")
+
+		raw := harness.readRawFrame()
+		at := findPreviewCursor(raw)
+		require.GreaterOrEqual(t, at, 0)
+		assert.Contains(t, readStage(ansi.Strip(raw))[at], matchedTurn)
+	})
+
 	t.Run("the wheel over the focused transcript carries its cursor with the window", func(t *testing.T) {
 		t.Parallel()
 

@@ -27,6 +27,7 @@ type searchPreview struct {
 	open         int
 	doc          docWindow
 	row          int
+	match        int
 }
 
 // searchColumn is the transcript drawn beside the list, which stands whether or not anything has
@@ -88,6 +89,7 @@ func (w *searchScreen) drawPreview(s panelShared) {
 	preview.doc.rows = strings.Split(strings.TrimRight(text, "\n"), "\n")
 
 	preview.doc.top = 0
+	preview.match = line - 1
 	if line > 0 {
 		preview.doc.top = max(line-1-transcriptPreviewBefore, 0)
 	}
@@ -169,9 +171,18 @@ func (w *searchScreen) isBlockFocused(s panelShared) bool {
 	return w.previewFocused && s.draw.isListFocused() && !w.typing && w.isBlockDrawn(s)
 }
 
-func (w *searchScreen) focusBlock(panelShared) {
+func (w *searchScreen) focusBlock(s panelShared) {
 	w.previewFocused = true
 	w.preview.row = 0
+
+	split, ok := s.draw.screenColumnSplit()
+	if !ok {
+		return
+	}
+
+	if row := w.preview.match - w.preview.doc.top; w.preview.match >= 0 && row >= 0 && row < split.rows {
+		w.preview.row = row
+	}
 }
 
 func (w *searchScreen) blurBlock() {
