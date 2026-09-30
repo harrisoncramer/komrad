@@ -496,69 +496,42 @@ func TestReviewThreads(t *testing.T) {
 	})
 }
 
-// TestReviewThreadFocus covers the thread taking the keys to read a conversation taller than the sidebar.
-func TestReviewThreadFocus(t *testing.T) {
-	t.Run("the thread scrolls back to its start and escape hands the keys back", func(t *testing.T) {
+// TestReviewPopupScroll covers reading a conversation taller than its popup.
+func TestReviewPopupScroll(t *testing.T) {
+	t.Run("the popup opens on the end of the conversation", func(t *testing.T) {
 		harness := openLongThread(t)
-		require.NotContains(t, readSidebarProse(harness.readFrame()), "you note 0")
 
-		harness.press("pick:block")
+		popup := readPopupProse(harness.readFrame())
+		assert.Contains(t, popup, "note 5")
+		assert.NotContains(t, popup, "note 0")
+	})
+
+	t.Run("the scroll keys move the conversation and leave the diff cursor", func(t *testing.T) {
+		harness := openLongThread(t)
 		for range 20 {
-			harness.press("k")
+			harness.press("ctrl+p")
 		}
 
 		frame := harness.readFrame()
-		assert.Contains(t, readSidebarProse(frame), "you note 0")
-		assert.NotContains(t, readSidebarProse(frame), "note 5")
+		assert.Contains(t, readPopupProse(frame), "note 0")
+		assert.NotContains(t, readPopupProse(frame), "note 5")
 		assert.Equal(t, "greet.go:1", readReviewCursor(frame))
 
-		harness.press("esc")
+		for range 20 {
+			harness.press("ctrl+n")
+		}
 
-		frame = harness.readFrame()
-		assert.True(t, harness.panel.IsZoomed())
-		assert.NotContains(t, readSidebarProse(frame), "you note 0")
+		assert.Contains(t, readPopupProse(harness.readFrame()), "note 5")
 	})
 
-	t.Run("the scroll keys move the thread while it holds the keys", func(t *testing.T) {
-		harness := openLongThread(t)
-		harness.press("pick:block")
-
-		harness.press("ctrl+p")
-		assert.NotContains(t, readSidebarProse(harness.readFrame()), "note 5")
-		assert.Equal(t, "greet.go:1", readReviewCursor(harness.readFrame()))
-
-		harness.press("ctrl+n")
-		assert.Contains(t, readSidebarProse(harness.readFrame()), "note 5")
-	})
-
-	t.Run("the wheel over the sidebar scrolls the thread and leaves the diff", func(t *testing.T) {
+	t.Run("the wheel scrolls the conversation and leaves the diff", func(t *testing.T) {
 		harness := openLongThread(t)
 
 		wheelOver(harness, 1, true)
 
 		frame := harness.readFrame()
-		assert.NotContains(t, readSidebarProse(frame), "note 5")
+		assert.NotContains(t, readPopupProse(frame), "note 5")
 		assert.Equal(t, "greet.go:1", readReviewCursor(frame))
-	})
-
-	t.Run("moving the diff cursor drops the scroll and the keys", func(t *testing.T) {
-		harness := openLongThread(t)
-		harness.press("pick:block", "k")
-		require.Contains(t, readLegend(harness.readFrame()), "back to the diff")
-
-		harness.press("ctrl+d")
-
-		frame := harness.readFrame()
-		assert.Equal(t, "greet.go:5", readReviewCursor(frame))
-		assert.NotContains(t, readLegend(frame), "back to the diff")
-	})
-
-	t.Run("a line with no thread takes no letter", func(t *testing.T) {
-		harness := openReview(t, newReviewServer(t))
-
-		harness.press("ctrl+space", "j")
-
-		assert.Empty(t, harness.panel.ReadPickLetter("block"))
 	})
 }
 
@@ -572,10 +545,10 @@ func TestReviewFitsThePane(t *testing.T) {
 
 			assert.Len(t, splitLines(harness.readFrame()), height)
 
-			harness.press("pick:block", "k", "k", "k", "k", "k")
+			harness.press("ctrl+p", "ctrl+p", "ctrl+p", "ctrl+p", "ctrl+p")
 			assert.Len(t, splitLines(harness.readFrame()), height)
 
-			harness.press("esc", "c")
+			harness.press("c")
 			assert.Len(t, splitLines(harness.readFrame()), height)
 		})
 	}
@@ -1313,21 +1286,6 @@ func TestReviewOwnComments(t *testing.T) {
 			})
 		}
 	})
-
-	t.Run("the legend follows the keys onto the thread and back", func(t *testing.T) {
-		harness := openReviewAt(t, newYoursServer(t, newYourThread(gittest.File, 2)), panelHarnessParams{height: 50})
-		harness.press("?", "u")
-		diff := readLegend(harness.readFrame())
-		require.NotContains(t, diff, "scroll the thread")
-
-		harness.press("pick:block")
-		thread := readLegend(harness.readFrame())
-		assert.Contains(t, thread, "scroll the thread")
-		assert.Contains(t, thread, "back to the diff")
-
-		harness.press("pick:list")
-		assert.Equal(t, diff, readLegend(harness.readFrame()))
-	})
 }
 
 // TestReviewLayout covers where the diff and the sidebar stand and that the frame fits the pane.
@@ -1846,15 +1804,15 @@ func TestReviewComposer(t *testing.T) {
 	})
 
 	t.Run("the field takes a width it was not built at", func(t *testing.T) {
-		harness := openReviewAt(t, newReviewServer(t), panelHarnessParams{width: 24})
+		harness := openReviewAt(t, newReviewServer(t), panelHarnessParams{width: 80})
 		harness.press("c")
-		built := findWidestFieldRow(harness.readFrame())
+		built := findWidestPopupRow(harness.readFrame())
 
 		harness.send(tea.WindowSizeMsg{Width: reviewWidth, Height: reviewHeight})
 
-		widened := findWidestFieldRow(harness.readFrame())
+		widened := findWidestPopupRow(harness.readFrame())
 		assert.Greater(t, widened, built)
-		assert.LessOrEqual(t, widened, ui.SidebarCols)
+		assert.LessOrEqual(t, widened, reviewWidth-config.DefaultSidebarWidth)
 	})
 
 	t.Run("every line typed is drawn at a narrow sidebar", func(t *testing.T) {
@@ -2213,9 +2171,9 @@ func TestReviewHold(t *testing.T) {
 
 		harness.press("e")
 		server.repo.Wrote(gittest.WroteParams{Tree: "tree-the-reader-edited", Whole: gittest.PatchWrittenOver})
-		harness.press("e")
+		harness.press("e", "j")
 
-		assert.Contains(t, harness.readFrame(), "written by the agent")
+		assert.Contains(t, readStageText(harness.readFrame()), "written by the agent")
 	})
 
 	t.Run("a diff is held while the agent writes and read again when it stops", func(t *testing.T) {
@@ -2258,29 +2216,6 @@ func TestReviewHold(t *testing.T) {
 		harness.press("e")
 		harness.assertSentTo(agentv1connect.AgentServiceHoldAgentProcedure, &agentv1.HoldAgentRequest{Id: "a1"})
 	})
-}
-
-// TestReviewEmphasis covers what the review says in colour and weight rather than in text.
-func TestReviewEmphasis(t *testing.T) {
-	t.Run("the cursor row dims while the thread has the keys", func(t *testing.T) {
-		harness := openLongThread(t)
-		live := readRawCursorRow(harness)
-
-		harness.press("pick:block")
-		dimmed := readRawCursorRow(harness)
-		require.NotEmpty(t, ansi.Strip(live))
-		assert.Equal(t, ansi.Strip(live), ansi.Strip(dimmed), "the same row, restyled")
-		assert.NotEqual(t, live, dimmed)
-
-		harness.press("pick:list")
-		assert.Equal(t, live, readRawCursorRow(harness))
-	})
-}
-
-func readRawCursorRow(harness *panelHarness) string {
-	line := findRawLine(harness.readRawFrame(), cursorRowLine)
-
-	return ansi.Cut(line, config.DefaultSidebarWidth, reviewWidth)
 }
 
 func newReviewServer(t *testing.T) *reviewServer {
@@ -2755,15 +2690,10 @@ func newMovedBaseServer(t *testing.T, replayed *git.Replayed) *reviewServer {
 	return server
 }
 
-func findWidestFieldRow(frame string) int {
+func findWidestPopupRow(frame string) int {
 	widest := 0
-	for _, line := range readSidebar(frame) {
-		if strings.HasPrefix(line, "─") {
-			break
-		}
-		if strings.HasPrefix(line, "  ") {
-			widest = max(widest, ansi.StringWidth(line))
-		}
+	for _, row := range readPopup(frame) {
+		widest = max(widest, ansi.StringWidth(row))
 	}
 
 	return widest
@@ -2818,7 +2748,7 @@ func TestReviewChange(t *testing.T) {
 
 		harness.press("G")
 		frame := harness.readFrame()
-		assert.NotEmpty(t, findLine(readStage(frame), "on the change as a whole ──"))
+		assert.Contains(t, findLine(readStage(frame), "○ the change as a whole"), "split this in two")
 		assert.Contains(t, readPopupProse(frame), "split this in two")
 	})
 }

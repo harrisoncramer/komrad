@@ -41,7 +41,6 @@ var (
 	recordNameLine   = regexp.MustCompile(`name\s+auth`)
 	recordChangeLine = regexp.MustCompile(`changes\s+2 modified`)
 	recordRemoteLine = regexp.MustCompile(`remote\s+↑2 unpushed`)
-	cursorRowLine    = regexp.MustCompile(`package greet`)
 )
 
 // TestAgentsRows covers which rows the agents tree draws and where.
