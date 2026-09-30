@@ -280,6 +280,27 @@ func TestIntegrationReadDiffStat(t *testing.T) {
 	}
 }
 
+// TestIntegrationReadDiffStatMeasuresTheTreeItIsGiven covers a tree hashed before the worktree moved on.
+func TestIntegrationReadDiffStatMeasuresTheTreeItIsGiven(t *testing.T) {
+	t.Parallel()
+
+	root := repo(t)
+	write(t, root, "kept.go", "package main\n\nvar kept = 1\n")
+	tree, err := client.ProbeTree(t.Context(), root)
+	require.NoError(t, err)
+	write(t, root, "later.go", "package main\n")
+
+	stat, err := client.ReadDiffStat(t.Context(), ReadDiffStatParams{
+		Dir:  root,
+		Ref:  "main",
+		Tree: tree,
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, &DiffStat{Added: 2}, stat)
+}
+
+// TestIntegrationReadDiffStatLeavesTheAgentsIndexAlone covers a checkout whose files are stat-dirty.
 func TestIntegrationReadDiffStatLeavesTheAgentsIndexAlone(t *testing.T) {
 	t.Parallel()
 
