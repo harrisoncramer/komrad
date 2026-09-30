@@ -76,9 +76,9 @@ const (
 )
 
 // diffNotice is what stands in the diff's own column before a patch does.
-func (r reviewScreen) diffNotice() string {
+func (r reviewScreen) diffNotice(s panelShared) string {
 	if r.loading {
-		return "_" + reviewLoadingWord + "_"
+		return s.loaderFrame + " _" + reviewLoadingWord + "_"
 	}
 
 	return "_" + reviewEmptyWord + "_"
@@ -92,7 +92,7 @@ func (r reviewScreen) diffView(s panelShared, split columnSplit) string {
 		// This is the larger half of the window, so it says what is being waited on rather than
 		// standing empty under a band, and stands rather than collapsing so the frame does not
 		// shift under the reader when the patch lands.
-		return docWindow{rows: paint.DocStyledRows(r.diffNotice(), split.column, reviewColumnStyle())}.view(split.rows)
+		return docWindow{rows: paint.DocStyledRows(r.diffNotice(s), split.column, reviewColumnStyle())}.view(split.rows)
 	}
 
 	held := diffview.LiveCursor

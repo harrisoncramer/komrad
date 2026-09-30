@@ -74,7 +74,7 @@ func (r reviewScreen) filesView(s panelShared, lines int) string {
 	case lines == 0:
 		return ""
 	case r.loading:
-		return dimStyle().Render(reviewLoadingWord) + "\n"
+		return s.loaderFrame + " " + dimStyle().Render(reviewLoadingWord) + "\n"
 	case r.diff.View() == nil || r.diff.View().Len() == 0:
 		return dimStyle().Render(reviewEmptyWord) + "\n"
 	}

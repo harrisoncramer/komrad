@@ -52,6 +52,10 @@ func (a *archiveScreen) isLoading(s panelShared) bool {
 }
 
 func (r reviewScreen) isLoading(s panelShared) bool {
+	if r.loading {
+		return true
+	}
+
 	item, ok := s.listing.liveAgent(r.agentID)
 
 	return ok && isChecksRunning(item)
