@@ -42,27 +42,6 @@ func TestRebaseRefusals(t *testing.T) {
 		wantErr error
 	}{
 		{
-			name: "an agent part-way through a turn, since the files would move under it",
-			lay: func(t *testing.T, fixture *rebaseFixture) *agentstore.Agent {
-				return fixture.seed(t, agentstore.Agent{State: agentstore.StateThinking})
-			},
-			wantErr: ErrRebaseBusy,
-		},
-		{
-			name: "an agent waiting on a question, which is also an unfinished turn",
-			lay: func(t *testing.T, fixture *rebaseFixture) *agentstore.Agent {
-				return fixture.seed(t, agentstore.Agent{State: agentstore.StateWaiting})
-			},
-			wantErr: ErrRebaseBusy,
-		},
-		{
-			name: "an agent whose pane could not be read, which says nothing about whether it is working",
-			lay: func(t *testing.T, fixture *rebaseFixture) *agentstore.Agent {
-				return fixture.seed(t, agentstore.Agent{State: agentstore.StateUncertain, Pane: "%1"})
-			},
-			wantErr: ErrRebaseBusy,
-		},
-		{
 			name: "an agent whose worktree is still being provisioned",
 			lay: func(t *testing.T, fixture *rebaseFixture) *agentstore.Agent {
 				return fixture.seed(t, agentstore.Agent{State: agentstore.StateSettingUp})
@@ -368,6 +347,7 @@ func TestRebaseSettlesTheAgentBeforeItMoves(t *testing.T) {
 	tests := []struct {
 		name           string
 		pane           string
+		state          agentstore.State
 		readings       []harness.Activity
 		wantInterrupts int
 		wantReads      int
@@ -377,6 +357,14 @@ func TestRebaseSettlesTheAgentBeforeItMoves(t *testing.T) {
 			pane:      "%1",
 			readings:  []harness.Activity{harness.ActivityIdle},
 			wantReads: 1,
+		},
+		{
+			name:           "an agent its row shows working, whose turn is cut",
+			pane:           "%1",
+			state:          agentstore.StateThinking,
+			readings:       []harness.Activity{harness.ActivityWorking, harness.ActivityIdle},
+			wantInterrupts: 1,
+			wantReads:      2,
 		},
 		{
 			name:           "an agent part-way through a turn its row does not show yet",
@@ -394,7 +382,7 @@ func TestRebaseSettlesTheAgentBeforeItMoves(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			fixture := newRebaseFixture(t)
-			agent := fixture.seed(t, agentstore.Agent{Pane: tt.pane})
+			agent := fixture.seed(t, agentstore.Agent{Pane: tt.pane, State: tt.state})
 			channel := &harnesstest.Channel{}
 			observer := harnesstest.NewActivityObserver(tt.readings...)
 			readsBeforeTree := 0
@@ -518,6 +506,17 @@ func TestRebaseMailSaysWhatHappenedToTheBranch(t *testing.T) {
 			result:      RebaseResult{RebasePlan: RebasePlan{Landed: 2, Replay: 1}},
 			wantSaid:    "2 of your commits are no longer on the branch",
 			wantNotSaid: "A copy of the worktree",
+		},
+		{
+			name:     "a replay that cut the agent's turn",
+			result:   RebaseResult{Interrupted: true},
+			wantSaid: "pick up where you were",
+		},
+		{
+			name:        "a conflict that cut the agent's turn, which waits rather than carrying on",
+			result:      RebaseResult{Conflicted: true, Interrupted: true},
+			wantSaid:    "Your turn was interrupted",
+			wantNotSaid: "pick up where you were",
 		},
 	}
 

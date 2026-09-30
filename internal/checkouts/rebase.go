@@ -32,7 +32,7 @@ var (
 	ErrRebaseAdopted = fail.Precondition("this agent is on a branch komrad did not cut, so its history is not komrad's to rewrite")
 
 	// ErrRebaseDirty says the checkout holds tracked changes.
-	ErrRebaseDirty = fail.Precondition("the worktree holds tracked changes, so commit or discard them first")
+	ErrRebaseDirty = fail.Precondition("the worktree holds uncommitted changes, so have the agent commit or stash them first")
 
 	// ErrRebaseInProgress says something already owns the index.
 	ErrRebaseInProgress = fail.Precondition("the worktree is already part-way through a merge or a rebase, so finish or abort that first")
@@ -40,8 +40,8 @@ var (
 	// ErrRebaseDetached says the checkout is on no branch, so a rebase would move nothing.
 	ErrRebaseDetached = fail.Precondition("the worktree is on no branch, so a rebase would move nothing")
 
-	// ErrRebaseBusy says the agent is not known to have come to rest.
-	ErrRebaseBusy = fail.Precondition("the agent is working, so its files must not move under it")
+	// ErrRebaseBusy says something else is already moving the worktree.
+	ErrRebaseBusy = fail.Precondition("something else is already moving this worktree")
 
 	// ErrRebaseSelf says an agent asked to rebase the checkout it is working in.
 	ErrRebaseSelf = fail.InvalidArgument("an agent cannot rebase the checkout it is working in")
@@ -161,6 +161,8 @@ type RebaseResult struct {
 	Moved bool `json:"moved"`
 	// ParkedRef holds the checkout as it stood before any of this, which is what an undo reads.
 	ParkedRef string `json:"parked_ref"`
+	// Interrupted says a turn was cut so the rebase could run.
+	Interrupted bool `json:"interrupted"`
 }
 
 // PlanRebase reads what a rebase would do without touching anything.
@@ -235,7 +237,7 @@ func (s *RebaseService) Rebase(ctx context.Context, agentID string) (*RebaseResu
 
 	unlock, taken := s.locks.TryLock(agent.Cwd)
 	if !taken {
-		return nil, fmt.Errorf("%w: something else is working in %s", ErrRebaseBusy, agent.Cwd)
+		return nil, fmt.Errorf("%w: %s", ErrRebaseBusy, agent.Cwd)
 	}
 	defer unlock()
 
@@ -256,6 +258,7 @@ func (s *RebaseService) Rebase(ctx context.Context, agentID string) (*RebaseResu
 
 		return nil, err
 	}
+	result.Interrupted = interrupted
 
 	s.tell(ctx, *agent, *result)
 
@@ -372,14 +375,35 @@ func cutMail(failure string) string {
 // rebaseMail is what the agent is told, which turns on what became of its branch rather than on
 // what was asked for.
 func rebaseMail(result RebaseResult) string {
+	var body string
 	switch {
 	case result.Conflicted:
-		return conflictedMail(result)
+		body = conflictedMail(result)
 	case result.Moved:
-		return movedMail(result)
+		body = movedMail(result)
 	default:
-		return replayedMail(result)
+		body = replayedMail(result)
 	}
+
+	return interruptedNote(result) + body + carryOnNote(result)
+}
+
+// interruptedNote says the agent's turn was cut for the rebase.
+func interruptedNote(result RebaseResult) string {
+	if !result.Interrupted {
+		return ""
+	}
+
+	return "Your turn was interrupted so that your worktree could be rebased onto its base.\n\n"
+}
+
+// carryOnNote tells an agent whose turn was cut to pick it back up.
+func carryOnNote(result RebaseResult) string {
+	if !result.Interrupted || result.Conflicted {
+		return ""
+	}
+
+	return "\n\nRead your files again, then pick up where you were."
 }
 
 // parkNote says where the checkout as it stood beforehand is kept, which is the only way back
@@ -464,9 +488,8 @@ func (s *RebaseService) eligible(ctx context.Context, agentID string) (*agentsto
 		return nil, err
 	}
 
-	// A state the pane could not be read for says nothing about whether the agent is working.
-	if !agent.State.IsAtRest() {
-		return nil, fmt.Errorf("%w: %q is %s", ErrRebaseBusy, agent.Name, agent.State)
+	if agent.State == agentstore.StateSettingUp {
+		return nil, fmt.Errorf("%w: %q is still being set up", ErrRebaseBusy, agent.Name)
 	}
 	if agent.AdoptedBranch != "" {
 		return nil, fmt.Errorf("%w: %s", ErrRebaseAdopted, agent.AdoptedBranch)
