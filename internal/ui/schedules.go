@@ -264,25 +264,12 @@ func (l listing) liveOrchestrators() []panel.Agent {
 	return orchestrators
 }
 
-func archiveScheduleConfirm(h host, target panel.Schedule) tea.Cmd {
-	form, confirmed := archiveScheduleForm(target.Name, formKeys())
-
-	return h.openForm(formState{
-		kind:   formScheduleArchive,
-		form:   form,
-		update: model.updateForm,
-		submit: confirmSubmit(func(m model) (model, tea.Cmd) {
-			if !*confirmed {
-				return m, nil
-			}
-
-			return m, m.writeCmd(
-				"archiving "+target.Name,
-				fmt.Sprintf("Could not archive schedule %q", target.Name),
-				func(a api) error { return a.archiveSchedule(target.ID) },
-			)
-		}),
-	})
+func (m model) archiveSchedule(schedule panel.Schedule) (model, tea.Cmd) {
+	return m, m.writeCmd(
+		"archiving "+schedule.Name,
+		fmt.Sprintf("Could not archive schedule %q", schedule.Name),
+		func(a api) error { return a.archiveSchedule(schedule.ID) },
+	)
 }
 
 func (w *schedulesScreen) view(s panelShared) string {

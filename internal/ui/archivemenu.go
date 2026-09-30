@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"komrad/internal/ui/panel"
+	"komrad/lib/xslice"
 
 	tea "charm.land/bubbletea/v2"
 )
@@ -168,4 +169,100 @@ func (m model) closeMenuThen(run func(host) tea.Cmd) (tea.Model, tea.Cmd) {
 	cmd := run(&next)
 
 	return next, tea.Batch(back, cmd)
+}
+
+// liveArchive is one entry of the archive menu on a row that is not archived yet.
+type liveArchive struct {
+	label string
+	keys  []string
+	run   func(m model) (tea.Model, tea.Cmd)
+}
+
+// liveArchiveMenu is the archive menu on a row that is not archived yet.
+func liveArchiveMenu(entries ...liveArchive) submenu {
+	return submenu{
+		kind:  formArchiveMenu,
+		title: "archive",
+		crumb: "archive",
+		entries: xslice.Map(entries, func(entry liveArchive) submenuEntry {
+			return submenuEntry{label: entry.label, keys: entry.keys}
+		}),
+		answer: func(m model, choice int) (tea.Model, tea.Cmd) {
+			return entries[choice].run(m)
+		},
+	}
+}
+
+func agentsArchiveMenu(s panelShared, agents []panel.Agent, chosen bool) submenu {
+	archive, remove := "archive", "archive and delete for good"
+	if chosen {
+		archive, remove = "archive all", "archive and delete all for good"
+	}
+
+	return liveArchiveMenu(
+		liveArchive{
+			label: archive,
+			keys:  s.keys.ArchiveMenu.Archive,
+			run: func(m model) (tea.Model, tea.Cmd) {
+				return m.closeMenuWith(func(next model) (model, tea.Cmd) { return next.archiveAgents(agents) })
+			},
+		},
+		liveArchive{
+			label: remove,
+			keys:  s.keys.ArchiveMenu.Delete,
+			run: func(m model) (tea.Model, tea.Cmd) {
+				m.leaveForm()
+				cmd := confirmArchiveDeleteAgents(&m, m.listing.liveAgents(), agents)
+
+				return m, cmd
+			},
+		},
+	)
+}
+
+func workflowArchiveMenu(s panelShared, workflow panel.Workflow) submenu {
+	return liveArchiveMenu(liveArchive{
+		label: "archive with its agents",
+		keys:  s.keys.ArchiveMenu.Archive,
+		run: func(m model) (tea.Model, tea.Cmd) {
+			return m.closeMenuWith(func(next model) (model, tea.Cmd) { return next.archiveWorkflow(workflow) })
+		},
+	})
+}
+
+func scheduleArchiveMenu(s panelShared, schedule panel.Schedule) submenu {
+	return liveArchiveMenu(liveArchive{
+		label: "archive",
+		keys:  s.keys.ArchiveMenu.Archive,
+		run: func(m model) (tea.Model, tea.Cmd) {
+			return m.closeMenuWith(func(next model) (model, tea.Cmd) { return next.archiveSchedule(schedule) })
+		},
+	})
+}
+
+// confirmArchiveDeleteAgents asks before live agents are archived and then deleted for good.
+func confirmArchiveDeleteAgents(h host, live []panel.Agent, agents []panel.Agent) tea.Cmd {
+	form, confirmed := deleteAgentsForm(agents, unnamedChildren(live, agents), formKeys())
+
+	return h.openForm(formState{
+		kind:   formArchiveDelete,
+		form:   form,
+		update: model.updateForm,
+		submit: confirmSubmit(func(m model) (model, tea.Cmd) {
+			if !*confirmed {
+				return m, nil
+			}
+
+			return m.archiveAndDeleteAgents(agents)
+		}),
+	})
+}
+
+// closeMenuWith takes the menu down and makes the write that was picked.
+func (m model) closeMenuWith(write func(model) (model, tea.Cmd)) (tea.Model, tea.Cmd) {
+	closed, back := m.closeForm()
+	next, _ := closed.(model)
+	written, cmd := write(next)
+
+	return written, tea.Batch(back, cmd)
 }

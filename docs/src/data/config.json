@@ -295,10 +295,17 @@
           "description": "The archive menu, nested under the menu on the hovered row of the archive.",
           "settings": [
             {
+              "key": "archive",
+              "path": "keybindings.archive_menu.archive",
+              "type": "array",
+              "description": "Archive the agent, workflow or schedule, or every chosen agent.",
+              "default": "[\"a\"]"
+            },
+            {
               "key": "delete",
               "path": "keybindings.archive_menu.delete",
               "type": "array",
-              "description": "Destroy the row for good, with its transcript or its run history. Nothing undoes it, so it\nasks first.",
+              "description": "Destroy the row for good, with its transcript or its run history, archiving a live agent\nfirst. Nothing undoes it, so it asks first.",
               "default": "[\"d\"]"
             },
             {
@@ -1047,7 +1054,7 @@
               "key": "archive",
               "path": "keybindings.menu.archive",
               "type": "array",
-              "description": "Archive the hovered agent, workflow or schedule, or every chosen agent. In the archive it\nopens the archive menu to the right of this one instead, for restoring or deleting the row.",
+              "description": "Open the archive menu to the right of this one, for archiving the hovered agent, workflow or\nschedule or every chosen agent, or for restoring or deleting a row of the archive.",
               "default": "[\"a\"]"
             },
             {

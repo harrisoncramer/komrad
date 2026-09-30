@@ -113,9 +113,7 @@ func (a *agentsScreen) itemMenu(s panelShared) (submenu, bool) {
 			return submenu{}, false
 		}
 
-		return withArchive(rowMenu(describeAgents(agents)), s, "archive all", func(m *model) tea.Cmd {
-			return confirmArchiveAgents(m, m.listing.liveAgents(), agents)
-		}), true
+		return withArchive(rowMenu(describeAgents(agents)), s, agentsArchiveMenu(s, agents, true)), true
 	}
 
 	if !a.isBrowsing(s) {
@@ -130,18 +128,14 @@ func (a *agentsScreen) itemMenu(s panelShared) (submenu, bool) {
 			menu = agentMenu(s, screenAgents, item)
 		}
 
-		return withArchive(menu, s, "archive workflow", func(m *model) tea.Cmd {
-			return archiveWorkflowConfirm(m, workflow)
-		}), true
+		return withArchive(menu, s, workflowArchiveMenu(s, workflow)), true
 	}
 
 	if !hasAgent {
 		return submenu{}, false
 	}
 
-	return withArchive(agentMenu(s, screenAgents, item), s, "archive", func(m *model) tea.Cmd {
-		return confirmArchiveAgents(m, m.listing.liveAgents(), []panel.Agent{item.Agent})
-	}), true
+	return withArchive(agentMenu(s, screenAgents, item), s, agentsArchiveMenu(s, []panel.Agent{item.Agent}, false)), true
 }
 
 func (w *schedulesScreen) itemMenu(s panelShared) (submenu, bool) {
@@ -150,11 +144,7 @@ func (w *schedulesScreen) itemMenu(s panelShared) (submenu, bool) {
 		return submenu{}, false
 	}
 
-	schedule := item.schedule
-
-	return withArchive(rowMenu(schedule.Name), s, "archive", func(m *model) tea.Cmd {
-		return archiveScheduleConfirm(m, schedule)
-	}), true
+	return withArchive(rowMenu(item.schedule.Name), s, scheduleArchiveMenu(s, item.schedule)), true
 }
 
 // rowMenu is a band titled for a row that has no entries of its own.
@@ -167,22 +157,10 @@ func rowMenu(name string) submenu {
 	}
 }
 
-// withArchive is a band with an archive entry at its foot.
-func withArchive(menu submenu, s panelShared, label string, confirm func(*model) tea.Cmd) submenu {
+// withArchive is a band with the archive menu at its foot.
+func withArchive(menu submenu, s panelShared, archive submenu) submenu {
 	at := len(menu.entries)
-	answer := menu.answer
-
-	menu.entries = append(menu.entries[:at:at], submenuEntry{label: label, keys: s.keys.Menu.Archive})
-	menu.answer = func(m model, choice int) (tea.Model, tea.Cmd) {
-		if choice != at {
-			return answer(m, choice)
-		}
-
-		m.leaveForm()
-		cmd := confirm(&m)
-
-		return m, cmd
-	}
+	menu.entries = append(menu.entries[:at:at], nestedEntry("archive", s.keys.Menu.Archive, archive))
 
 	return menu
 }

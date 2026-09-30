@@ -365,8 +365,8 @@ type MenuKeys struct {
 	// Open the git menu to the right of this one, for rebasing the agent's branch or opening or
 	// merging its pull request.
 	Git []string `mapstructure:"git" default:"g"`
-	// Archive the hovered agent, workflow or schedule, or every chosen agent. In the archive it
-	// opens the archive menu to the right of this one instead, for restoring or deleting the row.
+	// Open the archive menu to the right of this one, for archiving the hovered agent, workflow or
+	// schedule or every chosen agent, or for restoring or deleting a row of the archive.
 	Archive []string `mapstructure:"archive" default:"a"`
 	// Open this engine's scratch file in your editor in place of the pane beside the list, or
 	// close it when it is already open. Each engine keeps its own file under komrad's state
@@ -623,10 +623,12 @@ type ArchiveKeys struct {
 }
 
 // ArchiveMenuKeys are the bindings for the archive menu, which opens from the menu on the hovered
-// row of the archive and acts on every chosen agent while some are.
+// row and acts on every chosen agent while some are.
 type ArchiveMenuKeys struct {
-	// Destroy the row for good, with its transcript or its run history. Nothing undoes it, so it
-	// asks first.
+	// Archive the agent, workflow or schedule, or every chosen agent.
+	Archive []string `mapstructure:"archive" default:"a"`
+	// Destroy the row for good, with its transcript or its run history, archiving a live agent
+	// first. Nothing undoes it, so it asks first.
 	Delete []string `mapstructure:"delete" default:"d"`
 	// Put the row back in the panel.
 	Restore []string `mapstructure:"restore" default:"r"`

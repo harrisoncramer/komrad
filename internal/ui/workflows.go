@@ -105,27 +105,14 @@ func (m model) getAvailableHooks() []hookChoice {
 	})
 }
 
-func archiveWorkflowConfirm(h host, workflow panel.Workflow) tea.Cmd {
-	form, confirmed := archiveWorkflowForm(workflow.Name, formKeys())
+func (m model) archiveWorkflow(workflow panel.Workflow) (model, tea.Cmd) {
+	m.releasePanes(m.listing.agentsOf(workflow.ID))
 
-	return h.openForm(formState{
-		kind:   formWorkflowArchive,
-		form:   form,
-		update: model.updateForm,
-		submit: confirmSubmit(func(m model) (model, tea.Cmd) {
-			if !*confirmed {
-				return m, nil
-			}
-
-			m.releasePanes(m.listing.agentsOf(workflow.ID))
-
-			return m, m.writeCmd(
-				"archiving "+workflow.Name,
-				fmt.Sprintf("Could not archive workflow %q", workflow.Name),
-				func(a api) error { return a.archiveWorkflow(workflow.ID) },
-			)
-		}),
-	})
+	return m, m.writeCmd(
+		"archiving "+workflow.Name,
+		fmt.Sprintf("Could not archive workflow %q", workflow.Name),
+		func(a api) error { return a.archiveWorkflow(workflow.ID) },
+	)
 }
 
 // agentsOf is the agents the last listing found inside a workflow.

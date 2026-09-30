@@ -75,6 +75,7 @@ type recordingTmux struct {
 	deadPanes    map[string]bool
 	zoomed       bool
 	zooms        []bool
+	moveBatches  [][]panes.Kind
 	// keysElsewhere is the keyboard sitting in a pane other than the one being asked about.
 	keysElsewhere bool
 	// activePane is the pane the window sends keys to, where a test has put them somewhere named.
@@ -487,6 +488,11 @@ func (p *Panel) ReadZooms() []bool {
 	return p.tmux.zooms
 }
 
+// ReadMoveBatches is the kinds of pane move in each invocation of tmux the panel sent, in order.
+func (p *Panel) ReadMoveBatches() [][]panes.Kind {
+	return p.tmux.moveBatches
+}
+
 // IsKeyTaken reports whether a press of the key reaches any binding the panel dispatches on.
 func (p *Panel) IsKeyTaken(key string) bool {
 	isTaken := false
@@ -703,6 +709,12 @@ func (t *recordingTmux) SendKeys(target string, keys ...string) error {
 // MovePanes replays a change's pane moves onto the fake, so a test asserting on swaps and
 // zooms sees what the frame asked for whether or not they were collected first.
 func (t *recordingTmux) MovePanes(moves []panes.Move) {
+	batch := make([]panes.Kind, 0, len(moves))
+	for _, move := range moves {
+		batch = append(batch, move.Kind)
+	}
+	t.moveBatches = append(t.moveBatches, batch)
+
 	for _, move := range moves {
 		switch move.Kind {
 		case panes.KindZoom:

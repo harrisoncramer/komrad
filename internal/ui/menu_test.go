@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"komrad/internal/panes"
 	"komrad/internal/ui"
 	"komrad/proto/gen/log/v1/logv1connect"
 
@@ -138,6 +139,26 @@ func TestScratch(t *testing.T) {
 
 		assert.Equal(t, respawns, harness.panel.CountRespawns())
 		assert.Equal(t, swaps, harness.panel.CountSwaps())
+	})
+
+	t.Run("the window comes back from the menu with the editor already on the stage", func(t *testing.T) {
+		t.Parallel()
+
+		harness, _ := openScratchPanel(t, newLiveWorkflow("w1", "api"), newRunning())
+		harness.press("j")
+		harness.fireTimers()
+		harness.press("space")
+		zooms := harness.panel.ReadZooms()
+		require.NotEmpty(t, zooms)
+		require.True(t, zooms[len(zooms)-1], "the menu holds the window")
+		sent := len(harness.panel.ReadMoveBatches())
+
+		harness.press("s")
+
+		batches := harness.panel.ReadMoveBatches()[sent:]
+		require.NotEmpty(t, batches)
+		assert.Contains(t, batches[0], panes.KindZoom)
+		assert.Contains(t, batches[0], panes.KindRespawn)
 	})
 
 	t.Run("the logs under it keep reading once it closes", func(t *testing.T) {

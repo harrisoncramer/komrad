@@ -83,6 +83,7 @@ func ValidateKeybindings(keys config.Keybindings) error {
 	}
 
 	if err := validateSubmenuKeys("archive menu", []submenuKeys{
+		{name: "archive", keys: keys.ArchiveMenu.Archive},
 		{name: "restore", keys: keys.ArchiveMenu.Restore},
 		{name: "restore_open", keys: keys.ArchiveMenu.RestoreOpen},
 		{name: "delete", keys: keys.ArchiveMenu.Delete},
