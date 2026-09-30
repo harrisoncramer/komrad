@@ -87,7 +87,7 @@ func (d *documentsScreen) enter(h host, _ panelShared, target screenTarget) tea.
 func (d *documentsScreen) update(h host, s panelShared, msg tea.Msg) tea.Cmd {
 	d.reconcileRename(s)
 	if d.renaming != nil {
-		return d.updateRename(h, msg)
+		return d.updateRename(h, s, msg)
 	}
 
 	key, ok := msg.(tea.KeyPressMsg)

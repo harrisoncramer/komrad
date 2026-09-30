@@ -88,3 +88,28 @@ func TestDocumentsRenameField(t *testing.T) {
 		assert.Contains(t, readHoveredRow(harness.readFrame()), "Rollout report")
 	})
 }
+
+// TestDocumentsRenameAfterAWrite covers a document the agent rewrote while its name was being typed.
+func TestDocumentsRenameAfterAWrite(t *testing.T) {
+	t.Parallel()
+
+	harness, docs := openDocuments(t)
+	harness.answer(agentv1connect.AgentServiceWriteDocumentProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+		return connect.NewResponse(&agentv1.WriteDocumentResponse{}), nil
+	})
+	harness.press(slices.Concat([]string{"r"}, spellKeys(" now"))...)
+
+	docs.rewrite("d1", "The cache is cold now.", "2026-09-26T12:00:00Z")
+	author := buildDocumentAuthors()[2].(*agentv1.Agent)
+	author.DocumentsUpdatedAt = xptr.Ptr("2026-09-26T12:00:00Z")
+	harness.watch(buildPuts(author))
+	harness.press("enter")
+
+	harness.assertSentTo(agentv1connect.AgentServiceWriteDocumentProcedure, &agentv1.WriteDocumentRequest{
+		Id:      xptr.Ptr("d1"),
+		Version: xptr.Ptr[int32](4),
+		Name:    "Design the cache now",
+		Type:    "RFC",
+		Source:  &agentv1.WriteDocumentRequest_Body{Body: "The cache is cold now."},
+	})
+}

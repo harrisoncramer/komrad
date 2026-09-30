@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"slices"
 
 	tea "charm.land/bubbletea/v2"
 )
@@ -51,21 +52,21 @@ func (d *documentsScreen) reconcileRename(s panelShared) {
 	d.renaming = nil
 }
 
-func (d *documentsScreen) updateRename(h host, msg tea.Msg) tea.Cmd {
+func (d *documentsScreen) updateRename(h host, s panelShared, msg tea.Msg) tea.Cmd {
 	switch d.renaming.take(msg) {
 	case nameEditHidden:
 		return h.hide()
 	case nameEditCancelled:
 		d.renaming = nil
 	case nameEditSubmitted:
-		return d.saveRename(h)
+		return d.saveRename(h, s)
 	case nameEditTyping:
 	}
 
 	return nil
 }
 
-func (d *documentsScreen) saveRename(h host) tea.Cmd {
+func (d *documentsScreen) saveRename(h host, s panelShared) tea.Cmd {
 	rename := d.renaming
 	name, ok := rename.submit()
 	if !ok {
@@ -75,6 +76,12 @@ func (d *documentsScreen) saveRename(h host) tea.Cmd {
 	}
 
 	item, read := rename.item, rename.read
+	if i := slices.IndexFunc(d.itemsOf(s), func(i documentItem) bool { return i.id == item.id }); i >= 0 {
+		item = d.itemsOf(s)[i]
+	}
+	if fresh, asked := d.bodyOf(s, item.id); asked && !fresh.pending && fresh.err == nil {
+		read = fresh
+	}
 	if d.shelf == shelfDocumentTypes {
 		return stampRename(h.writeCmd(
 			fmt.Sprintf("Could not rename document type %q", rename.was),
