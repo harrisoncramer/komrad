@@ -227,6 +227,7 @@ func buildPrivateServer(spec *standInSpec, tiles []copyTile, focus copyTile, tmu
 	commands := [][]string{
 		{"new-session", "-d", "-s", visualSession, "-x", strconv.Itoa(spec.Width), "-y", strconv.Itoa(spec.Height), tileIdle},
 		{"set-option", "-g", "status", "off"},
+		{"set-option", "-g", "window-size", "manual"},
 		{"set-option", "-g", "prefix", "None"},
 		{"set-option", "-g", "prefix2", "None"},
 		{"set-option", "-s", "escape-time", "0"},

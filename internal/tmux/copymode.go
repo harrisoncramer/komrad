@@ -122,7 +122,7 @@ func tuneCopyModeCommands(selection string) [][]string {
 		{"set-option", "-g", "mode-style", selection},
 		{"set-option", "-g", "mode-keys", "vi"},
 		{"set-option", "-g", "set-clipboard", "on"},
-		{"set-option", "-g", "copy-mode-position-format", ""},
+		{"set-option", "-gq", "copy-mode-position-format", ""},
 	}
 
 	if command := findClipboardCommand(); command != "" {
