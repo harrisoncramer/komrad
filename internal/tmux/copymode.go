@@ -28,13 +28,13 @@ const standInCopyOption = "@komrad_copy"
 const cellSeparator = "\x1f"
 
 // cutCopy is what y in a stand-in pipes the selection through.
-const cutCopy = `sh #{` + standInCopyOption + `}/cut "#{socket_path}" "#{copy-command}" ` +
-	`#{selection_start_x} #{selection_start_y} #{selection_end_x} #{selection_end_y} #{rectangle_toggle}`
+const cutCopy = `sh #{q:` + standInCopyOption + `}/cut #{selection_start_x} #{selection_start_y} ` +
+	`#{selection_end_x} #{selection_end_y} #{rectangle_toggle} #{q:socket_path} #{q:copy-command}`
 
 // cutScript keeps the cells of a selection that fall inside the block and puts them on the clipboard.
 const cutScript = `cat >/dev/null
-socket=$1 copy=$2
-out=$(awk -F "$(printf '\037')" -v top=%d -v left=%d -v sx="$3" -v sy="$4" -v ex="$5" -v ey="$6" -v rect="$7" '
+socket=$6 copy=$7
+out=$(awk -F "$(printf '\037')" -v top=%d -v left=%d -v sx="$1" -v sy="$2" -v ex="$3" -v ey="$4" -v rect="$5" '
 BEGIN {
 	if (sy > ey || (sy == ey && sx > ex)) { t = sx; sx = ex; ex = t; t = sy; sy = ey; ey = t }
 	if (rect && sx > ex) { t = sx; sx = ex; ex = t }

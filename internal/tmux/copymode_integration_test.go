@@ -3,6 +3,8 @@
 package tmux
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -31,7 +33,7 @@ func TestIntegrationTuneCopyModeMakesCopyModeVisualMode(t *testing.T) {
 	assert.Equal(t, "send-keys -X begin-selection", bindings["v"], "v starts a selection as it does in vim")
 	assert.Equal(t, `send-keys -X begin-selection \; send-keys -X rectangle-on`, bindings["C-v"], "ctrl+v starts a block")
 	assert.Contains(t, bindings["y"], "copy-pipe-and-cancel", "y copies as tmux does outside a stand-in")
-	assert.Contains(t, bindings["y"], "pipe-and-cancel 'sh #{"+standInCopyOption+"}", "y in a stand-in copies only from its block")
+	assert.Contains(t, bindings["y"], "pipe-and-cancel 'sh #{q:"+standInCopyOption+"}", "y in a stand-in copies only from its block")
 	assert.Contains(t, bindings["Escape"], "clear-selection", "esc drops a selection before it leaves copy-mode")
 }
 
@@ -137,7 +139,8 @@ func TestIntegrationCopyStandInCutsToBlock(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			client := testServer(t, "cut")
 			client.TuneCopyMode("VISUAL")
-			client.SetGlobal("copy-command", "")
+			clipboard := filepath.Join(t.TempDir(), "copied text")
+			client.SetGlobal("copy-command", `cat > "`+clipboard+`"`)
 
 			sidebar, err := client.paneID("cut:0.0")
 			require.NoError(t, err)
@@ -172,6 +175,12 @@ func TestIntegrationCopyStandInCutsToBlock(t *testing.T) {
 				return err == nil
 			}, 5*time.Second, 20*time.Millisecond, "the cut lands in a buffer")
 			assert.Equal(t, tt.want, copied)
+
+			assert.EventuallyWithT(t, func(c *assert.CollectT) {
+				pasted, err := os.ReadFile(clipboard)
+				assert.NoError(c, err)
+				assert.Equal(c, tt.want, string(pasted))
+			}, 5*time.Second, 20*time.Millisecond, "the cut reaches the copy-command")
 		})
 	}
 }
