@@ -35,8 +35,7 @@ func (m *model) inspectAgentWorktreeCmd(now time.Time) tea.Cmd {
 	return m.readWorktreeCmd(item.Agent.Cwd)
 }
 
-// wakeCwdSyncCmd asks the service to measure the live agents' checkouts again when the cursor
-// rests on a live one, so its diff stat catches up sooner than the next tick.
+// wakeCwdSyncCmd wakes the cwd sync while the cursor rests on a live agent.
 func (m *model) wakeCwdSyncCmd() tea.Cmd {
 	item, ok := m.hoveredRecordAgent()
 	if !ok || item.Agent.Cwd == "" || item.Agent.ArchivedAt != nil {
