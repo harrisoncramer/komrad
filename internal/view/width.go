@@ -50,11 +50,8 @@ func trailingColumns(line Line) int {
 		columns += plainColumns + len(label.Tally(line.Tally))
 	}
 
-	for i, cell := range line.Comments {
+	for _, cell := range line.Comments {
 		columns += countCellColumns(cell) + spaceColumns
-		if i > 0 {
-			columns += spaceColumns
-		}
 	}
 
 	return columns
