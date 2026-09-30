@@ -108,7 +108,7 @@ func placePopup(area string, anchor popupAnchor) popupSlot {
 	x := max(anchor.edge-width, start)
 	if width < popupMinWidth {
 		width = max(min(popupMinWidth, anchor.right), popupChrome+1)
-		x = max(anchor.edge-width, 0)
+		x = max(min(start, anchor.right-width), 0)
 	}
 
 	return popupSlot{

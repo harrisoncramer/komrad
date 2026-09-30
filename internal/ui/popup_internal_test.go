@@ -41,6 +41,12 @@ func TestPlacePopup(t *testing.T) {
 			want:   popupSlot{x: 60, y: 6, width: popupMinWidth, height: popupHeight},
 		},
 		{
+			name:   "it slides over the room past its edge before covering code",
+			text:   115,
+			anchor: popupAnchor{cursor: 20, edge: 100, right: 150, code: 13, keepsClear: true},
+			want:   popupSlot{x: 110, y: 6, width: popupMinWidth, height: popupHeight},
+		},
+		{
 			name:   "it takes the whole width when it keeps nothing clear",
 			text:   60,
 			anchor: popupAnchor{cursor: 20, edge: 60, right: 60},
