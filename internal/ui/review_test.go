@@ -373,7 +373,6 @@ func TestReviewThreads(t *testing.T) {
 		asked := newAgentMessage("m1", "this drops the error")
 		asked.AuthorAgentId = xptr.Ptr("r1")
 		answered := newAgentMessage("m2", "wrapped it")
-		answered.AuthorAgentId = xptr.Ptr("a1")
 		server.threads = []*agentv1.ReviewThread{newThreadOnFirstLine(asked, answered)}
 
 		harness := openReview(t, server)
@@ -2816,9 +2815,10 @@ func newHumanMessage(id, body string) *agentv1.ReviewMessage {
 
 func newAgentMessage(id, body string) *agentv1.ReviewMessage {
 	return &agentv1.ReviewMessage{
-		Id:         id,
-		AuthorKind: agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT,
-		Body:       body,
+		Id:            id,
+		AuthorKind:    agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT,
+		AuthorAgentId: xptr.Ptr("a1"),
+		Body:          body,
 	}
 }
 

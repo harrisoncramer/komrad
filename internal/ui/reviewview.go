@@ -376,7 +376,7 @@ func (r reviewScreen) authorOf(s panelShared, message *agentv1.ReviewMessage) (s
 	}
 
 	id := message.GetAuthorAgentId()
-	if id == "" || id == r.agentID {
+	if id == r.agentID {
 		return r.agentName, reviewAgentTone
 	}
 
