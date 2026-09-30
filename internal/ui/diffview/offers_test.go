@@ -4,7 +4,9 @@ import (
 	"testing"
 
 	"komrad/internal/diff"
+	"komrad/internal/glyph"
 
+	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -26,14 +28,12 @@ func offerPatch() *diff.Patch {
 // the one line on its side reading as it quoted, then its file's header.
 func TestPinOffers(t *testing.T) {
 	tests := []struct {
-		name    string
-		offer   Offer
-		traced  map[string]Traced
-		viewed  bool
-		row     int
-		placed  bool
-		drawn   bool
-		without bool
+		name   string
+		offer  Offer
+		traced map[string]Traced
+		viewed bool
+		row    int
+		placed bool
 	}{
 		{
 			name:   "a traced line is drawn where git says it went",
@@ -41,21 +41,18 @@ func TestPinOffers(t *testing.T) {
 			traced: map[string]Traced{"o": {FilePath: "greet.go", NewStart: 3}},
 			row:    6,
 			placed: true,
-			drawn:  true,
 		},
 		{
 			name:   "an untraced line falls back to the one line on its side quoting it",
 			offer:  Offer{ID: "o", FilePath: "greet.go", Line: 40, Quote: "return nil"},
 			row:    5,
 			placed: true,
-			drawn:  true,
 		},
 		{
 			name:   "an old side quote is found on the old side",
 			offer:  Offer{ID: "o", FilePath: "greet.go", Line: 2, OldSide: true, Quote: "return nil"},
 			row:    4,
 			placed: true,
-			drawn:  true,
 		},
 		{
 			name:   "an old side offer is not traced along the new side",
@@ -98,7 +95,7 @@ func TestPinOffers(t *testing.T) {
 			row, ok := view.GetOfferRow("o")
 			assert.Equal(t, tt.placed, ok)
 			assert.Equal(t, tt.row, row)
-			assert.Equal(t, tt.drawn, len(view.GetOffersAt(row)) == 1)
+			assert.Equal(t, tt.placed, len(view.GetOffersAt(row)) == 1)
 		})
 	}
 }
@@ -115,4 +112,20 @@ func TestOffersHoldThroughFolding(t *testing.T) {
 	row, ok := view.GetOfferRow("o")
 	assert.True(t, ok)
 	assert.Len(t, view.GetOffersAt(row), 1)
+}
+
+// TestOffersOnAHeaderAreCountedThere covers the forge's comments with no line of their own,
+// marked on their file's header with how many there are.
+func TestOffersOnAHeaderAreCountedThere(t *testing.T) {
+	view := NewView(offerPatch(), false)
+	view.PinOffers([]Offer{
+		{ID: "a", FilePath: "greet.go"},
+		{ID: "b", FilePath: "greet.go", Line: 40, Quote: "}"},
+	})
+
+	row, ok := view.GetOfferRow("a")
+	assert.True(t, ok)
+
+	drawn := ansi.Strip(view.RenderRow(row, NoCursor, 80, 0))
+	assert.Contains(t, drawn, glyph.Defaults().Spell(glyph.ThreadRead)+" 2")
 }

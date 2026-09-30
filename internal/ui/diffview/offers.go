@@ -38,14 +38,12 @@ func (v *View) PinOffers(offers []Offer) {
 			continue
 		}
 
-		if y, ok := v.offerRowOf(index, offer); ok {
-			v.offered[y] = append(v.offered[y], offer)
-			v.offerRows[offer.ID] = y
-
-			continue
+		y, ok := v.offerRowOf(index, offer)
+		if !ok {
+			y, ok = v.fileHeader(v.offerPathOf(offer))
 		}
-
-		if y, ok := v.fileHeader(v.offerPathOf(offer)); ok {
+		if ok {
+			v.offered[y] = append(v.offered[y], offer)
 			v.offerRows[offer.ID] = y
 		}
 	}

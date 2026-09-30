@@ -102,6 +102,10 @@ func (v *View) renderFileRow(y int, current row, cursor Cursor, width int) strin
 	if v.isCollapsed(current.file) {
 		text += style.Render("  " + v.glyphs.Spell(glyph.FileViewed) + " viewed  " + v.fileSummary(current.file))
 	}
+	if offers := v.GetOffersAt(y); len(offers) > 0 {
+		mark, markStyle := v.offerMarkFor(offers)
+		text += style.Render("  ") + markStyle.Background(background).Render(fmt.Sprintf("%s %d", mark, len(offers)))
+	}
 
 	text = ansi.Truncate(text, width, "…")
 	if padding := width - lipgloss.Width(text); cursor != NoCursor && padding > 0 {
