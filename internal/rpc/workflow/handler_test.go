@@ -264,11 +264,13 @@ func TestWorkflowRefusalsMapToCodes(t *testing.T) {
 // TestWorkflowWritesPassDown pins what each write hands the workflow service.
 func TestWorkflowWritesPassDown(t *testing.T) {
 	cfg := workflowstore.Config{
-		Name:    "backend",
-		Context: "shared notes",
-		Harness: "codex",
-		Cwd:     "/repo",
-		Flags:   "--model opus",
+		Name:            "backend",
+		Context:         "shared notes",
+		Harness:         "codex",
+		Cwd:             "/repo",
+		Flags:           "--model opus",
+		ReviewerHarness: "claude",
+		ReviewerFlags:   "--model sonnet",
 		Worktree: workflowstore.WorktreeConfig{
 			Enabled:      true,
 			BaseBranch:   "develop",
@@ -308,13 +310,15 @@ func TestWorkflowWritesPassDown(t *testing.T) {
 			name: "creating hands down every field",
 			call: func(ctx context.Context, svc workflowv1komrad.WorkflowServiceAdapter) error {
 				_, err := svc.CreateWorkflow(ctx, connect.NewRequest(&workflowv1.CreateWorkflowRequest{
-					Name:     cfg.Name,
-					Context:  cfg.Context,
-					Harness:  cfg.Harness,
-					Cwd:      cfg.Cwd,
-					Flags:    cfg.Flags,
-					Worktree: worktree,
-					Hooks:    hooks,
+					Name:            cfg.Name,
+					Context:         cfg.Context,
+					Harness:         cfg.Harness,
+					Cwd:             cfg.Cwd,
+					Flags:           cfg.Flags,
+					ReviewerHarness: cfg.ReviewerHarness,
+					ReviewerFlags:   cfg.ReviewerFlags,
+					Worktree:        worktree,
+					Hooks:           hooks,
 				}))
 
 				return err
@@ -325,14 +329,16 @@ func TestWorkflowWritesPassDown(t *testing.T) {
 			name: "updating hands down the id and every field",
 			call: func(ctx context.Context, svc workflowv1komrad.WorkflowServiceAdapter) error {
 				_, err := svc.UpdateWorkflow(ctx, connect.NewRequest(&workflowv1.UpdateWorkflowRequest{
-					Id:       workflowID,
-					Name:     cfg.Name,
-					Context:  cfg.Context,
-					Harness:  cfg.Harness,
-					Cwd:      cfg.Cwd,
-					Flags:    cfg.Flags,
-					Worktree: worktree,
-					Hooks:    hooks,
+					Id:              workflowID,
+					Name:            cfg.Name,
+					Context:         cfg.Context,
+					Harness:         cfg.Harness,
+					Cwd:             cfg.Cwd,
+					Flags:           cfg.Flags,
+					ReviewerHarness: cfg.ReviewerHarness,
+					ReviewerFlags:   cfg.ReviewerFlags,
+					Worktree:        worktree,
+					Hooks:           hooks,
 				}))
 
 				return err

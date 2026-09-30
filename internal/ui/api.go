@@ -374,13 +374,15 @@ func (a api) createWorkflow(cfg panel.WorkflowConfig) (*workflowv1.Workflow, err
 
 	return call(requestTimeout, func(ctx context.Context) (*workflowv1.Workflow, error) {
 		resp, err := a.workflows.CreateWorkflow(ctx, connect.NewRequest(&workflowv1.CreateWorkflowRequest{
-			Name:     name,
-			Context:  cfg.Context,
-			Harness:  cfg.Harness,
-			Cwd:      cfg.Cwd,
-			Flags:    cfg.Flags,
-			Worktree: worktreeConfigToProto(cfg.Worktree),
-			Hooks:    hooksToProto(cfg.Hooks),
+			Name:            name,
+			Context:         cfg.Context,
+			Harness:         cfg.Harness,
+			Cwd:             cfg.Cwd,
+			Flags:           cfg.Flags,
+			ReviewerHarness: cfg.ReviewerHarness,
+			ReviewerFlags:   cfg.ReviewerFlags,
+			Worktree:        worktreeConfigToProto(cfg.Worktree),
+			Hooks:           hooksToProto(cfg.Hooks),
 		}))
 		if err != nil {
 			return nil, err
@@ -398,14 +400,16 @@ func (a api) updateWorkflow(w panel.Workflow) error {
 
 	return mutate(func(ctx context.Context) (any, error) {
 		return a.workflows.UpdateWorkflow(ctx, connect.NewRequest(&workflowv1.UpdateWorkflowRequest{
-			Id:       w.ID,
-			Name:     name,
-			Context:  w.Context,
-			Harness:  w.Harness,
-			Cwd:      w.Cwd,
-			Flags:    w.Flags,
-			Worktree: worktreeConfigToProto(w.Worktree),
-			Hooks:    hooksToProto(w.Hooks),
+			Id:              w.ID,
+			Name:            name,
+			Context:         w.Context,
+			Harness:         w.Harness,
+			Cwd:             w.Cwd,
+			Flags:           w.Flags,
+			ReviewerHarness: w.ReviewerHarness,
+			ReviewerFlags:   w.ReviewerFlags,
+			Worktree:        worktreeConfigToProto(w.Worktree),
+			Hooks:           hooksToProto(w.Hooks),
 		}))
 	})
 }

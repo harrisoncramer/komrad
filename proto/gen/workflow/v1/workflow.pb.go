@@ -50,8 +50,13 @@ type Workflow struct {
 	Hooks []*WorkflowHook `protobuf:"bytes,12,rep,name=hooks,proto3" json:"hooks,omitempty"`
 	// Whether context holds only its opening, which a summary listing returns.
 	ContextTruncated bool `protobuf:"varint,14,opt,name=context_truncated,json=contextTruncated,proto3" json:"context_truncated,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	// Which CLI its reviewers run, blank for the one its other agents run.
+	ReviewerHarness string `protobuf:"bytes,15,opt,name=reviewer_harness,json=reviewerHarness,proto3" json:"reviewer_harness,omitempty"`
+	// Command-line flags for each new reviewer, blank for the other agents' flags when the CLI is
+	// the same.
+	ReviewerFlags string `protobuf:"bytes,16,opt,name=reviewer_flags,json=reviewerFlags,proto3" json:"reviewer_flags,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Workflow) Reset() {
@@ -152,6 +157,20 @@ func (x *Workflow) GetContextTruncated() bool {
 		return x.ContextTruncated
 	}
 	return false
+}
+
+func (x *Workflow) GetReviewerHarness() string {
+	if x != nil {
+		return x.ReviewerHarness
+	}
+	return ""
+}
+
+func (x *Workflow) GetReviewerFlags() string {
+	if x != nil {
+		return x.ReviewerFlags
+	}
+	return ""
 }
 
 type WorkflowHook struct {
@@ -522,7 +541,11 @@ type CreateWorkflowRequest struct {
 	// Whether its agents each get a worktree, and how those are built.
 	Worktree *WorktreeConfig `protobuf:"bytes,8,opt,name=worktree,proto3" json:"worktree,omitempty"`
 	// Scripts to hang on moments in its agents' lives.
-	Hooks         []*WorkflowHook `protobuf:"bytes,10,rep,name=hooks,proto3" json:"hooks,omitempty"`
+	Hooks []*WorkflowHook `protobuf:"bytes,10,rep,name=hooks,proto3" json:"hooks,omitempty"`
+	// Which CLI its reviewers run, blank for the one its other agents run.
+	ReviewerHarness string `protobuf:"bytes,11,opt,name=reviewer_harness,json=reviewerHarness,proto3" json:"reviewer_harness,omitempty"`
+	// Flags for each new reviewer, blank for the other agents' flags when the CLI is the same.
+	ReviewerFlags string `protobuf:"bytes,12,opt,name=reviewer_flags,json=reviewerFlags,proto3" json:"reviewer_flags,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -606,6 +629,20 @@ func (x *CreateWorkflowRequest) GetHooks() []*WorkflowHook {
 	return nil
 }
 
+func (x *CreateWorkflowRequest) GetReviewerHarness() string {
+	if x != nil {
+		return x.ReviewerHarness
+	}
+	return ""
+}
+
+func (x *CreateWorkflowRequest) GetReviewerFlags() string {
+	if x != nil {
+		return x.ReviewerFlags
+	}
+	return ""
+}
+
 type CreateWorkflowResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The workflow as recorded, holding no agents yet.
@@ -669,7 +706,11 @@ type UpdateWorkflowRequest struct {
 	// directory is read when the agent is deleted.
 	Worktree *WorktreeConfig `protobuf:"bytes,9,opt,name=worktree,proto3" json:"worktree,omitempty"`
 	// The whole hook list, so send back the ones you are keeping.
-	Hooks         []*WorkflowHook `protobuf:"bytes,11,rep,name=hooks,proto3" json:"hooks,omitempty"`
+	Hooks []*WorkflowHook `protobuf:"bytes,11,rep,name=hooks,proto3" json:"hooks,omitempty"`
+	// Which CLI reviewers spawned afterwards run.
+	ReviewerHarness string `protobuf:"bytes,12,opt,name=reviewer_harness,json=reviewerHarness,proto3" json:"reviewer_harness,omitempty"`
+	// Flags for reviewers spawned afterwards.
+	ReviewerFlags string `protobuf:"bytes,13,opt,name=reviewer_flags,json=reviewerFlags,proto3" json:"reviewer_flags,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -758,6 +799,20 @@ func (x *UpdateWorkflowRequest) GetHooks() []*WorkflowHook {
 		return x.Hooks
 	}
 	return nil
+}
+
+func (x *UpdateWorkflowRequest) GetReviewerHarness() string {
+	if x != nil {
+		return x.ReviewerHarness
+	}
+	return ""
+}
+
+func (x *UpdateWorkflowRequest) GetReviewerFlags() string {
+	if x != nil {
+		return x.ReviewerFlags
+	}
+	return ""
 }
 
 type ArchiveWorkflowRequest struct {
@@ -944,7 +999,7 @@ var File_workflow_v1_workflow_proto protoreflect.FileDescriptor
 
 const file_workflow_v1_workflow_proto_rawDesc = "" +
 	"\n" +
-	"\x1aworkflow/v1/workflow.proto\x12\vworkflow.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1epagination/v1/pagination.proto\x1a\x14rules/v1/rules.proto\x1a\x12view/v1/view.proto\"\xd7\x02\n" +
+	"\x1aworkflow/v1/workflow.proto\x12\vworkflow.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1epagination/v1/pagination.proto\x1a\x14rules/v1/rules.proto\x1a\x12view/v1/view.proto\"\xa9\x03\n" +
 	"\bWorkflow\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x18\n" +
@@ -957,7 +1012,9 @@ const file_workflow_v1_workflow_proto_rawDesc = "" +
 	"\bworktree\x18\n" +
 	" \x01(\v2\x1b.workflow.v1.WorktreeConfigR\bworktree\x12/\n" +
 	"\x05hooks\x18\f \x03(\v2\x19.workflow.v1.WorkflowHookR\x05hooks\x12+\n" +
-	"\x11context_truncated\x18\x0e \x01(\bR\x10contextTruncatedB\x0e\n" +
+	"\x11context_truncated\x18\x0e \x01(\bR\x10contextTruncated\x12)\n" +
+	"\x10reviewer_harness\x18\x0f \x01(\tR\x0freviewerHarness\x12%\n" +
+	"\x0ereviewer_flags\x18\x10 \x01(\tR\rreviewerFlagsB\x0e\n" +
 	"\f_archived_at\"W\n" +
 	"\fWorkflowHook\x12\x1f\n" +
 	"\x05event\x18\x01 \x01(\tB\t\xbaH\x06r\x04\x10\x01\x18(R\x05event\x12&\n" +
@@ -985,7 +1042,7 @@ const file_workflow_v1_workflow_proto_rawDesc = "" +
 	"\x12GetWorkflowRequest\x12\x17\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\"H\n" +
 	"\x13GetWorkflowResponse\x121\n" +
-	"\bworkflow\x18\x01 \x01(\v2\x15.workflow.v1.WorkflowR\bworkflow\"\xc5\x02\n" +
+	"\bworkflow\x18\x01 \x01(\v2\x15.workflow.v1.WorkflowR\bworkflow\"\xbc\x03\n" +
 	"\x15CreateWorkflowRequest\x12\x1e\n" +
 	"\x04name\x18\x01 \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\xc8\x01R\x04name\x12#\n" +
@@ -995,9 +1052,11 @@ const file_workflow_v1_workflow_proto_rawDesc = "" +
 	"\aharness\x18\x05 \x01(\tB\x15\xbaH\x12r\x10\x18(2\f^[a-z0-9-]*$R\aharness\x127\n" +
 	"\bworktree\x18\b \x01(\v2\x1b.workflow.v1.WorktreeConfigR\bworktree\x129\n" +
 	"\x05hooks\x18\n" +
-	" \x03(\v2\x19.workflow.v1.WorkflowHookB\b\xbaH\x05\x92\x01\x02\x102R\x05hooks\"K\n" +
+	" \x03(\v2\x19.workflow.v1.WorkflowHookB\b\xbaH\x05\x92\x01\x02\x102R\x05hooks\x12@\n" +
+	"\x10reviewer_harness\x18\v \x01(\tB\x15\xbaH\x12r\x10\x18(2\f^[a-z0-9-]*$R\x0freviewerHarness\x123\n" +
+	"\x0ereviewer_flags\x18\f \x01(\tB\f\xbaH\tr\a\xa0\xbb\x18\x01\x18\xf4\x03R\rreviewerFlags\"K\n" +
 	"\x16CreateWorkflowResponse\x121\n" +
-	"\bworkflow\x18\x01 \x01(\v2\x15.workflow.v1.WorkflowR\bworkflow\"\xde\x02\n" +
+	"\bworkflow\x18\x01 \x01(\v2\x15.workflow.v1.WorkflowR\bworkflow\"\xd5\x03\n" +
 	"\x15UpdateWorkflowRequest\x12\x17\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\x12\x1e\n" +
 	"\x04name\x18\x02 \x01(\tB\n" +
@@ -1007,7 +1066,9 @@ const file_workflow_v1_workflow_proto_rawDesc = "" +
 	"\x05flags\x18\x05 \x01(\tB\f\xbaH\tr\a\xa0\xbb\x18\x01\x18\xf4\x03R\x05flags\x12/\n" +
 	"\aharness\x18\x06 \x01(\tB\x15\xbaH\x12r\x10\x18(2\f^[a-z0-9-]*$R\aharness\x127\n" +
 	"\bworktree\x18\t \x01(\v2\x1b.workflow.v1.WorktreeConfigR\bworktree\x129\n" +
-	"\x05hooks\x18\v \x03(\v2\x19.workflow.v1.WorkflowHookB\b\xbaH\x05\x92\x01\x02\x102R\x05hooks\"1\n" +
+	"\x05hooks\x18\v \x03(\v2\x19.workflow.v1.WorkflowHookB\b\xbaH\x05\x92\x01\x02\x102R\x05hooks\x12@\n" +
+	"\x10reviewer_harness\x18\f \x01(\tB\x15\xbaH\x12r\x10\x18(2\f^[a-z0-9-]*$R\x0freviewerHarness\x123\n" +
+	"\x0ereviewer_flags\x18\r \x01(\tB\f\xbaH\tr\a\xa0\xbb\x18\x01\x18\xf4\x03R\rreviewerFlags\"1\n" +
 	"\x16ArchiveWorkflowRequest\x12\x17\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\"1\n" +
 	"\x16RestoreWorkflowRequest\x12\x17\n" +
@@ -1015,16 +1076,15 @@ const file_workflow_v1_workflow_proto_rawDesc = "" +
 	"\x17RestoreWorkflowResponse\x121\n" +
 	"\bworkflow\x18\x01 \x01(\v2\x15.workflow.v1.WorkflowR\bworkflow\"0\n" +
 	"\x15DeleteWorkflowRequest\x12\x17\n" +
-	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id2\xa0,\n" +
+	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id2\xa9.\n" +
 	"\x0fWorkflowService\x12\xf4\x04\n" +
 	"\rListWorkflows\x12!.workflow.v1.ListWorkflowsRequest\x1a\".workflow.v1.ListWorkflowsResponse\"\x9b\x04\x9a\xb5\x18\x93\x04\b\x01\x10\x01\x1a\x0elist_workflows\"\xf7\x03List the workflows agents are grouped into, in alphabetical order, with each one's shared context, the working directory and flags its agents start from, and the scripts hooked to moments in their agents' lives. Archived workflows are excluded unless archived is set, which lists those and only those. The summary this returns by default holds only the opening of each workflow's context, marked by context_truncated; get_workflow returns one whole, and view VIEW_FULL returns every context on the page.B\x03\x01\x02\x03\x90\x02\x01\x12\xb9\x01\n" +
-	"\vGetWorkflow\x12\x1f.workflow.v1.GetWorkflowRequest\x1a .workflow.v1.GetWorkflowResponse\"g\x9a\xb5\x18`\b\x01\x10\x01\x1a\fget_workflow\"GFetch one workflow by id. Returns not_found if no workflow has that id.B\x03\x01\x02\x03\x90\x02\x01\x12\x9e\f\n" +
-	"\x0eCreateWorkflow\x12\".workflow.v1.CreateWorkflowRequest\x1a#.workflow.v1.CreateWorkflowResponse\"\xc2\v\x9a\xb5\x18\xbd\v\b\x01\x10\x01\x1a\x0fcreate_workflow\"\xa0\vCreate a workflow to group agents under. Nothing runs as a result; this is organisation. The cwd and flags become the defaults prefilled when an agent is created inside it, and the context is appended to those agents' system prompts. worktree.enabled gives every agent a git worktree of its own, cut from cwd, which komrad makes before the agent starts and removes when it is deleted; left off, agents run in the directory they are given and komrad provisions nothing. hooks hang your own scripts on a moment in those agents' lives, one per moment, each naming a hook from list_hooks and one of pre-launch, post-launch, pre-resume, post-resume, pre-archive, post-archive, pre-restore, post-restore, pre-delete or post-delete; komrad waits for every pre hook and one that fails refuses the step, and it runs every post hook in the background, where one that fails only marks its run. worktree.baseBranch is the branch worktrees are cut from and every agent's work is measured against, filled in from the clone when left blank, which is what origin/HEAD names there, else the branch cwd is on, else main; the response carries the name stored. worktree.dir names the parent new worktrees are made in, blank meaning the one every workflow shares. worktree.diffExclude drops paths from the diff the panel draws, as paths or globs relative to the checkout such as proto/gen or *.pb.go. docs/src/content/guides/workflows.md says why each is there.(\x00B\x01\x03\x12\xfd\n" +
-	"\n" +
-	"\x0eUpdateWorkflow\x12\".workflow.v1.UpdateWorkflowRequest\x1a\x16.google.protobuf.Empty\"\xae\n" +
-	"\x9a\xb5\x18\xa6\n" +
-	"\b\x01\x10\x01\x1a\x0fupdate_workflow\"\x89\n" +
-	"Replace a workflow's name, context, directory, flags, worktree config and hooks. Every field is written, so read the workflow first and send back the ones you are not changing, the hooks list included. Each hook names a hook from list_hooks and one of pre-launch, post-launch, pre-resume, post-resume, pre-archive, post-archive, pre-restore, post-restore, pre-delete or post-delete; komrad waits for every pre hook and one that fails refuses the step, and it runs every post hook in the background, where one that fails only marks its run. Editing the context reaches only agents spawned afterwards, since existing agents took a snapshot at launch, while worktree.enabled reaches agents already running, since whether komrad removes an agent's directory is read when the agent is deleted. worktree.baseBranch is the branch worktrees are cut from and every agent's work is measured against, and a blank one is refused here, so send back the stored name when it is not what you are changing. worktree.dir names the parent new worktrees are made in, blank meaning the one every workflow shares. worktree.diffExclude drops paths from the diff the panel draws, as paths or globs relative to the checkout such as proto/gen or *.pb.go. docs/src/content/guides/workflows.md says why each is there.(\x00B\x01\x03\x90\x02\x02\x12\xe6\x03\n" +
+	"\vGetWorkflow\x12\x1f.workflow.v1.GetWorkflowRequest\x1a .workflow.v1.GetWorkflowResponse\"g\x9a\xb5\x18`\b\x01\x10\x01\x1a\fget_workflow\"GFetch one workflow by id. Returns not_found if no workflow has that id.B\x03\x01\x02\x03\x90\x02\x01\x12\x8b\x0e\n" +
+	"\x0eCreateWorkflow\x12\".workflow.v1.CreateWorkflowRequest\x1a#.workflow.v1.CreateWorkflowResponse\"\xaf\r\x9a\xb5\x18\xaa\r\b\x01\x10\x01\x1a\x0fcreate_workflow\"\x8d\rCreate a workflow to group agents under. Nothing runs as a result; this is organisation. The cwd and flags become the defaults prefilled when an agent is created inside it, and the context is appended to those agents' system prompts. reviewer_harness and reviewer_flags are the CLI and flags its reviewers launch with instead: blank reviewer_harness means the workflow's CLI, and blank reviewer_flags means the workflow's flags only when the reviewer runs that same CLI. worktree.enabled gives every agent a git worktree of its own, cut from cwd, which komrad makes before the agent starts and removes when it is deleted; left off, agents run in the directory they are given and komrad provisions nothing. hooks hang your own scripts on a moment in those agents' lives, one per moment, each naming a hook from list_hooks and one of pre-launch, post-launch, pre-resume, post-resume, pre-archive, post-archive, pre-restore, post-restore, pre-delete or post-delete; komrad waits for every pre hook and one that fails refuses the step, and it runs every post hook in the background, where one that fails only marks its run. worktree.baseBranch is the branch worktrees are cut from and every agent's work is measured against, filled in from the clone when left blank, which is what origin/HEAD names there, else the branch cwd is on, else main; the response carries the name stored. worktree.dir names the parent new worktrees are made in, blank meaning the one every workflow shares. worktree.diffExclude drops paths from the diff the panel draws, as paths or globs relative to the checkout such as proto/gen or *.pb.go. docs/src/content/guides/workflows.md says why each is there.(\x00B\x01\x03\x12\x99\v\n" +
+	"\x0eUpdateWorkflow\x12\".workflow.v1.UpdateWorkflowRequest\x1a\x16.google.protobuf.Empty\"\xca\n" +
+	"\x9a\xb5\x18\xc2\n" +
+	"\b\x01\x10\x01\x1a\x0fupdate_workflow\"\xa5\n" +
+	"Replace a workflow's name, context, directory, flags, reviewer harness and flags, worktree config and hooks. Every field is written, so read the workflow first and send back the ones you are not changing, the hooks list included. Each hook names a hook from list_hooks and one of pre-launch, post-launch, pre-resume, post-resume, pre-archive, post-archive, pre-restore, post-restore, pre-delete or post-delete; komrad waits for every pre hook and one that fails refuses the step, and it runs every post hook in the background, where one that fails only marks its run. Editing the context reaches only agents spawned afterwards, since existing agents took a snapshot at launch, while worktree.enabled reaches agents already running, since whether komrad removes an agent's directory is read when the agent is deleted. worktree.baseBranch is the branch worktrees are cut from and every agent's work is measured against, and a blank one is refused here, so send back the stored name when it is not what you are changing. worktree.dir names the parent new worktrees are made in, blank meaning the one every workflow shares. worktree.diffExclude drops paths from the diff the panel draws, as paths or globs relative to the checkout such as proto/gen or *.pb.go. docs/src/content/guides/workflows.md says why each is there.(\x00B\x01\x03\x90\x02\x02\x12\xe6\x03\n" +
 	"\x0fArchiveWorkflow\x12#.workflow.v1.ArchiveWorkflowRequest\x1a\x16.google.protobuf.Empty\"\x95\x03\x9a\xb5\x18\x8d\x03\b\x01\x10\x01\x1a\x10archive_workflow\"\xef\x02Hide a workflow from the panel, archiving the agents inside it. Nothing is destroyed: the agents stay findable through search_transcripts and no transcript goes with them. Refused while any schedule still launches into the workflow, since those would have nowhere to run. The call waits for each agent's pre-archive hook, and one that fails refuses the whole archive.(\x00B\x01\x03\x90\x02\x02\x12\xbd\x05\n" +
 	"\x0fRestoreWorkflow\x12#.workflow.v1.RestoreWorkflowRequest\x1a$.workflow.v1.RestoreWorkflowResponse\"\xde\x04\x9a\xb5\x18\xd6\x04\b\x01\x10\x01\x1a\x10restore_workflow\"\xb8\x04Take a workflow out of the archive, keyed by id, along with every agent archived inside it. The agents come back as dormant rows, so call resume_agent on the ones whose conversations you want in a pane. Returns not_found if the workflow is not archived. It is refused whole rather than in part, either because its agents would not fit under the number the panel is configured to hold, or because live agents have taken their names, which the error lists for you to rename. The call waits for each agent's pre-restore hook, and one that fails refuses the whole restore.(\x00B\x01\x03\x90\x02\x02\x12\x8f\x05\n" +
 	"\x0eDeleteWorkflow\x12\".workflow.v1.DeleteWorkflowRequest\x1a\x16.google.protobuf.Empty\"\xc0\x04\x9a\xb5\x18\xb8\x04\b\x01\x10\x01\x1a\x0fdelete_workflow\"\x9b\x04Permanently delete an archived workflow along with whatever archived agents are still inside it, reusing the same worktree-removal handling a direct agent delete uses. The archived schedules that launched into it go too, since nothing else ever removes them and they would keep the workflow alive. Returns not_found if the workflow does not exist or is not archived. An agent whose worktree is still being removed, or whose removal failed, is left behind rather than blocking the call, so the workflow can stay archived and be tried again.(\x01B\x01\x03\x90\x02\x02B)Z'komrad/proto/gen/workflow/v1;workflowv1b\x06proto3"

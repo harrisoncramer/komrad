@@ -14,9 +14,11 @@ import (
 // outside one.
 func (s *WorkflowStore) Create(ctx context.Context, cfg Config) (*Workflow, error) {
 	config, err := s.queries.InsertWorkflowConfig(ctx, models.InsertWorkflowConfigParams{
-		Harness: cfg.Harness,
-		Cwd:     cfg.Cwd,
-		Flags:   cfg.Flags,
+		Harness:         cfg.Harness,
+		Cwd:             cfg.Cwd,
+		Flags:           cfg.Flags,
+		ReviewerHarness: cfg.ReviewerHarness,
+		ReviewerFlags:   cfg.ReviewerFlags,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to insert config for workflow %q: %w", cfg.Name, err)
@@ -94,10 +96,12 @@ func (s *WorkflowStore) Update(ctx context.Context, id string, cfg Config) error
 	}
 
 	if err := s.queries.UpdateWorkflowConfig(ctx, models.UpdateWorkflowConfigParams{
-		WorkflowID: id,
-		Harness:    cfg.Harness,
-		Cwd:        cfg.Cwd,
-		Flags:      cfg.Flags,
+		WorkflowID:      id,
+		Harness:         cfg.Harness,
+		Cwd:             cfg.Cwd,
+		Flags:           cfg.Flags,
+		ReviewerHarness: cfg.ReviewerHarness,
+		ReviewerFlags:   cfg.ReviewerFlags,
 	}); err != nil {
 		return fmt.Errorf("failed to update config for workflow %q: %w", id, err)
 	}

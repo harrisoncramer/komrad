@@ -33,11 +33,13 @@ func TestWorkflowContextMarkdown(t *testing.T) {
 // then the defaults future agents under it inherit.
 func TestWorkflowFields(t *testing.T) {
 	fields := workflowFields(panel.Workflow{
-		ID:      "w1",
-		Name:    "api",
-		Harness: "codex",
-		Cwd:     "/repo/api",
-		Flags:   "--model opus",
+		ID:              "w1",
+		Name:            "api",
+		Harness:         "codex",
+		Cwd:             "/repo/api",
+		Flags:           "--model opus",
+		ReviewerHarness: "claude",
+		ReviewerFlags:   "--model sonnet",
 	}, 3)
 
 	assert.Equal(t, []recordField{
@@ -47,6 +49,8 @@ func TestWorkflowFields(t *testing.T) {
 		{label: "directory", value: "/repo/api"},
 		{label: "flags", value: "--model opus"},
 		{label: "worktree", value: "off"},
+		{label: "reviewer agent", value: "claude"},
+		{label: "reviewer flags", value: "--model sonnet"},
 		{label: "workflow_id", value: "w1"},
 	}, fields)
 }
@@ -77,6 +81,8 @@ func TestWorkflowFieldsWorktree(t *testing.T) {
 		{label: "base branch", value: "main"},
 		{label: "copy", value: ".env, .envrc"},
 		{label: "symlink", value: "node_modules"},
+		{label: "reviewer agent", value: "—"},
+		{label: "reviewer flags", value: "—"},
 		{label: "workflow_id", value: "w1"},
 	}, workflowFields(workflow, 3))
 

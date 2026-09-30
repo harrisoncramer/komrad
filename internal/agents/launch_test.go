@@ -1568,6 +1568,92 @@ func TestWorkflowFlagsFollowItsHarness(t *testing.T) {
 	}
 }
 
+// TestReviewerTakesTheWorkflowsReviewerLaunch pins that blank reviewer flags fall back to the workflow's only on the workflow's own CLI.
+func TestReviewerTakesTheWorkflowsReviewerLaunch(t *testing.T) {
+	tests := []struct {
+		name            string
+		role            agentstore.Role
+		reviewerHarness string
+		reviewerFlags   string
+		wantHarness     string
+		wantFlags       string
+	}{
+		{
+			name:        "a reviewer in a workflow naming no reviewer launch takes the workflow's own",
+			role:        agentstore.RoleReviewer,
+			wantHarness: harnesstest.FakeID,
+			wantFlags:   "--default-flag --model opus",
+		},
+		{
+			name:            "a reviewer takes the reviewer CLI and flags",
+			role:            agentstore.RoleReviewer,
+			reviewerHarness: "codex",
+			reviewerFlags:   "--model gpt-5",
+			wantHarness:     "codex",
+			wantFlags:       "--model gpt-5",
+		},
+		{
+			name:            "a reviewer on another CLI with no reviewer flags is launched without the workflow's",
+			role:            agentstore.RoleReviewer,
+			reviewerHarness: "codex",
+			wantHarness:     "codex",
+			wantFlags:       "",
+		},
+		{
+			name:          "reviewer flags alone keep the workflow's CLI",
+			role:          agentstore.RoleReviewer,
+			reviewerFlags: "--model sonnet",
+			wantHarness:   harnesstest.FakeID,
+			wantFlags:     "--default-flag --model sonnet",
+		},
+		{
+			name:            "an implementer ignores the reviewer launch",
+			role:            agentstore.RoleImplementer,
+			reviewerHarness: "codex",
+			reviewerFlags:   "--model gpt-5",
+			wantHarness:     harnesstest.FakeID,
+			wantFlags:       "--default-flag --model opus",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := newStore(t)
+			tmux := tmuxtest.NewFake()
+
+			service := st.agentService(agentServiceOptions{
+				tmux:      tmux,
+				harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}},
+				flags:     "--default-flag",
+			})
+
+			created, err := st.Workflows.Create(t.Context(), workflowstore.Config{
+				Name:            "workflow-" + uuid.NewString(),
+				Harness:         harnesstest.FakeID,
+				Flags:           "--model opus",
+				ReviewerHarness: tt.reviewerHarness,
+				ReviewerFlags:   tt.reviewerFlags,
+				Worktree:        workflowstore.WorktreeConfig{BaseBranch: "main"},
+			})
+			require.NoError(t, err)
+
+			_, err = service.launch.NewAgent(t.Context(), NewAgentParams{
+				Title:      "agent",
+				Dir:        t.TempDir(),
+				WorkflowID: created.ID,
+				Role:       tt.role,
+			})
+			require.NoError(t, err)
+
+			stored, err := st.Get(t.Context(), "agent")
+			require.NoError(t, err)
+			require.NotNil(t, stored)
+			assert.Equal(t, tt.wantHarness, stored.Harness)
+			assert.Equal(t, tt.wantFlags, stored.Flags)
+		})
+	}
+}
+
 // TestNewAgentRefusesUnknownHarness pins that a CLI this binary cannot run is refused before
 // a window is opened or a row written.
 func TestNewAgentRefusesUnknownHarness(t *testing.T) {

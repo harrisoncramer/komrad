@@ -10,15 +10,17 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestConfigRoundTrip checks a workflow's cwd, flags, and context survive the
+// TestConfigRoundTrip checks a workflow's cwd, flags, reviewer launch and context survive the
 // join to workflow_configs, on every path that reads one back.
 func TestConfigRoundTrip(t *testing.T) {
 	cfg := Config{
-		Name:     "backend",
-		Context:  "shared notes",
-		Cwd:      "/work/api",
-		Flags:    "--model opus",
-		Worktree: WorktreeConfig{BaseBranch: "main"},
+		Name:            "backend",
+		Context:         "shared notes",
+		Cwd:             "/work/api",
+		Flags:           "--model opus",
+		ReviewerHarness: "codex",
+		ReviewerFlags:   "--model gpt-5",
+		Worktree:        WorktreeConfig{BaseBranch: "main"},
 	}
 
 	tests := []struct {
@@ -33,11 +35,13 @@ func TestConfigRoundTrip(t *testing.T) {
 		{
 			name: "after an update",
 			update: &Config{
-				Name:     "backend",
-				Context:  "revised notes",
-				Cwd:      "/work/api",
-				Flags:    "--model opus",
-				Worktree: WorktreeConfig{BaseBranch: "main"},
+				Name:            "backend",
+				Context:         "revised notes",
+				Cwd:             "/work/api",
+				Flags:           "--model opus",
+				ReviewerHarness: "codex",
+				ReviewerFlags:   "--model gpt-5",
+				Worktree:        WorktreeConfig{BaseBranch: "main"},
 			},
 			wantContext: "revised notes",
 		},
@@ -63,6 +67,8 @@ func TestConfigRoundTrip(t *testing.T) {
 			assert.Equal(t, tt.wantContext, got.Context)
 			assert.Equal(t, cfg.Cwd, got.Cwd)
 			assert.Equal(t, cfg.Flags, got.Flags)
+			assert.Equal(t, cfg.ReviewerHarness, got.ReviewerHarness)
+			assert.Equal(t, cfg.ReviewerFlags, got.ReviewerFlags)
 
 			listed, err := st.List(ctx)
 			require.NoError(t, err)

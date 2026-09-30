@@ -40,7 +40,11 @@ func workflowFields(w panel.Workflow, agentCount int) []recordField {
 	}
 	fields = append(fields, workflowConfigFields(w)...)
 
-	return append(fields, recordField{label: "workflow_id", value: label.OrDash(w.ID)})
+	return append(fields,
+		recordField{label: "reviewer agent", value: label.OrDash(w.ReviewerHarness)},
+		recordField{label: "reviewer flags", value: label.OrDash(w.ReviewerFlags)},
+		recordField{label: "workflow_id", value: label.OrDash(w.ID)},
+	)
 }
 
 func workflowConfigFields(w panel.Workflow) []recordField {

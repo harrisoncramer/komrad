@@ -54,11 +54,15 @@ LIMIT 1;
 INSERT INTO workflow_configs(
     harness,
     cwd,
-    flags)
+    flags,
+    reviewer_harness,
+    reviewer_flags)
 VALUES (
     @harness,
     @cwd,
-    @flags)
+    @flags,
+    @reviewer_harness,
+    @reviewer_flags)
 RETURNING
     *;
 
@@ -135,7 +139,9 @@ UPDATE
 SET
     harness = @harness,
     cwd = @cwd,
-    flags = @flags
+    flags = @flags,
+    reviewer_harness = @reviewer_harness,
+    reviewer_flags = @reviewer_flags
 WHERE
     id =(
         SELECT

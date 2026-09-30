@@ -25,6 +25,8 @@ type workflowFormValues struct {
 	Harness              string
 	Cwd                  string
 	Flags                string
+	ReviewerHarness      string
+	ReviewerFlags        string
 	Provisioner          string
 	PreLaunchHook        string
 	PostLaunchHook       string
@@ -55,6 +57,8 @@ func workflowFormValuesFrom(cfg panel.WorkflowConfig) workflowFormValues {
 		Harness:              cfg.Harness,
 		Cwd:                  cfg.Cwd,
 		Flags:                cfg.Flags,
+		ReviewerHarness:      cfg.ReviewerHarness,
+		ReviewerFlags:        cfg.ReviewerFlags,
 		Provisioner:          provisioner,
 		PreLaunchHook:        hookNamed(cfg.Hooks, config.HookPreLaunch),
 		PostLaunchHook:       hookNamed(cfg.Hooks, config.HookPostLaunch),
@@ -76,11 +80,13 @@ func workflowFormValuesFrom(cfg panel.WorkflowConfig) workflowFormValues {
 
 func (v workflowFormValues) toConfig() panel.WorkflowConfig {
 	cfg := panel.WorkflowConfig{
-		Name:    v.Name,
-		Context: v.Context,
-		Harness: v.Harness,
-		Cwd:     v.Cwd,
-		Flags:   v.Flags,
+		Name:            v.Name,
+		Context:         v.Context,
+		Harness:         v.Harness,
+		Cwd:             v.Cwd,
+		Flags:           v.Flags,
+		ReviewerHarness: v.ReviewerHarness,
+		ReviewerFlags:   v.ReviewerFlags,
 		Worktree: panel.WorktreeConfig{
 			Enabled:      v.Provisioner == provisionerWorktree,
 			BaseBranch:   v.WorktreeBaseBranch,
@@ -176,6 +182,12 @@ func workflowConfigForm(params workflowConfigParams) (form *huh.Form, order []st
 	}, blueprintFields("Default ", &values.Harness, &values.Cwd, &values.Flags)...)
 
 	fields = append(fields,
+		huh.NewInput().Key("reviewer_harness").Title("Reviewer agent").
+			Description("the CLI reviewers run").
+			Placeholder("the default agent").Value(&values.ReviewerHarness),
+		huh.NewInput().Key("reviewer_flags").Title("Reviewer flags").
+			Description("the flags reviewers launch with").
+			Placeholder("the default flags, when the agent is the same").Value(&values.ReviewerFlags),
 		huh.NewSelect[string]().Key(provisionerKey).Title("Provisioner").
 			Options(provisionerOptions()...).Value(&values.Provisioner),
 	)
