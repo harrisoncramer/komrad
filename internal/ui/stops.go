@@ -141,8 +141,8 @@ func (m model) isScreenBlockDrawn() bool {
 	return ok && b.isBlockDrawn(m.shared())
 }
 
-// findFocusPane is the agent's pane the picker stops at, empty where the stage holds none or the
-// panel is drawn over it.
+// findFocusPane finds the agent's pane the picker stops at, empty where the stage holds none or
+// the panel is drawn over it.
 func (m model) findFocusPane() string {
 	if m.screen != screenAgents || m.frame.IsSolo() {
 		return ""
