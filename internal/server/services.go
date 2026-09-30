@@ -59,6 +59,7 @@ type services struct {
 	commentSync      *pullrequests.CommentSyncer
 	pullRequests     *pullrequests.Lister
 	writer           *pullrequests.Writer
+	dismisser        *pullrequests.Dismisser
 	worktreeLister   *worktrees.Lister
 	inspector        *worktrees.Inspector
 	remover          *worktrees.Remover
@@ -324,6 +325,7 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 			Tx:      st.pool,
 		}),
 		pullRequests: pullrequests.NewLister(pullrequests.NewListerParams{PullRequests: st.pullRequests}),
+		dismisser:    pullrequests.NewDismisser(pullrequests.NewDismisserParams{Threads: st.forgeThreads}),
 		writer: pullrequests.NewWriter(pullrequests.NewWriterParams{
 			Forges: forgeService,
 			Sync:   wakers.pullRequestSync,

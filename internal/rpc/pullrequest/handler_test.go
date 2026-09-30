@@ -6,8 +6,10 @@ import (
 	"testing"
 	"time"
 
+	"komrad/internal/caller"
 	"komrad/internal/git"
 	"komrad/internal/pullrequests"
+	"komrad/internal/store"
 	pullrequeststore "komrad/internal/store/pullrequest"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
@@ -138,4 +140,67 @@ func TestListPullRequests(t *testing.T) {
 		},
 	}
 	assert.Equal(t, want, reader.listed)
+}
+
+// fakeDismisser records each dismissal asked for and answers err.
+type fakeDismisser struct {
+	err       error
+	dismissed []pullrequests.DismissForgeThreadParams
+}
+
+// DismissForgeThread records the params and answers err.
+func (f *fakeDismisser) DismissForgeThread(_ context.Context, params pullrequests.DismissForgeThreadParams) error {
+	f.dismissed = append(f.dismissed, params)
+
+	return f.err
+}
+
+// TestDismissForgeThread pins who the dismissal is asked for and the code each refusal reaches the caller as.
+func TestDismissForgeThread(t *testing.T) {
+	const threadID = "01a0d1d7-0000-7000-8000-000000000003"
+	tests := []struct {
+		name     string
+		req      *pullrequestv1.DismissForgeThreadRequest
+		caller   caller.Caller
+		err      error
+		want     []pullrequests.DismissForgeThreadParams
+		wantCode connect.Code
+	}{
+		{
+			name: "the person's dismissal names no agent",
+			req:  &pullrequestv1.DismissForgeThreadRequest{Id: threadID},
+			want: []pullrequests.DismissForgeThreadParams{{ID: threadID}},
+		},
+		{
+			name:     "an agent's dismissal names it and is refused",
+			req:      &pullrequestv1.DismissForgeThreadRequest{Id: threadID},
+			caller:   caller.Caller{AgentID: "01a0d1d7-0000-7000-8000-000000000004"},
+			err:      pullrequests.ErrDismissHumanOnly,
+			want:     []pullrequests.DismissForgeThreadParams{{ID: threadID, AgentID: "01a0d1d7-0000-7000-8000-000000000004"}},
+			wantCode: connect.CodePermissionDenied,
+		},
+		{
+			name:     "a thread that is not stored",
+			req:      &pullrequestv1.DismissForgeThreadRequest{Id: threadID},
+			err:      store.ErrNotFound,
+			want:     []pullrequests.DismissForgeThreadParams{{ID: threadID}},
+			wantCode: connect.CodeNotFound,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dismisser := &fakeDismisser{err: tt.err}
+			service := pullrequestv1komrad.PullRequestServiceAdapter{Impl: NewHandler(NewHandlerParams{Dismisser: dismisser})}
+
+			_, err := service.DismissForgeThread(caller.With(t.Context(), tt.caller), connect.NewRequest(tt.req))
+			if tt.wantCode != 0 {
+				require.Error(t, err)
+				assert.Equal(t, tt.wantCode, connect.CodeOf(err))
+			} else {
+				require.NoError(t, err)
+			}
+			assert.Equal(t, tt.want, dismisser.dismissed)
+		})
+	}
 }

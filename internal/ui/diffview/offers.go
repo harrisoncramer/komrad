@@ -15,12 +15,13 @@ const OfferTone = paint.ToneUserGithub
 // Offer is a comment the forge holds on a file, placed on the diff the way a thread is and kept
 // apart from the reader's own.
 type Offer struct {
-	ID       string
-	FilePath string
-	Line     int32
-	OldSide  bool
-	Quote    string
-	Resolved bool
+	ID        string
+	FilePath  string
+	Line      int32
+	OldSide   bool
+	Quote     string
+	Resolved  bool
+	Dismissed bool
 }
 
 // SetOfferTraced holds where git says each offer's line went, keyed by offer id, and is read by
@@ -125,8 +126,12 @@ func (v *View) GetOfferRow(id string) (int, bool) {
 // offerMarkFor is the glyph the forge's comments on a row get in the gutter, settled once every
 // one of them is resolved.
 func (v *View) offerMarkFor(offers []Offer) (string, lipgloss.Style) {
-	if slices.ContainsFunc(offers, func(offer Offer) bool { return !offer.Resolved }) {
+	if slices.ContainsFunc(offers, func(offer Offer) bool { return !offer.Resolved && !offer.Dismissed }) {
 		return v.glyphs.Spell(glyph.ThreadRead), paint.Panel.Style(OfferTone)
+	}
+
+	if slices.ContainsFunc(offers, func(offer Offer) bool { return offer.Dismissed }) {
+		return v.glyphs.Spell(glyph.ThreadDismissed), paint.Panel.Style(OfferTone)
 	}
 
 	return v.glyphs.Spell(glyph.ThreadSettled), paint.Panel.Style(OfferTone)

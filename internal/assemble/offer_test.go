@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"komrad/internal/assemble"
+	"komrad/lib/xptr"
 	"komrad/lib/xslice"
 
 	agentv1 "komrad/proto/gen/agent/v1"
@@ -22,7 +23,7 @@ func offer(id, pullRequestID string, writtenAgo time.Duration, set ...func(*pull
 		Path:          "main.go",
 		Line:          3,
 		WrittenAt:     stamp(-writtenAgo),
-		Comments:      []*pullrequestv1.ForgeComment{{Id: id + "-c", AuthorLogin: "dana"}},
+		Comments:      []*pullrequestv1.ForgeComment{{Id: id + "-c", AuthorLogin: "dana", WrittenAt: stamp(-writtenAgo)}},
 	}
 	for _, f := range set {
 		f(thread)
@@ -43,6 +44,15 @@ func answeredByDana(thread *pullrequestv1.ForgeThread) {
 	thread.Comments = append(thread.Comments, &pullrequestv1.ForgeComment{Id: thread.GetId() + "-r", AuthorLogin: "dana"})
 }
 
+func dismissedAgo(ago time.Duration) func(*pullrequestv1.ForgeThread) {
+	return func(thread *pullrequestv1.ForgeThread) { thread.DismissedAt = xptr.Ptr(stamp(-ago)) }
+}
+
+func repliedAgo(ago time.Duration) func(*pullrequestv1.ForgeThread) {
+	return func(thread *pullrequestv1.ForgeThread) {
+		thread.Comments = append(thread.Comments, &pullrequestv1.ForgeComment{Id: thread.GetId() + "-r", AuthorLogin: "dana", WrittenAt: stamp(-ago)})
+	}
+}
 func offers(threads ...*pullrequestv1.ForgeThread) map[string]*pullrequestv1.ForgeThread {
 	rows := map[string]*pullrequestv1.ForgeThread{}
 	for _, thread := range threads {
@@ -107,6 +117,15 @@ func TestAgentRowsOfferCounts(t *testing.T) {
 			threads:     []*pullrequestv1.ForgeThread{offer("f1", "p1", time.Hour, fromYou)},
 		},
 		{
+			name:        "a dismissed offer is left out until someone writes on it again",
+			pullRequest: open,
+			threads: []*pullrequestv1.ForgeThread{
+				offer("f1", "p1", 2*time.Hour, dismissedAgo(time.Hour)),
+				offer("f2", "p1", 3*time.Hour, dismissedAgo(2*time.Hour), repliedAgo(time.Minute)),
+			},
+			want: &agentv1.CommentCounts{External: 1},
+		},
+		{
 			name:        "offers on a finished pull request are not counted",
 			pullRequest: merged,
 			threads:     []*pullrequestv1.ForgeThread{offer("f1", "p1", time.Hour)},
@@ -157,4 +176,35 @@ func TestOffers(t *testing.T) {
 
 func idsOf(threads []*pullrequestv1.ForgeThread) []string {
 	return xslice.Map(threads, func(thread *pullrequestv1.ForgeThread) string { return thread.GetId() })
+}
+
+// TestIsDismissedOffer covers a dismissal lasting until someone writes on the thread after it.
+func TestIsDismissedOffer(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		thread *pullrequestv1.ForgeThread
+		want   bool
+	}{
+		{
+			name:   "a thread never dismissed",
+			thread: offer("f1", "p1", time.Hour),
+		},
+		{
+			name:   "a thread dismissed after its last comment",
+			thread: offer("f1", "p1", 2*time.Hour, dismissedAgo(time.Hour)),
+			want:   true,
+		},
+		{
+			name:   "a thread answered after it was dismissed",
+			thread: offer("f1", "p1", 3*time.Hour, dismissedAgo(2*time.Hour), repliedAgo(time.Minute)),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, tt.want, assemble.IsDismissedOffer(tt.thread))
+		})
+	}
 }

@@ -29,6 +29,7 @@ import (
 	"komrad/proto/gen/log/v1/logv1connect"
 	paginationv1 "komrad/proto/gen/pagination/v1"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
+	"komrad/proto/gen/pullrequest/v1/pullrequestv1connect"
 	schedulev1 "komrad/proto/gen/schedule/v1"
 	schedulev1connect "komrad/proto/gen/schedule/v1/schedulev1connect"
 	watchv1 "komrad/proto/gen/watch/v1"
@@ -95,13 +96,14 @@ type parkedCmd struct {
 }
 
 type panelRemote struct {
-	agents    agentv1connect.AgentServiceClient
-	workflows workflowv1connect.WorkflowServiceClient
-	schedules schedulev1connect.ScheduleServiceClient
-	hooks     hookv1connect.HookServiceClient
-	worktrees worktreev1connect.WorktreeServiceClient
-	logs      logv1connect.LogServiceClient
-	forges    forgev1connect.ForgeServiceClient
+	agents       agentv1connect.AgentServiceClient
+	workflows    workflowv1connect.WorkflowServiceClient
+	schedules    schedulev1connect.ScheduleServiceClient
+	hooks        hookv1connect.HookServiceClient
+	worktrees    worktreev1connect.WorktreeServiceClient
+	logs         logv1connect.LogServiceClient
+	forges       forgev1connect.ForgeServiceClient
+	pullRequests pullrequestv1connect.PullRequestServiceClient
 }
 
 type request struct {
@@ -224,6 +226,7 @@ func newPanelHarness(t *testing.T, params panelHarnessParams) *panelHarness {
 	mux.Handle(worktreev1connect.NewWorktreeServiceHandler(worktreev1connect.UnimplementedWorktreeServiceHandler{}, interceptors))
 	mux.Handle(logv1connect.NewLogServiceHandler(logv1connect.UnimplementedLogServiceHandler{}, interceptors))
 	mux.Handle(forgev1connect.NewForgeServiceHandler(forgev1connect.UnimplementedForgeServiceHandler{}, interceptors))
+	mux.Handle(pullrequestv1connect.NewPullRequestServiceHandler(pullrequestv1connect.UnimplementedPullRequestServiceHandler{}, interceptors))
 
 	server := httptest.NewServer(mux)
 	t.Cleanup(server.Close)
@@ -231,13 +234,14 @@ func newPanelHarness(t *testing.T, params panelHarnessParams) *panelHarness {
 	remote := params.remote
 	if remote == nil {
 		remote = &panelRemote{
-			agents:    agentv1connect.NewAgentServiceClient(server.Client(), server.URL),
-			workflows: workflowv1connect.NewWorkflowServiceClient(server.Client(), server.URL),
-			schedules: schedulev1connect.NewScheduleServiceClient(server.Client(), server.URL),
-			hooks:     hookv1connect.NewHookServiceClient(server.Client(), server.URL),
-			worktrees: worktreev1connect.NewWorktreeServiceClient(server.Client(), server.URL),
-			logs:      logv1connect.NewLogServiceClient(server.Client(), server.URL),
-			forges:    forgev1connect.NewForgeServiceClient(server.Client(), server.URL),
+			agents:       agentv1connect.NewAgentServiceClient(server.Client(), server.URL),
+			workflows:    workflowv1connect.NewWorkflowServiceClient(server.Client(), server.URL),
+			schedules:    schedulev1connect.NewScheduleServiceClient(server.Client(), server.URL),
+			hooks:        hookv1connect.NewHookServiceClient(server.Client(), server.URL),
+			worktrees:    worktreev1connect.NewWorktreeServiceClient(server.Client(), server.URL),
+			logs:         logv1connect.NewLogServiceClient(server.Client(), server.URL),
+			forges:       forgev1connect.NewForgeServiceClient(server.Client(), server.URL),
+			pullRequests: pullrequestv1connect.NewPullRequestServiceClient(server.Client(), server.URL),
 		}
 	}
 
@@ -272,6 +276,7 @@ func newPanelHarness(t *testing.T, params panelHarnessParams) *panelHarness {
 			Hooks:           remote.hooks,
 			Worktrees:       remote.worktrees,
 			Forges:          remote.forges,
+			PullRequests:    remote.pullRequests,
 			Logs:            remote.logs,
 			Git:             reviewGit,
 			Keys:            keys,

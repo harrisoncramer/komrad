@@ -42,6 +42,23 @@ func (q *Queries) DeleteForgeReviewThreadsExcept(ctx context.Context, arg Delete
 	return err
 }
 
+const dismissForgeReviewThread = `-- name: DismissForgeReviewThread :one
+UPDATE
+    forge_review_threads t
+SET
+    dismissed_at = now()
+WHERE
+    t.id = $1
+RETURNING
+    t.id
+`
+
+func (q *Queries) DismissForgeReviewThread(ctx context.Context, id string) (string, error) {
+	row := q.db.QueryRow(ctx, dismissForgeReviewThread, id)
+	err := row.Scan(&id)
+	return id, err
+}
+
 const listCommentSyncPullRequests = `-- name: ListCommentSyncPullRequests :many
 SELECT
     p.id,
@@ -179,7 +196,7 @@ func (q *Queries) ListForgeReviewThreadIDs(ctx context.Context, pullRequestID st
 
 const listWatchedForgeReviewThreads = `-- name: ListWatchedForgeReviewThreads :many
 SELECT
-    t.id, t.pull_request_id, t.provider_id, t.path, t.line, t.url, t.resolved, t.written_at, t.created_at, t.updated_at, t.engine_id, t.old_side, t.commit_sha, t.quote
+    t.id, t.pull_request_id, t.provider_id, t.path, t.line, t.url, t.resolved, t.written_at, t.created_at, t.updated_at, t.engine_id, t.old_side, t.commit_sha, t.quote, t.dismissed_at
 FROM
     forge_review_threads t
 WHERE
@@ -220,6 +237,7 @@ func (q *Queries) ListWatchedForgeReviewThreads(ctx context.Context, keys []stri
 			&i.OldSide,
 			&i.CommitSha,
 			&i.Quote,
+			&i.DismissedAt,
 		); err != nil {
 			return nil, err
 		}

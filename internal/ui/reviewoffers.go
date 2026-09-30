@@ -13,6 +13,7 @@ import (
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 
 	tea "charm.land/bubbletea/v2"
+	"connectrpc.com/connect"
 	"github.com/charmbracelet/x/ansi"
 )
 
@@ -43,7 +44,7 @@ func (r reviewScreen) doesStepOffers(s panelShared) bool {
 }
 
 func isPlacedOffer(offer *pullrequestv1.ForgeThread) bool {
-	return offer.GetPath() != ""
+	return offer.GetPath() != "" && !assemble.IsDismissedOffer(offer)
 }
 
 // stepOffer moves the cursor onto the next forge comment written on a line, and chooses it.
@@ -93,6 +94,9 @@ func (r reviewScreen) offerView(offer *pullrequestv1.ForgeThread, width int) str
 	foot := plainOfferText(offer.GetUrl())
 	if offer.GetResolved() {
 		foot = strings.TrimSpace("resolved  " + foot)
+	}
+	if assemble.IsDismissedOffer(offer) {
+		foot = strings.TrimSpace("dismissed  " + foot)
 	}
 	if foot != "" {
 		out.WriteString(dimStyle().Render(ansi.Hardwrap(foot, max(width, 1), false)) + "\n")
@@ -274,8 +278,8 @@ func keyOffers(snapshot string, offers []*pullrequestv1.ForgeThread) string {
 	var key strings.Builder
 	key.WriteString(snapshot)
 	for _, offer := range offers {
-		fmt.Fprintf(&key, "\x00%s\x00%s\x00%d\x00%t\x00%s\x00%s\x00%t",
-			offer.GetId(), offer.GetPath(), offer.GetLine(), offer.GetOldSide(), offer.GetCommitSha(), offer.GetQuote(), offer.GetResolved())
+		fmt.Fprintf(&key, "\x00%s\x00%s\x00%d\x00%t\x00%s\x00%s\x00%t\x00%t",
+			offer.GetId(), offer.GetPath(), offer.GetLine(), offer.GetOldSide(), offer.GetCommitSha(), offer.GetQuote(), offer.GetResolved(), assemble.IsDismissedOffer(offer))
 	}
 
 	return key.String()
@@ -283,11 +287,40 @@ func keyOffers(snapshot string, offers []*pullrequestv1.ForgeThread) string {
 
 func anchorOffer(offer *pullrequestv1.ForgeThread) diffview.Offer {
 	return diffview.Offer{
-		ID:       offer.GetId(),
-		FilePath: offer.GetPath(),
-		Line:     offer.GetLine(),
-		OldSide:  offer.GetOldSide(),
-		Quote:    offer.GetQuote(),
-		Resolved: offer.GetResolved(),
+		ID:        offer.GetId(),
+		FilePath:  offer.GetPath(),
+		Line:      offer.GetLine(),
+		OldSide:   offer.GetOldSide(),
+		Quote:     offer.GetQuote(),
+		Resolved:  offer.GetResolved(),
+		Dismissed: assemble.IsDismissedOffer(offer),
 	}
+}
+
+// doesDismissOffer reports whether the cursor stands on a forge comment that is still active, with
+// no thread of the reader's in front of it.
+func (r reviewScreen) doesDismissOffer(s panelShared) bool {
+	if _, ok := r.diff.threadAtCursor(); ok {
+		return false
+	}
+
+	offer, ok := r.offerAtCursor(s)
+
+	return ok && !assemble.IsDismissedOffer(offer)
+}
+
+// dismissOfferCmd marks the forge comment under the cursor dismissed, which only komrad keeps.
+func (r reviewScreen) dismissOfferCmd(s panelShared) tea.Cmd {
+	offer, ok := r.offerAtCursor(s)
+	if !ok {
+		return nil
+	}
+
+	pullRequests, id := s.api.pullRequests, offer.GetId()
+
+	return r.writeCmd(s, "dismissed the comment from the forge", func(ctx context.Context) error {
+		_, err := pullRequests.DismissForgeThread(ctx, connect.NewRequest(&pullrequestv1.DismissForgeThreadRequest{Id: id}))
+
+		return err
+	})
 }

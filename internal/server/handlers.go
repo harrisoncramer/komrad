@@ -133,7 +133,10 @@ func newMux(params newMuxParams) (*http.ServeMux, error) {
 		}, options...))
 	mux.Handle(pullrequestv1connect.NewPullRequestServiceHandler(
 		pullrequestv1komrad.PullRequestServiceAdapter{
-			Impl: rpcpullrequest.NewHandler(rpcpullrequest.NewHandlerParams{PullRequests: params.Services.pullRequests}),
+			Impl: rpcpullrequest.NewHandler(rpcpullrequest.NewHandlerParams{
+				PullRequests: params.Services.pullRequests,
+				Dismisser:    params.Services.dismisser,
+			}),
 		}, options...))
 	mux.Handle(worktreev1connect.NewWorktreeServiceHandler(
 		worktreev1komrad.WorktreeServiceAdapter{

@@ -8,10 +8,13 @@ import (
 	"komrad/internal/position"
 	"komrad/lib/xptr"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
+	"komrad/proto/gen/pullrequest/v1/pullrequestv1connect"
 
+	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 func newOffer(id, login, body string, line int32) *pullrequestv1.ForgeThread {
@@ -134,6 +137,39 @@ func TestReviewOffers(t *testing.T) {
 		harness := openReviewAt(t, newOfferedReviewServer(t, offer), panelHarnessParams{height: 40})
 
 		assert.Contains(t, findLine(readStage(harness.readFrame()), "package greet"), "✓")
+	})
+
+	t.Run("x dismisses the offer under the cursor", func(t *testing.T) {
+		harness := openReviewAt(t, newOfferedReviewServer(t, newOffer("f1", "dana", "rename this", 1)), panelHarnessParams{height: 40})
+		harness.answer(pullrequestv1connect.PullRequestServiceDismissForgeThreadProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+			return connect.NewResponse(&emptypb.Empty{}), nil
+		})
+		harness.press("?")
+		require.Contains(t, readLegend(harness.readFrame()), "dismiss the forge comment")
+
+		harness.press("x")
+
+		sent := harness.readSent(pullrequestv1connect.PullRequestServiceDismissForgeThreadProcedure)
+		require.Len(t, sent, 1)
+		assert.Equal(t, "f1", sent[0].(*pullrequestv1.DismissForgeThreadRequest).GetId())
+	})
+
+	t.Run("a dismissed offer is still drawn, marked skipped, and J passes it by", func(t *testing.T) {
+		dismissed := newOffer("f1", "dana", "rename this", 1)
+		dismissed.DismissedAt = xptr.Ptr("2026-09-20T12:00:00Z")
+		server := newOfferedReviewServer(t, dismissed, newOffer("f2", "lee", "and this", 4))
+		harness := openReviewAt(t, server, panelHarnessParams{height: 40})
+
+		frame := harness.readFrame()
+		assert.Contains(t, findLine(readStage(frame), "package greet"), "")
+		assert.Contains(t, readPopupProse(frame), "rename this")
+		assert.Contains(t, strings.Join(readPopup(frame), ""), "dismissed")
+		assert.NotContains(t, readLegend(frame), "dismiss the forge comment")
+
+		harness.press("J")
+		require.Contains(t, readReviewCursor(harness.readFrame()), gittest.File+":4")
+		harness.press("J")
+		assert.Contains(t, readReviewCursor(harness.readFrame()), gittest.File+":4")
 	})
 
 	t.Run("an offer written on an earlier commit follows its line", func(t *testing.T) {

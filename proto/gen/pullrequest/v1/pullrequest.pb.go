@@ -10,6 +10,7 @@ import (
 	_ "buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	emptypb "google.golang.org/protobuf/types/known/emptypb"
 	_ "komrad/proto/gen/annotation/v1"
 	v1 "komrad/proto/gen/pagination/v1"
 	reflect "reflect"
@@ -724,6 +725,51 @@ func (x *ListPullRequestsResponse) GetNextPageToken() string {
 	return ""
 }
 
+type DismissForgeThreadRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Which forge thread to dismiss in the person's review.
+	Id            string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DismissForgeThreadRequest) Reset() {
+	*x = DismissForgeThreadRequest{}
+	mi := &file_pullrequest_v1_pullrequest_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DismissForgeThreadRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DismissForgeThreadRequest) ProtoMessage() {}
+
+func (x *DismissForgeThreadRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_pullrequest_v1_pullrequest_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DismissForgeThreadRequest.ProtoReflect.Descriptor instead.
+func (*DismissForgeThreadRequest) Descriptor() ([]byte, []int) {
+	return file_pullrequest_v1_pullrequest_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *DismissForgeThreadRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
 // ForgeThread is a review thread as the forge holds it on a pull request an agent is linked to,
 // which the panel offers the person and never hands an agent.
 type ForgeThread struct {
@@ -749,14 +795,16 @@ type ForgeThread struct {
 	// The commit the forge counted the line in, empty when it names none.
 	CommitSha string `protobuf:"bytes,10,opt,name=commit_sha,json=commitSha,proto3" json:"commit_sha,omitempty"`
 	// The text of the line the thread was written on, as the forge's diff drew it, with its diff marker taken off.
-	Quote         string `protobuf:"bytes,11,opt,name=quote,proto3" json:"quote,omitempty"`
+	Quote string `protobuf:"bytes,11,opt,name=quote,proto3" json:"quote,omitempty"`
+	// When the person dismissed the thread in their review, in RFC 3339, unset while they never have. A dismissed thread is still drawn but no longer counted, and a comment written after it makes it active again.
+	DismissedAt   *string `protobuf:"bytes,12,opt,name=dismissed_at,json=dismissedAt,proto3,oneof" json:"dismissed_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ForgeThread) Reset() {
 	*x = ForgeThread{}
-	mi := &file_pullrequest_v1_pullrequest_proto_msgTypes[4]
+	mi := &file_pullrequest_v1_pullrequest_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -768,7 +816,7 @@ func (x *ForgeThread) String() string {
 func (*ForgeThread) ProtoMessage() {}
 
 func (x *ForgeThread) ProtoReflect() protoreflect.Message {
-	mi := &file_pullrequest_v1_pullrequest_proto_msgTypes[4]
+	mi := &file_pullrequest_v1_pullrequest_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -781,7 +829,7 @@ func (x *ForgeThread) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ForgeThread.ProtoReflect.Descriptor instead.
 func (*ForgeThread) Descriptor() ([]byte, []int) {
-	return file_pullrequest_v1_pullrequest_proto_rawDescGZIP(), []int{4}
+	return file_pullrequest_v1_pullrequest_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *ForgeThread) GetId() string {
@@ -861,6 +909,13 @@ func (x *ForgeThread) GetQuote() string {
 	return ""
 }
 
+func (x *ForgeThread) GetDismissedAt() string {
+	if x != nil && x.DismissedAt != nil {
+		return *x.DismissedAt
+	}
+	return ""
+}
+
 // ForgeComment is one comment in a forge review thread.
 type ForgeComment struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -884,7 +939,7 @@ type ForgeComment struct {
 
 func (x *ForgeComment) Reset() {
 	*x = ForgeComment{}
-	mi := &file_pullrequest_v1_pullrequest_proto_msgTypes[5]
+	mi := &file_pullrequest_v1_pullrequest_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -896,7 +951,7 @@ func (x *ForgeComment) String() string {
 func (*ForgeComment) ProtoMessage() {}
 
 func (x *ForgeComment) ProtoReflect() protoreflect.Message {
-	mi := &file_pullrequest_v1_pullrequest_proto_msgTypes[5]
+	mi := &file_pullrequest_v1_pullrequest_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -909,7 +964,7 @@ func (x *ForgeComment) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ForgeComment.ProtoReflect.Descriptor instead.
 func (*ForgeComment) Descriptor() ([]byte, []int) {
-	return file_pullrequest_v1_pullrequest_proto_rawDescGZIP(), []int{5}
+	return file_pullrequest_v1_pullrequest_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *ForgeComment) GetId() string {
@@ -965,7 +1020,7 @@ var File_pullrequest_v1_pullrequest_proto protoreflect.FileDescriptor
 
 const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"\n" +
-	" pullrequest/v1/pullrequest.proto\x12\x0epullrequest.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1epagination/v1/pagination.proto\"\xc6\x01\n" +
+	" pullrequest/v1/pullrequest.proto\x12\x0epullrequest.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1epagination/v1/pagination.proto\"\xc6\x01\n" +
 	"\x17ListPullRequestsRequest\x121\n" +
 	"\x0erepository_url\x18\x01 \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\x80\x10R\rrepositoryUrl\x12)\n" +
@@ -1014,7 +1069,9 @@ const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"\x18ListPullRequestsResponse\x12@\n" +
 	"\rpull_requests\x18\x01 \x03(\v2\x1b.pullrequest.v1.PullRequestR\fpullRequests\x12+\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tH\x00R\rnextPageToken\x88\x01\x01B\x12\n" +
-	"\x10_next_page_token\"\xc4\x02\n" +
+	"\x10_next_page_token\"4\n" +
+	"\x19DismissForgeThreadRequest\x12\x17\n" +
+	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\"\xfd\x02\n" +
 	"\vForgeThread\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12&\n" +
 	"\x0fpull_request_id\x18\x02 \x01(\tR\rpullRequestId\x12\x12\n" +
@@ -1029,7 +1086,9 @@ const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"\n" +
 	"commit_sha\x18\n" +
 	" \x01(\tR\tcommitSha\x12\x14\n" +
-	"\x05quote\x18\v \x01(\tR\x05quote\"\xcc\x01\n" +
+	"\x05quote\x18\v \x01(\tR\x05quote\x12&\n" +
+	"\fdismissed_at\x18\f \x01(\tH\x00R\vdismissedAt\x88\x01\x01B\x0f\n" +
+	"\r_dismissed_at\"\xcc\x01\n" +
 	"\fForgeComment\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12!\n" +
 	"\fauthor_login\x18\x02 \x01(\tR\vauthorLogin\x12\x10\n" +
@@ -1075,9 +1134,10 @@ const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"\vCHECKS_NONE\x10\x01\x12\x12\n" +
 	"\x0eCHECKS_PENDING\x10\x02\x12\x12\n" +
 	"\x0eCHECKS_PASSING\x10\x03\x12\x12\n" +
-	"\x0eCHECKS_FAILING\x10\x042\xdd\x06\n" +
+	"\x0eCHECKS_FAILING\x10\x042\xc5\b\n" +
 	"\x12PullRequestService\x12\xc6\x06\n" +
-	"\x10ListPullRequests\x12'.pullrequest.v1.ListPullRequestsRequest\x1a(.pullrequest.v1.ListPullRequestsResponse\"\xde\x05\x9a\xb5\x18\xd6\x05\b\x01\x10\x01\x1a\x12list_pull_requests\"\xb7\x05List the pull requests komrad has stored for a repository, a page at a time: every one opened from a branch when one is named, whatever its state, or every one stored for the repository when none is. The unfinished ones come first and each group is newest opened first, so the first answered for a branch is the one an agent's row on that branch stands for. Give the repository as a git remote spells it or as its canonical address, and pass the next_page_token back as pagination.cursor for the next page. This reads what the pull request sync has stored rather than asking the forge, so a repository no live agent sits on may be behind or empty; list_forge_pull_requests asks the forge itself.B\x02\x01\x03\x90\x02\x01B/Z-komrad/proto/gen/pullrequest/v1;pullrequestv1b\x06proto3"
+	"\x10ListPullRequests\x12'.pullrequest.v1.ListPullRequestsRequest\x1a(.pullrequest.v1.ListPullRequestsResponse\"\xde\x05\x9a\xb5\x18\xd6\x05\b\x01\x10\x01\x1a\x12list_pull_requests\"\xb7\x05List the pull requests komrad has stored for a repository, a page at a time: every one opened from a branch when one is named, whatever its state, or every one stored for the repository when none is. The unfinished ones come first and each group is newest opened first, so the first answered for a branch is the one an agent's row on that branch stands for. Give the repository as a git remote spells it or as its canonical address, and pass the next_page_token back as pagination.cursor for the next page. This reads what the pull request sync has stored rather than asking the forge, so a repository no live agent sits on may be behind or empty; list_forge_pull_requests asks the forge itself.B\x02\x01\x03\x90\x02\x01\x12\xe5\x01\n" +
+	"\x12DismissForgeThread\x12).pullrequest.v1.DismissForgeThreadRequest\x1a\x16.google.protobuf.Empty\"\x8b\x01\x9a\xb5\x18\x83\x01:\x80\x01Dismissing a comment from the forge is a person tidying their own review, and the handler refuses a caller that is not a person.\x90\x02\x02B/Z-komrad/proto/gen/pullrequest/v1;pullrequestv1b\x06proto3"
 
 var (
 	file_pullrequest_v1_pullrequest_proto_rawDescOnce sync.Once
@@ -1092,32 +1152,36 @@ func file_pullrequest_v1_pullrequest_proto_rawDescGZIP() []byte {
 }
 
 var file_pullrequest_v1_pullrequest_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
-var file_pullrequest_v1_pullrequest_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
+var file_pullrequest_v1_pullrequest_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
 var file_pullrequest_v1_pullrequest_proto_goTypes = []any{
-	(PullRequestState)(0),            // 0: pullrequest.v1.PullRequestState
-	(Mergeability)(0),                // 1: pullrequest.v1.Mergeability
-	(ReviewDecision)(0),              // 2: pullrequest.v1.ReviewDecision
-	(Checks)(0),                      // 3: pullrequest.v1.Checks
-	(*ListPullRequestsRequest)(nil),  // 4: pullrequest.v1.ListPullRequestsRequest
-	(*PullRequest)(nil),              // 5: pullrequest.v1.PullRequest
-	(*Repository)(nil),               // 6: pullrequest.v1.Repository
-	(*ListPullRequestsResponse)(nil), // 7: pullrequest.v1.ListPullRequestsResponse
-	(*ForgeThread)(nil),              // 8: pullrequest.v1.ForgeThread
-	(*ForgeComment)(nil),             // 9: pullrequest.v1.ForgeComment
-	(*v1.Pagination)(nil),            // 10: pagination.v1.Pagination
+	(PullRequestState)(0),             // 0: pullrequest.v1.PullRequestState
+	(Mergeability)(0),                 // 1: pullrequest.v1.Mergeability
+	(ReviewDecision)(0),               // 2: pullrequest.v1.ReviewDecision
+	(Checks)(0),                       // 3: pullrequest.v1.Checks
+	(*ListPullRequestsRequest)(nil),   // 4: pullrequest.v1.ListPullRequestsRequest
+	(*PullRequest)(nil),               // 5: pullrequest.v1.PullRequest
+	(*Repository)(nil),                // 6: pullrequest.v1.Repository
+	(*ListPullRequestsResponse)(nil),  // 7: pullrequest.v1.ListPullRequestsResponse
+	(*DismissForgeThreadRequest)(nil), // 8: pullrequest.v1.DismissForgeThreadRequest
+	(*ForgeThread)(nil),               // 9: pullrequest.v1.ForgeThread
+	(*ForgeComment)(nil),              // 10: pullrequest.v1.ForgeComment
+	(*v1.Pagination)(nil),             // 11: pagination.v1.Pagination
+	(*emptypb.Empty)(nil),             // 12: google.protobuf.Empty
 }
 var file_pullrequest_v1_pullrequest_proto_depIdxs = []int32{
-	10, // 0: pullrequest.v1.ListPullRequestsRequest.pagination:type_name -> pagination.v1.Pagination
+	11, // 0: pullrequest.v1.ListPullRequestsRequest.pagination:type_name -> pagination.v1.Pagination
 	0,  // 1: pullrequest.v1.PullRequest.state:type_name -> pullrequest.v1.PullRequestState
 	2,  // 2: pullrequest.v1.PullRequest.review_decision:type_name -> pullrequest.v1.ReviewDecision
 	3,  // 3: pullrequest.v1.PullRequest.checks:type_name -> pullrequest.v1.Checks
 	1,  // 4: pullrequest.v1.PullRequest.mergeability:type_name -> pullrequest.v1.Mergeability
 	5,  // 5: pullrequest.v1.ListPullRequestsResponse.pull_requests:type_name -> pullrequest.v1.PullRequest
-	9,  // 6: pullrequest.v1.ForgeThread.comments:type_name -> pullrequest.v1.ForgeComment
+	10, // 6: pullrequest.v1.ForgeThread.comments:type_name -> pullrequest.v1.ForgeComment
 	4,  // 7: pullrequest.v1.PullRequestService.ListPullRequests:input_type -> pullrequest.v1.ListPullRequestsRequest
-	7,  // 8: pullrequest.v1.PullRequestService.ListPullRequests:output_type -> pullrequest.v1.ListPullRequestsResponse
-	8,  // [8:9] is the sub-list for method output_type
-	7,  // [7:8] is the sub-list for method input_type
+	8,  // 8: pullrequest.v1.PullRequestService.DismissForgeThread:input_type -> pullrequest.v1.DismissForgeThreadRequest
+	7,  // 9: pullrequest.v1.PullRequestService.ListPullRequests:output_type -> pullrequest.v1.ListPullRequestsResponse
+	12, // 10: pullrequest.v1.PullRequestService.DismissForgeThread:output_type -> google.protobuf.Empty
+	9,  // [9:11] is the sub-list for method output_type
+	7,  // [7:9] is the sub-list for method input_type
 	7,  // [7:7] is the sub-list for extension type_name
 	7,  // [7:7] is the sub-list for extension extendee
 	0,  // [0:7] is the sub-list for field type_name
@@ -1132,13 +1196,14 @@ func file_pullrequest_v1_pullrequest_proto_init() {
 	file_pullrequest_v1_pullrequest_proto_msgTypes[1].OneofWrappers = []any{}
 	file_pullrequest_v1_pullrequest_proto_msgTypes[3].OneofWrappers = []any{}
 	file_pullrequest_v1_pullrequest_proto_msgTypes[5].OneofWrappers = []any{}
+	file_pullrequest_v1_pullrequest_proto_msgTypes[6].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pullrequest_v1_pullrequest_proto_rawDesc), len(file_pullrequest_v1_pullrequest_proto_rawDesc)),
 			NumEnums:      4,
-			NumMessages:   6,
+			NumMessages:   7,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"komrad/internal/forge"
+	"komrad/internal/store"
 	"komrad/lib/xslice"
 
 	"github.com/stretchr/testify/assert"
@@ -183,4 +184,39 @@ func TestSetThreads(t *testing.T) {
 			tt.check(t, stored)
 		})
 	}
+}
+
+// TestMarkDismissed covers stamping a forge thread dismissed, and the sync writing over it without clearing the stamp.
+func TestMarkDismissed(t *testing.T) {
+	h := open(t)
+	ctx := t.Context()
+	threads := NewForgeThreadStore(h.pool.GetDB())
+
+	h.createAgent(t, h.createWorkflow(t), "live", komrad, "agent/x")
+	written := SetThreadsParams{
+		PullRequestID: h.linkedPullRequest(t, "PR_1", 1, "agent/x"),
+		Viewer:        "harrisoncramer",
+		Threads:       []forge.ReviewThread{threadOn("T_1", commentBy("C_1", "dana"))},
+		Prune:         true,
+	}
+	require.NoError(t, threads.SetThreads(ctx, written))
+
+	stored, err := threads.ListWatched(ctx, nil)
+	require.NoError(t, err)
+	require.Len(t, stored, 1)
+	assert.Nil(t, stored[0].DismissedAt)
+
+	require.NoError(t, threads.MarkDismissed(ctx, stored[0].ID))
+
+	written.Threads[0].Resolved = true
+	require.NoError(t, threads.SetThreads(ctx, written))
+
+	stored, err = threads.ListWatched(ctx, nil)
+	require.NoError(t, err)
+	require.Len(t, stored, 1)
+	assert.NotNil(t, stored[0].DismissedAt)
+	assert.True(t, stored[0].Resolved)
+
+	require.ErrorIs(t, threads.MarkDismissed(ctx, "01a0f025-00bd-7db3-90c0-a0198677e92e"), store.ErrNotFound)
+	require.ErrorIs(t, threads.MarkDismissed(ctx, "T_1"), store.ErrNotFound)
 }

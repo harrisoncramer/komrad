@@ -792,6 +792,13 @@
               "default": "[\"c\"]"
             },
             {
+              "key": "dismiss",
+              "path": "keybindings.review.dismiss",
+              "type": "array",
+              "description": "Dismiss the comment from the forge under the cursor. It is still drawn, marked apart and\nno longer counted. Nothing is written to the forge, and a reply written there afterwards\nmakes it active again.",
+              "default": "[\"x\"]"
+            },
+            {
               "key": "edit_file",
               "path": "keybindings.review.edit_file",
               "type": "array",
@@ -1421,6 +1428,13 @@
               "type": "string",
               "description": "A thread holding a comment nobody has sent yet.",
               "default": "\"◇\""
+            },
+            {
+              "key": "dismissed",
+              "path": "glyphs.review.dismissed",
+              "type": "string",
+              "description": "A comment from the forge you dismissed, drawn but no longer counted.",
+              "default": "\"\""
             },
             {
               "key": "current",

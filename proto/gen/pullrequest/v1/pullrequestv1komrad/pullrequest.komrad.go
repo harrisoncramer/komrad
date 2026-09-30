@@ -7,6 +7,7 @@ package pullrequestv1komrad
 import (
 	connect "connectrpc.com/connect"
 	context "context"
+	emptypb "google.golang.org/protobuf/types/known/emptypb"
 	fail "komrad/internal/fail"
 	rpcerr "komrad/internal/rpcerr"
 	v1 "komrad/proto/gen/pullrequest/v1"
@@ -16,6 +17,7 @@ import (
 // of failure they are rather than leaving it to be decided later.
 type PullRequestServiceImpl interface {
 	ListPullRequests(context.Context, *v1.ListPullRequestsRequest) (*v1.ListPullRequestsResponse, *fail.Error)
+	DismissForgeThread(context.Context, *v1.DismissForgeThreadRequest) (*emptypb.Empty, *fail.Error)
 }
 
 // PullRequestServiceAdapter carries what the implementation returned across to the signature
@@ -27,4 +29,9 @@ type PullRequestServiceAdapter struct {
 // ListPullRequests answers the request as connect serves it.
 func (a PullRequestServiceAdapter) ListPullRequests(ctx context.Context, req *connect.Request[v1.ListPullRequestsRequest]) (*connect.Response[v1.ListPullRequestsResponse], error) {
 	return rpcerr.Answer(a.Impl.ListPullRequests(ctx, req.Msg))
+}
+
+// DismissForgeThread answers the request as connect serves it.
+func (a PullRequestServiceAdapter) DismissForgeThread(ctx context.Context, req *connect.Request[v1.DismissForgeThreadRequest]) (*connect.Response[emptypb.Empty], error) {
+	return rpcerr.Answer(a.Impl.DismissForgeThread(ctx, req.Msg))
 }

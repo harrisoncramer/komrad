@@ -1422,7 +1422,7 @@
       "slug": "pull-request",
       "title": "Pull Request",
       "name": "pullrequest.v1.PullRequestService",
-      "description": "PullRequestService reads the pull requests komrad has stored from its forges.",
+      "description": "PullRequestService reads the pull requests komrad has stored from its forges, and lets the person dismiss the forge's comments in their review.",
       "methods": [
         {
           "slug": "list-pull-requests",

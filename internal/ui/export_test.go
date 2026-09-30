@@ -21,6 +21,7 @@ import (
 	"komrad/proto/gen/forge/v1/forgev1connect"
 	"komrad/proto/gen/hook/v1/hookv1connect"
 	"komrad/proto/gen/log/v1/logv1connect"
+	"komrad/proto/gen/pullrequest/v1/pullrequestv1connect"
 	schedulev1connect "komrad/proto/gen/schedule/v1/schedulev1connect"
 	"komrad/proto/gen/workflow/v1/workflowv1connect"
 	"komrad/proto/gen/worktree/v1/worktreev1connect"
@@ -110,6 +111,7 @@ type NewPanelParams struct {
 	Hooks           hookv1connect.HookServiceClient
 	Worktrees       worktreev1connect.WorktreeServiceClient
 	Forges          forgev1connect.ForgeServiceClient
+	PullRequests    pullrequestv1connect.PullRequestServiceClient
 	Logs            logv1connect.LogServiceClient
 	Git             ReviewGit
 	Keys            config.Keybindings
@@ -179,6 +181,7 @@ func NewPanel(params NewPanelParams) *Panel {
 			Hooks:           params.Hooks,
 			Worktrees:       params.Worktrees,
 			Forges:          params.Forges,
+			PullRequests:    params.PullRequests,
 			Logs:            params.Logs,
 			Keys:            params.Keys,
 			Layout:          layout,

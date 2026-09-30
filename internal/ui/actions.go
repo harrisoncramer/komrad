@@ -94,6 +94,7 @@ const (
 	actionReviewAnswer
 	actionReviewJump
 	actionReviewOffer
+	actionReviewDismiss
 	actionReviewCompose
 	actionReviewSend
 )

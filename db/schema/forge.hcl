@@ -461,6 +461,11 @@ table "forge_review_threads" {
     type    = timestamptz
     comment = "When the thread's first comment was written on the forge."
   }
+  column "dismissed_at" {
+    null    = true
+    type    = timestamptz
+    comment = "When the person dismissed the thread in their review, null while they never have. A dismissed thread is still drawn but no longer counted. The sync leaves it alone, and a comment written on the forge after it makes the thread active again."
+  }
   column "created_at" {
     null    = false
     type    = timestamptz

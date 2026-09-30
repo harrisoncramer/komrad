@@ -159,3 +159,13 @@ ORDER BY
     c.thread_id,
     c.written_at,
     c.id;
+
+-- name: DismissForgeReviewThread :one
+UPDATE
+    forge_review_threads t
+SET
+    dismissed_at = now()
+WHERE
+    t.id = @id
+RETURNING
+    t.id;

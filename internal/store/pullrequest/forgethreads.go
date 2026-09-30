@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"komrad/db"
 	"komrad/db/models"
 	"komrad/internal/forge"
 	"komrad/internal/store"
@@ -47,6 +48,7 @@ type ForgeThread struct {
 	URL           string
 	Resolved      bool
 	WrittenAt     time.Time
+	DismissedAt   *time.Time
 	Comments      []ForgeComment
 }
 
@@ -248,6 +250,24 @@ func threadFromRow(row *models.ForgeReviewThread, comments []ForgeComment) Forge
 		URL:           row.Url,
 		Resolved:      row.Resolved,
 		WrittenAt:     row.WrittenAt,
+		DismissedAt:   row.DismissedAt,
 		Comments:      comments,
 	}
+}
+
+// MarkDismissed stamps a forge thread dismissed, so the review stops counting it until a comment is written on it after now, or ErrNotFound.
+func (s *ForgeThreadStore) MarkDismissed(ctx context.Context, id string) error {
+	if !store.IsID(id) {
+		return store.ErrNotFound.Saying("no forge thread %s", id)
+	}
+
+	_, err := s.queries.DismissForgeReviewThread(ctx, id)
+	if db.IsNoRows(err) {
+		return store.ErrNotFound.Saying("no forge thread %s", id)
+	}
+	if err != nil {
+		return fmt.Errorf("failed to dismiss forge thread %s: %w", id, err)
+	}
+
+	return nil
 }

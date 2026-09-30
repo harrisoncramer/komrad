@@ -306,6 +306,10 @@ base_forward     = [">"]
 # Write a message on the line under the cursor, replying in the thread already there
 # or opening a new one.
 compose          = ["c"]
+# Dismiss the comment from the forge under the cursor. It is still drawn, marked apart and
+# no longer counted. Nothing is written to the forge, and a reply written there afterwards
+# makes it active again.
+dismiss          = ["x"]
 # Open the file under the cursor in your editor, beside the diff, on the line the
 # cursor is on. This is the agent's own worktree rather than a copy of it, so what
 # you write is what the agent finds there, and the key is refused while the agent is
@@ -534,6 +538,8 @@ read      = "○"
 settled   = "✓"
 # A thread holding a comment nobody has sent yet.
 unsent    = "◇"
+# A comment from the forge you dismissed, drawn but no longer counted.
+dismissed = ""
 # The row of the file tree beside the diff that the cursor is in.
 current   = "▸"
 # A comment the agent has been given.
