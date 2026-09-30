@@ -691,6 +691,7 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 				_, err := svc.RecordReport(ctx, connect.NewRequest(&agentv1.RecordReportRequest{
 					Reason:    "Bash",
 					TurnEnded: true,
+					TurnError: "Overloaded",
 				}))
 
 				return "", err
@@ -700,6 +701,7 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 					AgentID:   ids[0],
 					Reason:    "Bash",
 					TurnEnded: true,
+					TurnError: "Overloaded",
 				}, services.reported)
 			},
 		},

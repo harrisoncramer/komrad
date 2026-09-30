@@ -5,6 +5,7 @@ package e2e
 import (
 	"testing"
 
+	"komrad/internal/caller"
 	"komrad/internal/harness"
 	"komrad/internal/komradtest"
 	agentstore "komrad/internal/store/agent"
@@ -47,6 +48,31 @@ func TestIntegrationAgentLifecycle(t *testing.T) {
 		instance.Settle(agent.GetId(), harness.ActivityWorking, agentstore.StateThinking)
 		instance.Settle(agent.GetId(), harness.ActivityWaiting, agentstore.StateWaiting)
 		instance.Settle(agent.GetId(), harness.ActivityIdle, agentstore.StateIdle)
+	})
+
+	t.Run("a turn an API error ended stands until the next one ends", func(t *testing.T) {
+		report := func(turnError string) {
+			req := connect.NewRequest(&agentv1.RecordReportRequest{TurnEnded: true, TurnError: turnError})
+			caller.Caller{AgentID: agent.GetId(), SessionID: agent.GetSessionId()}.SetHeader(req.Header())
+			_, err := instance.Agents.RecordReport(ctx, req)
+			require.NoError(t, err)
+		}
+
+		instance.Settle(agent.GetId(), harness.ActivityWorking, agentstore.StateThinking)
+		report("Overloaded")
+		instance.Settle(agent.GetId(), harness.ActivityIdle, agentstore.StateErrored)
+
+		failed, err := instance.Agents.GetAgent(ctx, connect.NewRequest(&agentv1.GetAgentRequest{Id: agent.GetId()}))
+		require.NoError(t, err)
+		assert.Equal(t, "Overloaded", failed.Msg.GetAgent().GetTurnError())
+
+		instance.Settle(agent.GetId(), harness.ActivityWorking, agentstore.StateThinking)
+		report("")
+		instance.Settle(agent.GetId(), harness.ActivityIdle, agentstore.StateIdle)
+
+		recovered, err := instance.Agents.GetAgent(ctx, connect.NewRequest(&agentv1.GetAgentRequest{Id: agent.GetId()}))
+		require.NoError(t, err)
+		assert.Empty(t, recovered.Msg.GetAgent().GetTurnError())
 	})
 
 	t.Run("what was said is searchable", func(t *testing.T) {

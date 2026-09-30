@@ -305,6 +305,7 @@ type recordedReport struct {
 	agentID   string
 	reason    string
 	turnEnded bool
+	turnError string
 }
 
 type fakeMailParams struct {
@@ -362,12 +363,14 @@ func fakeMailServer(t *testing.T, params fakeMailParams) string {
 		var report struct {
 			Reason    string `json:"reason"`
 			TurnEnded bool   `json:"turnEnded"`
+			TurnError string `json:"turnError"`
 		}
 		assert.NoError(t, json.NewDecoder(r.Body).Decode(&report))
 		*params.reports = append(*params.reports, recordedReport{
 			agentID:   caller.FromHeader(r.Header).AgentID,
 			reason:    report.Reason,
 			turnEnded: report.TurnEnded,
+			turnError: report.TurnError,
 		})
 
 		w.Header().Set("Content-Type", "application/json")
@@ -456,4 +459,34 @@ func TestIntegrationTurnEndHookRecordsTheBoundary(t *testing.T) {
 			assert.Empty(t, out.String(), "notify reads nothing back, so nothing is printed")
 		})
 	}
+}
+
+// TestIntegrationStopFailureHookRecordsTheFailure covers the hook Claude runs in place of Stop
+// when an API error ends the turn.
+func TestIntegrationStopFailureHookRecordsTheFailure(t *testing.T) {
+	var asked caller.Caller
+	var logged []string
+	var reports []recordedReport
+	addr := fakeMailServer(t, fakeMailParams{
+		asked:   &asked,
+		logged:  &logged,
+		reports: &reports,
+	})
+
+	state := &app{
+		env:       &config.Environment{Addr: addr, AgentID: "agent-a"},
+		harnesses: hookHarnesses(t),
+	}
+
+	var out, errs bytes.Buffer
+	cmd := hookCmd(state)
+	cmd.SetOut(&out)
+	cmd.SetErr(&errs)
+	cmd.SetIn(strings.NewReader(`{"error":"rate_limit","last_assistant_message":"API Error: Rate limit reached"}`))
+	cmd.SetArgs([]string{"stop-failure"})
+
+	require.NoError(t, cmd.Execute())
+	require.Len(t, reports, 1)
+	assert.Equal(t, recordedReport{agentID: "agent-a", turnEnded: true, turnError: "Rate limit reached"}, reports[0])
+	assert.Empty(t, out.String(), "Claude ignores what a StopFailure hook prints")
 }

@@ -72,6 +72,20 @@ func (s *AgentStore) SetTurnEnded(ctx context.Context, id string) error {
 	return nil
 }
 
+// SetTurnFailed records that an API error ended a turn of an agent's, with what its CLI printed.
+func (s *AgentStore) SetTurnFailed(ctx context.Context, id, turnError string) error {
+	if !store.IsID(id) {
+		return store.ErrNotFound.Saying("no agent with id %q", id)
+	}
+
+	params := models.SetAgentTurnFailedByIDParams{ID: id, TurnError: turnError}
+	if err := s.queries.SetAgentTurnFailedByID(ctx, params); err != nil {
+		return fmt.Errorf("failed to set the turn failure for id %q: %w", id, err)
+	}
+
+	return nil
+}
+
 // SetReportedReason records what an agent's own CLI last reported it was doing, an empty reason
 // clearing whatever was reported before it.
 func (s *AgentStore) SetReportedReason(ctx context.Context, id, reason string) error {

@@ -34,6 +34,8 @@ enum AgentState {
   AGENT_STATE_FAILED_TO_CLEANUP = 6;
   // The pane could be read but its tail decided nothing.
   AGENT_STATE_UNCERTAIN = 7;
+  // The pane is at rest after an API error ended the last turn, and turn_error says which.
+  AGENT_STATE_ERRORED = 8;
 }
 
 // AgentRole is what an agent was launched to do.
@@ -112,6 +114,8 @@ message Agent {
   string reported_reason = 29;
   // Why its create or cleanup last failed, empty when neither has.
   string failure_reason = 43;
+  // What its CLI printed when an API error ended its last turn, empty when that turn did not fail.
+  string turn_error = 46;
   // What the agent was launched to do.
   AgentRole role = 30;
   // Whether prompt holds only its opening, as a summary listing returns it.
@@ -436,6 +440,15 @@ message RecordReportRequest {
   ];
   // Whether the CLI has finished a turn.
   bool turn_ended = 2;
+  // What the CLI printed when an API error ended the turn, empty when the turn ended without one.
+  string turn_error = 3 [
+    (buf.validate.field).string.max_len = 200,
+    (buf.validate.field).cel = {
+      id: "report.turn_error.printable"
+      message: "turn_error must not contain control characters"
+      expression: "!this.matches('[\\x00-\\x1f\\x7f]')"
+    }
+  ];
 }
 
 message MarkRunsReadRequest {

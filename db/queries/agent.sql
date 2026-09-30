@@ -633,7 +633,7 @@ SET
         state_changed_at
     END,
     reported_reason = CASE WHEN state IS DISTINCT FROM @state
-        AND @state IN ('idle', 'uncertain') THEN
+        AND @state IN ('idle', 'uncertain', 'errored') THEN
         ''
     ELSE
         reported_reason
@@ -648,6 +648,16 @@ UPDATE
     agents
 SET
     turn_ended_at = NOW()
+WHERE
+    id = @id;
+
+-- name: SetAgentTurnFailedByID :exec
+UPDATE
+    agents
+SET
+    turn_ended_at = NOW(),
+    turn_failed_at = NOW(),
+    turn_error = @turn_error
 WHERE
     id = @id;
 

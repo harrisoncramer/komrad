@@ -48,6 +48,22 @@ func TestAgentNotices(t *testing.T) {
 			want: []string{failedToCleanupNotice},
 		},
 		{
+			name: "a turn an API error ended",
+			row: buildNoticeRow(panel.AgentRow{
+				Agent: panel.Agent{State: panel.StateErrored, TurnError: "Overloaded"},
+				Alive: true,
+			}),
+			want: []string{turnFailedNotice + ": Overloaded"},
+		},
+		{
+			name: "a turn an API error ended, on an agent somebody paused",
+			row: buildNoticeRow(panel.AgentRow{
+				Agent: panel.Agent{State: panel.StateErrored, TurnError: "Overloaded", HeldAt: xptr.Ptr(time.Now())},
+				Alive: true,
+			}),
+			want: []string{heldNotice},
+		},
+		{
 			name: "a removed worktree",
 			row:  buildNoticeRow(panel.AgentRow{Agent: panel.Agent{WorktreeRemoved: true}}),
 			want: []string{worktreeRemovedNotice},

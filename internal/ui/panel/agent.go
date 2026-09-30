@@ -19,12 +19,13 @@ const (
 	StateFailedToCreate  State = "failed_to_create"
 	StateFailedToCleanup State = "failed_to_cleanup"
 	StateUncertain       State = "uncertain"
+	StateErrored         State = "errored"
 )
 
 // DoesPaneDecide reports whether reading the agent's terminal is what decides this state.
 func (s State) DoesPaneDecide() bool {
 	switch s {
-	case StateIdle, StateThinking, StateWaiting, StateUncertain:
+	case StateIdle, StateThinking, StateWaiting, StateUncertain, StateErrored:
 		return true
 	case StateSettingUp, StateFailedToCreate, StateFailedToCleanup:
 		return false
@@ -59,6 +60,7 @@ type Agent struct {
 	State          State
 	StateChangedAt time.Time
 	FailureReason  string
+	TurnError      string
 	Harness        string
 	SessionID      string
 	WorkflowID     string

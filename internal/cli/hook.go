@@ -100,6 +100,16 @@ blocked on an approval from one blocked on a question, and reads nothing else:
 a tool's input can carry a secret.`,
 		event: claude.EventPermissionRequest,
 	}))
+	cmd.AddCommand(payloadHookCmd(state, payloadHook{
+		use:   "stop-failure",
+		short: "Record that an API error ended an agent's turn",
+		long: `Record that an API error ended an agent's turn.
+
+Claude runs this in place of its Stop hook when a rate limit, an outage or any
+other API error ends the turn. Komrad keeps the error against the agent so the
+panel can say the turn failed rather than finished.`,
+		event: claude.EventStopFailure,
+	}))
 
 	return cmd
 }
@@ -301,6 +311,7 @@ func recordReport(ctx context.Context, state *app, report harness.Report) {
 		Request: map[string]any{
 			"reason":    clampReason(report.Reason),
 			"turnEnded": report.TurnEnded,
+			"turnError": clampReason(report.TurnError),
 		},
 	})
 }

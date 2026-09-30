@@ -425,7 +425,7 @@ func (l listing) agentCount(workflowID string) int {
 // still holds whatever the agent stopped in.
 func displayState(item panel.AgentRow) panel.State {
 	state := item.Agent.State
-	if !item.Alive && state.DoesPaneDecide() {
+	if !item.Alive && state.DoesPaneDecide() && state != panel.StateErrored {
 		return panel.StateIdle
 	}
 

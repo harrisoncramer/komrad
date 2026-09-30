@@ -20,6 +20,7 @@ type notice struct {
 const (
 	failedToCreateNotice  = "setup failed, it never launched"
 	failedToCleanupNotice = "teardown failed, its directory is still there"
+	turnFailedNotice      = "its last turn failed"
 	failedRunNotice       = "a script komrad fired failed, log unread"
 	unreadMailNotice      = "mail waiting, it has not read it"
 	worktreeRemovedNotice = "its directory no longer exists"
@@ -77,7 +78,7 @@ var (
 func agentNotices(glyphs glyph.Set, loaderFrame string, r agentRow) []notice {
 	item, row := r.item, snapshotRow(r, snapshotParams{loaderFrame: loaderFrame})
 
-	notices := appendCellNotice(nil, glyphs, view.StatusCell(row), failureSaid[displayState(item)])
+	notices := appendCellNotice(nil, glyphs, view.StatusCell(row), describeFailure(item))
 	notices = appendCellNotice(notices, glyphs, view.AlertCell(row), failedRunNotice)
 	notices = appendCellNotice(notices, glyphs, view.ForgeCell(row), forgeAlertSaid[row.Forge])
 	notices = appendCellNotice(notices, glyphs, view.MailCell(row), unreadMailNotice)
@@ -125,6 +126,24 @@ func appendNotice(notices []notice, show bool, icon string, tone paint.Tone, tex
 	})
 }
 
+// describeFailure says what the status column drawn broken means about how an agent got there.
+func describeFailure(item panel.AgentRow) string {
+	state := displayState(item)
+	if state != panel.StateErrored {
+		return failureSaid[state]
+	}
+
+	if item.Agent.HeldAt != nil {
+		return ""
+	}
+
+	if item.Agent.TurnError == "" {
+		return turnFailedNotice
+	}
+
+	return turnFailedNotice + ": " + item.Agent.TurnError
+}
+
 // heldNoticeText is what the record has to say about an agent somebody is holding.
 func heldNoticeText(item panel.AgentRow) string {
 	if item.Agent.HeldAt == nil {
@@ -139,7 +158,7 @@ func heldNoticeText(item panel.AgentRow) string {
 			return heldPromptedNotice
 		case panel.StateUncertain:
 			return heldUnreadableNotice
-		case panel.StateIdle, panel.StateSettingUp,
+		case panel.StateIdle, panel.StateErrored, panel.StateSettingUp,
 			panel.StateFailedToCreate, panel.StateFailedToCleanup:
 		}
 	}
