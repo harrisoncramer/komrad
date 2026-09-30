@@ -2,7 +2,9 @@ package ui
 
 import (
 	"fmt"
+	"slices"
 
+	"komrad/internal/ui/paint"
 	agentv1 "komrad/proto/gen/agent/v1"
 
 	tea "charm.land/bubbletea/v2"
@@ -34,6 +36,10 @@ func (r *reviewScreen) updateKey(h host, s panelShared, key tea.KeyPressMsg) tea
 	}
 
 	r.notice = ""
+
+	if isBound(k, slices.Concat(s.keys.Column.ScrollDown, s.keys.Column.ScrollUp)) && r.scrollPopup(s, directionOf(k, s.keys.Column.ScrollUp)*diffWheelStep) {
+		return nil
+	}
 
 	return r.actions().dispatch(h, s, k)
 }
@@ -182,10 +188,34 @@ func (r *reviewScreen) scrollColumn(_ host, s panelShared, rows int) tea.Cmd {
 		return nil
 	}
 
+	if r.scrollPopup(s, rows) {
+		return nil
+	}
+
 	return r.diffKeys().scrollColumn(s, rows)
 }
 
 // scrollToCursor moves the window only when the cursor is about to leave it.
 func (r *reviewScreen) scrollToCursor(s panelShared) {
 	r.diff.ScrollToCursor(r.diffHeight(s))
+}
+
+// scrollPopup moves the conversation in the popup down by rows, up when rows is negative, and
+// reports whether there was a conversation there to move.
+func (r *reviewScreen) scrollPopup(s panelShared, rows int) bool {
+	thread, ok := r.diff.threadAtCursor()
+	if !ok {
+		return false
+	}
+
+	if r.threads.scrolled != thread.GetId() {
+		r.threads.scrolled = thread.GetId()
+		r.threads.scroll = 0
+	}
+
+	drawn := paint.CountLines(r.threadView(s, thread, measurePopupInner(s)))
+	most := max(drawn-(reviewPopupHeight-2), 0)
+	r.threads.scroll = min(max(r.threads.scroll-rows, 0), most)
+
+	return true
 }

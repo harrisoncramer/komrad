@@ -30,6 +30,9 @@ type reviewThreads struct {
 	editing string
 	// retrying is the refused message the composer was opened again on, nil otherwise.
 	retrying *reviewUnsent
+
+	scroll   int
+	scrolled string
 }
 
 // set holds the conversation and its delivery counts together.

@@ -55,7 +55,20 @@ func (r reviewScreen) popupBody(s panelShared, inner int) string {
 		return ""
 	}
 
-	return r.threadView(s, thread, inner)
+	body := r.threadView(s, thread, inner)
+	if r.threads.scrolled != thread.GetId() {
+		return body
+	}
+
+	return cutPopupEnd(body, r.threads.scroll)
+}
+
+// cutPopupEnd drops rows off the end of a body, never leaving fewer than the popup shows.
+func cutPopupEnd(body string, rows int) string {
+	lines := strings.Split(strings.TrimRight(body, "\n"), "\n")
+	keep := max(len(lines)-rows, min(reviewPopupHeight-2, len(lines)))
+
+	return strings.Join(lines[:keep], "\n")
 }
 
 // drawPopup boxes a body at the popup's width and height, keeping the end of it when it runs
