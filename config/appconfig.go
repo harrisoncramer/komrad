@@ -134,6 +134,8 @@ type Keybindings struct {
 	DocumentsMenu DocumentsMenuKeys `mapstructure:"documents_menu"`
 	// The document types screen, where a person defines the sorts of document agents write.
 	DocumentTypes DocumentTypesKeys `mapstructure:"document_types"`
+	// The document types menu, nested under the panel's own entries in the menu.
+	DocumentTypesMenu DocumentTypesMenuKeys `mapstructure:"document_types_menu"`
 	// The filter over whichever list is on screen, shared by every screen that
 	// draws one. The key that opens it is "/" and is not configured.
 	Filter FilterKeys `mapstructure:"filter"`
@@ -358,8 +360,8 @@ type MenuKeys struct {
 	// Open the review of the agent's diff. The entry is gray on an agent with no worktree of its
 	// own, and in the archive.
 	Review []string `mapstructure:"review" default:"r"`
-	// Open the documents menu to the right of this one, for reading the agent's documents,
-	// writing a new one, or defining the types they are written as.
+	// Open the documents menu to the right of this one, for reading the agent's documents or
+	// writing a new one.
 	Documents []string `mapstructure:"documents" default:"d"`
 	// Open the agent's logs, the service log lines about it.
 	Logs []string `mapstructure:"logs" default:"l"`
@@ -374,6 +376,9 @@ type MenuKeys struct {
 	// close it when it is already open. Each engine keeps its own file under komrad's state
 	// directory.
 	Scratch []string `mapstructure:"scratch" default:"s"`
+	// Open the document types menu to the right of this one, for listing the sorts of document
+	// agents write or defining a new one.
+	DocumentTypes []string `mapstructure:"document_types" default:"T"`
 }
 
 // WorkflowsKeys are the bindings that act on a workflow.
@@ -400,11 +405,16 @@ type DocumentsMenuKeys struct {
 	// Write a new document for the agent, from a form asking its name and type. It starts with a
 	// line saying it is empty, for you to edit.
 	New []string `mapstructure:"new" default:"c"`
+}
+
+// DocumentTypesMenuKeys are the bindings for the document types menu, which opens from the
+// panel's own entries in the menu.
+type DocumentTypesMenuKeys struct {
+	// Open the document types, where a person defines the sorts of document agents write.
+	List []string `mapstructure:"list" default:"l"`
 	// Define a new document type, from a form asking its name and the context an agent reads
 	// before writing one.
-	NewType []string `mapstructure:"new_type" default:"t"`
-	// Open the document types, where a person defines the sorts of document agents write.
-	Types []string `mapstructure:"types" default:"l"`
+	New []string `mapstructure:"new" default:"c"`
 }
 
 // DocumentsKeys are the bindings for the documents screen, which lists the documents one

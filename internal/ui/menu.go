@@ -21,7 +21,7 @@ type itemMenued interface {
 // openMenu draws the menu, the hovered row's band over the panel's own.
 func (m *model) openMenu() tea.Cmd {
 	s := m.shared()
-	menu := panelMenu(s, m.isScratchOpen())
+	menu := panelMenu(s, m.isScratchOpen(), m.menuReturn(s))
 
 	if screen, ok := m.active().(itemMenued); ok && !m.isDetailsFocused() {
 		if item, ok := screen.itemMenu(s); ok {
@@ -32,8 +32,31 @@ func (m *model) openMenu() tea.Cmd {
 	return openSubmenu(m, menu)
 }
 
+// menuReturn is the screen the menu was opened on and the agent it was showing.
+func (m *model) menuReturn(s panelShared) screenTarget {
+	here := screenTarget{from: m.screen}
+
+	switch m.screen {
+	case screenAgents:
+		here.agentID = m.agents.hoveredAgentID(s)
+	case screenArchive:
+		here.agentID = m.archive.hoveredAgentID(s)
+	case screenDocuments:
+		here.agentID = m.documents.agentID
+	case screenLogs:
+		here.agentID = m.logs.agentID
+	case screenReview:
+		here.agentID = m.review.agentID
+	case screenDocumentTypes:
+		return screenTarget{agentID: m.documentTypes.agentID, from: m.documentTypes.from}
+	case screenSchedules, screenSearch, screenWorktrees:
+	}
+
+	return here
+}
+
 // panelMenu is the band of the menu that acts on the panel whatever is hovered.
-func panelMenu(s panelShared, scratchOpen bool) submenu {
+func panelMenu(s panelShared, scratchOpen bool, back screenTarget) submenu {
 	scratch := "scratch"
 	if scratchOpen {
 		scratch = "close scratch"
@@ -45,6 +68,7 @@ func panelMenu(s panelShared, scratchOpen bool) submenu {
 		crumb: "komrad",
 		entries: []submenuEntry{
 			{label: scratch, keys: s.keys.Menu.Scratch},
+			nestedEntry("document types", s.keys.Menu.DocumentTypes, documentTypesMenu(s, back)),
 		},
 		answer: func(m model, choice int) (tea.Model, tea.Cmd) {
 			if panelChoice(choice) == panelChoiceScratch {

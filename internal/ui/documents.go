@@ -72,7 +72,7 @@ func (d *documentsScreen) enter(h host, _ panelShared, target screenTarget) tea.
 		saved = d.closeEdit(h)
 		*d = documentsScreen{shelf: d.shelf, agentID: target.agentID}
 	}
-	if target.agentID != "" {
+	if target.agentID != "" || d.shelf == shelfDocumentTypes {
 		d.from = target.from
 	}
 

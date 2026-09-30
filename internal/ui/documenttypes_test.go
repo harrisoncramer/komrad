@@ -17,12 +17,12 @@ import (
 
 const documentTypesScreen = "the document types"
 
-// TestDocumentTypesOpen covers the document types opening from the documents menu on any agent,
-// and leaving back to it.
+// TestDocumentTypesOpen covers the document types opening from the panel's own entries in the menu,
+// and leaving back to where they were opened.
 func TestDocumentTypesOpen(t *testing.T) {
 	t.Parallel()
 
-	t.Run("the documents menu opens them on the first type with its context", func(t *testing.T) {
+	t.Run("the menu opens them on the first type with its context", func(t *testing.T) {
 		t.Parallel()
 
 		harness := openDocumentTypes(t, "author")
@@ -51,6 +51,21 @@ func TestDocumentTypesOpen(t *testing.T) {
 		assert.Contains(t, readHoveredRow(harness.readFrame()), "author")
 	})
 
+	t.Run("a screen with no agent opens them and gets them back", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openSchedules(t, newLiveWorkflow("w1", "api"), newSchedule("s1", "morning-ci"))
+		answerDocumentTypes(harness)
+		harness.press("space", "T", "l")
+		harness.fireTimers()
+
+		assert.Equal(t, documentTypesScreen, harness.readScreen())
+
+		harness.press("esc")
+
+		assert.Equal(t, schedulesScreen, harness.readScreen())
+	})
+
 	t.Run("a type put on the watch is drawn", func(t *testing.T) {
 		t.Parallel()
 
@@ -61,7 +76,7 @@ func TestDocumentTypesOpen(t *testing.T) {
 	})
 }
 
-// TestDocumentTypesNewFromTheMenu covers defining a type from the documents menu without opening
+// TestDocumentTypesNewFromTheMenu covers defining a type from the document types menu without opening
 // the types.
 func TestDocumentTypesNewFromTheMenu(t *testing.T) {
 	t.Parallel()
@@ -69,7 +84,7 @@ func TestDocumentTypesNewFromTheMenu(t *testing.T) {
 	harness := openAgents(t, buildDocumentAuthors()...)
 	answerDocumentTypes(harness)
 	moveToAgentRow(t, harness, "quiet")
-	harness.press("space", "d", "t", "b", "r", "i", "e", "f", "tab", "S", "h", "o", "r", "t", "ctrl+s")
+	harness.press("space", "T", "c", "b", "r", "i", "e", "f", "tab", "S", "h", "o", "r", "t", "ctrl+s")
 
 	assert.Equal(t, agentsScreen, harness.readScreen())
 	harness.assertSentTo(agentv1connect.AgentServiceWriteDocumentTypeProcedure, &agentv1.WriteDocumentTypeRequest{Name: "brief", Context: "Short"})
@@ -222,14 +237,14 @@ func TestDocumentTypesHistory(t *testing.T) {
 	}
 }
 
-// openDocumentTypes opens the document types from the documents menu on the agent named.
+// openDocumentTypes opens the document types from the menu over the agent named.
 func openDocumentTypes(t *testing.T, name string) *panelHarness {
 	t.Helper()
 
 	harness := openAgents(t, buildDocumentAuthors()...)
 	answerDocumentTypes(harness)
 	moveToAgentRow(t, harness, name)
-	harness.press("space", "d", "l")
+	harness.press("space", "T", "l")
 	harness.fireTimers()
 
 	return harness
