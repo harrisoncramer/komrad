@@ -1,10 +1,12 @@
 package ui_test
 
 import (
+	"strings"
 	"testing"
 
 	"komrad/internal/panes"
 
+	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -63,42 +65,60 @@ func TestLeader(t *testing.T) {
 	})
 }
 
-// TestPanePicker covers the row of panes the leader opens.
+// TestPanePicker covers the letters the leader draws over every place the keys can land.
 func TestPanePicker(t *testing.T) {
-	sidebar, agent := "%0", "%9"
+	sidebar, agent, info := "%0", "%9", "%77"
+
+	window := func(panesShown ...panes.Rect) ([]panes.Rect, map[string]string) {
+		screens := map[string]string{}
+		for _, rect := range panesShown {
+			screens[rect.Pane] = "the screen of " + rect.Pane + "\n"
+		}
+
+		return panesShown, screens
+	}
+	sidebarRect := panes.Rect{Pane: sidebar, Width: 140, Height: 40}
+	agentRect := panes.Rect{Pane: agent, Left: 141, Width: 80, Height: 28}
+	infoRect := panes.Rect{Pane: info, Left: 141, Top: 29, Width: 80, Height: 11}
 
 	tests := []struct {
 		name         string
+		shown        []panes.Rect
 		from         string
 		press        []string
 		wantSelected []string
 		wantRecord   bool
+		wantFrozen   bool
 	}{
 		{
-			name:         "a pane's letter lands the keys on it",
-			press:        []string{"a"},
+			name:         "the agent's letter lands the keys on its pane",
+			shown:        []panes.Rect{sidebarRect, agentRect},
+			press:        []string{"j"},
 			wantSelected: []string{agent},
 		},
 		{
 			name:       "the details letter lands on the record",
-			press:      []string{"d"},
+			shown:      []panes.Rect{sidebarRect, agentRect},
+			press:      []string{"f"},
 			wantRecord: true,
 		},
 		{
-			name:         "opened from the agent's pane it takes the keys to the sidebar to pick",
-			from:         agent,
-			press:        []string{"l"},
-			wantSelected: []string{sidebar},
+			name:         "the info pane gets a letter of its own",
+			shown:        []panes.Rect{sidebarRect, agentRect, infoRect},
+			press:        []string{"k"},
+			wantSelected: []string{info},
+		},
+		{
+			name:       "no info pane leaves its letter unused",
+			shown:      []panes.Rect{sidebarRect, agentRect},
+			press:      []string{"k"},
+			wantFrozen: true,
 		},
 		{
 			name:         "esc gives the keys back to the pane that had them",
+			shown:        []panes.Rect{sidebarRect, agentRect},
 			from:         agent,
 			press:        []string{"esc"},
-			wantSelected: []string{sidebar, agent},
-		},
-		{
-			name:         "tab moves along the row and enter lands",
-			press:        []string{"tab", "enter"},
 			wantSelected: []string{agent},
 		},
 	}
@@ -106,26 +126,51 @@ func TestPanePicker(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			harness := openFocus(t)
+			harness.panel.SetScreens(window(tt.shown...))
 			if tt.from != "" {
 				harness.panel.SetActivePane(tt.from)
 			}
-			selected := len(harness.panel.ReadSelectedPanes())
 
 			harness.press("ctrl+space", "p")
+			require.Contains(t, harness.readDrawn(), "PANES")
+			selected := len(harness.panel.ReadSelectedPanes())
+
 			harness.press(tt.press...)
 
 			assert.Equal(t, tt.wantSelected, harness.panel.ReadSelectedPanes()[selected:])
-			assert.Equal(t, tt.wantRecord, readRecordCursor(harness.readFrame()) != "")
+			assert.Equal(t, tt.wantFrozen, harness.panel.IsZoomed())
+			if !tt.wantFrozen {
+				assert.Equal(t, tt.wantRecord, readRecordCursor(harness.readFrame()) != "")
+			}
 		})
 	}
 
-	t.Run("the row names each pane and the legend its letters", func(t *testing.T) {
+	t.Run("each letter is drawn over its own target on blank cells", func(t *testing.T) {
 		harness := openFocus(t)
+		harness.panel.SetScreens(window(sidebarRect, agentRect, infoRect))
 
 		harness.press("ctrl+space", "p")
 
-		frame := harness.readFrame()
-		assert.Regexp(t, `list +agent +details`, frame)
-		assert.Regexp(t, `a +agent`, readLegend(frame))
+		lines := strings.Split(harness.readDrawn(), "\n")
+		rows := func(left, right int) []int {
+			var found []int
+			for row, line := range lines {
+				if strings.Contains(ansi.Cut(line, left, right), "██") {
+					found = append(found, row)
+				}
+			}
+
+			return found
+		}
+
+		assert.NotEmpty(t, rows(0, 140), "the sidebar's blocks carry letters")
+		agentRows, infoRows := rows(141, 221), []int{}
+		for _, row := range agentRows {
+			if row >= 29 {
+				infoRows = append(infoRows, row)
+			}
+		}
+		assert.Len(t, infoRows, 5, "the info pane carries one letter five rows tall")
+		assert.Len(t, agentRows, 10, "the agent and the info pane carry one letter each")
 	})
 }

@@ -102,12 +102,8 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return next, cmd
 		}
 
-		if next, handled := m.routeVisual(key); handled {
-			return next, nil
-		}
-
-		if m.picker.open {
-			return m.updatePicker(key)
+		if next, cmd, handled := m.routeVisual(key); handled {
+			return next, cmd
 		}
 	}
 

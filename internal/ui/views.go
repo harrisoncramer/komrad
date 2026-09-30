@@ -72,10 +72,6 @@ func (m model) viewsBar() string {
 
 	trail, _, opened := m.activeCrumbs()
 	if short {
-		if m.picker.open {
-			return m.pickerRow().view(m.focusPalette()) + "\n"
-		}
-
 		if flash, ok := m.drawMessagesFlash(m.paneWidth()); ok {
 			return flash + "\n"
 		}
@@ -99,12 +95,9 @@ func (m model) switcherLines(trail crumbs) []string {
 		focus:  noStop,
 		lit:    noStop,
 	}
-	switch {
-	case m.picker.open:
-		row = m.pickerRow()
-	case m.isViewsOpen():
+	if m.isViewsOpen() {
 		row.focus = m.viewIndex()
-	default:
+	} else {
 		row.lit = m.viewIndex()
 	}
 

@@ -48,9 +48,6 @@ func (m model) renderHelp(k keyMap, above ...string) string {
 	if m.isViewsOpen() {
 		k = m.viewsHelp()
 	}
-	if m.picker.open {
-		k = m.pickerHelp()
-	}
 
 	width := m.paneWidth()
 	view := helpView(width)
