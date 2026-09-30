@@ -32,6 +32,7 @@ type Checkout struct {
 	Pruned       []string
 	Registered   []git.Worktree
 	ListErr      error
+	Origin       string
 }
 
 // ReadChanges answers Changes.
@@ -112,6 +113,11 @@ func (g *Checkout) CountAgainstRemote(context.Context, string, string) (*git.Rem
 // ListWorktrees answers Registered and ListErr.
 func (g *Checkout) ListWorktrees(context.Context, string) ([]git.Worktree, error) {
 	return g.Registered, g.ListErr
+}
+
+// ReadRepositoryURL answers Origin.
+func (g *Checkout) ReadRepositoryURL(context.Context, string) string {
+	return g.Origin
 }
 
 // PruneWorktrees records the repository.

@@ -651,6 +651,8 @@ INSERT INTO agents(
     spawned_by_agent_id,
     parent_agent_id,
     adopted_branch,
+    branch,
+    repository_url,
     role)
 VALUES (
     $1,
@@ -671,7 +673,9 @@ VALUES (
     $15,
     $16,
     $17,
-    $18)
+    $18,
+    $19,
+    $20)
 RETURNING
     id
 `
@@ -694,6 +698,8 @@ type InsertAgentParams struct {
 	SpawnedByAgentID *string
 	ParentAgentID    *string
 	AdoptedBranch    string
+	Branch           *string
+	RepositoryUrl    *string
 	Role             AgentRole
 }
 
@@ -716,6 +722,8 @@ func (q *Queries) InsertAgent(ctx context.Context, arg InsertAgentParams) (strin
 		arg.SpawnedByAgentID,
 		arg.ParentAgentID,
 		arg.AdoptedBranch,
+		arg.Branch,
+		arg.RepositoryUrl,
 		arg.Role,
 	)
 	var id string
