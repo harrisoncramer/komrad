@@ -272,33 +272,48 @@ func TestDocumentErrors(t *testing.T) {
 			wantCode: connect.CodeInvalidArgument,
 		},
 		{
+			name:     "an agent writing a type",
+			call:     writeType,
+			wantCode: connect.CodePermissionDenied,
+		},
+		{
+			name:     "an agent deleting a type",
+			call:     deleteType,
+			wantCode: connect.CodePermissionDenied,
+		},
+		{
 			name:     "naming a type a name another type has",
 			call:     writeType,
 			err:      store.ErrNameTaken,
+			asNobody: true,
 			wantCode: connect.CodeAlreadyExists,
 		},
 		{
 			name:     "rewriting a type with no version",
 			call:     writeType,
 			err:      documents.ErrNoTypeVersion,
+			asNobody: true,
 			wantCode: connect.CodeInvalidArgument,
 		},
 		{
 			name:     "rewriting a type written since it was read",
 			call:     writeType,
 			err:      documenttypestore.ErrChanged,
+			asNobody: true,
 			wantCode: connect.CodeFailedPrecondition,
 		},
 		{
 			name:     "deleting a type documents are written as",
 			call:     deleteType,
 			err:      documenttypestore.ErrInUse,
+			asNobody: true,
 			wantCode: connect.CodeFailedPrecondition,
 		},
 		{
 			name:     "deleting a type that does not exist",
 			call:     deleteType,
 			err:      store.ErrNotFound,
+			asNobody: true,
 			wantCode: connect.CodeNotFound,
 		},
 	}

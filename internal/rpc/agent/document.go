@@ -29,6 +29,8 @@ type documentReadWriter interface {
 
 var errWritingForAnother = fail.InvalidArgument("an agent writes only its own documents, so leave agent_id unset")
 
+var errDocumentTypeByAgent = fail.Denied("only a person writes or deletes a document type")
+
 // WriteDocument creates or rewrites one of the calling agent's documents, or lets a caller that
 // is not an agent rewrite any one or create one for the agent it names.
 func (s *Handler) WriteDocument(ctx context.Context, req *agentv1.WriteDocumentRequest) (*agentv1.WriteDocumentResponse, *fail.Error) {
@@ -119,6 +121,10 @@ func (s *Handler) GetDocumentType(ctx context.Context, req *agentv1.GetDocumentT
 
 // WriteDocumentType creates a document type, or renames or rewrites one.
 func (s *Handler) WriteDocumentType(ctx context.Context, req *agentv1.WriteDocumentTypeRequest) (*agentv1.WriteDocumentTypeResponse, *fail.Error) {
+	if caller.From(ctx).AgentID != "" {
+		return nil, errDocumentTypeByAgent
+	}
+
 	written, err := s.documents.WriteDocumentType(ctx, documents.WriteDocumentTypeParams{
 		ID:      req.Id,
 		Version: req.Version,
@@ -134,6 +140,10 @@ func (s *Handler) WriteDocumentType(ctx context.Context, req *agentv1.WriteDocum
 
 // DeleteDocumentType removes a document type no document is written as.
 func (s *Handler) DeleteDocumentType(ctx context.Context, req *agentv1.DeleteDocumentTypeRequest) (*emptypb.Empty, *fail.Error) {
+	if caller.From(ctx).AgentID != "" {
+		return nil, errDocumentTypeByAgent
+	}
+
 	if err := s.documents.DeleteDocumentType(ctx, req.GetId()); err != nil {
 		return nil, rpcerr.From(err, "failed to delete the document type")
 	}
