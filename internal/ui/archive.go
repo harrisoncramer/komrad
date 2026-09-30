@@ -178,6 +178,7 @@ func confirmDeleteSchedule(h host, schedule panel.Schedule) tea.Cmd {
 			}
 
 			return m, m.writeCmd(
+				"deleting "+schedule.Name,
 				fmt.Sprintf("Could not delete schedule %q", schedule.Name),
 				func(c api) error { return c.deleteSchedule(schedule.ID) },
 			)
@@ -299,7 +300,7 @@ func (a *archiveScreen) hoveredWorkflow(s panelShared) (panel.Workflow, bool) {
 // restoreAndResumeCmd takes one agent out of the archive and puts its conversation back in a
 // pane.
 func restoreAndResumeCmd(h host, agent panel.Agent) tea.Cmd {
-	return h.openingWriteCmd(fmt.Sprintf("Could not restore and open agent %q", agent.Name), func(a api) (*agentv1.Agent, error) {
+	return h.openingWriteCmd("restoring "+agent.Name, fmt.Sprintf("Could not restore and open agent %q", agent.Name), func(a api) (*agentv1.Agent, error) {
 		if err := a.restoreAgents([]string{agent.ID}); err != nil {
 			return nil, err
 		}
@@ -314,6 +315,7 @@ func restoreAgentsCmd(h host, agents []panel.Agent) tea.Cmd {
 	}
 
 	return h.writeCmd(
+		"restoring "+describeAgents(agents),
 		fmt.Sprintf("Could not restore %s", describeAgents(agents)),
 		func(a api) error { return a.restoreAgents(panel.IDs(agents)) },
 	)
@@ -337,6 +339,7 @@ func confirmDeleteArchived(h host, s panelShared, agents []panel.Agent) tea.Cmd 
 			}
 
 			return m, m.writeCmd(
+				"deleting "+describeAgents(agents),
 				fmt.Sprintf("Could not delete %s", describeAgents(agents)),
 				func(a api) error { return a.deleteAgents(panel.IDs(agents)) },
 			)
@@ -358,6 +361,7 @@ func confirmDeleteWorkflow(h host, s panelShared, workflow panel.Workflow) tea.C
 			}
 
 			return m, m.writeCmd(
+				"deleting "+workflow.Name,
 				fmt.Sprintf("Could not delete workflow %q", workflow.Name),
 				func(a api) error { return a.deleteWorkflow(workflow.ID) },
 			)

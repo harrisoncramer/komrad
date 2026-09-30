@@ -26,6 +26,7 @@ import (
 	"komrad/internal/panes"
 	"komrad/internal/position"
 	"komrad/internal/ui/layout"
+	"komrad/internal/ui/submitting"
 	"komrad/proto/gen/agent/v1/agentv1connect"
 	"komrad/proto/gen/forge/v1/forgev1connect"
 	"komrad/proto/gen/hook/v1/hookv1connect"
@@ -249,8 +250,8 @@ type model struct {
 	engineBuild   EngineBuild
 	// writes counts the writes sent, and a write's own count is what its landing answers to.
 	writes int
-	// pending is the writes in flight.
-	pending         int
+	// inflight is the writes sent that have not landed, by their count.
+	inflight        map[int]submitting.Write
 	configErr       error
 	startupErr      error
 	startupFindings []errui.Finding

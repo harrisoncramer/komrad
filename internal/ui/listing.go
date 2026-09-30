@@ -10,6 +10,7 @@ import (
 	"komrad/internal/errui"
 	"komrad/internal/ui/layout"
 	"komrad/internal/ui/panel"
+	"komrad/internal/ui/submitting"
 	agentv1 "komrad/proto/gen/agent/v1"
 
 	tea "charm.land/bubbletea/v2"
@@ -146,9 +147,9 @@ type written struct {
 	notice *message
 }
 
-func (m *model) writeCmd(summary string, write func(api) error) tea.Cmd {
+func (m *model) writeCmd(doing, summary string, write func(api) error) tea.Cmd {
 	clients := m.api
-	id := m.beginWrite()
+	id := m.beginWrite(doing)
 
 	return func() tea.Msg {
 		return writeResult{
@@ -200,7 +201,7 @@ func (m *model) releaseCmd(summary string, agent panel.Agent, said string) tea.C
 		files: slices.Clone(m.edited[agent.ID]),
 	}
 
-	return stampRelease(m.writeCmd(summary, func(a api) error {
+	return stampRelease(m.writeCmd("letting "+agent.Name+" go", summary, func(a api) error {
 		return a.release(agent, said+touchedSaid(let.files))
 	}), let)
 }
@@ -214,14 +215,14 @@ func (m *model) releaseInSilenceCmd(summary string, agent panel.Agent) tea.Cmd {
 		silent: true,
 	}
 
-	return stampRelease(m.writeCmd(summary, func(a api) error {
+	return stampRelease(m.writeCmd("letting "+agent.Name+" go", summary, func(a api) error {
 		return a.release(agent, "")
 	}), let)
 }
 
 // queuedCmd runs a write that queues a background job and says so once it has landed.
-func (m *model) queuedCmd(summary string, queued message, write func(api) error) tea.Cmd {
-	cmd := m.writeCmd(summary, write)
+func (m *model) queuedCmd(doing, summary string, queued message, write func(api) error) tea.Cmd {
+	cmd := m.writeCmd(doing, summary, write)
 
 	return func() tea.Msg {
 		msg := cmd()
@@ -254,9 +255,9 @@ func stampRelease(cmd tea.Cmd, let released) tea.Cmd {
 }
 
 // rowWriteCmd sends a write whose landing takes the panel to the row it made.
-func (m *model) rowWriteCmd(summary string, write func(api) (written, error)) tea.Cmd {
+func (m *model) rowWriteCmd(doing, summary string, write func(api) (written, error)) tea.Cmd {
 	clients := m.api
-	id := m.beginWrite()
+	id := m.beginWrite(doing)
 
 	return func() tea.Msg {
 		row, err := write(clients)
@@ -278,18 +279,18 @@ func (m *model) rowWriteCmd(summary string, write func(api) (written, error)) te
 
 // agentWriteCmd is rowWriteCmd for a write answering with an agent, whose row is shown in the
 // pane the agent is running in.
-func (m *model) agentWriteCmd(summary string, write func(api) (*agentv1.Agent, error)) tea.Cmd {
-	return m.paneWriteCmd(summary, false, write)
+func (m *model) agentWriteCmd(doing, summary string, write func(api) (*agentv1.Agent, error)) tea.Cmd {
+	return m.paneWriteCmd(doing, summary, false, write)
 }
 
 // openingWriteCmd is agentWriteCmd for a write that puts a conversation back in a pane, which
 // ends with the keyboard in that pane the way the open key over a live agent does.
-func (m *model) openingWriteCmd(summary string, write func(api) (*agentv1.Agent, error)) tea.Cmd {
-	return m.paneWriteCmd(summary, true, write)
+func (m *model) openingWriteCmd(doing, summary string, write func(api) (*agentv1.Agent, error)) tea.Cmd {
+	return m.paneWriteCmd(doing, summary, true, write)
 }
 
-func (m *model) paneWriteCmd(summary string, focus bool, write func(api) (*agentv1.Agent, error)) tea.Cmd {
-	return m.rowWriteCmd(summary, func(clients api) (written, error) {
+func (m *model) paneWriteCmd(doing, summary string, focus bool, write func(api) (*agentv1.Agent, error)) tea.Cmd {
+	return m.rowWriteCmd(doing, summary, func(clients api) (written, error) {
 		agent, err := write(clients)
 		if err != nil {
 			return written{}, err
@@ -306,7 +307,7 @@ func (m *model) paneWriteCmd(summary string, focus bool, write func(api) (*agent
 }
 
 func (m *model) retryCmd(agent panel.Agent, values retryFormValues) tea.Cmd {
-	return m.agentWriteCmd(fmt.Sprintf("Could not retry agent %q", agent.Name), func(clients api) (*agentv1.Agent, error) {
+	return m.agentWriteCmd("retrying "+agent.Name, fmt.Sprintf("Could not retry agent %q", agent.Name), func(clients api) (*agentv1.Agent, error) {
 		return clients.retryAgent(retryAgentParams{
 			ID:      agent.ID,
 			Flags:   values.Flags,
@@ -317,13 +318,21 @@ func (m *model) retryCmd(agent panel.Agent, values retryFormValues) tea.Cmd {
 }
 
 func (m *model) createCmd(params createAgentParams) tea.Cmd {
-	return m.agentWriteCmd("Could not start the agent", func(clients api) (*agentv1.Agent, error) {
+	return m.agentWriteCmd(startingLabel(params.Title), "Could not start the agent", func(clients api) (*agentv1.Agent, error) {
 		return clients.createAgent(params)
 	})
 }
 
+func startingLabel(title string) string {
+	if title = strings.TrimSpace(title); title != "" {
+		return "starting " + title
+	}
+
+	return "starting the agent"
+}
+
 func (m *model) adoptCmd(params adoptParams) tea.Cmd {
-	return m.rowWriteCmd("Could not adopt", func(clients api) (written, error) {
+	return m.rowWriteCmd("adopting "+params.Ref, "Could not adopt", func(clients api) (written, error) {
 		adopted, err := clients.adopt(params)
 		if err != nil {
 			return written{}, err
@@ -351,7 +360,7 @@ func (m *model) adoptCmd(params adoptParams) tea.Cmd {
 }
 
 func (m *model) createWorkflowCmd(cfg panel.WorkflowConfig) tea.Cmd {
-	return m.rowWriteCmd("Could not create the workflow", func(clients api) (written, error) {
+	return m.rowWriteCmd("creating workflow "+cfg.Name, "Could not create the workflow", func(clients api) (written, error) {
 		workflow, err := clients.createWorkflow(cfg)
 		if err != nil {
 			return written{}, err
@@ -374,17 +383,26 @@ func (m *model) createWorkflowCmd(cfg panel.WorkflowConfig) tea.Cmd {
 	})
 }
 
-// beginWrite counts a write out and answers with its number, which tells a landing result
-// apart from one an earlier submit is still waiting on.
-func (m *model) beginWrite() int {
+// beginWrite counts a write out under what it is doing and answers with its number, which tells
+// a landing result apart from one an earlier submit is still waiting on.
+func (m *model) beginWrite(doing string) int {
 	m.writes++
-	m.pending++
+
+	if m.inflight == nil {
+		m.inflight = map[int]submitting.Write{}
+	}
+	m.inflight[m.writes] = submitting.Write{Doing: doing, Since: time.Now()}
 
 	return m.writes
 }
 
+// landWrite counts a write back in.
+func (m *model) landWrite(write int) {
+	delete(m.inflight, write)
+}
+
 func (m model) applyWrite(result writeResult) (tea.Model, tea.Cmd) {
-	m.pending--
+	m.landWrite(result.write)
 
 	m.report(result.summary, result.err)
 

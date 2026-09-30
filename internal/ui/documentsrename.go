@@ -89,6 +89,7 @@ func (d *documentsScreen) saveRename(h host, s panelShared) tea.Cmd {
 	}
 	if d.shelf == shelfDocumentTypes {
 		return stampRename(h.writeCmd(
+			"renaming "+rename.was,
 			fmt.Sprintf("Could not rename document type %q", rename.was),
 			func(a api) error { return a.writeDocumentType(item, read.version, name, read.body) },
 		), rename.key)
@@ -97,6 +98,7 @@ func (d *documentsScreen) saveRename(h host, s panelShared) tea.Cmd {
 	item.name = name
 
 	return stampRename(h.writeCmd(
+		"renaming "+rename.was,
 		fmt.Sprintf("Could not rename document %q", rename.was),
 		func(a api) error { return a.writeDocument(item, read.version, read.body) },
 	), rename.key)

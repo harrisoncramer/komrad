@@ -91,7 +91,7 @@ func (m model) runMerge(from screen, agentID string, choice mergeChoice) (model,
 	}
 
 	clients := m.api
-	write := m.beginWrite()
+	write := m.beginWrite(fmt.Sprintf("merging #%d", item.PullRequest.Number))
 	standing := item.PullRequest
 	merged := mergedMsg{
 		agentID: agentID,

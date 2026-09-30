@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"komrad/internal/ui/paint"
+	"komrad/internal/ui/submitting"
 
 	"charm.land/bubbles/v2/help"
 	"charm.land/bubbles/v2/key"
@@ -62,7 +63,7 @@ func (m model) renderHelp(k keyMap, above ...string) string {
 	view := helpView(width)
 
 	if !m.helpExpanded {
-		return fitLegend(view.ShortHelpView(byLabel(k.short)), width) + "\n"
+		return m.cornerWrites(fitLegend(view.ShortHelpView(byLabel(k.short)), width), width) + "\n"
 	}
 
 	// bubbles truncates a column wider than it was given to a single ellipsis rather than wrapping
@@ -71,10 +72,42 @@ func (m model) renderHelp(k keyMap, above ...string) string {
 	columns := helpColumns(byLabel(k.full), width)
 	full := fitLegend(view.FullHelpView(columns), width) + "\n"
 	if (width > 0 && helpWidth(columns) > width) || !m.doesLegendLeaveARow(full, above) {
-		return fitLegend(view.ShortHelpView(m.refusedExpansion(byLabel(k.short))), width) + "\n"
+		return m.cornerWrites(fitLegend(view.ShortHelpView(m.refusedExpansion(byLabel(k.short))), width), width) + "\n"
 	}
 
-	return full
+	return m.cornerWrites(strings.TrimSuffix(full, "\n"), width) + "\n"
+}
+
+// cornerWrites draws the writes in flight at the right of the legend's last row.
+func (m model) cornerWrites(legend string, width int) string {
+	loose := m.looseWrites()
+	if len(loose) == 0 {
+		return legend
+	}
+
+	const gap = 2
+
+	lines := strings.Split(legend, "\n")
+	last := lines[len(lines)-1]
+
+	if width <= 0 {
+		lines[len(lines)-1] = last + strings.Repeat(" ", gap) + submitting.Badge(loose, m.submittingParams(0))
+
+		return strings.Join(lines, "\n")
+	}
+
+	room := max(width-ansi.StringWidth(last)-gap, width/2)
+	badge := submitting.Badge(loose, m.submittingParams(room))
+	pad := max(width-ansi.StringWidth(badge), 0)
+	if legendRoom := width - ansi.StringWidth(badge) - gap; legendRoom > 0 {
+		last = fitLegend(last, legendRoom)
+		pad = max(width-ansi.StringWidth(last)-ansi.StringWidth(badge), gap)
+	} else {
+		last = ""
+	}
+	lines[len(lines)-1] = last + strings.Repeat(" ", pad) + badge
+
+	return strings.Join(lines, "\n")
 }
 
 func (m model) doesLegendLeaveARow(legend string, above []string) bool {

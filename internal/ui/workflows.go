@@ -63,6 +63,7 @@ func openWorkflowConfigForm(h host, values *workflowFormValues, target *panel.Wo
 			} else {
 				edited := values.toConfig().Workflow(target.ID)
 				cmd = m.writeCmd(
+					"saving "+target.Name,
 					fmt.Sprintf("Could not save workflow %q", target.Name),
 					func(a api) error { return a.updateWorkflow(edited) },
 				)
@@ -119,6 +120,7 @@ func archiveWorkflowConfirm(h host, workflow panel.Workflow) tea.Cmd {
 			m.releasePanes(m.listing.agentsOf(workflow.ID))
 
 			return m, m.writeCmd(
+				"archiving "+workflow.Name,
 				fmt.Sprintf("Could not archive workflow %q", workflow.Name),
 				func(a api) error { return a.archiveWorkflow(workflow.ID) },
 			)

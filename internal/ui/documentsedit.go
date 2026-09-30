@@ -102,7 +102,7 @@ func (d *documentsScreen) closeEdit(h host) tea.Cmd {
 		return nil
 	}
 
-	return h.writeCmd(summary, func(a api) error {
+	return h.writeCmd("saving "+edit.item.name, summary, func(a api) error {
 		if err := shelf.save(a, edit.item, edit.version, body); err != nil {
 			return fmt.Errorf("failed to save, so your copy is left at %s: %w", edit.path, err)
 		}

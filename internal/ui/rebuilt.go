@@ -24,7 +24,7 @@ func (m model) noticeRebuild() model {
 }
 
 func (m model) isBusy() bool {
-	return m.pending > 0 ||
+	return len(m.inflight) > 0 ||
 		m.held.active ||
 		m.form.isActive() ||
 		m.review.isBusy()

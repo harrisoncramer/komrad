@@ -1,10 +1,8 @@
 package ui
 
 import (
-	"fmt"
 	"slices"
 	"strings"
-	"time"
 
 	"komrad/internal/errui"
 	"komrad/internal/glyph"
@@ -59,23 +57,6 @@ func (m model) insideView() string {
 	}
 
 	return m.fitFrame(strings.TrimRight(m.screenView(), "\n"))
-}
-
-// submittingNotice is the line drawn under a held form, counting up once the write has taken
-// long enough that a still line would read as a wedged panel.
-func submittingNotice(since, now time.Time) string {
-	const patience = 2 * time.Second
-
-	elapsed := now.Sub(since)
-	if since.IsZero() || elapsed < patience {
-		return "  submitting…"
-	}
-
-	if elapsed < time.Minute {
-		return fmt.Sprintf("  submitting… %ds"+separated+"esc to keep working", int(elapsed.Seconds()))
-	}
-
-	return fmt.Sprintf("  submitting… %dm%02ds"+separated+"esc to keep working", int(elapsed.Minutes()), int(elapsed.Seconds())%60)
 }
 
 // fitFrame pads the panel out to the height of its pane, so a shorter frame covers the rows the
@@ -203,8 +184,9 @@ func (m model) screenView() string {
 // than one taken off the top of the panel.
 func (m model) heldFormView() string {
 	view := m.form.form.View()
-	if m.held.active {
-		view = strings.TrimRight(view, "\n") + "\n" + dimStyle().Render(submittingNotice(m.held.since, time.Now()))
+	if write, ok := m.heldWrite(); ok {
+		width, _ := m.formBox()
+		view = strings.TrimRight(view, "\n") + "\n" + write.Notice(m.submittingParams(width))
 	}
 
 	leading, _ := m.formLeading()

@@ -160,12 +160,12 @@ func (w *schedulesScreen) toggle(h host, s panelShared) tea.Cmd {
 		return nil
 	}
 
-	failure := fmt.Sprintf("Could not pause schedule %q", item.schedule.Name)
+	doing, failure := "pausing "+item.schedule.Name, fmt.Sprintf("Could not pause schedule %q", item.schedule.Name)
 	if !item.schedule.Enabled {
-		failure = fmt.Sprintf("Could not resume schedule %q", item.schedule.Name)
+		doing, failure = "resuming "+item.schedule.Name, fmt.Sprintf("Could not resume schedule %q", item.schedule.Name)
 	}
 
-	return h.writeCmd(failure, func(a api) error {
+	return h.writeCmd(doing, failure, func(a api) error {
 		return a.setScheduleEnabled(item.schedule.ID, !item.schedule.Enabled)
 	})
 }
@@ -211,9 +211,10 @@ func (w *schedulesScreen) openForm(h host, values *panel.ScheduleConfig, target 
 		Submit: func(m model) (tea.Model, tea.Cmd) {
 			var cmd tea.Cmd
 			if target == nil {
-				cmd = m.writeCmd("Could not create the schedule", func(a api) error { return a.createSchedule(*values) })
+				cmd = m.writeCmd("creating schedule "+values.Name, "Could not create the schedule", func(a api) error { return a.createSchedule(*values) })
 			} else {
 				cmd = m.writeCmd(
+					"saving "+target.Name,
 					fmt.Sprintf("Could not save schedule %q", target.Name),
 					func(a api) error { return a.updateSchedule(target.ID, *values) },
 				)
@@ -283,6 +284,7 @@ func (w *schedulesScreen) archiveConfirm(h host, s panelShared) tea.Cmd {
 			}
 
 			return m, m.writeCmd(
+				"archiving "+target.Name,
 				fmt.Sprintf("Could not archive schedule %q", target.Name),
 				func(a api) error { return a.archiveSchedule(target.ID) },
 			)
