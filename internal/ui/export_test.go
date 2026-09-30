@@ -633,7 +633,7 @@ func (t *recordingTmux) DetachSession(string) {
 	t.detaches++
 }
 
-func (t *recordingTmux) TuneCopyMode(badge string) {
+func (t *recordingTmux) TuneCopyMode(badge, _ string) {
 	t.copyBadge = badge
 }
 

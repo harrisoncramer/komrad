@@ -17,6 +17,20 @@ const copyModeTable = "copy-mode-vi"
 // standInName is the name of the window a stand-in waits in until it is swapped in.
 const standInName = "komrad-copy"
 
+// standInCopyOption is the pane option naming the file a stand-in's copy is cut to its block from.
+const standInCopyOption = "@komrad_copy"
+
+// copierOption is the global option naming the binary a stand-in's copy is cut by.
+const copierOption = "@komrad_copier"
+
+// cutCopy is what a copy in a stand-in pipes the selection through.
+const cutCopy = `#{q:` + copierOption + `} copy #{q:` + standInCopyOption + `} ` +
+	`#{selection_start_x} #{selection_start_y} #{selection_end_x} #{selection_end_y} #{rectangle_toggle} ` +
+	`--socket=#{q:socket_path} --copy-command=#{q:copy-command}`
+
+// copySelection copies the selection as tmux does, or only the cells inside the block in a stand-in.
+const copySelection = `if-shell -F "#{` + standInCopyOption + `}" "send-keys -X pipe-and-cancel '` + cutCopy + `'" "send-keys -X copy-pipe-and-cancel"`
+
 // clipboardCommands are the tools copy-mode can pipe a copy into, the first one installed winning.
 var clipboardCommands = [][]string{
 	{"pbcopy"},
@@ -26,11 +40,13 @@ var clipboardCommands = [][]string{
 }
 
 // TuneCopyMode sets copy-mode up as the panel's visual mode, with vi keys, badge over the top
-// right of the pane, and a copy landing on the system clipboard.
-func (c *Client) TuneCopyMode(badge string) {
+// right of the pane, and a copy landing on the system clipboard, cut to its block by copier in a
+// stand-in.
+func (c *Client) TuneCopyMode(badge, copier string) {
 	c.SetGlobal("mode-keys", "vi")
 	c.SetGlobal("set-clipboard", "on")
 	c.SetGlobal("copy-mode-position-format", "#[align=right]"+badge)
+	c.SetGlobal(copierOption, copier)
 
 	if command := findClipboardCommand(); command != "" {
 		c.SetGlobal("copy-command", command)
@@ -38,7 +54,12 @@ func (c *Client) TuneCopyMode(badge string) {
 
 	c.BindTableKey(copyModeTable, "v", "send-keys", "-X", "begin-selection")
 	c.BindTableKey(copyModeTable, "C-v", "send-keys -X begin-selection ; send-keys -X rectangle-on")
-	c.BindTableKey(copyModeTable, "y", "send-keys", "-X", "copy-pipe-and-cancel")
+	for _, key := range []string{"y", "Enter", "C-j", "MouseDragEnd1Pane"} {
+		c.BindTableKey(copyModeTable, key, copySelection)
+	}
+	c.BindTableKey(copyModeTable, "D", "send-keys -X begin-selection ; send-keys -X end-of-line ; "+copySelection)
+	c.BindTableKey(copyModeTable, "DoubleClick1Pane", "select-pane ; send-keys -X select-word ; run-shell -d 0.3 ; "+copySelection)
+	c.BindTableKey(copyModeTable, "TripleClick1Pane", "select-pane ; send-keys -X select-line ; run-shell -d 0.3 ; "+copySelection)
 	c.BindTableKey(copyModeTable, "Escape", "if-shell", "-F", "#{selection_present}",
 		"send-keys -X clear-selection", "send-keys -X cancel")
 }
@@ -82,23 +103,39 @@ func (c *Client) OpenCopyStandIn(params panes.CopyStandIn) error {
 		return err
 	}
 
+	cut, err := writeCut(text, params.Block)
+	if err != nil {
+		return errors.Join(err, os.Remove(file))
+	}
+
 	standIn, err := c.query("new-window", "-d", "-t", session+":", "-n", standInName, "-P", "-F", "#{pane_id}", "sleep 2147483647")
 	if err != nil {
-		return errors.Join(fmt.Errorf("failed to open a stand-in for pane %q: %w", pane, err), os.Remove(file))
+		return errors.Join(fmt.Errorf("failed to open a stand-in for pane %q: %w", pane, err), os.Remove(file), removeCut(cut))
 	}
 
 	c.ResizeWindow(standIn, width, height)
+
+	if cut != "" {
+		if _, err := c.query("set-option", "-p", "-t", standIn, standInCopyOption, cut); err != nil {
+			c.KillPane(standIn)
+
+			return errors.Join(fmt.Errorf("failed to mark the stand-in for pane %q: %w", pane, err), os.Remove(file), removeCut(cut))
+		}
+	}
 
 	script := fmt.Sprintf(`cat "$0"; rm -f "$0"; printf '\033[%d;%dH'; "$1" copy-mode -t "$TMUX_PANE"; exec sleep 2147483647`, max(row, 1), max(col, 1))
 	if err := c.RespawnPane(standIn, "", "sh", "-c", script, file, tmuxPath); err != nil {
 		c.KillPane(standIn)
 
-		return errors.Join(err, os.Remove(file))
+		return errors.Join(err, os.Remove(file), removeCut(cut))
 	}
 
 	restore := []string{"swap-pane -Z -s " + standIn + " -t " + pane, "select-pane -t " + pane}
 	if len(keys) > 0 {
 		restore = append(restore, "send-keys -t "+pane+" "+strings.Join(keys, " "))
+	}
+	if cut != "" {
+		restore = append(restore, "run-shell -b -t "+standIn+" 'sleep 5; rm -f #{q:"+standInCopyOption+"}'")
 	}
 	restore = append(restore, "kill-pane -t "+standIn)
 
@@ -106,13 +143,13 @@ func (c *Client) OpenCopyStandIn(params panes.CopyStandIn) error {
 	if _, err := c.query("set-hook", "-p", "-t", standIn, "pane-mode-changed", hook); err != nil {
 		c.KillPane(standIn)
 
-		return fmt.Errorf("failed to watch the stand-in for pane %q: %w", pane, err)
+		return errors.Join(fmt.Errorf("failed to watch the stand-in for pane %q: %w", pane, err), removeCut(cut))
 	}
 
 	if _, err := c.query("swap-pane", "-Z", "-s", standIn, "-t", pane); err != nil {
 		c.KillPane(standIn)
 
-		return fmt.Errorf("failed to swap in the stand-in for pane %q: %w", pane, err)
+		return errors.Join(fmt.Errorf("failed to swap in the stand-in for pane %q: %w", pane, err), removeCut(cut))
 	}
 
 	c.SelectPane(standIn)

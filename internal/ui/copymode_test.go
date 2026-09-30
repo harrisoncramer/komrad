@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"komrad/internal/panes"
 	agentv1 "komrad/proto/gen/agent/v1"
 
 	"github.com/charmbracelet/x/ansi"
@@ -12,8 +13,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestVisualMode covers leader v in the sidebar handing tmux's copy-mode a stand-in holding only
-// the block that has the keys.
+// TestVisualMode covers leader v in the sidebar handing tmux's copy-mode a stand-in drawn as the
+// whole sidebar, copying only from the block that has the keys.
 func TestVisualMode(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -24,19 +25,19 @@ func TestVisualMode(t *testing.T) {
 		wantAbsent []string
 	}{
 		{
-			name:       "the list is handed over with the cursor on its row",
+			name:       "the list is copied from with the cursor on its row",
 			open:       openFocus,
 			wantCursor: "a1",
 		},
 		{
-			name:       "the record is handed over without the list above it",
+			name:       "the record is copied from without the list above it",
 			open:       openFocus,
 			from:       []string{"pick:record"},
 			wantCursor: "name",
 			wantAbsent: []string{"komrad › agents"},
 		},
 		{
-			name:       "the column is handed over without the list beside it",
+			name:       "the column is copied from without the list beside it",
 			open:       openFailedSetup,
 			from:       []string{"ctrl+space", "ctrl+space"},
 			want:       "the worktree could not be made",
@@ -57,9 +58,12 @@ func TestVisualMode(t *testing.T) {
 			assert.Equal(t, []string{"C-Space", "v"}, standIns[0].Keys, "the stand-in says when copy-mode ends")
 
 			text := ansi.Strip(standIns[0].Text)
-			assert.Contains(t, text, tt.want)
+			assert.Contains(t, text, "komrad › agents", "the rest of the sidebar stays drawn")
+
+			block := cutBlock(text, standIns[0].Block)
+			assert.Contains(t, block, tt.want)
 			for _, absent := range tt.wantAbsent {
-				assert.NotContains(t, text, absent)
+				assert.NotContains(t, block, absent)
 			}
 
 			if tt.wantCursor == "" {
@@ -118,4 +122,15 @@ func openFailedSetup(t *testing.T) *panelHarness {
 	harness.fireTimers()
 
 	return harness
+}
+
+func cutBlock(text string, block panes.Rect) string {
+	rows := strings.Split(text, "\n")
+
+	var cut []string
+	for y := block.Top; y < min(block.Top+block.Height, len(rows)); y++ {
+		cut = append(cut, ansi.Cut(rows[y], block.Left, block.Left+block.Width))
+	}
+
+	return strings.Join(cut, "\n")
 }

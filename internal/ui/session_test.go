@@ -125,7 +125,7 @@ func (b *bindRecorder) GetWindowID(string) string {
 	return b.window
 }
 
-func (b *bindRecorder) TuneCopyMode(string) {}
+func (b *bindRecorder) TuneCopyMode(string, string) {}
 
 func (b *bindRecorder) OpenCopyStandIn(panes.CopyStandIn) error {
 	return nil
