@@ -15,20 +15,31 @@ type wheelMsg struct {
 	rows int
 }
 
+// wheelFlushMsg asks the filter for the turns it held back.
+type wheelFlushMsg struct{}
+
 // wheelFilter adds up the turns of the wheel ahead of the update loop and lets one message through
 // a frame.
 type wheelFilter struct {
-	now  func() time.Time
-	last time.Time
-	seen time.Time
-	rows int
+	now     func() time.Time
+	later   func(tea.Msg)
+	last    time.Time
+	x       int
+	rows    int
+	flushed bool
 }
 
-func newWheelFilter(now func() time.Time) *wheelFilter {
-	return &wheelFilter{now: now}
+func newWheelFilter(now func() time.Time, later func(tea.Msg)) *wheelFilter {
+	return &wheelFilter{now: now, later: later, flushed: true}
 }
 
 func (f *wheelFilter) filter(_ tea.Model, msg tea.Msg) tea.Msg {
+	if _, ok := msg.(wheelFlushMsg); ok {
+		f.flushed = true
+
+		return f.release()
+	}
+
 	wheel, ok := msg.(tea.MouseWheelMsg)
 	if !ok {
 		return msg
@@ -39,22 +50,34 @@ func (f *wheelFilter) filter(_ tea.Model, msg tea.Msg) tea.Msg {
 		return msg
 	}
 
-	at := f.now()
-	if f.rows*turn < 0 || at.Sub(f.seen) > wheelFrame {
+	if f.rows*turn < 0 {
 		f.rows = 0
 	}
-	f.seen = at
 	f.rows += turn
+	f.x = wheel.X
 
-	if !f.last.IsZero() && at.Sub(f.last) < wheelFrame {
+	if f.last.IsZero() || f.now().Sub(f.last) >= wheelFrame {
+		return f.release()
+	}
+
+	if f.flushed {
+		f.flushed = false
+		f.later(wheelFlushMsg{})
+	}
+
+	return nil
+}
+
+func (f *wheelFilter) release() tea.Msg {
+	if f.rows == 0 {
 		return nil
 	}
 
-	f.last = at
+	f.last = f.now()
 	rows := f.rows
 	f.rows = 0
 
-	return wheelMsg{x: wheel.X, rows: rows}
+	return wheelMsg{x: f.x, rows: rows}
 }
 
 // wheelTurn is the row one turn of the wheel moves, zero for a turn that is not up or down.

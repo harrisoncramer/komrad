@@ -281,9 +281,10 @@ func IsStageTick(msg tea.Msg) bool {
 	return ok
 }
 
-// NewWheelFilter is the filter the panel's program adds the wheel's turns up in, reading the time from now.
-func NewWheelFilter(now func() time.Time) func(tea.Model, tea.Msg) tea.Msg {
-	return newWheelFilter(now).filter
+// NewWheelFilter is the filter the panel's program adds the wheel's turns up in, reading the time
+// from now and handing later what it would send back a frame on.
+func NewWheelFilter(now func() time.Time, later func(tea.Msg)) func(tea.Model, tea.Msg) tea.Msg {
+	return newWheelFilter(now, later).filter
 }
 
 // NewWheelTurns is the message the filter lets through for turns it added up.
