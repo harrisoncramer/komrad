@@ -3,6 +3,9 @@ package ui
 import (
 	"testing"
 
+	"komrad/internal/diff"
+
+	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -46,6 +49,38 @@ func TestFitTreeRow(t *testing.T) {
 			})
 
 			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+// TestFormatStatColumns covers a file's counts right aligned in the tree's columns.
+func TestFormatStatColumns(t *testing.T) {
+	columns := statColumns{Added: 4, Removed: 3}
+	tests := []struct {
+		name string
+		stat diff.Stat
+		want string
+	}{
+		{
+			name: "a file touching both sides fills both columns",
+			stat: diff.Stat{Added: 120, Removed: 12},
+			want: "+120 −12",
+		},
+		{
+			name: "a narrower count pads to its column",
+			stat: diff.Stat{Added: 3, Removed: 1},
+			want: "  +3  −1",
+		},
+		{
+			name: "a side the file did not touch keeps its column blank",
+			stat: diff.Stat{Added: 7},
+			want: "  +7    ",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, ansi.Strip(formatStatColumns(tt.stat, columns)))
 		})
 	}
 }

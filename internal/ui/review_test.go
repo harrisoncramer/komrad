@@ -684,7 +684,7 @@ func TestReviewViewed(t *testing.T) {
 
 		frame := harness.readFrame()
 		assert.NotContains(t, frame, "func Hello() string {")
-		assert.Contains(t, readStageText(frame), "greet.go  ✓ viewed")
+		assert.Contains(t, readStageText(frame), "greet.go  +")
 
 		harness.press("v")
 		assert.Contains(t, harness.readFrame(), "func Hello() string {")
@@ -1460,7 +1460,7 @@ func TestReviewExpand(t *testing.T) {
 
 		harness.press("E", "v", "R")
 
-		assert.Contains(t, readStageText(harness.readFrame()), "tall.go  ✓ viewed")
+		assert.Contains(t, readStageText(harness.readFrame()), "tall.go  +")
 	})
 }
 
@@ -1589,15 +1589,15 @@ func TestReviewRounds(t *testing.T) {
 
 		harness.press("<")
 		require.Contains(t, readStageText(harness.readFrame()), "chapter 2 of 2")
-		require.NotContains(t, readStageText(harness.readFrame()), "✓ viewed")
+		require.NotContains(t, readStageText(harness.readFrame()), "greet.go  +")
 		harness.press("v")
 		frame := harness.readFrame()
 		assert.Contains(t, readSidebarProse(frame), "whole change")
-		assert.NotContains(t, readStageText(frame), "✓ viewed")
+		assert.NotContains(t, readStageText(frame), "greet.go  +")
 		assert.Len(t, harness.readSent(agentv1connect.AgentServiceSetReviewFileViewedProcedure), 1)
 
 		harness.press(">")
-		assert.Contains(t, readStageText(harness.readFrame()), "greet.go  ✓ viewed")
+		assert.Contains(t, readStageText(harness.readFrame()), "greet.go  +")
 	})
 
 	t.Run("a comment being written goes with the round a landing load takes away", func(t *testing.T) {

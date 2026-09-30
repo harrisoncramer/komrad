@@ -82,9 +82,10 @@ func (r reviewScreen) filesView(s panelShared, lines int) string {
 	width := lineWidthOf(s.pane)
 	tree := r.diff.readFilesTree()
 	focused := r.isBlockFocused(s)
+	columns := measureStatColumns(s.glyphs, tree.rows)
 	rows := make([]string, 0, len(tree.rows))
 	for at, row := range tree.rows {
-		rows = append(rows, renderTreeRow(s, renderTreeRowParams{Row: row, Current: at == tree.current, Focused: focused, Width: width}))
+		rows = append(rows, renderTreeRow(s, renderTreeRowParams{Row: row, Current: at == tree.current, Focused: focused, Width: width, Columns: columns}))
 	}
 
 	header := r.diff.filesHeader(s, width) + "\n"
@@ -127,6 +128,7 @@ type renderTreeRowParams struct {
 	Current bool
 	Focused bool
 	Width   int
+	Columns statColumns
 }
 
 // renderTreeRow draws one row of the tree: its mark, its place in the tree, its name, and what it
@@ -141,7 +143,6 @@ func renderTreeRow(s panelShared, params renderTreeRowParams) string {
 		mark = s.glyphs.Spell(glyph.FileCurrent)
 		style = paint.Panel.Style(paint.TonePrimary).Bold(true)
 	case row.Viewed:
-		mark = s.glyphs.Spell(glyph.FileViewed)
 		style = dimStyle()
 	}
 
@@ -155,8 +156,8 @@ func renderTreeRow(s panelShared, params renderTreeRowParams) string {
 	}
 
 	if !row.Folder {
-		fit.Stat = formatStat(row.Stat)
-		fit.Badges = formatThreadMark(s.glyphs, row.Counts)
+		fit.Stat = formatStatColumns(row.Stat, params.Columns)
+		fit.Badges = padLeft(formatThreadMark(s.glyphs, row.Counts), params.Columns.Badge)
 	}
 
 	return lead + fitTreeRow(fit)
@@ -173,6 +174,58 @@ func formatStat(stat diff.Stat) string {
 	}
 
 	return strings.Join(parts, " ")
+}
+
+// statColumns is how wide each column right of a file's name is drawn across the tree.
+type statColumns struct {
+	Added   int
+	Removed int
+	Badge   int
+}
+
+// measureStatColumns is the widest count and badge any file row of the tree draws.
+func measureStatColumns(glyphs glyph.Set, rows []diffview.TreeRow) statColumns {
+	var columns statColumns
+	for _, row := range rows {
+		if row.Folder {
+			continue
+		}
+		if row.Stat.Added > 0 {
+			columns.Added = max(columns.Added, lipgloss.Width(fmt.Sprintf("+%d", row.Stat.Added)))
+		}
+		if row.Stat.Removed > 0 {
+			columns.Removed = max(columns.Removed, lipgloss.Width(fmt.Sprintf("−%d", row.Stat.Removed)))
+		}
+		columns.Badge = max(columns.Badge, lipgloss.Width(formatThreadMark(glyphs, row.Counts)))
+	}
+
+	return columns
+}
+
+// formatStatColumns is a file's added and removed lines, each right aligned in its column.
+func formatStatColumns(stat diff.Stat, columns statColumns) string {
+	var parts []string
+	if columns.Added > 0 {
+		added := ""
+		if stat.Added > 0 {
+			added = paint.Panel.Style(reviewAddedTone).Render(fmt.Sprintf("+%d", stat.Added))
+		}
+		parts = append(parts, padLeft(added, columns.Added))
+	}
+	if columns.Removed > 0 {
+		removed := ""
+		if stat.Removed > 0 {
+			removed = paint.Panel.Style(reviewRemovedTone).Render(fmt.Sprintf("−%d", stat.Removed))
+		}
+		parts = append(parts, padLeft(removed, columns.Removed))
+	}
+
+	return strings.Join(parts, " ")
+}
+
+// padLeft right aligns text in a column of width cells.
+func padLeft(text string, width int) string {
+	return strings.Repeat(" ", max(width-lipgloss.Width(text), 0)) + text
 }
 
 // formatCounts is one badge for each state that asks something of the reader and has any threads
@@ -207,8 +260,6 @@ func formatThreadMark(glyphs glyph.Set, counts diffview.ThreadCounts) string {
 		return paint.Panel.Style(reviewHumanTone).Render(glyphs.Spell(glyph.ThreadUnread))
 	case counts.Open > 0:
 		return paint.Panel.Style(reviewHumanTone).Render(glyphs.Spell(glyph.ThreadRead))
-	case counts.Settled > 0:
-		return dimStyle().Render(glyphs.Spell(glyph.ThreadSettled))
 	}
 
 	return ""

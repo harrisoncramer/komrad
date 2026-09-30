@@ -1423,13 +1423,6 @@
               "default": "\"◇\""
             },
             {
-              "key": "viewed",
-              "path": "glyphs.review.viewed",
-              "type": "string",
-              "description": "The header of a file you have read and folded away.",
-              "default": "\"✓\""
-            },
-            {
               "key": "current",
               "path": "glyphs.review.current",
               "type": "string",
