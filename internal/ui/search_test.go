@@ -868,6 +868,34 @@ func TestSearchPreview(t *testing.T) {
 		assert.NotEqual(t, hovered, readHoveredSearchRow(harness.readFrame()))
 	})
 
+	t.Run("the wheel over the focused transcript carries its cursor with the window", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openPreview(t, panelHarnessParams{})
+		harness.press("enter", "ctrl+space", "ctrl+space", "j")
+		before := harness.readRawFrame()
+		at := findPreviewCursor(before)
+		require.GreaterOrEqual(t, at, 0)
+
+		harness.send(tea.MouseWheelMsg{X: defaultHarnessWidth - 1, Y: 5, Button: tea.MouseWheelDown})
+
+		after := harness.readRawFrame()
+		assert.Equal(t, at, findPreviewCursor(after))
+		assert.NotEqual(t, readStage(ansi.Strip(before))[at], readStage(ansi.Strip(after))[at])
+	})
+
+	t.Run("a width change keeps the focused transcript's cursor in the window", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openPreview(t, panelHarnessParams{})
+		harness.press("enter", "ctrl+space", "ctrl+space", "G")
+		require.GreaterOrEqual(t, findPreviewCursor(harness.readRawFrame()), 0)
+
+		harness.send(tea.WindowSizeMsg{Width: defaultHarnessWidth + 40, Height: defaultHarnessHeight})
+
+		assert.GreaterOrEqual(t, findPreviewCursor(harness.readRawFrame()), 0)
+	})
+
 	t.Run("a height change keeps the reader's place", func(t *testing.T) {
 		t.Parallel()
 
@@ -1169,4 +1197,16 @@ func findRow(rows []string, name string) string {
 	}
 
 	return ""
+}
+
+func findPreviewCursor(raw string) int {
+	selected := paint.BackgroundSequence(paint.SelectionBackground)
+	for i, line := range splitLines(raw) {
+		stage := ansi.TruncateLeft(line, config.DefaultSidebarWidth, "")
+		if strings.Contains(stage, selected) {
+			return i
+		}
+	}
+
+	return -1
 }

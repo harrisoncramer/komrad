@@ -26,7 +26,7 @@ type searchPreview struct {
 	spans        []paint.Span
 	open         int
 	doc          docWindow
-	line         int
+	row          int
 }
 
 // searchColumn is the transcript drawn beside the list, which stands whether or not anything has
@@ -136,9 +136,10 @@ func (w *searchScreen) previewView(s panelShared, split columnSplit) string {
 		doc = docWindow{rows: paint.Panel.DocRows(w.previewNotice(s), split.column)}
 	}
 
-	if w.isBlockFocused(s) && w.preview.line < len(doc.rows) {
+	if w.isBlockFocused(s) {
+		line := w.previewLine(split.rows)
 		doc.rows = slices.Clone(doc.rows)
-		doc.rows[w.preview.line] = paint.PaintRow(doc.rows[w.preview.line], split.column)
+		doc.rows[line] = paint.PaintRow(doc.rows[line], split.column)
 	}
 
 	return doc.view(split.rows)
@@ -170,7 +171,7 @@ func (w *searchScreen) isBlockFocused(s panelShared) bool {
 
 func (w *searchScreen) focusBlock(panelShared) {
 	w.previewFocused = true
-	w.preview.line = w.preview.doc.top
+	w.preview.row = 0
 }
 
 func (w *searchScreen) blurBlock() {
@@ -186,8 +187,9 @@ func (w *searchScreen) movePreview(s panelShared, delta int) tea.Cmd {
 	}
 
 	doc := &w.preview.doc
-	w.preview.line = max(min(w.preview.line+delta, len(doc.rows)-1), 0)
-	doc.top = doc.shape().Reveal(w.preview.line, split.rows)
+	line := max(min(w.previewLine(split.rows)+delta, len(doc.rows)-1), 0)
+	doc.top = doc.shape().Reveal(line, split.rows)
+	w.preview.row = line - doc.top
 
 	return nil
 }
@@ -260,4 +262,11 @@ func (w *searchScreen) previewActions() screenActionSpec {
 			},
 		},
 	}
+}
+
+// previewLine is the row of the transcript the cursor is on, kept inside the window and the rows.
+func (w *searchScreen) previewLine(height int) int {
+	doc := w.preview.doc
+
+	return max(min(doc.top+w.preview.row, doc.top+height-1, len(doc.rows)-1), 0)
 }
