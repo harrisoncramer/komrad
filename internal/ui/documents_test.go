@@ -363,6 +363,69 @@ func TestDocumentsNewFromTheMenu(t *testing.T) {
 	})
 }
 
+// TestDocumentsMenu covers the menu space opens on a document or a type, over the panel's own.
+func TestDocumentsMenu(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		open     func(*testing.T) *panelHarness
+		presses  []string
+		wantOn   []*regexp.Regexp
+		wantOff  []*regexp.Regexp
+		wantGone []*regexp.Regexp
+	}{
+		{
+			name: "a document's band is titled for it and has no delete",
+			open: func(t *testing.T) *panelHarness {
+				harness, _ := openDocuments(t)
+
+				return harness
+			},
+			presses:  []string{"space"},
+			wantOn:   []*regexp.Regexp{regexp.MustCompile(`Design the cache`), regexp.MustCompile(`edit +e`), regexp.MustCompile(`rename +r`), regexp.MustCompile(`new document +c`)},
+			wantGone: []*regexp.Regexp{regexp.MustCompile(`delete +d`)},
+		},
+		{
+			name:    "a type's band has delete",
+			open:    func(t *testing.T) *panelHarness { return openDocumentTypes(t, "author") },
+			presses: []string{"space"},
+			wantOn:  []*regexp.Regexp{regexp.MustCompile(`explainer`), regexp.MustCompile(`new type +c`), regexp.MustCompile(`delete +d`)},
+		},
+		{
+			name: "an open editor turns edit into closing it and grays the rest",
+			open: func(t *testing.T) *panelHarness {
+				harness, _ := openDocuments(t)
+
+				return harness
+			},
+			presses: []string{"space", "e", "space"},
+			wantOn:  []*regexp.Regexp{regexp.MustCompile(`close editor +e`)},
+			wantOff: []*regexp.Regexp{readOffEntry("rename", "r"), readOffEntry("new document", "c")},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			harness := tt.open(t)
+			harness.press(tt.presses...)
+
+			frame := harness.readFrame()
+			for _, want := range tt.wantOn {
+				assert.Regexp(t, want, frame)
+			}
+			for _, want := range tt.wantOff {
+				assert.Regexp(t, want, harness.readRawFrame())
+			}
+			for _, gone := range tt.wantGone {
+				assert.NotRegexp(t, gone, frame)
+			}
+		})
+	}
+}
+
 // TestDocumentsHistory covers stepping back and forward through a document's writes, drawing
 // what each changed.
 func TestDocumentsHistory(t *testing.T) {
