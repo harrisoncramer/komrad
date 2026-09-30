@@ -61,7 +61,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if wheel, ok := msg.(tea.MouseWheelMsg); ok {
-		return m.routeWheel(wheel)
+		return m.routeWheel(wheel.X, wheelTurn(wheel))
+	}
+
+	if wheel, ok := msg.(wheelMsg); ok {
+		return m.routeWheel(wheel.x, wheel.rows)
 	}
 
 	if size, ok := msg.(tea.WindowSizeMsg); ok {
@@ -549,52 +553,3 @@ type listScroller interface {
 
 // columnWheelStep is how many rows one turn of the wheel moves the block beside the list.
 const columnWheelStep = 3
-
-// routeWheel scrolls the block beside the list when the mouse is over it, and the list otherwise.
-func (m model) routeWheel(wheel tea.MouseWheelMsg) (tea.Model, tea.Cmd) {
-	pressed, ok := m.wheelKey(wheel)
-	if !ok {
-		return m, nil
-	}
-
-	rows := 1
-	if wheel.Button == tea.MouseWheelUp {
-		rows = -1
-	}
-
-	if m.form.isActive() || m.held.active || !m.isOverColumn(wheel.X) {
-		if screen, ok := m.active().(listScroller); ok {
-			return m, screen.scrollList(&m, m.shared(), rows)
-		}
-
-		return m.route(pressed)
-	}
-
-	if screen, ok := m.active().(columnScroller); ok && screen.doesScrollColumn(m.shared()) {
-		return m, screen.scrollColumn(&m, m.shared(), rows*columnWheelStep)
-	}
-
-	m.scrollDoc(rows * columnWheelStep)
-
-	return m, nil
-}
-
-// wheelKey is the scroll key a turn of the mouse wheel presses.
-func (m model) wheelKey(wheel tea.MouseWheelMsg) (tea.KeyPressMsg, bool) {
-	var keys []string
-
-	switch wheel.Button {
-	case tea.MouseWheelUp:
-		keys = m.keys.Column.ScrollUp
-	case tea.MouseWheelDown:
-		keys = m.keys.Column.ScrollDown
-	default:
-		return tea.KeyPressMsg{}, false
-	}
-
-	if len(keys) == 0 {
-		return tea.KeyPressMsg{}, false
-	}
-
-	return keyMsg(keys[0]), true
-}

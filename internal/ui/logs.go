@@ -342,11 +342,9 @@ func (l *logsScreen) list() screenList[logSourceRow] {
 		cursor: func() *rowCursor { return &l.rowCursor },
 		rows:   l.rows,
 		name:   logSourceRowName,
-		moved: func(_ host, s panelShared) tea.Cmd {
-			return l.switchSource(s)
-		},
-		quit: func(k config.Keybindings) []string { return k.Logs.Quit },
-		back: func(k config.Keybindings) []string { return k.Logs.Back },
+		moved:  func(h host, _ panelShared) tea.Cmd { return h.waitToStage() },
+		quit:   func(k config.Keybindings) []string { return k.Logs.Quit },
+		back:   func(k config.Keybindings) []string { return k.Logs.Back },
 	}
 }
 

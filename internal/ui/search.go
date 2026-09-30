@@ -50,7 +50,7 @@ func (w *searchScreen) list() screenList[searchRow] {
 	return screenList[searchRow]{
 		cursor: func() *rowCursor { return &w.rowCursor },
 		rows:   w.rows,
-		moved:  w.landOnRow,
+		moved:  func(h host, _ panelShared) tea.Cmd { return h.waitToStage() },
 		quit:   func(config.Keybindings) []string { return []string{"ctrl+c"} },
 	}
 }

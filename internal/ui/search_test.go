@@ -3,6 +3,7 @@ package ui_test
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -966,9 +967,32 @@ func TestSearchPreview(t *testing.T) {
 		})
 		require.NotContains(t, readStageText(harness.readFrame()), matchedTurn)
 
-		harness.press("enter", "j", "j")
+		harness.press("enter", "j", "j", rest)
 
 		assert.Contains(t, readStageText(harness.readFrame()), matchedTurn)
+	})
+
+	t.Run("a hit passed on the way to another reads no transcript for it", func(t *testing.T) {
+		t.Parallel()
+
+		content, offset, length := buildTranscript()
+		harness := openSearch(t, openSearchParams{
+			server: &searchServer{
+				pages: map[string]*agentv1.SearchTranscriptsResponse{"": {Matches: []*agentv1.SearchHit{
+					newMatchHit("a1", 0, 0),
+					newMatchHit("a2", offset, length),
+				}}},
+				transcripts: map[string]string{"a2": content},
+			},
+			query: "reconcile",
+			rows:  buildSearchable(),
+		})
+
+		harness.press("enter", "j", "j", "k", "k", rest)
+
+		assert.False(t, slices.ContainsFunc(harness.readSent(agentv1connect.AgentServiceGetTranscriptProcedure), func(sent proto.Message) bool {
+			return proto.Equal(&agentv1.GetTranscriptRequest{AgentId: "a2"}, sent)
+		}))
 	})
 
 	t.Run("stepping between two turns of one conversation moves the transcript it holds", func(t *testing.T) {
@@ -988,13 +1012,13 @@ func TestSearchPreview(t *testing.T) {
 			query: "reconcile",
 			rows:  buildSearchable(),
 		})
-		harness.press("enter", "j")
+		harness.press("enter", "j", rest)
 		require.Contains(t, readStageText(harness.readFrame()), matchedTurn)
 
-		harness.press("j")
+		harness.press("j", rest)
 		assert.Contains(t, readStageText(harness.readFrame()), "line 3 of the conversation before")
 
-		harness.press("k")
+		harness.press("k", rest)
 		assert.Contains(t, readStageText(harness.readFrame()), matchedTurn)
 		assert.Len(t, harness.readSent(agentv1connect.AgentServiceGetTranscriptProcedure), 1)
 	})
@@ -1030,7 +1054,7 @@ func TestSearchPreview(t *testing.T) {
 			rows:  buildSearchable(),
 		})
 
-		harness.press("enter", "G")
+		harness.press("enter", "G", rest)
 
 		harness.assertSentTo(agentv1connect.AgentServiceSearchTranscriptsProcedure,
 			&agentv1.SearchTranscriptsRequest{

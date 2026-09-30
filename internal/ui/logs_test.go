@@ -161,7 +161,7 @@ func TestLogsOpen(t *testing.T) {
 		t.Parallel()
 
 		harness := openLogs(t, logReads{})
-		harness.press("j")
+		harness.press("j", rest)
 
 		assert.Contains(t, readStageText(harness.readFrame()), "This run wrote nothing.")
 	})
@@ -185,7 +185,7 @@ func TestLogsSources(t *testing.T) {
 		t.Parallel()
 
 		harness := openLogs(t, tailOfTwo())
-		harness.press("j")
+		harness.press("j", rest)
 
 		stage := readStageText(harness.readFrame())
 		assert.Contains(t, readHoveredRow(harness.readFrame()), "001 provision setup")
@@ -198,10 +198,19 @@ func TestLogsSources(t *testing.T) {
 		t.Parallel()
 
 		harness := openLogs(t, tailOfTwo())
-		harness.press("j", "k")
+		harness.press("j", rest, "k", rest)
 
 		assert.Contains(t, readStageText(harness.readFrame()), "second line")
 		harness.assertSentTo(logv1connect.LogServiceReadAgentLogsProcedure, logRead("service", ""), logRead(provisionRun, ""), logRead("service", ""))
+	})
+
+	t.Run("a source passed on the way to another is never read", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openLogs(t, tailOfTwo())
+		harness.press("j", "k", rest)
+
+		harness.assertSentTo(logv1connect.LogServiceReadAgentLogsProcedure, logRead("service", ""))
 	})
 
 	t.Run("a key that leaves the cursor where it was reads nothing again", func(t *testing.T) {
@@ -218,7 +227,7 @@ func TestLogsSources(t *testing.T) {
 		t.Parallel()
 
 		harness := openLogs(t, tailOfTwo())
-		harness.press("j")
+		harness.press("j", rest)
 		answerSources(harness, serviceSource, launchSource, provisionSource)
 		harness.fireTimers()
 
@@ -232,7 +241,7 @@ func TestLogsSources(t *testing.T) {
 		t.Parallel()
 
 		harness := openLogs(t, tailOfTwo())
-		harness.press("j")
+		harness.press("j", rest)
 		answerSources(harness, serviceSource)
 		harness.fireTimers()
 
@@ -250,10 +259,10 @@ func TestLogsSources(t *testing.T) {
 		reads := tailOfTwo()
 		reads[launchSource.GetId()+"@"] = &logv1.ReadAgentLogsResponse{Lines: []string{"launching"}, Cursor: "9"}
 		harness := openLogs(t, reads)
-		harness.press("j", "pick:block")
+		harness.press("j", rest, "pick:block")
 		answerSources(harness, serviceSource, launchSource)
 		harness.fireTimers()
-		harness.press("k")
+		harness.press("k", rest)
 
 		assert.Contains(t, readStageText(harness.readFrame()), "second line")
 	})
@@ -268,7 +277,7 @@ func TestLogsSources(t *testing.T) {
 		harness.press("space", "l")
 		harness.hold(read)
 		harness.fireTimers()
-		harness.press("j")
+		harness.press("j", rest)
 
 		harness.release(read)
 
@@ -527,12 +536,12 @@ func TestLogsScroll(t *testing.T) {
 		},
 		{
 			name:    "back from the log hands the keys to the list",
-			presses: []string{"pick:block", "esc", "j"},
+			presses: []string{"pick:block", "esc", "j", rest},
 			want:    "error: port 5470 already allocated",
 		},
 		{
 			name:    "the list's letter from the log hands the keys to the list",
-			presses: []string{"pick:block", "pick:list", "j"},
+			presses: []string{"pick:block", "pick:list", "j", rest},
 			want:    "error: port 5470 already allocated",
 		},
 	}
@@ -645,12 +654,12 @@ func TestLogsLineFilter(t *testing.T) {
 		},
 		{
 			name:    "esc on the lines with no filter standing goes back to the list",
-			presses: append(slices.Clone(typed), "enter", "esc", "esc", "j"),
+			presses: append(slices.Clone(typed), "enter", "esc", "esc", "j", rest),
 			want:    []string{"error: port 5470 already allocated"},
 		},
 		{
 			name:     "esc while typing drops the query and keeps the keys on the lines",
-			presses:  []string{"pick:block", "/", "s", "esc", "esc", "j"},
+			presses:  []string{"pick:block", "/", "s", "esc", "esc", "j", rest},
 			want:     []string{"error: port 5470 already allocated"},
 			wantLast: logRead(provisionRun, ""),
 		},
@@ -666,7 +675,7 @@ func TestLogsLineFilter(t *testing.T) {
 		},
 		{
 			name:     "moving to another source drops the filter",
-			presses:  append(slices.Clone(typed), "enter", "pick:list", "j", "k"),
+			presses:  append(slices.Clone(typed), "enter", "pick:list", "j", rest, "k", rest),
 			want:     []string{"first line", "second line"},
 			notWant:  []string{"▽ second"},
 			wantLast: logRead("service", ""),
