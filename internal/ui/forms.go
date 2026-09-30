@@ -416,7 +416,7 @@ func (m model) updateForm(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // stepForm hands a message to huh, keeping the form as drawn before a key that may finish it.
 func (m *model) stepForm(msg tea.Msg) tea.Cmd {
-	if _, ok := msg.(tea.KeyPressMsg); ok {
+	if _, ok := msg.(tea.KeyPressMsg); ok && m.form.rebuild == nil {
 		m.form.frozen = m.form.form.View()
 	}
 
