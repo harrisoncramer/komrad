@@ -6,6 +6,7 @@ import (
 
 	"komrad/internal/logging"
 	agentstore "komrad/internal/store/agent"
+	workflowstore "komrad/internal/store/workflow"
 )
 
 // runDeprovision starts a deprovisioner, calling done exactly once with the outcome,
@@ -33,29 +34,31 @@ func runDeprovision(ctx context.Context, deprovision agentScriptRunner, agent ag
 	}
 }
 
-// doesProvisionWorktree reports whether an agent's directory is komrad's to make.
-func doesProvisionWorktree(ctx context.Context, workflows workflowReader, agent agentstore.Agent) bool {
-	if agent.IsProvisionerDisabled() {
-		return false
-	}
-
-	wf := workflowFor(ctx, workflows, agent)
-
-	return wf != nil && wf.Worktree.Enabled
-}
-
 func deprovisionerFor(ctx context.Context, workflows workflowReader, agent agentstore.Agent) string {
-	if !doesProvisionWorktree(ctx, workflows, agent) {
+	if agent.IsProvisionerDisabled() {
 		return ""
 	}
 
-	return worktreeDeprovisioner
+	_, deprovisioner := worktreeScripts(workflowFor(ctx, workflows, agent), agent.ProvisionEnabled)
+
+	return deprovisioner
 }
 
 func provisionerFor(ctx context.Context, workflows workflowReader, agent agentstore.Agent) string {
-	if !doesProvisionWorktree(ctx, workflows, agent) {
+	if agent.IsProvisionerDisabled() {
 		return ""
 	}
 
-	return worktreeProvisioner
+	provisioner, _ := worktreeScripts(workflowFor(ctx, workflows, agent), agent.ProvisionEnabled)
+
+	return provisioner
+}
+
+func worktreeScripts(wf *workflowstore.Workflow, provisionEnabled *bool) (provisioner, deprovisioner string) {
+	// The worktree is komrad's own, so an agent gets the built-in pair or nothing at all.
+	if wf == nil || !wf.Worktree.Enabled || agentstore.IsProvisionerDisabled(provisionEnabled) {
+		return "", ""
+	}
+
+	return worktreeProvisioner, worktreeDeprovisioner
 }
