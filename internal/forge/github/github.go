@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"komrad/internal/fail"
 	"komrad/internal/forge"
 	"komrad/internal/forge/graphql"
 	"komrad/internal/git"
@@ -278,7 +279,7 @@ func (f *Forge) Get(ctx context.Context, address string) (forge.PullRequest, err
 		return forge.PullRequest{}, err
 	}
 	if data.Repository == nil || data.Repository.PullRequest == nil {
-		return forge.PullRequest{}, fmt.Errorf("%w: github has no pull request %d in %s/%s", forge.ErrNotFound, number, owner, name)
+		return forge.PullRequest{}, noPullRequest(number, owner, name)
 	}
 
 	return data.Repository.PullRequest.toPullRequest(false), nil
@@ -357,7 +358,7 @@ func (f *Forge) Merge(ctx context.Context, address string) error {
 		return err
 	}
 	if data.Repository == nil || data.Repository.PullRequest == nil {
-		return fmt.Errorf("%w: github has no pull request %d in %s/%s", forge.ErrNotFound, number, owner, name)
+		return noPullRequest(number, owner, name)
 	}
 	switch data.Repository.PullRequest.State {
 	case "MERGED":
@@ -374,16 +375,8 @@ func (f *Forge) Merge(ctx context.Context, address string) error {
 	if err != nil {
 		return err
 	}
-	for _, failure := range answer.Errors {
-		switch failure.Type {
-		case "UNPROCESSABLE":
-			return forge.ErrNotMergeable.Saying("github will not merge #%d: %s", number, failure.Message)
-		case "FORBIDDEN":
-			return forge.ErrUnauthorized.Saying("github will not let the credential merge %s: %s", address, failure.Message)
-		}
-	}
 
-	return failureOf(answer, "")
+	return mutationRefusal{sentinel: forge.ErrNotMergeable, verb: "merge"}.failureOf(answer, address, number)
 }
 
 // SetDraft converts the pull request to a draft or marks it ready for review, asking nothing
@@ -415,7 +408,7 @@ func (f *Forge) SetDraft(ctx context.Context, address string, draft bool) error 
 		return err
 	}
 	if data.Repository == nil || data.Repository.PullRequest == nil {
-		return fmt.Errorf("%w: github has no pull request %d in %s/%s", forge.ErrNotFound, number, owner, name)
+		return noPullRequest(number, owner, name)
 	}
 	target := data.Repository.PullRequest
 	switch target.State {
@@ -438,16 +431,8 @@ func (f *Forge) SetDraft(ctx context.Context, address string, draft bool) error 
 	if err != nil {
 		return err
 	}
-	for _, failure := range answer.Errors {
-		switch failure.Type {
-		case "UNPROCESSABLE":
-			return forge.ErrNotDraftable.Saying("github will not change #%d: %s", number, failure.Message)
-		case "FORBIDDEN":
-			return forge.ErrUnauthorized.Saying("github will not let the credential change %s: %s", address, failure.Message)
-		}
-	}
 
-	return failureOf(answer, "")
+	return mutationRefusal{sentinel: forge.ErrNotDraftable, verb: "change"}.failureOf(answer, address, number)
 }
 
 // listPullRequests reads one page of a repository's pullRequests connection, whichever query
@@ -477,6 +462,28 @@ func (f *Forge) listPullRequests(ctx context.Context, operation string, variable
 // noRepository is GitHub answering null for the repository a query's variables name.
 func noRepository(variables map[string]any) error {
 	return fmt.Errorf("%w: github has no repository %s/%s, which is also its answer for one the credential cannot see", forge.ErrNotFound, variables["owner"], variables["name"])
+}
+
+func noPullRequest(number int, owner, name string) error {
+	return fmt.Errorf("%w: github has no pull request %d in %s/%s", forge.ErrNotFound, number, owner, name)
+}
+
+type mutationRefusal struct {
+	sentinel *fail.Error
+	verb     string
+}
+
+func (r mutationRefusal) failureOf(answer *graphql.Answer, address string, number int) error {
+	for _, failure := range answer.Errors {
+		switch failure.Type {
+		case "UNPROCESSABLE":
+			return r.sentinel.Saying("github will not %s #%d: %s", r.verb, number, failure.Message)
+		case "FORBIDDEN":
+			return forge.ErrUnauthorized.Saying("github will not let the credential %s %s: %s", r.verb, address, failure.Message)
+		}
+	}
+
+	return failureOf(answer, "")
 }
 
 // failureOf is the first error the answer carries as komrad's, nil when it carries none, with a
