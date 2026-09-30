@@ -42,6 +42,10 @@ func (m *model) previewedAgentID() (string, bool) {
 		agent, ok := m.archive.hoveredAgent(s)
 
 		return agent.ID, ok
+	case screenAgents:
+		item, ok := m.agents.hoveredDormant(s)
+
+		return item.Agent.ID, ok
 	case screenWorktrees:
 		row, ok := m.worktrees.hovered(s)
 		if !ok || row.item.agent == nil {
@@ -49,7 +53,7 @@ func (m *model) previewedAgentID() (string, bool) {
 		}
 
 		return row.item.agent.id, true
-	case screenAgents, screenSchedules, screenSearch, screenReview, screenDocuments, screenLogs, screenDocumentTypes:
+	case screenSchedules, screenSearch, screenReview, screenDocuments, screenLogs, screenDocumentTypes:
 	}
 
 	return "", false

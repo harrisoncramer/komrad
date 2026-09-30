@@ -18,7 +18,6 @@ import (
 	"komrad/proto/gen/hook/v1/hookv1connect"
 	workflowv1 "komrad/proto/gen/workflow/v1"
 	"komrad/proto/gen/workflow/v1/workflowv1connect"
-	"komrad/proto/gen/worktree/v1/worktreev1connect"
 
 	"connectrpc.com/connect"
 	"github.com/google/go-cmp/cmp"
@@ -453,11 +452,11 @@ func TestFormsArchivePrompt(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			harness := openForms(t, newFormWorkflow(), newFormAuthor())
 			harness.press("j", "z")
-			before := harness.readSent(worktreev1connect.WorktreeServiceGetWorktreeProcedure)
+			before := harness.readRequests()
 
 			harness.press(tt.press...)
 
-			harness.assertSent(append(wrapRequests(worktreev1connect.WorktreeServiceGetWorktreeProcedure, before), tt.wantSent...)...)
+			harness.assertSent(append(before, tt.wantSent...)...)
 			assert.Equal(t, agentsScreen, harness.readScreen(), "every answer lands back on the list")
 		})
 	}
@@ -1008,12 +1007,6 @@ func assertSentHooks(t *testing.T, harness *panelHarness, want []*workflowv1.Wor
 	update, ok := sent[0].(*workflowv1.UpdateWorkflowRequest)
 	require.True(t, ok)
 	assert.Empty(t, cmp.Diff(want, update.GetHooks(), protocmp.Transform()))
-}
-
-func wrapRequests(procedure string, msgs []proto.Message) []request {
-	return xslice.Map(msgs, func(msg proto.Message) request {
-		return request{procedure: procedure, msg: msg}
-	})
 }
 
 func newFormWorkflow() *workflowv1.Workflow {
