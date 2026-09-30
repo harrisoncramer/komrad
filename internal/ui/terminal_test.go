@@ -155,6 +155,22 @@ func TestTerminal(t *testing.T) {
 		assert.Empty(t, readShellDirs(harness))
 		assert.Contains(t, harness.readFrame(), terminalRefuse)
 	})
+
+	t.Run("the shell stays open while the switcher steps through a view that cannot hold it", func(t *testing.T) {
+		harness := openTerminal(t, panelHarnessParams{}, newStagedShellAgent(t.TempDir()))
+
+		harness.press("space", "t", "tab")
+
+		assert.Empty(t, harness.panel.ReadKilledPanes())
+	})
+
+	t.Run("the shell goes once the switcher closes on a view that cannot hold it", func(t *testing.T) {
+		harness := openTerminal(t, panelHarnessParams{}, newStagedShellAgent(t.TempDir()))
+
+		harness.press("space", "t", "tab", "esc")
+
+		assert.Equal(t, []string{infoPane}, harness.panel.ReadKilledPanes())
+	})
 }
 
 func openTerminal(t *testing.T, params panelHarnessParams, agents ...*agentv1.Agent) *panelHarness {

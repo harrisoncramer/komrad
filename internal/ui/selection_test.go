@@ -33,7 +33,7 @@ func TestSelection(t *testing.T) {
 				newArchivedAgentAt("api", "2026-07-30T11:00:00Z"),
 				newArchivedAgentAt("db", "2026-07-30T10:00:00Z"),
 			},
-			press: []string{"tab", "r", "j"},
+			press: []string{"shift+tab", "shift+tab", "j"},
 		},
 	}
 

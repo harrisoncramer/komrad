@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"slices"
 
 	"komrad/config"
 
@@ -197,7 +198,7 @@ func validateArms(s screen, arms []dispatchArm) error {
 func globalArms(s screen, keys config.Keybindings) []dispatchArm {
 	var arms []dispatchArm
 	if s.picksViews() {
-		arms = append(arms, dispatchArm{describe: "the view switcher", keys: keys.Views.Pick})
+		arms = append(arms, dispatchArm{describe: "the view switcher", keys: slices.Concat(keys.Views.Next, keys.Views.Previous)})
 	}
 
 	arms = append(arms,
