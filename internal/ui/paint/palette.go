@@ -157,7 +157,8 @@ func (p Palette) FormTheme() huh.Theme {
 func (p Palette) formStyles(isDark bool) *huh.Styles {
 	theme := huh.ThemeBase(isDark)
 
-	theme.Focused.Base = theme.Focused.Base.BorderForeground(p.muted.color())
+	theme.Focused.Base = theme.Focused.Base.BorderStyle(lipgloss.HiddenBorder())
+	theme.Focused.Card = theme.Focused.Base
 	theme.Focused.Title = theme.Focused.Title.Foreground(p.accent.color()).Bold(true)
 	theme.Focused.NoteTitle = theme.Focused.NoteTitle.Foreground(p.accent.color()).Bold(true)
 	theme.Focused.Description = theme.Focused.Description.Foreground(p.muted.color())
@@ -176,8 +177,6 @@ func (p Palette) formStyles(isDark bool) *huh.Styles {
 	theme.Focused.TextInput.Placeholder = theme.Focused.TextInput.Placeholder.Foreground(p.muted.color())
 
 	theme.Blurred = theme.Focused
-	theme.Blurred.Base = theme.Blurred.Base.BorderStyle(lipgloss.HiddenBorder())
-	theme.Blurred.Card = theme.Blurred.Base
 	theme.Blurred.Title = theme.Blurred.Title.Foreground(p.muted.color()).Bold(false)
 	theme.Blurred.NoteTitle = theme.Blurred.NoteTitle.Foreground(p.muted.color()).Bold(false)
 	theme.Blurred.TextInput.Prompt = theme.Blurred.TextInput.Prompt.Foreground(p.muted.color())

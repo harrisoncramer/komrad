@@ -24,7 +24,7 @@ func TestMenu(t *testing.T) {
 		harness.press("space")
 
 		frame := harness.readFrame()
-		assert.Contains(t, frame, "┃ komrad")
+		assert.Contains(t, frame, "  komrad")
 		assert.Contains(t, frame, "› scratch")
 		assert.NotContains(t, frame, "logs")
 	})

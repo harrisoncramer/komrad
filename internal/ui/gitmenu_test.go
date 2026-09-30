@@ -42,7 +42,7 @@ func TestGitMenu(t *testing.T) {
 
 		frame := harness.readFrame()
 		assert.Equal(t, "agents › api › git", readTrail(frame))
-		assert.Contains(t, frame, "┃ › git ›", "the menu it came from stays drawn with its cursor on git")
+		assert.Contains(t, frame, "  › git ›", "the menu it came from stays drawn with its cursor on git")
 	})
 
 	t.Run("esc goes back to the menu it came from, its cursor still on git", func(t *testing.T) {
