@@ -31,6 +31,7 @@ require (
 	github.com/riverqueue/river v0.41.0
 	github.com/riverqueue/river/riverdriver/riverpgxv5 v0.41.0
 	github.com/riverqueue/river/rivertype v0.41.0
+	github.com/rivo/uniseg v0.4.7
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.10
@@ -80,7 +81,6 @@ require (
 	github.com/pb33f/ordered-map/v2 v2.3.1 // indirect
 	github.com/riverqueue/river/riverdriver v0.41.0 // indirect
 	github.com/riverqueue/river/rivershared v0.41.0 // indirect
-	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/sagikazarmark/locafero v0.11.0 // indirect
 	github.com/segmentio/asm v1.1.3 // indirect
 	github.com/segmentio/encoding v0.5.4 // indirect

@@ -103,14 +103,11 @@ func (s *Session) TuneCopyMode() {
 	s.tmux.TuneCopyMode(paint.Panel.TmuxVisual(visualLabel))
 }
 
-// OpenCopyStandIn puts a stand-in showing text in copy-mode where sidebar sits, with the cursor at
-// row and col, and has it send the sidebar the leader's copy key once copy-mode ends.
-func (s *Session) OpenCopyStandIn(sidebar, text string, row, col int) error {
-	return s.tmux.OpenCopyStandIn(panes.CopyStandIn{
-		Pane: sidebar,
-		Text: text,
-		Row:  row,
-		Col:  col,
-		Keys: []string{s.leaderKey, copyKey},
-	})
+// OpenCopyStandIn puts standIn in copy-mode where sidebar sits, and has it send the sidebar the
+// leader's copy key once copy-mode ends.
+func (s *Session) OpenCopyStandIn(sidebar string, standIn panes.CopyStandIn) error {
+	standIn.Pane = sidebar
+	standIn.Keys = []string{s.leaderKey, copyKey}
+
+	return s.tmux.OpenCopyStandIn(standIn)
 }

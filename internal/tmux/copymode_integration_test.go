@@ -30,7 +30,8 @@ func TestIntegrationTuneCopyModeMakesCopyModeVisualMode(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "send-keys -X begin-selection", bindings["v"], "v starts a selection as it does in vim")
 	assert.Equal(t, `send-keys -X begin-selection \; send-keys -X rectangle-on`, bindings["C-v"], "ctrl+v starts a block")
-	assert.Equal(t, "send-keys -X copy-pipe-and-cancel", bindings["y"])
+	assert.Contains(t, bindings["y"], "copy-pipe-and-cancel", "y copies as tmux does outside a stand-in")
+	assert.Contains(t, bindings["y"], "pipe-and-cancel 'sh #{"+standInCopyOption+"}", "y in a stand-in copies only from its block")
 	assert.Contains(t, bindings["Escape"], "clear-selection", "esc drops a selection before it leaves copy-mode")
 }
 
@@ -103,6 +104,74 @@ func TestIntegrationCopyStandInHoldsThePaneSlotUntilCopyModeEnds(t *testing.T) {
 			}, 5*time.Second, 20*time.Millisecond, "the pane is sent the keys")
 
 			assert.Equal(t, []string{"standin"}, windowNames(t, client, "standin"), "the stand-in is gone")
+		})
+	}
+}
+
+// TestIntegrationCopyStandInCutsToBlock pins y in a stand-in keeping the cells of a
+// selection that fall inside the block.
+func TestIntegrationCopyStandInCutsToBlock(t *testing.T) {
+	tests := []struct {
+		name string
+		keys [][]string
+		want string
+	}{
+		{
+			name: "lines",
+			keys: [][]string{{"-X", "begin-selection"}, {"-X", "cursor-down"}, {"-X", "end-of-line"}},
+			want: "one\ntwo",
+		},
+		{
+			name: "upwards",
+			keys: [][]string{{"-X", "cursor-down"}, {"-X", "end-of-line"}, {"-X", "begin-selection"}, {"-X", "cursor-up"}, {"-X", "start-of-line"}},
+			want: "one\ntwo",
+		},
+		{
+			name: "rectangle",
+			keys: [][]string{{"-X", "begin-selection"}, {"-X", "rectangle-on"}, {"-N", "2", "-X", "cursor-down"}, {"-N", "7", "-X", "cursor-right"}},
+			want: "o\nt\n三",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			client := testServer(t, "cut")
+			client.TuneCopyMode("VISUAL")
+			client.SetGlobal("copy-command", "")
+
+			sidebar, err := client.paneID("cut:0.0")
+			require.NoError(t, err)
+			window := client.GetWindowID(sidebar)
+
+			require.NoError(t, client.OpenCopyStandIn(panes.CopyStandIn{
+				Pane:  sidebar,
+				Text:  "list │ one\nlist │ two\nlist │ 三x",
+				Row:   1,
+				Col:   1,
+				Block: panes.Rect{Left: 7, Width: 3, Height: 3},
+			}))
+
+			var standIn string
+			require.Eventually(t, func() bool {
+				standIn = client.GetActivePane(window)
+
+				return standIn != sidebar && paneOption(t, client, standIn, "pane_in_mode") == "1"
+			}, 5*time.Second, 20*time.Millisecond)
+
+			for _, keys := range tt.keys {
+				_, err := client.query(append([]string{"send-keys", "-t", standIn}, keys...)...)
+				require.NoError(t, err)
+			}
+			_, err = client.query("send-keys", "-t", standIn, "y")
+			require.NoError(t, err)
+
+			var copied string
+			require.Eventually(t, func() bool {
+				copied, err = client.query("show-buffer")
+
+				return err == nil
+			}, 5*time.Second, 20*time.Millisecond, "the cut lands in a buffer")
+			assert.Equal(t, tt.want, copied)
 		})
 	}
 }
