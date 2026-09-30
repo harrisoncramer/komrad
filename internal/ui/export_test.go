@@ -86,6 +86,17 @@ type recordingTmux struct {
 	tableBinds    map[string][]string
 	shown         []panes.Rect
 	screens       map[string]string
+	standIns      []CopyStandIn
+	standInErr    error
+	copyBadge     string
+}
+
+// CopyStandIn is a stand-in the panel asked tmux to put in a pane's place.
+type CopyStandIn struct {
+	Pane string
+	Text string
+	Row  int
+	Keys []string
 }
 
 // PanelTmux is the tmux a panel under test drives in place of the recording one.
@@ -304,6 +315,16 @@ func (p *Panel) ReadGuestPane() string {
 	return p.model.frame.GuestPane()
 }
 
+// ReadStandIns is every stand-in the panel has put in a pane's place.
+func (p *Panel) ReadStandIns() []CopyStandIn {
+	return p.tmux.standIns
+}
+
+// RefuseStandIns makes tmux fail every stand-in with err.
+func (p *Panel) RefuseStandIns(err error) {
+	p.tmux.standInErr = err
+}
+
 // ReadSelectedPanes is every pane the panel has handed the keyboard to.
 func (p *Panel) ReadSelectedPanes() []string {
 	return p.tmux.selected
@@ -497,7 +518,7 @@ func (p *Panel) SetScreens(shown []panes.Rect, screens map[string]string) {
 // over a pane.
 func (p *Panel) ReadPickLetter(to string) string {
 	block, isBlock := map[string]stop{"list": stopList, "record": stopRecord, "block": stopBlock}[to]
-	for _, target := range p.model.visual.targets {
+	for _, target := range p.model.picker.targets {
 		if isBlock && target.pane == "" && target.stop == block || !isBlock && target.pane == to {
 			return target.letter
 		}
@@ -605,6 +626,16 @@ func (t *recordingTmux) SetSessionOption(_, name, value string) {
 
 func (t *recordingTmux) DetachSession(string) {
 	t.detaches++
+}
+
+func (t *recordingTmux) TuneCopyMode(badge string) {
+	t.copyBadge = badge
+}
+
+func (t *recordingTmux) OpenCopyStandIn(pane, text string, row int, keys ...string) error {
+	t.standIns = append(t.standIns, CopyStandIn{Pane: pane, Text: text, Row: row, Keys: keys})
+
+	return t.standInErr
 }
 
 func (t *recordingTmux) BindRootKey(key string, command ...string) {

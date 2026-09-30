@@ -13,7 +13,7 @@ import (
 
 // TestLeader covers the leader and the keys that follow it.
 func TestLeader(t *testing.T) {
-	sidebar, agent := "%0", "%9"
+	sidebar := "%0"
 
 	t.Run("the leader opens its table from every pane of the panel's window alone", func(t *testing.T) {
 		harness := openFocus(t)
@@ -22,11 +22,14 @@ func TestLeader(t *testing.T) {
 		require.True(t, bound)
 		assert.Equal(t, []string{"if-shell", "-F", "#{==:#{window_id},@1}", "switch-client -T komrad-leader", "send-keys C-Space"}, command)
 
-		for _, key := range []string{"v", "j"} {
-			command, bound := harness.panel.ReadTableBinding("komrad-leader", key)
-			require.True(t, bound, key)
-			assert.Equal(t, []string{"send-keys", "-t", sidebar, "C-Space", key}, command)
-		}
+		command, bound = harness.panel.ReadTableBinding("komrad-leader", "j")
+		require.True(t, bound)
+		assert.Equal(t, []string{"send-keys", "-t", sidebar, "C-Space", "j"}, command)
+
+		command, bound = harness.panel.ReadTableBinding("komrad-leader", "v")
+		require.True(t, bound)
+		assert.Equal(t, []string{"if-shell", "-F", "#{==:#{pane_id},%0}", "send-keys -t %0 C-Space v", "copy-mode"}, command,
+			"any pane but the sidebar goes straight into copy-mode")
 
 		leader := "C-Space"
 		for _, key := range []string{"C-Space", "Space"} {
@@ -34,26 +37,6 @@ func TestLeader(t *testing.T) {
 			require.True(t, bound, key)
 			assert.Equal(t, []string{"if-shell", "-F", "#{window_zoomed_flag}", "send-keys -t " + sidebar + " " + leader + " " + leader, "last-pane"}, command)
 		}
-	})
-
-	t.Run("v freezes the window and v again thaws it", func(t *testing.T) {
-		harness := openFocus(t)
-		harness.panel.SetScreens(
-			[]panes.Rect{{Pane: sidebar, Width: 40, Height: 3}, {Pane: agent, Left: 41, Width: 30, Height: 3}},
-			map[string]string{sidebar: "the sidebar as drawn\n", agent: "the agent as drawn\n"},
-		)
-
-		harness.press("ctrl+space", "v")
-
-		frame := harness.readDrawn()
-		assert.Contains(t, frame, "the agent as drawn")
-		assert.Contains(t, frame, "VISUAL")
-		assert.True(t, harness.panel.IsZoomed())
-
-		harness.press("ctrl+space", "v")
-
-		assert.NotContains(t, harness.readDrawn(), "VISUAL")
-		assert.False(t, harness.panel.IsZoomed())
 	})
 
 	t.Run("the leader twice with nowhere to go back to hands the keys to the next stop", func(t *testing.T) {

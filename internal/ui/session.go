@@ -1,5 +1,7 @@
 package ui
 
+import "komrad/internal/ui/paint"
+
 type sessionTmux interface {
 	GetSessionClient(session string) string
 	SetSessionOption(target, name, value string)
@@ -9,10 +11,15 @@ type sessionTmux interface {
 	UnbindTable(table string)
 	GetWindowID(pane string) string
 	DetachSession(name string)
+	TuneCopyMode(badge string)
+	OpenCopyStandIn(pane, text string, row int, keys ...string) error
 }
 
 // leaderPanelKeys are the leader's keys the panel answers itself.
-var leaderPanelKeys = []string{"v", "j"}
+var leaderPanelKeys = []string{"j"}
+
+// copyKey is the leader's key that starts copy-mode in the pane holding the keys.
+const copyKey = "v"
 
 // Session is the tmux session the panel draws in.
 type Session struct {
@@ -55,6 +62,9 @@ func (s *Session) HoldLeader(sidebar string) {
 		s.tmux.BindTableKey(s.leaderTable, key, "send-keys", "-t", sidebar, s.leaderKey, key)
 	}
 
+	s.tmux.BindTableKey(s.leaderTable, copyKey, "if-shell", "-F", "#{==:#{pane_id},"+sidebar+"}",
+		"send-keys -t "+sidebar+" "+s.leaderKey+" "+copyKey, "copy-mode")
+
 	for _, key := range []string{s.leaderKey, "Space"} {
 		s.tmux.BindTableKey(s.leaderTable, key, "if-shell", "-F", "#{window_zoomed_flag}",
 			"send-keys -t "+sidebar+" "+s.leaderKey+" "+s.leaderKey, "last-pane")
@@ -87,4 +97,15 @@ func (s *Session) Hide() {
 // SilenceStatus turns off a session's tmux status bar.
 func (s *Session) SilenceStatus(session string) {
 	s.tmux.SetSessionOption(session, "status", "off")
+}
+
+// TuneCopyMode makes tmux's copy-mode the panel's visual mode.
+func (s *Session) TuneCopyMode() {
+	s.tmux.TuneCopyMode(paint.Panel.TmuxVisual(visualLabel))
+}
+
+// OpenCopyStandIn puts a stand-in showing text in copy-mode where sidebar sits, with the cursor on
+// row, and has it send the sidebar the leader's copy key once copy-mode ends.
+func (s *Session) OpenCopyStandIn(sidebar, text string, row int) error {
+	return s.tmux.OpenCopyStandIn(sidebar, text, row, s.leaderKey, copyKey)
 }

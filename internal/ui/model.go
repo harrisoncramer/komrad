@@ -330,8 +330,11 @@ type model struct {
 	warm    warmupState
 	loading loadingState
 
-	// visual is the window as visual mode froze it.
-	visual visualState
+	// picker is the window as the pane picker froze it.
+	picker pickerState
+
+	// copying is whether a stand-in in copy-mode has the sidebar's place.
+	copying bool
 
 	// markingZones is whether this frame carries the marks that say where each block was drawn.
 	markingZones bool

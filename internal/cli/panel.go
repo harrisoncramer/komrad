@@ -125,6 +125,7 @@ Use ` + "`komrad open`" + ` to bring the panel up.`,
 
 			state.session.SilenceStatus(agents.ManagerSession)
 			state.tmux.EnableFocusEvents()
+			state.session.TuneCopyMode()
 
 			var binary ui.BinaryWatcher
 			if watch := watchExecutable(); watch != nil {

@@ -214,7 +214,12 @@ func BackgroundSequence(background color.Color) string {
 	return ansi.NewStyle().BackgroundColor(background).String()
 }
 
-// Visual is the bar the header says visual mode is on in.
+// Visual is the bar a label saying which mode holds the panel is drawn on.
 func (p Palette) Visual() lipgloss.Style {
 	return lipgloss.NewStyle().Background(p.Color(ToneOther)).Foreground(Black).Bold(true)
+}
+
+// TmuxVisual is label drawn as Visual draws it, spelled in tmux's style markup.
+func (p Palette) TmuxVisual(label string) string {
+	return "#[fg=colour0,bg=colour" + string(p.other) + ",bold]" + label + "#[default]"
 }
