@@ -10,24 +10,22 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestVisualMode covers leader v in the sidebar handing tmux's copy-mode a stand-in holding only
-// the block that has the keys.
+// TestVisualMode covers leader v in the sidebar handing tmux's copy-mode a stand-in drawn as the
+// whole sidebar, with the cursor where the block that has the keys has it.
 func TestVisualMode(t *testing.T) {
 	tests := []struct {
 		name       string
 		from       []string
 		wantCursor string
-		wantAbsent string
 	}{
 		{
-			name:       "the list is handed over with the cursor on its row",
+			name:       "the list's cursor is where copy-mode starts",
 			wantCursor: "a1",
 		},
 		{
-			name:       "the record is handed over without the list above it",
+			name:       "the record's cursor is where copy-mode starts",
 			from:       []string{"pick:record"},
 			wantCursor: "name",
-			wantAbsent: "komrad › agents",
 		},
 	}
 
@@ -42,14 +40,13 @@ func TestVisualMode(t *testing.T) {
 			require.Len(t, standIns, 1)
 			assert.Equal(t, "%0", standIns[0].Pane)
 			assert.Equal(t, []string{"C-Space", "v"}, standIns[0].Keys, "the stand-in says when copy-mode ends")
+			assert.Contains(t, ansi.Strip(standIns[0].Text), "komrad › agents", "the rest of the sidebar stays drawn")
 
 			rows := strings.Split(ansi.Strip(standIns[0].Text), "\n")
 			require.GreaterOrEqual(t, len(rows), standIns[0].Row)
-			assert.Contains(t, rows[standIns[0].Row-1], "› ")
-			assert.Contains(t, rows[standIns[0].Row-1], tt.wantCursor)
-			if tt.wantAbsent != "" {
-				assert.NotContains(t, standIns[0].Text, tt.wantAbsent)
-			}
+			from := ansi.Cut(rows[standIns[0].Row-1], standIns[0].Col-1, ansi.StringWidth(rows[standIns[0].Row-1]))
+			assert.True(t, strings.HasPrefix(from, "› "), "the cursor lands on the row cursor, got %q", from)
+			assert.Contains(t, from, tt.wantCursor)
 		})
 	}
 

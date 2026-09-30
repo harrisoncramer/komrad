@@ -52,8 +52,9 @@ func findClipboardCommand() string {
 }
 
 // OpenCopyStandIn swaps a pane printing text into pane's place and puts it in copy-mode with the
-// cursor on row, and once copy-mode ends swaps pane back, sends it keys and kills the stand-in.
-func (c *Client) OpenCopyStandIn(pane, text string, row int, keys ...string) error {
+// cursor at row and col, and once copy-mode ends swaps pane back, sends it keys and kills the
+// stand-in.
+func (c *Client) OpenCopyStandIn(pane, text string, row, col int, keys ...string) error {
 	if pane == "" {
 		return errors.New("refusing to stand in for an empty pane")
 	}
@@ -85,14 +86,14 @@ func (c *Client) OpenCopyStandIn(pane, text string, row int, keys ...string) err
 
 	c.ResizeWindow(standIn, width, height)
 
-	script := fmt.Sprintf(`cat "$0"; rm -f "$0"; printf '\033[%d;1H'; "$1" copy-mode -t "$TMUX_PANE"; exec sleep 2147483647`, max(row, 1))
+	script := fmt.Sprintf(`cat "$0"; rm -f "$0"; printf '\033[%d;%dH'; "$1" copy-mode -t "$TMUX_PANE"; exec sleep 2147483647`, max(row, 1), max(col, 1))
 	if err := c.RespawnPane(standIn, "", "sh", "-c", script, file, tmuxPath); err != nil {
 		c.KillPane(standIn)
 
 		return errors.Join(err, os.Remove(file))
 	}
 
-	restore := []string{"swap-pane -s " + standIn + " -t " + pane, "select-pane -t " + pane}
+	restore := []string{"swap-pane -Z -s " + standIn + " -t " + pane, "select-pane -t " + pane}
 	if len(keys) > 0 {
 		restore = append(restore, "send-keys -t "+pane+" "+strings.Join(keys, " "))
 	}
@@ -105,7 +106,7 @@ func (c *Client) OpenCopyStandIn(pane, text string, row int, keys ...string) err
 		return fmt.Errorf("failed to watch the stand-in for pane %q: %w", pane, err)
 	}
 
-	if _, err := c.query("swap-pane", "-s", standIn, "-t", pane); err != nil {
+	if _, err := c.query("swap-pane", "-Z", "-s", standIn, "-t", pane); err != nil {
 		c.KillPane(standIn)
 
 		return fmt.Errorf("failed to swap in the stand-in for pane %q: %w", pane, err)

@@ -37,46 +37,68 @@ func TestIntegrationTuneCopyModeMakesCopyModeVisualMode(t *testing.T) {
 // TestIntegrationCopyStandInHoldsThePaneSlotUntilCopyModeEnds pins the stand-in's life: it takes the
 // pane's slot and the keys in copy-mode, and on leaving copy-mode gives both back and goes.
 func TestIntegrationCopyStandInHoldsThePaneSlotUntilCopyModeEnds(t *testing.T) {
-	client := testServer(t, "standin")
+	cases := []struct {
+		name   string
+		zoomed bool
+	}{
+		{name: "split"},
+		{name: "zoomed", zoomed: true},
+	}
 
-	sidebar, err := client.paneID("standin:0.0")
-	require.NoError(t, err)
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			client := testServer(t, "standin")
 
-	_, err = client.query("split-window", "-h", "-t", sidebar, "--", "sh")
-	require.NoError(t, err)
+			sidebar, err := client.paneID("standin:0.0")
+			require.NoError(t, err)
 
-	window := client.GetWindowID(sidebar)
-	before := client.GetShownPanes(sidebar)
+			_, err = client.query("split-window", "-h", "-t", sidebar, "--", "sh")
+			require.NoError(t, err)
 
-	require.NoError(t, client.OpenCopyStandIn(sidebar, "one\ntwo\nthree", 2, "x", "y"))
+			if tc.zoomed {
+				_, err = client.query("resize-pane", "-Z", "-t", sidebar)
+				require.NoError(t, err)
+			}
 
-	var standIn string
-	require.Eventually(t, func() bool {
-		standIn = client.GetActivePane(window)
-		if standIn == sidebar || paneOption(t, client, standIn, "pane_in_mode") != "1" {
-			return false
-		}
+			window := client.GetWindowID(sidebar)
+			before := client.GetShownPanes(sidebar)
 
-		return paneOption(t, client, standIn, "copy_cursor_y") == "1"
-	}, 5*time.Second, 20*time.Millisecond, "the stand-in takes the keys in copy-mode on the row asked for")
+			require.NoError(t, client.OpenCopyStandIn(sidebar, "one\ntwo\nthree", 2, 3, "x", "y"))
 
-	assert.Contains(t, client.CapturePane(standIn), "two")
-	assert.Equal(t, slotOf(before, sidebar), slotOf(client.GetShownPanes(standIn), standIn),
-		"the stand-in fills the slot the pane left")
-	assert.NotEqual(t, window, client.GetWindowID(sidebar), "the pane waits in another window")
+			var standIn string
+			require.Eventually(t, func() bool {
+				standIn = client.GetActivePane(window)
+				if standIn == sidebar || paneOption(t, client, standIn, "pane_in_mode") != "1" {
+					return false
+				}
 
-	_, err = client.query("send-keys", "-t", standIn, "-X", "cancel")
-	require.NoError(t, err)
+				return paneOption(t, client, standIn, "copy_cursor_y") == "1" && paneOption(t, client, standIn, "copy_cursor_x") == "2"
+			}, 5*time.Second, 20*time.Millisecond, "the stand-in takes the keys in copy-mode at the row and column asked for")
 
-	require.Eventually(t, func() bool {
-		return client.GetWindowID(sidebar) == window && client.GetActivePane(window) == sidebar
-	}, 5*time.Second, 20*time.Millisecond, "the pane is swapped back and given the keys")
+			assert.Contains(t, client.CapturePane(standIn), "two")
+			assert.Equal(t, slotOf(before, sidebar), slotOf(client.GetShownPanes(standIn), standIn),
+				"the stand-in fills the slot the pane left")
+			assert.Equal(t, tc.zoomed, paneOption(t, client, standIn, "window_zoomed_flag") == "1",
+				"the stand-in keeps the window's zoom")
+			assert.NotEqual(t, window, client.GetWindowID(sidebar), "the pane waits in another window")
 
-	require.Eventually(t, func() bool {
-		return strings.Contains(client.CapturePane(sidebar), "xy")
-	}, 5*time.Second, 20*time.Millisecond, "the pane is sent the keys")
+			_, err = client.query("send-keys", "-t", standIn, "-X", "cancel")
+			require.NoError(t, err)
 
-	assert.Equal(t, []string{"standin"}, windowNames(t, client, "standin"), "the stand-in is gone")
+			require.Eventually(t, func() bool {
+				return client.GetWindowID(sidebar) == window && client.GetActivePane(window) == sidebar
+			}, 5*time.Second, 20*time.Millisecond, "the pane is swapped back and given the keys")
+
+			assert.Equal(t, tc.zoomed, paneOption(t, client, sidebar, "window_zoomed_flag") == "1",
+				"the pane gets the window back zoomed as it left it")
+
+			require.Eventually(t, func() bool {
+				return strings.Contains(client.CapturePane(sidebar), "xy")
+			}, 5*time.Second, 20*time.Millisecond, "the pane is sent the keys")
+
+			assert.Equal(t, []string{"standin"}, windowNames(t, client, "standin"), "the stand-in is gone")
+		})
+	}
 }
 
 func slotOf(shown []panes.Rect, pane string) panes.Rect {

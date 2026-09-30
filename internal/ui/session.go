@@ -12,7 +12,7 @@ type sessionTmux interface {
 	GetWindowID(pane string) string
 	DetachSession(name string)
 	TuneCopyMode(badge string)
-	OpenCopyStandIn(pane, text string, row int, keys ...string) error
+	OpenCopyStandIn(pane, text string, row, col int, keys ...string) error
 }
 
 // leaderPanelKeys are the leader's keys the panel answers itself.
@@ -104,8 +104,8 @@ func (s *Session) TuneCopyMode() {
 	s.tmux.TuneCopyMode(paint.Panel.TmuxVisual(visualLabel))
 }
 
-// OpenCopyStandIn puts a stand-in showing text in copy-mode where sidebar sits, with the cursor on
-// row, and has it send the sidebar the leader's copy key once copy-mode ends.
-func (s *Session) OpenCopyStandIn(sidebar, text string, row int) error {
-	return s.tmux.OpenCopyStandIn(sidebar, text, row, s.leaderKey, copyKey)
+// OpenCopyStandIn puts a stand-in showing text in copy-mode where sidebar sits, with the cursor at
+// row and col, and has it send the sidebar the leader's copy key once copy-mode ends.
+func (s *Session) OpenCopyStandIn(sidebar, text string, row, col int) error {
+	return s.tmux.OpenCopyStandIn(sidebar, text, row, col, s.leaderKey, copyKey)
 }

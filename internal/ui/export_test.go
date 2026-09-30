@@ -96,6 +96,7 @@ type CopyStandIn struct {
 	Pane string
 	Text string
 	Row  int
+	Col  int
 	Keys []string
 }
 
@@ -632,8 +633,8 @@ func (t *recordingTmux) TuneCopyMode(badge string) {
 	t.copyBadge = badge
 }
 
-func (t *recordingTmux) OpenCopyStandIn(pane, text string, row int, keys ...string) error {
-	t.standIns = append(t.standIns, CopyStandIn{Pane: pane, Text: text, Row: row, Keys: keys})
+func (t *recordingTmux) OpenCopyStandIn(pane, text string, row, col int, keys ...string) error {
+	t.standIns = append(t.standIns, CopyStandIn{Pane: pane, Text: text, Row: row, Col: col, Keys: keys})
 
 	return t.standInErr
 }

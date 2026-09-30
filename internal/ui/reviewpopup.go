@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	reviewPopupWidth  = 72
+	reviewPopupWidth  = 92
 	reviewPopupHeight = 14
 	reviewPopupChrome = 4
 	reviewPopupLeft   = 13
