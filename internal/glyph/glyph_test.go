@@ -54,8 +54,6 @@ func TestDefaultsSpellTheirCodePoints(t *testing.T) {
 		{glyph.WorktreeGone, 0xf52f},
 		{glyph.Open, 0xf407},
 		{glyph.ChangesRequested, 0xf4d2},
-		{glyph.ChecksRunning, 0xf4c3},
-		{glyph.ChecksRunningBlink, 0xf4aa},
 		{glyph.Approved, 0xf42e},
 		{glyph.Merged, 0xf419},
 		{glyph.Draft, 0xf4dd},

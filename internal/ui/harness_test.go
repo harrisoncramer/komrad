@@ -18,6 +18,7 @@ import (
 	"komrad/internal/client"
 	"komrad/internal/engine"
 	"komrad/internal/gittest"
+	"komrad/internal/loader"
 	"komrad/internal/ui"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
@@ -199,6 +200,7 @@ type panelHarnessParams struct {
 	tmux            ui.PanelTmux
 	remote          *panelRemote
 	engineStatus    ui.EngineStatus
+	loader          loader.Style
 }
 
 func newPanelHarness(t *testing.T, params panelHarnessParams) *panelHarness {
@@ -290,6 +292,7 @@ func newPanelHarness(t *testing.T, params panelHarnessParams) *panelHarness {
 			Browser:         params.browser,
 			Tmux:            params.tmux,
 			EngineStatus:    params.engineStatus,
+			Loader:          params.loader,
 		}),
 	}
 	t.Cleanup(harness.releaseParked)
@@ -512,6 +515,29 @@ func (h *panelHarness) firePulse() {
 			return msg
 		})
 	}
+}
+
+func (h *panelHarness) fireLoader() bool {
+	h.t.Helper()
+
+	pending := h.timers
+	h.timers = nil
+	fired := false
+	for _, timer := range pending {
+		msg := timer()
+		if !ui.IsLoaderTick(msg) {
+			h.timers = append(h.timers, timer)
+
+			continue
+		}
+
+		fired = true
+		h.settle(func() tea.Msg {
+			return msg
+		})
+	}
+
+	return fired
 }
 
 func (h *panelHarness) fireTimersUnsettled() []tea.Cmd {

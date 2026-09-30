@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"komrad/internal/glyph"
+	"komrad/internal/loader"
 )
 
 // TestEveryGlyphHasAKey covers the config and the glyph package naming the same glyphs.
@@ -32,17 +33,25 @@ func TestLoadGlyphs(t *testing.T) {
 		name    string
 		file    string
 		want    map[glyph.Glyph]string
+		loader  loader.Style
 		wantErr string
 	}{
 		{
-			name: "a file that names no glyphs draws the defaults",
-			file: "default_harness = \"claude\"\n",
-			want: map[glyph.Glyph]string{glyph.FailedScript: "\uf489", glyph.Unread: "·"},
+			name:   "a file that names no glyphs draws the defaults",
+			file:   "default_harness = \"claude\"\n",
+			want:   map[glyph.Glyph]string{glyph.FailedScript: "\uf489", glyph.Unread: "·"},
+			loader: loader.Braille,
 		},
 		{
-			name: "an approved octicon replaces the default, the rest left alone",
-			file: "[glyphs.marks]\nfailed_script = \"\\uf467\"\n",
-			want: map[glyph.Glyph]string{glyph.FailedScript: "\uf467", glyph.Mail: "\uf42f"},
+			name:   "an approved octicon replaces the default, the rest left alone",
+			file:   "[glyphs.marks]\nfailed_script = \"\\uf467\"\n",
+			want:   map[glyph.Glyph]string{glyph.FailedScript: "\uf467", glyph.Mail: "\uf42f"},
+			loader: loader.Braille,
+		},
+		{
+			name:   "a loader style replaces the braille default",
+			file:   "[glyphs]\nloader = \"arcs\"\n",
+			loader: loader.Arcs,
 		},
 		{
 			name:    "an emoji is refused with its key and code point",
@@ -53,6 +62,11 @@ func TestLoadGlyphs(t *testing.T) {
 			name:    "an empty glyph is refused",
 			file:    "[glyphs.review]\nunread = \"\"\n",
 			wantErr: `glyphs.review.unread: "" is not a single character`,
+		},
+		{
+			name:    "a loader style the panel cannot draw is refused",
+			file:    "[glyphs]\nloader = \"dots\"\n",
+			wantErr: `glyphs.loader: "dots" is not one of braille, arcs, ascii`,
 		},
 		{
 			name:    "a key no glyph sits at is refused",
@@ -73,6 +87,8 @@ func TestLoadGlyphs(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
+
+			assert.Equal(t, tt.loader, cfg.Glyphs.LoaderStyle())
 
 			set, err := cfg.Glyphs.Set()
 			require.NoError(t, err)
