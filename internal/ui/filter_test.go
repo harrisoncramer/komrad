@@ -434,15 +434,15 @@ func TestFilterWorktreeHeader(t *testing.T) {
 			MeasuredAt: xptr.Ptr(archivedAt),
 		},
 	))
-	harness.press("shift+tab", "esc")
-	header := readBelowViews(harness.readFrame())[4]
+	harness.press("shift+tab", "esc", "f", "shift+tab", "j", "esc", "k")
+	header := readBelowViews(harness.readFrame())[5]
 	require.Contains(t, header, "2.0M")
 
-	harness.press(slices.Concat([]string{"/", "tab"}, spellKeys("worktree-view"), []string{"enter"})...)
+	harness.press(slices.Concat([]string{"/", "tab"}, spellKeys("worktree-view"), []string{"enter", "k"})...)
 
 	frame := harness.readFrame()
 	assert.NotContains(t, frame, "agent/other", "the filter took the other worktree away")
-	assert.Equal(t, header, readBelowViews(frame)[4], "and the header's size still reads the whole listing")
+	assert.Equal(t, header, readBelowViews(frame)[5], "and the header's size still reads the whole listing")
 	assert.Contains(t, frame, "2 worktrees", "as does its count")
 }
 
