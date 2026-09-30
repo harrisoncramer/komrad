@@ -212,21 +212,14 @@ func (r *reviewScreen) scrollList(h host, s panelShared, rows int) tea.Cmd {
 
 // scrollPopupAt moves the conversation in the popup when the cell at x and y is inside it.
 func (r *reviewScreen) scrollPopupAt(s panelShared, x, y, rows int) bool {
-	if r.isWriting() {
+	body, _ := r.popupBody(s, r.measurePopupInner(s))
+	if body == "" || !r.placeThread(s, body).contains(x, y) {
 		return false
 	}
 
-	id, body, ok := r.conversationAtCursor(s, r.measurePopupInner(s))
-	if !ok {
-		return false
+	if !r.isWriting() {
+		r.scrollPopup(s, rows*diffWheelStep)
 	}
-
-	slot := r.placeThread(s, body)
-	if !slot.contains(x, y) {
-		return false
-	}
-
-	r.threads.scroll.move(id, body, rows*diffWheelStep, slot.room())
 
 	return true
 }
