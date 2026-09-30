@@ -122,19 +122,14 @@ func (e *nameEdit) submit() (string, bool) {
 	return name, true
 }
 
-// settle says whether the field stays open once the write for row has landed.
-func (e *nameEdit) settle(row string, err error) bool {
-	if e == nil {
-		return false
-	}
+// settle marks the field saved, or open for another try, once the write for row has landed.
+func (e *nameEdit) settle(row string, err error) {
 	if !e.saving || e.key != row {
-		return true
+		return
 	}
 
 	e.saving = false
 	e.landed = err == nil
-
-	return true
 }
 
 // drawnOver draws the typed name in place of the row's own.

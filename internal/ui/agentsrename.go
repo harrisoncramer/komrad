@@ -84,17 +84,13 @@ func (a *agentsScreen) saveRename(h host) tea.Cmd {
 	), rename.key)
 }
 
-// settleRename closes the field once its write has landed, and opens it again for another try
-// when the write failed.
+// settleRename marks the field saved once its write has landed, or open for another try when it
+// failed.
 func (a *agentsScreen) settleRename(s panelShared, row string, err error) {
 	if a.renaming == nil {
 		return
 	}
-	if !a.renaming.settle(row, err) {
-		a.renaming = nil
-
-		return
-	}
+	a.renaming.settle(row, err)
 
 	a.reconcileRename(s)
 }
