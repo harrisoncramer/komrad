@@ -129,7 +129,6 @@ type NewAgentParams struct {
 	Hidden           bool
 	IdempotencyKey   string
 	AdoptedBranch    string
-	Branch           string
 	RepositoryURL    string
 	ParentAgentID    string
 	Role             agentstore.Role
@@ -416,7 +415,7 @@ func (p *launchPlan) agent(params NewAgentParams, id, sessionID, dir, pane strin
 		ParentAgentID:    nullable(params.ParentAgentID),
 		Hidden:           params.Hidden,
 		AdoptedBranch:    params.AdoptedBranch,
-		Branch:           nullable(params.Branch),
+		Branch:           nullable(params.AdoptedBranch),
 		RepositoryURL:    nullable(params.RepositoryURL),
 		Role:             params.Role,
 	}

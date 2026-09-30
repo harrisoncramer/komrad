@@ -134,7 +134,6 @@ func (s *AdoptService) Adopt(ctx context.Context, params AdoptParams) (*Adoption
 		Hidden:         params.Hidden,
 		IdempotencyKey: params.IdempotencyKey,
 		AdoptedBranch:  branch,
-		Branch:         branch,
 	}
 
 	trees, err := s.readWorktrees(ctx, repo, branch)
