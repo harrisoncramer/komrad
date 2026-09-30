@@ -310,6 +310,7 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 		documents: documents.NewDocumentService(documents.NewDocumentServiceParams{
 			Agents:    st.agents,
 			Documents: st.documents,
+			Types:     st.documentTypes,
 			Events:    queue,
 		}),
 		rebase:          rebaseService,

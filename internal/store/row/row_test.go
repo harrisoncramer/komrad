@@ -102,7 +102,7 @@ func TestDocuments(t *testing.T) {
 		created, err := st.Documents.Create(ctx, documentstore.CreateParams{
 			AgentID: author.ID,
 			Name:    name,
-			Kind:    documentstore.KindNotes,
+			Type:    "RFC",
 			Body:    name,
 		})
 		require.NoError(t, err)
@@ -122,7 +122,7 @@ func TestDocuments(t *testing.T) {
 		ID:      second.ID,
 		AgentID: author.ID,
 		Name:    "second",
-		Kind:    documentstore.KindNotes,
+		Type:    "RFC",
 		Body:    "again",
 		Version: second.Version,
 	})
