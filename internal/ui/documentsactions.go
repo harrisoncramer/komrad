@@ -61,8 +61,8 @@ func (d *documentsScreen) table() []screenAction {
 		{
 			id:   actionDocumentsRename,
 			keys: func(k config.Keybindings) []string { return d.shelf.keys(k).Rename },
-			run: func(_ host, s panelShared, _ string) tea.Cmd {
-				return d.openRename(s)
+			run: func(h host, s panelShared, _ string) tea.Cmd {
+				return d.openRename(h, s)
 			},
 		},
 		{

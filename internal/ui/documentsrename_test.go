@@ -113,3 +113,19 @@ func TestDocumentsRenameAfterAWrite(t *testing.T) {
 		Source:  &agentv1.WriteDocumentRequest_Body{Body: "The cache is cold now."},
 	})
 }
+
+// TestDocumentsRenameWhileRereading covers the field opening while an agent's write is being read.
+func TestDocumentsRenameWhileRereading(t *testing.T) {
+	t.Parallel()
+
+	harness, docs := openDocuments(t)
+	harness.hold(agentv1connect.AgentServiceGetDocumentProcedure)
+	docs.rewrite("d1", "The cache is cold now.", "2026-09-26T12:00:00Z")
+	author := buildDocumentAuthors()[2].(*agentv1.Agent)
+	author.DocumentsUpdatedAt = xptr.Ptr("2026-09-26T12:00:00Z")
+	harness.watch(buildPuts(author))
+
+	harness.press(slices.Concat([]string{"r"}, spellKeys(" now"))...)
+
+	assert.Contains(t, readHoveredRow(harness.readFrame()), "Design the cache now▏")
+}

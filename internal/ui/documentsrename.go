@@ -23,14 +23,21 @@ func (d *documentsScreen) renamingField() *nameEdit {
 }
 
 // openRename types over the name of the item under the cursor once its text has been read.
-func (d *documentsScreen) openRename(s panelShared) tea.Cmd {
+func (d *documentsScreen) openRename(h host, s panelShared) tea.Cmd {
 	item, ok := d.hovered(s)
 	if !ok || d.editing != nil {
 		return nil
 	}
 
 	read, asked := d.bodyOf(s, item.id)
-	if !asked || read.pending || read.err != nil {
+	switch {
+	case asked && read.err != nil:
+		h.note(messageWarning, fmt.Sprintf("%q could not be read, so it cannot be renamed", item.name))
+
+		return nil
+	case !asked || read.version == 0:
+		h.note(messageWarning, fmt.Sprintf("%q has not been read yet, so it cannot be renamed", item.name))
+
 		return nil
 	}
 
