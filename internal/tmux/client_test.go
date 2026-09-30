@@ -773,3 +773,42 @@ func TestIntegrationInsetPanelWindowLeavesAGutterPastEveryClient(t *testing.T) {
 		return windowSize() == "119x39"
 	}, 5*time.Second, 20*time.Millisecond, "resizing to 120x40 keeps the gutter")
 }
+
+// TestIntegrationShownPanesListsWhatTheWindowShows pins the rects the pane picker letters.
+func TestIntegrationShownPanesListsWhatTheWindowShows(t *testing.T) {
+	client := testServer(t, "shown")
+
+	_, err := client.query("resize-window", "-t", "shown:", "-x", "100", "-y", "30")
+	require.NoError(t, err)
+
+	first := paneAt(t, client, "shown", 0)
+	second := client.SplitRight(first, t.TempDir(), "50")
+	require.NotEmpty(t, second)
+
+	assert.Equal(t, []panes.Rect{
+		{Pane: first, Left: 0, Top: 0, Width: 49, Height: 30},
+		{Pane: second, Left: 50, Top: 0, Width: 50, Height: 30},
+	}, client.GetShownPanes(first), "a split window shows both panes")
+
+	_, err = client.query("resize-pane", "-Z", "-t", second)
+	require.NoError(t, err)
+
+	assert.Equal(t, []panes.Rect{{Pane: second, Left: 0, Top: 0, Width: 100, Height: 30}},
+		client.GetShownPanes(first), "a zoomed window shows only the zoomed pane")
+
+	assert.Empty(t, client.GetShownPanes(""))
+}
+
+// TestIntegrationCaptureScreenKeepsTrailingCells pins the capture the frozen window is drawn from.
+func TestIntegrationCaptureScreenKeepsTrailingCells(t *testing.T) {
+	client := testServer(t, "capture")
+	pane := paneAt(t, client, "capture", 0)
+
+	require.NoError(t, client.RespawnPane(pane, t.TempDir(), "sh", "-c", "printf 'ab   '; exec sleep 60"))
+
+	require.Eventually(t, func() bool {
+		return strings.HasPrefix(client.CaptureScreen(pane), "ab")
+	}, 5*time.Second, 20*time.Millisecond)
+
+	assert.True(t, strings.HasPrefix(client.CaptureScreen(pane), "ab   "), "the spaces after the text are kept")
+}
