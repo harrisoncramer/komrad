@@ -14,8 +14,7 @@ const (
 	hideChoiceShowHidden
 )
 
-// hideMenu is the agents list's hiding, opened from its menu, with the hide entry gray when no
-// single agent is hovered.
+// hideMenu is the agents list's hide menu.
 func (a *agentsScreen) hideMenu(s panelShared, agent *panel.Agent) submenu {
 	hide := "hide"
 	if agent != nil && agent.Hidden {
