@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -420,4 +421,28 @@ func TestIntegrationDoesBaseHoldRemote(t *testing.T) {
 			assert.Equal(t, tt.want, held)
 		})
 	}
+}
+
+// TestIntegrationPeekChangesLeavesTheIndexAlone covers a peek never writing the index, so a file
+// whose stat data alone moved reads as modified where a refreshing read would clear it.
+func TestIntegrationPeekChangesLeavesTheIndexAlone(t *testing.T) {
+	root := repo(t)
+	index := filepath.Join(root, ".git", "index")
+	later := time.Now().Add(time.Hour)
+	require.NoError(t, os.Chtimes(filepath.Join(root, "kept.go"), later, later))
+	before, err := os.ReadFile(index)
+	require.NoError(t, err)
+
+	changes, err := client.PeekChanges(t.Context(), root)
+	require.NoError(t, err)
+
+	after, err := os.ReadFile(index)
+	require.NoError(t, err)
+	assert.Equal(t, before, after, "the index is not rewritten")
+	assert.Equal(t, []string{"kept.go"}, changes.Modified)
+
+	changes, err = client.ReadChanges(t.Context(), root)
+	require.NoError(t, err)
+
+	assert.Empty(t, changes.Modified, "a refresh settles a file whose content did not change")
 }

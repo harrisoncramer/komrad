@@ -45,12 +45,13 @@ type Inspection struct {
 	// KeepsBranch says deleting the agent would leave the branch behind.
 	KeepsBranch bool
 	Commits     []git.Commit
-	diffExclude []string
 }
 
 type gitReader interface {
 	ReadChanges(ctx context.Context, dir string) (git.Changes, error)
+	PeekChanges(ctx context.Context, dir string) (git.Changes, error)
 	ReadTreeState(ctx context.Context, dir string) (git.TreeState, error)
+	IsSequenceInProgress(ctx context.Context, dir string) (bool, error)
 	ResolveBase(ctx context.Context, dir, base string) (string, error)
 	FetchBase(ctx context.Context, dir, base string) (ref, sha string, err error)
 	CountAheadBehind(ctx context.Context, dir, ref string) (ahead, behind int, err error)
@@ -148,12 +149,13 @@ func (i *Inspector) Inspect(ctx context.Context, params InspectParams) (*Inspect
 	return inspection, nil
 }
 
-// ReadStanding reads where a directory stands against its base without asking origin, or why
-// git could not say.
+// ReadStanding reads where a directory stands against its base without asking origin or taking
+// the index lock, or why git could not say.
 func (i *Inspector) ReadStanding(ctx context.Context, worktree Worktree) worktreestore.Standing {
 	inspection := &Inspection{Worktree: worktree}
+	_, err := i.readSettled(ctx, inspection, readSettledParams{peek: true})
 
-	return i.standingOf(inspection, i.readSettled(ctx, inspection, false))
+	return i.standingOf(inspection, err)
 }
 
 // standingOf is what an inspection says of where the directory stands.
@@ -191,40 +193,81 @@ func (i *Inspector) readAll(ctx context.Context, inspection *Inspection, fetch b
 		inspection.Remote = *remote
 	}
 
-	if err := i.readSettled(ctx, inspection, fetch); err != nil {
+	exclude, err := i.readSettled(ctx, inspection, readSettledParams{fetch: fetch})
+	if err != nil {
 		return err
 	}
 	if !inspection.Worktree.Readable || inspection.BaseRef == "" {
 		return nil
 	}
 
-	return i.readRest(ctx, inspection)
+	return i.readRest(ctx, inspection, exclude)
+}
+
+type readSettledParams struct {
+	fetch bool
+	// peek reads the checkout without refreshing the index, so git never takes its lock.
+	peek bool
 }
 
 // readSettled names the base and reads the part of the standing a directory's delete turns on,
-// leaving the base empty when the clone does not hold it.
-func (i *Inspector) readSettled(ctx context.Context, inspection *Inspection, fetch bool) error {
+// leaving the base empty when the clone does not hold it, and answers the paths the workflow
+// leaves out of a diff.
+func (i *Inspector) readSettled(ctx context.Context, inspection *Inspection, params readSettledParams) ([]string, error) {
 	if !inspection.Worktree.Readable {
-		return nil
+		return nil, nil
 	}
 
 	dir := inspection.Worktree.Dir
 	config, err := i.getWorktreeConfig(ctx, inspection.Worktree)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	ref, err := i.nameBase(ctx, dir, config.BaseBranch, fetch)
+	ref, err := i.nameBase(ctx, dir, config.BaseBranch, params.fetch)
 	if errors.Is(err, git.ErrBaseMissing) {
 		inspection.BaseErr = err
 
-		return nil
+		return nil, nil
 	}
 	if err != nil {
-		return err
+		return nil, err
 	}
 	inspection.BaseRef = ref
-	inspection.diffExclude = config.DiffExclude
+
+	if err := i.readCheckout(ctx, inspection, params.peek); err != nil {
+		return nil, err
+	}
+
+	prediction, err := i.git.PredictRebase(ctx, dir, ref)
+	if errors.Is(err, git.ErrBaseUnrelated) {
+		inspection.Unrelated = true
+
+		return config.DiffExclude, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	inspection.Landed, inspection.Unlanded = prediction.Landed, prediction.Replay
+
+	return config.DiffExclude, nil
+}
+
+// readCheckout reads whether a sequence is part-way through and what is uncommitted, refreshing
+// the index first unless asked to peek.
+func (i *Inspector) readCheckout(ctx context.Context, inspection *Inspection, peek bool) error {
+	dir := inspection.Worktree.Dir
+	if peek {
+		inProgress, err := i.git.IsSequenceInProgress(ctx, dir)
+		if err != nil {
+			return err
+		}
+		inspection.SequenceInProgress = inProgress
+
+		inspection.Changes, err = i.git.PeekChanges(ctx, dir)
+
+		return err
+	}
 
 	state, err := i.git.ReadTreeState(ctx, dir)
 	if err != nil {
@@ -232,22 +275,9 @@ func (i *Inspector) readSettled(ctx context.Context, inspection *Inspection, fet
 	}
 	inspection.SequenceInProgress = state.InProgress
 
-	if inspection.Changes, err = i.git.ReadChanges(ctx, dir); err != nil {
-		return err
-	}
+	inspection.Changes, err = i.git.ReadChanges(ctx, dir)
 
-	prediction, err := i.git.PredictRebase(ctx, dir, ref)
-	if errors.Is(err, git.ErrBaseUnrelated) {
-		inspection.Unrelated = true
-
-		return nil
-	}
-	if err != nil {
-		return err
-	}
-	inspection.Landed, inspection.Unlanded = prediction.Landed, prediction.Replay
-
-	return nil
+	return err
 }
 
 // nameBase is the ref the branch is measured against, fetched from origin first when asked.
@@ -278,7 +308,7 @@ func (i *Inspector) getWorktreeConfig(ctx context.Context, worktree Worktree) (w
 	return workflow.Worktree, nil
 }
 
-func (i *Inspector) readRest(ctx context.Context, inspection *Inspection) error {
+func (i *Inspector) readRest(ctx context.Context, inspection *Inspection, exclude []string) error {
 	dir, ref := inspection.Worktree.Dir, inspection.BaseRef
 
 	var err error
@@ -300,7 +330,7 @@ func (i *Inspector) readRest(ctx context.Context, inspection *Inspection) error 
 	stat, err := i.git.ReadDiffStat(ctx, git.ReadDiffStatParams{
 		Dir:     dir,
 		Ref:     ref,
-		Exclude: inspection.diffExclude,
+		Exclude: exclude,
 	})
 	if err != nil && !errors.Is(err, git.ErrBaseUnrelated) {
 		return fmt.Errorf("failed to measure %q against %s: %w", dir, ref, err)

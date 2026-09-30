@@ -8,7 +8,8 @@ import (
 )
 
 // Checkout answers every question about a checkout with what the test put in it, remembering
-// which base it was asked to resolve and which repositories it was asked to prune.
+// which base it was asked to resolve, which repositories it was asked to prune and how often it
+// was asked to refresh the index.
 type Checkout struct {
 	Changes      git.Changes
 	State        git.TreeState
@@ -33,16 +34,31 @@ type Checkout struct {
 	Registered   []git.Worktree
 	ListErr      error
 	Origin       string
+	Refreshes    int
 }
 
-// ReadChanges answers Changes.
+// ReadChanges counts a refresh and answers Changes.
 func (g *Checkout) ReadChanges(context.Context, string) (git.Changes, error) {
+	g.Refreshes++
+
 	return g.Changes, nil
 }
 
-// ReadTreeState answers State.
+// PeekChanges answers Changes.
+func (g *Checkout) PeekChanges(context.Context, string) (git.Changes, error) {
+	return g.Changes, nil
+}
+
+// ReadTreeState counts a refresh and answers State.
 func (g *Checkout) ReadTreeState(context.Context, string) (git.TreeState, error) {
+	g.Refreshes++
+
 	return g.State, nil
+}
+
+// IsSequenceInProgress answers whether State is part-way through.
+func (g *Checkout) IsSequenceInProgress(context.Context, string) (bool, error) {
+	return g.State.InProgress, nil
 }
 
 // ResolveBase records the base and answers its origin ref, refusing a blank or unresolved one.

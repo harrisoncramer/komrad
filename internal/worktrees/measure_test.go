@@ -42,7 +42,7 @@ func TestMeasureTakesTheUnmeasuredFirstThenTheStaleOldestFirst(t *testing.T) {
 }
 
 // TestMeasureReadsWhereEachWalkedDirectoryStands covers a pass reading git for the directories
-// it walks, and leaving one it does not walk unread.
+// it walks without refreshing their index, and leaving one it does not walk unread.
 func TestMeasureReadsWhereEachWalkedDirectoryStands(t *testing.T) {
 	fixture := newFixture(t)
 	walked, fresh := fixture.cut(t), fixture.cut(t)
@@ -58,6 +58,7 @@ func TestMeasureReadsWhereEachWalkedDirectoryStands(t *testing.T) {
 	assert.Equal(t, 4, standing.Unlanded)
 	assert.Empty(t, standing.Error)
 	assert.Nil(t, fixture.listStored(t)[fresh].Standing)
+	assert.Zero(t, fixture.git.Refreshes, "a pass never takes the index lock of a checkout an agent may be using")
 }
 
 // TestMeasureRecordsAFailedWalkAndDoesNotRetryIt covers a walk that fails being recorded with
