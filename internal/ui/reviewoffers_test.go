@@ -151,7 +151,7 @@ func TestReviewOffers(t *testing.T) {
 
 		sent := harness.readSent(pullrequestv1connect.PullRequestServiceDismissForgeThreadProcedure)
 		require.Len(t, sent, 1)
-		assert.False(t, sent[0].(*pullrequestv1.DismissForgeThreadRequest).GetRestore())
+		assert.True(t, proto.Equal(&pullrequestv1.DismissForgeThreadRequest{Id: "f1"}, sent[0]))
 	})
 
 	t.Run("x restores a dismissed offer under the cursor", func(t *testing.T) {
@@ -168,7 +168,7 @@ func TestReviewOffers(t *testing.T) {
 
 		sent := harness.readSent(pullrequestv1connect.PullRequestServiceDismissForgeThreadProcedure)
 		require.Len(t, sent, 1)
-		assert.True(t, sent[0].(*pullrequestv1.DismissForgeThreadRequest).GetRestore())
+		assert.True(t, proto.Equal(&pullrequestv1.DismissForgeThreadRequest{Id: "f1", Restore: true}, sent[0]))
 	})
 
 	t.Run("a dismissed offer is still drawn, marked skipped, and J passes it by", func(t *testing.T) {
