@@ -28,6 +28,18 @@ type workflowReadWriter interface {
 	ListWorkflows(ctx context.Context, params agents.ListWorkflowsParams) ([]workflowstore.Workflow, error)
 }
 
+type workflowConfigGetter interface {
+	GetName() string
+	GetContext() string
+	GetHarness() string
+	GetCwd() string
+	GetFlags() string
+	GetReviewerHarness() string
+	GetReviewerFlags() string
+	GetWorktree() *workflowv1.WorktreeConfig
+	GetHooks() []*workflowv1.WorkflowHook
+}
+
 type NewHandlerParams struct {
 	Workflows workflowReadWriter
 }
@@ -128,18 +140,6 @@ func (s *Handler) DeleteWorkflow(ctx context.Context, req *workflowv1.DeleteWork
 	}
 
 	return &emptypb.Empty{}, nil
-}
-
-type workflowConfigGetter interface {
-	GetName() string
-	GetContext() string
-	GetHarness() string
-	GetCwd() string
-	GetFlags() string
-	GetReviewerHarness() string
-	GetReviewerFlags() string
-	GetWorktree() *workflowv1.WorktreeConfig
-	GetHooks() []*workflowv1.WorkflowHook
 }
 
 func configFromRequest(req workflowConfigGetter) workflowstore.Config {
