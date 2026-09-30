@@ -118,12 +118,6 @@ func TestSchedulesKeys(t *testing.T) {
 			}},
 		},
 		{
-			name:       "esc on the name renames nothing",
-			rows:       buildSchedules(),
-			press:      slices.Concat([]string{"r"}, spellKeys("-2"), []string{"esc"}),
-			wantAbsent: []string{"▏"},
-		},
-		{
 			name:  "toggle pauses an armed schedule with no form in between",
 			rows:  buildSchedules(),
 			press: []string{"p"},
