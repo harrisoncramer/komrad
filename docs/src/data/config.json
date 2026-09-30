@@ -1604,7 +1604,7 @@
           "path": "palette.highlight",
           "type": "string",
           "description": "What is picked out for you to act on, such as a search match.",
-          "default": "\"15\""
+          "default": "\"208\""
         },
         {
           "key": "inverse",
