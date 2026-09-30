@@ -95,7 +95,7 @@ func (s *Handler) GetWorkflow(ctx context.Context, req *workflowv1.GetWorkflowRe
 
 // CreateWorkflow adds a workflow and returns it as stored.
 func (s *Handler) CreateWorkflow(ctx context.Context, req *workflowv1.CreateWorkflowRequest) (*workflowv1.CreateWorkflowResponse, *fail.Error) {
-	created, err := s.workflows.NewWorkflow(ctx, configFromRequest(req))
+	created, err := s.workflows.NewWorkflow(ctx, buildConfigFromRequest(req))
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to create workflow")
 	}
@@ -105,7 +105,7 @@ func (s *Handler) CreateWorkflow(ctx context.Context, req *workflowv1.CreateWork
 
 // UpdateWorkflow replaces a workflow's editable fields.
 func (s *Handler) UpdateWorkflow(ctx context.Context, req *workflowv1.UpdateWorkflowRequest) (*emptypb.Empty, *fail.Error) {
-	err := s.workflows.UpdateWorkflow(ctx, req.GetId(), configFromRequest(req))
+	err := s.workflows.UpdateWorkflow(ctx, req.GetId(), buildConfigFromRequest(req))
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to update workflow")
 	}
@@ -142,7 +142,7 @@ func (s *Handler) DeleteWorkflow(ctx context.Context, req *workflowv1.DeleteWork
 	return &emptypb.Empty{}, nil
 }
 
-func configFromRequest(req workflowConfigGetter) workflowstore.Config {
+func buildConfigFromRequest(req workflowConfigGetter) workflowstore.Config {
 	return workflowstore.Config{
 		Name:            req.GetName(),
 		Context:         req.GetContext(),
@@ -151,18 +151,18 @@ func configFromRequest(req workflowConfigGetter) workflowstore.Config {
 		Flags:           req.GetFlags(),
 		ReviewerHarness: req.GetReviewerHarness(),
 		ReviewerFlags:   req.GetReviewerFlags(),
-		Worktree:        worktreeConfigFromProto(req.GetWorktree()),
-		Hooks:           hooksFromProto(req.GetHooks()),
+		Worktree:        buildWorktreeConfigFromProto(req.GetWorktree()),
+		Hooks:           buildHooksFromProto(req.GetHooks()),
 	}
 }
 
-func hooksFromProto(hooks []*workflowv1.WorkflowHook) []workflowstore.Hook {
+func buildHooksFromProto(hooks []*workflowv1.WorkflowHook) []workflowstore.Hook {
 	return xslice.Map(hooks, func(hook *workflowv1.WorkflowHook) workflowstore.Hook {
 		return workflowstore.Hook{Event: hook.GetEvent(), Script: hook.GetScript()}
 	})
 }
 
-func worktreeConfigFromProto(w *workflowv1.WorktreeConfig) workflowstore.WorktreeConfig {
+func buildWorktreeConfigFromProto(w *workflowv1.WorktreeConfig) workflowstore.WorktreeConfig {
 	return workflowstore.WorktreeConfig{
 		Enabled:      w.GetEnabled(),
 		BaseBranch:   w.GetBaseBranch(),
