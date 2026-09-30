@@ -347,16 +347,16 @@ func (a *agentsScreen) snapshot(s panelShared, pane listPane) view.Snapshot {
 	rows := a.rows(s)
 
 	return agentsSnapshot(snapshotParams{
-		rows:          rows,
-		selected:      a.selected,
-		scheduled:     s.listing.scheduledWorkflows(),
-		focused:       rowKeyAt(rows, a.cursor),
-		caret:         pane.caret,
-		barBlinkedOut: pane.blinkedOut,
-		matcher:       s.chrome.filter.pattern,
-		showHidden:    a.showHidden,
-		flat:          a.sort.flat,
-		pane:          pane.width,
+		rows:       rows,
+		selected:   a.selected,
+		scheduled:  s.listing.scheduledWorkflows(),
+		focused:    rowKeyAt(rows, a.cursor),
+		caret:      pane.caret,
+		blinkedOut: pane.blinkedOut,
+		matcher:    s.chrome.filter.pattern,
+		showHidden: a.showHidden,
+		flat:       a.sort.flat,
+		pane:       pane.width,
 	})
 }
 

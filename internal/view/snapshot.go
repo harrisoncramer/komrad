@@ -58,6 +58,7 @@ const (
 	ForgeApproved
 	ForgeApprovedWaiting
 	ForgeChangesRequested
+	ForgeChecksRunning
 	ForgeDraft
 	ForgeFailing
 	ForgeConflicting
@@ -88,8 +89,8 @@ type Snapshot struct {
 	Rows []Row
 	// Caret is how the focused row's arrow stands this frame.
 	Caret Caret
-	// BarBlinkedOut says the blink has a working agent's bar in its thin half this frame.
-	BarBlinkedOut bool
+	// BlinkedOut says the blink is on its off beat this frame.
+	BlinkedOut bool
 	// Focused is the key of the row the keyboard is standing on, naming it rather than counting
 	// to it so a list re-sorted after it was gathered still focuses the same row.
 	Focused string

@@ -36,8 +36,8 @@ func PullRequest(stored pullrequeststore.PullRequest) *pullrequestv1.PullRequest
 
 // PullRequestStateOf decides where a stored pull request stands: finished by its two stamps
 // first, then draft, then a failing check, then a conflict with the base, then a change request,
-// then the forge's own word on whether it would merge it now, with an approval held at waiting
-// until that word is clean.
+// then checks still running, then the forge's own word on whether it would merge it now, with an
+// approval held at waiting until that word is clean.
 func PullRequestStateOf(pullRequest pullrequeststore.PullRequest) pullrequestv1.PullRequestState {
 	checks := forge.ChecksNone
 	if pullRequest.Checks != nil {
@@ -65,6 +65,8 @@ func PullRequestStateOf(pullRequest pullrequeststore.PullRequest) pullrequestv1.
 	switch {
 	case decision == forge.ReviewDecisionChangesRequested:
 		return pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHANGES_REQUESTED
+	case checks == forge.ChecksPending:
+		return pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHECKS_RUNNING
 	case pullRequest.Mergeability != nil && *pullRequest.Mergeability == forge.MergeabilityClean:
 		return pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED
 	case decision == forge.ReviewDecisionApproved:

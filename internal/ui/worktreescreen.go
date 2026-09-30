@@ -196,17 +196,17 @@ func (w *worktreesScreen) snapshot(s panelShared, pane listPane) view.Snapshot {
 	rows := w.rows(s)
 
 	return worktreesSnapshot(worktreesSnapshotParams{
-		rows:          rows,
-		items:         w.items,
-		selected:      w.selected,
-		focused:       rowKeyAt(rows, w.cursor),
-		live:          s.listing.agents,
-		flat:          w.sort.flat,
-		caret:         pane.caret,
-		barBlinkedOut: pane.blinkedOut,
-		matcher:       s.chrome.filter.pattern,
-		pane:          pane.width,
-		now:           time.Now(),
+		rows:       rows,
+		items:      w.items,
+		selected:   w.selected,
+		focused:    rowKeyAt(rows, w.cursor),
+		live:       s.listing.agents,
+		flat:       w.sort.flat,
+		caret:      pane.caret,
+		blinkedOut: pane.blinkedOut,
+		matcher:    s.chrome.filter.pattern,
+		pane:       pane.width,
+		now:        time.Now(),
 	})
 }
 

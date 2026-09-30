@@ -70,6 +70,23 @@ func TestPullRequestStateOf(t *testing.T) {
 			want: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHANGES_REQUESTED,
 		},
 		{
+			name: "a change request beats checks running",
+			pullRequest: pullrequeststore.PullRequest{
+				ReviewDecision: xptr.Ptr(forge.ReviewDecisionChangesRequested),
+				Checks:         xptr.Ptr(forge.ChecksPending),
+			},
+			want: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHANGES_REQUESTED,
+		},
+		{
+			name: "checks running beat an approval on a clean branch",
+			pullRequest: pullrequeststore.PullRequest{
+				ReviewDecision: xptr.Ptr(forge.ReviewDecisionApproved),
+				Checks:         xptr.Ptr(forge.ChecksPending),
+				Mergeability:   xptr.Ptr(forge.MergeabilityClean),
+			},
+			want: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHECKS_RUNNING,
+		},
+		{
 			name: "clean beats an approval that would otherwise wait",
 			pullRequest: pullrequeststore.PullRequest{
 				ReviewDecision: xptr.Ptr(forge.ReviewDecisionApproved),

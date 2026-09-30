@@ -36,11 +36,17 @@ type RowGlyphs struct {
 
 // PullRequestGlyphs are drawn in the forge column of the sidebar.
 type PullRequestGlyphs struct {
-	// An open pull request, drawn in a warning colour once changes have been requested.
+	// An open pull request, and an approved one that cannot merge yet.
 	Open string `mapstructure:"open"`
+	// A pull request a reviewer has asked for changes on.
+	ChangesRequested string `mapstructure:"changes_requested"`
+	// A pull request whose checks are running, on one beat of the blink.
+	ChecksRunning string `mapstructure:"checks_running"`
+	// A pull request whose checks are running, on the other beat of the blink.
+	ChecksRunningBlink string `mapstructure:"checks_running_blink"`
 	// A draft pull request.
 	Draft string `mapstructure:"draft"`
-	// An approved pull request, drawn muted while it cannot merge yet.
+	// A pull request the forge would merge now.
 	Approved string `mapstructure:"approved"`
 	// A merged pull request.
 	Merged string `mapstructure:"merged"`

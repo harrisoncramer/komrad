@@ -434,20 +434,26 @@ worktree_gone = ""
 
 # The forge column of the sidebar, which says where the pull request from an agent's branch stands.
 [glyphs.pull_request]
-# An open pull request, drawn in a warning colour once changes have been requested.
-open        = ""
+# An open pull request, and an approved one that cannot merge yet.
+open                 = ""
+# A pull request a reviewer has asked for changes on.
+changes_requested    = ""
+# A pull request whose checks are running, on one beat of the blink.
+checks_running       = ""
+# A pull request whose checks are running, on the other beat of the blink.
+checks_running_blink = ""
 # A draft pull request.
-draft       = ""
-# An approved pull request, drawn muted while it cannot merge yet.
-approved    = ""
+draft                = ""
+# A pull request the forge would merge now.
+approved             = ""
 # A merged pull request.
-merged      = ""
+merged               = ""
 # A pull request closed without merging.
-closed      = ""
+closed               = ""
 # A pull request with a failing check.
-failing     = ""
+failing              = ""
 # A pull request that no longer merges cleanly.
-conflicting = ""
+conflicting          = ""
 
 # The marks drawn after a row's name in the sidebar and beside what they say in the details.
 [glyphs.marks]

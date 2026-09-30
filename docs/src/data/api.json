@@ -8785,11 +8785,15 @@
         },
         {
           "name": "PULL_REQUEST_STATE_APPROVED_WAITING",
-          "description": "Approved on the forge but not yet mergeable: its checks are still running, its branch is behind, or a branch rule is unmet."
+          "description": "Approved on the forge but not yet mergeable: its branch is behind or a branch rule is unmet."
         },
         {
           "name": "PULL_REQUEST_STATE_CONFLICTING",
           "description": "Open and no longer merging cleanly into its base, whatever its reviews say."
+        },
+        {
+          "name": "PULL_REQUEST_STATE_CHECKS_RUNNING",
+          "description": "Open with checks still running on its head and no change request."
         }
       ]
     },

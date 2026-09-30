@@ -399,9 +399,14 @@ func TestPrepareForgeColumn(t *testing.T) {
 			want:  Cell{Glyph: glyph.Approved, Tone: paint.ToneSuccess},
 		},
 		{
-			name:  "changes requested is the pull request glyph in warning",
+			name:  "changes requested gets its own glyph in warning",
 			forge: ForgeChangesRequested,
-			want:  Cell{Glyph: glyph.Open, Tone: paint.ToneWarning},
+			want:  Cell{Glyph: glyph.ChangesRequested, Tone: paint.ToneWarning},
+		},
+		{
+			name:  "checks running get their own glyph in warning",
+			forge: ForgeChecksRunning,
+			want:  Cell{Glyph: glyph.ChecksRunning, Tone: paint.ToneWarning},
 		},
 		{
 			name:  "a draft has its own glyph greyed",
@@ -409,9 +414,9 @@ func TestPrepareForgeColumn(t *testing.T) {
 			want:  Cell{Glyph: glyph.Draft, Tone: paint.ToneMuted},
 		},
 		{
-			name:  "an approval waiting on the forge keeps the check glyph, muted",
+			name:  "an approval waiting on the forge is the pull request glyph greyed",
 			forge: ForgeApprovedWaiting,
-			want:  Cell{Glyph: glyph.Approved, Tone: paint.ToneMuted},
+			want:  Cell{Glyph: glyph.Open, Tone: paint.ToneMuted},
 		},
 		{
 			name:  "failing checks get the failing glyph in danger",
@@ -442,6 +447,42 @@ func TestPrepareForgeColumn(t *testing.T) {
 	}
 
 	assert.Len(t, tests, int(ForgeEnd), "every state is pinned")
+}
+
+// TestPrepareForgeBlink pins which pull requests change glyph on the blink's off beat.
+func TestPrepareForgeBlink(t *testing.T) {
+	tests := []struct {
+		name       string
+		forge      Forge
+		blinkedOut bool
+		want       Cell
+	}{
+		{
+			name:  "checks running draw the small ring on the on beat",
+			forge: ForgeChecksRunning,
+			want:  Cell{Glyph: glyph.ChecksRunning, Tone: paint.ToneWarning},
+		},
+		{
+			name:       "checks running draw the large ring on the off beat",
+			forge:      ForgeChecksRunning,
+			blinkedOut: true,
+			want:       Cell{Glyph: glyph.ChecksRunningBlink, Tone: paint.ToneWarning},
+		},
+		{
+			name:       "an open pull request holds still on the off beat",
+			forge:      ForgeOpen,
+			blinkedOut: true,
+			want:       Cell{Glyph: glyph.Open, Tone: paint.ToneMuted},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			list := Prepare(Snapshot{Rows: []Row{{Forge: tt.forge}}, BlinkedOut: tt.blinkedOut})
+			require.Len(t, list.Lines, 1)
+			assert.Equal(t, tt.want, list.Lines[0].Columns[1])
+		})
+	}
 }
 
 // TestPrepareWeight pins the structure a row carries in its lettering rather than in a glyph.

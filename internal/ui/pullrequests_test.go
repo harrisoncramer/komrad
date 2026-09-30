@@ -23,17 +23,16 @@ func TestPullRequestWords(t *testing.T) {
 		want         string
 	}{
 		{
-			name:   "an open row with its checks running says so",
-			state:  pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN,
+			name:   "a row with its checks running names itself once",
+			state:  pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHECKS_RUNNING,
 			checks: pullrequestv1.Checks_CHECKS_PENDING,
-			want:   "open, checks running",
+			want:   "checks running",
 		},
 		{
-			name:         "an approval waiting on its checks",
-			state:        pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED_WAITING,
-			checks:       pullrequestv1.Checks_CHECKS_PENDING,
-			mergeability: pullrequestv1.Mergeability_MERGEABILITY_UNSTABLE,
-			want:         "approved, checks running",
+			name:   "a change request with its checks running says both",
+			state:  pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHANGES_REQUESTED,
+			checks: pullrequestv1.Checks_CHECKS_PENDING,
+			want:   "changes requested, checks running",
 		},
 		{
 			name:         "an approval behind its base",
