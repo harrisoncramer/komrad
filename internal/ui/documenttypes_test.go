@@ -17,8 +17,6 @@ import (
 
 const documentTypesScreen = "the document types"
 
-// TestDocumentTypesOpen covers the document types opening from the panel's own entries in the menu,
-// and leaving back to where they were opened.
 func TestDocumentTypesOpen(t *testing.T) {
 	t.Parallel()
 
@@ -94,8 +92,6 @@ func TestDocumentTypesOpen(t *testing.T) {
 	})
 }
 
-// TestDocumentTypesNewFromTheMenu covers defining a type from the document types menu without opening
-// the types.
 func TestDocumentTypesNewFromTheMenu(t *testing.T) {
 	t.Parallel()
 
