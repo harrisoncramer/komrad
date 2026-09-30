@@ -133,7 +133,7 @@ func TestSearchQuery(t *testing.T) {
 			t.Parallel()
 
 			harness := openAgents(t)
-			harness.press("tab")
+			harness.press("tab", "/")
 
 			harness.press(tt.press...)
 
@@ -220,7 +220,7 @@ func TestSearchResults(t *testing.T) {
 		t.Parallel()
 
 		harness := openAgents(t, buildSearchable()...)
-		harness.press("tab", "l", "e", "d", "esc", "shift+tab")
+		harness.press("tab", "/", "l", "e", "d", "esc", "shift+tab")
 
 		harness.fireTimers()
 
@@ -330,7 +330,7 @@ func TestSearchResults(t *testing.T) {
 		harness := newPanelHarness(t, panelHarnessParams{height: 14})
 		newSearchServer(found...).serve(harness)
 		harness.watch(buildSnapshot())
-		harness.press("tab")
+		harness.press("tab", "/")
 		typeText(harness, "agent")
 		harness.fireTimers()
 
@@ -346,7 +346,7 @@ func TestSearchResults(t *testing.T) {
 func TestSearchKeys(t *testing.T) {
 	t.Parallel()
 
-	t.Run("escape over an empty result puts the keys back in the query line", func(t *testing.T) {
+	t.Run("the filter key over an empty result puts the keys back in the query line", func(t *testing.T) {
 		t.Parallel()
 
 		harness := openSearch(t, openSearchParams{
@@ -354,7 +354,7 @@ func TestSearchKeys(t *testing.T) {
 			query:  "ledger",
 		})
 
-		harness.press("enter", "esc")
+		harness.press("enter", "/")
 
 		assert.Equal(t, "/ ledger"+queryCaret, readSearch(harness.readFrame()))
 	})
@@ -367,17 +367,15 @@ func TestSearchKeys(t *testing.T) {
 		wantTyping  bool
 	}{
 		{
-			name:       "escape in the query line opens the view switcher",
+			name:       "escape in the query line gives the keys up to the tabs",
 			press:      []string{"esc", "shift+tab"},
 			wantScreen: agentsScreen,
 			wantTyping: false,
 		},
 		{
-			name:        "escape over the hits puts the keys back in the query line",
-			press:       []string{"enter", "esc"},
-			wantScreen:  searchScreen,
-			wantHovered: "alpha",
-			wantTyping:  true,
+			name:       "escape over the hits opens the view switcher",
+			press:      []string{"enter", "esc", "shift+tab"},
+			wantScreen: agentsScreen,
 		},
 		{
 			name:        "enter closes the line and leaves the query standing",
@@ -1026,7 +1024,7 @@ func openSearch(t *testing.T, params openSearchParams) *panelHarness {
 }
 
 func searchFor(harness *panelHarness, query string) {
-	harness.press("tab")
+	harness.press("tab", "/")
 	typeText(harness, query)
 	harness.fireTimers()
 }

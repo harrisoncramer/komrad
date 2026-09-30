@@ -165,7 +165,7 @@ func TestHarnessFiresHeldTimers(t *testing.T) {
 	harness := newPanelHarness(t, panelHarnessParams{})
 	harness.watch(buildSnapshot())
 
-	harness.press("tab", "a", "p", "i")
+	harness.press("tab", "/", "a", "p", "i")
 	harness.assertSent()
 
 	harness.fireTimers()

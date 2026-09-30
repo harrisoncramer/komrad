@@ -88,12 +88,17 @@ func (w *searchScreen) actions() screenActionSpec {
 			},
 			screenAction{
 				id:   actionSearchEdit,
-				keys: func(config.Keybindings) []string { return []string{"esc", filterOpenKey} },
+				keys: func(config.Keybindings) []string { return []string{filterOpenKey} },
 				run: func(host, panelShared, string) tea.Cmd {
 					w.typing = true
 
 					return nil
 				},
+			},
+			screenAction{
+				id:   actionSearchBack,
+				keys: func(config.Keybindings) []string { return []string{"esc"} },
+				run:  func(h host, _ panelShared, _ string) tea.Cmd { return h.pickView() },
 			},
 			screenAction{
 				id:   actionSearchOpen,
@@ -112,7 +117,12 @@ func (w *searchScreen) actions() screenActionSpec {
 				desc:  func(panelShared) string { return "edit the query" },
 				strip: true,
 			},
-		}, screenNavLegend()),
+		}, screenNavLegend(), []screenLegendRow{
+			{
+				of:   []actionID{actionSearchBack},
+				desc: func(panelShared) string { return "back" },
+			},
+		}),
 	}
 }
 
@@ -204,9 +214,9 @@ type previewResult struct {
 	content string
 }
 
-// enter opens the search fresh, with the query line taking the keys.
+// enter opens the search fresh, with the query line waiting for the filter key.
 func (w *searchScreen) enter(h host, _ panelShared, _ screenTarget) tea.Cmd {
-	*w = searchScreen{typing: true}
+	*w = searchScreen{}
 
 	return nil
 }
@@ -521,7 +531,7 @@ func (w *searchScreen) updateInput(h host, s panelShared, key tea.KeyPressMsg) t
 	case k == "esc":
 		w.typing = false
 
-		return h.pickView()
+		return nil
 	case k == "enter":
 		w.typing = false
 
@@ -784,7 +794,7 @@ func qualifierLegend(width int) string {
 func (w *searchScreen) help(s panelShared) keyMap {
 	if w.typing {
 		done := binding([]string{"enter"}, "keep it, then move through the hits")
-		leave := binding([]string{"esc"}, "back")
+		leave := binding([]string{"esc"}, "leave the query line")
 
 		return keyMap{short: []key.Binding{done, leave}, full: []key.Binding{done, leave}}
 	}
