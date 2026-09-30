@@ -4,7 +4,7 @@ SELECT
 FROM
     document_types
 ORDER BY
-    lower(name),
+    LOWER(name),
     name;
 
 -- name: GetDocumentType :one
