@@ -98,6 +98,7 @@ const ProcessName = "process.name"
 const (
 	ProcessServe = "serve"
 	ProcessPanel = "panel"
+	ProcessOpen  = "open"
 )
 
 var severityNumbers = map[slog.Level]int{

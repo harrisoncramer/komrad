@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"os/exec"
 	"strings"
@@ -10,6 +11,7 @@ import (
 
 	"komrad/internal/agents"
 	"komrad/internal/git"
+	"komrad/internal/logging"
 	"komrad/internal/tmux"
 	"komrad/internal/version"
 	"komrad/lib/xhttp"
@@ -278,7 +280,7 @@ func prepareAutoSetup(ctx context.Context, state *app) bool {
 		LogPath:    state.env.LogPath(),
 		ConfigArgs: configArgs(state.configStack),
 	}); err != nil {
-		warnAutoSetup(err)
+		warnAutoSetup(ctx, state, err)
 
 		return false
 	}
@@ -291,7 +293,7 @@ func prepareAutoSetup(ctx context.Context, state *app) bool {
 func setUpWorkflowHere(ctx context.Context, state *app) {
 	dir, err := os.Getwd()
 	if err != nil {
-		warnAutoSetup(err)
+		warnAutoSetup(ctx, state, err)
 
 		return
 	}
@@ -304,10 +306,19 @@ func setUpWorkflowHere(ctx context.Context, state *app) {
 		Workflows: workflowv1connect.NewWorkflowServiceClient(httpClient, base),
 		Agents:    agentv1connect.NewAgentServiceClient(httpClient, base),
 	}); err != nil {
-		warnAutoSetup(err)
+		warnAutoSetup(ctx, state, err)
 	}
 }
 
-func warnAutoSetup(err error) {
+func warnAutoSetup(ctx context.Context, state *app, err error) {
 	fmt.Fprintf(os.Stderr, "komrad: auto_setup skipped: %v\n", err)
+
+	file, openErr := openLogFile(state.env.LogPath())
+	if openErr != nil {
+		return
+	}
+	defer func() { _ = file.Close() }()
+
+	logging.New(file, slog.LevelWarn).With(slog.String(logging.ProcessName, logging.ProcessOpen)).
+		LogAttrs(ctx, slog.LevelWarn, "auto_setup skipped", logging.Err(err)...)
 }
