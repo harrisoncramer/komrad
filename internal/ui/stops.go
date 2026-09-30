@@ -26,7 +26,7 @@ func (m model) listStops() []stop {
 	switch {
 	case m.isScreenBlockDrawn(), m.isDocReadable():
 		stops = append(stops, stopBlock)
-	case m.focusPane() != "":
+	case m.findFocusPane() != "":
 		stops = append(stops, stopAgent)
 	}
 
@@ -42,9 +42,13 @@ func (m model) listStops() []stop {
 }
 
 func (m model) enterStop(to stop) (tea.Model, tea.Cmd) {
+	if to != stopList {
+		m.filter.typing = false
+	}
+
 	switch to {
 	case stopAgent:
-		m.tmux.SelectPane(m.focusPane())
+		m.tmux.SelectPane(m.findFocusPane())
 	case stopTerminal:
 		m.tmux.SelectPane(m.findTerminalPane())
 	case stopRecord:
@@ -116,10 +120,6 @@ func (m model) toggleStop() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	if to != stopList {
-		m.filter.typing = false
-	}
-
 	return m.enterStop(to)
 }
 
@@ -128,4 +128,14 @@ func (m model) isScreenBlockDrawn() bool {
 	b, ok := m.active().(blocked)
 
 	return ok && b.isBlockDrawn(m.shared())
+}
+
+// findFocusPane finds the agent's pane the picker stops at, empty where the stage holds none or
+// the panel is drawn over it.
+func (m model) findFocusPane() string {
+	if m.screen != screenAgents || m.frame.IsSolo() {
+		return ""
+	}
+
+	return m.frame.FocusPane()
 }
