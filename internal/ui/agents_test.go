@@ -226,6 +226,16 @@ func TestAgentsShowHidden(t *testing.T) {
 		assert.Equal(t, []string{"komrad", "  fix-gutter", "  author" + hiddenMark, "  └ test-runner", "  └ reviewer"}, readListRows(harness.readFrame()))
 	})
 
+	t.Run("the toggle gives the window back to an open scratch file", func(t *testing.T) {
+		harness, _ := openScratchPanel(t, rows...)
+		harness.press("space", "s")
+		require.False(t, harness.panel.IsZoomed())
+
+		harness.press("space", "h", "H")
+
+		assert.False(t, harness.panel.IsZoomed())
+	})
+
 	t.Run("the hide entry hides the hovered agent", func(t *testing.T) {
 		harness := openAgents(t, rows...)
 

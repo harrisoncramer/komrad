@@ -35,6 +35,7 @@ func (a *agentsScreen) hideMenu(s panelShared, agent *panel.Agent) submenu {
 			}
 
 			m.leaveForm()
+			m.reconcileSolo()
 			m.agents.toggleHidden(&m, m.shared())
 
 			return m, nil
