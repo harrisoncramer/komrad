@@ -1647,7 +1647,7 @@ func TestAgentsLastScreen(t *testing.T) {
 		{
 			name:          "a dormant agent draws its saved screen under how to resume it",
 			agent:         newDormant("login"),
-			want:          []string{"dormant · press enter to restore", "Press open to resume.", "saved screen", "the migration is written"},
+			want:          []string{"dormant · press enter to restore", "saved screen", "the migration is written"},
 			wantScreenFor: []string{"a1"},
 		},
 		{
@@ -2061,7 +2061,7 @@ func TestAgentsOrchestrator(t *testing.T) {
 		{
 			name:       "a workflow whose orchestrator stopped says how to bring it back",
 			rows:       []proto.Message{newLiveWorkflow("w1", "backend"), dormant},
-			want:       "Press open to resume.",
+			want:       "dormant · press enter to restore",
 			wantZoomed: true,
 		},
 		{

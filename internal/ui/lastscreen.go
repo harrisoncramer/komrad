@@ -125,25 +125,23 @@ func (m *model) applyLastScreen(msg lastScreenMsg) {
 type lastScreenRowsParams struct {
 	screen  lastScreen
 	agentID string
-	notice  string
 	width   int
 	height  int
 }
 
-// lastScreenRows is the saved screen under a notice block and a line saying when it was taken,
-// fitted to the column, or the notice and one line saying why there is none.
+// lastScreenRows is the saved screen under a line saying when it was taken, fitted to the
+// column, or one line saying why there is none.
 func lastScreenRows(params lastScreenRowsParams) []string {
 	muted := paint.Panel.Style(paint.ToneMuted)
 	shown := params.screen
-	notice := noticeRows(params.notice, params.width)
 
 	switch {
 	case shown.agentID != params.agentID || !shown.answered:
-		return append(notice, muted.Render("reading the saved screen…"))
+		return []string{muted.Render("reading the saved screen…")}
 	case errors.Is(shown.err, errNoSavedScreen):
-		return append(notice, muted.Render("no saved screen"))
+		return []string{muted.Render("no saved screen")}
 	case shown.err != nil:
-		return append(notice, muted.Render("could not read the saved screen: "+errui.GetReason(shown.err)))
+		return []string{muted.Render("could not read the saved screen: " + errui.GetReason(shown.err))}
 	}
 
 	saved := shown.screen
@@ -152,9 +150,9 @@ func lastScreenRows(params lastScreenRowsParams) []string {
 		label.Friendly(saved.GetCapturedAt().AsTime()),
 		fmt.Sprintf("%dx%d", saved.GetWidth(), saved.GetHeight()),
 	}, separated))
-	height := min(max(params.height-len(notice)-1, 1), int(saved.GetHeight()))
+	height := min(max(params.height-1, 1), int(saved.GetHeight()))
 
-	return slices.Concat(notice, []string{banner}, strings.Split(savedscreen.Fit(saved.GetFrame(), max(params.width, 1), height), "\n"))
+	return append([]string{banner}, strings.Split(savedscreen.Fit(saved.GetFrame(), max(params.width, 1), height), "\n")...)
 }
 
 func noticeRows(notice string, width int) []string {
@@ -162,14 +160,17 @@ func noticeRows(notice string, width int) []string {
 		return nil
 	}
 
+	const padding = 2
+
+	text := ansi.Truncate(notice, max(width-2*padding, 1), "…")
 	palette := paint.Panel
 	fill := lipgloss.NewStyle().
-		Background(palette.Color(paint.ToneWarning)).
+		Background(palette.Color(paint.ToneModeVisual)).
 		Foreground(palette.Color(paint.ToneInverse)).
-		Width(max(width, 1))
+		Width(min(ansi.StringWidth(text)+2*padding, max(width, 1)))
 	bar := fill.Render("")
 
-	return []string{bar, fill.Bold(true).Align(lipgloss.Center).Render(ansi.Truncate(notice, max(width, 1), "…")), bar}
+	return []string{bar, fill.Bold(true).PaddingLeft(padding).Render(text), bar}
 }
 
 func (m model) screenNotice() string {
@@ -214,25 +215,28 @@ func (m model) columnHeight() int {
 // given the whole column to scroll to instead.
 const minScreenRows = 8
 
-// withLastScreen is a column's rows with the saved screen of the agent it screens drawn under
-// them.
+// withLastScreen is a column's rows under a notice saying the agent is not running, with the
+// saved screen of the agent it screens drawn under them.
 func (m model) withLastScreen(rows []string, width int) []string {
 	agentID, ok := m.screenedAgentID()
 	if !ok {
 		return rows
 	}
 
-	notice := m.screenNotice()
-	height := m.columnHeight() - len(rows) - 1
-	if height-len(noticeRows(notice, width))-1 < minScreenRows {
+	top := noticeRows(m.screenNotice(), width)
+	if slices.ContainsFunc(rows, func(row string) bool { return strings.TrimSpace(ansi.Strip(row)) != "" }) {
+		top = slices.Concat(top, []string{""}, rows)
+	}
+
+	height := m.columnHeight() - len(top) - 1
+	if height-1 < minScreenRows {
 		height = m.columnHeight()
 	}
 
-	return append(append(rows, ""), lastScreenRows(lastScreenRowsParams{
+	return slices.Concat(top, []string{""}, lastScreenRows(lastScreenRowsParams{
 		screen:  m.lastScreen,
 		agentID: agentID,
-		notice:  notice,
 		width:   width,
 		height:  height,
-	})...)
+	}))
 }

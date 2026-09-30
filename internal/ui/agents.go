@@ -256,9 +256,9 @@ func (a *agentsScreen) doc(s panelShared) string {
 		return heldPlaceholder
 	case item.Agent.State.IsFailed():
 		return failedPlaceholder(item.Agent)
-	default:
-		return dormantPlaceholder
 	}
+
+	return ""
 }
 
 // parentName is what the agent a child is attached to is called.
@@ -291,9 +291,7 @@ func (l listing) scheduleName(agent panel.Agent) string {
 	return ""
 }
 
-const dormantPlaceholder = "_dormant — not running_\n\nPress open to resume."
-
-const heldPlaceholder = "_paused_\n\nPress unpause to let it carry on, or unpause in silence to let it go without typing at it."
+const heldPlaceholder = "Press unpause to let it carry on, or unpause in silence to let it go without typing at it."
 
 func welcomeText(keys config.Keybindings) string {
 	return fmt.Sprintf("Welcome, komrad!\n\nPress '%s' to set up your first workflow", firstKey(keys.Workflows.New, "w"))
