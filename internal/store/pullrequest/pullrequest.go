@@ -121,6 +121,9 @@ type StandingChange struct {
 	KnownChecksSHA    *string
 	KnownMergeability *string
 	KnownDecision     *string
+	// BlankSince is when the forge first answered a blank mergeability for this head, nil once it
+	// answers one.
+	BlankSince *time.Time
 }
 
 // Observation is one agent having been seen with one pull request.
@@ -291,6 +294,7 @@ func (s *PullRequestStore) SetStanding(ctx context.Context, params SetStandingPa
 		KnownChecksSHA:    row.KnownChecksSha,
 		KnownMergeability: row.KnownMergeability,
 		KnownDecision:     row.KnownDecision,
+		BlankSince:        row.BlankSince,
 	}, nil
 }
 

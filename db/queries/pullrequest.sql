@@ -362,6 +362,7 @@ WHERE
             AND p.changed_at > @changed_since::timestamptz
             AND p.checks_read_at < @pending_before::timestamptz)
         OR (p.mergeability IS NULL
+            AND p.mergeability_blank_since > @mergeability_blank_since::timestamptz
             AND p.checks_read_at < @mergeability_blank_before::timestamptz)
         OR (p.checks_read_at < @settled_before::timestamptz))
     AND EXISTS (
@@ -413,6 +414,15 @@ SET
     ELSE
         NULLIF(@checks_sha::text, '')
     END,
+    mergeability_blank_since = CASE WHEN NOT @answered::boolean THEN
+        p.mergeability_blank_since
+    WHEN sqlc.narg('mergeability')::text IS NOT NULL THEN
+        NULL
+    WHEN p.checks_sha IS NOT DISTINCT FROM @checks_sha::text THEN
+        COALESCE(p.mergeability_blank_since, @checks_read_at::timestamptz)
+    ELSE
+        @checks_read_at::timestamptz
+    END,
     last_known_decision = COALESCE(sqlc.narg('review_decision'), p.last_known_decision)
 FROM
     prior
@@ -426,7 +436,8 @@ RETURNING
     p.last_known_checks AS known_checks,
     p.last_known_checks_sha AS known_checks_sha,
     p.last_known_mergeability AS known_mergeability,
-    p.last_known_decision AS known_decision;
+    p.last_known_decision AS known_decision,
+    p.mergeability_blank_since AS blank_since;
 
 -- name: ListWatchedPullRequests :many
 SELECT

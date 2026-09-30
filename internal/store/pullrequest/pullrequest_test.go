@@ -464,12 +464,13 @@ func TestListStaleStandingsAnswersOpenRowsOnAgentBranches(t *testing.T) {
 	list := func(now time.Time) []int {
 		t.Helper()
 		stale, err := h.syncs.ListStaleStandings(ctx, ListStaleStandingsParams{
-			RepositoryURL:          komrad,
-			Now:                    now,
-			PendingAfter:           time.Minute,
-			SettleWithin:           10 * time.Minute,
-			MergeabilityBlankAfter: 10 * time.Second,
-			SettledAfter:           10 * time.Minute,
+			RepositoryURL:           komrad,
+			Now:                     now,
+			PendingAfter:            time.Minute,
+			SettleWithin:            10 * time.Minute,
+			MergeabilityBlankAfter:  10 * time.Second,
+			MergeabilityBlankWithin: 2 * time.Minute,
+			SettledAfter:            10 * time.Minute,
 		})
 		require.NoError(t, err)
 
@@ -481,7 +482,7 @@ func TestListStaleStandingsAnswersOpenRowsOnAgentBranches(t *testing.T) {
 	assert.ElementsMatch(t, []int{1, 3, 7, 9}, list(now), "never read, changed since, and pushed since are stale the moment they are written, an archived agent's branch included")
 	assert.ElementsMatch(t, []int{1, 3, 7, 9}, list(now.Add(5*time.Second)), "a mergeability not yet computed waits out ten seconds")
 	assert.ElementsMatch(t, []int{1, 3, 7, 9, 14}, list(now.Add(11*time.Second)), "a mergeability not yet computed is read again after ten seconds however old the change")
-	assert.ElementsMatch(t, []int{1, 3, 7, 9, 10, 12, 14}, list(now.Add(2*time.Minute)), "a pending run and a fresh change with no checks are read again after a minute, an old change with no checks is not")
+	assert.ElementsMatch(t, []int{1, 3, 7, 9, 10, 12}, list(now.Add(2*time.Minute)), "a pending run and a fresh change with no checks are read again after a minute, an old change with no checks is not, nor a blank that began two minutes ago")
 	assert.ElementsMatch(t, []int{1, 2, 3, 7, 9, 10, 11, 12, 13, 14}, list(now.Add(11*time.Minute)), "every row is read again after ten minutes")
 	assert.Equal(t, 3, list(now)[0], "newest change first")
 }
@@ -862,6 +863,119 @@ func TestSetStandingRemembersWhichHeadMergeabilityWasReadFor(t *testing.T) {
 			assert.Equal(t, tt.wantKnownSHA, stored.LastKnownMergeabilitySHA)
 			assert.Equal(t, tt.wantChecks, stored.Checks)
 			assert.Equal(t, tt.wantChecksSHA, stored.ChecksSHA)
+		})
+	}
+}
+
+// TestSetStandingAnswersWhenABlankBegan covers the blank mergeability's start holding through
+// later blanks on one head and starting again on a new head or clearing on an answer.
+func TestSetStandingAnswersWhenABlankBegan(t *testing.T) {
+	began := time.Date(2026, 9, 21, 12, 0, 0, 0, time.UTC)
+	later := began.Add(time.Minute)
+	type read struct {
+		standing   forge.Standing
+		unanswered bool
+		at         time.Time
+	}
+	type testCase struct {
+		name      string
+		reads     []read
+		wantSince *time.Time
+	}
+	tests := []testCase{
+		{
+			name: "an answer clears the blank",
+			reads: []read{
+				{
+					standing: forge.Standing{HeadSHA: "abc"},
+					at:       began,
+				},
+				{
+					standing: forge.Standing{
+						Mergeability: forge.MergeabilityClean,
+						HeadSHA:      "abc",
+					},
+					at: later,
+				},
+			},
+			wantSince: nil,
+		},
+		{
+			name: "a blank on a new head begins again",
+			reads: []read{
+				{
+					standing: forge.Standing{HeadSHA: "abc"},
+					at:       began,
+				},
+				{
+					standing: forge.Standing{HeadSHA: "def"},
+					at:       later,
+				},
+			},
+			wantSince: &later,
+		},
+		{
+			name: "an unanswered read keeps when the blank began",
+			reads: []read{
+				{
+					standing: forge.Standing{HeadSHA: "abc"},
+					at:       began,
+				},
+				{
+					standing:   forge.Standing{HeadSHA: "abc"},
+					unanswered: true,
+					at:         later,
+				},
+			},
+			wantSince: &began,
+		},
+		{
+			name: "a blank that stays blank keeps when it began",
+			reads: []read{
+				{
+					standing: forge.Standing{
+						Mergeability: forge.MergeabilityClean,
+						HeadSHA:      "abc",
+					},
+					at: began.Add(-time.Minute),
+				},
+				{
+					standing: forge.Standing{HeadSHA: "abc"},
+					at:       began,
+				},
+				{
+					standing: forge.Standing{HeadSHA: "abc"},
+					at:       later,
+				},
+			},
+			wantSince: &began,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			h := open(t)
+			ctx := t.Context()
+			written, err := h.Upsert(ctx, openPullRequest("PR_1", 1, "agent/x"))
+			require.NoError(t, err)
+
+			var change *StandingChange
+			for _, r := range tt.reads {
+				change, err = h.SetStanding(ctx, SetStandingParams{
+					ID:         written.ID,
+					Standing:   r.standing,
+					ReadAt:     r.at,
+					Unanswered: r.unanswered,
+				})
+				require.NoError(t, err)
+			}
+
+			if tt.wantSince == nil {
+				assert.Nil(t, change.BlankSince)
+				return
+			}
+			require.NotNil(t, change.BlankSince)
+			assert.True(t, tt.wantSince.Equal(*change.BlankSince), "began %s, want %s", *change.BlankSince, *tt.wantSince)
 		})
 	}
 }

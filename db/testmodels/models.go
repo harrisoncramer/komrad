@@ -598,6 +598,8 @@ type PullRequest struct {
 	LastKnownChecksSha *string
 	// The head commit last_known_mergeability was read for. The panel draws the last known mergeability through a blank reading only while this is still the head.
 	LastKnownMergeabilitySha *string
+	// When the forge first answered a blank mergeability for checks_sha, which bounds how long a blank is read again quickly.
+	MergeabilityBlankSince pgtype.Timestamptz
 }
 
 // Where the pull request sync is for one repository: the high-water mark the changes have been read through, the first sweep in progress if one is, and what the last pass cost.

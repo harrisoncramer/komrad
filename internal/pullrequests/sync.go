@@ -39,6 +39,10 @@ const checksSettledAfter = 10 * time.Minute
 // is read again, however long ago the pull request last changed.
 const mergeabilityBlankAfter = 10 * time.Second
 
+// mergeabilityBlankWithin is how long after the forge first answers a blank mergeability for a
+// head it is read again every mergeabilityBlankAfter, before falling back to the settled pace.
+const mergeabilityBlankWithin = 2 * time.Minute
+
 // pullRequestSyncOverlap is how far below the high-water mark a search reads.
 const pullRequestSyncOverlap = 15 * time.Minute
 
@@ -747,12 +751,13 @@ func (s *PullRequestSyncer) readStandings(ctx context.Context, host *hostRead, r
 	repositoryURL := remote.Canonical()
 	now := s.now()
 	stale, err := s.syncs.ListStaleStandings(ctx, pullrequeststore.ListStaleStandingsParams{
-		RepositoryURL:          repositoryURL,
-		Now:                    now,
-		PendingAfter:           checksPendingAfter,
-		SettleWithin:           checksSettleWithin,
-		MergeabilityBlankAfter: mergeabilityBlankAfter,
-		SettledAfter:           checksSettledAfter,
+		RepositoryURL:           repositoryURL,
+		Now:                     now,
+		PendingAfter:            checksPendingAfter,
+		SettleWithin:            checksSettleWithin,
+		MergeabilityBlankAfter:  mergeabilityBlankAfter,
+		MergeabilityBlankWithin: mergeabilityBlankWithin,
+		SettledAfter:            checksSettledAfter,
 	})
 	if err != nil {
 		return err
@@ -783,17 +788,17 @@ func (s *PullRequestSyncer) readStandings(ctx context.Context, host *hostRead, r
 					slog.Int(logging.PullRequestNumber, pullRequest.Number))
 				standing = forge.Standing{HeadSHA: pullRequest.HeadSHA}
 			}
-			if answered && standing.Mergeability == forge.MergeabilityUnknown {
-				counts.blank = true
-			}
-
-			if err := s.setStanding(ctx, pullrequeststore.SetStandingParams{
+			change, err := s.setStanding(ctx, pullrequeststore.SetStandingParams{
 				ID:         pullRequest.ID,
 				Standing:   standing,
 				ReadAt:     now,
 				Unanswered: !answered,
-			}); err != nil {
+			})
+			if err != nil {
 				return err
+			}
+			if answered && change.BlankSince != nil && now.Sub(*change.BlankSince) < mergeabilityBlankWithin {
+				counts.blank = true
 			}
 			counts.standings++
 		}
@@ -889,9 +894,6 @@ func (s *PullRequestSyncer) writePage(ctx context.Context, pullRequests []forge.
 				if pullRequest.Mergeability != nil {
 					standing.Mergeability = *pullRequest.Mergeability
 				}
-				if standing.Mergeability == forge.MergeabilityUnknown {
-					counts.blank = true
-				}
 				change, err := st.SetStanding(ctx, pullrequeststore.SetStandingParams{
 					ID:       outcome.ID,
 					Standing: standing,
@@ -925,15 +927,17 @@ func (s *PullRequestSyncer) writePage(ctx context.Context, pullRequests []forge.
 }
 
 // setStanding records one pull request's standing and the event for whatever it moved in one
-// transaction.
-func (s *PullRequestSyncer) setStanding(ctx context.Context, params pullrequeststore.SetStandingParams) error {
-	return s.events.InsertManyTx(ctx, func(tx pgx.Tx) ([]river.JobArgs, error) {
-		change, err := pullrequeststore.NewPullRequestStore(tx).SetStanding(ctx, params)
+// transaction, and answers the change it wrote.
+func (s *PullRequestSyncer) setStanding(ctx context.Context, params pullrequeststore.SetStandingParams) (*pullrequeststore.StandingChange, error) {
+	var change *pullrequeststore.StandingChange
+	err := s.events.InsertManyTx(ctx, func(tx pgx.Tx) ([]river.JobArgs, error) {
+		written, err := pullrequeststore.NewPullRequestStore(tx).SetStanding(ctx, params)
 		if err != nil {
 			return nil, err
 		}
+		change = written
 
-		moved := NewChange(params.ID, standingMoves(change)...)
+		moved := NewChange(params.ID, standingMoves(written)...)
 		if moved == nil {
 			return nil, nil
 		}
@@ -944,6 +948,11 @@ func (s *PullRequestSyncer) setStanding(ctx context.Context, params pullrequests
 
 		return []river.JobArgs{*event}, nil
 	})
+	if err != nil {
+		return nil, err
+	}
+
+	return change, nil
 }
 
 func standingMoves(change *pullrequeststore.StandingChange) []*Move {

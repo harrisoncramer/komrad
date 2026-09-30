@@ -1377,6 +1377,53 @@ func TestSyncReadsMergeabilityAgainWhileTheForgeComputesIt(t *testing.T) {
 	assert.Equal(t, forge.MergeabilityBehind, *f.stored(t, "PR_1").Mergeability, "a base that moved under the branch is seen without the branch changing")
 }
 
+// TestSyncStopsWakingForABlankThatStaysBlank covers a forge that never computes the
+// mergeability, which is asked about every ten seconds for two minutes and then only at the
+// settled pace, without waking the sync again.
+func TestSyncStopsWakingForABlankThatStaysBlank(t *testing.T) {
+	f := newSyncFixture(t)
+	f.agentOn(t, "a", "agent/x")
+	f.forge.updated[""] = &forge.Page{PullRequests: []forge.PullRequest{pullRequestAt("PR_1", "agent/x", syncNow.Add(-time.Hour))}}
+	f.forge.standings[1] = forge.Standing{
+		Decision:     forge.ReviewDecisionApproved,
+		Checks:       forge.ChecksPassing,
+		Mergeability: scriptedMergeabilityUnknown,
+	}
+
+	f.sync(t)
+	for at := 11 * time.Second; at < 2*time.Minute; at += 11 * time.Second {
+		f.pass(t, syncNow.Add(at))
+		assert.Equal(t, []string{"standings:1"}, f.standings(), "a blank is asked about again %s after it began", at)
+	}
+	woken := len(f.recheck.Delayed)
+
+	f.pass(t, syncNow.Add(2*time.Minute+time.Second))
+	assert.Empty(t, f.standings(), "a blank two minutes old is not asked about quickly")
+	assert.Len(t, f.recheck.Delayed, woken, "a blank two minutes old wakes nothing")
+
+	f.pass(t, syncNow.Add(13*time.Minute))
+	assert.Equal(t, []string{"standings:1"}, f.standings(), "the slow tier still reads a blank")
+	assert.Len(t, f.recheck.Delayed, woken, "a blank read at the slow pace wakes nothing")
+}
+
+// TestSyncSearchPageBlankWakesNothing covers a search row carrying a blank mergeability, which
+// the standings read picks up at its own pace rather than waking the sync.
+func TestSyncSearchPageBlankWakesNothing(t *testing.T) {
+	f := newSyncFixture(t)
+	f.agentOn(t, "a", "agent/x")
+	f.forge.updated[""] = &forge.Page{}
+	f.sync(t)
+
+	changed := decided(pullRequestAt("PR_1", "agent/x", syncNow.Add(time.Minute)), forge.ReviewDecisionApproved)
+	changed.Checks = xptr.Ptr(forge.ChecksPassing)
+	changed.Mergeability = nil
+	f.forge.changed[""] = &forge.Page{PullRequests: []forge.PullRequest{changed}}
+	f.pass(t, syncNow.Add(2*time.Minute))
+
+	assert.Nil(t, f.stored(t, "PR_1").Mergeability)
+	assert.Empty(t, f.recheck.Delayed)
+}
+
 // TestSyncWritesTheChecksTheSearchCarries covers a search row carrying its checks, which lands
 // with them rather than costing a standings request.
 func TestSyncWritesTheChecksTheSearchCarries(t *testing.T) {

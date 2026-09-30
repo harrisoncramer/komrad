@@ -65,14 +65,16 @@ func NewPullRequestSyncStore(db store.DBTX) *PullRequestSyncStore {
 // ListStaleStandingsParams says how long a read of the checks and mergeability is trusted: a
 // pending run is read again after PendingAfter, so is a head with no checks while the row
 // changed within SettleWithin, a mergeability the forge had not computed after
-// MergeabilityBlankAfter, and any row after SettledAfter.
+// MergeabilityBlankAfter while the blank began within MergeabilityBlankWithin, and any row after
+// SettledAfter.
 type ListStaleStandingsParams struct {
-	RepositoryURL          string
-	Now                    time.Time
-	PendingAfter           time.Duration
-	SettleWithin           time.Duration
-	MergeabilityBlankAfter time.Duration
-	SettledAfter           time.Duration
+	RepositoryURL           string
+	Now                     time.Time
+	PendingAfter            time.Duration
+	SettleWithin            time.Duration
+	MergeabilityBlankAfter  time.Duration
+	MergeabilityBlankWithin time.Duration
+	SettledAfter            time.Duration
 }
 
 // ListStaleStandings is every open pull request on a branch a live agent sits on in a
@@ -84,6 +86,7 @@ func (s *PullRequestSyncStore) ListStaleStandings(ctx context.Context, params Li
 		PendingBefore:           params.Now.Add(-params.PendingAfter),
 		ChangedSince:            params.Now.Add(-params.SettleWithin),
 		MergeabilityBlankBefore: params.Now.Add(-params.MergeabilityBlankAfter),
+		MergeabilityBlankSince:  params.Now.Add(-params.MergeabilityBlankWithin),
 		SettledBefore:           params.Now.Add(-params.SettledAfter),
 	})
 	if err != nil {

@@ -212,6 +212,11 @@ table "pull_requests" {
     type    = text
     comment = "The head commit last_known_mergeability was read for. The panel draws the last known mergeability through a blank reading only while this is still the head."
   }
+  column "mergeability_blank_since" {
+    null    = true
+    type    = timestamptz
+    comment = "When the forge first answered a blank mergeability for checks_sha, which bounds how long a blank is read again quickly."
+  }
   column "last_known_decision" {
     null    = true
     type    = text
