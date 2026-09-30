@@ -554,13 +554,33 @@
             "reviewer",
             "orchestrator"
           ],
-          "summary": "Read one document type and its context by name.",
-          "description": "Read one document type and its context by name.",
+          "summary": "Read one document type and its context by name, or as an earlier write left it when version names one.",
+          "description": "Read one document type and its context by name, or as an earlier write left it when version names one.",
           "readOnly": true,
           "idempotent": true,
           "destructive": false,
           "request": "agent.v1.GetDocumentTypeRequest",
           "response": "agent.v1.GetDocumentTypeResponse"
+        },
+        {
+          "slug": "list-document-type-versions",
+          "name": "ListDocumentTypeVersions",
+          "path": "/agent.v1.AgentService/ListDocumentTypeVersions",
+          "command": "komrad rpc list-document-type-versions",
+          "tool": "list_document_type_versions",
+          "mcp": true,
+          "roles": [
+            "implementer",
+            "reviewer",
+            "orchestrator"
+          ],
+          "summary": "List every write of a document type, newest first.",
+          "description": "List every write of a document type, newest first. Read any one with get_document_type and its version, which is how you see how a person changed a type's context.",
+          "readOnly": true,
+          "idempotent": true,
+          "destructive": false,
+          "request": "agent.v1.ListDocumentTypeVersionsRequest",
+          "response": "agent.v1.ListDocumentTypeVersionsResponse"
         },
         {
           "slug": "write-document-type",
@@ -2657,6 +2677,42 @@
         }
       ]
     },
+    "agent.v1.DocumentTypeVersion": {
+      "name": "DocumentTypeVersion",
+      "description": "DocumentTypeVersion is one write of a document type, without its context.",
+      "fields": [
+        {
+          "name": "version",
+          "type": "int32",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "Pass this to get_document_type to read the type as this write left it."
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The name it had."
+        },
+        {
+          "name": "created_at",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "When it was written, in RFC 3339."
+        }
+      ]
+    },
     "agent.v1.DocumentVersion": {
       "name": "DocumentVersion",
       "description": "DocumentVersion is one write of a document, without its body.",
@@ -2996,6 +3052,16 @@
             "required"
           ],
           "description": "The name of the type to read."
+        },
+        {
+          "name": "version",
+          "type": "int32",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "An earlier write to read as it was, or unset for the type as it stands."
         }
       ]
     },
@@ -3284,6 +3350,40 @@
           "oneof": "",
           "rules": [],
           "description": "Pass this back as the pagination cursor for the next page."
+        }
+      ]
+    },
+    "agent.v1.ListDocumentTypeVersionsRequest": {
+      "name": "ListDocumentTypeVersionsRequest",
+      "description": "",
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [
+            "required"
+          ],
+          "description": "The type whose writes to list."
+        }
+      ]
+    },
+    "agent.v1.ListDocumentTypeVersionsResponse": {
+      "name": "ListDocumentTypeVersionsResponse",
+      "description": "",
+      "fields": [
+        {
+          "name": "versions",
+          "type": "DocumentTypeVersion",
+          "ref": "agent.v1.DocumentTypeVersion",
+          "repeated": true,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "Every write of the type, the newest first."
         }
       ]
     },
