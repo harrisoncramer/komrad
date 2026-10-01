@@ -104,7 +104,7 @@ func (k Known) Moves(before Known) []Move {
 
 // isRerun says whether the checks gave the same verdict again on a different head.
 func isRerun(before, after Last[Checks]) bool {
-	return after.Value != ChecksNone && before.SHA != "" && after.SHA != "" && before.SHA != after.SHA
+	return before.SHA != "" && after.SHA != "" && before.SHA != after.SHA
 }
 
 // autoMergeWord is whether auto-merge is on in the words a move carries, empty before it was read.
