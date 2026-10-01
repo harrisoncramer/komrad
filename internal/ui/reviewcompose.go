@@ -166,14 +166,13 @@ func (r *reviewScreen) applyMessageEdited(h host, s panelShared, msg messageEdit
 	}
 
 	title, said := r.threads.inputHead()
-	key := formKeys().Submit
 	if r.threads.releasing {
 		said = "send"
 	}
 
 	return r.openInput(s, newReviewInputParams{
 		Title:       title,
-		Description: reviewInputHint(formKeys().Editor, key, said),
+		Description: reviewInputHint(formKeys().Editor, formKeys().Submit, said),
 		Body:        strings.TrimRight(msg.body, "\n"),
 	})
 }
