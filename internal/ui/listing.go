@@ -512,7 +512,7 @@ type landing struct {
 func (m *model) landOn(row written, now time.Time) {
 	if rowIndexOfKey(m.agents.rows(m), row.row) >= 0 {
 		m.writes.landing = landing{}
-		m.agents.apply(m, row.row)
+		m.agents.apply(m, keepCopy(m.agents.list().hovered(m), row.row))
 
 		return
 	}
@@ -540,5 +540,5 @@ func (m *model) landedRow(hovered string, now time.Time) string {
 
 	m.writes.landing = landing{}
 
-	return target.row
+	return keepCopy(hovered, target.row)
 }

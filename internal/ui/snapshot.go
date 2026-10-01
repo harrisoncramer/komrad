@@ -102,7 +102,7 @@ func snapshotRow(r agentRow, params snapshotParams) view.Row {
 	row.Forge = snapshotForge(item)
 	row.AutoMerge = item.PullRequest.AutoMerge
 	row.LoaderFrame = params.loaderFrame
-	row.Selected = params.selected.has(key)
+	row.Selected = params.selected.has(agentCopyKey(key))
 
 	return row
 }

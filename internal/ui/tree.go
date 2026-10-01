@@ -39,8 +39,8 @@ type agentRow struct {
 	// child says the row is drawn under the one above it rather than under the workflow, which is
 	// an indent and nothing else.
 	child bool
-	// snoozed says the row's family is sunk to the bottom of the triage zone, which draws it faded.
-	snoozed bool
+	// triage says the row is the triage zone's copy of an agent the tree also draws.
+	triage bool
 	// orchestrator is the agent a workflow header stands in for, unset on every other row.
 	orchestrator *panel.AgentRow
 }
@@ -257,10 +257,10 @@ func (a *agentsScreen) layout(m *model) agentsLayout {
 }
 
 func (a *agentsScreen) buildLayout(m *model) agentsLayout {
-	zone, waiting, rest := splitTriage(a.triage, m, a.showHidden)
+	zone, waiting := buildZone(a.triage, m, a.showHidden)
 	tree := treeRows(treeRowsParams{
 		workflows:         m.listing.workflows,
-		agents:            sortedAgents(rest, agentSorts, agentsTabs().order(a.sort)),
+		agents:            sortedAgents(m.listing.agents, agentSorts, agentsTabs().order(a.sort)),
 		showHidden:        a.showHidden,
 		foldOrchestrators: true,
 		flat:              a.sort.flat,
@@ -422,12 +422,31 @@ func rowKey(row agentRow) string {
 	if row.header {
 		return workflowRowKey(row.workflow.ID)
 	}
+	if row.triage {
+		return triageRowPrefix + agentRowKey(row.item.Agent.ID)
+	}
 
 	return agentRowKey(row.item.Agent.ID)
 }
 
 func agentRowKey(id string) string {
 	return "agent:" + id
+}
+
+const triageRowPrefix = "triage:"
+
+// agentCopyKey is the key of the tree's copy of the agent row the key names.
+func agentCopyKey(key string) string {
+	return strings.TrimPrefix(key, triageRowPrefix)
+}
+
+// keepCopy is the hovered row's key when it is a copy of the row the key names, and the key otherwise.
+func keepCopy(hovered, key string) string {
+	if agentCopyKey(hovered) == key {
+		return hovered
+	}
+
+	return key
 }
 
 const workflowRowPrefix = "workflow:"
@@ -547,7 +566,7 @@ func (a *agentsScreen) apply(m *model, selected string) {
 		a.cursor = firstAgentRowIndex(rows)
 	default:
 		clamped := cursor.Clamp(a.cursor, len(rows))
-		if strings.HasPrefix(selected, "agent:") {
+		if strings.HasPrefix(agentCopyKey(selected), "agent:") {
 			clamped = nearestAgentRowIndex(rows, clamped)
 		}
 
@@ -608,15 +627,21 @@ func (l *listing) assemble(now time.Time) {
 	l.documentTypes = documentTypesFrom(l.world.DocumentTypes)
 }
 
-// revealAgent puts the cursor on an agent, showing the hidden rows when it is one of them.
+// revealAgent puts the cursor on an agent's tree row unless it is already on the agent, showing the
+// hidden rows when it is one of them.
 func (a *agentsScreen) revealAgent(m *model, id string) {
+	if a.hoveredAgentID(m) == id {
+		return
+	}
+
 	for _, item := range m.listing.agents {
 		if item.Agent.ID == id && item.Agent.Hidden {
 			a.showHidden = true
 		}
 	}
 
-	if idx := rowIndexOfAgentID(a.rows(m), id); idx >= 0 {
-		a.cursor = idx
+	layout := a.layout(m)
+	if idx := rowIndexOfAgentID(layout.tree, id); idx >= 0 {
+		a.cursor = len(layout.zone) + idx
 	}
 }
