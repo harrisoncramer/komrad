@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"cmp"
+	"slices"
 	"testing"
 	"time"
 
@@ -310,4 +312,9 @@ func TestTriageRefresh(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestTriageRulesOrder covers the rules running from the most urgent tier down.
+func TestTriageRulesOrder(t *testing.T) {
+	assert.True(t, slices.IsSortedFunc(triageRules, func(a, b triageRule) int { return cmp.Compare(a.tier, b.tier) }))
 }

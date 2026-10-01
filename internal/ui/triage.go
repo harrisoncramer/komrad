@@ -65,8 +65,8 @@ type triageSubject struct {
 	hasThinkingChild bool
 }
 
-// triageRules are the reasons an agent needs triage, grouped by tier, the first that holds in the
-// most urgent tier naming it.
+// triageRules are the reasons an agent needs triage in order of urgency, the first that holds
+// naming it.
 var triageRules = []triageRule{
 	{
 		name:  "asking",
@@ -259,21 +259,15 @@ func (z *triageZone) refresh(agents []panel.AgentRow, now time.Time) {
 	z.entries = entries
 }
 
-// findTriageRule is the first rule an agent meets in the most urgent tier it meets any.
+// findTriageRule is the first rule an agent meets.
 func findTriageRule(subject triageSubject) (triageRule, bool) {
-	var found *triageRule
-	for i := range triageRules {
-		rule := &triageRules[i]
-		if (found == nil || rule.tier < found.tier) && rule.holds(subject) {
-			found = rule
+	for _, rule := range triageRules {
+		if rule.holds(subject) {
+			return rule, true
 		}
 	}
 
-	if found == nil {
-		return triageRule{}, false
-	}
-
-	return *found, true
+	return triageRule{}, false
 }
 
 // holds reports whether the rule puts the agent in triage.
