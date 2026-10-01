@@ -31,8 +31,10 @@ const (
 	lineKept
 	// lineChanged means the text or the cursor moved.
 	lineChanged
-	// lineLeft means esc was pressed in normal mode, which closes the field.
+	// lineLeft means esc was pressed outside vim's insert mode, which closes the field.
 	lineLeft
+	// lineEntered means enter was pressed and nothing else took it.
+	lineEntered
 )
 
 func newLineInput(value string) lineInput {
@@ -87,7 +89,17 @@ func (l *lineInput) take(msg tea.Msg, register *vim.Register) lineStep {
 
 	l.model, _ = l.model.Update(msg)
 
-	return l.stepFrom(before, lineIgnored)
+	step := l.stepFrom(before, lineIgnored)
+	if key, ok := msg.(tea.KeyPressMsg); ok && step == lineIgnored {
+		switch key.String() {
+		case "esc":
+			return lineLeft
+		case "enter":
+			return lineEntered
+		}
+	}
+
+	return step
 }
 
 // takeVim hands a key to vim, and reports whether vim kept it from the field.

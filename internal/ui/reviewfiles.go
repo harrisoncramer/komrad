@@ -332,10 +332,8 @@ func (r *reviewScreen) landOnFile(h navHost, s panelShared, row diffview.TreeRow
 
 func (r *reviewScreen) openFilesFilter() {
 	filter := &r.filesFilter
-	filter.typing = true
-	filter.mode = filterModeSearch
+	filter.open()
 	filter.openedIn = sectionList
-	filter.setQuery("")
 }
 
 // updateFilesFilter is the tree's search prompt taking keys.

@@ -98,6 +98,12 @@ func (f *filterState) setQuery(query string) {
 	f.compile()
 }
 
+func (f *filterState) open() {
+	f.typing = true
+	f.mode = filterModeSearch
+	f.setQuery("")
+}
+
 // compile reads the pattern out of what is typed.
 func (f *filterState) compile() {
 	query := f.query()
@@ -164,10 +170,8 @@ func (m *model) beginFilter() {
 	origin := m.hoveredFilterKey()
 
 	filter := &m.filter
-	filter.typing = true
-	filter.mode = filterModeSearch
+	filter.open()
 	filter.openedIn = m.keyholder()
-	filter.setQuery("")
 	filter.origin = origin
 	m.placeFilteredCursor(origin)
 }
@@ -212,15 +216,16 @@ func (m *model) leaveScreen() tea.Cmd {
 // takeKey applies one keypress to a search being typed at, with vim reading it first when
 // register is set, and reports whether it was one of the search's.
 func (f *filterState) takeKey(key tea.KeyPressMsg, register *vim.Register) bool {
-	switch step, k := f.input.take(key, register), key.String(); {
-	case step == lineLeft || (step == lineIgnored && k == "esc"):
+	switch f.input.take(key, register) {
+	case lineLeft:
 		f.abandon()
-	case step == lineIgnored && k == "enter":
+	case lineEntered:
 		f.typing = false
-	case step == lineChanged:
+	case lineChanged:
 		f.compile()
-	case step == lineIgnored:
+	case lineIgnored:
 		return false
+	case lineKept:
 	}
 
 	return true
@@ -231,12 +236,6 @@ func (f *filterState) abandon() {
 	f.typing = false
 	f.mode = filterModeSearch
 	f.setQuery("")
-}
-
-func (m model) clearSearch() (tea.Model, tea.Cmd) {
-	m.clearFilter()
-
-	return m, nil
 }
 
 // clearFilter drops a standing search and puts the cursor back where the search opened, unless
@@ -258,15 +257,15 @@ func (m model) updateFilterInput(key tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 
 	// Typing lights what it has found and moves nothing; enter is what applies the search.
 	filter := &m.filter
-	switch {
-	case key.String() == "tab":
+	switch key.String() {
+	case "tab":
 		filter.mode = filter.mode.flipped()
-	case key.String() == "enter":
+	case "enter":
 		m.applyFilter()
 
 		return m, m.waitToStage()
-	case !filter.takeKey(key, m.register):
-		return m, nil
+	default:
+		filter.takeKey(key, m.register)
 	}
 
 	return m, nil
@@ -453,10 +452,6 @@ func (f filterState) head(count, said string, width int, glyphs glyph.Set) []str
 	}
 
 	return append(head, "")
-}
-
-func (m model) jumpFilterMatch(pressed string) (tea.Model, tea.Cmd) {
-	return m, m.jumpToFilterMatch(pressed)
 }
 
 // jumpToFilterMatch walks the cursor to the next row the search matches, the way the key says.
