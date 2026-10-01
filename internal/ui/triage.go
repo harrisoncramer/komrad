@@ -128,6 +128,9 @@ type triageZone struct {
 	// frozen is the order of the heads drawn while a person reads the zone, which holds still until
 	// they leave it, and nil when it is free to move.
 	frozen []string
+	// held is the head of the family the cursor is on, which keeps its place in the zone after it stops
+	// needing triage until the cursor moves to another family.
+	held string
 }
 
 // triageEntry is why an agent needs triage and since when.
@@ -185,6 +188,10 @@ func (z *triageZone) refresh(agents []panel.AgentRow, now time.Time) {
 
 		rule, ok := findTriageRule(triageSubject{item: item, hasThinkingChild: thinkingParents[id]})
 		if !ok {
+			if wasQueued && z.isHeld(item) {
+				entries[id] = was
+			}
+
 			continue
 		}
 
@@ -202,6 +209,16 @@ func (z *triageZone) refresh(agents []panel.AgentRow, now time.Time) {
 
 	z.entries = entries
 	z.pruneSnoozes(agents)
+}
+
+// isHeld reports whether the agent is in the family the cursor is on.
+func (z *triageZone) isHeld(item panel.AgentRow) bool {
+	headID := item.Agent.ID
+	if parentID := item.Agent.ParentAgentID; parentID != nil {
+		headID = *parentID
+	}
+
+	return z.held != "" && headID == z.held
 }
 
 // pruneSnoozes ends every snooze whose family has left triage or now waits on something else.
@@ -482,15 +499,21 @@ func compareUrgency(a, b triageEntry) int {
 	return cmp.Or(cmp.Compare(a.rule.tier, b.rule.tier), a.since.Compare(b.since))
 }
 
-// settleTriage freezes the zone while the panel has the keys and the agents list has the cursor on
-// it, and thaws it the moment any of that stops, putting the cursor back on the row it was on.
+// settleTriage freezes the zone and holds the family the cursor is on while the agents list has the
+// cursor on the zone, whether the keys are in the panel or in that agent's pane, and thaws it the
+// moment the cursor leaves, putting the cursor back on the row it was on.
 func (m model) settleTriage() model {
 	var zone []agentRow
-	if !m.blurred && m.screen == screenAgents && len(m.agents.triage.entries) > 0 {
+	if m.screen == screenAgents && len(m.agents.triage.entries) > 0 {
 		zone = m.agents.layout(m.shared()).zone
 	}
 
 	reading := m.agents.cursor < len(zone)
+	m.agents.triage.held = ""
+	if reading {
+		m.agents.triage.held = findZoneHead(zone, m.agents.cursor).item.Agent.ID
+	}
+
 	switch {
 	case reading && m.agents.triage.frozen == nil:
 		m.agents.triage.frozen = []string{}
@@ -506,6 +529,56 @@ func (m model) settleTriage() model {
 	}
 
 	return m
+}
+
+// findZoneHead is the head of the family the zone row at the index belongs to.
+func findZoneHead(zone []agentRow, idx int) agentRow {
+	for i := idx; i > 0; i-- {
+		if !zone[i].child {
+			return zone[i]
+		}
+	}
+
+	return zone[0]
+}
+
+// findZoneSlot is which family in the zone the cursor is on, counting from the top, or -1 off the zone.
+func (a *agentsScreen) findZoneSlot(s panelShared) int {
+	slot := -1
+	for i, row := range a.layout(s).zone {
+		if !row.child {
+			slot++
+		}
+		if i == a.cursor {
+			return slot
+		}
+	}
+
+	return -1
+}
+
+// landInTriage moves the cursor off a zone row that has left the list onto the family now in its
+// slot, or into the tree once the zone is empty.
+func (a *agentsScreen) landInTriage(s panelShared, selected string, slot int) {
+	rows := a.rows(s)
+	if slot < 0 || rowIndexOfKey(rows, selected) >= 0 {
+		return
+	}
+
+	var heads []int
+	for i, row := range a.layout(s).zone {
+		if !row.child {
+			heads = append(heads, i)
+		}
+	}
+
+	if len(heads) == 0 {
+		a.cursor = firstAgentRowIndex(rows)
+
+		return
+	}
+
+	a.cursor = heads[min(slot, len(heads)-1)]
 }
 
 // jumpToTriage puts the cursor on the zone's first agent.

@@ -157,7 +157,7 @@ func TestTriageJump(t *testing.T) {
 }
 
 // TestTriageSnooze covers sinking a family to the bottom of the zone until what it waits on
-// changes, as the zone stands once the panel has given up the keys.
+// changes, as the zone stands once the cursor has left it.
 func TestTriageSnooze(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -168,6 +168,7 @@ func TestTriageSnooze(t *testing.T) {
 		relisted []proto.Message
 		// then is a second listing the watch sends after relisted, none when it sends nothing.
 		then []proto.Message
+		// want is the list as drawn, unchecked when nil.
 		want []string
 	}{
 		{
@@ -275,7 +276,7 @@ func TestTriageSnooze(t *testing.T) {
 			if tt.then != nil {
 				harness.watch(buildSnapshot(tt.then...))
 			}
-			harness.send(tea.BlurMsg{})
+			harness.press("G")
 
 			assert.Equal(t, tt.want, readTriageList(harness.readFrame()))
 		})
@@ -290,11 +291,14 @@ func TestTriageFreeze(t *testing.T) {
 		name     string
 		capacity int
 		rows     []proto.Message
+		// blur says the keys go to the hovered agent's pane before the listing moves.
+		blur     bool
 		relisted []proto.Message
 		// press are the keys pressed once the listing has moved.
 		press []string
-		blur  bool
-		want  []string
+		// then is a second listing the watch sends after the keys, none when it sends nothing.
+		then []proto.Message
+		want []string
 		// hovered is the row the cursor is on once the zone has settled or held.
 		hovered string
 	}{
@@ -328,12 +332,64 @@ func TestTriageFreeze(t *testing.T) {
 			hovered:  "asker",
 		},
 		{
-			name:     "the zone settles once the panel gives up the keys",
+			name:     "the last agent in triage archived lands the cursor in the tree",
+			capacity: 3,
+			rows:     buildTriage()[:3],
+			relisted: buildTriage()[:2],
+			hovered:  "quiet",
+		},
+		{
+			name:     "a family archived from the bottom of the zone lands the cursor on the one above",
+			capacity: 3,
+			rows:     append(buildTriageFamily()[:4], newTriageAgent("early", agentv1.AgentState_AGENT_STATE_WAITING, 1)),
+			press:    []string{"j"},
+			then:     []proto.Message{newLiveWorkflow("w1", "backend"), newAgentAt("quiet", "w1", 1), newTriageAgent("early", agentv1.AgentState_AGENT_STATE_WAITING, 1)},
+			want:     []string{"early", "backend", "quiet"},
+			hovered:  "early",
+		},
+		{
+			name:     "the agent the cursor is on archived lands it on the next in triage",
+			capacity: 3,
+			rows:     buildTriage(),
+			press:    []string{"j"},
+			then:     withoutThird(),
+			want:     []string{"asker", "broken", "backend", "quiet"},
+			hovered:  "broken",
+		},
+		{
+			name:     "an answered agent leaves once the cursor moves off it",
+			capacity: 3,
+			rows:     buildTriage(),
+			relisted: buildAnswered(),
+			press:    []string{"j"},
+			then:     buildAnswered(),
+			want:     []string{"third", "broken", "backend", "asker", "quiet"},
+			hovered:  "third",
+		},
+		{
+			name:     "the agent the cursor is on keeps its place while its pane has the keys",
+			capacity: 3,
+			rows:     buildTriage(),
+			blur:     true,
+			relisted: buildAnswered(),
+			want:     []string{"asker", "third", "broken", "backend", "quiet"},
+			hovered:  "asker",
+		},
+		{
+			name:     "the agent the cursor is on keeps its place once it is answered",
+			capacity: 3,
+			rows:     buildTriage(),
+			relisted: buildAnswered(),
+			want:     []string{"asker", "third", "broken", "backend", "quiet"},
+			hovered:  "asker",
+		},
+		{
+			name:     "the zone holds while the panel gives up the keys",
 			capacity: 3,
 			rows:     withoutThird(),
-			relisted: buildTriage(),
 			blur:     true,
-			want:     []string{"asker", "third", "broken", "backend", "quiet"},
+			relisted: buildTriage(),
+			want:     []string{"asker", "broken", "+1 more waiting for a slot", "backend", "third", "quiet"},
 			hovered:  "asker",
 		},
 		{
@@ -361,16 +417,21 @@ func TestTriageFreeze(t *testing.T) {
 			harness := openTriage(t, tt.capacity, tt.rows...)
 
 			harness.press("t")
+			if tt.blur {
+				harness.send(tea.BlurMsg{})
+			}
 			if tt.relisted != nil {
 				harness.watch(buildSnapshot(tt.relisted...))
 			}
 			harness.press(tt.press...)
-			if tt.blur {
-				harness.send(tea.BlurMsg{})
+			if tt.then != nil {
+				harness.watch(buildSnapshot(tt.then...))
 			}
 
 			frame := harness.readFrame()
-			assert.Equal(t, tt.want, readTriageList(frame))
+			if tt.want != nil {
+				assert.Equal(t, tt.want, readTriageList(frame))
+			}
 			assert.Equal(t, tt.hovered, strings.TrimSpace(readHoveredRow(frame)))
 		})
 	}
@@ -461,4 +522,12 @@ func buildTriageFamily() []proto.Message {
 		reviewer,
 		newTriageAgent("third", agentv1.AgentState_AGENT_STATE_WAITING, 4),
 	}
+}
+
+// buildAnswered is buildTriage once asker has been answered and gone back to work.
+func buildAnswered() []proto.Message {
+	rows := buildTriage()
+	rows[2] = newTriageAgent("asker", agentv1.AgentState_AGENT_STATE_THINKING, 3)
+
+	return rows
 }
