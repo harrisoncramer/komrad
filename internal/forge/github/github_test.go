@@ -1022,6 +1022,16 @@ func TestDecision(t *testing.T) {
 			want:     forge.ReviewDecisionChangesRequested,
 		},
 		{
+			name:     "a bot asking for changes is left out, as it cannot be asked again",
+			standing: `{"reviewDecision":"CHANGES_REQUESTED","latestOpinionatedReviews":{"nodes":[{"state":"CHANGES_REQUESTED","author":{"login":"ada"}},{"state":"CHANGES_REQUESTED","author":{}}]},"reviewRequests":{"nodes":[{"requestedReviewer":{"login":"ada"}}]}}`,
+			want:     forge.ReviewDecisionRereviewRequested,
+		},
+		{
+			name:     "only a bot asking for changes",
+			standing: `{"reviewDecision":"CHANGES_REQUESTED","latestOpinionatedReviews":{"nodes":[{"state":"CHANGES_REQUESTED","author":{}}]},"reviewRequests":{"nodes":[]}}`,
+			want:     forge.ReviewDecisionChangesRequested,
+		},
+		{
 			name:     "changes requested with no verdict naming who asked",
 			standing: `{"reviewDecision":"CHANGES_REQUESTED","latestOpinionatedReviews":{"nodes":[]},"reviewRequests":{"nodes":[{"requestedReviewer":{"login":"ada"}}]}}`,
 			want:     forge.ReviewDecisionChangesRequested,

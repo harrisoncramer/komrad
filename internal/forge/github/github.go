@@ -54,7 +54,7 @@ const markReadyMutation = `mutation MarkReady($id: ID!) {
 }`
 
 const rereviewTargetQuery = `query RereviewTarget($owner: String!, $name: String!, $number: Int!) {
-  repository(owner: $owner, name: $name) { pullRequest(number: $number) { id state latestOpinionatedReviews(first: 50) { nodes { state author { ... on User { id } } } } } }
+  repository(owner: $owner, name: $name) { pullRequest(number: $number) { id state latestOpinionatedReviews(first: 50, writersOnly: true) { nodes { state author { ... on User { id } } } } } }
 }`
 
 const requestReviewsMutation = `mutation RequestReviews($id: ID!, $users: [ID!]) {
@@ -87,7 +87,7 @@ const listQuery = `query List($owner: String!, $name: String!, $first: Int!, $af
 // are read from: GitHub's computed review decision, each reviewer's latest verdict and who is
 // asked to review now, the rollup of every check on the head commit, its computed merge state,
 // the auto-merge request on it and whether the credential may make one.
-const standingFields = `reviewDecision latestOpinionatedReviews(first: 50) { nodes { state author { login } } } reviewRequests(first: 50) { nodes { requestedReviewer { ... on User { login } } } } mergeStateStatus commits(last: 1) { nodes { commit { statusCheckRollup { state } } } } autoMergeRequest { enabledAt } viewerCanEnableAutoMerge`
+const standingFields = `reviewDecision latestOpinionatedReviews(first: 50, writersOnly: true) { nodes { state author { ... on User { login } } } } reviewRequests(first: 50) { nodes { requestedReviewer { ... on User { login } } } } mergeStateStatus commits(last: 1) { nodes { commit { statusCheckRollup { state } } } } autoMergeRequest { enabledAt } viewerCanEnableAutoMerge`
 
 // dialect is what GitHub does differently on the wire.
 var dialect = graphql.Dialect{
@@ -717,7 +717,7 @@ type actorNode struct {
 	Login string `json:"login"`
 }
 
-// decision is GitHub's review decision, read as a re-review requested once every reviewer whose
+// decision is GitHub's review decision, read as a re-review requested once every user whose
 // latest verdict asks for changes has been asked to review again.
 func (n standingNode) decision() forge.ReviewDecision {
 	decision := reviewDecisionOf(n.ReviewDecision)
@@ -732,14 +732,18 @@ func (n standingNode) decision() forge.ReviewDecision {
 		}
 	}
 
-	askers := changeRequesters(n.LatestOpinionatedReviews.Nodes)
-	if len(askers) == 0 {
-		return decision
-	}
-	for _, asker := range askers {
+	asked := false
+	for _, asker := range changeRequesters(n.LatestOpinionatedReviews.Nodes) {
+		if asker.Login == "" {
+			continue
+		}
 		if !requested[asker.Login] {
 			return decision
 		}
+		asked = true
+	}
+	if !asked {
+		return decision
 	}
 
 	return forge.ReviewDecisionRereviewRequested
