@@ -107,25 +107,6 @@ func (w *worktreesScreen) canRowOpen(s panelShared) bool {
 	return ok && row.item.agent != nil
 }
 
-// deleteDesc names what the delete entry does to the hovered directory.
-func (w *worktreesScreen) deleteDesc(s panelShared) string {
-	row, ok := w.hovered(s)
-	if !ok {
-		return "delete"
-	}
-
-	switch row.item.fate {
-	case fateLive:
-		return "archive the agent"
-	case fateArchived:
-		return "delete the agent"
-	case fateUnowned:
-		return "remove"
-	}
-
-	return ""
-}
-
 // worktreeFate is which of the three delete paths a directory takes.
 type worktreeFate int
 
@@ -137,6 +118,20 @@ const (
 	// fateLive is a directory whose agent is running, which is offered the archive.
 	fateLive
 )
+
+// deleteDesc names what the delete entry does to a directory of this fate.
+func (f worktreeFate) deleteDesc() string {
+	switch f {
+	case fateLive:
+		return "archive the agent"
+	case fateArchived:
+		return "delete the agent"
+	case fateUnowned:
+		return "remove"
+	}
+
+	return ""
+}
 
 // jumpToAgent lands the agents list or the archive on the hovered row's agent.
 func (w *worktreesScreen) jumpToAgent(h navHost, s panelShared) tea.Cmd {
@@ -331,7 +326,7 @@ func (w *worktreesScreen) itemMenu(s panelShared) (submenu, bool) {
 	}
 
 	return withArchive(rowMenu(row.name()), s, liveArchiveMenu(liveArchive{
-		label: w.deleteDesc(s),
+		label: row.item.fate.deleteDesc(),
 		keys:  keys,
 		run: func(m model) (tea.Model, tea.Cmd) {
 			m.leaveForm()
