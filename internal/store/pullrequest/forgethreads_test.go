@@ -250,7 +250,7 @@ func TestSetDismissed(t *testing.T) {
 	require.ErrorIs(t, threads.SetDismissed(ctx, "T_1", true), store.ErrNotFound)
 }
 
-// TestGetForAgent covers reading a forge thread through the agent whose pull request it is on.
+// TestGetForAgent pins that only the agent whose pull request holds a forge thread can read it, by its own id.
 func TestGetForAgent(t *testing.T) {
 	h := open(t)
 	ctx := t.Context()

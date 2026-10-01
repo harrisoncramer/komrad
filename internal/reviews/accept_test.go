@@ -71,7 +71,7 @@ func describeMessages(messages []reviewstore.Message) []string {
 	})
 }
 
-// TestAcceptForgeThread covers copying a forge thread into the person's review.
+// TestAcceptForgeThread pins which comments go into the thread and when the forge having moved refuses the accept.
 func TestAcceptForgeThread(t *testing.T) {
 	edited := forgeWrittenAt.Add(time.Hour)
 
@@ -81,20 +81,6 @@ func TestAcceptForgeThread(t *testing.T) {
 		wantErr  error
 		wantSaid []string
 	}{
-		{
-			name: "every comment read and the note follow one another in a thread of the person's",
-			accept: func(t *testing.T, fx *reviewFixture) (*ReviewThreadWithMessages, error) {
-				return fx.accept(t, fx.offer(t), seenAll(fx.offer(t)), "agreed, close it")
-			},
-			wantSaid: []string{"@dana: this leaks the handle", "@lee: and the socket", "note: agreed, close it"},
-		},
-		{
-			name: "a comment that came in after the person read the thread is left out",
-			accept: func(t *testing.T, fx *reviewFixture) (*ReviewThreadWithMessages, error) {
-				return fx.accept(t, fx.offer(t), seenAll(fx.offer(t))[:1], "")
-			},
-			wantSaid: []string{"@dana: this leaks the handle"},
-		},
 		{
 			name: "a comment edited since the person read it is refused",
 			accept: func(t *testing.T, fx *reviewFixture) (*ReviewThreadWithMessages, error) {
@@ -140,6 +126,20 @@ func TestAcceptForgeThread(t *testing.T) {
 			},
 			wantErr: ErrForgeThreadNotFound,
 		},
+		{
+			name: "every comment read and the note follow one another in a thread of the person's",
+			accept: func(t *testing.T, fx *reviewFixture) (*ReviewThreadWithMessages, error) {
+				return fx.accept(t, fx.offer(t), seenAll(fx.offer(t)), "agreed, close it")
+			},
+			wantSaid: []string{"@dana: this leaks the handle", "@lee: and the socket", "note: agreed, close it"},
+		},
+		{
+			name: "a comment that came in after the person read the thread is left out",
+			accept: func(t *testing.T, fx *reviewFixture) (*ReviewThreadWithMessages, error) {
+				return fx.accept(t, fx.offer(t), seenAll(fx.offer(t))[:1], "")
+			},
+			wantSaid: []string{"@dana: this leaks the handle"},
+		},
 	}
 
 	for _, tt := range tests {
@@ -157,15 +157,15 @@ func TestAcceptForgeThread(t *testing.T) {
 			require.NoError(t, err)
 
 			assert.Equal(t, tt.wantSaid, describeMessages(got.Messages))
-			assert.Equal(t, []reviewstore.DeliveryState{reviewstore.DeliveryUnsent}, xslice.UniqueBy(
-				xslice.Map(got.Messages, func(message reviewstore.Message) reviewstore.DeliveryState { return message.Delivery }),
-				func(state reviewstore.DeliveryState) reviewstore.DeliveryState { return state }))
+			for _, message := range got.Messages {
+				assert.Equal(t, reviewstore.DeliveryUnsent, message.Delivery)
+			}
 			assert.Equal(t, &got.Thread.ID, fx.offer(t).AcceptedThreadID)
 		})
 	}
 }
 
-// TestAcceptForgeThreadAgain covers accepting a thread the forge has moved on since the person last accepted it.
+// TestAcceptForgeThreadAgain pins that a later accept adds only what the forge added or edited, in the same thread.
 func TestAcceptForgeThreadAgain(t *testing.T) {
 	fx := newReviewFixture(t)
 	fx.seedOffer(t, forgeComment("C_1", "dana", "this leaks the handle"))
