@@ -252,6 +252,13 @@ func (z *triageZone) isSnoozed(headID string) bool {
 	return ok
 }
 
+// isInTriage reports whether the agent is in triage.
+func (z *triageZone) isInTriage(id string) bool {
+	_, ok := z.entries[id]
+
+	return ok
+}
+
 // toggleSnooze snoozes the agent's family in triage, or wakes it when it is snoozed, reporting
 // false when the family is not in triage.
 func (z *triageZone) toggleSnooze(item panel.AgentRow, agents []panel.AgentRow) bool {
@@ -540,21 +547,14 @@ type triageSlot struct {
 
 // countAsking is how many of a family's child rows are in triage.
 func (z triageZone) countAsking(rows []agentRow) int {
-	return len(xslice.Filter(rows, func(row agentRow) bool {
-		_, waits := z.entries[row.item.Agent.ID]
-
-		return waits
-	}))
+	return len(xslice.Filter(rows, func(row agentRow) bool { return z.isInTriage(row.item.Agent.ID) }))
 }
 
 // pickChildren is the ids of as many of a family's child rows as fit in room, those in triage first.
 func (z triageZone) pickChildren(rows []agentRow, room int) map[string]bool {
 	ranked := slices.Clone(rows)
 	slices.SortStableFunc(ranked, func(a, b agentRow) int {
-		_, aWaits := z.entries[a.item.Agent.ID]
-		_, bWaits := z.entries[b.item.Agent.ID]
-
-		return compareBools(!aWaits, !bWaits)
+		return compareBools(!z.isInTriage(a.item.Agent.ID), !z.isInTriage(b.item.Agent.ID))
 	})
 
 	picked := make(map[string]bool)
