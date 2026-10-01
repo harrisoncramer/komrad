@@ -38,6 +38,7 @@ const (
 	ToneModeNormal
 	ToneModeVisual
 	ToneModeJump
+	ToneModeEdit
 )
 
 // Shade is the part a background plays, which the palette turns into a colour.
@@ -161,6 +162,8 @@ func (p Palette) spell(tone Tone) string {
 		return p.colors.Mode.Visual
 	case ToneModeJump:
 		return p.colors.Mode.Jump
+	case ToneModeEdit:
+		return p.colors.Mode.Edit
 	}
 
 	return p.colors.Muted

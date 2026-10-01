@@ -49,6 +49,9 @@ type formState struct {
 
 	// keepsOnRefusal says a refused write leaves the form up to be fixed and submitted again.
 	keepsOnRefusal bool
+
+	// vim is vim's state for the form's text fields, nil when vim is off.
+	vim *fieldVim
 }
 
 // formKind names the form on screen, for the legend and for what closing it means.
@@ -96,6 +99,7 @@ func (f formState) isOpening() bool {
 func (m *model) openForm(f formState) tea.Cmd {
 	m.form = f
 	m.reconcileSolo()
+	m.form.vim = newFieldVim(m.register)
 
 	if m.form.form == nil {
 		m.form.form, m.form.order = m.form.rebuild(*m)
@@ -391,6 +395,12 @@ func (m model) answerForm() (tea.Model, tea.Cmd) {
 func (m model) updateForm(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if key, ok := msg.(tea.KeyPressMsg); ok && isBound(key.String(), formKeys().Submit) {
 		return m.answerForm()
+	}
+
+	if key, ok := msg.(tea.KeyPressMsg); ok {
+		if next, cmd, kept := m.updateFormVim(key); kept {
+			return next, cmd
+		}
 	}
 
 	cmd := m.stepForm(msg)

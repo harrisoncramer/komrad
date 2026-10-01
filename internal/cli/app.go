@@ -14,6 +14,7 @@ type app struct {
 	session        *ui.Session
 	env            *config.Environment
 	keys           config.Keybindings
+	vimMode        bool
 	glyphs         glyph.Set
 	loader         loader.Style
 	harnesses      *harness.Registry

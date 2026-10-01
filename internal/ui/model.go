@@ -27,6 +27,7 @@ import (
 	"komrad/internal/position"
 	"komrad/internal/ui/layout"
 	"komrad/internal/ui/submitting"
+	"komrad/internal/vim"
 	"komrad/proto/gen/agent/v1/agentv1connect"
 	"komrad/proto/gen/forge/v1/forgev1connect"
 	"komrad/proto/gen/hook/v1/hookv1connect"
@@ -202,6 +203,8 @@ type PanelSettings struct {
 	DraftDir string
 	// ScratchDir is where each engine's scratch file is kept.
 	ScratchDir string
+	// VimMode edits the text fields the way vim does.
+	VimMode bool
 }
 
 type Deps struct {
@@ -286,7 +289,9 @@ type model struct {
 	filter      filterState
 	rowCursor   cursor.Model
 	form        formState
-	held        heldWrite
+	// register is the text vim last yanked or deleted in any field, nil when vim is off.
+	register *vim.Register
+	held     heldWrite
 	// detached holds the writes a person escaped out of, which land without taking the screen to
 	// what they made.
 	detached map[int]struct{}
@@ -396,6 +401,7 @@ func newModel(deps Deps, isDark bool, post *postbox) model {
 		frame:           layout.New(deps.Tmux, deps.Layout, layout.WithEngine(deps.Engine), layout.WithShellCommand(deps.ShellCommand), layout.WithTerminalCommand(deps.TerminalCommand)),
 		detailsHeight:   deps.Layout.DetailsHeight,
 		settings:        deps.Settings,
+		register:        newRegister(deps.Settings.VimMode),
 		keys:            deps.Keys,
 		glyphs:          deps.Glyphs,
 		configErr:       deps.ConfigErr,

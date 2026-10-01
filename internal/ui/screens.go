@@ -5,6 +5,7 @@ import (
 	"komrad/internal/glyph"
 	"komrad/internal/ui/layout"
 	"komrad/internal/ui/panel"
+	"komrad/internal/vim"
 	agentv1 "komrad/proto/gen/agent/v1"
 
 	tea "charm.land/bubbletea/v2"
@@ -345,6 +346,9 @@ type panelShared struct {
 	// isDark is the terminal's background.
 	isDark bool
 
+	// register is the panel's vim register, nil when vim is off.
+	register *vim.Register
+
 	// draw is the frame the root draws a screen's own list, record and legend in.
 	draw drawer
 }
@@ -389,6 +393,7 @@ func (m *model) unmeasured() panelShared {
 		editor:      m.settings.Editor,
 		draftDir:    m.settings.DraftDir,
 		isDark:      m.isDark,
+		register:    m.register,
 		draw:        m,
 	}
 }

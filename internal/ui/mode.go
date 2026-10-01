@@ -55,6 +55,10 @@ func (m model) findMode() (paint.Tone, string) {
 		return paint.ToneModeVisual, visualModeLabel
 	}
 
+	if m.isEditing() {
+		return paint.ToneModeEdit, editModeLabel
+	}
+
 	return paint.ToneModeNormal, normalModeLabel
 }
 
@@ -67,4 +71,19 @@ func stampMode(row string, end int, tone paint.Tone, label string) string {
 	}
 
 	return ansi.Truncate(row, at, "") + badge + ansi.Cut(row, end, ansi.StringWidth(row))
+}
+
+// isEditing reports whether a text field holds the keys and is taking typed text.
+func (m model) isEditing() bool {
+	if m.form.isActive() {
+		focused := m.form.form.GetFocusedField()
+
+		return focused != nil && isTextField(focused) && m.form.vim.isInserting(focused.GetKey())
+	}
+
+	if m.screen == screenReview && m.review.isWriting() {
+		return m.review.threads.editor.isInserting()
+	}
+
+	return m.isTyping()
 }

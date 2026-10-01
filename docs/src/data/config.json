@@ -15,6 +15,13 @@
       "type": "boolean",
       "description": "Whether `komrad open` sets up a workflow for the git checkout it is run in, with a\nworktree for each agent and an orchestrator standing by, when no workflow covers that\ndirectory yet.",
       "default": "false"
+    },
+    {
+      "key": "vim_mode",
+      "path": "vim_mode",
+      "type": "boolean",
+      "description": "Edit the panel's text fields the way vim does. A field opens in insert mode, esc goes to normal\nmode, and a second esc closes the form.",
+      "default": "false"
     }
   ],
   "sections": [
@@ -1758,6 +1765,13 @@
               "type": "string",
               "description": "Picking a pane to jump to.",
               "default": "\"3\""
+            },
+            {
+              "key": "edit",
+              "path": "palette.mode.edit",
+              "type": "string",
+              "description": "Typing into a text field.",
+              "default": "\"9\""
             }
           ],
           "sections": []

@@ -65,6 +65,8 @@ type Mode struct {
 	Visual string `mapstructure:"visual"`
 	// Picking a pane to jump to.
 	Jump string `mapstructure:"jump"`
+	// Typing into a text field.
+	Edit string `mapstructure:"edit"`
 }
 
 // DefaultPalette is the palette used when the config omits it, read from the theme package.
