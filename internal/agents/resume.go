@@ -272,8 +272,7 @@ func (r *resumeStart) finish(ctx context.Context, agent agentstore.Agent) error 
 	return nil
 }
 
-// Nothing else in komrad moves a row out of setting_up or takes away a window a resume opened, so
-// both are put back here rather than depending on the caller still being around to see it happen.
+// rollBack puts back the state the resume found.
 func (r *resumeStart) rollBack(ctx context.Context, agent agentstore.Agent, _ error) {
 	if err := r.service.agents.SetStateByID(ctx, agent.ID, r.prior); err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to put back the state of an agent whose resume gave up",
