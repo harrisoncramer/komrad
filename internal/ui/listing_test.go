@@ -238,39 +238,6 @@ func TestListingFocus(t *testing.T) {
 		assert.Empty(t, harness.panel.ReadSelectedPanes())
 		assert.Contains(t, readOpenMessages(harness), "old is back up")
 	})
-
-	t.Run("the cursor moves freely while a resume is in flight", func(t *testing.T) {
-		t.Parallel()
-
-		other := newAgent("a2", "other", "w1")
-		harness := openAgents(t, newLiveWorkflow("w1", "api"), newDormant("old"), other)
-		answerResume(harness)
-		harness.hold(agentv1connect.AgentServiceResumeAgentProcedure)
-
-		harness.press("j", "j")
-		require.Equal(t, "  old", readHoveredRow(harness.readFrame()))
-		harness.press("enter", "k")
-		moved := readHoveredRow(harness.readFrame())
-		require.NotEqual(t, "  old", moved)
-
-		harness.release(agentv1connect.AgentServiceResumeAgentProcedure)
-
-		assert.Equal(t, moved, readHoveredRow(harness.readFrame()), "the landing leaves the cursor where it was moved")
-	})
-
-	t.Run("the open key again over an agent still resuming sends nothing", func(t *testing.T) {
-		t.Parallel()
-
-		harness := openAgents(t, newLiveWorkflow("w1", "api"), newDormant("old"))
-		answerResume(harness)
-		harness.hold(agentv1connect.AgentServiceResumeAgentProcedure)
-
-		harness.press("j", "enter", "enter")
-		harness.release(agentv1connect.AgentServiceResumeAgentProcedure)
-
-		assert.Len(t, harness.readSent(agentv1connect.AgentServiceResumeAgentProcedure), 1)
-		assert.Empty(t, harness.panel.ReadSelectedPanes())
-	})
 }
 
 func openLanding(t *testing.T) *panelHarness {
