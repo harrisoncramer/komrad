@@ -352,6 +352,53 @@ func (s *LifecycleService) RestoreAgents(ctx context.Context, ids []string) ([]a
 	return s.agents.ListByID(ctx, agentstore.IDs(agents))
 }
 
+func (s *LifecycleService) archiveWorkflow(ctx context.Context, workflowID string, inside []agentstore.Agent) error {
+	return archiveBatch(ctx, archiveBatchParams{
+		tmux:      s.tmux,
+		scripts:   s.scripts,
+		workflows: s.workflows,
+		live:      inside,
+		owned:     inside,
+		screens:   s.screens,
+		archive: func(ctx context.Context) ([]agentstore.AgentPane, error) {
+			var taken []agentstore.AgentPane
+			err := s.tx.InTx(ctx, func(db store.DBTX) error {
+				if err := workflowstore.NewWorkflowStore(db).Archive(ctx, workflowID); err != nil {
+					return err
+				}
+
+				archived, err := agentstore.NewAgentStore(db).ArchiveWorkflowAgents(ctx, workflowID)
+				taken = archived
+
+				return err
+			})
+
+			return taken, err
+		},
+	})
+}
+
+func (s *LifecycleService) restoreWorkflow(ctx context.Context, workflowID string, archived []agentstore.Agent) error {
+	return restoreBatch(ctx, restoreBatchParams{
+		tx:        s.tx,
+		usage:     s.usage,
+		scripts:   s.scripts,
+		workflows: s.workflows,
+		agents:    s.agents,
+		archived:  archived,
+		relist: func(ctx context.Context, agents *agentstore.AgentStore) ([]agentstore.Agent, error) {
+			return agents.ListRestorableInWorkflow(ctx, workflowID)
+		},
+		restore: func(ctx context.Context, db store.DBTX) error {
+			if err := workflowstore.NewWorkflowStore(db).Restore(ctx, workflowID); err != nil {
+				return err
+			}
+
+			return agentstore.NewAgentStore(db).RestoreWorkflowAgents(ctx, workflowID)
+		},
+	})
+}
+
 // archivedTogether keeps the agents a call named and the children that went into the archive
 // with their parent.
 func archivedTogether(named, whole []agentstore.Agent) []agentstore.Agent {

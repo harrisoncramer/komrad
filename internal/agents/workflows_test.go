@@ -173,7 +173,7 @@ func TestNewWorkflowWithWorktree(t *testing.T) {
 				Cwd:      "/repo",
 				Worktree: workflowstore.WorktreeConfig{Enabled: true, CopyPaths: []string{"/etc/passwd"}},
 			},
-			wantErrIs: ErrWorktreeUnsafePath,
+			wantErrIs: workflowstore.ErrWorktreeUnsafePath,
 		},
 		{
 			name: "a copy path climbing out of the repo is refused",
@@ -182,7 +182,7 @@ func TestNewWorkflowWithWorktree(t *testing.T) {
 				Cwd:      "/repo",
 				Worktree: workflowstore.WorktreeConfig{Enabled: true, CopyPaths: []string{"../../secrets"}},
 			},
-			wantErrIs: ErrWorktreeUnsafePath,
+			wantErrIs: workflowstore.ErrWorktreeUnsafePath,
 		},
 		{
 			name: "a symlink path naming the git directory is refused, since it is the worktree's own link",
@@ -191,7 +191,7 @@ func TestNewWorkflowWithWorktree(t *testing.T) {
 				Cwd:      "/repo",
 				Worktree: workflowstore.WorktreeConfig{Enabled: true, SymlinkPaths: []string{".git"}},
 			},
-			wantErrIs: ErrWorktreeUnsafePath,
+			wantErrIs: workflowstore.ErrWorktreeUnsafePath,
 		},
 		{
 			name: "a path with a newline in it is refused, since a newline is what separates the entries",
@@ -200,7 +200,7 @@ func TestNewWorkflowWithWorktree(t *testing.T) {
 				Cwd:      "/repo",
 				Worktree: workflowstore.WorktreeConfig{Enabled: true, CopyPaths: []string{".env\n../escape"}},
 			},
-			wantErrIs: ErrWorktreeUnsafePath,
+			wantErrIs: workflowstore.ErrWorktreeUnsafePath,
 		},
 		{
 			name: "a path nested inside the repo is kept",
@@ -218,7 +218,7 @@ func TestNewWorkflowWithWorktree(t *testing.T) {
 				Cwd:      "/repo",
 				Worktree: workflowstore.WorktreeConfig{Enabled: true, CopyPaths: []string{"."}},
 			},
-			wantErrIs: ErrWorktreeUnsafePath,
+			wantErrIs: workflowstore.ErrWorktreeUnsafePath,
 		},
 		{
 			name: "a symlink path that cleans away to the repo itself is refused too",
@@ -227,7 +227,7 @@ func TestNewWorkflowWithWorktree(t *testing.T) {
 				Cwd:      "/repo",
 				Worktree: workflowstore.WorktreeConfig{Enabled: true, SymlinkPaths: []string{"vendor/.."}},
 			},
-			wantErrIs: ErrWorktreeUnsafePath,
+			wantErrIs: workflowstore.ErrWorktreeUnsafePath,
 		},
 		{
 			name: "a path reaching the git directory the long way round is refused",
@@ -236,7 +236,7 @@ func TestNewWorkflowWithWorktree(t *testing.T) {
 				Cwd:      "/repo",
 				Worktree: workflowstore.WorktreeConfig{Enabled: true, CopyPaths: []string{"vendor/../.git"}},
 			},
-			wantErrIs: ErrWorktreeUnsafePath,
+			wantErrIs: workflowstore.ErrWorktreeUnsafePath,
 		},
 	}
 
@@ -317,7 +317,7 @@ func TestUpdateWorkflowRefusesAnUnsafeWorktreePath(t *testing.T) {
 			SymlinkPaths: []string{"../elsewhere"},
 		},
 	})
-	require.ErrorIs(t, err, ErrWorktreeUnsafePath)
+	require.ErrorIs(t, err, workflowstore.ErrWorktreeUnsafePath)
 }
 
 // TestWorkflowWorktreePathsAreStoredCleaned covers the spelling a workflow's paths are stored
@@ -464,17 +464,20 @@ func TestArchiveWorkflowKillsAPaneWrittenBeforeItsOwnWrite(t *testing.T) {
 	workflowID := seedWorkflow(t, st)
 	agent := seedInWorkflow(t, st, workflowID, "dormant", "", agentstore.StateIdle)
 
-	workflows := NewWorkflowService(NewWorkflowServiceParams{
-		Workflows: st.Workflows,
-		Agents:    st.Agents,
-		Schedules: st.Schedules,
-		Tmux:      tmux,
-		Tx: txWritingPaneFirst{txRunner: st.Pool, inTheGap: buildResumeWrite(t, buildResumeWriteParams{
+	agentSvc := st.agentService(agentServiceOptions{
+		tmux: tmux,
+		tx: txWritingPaneFirst{txRunner: st.Pool, inTheGap: buildResumeWrite(t, buildResumeWriteParams{
 			Store: st,
 			Tmux:  tmux,
 			Agent: agent,
 			Pane:  "%9",
 		})},
+	})
+	workflows := NewWorkflowService(NewWorkflowServiceParams{
+		Workflows: st.Workflows,
+		Agents:    st.Agents,
+		Schedules: st.Schedules,
+		Lifecycle: agentSvc.lifecycle,
 	})
 
 	require.NoError(t, workflows.ArchiveWorkflow(ctx, workflowID))
@@ -924,7 +927,7 @@ func TestDeleteWorkflowLeavesAStragglerAndItsWorkflowBehind(t *testing.T) {
 		AgentDeleter: inlineDelete{lifecycle: agentSvc.lifecycle},
 		Emptied:      agentSvc.emptied,
 		Schedules:    st.Schedules,
-		Tmux:         tmux,
+		Lifecycle:    agentSvc.lifecycle,
 		Tx:           st.Pool,
 	})
 	ctx := t.Context()
@@ -975,7 +978,7 @@ func TestDeleteWorkflowClaimsTheWorkflowWhileItsAgentsGo(t *testing.T) {
 		AgentDeleter: claimOnly{agents: st.Agents},
 		Emptied:      agentSvc.emptied,
 		Schedules:    st.Schedules,
-		Tmux:         tmux,
+		Lifecycle:    agentSvc.lifecycle,
 		Tx:           st.Pool,
 	})
 	ctx := t.Context()
@@ -1104,7 +1107,7 @@ func TestWorkflowEventPromptsAreCleanedOrRefused(t *testing.T) {
 		{
 			name:    "an event komrad does not send",
 			prompts: []workflowstore.EventPrompt{{Event: "review.aproved", Prompt: "open the pull request"}},
-			wantErr: ErrUnknownEventPrompt,
+			wantErr: workflowstore.ErrUnknownEventPrompt,
 		},
 		{
 			name: "an event named twice",
@@ -1112,12 +1115,12 @@ func TestWorkflowEventPromptsAreCleanedOrRefused(t *testing.T) {
 				{Event: "review.approved", Prompt: "open the pull request"},
 				{Event: "review.approved", Prompt: "mark it ready"},
 			},
-			wantErr: ErrDuplicateEventPrompt,
+			wantErr: workflowstore.ErrDuplicateEventPrompt,
 		},
 		{
 			name:    "a prompt past the limit",
 			prompts: []workflowstore.EventPrompt{{Event: "review.approved", Prompt: strings.Repeat("é", 501)}},
-			wantErr: ErrPromptTooLong,
+			wantErr: workflowstore.ErrPromptTooLong,
 		},
 	}
 

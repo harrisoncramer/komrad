@@ -161,7 +161,7 @@ func TestWorkflowRefusalsMapToCodes(t *testing.T) {
 		{
 			name:     "a copy path outside the repo",
 			call:     update,
-			err:      agents.ErrWorktreeUnsafePath,
+			err:      workflowstore.ErrWorktreeUnsafePath,
 			wantCode: connect.CodeInvalidArgument,
 		},
 		{

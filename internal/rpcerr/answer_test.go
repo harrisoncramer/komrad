@@ -16,6 +16,7 @@ import (
 	"komrad/internal/schedules"
 	"komrad/internal/scripts"
 	"komrad/internal/store"
+	workflowstore "komrad/internal/store/workflow"
 
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
@@ -71,9 +72,9 @@ func TestWrapCodes(t *testing.T) {
 		{schedules.ErrBadCron, connect.CodeInvalidArgument},
 		{agents.ErrUnknownHookEvent, connect.CodeInvalidArgument},
 		{agents.ErrUnknownHookScript, connect.CodeInvalidArgument},
-		{agents.ErrUnknownEventPrompt, connect.CodeInvalidArgument},
-		{agents.ErrDuplicateEventPrompt, connect.CodeInvalidArgument},
-		{agents.ErrPromptTooLong, connect.CodeInvalidArgument},
+		{workflowstore.ErrUnknownEventPrompt, connect.CodeInvalidArgument},
+		{workflowstore.ErrDuplicateEventPrompt, connect.CodeInvalidArgument},
+		{workflowstore.ErrPromptTooLong, connect.CodeInvalidArgument},
 		{mail.ErrKindMissing, connect.CodeInvalidArgument},
 		{agents.ErrBadDirectory, connect.CodeInvalidArgument},
 		{agentdirs.ErrNoDirectory, connect.CodeInvalidArgument},
@@ -88,7 +89,7 @@ func TestWrapCodes(t *testing.T) {
 		{mail.ErrReplyToNotFound, connect.CodeInvalidArgument},
 		{agents.ErrWorktreeNeedsCwd, connect.CodeInvalidArgument},
 		{agents.ErrWorktreeCwdNotPrimaryCheckout, connect.CodeInvalidArgument},
-		{agents.ErrWorktreeUnsafePath, connect.CodeInvalidArgument},
+		{workflowstore.ErrWorktreeUnsafePath, connect.CodeInvalidArgument},
 		{agents.ErrWorktreeNeedsBase, connect.CodeInvalidArgument},
 		{agenterr.ErrTooManyAgents, connect.CodeResourceExhausted},
 		{mail.ErrMailboxFull, connect.CodeResourceExhausted},

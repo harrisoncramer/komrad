@@ -405,10 +405,12 @@ func (k knownHooks) FindHook(name string) (Script, error) {
 }
 
 func (s *testStore) workflowService(options workflowServiceOptions) *WorkflowService {
-	deleter := s.agentService(agentServiceOptions{
+	agentSvc := s.agentService(agentServiceOptions{
 		tmux:      options.tmux,
 		harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}},
 		addr:      "127.0.0.1:9999",
+		lifecycle: options.lifecycle,
+		usage:     options.usage,
 	})
 
 	hooks := options.hooks
@@ -419,15 +421,12 @@ func (s *testStore) workflowService(options workflowServiceOptions) *WorkflowSer
 	return NewWorkflowService(NewWorkflowServiceParams{
 		Workflows:    s.Workflows,
 		Agents:       s.Agents,
-		AgentDeleter: inlineDelete{lifecycle: deleter.lifecycle},
-		Emptied:      deleter.emptied,
+		AgentDeleter: inlineDelete{lifecycle: agentSvc.lifecycle},
+		Emptied:      agentSvc.emptied,
 		Schedules:    s.Schedules,
-		Tmux:         options.tmux,
-		Screens:      NewScreenKeeper(NewScreenKeeperParams{Panes: options.tmux, Screens: s.Screens}),
+		Lifecycle:    agentSvc.lifecycle,
 		Tx:           s.Pool,
-		Scripts:      options.lifecycle,
 		Hooks:        hooks,
-		Usage:        options.usage,
 	})
 }
 
