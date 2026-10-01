@@ -466,7 +466,7 @@ type resolvedLaunch struct {
 }
 
 func (s *LaunchService) startInPane(ctx context.Context, agent agentstore.Agent, resolved resolvedLaunch) (*agentstore.Agent, error) {
-	if err := s.starter.start(ctx, agent, &createStart{service: s, resolved: resolved}); err != nil {
+	if err := s.starter.start(ctx, agent, &createStart{service: s, scripts: s.starter.scripts, resolved: resolved}); err != nil {
 		return nil, err
 	}
 
@@ -480,12 +480,13 @@ func (s *LaunchService) startInPane(ctx context.Context, agent agentstore.Agent,
 
 type createStart struct {
 	service     *LaunchService
+	scripts     agentScriptRunner
 	resolved    resolvedLaunch
 	provisioned bool
 }
 
 func (c *createStart) runSetUp(ctx context.Context, agent agentstore.Agent) (string, error) {
-	runner := c.service.starter.scripts
+	runner := c.scripts
 	if runner == nil || c.resolved.provisioner == "" {
 		return "", nil
 	}
@@ -505,7 +506,7 @@ func (c *createStart) getDefaultDir(agentstore.Agent) string {
 
 func (c *createStart) runPreHooks(ctx context.Context, agent agentstore.Agent) error {
 	return runPreHooks(ctx, hookRunParams{
-		scripts: c.service.starter.scripts,
+		scripts: c.scripts,
 		agent:   agent,
 		hooks:   c.resolved.hooks,
 		event:   workflowstore.HookPreLaunch,
@@ -552,7 +553,7 @@ func (c *createStart) planLaunch(agent agentstore.Agent) paneLaunch {
 
 func (c *createStart) finish(ctx context.Context, agent agentstore.Agent) error {
 	startHooks(ctx, hookRunParams{
-		scripts: c.service.starter.scripts,
+		scripts: c.scripts,
 		agent:   agent,
 		hooks:   c.resolved.hooks,
 		event:   workflowstore.HookPostLaunch,
@@ -563,7 +564,7 @@ func (c *createStart) finish(ctx context.Context, agent agentstore.Agent) error 
 
 func (c *createStart) rollBack(ctx context.Context, agent agentstore.Agent, cause error) {
 	if c.provisioned {
-		awaitDeprovision(ctx, c.service.starter.scripts, agent, c.resolved.deprovisioner)
+		awaitDeprovision(ctx, c.scripts, agent, c.resolved.deprovisioner)
 	}
 	c.service.failCreate(ctx, agent, cause)
 }

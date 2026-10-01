@@ -163,6 +163,7 @@ func (s *ResumeService) resume(ctx context.Context, agent agentstore.Agent) erro
 
 	return s.starter.start(ctx, agent, &resumeStart{
 		service: s,
+		scripts: s.starter.scripts,
 		harness: hn,
 		prior:   prior,
 	})
@@ -170,13 +171,14 @@ func (s *ResumeService) resume(ctx context.Context, agent agentstore.Agent) erro
 
 type resumeStart struct {
 	service *ResumeService
+	scripts agentScriptRunner
 	harness harness.Harness
 	prior   agentstore.State
 }
 
 func (r *resumeStart) runSetUp(ctx context.Context, agent agentstore.Agent) (string, error) {
 	name := provisionerFor(ctx, r.service.workflows, agent)
-	runner := r.service.starter.scripts
+	runner := r.scripts
 	if runner == nil || name == "" {
 		return "", nil
 	}
@@ -190,7 +192,7 @@ func (r *resumeStart) getDefaultDir(agent agentstore.Agent) string {
 
 func (r *resumeStart) runPreHooks(ctx context.Context, agent agentstore.Agent) error {
 	if err := runPreHooks(ctx, hookRunParams{
-		scripts: r.service.starter.scripts,
+		scripts: r.scripts,
 		agent:   agent,
 		hooks:   agentHooks(ctx, r.service.workflows, agent),
 		event:   workflowstore.HookPreResume,
@@ -263,7 +265,7 @@ func (r *resumeStart) finish(ctx context.Context, agent agentstore.Agent) error 
 	}
 
 	startHooks(ctx, hookRunParams{
-		scripts: r.service.starter.scripts,
+		scripts: r.scripts,
 		agent:   agent,
 		hooks:   agentHooks(ctx, r.service.workflows, agent),
 		event:   workflowstore.HookPostResume,
