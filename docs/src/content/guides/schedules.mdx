@@ -21,7 +21,7 @@ There are two kinds of schedules: _implementer schedules_ launch a new agent eac
 
 An implementer schedule launches a new agent into a workflow each time it fires, with the schedule's prompt. Everything else about the launch, such as the directory, the flags and the shared context, comes from the workflow at the moment it fires.
 
-Open the schedules from the switcher at the top of the panel and press <Key name="schedules.new" /> to write one. Leave the kind on implementer, then give it a name, a cron expression, a prompt, and the `neovim` workflow. The name also names every agent it launches.
+Open the schedules from the switcher at the top of the panel, open the menu with <Key name="menu.open" /> and press <Key name="schedule_menu.new" /> to write one. Leave the kind on implementer, then give it a name, a cron expression, a prompt, and the `neovim` workflow. The name also names every agent it launches.
 
 The video uses `* * * * *` so the schedule fires within a minute.
 

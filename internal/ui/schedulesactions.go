@@ -67,31 +67,12 @@ func (w *schedulesScreen) actions() screenActionSpec {
 				nav:  list.scrollPressed,
 			},
 			{
-				id:     actionScheduleNew,
-				keys:   func(k config.Keybindings) []string { return k.Schedules.New },
-				direct: directly(notInMenu, func(h host, s panelShared, _ string) tea.Cmd { return w.newForm(h, s) }),
-			},
-			{
-				id:     actionScheduleEdit,
-				keys:   func(k config.Keybindings) []string { return k.Schedules.Edit },
-				direct: directly(notInMenu, func(h host, s panelShared, _ string) tea.Cmd { return w.editForm(h, s) }),
-			},
-			{
 				id:     actionScheduleRename,
 				keys:   func(k config.Keybindings) []string { return k.Schedules.Rename },
 				direct: directly(notInMenu, func(_ host, s panelShared, _ string) tea.Cmd { return w.openRename(s) }),
 			},
 		},
 		legend: []screenLegendRow{
-			{
-				of:   []actionID{actionScheduleNew},
-				desc: func(panelShared) string { return "new schedule" },
-			},
-			{
-				of:    []actionID{actionScheduleEdit},
-				desc:  func(panelShared) string { return "edit" },
-				strip: true,
-			},
 			{
 				of:   []actionID{actionScheduleRename},
 				desc: func(panelShared) string { return "rename" },

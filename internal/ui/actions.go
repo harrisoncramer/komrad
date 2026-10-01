@@ -41,8 +41,6 @@ const (
 	actionSelectToggle
 	actionSelectRange
 	actionSelectClear
-	actionScheduleNew
-	actionScheduleEdit
 	actionScheduleRename
 	actionScheduleBack
 	actionArchiveRename

@@ -904,20 +904,6 @@
               "default": "[\"esc\"]"
             },
             {
-              "key": "edit",
-              "path": "keybindings.schedules.edit",
-              "type": "array",
-              "description": "Edit the schedule under the cursor.",
-              "default": "[\"e\"]"
-            },
-            {
-              "key": "new",
-              "path": "keybindings.schedules.new",
-              "type": "array",
-              "description": "Write a new schedule.",
-              "default": "[\"c\"]"
-            },
-            {
               "key": "quit",
               "path": "keybindings.schedules.quit",
               "type": "array",
@@ -944,6 +930,20 @@
               "type": "array",
               "description": "Pause the schedule, or resume it when it is paused.",
               "default": "[\"p\"]"
+            },
+            {
+              "key": "edit",
+              "path": "keybindings.schedule_menu.edit",
+              "type": "array",
+              "description": "Edit the hovered schedule.",
+              "default": "[\"e\"]"
+            },
+            {
+              "key": "new",
+              "path": "keybindings.schedule_menu.new",
+              "type": "array",
+              "description": "Write a new schedule, offered on the schedules screen whatever is hovered.",
+              "default": "[\"c\"]"
             }
           ],
           "sections": []

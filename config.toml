@@ -349,10 +349,6 @@ scroll_up   = ["ctrl+p"]
 [keybindings.schedules]
 # Open the view switcher.
 back   = ["esc"]
-# Edit the schedule under the cursor.
-edit   = ["e"]
-# Write a new schedule.
-new    = ["c"]
 # Quit the panel.
 quit   = ["ctrl+c"]
 # Rename the schedule under the cursor, typed over its row.
@@ -362,6 +358,10 @@ rename = ["r"]
 [keybindings.schedule_menu]
 # Pause the schedule, or resume it when it is paused.
 toggle = ["p"]
+# Edit the hovered schedule.
+edit   = ["e"]
+# Write a new schedule, offered on the schedules screen whatever is hovered.
+new    = ["c"]
 
 # The keys that move the sidebar's edge, shared by every screen.
 [keybindings.sidebar]
