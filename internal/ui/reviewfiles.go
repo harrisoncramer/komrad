@@ -399,10 +399,17 @@ func (r *reviewScreen) jumpFilesMatch(h navHost, s panelShared, direction int) t
 	start = max(start, 0)
 
 	for ; step <= len(tree.rows); step++ {
-		row := tree.rows[((start+walk*step)%len(tree.rows)+len(tree.rows))%len(tree.rows)]
-		if !row.Folder && r.filesFilter.doesMatch(row.Name) {
-			return r.landOnFile(h, s, row)
+		at := ((start+walk*step)%len(tree.rows) + len(tree.rows)) % len(tree.rows)
+		row := tree.rows[at]
+		if row.Folder || !r.filesFilter.doesMatch(row.Name) {
+			continue
 		}
+
+		if at == tree.current {
+			return nil
+		}
+
+		return r.landOnFile(h, s, row)
 	}
 
 	h.note(messageWarning, "no file matches")
