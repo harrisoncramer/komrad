@@ -106,10 +106,15 @@ func (m *model) redrawFormOn(key string) tea.Cmd {
 		return nil
 	}
 
-	cmds := []tea.Cmd{cmd}
+	return tea.Batch(append([]tea.Cmd{cmd}, m.focusFieldCmds(key)...)...)
+}
+
+// focusFieldCmds steps the form's cursor from its first field to the field named.
+func (m *model) focusFieldCmds(key string) []tea.Cmd {
+	var cmds []tea.Cmd
 	for range max(slices.Index(m.form.order, key), 0) {
 		cmds = append(cmds, m.form.form.NextField())
 	}
 
-	return tea.Batch(cmds...)
+	return cmds
 }

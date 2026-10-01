@@ -20,8 +20,11 @@ type formState struct {
 	// crumbs are the steps the form adds to the trail while it is up.
 	crumbs []string
 
-	// leading draws what stands to the left of the form within its width, nil for nothing.
-	leading func(width int) []string
+	// leading draws what stands to the left of the form within its width and height, nil for nothing.
+	leading func(width, height int) []string
+
+	// back is what the back key does, nil for closing the form.
+	back func(model) (tea.Model, tea.Cmd)
 
 	// update is the form's own message handler, so the panel need not ask which form is up before
 	// handing it a message.
@@ -188,11 +191,16 @@ func (m model) formBox() (width, height int) {
 
 	_, used := m.formLeading()
 
-	if split, ok := m.columnGeometry(); ok {
-		return max(split.column-used, 1), max(split.rows-formHelpLines-held, 1)
+	floor := 1
+	if used > 0 {
+		floor = formColumnFloor
 	}
 
-	return max(m.width-used, 1), max(m.height-formHelpLines-held, 1)
+	if split, ok := m.columnGeometry(); ok {
+		return max(split.column-used, floor), max(split.rows-formHelpLines-held, 1)
+	}
+
+	return max(m.width-used, floor), max(m.height-formHelpLines-held, 1)
 }
 
 // formLeading is what the form draws to its left, and the columns that takes with its dividers.
@@ -201,12 +209,15 @@ func (m model) formLeading() ([]string, int) {
 		return nil, 0
 	}
 
-	room := m.width
+	room, rows := m.width, m.height-formHelpLines
 	if split, ok := m.columnGeometry(); ok {
-		room = split.column
+		room, rows = split.column, split.rows-formHelpLines
+	}
+	if m.held.active {
+		rows -= submittingLines
 	}
 
-	views := m.form.leading(room)
+	views := m.form.leading(room, rows)
 
 	used := 0
 	for _, view := range views {
@@ -255,14 +266,6 @@ func formOf(keys config.FormKeys, fields ...huh.Field) (*huh.Form, []string) {
 // textField is a text field whose editor the panel opens rather than huh.
 func textField(key string) *huh.Text {
 	return huh.NewText().Key(key).ExternalEditor(false)
-}
-
-func blueprintFields(titlePrefix string, harness, dir, flags *string) []huh.Field {
-	return []huh.Field{
-		huh.NewInput().Key("harness").Title(titlePrefix + "Agent").Placeholder("claude").Value(harness),
-		huh.NewInput().Key("dir").Title(titlePrefix + "Directory").Value(dir),
-		huh.NewInput().Key("flags").Title(titlePrefix + "Flags").Placeholder("--model opus").Value(flags),
-	}
 }
 
 func formKeyMap(keys config.FormKeys) *huh.KeyMap {
@@ -403,6 +406,10 @@ func (m model) updateForm(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if next, cmd, kept := m.updateFormVim(key); kept {
 			return next, cmd
 		}
+
+		if m.form.back != nil && isBound(key.String(), formKeys().Back) {
+			return m.form.back(m)
+		}
 	}
 
 	cmd := m.stepForm(msg)
@@ -459,6 +466,15 @@ func (m model) formSizeOf(msg tea.Msg) tea.Msg {
 func (m *model) leaveForm() {
 	m.held = heldWrite{}
 	m.form = formState{}
+}
+
+// leaveFormBack does what the back key does on the form on screen.
+func (m model) leaveFormBack() (tea.Model, tea.Cmd) {
+	if m.form.back != nil {
+		return m.form.back(m)
+	}
+
+	return m.closeForm()
 }
 
 // closeForm drops the form and comes back to the screen it was drawn over.

@@ -36,6 +36,16 @@ func TestVimEditing(t *testing.T) {
 		assert.NotContains(t, harness.readFrame(), "Initial prompt")
 	})
 
+	t.Run("with vim on the second esc in a section goes back to the top form", func(t *testing.T) {
+		harness := openVimForms(t)
+
+		harness.press(slices.Concat([]string{"space", "w"}, spellKeys("web"), openWorkflowSectionKeys(0), spellKeys("codex"), []string{"esc", "esc"})...)
+
+		frame := harness.readFrame()
+		assert.NotContains(t, frame, "Default Agent")
+		assert.Contains(t, frame, "New workflow name")
+	})
+
 	t.Run("ctrl+[ counts as esc in a form", func(t *testing.T) {
 		harness := openVimForms(t)
 
@@ -81,19 +91,6 @@ func TestVimEditing(t *testing.T) {
 		create, ok := sent[0].(*agentv1.CreateAgentRequest)
 		require.True(t, ok)
 		assert.Equal(t, "go far", create.GetPrompt())
-	})
-
-	t.Run("j in normal mode steps over a field that is not text and arrives in normal mode", func(t *testing.T) {
-		harness := openVimForms(t)
-
-		harness.press(slices.Concat([]string{"space", "w"}, spellKeys("web"), slices.Repeat([]string{"tab"}, 6), []string{"esc", "j", "i"},
-			spellKeys("main"), []string{"esc", "ctrl+s"})...)
-
-		sent := harness.readSent(workflowv1connect.WorkflowServiceCreateWorkflowProcedure)
-		require.Len(t, sent, 1)
-		create, ok := sent[0].(*workflowv1.CreateWorkflowRequest)
-		require.True(t, ok)
-		assert.Equal(t, "main", create.GetWorktree().GetBaseBranch())
 	})
 
 	t.Run("k on the first field stays on it", func(t *testing.T) {

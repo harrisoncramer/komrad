@@ -2,7 +2,6 @@ package ui
 
 import (
 	"fmt"
-	"slices"
 
 	"komrad/internal/eventprompts"
 	"komrad/internal/ui/panel"
@@ -10,7 +9,6 @@ import (
 	hookv1 "komrad/proto/gen/hook/v1"
 
 	tea "charm.land/bubbletea/v2"
-	"charm.land/huh/v2"
 )
 
 func newWorkflowForm(h host, s panelShared) tea.Cmd {
@@ -40,29 +38,11 @@ func openWorkflowConfigForm(h host, values *workflowFormValues, target *panel.Wo
 		title = "Workflow name"
 	}
 
-	build := func(m model) (*huh.Form, []string) {
-		return workflowConfigForm(workflowConfigParams{
-			NameTitle: title,
-			Values:    values,
-			Hooks:     m.getAvailableHooks(),
-			Keys:      formKeys(),
-			Editing:   target != nil,
-		})
-	}
-
-	return h.openForm(formState{
-		kind:           formWorkflow,
-		keepsOnRefusal: true,
-		update: func(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
-			return m.updateWorkflowForm(msg, values, build)
-		},
-		editable: append([]editableText{
-			{key: "context", value: &values.Context},
-			{key: "worktree_copy_paths", value: &values.WorktreeCopyPaths},
-			{key: "worktree_symlink_paths", value: &values.WorktreeSymlinkPaths},
-			{key: "worktree_diff_exclude", value: &values.WorktreeDiffExclude},
-		}, eventPromptEditables(values)...),
-		submit: holdSubmit(func(m model) (model, tea.Cmd) {
+	return h.openForm(workflowForm(workflowFormParams{
+		NameTitle: title,
+		Values:    values,
+		Editing:   target != nil,
+		Submit: holdSubmit(func(m model) (model, tea.Cmd) {
 			var cmd tea.Cmd
 			if target == nil {
 				cmd = m.createWorkflowCmd(values.toConfig())
@@ -77,25 +57,7 @@ func openWorkflowConfigForm(h host, values *workflowFormValues, target *panel.Wo
 
 			return m, cmd
 		}),
-		rebuild: build,
-	})
-}
-
-// swapProvisioner redraws the form around the provisioner just chosen and puts the cursor back
-// on the field that chose it.
-func (m model) swapProvisioner(build func(model) (*huh.Form, []string)) (model, tea.Cmd) {
-	form, order := build(m)
-
-	// Redrawn from nothing, so it is told its own column again along with everything else.
-	cmds := []tea.Cmd{form.Init(), formResized()}
-	for range max(slices.Index(order, provisionerKey), 0) {
-		cmds = append(cmds, form.NextField())
-	}
-
-	m.form.form = form
-	m.form.order = order
-
-	return m, tea.Batch(cmds...)
+	}).topState())
 }
 
 // getAvailableHooks is the hooks directory as the form offers it, a directory that is not there
@@ -131,40 +93,6 @@ func (l listing) agentsOf(workflowID string) []panel.Agent {
 	}
 
 	return held
-}
-
-// updateWorkflowForm is the one form whose fields change as it is answered, so it watches the
-// provisioner across the message that may have switched it.
-func (m model) updateWorkflowForm(msg tea.Msg, values *workflowFormValues, build func(model) (*huh.Form, []string)) (tea.Model, tea.Cmd) {
-	if key, ok := msg.(tea.KeyPressMsg); ok && isBound(key.String(), formKeys().Submit) {
-		return m.answerForm()
-	}
-
-	if key, ok := msg.(tea.KeyPressMsg); ok {
-		if next, cmd, kept := m.updateFormVim(key); kept {
-			return next, cmd
-		}
-	}
-
-	was := values.Provisioner
-
-	cmd := m.stepForm(msg)
-
-	switch m.form.form.State {
-	case huh.StateCompleted:
-		return m.answerForm()
-	case huh.StateAborted:
-		return m.closeForm()
-	case huh.StateNormal:
-	}
-
-	if values.Provisioner != was {
-		var swapped tea.Cmd
-		m, swapped = m.swapProvisioner(build)
-		cmd = tea.Batch(cmd, swapped)
-	}
-
-	return m, cmd
 }
 
 // eventPromptEditables are the event prompts the panel's editor key can open.
