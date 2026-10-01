@@ -19,8 +19,7 @@ type Traced struct {
 // tracedByID is where git says each thread's or offer's lines went, keyed by its id.
 type tracedByID map[string]Traced
 
-// pathOf is the file an id is about in the snapshot on screen, which only tracing knows about
-// once a rename has moved it.
+// pathOf is the file an id is about in the snapshot on screen.
 func (t tracedByID) pathOf(id, written string) string {
 	found, ok := t[id]
 	if !ok || found.FilePath == "" {
