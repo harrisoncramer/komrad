@@ -9,8 +9,8 @@ import (
 )
 
 // actions is the logs screen as one table and the legend that names it.
-func (l *logsScreen) actions(s panelShared) screenActionSpec {
-	if l.isBlockFocused(s) {
+func (l *logsScreen) actions(m *model) screenActionSpec {
+	if l.isBlockFocused(m) {
 		return l.logActions()
 	}
 
@@ -30,8 +30,8 @@ func (l *logsScreen) table() []screenAction {
 		screenAction{
 			id:   actionLogsBack,
 			keys: func(k config.Keybindings) []string { return k.Logs.Back },
-			nav: func(h navHost, _ panelShared, _ string) tea.Cmd {
-				return h.enter(l.from, screenTarget{agentID: l.agentID})
+			nav: func(m *model, _ string) tea.Cmd {
+				return m.enter(l.from, screenTarget{agentID: l.agentID})
 			},
 		},
 	)
@@ -50,12 +50,12 @@ func (l *logsScreen) legend() []screenLegendRow {
 		},
 		{
 			of:    []actionID{actionFilterMatch},
-			desc:  func(panelShared) string { return "next/prev match" },
+			desc:  func(*model) string { return "next/prev match" },
 			strip: true,
 		},
 		{
 			of:    []actionID{actionLogsBack},
-			desc:  func(panelShared) string { return "back" },
+			desc:  func(*model) string { return "back" },
 			strip: true,
 		},
 	})
@@ -68,29 +68,29 @@ func (l *logsScreen) logActions() screenActionSpec {
 			{
 				id:   actionMove,
 				keys: func(b config.Keybindings) []string { return slices.Concat(b.Nav.Up, b.Nav.Down) },
-				nav: func(_ navHost, s panelShared, pressed string) tea.Cmd {
-					return l.move(directionOf(pressed, s.keys.Nav.Up))
+				nav: func(m *model, pressed string) tea.Cmd {
+					return l.move(directionOf(pressed, m.keys.Nav.Up))
 				},
 			},
 			{
 				id:   actionNavPage,
 				keys: func(b config.Keybindings) []string { return slices.Concat(b.Nav.PageUp, b.Nav.PageDown) },
-				nav: func(_ navHost, s panelShared, pressed string) tea.Cmd {
-					return l.move(directionOf(pressed, s.keys.Nav.PageUp) * navPageStep)
+				nav: func(m *model, pressed string) tea.Cmd {
+					return l.move(directionOf(pressed, m.keys.Nav.PageUp) * navPageStep)
 				},
 			},
 			{
 				id:   actionColumnScroll,
 				keys: func(b config.Keybindings) []string { return slices.Concat(b.Column.ScrollDown, b.Column.ScrollUp) },
-				nav: func(_ navHost, s panelShared, pressed string) tea.Cmd {
-					return l.move(directionOf(pressed, s.keys.Column.ScrollUp) * columnWheelStep)
+				nav: func(m *model, pressed string) tea.Cmd {
+					return l.move(directionOf(pressed, m.keys.Column.ScrollUp) * columnWheelStep)
 				},
 			},
 			{
 				id:   actionJump,
 				keys: func(b config.Keybindings) []string { return slices.Concat(b.Nav.Top, b.Nav.Bottom) },
-				nav: func(_ navHost, s panelShared, pressed string) tea.Cmd {
-					if isBound(pressed, s.keys.Nav.Bottom) {
+				nav: func(m *model, pressed string) tea.Cmd {
+					if isBound(pressed, m.keys.Nav.Bottom) {
 						return l.move(l.viewer.Len())
 					}
 
@@ -100,19 +100,19 @@ func (l *logsScreen) logActions() screenActionSpec {
 			{
 				id:   actionLogsCopy,
 				keys: func(k config.Keybindings) []string { return k.Logs.Copy },
-				nav: func(h navHost, _ panelShared, _ string) tea.Cmd {
+				nav: func(m *model, _ string) tea.Cmd {
 					line, ok := l.viewer.Current()
 					if !ok {
 						return nil
 					}
 
-					return h.copyCmd(line)
+					return m.copyCmd(line)
 				},
 			},
 			{
 				id:   actionFilterOpen,
 				keys: func(config.Keybindings) []string { return []string{filterOpenKey} },
-				nav: func(navHost, panelShared, string) tea.Cmd {
+				nav: func(*model, string) tea.Cmd {
 					l.openLogFilter()
 
 					return nil
@@ -121,9 +121,9 @@ func (l *logsScreen) logActions() screenActionSpec {
 			{
 				id:   actionLogsBack,
 				keys: func(k config.Keybindings) []string { return k.Logs.Back },
-				nav: func(_ navHost, s panelShared, _ string) tea.Cmd {
+				nav: func(m *model, _ string) tea.Cmd {
 					if l.logFilter.isStanding() {
-						return l.clearLogFilter(s)
+						return l.clearLogFilter(m)
 					}
 
 					l.logFocus = false
@@ -134,7 +134,7 @@ func (l *logsScreen) logActions() screenActionSpec {
 			{
 				id:   actionQuit,
 				keys: func(k config.Keybindings) []string { return k.Logs.Quit },
-				nav:  func(h navHost, _ panelShared, _ string) tea.Cmd { return h.hide() },
+				nav:  func(m *model, _ string) tea.Cmd { return m.hide() },
 			},
 		},
 		legend: []screenLegendRow{
@@ -143,16 +143,16 @@ func (l *logsScreen) logActions() screenActionSpec {
 			diffJumpRow(),
 			{
 				of:   []actionID{actionFilterOpen},
-				desc: func(panelShared) string { return "filter" },
+				desc: func(*model) string { return "filter" },
 			},
 			{
 				of:    []actionID{actionLogsCopy},
-				desc:  func(panelShared) string { return "copy line" },
+				desc:  func(*model) string { return "copy line" },
 				strip: true,
 			},
 			{
 				of: []actionID{actionLogsBack},
-				desc: func(panelShared) string {
+				desc: func(*model) string {
 					if l.logFilter.isStanding() {
 						return "clear filter"
 					}
@@ -165,6 +165,6 @@ func (l *logsScreen) logActions() screenActionSpec {
 	}
 }
 
-func (l *logsScreen) help(s panelShared) keyMap {
-	return l.actions(s).help(s)
+func (l *logsScreen) help(m *model) keyMap {
+	return l.actions(m).help(m)
 }

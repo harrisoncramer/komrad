@@ -161,8 +161,8 @@ func buildRemoteField(read worktreeInspection) recordField {
 }
 
 // agentDetailsTags is what the record's rule carries for an agent.
-func agentDetailsTags(s panelShared, item panel.AgentRow) []string {
-	worktree, _ := agentWorktree(s.inspections, item.Agent.Cwd)
+func agentDetailsTags(m *model, item panel.AgentRow) []string {
+	worktree, _ := agentWorktree(m.inspections, item.Agent.Cwd)
 
 	return append(buildWorktreeStateTags(worktree), buildDiffStatTag(item.DiffStat))
 }
@@ -223,12 +223,12 @@ func (m model) hoveredRecordAgent() (panel.AgentRow, bool) {
 	var ok bool
 	switch m.screen {
 	case screenAgents:
-		row, ok = m.agents.hoveredRow(m.shared())
+		row, ok = m.agents.hoveredRow(&m)
 	case screenArchive:
 		if m.archive.kind == archiveSchedules {
 			return panel.AgentRow{}, false
 		}
-		row, ok = rowAt(m.archive.listRows(m.shared()), m.archive.cursor)
+		row, ok = rowAt(m.archive.listRows(&m), m.archive.cursor)
 	case screenSchedules, screenSearch, screenReview, screenWorktrees, screenDocuments, screenLogs:
 		return panel.AgentRow{}, false
 	}

@@ -38,20 +38,20 @@ type archiveScreen struct {
 }
 
 // enter lands on the agent the target names.
-func (a *archiveScreen) enter(h host, s panelShared, target screenTarget) tea.Cmd {
-	if idx := rowIndexOfAgentID(a.listRows(s), target.agentID); target.agentID != "" && idx >= 0 {
+func (a *archiveScreen) enter(m *model, target screenTarget) tea.Cmd {
+	if idx := rowIndexOfAgentID(a.listRows(m), target.agentID); target.agentID != "" && idx >= 0 {
 		a.kind = archiveAgents
 		a.cursor = idx
 	}
 
-	a.stage(h, s)
+	a.stage(m)
 
-	return h.waitToStage()
+	return m.waitToStage()
 }
 
-func (a *archiveScreen) update(h host, s panelShared, msg tea.Msg) tea.Cmd {
+func (a *archiveScreen) update(m *model, msg tea.Msg) tea.Cmd {
 	if _, ok := msg.(tea.PasteMsg); ok && a.isRenaming() {
-		return a.updateRename(h, s, msg)
+		return a.updateRename(m, msg)
 	}
 
 	key, ok := msg.(tea.KeyPressMsg)
@@ -59,23 +59,23 @@ func (a *archiveScreen) update(h host, s panelShared, msg tea.Msg) tea.Cmd {
 		return nil
 	}
 
-	a.reconcileRename(s)
+	a.reconcileRename(m)
 	if a.isRenaming() {
-		return a.updateRename(h, s, msg)
+		return a.updateRename(m, msg)
 	}
 
 	if a.kind == archiveSchedules {
-		return a.scheduleList().update(h, s, key, a.actions())
+		return a.scheduleList().update(m, key, a.actions())
 	}
 
-	return a.list().update(h, s, key, a.actions())
+	return a.list().update(m, key, a.actions())
 }
 
-func (a *archiveScreen) onAgents(panelShared) bool {
+func (a *archiveScreen) onAgents(*model) bool {
 	return a.kind == archiveAgents
 }
 
-func (a *archiveScreen) onSchedules(panelShared) bool {
+func (a *archiveScreen) onSchedules(*model) bool {
 	return a.kind == archiveSchedules
 }
 
@@ -87,8 +87,8 @@ func (a *archiveScreen) kinds() stops {
 	}
 }
 
-func (a *archiveScreen) kindsFit(s panelShared) bool {
-	return s.draw.listFitsTabs(a.listParams(s))
+func (a *archiveScreen) kindsFit(m *model) bool {
+	return m.listFitsTabs(a.listParams(m))
 }
 
 func (a *archiveScreen) kindsFocused() *bool {
@@ -96,17 +96,17 @@ func (a *archiveScreen) kindsFocused() *bool {
 }
 
 // kindsSwitch holds the archive on its agents while any are selected.
-func (a *archiveScreen) kindsSwitch(s panelShared) bool {
-	return !a.onAgents(s) || !a.selected.isActive()
+func (a *archiveScreen) kindsSwitch(m *model) bool {
+	return !a.onAgents(m) || !a.selected.isActive()
 }
 
 // stepKind moves the archive to another kind of archived resource.
-func (a *archiveScreen) stepKind(h host, s panelShared, delta int) tea.Cmd {
+func (a *archiveScreen) stepKind(m *model, delta int) tea.Cmd {
 	a.kind = archiveKind(stepStop(int(a.kind), delta, len(a.kinds().labels)))
 
-	a.stage(h, s)
+	a.stage(m)
 
-	return h.waitToStage()
+	return m.waitToStage()
 }
 
 func (a *archiveScreen) list() screenList[agentRow] {
@@ -117,10 +117,10 @@ func (a *archiveScreen) list() screenList[agentRow] {
 		refs:   refsOf,
 		header: "folder",
 		placed: a.stage,
-		moved: func(h navHost, s panelShared) tea.Cmd {
-			a.stage(h, s)
+		moved: func(m *model) tea.Cmd {
+			a.stage(m)
 
-			return h.waitToStage()
+			return m.waitToStage()
 		},
 		quit: func(k config.Keybindings) []string { return k.Archive.Quit },
 		back: func(k config.Keybindings) []string { return k.Archive.Back },
@@ -133,10 +133,10 @@ func (a *archiveScreen) scheduleList() screenList[scheduleItem] {
 		rows:   a.scheduleListRows,
 		name:   func(item scheduleItem) string { return item.schedule.Name },
 		placed: a.stage,
-		moved: func(h navHost, s panelShared) tea.Cmd {
-			a.stage(h, s)
+		moved: func(m *model) tea.Cmd {
+			a.stage(m)
 
-			return h.waitToStage()
+			return m.waitToStage()
 		},
 		quit: func(k config.Keybindings) []string { return k.Archive.Quit },
 		back: func(k config.Keybindings) []string { return k.Archive.Back },
@@ -145,30 +145,30 @@ func (a *archiveScreen) scheduleList() screenList[scheduleItem] {
 
 // scheduleListRows is the archived schedules as drawn, or as they would be drawn when nothing has
 // cached them.
-func (a *archiveScreen) scheduleListRows(s panelShared) []scheduleItem {
+func (a *archiveScreen) scheduleListRows(m *model) []scheduleItem {
 	if a.scheduleRows != nil {
 		return a.scheduleRows
 	}
 
-	return narrowed(s.chrome.filter, narrowedParams[scheduleItem]{
-		rows:  s.listing.archivedSchedules,
+	return narrowed(m.filter, narrowedParams[scheduleItem]{
+		rows:  m.listing.archivedSchedules,
 		depth: func(scheduleItem) int { return 0 },
 		name:  func(item scheduleItem) string { return item.schedule.Name },
 	})
 }
 
 // hoveredSchedule is the archived schedule the cursor is on.
-func (a *archiveScreen) hoveredSchedule(s panelShared) (panel.Schedule, bool) {
-	item, ok := rowAt(a.scheduleListRows(s), a.schedules.cursor)
+func (a *archiveScreen) hoveredSchedule(m *model) (panel.Schedule, bool) {
+	item, ok := rowAt(a.scheduleListRows(m), a.schedules.cursor)
 
 	return item.schedule, ok
 }
 
 // confirmDeleteSchedule asks before an archived schedule is deleted for good.
-func confirmDeleteSchedule(h host, schedule panel.Schedule) tea.Cmd {
+func confirmDeleteSchedule(m *model, schedule panel.Schedule) tea.Cmd {
 	form, confirmed := deleteScheduleForm(schedule.Name, formKeys())
 
-	return h.openForm(formState{
+	return m.openForm(formState{
 		kind:   formArchiveDelete,
 		form:   form,
 		update: model.updateForm,
@@ -206,24 +206,24 @@ var archiveSorts = []sortColumn[panel.AgentRow]{
 }
 
 // listRows is the list as drawn, or as it would be drawn when nothing has cached it.
-func (a *archiveScreen) listRows(s panelShared) []agentRow {
+func (a *archiveScreen) listRows(m *model) []agentRow {
 	if a.rows != nil {
 		return a.rows
 	}
 
-	return a.buildRows(s)
+	return a.buildRows(m)
 }
 
-func (a *archiveScreen) buildRows(s panelShared) []agentRow {
+func (a *archiveScreen) buildRows(m *model) []agentRow {
 	// The archive draws an archived orchestrator as a row of its own.
 	rows := treeRows(treeRowsParams{
-		workflows:  archiveHeaders(s.listing),
-		agents:     sortedAgents(s.listing.archivedAgents, archiveSorts, archiveTabs().order(a.sort)),
+		workflows:  archiveHeaders(m.listing),
+		agents:     sortedAgents(m.listing.archivedAgents, archiveSorts, archiveTabs().order(a.sort)),
 		showHidden: true,
 		flat:       a.sort.flat,
 	})
 
-	return narrowedAgentRows(s.chrome.filter, rows)
+	return narrowedAgentRows(m.filter, rows)
 }
 
 // archiveHeaders is every workflow the archive draws a folder for: the archived ones, and the
@@ -257,24 +257,24 @@ func (l listing) archivedCount(workflowID string) int {
 }
 
 // place keeps the cursor on the row it was on as the rows under it change.
-func (a *archiveScreen) place(s panelShared, hovered string) {
-	rows := a.listRows(s)
+func (a *archiveScreen) place(m *model, hovered string) {
+	rows := a.listRows(m)
 	a.selected = a.selected.pruned(refsOf(rows))
 
 	a.cursor = cursor.Place(rowIndexOfKey(rows, hovered), a.cursor, len(rows))
-	a.reconcileRename(s)
+	a.reconcileRename(m)
 }
 
 // placeSchedule keeps the cursor on the archived schedule it was on as the rows under it change.
-func (a *archiveScreen) placeSchedule(s panelShared, hovered string) {
-	rows := a.scheduleListRows(s)
+func (a *archiveScreen) placeSchedule(m *model, hovered string) {
+	rows := a.scheduleListRows(m)
 	a.schedules.cursor = cursor.Place(rowIndexOfKey(rows, hovered), a.schedules.cursor, len(rows))
-	a.reconcileRename(s)
+	a.reconcileRename(m)
 }
 
 // hoveredAgent is the archived agent the cursor is on, and none on a folder.
-func (a *archiveScreen) hoveredAgent(s panelShared) (panel.Agent, bool) {
-	row, ok := rowAt(a.listRows(s), a.cursor)
+func (a *archiveScreen) hoveredAgent(m *model) (panel.Agent, bool) {
+	row, ok := rowAt(a.listRows(m), a.cursor)
 	if !ok || row.header {
 		return panel.Agent{}, false
 	}
@@ -284,8 +284,8 @@ func (a *archiveScreen) hoveredAgent(s panelShared) (panel.Agent, bool) {
 
 // hoveredWorkflow is the archived workflow the cursor is on, and none on an agent or on the
 // folder of a live workflow.
-func (a *archiveScreen) hoveredWorkflow(s panelShared) (panel.Workflow, bool) {
-	workflow, ok := hoveredHeader(a.listRows(s), a.cursor)
+func (a *archiveScreen) hoveredWorkflow(m *model) (panel.Workflow, bool) {
+	workflow, ok := hoveredHeader(a.listRows(m), a.cursor)
 	if !ok || workflow.ArchivedAt == nil {
 		return panel.Workflow{}, false
 	}
@@ -295,8 +295,8 @@ func (a *archiveScreen) hoveredWorkflow(s panelShared) (panel.Workflow, bool) {
 
 // restoreAndResumeCmd takes one agent out of the archive and puts its conversation back in a
 // pane.
-func restoreAndResumeCmd(h host, agent panel.Agent) tea.Cmd {
-	return h.openingWriteCmd("restoring "+agent.Name, fmt.Sprintf("Could not restore and open agent %q", agent.Name), func(a api) (*agentv1.Agent, error) {
+func restoreAndResumeCmd(m *model, agent panel.Agent) tea.Cmd {
+	return m.openingWriteCmd("restoring "+agent.Name, fmt.Sprintf("Could not restore and open agent %q", agent.Name), func(a api) (*agentv1.Agent, error) {
 		if err := a.restoreAgents([]string{agent.ID}); err != nil {
 			return nil, err
 		}
@@ -305,12 +305,12 @@ func restoreAndResumeCmd(h host, agent panel.Agent) tea.Cmd {
 	})
 }
 
-func restoreAgentsCmd(h host, agents []panel.Agent) tea.Cmd {
+func restoreAgentsCmd(m *model, agents []panel.Agent) tea.Cmd {
 	if len(agents) == 0 {
 		return nil
 	}
 
-	return h.writeCmd(
+	return m.writeCmd(
 		"restoring "+describeAgents(agents),
 		fmt.Sprintf("Could not restore %s", describeAgents(agents)),
 		func(a api) error { return a.restoreAgents(panel.IDs(agents)) },
@@ -318,14 +318,14 @@ func restoreAgentsCmd(h host, agents []panel.Agent) tea.Cmd {
 }
 
 // confirmDeleteArchived asks before the agents are deleted for good.
-func confirmDeleteArchived(h host, s panelShared, agents []panel.Agent) tea.Cmd {
+func confirmDeleteArchived(m *model, agents []panel.Agent) tea.Cmd {
 	if len(agents) == 0 {
 		return nil
 	}
 
-	form, confirmed := deleteAgentsForm(agents, unnamedChildren(archivedAgentsOf(s.listing), agents), formKeys())
+	form, confirmed := deleteAgentsForm(agents, unnamedChildren(archivedAgentsOf(m.listing), agents), formKeys())
 
-	return h.openForm(formState{
+	return m.openForm(formState{
 		kind:   formArchiveDelete,
 		form:   form,
 		update: model.updateForm,
@@ -344,10 +344,10 @@ func confirmDeleteArchived(h host, s panelShared, agents []panel.Agent) tea.Cmd 
 }
 
 // confirmDeleteWorkflow asks before an archived workflow is deleted for good.
-func confirmDeleteWorkflow(h host, s panelShared, workflow panel.Workflow) tea.Cmd {
-	form, confirmed := deleteWorkflowForm(workflow, s.listing.archivedCount(workflow.ID), formKeys())
+func confirmDeleteWorkflow(m *model, workflow panel.Workflow) tea.Cmd {
+	form, confirmed := deleteWorkflowForm(workflow, m.listing.archivedCount(workflow.ID), formKeys())
 
-	return h.openForm(formState{
+	return m.openForm(formState{
 		kind:   formArchiveDelete,
 		form:   form,
 		update: model.updateForm,
@@ -365,17 +365,17 @@ func confirmDeleteWorkflow(h host, s panelShared, workflow panel.Workflow) tea.C
 	})
 }
 
-func (a *archiveScreen) details(s panelShared) details {
+func (a *archiveScreen) details(m *model) details {
 	if a.kind == archiveSchedules {
-		item, ok := rowAt(a.scheduleListRows(s), a.schedules.cursor)
+		item, ok := rowAt(a.scheduleListRows(m), a.schedules.cursor)
 		if !ok {
 			return details{}
 		}
 
-		return scheduleDetails(s, item)
+		return scheduleDetails(m, item)
 	}
 
-	r, ok := rowAt(a.listRows(s), a.cursor)
+	r, ok := rowAt(a.listRows(m), a.cursor)
 	if !ok {
 		return details{}
 	}
@@ -383,25 +383,25 @@ func (a *archiveScreen) details(s panelShared) details {
 	if r.header {
 		return details{
 			id:     r.workflow.ID,
-			fields: workflowFields(r.workflow, s.listing.archivedCount(r.workflow.ID)),
+			fields: workflowFields(r.workflow, m.listing.archivedCount(r.workflow.ID)),
 		}
 	}
 
 	return details{
 		id:      r.item.Agent.ID,
-		notices: agentNotices(s.glyphs, s.loaderFrame, r),
-		fields:  agentDetailFields(s, r.item),
+		notices: agentNotices(m.glyphs, m.loading.frame(), r),
+		fields:  agentDetailFields(m, r.item),
 	}
 }
 
 // stage keeps the info pane on the row the cursor is standing on.
-func (a *archiveScreen) stage(h navHost, _ panelShared) {
-	h.stageTerminal()
+func (a *archiveScreen) stage(m *model) {
+	m.stageTerminal()
 }
 
 // doc is the markdown drawn beside the list for the row the cursor is on.
-func (a *archiveScreen) doc(s panelShared) string {
-	r, ok := rowAt(a.listRows(s), a.cursor)
+func (a *archiveScreen) doc(m *model) string {
+	r, ok := rowAt(a.listRows(m), a.cursor)
 	switch {
 	case !ok:
 		return emptyArchiveMarkdown
@@ -413,12 +413,12 @@ func (a *archiveScreen) doc(s panelShared) string {
 }
 
 // docRows is the block drawn beside the list at a width for the row the cursor is on.
-func (a *archiveScreen) docRows(s panelShared, width int) []string {
+func (a *archiveScreen) docRows(m *model, width int) []string {
 	if a.kind == archiveAgents {
-		return paint.DocStyledRows(a.doc(s), width, columnStyle())
+		return paint.DocStyledRows(a.doc(m), width, columnStyle())
 	}
 
-	item, ok := rowAt(a.scheduleListRows(s), a.schedules.cursor)
+	item, ok := rowAt(a.scheduleListRows(m), a.schedules.cursor)
 	if !ok {
 		return paint.DocStyledRows(emptyScheduleArchiveMarkdown, width, columnStyle())
 	}
@@ -435,22 +435,22 @@ func archiveDocument(agent panel.Agent) string {
 	return archiveMarkdown(agent)
 }
 
-func (a *archiveScreen) view(s panelShared) string {
-	a.rows = a.buildRows(s)
-	a.scheduleRows = a.scheduleListRows(s)
+func (a *archiveScreen) view(m *model) string {
+	a.rows = a.buildRows(m)
+	a.scheduleRows = a.scheduleListRows(m)
 	defer func() { a.rows, a.scheduleRows = nil, nil }()
 
-	return s.draw.columnListView(a.listParams(s))
+	return m.columnListView(a.listParams(m))
 }
 
-func (a *archiveScreen) listParams(s panelShared) screenListParams {
+func (a *archiveScreen) listParams(m *model) screenListParams {
 	if a.kind == archiveSchedules {
 		return screenListParams{
 			help: a.help,
-			rows: len(a.scheduleListRows(s)),
+			rows: len(a.scheduleListRows(m)),
 			lines: func(pane listPane) ([]string, int) {
-				return scheduleLines(s, pane, scheduleLinesParams{
-					rows:   a.scheduleListRows(s),
+				return scheduleLines(m, pane, scheduleLinesParams{
+					rows:   a.scheduleListRows(m),
 					cursor: a.schedules.cursor,
 					idle:   "no archived schedules",
 				}), a.schedules.cursor
@@ -461,29 +461,29 @@ func (a *archiveScreen) listParams(s panelShared) screenListParams {
 	return screenListParams{
 		help:     a.help,
 		empty:    "nothing archived",
-		rows:     len(a.listRows(s)),
-		snapshot: func(pane listPane) view.Snapshot { return a.snapshot(s, pane) },
+		rows:     len(a.listRows(m)),
+		snapshot: func(pane listPane) view.Snapshot { return a.snapshot(m, pane) },
 	}
 }
 
-func (a *archiveScreen) help(s panelShared) keyMap {
-	return a.actions().help(s)
+func (a *archiveScreen) help(m *model) keyMap {
+	return a.actions().help(m)
 }
 
 // snapshot is the archive's rows as the plain data the shared drawing reads.
-func (a *archiveScreen) snapshot(s panelShared, pane listPane) view.Snapshot {
-	rows := a.listRows(s)
+func (a *archiveScreen) snapshot(m *model, pane listPane) view.Snapshot {
+	rows := a.listRows(m)
 
 	return agentsSnapshot(snapshotParams{
 		rows:         rows,
 		selected:     a.selected,
-		scheduled:    s.listing.scheduledWorkflows(),
-		workflowDirs: s.listing.workflowDirs(),
+		scheduled:    m.listing.scheduledWorkflows(),
+		workflowDirs: m.listing.workflowDirs(),
 		focused:      rowKeyAt(rows, a.cursor),
 		caret:        pane.caret,
 		blinkedOut:   pane.blinkedOut,
-		loaderFrame:  s.loaderFrame,
-		matcher:      s.chrome.filter.pattern,
+		loaderFrame:  m.loading.frame(),
+		matcher:      m.filter.pattern,
 		renaming:     a.renamingField(),
 		showHidden:   true,
 		flat:         a.sort.flat,
@@ -523,46 +523,46 @@ func (a *archiveScreen) detailsQuit(keys config.Keybindings) []string {
 	return keys.Archive.Quit
 }
 
-func (a *archiveScreen) detailsFit(s panelShared) bool {
-	return s.draw.listFitsDetails(a.listParams(s))
+func (a *archiveScreen) detailsFit(m *model) bool {
+	return m.listFitsDetails(a.listParams(m))
 }
 
-func (a *archiveScreen) detailsRoom(s panelShared) int {
-	return s.draw.listRecordRoom(a.listParams(s))
+func (a *archiveScreen) detailsRoom(m *model) int {
+	return m.listRecordRoom(a.listParams(m))
 }
 
-func (a *archiveScreen) hoveredKey(s panelShared) string {
+func (a *archiveScreen) hoveredKey(m *model) string {
 	if a.kind == archiveSchedules {
-		return a.scheduleList().hovered(s)
+		return a.scheduleList().hovered(m)
 	}
 
-	return a.list().hovered(s)
+	return a.list().hovered(m)
 }
 
-func (a *archiveScreen) hoveredName(s panelShared) string {
+func (a *archiveScreen) hoveredName(m *model) string {
 	if a.kind == archiveSchedules {
-		return a.scheduleList().hoveredName(s)
+		return a.scheduleList().hoveredName(m)
 	}
 
-	return a.list().hoveredName(s)
+	return a.list().hoveredName(m)
 }
 
-func (a *archiveScreen) placeAt(h host, s panelShared, key string) {
+func (a *archiveScreen) placeAt(m *model, key string) {
 	if a.kind == archiveSchedules {
-		a.scheduleList().place(h, s, key)
+		a.scheduleList().place(m, key)
 
 		return
 	}
 
-	a.list().place(h, s, key)
+	a.list().place(m, key)
 }
 
-func (a *archiveScreen) filterRows(s panelShared) []filterRow {
+func (a *archiveScreen) filterRows(m *model) []filterRow {
 	if a.kind == archiveSchedules {
-		return a.scheduleList().filterRows(s)
+		return a.scheduleList().filterRows(m)
 	}
 
-	return a.list().filterRows(s)
+	return a.list().filterRows(m)
 }
 
 func (a *archiveScreen) tabs() tabStrip {
@@ -573,8 +573,8 @@ func (a *archiveScreen) tabsState() *tabsState {
 	return &a.sort
 }
 
-func (a *archiveScreen) tabsFit(s panelShared) bool {
-	return a.kind == archiveAgents && s.draw.listFitsTabs(a.listParams(s))
+func (a *archiveScreen) tabsFit(m *model) bool {
+	return a.kind == archiveAgents && m.listFitsTabs(a.listParams(m))
 }
 
 func (a *archiveScreen) column() columnSpec {
@@ -582,18 +582,18 @@ func (a *archiveScreen) column() columnSpec {
 		floor: columnFloor,
 		read:  isAlwaysRead,
 		docRows: func(m model, width int) []string {
-			return m.withLastScreen(m.archive.docRows(m.shared(), width), width)
+			return m.withLastScreen(m.archive.docRows(&m, width), width)
 		},
 	}
 }
 
 // renameable is the row under the cursor when it can be renamed: an agent, or a live workflow's folder.
-func (a *archiveScreen) renameable(s panelShared) (agentRow, bool) {
-	if a.onSchedules(s) || a.selected.isActive() {
+func (a *archiveScreen) renameable(m *model) (agentRow, bool) {
+	if a.onSchedules(m) || a.selected.isActive() {
 		return agentRow{}, false
 	}
 
-	row, ok := rowAt(a.listRows(s), a.cursor)
+	row, ok := rowAt(a.listRows(m), a.cursor)
 	if !ok || (row.header && row.workflow.ArchivedAt != nil) {
 		return agentRow{}, false
 	}
@@ -602,20 +602,20 @@ func (a *archiveScreen) renameable(s panelShared) (agentRow, bool) {
 }
 
 // openRename types over the name of the agent or live folder under the cursor.
-func (a *archiveScreen) openRename(s panelShared) tea.Cmd {
-	if row, ok := a.renameable(s); ok {
+func (a *archiveScreen) openRename(m *model) tea.Cmd {
+	if row, ok := a.renameable(m); ok {
 		a.renaming = renameAgentRow(row)
 	}
 
 	return nil
 }
 
-func (a *archiveScreen) reconcileRename(s panelShared) {
-	reconcileRename(&a.renameSlot, a.listRows(s), a.list().hovered(s), agentRowName)
+func (a *archiveScreen) reconcileRename(m *model) {
+	reconcileRename(&a.renameSlot, a.listRows(m), a.list().hovered(m), agentRowName)
 }
 
-func (a *archiveScreen) settleRename(s panelShared, row string, err error) {
+func (a *archiveScreen) settleRename(m *model, row string, err error) {
 	if a.settleField(row, err) {
-		a.reconcileRename(s)
+		a.reconcileRename(m)
 	}
 }

@@ -22,21 +22,21 @@ const entriesShown = 10
 
 // enter lands on the directory of the agent the target names, remembering it as the focus for
 // the listing on its way.
-func (w *worktreesScreen) enter(h host, s panelShared, target screenTarget) tea.Cmd {
+func (w *worktreesScreen) enter(m *model, target screenTarget) tea.Cmd {
 	w.focus = target.agentID
-	w.apply(s, s.listing.worktrees, w.list().hovered(s))
-	w.stage(h, s)
+	w.apply(m, m.listing.worktrees, w.list().hovered(m))
+	w.stage(m)
 
-	return h.waitToStage()
+	return m.waitToStage()
 }
 
-func (w *worktreesScreen) update(h host, s panelShared, msg tea.Msg) tea.Cmd {
+func (w *worktreesScreen) update(m *model, msg tea.Msg) tea.Cmd {
 	key, ok := msg.(tea.KeyPressMsg)
 	if !ok {
 		return nil
 	}
 
-	return w.list().update(h, s, key, w.actions())
+	return w.list().update(m, key, w.actions())
 }
 
 func (w *worktreesScreen) list() screenList[worktreeRow] {
@@ -47,16 +47,16 @@ func (w *worktreesScreen) list() screenList[worktreeRow] {
 		refs:   worktreeRefs,
 		header: "repository",
 		placed: w.stage,
-		moved: func(h navHost, _ panelShared) tea.Cmd {
-			return h.waitToStage()
+		moved: func(m *model) tea.Cmd {
+			return m.waitToStage()
 		},
 		quit: func(k config.Keybindings) []string { return k.Worktrees.Quit },
 		back: func(k config.Keybindings) []string { return k.Worktrees.Back },
 	}
 }
 
-func (w *worktreesScreen) hovered(s panelShared) (worktreeRow, bool) {
-	row, ok := rowAt(w.rows(s), w.cursor)
+func (w *worktreesScreen) hovered(m *model) (worktreeRow, bool) {
+	row, ok := rowAt(w.rows(m), w.cursor)
 	if !ok || row.header {
 		return worktreeRow{}, false
 	}
@@ -64,13 +64,13 @@ func (w *worktreesScreen) hovered(s panelShared) (worktreeRow, bool) {
 	return row, true
 }
 
-func (w *worktreesScreen) stage(h navHost, _ panelShared) {
-	h.stageTerminal()
+func (w *worktreesScreen) stage(m *model) {
+	m.stageTerminal()
 }
 
 // inspectWorktreeCmd asks the service for the hovered directory's standing.
 func (m *model) inspectWorktreeCmd() tea.Cmd {
-	row, ok := m.worktrees.hovered(m.shared())
+	row, ok := m.worktrees.hovered(m)
 	if !ok {
 		return nil
 	}
@@ -109,7 +109,7 @@ func (m *model) inspectHoveredWorktreeCmd() tea.Cmd {
 		return nil
 	}
 
-	row, ok := m.worktrees.hovered(m.shared())
+	row, ok := m.worktrees.hovered(m)
 	if !ok {
 		return nil
 	}
@@ -147,14 +147,14 @@ func (m *model) applyWorktrees(items []worktreeItem, hovered string) {
 		}
 	}
 
-	m.worktrees.apply(m.shared(), items, hovered)
+	m.worktrees.apply(m, items, hovered)
 }
 
-func (w *worktreesScreen) view(s panelShared) string {
-	w.drawn = w.buildRows(s)
+func (w *worktreesScreen) view(m *model) string {
+	w.drawn = w.buildRows(m)
 	defer func() { w.drawn = nil }()
 
-	return s.draw.columnListView(w.listParams(s))
+	return m.columnListView(w.listParams(m))
 }
 
 func worktreesTabs() tabStrip {
@@ -175,8 +175,8 @@ func (w *worktreesScreen) kinds() stops {
 	}
 }
 
-func (w *worktreesScreen) kindsFit(s panelShared) bool {
-	return s.draw.listFitsTabs(w.listParams(s))
+func (w *worktreesScreen) kindsFit(m *model) bool {
+	return m.listFitsTabs(w.listParams(m))
 }
 
 func (w *worktreesScreen) kindsFocused() *bool {
@@ -184,20 +184,20 @@ func (w *worktreesScreen) kindsFocused() *bool {
 }
 
 // kindsSwitch holds the scope while any directories are selected.
-func (w *worktreesScreen) kindsSwitch(panelShared) bool {
+func (w *worktreesScreen) kindsSwitch(*model) bool {
 	return !w.selected.isActive()
 }
 
 // stepKind moves the listing to another scope, keeping the cursor on its row when the new scope
 // lists it.
-func (w *worktreesScreen) stepKind(h host, s panelShared, delta int) tea.Cmd {
-	hovered := w.list().hovered(s)
+func (w *worktreesScreen) stepKind(m *model, delta int) tea.Cmd {
+	hovered := w.list().hovered(m)
 	w.scope = worktreeScope(stepStop(int(w.scope), delta, len(worktreeScopeLabels)))
-	w.place(s, hovered)
+	w.place(m, hovered)
 
-	w.stage(h, s)
+	w.stage(m)
 
-	return h.waitToStage()
+	return m.waitToStage()
 }
 
 // tally is how many directories the scope lists, what the measured ones take, and whether they
@@ -212,40 +212,40 @@ func (w *worktreesScreen) tally() string {
 	return tally
 }
 
-func (w *worktreesScreen) listParams(s panelShared) screenListParams {
+func (w *worktreesScreen) listParams(m *model) screenListParams {
 	return screenListParams{
 		tally:    w.tally(),
 		help:     w.help,
 		empty:    "no worktrees",
-		rows:     len(w.rows(s)),
-		snapshot: func(pane listPane) view.Snapshot { return w.snapshot(s, pane) },
+		rows:     len(w.rows(m)),
+		snapshot: func(pane listPane) view.Snapshot { return w.snapshot(m, pane) },
 	}
 }
 
-func (w *worktreesScreen) help(s panelShared) keyMap {
-	return w.actions().help(s)
+func (w *worktreesScreen) help(m *model) keyMap {
+	return w.actions().help(m)
 }
 
-func (w *worktreesScreen) snapshot(s panelShared, pane listPane) view.Snapshot {
-	rows := w.rows(s)
+func (w *worktreesScreen) snapshot(m *model, pane listPane) view.Snapshot {
+	rows := w.rows(m)
 
 	return worktreesSnapshot(worktreesSnapshotParams{
 		rows:       rows,
 		items:      w.shown(),
 		selected:   w.selected,
 		focused:    rowKeyAt(rows, w.cursor),
-		live:       s.listing.agents,
+		live:       m.listing.agents,
 		flat:       w.sort.flat,
 		caret:      pane.caret,
 		blinkedOut: pane.blinkedOut,
-		matcher:    s.chrome.filter.pattern,
+		matcher:    m.filter.pattern,
 		pane:       pane.width,
 		now:        time.Now(),
 	})
 }
 
-func (w *worktreesScreen) details(s panelShared) details {
-	row, ok := rowAt(w.rows(s), w.cursor)
+func (w *worktreesScreen) details(m *model) details {
+	row, ok := rowAt(w.rows(m), w.cursor)
 	if !ok {
 		return details{}
 	}
@@ -257,14 +257,14 @@ func (w *worktreesScreen) details(s panelShared) details {
 		}
 	}
 
-	return details{id: row.key(), fields: worktreeFields(s, row.item, time.Now())}
+	return details{id: row.key(), fields: worktreeFields(m, row.item, time.Now())}
 }
 
 func (w *worktreesScreen) countUnder(repo string) int {
 	return len(itemsUnder(w.shown(), repo))
 }
 
-func worktreeFields(s panelShared, item worktreeItem, now time.Time) []recordField {
+func worktreeFields(m *model, item worktreeItem, now time.Time) []recordField {
 	fields := []recordField{
 		{label: "name", value: worktreeRow{item: item}.name()},
 		{label: "directory", value: item.dir},
@@ -278,7 +278,7 @@ func worktreeFields(s panelShared, item worktreeItem, now time.Time) []recordFie
 			fields = append(fields, recordField{label: "also here", value: occupantsField(item)})
 		}
 
-		return append(fields, recordField{label: "agent", value: worktreeAgentField(s.listing, item)})
+		return append(fields, recordField{label: "agent", value: worktreeAgentField(m.listing, item)})
 	}
 
 	fields = append(fields,
@@ -288,7 +288,7 @@ func worktreeFields(s panelShared, item worktreeItem, now time.Time) []recordFie
 	if len(item.occupants) > 0 {
 		fields = append(fields, recordField{label: "also here", value: occupantsField(item)})
 	}
-	read := s.inspections[item.dir]
+	read := m.inspections[item.dir]
 	if read.answered && read.err != nil {
 		fields = append(fields, recordField{label: "worktree", value: "could not read: " + errui.GetReason(read.err)})
 	}
@@ -299,7 +299,7 @@ func worktreeFields(s panelShared, item worktreeItem, now time.Time) []recordFie
 		)
 	}
 
-	return append(fields, recordField{label: "agent", value: worktreeAgentField(s.listing, item)}, recordField{label: "workflow", value: worktreeWorkflowField(s.listing, item)})
+	return append(fields, recordField{label: "agent", value: worktreeAgentField(m.listing, item)}, recordField{label: "workflow", value: worktreeWorkflowField(m.listing, item)})
 }
 
 func occupantsField(item worktreeItem) string {
@@ -404,12 +404,12 @@ func worktreeWorkflowField(l listing, item worktreeItem) string {
 }
 
 // doc is the markdown drawn beside the list for the row the cursor is on.
-func (w *worktreesScreen) doc(s panelShared) string {
-	return w.gitDoc(s)
+func (w *worktreesScreen) doc(m *model) string {
+	return w.gitDoc(m)
 }
 
-func (w *worktreesScreen) gitDoc(s panelShared) string {
-	row, ok := rowAt(w.rows(s), w.cursor)
+func (w *worktreesScreen) gitDoc(m *model) string {
+	row, ok := rowAt(w.rows(m), w.cursor)
 	switch {
 	case !ok:
 		return renderDocument("Worktrees", "_no worktrees_", "", "")
@@ -417,7 +417,7 @@ func (w *worktreesScreen) gitDoc(s panelShared) string {
 		return renderDocument(label.Path(row.repo, homeDir()), fmt.Sprintf("_%s_", label.Count(w.countUnder(row.repo), "worktree", "worktrees")), "", "")
 	}
 
-	read, ok := s.inspections[row.item.dir]
+	read, ok := m.inspections[row.item.dir]
 	switch {
 	case !ok || !read.answered:
 		return renderDocument(row.name(), "_"+row.item.dir+"_", "_reading the directory…_", "")
@@ -547,28 +547,28 @@ func (w *worktreesScreen) detailsQuit(keys config.Keybindings) []string {
 	return keys.Worktrees.Quit
 }
 
-func (w *worktreesScreen) detailsFit(s panelShared) bool {
-	return s.draw.listFitsDetails(w.listParams(s))
+func (w *worktreesScreen) detailsFit(m *model) bool {
+	return m.listFitsDetails(w.listParams(m))
 }
 
-func (w *worktreesScreen) detailsRoom(s panelShared) int {
-	return s.draw.listRecordRoom(w.listParams(s))
+func (w *worktreesScreen) detailsRoom(m *model) int {
+	return m.listRecordRoom(w.listParams(m))
 }
 
-func (w *worktreesScreen) hoveredKey(s panelShared) string {
-	return w.list().hovered(s)
+func (w *worktreesScreen) hoveredKey(m *model) string {
+	return w.list().hovered(m)
 }
 
-func (w *worktreesScreen) hoveredName(s panelShared) string {
-	return w.list().hoveredName(s)
+func (w *worktreesScreen) hoveredName(m *model) string {
+	return w.list().hoveredName(m)
 }
 
-func (w *worktreesScreen) placeAt(h host, s panelShared, key string) {
-	w.list().place(h, s, key)
+func (w *worktreesScreen) placeAt(m *model, key string) {
+	w.list().place(m, key)
 }
 
-func (w *worktreesScreen) filterRows(s panelShared) []filterRow {
-	return w.list().filterRows(s)
+func (w *worktreesScreen) filterRows(m *model) []filterRow {
+	return w.list().filterRows(m)
 }
 
 func (w *worktreesScreen) tabs() tabStrip {
@@ -579,8 +579,8 @@ func (w *worktreesScreen) tabsState() *tabsState {
 	return &w.sort
 }
 
-func (w *worktreesScreen) tabsFit(s panelShared) bool {
-	return s.draw.listFitsTabs(w.listParams(s))
+func (w *worktreesScreen) tabsFit(m *model) bool {
+	return m.listFitsTabs(w.listParams(m))
 }
 
 func (w *worktreesScreen) column() columnSpec {
@@ -588,7 +588,7 @@ func (w *worktreesScreen) column() columnSpec {
 		floor: columnFloor,
 		read:  isAlwaysRead,
 		docRows: func(m model, width int) []string {
-			return m.withLastScreen(paint.DocStyledRows(m.worktrees.doc(m.shared()), max(width, 1), columnStyle()), width)
+			return m.withLastScreen(paint.DocStyledRows(m.worktrees.doc(&m), max(width, 1), columnStyle()), width)
 		},
 	}
 }

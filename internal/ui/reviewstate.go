@@ -16,21 +16,21 @@ const (
 )
 
 // statusView names what the reader is part way through, and says nothing when nothing is.
-func (r reviewScreen) statusView(s panelShared) string {
+func (r reviewScreen) statusView(m *model) string {
 	switch {
 	case r.hold.atEditor:
-		return bandRow(s, reviewWritingTone, "editing",
-			r.hold.editingPath+separated+keyLabel(s.keys.Review.EditFile)+" to come back")
+		return bandRow(m, reviewWritingTone, "editing",
+			r.hold.editingPath+separated+keyLabel(m.keys.Review.EditFile)+" to come back")
 	case r.hold.pausing:
-		return bandRow(s, reviewWritingTone, "editing", "stopping the agent"+separated+"the editor opens once it has")
+		return bandRow(m, reviewWritingTone, "editing", "stopping the agent"+separated+"the editor opens once it has")
 	}
 
-	if _, dead := r.isReadOnly(s); dead {
-		return bandRow(s, reviewHeldTone, "gone", "this agent is gone, nothing can be sent")
+	if _, dead := r.isReadOnly(m); dead {
+		return bandRow(m, reviewHeldTone, "gone", "this agent is gone, nothing can be sent")
 	}
 
 	if r.threads.holdsUnsent() {
-		return bandRow(s, reviewWritingTone, "unsent",
+		return bandRow(m, reviewWritingTone, "unsent",
 			label.Counted(r.threads.unsentCount(), "comment")+" not sent"+separated+
 				keyLabel(formKeys().Submit)+" sends them to the agent")
 	}
@@ -44,8 +44,8 @@ func (t reviewThreads) unsentCount() int {
 }
 
 // isReadOnly reports whether there is nobody there to receive a comment.
-func (r reviewScreen) isReadOnly(s panelShared) (string, bool) {
-	for _, item := range s.listing.agents {
+func (r reviewScreen) isReadOnly(m *model) (string, bool) {
+	for _, item := range m.listing.agents {
 		if item.Agent.ID != r.agentID {
 			continue
 		}

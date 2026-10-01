@@ -25,9 +25,9 @@ type reviewOrigin struct {
 	place    *diffview.Place
 }
 
-func (r *reviewScreen) toggleJump(h navHost, s panelShared) tea.Cmd {
+func (r *reviewScreen) toggleJump(m *model) tea.Cmd {
 	if r.diff.origin != nil {
-		return r.leaveOrigin(s)
+		return r.leaveOrigin(m)
 	}
 
 	thread, ok := r.diff.threadAtCursor()
@@ -37,7 +37,7 @@ func (r *reviewScreen) toggleJump(h navHost, s panelShared) tea.Cmd {
 
 	round := findRound(r.diff.rounds, thread.GetRoundId())
 	if round == nil {
-		h.note(messageWarning, errCommentRoundGone.Error())
+		m.note(messageWarning, errCommentRoundGone.Error())
 
 		return nil
 	}
@@ -58,10 +58,10 @@ func (r *reviewScreen) toggleJump(h navHost, s panelShared) tea.Cmd {
 	r.diff.origin = origin
 	r.diff.baseLabel = originLabel(origin, false)
 
-	return r.reload(s)
+	return r.reload(m)
 }
 
-func (r *reviewScreen) leaveOrigin(s panelShared) tea.Cmd {
+func (r *reviewScreen) leaveOrigin(m *model) tea.Cmd {
 	origin := r.diff.origin
 	r.diff.widen()
 	if origin.chapter >= 0 {
@@ -73,7 +73,7 @@ func (r *reviewScreen) leaveOrigin(s panelShared) tea.Cmd {
 		r.diff.baseLabel = "the answer to this comment"
 	}
 
-	cmd := r.reload(s)
+	cmd := r.reload(m)
 	r.diff.restore = origin.place
 
 	return cmd

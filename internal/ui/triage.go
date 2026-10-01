@@ -492,9 +492,9 @@ func (l agentsLayout) cursorRows() []agentRow {
 
 // splitTriage takes the most urgent families in triage the zone has room for out of the listing,
 // each head with its children under it and the snoozed families last.
-func splitTriage(z triageZone, s panelShared, showHidden bool) (zone []agentRow, waiting int, rest []panel.AgentRow) {
-	children := childrenByParent(s.listing.agents)
-	families := xslice.Filter(findTriageFamilies(z.entries, s.listing.agents), func(f triageFamily) bool {
+func splitTriage(z triageZone, m *model, showHidden bool) (zone []agentRow, waiting int, rest []panel.AgentRow) {
+	children := childrenByParent(m.listing.agents)
+	families := xslice.Filter(findTriageFamilies(z.entries, m.listing.agents), func(f triageFamily) bool {
 		return !f.head.Agent.Hidden || showHidden
 	})
 	var slotted []triageSlot
@@ -512,7 +512,7 @@ func splitTriage(z triageZone, s panelShared, showHidden bool) (zone []agentRow,
 
 	spare := z.capacity - used
 	inZone := make(map[string]bool)
-	workflows := xslice.KeyBy(s.listing.workflows, func(w panel.Workflow) string { return w.ID })
+	workflows := xslice.KeyBy(m.listing.workflows, func(w panel.Workflow) string { return w.ID })
 	for _, slot := range slotted {
 		head := slot.family.head
 		drawn := z.pickChildren(slot.rows[1:], slot.asking+spare)
@@ -535,7 +535,7 @@ func splitTriage(z triageZone, s panelShared, showHidden bool) (zone []agentRow,
 		}
 	}
 
-	rest = xslice.Filter(s.listing.agents, func(item panel.AgentRow) bool { return !inZone[item.Agent.ID] })
+	rest = xslice.Filter(m.listing.agents, func(item panel.AgentRow) bool { return !inZone[item.Agent.ID] })
 
 	return zone, len(families) - len(slotted), rest
 }
@@ -623,7 +623,7 @@ func compareUrgency(a, b triageEntry) int {
 func (m model) settleTriage() model {
 	var zone []agentRow
 	if m.screen == screenAgents && len(m.agents.triage.entries) > 0 {
-		zone = m.agents.layout(m.shared()).zone
+		zone = m.agents.layout(&m).zone
 	}
 
 	reading := m.agents.cursor < len(zone)
@@ -636,9 +636,9 @@ func (m model) settleTriage() model {
 	case reading && m.agents.triage.frozen == nil:
 		m.agents.triage.frozen = xslice.Map(zoneHeads(zone), func(i int) string { return zone[i].item.Agent.ID })
 	case !reading && m.agents.triage.frozen != nil:
-		hovered := m.agents.list().hovered(m.shared())
+		hovered := m.agents.list().hovered(&m)
 		m.agents.triage.frozen = nil
-		m.agents.apply(m.shared(), hovered)
+		m.agents.apply(&m, hovered)
 	}
 
 	return m
@@ -667,8 +667,8 @@ func zoneHeads(zone []agentRow) []int {
 }
 
 // findZoneSlot is which family in the zone the cursor is on, counting from the top, or -1 off the zone.
-func (a *agentsScreen) findZoneSlot(s panelShared) int {
-	zone := a.layout(s).zone
+func (a *agentsScreen) findZoneSlot(m *model) int {
+	zone := a.layout(m).zone
 	if a.cursor < 0 || a.cursor >= len(zone) {
 		return -1
 	}
@@ -685,14 +685,14 @@ func (a *agentsScreen) findZoneSlot(s panelShared) int {
 }
 
 // moveToAwake puts the cursor on the first family awake from the zone's slot down, or from its top.
-func (a *agentsScreen) moveToAwake(h navHost, s panelShared, slot int) {
-	zone := a.layout(s).zone
+func (a *agentsScreen) moveToAwake(m *model, slot int) {
+	zone := a.layout(m).zone
 	heads := zoneHeads(zone)
 	slot = min(slot, len(heads))
 	rotated := slices.Concat(heads[slot:], heads[:slot])
 	at := slices.IndexFunc(rotated, func(i int) bool { return !zone[i].snoozed })
 	if at < 0 {
-		h.note(messageInfo, "nothing left to triage")
+		m.note(messageInfo, "nothing left to triage")
 
 		return
 	}
@@ -702,13 +702,13 @@ func (a *agentsScreen) moveToAwake(h navHost, s panelShared, slot int) {
 
 // landInTriage moves the cursor off a zone row that has left the list onto the family now in its
 // slot, or into the tree once the zone is empty.
-func (a *agentsScreen) landInTriage(s panelShared, selected string, slot int) {
-	rows := a.rows(s)
+func (a *agentsScreen) landInTriage(m *model, selected string, slot int) {
+	rows := a.rows(m)
 	if slot < 0 || rowIndexOfKey(rows, selected) >= 0 {
 		return
 	}
 
-	heads := zoneHeads(a.layout(s).zone)
+	heads := zoneHeads(a.layout(m).zone)
 	if len(heads) == 0 {
 		a.cursor = firstAgentRowIndex(rows)
 
@@ -719,15 +719,15 @@ func (a *agentsScreen) landInTriage(s panelShared, selected string, slot int) {
 }
 
 // jumpToTriage puts the cursor on the zone's first agent.
-func (a *agentsScreen) jumpToTriage(h navHost, s panelShared) {
-	if len(a.layout(s).zone) == 0 {
-		h.note(messageInfo, "nothing to triage")
+func (a *agentsScreen) jumpToTriage(m *model) {
+	if len(a.layout(m).zone) == 0 {
+		m.note(messageInfo, "nothing to triage")
 
 		return
 	}
 
 	a.cursor = 0
-	h.stageSelection()
+	m.stageSelection()
 }
 
 // triageSnapshot is the zone as the agents list draws it.

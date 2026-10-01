@@ -23,12 +23,12 @@ type crumbed interface {
 	parent() screen
 
 	// crumbs is the trail under the parent, down to the page.
-	crumbs(s panelShared) crumbs
+	crumbs(m *model) crumbs
 }
 
 // hovering is a view whose trail runs on to the row the cursor is on.
 type hovering interface {
-	hoveredName(s panelShared) string
+	hoveredName(m *model) string
 }
 
 var (
@@ -75,7 +75,7 @@ func (m *model) activeCrumbs() (crumbs, screen, bool) {
 // view.
 func (m *model) pageCrumbs() (screen, crumbs, bool) {
 	if c, ok := m.active().(crumbed); ok {
-		return c.parent(), c.crumbs(m.shared()), true
+		return c.parent(), c.crumbs(m), true
 	}
 
 	if m.form.isOpening() && len(m.form.crumbs) > 0 {
@@ -91,7 +91,7 @@ func (m *model) hoveredCrumbs() crumbs {
 		return crumbs{}
 	}
 
-	name := h.hoveredName(m.shared())
+	name := h.hoveredName(m)
 	if name == "" {
 		return crumbs{}
 	}

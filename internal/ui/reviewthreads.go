@@ -42,29 +42,29 @@ func (t *reviewThreads) set(threads []*agentv1.ReviewThread) {
 
 // followWorld draws what the world now holds of the review, and reads the diff again when the
 // agent has moved past the round on screen.
-func (r *reviewScreen) followWorld(s panelShared) tea.Cmd {
-	r.followThreads(s)
+func (r *reviewScreen) followWorld(m *model) tea.Cmd {
+	r.followThreads(m)
 
-	return tea.Batch(r.followMove(s), r.followOffers(s))
+	return tea.Batch(r.followMove(m), r.followOffers(m))
 }
 
 // followThreads draws the conversation the world holds on a live agent, once the reader has stopped
 // typing.
-func (r *reviewScreen) followThreads(s panelShared) {
+func (r *reviewScreen) followThreads(m *model) {
 	if r.diff.View() == nil || r.takesEveryKey() {
 		return
 	}
 
-	if _, live := r.agentRow(s); !live {
+	if _, live := r.agentRow(m); !live {
 		return
 	}
 
-	threads := assemble.ReviewThreads(s.listing.world, r.agentID)
+	threads := assemble.ReviewThreads(m.listing.world, r.agentID)
 	if slices.EqualFunc(threads, r.threads.list, isSameThread) {
 		return
 	}
 
-	r.applyThreads(s, threads)
+	r.applyThreads(m, threads)
 }
 
 func isSameThread(a, b *agentv1.ReviewThread) bool {

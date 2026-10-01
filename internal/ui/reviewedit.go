@@ -84,10 +84,10 @@ func dirEditorContent(editor, dir string) layout.Content {
 
 // pressEdit is the edit key, refused on a round the agent has written past, which stops the agent
 // before it opens the editor and closes one already open.
-func (r *reviewScreen) pressEdit(h host, s panelShared) tea.Cmd {
+func (r *reviewScreen) pressEdit(m *model) tea.Cmd {
 	if said, history := r.isHistory(); history && !r.hold.atEditor {
-		h.note(messageWarning, said+" is finished, so the worktree no longer holds these lines"+separated+
-			keyLabel(s.keys.Review.BaseForward)+" for the current work")
+		m.note(messageWarning, said+" is finished, so the worktree no longer holds these lines"+separated+
+			keyLabel(m.keys.Review.BaseForward)+" for the current work")
 
 		return nil
 	}
@@ -95,38 +95,38 @@ func (r *reviewScreen) pressEdit(h host, s panelShared) tea.Cmd {
 	// A press that arrives while the agent is still coming to a stop is the wait, not a second
 	// thing to do, and letting it through would open the editor the wait exists to hold shut.
 	if r.hold.pausing {
-		h.note(messageWarning, "the agent is still stopping")
+		m.note(messageWarning, "the agent is still stopping")
 
 		return nil
 	}
 
 	if r.hold.atEditor {
-		return r.closeEdit(h, s)
+		return r.closeEdit(m)
 	}
 
-	if h.isScratchOpen() {
-		h.note(messageWarning, "close the scratch file first")
+	if m.isScratchOpen() {
+		m.note(messageWarning, "close the scratch file first")
 
 		return nil
 	}
 
 	// The refusals are read before the agent is stopped.
-	if reason, refused := r.isEditRefused(s); refused {
-		h.note(messageWarning, reason)
+	if reason, refused := r.isEditRefused(m); refused {
+		m.note(messageWarning, reason)
 
 		return nil
 	}
 
-	return r.startHold(h, s)
+	return r.startHold(m)
 }
 
 // isEditRefused is why the edit key would open nothing, read before the agent is stopped for it.
-func (r reviewScreen) isEditRefused(s panelShared) (string, bool) {
+func (r reviewScreen) isEditRefused(m *model) (string, bool) {
 	if _, _, ok := r.diff.View().GetEditTarget(r.diff.Cursor()); !ok {
 		return "that file was deleted, so there is nothing to open", true
 	}
 
-	if reason, unreadable := r.isAgentUnreadable(s); unreadable {
+	if reason, unreadable := r.isAgentUnreadable(m); unreadable {
 		return reason, true
 	}
 
@@ -134,8 +134,8 @@ func (r reviewScreen) isEditRefused(s panelShared) (string, bool) {
 }
 
 // isAgentUnreadable reports whether komrad cannot say what the agent is doing.
-func (r reviewScreen) isAgentUnreadable(s panelShared) (string, bool) {
-	item, ok := r.agentRow(s)
+func (r reviewScreen) isAgentUnreadable(m *model) (string, bool) {
+	item, ok := r.agentRow(m)
 	if !ok || !item.Alive || item.Agent.State != panel.StateUncertain {
 		return "", false
 	}
@@ -146,25 +146,25 @@ func (r reviewScreen) isAgentUnreadable(s panelShared) (string, bool) {
 
 // editFile opens the file under the cursor in the agent's own worktree, in the stage beside the
 // sidebar, letting the agent go again when there is nothing to open it in.
-func (r *reviewScreen) editFile(h host, s panelShared) tea.Cmd {
+func (r *reviewScreen) editFile(m *model) tea.Cmd {
 	path, line, ok := r.diff.View().GetEditTarget(r.diff.Cursor())
 	if !ok {
-		h.note(messageWarning, "that file was deleted, so there is nothing to open")
+		m.note(messageWarning, "that file was deleted, so there is nothing to open")
 
-		return r.endHold(h, s, abandonedSaid)
+		return r.endHold(m, abandonedSaid)
 	}
 
-	if reason, busy := r.isAgentBusy(s); busy {
-		h.note(messageWarning, reason)
+	if reason, busy := r.isAgentBusy(m); busy {
+		m.note(messageWarning, reason)
 
-		return r.endHold(h, s, abandonedSaid)
+		return r.endHold(m, abandonedSaid)
 	}
 
-	pane := h.stageEditor(editorContent(s.editor, r.root, path, line))
+	pane := m.stageEditor(editorContent(m.settings.Editor, r.root, path, line))
 	if pane == "" {
-		h.note(messageWarning, "there is no room beside the sidebar for an editor")
+		m.note(messageWarning, "there is no room beside the sidebar for an editor")
 
-		return r.endHold(h, s, abandonedSaid)
+		return r.endHold(m, abandonedSaid)
 	}
 
 	r.hold.openEditor(path, pane)
@@ -173,14 +173,14 @@ func (r *reviewScreen) editFile(h host, s panelShared) tea.Cmd {
 }
 
 // isAgentBusy reports whether the agent may be writing in the tree the editor would open.
-func (r reviewScreen) isAgentBusy(s panelShared) (string, bool) {
+func (r reviewScreen) isAgentBusy(m *model) (string, bool) {
 	// The agent is stopped before the editor opens, and an agent that has been seen to stop is not
 	// writing, whatever the state on its row was read as before that.
 	if r.hold.paused {
 		return "", false
 	}
 
-	item, ok := r.agentRow(s)
+	item, ok := r.agentRow(m)
 	if !ok || !item.Alive {
 		return "", false
 	}
@@ -192,7 +192,7 @@ func (r reviewScreen) isAgentBusy(s panelShared) (string, bool) {
 		return "the agent is writing in this worktree" + separated +
 			"two writers in one checkout cannot both win, so stop it before you edit", true
 	case panel.StateUncertain:
-		return r.isAgentUnreadable(s)
+		return r.isAgentUnreadable(m)
 	case panel.StateWaiting, panel.StateIdle, panel.StateErrored, panel.StateSettingUp,
 		panel.StateFailedToCreate, panel.StateFailedToCleanup:
 	}
@@ -201,33 +201,33 @@ func (r reviewScreen) isAgentBusy(s panelShared) (string, bool) {
 }
 
 // agentRow hands back the listing's row for the agent whose diff is on screen.
-func (r reviewScreen) agentRow(s panelShared) (panel.AgentRow, bool) {
-	return s.listing.liveAgent(r.agentID)
+func (r reviewScreen) agentRow(m *model) (panel.AgentRow, bool) {
+	return m.listing.liveAgent(r.agentID)
 }
 
 // closeEdit gives the stage back to the diff, lets the agent go, and reads the worktree again with
 // the reader's own writing in it.
-func (r *reviewScreen) closeEdit(h host, s panelShared) tea.Cmd {
-	h.unstageEditor()
-	letGo := r.endHold(h, s, editedSaid)
+func (r *reviewScreen) closeEdit(m *model) tea.Cmd {
+	m.unstageEditor()
+	letGo := r.endHold(m, editedSaid)
 
-	return tea.Batch(letGo, r.reloadFresh(s))
+	return tea.Batch(letGo, r.reloadFresh(m))
 }
 
 // reconcileEditor catches the editor pane going away on its own and takes the window back for the
 // diff it was covering.
-func (r *reviewScreen) reconcileEditor(h host, s panelShared) tea.Cmd {
+func (r *reviewScreen) reconcileEditor(m *model) tea.Cmd {
 	if !r.hold.atEditor {
 		return nil
 	}
 
 	// A pane the split refused is not one that can go away, so nothing here reports it as the
 	// editor closing.
-	if r.hold.editorPane == "" || h.isPaneAlive(r.hold.editorPane) {
+	if r.hold.editorPane == "" || m.isPaneAlive(r.hold.editorPane) {
 		return nil
 	}
 
-	return r.closeEdit(h, s)
+	return r.closeEdit(m)
 }
 
 // editorDesc says what the edit key would do.

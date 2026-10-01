@@ -239,13 +239,13 @@ func (m model) updateDoc(key tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 
 	own := m.docActions()
 	if slices.ContainsFunc(own.table, func(a screenAction) bool { return isBound(k, a.keys(m.keys)) }) {
-		cmd := own.dispatch(&m, m.shared(), k)
+		cmd := own.dispatch(&m, k)
 
 		return m, cmd
 	}
 
 	if keyed, ok := m.active().(docKeyed); ok {
-		cmd := keyed.docKeys().dispatch(&m, m.shared(), k)
+		cmd := keyed.docKeys().dispatch(&m, k)
 
 		return m, cmd
 	}
@@ -260,7 +260,7 @@ func (m *model) docActions() screenActionSpec {
 			{
 				id:   actionColumnBack,
 				keys: func(config.Keybindings) []string { return []string{"esc"} },
-				nav: func(navHost, panelShared, string) tea.Cmd {
+				nav: func(*model, string) tea.Cmd {
 					m.reading.focused = false
 
 					return nil
@@ -269,7 +269,7 @@ func (m *model) docActions() screenActionSpec {
 			{
 				id:   actionMove,
 				keys: func(k config.Keybindings) []string { return slices.Concat(k.Nav.Up, k.Nav.Down) },
-				nav: func(_ navHost, _ panelShared, pressed string) tea.Cmd {
+				nav: func(_ *model, pressed string) tea.Cmd {
 					m.moveDocTo(m.reading.Line + directionOf(pressed, m.keys.Nav.Up))
 
 					return nil
@@ -278,7 +278,7 @@ func (m *model) docActions() screenActionSpec {
 			{
 				id:   actionNavPage,
 				keys: func(k config.Keybindings) []string { return slices.Concat(k.Nav.PageUp, k.Nav.PageDown) },
-				nav: func(_ navHost, _ panelShared, pressed string) tea.Cmd {
+				nav: func(_ *model, pressed string) tea.Cmd {
 					m.moveDocTo(m.reading.Line + directionOf(pressed, m.keys.Nav.PageUp)*navPageStep)
 
 					return nil
@@ -287,7 +287,7 @@ func (m *model) docActions() screenActionSpec {
 			{
 				id:   actionColumnScroll,
 				keys: func(k config.Keybindings) []string { return slices.Concat(k.Column.ScrollDown, k.Column.ScrollUp) },
-				nav: func(_ navHost, _ panelShared, pressed string) tea.Cmd {
+				nav: func(_ *model, pressed string) tea.Cmd {
 					m.scrollDoc(directionOf(pressed, m.keys.Column.ScrollUp) * columnWheelStep)
 
 					return nil
@@ -296,7 +296,7 @@ func (m *model) docActions() screenActionSpec {
 			{
 				id:   actionJump,
 				keys: func(k config.Keybindings) []string { return slices.Concat(k.Nav.Top, k.Nav.Bottom) },
-				nav: func(_ navHost, _ panelShared, pressed string) tea.Cmd {
+				nav: func(_ *model, pressed string) tea.Cmd {
 					line := 0
 					if rows, _, ok := m.docLayout(); ok && isBound(pressed, m.keys.Nav.Bottom) {
 						line = len(rows) - 1
@@ -309,7 +309,7 @@ func (m *model) docActions() screenActionSpec {
 			{
 				id:   actionFilterOpen,
 				keys: func(config.Keybindings) []string { return []string{filterOpenKey} },
-				nav: func(navHost, panelShared, string) tea.Cmd {
+				nav: func(*model, string) tea.Cmd {
 					m.settleTail()
 					m.reading.filter.open()
 					m.reading.origin = m.reading.Line
@@ -320,7 +320,7 @@ func (m *model) docActions() screenActionSpec {
 			{
 				id:   actionFilterMatch,
 				keys: func(k config.Keybindings) []string { return slices.Concat(k.Filter.NextMatch, k.Filter.PrevMatch) },
-				nav: func(_ navHost, _ panelShared, pressed string) tea.Cmd {
+				nav: func(_ *model, pressed string) tea.Cmd {
 					m.jumpDocMatch(pressed)
 
 					return nil
@@ -330,34 +330,34 @@ func (m *model) docActions() screenActionSpec {
 		legend: []screenLegendRow{
 			{
 				of:    []actionID{actionMove},
-				desc:  func(panelShared) string { return "move" },
+				desc:  func(*model) string { return "move" },
 				label: moveLabel,
 				strip: true,
 			},
 			{
 				of:    []actionID{actionNavPage},
-				desc:  func(panelShared) string { return "page" },
+				desc:  func(*model) string { return "page" },
 				label: navPageLabel,
 			},
 			{
 				of:   []actionID{actionFilterOpen},
-				desc: func(panelShared) string { return "search" },
+				desc: func(*model) string { return "search" },
 			},
 			{
 				of:   []actionID{actionFilterMatch},
-				desc: func(panelShared) string { return "next/previous match" },
+				desc: func(*model) string { return "next/previous match" },
 				label: func(k config.Keybindings) string {
 					return headLabel(k.Filter.NextMatch) + "/" + headLabel(k.Filter.PrevMatch)
 				},
 			},
 			{
 				of:    []actionID{actionJump},
-				desc:  func(panelShared) string { return "top/bottom" },
+				desc:  func(*model) string { return "top/bottom" },
 				label: jumpLabel,
 			},
 			{
 				of:    []actionID{actionColumnBack},
-				desc:  func(panelShared) string { return "back to the list" },
+				desc:  func(*model) string { return "back to the list" },
 				strip: true,
 			},
 		},
@@ -366,9 +366,9 @@ func (m *model) docActions() screenActionSpec {
 
 // docHelp is the legend while the document beside the list holds the keys.
 func (m model) docHelp() keyMap {
-	own := m.docActions().help(m.shared())
+	own := m.docActions().help(&m)
 	if keyed, ok := m.active().(docKeyed); ok {
-		screen := keyed.docKeys().help(m.shared())
+		screen := keyed.docKeys().help(&m)
 		own = keyMap{
 			short: slices.Concat(own.short, screen.short),
 			full:  slices.Concat(own.full, screen.full),

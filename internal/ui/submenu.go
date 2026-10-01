@@ -61,7 +61,7 @@ type submenuEntry struct {
 }
 
 // writeEntry is an entry whose write is run through the host.
-func writeEntry(label string, keys []string, run func(host) tea.Cmd) submenuEntry {
+func writeEntry(label string, keys []string, run func(*model) tea.Cmd) submenuEntry {
 	return submenuEntry{
 		label: label,
 		keys:  keys,
@@ -74,13 +74,13 @@ func writeEntry(label string, keys []string, run func(host) tea.Cmd) submenuEntr
 }
 
 // openEntry is an entry that leaves the menu for the form or screen run opens.
-func openEntry(label string, keys []string, run func(host, panelShared) tea.Cmd) submenuEntry {
+func openEntry(label string, keys []string, run func(*model) tea.Cmd) submenuEntry {
 	return submenuEntry{
 		label: label,
 		keys:  keys,
 		open: func(m model) (tea.Model, tea.Cmd) {
 			m.leaveForm()
-			cmd := run(&m, m.shared())
+			cmd := run(&m)
 
 			return m, cmd
 		},
@@ -114,8 +114,8 @@ func withNested(menu submenu, label string, keys []string, nested submenu) subme
 var dividerEntry = submenuEntry{isOff: true, isDivider: true}
 
 // openSubmenu draws a submenu, its cursor on the first entry that would do something.
-func openSubmenu(h host, menu submenu) tea.Cmd {
-	return h.openForm(submenuState(nil, newSubmenuLevel(menu)))
+func openSubmenu(m *model, menu submenu) tea.Cmd {
+	return m.openForm(submenuState(nil, newSubmenuLevel(menu)))
 }
 
 func newSubmenuLevel(menu submenu) submenuLevel {

@@ -16,34 +16,34 @@ import (
 
 // enter lands on the agent the target names, showing it if it is hidden, or comes back to the
 // list as it stands.
-func (a *agentsScreen) enter(h host, s panelShared, target screenTarget) tea.Cmd {
+func (a *agentsScreen) enter(m *model, target screenTarget) tea.Cmd {
 	if target.agentID != "" {
-		a.revealAgent(s, target.agentID)
+		a.revealAgent(m, target.agentID)
 	} else {
-		a.cursor = cursor.Clamp(a.cursor, len(a.rows(s)))
+		a.cursor = cursor.Clamp(a.cursor, len(a.rows(m)))
 	}
 
-	a.reconcileRename(s)
-	h.stageSelection()
+	a.reconcileRename(m)
+	m.stageSelection()
 
 	return nil
 }
 
-func (a *agentsScreen) update(h host, s panelShared, msg tea.Msg) tea.Cmd {
+func (a *agentsScreen) update(m *model, msg tea.Msg) tea.Cmd {
 	switch msg := msg.(type) {
 	case tea.PasteMsg:
 		if a.isRenaming() {
-			return a.updateRename(h, s, msg)
+			return a.updateRename(m, msg)
 		}
 	case reviewPausedMsg:
-		return a.applyPaused(h, s, msg)
+		return a.applyPaused(m, msg)
 	case tea.KeyPressMsg:
-		a.reconcileRename(s)
+		a.reconcileRename(m)
 		if a.isRenaming() {
-			return a.updateRename(h, s, msg)
+			return a.updateRename(m, msg)
 		}
 
-		return a.list().update(h, s, msg, a.actions())
+		return a.list().update(m, msg, a.actions())
 	}
 
 	return nil
@@ -57,15 +57,15 @@ func (a *agentsScreen) list() screenList[agentRow] {
 		refs:   refsOf,
 		header: "folder",
 		placed: a.stage,
-		moved:  func(h navHost, _ panelShared) tea.Cmd { return h.waitToStage() },
+		moved:  func(m *model) tea.Cmd { return m.waitToStage() },
 		quit:   func(k config.Keybindings) []string { return k.Agents.Quit },
 		back:   func(k config.Keybindings) []string { return k.Agents.Back },
 	}
 }
 
 // stage puts the pane of whatever the cursor is standing on beside the list.
-func (a *agentsScreen) stage(h navHost, _ panelShared) {
-	h.stageSelection()
+func (a *agentsScreen) stage(m *model) {
+	m.stageSelection()
 }
 
 func (m model) archiveAgents(agents []panel.Agent) (model, tea.Cmd) {
@@ -106,16 +106,16 @@ func (m model) archiveAndDeleteAgents(agents []panel.Agent) (model, tea.Cmd) {
 
 // openHovered attaches to whatever the cursor is on, which for a workflow is the orchestrator
 // standing behind it.
-func (a *agentsScreen) openHovered(h host, s panelShared) tea.Cmd {
-	if workflow, ok := a.hoveredWorkflow(s); ok {
-		return startOrchestrator(h, workflow)
+func (a *agentsScreen) openHovered(m *model) tea.Cmd {
+	if workflow, ok := a.hoveredWorkflow(m); ok {
+		return startOrchestrator(m, workflow)
 	}
 
-	return a.openAgent(h, s)
+	return a.openAgent(m)
 }
 
-func (a *agentsScreen) openAgent(h host, s panelShared) tea.Cmd {
-	item, ok := a.selectedAgent(s)
+func (a *agentsScreen) openAgent(m *model) tea.Cmd {
+	item, ok := a.selectedAgent(m)
 	if !ok {
 		return nil
 	}
@@ -126,73 +126,73 @@ func (a *agentsScreen) openAgent(h host, s panelShared) tea.Cmd {
 
 	if item.Alive {
 		if item.Agent.HeldAt == nil {
-			a.seeFinished(s, item)
-			h.selectGuest(item.Agent.Pane)
+			a.seeFinished(m, item)
+			m.selectGuest(item.Agent.Pane)
 		}
 
 		return nil
 	}
 
-	return h.openingWriteCmd("resuming "+item.Agent.Name, fmt.Sprintf("Could not resume agent %q", item.Agent.Name), func(c api) (*agentv1.Agent, error) {
+	return m.openingWriteCmd("resuming "+item.Agent.Name, fmt.Sprintf("Could not resume agent %q", item.Agent.Name), func(c api) (*agentv1.Agent, error) {
 		return c.resumeAgent(item.Agent.ID)
 	})
 }
 
-func (a *agentsScreen) toggleHidden(h host, s panelShared) {
-	selected := a.list().hovered(s)
+func (a *agentsScreen) toggleHidden(m *model) {
+	selected := a.list().hovered(m)
 
 	a.showHidden = !a.showHidden
 
-	rows := a.rows(s)
+	rows := a.rows(m)
 	a.cursor = cursor.Place(rowIndexOfKey(rows, selected), a.cursor, len(rows))
-	a.selected = a.selected.pruned(refsOf(a.rows(s)))
-	a.stage(h, s)
+	a.selected = a.selected.pruned(refsOf(a.rows(m)))
+	a.stage(m)
 }
 
 // seeFinished snoozes the agent's family when it waits only to be looked at, keeping the cursor
 // on the agent as its family moves.
-func (a *agentsScreen) seeFinished(s panelShared, item panel.AgentRow) {
-	selected := a.list().hovered(s)
-	a.triage.seeFinished(item, s.listing.agents)
+func (a *agentsScreen) seeFinished(m *model, item panel.AgentRow) {
+	selected := a.list().hovered(m)
+	a.triage.seeFinished(item, m.listing.agents)
 
-	rows := a.rows(s)
+	rows := a.rows(m)
 	a.cursor = cursor.Place(rowIndexOfKey(rows, selected), a.cursor, len(rows))
 }
 
 // toggleSnooze snoozes the hovered agent's family in triage, or wakes it.
-func (a *agentsScreen) toggleSnooze(h host, s panelShared) {
-	item, ok := a.selectedAgent(s)
+func (a *agentsScreen) toggleSnooze(m *model) {
+	item, ok := a.selectedAgent(m)
 	if !ok {
 		return
 	}
 
-	selected := a.list().hovered(s)
-	slot := a.findZoneSlot(s)
-	snoozing := slot >= 0 && !findZoneHead(a.layout(s).zone, a.cursor).snoozed
-	if !a.triage.toggleSnooze(item, s.listing.agents) {
+	selected := a.list().hovered(m)
+	slot := a.findZoneSlot(m)
+	snoozing := slot >= 0 && !findZoneHead(a.layout(m).zone, a.cursor).snoozed
+	if !a.triage.toggleSnooze(item, m.listing.agents) {
 		return
 	}
 
-	rows := a.rows(s)
+	rows := a.rows(m)
 	a.cursor = cursor.Place(rowIndexOfKey(rows, selected), a.cursor, len(rows))
 	if snoozing {
-		a.moveToAwake(h, s, slot)
+		a.moveToAwake(m, slot)
 	}
 
-	a.stage(h, s)
+	a.stage(m)
 }
 
-func hideAgent(h host, agent panel.Agent) tea.Cmd {
+func hideAgent(m *model, agent panel.Agent) tea.Cmd {
 	doing, failure := "hiding "+agent.Name, fmt.Sprintf("Could not hide agent %q", agent.Name)
 	if agent.Hidden {
 		doing, failure = "unhiding "+agent.Name, fmt.Sprintf("Could not unhide agent %q", agent.Name)
 	}
 
-	return h.writeCmd(doing, failure, func(a api) error { return a.setHidden(agent, !agent.Hidden) })
+	return m.writeCmd(doing, failure, func(a api) error { return a.setHidden(agent, !agent.Hidden) })
 }
 
-func (a *agentsScreen) details(s panelShared) details {
-	r, ok := a.hoveredRow(s)
+func (a *agentsScreen) details(m *model) details {
+	r, ok := a.hoveredRow(m)
 	if !ok {
 		return details{}
 	}
@@ -200,27 +200,27 @@ func (a *agentsScreen) details(s panelShared) details {
 	if r.header {
 		return details{
 			id:     r.workflow.ID,
-			fields: workflowFields(r.workflow, s.listing.agentCount(r.workflow.ID)),
+			fields: workflowFields(r.workflow, m.listing.agentCount(r.workflow.ID)),
 		}
 	}
 
 	return details{
 		id:      r.item.Agent.ID,
-		notices: agentNotices(s.glyphs, s.loaderFrame, r),
-		fields:  agentDetailFields(s, r.item),
-		tags:    agentDetailsTags(s, r.item),
+		notices: agentNotices(m.glyphs, m.loading.frame(), r),
+		fields:  agentDetailFields(m, r.item),
+		tags:    agentDetailsTags(m, r.item),
 	}
 }
 
 // agentDetailFields is the record for an agent as the listing holds it.
-func agentDetailFields(s panelShared, item panel.AgentRow) []recordField {
-	worktree, read := agentWorktree(s.inspections, item.Agent.Cwd)
+func agentDetailFields(m *model, item panel.AgentRow) []recordField {
+	worktree, read := agentWorktree(m.inspections, item.Agent.Cwd)
 
 	return agentFields(agentFieldsParams{
 		agent:        item.Agent,
-		schedule:     s.listing.scheduleName(item.Agent),
-		parent:       s.listing.parentName(item.Agent),
-		workflow:     s.listing.workflowName(item.Agent.WorkflowID),
+		schedule:     m.listing.scheduleName(item.Agent),
+		parent:       m.listing.parentName(item.Agent),
+		workflow:     m.listing.workflowName(item.Agent.WorkflowID),
 		standing:     item.PullRequest,
 		pullRequests: item.PullRequests,
 		worktree:     worktree,
@@ -238,8 +238,8 @@ func hasPane(item panel.AgentRow) bool {
 }
 
 // doc is the markdown drawn beside the list for a row with no pane of its own.
-func (a *agentsScreen) doc(s panelShared) string {
-	r, ok := a.hoveredRow(s)
+func (a *agentsScreen) doc(m *model) string {
+	r, ok := a.hoveredRow(m)
 	item, held := r.paneItem()
 
 	switch {
@@ -320,16 +320,16 @@ func failedPlaceholder(agent panel.Agent) string {
 	return fmt.Sprintf("_%s failed_\n\n%s", label, reason)
 }
 
-func (a *agentsScreen) view(s panelShared) string {
-	layout := a.buildLayout(s)
+func (a *agentsScreen) view(m *model) string {
+	layout := a.buildLayout(m)
 	a.drawn = &layout
 	defer func() { a.drawn = nil }()
 
-	if s.listing.isEmpty() {
-		return s.draw.welcomeView(a.listParams(s), welcomeText(s.keys))
+	if m.listing.isEmpty() {
+		return m.welcomeView(a.listParams(m), welcomeText(m.keys))
 	}
 
-	return s.draw.columnListView(a.listParams(s))
+	return m.columnListView(a.listParams(m))
 }
 
 func agentsTabs() tabStrip {
@@ -342,20 +342,20 @@ func agentsTabs() tabStrip {
 	}
 }
 
-func (a *agentsScreen) listParams(s panelShared) screenListParams {
+func (a *agentsScreen) listParams(m *model) screenListParams {
 	return screenListParams{
 		help:     a.help,
-		rows:     len(a.rows(s)),
-		snapshot: func(pane listPane) view.Snapshot { return a.snapshot(s, pane) },
+		rows:     len(a.rows(m)),
+		snapshot: func(pane listPane) view.Snapshot { return a.snapshot(m, pane) },
 	}
 }
 
-func (a *agentsScreen) help(s panelShared) keyMap {
-	return a.actions().help(s)
+func (a *agentsScreen) help(m *model) keyMap {
+	return a.actions().help(m)
 }
 
-func (a *agentsScreen) snapshot(s panelShared, pane listPane) view.Snapshot {
-	layout := a.layout(s)
+func (a *agentsScreen) snapshot(m *model, pane listPane) view.Snapshot {
+	layout := a.layout(m)
 
 	return agentsSnapshot(snapshotParams{
 		rows: layout.tree,
@@ -365,13 +365,13 @@ func (a *agentsScreen) snapshot(s panelShared, pane listPane) view.Snapshot {
 			waiting: layout.waiting,
 		},
 		selected:     a.selected,
-		scheduled:    s.listing.scheduledWorkflows(),
-		workflowDirs: s.listing.workflowDirs(),
+		scheduled:    m.listing.scheduledWorkflows(),
+		workflowDirs: m.listing.workflowDirs(),
 		focused:      rowKeyAt(layout.cursorRows(), a.cursor),
 		caret:        pane.caret,
 		blinkedOut:   pane.blinkedOut,
-		loaderFrame:  s.loaderFrame,
-		matcher:      s.chrome.filter.pattern,
+		loaderFrame:  m.loading.frame(),
+		matcher:      m.filter.pattern,
 		renaming:     a.renamingField(),
 		showHidden:   a.showHidden,
 		flat:         a.sort.flat,
@@ -400,8 +400,8 @@ func (l listing) workflowDirs() map[string]string {
 }
 
 // startOrchestrator brings the workflow's orchestrator back and puts the keyboard in its pane.
-func startOrchestrator(h host, workflow panel.Workflow) tea.Cmd {
-	return h.rowWriteCmd(
+func startOrchestrator(m *model, workflow panel.Workflow) tea.Cmd {
+	return m.rowWriteCmd(
 		"starting the orchestrator of "+workflow.Name,
 		fmt.Sprintf("Could not reach the orchestrator of workflow %q", workflow.Name),
 		func(a api) (written, error) {
@@ -445,28 +445,28 @@ func (a *agentsScreen) detailsQuit(keys config.Keybindings) []string {
 	return keys.Agents.Quit
 }
 
-func (a *agentsScreen) detailsFit(s panelShared) bool {
-	return s.draw.listFitsDetails(a.listParams(s))
+func (a *agentsScreen) detailsFit(m *model) bool {
+	return m.listFitsDetails(a.listParams(m))
 }
 
-func (a *agentsScreen) detailsRoom(s panelShared) int {
-	return s.draw.listRecordRoom(a.listParams(s))
+func (a *agentsScreen) detailsRoom(m *model) int {
+	return m.listRecordRoom(a.listParams(m))
 }
 
-func (a *agentsScreen) hoveredKey(s panelShared) string {
-	return a.list().hovered(s)
+func (a *agentsScreen) hoveredKey(m *model) string {
+	return a.list().hovered(m)
 }
 
-func (a *agentsScreen) hoveredName(s panelShared) string {
-	return a.list().hoveredName(s)
+func (a *agentsScreen) hoveredName(m *model) string {
+	return a.list().hoveredName(m)
 }
 
-func (a *agentsScreen) placeAt(h host, s panelShared, key string) {
-	a.list().place(h, s, key)
+func (a *agentsScreen) placeAt(m *model, key string) {
+	a.list().place(m, key)
 }
 
-func (a *agentsScreen) filterRows(s panelShared) []filterRow {
-	return a.list().filterRows(s)
+func (a *agentsScreen) filterRows(m *model) []filterRow {
+	return a.list().filterRows(m)
 }
 
 func (a *agentsScreen) tabs() tabStrip {
@@ -477,8 +477,8 @@ func (a *agentsScreen) tabsState() *tabsState {
 	return &a.sort
 }
 
-func (a *agentsScreen) tabsFit(s panelShared) bool {
-	return s.draw.listFitsTabs(a.listParams(s))
+func (a *agentsScreen) tabsFit(m *model) bool {
+	return m.listFitsTabs(a.listParams(m))
 }
 
 func (a *agentsScreen) column() columnSpec {
@@ -486,9 +486,9 @@ func (a *agentsScreen) column() columnSpec {
 		floor: columnFloor,
 		read:  isAlwaysRead,
 		docRows: func(m model, width int) []string {
-			return m.withLastScreen(paint.DocStyledRows(m.agents.doc(m.shared()), max(width, 1), columnStyle()), width)
+			return m.withLastScreen(paint.DocStyledRows(m.agents.doc(&m), max(width, 1), columnStyle()), width)
 		},
-		holds: func(m model) bool { return !m.agents.isEditorOpen() && m.agents.hasNoAgentPane(m.unmeasured()) },
+		holds: func(m model) bool { return !m.agents.isEditorOpen() && m.agents.hasNoAgentPane(&m) },
 	}
 }
 
@@ -497,8 +497,8 @@ func (l listing) isEmpty() bool {
 	return len(l.workflows) == 0 && len(l.agents) == 0
 }
 
-func (a *agentsScreen) openRename(s panelShared) tea.Cmd {
-	row, ok := a.hoveredRow(s)
+func (a *agentsScreen) openRename(m *model) tea.Cmd {
+	row, ok := a.hoveredRow(m)
 	if !ok {
 		return nil
 	}
@@ -508,12 +508,12 @@ func (a *agentsScreen) openRename(s panelShared) tea.Cmd {
 	return nil
 }
 
-func (a *agentsScreen) reconcileRename(s panelShared) {
-	reconcileRename(&a.renameSlot, a.rows(s), a.hoveredKey(s), agentRowName)
+func (a *agentsScreen) reconcileRename(m *model) {
+	reconcileRename(&a.renameSlot, a.rows(m), a.hoveredKey(m), agentRowName)
 }
 
-func (a *agentsScreen) settleRename(s panelShared, row string, err error) {
+func (a *agentsScreen) settleRename(m *model, row string, err error) {
 	if a.settleField(row, err) {
-		a.reconcileRename(s)
+		a.reconcileRename(m)
 	}
 }

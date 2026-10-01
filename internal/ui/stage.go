@@ -54,15 +54,15 @@ func (m *model) applyStageTick(msg stageTickMsg) tea.Cmd {
 func (m *model) stageRestingRow() tea.Cmd {
 	switch m.screen {
 	case screenWorktrees:
-		m.worktrees.stage(m, m.shared())
+		m.worktrees.stage(m)
 
 		return tea.Batch(m.inspectWorktreeCmd(), m.readLastScreenCmd())
 	case screenDocuments:
-		m.documents.stage(m, m.shared())
+		m.documents.stage(m)
 
 		return m.readDocumentsCmd()
 	case screenArchive:
-		m.archive.stage(m, m.shared())
+		m.archive.stage(m)
 
 		return tea.Batch(m.readLastScreenCmd(), m.inspectAgentWorktreeCmd(time.Now()))
 	case screenSchedules:
@@ -70,7 +70,7 @@ func (m *model) stageRestingRow() tea.Cmd {
 
 		return m.inspectAgentWorktreeCmd(time.Now())
 	case screenLogs:
-		return m.logs.switchSource(m.shared())
+		return m.logs.switchSource(m)
 	case screenAgents:
 		m.stageSelection()
 
@@ -78,13 +78,13 @@ func (m *model) stageRestingRow() tea.Cmd {
 	case screenSearch:
 		m.stageSelection()
 
-		return tea.Batch(m.search.landOnRow(m, m.shared()), m.inspectAgentWorktreeCmd(time.Now()))
+		return tea.Batch(m.search.landOnRow(m), m.inspectAgentWorktreeCmd(time.Now()))
 	case screenReview:
 		if !m.review.hold.atEditor {
 			m.stageSelection()
 		}
 
-		return tea.Batch(m.review.markThreadReadCmd(m, m.shared()), m.inspectAgentWorktreeCmd(time.Now()))
+		return tea.Batch(m.review.markThreadReadCmd(m), m.inspectAgentWorktreeCmd(time.Now()))
 	}
 
 	return m.inspectAgentWorktreeCmd(time.Now())
@@ -109,10 +109,9 @@ func (m *model) stageSelection() {
 	m.frame.Begin()
 	defer m.afterStaging()
 
-	s := m.shared()
 	m.reconcileSolo()
 
-	staged, ok := m.agents.hoveredPane(s)
+	staged, ok := m.agents.hoveredPane(m)
 
 	switch {
 	case ok && m.isPaneStageable(staged.Agent.Pane, staged.Agent.Harness):

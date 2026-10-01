@@ -104,7 +104,7 @@ func wheelTurn(wheel tea.MouseWheelMsg) int {
 
 // popupScroller is a screen with a popup the wheel scrolls while the mouse is over it.
 type popupScroller interface {
-	scrollPopupAt(s panelShared, x, y, rows int) bool
+	scrollPopupAt(m *model, x, y, rows int) bool
 }
 
 // routeWheel scrolls the popup, the block beside the list or the list, whichever the mouse is over.
@@ -113,20 +113,20 @@ func (m model) routeWheel(x, y, rows int) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	if screen, ok := m.active().(popupScroller); ok && !m.form.isActive() && !m.held.active && !m.isMessagesFocused() && screen.scrollPopupAt(m.shared(), x-m.countInsetLeft(), y, rows) {
+	if screen, ok := m.active().(popupScroller); ok && !m.form.isActive() && !m.held.active && !m.isMessagesFocused() && screen.scrollPopupAt(&m, x-m.countInsetLeft(), y, rows) {
 		return m, nil
 	}
 
 	if m.form.isActive() || m.held.active || !m.isOverColumn(x) {
 		if screen, ok := m.active().(listScroller); ok {
-			return m, screen.scrollList(&m, m.shared(), rows)
+			return m, screen.scrollList(&m, rows)
 		}
 
 		return m.pressWheel(rows)
 	}
 
-	if screen, ok := m.active().(columnScroller); ok && screen.doesScrollColumn(m.shared()) {
-		return m, screen.scrollColumn(&m, m.shared(), rows*columnWheelStep)
+	if screen, ok := m.active().(columnScroller); ok && screen.doesScrollColumn(&m) {
+		return m, screen.scrollColumn(&m, rows*columnWheelStep)
 	}
 
 	m.scrollDoc(rows * columnWheelStep)

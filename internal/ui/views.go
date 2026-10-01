@@ -195,9 +195,9 @@ func (m *model) enterView(entry viewEntry) tea.Cmd {
 func (m model) hoveredAgentID() string {
 	switch m.screen {
 	case screenAgents:
-		return m.agents.hoveredAgentID(m.shared())
+		return m.agents.hoveredAgentID(&m)
 	case screenArchive:
-		return m.archive.hoveredAgentID(m.shared())
+		return m.archive.hoveredAgentID(&m)
 	case screenSchedules, screenSearch, screenReview, screenWorktrees, screenDocuments, screenLogs:
 	}
 

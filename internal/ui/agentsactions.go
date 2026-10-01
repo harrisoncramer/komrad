@@ -30,8 +30,8 @@ func (a *agentsScreen) modeActions() []screenAction {
 			id:   actionAgentTriage,
 			keys: func(k config.Keybindings) []string { return k.Agents.Triage },
 			when: a.isTriageReachable,
-			nav: func(h navHost, s panelShared, _ string) tea.Cmd {
-				a.jumpToTriage(h, s)
+			nav: func(m *model, _ string) tea.Cmd {
+				a.jumpToTriage(m)
 
 				return nil
 			},
@@ -40,7 +40,7 @@ func (a *agentsScreen) modeActions() []screenAction {
 			id:   actionAgentsBack,
 			keys: func(k config.Keybindings) []string { return k.Agents.Back },
 			when: list.isBrowsing,
-			nav:  func(h navHost, _ panelShared, _ string) tea.Cmd { return h.pickView() },
+			nav:  func(m *model, _ string) tea.Cmd { return m.pickView() },
 		},
 	)
 }
@@ -55,48 +55,48 @@ func (a *agentsScreen) rowActions() []screenAction {
 			id:     actionWorkflowRename,
 			keys:   func(k config.Keybindings) []string { return k.Workflows.Rename },
 			when:   a.isHoveringWorkflow,
-			direct: directly(notInMenu, func(_ host, s panelShared, _ string) tea.Cmd { return a.openRename(s) }),
+			direct: directly(notInMenu, func(m *model, _ string) tea.Cmd { return a.openRename(m) }),
 		},
 		{
 			id:     actionAgentOpen,
 			keys:   func(k config.Keybindings) []string { return k.Agents.Open },
 			when:   list.isBrowsing,
-			direct: directly("enter is how a person reaches an agent, and the resume is incidental to that", func(h host, s panelShared, _ string) tea.Cmd { return a.openHovered(h, s) }),
+			direct: directly("enter is how a person reaches an agent, and the resume is incidental to that", func(m *model, _ string) tea.Cmd { return a.openHovered(m) }),
 		},
 		{
 			id:     actionAgentRename,
 			keys:   func(k config.Keybindings) []string { return k.Agents.Rename },
 			when:   a.isHoveringAgent,
-			direct: directly(notInMenu, func(_ host, s panelShared, _ string) tea.Cmd { return a.openRename(s) }),
+			direct: directly(notInMenu, func(m *model, _ string) tea.Cmd { return a.openRename(m) }),
 		},
 	}
 }
 
-func (a *agentsScreen) isBrowsing(s panelShared) bool {
-	return a.list().isBrowsing(s)
+func (a *agentsScreen) isBrowsing(m *model) bool {
+	return a.list().isBrowsing(m)
 }
 
 // isTriageReachable reports whether the triage key has a zone to jump to.
-func (a *agentsScreen) isTriageReachable(s panelShared) bool {
-	return a.triage.isOn() && a.isBrowsing(s)
+func (a *agentsScreen) isTriageReachable(m *model) bool {
+	return a.triage.isOn() && a.isBrowsing(m)
 }
 
-func (a *agentsScreen) isHoveringWorkflow(s panelShared) bool {
-	_, ok := a.hoveredWorkflow(s)
+func (a *agentsScreen) isHoveringWorkflow(m *model) bool {
+	_, ok := a.hoveredWorkflow(m)
 
-	return a.isBrowsing(s) && ok
+	return a.isBrowsing(m) && ok
 }
 
-func (a *agentsScreen) isHoveringAgent(s panelShared) bool {
-	_, ok := a.hoveredWorkflow(s)
+func (a *agentsScreen) isHoveringAgent(m *model) bool {
+	_, ok := a.hoveredWorkflow(m)
 
-	return a.isBrowsing(s) && !ok
+	return a.isBrowsing(m) && !ok
 }
 
-func (a *agentsScreen) isRetryableAgent(s panelShared) bool {
-	item, ok := a.selectedAgent(s)
+func (a *agentsScreen) isRetryableAgent(m *model) bool {
+	item, ok := a.selectedAgent(m)
 
-	return a.isHoveringAgent(s) && ok && item.Agent.State == panel.StateFailedToCreate
+	return a.isHoveringAgent(m) && ok && item.Agent.State == panel.StateFailedToCreate
 }
 
 func (a *agentsScreen) legend() []screenLegendRow {
@@ -108,7 +108,7 @@ func (a *agentsScreen) browsingLegend() []screenLegendRow {
 	return slices.Concat([]screenLegendRow{
 		{
 			of:    []actionID{actionAgentOpen},
-			desc:  func(panelShared) string { return "open" },
+			desc:  func(*model) string { return "open" },
 			show:  a.isBrowsing,
 			strip: true,
 		},
@@ -119,16 +119,16 @@ func (a *agentsScreen) browsingLegend() []screenLegendRow {
 		},
 		{
 			of:   []actionID{actionAgentTriage},
-			desc: func(panelShared) string { return "triage" },
+			desc: func(*model) string { return "triage" },
 			show: a.isTriageReachable,
 		},
 		{
 			of:   []actionID{actionWorkflowRename},
-			desc: func(panelShared) string { return "rename" },
+			desc: func(*model) string { return "rename" },
 		},
 		{
 			of:   []actionID{actionAgentRename},
-			desc: func(panelShared) string { return "rename" },
+			desc: func(*model) string { return "rename" },
 			show: a.isHoveringAgent,
 		},
 		{
@@ -138,7 +138,7 @@ func (a *agentsScreen) browsingLegend() []screenLegendRow {
 		},
 		{
 			of:   []actionID{actionFilterMatch},
-			desc: func(panelShared) string { return "next/prev match" },
+			desc: func(*model) string { return "next/prev match" },
 		},
 		{
 			of:   []actionID{actionFilterClear},

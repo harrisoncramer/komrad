@@ -10,22 +10,21 @@ import (
 
 // itemMenued is a screen whose hovered row has a band of its own in the menu.
 type itemMenued interface {
-	itemMenu(s panelShared) (submenu, bool)
+	itemMenu(m *model) (submenu, bool)
 }
 
 // openMenu draws the menu, the hovered row's band over the screen's and the panel's own.
 func (m *model) openMenu() tea.Cmd {
-	s := m.shared()
-	menu := panelMenu(s, m.isScratchOpen())
+	menu := panelMenu(m, m.isScratchOpen())
 
 	if screen, ok := m.active().(screenMenued); ok && !m.isDetailsFocused() {
-		if band, ok := screen.screenMenu(s); ok {
+		if band, ok := screen.screenMenu(m); ok {
 			menu = joinMenus(band, menu)
 		}
 	}
 
 	if screen, ok := m.active().(itemMenued); ok && !m.isDetailsFocused() {
-		if item, ok := screen.itemMenu(s); ok {
+		if item, ok := screen.itemMenu(m); ok {
 			menu = joinMenus(item, menu)
 		}
 	}
@@ -34,7 +33,7 @@ func (m *model) openMenu() tea.Cmd {
 }
 
 // panelMenu is the band of the menu that acts on the panel whatever is hovered.
-func panelMenu(s panelShared, scratchOpen bool) submenu {
+func panelMenu(m *model, scratchOpen bool) submenu {
 	scratch := "scratch"
 	if scratchOpen {
 		scratch = "close scratch"
@@ -46,10 +45,10 @@ func panelMenu(s panelShared, scratchOpen bool) submenu {
 		entries: []submenuEntry{
 			{
 				label: scratch,
-				keys:  s.keys.Menu.Scratch,
+				keys:  m.keys.Menu.Scratch,
 				open:  model.openScratch,
 			},
-			nestedEntry("document types", s.keys.Menu.DocumentTypes, documentTypesMenu(s)),
+			nestedEntry("document types", m.keys.Menu.DocumentTypes, documentTypesMenu(m)),
 		},
 	}
 }
@@ -63,61 +62,61 @@ func joinMenus(top, bottom submenu) submenu {
 	}
 }
 
-func (a *agentsScreen) itemMenu(s panelShared) (submenu, bool) {
-	if a.list().isSelecting(s) {
-		agents := chosenAgents(a.selected, a.rows(s))
+func (a *agentsScreen) itemMenu(m *model) (submenu, bool) {
+	if a.list().isSelecting(m) {
+		agents := chosenAgents(a.selected, a.rows(m))
 		if len(agents) == 0 {
 			return submenu{}, false
 		}
 
-		menu := withNested(rowMenu(describeAgents(agents)), "hide", s.keys.Menu.Hide, a.hideMenu(s, nil))
+		menu := withNested(rowMenu(describeAgents(agents)), "hide", m.keys.Menu.Hide, a.hideMenu(m, nil))
 
-		return withNested(menu, "archive", s.keys.Menu.Archive, agentsArchiveMenu(s, agents, true)), true
+		return withNested(menu, "archive", m.keys.Menu.Archive, agentsArchiveMenu(m, agents, true)), true
 	}
 
-	if !a.isBrowsing(s) {
+	if !a.isBrowsing(m) {
 		return submenu{}, false
 	}
 
-	item, hasAgent := a.hoveredPaneItem(s)
+	item, hasAgent := a.hoveredPaneItem(m)
 
-	if workflow, ok := a.hoveredWorkflow(s); ok {
+	if workflow, ok := a.hoveredWorkflow(m); ok {
 		menu := rowMenu(workflow.Name)
 		if hasAgent {
-			menu = agentMenu(s, screenAgents, item, a.editEntries(s)...)
+			menu = agentMenu(m, screenAgents, item, a.editEntries(m)...)
 		}
-		menu.entries = append(menu.entries, workflowEntries(s, workflow)...)
+		menu.entries = append(menu.entries, workflowEntries(m, workflow)...)
 
-		menu = withNested(menu, "hide", s.keys.Menu.Hide, a.hideMenu(s, nil))
+		menu = withNested(menu, "hide", m.keys.Menu.Hide, a.hideMenu(m, nil))
 
-		return withNested(menu, "archive", s.keys.Menu.Archive, workflowArchiveMenu(s, workflow)), true
+		return withNested(menu, "archive", m.keys.Menu.Archive, workflowArchiveMenu(m, workflow)), true
 	}
 
 	if !hasAgent {
 		return submenu{}, false
 	}
 
-	menu := withNested(agentMenu(s, screenAgents, item, a.agentEntries(s, item)...), "hide", s.keys.Menu.Hide, a.hideMenu(s, &item.Agent))
+	menu := withNested(agentMenu(m, screenAgents, item, a.agentEntries(m, item)...), "hide", m.keys.Menu.Hide, a.hideMenu(m, &item.Agent))
 
-	return withNested(menu, "archive", s.keys.Menu.Archive, agentsArchiveMenu(s, []panel.Agent{item.Agent}, false)), true
+	return withNested(menu, "archive", m.keys.Menu.Archive, agentsArchiveMenu(m, []panel.Agent{item.Agent}, false)), true
 }
 
-func (w *schedulesScreen) itemMenu(s panelShared) (submenu, bool) {
-	item, ok := w.selected(s)
+func (w *schedulesScreen) itemMenu(m *model) (submenu, bool) {
+	item, ok := w.selected(m)
 	if !ok {
 		return submenu{}, false
 	}
 
-	return withNested(scheduleMenu(s, item.schedule), "archive", s.keys.Menu.Archive, scheduleArchiveMenu(s, item.schedule)), true
+	return withNested(scheduleMenu(m, item.schedule), "archive", m.keys.Menu.Archive, scheduleArchiveMenu(m, item.schedule)), true
 }
 
 // screenMenu is the schedules screen's own band, for writing a new schedule.
-func (w *schedulesScreen) screenMenu(s panelShared) (submenu, bool) {
+func (w *schedulesScreen) screenMenu(m *model) (submenu, bool) {
 	return submenu{
 		kind:  formMenu,
 		title: "schedules",
 		entries: []submenuEntry{
-			openEntry("new schedule", s.keys.ScheduleMenu.New, newScheduleForm),
+			openEntry("new schedule", m.keys.ScheduleMenu.New, newScheduleForm),
 		},
 	}, true
 }
@@ -125,7 +124,7 @@ func (w *schedulesScreen) screenMenu(s panelShared) (submenu, bool) {
 var _ screenMenued = (*schedulesScreen)(nil)
 
 // scheduleMenu is the band on the hovered schedule.
-func scheduleMenu(s panelShared, schedule panel.Schedule) submenu {
+func scheduleMenu(m *model, schedule panel.Schedule) submenu {
 	toggle := "pause"
 	if !schedule.Enabled {
 		toggle = "resume"
@@ -135,8 +134,8 @@ func scheduleMenu(s panelShared, schedule panel.Schedule) submenu {
 		kind:  formMenu,
 		title: schedule.Name,
 		entries: []submenuEntry{
-			openEntry("edit", s.keys.ScheduleMenu.Edit, func(h host, _ panelShared) tea.Cmd { return editScheduleForm(h, schedule) }),
-			writeEntry(toggle, s.keys.ScheduleMenu.Toggle, func(h host) tea.Cmd { return toggleSchedule(h, schedule) }),
+			openEntry("edit", m.keys.ScheduleMenu.Edit, func(m *model) tea.Cmd { return editScheduleForm(m, schedule) }),
+			writeEntry(toggle, m.keys.ScheduleMenu.Toggle, func(m *model) tea.Cmd { return toggleSchedule(m, schedule) }),
 		},
 	}
 }
@@ -149,19 +148,19 @@ func rowMenu(name string) submenu {
 	}
 }
 
-func (a *archiveScreen) itemMenu(s panelShared) (submenu, bool) {
-	target, ok := a.menuTarget(s)
+func (a *archiveScreen) itemMenu(m *model) (submenu, bool) {
+	target, ok := a.menuTarget(m)
 	if !ok {
 		return submenu{}, false
 	}
 
-	archive := archiveMenu(s, target)
+	archive := archiveMenu(m, target)
 
-	if row, ok := rowAt(a.listRows(s), a.cursor); ok && a.holdsAnAgent(s) && !row.header {
-		return withNested(agentMenu(s, screenArchive, row.item), "archive", s.keys.Menu.Archive, archive), true
+	if row, ok := rowAt(a.listRows(m), a.cursor); ok && a.holdsAnAgent(m) && !row.header {
+		return withNested(agentMenu(m, screenArchive, row.item), "archive", m.keys.Menu.Archive, archive), true
 	}
 
-	return withNested(rowMenu(target.name(s.listing)), "archive", s.keys.Menu.Archive, archive), true
+	return withNested(rowMenu(target.name(m.listing)), "archive", m.keys.Menu.Archive, archive), true
 }
 
 var (

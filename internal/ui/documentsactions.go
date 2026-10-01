@@ -9,11 +9,11 @@ import (
 )
 
 // actions is the documents screen as one table and the legend that names it.
-func (d *documentsScreen) actions(s panelShared) screenActionSpec {
+func (d *documentsScreen) actions(m *model) screenActionSpec {
 	switch {
-	case d.isDiffFocused(s) && d.isDiffDrawn(s):
+	case d.isDiffFocused(m) && d.isDiffDrawn(m):
 		return d.diffActions()
-	case d.isDiffFocused(s):
+	case d.isDiffFocused(m):
 		return d.stepActions()
 	}
 
@@ -33,22 +33,22 @@ func (d *documentsScreen) table() []screenAction {
 		{
 			id:   actionDocumentsOlder,
 			keys: func(k config.Keybindings) []string { return k.Documents.Older },
-			nav: func(h navHost, s panelShared, _ string) tea.Cmd {
-				return d.stepOlder(h, s)
+			nav: func(m *model, _ string) tea.Cmd {
+				return d.stepOlder(m)
 			},
 		},
 		{
 			id:   actionDocumentsNewer,
 			keys: func(k config.Keybindings) []string { return k.Documents.Newer },
-			nav: func(h navHost, s panelShared, _ string) tea.Cmd {
-				return d.stepNewer(h, s)
+			nav: func(m *model, _ string) tea.Cmd {
+				return d.stepNewer(m)
 			},
 		},
 		{
 			id:   actionDocumentsBack,
 			keys: func(k config.Keybindings) []string { return k.Documents.Back },
-			nav: func(h navHost, s panelShared, _ string) tea.Cmd {
-				return d.back(h, s)
+			nav: func(m *model, _ string) tea.Cmd {
+				return d.back(m)
 			},
 		},
 	})
@@ -62,11 +62,11 @@ func (d *documentsScreen) legend() []screenLegendRow {
 		},
 		{
 			of:   []actionID{actionDocumentsOlder},
-			desc: func(panelShared) string { return "an earlier version" },
+			desc: func(*model) string { return "an earlier version" },
 		},
 		{
 			of:   []actionID{actionDocumentsNewer},
-			desc: func(panelShared) string { return "a later version" },
+			desc: func(*model) string { return "a later version" },
 		},
 		{
 			of:    []actionID{actionFilterClear},
@@ -75,12 +75,12 @@ func (d *documentsScreen) legend() []screenLegendRow {
 		},
 		{
 			of:    []actionID{actionFilterMatch},
-			desc:  func(panelShared) string { return "next/prev match" },
+			desc:  func(*model) string { return "next/prev match" },
 			strip: true,
 		},
 		{
 			of:    []actionID{actionDocumentsBack},
-			desc:  func(panelShared) string { return "back" },
+			desc:  func(*model) string { return "back" },
 			strip: true,
 		},
 	})
@@ -105,7 +105,7 @@ func (d *documentsScreen) stepActions() screenActionSpec {
 			{
 				id:   actionDocumentsBack,
 				keys: func(k config.Keybindings) []string { return k.Documents.Back },
-				nav: func(navHost, panelShared, string) tea.Cmd {
+				nav: func(*model, string) tea.Cmd {
 					d.focus = false
 
 					return nil
@@ -114,31 +114,31 @@ func (d *documentsScreen) stepActions() screenActionSpec {
 			{
 				id:   actionQuit,
 				keys: func(k config.Keybindings) []string { return k.Documents.Quit },
-				nav:  func(h navHost, _ panelShared, _ string) tea.Cmd { return h.hide() },
+				nav:  func(m *model, _ string) tea.Cmd { return m.hide() },
 			},
 			{
 				id:   actionDocumentsOlder,
 				keys: func(k config.Keybindings) []string { return k.Documents.Older },
-				nav:  func(h navHost, s panelShared, _ string) tea.Cmd { return d.stepOlder(h, s) },
+				nav:  func(m *model, _ string) tea.Cmd { return d.stepOlder(m) },
 			},
 			{
 				id:   actionDocumentsNewer,
 				keys: func(k config.Keybindings) []string { return k.Documents.Newer },
-				nav:  func(h navHost, s panelShared, _ string) tea.Cmd { return d.stepNewer(h, s) },
+				nav:  func(m *model, _ string) tea.Cmd { return d.stepNewer(m) },
 			},
 		},
 		legend: []screenLegendRow{
 			{
 				of:   []actionID{actionDocumentsOlder},
-				desc: func(panelShared) string { return "an earlier version" },
+				desc: func(*model) string { return "an earlier version" },
 			},
 			{
 				of:   []actionID{actionDocumentsNewer},
-				desc: func(panelShared) string { return "a later version" },
+				desc: func(*model) string { return "a later version" },
 			},
 			{
 				of:    []actionID{actionDocumentsBack},
-				desc:  func(panelShared) string { return "back to the list" },
+				desc:  func(*model) string { return "back to the list" },
 				strip: true,
 			},
 		},
@@ -160,34 +160,34 @@ func (d *documentsScreen) diffKeys() diffKeys {
 }
 
 // updateDiff is the diff taking the keys.
-func (d *documentsScreen) updateDiff(h host, s panelShared, key tea.KeyPressMsg) tea.Cmd {
-	return d.actions(s).dispatch(h, s, key.String())
+func (d *documentsScreen) updateDiff(m *model, key tea.KeyPressMsg) tea.Cmd {
+	return d.actions(m).dispatch(m, key.String())
 }
 
 // isDiffDrawn reports whether a write's change is drawn as a diff beside the list.
-func (d *documentsScreen) isDiffDrawn(s panelShared) bool {
-	if _, ok := s.draw.screenColumnSplit(); !ok {
+func (d *documentsScreen) isDiffDrawn(m *model) bool {
+	if _, ok := m.screenColumnSplit(); !ok {
 		return false
 	}
 
-	return d.isSteppingHovered(s) && d.history.isDrawn(s.isDark)
+	return d.isSteppingHovered(m) && d.history.isDrawn(m.isDark)
 }
 
 // isDiffFocused reports whether the diff of the write stepped to holds the keys.
-func (d *documentsScreen) isDiffFocused(s panelShared) bool {
-	return d.focus && d.history != nil && s.draw.isListFocused()
+func (d *documentsScreen) isDiffFocused(m *model) bool {
+	return d.focus && d.history != nil && m.isListFocused()
 }
 
 // isBlockFocused reports whether the diff of one of its writes holds the keys.
-func (d *documentsScreen) isBlockFocused(s panelShared) bool {
-	return d.isDiffFocused(s)
+func (d *documentsScreen) isBlockFocused(m *model) bool {
+	return d.isDiffFocused(m)
 }
 
-func (d *documentsScreen) isBlockDrawn(s panelShared) bool {
-	return d.isDiffDrawn(s)
+func (d *documentsScreen) isBlockDrawn(m *model) bool {
+	return d.isDiffDrawn(m)
 }
 
-func (d *documentsScreen) focusBlock(panelShared) {
+func (d *documentsScreen) focusBlock(*model) {
 	d.focus = true
 }
 
@@ -196,18 +196,18 @@ func (d *documentsScreen) blurBlock() {
 }
 
 // leave takes down an editor open on the stage.
-func (d *documentsScreen) leave(h host) tea.Cmd {
+func (d *documentsScreen) leave(m *model) tea.Cmd {
 	d.renaming = nil
 
-	return d.closeEdit(h)
+	return d.closeEdit(m)
 }
 
-func (d *documentsScreen) doesScrollColumn(s panelShared) bool {
-	return d.isBlockDrawn(s)
+func (d *documentsScreen) doesScrollColumn(m *model) bool {
+	return d.isBlockDrawn(m)
 }
 
-func (d *documentsScreen) scrollColumn(h host, s panelShared, rows int) tea.Cmd {
-	return d.diffKeys().scrollColumn(h, s, rows)
+func (d *documentsScreen) scrollColumn(m *model, rows int) tea.Cmd {
+	return d.diffKeys().scrollColumn(m, rows)
 }
 
 // docKeys steps through the writes from the document as it stands, handing the keys to the diff.
@@ -217,22 +217,22 @@ func (d *documentsScreen) docKeys() screenActionSpec {
 			{
 				id:   actionDocumentsOlder,
 				keys: func(k config.Keybindings) []string { return k.Documents.Older },
-				nav: func(h navHost, s panelShared, _ string) tea.Cmd {
+				nav: func(m *model, _ string) tea.Cmd {
 					d.focus = true
 
-					return d.stepOlder(h, s)
+					return d.stepOlder(m)
 				},
 			},
 			{
 				id:   actionQuit,
 				keys: func(k config.Keybindings) []string { return k.Documents.Quit },
-				nav:  func(h navHost, _ panelShared, _ string) tea.Cmd { return h.hide() },
+				nav:  func(m *model, _ string) tea.Cmd { return m.hide() },
 			},
 		},
 		legend: []screenLegendRow{
 			{
 				of:   []actionID{actionDocumentsOlder},
-				desc: func(panelShared) string { return "an earlier version" },
+				desc: func(*model) string { return "an earlier version" },
 			},
 		},
 	}

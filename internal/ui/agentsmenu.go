@@ -8,13 +8,13 @@ import (
 
 // screenMenued is a screen with a band of its own between the hovered row's and the panel's.
 type screenMenued interface {
-	screenMenu(s panelShared) (submenu, bool)
+	screenMenu(m *model) (submenu, bool)
 }
 
 // screenMenu is the agents list's own band, for starting an agent or a workflow.
-func (a *agentsScreen) screenMenu(s panelShared) (submenu, bool) {
-	in := a.enclosingWorkflow(s)
-	if workflow, ok := a.hoveredWorkflow(s); ok {
+func (a *agentsScreen) screenMenu(m *model) (submenu, bool) {
+	in := a.enclosingWorkflow(m)
+	if workflow, ok := a.hoveredWorkflow(m); ok {
 		in = &workflow
 	}
 
@@ -22,25 +22,25 @@ func (a *agentsScreen) screenMenu(s panelShared) (submenu, bool) {
 		kind:  formMenu,
 		title: "agents",
 		entries: []submenuEntry{
-			openEntry("new agent", s.keys.Menu.NewAgent, func(h host, _ panelShared) tea.Cmd { return openNewAgent(h, in) }),
-			openEntry("new workflow", s.keys.Menu.NewWorkflow, newWorkflowForm),
+			openEntry("new agent", m.keys.Menu.NewAgent, func(m *model) tea.Cmd { return openNewAgent(m, in) }),
+			openEntry("new workflow", m.keys.Menu.NewWorkflow, newWorkflowForm),
 		},
 	}, true
 }
 
 // agentEntries are the entries the agents list adds to the band on the hovered agent.
-func (a *agentsScreen) agentEntries(s panelShared, item panel.AgentRow) []submenuEntry {
-	entries := append(a.editEntries(s), openEntry("new child", s.keys.Menu.Child, func(h host, _ panelShared) tea.Cmd {
-		return openNewChild(h, item.Agent)
+func (a *agentsScreen) agentEntries(m *model, item panel.AgentRow) []submenuEntry {
+	entries := append(a.editEntries(m), openEntry("new child", m.keys.Menu.Child, func(m *model) tea.Cmd {
+		return openNewChild(m, item.Agent)
 	}))
 
-	if a.isRetryableAgent(s) {
-		entries = append(entries, openEntry("retry launch", s.keys.Menu.Retry, func(h host, _ panelShared) tea.Cmd {
-			return openRetryForm(h, item.Agent)
+	if a.isRetryableAgent(m) {
+		entries = append(entries, openEntry("retry launch", m.keys.Menu.Retry, func(m *model) tea.Cmd {
+			return openRetryForm(m, item.Agent)
 		}))
 	}
 
-	if family, ok := a.triage.findFamily(item, s.listing.agents); ok {
+	if family, ok := a.triage.findFamily(item, m.listing.agents); ok {
 		label := "snooze"
 		if a.triage.isSnoozed(family.head.Agent.ID) {
 			label = "wake"
@@ -48,9 +48,9 @@ func (a *agentsScreen) agentEntries(s panelShared, item panel.AgentRow) []submen
 
 		entries = append(entries, submenuEntry{
 			label: label,
-			keys:  s.keys.Menu.Snooze,
+			keys:  m.keys.Menu.Snooze,
 			write: func(m model) (model, tea.Cmd) {
-				m.agents.toggleSnooze(&m, m.shared())
+				m.agents.toggleSnooze(&m)
 
 				return m, nil
 			},
@@ -62,16 +62,16 @@ func (a *agentsScreen) agentEntries(s panelShared, item panel.AgentRow) []submen
 
 // editEntries is the entry that opens an editor on the hovered agent's worktree, or closes the
 // one already open.
-func (a *agentsScreen) editEntries(s panelShared) []submenuEntry {
-	if !a.isEditable(s) {
+func (a *agentsScreen) editEntries(m *model) []submenuEntry {
+	if !a.isEditable(m) {
 		return nil
 	}
 
 	return []submenuEntry{{
-		label: a.editDesc(s),
-		keys:  s.keys.Menu.Edit,
+		label: a.editDesc(m),
+		keys:  m.keys.Menu.Edit,
 		write: func(m model) (model, tea.Cmd) {
-			cmd := m.agents.pressEdit(&m, m.shared())
+			cmd := m.agents.pressEdit(&m)
 
 			return m, cmd
 		},
@@ -79,12 +79,12 @@ func (a *agentsScreen) editEntries(s panelShared) []submenuEntry {
 }
 
 // workflowEntries are the entries on the hovered workflow.
-func workflowEntries(s panelShared, workflow panel.Workflow) []submenuEntry {
+func workflowEntries(m *model, workflow panel.Workflow) []submenuEntry {
 	return []submenuEntry{
-		openEntry("edit workflow", s.keys.Menu.EditWorkflow, func(h host, s panelShared) tea.Cmd {
-			return editWorkflowForm(h, s, workflow)
+		openEntry("edit workflow", m.keys.Menu.EditWorkflow, func(m *model) tea.Cmd {
+			return editWorkflowForm(m, workflow)
 		}),
-		openEntry("adopt", s.keys.Menu.Adopt, func(h host, _ panelShared) tea.Cmd { return openAdopt(h, &workflow) }),
+		openEntry("adopt", m.keys.Menu.Adopt, func(m *model) tea.Cmd { return openAdopt(m, &workflow) }),
 	}
 }
 

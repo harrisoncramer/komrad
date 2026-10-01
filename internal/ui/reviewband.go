@@ -20,26 +20,26 @@ const reviewScopeOnTone = paint.TonePrimary
 
 // bandView is what stands over the diff: what is being read, how big it is, what the reader
 // has sent, and the pattern they are searching it for.
-func (r reviewScreen) bandView(s panelShared, width int) string {
-	kept := r.bandRows(s)
+func (r reviewScreen) bandView(m *model, width int) string {
+	kept := r.bandRows(m)
 
-	out := strings.Join(kept, "") + "\n\n" + r.diff.filter.view(paint.Panel, s.glyphs) + diffMatchCount(&r.diff.Pane, r.diff.filter)
+	out := strings.Join(kept, "") + "\n\n" + r.diff.filter.view(paint.Panel, m.glyphs) + diffMatchCount(&r.diff.Pane, r.diff.filter)
 
 	if r.diff.View() != nil && r.diff.View().Len() > 0 {
-		out += r.deadView(s, width)
+		out += r.deadView(m, width)
 	}
 
 	return out
 }
 
 // bandRows is the band's rows in the order they give way, least valuable last.
-func (r reviewScreen) bandRows(s panelShared) []string {
+func (r reviewScreen) bandRows(m *model) []string {
 	rows := []string{
 		paint.Panel.Title("Review"+separated+r.agentName) + "\n",
-		r.statusView(s),
-		r.scopeView(s),
+		r.statusView(m),
+		r.scopeView(m),
 		r.diff.statView(),
-		r.staleView(s),
+		r.staleView(m),
 		r.threads.deliveryCountView(),
 	}
 
@@ -48,8 +48,8 @@ func (r reviewScreen) bandRows(s panelShared) []string {
 	const pinned = 2
 
 	room := len(rows)
-	if s.height > 0 {
-		room = max(pinned, s.height-reviewBandFloor)
+	if m.height > 0 {
+		room = max(pinned, m.height-reviewBandFloor)
 	}
 
 	if room >= len(rows) {
@@ -60,8 +60,8 @@ func (r reviewScreen) bandRows(s panelShared) []string {
 }
 
 // deadView says there is nobody on the other end.
-func (r reviewScreen) deadView(s panelShared, width int) string {
-	reason, dead := r.isReadOnly(s)
+func (r reviewScreen) deadView(m *model, width int) string {
+	reason, dead := r.isReadOnly(m)
 	if !dead {
 		return ""
 	}
@@ -70,27 +70,27 @@ func (r reviewScreen) deadView(s panelShared, width int) string {
 }
 
 // staleView says the worktree has moved since the diff on screen was read.
-func (r reviewScreen) staleView(s panelShared) string {
+func (r reviewScreen) staleView(m *model) string {
 	// The editor holds the stage rather than the diff, and the move it reports is usually the
 	// reader's own writing, so there is nothing here worth a row.
-	if !r.isWorktreeMoved(s) || r.diff.pinned || r.hold.atEditor {
+	if !r.isWorktreeMoved(m) || r.diff.pinned || r.hold.atEditor {
 		return "\n"
 	}
 
-	return paint.Panel.Style(reviewMovedTone).Render(r.staleSaid(s)) + "\n"
+	return paint.Panel.Style(reviewMovedTone).Render(r.staleSaid(m)) + "\n"
 }
 
 // staleSaid is why the diff is behind the worktree, in the terms the reader can act on.
-func (r reviewScreen) staleSaid(s panelShared) string {
-	if r.isAgentWriting(s) {
+func (r reviewScreen) staleSaid(m *model) string {
+	if r.isAgentWriting(m) {
 		return "the agent is writing" + separated + "the diff catches up when it stops"
 	}
 
-	if r.doesFollowLive(s) {
+	if r.doesFollowLive(m) {
 		return "the worktree has moved" + separated + "catching up"
 	}
 
-	return "the worktree has moved" + separated + keyLabel(s.keys.Review.Reload) + " to catch up"
+	return "the worktree has moved" + separated + keyLabel(m.keys.Review.Reload) + " to catch up"
 }
 
 // reviewFill pads a line out to the band's width, so a background colour reads as a bar rather
@@ -128,7 +128,7 @@ func (d reviewDiff) statView() string {
 
 // scopeView says what the diff on screen is measured between, in the reader's own terms rather
 // than as rounds, and draws the other thing the base key could show beside it.
-func (r reviewScreen) scopeView(s panelShared) string {
+func (r reviewScreen) scopeView(m *model) string {
 	if r.diff.View() == nil {
 		return ""
 	}
@@ -140,21 +140,21 @@ func (r reviewScreen) scopeView(s panelShared) string {
 
 	out := paint.Panel.Style(reviewScopeOnTone).Bold(true).Render(from)
 
-	if r.doesFitBaseLegend(s) {
-		out += dimStyle().Render(separated + r.stepSaid(s))
+	if r.doesFitBaseLegend(m) {
+		out += dimStyle().Render(separated + r.stepSaid(m))
 	}
 
 	return out + "\n"
 }
 
 // stepSaid is the way through the chapters, naming only the direction that has somewhere to go.
-func (r reviewScreen) stepSaid(s panelShared) string {
-	back := keyLabel(s.keys.Review.Base)
-	forward := keyLabel(s.keys.Review.BaseForward)
+func (r reviewScreen) stepSaid(m *model) string {
+	back := keyLabel(m.keys.Review.Base)
+	forward := keyLabel(m.keys.Review.BaseForward)
 
 	switch {
 	case r.diff.origin != nil:
-		return keyLabel(s.keys.Review.Jump) + " back"
+		return keyLabel(m.keys.Review.Jump) + " back"
 	case r.diff.chapter < 0:
 		return back + " for the latest chapter"
 	case r.diff.chapter == 0:
@@ -166,10 +166,10 @@ func (r reviewScreen) stepSaid(s panelShared) string {
 
 // bandRow draws one row of the band as a coloured state and a hint after it, cutting the hint
 // rather than letting the row run past the pane.
-func bandRow(s panelShared, tone paint.Tone, state, hint string) string {
+func bandRow(m *model, tone paint.Tone, state, hint string) string {
 	style := paint.Panel.Style(tone).Bold(true)
 
-	width := lineWidthOf(s.pane)
+	width := lineWidthOf(m.paneWidth())
 
 	room := width - lipgloss.Width(state) - len(separated)
 	if room <= 0 {

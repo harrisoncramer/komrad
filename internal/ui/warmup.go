@@ -167,7 +167,7 @@ func (m model) selectedAgentPane() (pane, harnessID string) {
 		return "", ""
 	}
 
-	item, ok := m.agents.hoveredPane(m.shared())
+	item, ok := m.agents.hoveredPane(&m)
 	if !ok {
 		return "", ""
 	}

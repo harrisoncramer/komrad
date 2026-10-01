@@ -66,25 +66,25 @@ func (r documentRow) key() string {
 }
 
 // enter opens on the documents of the agent the target names, forgetting another agent's.
-func (d *documentsScreen) enter(h host, _ panelShared, target screenTarget) tea.Cmd {
+func (d *documentsScreen) enter(m *model, target screenTarget) tea.Cmd {
 	var saved tea.Cmd
 	if target.agentID != d.agentID {
-		saved = d.closeEdit(h)
+		saved = d.closeEdit(m)
 		*d = documentsScreen{agentID: target.agentID}
 	}
 	if target.agentID != "" {
 		d.from = target.from
 	}
 
-	h.stageTerminal()
+	m.stageTerminal()
 
-	return tea.Batch(saved, h.waitToStage())
+	return tea.Batch(saved, m.waitToStage())
 }
 
-func (d *documentsScreen) update(h host, s panelShared, msg tea.Msg) tea.Cmd {
-	d.reconcileRename(s)
+func (d *documentsScreen) update(m *model, msg tea.Msg) tea.Cmd {
+	d.reconcileRename(m)
 	if d.isRenaming() {
-		return d.updateRename(h, s, msg)
+		return d.updateRename(m, msg)
 	}
 
 	key, ok := msg.(tea.KeyPressMsg)
@@ -93,14 +93,14 @@ func (d *documentsScreen) update(h host, s panelShared, msg tea.Msg) tea.Cmd {
 	}
 
 	if d.history != nil && d.history.filter.typing {
-		return d.diffKeys().updateFilter(h, s, key)
+		return d.diffKeys().updateFilter(m, key)
 	}
 
-	if d.isDiffFocused(s) {
-		return d.updateDiff(h, s, key)
+	if d.isDiffFocused(m) {
+		return d.updateDiff(m, key)
 	}
 
-	return d.list().update(h, s, key, d.actions(s))
+	return d.list().update(m, key, d.actions(m))
 }
 
 func (d *documentsScreen) list() screenList[documentRow] {
@@ -108,19 +108,19 @@ func (d *documentsScreen) list() screenList[documentRow] {
 		cursor: func() *rowCursor { return &d.rowCursor },
 		rows:   d.rows,
 		name:   documentRowName,
-		placed: func(h navHost, _ panelShared) { h.stageTerminal() },
-		moved: func(h navHost, _ panelShared) tea.Cmd {
+		placed: func(m *model) { m.stageTerminal() },
+		moved: func(m *model) tea.Cmd {
 			d.history, d.focus = nil, false
 
-			return h.waitToStage()
+			return m.waitToStage()
 		},
 		quit: func(k config.Keybindings) []string { return k.Documents.Quit },
 		back: func(k config.Keybindings) []string { return k.Documents.Back },
 	}
 }
 
-func (d *documentsScreen) rows(s panelShared) []documentRow {
-	return narrowed(s.chrome.filter, narrowedParams[documentRow]{
+func (d *documentsScreen) rows(m *model) []documentRow {
+	return narrowed(m.filter, narrowedParams[documentRow]{
 		rows: xslice.Map(d.items, func(item documentItem) documentRow {
 			return documentRow{item: item}
 		}),
@@ -133,22 +133,22 @@ func documentRowName(row documentRow) string {
 	return row.item.name
 }
 
-func (d *documentsScreen) hovered(s panelShared) (documentItem, bool) {
-	row, ok := rowAt(d.rows(s), d.cursor)
+func (d *documentsScreen) hovered(m *model) (documentItem, bool) {
+	row, ok := rowAt(d.rows(m), d.cursor)
 
 	return row.item, ok
 }
 
-func (d *documentsScreen) view(s panelShared) string {
-	return s.draw.columnListView(d.listParams(s))
+func (d *documentsScreen) view(m *model) string {
+	return m.columnListView(d.listParams(m))
 }
 
-func (d *documentsScreen) listParams(s panelShared) screenListParams {
+func (d *documentsScreen) listParams(m *model) screenListParams {
 	return screenListParams{
 		help:     d.help,
 		empty:    d.emptyLine(),
-		rows:     len(d.rows(s)),
-		snapshot: func(pane listPane) view.Snapshot { return d.snapshot(s, pane) },
+		rows:     len(d.rows(m)),
+		snapshot: func(pane listPane) view.Snapshot { return d.snapshot(m, pane) },
 	}
 }
 
@@ -159,9 +159,9 @@ func (d *documentsScreen) parent() screen {
 
 // crumbs runs through the agent the documents are of down to the version stepped to, and counts
 // the documents while none is.
-func (d *documentsScreen) crumbs(s panelShared) crumbs {
-	trail := crumbs{trail: d.crumbRoot(s)}
-	if item, ok := d.hovered(s); ok && d.history != nil && d.history.item.id == item.id && len(d.history.versions) > 0 {
+func (d *documentsScreen) crumbs(m *model) crumbs {
+	trail := crumbs{trail: d.crumbRoot(m)}
+	if item, ok := d.hovered(m); ok && d.history != nil && d.history.item.id == item.id && len(d.history.versions) > 0 {
 		current := d.history.versions[d.history.at]
 		trail.trail = append(trail.trail, item.name, fmt.Sprintf("v%d of %d", current.version, d.history.versions[0].version))
 
@@ -175,13 +175,13 @@ func (d *documentsScreen) crumbs(s panelShared) crumbs {
 }
 
 // back leaves for the screen the documents were opened from.
-func (d *documentsScreen) back(h navHost, _ panelShared) tea.Cmd {
-	return h.enter(d.from, screenTarget{agentID: d.agentID})
+func (d *documentsScreen) back(m *model) tea.Cmd {
+	return m.enter(d.from, screenTarget{agentID: d.agentID})
 }
 
 // crumbRoot is the trail down to the list: the agent the documents are of.
-func (d *documentsScreen) crumbRoot(s panelShared) []string {
-	return []string{d.agentName(s), "documents"}
+func (d *documentsScreen) crumbRoot(m *model) []string {
+	return []string{d.agentName(m), "documents"}
 }
 
 func (d *documentsScreen) emptyLine() string {
@@ -195,16 +195,16 @@ func (d *documentsScreen) emptyLine() string {
 	return "no documents"
 }
 
-func (d *documentsScreen) agentName(s panelShared) string {
-	if item, ok := s.listing.anyAgent(d.agentID); ok {
+func (d *documentsScreen) agentName(m *model) string {
+	if item, ok := m.listing.anyAgent(d.agentID); ok {
 		return item.Agent.Name
 	}
 
 	return d.agentID
 }
 
-func (d *documentsScreen) help(s panelShared) keyMap {
-	return d.actions(s).help(s)
+func (d *documentsScreen) help(m *model) keyMap {
+	return d.actions(m).help(m)
 }
 
 // documentColumns is the gutter of the documents list: how long ago each was last written.
@@ -212,11 +212,11 @@ func documentColumns() view.Columns {
 	return view.Columns{{Kind: view.ColumnText, Width: ageColumns}}
 }
 
-func (d *documentsScreen) snapshot(s panelShared, pane listPane) view.Snapshot {
-	rows := d.rows(s)
+func (d *documentsScreen) snapshot(m *model, pane listPane) view.Snapshot {
+	rows := d.rows(m)
 	now := time.Now()
 	caret := pane.caret
-	if d.isDiffFocused(s) {
+	if d.isDiffFocused(m) {
 		caret = view.CaretDrawn
 	}
 
@@ -226,7 +226,7 @@ func (d *documentsScreen) snapshot(s panelShared, pane listPane) view.Snapshot {
 				Key:     r.key(),
 				Kind:    view.KindResult,
 				Name:    r.item.name,
-				Matches: matchesIn(s.chrome.filter.pattern, r.item.name),
+				Matches: matchesIn(m.filter.pattern, r.item.name),
 				Process: view.ProcessNone,
 				Cells:   []view.Cell{mutedCell(label.AgeAt(r.item.updatedAt, now))},
 			})
@@ -240,10 +240,10 @@ func (d *documentsScreen) snapshot(s panelShared, pane listPane) view.Snapshot {
 }
 
 // doc is the markdown drawn beside the list for the document the cursor is on.
-func (d *documentsScreen) doc(s panelShared) string {
-	item, ok := d.hovered(s)
+func (d *documentsScreen) doc(m *model) string {
+	item, ok := d.hovered(m)
 	if !ok {
-		return renderDocument(d.agentName(s), "_"+d.emptyLine()+"_", "", "")
+		return renderDocument(d.agentName(m), "_"+d.emptyLine()+"_", "", "")
 	}
 
 	read, asked := d.bodies[item.id]
@@ -374,9 +374,9 @@ func (m *model) applyDocumentsListed(msg documentsListedMsg) tea.Cmd {
 		return nil
 	}
 
-	hovered := d.list().hovered(m.shared())
+	hovered := d.list().hovered(m)
 	d.items, d.listedAt, d.listedCount, d.listed, d.err = msg.items, msg.written.newest, msg.written.count, true, nil
-	d.keepCursor(m.shared(), hovered)
+	d.keepCursor(m, hovered)
 
 	return m.readDocumentsCmd()
 }
@@ -385,7 +385,7 @@ func (m *model) applyDocumentsListed(msg documentsListedMsg) tea.Cmd {
 // the listing, once at a time.
 func (m *model) readHoveredDocumentCmd() tea.Cmd {
 	d := &m.documents
-	item, ok := d.hovered(m.shared())
+	item, ok := d.hovered(m)
 	if !ok {
 		return nil
 	}
@@ -440,8 +440,8 @@ var (
 	_ renamer        = (*documentsScreen)(nil)
 )
 
-func (d *documentsScreen) stage(h navHost, _ panelShared) {
-	h.stageTerminal()
+func (d *documentsScreen) stage(m *model) {
+	m.stageTerminal()
 }
 
 func (d *documentsScreen) doesDrawFromListing() bool {
@@ -456,21 +456,21 @@ func (d *documentsScreen) column() columnSpec {
 	return columnSpec{
 		floor: columnFloor,
 		docRows: func(m model, width int) []string {
-			return m.documents.docRows(m.shared(), width)
+			return m.documents.docRows(&m, width)
 		},
 		holds: func(m model) bool { return m.documents.editing == nil },
-		read:  func(m model) bool { return !m.documents.isSteppingHovered(m.shared()) },
+		read:  func(m model) bool { return !m.documents.isSteppingHovered(&m) },
 	}
 }
 
-func (d *documentsScreen) hoveredKey(s panelShared) string {
-	return d.list().hovered(s)
+func (d *documentsScreen) hoveredKey(m *model) string {
+	return d.list().hovered(m)
 }
 
-func (d *documentsScreen) placeAt(h host, s panelShared, key string) {
-	d.list().place(h, s, key)
+func (d *documentsScreen) placeAt(m *model, key string) {
+	d.list().place(m, key)
 }
 
-func (d *documentsScreen) filterRows(s panelShared) []filterRow {
-	return d.list().filterRows(s)
+func (d *documentsScreen) filterRows(m *model) []filterRow {
+	return d.list().filterRows(m)
 }

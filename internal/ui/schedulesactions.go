@@ -12,15 +12,15 @@ import (
 // named in reading order by a legend of the same ids.
 func (w *schedulesScreen) actions() screenActionSpec {
 	list := w.list()
-	standing := func(s panelShared) bool { return s.chrome.filter.isStanding() }
+	standing := func(m *model) bool { return m.filter.isStanding() }
 
 	return screenActionSpec{
 		table: []screenAction{
 			{
 				id:   actionFilterOpen,
 				keys: func(config.Keybindings) []string { return []string{filterOpenKey} },
-				nav: func(h navHost, _ panelShared, _ string) tea.Cmd {
-					h.beginFilter()
+				nav: func(m *model, _ string) tea.Cmd {
+					m.beginFilter()
 
 					return nil
 				},
@@ -28,28 +28,28 @@ func (w *schedulesScreen) actions() screenActionSpec {
 			{
 				id:   actionQuit,
 				keys: list.quit,
-				nav:  func(h navHost, _ panelShared, _ string) tea.Cmd { return h.hide() },
+				nav:  func(m *model, _ string) tea.Cmd { return m.hide() },
 			},
 			{
 				id:   actionFilterMatch,
 				keys: func(k config.Keybindings) []string { return slices.Concat(k.Filter.NextMatch, k.Filter.PrevMatch) },
 				when: standing,
-				nav:  func(h navHost, _ panelShared, pressed string) tea.Cmd { return h.jumpToFilterMatch(pressed) },
+				nav:  func(m *model, pressed string) tea.Cmd { return m.jumpToFilterMatch(pressed) },
 			},
 			{
 				id:   actionFilterClear,
 				keys: list.back,
 				when: standing,
-				nav: func(h navHost, _ panelShared, _ string) tea.Cmd {
-					h.clearFilter()
+				nav: func(m *model, _ string) tea.Cmd {
+					m.clearFilter()
 
-					return h.waitToStage()
+					return m.waitToStage()
 				},
 			},
 			{
 				id:   actionScheduleBack,
 				keys: list.back,
-				nav:  func(h navHost, _ panelShared, _ string) tea.Cmd { return h.pickView() },
+				nav:  func(m *model, _ string) tea.Cmd { return m.pickView() },
 			},
 			{
 				id:   actionMove,
@@ -69,13 +69,13 @@ func (w *schedulesScreen) actions() screenActionSpec {
 			{
 				id:     actionScheduleRename,
 				keys:   func(k config.Keybindings) []string { return k.Schedules.Rename },
-				direct: directly(notInMenu, func(_ host, s panelShared, _ string) tea.Cmd { return w.openRename(s) }),
+				direct: directly(notInMenu, func(m *model, _ string) tea.Cmd { return w.openRename(m) }),
 			},
 		},
 		legend: []screenLegendRow{
 			{
 				of:   []actionID{actionScheduleRename},
-				desc: func(panelShared) string { return "rename" },
+				desc: func(*model) string { return "rename" },
 			},
 			{
 				of:   []actionID{actionFilterOpen},
@@ -83,26 +83,26 @@ func (w *schedulesScreen) actions() screenActionSpec {
 			},
 			{
 				of:   []actionID{actionFilterMatch},
-				desc: func(panelShared) string { return "next/prev match" },
+				desc: func(*model) string { return "next/prev match" },
 			},
 			{
 				of:    []actionID{actionMove},
-				desc:  func(panelShared) string { return "move" },
+				desc:  func(*model) string { return "move" },
 				label: moveLabel,
 			},
 			{
 				of:    []actionID{actionNavPage},
-				desc:  func(panelShared) string { return "page" },
+				desc:  func(*model) string { return "page" },
 				label: navPageLabel,
 			},
 			{
 				of:    []actionID{actionColumnScroll},
-				desc:  func(panelShared) string { return "scroll" },
+				desc:  func(*model) string { return "scroll" },
 				label: columnScrollLabel,
 			},
 			{
 				of:   []actionID{actionScheduleBack},
-				desc: func(panelShared) string { return "back" },
+				desc: func(*model) string { return "back" },
 			},
 			{
 				of:    []actionID{actionFilterClear},

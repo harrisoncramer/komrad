@@ -26,13 +26,13 @@ type diffKeys struct {
 	pane   *diffview.Pane
 	filter *filterState
 	// height is the rows the pane is drawn in.
-	height func(panelShared) int
+	height func(*model) int
 	// moved is what the screen does once the reader lands somewhere new, and is nil on a screen
 	// with nothing to do.
-	moved func(navHost, panelShared) tea.Cmd
+	moved func(*model) tea.Cmd
 	// refuseExpand says why the file under the cursor may not be drawn whole, and is nil on a
 	// screen that never refuses.
-	refuseExpand func(panelShared) string
+	refuseExpand func(*model) string
 }
 
 func (k diffKeys) table() []screenAction {
@@ -40,52 +40,52 @@ func (k diffKeys) table() []screenAction {
 		{
 			id:   actionMove,
 			keys: func(b config.Keybindings) []string { return slices.Concat(b.Nav.Up, b.Nav.Down) },
-			nav: func(h navHost, s panelShared, pressed string) tea.Cmd {
-				return k.step(h, s, directionOf(pressed, s.keys.Nav.Up), 1)
+			nav: func(m *model, pressed string) tea.Cmd {
+				return k.step(m, directionOf(pressed, m.keys.Nav.Up), 1)
 			},
 		},
 		{
 			id:   actionJump,
 			keys: func(b config.Keybindings) []string { return slices.Concat(b.Nav.Top, b.Nav.Bottom) },
-			nav: func(h navHost, s panelShared, pressed string) tea.Cmd {
-				if isBound(pressed, s.keys.Nav.Bottom) {
-					return k.moveTo(h, s, k.pane.View().GetLastRow())
+			nav: func(m *model, pressed string) tea.Cmd {
+				if isBound(pressed, m.keys.Nav.Bottom) {
+					return k.moveTo(m, k.pane.View().GetLastRow())
 				}
 
-				return k.moveTo(h, s, k.pane.View().GetFirstRow())
+				return k.moveTo(m, k.pane.View().GetFirstRow())
 			},
 		},
 		{
 			id:   actionNavPage,
 			keys: func(b config.Keybindings) []string { return slices.Concat(b.Nav.PageUp, b.Nav.PageDown) },
-			nav: func(h navHost, s panelShared, pressed string) tea.Cmd {
-				return k.step(h, s, directionOf(pressed, s.keys.Nav.PageUp), navPageStep)
+			nav: func(m *model, pressed string) tea.Cmd {
+				return k.step(m, directionOf(pressed, m.keys.Nav.PageUp), navPageStep)
 			},
 		},
 		{
 			id:   actionColumnScroll,
 			keys: func(b config.Keybindings) []string { return slices.Concat(b.Column.ScrollDown, b.Column.ScrollUp) },
-			nav: func(h navHost, s panelShared, pressed string) tea.Cmd {
-				return k.step(h, s, directionOf(pressed, s.keys.Column.ScrollUp), diffWheelStep)
+			nav: func(m *model, pressed string) tea.Cmd {
+				return k.step(m, directionOf(pressed, m.keys.Column.ScrollUp), diffWheelStep)
 			},
 		},
 		{
 			id:   actionDiffFile,
 			keys: func(b config.Keybindings) []string { return slices.Concat(b.Diff.NextFile, b.Diff.PrevFile) },
-			nav: func(h navHost, s panelShared, pressed string) tea.Cmd {
-				if !k.pane.JumpFile(directionOf(pressed, s.keys.Diff.PrevFile), k.height(s)) {
+			nav: func(m *model, pressed string) tea.Cmd {
+				if !k.pane.JumpFile(directionOf(pressed, m.keys.Diff.PrevFile), k.height(m)) {
 					return nil
 				}
 
-				return k.land(h, s)
+				return k.land(m)
 			},
 		},
 		{
 			id:   actionFilterOpen,
 			keys: func(config.Keybindings) []string { return []string{filterOpenKey} },
-			nav: func(_ navHost, s panelShared, _ string) tea.Cmd {
+			nav: func(m *model, _ string) tea.Cmd {
 				k.filter.open()
-				k.search(s)
+				k.search(m)
 
 				return nil
 			},
@@ -93,15 +93,15 @@ func (k diffKeys) table() []screenAction {
 		{
 			id:   actionDiffMatch,
 			keys: func(b config.Keybindings) []string { return slices.Concat(b.Diff.NextMatch, b.Diff.PrevMatch) },
-			nav: func(h navHost, s panelShared, pressed string) tea.Cmd {
-				return k.jumpMatch(h, s, directionOf(pressed, s.keys.Diff.PrevMatch))
+			nav: func(m *model, pressed string) tea.Cmd {
+				return k.jumpMatch(m, directionOf(pressed, m.keys.Diff.PrevMatch))
 			},
 		},
 		{
 			id:   actionDiffPan,
 			keys: func(b config.Keybindings) []string { return slices.Concat(b.Diff.PanLeft, b.Diff.PanRight) },
-			nav: func(_ navHost, s panelShared, pressed string) tea.Cmd {
-				k.pane.PanBy(directionOf(pressed, s.keys.Diff.PanLeft) * panStep(s))
+			nav: func(m *model, pressed string) tea.Cmd {
+				k.pane.PanBy(directionOf(pressed, m.keys.Diff.PanLeft) * panStep(m))
 
 				return nil
 			},
@@ -109,7 +109,7 @@ func (k diffKeys) table() []screenAction {
 		{
 			id:   actionDiffPanReset,
 			keys: func(b config.Keybindings) []string { return b.Diff.PanReset },
-			nav: func(navHost, panelShared, string) tea.Cmd {
+			nav: func(*model, string) tea.Cmd {
 				k.pane.PanBy(-k.pane.Pan())
 
 				return nil
@@ -118,7 +118,7 @@ func (k diffKeys) table() []screenAction {
 		{
 			id:   actionDiffExpand,
 			keys: func(b config.Keybindings) []string { return b.Diff.Expand },
-			nav:  func(h navHost, s panelShared, _ string) tea.Cmd { return k.toggleExpanded(h, s) },
+			nav:  func(m *model, _ string) tea.Cmd { return k.toggleExpanded(m) },
 		},
 	}
 }
@@ -144,7 +144,7 @@ func (k diffKeys) legend() []screenLegendRow {
 		diffJumpRow(),
 		{
 			of:   []actionID{actionDiffExpand},
-			desc: func(panelShared) string { return k.expandDesc() },
+			desc: func(*model) string { return k.expandDesc() },
 		},
 	}
 }
@@ -152,7 +152,7 @@ func (k diffKeys) legend() []screenLegendRow {
 func diffMoveRow() screenLegendRow {
 	return screenLegendRow{
 		of:    []actionID{actionMove},
-		desc:  func(panelShared) string { return "move" },
+		desc:  func(*model) string { return "move" },
 		label: moveLabel,
 		strip: true,
 	}
@@ -161,7 +161,7 @@ func diffMoveRow() screenLegendRow {
 func diffPageRow() screenLegendRow {
 	return screenLegendRow{
 		of:    []actionID{actionNavPage},
-		desc:  func(panelShared) string { return "page" },
+		desc:  func(*model) string { return "page" },
 		label: navPageLabel,
 	}
 }
@@ -169,7 +169,7 @@ func diffPageRow() screenLegendRow {
 func diffFileRow() screenLegendRow {
 	return screenLegendRow{
 		of:   []actionID{actionDiffFile},
-		desc: func(panelShared) string { return "next/previous file" },
+		desc: func(*model) string { return "next/previous file" },
 		label: func(k config.Keybindings) string {
 			return headLabel(k.Diff.NextFile) + "/" + headLabel(k.Diff.PrevFile)
 		},
@@ -179,14 +179,14 @@ func diffFileRow() screenLegendRow {
 func diffSearchRow() screenLegendRow {
 	return screenLegendRow{
 		of:   []actionID{actionFilterOpen},
-		desc: func(panelShared) string { return "search" },
+		desc: func(*model) string { return "search" },
 	}
 }
 
 func diffMatchRow() screenLegendRow {
 	return screenLegendRow{
 		of:   []actionID{actionDiffMatch},
-		desc: func(panelShared) string { return "next/previous match" },
+		desc: func(*model) string { return "next/previous match" },
 		label: func(k config.Keybindings) string {
 			return headLabel(k.Diff.NextMatch) + "/" + headLabel(k.Diff.PrevMatch)
 		},
@@ -197,7 +197,7 @@ func diffMatchRow() screenLegendRow {
 func diffPanRow() screenLegendRow {
 	return screenLegendRow{
 		of:   []actionID{actionDiffPan, actionDiffPanReset},
-		desc: func(panelShared) string { return "pan sideways" },
+		desc: func(*model) string { return "pan sideways" },
 		label: func(k config.Keybindings) string {
 			return headLabel(k.Diff.PanLeft) + "/" + headLabel(k.Diff.PanRight) + "/" + keyLabel(k.Diff.PanReset)
 		},
@@ -207,7 +207,7 @@ func diffPanRow() screenLegendRow {
 func diffJumpRow() screenLegendRow {
 	return screenLegendRow{
 		of:    []actionID{actionJump},
-		desc:  func(panelShared) string { return "top/bottom" },
+		desc:  func(*model) string { return "top/bottom" },
 		label: jumpLabel,
 	}
 }
@@ -228,36 +228,36 @@ func (k diffKeys) expandDesc() string {
 }
 
 // updateFilter is the search prompt taking keys.
-func (k diffKeys) updateFilter(h host, s panelShared, key tea.KeyPressMsg) tea.Cmd {
+func (k diffKeys) updateFilter(m *model, key tea.KeyPressMsg) tea.Cmd {
 	if key.String() == "ctrl+c" {
-		return h.hide()
+		return m.hide()
 	}
 
-	if k.filter.takeKey(key, s.register) {
-		k.search(s)
+	if k.filter.takeKey(key, m.register) {
+		k.search(m)
 	}
 
 	return nil
 }
 
 // search runs the pattern over the diff and moves to the first thing it finds.
-func (k diffKeys) search(s panelShared) {
+func (k diffKeys) search(m *model) {
 	if k.pane.View() == nil {
 		return
 	}
 
-	k.pane.Search(k.filter.pattern, k.height(s))
+	k.pane.Search(k.filter.pattern, k.height(m))
 }
 
 // jumpMatch steps to the next or previous line the search found, wrapping at the ends.
-func (k diffKeys) jumpMatch(h navHost, s panelShared, direction int) tea.Cmd {
-	moved, found := k.pane.JumpMatch(direction, k.height(s))
+func (k diffKeys) jumpMatch(m *model, direction int) tea.Cmd {
+	moved, found := k.pane.JumpMatch(direction, k.height(m))
 	if !found {
 		said := "nothing to search for yet"
 		if k.filter.isStanding() {
 			said = "no matches"
 		}
-		h.note(messageWarning, said)
+		m.note(messageWarning, said)
 
 		return nil
 	}
@@ -266,74 +266,74 @@ func (k diffKeys) jumpMatch(h navHost, s panelShared, direction int) tea.Cmd {
 		return nil
 	}
 
-	return k.land(h, s)
+	return k.land(m)
 }
 
 // toggleExpanded draws the whole of the file the cursor is in, or gives back the changed lines
 // and the few around them.
-func (k diffKeys) toggleExpanded(h navHost, s panelShared) tea.Cmd {
+func (k diffKeys) toggleExpanded(m *model) tea.Cmd {
 	if k.refuseExpand != nil {
-		if refused := k.refuseExpand(s); refused != "" {
-			h.note(messageWarning, refused)
+		if refused := k.refuseExpand(m); refused != "" {
+			m.note(messageWarning, refused)
 
 			return nil
 		}
 	}
 
-	switch k.pane.ToggleExpanded(k.height(s)) {
+	switch k.pane.ToggleExpanded(k.height(m)) {
 	case diffview.ExpandNothing:
 		return nil
 	case diffview.ExpandNoMore:
-		h.note(messageWarning, "there is no more of that file to show")
+		m.note(messageWarning, "there is no more of that file to show")
 
 		return nil
 	case diffview.ExpandWhole:
-		h.note(messageInfo, "showing the whole file")
+		m.note(messageInfo, "showing the whole file")
 	case diffview.ExpandChanged:
-		h.note(messageInfo, "showing the changed lines")
+		m.note(messageInfo, "showing the changed lines")
 	}
 
-	return k.land(h, s)
+	return k.land(m)
 }
 
-func (k diffKeys) moveTo(h navHost, s panelShared, row int) tea.Cmd {
-	if !k.pane.MoveTo(row, k.height(s)) {
+func (k diffKeys) moveTo(m *model, row int) tea.Cmd {
+	if !k.pane.MoveTo(row, k.height(m)) {
 		return nil
 	}
 
-	return k.land(h, s)
+	return k.land(m)
 }
 
-func (k diffKeys) step(h navHost, s panelShared, direction, rows int) tea.Cmd {
-	if !k.pane.Step(direction, rows, k.height(s)) {
+func (k diffKeys) step(m *model, direction, rows int) tea.Cmd {
+	if !k.pane.Step(direction, rows, k.height(m)) {
 		return nil
 	}
 
-	return k.land(h, s)
+	return k.land(m)
 }
 
 // land tells the screen the reader is standing somewhere new.
-func (k diffKeys) land(h navHost, s panelShared) tea.Cmd {
+func (k diffKeys) land(m *model) tea.Cmd {
 	if k.moved == nil {
 		return nil
 	}
 
-	return k.moved(h, s)
+	return k.moved(m)
 }
 
 // scrollColumn moves the cursor a number of rows up the diff for a negative count and down it
 // for a positive one.
-func (k diffKeys) scrollColumn(h navHost, s panelShared, rows int) tea.Cmd {
+func (k diffKeys) scrollColumn(m *model, rows int) tea.Cmd {
 	if rows < 0 {
-		return k.step(h, s, -1, -rows)
+		return k.step(m, -1, -rows)
 	}
 
-	return k.step(h, s, 1, rows)
+	return k.step(m, 1, rows)
 }
 
 // panStep is a third of the pane, or the smallest jump until the pane is measured.
-func panStep(s panelShared) int {
-	split, ok := s.draw.screenColumnSplit()
+func panStep(m *model) int {
+	split, ok := m.screenColumnSplit()
 	if !ok {
 		return diffPanStep
 	}

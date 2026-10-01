@@ -48,35 +48,35 @@ func (w *searchScreen) list() screenList[searchRow] {
 	return screenList[searchRow]{
 		cursor: func() *rowCursor { return &w.rowCursor },
 		rows:   w.rows,
-		moved:  func(h navHost, _ panelShared) tea.Cmd { return h.waitToStage() },
+		moved:  func(m *model) tea.Cmd { return m.waitToStage() },
 		quit:   func(config.Keybindings) []string { return []string{"ctrl+c"} },
 	}
 }
 
-func (w *searchScreen) landOnRow(_ host, s panelShared) tea.Cmd {
-	row, ok := w.hovered(s)
+func (w *searchScreen) landOnRow(m *model) tea.Cmd {
+	row, ok := w.hovered(m)
 	if !ok {
 		return nil
 	}
 
 	var cmds []tea.Cmd
 	if w.preview.agentID == row.agent.id && w.preview.conversation != "" {
-		w.openPreviewOn(s, row.open(w.preview.conversation))
+		w.openPreviewOn(m, row.open(w.preview.conversation))
 	} else {
-		cmds = append(cmds, w.previewCmd(s, row.agent))
+		cmds = append(cmds, w.previewCmd(m, row.agent))
 	}
 
-	if w.cursor == len(w.rows(s))-1 && w.next != nil && !w.paging {
+	if w.cursor == len(w.rows(m))-1 && w.next != nil && !w.paging {
 		w.paging = true
-		cmds = append(cmds, w.searchCmd(s, w.query(), w.next))
+		cmds = append(cmds, w.searchCmd(m, w.query(), w.next))
 	}
 
 	return tea.Batch(cmds...)
 }
 
 // actions is the keys of whichever of the list and the transcript holds them.
-func (w *searchScreen) actions(s panelShared) screenActionSpec {
-	if w.isBlockFocused(s) {
+func (w *searchScreen) actions(m *model) screenActionSpec {
+	if w.isBlockFocused(m) {
 		return w.previewActions()
 	}
 
@@ -93,12 +93,12 @@ func (w *searchScreen) listActions() screenActionSpec {
 			screenAction{
 				id:   actionColumnScroll,
 				keys: func(k config.Keybindings) []string { return slices.Concat(k.Column.ScrollDown, k.Column.ScrollUp) },
-				nav:  func(_ navHost, s panelShared, pressed string) tea.Cmd { return w.scrollPreview(s, pressed) },
+				nav:  func(m *model, pressed string) tea.Cmd { return w.scrollPreview(m, pressed) },
 			},
 			screenAction{
 				id:   actionSearchEdit,
 				keys: func(config.Keybindings) []string { return []string{filterOpenKey} },
-				nav: func(navHost, panelShared, string) tea.Cmd {
+				nav: func(*model, string) tea.Cmd {
 					w.typing = true
 					w.input.insert()
 
@@ -108,29 +108,29 @@ func (w *searchScreen) listActions() screenActionSpec {
 			screenAction{
 				id:   actionSearchBack,
 				keys: func(config.Keybindings) []string { return []string{"esc"} },
-				nav:  func(h navHost, _ panelShared, _ string) tea.Cmd { return h.pickView() },
+				nav:  func(m *model, _ string) tea.Cmd { return m.pickView() },
 			},
 			screenAction{
 				id:   actionSearchOpen,
 				keys: func(config.Keybindings) []string { return []string{"enter"} },
-				nav:  func(h navHost, s panelShared, _ string) tea.Cmd { return w.jumpToAgent(h, s) },
+				nav:  func(m *model, _ string) tea.Cmd { return w.jumpToAgent(m) },
 			},
 		),
 		legend: slices.Concat([]screenLegendRow{
 			{
 				of:    []actionID{actionSearchOpen},
-				desc:  func(panelShared) string { return "go to it" },
+				desc:  func(*model) string { return "go to it" },
 				strip: true,
 			},
 			{
 				of:    []actionID{actionSearchEdit},
-				desc:  func(panelShared) string { return "edit the query" },
+				desc:  func(*model) string { return "edit the query" },
 				strip: true,
 			},
 		}, screenNavLegend(), []screenLegendRow{
 			{
 				of:   []actionID{actionSearchBack},
-				desc: func(panelShared) string { return "back" },
+				desc: func(*model) string { return "back" },
 			},
 		}),
 	}
@@ -225,7 +225,7 @@ type previewResult struct {
 }
 
 // enter opens the search fresh, with the query line waiting for the filter key.
-func (w *searchScreen) enter(h host, _ panelShared, target screenTarget) tea.Cmd {
+func (w *searchScreen) enter(m *model, target screenTarget) tea.Cmd {
 	if target.resume {
 		return nil
 	}
@@ -245,16 +245,16 @@ func debounceSearchCmd(query string) tea.Cmd {
 	})
 }
 
-func (w *searchScreen) runSettled(s panelShared, msg searchSettledMsg) tea.Cmd {
+func (w *searchScreen) runSettled(m *model, msg searchSettledMsg) tea.Cmd {
 	if msg.query != w.query() {
 		return nil
 	}
 
-	return w.searchCmd(s, msg.query, nil)
+	return w.searchCmd(m, msg.query, nil)
 }
 
-func (w *searchScreen) searchCmd(s panelShared, query string, cursor *string) tea.Cmd {
-	client := s.reads.agents
+func (w *searchScreen) searchCmd(m *model, query string, cursor *string) tea.Cmd {
+	client := m.api.reads().agents
 
 	return func() tea.Msg {
 		if strings.TrimSpace(query) == "" {
@@ -309,8 +309,8 @@ func searchHitFrom(h *agentv1.SearchHit) searchHit {
 
 // place puts the cursor back on the row it was standing on, and fetches a preview where that
 // row has gone.
-func (w *searchScreen) place(s panelShared, was string) tea.Cmd {
-	rows := w.rows(s)
+func (w *searchScreen) place(m *model, was string) tea.Cmd {
+	rows := w.rows(m)
 	if len(rows) == 0 {
 		w.cursor = 0
 		w.preview = searchPreview{}
@@ -324,22 +324,22 @@ func (w *searchScreen) place(s panelShared, was string) tea.Cmd {
 		return nil
 	}
 
-	return w.previewCmd(s, rows[w.cursor].agent)
+	return w.previewCmd(m, rows[w.cursor].agent)
 }
 
 // rows is every agent the search found, once each, the named ones first, with the turns of its
 // conversation that said the query under it.
-func (w *searchScreen) rows(s panelShared) []searchRow {
+func (w *searchScreen) rows(m *model) []searchRow {
 	if w.drawn != nil {
 		return w.drawn
 	}
 
-	return w.buildRows(s)
+	return w.buildRows(m)
 }
 
-func (w *searchScreen) buildRows(s panelShared) []searchRow {
+func (w *searchScreen) buildRows(m *model) []searchRow {
 	var rows []searchRow
-	for _, agent := range w.buildAgents(s) {
+	for _, agent := range w.buildAgents(m) {
 		rows = append(rows, searchRow{agent: agent})
 		for i := range agent.turns {
 			rows = append(rows, searchRow{agent: agent, hit: &agent.turns[i]})
@@ -349,7 +349,7 @@ func (w *searchScreen) buildRows(s panelShared) []searchRow {
 	return rows
 }
 
-func (w *searchScreen) buildAgents(s panelShared) []searchAgent {
+func (w *searchScreen) buildAgents(m *model) []searchAgent {
 	query := strings.TrimSpace(w.query())
 	if query == "" {
 		return nil
@@ -367,12 +367,12 @@ func (w *searchScreen) buildAgents(s panelShared) []searchAgent {
 		return len(agents) - 1
 	}
 
-	for _, item := range s.listing.agents {
+	for _, item := range m.listing.agents {
 		if doesNameSay(item.Agent.Name, query) {
 			add(searchAgent{id: item.Agent.ID, name: item.Agent.Name})
 		}
 	}
-	for _, item := range s.listing.archivedAgents {
+	for _, item := range m.listing.archivedAgents {
 		if doesNameSay(item.Agent.Name, query) {
 			add(searchAgent{
 				id:       item.Agent.ID,
@@ -412,7 +412,7 @@ func nameMatches(name, query string) []view.Span {
 	return []view.Span{{Start: at, End: at + len(folded)}}
 }
 
-func (w *searchScreen) apply(h host, s panelShared, result searchResult) tea.Cmd {
+func (w *searchScreen) apply(m *model, result searchResult) tea.Cmd {
 	if result.query != w.query() {
 		return nil
 	}
@@ -425,16 +425,16 @@ func (w *searchScreen) apply(h host, s panelShared, result searchResult) tea.Cmd
 	}
 
 	if result.paged {
-		was := w.list().hovered(s)
+		was := w.list().hovered(m)
 		w.paging = false
 		w.turns = append(w.turns, result.hits...)
 		w.next = result.next
 		w.drawn = nil
 
-		rows := w.rows(s)
+		rows := w.rows(m)
 		w.cursor = cursor.Place(rowIndexOfKey(rows, was), w.cursor, len(rows))
 
-		return w.landOnRow(h, s)
+		return w.landOnRow(m)
 	}
 
 	w.turns = result.hits
@@ -442,7 +442,7 @@ func (w *searchScreen) apply(h host, s panelShared, result searchResult) tea.Cmd
 	w.paging = false
 	w.drawn = nil
 
-	rows := w.rows(s)
+	rows := w.rows(m)
 	w.cursor = cursor.Clamp(w.cursor, len(rows))
 	if len(rows) == 0 {
 		w.preview = searchPreview{}
@@ -450,11 +450,11 @@ func (w *searchScreen) apply(h host, s panelShared, result searchResult) tea.Cmd
 		return nil
 	}
 
-	return w.previewCmd(s, rows[w.cursor].agent)
+	return w.previewCmd(m, rows[w.cursor].agent)
 }
 
-func (w *searchScreen) previewCmd(s panelShared, agent searchAgent) tea.Cmd {
-	agents := s.reads.agents
+func (w *searchScreen) previewCmd(m *model, agent searchAgent) tea.Cmd {
+	agents := m.api.reads().agents
 	query := w.query()
 
 	return func() tea.Msg {
@@ -478,17 +478,17 @@ func (w *searchScreen) previewCmd(s panelShared, agent searchAgent) tea.Cmd {
 	}
 }
 
-func (w *searchScreen) applyPreview(s panelShared, result previewResult) {
+func (w *searchScreen) applyPreview(m *model, result previewResult) {
 	if result.query != w.query() {
 		return
 	}
 
-	row, ok := w.hovered(s)
+	row, ok := w.hovered(m)
 	if !ok || row.agent.id != result.agentID {
 		return
 	}
 
-	w.holdPreview(s, holdPreviewParams{
+	w.holdPreview(m, holdPreviewParams{
 		agentID:      row.agent.id,
 		conversation: result.content,
 		spans:        row.agent.spans(result.content),
@@ -506,14 +506,14 @@ const (
 )
 
 // update takes the search's own results and, once the query line has given them up, the keys.
-func (w *searchScreen) update(h host, s panelShared, msg tea.Msg) tea.Cmd {
+func (w *searchScreen) update(m *model, msg tea.Msg) tea.Cmd {
 	switch msg := msg.(type) {
 	case searchSettledMsg:
-		return w.runSettled(s, msg)
+		return w.runSettled(m, msg)
 	case searchResult:
-		return w.apply(h, s, msg)
+		return w.apply(m, msg)
 	case previewResult:
-		w.applyPreview(s, msg)
+		w.applyPreview(m, msg)
 
 		return nil
 	case tea.PasteMsg:
@@ -521,35 +521,35 @@ func (w *searchScreen) update(h host, s panelShared, msg tea.Msg) tea.Cmd {
 			return nil
 		}
 
-		w.input.take(msg, s.register)
+		w.input.take(msg, m.register)
 
 		return debounceSearchCmd(w.query())
 	case tea.KeyPressMsg:
 		if w.typing {
-			return w.updateInput(h, s, msg)
+			return w.updateInput(m, msg)
 		}
 
-		if w.isBlockFocused(s) {
-			return w.previewActions().dispatch(h, s, msg.String())
+		if w.isBlockFocused(m) {
+			return w.previewActions().dispatch(m, msg.String())
 		}
 
-		return w.list().update(h, s, msg, w.listActions())
+		return w.list().update(m, msg, w.listActions())
 	}
 
 	return nil
 }
 
-func (w *searchScreen) updateInput(h host, s panelShared, key tea.KeyPressMsg) tea.Cmd {
-	passes := slices.Concat(s.keys.Nav.PageUp, s.keys.Nav.PageDown, s.keys.Column.ScrollDown, s.keys.Column.ScrollUp)
+func (w *searchScreen) updateInput(m *model, key tea.KeyPressMsg) tea.Cmd {
+	passes := slices.Concat(m.keys.Nav.PageUp, m.keys.Nav.PageDown, m.keys.Column.ScrollDown, m.keys.Column.ScrollUp)
 	if typedText(key) == "" && isBound(key.String(), passes) {
-		return w.listActions().dispatch(h, s, key.String())
+		return w.listActions().dispatch(m, key.String())
 	}
 
 	if key.String() == "ctrl+c" {
-		return h.hide()
+		return m.hide()
 	}
 
-	switch w.input.take(key, s.register) {
+	switch w.input.take(key, m.register) {
 	case lineLeft, lineEntered:
 		w.typing = false
 	case lineChanged:
@@ -560,16 +560,16 @@ func (w *searchScreen) updateInput(h host, s panelShared, key tea.KeyPressMsg) t
 	return nil
 }
 
-func (w *searchScreen) hovered(s panelShared) (searchRow, bool) {
-	return rowAt(w.rows(s), w.cursor)
+func (w *searchScreen) hovered(m *model) (searchRow, bool) {
+	return rowAt(w.rows(m), w.cursor)
 }
 
-func (w *searchScreen) hoveredName(s panelShared) string {
+func (w *searchScreen) hoveredName(m *model) string {
 	if w.typing {
 		return ""
 	}
 
-	agent, ok := w.hoveredAgent(s)
+	agent, ok := w.hoveredAgent(m)
 	if !ok {
 		return ""
 	}
@@ -577,15 +577,15 @@ func (w *searchScreen) hoveredName(s panelShared) string {
 	return agent.name
 }
 
-func (w *searchScreen) hoveredAgent(s panelShared) (searchAgent, bool) {
-	row, ok := w.hovered(s)
+func (w *searchScreen) hoveredAgent(m *model) (searchAgent, bool) {
+	row, ok := w.hovered(m)
 
 	return row.agent, ok
 }
 
 // jumpToAgent lands the agents list or the archive on the hovered row's agent.
-func (w *searchScreen) jumpToAgent(h navHost, s panelShared) tea.Cmd {
-	agent, ok := w.hoveredAgent(s)
+func (w *searchScreen) jumpToAgent(m *model) tea.Cmd {
+	agent, ok := w.hoveredAgent(m)
 	if !ok {
 		return nil
 	}
@@ -594,10 +594,10 @@ func (w *searchScreen) jumpToAgent(h navHost, s panelShared) tea.Cmd {
 
 	target := screenTarget{agentID: agent.id}
 	if agent.archived {
-		return h.enter(screenArchive, target)
+		return m.enter(screenArchive, target)
 	}
 
-	return h.enter(screenAgents, target)
+	return m.enter(screenAgents, target)
 }
 
 // spans locates every matched word in the transcript, in the order they are read.
@@ -618,7 +618,7 @@ func (h searchHit) spans(content string) []paint.Span {
 }
 
 // agentRow reads one agent the search found into the row the agents list draws.
-func (w *searchScreen) agentRow(s panelShared, agent searchAgent, archived map[string]panel.AgentRow) view.Row {
+func (w *searchScreen) agentRow(m *model, agent searchAgent, archived map[string]panel.AgentRow) view.Row {
 	row := view.Row{
 		Key:     agent.id,
 		Kind:    view.KindResult,
@@ -631,7 +631,7 @@ func (w *searchScreen) agentRow(s panelShared, agent searchAgent, archived map[s
 		return archivedSearchRow(row, agent.id, archived)
 	}
 
-	item, ok := s.listing.liveAgent(agent.id)
+	item, ok := m.listing.liveAgent(agent.id)
 	if !ok {
 		return row
 	}
@@ -697,10 +697,10 @@ func archivedSearchRow(row view.Row, id string, archived map[string]panel.AgentR
 }
 
 // snapshot is the rows the search found, as the list draws them.
-func (w *searchScreen) snapshot(s panelShared, rows []searchRow, pane listPane) view.Snapshot {
-	archived := keyAgentsByID(s.listing.archivedAgents)
+func (w *searchScreen) snapshot(m *model, rows []searchRow, pane listPane) view.Snapshot {
+	archived := keyAgentsByID(m.listing.archivedAgents)
 	caret := pane.caret
-	if w.isBlockFocused(s) {
+	if w.isBlockFocused(m) {
 		caret = view.CaretDrawn
 	}
 
@@ -710,7 +710,7 @@ func (w *searchScreen) snapshot(s panelShared, rows []searchRow, pane listPane) 
 				return searchHitRow(row)
 			}
 
-			return w.agentRow(s, row.agent, archived)
+			return w.agentRow(m, row.agent, archived)
 		}),
 		Columns:    view.NoColumns(),
 		Caret:      caret,
@@ -721,37 +721,37 @@ func (w *searchScreen) snapshot(s panelShared, rows []searchRow, pane listPane) 
 }
 
 // view draws the agents the search found beside the transcript of the hovered one.
-func (w *searchScreen) view(s panelShared) string {
-	w.drawn = w.buildRows(s)
+func (w *searchScreen) view(m *model) string {
+	w.drawn = w.buildRows(m)
 	defer func() { w.drawn = nil }()
 
-	sidebar := w.sidebarView(s)
+	sidebar := w.sidebarView(m)
 
-	split, ok := s.draw.screenColumnSplit()
+	split, ok := m.screenColumnSplit()
 	if !ok {
 		return sidebar
 	}
 
-	return s.draw.joinColumns(split, sidebar, w.previewView(s, split))
+	return m.joinColumns(split, sidebar, w.previewView(m, split))
 }
 
 // sidebarView is the panel's own column: the query and the agents it found.
-func (w *searchScreen) sidebarView(s panelShared) string {
+func (w *searchScreen) sidebarView(m *model) string {
 	palette := paint.Panel
 
 	if w.typing {
-		palette = s.draw.focusPalette()
+		palette = m.focusPalette()
 	}
 
-	query := filterState{typing: w.typing, input: w.input}.line(palette, s.glyphs)
-	header := s.draw.viewsBar() + query + "\n\n"
+	query := filterState{typing: w.typing, input: w.input}.line(palette, m.glyphs)
+	header := m.viewsBar() + query + "\n\n"
 
 	blank := strings.TrimSpace(w.query()) == ""
 	var qualifiers string
-	if blank || s.chrome.helpExpanded {
-		qualifiers = qualifierLegend(s.pane)
+	if blank || m.helpExpanded {
+		qualifiers = qualifierLegend(m.paneWidth())
 	}
-	help := s.draw.renderHelp(w.help(s), header, qualifiers)
+	help := m.renderHelp(w.help(m), header, qualifiers)
 	if !blank {
 		help = qualifiers + help
 	}
@@ -765,10 +765,10 @@ func (w *searchScreen) sidebarView(s panelShared) string {
 		if w.problem.refused {
 			tone = paint.ToneWarning
 		}
-		header += palette.Style(tone).Width(s.pane).Render(w.problem.reason) + "\n\n"
+		header += palette.Style(tone).Width(m.paneWidth()).Render(w.problem.reason) + "\n\n"
 	}
 
-	rows := w.rows(s)
+	rows := w.rows(m)
 	switch {
 	case blank:
 		return header + qualifiers + help
@@ -779,10 +779,10 @@ func (w *searchScreen) sidebarView(s panelShared) string {
 	}
 
 	window := view.Window(view.WindowParams{
-		List:    prepareList(s.glyphs, w.snapshot(s, rows, s.draw.listPane(s.pane))),
+		List:    prepareList(m.glyphs, w.snapshot(m, rows, m.listPane(m.paneWidth()))),
 		Palette: palette,
-		Width:   s.pane,
-		Lines:   s.draw.listLines(header, below),
+		Width:   m.paneWidth(),
+		Lines:   m.listLines(header, below),
 	})
 
 	return header + window + below
@@ -799,7 +799,7 @@ func qualifierLegend(width int) string {
 
 // help is the search's legend: the query line's two keys while it is typed at, and the list's
 // own once it has given the keys up.
-func (w *searchScreen) help(s panelShared) keyMap {
+func (w *searchScreen) help(m *model) keyMap {
 	if w.typing {
 		done := binding([]string{"enter"}, "keep it, then move through the hits")
 		leave := binding([]string{"esc"}, "leave the query line")
@@ -807,11 +807,11 @@ func (w *searchScreen) help(s panelShared) keyMap {
 		return keyMap{short: []key.Binding{done, leave}, full: []key.Binding{done, leave}}
 	}
 
-	own := w.actions(s).help(s)
+	own := w.actions(m).help(m)
 
 	return keyMap{
-		short: slices.Concat(own.short, s.draw.globalHelp()),
-		full:  slices.Concat(own.full, s.draw.fullGlobalHelp()),
+		short: slices.Concat(own.short, m.globalHelp()),
+		full:  slices.Concat(own.full, m.fullGlobalHelp()),
 	}
 }
 

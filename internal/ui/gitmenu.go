@@ -34,7 +34,7 @@ var (
 )
 
 // gitMenu is the git actions on an agent, opened from its menu.
-func gitMenu(s panelShared, from screen, item panel.AgentRow) submenu {
+func gitMenu(m *model, from screen, item panel.AgentRow) submenu {
 	agent := item.Agent
 	agentID := agent.ID
 	run := func(choice gitChoice) func(model) (model, tea.Cmd) {
@@ -47,47 +47,47 @@ func gitMenu(s panelShared, from screen, item panel.AgentRow) submenu {
 		entries: []submenuEntry{
 			{
 				label: "rebase with base",
-				keys:  s.keys.Git.Rebase,
-				isOff: worktreeRefusal(s.listing, from, agent) != nil,
+				keys:  m.keys.Git.Rebase,
+				isOff: worktreeRefusal(m.listing, from, agent) != nil,
 				write: run(gitChoiceRebase),
 			},
 			{
 				label: "push",
-				keys:  s.keys.Git.Push,
-				isOff: pushRefusal(s.listing, from, agent) != nil,
+				keys:  m.keys.Git.Push,
+				isOff: pushRefusal(m.listing, from, agent) != nil,
 				write: run(gitChoicePush),
 			},
 			{
 				label: abortLabel(agent),
-				keys:  s.keys.Git.Abort,
-				isOff: abortRefusal(s.listing, from, agent) != nil,
+				keys:  m.keys.Git.Abort,
+				isOff: abortRefusal(m.listing, from, agent) != nil,
 				open:  func(m model) (tea.Model, tea.Cmd) { return m.openGitAbort(from, agentID) },
 			},
 			{
 				label: "open pr",
-				keys:  s.keys.Git.OpenPullRequest,
+				keys:  m.keys.Git.OpenPullRequest,
 				isOff: item.PullRequest.URL == "",
 				write: run(gitChoiceOpenPullRequest),
 			},
 			{
 				label: "copy pr url",
-				keys:  s.keys.Git.CopyPullRequestURL,
+				keys:  m.keys.Git.CopyPullRequestURL,
 				isOff: item.PullRequest.URL == "",
 				write: run(gitChoiceCopyPullRequestURL),
 			},
 			{
 				label: draftLabel(item),
-				keys:  s.keys.Git.ToggleDraft,
+				keys:  m.keys.Git.ToggleDraft,
 				isOff: openPullRequestRefusal(item) != nil,
 				write: run(gitChoiceToggleDraft),
 			},
 			{
 				label: "re-request review",
-				keys:  s.keys.Git.RequestRereview,
+				keys:  m.keys.Git.RequestRereview,
 				isOff: rereviewRefusal(item) != nil,
 				write: run(gitChoiceRequestRereview),
 			},
-			nestedEntry("merge pr", s.keys.Git.Merge, mergeMenu(s, from, item)),
+			nestedEntry("merge pr", m.keys.Git.Merge, mergeMenu(m, from, item)),
 		},
 	}
 }

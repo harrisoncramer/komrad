@@ -338,7 +338,7 @@ func (m model) docColumnView(split columnSplit) string {
 func (m model) docShown() string {
 	hovered := m.hoveredDetails().id
 	if f, ok := m.active().(filtered); ok {
-		hovered = f.hoveredKey(m.shared())
+		hovered = f.hoveredKey(&m)
 	}
 
 	return fmt.Sprintf("%d/%s/%t", m.screen, hovered, m.isMessagesFocused())
