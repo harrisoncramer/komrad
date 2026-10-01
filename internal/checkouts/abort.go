@@ -33,10 +33,11 @@ type AbortResult struct {
 // Abort undoes whatever rebase, am, merge or pick is part-way through the agent's worktree,
 // parking the checkout first so nothing the agent had resolved is lost.
 func (s *Service) Abort(ctx context.Context, agentID string) (*AbortResult, error) {
-	agent, err := s.eligible(ctx, agentID)
+	target, err := s.eligible(ctx, agentID)
 	if err != nil {
 		return nil, err
 	}
+	agent := target.agent
 
 	unlock, err := s.lockTree(agent.Cwd)
 	if err != nil {

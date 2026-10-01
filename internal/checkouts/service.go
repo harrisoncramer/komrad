@@ -43,6 +43,12 @@ var (
 // parkSpace is the ref namespace a park sits under.
 type parkSpace string
 
+// checkoutTarget is an agent whose worktree komrad may act on, with the workflow it was cut for.
+type checkoutTarget struct {
+	agent    *agentstore.Agent
+	workflow *workflowstore.Workflow
+}
+
 // agentReadWriter is the slice of the agent store a move of a checkout reads and writes.
 type agentReadWriter interface {
 	GetByID(ctx context.Context, id string) (*agentstore.Agent, error)
@@ -172,8 +178,8 @@ func buildParkRef(space parkSpace, agentID string) string {
 	return fmt.Sprintf("refs/komrad/%s/%s/%d", space, agentID, time.Now().UnixNano())
 }
 
-// eligible answers the agent when its worktree is komrad's to act on, or the reason it is not.
-func (s *Service) eligible(ctx context.Context, agentID string) (*agentstore.Agent, error) {
+// eligible answers the agent and its workflow when its worktree is komrad's to act on, or the reason it is not.
+func (s *Service) eligible(ctx context.Context, agentID string) (*checkoutTarget, error) {
 	agent, err := s.read(ctx, agentID)
 	if err != nil {
 		return nil, err
@@ -206,7 +212,7 @@ func (s *Service) eligible(ctx context.Context, agentID string) (*agentstore.Age
 		return nil, fmt.Errorf("%w: its workflow does not make worktrees", ErrNoWorktree)
 	}
 
-	return agent, nil
+	return &checkoutTarget{agent: agent, workflow: flow}, nil
 }
 
 // read fetches the row, refusing an agent that is archived or that a person is holding.

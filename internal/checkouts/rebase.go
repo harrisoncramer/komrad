@@ -76,27 +76,27 @@ type RebaseResult struct {
 
 // PlanRebase reads what a rebase would do without touching anything.
 func (s *Service) PlanRebase(ctx context.Context, agentID string) (*RebasePlan, error) {
-	agent, err := s.rebaseEligible(ctx, agentID)
+	target, err := s.rebaseEligible(ctx, agentID)
 	if err != nil {
 		return nil, err
 	}
 
-	return s.plan(ctx, *agent)
+	return s.plan(ctx, *target)
 }
 
 // rebaseEligible answers the agent when a rebase is its to have, which a branch komrad did not
 // cut never is.
-func (s *Service) rebaseEligible(ctx context.Context, agentID string) (*agentstore.Agent, error) {
-	agent, err := s.eligible(ctx, agentID)
+func (s *Service) rebaseEligible(ctx context.Context, agentID string) (*checkoutTarget, error) {
+	target, err := s.eligible(ctx, agentID)
 	if err != nil {
 		return nil, err
 	}
 
-	if agent.AdoptedBranch != "" {
-		return nil, fmt.Errorf("%w: %s", ErrRebaseAdopted, agent.AdoptedBranch)
+	if target.agent.AdoptedBranch != "" {
+		return nil, fmt.Errorf("%w: %s", ErrRebaseAdopted, target.agent.AdoptedBranch)
 	}
 
-	return agent, nil
+	return target, nil
 }
 
 // readTreeState reads the checkout and refuses one a rebase may not start on.
@@ -113,15 +113,11 @@ func (s *Service) readTreeState(ctx context.Context, agent agentstore.Agent) (gi
 }
 
 // plan reads the checkout and the base and says what a rebase would do to them.
-func (s *Service) plan(ctx context.Context, agent agentstore.Agent) (*RebasePlan, error) {
+func (s *Service) plan(ctx context.Context, target checkoutTarget) (*RebasePlan, error) {
+	agent, flow := *target.agent, target.workflow
 	state, err := s.readTreeState(ctx, agent)
 	if err != nil {
 		return nil, err
-	}
-
-	flow, err := s.workflows.Get(ctx, agent.WorkflowID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read the workflow of agent %q: %w", agent.Name, err)
 	}
 
 	ref, sha, err := s.rebaser.FetchBase(ctx, agent.Cwd, flow.Worktree.BaseBranch)
@@ -155,10 +151,11 @@ func (s *Service) plan(ctx context.Context, agent agentstore.Agent) (*RebasePlan
 
 // Rebase moves the agent's branch onto the latest base in place.
 func (s *Service) Rebase(ctx context.Context, agentID string) (*RebaseResult, error) {
-	agent, err := s.rebaseEligible(ctx, agentID)
+	target, err := s.rebaseEligible(ctx, agentID)
 	if err != nil {
 		return nil, err
 	}
+	agent := target.agent
 
 	unlock, err := s.lockTree(agent.Cwd)
 	if err != nil {
@@ -166,7 +163,7 @@ func (s *Service) Rebase(ctx context.Context, agentID string) (*RebaseResult, er
 	}
 	defer unlock()
 
-	plan, err := s.plan(ctx, *agent)
+	plan, err := s.plan(ctx, *target)
 	if err != nil {
 		return nil, err
 	}
@@ -179,7 +176,7 @@ func (s *Service) Rebase(ctx context.Context, agentID string) (*RebaseResult, er
 		return nil, err
 	}
 
-	result, err := s.rebase(ctx, *agent)
+	result, err := s.rebase(ctx, *target)
 	if err != nil {
 		if interrupted {
 			s.tellCut(ctx, *agent, err)
@@ -195,12 +192,13 @@ func (s *Service) Rebase(ctx context.Context, agentID string) (*RebaseResult, er
 }
 
 // rebase plans the move and makes it.
-func (s *Service) rebase(ctx context.Context, agent agentstore.Agent) (*RebaseResult, error) {
+func (s *Service) rebase(ctx context.Context, target checkoutTarget) (*RebaseResult, error) {
+	agent := *target.agent
 	if _, err := s.read(ctx, agent.ID); err != nil {
 		return nil, err
 	}
 
-	plan, err := s.plan(ctx, agent)
+	plan, err := s.plan(ctx, target)
 	if err != nil {
 		return nil, err
 	}

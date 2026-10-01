@@ -54,21 +54,22 @@ type PushResult struct {
 
 // PlanPush reads what a push would do without sending anything.
 func (s *Service) PlanPush(ctx context.Context, agentID string) (*PushPlan, error) {
-	agent, err := s.eligible(ctx, agentID)
+	target, err := s.eligible(ctx, agentID)
 	if err != nil {
 		return nil, err
 	}
 
-	return s.planPush(ctx, *agent)
+	return s.planPush(ctx, *target)
 }
 
 // Push sends the agent's branch to origin, overwriting origin's copy when a rebase moved the
 // branch apart from it.
 func (s *Service) Push(ctx context.Context, agentID string) (*PushResult, error) {
-	agent, err := s.eligible(ctx, agentID)
+	target, err := s.eligible(ctx, agentID)
 	if err != nil {
 		return nil, err
 	}
+	agent := target.agent
 
 	unlock, err := s.lockTree(agent.Cwd)
 	if err != nil {
@@ -76,7 +77,7 @@ func (s *Service) Push(ctx context.Context, agentID string) (*PushResult, error)
 	}
 	defer unlock()
 
-	plan, err := s.planPush(ctx, *agent)
+	plan, err := s.planPush(ctx, *target)
 	if err != nil {
 		return nil, err
 	}
@@ -109,7 +110,8 @@ func (s *Service) Push(ctx context.Context, agentID string) (*PushResult, error)
 }
 
 // planPush reads the checkout and says what a push of it would do, or why it may not have one.
-func (s *Service) planPush(ctx context.Context, agent agentstore.Agent) (*PushPlan, error) {
+func (s *Service) planPush(ctx context.Context, target checkoutTarget) (*PushPlan, error) {
+	agent, flow := *target.agent, target.workflow
 	state, err := s.pusher.ReadTreeState(ctx, agent.Cwd)
 	if err != nil {
 		return nil, err
@@ -122,10 +124,6 @@ func (s *Service) planPush(ctx context.Context, agent agentstore.Agent) (*PushPl
 		return nil, ErrPushDetached
 	}
 
-	flow, err := s.workflows.Get(ctx, agent.WorkflowID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read the workflow of agent %q: %w", agent.Name, err)
-	}
 	if state.Branch == flow.Worktree.BaseBranch {
 		return nil, fmt.Errorf("%w: %s", ErrPushBase, state.Branch)
 	}
