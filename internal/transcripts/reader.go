@@ -8,31 +8,22 @@ import (
 
 	"komrad/internal/agenterr"
 	"komrad/internal/logging"
+	agentstore "komrad/internal/store/agent"
 	transcriptstore "komrad/internal/store/transcript"
 )
 
 const assistantRole = "assistant"
 
-type agentExistsChecker interface {
-	Exists(ctx context.Context, id string) (bool, error)
-}
-
-type transcriptSearcher interface {
-	Get(ctx context.Context, agentID string) (string, error)
-	ListLastTurns(ctx context.Context, params transcriptstore.ListLastTurnsParams) ([]transcriptstore.StoredTurn, error)
-	Search(ctx context.Context, params transcriptstore.SearchParams) (transcriptstore.Results, error)
-}
-
 type NewTranscriptReaderParams struct {
-	Agents      agentExistsChecker
-	Transcripts transcriptSearcher
+	Agents      *agentstore.AgentStore
+	Transcripts *transcriptstore.TranscriptStore
 	Clock       func() time.Time
 }
 
 // TranscriptReader reads what agents wrote.
 type TranscriptReader struct {
-	agents      agentExistsChecker
-	transcripts transcriptSearcher
+	agents      *agentstore.AgentStore
+	transcripts *transcriptstore.TranscriptStore
 	now         func() time.Time
 }
 
