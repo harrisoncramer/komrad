@@ -83,14 +83,14 @@ func (d diffSpec) isChapter() bool {
 	return d.chapter >= 0
 }
 
-// isNarrowed reports whether the diff on screen is one chapter of the change rather than the
-// whole of it.
+// isNarrowed reports whether the diff on screen is measured over a range rather than the whole
+// change.
 func (d diffSpec) isNarrowed() bool {
 	return d.base != "" || d.head != ""
 }
 
-func (d diffSpec) isScoped() bool {
-	return d.base != "" || d.answer != nil || d.origin != nil
+func (d diffSpec) isWholeChange() bool {
+	return d.base == "" && d.answer == nil && d.origin == nil
 }
 
 func (d diffSpec) doesSplitReplies() bool {

@@ -498,7 +498,7 @@ func (r *reviewScreen) applyLoaded(m *model, msg reviewLoadedMsg) tea.Cmd {
 
 	// A narrowed diff drawing nothing is an answer about the agent rather than a reason to leave,
 	// so the whole change comes back with the answer said out loud.
-	if drewNothing && r.diff.spec.isScoped() {
+	if drewNothing && !r.diff.spec.isWholeChange() {
 		said := "nothing written " + r.diff.spec.label
 		if r.diff.spec.origin != nil {
 			said = "nothing to draw where this comment was written"
