@@ -44,9 +44,8 @@ func newHostBackoff(forges pullRequestForgeFinder, now func() time.Time) *hostBa
 	}
 }
 
-// openHost is the host with its connection and forge, nil when it cannot be read this pass, and
-// says whether that was because nobody connected it.
-func (b *hostBackoff) openHost(ctx context.Context, hostname string) (*forgeHost, bool) {
+// openHost is the host with its connection and forge, nil when it cannot be read this pass.
+func (b *hostBackoff) openHost(ctx context.Context, hostname string) (host *forgeHost, unconnected bool) {
 	connection, err := b.forges.ConnectionFor(ctx, hostname)
 	if errors.Is(err, store.ErrNotFound) {
 		return nil, true
