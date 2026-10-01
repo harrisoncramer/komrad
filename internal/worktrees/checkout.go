@@ -88,7 +88,7 @@ func (r *CheckoutReader) ReadStanding(ctx context.Context, params ReadStandingPa
 	var checkout Checkout
 	var err error
 	if params.Readable {
-		err = r.read(ctx, &checkout, readParams{
+		err = r.readCheckout(ctx, &checkout, readParams{
 			Dir:     params.Dir,
 			Base:    params.Base,
 			Peek:    true,
@@ -139,9 +139,7 @@ type readParams struct {
 	HeadSHA string
 }
 
-// read names the base and reads the part of the standing a directory's delete turns on, leaving
-// the base empty when the clone does not hold it.
-func (r *CheckoutReader) read(ctx context.Context, checkout *Checkout, params readParams) error {
+func (r *CheckoutReader) readCheckout(ctx context.Context, checkout *Checkout, params readParams) error {
 	ref, err := r.nameBase(ctx, params)
 	if errors.Is(err, git.ErrBaseMissing) {
 		checkout.BaseErr = err

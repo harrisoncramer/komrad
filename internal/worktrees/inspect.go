@@ -187,7 +187,7 @@ func (i *Inspector) readSettled(ctx context.Context, inspection *Inspection, fet
 		return nil, err
 	}
 
-	err = i.checkouts.read(ctx, &inspection.Checkout, readParams{
+	err = i.checkouts.readCheckout(ctx, &inspection.Checkout, readParams{
 		Dir:   inspection.Worktree.Dir,
 		Base:  config.BaseBranch,
 		Fetch: fetch,
