@@ -396,6 +396,52 @@ linters:
               # Drives the whole panel against a real service and tmux. It is a scenario for the
               # panel as a whole, and there is no panel.go for it to sit beside.
               - ^internal/ui/panel_integration_test\.go$
+          bound_key:
+            skip: false
+            roots:
+              - type: komrad/config.Keybindings
+              - type: komrad/config.FormKeys
+                prefix: Form
+            matchers:
+              - komrad/internal/ui.isBound
+              - komrad/internal/ui.directionOf
+            compares:
+              - slices.Contains
+            navigation:
+              - Nav
+              - Column
+              - Sidebar
+              - Tabs
+              - Kinds
+              - Views
+              - Help
+              - Filter
+              - Diff
+              - Menu.Open
+              - Messages.Open
+              - Review.Back
+              - Review.PrevOpenThread
+              - Review.PrevThread
+              - Form.Back
+              - Form.Quit
+              - Form.Editor
+            sources:
+              - komrad/internal/ui.model.quitKeys
+            dispatchers:
+              - komrad/internal/ui.actionSpec.dispatch
+              - komrad/internal/ui.screenActionSpec.dispatch
+              - komrad/internal/ui.model.updateDoc
+              - komrad/internal/ui.model.updateSubmenu
+            inputs:
+              - komrad/internal/ui.model.updateForm
+              - komrad/internal/ui.model.updateWorkflowForm
+              - komrad/internal/ui.model.updateMessages
+              - komrad/internal/ui.nameEdit.take
+              - komrad/internal/ui.nameEdit.takeGone
+              - komrad/internal/ui.reviewScreen.updateComposer
+              - komrad/internal/ui.reviewScreen.updateRelease
+            exclude:
+              - _test\.go$
       fussy:
         type: module
         description: General Go checks from fussy.
