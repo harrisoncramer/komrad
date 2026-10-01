@@ -48,17 +48,25 @@ func newHostGate(forges *forge.Service, now func() time.Time) *hostGate {
 
 // open is the host with its connection and forge, nil when it cannot be read this pass.
 func (g *hostGate) open(ctx context.Context, hostname string) (host *forgeHost, unconnected bool) {
-	connection, hostForge, err := g.forges.Open(ctx, hostname)
+	connection, err := g.forges.ConnectionFor(ctx, hostname)
 	if errors.Is(err, store.ErrNotFound) {
 		return nil, true
 	}
 	if err != nil {
-		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to open the forge",
+		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to find the forge connection",
 			append([]slog.Attr{slog.String(logging.ForgeHost, hostname)}, logging.Err(err)...)...)
 
 		return nil, false
 	}
 	if connection.ThrottledUntil != nil && connection.ThrottledUntil.After(g.now()) {
+		return nil, false
+	}
+
+	hostForge, err := g.forges.ForConnection(*connection)
+	if err != nil {
+		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to build the forge",
+			append([]slog.Attr{slog.String(logging.ForgeHost, hostname)}, logging.Err(err)...)...)
+
 		return nil, false
 	}
 
