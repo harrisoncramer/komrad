@@ -178,7 +178,7 @@ type resumeStart struct {
 	prior   agentstore.State
 }
 
-func (r *resumeStart) runSetUp(ctx context.Context, agent agentstore.Agent) (string, error) {
+func (r *resumeStart) runSetup(ctx context.Context, agent agentstore.Agent) (string, error) {
 	name := provisionerFor(ctx, r.service.workflows, agent)
 	if r.scripts == nil || name == "" {
 		return "", nil

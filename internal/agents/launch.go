@@ -489,7 +489,7 @@ type createStart struct {
 	provisioned bool
 }
 
-func (c *createStart) runSetUp(ctx context.Context, agent agentstore.Agent) (string, error) {
+func (c *createStart) runSetup(ctx context.Context, agent agentstore.Agent) (string, error) {
 	if c.scripts == nil || c.resolved.provisioner == "" {
 		return "", nil
 	}

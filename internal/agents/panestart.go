@@ -14,8 +14,8 @@ type agentStarter struct {
 	scripts  agentScriptRunner
 }
 
-type paneStart interface {
-	runSetUp(ctx context.Context, agent agentstore.Agent) (string, error)
+type startMode interface {
+	runSetup(ctx context.Context, agent agentstore.Agent) (string, error)
 	getDefaultDir(agent agentstore.Agent) string
 	runPreHooks(ctx context.Context, agent agentstore.Agent) error
 	record(ctx context.Context, agent *agentstore.Agent, pane string) error
@@ -30,7 +30,7 @@ type paneLaunch struct {
 	verb    string
 }
 
-func (s *agentStarter) start(ctx context.Context, agent agentstore.Agent, mode paneStart) (startErr error) {
+func (s *agentStarter) start(ctx context.Context, agent agentstore.Agent, mode startMode) (startErr error) {
 	var pane string
 	launched := false
 	defer func() {
@@ -47,7 +47,7 @@ func (s *agentStarter) start(ctx context.Context, agent agentstore.Agent, mode p
 		mode.rollBack(teardown, agent, startErr)
 	}()
 
-	named, err := mode.runSetUp(ctx, agent)
+	named, err := mode.runSetup(ctx, agent)
 	if err != nil {
 		return err
 	}
