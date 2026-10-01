@@ -345,7 +345,8 @@ type MergeKeys struct {
 }
 
 // MenuKeys are the bindings for the menu, which lists the hovered row's entries over the
-// panel's own. The rows with entries are an agent, a workflow, a schedule, and every row of the archive.
+// panel's own. The rows with entries are an agent, a workflow, a schedule, a worktree, and every
+// row of the archive.
 type MenuKeys struct {
 	// Open the menu from any screen: the hovered row's entries, or the chosen agents', over the
 	// entries that act on the panel itself.
