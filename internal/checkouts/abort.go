@@ -179,7 +179,7 @@ func abortedMail(aborted Aborted) string {
 	var body strings.Builder
 
 	if result.Interrupted {
-		fmt.Fprintf(&body, "Your turn was interrupted so that the %s in your worktree could be aborted.\n\n", sequenceName(result.Sequence))
+		fmt.Fprintf(&body, "Your turn was interrupted so that the %s in your worktree could be aborted.\n\n", result.Sequence.GetCommand())
 	}
 
 	if result.Ours {
@@ -189,7 +189,7 @@ func abortedMail(aborted Aborted) string {
 	} else {
 		fmt.Fprintf(&body, "The %s you had part-way through your worktree was aborted from the panel. "+
 			"%s is back where it stood before it began.\n\n"+
-			"Do not start it again without asking.", sequenceName(result.Sequence), standing(result))
+			"Do not start it again without asking.", result.Sequence.GetCommand(), standing(result))
 	}
 
 	body.WriteString(" Read your files again rather than trusting what you remember, then carry on from here.")
@@ -206,13 +206,4 @@ func standing(result AbortResult) string {
 	}
 
 	return "Your branch " + result.Branch
-}
-
-// sequenceName is a sequence as git's own command names it.
-func sequenceName(sequence git.Sequence) string {
-	if sequence == git.SequenceCherryPick {
-		return "cherry-pick"
-	}
-
-	return string(sequence)
 }

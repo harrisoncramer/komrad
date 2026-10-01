@@ -38,6 +38,18 @@ func (s Sequence) IsInProgress() bool {
 	return s != SequenceNone && s != ""
 }
 
+// GetCommand is the git command that runs the sequence, empty when nothing is in progress.
+func (s Sequence) GetCommand() string {
+	switch {
+	case !s.IsInProgress():
+		return ""
+	case s == SequenceCherryPick:
+		return "cherry-pick"
+	}
+
+	return string(s)
+}
+
 // ReadSequence is what git has part-way through in a checkout, read without touching the index.
 func (c *Client) ReadSequence(ctx context.Context, dir string) (Sequence, error) {
 	gitDir, err := Run(ctx, dir, "rev-parse", "--absolute-git-dir")

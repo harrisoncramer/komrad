@@ -14,20 +14,11 @@ import (
 // ErrIndexLocked says another git command holds the checkout's index.
 var ErrIndexLocked = fail.Precondition("another git command is running in this worktree")
 
-// abortCommands is the command that undoes each sequence.
-var abortCommands = map[Sequence]string{
-	SequenceRebase:     "rebase",
-	SequenceApply:      "am",
-	SequenceMerge:      "merge",
-	SequenceCherryPick: "cherry-pick",
-	SequenceRevert:     "revert",
-}
-
 // AbortSequence undoes the sequence part-way through a checkout, putting the branch back where
 // it stood before the sequence began.
 func (c *Client) AbortSequence(ctx context.Context, dir string, sequence Sequence) error {
-	verb, ok := abortCommands[sequence]
-	if !ok {
+	verb := sequence.GetCommand()
+	if verb == "" {
 		return fmt.Errorf("there is no way to abort a sequence of kind %q", sequence)
 	}
 
