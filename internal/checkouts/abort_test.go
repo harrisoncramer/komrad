@@ -146,7 +146,7 @@ func TestAbortUndoesTheSequence(t *testing.T) {
 			result, err := fixture.newService(NewServiceParams{Aborter: &tt.aborter}).Abort(t.Context(), agent.ID)
 			require.NoError(t, err)
 
-			assert.Equal(t, sequence, result.Sequence)
+			assert.Equal(t, sequenceOf(sequence), result.Sequence)
 			assert.Equal(t, tt.aborter.Branch, result.Branch)
 			assert.Equal(t, tt.wantOurs, result.Ours)
 			assert.Equal(t, []string{"park", "abort " + string(sequence)}, tt.aborter.Calls)

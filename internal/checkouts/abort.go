@@ -19,7 +19,9 @@ var ErrAbortNothing = fail.Precondition("nothing is part-way through in this wor
 
 // AbortResult is what an abort did.
 type AbortResult struct {
-	Sequence git.Sequence `json:"sequence"`
+	Sequence agentstore.Sequence `json:"sequence"`
+	// Command is the git command that ran the sequence.
+	Command string `json:"command"`
 	// Branch is where the checkout stands once the sequence is undone, empty when detached.
 	Branch string `json:"branch"`
 	// ParkedRef holds the checkout as it stood mid-sequence, conflicts and all.
@@ -86,7 +88,8 @@ func (s *Service) abort(ctx context.Context, agent agentstore.Agent) (*AbortResu
 	}
 
 	result := &AbortResult{
-		Sequence:  sequence,
+		Sequence:  sequenceOf(sequence),
+		Command:   sequence.GetCommand(),
 		ParkedRef: buildParkRef(parkAbort, agent.ID),
 		Ours:      ours,
 	}
@@ -179,7 +182,7 @@ func abortedMail(aborted Aborted) string {
 	var body strings.Builder
 
 	if result.Interrupted {
-		fmt.Fprintf(&body, "Your turn was interrupted so that the %s in your worktree could be aborted.\n\n", result.Sequence.GetCommand())
+		fmt.Fprintf(&body, "Your turn was interrupted so that the %s in your worktree could be aborted.\n\n", result.Command)
 	}
 
 	if result.Ours {
@@ -189,7 +192,7 @@ func abortedMail(aborted Aborted) string {
 	} else {
 		fmt.Fprintf(&body, "The %s you had part-way through your worktree was aborted from the panel. "+
 			"%s is back where it stood before it began.\n\n"+
-			"Do not start it again without asking.", result.Sequence.GetCommand(), standing(result))
+			"Do not start it again without asking.", result.Command, standing(result))
 	}
 
 	body.WriteString(" Read your files again rather than trusting what you remember, then carry on from here.")

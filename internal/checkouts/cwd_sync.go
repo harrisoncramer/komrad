@@ -317,7 +317,7 @@ func (cs *CwdSyncer) write(ctx context.Context, look cwdLook) error {
 		RepositoryURL:   xptr.NonEmpty(head.RepositoryURL),
 		HeadSHA:         xptr.NonEmpty(head.SHA),
 		WorktreeRemoved: look.removed,
-		Sequence:        sequenceOf(head),
+		Sequence:        sequenceOf(head.Sequence),
 	}
 	unchanged := xptr.Equal(agent.Branch, checkout.Branch) &&
 		xptr.Equal(agent.RepositoryURL, checkout.RepositoryURL) &&
@@ -549,11 +549,11 @@ func (cl *cwdLook) keepDiffStat(err error) {
 	cl.err = errors.Join(cl.err, fmt.Errorf("failed to measure the checkout of %q: %w", cl.agent.Name, err))
 }
 
-// sequenceOf is what the look found part-way through, none for a checkout git would not read.
-func sequenceOf(head git.HeadState) agentstore.Sequence {
-	if !head.Sequence.IsInProgress() {
+// sequenceOf is a sequence git read, as the agent row stores it.
+func sequenceOf(sequence git.Sequence) agentstore.Sequence {
+	if !sequence.IsInProgress() {
 		return agentstore.SequenceNone
 	}
 
-	return agentstore.Sequence(head.Sequence)
+	return agentstore.Sequence(sequence)
 }

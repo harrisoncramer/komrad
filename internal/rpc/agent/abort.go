@@ -7,7 +7,6 @@ import (
 	"komrad/internal/fail"
 	"komrad/internal/rpc/render"
 	"komrad/internal/rpcerr"
-	agentstore "komrad/internal/store/agent"
 	agentv1 "komrad/proto/gen/agent/v1"
 )
 
@@ -24,7 +23,7 @@ func (s *Handler) AbortSequence(ctx context.Context, req *agentv1.AbortSequenceR
 	}
 
 	return &agentv1.AbortSequenceResponse{
-		Sequence:    render.AgentSequenceOf(agentstore.Sequence(result.Sequence)),
+		Sequence:    render.AgentSequenceOf(result.Sequence),
 		Branch:      result.Branch,
 		ParkedRef:   result.ParkedRef,
 		Interrupted: result.Interrupted,

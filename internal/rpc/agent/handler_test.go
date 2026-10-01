@@ -1747,7 +1747,7 @@ func (f *recordingAgentServices) Abort(_ context.Context, agentID string) (*chec
 	}
 
 	return &checkouts.AbortResult{
-		Sequence:    git.SequenceCherryPick,
+		Sequence:    agentstore.SequenceCherryPick,
 		Branch:      "agent/alpha",
 		ParkedRef:   "refs/komrad/aborted/alpha/1",
 		Interrupted: true,
