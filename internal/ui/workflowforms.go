@@ -156,6 +156,7 @@ var hookMoments = []hookMoment{
 	},
 }
 
+// hooksByEvent is each event's first hook, which is the one the form shows.
 func hooksByEvent(hooks []panel.Hook) map[string]*string {
 	byEvent := make(map[string]*string, len(hooks))
 	for _, hook := range hooks {
