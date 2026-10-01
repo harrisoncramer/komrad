@@ -39,21 +39,21 @@ func pushOp(item panel.AgentRow) gitOp {
 		planning:   "planning the push of " + name,
 		planFailed: "Could not work out what a push would do",
 		plan: func(clients api) (gitConfirmForm, error) {
-			plan, err := clients.planPush(agentID)
+			response, err := clients.planPush(agentID)
 			if err != nil {
 				return nil, err
 			}
 
-			planned := pushPlan{
+			plan := pushPlan{
 				name:        name,
-				branch:      plan.GetBranch(),
-				commits:     int(plan.GetCommits()),
-				forced:      plan.GetForced(),
-				uncommitted: int(plan.GetUncommittedFiles()),
+				branch:      response.GetBranch(),
+				commits:     int(response.GetCommits()),
+				forced:      response.GetForced(),
+				uncommitted: int(response.GetUncommittedFiles()),
 				autoMerge:   item.PullRequest.AutoMerge,
 			}
 
-			return pushForm(planned), nil
+			return pushForm(plan), nil
 		},
 		running: "pushing " + name,
 		run: func(clients api) gitReport {

@@ -35,23 +35,23 @@ func rebaseOp(agentID, name string) gitOp {
 		planning:   "planning the rebase of " + name,
 		planFailed: "Could not work out what a rebase would do",
 		plan: func(clients api) (gitConfirmForm, error) {
-			plan, err := clients.planRebase(agentID)
+			response, err := clients.planRebase(agentID)
 			if err != nil {
 				return nil, err
 			}
 
-			planned := rebasePlan{
+			plan := rebasePlan{
 				name:          name,
-				baseRef:       plan.GetBaseRef(),
-				baseSHA:       plan.GetBaseSha(),
-				commits:       int(plan.GetCommits()),
-				landed:        int(plan.GetLandedCommits()),
-				replay:        int(plan.GetReplayCommits()),
-				merges:        int(plan.GetMerges()),
-				conflictPaths: plan.GetConflictPaths(),
+				baseRef:       response.GetBaseRef(),
+				baseSHA:       response.GetBaseSha(),
+				commits:       int(response.GetCommits()),
+				landed:        int(response.GetLandedCommits()),
+				replay:        int(response.GetReplayCommits()),
+				merges:        int(response.GetMerges()),
+				conflictPaths: response.GetConflictPaths(),
 			}
 
-			return rebaseForm(planned), nil
+			return rebaseForm(plan), nil
 		},
 		running: "rebasing " + name,
 		run: func(clients api) gitReport {
