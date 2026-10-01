@@ -122,7 +122,7 @@ type NewPanelParams struct {
 	DetailsHeight   float64
 	SidebarSide     string
 	SidebarWidth    int
-	HotZoneRows     int
+	TriageRows      int
 	Width           int
 	Height          int
 	Settings        PanelSettings
@@ -169,7 +169,7 @@ func NewPanel(params NewPanelParams) *Panel {
 	if params.SidebarWidth != 0 {
 		layout.SidebarWidth = params.SidebarWidth
 	}
-	layout.HotZoneRows = params.HotZoneRows
+	layout.TriageRows = params.TriageRows
 
 	panel := &Panel{
 		model: newModel(Deps{

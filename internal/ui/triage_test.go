@@ -13,8 +13,8 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// TestHotZoneRows covers which agents the zone draws and in what order.
-func TestHotZoneRows(t *testing.T) {
+// TestTriageRows covers which agents the zone draws and in what order.
+func TestTriageRows(t *testing.T) {
 	tests := []struct {
 		name     string
 		capacity int
@@ -24,13 +24,13 @@ func TestHotZoneRows(t *testing.T) {
 		{
 			name:     "a zone with no rows is not drawn",
 			capacity: 0,
-			rows:     buildHot(),
+			rows:     buildTriage(),
 			want:     []string{"backend", "third", "asker", "broken", "quiet"},
 		},
 		{
-			name:     "a zone with nothing hot is not drawn",
+			name:     "a zone with nothing in triage is not drawn",
 			capacity: 2,
-			rows:     []proto.Message{newLiveWorkflow("w1", "backend"), newHotAgent("quiet", agentv1.AgentState_AGENT_STATE_IDLE, 1)},
+			rows:     []proto.Message{newLiveWorkflow("w1", "backend"), newTriageAgent("quiet", agentv1.AgentState_AGENT_STATE_IDLE, 1)},
 			want:     []string{"backend", "quiet"},
 		},
 		{
@@ -45,27 +45,27 @@ func TestHotZoneRows(t *testing.T) {
 					return orchestrator
 				}(),
 			},
-			want: []string{"hot 1/2", "backend asking", "backend"},
+			want: []string{"triage 1/2", "backend asking", "backend"},
 		},
 		{
-			name:     "the oldest hot agents take the slots and the rest wait in the tree",
+			name:     "the oldest agents in triage take the slots and the rest wait in the tree",
 			capacity: 2,
-			rows:     buildHot(),
-			want:     []string{"hot 2/2", "broken backend · errored", "asker backend · asking", "+1 more waiting for a slot", "backend", "third", "quiet"},
+			rows:     buildTriage(),
+			want:     []string{"triage 2/2", "broken backend · errored", "asker backend · asking", "+1 more waiting for a slot", "backend", "third", "quiet"},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			harness := openHotZone(t, tt.capacity, tt.rows...)
+			harness := openTriage(t, tt.capacity, tt.rows...)
 
-			assert.Equal(t, tt.want, readHotList(harness.readFrame()))
+			assert.Equal(t, tt.want, readTriageList(harness.readFrame()))
 		})
 	}
 }
 
-// TestHotZoneFocus covers the hot zone key moving the keyboard into the zone and back out.
-func TestHotZoneFocus(t *testing.T) {
+// TestTriageFocus covers the triage key moving the keyboard into the zone and back out.
+func TestTriageFocus(t *testing.T) {
 	tests := []struct {
 		name  string
 		rows  []proto.Message
@@ -74,41 +74,41 @@ func TestHotZoneFocus(t *testing.T) {
 		note  string
 	}{
 		{
-			name:  "with nothing hot the key says so and stays in the tree",
+			name:  "with nothing in triage the key says so and stays in the tree",
 			rows:  []proto.Message{newLiveWorkflow("w1", "backend"), newAgentAt("quiet", "w1", 1)},
-			press: []string{"h"},
+			press: []string{"t"},
 			want:  "quiet",
-			note:  "nothing is hot",
+			note:  "nothing to triage",
 		},
 		{
-			name:  "the key puts the cursor on the oldest hot agent",
-			rows:  buildHot(),
-			press: []string{"G", "h"},
+			name:  "the key puts the cursor on the oldest agent in triage",
+			rows:  buildTriage(),
+			press: []string{"G", "t"},
 			want:  "broken",
 		},
 		{
 			name:  "the cursor stays inside the zone",
-			rows:  buildHot(),
-			press: []string{"h", "G"},
+			rows:  buildTriage(),
+			press: []string{"t", "G"},
 			want:  "asker",
 		},
 		{
 			name:  "the key again goes back to where it was pressed",
-			rows:  buildHot(),
-			press: []string{"G", "h", "j", "h"},
+			rows:  buildTriage(),
+			press: []string{"G", "t", "j", "t"},
 			want:  "quiet",
 		},
 		{
 			name:  "esc goes back to where it was pressed",
-			rows:  buildHot(),
-			press: []string{"G", "h", "esc"},
+			rows:  buildTriage(),
+			press: []string{"G", "t", "esc"},
 			want:  "quiet",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			harness := openHotZone(t, 2, tt.rows...)
+			harness := openTriage(t, 2, tt.rows...)
 
 			harness.press(tt.press...)
 
@@ -119,11 +119,11 @@ func TestHotZoneFocus(t *testing.T) {
 	}
 }
 
-// TestHotZoneAdvance covers the cursor moving on once the agent it stood on no longer needs a
+// TestTriageAdvance covers the cursor moving on once the agent it stood on no longer needs a
 // person.
-func TestHotZoneAdvance(t *testing.T) {
+func TestTriageAdvance(t *testing.T) {
 	answered := func(name string, state agentv1.AgentState) []proto.Message {
-		rows := buildHot()
+		rows := buildTriage()
 		for _, row := range rows {
 			if agent, ok := row.(*agentv1.Agent); ok && agent.GetName() == name {
 				agent.State = state
@@ -133,9 +133,9 @@ func TestHotZoneAdvance(t *testing.T) {
 		return rows
 	}
 
-	t.Run("an answer moves the cursor to the next hot agent", func(t *testing.T) {
-		harness := openHotZone(t, 2, buildHot()...)
-		harness.press("h")
+	t.Run("an answer moves the cursor to the next agent in triage", func(t *testing.T) {
+		harness := openTriage(t, 2, buildTriage()...)
+		harness.press("t")
 
 		harness.watch(buildSnapshot(answered("broken", agentv1.AgentState_AGENT_STATE_THINKING)...))
 
@@ -143,8 +143,8 @@ func TestHotZoneAdvance(t *testing.T) {
 	})
 
 	t.Run("an answer typed in the pane holds the cursor until the panel has the keyboard back", func(t *testing.T) {
-		harness := openHotZone(t, 2, buildHot()...)
-		harness.press("h")
+		harness := openTriage(t, 2, buildTriage()...)
+		harness.press("t")
 		harness.send(tea.BlurMsg{})
 
 		harness.watch(buildSnapshot(answered("broken", agentv1.AgentState_AGENT_STATE_THINKING)...))
@@ -154,50 +154,50 @@ func TestHotZoneAdvance(t *testing.T) {
 		assert.Equal(t, "asker", strings.TrimSpace(readHoveredRow(harness.readFrame())))
 	})
 
-	t.Run("answering the last hot agent goes back to where the key was pressed", func(t *testing.T) {
-		harness := openHotZone(t, 2,
+	t.Run("answering the last agent in triage goes back to where the key was pressed", func(t *testing.T) {
+		harness := openTriage(t, 2,
 			newLiveWorkflow("w1", "backend"),
 			newAgentAt("quiet", "w1", 1),
-			newHotAgent("asker", agentv1.AgentState_AGENT_STATE_WAITING, 3),
+			newTriageAgent("asker", agentv1.AgentState_AGENT_STATE_WAITING, 3),
 		)
-		harness.press("G", "h")
+		harness.press("G", "t")
 
 		harness.watch(buildSnapshot(
 			newLiveWorkflow("w1", "backend"),
 			newAgentAt("quiet", "w1", 1),
-			newHotAgent("asker", agentv1.AgentState_AGENT_STATE_THINKING, 3),
+			newTriageAgent("asker", agentv1.AgentState_AGENT_STATE_THINKING, 3),
 		))
 
 		frame := harness.readFrame()
 		assert.Equal(t, "quiet", strings.TrimSpace(readHoveredRow(frame)))
-		assert.Contains(t, frame, "hot zone clear")
-		assert.NotContains(t, readHotList(frame), "hot 0/2")
+		assert.Contains(t, frame, "triage clear")
+		assert.NotContains(t, readTriageList(frame), "triage 0/2")
 	})
 }
 
-func openHotZone(t *testing.T, capacity int, rows ...proto.Message) *panelHarness {
+func openTriage(t *testing.T, capacity int, rows ...proto.Message) *panelHarness {
 	t.Helper()
 
-	harness := newPanelHarness(t, panelHarnessParams{hotZoneRows: capacity})
+	harness := newPanelHarness(t, panelHarnessParams{triageRows: capacity})
 	answerWorktreeReads(harness)
 	harness.watch(buildSnapshot(rows...))
 
 	return harness
 }
 
-// buildHot is a workflow with three agents waiting on a person and one that is not, broken the
+// buildTriage is a workflow with three agents waiting on a person and one that is not, broken the
 // longest.
-func buildHot() []proto.Message {
+func buildTriage() []proto.Message {
 	return []proto.Message{
 		newLiveWorkflow("w1", "backend"),
 		newAgentAt("quiet", "w1", 1),
-		newHotAgent("asker", agentv1.AgentState_AGENT_STATE_WAITING, 3),
-		newHotAgent("broken", agentv1.AgentState_AGENT_STATE_ERRORED, 2),
-		newHotAgent("third", agentv1.AgentState_AGENT_STATE_WAITING, 4),
+		newTriageAgent("asker", agentv1.AgentState_AGENT_STATE_WAITING, 3),
+		newTriageAgent("broken", agentv1.AgentState_AGENT_STATE_ERRORED, 2),
+		newTriageAgent("third", agentv1.AgentState_AGENT_STATE_WAITING, 4),
 	}
 }
 
-func newHotAgent(name string, state agentv1.AgentState, minute int) *agentv1.Agent {
+func newTriageAgent(name string, state agentv1.AgentState, minute int) *agentv1.Agent {
 	agent := newAgentAt(name, "w1", minute)
 	agent.State = state
 	agent.Alive = xptr.Ptr(true)
@@ -206,9 +206,9 @@ func newHotAgent(name string, state agentv1.AgentState, minute int) *agentv1.Age
 	return agent
 }
 
-// readHotList is the list's rows down to the record under it, notes and all, with every run of
+// readTriageList is the list's rows down to the record under it, notes and all, with every run of
 // spaces cut to one.
-func readHotList(frame string) []string {
+func readTriageList(frame string) []string {
 	var rows []string
 	for _, line := range splitLines(frame) {
 		if strings.HasPrefix(line, "─") {

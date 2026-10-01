@@ -27,21 +27,21 @@ func (a *agentsScreen) modeActions() []screenAction {
 
 	return append(list.actions(),
 		screenAction{
-			id:   actionAgentHotZone,
-			keys: func(k config.Keybindings) []string { return k.Agents.HotZone },
-			when: a.isHotZoneReachable,
+			id:   actionAgentTriage,
+			keys: func(k config.Keybindings) []string { return k.Agents.Triage },
+			when: a.isTriageReachable,
 			run: func(h host, s panelShared, _ string) tea.Cmd {
-				a.toggleHotZone(h, s)
+				a.toggleTriage(h, s)
 
 				return nil
 			},
 		},
 		screenAction{
-			id:   actionAgentHotZoneBack,
+			id:   actionAgentTriageBack,
 			keys: func(k config.Keybindings) []string { return k.Agents.Back },
-			when: func(s panelShared) bool { return a.hot.focused && list.isBrowsing(s) },
+			when: func(s panelShared) bool { return a.triage.focused && list.isBrowsing(s) },
 			run: func(h host, s panelShared, _ string) tea.Cmd {
-				a.toggleHotZone(h, s)
+				a.toggleTriage(h, s)
 
 				return nil
 			},
@@ -134,9 +134,9 @@ func (a *agentsScreen) isBrowsing(s panelShared) bool {
 	return a.list().isBrowsing(s)
 }
 
-// isHotZoneReachable reports whether the hot zone key has a zone to move into.
-func (a *agentsScreen) isHotZoneReachable(s panelShared) bool {
-	return a.hot.isOn() && a.isBrowsing(s)
+// isTriageReachable reports whether the triage key has a zone to move into.
+func (a *agentsScreen) isTriageReachable(s panelShared) bool {
+	return a.triage.isOn() && a.isBrowsing(s)
 }
 
 func (a *agentsScreen) isHoveringWorkflow(s panelShared) bool {
@@ -219,9 +219,9 @@ func (a *agentsScreen) browsingLegend() []screenLegendRow {
 			show: a.isEditable,
 		},
 		{
-			of:   []actionID{actionAgentHotZone},
-			desc: a.hotZoneDesc,
-			show: a.isHotZoneReachable,
+			of:   []actionID{actionAgentTriage},
+			desc: a.triageDesc,
+			show: a.isTriageReachable,
 		},
 		{
 			of:   []actionID{actionAgentNew, actionWorkflowNew},
@@ -267,12 +267,12 @@ func (a *agentsScreen) browsingLegend() []screenLegendRow {
 	}, screenNavLegend())
 }
 
-func (a *agentsScreen) hotZoneDesc(panelShared) string {
-	if a.hot.focused {
-		return "leave hot zone"
+func (a *agentsScreen) triageDesc(panelShared) string {
+	if a.triage.focused {
+		return "leave triage"
 	}
 
-	return "hot zone"
+	return "triage"
 }
 
 func (a *agentsScreen) showHiddenDesc() string {

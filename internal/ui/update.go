@@ -385,7 +385,7 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 		m.paneCopying = false
 		m.keysElsewhere = false
 		m.syncKeys()
-		m.releaseHotRow()
+		m.releaseTriageRow()
 
 		cmd := m.reconcileEditor()
 		m.reconcileSolo()

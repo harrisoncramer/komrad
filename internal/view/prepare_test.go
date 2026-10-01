@@ -386,9 +386,9 @@ func TestPrepareComments(t *testing.T) {
 			want: []Cell{slot(glyph.Unread, "1", paint.ToneWarning)},
 		},
 		{
-			name: "a row in the hot zone draws its counts and then its note",
+			name: "a row in triage draws its counts and then its note",
 			row: Row{
-				Kind:           KindHot,
+				Kind:           KindTriage,
 				PersonComments: &Comments{Open: 1},
 				Note:           Cell{Text: "asking", Tone: paint.ToneWarning},
 			},
@@ -400,7 +400,7 @@ func TestPrepareComments(t *testing.T) {
 		{
 			name: "a header draws its note and no counts",
 			row: Row{
-				Kind:           KindHotHeader,
+				Kind:           KindTriageHeader,
 				PersonComments: &Comments{Open: 1},
 				Note:           Cell{Text: "2/4", Tone: paint.ToneMuted},
 			},
@@ -524,8 +524,8 @@ func TestPrepareWeight(t *testing.T) {
 			wantRule: false,
 		},
 		{
-			name:     "the hot zone's header is bold",
-			kind:     KindHotHeader,
+			name:     "the triage header is bold",
+			kind:     KindTriageHeader,
 			want:     WeightBold,
 			wantRule: false,
 		},

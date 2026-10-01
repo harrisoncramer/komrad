@@ -15,13 +15,13 @@ const (
 	KindChild
 	KindResult
 	KindHit
-	// KindHotHeader heads the hot zone, the agents waiting on a person drawn ahead of the tree.
-	KindHotHeader
-	// KindHot is an agent in the hot zone, out of its place in the tree.
-	KindHot
-	// KindHotMore counts the hot agents the zone has no room for.
-	KindHotMore
-	// KindDivider is the rule between the hot zone and the tree.
+	// KindTriageHeader heads triage, the agents waiting on a person drawn ahead of the tree.
+	KindTriageHeader
+	// KindTriage is an agent in triage, out of its place in the tree.
+	KindTriage
+	// KindTriageMore counts the agents in triage the zone has no room for.
+	KindTriageMore
+	// KindDivider is the rule between triage and the tree.
 	KindDivider
 )
 

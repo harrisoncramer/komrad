@@ -105,7 +105,7 @@ func isFocused(row Row, focused string) bool {
 
 // isOwn reports whether a row is an agent's own rather than a header's or a child's.
 func isOwn(row Row) bool {
-	return row.Kind == KindAgent || row.Kind == KindResult || row.Kind == KindHot
+	return row.Kind == KindAgent || row.Kind == KindResult || row.Kind == KindTriage
 }
 
 // RepoCell is where the directory an agent sits in stands, greyed while nothing has happened to
@@ -318,7 +318,7 @@ func textCell(text string, tone paint.Tone) Cell {
 // weightFor is the lettering a row's place in the tree is carried by, spending no glyph on it.
 func weightFor(kind RowKind) Weight {
 	switch kind {
-	case KindWorkflow, KindHotHeader:
+	case KindWorkflow, KindTriageHeader:
 		return WeightBold
 	case KindAgent:
 		return WeightRegular
@@ -328,7 +328,7 @@ func weightFor(kind RowKind) Weight {
 		return WeightRegular
 	case KindHit:
 		return WeightRegular
-	case KindHot, KindHotMore, KindDivider:
+	case KindTriage, KindTriageMore, KindDivider:
 		return WeightRegular
 	}
 
@@ -338,7 +338,7 @@ func weightFor(kind RowKind) Weight {
 // indentFor is how far a row's name is set in from the gutter, an agent under its workflow and
 // a child under its agent.
 func indentFor(kind RowKind) int {
-	if kind == KindWorkflow || kind == KindResult || kind == KindHotHeader || kind == KindDivider {
+	if kind == KindWorkflow || kind == KindResult || kind == KindTriageHeader || kind == KindDivider {
 		return 0
 	}
 

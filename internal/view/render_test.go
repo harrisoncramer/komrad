@@ -241,10 +241,10 @@ func TestRenderRowShapes(t *testing.T) {
 			row:    Row{Kind: KindDivider, Name: "unseen", Status: StatusBroken},
 		},
 		{
-			name:   "a row in the hot zone carries its note against the right edge",
-			golden: "row-hot",
+			name:   "a row in triage carries its note against the right edge",
+			golden: "row-triage",
 			row: Row{
-				Kind:   KindHot,
+				Kind:   KindTriage,
 				Name:   "form-flicker-fix",
 				Status: StatusWaiting,
 				Note: Cell{Parts: []Cell{
@@ -712,9 +712,9 @@ const drawnIndentStep = 2
 // wantNameColumn is the column a row of the given kind opens its name at.
 func wantNameColumn(kind RowKind) int {
 	switch kind {
-	case KindWorkflow, KindHotHeader, KindDivider:
+	case KindWorkflow, KindTriageHeader, KindDivider:
 		return drawnNameColumn
-	case KindAgent, KindHot, KindHotMore:
+	case KindAgent, KindTriage, KindTriageMore:
 		return drawnNameColumn + drawnIndentStep
 	case KindChild:
 		return drawnNameColumn + 2*drawnIndentStep

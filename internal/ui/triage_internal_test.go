@@ -10,8 +10,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestHotZoneHeat covers which agents are hot, for what reason and since when.
-func TestHotZoneHeat(t *testing.T) {
+// TestTriageRefresh covers which agents need triage, for what reason and since when.
+func TestTriageRefresh(t *testing.T) {
 	changed := time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC)
 	earlier := changed.Add(-time.Hour)
 	live := func(state panel.State) panel.AgentRow {
@@ -23,25 +23,25 @@ func TestHotZoneHeat(t *testing.T) {
 
 	tests := []struct {
 		name string
-		was  map[string]hotEntry
+		was  map[string]triageEntry
 		item panel.AgentRow
 		keep string
 		want string
-		// since is when the agent became hot, unchecked when it is not.
+		// since is when the agent entered triage, unchecked when it is not.
 		since time.Time
 	}{
 		{
-			name: "an agent at work is not hot",
+			name: "an agent at work is not in triage",
 			item: live(panel.StateThinking),
 			want: "",
 		},
 		{
-			name: "a prompt in a pane that has gone is not hot",
+			name: "a prompt in a pane that has gone is not in triage",
 			item: panel.AgentRow{Agent: panel.Agent{ID: "a1", State: panel.StateWaiting}},
 			want: "",
 		},
 		{
-			name: "a paused agent is not hot",
+			name: "a paused agent is not in triage",
 			item: func() panel.AgentRow {
 				item := live(panel.StateWaiting)
 				item.Agent.HeldAt = xptr.Ptr(changed)
@@ -51,7 +51,7 @@ func TestHotZoneHeat(t *testing.T) {
 			want: "",
 		},
 		{
-			name: "a hidden agent is not hot",
+			name: "a hidden agent is not in triage",
 			item: func() panel.AgentRow {
 				item := live(panel.StateWaiting)
 				item.Agent.Hidden = true
@@ -61,7 +61,7 @@ func TestHotZoneHeat(t *testing.T) {
 			want: "",
 		},
 		{
-			name: "a conflict an agent is working through is not hot",
+			name: "a conflict an agent is working through is not in triage",
 			item: func() panel.AgentRow {
 				item := live(panel.StateThinking)
 				item.Agent.SequenceInProgress = true
@@ -71,28 +71,28 @@ func TestHotZoneHeat(t *testing.T) {
 			want: "",
 		},
 		{
-			name: "an agent komrad cannot read and was not hot stays out",
+			name: "an agent komrad cannot read and was not in triage stays out",
 			item: live(panel.StateUncertain),
 			want: "",
 		},
 		{
 			name:  "an agent komrad cannot read stays in",
-			was:   map[string]hotEntry{"a1": {since: earlier, rule: hotRules[0]}},
+			was:   map[string]triageEntry{"a1": {since: earlier, rule: triageRules[0]}},
 			item:  live(panel.StateUncertain),
 			want:  "asking",
 			since: earlier,
 		},
 		{
 			name:  "the row kept stays in once it is answered",
-			was:   map[string]hotEntry{"a1": {since: earlier, rule: hotRules[0]}},
+			was:   map[string]triageEntry{"a1": {since: earlier, rule: triageRules[0]}},
 			item:  live(panel.StateThinking),
 			keep:  agentRowKey("a1"),
 			want:  "asking",
 			since: earlier,
 		},
 		{
-			name:  "an agent that stays hot keeps when it became hot",
-			was:   map[string]hotEntry{"a1": {since: earlier, rule: hotRules[0]}},
+			name:  "an agent that stays in triage keeps when it entered triage",
+			was:   map[string]triageEntry{"a1": {since: earlier, rule: triageRules[0]}},
 			item:  live(panel.StateErrored),
 			want:  "errored",
 			since: earlier,
@@ -147,14 +147,14 @@ func TestHotZoneHeat(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			zone := hotZone{capacity: 1, entries: tt.was}
+			zone := triageZone{capacity: 1, entries: tt.was}
 
-			zone.heat([]panel.AgentRow{tt.item}, tt.keep)
+			zone.refresh([]panel.AgentRow{tt.item}, tt.keep)
 
-			entry, hot := zone.entries["a1"]
+			entry, queued := zone.entries["a1"]
 			assert.Equal(t, tt.want, entry.rule.reason)
-			assert.Equal(t, tt.want != "", hot)
-			if hot {
+			assert.Equal(t, tt.want != "", queued)
+			if queued {
 				assert.Equal(t, tt.since, entry.since)
 			}
 		})

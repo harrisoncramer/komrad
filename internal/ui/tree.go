@@ -24,7 +24,7 @@ type agentsScreen struct {
 	sort       tabsState
 	// drawn is the list built once for the frame being drawn, and nil between frames.
 	drawn   *agentsLayout
-	hot     hotZone
+	triage  triageZone
 	editing *agentEdit
 	renameSlot
 }
@@ -41,8 +41,8 @@ type agentRow struct {
 	child bool
 	// orchestrator is the agent a workflow header stands in for, unset on every other row.
 	orchestrator *panel.AgentRow
-	// hot is why a row in the hot zone is there, nil on every row of the tree.
-	hot *hotRule
+	// triage is why a row in triage is there, nil on every row of the tree.
+	triage *triageRule
 }
 
 // paneItem is the agent whose pane this row shows, which for a workflow header is the
@@ -230,7 +230,7 @@ func sortedAgents(items []panel.AgentRow, columns []sortColumn[panel.AgentRow], 
 
 // rows are the rows the keyboard can reach.
 func (a *agentsScreen) rows(s panelShared) []agentRow {
-	return a.layout(s).cursorRows(a.hot)
+	return a.layout(s).cursorRows(a.triage)
 }
 
 // layout is the list as drawn, or as it would be drawn when nothing has cached it.
@@ -243,7 +243,7 @@ func (a *agentsScreen) layout(s panelShared) agentsLayout {
 }
 
 func (a *agentsScreen) buildLayout(s panelShared) agentsLayout {
-	zone, waiting, rest := splitHot(a.hot, s)
+	zone, waiting, rest := splitTriage(a.triage, s)
 	tree := treeRows(treeRowsParams{
 		workflows:         s.listing.workflows,
 		agents:            sortedAgents(rest, agentSorts, agentsTabs().order(a.sort)),

@@ -178,10 +178,10 @@
           "default": "9"
         },
         {
-          "key": "hot_zone_rows",
-          "path": "layout.hot_zone_rows",
+          "key": "triage_rows",
+          "path": "layout.triage_rows",
           "type": "integer",
-          "description": "How many agents the hot zone at the top of the agents list holds, the agents that are waiting on you or have hit an error. Zero turns the zone off.",
+          "description": "How many agents the triage zone at the top of the agents list holds, the agents that are waiting on you or have hit an error. Zero turns the zone off.",
           "default": "0"
         }
       ],
@@ -211,11 +211,11 @@
               "default": "[\"e\"]"
             },
             {
-              "key": "hot_zone",
-              "path": "keybindings.agents.hot_zone",
+              "key": "triage",
+              "path": "keybindings.agents.triage",
               "type": "array",
-              "description": "Move the keyboard into the hot zone at the top of the list, or back out of it into the tree.",
-              "default": "[\"h\"]"
+              "description": "Move the keyboard into the triage zone at the top of the list, or back out of it into the tree.",
+              "default": "[\"t\"]"
             },
             {
               "key": "new",

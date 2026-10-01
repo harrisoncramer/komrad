@@ -14,8 +14,8 @@ import (
 // data so the reading below needs nothing else.
 type snapshotParams struct {
 	rows []agentRow
-	// hot is the zone drawn ahead of the rows, empty on a list that draws none.
-	hot hotSnapshot
+	// triage is the zone drawn ahead of the rows, empty on a list that draws none.
+	triage triageSnapshot
 	// selected are the agents taken into a selection several rows wide.
 	selected selection
 	// focused is the key of the row the cursor stands on, empty when it stands on none.
@@ -41,10 +41,10 @@ type snapshotParams struct {
 
 // agentsSnapshot reads the listing into the plain data the agents list draws itself from.
 func agentsSnapshot(params snapshotParams) view.Snapshot {
-	rows := hotRows(params)
+	rows := triageRows(params)
 	for _, r := range params.rows {
 		row := params.renaming.drawnOver(snapshotRow(r, params))
-		row.Faded = params.hot.focused
+		row.Faded = params.triage.focused
 		rows = append(rows, row)
 	}
 
