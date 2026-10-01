@@ -58,7 +58,9 @@ func (s *Handler) ListReviewThreads(ctx context.Context, req *agentv1.ListReview
 		return nil, rpcerr.From(err, "failed to list the review threads")
 	}
 
-	answered := xslice.Map(threads, renderReviewThread)
+	answered := xslice.Map(threads, func(thread reviews.ReviewThreadWithMessages) *agentv1.ReviewThread {
+		return render.ReviewThread(thread.Thread, thread.Messages)
+	})
 
 	return &agentv1.ListReviewThreadsResponse{Threads: answered}, nil
 }
@@ -83,7 +85,7 @@ func (s *Handler) CreateReviewThread(ctx context.Context, req *agentv1.CreateRev
 		return nil, rpcerr.From(err, "failed to create the review thread")
 	}
 
-	return &agentv1.CreateReviewThreadResponse{Thread: renderReviewThread(*thread)}, nil
+	return &agentv1.CreateReviewThreadResponse{Thread: render.ReviewThread(thread.Thread, thread.Messages)}, nil
 }
 
 // AcceptForgeThread copies the forge comments the person read into their review.
@@ -109,7 +111,7 @@ func (s *Handler) AcceptForgeThread(ctx context.Context, req *agentv1.AcceptForg
 		return nil, rpcerr.From(err, "failed to accept the forge thread")
 	}
 
-	return &agentv1.AcceptForgeThreadResponse{Thread: renderReviewThread(*thread)}, nil
+	return &agentv1.AcceptForgeThreadResponse{Thread: render.ReviewThread(thread.Thread, thread.Messages)}, nil
 }
 
 // AddReviewMessage says something in an existing thread, as whoever is calling.
@@ -157,7 +159,7 @@ func (s *Handler) MarkReviewThreadRead(ctx context.Context, req *agentv1.MarkRev
 	}
 
 	return &agentv1.MarkReviewThreadReadResponse{
-		Thread: renderReviewThread(reviews.ReviewThreadWithMessages{Thread: *thread}),
+		Thread: render.ReviewThread(*thread, nil),
 	}, nil
 }
 
@@ -173,7 +175,7 @@ func (s *Handler) SetReviewThreadResolved(ctx context.Context, req *agentv1.SetR
 	}
 
 	return &agentv1.SetReviewThreadResolvedResponse{
-		Thread: renderReviewThread(reviews.ReviewThreadWithMessages{Thread: *thread}),
+		Thread: render.ReviewThread(*thread, nil),
 	}, nil
 }
 
@@ -184,7 +186,7 @@ func (s *Handler) OpenReviewRound(ctx context.Context, req *agentv1.OpenReviewRo
 		return nil, rpcerr.From(err, "failed to open a review round")
 	}
 
-	return &agentv1.OpenReviewRoundResponse{Round: renderReviewRound(*round)}, nil
+	return &agentv1.OpenReviewRoundResponse{Round: render.ReviewRound(*round)}, nil
 }
 
 // ListReviewRounds reads every round taken of an agent.
@@ -194,7 +196,7 @@ func (s *Handler) ListReviewRounds(ctx context.Context, req *agentv1.ListReviewR
 		return nil, rpcerr.From(err, "failed to list the review rounds")
 	}
 
-	answered := xslice.Map(rounds, renderReviewRound)
+	answered := xslice.Map(rounds, render.ReviewRound)
 
 	return &agentv1.ListReviewRoundsResponse{Rounds: answered}, nil
 }
@@ -206,7 +208,7 @@ func (s *Handler) ListReviews(ctx context.Context, req *agentv1.ListReviewsReque
 		return nil, rpcerr.From(err, "failed to list the reviews")
 	}
 
-	answered := xslice.Map(reviews, renderReview)
+	answered := xslice.Map(reviews, render.Review)
 
 	return &agentv1.ListReviewsResponse{Reviews: answered}, nil
 }
@@ -219,9 +221,9 @@ func (s *Handler) GetReview(ctx context.Context, req *agentv1.GetReviewRequest) 
 	}
 
 	return &agentv1.GetReviewResponse{
-		Review:  renderReview(review.Review),
-		Round:   renderReviewRound(review.Round),
-		Threads: xslice.Map(review.Threads, renderReviewThreadInContext),
+		Review:  render.Review(review.Review),
+		Round:   render.ReviewRound(review.Round),
+		Threads: xslice.Map(review.Threads, render.ReviewThreadInContext),
 	}, nil
 }
 
@@ -239,7 +241,7 @@ func (s *Handler) ReleaseReview(ctx context.Context, req *agentv1.ReleaseReviewR
 	}
 
 	return &agentv1.ReleaseReviewResponse{
-		Review:   renderReview(result.Review),
+		Review:   render.Review(result.Review),
 		Comments: int32(result.Comments),
 		Path:     result.Path,
 	}, nil
@@ -260,7 +262,7 @@ func (s *Handler) SetReviewFileViewed(ctx context.Context, req *agentv1.SetRevie
 
 	answered := &agentv1.SetReviewFileViewedResponse{}
 	if viewed != nil {
-		answered.Viewed = renderReviewViewedFile(*viewed)
+		answered.Viewed = render.ReviewViewedFile(*viewed)
 	}
 
 	return answered, nil
@@ -276,7 +278,7 @@ func (s *Handler) ListReviewViewedFiles(ctx context.Context, req *agentv1.ListRe
 		return nil, rpcerr.From(err, "failed to list the viewed files")
 	}
 
-	answered := xslice.Map(files, renderReviewViewedFile)
+	answered := xslice.Map(files, render.ReviewViewedFile)
 
 	return &agentv1.ListReviewViewedFilesResponse{Viewed: answered}, nil
 }
@@ -292,73 +294,6 @@ func reviewAuthorFrom(ctx context.Context) reviews.ReviewAuthor {
 	agentID := from.AgentID
 
 	return reviews.ReviewAuthor{Kind: reviewstore.AuthorAgent, AgentID: &agentID}
-}
-
-func renderReviewThread(thread reviews.ReviewThreadWithMessages) *agentv1.ReviewThread {
-	return render.ReviewThread(thread.Thread, thread.Messages)
-}
-
-func renderReviewThreadInContext(thread reviews.ReviewThreadInContext) *agentv1.ReviewThreadInContext {
-	return &agentv1.ReviewThreadInContext{
-		Thread: renderReviewThread(reviews.ReviewThreadWithMessages{
-			Thread:   thread.Thread,
-			Messages: thread.Messages,
-		}),
-		Context: thread.Context,
-	}
-}
-
-func renderReviewViewedFile(viewed reviewstore.ViewedFile) *agentv1.ReviewViewedFile {
-	return &agentv1.ReviewViewedFile{
-		AgentId:     viewed.AgentID,
-		FilePath:    viewed.FilePath,
-		Fingerprint: viewed.Fingerprint,
-		ViewedAt:    dates.Stamp(viewed.ViewedAt),
-	}
-}
-
-func renderReviewRound(round reviewstore.Round) *agentv1.ReviewRound {
-	return &agentv1.ReviewRound{
-		Id:          round.ID,
-		AgentId:     round.AgentID,
-		Ordinal:     round.Ordinal,
-		BaseSha:     round.BaseSHA,
-		SnapshotSha: round.SnapshotSHA,
-		CreatedAt:   dates.Stamp(round.CreatedAt),
-	}
-}
-
-func renderReview(review reviewstore.Review) *agentv1.Review {
-	kind := agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN
-	if review.AuthorKind == reviewstore.AuthorAgent {
-		kind = agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT
-	}
-
-	answered := &agentv1.Review{
-		Id:            review.ID,
-		AgentId:       review.AgentID,
-		RoundId:       review.RoundID,
-		RoundOrdinal:  review.RoundOrdinal,
-		AuthorKind:    kind,
-		AuthorAgentId: review.AuthorAgentID,
-		Body:          review.Body,
-		Path:          review.Path,
-		OpenThreads:   review.OpenThreads,
-		CreatedAt:     dates.Stamp(review.CreatedAt),
-		UpdatedAt:     dates.Stamp(review.UpdatedAt),
-	}
-
-	if review.Verdict != nil {
-		answered.Verdict = render.ReviewVerdictOf(*review.Verdict)
-	}
-	if at := review.ReleasedAt; at != nil {
-		answered.ReleasedAt = dates.Stamp(*at)
-	}
-	if at := review.DeliveredAt; at != nil {
-		answered.DeliveredAt = dates.Stamp(*at)
-	}
-
-	return answered
 }
 
 func fromReviewVerdict(verdict agentv1.ReviewVerdict) reviewstore.Verdict {
