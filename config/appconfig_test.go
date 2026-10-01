@@ -650,10 +650,10 @@ func TestLoadMergesLayers(t *testing.T) {
 			name: "each keybinding is replaced on its own",
 			files: []string{
 				"[keybindings.menu]\nnew_agent = [\"x\"]\nlogs = [\"y\"]\n",
-				"[keybindings.menu]\nnew_agent = [\"z\"]\n",
+				"[keybindings.menu]\nnew_agent = [\"b\"]\n",
 			},
 			check: func(t *testing.T, cfg *Config) {
-				assert.Equal(t, []string{"z"}, cfg.Keybindings.Menu.NewAgent)
+				assert.Equal(t, []string{"b"}, cfg.Keybindings.Menu.NewAgent)
 				assert.Equal(t, []string{"y"}, cfg.Keybindings.Menu.Logs,
 					"a binding the later layer did not mention keeps the earlier one's")
 				assert.Equal(t, []string{"e"}, cfg.Keybindings.Menu.Edit,

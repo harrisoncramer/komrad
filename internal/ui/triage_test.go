@@ -155,6 +155,103 @@ func TestTriageJump(t *testing.T) {
 	}
 }
 
+// TestTriageSnooze covers sinking a family to the bottom of the zone until what it waits on
+// changes.
+func TestTriageSnooze(t *testing.T) {
+	tests := []struct {
+		name     string
+		capacity int
+		rows     []proto.Message
+		press    []string
+		// relisted is the listing the watch sends after the keys, none when it sends nothing.
+		relisted []proto.Message
+		want     []string
+	}{
+		{
+			name:     "an agent that asks again ends its snooze",
+			capacity: 3,
+			rows:     buildTriage(),
+			press:    []string{"t", "space", "z"},
+			relisted: func() []proto.Message {
+				rows := buildTriage()
+				rows[2].(*agentv1.Agent).StateChangedAt = "2026-09-20T13:06:00Z"
+
+				return rows
+			}(),
+			want: []string{"asker", "third", "broken", "backend", "quiet"},
+		},
+		{
+			name:     "an agent that moves tier ends its snooze",
+			capacity: 3,
+			rows:     buildTriage(),
+			press:    []string{"t", "space", "z"},
+			relisted: func() []proto.Message {
+				rows := buildTriage()
+				rows[2] = newTriageAgent("asker", agentv1.AgentState_AGENT_STATE_ERRORED, 1)
+
+				return rows
+			}(),
+			want: []string{"third", "asker", "broken", "backend", "quiet"},
+		},
+		{
+			name:     "opening an agent that asks leaves it where it is",
+			capacity: 3,
+			rows:     buildFinished(),
+			press:    []string{"t", "enter"},
+			want:     []string{"asker", "done", "later", "backend", "quiet"},
+		},
+		{
+			name:     "waking a snoozed family puts it back in its place",
+			capacity: 3,
+			rows:     buildTriage(),
+			press:    []string{"t", "space", "z", "space", "z"},
+			want:     []string{"asker", "third", "broken", "backend", "quiet"},
+		},
+		{
+			name:     "a snoozed family gives up its slot",
+			capacity: 2,
+			rows:     buildTriage(),
+			press:    []string{"t", "space", "z"},
+			want:     []string{"third", "broken", "+1 more waiting for a slot", "backend", "asker", "quiet"},
+		},
+		{
+			name:     "a snooze outlasts a listing that changes nothing",
+			capacity: 3,
+			rows:     buildTriage(),
+			press:    []string{"t", "space", "z"},
+			relisted: buildTriage(),
+			want:     []string{"third", "broken", "asker", "backend", "quiet"},
+		},
+		{
+			name:     "opening a finished agent snoozes it",
+			capacity: 3,
+			rows:     buildFinished(),
+			press:    []string{"t", "j", "enter"},
+			want:     []string{"asker", "later", "done", "backend", "quiet"},
+		},
+		{
+			name:     "a snoozed family sinks below the rest",
+			capacity: 3,
+			rows:     buildTriage(),
+			press:    []string{"t", "space", "z"},
+			want:     []string{"third", "broken", "asker", "backend", "quiet"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			harness := openTriage(t, tt.capacity, tt.rows...)
+
+			harness.press(tt.press...)
+			if tt.relisted != nil {
+				harness.watch(buildSnapshot(tt.relisted...))
+			}
+
+			assert.Equal(t, tt.want, readTriageList(harness.readFrame()))
+		})
+	}
+}
+
 func openTriage(t *testing.T, capacity int, rows ...proto.Message) *panelHarness {
 	t.Helper()
 
@@ -205,4 +302,24 @@ func readTriageList(frame string) []string {
 	}
 
 	return rows
+}
+
+// buildFinished is a workflow with an agent asking and two implementers that have finished their
+// turns, the earlier ahead of the later.
+func buildFinished() []proto.Message {
+	return []proto.Message{
+		newLiveWorkflow("w1", "backend"),
+		newAgentAt("quiet", "w1", 1),
+		newTriageAgent("asker", agentv1.AgentState_AGENT_STATE_WAITING, 3),
+		newFinishedAgent("done", 5),
+		newFinishedAgent("later", 6),
+	}
+}
+
+func newFinishedAgent(name string, minute int) *agentv1.Agent {
+	agent := newTriageAgent(name, agentv1.AgentState_AGENT_STATE_IDLE, minute)
+	agent.Role = agentv1.AgentRole_AGENT_ROLE_IMPLEMENTER
+	agent.PaneId = "%" + name
+
+	return agent
 }

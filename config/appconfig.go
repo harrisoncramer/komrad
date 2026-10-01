@@ -393,6 +393,10 @@ type MenuKeys struct {
 	// Retry the launch of an agent that failed to create, opening a form where the flags can be
 	// corrected before confirming. The entry is only on such an agent.
 	Retry []string `mapstructure:"retry" default:"R"`
+	// Snooze the hovered agent's family in triage, which sinks it to the bottom of the zone until
+	// what it waits on changes, or wake it when it is snoozed. The entry is only on an agent in
+	// triage.
+	Snooze []string `mapstructure:"snooze" default:"z"`
 	// Edit the hovered workflow.
 	EditWorkflow []string `mapstructure:"edit_workflow" default:"E"`
 	// Put an agent on a branch that already exists, in the hovered workflow.

@@ -122,12 +122,30 @@ type triageZone struct {
 	capacity int
 	// entries are the agents in triage by id.
 	entries map[string]triageEntry
+	// snoozed are the families sunk to the bottom of the zone, by head id, until what they wait on
+	// changes.
+	snoozed map[string]triageSnooze
 }
 
 // triageEntry is why an agent needs triage and since when.
 type triageEntry struct {
+	// since is when the agent entered its tier, which orders the zone.
 	since time.Time
+	// began is when this rule last started to hold, which a snooze is tied to.
+	began time.Time
 	rule  triageRule
+}
+
+// triageSnooze is the reason a family was snoozed on.
+type triageSnooze struct {
+	rule  string
+	began time.Time
+}
+
+// triageFamily is a head and its children in triage, named by the most urgent entry among them.
+type triageFamily struct {
+	head  panel.AgentRow
+	entry triageEntry
 }
 
 // isOn reports whether the zone is drawn at all.
@@ -139,6 +157,7 @@ func (z *triageZone) isOn() bool {
 func (z *triageZone) refresh(agents []panel.AgentRow, now time.Time) {
 	if !z.isOn() {
 		z.entries = nil
+		z.snoozed = nil
 
 		return
 	}
@@ -166,15 +185,133 @@ func (z *triageZone) refresh(agents []panel.AgentRow, now time.Time) {
 			continue
 		}
 
-		since := rule.startedAt(item, now)
+		began := rule.startedAt(item, now)
+		since := began
+		if wasQueued && was.rule.name == rule.name && rule.clock == clockSeen {
+			began = was.began
+		}
 		if wasQueued && was.rule.tier == rule.tier {
 			since = was.since
 		}
 
-		entries[id] = triageEntry{since: since, rule: rule}
+		entries[id] = triageEntry{since: since, began: began, rule: rule}
 	}
 
 	z.entries = entries
+	z.pruneSnoozes(agents)
+}
+
+// pruneSnoozes ends every snooze whose family has left triage or now waits on something else,
+// keeping those of hidden heads, since hiding is not a change in what a family waits on.
+func (z *triageZone) pruneSnoozes(agents []panel.AgentRow) {
+	byID := xslice.KeyBy(agents, func(item panel.AgentRow) string { return item.Agent.ID })
+	families := xslice.KeyBy(findTriageFamilies(z.entries, agents), func(f triageFamily) string { return f.head.Agent.ID })
+	for headID, snooze := range z.snoozed {
+		if byID[headID].Agent.Hidden {
+			continue
+		}
+
+		family, ok := families[headID]
+		if !ok || !snooze.isFor(family.entry) {
+			delete(z.snoozed, headID)
+		}
+	}
+}
+
+// isFor reports whether the snooze still stands for what the family waits on.
+func (s triageSnooze) isFor(entry triageEntry) bool {
+	return s.rule == entry.rule.name && s.began.Equal(entry.began)
+}
+
+// isSnoozed reports whether the family under the head is snoozed.
+func (z *triageZone) isSnoozed(headID string) bool {
+	_, ok := z.snoozed[headID]
+
+	return ok
+}
+
+// toggleSnooze snoozes the agent's family in triage, or wakes it when it is snoozed, reporting
+// false when the family is not in triage.
+func (z *triageZone) toggleSnooze(item panel.AgentRow, agents []panel.AgentRow) bool {
+	family, ok := z.findFamily(item, agents)
+	if !ok {
+		return false
+	}
+
+	if z.isSnoozed(family.head.Agent.ID) {
+		delete(z.snoozed, family.head.Agent.ID)
+
+		return true
+	}
+
+	z.snooze(family)
+
+	return true
+}
+
+// seeFinished snoozes the agent's family when it waits only to be looked at.
+func (z *triageZone) seeFinished(item panel.AgentRow, agents []panel.AgentRow) {
+	family, ok := z.findFamily(item, agents)
+	if ok && family.entry.rule.tier == tierFinished {
+		z.snooze(family)
+	}
+}
+
+// snooze sinks the family to the bottom of the zone until what it waits on changes.
+func (z *triageZone) snooze(family triageFamily) {
+	if z.snoozed == nil {
+		z.snoozed = make(map[string]triageSnooze)
+	}
+
+	z.snoozed[family.head.Agent.ID] = triageSnooze{rule: family.entry.rule.name, began: family.entry.began}
+}
+
+// findFamily is the family in triage the agent belongs to.
+func (z *triageZone) findFamily(item panel.AgentRow, agents []panel.AgentRow) (triageFamily, bool) {
+	head := findTriageHead(item, xslice.KeyBy(agents, func(it panel.AgentRow) string { return it.Agent.ID }))
+	families := xslice.KeyBy(findTriageFamilies(z.entries, agents), func(f triageFamily) string { return f.head.Agent.ID })
+	family, ok := families[head.Agent.ID]
+
+	return family, ok
+}
+
+// findTriageFamilies groups the agents in triage under their heads, in the listing's order.
+func findTriageFamilies(entries map[string]triageEntry, agents []panel.AgentRow) []triageFamily {
+	byID := xslice.KeyBy(agents, func(item panel.AgentRow) string { return item.Agent.ID })
+	at := make(map[string]int)
+	var families []triageFamily
+	for _, item := range agents {
+		entry, ok := entries[item.Agent.ID]
+		if !ok {
+			continue
+		}
+
+		head := findTriageHead(item, byID)
+		i, seen := at[head.Agent.ID]
+		if !seen {
+			at[head.Agent.ID] = len(families)
+			families = append(families, triageFamily{head: head, entry: entry})
+
+			continue
+		}
+
+		if compareUrgency(entry, families[i].entry) < 0 {
+			families[i].entry = entry
+		}
+	}
+
+	return families
+}
+
+// findTriageHead is the agent a family in triage is led by: its parent when the parent is listed.
+func findTriageHead(item panel.AgentRow, byID map[string]panel.AgentRow) panel.AgentRow {
+	if parentID := item.Agent.ParentAgentID; parentID != nil {
+		if parent, ok := byID[*parentID]; ok {
+			return parent
+		}
+	}
+
+	return item
 }
 
 // findTriageRule is the first rule an agent meets.
@@ -249,55 +386,38 @@ func (l agentsLayout) cursorRows() []agentRow {
 }
 
 // splitTriage takes the most urgent families in triage the zone has room for out of the listing,
-// each head with its children under it.
+// each head with its children under it and the snoozed families last.
 func splitTriage(z triageZone, s panelShared, showHidden bool) (zone []agentRow, waiting int, rest []panel.AgentRow) {
-	byID := xslice.KeyBy(s.listing.agents, func(item panel.AgentRow) string { return item.Agent.ID })
 	children := make(map[string][]panel.AgentRow)
 	for _, item := range s.listing.agents {
 		if parentID := item.Agent.ParentAgentID; parentID != nil {
 			children[*parentID] = append(children[*parentID], item)
 		}
 	}
-	headOf := func(item panel.AgentRow) panel.AgentRow {
-		if parentID := item.Agent.ParentAgentID; parentID != nil {
-			if parent, ok := byID[*parentID]; ok {
-				return parent
-			}
-		}
 
-		return item
-	}
-
-	families := make(map[string]triageEntry)
-	var heads []panel.AgentRow
-	for _, item := range s.listing.agents {
-		entry, ok := z.entries[item.Agent.ID]
-		head := headOf(item)
-		if !ok || (head.Agent.Hidden && !showHidden) {
-			continue
-		}
-
-		best, seen := families[head.Agent.ID]
-		if !seen {
-			heads = append(heads, head)
-		}
-		if !seen || compareUrgency(entry, best) < 0 {
-			families[head.Agent.ID] = entry
-		}
-	}
-
-	slices.SortFunc(heads, func(a, b panel.AgentRow) int {
-		left, right := families[a.Agent.ID], families[b.Agent.ID]
-
-		return cmp.Or(compareUrgency(left, right), cmp.Compare(a.Agent.ID, b.Agent.ID))
+	families := xslice.Filter(findTriageFamilies(z.entries, s.listing.agents), func(f triageFamily) bool {
+		return !f.head.Agent.Hidden || showHidden
+	})
+	slices.SortFunc(families, func(a, b triageFamily) int {
+		return cmp.Or(
+			compareBools(z.isSnoozed(a.head.Agent.ID), z.isSnoozed(b.head.Agent.ID)),
+			compareUrgency(a.entry, b.entry),
+			cmp.Compare(a.head.Agent.ID, b.head.Agent.ID),
+		)
 	})
 
-	slotted := heads[:min(z.capacity, len(heads))]
+	slotted := families[:min(z.capacity, len(families))]
 	inZone := make(map[string]bool)
 	workflows := xslice.KeyBy(s.listing.workflows, func(w panel.Workflow) string { return w.ID })
-	for _, head := range slotted {
+	for _, family := range slotted {
+		head := family.head
+		snoozed := z.isSnoozed(head.Agent.ID)
 		inZone[head.Agent.ID] = true
-		zone = append(zone, agentRow{item: head, workflow: workflows[head.Agent.WorkflowID]})
+		zone = append(zone, agentRow{
+			item:     head,
+			workflow: workflows[head.Agent.WorkflowID],
+			snoozed:  snoozed,
+		})
 		headRow := len(zone) - 1
 		for _, child := range children[head.Agent.ID] {
 			inZone[child.Agent.ID] = true
@@ -312,13 +432,26 @@ func splitTriage(z triageZone, s panelShared, showHidden bool) (zone []agentRow,
 				item:     child,
 				workflow: workflows[child.Agent.WorkflowID],
 				child:    true,
+				snoozed:  snoozed,
 			})
 		}
 	}
 
 	rest = xslice.Filter(s.listing.agents, func(item panel.AgentRow) bool { return !inZone[item.Agent.ID] })
 
-	return zone, len(heads) - len(slotted), rest
+	return zone, len(families) - len(slotted), rest
+}
+
+// compareBools orders false ahead of true.
+func compareBools(a, b bool) int {
+	switch {
+	case a == b:
+		return 0
+	case b:
+		return -1
+	default:
+		return 1
+	}
 }
 
 // compareUrgency orders two entries in triage, the more urgent first.
@@ -360,6 +493,7 @@ func triageRows(params snapshotParams) []view.Row {
 		if r.item.Agent.Role == panel.RoleOrchestrator {
 			row.Name = r.workflow.Name
 		}
+		row.Faded = r.snoozed
 		rows = append(rows, row)
 	}
 

@@ -1107,6 +1107,13 @@
               "default": "[\"R\"]"
             },
             {
+              "key": "snooze",
+              "path": "keybindings.menu.snooze",
+              "type": "array",
+              "description": "Snooze the hovered agent's family in triage, which sinks it to the bottom of the zone until\nwhat it waits on changes, or wake it when it is snoozed. The entry is only on an agent in\ntriage.",
+              "default": "[\"z\"]"
+            },
+            {
               "key": "edit_workflow",
               "path": "keybindings.menu.edit_workflow",
               "type": "array",
