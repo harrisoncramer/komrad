@@ -239,13 +239,7 @@ func (z *triageZone) pruneSnoozes(agents []panel.AgentRow) {
 
 // isFor reports whether the snooze still stands for what the family waits on.
 func (s triageSnooze) isFor(entry triageEntry) bool {
-	want := snoozeFor(entry)
-
-	return s.rule == want.rule && s.began.Equal(want.began)
-}
-
-func snoozeFor(entry triageEntry) triageSnooze {
-	return triageSnooze{rule: entry.rule.name, began: entry.began}
+	return s.rule == entry.rule.name && s.began.Equal(entry.began)
 }
 
 // isSnoozed reports whether the family under the head is snoozed.
@@ -288,7 +282,7 @@ func (z *triageZone) snooze(family triageFamily) {
 		z.snoozed = make(map[string]triageSnooze)
 	}
 
-	z.snoozed[family.head.Agent.ID] = snoozeFor(family.entry)
+	z.snoozed[family.head.Agent.ID] = triageSnooze{rule: family.entry.rule.name, began: family.entry.began}
 }
 
 // findFamily is the family in triage the agent belongs to.
