@@ -18,18 +18,18 @@ var errNothingToForward = fail.Precondition("the source has no turns synced yet,
 
 var errForwardTooLong = fail.InvalidArgument("the forward would run past what one piece of mail holds")
 
-type ComposeForwardParams struct {
-	Source   agentstore.Agent
-	Turns    int32
-	MaxBytes int32
-	Note     string
-}
-
 // Forward is the mail a forward carries, with how many turns and characters went into it.
 type Forward struct {
 	Body       string
 	Turns      int
 	Characters int
+}
+
+type ComposeForwardParams struct {
+	Source   agentstore.Agent
+	Turns    int32
+	MaxBytes int32
+	Note     string
 }
 
 // ComposeForward composes the mail that forwards an agent's newest turns, refusing one past what mail holds.
