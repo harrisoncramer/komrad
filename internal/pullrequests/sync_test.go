@@ -55,10 +55,6 @@ func (f *scriptedForge) Kind() string { return forge.KindGitHub }
 
 func (f *scriptedForge) Verify(context.Context) (string, error) { return "harrisoncramer", nil }
 
-func (f *scriptedForge) Get(context.Context, string) (forge.PullRequest, error) {
-	return forge.PullRequest{}, errors.New("not scripted")
-}
-
 func (f *scriptedForge) List(context.Context, forge.ListParams) (*forge.Page, error) {
 	return nil, errors.New("not scripted")
 }

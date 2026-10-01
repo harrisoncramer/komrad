@@ -358,13 +358,13 @@ func TestReadBranchesSplitsOnComplexity(t *testing.T) {
 	assert.Equal(t, []any{"three"}, fake.last(t).Variables["b0"])
 }
 
-// TestGet covers one merge request by its web address.
-func TestGet(t *testing.T) {
+// TestReadMergeRequest covers one merge request by its web address.
+func TestReadMergeRequest(t *testing.T) {
 	t.Parallel()
 
 	f, _, fake := serve(t, map[string]answer{"Get": {body: `{"data":{"project":{"mergeRequest":` + forkMergeRequest + `}}}`}})
 
-	pullRequest, err := f.Get(t.Context(), "https://gitlab.com/acme/widgets/-/merge_requests/256485")
+	pullRequest, err := f.readMergeRequest(t.Context(), "https://gitlab.com/acme/widgets/-/merge_requests/256485")
 	require.NoError(t, err)
 	assert.Equal(t, 256485, pullRequest.Number)
 	assert.Equal(t, "Draft: feat(reports): one template for the blockers page", pullRequest.Title)
@@ -694,8 +694,8 @@ func TestSetAutoMerge(t *testing.T) {
 	}
 }
 
-// TestGetRefusesWhatIsNotAMergeRequest covers the addresses Get will not ask GitLab about.
-func TestGetRefusesWhatIsNotAMergeRequest(t *testing.T) {
+// TestReadMergeRequestRefusesWhatIsNotAMergeRequest covers the addresses readMergeRequest will not ask GitLab about.
+func TestReadMergeRequestRefusesWhatIsNotAMergeRequest(t *testing.T) {
 	t.Parallel()
 
 	f, _, fake := serve(t, nil)
@@ -715,7 +715,7 @@ func TestGetRefusesWhatIsNotAMergeRequest(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			_, err := f.Get(t.Context(), tt.address)
+			_, err := f.readMergeRequest(t.Context(), tt.address)
 			require.ErrorIs(t, err, forge.ErrNotPullRequest)
 			assert.Empty(t, fake.calls)
 		})
@@ -768,7 +768,7 @@ func TestNotFound(t *testing.T) {
 		"ReadBranches": {body: `{"data":{"project":null}}`},
 	})
 
-	_, err := f.Get(t.Context(), "https://gitlab.com/acme/no-such-project-xyz/-/merge_requests/1")
+	_, err := f.readMergeRequest(t.Context(), "https://gitlab.com/acme/no-such-project-xyz/-/merge_requests/1")
 	require.ErrorIs(t, err, forge.ErrNotFound)
 	_, err = f.List(t.Context(), forge.ListParams{Repo: komrad, Branch: "main"})
 	require.ErrorIs(t, err, forge.ErrNotFound)
@@ -777,11 +777,11 @@ func TestNotFound(t *testing.T) {
 	assert.Equal(t, 0, auth.invalidated)
 
 	gone, _, _ := serve(t, map[string]answer{"Get": {body: `{"data":{"project":{"mergeRequest":null}}}`}})
-	_, err = gone.Get(t.Context(), "https://gitlab.com/acme/widgets/-/merge_requests/999999999")
+	_, err = gone.readMergeRequest(t.Context(), "https://gitlab.com/acme/widgets/-/merge_requests/999999999")
 	require.ErrorIs(t, err, forge.ErrNotFound)
 
 	misrouted, _, _ := serve(t, nil)
-	_, err = misrouted.Get(t.Context(), "https://gitlab.com/acme/widgets/-/merge_requests/1")
+	_, err = misrouted.readMergeRequest(t.Context(), "https://gitlab.com/acme/widgets/-/merge_requests/1")
 	require.Error(t, err)
 	require.NotErrorIs(t, err, forge.ErrNotFound)
 	assert.Contains(t, err.Error(), "/graphql")
