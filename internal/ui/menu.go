@@ -15,7 +15,7 @@ type itemMenued interface {
 
 // openMenu draws the menu, the hovered row's band over the screen's and the panel's own.
 func (m *model) openMenu() tea.Cmd {
-	menu := panelMenu(m, m.isScratchOpen())
+	menu := panelMenu(m)
 
 	if screen, ok := m.active().(screenMenued); ok && !m.isDetailsFocused() {
 		if band, ok := screen.screenMenu(m); ok {
@@ -33,9 +33,9 @@ func (m *model) openMenu() tea.Cmd {
 }
 
 // panelMenu is the band of the menu that acts on the panel whatever is hovered.
-func panelMenu(m *model, scratchOpen bool) submenu {
+func panelMenu(m *model) submenu {
 	scratch := "scratch"
-	if scratchOpen {
+	if m.isScratchOpen() {
 		scratch = "close scratch"
 	}
 
