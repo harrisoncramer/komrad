@@ -99,9 +99,8 @@ func TestPrepareBarSaysWhatStandsBehindARow(t *testing.T) {
 	}
 }
 
-// TestPrepareDimMeansTheProcessIsGone pins what greys a row: its process has stopped, it has been
-// archived or the keyboard cannot reach it, and nothing a person did to it counts.
-func TestPrepareDimMeansTheProcessIsGone(t *testing.T) {
+// TestPrepareDim pins what greys a row.
+func TestPrepareDim(t *testing.T) {
 	tests := []struct {
 		name string
 		row  Row
