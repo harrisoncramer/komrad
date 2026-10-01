@@ -340,6 +340,13 @@ func (s *ReviewService) carryOpenReview(
 	})
 }
 
+// AddReviewMessageResult is the message as written and anything worth telling the one who wrote it.
+type AddReviewMessageResult struct {
+	Message reviewstore.Message
+	// Hint points a plain reply at addressed when the worktree has moved since the thread was written.
+	Hint string
+}
+
 // AddReviewMessageParams is what to say in an existing thread, and as whom.
 type AddReviewMessageParams struct {
 	ThreadID   string
@@ -348,13 +355,6 @@ type AddReviewMessageParams struct {
 	Author     ReviewAuthor
 	// Addressed says the agent under review made the change the thread asks for.
 	Addressed bool
-}
-
-// AddReviewMessageResult is the message as written and anything worth telling the one who wrote it.
-type AddReviewMessageResult struct {
-	Message reviewstore.Message
-	// Hint points a plain reply at addressed when the worktree has moved since the thread was written.
-	Hint string
 }
 
 // AddReviewMessage says something in an existing thread, filed under the review a reviewer

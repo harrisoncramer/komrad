@@ -332,7 +332,7 @@ linters:
               - ^cmd/gen-docs/
           oneline_func:
             skip: false
-          constructor_shape:
+          params_shape:
             skip: false
             exclude: []
           single_append:

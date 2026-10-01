@@ -5,6 +5,14 @@ import (
 	"fmt"
 )
 
+// Replayed is a snapshot as it would stand on another base.
+type Replayed struct {
+	// Tree is the tree the replay wrote, held by no ref.
+	Tree string
+	// Conflicts is the paths the two sides rewrote alike, empty when the replay settled.
+	Conflicts []string
+}
+
 // ReplayParams says which snapshot to carry onto which base.
 type ReplayParams struct {
 	// Dir is anywhere inside the repository holding the three commits.
@@ -15,14 +23,6 @@ type ReplayParams struct {
 	OntoBase string
 	// SnapshotSHA is the commit carried.
 	SnapshotSHA string
-}
-
-// Replayed is a snapshot as it would stand on another base.
-type Replayed struct {
-	// Tree is the tree the replay wrote, held by no ref.
-	Tree string
-	// Conflicts is the paths the two sides rewrote alike, empty when the replay settled.
-	Conflicts []string
 }
 
 // Replay carries a snapshot's own change onto another base in memory, answering with the tree

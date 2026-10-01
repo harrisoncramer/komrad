@@ -164,14 +164,14 @@ type Turn struct {
 	SpokenAt time.Time
 }
 
+// turnSeparator is the blank line the assembled conversation puts between two turns.
+const turnSeparator = "\n\n"
+
 type AppendTurnsParams struct {
 	AgentID   string
 	SessionID string
 	Turns     []Turn
 }
-
-// turnSeparator is the blank line the assembled conversation puts between two turns.
-const turnSeparator = "\n\n"
 
 // AppendTurns indexes newly-synced turns for an agent, numbering them after those already
 // stored.
@@ -340,15 +340,6 @@ func (f Filter) IsZero() bool {
 		f.Since == nil && f.Until == nil
 }
 
-type SearchParams struct {
-	Query   string
-	Limit   int64
-	Cursor  *Cursor
-	AgentID *string
-	Filter  Filter
-	Sort    Sort
-}
-
 // Results is one page of each section, the turns that say the words and the turns that only
 // carry the letters.
 type Results struct {
@@ -358,6 +349,15 @@ type Results struct {
 	// Next locates the page after this one, holding a position only for a section that filled
 	// this page, and nil once neither has any more.
 	Next *Cursor
+}
+
+type SearchParams struct {
+	Query   string
+	Limit   int64
+	Cursor  *Cursor
+	AgentID *string
+	Filter  Filter
+	Sort    Sort
 }
 
 // Search returns one page of each section in the order the sort asks for.

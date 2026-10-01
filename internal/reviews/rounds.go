@@ -215,15 +215,6 @@ func doesOwnReviewBatch(author ReviewAuthor, review reviewstore.Review) bool {
 		*review.AuthorAgentID == *author.AgentID
 }
 
-// openReviewForParams says whose work an author is writing about, and from where.
-type openReviewForParams struct {
-	AgentID string
-	Author  ReviewAuthor
-	// Round is the round the author read their line numbers from, nil for a caller with nothing
-	// to say about which round that was.
-	Round *reviewstore.Round
-}
-
 // roundFor is the round a comment's line numbers were read from: the one the caller names, the
 // one holding the snapshot it read, or the round its own open review sits on.
 func (s *ReviewService) roundFor(
@@ -257,6 +248,15 @@ func (s *ReviewService) roundFor(
 	}
 
 	return s.GetLatestRound(ctx, params.AgentID)
+}
+
+// openReviewForParams says whose work an author is writing about, and from where.
+type openReviewForParams struct {
+	AgentID string
+	Author  ReviewAuthor
+	// Round is the round the author read their line numbers from, nil for a caller with nothing
+	// to say about which round that was.
+	Round *reviewstore.Round
 }
 
 // openReviewFor is the review an author is writing against an agent, opened against the round
@@ -378,6 +378,15 @@ func (s *ReviewService) requireMayRead(
 	return nil
 }
 
+// ReleaseReviewResult reports what letting go of a review did.
+type ReleaseReviewResult struct {
+	Review reviewstore.Review
+	// Comments is how many the released review carried.
+	Comments int
+	// Path is where the review was written for the agent to read.
+	Path string
+}
+
 // ReleaseReviewParams says whose review to let go of and what it concluded.
 type ReleaseReviewParams struct {
 	AgentID string
@@ -390,15 +399,6 @@ type ReleaseReviewParams struct {
 	// now rather than at the end of whatever it is doing.
 	Interrupt bool
 	Author    ReviewAuthor
-}
-
-// ReleaseReviewResult reports what letting go of a review did.
-type ReleaseReviewResult struct {
-	Review reviewstore.Review
-	// Comments is how many the released review carried.
-	Comments int
-	// Path is where the review was written for the agent to read.
-	Path string
 }
 
 // ReleaseReview releases the author's open review, writing it out as one file and sending one
@@ -563,13 +563,6 @@ func isSayingNothing(author ReviewAuthor, verdict reviewstore.Verdict) bool {
 	return !author.IsHuman() && verdict == reviewstore.VerdictCommented
 }
 
-// tallyBatchParams is one batch, who wrote it, and the threads it said something in.
-type tallyBatchParams struct {
-	ReviewID string
-	Author   ReviewAuthor
-	Threads  []ReviewThreadWithMessages
-}
-
 // batchTally is what one batch said, split by whether it opened a thread or added to one.
 type batchTally struct {
 	// Comments is the threads the batch opened.
@@ -578,6 +571,13 @@ type batchTally struct {
 	Replies int
 	// Reopens is the replies landing on a resolved thread.
 	Reopens int
+}
+
+// tallyBatchParams is one batch, who wrote it, and the threads it said something in.
+type tallyBatchParams struct {
+	ReviewID string
+	Author   ReviewAuthor
+	Threads  []ReviewThreadWithMessages
 }
 
 // tallyBatch counts the threads a batch opened, the replies it carries into earlier ones, and

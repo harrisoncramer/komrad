@@ -15,6 +15,18 @@ import (
 // DefaultMaxBytes bounds a response body when a caller names no cap.
 const DefaultMaxBytes = 8 << 20
 
+// Answer is what came back, with the body read out and closed.
+type Answer struct {
+	Status int
+	Header http.Header
+	Body   []byte
+}
+
+// IsSuccess says whether the status is in the 2xx range.
+func (a Answer) IsSuccess() bool {
+	return a.Status >= 200 && a.Status < 300
+}
+
 // JSONParams says what to send and how far to read the answer.
 type JSONParams struct {
 	// Client makes the call, NewClient(DefaultTimeout) when nil.
@@ -27,18 +39,6 @@ type JSONParams struct {
 	Body any
 	// MaxBytes bounds the answer read, DefaultMaxBytes when zero.
 	MaxBytes int64
-}
-
-// Answer is what came back, with the body read out and closed.
-type Answer struct {
-	Status int
-	Header http.Header
-	Body   []byte
-}
-
-// IsSuccess says whether the status is in the 2xx range.
-func (a Answer) IsSuccess() bool {
-	return a.Status >= 200 && a.Status < 300
 }
 
 // JSON makes the call, reads and closes the body, decodes it into out on a 2xx, and answers

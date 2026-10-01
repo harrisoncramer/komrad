@@ -1,4 +1,4 @@
-package constructorsskip
+package paramsskip
 
 type ServerParams struct {
 	Addr string

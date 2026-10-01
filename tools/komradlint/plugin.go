@@ -74,7 +74,7 @@ func (l *linter) BuildAnalyzers() ([]*analysis.Analyzer, error) {
 		return nil, err
 	}
 
-	constructors, err := newConstructorShape(l.config.ConstructorShape)
+	params, err := newParamsShape(l.config.ParamsShape)
 	if err != nil {
 		return nil, err
 	}
@@ -109,7 +109,7 @@ func (l *linter) BuildAnalyzers() ([]*analysis.Analyzer, error) {
 		newOnelineFunc(l.config.OnelineFunc),
 		conversions,
 		mappings,
-		constructors,
+		params,
 		boxes,
 		stores,
 		beside,

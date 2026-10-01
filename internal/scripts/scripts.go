@@ -111,18 +111,18 @@ func discover(dir string) ([]Script, error) {
 	return found, nil
 }
 
+type Result struct {
+	Stdout   []byte
+	Stderr   []byte
+	ExitCode int
+}
+
 type RunParams struct {
 	Script  Script
 	Dir     string
 	Env     []string
 	Timeout time.Duration
 	Done    func(Result, error)
-}
-
-type Result struct {
-	Stdout   []byte
-	Stderr   []byte
-	ExitCode int
 }
 
 // Run starts a script and returns once the process exists rather than once it has finished,

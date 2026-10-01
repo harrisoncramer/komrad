@@ -37,16 +37,6 @@ type Connection struct {
 	CreatedAt      time.Time
 }
 
-// CreateParams is what a connection is created from.
-type CreateParams struct {
-	Kind       string
-	Host       string
-	APIURL     string
-	Method     string
-	Login      string
-	VerifiedAt time.Time
-}
-
 // ForgeStore reads and writes forge connections.
 type ForgeStore struct {
 	queries *models.Queries
@@ -55,6 +45,16 @@ type ForgeStore struct {
 // NewForgeStore builds a connection store over a pool or transaction.
 func NewForgeStore(db store.DBTX) *ForgeStore {
 	return &ForgeStore{queries: models.New(db)}
+}
+
+// CreateParams is what a connection is created from.
+type CreateParams struct {
+	Kind       string
+	Host       string
+	APIURL     string
+	Method     string
+	Login      string
+	VerifiedAt time.Time
 }
 
 // Create records a connection, refusing a host that already has one.
