@@ -110,9 +110,9 @@ func isOwn(row Row) bool {
 }
 
 // RepoCell is where the directory an agent sits in stands, greyed while nothing has happened to
-// it and empty on a row that is not an agent's own.
+// it and empty on a row that is not an agent's own or one in its workflow's own directory.
 func RepoCell(row Row) Cell {
-	if !isOwn(row) {
+	if !isOwn(row) || row.InWorkflowDir {
 		return Cell{}
 	}
 

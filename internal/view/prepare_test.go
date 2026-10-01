@@ -250,6 +250,35 @@ func TestPrepareColumnsFollowTheRowKind(t *testing.T) {
 	}
 }
 
+// TestRepoCellDrawsOnlyAWorktree pins that an agent in its workflow's own directory wears no worktree.
+func TestRepoCellDrawsOnlyAWorktree(t *testing.T) {
+	tests := []struct {
+		name string
+		row  Row
+		want Cell
+	}{
+		{
+			name: "a worktree",
+			row:  Row{Name: "worker"},
+			want: Cell{Glyph: glyph.Worktree, Tone: paint.ToneMuted},
+		},
+		{
+			name: "the workflow's own directory",
+			row:  Row{Name: "worker", InWorkflowDir: true},
+		},
+		{
+			name: "the workflow's own directory part way through a rebase",
+			row:  Row{Name: "worker", InWorkflowDir: true, Repo: RepoRebasing},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, RepoCell(tt.row))
+		})
+	}
+}
+
 // TestPrepareBlankColumnsKeepEveryOtherCell pins that emptying the three columns takes nothing
 // else off a row.
 func TestPrepareBlankColumnsKeepEveryOtherCell(t *testing.T) {

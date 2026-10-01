@@ -329,17 +329,18 @@ func (a *agentsScreen) snapshot(s panelShared, pane listPane) view.Snapshot {
 			zone:    layout.zone,
 			waiting: layout.waiting,
 		},
-		selected:    a.selected,
-		scheduled:   s.listing.scheduledWorkflows(),
-		focused:     rowKeyAt(layout.cursorRows(), a.cursor),
-		caret:       pane.caret,
-		blinkedOut:  pane.blinkedOut,
-		loaderFrame: s.loaderFrame,
-		matcher:     s.chrome.filter.pattern,
-		renaming:    a.renamingField(),
-		showHidden:  a.showHidden,
-		flat:        a.sort.flat,
-		pane:        pane.width,
+		selected:     a.selected,
+		scheduled:    s.listing.scheduledWorkflows(),
+		workflowDirs: s.listing.workflowDirs(),
+		focused:      rowKeyAt(layout.cursorRows(), a.cursor),
+		caret:        pane.caret,
+		blinkedOut:   pane.blinkedOut,
+		loaderFrame:  s.loaderFrame,
+		matcher:      s.chrome.filter.pattern,
+		renaming:     a.renamingField(),
+		showHidden:   a.showHidden,
+		flat:         a.sort.flat,
+		pane:         pane.width,
 	})
 }
 
@@ -351,6 +352,16 @@ func (l listing) scheduledWorkflows() map[string]bool {
 	}
 
 	return scheduled
+}
+
+// workflowDirs is the directory each workflow launches its agents in, keyed by workflow id.
+func (l listing) workflowDirs() map[string]string {
+	dirs := make(map[string]string, len(l.workflows))
+	for _, w := range l.workflows {
+		dirs[w.ID] = w.Cwd
+	}
+
+	return dirs
 }
 
 // startOrchestrator brings the workflow's orchestrator back and puts the keyboard in its pane.
