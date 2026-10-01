@@ -527,9 +527,9 @@ type WorktreesKeys struct {
 // pattern typed, every other key is a character, so the keys that close those are fixed rather
 // than configured.
 type ReviewKeys struct {
-	// Show the change that answered the comment under the cursor, from the work the
-	// comment was written on to the work the agent's addressed reply carried, or go back
-	// to all changes from there.
+	// Show only the change that answered the comment under the cursor, from the work as
+	// it stood just before the agent's addressed reply to the work that reply carried, or
+	// go back to all changes from there.
 	Answer []string `mapstructure:"answer" default:"a"`
 	// Leave the review for the agents list.
 	Back []string `mapstructure:"back" default:"esc"`

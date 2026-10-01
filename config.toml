@@ -308,9 +308,9 @@ up        = ["k"]
 # The review screen, which draws an agent's diff in the stage and its review
 # threads in the sidebar.
 [keybindings.review]
-# Show the change that answered the comment under the cursor, from the work the
-# comment was written on to the work the agent's addressed reply carried, or go back
-# to all changes from there.
+# Show only the change that answered the comment under the cursor, from the work as
+# it stood just before the agent's addressed reply to the work that reply carried, or
+# go back to all changes from there.
 answer           = ["a"]
 # Leave the review for the agents list.
 back             = ["esc"]

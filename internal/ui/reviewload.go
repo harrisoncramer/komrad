@@ -203,6 +203,8 @@ func loadReviewCmd(s panelShared, params loadReviewCmdParams) tea.Cmd {
 				return reviewLoadedMsg{agentID: agentID, err: errAnswerGone}
 			}
 
+			from = findAnswerBase(rounds, from, to)
+
 			answerBase, answerHead = from.GetSnapshotSha(), to.GetSnapshotSha()
 			params.Base, params.Head = answerBase, answerHead
 			fromBase, toBase = from.GetBaseSha(), to.GetBaseSha()
@@ -512,6 +514,10 @@ func (d *reviewDiff) load(msg reviewLoadedMsg, isDark bool, glyphs glyph.Set) {
 	view.PinThreads(d.threadsOnScreen(msg.threads))
 
 	if place, ok := d.originPlace(view); ok {
+		d.restore = &place
+	}
+
+	if place, ok := d.landPlace(view); ok {
 		d.restore = &place
 	}
 
