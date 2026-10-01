@@ -146,7 +146,7 @@ func groupKeys(refs []rowRef, group string) []string {
 func refsOf(rows []agentRow) []rowRef {
 	return xslice.Map(rows, func(row agentRow) rowRef {
 		return rowRef{
-			key:    rowKey(row),
+			key:    toTreeRowKey(rowKey(row)),
 			header: row.header,
 			group:  workflowRowKey(row.workflow.ID),
 		}
@@ -155,10 +155,11 @@ func refsOf(rows []agentRow) []rowRef {
 
 func chosenAgents(sel selection, rows []agentRow) []panel.Agent {
 	chosen := xslice.Filter(rows, func(row agentRow) bool {
-		return !row.header && sel.has(rowKey(row))
+		return !row.header && sel.has(toTreeRowKey(rowKey(row)))
 	})
+	agents := xslice.Map(chosen, func(row agentRow) panel.Agent { return row.item.Agent })
 
-	return xslice.Map(chosen, func(row agentRow) panel.Agent { return row.item.Agent })
+	return xslice.UniqueBy(agents, func(agent panel.Agent) string { return agent.ID })
 }
 
 func describeAgents(agents []panel.Agent) string {

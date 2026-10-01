@@ -425,9 +425,8 @@ child          = ["C"]
 # Retry the launch of an agent that failed to create, opening a form where the flags can be
 # corrected before confirming. The entry is only on such an agent.
 retry          = ["R"]
-# Snooze the hovered agent's family in triage, which sinks it to the bottom of the zone until
-# what it waits on changes, or wake it when it is snoozed. The entry is only on an agent in
-# triage.
+# Snooze the hovered agent's family in triage, which takes it out of the zone until what it
+# waits on changes, or wake it when it is snoozed. The entry is only on an agent in triage.
 snooze         = ["z"]
 # Edit the hovered workflow.
 edit_workflow  = ["E"]

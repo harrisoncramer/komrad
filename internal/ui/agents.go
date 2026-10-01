@@ -193,34 +193,38 @@ func (a *agentsScreen) toggleHidden(m *model) {
 	a.stage(m)
 }
 
-// seeFinished snoozes the agent's family when it waits only to be looked at, keeping the cursor
-// on the agent as its family moves.
+// seeFinished snoozes the agent's family when it waits only to be looked at and the tree draws the
+// agent, keeping the cursor on the agent's tree row.
 func (a *agentsScreen) seeFinished(m *model, item panel.AgentRow) {
-	selected := a.list().hovered(m)
+	treeKey := toTreeRowKey(a.list().hovered(m))
+	if rowIndexOfKey(a.rows(m), treeKey) < 0 {
+		return
+	}
+
 	a.triage.seeFinished(item, m.listing.agents)
 
 	rows := a.rows(m)
-	a.cursor = cursor.Place(rowIndexOfKey(rows, selected), a.cursor, len(rows))
+	a.cursor = cursor.Place(rowIndexOfKey(rows, treeKey), a.cursor, len(rows))
 }
 
-// toggleSnooze snoozes the hovered agent's family in triage, or wakes it.
+// toggleSnooze snoozes or wakes the triage family of the hovered agent, or of the orchestrator behind
+// a hovered workflow.
 func (a *agentsScreen) toggleSnooze(m *model) {
-	item, ok := a.selectedAgent(m)
+	item, ok := a.hoveredPaneItem(m)
 	if !ok {
 		return
 	}
 
 	selected := a.list().hovered(m)
 	slot := a.findZoneSlot(m)
-	snoozing := slot >= 0 && !findZoneHead(a.layout(m).zone, a.cursor).snoozed
 	if !a.triage.toggleSnooze(item, m.listing.agents) {
 		return
 	}
 
 	rows := a.rows(m)
 	a.cursor = cursor.Place(rowIndexOfKey(rows, selected), a.cursor, len(rows))
-	if snoozing {
-		a.moveToAwake(m, slot)
+	if slot >= 0 {
+		a.moveAfterSnooze(m, slot)
 	}
 
 	a.stage(m)

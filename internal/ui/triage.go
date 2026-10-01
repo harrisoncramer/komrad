@@ -125,8 +125,7 @@ type triageZone struct {
 	capacity int
 	// entries are the agents in triage by id.
 	entries map[string]triageEntry
-	// snoozed are the families sunk to the bottom of the zone, by head id, until what they wait on
-	// changes.
+	// snoozed are the families taken out of the zone, by head id, until what they wait on changes.
 	snoozed map[string]triageSnooze
 	// frozen is the order of the heads drawn while a person reads the zone, which holds still until
 	// they leave it, and nil when it is free to move.
@@ -273,41 +272,24 @@ func (z *triageZone) toggleSnooze(item panel.AgentRow, agents []panel.AgentRow) 
 		z.snooze(family)
 	}
 
-	z.refreeze(family, agents)
+	z.refreeze(agents)
 
 	return true
 }
 
-// refreeze moves a family just snoozed or woken to its place in the frozen zone.
-func (z *triageZone) refreeze(family triageFamily, agents []panel.AgentRow) {
-	headID := family.head.Agent.ID
-	if !slices.Contains(z.frozen, headID) {
+// refreeze takes the snoozed families out of the frozen zone and lets in the families waiting for a
+// slot.
+func (z *triageZone) refreeze(agents []panel.AgentRow) {
+	if z.frozen == nil {
 		return
 	}
 
-	families := z.familiesByHead(agents)
-	others := xslice.Filter(z.frozen, func(id string) bool { return id != headID })
-	place := findInsertIndex(others, func(id string) bool {
-		other, ok := families[id]
-
-		return ok && z.compareFamilies(family, other) < 0
-	})
-	frozen := slices.Insert(others, place, headID)
-
-	waiting := xslice.Filter(slices.Collect(maps.Values(families)), func(f triageFamily) bool {
+	frozen := xslice.Filter(z.frozen, func(id string) bool { return !z.isSnoozed(id) })
+	waiting := xslice.Filter(slices.Collect(maps.Values(z.familiesByHead(agents))), func(f triageFamily) bool {
 		return !z.isSnoozed(f.head.Agent.ID) && !slices.Contains(frozen, f.head.Agent.ID)
 	})
 	slices.SortFunc(waiting, z.compareFamilies)
-	z.frozen = slices.Insert(frozen, findInsertIndex(frozen, z.isSnoozed), xslice.Map(waiting, func(f triageFamily) string { return f.head.Agent.ID })...)
-}
-
-// findInsertIndex is the index of the first id that goes after the one being inserted, or the end.
-func findInsertIndex(ids []string, before func(string) bool) int {
-	if at := slices.IndexFunc(ids, before); at >= 0 {
-		return at
-	}
-
-	return len(ids)
+	z.frozen = slices.Concat(frozen, xslice.Map(waiting, func(f triageFamily) string { return f.head.Agent.ID }))
 }
 
 // seeFinished snoozes the agent's family when it waits only to be looked at.
@@ -318,7 +300,7 @@ func (z *triageZone) seeFinished(item panel.AgentRow, agents []panel.AgentRow) {
 	}
 }
 
-// snooze sinks the family to the bottom of the zone until what it waits on changes.
+// snooze takes the family out of the zone until what it waits on changes.
 func (z *triageZone) snooze(family triageFamily) {
 	if z.snoozed == nil {
 		z.snoozed = make(map[string]triageSnooze)
@@ -490,12 +472,12 @@ func (l agentsLayout) cursorRows() []agentRow {
 	return slices.Concat(l.zone, l.tree)
 }
 
-// splitTriage takes the most urgent families in triage the zone has room for out of the listing,
-// each head with its children under it and the snoozed families last.
-func splitTriage(z triageZone, m *model, showHidden bool) (zone []agentRow, waiting int, rest []panel.AgentRow) {
+// buildZone draws the most urgent families in triage the zone has room for, leaving the snoozed out,
+// and counts the families still waiting for a slot.
+func buildZone(z triageZone, m *model, showHidden bool) (zone []agentRow, waiting int) {
 	children := childrenByParent(m.listing.agents)
 	families := xslice.Filter(findTriageFamilies(z.entries, m.listing.agents), func(f triageFamily) bool {
-		return !f.head.Agent.Hidden || showHidden
+		return (!f.head.Agent.Hidden || showHidden) && !z.isSnoozed(f.head.Agent.ID)
 	})
 	var slotted []triageSlot
 	used := 0
@@ -511,33 +493,22 @@ func splitTriage(z triageZone, m *model, showHidden bool) (zone []agentRow, wait
 	}
 
 	spare := z.capacity - used
-	inZone := make(map[string]bool)
 	workflows := xslice.KeyBy(m.listing.workflows, func(w panel.Workflow) string { return w.ID })
 	for _, slot := range slotted {
-		head := slot.family.head
 		drawn := z.pickChildren(slot.rows[1:], slot.asking+spare)
 		spare -= len(drawn) - slot.asking
-		snoozed := z.isSnoozed(head.Agent.ID)
-		for _, child := range children[head.Agent.ID] {
-			if child.Agent.Hidden && !showHidden {
-				inZone[child.Agent.ID] = true
-			}
-		}
 		for _, row := range slot.rows {
 			if row.child && !drawn[row.item.Agent.ID] {
 				continue
 			}
 
-			inZone[row.item.Agent.ID] = true
 			row.workflow = workflows[row.item.Agent.WorkflowID]
-			row.snoozed = snoozed
+			row.triage = true
 			zone = append(zone, row)
 		}
 	}
 
-	rest = xslice.Filter(m.listing.agents, func(item panel.AgentRow) bool { return !inZone[item.Agent.ID] })
-
-	return zone, len(families) - len(slotted), rest
+	return zone, len(families) - len(slotted)
 }
 
 // triageSlot is a family the zone draws, with its rows and how many of its children are in triage.
@@ -591,10 +562,9 @@ func (z triageZone) orderFamilies(families []triageFamily) []triageFamily {
 	return families
 }
 
-// compareFamilies orders two families in triage as the zone draws them, the snoozed last.
+// compareFamilies orders two families in triage as the zone draws them.
 func (z triageZone) compareFamilies(a, b triageFamily) int {
 	return cmp.Or(
-		compareBools(z.isSnoozed(a.head.Agent.ID), z.isSnoozed(b.head.Agent.ID)),
 		compareUrgency(a.entry, b.entry),
 		cmp.Compare(a.head.Agent.ID, b.head.Agent.ID),
 	)
@@ -682,20 +652,18 @@ func (a *agentsScreen) findZoneSlot(m *model) int {
 	return slot
 }
 
-// moveToAwake puts the cursor on the first family awake from the zone's slot down, or from its top.
-func (a *agentsScreen) moveToAwake(m *model, slot int) {
-	zone := a.layout(m).zone
-	heads := zoneHeads(zone)
-	slot = min(slot, len(heads))
-	rotated := slices.Concat(heads[slot:], heads[:slot])
-	at := slices.IndexFunc(rotated, func(i int) bool { return !zone[i].snoozed })
-	if at < 0 {
+// moveAfterSnooze puts the cursor on the family above the zone's slot, on the top family when the
+// slot was the top, or on the first agent of the list once the zone is empty.
+func (a *agentsScreen) moveAfterSnooze(m *model, slot int) {
+	heads := zoneHeads(a.layout(m).zone)
+	if len(heads) == 0 {
 		m.note(messageInfo, "nothing left to triage")
+		a.cursor = firstAgentRowIndex(a.rows(m))
 
 		return
 	}
 
-	a.cursor = rotated[at]
+	a.cursor = heads[min(max(slot-1, 0), len(heads)-1)]
 }
 
 // landInTriage moves the cursor off a zone row that has left the list onto the family now in its
@@ -756,7 +724,6 @@ func triageRows(params snapshotParams) []view.Row {
 		if !r.child && r.item.Agent.Role == panel.RoleImplementer {
 			row.Workflow = r.workflow.Name
 		}
-		row.Faded = r.snoozed
 		rows = append(rows, row)
 	}
 
