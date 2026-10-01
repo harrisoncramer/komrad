@@ -264,14 +264,16 @@ func hotRows(params snapshotParams) []view.Row {
 	for _, r := range hot.zone {
 		row := params.renaming.drawnOver(snapshotRow(r, params))
 		row.Kind = view.KindHot
-		if r.item.Agent.Role == panel.RoleOrchestrator {
-			row.Name = r.workflow.Name
-		}
+		reason := view.Cell{Text: r.hot.reason, Tone: r.hot.tone}
 		row.Note = view.Cell{Parts: []view.Cell{
 			{Text: r.workflow.Name, Tone: paint.ToneMuted},
 			{Text: " · ", Tone: paint.ToneMuted},
-			{Text: r.hot.reason, Tone: r.hot.tone},
+			reason,
 		}}
+		if r.item.Agent.Role == panel.RoleOrchestrator {
+			row.Name = r.workflow.Name
+			row.Note = reason
+		}
 		rows = append(rows, row)
 	}
 

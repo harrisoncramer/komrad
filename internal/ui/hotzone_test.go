@@ -34,6 +34,20 @@ func TestHotZoneRows(t *testing.T) {
 			want:     []string{"backend", "quiet"},
 		},
 		{
+			name:     "an orchestrator is named for its workflow once",
+			capacity: 2,
+			rows: []proto.Message{
+				newLiveWorkflow("w1", "backend"),
+				func() *agentv1.Agent {
+					orchestrator := newOrchestrator()
+					orchestrator.State = agentv1.AgentState_AGENT_STATE_WAITING
+
+					return orchestrator
+				}(),
+			},
+			want: []string{"hot 1/2", "backend asking", "backend"},
+		},
+		{
 			name:     "the oldest hot agents take the slots and the rest wait in the tree",
 			capacity: 2,
 			rows:     buildHot(),
