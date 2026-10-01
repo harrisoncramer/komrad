@@ -33,6 +33,16 @@ func (r reviewScreen) listOffers(s panelShared) []*pullrequestv1.ForgeThread {
 	return offers
 }
 
+func (r reviewScreen) findOffer(s panelShared, offerID string) (*pullrequestv1.ForgeThread, bool) {
+	offers := r.listOffers(s)
+	at := slices.IndexFunc(offers, func(offer *pullrequestv1.ForgeThread) bool { return offer.GetId() == offerID })
+	if at < 0 {
+		return nil, false
+	}
+
+	return offers[at], true
+}
+
 // doesStepOffers reports whether J walks the forge's comments rather than jumping to where a
 // comment of the reader's was written.
 func (r reviewScreen) doesStepOffers(s panelShared) bool {

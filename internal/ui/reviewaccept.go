@@ -80,7 +80,7 @@ func (r *reviewScreen) acceptOffer(h host, s panelShared) tea.Cmd {
 	r.threads.accepting = &reviewAccept{
 		offerID: offer.GetId(),
 		title:   acceptTitle(offer),
-		place:   *place,
+		place:   place,
 	}
 
 	title, said := r.threads.inputHead()
@@ -94,23 +94,23 @@ func (r *reviewScreen) acceptOffer(h host, s panelShared) tea.Cmd {
 
 // acceptPlace is the lines a forge thread is pinned to as the diff draws it, or the thread it was
 // accepted into before.
-func (r reviewScreen) acceptPlace(s panelShared, offer *pullrequestv1.ForgeThread) (*reviewPlace, bool) {
+func (r reviewScreen) acceptPlace(s panelShared, offer *pullrequestv1.ForgeThread) (reviewPlace, bool) {
 	if thread, ok := s.listing.world.ReviewThreads[offer.GetAcceptedThreadId()]; ok {
-		return &reviewPlace{anchor: anchorOfThread(thread), base: thread.GetBaseSha()}, true
+		return reviewPlace{anchor: anchorOfThread(thread), base: thread.GetBaseSha()}, true
 	}
 
 	view := r.diff.View()
 	row, ok := view.GetOfferRow(offer.GetId())
 	if !ok {
-		return nil, false
+		return reviewPlace{}, false
 	}
 
 	anchor, ok := view.GetAnchor(row)
 	if !ok || anchor.FilePath == "" {
-		return nil, false
+		return reviewPlace{}, false
 	}
 
-	place := &reviewPlace{anchor: *anchor, base: view.GetBaseSHA(), snapshot: view.GetSnapshotSHA()}
+	place := reviewPlace{anchor: *anchor, base: view.GetBaseSHA(), snapshot: view.GetSnapshotSHA()}
 	if place.snapshot == "" {
 		place.snapshot = r.round.GetSnapshotSha()
 	}
@@ -132,7 +132,7 @@ func acceptTitle(offer *pullrequestv1.ForgeThread) string {
 
 // acceptCmd sends the forge thread as the popup draws it now, with the note written under it.
 func (r reviewScreen) acceptCmd(h host, s panelShared, accept reviewAccept, note string) tea.Cmd {
-	offer, ok := r.acceptingOffer(s, accept.offerID)
+	offer, ok := r.findOffer(s, accept.offerID)
 	if !ok {
 		h.note(messageWarning, "that comment is gone from the forge")
 
@@ -170,7 +170,7 @@ func (r reviewScreen) acceptingView(s panelShared, width int) string {
 		return ""
 	}
 
-	offer, ok := r.acceptingOffer(s, r.threads.accepting.offerID)
+	offer, ok := r.findOffer(s, r.threads.accepting.offerID)
 	if !ok {
 		return ""
 	}
@@ -187,14 +187,4 @@ func anchorOfThread(thread *agentv1.ReviewThread) diffview.Anchor {
 		NewEnd:      int(thread.GetNewEnd()),
 		QuotedLines: thread.GetQuotedLines(),
 	}
-}
-
-func (r reviewScreen) acceptingOffer(s panelShared, offerID string) (*pullrequestv1.ForgeThread, bool) {
-	offers := r.listOffers(s)
-	at := slices.IndexFunc(offers, func(offer *pullrequestv1.ForgeThread) bool { return offer.GetId() == offerID })
-	if at < 0 {
-		return nil, false
-	}
-
-	return offers[at], true
 }
