@@ -3,12 +3,9 @@ package events
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"log/slog"
 
 	"komrad/internal/fail"
-	"komrad/internal/logging"
 	"komrad/internal/mail"
 	"komrad/internal/store"
 
@@ -54,16 +51,4 @@ func (r *Router) Route(ctx context.Context, tx store.DBTX, event Event) ([]river
 	}
 
 	return handler.Handle(ctx, tx, r.mailer.InTx(tx), event.Payload)
-}
-
-// dropUnreachable is err unless it says the recipient is archived or gone.
-func dropUnreachable(ctx context.Context, recipient string, err error) error {
-	if !errors.Is(err, mail.ErrAgentArchived) && !errors.Is(err, mail.ErrRecipientNotFound) {
-		return err
-	}
-
-	logging.From(ctx).LogAttrs(ctx, slog.LevelInfo, "dropped mail for an agent that is gone",
-		append([]slog.Attr{slog.String(logging.AgentID, recipient)}, logging.Err(err)...)...)
-
-	return nil
 }
