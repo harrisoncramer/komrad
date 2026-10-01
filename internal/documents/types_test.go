@@ -126,7 +126,7 @@ func TestReadAnEarlierTypeWrite(t *testing.T) {
 	require.ErrorIs(t, err, store.ErrNotFound)
 }
 
-// TestDeleteDocumentTypeRefusesAnAgent pins that only a person deletes a type.
+// TestDeleteDocumentTypeRefusesAnAgent pins that an agent's delete leaves the type in place.
 func TestDeleteDocumentTypeRefusesAnAgent(t *testing.T) {
 	stores := storetest.Open(t)
 	service := newService(stores, eventstest.NewQueue(t, stores, documents.NewEventHandler()))
