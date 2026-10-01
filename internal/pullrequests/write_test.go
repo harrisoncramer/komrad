@@ -14,13 +14,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// writingForge records each merge, draft change and auto-merge change and answers err.
+// writingForge records each merge, draft change, auto-merge change and re-review and answers err.
 type writingForge struct {
 	forge.Forge
 	err        error
 	merged     []string
 	drafted    []drafted
 	autoMerged []forge.SetAutoMergeParams
+	rereviewed []string
 }
 
 type drafted struct {
@@ -42,6 +43,12 @@ func (f *writingForge) SetDraft(_ context.Context, address string, draft bool) e
 
 func (f *writingForge) SetAutoMerge(_ context.Context, params forge.SetAutoMergeParams) error {
 	f.autoMerged = append(f.autoMerged, params)
+
+	return f.err
+}
+
+func (f *writingForge) RequestRereview(_ context.Context, address string) error {
+	f.rereviewed = append(f.rereviewed, address)
 
 	return f.err
 }
@@ -188,6 +195,58 @@ func TestSetPullRequestDraft(t *testing.T) {
 				require.NoError(t, err)
 			}
 			assert.Equal(t, tt.wantDrafted, writing.drafted)
+			assert.Equal(t, tt.wantHeated, sync.Heated)
+		})
+	}
+}
+
+// TestRequestPullRequestRereview covers the pull request sync heating the host only once the
+// forge has asked for another review.
+func TestRequestPullRequestRereview(t *testing.T) {
+	const address = "https://github.com/harrisoncramer/komrad/pull/1"
+
+	tests := []struct {
+		name           string
+		address        string
+		rereviewErr    error
+		wantErr        error
+		wantRereviewed []string
+		wantHeated     []string
+	}{
+		{
+			name:    "an address with no host",
+			address: "harrisoncramer/komrad#1",
+			wantErr: forge.ErrNotPullRequest,
+		},
+		{
+			name:           "a pull request nobody asked changes of",
+			address:        address,
+			rereviewErr:    forge.ErrNoRereview,
+			wantErr:        forge.ErrNoRereview,
+			wantRereviewed: []string{address},
+		},
+		{
+			name:           "a pull request the forge asks for another review of",
+			address:        address,
+			wantRereviewed: []string{address},
+			wantHeated:     []string{"github.com"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			writing := &writingForge{err: tt.rereviewErr}
+			sync := &waketest.Counter{}
+			writer := newTestWriter(t, writing, sync)
+
+			err := writer.RequestPullRequestRereview(t.Context(), tt.address)
+
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+			} else {
+				require.NoError(t, err)
+			}
+			assert.Equal(t, tt.wantRereviewed, writing.rereviewed)
 			assert.Equal(t, tt.wantHeated, sync.Heated)
 		})
 	}

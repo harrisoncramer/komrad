@@ -134,6 +134,21 @@ func TestTriageRefresh(t *testing.T) {
 			want: "",
 		},
 		{
+			name: "an implementer whose reviewers were asked to look again is not in triage",
+			item: implementer(func(item *panel.AgentRow) {
+				item.PullRequest.State = pullrequestv1.PullRequestState_PULL_REQUEST_STATE_REREVIEW_REQUESTED
+			}),
+			want: "",
+		},
+		{
+			name: "an implementer whose pull request has changes requested is finished",
+			item: implementer(func(item *panel.AgentRow) {
+				item.PullRequest.State = pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHANGES_REQUESTED
+			}),
+			want:  "finished",
+			since: changed,
+		},
+		{
 			name: "pending checks do not clear what only a person can",
 			item: idle(func(item *panel.AgentRow) {
 				item.FailedRun = true

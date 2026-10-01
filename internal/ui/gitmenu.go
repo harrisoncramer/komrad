@@ -19,6 +19,7 @@ const (
 	gitChoiceOpenPullRequest
 	gitChoiceCopyPullRequestURL
 	gitChoiceToggleDraft
+	gitChoiceRequestRereview
 )
 
 var (
@@ -79,6 +80,12 @@ func gitMenu(s panelShared, from screen, item panel.AgentRow) submenu {
 				keys:  s.keys.Git.ToggleDraft,
 				isOff: openPullRequestRefusal(item) != nil,
 				write: run(gitChoiceToggleDraft),
+			},
+			{
+				label: "re-request review",
+				keys:  s.keys.Git.RequestRereview,
+				isOff: rereviewRefusal(item) != nil,
+				write: run(gitChoiceRequestRereview),
 			},
 			nestedEntry("merge pr", s.keys.Git.Merge, mergeMenu(s, from, item)),
 		},
@@ -199,6 +206,8 @@ func (m model) runGitChoice(from screen, agentID string, choice gitChoice) (mode
 		return m.copyPullRequestURL(item)
 	case gitChoiceToggleDraft:
 		return m.toggleDraft(item)
+	case gitChoiceRequestRereview:
+		return m.requestRereview(item)
 	}
 
 	return m, nil

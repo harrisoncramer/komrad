@@ -117,6 +117,16 @@ func (s *Handler) SetForgePullRequestAutoMerge(ctx context.Context, req *forgev1
 	return &emptypb.Empty{}, nil
 }
 
+// RequestForgePullRequestRereview asks everyone who requested changes on a pull request to review
+// it again, through the connection for its host.
+func (s *Handler) RequestForgePullRequestRereview(ctx context.Context, req *forgev1.RequestForgePullRequestRereviewRequest) (*emptypb.Empty, *fail.Error) {
+	if err := s.writer.RequestPullRequestRereview(ctx, req.GetUrl()); err != nil {
+		return nil, rpcerr.From(err, "failed to ask for another review of the pull request")
+	}
+
+	return &emptypb.Empty{}, nil
+}
+
 func renderForgePullRequest(pullRequest forge.PullRequest) *forgev1.ForgePullRequest {
 	head := ""
 	if !pullRequest.Head.IsZero() {

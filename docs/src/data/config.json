@@ -582,6 +582,13 @@
               "default": "[\"r\"]"
             },
             {
+              "key": "request_rereview",
+              "path": "keybindings.git.request_rereview",
+              "type": "array",
+              "description": "Ask everyone who requested changes on the hovered agent's pull request to review it again.",
+              "default": "[\"v\"]"
+            },
+            {
               "key": "toggle_draft",
               "path": "keybindings.git.toggle_draft",
               "type": "array",

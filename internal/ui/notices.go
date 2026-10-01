@@ -38,6 +38,7 @@ const (
 	prApprovedNotice      = "its pull request is approved and ready to merge"
 	prWaitingNotice       = "its pull request is approved but cannot merge yet"
 	prOpenNotice          = "its pull request is open and waiting on a review"
+	prRereviewNotice      = "its pull request is waiting on another review"
 	prDraftNotice         = "its pull request is still a draft"
 	prMergedNotice        = "its pull request is merged"
 	prClosedNotice        = "its pull request was closed without merging"
@@ -64,12 +65,13 @@ var (
 		view.ForgeApproved:         prApprovedNotice,
 	}
 	forgeSaid = map[view.Forge]string{
-		view.ForgeOpen:            prOpenNotice,
-		view.ForgeChecksRunning:   prChecksNotice,
-		view.ForgeApprovedWaiting: prWaitingNotice,
-		view.ForgeDraft:           prDraftNotice,
-		view.ForgeMerged:          prMergedNotice,
-		view.ForgeClosed:          prClosedNotice,
+		view.ForgeOpen:              prOpenNotice,
+		view.ForgeRereviewRequested: prRereviewNotice,
+		view.ForgeChecksRunning:     prChecksNotice,
+		view.ForgeApprovedWaiting:   prWaitingNotice,
+		view.ForgeDraft:             prDraftNotice,
+		view.ForgeMerged:            prMergedNotice,
+		view.ForgeClosed:            prClosedNotice,
 	}
 )
 

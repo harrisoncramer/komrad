@@ -32,6 +32,9 @@ var ErrNotDraftable = fail.Precondition("the forge will not change whether the p
 // ErrNoAutoMerge says the forge refused to turn auto-merge on or off for a pull request.
 var ErrNoAutoMerge = fail.Precondition("the forge will not change auto-merge on the pull request")
 
+// ErrNoRereview says the forge has nobody to ask for another review of a pull request.
+var ErrNoRereview = fail.Precondition("the forge has nobody to ask for another review")
+
 // ErrThrottled says the forge refused for its rate limit rather than for anything about the
 // request.
 var ErrThrottled = fail.Exhausted("the forge is rate limiting this credential")
@@ -98,6 +101,8 @@ const (
 	ReviewDecisionApproved ReviewDecision = "approved"
 	// ReviewDecisionChangesRequested is a reviewer asking for changes.
 	ReviewDecisionChangesRequested ReviewDecision = "changes_requested"
+	// ReviewDecisionRereviewRequested is every reviewer who asked for changes asked to review again.
+	ReviewDecisionRereviewRequested ReviewDecision = "rereview_requested"
 )
 
 // Checks is where a forge says the checks on a pull request's head commit stand, in komrad's
@@ -243,6 +248,9 @@ type Forge interface {
 	// SetAutoMerge asks the forge to merge the pull request once its checks and reviews pass, or
 	// stops it from doing so.
 	SetAutoMerge(ctx context.Context, params SetAutoMergeParams) error
+	// RequestRereview asks every reviewer who requested changes on the pull request at the web
+	// address to review it again.
+	RequestRereview(ctx context.Context, url string) error
 }
 
 // SetAutoMergeParams is the pull request to change and which way.

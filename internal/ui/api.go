@@ -212,6 +212,16 @@ func (a api) setPullRequestDraft(address string, draft bool) error {
 	return err
 }
 
+// requestPullRequestRereview asks everyone who requested changes on the pull request at the
+// address to review it again.
+func (a api) requestPullRequestRereview(address string) error {
+	_, err := call(rereviewTimeout, func(ctx context.Context) (any, error) {
+		return a.forges.RequestForgePullRequestRereview(ctx, connect.NewRequest(&forgev1.RequestForgePullRequestRereviewRequest{Url: address}))
+	})
+
+	return err
+}
+
 func (a api) setHidden(agent panel.Agent, hidden bool) error {
 	return mutate(func(ctx context.Context) (any, error) {
 		return a.agents.SetHidden(ctx, connect.NewRequest(&agentv1.SetHiddenRequest{Id: agent.ID, Hidden: hidden}))

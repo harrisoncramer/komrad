@@ -86,6 +86,8 @@ func (f *scriptedForge) SetDraft(context.Context, string, bool) error { return n
 
 func (f *scriptedForge) SetAutoMerge(context.Context, forge.SetAutoMergeParams) error { return nil }
 
+func (f *scriptedForge) RequestRereview(context.Context, string) error { return nil }
+
 func (f *scriptedForge) ReviewThreads(_ context.Context, _ git.RemoteURL, number int) (*forge.Threads, error) {
 	f.requests = append(f.requests, "threads:"+strconv.Itoa(number))
 	if f.refuse != nil {

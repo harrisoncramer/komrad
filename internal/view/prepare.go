@@ -194,6 +194,8 @@ func ForgeCell(row Row) Cell {
 		return Cell{Glyph: glyph.Open, Tone: paint.ToneMuted}
 	case ForgeChangesRequested:
 		return Cell{Glyph: glyph.ChangesRequested, Tone: paint.ToneWarning}
+	case ForgeRereviewRequested:
+		return Cell{Glyph: glyph.ChangesRequested, Tone: paint.ToneMuted}
 	case ForgeChecksRunning:
 		return Cell{Text: row.LoaderFrame, Tone: paint.ToneWarning}
 	case ForgeDraft:

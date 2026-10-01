@@ -464,6 +464,11 @@ func TestPrepareForgeColumn(t *testing.T) {
 			want:  Cell{Glyph: glyph.ChangesRequested, Tone: paint.ToneWarning},
 		},
 		{
+			name:  "a re-review requested keeps the change request glyph greyed",
+			forge: ForgeRereviewRequested,
+			want:  Cell{Glyph: glyph.ChangesRequested, Tone: paint.ToneMuted},
+		},
+		{
 			name:  "checks running draw the row's loader frame in warning",
 			forge: ForgeChecksRunning,
 			want:  Cell{Text: "⠙", Tone: paint.ToneWarning},

@@ -58,6 +58,8 @@ const (
 	PullRequestState_PULL_REQUEST_STATE_CONFLICTING PullRequestState = 11
 	// Open with checks still running on its head and no change request.
 	PullRequestState_PULL_REQUEST_STATE_CHECKS_RUNNING PullRequestState = 12
+	// Open with every reviewer who asked for changes asked to review again.
+	PullRequestState_PULL_REQUEST_STATE_REREVIEW_REQUESTED PullRequestState = 13
 )
 
 // Enum value maps for PullRequestState.
@@ -76,21 +78,23 @@ var (
 		10: "PULL_REQUEST_STATE_APPROVED_WAITING",
 		11: "PULL_REQUEST_STATE_CONFLICTING",
 		12: "PULL_REQUEST_STATE_CHECKS_RUNNING",
+		13: "PULL_REQUEST_STATE_REREVIEW_REQUESTED",
 	}
 	PullRequestState_value = map[string]int32{
-		"PULL_REQUEST_STATE_UNSPECIFIED":       0,
-		"PULL_REQUEST_STATE_UNREAD":            1,
-		"PULL_REQUEST_STATE_NONE":              2,
-		"PULL_REQUEST_STATE_OPEN":              3,
-		"PULL_REQUEST_STATE_APPROVED":          4,
-		"PULL_REQUEST_STATE_CHANGES_REQUESTED": 5,
-		"PULL_REQUEST_STATE_DRAFT":             6,
-		"PULL_REQUEST_STATE_MERGED":            7,
-		"PULL_REQUEST_STATE_CLOSED":            8,
-		"PULL_REQUEST_STATE_FAILING":           9,
-		"PULL_REQUEST_STATE_APPROVED_WAITING":  10,
-		"PULL_REQUEST_STATE_CONFLICTING":       11,
-		"PULL_REQUEST_STATE_CHECKS_RUNNING":    12,
+		"PULL_REQUEST_STATE_UNSPECIFIED":        0,
+		"PULL_REQUEST_STATE_UNREAD":             1,
+		"PULL_REQUEST_STATE_NONE":               2,
+		"PULL_REQUEST_STATE_OPEN":               3,
+		"PULL_REQUEST_STATE_APPROVED":           4,
+		"PULL_REQUEST_STATE_CHANGES_REQUESTED":  5,
+		"PULL_REQUEST_STATE_DRAFT":              6,
+		"PULL_REQUEST_STATE_MERGED":             7,
+		"PULL_REQUEST_STATE_CLOSED":             8,
+		"PULL_REQUEST_STATE_FAILING":            9,
+		"PULL_REQUEST_STATE_APPROVED_WAITING":   10,
+		"PULL_REQUEST_STATE_CONFLICTING":        11,
+		"PULL_REQUEST_STATE_CHECKS_RUNNING":     12,
+		"PULL_REQUEST_STATE_REREVIEW_REQUESTED": 13,
 	}
 )
 
@@ -205,6 +209,8 @@ const (
 	ReviewDecision_REVIEW_DECISION_APPROVED ReviewDecision = 3
 	// A reviewer is asking for changes.
 	ReviewDecision_REVIEW_DECISION_CHANGES_REQUESTED ReviewDecision = 4
+	// Every reviewer who asked for changes has been asked to review again.
+	ReviewDecision_REVIEW_DECISION_REREVIEW_REQUESTED ReviewDecision = 5
 )
 
 // Enum value maps for ReviewDecision.
@@ -215,13 +221,15 @@ var (
 		2: "REVIEW_DECISION_PENDING",
 		3: "REVIEW_DECISION_APPROVED",
 		4: "REVIEW_DECISION_CHANGES_REQUESTED",
+		5: "REVIEW_DECISION_REREVIEW_REQUESTED",
 	}
 	ReviewDecision_value = map[string]int32{
-		"REVIEW_DECISION_UNSPECIFIED":       0,
-		"REVIEW_DECISION_NONE":              1,
-		"REVIEW_DECISION_PENDING":           2,
-		"REVIEW_DECISION_APPROVED":          3,
-		"REVIEW_DECISION_CHANGES_REQUESTED": 4,
+		"REVIEW_DECISION_UNSPECIFIED":        0,
+		"REVIEW_DECISION_NONE":               1,
+		"REVIEW_DECISION_PENDING":            2,
+		"REVIEW_DECISION_APPROVED":           3,
+		"REVIEW_DECISION_CHANGES_REQUESTED":  4,
+		"REVIEW_DECISION_REREVIEW_REQUESTED": 5,
 	}
 )
 
@@ -1131,7 +1139,7 @@ const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"written_at\x18\x06 \x01(\tR\twrittenAt\x12 \n" +
 	"\tedited_at\x18\a \x01(\tH\x00R\beditedAt\x88\x01\x01B\f\n" +
 	"\n" +
-	"_edited_at*\xca\x03\n" +
+	"_edited_at*\xf5\x03\n" +
 	"\x10PullRequestState\x12\"\n" +
 	"\x1ePULL_REQUEST_STATE_UNSPECIFIED\x10\x00\x12\x1d\n" +
 	"\x19PULL_REQUEST_STATE_UNREAD\x10\x01\x12\x1b\n" +
@@ -1146,7 +1154,8 @@ const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"#PULL_REQUEST_STATE_APPROVED_WAITING\x10\n" +
 	"\x12\"\n" +
 	"\x1ePULL_REQUEST_STATE_CONFLICTING\x10\v\x12%\n" +
-	"!PULL_REQUEST_STATE_CHECKS_RUNNING\x10\f*\xca\x01\n" +
+	"!PULL_REQUEST_STATE_CHECKS_RUNNING\x10\f\x12)\n" +
+	"%PULL_REQUEST_STATE_REREVIEW_REQUESTED\x10\r*\xca\x01\n" +
 	"\fMergeability\x12\x1c\n" +
 	"\x18MERGEABILITY_UNSPECIFIED\x10\x00\x12\x18\n" +
 	"\x14MERGEABILITY_UNKNOWN\x10\x01\x12\x16\n" +
@@ -1154,13 +1163,14 @@ const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"\x15MERGEABILITY_UNSTABLE\x10\x03\x12\x18\n" +
 	"\x14MERGEABILITY_BLOCKED\x10\x04\x12\x17\n" +
 	"\x13MERGEABILITY_BEHIND\x10\x05\x12\x1c\n" +
-	"\x18MERGEABILITY_CONFLICTING\x10\x06*\xad\x01\n" +
+	"\x18MERGEABILITY_CONFLICTING\x10\x06*\xd5\x01\n" +
 	"\x0eReviewDecision\x12\x1f\n" +
 	"\x1bREVIEW_DECISION_UNSPECIFIED\x10\x00\x12\x18\n" +
 	"\x14REVIEW_DECISION_NONE\x10\x01\x12\x1b\n" +
 	"\x17REVIEW_DECISION_PENDING\x10\x02\x12\x1c\n" +
 	"\x18REVIEW_DECISION_APPROVED\x10\x03\x12%\n" +
-	"!REVIEW_DECISION_CHANGES_REQUESTED\x10\x04*m\n" +
+	"!REVIEW_DECISION_CHANGES_REQUESTED\x10\x04\x12&\n" +
+	"\"REVIEW_DECISION_REREVIEW_REQUESTED\x10\x05*m\n" +
 	"\x06Checks\x12\x16\n" +
 	"\x12CHECKS_UNSPECIFIED\x10\x00\x12\x0f\n" +
 	"\vCHECKS_NONE\x10\x01\x12\x12\n" +

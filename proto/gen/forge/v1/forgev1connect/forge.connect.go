@@ -54,6 +54,9 @@ const (
 	// ForgeServiceSetForgePullRequestAutoMergeProcedure is the fully-qualified name of the
 	// ForgeService's SetForgePullRequestAutoMerge RPC.
 	ForgeServiceSetForgePullRequestAutoMergeProcedure = "/forge.v1.ForgeService/SetForgePullRequestAutoMerge"
+	// ForgeServiceRequestForgePullRequestRereviewProcedure is the fully-qualified name of the
+	// ForgeService's RequestForgePullRequestRereview RPC.
+	ForgeServiceRequestForgePullRequestRereviewProcedure = "/forge.v1.ForgeService/RequestForgePullRequestRereview"
 	// ForgeServiceDisconnectForgeProcedure is the fully-qualified name of the ForgeService's
 	// DisconnectForge RPC.
 	ForgeServiceDisconnectForgeProcedure = "/forge.v1.ForgeService/DisconnectForge"
@@ -68,6 +71,7 @@ type ForgeServiceClient interface {
 	MergeForgePullRequest(context.Context, *connect.Request[v1.MergeForgePullRequestRequest]) (*connect.Response[emptypb.Empty], error)
 	SetForgePullRequestDraft(context.Context, *connect.Request[v1.SetForgePullRequestDraftRequest]) (*connect.Response[emptypb.Empty], error)
 	SetForgePullRequestAutoMerge(context.Context, *connect.Request[v1.SetForgePullRequestAutoMergeRequest]) (*connect.Response[emptypb.Empty], error)
+	RequestForgePullRequestRereview(context.Context, *connect.Request[v1.RequestForgePullRequestRereviewRequest]) (*connect.Response[emptypb.Empty], error)
 	DisconnectForge(context.Context, *connect.Request[v1.DisconnectForgeRequest]) (*connect.Response[emptypb.Empty], error)
 }
 
@@ -128,6 +132,12 @@ func NewForgeServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithIdempotency(connect.IdempotencyIdempotent),
 			connect.WithClientOptions(opts...),
 		),
+		requestForgePullRequestRereview: connect.NewClient[v1.RequestForgePullRequestRereviewRequest, emptypb.Empty](
+			httpClient,
+			baseURL+ForgeServiceRequestForgePullRequestRereviewProcedure,
+			connect.WithSchema(forgeServiceMethods.ByName("RequestForgePullRequestRereview")),
+			connect.WithClientOptions(opts...),
+		),
 		disconnectForge: connect.NewClient[v1.DisconnectForgeRequest, emptypb.Empty](
 			httpClient,
 			baseURL+ForgeServiceDisconnectForgeProcedure,
@@ -139,14 +149,15 @@ func NewForgeServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 
 // forgeServiceClient implements ForgeServiceClient.
 type forgeServiceClient struct {
-	connectForge                 *connect.Client[v1.ConnectForgeRequest, v1.ConnectForgeResponse]
-	listForges                   *connect.Client[emptypb.Empty, v1.ListForgesResponse]
-	checkForges                  *connect.Client[emptypb.Empty, v1.CheckForgesResponse]
-	listForgePullRequests        *connect.Client[v1.ListForgePullRequestsRequest, v1.ListForgePullRequestsResponse]
-	mergeForgePullRequest        *connect.Client[v1.MergeForgePullRequestRequest, emptypb.Empty]
-	setForgePullRequestDraft     *connect.Client[v1.SetForgePullRequestDraftRequest, emptypb.Empty]
-	setForgePullRequestAutoMerge *connect.Client[v1.SetForgePullRequestAutoMergeRequest, emptypb.Empty]
-	disconnectForge              *connect.Client[v1.DisconnectForgeRequest, emptypb.Empty]
+	connectForge                    *connect.Client[v1.ConnectForgeRequest, v1.ConnectForgeResponse]
+	listForges                      *connect.Client[emptypb.Empty, v1.ListForgesResponse]
+	checkForges                     *connect.Client[emptypb.Empty, v1.CheckForgesResponse]
+	listForgePullRequests           *connect.Client[v1.ListForgePullRequestsRequest, v1.ListForgePullRequestsResponse]
+	mergeForgePullRequest           *connect.Client[v1.MergeForgePullRequestRequest, emptypb.Empty]
+	setForgePullRequestDraft        *connect.Client[v1.SetForgePullRequestDraftRequest, emptypb.Empty]
+	setForgePullRequestAutoMerge    *connect.Client[v1.SetForgePullRequestAutoMergeRequest, emptypb.Empty]
+	requestForgePullRequestRereview *connect.Client[v1.RequestForgePullRequestRereviewRequest, emptypb.Empty]
+	disconnectForge                 *connect.Client[v1.DisconnectForgeRequest, emptypb.Empty]
 }
 
 // ConnectForge calls forge.v1.ForgeService.ConnectForge.
@@ -184,6 +195,11 @@ func (c *forgeServiceClient) SetForgePullRequestAutoMerge(ctx context.Context, r
 	return c.setForgePullRequestAutoMerge.CallUnary(ctx, req)
 }
 
+// RequestForgePullRequestRereview calls forge.v1.ForgeService.RequestForgePullRequestRereview.
+func (c *forgeServiceClient) RequestForgePullRequestRereview(ctx context.Context, req *connect.Request[v1.RequestForgePullRequestRereviewRequest]) (*connect.Response[emptypb.Empty], error) {
+	return c.requestForgePullRequestRereview.CallUnary(ctx, req)
+}
+
 // DisconnectForge calls forge.v1.ForgeService.DisconnectForge.
 func (c *forgeServiceClient) DisconnectForge(ctx context.Context, req *connect.Request[v1.DisconnectForgeRequest]) (*connect.Response[emptypb.Empty], error) {
 	return c.disconnectForge.CallUnary(ctx, req)
@@ -198,6 +214,7 @@ type ForgeServiceHandler interface {
 	MergeForgePullRequest(context.Context, *connect.Request[v1.MergeForgePullRequestRequest]) (*connect.Response[emptypb.Empty], error)
 	SetForgePullRequestDraft(context.Context, *connect.Request[v1.SetForgePullRequestDraftRequest]) (*connect.Response[emptypb.Empty], error)
 	SetForgePullRequestAutoMerge(context.Context, *connect.Request[v1.SetForgePullRequestAutoMergeRequest]) (*connect.Response[emptypb.Empty], error)
+	RequestForgePullRequestRereview(context.Context, *connect.Request[v1.RequestForgePullRequestRereviewRequest]) (*connect.Response[emptypb.Empty], error)
 	DisconnectForge(context.Context, *connect.Request[v1.DisconnectForgeRequest]) (*connect.Response[emptypb.Empty], error)
 }
 
@@ -254,6 +271,12 @@ func NewForgeServiceHandler(svc ForgeServiceHandler, opts ...connect.HandlerOpti
 		connect.WithIdempotency(connect.IdempotencyIdempotent),
 		connect.WithHandlerOptions(opts...),
 	)
+	forgeServiceRequestForgePullRequestRereviewHandler := connect.NewUnaryHandler(
+		ForgeServiceRequestForgePullRequestRereviewProcedure,
+		svc.RequestForgePullRequestRereview,
+		connect.WithSchema(forgeServiceMethods.ByName("RequestForgePullRequestRereview")),
+		connect.WithHandlerOptions(opts...),
+	)
 	forgeServiceDisconnectForgeHandler := connect.NewUnaryHandler(
 		ForgeServiceDisconnectForgeProcedure,
 		svc.DisconnectForge,
@@ -276,6 +299,8 @@ func NewForgeServiceHandler(svc ForgeServiceHandler, opts ...connect.HandlerOpti
 			forgeServiceSetForgePullRequestDraftHandler.ServeHTTP(w, r)
 		case ForgeServiceSetForgePullRequestAutoMergeProcedure:
 			forgeServiceSetForgePullRequestAutoMergeHandler.ServeHTTP(w, r)
+		case ForgeServiceRequestForgePullRequestRereviewProcedure:
+			forgeServiceRequestForgePullRequestRereviewHandler.ServeHTTP(w, r)
 		case ForgeServiceDisconnectForgeProcedure:
 			forgeServiceDisconnectForgeHandler.ServeHTTP(w, r)
 		default:
@@ -313,6 +338,10 @@ func (UnimplementedForgeServiceHandler) SetForgePullRequestDraft(context.Context
 
 func (UnimplementedForgeServiceHandler) SetForgePullRequestAutoMerge(context.Context, *connect.Request[v1.SetForgePullRequestAutoMergeRequest]) (*connect.Response[emptypb.Empty], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("forge.v1.ForgeService.SetForgePullRequestAutoMerge is not implemented"))
+}
+
+func (UnimplementedForgeServiceHandler) RequestForgePullRequestRereview(context.Context, *connect.Request[v1.RequestForgePullRequestRereviewRequest]) (*connect.Response[emptypb.Empty], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("forge.v1.ForgeService.RequestForgePullRequestRereview is not implemented"))
 }
 
 func (UnimplementedForgeServiceHandler) DisconnectForge(context.Context, *connect.Request[v1.DisconnectForgeRequest]) (*connect.Response[emptypb.Empty], error) {

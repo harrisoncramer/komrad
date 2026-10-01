@@ -23,6 +23,7 @@ type ForgeServiceImpl interface {
 	MergeForgePullRequest(context.Context, *v1.MergeForgePullRequestRequest) (*emptypb.Empty, *fail.Error)
 	SetForgePullRequestDraft(context.Context, *v1.SetForgePullRequestDraftRequest) (*emptypb.Empty, *fail.Error)
 	SetForgePullRequestAutoMerge(context.Context, *v1.SetForgePullRequestAutoMergeRequest) (*emptypb.Empty, *fail.Error)
+	RequestForgePullRequestRereview(context.Context, *v1.RequestForgePullRequestRereviewRequest) (*emptypb.Empty, *fail.Error)
 	DisconnectForge(context.Context, *v1.DisconnectForgeRequest) (*emptypb.Empty, *fail.Error)
 }
 
@@ -65,6 +66,11 @@ func (a ForgeServiceAdapter) SetForgePullRequestDraft(ctx context.Context, req *
 // SetForgePullRequestAutoMerge answers the request as connect serves it.
 func (a ForgeServiceAdapter) SetForgePullRequestAutoMerge(ctx context.Context, req *connect.Request[v1.SetForgePullRequestAutoMergeRequest]) (*connect.Response[emptypb.Empty], error) {
 	return rpcerr.Answer(a.Impl.SetForgePullRequestAutoMerge(ctx, req.Msg))
+}
+
+// RequestForgePullRequestRereview answers the request as connect serves it.
+func (a ForgeServiceAdapter) RequestForgePullRequestRereview(ctx context.Context, req *connect.Request[v1.RequestForgePullRequestRereviewRequest]) (*connect.Response[emptypb.Empty], error) {
+	return rpcerr.Answer(a.Impl.RequestForgePullRequestRereview(ctx, req.Msg))
 }
 
 // DisconnectForge answers the request as connect serves it.

@@ -1465,6 +1465,22 @@
           "response": "google.protobuf.Empty"
         },
         {
+          "slug": "request-forge-pull-request-rereview",
+          "name": "RequestForgePullRequestRereview",
+          "path": "/forge.v1.ForgeService/RequestForgePullRequestRereview",
+          "command": "komrad rpc request-forge-pull-request-rereview",
+          "tool": "request_forge_pull_request_rereview",
+          "mcp": false,
+          "roles": [],
+          "summary": "Ask every reviewer whose latest review of a pull request asks for changes to review it again, through the forge connection for its host.",
+          "description": "Ask every reviewer whose latest review of a pull request asks for changes to review it again, through the forge connection for its host. A pull request nobody has asked for changes on, or one that has merged or closed, is refused as failed_precondition.",
+          "readOnly": false,
+          "idempotent": false,
+          "destructive": true,
+          "request": "forge.v1.RequestForgePullRequestRereviewRequest",
+          "response": "google.protobuf.Empty"
+        },
+        {
           "slug": "disconnect-forge",
           "name": "DisconnectForge",
           "path": "/forge.v1.ForgeService/DisconnectForge",
@@ -6673,6 +6689,25 @@
         }
       ]
     },
+    "forge.v1.RequestForgePullRequestRereviewRequest": {
+      "name": "RequestForgePullRequestRereviewRequest",
+      "description": "",
+      "fields": [
+        {
+          "name": "url",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [
+            "required",
+            "at most 2048 characters"
+          ],
+          "description": "The pull request's web address, whose host picks the forge connection."
+        }
+      ]
+    },
     "forge.v1.SetForgePullRequestAutoMergeRequest": {
       "name": "SetForgePullRequestAutoMergeRequest",
       "description": "",
@@ -9796,6 +9831,10 @@
         {
           "name": "PULL_REQUEST_STATE_CHECKS_RUNNING",
           "description": "Open with checks still running on its head and no change request."
+        },
+        {
+          "name": "PULL_REQUEST_STATE_REREVIEW_REQUESTED",
+          "description": "Open with every reviewer who asked for changes asked to review again."
         }
       ]
     },
@@ -9818,6 +9857,10 @@
         {
           "name": "REVIEW_DECISION_CHANGES_REQUESTED",
           "description": "A reviewer is asking for changes."
+        },
+        {
+          "name": "REVIEW_DECISION_REREVIEW_REQUESTED",
+          "description": "Every reviewer who asked for changes has been asked to review again."
         }
       ]
     },

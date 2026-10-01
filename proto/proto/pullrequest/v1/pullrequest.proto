@@ -122,6 +122,8 @@ enum PullRequestState {
   PULL_REQUEST_STATE_CONFLICTING = 11;
   // Open with checks still running on its head and no change request.
   PULL_REQUEST_STATE_CHECKS_RUNNING = 12;
+  // Open with every reviewer who asked for changes asked to review again.
+  PULL_REQUEST_STATE_REREVIEW_REQUESTED = 13;
 }
 
 // Mergeability is where the forge says a pull request stands against its base and its branch
@@ -155,6 +157,8 @@ enum ReviewDecision {
   REVIEW_DECISION_APPROVED = 3;
   // A reviewer is asking for changes.
   REVIEW_DECISION_CHANGES_REQUESTED = 4;
+  // Every reviewer who asked for changes has been asked to review again.
+  REVIEW_DECISION_REREVIEW_REQUESTED = 5;
 }
 
 // Checks is where the checks on a pull request's head commit stand, as the forge last reported
