@@ -430,6 +430,18 @@ func (m *model) applyDocumentRead(msg documentReadMsg) {
 	d.bodies[msg.id] = msg.read
 }
 
+var (
+	_ listFilterer     = (*documentsScreen)(nil)
+	_ columnFocuser    = (*documentsScreen)(nil)
+	_ crumbDrawer      = (*documentsScreen)(nil)
+	_ screenLeaver     = (*documentsScreen)(nil)
+	_ rowStager        = (*documentsScreen)(nil)
+	_ itemMenuBuilder  = (*documentsScreen)(nil)
+	_ lineTyper        = (*documentsScreen)(nil)
+	_ renamer          = (*documentsScreen)(nil)
+	_ editorReconciler = (*documentsScreen)(nil)
+)
+
 func (d *documentsScreen) stage(m *model) {
 	m.stageTerminal()
 }
@@ -465,24 +477,6 @@ func (d *documentsScreen) filterRows(m *model) []filterRow {
 	return d.list().filterRows(m)
 }
 
-func (d *documentsScreen) spec() screenSpec {
-	return screenSpec{
-		screenModel:     d,
-		column:          d.column,
-		filtered:        d,
-		blocked:         d,
-		crumbed:         d,
-		columnScroller:  d,
-		leave:           d.leave,
-		stage:           d.stage,
-		itemMenu:        d.itemMenu,
-		docKeys:         d.docKeys,
-		typedLine:       d.typedLine,
-		isRenaming:      d.isRenaming,
-		stageResting:    d.stageResting,
-		reconcileEditor: d.reconcileEditor,
-		dispatches: func(m *model) []dispatching {
-			return []dispatching{d.listActions(), d.diffActions(), m.docActions(), d.docKeys()}
-		},
-	}
+func (d *documentsScreen) dispatches(m *model) []dispatching {
+	return []dispatching{d.listActions(), d.diffActions(), m.docActions(), d.docKeys()}
 }

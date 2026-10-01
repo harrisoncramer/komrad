@@ -47,17 +47,7 @@ func (m *model) applyStageTick(msg stageTickMsg) tea.Cmd {
 		return nil
 	}
 
-	return tea.Batch(m.stageRestingRow(), m.wakeCwdSyncCmd())
-}
-
-// stageRestingRow stages the row the cursor came to rest on and asks for what the screen reads of it.
-func (m *model) stageRestingRow() tea.Cmd {
-	stageResting := m.active().stageResting
-	if stageResting == nil {
-		return m.inspectAgentWorktreeCmd(time.Now())
-	}
-
-	return stageResting(m)
+	return tea.Batch(m.active().stageResting(m), m.wakeCwdSyncCmd())
 }
 
 func (w *worktreesScreen) stageResting(m *model) tea.Cmd {

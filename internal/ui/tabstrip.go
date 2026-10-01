@@ -227,11 +227,11 @@ func (s tabStrip) view(state tabsState, palette paint.Palette, width int) string
 	return line
 }
 
-// activeTabs is the tabbed facet of the screen that is up, and false on a screen that draws no strip.
-func (m *model) activeTabs() (tabbed, bool) {
-	t := m.active().tabbed
+// activeTabs is the tab switcher of the screen that is up, and false on a screen that draws no strip.
+func (m *model) activeTabs() (tabSwitcher, bool) {
+	t, ok := m.active().(tabSwitcher)
 
-	return t, t != nil
+	return t, ok
 }
 
 func (m *model) isTabsDrawn() bool {

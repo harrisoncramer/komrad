@@ -127,9 +127,9 @@ func (r *reviewScreen) applyPaused(m *model, msg reviewPausedMsg) tea.Cmd {
 }
 
 func (m *model) isPausing(agentID string) bool {
-	isPausing := m.active().isPausing
+	screen, ok := m.active().(agentPauser)
 
-	return isPausing != nil && isPausing(agentID)
+	return ok && screen.isPausing(agentID)
 }
 
 func (r *reviewScreen) isPausing(agentID string) bool {

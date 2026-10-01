@@ -127,7 +127,7 @@ type documentEntry struct {
 	run   func(d *documentsScreen, m *model) tea.Cmd
 }
 
-func (d *documentsScreen) itemMenu(m *model) (submenu, bool) {
+func (d *documentsScreen) buildItemMenu(m *model) (submenu, bool) {
 	if d.isDiffFocused(m) {
 		return submenu{}, false
 	}

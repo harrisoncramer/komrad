@@ -108,19 +108,19 @@ func (m *model) routeWheel(x, y, rows int) tea.Cmd {
 		return nil
 	}
 
-	if scrollPopupAt := m.active().scrollPopupAt; scrollPopupAt != nil && !m.form.isActive() && !m.writes.held.active && !m.isMessagesFocused() && scrollPopupAt(m, x-m.countInsetLeft(), y, rows) {
+	if m.screen == screenReview && !m.form.isActive() && !m.writes.held.active && !m.isMessagesFocused() && m.review.scrollPopupAt(m, x-m.countInsetLeft(), y, rows) {
 		return nil
 	}
 
 	if m.form.isActive() || m.writes.held.active || !m.isOverColumn(x) {
-		if scrollList := m.active().scrollList; scrollList != nil {
-			return scrollList(m, rows)
+		if screen, ok := m.active().(listScroller); ok {
+			return screen.scrollList(m, rows)
 		}
 
 		return m.pressWheel(rows)
 	}
 
-	if screen := m.active().columnScroller; screen != nil && screen.doesScrollColumn(m) {
+	if screen, ok := m.active().(columnFocuser); ok && screen.doesScrollColumn(m) {
 		return screen.scrollColumn(m, rows*columnWheelStep)
 	}
 

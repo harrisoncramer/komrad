@@ -116,6 +116,16 @@ func (m *model) enterReview(agent panel.Agent) tea.Cmd {
 	return tea.Batch(left, m.review.open(m, agent))
 }
 
+var (
+	_ columnFocuser    = (*reviewScreen)(nil)
+	_ crumbDrawer      = (*reviewScreen)(nil)
+	_ loadingReporter  = (*reviewScreen)(nil)
+	_ lineTyper        = (*reviewScreen)(nil)
+	_ listScroller     = (*reviewScreen)(nil)
+	_ editorReconciler = (*reviewScreen)(nil)
+	_ agentPauser      = (*reviewScreen)(nil)
+)
+
 func (r *reviewScreen) doesDrawFromListing() bool {
 	return false
 }
@@ -124,7 +134,7 @@ func (r *reviewScreen) column() columnSpec {
 	return reviewColumn()
 }
 
-func (r *reviewScreen) typedLine() (lineInput, bool) {
+func (r reviewScreen) typedLine() (lineInput, bool) {
 	if r.filesFilter.typing {
 		return r.filesFilter.input, true
 	}
@@ -132,20 +142,6 @@ func (r *reviewScreen) typedLine() (lineInput, bool) {
 	return r.diff.filter.input, r.diff.filter.typing
 }
 
-func (r *reviewScreen) spec() screenSpec {
-	return screenSpec{
-		screenModel:     r,
-		column:          r.column,
-		blocked:         r,
-		crumbed:         r,
-		columnScroller:  r,
-		isLoading:       r.isLoading,
-		typedLine:       r.typedLine,
-		scrollPopupAt:   r.scrollPopupAt,
-		scrollList:      r.scrollList,
-		stageResting:    r.stageResting,
-		reconcileEditor: r.reconcileEditor,
-		isPausing:       r.isPausing,
-		dispatches:      func(*model) []dispatching { return []dispatching{r.diffActions(), r.filesActions()} },
-	}
+func (r *reviewScreen) dispatches(*model) []dispatching {
+	return []dispatching{r.diffActions(), r.filesActions()}
 }

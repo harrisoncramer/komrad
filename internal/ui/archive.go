@@ -501,6 +501,21 @@ func archiveTabs() tabStrip {
 	}
 }
 
+var (
+	_ recordDrawer         = (*archiveScreen)(nil)
+	_ listFilterer         = (*archiveScreen)(nil)
+	_ kindSwitcher         = (*archiveScreen)(nil)
+	_ tabSwitcher          = (*archiveScreen)(nil)
+	_ rowStager            = (*archiveScreen)(nil)
+	_ hoveredNamer         = (*archiveScreen)(nil)
+	_ itemMenuBuilder      = (*archiveScreen)(nil)
+	_ loadingReporter      = (*archiveScreen)(nil)
+	_ lineTyper            = (*archiveScreen)(nil)
+	_ renamer              = (*archiveScreen)(nil)
+	_ hoveredAgentReporter = (*archiveScreen)(nil)
+	_ savedScreenDrawer    = (*archiveScreen)(nil)
+)
+
 func (a *archiveScreen) doesDrawFromListing() bool {
 	return true
 }
@@ -610,25 +625,6 @@ func (a *archiveScreen) settleRename(m *model, row string, err error) {
 	}
 }
 
-func (a *archiveScreen) spec() screenSpec {
-	return screenSpec{
-		screenModel:     a,
-		column:          a.column,
-		detailed:        a,
-		filtered:        a,
-		kinded:          a,
-		tabbed:          a,
-		stage:           a.stage,
-		hoveredName:     a.hoveredName,
-		itemMenu:        a.itemMenu,
-		isLoading:       a.isLoading,
-		typedLine:       a.typedLine,
-		isRenaming:      a.isRenaming,
-		stageResting:    a.stageResting,
-		hoveredAgentID:  a.hoveredAgentID,
-		hoveredRow:      a.hoveredRow,
-		screenedAgentID: a.screenedAgentID,
-		notice:          a.notice,
-		dispatches:      func(*model) []dispatching { return []dispatching{a.actions()} },
-	}
+func (a *archiveScreen) dispatches(*model) []dispatching {
+	return []dispatching{a.actions()}
 }

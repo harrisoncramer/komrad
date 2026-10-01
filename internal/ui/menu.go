@@ -12,14 +12,14 @@ import (
 func (m *model) openMenu() tea.Cmd {
 	menu := panelMenu(m)
 
-	if screenMenu := m.active().screenMenu; screenMenu != nil && !m.isDetailsFocused() {
-		if band, ok := screenMenu(m); ok {
+	if screen, ok := m.active().(screenMenuBuilder); ok && !m.isDetailsFocused() {
+		if band, ok := screen.buildScreenMenu(m); ok {
 			menu = joinMenus(band, menu)
 		}
 	}
 
-	if itemMenu := m.active().itemMenu; itemMenu != nil && !m.isDetailsFocused() {
-		if item, ok := itemMenu(m); ok {
+	if screen, ok := m.active().(itemMenuBuilder); ok && !m.isDetailsFocused() {
+		if item, ok := screen.buildItemMenu(m); ok {
 			menu = joinMenus(item, menu)
 		}
 	}
@@ -57,7 +57,7 @@ func joinMenus(top, bottom submenu) submenu {
 	}
 }
 
-func (a *agentsScreen) itemMenu(m *model) (submenu, bool) {
+func (a *agentsScreen) buildItemMenu(m *model) (submenu, bool) {
 	if a.list().isSelecting(m) {
 		agents := chosenAgents(a.selected, a.rows(m))
 		if len(agents) == 0 {
@@ -96,7 +96,7 @@ func (a *agentsScreen) itemMenu(m *model) (submenu, bool) {
 	return withNested(menu, "archive", m.keys.Menu.Archive, agentsArchiveMenu(m, []panel.Agent{item.Agent}, false)), true
 }
 
-func (w *schedulesScreen) itemMenu(m *model) (submenu, bool) {
+func (w *schedulesScreen) buildItemMenu(m *model) (submenu, bool) {
 	item, ok := w.selected(m)
 	if !ok {
 		return submenu{}, false
@@ -105,8 +105,8 @@ func (w *schedulesScreen) itemMenu(m *model) (submenu, bool) {
 	return withNested(scheduleMenu(m, item.schedule), "archive", m.keys.Menu.Archive, scheduleArchiveMenu(m, item.schedule)), true
 }
 
-// screenMenu is the schedules screen's own band, for writing a new schedule.
-func (w *schedulesScreen) screenMenu(m *model) (submenu, bool) {
+// buildScreenMenu is the schedules screen's own band, for writing a new schedule.
+func (w *schedulesScreen) buildScreenMenu(m *model) (submenu, bool) {
 	return submenu{
 		kind:  formMenu,
 		title: "schedules",
@@ -141,7 +141,7 @@ func rowMenu(name string) submenu {
 	}
 }
 
-func (a *archiveScreen) itemMenu(m *model) (submenu, bool) {
+func (a *archiveScreen) buildItemMenu(m *model) (submenu, bool) {
 	target, ok := a.menuTarget(m)
 	if !ok {
 		return submenu{}, false

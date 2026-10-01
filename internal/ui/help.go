@@ -49,7 +49,7 @@ func (m *model) renderHelp(k keyMap, above ...string) string {
 	if m.filter.typing {
 		k = filterHelp(m.filter.mode)
 	}
-	if isRenaming := m.active().isRenaming; isRenaming != nil && isRenaming() {
+	if r, ok := m.active().(renamer); ok && r.isRenaming() {
 		k = renameHelp()
 	}
 	if m.isViewsOpen() {

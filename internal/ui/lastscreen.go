@@ -36,12 +36,12 @@ type lastScreenMsg struct {
 
 // screenedAgentID is the agent whose saved screen the column draws.
 func (m *model) screenedAgentID() (string, bool) {
-	screenedAgentID := m.active().screenedAgentID
-	if screenedAgentID == nil {
+	screen, ok := m.active().(savedScreenDrawer)
+	if !ok {
 		return "", false
 	}
 
-	return screenedAgentID(m)
+	return screen.screenedAgentID(m)
 }
 
 func (a *archiveScreen) screenedAgentID(m *model) (string, bool) {
@@ -179,12 +179,12 @@ func noticeRows(notice string, width int) []string {
 }
 
 func (m *model) screenNotice() string {
-	notice := m.active().notice
-	if notice == nil {
+	screen, ok := m.active().(savedScreenDrawer)
+	if !ok {
 		return ""
 	}
 
-	return notice(m)
+	return screen.notice(m)
 }
 
 func (a *archiveScreen) notice(m *model) string {

@@ -423,6 +423,24 @@ func startOrchestrator(m *model, workflow panel.Workflow) tea.Cmd {
 	)
 }
 
+var (
+	_ recordDrawer         = (*agentsScreen)(nil)
+	_ listFilterer         = (*agentsScreen)(nil)
+	_ tabSwitcher          = (*agentsScreen)(nil)
+	_ screenLeaver         = (*agentsScreen)(nil)
+	_ rowStager            = (*agentsScreen)(nil)
+	_ hoveredNamer         = (*agentsScreen)(nil)
+	_ screenMenuBuilder    = (*agentsScreen)(nil)
+	_ itemMenuBuilder      = (*agentsScreen)(nil)
+	_ loadingReporter      = (*agentsScreen)(nil)
+	_ lineTyper            = (*agentsScreen)(nil)
+	_ renamer              = (*agentsScreen)(nil)
+	_ editorReconciler     = (*agentsScreen)(nil)
+	_ hoveredAgentReporter = (*agentsScreen)(nil)
+	_ savedScreenDrawer    = (*agentsScreen)(nil)
+	_ agentPauser          = (*agentsScreen)(nil)
+)
+
 func (a *agentsScreen) doesDrawFromListing() bool {
 	return true
 }
@@ -508,29 +526,6 @@ func (a *agentsScreen) settleRename(m *model, row string, err error) {
 	}
 }
 
-func (a *agentsScreen) spec() screenSpec {
-	return screenSpec{
-		screenModel:     a,
-		column:          a.column,
-		detailed:        a,
-		filtered:        a,
-		tabbed:          a,
-		leave:           a.leave,
-		stage:           a.stage,
-		hoveredName:     a.hoveredName,
-		screenMenu:      a.screenMenu,
-		itemMenu:        a.itemMenu,
-		isLoading:       a.isLoading,
-		typedLine:       a.typedLine,
-		isRenaming:      a.isRenaming,
-		stageResting:    a.stageResting,
-		reconcileEditor: a.reconcileEditor,
-		hoveredAgentID:  a.hoveredAgentID,
-		hoveredRow:      a.hoveredRow,
-		screenedAgentID: a.screenedAgentID,
-		notice:          a.notice,
-		isPausing:       a.isPausing,
-		dispatches:      func(*model) []dispatching { return []dispatching{a.actions()} },
-		opensTerminal:   true,
-	}
+func (a *agentsScreen) dispatches(*model) []dispatching {
+	return []dispatching{a.actions()}
 }

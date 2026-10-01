@@ -6,8 +6,8 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-// screenMenu is the agents list's own band, for starting an agent or a workflow.
-func (a *agentsScreen) screenMenu(m *model) (submenu, bool) {
+// buildScreenMenu is the agents list's own band, for starting an agent or a workflow.
+func (a *agentsScreen) buildScreenMenu(m *model) (submenu, bool) {
 	in := a.enclosingWorkflow(m)
 	if workflow, ok := a.hoveredWorkflow(m); ok {
 		in = &workflow

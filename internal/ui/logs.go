@@ -101,8 +101,8 @@ func (l *logsScreen) enter(m *model, target screenTarget) tea.Cmd {
 	return l.listCmd(m)
 }
 
-// leave ends the chain of reads.
-func (l *logsScreen) leave(*model) tea.Cmd {
+// leaveScreen ends the chain of reads.
+func (l *logsScreen) leaveScreen(*model) tea.Cmd {
 	l.generation++
 
 	return nil
@@ -552,6 +552,14 @@ func (l *logsScreen) move(lines int) tea.Cmd {
 	return nil
 }
 
+var (
+	_ listFilterer  = (*logsScreen)(nil)
+	_ columnFocuser = (*logsScreen)(nil)
+	_ crumbDrawer   = (*logsScreen)(nil)
+	_ screenLeaver  = (*logsScreen)(nil)
+	_ lineTyper     = (*logsScreen)(nil)
+)
+
 func (l *logsScreen) hoveredKey(m *model) string {
 	return l.list().hovered(m)
 }
@@ -568,17 +576,6 @@ func (l *logsScreen) typedLine() (lineInput, bool) {
 	return l.logFilter.input, l.logFilter.typing
 }
 
-func (l *logsScreen) spec() screenSpec {
-	return screenSpec{
-		screenModel:    l,
-		column:         l.column,
-		filtered:       l,
-		blocked:        l,
-		crumbed:        l,
-		columnScroller: l,
-		leave:          l.leave,
-		typedLine:      l.typedLine,
-		stageResting:   l.stageResting,
-		dispatches:     func(*model) []dispatching { return []dispatching{l.listActions(), l.logActions()} },
-	}
+func (l *logsScreen) dispatches(*model) []dispatching {
+	return []dispatching{l.listActions(), l.logActions()}
 }

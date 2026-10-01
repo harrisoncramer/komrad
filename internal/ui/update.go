@@ -492,8 +492,8 @@ func (m *model) reconcileEditor() tea.Cmd {
 		return cmd
 	}
 
-	if reconcileEditor := m.active().reconcileEditor; reconcileEditor != nil {
-		return reconcileEditor(m)
+	if screen, ok := m.active().(editorReconciler); ok {
+		return screen.reconcileEditor(m)
 	}
 
 	return nil
@@ -507,12 +507,6 @@ func (m *model) isTyping() bool {
 	}
 
 	return m.active().takesEveryKey()
-}
-
-// columnScroller is a screen that scrolls its own block beside the list while it says it does.
-type columnScroller interface {
-	doesScrollColumn(m *model) bool
-	scrollColumn(m *model, rows int) tea.Cmd
 }
 
 // columnWheelStep is how many rows one turn of the wheel moves the block beside the list.

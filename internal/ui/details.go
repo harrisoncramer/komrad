@@ -54,8 +54,8 @@ func (r detailsRow) key() string {
 }
 
 func (m *model) hoveredDetails() details {
-	d := m.active().detailed
-	if d == nil {
+	d, ok := m.active().(recordDrawer)
+	if !ok {
 		return details{}
 	}
 
@@ -63,7 +63,9 @@ func (m *model) hoveredDetails() details {
 }
 
 func (m *model) isDetailsScreen() bool {
-	return m.active().detailed != nil
+	_, ok := m.active().(recordDrawer)
+
+	return ok
 }
 
 // detailsRows is the record's fields as its search leaves them.
@@ -103,8 +105,8 @@ func (m *model) isDetailsDrawn(held details) bool {
 		return false
 	}
 
-	d := m.active().detailed
-	if d == nil {
+	d, ok := m.active().(recordDrawer)
+	if !ok {
 		return true
 	}
 
@@ -378,8 +380,8 @@ func (m *model) setDetailsCursor(held details, idx int) {
 }
 
 func (m *model) quitKeys() []string {
-	d := m.active().detailed
-	if d == nil {
+	d, ok := m.active().(recordDrawer)
+	if !ok {
 		return m.keys.Agents.Quit
 	}
 
@@ -417,8 +419,8 @@ func (m *model) detailsLines() int {
 func (m *model) grownDetailsLines(held details) int {
 	lines := max(m.detailsLines(), m.detailsWanted(held))
 
-	d := m.active().detailed
-	if d == nil {
+	d, ok := m.active().(recordDrawer)
+	if !ok {
 		return lines
 	}
 

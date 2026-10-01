@@ -39,12 +39,7 @@ type dispatching interface {
 func actionsOf(s screen) []dispatching {
 	var zero model
 
-	dispatches := zero.screenOf(s).dispatches
-	if dispatches == nil {
-		return nil
-	}
-
-	return dispatches(&zero)
+	return zero.screenOf(s).dispatches(&zero)
 }
 
 // ValidateKeybindings rejects the bindings a screen could not dispatch.
@@ -266,17 +261,17 @@ func globalArms(s screen, keys config.Keybindings) []dispatchArm {
 
 	var zero model
 
-	if zero.screenOf(s).tabbed != nil {
+	if _, ok := zero.screenOf(s).(tabSwitcher); ok {
 		arms = append(arms, dispatchArm{describe: "the tabs focus", keys: keys.Tabs.Focus})
 	}
 
-	if zero.screenOf(s).kinded != nil {
+	if _, ok := zero.screenOf(s).(kindSwitcher); ok {
 		arms = append(arms, dispatchArm{describe: "the kinds focus", keys: keys.Kinds.Focus})
 	}
 
 	arms = append(arms, dispatchArm{describe: "the menu", keys: keys.Menu.Open})
 
-	if zero.screenOf(s).detailed != nil {
+	if _, ok := zero.screenOf(s).(recordDrawer); ok {
 		arms = append(arms,
 			// Both are read ahead of the screen's own keys.
 			dispatchArm{describe: "the key that pushes a fixture into the messages", keys: []string{messagesMockKey}},

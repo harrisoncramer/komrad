@@ -17,15 +17,6 @@ type crumbs struct {
 	tally string
 }
 
-// crumbed is a page opened from under a view, drawing the trail back to it.
-type crumbed interface {
-	// parent is the view the page was opened from.
-	parent() screen
-
-	// crumbs is the trail under the parent, down to the page.
-	crumbs(m *model) crumbs
-}
-
 func (c crumbs) view(palette paint.Palette, width int) string {
 	if len(c.trail) == 0 {
 		return ""
@@ -61,7 +52,7 @@ func (m *model) activeCrumbs() (crumbs, screen, bool) {
 // pageCrumbs is the trail under the view, from the page that is up or from the form open over a
 // view.
 func (m *model) pageCrumbs() (screen, crumbs, bool) {
-	if c := m.active().crumbed; c != nil {
+	if c, ok := m.active().(crumbDrawer); ok {
 		return c.parent(), c.crumbs(m), true
 	}
 
@@ -73,12 +64,12 @@ func (m *model) pageCrumbs() (screen, crumbs, bool) {
 }
 
 func (m *model) hoveredCrumbs() crumbs {
-	hoveredName := m.active().hoveredName
-	if hoveredName == nil {
+	h, ok := m.active().(hoveredNamer)
+	if !ok {
 		return crumbs{}
 	}
 
-	name := hoveredName(m)
+	name := h.hoveredName(m)
 	if name == "" {
 		return crumbs{}
 	}

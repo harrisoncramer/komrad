@@ -20,6 +20,20 @@ const (
 	screenLogs
 )
 
+// opensTerminal reports whether the key that opens a shell beside the panel acts on a screen.
+func (s screen) opensTerminal() bool {
+	switch s {
+	case screenAgents, screenSchedules:
+		return true
+	case screenArchive, screenSearch, screenReview, screenWorktrees, screenDocuments, screenLogs:
+		return false
+	}
+
+	// The switch carries every screen and no default, so this is what a screen added without an
+	// arm compiles to until the exhaustive check refuses it.
+	return false
+}
+
 // screenModel is what the panel asks of whichever screen is up.
 type screenModel interface {
 	// update takes a message the panel's own bindings did not claim.
@@ -37,6 +51,16 @@ type screenModel interface {
 
 	// takesEveryKey reports whether something on the screen is taking every key.
 	takesEveryKey() bool
+
+	// column is the block the screen draws beside its own list.
+	column() columnSpec
+
+	// stageResting stages the row the cursor came to rest on and asks for what the screen reads of it.
+	stageResting(m *model) tea.Cmd
+
+	// dispatches is the tables the screen dispatches through, one at a time, walked behind the
+	// global keys.
+	dispatches(m *model) []dispatching
 }
 
 // screenTarget is the row a screen is asked to land on, read by each screen for the fields it
@@ -49,8 +73,8 @@ type screenTarget struct {
 	resume bool
 }
 
-// detailed is a screen that draws a record under its list.
-type detailed interface {
+// recordDrawer is a screen that draws the hovered row's record under its list.
+type recordDrawer interface {
 	// details is the record the cursor is standing on.
 	details(m *model) details
 
@@ -64,9 +88,8 @@ type detailed interface {
 	detailsRoom(m *model) int
 }
 
-// filtered is a screen that draws a search under its list and keeps its cursor on the row it
-// was on as the pattern changes.
-type filtered interface {
+// listFilterer is a screen whose list the user can narrow by typing a pattern.
+type listFilterer interface {
 	// hoveredKey is the key of the row the cursor is on, read before the pattern changes.
 	hoveredKey(m *model) string
 
@@ -85,8 +108,9 @@ type filterRow struct {
 	name string
 }
 
-// kinded is a screen listing more than one kind of resource, switched on a row of its own.
-type kinded interface {
+// kindSwitcher is a screen that lists more than one kind of resource and switches between them
+// on a row of its own.
+type kindSwitcher interface {
 	kinds() stops
 
 	// kindsFocused is whether the row of kinds holds the keys.
@@ -102,8 +126,8 @@ type kinded interface {
 	kindsSwitch(m *model) bool
 }
 
-// tabbed is a screen that draws a strip of tabs over its list.
-type tabbed interface {
+// tabSwitcher is a screen with a strip of tabs over its list.
+type tabSwitcher interface {
 	tabs() tabStrip
 
 	// tabsState is where the screen keeps the tab chosen and whether the strip holds the keys.
@@ -113,8 +137,8 @@ type tabbed interface {
 	tabsFit(m *model) bool
 }
 
-// blocked is a screen whose block beside the list can take the keys from it.
-type blocked interface {
+// columnFocuser is a screen whose block beside the list can take the keys and be scrolled.
+type columnFocuser interface {
 	// isBlockDrawn is whether the block is drawn with something in it to take the keys.
 	isBlockDrawn(m *model) bool
 
@@ -123,97 +147,116 @@ type blocked interface {
 
 	focusBlock(m *model)
 	blurBlock()
+	doesScrollColumn(m *model) bool
+	scrollColumn(m *model, rows int) tea.Cmd
 }
 
-// screenSpec is one screen as the panel dispatches to it, a nil field being one the screen lacks.
-type screenSpec struct {
-	screenModel
+// crumbDrawer is a screen opened from another that draws the trail back to it.
+type crumbDrawer interface {
+	// parent is the view the page was opened from.
+	parent() screen
 
-	// column is the block the screen draws beside its own list.
-	column func() columnSpec
+	// crumbs is the trail under the parent, down to the page.
+	crumbs(m *model) crumbs
+}
 
-	detailed       detailed
-	filtered       filtered
-	kinded         kinded
-	tabbed         tabbed
-	blocked        blocked
-	crumbed        crumbed
-	columnScroller columnScroller
+// hoveredAgentReporter is a screen whose cursor can rest on an agent's row.
+type hoveredAgentReporter interface {
+	hoveredAgentID(m *model) string
+	hoveredRow(m *model) (agentRow, bool)
+}
 
-	// leave puts down what the screen had open when another screen goes up.
-	leave func(m *model) tea.Cmd
+// savedScreenDrawer is a screen that draws a stopped agent's saved screen beside its list.
+type savedScreenDrawer interface {
+	screenedAgentID(m *model) (string, bool)
+	notice(m *model) string
+}
 
-	// stage puts the row the cursor is on into the stage pane.
-	stage func(m *model)
+// screenLeaver is a screen that puts down what it had open when another screen goes up.
+type screenLeaver interface {
+	leaveScreen(m *model) tea.Cmd
+}
 
-	// hoveredName is the row the view's trail runs on to.
-	hoveredName func(m *model) string
+// rowStager is a screen that puts its hovered row on the stage.
+type rowStager interface {
+	stage(m *model)
+}
 
-	// screenMenu is the screen's own band between the hovered row's and the panel's.
-	screenMenu func(m *model) (submenu, bool)
+// hoveredNamer is a screen that names its hovered row at the end of the trail.
+type hoveredNamer interface {
+	hoveredName(m *model) string
+}
 
-	// itemMenu is the hovered row's own band in the menu.
-	itemMenu func(m *model) (submenu, bool)
+// screenMenuBuilder is a screen that adds its own band to the menu.
+type screenMenuBuilder interface {
+	buildScreenMenu(m *model) (submenu, bool)
+}
 
-	// docKeys is the screen's own keys that answer while its document holds the keys.
-	docKeys func() screenActionSpec
+// itemMenuBuilder is a screen that adds a band to the menu for its hovered row.
+type itemMenuBuilder interface {
+	buildItemMenu(m *model) (submenu, bool)
+}
 
-	// typedLine is the screen's own one-row field taking the keys, if one is.
-	typedLine func() (lineInput, bool)
+// lineTyper is a screen with a one-row field the user can type into.
+type lineTyper interface {
+	typedLine() (lineInput, bool)
+}
 
-	// scrollPopupAt scrolls the screen's popup while the mouse is over it.
-	scrollPopupAt func(m *model, x, y, rows int) bool
+// listScroller is a screen whose scroll key does something other than move its list.
+type listScroller interface {
+	scrollList(m *model, rows int) tea.Cmd
+}
 
-	// scrollList is the screen's scroll key where it does not move the list.
-	scrollList func(m *model, rows int) tea.Cmd
+// loadingReporter is a screen that can be waiting on the service for what it draws.
+type loadingReporter interface {
+	isLoading(m *model) bool
+}
 
-	isLoading       func(m *model) bool
-	isRenaming      func() bool
-	stageResting    func(m *model) tea.Cmd
-	reconcileEditor func(m *model) tea.Cmd
-	hoveredAgentID  func(m *model) string
-	hoveredRow      func(m *model) (agentRow, bool)
-	screenedAgentID func(m *model) (string, bool)
-	notice          func(m *model) string
-	isPausing       func(agentID string) bool
+// renamer is a screen that can rename its hovered row in place.
+type renamer interface {
+	isRenaming() bool
+}
 
-	// dispatches is the tables the screen dispatches through, one at a time, walked behind the
-	// global keys.
-	dispatches func(m *model) []dispatching
+// editorReconciler is a screen that keeps an editor it opened on the stage in step with its
+// cursor.
+type editorReconciler interface {
+	reconcileEditor(m *model) tea.Cmd
+}
 
-	// opensTerminal is whether the key that opens a shell beside the panel acts on the screen.
-	opensTerminal bool
+// agentPauser is a screen that can pause an agent while it is up.
+type agentPauser interface {
+	isPausing(agentID string) bool
 }
 
 // active is the screen that is up.
-func (m *model) active() screenSpec {
+func (m *model) active() screenModel {
 	return m.screenOf(m.screen)
 }
 
 // screenOf is the screen behind the enum, held by value on the root.
-func (m *model) screenOf(s screen) screenSpec {
+func (m *model) screenOf(s screen) screenModel {
 	switch s {
 	case screenAgents:
-		return m.agents.spec()
+		return &m.agents
 	case screenSchedules:
-		return m.schedules.spec()
+		return &m.schedules
 	case screenArchive:
-		return m.archive.spec()
+		return &m.archive
 	case screenSearch:
-		return m.search.spec()
+		return &m.search
 	case screenReview:
-		return m.review.spec()
+		return &m.review
 	case screenWorktrees:
-		return m.worktrees.spec()
+		return &m.worktrees
 	case screenDocuments:
-		return m.documents.spec()
+		return &m.documents
 	case screenLogs:
-		return m.logs.spec()
+		return &m.logs
 	}
 
 	// The switch carries every screen and no default, so this is what a screen added without an
 	// arm compiles to until the exhaustive check refuses it.
-	return screenSpec{}
+	return nil
 }
 
 func (m *model) getHostPath() string {

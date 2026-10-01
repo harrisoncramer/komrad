@@ -226,7 +226,7 @@ func (m *model) updateDoc(key tea.KeyPressMsg) tea.Cmd {
 	m.reading.said = ""
 
 	k := key.String()
-	if m.active().detailed != nil && isBound(k, m.quitKeys()) {
+	if _, ok := m.active().(recordDrawer); ok && isBound(k, m.quitKeys()) {
 		return m.hide()
 	}
 
@@ -235,8 +235,8 @@ func (m *model) updateDoc(key tea.KeyPressMsg) tea.Cmd {
 		return own.dispatch(m, k)
 	}
 
-	if docKeys := m.active().docKeys; docKeys != nil {
-		return docKeys().dispatch(m, k)
+	if m.screen == screenDocuments {
+		return m.documents.docKeys().dispatch(m, k)
 	}
 
 	return nil
@@ -356,8 +356,8 @@ func (m *model) docActions() screenActionSpec {
 // docHelp is the legend while the document beside the list holds the keys.
 func (m *model) docHelp() keyMap {
 	own := m.docActions().help(m)
-	if docKeys := m.active().docKeys; docKeys != nil {
-		screen := docKeys().help(m)
+	if m.screen == screenDocuments {
+		screen := m.documents.docKeys().help(m)
 		own = keyMap{
 			short: slices.Concat(own.short, screen.short),
 			full:  slices.Concat(own.full, screen.full),

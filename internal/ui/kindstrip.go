@@ -10,11 +10,11 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
-// activeKinds is the kinded facet of the screen that is up, and false on a screen listing one kind.
-func (m *model) activeKinds() (kinded, bool) {
-	k := m.active().kinded
+// activeKinds is the kind switcher of the screen that is up, and false on a screen listing one kind.
+func (m *model) activeKinds() (kindSwitcher, bool) {
+	k, ok := m.active().(kindSwitcher)
 
-	return k, k != nil
+	return k, ok
 }
 
 func (m *model) isKindsDrawn() bool {

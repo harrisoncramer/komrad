@@ -195,8 +195,8 @@ func (d *documentsScreen) blurBlock() {
 	d.focus = false
 }
 
-// leave takes down an editor open on the stage.
-func (d *documentsScreen) leave(m *model) tea.Cmd {
+// leaveScreen takes down an editor open on the stage.
+func (d *documentsScreen) leaveScreen(m *model) tea.Cmd {
 	d.renaming = nil
 
 	return d.closeEdit(m)

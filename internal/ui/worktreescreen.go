@@ -526,6 +526,17 @@ func commitLines(commits []worktreeCommit) []string {
 	return lines
 }
 
+var (
+	_ recordDrawer      = (*worktreesScreen)(nil)
+	_ listFilterer      = (*worktreesScreen)(nil)
+	_ kindSwitcher      = (*worktreesScreen)(nil)
+	_ tabSwitcher       = (*worktreesScreen)(nil)
+	_ rowStager         = (*worktreesScreen)(nil)
+	_ hoveredNamer      = (*worktreesScreen)(nil)
+	_ itemMenuBuilder   = (*worktreesScreen)(nil)
+	_ savedScreenDrawer = (*worktreesScreen)(nil)
+)
+
 func (w *worktreesScreen) doesDrawFromListing() bool {
 	return true
 }
@@ -584,20 +595,6 @@ func (w *worktreesScreen) column() columnSpec {
 	}
 }
 
-func (w *worktreesScreen) spec() screenSpec {
-	return screenSpec{
-		screenModel:     w,
-		column:          w.column,
-		detailed:        w,
-		filtered:        w,
-		kinded:          w,
-		tabbed:          w,
-		stage:           w.stage,
-		hoveredName:     w.hoveredName,
-		itemMenu:        w.itemMenu,
-		stageResting:    w.stageResting,
-		screenedAgentID: w.screenedAgentID,
-		notice:          w.notice,
-		dispatches:      func(*model) []dispatching { return []dispatching{w.actions()} },
-	}
+func (w *worktreesScreen) dispatches(*model) []dispatching {
+	return []dispatching{w.actions()}
 }

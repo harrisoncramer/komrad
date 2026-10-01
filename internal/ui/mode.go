@@ -101,8 +101,8 @@ func (m *model) typedLine() (lineInput, bool) {
 		return m.reading.filter.input, true
 	}
 
-	if typedLine := m.active().typedLine; typedLine != nil {
-		return typedLine()
+	if typer, ok := m.active().(lineTyper); ok {
+		return typer.typedLine()
 	}
 
 	return lineInput{}, false
