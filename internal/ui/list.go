@@ -482,15 +482,11 @@ func screenNavLegend() []screenLegendRow {
 
 // filterDescOf names the filter key by the search standing in the list.
 func filterDescOf(s panelShared) string {
-	if s.chrome.filter.isStanding() {
-		return s.chrome.filter.mode.String() + ": " + s.chrome.filter.query()
-	}
-
-	return "search"
+	return s.chrome.filter.openDesc()
 }
 
 func filterClearDescOf(s panelShared) string {
-	return "clear " + s.chrome.filter.mode.String()
+	return s.chrome.filter.clearDesc()
 }
 
 // screenListParams is a screen's list as the root draws it: its title and tally, its own

@@ -38,6 +38,9 @@ type reviewScreen struct {
 	offers reviewOffers
 
 	filesFocused bool
+
+	// filesFilter is the pattern the file tree is searched or narrowed by.
+	filesFilter filterState
 }
 
 func (r reviewScreen) parent() screen {
@@ -52,7 +55,7 @@ func (r reviewScreen) crumbs(panelShared) crumbs {
 // takesEveryKey reports whether the review is mid-input, in which case a key bound elsewhere
 // in the panel belongs here instead.
 func (r reviewScreen) takesEveryKey() bool {
-	return r.isWriting() || r.diff.filter.typing
+	return r.isWriting() || r.diff.filter.typing || r.filesFilter.typing
 }
 
 // isWriting reports whether the reader is composing a message or asking what to send.
@@ -131,5 +134,9 @@ func (r *reviewScreen) column() columnSpec {
 }
 
 func (r reviewScreen) typedLine() (lineInput, bool) {
+	if r.filesFilter.typing {
+		return r.filesFilter.input, true
+	}
+
 	return r.diff.filter.input, r.diff.filter.typing
 }

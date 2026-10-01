@@ -295,6 +295,8 @@ func (r *reviewScreen) stepThread(h navHost, s panelShared, pressed string) tea.
 
 // filesActions is the keys on the file tree, which walk the diff a file at a time.
 func (r *reviewScreen) filesActions() screenActionSpec {
+	standing := func(panelShared) bool { return r.filesFilter.isStanding() }
+
 	return screenActionSpec{
 		table: []screenAction{
 			{
@@ -304,6 +306,33 @@ func (r *reviewScreen) filesActions() screenActionSpec {
 				},
 				nav: func(h navHost, s panelShared, pressed string) tea.Cmd {
 					return r.stepFile(h, s, directionOf(pressed, slices.Concat(s.keys.Nav.Up, s.keys.Diff.PrevFile)))
+				},
+			},
+			{
+				id:   actionFilterOpen,
+				keys: func(config.Keybindings) []string { return []string{filterOpenKey} },
+				nav: func(navHost, panelShared, string) tea.Cmd {
+					r.openFilesFilter()
+
+					return nil
+				},
+			},
+			{
+				id:   actionFilterMatch,
+				keys: func(k config.Keybindings) []string { return slices.Concat(k.Filter.NextMatch, k.Filter.PrevMatch) },
+				when: standing,
+				nav: func(h navHost, s panelShared, pressed string) tea.Cmd {
+					return r.jumpFilesMatch(h, s, directionOf(pressed, s.keys.Filter.PrevMatch))
+				},
+			},
+			{
+				id:   actionFilterClear,
+				keys: func(k config.Keybindings) []string { return k.Review.Back },
+				when: standing,
+				nav: func(navHost, panelShared, string) tea.Cmd {
+					r.filesFilter.abandon()
+
+					return nil
 				},
 			},
 			{
@@ -334,6 +363,18 @@ func (r *reviewScreen) filesActions() screenActionSpec {
 				strip: true,
 			},
 			{
+				of:   []actionID{actionFilterOpen},
+				desc: func(panelShared) string { return r.filesFilter.openDesc() },
+			},
+			{
+				of:   []actionID{actionFilterMatch},
+				desc: func(panelShared) string { return "next/prev match" },
+			},
+			{
+				of:   []actionID{actionFilterClear},
+				desc: func(panelShared) string { return r.filesFilter.clearDesc() },
+			},
+			{
 				of:   []actionID{actionReviewViewed},
 				desc: func(panelShared) string { return r.diff.viewedDesc() },
 				show: func(panelShared) bool { return !r.diff.isNarrowed() },
@@ -341,6 +382,7 @@ func (r *reviewScreen) filesActions() screenActionSpec {
 			{
 				of:    []actionID{actionReviewBack},
 				desc:  func(panelShared) string { return "back to the diff" },
+				show:  func(panelShared) bool { return !r.filesFilter.isStanding() },
 				strip: true,
 			},
 		},

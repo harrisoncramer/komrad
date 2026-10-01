@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"cmp"
 	"fmt"
 	"strings"
 
@@ -21,23 +22,27 @@ const (
 	filesGutter      = 2
 )
 
-// filesTree is the rows of the file tree as the sidebar draws them, and which of them the diff
-// cursor is in.
+// filesTree is the rows of the file tree the filter leaves, and which of them the diff cursor is
+// in.
 type filesTree struct {
 	rows    []diffview.TreeRow
 	current int
 }
 
-// readFilesTree is the tree with the file the cursor is in found.
-func (d reviewDiff) readFilesTree() filesTree {
+// readFilesTree is the tree the filter leaves with the file the cursor is in found.
+func (r reviewScreen) readFilesTree() filesTree {
 	tree := filesTree{current: -1}
-	view := d.View()
+	view := r.diff.View()
 	if view == nil {
 		return tree
 	}
 
-	path := view.GetTreeFocus(d.Cursor())
-	tree.rows = view.GetFileTree()
+	path := view.GetTreeFocus(r.diff.Cursor())
+	tree.rows = narrowed(r.filesFilter, narrowedParams[diffview.TreeRow]{
+		rows:  view.GetFileTree(),
+		depth: func(row diffview.TreeRow) int { return row.Depth },
+		name:  func(row diffview.TreeRow) string { return row.Name },
+	})
 	for at, row := range tree.rows {
 		if !row.Folder && row.Path == path {
 			tree.current = at
@@ -49,13 +54,13 @@ func (d reviewDiff) readFilesTree() filesTree {
 	return tree
 }
 
-// countFilesRows is how many rows the FILES block wants, its header included.
+// countFilesRows is how many rows the FILES block wants, its search line included.
 func (r reviewScreen) countFilesRows() int {
 	if r.diff.View() == nil || r.diff.View().Len() == 0 {
 		return 1
 	}
 
-	return len(r.diff.View().GetFileTree()) + 1
+	return max(len(r.readFilesTree().rows), 1) + 1
 }
 
 // countFilesFloor is the fewest rows the FILES block keeps in a column of spare rows.
@@ -80,19 +85,26 @@ func (r reviewScreen) filesView(s panelShared, lines int) string {
 	}
 
 	width := lineWidthOf(s.pane)
-	tree := r.diff.readFilesTree()
+	tree := r.readFilesTree()
 	focused := r.isBlockFocused(s)
 	columns := measureStatColumns(s.glyphs, tree.rows)
 	rows := make([]string, 0, len(tree.rows))
 	for at, row := range tree.rows {
-		rows = append(rows, renderTreeRow(s, renderTreeRowParams{Row: row, Current: at == tree.current, Focused: focused, Width: width, Columns: columns}))
+		rows = append(rows, renderTreeRow(s, renderTreeRowParams{
+			Row:     row,
+			Current: at == tree.current,
+			Focused: focused,
+			Width:   width,
+			Columns: columns,
+			Filter:  r.filesFilter,
+		}))
 	}
 
-	header := r.diff.filesHeader(s, width) + "\n"
 	if len(rows) == 0 {
-		return header
+		rows = append(rows, dimStyle().Render(strings.Repeat(" ", filesGutter)+reviewNoFileWord))
 	}
 
+	header := ansi.Truncate(r.filesFilter.line(paint.Panel, s.glyphs), max(width, 0), "…") + "\n"
 	if lines < 0 {
 		return header + strings.Join(rows, "\n") + "\n"
 	}
@@ -109,19 +121,6 @@ func (r reviewScreen) filesView(s panelShared, lines int) string {
 	return header + paint.RenderList(rows, max(tree.current, 0), room, dimStyle())
 }
 
-// filesHeader names the block and says how far through the change the reader is.
-func (d reviewDiff) filesHeader(s panelShared, width int) string {
-	read, total := d.View().CountViewedFiles()
-	left := paint.Panel.Title("FILES") + dimStyle().Render(fmt.Sprintf("  %d of %d read", read, total))
-
-	return fitTreeRow(fitTreeRowParams{
-		Left:   left,
-		Stat:   formatStat(d.View().Stat()),
-		Badges: formatCounts(s.glyphs, d.View().CountThreads()),
-		Width:  width,
-	})
-}
-
 // renderTreeRowParams is one row of the tree and whether it is the one the cursor is in.
 type renderTreeRowParams struct {
 	Row     diffview.TreeRow
@@ -129,6 +128,7 @@ type renderTreeRowParams struct {
 	Focused bool
 	Width   int
 	Columns statColumns
+	Filter  filterState
 }
 
 // renderTreeRow draws one row of the tree: its mark, its place in the tree, its name, and what it
@@ -151,7 +151,7 @@ func renderTreeRow(s panelShared, params renderTreeRowParams) string {
 		lead = caretGlyph(s.draw.listPane(width).caret) + strings.Repeat(" ", filesGutter-2+2*row.Depth)
 	}
 	fit := fitTreeRowParams{
-		Left:  style.Render(row.Name),
+		Left:  params.Filter.highlight(paint.Panel, row.Name, style),
 		Width: width - lipgloss.Width(lead),
 	}
 
@@ -161,19 +161,6 @@ func renderTreeRow(s panelShared, params renderTreeRowParams) string {
 	}
 
 	return lead + fitTreeRow(fit)
-}
-
-// formatStat is the lines a change added and removed, leaving out a side it did not touch.
-func formatStat(stat diff.Stat) string {
-	var parts []string
-	if stat.Added > 0 {
-		parts = append(parts, paint.Panel.Style(reviewAddedTone).Render(fmt.Sprintf("+%d", stat.Added)))
-	}
-	if stat.Removed > 0 {
-		parts = append(parts, paint.Panel.Style(reviewRemovedTone).Render(fmt.Sprintf("−%d", stat.Removed)))
-	}
-
-	return strings.Join(parts, " ")
 }
 
 // statColumns is how wide each column right of a file's name is drawn across the tree.
@@ -226,28 +213,6 @@ func formatStatColumns(stat diff.Stat, columns statColumns) string {
 // padLeft right aligns text in a column of width cells.
 func padLeft(text string, width int) string {
 	return strings.Repeat(" ", max(width-lipgloss.Width(text), 0)) + text
-}
-
-// formatCounts is one badge for each state that asks something of the reader and has any threads
-// in it.
-func formatCounts(glyphs glyph.Set, counts diffview.ThreadCounts) string {
-	states := []struct {
-		glyph glyph.Glyph
-		count int
-	}{
-		{glyph: glyph.ThreadUnsent, count: counts.Unsent},
-		{glyph: glyph.ThreadUnread, count: counts.Unread},
-		{glyph: glyph.ThreadRead, count: counts.Open},
-	}
-
-	var badges []string
-	for _, state := range states {
-		if state.count > 0 {
-			badges = append(badges, glyphs.Spell(state.glyph)+fmt.Sprint(state.count))
-		}
-	}
-
-	return paint.Panel.Style(reviewHumanTone).Render(strings.Join(badges, " "))
 }
 
 // formatThreadMark is the one glyph a file's row carries for its threads, the state that asks
@@ -328,13 +293,119 @@ func (r *reviewScreen) blurBlock() {
 	r.filesFocused = false
 }
 
-// stepFile moves the diff to the next file in the tree, or the previous one for a negative
+// stepFile moves the diff to the next file the tree draws, or the previous one for a negative
 // direction.
 func (r *reviewScreen) stepFile(h navHost, s panelShared, direction int) tea.Cmd {
 	keys := r.diffKeys()
-	if !keys.pane.JumpFile(direction, keys.height(s)) {
+	if !r.filesFilter.isNarrowing() {
+		if !keys.pane.JumpFile(direction, keys.height(s)) {
+			return nil
+		}
+
+		return keys.land(h, s)
+	}
+
+	tree := r.readFilesTree()
+	at := tree.current
+	if at < 0 && direction < 0 {
+		at = len(tree.rows)
+	}
+
+	for at += direction; at >= 0 && at < len(tree.rows); at += direction {
+		if !tree.rows[at].Folder {
+			return r.landOnFile(h, s, tree.rows[at])
+		}
+	}
+
+	return nil
+}
+
+// landOnFile moves the diff to the top of a file in the tree.
+func (r *reviewScreen) landOnFile(h navHost, s panelShared, row diffview.TreeRow) tea.Cmd {
+	keys := r.diffKeys()
+	if !keys.pane.JumpToFile(row.Row, keys.height(s)) {
 		return nil
 	}
 
 	return keys.land(h, s)
+}
+
+func (r *reviewScreen) openFilesFilter() {
+	filter := &r.filesFilter
+	filter.typing = true
+	filter.mode = filterModeSearch
+	filter.openedIn = sectionList
+	filter.setQuery("")
+}
+
+// updateFilesFilter is the tree's search prompt taking keys.
+func (r *reviewScreen) updateFilesFilter(h host, s panelShared, key tea.KeyPressMsg) tea.Cmd {
+	filter := &r.filesFilter
+	switch key.String() {
+	case "ctrl+c":
+		return h.hide()
+	case "tab":
+		filter.mode = filter.mode.flipped()
+
+		return nil
+	case "enter":
+		filter.typing = false
+
+		return r.settleFilesFilter(h, s)
+	}
+
+	filter.takeKey(key, s.register)
+
+	return nil
+}
+
+// settleFilesFilter lands a search on the nearest file it matches, and a filter on the first file
+// it left when it took the current one away.
+func (r *reviewScreen) settleFilesFilter(h navHost, s panelShared) tea.Cmd {
+	if !r.filesFilter.isNarrowing() {
+		return r.jumpFilesMatch(h, s, 0)
+	}
+
+	if r.readFilesTree().current >= 0 {
+		return nil
+	}
+
+	return r.stepFile(h, s, 1)
+}
+
+// jumpFilesMatch walks to the next file whose name the pattern matches, the way direction says,
+// wrapping at either end and leaving the cursor where it is when that file is the current one.
+func (r *reviewScreen) jumpFilesMatch(h navHost, s panelShared, direction int) tea.Cmd {
+	tree := r.readFilesTree()
+	count := len(tree.rows)
+	if r.filesFilter.pattern == nil || count == 0 {
+		return nil
+	}
+
+	walk := cmp.Or(direction, 1)
+	origin, first := tree.current, 1
+	switch {
+	case origin >= 0 && direction == 0:
+		first = 0
+	case origin < 0 && walk < 0:
+		origin = count
+	}
+
+	for offset := first; offset <= count; offset++ {
+		at := ((origin+walk*offset)%count + count) % count
+		row := tree.rows[at]
+		if row.Folder || !r.filesFilter.doesMatch(row.Name) {
+			continue
+		}
+
+		if at == tree.current {
+			return nil
+		}
+
+		return r.landOnFile(h, s, row)
+	}
+
+	h.note(messageWarning, reviewNoFileWord)
+
+	return nil
 }

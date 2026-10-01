@@ -18,6 +18,10 @@ func (r *reviewScreen) updateKey(h host, s panelShared, key tea.KeyPressMsg) tea
 		return r.updateRelease(h, s, key)
 	}
 
+	if r.filesFilter.typing {
+		return r.updateFilesFilter(h, s, key)
+	}
+
 	if r.diff.filter.typing {
 		return r.diffKeys().updateFilter(h, s, key)
 	}
