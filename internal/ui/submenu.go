@@ -263,9 +263,14 @@ func submenuOptions(menu submenu, nested bool) []huh.Option[int] {
 }
 
 // submenuLeading is the menus under the one on top drawn gray, as many of the nearest as leave the
-// top its own width.
+// top its own width and the document it previews the room a document needs.
 func submenuLeading(parents []submenuLevel, top submenuLevel, width int) []string {
-	return frozenMenus(parents, width-lipgloss.Width(frozenSubmenu(top, len(parents) > 0)))
+	room := width - lipgloss.Width(frozenSubmenu(top, len(parents) > 0))
+	if top.menu.preview != nil {
+		room -= columnFloor + dividerCols
+	}
+
+	return frozenMenus(parents, room)
 }
 
 // frozenMenus is a stack of menus drawn gray, as many of the nearest as fit in room.
