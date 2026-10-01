@@ -27,6 +27,9 @@ var (
 	errPushArchived         = errors.New("an archived agent's branch is not pushed")
 	errPushNoWorktree       = errors.New("this agent has no worktree of its own, so there is no branch of its own to push")
 	errPushInProgress       = errors.New("the worktree is part-way through a rebase, merge or pick, so finish or abort that first")
+	errAbortArchived        = errors.New("an archived agent's worktree is not touched")
+	errAbortNoWorktree      = errors.New("this agent has no worktree of its own for komrad to act on")
+	errAbortNothing         = errors.New("nothing is part-way through in this worktree, so there is nothing to abort")
 	errAgentGone            = errors.New("the agent the menu was opened on has left the list")
 	errNoPullRequest        = errors.New("komrad has read the repository and nothing has been opened from this branch")
 	errMovedPastPullRequest = errors.New("the branch has moved on since its last pull request finished and nothing has been opened from it since")
@@ -56,6 +59,13 @@ func gitMenu(s panelShared, from screen, item panel.AgentRow) submenu {
 				label: "push",
 				keys:  s.keys.Git.Push,
 				isOff: pushRefusal(s.listing, from, agent) != nil,
+				write: run(gitChoicePush),
+			},
+			{
+				label: abortLabel(agent),
+				keys:  s.keys.Git.Abort,
+				isOff: abortRefusal(s.listing, from, agent) != nil,
+				open:  func(m model) (tea.Model, tea.Cmd) { return m.openGitAbort(from, agentID) },
 			},
 			{
 				label: "open pr",
@@ -108,6 +118,30 @@ func pushRefusal(l listing, from screen, agent panel.Agent) error {
 	return nil
 }
 
+// abortRefusal is why what an agent's worktree has part-way through cannot be aborted from where
+// the menu was opened, nil when it can.
+func abortRefusal(l listing, from screen, agent panel.Agent) error {
+	switch {
+	case from == screenArchive:
+		return errAbortArchived
+	case !l.isRebaseable(agent):
+		return errAbortNoWorktree
+	case !agent.Sequence.IsInProgress():
+		return errAbortNothing
+	}
+
+	return nil
+}
+
+// abortLabel names the abort entry for what it would undo.
+func abortLabel(agent panel.Agent) string {
+	if !agent.Sequence.IsInProgress() {
+		return "abort"
+	}
+
+	return "abort " + string(agent.Sequence)
+}
+
 // pullRequestRefusal is why an agent has no current pull request.
 func pullRequestRefusal(item panel.AgentRow) error {
 	switch {
@@ -138,12 +172,7 @@ func openPullRequestRefusal(item panel.AgentRow) error {
 
 // runGitChoice does what the entry asked for, or says why this agent is not one to ask it of.
 func (m model) runGitChoice(from screen, agentID string, choice gitChoice) (model, tea.Cmd) {
-	// The list may have moved under the open menu.
-	item, ok := m.listing.liveAgent(agentID)
-	if from == screenArchive {
-		item, ok = m.listing.anyAgent(agentID)
-	}
-
+	item, ok := m.findGitAgent(from, agentID)
 	if !ok {
 		m.report("Could not act on the agent", errAgentGone)
 
@@ -201,4 +230,35 @@ func (l listing) isRebaseable(agent panel.Agent) bool {
 	}
 
 	return l.workflows[index].Worktree.Enabled
+}
+
+// findGitAgent is the agent the menu was opened on, as the list holds it now.
+func (m model) findGitAgent(from screen, agentID string) (panel.AgentRow, bool) {
+	// The list may have moved under the open menu.
+	if from == screenArchive {
+		return m.listing.anyAgent(agentID)
+	}
+
+	return m.listing.liveAgent(agentID)
+}
+
+// openGitAbort leaves the menu for the abort's confirmation, or says why there is nothing to abort.
+func (m model) openGitAbort(from screen, agentID string) (tea.Model, tea.Cmd) {
+	item, ok := m.findGitAgent(from, agentID)
+	if !ok {
+		m.report("Could not act on the agent", errAgentGone)
+
+		return m.closeForm()
+	}
+
+	agent := item.Agent
+	if err := abortRefusal(m.listing, from, agent); err != nil {
+		m.report("Could not abort what the worktree of "+agent.Name+" has in progress", err)
+
+		return m.closeForm()
+	}
+
+	m.leaveForm()
+
+	return m.openAbortConfirm(agent.ID, agent.Name, agent.Sequence)
 }

@@ -59,6 +59,7 @@ type AgentServiceImpl interface {
 	RebaseWorktree(context.Context, *v1.RebaseWorktreeRequest) (*v1.RebaseWorktreeResponse, *fail.Error)
 	PlanPush(context.Context, *v1.PlanPushRequest) (*v1.PlanPushResponse, *fail.Error)
 	PushWorktree(context.Context, *v1.PushWorktreeRequest) (*v1.PushWorktreeResponse, *fail.Error)
+	AbortSequence(context.Context, *v1.AbortSequenceRequest) (*v1.AbortSequenceResponse, *fail.Error)
 	StartOrchestrator(context.Context, *v1.StartOrchestratorRequest) (*v1.StartOrchestratorResponse, *fail.Error)
 	MarkReviewThreadRead(context.Context, *v1.MarkReviewThreadReadRequest) (*v1.MarkReviewThreadReadResponse, *fail.Error)
 	SetReviewThreadResolved(context.Context, *v1.SetReviewThreadResolvedRequest) (*v1.SetReviewThreadResolvedResponse, *fail.Error)
@@ -290,6 +291,11 @@ func (a AgentServiceAdapter) PlanPush(ctx context.Context, req *connect.Request[
 // PushWorktree answers the request as connect serves it.
 func (a AgentServiceAdapter) PushWorktree(ctx context.Context, req *connect.Request[v1.PushWorktreeRequest]) (*connect.Response[v1.PushWorktreeResponse], error) {
 	return rpcerr.Answer(a.Impl.PushWorktree(ctx, req.Msg))
+}
+
+// AbortSequence answers the request as connect serves it.
+func (a AgentServiceAdapter) AbortSequence(ctx context.Context, req *connect.Request[v1.AbortSequenceRequest]) (*connect.Response[v1.AbortSequenceResponse], error) {
+	return rpcerr.Answer(a.Impl.AbortSequence(ctx, req.Msg))
 }
 
 // StartOrchestrator answers the request as connect serves it.

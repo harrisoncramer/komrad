@@ -2,6 +2,7 @@ package checkouts
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -35,6 +36,7 @@ var (
 type agentReadWriter interface {
 	GetByID(ctx context.Context, id string) (*agentstore.Agent, error)
 	SetSequenceByID(ctx context.Context, id string, sequence agentstore.Sequence) error
+	GetLastRebaseByID(ctx context.Context, id string) (json.RawMessage, error)
 }
 
 // workflowReader reads the workflow an agent belongs to.
@@ -74,6 +76,15 @@ type worktreePusher interface {
 	Push(ctx context.Context, params git.PushParams) (string, error)
 }
 
+// worktreeAborter is the git an abort reads the checkout through and undoes the sequence with.
+type worktreeAborter interface {
+	ReadTreeState(ctx context.Context, dir string) (git.TreeState, error)
+	ReadSequence(ctx context.Context, dir string) (git.Sequence, error)
+	ReadRebaseOnto(ctx context.Context, dir string) (string, error)
+	Park(ctx context.Context, dir, ref string) (string, error)
+	AbortSequence(ctx context.Context, dir string, sequence git.Sequence) error
+}
+
 // pullRequestLister reads the pull requests stored for a branch.
 type pullRequestLister interface {
 	ListPage(ctx context.Context, params pullrequeststore.ListPageParams) ([]pullrequeststore.PullRequest, error)
@@ -92,6 +103,7 @@ type NewServiceParams struct {
 	Events          eventRecorder
 	Rebaser         worktreeRebaser
 	Pusher          worktreePusher
+	Aborter         worktreeAborter
 	PullRequests    pullRequestLister
 	Locks           *TreeLocks
 	CheckoutSync    loopWaker
@@ -106,6 +118,7 @@ type Service struct {
 	events          eventRecorder
 	rebaser         worktreeRebaser
 	pusher          worktreePusher
+	aborter         worktreeAborter
 	pullRequests    pullRequestLister
 	locks           *TreeLocks
 	checkoutSync    loopWaker
@@ -126,6 +139,7 @@ func NewService(params NewServiceParams) *Service {
 		events:          params.Events,
 		rebaser:         params.Rebaser,
 		pusher:          params.Pusher,
+		aborter:         params.Aborter,
 		pullRequests:    params.PullRequests,
 		locks:           locks,
 		checkoutSync:    params.CheckoutSync,

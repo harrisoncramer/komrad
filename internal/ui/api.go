@@ -318,6 +318,17 @@ func (a api) pushWorktree(id string) (*agentv1.PushWorktreeResponse, error) {
 	})
 }
 
+func (a api) abortSequence(id string) (*agentv1.AbortSequenceResponse, error) {
+	return call(rebaseTimeout, func(ctx context.Context) (*agentv1.AbortSequenceResponse, error) {
+		resp, err := a.agents.AbortSequence(ctx, connect.NewRequest(&agentv1.AbortSequenceRequest{AgentId: id}))
+		if err != nil {
+			return nil, fmt.Errorf("failed to abort what the worktree of agent %q has in progress: %w", id, err)
+		}
+
+		return resp.Msg, nil
+	})
+}
+
 func (a api) deleteAgents(ids []string) error {
 	return mutate(func(ctx context.Context) (any, error) {
 		return a.agents.DeleteAgents(ctx, connect.NewRequest(&agentv1.DeleteAgentsRequest{Ids: ids}))

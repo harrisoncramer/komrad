@@ -603,6 +603,13 @@
               "default": "[\"p\"]"
             },
             {
+              "key": "abort",
+              "path": "keybindings.git.abort",
+              "type": "array",
+              "description": "Undo the rebase, am, merge, cherry-pick or revert part-way through the hovered agent's\nworktree, which asks first. The entry names the kind and is off when nothing is in progress.",
+              "default": "[\"x\"]"
+            },
+            {
               "key": "rebase",
               "path": "keybindings.git.rebase",
               "type": "array",

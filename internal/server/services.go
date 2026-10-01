@@ -185,6 +185,7 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 		Events:          queue,
 		Rebaser:         gitClient,
 		Pusher:          gitClient,
+		Aborter:         gitClient,
 		PullRequests:    st.pullRequests,
 		CheckoutSync:    wakers.cwdSync,
 		PullRequestSync: wakers.pullRequestSync,

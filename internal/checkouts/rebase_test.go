@@ -673,7 +673,7 @@ func newRebaseFixture(t *testing.T) *rebaseFixture {
 		stores:          stores,
 		checkoutSync:    &waketest.Counter{},
 		pullRequestSync: &waketest.Counter{},
-		events:          eventstest.NewQueue(t, stores, NewEventHandler(), NewPushedHandler()),
+		events:          eventstest.NewQueue(t, stores, NewEventHandler(), NewPushedHandler(), NewAbortedHandler()),
 		workflowID: stores.SeedWorkflow(t, workflowstore.Config{
 			Name:     "flow",
 			Worktree: workflowstore.WorktreeConfig{Enabled: true, BaseBranch: "main"},
@@ -713,6 +713,9 @@ func (f *rebaseFixture) newService(params NewServiceParams) *Service {
 	}
 	if params.Pusher == nil {
 		params.Pusher = &gittest.Pusher{State: git.TreeState{Branch: "agent/a1"}, Own: 1}
+	}
+	if params.Aborter == nil {
+		params.Aborter = &gittest.Aborter{Sequence: git.SequenceRebase, Branch: "agent/a1"}
 	}
 	if params.PullRequestSync == nil {
 		params.PullRequestSync = f.pullRequestSync

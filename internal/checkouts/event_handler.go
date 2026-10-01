@@ -94,3 +94,33 @@ func handlePushed(ctx context.Context, _ store.DBTX, mailer *mail.MailService, p
 		Body:      pushedMail(pushed),
 	})
 }
+
+const abortedTopic = "worktree_aborted"
+
+// Aborted is what an agent's worktree had part-way through having been aborted from the panel,
+// or an abort that cut the agent's turn having failed.
+type Aborted struct {
+	AgentID string       `json:"agent_id"`
+	Result  *AbortResult `json:"result,omitempty"`
+	Failure string       `json:"failure,omitempty"`
+}
+
+// Topic names the handler that tells the agent.
+func (Aborted) Topic() string {
+	return abortedTopic
+}
+
+// NewAbortedHandler builds the handler the router is given for aborts.
+func NewAbortedHandler() events.HandlerFor[Aborted] {
+	return handleAborted
+}
+
+// handleAborted tells the agent what became of the sequence it had part-way through.
+func handleAborted(ctx context.Context, _ store.DBTX, mailer *mail.MailService, aborted Aborted) ([]river.JobArgs, error) {
+	return nil, events.Send(ctx, mailer, mail.SendFromKomradParams{
+		ToAgentID: aborted.AgentID,
+		Kind:      mailstore.KindWorktreeAborted,
+		SubjectID: aborted.AgentID,
+		Body:      abortedMail(aborted),
+	})
+}

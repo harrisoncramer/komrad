@@ -153,6 +153,12 @@ func TestGitMenuRefusals(t *testing.T) {
 			wantRefusal: "part-way through a rebase, merge or pick",
 		},
 		{
+			name:        "the abort of a worktree with nothing in progress",
+			rows:        buildGitAgent(),
+			press:       []string{"x"},
+			wantRefusal: "nothing is part-way through in this worktree",
+		},
+		{
 			name:        "the pull request of a repository not read yet",
 			rows:        buildUncutAgent(),
 			press:       []string{"o"},
@@ -374,6 +380,70 @@ func TestGitMenuPushes(t *testing.T) {
 
 			harness.assertSentTo(agentv1connect.AgentServicePushWorktreeProcedure, tt.wantPushes...)
 			assert.NotContains(t, harness.readFrame(), "Push the branch of")
+			if tt.wantMessage != "" {
+				assert.Contains(t, readOpenMessages(harness), tt.wantMessage)
+			}
+		})
+	}
+}
+
+// TestGitMenuAborts covers the abort entry naming what is in progress, asking first, then undoing
+// it and saying where the branch stands.
+func TestGitMenuAborts(t *testing.T) {
+	t.Parallel()
+
+	abort := &agentv1.AbortSequenceRequest{AgentId: "a1"}
+
+	tests := []struct {
+		name        string
+		refuse      error
+		press       []string
+		wantAborts  []proto.Message
+		wantMessage string
+	}{
+		{
+			name:        "an abort the server refuses says why",
+			refuse:      connect.NewError(connect.CodeFailedPrecondition, errors.New("another git command is running in this worktree")),
+			press:       []string{"y"},
+			wantAborts:  []proto.Message{abort},
+			wantMessage: "another git command is running in this worktree",
+		},
+		{
+			name:  "declining sends nothing",
+			press: []string{"esc"},
+		},
+		{
+			name:        "an abort says where the branch stands and where the copy is",
+			press:       []string{"y"},
+			wantAborts:  []proto.Message{abort},
+			wantMessage: "api: aborted the rebase agent/a1 is back where it stood before. A copy of the worktree from before the abort is kept at refs/komrad/prerefresh/a1/1.",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			harness := openGitMenu(t, buildRebasingGitAgent()...)
+			harness.answer(agentv1connect.AgentServiceAbortSequenceProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+				return connect.NewResponse(&agentv1.AbortSequenceResponse{
+					Sequence:  agentv1.Sequence_SEQUENCE_REBASE,
+					Branch:    "agent/a1",
+					ParkedRef: "refs/komrad/prerefresh/a1/1",
+				}), nil
+			})
+			if tt.refuse != nil {
+				harness.refuse(agentv1connect.AgentServiceAbortSequenceProcedure, tt.refuse)
+			}
+			require.Contains(t, harness.readFrame(), "abort rebase")
+
+			harness.press("x")
+
+			require.Contains(t, harness.readFrame(), "Abort the rebase in the worktree of api?")
+			harness.press(tt.press...)
+
+			harness.assertSentTo(agentv1connect.AgentServiceAbortSequenceProcedure, tt.wantAborts...)
+			assert.NotContains(t, harness.readFrame(), "Abort the rebase in")
 			if tt.wantMessage != "" {
 				assert.Contains(t, readOpenMessages(harness), tt.wantMessage)
 			}

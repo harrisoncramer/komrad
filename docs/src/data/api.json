@@ -741,6 +741,22 @@
           "response": "agent.v1.PushWorktreeResponse"
         },
         {
+          "slug": "abort-sequence",
+          "name": "AbortSequence",
+          "path": "/agent.v1.AgentService/AbortSequence",
+          "command": "komrad rpc abort-sequence",
+          "tool": "abort_sequence",
+          "mcp": false,
+          "roles": [],
+          "summary": "Undo the rebase, am, merge, cherry-pick or revert part-way through an agent's worktree, putting its branch back where it stood before that began.",
+          "description": "Undo the rebase, am, merge, cherry-pick or revert part-way through an agent's worktree, putting its branch back where it stood before that began. The kind is read from the checkout itself. The worktree is first kept as it stands, conflicts and any resolution included, under a ref the agent is told of, and the agent's turn is cut if it is working. A worktree with nothing in progress is refused as failed_precondition, as is one another git command holds. The agent is mailed what was undone, and told whether it was the rebase komrad left stopped on conflicts or one of its own.",
+          "readOnly": false,
+          "idempotent": false,
+          "destructive": true,
+          "request": "agent.v1.AbortSequenceRequest",
+          "response": "agent.v1.AbortSequenceResponse"
+        },
+        {
           "slug": "start-orchestrator",
           "name": "StartOrchestrator",
           "path": "/agent.v1.AgentService/StartOrchestrator",
@@ -1557,6 +1573,70 @@
     }
   ],
   "messages": {
+    "agent.v1.AbortSequenceRequest": {
+      "name": "AbortSequenceRequest",
+      "description": "",
+      "fields": [
+        {
+          "name": "agent_id",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [
+            "required"
+          ],
+          "description": "Whose worktree to abort the sequence in."
+        }
+      ]
+    },
+    "agent.v1.AbortSequenceResponse": {
+      "name": "AbortSequenceResponse",
+      "description": "",
+      "fields": [
+        {
+          "name": "sequence",
+          "type": "Sequence",
+          "ref": "agent.v1.Sequence",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "What was undone."
+        },
+        {
+          "name": "branch",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "Where the checkout stands now, empty when it is detached."
+        },
+        {
+          "name": "parked_ref",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The ref holding the checkout as it stood before the abort, conflicts and all."
+        },
+        {
+          "name": "interrupted",
+          "type": "bool",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "Whether the agent's turn was cut so the abort could run."
+        }
+      ]
+    },
     "agent.v1.AddReviewMessageRequest": {
       "name": "AddReviewMessageRequest",
       "description": "",

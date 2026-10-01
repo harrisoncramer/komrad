@@ -324,6 +324,9 @@ type GitKeys struct {
 	// Send the hovered agent's branch to origin, which asks first and says how many commits go
 	// up, whether origin's copy is overwritten after a rebase, and what stays uncommitted.
 	Push []string `mapstructure:"push" default:"p"`
+	// Undo the rebase, am, merge, cherry-pick or revert part-way through the hovered agent's
+	// worktree, which asks first. The entry names the kind and is off when nothing is in progress.
+	Abort []string `mapstructure:"abort" default:"x"`
 	// Bring the hovered agent's worktree up to date on the latest base, which asks first and
 	// says what it would do to the branch and to the files.
 	Rebase []string `mapstructure:"rebase" default:"r"`

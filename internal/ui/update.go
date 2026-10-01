@@ -494,6 +494,10 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 		next, cmd := m.applyPushed(msg)
 
 		return next, cmd, true
+	case abortedMsg:
+		next, cmd := m.applyAborted(msg)
+
+		return next, cmd, true
 	case mergedMsg:
 		next, cmd := m.applyMerged(msg)
 

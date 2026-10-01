@@ -490,6 +490,22 @@ message PushWorktreeResponse {
   string sha = 4;
 }
 
+message AbortSequenceRequest {
+  // Whose worktree to abort the sequence in.
+  string agent_id = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+message AbortSequenceResponse {
+  // What was undone.
+  Sequence sequence = 1;
+  // Where the checkout stands now, empty when it is detached.
+  string branch = 2;
+  // The ref holding the checkout as it stood before the abort, conflicts and all.
+  string parked_ref = 3;
+  // Whether the agent's turn was cut so the abort could run.
+  bool interrupted = 4;
+}
+
 message SetHiddenRequest {
   // Which agent to hide or unhide.
   string id = 1 [(buf.validate.field).string.min_len = 1];
@@ -1177,6 +1193,15 @@ service AgentService {
       name: "push_worktree"
       description: "Send an agent's branch to origin under its own name. When a rebase moved the branch apart from origin's copy, the push overwrites it, but only if the branch already holds everything origin has, so a commit somebody added on the forge is never lost. Pre-push hooks run and their output comes back on failure. The push runs to the end even if the caller stops waiting. An agent whose branch is detached, part-way through a sequence, the workflow's base, empty against the base, or whose pull request has merged or closed is refused as failed_precondition, as is a branch komrad did not cut whose push would overwrite origin. After a push that overwrote origin, the agent is mailed the new commit."
       reason: "Agents push their own branches with git, so pushing one from outside is for the person at the panel or the command line."
+    };
+  }
+  rpc AbortSequence(AbortSequenceRequest) returns (AbortSequenceResponse) {
+    option (annotation.v1.surfaces) = {
+      cli: true
+      mcp: false
+      name: "abort_sequence"
+      description: "Undo the rebase, am, merge, cherry-pick or revert part-way through an agent's worktree, putting its branch back where it stood before that began. The kind is read from the checkout itself. The worktree is first kept as it stands, conflicts and any resolution included, under a ref the agent is told of, and the agent's turn is cut if it is working. A worktree with nothing in progress is refused as failed_precondition, as is one another git command holds. The agent is mailed what was undone, and told whether it was the rebase komrad left stopped on conflicts or one of its own."
+      reason: "The agent is told not to settle a conflicted rebase itself, so undoing one is for the person at the panel or the command line."
     };
   }
   rpc StartOrchestrator(StartOrchestratorRequest) returns (StartOrchestratorResponse) {
