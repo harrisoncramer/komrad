@@ -204,8 +204,7 @@ func (z *triageZone) refresh(agents []panel.AgentRow, now time.Time) {
 	z.pruneSnoozes(agents)
 }
 
-// pruneSnoozes ends every snooze whose family has left triage or now waits on something else,
-// keeping those of hidden heads, since hiding is not a change in what a family waits on.
+// pruneSnoozes ends every snooze whose family has left triage or now waits on something else.
 func (z *triageZone) pruneSnoozes(agents []panel.AgentRow) {
 	byID := xslice.KeyBy(agents, func(item panel.AgentRow) string { return item.Agent.ID })
 	families := xslice.KeyBy(findTriageFamilies(z.entries, agents), func(f triageFamily) string { return f.head.Agent.ID })

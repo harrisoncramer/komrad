@@ -166,8 +166,33 @@ func TestTriageSnooze(t *testing.T) {
 		press    []string
 		// relisted is the listing the watch sends after the keys, none when it sends nothing.
 		relisted []proto.Message
-		want     []string
+		// then is a second listing the watch sends after relisted, none when it sends nothing.
+		then []proto.Message
+		want []string
 	}{
+		{
+			name:     "a family whose head was archived comes back unsnoozed",
+			capacity: 3,
+			rows:     buildTriageFamily(),
+			press:    []string{"t", "space", "z"},
+			relisted: []proto.Message{newLiveWorkflow("w1", "backend"), newAgentAt("quiet", "w1", 1), buildTriageFamily()[4]},
+			then:     buildTriageFamily(),
+			want:     []string{"parent", "└ reviewer", "third", "backend", "quiet"},
+		},
+		{
+			name:     "a family hidden and shown again keeps its snooze",
+			capacity: 3,
+			rows:     buildTriage(),
+			press:    []string{"t", "space", "z"},
+			relisted: func() []proto.Message {
+				rows := buildTriage()
+				rows[2].(*agentv1.Agent).Hidden = true
+
+				return rows
+			}(),
+			then: buildTriage(),
+			want: []string{"third", "broken", "asker", "backend", "quiet"},
+		},
 		{
 			name:     "an agent that asks again ends its snooze",
 			capacity: 3,
@@ -246,6 +271,9 @@ func TestTriageSnooze(t *testing.T) {
 			harness.press(tt.press...)
 			if tt.relisted != nil {
 				harness.watch(buildSnapshot(tt.relisted...))
+			}
+			if tt.then != nil {
+				harness.watch(buildSnapshot(tt.then...))
 			}
 			harness.send(tea.BlurMsg{})
 
@@ -418,4 +446,19 @@ func newFinishedAgent(name string, minute int) *agentv1.Agent {
 	agent.PaneId = "%" + name
 
 	return agent
+}
+
+// buildTriageFamily is a workflow with a parent whose reviewer is asking, ahead of another agent
+// asking.
+func buildTriageFamily() []proto.Message {
+	reviewer := newTriageAgent("reviewer", agentv1.AgentState_AGENT_STATE_WAITING, 3)
+	reviewer.ParentAgentId = xptr.Ptr("parent")
+
+	return []proto.Message{
+		newLiveWorkflow("w1", "backend"),
+		newAgentAt("quiet", "w1", 1),
+		newTriageAgent("parent", agentv1.AgentState_AGENT_STATE_IDLE, 2),
+		reviewer,
+		newTriageAgent("third", agentv1.AgentState_AGENT_STATE_WAITING, 4),
+	}
 }
