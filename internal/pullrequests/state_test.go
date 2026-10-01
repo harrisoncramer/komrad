@@ -134,6 +134,18 @@ func TestStateOf(t *testing.T) {
 			want:        StateOpen,
 		},
 		{
+			name: "a change request the forge no longer reports is open",
+			pullRequest: pullrequeststore.PullRequest{
+				Standing: forge.RememberedStanding{}.RememberRead(
+					forge.Standing{Decision: forge.ReviewDecisionChangesRequested},
+					"",
+					stamp,
+				),
+			},
+			read: forge.Standing{Decision: forge.ReviewDecisionNone},
+			want: StateOpen,
+		},
+		{
 			name: "a pending review is open",
 			read: forge.Standing{Decision: forge.ReviewDecisionPending},
 			want: StateOpen,
@@ -143,7 +155,7 @@ func TestStateOf(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			pullRequest := tt.pullRequest
-			pullRequest.Standing = forge.RememberedStanding{}.RememberRead(tt.read, tt.readHead, stamp)
+			pullRequest.Standing = pullRequest.Standing.RememberRead(tt.read, tt.readHead, stamp)
 
 			assert.Equal(t, tt.want, StateOf(pullRequest))
 		})

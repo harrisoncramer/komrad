@@ -427,7 +427,7 @@ func TestDisplayForHead(t *testing.T) {
 			},
 		},
 		{
-			name: "the last answer through a blank read is unconfirmed",
+			name: "a blank read leaves checks and mergeability unconfirmed and the decision none",
 			reads: []read{
 				{
 					standing: failing,
@@ -438,13 +438,12 @@ func TestDisplayForHead(t *testing.T) {
 			},
 			head: "aaa",
 			want: DisplayedStanding{
-				Decision:     DisplayedAnswer[ReviewDecision]{Value: ReviewDecisionApproved, IsUnconfirmed: true},
 				Checks:       DisplayedAnswer[Checks]{Value: ChecksFailing, IsUnconfirmed: true},
 				Mergeability: DisplayedAnswer[Mergeability]{Value: MergeabilityBehind, IsUnconfirmed: true},
 			},
 		},
 		{
-			name: "checks and mergeability from an older head show blank while the decision holds",
+			name: "a blank read on a new head shows nothing",
 			reads: []read{
 				{
 					standing: failing,
@@ -454,9 +453,6 @@ func TestDisplayForHead(t *testing.T) {
 				{head: "bbb", at: at},
 			},
 			head: "bbb",
-			want: DisplayedStanding{
-				Decision: DisplayedAnswer[ReviewDecision]{Value: ReviewDecisionApproved, IsUnconfirmed: true},
-			},
 		},
 	}
 

@@ -152,10 +152,11 @@ type DisplayedStanding struct {
 	AutoMerge    AutoMerge
 }
 
-// DisplayForHead says what to show for each part of the standing on head.
+// DisplayForHead says what to show for each part of the standing on head, the decision only as the
+// latest read gave it, since a forge that says nothing of the reviews has answered none.
 func (rs RememberedStanding) DisplayForHead(head string) DisplayedStanding {
 	displayed := DisplayedStanding{
-		Decision:     displayAnswerForHead(rs.Decision, ""),
+		Decision:     displayLatestDecision(rs.Decision),
 		Checks:       displayAnswerForHead(rs.Checks, head),
 		Mergeability: displayAnswerForHead(rs.Mergeability, head),
 	}
@@ -164,6 +165,14 @@ func (rs RememberedStanding) DisplayForHead(head string) DisplayedStanding {
 	}
 
 	return displayed
+}
+
+func displayLatestDecision(answer RememberedAnswer[ReviewDecision]) DisplayedAnswer[ReviewDecision] {
+	if answer.WasLatestReadBlank {
+		return DisplayedAnswer[ReviewDecision]{}
+	}
+
+	return DisplayedAnswer[ReviewDecision]{Value: answer.Value}
 }
 
 func displayAnswerForHead[T comparable](answer RememberedAnswer[T], head string) DisplayedAnswer[T] {
