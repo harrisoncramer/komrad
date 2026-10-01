@@ -8,6 +8,7 @@ import (
 	"komrad/internal/glyph"
 	"komrad/internal/ui/paint"
 	"komrad/internal/view"
+	"komrad/internal/vim"
 
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
@@ -42,7 +43,7 @@ func openNameEdit(key, name string) *nameEdit {
 	return &nameEdit{key: key, was: name, input: newLineInput(name)}
 }
 
-func (e *nameEdit) take(h host, msg tea.Msg) nameEditStep {
+func (e *nameEdit) take(h host, register *vim.Register, msg tea.Msg) nameEditStep {
 	if e.saving || e.landed {
 		return nameEditTyping
 	}
@@ -52,17 +53,17 @@ func (e *nameEdit) take(h host, msg tea.Msg) nameEditStep {
 
 	switch msg := msg.(type) {
 	case tea.PasteMsg:
-		e.input.take(msg)
+		e.input.take(msg, register)
 	case tea.KeyPressMsg:
-		switch k := msg.String(); {
-		case k == "ctrl+c":
+		if msg.String() == "ctrl+c" {
 			return nameEditHidden
-		case k == "esc":
+		}
+
+		switch step, k := e.input.take(msg, register), msg.String(); {
+		case step == lineLeft || (step == lineIgnored && k == "esc"):
 			return nameEditCancelled
-		case k == "enter" || isBound(k, formKeys().Submit):
+		case step == lineIgnored && (k == "enter" || isBound(k, formKeys().Submit)):
 			return nameEditSubmitted
-		default:
-			e.input.take(msg)
 		}
 	}
 

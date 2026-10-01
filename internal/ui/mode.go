@@ -85,5 +85,30 @@ func (m model) isEditing() bool {
 		return m.review.threads.editor.isInserting()
 	}
 
+	if line, ok := m.typedLine(); ok {
+		return line.isInserting()
+	}
+
 	return m.isTyping()
+}
+
+// lineTyper is a screen that can have a one-row field of its own taking the keys.
+type lineTyper interface {
+	typedLine() (lineInput, bool)
+}
+
+// typedLine is the one-row field taking the keys, if one is.
+func (m model) typedLine() (lineInput, bool) {
+	switch {
+	case m.filter.typing:
+		return m.filter.input, true
+	case m.reading.filter.typing && m.isDocReadable():
+		return m.reading.filter.input, true
+	}
+
+	if typer, ok := m.active().(lineTyper); ok {
+		return typer.typedLine()
+	}
+
+	return lineInput{}, false
 }

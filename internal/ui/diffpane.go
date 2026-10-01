@@ -234,7 +234,7 @@ func (k diffKeys) updateFilter(h host, s panelShared, key tea.KeyPressMsg) tea.C
 		return h.hide()
 	}
 
-	if k.filter.takeKey(key) {
+	if k.filter.takeKey(key, s.register) {
 		k.search(s)
 	}
 

@@ -20,7 +20,7 @@
       "key": "vim_mode",
       "path": "vim_mode",
       "type": "boolean",
-      "description": "Edit the panel's text fields the way vim does. A field opens in insert mode, esc goes to normal\nmode, and a second esc closes the form.",
+      "description": "Edit the panel's text fields the way vim does, the search and rename lines included. A field\nopens in insert mode, esc goes to normal mode, and a second esc closes it.",
       "default": "false"
     }
   ],

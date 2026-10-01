@@ -102,6 +102,7 @@ func (w *searchScreen) listActions() screenActionSpec {
 				keys: func(config.Keybindings) []string { return []string{filterOpenKey} },
 				nav: func(navHost, panelShared, string) tea.Cmd {
 					w.typing = true
+					w.input.insert()
 
 					return nil
 				},
@@ -522,7 +523,7 @@ func (w *searchScreen) update(h host, s panelShared, msg tea.Msg) tea.Cmd {
 			return nil
 		}
 
-		w.input.take(msg)
+		w.input.take(msg, s.register)
 
 		return debounceSearchCmd(w.query())
 	case tea.KeyPressMsg:
@@ -546,18 +547,14 @@ func (w *searchScreen) updateInput(h host, s panelShared, key tea.KeyPressMsg) t
 		return w.listActions().dispatch(h, s, key.String())
 	}
 
-	switch k := key.String(); {
-	case k == "esc":
-		w.typing = false
-
-		return nil
-	case k == "enter":
-		w.typing = false
-
-		return nil
-	case k == "ctrl+c":
+	if key.String() == "ctrl+c" {
 		return h.hide()
-	case w.input.take(key):
+	}
+
+	switch step, k := w.input.take(key, s.register), key.String(); {
+	case step == lineLeft || (step == lineIgnored && (k == "esc" || k == "enter")):
+		w.typing = false
+	case step == lineChanged:
 		return debounceSearchCmd(w.query())
 	}
 
@@ -854,4 +851,8 @@ func speakerOf(role string) string {
 
 func (w *searchScreen) query() string {
 	return w.input.value()
+}
+
+func (w *searchScreen) typedLine() (lineInput, bool) {
+	return w.input, w.typing
 }

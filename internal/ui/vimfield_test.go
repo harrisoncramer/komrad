@@ -167,6 +167,72 @@ func TestVimEditing(t *testing.T) {
 	})
 }
 
+// TestVimLineEditing covers vim_mode in the one-row fields: the filter, the search line and a rename.
+func TestVimLineEditing(t *testing.T) {
+	tests := []struct {
+		name       string
+		press      []string
+		wantSearch string
+	}{
+		{
+			name:       "esc in the filter goes to normal mode and keeps the pattern",
+			press:      []string{"/", "a", "b", "esc"},
+			wantSearch: "/ a▏b",
+		},
+		{
+			name:       "a second esc gives the filter up",
+			press:      []string{"/", "a", "b", "esc", "esc"},
+			wantSearch: "/",
+		},
+		{
+			name:       "a word changed in normal mode is the filter's pattern",
+			press:      slices.Concat([]string{"/"}, spellKeys("db api"), []string{"esc", "c", "i", "w"}, spellKeys("ui")),
+			wantSearch: "/ db ui▏",
+		},
+		{
+			name:       "enter in normal mode applies the filter",
+			press:      []string{"/", "d", "b", "esc", "enter"},
+			wantSearch: "/ db",
+		},
+		{
+			name:       "esc in the search line goes to normal mode",
+			press:      []string{"tab", "/", "f", "o", "o", "esc"},
+			wantSearch: "/ fo▏o",
+		},
+		{
+			name:       "a word deleted in normal mode leaves the search line",
+			press:      slices.Concat([]string{"tab", "/"}, spellKeys("foo bar"), []string{"esc", "0", "d", "w"}),
+			wantSearch: "/ ▏bar",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			harness := openVimForms(t)
+
+			harness.press(tt.press...)
+
+			assert.Equal(t, tt.wantSearch, readSearch(harness.readFrame()))
+		})
+	}
+
+	t.Run("a name changed in normal mode is the name a rename sends", func(t *testing.T) {
+		harness := openVimForms(t)
+
+		harness.press("j", "r", "esc", "0", "~", "enter")
+
+		harness.assertSentTo(agentv1connect.AgentServiceUpdateAgentProcedure, &agentv1.UpdateAgentRequest{Id: "a1", Name: "Author"})
+	})
+
+	t.Run("a second esc cancels a rename", func(t *testing.T) {
+		harness := openVimForms(t)
+
+		harness.press("j", "r", "x", "esc", "esc", "enter")
+
+		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceUpdateAgentProcedure))
+	})
+}
+
 // TestVimEditingBadge covers the mode drawn at the foot of the sidebar while a text field holds the keys.
 func TestVimEditingBadge(t *testing.T) {
 	tests := []struct {
@@ -183,6 +249,10 @@ func TestVimEditingBadge(t *testing.T) {
 		{name: "the list's filter is in edit mode", press: []string{"/"}, want: "EDIT"},
 		{name: "the search line is in edit mode", press: []string{"tab", "/"}, want: "EDIT"},
 		{name: "a rename is in edit mode", press: []string{"j", "r"}, want: "EDIT"},
+		{name: "esc puts the filter in normal mode", vim: true, press: []string{"/", "a", "esc"}, want: " NORMAL "},
+		{name: "esc puts the search line in normal mode", vim: true, press: []string{"tab", "/", "a", "esc"}, want: " NORMAL "},
+		{name: "esc puts a rename in normal mode", vim: true, press: []string{"j", "r", "esc"}, want: " NORMAL "},
+		{name: "i puts the filter back in insert mode", vim: true, press: []string{"/", "a", "esc", "i"}, want: "  EDIT  "},
 	}
 
 	for _, tt := range tests {

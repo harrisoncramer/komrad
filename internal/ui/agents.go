@@ -33,14 +33,14 @@ func (a *agentsScreen) update(h host, s panelShared, msg tea.Msg) tea.Cmd {
 	switch msg := msg.(type) {
 	case tea.PasteMsg:
 		if a.isRenaming() {
-			return a.updateRename(h, msg)
+			return a.updateRename(h, s, msg)
 		}
 	case reviewPausedMsg:
 		return a.applyPaused(h, s, msg)
 	case tea.KeyPressMsg:
 		a.reconcileRename(s)
 		if a.isRenaming() {
-			return a.updateRename(h, msg)
+			return a.updateRename(h, s, msg)
 		}
 
 		return a.list().update(h, s, msg, a.actions())

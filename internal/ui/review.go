@@ -129,3 +129,7 @@ func (r *reviewScreen) doesDrawFromListing() bool {
 func (r *reviewScreen) column() columnSpec {
 	return reviewColumn()
 }
+
+func (r reviewScreen) typedLine() (lineInput, bool) {
+	return r.diff.filter.input, r.diff.filter.typing
+}
