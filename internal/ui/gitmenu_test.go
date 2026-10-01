@@ -138,13 +138,13 @@ func TestGitMenuRefusals(t *testing.T) {
 			name:        "the rebase of an agent with no worktree of its own",
 			rows:        buildUncutAgent(),
 			press:       []string{"r"},
-			wantRefusal: "this agent has no worktree of its own, so there is no base to move it onto",
+			wantRefusal: "this agent has no worktree of its own for komrad to act on",
 		},
 		{
 			name:        "the push of an agent with no worktree of its own",
 			rows:        buildUncutAgent(),
 			press:       []string{"p"},
-			wantRefusal: "there is no branch of its own to push",
+			wantRefusal: "this agent has no worktree of its own for komrad to act on",
 		},
 		{
 			name:        "the push of a worktree part-way through a rebase",

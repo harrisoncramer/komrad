@@ -22,13 +22,9 @@ const (
 )
 
 var (
-	errNoWorktree           = errors.New("this agent has no worktree of its own, so there is no base to move it onto")
-	errRebaseArchived       = errors.New("an archived agent's branch is not rebased")
-	errPushArchived         = errors.New("an archived agent's branch is not pushed")
-	errPushNoWorktree       = errors.New("this agent has no worktree of its own, so there is no branch of its own to push")
+	errArchivedWorktree     = errors.New("an archived agent's worktree is not touched")
+	errNoWorktree           = errors.New("this agent has no worktree of its own for komrad to act on")
 	errPushInProgress       = errors.New("the worktree is part-way through a rebase, merge or pick, so finish or abort that first")
-	errAbortArchived        = errors.New("an archived agent's worktree is not touched")
-	errAbortNoWorktree      = errors.New("this agent has no worktree of its own for komrad to act on")
 	errAbortNothing         = errors.New("nothing is part-way through in this worktree, so there is nothing to abort")
 	errAgentGone            = errors.New("the agent the menu was opened on has left the list")
 	errNoPullRequest        = errors.New("komrad has read the repository and nothing has been opened from this branch")
@@ -52,7 +48,7 @@ func gitMenu(s panelShared, from screen, item panel.AgentRow) submenu {
 			{
 				label: "rebase with base",
 				keys:  s.keys.Git.Rebase,
-				isOff: rebaseRefusal(s.listing, from, agent) != nil,
+				isOff: worktreeRefusal(s.listing, from, agent) != nil,
 				write: run(gitChoiceRebase),
 			},
 			{
@@ -90,13 +86,13 @@ func gitMenu(s panelShared, from screen, item panel.AgentRow) submenu {
 	}
 }
 
-// rebaseRefusal is why an agent's worktree cannot be rebased from where the menu was opened, nil
-// when it can.
-func rebaseRefusal(l listing, from screen, agent panel.Agent) error {
+// worktreeRefusal is why an agent's worktree cannot be acted on from where the menu was opened,
+// nil when it can.
+func worktreeRefusal(l listing, from screen, agent panel.Agent) error {
 	switch {
 	case from == screenArchive:
-		return errRebaseArchived
-	case !l.isRebaseable(agent):
+		return errArchivedWorktree
+	case !l.hasOwnWorktree(agent):
 		return errNoWorktree
 	}
 
@@ -106,12 +102,10 @@ func rebaseRefusal(l listing, from screen, agent panel.Agent) error {
 // pushRefusal is why an agent's branch cannot be pushed from where the menu was opened, nil when
 // it can.
 func pushRefusal(l listing, from screen, agent panel.Agent) error {
-	switch {
-	case from == screenArchive:
-		return errPushArchived
-	case !l.isRebaseable(agent):
-		return errPushNoWorktree
-	case agent.Sequence.IsInProgress():
+	if err := worktreeRefusal(l, from, agent); err != nil {
+		return err
+	}
+	if agent.Sequence.IsInProgress() {
 		return errPushInProgress
 	}
 
@@ -121,12 +115,10 @@ func pushRefusal(l listing, from screen, agent panel.Agent) error {
 // abortRefusal is why what an agent's worktree has part-way through cannot be aborted from where
 // the menu was opened, nil when it can.
 func abortRefusal(l listing, from screen, agent panel.Agent) error {
-	switch {
-	case from == screenArchive:
-		return errAbortArchived
-	case !l.isRebaseable(agent):
-		return errAbortNoWorktree
-	case !agent.Sequence.IsInProgress():
+	if err := worktreeRefusal(l, from, agent); err != nil {
+		return err
+	}
+	if !agent.Sequence.IsInProgress() {
 		return errAbortNothing
 	}
 
@@ -183,7 +175,7 @@ func (m model) runGitChoice(from screen, agentID string, choice gitChoice) (mode
 
 	switch choice {
 	case gitChoiceRebase:
-		if err := rebaseRefusal(m.listing, from, agent); err != nil {
+		if err := worktreeRefusal(m.listing, from, agent); err != nil {
 			m.report("Could not rebase the worktree of "+agent.Name, err)
 
 			return m, nil
@@ -213,8 +205,8 @@ func (m model) runGitChoice(from screen, agentID string, choice gitChoice) (mode
 	return m, nil
 }
 
-// isRebaseable reports whether an agent sits in a worktree komrad cut for it alone.
-func (l listing) isRebaseable(agent panel.Agent) bool {
+// hasOwnWorktree reports whether an agent sits in a worktree komrad cut for it alone.
+func (l listing) hasOwnWorktree(agent panel.Agent) bool {
 	if !hasCheckout(agent) {
 		return false
 	}
