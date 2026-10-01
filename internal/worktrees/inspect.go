@@ -47,6 +47,7 @@ type gitReader interface {
 type NewInspectorParams struct {
 	Lister    *Lister
 	Git       gitReader
+	Checkouts *CheckoutReader
 	Workflows *workflowstore.WorkflowStore
 	Worktrees *worktreestore.WorktreeStore
 	// Now is the clock, time.Now when unset.
@@ -71,12 +72,9 @@ func NewInspector(params NewInspectorParams) *Inspector {
 	}
 
 	return &Inspector{
-		lister: params.Lister,
-		git:    params.Git,
-		checkouts: NewCheckoutReader(NewCheckoutReaderParams{
-			Git: params.Git,
-			Now: now,
-		}),
+		lister:    params.Lister,
+		git:       params.Git,
+		checkouts: params.Checkouts,
 		workflows: params.Workflows,
 		worktrees: params.Worktrees,
 		now:       now,
