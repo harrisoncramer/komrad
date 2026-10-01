@@ -149,11 +149,14 @@ func (s sectionedForm) drawTopSummary(width, height int) []string {
 		lines = append(lines, marker+section.title+nestedMark)
 	}
 
-	muted := paint.Panel.Style(paint.ToneMuted)
+	lines = lines[:min(len(lines), max(height, 0))]
 
-	return []string{strings.Join(xslice.Map(lines[:min(len(lines), max(height, 0))], func(line string) string {
+	muted := paint.Panel.Style(paint.ToneMuted)
+	painted := xslice.Map(lines, func(line string) string {
 		return muted.Render(ansi.Truncate(line, topSummaryCols, "…"))
-	}), "\n")}
+	})
+
+	return []string{strings.Join(painted, "\n")}
 }
 
 func (f formSection) off() bool {
