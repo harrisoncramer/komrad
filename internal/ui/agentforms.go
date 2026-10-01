@@ -231,7 +231,7 @@ func newAgentForm(keys config.FormKeys, values *agentFormValues, worktree bool) 
 	fields := append([]huh.Field{
 		textField("prompt").Title("Initial prompt").Description(fmt.Sprintf("%s opens $EDITOR; %s submits", keyLabel(keys.Editor), keyLabel(keys.Submit))).Value(&values.Prompt),
 		huh.NewInput().Key("title").Title("Title").Value(&values.Title),
-	}, blueprintFields("", &values.Harness, &values.Dir, &values.Flags)...)
+	}, blueprintFields(&values.Harness, &values.Dir, &values.Flags)...)
 
 	if worktree {
 		fields = append(fields, huh.NewSelect[string]().Key("worktree").Title("Worktree").

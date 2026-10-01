@@ -263,11 +263,11 @@ func textField(key string) *huh.Text {
 	return huh.NewText().Key(key).ExternalEditor(false)
 }
 
-func blueprintFields(titlePrefix string, harness, dir, flags *string) []huh.Field {
+func blueprintFields(harness, dir, flags *string) []huh.Field {
 	return []huh.Field{
-		huh.NewInput().Key("harness").Title(titlePrefix + "Agent").Placeholder("claude").Value(harness),
-		huh.NewInput().Key("dir").Title(titlePrefix + "Directory").Value(dir),
-		huh.NewInput().Key("flags").Title(titlePrefix + "Flags").Placeholder("--model opus").Value(flags),
+		huh.NewInput().Key("harness").Title("Agent").Placeholder("claude").Value(harness),
+		huh.NewInput().Key("dir").Title("Directory").Value(dir),
+		huh.NewInput().Key("flags").Title("Flags").Placeholder("--model opus").Value(flags),
 	}
 }
 
