@@ -59,6 +59,7 @@ func prepareLine(params prepareLineParams) Line {
 		Name:     row.Name,
 		Matches:  row.Matches,
 		Editing:  row.Editing,
+		Behind:   row.Behind,
 		Weight:   weightFor(row.Kind),
 		Emphasis: emphasisFor(row, focused && params.caret != CaretAbsent),
 		Held:     HeldCell(row),

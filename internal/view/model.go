@@ -55,8 +55,10 @@ type Line struct {
 	// Matches are the stretches of the name a search picked out, in bytes of the name as it is
 	// drawn rather than as it was gathered.
 	Matches []Span
-	// Editing says the name is text a person is typing into, drawn with the text cursor after it.
-	Editing  bool
+	// Editing says the name is text a person is typing into, drawn with the text cursor in it.
+	Editing bool
+	// Behind is how many runes of the name follow the text cursor.
+	Behind   int
 	Weight   Weight
 	Emphasis Emphasis
 	Held     Cell

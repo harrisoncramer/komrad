@@ -50,6 +50,12 @@ func TestRenameSends(t *testing.T) {
 			want:      []proto.Message{&agentv1.UpdateAgentRequest{Id: "a1", Name: "writer"}},
 		},
 		{
+			name:      "home moves the cursor to the start of the name",
+			press:     slices.Concat([]string{"j", "r", "home"}, spellKeys("co-"), []string{"enter"}),
+			procedure: agentv1connect.AgentServiceUpdateAgentProcedure,
+			want:      []proto.Message{&agentv1.UpdateAgentRequest{Id: "a1", Name: "co-author"}},
+		},
+		{
 			name:      "a workflow renamed on its header carries the config it is not changing",
 			press:     slices.Concat([]string{"r"}, slices.Repeat([]string{"backspace"}, 3), spellKeys("backend"), []string{"enter"}),
 			procedure: workflowv1connect.WorkflowServiceUpdateWorkflowProcedure,

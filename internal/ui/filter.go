@@ -50,7 +50,7 @@ func (m filterMode) String() string {
 
 type filterState struct {
 	typing  bool
-	query   string
+	input   lineInput
 	pattern *regexp.Regexp
 	broken  bool
 	mode    filterMode
@@ -60,8 +60,12 @@ type filterState struct {
 	origin string
 }
 
+func (f filterState) query() string {
+	return f.input.value()
+}
+
 func (f filterState) isStanding() bool {
-	return f.query != ""
+	return f.query() != ""
 }
 
 // isNarrowing reports whether the pattern is taking rows off the screen.
@@ -76,7 +80,13 @@ func (f filterState) doesNarrow(section sidebarSection) bool {
 }
 
 func (f *filterState) setQuery(query string) {
-	f.query = query
+	f.input.set(query)
+	f.compile()
+}
+
+// compile reads the pattern out of what is typed.
+func (f *filterState) compile() {
+	query := f.query()
 	f.pattern, f.broken = nil, false
 
 	if strings.TrimSpace(query) == "" {
@@ -193,10 +203,8 @@ func (f *filterState) takeKey(key tea.KeyPressMsg) bool {
 		f.abandon()
 	case k == "enter":
 		f.typing = false
-	case k == "backspace":
-		f.setQuery(paint.TrimLastRune(f.query))
-	case typedText(key) != "":
-		f.setQuery(f.query + typedText(key))
+	case f.input.take(key):
+		f.compile()
 	default:
 		return false
 	}
@@ -399,9 +407,9 @@ func (f filterState) view(palette paint.Palette, glyphs glyph.Set) string {
 }
 
 func (f filterState) line(palette paint.Palette, glyphs glyph.Set) string {
-	query := f.query
+	before, after := f.input.split()
 	if f.broken {
-		query = palette.Broken().Render(query)
+		before, after = palette.Broken().Render(before), palette.Broken().Render(after)
 	}
 
 	slash := palette.Cursor()
@@ -412,12 +420,12 @@ func (f filterState) line(palette paint.Palette, glyphs glyph.Set) string {
 		slash = palette.Blinking(false).Cursor()
 	}
 
-	line := slash.Render(f.mode.glyph(glyphs)) + " " + query
+	line := slash.Render(f.mode.glyph(glyphs)) + " " + before
 	if f.typing {
 		line += palette.Cursor().Render(glyph.TextCursor)
 	}
 
-	return line
+	return line + after
 }
 
 // head is the rows over a block the filter searches: the search, what the last key said, and a

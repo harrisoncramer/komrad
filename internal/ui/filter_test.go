@@ -95,6 +95,20 @@ func TestFilterSearch(t *testing.T) {
 			wantSearch:  "/ p▏",
 		},
 		{
+			name:        "left moves the cursor back so what is typed lands before it",
+			from:        "backend",
+			press:       []string{"/", "a", "c", "left", "b"},
+			wantHovered: "backend",
+			wantSearch:  "/ ab▏c",
+		},
+		{
+			name:        "ctrl+w takes the last word back",
+			from:        "backend",
+			press:       []string{"/", "f", "o", "o", "space", "b", "a", "r", "ctrl+w"},
+			wantHovered: "backend",
+			wantSearch:  "/ foo ▏",
+		},
+		{
 			name:        "n walks forward from the row it is on",
 			from:        "  auth",
 			press:       []string{"/", "a", "enter", "n"},

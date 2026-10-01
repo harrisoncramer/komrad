@@ -441,7 +441,7 @@ func (l *logsScreen) logFilterLine(glyphs glyph.Set) string {
 		return l.logFilter.line(paint.Panel, glyphs)
 	}
 
-	return dimStyle().Render(filterModeFilter.glyph(glyphs) + " " + l.logFilter.query)
+	return dimStyle().Render(filterModeFilter.glyph(glyphs) + " " + l.logFilter.query())
 }
 
 // logRows is the lines of the log drawn in height rows, or what stands in for them.

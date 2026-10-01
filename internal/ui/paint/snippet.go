@@ -79,16 +79,6 @@ func activeSGR(active, chunk string) string {
 	return active
 }
 
-// TrimLastRune drops the last rune of a string.
-func TrimLastRune(s string) string {
-	r := []rune(s)
-	if len(r) == 0 {
-		return s
-	}
-
-	return string(r[:len(r)-1])
-}
-
 // MarkedTerms pulls the words the search marked in a snippet: the forms the turn actually
 // spells, not the words the query asked for.
 func MarkedTerms(snippet string) []string {

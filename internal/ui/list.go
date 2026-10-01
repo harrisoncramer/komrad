@@ -483,7 +483,7 @@ func screenNavLegend() []screenLegendRow {
 // filterDescOf names the filter key by the search standing in the list.
 func filterDescOf(s panelShared) string {
 	if s.chrome.filter.isStanding() {
-		return s.chrome.filter.mode.String() + ": " + s.chrome.filter.query
+		return s.chrome.filter.mode.String() + ": " + s.chrome.filter.query()
 	}
 
 	return "search"

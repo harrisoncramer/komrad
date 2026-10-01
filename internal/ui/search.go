@@ -32,7 +32,7 @@ import (
 type searchScreen struct {
 	rowCursor
 	typing bool
-	query  string
+	input  lineInput
 	// turns are the hits the server found in the conversations, one per turn that said the query.
 	turns []searchHit
 	// drawn is the rows built once for the frame being drawn, and nil between frames.
@@ -70,7 +70,7 @@ func (w *searchScreen) landOnRow(_ host, s panelShared) tea.Cmd {
 
 	if w.cursor == len(w.rows(s))-1 && w.next != nil && !w.paging {
 		w.paging = true
-		cmds = append(cmds, w.searchCmd(s, w.query, w.next))
+		cmds = append(cmds, w.searchCmd(s, w.query(), w.next))
 	}
 
 	return tea.Batch(cmds...)
@@ -247,7 +247,7 @@ func debounceSearchCmd(query string) tea.Cmd {
 }
 
 func (w *searchScreen) runSettled(s panelShared, msg searchSettledMsg) tea.Cmd {
-	if msg.query != w.query {
+	if msg.query != w.query() {
 		return nil
 	}
 
@@ -351,7 +351,7 @@ func (w *searchScreen) buildRows(s panelShared) []searchRow {
 }
 
 func (w *searchScreen) buildAgents(s panelShared) []searchAgent {
-	query := strings.TrimSpace(w.query)
+	query := strings.TrimSpace(w.query())
 	if query == "" {
 		return nil
 	}
@@ -414,7 +414,7 @@ func nameMatches(name, query string) []view.Span {
 }
 
 func (w *searchScreen) apply(h host, s panelShared, result searchResult) tea.Cmd {
-	if result.query != w.query {
+	if result.query != w.query() {
 		return nil
 	}
 
@@ -456,7 +456,7 @@ func (w *searchScreen) apply(h host, s panelShared, result searchResult) tea.Cmd
 
 func (w *searchScreen) previewCmd(s panelShared, agent searchAgent) tea.Cmd {
 	agents := s.reads.agents
-	query := w.query
+	query := w.query()
 
 	return func() tea.Msg {
 		content, err := call(agentsTimeout, func(ctx context.Context) (string, error) {
@@ -480,7 +480,7 @@ func (w *searchScreen) previewCmd(s panelShared, agent searchAgent) tea.Cmd {
 }
 
 func (w *searchScreen) applyPreview(s panelShared, result previewResult) {
-	if result.query != w.query {
+	if result.query != w.query() {
 		return
 	}
 
@@ -522,9 +522,9 @@ func (w *searchScreen) update(h host, s panelShared, msg tea.Msg) tea.Cmd {
 			return nil
 		}
 
-		w.query += pastedLine(msg)
+		w.input.take(msg)
 
-		return debounceSearchCmd(w.query)
+		return debounceSearchCmd(w.query())
 	case tea.KeyPressMsg:
 		if w.typing {
 			return w.updateInput(h, s, msg)
@@ -557,16 +557,8 @@ func (w *searchScreen) updateInput(h host, s panelShared, key tea.KeyPressMsg) t
 		return nil
 	case k == "ctrl+c":
 		return h.hide()
-	case k == "backspace":
-		if w.query != "" {
-			w.query = paint.TrimLastRune(w.query)
-		}
-
-		return debounceSearchCmd(w.query)
-	case typedText(key) != "":
-		w.query += typedText(key)
-
-		return debounceSearchCmd(w.query)
+	case w.input.take(key):
+		return debounceSearchCmd(w.query())
 	}
 
 	return nil
@@ -635,7 +627,7 @@ func (w *searchScreen) agentRow(s panelShared, agent searchAgent, archived map[s
 		Key:     agent.id,
 		Kind:    view.KindResult,
 		Name:    agent.name,
-		Matches: nameMatches(agent.name, w.query),
+		Matches: nameMatches(agent.name, w.query()),
 		Process: view.ProcessNone,
 	}
 
@@ -755,13 +747,15 @@ func (w *searchScreen) sidebarView(s panelShared) string {
 		palette = s.draw.focusPalette()
 	}
 
-	query := palette.Cursor().Render("/") + " " + w.query
+	before, after := w.input.split()
+	query := palette.Cursor().Render("/") + " " + before
 	if w.typing {
 		query += palette.Cursor().Render(glyph.TextCursor)
 	}
+	query += after
 	header := s.draw.viewsBar() + query + "\n\n"
 
-	blank := strings.TrimSpace(w.query) == ""
+	blank := strings.TrimSpace(w.query()) == ""
 	var qualifiers string
 	if blank || s.chrome.helpExpanded {
 		qualifiers = qualifierLegend(s.pane)
@@ -856,4 +850,8 @@ func speakerOf(role string) string {
 	}
 
 	return role
+}
+
+func (w *searchScreen) query() string {
+	return w.input.value()
 }
