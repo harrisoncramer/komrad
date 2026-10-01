@@ -14,6 +14,7 @@ import (
 	"komrad/internal/git"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
+	workflowstore "komrad/internal/store/workflow"
 	"komrad/lib/xpath"
 	"komrad/lib/xptr"
 	"komrad/lib/xstr"
@@ -39,15 +40,9 @@ type checkoutReader interface {
 	ReadRepositoryURL(ctx context.Context, dir string) string
 }
 
-// adoptAgentReadWriter is the slice of the agent store adoption reads.
-type adoptAgentReadWriter interface {
-	List(ctx context.Context) ([]agentstore.Agent, error)
-	ListAll(ctx context.Context) ([]agentstore.Agent, error)
-}
-
 type NewAdoptServiceParams struct {
-	Agents    adoptAgentReadWriter
-	Workflows workflowReader
+	Agents    *agentstore.AgentStore
+	Workflows *workflowstore.WorkflowStore
 	Launch    *LaunchService
 	Worktrees checkoutReader
 }
@@ -55,8 +50,8 @@ type NewAdoptServiceParams struct {
 // AdoptService puts an agent on a branch somebody else made, working out which checkout is to
 // hold that branch before handing the launch over.
 type AdoptService struct {
-	agents    adoptAgentReadWriter
-	workflows workflowReader
+	agents    *agentstore.AgentStore
+	workflows *workflowstore.WorkflowStore
 	launch    *LaunchService
 	worktrees checkoutReader
 }

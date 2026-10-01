@@ -7,17 +7,18 @@ import (
 	"komrad/internal/agenterr"
 	"komrad/internal/harness"
 	"komrad/internal/store"
+	agentstore "komrad/internal/store/agent"
 )
 
 type NewInterrupterParams struct {
-	Agents   agentGetter
+	Agents   *agentstore.AgentStore
 	Channel  harness.Channel
 	Observer harness.Observer
 }
 
 // Interrupter stops an agent where it stands.
 type Interrupter struct {
-	agents   agentGetter
+	agents   *agentstore.AgentStore
 	channel  harness.Channel
 	observer harness.Observer
 }

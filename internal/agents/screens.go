@@ -20,11 +20,6 @@ type screenCapturer interface {
 	GetPaneHeight(pane string) int
 }
 
-type screenStore interface {
-	Upsert(ctx context.Context, params screenstore.UpsertParams) error
-	Get(ctx context.Context, agentID string) (*screenstore.Screen, error)
-}
-
 // screenKeeper saves the last screen each agent's pane drew at rest.
 type screenKeeper interface {
 	Keep(ctx context.Context, params KeepParams)
@@ -34,13 +29,13 @@ type screenKeeper interface {
 
 type NewScreenKeeperParams struct {
 	Panes   screenCapturer
-	Screens screenStore
+	Screens *screenstore.ScreenStore
 }
 
 // ScreenKeeper saves an agent's screen whenever the frame it rests on changes.
 type ScreenKeeper struct {
 	panes   screenCapturer
-	screens screenStore
+	screens *screenstore.ScreenStore
 
 	// mu guards the hash of the frame each agent's saved screen was taken on.
 	mu    sync.Mutex

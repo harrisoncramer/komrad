@@ -17,67 +17,18 @@ import (
 	"komrad/internal/scripts"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
+	reviewstore "komrad/internal/store/review"
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
 	"komrad/lib/xstr"
 )
 
-type agentCounter interface {
-	CountLive(ctx context.Context) (int64, error)
-}
-
-type childCounter interface {
-	CountLiveChildren(ctx context.Context, parentID string) (int, error)
-}
-
-type childSlotLocker interface {
-	childCounter
-	LockSlots(ctx context.Context) error
-}
-
-// restoredChildSlotLocker is what a restore holds a parent to its ceiling with: the children it
-// already runs, plus the rows a restoring batch would hang under it.
-type restoredChildSlotLocker interface {
-	childSlotLocker
-	ListByID(ctx context.Context, ids []string) ([]agentstore.Agent, error)
-}
-
-type spawnedSlotLocker interface {
-	CountLiveSpawned(ctx context.Context, spawnerID string) (int, error)
-	LockSlots(ctx context.Context) error
-}
-
-type restoredSpawnedSlotLocker interface {
-	spawnedSlotLocker
-	ListByID(ctx context.Context, ids []string) ([]agentstore.Agent, error)
-}
-
-type agentSlotLocker interface {
-	agentCounter
-	LockSlots(ctx context.Context) error
-}
-
-// launchAgentReadWriter is the slice of the agent store a launch writes to.
-type launchAgentReadWriter interface {
-	agentGetter
-	agentCounter
-	childCounter
-	childLister
-	nameChecker
-	agentFailWriter
-	GetByIdempotencyKey(ctx context.Context, key string) (*agentstore.Agent, error)
-	ReleaseIdempotencyKey(ctx context.Context, key string) (bool, error)
-	GetInWorkflow(ctx context.Context, workflowID, name string) (*agentstore.Agent, error)
-	MarkSettingUpIfFailedToCreate(ctx context.Context, id string) (bool, error)
-	SetHarness(ctx context.Context, params agentstore.SetHarnessParams) error
-}
-
 type NewLaunchServiceParams struct {
 	Tmux               paneController
-	Agents             launchAgentReadWriter
-	Reviews            liveReviewerFinder
-	Workflows          workflowReader
+	Agents             *agentstore.AgentStore
+	Reviews            *reviewstore.ReviewStore
+	Workflows          *workflowstore.WorkflowStore
 	Tx                 txRunner
 	Launcher           *Launcher
 	Harnesses          harnessGetter
@@ -89,9 +40,9 @@ type NewLaunchServiceParams struct {
 
 type LaunchService struct {
 	tmux               paneController
-	agents             launchAgentReadWriter
-	reviews            liveReviewerFinder
-	workflows          workflowReader
+	agents             *agentstore.AgentStore
+	reviews            *reviewstore.ReviewStore
+	workflows          *workflowstore.WorkflowStore
 	tx                 txRunner
 	starter            *agentStarter
 	harnesses          harnessGetter
@@ -642,7 +593,7 @@ func (s *LaunchService) createUnderCeiling(ctx context.Context, agent agentstore
 	})
 }
 
-func claimRoomForAgents(ctx context.Context, agents agentSlotLocker, maxAgents, want int) error {
+func claimRoomForAgents(ctx context.Context, agents *agentstore.AgentStore, maxAgents, want int) error {
 	if maxAgents <= 0 || want <= 0 {
 		return nil
 	}
@@ -655,7 +606,7 @@ func claimRoomForAgents(ctx context.Context, agents agentSlotLocker, maxAgents, 
 
 // claimRoomForChildren holds one parent to the children it may run at once, a lower ceiling
 // than the panel's own.
-func claimRoomForChildren(ctx context.Context, agents childSlotLocker, maxChildren int, parent *agentstore.Agent) error {
+func claimRoomForChildren(ctx context.Context, agents *agentstore.AgentStore, maxChildren int, parent *agentstore.Agent) error {
 	if parent == nil || maxChildren <= 0 {
 		return nil
 	}
@@ -672,7 +623,7 @@ func claimRoomForChildren(ctx context.Context, agents childSlotLocker, maxChildr
 
 // claimRoomForRestoredChildren holds every parent a restoring batch hangs a child under to the
 // ceiling a create is held to.
-func claimRoomForRestoredChildren(ctx context.Context, agents restoredChildSlotLocker, maxChildren int, restoring []agentstore.Agent) error {
+func claimRoomForRestoredChildren(ctx context.Context, agents *agentstore.AgentStore, maxChildren int, restoring []agentstore.Agent) error {
 	if maxChildren <= 0 {
 		return nil
 	}
@@ -714,7 +665,7 @@ func claimRoomForRestoredChildren(ctx context.Context, agents restoredChildSlotL
 	return requireRoomForChildren(ctx, agents, maxChildren, wanted)
 }
 
-func claimRoomForSpawned(ctx context.Context, agents spawnedSlotLocker, maxSpawned int, spawner *agentstore.Agent) error {
+func claimRoomForSpawned(ctx context.Context, agents *agentstore.AgentStore, maxSpawned int, spawner *agentstore.Agent) error {
 	if spawner == nil || spawner.Role != agentstore.RoleOrchestrator || maxSpawned <= 0 {
 		return nil
 	}
@@ -729,7 +680,7 @@ func claimRoomForSpawned(ctx context.Context, agents spawnedSlotLocker, maxSpawn
 	}})
 }
 
-func claimRoomForRestoredSpawned(ctx context.Context, agents restoredSpawnedSlotLocker, maxSpawned int, restoring []agentstore.Agent) error {
+func claimRoomForRestoredSpawned(ctx context.Context, agents *agentstore.AgentStore, maxSpawned int, restoring []agentstore.Agent) error {
 	if maxSpawned <= 0 {
 		return nil
 	}
@@ -771,7 +722,7 @@ func claimRoomForRestoredSpawned(ctx context.Context, agents restoredSpawnedSlot
 	}))
 }
 
-func requireRoomForSpawned(ctx context.Context, agents spawnedSlotLocker, maxSpawned int, wanted []parentRoom) error {
+func requireRoomForSpawned(ctx context.Context, agents *agentstore.AgentStore, maxSpawned int, wanted []parentRoom) error {
 	for _, spawner := range wanted {
 		held, err := agents.CountLiveSpawned(ctx, spawner.id)
 		if err != nil {
@@ -793,7 +744,7 @@ type parentRoom struct {
 	want int
 }
 
-func requireRoomForChildren(ctx context.Context, agents childCounter, maxChildren int, wanted []parentRoom) error {
+func requireRoomForChildren(ctx context.Context, agents *agentstore.AgentStore, maxChildren int, wanted []parentRoom) error {
 	for _, parent := range wanted {
 		held, err := agents.CountLiveChildren(ctx, parent.id)
 		if err != nil {
@@ -808,7 +759,7 @@ func requireRoomForChildren(ctx context.Context, agents childCounter, maxChildre
 	return nil
 }
 
-func requireRoomForAgents(ctx context.Context, agents agentCounter, maxAgents, want int) error {
+func requireRoomForAgents(ctx context.Context, agents *agentstore.AgentStore, maxAgents, want int) error {
 	if maxAgents <= 0 || want <= 0 {
 		return nil
 	}

@@ -10,7 +10,6 @@ import (
 	"komrad/internal/tmux"
 
 	agentstore "komrad/internal/store/agent"
-	workflowstore "komrad/internal/store/workflow"
 )
 
 var (
@@ -29,20 +28,6 @@ type (
 	Script       = scripts.Script
 	ScriptHeader = scripts.Header
 )
-
-type agentGetter interface {
-	GetByID(ctx context.Context, id string) (*agentstore.Agent, error)
-}
-
-type nameChecker interface {
-	ExistsActiveName(ctx context.Context, workflowID, name string) (bool, error)
-}
-
-// agentFailWriter records that an agent's create or cleanup gave up.
-type agentFailWriter interface {
-	Update(ctx context.Context, agent agentstore.Agent) error
-	SetFailureReason(ctx context.Context, id, reason string) (bool, error)
-}
 
 type paneLister interface {
 	GetPanes() (map[string]tmux.PaneStatus, error)
@@ -71,11 +56,6 @@ type paneController interface {
 type paneStarter interface {
 	RespawnPane(pane, dir string, argv ...string) error
 	GetDefaultShell() string
-}
-
-type workflowReader interface {
-	Get(ctx context.Context, id string) (*workflowstore.Workflow, error)
-	GetIncludingArchived(ctx context.Context, id string) (*workflowstore.Workflow, error)
 }
 
 type txRunner interface {

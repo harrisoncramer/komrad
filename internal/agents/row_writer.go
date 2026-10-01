@@ -5,20 +5,10 @@ import (
 	"fmt"
 
 	"komrad/internal/agenterr"
+	agentstore "komrad/internal/store/agent"
+	runstore "komrad/internal/store/run"
 	"komrad/internal/wake"
 )
-
-type rowWriteStore interface {
-	SetHidden(ctx context.Context, id string, hidden bool) (bool, error)
-	Rename(ctx context.Context, id, name string) (bool, error)
-	SetReportedReason(ctx context.Context, id, reason string) error
-	SetTurnEnded(ctx context.Context, id string) error
-	SetTurnFailed(ctx context.Context, id, turnError string) error
-}
-
-type runMarker interface {
-	MarkRead(ctx context.Context, agentID string) error
-}
 
 // turnRecorder is where what an agent's own CLI reports about itself reaches the reconcile loop.
 type turnRecorder interface {
@@ -28,8 +18,8 @@ type turnRecorder interface {
 
 // NewRowWriterParams is what a row writer is built over.
 type NewRowWriterParams struct {
-	Agents         rowWriteStore
-	Runs           runMarker
+	Agents         *agentstore.AgentStore
+	Runs           *runstore.RunStore
 	Reconciler     turnRecorder
 	CwdSync        wake.Waker
 	TranscriptSync wake.Waker
@@ -37,8 +27,8 @@ type NewRowWriterParams struct {
 
 // RowWriter changes what an agent's row says without moving the agent through its life.
 type RowWriter struct {
-	agents         rowWriteStore
-	runs           runMarker
+	agents         *agentstore.AgentStore
+	runs           *runstore.RunStore
 	reconciler     turnRecorder
 	cwdSync        wake.Waker
 	transcriptSync wake.Waker

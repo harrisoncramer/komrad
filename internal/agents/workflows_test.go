@@ -1050,10 +1050,7 @@ func TestRestoreOfAWorkflowUnderTheChildCeiling(t *testing.T) {
 // TestListWorkflows pins that a listing reads the live or the archived workflows as asked.
 func TestListWorkflows(t *testing.T) {
 	st := newStore(t)
-	workflows := NewWorkflowService(NewWorkflowServiceParams{
-		Workflows: st.Workflows,
-		Pages:     st.Workflows,
-	})
+	workflows := NewWorkflowService(NewWorkflowServiceParams{Workflows: st.Workflows})
 	st.SeedWorkflow(t, workflowstore.Config{Name: "backend"})
 	archived := st.SeedWorkflow(t, workflowstore.Config{Name: "frontend"})
 	require.NoError(t, st.Workflows.Archive(t.Context(), archived.ID))

@@ -34,7 +34,7 @@ func runDeprovision(ctx context.Context, deprovision agentScriptRunner, agent ag
 	}
 }
 
-func deprovisionerFor(ctx context.Context, workflows workflowReader, agent agentstore.Agent) string {
+func deprovisionerFor(ctx context.Context, workflows *workflowstore.WorkflowStore, agent agentstore.Agent) string {
 	if agent.IsProvisionerDisabled() {
 		return ""
 	}
@@ -44,7 +44,7 @@ func deprovisionerFor(ctx context.Context, workflows workflowReader, agent agent
 	return deprovisioner
 }
 
-func provisionerFor(ctx context.Context, workflows workflowReader, agent agentstore.Agent) string {
+func provisionerFor(ctx context.Context, workflows *workflowstore.WorkflowStore, agent agentstore.Agent) string {
 	if agent.IsProvisionerDisabled() {
 		return ""
 	}

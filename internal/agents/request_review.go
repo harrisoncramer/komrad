@@ -9,13 +9,7 @@ import (
 	"komrad/internal/agenterr"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
-	reviewstore "komrad/internal/store/review"
 )
-
-// liveReviewerFinder reads the reviewer still owed an answer about an agent's work.
-type liveReviewerFinder interface {
-	GetLiveReviewerOf(ctx context.Context, agentID string) (*reviewstore.LiveReviewer, error)
-}
 
 // reviewerNameSuffix is what a reviewer is called after the agent it reads, so the sidebar says
 // whose work a row is for.

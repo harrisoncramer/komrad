@@ -13,7 +13,7 @@ import (
 type archiveBatchParams struct {
 	tmux      paneKiller
 	scripts   agentScriptRunner
-	workflows workflowReader
+	workflows *workflowstore.WorkflowStore
 	live      []agentstore.Agent
 	owned     []agentstore.Agent
 	screens   screenKeeper
@@ -60,16 +60,12 @@ func archiveBatch(ctx context.Context, params archiveBatchParams) error {
 	return nil
 }
 
-type agentsByIDLister interface {
-	ListByID(ctx context.Context, ids []string) ([]agentstore.Agent, error)
-}
-
 type restoreBatchParams struct {
 	tx        txRunner
 	usage     config.Usage
 	scripts   agentScriptRunner
-	workflows workflowReader
-	agents    agentsByIDLister
+	workflows *workflowstore.WorkflowStore
+	agents    *agentstore.AgentStore
 	archived  []agentstore.Agent
 	relist    func(ctx context.Context, agents *agentstore.AgentStore) ([]agentstore.Agent, error)
 	restore   func(ctx context.Context, db store.DBTX) error

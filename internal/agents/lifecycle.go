@@ -29,35 +29,6 @@ import (
 // ErrArchiveNotYours is an agent other than an orchestrator archiving an agent that is neither itself nor its child.
 var ErrArchiveNotYours = fail.Denied("an agent may archive only itself and its own children")
 
-// childLister reads the agents attached to a set of parents.
-type childLister interface {
-	ListChildren(ctx context.Context, parentIDs []string) ([]agentstore.Agent, error)
-}
-
-// lifecycleAgentReadWriter is the slice of the agent store archiving, restoring and deleting
-// write to outside a transaction.
-type lifecycleAgentReadWriter interface {
-	agentGetter
-	agentFailWriter
-	childLister
-	ListByID(ctx context.Context, ids []string) ([]agentstore.Agent, error)
-	Archive(ctx context.Context, ids []string) ([]agentstore.AgentPane, error)
-	ClearDeleting(ctx context.Context, ids []string) error
-	MarkDeleting(ctx context.Context, ids []string) ([]agentstore.Claim, error)
-}
-
-// emptyWorkflowDeleter permanently removes a workflow left with nothing archived inside it.
-type emptyWorkflowDeleter interface {
-	DeleteIfEmpty(ctx context.Context, workflowID string) error
-}
-
-// reviewReaper is the half of the review store the lifecycle needs, being the refs an agent's
-// snapshots are held by and the drafts it was writing about others.
-type reviewReaper interface {
-	ListRounds(ctx context.Context, agentID string) ([]reviewstore.Round, error)
-	DeleteOpenReviewsBy(ctx context.Context, authorAgentIDs []string) error
-}
-
 // snapshotReleaser drops the ref holding a round's snapshot.
 type snapshotReleaser interface {
 	ReleaseRef(ctx context.Context, dir, ref string) error
@@ -65,12 +36,12 @@ type snapshotReleaser interface {
 
 type NewLifecycleServiceParams struct {
 	Tmux           paneKiller
-	Agents         lifecycleAgentReadWriter
-	Workflows      workflowReader
-	EmptyWorkflows emptyWorkflowDeleter
+	Agents         *agentstore.AgentStore
+	Workflows      *workflowstore.WorkflowStore
+	EmptyWorkflows *EmptyWorkflowDeleter
 	Tx             txRunner
 	Scripts        agentScriptRunner
-	Reviews        reviewReaper
+	Reviews        *reviewstore.ReviewStore
 	Snapshots      snapshotReleaser
 	Screens        screenKeeper
 	LogsDir        string
@@ -82,12 +53,12 @@ type NewLifecycleServiceParams struct {
 // deprovisioner on the way out.
 type LifecycleService struct {
 	tmux           paneKiller
-	agents         lifecycleAgentReadWriter
-	workflows      workflowReader
-	emptyWorkflows emptyWorkflowDeleter
+	agents         *agentstore.AgentStore
+	workflows      *workflowstore.WorkflowStore
+	emptyWorkflows *EmptyWorkflowDeleter
 	tx             txRunner
 	scripts        agentScriptRunner
-	reviews        reviewReaper
+	reviews        *reviewstore.ReviewStore
 	snapshots      snapshotReleaser
 	screens        screenKeeper
 	logsDir        string
@@ -717,7 +688,7 @@ func (s *LifecycleService) removeRunLogs(ctx context.Context, ids []string) {
 }
 
 // failAs marks an agent as having failed create or cleanup and leaves the row where it was.
-func failAs(ctx context.Context, agents agentFailWriter, agent agentstore.Agent, state agentstore.State, verb string, cause error) { //nolint:revive // a params struct is the follow-up
+func failAs(ctx context.Context, agents *agentstore.AgentStore, agent agentstore.Agent, state agentstore.State, verb string, cause error) { //nolint:revive // a params struct is the follow-up
 	agent.State = state
 	if err := agents.Update(ctx, agent); err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to record why an agent's lifecycle action failed",

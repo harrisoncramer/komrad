@@ -114,15 +114,6 @@ func (s *testStore) GetTranscript(ctx context.Context, agentID string) (string, 
 	return s.Transcripts.Get(ctx, agentID)
 }
 
-// testAgentStore is the one store these tests hand to all four services at once, and no
-// production type is expected to satisfy the whole of it.
-type testAgentStore interface {
-	launchAgentReadWriter
-	resumeAgentReadWriter
-	adoptAgentReadWriter
-	lifecycleAgentReadWriter
-}
-
 // testAgents is what a test drives instead of one service, holding the pieces an AgentService
 // used to be.
 type testAgents struct {
@@ -145,17 +136,11 @@ type agentServiceOptions struct {
 	usage     config.Usage
 	logsDir   string
 	framesDir string
-	agents    testAgentStore
 	tx        txRunner
 	stateDir  string
 }
 
 func (s *testStore) agentService(options agentServiceOptions) *testAgents {
-	agents := options.agents
-	if agents == nil {
-		agents = s.Agents
-	}
-
 	tx := options.tx
 	if tx == nil {
 		tx = s.Pool
@@ -174,7 +159,7 @@ func (s *testStore) agentService(options agentServiceOptions) *testAgents {
 
 	launch := NewLaunchService(NewLaunchServiceParams{
 		Tmux:               options.tmux,
-		Agents:             agents,
+		Agents:             s.Agents,
 		Reviews:            reviewstore.NewReviewStore(s.Pool.GetDB()),
 		Workflows:          s.Workflows,
 		Tx:                 tx,
@@ -193,21 +178,21 @@ func (s *testStore) agentService(options agentServiceOptions) *testAgents {
 		snapshots: snapshots,
 		resume: NewResumeService(NewResumeServiceParams{
 			Tmux:      options.tmux,
-			Agents:    agents,
+			Agents:    s.Agents,
 			Workflows: s.Workflows,
 			Launcher:  launcher,
 			Harnesses: options.harnesses,
 			Scripts:   options.lifecycle,
 		}),
 		adopt: NewAdoptService(NewAdoptServiceParams{
-			Agents:    agents,
+			Agents:    s.Agents,
 			Workflows: s.Workflows,
 			Launch:    launch,
 			Worktrees: &gittest.Checkout{},
 		}),
 		lifecycle: NewLifecycleService(NewLifecycleServiceParams{
 			Tmux:           options.tmux,
-			Agents:         agents,
+			Agents:         s.Agents,
 			Workflows:      s.Workflows,
 			EmptyWorkflows: emptied,
 			Tx:             tx,
