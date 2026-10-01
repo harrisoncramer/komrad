@@ -88,6 +88,7 @@ func wordForward(r []rune, p int, big bool) int {
 	if p >= n {
 		return n
 	}
+	from := p
 
 	if c := class(r[p], big); c != 0 {
 		for p < n && class(r[p], big) == c {
@@ -96,6 +97,9 @@ func wordForward(r []rune, p int, big bool) int {
 	}
 
 	for p < n && class(r[p], big) == 0 {
+		if p != from && isEmptyLine(r, p) {
+			break
+		}
 		p++
 	}
 
@@ -123,6 +127,9 @@ func wordEnd(r []rune, p int, big bool) int {
 func wordBackward(r []rune, p int, big bool) int {
 	p--
 	for p > 0 && class(r[p], big) == 0 {
+		if isEmptyLine(r, p) {
+			return p
+		}
 		p--
 	}
 	if p <= 0 {
@@ -151,4 +158,9 @@ func toggleCase(c rune) rune {
 	}
 
 	return unicode.ToUpper(c)
+}
+
+// isEmptyLine reports whether p is a line with nothing on it.
+func isEmptyLine(r []rune, p int) bool {
+	return p < len(r) && r[p] == '\n' && (p == 0 || r[p-1] == '\n')
 }

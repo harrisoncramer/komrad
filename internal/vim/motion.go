@@ -134,6 +134,10 @@ func (e *Engine) wordMotion(r []rune, p int, c command) (int, reach, bool) {
 		return p, inclusive, true
 	}
 
+	if c.op != "" && isEmptyLine(r, p) {
+		return p, linewise, true
+	}
+
 	from := p
 	for range c.times() {
 		from = p
