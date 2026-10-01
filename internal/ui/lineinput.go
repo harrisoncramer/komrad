@@ -52,8 +52,9 @@ func (l *lineInput) set(value string) {
 	*l = newLineInput(value)
 }
 
-// insert puts vim in insert mode, as a field does when it is opened again.
+// insert puts vim in insert mode with the cursor after the text.
 func (l *lineInput) insert() {
+	l.model.CursorEnd()
 	if l.engine != nil {
 		l.engine.Insert(readInput(&l.model))
 	}
