@@ -83,8 +83,8 @@ type pullRequestServices struct {
 }
 
 type checkoutServices struct {
-	checkout *checkouts.Service
-	cwdSync  *checkouts.CwdSyncer
+	service *checkouts.Service
+	cwdSync *checkouts.CwdSyncer
 }
 
 type worktreeServices struct {
@@ -200,7 +200,7 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 		},
 		pullRequests: pullRequestGroup,
 		checkouts: checkoutServices{
-			checkout: checkouts.NewService(checkouts.NewServiceParams{
+			service: checkouts.NewService(checkouts.NewServiceParams{
 				Agents:          st.agents,
 				Workflows:       st.workflows,
 				Settler:         settler,

@@ -97,9 +97,9 @@ func newMux(params newMuxParams) (*http.ServeMux, error) {
 		Review:        svc.review,
 		Documents:     svc.documents,
 		DocumentTypes: svc.documents,
-		Rebaser:       svc.checkouts.checkout,
-		Pusher:        svc.checkouts.checkout,
-		Aborter:       svc.checkouts.checkout,
+		Rebaser:       svc.checkouts.service,
+		Pusher:        svc.checkouts.service,
+		Aborter:       svc.checkouts.service,
 		Orchestrator:  svc.agents.orchestrator,
 	}), options...)
 	workflowv1komrad.RegisterWorkflowService(mux, rpcworkflow.NewHandler(rpcworkflow.NewHandlerParams{
