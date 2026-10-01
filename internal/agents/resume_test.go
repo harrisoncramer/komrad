@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"komrad/config"
+	"komrad/internal/agenterr"
 	"komrad/internal/harness"
 	"komrad/internal/harness/pane"
 	"komrad/internal/harnesstest"
@@ -369,7 +370,7 @@ func TestASecondResumeOpensNoSecondWindow(t *testing.T) {
 	<-arrived
 
 	_, err := manager.resume.ResumeAgent(ctx, agent.ID)
-	require.ErrorIs(t, err, ErrResumeInFlight)
+	require.ErrorIs(t, err, agenterr.ErrResumeInFlight)
 
 	close(release)
 	require.NoError(t, <-first)
@@ -424,7 +425,7 @@ func TestAnArchiveBeforeTheMarkStopsTheResume(t *testing.T) {
 	}
 
 	_, err = manager.resume.ResumeAgent(ctx, agent.ID)
-	require.ErrorIs(t, err, ErrAgentArchived)
+	require.ErrorIs(t, err, agenterr.ErrAgentArchived)
 
 	after := agentByID(t, st, agent.ID)
 	require.NotNil(t, after.ArchivedAt, "the archive really did land")
@@ -470,7 +471,7 @@ func TestAnArchiveAfterTheMarkStopsTheResume(t *testing.T) {
 	close(lifecycle.release)
 	select {
 	case resumeErr := <-done:
-		require.ErrorIs(t, resumeErr, ErrAgentArchived)
+		require.ErrorIs(t, resumeErr, agenterr.ErrAgentArchived)
 	case <-time.After(10 * time.Second):
 		t.Fatal("the resume never finished")
 	}
@@ -521,7 +522,7 @@ func TestADeleteAfterTheMarkStopsTheResume(t *testing.T) {
 	close(lifecycle.release)
 	select {
 	case resumeErr := <-done:
-		require.ErrorIs(t, resumeErr, ErrAgentArchived)
+		require.ErrorIs(t, resumeErr, agenterr.ErrAgentArchived)
 	case <-time.After(10 * time.Second):
 		t.Fatal("the resume never finished")
 	}
@@ -760,7 +761,7 @@ func TestResumeRefusesArchived(t *testing.T) {
 
 	_, err := manager.resume.ResumeAgent(ctx, archived.ID)
 
-	require.ErrorIs(t, err, ErrAgentArchived)
+	require.ErrorIs(t, err, agenterr.ErrAgentArchived)
 	require.ErrorContains(t, err, "restore it first", "the refusal says what to do about it")
 	assert.Empty(t, tmux.NewWindows, "and opens no window")
 }

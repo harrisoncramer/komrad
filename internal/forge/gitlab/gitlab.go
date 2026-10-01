@@ -182,8 +182,8 @@ func (f *Forge) List(ctx context.Context, params forge.ListParams) (*forge.Page,
 	}), nil
 }
 
-// Get is one merge request by its web address.
-func (f *Forge) Get(ctx context.Context, address string) (forge.PullRequest, error) {
+// readMergeRequest is one merge request by its web address.
+func (f *Forge) readMergeRequest(ctx context.Context, address string) (forge.PullRequest, error) {
 	path, number, err := parseMergeRequestURL(address)
 	if err != nil {
 		return forge.PullRequest{}, err
@@ -244,7 +244,7 @@ func (f *Forge) SetDraft(ctx context.Context, address string, draft bool) error 
 		return err
 	}
 
-	target, err := f.Get(ctx, address)
+	target, err := f.readMergeRequest(ctx, address)
 	if err != nil {
 		return err
 	}

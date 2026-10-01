@@ -5,7 +5,7 @@ import (
 	"errors"
 	"time"
 
-	"komrad/internal/agents"
+	"komrad/internal/agenterr"
 	"komrad/internal/scriptrun"
 	agentstore "komrad/internal/store/agent"
 
@@ -73,10 +73,10 @@ func (w *WakeAgentWorker) Timeout(*river.Job[WakeAgentArgs]) time.Duration {
 func (w *WakeAgentWorker) Work(ctx context.Context, job *river.Job[WakeAgentArgs]) error {
 	_, err := w.resumer.ResumeAgent(ctx, job.Args.AgentID)
 	switch {
-	case errors.Is(err, agents.ErrResumeInFlight),
-		errors.Is(err, agents.ErrAgentArchived),
-		errors.Is(err, agents.ErrAgentHeld),
-		errors.Is(err, agents.ErrAgentNotFound):
+	case errors.Is(err, agenterr.ErrResumeInFlight),
+		errors.Is(err, agenterr.ErrAgentArchived),
+		errors.Is(err, agenterr.ErrAgentHeld),
+		errors.Is(err, agenterr.ErrAgentNotFound):
 		return nil
 	default:
 		return err

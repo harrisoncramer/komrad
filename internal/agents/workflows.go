@@ -11,6 +11,7 @@ import (
 	"unicode/utf8"
 
 	"komrad/config"
+	"komrad/internal/agenterr"
 	"komrad/internal/eventprompts"
 	"komrad/internal/fail"
 	"komrad/internal/git"
@@ -202,7 +203,7 @@ func (w *WorkflowService) NewWorkflow(ctx context.Context, cfg workflowstore.Con
 func (w *WorkflowService) UpdateWorkflow(ctx context.Context, id string, cfg workflowstore.Config) error {
 	existing, err := w.GetWorkflow(ctx, id)
 	if errors.Is(err, store.ErrNotFound) {
-		return ErrWorkflowNotFound.Saying("no workflow with id %q", id)
+		return agenterr.ErrWorkflowNotFound.Saying("no workflow with id %q", id)
 	}
 	if err != nil {
 		return err
@@ -391,7 +392,7 @@ func requirePrimaryCheckout(cwd string) error {
 func (w *WorkflowService) ArchiveWorkflow(ctx context.Context, id string) error {
 	existing, err := w.GetWorkflow(ctx, id)
 	if errors.Is(err, store.ErrNotFound) {
-		return ErrWorkflowNotFound.Saying("no workflow with id %q", id)
+		return agenterr.ErrWorkflowNotFound.Saying("no workflow with id %q", id)
 	}
 	if err != nil {
 		return err
@@ -446,13 +447,13 @@ func (w *WorkflowService) ArchiveWorkflow(ctx context.Context, id string) error 
 func (w *WorkflowService) RestoreWorkflow(ctx context.Context, id string) (*workflowstore.Workflow, error) {
 	existing, err := w.store.GetIncludingArchived(ctx, id)
 	if errors.Is(err, store.ErrNotFound) {
-		return nil, ErrWorkflowNotFound.Saying("no archived workflow with id %q", id)
+		return nil, agenterr.ErrWorkflowNotFound.Saying("no archived workflow with id %q", id)
 	}
 	if err != nil {
 		return nil, err
 	}
 	if existing.ArchivedAt == nil {
-		return nil, ErrWorkflowNotFound.Saying("no archived workflow with id %q", id)
+		return nil, agenterr.ErrWorkflowNotFound.Saying("no archived workflow with id %q", id)
 	}
 
 	archived, err := w.agents.ListRestorableInWorkflow(ctx, id)
@@ -489,13 +490,13 @@ func (w *WorkflowService) RestoreWorkflow(ctx context.Context, id string) (*work
 func (w *WorkflowService) DeleteWorkflow(ctx context.Context, id string) error {
 	existing, err := w.store.GetIncludingArchived(ctx, id)
 	if errors.Is(err, store.ErrNotFound) {
-		return ErrWorkflowNotFound.Saying("no archived workflow with id %q", id)
+		return agenterr.ErrWorkflowNotFound.Saying("no archived workflow with id %q", id)
 	}
 	if err != nil {
 		return err
 	}
 	if existing.ArchivedAt == nil {
-		return ErrWorkflowNotFound.Saying("no archived workflow with id %q", id)
+		return agenterr.ErrWorkflowNotFound.Saying("no archived workflow with id %q", id)
 	}
 
 	inside, err := w.agents.ListArchivedInWorkflow(ctx, id)

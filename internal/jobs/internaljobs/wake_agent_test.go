@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"komrad/internal/agents"
+	"komrad/internal/agenterr"
 	agentstore "komrad/internal/store/agent"
 
 	"github.com/riverqueue/river"
@@ -37,10 +37,10 @@ func TestWakeAgentWorker(t *testing.T) {
 		wantErr   error
 	}{
 		{name: "an agent put back in a pane"},
-		{name: "an agent already being resumed", resumeErr: agents.ErrResumeInFlight},
-		{name: "an archived agent", resumeErr: agents.ErrAgentArchived},
-		{name: "a held agent", resumeErr: agents.ErrAgentHeld},
-		{name: "a deleted agent", resumeErr: agents.ErrAgentNotFound},
+		{name: "an agent already being resumed", resumeErr: agenterr.ErrResumeInFlight},
+		{name: "an archived agent", resumeErr: agenterr.ErrAgentArchived},
+		{name: "a held agent", resumeErr: agenterr.ErrAgentHeld},
+		{name: "a deleted agent", resumeErr: agenterr.ErrAgentNotFound},
 		{
 			name:      "a failure that might pass",
 			resumeErr: failed,

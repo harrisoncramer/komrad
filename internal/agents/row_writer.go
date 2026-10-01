@@ -3,6 +3,8 @@ package agents
 import (
 	"context"
 	"fmt"
+
+	"komrad/internal/agenterr"
 )
 
 type rowWriteStore interface {
@@ -65,7 +67,7 @@ func (w *RowWriter) SetHidden(ctx context.Context, id string, hidden bool) error
 		return fmt.Errorf("failed to hide agent %q: %w", id, err)
 	}
 	if !changed {
-		return ErrAgentNotFound.Saying("no agent with id %q", id)
+		return agenterr.ErrAgentNotFound.Saying("no agent with id %q", id)
 	}
 
 	return nil
@@ -78,7 +80,7 @@ func (w *RowWriter) Rename(ctx context.Context, id, name string) error {
 		return fmt.Errorf("failed to rename agent %q: %w", id, err)
 	}
 	if !renamed {
-		return ErrAgentNotFound.Saying("no agent with id %q", id)
+		return agenterr.ErrAgentNotFound.Saying("no agent with id %q", id)
 	}
 
 	return nil

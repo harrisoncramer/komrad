@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"time"
 
+	"komrad/internal/agenterr"
 	"komrad/internal/agents"
 	"komrad/internal/caller"
 	"komrad/internal/fail"
@@ -180,7 +181,7 @@ func (s *Handler) CreateAgent(ctx context.Context, req *agentv1.CreateAgentReque
 	})
 	// Create-once is what the key is for, so a key already spent answers with the agent it
 	// launched rather than an error.
-	if err != nil && !errors.Is(err, agents.ErrAlreadyLaunched) {
+	if err != nil && !errors.Is(err, agenterr.ErrAlreadyLaunched) {
 		return nil, rpcerr.From(err, "failed to create agent")
 	}
 

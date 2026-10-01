@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"komrad/internal/fail"
+	"komrad/internal/agenterr"
 	"komrad/internal/harness"
 	agentstore "komrad/internal/store/agent"
 )
@@ -16,10 +16,6 @@ const settleBudget = 8 * time.Second
 
 // settleInterval is how often the pane is read while waiting.
 const settleInterval = 250 * time.Millisecond
-
-// ErrUnsettled is an agent that could not be seen to come to rest, so nothing may touch its
-// worktree.
-var ErrUnsettled = fail.Precondition("the agent did not stop")
 
 // NewSettlerParams is what a settler is built over.
 type NewSettlerParams struct {
@@ -65,7 +61,7 @@ func (s *Settler) Settle(ctx context.Context, agent agentstore.Agent) (bool, err
 	target := buildTarget(agent)
 	running, err := s.observer.IsRunning(ctx, target)
 	if err != nil {
-		return false, ErrUnsettled.Saying("%q could not be read, so nothing here can say it stopped", agent.Name)
+		return false, agenterr.ErrUnsettled.Saying("%q could not be read, so nothing here can say it stopped", agent.Name)
 	}
 	if !running {
 		return false, nil
@@ -74,7 +70,7 @@ func (s *Settler) Settle(ctx context.Context, agent agentstore.Agent) (bool, err
 	observed, err := s.observer.Observe(ctx, target)
 	read := err == nil && (isMidTurn(observed.Activity) || isAtRest(observed.Activity))
 	if !read {
-		return false, ErrUnsettled.Saying("%q could not be read, so nothing here can say it stopped", agent.Name)
+		return false, agenterr.ErrUnsettled.Saying("%q could not be read, so nothing here can say it stopped", agent.Name)
 	}
 
 	if !isMidTurn(observed.Activity) {
@@ -109,7 +105,7 @@ func (s *Settler) waitForRest(ctx context.Context, target harness.Target, name s
 		}
 
 		if !s.now().Before(deadline) {
-			return ErrUnsettled.Saying("%q %s", name, describeUnsettled(last))
+			return agenterr.ErrUnsettled.Saying("%q %s", name, describeUnsettled(last))
 		}
 
 		select {

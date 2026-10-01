@@ -5,7 +5,7 @@ import (
 	"slices"
 	"testing"
 
-	"komrad/internal/agents"
+	"komrad/internal/agenterr"
 	"komrad/internal/eventprompts"
 	"komrad/internal/events/eventstest"
 	"komrad/internal/gittest"
@@ -271,7 +271,7 @@ func TestReviewEntitlement(t *testing.T) {
 
 				return err
 			},
-			wantErr: agents.ErrReviewNeedsOwnWork,
+			wantErr: agenterr.ErrReviewNeedsOwnWork,
 		},
 		{
 			name: "a child taking a round of itself",
@@ -280,7 +280,7 @@ func TestReviewEntitlement(t *testing.T) {
 
 				return err
 			},
-			wantErr: agents.ErrReviewNeedsOwnWork,
+			wantErr: agenterr.ErrReviewNeedsOwnWork,
 		},
 		{
 			name: "taking a round of an agent with no directory",
@@ -305,7 +305,7 @@ func TestReviewEntitlement(t *testing.T) {
 
 				return err
 			},
-			wantErr: agents.ErrAgentArchived,
+			wantErr: agenterr.ErrAgentArchived,
 		},
 		{
 			name: "a reviewer releasing notes with nothing in them",

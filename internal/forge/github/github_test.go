@@ -373,19 +373,6 @@ func TestReadBranchesRefusals(t *testing.T) {
 	assert.Empty(t, fake.calls)
 }
 
-// TestGet covers reading one pull request by its web address.
-func TestGet(t *testing.T) {
-	t.Parallel()
-
-	f, _, fake := serve(t, map[string]answer{"Get": {body: data(`{"repository":{"pullRequest":` + mergedPull + `}}`)}})
-
-	pullRequest, err := f.Get(t.Context(), "https://github.com/harrisoncramer/komrad/pull/742")
-	require.NoError(t, err)
-	assert.Equal(t, 742, pullRequest.Number)
-	assert.Equal(t, "feat(pullrequest): draw pull request marks in the panel", pullRequest.Title)
-	assert.Equal(t, map[string]any{"owner": "harrisoncramer", "name": "komrad", "number": float64(742)}, fake.last(t).Variables)
-}
-
 // TestMerge covers merging with the repository's default method and GitHub's refusals.
 func TestMerge(t *testing.T) {
 	t.Parallel()
@@ -633,8 +620,8 @@ func TestSetAutoMerge(t *testing.T) {
 	}
 }
 
-// TestGetRefusesWhatIsNotAPullRequest covers the addresses Get will not ask GitHub about.
-func TestGetRefusesWhatIsNotAPullRequest(t *testing.T) {
+// TestMergeRefusesWhatIsNotAPullRequest covers the addresses Merge will not ask GitHub about.
+func TestMergeRefusesWhatIsNotAPullRequest(t *testing.T) {
 	t.Parallel()
 
 	f, _, fake := serve(t, nil)
@@ -654,7 +641,7 @@ func TestGetRefusesWhatIsNotAPullRequest(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			_, err := f.Get(t.Context(), tt.address)
+			err := f.Merge(t.Context(), tt.address)
 			require.ErrorIs(t, err, forge.ErrNotPullRequest)
 			assert.Empty(t, fake.calls)
 		})
@@ -719,18 +706,14 @@ func TestNotFound(t *testing.T) {
 			name: "a repository github does not have",
 			body: `{"data":{"repository":null},"errors":[{"type":"NOT_FOUND","path":["repository"],"locations":[{"line":2,"column":3}],"message":"Could not resolve to a Repository with the name 'harrisoncramer/no-such-repository-xyz'."}]}`,
 			call: func(f *Forge) error {
-				_, err := f.Get(t.Context(), "https://github.com/harrisoncramer/no-such-repository-xyz/pull/1")
-
-				return err
+				return f.Merge(t.Context(), "https://github.com/harrisoncramer/no-such-repository-xyz/pull/1")
 			},
 		},
 		{
 			name: "a pull request github does not have",
 			body: `{"data":{"repository":{"pullRequest":null}},"errors":[{"type":"NOT_FOUND","path":["repository","pullRequest"],"locations":[{"line":3,"column":5}],"message":"Could not resolve to a PullRequest with the number of 999."}]}`,
 			call: func(f *Forge) error {
-				_, err := f.Get(t.Context(), "https://github.com/harrisoncramer/komrad-forge-fixture/pull/999")
-
-				return err
+				return f.Merge(t.Context(), "https://github.com/harrisoncramer/komrad-forge-fixture/pull/999")
 			},
 		},
 		{
@@ -748,14 +731,14 @@ func TestNotFound(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			f, auth, _ := serve(t, map[string]answer{"Get": {body: tt.body}, "ReadBranches": {body: tt.body}})
+			f, auth, _ := serve(t, map[string]answer{"MergeTarget": {body: tt.body}, "ReadBranches": {body: tt.body}})
 			require.ErrorIs(t, tt.call(f), forge.ErrNotFound)
 			assert.Equal(t, 0, auth.invalidated)
 		})
 	}
 
 	misrouted, _, _ := serve(t, nil)
-	_, err := misrouted.Get(t.Context(), "https://github.com/harrisoncramer/komrad/pull/1")
+	err := misrouted.Merge(t.Context(), "https://github.com/harrisoncramer/komrad/pull/1")
 	require.Error(t, err)
 	require.NotErrorIs(t, err, forge.ErrNotFound)
 	assert.Contains(t, err.Error(), "/graphql")

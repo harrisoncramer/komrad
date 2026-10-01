@@ -66,12 +66,24 @@ type Named struct {
 	Text string
 }
 
-// Drawn is every character the panel draws with the set given, each glyph by its key and then
-// the chrome.
-func (s Set) Drawn() []Named {
+// Drawing is one glyph the list draws, with the width the layout counts it as.
+type Drawing struct {
+	Name    string
+	Text    string
+	Columns int
+}
+
+// Drawings is every character the list draws with the set.
+func (s Set) Drawings() []Drawing {
 	drawn := xslice.Map(All(), func(g Glyph) Named {
 		return Named{Name: g.Key(), Text: s.Spell(g)}
 	})
 
-	return append(drawn, Chrome()...)
+	return xslice.Map(append(drawn, Chrome()...), func(named Named) Drawing {
+		return Drawing{
+			Name:    named.Name,
+			Text:    named.Text,
+			Columns: Columns,
+		}
+	})
 }

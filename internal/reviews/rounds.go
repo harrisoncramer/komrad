@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"komrad/internal/agents"
+	"komrad/internal/agenterr"
 	"komrad/internal/events"
 	"komrad/internal/fail"
 	"komrad/internal/git"
@@ -77,7 +77,6 @@ type reviewBatchReadWriter interface {
 	ReleaseReview(ctx context.Context, params reviewstore.ReleaseReviewParams) (*reviewstore.Review, error)
 	DeleteReview(ctx context.Context, id string) error
 	ListTallies(ctx context.Context) ([]reviewstore.Tally, error)
-	ListLiveReviewers(ctx context.Context) ([]reviewstore.LiveReviewer, error)
 	GetLiveReviewerOf(ctx context.Context, agentID string) (*reviewstore.LiveReviewer, error)
 }
 
@@ -99,7 +98,7 @@ func (s *ReviewService) OpenRound(ctx context.Context, agentID string, author Re
 		return nil, err
 	}
 	if agent.ParentAgentID != nil {
-		return nil, fmt.Errorf("%w: %q is a child, writing in a checkout it does not own", agents.ErrReviewNeedsOwnWork, agent.Name)
+		return nil, fmt.Errorf("%w: %q is a child, writing in a checkout it does not own", agenterr.ErrReviewNeedsOwnWork, agent.Name)
 	}
 	if agent.Cwd == "" {
 		return nil, fmt.Errorf("%w: %q has no directory to take a round of", ErrReviewNoRound, agent.Name)
@@ -190,11 +189,6 @@ func (s *ReviewService) ListRounds(
 	}
 
 	return s.rounds.ListRounds(ctx, agentID)
-}
-
-// ListLiveReviewers is every reviewer still owed an answer, read once for the whole listing.
-func (s *ReviewService) ListLiveReviewers(ctx context.Context) ([]reviewstore.LiveReviewer, error) {
-	return s.reviews.ListLiveReviewers(ctx)
 }
 
 // ListReviews is every review given on an agent, in the order their rounds were taken, keeping
@@ -393,7 +387,7 @@ func (s *ReviewService) requireMayRead(
 
 	reviewer, err := s.agents.GetByID(ctx, *author.AgentID)
 	if errors.Is(err, store.ErrNotFound) {
-		return agents.ErrAgentNotFound.Saying("no agent with id %q", *author.AgentID)
+		return agenterr.ErrAgentNotFound.Saying("no agent with id %q", *author.AgentID)
 	}
 	if err != nil {
 		return err
@@ -703,7 +697,7 @@ func (s *ReviewService) GetReview(ctx context.Context, reviewID string, author R
 
 	agent, err := s.agents.GetByID(ctx, review.AgentID)
 	if errors.Is(err, store.ErrNotFound) {
-		return nil, agents.ErrAgentNotFound.Saying("no agent with id %q", review.AgentID)
+		return nil, agenterr.ErrAgentNotFound.Saying("no agent with id %q", review.AgentID)
 	}
 	if err != nil {
 		return nil, err
@@ -848,13 +842,13 @@ func (s *ReviewService) readRoundFile(ctx context.Context, params readRoundFileP
 func (s *ReviewService) getLiveAgent(ctx context.Context, agentID string) (*agentstore.Agent, error) {
 	agent, err := s.agents.GetByID(ctx, agentID)
 	if errors.Is(err, store.ErrNotFound) {
-		return nil, agents.ErrAgentNotFound.Saying("no agent with id %q", agentID)
+		return nil, agenterr.ErrAgentNotFound.Saying("no agent with id %q", agentID)
 	}
 	if err != nil {
 		return nil, err
 	}
 	if agent.ArchivedAt != nil {
-		return nil, fmt.Errorf("%w: %q is archived, so there is nobody to hand a review to; restore it first", agents.ErrAgentArchived, agent.Name)
+		return nil, fmt.Errorf("%w: %q is archived, so there is nobody to hand a review to; restore it first", agenterr.ErrAgentArchived, agent.Name)
 	}
 
 	return agent, nil

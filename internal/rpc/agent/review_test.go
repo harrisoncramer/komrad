@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"komrad/internal/agents"
+	"komrad/internal/agenterr"
 	"komrad/internal/caller"
 	"komrad/internal/mail"
 	"komrad/internal/reviews"
@@ -62,7 +62,7 @@ func TestReviewRefusalsMapToCodes(t *testing.T) {
 
 				return err
 			},
-			err:      agents.ErrAgentNotFound,
+			err:      agenterr.ErrAgentNotFound,
 			wantCode: connect.CodeNotFound,
 		},
 		{

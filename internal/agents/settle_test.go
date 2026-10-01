@@ -4,6 +4,7 @@ import (
 	"errors"
 	"testing"
 
+	"komrad/internal/agenterr"
 	"komrad/internal/harness"
 	"komrad/internal/harnesstest"
 	agentstore "komrad/internal/store/agent"
@@ -80,7 +81,7 @@ func TestSettleRefusesAPaneItCannotRead(t *testing.T) {
 			}
 
 			_, err := settlerOver(channel, tt.observer).Settle(t.Context(), agent)
-			require.ErrorIs(t, err, ErrUnsettled)
+			require.ErrorIs(t, err, agenterr.ErrUnsettled)
 			assert.Contains(t, err.Error(), "could not be read")
 			assert.Zero(t, channel.Interrupts)
 		})

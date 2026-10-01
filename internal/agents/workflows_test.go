@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"komrad/config"
+	"komrad/internal/agenterr"
 	"komrad/internal/harnesstest"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
@@ -90,7 +91,7 @@ func TestUpdateWorkflow(t *testing.T) {
 		{
 			name:      "an id nobody holds",
 			cfg:       workflowstore.Config{Name: "ghost"},
-			wantErrIs: ErrWorkflowNotFound,
+			wantErrIs: agenterr.ErrWorkflowNotFound,
 		},
 		{
 			name:     "a blank name keeps the one it had",
@@ -494,7 +495,7 @@ func TestArchiveWorkflow(t *testing.T) {
 	}{
 		{
 			name:      "an id nobody holds",
-			wantErrIs: ErrWorkflowNotFound,
+			wantErrIs: agenterr.ErrWorkflowNotFound,
 		},
 		{
 			name:   "the agents are archived alongside it, still findable in search",
@@ -583,11 +584,11 @@ func TestRestoreWorkflow(t *testing.T) {
 	}{
 		{
 			name:      "an id nobody holds",
-			wantErrIs: ErrWorkflowNotFound,
+			wantErrIs: agenterr.ErrWorkflowNotFound,
 		},
 		{
 			name:      "a workflow that is not archived",
-			wantErrIs: ErrWorkflowNotFound,
+			wantErrIs: agenterr.ErrWorkflowNotFound,
 		},
 		{
 			name:     "the agents inside come back with it",
@@ -715,7 +716,7 @@ func TestRestoreWorkflowCeiling(t *testing.T) {
 
 	_, err = workflows.RestoreWorkflow(ctx, created.ID)
 
-	require.ErrorIs(t, err, ErrTooManyAgents)
+	require.ErrorIs(t, err, agenterr.ErrTooManyAgents)
 	listed, err := st.Workflows.List(ctx)
 	require.NoError(t, err)
 	require.Len(t, listed, 1, "the refused restore leaves the workflow archived")
@@ -820,12 +821,12 @@ func TestDeleteWorkflow(t *testing.T) {
 	}{
 		{
 			name:      "an id nobody holds",
-			wantErrIs: ErrWorkflowNotFound,
+			wantErrIs: agenterr.ErrWorkflowNotFound,
 		},
 		{
 			name:      "a live workflow is refused",
 			create:    true,
-			wantErrIs: ErrWorkflowNotFound,
+			wantErrIs: agenterr.ErrWorkflowNotFound,
 		},
 		{
 			name:    "an archived workflow with no agents is deleted outright",

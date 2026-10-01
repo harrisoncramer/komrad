@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"komrad/config"
+	"komrad/internal/agenterr"
 	"komrad/internal/logging"
 	"komrad/internal/scripts"
 	"komrad/internal/store"
@@ -82,12 +83,12 @@ func (s *ResumeService) ResumeAgent(ctx context.Context, id string) (*agentstore
 		return nil, err
 	}
 	if agent.ArchivedAt != nil {
-		return nil, fmt.Errorf("%w: %q is archived, restore it first", ErrAgentArchived, agent.Name)
+		return nil, fmt.Errorf("%w: %q is archived, restore it first", agenterr.ErrAgentArchived, agent.Name)
 	}
 
 	// Relaunching a held agent would put it back to work under whoever is holding its worktree.
 	if agent.HeldAt != nil {
-		return nil, ErrAgentHeld.Saying("%q is paused, unpause it first", agent.Name)
+		return nil, agenterr.ErrAgentHeld.Saying("%q is paused, unpause it first", agent.Name)
 	}
 
 	if isPaneOwnedBy(s.tmux.GetPaneOwner(agent.Pane), agent.ID) {
@@ -104,7 +105,7 @@ func (s *ResumeService) ResumeAgent(ctx context.Context, id string) (*agentstore
 func (s *ResumeService) getByID(ctx context.Context, id string) (*agentstore.Agent, error) {
 	agent, err := s.agents.GetByID(ctx, id)
 	if errors.Is(err, store.ErrNotFound) {
-		return nil, ErrAgentNotFound.Saying("no agent with id %q", id)
+		return nil, agenterr.ErrAgentNotFound.Saying("no agent with id %q", id)
 	}
 	if err != nil {
 		return nil, err
@@ -137,7 +138,7 @@ func (s *ResumeService) resume(ctx context.Context, agent agentstore.Agent) erro
 	// getting this far is what would open a second window for one agent.
 	done, taken := s.takeInFlight(agent.ID)
 	if !taken {
-		return fmt.Errorf("%w: %q is already being resumed", ErrResumeInFlight, agent.Name)
+		return fmt.Errorf("%w: %q is already being resumed", agenterr.ErrResumeInFlight, agent.Name)
 	}
 	defer done()
 
@@ -152,7 +153,7 @@ func (s *ResumeService) resume(ctx context.Context, agent agentstore.Agent) erro
 		return fmt.Errorf("failed to mark %q as resuming: %w", agent.Name, err)
 	}
 	if !live {
-		return fmt.Errorf("%w: %q was archived while it was being resumed, restore it first", ErrAgentArchived, agent.Name)
+		return fmt.Errorf("%w: %q was archived while it was being resumed, restore it first", agenterr.ErrAgentArchived, agent.Name)
 	}
 
 	// Read before the resume starts overwriting the copy it was handed, which the restore below
@@ -234,7 +235,7 @@ func (s *ResumeService) resume(ctx context.Context, agent agentstore.Agent) erro
 		return fmt.Errorf("failed to resume agent %q: %w", agent.Name, err)
 	}
 	if !written {
-		return fmt.Errorf("%w: %q was archived or deleted while it was being resumed", ErrAgentArchived, agent.Name)
+		return fmt.Errorf("%w: %q was archived or deleted while it was being resumed", agenterr.ErrAgentArchived, agent.Name)
 	}
 
 	// Codex takes no session id on the command line, so an agent may have none and its relaunch is

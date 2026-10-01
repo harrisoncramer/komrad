@@ -200,7 +200,6 @@ func TestIntegrationTakeHoldsCommittedAndUncommittedWorkAlike(t *testing.T) {
 	snapshot, err := gitClient.TakeSnapshot(t.Context(), git.TakeSnapshotParams{
 		Dir:  root,
 		Base: "main",
-		Ref:  "refs/komrad/rounds/one",
 	})
 	require.NoError(t, err)
 
@@ -234,9 +233,9 @@ func TestIntegrationTakeIsHeldByItsRefAndReadableAfterTheWorktreeMovesOn(t *test
 	snapshot, err := gitClient.TakeSnapshot(t.Context(), git.TakeSnapshotParams{
 		Dir:  root,
 		Base: "main",
-		Ref:  "refs/komrad/rounds/three",
 	})
 	require.NoError(t, err)
+	require.NoError(t, gitClient.HoldRef(t.Context(), root, "refs/komrad/rounds/three", snapshot.SHA))
 
 	write(t, root, "kept.go", "package main\n\nfunc Second() {}\n")
 	require.NoError(t, os.Remove(filepath.Join(root, "proto", "gen", "api.pb.go")))
@@ -264,7 +263,6 @@ func TestIntegrationTakeIgnoresWhatGitIgnores(t *testing.T) {
 	snapshot, err := gitClient.TakeSnapshot(t.Context(), git.TakeSnapshotParams{
 		Dir:  root,
 		Base: "main",
-		Ref:  "refs/komrad/rounds/four",
 	})
 	require.NoError(t, err)
 
@@ -286,7 +284,6 @@ func TestIntegrationTakeExcludesNothingItself(t *testing.T) {
 	snapshot, err := gitClient.TakeSnapshot(t.Context(), git.TakeSnapshotParams{
 		Dir:  root,
 		Base: "main",
-		Ref:  "refs/komrad/rounds/six",
 	})
 	require.NoError(t, err)
 

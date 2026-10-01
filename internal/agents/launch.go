@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"komrad/config"
+	"komrad/internal/agenterr"
 	"komrad/internal/caller"
 	"komrad/internal/harness"
 	"komrad/internal/logging"
@@ -135,7 +136,7 @@ type NewAgentParams struct {
 }
 
 // NewAgent creates and launches a background agent, answering a key already spent on a launch
-// with that agent and ErrAlreadyLaunched.
+// with that agent and agenterr.ErrAlreadyLaunched.
 func (s *LaunchService) NewAgent(ctx context.Context, params NewAgentParams) (*agentstore.Agent, error) {
 	if params.IdempotencyKey != "" {
 		existing, err := s.agents.GetByIdempotencyKey(ctx, params.IdempotencyKey)
@@ -148,7 +149,7 @@ func (s *LaunchService) NewAgent(ctx context.Context, params NewAgentParams) (*a
 				return nil, err
 			}
 			if !released {
-				return existing, ErrAlreadyLaunched
+				return existing, agenterr.ErrAlreadyLaunched
 			}
 		case !errors.Is(err, store.ErrNotFound):
 			return nil, err
@@ -204,13 +205,13 @@ func requireOwnWorkflow(spawner agentstore.Agent, params NewAgentParams) error {
 		return nil
 	}
 
-	return fmt.Errorf("%w: %q stands behind workflow %q", ErrOutsideWorkflow, spawner.Name, spawner.WorkflowID)
+	return fmt.Errorf("%w: %q stands behind workflow %q", agenterr.ErrOutsideWorkflow, spawner.Name, spawner.WorkflowID)
 }
 
 func (s *LaunchService) findSpawner(ctx context.Context, id string) (*agentstore.Agent, error) {
 	spawner, err := s.agents.GetByID(ctx, id)
 	if errors.Is(err, store.ErrNotFound) {
-		return nil, fmt.Errorf("%w: %q", ErrSpawnerUnknown, id)
+		return nil, fmt.Errorf("%w: %q", agenterr.ErrSpawnerUnknown, id)
 	}
 	if err != nil {
 		return nil, err
@@ -224,38 +225,38 @@ func (s *LaunchService) findSpawner(ctx context.Context, id string) (*agentstore
 func (s *LaunchService) findParent(ctx context.Context, params NewAgentParams) (*agentstore.Agent, error) {
 	parent, err := s.agents.GetByID(ctx, params.ParentAgentID)
 	if errors.Is(err, store.ErrNotFound) {
-		return nil, fmt.Errorf("%w: %q", ErrParentNotFound, params.ParentAgentID)
+		return nil, fmt.Errorf("%w: %q", agenterr.ErrParentNotFound, params.ParentAgentID)
 	}
 	if err != nil {
 		return nil, err
 	}
 	if parent.ArchivedAt != nil {
-		return nil, fmt.Errorf("%w: %q", ErrAgentArchived, parent.Name)
+		return nil, fmt.Errorf("%w: %q", agenterr.ErrAgentArchived, parent.Name)
 	}
 	if parent.ParentAgentID != nil {
-		return nil, fmt.Errorf("%w: %q is itself attached to another agent", ErrParentIsChild, parent.Name)
+		return nil, fmt.Errorf("%w: %q is itself attached to another agent", agenterr.ErrParentIsChild, parent.Name)
 	}
 	if parent.Role == agentstore.RoleOrchestrator {
 		return nil, fmt.Errorf(
 			"%w: %q is drawn on its workflow's own row, so a child of it would have no row anywhere; spawn an ordinary agent into the workflow with provision_enabled false instead",
-			ErrParentIsOrchestrator, parent.Name)
+			agenterr.ErrParentIsOrchestrator, parent.Name)
 	}
 
 	// Ahead of what the request asked for, which puts the parent's missing directory in the
 	// refusal rather than a conflict with an empty one.
 	if parent.Cwd == "" {
-		return nil, fmt.Errorf("%w: %q has none recorded", ErrChildNeedsParentDirectory, parent.Name)
+		return nil, fmt.Errorf("%w: %q has none recorded", agenterr.ErrChildNeedsParentDirectory, parent.Name)
 	}
 
 	switch {
 	case strings.TrimSpace(params.Dir) != "":
-		return nil, fmt.Errorf("%w: it runs in %q, its parent's own checkout", ErrChildOwnsLaunch, parent.Cwd)
+		return nil, fmt.Errorf("%w: it runs in %q, its parent's own checkout", agenterr.ErrChildOwnsLaunch, parent.Cwd)
 	case params.ProvisionEnabled != nil && *params.ProvisionEnabled:
-		return nil, fmt.Errorf("%w: it provisions nothing, since the checkout is already there", ErrChildOwnsLaunch)
+		return nil, fmt.Errorf("%w: it provisions nothing, since the checkout is already there", agenterr.ErrChildOwnsLaunch)
 	case params.WorkflowID != parent.WorkflowID:
-		return nil, fmt.Errorf("%w: it is filed in its parent's workflow %q", ErrChildOwnsLaunch, parent.WorkflowID)
+		return nil, fmt.Errorf("%w: it is filed in its parent's workflow %q", agenterr.ErrChildOwnsLaunch, parent.WorkflowID)
 	case params.ScheduleID != nil:
-		return nil, fmt.Errorf("%w: a schedule launches into a workflow rather than onto an agent", ErrChildOwnsLaunch)
+		return nil, fmt.Errorf("%w: a schedule launches into a workflow rather than onto an agent", agenterr.ErrChildOwnsLaunch)
 	}
 
 	return parent, nil
@@ -285,7 +286,7 @@ type launchPlan struct {
 func (s *LaunchService) planLaunch(ctx context.Context, params NewAgentParams) (*launchPlan, error) {
 	wf, err := s.workflows.Get(ctx, params.WorkflowID)
 	if errors.Is(err, store.ErrNotFound) {
-		return nil, ErrWorkflowNotFound.Saying("no workflow with id %q", params.WorkflowID)
+		return nil, agenterr.ErrWorkflowNotFound.Saying("no workflow with id %q", params.WorkflowID)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to look up workflow %q: %w", params.WorkflowID, err)
@@ -778,7 +779,7 @@ func requireRoomForSpawned(ctx context.Context, agents spawnedSlotLocker, maxSpa
 		}
 		if held+spawner.want > maxSpawned {
 			return fmt.Errorf("%w: %q may run %d agents it spawned at once and this would make %d",
-				ErrTooManySpawned, spawner.name, maxSpawned, held+spawner.want)
+				agenterr.ErrTooManySpawned, spawner.name, maxSpawned, held+spawner.want)
 		}
 	}
 
@@ -800,7 +801,7 @@ func requireRoomForChildren(ctx context.Context, agents childCounter, maxChildre
 		}
 		if held+parent.want > maxChildren {
 			return fmt.Errorf("%w: %q may run %d at once and this would make %d, and they share one checkout",
-				ErrTooManyChildren, parent.name, maxChildren, held+parent.want)
+				agenterr.ErrTooManyChildren, parent.name, maxChildren, held+parent.want)
 		}
 	}
 
@@ -817,7 +818,7 @@ func requireRoomForAgents(ctx context.Context, agents agentCounter, maxAgents, w
 		return fmt.Errorf("failed to count the agents already running: %w", err)
 	}
 	if live+int64(want) > int64(maxAgents) {
-		return fmt.Errorf("%w: max number of concurrent agents reached (%d of %d), please archive one to continue", ErrTooManyAgents, live, maxAgents)
+		return fmt.Errorf("%w: max number of concurrent agents reached (%d of %d), please archive one to continue", agenterr.ErrTooManyAgents, live, maxAgents)
 	}
 
 	return nil
