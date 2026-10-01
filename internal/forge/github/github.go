@@ -404,7 +404,7 @@ func (f *Forge) SetDraft(ctx context.Context, address string, draft bool) error 
 		return noPullRequest(number, owner, name)
 	}
 	target := data.Repository.PullRequest
-	if err := refuseFinished(forge.ErrNotDraftable, "change", target.State, number); err != nil {
+	if err := refuseFinished(forge.ErrNotDraftable, target.State, number); err != nil {
 		return err
 	}
 	if target.IsDraft == draft {
@@ -438,7 +438,7 @@ func (f *Forge) SetAutoMerge(ctx context.Context, params forge.SetAutoMergeParam
 	if err != nil {
 		return err
 	}
-	if err := refuseFinished(forge.ErrNoAutoMerge, "change", target.State, number); err != nil {
+	if err := refuseFinished(forge.ErrNoAutoMerge, target.State, number); err != nil {
 		return err
 	}
 	if (target.AutoMergeRequest != nil) == params.On {
@@ -500,12 +500,12 @@ func noPullRequest(number int, owner, name string) error {
 	return fmt.Errorf("%w: github has no pull request %d in %s/%s", forge.ErrNotFound, number, owner, name)
 }
 
-func refuseFinished(sentinel *fail.Error, verb, state string, number int) error {
+func refuseFinished(sentinel *fail.Error, state string, number int) error {
 	switch state {
 	case "MERGED":
-		return sentinel.Saying("github will not %s #%d: it has already merged", verb, number)
+		return sentinel.Saying("github will not change #%d: it has already merged", number)
 	case "CLOSED":
-		return sentinel.Saying("github will not %s #%d: it was closed", verb, number)
+		return sentinel.Saying("github will not change #%d: it was closed", number)
 	}
 
 	return nil
