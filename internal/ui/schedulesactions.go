@@ -81,11 +81,6 @@ func (w *schedulesScreen) actions() screenActionSpec {
 				keys: func(k config.Keybindings) []string { return k.Schedules.Rename },
 				run:  func(_ host, s panelShared, _ string) tea.Cmd { return w.openRename(s) },
 			},
-			{
-				id:   actionScheduleToggle,
-				keys: func(k config.Keybindings) []string { return k.Schedules.Toggle },
-				run:  func(h host, s panelShared, _ string) tea.Cmd { return w.toggle(h, s) },
-			},
 		},
 		legend: []screenLegendRow{
 			{
@@ -100,10 +95,6 @@ func (w *schedulesScreen) actions() screenActionSpec {
 			{
 				of:   []actionID{actionScheduleRename},
 				desc: func(panelShared) string { return "rename" },
-			},
-			{
-				of:   []actionID{actionScheduleToggle},
-				desc: w.toggleDesc,
 			},
 			{
 				of:   []actionID{actionFilterOpen},
@@ -139,14 +130,6 @@ func (w *schedulesScreen) actions() screenActionSpec {
 			},
 		},
 	}
-}
-
-func (w *schedulesScreen) toggleDesc(s panelShared) string {
-	if item, ok := w.selected(s); ok && !item.schedule.Enabled {
-		return "resume"
-	}
-
-	return "pause"
 }
 
 func jumpLabel(k config.Keybindings) string {

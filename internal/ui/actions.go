@@ -50,7 +50,6 @@ const (
 	actionSelectClear
 	actionScheduleNew
 	actionScheduleEdit
-	actionScheduleToggle
 	actionScheduleRename
 	actionScheduleBack
 	actionArchiveRename

@@ -478,6 +478,19 @@ func TestReviewThreads(t *testing.T) {
 		)
 	})
 
+	t.Run("a settle in flight is drawn until it lands", func(t *testing.T) {
+		server := newReviewServer(t)
+		server.threads = []*agentv1.ReviewThread{newThreadOnFirstLine(newAgentMessage("m1", "why did this change?"))}
+		harness := openReview(t, server)
+		harness.hold(agentv1connect.AgentServiceSetReviewThreadResolvedProcedure)
+
+		harness.press("r")
+		assert.Contains(t, harness.readFrame(), "settling")
+
+		harness.release(agentv1connect.AgentServiceSetReviewThreadResolvedProcedure)
+		assert.NotContains(t, harness.readFrame(), "settling")
+	})
+
 	t.Run("a thread whose file left the diff settles like any other", func(t *testing.T) {
 		server := newReviewServer(t)
 		server.threads = []*agentv1.ReviewThread{newAdriftThread("t1", newAgentMessage("m1", "why did this go?"))}

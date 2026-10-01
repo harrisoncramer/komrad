@@ -165,6 +165,8 @@ type Keybindings struct {
 	Column ColumnKeys `mapstructure:"column"`
 	// The schedules screen.
 	Schedules SchedulesKeys `mapstructure:"schedules"`
+	// The menu on the hovered schedule.
+	ScheduleMenu ScheduleMenuKeys `mapstructure:"schedule_menu"`
 	// The keys that move the sidebar's edge, shared by every screen.
 	Sidebar SidebarKeys `mapstructure:"sidebar"`
 	// Choosing several agents at once, shared by the two screens that draw a tree.
@@ -619,7 +621,11 @@ type SchedulesKeys struct {
 	Quit []string `mapstructure:"quit" default:"ctrl+c"`
 	// Rename the schedule under the cursor, typed over its row.
 	Rename []string `mapstructure:"rename" default:"r"`
-	// Pause or resume the schedule under the cursor.
+}
+
+// ScheduleMenuKeys are the bindings for the menu on the hovered schedule.
+type ScheduleMenuKeys struct {
+	// Pause the schedule, or resume it when it is paused.
 	Toggle []string `mapstructure:"toggle" default:"p"`
 }
 

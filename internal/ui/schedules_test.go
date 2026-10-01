@@ -50,9 +50,9 @@ func TestSchedulesKeys(t *testing.T) {
 			wantAbsent: []string{"Archive schedule"},
 		},
 		{
-			name:  "toggle on an empty list asks for no write",
+			name:  "pause on an empty list asks for no write",
 			rows:  []proto.Message{newLiveWorkflow("w1", "api")},
-			press: []string{"p"},
+			press: []string{"space", "p"},
 		},
 		{
 			name:       "new with no workflows says why rather than opening the form",
@@ -118,18 +118,24 @@ func TestSchedulesKeys(t *testing.T) {
 			}},
 		},
 		{
-			name:  "toggle pauses an armed schedule with no form in between",
+			name:  "pause from the menu pauses an armed schedule",
 			rows:  buildSchedules(),
-			press: []string{"p"},
+			press: []string{"space", "p"},
 			wantSent: []request{{
 				procedure: schedulev1connect.ScheduleServiceSetScheduleEnabledProcedure,
 				msg:       &schedulev1.SetScheduleEnabledRequest{Id: "s1"},
 			}},
 		},
 		{
-			name:  "toggle resumes a paused schedule",
+			name:      "the menu offers resume on a paused schedule",
+			rows:      []proto.Message{newLiveWorkflow("w1", "api"), newPausedSchedule("s1", "weekly-report")},
+			press:     []string{"space"},
+			wantDrawn: []string{"resume"},
+		},
+		{
+			name:  "resume from the menu resumes a paused schedule",
 			rows:  []proto.Message{newLiveWorkflow("w1", "api"), newPausedSchedule("s1", "nightly")},
-			press: []string{"p"},
+			press: []string{"space", "p"},
 			wantSent: []request{{
 				procedure: schedulev1connect.ScheduleServiceSetScheduleEnabledProcedure,
 				msg: &schedulev1.SetScheduleEnabledRequest{
@@ -583,7 +589,7 @@ func TestSchedulesForm(t *testing.T) {
 		harness.refuse(schedulev1connect.ScheduleServiceSetScheduleEnabledProcedure, errors.New("cron must be five fields"))
 
 		harness.press(widenListPresses...)
-		harness.press("p")
+		harness.press("space", "p")
 
 		assert.Contains(t, harness.readFrame(), `Could not pause schedule "morning-ci"`)
 	})

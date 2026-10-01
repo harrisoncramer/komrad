@@ -391,6 +391,19 @@ func (m *model) beginWrite(doing string) int {
 	return m.writes
 }
 
+// countedWrite is a message that lands a write begun with beginWrite.
+type countedWrite interface {
+	countedWrite() int
+}
+
+func (w reviewWroteMsg) countedWrite() int {
+	return w.write
+}
+
+func (w reviewPausedMsg) countedWrite() int {
+	return w.write
+}
+
 // landWrite counts a write back in.
 func (m *model) landWrite(write int) {
 	delete(m.inflight, write)

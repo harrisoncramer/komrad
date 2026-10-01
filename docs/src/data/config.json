@@ -958,12 +958,19 @@
               "type": "array",
               "description": "Rename the schedule under the cursor, typed over its row.",
               "default": "[\"r\"]"
-            },
+            }
+          ],
+          "sections": []
+        },
+        {
+          "path": "keybindings.schedule_menu",
+          "description": "The menu on the hovered schedule.",
+          "settings": [
             {
               "key": "toggle",
-              "path": "keybindings.schedules.toggle",
+              "path": "keybindings.schedule_menu.toggle",
               "type": "array",
-              "description": "Pause or resume the schedule under the cursor.",
+              "description": "Pause the schedule, or resume it when it is paused.",
               "default": "[\"p\"]"
             }
           ],

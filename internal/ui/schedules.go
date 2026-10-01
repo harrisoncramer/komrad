@@ -154,19 +154,15 @@ func workflowByID(workflows []panel.Workflow, id string) *panel.Workflow {
 	return nil
 }
 
-func (w *schedulesScreen) toggle(h host, s panelShared) tea.Cmd {
-	item, ok := w.selected(s)
-	if !ok {
-		return nil
-	}
-
-	doing, failure := "pausing "+item.schedule.Name, fmt.Sprintf("Could not pause schedule %q", item.schedule.Name)
-	if !item.schedule.Enabled {
-		doing, failure = "resuming "+item.schedule.Name, fmt.Sprintf("Could not resume schedule %q", item.schedule.Name)
+// toggleSchedule pauses the schedule, or resumes it when it is paused.
+func toggleSchedule(h host, schedule panel.Schedule) tea.Cmd {
+	doing, failure := "pausing "+schedule.Name, fmt.Sprintf("Could not pause schedule %q", schedule.Name)
+	if !schedule.Enabled {
+		doing, failure = "resuming "+schedule.Name, fmt.Sprintf("Could not resume schedule %q", schedule.Name)
 	}
 
 	return h.writeCmd(doing, failure, func(a api) error {
-		return a.setScheduleEnabled(item.schedule.ID, !item.schedule.Enabled)
+		return a.setScheduleEnabled(schedule.ID, !schedule.Enabled)
 	})
 }
 

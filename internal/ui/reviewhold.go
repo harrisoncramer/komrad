@@ -68,6 +68,7 @@ func (p *reviewHold) openEditor(path, pane string) {
 type reviewPausedMsg struct {
 	agentID string
 	err     error
+	write   int
 }
 
 // startHold stops the agent and opens the editor once it has.
@@ -84,12 +85,12 @@ func (r *reviewScreen) startHold(h host, s panelShared) tea.Cmd {
 
 	r.hold.pausing = true
 
-	return holdAgentCmd(s, r.agentID)
+	return holdAgentCmd(h, s, r.agentID, r.agentName)
 }
 
 // holdAgentCmd asks for the agent to stop and reports what came back.
-func holdAgentCmd(s panelShared, agentID string) tea.Cmd {
-	agents := s.api.agents
+func holdAgentCmd(h host, s panelShared, agentID, name string) tea.Cmd {
+	agents, write := s.api.agents, h.beginWrite("pausing "+name)
 
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), reviewTimeout)
@@ -100,6 +101,7 @@ func holdAgentCmd(s panelShared, agentID string) tea.Cmd {
 		return reviewPausedMsg{
 			agentID: agentID,
 			err:     err,
+			write:   write,
 		}
 	}
 }

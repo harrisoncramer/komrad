@@ -67,7 +67,7 @@ func (a *agentsScreen) pressEdit(h host, s panelShared) tea.Cmd {
 
 	a.editing.pausing = true
 
-	return holdAgentCmd(s, agent.ID)
+	return holdAgentCmd(h, s, agent.ID, agent.Name)
 }
 
 func (a *agentsScreen) applyPaused(h host, s panelShared, msg reviewPausedMsg) tea.Cmd {

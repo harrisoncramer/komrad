@@ -89,7 +89,7 @@ func (r *reviewScreen) ownTable() []screenAction {
 			id:   actionReviewDismiss,
 			keys: func(k config.Keybindings) []string { return k.Review.Dismiss },
 			when: r.doesDismissOffer,
-			run:  func(_ host, s panelShared, _ string) tea.Cmd { return r.dismissOfferCmd(s) },
+			run:  func(h host, s panelShared, _ string) tea.Cmd { return r.dismissOfferCmd(h, s) },
 		},
 		{
 			id:   actionReviewReload,
@@ -106,7 +106,7 @@ func (r *reviewScreen) ownTable() []screenAction {
 		{
 			id:   actionReviewResolve,
 			keys: func(k config.Keybindings) []string { return k.Review.Resolve },
-			run:  func(_ host, s panelShared, _ string) tea.Cmd { return r.resolveThread(s) },
+			run:  func(h host, s panelShared, _ string) tea.Cmd { return r.resolveThread(h, s) },
 		},
 		{
 			id:   actionReviewViewed,
