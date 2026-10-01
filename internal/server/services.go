@@ -282,7 +282,7 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 		},
 		Agents:    st.agents,
 		Workflows: st.workflows,
-		Sizes:     st.worktrees,
+		Worktrees: st.worktrees,
 	})
 
 	reconciler := agents.NewReconciler(agents.NewReconcilerParams{

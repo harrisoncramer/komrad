@@ -99,7 +99,7 @@ type NewListerParams struct {
 	SharedDir func() (string, error)
 	Agents    *agentstore.AgentStore
 	Workflows *workflowstore.WorkflowStore
-	Sizes     *worktreestore.WorktreeStore
+	Worktrees *worktreestore.WorktreeStore
 }
 
 // Lister reads the worktree directories and the rows that answer for them.
@@ -107,7 +107,7 @@ type Lister struct {
 	shared    func() (string, error)
 	agents    *agentstore.AgentStore
 	workflows *workflowstore.WorkflowStore
-	sizes     *worktreestore.WorktreeStore
+	worktrees *worktreestore.WorktreeStore
 }
 
 // NewLister builds a lister over the stores.
@@ -116,7 +116,7 @@ func NewLister(params NewListerParams) *Lister {
 		shared:    params.SharedDir,
 		agents:    params.Agents,
 		workflows: params.Workflows,
-		sizes:     params.Sizes,
+		worktrees: params.Worktrees,
 	}
 }
 
@@ -193,7 +193,7 @@ func (l *Lister) answerer(ctx context.Context) (func(dir string) Worktree, error
 		return nil, err
 	}
 
-	sizes, err := l.sizes.ListSizes(ctx)
+	sizes, err := l.worktrees.ListSizes(ctx)
 	if err != nil {
 		return nil, err
 	}
