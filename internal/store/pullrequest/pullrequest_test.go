@@ -403,22 +403,30 @@ func TestSetStandingRemembersWhatEveryReadLeaves(t *testing.T) {
 		Mergeability: forge.MergeabilityClean,
 		AutoMerge:    forge.AutoMerge{Allowed: true},
 	}
-	type read struct {
+	type standingRead struct {
 		standing forge.Standing
 		head     string
 	}
-
-	tests := []struct {
+	type setStandingTest struct {
 		name  string
-		reads []read
-	}{
+		reads []standingRead
+	}
+
+	tests := []setStandingTest{
+		{
+			name: "a blank first read",
+			reads: []standingRead{
+				{head: "abc"},
+				{standing: failing, head: "abc"},
+			},
+		},
 		{
 			name:  "a read with no head",
-			reads: []read{{standing: failing}},
+			reads: []standingRead{{standing: failing}},
 		},
 		{
 			name: "blanks on the same head",
-			reads: []read{
+			reads: []standingRead{
 				{standing: failing, head: "abc"},
 				{head: "abc"},
 				{head: "abc"},
@@ -426,14 +434,14 @@ func TestSetStandingRemembersWhatEveryReadLeaves(t *testing.T) {
 		},
 		{
 			name: "a blank on a new head",
-			reads: []read{
+			reads: []standingRead{
 				{standing: failing, head: "abc"},
 				{head: "def"},
 			},
 		},
 		{
 			name: "an answer after a blank",
-			reads: []read{
+			reads: []standingRead{
 				{standing: failing, head: "abc"},
 				{head: "abc"},
 				{standing: passing, head: "def"},
@@ -449,18 +457,18 @@ func TestSetStandingRemembersWhatEveryReadLeaves(t *testing.T) {
 			require.NoError(t, err)
 
 			var want forge.RememberedStanding
-			for i, r := range tt.reads {
+			for i, read := range tt.reads {
 				at := began.Add(time.Duration(i) * time.Minute)
 				change, err := h.SetStanding(ctx, SetStandingParams{
 					ID:       written.ID,
-					Standing: r.standing,
-					HeadSHA:  r.head,
+					Standing: read.standing,
+					HeadSHA:  read.head,
 					ReadAt:   at,
 				})
 				require.NoError(t, err)
 				assert.Equal(t, want, inUTC(change.Before))
 
-				want = want.RememberRead(r.standing, r.head, at)
+				want = want.RememberRead(read.standing, read.head, at)
 				assert.Equal(t, want, inUTC(change.After))
 
 				stored, err := h.GetByID(ctx, written.ID)
