@@ -822,10 +822,12 @@ func (n pullRequestNode) toPullRequest(withStanding bool) forge.PullRequest {
 		ClosedAt:   n.ClosedAt,
 	}
 	if withStanding {
-		pullRequest.Decision = xptr.Ptr(n.decision())
-		pullRequest.Checks = xptr.Ptr(n.checks())
-		pullRequest.Mergeability = xptr.Ptr(mergeabilityOf(n.MergeStateStatus))
-		pullRequest.AutoMerge = xptr.Ptr(n.autoMerge())
+		pullRequest.Standing = &forge.Standing{
+			Decision:     n.decision(),
+			Checks:       n.checks(),
+			Mergeability: mergeabilityOf(n.MergeStateStatus),
+			AutoMerge:    n.autoMerge(),
+		}
 	}
 
 	return pullRequest

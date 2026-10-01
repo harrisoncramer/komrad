@@ -7,7 +7,6 @@ import (
 	"komrad/internal/forge"
 	"komrad/internal/git"
 	pullrequeststore "komrad/internal/store/pullrequest"
-	"komrad/lib/xptr"
 )
 
 // hotGap is how long after a read a repository likely to change soon is read again.
@@ -177,7 +176,7 @@ func hotUntil(pullRequest forge.PullRequest, change *pullrequeststore.StandingCh
 	}
 
 	until := time.Time{}
-	if xptr.Deref(pullRequest.Checks) == forge.ChecksPending {
+	if pullRequest.Standing != nil && pullRequest.Standing.Checks == forge.ChecksPending {
 		until = pullRequest.UpdatedAt.Add(pendingHotWithin)
 	}
 	if change.BlankSince != nil {

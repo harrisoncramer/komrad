@@ -13,7 +13,6 @@ import (
 	"komrad/internal/forge"
 	"komrad/internal/forge/graphql"
 	"komrad/internal/git"
-	"komrad/lib/xptr"
 	"komrad/lib/xslice"
 
 	"github.com/stretchr/testify/assert"
@@ -220,7 +219,7 @@ func TestList(t *testing.T) {
 		CreatedAt:  time.Date(2026, 9, 20, 8, 58, 11, 0, time.UTC),
 		UpdatedAt:  time.Date(2026, 9, 20, 17, 54, 15, 0, time.UTC),
 	}, pullRequests[0])
-	assert.Nil(t, pullRequests[0].Decision, "a listing does not ask for the decision")
+	assert.Nil(t, pullRequests[0].Standing, "a listing does not ask for the standing")
 
 	stamp := time.Date(2026, 9, 20, 6, 24, 5, 0, time.UTC)
 	assert.Equal(t, "535718519", pullRequests[1].ProviderID)
@@ -322,15 +321,19 @@ func TestReadBranches(t *testing.T) {
 	require.Len(t, reading.PullRequests, 2, "the fork's merge request is left out")
 	running, merged := reading.PullRequests[0], reading.PullRequests[1]
 	assert.Equal(t, 256538, running.Number)
-	assert.Equal(t, xptr.Ptr(forge.ReviewDecisionNone), running.Decision)
-	assert.Equal(t, xptr.Ptr(forge.ChecksPending), running.Checks)
-	assert.Equal(t, xptr.Ptr(forge.MergeabilityBlocked), running.Mergeability)
-	assert.Equal(t, &forge.AutoMerge{On: true, Allowed: true}, running.AutoMerge)
+	assert.Equal(t, &forge.Standing{
+		Decision:     forge.ReviewDecisionNone,
+		Checks:       forge.ChecksPending,
+		Mergeability: forge.MergeabilityBlocked,
+		AutoMerge:    forge.AutoMerge{On: true, Allowed: true},
+	}, running.Standing)
 	assert.Equal(t, 256531, merged.Number)
-	assert.Equal(t, xptr.Ptr(forge.ReviewDecisionApproved), merged.Decision)
-	assert.Equal(t, xptr.Ptr(forge.ChecksPassing), merged.Checks)
-	assert.Equal(t, xptr.Ptr(forge.MergeabilityClean), merged.Mergeability)
-	assert.Equal(t, &forge.AutoMerge{}, merged.AutoMerge)
+	assert.Equal(t, &forge.Standing{
+		Decision:     forge.ReviewDecisionApproved,
+		Checks:       forge.ChecksPassing,
+		Mergeability: forge.MergeabilityClean,
+		AutoMerge:    forge.AutoMerge{},
+	}, merged.Standing)
 }
 
 // TestReadBranchesSplitsOnComplexity covers GitLab refusing too many branches in one query: the

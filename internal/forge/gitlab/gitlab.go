@@ -17,7 +17,6 @@ import (
 	"komrad/internal/forge/graphql"
 	"komrad/internal/git"
 	"komrad/lib/xhttp"
-	"komrad/lib/xptr"
 )
 
 // defaultAPI is where gitlab.com answers REST calls, with GraphQL beside it.
@@ -832,10 +831,12 @@ func (n mergeRequestNode) toPullRequest(withStanding bool) forge.PullRequest {
 		ClosedAt:   n.closedAt(),
 	}
 	if withStanding {
-		pullRequest.Decision = xptr.Ptr(n.decision())
-		pullRequest.Checks = xptr.Ptr(n.checks())
-		pullRequest.Mergeability = xptr.Ptr(n.mergeability())
-		pullRequest.AutoMerge = xptr.Ptr(n.autoMerge())
+		pullRequest.Standing = &forge.Standing{
+			Decision:     n.decision(),
+			Checks:       n.checks(),
+			Mergeability: n.mergeability(),
+			AutoMerge:    n.autoMerge(),
+		}
 	}
 
 	return pullRequest
