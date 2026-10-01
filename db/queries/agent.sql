@@ -715,7 +715,7 @@ SET
     repository_url = sqlc.narg('repository_url'),
     head_sha = sqlc.narg('head_sha'),
     worktree_removed = @worktree_removed,
-    sequence = @sequence
+    "sequence" = @sequence
 WHERE
     id = @id;
 
@@ -723,7 +723,7 @@ WHERE
 UPDATE
     agents
 SET
-    sequence = @sequence
+    "sequence" = @sequence
 WHERE
     id = @id;
 

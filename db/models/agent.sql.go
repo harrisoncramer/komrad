@@ -2875,7 +2875,7 @@ SET
     repository_url = $2,
     head_sha = $3,
     worktree_removed = $4,
-    sequence = $5
+    "sequence" = $5
 WHERE
     id = $6
 `
@@ -3117,7 +3117,7 @@ const setAgentSequenceByID = `-- name: SetAgentSequenceByID :exec
 UPDATE
     agents
 SET
-    sequence = $1
+    "sequence" = $1
 WHERE
     id = $2
 `
