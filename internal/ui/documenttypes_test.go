@@ -1,6 +1,7 @@
 package ui_test
 
 import (
+	"strings"
 	"testing"
 
 	"komrad/lib/xptr"
@@ -100,8 +101,10 @@ func TestDocumentTypesNarrow(t *testing.T) {
 	tests := []struct {
 		name     string
 		width    int
+		wantMenu bool
 		wantList bool
 	}{
+		{name: "a wide panel draws the menu under the list", wantMenu: true, wantList: true},
 		{name: "a narrow panel draws the list beside the form while the form keeps its floor", width: 130, wantList: true},
 		{name: "a narrower panel draws the form alone", width: 100},
 	}
@@ -119,18 +122,13 @@ func TestDocumentTypesNarrow(t *testing.T) {
 			frame := harness.readFrame()
 			assert.Contains(t, frame, "RFC")
 			assert.Contains(t, frame, "How to write an explainer.")
-			assert.NotContains(t, frame, "edit worktree")
+			assert.Equal(t, tt.wantMenu, strings.Contains(frame, "scratch"), "the menu under the list")
 
 			harness.press("space", "e")
 
 			frame = harness.readFrame()
 			assert.Contains(t, frame, "Edit document type")
-			if tt.wantList {
-				assert.Contains(t, frame, "RFC")
-
-				return
-			}
-			assert.NotContains(t, frame, "RFC")
+			assert.Equal(t, tt.wantList, strings.Contains(frame, "RFC"), "the list beside the form")
 		})
 	}
 }
