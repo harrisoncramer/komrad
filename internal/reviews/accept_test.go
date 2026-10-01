@@ -233,18 +233,6 @@ func TestAcceptForgeThreadAgainWaitsForOneInFlight(t *testing.T) {
 	require.ErrorIs(t, <-second, ErrForgeThreadNothingNew)
 }
 
-// TestDiscardingAnAcceptedThreadOffersItAgain covers the forge thread coming back once the review it was accepted into is gone.
-func TestDiscardingAnAcceptedThreadOffersItAgain(t *testing.T) {
-	fx := newReviewFixture(t)
-	fx.seedOffer(t, forgeComment("C_1", "dana", "this leaks the handle"))
-
-	accepted, err := fx.accept(t, fx.offer(t), seenAll(fx.offer(t)), "")
-	require.NoError(t, err)
-	require.NoError(t, fx.reviews.DeleteReview(t.Context(), accepted.Thread.ReviewID))
-
-	assert.Nil(t, fx.offer(t).AcceptedThreadID)
-}
-
 func (fx *reviewFixture) forgeThreads() *pullrequeststore.ForgeThreadStore {
 	return pullrequeststore.NewForgeThreadStore(fx.stores.Pool.GetDB())
 }

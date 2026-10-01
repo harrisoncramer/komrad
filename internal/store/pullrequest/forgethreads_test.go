@@ -6,6 +6,7 @@ import (
 
 	"komrad/internal/forge"
 	"komrad/internal/store"
+	reviewstore "komrad/internal/store/review"
 	"komrad/lib/xslice"
 
 	"github.com/stretchr/testify/assert"
@@ -296,4 +297,44 @@ func TestSetAcceptedRefusesALinkNoLongerHeld(t *testing.T) {
 
 	held := "01a0f025-00bd-7db3-90c0-a0198677e92e"
 	require.ErrorIs(t, threads.SetAccepted(ctx, stored[0].ID, held, &held), ErrAcceptedMoved)
+}
+
+// TestDeletingAReviewUnlinksTheForgeThreadsAcceptedIntoIt pins that the forge thread is offered again once the review holding its copy is gone.
+func TestDeletingAReviewUnlinksTheForgeThreadsAcceptedIntoIt(t *testing.T) {
+	h := open(t)
+	ctx := t.Context()
+	threads := NewForgeThreadStore(h.pool.GetDB())
+	reviews := reviewstore.NewReviewStore(h.pool.GetDB())
+
+	owner := h.createAgent(t, h.createWorkflow(t), "owner", komrad, "agent/x")
+	require.NoError(t, threads.SetThreads(ctx, SetThreadsParams{
+		PullRequestID: h.linkedPullRequest(t),
+		Threads:       []forge.ReviewThread{threadOn("T_1", commentBy("C_1", "dana"))},
+		Prune:         true,
+	}))
+	stored, err := threads.ListWatched(ctx, nil)
+	require.NoError(t, err)
+	require.Len(t, stored, 1)
+
+	round, err := reviews.CreateRound(ctx, reviewstore.CreateRoundParams{AgentID: owner, BaseSHA: "base", SnapshotSHA: "tree"})
+	require.NoError(t, err)
+	review, err := reviews.OpenReview(ctx, reviewstore.OpenReviewParams{AgentID: owner, RoundID: round.ID, AuthorKind: reviewstore.AuthorHuman})
+	require.NoError(t, err)
+	thread, err := reviews.CreateThread(ctx, reviewstore.CreateThreadParams{
+		AgentID:    owner,
+		ReviewID:   review.ID,
+		RoundID:    round.ID,
+		BaseSHA:    "base",
+		FilePath:   "main.go",
+		Body:       "rename this",
+		AuthorKind: reviewstore.AuthorHuman,
+	})
+	require.NoError(t, err)
+	require.NoError(t, threads.SetAccepted(ctx, stored[0].ID, thread.ID, nil))
+
+	require.NoError(t, reviews.DeleteReview(ctx, review.ID))
+
+	got, err := threads.GetForAgent(ctx, stored[0].ID, owner)
+	require.NoError(t, err)
+	assert.Nil(t, got.AcceptedThreadID)
 }
