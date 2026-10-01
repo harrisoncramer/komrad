@@ -81,9 +81,27 @@ func (m *model) viewsBar() string {
 
 // switcherLines is the logo and, on a screen that picks views, the row of views.
 func (m *model) switcherLines(trail crumbs) []string {
-	entries := viewEntries()
+	logo := paint.Panel.Title(glyph.Logo + " " + komradName)
+	if path := trail.view(paint.Panel, 0); path != "" {
+		logo += paint.Panel.Style(paint.ToneMuted).Render(" "+glyph.Crumb+" ") + path
+	}
+
+	lines := []string{logo, m.engineLine(m.paneWidth()), ""}
+	if m.screen.picksViews() {
+		lines = append(lines, m.viewsRow())
+	}
+	if width := m.paneWidth(); width > 0 {
+		for i, line := range lines {
+			lines[i] = ansi.Truncate(line, width, "…")
+		}
+	}
+
+	return lines
+}
+
+func (m *model) viewsRow() string {
 	row := stops{
-		labels: xslice.Map(entries, func(entry viewEntry) string { return entry.label }),
+		labels: xslice.Map(viewEntries(), func(entry viewEntry) string { return entry.label }),
 		focus:  noStop,
 		lit:    noStop,
 	}
@@ -93,22 +111,7 @@ func (m *model) switcherLines(trail crumbs) []string {
 		row.lit = m.viewIndex()
 	}
 
-	logo := paint.Panel.Title(glyph.Logo + " " + komradName)
-	if path := trail.view(paint.Panel, 0); path != "" {
-		logo += paint.Panel.Style(paint.ToneMuted).Render(" "+glyph.Crumb+" ") + path
-	}
-
-	lines := []string{logo, m.engineLine(m.paneWidth()), ""}
-	if m.screen.picksViews() {
-		lines = append(lines, row.view(m.focusPalette()))
-	}
-	if width := m.paneWidth(); width > 0 {
-		for i, line := range lines {
-			lines[i] = ansi.Truncate(line, width, "…")
-		}
-	}
-
-	return lines
+	return row.view(m.focusPalette())
 }
 
 // viewIndex is where the screen that is up sits on the switcher, and noStop when it is not there.
