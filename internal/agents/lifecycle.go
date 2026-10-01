@@ -552,7 +552,7 @@ func requireListed(ids []string, agents []agentstore.Agent) ([]agentstore.Agent,
 	return nil, agenterr.ErrAgentNotFound.Saying("no agent with id %s", xstr.JoinSome(missing, namedMissing))
 }
 
-// refuseArchivingOthers holds an agent other than an orchestrator to itself and its own children, leaving the panel unrestricted.
+// refuseArchivingOthers holds an agent other than an orchestrator to itself and its own children.
 func (s *LifecycleService) refuseArchivingOthers(ctx context.Context, params ArchiveAgentsParams, listed []agentstore.Agent) error {
 	if params.ByAgentID == "" {
 		return nil
