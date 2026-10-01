@@ -5,22 +5,19 @@ import (
 	"fmt"
 
 	"komrad/internal/fail"
+	pullrequeststore "komrad/internal/store/pullrequest"
 )
 
 // ErrDismissHumanOnly is answered when an agent asks to dismiss a forge comment from the person's review.
 var ErrDismissHumanOnly = fail.Denied("only the person reviewing can dismiss a comment from the forge")
 
-type threadDismisser interface {
-	SetDismissed(ctx context.Context, id string, dismissed bool) error
-}
-
 type NewDismisserParams struct {
-	Threads threadDismisser
+	Threads *pullrequeststore.ForgeThreadStore
 }
 
 // Dismisser marks the forge's comments dismissed in the person's review.
 type Dismisser struct {
-	threads threadDismisser
+	threads *pullrequeststore.ForgeThreadStore
 }
 
 // NewDismisser builds a dismisser over the forge thread store.

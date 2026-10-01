@@ -27,7 +27,7 @@ type eventRecorder interface {
 
 // NewPullRequestSyncerParams is what a pull request syncer is built over.
 type NewPullRequestSyncerParams struct {
-	Forges       pullRequestForgeFinder
+	Forges       *forge.Service
 	PullRequests *pullrequeststore.PullRequestStore
 	Syncs        *pullrequeststore.PullRequestSyncStore
 	Events       eventRecorder

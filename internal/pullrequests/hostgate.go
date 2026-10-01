@@ -19,15 +19,8 @@ const (
 	pullRequestThrottleCeiling = time.Hour
 )
 
-// pullRequestForgeFinder is what opening and throttling a host asks of the forge service.
-type pullRequestForgeFinder interface {
-	ConnectionFor(ctx context.Context, host string) (*forgestore.Connection, error)
-	ForConnection(connection forgestore.Connection) (forge.Forge, error)
-	SetThrottledUntil(ctx context.Context, id string, until *time.Time) error
-}
-
 type hostGate struct {
-	forges pullRequestForgeFinder
+	forges *forge.Service
 	now    func() time.Time
 	// refusals counts rate limit refusals in a row per host that named no time to wait.
 	refusals map[string]int
@@ -43,7 +36,7 @@ type forgeHost struct {
 	throttled bool
 }
 
-func newHostGate(forges pullRequestForgeFinder, now func() time.Time) *hostGate {
+func newHostGate(forges *forge.Service, now func() time.Time) *hostGate {
 	return &hostGate{
 		forges:   forges,
 		now:      now,

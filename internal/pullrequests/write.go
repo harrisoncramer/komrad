@@ -6,14 +6,7 @@ import (
 	"net/url"
 
 	"komrad/internal/forge"
-	forgestore "komrad/internal/store/forge"
 )
-
-// writeForgeFinder is what a write asks of the forge service.
-type writeForgeFinder interface {
-	ConnectionFor(ctx context.Context, host string) (*forgestore.Connection, error)
-	ForConnection(connection forgestore.Connection) (forge.Forge, error)
-}
 
 // heater keeps a host's repositories in the pull request sync's fast lane for a while.
 type heater interface {
@@ -22,13 +15,13 @@ type heater interface {
 
 // NewWriterParams is what a writer is built over.
 type NewWriterParams struct {
-	Forges writeForgeFinder
+	Forges *forge.Service
 	Sync   heater
 }
 
 // Writer changes pull requests through the connection for their host.
 type Writer struct {
-	forges writeForgeFinder
+	forges *forge.Service
 	sync   heater
 }
 
