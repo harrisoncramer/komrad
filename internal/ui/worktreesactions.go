@@ -148,21 +148,17 @@ func (w *worktreesScreen) jumpToAgent(h navHost, s panelShared) tea.Cmd {
 	return h.enter(screenArchive, target)
 }
 
-func (w *worktreesScreen) deleteHovered(h host, s panelShared) tea.Cmd {
-	row, ok := w.hovered(s)
-	if !ok {
-		return nil
-	}
-
-	switch row.item.fate {
+// deleteWorktree asks before a directory goes the way its fate decides.
+func deleteWorktree(h host, s panelShared, item worktreeItem) tea.Cmd {
+	switch item.fate {
 	case fateLive:
-		if item, ok := s.listing.liveAgent(row.item.agent.id); ok {
-			return confirmArchiveAgents(h, s.listing.liveAgents(), []panel.Agent{item.Agent})
+		if live, ok := s.listing.liveAgent(item.agent.id); ok {
+			return confirmArchiveAgents(h, s.listing.liveAgents(), []panel.Agent{live.Agent})
 		}
 	case fateArchived:
-		return confirmDeleteWorktrees(h, s, worktreeDeletion{agents: []worktreeItem{row.item}})
+		return confirmDeleteWorktrees(h, s, worktreeDeletion{agents: []worktreeItem{item}})
 	case fateUnowned:
-		return confirmDeleteWorktrees(h, s, worktreeDeletion{unowned: []worktreeItem{row.item}})
+		return confirmDeleteWorktrees(h, s, worktreeDeletion{unowned: []worktreeItem{item}})
 	}
 
 	return nil
@@ -303,16 +299,9 @@ func (w *worktreesScreen) itemMenu(s panelShared) (submenu, bool) {
 			return submenu{}, false
 		}
 
-		return withArchive(rowMenu(label.Count(deletion.count(), "worktree", "worktrees")), s, liveArchiveMenu(submenuEntry{
-			label: "delete all",
-			keys:  s.keys.ArchiveMenu.Delete,
-			open: func(m model) (tea.Model, tea.Cmd) {
-				m.leaveForm()
-				cmd := confirmDeleteWorktrees(&m, m.shared(), deletion)
-
-				return m, cmd
-			},
-		})), true
+		return withArchive(rowMenu(label.Count(deletion.count(), "worktree", "worktrees")), s, liveArchiveMenu(openEntry("delete all", s.keys.ArchiveMenu.Delete, func(h host, s panelShared) tea.Cmd {
+			return confirmDeleteWorktrees(h, s, deletion)
+		}))), true
 	}
 
 	row, ok := w.hovered(s)
@@ -325,14 +314,7 @@ func (w *worktreesScreen) itemMenu(s panelShared) (submenu, bool) {
 		keys = s.keys.ArchiveMenu.Archive
 	}
 
-	return withArchive(rowMenu(row.name()), s, liveArchiveMenu(submenuEntry{
-		label: row.item.fate.deleteDesc(),
-		keys:  keys,
-		open: func(m model) (tea.Model, tea.Cmd) {
-			m.leaveForm()
-			cmd := m.worktrees.deleteHovered(&m, m.shared())
-
-			return m, cmd
-		},
-	})), true
+	return withArchive(rowMenu(row.name()), s, liveArchiveMenu(openEntry(row.item.fate.deleteDesc(), keys, func(h host, s panelShared) tea.Cmd {
+		return deleteWorktree(h, s, row.item)
+	}))), true
 }
