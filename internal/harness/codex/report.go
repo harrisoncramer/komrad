@@ -7,6 +7,7 @@ import (
 	"komrad/internal/harness"
 )
 
+// EventNotify is the notify program Codex runs as a turn ends.
 const EventNotify harness.Event = "notify"
 
 const turnCompleteType = "agent-turn-complete"
