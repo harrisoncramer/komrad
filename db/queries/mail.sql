@@ -27,6 +27,7 @@ INSERT INTO mail(
     body,
     kind,
     subject_id,
+    events,
     expires_at)
 VALUES (
     @from_name,
@@ -34,6 +35,7 @@ VALUES (
     @body,
     @kind,
     @subject_id::uuid,
+    @events::text[],
     NOW() + interval '1 microsecond' * @deadline_micros::bigint)
 ON CONFLICT (
     to_agent_id,
@@ -44,6 +46,7 @@ WHERE
     AND subject_id IS NOT NULL
         DO UPDATE SET
             body = EXCLUDED.body,
+            events = EXCLUDED.events,
             expires_at = EXCLUDED.expires_at,
             reported_at = NULL,
             updated_at = NOW()

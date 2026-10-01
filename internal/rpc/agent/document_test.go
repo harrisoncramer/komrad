@@ -125,7 +125,12 @@ func (f *fakeDocuments) WriteDocumentType(_ context.Context, params documents.Wr
 		return nil, f.err
 	}
 
-	return &documenttypestore.Type{ID: documentTypeID, Name: params.Name, Context: params.Context, Version: 1}, nil
+	return &documenttypestore.Type{
+		ID:      documentTypeID,
+		Name:    params.Name,
+		Context: params.Context,
+		Version: 1,
+	}, nil
 }
 
 // DeleteDocumentType records the delete unless err refuses it.
@@ -690,7 +695,13 @@ func TestWriteDocumentType(t *testing.T) {
 func TestListDocumentTypes(t *testing.T) {
 	updated := time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC)
 	docs := &fakeDocuments{types: []documenttypestore.Type{
-		{ID: documentTypeID, Name: "RFC", Context: "A proposal.", Version: 2, UpdatedAt: updated},
+		{
+			ID:        documentTypeID,
+			Name:      "RFC",
+			Context:   "A proposal.",
+			Version:   2,
+			UpdatedAt: updated,
+		},
 	}}
 	svc := newDocumentHandler(docs)
 
@@ -719,7 +730,12 @@ func TestGetDocumentType(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			docs := &fakeDocuments{types: []documenttypestore.Type{{ID: documentTypeID, Name: "RFC", Context: "A proposal.", Version: 1}}}
+			docs := &fakeDocuments{types: []documenttypestore.Type{{
+				ID:      documentTypeID,
+				Name:    "RFC",
+				Context: "A proposal.",
+				Version: 1,
+			}}}
 			svc := newDocumentHandler(docs)
 
 			got, err := svc.GetDocumentType(t.Context(), connect.NewRequest(&agentv1.GetDocumentTypeRequest{Name: "RFC", Version: tt.version}))
@@ -734,15 +750,31 @@ func TestGetDocumentType(t *testing.T) {
 // TestListDocumentTypeVersions pins how a type's writes are rendered.
 func TestListDocumentTypeVersions(t *testing.T) {
 	svc := newDocumentHandler(&fakeDocuments{typeVersions: []documenttypestore.Version{
-		{Version: 2, Name: "incident", CreatedAt: time.Date(2026, time.September, 30, 10, 0, 0, 0, time.UTC)},
-		{Version: 1, Name: "postmortem", CreatedAt: time.Date(2026, time.September, 30, 9, 0, 0, 0, time.UTC)},
+		{
+			Version:   2,
+			Name:      "incident",
+			CreatedAt: time.Date(2026, time.September, 30, 10, 0, 0, 0, time.UTC),
+		},
+		{
+			Version:   1,
+			Name:      "postmortem",
+			CreatedAt: time.Date(2026, time.September, 30, 9, 0, 0, 0, time.UTC),
+		},
 	}})
 
 	listed, err := svc.ListDocumentTypeVersions(t.Context(), connect.NewRequest(&agentv1.ListDocumentTypeVersionsRequest{Id: documentTypeID}))
 	require.NoError(t, err)
 
 	assert.Empty(t, cmp.Diff([]*agentv1.DocumentTypeVersion{
-		{Version: 2, Name: "incident", CreatedAt: "2026-09-30T10:00:00Z"},
-		{Version: 1, Name: "postmortem", CreatedAt: "2026-09-30T09:00:00Z"},
+		{
+			Version:   2,
+			Name:      "incident",
+			CreatedAt: "2026-09-30T10:00:00Z",
+		},
+		{
+			Version:   1,
+			Name:      "postmortem",
+			CreatedAt: "2026-09-30T09:00:00Z",
+		},
 	}, listed.Msg.GetVersions(), protocmp.Transform()))
 }

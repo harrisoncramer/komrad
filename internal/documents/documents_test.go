@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"komrad/internal/documents"
+	"komrad/internal/eventprompts"
 	"komrad/internal/events/eventstest"
 	"komrad/internal/mail"
 	"komrad/internal/store"
@@ -102,8 +103,12 @@ func TestWrite(t *testing.T) {
 			wantErr: documents.ErrNoBody,
 		},
 		{
-			name:    "a type that does not exist is refused",
-			params:  documents.WriteDocumentParams{Name: "untyped", Type: "postmortem", Body: "# Untyped"},
+			name: "a type that does not exist is refused",
+			params: documents.WriteDocumentParams{
+				Name: "untyped",
+				Type: "postmortem",
+				Body: "# Untyped",
+			},
 			wantErr: documentstore.ErrUnknownType,
 		},
 		{
@@ -494,6 +499,7 @@ func TestAPersonsWriteMailsTheAuthor(t *testing.T) {
 			require.NotNil(t, waiting[0].SubjectID)
 			assert.Equal(t, written.ID, *waiting[0].SubjectID)
 			assert.Contains(t, waiting[0].Body, tt.wantMail)
+			assert.Equal(t, []string{eventprompts.DocumentWrittenByPerson}, waiting[0].Events)
 		})
 	}
 }

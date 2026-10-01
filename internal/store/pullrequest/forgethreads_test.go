@@ -27,7 +27,12 @@ func threadOn(providerID string, comments ...forge.ReviewComment) forge.ReviewTh
 }
 
 func commentBy(providerID, login string) forge.ReviewComment {
-	return forge.ReviewComment{ProviderID: providerID, Login: login, Body: "rename this", WrittenAt: threadWrittenAt}
+	return forge.ReviewComment{
+		ProviderID: providerID,
+		Login:      login,
+		Body:       "rename this",
+		WrittenAt:  threadWrittenAt,
+	}
 }
 
 func (h *harness) linkedPullRequest(t *testing.T, providerID string, number int, branch string) string {
@@ -132,7 +137,15 @@ func TestSetThreads(t *testing.T) {
 		},
 		{
 			name: "a thread on the old side keeps its side",
-			then: SetThreadsParams{Threads: []forge.ReviewThread{{ProviderID: "T_1", Path: "main.go", Line: 7, OldSide: true, CommitSHA: "c3", Quote: "\tdrop()", Comments: []forge.ReviewComment{commentBy("C_1", "dana")}}}},
+			then: SetThreadsParams{Threads: []forge.ReviewThread{{
+				ProviderID: "T_1",
+				Path:       "main.go",
+				Line:       7,
+				OldSide:    true,
+				CommitSHA:  "c3",
+				Quote:      "\tdrop()",
+				Comments:   []forge.ReviewComment{commentBy("C_1", "dana")},
+			}}},
 			check: func(t *testing.T, stored []ForgeThread) {
 				for _, thread := range stored {
 					if thread.ProviderID == "T_1" {

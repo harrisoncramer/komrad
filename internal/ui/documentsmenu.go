@@ -106,22 +106,38 @@ func documentMenu(s panelShared, d *documentsScreen) submenu {
 
 	entries := []documentEntry{
 		{
-			entry: submenuEntry{label: d.editLabel(), keys: s.keys.DocumentMenu.Edit, isOff: !hovered && d.editing == nil},
-			run:   (*documentsScreen).pressEdit,
+			entry: submenuEntry{
+				label: d.editLabel(),
+				keys:  s.keys.DocumentMenu.Edit,
+				isOff: !hovered && d.editing == nil,
+			},
+			run: (*documentsScreen).pressEdit,
 		},
 		{
-			entry: submenuEntry{label: "rename", keys: s.keys.DocumentMenu.Rename, isOff: !hovered || d.editing != nil},
-			run:   (*documentsScreen).openRename,
+			entry: submenuEntry{
+				label: "rename",
+				keys:  s.keys.DocumentMenu.Rename,
+				isOff: !hovered || d.editing != nil,
+			},
+			run: (*documentsScreen).openRename,
 		},
 		{
-			entry: submenuEntry{label: d.newDesc(), keys: s.keys.DocumentMenu.New, isOff: d.editing != nil},
-			run:   (*documentsScreen).pressNew,
+			entry: submenuEntry{
+				label: d.newDesc(),
+				keys:  s.keys.DocumentMenu.New,
+				isOff: d.editing != nil,
+			},
+			run: (*documentsScreen).pressNew,
 		},
 	}
 	if d.shelf == shelfDocumentTypes {
 		entries = append(entries, documentEntry{
-			entry: submenuEntry{label: "delete", keys: s.keys.DocumentMenu.Delete, isOff: !hovered || d.editing != nil},
-			run:   (*documentsScreen).confirmDeleteType,
+			entry: submenuEntry{
+				label: "delete",
+				keys:  s.keys.DocumentMenu.Delete,
+				isOff: !hovered || d.editing != nil,
+			},
+			run: (*documentsScreen).confirmDeleteType,
 		})
 	}
 

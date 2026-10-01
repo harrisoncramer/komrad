@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"slices"
 
+	"komrad/internal/eventprompts"
 	"komrad/internal/ui/panel"
 	"komrad/lib/xslice"
 	hookv1 "komrad/proto/gen/hook/v1"
@@ -13,7 +14,11 @@ import (
 )
 
 func newWorkflowForm(h host, s panelShared) tea.Cmd {
-	values := workflowFormValues{}
+	values := workflowFormValues{
+		EventPrompts: eventPromptsByEvent(xslice.Map(eventprompts.All(), func(event eventprompts.Event) panel.EventPrompt {
+			return panel.EventPrompt{Event: event.Name, Prompt: event.DefaultPrompt}
+		})),
+	}
 	if len(s.listing.workflows) == 0 {
 		values.Cwd = h.getHostPath()
 	}
@@ -51,12 +56,12 @@ func openWorkflowConfigForm(h host, values *workflowFormValues, target *panel.Wo
 		update: func(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.updateWorkflowForm(msg, values, build)
 		},
-		editable: []editableText{
+		editable: append([]editableText{
 			{key: "context", value: &values.Context},
 			{key: "worktree_copy_paths", value: &values.WorktreeCopyPaths},
 			{key: "worktree_symlink_paths", value: &values.WorktreeSymlinkPaths},
 			{key: "worktree_diff_exclude", value: &values.WorktreeDiffExclude},
-		},
+		}, eventPromptEditables(values)...),
 		submit: holdSubmit(func(m model) (model, tea.Cmd) {
 			var cmd tea.Cmd
 			if target == nil {
@@ -160,4 +165,11 @@ func (m model) updateWorkflowForm(msg tea.Msg, values *workflowFormValues, build
 	}
 
 	return m, cmd
+}
+
+// eventPromptEditables are the event prompts the panel's editor key can open.
+func eventPromptEditables(values *workflowFormValues) []editableText {
+	return xslice.Map(eventprompts.All(), func(event eventprompts.Event) editableText {
+		return editableText{key: eventPromptKey(event.Name), value: values.eventPromptFor(event.Name)}
+	})
 }

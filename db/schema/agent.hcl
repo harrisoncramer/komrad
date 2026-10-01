@@ -204,6 +204,48 @@ table "workflow_hooks" {
   }
 }
 
+table "workflow_event_prompts" {
+  schema  = schema.public
+  comment = "What a workflow asks of its agents when komrad sends them an event, appended to that mail."
+  column "workflow_id" {
+    null = false
+    type = uuid
+  }
+  column "event" {
+    null    = false
+    type    = text
+    comment = "The event the prompt rides on, such as pull_request.checks_failing."
+  }
+  column "prompt" {
+    null = false
+    type = text
+  }
+  column "position" {
+    null = false
+    type = integer
+  }
+  column "engine_id" {
+    null    = false
+    type    = uuid
+    comment = "The engine that owns this row, stamped from the login that wrote it."
+  }
+  primary_key {
+    columns = [column.workflow_id, column.event]
+  }
+  foreign_key "workflow_event_prompts_engine_id_fkey" {
+    columns     = [column.engine_id]
+    ref_columns = [table.engines.column.id]
+    on_delete   = RESTRICT
+    on_update   = NO_ACTION
+  }
+  foreign_key "workflow_event_prompts_workflow_id_fkey" {
+    columns     = [column.engine_id, column.workflow_id]
+    ref_columns = [table.workflows.column.engine_id, table.workflows.column.id]
+    on_delete   = CASCADE
+    on_update   = NO_ACTION
+  }
+}
+
 table "workflows" {
   schema  = schema.public
   comment = "A named group of related agents. It is grouping only. Nothing here runs."

@@ -72,23 +72,43 @@ func TestUpdate(t *testing.T) {
 		wantErr error
 	}{
 		{
-			name:    "a version already moved past is refused",
-			params:  documenttypestore.UpdateParams{ID: postmortem.ID, Name: "postmortem", Context: "stale", Version: 7},
+			name: "a version already moved past is refused",
+			params: documenttypestore.UpdateParams{
+				ID:      postmortem.ID,
+				Name:    "postmortem",
+				Context: "stale",
+				Version: 7,
+			},
 			wantErr: documenttypestore.ErrChanged,
 		},
 		{
-			name:    "a name another type has is refused",
-			params:  documenttypestore.UpdateParams{ID: postmortem.ID, Name: "report", Context: "clash", Version: 1},
+			name: "a name another type has is refused",
+			params: documenttypestore.UpdateParams{
+				ID:      postmortem.ID,
+				Name:    "report",
+				Context: "clash",
+				Version: 1,
+			},
 			wantErr: store.ErrNameTaken,
 		},
 		{
-			name:    "a type that does not exist is not found",
-			params:  documenttypestore.UpdateParams{ID: "not-an-id", Name: "ghost", Context: "none", Version: 1},
+			name: "a type that does not exist is not found",
+			params: documenttypestore.UpdateParams{
+				ID:      "not-an-id",
+				Name:    "ghost",
+				Context: "none",
+				Version: 1,
+			},
 			wantErr: store.ErrNotFound,
 		},
 		{
-			name:   "a rename carries the documents written as it",
-			params: documenttypestore.UpdateParams{ID: postmortem.ID, Name: "incident", Context: "What broke.", Version: 1},
+			name: "a rename carries the documents written as it",
+			params: documenttypestore.UpdateParams{
+				ID:      postmortem.ID,
+				Name:    "incident",
+				Context: "What broke.",
+				Version: 1,
+			},
 		},
 	}
 
@@ -134,9 +154,17 @@ func TestDelete(t *testing.T) {
 		id      string
 		wantErr error
 	}{
-		{name: "a type documents are written as is refused", id: used.ID, wantErr: documenttypestore.ErrInUse},
+		{
+			name:    "a type documents are written as is refused",
+			id:      used.ID,
+			wantErr: documenttypestore.ErrInUse,
+		},
 		{name: "a type no document is written as is deleted", id: unused.ID},
-		{name: "a type that does not exist is not found", id: unused.ID, wantErr: store.ErrNotFound},
+		{
+			name:    "a type that does not exist is not found",
+			id:      unused.ID,
+			wantErr: store.ErrNotFound,
+		},
 	}
 
 	for _, tt := range tests {

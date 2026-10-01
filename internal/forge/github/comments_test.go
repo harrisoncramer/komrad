@@ -57,7 +57,12 @@ func TestReviewThreads(t *testing.T) {
 			Quote:      "func rename() {}",
 			URL:        "https://github.com/harrisoncramer/komrad/pull/1#discussion_r1",
 			Comments: []forge.ReviewComment{
-				{ProviderID: "C_1", Login: "dana", Body: "rename this", WrittenAt: time.Date(2026, 9, 20, 10, 0, 0, 0, time.UTC)},
+				{
+					ProviderID: "C_1",
+					Login:      "dana",
+					Body:       "rename this",
+					WrittenAt:  time.Date(2026, 9, 20, 10, 0, 0, 0, time.UTC),
+				},
 			},
 		},
 		{
@@ -69,7 +74,14 @@ func TestReviewThreads(t *testing.T) {
 			URL:        "https://github.com/harrisoncramer/komrad/pull/1#discussion_r3",
 			Resolved:   true,
 			Comments: []forge.ReviewComment{
-				{ProviderID: "C_3", Login: "coderabbitai", Bot: true, Body: "lint", WrittenAt: time.Date(2026, 9, 20, 10, 30, 0, 0, time.UTC), EditedAt: &edited},
+				{
+					ProviderID: "C_3",
+					Login:      "coderabbitai",
+					Bot:        true,
+					Body:       "lint",
+					WrittenAt:  time.Date(2026, 9, 20, 10, 30, 0, 0, time.UTC),
+					EditedAt:   &edited,
+				},
 			},
 		},
 		{
@@ -81,7 +93,12 @@ func TestReviewThreads(t *testing.T) {
 			Quote:      "\tdrop()",
 			URL:        "https://github.com/harrisoncramer/komrad/pull/1#discussion_r5",
 			Comments: []forge.ReviewComment{
-				{ProviderID: "C_5", Login: "dana", Body: "why drop this", WrittenAt: time.Date(2026, 9, 20, 10, 50, 0, 0, time.UTC)},
+				{
+					ProviderID: "C_5",
+					Login:      "dana",
+					Body:       "why drop this",
+					WrittenAt:  time.Date(2026, 9, 20, 10, 50, 0, 0, time.UTC),
+				},
 			},
 		},
 		{
@@ -89,14 +106,23 @@ func TestReviewThreads(t *testing.T) {
 			Path:       "go.mod",
 			URL:        "https://github.com/harrisoncramer/komrad/pull/1#discussion_r6",
 			Comments: []forge.ReviewComment{
-				{ProviderID: "C_6", Login: "dana", Body: "bump this", WrittenAt: time.Date(2026, 9, 20, 10, 55, 0, 0, time.UTC)},
+				{
+					ProviderID: "C_6",
+					Login:      "dana",
+					Body:       "bump this",
+					WrittenAt:  time.Date(2026, 9, 20, 10, 55, 0, 0, time.UTC),
+				},
 			},
 		},
 		{
 			ProviderID: "IC_1",
 			URL:        "https://github.com/harrisoncramer/komrad/pull/1#issuecomment-1",
 			Comments: []forge.ReviewComment{
-				{ProviderID: "IC_1", Body: "looks close", WrittenAt: time.Date(2026, 9, 20, 9, 0, 0, 0, time.UTC)},
+				{
+					ProviderID: "IC_1",
+					Body:       "looks close",
+					WrittenAt:  time.Date(2026, 9, 20, 9, 0, 0, 0, time.UTC),
+				},
 			},
 		},
 	}}, answer)

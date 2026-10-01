@@ -21,6 +21,10 @@ var WatchedWorkflows = watch.Resource{
 			Column: "workflow_id",
 		},
 		{
+			Table:  "workflow_event_prompts",
+			Column: "workflow_id",
+		},
+		{
 			Table: "workflow_configs",
 			Lookup: &watch.Lookup{
 				ParentColumn: "workflow_config_id",
@@ -44,12 +48,25 @@ func (s *WorkflowStore) ListWatched(ctx context.Context, keys []string) ([]Workf
 		return nil, fmt.Errorf("failed to list the watched workflows: %w", err)
 	}
 
-	hooks, err := s.hooksForWorkflows(ctx, xslice.Map(rows, func(row *models.ListWatchedWorkflowsRow) string { return row.Workflow.ID }))
+	ids := xslice.Map(rows, func(row *models.ListWatchedWorkflowsRow) string { return row.Workflow.ID })
+
+	hooks, err := s.hooksForWorkflows(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
+
+	prompts, err := s.eventPromptsForWorkflows(ctx, ids)
 	if err != nil {
 		return nil, err
 	}
 
 	return xslice.Map(rows, func(row *models.ListWatchedWorkflowsRow) Workflow {
-		return workflowFromRow(row.Workflow, row.WorkflowConfig, row.WorkflowProvisionerConfig, hooks[row.Workflow.ID])
+		return workflowFromRow(workflowFromRowParams{
+			Workflow:     row.Workflow,
+			Config:       row.WorkflowConfig,
+			Provisioner:  row.WorkflowProvisionerConfig,
+			Hooks:        hooks[row.Workflow.ID],
+			EventPrompts: prompts[row.Workflow.ID],
+		})
 	}), nil
 }

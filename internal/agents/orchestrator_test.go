@@ -308,8 +308,16 @@ func TestStartOrchestratorOpensOnThePromptGiven(t *testing.T) {
 		prompt string
 		want   string
 	}{
-		{name: "komrad's own when none is given", prompt: "", want: orchestratorPrompt},
-		{name: "the one given", prompt: "Stand by for instructions.", want: "Stand by for instructions."},
+		{
+			name:   "komrad's own when none is given",
+			prompt: "",
+			want:   orchestratorPrompt,
+		},
+		{
+			name:   "the one given",
+			prompt: "Stand by for instructions.",
+			want:   "Stand by for instructions.",
+		},
 	}
 
 	for _, tt := range tests {

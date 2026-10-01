@@ -36,7 +36,12 @@ func TestSettleLeavesAPaneItsCLIHasLeft(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			channel := &harnesstest.Channel{}
-			agent := agentstore.Agent{ID: "a1", Name: "telescope", Pane: "%1", Harness: "claude"}
+			agent := agentstore.Agent{
+				ID:      "a1",
+				Name:    "telescope",
+				Pane:    "%1",
+				Harness: "claude",
+			}
 
 			interrupted, err := settlerOver(channel, tt.observer).Settle(t.Context(), agent)
 			require.NoError(t, err)
@@ -67,7 +72,12 @@ func TestSettleRefusesAPaneItCannotRead(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			channel := &harnesstest.Channel{}
-			agent := agentstore.Agent{ID: "a1", Name: "telescope", Pane: "%1", Harness: "claude"}
+			agent := agentstore.Agent{
+				ID:      "a1",
+				Name:    "telescope",
+				Pane:    "%1",
+				Harness: "claude",
+			}
 
 			_, err := settlerOver(channel, tt.observer).Settle(t.Context(), agent)
 			require.ErrorIs(t, err, ErrUnsettled)

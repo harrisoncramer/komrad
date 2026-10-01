@@ -19,7 +19,11 @@ func (a *agentsScreen) hideMenu(s panelShared, agent *panel.Agent) submenu {
 		crumb: "hide",
 		entries: []submenuEntry{
 			hideEntry(s, hide, agent),
-			{label: a.showHiddenDesc(), keys: s.keys.HideMenu.ShowHidden, open: model.toggleHidden},
+			{
+				label: a.showHiddenDesc(),
+				keys:  s.keys.HideMenu.ShowHidden,
+				open:  model.toggleHidden,
+			},
 		},
 	}
 }
@@ -35,7 +39,11 @@ func withHide(menu submenu, s panelShared, hide submenu) submenu {
 // hideEntry hides or unhides the agent, and is gray on a row that is not one agent.
 func hideEntry(s panelShared, label string, agent *panel.Agent) submenuEntry {
 	if agent == nil {
-		return submenuEntry{label: label, keys: s.keys.HideMenu.Hide, isOff: true}
+		return submenuEntry{
+			label: label,
+			keys:  s.keys.HideMenu.Hide,
+			isOff: true,
+		}
 	}
 
 	hidden := *agent

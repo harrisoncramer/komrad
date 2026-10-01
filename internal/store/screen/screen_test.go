@@ -22,17 +22,37 @@ func TestUpsert(t *testing.T) {
 		want  screenstore.Screen
 	}{
 		{
-			name:  "the first save is kept",
-			saves: []screenstore.UpsertParams{{Frame: "❯ first", Width: 80, Height: 24}},
-			want:  screenstore.Screen{Frame: "❯ first", Width: 80, Height: 24},
+			name: "the first save is kept",
+			saves: []screenstore.UpsertParams{{
+				Frame:  "❯ first",
+				Width:  80,
+				Height: 24,
+			}},
+			want: screenstore.Screen{
+				Frame:  "❯ first",
+				Width:  80,
+				Height: 24,
+			},
 		},
 		{
 			name: "a later save replaces the frame and its size",
 			saves: []screenstore.UpsertParams{
-				{Frame: "❯ first", Width: 80, Height: 24},
-				{Frame: "❯ second", Width: 120, Height: 40},
+				{
+					Frame:  "❯ first",
+					Width:  80,
+					Height: 24,
+				},
+				{
+					Frame:  "❯ second",
+					Width:  120,
+					Height: 40,
+				},
 			},
-			want: screenstore.Screen{Frame: "❯ second", Width: 120, Height: 40},
+			want: screenstore.Screen{
+				Frame:  "❯ second",
+				Width:  120,
+				Height: 40,
+			},
 		},
 	}
 
@@ -64,7 +84,12 @@ func TestUpsertRefusesAScreenWithNoSize(t *testing.T) {
 	st := storetest.Open(t)
 	agent := st.SeedAgent(t, agentstore.Agent{Name: "alpha"})
 
-	err := st.Screens.Upsert(t.Context(), screenstore.UpsertParams{AgentID: agent.ID, Frame: "❯", Width: 0, Height: 24})
+	err := st.Screens.Upsert(t.Context(), screenstore.UpsertParams{
+		AgentID: agent.ID,
+		Frame:   "❯",
+		Width:   0,
+		Height:  24,
+	})
 
 	require.Error(t, err)
 }
@@ -89,7 +114,12 @@ func TestGet(t *testing.T) {
 			name: "an agent deleted after it saved one",
 			agentID: func(st *storetest.Stores) string {
 				agent := st.SeedAgent(t, agentstore.Agent{Name: "gone"})
-				require.NoError(t, st.Screens.Upsert(t.Context(), screenstore.UpsertParams{AgentID: agent.ID, Frame: "❯", Width: 80, Height: 24}))
+				require.NoError(t, st.Screens.Upsert(t.Context(), screenstore.UpsertParams{
+					AgentID: agent.ID,
+					Frame:   "❯",
+					Width:   80,
+					Height:  24,
+				}))
 				_, err := st.Agents.Delete(t.Context(), []string{agent.ID})
 				require.NoError(t, err)
 

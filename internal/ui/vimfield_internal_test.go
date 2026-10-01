@@ -17,12 +17,36 @@ func TestVimFieldBuffers(t *testing.T) {
 		width int
 		b     vim.Buffer
 	}{
-		{name: "the start of the text", width: 40, b: vim.Buffer{Text: "one\ntwo", Cursor: 0}},
-		{name: "the middle of a later line", width: 40, b: vim.Buffer{Text: "one\ntwo\nthree", Cursor: 10}},
-		{name: "an empty line", width: 40, b: vim.Buffer{Text: "one\n\nthree", Cursor: 4}},
-		{name: "a line wrapped onto several rows", width: 10, b: vim.Buffer{Text: "a line that wraps well past the width\nnext", Cursor: 38}},
-		{name: "late on a wrapped line", width: 10, b: vim.Buffer{Text: "first\na line that wraps well past the width", Cursor: 30}},
-		{name: "wide runes", width: 40, b: vim.Buffer{Text: "日本語\n漢字かな", Cursor: 6}},
+		{
+			name:  "the start of the text",
+			width: 40,
+			b:     vim.Buffer{Text: "one\ntwo", Cursor: 0},
+		},
+		{
+			name:  "the middle of a later line",
+			width: 40,
+			b:     vim.Buffer{Text: "one\ntwo\nthree", Cursor: 10},
+		},
+		{
+			name:  "an empty line",
+			width: 40,
+			b:     vim.Buffer{Text: "one\n\nthree", Cursor: 4},
+		},
+		{
+			name:  "a line wrapped onto several rows",
+			width: 10,
+			b:     vim.Buffer{Text: "a line that wraps well past the width\nnext", Cursor: 38},
+		},
+		{
+			name:  "late on a wrapped line",
+			width: 10,
+			b:     vim.Buffer{Text: "first\na line that wraps well past the width", Cursor: 30},
+		},
+		{
+			name:  "wide runes",
+			width: 40,
+			b:     vim.Buffer{Text: "日本語\n漢字かな", Cursor: 6},
+		},
 	}
 
 	for _, tt := range tests {

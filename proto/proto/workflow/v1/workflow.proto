@@ -38,6 +38,55 @@ message Workflow {
   // Command-line flags for each new reviewer, blank for the other agents' flags when the CLI is
   // the same.
   string reviewer_flags = 16;
+  // What its agents are asked to do when komrad mails them an event, one per event.
+  repeated WorkflowEventPrompt event_prompts = 17;
+}
+
+message WorkflowEventPrompt {
+  // Which event it answers, such as pull_request.checks_failing or review.approved.
+  string event = 1 [(buf.validate.field).string = {
+    in: [
+      "pull_request.checks_failing",
+      "pull_request.changes_requested",
+      "pull_request.approved",
+      "pull_request.conflicting",
+      "pull_request.behind",
+      "pull_request.merged",
+      "pull_request.closed",
+      "pull_request.auto_merge_on",
+      "worktree.rebased",
+      "worktree.landed",
+      "worktree.rebase_conflicted",
+      "worktree.rebase_failed",
+      "document.written_by_person",
+      "review.approved",
+      "review.changes_requested",
+      "review.commented",
+      "review.commented_by_person",
+      "review.answered"
+    ]
+  }];
+  // The text added to the mail carrying that event.
+  string prompt = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 500
+  }];
+}
+
+// Explainer: why CreateWorkflowRequest takes its prompts wrapped in a message.
+//
+// A repeated field in proto3 has no presence, so an empty list and a field the caller left out
+// look the same on the wire. Creating a workflow needs to tell them apart. A caller that says
+// nothing about prompts, such as an agent over MCP or komrad's own autosetup, should get komrad's
+// default prompt for each event. The panel's new-workflow form shows those defaults and lets a
+// person clear them, so it has to be able to save a workflow with none. A message field does
+// carry presence, so wrapping the list gives an unset field and an empty one different meanings.
+// UpdateWorkflowRequest replaces the whole list every time and has no default to fall back on,
+// so it keeps a plain repeated field.
+
+message WorkflowEventPrompts {
+  // One per event.
+  repeated WorkflowEventPrompt prompts = 1 [(buf.validate.field).repeated.max_items = 50];
 }
 
 message WorkflowHook {
@@ -165,6 +214,9 @@ message CreateWorkflowRequest {
     max_len: 500
     [rules.v1.shell_safe]: true
   }];
+  // What its agents are asked to do when komrad mails them an event. Left unset, the workflow
+  // starts with komrad's default prompt for each event, and set with no prompts it starts with none.
+  WorkflowEventPrompts event_prompts = 13;
 }
 
 message CreateWorkflowResponse {
@@ -212,6 +264,8 @@ message UpdateWorkflowRequest {
     max_len: 500
     [rules.v1.shell_safe]: true
   }];
+  // The whole prompt list, so send back the ones you are keeping.
+  repeated WorkflowEventPrompt event_prompts = 14 [(buf.validate.field).repeated.max_items = 50];
 }
 
 message ArchiveWorkflowRequest {
@@ -270,7 +324,7 @@ service WorkflowService {
       cli: true
       mcp: true
       name: "create_workflow"
-      description: "Create a workflow to group agents under. Nothing runs as a result; this is organisation. The cwd and flags become the defaults prefilled when an agent is created inside it, and the context is appended to those agents\x27 system prompts. reviewer_harness and reviewer_flags are the CLI and flags its reviewers launch with instead: blank reviewer_harness means the workflow\x27s CLI, and blank reviewer_flags means the workflow\x27s flags only when the reviewer runs that same CLI. worktree.enabled gives every agent a git worktree of its own, cut from cwd, which komrad makes before the agent starts and removes when it is deleted; left off, agents run in the directory they are given and komrad provisions nothing. hooks hang your own scripts on a moment in those agents\x27 lives, one per moment, each naming a hook from list_hooks and one of pre-launch, post-launch, pre-resume, post-resume, pre-archive, post-archive, pre-restore, post-restore, pre-delete or post-delete; komrad waits for every pre hook and one that fails refuses the step, and it runs every post hook in the background, where one that fails only marks its run. worktree.baseBranch is the branch worktrees are cut from and every agent\x27s work is measured against, filled in from the clone when left blank, which is what origin/HEAD names there, else the branch cwd is on, else main; the response carries the name stored. worktree.dir names the parent new worktrees are made in, blank meaning the one every workflow shares. worktree.diffExclude drops paths from the diff the panel draws, as paths or globs relative to the checkout such as proto/gen or *.pb.go. docs/src/content/guides/workflows.md says why each is there."
+      description: "Create a workflow to group agents under. Nothing runs as a result; this is organisation. The cwd and flags become the defaults prefilled when an agent is created inside it, and the context is appended to those agents\x27 system prompts. reviewer_harness and reviewer_flags are the CLI and flags its reviewers launch with instead: blank reviewer_harness means the workflow\x27s CLI, and blank reviewer_flags means the workflow\x27s flags only when the reviewer runs that same CLI. worktree.enabled gives every agent a git worktree of its own, cut from cwd, which komrad makes before the agent starts and removes when it is deleted; left off, agents run in the directory they are given and komrad provisions nothing. hooks hang your own scripts on a moment in those agents\x27 lives, one per moment, each naming a hook from list_hooks and one of pre-launch, post-launch, pre-resume, post-resume, pre-archive, post-archive, pre-restore, post-restore, pre-delete or post-delete; komrad waits for every pre hook and one that fails refuses the step, and it runs every post hook in the background, where one that fails only marks its run. event_prompts add your own instructions to the mail komrad sends its agents on an event, such as pull_request.checks_failing or review.approved, one per event. worktree.baseBranch is the branch worktrees are cut from and every agent\x27s work is measured against, filled in from the clone when left blank, which is what origin/HEAD names there, else the branch cwd is on, else main; the response carries the name stored. worktree.dir names the parent new worktrees are made in, blank meaning the one every workflow shares. worktree.diffExclude drops paths from the diff the panel draws, as paths or globs relative to the checkout such as proto/gen or *.pb.go. docs/src/content/guides/workflows.md says why each is there."
       destructive: false
       roles: [ROLE_ORCHESTRATOR]
     };
@@ -281,7 +335,7 @@ service WorkflowService {
       cli: true
       mcp: true
       name: "update_workflow"
-      description: "Replace a workflow\x27s name, context, directory, flags, reviewer harness and flags, worktree config and hooks. Every field is written, so read the workflow first and send back the ones you are not changing, the hooks list included. Each hook names a hook from list_hooks and one of pre-launch, post-launch, pre-resume, post-resume, pre-archive, post-archive, pre-restore, post-restore, pre-delete or post-delete; komrad waits for every pre hook and one that fails refuses the step, and it runs every post hook in the background, where one that fails only marks its run. Editing the context reaches only agents spawned afterwards, since existing agents took a snapshot at launch, while worktree.enabled reaches agents already running, since whether komrad removes an agent\x27s directory is read when the agent is deleted. worktree.baseBranch is the branch worktrees are cut from and every agent\x27s work is measured against, and a blank one is refused here, so send back the stored name when it is not what you are changing. worktree.dir names the parent new worktrees are made in, blank meaning the one every workflow shares. worktree.diffExclude drops paths from the diff the panel draws, as paths or globs relative to the checkout such as proto/gen or *.pb.go. docs/src/content/guides/workflows.md says why each is there."
+      description: "Replace a workflow\x27s name, context, directory, flags, reviewer harness and flags, worktree config, hooks and event prompts. Every field is written, so read the workflow first and send back the ones you are not changing, the hooks and event_prompts lists included. Each hook names a hook from list_hooks and one of pre-launch, post-launch, pre-resume, post-resume, pre-archive, post-archive, pre-restore, post-restore, pre-delete or post-delete; komrad waits for every pre hook and one that fails refuses the step, and it runs every post hook in the background, where one that fails only marks its run. Editing the context reaches only agents spawned afterwards, since existing agents took a snapshot at launch, while worktree.enabled reaches agents already running, since whether komrad removes an agent\x27s directory is read when the agent is deleted. worktree.baseBranch is the branch worktrees are cut from and every agent\x27s work is measured against, and a blank one is refused here, so send back the stored name when it is not what you are changing. worktree.dir names the parent new worktrees are made in, blank meaning the one every workflow shares. worktree.diffExclude drops paths from the diff the panel draws, as paths or globs relative to the checkout such as proto/gen or *.pb.go. docs/src/content/guides/workflows.md says why each is there."
       destructive: false
       roles: [ROLE_ORCHESTRATOR]
     };

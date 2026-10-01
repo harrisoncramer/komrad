@@ -122,7 +122,11 @@ func readChecksFrame(t *testing.T, harness *panelHarness) string {
 // TestLoaderSpinsWhileAWriteIsInFlight covers a held form's notice drawing the configured loader a frame a tick until its write lands.
 func TestLoaderSpinsWhileAWriteIsInFlight(t *testing.T) {
 	create := workflowv1connect.WorkflowServiceCreateWorkflowProcedure
-	harness := newPanelHarness(t, panelHarnessParams{width: 160, height: 40, loader: loader.Arcs})
+	harness := newPanelHarness(t, panelHarnessParams{
+		width:  160,
+		height: 40,
+		loader: loader.Arcs,
+	})
 	answerWorktreeReads(harness)
 	harness.watch(buildSnapshot(newFormWorkflow()))
 	harness.hold(create)

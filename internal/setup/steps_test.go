@@ -174,7 +174,11 @@ func TestAutoSetupStep(t *testing.T) {
 	})
 
 	t.Run("a yes turns it on", func(t *testing.T) {
-		step := &AutoSetupStep{Path: configPath, Stack: stack, chosen: true}
+		step := &AutoSetupStep{
+			Path:   configPath,
+			Stack:  stack,
+			chosen: true,
+		}
 
 		require.NoError(t, step.repair(t.Context()))
 

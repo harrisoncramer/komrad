@@ -81,9 +81,13 @@ func TestPushRefusals(t *testing.T) {
 			name:  "a branch a human made, whose copy on origin it would overwrite",
 			agent: agentstore.Agent{AdoptedBranch: "harry/spike"},
 			pusher: gittest.Pusher{
-				State:  git.TreeState{Branch: "harry/spike"},
-				Own:    1,
-				Remote: git.RemoteStanding{Pushed: true, Unpushed: 1, Unpulled: 2},
+				State: git.TreeState{Branch: "harry/spike"},
+				Own:   1,
+				Remote: git.RemoteStanding{
+					Pushed:   true,
+					Unpushed: 1,
+					Unpulled: 2,
+				},
 			},
 			wantErr: ErrPushAdoptedForce,
 		},
@@ -124,9 +128,13 @@ func TestPushSendsTheBranch(t *testing.T) {
 		{
 			name: "a rebased branch overwrites origin's copy and the agent is told the new commit",
 			pusher: gittest.Pusher{
-				State:   git.TreeState{Branch: "agent/a1"},
-				Own:     3,
-				Remote:  git.RemoteStanding{Pushed: true, Unpushed: 3, Unpulled: 2},
+				State: git.TreeState{Branch: "agent/a1"},
+				Own:   3,
+				Remote: git.RemoteStanding{
+					Pushed:   true,
+					Unpushed: 3,
+					Unpulled: 2,
+				},
 				Changes: git.Changes{Modified: []string{"a.go"}, Untracked: []string{"b.go"}},
 				SHA:     "abcdef1234567",
 			},
@@ -205,9 +213,13 @@ func TestPushReportsWhatOriginSaid(t *testing.T) {
 	fixture := newRebaseFixture(t)
 	agent := fixture.seedPushable(t, agentstore.Agent{})
 	pusher := &gittest.Pusher{
-		State:   git.TreeState{Branch: "agent/a1"},
-		Own:     1,
-		Remote:  git.RemoteStanding{Pushed: true, Unpushed: 1, Unpulled: 1},
+		State: git.TreeState{Branch: "agent/a1"},
+		Own:   1,
+		Remote: git.RemoteStanding{
+			Pushed:   true,
+			Unpushed: 1,
+			Unpulled: 1,
+		},
 		PushErr: git.ErrPushRejected,
 	}
 

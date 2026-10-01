@@ -26,7 +26,11 @@ func newOffer(id, login, body string, line int32) *pullrequestv1.ForgeThread {
 		CommitSha:     gittest.SnapshotSHA,
 		Url:           "https://github.com/harrisoncramer/komrad/pull/7#discussion_" + id,
 		WrittenAt:     "2026-09-19T12:00:00Z",
-		Comments:      []*pullrequestv1.ForgeComment{{Id: id + "-c", AuthorLogin: login, Body: body}},
+		Comments: []*pullrequestv1.ForgeComment{{
+			Id:          id + "-c",
+			AuthorLogin: login,
+			Body:        body,
+		}},
 	}
 }
 

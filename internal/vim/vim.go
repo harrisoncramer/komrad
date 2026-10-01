@@ -67,9 +67,8 @@ type Engine struct {
 	passes     []string
 	mode       Mode
 	pending    []string
-
-	undo []Buffer
-	redo []Buffer
+	undo       []Buffer
+	redo       []Buffer
 
 	// last is the buffer the engine last left.
 	last Buffer
@@ -416,19 +415,47 @@ func (e *Engine) apply(c command, b Buffer) (Buffer, bool, bool) {
 
 	switch c.name {
 	case "x":
-		return e.apply(command{count: c.times(), op: "d", name: "l"}, b)
+		return e.apply(command{
+			count: c.times(),
+			op:    "d",
+			name:  "l",
+		}, b)
 	case "X":
-		return e.apply(command{count: c.times(), op: "d", name: "h"}, b)
+		return e.apply(command{
+			count: c.times(),
+			op:    "d",
+			name:  "h",
+		}, b)
 	case "s":
-		return e.apply(command{count: c.times(), op: "c", name: "l"}, b)
+		return e.apply(command{
+			count: c.times(),
+			op:    "c",
+			name:  "l",
+		}, b)
 	case "S":
-		return e.apply(command{count: c.times(), op: "c", name: "line"}, b)
+		return e.apply(command{
+			count: c.times(),
+			op:    "c",
+			name:  "line",
+		}, b)
 	case "D":
-		return e.apply(command{count: c.times(), op: "d", name: "$"}, b)
+		return e.apply(command{
+			count: c.times(),
+			op:    "d",
+			name:  "$",
+		}, b)
 	case "C":
-		return e.apply(command{count: c.times(), op: "c", name: "$"}, b)
+		return e.apply(command{
+			count: c.times(),
+			op:    "c",
+			name:  "$",
+		}, b)
 	case "Y":
-		return e.apply(command{count: c.times(), op: "y", name: "line"}, b)
+		return e.apply(command{
+			count: c.times(),
+			op:    "y",
+			name:  "line",
+		}, b)
 	case "i", "a", "I", "A", "o", "O":
 		return e.enter(c.name, r, p)
 	case "r":

@@ -31,14 +31,6 @@ const (
 
 var fieldOrder = []Field{FieldState, FieldDecision, FieldChecks, FieldMergeability, FieldAutoMerge}
 
-var opening = map[Field][]string{
-	FieldState:        {"MERGED", "CLOSED"},
-	FieldDecision:     {"approved", "changes_requested"},
-	FieldChecks:       {"failing"},
-	FieldMergeability: {"conflicting", "behind"},
-	FieldAutoMerge:    {autoMergeOn},
-}
-
 var alarming = map[Field][]string{
 	FieldDecision:     {"changes_requested"},
 	FieldChecks:       {"failing"},
@@ -67,7 +59,9 @@ func (Change) Topic() string {
 // Opens says whether the change is news enough to start mail rather than only update it.
 func (c Change) Opens() bool {
 	return slices.ContainsFunc(c.Moves, func(move Move) bool {
-		return slices.Contains(opening[move.Field], move.To)
+		_, ok := eventOf[move.Field][move.To]
+
+		return ok
 	})
 }
 

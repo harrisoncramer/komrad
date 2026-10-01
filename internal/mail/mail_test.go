@@ -1,8 +1,10 @@
 package mail
 
 import (
+	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"komrad/config"
 	agentstore "komrad/internal/store/agent"
@@ -501,6 +503,173 @@ func TestSendFromKomradRewritesTheUnreadOne(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.NotEqual(t, first.ID, notify(one, "third edit").ID, "an edit after the mail was read sends another")
+}
+
+// TestSendFromKomradCarriesTheWorkflowsEventPrompts pins which of the workflow's prompts mail from komrad carries as its events start and stop holding.
+func TestSendFromKomradCarriesTheWorkflowsEventPrompts(t *testing.T) {
+	const (
+		failing  = "pull_request.checks_failing"
+		behind   = "pull_request.behind"
+		approved = "pull_request.approved"
+	)
+
+	heading := "\n\n" + promptsHeading + "\n\n"
+
+	type send struct {
+		events  []string
+		holding []string
+		read    bool
+	}
+
+	tests := []struct {
+		name     string
+		archived bool
+		sends    []send
+		wantBody string
+	}{
+		{
+			name:     "an event with a prompt carries it after the body",
+			sends:    []send{{events: []string{failing}}},
+			wantBody: "changed" + heading + failing + ": fix the checks",
+		},
+		{
+			name:     "an event the workflow attaches nothing to carries no section",
+			sends:    []send{{events: []string{approved}}},
+			wantBody: "changed",
+		},
+		{
+			name: "a rewrite keeps the prompts of events started earlier that still hold",
+			sends: []send{
+				{events: []string{failing}},
+				{events: []string{behind}, holding: []string{failing, behind}},
+			},
+			wantBody: "changed" + heading + failing + ": fix the checks\n\n" + behind + ": rebase onto main",
+		},
+		{
+			name: "a rewrite drops the prompt of an event that no longer holds",
+			sends: []send{
+				{events: []string{failing, behind}},
+				{holding: []string{behind}},
+			},
+			wantBody: "changed" + heading + behind + ": rebase onto main",
+		},
+		{
+			name: "an event still holding after the mail was read is not started again",
+			sends: []send{
+				{events: []string{failing}},
+				{read: true, holding: []string{failing}},
+			},
+			wantBody: "changed",
+		},
+		{
+			name:     "an archived workflow's prompts are not carried",
+			archived: true,
+			sends:    []send{{events: []string{failing}}},
+			wantBody: "changed",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := storetest.Open(t)
+			svc := newMailService(st, config.DefaultMaxExchange)
+			ctx := t.Context()
+			workflow := st.SeedWorkflow(t, workflowstore.Config{
+				Name: "backend",
+				EventPrompts: []workflowstore.EventPrompt{
+					{Event: failing, Prompt: "fix the checks"},
+					{Event: behind, Prompt: "rebase onto main"},
+				},
+			})
+			recipient := st.SeedAgent(t, agentstore.Agent{Name: "author", WorkflowID: workflow.ID})
+			if tt.archived {
+				require.NoError(t, st.Workflows.Archive(ctx, workflow.ID))
+			}
+			subject := uuid.NewString()
+
+			var sent *mailstore.Mail
+			for _, s := range tt.sends {
+				if s.read {
+					_, err := svc.ClaimMail(ctx, recipient.ID)
+					require.NoError(t, err)
+				}
+
+				var err error
+				sent, err = svc.SendFromKomrad(ctx, SendFromKomradParams{
+					ToAgentID: recipient.ID,
+					Body:      "changed",
+					Kind:      mailstore.KindPullRequestChanged,
+					SubjectID: subject,
+					Events:    s.events,
+					Holding:   s.holding,
+				})
+				require.NoError(t, err)
+			}
+
+			assert.Equal(t, tt.wantBody, sent.Body)
+		})
+	}
+}
+
+// TestSendFromKomradCutsTheEventPromptsToFit pins that prompts too long for the mail are cut rather than refused.
+func TestSendFromKomradCutsTheEventPromptsToFit(t *testing.T) {
+	tests := []struct {
+		name    string
+		body    string
+		prompt  string
+		wantCut bool
+	}{
+		{
+			name:    "prompts past the room left are cut",
+			body:    strings.Repeat("x", MaxMailBody-500),
+			prompt:  strings.Repeat("a", 500),
+			wantCut: true,
+		},
+		{
+			name:   "prompts are measured in characters rather than bytes",
+			body:   strings.Repeat("x", MaxMailBody-1500),
+			prompt: strings.Repeat("検", 500),
+		},
+		{
+			name:    "and cut in characters",
+			body:    strings.Repeat("é", MaxMailBody-500),
+			prompt:  strings.Repeat("検", 500),
+			wantCut: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := storetest.Open(t)
+			svc := newMailService(st, config.DefaultMaxExchange)
+			workflow := st.SeedWorkflow(t, workflowstore.Config{
+				Name: "backend",
+				EventPrompts: []workflowstore.EventPrompt{
+					{Event: "pull_request.checks_failing", Prompt: tt.prompt},
+					{Event: "pull_request.behind", Prompt: tt.prompt},
+				},
+			})
+			recipient := st.SeedAgent(t, agentstore.Agent{Name: "author", WorkflowID: workflow.ID})
+
+			sent, err := svc.SendFromKomrad(t.Context(), SendFromKomradParams{
+				ToAgentID: recipient.ID,
+				Body:      tt.body,
+				Kind:      mailstore.KindPullRequestChanged,
+				SubjectID: uuid.NewString(),
+				Events:    []string{"pull_request.checks_failing", "pull_request.behind"},
+			})
+			require.NoError(t, err)
+
+			assert.True(t, strings.HasPrefix(sent.Body, tt.body+"\n\n"+promptsHeading), "the body komrad wrote is kept whole")
+			if !tt.wantCut {
+				assert.True(t, strings.HasSuffix(sent.Body, tt.prompt), "every prompt fits")
+
+				return
+			}
+			assert.Equal(t, MaxMailBody, utf8.RuneCountInString(sent.Body))
+			assert.True(t, strings.HasSuffix(sent.Body, promptsCut), "and the cut is marked")
+		})
+	}
 }
 
 // TestClaimMail pins that a claim is refused for an id no agent holds and takes at most one batch otherwise.

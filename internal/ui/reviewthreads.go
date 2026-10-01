@@ -19,8 +19,7 @@ type reviewThreads struct {
 	list []*agentv1.ReviewThread
 
 	// delivery is how many of the conversation's comments stand in each delivery state.
-	delivery [reviewDeliveryStates]int
-
+	delivery  [reviewDeliveryStates]int
 	composing bool
 	// releasing is set while the panel is asking what to send.
 	releasing bool
@@ -30,8 +29,7 @@ type reviewThreads struct {
 	editing string
 	// retrying is the refused message the composer was opened again on, nil otherwise.
 	retrying *reviewUnsent
-
-	scroll popupScroll
+	scroll   popupScroll
 }
 
 // set holds the conversation and its delivery counts together.

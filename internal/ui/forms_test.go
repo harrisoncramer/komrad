@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"komrad/config"
+	"komrad/internal/eventprompts"
 	"komrad/internal/ui"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
@@ -180,7 +181,7 @@ func TestFormsSubmit(t *testing.T) {
 
 			harness.press(tt.press...)
 
-			harness.assertSentTo(tt.procedure, tt.want)
+			harness.assertSentToWith(tt.procedure, ignoringEventPrompts, tt.want)
 			assert.NotContains(t, harness.readFrame(), "Could not", "the service accepted the write")
 			assert.NotContains(t, harness.readFrame(), "C-s submit", "and the form it closed is gone")
 		})
@@ -680,6 +681,66 @@ func TestFormsWorkflowHooks(t *testing.T) {
 	})
 }
 
+// TestFormsWorkflowEventPrompts pins the workflow form carrying a prompt for each event.
+func TestFormsWorkflowEventPrompts(t *testing.T) {
+	sentEventPrompts := func(t *testing.T, harness *panelHarness) []*workflowv1.WorkflowEventPrompt {
+		t.Helper()
+
+		sent := harness.readSent(workflowv1connect.WorkflowServiceUpdateWorkflowProcedure)
+		require.Len(t, sent, 1)
+		update, ok := sent[0].(*workflowv1.UpdateWorkflowRequest)
+		require.True(t, ok)
+
+		return update.GetEventPrompts()
+	}
+
+	t.Run("the prompts come back in the order the events are listed", func(t *testing.T) {
+		workflow := newFormWorkflow()
+		workflow.EventPrompts = []*workflowv1.WorkflowEventPrompt{
+			{Event: "review.approved", Prompt: "open the pull request"},
+			{Event: "pull_request.checks_failing", Prompt: "fix the checks"},
+		}
+		harness := openForms(t, workflow, newFormAuthor())
+
+		harness.press("space", "E", "ctrl+s")
+
+		assert.Empty(t, cmp.Diff([]*workflowv1.WorkflowEventPrompt{
+			{Event: "pull_request.checks_failing", Prompt: "fix the checks"},
+			{Event: "review.approved", Prompt: "open the pull request"},
+		}, sentEventPrompts(t, harness), protocmp.Transform()))
+	})
+
+	t.Run("a prompt typed under its event is sent with it", func(t *testing.T) {
+		harness := openHookForm(t, nil)
+
+		harness.press(slices.Repeat([]string{"tab"}, 18)...)
+		frame := harness.readFrame()
+		assert.Contains(t, frame, "when checks on the head are failing")
+
+		harness.press(slices.Concat(spellKeys("fix the checks"), []string{"ctrl+s"})...)
+
+		assert.Empty(t, cmp.Diff([]*workflowv1.WorkflowEventPrompt{
+			{Event: "pull_request.checks_failing", Prompt: "fix the checks"},
+		}, sentEventPrompts(t, harness), protocmp.Transform()))
+	})
+
+	t.Run("a new workflow starts with each event's default", func(t *testing.T) {
+		harness := openForms(t, newFormWorkflow(), newFormAuthor())
+
+		harness.press(slices.Concat([]string{"space", "w"}, spellKeys("web"), slices.Repeat([]string{"tab"}, 18))...)
+		assert.Contains(t, harness.readFrame(), "Read the failing job's logs")
+
+		harness.press("ctrl+s")
+
+		sent := harness.readSent(workflowv1connect.WorkflowServiceCreateWorkflowProcedure)
+		require.Len(t, sent, 1)
+		create, ok := sent[0].(*workflowv1.CreateWorkflowRequest)
+		require.True(t, ok)
+		require.Len(t, create.GetEventPrompts().GetPrompts(), len(eventprompts.All()))
+		assert.Contains(t, create.GetEventPrompts().GetPrompts()[0].GetPrompt(), "Read the failing job's logs")
+	})
+}
+
 // TestFormsFieldEditor covers the editor key opening a form's text field in the reader's editor.
 func TestFormsFieldEditor(t *testing.T) {
 	t.Run("the field under the cursor is written out for the editor", func(t *testing.T) {
@@ -739,7 +800,7 @@ func TestFormsFieldEditor(t *testing.T) {
 			harness.send(harness.panel.NewFieldEdited(tt.field, "what the editor wrote\n"))
 			harness.press("!", "ctrl+s")
 
-			harness.assertSentTo(workflowv1connect.WorkflowServiceCreateWorkflowProcedure, tt.want)
+			harness.assertSentToWith(workflowv1connect.WorkflowServiceCreateWorkflowProcedure, ignoringEventPrompts, tt.want)
 		})
 	}
 }
@@ -1075,3 +1136,5 @@ func findLastFilled(lines []string) string {
 
 	return ""
 }
+
+var ignoringEventPrompts = []cmp.Option{protocmp.IgnoreFields(&workflowv1.CreateWorkflowRequest{}, "event_prompts")}

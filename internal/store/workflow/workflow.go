@@ -20,6 +20,7 @@ type Workflow struct {
 	ReviewerFlags   string
 	Worktree        WorktreeConfig
 	Hooks           []Hook
+	EventPrompts    []EventPrompt
 	ArchivedAt      *time.Time
 	DeletingAt      *time.Time
 	UpdatedAt       time.Time
@@ -35,6 +36,7 @@ type Config struct {
 	ReviewerFlags   string
 	Worktree        WorktreeConfig
 	Hooks           []Hook
+	EventPrompts    []EventPrompt
 }
 
 // Config is what an update writes, being every field of a workflow but its id.
@@ -49,6 +51,7 @@ func (w Workflow) Config() Config {
 		ReviewerFlags:   w.ReviewerFlags,
 		Worktree:        w.Worktree,
 		Hooks:           w.Hooks,
+		EventPrompts:    w.EventPrompts,
 	}
 }
 
@@ -65,6 +68,7 @@ func (c Config) Workflow(id string) Workflow {
 		ReviewerFlags:   c.ReviewerFlags,
 		Worktree:        c.Worktree,
 		Hooks:           c.Hooks,
+		EventPrompts:    c.EventPrompts,
 	}
 }
 
@@ -94,7 +98,17 @@ func orEmpty(paths []string) []string {
 	return paths
 }
 
-func workflowFromRow(w models.Workflow, cfg models.WorkflowConfig, prov models.WorkflowProvisionerConfig, hooks []Hook) Workflow {
+type workflowFromRowParams struct {
+	Workflow     models.Workflow
+	Config       models.WorkflowConfig
+	Provisioner  models.WorkflowProvisionerConfig
+	Hooks        []Hook
+	EventPrompts []EventPrompt
+}
+
+func workflowFromRow(params workflowFromRowParams) Workflow {
+	w, cfg, prov := params.Workflow, params.Config, params.Provisioner
+
 	return Workflow{
 		ID:              w.ID,
 		Name:            w.Name,
@@ -112,9 +126,10 @@ func workflowFromRow(w models.Workflow, cfg models.WorkflowConfig, prov models.W
 			SymlinkPaths: prov.WorktreeSymlinkPaths,
 			DiffExclude:  prov.WorktreeDiffExclude,
 		},
-		Hooks:      hooks,
-		ArchivedAt: w.ArchivedAt,
-		DeletingAt: w.DeletingAt,
-		UpdatedAt:  w.UpdatedAt,
+		Hooks:        params.Hooks,
+		EventPrompts: params.EventPrompts,
+		ArchivedAt:   w.ArchivedAt,
+		DeletingAt:   w.DeletingAt,
+		UpdatedAt:    w.UpdatedAt,
 	}
 }

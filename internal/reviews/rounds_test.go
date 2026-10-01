@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"komrad/config"
+	"komrad/internal/eventprompts"
 	"komrad/internal/mail"
 	mailstore "komrad/internal/store/mail"
 	reviewstore "komrad/internal/store/review"
@@ -198,6 +199,8 @@ func TestReleaseReviewRingsTheAgent(t *testing.T) {
 		assert.Contains(t, rung[i].Body, "or read "+released.Path)
 	}
 	assert.Contains(t, rung[0].Body, "changes requested")
+	assert.Equal(t, []string{eventprompts.ReviewChangesRequested}, rung[0].Events)
+	assert.Equal(t, []string{eventprompts.ReviewCommentedByPerson}, rung[1].Events, "a person's release is told apart from a reviewer's")
 	assert.Contains(t, rung[1].Body, "released: 0 comment(s).")
 	assert.NotContains(t, rung[0].Body, "nil check", "the mail carries no feedback")
 }

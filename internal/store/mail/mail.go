@@ -51,6 +51,8 @@ type Mail struct {
 	ReplyTo     *string
 	// SubjectID is the thing mail from komrad is about, unset on ordinary mail.
 	SubjectID *string
+	// Events are the events mail from komrad named, whose prompts its body carries.
+	Events    []string
 	ClaimedAt *time.Time
 	ExpiresAt time.Time
 	CreatedAt time.Time
@@ -110,6 +112,7 @@ type UpsertFromKomradParams struct {
 	Body      string
 	Kind      Kind
 	SubjectID string
+	Events    []string
 	Deadline  time.Duration
 }
 
@@ -122,6 +125,7 @@ func (s *MailStore) UpsertFromKomrad(ctx context.Context, params UpsertFromKomra
 		Body:           params.Body,
 		Kind:           models.MailKind(params.Kind),
 		SubjectID:      params.SubjectID,
+		Events:         orEmpty(params.Events),
 		DeadlineMicros: params.Deadline.Microseconds(),
 	})
 	if err != nil {
@@ -372,8 +376,17 @@ func fromRow(row *models.Mail) Mail {
 		Kind:        Kind(row.Kind),
 		ReplyTo:     row.ReplyTo,
 		SubjectID:   row.SubjectID,
+		Events:      row.Events,
 		ClaimedAt:   row.ClaimedAt,
 		ExpiresAt:   row.ExpiresAt,
 		CreatedAt:   row.CreatedAt,
 	}
+}
+
+func orEmpty(names []string) []string {
+	if names == nil {
+		return []string{}
+	}
+
+	return names
 }

@@ -239,7 +239,12 @@ func TestWorktreesDelete(t *testing.T) {
 		harness := openWorktrees(t,
 			newLiveWorkflow("w1", "komrad"),
 			live,
-			&worktreev1.WatchedWorktree{Dir: "/trees/live", RepoDir: "/home/h/komrad", Branch: "agent/live", Readable: true},
+			&worktreev1.WatchedWorktree{
+				Dir:      "/trees/live",
+				RepoDir:  "/home/h/komrad",
+				Branch:   "agent/live",
+				Readable: true,
+			},
 		)
 		moveToWorktree(t, harness, "treeview")
 
@@ -264,11 +269,37 @@ func TestWorktreesMenu(t *testing.T) {
 		label string
 		key   string
 	}{
-		{name: "a live agent's directory offers the archive", row: "treeview", label: "archive the agent", key: "a"},
-		{name: "an archived agent's directory offers the agent delete", row: "reviewer", label: "delete the agent", key: "d"},
-		{name: "a directory nothing answers for offers the remover", row: "broken", label: "remove", key: "d"},
-		{name: "a selection offers to delete it all", row: "treeview", press: []string{"v", "j", "v"}, label: "delete all", key: "d"},
-		{name: "a repository header offers only the clear", row: "/home/h/komrad", label: "clear what can go", key: "c"},
+		{
+			name:  "a live agent's directory offers the archive",
+			row:   "treeview",
+			label: "archive the agent",
+			key:   "a",
+		},
+		{
+			name:  "an archived agent's directory offers the agent delete",
+			row:   "reviewer",
+			label: "delete the agent",
+			key:   "d",
+		},
+		{
+			name:  "a directory nothing answers for offers the remover",
+			row:   "broken",
+			label: "remove",
+			key:   "d",
+		},
+		{
+			name:  "a selection offers to delete it all",
+			row:   "treeview",
+			press: []string{"v", "j", "v"},
+			label: "delete all",
+			key:   "d",
+		},
+		{
+			name:  "a repository header offers only the clear",
+			row:   "/home/h/komrad",
+			label: "clear what can go",
+			key:   "c",
+		},
 	}
 
 	for _, tt := range tests {

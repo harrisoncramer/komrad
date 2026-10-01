@@ -259,3 +259,43 @@ FROM
     JOIN workflow_provisioner_configs AS provisioners ON provisioners.id = workflows.provisioner_config_id
 WHERE
     BTRIM(provisioners.worktree_dir) <> '';
+
+-- name: ListEventPromptsForWorkflows :many
+SELECT
+    workflow_id,
+    event,
+    prompt
+FROM
+    workflow_event_prompts
+WHERE
+    workflow_id = ANY (@workflow_ids::uuid[])
+ORDER BY
+    workflow_id,
+    position;
+
+-- name: ListEventPromptsForWorkflow :many
+SELECT
+    event,
+    prompt
+FROM
+    workflow_event_prompts
+WHERE
+    workflow_id = @workflow_id
+ORDER BY
+    position;
+
+-- name: DeleteWorkflowEventPrompts :exec
+DELETE FROM workflow_event_prompts
+WHERE workflow_id = @workflow_id;
+
+-- name: InsertWorkflowPrompt :exec
+INSERT INTO workflow_event_prompts(
+    workflow_id,
+    event,
+    prompt,
+    position)
+VALUES (
+    @workflow_id,
+    @event,
+    @prompt,
+    @position);

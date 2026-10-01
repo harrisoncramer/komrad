@@ -5,8 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"slices"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"komrad/internal/fail"
 	"komrad/internal/logging"
@@ -235,6 +237,10 @@ type SendFromKomradParams struct {
 	SubjectID string
 	// OnlyRewrite writes nothing when the recipient holds no unread mail of this kind about this subject.
 	OnlyRewrite bool
+	// Events are the events this mail starts, whose workflow prompts it carries.
+	Events []string
+	// Holding are the events true of the subject now, which keeps those an earlier unread mail started.
+	Holding []string
 }
 
 // SendFromKomrad writes mail as komrad itself, rewriting the unread mail of the same kind about the
@@ -258,7 +264,7 @@ func (s *MailService) SendFromKomrad(ctx context.Context, params SendFromKomradP
 		return nil, fmt.Errorf("%w: %q", ErrAgentArchived, params.ToAgentID)
 	}
 
-	_, err = s.mailReadWriter.GetUnreadAbout(ctx, recipient.ID, params.Kind, params.SubjectID)
+	held, err := s.mailReadWriter.GetUnreadAbout(ctx, recipient.ID, params.Kind, params.SubjectID)
 	if errors.Is(err, store.ErrNotFound) {
 		if params.OnlyRewrite {
 			return nil, ErrNothingUnread
@@ -275,12 +281,19 @@ func (s *MailService) SendFromKomrad(ctx context.Context, params SendFromKomradP
 		return nil, err
 	}
 
+	carried := carryEvents(held, params)
+	prompts, err := s.listEventPrompts(ctx, recipient.WorkflowID, carried)
+	if err != nil {
+		return nil, err
+	}
+
 	return s.mailReadWriter.UpsertFromKomrad(ctx, mailstore.UpsertFromKomradParams{
 		FromName:  KomradSenderName,
 		ToAgentID: recipient.ID,
-		Body:      params.Body,
+		Body:      appendEventPrompts(params.Body, prompts),
 		Kind:      params.Kind,
 		SubjectID: params.SubjectID,
+		Events:    carried,
 		Deadline:  deadline,
 	})
 }
@@ -289,6 +302,7 @@ func (s *MailService) SendFromKomrad(ctx context.Context, params SendFromKomradP
 func (s *MailService) InTx(db store.DBTX) *MailService {
 	bound := *s
 	bound.mailReadWriter = mailstore.NewMailStore(db)
+	bound.workflows = workflowstore.NewWorkflowStore(db)
 
 	return &bound
 }
@@ -546,4 +560,71 @@ func (s *MailService) findSender(ctx context.Context, from string) (*agentstore.
 	}
 
 	return sender, nil
+}
+
+const promptsHeading = "Your workflow asks the following. Where it differs from what komrad says above, do what your workflow asks."
+
+const promptsCut = "\n[the rest of your workflow's prompts did not fit]"
+
+type eventPrompt struct {
+	event  string
+	prompt string
+}
+
+func carryEvents(held *mailstore.Mail, params SendFromKomradParams) []string {
+	var carried []string
+	if held != nil {
+		carried = slices.DeleteFunc(slices.Clone(held.Events), func(event string) bool { return !slices.Contains(params.Holding, event) })
+	}
+	for _, event := range params.Events {
+		if !slices.Contains(carried, event) {
+			carried = append(carried, event)
+		}
+	}
+
+	return carried
+}
+
+func (s *MailService) listEventPrompts(ctx context.Context, workflowID string, events []string) ([]eventPrompt, error) {
+	if len(events) == 0 {
+		return nil, nil
+	}
+
+	workflow, err := s.workflows.Get(ctx, workflowID)
+	if errors.Is(err, store.ErrNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	var prompts []eventPrompt
+	for _, event := range events {
+		if prompt := workflow.GetEventPrompt(event); prompt != "" {
+			prompts = append(prompts, eventPrompt{event: event, prompt: prompt})
+		}
+	}
+
+	return prompts, nil
+}
+
+func appendEventPrompts(body string, prompts []eventPrompt) string {
+	if len(prompts) == 0 {
+		return body
+	}
+
+	lines := xslice.Map(prompts, func(p eventPrompt) string { return p.event + ": " + p.prompt })
+	section := "\n\n" + promptsHeading + "\n\n" + strings.Join(lines, "\n\n")
+
+	room := MaxMailBody - utf8.RuneCountInString(body)
+	if utf8.RuneCountInString(section) <= room {
+		return body + section
+	}
+
+	kept := room - utf8.RuneCountInString(promptsCut)
+	if kept <= 0 {
+		return body
+	}
+
+	return body + string([]rune(section)[:kept]) + promptsCut
 }

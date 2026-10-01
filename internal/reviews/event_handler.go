@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 
+	"komrad/internal/eventprompts"
 	"komrad/internal/events"
 	"komrad/internal/jobs/internaljobs"
 	"komrad/internal/mail"
@@ -60,12 +61,27 @@ func handleReleased(ctx context.Context, tx store.DBTX, mailer *mail.MailService
 		Body:      releaseMail(released),
 		Kind:      mailstore.KindReviewActivity,
 		SubjectID: released.ReviewID,
+		Events:    []string{released.event()},
 	})
 	if err != nil {
 		return nil, events.DropUnreachable(ctx, released.AgentID, err)
 	}
 
 	return nil, reviewstore.NewReviewStore(tx).SetDoorbell(ctx, released.ReviewID, sent.ID)
+}
+
+// event is the event the release starts.
+func (r Released) event() string {
+	switch {
+	case r.ByPerson:
+		return eventprompts.ReviewCommentedByPerson
+	case r.Verdict == reviewstore.VerdictApproved:
+		return eventprompts.ReviewApproved
+	case r.Verdict == reviewstore.VerdictChangesRequested:
+		return eventprompts.ReviewChangesRequested
+	default:
+		return eventprompts.ReviewCommented
+	}
 }
 
 // NewAnsweredHandler builds the handler the router is given for answers to a review.
@@ -93,6 +109,7 @@ func handleAnswered(ctx context.Context, tx store.DBTX, mailer *mail.MailService
 		Kind:      mailstore.KindReviewActivity,
 		SubjectID: author.ID,
 		Body:      answerMail(author.Name),
+		Events:    []string{eventprompts.ReviewAnswered},
 	})
 	if err != nil {
 		return nil, err

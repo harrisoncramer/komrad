@@ -296,7 +296,11 @@ func NewWheelFilter(now func() time.Time, later func(tea.Msg)) func(tea.Model, t
 
 // NewWheelTurns is the message the filter lets through for turns it added up.
 func NewWheelTurns(x, y, rows int) tea.Msg {
-	return wheelMsg{x: x, y: y, rows: rows}
+	return wheelMsg{
+		x:    x,
+		y:    y,
+		rows: rows,
+	}
 }
 
 // NewWatchLost is the message the panel hears when its watch stream ends.
@@ -892,7 +896,11 @@ func (t *recordingTmux) GetWindowID(string) string {
 
 func (t *recordingTmux) GetShownPanes(sidebar string) []panes.Rect {
 	if t.shown == nil {
-		return []panes.Rect{{Pane: sidebar, Width: t.panelSize.Width, Height: t.panelSize.Height}}
+		return []panes.Rect{{
+			Pane:   sidebar,
+			Width:  t.panelSize.Width,
+			Height: t.panelSize.Height,
+		}}
 	}
 
 	return t.shown

@@ -65,6 +65,12 @@ table "mail" {
     type    = uuid
     comment = "The thing mail from komrad is about, null on mail an agent sent. Its kind says what sort of thing it is: another agent, a document, a pull request or a worktree. A recipient holds at most one unread mail of a kind about one subject, and later mail rewrites it. There is no foreign key here on purpose. The mail has to keep naming its subject after the subject is gone."
   }
+  column "events" {
+    null    = false
+    type    = sql("text[]")
+    default = sql("'{}'")
+    comment = "The events mail from komrad named, whose workflow prompts were appended to its body. A rewrite keeps those that still hold."
+  }
   column "idempotency_key" {
     null    = true
     type    = text
