@@ -124,12 +124,7 @@ func (s sectionedForm) sectionState(section formSection) formState {
 func (s sectionedForm) backToTop(m model) (tea.Model, tea.Cmd) {
 	cmd := m.openForm(s.topState())
 
-	cmds := []tea.Cmd{cmd}
-	for range max(slices.Index(m.form.order, sectionsKey), 0) {
-		cmds = append(cmds, m.form.form.NextField())
-	}
-
-	return m, tea.Batch(cmds...)
+	return m, tea.Batch(append([]tea.Cmd{cmd}, m.focusFieldCmds(sectionsKey)...)...)
 }
 
 // drawTopSummary is the top form drawn gray to the left of an open section, or nothing when the
