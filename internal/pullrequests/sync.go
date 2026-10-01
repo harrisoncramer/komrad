@@ -14,6 +14,7 @@ import (
 	"komrad/internal/git"
 	"komrad/internal/logging"
 	pullrequeststore "komrad/internal/store/pullrequest"
+	"komrad/internal/wake"
 	"komrad/lib/xptr"
 
 	"github.com/jackc/pgx/v5"
@@ -24,11 +25,6 @@ type eventRecorder interface {
 	InsertManyTx(ctx context.Context, build func(tx pgx.Tx) ([]river.JobArgs, error)) error
 }
 
-// waker asks the sync's own loop to run before its next tick.
-type waker interface {
-	Wake()
-}
-
 // NewPullRequestSyncerParams is what a pull request syncer is built over.
 type NewPullRequestSyncerParams struct {
 	Forges       pullRequestForgeFinder
@@ -36,7 +32,7 @@ type NewPullRequestSyncerParams struct {
 	Syncs        *pullrequeststore.PullRequestSyncStore
 	Events       eventRecorder
 	// Loop wakes the sync's own loop.
-	Loop waker
+	Loop wake.Waker
 	// Now is the clock, time.Now when unset.
 	Now func() time.Time
 }
@@ -47,7 +43,7 @@ type PullRequestSyncer struct {
 	pullRequests *pullrequeststore.PullRequestStore
 	syncs        *pullrequeststore.PullRequestSyncStore
 	events       eventRecorder
-	loop         waker
+	loop         wake.Waker
 	now          func() time.Time
 	hosts        *hostGate
 	pacing       *pacing

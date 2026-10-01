@@ -2,7 +2,6 @@ package checkouts
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -18,6 +17,7 @@ import (
 	agentstore "komrad/internal/store/agent"
 	pullrequeststore "komrad/internal/store/pullrequest"
 	workflowstore "komrad/internal/store/workflow"
+	"komrad/internal/wake"
 	"komrad/lib/xpath"
 
 	"github.com/jackc/pgx/v5"
@@ -49,30 +49,13 @@ type checkoutTarget struct {
 	workflow *workflowstore.Workflow
 }
 
-// agentReadWriter is the slice of the agent store a move of a checkout reads and writes.
-type agentReadWriter interface {
-	GetByID(ctx context.Context, id string) (*agentstore.Agent, error)
-	SetSequenceByID(ctx context.Context, id string, sequence agentstore.Sequence) error
-	GetLastRebaseByID(ctx context.Context, id string) (json.RawMessage, error)
-}
-
-// workflowReader reads the workflow an agent belongs to.
-type workflowReader interface {
-	Get(ctx context.Context, id string) (*workflowstore.Workflow, error)
-}
-
-// agentSettler brings an agent to rest, reporting whether a turn was cut to do it.
-type agentSettler interface {
-	Settle(ctx context.Context, agent agentstore.Agent) (bool, error)
-}
-
 // eventRecorder queues the event that tells an agent what became of its worktree.
 type eventRecorder interface {
 	InsertManyTx(ctx context.Context, build func(tx pgx.Tx) ([]river.JobArgs, error)) error
 }
 
-// worktreeRebaser is the git a rebase reads the checkout through and moves the branch with.
-type worktreeRebaser interface {
+// gitOps is the git a rebase, push or abort reads the checkout through and moves the branch with.
+type gitOps interface {
 	ReadTreeState(ctx context.Context, dir string) (git.TreeState, error)
 	FetchBase(ctx context.Context, dir, base string) (ref, sha string, err error)
 	CountCommitsToReplay(ctx context.Context, dir, ref string) (int, error)
@@ -81,35 +64,14 @@ type worktreeRebaser interface {
 	ReleaseRefsUnder(ctx context.Context, dir, prefix, keep string) error
 	Rebase(ctx context.Context, dir, ref string) error
 	RebaseOnto(ctx context.Context, dir, ref, cutoff string) error
-}
-
-// worktreePusher is the git a push reads the checkout through and sends the branch with.
-type worktreePusher interface {
-	ReadTreeState(ctx context.Context, dir string) (git.TreeState, error)
 	CountAgainstRemote(ctx context.Context, dir, branch string) (*git.RemoteStanding, error)
 	ResolveBase(ctx context.Context, dir, base string) (string, error)
 	CountAheadBehind(ctx context.Context, dir, ref string) (ahead, behind int, err error)
 	PeekChanges(ctx context.Context, dir string) (git.Changes, error)
 	Push(ctx context.Context, params git.PushParams) (string, error)
-}
-
-// worktreeAborter is the git an abort reads the checkout through and undoes the sequence with.
-type worktreeAborter interface {
-	ReadTreeState(ctx context.Context, dir string) (git.TreeState, error)
 	ReadSequence(ctx context.Context, dir string) (git.Sequence, error)
 	ReadRebaseOnto(ctx context.Context, dir string) (string, error)
-	Park(ctx context.Context, dir, ref string) (string, error)
 	AbortSequence(ctx context.Context, dir string, sequence git.Sequence) error
-}
-
-// pullRequestLister reads the pull requests stored for a branch.
-type pullRequestLister interface {
-	ListPage(ctx context.Context, params pullrequeststore.ListPageParams) ([]pullrequeststore.PullRequest, error)
-}
-
-// loopWaker asks a background loop to run before its next tick.
-type loopWaker interface {
-	Wake()
 }
 
 // pullRequestHeater keeps the pull request sync reading a forge host often for a while.
@@ -119,31 +81,27 @@ type pullRequestHeater interface {
 
 // NewServiceParams is what the service is built over.
 type NewServiceParams struct {
-	Agents          agentReadWriter
-	Workflows       workflowReader
-	Settler         agentSettler
+	Agents          *agentstore.AgentStore
+	Workflows       *workflowstore.WorkflowStore
+	Settler         *agents.Settler
 	Events          eventRecorder
-	Rebaser         worktreeRebaser
-	Pusher          worktreePusher
-	Aborter         worktreeAborter
-	PullRequests    pullRequestLister
+	Git             gitOps
+	PullRequests    *pullrequeststore.PullRequestStore
 	Locks           *TreeLocks
-	CheckoutSync    loopWaker
+	CheckoutSync    wake.Waker
 	PullRequestSync pullRequestHeater
 }
 
 // Service rebases, pushes and aborts in an agent's existing worktree on a person's say-so.
 type Service struct {
-	agents          agentReadWriter
-	workflows       workflowReader
-	settler         agentSettler
+	agents          *agentstore.AgentStore
+	workflows       *workflowstore.WorkflowStore
+	settler         *agents.Settler
 	events          eventRecorder
-	rebaser         worktreeRebaser
-	pusher          worktreePusher
-	aborter         worktreeAborter
-	pullRequests    pullRequestLister
+	git             gitOps
+	pullRequests    *pullrequeststore.PullRequestStore
 	locks           *TreeLocks
-	checkoutSync    loopWaker
+	checkoutSync    wake.Waker
 	pullRequestSync pullRequestHeater
 }
 
@@ -159,9 +117,7 @@ func NewService(params NewServiceParams) *Service {
 		workflows:       params.Workflows,
 		settler:         params.Settler,
 		events:          params.Events,
-		rebaser:         params.Rebaser,
-		pusher:          params.Pusher,
-		aborter:         params.Aborter,
+		git:             params.Git,
 		pullRequests:    params.PullRequests,
 		locks:           locks,
 		checkoutSync:    params.CheckoutSync,

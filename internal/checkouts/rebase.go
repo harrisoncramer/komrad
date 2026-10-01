@@ -101,7 +101,7 @@ func (s *Service) rebaseEligible(ctx context.Context, agentID string) (*checkout
 
 // readRebaseTreeState reads the checkout and refuses one a rebase may not start on.
 func (s *Service) readRebaseTreeState(ctx context.Context, agent agentstore.Agent) (git.TreeState, error) {
-	state, err := s.rebaser.ReadTreeState(ctx, agent.Cwd)
+	state, err := s.git.ReadTreeState(ctx, agent.Cwd)
 	if err != nil {
 		return git.TreeState{}, err
 	}
@@ -120,17 +120,17 @@ func (s *Service) planRebase(ctx context.Context, target checkoutTarget) (*Rebas
 		return nil, err
 	}
 
-	ref, sha, err := s.rebaser.FetchBase(ctx, agent.Cwd, flow.Worktree.BaseBranch)
+	ref, sha, err := s.git.FetchBase(ctx, agent.Cwd, flow.Worktree.BaseBranch)
 	if err != nil {
 		return nil, err
 	}
 
-	commits, err := s.rebaser.CountCommitsToReplay(ctx, agent.Cwd, ref)
+	commits, err := s.git.CountCommitsToReplay(ctx, agent.Cwd, ref)
 	if err != nil {
 		return nil, err
 	}
 
-	prediction, err := s.rebaser.PredictRebase(ctx, agent.Cwd, ref)
+	prediction, err := s.git.PredictRebase(ctx, agent.Cwd, ref)
 	if err != nil {
 		return nil, err
 	}
@@ -206,7 +206,7 @@ func (s *Service) rebase(ctx context.Context, target checkoutTarget) (*RebaseRes
 	result := &RebaseResult{RebasePlan: *plan}
 
 	result.ParkedRef = buildParkRef(parkRebase, agent.ID)
-	if _, err := s.rebaser.Park(ctx, agent.Cwd, result.ParkedRef); err != nil {
+	if _, err := s.git.Park(ctx, agent.Cwd, result.ParkedRef); err != nil {
 		return nil, err
 	}
 	defer s.checkoutSync.Wake()
@@ -227,7 +227,7 @@ func (s *Service) rebase(ctx context.Context, target checkoutTarget) (*RebaseRes
 // releaseOlderParks drops the parks this agent left behind before this one.
 func (s *Service) releaseOlderParks(ctx context.Context, agent agentstore.Agent, keep string) {
 	prefix := fmt.Sprintf("refs/komrad/%s/%s/", parkRebase, agent.ID)
-	if err := s.rebaser.ReleaseRefsUnder(ctx, agent.Cwd, prefix, keep); err != nil {
+	if err := s.git.ReleaseRefsUnder(ctx, agent.Cwd, prefix, keep); err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to release the older parks of a rebased agent",
 			append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
 	}
@@ -236,9 +236,9 @@ func (s *Service) releaseOlderParks(ctx context.Context, agent agentstore.Agent,
 // moveRebase brings the branch onto the base, replaying its commits from the cutoff when the base
 // already holds some of them.
 func (s *Service) moveRebase(ctx context.Context, dir string, result *RebaseResult) error {
-	replay := func() error { return s.rebaser.Rebase(ctx, dir, result.BaseRef) }
+	replay := func() error { return s.git.Rebase(ctx, dir, result.BaseRef) }
 	if result.Cutoff != "" {
-		replay = func() error { return s.rebaser.RebaseOnto(ctx, dir, result.BaseRef, result.Cutoff) }
+		replay = func() error { return s.git.RebaseOnto(ctx, dir, result.BaseRef, result.Cutoff) }
 	}
 
 	err := replay()
