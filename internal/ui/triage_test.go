@@ -8,10 +8,10 @@ import (
 
 	"komrad/internal/ui/paint"
 	"komrad/lib/xptr"
+	"komrad/lib/xslice"
 	agentv1 "komrad/proto/gen/agent/v1"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/proto"
 )
@@ -586,7 +586,10 @@ func TestTriageCopies(t *testing.T) {
 
 		harness.press("t", "v")
 
-		assert.Equal(t, 2, countDrawnRows(harness, "asker", bar))
+		marked := xslice.Filter(findDrawnRows(t, harness, "asker"), func(line string) bool {
+			return strings.Contains(line, bar)
+		})
+		assert.Len(t, marked, 2)
 	})
 
 	t.Run("an action over both copies takes the agent once", func(t *testing.T) {
@@ -598,19 +601,6 @@ func TestTriageCopies(t *testing.T) {
 		assert.Contains(t, frame, `agent "asker"`)
 		assert.NotContains(t, frame, "2 agents")
 	})
-}
-
-// countDrawnRows is how many rows named name are drawn carrying the sequence.
-func countDrawnRows(harness *panelHarness, name, sequence string) int {
-	count := 0
-	for _, line := range splitLines(harness.readRawFrame()) {
-		row, isRow := cutListRow(ansi.Strip(line))
-		if isRow && strings.TrimSpace(row) == name && strings.Contains(line, sequence) {
-			count++
-		}
-	}
-
-	return count
 }
 
 func openTriage(t *testing.T, capacity int, rows ...proto.Message) *panelHarness {

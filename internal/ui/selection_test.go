@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"komrad/internal/ui/paint"
+	"komrad/lib/xslice"
 
 	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
@@ -65,14 +66,18 @@ func TestSelection(t *testing.T) {
 func findDrawnRow(t *testing.T, harness *panelHarness, name string) string {
 	t.Helper()
 
-	for _, line := range splitLines(harness.readRawFrame()) {
+	lines := findDrawnRows(t, harness, name)
+	require.NotEmptyf(t, lines, "no row is drawn for %q", name)
+
+	return lines[0]
+}
+
+func findDrawnRows(t *testing.T, harness *panelHarness, name string) []string {
+	t.Helper()
+
+	return xslice.Filter(splitLines(harness.readRawFrame()), func(line string) bool {
 		row, isRow := cutListRow(ansi.Strip(line))
-		if isRow && strings.TrimSpace(row) == name {
-			return line
-		}
-	}
 
-	require.Failf(t, "no row is drawn for the name", "%q", name)
-
-	return ""
+		return isRow && strings.TrimSpace(row) == name
+	})
 }
