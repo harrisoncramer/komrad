@@ -55,7 +55,7 @@ func (fx *reviewFixture) accept(t *testing.T, offer pullrequeststore.ForgeThread
 func (fx *reviewFixture) offer(t *testing.T) pullrequeststore.ForgeThread {
 	t.Helper()
 
-	stored, err := pullrequeststore.NewForgeThreadStore(fx.stores.Pool.GetDB()).GetForAgent(t.Context(), fx.offerID, fx.worker.ID)
+	stored, err := fx.stores.ForgeThreads.GetForAgent(t.Context(), fx.offerID, fx.worker.ID)
 	require.NoError(t, err)
 
 	return *stored
@@ -169,7 +169,7 @@ func TestAcceptForgeThread(t *testing.T) {
 func TestAcceptForgeThreadAgain(t *testing.T) {
 	fx := newReviewFixture(t)
 	fx.seedOffer(t, forgeComment("C_1", "dana", "this leaks the handle"))
-	require.NoError(t, fx.forgeThreads().SetDismissed(t.Context(), fx.offerID, true))
+	require.NoError(t, fx.stores.ForgeThreads.SetDismissed(t.Context(), fx.offerID, true))
 
 	first, err := fx.accept(t, fx.offer(t), seenAll(fx.offer(t)), "")
 	require.NoError(t, err)
@@ -231,10 +231,6 @@ func TestAcceptForgeThreadAgainWaitsForOneInFlight(t *testing.T) {
 	require.NoError(t, tx.Commit(t.Context()))
 
 	require.ErrorIs(t, <-second, ErrForgeThreadNothingNew)
-}
-
-func (fx *reviewFixture) forgeThreads() *pullrequeststore.ForgeThreadStore {
-	return pullrequeststore.NewForgeThreadStore(fx.stores.Pool.GetDB())
 }
 
 func (fx *reviewFixture) seedOffer(t *testing.T, comments ...forge.ReviewComment) {

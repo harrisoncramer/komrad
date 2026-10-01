@@ -40,7 +40,7 @@ func newCommentFixture(t *testing.T) *commentFixture {
 	f.forge.requests = nil
 	f.forge.threads = map[int]*forge.Threads{}
 
-	threads := pullrequeststore.NewForgeThreadStore(f.stores.Pool.GetDB())
+	threads := f.stores.ForgeThreads
 	scripted := f.forge
 
 	return &commentFixture{

@@ -43,6 +43,7 @@ type Stores struct {
 	Screens          *screenstore.ScreenStore
 	PullRequests     *pullrequeststore.PullRequestStore
 	PullRequestSyncs *pullrequeststore.PullRequestSyncStore
+	ForgeThreads     *pullrequeststore.ForgeThreadStore
 }
 
 // Open builds the stores over a database of this test's own, closed when the
@@ -71,6 +72,7 @@ func Open(t *testing.T) *Stores {
 		Runs:             runstore.NewRunStore(pool.GetDB()),
 		Screens:          screenstore.NewScreenStore(pool.GetDB()),
 		PullRequests:     pullrequeststore.NewPullRequestStore(pool.GetDB()),
+		ForgeThreads:     pullrequeststore.NewForgeThreadStore(pool.GetDB()),
 		PullRequestSyncs: pullrequeststore.NewPullRequestSyncStore(pool.GetDB()),
 	}
 }
@@ -218,14 +220,13 @@ func (s *Stores) SeedForgeThreads(t *testing.T, agentID string, threads ...forge
 	pullRequest, err := s.PullRequests.GetByIdentity(ctx, "github.com", providerID)
 	require.NoError(t, err)
 
-	forgeThreads := pullrequeststore.NewForgeThreadStore(s.Pool.GetDB())
-	require.NoError(t, forgeThreads.SetThreads(ctx, pullrequeststore.SetThreadsParams{
+	require.NoError(t, s.ForgeThreads.SetThreads(ctx, pullrequeststore.SetThreadsParams{
 		PullRequestID: pullRequest.ID,
 		Threads:       threads,
 		Prune:         true,
 	}))
 
-	stored, err := forgeThreads.ListWatched(ctx, nil)
+	stored, err := s.ForgeThreads.ListWatched(ctx, nil)
 	require.NoError(t, err)
 
 	return xslice.Filter(stored, func(thread pullrequeststore.ForgeThread) bool { return thread.PullRequestID == pullRequest.ID })

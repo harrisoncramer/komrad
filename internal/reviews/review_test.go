@@ -12,7 +12,6 @@ import (
 	"komrad/internal/jobs/internaljobs"
 	agentstore "komrad/internal/store/agent"
 	mailstore "komrad/internal/store/mail"
-	pullrequeststore "komrad/internal/store/pullrequest"
 	reviewstore "komrad/internal/store/review"
 	"komrad/internal/storetest"
 	"komrad/lib/xslice"
@@ -1054,7 +1053,7 @@ func newReviewFixture(t *testing.T) *reviewFixture {
 		Agents:       stores.Agents,
 		Events:       events,
 		Interrupter:  noInterrupter{},
-		ForgeThreads: pullrequeststore.NewForgeThreadStore(stores.Pool.GetDB()),
+		ForgeThreads: stores.ForgeThreads,
 		StateDir:     t.TempDir(),
 	})
 
