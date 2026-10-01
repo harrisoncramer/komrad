@@ -134,7 +134,7 @@ func (w *WorkflowService) NewWorkflow(ctx context.Context, cfg workflowstore.Con
 		cfg.Worktree.BaseBranch = git.DefaultBase(ctx, cfg.Cwd)
 	}
 
-	if err := w.validateConfig(&cfg); err != nil {
+	if err := w.normalizeConfig(&cfg); err != nil {
 		return nil, err
 	}
 
@@ -173,7 +173,7 @@ func (w *WorkflowService) UpdateWorkflow(ctx context.Context, id string, cfg wor
 		return ErrWorktreeNeedsBase
 	}
 
-	if err := w.validateConfig(&cfg); err != nil {
+	if err := w.normalizeConfig(&cfg); err != nil {
 		return err
 	}
 
@@ -187,7 +187,7 @@ func (w *WorkflowService) UpdateWorkflow(ctx context.Context, id string, cfg wor
 	return nil
 }
 
-func (w *WorkflowService) validateConfig(cfg *workflowstore.Config) error {
+func (w *WorkflowService) normalizeConfig(cfg *workflowstore.Config) error {
 	if err := cfg.Worktree.ValidatePaths(); err != nil {
 		return err
 	}
