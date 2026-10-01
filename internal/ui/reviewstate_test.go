@@ -21,15 +21,15 @@ func TestIsReviewHistory(t *testing.T) {
 			name: "the chapter list was recut under an index that stood still",
 			diff: reviewDiff{
 				chapters: []reviewChapter{{ToSHA: "s3", Ordinal: 3}},
-				head:     "s2",
+				spec:     diffSpec{head: "s2"},
 			},
 			want: true,
 		},
 		{
 			name: "the base and head were cleared under a diff still drawn to an older round",
 			diff: reviewDiff{
-				chapter: -1,
-				Pane:    diffview.NewPane(diffview.NewView(&diff.Patch{BaseSHA: "s1", SnapshotSHA: "s2"}, false)),
+				spec: wholeChange(),
+				Pane: diffview.NewPane(diffview.NewView(&diff.Patch{BaseSHA: "s1", SnapshotSHA: "s2"}, false)),
 			},
 			want: true,
 		},
@@ -37,7 +37,7 @@ func TestIsReviewHistory(t *testing.T) {
 			name: "the diff stands on the round asked for",
 			diff: reviewDiff{
 				chapters: []reviewChapter{{ToSHA: "s3", Ordinal: 3}},
-				head:     "s3",
+				spec:     diffSpec{head: "s3"},
 			},
 			want: false,
 		},

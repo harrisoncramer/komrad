@@ -56,7 +56,7 @@ func (r *reviewScreen) refuseWrite(m *model) {
 func (r *reviewScreen) refuseHistory(m *model, said string) {
 	summary := said + " is finished"
 	back := keyLabel(m.keys.Review.BaseForward) + " until the whole change is on screen"
-	if r.diff.origin != nil {
+	if r.diff.spec.origin != nil {
 		back = keyLabel(m.keys.Review.Jump) + " to go back to where you were, then " + back
 	}
 

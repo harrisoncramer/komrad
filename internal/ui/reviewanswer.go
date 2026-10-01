@@ -39,12 +39,12 @@ func (e *roundsApartError) Error() string {
 // toggleAnswer puts the answer to the comment under the cursor on screen, or goes back to the
 // whole change from one already there.
 func (r *reviewScreen) toggleAnswer(m *model) tea.Cmd {
-	if r.diff.origin != nil {
+	if r.diff.spec.origin != nil {
 		return r.leaveOrigin(m)
 	}
 
-	if r.diff.answer != nil {
-		thread := r.diff.answer.ThreadID
+	if r.diff.spec.answer != nil {
+		thread := r.diff.spec.answer.ThreadID
 		r.diff.widen()
 		cmd := r.reload(m)
 		r.diff.landOn = thread
@@ -62,20 +62,18 @@ func (r *reviewScreen) toggleAnswer(m *model) tea.Cmd {
 		return nil
 	}
 
-	r.diff.widen()
-	r.diff.baseLabel = "the answer to this comment"
-	r.diff.answer = &reviewAnswer{
+	r.diff.spec = answerSpec(&reviewAnswer{
 		ThreadID:  thread.GetId(),
 		FromRound: thread.GetRoundId(),
 		ToRound:   answer,
-	}
+	})
 
 	return r.reload(m)
 }
 
 // doesOfferAnswer reports whether the answer key has anything to do where the cursor stands.
 func (r reviewScreen) doesOfferAnswer() bool {
-	if r.diff.answer != nil {
+	if r.diff.spec.answer != nil {
 		return true
 	}
 
@@ -91,7 +89,7 @@ func (r reviewScreen) doesOfferAnswer() bool {
 
 // answerDesc names what the answer key does from where the reader stands.
 func (d reviewDiff) answerDesc() string {
-	if d.answer != nil {
+	if d.spec.answer != nil {
 		return "all changes"
 	}
 

@@ -90,7 +90,7 @@ func (r *reviewScreen) open(m *model, agent panel.Agent) tea.Cmd {
 		filesFocused: true,
 		// The whole change is what a review opens on, and it sits before the first round rather
 		// than on it, so the first press of the step key lands on the newest round.
-		diff: reviewDiff{chapter: -1},
+		diff: reviewDiff{spec: wholeChange()},
 	}
 
 	return r.loadWholeCmd(m)
@@ -149,14 +149,8 @@ type loadReviewCmdParams struct {
 	AgentID string
 	Dir     string
 	Exclude []string
-	// Base is the commit to measure the round from, empty for the point the branch left main.
-	Base string
-	// Head is the commit to measure it to, empty for the round's own snapshot.
-	Head string
-	// Answer is the answer to measure between, found among the rounds the load lists.
-	Answer *reviewAnswer
-	Origin *reviewOrigin
-	Fresh  bool
+	Spec    diffSpec
+	Fresh   bool
 }
 
 // loadReviewCmd opens a round of the agent and reads that rather than the worktree, a tree that
@@ -172,7 +166,7 @@ func loadReviewCmd(m *model, params loadReviewCmdParams) tea.Cmd {
 		ctx, cancel := context.WithTimeout(context.Background(), reviewTimeout)
 		defer cancel()
 
-		threads, err := readThreads(ctx, readThreadsParams{
+		record, err := readReviewRecord(ctx, readReviewRecordParams{
 			Agents:  agents,
 			AgentID: agentID,
 			Live:    live,
@@ -182,109 +176,30 @@ func loadReviewCmd(m *model, params loadReviewCmdParams) tea.Cmd {
 			return reviewLoadedMsg{agentID: agentID, err: err}
 		}
 
-		reviews, err := listReviews(ctx, agents, agentID)
+		span, err := resolveReviewRange(record.rounds, params.Spec)
 		if err != nil {
 			return reviewLoadedMsg{agentID: agentID, err: err}
 		}
 
-		// The rounds are a better answer where they can be had rather than one the screen depends
-		// on, so only the pin, which cannot be placed without them, gives up when they cannot.
-		rounds, roundsErr := listReviewRounds(ctx, agents, agentID)
-
-		openBatch := openBatchRoundID(reviews)
-		if openBatch != "" && roundsErr != nil {
-			return reviewLoadedMsg{agentID: agentID, err: roundsErr}
-		}
-
-		var fromBase, toBase, answerBase, answerHead string
-		if answer := params.Answer; answer != nil {
-			from, to := findRound(rounds, answer.FromRound), findRound(rounds, answer.ToRound)
-			if from == nil || to == nil {
-				return reviewLoadedMsg{agentID: agentID, err: errAnswerGone}
-			}
-
-			from = findAnswerBase(rounds, from, to)
-
-			answerBase, answerHead = from.GetSnapshotSha(), to.GetSnapshotSha()
-			params.Base, params.Head = answerBase, answerHead
-			fromBase, toBase = from.GetBaseSha(), to.GetBaseSha()
-		}
-
-		var origin originDiff
-		if params.Origin != nil {
-			found, ok := findOriginDiff(rounds, params.Origin)
-			if !ok {
-				return reviewLoadedMsg{agentID: agentID, err: errCommentRoundGone}
-			}
-
-			origin = found
-			params.Base, params.Head = origin.base, origin.head
-		}
-
-		var round *agentv1.ReviewRound
-
-		var pinned bool
-		if !params.Fresh {
-			round, pinned = findPendingRound(rounds, openBatch)
-		}
-
-		var notice string
-		if round == nil {
-			opened, err := agents.OpenReviewRound(ctx, connect.NewRequest(&agentv1.OpenReviewRoundRequest{
-				AgentId: agentID,
-			}))
-			switch {
-			case connect.CodeOf(err) == connect.CodeFailedPrecondition && len(rounds) > 0:
-				round = rounds[len(rounds)-1]
-				notice = "a rebase or merge is part way through, so this is the work as it stood before it"
-			case err != nil:
-				return reviewLoadedMsg{agentID: agentID, err: err}
-			default:
-				round = opened.Msg.GetRound()
-				rounds = withRound(rounds, round)
-			}
-		}
-
-		base := round.GetBaseSha()
-		if params.Base != "" {
-			base = params.Base
-		}
-
-		head := round.GetSnapshotSha()
-		if params.Head != "" {
-			head = params.Head
-		}
-
-		compared := compareRounds(ctx, compareRoundsParams{
-			Git:      repo,
-			Dir:      dir,
-			FromSHA:  base,
-			FromBase: fromBase,
-			ToBase:   toBase,
+		picked, err := pickReviewRound(ctx, pickReviewRoundParams{
+			Agents:  agents,
+			AgentID: agentID,
+			Record:  record,
+			Fresh:   params.Fresh,
 		})
-		if !compared.Comparable {
-			return reviewLoadedMsg{
-				agentID: agentID,
-				round:   round,
-				err:     &roundsApartError{Conflicts: compared.Conflicts},
-			}
+		if err != nil {
+			return reviewLoadedMsg{agentID: agentID, err: err}
 		}
 
-		base = compared.FromSHA
+		round, rounds := picked.round, picked.rounds
 
-		loading := diff.LoadParams{
-			Dir:         dir,
-			BaseSHA:     base,
-			SnapshotSHA: head,
-			Exclude:     exclude,
-		}
-
-		patch, err := diff.Load(ctx, repo, loading)
-		if err != nil && origin.canFallBack() && isUnreadableBase(ctx, err) {
-			origin.base, origin.fellBack = origin.roundBase, true
-			loading.BaseSHA = origin.base
-			patch, err = diff.Load(ctx, repo, loading)
-		}
+		loaded, err := loadRoundPatch(ctx, loadRoundPatchParams{
+			Git:     repo,
+			Dir:     dir,
+			Exclude: exclude,
+			Round:   round,
+			Range:   span,
+		})
 		if err != nil {
 			return reviewLoadedMsg{
 				agentID: agentID,
@@ -294,43 +209,43 @@ func loadReviewCmd(m *model, params loadReviewCmdParams) tea.Cmd {
 		}
 
 		viewed, err := listReviewViewedFiles(ctx, agents, agentID)
-		earlier := findPreviousReviewedRound(reviews, rounds, round)
+		earlier := findPreviousReviewedRound(record.reviews, rounds, round)
 		chapters := replayChapters(ctx, replayChaptersParams{
 			Git: repo,
 			Dir: dir,
 			Chapters: cutChapters(cutChaptersParams{
 				Rounds:   rounds,
-				Reviews:  reviews,
+				Reviews:  record.reviews,
 				OnScreen: round,
 			}),
 		})
 		traced := traceThreads(ctx, traceThreadsParams{
 			Git:     repo,
 			Dir:     dir,
-			ToSHA:   head,
-			Threads: threads,
+			ToSHA:   loaded.head,
+			Threads: record.threads,
 			Rounds:  rounds,
 		})
 
 		return reviewLoadedMsg{
 			agentID:        agentID,
 			round:          round,
-			patch:          patch,
-			threads:        threads,
+			patch:          loaded.patch,
+			threads:        record.threads,
 			viewed:         viewed,
 			earlier:        earlier,
-			earlierAt:      releasedAtOf(reviews, round),
-			pinned:         pinned,
+			earlierAt:      releasedAtOf(record.reviews, round),
+			pinned:         picked.pinned,
 			chapters:       chapters,
 			rounds:         rounds,
-			replayed:       compared.Replayed,
+			replayed:       loaded.replayed,
 			traced:         traced,
-			answerBase:     answerBase,
-			answerHead:     answerHead,
-			originBase:     origin.base,
-			originHead:     origin.head,
-			originFellBack: origin.fellBack,
-			notice:         notice,
+			answerBase:     span.answerBase,
+			answerHead:     span.answerHead,
+			originBase:     loaded.origin.base,
+			originHead:     loaded.origin.head,
+			originFellBack: loaded.origin.fellBack,
+			notice:         picked.notice,
 			since: changedSinceLastReview(ctx, changedSinceLastReviewParams{
 				Git:         repo,
 				Dir:         dir,
@@ -343,8 +258,15 @@ func loadReviewCmd(m *model, params loadReviewCmdParams) tea.Cmd {
 	}
 }
 
-// readThreadsParams says whose conversation to read, and what the world already holds of it.
-type readThreadsParams struct {
+type reviewRecord struct {
+	threads   []*agentv1.ReviewThread
+	reviews   []*agentv1.Review
+	rounds    []*agentv1.ReviewRound
+	openBatch string
+}
+
+// readReviewRecordParams says whose review record to read, and which threads the world already holds.
+type readReviewRecordParams struct {
 	Agents  agentReads
 	AgentID string
 	// Live says the agent's threads are the world's.
@@ -352,13 +274,179 @@ type readThreadsParams struct {
 	Held []*agentv1.ReviewThread
 }
 
-// readThreads is the conversation on an agent's diff, from the world unless the agent is archived.
-func readThreads(ctx context.Context, params readThreadsParams) ([]*agentv1.ReviewThread, error) {
-	if params.Live {
-		return params.Held, nil
+func readReviewRecord(ctx context.Context, params readReviewRecordParams) (*reviewRecord, error) {
+	threads := params.Held
+	if !params.Live {
+		listed, err := listReviewThreads(ctx, params.Agents, params.AgentID)
+		if err != nil {
+			return nil, err
+		}
+
+		threads = listed
 	}
 
-	return listReviewThreads(ctx, params.Agents, params.AgentID)
+	reviews, err := listReviews(ctx, params.Agents, params.AgentID)
+	if err != nil {
+		return nil, err
+	}
+
+	// The rounds are a better answer where they can be had rather than one the screen depends
+	// on, so only the pin, which cannot be placed without them, gives up when they cannot.
+	rounds, roundsErr := listReviewRounds(ctx, params.Agents, params.AgentID)
+
+	openBatch := openBatchRoundID(reviews)
+	if openBatch != "" && roundsErr != nil {
+		return nil, roundsErr
+	}
+
+	return &reviewRecord{
+		threads:   threads,
+		reviews:   reviews,
+		rounds:    rounds,
+		openBatch: openBatch,
+	}, nil
+}
+
+type reviewRange struct {
+	base       string
+	head       string
+	fromBase   string
+	toBase     string
+	answerBase string
+	answerHead string
+	origin     originDiff
+}
+
+func resolveReviewRange(rounds []*agentv1.ReviewRound, spec diffSpec) (*reviewRange, error) {
+	span := &reviewRange{base: spec.base, head: spec.head}
+	if answer := spec.answer; answer != nil {
+		from, to := findRound(rounds, answer.FromRound), findRound(rounds, answer.ToRound)
+		if from == nil || to == nil {
+			return nil, errAnswerGone
+		}
+
+		from = findAnswerBase(rounds, from, to)
+
+		span.answerBase, span.answerHead = from.GetSnapshotSha(), to.GetSnapshotSha()
+		span.base, span.head = span.answerBase, span.answerHead
+		span.fromBase, span.toBase = from.GetBaseSha(), to.GetBaseSha()
+	}
+
+	if spec.origin != nil {
+		found, ok := findOriginDiff(rounds, spec.origin)
+		if !ok {
+			return nil, errCommentRoundGone
+		}
+
+		span.origin = found
+		span.base, span.head = found.base, found.head
+	}
+
+	return span, nil
+}
+
+type pickedRound struct {
+	round  *agentv1.ReviewRound
+	rounds []*agentv1.ReviewRound
+	pinned bool
+	notice string
+}
+
+type pickReviewRoundParams struct {
+	Agents  agentReads
+	AgentID string
+	Record  *reviewRecord
+	Fresh   bool
+}
+
+func pickReviewRound(ctx context.Context, params pickReviewRoundParams) (*pickedRound, error) {
+	picked := &pickedRound{rounds: params.Record.rounds}
+	if !params.Fresh {
+		picked.round, picked.pinned = findPendingRound(picked.rounds, params.Record.openBatch)
+	}
+
+	if picked.round != nil {
+		return picked, nil
+	}
+
+	opened, err := params.Agents.OpenReviewRound(ctx, connect.NewRequest(&agentv1.OpenReviewRoundRequest{
+		AgentId: params.AgentID,
+	}))
+	switch {
+	case connect.CodeOf(err) == connect.CodeFailedPrecondition && len(picked.rounds) > 0:
+		picked.round = picked.rounds[len(picked.rounds)-1]
+		picked.notice = "a rebase or merge is part way through, so this is the work as it stood before it"
+	case err != nil:
+		return nil, err
+	default:
+		picked.round = opened.Msg.GetRound()
+		picked.rounds = withRound(picked.rounds, picked.round)
+	}
+
+	return picked, nil
+}
+
+type roundPatch struct {
+	patch    *diff.Patch
+	head     string
+	replayed bool
+	origin   originDiff
+}
+
+type loadRoundPatchParams struct {
+	Git     ReviewGit
+	Dir     string
+	Exclude []string
+	Round   *agentv1.ReviewRound
+	Range   *reviewRange
+}
+
+func loadRoundPatch(ctx context.Context, params loadRoundPatchParams) (*roundPatch, error) {
+	base := params.Round.GetBaseSha()
+	if params.Range.base != "" {
+		base = params.Range.base
+	}
+
+	head := params.Round.GetSnapshotSha()
+	if params.Range.head != "" {
+		head = params.Range.head
+	}
+
+	compared := compareRounds(ctx, compareRoundsParams{
+		Git:      params.Git,
+		Dir:      params.Dir,
+		FromSHA:  base,
+		FromBase: params.Range.fromBase,
+		ToBase:   params.Range.toBase,
+	})
+	if !compared.Comparable {
+		return nil, &roundsApartError{Conflicts: compared.Conflicts}
+	}
+
+	loading := diff.LoadParams{
+		Dir:         params.Dir,
+		BaseSHA:     compared.FromSHA,
+		SnapshotSHA: head,
+		Exclude:     params.Exclude,
+	}
+
+	origin := params.Range.origin
+	patch, err := diff.Load(ctx, params.Git, loading)
+	if err != nil && origin.canFallBack() && isUnreadableBase(ctx, err) {
+		origin.base, origin.fellBack = origin.roundBase, true
+		loading.BaseSHA = origin.base
+		patch, err = diff.Load(ctx, params.Git, loading)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return &roundPatch{
+		patch:    patch,
+		head:     head,
+		replayed: compared.Replayed,
+		origin:   origin,
+	}, nil
 }
 
 // changedSinceLastReviewParams says which round to measure against and what to leave out of the
@@ -410,9 +498,9 @@ func (r *reviewScreen) applyLoaded(m *model, msg reviewLoadedMsg) tea.Cmd {
 
 	// A narrowed diff drawing nothing is an answer about the agent rather than a reason to leave,
 	// so the whole change comes back with the answer said out loud.
-	if drewNothing && (r.diff.base != "" || r.diff.answer != nil || r.diff.origin != nil) {
-		said := "nothing written " + r.diff.baseLabel
-		if r.diff.origin != nil {
+	if drewNothing && !r.diff.spec.isWholeChange() {
+		said := "nothing written " + r.diff.spec.label
+		if r.diff.spec.origin != nil {
 			said = "nothing to draw where this comment was written"
 		}
 
@@ -427,7 +515,7 @@ func (r *reviewScreen) applyLoaded(m *model, msg reviewLoadedMsg) tea.Cmd {
 		return r.refuse(m, msg.err)
 	}
 
-	if msg.patch == nil && r.diff.origin != nil {
+	if msg.patch == nil && r.diff.spec.origin != nil {
 		r.diff.widen()
 		m.note(messageWarning, "could not draw where this comment was written: "+msg.err.Error())
 
@@ -443,7 +531,7 @@ func (r *reviewScreen) applyLoaded(m *model, msg reviewLoadedMsg) tea.Cmd {
 		m.report("Could not read the whole review of "+r.agentName, msg.err)
 	}
 
-	if r.diff.chapter >= len(msg.chapters) {
+	if r.diff.spec.chapter >= len(msg.chapters) {
 		r.diff.chapters = msg.chapters
 		r.diff.widen()
 		r.threads.cancelMessage()
@@ -484,24 +572,13 @@ func (d *reviewDiff) load(msg reviewLoadedMsg, isDark bool, glyphs glyph.Set) {
 	d.rounds = msg.rounds
 	d.since = msg.since
 
-	if d.answer != nil {
-		d.base, d.head = msg.answerBase, msg.answerHead
-		d.baseLabel = "the answer to this comment"
-		if msg.replayed {
-			d.baseLabel += ", replayed across the rebase"
-		}
-	}
-
-	if d.origin != nil {
-		d.base, d.head = msg.originBase, msg.originHead
-		d.baseLabel = originLabel(d.origin, msg.originFellBack)
-	}
+	d.spec.settle(msg)
 
 	// The files the reader opened out are the view's own, so a view built again over the patch
 	// takes them from the one it replaces, or from what was kept when that one was dropped.
 	view := diffview.NewView(msg.patch, isDark)
 	view.SetGlyphs(glyphs)
-	view.SetNarrowed(d.base != "")
+	view.SetNarrowed(d.spec.base != "")
 	view.SetTraced(msg.traced)
 	view.SetViewed(indexViewedFiles(msg.viewed, msg.patch))
 	if d.View() != nil {
@@ -618,10 +695,7 @@ func (r *reviewScreen) load(m *model, fresh bool) tea.Cmd {
 		AgentID: r.agentID,
 		Dir:     r.dir,
 		Exclude: r.exclude,
-		Base:    r.diff.base,
-		Head:    r.diff.head,
-		Answer:  r.diff.answer,
-		Origin:  r.diff.origin,
+		Spec:    r.diff.spec,
 		Fresh:   fresh,
 	})
 }

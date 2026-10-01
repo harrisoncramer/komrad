@@ -26,7 +26,7 @@ type reviewOrigin struct {
 }
 
 func (r *reviewScreen) toggleJump(m *model) tea.Cmd {
-	if r.diff.origin != nil {
+	if r.diff.spec.origin != nil {
 		return r.leaveOrigin(m)
 	}
 
@@ -47,30 +47,27 @@ func (r *reviewScreen) toggleJump(m *model) tea.Cmd {
 		RoundID:  round.GetId(),
 		Ordinal:  round.GetOrdinal(),
 		BaseSHA:  thread.GetBaseSha(),
-		chapter:  r.diff.chapter,
-		answer:   r.diff.answer,
+		chapter:  r.diff.spec.chapter,
+		answer:   r.diff.spec.answer,
 	}
 	if place, ok := r.diff.View().GetPlace(r.diff.Cursor()); ok {
 		origin.place = &place
 	}
 
-	r.diff.widen()
-	r.diff.origin = origin
-	r.diff.baseLabel = originLabel(origin, false)
+	r.diff.spec = originSpec(origin)
 
 	return r.reload(m)
 }
 
 func (r *reviewScreen) leaveOrigin(m *model) tea.Cmd {
-	origin := r.diff.origin
+	origin := r.diff.spec.origin
 	r.diff.widen()
 	if origin.chapter >= 0 {
 		r.diff.showChapter(origin.chapter)
 	}
 
 	if origin.answer != nil {
-		r.diff.answer = origin.answer
-		r.diff.baseLabel = "the answer to this comment"
+		r.diff.spec = answerSpec(origin.answer)
 	}
 
 	cmd := r.reload(m)
@@ -89,7 +86,7 @@ func originLabel(origin *reviewOrigin, fellBack bool) string {
 }
 
 func (r reviewScreen) doesOfferJump() bool {
-	if r.diff.origin != nil {
+	if r.diff.spec.origin != nil {
 		return true
 	}
 
@@ -99,7 +96,7 @@ func (r reviewScreen) doesOfferJump() bool {
 }
 
 func (d reviewDiff) jumpDesc() string {
-	if d.origin != nil {
+	if d.spec.origin != nil {
 		return "back"
 	}
 
@@ -107,13 +104,13 @@ func (d reviewDiff) jumpDesc() string {
 }
 
 func (d *reviewDiff) originPlace(view *diffview.View) (diffview.Place, bool) {
-	if d.origin == nil || d.origin.landed {
+	if d.spec.origin == nil || d.spec.origin.landed {
 		return diffview.Place{}, false
 	}
 
-	d.origin.landed = true
+	d.spec.origin.landed = true
 
-	y, ok := view.GetThreadRow(d.origin.ThreadID)
+	y, ok := view.GetThreadRow(d.spec.origin.ThreadID)
 	if !ok {
 		return diffview.Place{}, false
 	}
@@ -122,17 +119,17 @@ func (d *reviewDiff) originPlace(view *diffview.View) (diffview.Place, bool) {
 }
 
 func (d reviewDiff) threadsOnScreen(threads []*agentv1.ReviewThread) []*agentv1.ReviewThread {
-	if d.origin == nil {
+	if d.spec.origin == nil {
 		return threadsByChapter(threadsByChapterParams{
 			Threads:  threads,
 			Chapters: d.chapters,
-			At:       d.chapter,
+			At:       d.spec.chapter,
 		})
 	}
 
 	kept := make([]*agentv1.ReviewThread, 0, len(threads))
 	for _, thread := range threads {
-		if thread.GetRoundOrdinal() <= d.origin.Ordinal {
+		if thread.GetRoundOrdinal() <= d.spec.origin.Ordinal {
 			kept = append(kept, thread)
 		}
 	}

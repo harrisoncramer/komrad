@@ -134,8 +134,8 @@ func (r reviewScreen) scopeView(m *model) string {
 	}
 
 	from := "all changes"
-	if r.diff.baseLabel != "" {
-		from = r.diff.baseLabel
+	if r.diff.spec.label != "" {
+		from = r.diff.spec.label
 	}
 
 	out := paint.Panel.Style(reviewScopeOnTone).Bold(true).Render(from)
@@ -153,11 +153,11 @@ func (r reviewScreen) stepSaid(m *model) string {
 	forward := keyLabel(m.keys.Review.BaseForward)
 
 	switch {
-	case r.diff.origin != nil:
+	case r.diff.spec.origin != nil:
 		return keyLabel(m.keys.Review.Jump) + " back"
-	case r.diff.chapter < 0:
+	case !r.diff.spec.isChapter():
 		return back + " for the latest chapter"
-	case r.diff.chapter == 0:
+	case r.diff.spec.chapter == 0:
 		return forward + " for a later chapter"
 	default:
 		return back + " back" + separated + forward + " forward"

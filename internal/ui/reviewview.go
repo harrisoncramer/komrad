@@ -194,7 +194,7 @@ func (r reviewScreen) notesView(m *model) string {
 		return "\n" + reviewNote(lineWidthOf(m.paneWidth()), paint.Panel.Style(reviewNoticeTone), notice)
 	}
 
-	if since := r.diff.since; since != "" && r.diff.baseLabel == "" {
+	if since := r.diff.since; since != "" && r.diff.spec.label == "" {
 		return "\n" + reviewNote(lineWidthOf(m.paneWidth()), dimStyle(), since)
 	}
 
@@ -286,7 +286,7 @@ func (r reviewScreen) originView(thread *agentv1.ReviewThread, width int) string
 // happened rather than of the placement komrad settled on.
 func (d reviewDiff) originSaid(thread *agentv1.ReviewThread) string {
 	if _, drawn := d.View().GetFile(thread.GetFilePath()); !drawn {
-		if d.base != "" {
+		if d.spec.base != "" {
 			return "still in the change, outside what is on screen" + separated + "written against"
 		}
 
@@ -429,7 +429,7 @@ func (d reviewDiff) fileDesc() string {
 	file, ok := d.View().GetDrawnFileAt(d.Cursor())
 
 	// Marking a file read is refused in a round, so the row names the key that still works.
-	if d.isNarrowed() {
+	if d.spec.isNarrowed() {
 		if ok && d.View().IsExpanded(file.Path()) {
 			return "show the changes"
 		}

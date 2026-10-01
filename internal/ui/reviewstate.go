@@ -1,8 +1,6 @@
 package ui
 
 import (
-	"fmt"
-
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/paint/label"
 	agentv1 "komrad/proto/gen/agent/v1"
@@ -67,7 +65,7 @@ func (t reviewThreads) holdsUnsent() bool {
 
 // isHistory reports whether the round on screen ends before the agent's current work.
 func (r reviewScreen) isHistory() (string, bool) {
-	drawn := r.diff.head
+	drawn := r.diff.spec.head
 	if r.diff.View() != nil {
 		drawn = r.diff.View().GetSnapshotSHA()
 	}
@@ -76,16 +74,7 @@ func (r reviewScreen) isHistory() (string, bool) {
 		return "", false
 	}
 
-	if origin := r.diff.origin; origin != nil {
-		return fmt.Sprintf("round %d", origin.Ordinal), true
-	}
-
-	at := r.diff.chapter
-	if at < 0 || at >= len(r.diff.chapters) {
-		return "an earlier chapter", true
-	}
-
-	return fmt.Sprintf("chapter %d of %d", at+1, len(r.diff.chapters)), true
+	return r.diff.spec.historySaid(r.diff.chapters), true
 }
 
 // doesWalk says whether the round keys have anywhere to go, which an editor holding the stage

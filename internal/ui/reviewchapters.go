@@ -47,28 +47,28 @@ type reviewChapter struct {
 // stepBase walks back a round, from the whole change to the newest round and on into the older
 // ones, and stops on the oldest.
 func (r *reviewScreen) stepBase(m *model) tea.Cmd {
-	if r.diff.origin != nil {
+	if r.diff.spec.origin != nil {
 		return r.leaveOrigin(m)
 	}
 
-	if r.diff.chapter < 0 {
+	if !r.diff.spec.isChapter() {
 		return r.showChapter(m, len(r.diff.chapters)-1)
 	}
 
-	return r.showChapter(m, r.diff.chapter-1)
+	return r.showChapter(m, r.diff.spec.chapter-1)
 }
 
 // stepBaseForward walks the other way, and stops on the whole change.
 func (r *reviewScreen) stepBaseForward(m *model) tea.Cmd {
-	if r.diff.origin != nil {
+	if r.diff.spec.origin != nil {
 		return r.leaveOrigin(m)
 	}
 
-	if r.diff.chapter < 0 {
+	if !r.diff.spec.isChapter() {
 		return nil
 	}
 
-	return r.showChapter(m, r.diff.chapter+1)
+	return r.showChapter(m, r.diff.spec.chapter+1)
 }
 
 // showChapter puts one round of the review on screen, or the whole change past the newest
@@ -98,13 +98,10 @@ func (d *reviewDiff) showChapter(at int) bool {
 		at = -1
 	}
 
-	if at == d.chapter && d.answer == nil && d.origin == nil {
+	if at == d.spec.chapter && d.spec.answer == nil && d.spec.origin == nil {
 		return false
 	}
 
-	d.answer = nil
-	d.origin = nil
-	d.chapter = at
 	if at < 0 {
 		d.widen()
 
@@ -112,13 +109,16 @@ func (d *reviewDiff) showChapter(at int) bool {
 	}
 
 	chapter := d.chapters[at]
-	d.base = chapter.FromSHA
-	d.head = chapter.ToSHA
-	d.baseLabel = reviewChapterLabel(reviewChapterLabelParams{
-		Chapter: chapter,
-		At:      at,
-		Held:    held,
-	})
+	d.spec = diffSpec{
+		base: chapter.FromSHA,
+		head: chapter.ToSHA,
+		label: reviewChapterLabel(reviewChapterLabelParams{
+			Chapter: chapter,
+			At:      at,
+			Held:    held,
+		}),
+		chapter: at,
+	}
 
 	return true
 }
@@ -170,20 +170,9 @@ func baseMovedSaid(chapter reviewChapter) string {
 	return "the base moved"
 }
 
-// isNarrowed reports whether the diff on screen is one chapter of the change rather than the
-// whole of it.
-func (d reviewDiff) isNarrowed() bool {
-	return d.base != "" || d.head != ""
-}
-
 // widen puts the diff back to the whole change.
 func (d *reviewDiff) widen() {
-	d.base = ""
-	d.head = ""
-	d.baseLabel = ""
-	d.chapter = -1
-	d.answer = nil
-	d.origin = nil
+	d.spec = wholeChange()
 }
 
 // doesFitBaseLegend reports whether the base key is worth a legend row.
@@ -340,39 +329,37 @@ func findLaterStamp(thread *agentv1.ReviewThread, rounds []*agentv1.ReviewRound)
 
 // isBefore reports whether one stamp came before another, parsed rather than compared as text.
 func isBefore(stamp, mark string) bool {
-	at, err := time.Parse(time.RFC3339, stamp)
-	if err != nil {
-		return false
-	}
+	before, err := compareStamps(stamp, mark)
 
-	against, err := time.Parse(time.RFC3339, mark)
-	if err != nil {
-		return false
-	}
-
-	return at.Before(against)
+	return err == nil && before
 }
 
 // doesPredate reports whether something was said before a mark, and says yes for a stamp it
 // cannot read.
 func doesPredate(stamp, mark string) bool {
+	before, err := compareStamps(stamp, mark)
+
+	return err != nil || before
+}
+
+func compareStamps(stamp, mark string) (bool, error) {
 	at, err := time.Parse(time.RFC3339, stamp)
 	if err != nil {
-		return true
+		return false, err
 	}
 
 	against, err := time.Parse(time.RFC3339, mark)
 	if err != nil {
-		return true
+		return false, err
 	}
 
-	return at.Before(against)
+	return at.Before(against), nil
 }
 
 // laterStamp is the stamp a thread's later replies are split at, empty while the diff on screen
 // is the whole change or an answer.
 func (d reviewDiff) laterStamp(thread *agentv1.ReviewThread) string {
-	if d.chapter < 0 && d.origin == nil {
+	if !d.spec.doesSplitReplies() {
 		return ""
 	}
 
