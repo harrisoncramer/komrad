@@ -148,6 +148,15 @@ func TestAPullRequestChangeAfterTheMailWasReadStartsAnother(t *testing.T) {
 			wantLines: []string{"  checks: failing on bbb\n"},
 		},
 		{
+			name: "an approval on a new head with no checks yet names the head the checks failed on",
+			after: forge.Standing{
+				Decision: forge.ReviewDecisionApproved,
+				Checks:   forge.ChecksNone,
+				HeadSHA:  "bbb",
+			},
+			wantLines: []string{"  review: approved\n", "  checks: failing on aaa\n"},
+		},
+		{
 			name:  "the checks failing again on the same head is not news",
 			after: failingOnA,
 		},
