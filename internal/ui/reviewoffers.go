@@ -319,19 +319,19 @@ func (r reviewScreen) dismissOfferDesc(s panelShared) string {
 }
 
 // dismissOfferCmd marks the forge comment under the cursor dismissed, or active again when it was.
-func (r reviewScreen) dismissOfferCmd(s panelShared) tea.Cmd {
+func (r reviewScreen) dismissOfferCmd(h host, s panelShared) tea.Cmd {
 	offer, ok := r.offerAtCursor(s)
 	if !ok {
 		return nil
 	}
 
 	pullRequests, id, restore := s.api.pullRequests, offer.GetId(), offer.GetDismissed()
-	said := "dismissed the comment from the forge"
+	doing, said := "dismissing the comment", "dismissed the comment from the forge"
 	if restore {
-		said = "restored the comment from the forge"
+		doing, said = "restoring the comment", "restored the comment from the forge"
 	}
 
-	return r.writeCmd(s, said, func(ctx context.Context) error {
+	return r.writeCmd(s, h.beginWrite(doing), said, func(ctx context.Context) error {
 		_, err := pullRequests.DismissForgeThread(ctx, connect.NewRequest(&pullrequestv1.DismissForgeThreadRequest{Id: id, Restore: restore}))
 
 		return err

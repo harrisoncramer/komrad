@@ -199,6 +199,8 @@ type host interface {
 	rowWriteCmd(doing, summary string, write func(api) (written, error)) tea.Cmd
 	openingWriteCmd(doing, summary string, write func(api) (*agentv1.Agent, error)) tea.Cmd
 	queuedCmd(doing, summary string, queued message, write func(api) error) tea.Cmd
+	// A write that lands a message of its own is counted out here.
+	beginWrite(doing string) int
 
 	// A failure lands in the messages region.
 	report(summary string, err error)

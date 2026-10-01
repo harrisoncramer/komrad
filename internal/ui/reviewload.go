@@ -75,6 +75,7 @@ type reviewWroteMsg struct {
 	readErr  error
 	// unsent is the message a refused write was carrying, nil for any other write.
 	unsent *reviewUnsent
+	write  int
 }
 
 // open puts the review on an agent's diff and reads it.

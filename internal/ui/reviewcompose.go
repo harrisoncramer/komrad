@@ -101,7 +101,7 @@ func (r *reviewScreen) updateComposer(h host, s panelShared, key tea.KeyPressMsg
 	case isBound(k, formKeys().Editor):
 		return r.openMessageEditor(h, s)
 	case isBound(k, formKeys().Submit):
-		return r.saveMessage(s)
+		return r.saveMessage(h, s)
 	}
 
 	editor, cmd := r.threads.editor.update(key)
@@ -179,7 +179,7 @@ func (r *reviewScreen) applyMessageEdited(h host, s panelShared, msg messageEdit
 	r.threads.editor = input
 }
 
-func (r *reviewScreen) saveMessage(s panelShared) tea.Cmd {
+func (r *reviewScreen) saveMessage(h host, s panelShared) tea.Cmd {
 	body := strings.TrimSpace(r.threads.editor.value())
 	if body == "" {
 		r.threads.cancelMessage()
@@ -196,7 +196,7 @@ func (r *reviewScreen) saveMessage(s panelShared) tea.Cmd {
 	kept := reviewUnsent{editing: threadID, body: body}
 	if threadID != "" {
 		// Nothing is said back: the reply is drawn in the thread it went into.
-		return keepUnsent(kept, r.writeCmd(s, "", func(ctx context.Context) error {
+		return keepUnsent(kept, r.writeCmd(s, h.beginWrite("replying"), "", func(ctx context.Context) error {
 			_, err := agents.AddReviewMessage(ctx, connect.NewRequest(&agentv1.AddReviewMessageRequest{
 				ThreadId: threadID,
 				Body:     body,
@@ -229,7 +229,7 @@ func (r *reviewScreen) saveMessage(s panelShared) tea.Cmd {
 
 	kept.place = place
 
-	return keepUnsent(kept, r.createThreadCmd(s, *place, body))
+	return keepUnsent(kept, r.createThreadCmd(h, s, *place, body))
 }
 
 // reviewUnsent is a message on its way to the service, held until the write carrying it lands.
@@ -295,11 +295,11 @@ func (t *reviewThreads) cancelMessage() {
 	t.retrying = nil
 }
 
-func (r reviewScreen) createThreadCmd(s panelShared, place reviewPlace, body string) tea.Cmd {
+func (r reviewScreen) createThreadCmd(h host, s panelShared, place reviewPlace, body string) tea.Cmd {
 	agents, agentID := s.api.agents, r.agentID
 	anchor := place.anchor
 
-	return r.writeCmd(s, "thread opened", func(ctx context.Context) error {
+	return r.writeCmd(s, h.beginWrite("opening a thread"), "thread opened", func(ctx context.Context) error {
 		_, err := agents.CreateReviewThread(ctx, connect.NewRequest(&agentv1.CreateReviewThreadRequest{
 			AgentId:     agentID,
 			BaseSha:     place.base,
@@ -318,7 +318,7 @@ func (r reviewScreen) createThreadCmd(s panelShared, place reviewPlace, body str
 }
 
 // resolveThread settles the thread the cursor is standing on, or reopens one already settled.
-func (r reviewScreen) resolveThread(s panelShared) tea.Cmd {
+func (r reviewScreen) resolveThread(h host, s panelShared) tea.Cmd {
 	thread, ok := r.diff.threadAtCursor()
 	if !ok {
 		return nil
@@ -326,12 +326,12 @@ func (r reviewScreen) resolveThread(s panelShared) tea.Cmd {
 
 	agents, id, settling := s.api.agents, thread.GetId(), thread.GetResolvedAt() == ""
 
-	notice := "thread reopened"
+	doing, notice := "reopening the thread", "thread reopened"
 	if settling {
-		notice = "thread settled"
+		doing, notice = "settling the thread", "thread settled"
 	}
 
-	return r.writeCmd(s, notice, func(ctx context.Context) error {
+	return r.writeCmd(s, h.beginWrite(doing), notice, func(ctx context.Context) error {
 		_, err := agents.SetReviewThreadResolved(ctx, connect.NewRequest(&agentv1.SetReviewThreadResolvedRequest{
 			Id:       id,
 			Resolved: settling,
@@ -363,9 +363,9 @@ func (r *reviewScreen) toggleViewed(h host, s panelShared) tea.Cmd {
 	r.diff.View().SetFileViewed(path, viewed)
 	r.diff.Keep(place, located)
 
-	notice := "file opened again"
+	doing, notice := "opening the file again", "file opened again"
 	if viewed {
-		notice = "file viewed"
+		doing, notice = "marking the file viewed", "file viewed"
 		r.diff.MoveTo(r.diff.View().JumpFile(r.diff.Cursor(), 1), r.diffHeight(s))
 	}
 
@@ -374,7 +374,7 @@ func (r *reviewScreen) toggleViewed(h host, s panelShared) tea.Cmd {
 	agents, agentID := s.api.agents, r.agentID
 	fingerprint := file.Fingerprint()
 
-	return r.writeCmd(s, notice, func(ctx context.Context) error {
+	return r.writeCmd(s, h.beginWrite(doing), notice, func(ctx context.Context) error {
 		_, err := agents.SetReviewFileViewed(ctx, connect.NewRequest(&agentv1.SetReviewFileViewedRequest{
 			AgentId:     agentID,
 			FilePath:    path,
@@ -395,7 +395,7 @@ func (r reviewScreen) markThreadReadCmd(s panelShared) tea.Cmd {
 
 	agents, id := s.api.agents, thread.GetId()
 
-	return r.writeCmd(s, "", func(ctx context.Context) error {
+	return r.quietWriteCmd(s, func(ctx context.Context) error {
 		_, err := agents.MarkReviewThreadRead(ctx, connect.NewRequest(&agentv1.MarkReviewThreadReadRequest{Id: id}))
 
 		return err
@@ -433,9 +433,9 @@ func (r *reviewScreen) updateRelease(h host, s panelShared, key tea.KeyPressMsg)
 	case isBound(k, formKeys().Editor):
 		return r.openMessageEditor(h, s)
 	case isBound(k, formKeys().Submit):
-		return r.send(s, false)
+		return r.send(h, s, false)
 	case isBound(k, formKeys().SendNow):
-		return r.send(s, true)
+		return r.send(h, s, true)
 	}
 
 	editor, cmd := r.threads.editor.update(key)
@@ -446,14 +446,14 @@ func (r *reviewScreen) updateRelease(h host, s panelShared, key tea.KeyPressMsg)
 
 // send releases the batch with whatever was written about the work as a whole, reaching the
 // agent as one file and one piece of mail.
-func (r *reviewScreen) send(s panelShared, interrupt bool) tea.Cmd {
+func (r *reviewScreen) send(h host, s panelShared, interrupt bool) tea.Cmd {
 	body := strings.TrimSpace(r.threads.editor.value())
 
 	r.threads.closeRelease()
 
 	agents, agentID := s.api.agents, r.agentID
 
-	return r.sendCmd(s, func(ctx context.Context) (string, error) {
+	return r.sendCmd(h, s, "sending the review", func(ctx context.Context) (string, error) {
 		resp, err := agents.ReleaseReview(ctx, connect.NewRequest(&agentv1.ReleaseReviewRequest{
 			AgentId:   agentID,
 			Interrupt: interrupt,
@@ -483,20 +483,25 @@ func releasedNotice(count int32, interrupt bool) string {
 	return sent
 }
 
-// writeCmd runs one write on the review.
-func (r reviewScreen) writeCmd(s panelShared, notice string, write func(context.Context) error) tea.Cmd {
-	return r.writeMsgCmd(s, func(ctx context.Context) (string, error) {
+// writeCmd runs one write on the review, landing the write that beginWrite counted out.
+func (r reviewScreen) writeCmd(s panelShared, counted int, notice string, write func(context.Context) error) tea.Cmd {
+	return r.writeMsgCmd(s, counted, func(ctx context.Context) (string, error) {
 		return notice, write(ctx)
 	})
 }
 
+// quietWriteCmd runs one write on the review that the panel does not count in flight.
+func (r reviewScreen) quietWriteCmd(s panelShared, write func(context.Context) error) tea.Cmd {
+	return r.writeCmd(s, 0, "", write)
+}
+
 // sendCmd is the write that releases a review.
-func (r reviewScreen) sendCmd(s panelShared, write func(context.Context) (string, error)) tea.Cmd {
-	return r.writeMsgCmd(s, write)
+func (r reviewScreen) sendCmd(h host, s panelShared, doing string, write func(context.Context) (string, error)) tea.Cmd {
+	return r.writeMsgCmd(s, h.beginWrite(doing), write)
 }
 
 // writeMsgCmd runs one write, marking whose answer it is, and reads an archived agent's threads back.
-func (r reviewScreen) writeMsgCmd(s panelShared, write func(context.Context) (string, error)) tea.Cmd {
+func (r reviewScreen) writeMsgCmd(s panelShared, counted int, write func(context.Context) (string, error)) tea.Cmd {
 	agents, agentID := s.api.agents, r.agentID
 	_, live := r.agentRow(s)
 
@@ -509,6 +514,7 @@ func (r reviewScreen) writeMsgCmd(s panelShared, write func(context.Context) (st
 			agentID: agentID,
 			notice:  notice,
 			err:     err,
+			write:   counted,
 		}
 		if err != nil || live {
 			return wrote
