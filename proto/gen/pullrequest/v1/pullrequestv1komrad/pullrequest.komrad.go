@@ -11,6 +11,8 @@ import (
 	fail "komrad/internal/fail"
 	rpcerr "komrad/internal/rpcerr"
 	v1 "komrad/proto/gen/pullrequest/v1"
+	pullrequestv1connect "komrad/proto/gen/pullrequest/v1/pullrequestv1connect"
+	http "net/http"
 )
 
 // PullRequestServiceImpl is the half of PullRequestService a person writes, whose failures carry the kind
@@ -34,4 +36,9 @@ func (a PullRequestServiceAdapter) ListPullRequests(ctx context.Context, req *co
 // DismissForgeThread answers the request as connect serves it.
 func (a PullRequestServiceAdapter) DismissForgeThread(ctx context.Context, req *connect.Request[v1.DismissForgeThreadRequest]) (*connect.Response[emptypb.Empty], error) {
 	return rpcerr.Answer(a.Impl.DismissForgeThread(ctx, req.Msg))
+}
+
+// RegisterPullRequestService mounts the implementation on the mux behind its adapter.
+func RegisterPullRequestService(mux *http.ServeMux, impl PullRequestServiceImpl, options ...connect.HandlerOption) {
+	mux.Handle(pullrequestv1connect.NewPullRequestServiceHandler(PullRequestServiceAdapter{Impl: impl}, options...))
 }

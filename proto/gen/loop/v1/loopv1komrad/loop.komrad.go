@@ -11,6 +11,8 @@ import (
 	fail "komrad/internal/fail"
 	rpcerr "komrad/internal/rpcerr"
 	v1 "komrad/proto/gen/loop/v1"
+	loopv1connect "komrad/proto/gen/loop/v1/loopv1connect"
+	http "net/http"
 )
 
 // LoopServiceImpl is the half of LoopService a person writes, whose failures carry the kind
@@ -28,4 +30,9 @@ type LoopServiceAdapter struct {
 // WakeLoop answers the request as connect serves it.
 func (a LoopServiceAdapter) WakeLoop(ctx context.Context, req *connect.Request[v1.WakeLoopRequest]) (*connect.Response[emptypb.Empty], error) {
 	return rpcerr.Answer(a.Impl.WakeLoop(ctx, req.Msg))
+}
+
+// RegisterLoopService mounts the implementation on the mux behind its adapter.
+func RegisterLoopService(mux *http.ServeMux, impl LoopServiceImpl, options ...connect.HandlerOption) {
+	mux.Handle(loopv1connect.NewLoopServiceHandler(LoopServiceAdapter{Impl: impl}, options...))
 }

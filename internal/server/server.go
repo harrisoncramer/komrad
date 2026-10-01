@@ -101,7 +101,7 @@ func NewServer(ctx context.Context, params NewServerParams) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	srv.Delivery = svc.delivery
+	srv.Delivery = svc.mail.delivery
 
 	broker := watch.NewBroker(ctx, watch.NewBrokerParams{
 		Logger:    params.Logger,
@@ -121,17 +121,17 @@ func NewServer(ctx context.Context, params NewServerParams) (*Server, error) {
 		Schema:        st.pool.GetRiverSchema(),
 		Schedules:     st.schedules,
 		Runs:          st.schedules,
-		Launcher:      svc.launch,
-		Deleter:       svc.lifecycle,
+		Launcher:      svc.agents.launch,
+		Deleter:       svc.agents.lifecycle,
 		Running:       st.agents,
 		Orchestrators: svc.schedule,
-		Mailer:        svc.mail,
+		Mailer:        svc.mail.service,
 		Registrations: svc.schedule,
-		Worktrees:     svc.worktreeLister,
-		Remover:       svc.remover,
-		Resumer:       svc.resume,
+		Worktrees:     svc.worktrees.lister,
+		Remover:       svc.worktrees.remover,
+		Resumer:       svc.agents.resume,
 		Router: events.NewRouter(events.NewRouterParams{
-			Mailer: svc.mail,
+			Mailer: svc.mail.service,
 			Handlers: []events.Handler{
 				pullrequests.NewEventHandler(),
 				documents.NewEventHandler(),
@@ -174,7 +174,7 @@ func NewServer(ctx context.Context, params NewServerParams) (*Server, error) {
 		return nil, err
 	}
 
-	if err := svc.agentDelete.Resume(ctx); err != nil {
+	if err := svc.agents.delete.Resume(ctx); err != nil {
 		return nil, err
 	}
 

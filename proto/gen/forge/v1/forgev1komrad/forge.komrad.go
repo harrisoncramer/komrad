@@ -11,6 +11,8 @@ import (
 	fail "komrad/internal/fail"
 	rpcerr "komrad/internal/rpcerr"
 	v1 "komrad/proto/gen/forge/v1"
+	forgev1connect "komrad/proto/gen/forge/v1/forgev1connect"
+	http "net/http"
 )
 
 // ForgeServiceImpl is the half of ForgeService a person writes, whose failures carry the kind
@@ -76,4 +78,9 @@ func (a ForgeServiceAdapter) RequestForgePullRequestRereview(ctx context.Context
 // DisconnectForge answers the request as connect serves it.
 func (a ForgeServiceAdapter) DisconnectForge(ctx context.Context, req *connect.Request[v1.DisconnectForgeRequest]) (*connect.Response[emptypb.Empty], error) {
 	return rpcerr.Answer(a.Impl.DisconnectForge(ctx, req.Msg))
+}
+
+// RegisterForgeService mounts the implementation on the mux behind its adapter.
+func RegisterForgeService(mux *http.ServeMux, impl ForgeServiceImpl, options ...connect.HandlerOption) {
+	mux.Handle(forgev1connect.NewForgeServiceHandler(ForgeServiceAdapter{Impl: impl}, options...))
 }

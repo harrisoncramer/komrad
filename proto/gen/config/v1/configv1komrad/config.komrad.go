@@ -11,6 +11,8 @@ import (
 	fail "komrad/internal/fail"
 	rpcerr "komrad/internal/rpcerr"
 	v1 "komrad/proto/gen/config/v1"
+	configv1connect "komrad/proto/gen/config/v1/configv1connect"
+	http "net/http"
 )
 
 // ConfigServiceImpl is the half of ConfigService a person writes, whose failures carry the kind
@@ -28,4 +30,9 @@ type ConfigServiceAdapter struct {
 // GetConfig answers the request as connect serves it.
 func (a ConfigServiceAdapter) GetConfig(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[v1.GetConfigResponse], error) {
 	return rpcerr.Answer(a.Impl.GetConfig(ctx, req.Msg))
+}
+
+// RegisterConfigService mounts the implementation on the mux behind its adapter.
+func RegisterConfigService(mux *http.ServeMux, impl ConfigServiceImpl, options ...connect.HandlerOption) {
+	mux.Handle(configv1connect.NewConfigServiceHandler(ConfigServiceAdapter{Impl: impl}, options...))
 }

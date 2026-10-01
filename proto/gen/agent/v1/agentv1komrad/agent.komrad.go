@@ -11,6 +11,8 @@ import (
 	fail "komrad/internal/fail"
 	rpcerr "komrad/internal/rpcerr"
 	v1 "komrad/proto/gen/agent/v1"
+	agentv1connect "komrad/proto/gen/agent/v1/agentv1connect"
+	http "net/http"
 )
 
 // AgentServiceImpl is the half of AgentService a person writes, whose failures carry the kind
@@ -352,4 +354,9 @@ func (a AgentServiceAdapter) SetReviewFileViewed(ctx context.Context, req *conne
 // ListReviewViewedFiles answers the request as connect serves it.
 func (a AgentServiceAdapter) ListReviewViewedFiles(ctx context.Context, req *connect.Request[v1.ListReviewViewedFilesRequest]) (*connect.Response[v1.ListReviewViewedFilesResponse], error) {
 	return rpcerr.Answer(a.Impl.ListReviewViewedFiles(ctx, req.Msg))
+}
+
+// RegisterAgentService mounts the implementation on the mux behind its adapter.
+func RegisterAgentService(mux *http.ServeMux, impl AgentServiceImpl, options ...connect.HandlerOption) {
+	mux.Handle(agentv1connect.NewAgentServiceHandler(AgentServiceAdapter{Impl: impl}, options...))
 }

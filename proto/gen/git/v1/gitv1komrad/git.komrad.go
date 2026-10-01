@@ -10,6 +10,8 @@ import (
 	fail "komrad/internal/fail"
 	rpcerr "komrad/internal/rpcerr"
 	v1 "komrad/proto/gen/git/v1"
+	gitv1connect "komrad/proto/gen/git/v1/gitv1connect"
+	http "net/http"
 )
 
 // GitServiceImpl is the half of GitService a person writes, whose failures carry the kind
@@ -63,4 +65,9 @@ func (a GitServiceAdapter) Replay(ctx context.Context, req *connect.Request[v1.R
 // IsAncestor answers the request as connect serves it.
 func (a GitServiceAdapter) IsAncestor(ctx context.Context, req *connect.Request[v1.IsAncestorRequest]) (*connect.Response[v1.IsAncestorResponse], error) {
 	return rpcerr.Answer(a.Impl.IsAncestor(ctx, req.Msg))
+}
+
+// RegisterGitService mounts the implementation on the mux behind its adapter.
+func RegisterGitService(mux *http.ServeMux, impl GitServiceImpl, options ...connect.HandlerOption) {
+	mux.Handle(gitv1connect.NewGitServiceHandler(GitServiceAdapter{Impl: impl}, options...))
 }

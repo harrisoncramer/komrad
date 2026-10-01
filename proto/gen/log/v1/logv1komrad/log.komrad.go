@@ -10,6 +10,8 @@ import (
 	fail "komrad/internal/fail"
 	rpcerr "komrad/internal/rpcerr"
 	v1 "komrad/proto/gen/log/v1"
+	logv1connect "komrad/proto/gen/log/v1/logv1connect"
+	http "net/http"
 )
 
 // LogServiceImpl is the half of LogService a person writes, whose failures carry the kind
@@ -45,4 +47,9 @@ func (a LogServiceAdapter) ReadAgentLogs(ctx context.Context, req *connect.Reque
 // ListAgentLogSources answers the request as connect serves it.
 func (a LogServiceAdapter) ListAgentLogSources(ctx context.Context, req *connect.Request[v1.ListAgentLogSourcesRequest]) (*connect.Response[v1.ListAgentLogSourcesResponse], error) {
 	return rpcerr.Answer(a.Impl.ListAgentLogSources(ctx, req.Msg))
+}
+
+// RegisterLogService mounts the implementation on the mux behind its adapter.
+func RegisterLogService(mux *http.ServeMux, impl LogServiceImpl, options ...connect.HandlerOption) {
+	mux.Handle(logv1connect.NewLogServiceHandler(LogServiceAdapter{Impl: impl}, options...))
 }

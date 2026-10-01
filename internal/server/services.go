@@ -30,44 +30,72 @@ import (
 )
 
 type services struct {
-	loadConfig       func() (*config.Config, error)
-	script           *scriptrun.ScriptService
-	mail             *mail.MailService
-	review           *reviews.ReviewService
-	schedule         *schedules.ScheduleService
-	liveness         *agents.PaneLiveness
-	rowWriter        *agents.RowWriter
-	rowReader        *agents.RowReader
-	transcriptReader *transcripts.TranscriptReader
-	launch           *agents.LaunchService
-	resume           *agents.ResumeService
-	adopt            *agents.AdoptService
-	lifecycle        *agents.LifecycleService
-	agentDelete      *jobs.AgentDelete
-	queue            *jobs.Enqueuer
-	orchestrator     *agents.OrchestratorService
-	workflow         *agents.WorkflowService
-	delivery         *mail.DeliveryService
-	reconciler       *agents.Reconciler
-	documents        *documents.DocumentService
-	holder           *agents.Holder
-	checkout         *checkouts.Service
-	cwdSync          *checkouts.CwdSyncer
-	transcriptSync   *transcripts.TranscriptSyncer
-	forge            *forge.Service
-	pullRequestSync  *pullrequests.PullRequestSyncer
-	commentSync      *pullrequests.CommentSyncer
-	pullRequests     *pullrequests.Lister
-	writer           *pullrequests.Writer
-	dismisser        *pullrequests.Dismisser
-	worktreeLister   *worktrees.Lister
-	inspector        *worktrees.Inspector
-	remover          *worktrees.Remover
-	watchRows        *watch.Rows
-	shells           *shells.ShellService
-	attaches         *attaches.AttachService
-	agentGit         *agentgit.GitService
-	screens          *agents.ScreenKeeper
+	loadConfig   func() (*config.Config, error)
+	queue        *jobs.Enqueuer
+	script       *scriptrun.ScriptService
+	agents       agentServices
+	mail         mailServices
+	review       *reviews.ReviewService
+	schedule     *schedules.ScheduleService
+	documents    *documents.DocumentService
+	transcripts  transcriptServices
+	pullRequests pullRequestServices
+	checkouts    checkoutServices
+	worktrees    worktreeServices
+	terminal     terminalServices
+	agentGit     *agentgit.GitService
+	watchRows    *watch.Rows
+}
+
+type agentServices struct {
+	liveness     *agents.PaneLiveness
+	screens      *agents.ScreenKeeper
+	launch       *agents.LaunchService
+	resume       *agents.ResumeService
+	adopt        *agents.AdoptService
+	lifecycle    *agents.LifecycleService
+	workflow     *agents.WorkflowService
+	orchestrator *agents.OrchestratorService
+	holder       *agents.Holder
+	reconciler   *agents.Reconciler
+	rowReader    *agents.RowReader
+	rowWriter    *agents.RowWriter
+	delete       *jobs.AgentDelete
+}
+
+type mailServices struct {
+	service  *mail.MailService
+	delivery *mail.DeliveryService
+}
+
+type transcriptServices struct {
+	reader *transcripts.TranscriptReader
+	sync   *transcripts.TranscriptSyncer
+}
+
+type pullRequestServices struct {
+	forge       *forge.Service
+	sync        *pullrequests.PullRequestSyncer
+	commentSync *pullrequests.CommentSyncer
+	lister      *pullrequests.Lister
+	writer      *pullrequests.Writer
+	dismisser   *pullrequests.Dismisser
+}
+
+type checkoutServices struct {
+	service *checkouts.Service
+	cwdSync *checkouts.CwdSyncer
+}
+
+type worktreeServices struct {
+	lister    *worktrees.Lister
+	inspector *worktrees.Inspector
+	remover   *worktrees.Remover
+}
+
+type terminalServices struct {
+	shells   *shells.ShellService
+	attaches *attaches.AttachService
 }
 
 // BuiltinScriptsDir is where the scripts komrad ships are installed under a cache directory,
@@ -80,221 +108,295 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 	loadConfig := func() (*config.Config, error) { return config.LoadStack(params.ConfigStack) }
 	gitClient := git.NewClient()
 
-	mailService := mail.NewMailService(mail.NewMailServiceParams{
-		Mail:      st.mail,
-		Agents:    st.agents,
-		Workflows: st.workflows,
-		Config:    mailConfig(loadConfig),
+	runLogsDir := params.Env.RunLogsDir()
+	scriptService, err := buildScripts(buildScriptsParams{
+		Server:     params,
+		Stores:     st,
+		LoadConfig: loadConfig,
+		RunLogsDir: runLogsDir,
 	})
-	stateDir := params.Env.StateDir
-	scheduleService := schedules.NewScheduleService(schedules.NewScheduleServiceParams{
-		Schedules: st.schedules,
-		Workflows: st.workflows,
-		Agents:    st.agents,
-	})
-
-	builtinScriptsDir := BuiltinScriptsDir(params.Env.CacheDir)
-	if err := scripts.InstallBuiltins(builtinScriptsDir); err != nil {
+	if err != nil {
 		return nil, err
 	}
 
-	runLogsDir := params.Env.RunLogsDir()
-	if err := os.MkdirAll(runLogsDir, 0o755); err != nil {
-		return nil, fmt.Errorf("failed to create %s: %w", runLogsDir, err)
-	}
-
-	scriptService := scriptrun.NewScriptService(scriptrun.NewScriptServiceParams{
-		Agents:     st.agents,
-		Workflows:  st.workflows,
-		Tmux:       params.Tmux,
-		Runner:     scripts.NewRunner(),
-		Runs:       st.runs,
-		Load:       loadConfig,
-		Addr:       params.Addr,
-		Socket:     params.Env.TmuxSocket,
-		BuiltinDir: builtinScriptsDir,
-		LogsDir:    runLogsDir,
-		Editor:     params.Env.Editor,
-		BinPath:    params.HookCommand,
-	})
-
-	harnessLauncher := agents.NewLauncher(agents.NewLauncherParams{
-		Tmux:            params.Tmux,
-		Addr:            params.Addr,
-		CacheDir:        params.Env.CacheDir,
-		LogPath:         params.Env.LogPath(),
-		ContextPath:     params.ContextPath,
-		BinPath:         params.HookCommand,
-		Usage:           params.Usage,
-		TrustLaunchDirs: params.TrustDirs,
-	})
-	paneLiveness := agents.NewPaneLiveness(params.Tmux)
-	paneChannel := pane.NewPane(pane.NewPaneParams{Terminal: params.Tmux, Harnesses: params.Harnesses})
-	launchService := agents.NewLaunchService(agents.NewLaunchServiceParams{
-		Tmux:               params.Tmux,
-		Agents:             st.agents,
-		Reviews:            st.review,
-		Workflows:          st.workflows,
-		Tx:                 st.pool,
-		Launcher:           harnessLauncher,
-		Harnesses:          params.Harnesses,
-		Scripts:            scriptService,
-		UserDefaultHarness: params.DefaultHarness,
-		UserDefaultFlags:   params.DefaultFlags,
-		Usage:              params.Usage,
-	})
-	resumeService := agents.NewResumeService(agents.NewResumeServiceParams{
-		Tmux:               params.Tmux,
-		Agents:             st.agents,
-		Workflows:          st.workflows,
-		Launcher:           harnessLauncher,
-		Harnesses:          params.Harnesses,
-		Scripts:            scriptService,
-		FallbackResumeRoot: params.FallbackResumeRoot,
-	})
 	inserter, err := jobs.NewInsertOnlyClient(st.pool.GetRawPool(), st.pool.GetRiverSchema())
 	if err != nil {
 		return nil, err
 	}
 	queue := jobs.NewEnqueuer(inserter, st.pool.GetRawPool())
-	reviewService := reviews.NewReviewService(reviews.NewReviewServiceParams{
-		Reviews:      st.review,
-		Snapshots:    gitClient,
-		Workflows:    st.workflows,
-		Agents:       st.agents,
-		Events:       queue,
-		ForgeThreads: st.forgeThreads,
-		StateDir:     stateDir,
-		Interrupter: agents.NewInterrupter(agents.NewInterrupterParams{
-			Agents:   st.agents,
-			Channel:  paneChannel,
-			Observer: paneChannel,
-		}),
-	})
+
+	paneChannel := pane.NewPane(pane.NewPaneParams{Terminal: params.Tmux, Harnesses: params.Harnesses})
 	settler := agents.NewSettler(agents.NewSettlerParams{
 		Channel:  paneChannel,
 		Observer: paneChannel,
 	})
-	adoptService := agents.NewAdoptService(agents.NewAdoptServiceParams{
-		Agents:    st.agents,
-		Workflows: st.workflows,
-		Launch:    launchService,
-		Worktrees: gitClient,
+	agentGroup := buildAgents(buildAgentsParams{
+		Server:     params,
+		Stores:     st,
+		Wakers:     wakers,
+		Git:        gitClient,
+		Queue:      queue,
+		Scripts:    scriptService,
+		Panes:      paneChannel,
+		Settler:    settler,
+		RunLogsDir: runLogsDir,
+		LoadConfig: loadConfig,
 	})
-	agentDelete := jobs.NewAgentDelete(queue)
+	pullRequestGroup := buildPullRequests(buildPullRequestsParams{
+		Server:     params,
+		Stores:     st,
+		Queue:      queue,
+		Wakers:     wakers,
+		LoadConfig: loadConfig,
+	})
 
+	return &services{
+		loadConfig: loadConfig,
+		queue:      queue,
+		script:     scriptService,
+		agents:     agentGroup,
+		mail: mailServices{
+			service: mail.NewMailService(mail.NewMailServiceParams{
+				Mail:      st.mail,
+				Agents:    st.agents,
+				Workflows: st.workflows,
+				Config:    mailConfig(loadConfig),
+			}),
+			delivery: mail.NewDeliveryService(mail.NewDeliveryServiceParams{
+				Mail:         st.mail,
+				NudgeClaimer: st.agents,
+				PaneReader:   agentGroup.liveness,
+				Channel:      paneChannel,
+			}),
+		},
+		review: reviews.NewReviewService(reviews.NewReviewServiceParams{
+			Reviews:      st.review,
+			Snapshots:    gitClient,
+			Workflows:    st.workflows,
+			Agents:       st.agents,
+			Events:       queue,
+			ForgeThreads: st.forgeThreads,
+			StateDir:     params.Env.StateDir,
+			Interrupter: agents.NewInterrupter(agents.NewInterrupterParams{
+				Agents:   st.agents,
+				Channel:  paneChannel,
+				Observer: paneChannel,
+			}),
+		}),
+		schedule: schedules.NewScheduleService(schedules.NewScheduleServiceParams{
+			Schedules: st.schedules,
+			Workflows: st.workflows,
+			Agents:    st.agents,
+		}),
+		documents: documents.NewDocumentService(documents.NewDocumentServiceParams{
+			Agents:    st.agents,
+			Documents: st.documents,
+			Types:     st.documentTypes,
+			Events:    queue,
+		}),
+		transcripts: transcriptServices{
+			reader: transcripts.NewTranscriptReader(transcripts.NewTranscriptReaderParams{
+				Agents:      st.agents,
+				Transcripts: st.transcripts,
+			}),
+			sync: transcripts.NewTranscriptSyncer(transcripts.NewTranscriptSyncerParams{
+				Agents:      st.agents,
+				Transcripts: st.transcripts,
+				Harnesses:   params.Harnesses,
+			}),
+		},
+		pullRequests: pullRequestGroup,
+		checkouts: checkoutServices{
+			service: checkouts.NewService(checkouts.NewServiceParams{
+				Agents:          st.agents,
+				Workflows:       st.workflows,
+				Settler:         settler,
+				Events:          queue,
+				Git:             gitClient,
+				PullRequests:    st.pullRequests,
+				CheckoutSync:    wakers.cwdSync,
+				PullRequestSync: pullRequestGroup.sync,
+			}),
+			cwdSync: checkouts.NewCwdSyncer(checkouts.NewCwdSyncerParams{
+				Agents:       st.agents,
+				Heads:        gitClient,
+				Trees:        gitClient,
+				Rounds:       st.review,
+				Workflows:    st.workflows,
+				PullRequests: st.pullRequests,
+			}),
+		},
+		worktrees: buildWorktrees(st, gitClient, loadConfig),
+		terminal: terminalServices{
+			shells: shells.NewShellService(shells.NewShellServiceParams{
+				Agents: st.agents,
+				Shell:  params.Env.Shell,
+			}),
+			attaches: attaches.NewAttachService(attaches.NewAttachServiceParams{
+				Agents:  st.agents,
+				Tmux:    params.Tmux,
+				Session: agents.ManagerSession,
+			}),
+		},
+		agentGit: agentgit.NewGitService(agentgit.NewGitServiceParams{
+			Agents: st.agents,
+			Git:    gitClient,
+		}),
+		watchRows: watch.NewRows(buildWatchLoaders(st)),
+	}, nil
+}
+
+type buildScriptsParams struct {
+	Server     NewServerParams
+	Stores     *stores
+	LoadConfig func() (*config.Config, error)
+	RunLogsDir string
+}
+
+func buildScripts(params buildScriptsParams) (*scriptrun.ScriptService, error) {
+	server, st := params.Server, params.Stores
+
+	builtinScriptsDir := BuiltinScriptsDir(server.Env.CacheDir)
+	if err := scripts.InstallBuiltins(builtinScriptsDir); err != nil {
+		return nil, err
+	}
+
+	if err := os.MkdirAll(params.RunLogsDir, 0o755); err != nil {
+		return nil, fmt.Errorf("failed to create %s: %w", params.RunLogsDir, err)
+	}
+
+	return scriptrun.NewScriptService(scriptrun.NewScriptServiceParams{
+		Agents:     st.agents,
+		Workflows:  st.workflows,
+		Tmux:       server.Tmux,
+		Runner:     scripts.NewRunner(),
+		Runs:       st.runs,
+		Load:       params.LoadConfig,
+		Addr:       server.Addr,
+		Socket:     server.Env.TmuxSocket,
+		BuiltinDir: builtinScriptsDir,
+		LogsDir:    params.RunLogsDir,
+		Editor:     server.Env.Editor,
+		BinPath:    server.HookCommand,
+	}), nil
+}
+
+type buildAgentsParams struct {
+	Server     NewServerParams
+	Stores     *stores
+	Wakers     *loopWakers
+	Git        *git.Client
+	Queue      *jobs.Enqueuer
+	Scripts    *scriptrun.ScriptService
+	Panes      *pane.Pane
+	Settler    *agents.Settler
+	RunLogsDir string
+	LoadConfig func() (*config.Config, error)
+}
+
+func buildAgents(params buildAgentsParams) agentServices {
+	server, st := params.Server, params.Stores
+
+	harnessLauncher := agents.NewLauncher(agents.NewLauncherParams{
+		Tmux:            server.Tmux,
+		Addr:            server.Addr,
+		CacheDir:        server.Env.CacheDir,
+		LogPath:         server.Env.LogPath(),
+		ContextPath:     server.ContextPath,
+		BinPath:         server.HookCommand,
+		Usage:           server.Usage,
+		TrustLaunchDirs: server.TrustDirs,
+	})
+	launchService := agents.NewLaunchService(agents.NewLaunchServiceParams{
+		Tmux:               server.Tmux,
+		Agents:             st.agents,
+		Reviews:            st.review,
+		Workflows:          st.workflows,
+		Tx:                 st.pool,
+		Launcher:           harnessLauncher,
+		Harnesses:          server.Harnesses,
+		Scripts:            params.Scripts,
+		UserDefaultHarness: server.DefaultHarness,
+		UserDefaultFlags:   server.DefaultFlags,
+		Usage:              server.Usage,
+	})
+	resumeService := agents.NewResumeService(agents.NewResumeServiceParams{
+		Tmux:               server.Tmux,
+		Agents:             st.agents,
+		Workflows:          st.workflows,
+		Launcher:           harnessLauncher,
+		Harnesses:          server.Harnesses,
+		Scripts:            params.Scripts,
+		FallbackResumeRoot: server.FallbackResumeRoot,
+	})
+	agentDelete := jobs.NewAgentDelete(params.Queue)
 	emptyWorkflows := agents.NewEmptyWorkflowDeleter(agents.NewEmptyWorkflowDeleterParams{
 		Workflows: st.workflows,
 		Agents:    st.agents,
 		Schedules: st.schedules,
 	})
 	screenKeeper := agents.NewScreenKeeper(agents.NewScreenKeeperParams{
-		Panes:   params.Tmux,
+		Panes:   server.Tmux,
 		Screens: st.screens,
 	})
 	lifecycleService := agents.NewLifecycleService(agents.NewLifecycleServiceParams{
-		Tmux:           params.Tmux,
+		Tmux:           server.Tmux,
 		Agents:         st.agents,
 		Workflows:      st.workflows,
 		EmptyWorkflows: emptyWorkflows,
 		Tx:             st.pool,
-		Scripts:        scriptService,
+		Scripts:        params.Scripts,
 		Reviews:        st.review,
-		Snapshots:      gitClient,
+		Snapshots:      params.Git,
 		Screens:        screenKeeper,
-		LogsDir:        runLogsDir,
-		FramesDir:      params.Env.FramesDir(),
-		Usage:          params.Usage,
+		LogsDir:        params.RunLogsDir,
+		FramesDir:      server.Env.FramesDir(),
+		Usage:          server.Usage,
 	})
-	workflowService := agents.NewWorkflowService(agents.NewWorkflowServiceParams{
-		Workflows:      st.workflows,
-		Agents:         st.agents,
-		AgentDeleter:   agentDelete,
-		EmptyWorkflows: emptyWorkflows,
-		Schedules:      st.schedules,
-		Lifecycle:      lifecycleService,
-		Tx:             st.pool,
-		Hooks:          scriptService,
-	})
-
-	builders := params.ForgeBuilders
-	if builders == nil {
-		builders = forges.Builders
-	}
-	tokenCachePath := forges.TokenCachePath(params.Env.CacheDir)
-	forgeService := forge.NewService(forge.NewServiceParams{
-		Connections: st.forges,
-		Credentials: forge.NewFileStore(stateDir),
-		Builders:    builders,
-		LoadApp: func() (forge.App, error) {
-			cfg, err := loadConfig()
-			if err != nil {
-				return forge.App{}, err
-			}
-
-			return forges.AppFrom(cfg.GitHubApp, tokenCachePath)
-		},
-	})
-	pullRequestSyncer := pullrequests.NewPullRequestSyncer(pullrequests.NewPullRequestSyncerParams{
-		Forges:       forgeService,
-		PullRequests: st.pullRequests,
-		Syncs:        st.pullRequestSyncs,
-		Events:       queue,
-		Loop:         wakers.pullRequestSync,
-	})
-	checkoutService := checkouts.NewService(checkouts.NewServiceParams{
-		Agents:          st.agents,
-		Workflows:       st.workflows,
-		Settler:         settler,
-		Events:          queue,
-		Git:             gitClient,
-		PullRequests:    st.pullRequests,
-		CheckoutSync:    wakers.cwdSync,
-		PullRequestSync: pullRequestSyncer,
-	})
-	cwdSyncer := checkouts.NewCwdSyncer(checkouts.NewCwdSyncerParams{
-		Agents:       st.agents,
-		Heads:        gitClient,
-		Trees:        gitClient,
-		Rounds:       st.review,
-		Workflows:    st.workflows,
-		PullRequests: st.pullRequests,
-	})
-
-	transcriptSyncer := transcripts.NewTranscriptSyncer(transcripts.NewTranscriptSyncerParams{
-		Agents:      st.agents,
-		Transcripts: st.transcripts,
-		Harnesses:   params.Harnesses,
-	})
-
-	worktreeLister := worktrees.NewLister(worktrees.NewListerParams{
-		SharedDir: func() (string, error) {
-			cfg, err := loadConfig()
-			if err != nil {
-				return "", err
-			}
-
-			return cfg.GetWorktreesDir()
-		},
-		Agents:    st.agents,
-		Workflows: st.workflows,
-		Worktrees: st.worktrees,
-	})
-
 	reconciler := agents.NewReconciler(agents.NewReconcilerParams{
-		Panes:    params.Tmux,
-		Observer: paneChannel,
+		Panes:    server.Tmux,
+		Observer: params.Panes,
 		States:   st.agents,
-	}).WithFrameRecorder(frames.NewRecorder(params.Env.FramesDir(), newFrameSettings(loadConfig).get)).WithScreenKeeper(screenKeeper)
+	}).WithFrameRecorder(frames.NewRecorder(server.Env.FramesDir(), newFrameSettings(params.LoadConfig).get)).WithScreenKeeper(screenKeeper)
 
-	return &services{
-		loadConfig: loadConfig,
-		screens:    screenKeeper,
-		watchRows:  watch.NewRows(buildWatchLoaders(st)),
-		transcriptReader: transcripts.NewTranscriptReader(transcripts.NewTranscriptReaderParams{
-			Agents:      st.agents,
-			Transcripts: st.transcripts,
+	return agentServices{
+		liveness:  agents.NewPaneLiveness(server.Tmux),
+		screens:   screenKeeper,
+		launch:    launchService,
+		resume:    resumeService,
+		lifecycle: lifecycleService,
+		adopt: agents.NewAdoptService(agents.NewAdoptServiceParams{
+			Agents:    st.agents,
+			Workflows: st.workflows,
+			Launch:    launchService,
+			Worktrees: params.Git,
 		}),
+		workflow: agents.NewWorkflowService(agents.NewWorkflowServiceParams{
+			Workflows:      st.workflows,
+			Agents:         st.agents,
+			AgentDeleter:   agentDelete,
+			EmptyWorkflows: emptyWorkflows,
+			Schedules:      st.schedules,
+			Lifecycle:      lifecycleService,
+			Tx:             st.pool,
+			Hooks:          params.Scripts,
+		}),
+		orchestrator: agents.NewOrchestratorService(agents.NewOrchestratorServiceParams{
+			Agents:      st.agents,
+			Workflows:   st.workflows,
+			Transcripts: st.transcripts,
+			Harnesses:   server.Harnesses,
+			Launch:      launchService,
+			Lifecycle:   lifecycleService,
+			Resume:      resumeService,
+			StateDir:    server.Env.StateDir,
+		}),
+		holder: agents.NewHolder(agents.NewHolderParams{
+			Agents:  st.agents,
+			Channel: params.Panes,
+			Settler: params.Settler,
+		}),
+		reconciler: reconciler,
 		rowReader: agents.NewRowReader(agents.NewRowReaderParams{
 			Agents:        st.agents,
 			Rows:          st.rows,
@@ -310,89 +412,94 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 			Agents:         st.agents,
 			Runs:           st.runs,
 			Reconciler:     reconciler,
-			CwdSync:        wakers.cwdSync,
-			TranscriptSync: wakers.transcriptSync,
+			CwdSync:        params.Wakers.cwdSync,
+			TranscriptSync: params.Wakers.transcriptSync,
 		}),
-		documents: documents.NewDocumentService(documents.NewDocumentServiceParams{
-			Agents:    st.agents,
-			Documents: st.documents,
-			Types:     st.documentTypes,
-			Events:    queue,
-		}),
-		checkout:        checkoutService,
-		cwdSync:         cwdSyncer,
-		transcriptSync:  transcriptSyncer,
-		forge:           forgeService,
-		pullRequestSync: pullRequestSyncer,
+		delete: agentDelete,
+	}
+}
+
+type buildPullRequestsParams struct {
+	Server     NewServerParams
+	Stores     *stores
+	Queue      *jobs.Enqueuer
+	Wakers     *loopWakers
+	LoadConfig func() (*config.Config, error)
+}
+
+func buildPullRequests(params buildPullRequestsParams) pullRequestServices {
+	server, st := params.Server, params.Stores
+
+	builders := server.ForgeBuilders
+	if builders == nil {
+		builders = forges.Builders
+	}
+	tokenCachePath := forges.TokenCachePath(server.Env.CacheDir)
+	forgeService := forge.NewService(forge.NewServiceParams{
+		Connections: st.forges,
+		Credentials: forge.NewFileStore(server.Env.StateDir),
+		Builders:    builders,
+		LoadApp: func() (forge.App, error) {
+			cfg, err := params.LoadConfig()
+			if err != nil {
+				return forge.App{}, err
+			}
+
+			return forges.AppFrom(cfg.GitHubApp, tokenCachePath)
+		},
+	})
+	pullRequestSyncer := pullrequests.NewPullRequestSyncer(pullrequests.NewPullRequestSyncerParams{
+		Forges:       forgeService,
+		PullRequests: st.pullRequests,
+		Syncs:        st.pullRequestSyncs,
+		Events:       params.Queue,
+		Loop:         params.Wakers.pullRequestSync,
+	})
+
+	return pullRequestServices{
+		forge: forgeService,
+		sync:  pullRequestSyncer,
 		commentSync: pullrequests.NewCommentSyncer(pullrequests.NewCommentSyncerParams{
 			Forges:  forgeService,
 			Threads: st.forgeThreads,
 			Tx:      st.pool,
 		}),
-		pullRequests: pullrequests.NewLister(pullrequests.NewListerParams{PullRequests: st.pullRequests}),
-		dismisser:    pullrequests.NewDismisser(pullrequests.NewDismisserParams{Threads: st.forgeThreads}),
+		lister:    pullrequests.NewLister(pullrequests.NewListerParams{PullRequests: st.pullRequests}),
+		dismisser: pullrequests.NewDismisser(pullrequests.NewDismisserParams{Threads: st.forgeThreads}),
 		writer: pullrequests.NewWriter(pullrequests.NewWriterParams{
 			Forges: forgeService,
 			Sync:   pullRequestSyncer,
 		}),
-		worktreeLister: worktreeLister,
-		shells: shells.NewShellService(shells.NewShellServiceParams{
-			Agents: st.agents,
-			Shell:  params.Env.Shell,
-		}),
-		attaches: attaches.NewAttachService(attaches.NewAttachServiceParams{
-			Agents:  st.agents,
-			Tmux:    params.Tmux,
-			Session: agents.ManagerSession,
-		}),
-		agentGit: agentgit.NewGitService(agentgit.NewGitServiceParams{
-			Agents: st.agents,
-			Git:    gitClient,
-		}),
+	}
+}
+
+func buildWorktrees(st *stores, gitClient *git.Client, loadConfig func() (*config.Config, error)) worktreeServices {
+	lister := worktrees.NewLister(worktrees.NewListerParams{
+		SharedDir: func() (string, error) {
+			cfg, err := loadConfig()
+			if err != nil {
+				return "", err
+			}
+
+			return cfg.GetWorktreesDir()
+		},
+		Agents:    st.agents,
+		Workflows: st.workflows,
+		Worktrees: st.worktrees,
+	})
+
+	return worktreeServices{
+		lister: lister,
 		inspector: worktrees.NewInspector(worktrees.NewInspectorParams{
-			Lister:    worktreeLister,
+			Lister:    lister,
 			Git:       gitClient,
 			Workflows: st.workflows,
 			Worktrees: st.worktrees,
 		}),
 		remover: worktrees.NewRemover(worktrees.NewRemoverParams{
-			Lister: worktreeLister,
+			Lister: lister,
 			Agents: st.agents,
 			Git:    gitClient,
 		}),
-		script:   scriptService,
-		mail:     mailService,
-		review:   reviewService,
-		schedule: scheduleService,
-		liveness: paneLiveness,
-		launch:   launchService,
-		resume:   resumeService,
-		holder: agents.NewHolder(agents.NewHolderParams{
-			Agents:  st.agents,
-			Channel: paneChannel,
-			Settler: settler,
-		}),
-		adopt:       adoptService,
-		lifecycle:   lifecycleService,
-		agentDelete: agentDelete,
-		queue:       queue,
-		orchestrator: agents.NewOrchestratorService(agents.NewOrchestratorServiceParams{
-			Agents:      st.agents,
-			Workflows:   st.workflows,
-			Transcripts: st.transcripts,
-			Harnesses:   params.Harnesses,
-			Launch:      launchService,
-			Lifecycle:   lifecycleService,
-			Resume:      resumeService,
-			StateDir:    stateDir,
-		}),
-		workflow: workflowService,
-		delivery: mail.NewDeliveryService(mail.NewDeliveryServiceParams{
-			Mail:         st.mail,
-			NudgeClaimer: st.agents,
-			PaneReader:   paneLiveness,
-			Channel:      paneChannel,
-		}),
-		reconciler: reconciler,
-	}, nil
+	}
 }
