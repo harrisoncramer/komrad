@@ -440,13 +440,14 @@ var (
 	_ lineTyper        = (*documentsScreen)(nil)
 	_ renamer          = (*documentsScreen)(nil)
 	_ editorReconciler = (*documentsScreen)(nil)
-	_ viewsPicker      = (*documentsScreen)(nil)
 )
-
-func (*documentsScreen) picksViews() {}
 
 func (d *documentsScreen) stage(m *model) {
 	m.stageTerminal()
+}
+
+func (d *documentsScreen) drawsSwitcher() bool {
+	return true
 }
 
 func (d *documentsScreen) doesDrawFromListing() bool {

@@ -49,15 +49,8 @@ func viewEntries() []viewEntry {
 	}
 }
 
-// picksViews reports whether the screen that is up draws and switches the views.
-func (m *model) picksViews() bool {
-	_, ok := m.active().(viewsPicker)
-
-	return ok
-}
-
 func (m *model) isViewsOpen() bool {
-	return m.viewsOpen && m.picksViews()
+	return m.viewsOpen && m.active().drawsSwitcher()
 }
 
 // viewsBar is the logo and the switcher drawn over a list, and under them the trail down to the
@@ -81,7 +74,7 @@ func (m *model) viewsBar() string {
 	return strings.Join(m.switcherLines(trail), "\n") + "\n"
 }
 
-// switcherLines is the logo and, on a screen that picks views, the row of views.
+// switcherLines is the logo and, on a screen that draws the switcher, the row of views.
 func (m *model) switcherLines(trail crumbs) []string {
 	logo := paint.Panel.Title(glyph.Logo + " " + komradName)
 	if path := trail.view(paint.Panel, 0); path != "" {
@@ -89,7 +82,7 @@ func (m *model) switcherLines(trail crumbs) []string {
 	}
 
 	lines := []string{logo, m.engineLine(m.paneWidth()), ""}
-	if m.picksViews() {
+	if m.active().drawsSwitcher() {
 		lines = append(lines, m.viewsRow())
 	}
 	if width := m.paneWidth(); width > 0 {

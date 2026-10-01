@@ -250,7 +250,7 @@ func globalArms(s screen, keys config.Keybindings) []dispatchArm {
 	arms := []dispatchArm{{describe: "the leader", keys: []string{leaderKey}}}
 	var zero model
 
-	if _, ok := zero.screenOf(s).(viewsPicker); ok {
+	if zero.screenOf(s).drawsSwitcher() {
 		arms = append(arms, dispatchArm{describe: "the view switcher", keys: slices.Concat(keys.Views.Next, keys.Views.Previous)})
 	}
 

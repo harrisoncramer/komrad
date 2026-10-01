@@ -488,6 +488,10 @@ func (l *logsScreen) crumbs(m *model) crumbs {
 	return crumbs{trail: []string{name, "logs"}}
 }
 
+func (l *logsScreen) drawsSwitcher() bool {
+	return true
+}
+
 func (l *logsScreen) doesDrawFromListing() bool {
 	return true
 }
@@ -558,10 +562,7 @@ var (
 	_ crumbDrawer   = (*logsScreen)(nil)
 	_ screenLeaver  = (*logsScreen)(nil)
 	_ lineTyper     = (*logsScreen)(nil)
-	_ viewsPicker   = (*logsScreen)(nil)
 )
-
-func (*logsScreen) picksViews() {}
 
 func (l *logsScreen) hoveredKey(m *model) string {
 	return l.list().hovered(m)
