@@ -269,14 +269,16 @@ func (z *triageZone) toggleSnooze(item panel.AgentRow, agents []panel.AgentRow) 
 	return true
 }
 
-// refreeze moves a family just snoozed or woken to its place in the frozen zone.
+// refreeze moves a family just snoozed or woken to its place in the frozen zone, and lets the
+// families awake that wait for a slot in ahead of the snoozed.
 func (z *triageZone) refreeze(family triageFamily, agents []panel.AgentRow) {
 	headID := family.head.Agent.ID
 	if !slices.Contains(z.frozen, headID) {
 		return
 	}
 
-	families := xslice.KeyBy(findTriageFamilies(z.entries, agents), func(f triageFamily) string { return f.head.Agent.ID })
+	all := findTriageFamilies(z.entries, agents)
+	families := xslice.KeyBy(all, func(f triageFamily) string { return f.head.Agent.ID })
 	others := xslice.Filter(z.frozen, func(id string) bool { return id != headID })
 	at := slices.IndexFunc(others, func(id string) bool {
 		other, ok := families[id]
@@ -287,7 +289,17 @@ func (z *triageZone) refreeze(family triageFamily, agents []panel.AgentRow) {
 		at = len(others)
 	}
 
-	z.frozen = slices.Insert(others, at, headID)
+	frozen := slices.Insert(others, at, headID)
+	waiting := xslice.Filter(all, func(f triageFamily) bool {
+		return !z.isSnoozed(f.head.Agent.ID) && !slices.Contains(frozen, f.head.Agent.ID)
+	})
+	slices.SortFunc(waiting, z.compareFamilies)
+	firstSnoozed := slices.IndexFunc(frozen, z.isSnoozed)
+	if firstSnoozed < 0 {
+		firstSnoozed = len(frozen)
+	}
+
+	z.frozen = slices.Insert(frozen, firstSnoozed, xslice.Map(waiting, func(f triageFamily) string { return f.head.Agent.ID })...)
 }
 
 // seeFinished snoozes the agent's family when it waits only to be looked at.

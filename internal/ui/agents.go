@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"slices"
 	"time"
 
 	"komrad/config"
@@ -182,25 +183,24 @@ func (a *agentsScreen) toggleSnooze(h host, s panelShared) {
 	a.stage(h, s)
 }
 
-// moveToAwake puts the cursor on the family now in the zone's slot, or on the first family awake.
+// moveToAwake puts the cursor on the first family awake from the zone's slot down, or from its top.
 func (a *agentsScreen) moveToAwake(h navHost, s panelShared, slot int) {
 	zone := a.layout(s).zone
 	heads := zoneHeads(zone)
-	if len(heads) == 0 {
-		return
-	}
-
-	next := heads[min(slot, len(heads)-1)]
-	if zone[next].snoozed {
-		next = heads[0]
-	}
-	if zone[next].snoozed {
-		h.note(messageInfo, "nothing left to triage")
+	slot = min(slot, len(heads))
+	awake := func(i int) bool { return !zone[i].snoozed }
+	if at := slices.IndexFunc(heads[slot:], awake); at >= 0 {
+		a.cursor = heads[slot+at]
 
 		return
 	}
+	if at := slices.IndexFunc(heads, awake); at >= 0 {
+		a.cursor = heads[at]
 
-	a.cursor = next
+		return
+	}
+
+	h.note(messageInfo, "nothing left to triage")
 }
 
 func hideAgent(h host, agent panel.Agent) tea.Cmd {

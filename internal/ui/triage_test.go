@@ -22,7 +22,7 @@ func TestTriageRows(t *testing.T) {
 		rows     []proto.Message
 		// press are the keys pressed before the list is read.
 		press []string
-		want     []string
+		want  []string
 	}{
 		{
 			name:     "a zone with no rows is not drawn",
@@ -393,6 +393,14 @@ func TestTriageFreeze(t *testing.T) {
 			press:    []string{"j", "j", "space", "z"},
 			want:     []string{"asker", "third", "broken", "backend", "quiet"},
 			hovered:  "asker",
+		},
+		{
+			name:     "a family waiting for a slot comes in once snoozes make room for it",
+			capacity: 3,
+			rows:     append(buildTriage(), newTriageAgent("fourth", agentv1.AgentState_AGENT_STATE_WAITING, 5)),
+			press:    []string{"space", "z", "space", "z", "space", "z"},
+			want:     []string{"broken", "asker", "third", "+1 more waiting for a slot", "backend", "fourth", "quiet"},
+			hovered:  "broken",
 		},
 		{
 			name:     "every family snoozed leaves the cursor where it is and says so",
