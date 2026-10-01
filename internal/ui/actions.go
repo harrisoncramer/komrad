@@ -30,6 +30,8 @@ const (
 	actionFilterMatch
 	actionQuit
 	actionAgentsBack
+	actionAgentTriage
+	actionAgentTriageBack
 	actionAgentOpen
 	actionAgentChild
 	actionAgentRename

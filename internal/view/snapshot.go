@@ -15,6 +15,14 @@ const (
 	KindChild
 	KindResult
 	KindHit
+	// KindTriageHeader heads triage, the agents waiting on a person drawn ahead of the tree.
+	KindTriageHeader
+	// KindTriage is an agent in triage, out of its place in the tree.
+	KindTriage
+	// KindTriageMore counts the agents in triage the zone has no room for.
+	KindTriageMore
+	// KindDivider is the rule between triage and the tree.
+	KindDivider
 )
 
 // Process is how much of a process stands behind a row.
@@ -161,4 +169,8 @@ type Row struct {
 	Scheduled bool
 	// HiddenCount is how many rows this one stands in for while they are out of sight.
 	HiddenCount int
+	// Note is drawn against the right edge after the comment counts.
+	Note Cell
+	// Faded greys a row the keyboard cannot reach.
+	Faded bool
 }

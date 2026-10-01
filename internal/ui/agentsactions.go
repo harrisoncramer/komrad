@@ -27,6 +27,26 @@ func (a *agentsScreen) modeActions() []screenAction {
 
 	return append(list.actions(),
 		screenAction{
+			id:   actionAgentTriage,
+			keys: func(k config.Keybindings) []string { return k.Agents.Triage },
+			when: a.isTriageReachable,
+			run: func(h host, s panelShared, _ string) tea.Cmd {
+				a.toggleTriage(h, s)
+
+				return nil
+			},
+		},
+		screenAction{
+			id:   actionAgentTriageBack,
+			keys: func(k config.Keybindings) []string { return k.Agents.Back },
+			when: func(s panelShared) bool { return a.triage.focused && list.isBrowsing(s) },
+			run: func(h host, s panelShared, _ string) tea.Cmd {
+				a.toggleTriage(h, s)
+
+				return nil
+			},
+		},
+		screenAction{
 			id:   actionAgentsBack,
 			keys: func(k config.Keybindings) []string { return k.Agents.Back },
 			when: list.isBrowsing,
@@ -114,6 +134,11 @@ func (a *agentsScreen) isBrowsing(s panelShared) bool {
 	return a.list().isBrowsing(s)
 }
 
+// isTriageReachable reports whether the triage key has a zone to move into.
+func (a *agentsScreen) isTriageReachable(s panelShared) bool {
+	return a.triage.isOn() && a.isBrowsing(s)
+}
+
 func (a *agentsScreen) isHoveringWorkflow(s panelShared) bool {
 	_, ok := a.hoveredWorkflow(s)
 
@@ -194,6 +219,11 @@ func (a *agentsScreen) browsingLegend() []screenLegendRow {
 			show: a.isEditable,
 		},
 		{
+			of:   []actionID{actionAgentTriage},
+			desc: a.triageDesc,
+			show: a.isTriageReachable,
+		},
+		{
 			of:   []actionID{actionAgentNew, actionWorkflowNew},
 			desc: func(panelShared) string { return "new agent/workflow" },
 			show: a.isBrowsing,
@@ -235,6 +265,14 @@ func (a *agentsScreen) browsingLegend() []screenLegendRow {
 			desc: filterClearDescOf,
 		},
 	}, screenNavLegend())
+}
+
+func (a *agentsScreen) triageDesc(panelShared) string {
+	if a.triage.focused {
+		return "leave triage"
+	}
+
+	return "triage"
 }
 
 func (a *agentsScreen) showHiddenDesc() string {

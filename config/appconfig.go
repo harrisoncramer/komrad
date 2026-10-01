@@ -300,6 +300,8 @@ type AgentsKeys struct {
 	// agent is paused while the editor is open, and quitting the editor, pressing the key again or
 	// leaving the agents list closes it and unpauses the agent.
 	Edit []string `mapstructure:"edit" default:"e"`
+	// Move the keyboard into the triage zone at the top of the list, or back out of it into the tree.
+	Triage []string `mapstructure:"triage" default:"t"`
 	// Start a new agent.
 	New []string `mapstructure:"new" default:"c"`
 	// Attach a child agent to the hovered agent, which runs in that agent's own checkout
@@ -701,6 +703,8 @@ type Layout struct {
 	InfoHeight float64 `mapstructure:"info_height"`
 	// How many lines the details under the list draw, either a share of the sidebar's height below one or a whole number of lines. The marks the hovered row is carrying are spelled out in that same room, ahead of the fields. The chrome around them is added on top, and the two together never take more than half the sidebar's height. Once the details hold the keys they grow past this to show the whole record, as far as the sidebar allows.
 	DetailsHeight float64 `mapstructure:"details_height"`
+	// How many agents the triage zone at the top of the agents list holds, the agents that are waiting on you or have hit an error. Zero turns the zone off.
+	TriageRows int `mapstructure:"triage_rows"`
 }
 
 // Harness is how one agent CLI is configured.
@@ -1057,6 +1061,9 @@ func defaultKeys(field reflect.StructField) []string {
 func validateLayout(layout Layout) error {
 	if layout.SidebarWidth < 0 {
 		return fmt.Errorf("layout.sidebar_width: %d is not a width", layout.SidebarWidth)
+	}
+	if layout.TriageRows < 0 {
+		return fmt.Errorf("layout.triage_rows: %d is not a number of rows", layout.TriageRows)
 	}
 	if err := validatePaneSize("layout.info_height", layout.InfoHeight); err != nil {
 		return err

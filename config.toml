@@ -84,6 +84,8 @@ info_side      = "below"
 info_height    = 0.4
 # How many lines the details under the list draw, either a share of the sidebar's height below one or a whole number of lines. The marks the hovered row is carrying are spelled out in that same room, ahead of the fields. The chrome around them is added on top, and the two together never take more than half the sidebar's height. Once the details hold the keys they grow past this to show the whole record, as far as the sidebar allows.
 details_height = 9
+# How many agents the triage zone at the top of the agents list holds, the agents that are waiting on you or have hit an error. Zero turns the zone off.
+triage_rows    = 0
 
 # Panel keybindings, scoped to the screen each binding acts in.
 
@@ -95,6 +97,8 @@ back   = ["esc"]
 # agent is paused while the editor is open, and quitting the editor, pressing the key again or
 # leaving the agents list closes it and unpauses the agent.
 edit   = ["e"]
+# Move the keyboard into the triage zone at the top of the list, or back out of it into the tree.
+triage = ["t"]
 # Start a new agent.
 new    = ["c"]
 # Attach a child agent to the hovered agent, which runs in that agent's own checkout

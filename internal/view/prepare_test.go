@@ -85,6 +85,11 @@ func TestPrepareBarSaysWhatStandsBehindARow(t *testing.T) {
 			row:  Row{Status: StatusIdle, Process: ProcessNone},
 			want: Cell{Text: glyph.Quiet, Tone: paint.ToneMuted},
 		},
+		{
+			name: "a row the keyboard cannot reach greys its bar",
+			row:  Row{Status: StatusWaiting, Faded: true},
+			want: Cell{Text: glyph.Busy, Tone: paint.ToneMuted},
+		},
 	}
 
 	for _, tt := range tests {
@@ -94,9 +99,8 @@ func TestPrepareBarSaysWhatStandsBehindARow(t *testing.T) {
 	}
 }
 
-// TestPrepareDimMeansTheProcessIsGone pins the one thing that greys a row: its process has
-// stopped or it has been archived, and nothing a person did to it counts.
-func TestPrepareDimMeansTheProcessIsGone(t *testing.T) {
+// TestPrepareDim pins what greys a row.
+func TestPrepareDim(t *testing.T) {
 	tests := []struct {
 		name string
 		row  Row
@@ -110,6 +114,11 @@ func TestPrepareDimMeansTheProcessIsGone(t *testing.T) {
 		{
 			name: "an archived agent is dim",
 			row:  Row{Archived: true},
+			want: EmphasisDim,
+		},
+		{
+			name: "a row the keyboard cannot reach is dim",
+			row:  Row{Faded: true},
 			want: EmphasisDim,
 		},
 		{
@@ -376,6 +385,27 @@ func TestPrepareComments(t *testing.T) {
 			},
 			want: []Cell{slot(glyph.Unread, "1", paint.ToneWarning)},
 		},
+		{
+			name: "a row in triage draws its counts and then its note",
+			row: Row{
+				Kind:           KindTriage,
+				PersonComments: &Comments{Open: 1},
+				Note:           Cell{Text: "asking", Tone: paint.ToneWarning},
+			},
+			want: []Cell{
+				slot(glyph.PersonComments, "1", paint.ToneMuted),
+				{Text: "asking", Tone: paint.ToneWarning},
+			},
+		},
+		{
+			name: "a header draws its note and no counts",
+			row: Row{
+				Kind:           KindTriageHeader,
+				PersonComments: &Comments{Open: 1},
+				Note:           Cell{Text: "2/4", Tone: paint.ToneMuted},
+			},
+			want: []Cell{{Text: "2/4", Tone: paint.ToneMuted}},
+		},
 	}
 
 	for _, tt := range tests {
@@ -490,6 +520,12 @@ func TestPrepareWeight(t *testing.T) {
 		{
 			name:     "a workflow is bold",
 			kind:     KindWorkflow,
+			want:     WeightBold,
+			wantRule: false,
+		},
+		{
+			name:     "the triage header is bold",
+			kind:     KindTriageHeader,
 			want:     WeightBold,
 			wantRule: false,
 		},

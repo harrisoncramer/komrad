@@ -77,7 +77,9 @@ func (m *model) withListing(change func(*listing)) tea.Cmd {
 	beforeTypes := m.listing.documentTypeNames()
 	change(&m.listing)
 
+	m.agents.triage.refresh(m.listing.agents, m.heldTriageRow(treeRow))
 	m.agents.apply(m.shared(), m.landedRow(treeRow, time.Now()))
+	m.agents.settleTriage(m, m.shared())
 	m.schedules.apply(m, m.shared(), scheduleRow)
 	m.archive.place(m.shared(), archiveRow)
 	m.archive.placeSchedule(m.shared(), archiveScheduleRow)
@@ -95,6 +97,15 @@ func (m *model) withListing(change func(*listing)) tea.Cmd {
 	}
 
 	return tea.Batch(preview, redrawn, m.afterListing())
+}
+
+// heldTriageRow is the row the triage zone keeps while the keyboard is in the pane beside it.
+func (m *model) heldTriageRow(hovered string) string {
+	if !m.blurred || !m.agents.triage.focused {
+		return ""
+	}
+
+	return hovered
 }
 
 // afterListing asks for what the hovered rows are owed and stages the screen over them.

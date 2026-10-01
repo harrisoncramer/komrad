@@ -287,7 +287,8 @@ func failedPlaceholder(agent panel.Agent) string {
 }
 
 func (a *agentsScreen) view(s panelShared) string {
-	a.drawn = a.buildRows(s)
+	layout := a.buildLayout(s)
+	a.drawn = &layout
 	defer func() { a.drawn = nil }()
 
 	if s.listing.isEmpty() {
@@ -320,13 +321,19 @@ func (a *agentsScreen) help(s panelShared) keyMap {
 }
 
 func (a *agentsScreen) snapshot(s panelShared, pane listPane) view.Snapshot {
-	rows := a.rows(s)
+	layout := a.layout(s)
 
 	return agentsSnapshot(snapshotParams{
-		rows:        rows,
+		rows: layout.tree,
+		triage: triageSnapshot{
+			zone:     layout.zone,
+			waiting:  layout.waiting,
+			capacity: a.triage.capacity,
+			focused:  a.triage.focused,
+		},
 		selected:    a.selected,
 		scheduled:   s.listing.scheduledWorkflows(),
-		focused:     rowKeyAt(rows, a.cursor),
+		focused:     rowKeyAt(layout.cursorRows(a.triage), a.cursor),
 		caret:       pane.caret,
 		blinkedOut:  pane.blinkedOut,
 		loaderFrame: s.loaderFrame,

@@ -23,6 +23,10 @@ func Rows(list List, palette paint.Palette, width int) []string {
 // renderLine spells one prepared row out, painting the selection bar under it last so the
 // colours it already carries read through.
 func renderLine(line Line, list List, palette paint.Palette, width int) string {
+	if line.Divider {
+		return drawDivider(palette, width)
+	}
+
 	draw := drawer{palette: palette, glyphs: list.Glyphs}
 	cells := []string{
 		draw.gutterCell(line.Focus, plainColumns),
@@ -114,6 +118,11 @@ func drawLead(palette paint.Palette, lead string) string {
 	}
 
 	return palette.Style(paint.ToneMuted).Render(lead) + " "
+}
+
+// drawDivider is a rule across the pane, set in a column from either edge.
+func drawDivider(palette paint.Palette, width int) string {
+	return " " + palette.Style(paint.ToneMuted).Render(strings.Repeat(glyph.Rule, max(width-2, 1)))
 }
 
 // drawRule is the corner a child hangs off its parent by.
