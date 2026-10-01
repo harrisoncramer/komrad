@@ -224,8 +224,12 @@ type worktreeDeletion struct {
 	children int
 }
 
+func (d worktreeDeletion) count() int {
+	return len(d.agents) + len(d.unowned)
+}
+
 func (d worktreeDeletion) isEmpty() bool {
-	return len(d.agents)+len(d.unowned) == 0
+	return d.count() == 0
 }
 
 // confirmDeleteWorktrees asks before a deletion, saying where a lone branch would stand.
@@ -292,14 +296,10 @@ func deleteWorktreesCmd(h host, deletion worktreeDeletion) tea.Cmd {
 	)
 }
 
-func (d worktreeDeletion) count() int {
-	return len(d.agents) + len(d.unowned)
-}
-
 func (w *worktreesScreen) itemMenu(s panelShared) (submenu, bool) {
 	if w.list().isSelecting(s) {
 		deletion := w.chosenDeletion(s)
-		if deletion.count() == 0 {
+		if deletion.isEmpty() {
 			return submenu{}, false
 		}
 
