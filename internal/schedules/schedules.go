@@ -18,28 +18,6 @@ import (
 	"github.com/robfig/cron/v3"
 )
 
-type scheduleReadWriter interface {
-	Get(ctx context.Context, id string) (*schedulestore.Schedule, error)
-	GetIncludingArchived(ctx context.Context, id string) (*schedulestore.Schedule, error)
-	Create(ctx context.Context, cfg schedulestore.Config) (*schedulestore.Schedule, error)
-	Update(ctx context.Context, id string, cfg schedulestore.Config) error
-	SetEnabled(ctx context.Context, id string, enabled bool) error
-	Archive(ctx context.Context, id string) error
-	Restore(ctx context.Context, id string) error
-	Delete(ctx context.Context, id string) error
-	ListPage(ctx context.Context, limit int64, cursor *schedulestore.Cursor, archived bool) ([]schedulestore.Schedule, error)
-	ListRuns(ctx context.Context, scheduleID string, limit int) ([]schedulestore.Run, error)
-}
-
-type workflowReader interface {
-	Get(ctx context.Context, id string) (*workflowstore.Workflow, error)
-	GetIncludingArchived(ctx context.Context, id string) (*workflowstore.Workflow, error)
-}
-
-type agentGetter interface {
-	GetByID(ctx context.Context, id string) (*agentstore.Agent, error)
-}
-
 var (
 	ErrScheduleNotFound     = fail.NotFound("schedule not found")
 	ErrBadCron              = fail.InvalidArgument("unreadable cron expression")
@@ -53,15 +31,15 @@ var (
 )
 
 type NewScheduleServiceParams struct {
-	Schedules scheduleReadWriter
-	Workflows workflowReader
-	Agents    agentGetter
+	Schedules *schedulestore.ScheduleStore
+	Workflows *workflowstore.WorkflowStore
+	Agents    *agentstore.AgentStore
 }
 
 type ScheduleService struct {
-	store     scheduleReadWriter
-	workflows workflowReader
-	agents    agentGetter
+	store     *schedulestore.ScheduleStore
+	workflows *workflowstore.WorkflowStore
+	agents    *agentstore.AgentStore
 }
 
 // NewScheduleService builds the service from its dependencies.
