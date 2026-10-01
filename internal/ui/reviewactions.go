@@ -330,7 +330,7 @@ func (r *reviewScreen) filesActions() screenActionSpec {
 				keys: func(k config.Keybindings) []string { return k.Review.Back },
 				when: standing,
 				nav: func(navHost, panelShared, string) tea.Cmd {
-					r.clearFilesFilter()
+					r.filesFilter.abandon()
 
 					return nil
 				},
