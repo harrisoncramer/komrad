@@ -139,7 +139,7 @@ func (a *agentsScreen) openAgent(m *model) tea.Cmd {
 	return a.resume(m, item.Agent)
 }
 
-// resume wakes a dormant agent in the background, leaving the cursor and the keys where they are.
+// resume wakes a dormant agent in the background.
 func (a *agentsScreen) resume(m *model, agent panel.Agent) tea.Cmd {
 	cmd := m.queuedCmd(
 		"resuming "+agent.Name,
