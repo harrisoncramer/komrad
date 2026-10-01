@@ -40,7 +40,7 @@ type Checkout struct {
 }
 
 type prediction struct {
-	at        string
+	key       string
 	landed    int
 	unlanded  int
 	unrelated bool
@@ -159,7 +159,7 @@ func (r *CheckoutReader) readCheckout(ctx context.Context, checkout *Checkout, p
 		return err
 	}
 
-	predicted, err := r.predict(ctx, params, ref)
+	predicted, err := r.predictRebase(ctx, params, ref)
 	if err != nil {
 		return err
 	}
@@ -168,16 +168,16 @@ func (r *CheckoutReader) readCheckout(ctx context.Context, checkout *Checkout, p
 	return nil
 }
 
-func (r *CheckoutReader) predict(ctx context.Context, params readParams, ref string) (prediction, error) {
-	at := r.stampPrediction(ctx, params)
+func (r *CheckoutReader) predictRebase(ctx context.Context, params readParams, ref string) (prediction, error) {
+	key := r.readPredictionKey(ctx, params)
 	r.predictedMu.Lock()
 	last, ok := r.predicted[params.Dir]
 	r.predictedMu.Unlock()
-	if at != "" && ok && last.at == at {
+	if key != "" && ok && last.key == key {
 		return last, nil
 	}
 
-	predicted := prediction{at: at}
+	predicted := prediction{key: key}
 	rebase, err := r.git.PredictRebase(ctx, params.Dir, ref)
 	switch {
 	case errors.Is(err, git.ErrBaseUnrelated):
@@ -188,7 +188,7 @@ func (r *CheckoutReader) predict(ctx context.Context, params readParams, ref str
 		predicted.landed, predicted.unlanded = rebase.Landed, rebase.Replay
 	}
 
-	if at != "" {
+	if key != "" {
 		r.predictedMu.Lock()
 		r.predicted[params.Dir] = predicted
 		r.predictedMu.Unlock()
@@ -197,7 +197,7 @@ func (r *CheckoutReader) predict(ctx context.Context, params readParams, ref str
 	return predicted, nil
 }
 
-func (r *CheckoutReader) stampPrediction(ctx context.Context, params readParams) string {
+func (r *CheckoutReader) readPredictionKey(ctx context.Context, params readParams) string {
 	if params.HeadSHA == "" {
 		return ""
 	}
