@@ -1,155 +1,100 @@
 package ui_test
 
 import (
-	"os"
 	"testing"
 
 	"komrad/lib/xptr"
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
-	watchv1 "komrad/proto/gen/watch/v1"
 
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-const documentTypesScreen = "the document types"
-
-// TestDocumentTypesOpen covers the types opening from the panel's band of the menu on any screen.
-func TestDocumentTypesOpen(t *testing.T) {
+// TestDocumentTypesList covers the types listed from the panel's band of the menu, each drawn
+// with its context and the menu key opening the ways to act on it in the context's place.
+func TestDocumentTypesList(t *testing.T) {
 	t.Parallel()
 
-	t.Run("the menu opens them on the first type with its context", func(t *testing.T) {
-		t.Parallel()
+	tests := []struct {
+		name    string
+		presses []string
+		want    []string
+		wantNot []string
+	}{
+		{
+			name: "the list draws every type and the context of the one under the cursor",
+			want: []string{"explainer", "notes", "report", "RFC", "How to write an explainer."},
+		},
+		{
+			name:    "moving down draws the next type's context",
+			presses: []string{"down"},
+			want:    []string{"How to write a notes."},
+			wantNot: []string{"How to write an explainer."},
+		},
+		{
+			name:    "the menu key draws the actions in the context's place",
+			presses: []string{"space"},
+			want:    []string{"edit", "new type", "delete"},
+			wantNot: []string{"How to write an explainer."},
+		},
+		{
+			name:    "back from the actions draws the context again",
+			presses: []string{"space", "esc"},
+			want:    []string{"How to write an explainer."},
+			wantNot: []string{"new type"},
+		},
+		{
+			name:    "the edit form takes the actions' place",
+			presses: []string{"space", "e"},
+			want:    []string{"Edit document type", "explainer"},
+			wantNot: []string{"new type"},
+		},
+		{
+			name:    "back from a form draws the actions again",
+			presses: []string{"space", "e", "esc"},
+			want:    []string{"new type"},
+			wantNot: []string{"Edit document type"},
+		},
+	}
 
-		harness := openDocumentTypes(t, "author")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 
-		frame := harness.readFrame()
-		assert.Equal(t, documentTypesScreen, harness.readScreen())
-		assert.Equal(t, []string{"explainer", "notes", "report", "RFC"}, readListRows(frame))
-		assert.Contains(t, readStageText(frame), "How to write an explainer.")
-	})
+			harness := openDocumentTypes(t)
+			harness.press(tt.presses...)
 
-	t.Run("an agent that has written nothing opens them too", func(t *testing.T) {
-		t.Parallel()
+			frame := harness.readFrame()
+			for _, want := range tt.want {
+				assert.Contains(t, frame, want)
+			}
+			for _, wantNot := range tt.wantNot {
+				assert.NotContains(t, frame, wantNot)
+			}
+		})
+	}
 
-		harness := openDocumentTypes(t, "quiet")
-
-		assert.Equal(t, documentTypesScreen, harness.readScreen())
-	})
-
-	t.Run("back returns to the agents list on the agent it opened for", func(t *testing.T) {
-		t.Parallel()
-
-		harness := openDocumentTypes(t, "author")
-		harness.press("esc")
-
-		assert.Equal(t, agentsScreen, harness.readScreen())
-		assert.Contains(t, readHoveredRow(harness.readFrame()), "author")
-	})
-
-	t.Run("a screen with no agent opens them and gets them back", func(t *testing.T) {
+	t.Run("with no types the list says so and the actions only define one", func(t *testing.T) {
 		t.Parallel()
 
 		harness := openSchedules(t, newLiveWorkflow("w1", "api"), newSchedule("s1", "morning-ci"))
-		answerDocumentTypes(harness)
-		harness.watch(buildPuts(newDocumentType("t1", "RFC")))
-		harness.press("space", "T", "l", "ctrl+s", "o")
-		harness.fireTimers()
+		harness.press("space", "T")
+		assert.Contains(t, harness.readFrame(), "no document types")
 
-		assert.Equal(t, documentTypesScreen, harness.readScreen())
+		harness.press("space")
 
-		harness.press("esc")
-
-		assert.Equal(t, schedulesScreen, harness.readScreen())
-	})
-
-	t.Run("back returns to the documents they were opened over, which still go back to their own", func(t *testing.T) {
-		t.Parallel()
-
-		harness, _ := openDocuments(t)
-		answerDocumentTypes(harness)
-		harness.press("space", "T", "l", "ctrl+s", "o")
-		harness.fireTimers()
-		harness.press("esc")
-		harness.fireTimers()
-
-		assert.Equal(t, documentsScreen, harness.readScreen())
-		assert.Contains(t, readStageText(harness.readFrame()), "Design the cache")
-
-		harness.press("esc")
-
-		assert.Equal(t, agentsScreen, harness.readScreen())
-	})
-
-	t.Run("back returns to the search with its query and hits", func(t *testing.T) {
-		t.Parallel()
-
-		harness := openSearch(t, openSearchParams{
-			server: newSearchServer(newTurnHit("a2", "payouts", "ledger")),
-			query:  "ledger",
-			rows:   buildSearchable(),
-		})
-		answerDocumentTypes(harness)
-		harness.watch(buildPuts(newDocumentType("t1", "RFC")))
-		harness.press("enter")
-		hits := readListRows(harness.readFrame())
-		require.NotEmpty(t, hits)
-
-		harness.press("space", "T", "l", "ctrl+s", "o")
-		harness.fireTimers()
-		require.Equal(t, documentTypesScreen, harness.readScreen())
-		harness.press("esc")
-
-		frame := harness.readFrame()
-		assert.Equal(t, searchScreen, harness.readScreen())
-		assert.Equal(t, "/ ledger", readSearch(frame))
-		assert.Equal(t, hits, readListRows(frame))
-	})
-
-	t.Run("back from over a review whose agent has gone lands on the agents list", func(t *testing.T) {
-		t.Parallel()
-
-		harness := openReview(t, newReviewServer(t))
-		answerDocumentTypes(harness)
-		harness.watch(buildPuts(newDocumentType("t1", "RFC")))
-		harness.press("space", "T", "l", "ctrl+s", "o")
-		harness.fireTimers()
-		harness.watch(buildDeleted(watchv1.Resource_RESOURCE_AGENT, "a1"))
-		harness.press("esc")
-
-		assert.Equal(t, agentsScreen, harness.readScreen())
-	})
-
-	t.Run("a type put on the watch is drawn", func(t *testing.T) {
-		t.Parallel()
-
-		harness := openDocumentTypes(t, "author")
-		harness.watch(buildPuts(newDocumentType("t5", "brief")))
-
-		assert.Contains(t, readListRows(harness.readFrame()), "brief")
+		raw := harness.readRawFrame()
+		assert.Regexp(t, readOffEntry("edit", "e"), raw)
+		assert.Regexp(t, readOffEntry("delete", "d"), raw)
+		assert.NotRegexp(t, readOffEntry("new type", "c"), raw)
 	})
 }
 
-// TestDocumentTypesNewFromTheMenu covers defining a type without opening the types.
-func TestDocumentTypesNewFromTheMenu(t *testing.T) {
-	t.Parallel()
-
-	harness := openAgents(t, buildDocumentAuthors()...)
-	answerDocumentTypes(harness)
-	moveToAgentRow(t, harness, "quiet")
-	harness.press("space", "T", "c", "b", "r", "i", "e", "f", "tab", "S", "h", "o", "r", "t", "ctrl+s")
-
-	assert.Equal(t, agentsScreen, harness.readScreen())
-	harness.assertSentTo(agentv1connect.AgentServiceWriteDocumentTypeProcedure, &agentv1.WriteDocumentTypeRequest{Name: "brief", Context: "Short"})
-}
-
-// TestDocumentTypesFromTheMenuStack covers the type list and the new type form opening to the right
-// of the menus they were picked from.
-func TestDocumentTypesFromTheMenuStack(t *testing.T) {
+// TestDocumentTypesWrite covers defining, editing and deleting a type from the menu on it.
+func TestDocumentTypesWrite(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -159,18 +104,35 @@ func TestDocumentTypesFromTheMenuStack(t *testing.T) {
 		want      proto.Message
 	}{
 		{
-			name:      "a delete declined from the list deletes nothing",
-			presses:   []string{"space", "T", "l", "ctrl+s", "d", "n"},
-			procedure: agentv1connect.AgentServiceDeleteDocumentTypeProcedure,
-		},
-		{
 			name:      "a new type backed out of defines nothing",
-			presses:   []string{"space", "T", "c", "b", "esc", "esc", "esc", "esc"},
+			presses:   []string{"space", "c", "b", "esc", "esc", "esc", "esc"},
 			procedure: agentv1connect.AgentServiceWriteDocumentTypeProcedure,
 		},
 		{
-			name:      "a type deleted from the list is deleted",
-			presses:   []string{"space", "T", "l", "ctrl+s", "d", "y"},
+			name:      "declining the delete deletes nothing",
+			presses:   []string{"space", "d", "n"},
+			procedure: agentv1connect.AgentServiceDeleteDocumentTypeProcedure,
+		},
+		{
+			name:      "a name and a context define a type",
+			presses:   []string{"space", "c", "b", "r", "i", "e", "f", "tab", "S", "h", "o", "r", "t", "ctrl+s"},
+			procedure: agentv1connect.AgentServiceWriteDocumentTypeProcedure,
+			want:      &agentv1.WriteDocumentTypeRequest{Name: "brief", Context: "Short"},
+		},
+		{
+			name:      "an edit writes the name and context over the type's version",
+			presses:   []string{"space", "e", "s", "ctrl+s"},
+			procedure: agentv1connect.AgentServiceWriteDocumentTypeProcedure,
+			want: &agentv1.WriteDocumentTypeRequest{
+				Id:      xptr.Ptr("t3"),
+				Version: xptr.Ptr[int32](2),
+				Name:    "explainers",
+				Context: "How to write an explainer.",
+			},
+		},
+		{
+			name:      "confirming the delete deletes the type",
+			presses:   []string{"space", "d", "y"},
 			procedure: agentv1connect.AgentServiceDeleteDocumentTypeProcedure,
 			want:      &agentv1.DeleteDocumentTypeRequest{Id: "t3"},
 		},
@@ -180,13 +142,12 @@ func TestDocumentTypesFromTheMenuStack(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			harness := openAgents(t, buildDocumentAuthors()...)
-			answerDocumentTypes(harness)
-			moveToAgentRow(t, harness, "author")
+			harness := openDocumentTypes(t)
 			harness.press(tt.presses...)
 			harness.fireTimers()
 
 			assert.Equal(t, agentsScreen, harness.readScreen())
+			assert.NotContains(t, harness.readFrame(), "document type", "the form is down")
 			if tt.want == nil {
 				assert.Empty(t, harness.readSent(tt.procedure))
 
@@ -195,37 +156,6 @@ func TestDocumentTypesFromTheMenuStack(t *testing.T) {
 			harness.assertSentTo(tt.procedure, tt.want)
 		})
 	}
-
-	t.Run("the list draws every type beside the menus it opened from", func(t *testing.T) {
-		t.Parallel()
-
-		harness := openAgents(t, buildDocumentAuthors()...)
-		answerDocumentTypes(harness)
-		harness.press("space", "T", "l")
-
-		frame := harness.readFrame()
-		for _, name := range []string{"list types", "explainer", "notes", "report", "RFC"} {
-			assert.Contains(t, frame, name)
-		}
-	})
-
-	t.Run("the new type form draws beside the menus and back returns to them", func(t *testing.T) {
-		t.Parallel()
-
-		harness := openAgents(t, buildDocumentAuthors()...)
-		answerDocumentTypes(harness)
-		harness.press("space", "T", "c")
-
-		frame := harness.readFrame()
-		assert.Contains(t, frame, "New document type")
-		assert.Contains(t, frame, "list types")
-
-		harness.press("esc")
-
-		frame = harness.readFrame()
-		assert.NotContains(t, frame, "New document type")
-		assert.Contains(t, frame, "list types")
-	})
 }
 
 // TestDocumentTypesRefused covers a type the form cannot define.
@@ -253,7 +183,7 @@ func TestDocumentTypesRefused(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			harness := openDocumentTypes(t, "author")
+			harness := openDocumentTypes(t)
 			harness.press(tt.presses...)
 			harness.fireTimers()
 
@@ -269,168 +199,13 @@ func TestDocumentTypesRefused(t *testing.T) {
 	}
 }
 
-// TestDocumentTypesWrite covers defining, renaming and deleting a type from the screen.
-func TestDocumentTypesWrite(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name      string
-		presses   []string
-		procedure string
-		want      proto.Message
-	}{
-		{
-			name:      "a name and a context define a type",
-			presses:   []string{"space", "c", "b", "r", "i", "e", "f", "tab", "S", "h", "o", "r", "t", "ctrl+s"},
-			procedure: agentv1connect.AgentServiceWriteDocumentTypeProcedure,
-			want:      &agentv1.WriteDocumentTypeRequest{Name: "brief", Context: "Short"},
-		},
-		{
-			name:      "a new name renames the type, keeping its context",
-			presses:   []string{"space", "r", "s", "ctrl+s"},
-			procedure: agentv1connect.AgentServiceWriteDocumentTypeProcedure,
-			want: &agentv1.WriteDocumentTypeRequest{
-				Id:      xptr.Ptr("t3"),
-				Version: xptr.Ptr[int32](2),
-				Name:    "explainers",
-				Context: "How to write an explainer.",
-			},
-		},
-		{
-			name:      "enter saves the name typed over the type",
-			presses:   []string{"space", "r", "s", "enter"},
-			procedure: agentv1connect.AgentServiceWriteDocumentTypeProcedure,
-			want: &agentv1.WriteDocumentTypeRequest{
-				Id:      xptr.Ptr("t3"),
-				Version: xptr.Ptr[int32](2),
-				Name:    "explainers",
-				Context: "How to write an explainer.",
-			},
-		},
-		{
-			name:      "the same name renames nothing",
-			presses:   []string{"space", "r", "ctrl+s"},
-			procedure: agentv1connect.AgentServiceWriteDocumentTypeProcedure,
-		},
-		{
-			name:      "confirming the delete deletes the type",
-			presses:   []string{"space", "d", "y"},
-			procedure: agentv1connect.AgentServiceDeleteDocumentTypeProcedure,
-			want:      &agentv1.DeleteDocumentTypeRequest{Id: "t3"},
-		},
-		{
-			name:      "declining the delete deletes nothing",
-			presses:   []string{"space", "d", "n"},
-			procedure: agentv1connect.AgentServiceDeleteDocumentTypeProcedure,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			harness := openDocumentTypes(t, "author")
-			harness.press(tt.presses...)
-			harness.fireTimers()
-			assert.NotContains(t, harness.readFrame(), "New document type", "the form is down")
-			assert.NotContains(t, harness.readFrame(), "Rename", "the form is down")
-
-			assert.Equal(t, documentTypesScreen, harness.readScreen())
-			if tt.want == nil {
-				assert.Empty(t, harness.readSent(tt.procedure))
-
-				return
-			}
-			harness.assertSentTo(tt.procedure, tt.want)
-		})
-	}
-}
-
-// TestDocumentTypesEdit covers a type's context opened in your editor and saved when it closes.
-func TestDocumentTypesEdit(t *testing.T) {
-	t.Parallel()
-
-	harness := openDocumentTypes(t, "author")
-	harness.press("space", "e")
-
-	respawns := harness.panel.ReadRespawns()
-	require.NotEmpty(t, respawns)
-	path := readEditedPath(t, respawns[len(respawns)-1])
-	require.NoError(t, os.WriteFile(path, []byte("Explain it plainly."), 0o600))
-	harness.press("space", "e")
-
-	harness.assertSentTo(agentv1connect.AgentServiceWriteDocumentTypeProcedure, &agentv1.WriteDocumentTypeRequest{
-		Id:      xptr.Ptr("t3"),
-		Version: xptr.Ptr[int32](2),
-		Name:    "explainer",
-		Context: "Explain it plainly.",
-	})
-}
-
-// TestDocumentTypesHistory covers stepping back and forward through a type's writes.
-func TestDocumentTypesHistory(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name    string
-		presses []string
-		want    []string
-		wantNot []string
-	}{
-		{
-			name:    "stepping back draws what the newest write changed",
-			presses: []string{"<"},
-			want:    []string{"version 2 of 2, written", "1      -  How to write one.", "1 +  How to write an explainer."},
-			wantNot: []string{"written by"},
-		},
-		{
-			name:    "a write that renamed the type says what it was named",
-			presses: []string{"<"},
-			want:    []string{`renamed from "explanation"`},
-		},
-		{
-			name:    "stepping back again draws the first write",
-			presses: []string{"<", "<"},
-			want:    []string{"version 1 of 2", "1 +  How to write one."},
-		},
-		{
-			name:    "stepping forward past the newest draws the context as it stands",
-			presses: []string{"<", ">"},
-			want:    []string{"How to write an explainer."},
-			wantNot: []string{"version 2 of 2"},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			harness := openDocumentTypes(t, "author")
-			for _, key := range tt.presses {
-				harness.press(key)
-				harness.fireTimers()
-			}
-
-			stage := readStageText(harness.readFrame())
-			for _, want := range tt.want {
-				assert.Contains(t, stage, want)
-			}
-			for _, wantNot := range tt.wantNot {
-				assert.NotContains(t, stage, wantNot)
-			}
-		})
-	}
-}
-
-// openDocumentTypes opens the document types from the menu over the agent named.
-func openDocumentTypes(t *testing.T, name string) *panelHarness {
+// openDocumentTypes lists the document types from the menu over the agents list.
+func openDocumentTypes(t *testing.T) *panelHarness {
 	t.Helper()
 
 	harness := openAgents(t, buildDocumentAuthors()...)
 	answerDocumentTypes(harness)
-	moveToAgentRow(t, harness, name)
-	harness.press("space", "T", "l", "ctrl+s", "o")
-	harness.fireTimers()
+	harness.press("space", "T")
 
 	return harness
 }
@@ -450,55 +225,12 @@ func newDocumentType(id, name string) *agentv1.DocumentType {
 	}
 }
 
-// answerDocumentTypes answers the writes to the types, and keeps two writes of each, the second of
-// the explainer's renaming it.
+// answerDocumentTypes answers the writes to the types.
 func answerDocumentTypes(harness *panelHarness) {
 	harness.answer(agentv1connect.AgentServiceWriteDocumentTypeProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
 		return connect.NewResponse(&agentv1.WriteDocumentTypeResponse{}), nil
 	})
 	harness.answer(agentv1connect.AgentServiceDeleteDocumentTypeProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
 		return connect.NewResponse(&emptypb.Empty{}), nil
-	})
-	harness.answer(agentv1connect.AgentServiceListDocumentTypeVersionsProcedure, func(req connect.AnyRequest) (connect.AnyResponse, error) {
-		listed, _ := req.Any().(*agentv1.ListDocumentTypeVersionsRequest)
-		name := ""
-		for _, row := range buildDocumentAuthors() {
-			if documentType, ok := row.(*agentv1.DocumentType); ok && documentType.GetId() == listed.GetId() {
-				name = documentType.GetName()
-			}
-		}
-		first := name
-		if name == "explainer" {
-			first = "explanation"
-		}
-
-		return connect.NewResponse(&agentv1.ListDocumentTypeVersionsResponse{Versions: []*agentv1.DocumentTypeVersion{
-			{
-				Version:   2,
-				Name:      name,
-				CreatedAt: "2026-09-25T12:00:00Z",
-			},
-			{
-				Version:   1,
-				Name:      first,
-				CreatedAt: "2026-09-24T12:00:00Z",
-			},
-		}}), nil
-	})
-	harness.answer(agentv1connect.AgentServiceGetDocumentTypeProcedure, func(req connect.AnyRequest) (connect.AnyResponse, error) {
-		read, _ := req.Any().(*agentv1.GetDocumentTypeRequest)
-		for _, row := range buildDocumentAuthors() {
-			documentType, ok := row.(*agentv1.DocumentType)
-			if !ok || documentType.GetName() != read.GetName() {
-				continue
-			}
-			if read.GetVersion() == 1 {
-				documentType.Context, documentType.Version = "How to write one.", 1
-			}
-
-			return connect.NewResponse(&agentv1.GetDocumentTypeResponse{DocumentType: documentType}), nil
-		}
-
-		return nil, connect.NewError(connect.CodeNotFound, nil)
 	})
 }

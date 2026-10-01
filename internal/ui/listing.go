@@ -72,7 +72,6 @@ func (m *model) withListing(change func(*listing)) tea.Cmd {
 	archiveScheduleRow := m.archive.scheduleList().hovered(m.shared())
 	worktreeRow := m.worktrees.list().hovered(m.shared())
 	searchRow := m.search.list().hovered(m.shared())
-	typeRow := m.documentTypes.list().hovered(m.shared())
 
 	before := slices.Clone(m.listing.workflows)
 	beforeTypes := m.listing.documentTypeNames()
@@ -87,7 +86,6 @@ func (m *model) withListing(change func(*listing)) tea.Cmd {
 	m.archive.place(m.shared(), archiveRow)
 	m.archive.placeSchedule(m.shared(), archiveScheduleRow)
 	m.applyWorktrees(m.listing.worktrees, worktreeRow)
-	m.documentTypes.keepCursor(m.shared(), typeRow)
 	m.sizeAgentWindows()
 
 	preview := m.search.place(m.shared(), searchRow)
@@ -414,7 +412,6 @@ func (m model) applyWrite(result writeResult) (tea.Model, tea.Cmd) {
 	if result.renamed != "" {
 		m.agents.settleRename(m.shared(), result.renamed, result.err)
 		m.documents.settleRename(m.shared(), result.renamed, result.err)
-		m.documentTypes.settleRename(m.shared(), result.renamed, result.err)
 		m.archive.settleRename(m.shared(), result.renamed, result.err)
 		m.schedules.settleRename(m.shared(), result.renamed, result.err)
 	}

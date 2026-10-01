@@ -70,7 +70,7 @@ func TestActionKeysGoThroughTheMenu(t *testing.T) {
 		},
 	}
 
-	for _, s := range []screen{screenAgents, screenSchedules, screenArchive, screenReview, screenWorktrees, screenDocuments, screenLogs, screenSearch, screenDocumentTypes} {
+	for _, s := range []screen{screenAgents, screenSchedules, screenArchive, screenReview, screenWorktrees, screenDocuments, screenLogs, screenSearch} {
 		var direct []actionID
 
 		for _, table := range actionsOf(s) {

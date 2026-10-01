@@ -23,6 +23,9 @@ type formState struct {
 	// leading draws what stands to the left of the form within its width and height, nil for nothing.
 	leading func(width, height int) []string
 
+	// trailing draws what stands to the right of the form within its width and height, nil for nothing.
+	trailing func(width, height int) string
+
 	// back is what the back key does, nil for closing the form.
 	back func(model) (tea.Model, tea.Cmd)
 

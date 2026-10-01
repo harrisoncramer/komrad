@@ -387,12 +387,6 @@ func TestDocumentsMenu(t *testing.T) {
 			wantGone: []*regexp.Regexp{regexp.MustCompile(`delete +d`)},
 		},
 		{
-			name:    "a type's band has delete",
-			open:    func(t *testing.T) *panelHarness { return openDocumentTypes(t, "author") },
-			presses: []string{"space"},
-			wantOn:  []*regexp.Regexp{regexp.MustCompile(`explainer`), regexp.MustCompile(`new type +c`), regexp.MustCompile(`delete +d`)},
-		},
-		{
 			name: "an open editor turns edit into closing it and grays the rest",
 			open: func(t *testing.T) *panelHarness {
 				harness, _ := openDocuments(t)

@@ -198,7 +198,7 @@ func (m model) hoveredAgentID() string {
 		return m.agents.hoveredAgentID(m.shared())
 	case screenArchive:
 		return m.archive.hoveredAgentID(m.shared())
-	case screenSchedules, screenSearch, screenReview, screenWorktrees, screenDocuments, screenLogs, screenDocumentTypes:
+	case screenSchedules, screenSearch, screenReview, screenWorktrees, screenDocuments, screenLogs:
 	}
 
 	return ""
