@@ -149,14 +149,26 @@ type screenSpec struct {
 	// hoveredName is the row the view's trail runs on to.
 	hoveredName func(m *model) string
 
-	screenMenu      func(m *model) (submenu, bool)
-	itemMenu        func(m *model) (submenu, bool)
-	docKeys         func() screenActionSpec
+	// screenMenu is the screen's own band between the hovered row's and the panel's.
+	screenMenu func(m *model) (submenu, bool)
+
+	// itemMenu is the hovered row's own band in the menu.
+	itemMenu func(m *model) (submenu, bool)
+
+	// docKeys is the screen's own keys that answer while its document holds the keys.
+	docKeys func() screenActionSpec
+
+	// typedLine is the screen's own one-row field taking the keys, if one is.
+	typedLine func() (lineInput, bool)
+
+	// scrollPopupAt scrolls the screen's popup while the mouse is over it.
+	scrollPopupAt func(m *model, x, y, rows int) bool
+
+	// scrollList is the screen's scroll key where it does not move the list.
+	scrollList func(m *model, rows int) tea.Cmd
+
 	isLoading       func(m *model) bool
-	typedLine       func() (lineInput, bool)
 	isRenaming      func() bool
-	scrollPopupAt   func(m *model, x, y, rows int) bool
-	scrollList      func(m *model, rows int) tea.Cmd
 	stageResting    func(m *model) tea.Cmd
 	reconcileEditor func(m *model) tea.Cmd
 	hoveredAgentID  func(m *model) string
