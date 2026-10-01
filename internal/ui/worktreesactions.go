@@ -303,10 +303,10 @@ func (w *worktreesScreen) itemMenu(s panelShared) (submenu, bool) {
 			return submenu{}, false
 		}
 
-		return withArchive(rowMenu(label.Count(deletion.count(), "worktree", "worktrees")), s, liveArchiveMenu(liveArchive{
+		return withArchive(rowMenu(label.Count(deletion.count(), "worktree", "worktrees")), s, liveArchiveMenu(submenuEntry{
 			label: "delete all",
 			keys:  s.keys.ArchiveMenu.Delete,
-			run: func(m model) (tea.Model, tea.Cmd) {
+			open: func(m model) (tea.Model, tea.Cmd) {
 				m.leaveForm()
 				cmd := confirmDeleteWorktrees(&m, m.shared(), deletion)
 
@@ -325,10 +325,10 @@ func (w *worktreesScreen) itemMenu(s panelShared) (submenu, bool) {
 		keys = s.keys.ArchiveMenu.Archive
 	}
 
-	return withArchive(rowMenu(row.name()), s, liveArchiveMenu(liveArchive{
+	return withArchive(rowMenu(row.name()), s, liveArchiveMenu(submenuEntry{
 		label: row.item.fate.deleteDesc(),
 		keys:  keys,
-		run: func(m model) (tea.Model, tea.Cmd) {
+		open: func(m model) (tea.Model, tea.Cmd) {
 			m.leaveForm()
 			cmd := m.worktrees.deleteHovered(&m, m.shared())
 
