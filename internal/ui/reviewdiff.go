@@ -48,6 +48,7 @@ type reviewDiff struct {
 	// answer is the answer to a comment on screen, nil while the diff is anything else.
 	answer *reviewAnswer
 	origin *reviewOrigin
+	landOn string
 
 	// followedMove is the move the diff last caught up on.
 	followedMove string

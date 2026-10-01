@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"komrad/internal/ui/diffview"
 	agentv1 "komrad/proto/gen/agent/v1"
 
 	tea "charm.land/bubbletea/v2"
@@ -13,8 +14,8 @@ import (
 // errAnswerGone is a load asked for an answer whose rounds the review no longer lists.
 var errAnswerGone = errors.New("the rounds this answer stands between are gone")
 
-// reviewAnswer is the answer to one comment on screen: the change between the round the comment
-// was written on and the round the reply that addressed it carried.
+// reviewAnswer is the answer to one comment on screen: the change the reply that addressed it
+// carried.
 type reviewAnswer struct {
 	ThreadID  string
 	FromRound string
@@ -43,9 +44,12 @@ func (r *reviewScreen) toggleAnswer(s panelShared) tea.Cmd {
 	}
 
 	if r.diff.answer != nil {
+		thread := r.diff.answer.ThreadID
 		r.diff.widen()
+		cmd := r.reload(s)
+		r.diff.landOn = thread
 
-		return r.reload(s)
+		return cmd
 	}
 
 	thread, ok := r.diff.threadAtCursor()
@@ -116,6 +120,23 @@ func findAnswer(thread *agentv1.ReviewThread) int {
 	return -1
 }
 
+func findAnswerBase(rounds []*agentv1.ReviewRound, comment, answer *agentv1.ReviewRound) *agentv1.ReviewRound {
+	base := comment
+	for _, round := range rounds {
+		if round.GetOrdinal() <= base.GetOrdinal() || round.GetOrdinal() >= answer.GetOrdinal() {
+			continue
+		}
+
+		if round.GetSnapshotSha() == answer.GetSnapshotSha() {
+			continue
+		}
+
+		base = round
+	}
+
+	return base
+}
+
 // addressedSaid names the round an addressed reply carried, empty for a round the review no
 // longer lists.
 func (d reviewDiff) addressedSaid(message *agentv1.ReviewMessage) string {
@@ -135,4 +156,19 @@ func findRound(rounds []*agentv1.ReviewRound, id string) *agentv1.ReviewRound {
 	}
 
 	return nil
+}
+
+func (d *reviewDiff) landPlace(view *diffview.View) (diffview.Place, bool) {
+	thread := d.landOn
+	d.landOn = ""
+	if thread == "" {
+		return diffview.Place{}, false
+	}
+
+	y, ok := view.GetThreadRow(thread)
+	if !ok {
+		return diffview.Place{}, false
+	}
+
+	return view.GetPlace(y)
 }

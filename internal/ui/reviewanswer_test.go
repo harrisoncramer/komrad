@@ -27,7 +27,7 @@ func TestReviewAnswer(t *testing.T) {
 		assert.Contains(t, readStageText(harness.readFrame()), "all changes")
 	})
 
-	t.Run("the answer key draws the change between the comment's round and the answer's", func(t *testing.T) {
+	t.Run("the answer key draws the change the answer carried", func(t *testing.T) {
 		server := newEarlierReviewServer(t)
 		server.threads = []*agentv1.ReviewThread{newCommentOnRoundOne(newAnswer())}
 		harness := openReviewAt(t, server, panelHarnessParams{height: 60})
@@ -45,6 +45,56 @@ func TestReviewAnswer(t *testing.T) {
 		frame = readStageText(harness.readFrame())
 		assert.Contains(t, frame, "all changes")
 		assert.Contains(t, frame, "2 files, +4 -1")
+	})
+
+	t.Run("the answer key leaves out what earlier answers changed since the comment's round", func(t *testing.T) {
+		server := newEarlierReviewServer(t)
+		server.rounds = append(server.rounds, &agentv1.ReviewRound{
+			Id:          "round-2",
+			AgentId:     "a1",
+			Ordinal:     2,
+			BaseSha:     gittest.BaseSHA,
+			SnapshotSha: gittest.NameSnapshot(server.repo.Tree),
+		})
+		server.repo.Wrote(gittest.WroteParams{
+			Tree:  "tree-with-a-tall-file",
+			Whole: gittest.PatchOfBothFiles + gittest.PatchOfATallFile,
+			Since: gittest.PatchOfATallFile,
+		})
+		server.repo.Patches[gittest.NamePair(gittest.SnapshotSHA, gittest.NameSnapshot(server.repo.Tree))] =
+			gittest.PatchOfTheSecondFile + gittest.PatchOfATallFile
+		server.rounds = append(server.rounds, &agentv1.ReviewRound{
+			Id:          "round-3",
+			AgentId:     "a1",
+			Ordinal:     3,
+			BaseSha:     gittest.BaseSHA,
+			SnapshotSha: gittest.NameSnapshot(server.repo.Tree),
+		})
+		answer := newAnswer()
+		answer.RoundId = xptr.Ptr("round-3")
+		server.threads = []*agentv1.ReviewThread{newCommentOnRoundOne(answer)}
+		harness := openReviewAt(t, server, panelHarnessParams{height: 60})
+
+		harness.press("t", "a")
+
+		frame := readStageText(harness.readFrame())
+		assert.Contains(t, frame, "the answer to this comment")
+		assert.Contains(t, frame, "tall.go")
+		assert.NotContains(t, frame, "second.go")
+	})
+
+	t.Run("leaving the answer puts the cursor back on the comment", func(t *testing.T) {
+		server := newEarlierReviewServer(t)
+		server.threads = []*agentv1.ReviewThread{newCommentOnRoundOne(newAnswer())}
+		harness := openReviewAt(t, server, panelHarnessParams{height: 60})
+
+		harness.press("t", "a")
+		require.Contains(t, readStageText(harness.readFrame()), "the answer to this comment")
+		harness.press("j", "a")
+
+		frame := harness.readFrame()
+		require.Contains(t, readStageText(frame), "all changes")
+		assert.Contains(t, readPopupProse(frame), "add a second file")
 	})
 
 	t.Run("an answer taken after the screen opened is found among the rounds listed afresh", func(t *testing.T) {

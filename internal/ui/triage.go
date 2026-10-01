@@ -3,16 +3,19 @@ package ui
 import (
 	"cmp"
 	"fmt"
+	"maps"
 	"slices"
 	"time"
 
 	"komrad/internal/ui/panel"
 	"komrad/internal/view"
 	"komrad/lib/xslice"
+	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 )
 
 const (
 	triageMoreKey    = "triage:more"
+	triagePadKey     = "triage:pad:"
 	triageDividerKey = "triage:divider"
 )
 
@@ -118,7 +121,7 @@ var triageRules = []triageRule{
 
 // triageZone is the agents waiting on a person, drawn ahead of the tree while it has room for any.
 type triageZone struct {
-	// capacity is how many families the zone draws, each head with its children under it, and zero turns it off.
+	// capacity is how many rows the zone draws, and zero turns it off.
 	capacity int
 	// entries are the agents in triage by id.
 	entries map[string]triageEntry
@@ -259,13 +262,45 @@ func (z *triageZone) toggleSnooze(item panel.AgentRow, agents []panel.AgentRow) 
 
 	if z.isSnoozed(family.head.Agent.ID) {
 		delete(z.snoozed, family.head.Agent.ID)
-
-		return true
+	} else {
+		z.snooze(family)
 	}
 
-	z.snooze(family)
+	z.refreeze(family, agents)
 
 	return true
+}
+
+// refreeze moves a family just snoozed or woken to its place in the frozen zone.
+func (z *triageZone) refreeze(family triageFamily, agents []panel.AgentRow) {
+	headID := family.head.Agent.ID
+	if !slices.Contains(z.frozen, headID) {
+		return
+	}
+
+	families := z.familiesByHead(agents)
+	others := xslice.Filter(z.frozen, func(id string) bool { return id != headID })
+	place := findInsertIndex(others, func(id string) bool {
+		other, ok := families[id]
+
+		return ok && z.compareFamilies(family, other) < 0
+	})
+	frozen := slices.Insert(others, place, headID)
+
+	waiting := xslice.Filter(slices.Collect(maps.Values(families)), func(f triageFamily) bool {
+		return !z.isSnoozed(f.head.Agent.ID) && !slices.Contains(frozen, f.head.Agent.ID)
+	})
+	slices.SortFunc(waiting, z.compareFamilies)
+	z.frozen = slices.Insert(frozen, findInsertIndex(frozen, z.isSnoozed), xslice.Map(waiting, func(f triageFamily) string { return f.head.Agent.ID })...)
+}
+
+// findInsertIndex is the index of the first id that goes after the one being inserted, or the end.
+func findInsertIndex(ids []string, before func(string) bool) int {
+	if at := slices.IndexFunc(ids, before); at >= 0 {
+		return at
+	}
+
+	return len(ids)
 }
 
 // seeFinished snoozes the agent's family when it waits only to be looked at.
@@ -365,9 +400,48 @@ func (r triageRule) startedAt(item panel.AgentRow, now time.Time) time.Time {
 	return now
 }
 
-// isAgentOnIt reports whether the agent is working, or holds mail that will set it working.
+// isAgentOnIt reports whether the agent is working, or is owed something that will set it working.
 func isAgentOnIt(item panel.AgentRow) bool {
-	return displayState(item) == panel.StateThinking || (item.Alive && item.UnreadMail)
+	//nolint:godox,fussy // follow-ups kept beside the rule they would change
+	// TODO(@harrisoncramer): A check that never finishes, like a required check that never
+	// reports, keeps the agent out of triage until something else on its pull request changes.
+	//
+	// TODO(@harrisoncramer): An agent that keeps failing its checks is mailed, pushes and waits
+	// again each time, so a person never sees it however many rounds it burns.
+	//
+	// TODO(@harrisoncramer): Mail the agent never reads keeps it out of triage for as long as it
+	// sits there unread.
+	if displayState(item) == panel.StateThinking {
+		return true
+	}
+
+	return item.Alive && (item.UnreadMail || isAwaitingChecks(item.PullRequest))
+}
+
+// isAwaitingChecks reports whether an open pull request has checks still running on its head.
+func isAwaitingChecks(pullRequest panel.PullRequestStanding) bool {
+	return pullRequest.Checks == pullrequestv1.Checks_CHECKS_PENDING && isPullRequestOpen(pullRequest.State)
+}
+
+func isPullRequestOpen(state pullrequestv1.PullRequestState) bool {
+	switch state {
+	case pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN,
+		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED,
+		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED_WAITING,
+		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHANGES_REQUESTED,
+		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_DRAFT,
+		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_FAILING,
+		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CONFLICTING,
+		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHECKS_RUNNING:
+		return true
+	case pullrequestv1.PullRequestState_PULL_REQUEST_STATE_UNSPECIFIED,
+		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_UNREAD,
+		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE,
+		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_MERGED,
+		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CLOSED:
+	}
+
+	return false
 }
 
 // isFinishedImplementer reports whether a top-level implementer has finished its turn with nothing
@@ -414,17 +488,29 @@ func splitTriage(z triageZone, s panelShared, showHidden bool) (zone []agentRow,
 	families := xslice.Filter(findTriageFamilies(z.entries, s.listing.agents), func(f triageFamily) bool {
 		return !f.head.Agent.Hidden || showHidden
 	})
-	slotted := z.slotFamilies(families)
+	ordered := z.orderFamilies(families)
 	inZone := make(map[string]bool)
 	workflows := xslice.KeyBy(s.listing.workflows, func(w panel.Workflow) string { return w.ID })
-	for _, family := range slotted {
+	room := z.capacity
+	slotted := 0
+	for _, family := range ordered {
 		head := family.head
-		snoozed := z.isSnoozed(head.Agent.ID)
-		inZone[head.Agent.ID] = true
-		for _, child := range children[head.Agent.ID] {
-			inZone[child.Agent.ID] = true
+		rows := buildFamilyRows(head, children[head.Agent.ID], showHidden)
+		if room == 0 || (slotted > 0 && len(rows) > room) {
+			break
 		}
-		for _, row := range buildFamilyRows(head, children[head.Agent.ID], showHidden) {
+
+		slotted++
+		rows = rows[:min(len(rows), room)]
+		room -= len(rows)
+		snoozed := z.isSnoozed(head.Agent.ID)
+		for _, child := range children[head.Agent.ID] {
+			if child.Agent.Hidden && !showHidden {
+				inZone[child.Agent.ID] = true
+			}
+		}
+		for _, row := range rows {
+			inZone[row.item.Agent.ID] = true
 			row.workflow = workflows[row.item.Agent.WorkflowID]
 			row.snoozed = snoozed
 			zone = append(zone, row)
@@ -433,36 +519,40 @@ func splitTriage(z triageZone, s panelShared, showHidden bool) (zone []agentRow,
 
 	rest = xslice.Filter(s.listing.agents, func(item panel.AgentRow) bool { return !inZone[item.Agent.ID] })
 
-	return zone, len(families) - len(slotted), rest
+	return zone, len(families) - slotted, rest
 }
 
-// slotFamilies is the families the zone draws, in the order it was frozen in while it is frozen.
-func (z triageZone) slotFamilies(families []triageFamily) []triageFamily {
+// orderFamilies is the families in the order the zone draws them, the order it was frozen in while
+// it is frozen.
+func (z triageZone) orderFamilies(families []triageFamily) []triageFamily {
 	if z.frozen != nil {
 		rank := make(map[string]int, len(z.frozen))
 		for i, headID := range z.frozen {
 			rank[headID] = i
 		}
 
-		slotted := xslice.Filter(families, func(f triageFamily) bool {
-			_, kept := rank[f.head.Agent.ID]
+		kept := xslice.Filter(families, func(f triageFamily) bool {
+			_, ok := rank[f.head.Agent.ID]
 
-			return kept
+			return ok
 		})
-		slices.SortFunc(slotted, func(a, b triageFamily) int { return cmp.Compare(rank[a.head.Agent.ID], rank[b.head.Agent.ID]) })
+		slices.SortFunc(kept, func(a, b triageFamily) int { return cmp.Compare(rank[a.head.Agent.ID], rank[b.head.Agent.ID]) })
 
-		return slotted
+		return kept
 	}
 
-	slices.SortFunc(families, func(a, b triageFamily) int {
-		return cmp.Or(
-			compareBools(z.isSnoozed(a.head.Agent.ID), z.isSnoozed(b.head.Agent.ID)),
-			compareUrgency(a.entry, b.entry),
-			cmp.Compare(a.head.Agent.ID, b.head.Agent.ID),
-		)
-	})
+	slices.SortFunc(families, z.compareFamilies)
 
-	return families[:min(z.capacity, len(families))]
+	return families
+}
+
+// compareFamilies orders two families in triage as the zone draws them, the snoozed last.
+func (z triageZone) compareFamilies(a, b triageFamily) int {
+	return cmp.Or(
+		compareBools(z.isSnoozed(a.head.Agent.ID), z.isSnoozed(b.head.Agent.ID)),
+		compareUrgency(a.entry, b.entry),
+		cmp.Compare(a.head.Agent.ID, b.head.Agent.ID),
+	)
 }
 
 // compareBools orders false ahead of true.
@@ -549,6 +639,22 @@ func (a *agentsScreen) findZoneSlot(s panelShared) int {
 	return slot
 }
 
+// moveToAwake puts the cursor on the first family awake from the zone's slot down, or from its top.
+func (a *agentsScreen) moveToAwake(h navHost, s panelShared, slot int) {
+	zone := a.layout(s).zone
+	heads := zoneHeads(zone)
+	slot = min(slot, len(heads))
+	rotated := slices.Concat(heads[slot:], heads[:slot])
+	at := slices.IndexFunc(rotated, func(i int) bool { return !zone[i].snoozed })
+	if at < 0 {
+		h.note(messageInfo, "nothing left to triage")
+
+		return
+	}
+
+	a.cursor = rotated[at]
+}
+
 // landInTriage moves the cursor off a zone row that has left the list onto the family now in its
 // slot, or into the tree once the zone is empty.
 func (a *agentsScreen) landInTriage(s panelShared, selected string, slot int) {
@@ -581,14 +687,17 @@ func (a *agentsScreen) jumpToTriage(h navHost, s panelShared) {
 
 // triageSnapshot is the zone as the agents list draws it.
 type triageSnapshot struct {
+	// height is how many rows of agents the zone draws, zero when it is off.
+	height  int
 	zone    []agentRow
 	waiting int
 }
 
-// triageRows are the lines the zone draws ahead of the tree, none while it is empty.
+// triageRows are the lines the zone draws ahead of the tree, the same number whether it is full or
+// empty.
 func triageRows(params snapshotParams) []view.Row {
 	queue := params.triage
-	if len(queue.zone) == 0 {
+	if queue.height == 0 {
 		return nil
 	}
 
@@ -605,15 +714,33 @@ func triageRows(params snapshotParams) []view.Row {
 		rows = append(rows, row)
 	}
 
-	if queue.waiting > 0 {
-		rows = append(rows, view.Row{
-			Key:     triageMoreKey,
-			Kind:    view.KindTriageMore,
-			Name:    fmt.Sprintf("+%d more waiting for a slot", queue.waiting),
-			Process: view.ProcessNone,
-			Faded:   true,
-		})
+	for i := len(rows); i < queue.height; i++ {
+		name := ""
+		if i == 0 {
+			name = "nothing to triage"
+		}
+
+		rows = append(rows, newTriageNote(fmt.Sprintf("%s%d", triagePadKey, i), name))
 	}
 
-	return append(rows, view.Row{Key: triageDividerKey, Kind: view.KindDivider})
+	status := ""
+	if queue.waiting > 0 {
+		status = fmt.Sprintf("+%d more waiting for a slot", queue.waiting)
+	}
+
+	return append(rows,
+		newTriageNote(triageMoreKey, status),
+		view.Row{Key: triageDividerKey, Kind: view.KindDivider},
+	)
+}
+
+// newTriageNote is a faded line of the zone that names no agent.
+func newTriageNote(key, name string) view.Row {
+	return view.Row{
+		Key:     key,
+		Kind:    view.KindTriageMore,
+		Name:    name,
+		Process: view.ProcessNone,
+		Faded:   true,
+	}
 }

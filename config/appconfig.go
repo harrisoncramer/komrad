@@ -508,9 +508,9 @@ type ReviewKeys struct {
 	// Accept the comment from the forge under the cursor into your review, as a thread of your
 	// own the agent reads with the rest of it, or bring in what changed on the forge since you did.
 	Accept []string `mapstructure:"accept" default:"A"`
-	// Show the change that answered the comment under the cursor, from the work the
-	// comment was written on to the work the agent's addressed reply carried, or go back
-	// to all changes from there.
+	// Show only the change that answered the comment under the cursor, from the work as
+	// it stood just before the agent's addressed reply to the work that reply carried, or
+	// go back to all changes from there.
 	Answer []string `mapstructure:"answer" default:"a"`
 	// Leave the review for the agents list.
 	Back []string `mapstructure:"back" default:"esc"`
@@ -706,7 +706,7 @@ type Layout struct {
 	InfoHeight float64 `mapstructure:"info_height"`
 	// How many lines the details under the list draw, either a share of the sidebar's height below one or a whole number of lines. The marks the hovered row is carrying are spelled out in that same room, ahead of the fields. The chrome around them is added on top, and the two together never take more than half the sidebar's height. Once the details hold the keys they grow past this to show the whole record, as far as the sidebar allows.
 	DetailsHeight float64 `mapstructure:"details_height"`
-	// How many families the triage zone at the top of the agents list holds, the agents most in need of you, the most urgent first. An agent comes with its parent and its children, so the zone can draw more rows than this. Zero turns the zone off.
+	// How many rows of agents the triage zone at the top of the agents list draws, the agents most in need of you, the most urgent first. An agent comes with its parent and its children, and the zone keeps this height whether it is full or empty. Zero turns the zone off.
 	TriageRows int `mapstructure:"triage_rows"`
 }
 
