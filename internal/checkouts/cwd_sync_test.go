@@ -725,7 +725,6 @@ func (f *syncFixture) openRound(t *testing.T, agentID, snapshot string) *reviews
 	return round
 }
 
-// newSyncer builds a syncer over the real stores, filling in whatever params leaves out.
 type newSyncerParams struct {
 	Heads        headReader
 	Trees        *gittest.Trees
@@ -733,6 +732,7 @@ type newSyncerParams struct {
 	PullRequests pullRequestObserver
 }
 
+// newSyncer builds a syncer over the real stores, filling in whatever params leaves out.
 func (f *syncFixture) newSyncer(params newSyncerParams) *CwdSyncer {
 	if params.Heads == nil {
 		params.Heads = &gittest.Heads{States: map[string]git.HeadState{}}
