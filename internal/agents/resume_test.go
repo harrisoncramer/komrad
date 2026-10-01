@@ -146,7 +146,7 @@ func TestAnInterruptedTurnIsAskedForAgain(t *testing.T) {
 		require.NoError(t, st.Agents.SetSessionID(t.Context(), agent.ID, sessionID))
 		service, fakeHarness := newManagerWithHarness(tmux, st, "")
 
-		require.NoError(t, service.lifecycle.ArchiveAgents(t.Context(), []string{agent.ID}))
+		require.NoError(t, service.lifecycle.ArchiveAgents(t.Context(), ArchiveAgentsParams{IDs: []string{agent.ID}}))
 		archived := agentByID(t, st, agent.ID)
 		assert.Equal(t, agentstore.StateIdle, archived.State, "no reconcile pass visits an archived row, so the archive settles it")
 		require.NotNil(t, archived.InterruptedAt)
@@ -420,7 +420,7 @@ func TestAnArchiveBeforeTheMarkStopsTheResume(t *testing.T) {
 	var once sync.Once
 	tmux.BeforeGetOwner = func() {
 		once.Do(func() {
-			require.NoError(t, manager.lifecycle.ArchiveAgents(ctx, []string{agent.ID}))
+			require.NoError(t, manager.lifecycle.ArchiveAgents(ctx, ArchiveAgentsParams{IDs: []string{agent.ID}}))
 		})
 	}
 
@@ -466,7 +466,7 @@ func TestAnArchiveAfterTheMarkStopsTheResume(t *testing.T) {
 	<-lifecycle.entered
 
 	require.Equal(t, agentstore.StateSettingUp, agentByID(t, st, agent.ID).State)
-	require.NoError(t, manager.lifecycle.ArchiveAgents(ctx, []string{agent.ID}))
+	require.NoError(t, manager.lifecycle.ArchiveAgents(ctx, ArchiveAgentsParams{IDs: []string{agent.ID}}))
 
 	close(lifecycle.release)
 	select {

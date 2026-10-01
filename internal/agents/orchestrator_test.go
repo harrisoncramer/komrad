@@ -143,7 +143,7 @@ func TestStartOrchestratorReturnsTheOneTheWorkflowHas(t *testing.T) {
 			st.SeedTranscript(t, first.ID, "why this workflow was split three ways")
 
 			if tt.archive {
-				require.NoError(t, manager.lifecycle.ArchiveAgents(ctx, []string{first.ID}))
+				require.NoError(t, manager.lifecycle.ArchiveAgents(ctx, ArchiveAgentsParams{IDs: []string{first.ID}}))
 			}
 
 			second, err := manager.orchestrator.Start(ctx, workflow, "")

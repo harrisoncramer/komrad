@@ -560,7 +560,7 @@ func archiveCalls() []archiveCall {
 
 				manager := st.agentServiceWithLifecycle(tmuxtest.NewFake(), harnesstest.Registry{Harness: &harnesstest.Fake{}}, lifecycle)
 
-				return manager.lifecycle.ArchiveAgents(t.Context(), agentstore.IDs(agents))
+				return manager.lifecycle.ArchiveAgents(t.Context(), ArchiveAgentsParams{IDs: agentstore.IDs(agents)})
 			},
 		},
 		{
@@ -825,13 +825,13 @@ func TestArchivingAnArchivedAgentRunsNoHooks(t *testing.T) {
 		{Event: workflowstore.HookPostArchive, Script: "give-back-the-slot"},
 	}, "auth")
 
-	require.NoError(t, manager.lifecycle.ArchiveAgents(ctx, agentstore.IDs(agents)))
+	require.NoError(t, manager.lifecycle.ArchiveAgents(ctx, ArchiveAgentsParams{IDs: agentstore.IDs(agents)}))
 	require.Eventually(t, func() bool {
 		return len(lifecycle.ranHooks()) == 2
 	}, 5*time.Second, 10*time.Millisecond)
 
 	require.NoError(t, os.RemoveAll(agents[0].Cwd))
-	require.NoError(t, manager.lifecycle.ArchiveAgents(ctx, agentstore.IDs(agents)))
+	require.NoError(t, manager.lifecycle.ArchiveAgents(ctx, ArchiveAgentsParams{IDs: agentstore.IDs(agents)}))
 	require.Never(t, func() bool {
 		return len(lifecycle.ranHooks()) > 2
 	}, 300*time.Millisecond, 20*time.Millisecond)

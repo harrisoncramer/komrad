@@ -98,6 +98,16 @@ func TestWrite(t *testing.T) {
 			wantErr: documents.ErrNotUTF8,
 		},
 		{
+			name:    "an agent naming another agent it writes for is refused",
+			params:  documents.WriteDocumentParams{Name: "elsewhere", Body: "# Elsewhere", For: uuid.NewString()},
+			wantErr: documents.ErrWritingForAnother,
+		},
+		{
+			name:     "an agent naming itself writes its own",
+			params:   documents.WriteDocumentParams{Name: "own", Body: "# Own", For: author.ID},
+			wantBody: "# Own",
+		},
+		{
 			name:    "neither a body nor a path is refused",
 			params:  documents.WriteDocumentParams{Name: "empty"},
 			wantErr: documents.ErrNoBody,

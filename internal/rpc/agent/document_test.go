@@ -41,7 +41,7 @@ type fakeDocuments struct {
 	typeVersions []documenttypestore.Version
 	readTypes    []*int32
 	writtenTypes []documents.WriteDocumentTypeParams
-	deletedTypes []string
+	deletedTypes []documents.DeleteDocumentTypeParams
 }
 
 type fakeDocumentsList struct {
@@ -134,8 +134,8 @@ func (f *fakeDocuments) WriteDocumentType(_ context.Context, params documents.Wr
 }
 
 // DeleteDocumentType records the delete unless err refuses it.
-func (f *fakeDocuments) DeleteDocumentType(_ context.Context, id string) error {
-	f.deletedTypes = append(f.deletedTypes, id)
+func (f *fakeDocuments) DeleteDocumentType(_ context.Context, params documents.DeleteDocumentTypeParams) error {
+	f.deletedTypes = append(f.deletedTypes, params)
 
 	return f.err
 }
@@ -151,16 +151,6 @@ func TestDocumentErrors(t *testing.T) {
 			Name:   "Documents",
 			Type:   "RFC",
 			Source: &agentv1.WriteDocumentRequest_Body{Body: "# Documents"},
-		}))
-
-		return err
-	}
-	writeForAnother := func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
-		_, err := svc.WriteDocument(ctx, connect.NewRequest(&agentv1.WriteDocumentRequest{
-			AgentId: xptr.Ptr(betaID),
-			Name:    "Documents",
-			Type:    "RFC",
-			Source:  &agentv1.WriteDocumentRequest_Body{Body: "# Documents"},
 		}))
 
 		return err
@@ -221,7 +211,8 @@ func TestDocumentErrors(t *testing.T) {
 		},
 		{
 			name:     "an agent writing a document for another agent",
-			call:     writeForAnother,
+			call:     write,
+			err:      documents.ErrWritingForAnother,
 			wantCode: connect.CodeInvalidArgument,
 		},
 		{
@@ -299,11 +290,13 @@ func TestDocumentErrors(t *testing.T) {
 		{
 			name:     "an agent writing a type",
 			call:     writeType,
+			err:      documents.ErrDocumentTypeByAgent,
 			wantCode: connect.CodePermissionDenied,
 		},
 		{
 			name:     "an agent deleting a type",
 			call:     deleteType,
+			err:      documents.ErrDocumentTypeByAgent,
 			wantCode: connect.CodePermissionDenied,
 		},
 		{
@@ -652,6 +645,7 @@ func TestWriteDocumentType(t *testing.T) {
 	tests := []struct {
 		name string
 		req  *agentv1.WriteDocumentTypeRequest
+		from string
 		want documents.WriteDocumentTypeParams
 	}{
 		{
@@ -674,6 +668,16 @@ func TestWriteDocumentType(t *testing.T) {
 				Context: "What broke and why.",
 			},
 		},
+		{
+			name: "an agent's write says who asked",
+			req:  &agentv1.WriteDocumentTypeRequest{Name: "postmortem", Context: "What broke and why."},
+			from: alphaID,
+			want: documents.WriteDocumentTypeParams{
+				Name:      "postmortem",
+				Context:   "What broke and why.",
+				ByAgentID: alphaID,
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -681,7 +685,12 @@ func TestWriteDocumentType(t *testing.T) {
 			docs := &fakeDocuments{}
 			svc := newDocumentHandler(docs)
 
-			written, err := svc.WriteDocumentType(t.Context(), connect.NewRequest(tt.req))
+			ctx := t.Context()
+			if tt.from != "" {
+				ctx = caller.With(ctx, caller.Caller{AgentID: tt.from})
+			}
+
+			written, err := svc.WriteDocumentType(ctx, connect.NewRequest(tt.req))
 			require.NoError(t, err)
 
 			assert.Equal(t, []documents.WriteDocumentTypeParams{tt.want}, docs.writtenTypes)
@@ -689,6 +698,18 @@ func TestWriteDocumentType(t *testing.T) {
 			assert.Equal(t, tt.want.Context, written.Msg.GetDocumentType().GetContext())
 		})
 	}
+}
+
+// TestDeleteDocumentType pins the delete naming the agent that asked.
+func TestDeleteDocumentType(t *testing.T) {
+	docs := &fakeDocuments{}
+	svc := newDocumentHandler(docs)
+
+	ctx := caller.With(t.Context(), caller.Caller{AgentID: alphaID})
+	_, err := svc.DeleteDocumentType(ctx, connect.NewRequest(&agentv1.DeleteDocumentTypeRequest{Id: documentTypeID}))
+	require.NoError(t, err)
+
+	assert.Equal(t, []documents.DeleteDocumentTypeParams{{ID: documentTypeID, ByAgentID: alphaID}}, docs.deletedTypes)
 }
 
 // TestListDocumentTypes pins how the types are rendered.

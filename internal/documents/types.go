@@ -57,10 +57,15 @@ type WriteDocumentTypeParams struct {
 	Version *int32
 	Name    string
 	Context string
+	// ByAgentID is the agent asking, empty for a person.
+	ByAgentID string
 }
 
 // WriteDocumentType creates a document type, or renames or rewrites the one ID names.
 func (s *DocumentService) WriteDocumentType(ctx context.Context, params WriteDocumentTypeParams) (*documenttypestore.Type, error) {
+	if params.ByAgentID != "" {
+		return nil, ErrDocumentTypeByAgent
+	}
 	if params.ID == nil {
 		return s.types.Create(ctx, params.Name, params.Context)
 	}
@@ -76,9 +81,20 @@ func (s *DocumentService) WriteDocumentType(ctx context.Context, params WriteDoc
 	})
 }
 
+// DeleteDocumentTypeParams is the type to delete and the agent asking.
+type DeleteDocumentTypeParams struct {
+	ID string
+	// ByAgentID is the agent asking, empty for a person.
+	ByAgentID string
+}
+
 // DeleteDocumentType removes a document type no document is written as.
-func (s *DocumentService) DeleteDocumentType(ctx context.Context, id string) error {
-	return s.types.Delete(ctx, id)
+func (s *DocumentService) DeleteDocumentType(ctx context.Context, params DeleteDocumentTypeParams) error {
+	if params.ByAgentID != "" {
+		return ErrDocumentTypeByAgent
+	}
+
+	return s.types.Delete(ctx, params.ID)
 }
 
 // ListDocumentTypeVersions returns every write of a document type, the newest first.

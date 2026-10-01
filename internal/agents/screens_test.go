@@ -148,7 +148,7 @@ func TestArchiveSavesTheScreen(t *testing.T) {
 				Height:  24,
 			}))
 
-			require.NoError(t, manager.lifecycle.ArchiveAgents(t.Context(), []string{agent.ID}))
+			require.NoError(t, manager.lifecycle.ArchiveAgents(t.Context(), ArchiveAgentsParams{IDs: []string{agent.ID}}))
 
 			saved, err := st.Screens.Get(t.Context(), agent.ID)
 			require.NoError(t, err)

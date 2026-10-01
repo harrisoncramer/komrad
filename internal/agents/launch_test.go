@@ -1389,7 +1389,7 @@ func TestRestoreUnderTheOrchestratorCeiling(t *testing.T) {
 	}
 
 	first := spawn("first")
-	require.NoError(t, manager.lifecycle.ArchiveAgents(t.Context(), []string{first.ID}))
+	require.NoError(t, manager.lifecycle.ArchiveAgents(t.Context(), ArchiveAgentsParams{IDs: []string{first.ID}}))
 	spawn("second")
 
 	_, err := manager.lifecycle.RestoreAgents(t.Context(), []string{first.ID})

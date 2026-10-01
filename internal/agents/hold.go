@@ -72,6 +72,10 @@ type HoldParams struct {
 
 // Hold stops an agent and records who has it, refusing unless the agent is observed to come to rest.
 func (h *Holder) Hold(ctx context.Context, params HoldParams) (*agentstore.Agent, error) {
+	if params.ByAgentID != "" && params.ByAgentID == params.AgentID {
+		return nil, ErrHoldSelf
+	}
+
 	agent, err := h.get(ctx, params.AgentID)
 	if err != nil {
 		return nil, err
