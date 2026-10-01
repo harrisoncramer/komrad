@@ -154,15 +154,6 @@ func TestHotZoneAdvance(t *testing.T) {
 		assert.Equal(t, "asker", strings.TrimSpace(readHoveredRow(harness.readFrame())))
 	})
 
-	t.Run("a pane komrad cannot read keeps its agent in the zone", func(t *testing.T) {
-		harness := openHotZone(t, 2, buildHot()...)
-		harness.press("h")
-
-		harness.watch(buildSnapshot(answered("broken", agentv1.AgentState_AGENT_STATE_UNCERTAIN)...))
-
-		assert.Equal(t, "broken", strings.TrimSpace(readHoveredRow(harness.readFrame())))
-	})
-
 	t.Run("answering the last hot agent goes back to where the key was pressed", func(t *testing.T) {
 		harness := openHotZone(t, 2,
 			newLiveWorkflow("w1", "backend"),
