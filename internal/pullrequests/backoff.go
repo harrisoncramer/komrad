@@ -75,9 +75,7 @@ func (b *hostBackoff) openHost(ctx context.Context, hostname string) (host *forg
 	}, false
 }
 
-// throttle stops the host for the pass and records when to try it again, which is what the
-// forge said or, when it said nothing, a wait that doubles with every refusal in a row, and
-// answers it, zero when the write failed.
+// throttle stops the host for the pass and records when to try it again, answering that time or zero when the write failed.
 func (b *hostBackoff) throttle(ctx context.Context, host *forgeHost, retryAt time.Time) time.Time {
 	host.throttled = true
 	until := retryAt
