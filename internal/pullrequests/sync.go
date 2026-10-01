@@ -342,7 +342,8 @@ func (s *PullRequestSyncer) readRepository(ctx context.Context, host *hostRead, 
 		repositoryURL: params.repositoryURL,
 		fingerprint:   params.fingerprint,
 		hotUntil:      written.hotUntil,
-	}, s.now())
+		askedAt:       params.askedAt,
+	})
 
 	logging.From(ctx).LogAttrs(ctx, slog.LevelDebug, "pull request sync",
 		slog.String(logging.RepositoryURL, params.repositoryURL),

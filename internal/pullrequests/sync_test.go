@@ -48,6 +48,8 @@ type scriptedForge struct {
 	// "threads:<number>".
 	requests []string
 	threads  map[int]*forge.Threads
+	// reading runs inside every read, which is how a test makes one take time.
+	reading func()
 }
 
 func (f *scriptedForge) Kind() string { return forge.KindGitHub }
@@ -64,6 +66,9 @@ func (f *scriptedForge) List(context.Context, forge.ListParams) (*forge.Page, er
 
 func (f *scriptedForge) ReadBranches(_ context.Context, repo git.RemoteURL, branches []string) (*forge.Reading, error) {
 	f.requests = append(f.requests, "read:"+repo.Path+":"+strings.Join(branches, ","))
+	if f.reading != nil {
+		f.reading()
+	}
 	if f.refuse != nil {
 		return nil, f.refuse
 	}
@@ -339,16 +344,17 @@ func TestSyncReadsAQuietRepositoryOnceAMinute(t *testing.T) {
 	f := newSyncFixture(t)
 	f.agentOn(t, "a", "agent/x")
 	f.hold(pullRequestAt("PR_1", "agent/x", syncNow.Add(-time.Hour)))
+	f.forge.reading = func() { f.now = f.now.Add(2 * time.Second) }
 	f.sync(t)
 
 	f.pass(t, syncNow.Add(5*time.Second))
 	assert.Empty(t, f.forge.requests)
 
-	f.pass(t, syncNow.Add(59*time.Second))
+	f.pass(t, syncNow.Add(58*time.Second))
 	assert.Empty(t, f.forge.requests)
 
-	f.pass(t, syncNow.Add(time.Minute))
-	assert.Len(t, f.forge.requests, 1)
+	f.pass(t, syncNow.Add(59*time.Second))
+	assert.Len(t, f.forge.requests, 1, "a read is paced from when its pass began, and a pass a moment short of the gap still reads")
 }
 
 // TestSyncReadsAHotRepositoryEveryFiveSeconds covers what puts a repository in the fast lane

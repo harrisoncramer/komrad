@@ -23,6 +23,10 @@ const blankHotWithin = 2 * time.Minute
 // or after komrad wrote to a pull request on its host.
 const movedHotWithin = 2 * time.Minute
 
+// paceSlack is how far short of its gap a repository is still due, so a pass that starts a moment
+// before the gap is up reads it rather than leaving it a whole tick.
+const paceSlack = time.Second
+
 // pacing is when each repository was last read and how soon it is read again, shared between the
 // sync's loop and the writes that heat a host.
 type pacing struct {
@@ -60,6 +64,8 @@ type dueParams struct {
 	repositoryURL string
 	host          string
 	fingerprint   string
+	// askedAt is when the pass that found the repository due started.
+	askedAt time.Time
 }
 
 // pick is the repositories due now, consuming a wake.
@@ -73,6 +79,7 @@ func (p *pacing) pick(candidates []dueParams, now time.Time) []dueParams {
 	due := []dueParams{}
 	for _, candidate := range candidates {
 		if woken || p.isDue(candidate, now) {
+			candidate.askedAt = now
 			due = append(due, candidate)
 		}
 	}
@@ -91,7 +98,7 @@ func (p *pacing) isDue(params dueParams, now time.Time) bool {
 		gap = hotGap
 	}
 
-	return now.Sub(read.readAt) >= gap
+	return now.Sub(read.readAt) >= gap-paceSlack
 }
 
 func (p *pacing) isHot(read *pace, host string, now time.Time) bool {
@@ -105,10 +112,12 @@ type readParams struct {
 	repositoryURL string
 	fingerprint   string
 	hotUntil      time.Time
+	// askedAt is when the pass that read it started, which the next gap is measured from.
+	askedAt time.Time
 }
 
-// read records a repository having been read now.
-func (p *pacing) read(params readParams, now time.Time) {
+// read records a repository having been read.
+func (p *pacing) read(params readParams) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
@@ -118,10 +127,10 @@ func (p *pacing) read(params readParams, now time.Time) {
 		p.repositories[params.repositoryURL] = read
 	}
 	if ok && read.fingerprint != params.fingerprint {
-		read.movedAt = now
+		read.movedAt = params.askedAt
 	}
 
-	read.readAt = now
+	read.readAt = params.askedAt
 	read.fingerprint = params.fingerprint
 	read.hotUntil = params.hotUntil
 }
