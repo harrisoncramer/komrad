@@ -155,19 +155,13 @@ func (a *archiveScreen) itemMenu(s panelShared) (submenu, bool) {
 		return submenu{}, false
 	}
 
-	entry := nestedEntry("archive", s.keys.Menu.Archive, archiveMenu(s, target))
+	archive := archiveMenu(s, target)
 
 	if row, ok := rowAt(a.listRows(s), a.cursor); ok && a.holdsAnAgent(s) && !row.header {
-		menu := agentMenu(s, screenArchive, row.item)
-		menu.entries = append(menu.entries, entry)
-
-		return menu, true
+		return withNested(agentMenu(s, screenArchive, row.item), "archive", s.keys.Menu.Archive, archive), true
 	}
 
-	menu := rowMenu(target.name(s.listing))
-	menu.entries = []submenuEntry{entry}
-
-	return menu, true
+	return withNested(rowMenu(target.name(s.listing)), "archive", s.keys.Menu.Archive, archive), true
 }
 
 var (
