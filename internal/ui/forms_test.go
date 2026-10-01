@@ -605,7 +605,6 @@ func TestFormsWorkflowProvisioner(t *testing.T) {
 	assert.Equal(t, []string{".env"}, create.GetWorktree().GetCopyPaths(), "switching back hands back what was typed before")
 }
 
-// TestFormsWorkflowSections covers drilling into a section of the workflow form and coming back.
 func TestFormsWorkflowSections(t *testing.T) {
 	t.Run("a section opens beside the top form", func(t *testing.T) {
 		harness := openForms(t, newFormWorkflow(), newFormAuthor())
