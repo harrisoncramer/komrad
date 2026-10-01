@@ -48,6 +48,12 @@ func TestNoticesOf(t *testing.T) {
 			wantHolding: []string{notices.PullRequestMerged},
 		},
 		{
+			name:        "a change after the merge starts nothing and keeps the merge alone",
+			moves:       []Move{{Field: FieldChecks, From: "passing", To: "failing"}},
+			pullRequest: pullrequeststore.PullRequest{State: "MERGED", LastKnownChecks: "failing"},
+			wantHolding: []string{notices.PullRequestMerged},
+		},
+		{
 			name:        "and so is a close",
 			moves:       []Move{{Field: FieldState, From: "OPEN", To: "CLOSED"}},
 			pullRequest: pullrequeststore.PullRequest{State: "CLOSED", LastKnownMergeability: "conflicting"},

@@ -1,6 +1,8 @@
 package pullrequests
 
 import (
+	"slices"
+
 	"komrad/internal/notices"
 	pullrequeststore "komrad/internal/store/pullrequest"
 )
@@ -24,9 +26,16 @@ var noticeOf = map[Field]map[string]string{
 }
 
 // noticesOf is the notices a change starts and the notices the pull request holds now, an
-// ended pull request holding only its ending.
+// ended pull request holding only its ending and starting it only on the move that ended it.
 func noticesOf(change Change, pullRequest pullrequeststore.PullRequest) ([]string, []string) {
 	if ended, ok := noticeOf[FieldState][pullRequest.State]; ok {
+		endedNow := slices.ContainsFunc(change.Moves, func(move Move) bool {
+			return move.Field == FieldState && move.To == pullRequest.State
+		})
+		if !endedNow {
+			return nil, []string{ended}
+		}
+
 		return []string{ended}, []string{ended}
 	}
 
