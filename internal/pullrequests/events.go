@@ -46,11 +46,7 @@ func eventsOf(change Change, pullRequest pullrequeststore.PullRequest) ([]string
 		}
 	}
 
-	now := map[Field]string{
-		FieldDecision:     pullRequest.LastKnownDecision,
-		FieldChecks:       pullRequest.LastKnownChecks,
-		FieldMergeability: pullRequest.LastKnownMergeability,
-	}
+	now := fieldValues(pullRequest)
 
 	var holding []string
 	for _, field := range fieldOrder {
