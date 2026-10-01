@@ -729,11 +729,14 @@ func splitLines(frame string) []string {
 // none is drawn.
 func readBelowViews(frame string) []string {
 	lines := splitLines(frame)
-	if len(lines) > 4 && strings.Contains(lines[0], "\U000F050C komrad") {
+	if len(lines) <= 4 || !strings.Contains(lines[0], "\U000F050C komrad") {
+		return lines
+	}
+	if strings.Contains(lines[3], "agents  query") {
 		return lines[4:]
 	}
 
-	return lines
+	return lines[3:]
 }
 
 func readTrail(frame string) string {

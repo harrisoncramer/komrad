@@ -79,7 +79,7 @@ func (m *model) viewsBar() string {
 	return strings.Join(m.switcherLines(trail), "\n") + "\n"
 }
 
-// switcherLines is the logo and the row of views.
+// switcherLines is the logo and, on a screen that picks views, the row of views.
 func (m *model) switcherLines(trail crumbs) []string {
 	entries := viewEntries()
 	row := stops{
@@ -98,7 +98,10 @@ func (m *model) switcherLines(trail crumbs) []string {
 		logo += paint.Panel.Style(paint.ToneMuted).Render(" "+glyph.Crumb+" ") + path
 	}
 
-	lines := []string{logo, m.engineLine(m.paneWidth()), "", row.view(m.focusPalette())}
+	lines := []string{logo, m.engineLine(m.paneWidth()), ""}
+	if m.screen.picksViews() {
+		lines = append(lines, row.view(m.focusPalette()))
+	}
 	if width := m.paneWidth(); width > 0 {
 		for i, line := range lines {
 			lines[i] = ansi.Truncate(line, width, "…")
