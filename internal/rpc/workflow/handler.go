@@ -10,7 +10,7 @@ import (
 	"komrad/internal/fail"
 	"komrad/internal/rpc/render"
 	"komrad/internal/rpcerr"
-	"komrad/lib/pagination"
+	"komrad/internal/rpcpage"
 	"komrad/lib/xslice"
 	workflowv1 "komrad/proto/gen/workflow/v1"
 
@@ -56,30 +56,26 @@ func NewHandler(params NewHandlerParams) *Handler {
 
 // ListWorkflows returns one page of workflows, by name.
 func (s *Handler) ListWorkflows(ctx context.Context, req *workflowv1.ListWorkflowsRequest) (*workflowv1.ListWorkflowsResponse, *fail.Error) {
-	paginator, err := pagination.New[workflowstore.Cursor, workflow](req.GetPagination())
-	if err != nil {
-		return nil, rpcerr.From(err, "failed to read the pagination")
-	}
+	page, failure := rpcpage.List(req.GetPagination(), func(limit int64, cursor *workflowstore.Cursor) ([]workflow, *fail.Error) {
+		stored, err := s.workflows.ListWorkflows(ctx, agents.ListWorkflowsParams{
+			Limit:    limit,
+			Cursor:   cursor,
+			Archived: req.GetArchived(),
+		})
+		if err != nil {
+			return nil, rpcerr.From(err, "failed to list workflows")
+		}
 
-	stored, err := s.workflows.ListWorkflows(ctx, agents.ListWorkflowsParams{
-		Limit:    paginator.Limit(),
-		Cursor:   paginator.Cursor(),
-		Archived: req.GetArchived(),
+		view := workflowViewOptions(req.GetView())
+
+		return xslice.Map(stored, func(w workflowstore.Workflow) workflow { return renderWorkflow(w, view) }), nil
 	})
-	if err != nil {
-		return nil, rpcerr.From(err, "failed to list workflows")
+	if failure != nil {
+		return nil, failure
 	}
 
-	view := workflowViewOptions(req.GetView())
-	resources := xslice.Map(stored, func(w workflowstore.Workflow) workflow { return renderWorkflow(w, view) })
-
-	next, err := paginator.NextToken(resources)
-	if err != nil {
-		return nil, rpcerr.From(err, "failed to build the next page token")
-	}
-
-	response := &workflowv1.ListWorkflowsResponse{NextPageToken: next}
-	response.Workflows = xslice.Map(resources, func(resource workflow) *workflowv1.Workflow { return resource.Workflow })
+	response := &workflowv1.ListWorkflowsResponse{NextPageToken: page.Next}
+	response.Workflows = xslice.Map(page.Resources, func(resource workflow) *workflowv1.Workflow { return resource.Workflow })
 
 	return response, nil
 }

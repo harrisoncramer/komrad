@@ -5,7 +5,9 @@ import (
 	"errors"
 	"net/http"
 
+	"komrad/internal/fail"
 	"komrad/internal/logging"
+	"komrad/internal/rpcerr"
 
 	"connectrpc.com/connect"
 )
@@ -23,7 +25,7 @@ func NewRecovery() connect.HandlerOption {
 func recoverRPC(ctx context.Context, recovered any) error {
 	logging.LogPanic(ctx, recovered)
 
-	return connect.NewError(connect.CodeInternal, errPanicked)
+	return rpcerr.Refuse(fail.KindInternal, errPanicked)
 }
 
 func serveAndRecover(recorder *statusRecorder, r *http.Request, next http.Handler) {

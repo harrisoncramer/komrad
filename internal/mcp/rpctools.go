@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -21,6 +22,12 @@ import (
 )
 
 const callTimeout = 30 * time.Second
+
+// connectFailure is the envelope connect answers a failed call with.
+type connectFailure struct {
+	Code    string `json:"code"`
+	Message string `json:"message"`
+}
 
 type rpcTools struct {
 	baseURL string
@@ -183,9 +190,22 @@ func (r *rpcTools) handler(path string, timeout time.Duration) func(context.Cont
 		}
 
 		if resp.StatusCode != http.StatusOK {
-			return errorResult(fmt.Errorf("%s", strings.TrimSpace(string(payload)))), nil, nil
+			return errorResult(decodeFailure(payload)), nil, nil
 		}
 
 		return textResult(string(payload)), nil, nil
 	}
+}
+
+func decodeFailure(payload []byte) error {
+	var failure connectFailure
+	if err := json.Unmarshal(payload, &failure); err != nil || failure.Code == "" {
+		return errors.New(strings.TrimSpace(string(payload)))
+	}
+
+	if failure.Message == "" {
+		return errors.New(failure.Code)
+	}
+
+	return fmt.Errorf("%s: %s", failure.Code, failure.Message)
 }

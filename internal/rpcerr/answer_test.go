@@ -9,6 +9,7 @@ import (
 	"komrad/internal/agenterr"
 	"komrad/internal/agents"
 	"komrad/internal/checkouts"
+	"komrad/internal/fail"
 	"komrad/internal/git"
 	"komrad/internal/mail"
 	"komrad/internal/reviews"
@@ -176,4 +177,88 @@ func TestWrapKeepsTheMappedCodeBesideAnUnmappedSentinel(t *testing.T) {
 
 	require.Error(t, err)
 	assert.Equal(t, connect.CodeFailedPrecondition, connect.CodeOf(err))
+}
+
+// TestRefuse pins the code an interceptor's refusal is answered with for each kind.
+func TestRefuse(t *testing.T) {
+	type refuseCase struct {
+		kind fail.Kind
+		want connect.Code
+	}
+
+	tests := []refuseCase{
+		{
+			kind: fail.Kind(99),
+			want: connect.CodeInternal,
+		},
+		{
+			kind: fail.KindNotFound,
+			want: connect.CodeNotFound,
+		},
+		{
+			kind: fail.KindAlreadyExists,
+			want: connect.CodeAlreadyExists,
+		},
+		{
+			kind: fail.KindPrecondition,
+			want: connect.CodeFailedPrecondition,
+		},
+		{
+			kind: fail.KindInvalidArgument,
+			want: connect.CodeInvalidArgument,
+		},
+		{
+			kind: fail.KindExhausted,
+			want: connect.CodeResourceExhausted,
+		},
+		{
+			kind: fail.KindDenied,
+			want: connect.CodePermissionDenied,
+		},
+		{
+			kind: fail.KindInternal,
+			want: connect.CodeInternal,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.want.String(), func(t *testing.T) {
+			assert.Equal(t, tt.want, connect.CodeOf(rpcerr.Refuse(tt.kind, errors.New("refused"))))
+		})
+	}
+}
+
+// TestFromConnectCode pins the kind a connect error already carrying a code keeps.
+func TestFromConnectCode(t *testing.T) {
+	type fromConnectCodeCase struct {
+		code connect.Code
+		want connect.Code
+	}
+
+	tests := []fromConnectCodeCase{
+		{
+			code: connect.CodeUnavailable,
+			want: connect.CodeInternal,
+		},
+		{
+			code: connect.CodeCanceled,
+			want: connect.CodeInternal,
+		},
+		{
+			code: connect.CodeNotFound,
+			want: connect.CodeNotFound,
+		},
+		{
+			code: connect.CodePermissionDenied,
+			want: connect.CodePermissionDenied,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.code.String(), func(t *testing.T) {
+			err := answered(connect.NewError(tt.code, errors.New("refused")), "failed to do the thing")
+
+			assert.Equal(t, tt.want, connect.CodeOf(err))
+		})
+	}
 }

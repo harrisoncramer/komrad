@@ -11,6 +11,20 @@ import (
 	"connectrpc.com/connect"
 )
 
+// codes pairs each kind of failure with the connect code that answers it.
+var codes = []struct {
+	kind fail.Kind
+	code connect.Code
+}{
+	{kind: fail.KindNotFound, code: connect.CodeNotFound},
+	{kind: fail.KindAlreadyExists, code: connect.CodeAlreadyExists},
+	{kind: fail.KindPrecondition, code: connect.CodeFailedPrecondition},
+	{kind: fail.KindInvalidArgument, code: connect.CodeInvalidArgument},
+	{kind: fail.KindExhausted, code: connect.CodeResourceExhausted},
+	{kind: fail.KindDenied, code: connect.CodePermissionDenied},
+	{kind: fail.KindInternal, code: connect.CodeInternal},
+}
+
 // Answer turns what a handler returned into what connect serves.
 func Answer[T any](message *T, err *fail.Error) (*connect.Response[T], error) {
 	if err != nil {
@@ -55,23 +69,22 @@ func From(err error, failure string) *fail.Error {
 	return fail.Because(err, fmt.Sprintf("%s: %s", failure, err))
 }
 
+// Refuse answers a request turned away before its handler ran with the code for its kind.
+func Refuse(kind fail.Kind, err error) error {
+	return connect.NewError(codeOf(kind), err)
+}
+
+// Unavailable answers a request the server could not judge.
+func Unavailable(err error) error {
+	return connect.NewError(connect.CodeUnavailable, err)
+}
+
 // codeOf says which connect code answers a kind of failure.
 func codeOf(kind fail.Kind) connect.Code {
-	switch kind {
-	case fail.KindNotFound:
-		return connect.CodeNotFound
-	case fail.KindAlreadyExists:
-		return connect.CodeAlreadyExists
-	case fail.KindPrecondition:
-		return connect.CodeFailedPrecondition
-	case fail.KindInvalidArgument:
-		return connect.CodeInvalidArgument
-	case fail.KindExhausted:
-		return connect.CodeResourceExhausted
-	case fail.KindDenied:
-		return connect.CodePermissionDenied
-	case fail.KindInternal:
-		return connect.CodeInternal
+	for _, pair := range codes {
+		if pair.kind == kind {
+			return pair.code
+		}
 	}
 
 	return connect.CodeInternal
@@ -79,23 +92,10 @@ func codeOf(kind fail.Kind) connect.Code {
 
 // kindOf says which kind of failure a code already decided on stands for.
 func kindOf(code connect.Code) fail.Kind {
-	switch code {
-	case connect.CodeNotFound:
-		return fail.KindNotFound
-	case connect.CodeAlreadyExists:
-		return fail.KindAlreadyExists
-	case connect.CodeFailedPrecondition:
-		return fail.KindPrecondition
-	case connect.CodeInvalidArgument:
-		return fail.KindInvalidArgument
-	case connect.CodeResourceExhausted:
-		return fail.KindExhausted
-	case connect.CodePermissionDenied:
-		return fail.KindDenied
-	case connect.CodeCanceled, connect.CodeUnknown, connect.CodeDeadlineExceeded, connect.CodeAborted,
-		connect.CodeOutOfRange, connect.CodeUnimplemented, connect.CodeInternal, connect.CodeUnavailable,
-		connect.CodeDataLoss, connect.CodeUnauthenticated:
-		return fail.KindInternal
+	for _, pair := range codes {
+		if pair.code == code {
+			return pair.kind
+		}
 	}
 
 	return fail.KindInternal

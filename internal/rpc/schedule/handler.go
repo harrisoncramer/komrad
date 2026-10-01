@@ -9,8 +9,8 @@ import (
 	"komrad/internal/fail"
 	"komrad/internal/rpc/render"
 	"komrad/internal/rpcerr"
+	"komrad/internal/rpcpage"
 	"komrad/internal/schedules"
-	"komrad/lib/pagination"
 	"komrad/lib/xslice"
 	schedulev1 "komrad/proto/gen/schedule/v1"
 
@@ -48,32 +48,28 @@ func NewHandler(params NewHandlerParams) *Handler {
 
 // ListSchedules returns one page of schedules, newest first.
 func (s *Handler) ListSchedules(ctx context.Context, req *schedulev1.ListSchedulesRequest) (*schedulev1.ListSchedulesResponse, *fail.Error) {
-	paginator, err := pagination.New[schedulestore.Cursor, schedule](req.GetPagination())
-	if err != nil {
-		return nil, rpcerr.From(err, "failed to read the pagination")
-	}
+	page, failure := rpcpage.List(req.GetPagination(), func(limit int64, cursor *schedulestore.Cursor) ([]schedule, *fail.Error) {
+		listed, err := s.schedules.ListSchedules(ctx, schedules.ListSchedulesParams{
+			Limit:    limit,
+			Cursor:   cursor,
+			Archived: req.GetArchived(),
+		})
+		if err != nil {
+			return nil, rpcerr.From(err, "failed to list schedules")
+		}
 
-	page, err := s.schedules.ListSchedules(ctx, schedules.ListSchedulesParams{
-		Limit:    paginator.Limit(),
-		Cursor:   paginator.Cursor(),
-		Archived: req.GetArchived(),
+		now := time.Now()
+
+		view := scheduleViewOptions(req.GetView())
+
+		return xslice.Map(listed, func(stored schedulestore.Schedule) schedule { return renderSchedule(stored, now, view) }), nil
 	})
-	if err != nil {
-		return nil, rpcerr.From(err, "failed to list schedules")
+	if failure != nil {
+		return nil, failure
 	}
 
-	now := time.Now()
-
-	view := scheduleViewOptions(req.GetView())
-	resources := xslice.Map(page, func(stored schedulestore.Schedule) schedule { return renderSchedule(stored, now, view) })
-
-	next, err := paginator.NextToken(resources)
-	if err != nil {
-		return nil, rpcerr.From(err, "failed to build the next page token")
-	}
-
-	response := &schedulev1.ListSchedulesResponse{NextPageToken: next}
-	response.Schedules = xslice.Map(resources, func(resource schedule) *schedulev1.Schedule { return resource.Schedule })
+	response := &schedulev1.ListSchedulesResponse{NextPageToken: page.Next}
+	response.Schedules = xslice.Map(page.Resources, func(resource schedule) *schedulev1.Schedule { return resource.Schedule })
 
 	return response, nil
 }
