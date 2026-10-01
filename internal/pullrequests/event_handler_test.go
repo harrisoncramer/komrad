@@ -95,7 +95,7 @@ func TestAPullRequestChangeTellsTheAgentsOnItsBranch(t *testing.T) {
 			f.sync(t)
 
 			for i, standing := range tt.standings {
-				f.setStanding(t, standing, syncNow.Add(time.Duration(i+1)*time.Minute))
+				f.setStanding(t, standing, "", syncNow.Add(time.Duration(i+1)*time.Minute))
 			}
 
 			told := f.listMail(t, agentID)
@@ -121,12 +121,12 @@ func TestAPullRequestChangeAfterTheMailWasReadStartsAnother(t *testing.T) {
 	failingOnA := forge.Standing{
 		Decision: forge.ReviewDecisionPending,
 		Checks:   forge.ChecksFailing,
-		HeadSHA:  "aaa",
 	}
 
 	tests := []struct {
 		name      string
 		after     forge.Standing
+		afterHead string
 		wantLines []string
 	}{
 		{
@@ -134,8 +134,8 @@ func TestAPullRequestChangeAfterTheMailWasReadStartsAnother(t *testing.T) {
 			after: forge.Standing{
 				Decision: forge.ReviewDecisionApproved,
 				Checks:   forge.ChecksFailing,
-				HeadSHA:  "aaa",
 			},
+			afterHead: "aaa",
 			wantLines: []string{"  review: approved\n", "  checks: failing on aaa\n"},
 		},
 		{
@@ -143,8 +143,8 @@ func TestAPullRequestChangeAfterTheMailWasReadStartsAnother(t *testing.T) {
 			after: forge.Standing{
 				Decision: forge.ReviewDecisionPending,
 				Checks:   forge.ChecksFailing,
-				HeadSHA:  "bbb",
 			},
+			afterHead: "bbb",
 			wantLines: []string{"  checks: failing on bbb\n"},
 		},
 		{
@@ -152,21 +152,22 @@ func TestAPullRequestChangeAfterTheMailWasReadStartsAnother(t *testing.T) {
 			after: forge.Standing{
 				Decision: forge.ReviewDecisionApproved,
 				Checks:   forge.ChecksNone,
-				HeadSHA:  "bbb",
 			},
+			afterHead: "bbb",
 			wantLines: []string{"  review: approved\n", "  checks: failing on aaa\n"},
 		},
 		{
-			name:  "the checks failing again on the same head is not news",
-			after: failingOnA,
+			name:      "the checks failing again on the same head is not news",
+			after:     failingOnA,
+			afterHead: "aaa",
 		},
 		{
 			name: "the checks passing on a new head is not news",
 			after: forge.Standing{
 				Decision: forge.ReviewDecisionPending,
 				Checks:   forge.ChecksPassing,
-				HeadSHA:  "bbb",
 			},
+			afterHead: "bbb",
 		},
 	}
 
@@ -177,12 +178,12 @@ func TestAPullRequestChangeAfterTheMailWasReadStartsAnother(t *testing.T) {
 			f.hold(standing(pullRequestAt("PR_1", "agent/x", syncNow.Add(-time.Minute)), forge.Standing{Decision: forge.ReviewDecisionPending, Checks: forge.ChecksPending, Mergeability: forge.MergeabilityClean}))
 			f.sync(t)
 
-			f.setStanding(t, failingOnA, syncNow.Add(time.Minute))
+			f.setStanding(t, failingOnA, "aaa", syncNow.Add(time.Minute))
 			claimed, err := f.stores.Mail.Claim(t.Context(), agentID, 10)
 			require.NoError(t, err)
 			require.Len(t, claimed, 1)
 
-			f.setStanding(t, tt.after, syncNow.Add(2*time.Minute))
+			f.setStanding(t, tt.after, tt.afterHead, syncNow.Add(2*time.Minute))
 
 			told := f.listMail(t, agentID)
 			if tt.wantLines == nil {
@@ -209,8 +210,8 @@ func (f *syncFixture) listMail(t *testing.T, agentID string) []mailstore.Mail {
 	return listed
 }
 
-// setStanding has the forge say this of PR_1 and reads it then.
-func (f *syncFixture) setStanding(t *testing.T, said forge.Standing, readAt time.Time) {
+// setStanding has the forge say this of PR_1, on a new head when one is named, and reads it then.
+func (f *syncFixture) setStanding(t *testing.T, said forge.Standing, head string, readAt time.Time) {
 	t.Helper()
 
 	if said.Mergeability == forge.MergeabilityUnknown {
@@ -218,6 +219,9 @@ func (f *syncFixture) setStanding(t *testing.T, said forge.Standing, readAt time
 	}
 	held := f.forge.pullRequests["harrisoncramer/komrad"]
 	held[0] = standing(held[0], said)
+	if head != "" {
+		held[0].HeadSHA = head
+	}
 	f.syncer.Wake()
 	f.pass(t, readAt)
 }
@@ -231,7 +235,7 @@ func TestAPullRequestChangeRetriesAFullMailboxAlone(t *testing.T) {
 	f.sync(t)
 	f.fillMailbox(t, full)
 
-	f.setStanding(t, forge.Standing{Decision: forge.ReviewDecisionPending, Checks: forge.ChecksFailing}, syncNow.Add(time.Minute))
+	f.setStanding(t, forge.Standing{Decision: forge.ReviewDecisionPending, Checks: forge.ChecksFailing}, "", syncNow.Add(time.Minute))
 
 	assert.Empty(t, f.events.TakeErrors())
 	require.Len(t, f.listMail(t, told), 1)

@@ -285,11 +285,11 @@ func TestSetStandingRoundTrip(t *testing.T) {
 		Decision:     forge.ReviewDecisionChangesRequested,
 		Checks:       forge.ChecksFailing,
 		Mergeability: forge.MergeabilityUnstable,
-		HeadSHA:      "abc",
 	}
 	_, err = h.SetStanding(ctx, SetStandingParams{
 		ID:       written.ID,
 		Standing: failing,
+		HeadSHA:  "abc",
 		ReadAt:   readAt,
 	})
 	require.NoError(t, err)
@@ -314,6 +314,7 @@ func TestSetStandingRoundTrip(t *testing.T) {
 	change, err := h.SetStanding(ctx, SetStandingParams{
 		ID:       written.ID,
 		Standing: failing,
+		HeadSHA:  "abc",
 		ReadAt:   readAt.Add(time.Minute),
 	})
 	require.NoError(t, err)
@@ -324,7 +325,8 @@ func TestSetStandingRoundTrip(t *testing.T) {
 
 	_, err = h.SetStanding(ctx, SetStandingParams{
 		ID:       written.ID,
-		Standing: forge.Standing{HeadSHA: "abc"},
+		Standing: forge.Standing{},
+		HeadSHA:  "abc",
 		ReadAt:   readAt.Add(2 * time.Minute),
 	})
 	require.NoError(t, err)
@@ -513,7 +515,8 @@ func TestSetStandingKeepsTheLastKnownValue(t *testing.T) {
 			for _, s := range tt.steps {
 				change, err := h.SetStanding(ctx, SetStandingParams{
 					ID:       written.ID,
-					Standing: forge.Standing{Checks: s.checks, HeadSHA: s.sha},
+					Standing: forge.Standing{Checks: s.checks},
+					HeadSHA:  s.sha,
 					ReadAt:   time.Now(),
 				})
 				require.NoError(t, err)
@@ -539,6 +542,7 @@ func TestSetStandingKeepsTheLastKnownValue(t *testing.T) {
 func TestSetStandingRemembersWhichHeadMergeabilityWasReadFor(t *testing.T) {
 	type read struct {
 		standing forge.Standing
+		head     string
 	}
 	type testCase struct {
 		name             string
@@ -556,13 +560,11 @@ func TestSetStandingRemembersWhichHeadMergeabilityWasReadFor(t *testing.T) {
 				{
 					standing: forge.Standing{
 						Mergeability: forge.MergeabilityClean,
-						HeadSHA:      "abc",
 					},
+					head: "abc",
 				},
 				{
-					standing: forge.Standing{
-						HeadSHA: "def",
-					},
+					head: "def",
 				},
 			},
 			wantMergeability: nil,
@@ -577,15 +579,15 @@ func TestSetStandingRemembersWhichHeadMergeabilityWasReadFor(t *testing.T) {
 				{
 					standing: forge.Standing{
 						Mergeability: forge.MergeabilityClean,
-						HeadSHA:      "abc",
 					},
+					head: "abc",
 				},
 				{
 					standing: forge.Standing{
 						Checks:       forge.ChecksPassing,
 						Mergeability: forge.MergeabilityBehind,
-						HeadSHA:      "def",
 					},
+					head: "def",
 				},
 			},
 			wantMergeability: xptr.Ptr(forge.MergeabilityBehind),
@@ -607,6 +609,7 @@ func TestSetStandingRemembersWhichHeadMergeabilityWasReadFor(t *testing.T) {
 				_, err := h.SetStanding(ctx, SetStandingParams{
 					ID:       written.ID,
 					Standing: r.standing,
+					HeadSHA:  r.head,
 					ReadAt:   time.Now(),
 				})
 				require.NoError(t, err)
@@ -630,6 +633,7 @@ func TestSetStandingAnswersWhenABlankBegan(t *testing.T) {
 	later := began.Add(time.Minute)
 	type read struct {
 		standing forge.Standing
+		head     string
 		at       time.Time
 	}
 	type testCase struct {
@@ -642,15 +646,15 @@ func TestSetStandingAnswersWhenABlankBegan(t *testing.T) {
 			name: "an answer clears the blank",
 			reads: []read{
 				{
-					standing: forge.Standing{HeadSHA: "abc"},
-					at:       began,
+					head: "abc",
+					at:   began,
 				},
 				{
 					standing: forge.Standing{
 						Mergeability: forge.MergeabilityClean,
-						HeadSHA:      "abc",
 					},
-					at: later,
+					head: "abc",
+					at:   later,
 				},
 			},
 			wantSince: nil,
@@ -659,12 +663,12 @@ func TestSetStandingAnswersWhenABlankBegan(t *testing.T) {
 			name: "a blank on a new head begins again",
 			reads: []read{
 				{
-					standing: forge.Standing{HeadSHA: "abc"},
-					at:       began,
+					head: "abc",
+					at:   began,
 				},
 				{
-					standing: forge.Standing{HeadSHA: "def"},
-					at:       later,
+					head: "def",
+					at:   later,
 				},
 			},
 			wantSince: &later,
@@ -675,17 +679,17 @@ func TestSetStandingAnswersWhenABlankBegan(t *testing.T) {
 				{
 					standing: forge.Standing{
 						Mergeability: forge.MergeabilityClean,
-						HeadSHA:      "abc",
 					},
-					at: began.Add(-time.Minute),
+					head: "abc",
+					at:   began.Add(-time.Minute),
 				},
 				{
-					standing: forge.Standing{HeadSHA: "abc"},
-					at:       began,
+					head: "abc",
+					at:   began,
 				},
 				{
-					standing: forge.Standing{HeadSHA: "abc"},
-					at:       later,
+					head: "abc",
+					at:   later,
 				},
 			},
 			wantSince: &began,
@@ -704,6 +708,7 @@ func TestSetStandingAnswersWhenABlankBegan(t *testing.T) {
 				change, err = h.SetStanding(ctx, SetStandingParams{
 					ID:       written.ID,
 					Standing: r.standing,
+					HeadSHA:  r.head,
 					ReadAt:   r.at,
 				})
 				require.NoError(t, err)
@@ -803,7 +808,8 @@ func TestSetStandingRecordsAutoMerge(t *testing.T) {
 	for _, tt := range tests {
 		change, err := h.SetStanding(t.Context(), SetStandingParams{
 			ID:       written.ID,
-			Standing: forge.Standing{HeadSHA: "abc", AutoMerge: tt.autoMerge},
+			Standing: forge.Standing{AutoMerge: tt.autoMerge},
+			HeadSHA:  "abc",
 			ReadAt:   time.Now(),
 		})
 		require.NoError(t, err, tt.name)

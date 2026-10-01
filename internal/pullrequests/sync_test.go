@@ -248,35 +248,30 @@ func pullRequestAt(providerID, branch string, updatedAt time.Time) forge.PullReq
 // no checks and nothing in the way of merging.
 func pullRequestIn(repository git.RemoteURL, providerID, branch string, updatedAt time.Time) forge.PullRequest {
 	return forge.PullRequest{
-		Forge:        forge.KindGitHub,
-		ProviderID:   providerID,
-		URL:          repository.Canonical() + "/pull/" + providerID,
-		Repository:   repository,
-		Head:         repository,
-		Number:       numberOf(providerID),
-		Title:        providerID,
-		HeadBranch:   branch,
-		HeadSHA:      scriptedHeadSHA,
-		BaseBranch:   "main",
-		BaseSHA:      "def",
-		State:        "OPEN",
-		CreatedAt:    updatedAt.Add(-time.Hour),
-		UpdatedAt:    updatedAt,
-		Decision:     xptr.Ptr(forge.ReviewDecisionPending),
-		Checks:       xptr.Ptr(forge.ChecksNone),
-		Mergeability: xptr.Ptr(forge.MergeabilityClean),
+		Forge:      forge.KindGitHub,
+		ProviderID: providerID,
+		URL:        repository.Canonical() + "/pull/" + providerID,
+		Repository: repository,
+		Head:       repository,
+		Number:     numberOf(providerID),
+		Title:      providerID,
+		HeadBranch: branch,
+		HeadSHA:    scriptedHeadSHA,
+		BaseBranch: "main",
+		BaseSHA:    "def",
+		State:      "OPEN",
+		CreatedAt:  updatedAt.Add(-time.Hour),
+		UpdatedAt:  updatedAt,
+		Standing: &forge.Standing{
+			Decision:     forge.ReviewDecisionPending,
+			Mergeability: forge.MergeabilityClean,
+		},
 	}
 }
 
 // standing is the pull request as the forge answers it standing so.
 func standing(pullRequest forge.PullRequest, answered forge.Standing) forge.PullRequest {
-	pullRequest.Decision = xptr.Ptr(answered.Decision)
-	pullRequest.Checks = xptr.Ptr(answered.Checks)
-	pullRequest.Mergeability = xptr.Ptr(answered.Mergeability)
-	pullRequest.AutoMerge = xptr.Ptr(answered.AutoMerge)
-	if answered.HeadSHA != "" {
-		pullRequest.HeadSHA = answered.HeadSHA
-	}
+	pullRequest.Standing = &answered
 
 	return pullRequest
 }
@@ -391,6 +386,15 @@ func TestSyncReadsAHotRepositoryEveryFiveSeconds(t *testing.T) {
 			name:     "a mergeability the forge has not computed",
 			held:     standing(pullRequestAt("PR_1", "agent/x", syncNow.Add(-time.Hour)), blank),
 			wantRead: true,
+		},
+		{
+			name: "a pull request read without its standing",
+			held: func() forge.PullRequest {
+				unasked := pullRequestAt("PR_1", "agent/x", syncNow.Add(-time.Hour))
+				unasked.Standing = nil
+
+				return unasked
+			}(),
 		},
 		{
 			name: "a moved head",

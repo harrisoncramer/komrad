@@ -249,7 +249,9 @@ func (s *PullRequestStore) ListPage(ctx context.Context, params ListPageParams) 
 type SetStandingParams struct {
 	ID       string
 	Standing forge.Standing
-	ReadAt   time.Time
+	// HeadSHA is the head the standing was read for.
+	HeadSHA string
+	ReadAt  time.Time
 }
 
 // SetStanding records where the forge said a pull request's reviews, checks and mergeability
@@ -275,7 +277,7 @@ func (s *PullRequestStore) SetStanding(ctx context.Context, params SetStandingPa
 		ReviewDecision: decision,
 		Checks:         checks,
 		Mergeability:   mergeability,
-		ChecksSha:      standing.HeadSHA,
+		ChecksSha:      params.HeadSHA,
 		ReadAt:         params.ReadAt,
 		AutoMerge:      standing.AutoMerge.On,
 		AutoMergeable:  standing.AutoMerge.Allowed,

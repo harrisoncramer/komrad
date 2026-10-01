@@ -13,7 +13,6 @@ import (
 	"komrad/internal/forge"
 	"komrad/internal/forge/graphql"
 	"komrad/internal/git"
-	"komrad/lib/xptr"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -223,7 +222,7 @@ func TestList(t *testing.T) {
 		UpdatedAt:  time.Date(2026, 9, 18, 19, 14, 17, 0, time.UTC),
 	}, pullRequests[0])
 	assert.False(t, pullRequests[0].IsFinished())
-	assert.Nil(t, pullRequests[0].Decision, "a listing does not ask for the decision")
+	assert.Nil(t, pullRequests[0].Standing, "a listing does not ask for the standing")
 
 	stamp := time.Date(2026, 9, 20, 18, 0, 7, 0, time.UTC)
 	assert.Equal(t, "PR_kwDOTgPfPc8AAAABEU5L_Q", pullRequests[1].ProviderID)
@@ -327,15 +326,19 @@ func TestReadBranches(t *testing.T) {
 	require.Len(t, reading.PullRequests, 2, "the fork and the deleted fork are left out")
 	open, closed := reading.PullRequests[0], reading.PullRequests[1]
 	assert.Equal(t, 1, open.Number)
-	assert.Equal(t, xptr.Ptr(forge.ReviewDecisionChangesRequested), open.Decision)
-	assert.Equal(t, xptr.Ptr(forge.ChecksFailing), open.Checks)
-	assert.Equal(t, xptr.Ptr(forge.MergeabilityUnstable), open.Mergeability)
-	assert.Equal(t, &forge.AutoMerge{Allowed: true}, open.AutoMerge)
+	assert.Equal(t, &forge.Standing{
+		Decision:     forge.ReviewDecisionChangesRequested,
+		Checks:       forge.ChecksFailing,
+		Mergeability: forge.MergeabilityUnstable,
+		AutoMerge:    forge.AutoMerge{Allowed: true},
+	}, open.Standing)
 	assert.Equal(t, 2, closed.Number)
-	assert.Equal(t, xptr.Ptr(forge.ReviewDecisionApproved), closed.Decision)
-	assert.Equal(t, xptr.Ptr(forge.ChecksPassing), closed.Checks)
-	assert.Equal(t, xptr.Ptr(forge.MergeabilityClean), closed.Mergeability)
-	assert.Equal(t, &forge.AutoMerge{On: true}, closed.AutoMerge)
+	assert.Equal(t, &forge.Standing{
+		Decision:     forge.ReviewDecisionApproved,
+		Checks:       forge.ChecksPassing,
+		Mergeability: forge.MergeabilityClean,
+		AutoMerge:    forge.AutoMerge{On: true},
+	}, closed.Standing)
 }
 
 // TestReadBranchesBatches covers more branches than one query takes going out as a second query.

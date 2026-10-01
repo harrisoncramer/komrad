@@ -15,7 +15,6 @@ import (
 	"komrad/internal/logging"
 	pullrequeststore "komrad/internal/store/pullrequest"
 	"komrad/internal/wake"
-	"komrad/lib/xptr"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/riverqueue/river"
@@ -345,13 +344,17 @@ func (s *PullRequestSyncer) write(ctx context.Context, pullRequests []forge.Pull
 				result.updated++
 			}
 
-			change, err := st.SetStanding(ctx, pullrequeststore.SetStandingParams{
-				ID:       outcome.ID,
-				Standing: standingOf(pullRequest),
-				ReadAt:   readAt,
-			})
-			if err != nil {
-				return nil, err
+			change := &pullrequeststore.StandingChange{}
+			if pullRequest.Standing != nil {
+				change, err = st.SetStanding(ctx, pullrequeststore.SetStandingParams{
+					ID:       outcome.ID,
+					Standing: *pullRequest.Standing,
+					HeadSHA:  pullRequest.HeadSHA,
+					ReadAt:   readAt,
+				})
+				if err != nil {
+					return nil, err
+				}
 			}
 			if until := hotUntil(pullRequest, change); until.After(result.hotUntil) {
 				result.hotUntil = until
@@ -381,17 +384,6 @@ func (s *PullRequestSyncer) write(ctx context.Context, pullRequests []forge.Pull
 	}
 
 	return result, nil
-}
-
-// standingOf is the standing a pull request was answered with.
-func standingOf(pullRequest forge.PullRequest) forge.Standing {
-	return forge.Standing{
-		Decision:     xptr.Deref(pullRequest.Decision),
-		Checks:       xptr.Deref(pullRequest.Checks),
-		Mergeability: xptr.Deref(pullRequest.Mergeability),
-		HeadSHA:      pullRequest.HeadSHA,
-		AutoMerge:    xptr.Deref(pullRequest.AutoMerge),
-	}
 }
 
 func standingMoves(change *pullrequeststore.StandingChange) []*Move {

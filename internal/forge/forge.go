@@ -139,13 +139,12 @@ const (
 	MergeabilityConflicting Mergeability = "conflicting"
 )
 
-// Standing is what a forge says about one pull request's reviews, checks and mergeability,
-// and the head commit they were read for.
+// Standing is what a forge says about one pull request's reviews, checks, mergeability and
+// auto-merge.
 type Standing struct {
 	Decision     ReviewDecision
 	Checks       Checks
 	Mergeability Mergeability
-	HeadSHA      string
 	AutoMerge    AutoMerge
 }
 
@@ -181,16 +180,9 @@ type PullRequest struct {
 	UpdatedAt time.Time
 	MergedAt  *time.Time
 	ClosedAt  *time.Time
-	// Decision is where the reviews stand, nil when the call did not ask.
-	Decision *ReviewDecision
-	// Checks is where the checks on the head commit stand, nil when the call did not ask.
-	Checks *Checks
-	// Mergeability is where the forge says it stands against its base and rules, nil when the
-	// call did not ask.
-	Mergeability *Mergeability
-	// AutoMerge is whether it will merge on its own and whether it may be asked to, nil when the
-	// call did not ask.
-	AutoMerge *AutoMerge
+	// Standing is where the reviews, checks, mergeability and auto-merge stand, nil when the call
+	// did not ask.
+	Standing *Standing
 }
 
 // IsFinished says whether the pull request has merged or closed.
