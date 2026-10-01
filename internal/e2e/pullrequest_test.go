@@ -21,7 +21,8 @@ import (
 // TestIntegrationPullRequestsReachTheRowFromEachForge covers the whole road from a forge to the panel
 // on a real checkout: the connection, the cwd loop reading the branch and origin, the sync
 // storing the branch's pull requests and reading the open one's decision once, and both the
-// listing and the record answering with where it stands.
+// listing and the record answering with where it stands, then auto-merge turned on and off
+// through the forge and read back onto the row.
 func TestIntegrationPullRequestsReachTheRowFromEachForge(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -106,6 +107,47 @@ func TestIntegrationPullRequestsReachTheRowFromEachForge(t *testing.T) {
 
 			instance.SyncPullRequests()
 			assert.Equal(t, int32(1), fake.standings.Load(), "a standing read since the last change is not read again")
+			assert.True(t, standing.GetAutoMergeable())
+			assert.False(t, standing.GetAutoMerge())
+
+			t.Run("merge when ready reaches the forge and comes back on the row", func(t *testing.T) {
+				_, err := instance.Forges.SetForgePullRequestAutoMerge(ctx, connect.NewRequest(&forgev1.SetForgePullRequestAutoMergeRequest{
+					Url:     standing.GetUrl(),
+					HeadSha: "aaa",
+					On:      true,
+				}))
+				require.NoError(t, err)
+				assert.True(t, fake.autoMerge.Load())
+
+				instance.SyncPullRequests()
+
+				got, err := instance.Agents.GetAgent(ctx, connect.NewRequest(&agentv1.GetAgentRequest{Id: agentID}))
+				require.NoError(t, err)
+				assert.True(t, got.Msg.GetPullRequest().GetAutoMerge())
+			})
+
+			t.Run("the agent hears its branch will merge on its own", func(t *testing.T) {
+				instance.WorkQueue()
+
+				listed, err := instance.Agents.ListMail(ctx, connect.NewRequest(&agentv1.ListMailRequest{Id: &agentID}))
+				require.NoError(t, err)
+				require.NotEmpty(t, listed.Msg.GetMail())
+				assert.Contains(t, listed.Msg.GetMail()[0].GetBody(), "auto-merge: on")
+			})
+
+			t.Run("stopping it comes back off on the row", func(t *testing.T) {
+				_, err := instance.Forges.SetForgePullRequestAutoMerge(ctx, connect.NewRequest(&forgev1.SetForgePullRequestAutoMergeRequest{
+					Url: standing.GetUrl(),
+				}))
+				require.NoError(t, err)
+				assert.False(t, fake.autoMerge.Load())
+
+				instance.SyncPullRequests()
+
+				got, err := instance.Agents.GetAgent(ctx, connect.NewRequest(&agentv1.GetAgentRequest{Id: agentID}))
+				require.NoError(t, err)
+				assert.False(t, got.Msg.GetPullRequest().GetAutoMerge())
+			})
 		})
 	}
 }
