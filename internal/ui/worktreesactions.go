@@ -281,7 +281,7 @@ func deleteWorktreesCmd(m *model, deletion worktreeDeletion) tea.Cmd {
 	)
 }
 
-func (w *worktreesScreen) itemMenu(m *model) (submenu, bool) {
+func (w *worktreesScreen) buildItemMenu(m *model) (submenu, bool) {
 	if w.list().isSelecting(m) {
 		deletion := w.chosenDeletion(m)
 		if deletion.isEmpty() {

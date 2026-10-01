@@ -102,18 +102,13 @@ func wheelTurn(wheel tea.MouseWheelMsg) int {
 	}
 }
 
-// popupScroller is a screen with a popup the wheel scrolls while the mouse is over it.
-type popupScroller interface {
-	scrollPopupAt(m *model, x, y, rows int) bool
-}
-
 // routeWheel scrolls the popup, the block beside the list or the list, whichever the mouse is over.
 func (m *model) routeWheel(x, y, rows int) tea.Cmd {
 	if rows == 0 || len(m.wheelKeys(rows)) == 0 {
 		return nil
 	}
 
-	if screen, ok := m.active().(popupScroller); ok && !m.form.isActive() && !m.writes.held.active && !m.isMessagesFocused() && screen.scrollPopupAt(m, x-m.countInsetLeft(), y, rows) {
+	if m.screen == screenReview && !m.form.isActive() && !m.writes.held.active && !m.isMessagesFocused() && m.review.scrollPopupAt(m, x-m.countInsetLeft(), y, rows) {
 		return nil
 	}
 
@@ -125,7 +120,7 @@ func (m *model) routeWheel(x, y, rows int) tea.Cmd {
 		return m.pressWheel(rows)
 	}
 
-	if screen, ok := m.active().(columnScroller); ok && screen.doesScrollColumn(m) {
+	if screen, ok := m.active().(columnFocuser); ok && screen.doesScrollColumn(m) {
 		return screen.scrollColumn(m, rows*columnWheelStep)
 	}
 

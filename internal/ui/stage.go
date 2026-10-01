@@ -47,47 +47,55 @@ func (m *model) applyStageTick(msg stageTickMsg) tea.Cmd {
 		return nil
 	}
 
-	return tea.Batch(m.stageRestingRow(), m.wakeCwdSyncCmd())
+	return tea.Batch(m.active().stageResting(m), m.wakeCwdSyncCmd())
 }
 
-// stageRestingRow stages the row the cursor came to rest on and asks for what the screen reads of it.
-func (m *model) stageRestingRow() tea.Cmd {
-	switch m.screen {
-	case screenWorktrees:
-		m.worktrees.stage(m)
+func (w *worktreesScreen) stageResting(m *model) tea.Cmd {
+	w.stage(m)
 
-		return tea.Batch(m.inspectWorktreeCmd(), m.readLastScreenCmd())
-	case screenDocuments:
-		m.documents.stage(m)
+	return tea.Batch(m.inspectWorktreeCmd(), m.readLastScreenCmd())
+}
 
-		return m.readDocumentsCmd()
-	case screenArchive:
-		m.archive.stage(m)
+func (d *documentsScreen) stageResting(m *model) tea.Cmd {
+	d.stage(m)
 
-		return tea.Batch(m.readLastScreenCmd(), m.inspectAgentWorktreeCmd(time.Now()))
-	case screenSchedules:
-		m.stageSelection()
+	return m.readDocumentsCmd()
+}
 
-		return m.inspectAgentWorktreeCmd(time.Now())
-	case screenLogs:
-		return m.logs.switchSource(m)
-	case screenAgents:
-		m.stageSelection()
+func (a *archiveScreen) stageResting(m *model) tea.Cmd {
+	a.stage(m)
 
-		return tea.Batch(m.readLastScreenCmd(), m.inspectAgentWorktreeCmd(time.Now()))
-	case screenSearch:
-		m.stageSelection()
+	return tea.Batch(m.readLastScreenCmd(), m.inspectAgentWorktreeCmd(time.Now()))
+}
 
-		return tea.Batch(m.search.landOnRow(m), m.inspectAgentWorktreeCmd(time.Now()))
-	case screenReview:
-		if !m.review.hold.atEditor {
-			m.stageSelection()
-		}
-
-		return tea.Batch(m.review.markThreadReadCmd(m), m.inspectAgentWorktreeCmd(time.Now()))
-	}
+func (w *schedulesScreen) stageResting(m *model) tea.Cmd {
+	m.stageSelection()
 
 	return m.inspectAgentWorktreeCmd(time.Now())
+}
+
+func (l *logsScreen) stageResting(m *model) tea.Cmd {
+	return l.switchSource(m)
+}
+
+func (a *agentsScreen) stageResting(m *model) tea.Cmd {
+	m.stageSelection()
+
+	return tea.Batch(m.readLastScreenCmd(), m.inspectAgentWorktreeCmd(time.Now()))
+}
+
+func (w *searchScreen) stageResting(m *model) tea.Cmd {
+	m.stageSelection()
+
+	return tea.Batch(w.landOnRow(m), m.inspectAgentWorktreeCmd(time.Now()))
+}
+
+func (r *reviewScreen) stageResting(m *model) tea.Cmd {
+	if !r.hold.atEditor {
+		m.stageSelection()
+	}
+
+	return tea.Batch(r.markThreadReadCmd(m), m.inspectAgentWorktreeCmd(time.Now()))
 }
 
 // paneStatusRows is the rows the blank status line tmux draws over every pane takes from its window.

@@ -443,7 +443,7 @@ func (m *model) routeAsyncMessage(msg tea.Msg) (tea.Cmd, bool) {
 	case writeResult:
 		return m.applyWrite(msg), true
 	case reviewPausedMsg:
-		if m.isPassing(msg.agentID) {
+		if m.isPausing(msg.agentID) {
 			return nil, false
 		}
 
@@ -492,14 +492,8 @@ func (m *model) reconcileEditor() tea.Cmd {
 		return cmd
 	}
 
-	switch m.screen {
-	case screenReview:
-		return m.review.reconcileEditor(m)
-	case screenDocuments:
-		return m.documents.reconcileEditor(m)
-	case screenAgents:
-		return m.agents.reconcileEditor(m)
-	case screenSchedules, screenArchive, screenSearch, screenWorktrees, screenLogs:
+	if screen, ok := m.active().(editorReconciler); ok {
+		return screen.reconcileEditor(m)
 	}
 
 	return nil
@@ -513,17 +507,6 @@ func (m *model) isTyping() bool {
 	}
 
 	return m.active().takesEveryKey()
-}
-
-// columnScroller is a screen that scrolls its own block beside the list while it says it does.
-type columnScroller interface {
-	doesScrollColumn(m *model) bool
-	scrollColumn(m *model, rows int) tea.Cmd
-}
-
-// listScroller is a screen whose scroll key does not move its list.
-type listScroller interface {
-	scrollList(m *model, rows int) tea.Cmd
 }
 
 // columnWheelStep is how many rows one turn of the wheel moves the block beside the list.

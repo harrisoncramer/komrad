@@ -36,34 +36,41 @@ type lastScreenMsg struct {
 
 // screenedAgentID is the agent whose saved screen the column draws.
 func (m *model) screenedAgentID() (string, bool) {
-	switch m.screen {
-	case screenArchive:
-		if m.archive.kind != archiveAgents {
-			return "", false
-		}
-
-		agent, ok := m.archive.hoveredAgent(m)
-
-		return agent.ID, ok
-	case screenAgents:
-		item, ok := m.agents.hoveredResting(m)
-
-		return item.Agent.ID, ok
-	case screenWorktrees:
-		row, ok := m.worktrees.hovered(m)
-		if !ok || row.item.agent == nil {
-			return "", false
-		}
-
-		if live, ok := m.listing.liveAgent(row.item.agent.id); ok && live.Alive {
-			return "", false
-		}
-
-		return row.item.agent.id, true
-	case screenSchedules, screenSearch, screenReview, screenDocuments, screenLogs:
+	screen, ok := m.active().(savedScreenDrawer)
+	if !ok {
+		return "", false
 	}
 
-	return "", false
+	return screen.screenedAgentID(m)
+}
+
+func (a *archiveScreen) screenedAgentID(m *model) (string, bool) {
+	if a.kind != archiveAgents {
+		return "", false
+	}
+
+	agent, ok := a.hoveredAgent(m)
+
+	return agent.ID, ok
+}
+
+func (a *agentsScreen) screenedAgentID(m *model) (string, bool) {
+	item, ok := a.hoveredResting(m)
+
+	return item.Agent.ID, ok
+}
+
+func (w *worktreesScreen) screenedAgentID(m *model) (string, bool) {
+	row, ok := w.hovered(m)
+	if !ok || row.item.agent == nil {
+		return "", false
+	}
+
+	if live, ok := m.listing.liveAgent(row.item.agent.id); ok && live.Alive {
+		return "", false
+	}
+
+	return row.item.agent.id, true
 }
 
 func (m *model) isScreenShown() bool {
@@ -172,29 +179,36 @@ func noticeRows(notice string, width int) []string {
 }
 
 func (m *model) screenNotice() string {
-	switch m.screen {
-	case screenArchive:
-		restore := m.keys.ArchiveMenu.Restore
-		if target, ok := m.archive.menuTarget(m); ok {
-			if _, err := target.opensAgent(); err == nil {
-				restore = m.keys.ArchiveMenu.RestoreOpen
-			}
-		}
-
-		return "archived" + separated + "press " + keyLabel(m.keys.Menu.Open) + " " + keyLabel(m.keys.Menu.Archive) + " " + keyLabel(restore) + " to restore"
-	case screenAgents:
-		item, ok := m.agents.hoveredResting(m)
-		if ok && item.Agent.HeldAt != nil {
-			return "paused"
-		}
-
-		return "dormant" + separated + "press " + keyLabel(m.keys.Agents.Open) + " to restore"
-	case screenWorktrees:
-		return "not running"
-	case screenSchedules, screenSearch, screenReview, screenDocuments, screenLogs:
+	screen, ok := m.active().(savedScreenDrawer)
+	if !ok {
+		return ""
 	}
 
-	return ""
+	return screen.screenNotice(m)
+}
+
+func (a *archiveScreen) screenNotice(m *model) string {
+	restore := m.keys.ArchiveMenu.Restore
+	if target, ok := a.menuTarget(m); ok {
+		if _, err := target.opensAgent(); err == nil {
+			restore = m.keys.ArchiveMenu.RestoreOpen
+		}
+	}
+
+	return "archived" + separated + "press " + keyLabel(m.keys.Menu.Open) + " " + keyLabel(m.keys.Menu.Archive) + " " + keyLabel(restore) + " to restore"
+}
+
+func (a *agentsScreen) screenNotice(m *model) string {
+	item, ok := a.hoveredResting(m)
+	if ok && item.Agent.HeldAt != nil {
+		return "paused"
+	}
+
+	return "dormant" + separated + "press " + keyLabel(m.keys.Agents.Open) + " to restore"
+}
+
+func (w *worktreesScreen) screenNotice(*model) string {
+	return "not running"
 }
 
 // columnHeight is the rows the block beside the list is drawn in.

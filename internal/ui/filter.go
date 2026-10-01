@@ -151,7 +151,7 @@ func (m *model) filteredRows() ([]filterRow, bool) {
 		return m.detailsFilterRows(), true
 	}
 
-	rows, ok := m.active().(filtered)
+	rows, ok := m.active().(listFilterer)
 	if !ok {
 		return nil, false
 	}
@@ -195,13 +195,13 @@ func (m *model) enterScreen(next screen) tea.Cmd {
 
 // leaveScreen hands the keys back from the block of the screen going down and puts down what it had open.
 func (m *model) leaveScreen() tea.Cmd {
-	if b, ok := m.active().(blocked); ok {
+	if b, ok := m.active().(columnFocuser); ok {
 		b.blurBlock()
 	}
 	m.reading.focused = false
 
-	if l, ok := m.active().(leaving); ok {
-		return l.leave(m)
+	if l, ok := m.active().(screenLeaver); ok {
+		return l.leaveScreen(m)
 	}
 
 	return nil
@@ -309,7 +309,7 @@ func (m *model) hoveredFilterKey() string {
 		return m.hoveredDetailsKey()
 	}
 
-	rows, ok := m.active().(filtered)
+	rows, ok := m.active().(listFilterer)
 	if !ok {
 		return ""
 	}
@@ -324,7 +324,7 @@ func (m *model) placeFilteredCursor(hovered string) {
 		return
 	}
 
-	if rows, ok := m.active().(filtered); ok {
+	if rows, ok := m.active().(listFilterer); ok {
 		rows.placeAt(m, hovered)
 	}
 }

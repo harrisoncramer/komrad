@@ -44,7 +44,7 @@ func (m *model) restageScreen() {
 		return
 	}
 
-	if s, ok := m.active().(staged); ok {
+	if s, ok := m.active().(rowStager); ok {
 		s.stage(m)
 	}
 }

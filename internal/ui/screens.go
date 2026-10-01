@@ -51,6 +51,16 @@ type screenModel interface {
 
 	// takesEveryKey reports whether something on the screen is taking every key.
 	takesEveryKey() bool
+
+	// column is the block the screen draws beside its own list.
+	column() columnSpec
+
+	// stageResting stages the row the cursor came to rest on and asks for what the screen reads of it.
+	stageResting(m *model) tea.Cmd
+
+	// dispatches is the tables the screen dispatches through, one at a time, walked behind the
+	// global keys.
+	dispatches(m *model) []dispatching
 }
 
 // screenTarget is the row a screen is asked to land on, read by each screen for the fields it
@@ -63,8 +73,8 @@ type screenTarget struct {
 	resume bool
 }
 
-// detailed is a screen that draws a record under its list.
-type detailed interface {
+// recordDrawer is a screen that draws the hovered row's record under its list.
+type recordDrawer interface {
 	// details is the record the cursor is standing on.
 	details(m *model) details
 
@@ -78,9 +88,8 @@ type detailed interface {
 	detailsRoom(m *model) int
 }
 
-// filtered is a screen that draws a search under its list and keeps its cursor on the row it
-// was on as the pattern changes.
-type filtered interface {
+// listFilterer is a screen whose list the user can narrow by typing a pattern.
+type listFilterer interface {
 	// hoveredKey is the key of the row the cursor is on, read before the pattern changes.
 	hoveredKey(m *model) string
 
@@ -99,8 +108,9 @@ type filterRow struct {
 	name string
 }
 
-// kinded is a screen listing more than one kind of resource, switched on a row of its own.
-type kinded interface {
+// kindSwitcher is a screen that lists more than one kind of resource and switches between them
+// on a row of its own.
+type kindSwitcher interface {
 	kinds() stops
 
 	// kindsFocused is whether the row of kinds holds the keys.
@@ -116,8 +126,8 @@ type kinded interface {
 	kindsSwitch(m *model) bool
 }
 
-// tabbed is a screen that draws a strip of tabs over its list.
-type tabbed interface {
+// tabSwitcher is a screen with a strip of tabs over its list.
+type tabSwitcher interface {
 	tabs() tabStrip
 
 	// tabsState is where the screen keeps the tab chosen and whether the strip holds the keys.
@@ -127,13 +137,8 @@ type tabbed interface {
 	tabsFit(m *model) bool
 }
 
-// columned is a screen that draws a block beside its own list.
-type columned interface {
-	column() columnSpec
-}
-
-// blocked is a screen whose block beside the list can take the keys from it.
-type blocked interface {
+// columnFocuser is a screen whose block beside the list can take the keys and be scrolled.
+type columnFocuser interface {
 	// isBlockDrawn is whether the block is drawn with something in it to take the keys.
 	isBlockDrawn(m *model) bool
 
@@ -142,16 +147,85 @@ type blocked interface {
 
 	focusBlock(m *model)
 	blurBlock()
+	doesScrollColumn(m *model) bool
+	scrollColumn(m *model, rows int) tea.Cmd
 }
 
-// leaving is a screen with something to put down when another screen goes up.
-type leaving interface {
-	leave(m *model) tea.Cmd
+// crumbDrawer is a screen opened from another that draws the trail back to it.
+type crumbDrawer interface {
+	// parent is the view the page was opened from.
+	parent() screen
+
+	// crumbs is the trail under the parent, down to the page.
+	crumbs(m *model) crumbs
 }
 
-// staged is a screen that puts the row the cursor is on into the stage pane.
-type staged interface {
+// hoveredAgentReporter is a screen whose cursor can rest on an agent's row.
+type hoveredAgentReporter interface {
+	hoveredAgentID(m *model) string
+	hoveredRow(m *model) (agentRow, bool)
+}
+
+// savedScreenDrawer is a screen that draws a stopped agent's saved screen beside its list.
+type savedScreenDrawer interface {
+	screenedAgentID(m *model) (string, bool)
+	screenNotice(m *model) string
+}
+
+// screenLeaver is a screen that puts down what it had open when another screen goes up.
+type screenLeaver interface {
+	leaveScreen(m *model) tea.Cmd
+}
+
+// rowStager is a screen that puts its hovered row on the stage.
+type rowStager interface {
 	stage(m *model)
+}
+
+// hoveredNamer is a screen that names its hovered row at the end of the trail.
+type hoveredNamer interface {
+	hoveredName(m *model) string
+}
+
+// screenMenuBuilder is a screen that adds its own band to the menu.
+type screenMenuBuilder interface {
+	buildScreenMenu(m *model) (submenu, bool)
+}
+
+// itemMenuBuilder is a screen that adds a band to the menu for its hovered row.
+type itemMenuBuilder interface {
+	buildItemMenu(m *model) (submenu, bool)
+}
+
+// lineTyper is a screen with a one-row field the user can type into.
+type lineTyper interface {
+	typedLine() (lineInput, bool)
+}
+
+// listScroller is a screen whose scroll key does something other than move its list.
+type listScroller interface {
+	scrollList(m *model, rows int) tea.Cmd
+}
+
+// loadingReporter is a screen that can be waiting on the service for what it draws.
+type loadingReporter interface {
+	isLoading(m *model) bool
+}
+
+// renamer is a screen that can rename its hovered row in place.
+type renamer interface {
+	isRenaming() bool
+}
+
+// editorReconciler is a screen that keeps an editor it opened on the stage in step with its
+// cursor.
+type editorReconciler interface {
+	reconcileEditor(m *model) tea.Cmd
+}
+
+// agentPauser is a screen that can pause an agent while it is up.
+type agentPauser interface {
+	isPausing(agentID string) bool
 }
 
 // active is the screen that is up.

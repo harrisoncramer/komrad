@@ -8,23 +8,18 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-// itemMenued is a screen whose hovered row has a band of its own in the menu.
-type itemMenued interface {
-	itemMenu(m *model) (submenu, bool)
-}
-
 // openMenu draws the menu, the hovered row's band over the screen's and the panel's own.
 func (m *model) openMenu() tea.Cmd {
 	menu := panelMenu(m)
 
-	if screen, ok := m.active().(screenMenued); ok && !m.isDetailsFocused() {
-		if band, ok := screen.screenMenu(m); ok {
+	if screen, ok := m.active().(screenMenuBuilder); ok && !m.isDetailsFocused() {
+		if band, ok := screen.buildScreenMenu(m); ok {
 			menu = joinMenus(band, menu)
 		}
 	}
 
-	if screen, ok := m.active().(itemMenued); ok && !m.isDetailsFocused() {
-		if item, ok := screen.itemMenu(m); ok {
+	if screen, ok := m.active().(itemMenuBuilder); ok && !m.isDetailsFocused() {
+		if item, ok := screen.buildItemMenu(m); ok {
 			menu = joinMenus(item, menu)
 		}
 	}
@@ -62,7 +57,7 @@ func joinMenus(top, bottom submenu) submenu {
 	}
 }
 
-func (a *agentsScreen) itemMenu(m *model) (submenu, bool) {
+func (a *agentsScreen) buildItemMenu(m *model) (submenu, bool) {
 	if a.list().isSelecting(m) {
 		agents := chosenAgents(a.selected, a.rows(m))
 		if len(agents) == 0 {
@@ -101,7 +96,7 @@ func (a *agentsScreen) itemMenu(m *model) (submenu, bool) {
 	return withNested(menu, "archive", m.keys.Menu.Archive, agentsArchiveMenu(m, []panel.Agent{item.Agent}, false)), true
 }
 
-func (w *schedulesScreen) itemMenu(m *model) (submenu, bool) {
+func (w *schedulesScreen) buildItemMenu(m *model) (submenu, bool) {
 	item, ok := w.selected(m)
 	if !ok {
 		return submenu{}, false
@@ -110,8 +105,8 @@ func (w *schedulesScreen) itemMenu(m *model) (submenu, bool) {
 	return withNested(scheduleMenu(m, item.schedule), "archive", m.keys.Menu.Archive, scheduleArchiveMenu(m, item.schedule)), true
 }
 
-// screenMenu is the schedules screen's own band, for writing a new schedule.
-func (w *schedulesScreen) screenMenu(m *model) (submenu, bool) {
+// buildScreenMenu builds the schedules screen's own band, for writing a new schedule.
+func (w *schedulesScreen) buildScreenMenu(m *model) (submenu, bool) {
 	return submenu{
 		kind:  formMenu,
 		title: "schedules",
@@ -120,8 +115,6 @@ func (w *schedulesScreen) screenMenu(m *model) (submenu, bool) {
 		},
 	}, true
 }
-
-var _ screenMenued = (*schedulesScreen)(nil)
 
 // scheduleMenu is the band on the hovered schedule.
 func scheduleMenu(m *model, schedule panel.Schedule) submenu {
@@ -148,7 +141,7 @@ func rowMenu(name string) submenu {
 	}
 }
 
-func (a *archiveScreen) itemMenu(m *model) (submenu, bool) {
+func (a *archiveScreen) buildItemMenu(m *model) (submenu, bool) {
 	target, ok := a.menuTarget(m)
 	if !ok {
 		return submenu{}, false
@@ -162,14 +155,6 @@ func (a *archiveScreen) itemMenu(m *model) (submenu, bool) {
 
 	return withNested(rowMenu(target.name(m.listing)), "archive", m.keys.Menu.Archive, archive), true
 }
-
-var (
-	_ itemMenued = (*agentsScreen)(nil)
-	_ itemMenued = (*archiveScreen)(nil)
-	_ itemMenued = (*schedulesScreen)(nil)
-	_ itemMenued = (*documentsScreen)(nil)
-	_ itemMenued = (*worktreesScreen)(nil)
-)
 
 // openScratch leaves the menu for the scratch, or closes the scratch when it is open.
 func (m *model) openScratch() tea.Cmd {

@@ -816,8 +816,10 @@ func (w *searchScreen) help(m *model) keyMap {
 }
 
 var (
-	_ columned = (*searchScreen)(nil)
-	_ blocked  = (*searchScreen)(nil)
+	_ columnFocuser = (*searchScreen)(nil)
+	_ hoveredNamer  = (*searchScreen)(nil)
+	_ lineTyper     = (*searchScreen)(nil)
+	_ listScroller  = (*searchScreen)(nil)
 )
 
 func (w *searchScreen) doesDrawFromListing() bool {
@@ -849,4 +851,8 @@ func (w *searchScreen) query() string {
 
 func (w *searchScreen) typedLine() (lineInput, bool) {
 	return w.input, w.typing
+}
+
+func (w *searchScreen) dispatches(*model) []dispatching {
+	return []dispatching{w.listActions(), w.previewActions()}
 }

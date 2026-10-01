@@ -431,13 +431,15 @@ func (m *model) applyDocumentRead(msg documentReadMsg) {
 }
 
 var (
-	_ columned       = (*documentsScreen)(nil)
-	_ filtered       = (*documentsScreen)(nil)
-	_ staged         = (*documentsScreen)(nil)
-	_ columnScroller = (*documentsScreen)(nil)
-	_ blocked        = (*documentsScreen)(nil)
-	_ leaving        = (*documentsScreen)(nil)
-	_ renamer        = (*documentsScreen)(nil)
+	_ listFilterer     = (*documentsScreen)(nil)
+	_ columnFocuser    = (*documentsScreen)(nil)
+	_ crumbDrawer      = (*documentsScreen)(nil)
+	_ screenLeaver     = (*documentsScreen)(nil)
+	_ rowStager        = (*documentsScreen)(nil)
+	_ itemMenuBuilder  = (*documentsScreen)(nil)
+	_ lineTyper        = (*documentsScreen)(nil)
+	_ renamer          = (*documentsScreen)(nil)
+	_ editorReconciler = (*documentsScreen)(nil)
 )
 
 func (d *documentsScreen) stage(m *model) {
@@ -473,4 +475,8 @@ func (d *documentsScreen) placeAt(m *model, key string) {
 
 func (d *documentsScreen) filterRows(m *model) []filterRow {
 	return d.list().filterRows(m)
+}
+
+func (d *documentsScreen) dispatches(m *model) []dispatching {
+	return []dispatching{d.listActions(), d.diffActions(), m.docActions(), d.docKeys()}
 }

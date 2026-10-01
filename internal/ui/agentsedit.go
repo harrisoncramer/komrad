@@ -145,7 +145,7 @@ func (a *agentsScreen) reconcileEditor(m *model) tea.Cmd {
 	return cmd
 }
 
-func (a *agentsScreen) leave(m *model) tea.Cmd {
+func (a *agentsScreen) leaveScreen(m *model) tea.Cmd {
 	a.renaming = nil
 
 	return a.closeEdit(m)

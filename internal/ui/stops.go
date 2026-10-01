@@ -58,7 +58,7 @@ func (m *model) enterStop(to stop) tea.Cmd {
 	case stopBlock:
 		m.enterSidebar(to)
 		m.blurDetails()
-		if b, ok := m.active().(blocked); ok && m.isScreenBlockDrawn() {
+		if b, ok := m.active().(columnFocuser); ok && m.isScreenBlockDrawn() {
 			b.focusBlock(m)
 		} else {
 			m.focusDoc()
@@ -79,7 +79,7 @@ func (m *model) enterSidebar(to stop) {
 
 	m.blurTabs()
 	m.blurKinds()
-	if b, ok := m.active().(blocked); ok && to != stopBlock {
+	if b, ok := m.active().(columnFocuser); ok && to != stopBlock {
 		b.blurBlock()
 	}
 	if to != stopBlock {
@@ -96,7 +96,7 @@ func (m *model) atStop() stop {
 		return stopBlock
 	}
 
-	if b, ok := m.active().(blocked); ok && b.isBlockFocused(m) {
+	if b, ok := m.active().(columnFocuser); ok && b.isBlockFocused(m) {
 		return stopBlock
 	}
 
@@ -142,7 +142,7 @@ func (m *model) isDormantHovered() bool {
 
 // isScreenBlockDrawn reports whether the screen is drawing a block of its own beside the list.
 func (m *model) isScreenBlockDrawn() bool {
-	b, ok := m.active().(blocked)
+	b, ok := m.active().(columnFocuser)
 
 	return ok && b.isBlockDrawn(m)
 }

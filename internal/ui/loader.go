@@ -29,16 +29,12 @@ func (l loadingState) frame() string {
 	return l.style.Frame(l.step)
 }
 
-type loaderScreen interface {
-	isLoading(m *model) bool
-}
-
 func (m *model) isLoading() bool {
 	if len(m.writes.inflight) > 0 {
 		return true
 	}
 
-	screen, ok := m.active().(loaderScreen)
+	screen, ok := m.active().(loadingReporter)
 
 	return ok && screen.isLoading(m)
 }

@@ -424,13 +424,21 @@ func startOrchestrator(m *model, workflow panel.Workflow) tea.Cmd {
 }
 
 var (
-	_ detailed = (*agentsScreen)(nil)
-	_ filtered = (*agentsScreen)(nil)
-	_ tabbed   = (*agentsScreen)(nil)
-	_ columned = (*agentsScreen)(nil)
-	_ staged   = (*agentsScreen)(nil)
-	_ leaving  = (*agentsScreen)(nil)
-	_ renamer  = (*agentsScreen)(nil)
+	_ recordDrawer         = (*agentsScreen)(nil)
+	_ listFilterer         = (*agentsScreen)(nil)
+	_ tabSwitcher          = (*agentsScreen)(nil)
+	_ screenLeaver         = (*agentsScreen)(nil)
+	_ rowStager            = (*agentsScreen)(nil)
+	_ hoveredNamer         = (*agentsScreen)(nil)
+	_ screenMenuBuilder    = (*agentsScreen)(nil)
+	_ itemMenuBuilder      = (*agentsScreen)(nil)
+	_ loadingReporter      = (*agentsScreen)(nil)
+	_ lineTyper            = (*agentsScreen)(nil)
+	_ renamer              = (*agentsScreen)(nil)
+	_ editorReconciler     = (*agentsScreen)(nil)
+	_ hoveredAgentReporter = (*agentsScreen)(nil)
+	_ savedScreenDrawer    = (*agentsScreen)(nil)
+	_ agentPauser          = (*agentsScreen)(nil)
 )
 
 func (a *agentsScreen) doesDrawFromListing() bool {
@@ -516,4 +524,8 @@ func (a *agentsScreen) settleRename(m *model, row string, err error) {
 	if a.settleField(row, err) {
 		a.reconcileRename(m)
 	}
+}
+
+func (a *agentsScreen) dispatches(*model) []dispatching {
+	return []dispatching{a.actions()}
 }

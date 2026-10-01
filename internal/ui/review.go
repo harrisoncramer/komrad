@@ -117,8 +117,13 @@ func (m *model) enterReview(agent panel.Agent) tea.Cmd {
 }
 
 var (
-	_ columned = (*reviewScreen)(nil)
-	_ blocked  = (*reviewScreen)(nil)
+	_ columnFocuser    = (*reviewScreen)(nil)
+	_ crumbDrawer      = (*reviewScreen)(nil)
+	_ loadingReporter  = (*reviewScreen)(nil)
+	_ lineTyper        = (*reviewScreen)(nil)
+	_ listScroller     = (*reviewScreen)(nil)
+	_ editorReconciler = (*reviewScreen)(nil)
+	_ agentPauser      = (*reviewScreen)(nil)
 )
 
 func (r *reviewScreen) doesDrawFromListing() bool {
@@ -135,4 +140,8 @@ func (r reviewScreen) typedLine() (lineInput, bool) {
 	}
 
 	return r.diff.filter.input, r.diff.filter.typing
+}
+
+func (r *reviewScreen) dispatches(*model) []dispatching {
+	return []dispatching{r.diffActions(), r.filesActions()}
 }

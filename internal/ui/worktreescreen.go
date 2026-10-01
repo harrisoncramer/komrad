@@ -527,12 +527,14 @@ func commitLines(commits []worktreeCommit) []string {
 }
 
 var (
-	_ detailed = (*worktreesScreen)(nil)
-	_ filtered = (*worktreesScreen)(nil)
-	_ kinded   = (*worktreesScreen)(nil)
-	_ tabbed   = (*worktreesScreen)(nil)
-	_ columned = (*worktreesScreen)(nil)
-	_ staged   = (*worktreesScreen)(nil)
+	_ recordDrawer      = (*worktreesScreen)(nil)
+	_ listFilterer      = (*worktreesScreen)(nil)
+	_ kindSwitcher      = (*worktreesScreen)(nil)
+	_ tabSwitcher       = (*worktreesScreen)(nil)
+	_ rowStager         = (*worktreesScreen)(nil)
+	_ hoveredNamer      = (*worktreesScreen)(nil)
+	_ itemMenuBuilder   = (*worktreesScreen)(nil)
+	_ savedScreenDrawer = (*worktreesScreen)(nil)
 )
 
 func (w *worktreesScreen) doesDrawFromListing() bool {
@@ -591,4 +593,8 @@ func (w *worktreesScreen) column() columnSpec {
 			return m.withLastScreen(paint.DocStyledRows(m.worktrees.doc(m), max(width, 1), columnStyle()), width)
 		},
 	}
+}
+
+func (w *worktreesScreen) dispatches(*model) []dispatching {
+	return []dispatching{w.actions()}
 }

@@ -126,16 +126,14 @@ func (r *reviewScreen) applyPaused(m *model, msg reviewPausedMsg) tea.Cmd {
 	return r.editFile(m)
 }
 
-func (m *model) isPassing(agentID string) bool {
-	switch m.screen {
-	case screenReview:
-		return m.review.agentID == agentID && m.review.hold.pausing
-	case screenAgents:
-		return m.agents.isPausing(agentID)
-	case screenSchedules, screenArchive, screenSearch, screenWorktrees, screenDocuments, screenLogs:
-	}
+func (m *model) isPausing(agentID string) bool {
+	screen, ok := m.active().(agentPauser)
 
-	return false
+	return ok && screen.isPausing(agentID)
+}
+
+func (r *reviewScreen) isPausing(agentID string) bool {
+	return r.agentID == agentID && r.hold.pausing
 }
 
 func (m *model) releaseAbandonedPause(msg reviewPausedMsg) tea.Cmd {

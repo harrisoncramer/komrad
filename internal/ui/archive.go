@@ -502,13 +502,18 @@ func archiveTabs() tabStrip {
 }
 
 var (
-	_ detailed = (*archiveScreen)(nil)
-	_ filtered = (*archiveScreen)(nil)
-	_ kinded   = (*archiveScreen)(nil)
-	_ tabbed   = (*archiveScreen)(nil)
-	_ columned = (*archiveScreen)(nil)
-	_ staged   = (*archiveScreen)(nil)
-	_ renamer  = (*archiveScreen)(nil)
+	_ recordDrawer         = (*archiveScreen)(nil)
+	_ listFilterer         = (*archiveScreen)(nil)
+	_ kindSwitcher         = (*archiveScreen)(nil)
+	_ tabSwitcher          = (*archiveScreen)(nil)
+	_ rowStager            = (*archiveScreen)(nil)
+	_ hoveredNamer         = (*archiveScreen)(nil)
+	_ itemMenuBuilder      = (*archiveScreen)(nil)
+	_ loadingReporter      = (*archiveScreen)(nil)
+	_ lineTyper            = (*archiveScreen)(nil)
+	_ renamer              = (*archiveScreen)(nil)
+	_ hoveredAgentReporter = (*archiveScreen)(nil)
+	_ savedScreenDrawer    = (*archiveScreen)(nil)
 )
 
 func (a *archiveScreen) doesDrawFromListing() bool {
@@ -618,4 +623,8 @@ func (a *archiveScreen) settleRename(m *model, row string, err error) {
 	if a.settleField(row, err) {
 		a.reconcileRename(m)
 	}
+}
+
+func (a *archiveScreen) dispatches(*model) []dispatching {
+	return []dispatching{a.actions()}
 }

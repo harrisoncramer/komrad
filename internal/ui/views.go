@@ -191,15 +191,12 @@ func (m *model) enterView(entry viewEntry) tea.Cmd {
 
 // hoveredAgentID is the agent under the cursor on a screen that lists agents.
 func (m *model) hoveredAgentID() string {
-	switch m.screen {
-	case screenAgents:
-		return m.agents.hoveredAgentID(m)
-	case screenArchive:
-		return m.archive.hoveredAgentID(m)
-	case screenSchedules, screenSearch, screenReview, screenWorktrees, screenDocuments, screenLogs:
+	screen, ok := m.active().(hoveredAgentReporter)
+	if !ok {
+		return ""
 	}
 
-	return ""
+	return screen.hoveredAgentID(m)
 }
 
 func (m *model) viewsBinding() key.Binding {
