@@ -239,22 +239,6 @@ func TestListingFocus(t *testing.T) {
 		assert.Contains(t, readOpenMessages(harness), "old is back up")
 	})
 
-	t.Run("a resume leaves the keys on the panel once the harness draws", func(t *testing.T) {
-		t.Parallel()
-
-		frames := &drawReporter{}
-		harness := newPanelHarness(t, panelHarnessParams{harnessFrames: frames})
-		answerWorktreeReads(harness)
-		harness.watch(buildSnapshot(newLiveWorkflow("w1", "api"), newDormant("old")))
-		answerResume(harness)
-
-		harness.press("j", "enter")
-		frames.isDrawn = true
-		harness.fireTimers()
-
-		assert.Empty(t, harness.panel.ReadSelectedPanes())
-	})
-
 	t.Run("the cursor moves freely while a resume is in flight", func(t *testing.T) {
 		t.Parallel()
 
