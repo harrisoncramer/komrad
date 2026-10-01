@@ -10,6 +10,7 @@ import (
 	"komrad/internal/logging"
 	agentstore "komrad/internal/store/agent"
 	transcriptstore "komrad/internal/store/transcript"
+	"komrad/lib/xstr"
 )
 
 const assistantRole = "assistant"
@@ -81,27 +82,34 @@ func (r *TranscriptReader) SearchTranscripts(ctx context.Context, params SearchT
 	return &results, nil
 }
 
-// ReadTranscript returns the whole of an agent's stored transcript.
-func (r *TranscriptReader) ReadTranscript(ctx context.Context, agentID string) (string, error) {
-	if err := r.requireAgent(ctx, agentID); err != nil {
-		return "", err
+type ReadTranscriptWindowParams struct {
+	AgentID  string
+	Cursor   *transcriptstore.ContentCursor
+	MaxBytes int32
+}
+
+// ReadTranscriptWindow returns one window of an agent's stored transcript, cut between runes.
+func (r *TranscriptReader) ReadTranscriptWindow(ctx context.Context, params ReadTranscriptWindowParams) (*Window, error) {
+	if err := r.requireAgent(ctx, params.AgentID); err != nil {
+		return nil, err
 	}
 
-	content, err := r.transcripts.Get(ctx, agentID)
+	content, err := r.transcripts.Get(ctx, params.AgentID)
 	if err != nil {
-		return "", fmt.Errorf("failed to get the transcript of agent %q: %w", agentID, err)
+		return nil, fmt.Errorf("failed to get the transcript of agent %q: %w", params.AgentID, err)
 	}
 
-	return content, nil
+	return cutWindow(content, params.Cursor, params.MaxBytes)
 }
 
 type ListLastTurnsParams struct {
-	AgentID string
-	Turns   int32
+	AgentID  string
+	Turns    int32
+	MaxBytes int32
 }
 
-// ListLastTurns returns the newest turns an agent wrote and the prompts between them, oldest first, one turn when none is asked for.
-func (r *TranscriptReader) ListLastTurns(ctx context.Context, params ListLastTurnsParams) ([]transcriptstore.StoredTurn, error) {
+// ListLastTurns returns the newest turns an agent wrote and the prompts between them, oldest first, one turn when none is asked for, each cut from the head to fit the window.
+func (r *TranscriptReader) ListLastTurns(ctx context.Context, params ListLastTurnsParams) ([]Turn, error) {
 	if err := r.requireAgent(ctx, params.AgentID); err != nil {
 		return nil, err
 	}
@@ -111,13 +119,26 @@ func (r *TranscriptReader) ListLastTurns(ctx context.Context, params ListLastTur
 		count = 1
 	}
 
-	turns, err := r.transcripts.ListLastTurns(ctx, transcriptstore.ListLastTurnsParams{
+	stored, err := r.transcripts.ListLastTurns(ctx, transcriptstore.ListLastTurnsParams{
 		AgentID: params.AgentID,
 		Role:    assistantRole,
 		Limit:   count,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list the last turns of agent %q: %w", params.AgentID, err)
+	}
+
+	limit := clampWindow(params.MaxBytes)
+
+	turns := make([]Turn, 0, len(stored))
+	for _, turn := range stored {
+		content, truncated := xstr.Tail(turn.Content, limit)
+		turns = append(turns, Turn{
+			Role:      turn.Role,
+			Seq:       turn.Seq,
+			Content:   content,
+			Truncated: truncated,
+		})
 	}
 
 	return turns, nil

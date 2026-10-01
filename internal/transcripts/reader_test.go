@@ -35,7 +35,7 @@ func TestTranscriptReaderRefusesAnAgentNobodyHolds(t *testing.T) {
 		{
 			name: "reading its transcript",
 			read: func(t *testing.T, reader *TranscriptReader) error {
-				_, err := reader.ReadTranscript(t.Context(), missingAgentID)
+				_, err := reader.ReadTranscriptWindow(t.Context(), ReadTranscriptWindowParams{AgentID: missingAgentID})
 
 				return err
 			},
@@ -104,11 +104,57 @@ func TestListLastTurns(t *testing.T) {
 				Turns:   tt.turns,
 			})
 			require.NoError(t, err)
-			assert.Equal(t, tt.wantSeqs, xslice.Map(turns, func(turn transcriptstore.StoredTurn) int32 {
+			assert.Equal(t, tt.wantSeqs, xslice.Map(turns, func(turn Turn) int32 {
 				return turn.Seq
 			}))
 		})
 	}
+}
+
+// TestListLastTurnsCutsToTheWindow pins that a window keeps the end of each turn.
+func TestListLastTurnsCutsToTheWindow(t *testing.T) {
+	st := storetest.Open(t)
+	reader := newTranscriptReader(st)
+	alpha := st.SeedAgent(t, agentstore.Agent{Name: "alpha"})
+	st.SeedTurns(t, alpha.ID,
+		transcriptstore.Turn{
+			Role:    "assistant",
+			Content: "a first reading of the problem",
+		},
+		transcriptstore.Turn{
+			Role:    "user",
+			Content: "a nudge",
+		},
+		transcriptstore.Turn{
+			Role:    "assistant",
+			Content: "done",
+		},
+	)
+
+	turns, err := reader.ListLastTurns(t.Context(), ListLastTurnsParams{
+		AgentID:  alpha.ID,
+		Turns:    2,
+		MaxBytes: 22,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, []Turn{
+		{
+			Role:      "assistant",
+			Seq:       0,
+			Content:   "reading of the problem",
+			Truncated: true,
+		},
+		{
+			Role:    "user",
+			Seq:     1,
+			Content: "a nudge",
+		},
+		{
+			Role:    "assistant",
+			Seq:     2,
+			Content: "done",
+		},
+	}, turns)
 }
 
 // TestSearchTranscriptsScope pins which agents a search reaches: the one named, else the caller's

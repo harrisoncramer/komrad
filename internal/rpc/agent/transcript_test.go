@@ -9,13 +9,12 @@ import (
 
 	"komrad/internal/agenterr"
 	"komrad/internal/caller"
+	"komrad/internal/fail"
 	"komrad/internal/logging"
 	"komrad/internal/logtest"
-	"komrad/internal/rpcerr"
 	"komrad/internal/transcripts"
 	"komrad/lib/pagination"
 	"komrad/lib/xptr"
-	"komrad/lib/xslice"
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
 	"komrad/proto/gen/agent/v1/agentv1komrad"
@@ -32,31 +31,45 @@ import (
 
 // fakeTranscriptReader answers from its fields and records what each call asked of it.
 type fakeTranscriptReader struct {
-	content  string
-	turns    []transcriptstore.StoredTurn
+	window   transcripts.Window
+	turns    []transcripts.Turn
+	forward  transcripts.Forward
 	results  transcriptstore.Results
 	err      error
+	read     []transcripts.ReadTranscriptWindowParams
 	searched []transcripts.SearchTranscriptsParams
 	listed   []transcripts.ListLastTurnsParams
+	composed []transcripts.ComposeForwardParams
 }
 
-// ReadTranscript answers content unless err refuses it.
-func (f *fakeTranscriptReader) ReadTranscript(context.Context, string) (string, error) {
+// ReadTranscriptWindow records the params and answers window unless err refuses it.
+func (f *fakeTranscriptReader) ReadTranscriptWindow(_ context.Context, params transcripts.ReadTranscriptWindowParams) (*transcripts.Window, error) {
+	f.read = append(f.read, params)
 	if f.err != nil {
-		return "", f.err
+		return nil, f.err
 	}
 
-	return f.content, nil
+	return &f.window, nil
 }
 
 // ListLastTurns records the params and answers turns unless err refuses it.
-func (f *fakeTranscriptReader) ListLastTurns(_ context.Context, params transcripts.ListLastTurnsParams) ([]transcriptstore.StoredTurn, error) {
+func (f *fakeTranscriptReader) ListLastTurns(_ context.Context, params transcripts.ListLastTurnsParams) ([]transcripts.Turn, error) {
 	f.listed = append(f.listed, params)
 	if f.err != nil {
 		return nil, f.err
 	}
 
 	return f.turns, nil
+}
+
+// ComposeForward records the params and answers forward unless err refuses it.
+func (f *fakeTranscriptReader) ComposeForward(_ context.Context, params transcripts.ComposeForwardParams) (*transcripts.Forward, error) {
+	f.composed = append(f.composed, params)
+	if f.err != nil {
+		return nil, f.err
+	}
+
+	return &f.forward, nil
 }
 
 // SearchTranscripts records the params and answers results unless err refuses it.
@@ -69,117 +82,56 @@ func (f *fakeTranscriptReader) SearchTranscripts(_ context.Context, params trans
 	return &f.results, nil
 }
 
-// TestTranscriptWindow covers the cut a page token is minted from, which has to move forward by
-// whole characters and stop rather than hand back a token asking the same question again.
-func TestTranscriptWindow(t *testing.T) {
+// TestGetTranscript pins what reaches the reader and that a window's cursor becomes the page token.
+func TestGetTranscript(t *testing.T) {
+	token, err := pagination.Token(transcriptstore.ContentCursor{Offset: 8})
+	require.NoError(t, err)
+
 	tests := []struct {
 		name       string
-		content    string
-		offset     int64
-		requested  int32
-		want       string
-		wantOffset int64
-		wantLast   bool
-		wantCode   connect.Code
-		wantErr    string
+		req        *agentv1.GetTranscriptRequest
+		window     transcripts.Window
+		wantCursor *transcriptstore.ContentCursor
+		wantMax    int32
+		wantToken  *string
 	}{
 		{
-			name:     "content inside the window is the last page",
-			content:  "the whole conversation",
-			want:     "the whole conversation",
-			wantLast: true,
+			name:   "the last window carries no token",
+			req:    &agentv1.GetTranscriptRequest{},
+			window: transcripts.Window{Content: "the whole conversation"},
 		},
 		{
-			name:       "content past the window is cut and carries a token",
-			content:    "opening question and then some",
-			requested:  7,
-			want:       "opening",
-			wantOffset: 7,
-		},
-		{
-			name:       "a cut inside a character pulls back to the one before it",
-			content:    "日本語",
-			requested:  7,
-			want:       "日本",
-			wantOffset: 6,
-		},
-		{
-			name:     "an offset the caller was handed reads on from there",
-			content:  "opening question",
-			offset:   8,
-			want:     "question",
-			wantLast: true,
-		},
-		{
-			name:     "an offset at the end is the empty last page",
-			content:  "opening",
-			offset:   7,
-			want:     "",
-			wantLast: true,
-		},
-		{
-			name:     "an offset past the end is the empty last page too",
-			content:  "opening",
-			offset:   500,
-			want:     "",
-			wantLast: true,
-		},
-		{
-			name:      "a window too small to hold the next character is refused",
-			content:   "日本語",
-			requested: 2,
-			wantCode:  connect.CodeInvalidArgument,
-			wantErr:   "max_bytes of 2 is too small",
-		},
-		{
-			name:     "a cursor landing inside a character says so rather than blaming the window",
-			content:  "日本語 and then a long tail of ordinary text that follows on",
-			offset:   1,
-			wantCode: connect.CodeInvalidArgument,
-			wantErr:  "cursor no longer names the start of a character",
-		},
-		{
-			name:     "a window bigger than the cap is capped",
-			content:  strings.Repeat("a", maxTranscriptWindow+10),
-			want:     strings.Repeat("a", maxTranscriptWindow),
-			wantCode: 0,
+			name: "a cursor and a window are handed down and the next cursor comes back as a token",
+			req: &agentv1.GetTranscriptRequest{
+				Cursor:   token,
+				MaxBytes: xptr.Ptr[int32](7),
+			},
+			window: transcripts.Window{
+				Content: "opening",
+				Next:    &transcriptstore.ContentCursor{Offset: 8},
+			},
+			wantCursor: &transcriptstore.ContentCursor{Offset: 8},
+			wantMax:    7,
+			wantToken:  token,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var cursor *transcriptstore.ContentCursor
-			if tt.offset != 0 {
-				cursor = &transcriptstore.ContentCursor{Offset: tt.offset}
-			}
+			reader := &fakeTranscriptReader{window: tt.window}
+			svc := newTranscriptHandler(reader)
 
-			window, next, failure := transcriptWindow(tt.content, cursor, tt.requested)
-			if tt.wantCode != 0 {
-				require.NotNil(t, failure)
+			tt.req.AgentId = alphaID
+			got, err := svc.GetTranscript(t.Context(), connect.NewRequest(tt.req))
+			require.NoError(t, err)
 
-				_, served := rpcerr.Answer[agentv1.GetTranscriptResponse](nil, failure)
-				assert.Equal(t, tt.wantCode, connect.CodeOf(served))
-				assert.Contains(t, failure.Error(), tt.wantErr, "the message has to name the real cause")
-
-				return
-			}
-
-			require.Nil(t, failure)
-			assert.Equal(t, tt.want, window)
-
-			if tt.wantLast {
-				assert.Nil(t, next, "the last page carries no token")
-				return
-			}
-
-			require.NotNil(t, next)
-
-			if tt.wantOffset != 0 {
-				decoded, decodeErr := pagination.Decode[transcriptstore.ContentCursor](*next)
-				require.NoError(t, decodeErr)
-				require.NotNil(t, decoded)
-				assert.Equal(t, tt.wantOffset, decoded.Offset)
-			}
+			assert.Equal(t, tt.window.Content, got.Msg.GetContent())
+			assert.Equal(t, tt.wantToken, got.Msg.NextPageToken)
+			assert.Equal(t, []transcripts.ReadTranscriptWindowParams{{
+				AgentID:  alphaID,
+				Cursor:   tt.wantCursor,
+				MaxBytes: tt.wantMax,
+			}}, reader.read)
 		})
 	}
 }
@@ -231,6 +183,12 @@ func TestTranscriptRefusalsMapToCodes(t *testing.T) {
 		{
 			name:     "a transcript cursor this server never handed out",
 			call:     getTranscript("not-a-token"),
+			wantCode: connect.CodeInvalidArgument,
+		},
+		{
+			name:     "a window the reader refuses",
+			call:     getTranscript(""),
+			err:      fail.InvalidArgument("max_bytes of 2 is too small"),
 			wantCode: connect.CodeInvalidArgument,
 		},
 		{
@@ -488,61 +446,18 @@ func TestCrossAgentReadIsRecorded(t *testing.T) {
 	}
 }
 
-// TestGetTranscriptPagesToTheEnd pins that the windows join back into the transcript that was stored.
-func TestGetTranscriptPagesToTheEnd(t *testing.T) {
-	whole := strings.Repeat("a", 50) + strings.Repeat("b", 50) + strings.Repeat("c", 50)
-	svc := newTranscriptHandler(&fakeTranscriptReader{content: whole})
-
-	var (
-		read   strings.Builder
-		cursor string
-		pages  int
-	)
-
-	for {
-		req := &agentv1.GetTranscriptRequest{
-			AgentId:  alphaID,
-			MaxBytes: xptr.Ptr[int32](40),
-		}
-		if cursor != "" {
-			req.Cursor = xptr.Ptr(cursor)
-		}
-
-		got, err := svc.GetTranscript(t.Context(), connect.NewRequest(req))
-		require.NoError(t, err)
-
-		read.WriteString(got.Msg.GetContent())
-		pages++
-		require.Less(t, pages, 20, "the windows have to run out")
-
-		cursor = got.Msg.GetNextPageToken()
-		if cursor == "" {
-			break
-		}
-	}
-
-	assert.Equal(t, whole, read.String())
-	assert.Equal(t, 4, pages)
-}
-
-type lastTurn struct {
-	role      string
-	seq       int32
-	content   string
-	truncated bool
-}
-
-// TestGetLastTurns pins what reaches the reader and that a window keeps the end of each turn.
+// TestGetLastTurns pins what reaches the reader and how each turn renders.
 func TestGetLastTurns(t *testing.T) {
-	stored := []transcriptstore.StoredTurn{
+	listed := []transcripts.Turn{
 		{
-			Seq:     1,
-			Role:    "assistant",
-			Content: "a first reading of the problem",
+			Role:      "assistant",
+			Seq:       1,
+			Content:   "reading of the problem",
+			Truncated: true,
 		},
 		{
-			Seq:     2,
 			Role:    "user",
+			Seq:     2,
 			Content: "a nudge",
 		},
 	}
@@ -551,68 +466,49 @@ func TestGetLastTurns(t *testing.T) {
 		name      string
 		req       *agentv1.GetLastTurnsRequest
 		wantTurns int32
-		want      []lastTurn
+		wantMax   int32
 	}{
 		{
 			name: "no count is handed down as none",
 			req:  &agentv1.GetLastTurnsRequest{},
-			want: []lastTurn{
-				{
-					role:    "assistant",
-					seq:     1,
-					content: "a first reading of the problem",
-				},
-				{
-					role:    "user",
-					seq:     2,
-					content: "a nudge",
-				},
-			},
 		},
 		{
-			name: "a window cuts the head of a turn and says so, leaving a shorter one whole",
+			name: "a count and a window are handed down",
 			req: &agentv1.GetLastTurnsRequest{
 				Turns:    xptr.Ptr[int32](2),
 				MaxBytes: xptr.Ptr[int32](22),
 			},
 			wantTurns: 2,
-			want: []lastTurn{
-				{
-					role:      "assistant",
-					seq:       1,
-					content:   "reading of the problem",
-					truncated: true,
-				},
-				{
-					role:    "user",
-					seq:     2,
-					content: "a nudge",
-				},
-			},
+			wantMax:   22,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			reader := &fakeTranscriptReader{turns: stored}
+			reader := &fakeTranscriptReader{turns: listed}
 			svc := newTranscriptHandler(reader)
 
 			tt.req.AgentId = alphaID
 			got, err := svc.GetLastTurns(t.Context(), connect.NewRequest(tt.req))
 			require.NoError(t, err)
 
-			read := xslice.Map(got.Msg.GetTurns(), func(turn *agentv1.Turn) lastTurn {
-				return lastTurn{
-					role:      turn.GetRole(),
-					seq:       turn.GetSeq(),
-					content:   turn.GetContent(),
-					truncated: turn.GetTruncated(),
-				}
-			})
-			assert.Equal(t, tt.want, read)
+			assert.Empty(t, cmp.Diff([]*agentv1.Turn{
+				{
+					Role:      "assistant",
+					Seq:       1,
+					Content:   "reading of the problem",
+					Truncated: true,
+				},
+				{
+					Role:    "user",
+					Seq:     2,
+					Content: "a nudge",
+				},
+			}, got.Msg.GetTurns(), protocmp.Transform()))
 			assert.Equal(t, []transcripts.ListLastTurnsParams{{
-				AgentID: alphaID,
-				Turns:   tt.wantTurns,
+				AgentID:  alphaID,
+				Turns:    tt.wantTurns,
+				MaxBytes: tt.wantMax,
 			}}, reader.listed)
 		})
 	}
