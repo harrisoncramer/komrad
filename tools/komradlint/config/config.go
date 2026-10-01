@@ -16,6 +16,7 @@ type Config struct {
 	BlackBox         BlackBoxConfig         `json:"black_box"`
 	FakeStore        FakeStoreConfig        `json:"fake_store"`
 	TestBeside       BesideConfig           `json:"test_beside"`
+	BoundKey         BoundKeyConfig         `json:"bound_key"`
 }
 
 // BlackBoxConfig settles which types a test inside their package may not drive.
@@ -132,4 +133,34 @@ type WrapPhraseConfig struct {
 	// Exclude is unanchored regexps over the file path, for the packages whose messages open
 	// with the config key they are about.
 	Exclude []string `json:"exclude"`
+}
+
+// BoundKeyConfig settles which keys a press may be matched against outside a table or a menu entry.
+type BoundKeyConfig struct {
+	// Skip turns the rule off.
+	Skip bool `json:"skip"`
+	// Roots is the types a key is traced back to, each with the prefix its fields are named under.
+	Roots []BoundKeyRoot `json:"roots"`
+	// Matchers is the functions that match a press, spelled as the import path, a dot and the name, with the receiver's type between them for a method.
+	Matchers []string `json:"matchers"`
+	// Compares is the general functions, such as slices.Contains, checked only when the slice they are handed traces to the keybindings.
+	Compares []string `json:"compares"`
+	// Navigation is the key paths, such as Nav or Review.Back, that any function may match.
+	Navigation []string `json:"navigation"`
+	// Sources is the functions whose result counts as navigation keys.
+	Sources []string `json:"sources"`
+	// Dispatchers is the functions that match a press against a table or a menu, which may match any key.
+	Dispatchers []string `json:"dispatchers"`
+	// Inputs is the functions that take a press while a surface takes every key, which may match any key.
+	Inputs []string `json:"inputs"`
+	// Exclude is unanchored regexps over the file path.
+	Exclude []string `json:"exclude"`
+}
+
+// BoundKeyRoot is one type a key is traced back to.
+type BoundKeyRoot struct {
+	// Type is the type spelled as its import path, a dot and its name.
+	Type string `json:"type"`
+	// Prefix is put before the field path, so the same field name on two roots reads apart.
+	Prefix string `json:"prefix"`
 }

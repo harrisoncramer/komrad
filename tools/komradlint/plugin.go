@@ -94,6 +94,11 @@ func (l *linter) BuildAnalyzers() ([]*analysis.Analyzer, error) {
 		return nil, err
 	}
 
+	bound, err := newBoundKey(l.config.BoundKey)
+	if err != nil {
+		return nil, err
+	}
+
 	return []*analysis.Analyzer{
 		sentinels,
 		inline,
@@ -108,6 +113,7 @@ func (l *linter) BuildAnalyzers() ([]*analysis.Analyzer, error) {
 		boxes,
 		stores,
 		beside,
+		bound,
 	}, nil
 }
 
