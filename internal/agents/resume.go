@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"komrad/config"
+	"komrad/internal/agenterr"
+	"komrad/internal/harness"
 	"komrad/internal/logging"
 	"komrad/internal/scripts"
 	"komrad/internal/store"
@@ -46,11 +48,10 @@ type NewResumeServiceParams struct {
 
 type ResumeService struct {
 	tmux               paneController
+	starter            *agentStarter
 	agents             resumeAgentReadWriter
 	workflows          workflowReader
-	launcher           *Launcher
 	harnesses          harnessGetter
-	scripts            agentScriptRunner
 	fallbackResumeRoot string
 	// inFlight holds the agents this panel is part-way through resuming.
 	inFlight   map[string]struct{}
@@ -64,12 +65,15 @@ func NewResumeService(params NewResumeServiceParams) *ResumeService {
 	}
 
 	return &ResumeService{
-		tmux:               params.Tmux,
+		tmux: params.Tmux,
+		starter: &agentStarter{
+			tmux:     params.Tmux,
+			launcher: params.Launcher,
+			scripts:  params.Scripts,
+		},
 		agents:             params.Agents,
 		workflows:          params.Workflows,
-		launcher:           params.Launcher,
 		harnesses:          params.Harnesses,
-		scripts:            params.Scripts,
 		fallbackResumeRoot: params.FallbackResumeRoot,
 		inFlight:           map[string]struct{}{},
 	}
@@ -82,12 +86,12 @@ func (s *ResumeService) ResumeAgent(ctx context.Context, id string) (*agentstore
 		return nil, err
 	}
 	if agent.ArchivedAt != nil {
-		return nil, fmt.Errorf("%w: %q is archived, restore it first", ErrAgentArchived, agent.Name)
+		return nil, fmt.Errorf("%w: %q is archived, restore it first", agenterr.ErrAgentArchived, agent.Name)
 	}
 
 	// Relaunching a held agent would put it back to work under whoever is holding its worktree.
 	if agent.HeldAt != nil {
-		return nil, ErrAgentHeld.Saying("%q is paused, unpause it first", agent.Name)
+		return nil, agenterr.ErrAgentHeld.Saying("%q is paused, unpause it first", agent.Name)
 	}
 
 	if isPaneOwnedBy(s.tmux.GetPaneOwner(agent.Pane), agent.ID) {
@@ -104,7 +108,7 @@ func (s *ResumeService) ResumeAgent(ctx context.Context, id string) (*agentstore
 func (s *ResumeService) getByID(ctx context.Context, id string) (*agentstore.Agent, error) {
 	agent, err := s.agents.GetByID(ctx, id)
 	if errors.Is(err, store.ErrNotFound) {
-		return nil, ErrAgentNotFound.Saying("no agent with id %q", id)
+		return nil, agenterr.ErrAgentNotFound.Saying("no agent with id %q", id)
 	}
 	if err != nil {
 		return nil, err
@@ -137,7 +141,7 @@ func (s *ResumeService) resume(ctx context.Context, agent agentstore.Agent) erro
 	// getting this far is what would open a second window for one agent.
 	done, taken := s.takeInFlight(agent.ID)
 	if !taken {
-		return fmt.Errorf("%w: %q is already being resumed", ErrResumeInFlight, agent.Name)
+		return fmt.Errorf("%w: %q is already being resumed", agenterr.ErrResumeInFlight, agent.Name)
 	}
 	defer done()
 
@@ -152,73 +156,60 @@ func (s *ResumeService) resume(ctx context.Context, agent agentstore.Agent) erro
 		return fmt.Errorf("failed to mark %q as resuming: %w", agent.Name, err)
 	}
 	if !live {
-		return fmt.Errorf("%w: %q was archived while it was being resumed, restore it first", ErrAgentArchived, agent.Name)
+		return fmt.Errorf("%w: %q was archived while it was being resumed, restore it first", agenterr.ErrAgentArchived, agent.Name)
 	}
 
 	// Read before the resume starts overwriting the copy it was handed, which the restore below
 	// puts back.
 	prior := agent.State
 
-	var pane string
-	launched := false
-	defer func() {
-		if launched {
-			return
-		}
+	return s.starter.start(ctx, agent, &resumeStart{
+		service: s,
+		scripts: s.starter.scripts,
+		harness: hn,
+		prior:   prior,
+	})
+}
 
-		// Nothing else in komrad moves a row out of setting_up or takes away a window a resume
-		// opened, so both are put back here rather than depending on the caller still being
-		// around to see it happen.
-		restore, cancel := context.WithTimeout(context.WithoutCancel(ctx), teardownTimeout)
-		defer cancel()
+type resumeStart struct {
+	service *ResumeService
+	scripts agentScriptRunner
+	harness harness.Harness
+	prior   agentstore.State
+}
 
-		if pane != "" {
-			s.tmux.KillPane(pane)
-		}
-
-		if err := s.agents.SetStateByID(restore, agent.ID, prior); err != nil {
-			logging.From(restore).LogAttrs(restore, slog.LevelError, "failed to put back the state of an agent whose resume gave up",
-				append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
-		}
-	}()
-
-	named, err := s.runResumeSetup(ctx, agent)
-	if err != nil {
-		return err
+func (r *resumeStart) runSetup(ctx context.Context, agent agentstore.Agent) (string, error) {
+	name := provisionerFor(ctx, r.service.workflows, agent)
+	if r.scripts == nil || name == "" {
+		return "", nil
 	}
 
-	dir, err := namedDir(named)
-	if err != nil {
-		return err
-	}
+	return r.scripts.RunResume(ctx, agent, name)
+}
 
-	if dir == "" {
-		dir = s.getResumeDir(agent)
-	}
+func (r *resumeStart) getDefaultDir(agent agentstore.Agent) string {
+	return r.service.getResumeDir(agent)
+}
 
-	agent.Cwd = dir
+func (r *resumeStart) runPreHooks(ctx context.Context, agent agentstore.Agent) error {
 	if err := runPreHooks(ctx, hookRunParams{
-		scripts: s.scripts,
+		scripts: r.scripts,
 		agent:   agent,
-		hooks:   agentHooks(ctx, s.workflows, agent),
+		hooks:   agentHooks(ctx, r.service.workflows, agent),
 		event:   workflowstore.HookPreResume,
 	}); err != nil {
 		return fmt.Errorf("failed to run the pre-resume hook of %q: %w", agent.Name, err)
 	}
 
-	pane, err = s.tmux.NewWindow(ManagerSession, agent.Name, dir)
-	if err != nil {
-		return fmt.Errorf("failed to open a window for %q: %w", agent.Name, err)
-	}
-	if err := s.tmux.SetPaneOwner(pane, agent.ID); err != nil {
-		return fmt.Errorf("failed to stamp the pane for %q: %w", agent.Name, err)
-	}
+	return nil
+}
 
+func (r *resumeStart) record(ctx context.Context, agent *agentstore.Agent, pane string) error {
 	// A tmux server killed whole takes every pane and the reconciler's view of them at once, so
 	// the interrupted turn is stamped here rather than left to the reconciler.
 	if agent.InterruptedAt == nil && agent.State.IsTurnUnfinished() {
 		at := time.Now()
-		if err := s.agents.SetInterruptedAtByID(ctx, agent.ID, &at); err != nil {
+		if err := r.service.agents.SetInterruptedAtByID(ctx, agent.ID, &at); err != nil {
 			return fmt.Errorf("failed to record the cut-off turn for %q: %w", agent.Name, err)
 		}
 
@@ -229,14 +220,18 @@ func (s *ResumeService) resume(ctx context.Context, agent agentstore.Agent) erro
 	agent.State = agentstore.StateIdle
 	// An archive or a delete takes the row without reading the resume mark, so this write is where
 	// a resume finds out it lost and has to take away the pane it opened.
-	written, err := s.agents.UpdateIfLive(ctx, agent)
+	written, err := r.service.agents.UpdateIfLive(ctx, *agent)
 	if err != nil {
 		return fmt.Errorf("failed to resume agent %q: %w", agent.Name, err)
 	}
 	if !written {
-		return fmt.Errorf("%w: %q was archived or deleted while it was being resumed", ErrAgentArchived, agent.Name)
+		return fmt.Errorf("%w: %q was archived or deleted while it was being resumed", agenterr.ErrAgentArchived, agent.Name)
 	}
 
+	return nil
+}
+
+func (r *resumeStart) planLaunch(agent agentstore.Agent) paneLaunch {
 	// Codex takes no session id on the command line, so an agent may have none and its relaunch is
 	// a fresh conversation with no turn to read back over.
 	resuming := agent.SessionID != ""
@@ -246,45 +241,46 @@ func (s *ResumeService) resume(ctx context.Context, agent agentstore.Agent) erro
 		prompt = interruptedPrompt
 	}
 
-	if err := s.launcher.launch(ctx, hn, launchParams{
-		Pane:      pane,
-		Dir:       dir,
-		Flags:     agent.Flags,
-		Prompt:    prompt,
-		SessionID: agent.SessionID,
-		AgentID:   agent.ID,
-		Role:      agent.Role,
-		Resume:    resuming,
-	}); err != nil {
-		return fmt.Errorf("failed to relaunch the agent for %q: %w", agent.Name, err)
+	return paneLaunch{
+		harness: r.harness,
+		params: launchParams{
+			Pane:      agent.Pane,
+			Dir:       agent.Cwd,
+			Flags:     agent.Flags,
+			Prompt:    prompt,
+			SessionID: agent.SessionID,
+			AgentID:   agent.ID,
+			Role:      agent.Role,
+			Resume:    resuming,
+		},
+		verb: "relaunch",
 	}
+}
 
-	launched = true
-
+func (r *resumeStart) finish(ctx context.Context, agent agentstore.Agent) error {
 	// A recorded turn does not outlive the relaunch.
 	if agent.InterruptedAt != nil {
-		if err := s.agents.SetInterruptedAtByID(ctx, agent.ID, nil); err != nil {
+		if err := r.service.agents.SetInterruptedAtByID(ctx, agent.ID, nil); err != nil {
 			return fmt.Errorf("failed to clear the interrupted turn for %q: %w", agent.Name, err)
 		}
 	}
 
 	startHooks(ctx, hookRunParams{
-		scripts: s.scripts,
+		scripts: r.scripts,
 		agent:   agent,
-		hooks:   agentHooks(ctx, s.workflows, agent),
+		hooks:   agentHooks(ctx, r.service.workflows, agent),
 		event:   workflowstore.HookPostResume,
 	})
 
 	return nil
 }
 
-func (s *ResumeService) runResumeSetup(ctx context.Context, agent agentstore.Agent) (string, error) {
-	name := provisionerFor(ctx, s.workflows, agent)
-	if s.scripts == nil || name == "" {
-		return "", nil
+// rollBack puts back the state the resume found.
+func (r *resumeStart) rollBack(ctx context.Context, agent agentstore.Agent, _ error) {
+	if err := r.service.agents.SetStateByID(ctx, agent.ID, r.prior); err != nil {
+		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to put back the state of an agent whose resume gave up",
+			append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
 	}
-
-	return s.scripts.RunResume(ctx, agent, name)
 }
 
 func (s *ResumeService) getResumeDir(agent agentstore.Agent) string {

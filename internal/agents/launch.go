@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"komrad/config"
+	"komrad/internal/agenterr"
 	"komrad/internal/caller"
 	"komrad/internal/harness"
 	"komrad/internal/logging"
@@ -92,9 +93,8 @@ type LaunchService struct {
 	reviews            liveReviewerFinder
 	workflows          workflowReader
 	tx                 txRunner
-	launcher           *Launcher
+	starter            *agentStarter
 	harnesses          harnessGetter
-	scripts            agentScriptRunner
 	userDefaultHarness string
 	userDefaultFlags   map[string]string
 	usage              config.Usage
@@ -103,14 +103,17 @@ type LaunchService struct {
 // NewLaunchService builds the service from its dependencies.
 func NewLaunchService(params NewLaunchServiceParams) *LaunchService {
 	return &LaunchService{
-		tmux:               params.Tmux,
-		agents:             params.Agents,
-		reviews:            params.Reviews,
-		workflows:          params.Workflows,
-		tx:                 params.Tx,
-		launcher:           params.Launcher,
+		tmux:      params.Tmux,
+		agents:    params.Agents,
+		reviews:   params.Reviews,
+		workflows: params.Workflows,
+		tx:        params.Tx,
+		starter: &agentStarter{
+			tmux:     params.Tmux,
+			launcher: params.Launcher,
+			scripts:  params.Scripts,
+		},
 		harnesses:          params.Harnesses,
-		scripts:            params.Scripts,
 		userDefaultHarness: params.UserDefaultHarness,
 		userDefaultFlags:   params.UserDefaultFlags,
 		usage:              params.Usage,
@@ -135,7 +138,7 @@ type NewAgentParams struct {
 }
 
 // NewAgent creates and launches a background agent, answering a key already spent on a launch
-// with that agent and ErrAlreadyLaunched.
+// with that agent and agenterr.ErrAlreadyLaunched.
 func (s *LaunchService) NewAgent(ctx context.Context, params NewAgentParams) (*agentstore.Agent, error) {
 	if params.IdempotencyKey != "" {
 		existing, err := s.agents.GetByIdempotencyKey(ctx, params.IdempotencyKey)
@@ -148,7 +151,7 @@ func (s *LaunchService) NewAgent(ctx context.Context, params NewAgentParams) (*a
 				return nil, err
 			}
 			if !released {
-				return existing, ErrAlreadyLaunched
+				return existing, agenterr.ErrAlreadyLaunched
 			}
 		case !errors.Is(err, store.ErrNotFound):
 			return nil, err
@@ -204,13 +207,13 @@ func requireOwnWorkflow(spawner agentstore.Agent, params NewAgentParams) error {
 		return nil
 	}
 
-	return fmt.Errorf("%w: %q stands behind workflow %q", ErrOutsideWorkflow, spawner.Name, spawner.WorkflowID)
+	return fmt.Errorf("%w: %q stands behind workflow %q", agenterr.ErrOutsideWorkflow, spawner.Name, spawner.WorkflowID)
 }
 
 func (s *LaunchService) findSpawner(ctx context.Context, id string) (*agentstore.Agent, error) {
 	spawner, err := s.agents.GetByID(ctx, id)
 	if errors.Is(err, store.ErrNotFound) {
-		return nil, fmt.Errorf("%w: %q", ErrSpawnerUnknown, id)
+		return nil, fmt.Errorf("%w: %q", agenterr.ErrSpawnerUnknown, id)
 	}
 	if err != nil {
 		return nil, err
@@ -224,38 +227,38 @@ func (s *LaunchService) findSpawner(ctx context.Context, id string) (*agentstore
 func (s *LaunchService) findParent(ctx context.Context, params NewAgentParams) (*agentstore.Agent, error) {
 	parent, err := s.agents.GetByID(ctx, params.ParentAgentID)
 	if errors.Is(err, store.ErrNotFound) {
-		return nil, fmt.Errorf("%w: %q", ErrParentNotFound, params.ParentAgentID)
+		return nil, fmt.Errorf("%w: %q", agenterr.ErrParentNotFound, params.ParentAgentID)
 	}
 	if err != nil {
 		return nil, err
 	}
 	if parent.ArchivedAt != nil {
-		return nil, fmt.Errorf("%w: %q", ErrAgentArchived, parent.Name)
+		return nil, fmt.Errorf("%w: %q", agenterr.ErrAgentArchived, parent.Name)
 	}
 	if parent.ParentAgentID != nil {
-		return nil, fmt.Errorf("%w: %q is itself attached to another agent", ErrParentIsChild, parent.Name)
+		return nil, fmt.Errorf("%w: %q is itself attached to another agent", agenterr.ErrParentIsChild, parent.Name)
 	}
 	if parent.Role == agentstore.RoleOrchestrator {
 		return nil, fmt.Errorf(
 			"%w: %q is drawn on its workflow's own row, so a child of it would have no row anywhere; spawn an ordinary agent into the workflow with provision_enabled false instead",
-			ErrParentIsOrchestrator, parent.Name)
+			agenterr.ErrParentIsOrchestrator, parent.Name)
 	}
 
 	// Ahead of what the request asked for, which puts the parent's missing directory in the
 	// refusal rather than a conflict with an empty one.
 	if parent.Cwd == "" {
-		return nil, fmt.Errorf("%w: %q has none recorded", ErrChildNeedsParentDirectory, parent.Name)
+		return nil, fmt.Errorf("%w: %q has none recorded", agenterr.ErrChildNeedsParentDirectory, parent.Name)
 	}
 
 	switch {
 	case strings.TrimSpace(params.Dir) != "":
-		return nil, fmt.Errorf("%w: it runs in %q, its parent's own checkout", ErrChildOwnsLaunch, parent.Cwd)
+		return nil, fmt.Errorf("%w: it runs in %q, its parent's own checkout", agenterr.ErrChildOwnsLaunch, parent.Cwd)
 	case params.ProvisionEnabled != nil && *params.ProvisionEnabled:
-		return nil, fmt.Errorf("%w: it provisions nothing, since the checkout is already there", ErrChildOwnsLaunch)
+		return nil, fmt.Errorf("%w: it provisions nothing, since the checkout is already there", agenterr.ErrChildOwnsLaunch)
 	case params.WorkflowID != parent.WorkflowID:
-		return nil, fmt.Errorf("%w: it is filed in its parent's workflow %q", ErrChildOwnsLaunch, parent.WorkflowID)
+		return nil, fmt.Errorf("%w: it is filed in its parent's workflow %q", agenterr.ErrChildOwnsLaunch, parent.WorkflowID)
 	case params.ScheduleID != nil:
-		return nil, fmt.Errorf("%w: a schedule launches into a workflow rather than onto an agent", ErrChildOwnsLaunch)
+		return nil, fmt.Errorf("%w: a schedule launches into a workflow rather than onto an agent", agenterr.ErrChildOwnsLaunch)
 	}
 
 	return parent, nil
@@ -285,7 +288,7 @@ type launchPlan struct {
 func (s *LaunchService) planLaunch(ctx context.Context, params NewAgentParams) (*launchPlan, error) {
 	wf, err := s.workflows.Get(ctx, params.WorkflowID)
 	if errors.Is(err, store.ErrNotFound) {
-		return nil, ErrWorkflowNotFound.Saying("no workflow with id %q", params.WorkflowID)
+		return nil, agenterr.ErrWorkflowNotFound.Saying("no workflow with id %q", params.WorkflowID)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to look up workflow %q: %w", params.WorkflowID, err)
@@ -462,98 +465,14 @@ type resolvedLaunch struct {
 	parent          *agentstore.Agent
 }
 
-func (s *LaunchService) startInPane(ctx context.Context, agent agentstore.Agent, resolved resolvedLaunch) (result *agentstore.Agent, launchErr error) {
-	var pane string
-	provisioned := false
-	launched := false
-	defer func() {
-		if launched {
-			return
-		}
-
-		teardown, cancel := context.WithTimeout(context.WithoutCancel(ctx), teardownTimeout)
-		defer cancel()
-
-		if pane != "" {
-			s.tmux.KillPane(pane)
-		}
-		if provisioned {
-			awaitDeprovision(teardown, s.scripts, agent, resolved.deprovisioner)
-		}
-		s.failCreate(teardown, agent, launchErr)
-	}()
-
-	named, err := s.runProvision(ctx, agent, resolved.provisioner)
-	if err != nil {
-		return nil, err
-	}
-	provisioned = resolved.provisioner != ""
-
-	dir, err := namedDir(named)
-	if err != nil {
-		return nil, err
-	}
-	if dir == "" {
-		dir = resolved.defaultDir
-	}
-	agent.Cwd = dir
-
-	if err := runPreHooks(ctx, hookRunParams{
-		scripts: s.scripts,
-		agent:   agent,
-		hooks:   resolved.hooks,
-		event:   workflowstore.HookPreLaunch,
+func (s *LaunchService) startInPane(ctx context.Context, agent agentstore.Agent, resolved resolvedLaunch) (*agentstore.Agent, error) {
+	if err := s.starter.start(ctx, agent, &createStart{
+		service:  s,
+		scripts:  s.starter.scripts,
+		resolved: resolved,
 	}); err != nil {
 		return nil, err
 	}
-
-	pane, err = s.tmux.NewWindow(ManagerSession, agent.Name, dir)
-	if err != nil {
-		return nil, fmt.Errorf("failed to open a window for %q: %w", agent.Name, err)
-	}
-
-	if err := s.tmux.SetPaneOwner(pane, agent.ID); err != nil {
-		return nil, fmt.Errorf("failed to stamp the pane for %q: %w", agent.Name, err)
-	}
-
-	agent.Pane = pane
-	agent.State = agentstore.StateIdle
-	if err := s.agents.Update(ctx, agent); err != nil {
-		return nil, fmt.Errorf("failed to record agent %q: %w", agent.Name, err)
-	}
-
-	launch := launchParams{
-		Pane:            pane,
-		Dir:             dir,
-		Flags:           agent.Flags,
-		Prompt:          agent.Prompt,
-		WorkflowContext: resolved.workflowContext,
-		SessionID:       agent.SessionID,
-		AgentID:         agent.ID,
-		Role:            agent.Role,
-		OwnsCheckout:    resolved.provisioner != "",
-	}
-	if resolved.spawner != nil {
-		launch.SpawnedByAgentID = resolved.spawner.ID
-		launch.SpawnedByName = resolved.spawner.Name
-	}
-	if resolved.parent != nil {
-		launch.ParentAgentID = resolved.parent.ID
-		launch.ParentName = resolved.parent.Name
-	}
-
-	if err := s.launcher.launch(ctx, resolved.harness, launch); err != nil {
-		return nil, fmt.Errorf("failed to launch the agent for %q: %w", agent.Name, err)
-	}
-
-	launched = true
-
-	startHooks(ctx, hookRunParams{
-		scripts: s.scripts,
-		agent:   agent,
-		hooks:   resolved.hooks,
-		event:   workflowstore.HookPostLaunch,
-	})
 
 	created, err := s.agents.GetByID(ctx, agent.ID)
 	if err != nil {
@@ -561,6 +480,96 @@ func (s *LaunchService) startInPane(ctx context.Context, agent agentstore.Agent,
 	}
 
 	return created, nil
+}
+
+type createStart struct {
+	service     *LaunchService
+	scripts     agentScriptRunner
+	resolved    resolvedLaunch
+	provisioned bool
+}
+
+func (c *createStart) runSetup(ctx context.Context, agent agentstore.Agent) (string, error) {
+	if c.scripts == nil || c.resolved.provisioner == "" {
+		return "", nil
+	}
+
+	named, err := c.scripts.RunProvision(ctx, agent, c.resolved.provisioner)
+	if err != nil {
+		return "", err
+	}
+	c.provisioned = true
+
+	return named, nil
+}
+
+func (c *createStart) getDefaultDir(agentstore.Agent) string {
+	return c.resolved.defaultDir
+}
+
+func (c *createStart) runPreHooks(ctx context.Context, agent agentstore.Agent) error {
+	return runPreHooks(ctx, hookRunParams{
+		scripts: c.scripts,
+		agent:   agent,
+		hooks:   c.resolved.hooks,
+		event:   workflowstore.HookPreLaunch,
+	})
+}
+
+func (c *createStart) record(ctx context.Context, agent *agentstore.Agent, pane string) error {
+	agent.Pane = pane
+	agent.State = agentstore.StateIdle
+	if err := c.service.agents.Update(ctx, *agent); err != nil {
+		return fmt.Errorf("failed to record agent %q: %w", agent.Name, err)
+	}
+
+	return nil
+}
+
+func (c *createStart) planLaunch(agent agentstore.Agent) paneLaunch {
+	launch := launchParams{
+		Pane:            agent.Pane,
+		Dir:             agent.Cwd,
+		Flags:           agent.Flags,
+		Prompt:          agent.Prompt,
+		WorkflowContext: c.resolved.workflowContext,
+		SessionID:       agent.SessionID,
+		AgentID:         agent.ID,
+		Role:            agent.Role,
+		OwnsCheckout:    c.resolved.provisioner != "",
+	}
+	if c.resolved.spawner != nil {
+		launch.SpawnedByAgentID = c.resolved.spawner.ID
+		launch.SpawnedByName = c.resolved.spawner.Name
+	}
+	if c.resolved.parent != nil {
+		launch.ParentAgentID = c.resolved.parent.ID
+		launch.ParentName = c.resolved.parent.Name
+	}
+
+	return paneLaunch{
+		harness: c.resolved.harness,
+		params:  launch,
+		verb:    "launch",
+	}
+}
+
+func (c *createStart) finish(ctx context.Context, agent agentstore.Agent) error {
+	startHooks(ctx, hookRunParams{
+		scripts: c.scripts,
+		agent:   agent,
+		hooks:   c.resolved.hooks,
+		event:   workflowstore.HookPostLaunch,
+	})
+
+	return nil
+}
+
+func (c *createStart) rollBack(ctx context.Context, agent agentstore.Agent, cause error) {
+	if c.provisioned {
+		awaitDeprovision(ctx, c.scripts, agent, c.resolved.deprovisioner)
+	}
+	c.service.failCreate(ctx, agent, cause)
 }
 
 // teardownTimeout stands in for the caller's own deadline once that no longer applies.
@@ -594,14 +603,6 @@ func awaitDeprovision(ctx context.Context, deprovision agentScriptRunner, agent 
 			slog.String(logging.ScriptAgentID, agent.ID),
 			slog.String(logging.ScriptAgentCwd, agent.Cwd))
 	}
-}
-
-func (s *LaunchService) runProvision(ctx context.Context, planned agentstore.Agent, name string) (string, error) {
-	if s.scripts == nil || name == "" {
-		return "", nil
-	}
-
-	return s.scripts.RunProvision(ctx, planned, name)
 }
 
 func namedDir(named string) (string, error) {
@@ -778,7 +779,7 @@ func requireRoomForSpawned(ctx context.Context, agents spawnedSlotLocker, maxSpa
 		}
 		if held+spawner.want > maxSpawned {
 			return fmt.Errorf("%w: %q may run %d agents it spawned at once and this would make %d",
-				ErrTooManySpawned, spawner.name, maxSpawned, held+spawner.want)
+				agenterr.ErrTooManySpawned, spawner.name, maxSpawned, held+spawner.want)
 		}
 	}
 
@@ -800,7 +801,7 @@ func requireRoomForChildren(ctx context.Context, agents childCounter, maxChildre
 		}
 		if held+parent.want > maxChildren {
 			return fmt.Errorf("%w: %q may run %d at once and this would make %d, and they share one checkout",
-				ErrTooManyChildren, parent.name, maxChildren, held+parent.want)
+				agenterr.ErrTooManyChildren, parent.name, maxChildren, held+parent.want)
 		}
 	}
 
@@ -817,7 +818,7 @@ func requireRoomForAgents(ctx context.Context, agents agentCounter, maxAgents, w
 		return fmt.Errorf("failed to count the agents already running: %w", err)
 	}
 	if live+int64(want) > int64(maxAgents) {
-		return fmt.Errorf("%w: max number of concurrent agents reached (%d of %d), please archive one to continue", ErrTooManyAgents, live, maxAgents)
+		return fmt.Errorf("%w: max number of concurrent agents reached (%d of %d), please archive one to continue", agenterr.ErrTooManyAgents, live, maxAgents)
 	}
 
 	return nil

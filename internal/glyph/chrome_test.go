@@ -1,4 +1,4 @@
-package view
+package glyph_test
 
 import (
 	"testing"
@@ -11,12 +11,12 @@ import (
 
 // TestDrawingsCoverEveryGlyphAndTheChrome covers the one way this list rots.
 func TestDrawingsCoverEveryGlyphAndTheChrome(t *testing.T) {
-	drawings := Drawings(glyph.Defaults())
+	drawings := glyph.Defaults().Drawings()
 	require.Len(t, drawings, len(glyph.All())+len(glyph.Chrome()))
 
 	for _, drawing := range drawings {
 		assert.NotEmpty(t, drawing.Text, "%s has nothing to draw", drawing.Name)
-		assert.Equal(t, plainColumns, drawing.Columns, "%s is counted as other than one glyph wide", drawing.Name)
+		assert.Equal(t, glyph.Columns, drawing.Columns, "%s is counted as other than one glyph wide", drawing.Name)
 	}
 }
 
@@ -27,7 +27,7 @@ func TestDrawingsMeasureTheSetGiven(t *testing.T) {
 	require.NoError(t, err)
 
 	texts := map[string]string{}
-	for _, drawing := range Drawings(set) {
+	for _, drawing := range set.Drawings() {
 		texts[drawing.Name] = drawing.Text
 	}
 

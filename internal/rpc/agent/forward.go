@@ -8,7 +8,7 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"komrad/internal/agents"
+	"komrad/internal/agenterr"
 	"komrad/internal/caller"
 	"komrad/internal/fail"
 	"komrad/internal/mail"
@@ -30,7 +30,7 @@ func (s *Handler) ForwardLastTurns(ctx context.Context, req *agentv1.ForwardLast
 
 	source, err := s.agents.GetAgent(ctx, req.GetFromAgentId())
 	if errors.Is(err, store.ErrNotFound) {
-		return nil, agents.ErrAgentNotFound.Saying("no agent with id %q", req.GetFromAgentId())
+		return nil, agenterr.ErrAgentNotFound.Saying("no agent with id %q", req.GetFromAgentId())
 	}
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to look up agent")

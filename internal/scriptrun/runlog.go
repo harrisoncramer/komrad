@@ -19,13 +19,6 @@ import (
 // maxLogRunAttempts bounds the walk up through numbers a second process has already taken.
 const maxLogRunAttempts = 64
 
-type runRecorder interface {
-	Begin(ctx context.Context, params runstore.BeginParams) (string, error)
-	Finish(ctx context.Context, params runstore.FinishParams) error
-	Abandon(ctx context.Context, id string) error
-	Prune(ctx context.Context, agentID string, keep int) error
-}
-
 // runRecord is one run as komrad is watching it.
 type runRecord struct {
 	logPath string

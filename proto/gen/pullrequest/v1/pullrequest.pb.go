@@ -824,9 +824,11 @@ type ForgeThread struct {
 	// The text of the line the thread was written on, as the forge's diff drew it, with its diff marker taken off.
 	Quote string `protobuf:"bytes,11,opt,name=quote,proto3" json:"quote,omitempty"`
 	// Whether the person dismissed the thread in their review and no comment has come in on it since. A dismissed thread is still drawn but no longer counted.
-	Dismissed     bool `protobuf:"varint,12,opt,name=dismissed,proto3" json:"dismissed,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Dismissed bool `protobuf:"varint,12,opt,name=dismissed,proto3" json:"dismissed,omitempty"`
+	// The review thread the person accepted this thread into, unset while they never have.
+	AcceptedThreadId *string `protobuf:"bytes,13,opt,name=accepted_thread_id,json=acceptedThreadId,proto3,oneof" json:"accepted_thread_id,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *ForgeThread) Reset() {
@@ -941,6 +943,13 @@ func (x *ForgeThread) GetDismissed() bool {
 		return x.Dismissed
 	}
 	return false
+}
+
+func (x *ForgeThread) GetAcceptedThreadId() string {
+	if x != nil && x.AcceptedThreadId != nil {
+		return *x.AcceptedThreadId
+	}
+	return ""
 }
 
 // ForgeComment is one comment in a forge review thread.
@@ -1101,7 +1110,7 @@ const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"\x10_next_page_token\"N\n" +
 	"\x19DismissForgeThreadRequest\x12\x17\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\x12\x18\n" +
-	"\arestore\x18\x02 \x01(\bR\arestore\"\xe2\x02\n" +
+	"\arestore\x18\x02 \x01(\bR\arestore\"\xac\x03\n" +
 	"\vForgeThread\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12&\n" +
 	"\x0fpull_request_id\x18\x02 \x01(\tR\rpullRequestId\x12\x12\n" +
@@ -1117,7 +1126,9 @@ const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"commit_sha\x18\n" +
 	" \x01(\tR\tcommitSha\x12\x14\n" +
 	"\x05quote\x18\v \x01(\tR\x05quote\x12\x1c\n" +
-	"\tdismissed\x18\f \x01(\bR\tdismissed\"\xcc\x01\n" +
+	"\tdismissed\x18\f \x01(\bR\tdismissed\x121\n" +
+	"\x12accepted_thread_id\x18\r \x01(\tH\x00R\x10acceptedThreadId\x88\x01\x01B\x15\n" +
+	"\x13_accepted_thread_id\"\xcc\x01\n" +
 	"\fForgeComment\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12!\n" +
 	"\fauthor_login\x18\x02 \x01(\tR\vauthorLogin\x12\x10\n" +
@@ -1226,6 +1237,7 @@ func file_pullrequest_v1_pullrequest_proto_init() {
 	file_pullrequest_v1_pullrequest_proto_msgTypes[0].OneofWrappers = []any{}
 	file_pullrequest_v1_pullrequest_proto_msgTypes[1].OneofWrappers = []any{}
 	file_pullrequest_v1_pullrequest_proto_msgTypes[3].OneofWrappers = []any{}
+	file_pullrequest_v1_pullrequest_proto_msgTypes[5].OneofWrappers = []any{}
 	file_pullrequest_v1_pullrequest_proto_msgTypes[6].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{

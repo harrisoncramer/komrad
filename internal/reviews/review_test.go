@@ -5,7 +5,7 @@ import (
 	"slices"
 	"testing"
 
-	"komrad/internal/agents"
+	"komrad/internal/agenterr"
 	"komrad/internal/eventprompts"
 	"komrad/internal/events/eventstest"
 	"komrad/internal/gittest"
@@ -40,6 +40,7 @@ type reviewFixture struct {
 	worker    *agentstore.Agent
 	reviewer  *agentstore.Agent
 	stranger  *agentstore.Agent
+	offerID   string
 }
 
 // TestReviewEntitlement pins who may make each review call on whose work.
@@ -270,7 +271,7 @@ func TestReviewEntitlement(t *testing.T) {
 
 				return err
 			},
-			wantErr: agents.ErrReviewNeedsOwnWork,
+			wantErr: agenterr.ErrReviewNeedsOwnWork,
 		},
 		{
 			name: "a child taking a round of itself",
@@ -279,7 +280,7 @@ func TestReviewEntitlement(t *testing.T) {
 
 				return err
 			},
-			wantErr: agents.ErrReviewNeedsOwnWork,
+			wantErr: agenterr.ErrReviewNeedsOwnWork,
 		},
 		{
 			name: "taking a round of an agent with no directory",
@@ -304,7 +305,7 @@ func TestReviewEntitlement(t *testing.T) {
 
 				return err
 			},
-			wantErr: agents.ErrAgentArchived,
+			wantErr: agenterr.ErrAgentArchived,
 		},
 		{
 			name: "a reviewer releasing notes with nothing in them",
@@ -1042,17 +1043,14 @@ func newReviewFixture(t *testing.T) *reviewFixture {
 	})
 
 	service := NewReviewService(NewReviewServiceParams{
-		Threads:     reviews,
-		Messages:    reviews,
-		Viewed:      reviews,
-		Rounds:      reviews,
-		Reviews:     reviews,
-		Snapshots:   snapshots,
-		Workflows:   stores.Workflows,
-		Agents:      stores.Agents,
-		Events:      events,
-		Interrupter: noInterrupter{},
-		StateDir:    t.TempDir(),
+		Reviews:      reviews,
+		Snapshots:    snapshots,
+		Workflows:    stores.Workflows,
+		Agents:       stores.Agents,
+		Events:       events,
+		Interrupter:  noInterrupter{},
+		ForgeThreads: stores.ForgeThreads,
+		StateDir:     t.TempDir(),
 	})
 
 	_, err := service.OpenRound(t.Context(), worker.ID, personAuthor)

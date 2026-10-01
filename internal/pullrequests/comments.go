@@ -20,22 +20,18 @@ import (
 // rate limit the pull request sync shares with them.
 const commentReadsPerPass = 5
 
-type transactor interface {
-	InTx(ctx context.Context, fn func(store.DBTX) error) error
-}
-
 // NewCommentSyncerParams is what a comment syncer is built over.
 type NewCommentSyncerParams struct {
-	Forges  pullRequestForgeFinder
+	Forges  *forge.Service
 	Threads *pullrequeststore.ForgeThreadStore
-	Tx      transactor
+	Tx      *store.Pool
 	Now     func() time.Time
 }
 
 // CommentSyncer keeps the forge's review threads in step on the open pull requests live agents are linked to.
 type CommentSyncer struct {
 	threads *pullrequeststore.ForgeThreadStore
-	tx      transactor
+	tx      *store.Pool
 	hosts   *hostGate
 	said    onceLog
 	next    int

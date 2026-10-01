@@ -3,6 +3,9 @@ package agents
 import (
 	"context"
 	"fmt"
+
+	"komrad/internal/agenterr"
+	"komrad/internal/wake"
 )
 
 type rowWriteStore interface {
@@ -23,18 +26,13 @@ type turnRecorder interface {
 	RecordReportedReason(agentID, reason string)
 }
 
-// loopWaker asks a background loop to run before its next tick.
-type loopWaker interface {
-	Wake()
-}
-
 // NewRowWriterParams is what a row writer is built over.
 type NewRowWriterParams struct {
 	Agents         rowWriteStore
 	Runs           runMarker
 	Reconciler     turnRecorder
-	CwdSync        loopWaker
-	TranscriptSync loopWaker
+	CwdSync        wake.Waker
+	TranscriptSync wake.Waker
 }
 
 // RowWriter changes what an agent's row says without moving the agent through its life.
@@ -42,8 +40,8 @@ type RowWriter struct {
 	agents         rowWriteStore
 	runs           runMarker
 	reconciler     turnRecorder
-	cwdSync        loopWaker
-	transcriptSync loopWaker
+	cwdSync        wake.Waker
+	transcriptSync wake.Waker
 }
 
 // NewRowWriter builds the writer over the store, the record of runs, the reconciler and the
@@ -65,7 +63,7 @@ func (w *RowWriter) SetHidden(ctx context.Context, id string, hidden bool) error
 		return fmt.Errorf("failed to hide agent %q: %w", id, err)
 	}
 	if !changed {
-		return ErrAgentNotFound.Saying("no agent with id %q", id)
+		return agenterr.ErrAgentNotFound.Saying("no agent with id %q", id)
 	}
 
 	return nil
@@ -78,7 +76,7 @@ func (w *RowWriter) Rename(ctx context.Context, id, name string) error {
 		return fmt.Errorf("failed to rename agent %q: %w", id, err)
 	}
 	if !renamed {
-		return ErrAgentNotFound.Saying("no agent with id %q", id)
+		return agenterr.ErrAgentNotFound.Saying("no agent with id %q", id)
 	}
 
 	return nil

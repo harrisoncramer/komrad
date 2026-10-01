@@ -176,6 +176,31 @@ linters:
               desc: the service decides in its own types, and rendering them onto the wire is the handler's job
             - pkg: connectrpc.com/connect
               desc: the service returns a sentinel, and rpcerr picks the code it answers with
+        peers-of-agents:
+          files:
+            - "!$test"
+            - "**/internal/checkouts/**"
+            - "**/internal/reviews/**"
+          deny:
+            - pkg: komrad/internal/agents$
+              desc: checkouts and reviews sit beside the lifecycle, so its sentinels reach them through agenterr
+        agenterr:
+          files:
+            - "**/internal/agenterr/**"
+          list-mode: lax
+          allow:
+            - komrad/internal/fail
+          deny:
+            - pkg: komrad/internal
+              desc: agenterr is imported by every domain package and so may depend on nothing but fail
+        doctor:
+          files:
+            - "**/internal/doctor/**"
+          deny:
+            - pkg: komrad/internal/view
+              desc: doctor reads the glyph table from glyph, so it never pulls in the list's renderer
+            - pkg: komrad/internal/ui/paint$
+              desc: same reason as view
         stores:
           files:
             - "**/internal/store/**"

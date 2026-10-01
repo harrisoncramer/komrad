@@ -2,13 +2,12 @@ package checkouts
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
 	"time"
 
-	"komrad/internal/agents"
+	"komrad/internal/agenterr"
 	"komrad/internal/caller"
 	"komrad/internal/events"
 	"komrad/internal/fail"
@@ -18,6 +17,7 @@ import (
 	agentstore "komrad/internal/store/agent"
 	pullrequeststore "komrad/internal/store/pullrequest"
 	workflowstore "komrad/internal/store/workflow"
+	"komrad/internal/wake"
 	"komrad/lib/xpath"
 
 	"github.com/jackc/pgx/v5"
@@ -49,18 +49,6 @@ type checkoutTarget struct {
 	workflow *workflowstore.Workflow
 }
 
-// agentReadWriter is the slice of the agent store a move of a checkout reads and writes.
-type agentReadWriter interface {
-	GetByID(ctx context.Context, id string) (*agentstore.Agent, error)
-	SetSequenceByID(ctx context.Context, id string, sequence agentstore.Sequence) error
-	GetLastRebaseByID(ctx context.Context, id string) (json.RawMessage, error)
-}
-
-// workflowReader reads the workflow an agent belongs to.
-type workflowReader interface {
-	Get(ctx context.Context, id string) (*workflowstore.Workflow, error)
-}
-
 // agentSettler brings an agent to rest, reporting whether a turn was cut to do it.
 type agentSettler interface {
 	Settle(ctx context.Context, agent agentstore.Agent) (bool, error)
@@ -71,8 +59,8 @@ type eventRecorder interface {
 	InsertManyTx(ctx context.Context, build func(tx pgx.Tx) ([]river.JobArgs, error)) error
 }
 
-// worktreeRebaser is the git a rebase reads the checkout through and moves the branch with.
-type worktreeRebaser interface {
+// branchMover is the git a rebase, push or abort reads the checkout through and moves the branch with.
+type branchMover interface {
 	ReadTreeState(ctx context.Context, dir string) (git.TreeState, error)
 	FetchBase(ctx context.Context, dir, base string) (ref, sha string, err error)
 	CountCommitsToReplay(ctx context.Context, dir, ref string) (int, error)
@@ -81,70 +69,40 @@ type worktreeRebaser interface {
 	ReleaseRefsUnder(ctx context.Context, dir, prefix, keep string) error
 	Rebase(ctx context.Context, dir, ref string) error
 	RebaseOnto(ctx context.Context, dir, ref, cutoff string) error
-}
-
-// worktreePusher is the git a push reads the checkout through and sends the branch with.
-type worktreePusher interface {
-	ReadTreeState(ctx context.Context, dir string) (git.TreeState, error)
 	CountAgainstRemote(ctx context.Context, dir, branch string) (*git.RemoteStanding, error)
 	ResolveBase(ctx context.Context, dir, base string) (string, error)
 	CountAheadBehind(ctx context.Context, dir, ref string) (ahead, behind int, err error)
 	PeekChanges(ctx context.Context, dir string) (git.Changes, error)
 	Push(ctx context.Context, params git.PushParams) (string, error)
-}
-
-// worktreeAborter is the git an abort reads the checkout through and undoes the sequence with.
-type worktreeAborter interface {
-	ReadTreeState(ctx context.Context, dir string) (git.TreeState, error)
 	ReadSequence(ctx context.Context, dir string) (git.Sequence, error)
 	ReadRebaseOnto(ctx context.Context, dir string) (string, error)
-	Park(ctx context.Context, dir, ref string) (string, error)
 	AbortSequence(ctx context.Context, dir string, sequence git.Sequence) error
-}
-
-// pullRequestLister reads the pull requests stored for a branch.
-type pullRequestLister interface {
-	ListPage(ctx context.Context, params pullrequeststore.ListPageParams) ([]pullrequeststore.PullRequest, error)
-}
-
-// loopWaker asks a background loop to run before its next tick.
-type loopWaker interface {
-	Wake()
-}
-
-// pullRequestHeater keeps the pull request sync reading a forge host often for a while.
-type pullRequestHeater interface {
-	Heat(host string)
 }
 
 // NewServiceParams is what the service is built over.
 type NewServiceParams struct {
-	Agents          agentReadWriter
-	Workflows       workflowReader
+	Agents          *agentstore.AgentStore
+	Workflows       *workflowstore.WorkflowStore
 	Settler         agentSettler
 	Events          eventRecorder
-	Rebaser         worktreeRebaser
-	Pusher          worktreePusher
-	Aborter         worktreeAborter
-	PullRequests    pullRequestLister
+	Git             branchMover
+	PullRequests    *pullrequeststore.PullRequestStore
 	Locks           *TreeLocks
-	CheckoutSync    loopWaker
-	PullRequestSync pullRequestHeater
+	CheckoutSync    wake.Waker
+	PullRequestSync wake.Heater
 }
 
 // Service rebases, pushes and aborts in an agent's existing worktree on a person's say-so.
 type Service struct {
-	agents          agentReadWriter
-	workflows       workflowReader
+	agents          *agentstore.AgentStore
+	workflows       *workflowstore.WorkflowStore
 	settler         agentSettler
 	events          eventRecorder
-	rebaser         worktreeRebaser
-	pusher          worktreePusher
-	aborter         worktreeAborter
-	pullRequests    pullRequestLister
+	git             branchMover
+	pullRequests    *pullrequeststore.PullRequestStore
 	locks           *TreeLocks
-	checkoutSync    loopWaker
-	pullRequestSync pullRequestHeater
+	checkoutSync    wake.Waker
+	pullRequestSync wake.Heater
 }
 
 // NewService builds the service from its dependencies.
@@ -159,9 +117,7 @@ func NewService(params NewServiceParams) *Service {
 		workflows:       params.Workflows,
 		settler:         params.Settler,
 		events:          params.Events,
-		rebaser:         params.Rebaser,
-		pusher:          params.Pusher,
-		aborter:         params.Aborter,
+		git:             params.Git,
 		pullRequests:    params.PullRequests,
 		locks:           locks,
 		checkoutSync:    params.CheckoutSync,
@@ -224,18 +180,18 @@ func (s *Service) eligible(ctx context.Context, agentID string) (*checkoutTarget
 func (s *Service) read(ctx context.Context, agentID string) (*agentstore.Agent, error) {
 	agent, err := s.agents.GetByID(ctx, agentID)
 	if errors.Is(err, store.ErrNotFound) {
-		return nil, agents.ErrAgentNotFound.Saying("no agent with id %q", agentID)
+		return nil, agenterr.ErrAgentNotFound.Saying("no agent with id %q", agentID)
 	}
 	if err != nil {
 		return nil, err
 	}
 
 	if agent.ArchivedAt != nil {
-		return nil, fmt.Errorf("%w: %q", agents.ErrAgentArchived, agent.Name)
+		return nil, fmt.Errorf("%w: %q", agenterr.ErrAgentArchived, agent.Name)
 	}
 
 	if agent.HeldAt != nil {
-		return nil, agents.ErrAgentHeld.Saying("%q is paused, unpause it first", agent.Name)
+		return nil, agenterr.ErrAgentHeld.Saying("%q is paused, unpause it first", agent.Name)
 	}
 
 	return agent, nil

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"komrad/config"
+	"komrad/internal/agenterr"
 	"komrad/internal/agents"
 	"komrad/internal/harness"
 	"komrad/internal/harness/claude"
@@ -82,7 +83,7 @@ func TestLaunchAgentWorker(t *testing.T) {
 			name:       "a panel with no room for another agent cancels",
 			crowded:    true,
 			wantCancel: true,
-			wantReason: agents.ErrTooManyAgents.Error(),
+			wantReason: agenterr.ErrTooManyAgents.Error(),
 			wantRuns:   []schedulestore.RunState{schedulestore.RunStateCancelled},
 		},
 		{
@@ -370,10 +371,10 @@ func TestLaunchAgentWorkerMailsAnOrchestrator(t *testing.T) {
 					Agents:    stores.Agents,
 				}),
 				Mailer: mail.NewMailService(mail.NewMailServiceParams{
-					MailReadWriter: stores.Mail,
-					Agents:         stores.Agents,
-					Workflows:      stores.Workflows,
-					Config:         config.Mail{MaxExchange: config.DefaultMaxExchange},
+					Mail:      stores.Mail,
+					Agents:    stores.Agents,
+					Workflows: stores.Workflows,
+					Config:    config.Mail{MaxExchange: config.DefaultMaxExchange},
 				}),
 			})
 

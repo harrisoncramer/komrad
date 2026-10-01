@@ -235,6 +235,8 @@ message ForgeThread {
   string quote = 11;
   // Whether the person dismissed the thread in their review and no comment has come in on it since. A dismissed thread is still drawn but no longer counted.
   bool dismissed = 12;
+  // The review thread the person accepted this thread into, unset while they never have.
+  optional string accepted_thread_id = 13;
 }
 
 // ForgeComment is one comment in a forge review thread.

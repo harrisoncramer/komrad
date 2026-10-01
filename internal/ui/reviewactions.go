@@ -92,6 +92,12 @@ func (r *reviewScreen) ownTable() []screenAction {
 			direct: directly(notInMenu, func(h host, s panelShared, _ string) tea.Cmd { return r.dismissOfferCmd(h, s) }),
 		},
 		{
+			id:     actionReviewAccept,
+			keys:   func(k config.Keybindings) []string { return k.Review.Accept },
+			when:   r.doesAcceptOffer,
+			direct: directly(composerSurface, r.orRefuseWrite(func(h host, s panelShared) tea.Cmd { return r.acceptOffer(h, s) })),
+		},
+		{
 			id:   actionReviewReload,
 			keys: func(k config.Keybindings) []string { return k.Review.Reload },
 			nav:  func(_ navHost, s panelShared, _ string) tea.Cmd { return r.reloadFresh(s) },
@@ -240,6 +246,11 @@ func (r *reviewScreen) legend() []screenLegendRow {
 			of:   []actionID{actionReviewDismiss},
 			desc: r.dismissOfferDesc,
 			show: r.doesDismissOffer,
+		},
+		{
+			of:   []actionID{actionReviewAccept},
+			desc: r.acceptOfferDesc,
+			show: func(s panelShared) bool { return offered(s) && r.doesAcceptOffer(s) },
 		},
 		{
 			of:   []actionID{actionReviewReload},

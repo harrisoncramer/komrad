@@ -10,6 +10,7 @@ import (
 	"komrad/internal/fail"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
+	pullrequeststore "komrad/internal/store/pullrequest"
 	reviewstore "komrad/internal/store/review"
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/lib/clock"
@@ -41,42 +42,6 @@ var ErrReviewHumanOnly = fail.Denied("only the person reviewing can do that")
 // quotes them, or suggests replacing them, which only a comment on a file can.
 var ErrReviewWholeChangeAnchored = fail.InvalidArgument("a comment on the change as a whole cannot name lines, quote them, or suggest a replacement")
 
-// reviewThreadReadWriter is the half of the store that keeps conversations: where they are
-// pinned, whether the person has read the replies, and whether they are still owed an answer.
-type reviewThreadReadWriter interface {
-	CreateThread(ctx context.Context, params reviewstore.CreateThreadParams) (*reviewstore.Thread, error)
-	ListThreads(ctx context.Context, agentID string) ([]reviewstore.Thread, error)
-	GetThread(ctx context.Context, id string) (*reviewstore.Thread, error)
-	MarkThreadRead(ctx context.Context, id string) (*reviewstore.Thread, error)
-	SetThreadResolved(ctx context.Context, params reviewstore.SetThreadResolvedParams) (*reviewstore.Thread, error)
-}
-
-// reviewMessageReadWriter is the other half: what was said in those conversations, and how far
-// each of the person's comments has got towards the agent reading it.
-type reviewMessageReadWriter interface {
-	CreateMessage(ctx context.Context, params reviewstore.CreateMessageParams) (*reviewstore.Message, error)
-	UpdateMessage(ctx context.Context, id, body string, suggestion []string) (*reviewstore.Message, error)
-	GetMessage(ctx context.Context, id string) (*reviewstore.Message, error)
-	ListMessages(ctx context.Context, threadIDs []string) ([]reviewstore.Message, error)
-}
-
-// reviewViewedFileReadWriter is the record of which files the person reviewing has read.
-type reviewViewedFileReadWriter interface {
-	MarkFileViewed(ctx context.Context, params reviewstore.MarkFileViewedParams) (*reviewstore.ViewedFile, error)
-	UnmarkFileViewed(ctx context.Context, roundID, filePath string) error
-	ListViewedFiles(ctx context.Context, roundID string) ([]reviewstore.ViewedFile, error)
-}
-
-// agentGetter reads one agent by id.
-type agentGetter interface {
-	GetByID(ctx context.Context, id string) (*agentstore.Agent, error)
-}
-
-// workflowGetter reads the workflow an agent belongs to.
-type workflowGetter interface {
-	Get(ctx context.Context, id string) (*workflowstore.Workflow, error)
-}
-
 type eventRecorder interface {
 	InsertManyTx(ctx context.Context, build func(tx pgx.Tx) ([]river.JobArgs, error)) error
 }
@@ -105,16 +70,13 @@ type ReviewThreadWithMessages struct {
 
 // NewReviewServiceParams is everything the review service reads and tells.
 type NewReviewServiceParams struct {
-	Threads     reviewThreadReadWriter
-	Messages    reviewMessageReadWriter
-	Viewed      reviewViewedFileReadWriter
-	Rounds      reviewRoundReadWriter
-	Reviews     reviewBatchReadWriter
-	Snapshots   reviewSnapshotter
-	Workflows   workflowGetter
-	Agents      agentGetter
-	Events      eventRecorder
-	Interrupter agentInterrupter
+	Reviews      *reviewstore.ReviewStore
+	Snapshots    reviewSnapshotter
+	Workflows    *workflowstore.WorkflowStore
+	Agents       *agentstore.AgentStore
+	Events       eventRecorder
+	Interrupter  agentInterrupter
+	ForgeThreads *pullrequeststore.ForgeThreadStore
 	// StateDir is where komrad keeps its own files.
 	StateDir string
 }
@@ -122,35 +84,29 @@ type NewReviewServiceParams struct {
 // ReviewService owns the conversations pinned to the lines of an agent's diff, and holds the
 // only copy.
 type ReviewService struct {
-	threads     reviewThreadReadWriter
-	messages    reviewMessageReadWriter
-	viewed      reviewViewedFileReadWriter
-	rounds      reviewRoundReadWriter
-	reviews     reviewBatchReadWriter
-	snapshots   reviewSnapshotter
-	workflows   workflowGetter
-	agents      agentGetter
-	events      eventRecorder
-	interrupter agentInterrupter
-	stateDir    string
-	roundLocks  *agentLocks
+	reviews      *reviewstore.ReviewStore
+	snapshots    reviewSnapshotter
+	workflows    *workflowstore.WorkflowStore
+	agents       *agentstore.AgentStore
+	events       eventRecorder
+	interrupter  agentInterrupter
+	forgeThreads *pullrequeststore.ForgeThreadStore
+	stateDir     string
+	roundLocks   *agentLocks
 }
 
 // NewReviewService builds the service over the review store and the things it tells.
 func NewReviewService(params NewReviewServiceParams) *ReviewService {
 	return &ReviewService{
-		threads:     params.Threads,
-		messages:    params.Messages,
-		viewed:      params.Viewed,
-		rounds:      params.Rounds,
-		reviews:     params.Reviews,
-		snapshots:   params.Snapshots,
-		workflows:   params.Workflows,
-		agents:      params.Agents,
-		events:      params.Events,
-		interrupter: params.Interrupter,
-		stateDir:    params.StateDir,
-		roundLocks:  newAgentLocks(),
+		reviews:      params.Reviews,
+		snapshots:    params.Snapshots,
+		workflows:    params.Workflows,
+		agents:       params.Agents,
+		events:       params.Events,
+		interrupter:  params.Interrupter,
+		forgeThreads: params.ForgeThreads,
+		stateDir:     params.StateDir,
+		roundLocks:   newAgentLocks(),
 	}
 }
 
@@ -166,7 +122,7 @@ func (s *ReviewService) ListReviewThreads(
 	ctx context.Context,
 	params ListReviewThreadsParams,
 ) ([]ReviewThreadWithMessages, error) {
-	threads, err := s.threads.ListThreads(ctx, params.AgentID)
+	threads, err := s.reviews.ListThreads(ctx, params.AgentID)
 	if err != nil {
 		return nil, err
 	}
@@ -178,7 +134,7 @@ func (s *ReviewService) ListReviewThreads(
 		return thread.ID
 	})
 
-	messages, err := s.messages.ListMessages(ctx, ids)
+	messages, err := s.reviews.ListMessages(ctx, ids)
 	if err != nil {
 		return nil, err
 	}
@@ -281,6 +237,49 @@ func (s *ReviewService) CreateReviewThread(
 		return nil, ErrReviewWholeChangeAnchored
 	}
 
+	place, err := s.placeThread(ctx, params)
+	if err != nil {
+		return nil, err
+	}
+
+	thread, err := s.reviews.CreateThread(ctx, reviewstore.CreateThreadParams{
+		AgentID:       params.AgentID,
+		ReviewID:      place.ReviewID,
+		RoundID:       place.RoundID,
+		BaseSHA:       place.BaseSHA,
+		Suggestion:    params.Suggestion,
+		FilePath:      params.FilePath,
+		OldStart:      params.OldStart,
+		OldEnd:        params.OldEnd,
+		NewStart:      params.NewStart,
+		NewEnd:        params.NewEnd,
+		QuotedLines:   params.QuotedLines,
+		Body:          params.Body,
+		AuthorKind:    params.Author.Kind,
+		AuthorAgentID: params.Author.AgentID,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	messages, err := s.reviews.ListMessages(ctx, []string{thread.ID})
+	if err != nil {
+		return nil, err
+	}
+
+	return &ReviewThreadWithMessages{Thread: *thread, Messages: messages}, nil
+}
+
+// threadPlace is the review, round and base a new thread is filed under.
+type threadPlace struct {
+	ReviewID string
+	RoundID  string
+	BaseSHA  string
+}
+
+// placeThread finds the round a new thread's lines were measured in and the author's open review
+// on it, opening or carrying one forward when needed.
+func (s *ReviewService) placeThread(ctx context.Context, params CreateReviewThreadParams) (*threadPlace, error) {
 	if err := s.requireEntitled(ctx, params.AgentID, params.Author); err != nil {
 		return nil, err
 	}
@@ -311,32 +310,7 @@ func (s *ReviewService) CreateReviewThread(
 		baseSHA = round.BaseSHA
 	}
 
-	thread, err := s.threads.CreateThread(ctx, reviewstore.CreateThreadParams{
-		AgentID:       params.AgentID,
-		ReviewID:      open.ID,
-		RoundID:       round.ID,
-		BaseSHA:       baseSHA,
-		Suggestion:    params.Suggestion,
-		FilePath:      params.FilePath,
-		OldStart:      params.OldStart,
-		OldEnd:        params.OldEnd,
-		NewStart:      params.NewStart,
-		NewEnd:        params.NewEnd,
-		QuotedLines:   params.QuotedLines,
-		Body:          params.Body,
-		AuthorKind:    params.Author.Kind,
-		AuthorAgentID: params.Author.AgentID,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	messages, err := s.messages.ListMessages(ctx, []string{thread.ID})
-	if err != nil {
-		return nil, err
-	}
-
-	return &ReviewThreadWithMessages{Thread: *thread, Messages: messages}, nil
+	return &threadPlace{ReviewID: open.ID, RoundID: round.ID, BaseSHA: baseSHA}, nil
 }
 
 // carryOpenReview files a person's draft under the newest round they have commented on.
@@ -346,7 +320,7 @@ func (s *ReviewService) carryOpenReview(
 	round reviewstore.Round,
 	author ReviewAuthor,
 ) (*reviewstore.Review, error) {
-	held, err := s.rounds.GetRound(ctx, open.RoundID)
+	held, err := s.reviews.GetRound(ctx, open.RoundID)
 	if err != nil {
 		return nil, err
 	}
@@ -490,7 +464,7 @@ func (s *ReviewService) EditReviewMessage(
 	}
 
 	if len(params.Suggestion) > 0 {
-		thread, err := s.threads.GetThread(ctx, message.ThreadID)
+		thread, err := s.reviews.GetThread(ctx, message.ThreadID)
 		if err != nil {
 			return nil, err
 		}
@@ -500,7 +474,7 @@ func (s *ReviewService) EditReviewMessage(
 		}
 	}
 
-	return s.messages.UpdateMessage(ctx, params.ID, params.Body, params.Suggestion)
+	return s.reviews.UpdateMessage(ctx, params.ID, params.Body, params.Suggestion)
 }
 
 // MarkReviewThreadReadParams names the thread to catch the person up on.
@@ -522,7 +496,7 @@ func (s *ReviewService) MarkReviewThreadRead(
 		return nil, err
 	}
 
-	return s.threads.MarkThreadRead(ctx, params.ID)
+	return s.reviews.MarkThreadRead(ctx, params.ID)
 }
 
 // SetReviewThreadResolvedParams names the thread to settle or reopen.
@@ -548,7 +522,7 @@ func (s *ReviewService) SetReviewThreadResolved(
 			"%q is a comment about your own work, so it is not yours to settle", params.ID)
 	}
 
-	return s.threads.SetThreadResolved(ctx, reviewstore.SetThreadResolvedParams{
+	return s.reviews.SetThreadResolved(ctx, reviewstore.SetThreadResolvedParams{
 		ID:        params.ID,
 		Resolved:  params.Resolved,
 		ByKind:    params.Author.Kind,
@@ -576,10 +550,10 @@ func (s *ReviewService) SetReviewFileViewed(
 	}
 
 	if !params.Viewed {
-		return nil, s.viewed.UnmarkFileViewed(ctx, params.AgentID, params.FilePath)
+		return nil, s.reviews.UnmarkFileViewed(ctx, params.AgentID, params.FilePath)
 	}
 
-	return s.viewed.MarkFileViewed(ctx, reviewstore.MarkFileViewedParams{
+	return s.reviews.MarkFileViewed(ctx, reviewstore.MarkFileViewedParams{
 		AgentID:     params.AgentID,
 		FilePath:    params.FilePath,
 		Fingerprint: params.Fingerprint,
@@ -601,7 +575,7 @@ func (s *ReviewService) ListReviewViewedFiles(
 		return nil, fmt.Errorf("%w: reading which files have been viewed", ErrReviewHumanOnly)
 	}
 
-	return s.viewed.ListViewedFiles(ctx, params.AgentID)
+	return s.reviews.ListViewedFiles(ctx, params.AgentID)
 }
 
 // interrupt stops the agent where it stands, and failing to is no reason to withhold the
@@ -625,7 +599,7 @@ func (s *ReviewService) requireOwnThread(ctx context.Context, id string, author 
 // getOwnThread reads a thread and says whether the caller has any business in it, which the
 // person, the agent under review and the reviewing agent that wrote it all do.
 func (s *ReviewService) getOwnThread(ctx context.Context, id string, author ReviewAuthor) (*reviewstore.Thread, error) {
-	thread, err := s.threads.GetThread(ctx, id)
+	thread, err := s.reviews.GetThread(ctx, id)
 	if errors.Is(err, store.ErrNotFound) {
 		return nil, fmt.Errorf("%w: %q", ErrReviewThreadNotFound, id)
 	}
@@ -641,7 +615,7 @@ func (s *ReviewService) getOwnThread(ctx context.Context, id string, author Revi
 
 // getOwnMessage reads a message, refusing a caller rewriting or removing words it did not write.
 func (s *ReviewService) getOwnMessage(ctx context.Context, id string, author ReviewAuthor) (*reviewstore.Message, error) {
-	message, err := s.messages.GetMessage(ctx, id)
+	message, err := s.reviews.GetMessage(ctx, id)
 	if errors.Is(err, store.ErrNotFound) {
 		return nil, fmt.Errorf("%w: %q", ErrReviewMessageNotFound, id)
 	}

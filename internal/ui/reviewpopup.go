@@ -35,7 +35,7 @@ func (r reviewScreen) popupBody(s panelShared, inner int) (string, int) {
 	case r.loading || r.diff.View() == nil || r.diff.View().Len() == 0:
 		return "", 0
 	case r.threads.composing:
-		return r.threads.editor.view(), 0
+		return r.acceptingView(s, inner) + r.threads.editor.view(), 0
 	case r.threads.releasing:
 		return r.releaseView(inner), 0
 	}
@@ -56,7 +56,7 @@ func (r reviewScreen) conversationAtCursor(s panelShared, inner int) (string, st
 	}
 
 	if offer, ok := r.offerAtCursor(s); ok {
-		return offer.GetId(), r.offerView(offer, inner), true
+		return offer.GetId(), r.offerView(s, offer, inner), true
 	}
 
 	return "", "", false

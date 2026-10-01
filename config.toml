@@ -293,6 +293,9 @@ up        = ["k"]
 # The review screen, which draws an agent's diff in the stage and its review
 # threads in the sidebar.
 [keybindings.review]
+# Accept the comment from the forge under the cursor into your review, as a thread of your
+# own the agent reads with the rest of it, or bring in what changed on the forge since you did.
+accept           = ["A"]
 # Show only the change that answered the comment under the cursor, from the work as
 # it stood just before the agent's addressed reply to the work that reply carried, or
 # go back to all changes from there.

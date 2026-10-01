@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"komrad/internal/agenterr"
 	"komrad/internal/agents"
 	"komrad/internal/caller"
 	"komrad/internal/events/eventstest"
@@ -100,7 +101,7 @@ func TestRebaseRefusals(t *testing.T) {
 
 				return agent
 			},
-			wantErr: agents.ErrAgentArchived,
+			wantErr: agenterr.ErrAgentArchived,
 		},
 		{
 			name: "a held agent, before anything types at it or moves the branch",
@@ -111,7 +112,7 @@ func TestRebaseRefusals(t *testing.T) {
 
 				return agent
 			},
-			wantErr: agents.ErrAgentHeld,
+			wantErr: agenterr.ErrAgentHeld,
 		},
 		{
 			name: "an agent whose tree something else is working in",
@@ -130,9 +131,9 @@ func TestRebaseRefusals(t *testing.T) {
 			release, taken := locks.TryLock("/locked")
 			require.True(t, taken)
 			t.Cleanup(release)
-			rebaser := &gittest.Rebaser{State: git.TreeState{Branch: "agent/a1"}}
+			rebaser := &gittest.Mover{State: git.TreeState{Branch: "agent/a1"}}
 
-			_, err := fixture.newService(NewServiceParams{Rebaser: rebaser, Locks: locks}).Rebase(t.Context(), agent.ID)
+			_, err := fixture.newService(NewServiceParams{Git: rebaser, Locks: locks}).Rebase(t.Context(), agent.ID)
 
 			require.ErrorIs(t, err, tt.wantErr)
 			assert.Empty(t, rebaser.Calls)
@@ -203,7 +204,7 @@ func TestRebaseRefusesATreeGitWillNotMove(t *testing.T) {
 
 			_, err := fixture.newService(NewServiceParams{
 				Settler: buildSettler(channel, observer),
-				Rebaser: &gittest.Rebaser{State: tt.state},
+				Git:     &gittest.Mover{State: tt.state},
 			}).Rebase(t.Context(), agent.ID)
 
 			require.ErrorIs(t, err, tt.wantErr)
@@ -217,14 +218,14 @@ func TestRebaseRefusesATreeGitWillNotMove(t *testing.T) {
 func TestRebaseMovesTheBranch(t *testing.T) {
 	tests := []struct {
 		name        string
-		rebaser     *gittest.Rebaser
+		rebaser     *gittest.Mover
 		wantCalls   []string
 		wantCutoff  string
 		wantStopped bool
 	}{
 		{
 			name: "a rebase stopped on conflicts",
-			rebaser: &gittest.Rebaser{
+			rebaser: &gittest.Mover{
 				State:     git.TreeState{Branch: "agent/a1"},
 				ReplayErr: git.ErrRebaseConflicted,
 			},
@@ -233,7 +234,7 @@ func TestRebaseMovesTheBranch(t *testing.T) {
 		},
 		{
 			name: "a squash-merged branch replays from the cutoff, since a plain rebase would collide with the landed content",
-			rebaser: &gittest.Rebaser{
+			rebaser: &gittest.Mover{
 				State: git.TreeState{Branch: "agent/a1"},
 				Prediction: git.Prediction{
 					Cutoff: "cutoffsha",
@@ -246,7 +247,7 @@ func TestRebaseMovesTheBranch(t *testing.T) {
 		},
 		{
 			name: "a branch with work of its own replays whole",
-			rebaser: &gittest.Rebaser{
+			rebaser: &gittest.Mover{
 				State:      git.TreeState{Branch: "agent/a1"},
 				Prediction: git.Prediction{Replay: 1},
 			},
@@ -259,7 +260,7 @@ func TestRebaseMovesTheBranch(t *testing.T) {
 			fixture := newRebaseFixture(t)
 			agent := fixture.seed(t, agentstore.Agent{})
 
-			result, err := fixture.newService(NewServiceParams{Rebaser: tt.rebaser}).Rebase(t.Context(), agent.ID)
+			result, err := fixture.newService(NewServiceParams{Git: tt.rebaser}).Rebase(t.Context(), agent.ID)
 			require.NoError(t, err)
 
 			assert.Equal(t, tt.wantCalls, tt.rebaser.Calls)
@@ -282,13 +283,13 @@ func TestRebaseMovesTheBranch(t *testing.T) {
 func TestRebaseWakesTheCheckoutSyncWhenTheReplayFails(t *testing.T) {
 	fixture := newRebaseFixture(t)
 	agent := fixture.seed(t, agentstore.Agent{})
-	rebaser := &gittest.Rebaser{
+	rebaser := &gittest.Mover{
 		State:      git.TreeState{Branch: "agent/a1"},
 		Prediction: git.Prediction{Replay: 1},
 		ReplayErr:  errors.New("the post-rewrite hook failed"),
 	}
 
-	_, err := fixture.newService(NewServiceParams{Rebaser: rebaser}).Rebase(t.Context(), agent.ID)
+	_, err := fixture.newService(NewServiceParams{Git: rebaser}).Rebase(t.Context(), agent.ID)
 
 	require.Error(t, err)
 	assert.Equal(t, 1, fixture.checkoutSync.Wakes)
@@ -328,14 +329,14 @@ func TestRebaseRefusesAnAgentThatWillNotSettle(t *testing.T) {
 			channel := &harnesstest.Channel{}
 			observer := harnesstest.NewActivityObserver(tt.readings...)
 			observer.Err = tt.observeErr
-			rebaser := &gittest.Rebaser{State: git.TreeState{Branch: "agent/a1"}}
+			rebaser := &gittest.Mover{State: git.TreeState{Branch: "agent/a1"}}
 
 			_, err := fixture.newService(NewServiceParams{
 				Settler: buildSettler(channel, observer),
-				Rebaser: rebaser,
+				Git:     rebaser,
 			}).Rebase(t.Context(), agent.ID)
 
-			require.ErrorIs(t, err, agents.ErrUnsettled)
+			require.ErrorIs(t, err, agenterr.ErrUnsettled)
 			require.ErrorContains(t, err, tt.wantSaid)
 			assert.Equal(t, tt.wantInterrupts, channel.Interrupts)
 			assert.Empty(t, rebaser.Calls, "nothing is parked or moved under an agent still working")
@@ -395,7 +396,7 @@ func TestRebaseSettlesTheAgentBeforeItMoves(t *testing.T) {
 			channel := &harnesstest.Channel{}
 			observer := harnesstest.NewActivityObserver(tt.readings...)
 			readsBeforeTree := 0
-			rebaser := &gittest.Rebaser{
+			rebaser := &gittest.Mover{
 				State:          git.TreeState{Branch: "agent/a1"},
 				Prediction:     tt.prediction,
 				BeforeReadTree: func() { readsBeforeTree = observer.Reads },
@@ -403,7 +404,7 @@ func TestRebaseSettlesTheAgentBeforeItMoves(t *testing.T) {
 
 			result, err := fixture.newService(NewServiceParams{
 				Settler: buildSettler(channel, observer),
-				Rebaser: rebaser,
+				Git:     rebaser,
 			}).Rebase(t.Context(), agent.ID)
 			require.NoError(t, err)
 
@@ -436,14 +437,14 @@ func TestRebaseRereadsTheRowOnceTheAgentSettles(t *testing.T) {
 			name:     "a hold landing on an agent whose turn was cut",
 			settling: holdWhileSettling,
 			readings: []harness.Activity{harness.ActivityWorking, harness.ActivityIdle},
-			wantErr:  agents.ErrAgentHeld,
+			wantErr:  agenterr.ErrAgentHeld,
 			wantMail: "interrupted",
 		},
 		{
 			name:     "a hold landing on an agent that was already at rest",
 			settling: holdWhileSettling,
 			readings: []harness.Activity{harness.ActivityIdle},
-			wantErr:  agents.ErrAgentHeld,
+			wantErr:  agenterr.ErrAgentHeld,
 		},
 		{
 			name: "a row stamped thinking after the interrupt",
@@ -463,11 +464,11 @@ func TestRebaseRereadsTheRowOnceTheAgentSettles(t *testing.T) {
 			channel := &harnesstest.Channel{}
 			observer := harnesstest.NewActivityObserver(tt.readings...)
 			observer.BeforeFirst = func() { tt.settling(t, fixture, agent.ID) }
-			rebaser := &gittest.Rebaser{State: git.TreeState{Branch: "agent/a1"}}
+			rebaser := &gittest.Mover{State: git.TreeState{Branch: "agent/a1"}}
 
 			_, err := fixture.newService(NewServiceParams{
 				Settler: buildSettler(channel, observer),
-				Rebaser: rebaser,
+				Git:     rebaser,
 			}).Rebase(t.Context(), agent.ID)
 
 			if tt.wantErr != nil {
@@ -610,9 +611,9 @@ func TestRebaseRefusesAnAgentInTheCallersCheckout(t *testing.T) {
 				})
 				from = caller.Caller{AgentID: asker.ID}
 			}
-			rebaser := &gittest.Rebaser{State: git.TreeState{Branch: "fix/auth"}}
+			rebaser := &gittest.Mover{State: git.TreeState{Branch: "fix/auth"}}
 
-			_, err := fixture.newService(NewServiceParams{Rebaser: rebaser}).Rebase(caller.With(t.Context(), from), agent.ID)
+			_, err := fixture.newService(NewServiceParams{Git: rebaser}).Rebase(caller.With(t.Context(), from), agent.ID)
 
 			if tt.wantErr == nil {
 				require.NoError(t, err)
@@ -654,9 +655,9 @@ func TestRebaseLetsThroughAnAskerWithNoCheckout(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			fixture := newRebaseFixture(t)
 			agent := fixture.seed(t, agentstore.Agent{})
-			rebaser := &gittest.Rebaser{State: git.TreeState{Branch: "fix/auth"}}
+			rebaser := &gittest.Mover{State: git.TreeState{Branch: "fix/auth"}}
 
-			_, err := fixture.newService(NewServiceParams{Rebaser: rebaser}).Rebase(caller.With(t.Context(), tt.asker(t)), agent.ID)
+			_, err := fixture.newService(NewServiceParams{Git: rebaser}).Rebase(caller.With(t.Context(), tt.asker(t)), agent.ID)
 			require.NoError(t, err)
 
 			assert.Equal(t, []string{"park", "rebase"}, rebaser.Calls)
@@ -708,14 +709,12 @@ func (f *rebaseFixture) newService(params NewServiceParams) *Service {
 	if params.CheckoutSync == nil {
 		params.CheckoutSync = f.checkoutSync
 	}
-	if params.Rebaser == nil {
-		params.Rebaser = &gittest.Rebaser{State: git.TreeState{Branch: "agent/a1"}}
-	}
-	if params.Pusher == nil {
-		params.Pusher = &gittest.Pusher{State: git.TreeState{Branch: "agent/a1"}, Own: 1}
-	}
-	if params.Aborter == nil {
-		params.Aborter = &gittest.Aborter{Sequence: git.SequenceRebase, Branch: "agent/a1"}
+	if params.Git == nil {
+		params.Git = &gittest.Mover{
+			State:    git.TreeState{Branch: "agent/a1"},
+			Own:      1,
+			Sequence: git.SequenceRebase,
+		}
 	}
 	if params.PullRequestSync == nil {
 		params.PullRequestSync = f.pullRequestSync

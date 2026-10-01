@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"komrad/internal/agenterr"
 	"komrad/internal/agents"
 	"komrad/internal/mail"
 	"komrad/internal/schedules"
@@ -168,13 +169,13 @@ func (w *LaunchAgentWorker) launch(ctx context.Context, schedule *schedulestore.
 	})
 
 	if errors.Is(err, agents.ErrBadDirectory) ||
-		errors.Is(err, agents.ErrWorkflowNotFound) ||
+		errors.Is(err, agenterr.ErrWorkflowNotFound) ||
 		errors.Is(err, agents.ErrProvisionFailed) ||
-		errors.Is(err, agents.ErrTooManyAgents) {
+		errors.Is(err, agenterr.ErrTooManyAgents) {
 		return river.JobCancel(fmt.Errorf("failed to launch schedule %q: %w", schedule.Name, err))
 	}
 	// An occurrence whose agent is already up completes rather than retrying.
-	if err != nil && !errors.Is(err, agents.ErrAlreadyLaunched) {
+	if err != nil && !errors.Is(err, agenterr.ErrAlreadyLaunched) {
 		return fmt.Errorf("failed to launch the agent for schedule %q: %w", schedule.Name, err)
 	}
 

@@ -27,7 +27,7 @@ const replyHint = "Your worktree has changed since this comment was written. " +
 
 // openAnswerRound takes the round an addressed reply points at, refusing one that changed nothing.
 func (s *ReviewService) openAnswerRound(ctx context.Context, thread reviewstore.Thread, author ReviewAuthor) (*reviewstore.Round, error) {
-	written, err := s.rounds.GetRound(ctx, thread.RoundID)
+	written, err := s.reviews.GetRound(ctx, thread.RoundID)
 	if err != nil {
 		return nil, err
 	}
@@ -50,7 +50,7 @@ func (s *ReviewService) openAnswerRound(ctx context.Context, thread reviewstore.
 // findReplyHint points a plain reply at addressed when the agent's worktree no longer holds the
 // tree its thread was written on, and says nothing when that cannot be read.
 func (s *ReviewService) findReplyHint(ctx context.Context, thread reviewstore.Thread) string {
-	written, err := s.rounds.GetRound(ctx, thread.RoundID)
+	written, err := s.reviews.GetRound(ctx, thread.RoundID)
 	if err != nil {
 		return ""
 	}

@@ -6,15 +6,11 @@ import (
 	"fmt"
 	"strings"
 
-	"komrad/internal/fail"
+	"komrad/internal/agenterr"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
 	reviewstore "komrad/internal/store/review"
 )
-
-// ErrReviewNeedsOwnWork says the agent asked for has no work of its own to be read, which is
-// true of a reviewer and of any child.
-var ErrReviewNeedsOwnWork = fail.Precondition("this agent has no work of its own to have read")
 
 // liveReviewerFinder reads the reviewer still owed an answer about an agent's work.
 type liveReviewerFinder interface {
@@ -39,29 +35,29 @@ type RequestReviewParams struct {
 func (s *LaunchService) RequestReview(ctx context.Context, params RequestReviewParams) (*agentstore.Agent, string, error) {
 	author, err := s.agents.GetByID(ctx, params.AgentID)
 	if errors.Is(err, store.ErrNotFound) {
-		return nil, "", ErrAgentNotFound.Saying("no agent with id %q", params.AgentID)
+		return nil, "", agenterr.ErrAgentNotFound.Saying("no agent with id %q", params.AgentID)
 	}
 	if err != nil {
 		return nil, "", err
 	}
 
 	if author.ArchivedAt != nil {
-		return nil, "", fmt.Errorf("%w: %q", ErrAgentArchived, author.Name)
+		return nil, "", fmt.Errorf("%w: %q", agenterr.ErrAgentArchived, author.Name)
 	}
 
 	// A child reads its parent's checkout rather than writing one of its own, so neither a
 	// reviewer nor any other child has a change of its own for a second agent to be shown.
 	switch {
 	case author.Role == agentstore.RoleReviewer:
-		return nil, "", fmt.Errorf("%w: %q was launched to review", ErrReviewNeedsOwnWork, author.Name)
+		return nil, "", fmt.Errorf("%w: %q was launched to review", agenterr.ErrReviewNeedsOwnWork, author.Name)
 	case author.Role == agentstore.RoleOrchestrator:
-		return nil, "", fmt.Errorf("%w: %q writes no code, so it has no change to be read", ErrReviewNeedsOwnWork, author.Name)
+		return nil, "", fmt.Errorf("%w: %q writes no code, so it has no change to be read", agenterr.ErrReviewNeedsOwnWork, author.Name)
 	case author.ParentAgentID != nil:
-		return nil, "", fmt.Errorf("%w: %q is a child, writing in a checkout it does not own", ErrReviewNeedsOwnWork, author.Name)
+		return nil, "", fmt.Errorf("%w: %q is a child, writing in a checkout it does not own", agenterr.ErrReviewNeedsOwnWork, author.Name)
 	}
 
 	running, err := s.liveReviewerFor(ctx, *author)
-	if err != nil && !errors.Is(err, ErrNoLiveReviewer) {
+	if err != nil && !errors.Is(err, agenterr.ErrNoLiveReviewer) {
 		return nil, "", err
 	}
 	if running != nil {
@@ -73,7 +69,7 @@ func (s *LaunchService) RequestReview(ctx context.Context, params RequestReviewP
 
 		return nil, "", fmt.Errorf(
 			"%w: %q (%s) is reading it, so answer its threads rather than asking again, and resume it with resume_agent if its pane is gone",
-			ErrReviewerAlreadyRunning, running.Name, running.ID)
+			agenterr.ErrReviewerAlreadyRunning, running.Name, running.ID)
 	}
 
 	reviewer, err := s.NewAgent(ctx, NewAgentParams{
@@ -86,7 +82,7 @@ func (s *LaunchService) RequestReview(ctx context.Context, params RequestReviewP
 		Role:           agentstore.RoleReviewer,
 		IdempotencyKey: params.IdempotencyKey,
 	})
-	if err != nil && !errors.Is(err, ErrAlreadyLaunched) {
+	if err != nil && !errors.Is(err, agenterr.ErrAlreadyLaunched) {
 		return nil, "", err
 	}
 
@@ -98,7 +94,7 @@ func (s *LaunchService) RequestReview(ctx context.Context, params RequestReviewP
 func (s *LaunchService) liveReviewerFor(ctx context.Context, author agentstore.Agent) (*agentstore.Agent, error) {
 	reading, err := s.reviews.GetLiveReviewerOf(ctx, author.ID)
 	if errors.Is(err, store.ErrNotFound) {
-		return nil, fmt.Errorf("%w: %q", ErrNoLiveReviewer, author.Name)
+		return nil, fmt.Errorf("%w: %q", agenterr.ErrNoLiveReviewer, author.Name)
 	}
 	if err != nil {
 		return nil, err

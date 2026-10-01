@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"komrad/db"
+	"komrad/internal/agenterr"
 	"komrad/internal/agents"
 	"komrad/internal/events"
 	"komrad/internal/jobs/internaljobs"
@@ -225,7 +226,7 @@ func TestAgentDeleteQueuesWhatItClaims(t *testing.T) {
 	other := stores.SeedAgent(t, agentstore.Agent{Name: "other"})
 
 	err := agentDelete.DeleteAgents(ctx, []string{other.ID, newID(t)})
-	require.ErrorIs(t, err, agents.ErrAgentNotFound)
+	require.ErrorIs(t, err, agenterr.ErrAgentNotFound)
 	untouched, err := stores.Agents.GetByID(ctx, other.ID)
 	require.NoError(t, err)
 	assert.Nil(t, untouched.DeletingAt, "a refused batch claims nothing")

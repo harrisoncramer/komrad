@@ -1136,6 +1136,13 @@ service AgentService {
       roles: [ROLE_REVIEWER]
     };
   }
+  rpc AcceptForgeThread(AcceptForgeThreadRequest) returns (AcceptForgeThreadResponse) {
+    option (annotation.v1.surfaces) = {
+      cli: false
+      mcp: false
+      reason: "Passing a stranger's words on to an agent as review is the person's call alone, made in the panel where they read those words."
+    };
+  }
   rpc AddReviewMessage(AddReviewMessageRequest) returns (AddReviewMessageResponse) {
     option (annotation.v1.surfaces) = {
       cli: true

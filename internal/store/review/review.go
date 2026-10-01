@@ -10,6 +10,7 @@ import (
 	"komrad/db"
 	"komrad/db/models"
 	"komrad/internal/store"
+	"komrad/lib/xptr"
 	"komrad/lib/xslice"
 )
 
@@ -92,6 +93,8 @@ type Message struct {
 	// Suggestion is the replacement lines the reviewer is proposing for the thread's range,
 	// empty on an ordinary comment.
 	Suggestion []string
+	// External is the forge comment the person copied this from, nil for anything written in komrad.
+	External *External
 	// SentAt is when the review carrying this comment was released, nil until then.
 	SentAt *time.Time
 	// DeliveredAt is when the agent claimed the mail raised for that review, nil until it has.
@@ -99,6 +102,15 @@ type Message struct {
 	Delivery    DeliveryState
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
+}
+
+// External is a forge comment as it stood when the person copied it into their review.
+type External struct {
+	// Login is the forge login of whoever wrote it, empty when the forge no longer knew them.
+	Login     string
+	CommentID string
+	// EditedAt is when the forge comment had last been edited, nil when it never had been.
+	EditedAt *time.Time
 }
 
 type ReviewStore struct {
@@ -125,26 +137,31 @@ type CreateThreadParams struct {
 	Body          string
 	AuthorKind    AuthorKind
 	AuthorAgentID *string
+	// External is the forge comment the first message is copied from, nil for one written in komrad.
+	External *External
 }
 
 // CreateThread pins a conversation to a place in a diff and writes its first message in one
 // statement.
 func (s *ReviewStore) CreateThread(ctx context.Context, params CreateThreadParams) (*Thread, error) {
 	row, err := s.queries.InsertReviewThreadWithMessage(ctx, models.InsertReviewThreadWithMessageParams{
-		AgentID:       params.AgentID,
-		ReviewID:      params.ReviewID,
-		RoundID:       params.RoundID,
-		BaseSha:       params.BaseSHA,
-		Suggestion:    lines(params.Suggestion),
-		FilePath:      params.FilePath,
-		OldStart:      params.OldStart,
-		OldEnd:        params.OldEnd,
-		NewStart:      params.NewStart,
-		NewEnd:        params.NewEnd,
-		QuotedLines:   lines(params.QuotedLines),
-		AuthorKind:    models.ReviewAuthorKind(params.AuthorKind),
-		AuthorAgentID: params.AuthorAgentID,
-		Body:          params.Body,
+		AgentID:        params.AgentID,
+		ReviewID:       params.ReviewID,
+		RoundID:        params.RoundID,
+		BaseSha:        params.BaseSHA,
+		Suggestion:     lines(params.Suggestion),
+		FilePath:       params.FilePath,
+		OldStart:       params.OldStart,
+		OldEnd:         params.OldEnd,
+		NewStart:       params.NewStart,
+		NewEnd:         params.NewEnd,
+		QuotedLines:    lines(params.QuotedLines),
+		AuthorKind:     models.ReviewAuthorKind(params.AuthorKind),
+		AuthorAgentID:  params.AuthorAgentID,
+		Body:           params.Body,
+		ExternalLogin:  externalLogin(params.External),
+		ForgeCommentID: externalCommentID(params.External),
+		ForgeEditedAt:  externalEditedAt(params.External),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to open a review thread on %q: %w", params.FilePath, err)
@@ -324,19 +341,24 @@ type CreateMessageParams struct {
 	// AuthorAgentID links to the agent that wrote it, and is cleared when that agent is deleted.
 	AuthorAgentID *string
 	Body          string
+	// External is the forge comment the message is copied from, nil for one written in komrad.
+	External *External
 }
 
 // CreateMessage writes a message into a thread and moves the writer's activity stamp in one
 // statement.
 func (s *ReviewStore) CreateMessage(ctx context.Context, params CreateMessageParams) (*Message, error) {
 	row, err := s.queries.InsertReviewMessage(ctx, models.InsertReviewMessageParams{
-		ThreadID:      params.ThreadID,
-		ReviewID:      params.ReviewID,
-		RoundID:       params.RoundID,
-		Suggestion:    lines(params.Suggestion),
-		AuthorKind:    models.ReviewAuthorKind(params.AuthorKind),
-		AuthorAgentID: params.AuthorAgentID,
-		Body:          params.Body,
+		ThreadID:       params.ThreadID,
+		ReviewID:       params.ReviewID,
+		RoundID:        params.RoundID,
+		Suggestion:     lines(params.Suggestion),
+		AuthorKind:     models.ReviewAuthorKind(params.AuthorKind),
+		AuthorAgentID:  params.AuthorAgentID,
+		Body:           params.Body,
+		ExternalLogin:  externalLogin(params.External),
+		ForgeCommentID: externalCommentID(params.External),
+		ForgeEditedAt:  externalEditedAt(params.External),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to write a message in the review thread %q: %w", params.ThreadID, err)
@@ -351,6 +373,7 @@ func (s *ReviewStore) CreateMessage(ctx context.Context, params CreateMessagePar
 		AuthorKind:    AuthorKind(row.AuthorKind),
 		AuthorAgentID: row.AuthorAgentID,
 		Body:          row.Body,
+		External:      externalOf(row.ExternalLogin, row.ForgeCommentID, row.ForgeEditedAt),
 		CreatedAt:     row.CreatedAt,
 		UpdatedAt:     row.UpdatedAt,
 	}
@@ -386,6 +409,7 @@ func (s *ReviewStore) UpdateMessage(ctx context.Context, id, body string, sugges
 		AuthorKind:    AuthorKind(row.AuthorKind),
 		AuthorAgentID: row.AuthorAgentID,
 		Body:          row.Body,
+		External:      externalOf(row.ExternalLogin, row.ForgeCommentID, row.ForgeEditedAt),
 		CreatedAt:     row.CreatedAt,
 		UpdatedAt:     row.UpdatedAt,
 	}
@@ -435,6 +459,7 @@ func (s *ReviewStore) ListMessages(ctx context.Context, threadIDs []string) ([]M
 			AuthorKind:    AuthorKind(row.AuthorKind),
 			AuthorAgentID: row.AuthorAgentID,
 			Body:          row.Body,
+			External:      externalOf(row.ExternalLogin, row.ForgeCommentID, row.ForgeEditedAt),
 			SentAt:        row.ReviewReleasedAt,
 			DeliveredAt:   row.DeliveredAt,
 			CreatedAt:     row.CreatedAt,
@@ -564,6 +589,7 @@ func undeliveredMessageFromRow(row models.ReviewMessage) Message {
 		AuthorKind:    AuthorKind(row.AuthorKind),
 		AuthorAgentID: row.AuthorAgentID,
 		Body:          row.Body,
+		External:      externalOf(row.ExternalLogin, row.ForgeCommentID, row.ForgeEditedAt),
 		CreatedAt:     row.CreatedAt,
 		UpdatedAt:     row.UpdatedAt,
 	}
@@ -598,4 +624,36 @@ func threadNotFound(id string) error {
 
 func messageNotFound(id string) error {
 	return fmt.Errorf("%w: review message %q", store.ErrNotFound, id)
+}
+
+func externalOf(login, commentID *string, editedAt *time.Time) *External {
+	if commentID == nil {
+		return nil
+	}
+
+	return &External{Login: xptr.Deref(login), CommentID: *commentID, EditedAt: editedAt}
+}
+
+func externalLogin(external *External) *string {
+	if external == nil {
+		return nil
+	}
+
+	return &external.Login
+}
+
+func externalCommentID(external *External) *string {
+	if external == nil {
+		return nil
+	}
+
+	return &external.CommentID
+}
+
+func externalEditedAt(external *External) *time.Time {
+	if external == nil {
+		return nil
+	}
+
+	return external.EditedAt
 }

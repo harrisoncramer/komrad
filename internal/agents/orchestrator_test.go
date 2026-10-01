@@ -4,6 +4,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"komrad/internal/agenterr"
 	"komrad/internal/caller"
 	"komrad/internal/harnesstest"
 	agentstore "komrad/internal/store/agent"
@@ -81,7 +82,7 @@ func TestStartOrchestratorRefusesAWorkflowThatIsNotThere(t *testing.T) {
 			})
 
 			_, err := manager.orchestrator.Start(t.Context(), tt.workflowID, "")
-			require.ErrorIs(t, err, ErrWorkflowNotFound)
+			require.ErrorIs(t, err, agenterr.ErrWorkflowNotFound)
 
 			assert.NoDirExists(t, filepath.Join(stateDir, orchestratorDirName),
 				"no directory is made for a workflow that is not there")
@@ -183,7 +184,7 @@ func TestOrchestratorSpawnsOnlyIntoItsOwnWorkflow(t *testing.T) {
 		Prompt:     "do something in another workflow",
 		WorkflowID: theirs,
 	})
-	require.ErrorIs(t, err, ErrOutsideWorkflow)
+	require.ErrorIs(t, err, agenterr.ErrOutsideWorkflow)
 
 	own, err := manager.launch.NewAgent(spawning, NewAgentParams{
 		Title:      "at home",
@@ -214,7 +215,7 @@ func TestOrchestratorIsRefusedAReview(t *testing.T) {
 		AgentID: orchestrator.ID,
 		Prompt:  "read what I have not written",
 	})
-	require.ErrorIs(t, err, ErrReviewNeedsOwnWork)
+	require.ErrorIs(t, err, agenterr.ErrReviewNeedsOwnWork)
 }
 
 // TestStartOrchestratorReplacesOneThatNeverRan pins the row a refused launch leaves behind: it

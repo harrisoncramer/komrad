@@ -35,14 +35,14 @@ type registrar interface {
 
 type NewRemoverParams struct {
 	Lister *Lister
-	Agents agentDirLister
+	Agents *agentstore.AgentStore
 	Git    registrar
 }
 
 // Remover takes away the directories no agent answers for.
 type Remover struct {
 	lister *Lister
-	agents agentDirLister
+	agents *agentstore.AgentStore
 	git    registrar
 }
 

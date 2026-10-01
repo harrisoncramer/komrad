@@ -33,11 +33,6 @@ const pullRequestFragment = `fragment pullRequestFields on PullRequest {
 
 const verifyQuery = `query Verify { viewer { login } }`
 
-const getQuery = `query Get($owner: String!, $name: String!, $number: Int!) {
-  repository(owner: $owner, name: $name) { pullRequest(number: $number) { ...pullRequestFields } }
-}
-` + pullRequestFragment
-
 const mergeTargetQuery = `query MergeTarget($owner: String!, $name: String!, $number: Int!) {
   repository(owner: $owner, name: $name) { viewerDefaultMergeMethod pullRequest(number: $number) { id state } }
 }`
@@ -225,36 +220,6 @@ func (f *Forge) List(ctx context.Context, params forge.ListParams) (*forge.Page,
 	return graphql.PageOf(&data.Repository.PullRequests, answer.RateLimit, func(node pullRequestNode) forge.PullRequest {
 		return node.toPullRequest(false)
 	}), nil
-}
-
-// Get is one pull request by its web address.
-func (f *Forge) Get(ctx context.Context, address string) (forge.PullRequest, error) {
-	owner, name, number, err := parsePullURL(address)
-	if err != nil {
-		return forge.PullRequest{}, err
-	}
-
-	var data struct {
-		Repository *struct {
-			PullRequest *pullRequestNode `json:"pullRequest"`
-		} `json:"repository"`
-	}
-	answer, err := f.client.Query(ctx, getQuery, map[string]any{
-		"owner":  owner,
-		"name":   name,
-		"number": number,
-	}, &data)
-	if err != nil {
-		return forge.PullRequest{}, err
-	}
-	if err := failureOf(answer); err != nil {
-		return forge.PullRequest{}, err
-	}
-	if data.Repository == nil || data.Repository.PullRequest == nil {
-		return forge.PullRequest{}, noPullRequest(number, owner, name)
-	}
-
-	return data.Repository.PullRequest.toPullRequest(false), nil
 }
 
 // branchesPerQuery is how many branches one ReadBranches query asks about.

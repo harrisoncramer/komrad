@@ -53,6 +53,7 @@ type AgentServiceImpl interface {
 	MarkRunsRead(context.Context, *v1.MarkRunsReadRequest) (*emptypb.Empty, *fail.Error)
 	ListReviewThreads(context.Context, *v1.ListReviewThreadsRequest) (*v1.ListReviewThreadsResponse, *fail.Error)
 	CreateReviewThread(context.Context, *v1.CreateReviewThreadRequest) (*v1.CreateReviewThreadResponse, *fail.Error)
+	AcceptForgeThread(context.Context, *v1.AcceptForgeThreadRequest) (*v1.AcceptForgeThreadResponse, *fail.Error)
 	AddReviewMessage(context.Context, *v1.AddReviewMessageRequest) (*v1.AddReviewMessageResponse, *fail.Error)
 	EditReviewMessage(context.Context, *v1.EditReviewMessageRequest) (*v1.EditReviewMessageResponse, *fail.Error)
 	PlanRebase(context.Context, *v1.PlanRebaseRequest) (*v1.PlanRebaseResponse, *fail.Error)
@@ -261,6 +262,11 @@ func (a AgentServiceAdapter) ListReviewThreads(ctx context.Context, req *connect
 // CreateReviewThread answers the request as connect serves it.
 func (a AgentServiceAdapter) CreateReviewThread(ctx context.Context, req *connect.Request[v1.CreateReviewThreadRequest]) (*connect.Response[v1.CreateReviewThreadResponse], error) {
 	return rpcerr.Answer(a.Impl.CreateReviewThread(ctx, req.Msg))
+}
+
+// AcceptForgeThread answers the request as connect serves it.
+func (a AgentServiceAdapter) AcceptForgeThread(ctx context.Context, req *connect.Request[v1.AcceptForgeThreadRequest]) (*connect.Response[v1.AcceptForgeThreadResponse], error) {
+	return rpcerr.Answer(a.Impl.AcceptForgeThread(ctx, req.Msg))
 }
 
 // AddReviewMessage answers the request as connect serves it.

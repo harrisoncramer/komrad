@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 
+	"komrad/internal/agenterr"
 	"komrad/internal/harness"
 	"komrad/internal/store"
 )
@@ -35,7 +36,7 @@ func NewInterrupter(params NewInterrupterParams) *Interrupter {
 func (i *Interrupter) Interrupt(ctx context.Context, agentID string) error {
 	agent, err := i.agents.GetByID(ctx, agentID)
 	if errors.Is(err, store.ErrNotFound) {
-		return ErrAgentNotFound.Saying("no agent with id %q", agentID)
+		return agenterr.ErrAgentNotFound.Saying("no agent with id %q", agentID)
 	}
 	if err != nil {
 		return err

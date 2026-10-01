@@ -34,15 +34,12 @@ var snapshotIdentity = []string{
 	"GIT_COMMITTER_DATE=@0 +0000",
 }
 
-// TakeSnapshotParams says which worktree to freeze, what to measure it against, and where to hold
-// the result.
+// TakeSnapshotParams says which worktree to freeze and what to measure it against.
 type TakeSnapshotParams struct {
 	// Dir is anywhere inside the agent's worktree.
 	Dir string
 	// Base is the branch the worktree was cut from.
 	Base string
-	// Ref is the full ref name the snapshot is held by, so nothing collects it.
-	Ref string
 }
 
 // Snapshot is one frozen picture of a worktree and the base it is measured against.
@@ -135,12 +132,6 @@ func (c *Client) TakeSnapshot(ctx context.Context, params TakeSnapshotParams) (*
 	sha, err := runEnv(ctx, root, env, "commit-tree", tree, "-p", baseSHA, "-m", snapshotMessage)
 	if err != nil {
 		return nil, fmt.Errorf("failed to commit a snapshot of %q: %w", root, err)
-	}
-
-	if params.Ref != "" {
-		if _, err := runEnv(ctx, root, env, "update-ref", params.Ref, sha); err != nil {
-			return nil, fmt.Errorf("failed to hold the snapshot of %q at %q: %w", root, params.Ref, err)
-		}
 	}
 
 	return &Snapshot{

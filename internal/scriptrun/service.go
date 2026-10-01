@@ -1,12 +1,12 @@
 package scriptrun
 
 import (
-	"context"
 	"sync"
 
 	"komrad/config"
 
 	agentstore "komrad/internal/store/agent"
+	runstore "komrad/internal/store/run"
 	workflowstore "komrad/internal/store/workflow"
 )
 
@@ -16,15 +16,6 @@ const (
 	TriggerDeprovision = config.TriggerDeprovision
 )
 
-type agentGetter interface {
-	GetByID(ctx context.Context, id string) (*agentstore.Agent, error)
-}
-
-type workflowReader interface {
-	Get(ctx context.Context, id string) (*workflowstore.Workflow, error)
-	GetIncludingArchived(ctx context.Context, id string) (*workflowstore.Workflow, error)
-}
-
 type tmuxReadWriter interface {
 	GetPaneOwner(pane string) string
 	GetHostSocket() string
@@ -33,11 +24,11 @@ type tmuxReadWriter interface {
 }
 
 type NewScriptServiceParams struct {
-	Agents     agentGetter
-	Workflows  workflowReader
+	Agents     *agentstore.AgentStore
+	Workflows  *workflowstore.WorkflowStore
 	Tmux       tmuxReadWriter
 	Runner     scriptRunner
-	Runs       runRecorder
+	Runs       *runstore.RunStore
 	Load       configLoader
 	Addr       string
 	Socket     string
@@ -48,11 +39,11 @@ type NewScriptServiceParams struct {
 }
 
 type ScriptService struct {
-	agents     agentGetter
-	workflows  workflowReader
+	agents     *agentstore.AgentStore
+	workflows  *workflowstore.WorkflowStore
 	tmux       tmuxReadWriter
 	runner     scriptRunner
-	runs       runRecorder
+	runs       *runstore.RunStore
 	load       configLoader
 	addr       string
 	socket     string

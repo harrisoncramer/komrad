@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"komrad/internal/agents"
+	"komrad/internal/agenterr"
 	"komrad/internal/events"
 	"komrad/internal/fail"
 	"komrad/internal/git"
@@ -59,28 +59,6 @@ var ErrReviewEmpty = fail.Precondition("that review has nothing in it")
 // ErrReviewNotFound is answered when a review id names nothing the caller may see.
 var ErrReviewNotFound = fail.NotFound("review not found")
 
-type reviewRoundReadWriter interface {
-	CreateRound(ctx context.Context, params reviewstore.CreateRoundParams) (*reviewstore.Round, error)
-	GetRound(ctx context.Context, id string) (*reviewstore.Round, error)
-	GetLatestRound(ctx context.Context, agentID string) (*reviewstore.Round, error)
-	GetRoundBySnapshot(ctx context.Context, agentID, snapshotSHA string) (*reviewstore.Round, error)
-	ListRounds(ctx context.Context, agentID string) ([]reviewstore.Round, error)
-}
-
-type reviewBatchReadWriter interface {
-	OpenReview(ctx context.Context, params reviewstore.OpenReviewParams) (*reviewstore.Review, error)
-	GetReview(ctx context.Context, id string) (*reviewstore.Review, error)
-	OpenReviewOf(ctx context.Context, params reviewstore.OpenReviewOfParams) (*reviewstore.Review, error)
-	MoveOpenReview(ctx context.Context, params reviewstore.MoveOpenReviewParams) (*reviewstore.Review, error)
-	ListReviews(ctx context.Context, agentID string) ([]reviewstore.Review, error)
-	CountOpenComments(ctx context.Context, reviewID string) (int, error)
-	ReleaseReview(ctx context.Context, params reviewstore.ReleaseReviewParams) (*reviewstore.Review, error)
-	DeleteReview(ctx context.Context, id string) error
-	ListTallies(ctx context.Context) ([]reviewstore.Tally, error)
-	ListLiveReviewers(ctx context.Context) ([]reviewstore.LiveReviewer, error)
-	GetLiveReviewerOf(ctx context.Context, agentID string) (*reviewstore.LiveReviewer, error)
-}
-
 type reviewSnapshotter interface {
 	TakeSnapshot(ctx context.Context, params git.TakeSnapshotParams) (*git.Snapshot, error)
 	HoldRef(ctx context.Context, dir, ref, sha string) error
@@ -99,7 +77,7 @@ func (s *ReviewService) OpenRound(ctx context.Context, agentID string, author Re
 		return nil, err
 	}
 	if agent.ParentAgentID != nil {
-		return nil, fmt.Errorf("%w: %q is a child, writing in a checkout it does not own", agents.ErrReviewNeedsOwnWork, agent.Name)
+		return nil, fmt.Errorf("%w: %q is a child, writing in a checkout it does not own", agenterr.ErrReviewNeedsOwnWork, agent.Name)
 	}
 	if agent.Cwd == "" {
 		return nil, fmt.Errorf("%w: %q has no directory to take a round of", ErrReviewNoRound, agent.Name)
@@ -115,7 +93,7 @@ func (s *ReviewService) OpenRound(ctx context.Context, agentID string, author Re
 
 	// A tree that has not moved is the round that was already taken of it, so opening the diff
 	// twice without the agent writing anything does not walk the ordinal on.
-	latest, err := s.rounds.GetLatestRound(ctx, agentID)
+	latest, err := s.reviews.GetLatestRound(ctx, agentID)
 	if err != nil && !errors.Is(err, store.ErrNotFound) {
 		return nil, err
 	}
@@ -128,7 +106,7 @@ func (s *ReviewService) OpenRound(ctx context.Context, agentID string, author Re
 		return nil, err
 	}
 
-	round, err := s.rounds.CreateRound(ctx, reviewstore.CreateRoundParams{
+	round, err := s.reviews.CreateRound(ctx, reviewstore.CreateRoundParams{
 		AgentID:     agentID,
 		BaseSHA:     snapshot.BaseSHA,
 		SnapshotSHA: snapshot.SHA,
@@ -155,7 +133,7 @@ type releaseUnheldRefParams struct {
 // releaseUnheldRef drops a ref taken for a round that was never written, unless an earlier round
 // of the same tree already stands on it.
 func (s *ReviewService) releaseUnheldRef(ctx context.Context, params releaseUnheldRefParams) {
-	_, err := s.rounds.GetRoundBySnapshot(ctx, params.Agent.ID, params.SnapshotSHA)
+	_, err := s.reviews.GetRoundBySnapshot(ctx, params.Agent.ID, params.SnapshotSHA)
 	if !errors.Is(err, store.ErrNotFound) {
 		return
 	}
@@ -168,7 +146,7 @@ func (s *ReviewService) releaseUnheldRef(ctx context.Context, params releaseUnhe
 
 // GetLatestRound is the newest round of an agent, ErrReviewNoRound when none has been taken.
 func (s *ReviewService) GetLatestRound(ctx context.Context, agentID string) (*reviewstore.Round, error) {
-	round, err := s.rounds.GetLatestRound(ctx, agentID)
+	round, err := s.reviews.GetLatestRound(ctx, agentID)
 	if errors.Is(err, store.ErrNotFound) {
 		return nil, fmt.Errorf("%w: %q", ErrReviewNoRound, agentID)
 	}
@@ -189,12 +167,7 @@ func (s *ReviewService) ListRounds(
 		return nil, err
 	}
 
-	return s.rounds.ListRounds(ctx, agentID)
-}
-
-// ListLiveReviewers is every reviewer still owed an answer, read once for the whole listing.
-func (s *ReviewService) ListLiveReviewers(ctx context.Context) ([]reviewstore.LiveReviewer, error) {
-	return s.reviews.ListLiveReviewers(ctx)
+	return s.reviews.ListRounds(ctx, agentID)
 }
 
 // ListReviews is every review given on an agent, in the order their rounds were taken, keeping
@@ -258,11 +231,11 @@ func (s *ReviewService) roundFor(
 	params CreateReviewThreadParams,
 ) (*reviewstore.Round, error) {
 	if params.RoundID != "" {
-		return s.rounds.GetRound(ctx, params.RoundID)
+		return s.reviews.GetRound(ctx, params.RoundID)
 	}
 
 	if params.SnapshotSHA != "" {
-		round, err := s.rounds.GetRoundBySnapshot(ctx, params.AgentID, params.SnapshotSHA)
+		round, err := s.reviews.GetRoundBySnapshot(ctx, params.AgentID, params.SnapshotSHA)
 		if errors.Is(err, store.ErrNotFound) {
 			return nil, fmt.Errorf("%w: %s is the snapshot of no round of this agent",
 				ErrReviewNotCurrent, params.SnapshotSHA[:min(len(params.SnapshotSHA), 12)])
@@ -277,7 +250,7 @@ func (s *ReviewService) roundFor(
 		AuthorAgentID: params.Author.AgentID,
 	})
 	if err == nil {
-		return s.rounds.GetRound(ctx, open.RoundID)
+		return s.reviews.GetRound(ctx, open.RoundID)
 	}
 	if !errors.Is(err, store.ErrNotFound) {
 		return nil, err
@@ -393,7 +366,7 @@ func (s *ReviewService) requireMayRead(
 
 	reviewer, err := s.agents.GetByID(ctx, *author.AgentID)
 	if errors.Is(err, store.ErrNotFound) {
-		return agents.ErrAgentNotFound.Saying("no agent with id %q", *author.AgentID)
+		return agenterr.ErrAgentNotFound.Saying("no agent with id %q", *author.AgentID)
 	}
 	if err != nil {
 		return err
@@ -486,7 +459,7 @@ func (s *ReviewService) ReleaseReview(
 		return nil, fmt.Errorf("%w: %q", ErrReviewEmpty, params.AgentID)
 	}
 
-	round, err := s.rounds.GetRound(ctx, open.RoundID)
+	round, err := s.reviews.GetRound(ctx, open.RoundID)
 	if err != nil {
 		return nil, err
 	}
@@ -703,13 +676,13 @@ func (s *ReviewService) GetReview(ctx context.Context, reviewID string, author R
 
 	agent, err := s.agents.GetByID(ctx, review.AgentID)
 	if errors.Is(err, store.ErrNotFound) {
-		return nil, agents.ErrAgentNotFound.Saying("no agent with id %q", review.AgentID)
+		return nil, agenterr.ErrAgentNotFound.Saying("no agent with id %q", review.AgentID)
 	}
 	if err != nil {
 		return nil, err
 	}
 
-	round, err := s.rounds.GetRound(ctx, review.RoundID)
+	round, err := s.reviews.GetRound(ctx, review.RoundID)
 	if err != nil {
 		return nil, err
 	}
@@ -824,7 +797,7 @@ type readRoundFileParams struct {
 func (s *ReviewService) readRoundFile(ctx context.Context, params readRoundFileParams) []string {
 	snapshot, known := params.Snapshots[params.RoundID]
 	if !known {
-		round, err := s.rounds.GetRound(ctx, params.RoundID)
+		round, err := s.reviews.GetRound(ctx, params.RoundID)
 		if err == nil {
 			snapshot = round.SnapshotSHA
 		}
@@ -848,13 +821,13 @@ func (s *ReviewService) readRoundFile(ctx context.Context, params readRoundFileP
 func (s *ReviewService) getLiveAgent(ctx context.Context, agentID string) (*agentstore.Agent, error) {
 	agent, err := s.agents.GetByID(ctx, agentID)
 	if errors.Is(err, store.ErrNotFound) {
-		return nil, agents.ErrAgentNotFound.Saying("no agent with id %q", agentID)
+		return nil, agenterr.ErrAgentNotFound.Saying("no agent with id %q", agentID)
 	}
 	if err != nil {
 		return nil, err
 	}
 	if agent.ArchivedAt != nil {
-		return nil, fmt.Errorf("%w: %q is archived, so there is nobody to hand a review to; restore it first", agents.ErrAgentArchived, agent.Name)
+		return nil, fmt.Errorf("%w: %q is archived, so there is nobody to hand a review to; restore it first", agenterr.ErrAgentArchived, agent.Name)
 	}
 
 	return agent, nil

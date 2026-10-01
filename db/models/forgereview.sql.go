@@ -42,6 +42,52 @@ func (q *Queries) DeleteForgeReviewThreadsExcept(ctx context.Context, arg Delete
 	return err
 }
 
+const getForgeReviewThreadOfAgent = `-- name: GetForgeReviewThreadOfAgent :one
+SELECT
+    t.id, t.pull_request_id, t.provider_id, t.path, t.line, t.url, t.resolved, t.written_at, t.created_at, t.updated_at, t.engine_id, t.old_side, t.commit_sha, t.quote, t.dismissed_at, t.accepted_thread_id
+FROM
+    forge_review_threads t
+WHERE
+    t.id = $1
+    AND EXISTS (
+        SELECT
+            1
+        FROM
+            agent_pull_requests o
+        WHERE
+            o.pull_request_id = t.pull_request_id
+            AND o.agent_id = $2)
+`
+
+type GetForgeReviewThreadOfAgentParams struct {
+	ID      string
+	AgentID string
+}
+
+func (q *Queries) GetForgeReviewThreadOfAgent(ctx context.Context, arg GetForgeReviewThreadOfAgentParams) (*ForgeReviewThread, error) {
+	row := q.db.QueryRow(ctx, getForgeReviewThreadOfAgent, arg.ID, arg.AgentID)
+	var i ForgeReviewThread
+	err := row.Scan(
+		&i.ID,
+		&i.PullRequestID,
+		&i.ProviderID,
+		&i.Path,
+		&i.Line,
+		&i.Url,
+		&i.Resolved,
+		&i.WrittenAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.EngineID,
+		&i.OldSide,
+		&i.CommitSha,
+		&i.Quote,
+		&i.DismissedAt,
+		&i.AcceptedThreadID,
+	)
+	return &i, err
+}
+
 const listCommentSyncPullRequests = `-- name: ListCommentSyncPullRequests :many
 SELECT
     p.id,
@@ -210,7 +256,7 @@ func (q *Queries) ListForgeReviewThreadIDsOfPullRequests(ctx context.Context, pu
 
 const listWatchedForgeReviewThreads = `-- name: ListWatchedForgeReviewThreads :many
 SELECT
-    t.id, t.pull_request_id, t.provider_id, t.path, t.line, t.url, t.resolved, t.written_at, t.created_at, t.updated_at, t.engine_id, t.old_side, t.commit_sha, t.quote, t.dismissed_at
+    t.id, t.pull_request_id, t.provider_id, t.path, t.line, t.url, t.resolved, t.written_at, t.created_at, t.updated_at, t.engine_id, t.old_side, t.commit_sha, t.quote, t.dismissed_at, t.accepted_thread_id
 FROM
     forge_review_threads t
 WHERE
@@ -252,6 +298,7 @@ func (q *Queries) ListWatchedForgeReviewThreads(ctx context.Context, keys []stri
 			&i.CommitSha,
 			&i.Quote,
 			&i.DismissedAt,
+			&i.AcceptedThreadID,
 		); err != nil {
 			return nil, err
 		}
@@ -261,6 +308,55 @@ func (q *Queries) ListWatchedForgeReviewThreads(ctx context.Context, keys []stri
 		return nil, err
 	}
 	return items, nil
+}
+
+const lockForgeReviewThreadAccepted = `-- name: LockForgeReviewThreadAccepted :one
+SELECT
+    t.id
+FROM
+    forge_review_threads t
+WHERE
+    t.id = $1
+    AND t.accepted_thread_id = $2
+FOR UPDATE
+`
+
+type LockForgeReviewThreadAcceptedParams struct {
+	ID       string
+	ThreadID *string
+}
+
+func (q *Queries) LockForgeReviewThreadAccepted(ctx context.Context, arg LockForgeReviewThreadAcceptedParams) (string, error) {
+	row := q.db.QueryRow(ctx, lockForgeReviewThreadAccepted, arg.ID, arg.ThreadID)
+	var id string
+	err := row.Scan(&id)
+	return id, err
+}
+
+const setForgeReviewThreadAccepted = `-- name: SetForgeReviewThreadAccepted :one
+UPDATE
+    forge_review_threads t
+SET
+    accepted_thread_id = $1,
+    dismissed_at = NULL
+WHERE
+    t.id = $2
+    AND t.accepted_thread_id IS NOT DISTINCT FROM $3::uuid
+RETURNING
+    t.id
+`
+
+type SetForgeReviewThreadAcceptedParams struct {
+	ThreadID         *string
+	ID               string
+	PreviousThreadID *string
+}
+
+func (q *Queries) SetForgeReviewThreadAccepted(ctx context.Context, arg SetForgeReviewThreadAcceptedParams) (string, error) {
+	row := q.db.QueryRow(ctx, setForgeReviewThreadAccepted, arg.ThreadID, arg.ID, arg.PreviousThreadID)
+	var id string
+	err := row.Scan(&id)
+	return id, err
 }
 
 const setForgeReviewThreadDismissed = `-- name: SetForgeReviewThreadDismissed :one

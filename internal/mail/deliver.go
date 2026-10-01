@@ -31,38 +31,32 @@ type paneReader interface {
 }
 
 type nudgeClaimer interface {
-	agentGetter
+	GetByID(ctx context.Context, id string) (*agentstore.Agent, error)
 	ClaimNudge(ctx context.Context, id string, retryAfter time.Duration) (bool, error)
 	SetNudgeSent(ctx context.Context, id string) error
 }
 
-type mailboxReader interface {
-	ListPendingMailboxes(ctx context.Context) ([]string, error)
-	CountPending(ctx context.Context, toAgentID string) (int64, error)
-	ListExpired(ctx context.Context, toAgentID string) ([]mailstore.Mail, error)
-}
-
 type NewDeliveryServiceParams struct {
-	MailboxReader mailboxReader
-	NudgeClaimer  nudgeClaimer
-	PaneReader    paneReader
-	Channel       harness.Channel
+	Mail         *mailstore.MailStore
+	NudgeClaimer nudgeClaimer
+	PaneReader   paneReader
+	Channel      harness.Channel
 }
 
 type DeliveryService struct {
-	mailboxReader mailboxReader
-	nudgeClaimer  nudgeClaimer
-	paneReader    paneReader
-	channel       harness.Channel
+	mail         *mailstore.MailStore
+	nudgeClaimer nudgeClaimer
+	paneReader   paneReader
+	channel      harness.Channel
 }
 
 // NewDeliveryService builds the service from its dependencies.
 func NewDeliveryService(params NewDeliveryServiceParams) *DeliveryService {
 	return &DeliveryService{
-		mailboxReader: params.MailboxReader,
-		nudgeClaimer:  params.NudgeClaimer,
-		paneReader:    params.PaneReader,
-		channel:       params.Channel,
+		mail:         params.Mail,
+		nudgeClaimer: params.NudgeClaimer,
+		paneReader:   params.PaneReader,
+		channel:      params.Channel,
 	}
 }
 
@@ -77,7 +71,7 @@ func buildTarget(agent agentstore.Agent) harness.Target {
 
 // DeliverAll is one pass over every mailbox holding mail, working from the rows each time.
 func (s *DeliveryService) DeliverAll(ctx context.Context) error {
-	mailboxes, err := s.mailboxReader.ListPendingMailboxes(ctx)
+	mailboxes, err := s.mail.ListPendingMailboxes(ctx)
 	if err != nil {
 		return err
 	}
@@ -109,7 +103,7 @@ func (s *DeliveryService) Deliver(ctx context.Context, agentID string) (Delivery
 		return DeliveryDone, nil
 	}
 
-	pending, err := s.mailboxReader.CountPending(ctx, agent.ID)
+	pending, err := s.mail.CountPending(ctx, agent.ID)
 	if err != nil {
 		return DeliveryDone, err
 	}
@@ -204,7 +198,7 @@ func didLastNudgeGoNowhere(agent agentstore.Agent) bool {
 }
 
 func (s *DeliveryService) reportExpired(ctx context.Context, agent agentstore.Agent) {
-	expired, err := s.mailboxReader.ListExpired(ctx, agent.ID)
+	expired, err := s.mail.ListExpired(ctx, agent.ID)
 	if err != nil || len(expired) == 0 {
 		return
 	}

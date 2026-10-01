@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"komrad/internal/agents"
+	"komrad/internal/agenterr"
 	"komrad/internal/jobs/internaljobs"
 	agentstore "komrad/internal/store/agent"
 	workflowstore "komrad/internal/store/workflow"
@@ -43,7 +43,7 @@ func (d *AgentDelete) DeleteAgents(ctx context.Context, ids []string) error {
 				return !ok
 			})
 
-			return nil, agents.ErrAgentNotFound.Saying("no agent with id %s", xstr.JoinSome(missing, missingShown))
+			return nil, agenterr.ErrAgentNotFound.Saying("no agent with id %s", xstr.JoinSome(missing, missingShown))
 		}
 
 		claims, err := store.MarkDeleting(ctx, ids)

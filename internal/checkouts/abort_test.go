@@ -20,7 +20,7 @@ func TestAbortRefusals(t *testing.T) {
 	type testCase struct {
 		name      string
 		agent     agentstore.Agent
-		aborter   gittest.Aborter
+		aborter   gittest.Mover
 		wantErr   error
 		wantCalls []string
 	}
@@ -29,17 +29,17 @@ func TestAbortRefusals(t *testing.T) {
 		{
 			name:    "an agent whose tree something else is working in",
 			agent:   agentstore.Agent{Cwd: "/locked"},
-			aborter: gittest.Aborter{Sequence: git.SequenceRebase},
+			aborter: gittest.Mover{Sequence: git.SequenceRebase},
 			wantErr: ErrBusy,
 		},
 		{
 			name:    "a checkout with nothing part-way through",
-			aborter: gittest.Aborter{Sequence: git.SequenceNone},
+			aborter: gittest.Mover{Sequence: git.SequenceNone},
 			wantErr: ErrAbortNothing,
 		},
 		{
 			name: "a checkout another git command holds",
-			aborter: gittest.Aborter{
+			aborter: gittest.Mover{
 				Sequence: git.SequenceRebase,
 				AbortErr: git.ErrIndexLocked,
 			},
@@ -58,7 +58,7 @@ func TestAbortRefusals(t *testing.T) {
 			require.True(t, taken)
 			t.Cleanup(release)
 
-			_, err := fixture.newService(NewServiceParams{Aborter: &tt.aborter, Locks: locks}).Abort(t.Context(), agent.ID)
+			_, err := fixture.newService(NewServiceParams{Git: &tt.aborter, Locks: locks}).Abort(t.Context(), agent.ID)
 
 			require.ErrorIs(t, err, tt.wantErr)
 			assert.Equal(t, tt.wantCalls, tt.aborter.Calls)
@@ -75,7 +75,7 @@ func TestAbortUndoesTheSequence(t *testing.T) {
 	type testCase struct {
 		name       string
 		lastRebase *rebaseOutcome
-		aborter    gittest.Aborter
+		aborter    gittest.Mover
 		wantOurs   bool
 		wantMail   []string
 	}
@@ -89,10 +89,10 @@ func TestAbortUndoesTheSequence(t *testing.T) {
 		{
 			name:       "the rebase komrad left stopped on conflicts",
 			lastRebase: conflicted,
-			aborter: gittest.Aborter{
+			aborter: gittest.Mover{
 				Sequence: git.SequenceRebase,
 				Onto:     "basesha",
-				Branch:   "agent/a1",
+				State:    git.TreeState{Branch: "agent/a1"},
 			},
 			wantOurs: true,
 			wantMail: []string{"chose not to carry it forward", "Your branch agent/a1 is back", "Do not start the rebase again."},
@@ -100,33 +100,33 @@ func TestAbortUndoesTheSequence(t *testing.T) {
 		{
 			name:       "a rebase the agent started after komrad's stopped one",
 			lastRebase: conflicted,
-			aborter: gittest.Aborter{
+			aborter: gittest.Mover{
 				Sequence: git.SequenceRebase,
 				Onto:     "othersha",
-				Branch:   "agent/a1",
+				State:    git.TreeState{Branch: "agent/a1"},
 			},
 			wantMail: []string{"The rebase you had part-way through", "without asking"},
 		},
 		{
 			name: "a rebase komrad never started",
-			aborter: gittest.Aborter{
+			aborter: gittest.Mover{
 				Sequence: git.SequenceRebase,
 				Onto:     "basesha",
-				Branch:   "agent/a1",
+				State:    git.TreeState{Branch: "agent/a1"},
 			},
 			wantMail: []string{"The rebase you had part-way through"},
 		},
 		{
 			name: "a cherry-pick the agent started",
-			aborter: gittest.Aborter{
+			aborter: gittest.Mover{
 				Sequence: git.SequenceCherryPick,
-				Branch:   "agent/a1",
+				State:    git.TreeState{Branch: "agent/a1"},
 			},
 			wantMail: []string{"The cherry-pick you had part-way through"},
 		},
 		{
 			name:     "a sequence that leaves the checkout detached",
-			aborter:  gittest.Aborter{Sequence: git.SequenceMerge},
+			aborter:  gittest.Mover{Sequence: git.SequenceMerge},
 			wantMail: []string{"The merge you had", "Your checkout is back"},
 		},
 	}
@@ -143,11 +143,11 @@ func TestAbortUndoesTheSequence(t *testing.T) {
 			}
 			sequence := tt.aborter.Sequence
 
-			result, err := fixture.newService(NewServiceParams{Aborter: &tt.aborter}).Abort(t.Context(), agent.ID)
+			result, err := fixture.newService(NewServiceParams{Git: &tt.aborter}).Abort(t.Context(), agent.ID)
 			require.NoError(t, err)
 
 			assert.Equal(t, sequenceOf(sequence), result.Sequence)
-			assert.Equal(t, tt.aborter.Branch, result.Branch)
+			assert.Equal(t, tt.aborter.State.Branch, result.Branch)
 			assert.Equal(t, tt.wantOurs, result.Ours)
 			assert.Equal(t, []string{"park", "abort " + string(sequence)}, tt.aborter.Calls)
 			assert.Equal(t, []string{result.ParkedRef}, tt.aborter.Parked)
@@ -194,15 +194,15 @@ func TestAbortTellsAnAgentWhoseTurnWasCut(t *testing.T) {
 			agent := fixture.seed(t, agentstore.Agent{Pane: "%1", State: agentstore.StateThinking})
 			channel := &harnesstest.Channel{}
 			observer := harnesstest.NewActivityObserver(harness.ActivityWorking, harness.ActivityIdle)
-			aborter := &gittest.Aborter{
+			aborter := &gittest.Mover{
 				Sequence: git.SequenceRebase,
-				Branch:   "agent/a1",
+				State:    git.TreeState{Branch: "agent/a1"},
 				AbortErr: tt.abortErr,
 			}
 
 			_, err := fixture.newService(NewServiceParams{
 				Settler: buildSettler(channel, observer),
-				Aborter: aborter,
+				Git:     aborter,
 			}).Abort(t.Context(), agent.ID)
 			if tt.abortErr != nil {
 				require.ErrorIs(t, err, tt.abortErr)

@@ -252,6 +252,13 @@ func (z *triageZone) isSnoozed(headID string) bool {
 	return ok
 }
 
+// isInTriage reports whether the agent is in triage.
+func (z *triageZone) isInTriage(id string) bool {
+	_, ok := z.entries[id]
+
+	return ok
+}
+
 // toggleSnooze snoozes the agent's family in triage, or wakes it when it is snoozed, reporting
 // false when the family is not in triage.
 func (z *triageZone) toggleSnooze(item panel.AgentRow, agents []panel.AgentRow) bool {
@@ -490,28 +497,37 @@ func splitTriage(z triageZone, s panelShared, showHidden bool) (zone []agentRow,
 	families := xslice.Filter(findTriageFamilies(z.entries, s.listing.agents), func(f triageFamily) bool {
 		return !f.head.Agent.Hidden || showHidden
 	})
-	ordered := z.orderFamilies(families)
-	inZone := make(map[string]bool)
-	workflows := xslice.KeyBy(s.listing.workflows, func(w panel.Workflow) string { return w.ID })
-	room := z.capacity
-	slotted := 0
-	for _, family := range ordered {
-		head := family.head
-		rows := buildFamilyRows(head, children[head.Agent.ID], showHidden)
-		if room == 0 || (slotted > 0 && len(rows) > room) {
+	var slotted []triageSlot
+	used := 0
+	for _, family := range z.orderFamilies(families) {
+		rows := buildFamilyRows(family.head, children[family.head.Agent.ID], showHidden)
+		asking := z.countAsking(rows[1:])
+		if used >= z.capacity || (len(slotted) > 0 && used+1+asking > z.capacity) {
 			break
 		}
 
-		slotted++
-		rows = rows[:min(len(rows), room)]
-		room -= len(rows)
+		slotted = append(slotted, triageSlot{family: family, rows: rows, asking: asking})
+		used += 1 + asking
+	}
+
+	spare := z.capacity - used
+	inZone := make(map[string]bool)
+	workflows := xslice.KeyBy(s.listing.workflows, func(w panel.Workflow) string { return w.ID })
+	for _, slot := range slotted {
+		head := slot.family.head
+		drawn := z.pickChildren(slot.rows[1:], slot.asking+spare)
+		spare -= len(drawn) - slot.asking
 		snoozed := z.isSnoozed(head.Agent.ID)
 		for _, child := range children[head.Agent.ID] {
 			if child.Agent.Hidden && !showHidden {
 				inZone[child.Agent.ID] = true
 			}
 		}
-		for _, row := range rows {
+		for _, row := range slot.rows {
+			if row.child && !drawn[row.item.Agent.ID] {
+				continue
+			}
+
 			inZone[row.item.Agent.ID] = true
 			row.workflow = workflows[row.item.Agent.WorkflowID]
 			row.snoozed = snoozed
@@ -521,7 +537,34 @@ func splitTriage(z triageZone, s panelShared, showHidden bool) (zone []agentRow,
 
 	rest = xslice.Filter(s.listing.agents, func(item panel.AgentRow) bool { return !inZone[item.Agent.ID] })
 
-	return zone, len(families) - slotted, rest
+	return zone, len(families) - len(slotted), rest
+}
+
+// triageSlot is a family the zone draws, with its rows and how many of its children are in triage.
+type triageSlot struct {
+	family triageFamily
+	rows   []agentRow
+	asking int
+}
+
+// countAsking is how many of a family's child rows are in triage.
+func (z triageZone) countAsking(rows []agentRow) int {
+	return len(xslice.Filter(rows, func(row agentRow) bool { return z.isInTriage(row.item.Agent.ID) }))
+}
+
+// pickChildren is the ids of as many of a family's child rows as fit in room, those in triage first.
+func (z triageZone) pickChildren(rows []agentRow, room int) map[string]bool {
+	ranked := slices.Clone(rows)
+	slices.SortStableFunc(ranked, func(a, b agentRow) int {
+		return compareBools(!z.isInTriage(a.item.Agent.ID), !z.isInTriage(b.item.Agent.ID))
+	})
+
+	picked := make(map[string]bool)
+	for _, row := range ranked[:min(len(ranked), room)] {
+		picked[row.item.Agent.ID] = true
+	}
+
+	return picked
 }
 
 // orderFamilies is the families in the order the zone draws them, the order it was frozen in while

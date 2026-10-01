@@ -211,8 +211,6 @@ type Forge interface {
 	// List is one page of the repository's pull requests: every one from the named branch,
 	// whatever its state, or the open ones when the branch is empty.
 	List(ctx context.Context, params ListParams) (*Page, error)
-	// Get is one pull request by its web address.
-	Get(ctx context.Context, url string) (PullRequest, error)
 	// ReadBranches is the newest pull requests opened from each branch within the repository
 	// itself, each carrying its standing.
 	ReadBranches(ctx context.Context, repo git.RemoteURL, branches []string) (*Reading, error)

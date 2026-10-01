@@ -3,6 +3,7 @@ package agents
 import (
 	"testing"
 
+	"komrad/internal/agenterr"
 	"komrad/internal/harness"
 	"komrad/internal/harnesstest"
 	agentstore "komrad/internal/store/agent"
@@ -117,12 +118,12 @@ func TestRequestReviewRefusals(t *testing.T) {
 		{
 			name:      "a reviewer asking for a review of the reading it did",
 			agentID:   func(_, reviewer agentstore.Agent) string { return reviewer.ID },
-			wantErrIs: ErrReviewNeedsOwnWork,
+			wantErrIs: agenterr.ErrReviewNeedsOwnWork,
 		},
 		{
 			name:      "an agent nothing answers to",
 			agentID:   func(_, _ agentstore.Agent) string { return "b9b1a1de-0000-7000-8000-000000000000" },
-			wantErrIs: ErrAgentNotFound,
+			wantErrIs: agenterr.ErrAgentNotFound,
 		},
 	}
 
@@ -173,7 +174,7 @@ func TestRequestReviewKeepsOneReviewer(t *testing.T) {
 	require.NoError(t, err)
 
 	_, _, err = manager.launch.RequestReview(ctx, RequestReviewParams{AgentID: author.ID, Prompt: "read it again"})
-	require.ErrorIs(t, err, ErrReviewerAlreadyRunning)
+	require.ErrorIs(t, err, agenterr.ErrReviewerAlreadyRunning)
 	assert.Contains(t, err.Error(), reviewer.Name, "so the asker is told which agent is already reading")
 
 	children, err := st.Agents.ListChildren(ctx, []string{author.ID})
@@ -224,7 +225,7 @@ func TestRequestReviewRetryAnswersWithTheSameReviewer(t *testing.T) {
 		Prompt:         "read it",
 		IdempotencyKey: "def",
 	})
-	require.ErrorIs(t, err, ErrReviewerAlreadyRunning, "a different key is a second ask rather than a retry")
+	require.ErrorIs(t, err, agenterr.ErrReviewerAlreadyRunning, "a different key is a second ask rather than a retry")
 }
 
 // TestRequestReviewAfterAnApprovalSpawnsAnother pins that the guard holds a change to one
@@ -263,7 +264,7 @@ func TestRequestReviewAfterAnApprovalSpawnsAnother(t *testing.T) {
 	require.NoError(t, err)
 
 	_, _, err = manager.launch.RequestReview(ctx, RequestReviewParams{AgentID: author.ID, Prompt: "read it"})
-	require.ErrorIs(t, err, ErrReviewerAlreadyRunning, "an unreleased review is a reviewer still reading")
+	require.ErrorIs(t, err, agenterr.ErrReviewerAlreadyRunning, "an unreleased review is a reviewer still reading")
 
 	_, err = reviews.ReleaseReview(ctx, reviewstore.ReleaseReviewParams{
 		ID:      open.ID,
@@ -301,7 +302,7 @@ func TestRequestReviewRefusesAChild(t *testing.T) {
 	require.NoError(t, err)
 
 	_, _, err = manager.launch.RequestReview(ctx, RequestReviewParams{AgentID: child.ID, Prompt: "read it"})
-	require.ErrorIs(t, err, ErrReviewNeedsOwnWork)
+	require.ErrorIs(t, err, agenterr.ErrReviewNeedsOwnWork)
 }
 
 // TestWorktreeAgentIsToldToGetItsWorkRead pins the delivery of the other half, which reaches the
@@ -350,7 +351,7 @@ func TestRequestReviewIsNotCaughtByTheOrchestratorRefusal(t *testing.T) {
 		AgentID: author.ID,
 		Prompt:  "read the parser change",
 	})
-	require.NotErrorIs(t, err, ErrParentIsOrchestrator)
+	require.NotErrorIs(t, err, agenterr.ErrParentIsOrchestrator)
 	require.NoError(t, err)
 	require.NotNil(t, reviewer)
 	require.NotNil(t, reviewer.ParentAgentID)
@@ -368,7 +369,7 @@ func TestRequestReviewRefusesAnOrchestratorBeforeItSpawns(t *testing.T) {
 	author := seedOrchestrator(t, st, tmux)
 
 	_, _, err := manager.launch.RequestReview(ctx, RequestReviewParams{AgentID: author.ID, Prompt: "read it"})
-	require.ErrorIs(t, err, ErrReviewNeedsOwnWork)
+	require.ErrorIs(t, err, agenterr.ErrReviewNeedsOwnWork)
 }
 
 // TestRequestReviewLandsTheReviewerOnTheHarnessAsked pins which CLI the reviewer runs, taking
