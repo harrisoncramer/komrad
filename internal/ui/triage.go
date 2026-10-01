@@ -9,7 +9,6 @@ import (
 	"komrad/internal/ui/panel"
 	"komrad/internal/view"
 	"komrad/lib/xslice"
-	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 )
 
 const (
@@ -21,10 +20,9 @@ const (
 type triageTier int
 
 const (
-	tierBlocked triageTier = iota + 1
+	tierNeedsYou triageTier = iota + 1
 	tierBroken
-	tierReady
-	tierYourMove
+	tierFinished
 )
 
 // triageKind says who can clear what a rule holds on.
@@ -67,19 +65,10 @@ type triageSubject struct {
 var triageRules = []triageRule{
 	{
 		name:  "asking",
-		tier:  tierBlocked,
+		tier:  tierNeedsYou,
 		kind:  kindPerson,
 		clock: clockState,
 		is:    func(s triageSubject) bool { return displayState(s.item) == panel.StateWaiting },
-	},
-	{
-		name:  "checkout conflict",
-		tier:  tierBlocked,
-		kind:  kindAgent,
-		clock: clockSeen,
-		is: func(s triageSubject) bool {
-			return s.item.Agent.Sequence.IsInProgress() && s.item.Agent.ParentAgentID == nil
-		},
 	},
 	{
 		name:  "errored",
@@ -110,73 +99,20 @@ var triageRules = []triageRule{
 		is:    func(s triageSubject) bool { return s.item.FailedRun },
 	},
 	{
-		name:  "ci failing",
+		name:  "checkout conflict",
 		tier:  tierBroken,
 		kind:  kindAgent,
-		clock: clockSeen,
-		is:    hasPullRequestIn(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_FAILING),
-	},
-	{
-		name:  "pr conflict",
-		tier:  tierBroken,
-		kind:  kindAgent,
-		clock: clockSeen,
-		is:    hasPullRequestIn(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CONFLICTING),
-	},
-	{
-		name:  "ready to merge",
-		tier:  tierReady,
-		kind:  kindPerson,
-		clock: clockSeen,
-		is:    hasPullRequestIn(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED),
-	},
-	{
-		name:  "ready for review",
-		tier:  tierReady,
-		kind:  kindPerson,
 		clock: clockSeen,
 		is: func(s triageSubject) bool {
-			return hasPullRequestIn(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN)(s) &&
-				s.item.PullRequest.Checks == pullrequestv1.Checks_CHECKS_PASSING
+			return s.item.Agent.Sequence.IsInProgress() && s.item.Agent.ParentAgentID == nil
 		},
 	},
 	{
-		name:  "approved, behind",
-		tier:  tierReady,
-		kind:  kindAgent,
-		clock: clockSeen,
-		is:    hasPullRequestIn(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED_WAITING),
-	},
-	{
-		name:  "changes requested",
-		tier:  tierReady,
-		kind:  kindAgent,
-		clock: clockSeen,
-		is:    hasPullRequestIn(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHANGES_REQUESTED),
-	},
-	{
-		name:  "unanswered comments",
-		tier:  tierReady,
-		kind:  kindAgent,
-		clock: clockSeen,
-		is:    func(s triageSubject) bool { return s.item.PersonComments.GetOpen() > 0 },
-	},
-	{
-		name:  "done",
-		tier:  tierYourMove,
-		kind:  kindAgent,
-		clock: clockSeen,
-		is: hasPullRequestIn(
-			pullrequestv1.PullRequestState_PULL_REQUEST_STATE_MERGED,
-			pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CLOSED,
-		),
-	},
-	{
-		name:  "idle",
-		tier:  tierYourMove,
+		name:  "finished",
+		tier:  tierFinished,
 		kind:  kindAgent,
 		clock: clockState,
-		is:    isIdleImplementer,
+		is:    isFinishedImplementer,
 	},
 }
 
@@ -275,9 +211,9 @@ func isAgentOnIt(item panel.AgentRow) bool {
 	return displayState(item) == panel.StateThinking || (item.Alive && item.UnreadMail)
 }
 
-// isIdleImplementer reports whether a top-level implementer has finished its turn with nothing
+// isFinishedImplementer reports whether a top-level implementer has finished its turn with nothing
 // under it still working.
-func isIdleImplementer(s triageSubject) bool {
+func isFinishedImplementer(s triageSubject) bool {
 	agent := s.item.Agent
 
 	return s.item.Alive &&
@@ -285,14 +221,6 @@ func isIdleImplementer(s triageSubject) bool {
 		agent.Role == panel.RoleImplementer &&
 		agent.ParentAgentID == nil &&
 		!s.hasThinkingChild
-}
-
-// hasPullRequestIn is a rule that holds while a top-level agent's pull request stands in one of
-// the states.
-func hasPullRequestIn(states ...pullrequestv1.PullRequestState) func(triageSubject) bool {
-	return func(s triageSubject) bool {
-		return s.item.Agent.ParentAgentID == nil && slices.Contains(states, s.item.PullRequest.State)
-	}
 }
 
 // findThinkingParents is the ids of the agents with a child at work.
