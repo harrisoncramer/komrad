@@ -67,6 +67,7 @@ func mergeMenu(s panelShared, from screen, item panel.AgentRow) submenu {
 				label: autoMergeLabel(item),
 				keys:  s.keys.Merge.AutoMerge,
 				isOff: autoMergeRefusal(item) != nil,
+				write: run(mergeChoiceAutoMerge),
 			},
 		},
 	}
