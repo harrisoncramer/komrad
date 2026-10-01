@@ -44,8 +44,8 @@ func (s *ScheduleService) ArmPeriodic(ctx context.Context, periodic periodicJobR
 	return errors.Join(failures...)
 }
 
-// syncRegistration rereads a schedule and makes its River registration match what it now holds.
-func (s *ScheduleService) syncRegistration(ctx context.Context, id string) error {
+// SyncRegistration rereads a schedule and makes its River registration match what it now holds.
+func (s *ScheduleService) SyncRegistration(ctx context.Context, id string) error {
 	s.armMu.Lock()
 	defer s.armMu.Unlock()
 
