@@ -6,10 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"slices"
-	"strings"
 	"syscall"
-
-	"komrad/lib/xslice"
 )
 
 // HasSession reports whether the server holds the named session.
@@ -45,8 +42,4 @@ func (c *Client) commandOutsideTmux(ctx context.Context, args ...string) *exec.C
 	cmd.Env = environWithoutTmux()
 
 	return cmd
-}
-
-func environWithoutTmux() []string {
-	return xslice.Filter(os.Environ(), func(entry string) bool { return !strings.HasPrefix(entry, "TMUX=") })
 }
