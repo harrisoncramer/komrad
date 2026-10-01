@@ -483,15 +483,19 @@ func compareUrgency(a, b triageEntry) int {
 	return cmp.Or(cmp.Compare(a.rule.tier, b.rule.tier), a.since.Compare(b.since))
 }
 
-// settleTriage freezes the zone while the panel has the keys and the cursor is on it, and thaws it
-// the moment either stops, putting the cursor back on the row it was on.
+// settleTriage freezes the zone while the panel has the keys and the agents list has the cursor on
+// it, and thaws it the moment any of that stops, putting the cursor back on the row it was on.
 func (m model) settleTriage() model {
-	layout := m.agents.layout(m.shared())
-	reading := !m.blurred && m.agents.cursor < len(layout.zone)
+	var zone []agentRow
+	if !m.blurred && m.screen == screenAgents && len(m.agents.triage.entries) > 0 {
+		zone = m.agents.layout(m.shared()).zone
+	}
+
+	reading := m.agents.cursor < len(zone)
 	switch {
 	case reading && m.agents.triage.frozen == nil:
 		m.agents.triage.frozen = []string{}
-		for _, row := range layout.zone {
+		for _, row := range zone {
 			if !row.child {
 				m.agents.triage.frozen = append(m.agents.triage.frozen, row.item.Agent.ID)
 			}

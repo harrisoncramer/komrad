@@ -309,6 +309,15 @@ func TestTriageFreeze(t *testing.T) {
 			hovered:  "asker",
 		},
 		{
+			name:     "the zone settles once the panel leaves the agents list",
+			capacity: 3,
+			rows:     withoutThird(),
+			relisted: buildTriage(),
+			press:    []string{"tab", "shift+tab", "esc"},
+			want:     []string{"asker", "third", "broken", "backend", "quiet"},
+			hovered:  "asker",
+		},
+		{
 			name:     "the zone settles once the cursor leaves it",
 			capacity: 3,
 			rows:     withoutThird(),
