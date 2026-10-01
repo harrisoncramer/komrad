@@ -106,8 +106,7 @@ func (g *hostGate) throttle(ctx context.Context, host *forgeHost, retryAt time.T
 		slog.Time(logging.ThrottledUntil, until))
 }
 
-// refuse stops a host for the pass after the forge refused its credential, backs off the way a
-// rate limit refusal that named no time does, and says so once per host.
+// refuse stops a host for the pass after the forge refused its credential, and says so once per host.
 func (g *hostGate) refuse(ctx context.Context, host *forgeHost, err error) {
 	g.backOff(ctx, host, time.Time{})
 	if !g.said.first(saidRefused, host.host) {
