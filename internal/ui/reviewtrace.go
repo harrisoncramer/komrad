@@ -52,7 +52,7 @@ func traceThreads(ctx context.Context, params traceThreadsParams) map[string]dif
 			Dir:     params.Dir,
 			FromSHA: from,
 			ToSHA:   params.ToSHA,
-			Anchors: xslice.Map(threads, anchorThread),
+			Anchors: xslice.Map(threads, traceAnchorOfThread),
 		})
 		if err != nil {
 			return exact
@@ -132,8 +132,8 @@ type traceAnchor struct {
 	Position position.Position
 }
 
-// anchorThread is a thread's new-side lines as a place to trace.
-func anchorThread(thread *agentv1.ReviewThread) traceAnchor {
+// traceAnchorOfThread is a thread's new-side lines as a place to trace.
+func traceAnchorOfThread(thread *agentv1.ReviewThread) traceAnchor {
 	return traceAnchor{
 		ID: thread.GetId(),
 		Position: position.Position{
@@ -143,8 +143,8 @@ func anchorThread(thread *agentv1.ReviewThread) traceAnchor {
 	}
 }
 
-// anchorOfferLine is a forge comment's line as a place to trace.
-func anchorOfferLine(offer *pullrequestv1.ForgeThread) traceAnchor {
+// traceAnchorOfOffer is a forge comment's line as a place to trace.
+func traceAnchorOfOffer(offer *pullrequestv1.ForgeThread) traceAnchor {
 	line := int(offer.GetLine())
 
 	return traceAnchor{
@@ -283,7 +283,7 @@ func traceOffers(ctx context.Context, params traceOffersParams) map[string]diffv
 			Dir:     params.Dir,
 			FromSHA: from,
 			ToSHA:   params.ToSHA,
-			Anchors: xslice.Map(offers, anchorOfferLine),
+			Anchors: xslice.Map(offers, traceAnchorOfOffer),
 		})
 		if err != nil {
 			continue
