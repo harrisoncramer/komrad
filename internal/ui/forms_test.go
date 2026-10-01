@@ -94,10 +94,9 @@ func TestFormsSubmit(t *testing.T) {
 			press:     slices.Concat([]string{"space", "w"}, spellKeys("web"), []string{"ctrl+s"}),
 			procedure: workflowv1connect.WorkflowServiceCreateWorkflowProcedure,
 			want: &workflowv1.CreateWorkflowRequest{
-				Name:         "web",
-				Cwd:          "/work/from-tmux",
-				Worktree:     &workflowv1.WorktreeConfig{Enabled: true},
-				EventPrompts: defaultEventPrompts(),
+				Name:     "web",
+				Cwd:      "/work/from-tmux",
+				Worktree: &workflowv1.WorktreeConfig{Enabled: true},
 			},
 		},
 		{
@@ -114,7 +113,6 @@ func TestFormsSubmit(t *testing.T) {
 				ReviewerHarness: "codex",
 				ReviewerFlags:   "--model gpt-5",
 				Worktree:        &workflowv1.WorktreeConfig{},
-				EventPrompts:    defaultEventPrompts(),
 			},
 		},
 		{
@@ -131,7 +129,6 @@ func TestFormsSubmit(t *testing.T) {
 					CopyPaths:    []string{".env", "config/local.json"},
 					SymlinkPaths: []string{"node_modules"},
 				},
-				EventPrompts: defaultEventPrompts(),
 			},
 		},
 		{
@@ -184,7 +181,7 @@ func TestFormsSubmit(t *testing.T) {
 
 			harness.press(tt.press...)
 
-			harness.assertSentTo(tt.procedure, tt.want)
+			harness.assertSentToWith(tt.procedure, ignoringEventPrompts, tt.want)
 			assert.NotContains(t, harness.readFrame(), "Could not", "the service accepted the write")
 			assert.NotContains(t, harness.readFrame(), "C-s submit", "and the form it closed is gone")
 		})
@@ -726,6 +723,22 @@ func TestFormsWorkflowEventPrompts(t *testing.T) {
 			{Event: "pull_request.checks_failing", Prompt: "fix the checks"},
 		}, sentEventPrompts(t, harness), protocmp.Transform()))
 	})
+
+	t.Run("a new workflow starts with each event's default", func(t *testing.T) {
+		harness := openForms(t, newFormWorkflow(), newFormAuthor())
+
+		harness.press(slices.Concat([]string{"space", "w"}, spellKeys("web"), slices.Repeat([]string{"tab"}, 18))...)
+		assert.Contains(t, harness.readFrame(), "Read the failing job's logs")
+
+		harness.press("ctrl+s")
+
+		sent := harness.readSent(workflowv1connect.WorkflowServiceCreateWorkflowProcedure)
+		require.Len(t, sent, 1)
+		create, ok := sent[0].(*workflowv1.CreateWorkflowRequest)
+		require.True(t, ok)
+		assert.Len(t, create.GetEventPrompts().GetPrompts(), len(eventprompts.All()))
+		assert.Contains(t, create.GetEventPrompts().GetPrompts()[0].GetPrompt(), "Read the failing job's logs")
+	})
 }
 
 // TestFormsFieldEditor covers the editor key opening a form's text field in the reader's editor.
@@ -760,10 +773,9 @@ func TestFormsFieldEditor(t *testing.T) {
 			press: slices.Concat([]string{"space", "w"}, spellKeys("web"), slices.Repeat([]string{"tab"}, 7), []string{"up"}, slices.Repeat([]string{"shift+tab"}, 6)),
 			field: "context",
 			want: &workflowv1.CreateWorkflowRequest{
-				Name:         "web",
-				Context:      "what the editor wrote!",
-				Worktree:     &workflowv1.WorktreeConfig{},
-				EventPrompts: defaultEventPrompts(),
+				Name:     "web",
+				Context:  "what the editor wrote!",
+				Worktree: &workflowv1.WorktreeConfig{},
 			},
 		},
 		{
@@ -776,7 +788,6 @@ func TestFormsFieldEditor(t *testing.T) {
 					Enabled:   true,
 					CopyPaths: []string{"what the editor wrote!"},
 				},
-				EventPrompts: defaultEventPrompts(),
 			},
 		},
 	}
@@ -789,7 +800,7 @@ func TestFormsFieldEditor(t *testing.T) {
 			harness.send(harness.panel.NewFieldEdited(tt.field, "what the editor wrote\n"))
 			harness.press("!", "ctrl+s")
 
-			harness.assertSentTo(workflowv1connect.WorkflowServiceCreateWorkflowProcedure, tt.want)
+			harness.assertSentToWith(workflowv1connect.WorkflowServiceCreateWorkflowProcedure, ignoringEventPrompts, tt.want)
 		})
 	}
 }
@@ -1126,8 +1137,4 @@ func findLastFilled(lines []string) string {
 	return ""
 }
 
-func defaultEventPrompts() *workflowv1.WorkflowEventPrompts {
-	return &workflowv1.WorkflowEventPrompts{Prompts: xslice.Map(eventprompts.All(), func(event eventprompts.Event) *workflowv1.WorkflowEventPrompt {
-		return &workflowv1.WorkflowEventPrompt{Event: event.Name, Prompt: event.DefaultPrompt}
-	})}
-}
+var ignoringEventPrompts = []cmp.Option{protocmp.IgnoreFields(&workflowv1.CreateWorkflowRequest{}, "event_prompts")}

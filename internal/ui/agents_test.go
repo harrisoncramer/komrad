@@ -2200,7 +2200,7 @@ func TestAgentsOrchestrator(t *testing.T) {
 
 		harness.press("space", "w", "a", "p", "i", "ctrl+s")
 
-		harness.assertSent(
+		harness.assertSentWith(ignoringEventPrompts,
 			request{
 				procedure: hookv1connect.HookServiceListHooksProcedure,
 				msg:       &emptypb.Empty{},
@@ -2208,9 +2208,8 @@ func TestAgentsOrchestrator(t *testing.T) {
 			request{
 				procedure: workflowv1connect.WorkflowServiceCreateWorkflowProcedure,
 				msg: &workflowv1.CreateWorkflowRequest{
-					Name:         "api",
-					Worktree:     &workflowv1.WorktreeConfig{Enabled: true},
-					EventPrompts: defaultEventPrompts(),
+					Name:     "api",
+					Worktree: &workflowv1.WorktreeConfig{Enabled: true},
 				},
 			},
 			request{
