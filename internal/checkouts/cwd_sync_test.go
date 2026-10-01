@@ -120,7 +120,7 @@ func TestCwdSyncerSyncRecordsTheCheckout(t *testing.T) {
 			agent := fixture.seed(t, "a", cwd)
 			require.NoError(t, fixture.stores.Agents.SetCheckout(t.Context(), agent.ID, tt.before))
 
-			require.NoError(t, fixture.newSyncer(NewCwdSyncerParams{Heads: buildHeads(cwd, tt.head)}).Sync(t.Context()))
+			require.NoError(t, fixture.newSyncer(newSyncerParams{Heads: buildHeads(cwd, tt.head)}).Sync(t.Context()))
 
 			got := fixture.read(t, agent.ID)
 			assert.Equal(t, tt.wantRemoved, got.WorktreeRemoved)
@@ -139,7 +139,7 @@ func TestCwdSyncerSyncObservesANewBranch(t *testing.T) {
 
 	heads := buildHeads(cwd, git.HeadState{Branch: "agent/x"})
 	observations := &countingPullRequestObserver{}
-	syncer := fixture.newSyncer(NewCwdSyncerParams{Heads: heads, PullRequests: observations})
+	syncer := fixture.newSyncer(newSyncerParams{Heads: heads, PullRequests: observations})
 
 	require.NoError(t, syncer.Sync(t.Context()))
 	assert.Equal(t, 1, observations.passes, "recording a new branch observes")
@@ -164,7 +164,7 @@ func TestCwdSyncerSyncLooksAtEveryAgent(t *testing.T) {
 		fixture.seed(t, fmt.Sprintf("a%d", i), cwd)
 	}
 
-	require.NoError(t, fixture.newSyncer(NewCwdSyncerParams{Heads: heads}).Sync(t.Context()))
+	require.NoError(t, fixture.newSyncer(newSyncerParams{Heads: heads}).Sync(t.Context()))
 
 	agents, err := fixture.stores.Agents.List(t.Context())
 	require.NoError(t, err)
@@ -181,13 +181,13 @@ func TestCwdSyncerSyncRecordsAStoppedSequence(t *testing.T) {
 	repo := makeCheckout(t)
 	agent := fixture.seed(t, "a", repo)
 
-	require.NoError(t, fixture.newSyncer(NewCwdSyncerParams{Heads: buildHeads(repo, git.HeadState{Branch: "topic", Sequence: git.SequenceMerge})}).Sync(t.Context()))
+	require.NoError(t, fixture.newSyncer(newSyncerParams{Heads: buildHeads(repo, git.HeadState{Branch: "topic", Sequence: git.SequenceMerge})}).Sync(t.Context()))
 
 	got := fixture.read(t, agent.ID)
 	assert.Equal(t, agentstore.SequenceMerge, got.Sequence)
 	assert.Equal(t, xptr.Ptr("topic"), got.Branch)
 
-	require.NoError(t, fixture.newSyncer(NewCwdSyncerParams{Heads: buildHeads(repo, git.HeadState{Branch: "topic"})}).Sync(t.Context()))
+	require.NoError(t, fixture.newSyncer(newSyncerParams{Heads: buildHeads(repo, git.HeadState{Branch: "topic"})}).Sync(t.Context()))
 
 	assert.Equal(t, agentstore.SequenceNone, fixture.read(t, agent.ID).Sequence)
 }
@@ -198,7 +198,7 @@ func TestCwdSyncerSyncSkipsTheGitCallForARemovedCwd(t *testing.T) {
 	fixture.seed(t, "a", makeRemovedDir(t))
 	looked := &gittest.Heads{}
 
-	require.NoError(t, fixture.newSyncer(NewCwdSyncerParams{Heads: looked}).Sync(t.Context()))
+	require.NoError(t, fixture.newSyncer(newSyncerParams{Heads: looked}).Sync(t.Context()))
 
 	assert.Empty(t, looked.Dirs)
 }
@@ -209,7 +209,7 @@ func TestCwdSyncerSyncClearsWhatAnEarlierPassWrote(t *testing.T) {
 	repo := makeCheckout(t)
 	onBranch := fixture.seed(t, "on-branch", repo)
 	removed := fixture.seed(t, "removed", makeRemovedDir(t))
-	syncer := fixture.newSyncer(NewCwdSyncerParams{Heads: buildHeads(repo, git.HeadState{Branch: "main"})})
+	syncer := fixture.newSyncer(newSyncerParams{Heads: buildHeads(repo, git.HeadState{Branch: "main"})})
 
 	require.NoError(t, syncer.Sync(t.Context()))
 	require.Equal(t, xptr.Ptr("main"), fixture.read(t, onBranch.ID).Branch)
@@ -240,7 +240,7 @@ func TestCwdSyncerSyncSkipsArchivedAgents(t *testing.T) {
 		checkout: {Branch: "main"},
 		gone:     {Branch: "main"},
 	}}
-	require.NoError(t, fixture.newSyncer(NewCwdSyncerParams{Heads: heads}).Sync(t.Context()))
+	require.NoError(t, fixture.newSyncer(newSyncerParams{Heads: heads}).Sync(t.Context()))
 
 	for _, id := range ids {
 		got := fixture.read(t, id)
@@ -293,7 +293,7 @@ func TestCwdSyncerSyncRecordsAMoveSinceTheNewestRound(t *testing.T) {
 
 			heads := buildHeads(cwd, git.HeadState{Root: cwd, SnapshotTree: tt.snapshotTree})
 			trees := &gittest.Trees{Probes: map[string]string{cwd: tt.probe}}
-			require.NoError(t, fixture.newSyncer(NewCwdSyncerParams{Heads: heads, Trees: trees}).Sync(t.Context()))
+			require.NoError(t, fixture.newSyncer(newSyncerParams{Heads: heads, Trees: trees}).Sync(t.Context()))
 
 			assert.Equal(t, tt.want, fixture.read(t, agent.ID).MovedSinceRound)
 		})
@@ -307,7 +307,7 @@ func TestCwdSyncerSyncKeepsAMoveItCouldNotProbe(t *testing.T) {
 	agent := fixture.seed(t, "a", cwd)
 	fixture.openRound(t, agent.ID, "snapshot-one")
 	trees := &gittest.Trees{Probes: map[string]string{cwd: "tree-moved"}}
-	syncer := fixture.newSyncer(NewCwdSyncerParams{Heads: buildHeads(cwd, git.HeadState{Root: cwd, SnapshotTree: "tree-one"}), Trees: trees})
+	syncer := fixture.newSyncer(newSyncerParams{Heads: buildHeads(cwd, git.HeadState{Root: cwd, SnapshotTree: "tree-one"}), Trees: trees})
 
 	require.NoError(t, syncer.Sync(t.Context()))
 	require.Equal(t, "snapshot-one", fixture.read(t, agent.ID).MovedSinceRound)
@@ -382,7 +382,7 @@ func TestCwdSyncerSyncRecordsTheDiffStat(t *testing.T) {
 				head.SnapshotTree = "round-tree"
 			}
 
-			require.NoError(t, fixture.newSyncer(NewCwdSyncerParams{Heads: buildHeads(cwd, head), Trees: trees}).Sync(t.Context()))
+			require.NoError(t, fixture.newSyncer(newSyncerParams{Heads: buildHeads(cwd, head), Trees: trees}).Sync(t.Context()))
 
 			assert.Equal(t, tt.want, fixture.read(t, agent.ID).DiffStat)
 			var wantMeasured []git.ReadDiffStatParams
@@ -405,7 +405,7 @@ func TestCwdSyncerSyncKeepsADiffStatItCouldNotMeasure(t *testing.T) {
 	cwd := makeCheckout(t)
 	agent := fixture.seed(t, "a", cwd)
 	trees := &gittest.Trees{DiffStats: map[string]git.DiffStat{cwd: {Added: 7, Removed: 2}}}
-	syncer := fixture.newSyncer(NewCwdSyncerParams{Heads: buildHeads(cwd, git.HeadState{Root: cwd}), Trees: trees})
+	syncer := fixture.newSyncer(newSyncerParams{Heads: buildHeads(cwd, git.HeadState{Root: cwd}), Trees: trees})
 
 	require.NoError(t, syncer.Sync(t.Context()))
 	require.Equal(t, &agentstore.DiffStat{Added: 7, Removed: 2}, fixture.read(t, agent.ID).DiffStat)
@@ -493,7 +493,7 @@ func TestCwdSyncerSyncRecordsWhereTheWorktreeStands(t *testing.T) {
 				Changes:    git.Changes{Modified: []string{"a.go"}},
 				Prediction: git.Prediction{Replay: 3},
 			}
-			syncer := fixture.newSyncer(NewCwdSyncerParams{
+			syncer := fixture.newSyncer(newSyncerParams{
 				Heads: buildHeads(cwd, git.HeadState{Root: cwd}),
 				Trees: trees,
 				Checkouts: worktrees.NewCheckoutReader(worktrees.NewCheckoutReaderParams{
@@ -572,7 +572,7 @@ func TestCwdSyncerSyncPredictsTheRebaseOncePerHeadAndTip(t *testing.T) {
 			require.NoError(t, fixture.worktrees.Upsert(t.Context(), worktreestore.Worktree{Dir: cwd, Readable: true}))
 			heads := buildHeads(cwd, git.HeadState{Root: cwd, SHA: "head-one"})
 			trees := &gittest.Trees{Tips: map[string]string{cwd: "tip-one"}}
-			syncer := fixture.newSyncer(NewCwdSyncerParams{
+			syncer := fixture.newSyncer(newSyncerParams{
 				Heads: heads,
 				Trees: trees,
 			})
@@ -639,7 +639,7 @@ func TestCwdSyncerSyncLandsTheRoundsTheBaseHolds(t *testing.T) {
 				trees.Tips = map[string]string{cwd: "tip-one"}
 			}
 
-			require.NoError(t, fixture.newSyncer(NewCwdSyncerParams{Heads: buildHeads(cwd, git.HeadState{Root: cwd}), Trees: trees}).Sync(t.Context()))
+			require.NoError(t, fixture.newSyncer(newSyncerParams{Heads: buildHeads(cwd, git.HeadState{Root: cwd}), Trees: trees}).Sync(t.Context()))
 
 			assert.Equal(t, tt.wantWalked, trees.Walked)
 			assert.Equal(t, tt.wantUnlanded, fixture.readUnlanded(t, agent.ID))
@@ -656,7 +656,7 @@ func TestCwdSyncerSyncWalksTheLandingAgainOnlyWhenSomethingMoved(t *testing.T) {
 	fixture.release(t, agent.ID, "snapshot-one")
 	trees := buildEmptyTrees()
 	trees.Tips = map[string]string{cwd: "tip-one"}
-	syncer := fixture.newSyncer(NewCwdSyncerParams{Heads: buildHeads(cwd, git.HeadState{Root: cwd}), Trees: trees})
+	syncer := fixture.newSyncer(newSyncerParams{Heads: buildHeads(cwd, git.HeadState{Root: cwd}), Trees: trees})
 
 	require.NoError(t, syncer.Sync(t.Context()))
 	require.NoError(t, syncer.Sync(t.Context()))
@@ -682,7 +682,7 @@ func TestCwdSyncerSyncFetchesTheBaseOncePerMerge(t *testing.T) {
 	fixture.release(t, agent.ID, "snapshot-one")
 	trees := buildEmptyTrees()
 	trees.Tips = map[string]string{cwd: "tip-one"}
-	syncer := fixture.newSyncer(NewCwdSyncerParams{Heads: buildHeads(cwd, git.HeadState{Root: cwd}), Trees: trees})
+	syncer := fixture.newSyncer(newSyncerParams{Heads: buildHeads(cwd, git.HeadState{Root: cwd}), Trees: trees})
 
 	require.NoError(t, syncer.Sync(t.Context()))
 	assert.Empty(t, trees.Fetched, "an open pull request fetches nothing")
@@ -790,27 +790,37 @@ func (f *syncFixture) openRound(t *testing.T, agentID, snapshot string) *reviews
 }
 
 // newSyncer builds a syncer over the real stores, filling in whatever params leaves out.
-func (f *syncFixture) newSyncer(params NewCwdSyncerParams) *CwdSyncer {
-	if params.Agents == nil {
-		params.Agents = f.stores.Agents
-	}
+type newSyncerParams struct {
+	Heads        headReader
+	Trees        *gittest.Trees
+	Checkouts    *worktrees.CheckoutReader
+	PullRequests pullRequestObserver
+}
+
+func (f *syncFixture) newSyncer(params newSyncerParams) *CwdSyncer {
 	if params.Heads == nil {
 		params.Heads = &gittest.Heads{States: map[string]git.HeadState{}}
 	}
 	if params.Trees == nil {
 		params.Trees = buildEmptyTrees()
 	}
-	if trees, ok := params.Trees.(*gittest.Trees); ok && params.Checkouts == nil {
-		params.Checkouts = worktrees.NewCheckoutReader(worktrees.NewCheckoutReaderParams{Git: trees})
+	if params.Checkouts == nil {
+		params.Checkouts = worktrees.NewCheckoutReader(worktrees.NewCheckoutReaderParams{Git: params.Trees})
 	}
 	if params.PullRequests == nil {
 		params.PullRequests = &countingPullRequestObserver{}
 	}
-	params.Rounds = f.reviews
-	params.Workflows = f.stores.Workflows
-	params.Worktrees = f.worktrees
 
-	return NewCwdSyncer(params)
+	return NewCwdSyncer(NewCwdSyncerParams{
+		Agents:       f.stores.Agents,
+		Heads:        params.Heads,
+		Trees:        params.Trees,
+		Checkouts:    params.Checkouts,
+		Rounds:       f.reviews,
+		Workflows:    f.stores.Workflows,
+		Worktrees:    f.worktrees,
+		PullRequests: params.PullRequests,
+	})
 }
 
 // readUnlanded is the ordinals of the agent's rounds that have not landed, newest first.
