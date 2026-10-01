@@ -128,6 +128,20 @@ func (w *schedulesScreen) itemMenu(s panelShared) (submenu, bool) {
 	return withArchive(scheduleMenu(s, item.schedule), s, scheduleArchiveMenu(s, item.schedule)), true
 }
 
+// screenMenu is the schedules screen's own band, for writing a new schedule.
+func (w *schedulesScreen) screenMenu(s panelShared) (submenu, bool) {
+	return submenu{
+		kind:  formMenu,
+		title: "schedules",
+		crumb: "schedules",
+		entries: []submenuEntry{
+			openEntry("new schedule", s.keys.ScheduleMenu.New, newScheduleForm),
+		},
+	}, true
+}
+
+var _ screenMenued = (*schedulesScreen)(nil)
+
 // scheduleMenu is the band on the hovered schedule.
 func scheduleMenu(s panelShared, schedule panel.Schedule) submenu {
 	toggle := "pause"
@@ -140,6 +154,7 @@ func scheduleMenu(s panelShared, schedule panel.Schedule) submenu {
 		title: schedule.Name,
 		crumb: schedule.Name,
 		entries: []submenuEntry{
+			openEntry("edit", s.keys.ScheduleMenu.Edit, func(h host, _ panelShared) tea.Cmd { return editScheduleForm(h, schedule) }),
 			writeEntry(toggle, s.keys.ScheduleMenu.Toggle, func(h host) tea.Cmd { return toggleSchedule(h, schedule) }),
 		},
 	}

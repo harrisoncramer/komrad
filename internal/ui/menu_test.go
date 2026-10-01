@@ -19,15 +19,15 @@ import (
 func TestMenu(t *testing.T) {
 	t.Parallel()
 
-	t.Run("a screen with no hovered row opens only the panel's entries", func(t *testing.T) {
+	t.Run("a screen with no hovered row opens its own band over the panel's", func(t *testing.T) {
 		t.Parallel()
 
 		harness := openSchedules(t, newLiveWorkflow("w1", "api"))
 		harness.press("space")
 
 		frame := harness.readFrame()
-		assert.Contains(t, frame, "  komrad")
-		assert.Contains(t, frame, "› scratch")
+		assert.Contains(t, frame, "› new schedule")
+		assert.Contains(t, frame, "scratch")
 		assert.NotContains(t, frame, "logs")
 	})
 

@@ -125,6 +125,8 @@ func ValidateKeybindings(keys config.Keybindings) error {
 
 	if err := validateSubmenuKeys("schedule menu", []submenuKeys{
 		{name: "toggle", keys: keys.ScheduleMenu.Toggle},
+		{name: "edit", keys: keys.ScheduleMenu.Edit},
+		{name: "new", keys: keys.ScheduleMenu.New},
 		{name: "archive", keys: keys.Menu.Archive},
 		{name: "scratch", keys: keys.Menu.Scratch},
 		{name: "document_types", keys: keys.Menu.DocumentTypes},

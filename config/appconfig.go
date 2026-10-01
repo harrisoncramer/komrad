@@ -613,10 +613,6 @@ type SidebarKeys struct {
 type SchedulesKeys struct {
 	// Open the view switcher.
 	Back []string `mapstructure:"back" default:"esc"`
-	// Edit the schedule under the cursor.
-	Edit []string `mapstructure:"edit" default:"e"`
-	// Write a new schedule.
-	New []string `mapstructure:"new" default:"c"`
 	// Quit the panel.
 	Quit []string `mapstructure:"quit" default:"ctrl+c"`
 	// Rename the schedule under the cursor, typed over its row.
@@ -627,6 +623,10 @@ type SchedulesKeys struct {
 type ScheduleMenuKeys struct {
 	// Pause the schedule, or resume it when it is paused.
 	Toggle []string `mapstructure:"toggle" default:"p"`
+	// Edit the hovered schedule.
+	Edit []string `mapstructure:"edit" default:"e"`
+	// Write a new schedule, offered on the schedules screen whatever is hovered.
+	New []string `mapstructure:"new" default:"c"`
 }
 
 // ArchiveKeys are the bindings for the archive screen, which lists the agents, workflows and

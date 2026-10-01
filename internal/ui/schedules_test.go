@@ -39,7 +39,7 @@ func TestSchedulesKeys(t *testing.T) {
 		{
 			name:       "edit on an empty list opens no form",
 			rows:       []proto.Message{newLiveWorkflow("w1", "api")},
-			press:      []string{"e"},
+			press:      []string{"space", "e"},
 			wantDrawn:  []string{"no schedules yet"},
 			wantAbsent: []string{scheduleForm},
 		},
@@ -56,7 +56,7 @@ func TestSchedulesKeys(t *testing.T) {
 		},
 		{
 			name:       "new with no workflows says why rather than opening the form",
-			press:      append(widenListPresses, "c"),
+			press:      append(widenListPresses, "space", "c"),
 			wantDrawn:  []string{"Could not create a schedule"},
 			wantAbsent: []string{scheduleForm},
 		},
@@ -69,13 +69,13 @@ func TestSchedulesKeys(t *testing.T) {
 		{
 			name:      "new opens the form on the first workflow",
 			rows:      buildSchedules(),
-			press:     []string{"c"},
+			press:     []string{"space", "c"},
 			wantDrawn: []string{scheduleForm, "› api"},
 		},
 		{
 			name:      "edit opens the form over the hovered schedule",
 			rows:      buildSchedules(),
-			press:     []string{"e"},
+			press:     []string{"space", "e"},
 			wantDrawn: []string{"> morning-ci", "> 0 9 * * 1-5", "check CI"},
 		},
 		{
@@ -467,7 +467,7 @@ func TestSchedulesForm(t *testing.T) {
 		harness.refuse(schedulev1connect.ScheduleServiceCreateScheduleProcedure, errors.New("cron must be five fields"))
 
 		harness.press(widenListPresses...)
-		harness.press("c", "tab")
+		harness.press("space", "c", "tab")
 		typeText(harness, "x")
 		harness.press("tab")
 		typeText(harness, "0 9 * * *")
@@ -489,7 +489,7 @@ func TestSchedulesForm(t *testing.T) {
 		harness := openSchedules(t, append(buildSchedules(), newOrchestrator())...)
 
 		harness.press(widenListPresses...)
-		harness.press("c", "down")
+		harness.press("space", "c", "down")
 		form := readStageText(harness.readFrame())
 		assert.Contains(t, form, "› orchestrator  api")
 		assert.NotContains(t, form, "  Workflow")
@@ -513,7 +513,7 @@ func TestSchedulesForm(t *testing.T) {
 		harness := openSchedules(t, buildSchedules()...)
 
 		harness.press(widenListPresses...)
-		harness.press("c", "down")
+		harness.press("space", "c", "down")
 		form := readStageText(harness.readFrame())
 		assert.Contains(t, form, "start an orchestrator to mail one instead")
 		assert.NotContains(t, form, "mail one already running")
@@ -536,7 +536,7 @@ func TestSchedulesForm(t *testing.T) {
 		harness := openSchedules(t, append(buildSchedules(), newOrchestrator())...)
 
 		harness.press(widenListPresses...)
-		harness.press("c", "tab")
+		harness.press("space", "c", "tab")
 		typeText(harness, "nightly")
 		harness.press("tab")
 		typeText(harness, "0 9 * * *")
@@ -570,7 +570,7 @@ func TestSchedulesForm(t *testing.T) {
 		mailing.OrchestratorAgentId = xptr.Ptr("o1")
 		harness := openSchedules(t, newLiveWorkflow("w1", "api"), mailing, newOrchestrator())
 
-		harness.press("e")
+		harness.press("space", "e")
 		require.Contains(t, readStageText(harness.readFrame()), "› orchestrator  api")
 		harness.press("ctrl+s")
 
@@ -599,7 +599,7 @@ func TestSchedulesForm(t *testing.T) {
 		hidden.HideAgents = true
 		harness := openSchedules(t, newLiveWorkflow("w1", "api"), hidden)
 
-		harness.press("e", "tab", "tab", "tab", "tab")
+		harness.press("space", "e", "tab", "tab", "tab", "tab")
 		typeText(harness, " harder")
 		harness.press("ctrl+s")
 
@@ -616,7 +616,7 @@ func TestSchedulesForm(t *testing.T) {
 
 	t.Run("every confirm draws its buttons in the same column", func(t *testing.T) {
 		harness := openSchedules(t, buildSchedules()...)
-		harness.press("e")
+		harness.press("space", "e")
 
 		var indents []int
 		for _, line := range readStage(harness.readFrame()) {
@@ -632,7 +632,7 @@ func TestSchedulesForm(t *testing.T) {
 
 	t.Run("a workflow made while the form is up is offered and the cursor stays put", func(t *testing.T) {
 		harness := openSchedules(t, buildSchedules()...)
-		harness.press("e", "tab", "tab")
+		harness.press("space", "e", "tab", "tab")
 
 		harness.watch(buildPuts(newLiveWorkflow("w2", "brandnew")))
 
@@ -645,7 +645,7 @@ func TestSchedulesForm(t *testing.T) {
 
 	t.Run("a schedule keeps the workflow it names when that one is archived under the form", func(t *testing.T) {
 		harness := openSchedules(t, buildSchedules()...)
-		harness.press("e")
+		harness.press("space", "e")
 
 		harness.watch(buildSnapshot(newLiveWorkflow("w2", "other"), newSchedule("s1", "morning-ci")))
 		require.Contains(t, readStageText(harness.readFrame()), "w1  gone")
@@ -677,7 +677,7 @@ func TestSchedulesForm(t *testing.T) {
 			},
 			second,
 		)
-		harness.press("e")
+		harness.press("space", "e")
 
 		form := readStageText(harness.readFrame())
 		assert.Contains(t, form, "bughunt  /repos/komrad")

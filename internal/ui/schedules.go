@@ -166,7 +166,8 @@ func toggleSchedule(h host, schedule panel.Schedule) tea.Cmd {
 	})
 }
 
-func (w *schedulesScreen) newForm(h host, s panelShared) tea.Cmd {
+// newScheduleForm puts up the form for a new schedule.
+func newScheduleForm(h host, s panelShared) tea.Cmd {
 	if len(s.listing.workflows) == 0 {
 		h.report("Could not create a schedule", errNoWorkflow)
 
@@ -182,12 +183,12 @@ func (w *schedulesScreen) newForm(h host, s panelShared) tea.Cmd {
 		values.OrchestratorID = orchestrators[0].ID
 	}
 
-	return w.openForm(h, &values, nil)
+	return openScheduleForm(h, &values, nil)
 }
 
-// openForm puts up the schedule form, creating a schedule when target is nil and saving over the
-// one it names otherwise.
-func (w *schedulesScreen) openForm(h host, values *panel.ScheduleConfig, target *panel.Schedule) tea.Cmd {
+// openScheduleForm puts up the schedule form, creating a schedule when target is nil and saving
+// over the one it names otherwise.
+func openScheduleForm(h host, values *panel.ScheduleConfig, target *panel.Schedule) tea.Cmd {
 	drawnKind := values.Kind
 
 	return h.openForm(redrawnForm(redrawnFormParams{
@@ -221,16 +222,11 @@ func (w *schedulesScreen) openForm(h host, values *panel.ScheduleConfig, target 
 	}))
 }
 
-func (w *schedulesScreen) editForm(h host, s panelShared) tea.Cmd {
-	item, ok := w.selected(s)
-	if !ok {
-		return nil
-	}
+// editScheduleForm puts up the form over a stored schedule.
+func editScheduleForm(h host, schedule panel.Schedule) tea.Cmd {
+	values := schedulePrefill(schedule)
 
-	target := item.schedule
-	values := schedulePrefill(target)
-
-	return w.openForm(h, &values, &target)
+	return openScheduleForm(h, &values, &schedule)
 }
 
 // schedulePrefill is the schedule form as the stored schedule leaves it.
