@@ -265,7 +265,7 @@ type reviewRecord struct {
 	openBatch string
 }
 
-// readReviewRecordParams says whose conversation to read, and what the world already holds of it.
+// readReviewRecordParams says whose review record to read, and which threads the world already holds.
 type readReviewRecordParams struct {
 	Agents  agentReads
 	AgentID string
