@@ -269,8 +269,7 @@ func (z *triageZone) toggleSnooze(item panel.AgentRow, agents []panel.AgentRow) 
 	return true
 }
 
-// refreeze moves a family just snoozed or woken to its place in the frozen zone, and lets the
-// families awake that wait for a slot in ahead of the snoozed.
+// refreeze moves a family just snoozed or woken to its place in the frozen zone.
 func (z *triageZone) refreeze(family triageFamily, agents []panel.AgentRow) {
 	headID := family.head.Agent.ID
 	if !slices.Contains(z.frozen, headID) {
