@@ -116,7 +116,7 @@ type ListLastTurnsParams struct {
 	MaxBytes int32
 }
 
-// ListLastTurns returns the newest turns an agent wrote and the prompts between them, oldest first, one turn when none is asked for, each cut from the head to fit the window.
+// ListLastTurns returns an agent's newest turns and the prompts between them, oldest first, each cut from the head to fit MaxBytes.
 func (r *TranscriptReader) ListLastTurns(ctx context.Context, params ListLastTurnsParams) ([]Turn, error) {
 	if err := r.requireAgent(ctx, params.AgentID); err != nil {
 		return nil, err
