@@ -530,7 +530,7 @@ func (e *Engine) join(c command, r []rune, p int) (Buffer, bool, bool) {
 		}
 
 		var gap []rune
-		if end > lineStart(r, end) && next < len(r) && r[next] != '\n' && r[next] != ')' {
+		if end > lineStart(r, end) && !isBlank(r[end-1]) && next < len(r) && r[next] != '\n' && r[next] != ')' {
 			gap = []rune{' '}
 		}
 		r = splice(r, end, next, gap)

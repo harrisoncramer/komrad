@@ -246,6 +246,7 @@ func TestOperators(t *testing.T) {
 		{name: "p with nothing yanked does nothing", start: "|ab", keys: "p", want: "|ab", mode: Normal},
 		{name: "J joins the next line with a space", start: "|ab\n  cd", keys: "J", want: "ab| cd", mode: Normal},
 		{name: "J onto an empty line adds no space", start: "|ab\n\ncd", keys: "J", want: "a|b\ncd", mode: Normal},
+		{name: "J after a trailing blank adds no second space", start: "|ab \ncd", keys: "J", want: "ab |cd", mode: Normal},
 		{name: "J on the last line does nothing", start: "|ab", keys: "J", want: "|ab", mode: Normal},
 		{name: "i inserts before the cursor", start: "a|c", keys: "ib<esc>", want: "a|bc", mode: Normal},
 		{name: "a inserts after the cursor", start: "|ac", keys: "ab<esc>", want: "a|bc", mode: Normal},
