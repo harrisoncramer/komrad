@@ -165,11 +165,8 @@ func TestGitMenuRefusals(t *testing.T) {
 			wantRefusal: "komrad has not read this agent's repository yet",
 		},
 		{
-			name: "the pull request of a branch with none",
-			rows: append(buildUncutAgent(), &pullrequestv1.Repository{
-				Url:  repositoryURL,
-				Read: true,
-			}),
+			name:        "the pull request of a branch with none",
+			rows:        append(buildUncutAgent(), &pullrequestv1.Repository{Url: repositoryURL}),
 			press:       []string{"o"},
 			wantRefusal: "komrad has read the repository and nothing has been opened from this branch",
 		},

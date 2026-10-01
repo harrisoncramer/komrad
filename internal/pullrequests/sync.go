@@ -117,8 +117,7 @@ func (s *PullRequestSyncer) Wake() {
 	s.loop.Wake()
 }
 
-// Heat keeps every repository on the host in the fast lane for a while, after komrad changed a
-// pull request there.
+// Heat keeps every repository on the host in the fast lane for a while.
 func (s *PullRequestSyncer) Heat(host string) {
 	s.pacing.heat(host, s.now())
 }
@@ -140,10 +139,9 @@ func (s *PullRequestSyncer) Sync(ctx context.Context) error {
 		return nil
 	}
 
-	branches := branchesOf(targets)
 	read := false
 	for _, host := range s.groupByHost(ctx, due) {
-		read = s.syncHost(ctx, host, branches) || read
+		read = s.syncHost(ctx, host) || read
 	}
 	if !read {
 		return nil
@@ -161,46 +159,42 @@ func (s *PullRequestSyncer) Sync(ctx context.Context) error {
 	return nil
 }
 
-// candidatesOf is every repository with the fingerprint of its agents' branches and heads.
-func candidatesOf(repositories []string, targets []pullrequeststore.Target) []dueParams {
-	fingerprints := map[string]*strings.Builder{}
+// candidatesOf is every repository live agents sit on, with their branches and the fingerprint
+// of those branches and heads.
+func candidatesOf(repositories []string, targets []pullrequeststore.Target) []candidate {
+	type sitting struct {
+		branches    []string
+		fingerprint strings.Builder
+	}
+	byRepository := map[string]*sitting{}
 	for _, target := range targets {
-		fingerprint, ok := fingerprints[target.RepositoryURL]
+		found, ok := byRepository[target.RepositoryURL]
 		if !ok {
-			fingerprint = &strings.Builder{}
-			fingerprints[target.RepositoryURL] = fingerprint
+			found = &sitting{}
+			byRepository[target.RepositoryURL] = found
 		}
-		fingerprint.WriteString(target.Branch + "@" + target.HeadSHA + "\n")
+		if !slices.Contains(found.branches, target.Branch) {
+			found.branches = append(found.branches, target.Branch)
+		}
+		found.fingerprint.WriteString(target.Branch + "@" + target.HeadSHA + "\n")
 	}
 
-	candidates := make([]dueParams, 0, len(repositories))
+	candidates := make([]candidate, 0, len(repositories))
 	for _, repositoryURL := range repositories {
 		remote, err := git.ParseRemoteURL(repositoryURL)
 		if err != nil || remote.Host == "" {
 			continue
 		}
 
-		candidate := dueParams{repositoryURL: repositoryURL, host: remote.Host}
-		if fingerprint, ok := fingerprints[repositoryURL]; ok {
-			candidate.fingerprint = fingerprint.String()
+		next := candidate{repositoryURL: repositoryURL, remote: remote}
+		if found, ok := byRepository[repositoryURL]; ok {
+			next.branches = found.branches
+			next.fingerprint = found.fingerprint.String()
 		}
-		candidates = append(candidates, candidate)
+		candidates = append(candidates, next)
 	}
 
 	return candidates
-}
-
-// branchesOf is the distinct branches of each repository, in the order the targets name them.
-func branchesOf(targets []pullrequeststore.Target) map[string][]string {
-	branches := map[string][]string{}
-	for _, target := range targets {
-		named := branches[target.RepositoryURL]
-		if len(named) == 0 || named[len(named)-1] != target.Branch {
-			branches[target.RepositoryURL] = append(named, target.Branch)
-		}
-	}
-
-	return branches
 }
 
 // hostRead is one forge host being read in a pass, with the connection and forge it is read
@@ -209,32 +203,32 @@ type hostRead struct {
 	host         string
 	connection   *forgestore.Connection
 	forge        forge.Forge
-	repositories []dueParams
+	repositories []candidate
 	// throttled says nothing more is asked of the host this pass.
 	throttled bool
 }
 
 // groupByHost resolves the connection and forge for each host the repositories live on,
 // leaving out the hosts nobody connected and the ones waiting on a rate limit.
-func (s *PullRequestSyncer) groupByHost(ctx context.Context, repositories []dueParams) []*hostRead {
+func (s *PullRequestSyncer) groupByHost(ctx context.Context, repositories []candidate) []*hostRead {
 	hosts := []*hostRead{}
 	byHost := map[string]*hostRead{}
 	skipped := map[string]bool{}
 	for _, repository := range repositories {
-		if skipped[repository.host] {
+		if skipped[repository.remote.Host] {
 			continue
 		}
 
-		host, ok := byHost[repository.host]
+		host, ok := byHost[repository.remote.Host]
 		if !ok {
-			host = s.openHost(ctx, repository.host, repository.repositoryURL)
+			host = s.openHost(ctx, repository.remote.Host, repository.repositoryURL)
 			if host == nil {
-				skipped[repository.host] = true
+				skipped[repository.remote.Host] = true
 
 				continue
 			}
 
-			byHost[repository.host] = host
+			byHost[repository.remote.Host] = host
 			hosts = append(hosts, host)
 		}
 
@@ -282,14 +276,14 @@ func (s *PullRequestSyncer) openHost(ctx context.Context, hostname, repositoryUR
 
 // syncHost reads each of the host's due repositories until the host's rate limit or credential
 // stops it, and says whether it read any.
-func (s *PullRequestSyncer) syncHost(ctx context.Context, host *hostRead, branches map[string][]string) bool {
+func (s *PullRequestSyncer) syncHost(ctx context.Context, host *hostRead) bool {
 	read := false
 	for _, repository := range host.repositories {
 		if host.throttled {
 			break
 		}
 
-		err := s.readRepository(ctx, host, repository, branches[repository.repositoryURL])
+		err := s.readRepository(ctx, host, repository)
 		switch {
 		case err == nil:
 			read = true
@@ -316,19 +310,15 @@ func (s *PullRequestSyncer) syncHost(ctx context.Context, host *hostRead, branch
 
 // readRepository reads the newest pull requests on each of the repository's branches, writes
 // them, marks the repository read, and paces its next read from what the forge answered.
-func (s *PullRequestSyncer) readRepository(ctx context.Context, host *hostRead, params dueParams, branches []string) error {
-	remote, err := git.ParseRemoteURL(params.repositoryURL)
-	if err != nil {
-		return err
-	}
-
+func (s *PullRequestSyncer) readRepository(ctx context.Context, host *hostRead, repository candidate) error {
 	reading := &forge.Reading{}
-	if len(branches) > 0 {
-		reading, err = host.forge.ReadBranches(ctx, remote, branches)
+	if len(repository.branches) > 0 {
+		var err error
+		reading, err = host.forge.ReadBranches(ctx, repository.remote, repository.branches)
 		if err != nil {
 			return err
 		}
-		s.noteRename(ctx, params.repositoryURL, reading.PullRequests)
+		s.noteRename(ctx, repository.repositoryURL, reading.PullRequests)
 		s.noteRateLimit(ctx, host, reading.RateLimit)
 	}
 
@@ -336,20 +326,15 @@ func (s *PullRequestSyncer) readRepository(ctx context.Context, host *hostRead, 
 	if err != nil {
 		return err
 	}
-	if err := s.syncs.EnsureSync(ctx, params.repositoryURL); err != nil {
+	if err := s.syncs.EnsureSync(ctx, repository.repositoryURL); err != nil {
 		return err
 	}
 
-	s.pacing.read(readParams{
-		repositoryURL: params.repositoryURL,
-		fingerprint:   params.fingerprint,
-		hotUntil:      written.hotUntil,
-		askedAt:       params.askedAt,
-	})
+	s.pacing.read(repository, written.hotUntil)
 
 	logging.From(ctx).LogAttrs(ctx, slog.LevelDebug, "pull request sync",
-		slog.String(logging.RepositoryURL, params.repositoryURL),
-		slog.Int(logging.Branches, len(branches)),
+		slog.String(logging.RepositoryURL, repository.repositoryURL),
+		slog.Int(logging.Branches, len(repository.branches)),
 		slog.Int(logging.RowsInserted, written.inserted),
 		slog.Int(logging.RowsUpdated, written.updated),
 	)
@@ -507,27 +492,6 @@ func (s *PullRequestSyncer) write(ctx context.Context, pullRequests []forge.Pull
 	}
 
 	return result, nil
-}
-
-// hotUntil is how long a pull request keeps its repository hot: an unfinished one with pending
-// checks until a while after its last change, and one whose mergeability the forge has not
-// computed until a while after the blank began.
-func hotUntil(pullRequest forge.PullRequest, change *pullrequeststore.StandingChange) time.Time {
-	if pullRequest.IsFinished() {
-		return time.Time{}
-	}
-
-	until := time.Time{}
-	if xptr.Deref(pullRequest.Checks) == forge.ChecksPending {
-		until = pullRequest.UpdatedAt.Add(pendingHotWithin)
-	}
-	if change.BlankSince != nil {
-		if blank := change.BlankSince.Add(blankHotWithin); blank.After(until) {
-			until = blank
-		}
-	}
-
-	return until
 }
 
 // standingOf is the standing a pull request was answered with.

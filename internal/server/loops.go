@@ -15,8 +15,7 @@ const (
 	// transcriptSyncInterval is how often an agent's log is read for new turns.
 	transcriptSyncInterval = 15 * time.Second
 	cwdSyncInterval        = 15 * time.Second
-	// pullRequestSyncInterval is how often the pull request sync asks which repositories are due,
-	// which is as often as a repository in the fast lane is read.
+	// pullRequestSyncInterval is how often the pull request sync asks which repositories are due.
 	pullRequestSyncInterval = 5 * time.Second
 	// commentSyncInterval is how often the forges are asked whether review comments moved.
 	commentSyncInterval = time.Minute

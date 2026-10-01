@@ -72,8 +72,7 @@ func (r RateLimit) IsExhausted() bool {
 	return r.Known && r.Remaining == 0
 }
 
-// IsLow says less than a fifth of the budget is left, which is when a reader should slow down
-// until ResetAt.
+// IsLow says less than a fifth of the budget is left.
 func (r RateLimit) IsLow() bool {
 	return r.Known && r.Limit > 0 && r.Remaining*5 < r.Limit
 }
@@ -192,6 +191,11 @@ type PullRequest struct {
 // IsFinished says whether the pull request has merged or closed.
 func (pr PullRequest) IsFinished() bool {
 	return pr.MergedAt != nil || pr.ClosedAt != nil
+}
+
+// IsFromItsOwnRepository says whether the branch lives in the repository the pull request targets.
+func (pr PullRequest) IsFromItsOwnRepository() bool {
+	return !pr.Head.IsZero() && pr.Head.Canonical() == pr.Repository.Canonical()
 }
 
 // Forge is one service pull requests live on, spoken to as one connection.

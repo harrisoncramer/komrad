@@ -258,22 +258,6 @@ func TestLiveRepositoriesAndSyncTargets(t *testing.T) {
 	}, targets)
 }
 
-// TestSyncRowRoundTrip covers the sync row existing only once the repository has been read,
-// however many times it is read.
-func TestSyncRowRoundTrip(t *testing.T) {
-	h := open(t)
-	ctx := t.Context()
-
-	_, err := h.syncs.GetSync(ctx, komrad)
-	require.ErrorIs(t, err, store.ErrNotFound)
-
-	require.NoError(t, h.syncs.EnsureSync(ctx, komrad))
-	require.NoError(t, h.syncs.EnsureSync(ctx, komrad))
-	sync, err := h.syncs.GetSync(ctx, komrad)
-	require.NoError(t, err)
-	assert.Equal(t, Sync{RepositoryURL: komrad}, *sync)
-}
-
 // finishedPullRequest is openPullRequest merged an hour after it changed.
 func finishedPullRequest(providerID string, number int, branch string) UpsertParams {
 	params := openPullRequest(providerID, number, branch)

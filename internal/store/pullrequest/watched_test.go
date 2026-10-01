@@ -54,13 +54,14 @@ func TestListWatchedIsTheLinkedSet(t *testing.T) {
 	assert.Empty(t, none)
 }
 
-// TestListWatchedRepositories pins that a repository is carried once it has been read, and one
-// never read is a tombstone.
+// TestListWatchedRepositories pins that a repository is carried once however often it has been
+// read, and one never read is a tombstone.
 func TestListWatchedRepositories(t *testing.T) {
 	ctx := t.Context()
 	h := open(t)
 
 	require.NoError(t, h.syncs.EnsureSync(ctx, fixture))
+	require.NoError(t, h.syncs.EnsureSync(ctx, komrad))
 	require.NoError(t, h.syncs.EnsureSync(ctx, komrad))
 
 	urls := func(syncs []Sync) []string {

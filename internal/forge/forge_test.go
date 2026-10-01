@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"komrad/internal/git"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -150,6 +152,19 @@ func TestPullRequestIsFinished(t *testing.T) {
 	assert.False(t, PullRequest{}.IsFinished())
 	assert.True(t, PullRequest{ClosedAt: &now}.IsFinished())
 	assert.True(t, PullRequest{MergedAt: &now, ClosedAt: &now}.IsFinished())
+}
+
+// TestPullRequestIsFromItsOwnRepository covers a branch in the target, in a fork and in none.
+func TestPullRequestIsFromItsOwnRepository(t *testing.T) {
+	t.Parallel()
+
+	komrad := git.RemoteURL{Scheme: "https", Host: "github.com", Path: "harrisoncramer/komrad"}
+	overSSH := git.RemoteURL{Scheme: "ssh", Host: "github.com", Path: "harrisoncramer/komrad"}
+	fork := git.RemoteURL{Scheme: "https", Host: "github.com", Path: "someone/komrad"}
+
+	assert.True(t, PullRequest{Repository: komrad, Head: overSSH}.IsFromItsOwnRepository())
+	assert.False(t, PullRequest{Repository: komrad, Head: fork}.IsFromItsOwnRepository())
+	assert.False(t, PullRequest{Repository: komrad}.IsFromItsOwnRepository())
 }
 
 // TestRateLimitIsLow covers the fifth of the budget a reader slows down below.

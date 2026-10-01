@@ -3,6 +3,11 @@ package pullrequests
 import (
 	"sync"
 	"time"
+
+	"komrad/internal/forge"
+	"komrad/internal/git"
+	pullrequeststore "komrad/internal/store/pullrequest"
+	"komrad/lib/xptr"
 )
 
 // hotGap is how long after a read a repository likely to change soon is read again.
@@ -12,7 +17,7 @@ const hotGap = 5 * time.Second
 const coldGap = time.Minute
 
 // pendingHotWithin is how long after the forge last stamped a change a pull request with pending
-// checks keeps its repository hot, so a required check that never reports cannot hold it there.
+// checks keeps its repository hot.
 const pendingHotWithin = 20 * time.Minute
 
 // blankHotWithin is how long after the forge first answered a blank mergeability for a head the
@@ -23,15 +28,13 @@ const blankHotWithin = 2 * time.Minute
 // or after komrad wrote to a pull request on its host.
 const movedHotWithin = 2 * time.Minute
 
-// paceSlack is how far short of its gap a repository is still due, so a pass that starts a moment
-// before the gap is up reads it rather than leaving it a whole tick.
+// paceSlack is how far short of its gap a repository is still due.
 const paceSlack = time.Second
 
-// pacing is when each repository was last read and how soon it is read again, shared between the
-// sync's loop and the writes that heat a host.
+// pacing is when each repository was last read and how soon it is read again.
 type pacing struct {
 	mu           sync.Mutex
-	repositories map[string]*pace
+	repositories map[string]*repositoryPace
 	// heated is when komrad last wrote to a pull request on each host.
 	heated map[string]time.Time
 	// slowed is when each host's budget comes back after it ran low.
@@ -40,8 +43,8 @@ type pacing struct {
 	woken bool
 }
 
-// pace is where one repository stands in the pacing.
-type pace struct {
+// repositoryPace is where one repository stands in the pacing.
+type repositoryPace struct {
 	readAt time.Time
 	// fingerprint is the branches and heads of the repository's agents when it was last read.
 	fingerprint string
@@ -53,95 +56,94 @@ type pace struct {
 
 func newPacing() *pacing {
 	return &pacing{
-		repositories: map[string]*pace{},
+		repositories: map[string]*repositoryPace{},
 		heated:       map[string]time.Time{},
 		slowed:       map[string]time.Time{},
 	}
 }
 
-// dueParams is one repository asked about at the start of a pass.
-type dueParams struct {
+// candidate is one repository live agents sit on, as a pass finds it.
+type candidate struct {
 	repositoryURL string
-	host          string
-	fingerprint   string
+	remote        git.RemoteURL
+	// branches is every branch its live agents sit on.
+	branches []string
+	// fingerprint is those branches with each agent's head.
+	fingerprint string
 	// askedAt is when the pass that found the repository due started.
 	askedAt time.Time
 }
 
 // pick is the repositories due now, consuming a wake.
-func (p *pacing) pick(candidates []dueParams, now time.Time) []dueParams {
+func (p *pacing) pick(candidates []candidate, now time.Time) []candidate {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
 	woken := p.woken
 	p.woken = false
 
-	due := []dueParams{}
-	for _, candidate := range candidates {
-		if woken || p.isDue(candidate, now) {
-			candidate.askedAt = now
-			due = append(due, candidate)
+	due := []candidate{}
+	for _, next := range candidates {
+		if woken || p.isDue(next, now) {
+			next.askedAt = now
+			due = append(due, next)
 		}
 	}
 
 	return due
 }
 
-func (p *pacing) isDue(params dueParams, now time.Time) bool {
-	read, ok := p.repositories[params.repositoryURL]
-	if !ok || read.fingerprint != params.fingerprint {
+// isDue says whether a repository is read on this pass.
+func (p *pacing) isDue(next candidate, now time.Time) bool {
+	last, ok := p.repositories[next.repositoryURL]
+	if !ok || last.fingerprint != next.fingerprint {
 		return true
 	}
 
-	gap := coldGap
-	if p.isHot(read, params.host, now) && !now.Before(p.slowed[params.host]) {
-		gap = hotGap
-	}
-
-	return now.Sub(read.readAt) >= gap-paceSlack
+	return now.Sub(last.readAt) >= p.gapFor(last, next.remote.Host, now)-paceSlack
 }
 
-func (p *pacing) isHot(read *pace, host string, now time.Time) bool {
-	return now.Before(read.hotUntil) ||
-		now.Sub(read.movedAt) < movedHotWithin ||
+// gapFor is how long after its last read a repository is read again.
+func (p *pacing) gapFor(last *repositoryPace, host string, now time.Time) time.Duration {
+	if now.Before(p.slowed[host]) {
+		return coldGap
+	}
+
+	hot := now.Before(last.hotUntil) ||
+		now.Sub(last.movedAt) < movedHotWithin ||
 		now.Sub(p.heated[host]) < movedHotWithin
+	if hot {
+		return hotGap
+	}
+
+	return coldGap
 }
 
-// readParams is one repository having been read.
-type readParams struct {
-	repositoryURL string
-	fingerprint   string
-	hotUntil      time.Time
-	// askedAt is when the pass that read it started, which the next gap is measured from.
-	askedAt time.Time
-}
-
-// read records a repository having been read.
-func (p *pacing) read(params readParams) {
+// read records a repository having been read, hot until the moment the forge's answer gave.
+func (p *pacing) read(repository candidate, hotUntil time.Time) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	read, ok := p.repositories[params.repositoryURL]
+	last, ok := p.repositories[repository.repositoryURL]
 	if !ok {
-		read = &pace{}
-		p.repositories[params.repositoryURL] = read
+		last = &repositoryPace{}
+		p.repositories[repository.repositoryURL] = last
 	}
-	if ok && read.fingerprint != params.fingerprint {
-		read.movedAt = params.askedAt
+	if ok && last.fingerprint != repository.fingerprint {
+		last.movedAt = repository.askedAt
 	}
 
-	read.readAt = params.askedAt
-	read.fingerprint = params.fingerprint
-	read.hotUntil = params.hotUntil
+	last.readAt = repository.askedAt
+	last.fingerprint = repository.fingerprint
+	last.hotUntil = hotUntil
 }
 
-// fail records a repository whose read failed as read now and cold, so a repository the forge
-// will not answer is asked again a minute later rather than on every pass.
-func (p *pacing) fail(params dueParams) {
+// fail records a repository whose read failed as read and cold.
+func (p *pacing) fail(repository candidate) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	p.repositories[params.repositoryURL] = &pace{readAt: params.askedAt, fingerprint: params.fingerprint}
+	p.repositories[repository.repositoryURL] = &repositoryPace{readAt: repository.askedAt, fingerprint: repository.fingerprint}
 }
 
 // heat keeps every repository on the host hot for a while from now.
@@ -166,4 +168,23 @@ func (p *pacing) wake() {
 	defer p.mu.Unlock()
 
 	p.woken = true
+}
+
+// hotUntil is how long a pull request keeps its repository hot.
+func hotUntil(pullRequest forge.PullRequest, change *pullrequeststore.StandingChange) time.Time {
+	if pullRequest.IsFinished() {
+		return time.Time{}
+	}
+
+	until := time.Time{}
+	if xptr.Deref(pullRequest.Checks) == forge.ChecksPending {
+		until = pullRequest.UpdatedAt.Add(pendingHotWithin)
+	}
+	if change.BlankSince != nil {
+		if blank := change.BlankSince.Add(blankHotWithin); blank.After(until) {
+			until = blank
+		}
+	}
+
+	return until
 }

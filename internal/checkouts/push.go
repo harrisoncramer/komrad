@@ -218,7 +218,7 @@ func pushedMail(pushed Pushed) string {
 }
 
 // heat keeps the pull request sync reading the host the agent's checkout pushes to often for a
-// while, since a push moves origin without moving the checkout.
+// while.
 func (s *Service) heat(agent agentstore.Agent) {
 	remote, err := git.ParseRemoteURL(xptr.Deref(agent.RepositoryURL))
 	if err != nil || remote.Host == "" {

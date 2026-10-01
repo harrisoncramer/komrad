@@ -16,7 +16,6 @@ import (
 	"komrad/internal/forge"
 	"komrad/internal/git"
 	"komrad/internal/logging"
-	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
 	forgestore "komrad/internal/store/forge"
 	pullrequeststore "komrad/internal/store/pullrequest"
@@ -48,7 +47,7 @@ type scriptedForge struct {
 	// "threads:<number>".
 	requests []string
 	threads  map[int]*forge.Threads
-	// reading runs inside every read, which is how a test makes one take time.
+	// reading runs inside every read.
 	reading func()
 }
 
@@ -218,12 +217,13 @@ func (f *syncFixture) pass(t *testing.T, at time.Time) {
 	f.sync(t)
 }
 
-func (f *syncFixture) getSyncOf(t *testing.T, repository string) *pullrequeststore.Sync {
+// isRead says whether the repository has been read.
+func (f *syncFixture) isRead(t *testing.T, repository string) bool {
 	t.Helper()
-	sync, err := f.syncs.GetSync(t.Context(), repository)
+	syncs, err := f.syncs.ListWatched(t.Context(), []string{repository})
 	require.NoError(t, err)
 
-	return sync
+	return len(syncs) == 1
 }
 
 // numberOf is the number a scripted pull request goes by: the digits its provider id ends in,
@@ -271,13 +271,13 @@ func pullRequestIn(repository git.RemoteURL, providerID, branch string, updatedA
 }
 
 // standing is the pull request as the forge answers it standing so.
-func standing(pullRequest forge.PullRequest, standing forge.Standing) forge.PullRequest {
-	pullRequest.Decision = xptr.Ptr(standing.Decision)
-	pullRequest.Checks = xptr.Ptr(standing.Checks)
-	pullRequest.Mergeability = xptr.Ptr(standing.Mergeability)
-	pullRequest.AutoMerge = xptr.Ptr(standing.AutoMerge)
-	if standing.HeadSHA != "" {
-		pullRequest.HeadSHA = standing.HeadSHA
+func standing(pullRequest forge.PullRequest, answered forge.Standing) forge.PullRequest {
+	pullRequest.Decision = xptr.Ptr(answered.Decision)
+	pullRequest.Checks = xptr.Ptr(answered.Checks)
+	pullRequest.Mergeability = xptr.Ptr(answered.Mergeability)
+	pullRequest.AutoMerge = xptr.Ptr(answered.AutoMerge)
+	if answered.HeadSHA != "" {
+		pullRequest.HeadSHA = answered.HeadSHA
 	}
 
 	return pullRequest
@@ -323,7 +323,7 @@ func TestSyncReadsEveryLiveBranchOnTheFirstPass(t *testing.T) {
 
 	assert.Equal(t, []string{"read:harrisoncramer/komrad:agent/x,agent/y"}, f.forge.requests)
 	assert.Equal(t, "agent/x", f.stored(t, "PR_1").HeadBranch)
-	f.getSyncOf(t, syncRepository)
+	assert.True(t, f.isRead(t, syncRepository))
 }
 
 // TestSyncMarksARepositoryWithNoBranchesRead covers a repository whose agents all sit on the
@@ -335,7 +335,7 @@ func TestSyncMarksARepositoryWithNoBranchesRead(t *testing.T) {
 	f.sync(t)
 
 	assert.Empty(t, f.forge.requests)
-	f.getSyncOf(t, syncRepository)
+	assert.True(t, f.isRead(t, syncRepository))
 }
 
 // TestSyncReadsAQuietRepositoryOnceAMinute covers the slow lane: a repository nothing in is
@@ -655,8 +655,7 @@ func TestSyncSaysAMissingRepositoryOnce(t *testing.T) {
 	assert.Len(t, f.forge.requests, 2, "a repository the forge cannot find is asked about again a minute later")
 	assert.Equal(t, 1, strings.Count(logged.String(), "the forge has no such repository"))
 	assert.NotContains(t, logged.String(), "failed to sync the repository")
-	_, err := f.syncs.GetSync(t.Context(), syncRepository)
-	require.ErrorIs(t, err, store.ErrNotFound)
+	assert.False(t, f.isRead(t, syncRepository))
 
 	f.forge.refuse = nil
 	f.syncer.Wake()
@@ -773,8 +772,7 @@ func TestSyncSkipsARepositoryWithNoConnection(t *testing.T) {
 	f.sync(t)
 
 	assert.Equal(t, []string{"read:harrisoncramer/komrad:agent/x"}, f.forge.requests)
-	_, err := f.syncs.GetSync(t.Context(), elsewhere)
-	require.ErrorIs(t, err, store.ErrNotFound)
+	assert.False(t, f.isRead(t, elsewhere))
 }
 
 // TestSyncMatchesARemoteSpelledWithCapitals covers a checkout whose remote spells the
@@ -790,7 +788,7 @@ func TestSyncMatchesARemoteSpelledWithCapitals(t *testing.T) {
 
 	require.NoError(t, f.syncer.Sync(ctx))
 
-	f.getSyncOf(t, spelled.Canonical())
+	assert.True(t, f.isRead(t, spelled.Canonical()))
 	seen, err := f.pullRequests.ListObservations(t.Context(), []string{agent})
 	require.NoError(t, err)
 	assert.Len(t, seen, 1, "the agent is observed beside its pull request")

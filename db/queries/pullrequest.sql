@@ -225,14 +225,6 @@ ON CONFLICT (
     repository_url)
     DO NOTHING;
 
--- name: GetPullRequestSync :one
-SELECT
-    *
-FROM
-    pull_request_syncs
-WHERE
-    repository_url = @repository_url;
-
 -- name: SetStanding :one
 WITH prior AS (
     SELECT

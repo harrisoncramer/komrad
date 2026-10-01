@@ -1,4 +1,4 @@
-// Package waketest stands in for the waker of a background loop.
+// Package waketest stands in for the waker of a background loop and the pull request sync.
 package waketest
 
 // Counter counts the wakes it was asked for, and records the hosts it was asked to heat.

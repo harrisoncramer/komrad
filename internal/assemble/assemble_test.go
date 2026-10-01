@@ -48,7 +48,7 @@ func agent(id string, set ...func(*agentv1.Agent)) *agentv1.Agent {
 func readRepositories(urls ...string) map[string]*pullrequestv1.Repository {
 	rows := map[string]*pullrequestv1.Repository{}
 	for _, url := range urls {
-		rows[url] = &pullrequestv1.Repository{Url: url, Read: true}
+		rows[url] = &pullrequestv1.Repository{Url: url}
 	}
 
 	return rows
@@ -463,7 +463,7 @@ func TestApplyRepository(t *testing.T) {
 	var world assemble.World
 
 	world.Apply(put(agentRow(agent(newer))))
-	world.Apply(put(&watchv1.Row{Row: &watchv1.Row_Repository{Repository: &pullrequestv1.Repository{Url: repo, Read: true}}}))
+	world.Apply(put(&watchv1.Row{Row: &watchv1.Row_Repository{Repository: &pullrequestv1.Repository{Url: repo}}}))
 	assert.Equal(t, standing(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE), assemble.AgentRows(world, now)[0].PullRequest)
 
 	world.Apply(deleted(watchv1.Resource_RESOURCE_REPOSITORY, repo))

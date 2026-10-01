@@ -132,22 +132,6 @@ func (q *Queries) GetPullRequestByIdentity(ctx context.Context, arg GetPullReque
 	return &i, err
 }
 
-const getPullRequestSync = `-- name: GetPullRequestSync :one
-SELECT
-    repository_url, engine_id
-FROM
-    pull_request_syncs
-WHERE
-    repository_url = $1
-`
-
-func (q *Queries) GetPullRequestSync(ctx context.Context, repositoryUrl string) (*PullRequestSync, error) {
-	row := q.db.QueryRow(ctx, getPullRequestSync, repositoryUrl)
-	var i PullRequestSync
-	err := row.Scan(&i.RepositoryUrl, &i.EngineID)
-	return &i, err
-}
-
 const listAgentPullRequests = `-- name: ListAgentPullRequests :many
 SELECT
     o.agent_id,

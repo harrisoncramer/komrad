@@ -309,7 +309,7 @@ func finishedRank(pullRequest *pullrequestv1.PullRequest) int {
 func calculatePullRequestStanding(agent *agentv1.Agent, repository *pullrequestv1.Repository, pullRequests []*pullrequestv1.PullRequest) *agentv1.PullRequestStanding {
 	if len(pullRequests) == 0 {
 		state := pullrequestv1.PullRequestState_PULL_REQUEST_STATE_UNREAD
-		if repository.GetRead() {
+		if repository != nil {
 			state = pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE
 		}
 

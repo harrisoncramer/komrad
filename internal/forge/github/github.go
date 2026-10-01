@@ -231,15 +231,14 @@ func (f *Forge) Get(ctx context.Context, address string) (forge.PullRequest, err
 	return data.Repository.PullRequest.toPullRequest(false), nil
 }
 
-// branchesPerQuery is how many branches one ReadBranches query asks about, which GitHub
-// prices at a few points.
+// branchesPerQuery is how many branches one ReadBranches query asks about.
 const branchesPerQuery = 50
 
 // pullRequestsPerBranch is how many of a branch's newest pull requests ReadBranches reads.
 const pullRequestsPerBranch = 5
 
 // ReadBranches reads the newest pull requests opened from each branch, with their standing,
-// fifty branches to a query by alias, keeping only those whose head is the repository itself.
+// a batch of branches to a query by alias, keeping only those whose head is the repository itself.
 func (f *Forge) ReadBranches(ctx context.Context, repo git.RemoteURL, branches []string) (*forge.Reading, error) {
 	owner, name, err := ownerAndName(repo.Path)
 	if err != nil {
@@ -295,7 +294,7 @@ func (f *Forge) readBranches(ctx context.Context, owner, name string, branches [
 
 		for _, node := range answered.Nodes {
 			pullRequest := node.toPullRequest(true)
-			if pullRequest.Head.IsZero() || pullRequest.Head.Canonical() != pullRequest.Repository.Canonical() {
+			if !pullRequest.IsFromItsOwnRepository() {
 				continue
 			}
 

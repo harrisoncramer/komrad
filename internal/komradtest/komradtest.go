@@ -329,8 +329,7 @@ func (i *Instance) SyncCwds() {
 	i.runLoop(server.CwdSyncLoop)
 }
 
-// SyncPullRequests wakes the loop that reads the forges' pull requests and runs one pass of it,
-// which reads every repository whether or not it was due.
+// SyncPullRequests wakes the loop that reads the forges' pull requests and runs one pass of it.
 func (i *Instance) SyncPullRequests() {
 	i.t.Helper()
 	_, err := i.Loops.WakeLoop(i.t.Context(), connect.NewRequest(&loopv1.WakeLoopRequest{Loop: loopv1.Loop_LOOP_PULL_REQUEST_SYNC}))

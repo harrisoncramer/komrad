@@ -34,8 +34,7 @@ const (
 	Loop_LOOP_CWD_SYNC Loop = 1
 	// Reads each agent's conversation log for new turns.
 	Loop_LOOP_TRANSCRIPT_SYNC Loop = 2
-	// Reads the pull requests opened from agents' branches, every repository on a wake rather than
-	// only those due.
+	// Reads the pull requests opened from agents' branches.
 	Loop_LOOP_PULL_REQUEST_SYNC Loop = 3
 )
 

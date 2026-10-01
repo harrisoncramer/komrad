@@ -26,8 +26,7 @@ const DefaultAPI = "https://gitlab.com/api/v4"
 // MaxPerPage is the most GitLab hands over in one page, above which it silently trims.
 const MaxPerPage = 100
 
-// branchesPerQuery is how many branches the first ReadBranches query aliases, after which the
-// size follows what GitLab says each query cost.
+// branchesPerQuery is how many branches the first ReadBranches query aliases.
 const branchesPerQuery = 2
 
 // mergeRequestsPerBranch is how many of a branch's newest merge requests ReadBranches reads.
@@ -457,7 +456,7 @@ func (f *Forge) ReadBranches(ctx context.Context, repo git.RemoteURL, branches [
 
 			for _, node := range answered.Nodes {
 				pullRequest := node.toPullRequest(true)
-				if pullRequest.Head.IsZero() || pullRequest.Head.Canonical() != pullRequest.Repository.Canonical() {
+				if !pullRequest.IsFromItsOwnRepository() {
 					continue
 				}
 
@@ -493,23 +492,18 @@ func (f *Forge) listMergeRequests(ctx context.Context, operation string, variabl
 		return nil, fmt.Errorf("%w: gitlab has no project %s, which is also its answer for one the credential cannot see", forge.ErrNotFound, variables["path"])
 	}
 
-	return pageOf(&data.Project.MergeRequests, answer.RateLimit, false), nil
+	return graphql.PageOf(&data.Project.MergeRequests, answer.RateLimit, func(node mergeRequestNode) forge.PullRequest {
+		return node.toPullRequest(false)
+	}), nil
 }
 
-// pageOf is a connection as one page of pull requests, each with its standing when asked for.
-func pageOf(c *connection, limit forge.RateLimit, withStanding bool) *forge.Page {
-	return graphql.PageOf(c, limit, func(node mergeRequestNode) forge.PullRequest {
-		return node.toPullRequest(withStanding)
-	})
-}
-
-// sendInBatches sends one query per batch of items, sized from what GitLab last said about its
+// sendInBatches sends one query per batch of branches, sized from what GitLab last said about its
 // complexity budget, halved when it refuses a batch for exceeding it and never again as large.
-func sendInBatches[T any](ctx context.Context, items []T, size int, send func(context.Context, []T) (complexity, error)) error {
-	ceiling := len(items)
-	for len(items) > 0 {
-		count := min(size, ceiling, len(items))
-		measured, err := send(ctx, items[:count])
+func sendInBatches(ctx context.Context, branches []string, size int, send func(context.Context, []string) (complexity, error)) error {
+	ceiling := len(branches)
+	for len(branches) > 0 {
+		count := min(size, ceiling, len(branches))
+		measured, err := send(ctx, branches[:count])
 		if errors.Is(err, errTooComplex) && count > 1 {
 			ceiling = count - 1
 			size = count / 2
@@ -520,7 +514,7 @@ func sendInBatches[T any](ctx context.Context, items []T, size int, send func(co
 			return err
 		}
 
-		items = items[count:]
+		branches = branches[count:]
 		if measured.Score > 0 && measured.Limit > 0 {
 			size = max(1, count*measured.Limit/measured.Score)
 		}

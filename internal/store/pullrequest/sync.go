@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"komrad/db"
 	"komrad/db/models"
 	"komrad/internal/store"
 	"komrad/lib/xslice"
@@ -58,21 +57,6 @@ func (s *PullRequestSyncStore) EnsureSync(ctx context.Context, repositoryURL str
 	}
 
 	return nil
-}
-
-// GetSync is the sync row of a repository, or ErrNotFound while it has never been read.
-func (s *PullRequestSyncStore) GetSync(ctx context.Context, repositoryURL string) (*Sync, error) {
-	row, err := s.queries.GetPullRequestSync(ctx, repositoryURL)
-	if db.IsNoRows(err) {
-		return nil, store.ErrNotFound.Saying("%s has no sync row", repositoryURL)
-	}
-	if err != nil {
-		return nil, fmt.Errorf("failed to get the sync row for %s: %w", repositoryURL, err)
-	}
-
-	sync := fromSyncRow(row)
-
-	return &sync, nil
 }
 
 func fromSyncRow(row *models.PullRequestSync) Sync {

@@ -81,8 +81,6 @@ message PullRequest {
 message Repository {
   // The canonical address of the repository.
   string url = 1;
-  // Whether the sync has read the repository's pull requests at least once.
-  bool read = 2;
 }
 
 message ListPullRequestsResponse {
