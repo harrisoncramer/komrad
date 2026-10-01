@@ -305,7 +305,7 @@
               "key": "clear",
               "path": "keybindings.archive_menu.clear",
               "type": "array",
-              "description": "Delete every worktree that can go: every directory whose agent is archived, through the\nagent delete and its hooks, and every directory no agent answers for. A directory with a\nlive agent in it is never deleted. The entry is only on the worktrees.",
+              "description": "Delete every worktree that can go: every directory whose agent is archived, through the\nagent delete and its hooks, and every directory no agent answers for. A directory with a\nlive agent in it is never deleted. The entry is only on the worktrees screen, and is gray\nwhen nothing there can go.",
               "default": "[\"c\"]"
             }
           ],

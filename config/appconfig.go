@@ -650,7 +650,8 @@ type ArchiveMenuKeys struct {
 	RestoreOpen []string `mapstructure:"restore_open" default:"o"`
 	// Delete every worktree that can go: every directory whose agent is archived, through the
 	// agent delete and its hooks, and every directory no agent answers for. A directory with a
-	// live agent in it is never deleted. The entry is only on the worktrees.
+	// live agent in it is never deleted. The entry is only on the worktrees screen, and is gray
+	// when nothing there can go.
 	Clear []string `mapstructure:"clear" default:"c"`
 }
 
