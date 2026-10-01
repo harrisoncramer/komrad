@@ -378,7 +378,21 @@ func isAgentOnIt(item panel.AgentRow) bool {
 		return true
 	}
 
-	return item.Alive && (item.UnreadMail || item.PullRequest.Checks == pullrequestv1.Checks_CHECKS_PENDING)
+	return item.Alive && (item.UnreadMail || isAwaitingChecks(item.PullRequest))
+}
+
+// isAwaitingChecks reports whether an open pull request has checks still running on its head.
+func isAwaitingChecks(pullRequest panel.PullRequestStanding) bool {
+	return pullRequest.Checks == pullrequestv1.Checks_CHECKS_PENDING &&
+		!slices.Contains(unopenedPullRequestStates, pullRequest.State)
+}
+
+var unopenedPullRequestStates = []pullrequestv1.PullRequestState{
+	pullrequestv1.PullRequestState_PULL_REQUEST_STATE_UNSPECIFIED,
+	pullrequestv1.PullRequestState_PULL_REQUEST_STATE_UNREAD,
+	pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE,
+	pullrequestv1.PullRequestState_PULL_REQUEST_STATE_MERGED,
+	pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CLOSED,
 }
 
 // isFinishedImplementer reports whether a top-level implementer has finished its turn with nothing

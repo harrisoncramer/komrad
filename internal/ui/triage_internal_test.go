@@ -128,6 +128,7 @@ func TestTriageRefresh(t *testing.T) {
 		{
 			name: "an implementer waiting on its checks is not in triage",
 			item: implementer(func(item *panel.AgentRow) {
+				item.PullRequest.State = pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHECKS_RUNNING
 				item.PullRequest.Checks = pullrequestv1.Checks_CHECKS_PENDING
 			}),
 			want: "",
@@ -136,6 +137,7 @@ func TestTriageRefresh(t *testing.T) {
 			name: "pending checks do not clear what only a person can",
 			item: idle(func(item *panel.AgentRow) {
 				item.FailedRun = true
+				item.PullRequest.State = pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHECKS_RUNNING
 				item.PullRequest.Checks = pullrequestv1.Checks_CHECKS_PENDING
 			}),
 			want:  "script failed",
@@ -247,6 +249,15 @@ func TestTriageRefresh(t *testing.T) {
 			name: "an implementer that stopped on a failing pull request is finished",
 			item: implementer(func(item *panel.AgentRow) {
 				item.PullRequest.State = pullrequestv1.PullRequestState_PULL_REQUEST_STATE_FAILING
+			}),
+			want:  "finished",
+			since: changed,
+		},
+		{
+			name: "an implementer whose pull request merged with checks still running is finished",
+			item: implementer(func(item *panel.AgentRow) {
+				item.PullRequest.State = pullrequestv1.PullRequestState_PULL_REQUEST_STATE_MERGED
+				item.PullRequest.Checks = pullrequestv1.Checks_CHECKS_PENDING
 			}),
 			want:  "finished",
 			since: changed,
