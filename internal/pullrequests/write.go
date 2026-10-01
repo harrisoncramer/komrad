@@ -6,23 +6,19 @@ import (
 	"net/url"
 
 	"komrad/internal/forge"
+	"komrad/internal/wake"
 )
-
-// heater keeps a host's repositories in the pull request sync's fast lane for a while.
-type heater interface {
-	Heat(host string)
-}
 
 // NewWriterParams is what a writer is built over.
 type NewWriterParams struct {
 	Forges *forge.Service
-	Sync   heater
+	Sync   wake.Heater
 }
 
 // Writer changes pull requests through the connection for their host.
 type Writer struct {
 	forges *forge.Service
-	sync   heater
+	sync   wake.Heater
 }
 
 // NewWriter builds a writer over the forge service and the pull request sync.

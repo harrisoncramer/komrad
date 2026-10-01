@@ -74,11 +74,6 @@ type branchMover interface {
 	AbortSequence(ctx context.Context, dir string, sequence git.Sequence) error
 }
 
-// pullRequestHeater keeps the pull request sync reading a forge host often for a while.
-type pullRequestHeater interface {
-	Heat(host string)
-}
-
 // NewServiceParams is what the service is built over.
 type NewServiceParams struct {
 	Agents          *agentstore.AgentStore
@@ -89,7 +84,7 @@ type NewServiceParams struct {
 	PullRequests    *pullrequeststore.PullRequestStore
 	Locks           *TreeLocks
 	CheckoutSync    wake.Waker
-	PullRequestSync pullRequestHeater
+	PullRequestSync wake.Heater
 }
 
 // Service rebases, pushes and aborts in an agent's existing worktree on a person's say-so.
@@ -102,7 +97,7 @@ type Service struct {
 	pullRequests    *pullrequeststore.PullRequestStore
 	locks           *TreeLocks
 	checkoutSync    wake.Waker
-	pullRequestSync pullRequestHeater
+	pullRequestSync wake.Heater
 }
 
 // NewService builds the service from its dependencies.
