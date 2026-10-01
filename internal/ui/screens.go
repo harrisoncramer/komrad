@@ -126,6 +126,11 @@ type kindSwitcher interface {
 	kindsSwitch(m *model) bool
 }
 
+// viewsPicker is a screen that draws the row of views and answers the keys that switch them.
+type viewsPicker interface {
+	picksViews()
+}
+
 // tabSwitcher is a screen with a strip of tabs over its list.
 type tabSwitcher interface {
 	tabs() tabStrip

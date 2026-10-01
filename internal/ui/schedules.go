@@ -334,7 +334,10 @@ var (
 	_ itemMenuBuilder   = (*schedulesScreen)(nil)
 	_ lineTyper         = (*schedulesScreen)(nil)
 	_ renamer           = (*schedulesScreen)(nil)
+	_ viewsPicker       = (*schedulesScreen)(nil)
 )
+
+func (*schedulesScreen) picksViews() {}
 
 func (w *schedulesScreen) doesDrawFromListing() bool {
 	return true

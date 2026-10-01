@@ -558,7 +558,10 @@ var (
 	_ crumbDrawer   = (*logsScreen)(nil)
 	_ screenLeaver  = (*logsScreen)(nil)
 	_ lineTyper     = (*logsScreen)(nil)
+	_ viewsPicker   = (*logsScreen)(nil)
 )
+
+func (*logsScreen) picksViews() {}
 
 func (l *logsScreen) hoveredKey(m *model) string {
 	return l.list().hovered(m)

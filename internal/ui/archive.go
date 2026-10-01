@@ -514,7 +514,10 @@ var (
 	_ renamer              = (*archiveScreen)(nil)
 	_ hoveredAgentReporter = (*archiveScreen)(nil)
 	_ savedScreenDrawer    = (*archiveScreen)(nil)
+	_ viewsPicker          = (*archiveScreen)(nil)
 )
+
+func (*archiveScreen) picksViews() {}
 
 func (a *archiveScreen) doesDrawFromListing() bool {
 	return true

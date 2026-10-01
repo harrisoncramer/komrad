@@ -439,7 +439,10 @@ var (
 	_ hoveredAgentReporter = (*agentsScreen)(nil)
 	_ savedScreenDrawer    = (*agentsScreen)(nil)
 	_ agentPauser          = (*agentsScreen)(nil)
+	_ viewsPicker          = (*agentsScreen)(nil)
 )
+
+func (*agentsScreen) picksViews() {}
 
 func (a *agentsScreen) doesDrawFromListing() bool {
 	return true

@@ -49,13 +49,15 @@ func viewEntries() []viewEntry {
 	}
 }
 
-// picksViews reports whether the switcher answers on a screen.
-func (s screen) picksViews() bool {
-	return s != screenReview
+// picksViews reports whether the screen that is up draws and switches the views.
+func (m *model) picksViews() bool {
+	_, ok := m.active().(viewsPicker)
+
+	return ok
 }
 
 func (m *model) isViewsOpen() bool {
-	return m.viewsOpen && m.screen.picksViews()
+	return m.viewsOpen && m.picksViews()
 }
 
 // viewsBar is the logo and the switcher drawn over a list, and under them the trail down to the
@@ -87,7 +89,7 @@ func (m *model) switcherLines(trail crumbs) []string {
 	}
 
 	lines := []string{logo, m.engineLine(m.paneWidth()), ""}
-	if m.screen.picksViews() {
+	if m.picksViews() {
 		lines = append(lines, m.viewsRow())
 	}
 	if width := m.paneWidth(); width > 0 {

@@ -535,7 +535,10 @@ var (
 	_ hoveredNamer      = (*worktreesScreen)(nil)
 	_ itemMenuBuilder   = (*worktreesScreen)(nil)
 	_ savedScreenDrawer = (*worktreesScreen)(nil)
+	_ viewsPicker       = (*worktreesScreen)(nil)
 )
+
+func (*worktreesScreen) picksViews() {}
 
 func (w *worktreesScreen) doesDrawFromListing() bool {
 	return true

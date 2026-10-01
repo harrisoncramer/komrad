@@ -820,7 +820,10 @@ var (
 	_ hoveredNamer  = (*searchScreen)(nil)
 	_ lineTyper     = (*searchScreen)(nil)
 	_ listScroller  = (*searchScreen)(nil)
+	_ viewsPicker   = (*searchScreen)(nil)
 )
+
+func (*searchScreen) picksViews() {}
 
 func (w *searchScreen) doesDrawFromListing() bool {
 	return false
