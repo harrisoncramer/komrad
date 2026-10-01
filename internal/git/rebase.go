@@ -59,11 +59,11 @@ func (c *Client) ReadTreeState(ctx context.Context, dir string) (TreeState, erro
 
 	// Read before the index is touched, so an unmerged index is reported as the sequence it
 	// belongs to rather than as a refresh that would not settle it.
-	inProgress, err := isSequenceInProgress(ctx, dir)
+	sequence, err := readCheckoutSequence(ctx, dir)
 	if err != nil {
 		return TreeState{}, err
 	}
-	state.InProgress = inProgress
+	state.InProgress = sequence.IsInProgress()
 
 	refreshIndex(ctx, dir)
 
@@ -404,11 +404,11 @@ func runRebase(ctx context.Context, dir, ref string, args ...string) error {
 		return nil
 	}
 
-	stopped, stateErr := isSequenceInProgress(ctx, dir)
+	stopped, stateErr := readCheckoutSequence(ctx, dir)
 	if stateErr != nil {
 		return fmt.Errorf("failed to rebase onto %s in %q: %w (and its state could not be read: %w)", ref, dir, err, stateErr)
 	}
-	if stopped {
+	if stopped.IsInProgress() {
 		return fmt.Errorf("%w onto %s", ErrRebaseConflicted, ref)
 	}
 
@@ -454,15 +454,10 @@ func refreshIndex(ctx context.Context, dir string) {
 // IsSequenceInProgress reports whether git is mid-merge, mid-rebase or mid-cherry-pick, without
 // touching the index.
 func (c *Client) IsSequenceInProgress(ctx context.Context, dir string) (bool, error) {
-	return isSequenceInProgress(ctx, dir)
-}
-
-// isSequenceInProgress reports whether git is mid-merge, mid-rebase or mid-cherry-pick.
-func isSequenceInProgress(ctx context.Context, dir string) (bool, error) {
-	gitDir, err := Run(ctx, dir, "rev-parse", "--absolute-git-dir")
+	sequence, err := readCheckoutSequence(ctx, dir)
 	if err != nil {
-		return false, fmt.Errorf("failed to read the git directory of %q: %w", dir, err)
+		return false, err
 	}
 
-	return hasSequenceMarker(gitDir), nil
+	return sequence.IsInProgress(), nil
 }

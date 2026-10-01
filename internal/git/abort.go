@@ -22,9 +22,9 @@ func (c *Client) AbortSequence(ctx context.Context, dir string, sequence Sequenc
 		return fmt.Errorf("there is no way to abort a sequence of kind %q", sequence)
 	}
 
-	gitDir, err := Run(ctx, dir, "rev-parse", "--absolute-git-dir")
+	gitDir, err := readGitDir(ctx, dir)
 	if err != nil {
-		return fmt.Errorf("failed to read the git directory of %q: %w", dir, err)
+		return err
 	}
 	if _, err := os.Stat(filepath.Join(gitDir, "index.lock")); err == nil {
 		return fmt.Errorf("%w: %s", ErrIndexLocked, dir)
@@ -40,9 +40,9 @@ func (c *Client) AbortSequence(ctx context.Context, dir string, sequence Sequenc
 // ReadRebaseOnto is the commit a rebase part-way through a checkout is replaying onto, empty
 // when no rebase is.
 func (c *Client) ReadRebaseOnto(ctx context.Context, dir string) (string, error) {
-	gitDir, err := Run(ctx, dir, "rev-parse", "--absolute-git-dir")
+	gitDir, err := readGitDir(ctx, dir)
 	if err != nil {
-		return "", fmt.Errorf("failed to read the git directory of %q: %w", dir, err)
+		return "", err
 	}
 
 	for _, backend := range []string{"rebase-merge", "rebase-apply"} {

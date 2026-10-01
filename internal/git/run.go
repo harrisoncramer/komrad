@@ -101,3 +101,13 @@ func runReporting(ctx context.Context, dir string, env []string, args ...string)
 
 	return stdout.String(), nil
 }
+
+// readGitDir is the absolute git directory of the checkout at dir.
+func readGitDir(ctx context.Context, dir string) (string, error) {
+	gitDir, err := Run(ctx, dir, "rev-parse", "--absolute-git-dir")
+	if err != nil {
+		return "", fmt.Errorf("failed to read the git directory of %q: %w", dir, err)
+	}
+
+	return gitDir, nil
+}

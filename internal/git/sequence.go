@@ -2,7 +2,6 @@ package git
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -52,9 +51,14 @@ func (s Sequence) GetCommand() string {
 
 // ReadSequence is what git has part-way through in a checkout, read without touching the index.
 func (c *Client) ReadSequence(ctx context.Context, dir string) (Sequence, error) {
-	gitDir, err := Run(ctx, dir, "rev-parse", "--absolute-git-dir")
+	return readCheckoutSequence(ctx, dir)
+}
+
+// readCheckoutSequence is what git has part-way through in the checkout at dir.
+func readCheckoutSequence(ctx context.Context, dir string) (Sequence, error) {
+	gitDir, err := readGitDir(ctx, dir)
 	if err != nil {
-		return SequenceNone, fmt.Errorf("failed to read the git directory of %q: %w", dir, err)
+		return SequenceNone, err
 	}
 
 	return readSequence(gitDir), nil
@@ -77,10 +81,6 @@ func readSequence(gitDir string) Sequence {
 	}
 
 	return SequenceNone
-}
-
-func hasSequenceMarker(gitDir string) bool {
-	return readSequence(gitDir).IsInProgress()
 }
 
 // readApplySequence tells an am from a rebase run on the apply backend, which share a directory.
