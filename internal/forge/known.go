@@ -21,8 +21,7 @@ const (
 	autoMergeOff = "off"
 )
 
-// Move is one part of a pull request's standing going from one value to another, From empty
-// when nothing was known before.
+// Move is one part of a pull request's standing going from one value to another.
 type Move struct {
 	Field Field
 	From  string
@@ -85,8 +84,7 @@ func fold[T comparable](last Last[T], read T, head string) Last[T] {
 	return Last[T]{Value: read, SHA: head}
 }
 
-// Moves is every part of the standing that moved since before, the same checks verdict on a
-// new head counting as a move.
+// Moves is every part of the standing that moved since before.
 func (k Known) Moves(before Known) []Move {
 	var moves []Move
 	if k.Decision.Value != before.Decision.Value {
