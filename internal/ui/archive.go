@@ -51,7 +51,7 @@ func (a *archiveScreen) enter(h host, s panelShared, target screenTarget) tea.Cm
 
 func (a *archiveScreen) update(h host, s panelShared, msg tea.Msg) tea.Cmd {
 	if _, ok := msg.(tea.PasteMsg); ok && a.isRenaming() {
-		return a.updateRename(h, msg)
+		return a.updateRename(h, s, msg)
 	}
 
 	key, ok := msg.(tea.KeyPressMsg)
@@ -61,7 +61,7 @@ func (a *archiveScreen) update(h host, s panelShared, msg tea.Msg) tea.Cmd {
 
 	a.reconcileRename(s)
 	if a.isRenaming() {
-		return a.updateRename(h, msg)
+		return a.updateRename(h, s, msg)
 	}
 
 	if a.kind == archiveSchedules {

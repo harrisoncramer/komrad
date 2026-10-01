@@ -8,6 +8,7 @@ import (
 	"komrad/internal/glyph"
 	"komrad/internal/ui/paint"
 	"komrad/internal/view"
+	"komrad/internal/vim"
 
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
@@ -18,7 +19,7 @@ import (
 type nameEdit struct {
 	key   string
 	was   string
-	typed string
+	input lineInput
 	// gone says the row was taken out of the list while its name was being typed.
 	gone  bool
 	noted bool
@@ -39,10 +40,10 @@ const (
 )
 
 func openNameEdit(key, name string) *nameEdit {
-	return &nameEdit{key: key, was: name, typed: name}
+	return &nameEdit{key: key, was: name, input: newLineInput(name)}
 }
 
-func (e *nameEdit) take(h host, msg tea.Msg) nameEditStep {
+func (e *nameEdit) take(h host, register *vim.Register, msg tea.Msg) nameEditStep {
 	if e.saving || e.landed {
 		return nameEditTyping
 	}
@@ -52,19 +53,17 @@ func (e *nameEdit) take(h host, msg tea.Msg) nameEditStep {
 
 	switch msg := msg.(type) {
 	case tea.PasteMsg:
-		e.typed += pastedLine(msg)
+		e.input.take(msg, register)
 	case tea.KeyPressMsg:
-		switch k := msg.String(); {
-		case k == "ctrl+c":
+		if msg.String() == "ctrl+c" {
 			return nameEditHidden
-		case k == "esc":
+		}
+
+		switch step, k := e.input.take(msg, register), msg.String(); {
+		case step == lineLeft || (step == lineIgnored && k == "esc"):
 			return nameEditCancelled
-		case k == "enter" || isBound(k, formKeys().Submit):
+		case step == lineIgnored && (k == "enter" || isBound(k, formKeys().Submit)):
 			return nameEditSubmitted
-		case k == "backspace":
-			e.typed = paint.TrimLastRune(e.typed)
-		case typedText(msg) != "":
-			e.typed += typedText(msg)
 		}
 	}
 
@@ -113,12 +112,12 @@ func reconcileNameEdit[T keyed](e *nameEdit, rows []T, hovered string, name func
 
 // submit marks the field saving and gives the name to send, or false when there is nothing to.
 func (e *nameEdit) submit() (string, bool) {
-	name := strings.TrimSpace(e.typed)
+	name := strings.TrimSpace(e.input.value())
 	if name == "" || name == e.was {
 		return "", false
 	}
 
-	e.typed = name
+	e.input.set(name)
 	e.saving = true
 
 	return name, true
@@ -140,9 +139,10 @@ func (e *nameEdit) drawnOver(row view.Row) view.Row {
 		return row
 	}
 
-	row.Name = e.typed
+	row.Name = e.input.value()
 	row.Matches = nil
 	row.Editing = !e.saving && !e.landed
+	row.Behind = e.input.behind()
 
 	return row
 }
@@ -175,12 +175,14 @@ type renamer interface {
 	isRenaming() bool
 }
 
-// drawnName is the typed name in a row's lettering, cut from its start to fit.
+// drawnName is the typed name in a row's lettering, cut to fit around the cursor.
 func drawnName(e *nameEdit, style lipgloss.Style) string {
-	name := style.Render(paint.ClipStart(e.typed, nameWidth))
 	if e.saving || e.landed {
-		return name
+		return style.Render(paint.ClipStart(e.input.value(), nameWidth))
 	}
 
-	return name + paint.Panel.Cursor().Render(glyph.TextCursor)
+	before, after := e.input.split()
+	before, after = paint.ClipAround(before, after, nameWidth)
+
+	return style.Render(before) + paint.Panel.Cursor().Render(glyph.TextCursor) + style.Render(after)
 }

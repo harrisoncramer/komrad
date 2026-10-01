@@ -59,6 +59,7 @@ func prepareLine(params prepareLineParams) Line {
 		Name:     row.Name,
 		Matches:  row.Matches,
 		Editing:  row.Editing,
+		Behind:   row.Behind,
 		Weight:   weightFor(row.Kind),
 		Emphasis: emphasisFor(row, focused && params.caret != CaretAbsent),
 		Held:     HeldCell(row),
@@ -358,7 +359,7 @@ func fitRow(line Line, width int) Line {
 	}
 
 	if line.Editing {
-		line.Name = clipNameStart(line.Name, roomForName(line, width))
+		line.Name, line.Behind = clipNameAround(line.Name, line.Behind, roomForName(line, width))
 	} else {
 		line.Name, line.Matches = clipName(line.Name, line.Matches, roomForName(line, width))
 	}
@@ -438,15 +439,13 @@ func emphasisFor(row Row, focused bool) Emphasis {
 	return EmphasisNormal
 }
 
-// clipNameStart cuts a name being typed from its start, keeping the end in view.
-func clipNameStart(name string, width int) string {
+// clipNameAround cuts a name being typed to fit around its cursor, along with how many runes
+// of what is left follow the cursor.
+func clipNameAround(name string, behind int, width int) (string, int) {
 	runes := []rune(name)
-	switch {
-	case width <= 0:
-		return ""
-	case len(runes) <= width:
-		return name
-	}
+	at := min(max(len(runes)-behind, 0), len(runes))
 
-	return "…" + string(runes[len(runes)-width+1:])
+	before, after := paint.ClipAround(string(runes[:at]), string(runes[at:]), width)
+
+	return before + after, len([]rune(after))
 }

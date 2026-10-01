@@ -7,6 +7,7 @@ import (
 
 	"komrad/internal/glyph"
 	"komrad/internal/ui/paint"
+	"komrad/internal/vim"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
@@ -50,7 +51,7 @@ func (m filterMode) String() string {
 
 type filterState struct {
 	typing  bool
-	query   string
+	input   lineInput
 	pattern *regexp.Regexp
 	broken  bool
 	mode    filterMode
@@ -60,8 +61,12 @@ type filterState struct {
 	origin string
 }
 
+func (f filterState) query() string {
+	return f.input.value()
+}
+
 func (f filterState) isStanding() bool {
-	return f.query != ""
+	return f.query() != ""
 }
 
 // isNarrowing reports whether the pattern is taking rows off the screen.
@@ -76,7 +81,13 @@ func (f filterState) doesNarrow(section sidebarSection) bool {
 }
 
 func (f *filterState) setQuery(query string) {
-	f.query = query
+	f.input.set(query)
+	f.compile()
+}
+
+// compile reads the pattern out of what is typed.
+func (f *filterState) compile() {
+	query := f.query()
 	f.pattern, f.broken = nil, false
 
 	if strings.TrimSpace(query) == "" {
@@ -185,19 +196,17 @@ func (m *model) leaveScreen() tea.Cmd {
 	return nil
 }
 
-// takeKey applies one keypress to a search being typed at, and reports whether it was one of
-// the search's.
-func (f *filterState) takeKey(key tea.KeyPressMsg) bool {
-	switch k := key.String(); {
-	case k == "esc":
+// takeKey applies one keypress to a search being typed at, with vim reading it first when
+// register is set, and reports whether it was one of the search's.
+func (f *filterState) takeKey(key tea.KeyPressMsg, register *vim.Register) bool {
+	switch step, k := f.input.take(key, register), key.String(); {
+	case step == lineLeft || (step == lineIgnored && k == "esc"):
 		f.abandon()
-	case k == "enter":
+	case step == lineIgnored && k == "enter":
 		f.typing = false
-	case k == "backspace":
-		f.setQuery(paint.TrimLastRune(f.query))
-	case typedText(key) != "":
-		f.setQuery(f.query + typedText(key))
-	default:
+	case step == lineChanged:
+		f.compile()
+	case step == lineIgnored:
 		return false
 	}
 
@@ -243,7 +252,7 @@ func (m model) updateFilterInput(key tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.applyFilter()
 
 		return m, m.waitToStage()
-	case !filter.takeKey(key):
+	case !filter.takeKey(key, m.register):
 		return m, nil
 	}
 
@@ -399,9 +408,9 @@ func (f filterState) view(palette paint.Palette, glyphs glyph.Set) string {
 }
 
 func (f filterState) line(palette paint.Palette, glyphs glyph.Set) string {
-	query := f.query
+	before, after := f.input.split()
 	if f.broken {
-		query = palette.Broken().Render(query)
+		before, after = palette.Broken().Render(before), palette.Broken().Render(after)
 	}
 
 	slash := palette.Cursor()
@@ -412,12 +421,12 @@ func (f filterState) line(palette paint.Palette, glyphs glyph.Set) string {
 		slash = palette.Blinking(false).Cursor()
 	}
 
-	line := slash.Render(f.mode.glyph(glyphs)) + " " + query
+	line := slash.Render(f.mode.glyph(glyphs)) + " " + before
 	if f.typing {
 		line += palette.Cursor().Render(glyph.TextCursor)
 	}
 
-	return line
+	return line + after
 }
 
 // head is the rows over a block the filter searches: the search, what the last key said, and a

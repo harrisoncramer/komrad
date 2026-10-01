@@ -150,7 +150,7 @@ func (w *searchScreen) previewView(s panelShared, split columnSplit) string {
 // previewNotice is what stands in the column before a transcript does.
 func (w *searchScreen) previewNotice(s panelShared) string {
 	switch {
-	case strings.TrimSpace(w.query) == "":
+	case strings.TrimSpace(w.query()) == "":
 		return searchWaitingMarkdown
 	case len(w.rows(s)) == 0:
 		return noSearchHitsMarkdown

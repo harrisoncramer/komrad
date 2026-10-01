@@ -148,7 +148,7 @@ func TestFilterHelpNamesTheOtherMode(t *testing.T) {
 func TestReviewSearchIgnoresTab(t *testing.T) {
 	filter := filterState{typing: true}
 
-	assert.False(t, filter.takeKey(keyMsg("tab")))
+	assert.False(t, filter.takeKey(keyMsg("tab"), nil))
 	assert.Equal(t, filterModeSearch, filter.mode)
 	assert.Equal(t, "/", filter.mode.glyph(glyph.Defaults()))
 }

@@ -58,7 +58,7 @@ func (d *documentsScreen) reconcileRename(s panelShared) {
 }
 
 func (d *documentsScreen) updateRename(h host, s panelShared, msg tea.Msg) tea.Cmd {
-	switch d.renaming.take(h, msg) {
+	switch d.renaming.take(h, s.register, msg) {
 	case nameEditHidden:
 		return h.hide()
 	case nameEditCancelled:
@@ -117,4 +117,15 @@ func (d *documentsScreen) settleRename(s panelShared, row string, err error) {
 
 func (d *documentsScreen) isRenaming() bool {
 	return d.renaming != nil && !d.renaming.landed
+}
+
+func (d *documentsScreen) typedLine() (lineInput, bool) {
+	switch {
+	case d.isRenaming():
+		return d.renaming.input, true
+	case d.history != nil && d.history.filter.typing:
+		return d.history.filter.input, true
+	}
+
+	return lineInput{}, false
 }

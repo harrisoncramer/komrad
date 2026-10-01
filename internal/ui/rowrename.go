@@ -94,8 +94,8 @@ func reconcileRename[T keyed](r *renameSlot, rows []T, hovered string, name func
 	}
 }
 
-func (r *renameSlot) updateRename(h host, msg tea.Msg) tea.Cmd {
-	switch r.renaming.take(h, msg) {
+func (r *renameSlot) updateRename(h host, s panelShared, msg tea.Msg) tea.Cmd {
+	switch r.renaming.take(h, s.register, msg) {
 	case nameEditHidden:
 		return h.hide()
 	case nameEditCancelled:
@@ -122,4 +122,12 @@ func (r *renameSlot) settleField(row string, err error) bool {
 	r.renaming.settle(row, err)
 
 	return true
+}
+
+func (r *renameSlot) typedLine() (lineInput, bool) {
+	if !r.isRenaming() {
+		return lineInput{}, false
+	}
+
+	return r.renaming.input, true
 }

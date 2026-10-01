@@ -183,7 +183,7 @@ func (m model) updateDocFilter(key tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	}
 
 	r := &m.reading
-	if !r.filter.takeKey(key) {
+	if !r.filter.takeKey(key, m.register) {
 		return m, nil
 	}
 
