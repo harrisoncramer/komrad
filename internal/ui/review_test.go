@@ -385,6 +385,21 @@ func TestReviewThreads(t *testing.T) {
 		assert.Contains(t, sidebar, "you wrong greeting")
 	})
 
+	t.Run("a thread nobody has read is marked read once the cursor rests on it", func(t *testing.T) {
+		thread := newThreadOnFirstLine(newAgentMessage("m1", "wrapped it"))
+		thread.UnreadByHuman = true
+		server := newReviewServer(t)
+		server.threads = []*agentv1.ReviewThread{thread}
+
+		harness := openReview(t, server)
+
+		harness.press("j", "k")
+		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceMarkReviewThreadReadProcedure))
+
+		harness.press(rest)
+		harness.assertSentTo(agentv1connect.AgentServiceMarkReviewThreadReadProcedure, &agentv1.MarkReviewThreadReadRequest{Id: "t1"})
+	})
+
 	t.Run("the agent under review and its reviewer are each named by role in the thread", func(t *testing.T) {
 		server := newReviewServer(t)
 		server.children = []*agentv1.Agent{{Id: "r1", Name: "review-auth", ParentAgentId: xptr.Ptr("a1"), WorkflowId: "w1", Role: agentv1.AgentRole_AGENT_ROLE_REVIEWER}}
@@ -2099,6 +2114,21 @@ func TestReviewHold(t *testing.T) {
 		assert.NotContains(t, harness.readFrame(), "editing ·")
 		assert.Contains(t, readReleaseSaid(t, harness), "while I had your worktree open")
 		assert.Len(t, harness.readSent(agentv1connect.AgentServiceOpenReviewRoundProcedure), loads+1)
+	})
+
+	t.Run("the cursor resting while the editor is open leaves the editor on the stage", func(t *testing.T) {
+		harness := openReview(t, newReviewServer(t))
+		harness.press("e")
+		require.Contains(t, harness.readFrame(), "editing · greet.go")
+		swaps, respawns := harness.panel.CountSwaps(), harness.panel.CountRespawns()
+
+		wheelOver(harness, defaultHarnessWidth-1)
+		harness.press(rest)
+		harness.fireTimers()
+
+		assert.Equal(t, swaps, harness.panel.CountSwaps())
+		assert.Equal(t, respawns, harness.panel.CountRespawns())
+		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceReleaseAgentProcedure))
 	})
 
 	t.Run("the editor opens at the repository root the paths are named from", func(t *testing.T) {

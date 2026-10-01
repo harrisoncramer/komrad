@@ -12,7 +12,6 @@ import (
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/ui/panel"
 	agentv1 "komrad/proto/gen/agent/v1"
-	"komrad/proto/gen/agent/v1/agentv1connect"
 
 	tea "charm.land/bubbletea/v2"
 	"connectrpc.com/connect"
@@ -162,7 +161,7 @@ type loadReviewCmdParams struct {
 // loadReviewCmd opens a round of the agent and reads that rather than the worktree, a tree that
 // has not moved giving back the round already taken of it.
 func loadReviewCmd(s panelShared, params loadReviewCmdParams) tea.Cmd {
-	agents := s.api.agents
+	agents := s.reads.agents
 	agentID, dir, exclude := params.AgentID, params.Dir, params.Exclude
 	repo := s.git
 	_, live := s.listing.liveAgent(agentID)
@@ -343,7 +342,7 @@ func loadReviewCmd(s panelShared, params loadReviewCmdParams) tea.Cmd {
 
 // readThreadsParams says whose conversation to read, and what the world already holds of it.
 type readThreadsParams struct {
-	Agents  agentv1connect.AgentServiceClient
+	Agents  agentReads
 	AgentID string
 	// Live says the agent's threads are the world's.
 	Live bool

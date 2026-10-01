@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"komrad/internal/client"
 	"komrad/internal/rpcapi"
 	"komrad/internal/ui/panel"
 	agentv1 "komrad/proto/gen/agent/v1"
@@ -46,6 +47,28 @@ type api struct {
 	forges       forgev1connect.ForgeServiceClient
 	pullRequests pullrequestv1connect.PullRequestServiceClient
 	loops        loopv1connect.LoopServiceClient
+}
+
+// reads is the half of the service a screen reaches without the host.
+type reads struct {
+	agents agentReads
+	logs   logv1connect.LogServiceClient
+}
+
+// agentReads is the part of the agent service a screen reads through.
+type agentReads interface {
+	client.TranscriptGetter
+	SearchTranscripts(ctx context.Context, req *connect.Request[agentv1.SearchTranscriptsRequest]) (*connect.Response[agentv1.SearchTranscriptsResponse], error)
+	ListReviewThreads(ctx context.Context, req *connect.Request[agentv1.ListReviewThreadsRequest]) (*connect.Response[agentv1.ListReviewThreadsResponse], error)
+	OpenReviewRound(ctx context.Context, req *connect.Request[agentv1.OpenReviewRoundRequest]) (*connect.Response[agentv1.OpenReviewRoundResponse], error)
+	ListReviewRounds(ctx context.Context, req *connect.Request[agentv1.ListReviewRoundsRequest]) (*connect.Response[agentv1.ListReviewRoundsResponse], error)
+	ListReviews(ctx context.Context, req *connect.Request[agentv1.ListReviewsRequest]) (*connect.Response[agentv1.ListReviewsResponse], error)
+	ListReviewViewedFiles(ctx context.Context, req *connect.Request[agentv1.ListReviewViewedFilesRequest]) (*connect.Response[agentv1.ListReviewViewedFilesResponse], error)
+}
+
+// reads is the half of the service a screen reaches without the host.
+func (a api) reads() reads {
+	return reads{agents: a.agents, logs: a.logs}
 }
 
 // call runs work under its own deadline.
@@ -593,7 +616,7 @@ func (a api) deleteDocumentType(id string) error {
 	})
 }
 
-func (a api) readAgentLogs(req *logv1.ReadAgentLogsRequest) (*logv1.ReadAgentLogsResponse, error) {
+func (a reads) readAgentLogs(req *logv1.ReadAgentLogsRequest) (*logv1.ReadAgentLogsResponse, error) {
 	return call(requestTimeout, func(ctx context.Context) (*logv1.ReadAgentLogsResponse, error) {
 		resp, err := a.logs.ReadAgentLogs(ctx, connect.NewRequest(req))
 		if err != nil {
@@ -604,7 +627,7 @@ func (a api) readAgentLogs(req *logv1.ReadAgentLogsRequest) (*logv1.ReadAgentLog
 	})
 }
 
-func (a api) listAgentLogSources(agentID string) ([]*logv1.LogSource, error) {
+func (a reads) listAgentLogSources(agentID string) ([]*logv1.LogSource, error) {
 	return call(requestTimeout, func(ctx context.Context) ([]*logv1.LogSource, error) {
 		resp, err := a.logs.ListAgentLogSources(ctx, connect.NewRequest(&logv1.ListAgentLogSourcesRequest{AgentId: agentID}))
 		if err != nil {

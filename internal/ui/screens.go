@@ -201,6 +201,8 @@ type host interface {
 	queuedCmd(doing, summary string, queued message, write func(api) error) tea.Cmd
 	// A write that lands a message of its own is counted out here.
 	beginWrite(doing string) int
+	// The clients such a write is sent through.
+	clients() api
 
 	navHost
 
@@ -333,8 +335,8 @@ type panelShared struct {
 	width       int
 	height      int
 
-	// api is the service a screen builds its own reads and writes on.
-	api api
+	// reads is the service a screen reads through.
+	reads reads
 
 	// git is the git the review reads a worktree through.
 	git ReviewGit
@@ -389,7 +391,7 @@ func (m *model) unmeasured() panelShared {
 		loaderFrame: m.loading.frame(),
 		width:       m.width,
 		height:      m.height,
-		api:         m.api,
+		reads:       m.api.reads(),
 		git:         m.git,
 		chrome: chromeState{
 			details:      m.details,

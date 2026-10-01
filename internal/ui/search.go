@@ -255,7 +255,7 @@ func (w *searchScreen) runSettled(s panelShared, msg searchSettledMsg) tea.Cmd {
 }
 
 func (w *searchScreen) searchCmd(s panelShared, query string, cursor *string) tea.Cmd {
-	client := s.api.agents
+	client := s.reads.agents
 
 	return func() tea.Msg {
 		if strings.TrimSpace(query) == "" {
@@ -455,7 +455,7 @@ func (w *searchScreen) apply(h host, s panelShared, result searchResult) tea.Cmd
 }
 
 func (w *searchScreen) previewCmd(s panelShared, agent searchAgent) tea.Cmd {
-	agents := s.api.agents
+	agents := s.reads.agents
 	query := w.query
 
 	return func() tea.Msg {

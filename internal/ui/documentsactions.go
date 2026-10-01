@@ -206,8 +206,8 @@ func (d *documentsScreen) doesScrollColumn(s panelShared) bool {
 	return d.isBlockDrawn(s)
 }
 
-func (d *documentsScreen) scrollColumn(_ host, s panelShared, rows int) tea.Cmd {
-	return d.diffKeys().scrollColumn(s, rows)
+func (d *documentsScreen) scrollColumn(h host, s panelShared, rows int) tea.Cmd {
+	return d.diffKeys().scrollColumn(h, s, rows)
 }
 
 // docKeys steps through the writes from the document as it stands, handing the keys to the diff.

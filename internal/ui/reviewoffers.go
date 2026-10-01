@@ -75,7 +75,7 @@ func (r *reviewScreen) stepOffer(h navHost, s panelShared) tea.Cmd {
 		return nil
 	}
 
-	return r.moveCursor(s, row)
+	return r.moveCursor(h, s, row)
 }
 
 // offerView is a forge thread's comments wrapped to the width given, oldest first, with where it
@@ -325,7 +325,7 @@ func (r reviewScreen) dismissOfferCmd(h host, s panelShared) tea.Cmd {
 		return nil
 	}
 
-	pullRequests, id, restore := s.api.pullRequests, offer.GetId(), offer.GetDismissed()
+	pullRequests, id, restore := h.clients().pullRequests, offer.GetId(), offer.GetDismissed()
 	doing, said := "dismissing the comment", "dismissed the comment from the forge"
 	if restore {
 		doing, said = "restoring the comment", "restored the comment from the forge"

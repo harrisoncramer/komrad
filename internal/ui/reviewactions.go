@@ -285,12 +285,12 @@ func (r *reviewScreen) stepOpenThread(h navHost, s panelShared, pressed string) 
 	return r.jumpOpenThread(h, s, 1)
 }
 
-func (r *reviewScreen) stepThread(_ navHost, s panelShared, pressed string) tea.Cmd {
+func (r *reviewScreen) stepThread(h navHost, s panelShared, pressed string) tea.Cmd {
 	if isBound(pressed, s.keys.Review.PrevThread) {
-		return r.moveCursor(s, r.diff.View().JumpThread(r.diff.Cursor(), -1))
+		return r.moveCursor(h, s, r.diff.View().JumpThread(r.diff.Cursor(), -1))
 	}
 
-	return r.moveCursor(s, r.diff.View().JumpThread(r.diff.Cursor(), 1))
+	return r.moveCursor(h, s, r.diff.View().JumpThread(r.diff.Cursor(), 1))
 }
 
 // filesActions is the keys on the file tree, which walk the diff a file at a time.
@@ -302,8 +302,8 @@ func (r *reviewScreen) filesActions() screenActionSpec {
 				keys: func(k config.Keybindings) []string {
 					return slices.Concat(k.Nav.Up, k.Nav.Down, k.Diff.NextFile, k.Diff.PrevFile)
 				},
-				nav: func(_ navHost, s panelShared, pressed string) tea.Cmd {
-					return r.stepFile(s, directionOf(pressed, slices.Concat(s.keys.Nav.Up, s.keys.Diff.PrevFile)))
+				nav: func(h navHost, s panelShared, pressed string) tea.Cmd {
+					return r.stepFile(h, s, directionOf(pressed, slices.Concat(s.keys.Nav.Up, s.keys.Diff.PrevFile)))
 				},
 			},
 			{

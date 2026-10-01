@@ -82,10 +82,10 @@ func (r *reviewScreen) diffKeys() diffKeys {
 		pane:   &r.diff.Pane,
 		filter: &r.diff.filter,
 		height: r.diffHeight,
-		moved: func(s panelShared) tea.Cmd {
+		moved: func(h navHost, _ panelShared) tea.Cmd {
 			r.threads.scroll.reset()
 
-			return r.markThreadReadCmd(s)
+			return h.waitToStage()
 		},
 		refuseExpand: r.refuseExpand,
 	}
@@ -120,7 +120,7 @@ func (r *reviewScreen) jumpOpenThread(h navHost, s panelShared, direction int) t
 		return nil
 	}
 
-	return r.moveCursor(s, next)
+	return r.moveCursor(h, s, next)
 }
 
 // noOpenThreadSaid is why the key moved nowhere.
@@ -171,20 +171,20 @@ func (d reviewDiff) isOnChange() bool {
 	return ok && anchor.FilePath == ""
 }
 
-func (r *reviewScreen) moveCursor(s panelShared, next int) tea.Cmd {
-	return r.diffKeys().moveTo(s, next)
+func (r *reviewScreen) moveCursor(h navHost, s panelShared, next int) tea.Cmd {
+	return r.diffKeys().moveTo(h, s, next)
 }
 
 func (r *reviewScreen) doesScrollColumn(panelShared) bool {
 	return true
 }
 
-func (r *reviewScreen) scrollColumn(_ host, s panelShared, rows int) tea.Cmd {
+func (r *reviewScreen) scrollColumn(h host, s panelShared, rows int) tea.Cmd {
 	if r.isWriting() || r.diff.View() == nil {
 		return nil
 	}
 
-	return r.diffKeys().scrollColumn(s, rows)
+	return r.diffKeys().scrollColumn(h, s, rows)
 }
 
 // scrollList presses the scroll key once for every row, past the popup.

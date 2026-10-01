@@ -29,7 +29,7 @@ type diffKeys struct {
 	height func(panelShared) int
 	// moved is what the screen does once the reader lands somewhere new, and is nil on a screen
 	// with nothing to do.
-	moved func(panelShared) tea.Cmd
+	moved func(navHost, panelShared) tea.Cmd
 	// refuseExpand says why the file under the cursor may not be drawn whole, and is nil on a
 	// screen that never refuses.
 	refuseExpand func(panelShared) string
@@ -40,44 +40,44 @@ func (k diffKeys) table() []screenAction {
 		{
 			id:   actionMove,
 			keys: func(b config.Keybindings) []string { return slices.Concat(b.Nav.Up, b.Nav.Down) },
-			nav: func(_ navHost, s panelShared, pressed string) tea.Cmd {
-				return k.step(s, directionOf(pressed, s.keys.Nav.Up), 1)
+			nav: func(h navHost, s panelShared, pressed string) tea.Cmd {
+				return k.step(h, s, directionOf(pressed, s.keys.Nav.Up), 1)
 			},
 		},
 		{
 			id:   actionJump,
 			keys: func(b config.Keybindings) []string { return slices.Concat(b.Nav.Top, b.Nav.Bottom) },
-			nav: func(_ navHost, s panelShared, pressed string) tea.Cmd {
+			nav: func(h navHost, s panelShared, pressed string) tea.Cmd {
 				if isBound(pressed, s.keys.Nav.Bottom) {
-					return k.moveTo(s, k.pane.View().GetLastRow())
+					return k.moveTo(h, s, k.pane.View().GetLastRow())
 				}
 
-				return k.moveTo(s, k.pane.View().GetFirstRow())
+				return k.moveTo(h, s, k.pane.View().GetFirstRow())
 			},
 		},
 		{
 			id:   actionNavPage,
 			keys: func(b config.Keybindings) []string { return slices.Concat(b.Nav.PageUp, b.Nav.PageDown) },
-			nav: func(_ navHost, s panelShared, pressed string) tea.Cmd {
-				return k.step(s, directionOf(pressed, s.keys.Nav.PageUp), navPageStep)
+			nav: func(h navHost, s panelShared, pressed string) tea.Cmd {
+				return k.step(h, s, directionOf(pressed, s.keys.Nav.PageUp), navPageStep)
 			},
 		},
 		{
 			id:   actionColumnScroll,
 			keys: func(b config.Keybindings) []string { return slices.Concat(b.Column.ScrollDown, b.Column.ScrollUp) },
-			nav: func(_ navHost, s panelShared, pressed string) tea.Cmd {
-				return k.step(s, directionOf(pressed, s.keys.Column.ScrollUp), diffWheelStep)
+			nav: func(h navHost, s panelShared, pressed string) tea.Cmd {
+				return k.step(h, s, directionOf(pressed, s.keys.Column.ScrollUp), diffWheelStep)
 			},
 		},
 		{
 			id:   actionDiffFile,
 			keys: func(b config.Keybindings) []string { return slices.Concat(b.Diff.NextFile, b.Diff.PrevFile) },
-			nav: func(_ navHost, s panelShared, pressed string) tea.Cmd {
+			nav: func(h navHost, s panelShared, pressed string) tea.Cmd {
 				if !k.pane.JumpFile(directionOf(pressed, s.keys.Diff.PrevFile), k.height(s)) {
 					return nil
 				}
 
-				return k.land(s)
+				return k.land(h, s)
 			},
 		},
 		{
@@ -267,7 +267,7 @@ func (k diffKeys) jumpMatch(h navHost, s panelShared, direction int) tea.Cmd {
 		return nil
 	}
 
-	return k.land(s)
+	return k.land(h, s)
 }
 
 // toggleExpanded draws the whole of the file the cursor is in, or gives back the changed lines
@@ -294,42 +294,42 @@ func (k diffKeys) toggleExpanded(h navHost, s panelShared) tea.Cmd {
 		h.note(messageInfo, "showing the changed lines")
 	}
 
-	return k.land(s)
+	return k.land(h, s)
 }
 
-func (k diffKeys) moveTo(s panelShared, row int) tea.Cmd {
+func (k diffKeys) moveTo(h navHost, s panelShared, row int) tea.Cmd {
 	if !k.pane.MoveTo(row, k.height(s)) {
 		return nil
 	}
 
-	return k.land(s)
+	return k.land(h, s)
 }
 
-func (k diffKeys) step(s panelShared, direction, rows int) tea.Cmd {
+func (k diffKeys) step(h navHost, s panelShared, direction, rows int) tea.Cmd {
 	if !k.pane.Step(direction, rows, k.height(s)) {
 		return nil
 	}
 
-	return k.land(s)
+	return k.land(h, s)
 }
 
 // land tells the screen the reader is standing somewhere new.
-func (k diffKeys) land(s panelShared) tea.Cmd {
+func (k diffKeys) land(h navHost, s panelShared) tea.Cmd {
 	if k.moved == nil {
 		return nil
 	}
 
-	return k.moved(s)
+	return k.moved(h, s)
 }
 
 // scrollColumn moves the cursor a number of rows up the diff for a negative count and down it
 // for a positive one.
-func (k diffKeys) scrollColumn(s panelShared, rows int) tea.Cmd {
+func (k diffKeys) scrollColumn(h navHost, s panelShared, rows int) tea.Cmd {
 	if rows < 0 {
-		return k.step(s, -1, -rows)
+		return k.step(h, s, -1, -rows)
 	}
 
-	return k.step(s, 1, rows)
+	return k.step(h, s, 1, rows)
 }
 
 // panStep is a third of the pane, or the smallest jump until the pane is measured.
