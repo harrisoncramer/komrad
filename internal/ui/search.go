@@ -749,10 +749,10 @@ func (w *searchScreen) sidebarView(s panelShared) string {
 	if w.typing {
 		typed = palette.DrawTyped(before, after, lipgloss.NewStyle())
 	}
-	query := palette.Cursor().Render("/") + " " + typed
+	blank := strings.TrimSpace(w.query()) == ""
+	query := slashStyle(palette, w.typing, !blank).Render("/") + " " + typed
 	header := s.draw.viewsBar() + query + "\n\n"
 
-	blank := strings.TrimSpace(w.query()) == ""
 	var qualifiers string
 	if blank || s.chrome.helpExpanded {
 		qualifiers = qualifierLegend(s.pane)
