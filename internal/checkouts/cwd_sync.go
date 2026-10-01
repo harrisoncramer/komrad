@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -12,6 +13,7 @@ import (
 	agentstore "komrad/internal/store/agent"
 	reviewstore "komrad/internal/store/review"
 	workflowstore "komrad/internal/store/workflow"
+	worktreestore "komrad/internal/store/worktree"
 	"komrad/internal/worktrees"
 	"komrad/lib/xptr"
 
@@ -26,6 +28,9 @@ const baseFetchTimeout = 30 * time.Second
 
 // cwdLookWorkers is how many directories are looked at together.
 const cwdLookWorkers = 8
+
+// standingReadTimeout bounds each reading of where a worktree stands.
+const standingReadTimeout = 30 * time.Second
 
 // headReader reads a checkout's HEAD.
 type headReader interface {
@@ -51,6 +56,7 @@ type NewCwdSyncerParams struct {
 	Checkouts    *worktrees.CheckoutReader
 	Rounds       *reviewstore.ReviewStore
 	Workflows    *workflowstore.WorkflowStore
+	Worktrees    *worktreestore.WorktreeStore
 	PullRequests pullRequestObserver
 }
 
@@ -63,6 +69,7 @@ type CwdSyncer struct {
 	checkouts    *worktrees.CheckoutReader
 	rounds       *reviewstore.ReviewStore
 	workflows    *workflowstore.WorkflowStore
+	worktrees    *worktreestore.WorktreeStore
 	pullRequests pullRequestObserver
 	// walkedMu guards walked and fetched.
 	walkedMu sync.Mutex
@@ -82,6 +89,7 @@ func NewCwdSyncer(params NewCwdSyncerParams) *CwdSyncer {
 		checkouts:    params.Checkouts,
 		rounds:       params.Rounds,
 		workflows:    params.Workflows,
+		worktrees:    params.Worktrees,
 		pullRequests: params.PullRequests,
 		walked:       map[string]string{},
 		fetched:      map[string]time.Time{},
@@ -103,7 +111,11 @@ type cwdLook struct {
 	diffStat *agentstore.DiffStat
 	// tree is the worktree as the probe hashed it, empty when there was no round to probe against.
 	tree string
-	err  error
+	// worktree is the row of the directory the agent was cut, nil when the agent works elsewhere.
+	worktree *worktreestore.Worktree
+	// standing is where the worktree stood when read, nil when it was not read.
+	standing *worktreestore.Standing
+	err      error
 }
 
 // Sync looks at every live agent's cwd once and writes what changed, clearing the branch and
@@ -130,11 +142,17 @@ func (cs *CwdSyncer) Sync(ctx context.Context) error {
 		return fmt.Errorf("failed to list the unlanded review rounds for cwd sync: %w", err)
 	}
 
+	owned, err := cs.listOwnedWorktrees(ctx)
+	if err != nil {
+		return err
+	}
+
 	looks, err := cs.lookAtAll(ctx, lookAtAllParams{
 		Agents:    agents,
 		Rounds:    rounds,
 		Unlanded:  unlanded,
 		Worktrees: worktrees,
+		Owned:     owned,
 	})
 	if err != nil {
 		return err
@@ -157,6 +175,9 @@ func (cs *CwdSyncer) Sync(ctx context.Context) error {
 			failures = append(failures, err)
 		}
 		if err := cs.writeDiffStat(ctx, look); err != nil {
+			failures = append(failures, err)
+		}
+		if err := cs.writeStanding(ctx, look); err != nil {
 			failures = append(failures, err)
 		}
 	}
@@ -200,11 +221,28 @@ func (cs *CwdSyncer) listWorktreeConfigs(ctx context.Context) (map[string]workfl
 	return configs, nil
 }
 
+// listOwnedWorktrees is the row of each directory cut for an agent, by agent id.
+func (cs *CwdSyncer) listOwnedWorktrees(ctx context.Context) (map[string]worktreestore.Worktree, error) {
+	stored, err := cs.worktrees.List(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list the worktrees for cwd sync: %w", err)
+	}
+
+	owned := map[string]worktreestore.Worktree{}
+	for _, worktree := range stored {
+		owned[filepath.Base(worktree.Dir)] = worktree
+	}
+
+	return owned, nil
+}
+
 type lookAtAllParams struct {
 	Agents    []agentstore.Agent
 	Rounds    map[string]string
 	Unlanded  map[string][]reviewstore.UnlandedRound
 	Worktrees map[string]workflowstore.WorktreeConfig
+	// Owned is the row of each directory cut for an agent, by agent id.
+	Owned map[string]worktreestore.Worktree
 }
 
 func (cs *CwdSyncer) lookAtAll(ctx context.Context, params lookAtAllParams) ([]cwdLook, error) {
@@ -213,11 +251,15 @@ func (cs *CwdSyncer) lookAtAll(ctx context.Context, params lookAtAllParams) ([]c
 		WorkerCount: cwdLookWorkers,
 		Work: func(ctx context.Context, agent agentstore.Agent) (cwdLook, error) {
 			look := cs.look(ctx, agent, params.Rounds[agent.ID])
+			config := params.Worktrees[agent.WorkflowID]
+			if worktree, ok := params.Owned[agent.ID]; ok && !look.removed && worktree.Dir == filepath.Clean(agent.Cwd) {
+				look.worktree = &worktree
+				cs.readStanding(ctx, &look, config.BaseBranch)
+			}
 			if look.removed || look.head.Root == "" {
 				return look, nil
 			}
 
-			config := params.Worktrees[agent.WorkflowID]
 			landed, walkedAt, err := cs.walkLanding(ctx, walkLandingParams{
 				Agent:  agent,
 				Rounds: params.Unlanded[agent.ID],
@@ -362,6 +404,20 @@ func (cs *CwdSyncer) writeDiffStat(ctx context.Context, look cwdLook) error {
 
 	if err := cs.agents.SetDiffStat(ctx, agent.ID, look.diffStat); err != nil {
 		return fmt.Errorf("failed to set the diff stat of %q: %w", agent.Name, err)
+	}
+
+	return nil
+}
+
+// writeStanding records where the look found the agent's worktree standing, when the row says
+// otherwise.
+func (cs *CwdSyncer) writeStanding(ctx context.Context, look cwdLook) error {
+	if look.standing == nil || isStandingUnchanged(look.worktree.Standing, *look.standing) {
+		return nil
+	}
+
+	if err := cs.worktrees.RecordStanding(ctx, *look.standing); err != nil {
+		return fmt.Errorf("failed to record where the worktree of %q stands: %w", look.agent.Name, err)
 	}
 
 	return nil
@@ -517,6 +573,19 @@ func (cs *CwdSyncer) measure(ctx context.Context, look *cwdLook, config workflow
 	look.diffStat = &agentstore.DiffStat{Added: stat.Added, Removed: stat.Removed}
 }
 
+// readStanding records on the look where the agent's worktree stands against its base.
+func (cs *CwdSyncer) readStanding(ctx context.Context, look *cwdLook, base string) {
+	ctx, cancel := context.WithTimeout(ctx, standingReadTimeout)
+	defer cancel()
+
+	standing := cs.checkouts.ReadStanding(ctx, worktrees.ReadStandingParams{
+		Dir:      look.worktree.Dir,
+		Readable: look.worktree.Readable,
+		Base:     base,
+	})
+	look.standing = &standing
+}
+
 // keepDiffStat leaves the row's diff stat standing when git could not measure the checkout.
 func (cl *cwdLook) keepDiffStat(err error) {
 	cl.diffStat = cl.agent.DiffStat
@@ -530,4 +599,13 @@ func sequenceOf(sequence git.Sequence) agentstore.Sequence {
 	}
 
 	return agentstore.Sequence(sequence)
+}
+
+// isStandingUnchanged is whether a reading says what the row already holds.
+func isStandingUnchanged(stored *worktreestore.Standing, read worktreestore.Standing) bool {
+	return stored != nil &&
+		stored.Dirty == read.Dirty &&
+		stored.Sequencing == read.Sequencing &&
+		stored.Unlanded == read.Unlanded &&
+		stored.Error == read.Error
 }

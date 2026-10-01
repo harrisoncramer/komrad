@@ -11,10 +11,12 @@ import (
 
 	"komrad/internal/git"
 	"komrad/internal/gittest"
+	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
 	pullrequeststore "komrad/internal/store/pullrequest"
 	reviewstore "komrad/internal/store/review"
 	workflowstore "komrad/internal/store/workflow"
+	worktreestore "komrad/internal/store/worktree"
 	"komrad/internal/storetest"
 	"komrad/internal/worktrees"
 	"komrad/lib/xptr"
@@ -28,6 +30,7 @@ import (
 type syncFixture struct {
 	stores     *storetest.Stores
 	reviews    *reviewstore.ReviewStore
+	worktrees  *worktreestore.WorktreeStore
 	workflowID string
 }
 
@@ -414,6 +417,112 @@ func TestCwdSyncerSyncKeepsADiffStatItCouldNotMeasure(t *testing.T) {
 	assert.Equal(t, &agentstore.DiffStat{Added: 7, Removed: 2}, fixture.read(t, agent.ID).DiffStat)
 }
 
+// TestCwdSyncerSyncRecordsWhereTheWorktreeStands covers a pass reading the worktree an agent was cut.
+func TestCwdSyncerSyncRecordsWhereTheWorktreeStands(t *testing.T) {
+	earlier := time.Date(2026, 10, 1, 9, 0, 0, 0, time.UTC)
+	now := earlier.Add(time.Hour)
+
+	tests := []struct {
+		name    string
+		isOwned bool
+		stored  *worktreestore.Standing
+		want    *worktreestore.Standing
+	}{
+		{
+			name:    "a worktree cut for another agent is left to the measurer",
+			isOwned: false,
+			want:    nil,
+		},
+		{
+			name:    "a reading the row already holds writes nothing",
+			isOwned: true,
+			stored: &worktreestore.Standing{
+				ReadAt:   earlier,
+				Dirty:    true,
+				Unlanded: 3,
+			},
+			want: &worktreestore.Standing{
+				ReadAt:   earlier,
+				Dirty:    true,
+				Unlanded: 3,
+			},
+		},
+		{
+			name:    "the worktree the agent was cut records where it stands",
+			isOwned: true,
+			stored: &worktreestore.Standing{
+				ReadAt:   earlier,
+				Unlanded: 1,
+			},
+			want: &worktreestore.Standing{
+				ReadAt:   now,
+				Dirty:    true,
+				Unlanded: 3,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fixture := newSyncFixture(t)
+			fixture.workflowID = fixture.stores.SeedWorkflow(t, workflowstore.Config{
+				Name:     "cut",
+				Worktree: workflowstore.WorktreeConfig{BaseBranch: "main"},
+			}).ID
+			id, err := store.NewID()
+			require.NoError(t, err)
+			dirName := "someone-else"
+			if tt.isOwned {
+				dirName = id
+			}
+			cwd := filepath.Join(t.TempDir(), dirName)
+			require.NoError(t, os.MkdirAll(filepath.Join(cwd, ".git"), 0o755))
+			fixture.stores.SeedAgent(t, agentstore.Agent{
+				ID:         id,
+				Name:       "a",
+				WorkflowID: fixture.workflowID,
+				Cwd:        cwd,
+			})
+			require.NoError(t, fixture.worktrees.Upsert(t.Context(), worktreestore.Worktree{Dir: cwd, Readable: true}))
+			if tt.stored != nil {
+				stored := *tt.stored
+				stored.Dir = cwd
+				require.NoError(t, fixture.worktrees.RecordStanding(t.Context(), stored))
+			}
+			trees := &gittest.Trees{
+				Changes:    git.Changes{Modified: []string{"a.go"}},
+				Prediction: git.Prediction{Replay: 3},
+			}
+			syncer := fixture.newSyncer(NewCwdSyncerParams{
+				Heads: buildHeads(cwd, git.HeadState{Root: cwd}),
+				Trees: trees,
+				Checkouts: worktrees.NewCheckoutReader(worktrees.NewCheckoutReaderParams{
+					Git: trees,
+					Now: func() time.Time {
+						return now
+					},
+				}),
+			})
+
+			require.NoError(t, syncer.Sync(t.Context()))
+
+			stored, err := fixture.worktrees.List(t.Context())
+			require.NoError(t, err)
+			require.Len(t, stored, 1)
+			if tt.want == nil {
+				assert.Nil(t, stored[0].Standing)
+
+				return
+			}
+			want := *tt.want
+			want.Dir = cwd
+			got := *stored[0].Standing
+			got.ReadAt = got.ReadAt.UTC()
+			assert.Equal(t, want, got)
+		})
+	}
+}
+
 // TestCwdSyncerSyncLandsTheRoundsTheBaseHolds covers the walk from the newest round down to the
 // first one the base holds whole.
 func TestCwdSyncerSyncLandsTheRoundsTheBaseHolds(t *testing.T) {
@@ -528,6 +637,7 @@ func newSyncFixture(t *testing.T) *syncFixture {
 	return &syncFixture{
 		stores:     stores,
 		reviews:    reviewstore.NewReviewStore(stores.Pool.GetDB()),
+		worktrees:  worktreestore.NewWorktreeStore(stores.Pool.GetDB()),
 		workflowID: stores.SeedWorkflow(t, workflowstore.Config{Name: "flow"}).ID,
 	}
 }
@@ -634,6 +744,7 @@ func (f *syncFixture) newSyncer(params NewCwdSyncerParams) *CwdSyncer {
 	}
 	params.Rounds = f.reviews
 	params.Workflows = f.stores.Workflows
+	params.Worktrees = f.worktrees
 
 	return NewCwdSyncer(params)
 }
