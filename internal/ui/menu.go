@@ -97,7 +97,9 @@ func (a *agentsScreen) itemMenu(s panelShared) (submenu, bool) {
 		return submenu{}, false
 	}
 
-	return withNested(withNested(agentMenu(s, screenAgents, item, a.agentEntries(s, item)...), "hide", s.keys.Menu.Hide, a.hideMenu(s, &item.Agent)), "archive", s.keys.Menu.Archive, agentsArchiveMenu(s, []panel.Agent{item.Agent}, false)), true
+	menu := withNested(agentMenu(s, screenAgents, item, a.agentEntries(s, item)...), "hide", s.keys.Menu.Hide, a.hideMenu(s, &item.Agent))
+
+	return withNested(menu, "archive", s.keys.Menu.Archive, agentsArchiveMenu(s, []panel.Agent{item.Agent}, false)), true
 }
 
 func (w *schedulesScreen) itemMenu(s panelShared) (submenu, bool) {
