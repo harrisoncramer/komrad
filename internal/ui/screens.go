@@ -169,7 +169,7 @@ type hoveredAgentReporter interface {
 // savedScreenDrawer is a screen that draws a stopped agent's saved screen beside its list.
 type savedScreenDrawer interface {
 	screenedAgentID(m *model) (string, bool)
-	notice(m *model) string
+	screenNotice(m *model) string
 }
 
 // screenLeaver is a screen that puts down what it had open when another screen goes up.

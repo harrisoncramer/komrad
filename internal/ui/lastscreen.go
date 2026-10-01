@@ -184,10 +184,10 @@ func (m *model) screenNotice() string {
 		return ""
 	}
 
-	return screen.notice(m)
+	return screen.screenNotice(m)
 }
 
-func (a *archiveScreen) notice(m *model) string {
+func (a *archiveScreen) screenNotice(m *model) string {
 	restore := m.keys.ArchiveMenu.Restore
 	if target, ok := a.menuTarget(m); ok {
 		if _, err := target.opensAgent(); err == nil {
@@ -198,7 +198,7 @@ func (a *archiveScreen) notice(m *model) string {
 	return "archived" + separated + "press " + keyLabel(m.keys.Menu.Open) + " " + keyLabel(m.keys.Menu.Archive) + " " + keyLabel(restore) + " to restore"
 }
 
-func (a *agentsScreen) notice(m *model) string {
+func (a *agentsScreen) screenNotice(m *model) string {
 	item, ok := a.hoveredResting(m)
 	if ok && item.Agent.HeldAt != nil {
 		return "paused"
@@ -207,7 +207,7 @@ func (a *agentsScreen) notice(m *model) string {
 	return "dormant" + separated + "press " + keyLabel(m.keys.Agents.Open) + " to restore"
 }
 
-func (w *worktreesScreen) notice(*model) string {
+func (w *worktreesScreen) screenNotice(*model) string {
 	return "not running"
 }
 
