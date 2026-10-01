@@ -7,6 +7,7 @@ Wait+Screen@10s /rebase with base/
 Escape
 Wait+Screen@10s /agents › text-truncate +│/
 Type "d"
+Type "v"
 Wait+Screen@10s /RFC: vim\.text/
 Escape
 Wait+Screen@10s /enter open/

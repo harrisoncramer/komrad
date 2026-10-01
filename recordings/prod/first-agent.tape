@@ -10,7 +10,7 @@ Wait+Screen@30s /no shared context set/
 Sleep 1s
 Type "c"
 Type "Where is :checkhealth implemented?"
-Enter
+Tab
 Type "find-checkhealth"
 Ctrl+S
 Sleep 2s

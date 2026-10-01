@@ -10,11 +10,12 @@ Wait+Screen@30s /no shared context set/
 Sleep 1s
 Type "c"
 Type "Build neovim and run the unit tests."
-Enter
+Tab
 Type "build"
 Ctrl+S
 Wait+Screen@30s /a hook failed/
 Sleep 1s
 Escape
 Type "j"
+Space
 Type "l"

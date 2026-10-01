@@ -8,25 +8,25 @@ Type "k"
 Type "k"
 Wait+Screen@4m /done \d+:\d+ [AP]M/
 Show
-Type "o"
-Type "s"
+Tab
+Tab
 Type "c"
 Wait+Screen@10s /mail one already running/
 Down
 Wait+Screen@10s /orchestrator  neovim/
 Tab
 Type "standup"
-Enter
+Tab
 Type "* * * * *"
-Enter
-Enter
+Tab
+Tab
 Type "List the agents in your workflow and say in one sentence what each is doing."
 Tab
 Ctrl+S
 Wait+Screen@10s /standup/
 Sleep 2s
-Type "o"
-Type "a"
+Shift+Tab
+Shift+Tab
 Type "k"
 Type "k"
 Hide

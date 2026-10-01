@@ -11,6 +11,7 @@ Show
 Type "j"
 Space
 Type "d"
+Type "v"
 Wait+Screen@10s /RFC: vim\.text/
 Sleep 2s
 Space

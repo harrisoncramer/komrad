@@ -29,8 +29,8 @@ Type "j"
 Sleep 1s
 Type "d"
 Sleep 1.5s
-Type "o"
-Type "q"
+Tab
+Type "/"
 Type "lsp"
 Sleep 3s
 Escape
