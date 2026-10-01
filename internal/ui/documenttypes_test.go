@@ -228,34 +228,45 @@ func TestDocumentTypesFromTheMenuStack(t *testing.T) {
 	})
 }
 
-// TestDocumentTypesRefused covers a type the form cannot define, held and refused like any write.
+// TestDocumentTypesRefused covers a type the form cannot define.
 func TestDocumentTypesRefused(t *testing.T) {
 	t.Parallel()
 
-	harness := openDocumentTypes(t, "author")
-	harness.press("space", "c", "b", "ctrl+s")
-	harness.fireTimers()
+	tests := []struct {
+		name    string
+		presses []string
+		want    []string
+	}{
+		{
+			name:    "a type with no context is refused",
+			presses: []string{"space", "c", "b", "ctrl+s"},
+			want:    []string{`Could not define document type "b"`, "a document type needs the context an agent reads"},
+		},
+		{
+			name:    "a type with no name is refused without quoting one",
+			presses: []string{"space", "c", "ctrl+s"},
+			want:    []string{"Could not define a document type", "a document type needs a name"},
+		},
+	}
 
-	assert.Contains(t, harness.readFrame(), "New document type", "the form stays up")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 
-	harness.press("ctrl+g")
-	frame := harness.readFrame()
-	assert.Contains(t, frame, "a document type needs the context an agent reads")
-	assert.Contains(t, frame, "fix and submit again")
-	assert.Empty(t, harness.readSent(agentv1connect.AgentServiceWriteDocumentTypeProcedure))
+			harness := openDocumentTypes(t, "author")
+			harness.press(tt.presses...)
+			harness.fireTimers()
 
-	t.Run("a type with no name is refused without quoting one", func(t *testing.T) {
-		t.Parallel()
+			assert.Contains(t, harness.readFrame(), "New document type", "the form stays up")
 
-		harness := openDocumentTypes(t, "author")
-		harness.press("space", "c", "ctrl+s")
-		harness.fireTimers()
-		harness.press("ctrl+g")
-
-		frame := harness.readFrame()
-		assert.Contains(t, frame, "Could not define a document type")
-		assert.Contains(t, frame, "a document type needs a name")
-	})
+			harness.press("ctrl+g")
+			frame := harness.readFrame()
+			for _, want := range append(tt.want, "fix and submit again") {
+				assert.Contains(t, frame, want)
+			}
+			assert.Empty(t, harness.readSent(agentv1connect.AgentServiceWriteDocumentTypeProcedure))
+		})
+	}
 }
 
 // TestDocumentTypesWrite covers defining, renaming and deleting a type from the screen.
