@@ -223,7 +223,9 @@ type SetStandingParams struct {
 }
 
 // SetStanding takes one read of a pull request's standing into what komrad remembers of it,
-// writing nothing when that is unchanged, and answers what it remembered before and after.
+// writing nothing when that is unchanged, and answers what it remembered before and after. It
+// reads the row and then writes it, so the store must be built over a transaction taken through
+// InTx for its lock to hold.
 func (s *PullRequestStore) SetStanding(ctx context.Context, params SetStandingParams) (*StandingChange, error) {
 	row, err := s.queries.GetPullRequestForUpdate(ctx, params.ID)
 	if db.IsNoRows(err) {
