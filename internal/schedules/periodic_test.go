@@ -19,6 +19,20 @@ type recordingPeriodic struct {
 	refused bool
 }
 
+func (r *recordingPeriodic) Add(_ string, _ river.PeriodicSchedule) error {
+	r.events = append(r.events, "add")
+
+	if r.refused {
+		return errors.New("refusing to register")
+	}
+
+	return nil
+}
+
+func (r *recordingPeriodic) Remove(_ string) {
+	r.events = append(r.events, "remove")
+}
+
 type scheduleEdit func(ctx context.Context, svc *ScheduleService, id string, cfg schedulestore.Config) error
 
 // TestScheduleWritesKeepRegistrations pins what each schedule write does to its River registration.
@@ -161,24 +175,6 @@ func TestArmPeriodic(t *testing.T) {
 
 	require.NoError(t, svc.SetScheduleEnabled(ctx, armed.ID, true))
 	assert.Equal(t, []string{"add"}, periodic.events, "a schedule armed at boot is not registered twice")
-}
-
-func (r *recordingPeriodic) Add(_ string, cron river.PeriodicSchedule) error {
-	if cron == nil {
-		return errors.New("a registration with nothing to fire on")
-	}
-
-	r.events = append(r.events, "add")
-
-	if r.refused {
-		return errors.New("refusing to register")
-	}
-
-	return nil
-}
-
-func (r *recordingPeriodic) Remove(_ string) {
-	r.events = append(r.events, "remove")
 }
 
 func newEnabledEdit(enabled bool) scheduleEdit {
