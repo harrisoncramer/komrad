@@ -62,14 +62,14 @@ func openWorkflowConfigForm(h host, values *workflowFormValues, target *panel.Wo
 
 // getAvailableHooks is the hooks directory as the form offers it, a directory that is not there
 // reading as an empty list rather than an error.
-func (m model) getAvailableHooks() []hookChoice {
+func (m model) getAvailableHooks() []string {
 	listed, err := m.api.listHooks()
 	if err != nil {
 		return nil
 	}
 
-	return xslice.Map(listed, func(hook *hookv1.Hook) hookChoice {
-		return hookChoice{name: hook.GetName()}
+	return xslice.Map(listed, func(hook *hookv1.Hook) string {
+		return hook.GetName()
 	})
 }
 
