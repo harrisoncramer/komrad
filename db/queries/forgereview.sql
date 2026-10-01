@@ -206,6 +206,6 @@ SET
     dismissed_at = NULL
 WHERE
     t.id = @id
-    AND t.accepted_thread_id IS NOT DISTINCT FROM sqlc.narg('held_thread_id')::uuid
+    AND t.accepted_thread_id IS NOT DISTINCT FROM sqlc.narg('previous_thread_id')::uuid
 RETURNING
     t.id;

@@ -16,6 +16,9 @@ import (
 	watchv1 "komrad/proto/gen/watch/v1"
 )
 
+// ErrAcceptedMoved is a forge thread accepted into another review thread since it was read.
+var ErrAcceptedMoved = fail.Precondition("the forge thread was accepted into another review thread since it was read")
+
 // WatchedForgeThreads declares the forge's review threads on watched pull requests to the watch.
 var WatchedForgeThreads = watch.Resource{
 	Enum:      watchv1.Resource_RESOURCE_FORGE_THREAD,
@@ -316,9 +319,6 @@ func (s *ForgeThreadStore) SetDismissed(ctx context.Context, id string, dismisse
 	return nil
 }
 
-// ErrAcceptedMoved is a forge thread accepted into another review thread since it was read.
-var ErrAcceptedMoved = fail.Precondition("the forge thread was accepted into another review thread since it was read")
-
 // LockAccepted holds a forge thread still accepted into the thread named until the transaction ends.
 func (s *ForgeThreadStore) LockAccepted(ctx context.Context, id, threadID string) error {
 	_, err := s.queries.LockForgeReviewThreadAccepted(ctx, models.LockForgeReviewThreadAcceptedParams{
@@ -335,12 +335,12 @@ func (s *ForgeThreadStore) LockAccepted(ctx context.Context, id, threadID string
 	return nil
 }
 
-// SetAccepted links a forge thread to the review thread it was accepted into and clears its dismissal, or returns ErrAcceptedMoved when its link is no longer held.
-func (s *ForgeThreadStore) SetAccepted(ctx context.Context, id, threadID string, held *string) error {
+// SetAccepted links a forge thread to the review thread it was accepted into and clears its dismissal.
+func (s *ForgeThreadStore) SetAccepted(ctx context.Context, id, threadID string, previousThreadID *string) error {
 	_, err := s.queries.SetForgeReviewThreadAccepted(ctx, models.SetForgeReviewThreadAcceptedParams{
-		ThreadID:     &threadID,
-		ID:           id,
-		HeldThreadID: held,
+		ThreadID:         &threadID,
+		ID:               id,
+		PreviousThreadID: previousThreadID,
 	})
 	if db.IsNoRows(err) {
 		return ErrAcceptedMoved

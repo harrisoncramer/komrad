@@ -316,13 +316,13 @@ RETURNING
 `
 
 type SetForgeReviewThreadAcceptedParams struct {
-	ThreadID     *string
-	ID           string
-	HeldThreadID *string
+	ThreadID         *string
+	ID               string
+	PreviousThreadID *string
 }
 
 func (q *Queries) SetForgeReviewThreadAccepted(ctx context.Context, arg SetForgeReviewThreadAcceptedParams) (string, error) {
-	row := q.db.QueryRow(ctx, setForgeReviewThreadAccepted, arg.ThreadID, arg.ID, arg.HeldThreadID)
+	row := q.db.QueryRow(ctx, setForgeReviewThreadAccepted, arg.ThreadID, arg.ID, arg.PreviousThreadID)
 	var id string
 	err := row.Scan(&id)
 	return id, err

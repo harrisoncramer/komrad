@@ -295,8 +295,8 @@ func TestSetAcceptedRefusesALinkNoLongerHeld(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, stored, 1)
 
-	held := "01a0f025-00bd-7db3-90c0-a0198677e92e"
-	require.ErrorIs(t, threads.SetAccepted(ctx, stored[0].ID, held, &held), ErrAcceptedMoved)
+	previous := "01a0f025-00bd-7db3-90c0-a0198677e92e"
+	require.ErrorIs(t, threads.SetAccepted(ctx, stored[0].ID, previous, &previous), ErrAcceptedMoved)
 }
 
 // TestDeletingAReviewUnlinksTheForgeThreadsAcceptedIntoIt pins that the forge thread is offered again once the review holding its copy is gone.
