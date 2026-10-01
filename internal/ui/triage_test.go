@@ -58,6 +58,22 @@ func TestTriageRows(t *testing.T) {
 			want: []string{"asker", "└ reviewer", "backend", "quiet"},
 		},
 		{
+			name:     "a hidden child counts on its parent in triage",
+			capacity: 2,
+			rows: []proto.Message{
+				newLiveWorkflow("w1", "backend"),
+				newAgentAt("quiet", "w1", 1),
+				newTriageAgent("asker", agentv1.AgentState_AGENT_STATE_WAITING, 3),
+				func() *agentv1.Agent {
+					reviewer := newChild("reviewer", "reviewer", "asker")
+					reviewer.Hidden = true
+
+					return reviewer
+				}(),
+			},
+			want: []string{"asker +1", "backend", "quiet"},
+		},
+		{
 			name:     "a child in triage brings its parent with it",
 			capacity: 2,
 			rows: []proto.Message{

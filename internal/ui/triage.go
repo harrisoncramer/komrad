@@ -324,6 +324,12 @@ func (l agentsLayout) cursorRows() []agentRow {
 // each head with its children under it.
 func splitTriage(z triageZone, s panelShared, showHidden bool) (zone []agentRow, waiting int, rest []panel.AgentRow) {
 	byID := xslice.KeyBy(s.listing.agents, func(item panel.AgentRow) string { return item.Agent.ID })
+	children := make(map[string][]panel.AgentRow)
+	for _, item := range s.listing.agents {
+		if parentID := item.Agent.ParentAgentID; parentID != nil {
+			children[*parentID] = append(children[*parentID], item)
+		}
+	}
 	headOf := func(item panel.AgentRow) panel.AgentRow {
 		if parentID := item.Agent.ParentAgentID; parentID != nil {
 			if parent, ok := byID[*parentID]; ok {
@@ -364,14 +370,17 @@ func splitTriage(z triageZone, s panelShared, showHidden bool) (zone []agentRow,
 	for _, head := range slotted {
 		inZone[head.Agent.ID] = true
 		zone = append(zone, agentRow{item: head, workflow: workflows[head.Agent.WorkflowID]})
-		for _, item := range s.listing.agents {
-			isChild := item.Agent.ParentAgentID != nil && *item.Agent.ParentAgentID == head.Agent.ID
-			if !isChild || (item.Agent.Hidden && !showHidden) {
-				continue
+		headRow := len(zone) - 1
+		for _, child := range children[head.Agent.ID] {
+			inZone[child.Agent.ID] = true
+			if child.Agent.Hidden {
+				zone[headRow].hiddenCount++
+				if !showHidden {
+					continue
+				}
 			}
 
-			inZone[item.Agent.ID] = true
-			zone = append(zone, agentRow{item: item, workflow: workflows[item.Agent.WorkflowID], child: true})
+			zone = append(zone, agentRow{item: child, workflow: workflows[child.Agent.WorkflowID], child: true})
 		}
 	}
 
