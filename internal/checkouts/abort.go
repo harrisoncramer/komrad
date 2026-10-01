@@ -8,14 +8,10 @@ import (
 	"log/slog"
 	"strings"
 
-	"komrad/internal/events"
 	"komrad/internal/fail"
 	"komrad/internal/git"
 	"komrad/internal/logging"
 	agentstore "komrad/internal/store/agent"
-
-	"github.com/jackc/pgx/v5"
-	"github.com/riverqueue/river"
 )
 
 // ErrAbortNothing says nothing is part-way through the checkout.
@@ -60,14 +56,14 @@ func (s *Service) Abort(ctx context.Context, agentID string) (*AbortResult, erro
 	result, err := s.abort(ctx, *agent)
 	if err != nil {
 		if interrupted {
-			s.tellAborted(ctx, Aborted{AgentID: agent.ID, Failure: err.Error()})
+			s.queueEvent(ctx, agent.ID, Aborted{AgentID: agent.ID, Failure: err.Error()})
 		}
 
 		return nil, err
 	}
 	result.Interrupted = interrupted
 
-	s.tellAborted(ctx, Aborted{AgentID: agent.ID, Result: result})
+	s.queueEvent(ctx, agent.ID, Aborted{AgentID: agent.ID, Result: result})
 
 	return result, nil
 }
@@ -166,20 +162,6 @@ func (s *Service) recordAborted(ctx context.Context, agent agentstore.Agent) {
 	if err := s.agents.SetSequenceByID(ctx, agent.ID, agentstore.SequenceNone); err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to record that an agent's sequence was aborted",
 			append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
-	}
-}
-
-// tellAborted says in the agent's mailbox what became of the sequence it had part-way through.
-func (s *Service) tellAborted(ctx context.Context, aborted Aborted) {
-	event, err := events.NewEvent(aborted)
-	if err == nil {
-		err = s.events.InsertManyTx(ctx, func(pgx.Tx) ([]river.JobArgs, error) {
-			return []river.JobArgs{*event}, nil
-		})
-	}
-	if err != nil {
-		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to tell an agent its sequence was aborted",
-			append([]slog.Attr{slog.String(logging.AgentID, aborted.AgentID)}, logging.Err(err)...)...)
 	}
 }
 

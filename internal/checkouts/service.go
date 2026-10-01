@@ -5,12 +5,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"komrad/internal/agents"
 	"komrad/internal/caller"
+	"komrad/internal/events"
 	"komrad/internal/fail"
 	"komrad/internal/git"
+	"komrad/internal/logging"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
 	pullrequeststore "komrad/internal/store/pullrequest"
@@ -250,4 +253,18 @@ func (s *Service) refuseTheCaller(ctx context.Context, agent agentstore.Agent) e
 	}
 
 	return fmt.Errorf("%w: %q sits in %s", ErrSelf, agent.Name, asker.Cwd)
+}
+
+// queueEvent queues one event about an agent on its own, warning rather than failing when it cannot.
+func (s *Service) queueEvent(ctx context.Context, agentID string, payload events.Payload) {
+	event, err := events.NewEvent(payload)
+	if err == nil {
+		err = s.events.InsertManyTx(ctx, func(pgx.Tx) ([]river.JobArgs, error) {
+			return []river.JobArgs{*event}, nil
+		})
+	}
+	if err != nil {
+		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to queue an event for an agent",
+			append([]slog.Attr{slog.String(logging.AgentID, agentID), slog.String("topic", payload.Topic())}, logging.Err(err)...)...)
+	}
 }

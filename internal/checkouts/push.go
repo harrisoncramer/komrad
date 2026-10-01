@@ -3,17 +3,11 @@ package checkouts
 import (
 	"context"
 	"fmt"
-	"log/slog"
 
-	"komrad/internal/events"
 	"komrad/internal/fail"
 	"komrad/internal/git"
-	"komrad/internal/logging"
 	agentstore "komrad/internal/store/agent"
 	pullrequeststore "komrad/internal/store/pullrequest"
-
-	"github.com/jackc/pgx/v5"
-	"github.com/riverqueue/river"
 )
 
 var (
@@ -104,7 +98,11 @@ func (s *Service) Push(ctx context.Context, agentID string) (*PushResult, error)
 
 	result := &PushResult{PushPlan: *plan, SHA: sha}
 	if result.Forced {
-		s.tellPushed(ctx, *agent, *result)
+		s.queueEvent(ctx, agent.ID, Pushed{
+			AgentID: agent.ID,
+			Branch:  result.Branch,
+			SHA:     result.SHA,
+		})
 	}
 
 	return result, nil
@@ -210,24 +208,6 @@ func (s *Service) refuseFinished(ctx context.Context, agent agentstore.Agent, br
 	}
 
 	return fmt.Errorf("%w: %s", ErrPushFinished, listed[0].URL)
-}
-
-// tellPushed says in the agent's mailbox that its branch on origin was overwritten.
-func (s *Service) tellPushed(ctx context.Context, agent agentstore.Agent, result PushResult) {
-	event, err := events.NewEvent(Pushed{
-		AgentID: agent.ID,
-		Branch:  result.Branch,
-		SHA:     result.SHA,
-	})
-	if err == nil {
-		err = s.events.InsertManyTx(ctx, func(pgx.Tx) ([]river.JobArgs, error) {
-			return []river.JobArgs{*event}, nil
-		})
-	}
-	if err != nil {
-		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to tell an agent its branch was force-pushed",
-			append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
-	}
 }
 
 // pushedMail is what an agent is told once its branch on origin was overwritten from the panel.
