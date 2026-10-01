@@ -54,8 +54,8 @@ type eventRecorder interface {
 	InsertManyTx(ctx context.Context, build func(tx pgx.Tx) ([]river.JobArgs, error)) error
 }
 
-// gitOps is the git a rebase, push or abort reads the checkout through and moves the branch with.
-type gitOps interface {
+// branchMover is the git a rebase, push or abort reads the checkout through and moves the branch with.
+type branchMover interface {
 	ReadTreeState(ctx context.Context, dir string) (git.TreeState, error)
 	FetchBase(ctx context.Context, dir, base string) (ref, sha string, err error)
 	CountCommitsToReplay(ctx context.Context, dir, ref string) (int, error)
@@ -85,7 +85,7 @@ type NewServiceParams struct {
 	Workflows       *workflowstore.WorkflowStore
 	Settler         *agents.Settler
 	Events          eventRecorder
-	Git             gitOps
+	Git             branchMover
 	PullRequests    *pullrequeststore.PullRequestStore
 	Locks           *TreeLocks
 	CheckoutSync    wake.Waker
@@ -98,7 +98,7 @@ type Service struct {
 	workflows       *workflowstore.WorkflowStore
 	settler         *agents.Settler
 	events          eventRecorder
-	git             gitOps
+	git             branchMover
 	pullRequests    *pullrequeststore.PullRequestStore
 	locks           *TreeLocks
 	checkoutSync    wake.Waker
