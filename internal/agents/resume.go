@@ -178,12 +178,11 @@ type resumeStart struct {
 
 func (r *resumeStart) runSetUp(ctx context.Context, agent agentstore.Agent) (string, error) {
 	name := provisionerFor(ctx, r.service.workflows, agent)
-	runner := r.scripts
-	if runner == nil || name == "" {
+	if r.scripts == nil || name == "" {
 		return "", nil
 	}
 
-	return runner.RunResume(ctx, agent, name)
+	return r.scripts.RunResume(ctx, agent, name)
 }
 
 func (r *resumeStart) getDefaultDir(agent agentstore.Agent) string {

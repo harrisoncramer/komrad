@@ -466,7 +466,11 @@ type resolvedLaunch struct {
 }
 
 func (s *LaunchService) startInPane(ctx context.Context, agent agentstore.Agent, resolved resolvedLaunch) (*agentstore.Agent, error) {
-	if err := s.starter.start(ctx, agent, &createStart{service: s, scripts: s.starter.scripts, resolved: resolved}); err != nil {
+	if err := s.starter.start(ctx, agent, &createStart{
+		service:  s,
+		scripts:  s.starter.scripts,
+		resolved: resolved,
+	}); err != nil {
 		return nil, err
 	}
 
@@ -486,12 +490,11 @@ type createStart struct {
 }
 
 func (c *createStart) runSetUp(ctx context.Context, agent agentstore.Agent) (string, error) {
-	runner := c.scripts
-	if runner == nil || c.resolved.provisioner == "" {
+	if c.scripts == nil || c.resolved.provisioner == "" {
 		return "", nil
 	}
 
-	named, err := runner.RunProvision(ctx, agent, c.resolved.provisioner)
+	named, err := c.scripts.RunProvision(ctx, agent, c.resolved.provisioner)
 	if err != nil {
 		return "", err
 	}
