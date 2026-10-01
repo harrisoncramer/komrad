@@ -11,6 +11,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/huh/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 )
 
@@ -154,8 +155,8 @@ func submenuState(parents []submenuLevel, level submenuLevel) formState {
 		rebuild: func(model) (*huh.Form, []string) {
 			return submenuForm(level, len(parents) > 0, formKeys()), nil
 		},
-		leading: func(int, int) []string {
-			return frozenMenus(parents)
+		leading: func(width, _ int) []string {
+			return submenuLeading(parents, level, width)
 		},
 	}
 	if level.menu.preview != nil {
@@ -187,8 +188,8 @@ func (m model) openListActions(stack []submenuLevel, list submenuLevel) (tea.Mod
 // was opened from.
 func (m model) stackForm(drawn, from []submenuLevel, form formState) (tea.Model, tea.Cmd) {
 	form.crumbs = append(xslice.Map(from, func(l submenuLevel) string { return l.menu.crumb }), form.crumbs...)
-	form.leading = func(int, int) []string {
-		return frozenMenus(drawn)
+	form.leading = func(width, _ int) []string {
+		return frozenMenus(drawn, width-formColumnFloor)
 	}
 	form.back = func(m model) (tea.Model, tea.Cmd) {
 		return m.backSubmenu(from)
@@ -261,12 +262,32 @@ func submenuOptions(menu submenu, nested bool) []huh.Option[int] {
 	return append(options, huh.NewOption(last, submenuCancel))
 }
 
-// frozenMenus is a stack of menus drawn gray.
-func frozenMenus(levels []submenuLevel) []string {
-	drawn := make([]string, 0, len(levels))
-	for i, level := range levels {
-		drawn = append(drawn, frozenSubmenu(level, i > 0))
+// submenuLeading is the menus under the one on top drawn gray, as many as fit beside it and its preview.
+func submenuLeading(parents []submenuLevel, top submenuLevel, width int) []string {
+	room := width - lipgloss.Width(frozenSubmenu(top, len(parents) > 0))
+	if top.menu.preview != nil {
+		room -= columnFloor + dividerCols
 	}
+
+	return frozenMenus(parents, room)
+}
+
+// frozenMenus is a stack of menus drawn gray, as many of the nearest as fit in room.
+func frozenMenus(levels []submenuLevel, room int) []string {
+	var drawn []string
+
+	for i := len(levels) - 1; i >= 0; i-- {
+		view := frozenSubmenu(levels[i], i > 0)
+
+		room -= lipgloss.Width(view) + dividerCols
+		if room < 0 {
+			break
+		}
+
+		drawn = append(drawn, view)
+	}
+
+	slices.Reverse(drawn)
 
 	return drawn
 }
