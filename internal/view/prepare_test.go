@@ -354,6 +354,14 @@ func TestPrepareComments(t *testing.T) {
 			},
 		},
 		{
+			name: "offers from the forge draw alone while the person has nothing open",
+			row: Row{
+				Kind:           KindAgent,
+				PersonComments: &Comments{External: 3},
+			},
+			want: []Cell{slot(glyph.ForgeComments, "3", paint.ToneUserGithub)},
+		},
+		{
 			name: "open comments are muted and unread replies stand out",
 			row: Row{
 				Kind: KindAgent,
