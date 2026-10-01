@@ -49,19 +49,14 @@ func (d *documentsScreen) pressNew(h host, s panelShared) tea.Cmd {
 	}
 
 	if d.shelf == shelfDocumentTypes {
-		return newTypeForm(h)
+		return h.openForm(newTypeForm())
 	}
 
 	return newDocumentForm(h, s, d.agentID)
 }
 
-// newTypeForm puts up the form for a document type, asking its name and its context.
-func newTypeForm(h host) tea.Cmd {
-	return h.openForm(newTypeFormState())
-}
-
-// newTypeFormState is the form that defines a document type.
-func newTypeFormState() formState {
+// newTypeForm is the form that defines a document type, asking its name and its context.
+func newTypeForm() formState {
 	values := &documentTypeFormValues{}
 
 	return redrawnForm(redrawnFormParams{

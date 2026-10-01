@@ -62,7 +62,7 @@ func documentTypesMenu(s panelShared, back menuPlace) submenu {
 			{
 				label: "new type",
 				keys:  s.keys.DocumentTypesMenu.New,
-				form:  newTypeFormState,
+				form:  newTypeForm,
 			},
 		},
 	}
