@@ -164,9 +164,10 @@ func (a *agentsScreen) seeFinished(m *model, item panel.AgentRow) {
 	a.cursor = cursor.Place(at, a.cursor, len(rows))
 }
 
-// toggleSnooze snoozes the hovered agent's family in triage, or wakes it.
+// toggleSnooze snoozes the hovered agent's family in triage, or the family of the orchestrator
+// behind a hovered workflow, or wakes it.
 func (a *agentsScreen) toggleSnooze(m *model) {
-	item, ok := a.selectedAgent(m)
+	item, ok := a.hoveredPaneItem(m)
 	if !ok {
 		return
 	}

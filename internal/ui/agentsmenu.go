@@ -35,24 +35,31 @@ func (a *agentsScreen) agentEntries(m *model, item panel.AgentRow) []submenuEntr
 		}))
 	}
 
-	if family, ok := a.triage.findFamily(item, m.listing.agents); ok {
-		label := "snooze"
-		if a.triage.isSnoozed(family.head.Agent.ID) {
-			label = "wake"
-		}
+	return append(entries, a.snoozeEntries(m, item)...)
+}
 
-		entries = append(entries, submenuEntry{
-			label: label,
-			keys:  m.keys.Menu.Snooze,
-			write: func(m *model) tea.Cmd {
-				m.agents.toggleSnooze(m)
-
-				return nil
-			},
-		})
+// snoozeEntries is the entry that snoozes or wakes the agent's family in triage, and none when it
+// is not in triage.
+func (a *agentsScreen) snoozeEntries(m *model, item panel.AgentRow) []submenuEntry {
+	family, ok := a.triage.findFamily(item, m.listing.agents)
+	if !ok {
+		return nil
 	}
 
-	return entries
+	label := "snooze"
+	if a.triage.isSnoozed(family.head.Agent.ID) {
+		label = "wake"
+	}
+
+	return []submenuEntry{{
+		label: label,
+		keys:  m.keys.Menu.Snooze,
+		write: func(m *model) tea.Cmd {
+			m.agents.toggleSnooze(m)
+
+			return nil
+		},
+	}}
 }
 
 // editEntries is the entry that opens an editor on the hovered agent's worktree, or closes the

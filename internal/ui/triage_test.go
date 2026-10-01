@@ -315,6 +315,22 @@ func TestTriageSnooze(t *testing.T) {
 			want:     []string{"asker", "third", "broken", "backend", "third", "asker", "broken", "quiet"},
 		},
 		{
+			name:     "waking a snoozed orchestrator from its workflow puts it back in the zone",
+			capacity: 3,
+			rows: []proto.Message{
+				newLiveWorkflow("w1", "backend"),
+				newAgentAt("quiet", "w1", 1),
+				func() *agentv1.Agent {
+					orchestrator := newOrchestrator()
+					orchestrator.State = agentv1.AgentState_AGENT_STATE_WAITING
+
+					return orchestrator
+				}(),
+			},
+			press: []string{"t", "space", "z", "k", "space", "z"},
+			want:  []string{"backend", "backend", "quiet"},
+		},
+		{
 			name:     "a snoozed family gives up its slot",
 			capacity: 2,
 			rows:     buildTriage(),
