@@ -22,12 +22,11 @@ const (
 )
 
 var (
-	_ harness.Harness  = (*Fake)(nil)
-	_ harness.Channel  = (*Channel)(nil)
-	_ harness.Observer = (*Observer)(nil)
+	_ harness.Harness       = (*Fake)(nil)
+	_ harness.SessionFinder = (*Fake)(nil)
+	_ harness.Channel       = (*Channel)(nil)
+	_ harness.Observer      = (*Observer)(nil)
 )
-
-var _ harness.SessionFinder = (*Fake)(nil)
 
 // Fake is a harness that reads the frames above and records every launch it renders.
 type Fake struct {
