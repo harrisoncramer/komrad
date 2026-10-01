@@ -180,7 +180,7 @@ func (m model) runGitChoice(from screen, agentID string, choice gitChoice) (mode
 			return m, nil
 		}
 
-		cmd := m.planRebaseCmd(agent.ID, agent.Name)
+		cmd := m.planGitCmd(rebaseOp(agent.ID, agent.Name))
 
 		return m, cmd
 	case gitChoicePush:
@@ -190,7 +190,7 @@ func (m model) runGitChoice(from screen, agentID string, choice gitChoice) (mode
 			return m, nil
 		}
 
-		cmd := m.planPushCmd(item)
+		cmd := m.planGitCmd(pushOp(item))
 
 		return m, cmd
 	case gitChoiceOpenPullRequest:
@@ -251,5 +251,5 @@ func (m model) openGitAbort(from screen, agentID string) (tea.Model, tea.Cmd) {
 
 	m.leaveForm()
 
-	return m.openAbortConfirm(agent.ID, agent.Name, agent.Sequence)
+	return m.openGitConfirm(abortOp(agent.ID, agent.Name, agent.Sequence), abortForm(agent.Name, agent.Sequence))
 }

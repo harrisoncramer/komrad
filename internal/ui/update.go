@@ -479,28 +479,12 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 		}
 
 		return m, m.releaseAbandonedPause(msg), true
-	case rebasePlannedMsg:
-		next, cmd := m.applyRebasePlanned(msg)
+	case gitPlannedMsg:
+		next, cmd := m.applyGitPlanned(msg)
 
 		return next, cmd, true
-	case rebasedMsg:
-		next, cmd := m.applyRebased(msg)
-
-		return next, cmd, true
-	case pushPlannedMsg:
-		next, cmd := m.applyPushPlanned(msg)
-
-		return next, cmd, true
-	case pushedMsg:
-		next, cmd := m.applyPushed(msg)
-
-		return next, cmd, true
-	case abortedMsg:
-		next, cmd := m.applyAborted(msg)
-
-		return next, cmd, true
-	case mergedMsg:
-		next, cmd := m.applyMerged(msg)
+	case gitDoneMsg:
+		next, cmd := m.applyGitDone(msg)
 
 		return next, cmd, true
 	case draftedMsg:

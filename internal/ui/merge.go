@@ -27,17 +27,6 @@ var (
 	errArchiveArchived   = errors.New("an archived agent is already archived")
 )
 
-// mergedMsg is a merge come back, with whether the agent is to be archived now.
-type mergedMsg struct {
-	agentID string
-	name    string
-	number  int32
-	title   string
-	archive bool
-	err     error
-	write   int
-}
-
 // mergeMenu is the ways to merge an agent's pull request, opened from the git menu.
 func mergeMenu(s panelShared, from screen, item panel.AgentRow) submenu {
 	agentID := item.Agent.ID
@@ -102,50 +91,45 @@ func (m model) runMerge(from screen, agentID string, choice mergeChoice) (model,
 		return m, nil
 	}
 
-	clients := m.api
-	write := m.beginWrite(fmt.Sprintf("merging #%d", item.PullRequest.Number))
-	standing := item.PullRequest
-	merged := mergedMsg{
-		agentID: agentID,
-		name:    item.Agent.Name,
-		number:  standing.Number,
-		title:   standing.Title,
-		archive: archive,
-		write:   write,
-	}
+	cmd := m.runGitCmd(mergeOp(item, archive))
 
-	return m, func() tea.Msg {
-		merged.err = clients.mergePullRequest(standing.URL)
+	return m, cmd
+}
 
-		return merged
+func mergeOp(item panel.AgentRow, archive bool) gitOp {
+	return gitOp{
+		running: fmt.Sprintf("merging #%d", item.PullRequest.Number),
+		run: func(clients api) gitReport {
+			err := clients.mergePullRequest(item.PullRequest.URL)
+
+			return func(m *model) tea.Cmd {
+				return m.reportMerged(item, archive, err)
+			}
+		},
 	}
 }
 
-// applyMerged reports the merge, archives the agent when that was asked for, and takes down the
-// menu held for it.
-func (m model) applyMerged(msg mergedMsg) (tea.Model, tea.Cmd) {
-	held := m.landHeld(msg.write)
+func (m *model) reportMerged(item panel.AgentRow, archive bool, err error) tea.Cmd {
+	standing := item.PullRequest
+	if err != nil {
+		m.report(fmt.Sprintf("Could not merge #%d of %s", standing.Number, item.Agent.Name), err)
 
-	var archive tea.Cmd
-	if msg.err != nil {
-		m.report(fmt.Sprintf("Could not merge #%d of %s", msg.number, msg.name), msg.err)
-	} else {
-		m.pushMessage(message{
-			kind:    messageInfo,
-			summary: fmt.Sprintf("%s: merged #%d", msg.name, msg.number),
-			detail:  msg.title,
-		})
-
-		if item, ok := m.listing.liveAgent(msg.agentID); ok && msg.archive {
-			m, archive = m.archiveAgents([]panel.Agent{item.Agent})
-		}
+		return nil
 	}
 
-	if !held {
-		return m, archive
+	m.pushMessage(message{
+		kind:    messageInfo,
+		summary: fmt.Sprintf("%s: merged #%d", item.Agent.Name, standing.Number),
+		detail:  standing.Title,
+	})
+
+	live, ok := m.listing.liveAgent(item.Agent.ID)
+	if !ok || !archive {
+		return nil
 	}
 
-	next, back := m.closeForm()
+	archived, archiving := m.archiveAgents([]panel.Agent{live.Agent})
+	*m = archived
 
-	return next, tea.Batch(archive, back)
+	return archiving
 }
