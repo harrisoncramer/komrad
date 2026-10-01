@@ -21,7 +21,6 @@ func documentsMenu(s panelShared, from screen, item panel.AgentRow) submenu {
 	return submenu{
 		kind:  formDocumentsMenu,
 		title: "documents",
-		crumb: "documents",
 		entries: []submenuEntry{
 			{
 				label: "view documents",
@@ -63,7 +62,6 @@ func documentTypesMenu(s panelShared) submenu {
 	return submenu{
 		kind:  formDocumentTypesMenu,
 		title: "document types",
-		crumb: "document types",
 		empty: "no document types",
 		entries: xslice.Map(types, func(t *agentv1.DocumentType) submenuEntry {
 			return submenuEntry{label: t.GetName()}
@@ -112,7 +110,6 @@ func documentTypeMenu(s panelShared, t *agentv1.DocumentType) submenu {
 	return submenu{
 		kind:  formDocumentTypesMenu,
 		title: title,
-		crumb: title,
 		entries: []submenuEntry{
 			edit,
 			{
@@ -177,7 +174,6 @@ func documentMenu(s panelShared, d *documentsScreen) submenu {
 	return submenu{
 		kind:  formMenu,
 		title: title,
-		crumb: title,
 		entries: xslice.Map(entries, func(e documentEntry) submenuEntry {
 			entry, run := e.entry, e.run
 			entry.open = func(m model) (tea.Model, tea.Cmd) {

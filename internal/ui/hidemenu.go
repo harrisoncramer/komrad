@@ -16,7 +16,6 @@ func (a *agentsScreen) hideMenu(s panelShared, agent *panel.Agent) submenu {
 	return submenu{
 		kind:  formHideMenu,
 		title: "hide",
-		crumb: "hide",
 		entries: []submenuEntry{
 			hideEntry(s, hide, agent),
 			{
@@ -26,14 +25,6 @@ func (a *agentsScreen) hideMenu(s panelShared, agent *panel.Agent) submenu {
 			},
 		},
 	}
-}
-
-// withHide is a band with the hide menu at its foot.
-func withHide(menu submenu, s panelShared, hide submenu) submenu {
-	at := len(menu.entries)
-	menu.entries = append(menu.entries[:at:at], nestedEntry("hide", s.keys.Menu.Hide, hide))
-
-	return menu
 }
 
 // hideEntry hides or unhides the agent, and is gray on a row that is not one agent.

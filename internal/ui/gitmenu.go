@@ -43,7 +43,6 @@ func gitMenu(s panelShared, from screen, item panel.AgentRow) submenu {
 	return submenu{
 		kind:  formGit,
 		title: "git",
-		crumb: "git",
 		entries: []submenuEntry{
 			{
 				label: "rebase with base",

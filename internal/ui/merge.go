@@ -49,7 +49,6 @@ func mergeMenu(s panelShared, from screen, item panel.AgentRow) submenu {
 	return submenu{
 		kind:  formMerge,
 		title: "merge",
-		crumb: "merge",
 		entries: []submenuEntry{
 			{
 				label: "merge",

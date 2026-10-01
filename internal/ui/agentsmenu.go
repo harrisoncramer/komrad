@@ -21,7 +21,6 @@ func (a *agentsScreen) screenMenu(s panelShared) (submenu, bool) {
 	return submenu{
 		kind:  formMenu,
 		title: "agents",
-		crumb: "agents",
 		entries: []submenuEntry{
 			openEntry("new agent", s.keys.Menu.NewAgent, func(h host, _ panelShared) tea.Cmd { return openNewAgent(h, in) }),
 			openEntry("new workflow", s.keys.Menu.NewWorkflow, newWorkflowForm),
