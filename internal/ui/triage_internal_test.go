@@ -102,7 +102,7 @@ func TestTriageRefresh(t *testing.T) {
 			name: "a conflict an agent is working through is not in triage",
 			item: func() panel.AgentRow {
 				item := live(panel.StateThinking)
-				item.Agent.SequenceInProgress = true
+				item.Agent.Sequence = panel.SequenceRebase
 
 				return item
 			}(),
@@ -111,7 +111,7 @@ func TestTriageRefresh(t *testing.T) {
 		{
 			name: "a child in its parent's conflicted checkout is not in triage",
 			item: idle(func(item *panel.AgentRow) {
-				item.Agent.SequenceInProgress = true
+				item.Agent.Sequence = panel.SequenceRebase
 				item.Agent.ParentAgentID = xptr.Ptr("p1")
 			}),
 			want: "",
@@ -210,7 +210,7 @@ func TestTriageRefresh(t *testing.T) {
 		},
 		{
 			name:  "a conflict left for a person",
-			item:  idle(func(item *panel.AgentRow) { item.Agent.SequenceInProgress = true }),
+			item:  idle(func(item *panel.AgentRow) { item.Agent.Sequence = panel.SequenceRebase }),
 			want:  "checkout conflict",
 			since: seen,
 		},

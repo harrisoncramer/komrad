@@ -83,7 +83,7 @@ var triageRules = []triageRule{
 		clock: clockSeen,
 		tone:  paint.ToneWarning,
 		is: func(s triageSubject) bool {
-			return s.item.Agent.SequenceInProgress && s.item.Agent.ParentAgentID == nil
+			return s.item.Agent.Sequence.IsInProgress() && s.item.Agent.ParentAgentID == nil
 		},
 	},
 	{
