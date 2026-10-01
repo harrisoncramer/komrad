@@ -382,6 +382,14 @@ func (r reviewScreen) backDesc() string {
 	return "back to the agents"
 }
 
+func (r reviewScreen) diffBackDesc(s panelShared) string {
+	if r.hold.isHeld() || !r.isBlockDrawn(s) {
+		return r.backDesc()
+	}
+
+	return "back to the files"
+}
+
 // reloadDesc says what the reload key would do.
 func (r reviewScreen) reloadDesc(s panelShared) string {
 	if r.isWorktreeMoved(s) {

@@ -82,11 +82,12 @@ func (r *reviewScreen) open(s panelShared, agent panel.Agent) tea.Cmd {
 	worktree := s.listing.worktreeFor(agent)
 
 	*r = reviewScreen{
-		agentID:   agent.ID,
-		agentName: agent.Name,
-		dir:       agent.Cwd,
-		exclude:   worktree.DiffExclude,
-		loading:   true,
+		agentID:      agent.ID,
+		agentName:    agent.Name,
+		dir:          agent.Cwd,
+		exclude:      worktree.DiffExclude,
+		loading:      true,
+		filesFocused: true,
 		// The whole change is what a review opens on, and it sits before the first round rather
 		// than on it, so the first press of the step key lands on the newest round.
 		diff: reviewDiff{chapter: -1},
@@ -627,6 +628,17 @@ func (r *reviewScreen) back(h host, s panelShared) tea.Cmd {
 	// The drop is the one way off this screen, and it puts the reader back on the row they came
 	// from.
 	return r.drop(h, s)
+}
+
+// backFromDiff hands the keys to the file tree, or leaves the screen where no tree is drawn.
+func (r *reviewScreen) backFromDiff(h host, s panelShared) tea.Cmd {
+	if r.hold.isHeld() || !r.isBlockDrawn(s) {
+		return r.back(h, s)
+	}
+
+	r.focusBlock(s)
+
+	return nil
 }
 
 func (l listing) worktreeFor(agent panel.Agent) panel.WorktreeConfig {

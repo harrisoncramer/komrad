@@ -188,11 +188,28 @@ func TestReviewFiles(t *testing.T) {
 		harness.press("ctrl+space", "ctrl+space", "j")
 		assert.Contains(t, readFilesBlock(harness.readFrame()), "› second.go +3")
 
-		harness.press("esc")
+		harness.press("ctrl+space", "ctrl+space")
 		assert.Equal(t, "▸ second.go +3", readCurrentFile(harness.readFrame()), "the diff holds the keys again")
 
 		harness.press("ctrl+space", "ctrl+space", "k")
 		assert.Contains(t, readFilesBlock(harness.readFrame()), "› greet.go +1 −1")
+	})
+
+	t.Run("the review opens on the tree, and the back key steps from the diff to the tree and then out", func(t *testing.T) {
+		server := newReviewServer(t)
+		server.repo.Patches[gittest.NamePair(gittest.BaseSHA, gittest.SnapshotSHA)] = gittest.PatchOfBothFiles
+		harness := newPanelHarness(t, panelHarnessParams{width: reviewWidth, height: reviewHeight, git: server.repo})
+		server.serve(harness)
+		harness.watch(server.buildSnapshot())
+
+		harness.press("space", "r", "j")
+		assert.Contains(t, readFilesBlock(harness.readFrame()), "› second.go +3", "the tree holds the keys")
+
+		harness.press("ctrl+space", "ctrl+space", "esc", "k")
+		assert.Contains(t, readFilesBlock(harness.readFrame()), "› greet.go +1 −1", "the back key hands the keys to the tree")
+
+		harness.press("esc")
+		assert.Contains(t, readHoveredRow(harness.readFrame()), "auth")
 	})
 
 	t.Run("the viewed key on the tree marks the file it is on", func(t *testing.T) {

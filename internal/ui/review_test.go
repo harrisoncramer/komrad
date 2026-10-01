@@ -768,9 +768,9 @@ func TestReviewSearch(t *testing.T) {
 		harness.press("j")
 		require.Contains(t, readHoveredRow(harness.readFrame()), "auth")
 
-		harness.press("space", "r", "/")
+		harness.press("space", "r", "ctrl+space", "ctrl+space", "/")
 		typeText(harness, "goodbye")
-		harness.press("enter", "esc")
+		harness.press("enter", "esc", "esc")
 
 		frame := harness.readFrame()
 		assert.Len(t, readListRows(frame), 3)
@@ -807,7 +807,7 @@ func TestReviewViewed(t *testing.T) {
 		server := newReviewServer(t)
 		harness := openReview(t, server)
 
-		harness.press("v", "esc", "space", "r")
+		harness.press("v", "esc", "esc", "space", "r", "ctrl+space", "ctrl+space")
 		require.NotContains(t, harness.readFrame(), "func Hello() string {")
 
 		server.repo.Wrote(gittest.WroteParams{
@@ -817,7 +817,7 @@ func TestReviewViewed(t *testing.T) {
 				gittest.File: "package greet\n\nfunc Hello() string {\n\treturn \"written by the agent\"\n}\n",
 			},
 		})
-		harness.press("esc", "space", "r")
+		harness.press("esc", "esc", "space", "r", "ctrl+space", "ctrl+space")
 
 		assert.Contains(t, harness.readFrame(), "func Hello() string {")
 	})
@@ -1618,7 +1618,7 @@ func TestReviewRounds(t *testing.T) {
 		server := newEarlierReviewServer(t)
 		harness := openReview(t, server)
 		server.repo.Wrote(gittest.WroteParams{Tree: gittest.UnmovedTree, Whole: gittest.Patch})
-		harness.press("esc", "space", "r")
+		harness.press("esc", "esc", "space", "r", "ctrl+space", "ctrl+space")
 
 		harness.press("<")
 
@@ -1766,7 +1766,7 @@ func TestReviewPin(t *testing.T) {
 		}}
 
 		server.repo.Wrote(newRoundWrittenOver())
-		harness.press("esc", "space", "r")
+		harness.press("esc", "esc", "space", "r", "ctrl+space", "ctrl+space")
 
 		assert.NotContains(t, harness.readFrame(), "written by the agent")
 	})
@@ -1781,7 +1781,7 @@ func TestReviewPin(t *testing.T) {
 		}}
 
 		server.repo.Wrote(newRoundWrittenOver())
-		harness.press("esc", "space", "r")
+		harness.press("esc", "esc", "space", "r", "ctrl+space", "ctrl+space")
 		require.NotContains(t, harness.readFrame(), "written by the agent")
 
 		harness.press("R")
@@ -2255,7 +2255,7 @@ func TestReviewHold(t *testing.T) {
 		harness.watch(buildSnapshot(server.workflow, idle, server.agent))
 		require.Contains(t, readHoveredRow(harness.readFrame()), "auth")
 
-		harness.press("space", "r")
+		harness.press("space", "r", "ctrl+space", "ctrl+space")
 		server.repo.Wrote(newRoundWrittenOver())
 		server.agent.MovedSinceRound = gittest.SnapshotSHA
 		harness.watch(buildSnapshot(server.workflow, server.agent, idle))
@@ -2329,7 +2329,7 @@ func openReviewAt(t *testing.T, server *reviewServer, params panelHarnessParams)
 	harness := newPanelHarness(t, params)
 	server.serve(harness)
 	harness.watch(server.buildSnapshot())
-	harness.press("space", "r")
+	harness.press("space", "r", "ctrl+space", "ctrl+space")
 
 	return harness
 }

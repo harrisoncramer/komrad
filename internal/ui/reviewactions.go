@@ -36,7 +36,7 @@ func (r *reviewScreen) ownTable() []screenAction {
 		{
 			id:     actionReviewBack,
 			keys:   func(k config.Keybindings) []string { return k.Review.Back },
-			direct: directly(editorRelease, func(h host, s panelShared, _ string) tea.Cmd { return r.back(h, s) }),
+			direct: directly(editorRelease, func(h host, s panelShared, _ string) tea.Cmd { return r.backFromDiff(h, s) }),
 		},
 		{
 			id:   actionQuit,
@@ -271,7 +271,7 @@ func (r *reviewScreen) legend() []screenLegendRow {
 		},
 		{
 			of:   []actionID{actionReviewBack},
-			desc: func(panelShared) string { return r.backDesc() },
+			desc: func(s panelShared) string { return r.diffBackDesc(s) },
 		},
 	}
 }
@@ -336,13 +336,9 @@ func (r *reviewScreen) filesActions() screenActionSpec {
 				},
 			},
 			{
-				id:   actionReviewBack,
-				keys: func(k config.Keybindings) []string { return k.Review.Back },
-				nav: func(navHost, panelShared, string) tea.Cmd {
-					r.blurBlock()
-
-					return nil
-				},
+				id:     actionReviewBack,
+				keys:   func(k config.Keybindings) []string { return k.Review.Back },
+				direct: directly(editorRelease, func(h host, s panelShared, _ string) tea.Cmd { return r.back(h, s) }),
 			},
 			{
 				id:   actionQuit,
@@ -381,7 +377,7 @@ func (r *reviewScreen) filesActions() screenActionSpec {
 			},
 			{
 				of:    []actionID{actionReviewBack},
-				desc:  func(panelShared) string { return "back to the diff" },
+				desc:  func(panelShared) string { return r.backDesc() },
 				show:  func(panelShared) bool { return !r.filesFilter.isStanding() },
 				strip: true,
 			},
