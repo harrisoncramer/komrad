@@ -680,7 +680,7 @@ func triageRows(params snapshotParams) []view.Row {
 			name = "nothing to triage"
 		}
 
-		rows = append(rows, view.Row{Key: fmt.Sprintf("%s%d", triagePadKey, i), Kind: view.KindTriageMore, Name: name, Process: view.ProcessNone, Faded: true})
+		rows = append(rows, newTriageNote(fmt.Sprintf("%s%d", triagePadKey, i), name))
 	}
 
 	status := ""
@@ -689,7 +689,18 @@ func triageRows(params snapshotParams) []view.Row {
 	}
 
 	return append(rows,
-		view.Row{Key: triageMoreKey, Kind: view.KindTriageMore, Name: status, Process: view.ProcessNone, Faded: true},
+		newTriageNote(triageMoreKey, status),
 		view.Row{Key: triageDividerKey, Kind: view.KindDivider},
 	)
+}
+
+// newTriageNote is a faded line of the zone that names no agent.
+func newTriageNote(key, name string) view.Row {
+	return view.Row{
+		Key:     key,
+		Kind:    view.KindTriageMore,
+		Name:    name,
+		Process: view.ProcessNone,
+		Faded:   true,
+	}
 }
