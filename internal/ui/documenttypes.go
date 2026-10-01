@@ -70,9 +70,13 @@ func newTypeFormState() formState {
 		Editable: []editableText{{key: "context", value: &values.Context}},
 		Submit: holdSubmit(func(m model) (model, tea.Cmd) {
 			name, typeContext := strings.TrimSpace(values.Name), values.Context
+			doing, summary := "defining a document type", "Could not define a document type"
+			if name != "" {
+				doing, summary = "defining "+name, fmt.Sprintf("Could not define document type %q", name)
+			}
 			cmd := m.writeCmd(
-				"defining "+name,
-				fmt.Sprintf("Could not define document type %q", name),
+				doing,
+				summary,
 				func(a api) error {
 					if err := errors.Join(checkDocumentTypeName(name), checkDocumentTypeContext(typeContext)); err != nil {
 						return err

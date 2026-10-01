@@ -243,6 +243,19 @@ func TestDocumentTypesRefused(t *testing.T) {
 	assert.Contains(t, frame, "a document type needs the context an agent reads")
 	assert.Contains(t, frame, "fix and submit again")
 	assert.Empty(t, harness.readSent(agentv1connect.AgentServiceWriteDocumentTypeProcedure))
+
+	t.Run("a type with no name is refused without quoting one", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openDocumentTypes(t, "author")
+		harness.press("space", "c", "ctrl+s")
+		harness.fireTimers()
+		harness.press("ctrl+g")
+
+		frame := harness.readFrame()
+		assert.Contains(t, frame, "Could not define a document type")
+		assert.Contains(t, frame, "a document type needs a name")
+	})
 }
 
 // TestDocumentTypesWrite covers defining, renaming and deleting a type from the screen.
