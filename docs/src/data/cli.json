@@ -913,7 +913,7 @@
     "usage": "komrad serve [flags]",
     "aliases": [],
     "short": "Run the komrad service in the foreground",
-    "long": "Run the komrad service in the foreground.\n\nIt opens the database, mounts the Connect handlers and the MCP endpoint on one\naddress, and runs the loops that read each pane's state, reconcile schedules, and\nsync transcripts. The panel and the rest of these commands are clients of it, so\nnothing works without it.\n\n`komrad start` spawns this detached with its output going to the log file, which is\nhow it usually runs. Run it here to watch that output directly. It stops on an\ninterrupt, or when `komrad stop` asks it to.",
+    "long": "Run the komrad service in the foreground.\n\nIt opens the database, mounts the Connect handlers and the MCP endpoint on one\naddress, runs the loops that read each pane's state and sync transcripts, and fires\nschedules. The panel and the rest of these commands are clients of it, so\nnothing works without it.\n\n`komrad start` spawns this detached with its output going to the log file, which is\nhow it usually runs. Run it here to watch that output directly. It stops on an\ninterrupt, or when `komrad stop` asks it to.",
     "example": "",
     "flags": [
       {

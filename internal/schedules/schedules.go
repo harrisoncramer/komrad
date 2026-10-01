@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 	"unicode/utf8"
 
@@ -40,6 +41,9 @@ type ScheduleService struct {
 	store     *schedulestore.ScheduleStore
 	workflows *workflowstore.WorkflowStore
 	agents    *agentstore.AgentStore
+	armMu     sync.Mutex
+	periodic  periodicJobRegistrar
+	armed     map[string]registration
 }
 
 // NewScheduleService builds the service from its dependencies.
@@ -48,6 +52,7 @@ func NewScheduleService(params NewScheduleServiceParams) *ScheduleService {
 		store:     params.Schedules,
 		workflows: params.Workflows,
 		agents:    params.Agents,
+		armed:     make(map[string]registration),
 	}
 }
 
@@ -75,6 +80,10 @@ func (s *ScheduleService) NewSchedule(ctx context.Context, cfg schedulestore.Con
 	created, err := s.store.Create(ctx, normalized)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create schedule %q: %w", normalized.Name, err)
+	}
+
+	if err := s.syncAfterWrite(ctx, created.ID); err != nil {
+		return nil, err
 	}
 
 	return created, nil
@@ -106,7 +115,7 @@ func (s *ScheduleService) UpdateSchedule(ctx context.Context, id string, cfg sch
 		return fmt.Errorf("failed to update schedule %q: %w", id, err)
 	}
 
-	return nil
+	return s.syncAfterWrite(ctx, id)
 }
 
 // SetScheduleEnabled pauses or resumes a schedule, leaving everything else as it stands.
@@ -123,7 +132,7 @@ func (s *ScheduleService) SetScheduleEnabled(ctx context.Context, id string, ena
 		return fmt.Errorf("failed to set schedule %q enabled to %t: %w", id, enabled, err)
 	}
 
-	return nil
+	return s.syncAfterWrite(ctx, id)
 }
 
 // ArchiveSchedule stops a schedule from firing again, leaving the agents it already launched
@@ -141,7 +150,7 @@ func (s *ScheduleService) ArchiveSchedule(ctx context.Context, id string) error 
 		return fmt.Errorf("failed to archive schedule %q: %w", id, err)
 	}
 
-	return nil
+	return s.syncAfterWrite(ctx, id)
 }
 
 // RestoreSchedule takes a schedule out of the archive, refusing while what it fires at is gone.
@@ -159,7 +168,7 @@ func (s *ScheduleService) RestoreSchedule(ctx context.Context, id string) error 
 		return fmt.Errorf("failed to restore schedule %q: %w", existing.Name, err)
 	}
 
-	return nil
+	return s.syncAfterWrite(ctx, id)
 }
 
 // DeleteSchedule permanently removes an archived schedule and its firings.
@@ -173,7 +182,7 @@ func (s *ScheduleService) DeleteSchedule(ctx context.Context, id string) error {
 		return fmt.Errorf("failed to delete schedule %q: %w", existing.Name, err)
 	}
 
-	return nil
+	return s.syncAfterWrite(ctx, id)
 }
 
 func (s *ScheduleService) getArchived(ctx context.Context, id string) (*schedulestore.Schedule, error) {

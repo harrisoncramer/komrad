@@ -34,8 +34,8 @@ func serveCmd(state *app) *cobra.Command {
 		Long: `Run the komrad service in the foreground.
 
 It opens the database, mounts the Connect handlers and the MCP endpoint on one
-address, and runs the loops that read each pane's state, reconcile schedules, and
-sync transcripts. The panel and the rest of these commands are clients of it, so
+address, runs the loops that read each pane's state and sync transcripts, and fires
+schedules. The panel and the rest of these commands are clients of it, so
 nothing works without it.
 
 ` + "`komrad start`" + ` spawns this detached with its output going to the log file, which is

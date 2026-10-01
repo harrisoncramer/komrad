@@ -1,8 +1,10 @@
 package internaljobs
 
 import (
+	"context"
 	"errors"
 	"path/filepath"
+	"slices"
 	"testing"
 	"time"
 
@@ -50,6 +52,7 @@ func TestLaunchAgentWorker(t *testing.T) {
 		wantRuns     []schedulestore.RunState
 		wantLaunched bool
 		wantHidden   bool
+		wantSynced   bool
 	}{
 		{
 			name:       "a schedule deleted since the job was queued cancels",
@@ -57,6 +60,7 @@ func TestLaunchAgentWorker(t *testing.T) {
 			wantCancel: true,
 			wantReason: "no longer exists",
 			wantRuns:   []schedulestore.RunState{},
+			wantSynced: true,
 		},
 		{
 			name:       "a schedule paused since the job was queued cancels",
@@ -155,6 +159,7 @@ func TestLaunchAgentWorker(t *testing.T) {
 				maxAgents = 1
 			}
 
+			registrations := &syncRecorder{}
 			terminal := tmuxtest.NewFake()
 			terminal.NewWindowErr = tt.windowErr
 			worker := NewLaunchAgentWorker(NewLaunchAgentWorkerParams{
@@ -165,7 +170,8 @@ func TestLaunchAgentWorker(t *testing.T) {
 					terminal:  terminal,
 					maxAgents: maxAgents,
 				}),
-				Running: stores.Agents,
+				Running:       stores.Agents,
+				Registrations: registrations,
 			})
 
 			err := worker.Work(ctx, &river.Job[LaunchAgentArgs]{
@@ -198,6 +204,7 @@ func TestLaunchAgentWorker(t *testing.T) {
 			assert.Equal(t, tt.wantRuns, xslice.Map(runs, func(run schedulestore.Run) schedulestore.RunState {
 				return run.State
 			}))
+			assert.Equal(t, tt.wantSynced, slices.Contains(registrations.synced, schedule.ID), "a firing of a deleted schedule resyncs its registration")
 			if len(runs) > 0 && tt.wantReason != "" {
 				assert.Contains(t, runs[0].Message, tt.wantReason, "the run records why")
 				assert.NotContains(t, runs[0].Message, "JobCancelError", "in the worker's own words")
@@ -465,4 +472,14 @@ func isCancel(err error) bool {
 	var cancel *river.JobCancelError
 
 	return errors.As(err, &cancel)
+}
+
+type syncRecorder struct {
+	synced []string
+}
+
+func (r *syncRecorder) SyncRegistration(_ context.Context, id string) error {
+	r.synced = append(r.synced, id)
+
+	return nil
 }

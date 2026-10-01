@@ -57,7 +57,6 @@ type NewServerParams struct {
 type Server struct {
 	Mux           *http.ServeMux
 	Jobs          *river.Client[pgx.Tx]
-	Periodic      *jobs.RiverPeriodic
 	Pool          *store.Pool
 	Delivery      *mail.DeliveryService
 	Loops         []*Loop
@@ -127,6 +126,7 @@ func NewServer(ctx context.Context, params NewServerParams) (*Server, error) {
 		Running:       st.agents,
 		Orchestrators: svc.schedule,
 		Mailer:        svc.mail,
+		Registrations: svc.schedule,
 		Worktrees:     svc.worktreeLister,
 		Remover:       svc.remover,
 		Resumer:       svc.resume,
@@ -178,11 +178,13 @@ func NewServer(ctx context.Context, params NewServerParams) (*Server, error) {
 		return nil, err
 	}
 
-	srv.Periodic = jobs.NewRiverPeriodic(srv.Jobs.PeriodicJobs())
+	if err := svc.schedule.ArmPeriodic(ctx, jobs.NewRiverPeriodic(srv.Jobs.PeriodicJobs())); err != nil {
+		return nil, err
+	}
+
 	srv.Loops = buildLoops(buildLoopsParams{
 		Stores:   st,
 		Services: svc,
-		Periodic: srv.Periodic,
 		Claimed:  jobs.NewWorktreeDelete(svc.queue),
 		Wakers:   wakers,
 	})

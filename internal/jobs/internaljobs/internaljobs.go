@@ -25,13 +25,13 @@ type ScheduleGetter interface {
 	Get(ctx context.Context, id string) (*schedulestore.Schedule, error)
 }
 
-// ScheduleLister reads every schedule.
-type ScheduleLister interface {
-	ListWatched(ctx context.Context, keys []string) ([]schedulestore.Schedule, error)
-}
-
 type AgentLauncher interface {
 	NewAgent(ctx context.Context, p agents.NewAgentParams) (*agentstore.Agent, error)
+}
+
+// RegistrationSyncer makes a schedule's River registration match its row.
+type RegistrationSyncer interface {
+	SyncRegistration(ctx context.Context, id string) error
 }
 
 // OrchestratorResolver answers the live orchestrator an orchestrator schedule mails.
