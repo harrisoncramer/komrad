@@ -47,8 +47,7 @@ type Known struct {
 	AutoMerge *AutoMerge
 	// ReadSHA is the head the latest read was for.
 	ReadSHA string
-	// BlankSince is when the forge began answering a blank mergeability for ReadSHA, nil while it
-	// answers one.
+	// BlankSince is when the forge began answering a blank mergeability for ReadSHA.
 	BlankSince *time.Time
 }
 
