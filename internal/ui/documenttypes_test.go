@@ -159,12 +159,6 @@ func TestDocumentTypesFromTheMenuStack(t *testing.T) {
 		want      proto.Message
 	}{
 		{
-			name:      "a type deleted from the list is deleted",
-			presses:   []string{"space", "T", "l", "ctrl+s", "d", "y"},
-			procedure: agentv1connect.AgentServiceDeleteDocumentTypeProcedure,
-			want:      &agentv1.DeleteDocumentTypeRequest{Id: "t3"},
-		},
-		{
 			name:      "a delete declined from the list deletes nothing",
 			presses:   []string{"space", "T", "l", "ctrl+s", "d", "n"},
 			procedure: agentv1connect.AgentServiceDeleteDocumentTypeProcedure,
@@ -173,6 +167,12 @@ func TestDocumentTypesFromTheMenuStack(t *testing.T) {
 			name:      "a new type backed out of defines nothing",
 			presses:   []string{"space", "T", "c", "b", "esc", "esc", "esc", "esc"},
 			procedure: agentv1connect.AgentServiceWriteDocumentTypeProcedure,
+		},
+		{
+			name:      "a type deleted from the list is deleted",
+			presses:   []string{"space", "T", "l", "ctrl+s", "d", "y"},
+			procedure: agentv1connect.AgentServiceDeleteDocumentTypeProcedure,
+			want:      &agentv1.DeleteDocumentTypeRequest{Id: "t3"},
 		},
 	}
 
