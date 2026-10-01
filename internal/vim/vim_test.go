@@ -170,6 +170,8 @@ func TestMotions(t *testing.T) {
 		{name: "f stays on its line", start: "|abc\nz", keys: "fz", want: "|abc\nz", mode: Normal},
 		{name: "; repeats the find", start: "|a,b,c", keys: "f,;", want: "a,b|,c", mode: Normal},
 		{name: ", repeats the find backward", start: "|a,b,c", keys: "f,;,", want: "a|,b,c", mode: Normal},
+		{name: "; after t moves to before the next match", start: "|a,b,c", keys: "t,;", want: "a,|b,c", mode: Normal},
+		{name: "; after T moves to after the previous match", start: "a,b,c|d", keys: "T,;", want: "a,|b,cd", mode: Normal},
 		{name: "a motion over wide runes counts runes", start: "|日本 語", keys: "w", want: "日本 |語", mode: Normal},
 	}, false)
 }

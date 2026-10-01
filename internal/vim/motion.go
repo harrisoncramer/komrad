@@ -96,7 +96,20 @@ func (e *Engine) motion(r []rune, p int, c command) (int, reach, bool) {
 			name = reversed[name]
 		}
 
-		return findChar(r, p, find{name: name, char: e.lastFind.char}, count)
+		from := p
+		switch {
+		case name == "t" && p+1 < lineEnd(r, p):
+			from++
+		case name == "T" && p > lineStart(r, p):
+			from--
+		}
+
+		at, how, ok := findChar(r, from, find{name: name, char: e.lastFind.char}, count)
+		if !ok {
+			return p, how, false
+		}
+
+		return at, how, true
 	}
 
 	return p, exclusive, false
