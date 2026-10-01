@@ -182,107 +182,133 @@ func (m model) updateDetails(key tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, m.hide()
 	}
 
-	return detailsActions().dispatch(m, k)
+	cmd := m.detailsActions().dispatch(&m, m.shared(), k)
+
+	return m, cmd
 }
 
-func detailsActions() actionSpec {
-	standing := func(m model) bool { return m.filter.isStanding() }
+func (m *model) detailsActions() screenActionSpec {
+	standing := func(panelShared) bool { return m.filter.isStanding() }
 
-	return actionSpec{
-		table: []action{
+	return screenActionSpec{
+		table: []screenAction{
 			{
 				id:   actionFilterClear,
 				keys: func(config.Keybindings) []string { return []string{"esc"} },
 				when: standing,
-				run: func(m model, _ string) (tea.Model, tea.Cmd) {
+				nav: func(navHost, panelShared, string) tea.Cmd {
 					m.clearFilter()
 
-					return m, nil
+					return nil
 				},
 			},
 			{
 				id:   actionDetails,
 				keys: func(config.Keybindings) []string { return []string{"esc"} },
-				run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.blurDetails(), nil },
+				nav: func(navHost, panelShared, string) tea.Cmd {
+					*m = m.blurDetails()
+
+					return nil
+				},
 			},
 			{
 				id:   actionMove,
 				keys: func(k config.Keybindings) []string { return slices.Concat(k.Nav.Up, k.Nav.Down) },
-				run:  model.moveDetailsCursor,
+				nav: func(_ navHost, _ panelShared, pressed string) tea.Cmd {
+					m.moveDetailsCursor(pressed)
+
+					return nil
+				},
 			},
 			{
 				id:   actionJump,
 				keys: func(k config.Keybindings) []string { return slices.Concat(k.Nav.Top, k.Nav.Bottom) },
-				run:  model.jumpDetailsCursor,
+				nav: func(_ navHost, _ panelShared, pressed string) tea.Cmd {
+					m.jumpDetailsCursor(pressed)
+
+					return nil
+				},
 			},
 			{
 				id:   actionNavPage,
 				keys: func(k config.Keybindings) []string { return slices.Concat(k.Nav.PageUp, k.Nav.PageDown) },
-				run:  model.pageDetailsCursor,
+				nav: func(_ navHost, _ panelShared, pressed string) tea.Cmd {
+					m.pageDetailsCursor(pressed)
+
+					return nil
+				},
 			},
 			{
 				id:   actionColumnScroll,
 				keys: func(k config.Keybindings) []string { return slices.Concat(k.Column.ScrollDown, k.Column.ScrollUp) },
-				run:  model.moveDetailsCursor,
+				nav: func(_ navHost, _ panelShared, pressed string) tea.Cmd {
+					m.moveDetailsCursor(pressed)
+
+					return nil
+				},
 			},
 			{
 				id:   actionFilterOpen,
 				keys: func(config.Keybindings) []string { return []string{filterOpenKey} },
-				run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.openFilter() },
+				nav: func(navHost, panelShared, string) tea.Cmd {
+					m.beginFilter()
+
+					return nil
+				},
 			},
 			{
 				id:   actionFilterMatch,
 				keys: func(k config.Keybindings) []string { return slices.Concat(k.Filter.NextMatch, k.Filter.PrevMatch) },
 				when: standing,
-				run:  func(m model, pressed string) (tea.Model, tea.Cmd) { return m, m.jumpToFilterMatch(pressed) },
+				nav:  func(_ navHost, _ panelShared, pressed string) tea.Cmd { return m.jumpToFilterMatch(pressed) },
 			},
 			{
 				id:   actionDetailsCopy,
 				keys: func(k config.Keybindings) []string { return k.Details.Copy },
-				run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.copyDetailsField() },
+				nav:  func(navHost, panelShared, string) tea.Cmd { return m.copyDetailsField() },
 			},
 		},
-		legend: []legendRow{
+		legend: []screenLegendRow{
 			{
 				of:    []actionID{actionDetailsCopy},
-				desc:  func(model) string { return "copy field" },
+				desc:  func(panelShared) string { return "copy field" },
 				strip: true,
 			},
 			{
 				of:    []actionID{actionDetails},
-				desc:  func(model) string { return "back to the list" },
+				desc:  func(panelShared) string { return "back to the list" },
 				strip: true,
 			},
 			{
 				of:   []actionID{actionFilterOpen},
-				desc: model.filterDesc,
+				desc: func(panelShared) string { return m.filterDesc() },
 			},
 			{
 				of:   []actionID{actionFilterMatch},
-				desc: func(model) string { return "next/prev match" },
+				desc: func(panelShared) string { return "next/prev match" },
 			},
 			{
 				of:   []actionID{actionFilterClear},
-				desc: model.filterClearDesc,
+				desc: func(panelShared) string { return m.filterClearDesc() },
 			},
 			{
 				of:    []actionID{actionMove},
-				desc:  func(model) string { return "move" },
+				desc:  func(panelShared) string { return "move" },
 				label: func(k config.Keybindings) string { return keyLabel(k.Nav.Up) + "/" + keyLabel(k.Nav.Down) },
 			},
 			{
 				of:    []actionID{actionJump},
-				desc:  func(model) string { return "top/bottom" },
+				desc:  func(panelShared) string { return "top/bottom" },
 				label: func(k config.Keybindings) string { return keyLabel(k.Nav.Top) + "/" + keyLabel(k.Nav.Bottom) },
 			},
 			{
 				of:    []actionID{actionNavPage},
-				desc:  func(model) string { return "page" },
+				desc:  func(panelShared) string { return "page" },
 				label: navPageLabel,
 			},
 			{
 				of:    []actionID{actionColumnScroll},
-				desc:  func(model) string { return "scroll" },
+				desc:  func(panelShared) string { return "scroll" },
 				label: columnScrollLabel,
 			},
 		},
@@ -290,7 +316,7 @@ func detailsActions() actionSpec {
 }
 
 func (m model) detailsHelp() keyMap {
-	own := detailsActions().help(m)
+	own := m.detailsActions().help(m.shared())
 
 	return keyMap{
 		short: slices.Concat(own.short, m.globalHelp()),
@@ -323,36 +349,37 @@ func (m model) detailsFilterRows() []filterRow {
 }
 
 // moveDetailsCursor steps the field cursor.
-func (m model) moveDetailsCursor(pressed string) (tea.Model, tea.Cmd) {
+func (m *model) moveDetailsCursor(pressed string) {
 	held := m.hoveredDetails()
 	cursor := m.detailsCursor(held)
 	if isBound(pressed, m.keys.Nav.Down) || isBound(pressed, m.keys.Column.ScrollDown) {
-		return m.setDetailsCursor(held, cursor+1), nil
+		m.setDetailsCursor(held, cursor+1)
+
+		return
 	}
 
-	return m.setDetailsCursor(held, cursor-1), nil
+	m.setDetailsCursor(held, cursor-1)
 }
 
-func (m model) jumpDetailsCursor(pressed string) (tea.Model, tea.Cmd) {
+func (m *model) jumpDetailsCursor(pressed string) {
 	held := m.hoveredDetails()
 	if isBound(pressed, m.keys.Nav.Bottom) {
-		return m.setDetailsCursor(held, len(m.detailsRows(held))-1), nil
+		m.setDetailsCursor(held, len(m.detailsRows(held))-1)
+
+		return
 	}
 
-	return m.setDetailsCursor(held, 0), nil
+	m.setDetailsCursor(held, 0)
 }
 
-func (m model) pageDetailsCursor(pressed string) (tea.Model, tea.Cmd) {
+func (m *model) pageDetailsCursor(pressed string) {
 	held := m.hoveredDetails()
-
-	return m.setDetailsCursor(held, m.detailsCursor(held)+m.navPageDelta(pressed)), nil
+	m.setDetailsCursor(held, m.detailsCursor(held)+m.navPageDelta(pressed))
 }
 
-func (m model) setDetailsCursor(held details, idx int) model {
+func (m *model) setDetailsCursor(held details, idx int) {
 	m.details.cursor = cursor.Clamp(idx, len(m.detailsRows(held)))
 	m.details.row = held.id
-
-	return m
 }
 
 func (m model) quitKeys() []string {
@@ -364,17 +391,17 @@ func (m model) quitKeys() []string {
 	return d.detailsQuit(m.keys)
 }
 
-func (m model) copyDetailsField() (tea.Model, tea.Cmd) {
+func (m *model) copyDetailsField() tea.Cmd {
 	held := m.hoveredDetails()
 	rows := m.detailsRows(held)
 	if len(rows) == 0 {
-		return m, nil
+		return nil
 	}
 
 	cursor := m.detailsCursor(held)
 	m.details.flashed = cursor + 1
 
-	return m, tea.Batch(m.copyCmd(rows[cursor].field.value), flashRevertTick())
+	return tea.Batch(m.copyCmd(rows[cursor].field.value), flashRevertTick())
 }
 
 func (m model) detailsLines() int {

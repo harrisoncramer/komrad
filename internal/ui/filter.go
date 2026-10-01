@@ -159,12 +159,6 @@ func (m model) filteredRows() ([]filterRow, bool) {
 	return rows.filterRows(m.shared()), true
 }
 
-func (m model) openFilter() (tea.Model, tea.Cmd) {
-	m.beginFilter()
-
-	return m, nil
-}
-
 // beginFilter starts a search from nothing, keeping the cursor on the row it was on.
 func (m *model) beginFilter() {
 	origin := m.hoveredFilterKey()
