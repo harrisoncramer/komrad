@@ -440,13 +440,15 @@ func agentCopyKey(key string) string {
 	return strings.TrimPrefix(key, triageRowPrefix)
 }
 
-// findLandingKey is the copy of the agent row the key names that a landing goes to, the hovered one
-// first, then the tree's, then the zone's.
+// findLandingKey picks which copy of the agent row a landing goes to, preferring the hovered copy, then the tree's, then the zone's.
 func findLandingKey(rows []agentRow, hovered, key string) string {
 	if agentCopyKey(hovered) == key {
 		return hovered
 	}
-	if zoneKey := triageRowPrefix + key; rowIndexOfKey(rows, key) < 0 && rowIndexOfKey(rows, zoneKey) >= 0 {
+	if rowIndexOfKey(rows, key) >= 0 {
+		return key
+	}
+	if zoneKey := triageRowPrefix + key; rowIndexOfKey(rows, zoneKey) >= 0 {
 		return zoneKey
 	}
 
