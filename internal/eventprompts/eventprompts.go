@@ -15,6 +15,7 @@ const (
 	PullRequestBehind           = "pull_request.behind"
 	PullRequestMerged           = "pull_request.merged"
 	PullRequestClosed           = "pull_request.closed"
+	PullRequestAutoMergeOn      = "pull_request.auto_merge_on"
 	WorktreeRebased             = "worktree.rebased"
 	WorktreeLanded              = "worktree.landed"
 	WorktreeRebaseConflicted    = "worktree.rebase_conflicted"
@@ -44,6 +45,7 @@ func All() []Event {
 		{Name: PullRequestBehind, Title: "Behind", Description: "the branch is behind its base"},
 		{Name: PullRequestMerged, Title: "Merged", Description: "the pull request was merged"},
 		{Name: PullRequestClosed, Title: "Closed", Description: "the pull request was closed unmerged"},
+		{Name: PullRequestAutoMergeOn, Title: "Auto-merge on", Description: "the forge will merge it once its checks and reviews pass"},
 		{Name: WorktreeRebased, Title: "Rebased", Description: "the worktree was rebased and its commits replayed"},
 		{Name: WorktreeLanded, Title: "Landed", Description: "the work was already in the base, so the branch moved onto it"},
 		{Name: WorktreeRebaseConflicted, Title: "Rebase conflicted", Description: "a rebase stopped on conflicts"},

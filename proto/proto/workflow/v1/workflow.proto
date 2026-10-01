@@ -53,6 +53,7 @@ message WorkflowEventPrompt {
       "pull_request.behind",
       "pull_request.merged",
       "pull_request.closed",
+      "pull_request.auto_merge_on",
       "worktree.rebased",
       "worktree.landed",
       "worktree.rebase_conflicted",

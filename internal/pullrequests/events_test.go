@@ -5,6 +5,7 @@ import (
 
 	"komrad/internal/eventprompts"
 	pullrequeststore "komrad/internal/store/pullrequest"
+	"komrad/lib/xptr"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -30,6 +31,13 @@ func TestEventsOf(t *testing.T) {
 			moves:       []Move{{Field: FieldChecks, From: "failing", To: "passing"}},
 			pullRequest: pullrequeststore.PullRequest{State: "OPEN", LastKnownChecks: "passing", LastKnownMergeability: "behind"},
 			wantHolding: []string{eventprompts.PullRequestBehind},
+		},
+		{
+			name:        "turning auto-merge on starts it",
+			moves:       []Move{{Field: FieldAutoMerge, From: autoMergeOff, To: autoMergeOn}},
+			pullRequest: pullrequeststore.PullRequest{State: "OPEN", AutoMerge: xptr.Ptr(true)},
+			wantStarted: []string{eventprompts.PullRequestAutoMergeOn},
+			wantHolding: []string{eventprompts.PullRequestAutoMergeOn},
 		},
 		{
 			name: "a merge is the only event, whatever else moved",

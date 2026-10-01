@@ -1097,9 +1097,9 @@ const file_workflow_v1_workflow_proto_rawDesc = "" +
 	"\x10reviewer_harness\x18\x0f \x01(\tR\x0freviewerHarness\x12%\n" +
 	"\x0ereviewer_flags\x18\x10 \x01(\tR\rreviewerFlags\x12E\n" +
 	"\revent_prompts\x18\x11 \x03(\v2 .workflow.v1.WorkflowEventPromptR\feventPromptsB\x0e\n" +
-	"\f_archived_at\"\xe4\x03\n" +
-	"\x13WorkflowEventPrompt\x12\xa8\x03\n" +
-	"\x05event\x18\x01 \x01(\tB\x91\x03\xbaH\x8d\x03r\x8a\x03R\x1bpull_request.checks_failingR\x1epull_request.changes_requestedR\x15pull_request.approvedR\x18pull_request.conflictingR\x13pull_request.behindR\x13pull_request.mergedR\x13pull_request.closedR\x10worktree.rebasedR\x0fworktree.landedR\x1aworktree.rebase_conflictedR\x16worktree.rebase_failedR\x1adocument.written_by_personR\x0freview.approvedR\x18review.changes_requestedR\x10review.commentedR\x1areview.commented_by_personR\x0freview.answeredR\x05event\x12\"\n" +
+	"\f_archived_at\"\x80\x04\n" +
+	"\x13WorkflowEventPrompt\x12\xc4\x03\n" +
+	"\x05event\x18\x01 \x01(\tB\xad\x03\xbaH\xa9\x03r\xa6\x03R\x1bpull_request.checks_failingR\x1epull_request.changes_requestedR\x15pull_request.approvedR\x18pull_request.conflictingR\x13pull_request.behindR\x13pull_request.mergedR\x13pull_request.closedR\x1apull_request.auto_merge_onR\x10worktree.rebasedR\x0fworktree.landedR\x1aworktree.rebase_conflictedR\x16worktree.rebase_failedR\x1adocument.written_by_personR\x0freview.approvedR\x18review.changes_requestedR\x10review.commentedR\x1areview.commented_by_personR\x0freview.answeredR\x05event\x12\"\n" +
 	"\x06prompt\x18\x02 \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\xf4\x03R\x06prompt\"W\n" +
 	"\fWorkflowHook\x12\x1f\n" +

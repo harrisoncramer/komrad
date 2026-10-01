@@ -23,6 +23,9 @@ var eventOf = map[Field]map[string]string{
 		"conflicting": eventprompts.PullRequestConflicting,
 		"behind":      eventprompts.PullRequestBehind,
 	},
+	FieldAutoMerge: {
+		autoMergeOn: eventprompts.PullRequestAutoMergeOn,
+	},
 }
 
 // eventsOf is the events a change starts and the events the pull request holds now, an
