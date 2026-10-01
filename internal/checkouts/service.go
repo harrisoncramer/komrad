@@ -37,8 +37,7 @@ var (
 	ErrSelf = fail.InvalidArgument("an agent cannot rebase, push or abort in the checkout it is working in")
 )
 
-// parkSpace is the ref namespace a park sits under, kept apart so a rebase releasing its older
-// parks never takes an abort's.
+// parkSpace is the ref namespace a park sits under.
 type parkSpace string
 
 // agentReadWriter is the slice of the agent store a move of a checkout reads and writes.
