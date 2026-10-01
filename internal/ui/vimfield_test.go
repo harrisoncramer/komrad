@@ -49,6 +49,18 @@ func TestVimEditing(t *testing.T) {
 		assert.Equal(t, "Check it", create.GetPrompt())
 	})
 
+	t.Run("the field's own editing keys do nothing in normal mode", func(t *testing.T) {
+		harness := openVimForms(t)
+
+		harness.press(slices.Concat([]string{"c"}, spellKeys("go far"), []string{"esc", "ctrl+w", "ctrl+u", "ctrl+s"})...)
+
+		sent := harness.readSent(agentv1connect.AgentServiceCreateAgentProcedure)
+		require.Len(t, sent, 1)
+		create, ok := sent[0].(*agentv1.CreateAgentRequest)
+		require.True(t, ok)
+		assert.Equal(t, "go far", create.GetPrompt())
+	})
+
 	t.Run("j in normal mode steps over a field that is not text and arrives in normal mode", func(t *testing.T) {
 		harness := openVimForms(t)
 

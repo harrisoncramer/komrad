@@ -31,7 +31,7 @@ func written(b Buffer) string {
 func keys(s string) []string {
 	named := map[string]string{
 		"esc": "esc", "c-[": "ctrl+[", "cr": "enter", "space": "space", "bs": "backspace",
-		"c-r": "ctrl+r", "tab": "tab", "c-s": "ctrl+s", "c-e": "ctrl+e", "up": "up",
+		"c-r": "ctrl+r", "c-w": "ctrl+w", "tab": "tab", "c-s": "ctrl+s", "c-e": "ctrl+e", "up": "up",
 		"down": "down", "left": "left", "right": "right", "del": "delete",
 	}
 
@@ -98,12 +98,15 @@ func (f *field) typeKey(key string) {
 	}
 }
 
+// passed is the keys a test caller asks the engine to hand on in normal mode.
+var passed = []string{"tab", "ctrl+s", "ctrl+e", "enter"}
+
 // inNormal is a field on start with its engine already in normal mode.
 func inNormal(t *testing.T, start string, single bool) *field {
 	t.Helper()
 
 	b := buffer(t, start)
-	e := New(b, single, nil)
+	e := New(b, single, nil, passed)
 	e.mode = Normal
 
 	return &field{engine: e, buf: e.Normal(b), single: single}
@@ -343,13 +346,13 @@ func TestRepeat(t *testing.T) {
 // TestModes covers how the engine moves between insert and normal and what it hands back.
 func TestModes(t *testing.T) {
 	t.Run("a new engine starts in insert", func(t *testing.T) {
-		e := New(Buffer{}, true, nil)
+		e := New(Buffer{}, true, nil, nil)
 
 		assert.Equal(t, Insert, e.Mode())
 	})
 
 	t.Run("insert passes typed keys to the field", func(t *testing.T) {
-		e := New(Buffer{Text: "ab", Cursor: 2}, true, nil)
+		e := New(Buffer{Text: "ab", Cursor: 2}, true, nil, nil)
 
 		result := e.Key("j", Buffer{Text: "ab", Cursor: 2})
 
@@ -399,7 +402,7 @@ func TestModes(t *testing.T) {
 	}
 
 	t.Run("Normal from insert settles like esc", func(t *testing.T) {
-		e := New(Buffer{Text: "ab", Cursor: 2}, true, nil)
+		e := New(Buffer{Text: "ab", Cursor: 2}, true, nil, nil)
 
 		b := e.Normal(Buffer{Text: "abc", Cursor: 3})
 
@@ -417,8 +420,8 @@ func TestModes(t *testing.T) {
 
 	t.Run("the register is shared between engines", func(t *testing.T) {
 		register := &Register{}
-		from := New(Buffer{Text: "word"}, true, register)
-		to := New(Buffer{Text: "x"}, true, register)
+		from := New(Buffer{Text: "word"}, true, register, nil)
+		to := New(Buffer{Text: "x"}, true, register, nil)
 
 		source := &field{engine: from, buf: from.Normal(Buffer{Text: "word"}), single: true}
 		source.press("yiw")
@@ -445,6 +448,26 @@ func TestSwallowed(t *testing.T) {
 
 		assert.Equal(t, Consumed, f.last)
 	})
+
+	tests := []struct {
+		name string
+		key  string
+		want Outcome
+	}{
+		{name: "a field's own editing key is kept from it", key: "<c-w>", want: Consumed},
+		{name: "a key the caller asked for is passed", key: "<tab>", want: Pass},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := inNormal(t, "foo |bar", true)
+			before := written(f.buf)
+			f.press(tt.key)
+
+			assert.Equal(t, tt.want, f.last)
+			assert.Equal(t, before, written(f.buf))
+		})
+	}
 }
 
 // TestSingleLine holds a one-line field to one line.
@@ -461,7 +484,7 @@ func TestSingleLine(t *testing.T) {
 
 	t.Run("a put of text holding a newline is joined with spaces", func(t *testing.T) {
 		register := &Register{text: "a\nb"}
-		e := New(Buffer{Text: "x"}, true, register)
+		e := New(Buffer{Text: "x"}, true, register, nil)
 		f := &field{engine: e, buf: e.Normal(Buffer{Text: "x"}), single: true}
 		f.press("p")
 

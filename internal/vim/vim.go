@@ -1,7 +1,10 @@
 // Package vim is vim's normal and insert modes over a text buffer, one key at a time.
 package vim
 
-import "strings"
+import (
+	"slices"
+	"strings"
+)
 
 // Mode is what the keys typed into a field do.
 type Mode int
@@ -61,6 +64,7 @@ type change struct {
 type Engine struct {
 	singleLine bool
 	register   *Register
+	passes     []string
 	mode       Mode
 	pending    []string
 
@@ -79,8 +83,8 @@ type Engine struct {
 	lastFind  *find
 }
 
-// New is an engine for one field, starting in insert mode on b.
-func New(b Buffer, singleLine bool, register *Register) *Engine {
+// New is an engine for one field, starting in insert mode on b, that hands passes on to the field in normal mode.
+func New(b Buffer, singleLine bool, register *Register, passes []string) *Engine {
 	if register == nil {
 		register = &Register{}
 	}
@@ -90,6 +94,7 @@ func New(b Buffer, singleLine bool, register *Register) *Engine {
 	return &Engine{
 		singleLine: singleLine,
 		register:   register,
+		passes:     passes,
 		mode:       Insert,
 		before:     b,
 		typedFrom:  b,
@@ -155,8 +160,11 @@ func (e *Engine) Key(key string, b Buffer) Result {
 
 	if !e.owns(key) {
 		e.pending = nil
+		if slices.Contains(e.passes, key) {
+			return e.done(Pass, b)
+		}
 
-		return e.done(Pass, b)
+		return e.done(Consumed, b)
 	}
 
 	e.pending = append(e.pending, key)

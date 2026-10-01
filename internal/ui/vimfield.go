@@ -51,11 +51,18 @@ func (v *fieldVim) engine(key string, b vim.Buffer, singleLine bool) *vim.Engine
 func (v *fieldVim) engineFor(key string, b vim.Buffer, singleLine bool) *vim.Engine {
 	e, ok := v.engines[key]
 	if !ok {
-		e = vim.New(b, singleLine, v.register)
+		e = vim.New(b, singleLine, v.register, vimPasses())
 		v.engines[key] = e
 	}
 
 	return e
+}
+
+// vimPasses is the keys normal mode leaves to the form.
+func vimPasses() []string {
+	keys := formKeys()
+
+	return slices.Concat([]string{"tab", "shift+tab", "enter", "pgup", "pgdown"}, keys.Submit, keys.Editor, keys.SendNow, keys.Quit)
 }
 
 // press hands a key to the engine of the field with the cursor, and reports whether it was a
