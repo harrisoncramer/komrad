@@ -289,7 +289,7 @@ func normalizeEventPrompts(prompts []workflowstore.EventPrompt) ([]workflowstore
 		if prompt.Prompt == "" {
 			continue
 		}
-		if !eventprompts.Known(prompt.Event) {
+		if !eventprompts.IsKnown(prompt.Event) {
 			return nil, fmt.Errorf("%w: %q is not one of %s", ErrUnknownEventPrompt, prompt.Event, strings.Join(eventprompts.Names(), ", "))
 		}
 		if slices.ContainsFunc(kept, func(k workflowstore.EventPrompt) bool { return k.Event == prompt.Event }) {

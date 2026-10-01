@@ -68,7 +68,7 @@ func Names() []string {
 	return names
 }
 
-// Known says whether name is an event komrad sends.
-func Known(name string) bool {
+// IsKnown says whether name is an event komrad sends.
+func IsKnown(name string) bool {
 	return slices.Contains(Names(), name)
 }
