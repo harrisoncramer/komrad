@@ -465,8 +465,7 @@ func (l agentsLayout) cursorRows() []agentRow {
 	return slices.Concat(l.zone, l.tree)
 }
 
-// buildZone draws the most urgent families in triage, as many as the zone has slots for and each
-// with all of its children, leaving the snoozed out, and counts the families still waiting for a slot.
+// buildZone draws the most urgent families the zone has slots for and counts those left waiting.
 func buildZone(z triageZone, m *model, showHidden bool) (zone []agentRow, waiting int) {
 	children := childrenByParent(m.listing.agents)
 	families := xslice.Filter(findTriageFamilies(z.entries, m.listing.agents), func(f triageFamily) bool {
