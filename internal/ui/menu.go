@@ -105,7 +105,7 @@ func (w *schedulesScreen) buildItemMenu(m *model) (submenu, bool) {
 	return withNested(scheduleMenu(m, item.schedule), "archive", m.keys.Menu.Archive, scheduleArchiveMenu(m, item.schedule)), true
 }
 
-// buildScreenMenu is the schedules screen's own band, for writing a new schedule.
+// buildScreenMenu builds the schedules screen's own band, for writing a new schedule.
 func (w *schedulesScreen) buildScreenMenu(m *model) (submenu, bool) {
 	return submenu{
 		kind:  formMenu,
