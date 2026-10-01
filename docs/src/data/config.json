@@ -1405,7 +1405,7 @@
               "key": "forge_comments",
               "path": "glyphs.marks.forge_comments",
               "type": "string",
-              "description": "Beside the count of comments the forge holds on the agent's pull request.",
+              "description": "Beside the count of open comments on the agent's pull request you have not taken up.",
               "default": "\"\""
             },
             {
