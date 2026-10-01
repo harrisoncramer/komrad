@@ -736,7 +736,7 @@ func TestFormsWorkflowEventPrompts(t *testing.T) {
 		require.Len(t, sent, 1)
 		create, ok := sent[0].(*workflowv1.CreateWorkflowRequest)
 		require.True(t, ok)
-		assert.Len(t, create.GetEventPrompts().GetPrompts(), len(eventprompts.All()))
+		require.Len(t, create.GetEventPrompts().GetPrompts(), len(eventprompts.All()))
 		assert.Contains(t, create.GetEventPrompts().GetPrompts()[0].GetPrompt(), "Read the failing job's logs")
 	})
 }
