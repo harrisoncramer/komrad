@@ -29,16 +29,7 @@ type workflowFormValues struct {
 	ReviewerHarness      string
 	ReviewerFlags        string
 	Provisioner          string
-	PreLaunchHook        string
-	PostLaunchHook       string
-	PreResumeHook        string
-	PostResumeHook       string
-	PreArchiveHook       string
-	PostArchiveHook      string
-	PreRestoreHook       string
-	PostRestoreHook      string
-	PreDeleteHook        string
-	PostDeleteHook       string
+	Hooks                map[string]*string
 	WorktreeBaseBranch   string
 	WorktreeCopyPaths    string
 	WorktreeSymlinkPaths string
@@ -63,16 +54,7 @@ func workflowFormValuesFrom(cfg panel.WorkflowConfig) workflowFormValues {
 		ReviewerHarness:      cfg.ReviewerHarness,
 		ReviewerFlags:        cfg.ReviewerFlags,
 		Provisioner:          provisioner,
-		PreLaunchHook:        hookNamed(cfg.Hooks, config.HookPreLaunch),
-		PostLaunchHook:       hookNamed(cfg.Hooks, config.HookPostLaunch),
-		PreResumeHook:        hookNamed(cfg.Hooks, config.HookPreResume),
-		PostResumeHook:       hookNamed(cfg.Hooks, config.HookPostResume),
-		PreArchiveHook:       hookNamed(cfg.Hooks, config.HookPreArchive),
-		PostArchiveHook:      hookNamed(cfg.Hooks, config.HookPostArchive),
-		PreRestoreHook:       hookNamed(cfg.Hooks, config.HookPreRestore),
-		PostRestoreHook:      hookNamed(cfg.Hooks, config.HookPostRestore),
-		PreDeleteHook:        hookNamed(cfg.Hooks, config.HookPreDelete),
-		PostDeleteHook:       hookNamed(cfg.Hooks, config.HookPostDelete),
+		Hooks:                hooksByEvent(cfg.Hooks),
 		WorktreeBaseBranch:   cfg.Worktree.BaseBranch,
 		WorktreeCopyPaths:    strings.Join(cfg.Worktree.CopyPaths, "\n"),
 		WorktreeSymlinkPaths: strings.Join(cfg.Worktree.SymlinkPaths, "\n"),
@@ -83,7 +65,7 @@ func workflowFormValuesFrom(cfg panel.WorkflowConfig) workflowFormValues {
 }
 
 func (v workflowFormValues) toConfig() panel.WorkflowConfig {
-	cfg := panel.WorkflowConfig{
+	return panel.WorkflowConfig{
 		Name:            v.Name,
 		Context:         v.Context,
 		Harness:         v.Harness,
@@ -99,43 +81,115 @@ func (v workflowFormValues) toConfig() panel.WorkflowConfig {
 			DiffExclude:  splitLines(v.WorktreeDiffExclude),
 			Dir:          strings.TrimSpace(v.WorktreeDir),
 		},
-		Hooks: slices.Concat(
-			hookOn(v.PreLaunchHook, config.HookPreLaunch),
-			hookOn(v.PostLaunchHook, config.HookPostLaunch),
-			hookOn(v.PreResumeHook, config.HookPreResume),
-			hookOn(v.PostResumeHook, config.HookPostResume),
-			hookOn(v.PreArchiveHook, config.HookPreArchive),
-			hookOn(v.PostArchiveHook, config.HookPostArchive),
-			hookOn(v.PreRestoreHook, config.HookPreRestore),
-			hookOn(v.PostRestoreHook, config.HookPostRestore),
-			hookOn(v.PreDeleteHook, config.HookPreDelete),
-			hookOn(v.PostDeleteHook, config.HookPostDelete),
-		),
+		Hooks:        v.hookList(),
 		EventPrompts: v.eventPromptList(),
 	}
-
-	return cfg
 }
 
-// hookNamed is the hook a workflow hangs on one moment, and the empty string for a moment
-// nothing hangs on.
-func hookNamed(hooks []panel.Hook, event string) string {
+type hookMoment struct {
+	event       string
+	key         string
+	title       string
+	description string
+}
+
+var hookMoments = []hookMoment{
+	{
+		event:       config.HookPreLaunch,
+		key:         "pre_launch_hook",
+		title:       "Pre-launch hook",
+		description: "runs in the agent's directory before its pane opens, and a failure abandons the create",
+	},
+	{
+		event:       config.HookPostLaunch,
+		key:         "post_launch_hook",
+		title:       "Post-launch hook",
+		description: "runs once the agent has been launched into its pane",
+	},
+	{
+		event:       config.HookPreResume,
+		key:         "pre_resume_hook",
+		title:       "Pre-resume hook",
+		description: "runs in the agent's directory before a dormant agent's pane opens, and a failure refuses the resume",
+	},
+	{
+		event:       config.HookPostResume,
+		key:         "post_resume_hook",
+		title:       "Post-resume hook",
+		description: "runs once a dormant agent is back in a pane",
+	},
+	{
+		event:       config.HookPreArchive,
+		key:         "pre_archive_hook",
+		title:       "Pre-archive hook",
+		description: "runs while the agent is still running, and a failure refuses the archive",
+	},
+	{
+		event:       config.HookPostArchive,
+		key:         "post_archive_hook",
+		title:       "Post-archive hook",
+		description: "runs in the agent's directory once its pane is gone and its row is archived",
+	},
+	{
+		event:       config.HookPreRestore,
+		key:         "pre_restore_hook",
+		title:       "Pre-restore hook",
+		description: "runs before an archived agent's row comes back, and a failure refuses the restore",
+	},
+	{
+		event:       config.HookPostRestore,
+		key:         "post_restore_hook",
+		title:       "Post-restore hook",
+		description: "runs when an archived agent's row comes back",
+	},
+	{
+		event:       config.HookPreDelete,
+		key:         "pre_delete_hook",
+		title:       "Pre-delete hook",
+		description: "runs in the agent's directory as it is deleted, before the worktree is given back",
+	},
+	{
+		event:       config.HookPostDelete,
+		key:         "post_delete_hook",
+		title:       "Post-delete hook",
+		description: "runs once the agent and its worktree are gone",
+	},
+}
+
+func hooksByEvent(hooks []panel.Hook) map[string]*string {
+	byEvent := make(map[string]*string, len(hooks))
 	for _, hook := range hooks {
-		if hook.Event == event {
-			return hook.Script
+		if _, ok := byEvent[hook.Event]; !ok {
+			byEvent[hook.Event] = &hook.Script
 		}
 	}
 
-	return ""
+	return byEvent
 }
 
-// hookOn is a moment's hook as the wire takes it, which is one entry or none.
-func hookOn(name, event string) []panel.Hook {
-	if name == "" {
-		return nil
+func (v *workflowFormValues) hookFor(event string) *string {
+	if v.Hooks == nil {
+		v.Hooks = make(map[string]*string)
+	}
+	if v.Hooks[event] == nil {
+		v.Hooks[event] = new(string)
 	}
 
-	return []panel.Hook{{Event: event, Script: name}}
+	return v.Hooks[event]
+}
+
+func (v workflowFormValues) hookList() []panel.Hook {
+	var hooks []panel.Hook
+	for _, moment := range hookMoments {
+		script, ok := v.Hooks[moment.event]
+		if !ok || *script == "" {
+			continue
+		}
+
+		hooks = append(hooks, panel.Hook{Event: moment.event, Script: *script})
+	}
+
+	return hooks
 }
 
 // eventPromptsByEvent is every event's prompt, blank for an event the workflow attaches none to.
@@ -343,85 +397,18 @@ func baseBranchField(values *workflowFormValues, editing bool) huh.Field {
 
 // hookFields are the scripts hung on a moment rather than on the directory, one select each
 // since a moment holds one hook.
-func hookFields(values *workflowFormValues, available []hookChoice) []huh.Field {
-	moments := []struct {
-		key         string
-		title       string
-		description string
-		chosen      *string
-	}{
-		{
-			key:         "pre_launch_hook",
-			title:       "Pre-launch hook",
-			description: "runs in the agent's directory before its pane opens, and a failure abandons the create",
-			chosen:      &values.PreLaunchHook,
-		},
-		{
-			key:         "post_launch_hook",
-			title:       "Post-launch hook",
-			description: "runs once the agent has been launched into its pane",
-			chosen:      &values.PostLaunchHook,
-		},
-		{
-			key:         "pre_resume_hook",
-			title:       "Pre-resume hook",
-			description: "runs in the agent's directory before a dormant agent's pane opens, and a failure refuses the resume",
-			chosen:      &values.PreResumeHook,
-		},
-		{
-			key:         "post_resume_hook",
-			title:       "Post-resume hook",
-			description: "runs once a dormant agent is back in a pane",
-			chosen:      &values.PostResumeHook,
-		},
-		{
-			key:         "pre_archive_hook",
-			title:       "Pre-archive hook",
-			description: "runs while the agent is still running, and a failure refuses the archive",
-			chosen:      &values.PreArchiveHook,
-		},
-		{
-			key:         "post_archive_hook",
-			title:       "Post-archive hook",
-			description: "runs in the agent's directory once its pane is gone and its row is archived",
-			chosen:      &values.PostArchiveHook,
-		},
-		{
-			key:         "pre_restore_hook",
-			title:       "Pre-restore hook",
-			description: "runs before an archived agent's row comes back, and a failure refuses the restore",
-			chosen:      &values.PreRestoreHook,
-		},
-		{
-			key:         "post_restore_hook",
-			title:       "Post-restore hook",
-			description: "runs when an archived agent's row comes back",
-			chosen:      &values.PostRestoreHook,
-		},
-		{
-			key:         "pre_delete_hook",
-			title:       "Pre-delete hook",
-			description: "runs in the agent's directory as it is deleted, before the worktree is given back",
-			chosen:      &values.PreDeleteHook,
-		},
-		{
-			key:         "post_delete_hook",
-			title:       "Post-delete hook",
-			description: "runs once the agent and its worktree are gone",
-			chosen:      &values.PostDeleteHook,
-		},
-	}
-
-	fields := make([]huh.Field, 0, len(moments))
-	for _, moment := range moments {
-		options := hookOptions(available, *moment.chosen)
+func hookFields(values *workflowFormValues, available []string) []huh.Field {
+	fields := make([]huh.Field, 0, len(hookMoments))
+	for _, moment := range hookMoments {
+		chosen := values.hookFor(moment.event)
+		options := hookOptions(available, *chosen)
 
 		// Options comes before Value so huh reads the zero value and leaves the list scrolled to
 		// the top, which holds only while None, carrying the empty name, leads it.
 		field := huh.NewSelect[string]().Key(moment.key).Title(moment.title).
 			Description(hookFieldDescription(moment.description, available)).
 			Options(options...).
-			Value(moment.chosen)
+			Value(chosen)
 
 		fields = append(fields, field)
 	}
@@ -447,7 +434,7 @@ func eventPromptFields(values *workflowFormValues, keys config.FormKeys) []huh.F
 }
 
 // hookFieldDescription leads with the empty case rather than appending it.
-func hookFieldDescription(description string, available []hookChoice) string {
+func hookFieldDescription(description string, available []string) string {
 	if len(available) == 0 {
 		return "none found in your hooks directory; " + description
 	}
@@ -457,22 +444,18 @@ func hookFieldDescription(description string, available []hookChoice) string {
 
 // hookOptions offers None, every hook in the directory, and the one this workflow already names
 // if the directory no longer holds it.
-func hookOptions(available []hookChoice, chosen string) []huh.Option[string] {
+func hookOptions(available []string, chosen string) []huh.Option[string] {
 	options := make([]huh.Option[string], 0, len(available)+2)
 	options = append(options, huh.NewOption("None", ""))
 
-	options = append(options, xslice.Map(available, func(hook hookChoice) huh.Option[string] {
-		return huh.NewOption(hook.name, hook.name)
+	options = append(options, xslice.Map(available, func(hook string) huh.Option[string] {
+		return huh.NewOption(hook, hook)
 	})...)
 
-	offered := slices.ContainsFunc(available, func(a hookChoice) bool { return a.name == chosen })
+	offered := slices.Contains(available, chosen)
 	if chosen != "" && !offered {
 		options = append(options, huh.NewOption(chosen+"  (missing)", chosen))
 	}
 
 	return options
-}
-
-type hookChoice struct {
-	name string
 }
