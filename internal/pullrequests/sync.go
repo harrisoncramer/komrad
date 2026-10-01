@@ -387,29 +387,20 @@ func (s *PullRequestSyncer) write(ctx context.Context, pullRequests []forge.Pull
 }
 
 func standingMoves(change *pullrequeststore.StandingChange) []*Move {
-	return []*Move{
-		Moved(FieldDecision, change.OldDecision, change.KnownDecision),
-		checksMoved(change),
-		Moved(FieldMergeability, change.OldMergeability, change.KnownMergeability),
-		Moved(FieldAutoMerge, autoMergeWord(change.OldAutoMerge), autoMergeWord(change.KnownAutoMerge)),
-	}
-}
-
-// checksMoved is the move of the checks, counting the same verdict on a new head as a move so
-// that a push the checks fail again is not taken for no change.
-func checksMoved(change *pullrequeststore.StandingChange) *Move {
-	if move := Moved(FieldChecks, change.OldChecks, change.KnownChecks); move != nil {
-		return move
-	}
-	if change.OldChecks == nil || change.KnownChecks == nil || Moved(FieldChecks, change.OldChecksSHA, change.KnownChecksSHA) == nil {
-		return nil
+	var moves []*Move
+	for _, move := range change.After.ListMovesSince(change.Before) {
+		field := Field(move.Field)
+		if move.From == "" && !slices.Contains(alarming[field], move.To) {
+			continue
+		}
+		moves = append(moves, &Move{
+			Field: field,
+			From:  move.From,
+			To:    move.To,
+		})
 	}
 
-	return &Move{
-		Field: FieldChecks,
-		From:  *change.OldChecks,
-		To:    *change.KnownChecks,
-	}
+	return moves
 }
 
 // toUpsert is a pull request as the forge described it, in the store's terms.

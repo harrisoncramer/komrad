@@ -3,15 +3,10 @@ package pullrequests
 import (
 	"slices"
 
-	"komrad/lib/xptr"
+	"komrad/internal/forge"
 )
 
 const changeTopic = "pull_request_changed"
-
-const (
-	autoMergeOn  = "on"
-	autoMergeOff = "off"
-)
 
 // Field is one part of a pull request whose change is reported.
 type Field string
@@ -20,13 +15,13 @@ const (
 	// FieldState is whether the pull request is open, merged or closed.
 	FieldState Field = "state"
 	// FieldDecision is where the reviews stand.
-	FieldDecision Field = "review"
+	FieldDecision = Field(forge.StandingFieldDecision)
 	// FieldChecks is where the checks on the head stand.
-	FieldChecks Field = "checks"
+	FieldChecks = Field(forge.StandingFieldChecks)
 	// FieldMergeability is where the branch stands against its base.
-	FieldMergeability Field = "mergeability"
+	FieldMergeability = Field(forge.StandingFieldMergeability)
 	// FieldAutoMerge is whether the forge will merge it on its own once its checks and reviews pass.
-	FieldAutoMerge Field = "auto-merge"
+	FieldAutoMerge = Field(forge.StandingFieldAutoMerge)
 )
 
 var fieldOrder = []Field{FieldState, FieldDecision, FieldChecks, FieldMergeability, FieldAutoMerge}
@@ -95,17 +90,4 @@ func NewChange(id string, moved ...*Move) *Change {
 	}
 
 	return &Change{ID: id, Moves: moves}
-}
-
-// autoMergeWord is whether auto-merge is on in the words a change carries, nil while it has not
-// been read.
-func autoMergeWord(on *bool) *string {
-	switch {
-	case on == nil:
-		return nil
-	case *on:
-		return xptr.Ptr(autoMergeOn)
-	default:
-		return xptr.Ptr(autoMergeOff)
-	}
 }

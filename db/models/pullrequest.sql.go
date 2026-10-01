@@ -132,6 +132,57 @@ func (q *Queries) GetPullRequestByIdentity(ctx context.Context, arg GetPullReque
 	return &i, err
 }
 
+const getPullRequestForUpdate = `-- name: GetPullRequestForUpdate :one
+SELECT
+    id, host, forge, provider_id, url, repository_url, head_repository_url, number, title, head_branch, head_sha, base_branch, base_sha, draft, state, opened_at, changed_at, merged_at, closed_at, first_seen_at, review_decision, checks, checks_sha, mergeability, engine_id, last_known_checks, last_known_mergeability, last_known_decision, last_known_checks_sha, last_known_mergeability_sha, mergeability_blank_since, auto_merge, auto_mergeable
+FROM
+    pull_requests
+WHERE
+    id = $1
+FOR UPDATE
+`
+
+func (q *Queries) GetPullRequestForUpdate(ctx context.Context, id string) (*PullRequest, error) {
+	row := q.db.QueryRow(ctx, getPullRequestForUpdate, id)
+	var i PullRequest
+	err := row.Scan(
+		&i.ID,
+		&i.Host,
+		&i.Forge,
+		&i.ProviderID,
+		&i.Url,
+		&i.RepositoryUrl,
+		&i.HeadRepositoryUrl,
+		&i.Number,
+		&i.Title,
+		&i.HeadBranch,
+		&i.HeadSha,
+		&i.BaseBranch,
+		&i.BaseSha,
+		&i.Draft,
+		&i.State,
+		&i.OpenedAt,
+		&i.ChangedAt,
+		&i.MergedAt,
+		&i.ClosedAt,
+		&i.FirstSeenAt,
+		&i.ReviewDecision,
+		&i.Checks,
+		&i.ChecksSha,
+		&i.Mergeability,
+		&i.EngineID,
+		&i.LastKnownChecks,
+		&i.LastKnownMergeability,
+		&i.LastKnownDecision,
+		&i.LastKnownChecksSha,
+		&i.LastKnownMergeabilitySha,
+		&i.MergeabilityBlankSince,
+		&i.AutoMerge,
+		&i.AutoMergeable,
+	)
+	return &i, err
+}
+
 const listAgentPullRequests = `-- name: ListAgentPullRequests :many
 SELECT
     o.agent_id,
@@ -538,202 +589,6 @@ func (q *Queries) ObserveAgentPullRequests(ctx context.Context) (int64, error) {
 	return result.RowsAffected(), nil
 }
 
-const setStanding = `-- name: SetStanding :one
-WITH prior AS (
-    SELECT
-        held.id,
-        held.review_decision,
-        held.checks,
-        held.mergeability,
-        held.checks_sha,
-        held.last_known_checks,
-        held.last_known_checks_sha,
-        held.last_known_mergeability,
-        held.last_known_mergeability_sha,
-        held.last_known_decision,
-        held.mergeability_blank_since,
-        held.auto_merge,
-        held.auto_mergeable
-    FROM
-        pull_requests held
-    WHERE
-        held.id = $1
-    FOR UPDATE
-),
-NEXT AS (
-    SELECT
-        prior.id,
-        $2::text AS review_decision,
-        $3::text AS checks,
-        $4::text AS mergeability,
-        $5::text AS checks_sha,
-        COALESCE($3::text, prior.last_known_checks) AS last_known_checks,
-        CASE WHEN $3::text IS NULL THEN
-            prior.last_known_checks_sha
-        ELSE
-            NULLIF($5::text, '')
-        END AS last_known_checks_sha,
-        COALESCE($4::text, prior.last_known_mergeability) AS last_known_mergeability,
-        CASE WHEN $4::text IS NULL THEN
-            prior.last_known_mergeability_sha
-        ELSE
-            NULLIF($5::text, '')
-        END AS last_known_mergeability_sha,
-        CASE WHEN $4::text IS NOT NULL THEN
-            NULL
-        WHEN prior.checks_sha IS NOT DISTINCT FROM $5::text THEN
-            COALESCE(prior.mergeability_blank_since, $6::timestamptz)
-        ELSE
-            $6::timestamptz
-        END AS mergeability_blank_since,
-        COALESCE($2::text, prior.last_known_decision) AS last_known_decision,
-        $7::boolean AS auto_merge,
-        $8::boolean AS auto_mergeable
-    FROM
-        prior
-),
-written AS (
-    UPDATE
-        pull_requests p
-    SET
-        review_decision = next.review_decision,
-        checks = next.checks,
-        mergeability = next.mergeability,
-        checks_sha = next.checks_sha,
-        last_known_checks = next.last_known_checks,
-        last_known_checks_sha = next.last_known_checks_sha,
-        last_known_mergeability = next.last_known_mergeability,
-        last_known_mergeability_sha = next.last_known_mergeability_sha,
-        mergeability_blank_since = next.mergeability_blank_since,
-        last_known_decision = next.last_known_decision,
-        auto_merge = next.auto_merge,
-        auto_mergeable = next.auto_mergeable
-    FROM
-        NEXT
-    WHERE
-        p.id = next.id
-        AND (p.review_decision,
-            p.checks,
-            p.mergeability,
-            p.checks_sha,
-            p.last_known_checks,
-            p.last_known_checks_sha,
-            p.last_known_mergeability,
-            p.last_known_mergeability_sha,
-            p.mergeability_blank_since,
-            p.last_known_decision,
-            p.auto_merge,
-            p.auto_mergeable) IS DISTINCT FROM (next.review_decision,
-            next.checks,
-            next.mergeability,
-            next.checks_sha,
-            next.last_known_checks,
-            next.last_known_checks_sha,
-            next.last_known_mergeability,
-            next.last_known_mergeability_sha,
-            next.mergeability_blank_since,
-            next.last_known_decision,
-            next.auto_merge,
-            next.auto_mergeable)
-    RETURNING
-        p.last_known_checks,
-        p.last_known_checks_sha,
-        p.last_known_mergeability,
-        p.last_known_decision,
-        p.mergeability_blank_since,
-        p.auto_merge
-)
-SELECT
-    prior.last_known_checks AS old_checks,
-    prior.last_known_checks_sha AS old_checks_sha,
-    prior.last_known_mergeability AS old_mergeability,
-    prior.last_known_decision AS old_decision,
-    written.last_known_checks AS known_checks,
-    written.last_known_checks_sha AS known_checks_sha,
-    written.last_known_mergeability AS known_mergeability,
-    written.last_known_decision AS known_decision,
-    written.mergeability_blank_since AS blank_since,
-    prior.auto_merge AS old_auto_merge,
-    written.auto_merge AS known_auto_merge
-FROM
-    prior
-    JOIN written ON TRUE
-UNION ALL
-SELECT
-    prior.last_known_checks AS old_checks,
-    prior.last_known_checks_sha AS old_checks_sha,
-    prior.last_known_mergeability AS old_mergeability,
-    prior.last_known_decision AS old_decision,
-    prior.last_known_checks AS known_checks,
-    prior.last_known_checks_sha AS known_checks_sha,
-    prior.last_known_mergeability AS known_mergeability,
-    prior.last_known_decision AS known_decision,
-    prior.mergeability_blank_since AS blank_since,
-    prior.auto_merge AS old_auto_merge,
-    prior.auto_merge AS known_auto_merge
-FROM
-    prior
-WHERE
-    NOT EXISTS (
-        SELECT
-            1
-        FROM
-            written)
-`
-
-type SetStandingParams struct {
-	ID             string
-	ReviewDecision *string
-	Checks         *string
-	Mergeability   *string
-	ChecksSha      string
-	ReadAt         time.Time
-	AutoMerge      bool
-	AutoMergeable  bool
-}
-
-type SetStandingRow struct {
-	OldChecks         *string
-	OldChecksSha      *string
-	OldMergeability   *string
-	OldDecision       *string
-	KnownChecks       *string
-	KnownChecksSha    *string
-	KnownMergeability *string
-	KnownDecision     *string
-	BlankSince        *time.Time
-	OldAutoMerge      *bool
-	KnownAutoMerge    *bool
-}
-
-func (q *Queries) SetStanding(ctx context.Context, arg SetStandingParams) (*SetStandingRow, error) {
-	row := q.db.QueryRow(ctx, setStanding,
-		arg.ID,
-		arg.ReviewDecision,
-		arg.Checks,
-		arg.Mergeability,
-		arg.ChecksSha,
-		arg.ReadAt,
-		arg.AutoMerge,
-		arg.AutoMergeable,
-	)
-	var i SetStandingRow
-	err := row.Scan(
-		&i.OldChecks,
-		&i.OldChecksSha,
-		&i.OldMergeability,
-		&i.OldDecision,
-		&i.KnownChecks,
-		&i.KnownChecksSha,
-		&i.KnownMergeability,
-		&i.KnownDecision,
-		&i.BlankSince,
-		&i.OldAutoMerge,
-		&i.KnownAutoMerge,
-	)
-	return &i, err
-}
-
 const upsertPullRequest = `-- name: UpsertPullRequest :one
 WITH prior AS (
     SELECT
@@ -920,4 +775,82 @@ func (q *Queries) UpsertPullRequest(ctx context.Context, arg UpsertPullRequestPa
 		&i.OldState,
 	)
 	return &i, err
+}
+
+const writeStanding = `-- name: WriteStanding :exec
+UPDATE
+    pull_requests
+SET
+    review_decision = $1::text,
+    checks = $2::text,
+    mergeability = $3::text,
+    checks_sha = $4::text,
+    last_known_checks = $5::text,
+    last_known_checks_sha = $6::text,
+    last_known_mergeability = $7::text,
+    last_known_mergeability_sha = $8::text,
+    mergeability_blank_since = $9::timestamptz,
+    last_known_decision = $10::text,
+    auto_merge = $11::boolean,
+    auto_mergeable = $12::boolean
+WHERE
+    id = $13
+    AND (review_decision,
+        checks,
+        mergeability,
+        checks_sha,
+        last_known_checks,
+        last_known_checks_sha,
+        last_known_mergeability,
+        last_known_mergeability_sha,
+        mergeability_blank_since,
+        last_known_decision,
+        auto_merge,
+        auto_mergeable) IS DISTINCT FROM ($1::text,
+        $2::text,
+        $3::text,
+        $4::text,
+        $5::text,
+        $6::text,
+        $7::text,
+        $8::text,
+        $9::timestamptz,
+        $10::text,
+        $11::boolean,
+        $12::boolean)
+`
+
+type WriteStandingParams struct {
+	ReviewDecision           *string
+	Checks                   *string
+	Mergeability             *string
+	ChecksSha                *string
+	LastKnownChecks          *string
+	LastKnownChecksSha       *string
+	LastKnownMergeability    *string
+	LastKnownMergeabilitySha *string
+	MergeabilityBlankSince   *time.Time
+	LastKnownDecision        *string
+	AutoMerge                *bool
+	AutoMergeable            bool
+	ID                       string
+}
+
+func (q *Queries) WriteStanding(ctx context.Context, arg WriteStandingParams) error {
+	_, err := q.db.Exec(ctx, writeStanding,
+		arg.ReviewDecision,
+		arg.Checks,
+		arg.Mergeability,
+		arg.ChecksSha,
+		arg.LastKnownChecks,
+		arg.LastKnownChecksSha,
+		arg.LastKnownMergeability,
+		arg.LastKnownMergeabilitySha,
+		arg.MergeabilityBlankSince,
+		arg.LastKnownDecision,
+		arg.AutoMerge,
+		arg.AutoMergeable,
+		arg.ID,
+	)
+	return err
 }

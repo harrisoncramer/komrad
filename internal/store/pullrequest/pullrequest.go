@@ -48,29 +48,9 @@ type PullRequest struct {
 	MergedAt    *time.Time
 	ClosedAt    *time.Time
 	FirstSeenAt time.Time
-	// ReviewDecision is where the forge says the reviews stand, nil while it has said nothing.
-	ReviewDecision *forge.ReviewDecision
-	// Checks is where the forge says the checks on the head stand, nil while it reports none.
-	Checks *forge.Checks
-	// Mergeability is where the forge says it stands against its base and rules, nil while the
-	// forge has not computed it.
-	Mergeability *forge.Mergeability
-	// ChecksSHA is the head the checks were read for, empty while they never have been.
-	ChecksSHA string
-	// LastKnownChecks is the checks as the forge last reported them, empty before it ever has.
-	LastKnownChecks string
-	// LastKnownChecksSHA is the head LastKnownChecks was read for, empty before it ever has.
-	LastKnownChecksSHA string
-	// LastKnownMergeability is the mergeability as the forge last reported it, empty before it ever has.
-	LastKnownMergeability string
-	// LastKnownMergeabilitySHA is the head LastKnownMergeability was read for, empty before it ever has.
-	LastKnownMergeabilitySHA string
-	// LastKnownDecision is the review decision as the forge last reported it, empty before it ever has.
-	LastKnownDecision string
-	// AutoMerge is whether the forge says it will merge on its own, nil while it has not been read.
-	AutoMerge *bool
-	// AutoMergeable is whether the forge would let komrad turn auto-merge on now.
-	AutoMergeable bool
+	// Standing is what komrad remembers of where the forge said the reviews, checks,
+	// mergeability and auto-merge stand.
+	Standing forge.RememberedStanding
 }
 
 // IsFinished says whether the pull request merged or closed.
@@ -89,22 +69,10 @@ type Outcome struct {
 	OldState *string
 }
 
-// StandingChange is the last known standing before and after a write, a blank from the forge
-// leaving the last known value as it was.
+// StandingChange is what komrad remembers of a pull request's standing before and after one read.
 type StandingChange struct {
-	OldChecks         *string
-	OldChecksSHA      *string
-	OldMergeability   *string
-	OldDecision       *string
-	KnownChecks       *string
-	KnownChecksSHA    *string
-	KnownMergeability *string
-	KnownDecision     *string
-	// BlankSince is when the forge first answered a blank mergeability for this head, nil once it
-	// answers one.
-	BlankSince     *time.Time
-	OldAutoMerge   *bool
-	KnownAutoMerge *bool
+	Before forge.RememberedStanding
+	After  forge.RememberedStanding
 }
 
 // Observation is one agent having been seen with one pull request.
@@ -254,54 +222,24 @@ type SetStandingParams struct {
 	ReadAt  time.Time
 }
 
-// SetStanding records where the forge said a pull request's reviews, checks and mergeability
-// stand, writing nothing when the answer matches what is stored, and answers the last known
-// standing before and after.
+// SetStanding takes one read of a pull request's standing into what komrad remembers of it,
+// writing nothing when that is unchanged, and answers what it remembered before and after.
 func (s *PullRequestStore) SetStanding(ctx context.Context, params SetStandingParams) (*StandingChange, error) {
-	id, standing := params.ID, params.Standing
-	var decision *string
-	if standing.Decision != forge.ReviewDecisionNone {
-		decision = xptr.Ptr(string(standing.Decision))
-	}
-	var checks *string
-	if standing.Checks != forge.ChecksNone {
-		checks = xptr.Ptr(string(standing.Checks))
-	}
-	var mergeability *string
-	if standing.Mergeability != forge.MergeabilityUnknown {
-		mergeability = xptr.Ptr(string(standing.Mergeability))
-	}
-
-	row, err := s.queries.SetStanding(ctx, models.SetStandingParams{
-		ID:             id,
-		ReviewDecision: decision,
-		Checks:         checks,
-		Mergeability:   mergeability,
-		ChecksSha:      params.HeadSHA,
-		ReadAt:         params.ReadAt,
-		AutoMerge:      standing.AutoMerge.On,
-		AutoMergeable:  standing.AutoMerge.Allowed,
-	})
+	row, err := s.queries.GetPullRequestForUpdate(ctx, params.ID)
 	if db.IsNoRows(err) {
 		return &StandingChange{}, nil
 	}
 	if err != nil {
-		return nil, fmt.Errorf("failed to record the standing of pull request %s: %w", id, err)
+		return nil, fmt.Errorf("failed to lock pull request %s to record its standing: %w", params.ID, err)
 	}
 
-	return &StandingChange{
-		OldChecks:         row.OldChecks,
-		OldChecksSHA:      row.OldChecksSha,
-		OldMergeability:   row.OldMergeability,
-		OldDecision:       row.OldDecision,
-		KnownChecks:       row.KnownChecks,
-		KnownChecksSHA:    row.KnownChecksSha,
-		KnownMergeability: row.KnownMergeability,
-		KnownDecision:     row.KnownDecision,
-		BlankSince:        row.BlankSince,
-		OldAutoMerge:      row.OldAutoMerge,
-		KnownAutoMerge:    row.KnownAutoMerge,
-	}, nil
+	before := rememberedStandingOf(row)
+	after := before.RememberRead(params.Standing, params.HeadSHA, params.ReadAt)
+	if err := s.queries.WriteStanding(ctx, toWriteStanding(params.ID, after)); err != nil {
+		return nil, fmt.Errorf("failed to record the standing of pull request %s: %w", params.ID, err)
+	}
+
+	return &StandingChange{Before: before, After: after}, nil
 }
 
 // Observe records every agent not being deleted beside every stored pull request opened from
@@ -357,64 +295,85 @@ func (s *PullRequestStore) ListLiveRepositories(ctx context.Context) ([]string, 
 
 func fromRow(row *models.PullRequest) PullRequest {
 	return PullRequest{
-		ID:                       row.ID,
-		Host:                     row.Host,
-		Forge:                    row.Forge,
-		ProviderID:               row.ProviderID,
-		URL:                      row.Url,
-		RepositoryURL:            row.RepositoryUrl,
-		HeadRepositoryURL:        row.HeadRepositoryUrl,
-		Number:                   int(row.Number),
-		Title:                    row.Title,
-		HeadBranch:               row.HeadBranch,
-		HeadSHA:                  row.HeadSha,
-		BaseBranch:               row.BaseBranch,
-		BaseSHA:                  row.BaseSha,
-		Draft:                    row.Draft,
-		State:                    row.State,
-		OpenedAt:                 row.OpenedAt,
-		ChangedAt:                row.ChangedAt,
-		MergedAt:                 row.MergedAt,
-		ClosedAt:                 row.ClosedAt,
-		FirstSeenAt:              row.FirstSeenAt,
-		ReviewDecision:           storedReviewDecision(row.ReviewDecision),
-		Checks:                   StoredChecks(row.Checks),
-		Mergeability:             StoredMergeability(row.Mergeability),
-		ChecksSHA:                xptr.Deref(row.ChecksSha),
-		LastKnownChecks:          xptr.Deref(row.LastKnownChecks),
-		LastKnownChecksSHA:       xptr.Deref(row.LastKnownChecksSha),
-		LastKnownMergeability:    xptr.Deref(row.LastKnownMergeability),
-		LastKnownMergeabilitySHA: xptr.Deref(row.LastKnownMergeabilitySha),
-		LastKnownDecision:        xptr.Deref(row.LastKnownDecision),
-		AutoMerge:                row.AutoMerge,
-		AutoMergeable:            row.AutoMergeable,
+		ID:                row.ID,
+		Host:              row.Host,
+		Forge:             row.Forge,
+		ProviderID:        row.ProviderID,
+		URL:               row.Url,
+		RepositoryURL:     row.RepositoryUrl,
+		HeadRepositoryURL: row.HeadRepositoryUrl,
+		Number:            int(row.Number),
+		Title:             row.Title,
+		HeadBranch:        row.HeadBranch,
+		HeadSHA:           row.HeadSha,
+		BaseBranch:        row.BaseBranch,
+		BaseSHA:           row.BaseSha,
+		Draft:             row.Draft,
+		State:             row.State,
+		OpenedAt:          row.OpenedAt,
+		ChangedAt:         row.ChangedAt,
+		MergedAt:          row.MergedAt,
+		ClosedAt:          row.ClosedAt,
+		FirstSeenAt:       row.FirstSeenAt,
+		Standing:          rememberedStandingOf(row),
 	}
 }
 
-// StoredMergeability is the mergeability column as the forge's word, nil for a null.
-func StoredMergeability(stored *string) *forge.Mergeability {
-	if stored == nil {
-		return nil
+func rememberedStandingOf(row *models.PullRequest) forge.RememberedStanding {
+	wasRead := row.ChecksSha != nil
+	standing := forge.RememberedStanding{
+		Decision: forge.RememberedAnswer[forge.ReviewDecision]{
+			Value:              forge.ReviewDecision(xptr.Deref(row.LastKnownDecision)),
+			WasLatestReadBlank: wasRead && row.ReviewDecision == nil,
+		},
+		Checks: forge.RememberedAnswer[forge.Checks]{
+			Value:              forge.Checks(xptr.Deref(row.LastKnownChecks)),
+			HeadSHA:            xptr.Deref(row.LastKnownChecksSha),
+			WasLatestReadBlank: wasRead && row.Checks == nil,
+		},
+		Mergeability: forge.RememberedAnswer[forge.Mergeability]{
+			Value:              forge.Mergeability(xptr.Deref(row.LastKnownMergeability)),
+			HeadSHA:            xptr.Deref(row.LastKnownMergeabilitySha),
+			WasLatestReadBlank: wasRead && row.Mergeability == nil,
+		},
+		LatestReadHeadSHA:      xptr.Deref(row.ChecksSha),
+		MergeabilityBlankSince: row.MergeabilityBlankSince,
+	}
+	if row.AutoMerge != nil {
+		standing.AutoMerge = &forge.AutoMerge{On: *row.AutoMerge, Allowed: row.AutoMergeable}
 	}
 
-	return xptr.Ptr(forge.Mergeability(*stored))
+	return standing
 }
 
-// StoredChecks is the checks column as the forge's word, nil for a null.
-func StoredChecks(stored *string) *forge.Checks {
-	if stored == nil {
-		return nil
+func toWriteStanding(id string, standing forge.RememberedStanding) models.WriteStandingParams {
+	params := models.WriteStandingParams{
+		ID:                       id,
+		ReviewDecision:           latestReadOf(standing.Decision),
+		Checks:                   latestReadOf(standing.Checks),
+		Mergeability:             latestReadOf(standing.Mergeability),
+		ChecksSha:                &standing.LatestReadHeadSHA,
+		LastKnownChecks:          xptr.NonEmpty(string(standing.Checks.Value)),
+		LastKnownChecksSha:       xptr.NonEmpty(standing.Checks.HeadSHA),
+		LastKnownMergeability:    xptr.NonEmpty(string(standing.Mergeability.Value)),
+		LastKnownMergeabilitySha: xptr.NonEmpty(standing.Mergeability.HeadSHA),
+		MergeabilityBlankSince:   standing.MergeabilityBlankSince,
+		LastKnownDecision:        xptr.NonEmpty(string(standing.Decision.Value)),
+	}
+	if standing.AutoMerge != nil {
+		params.AutoMerge = &standing.AutoMerge.On
+		params.AutoMergeable = standing.AutoMerge.Allowed
 	}
 
-	return xptr.Ptr(forge.Checks(*stored))
+	return params
 }
 
-func storedReviewDecision(stored *string) *forge.ReviewDecision {
-	if stored == nil {
+func latestReadOf[T ~string](answer forge.RememberedAnswer[T]) *string {
+	if answer.WasLatestReadBlank {
 		return nil
 	}
 
-	return xptr.Ptr(forge.ReviewDecision(*stored))
+	return xptr.NonEmpty(string(answer.Value))
 }
 
 // GetByID is one stored pull request, or ErrNotFound.

@@ -2,10 +2,11 @@ package pullrequests
 
 import (
 	"testing"
+	"time"
 
 	"komrad/internal/eventprompts"
+	"komrad/internal/forge"
 	pullrequeststore "komrad/internal/store/pullrequest"
-	"komrad/lib/xptr"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -16,6 +17,7 @@ func TestEventsOf(t *testing.T) {
 		name        string
 		moves       []Move
 		pullRequest pullrequeststore.PullRequest
+		read        forge.Standing
 		wantStarted []string
 		wantHolding []string
 	}{
@@ -26,7 +28,8 @@ func TestEventsOf(t *testing.T) {
 				From:  "pending",
 				To:    "failing",
 			}},
-			pullRequest: pullrequeststore.PullRequest{State: "OPEN", LastKnownChecks: "failing"},
+			pullRequest: pullrequeststore.PullRequest{State: "OPEN"},
+			read:        forge.Standing{Checks: forge.ChecksFailing},
 			wantStarted: []string{eventprompts.PullRequestChecksFailing},
 			wantHolding: []string{eventprompts.PullRequestChecksFailing},
 		},
@@ -37,10 +40,10 @@ func TestEventsOf(t *testing.T) {
 				From:  "failing",
 				To:    "passing",
 			}},
-			pullRequest: pullrequeststore.PullRequest{
-				State:                 "OPEN",
-				LastKnownChecks:       "passing",
-				LastKnownMergeability: "behind",
+			pullRequest: pullrequeststore.PullRequest{State: "OPEN"},
+			read: forge.Standing{
+				Checks:       forge.ChecksPassing,
+				Mergeability: forge.MergeabilityBehind,
 			},
 			wantHolding: []string{eventprompts.PullRequestBehind},
 		},
@@ -48,10 +51,11 @@ func TestEventsOf(t *testing.T) {
 			name: "turning auto-merge on starts it",
 			moves: []Move{{
 				Field: FieldAutoMerge,
-				From:  autoMergeOff,
-				To:    autoMergeOn,
+				From:  forge.AutoMergeOff,
+				To:    forge.AutoMergeOn,
 			}},
-			pullRequest: pullrequeststore.PullRequest{State: "OPEN", AutoMerge: xptr.Ptr(true)},
+			pullRequest: pullrequeststore.PullRequest{State: "OPEN"},
+			read:        forge.Standing{AutoMerge: forge.AutoMerge{On: true}},
 			wantStarted: []string{eventprompts.PullRequestAutoMergeOn},
 			wantHolding: []string{eventprompts.PullRequestAutoMergeOn},
 		},
@@ -69,10 +73,10 @@ func TestEventsOf(t *testing.T) {
 					To:    "approved",
 				},
 			},
-			pullRequest: pullrequeststore.PullRequest{
-				State:             "MERGED",
-				LastKnownDecision: "approved",
-				LastKnownChecks:   "failing",
+			pullRequest: pullrequeststore.PullRequest{State: "MERGED"},
+			read: forge.Standing{
+				Decision: forge.ReviewDecisionApproved,
+				Checks:   forge.ChecksFailing,
 			},
 			wantStarted: []string{eventprompts.PullRequestMerged},
 			wantHolding: []string{eventprompts.PullRequestMerged},
@@ -84,7 +88,8 @@ func TestEventsOf(t *testing.T) {
 				From:  "passing",
 				To:    "failing",
 			}},
-			pullRequest: pullrequeststore.PullRequest{State: "MERGED", LastKnownChecks: "failing"},
+			pullRequest: pullrequeststore.PullRequest{State: "MERGED"},
+			read:        forge.Standing{Checks: forge.ChecksFailing},
 			wantHolding: []string{eventprompts.PullRequestMerged},
 		},
 		{
@@ -94,7 +99,8 @@ func TestEventsOf(t *testing.T) {
 				From:  "OPEN",
 				To:    "CLOSED",
 			}},
-			pullRequest: pullrequeststore.PullRequest{State: "CLOSED", LastKnownMergeability: "conflicting"},
+			pullRequest: pullrequeststore.PullRequest{State: "CLOSED"},
+			read:        forge.Standing{Mergeability: forge.MergeabilityConflicting},
 			wantStarted: []string{eventprompts.PullRequestClosed},
 			wantHolding: []string{eventprompts.PullRequestClosed},
 		},
@@ -102,7 +108,10 @@ func TestEventsOf(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			started, holding := eventsOf(Change{Moves: tt.moves}, tt.pullRequest)
+			pullRequest := tt.pullRequest
+			pullRequest.Standing = forge.RememberedStanding{}.RememberRead(tt.read, pullRequest.HeadSHA, time.Time{})
+
+			started, holding := eventsOf(Change{Moves: tt.moves}, pullRequest)
 			assert.Equal(t, tt.wantStarted, started)
 			assert.Equal(t, tt.wantHolding, holding)
 		})

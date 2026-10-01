@@ -17,8 +17,10 @@ const (
 )
 
 const (
-	autoMergeOn  = "on"
-	autoMergeOff = "off"
+	// AutoMergeOn is auto-merge turned on, in the words a move carries.
+	AutoMergeOn = "on"
+	// AutoMergeOff is auto-merge turned off, in the words a move carries.
+	AutoMergeOff = "off"
 )
 
 // StandingMove is one part of a pull request's standing going from one value to another.
@@ -129,9 +131,9 @@ func describeAutoMerge(autoMerge *AutoMerge) string {
 	case autoMerge == nil:
 		return ""
 	case autoMerge.On:
-		return autoMergeOn
+		return AutoMergeOn
 	default:
-		return autoMergeOff
+		return AutoMergeOff
 	}
 }
 

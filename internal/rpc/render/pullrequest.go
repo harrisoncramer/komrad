@@ -5,13 +5,12 @@ import (
 	"komrad/internal/pullrequests"
 	pullrequeststore "komrad/internal/store/pullrequest"
 	"komrad/lib/dates"
-	"komrad/lib/xptr"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 )
 
 // PullRequest draws one stored pull request as the wire carries it.
 func PullRequest(stored pullrequeststore.PullRequest) *pullrequestv1.PullRequest {
-	mergeability, unconfirmed := pullrequests.ResolveMergeability(stored)
+	displayed := stored.Standing.DisplayForHead(stored.HeadSHA)
 
 	return &pullrequestv1.PullRequest{
 		Id:                      stored.ID,
@@ -32,12 +31,12 @@ func PullRequest(stored pullrequeststore.PullRequest) *pullrequestv1.PullRequest
 		ChangedAt:               dates.Stamp(stored.ChangedAt),
 		MergedAt:                dates.StampPtr(stored.MergedAt),
 		ClosedAt:                dates.StampPtr(stored.ClosedAt),
-		ReviewDecision:          ReviewDecisionOf(stored.ReviewDecision),
-		Checks:                  ChecksOf(stored.Checks),
-		Mergeability:            MergeabilityOf(mergeability),
-		MergeabilityUnconfirmed: unconfirmed,
-		AutoMerge:               xptr.Deref(stored.AutoMerge),
-		AutoMergeable:           stored.AutoMergeable,
+		ReviewDecision:          ReviewDecisionOf(displayed.Decision.Value),
+		Checks:                  ChecksOf(displayed.Checks.Value),
+		Mergeability:            MergeabilityOf(displayed.Mergeability.Value),
+		MergeabilityUnconfirmed: displayed.Mergeability.IsUnconfirmed,
+		AutoMerge:               displayed.AutoMerge.On,
+		AutoMergeable:           displayed.AutoMerge.Allowed,
 	}
 }
 
@@ -70,14 +69,9 @@ func PullRequestStateOf(state pullrequests.State) pullrequestv1.PullRequestState
 	return pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN
 }
 
-// ReviewDecisionOf is the stored review decision as the wire carries it, NONE for a row the
-// forge has said nothing about.
-func ReviewDecisionOf(decision *forge.ReviewDecision) pullrequestv1.ReviewDecision {
-	if decision == nil {
-		return pullrequestv1.ReviewDecision_REVIEW_DECISION_NONE
-	}
-
-	switch *decision {
+// ReviewDecisionOf is the review decision as the wire carries it.
+func ReviewDecisionOf(decision forge.ReviewDecision) pullrequestv1.ReviewDecision {
+	switch decision {
 	case forge.ReviewDecisionPending:
 		return pullrequestv1.ReviewDecision_REVIEW_DECISION_PENDING
 	case forge.ReviewDecisionApproved:
@@ -92,14 +86,9 @@ func ReviewDecisionOf(decision *forge.ReviewDecision) pullrequestv1.ReviewDecisi
 	return pullrequestv1.ReviewDecision_REVIEW_DECISION_NONE
 }
 
-// ChecksOf is the stored checks as the wire carries them, NONE for a row the forge reports no
-// checks on.
-func ChecksOf(checks *forge.Checks) pullrequestv1.Checks {
-	if checks == nil {
-		return pullrequestv1.Checks_CHECKS_NONE
-	}
-
-	switch *checks {
+// ChecksOf is the checks as the wire carries them.
+func ChecksOf(checks forge.Checks) pullrequestv1.Checks {
+	switch checks {
 	case forge.ChecksPending:
 		return pullrequestv1.Checks_CHECKS_PENDING
 	case forge.ChecksPassing:
@@ -112,14 +101,9 @@ func ChecksOf(checks *forge.Checks) pullrequestv1.Checks {
 	return pullrequestv1.Checks_CHECKS_NONE
 }
 
-// MergeabilityOf is the stored mergeability as the wire carries it, UNKNOWN for a row the forge
-// has not computed.
-func MergeabilityOf(mergeability *forge.Mergeability) pullrequestv1.Mergeability {
-	if mergeability == nil {
-		return pullrequestv1.Mergeability_MERGEABILITY_UNKNOWN
-	}
-
-	switch *mergeability {
+// MergeabilityOf is the mergeability as the wire carries it.
+func MergeabilityOf(mergeability forge.Mergeability) pullrequestv1.Mergeability {
+	switch mergeability {
 	case forge.MergeabilityClean:
 		return pullrequestv1.Mergeability_MERGEABILITY_CLEAN
 	case forge.MergeabilityUnstable:

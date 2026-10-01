@@ -225,147 +225,56 @@ ON CONFLICT (
     repository_url)
     DO NOTHING;
 
--- name: SetStanding :one
-WITH prior AS (
-    SELECT
-        held.id,
-        held.review_decision,
-        held.checks,
-        held.mergeability,
-        held.checks_sha,
-        held.last_known_checks,
-        held.last_known_checks_sha,
-        held.last_known_mergeability,
-        held.last_known_mergeability_sha,
-        held.last_known_decision,
-        held.mergeability_blank_since,
-        held.auto_merge,
-        held.auto_mergeable
-    FROM
-        pull_requests held
-    WHERE
-        held.id = @id
-    FOR UPDATE
-),
-NEXT AS (
-    SELECT
-        prior.id,
-        sqlc.narg('review_decision')::text AS review_decision,
-        sqlc.narg('checks')::text AS checks,
-        sqlc.narg('mergeability')::text AS mergeability,
-        @checks_sha::text AS checks_sha,
-        COALESCE(sqlc.narg('checks')::text, prior.last_known_checks) AS last_known_checks,
-        CASE WHEN sqlc.narg('checks')::text IS NULL THEN
-            prior.last_known_checks_sha
-        ELSE
-            NULLIF(@checks_sha::text, '')
-        END AS last_known_checks_sha,
-        COALESCE(sqlc.narg('mergeability')::text, prior.last_known_mergeability) AS last_known_mergeability,
-        CASE WHEN sqlc.narg('mergeability')::text IS NULL THEN
-            prior.last_known_mergeability_sha
-        ELSE
-            NULLIF(@checks_sha::text, '')
-        END AS last_known_mergeability_sha,
-        CASE WHEN sqlc.narg('mergeability')::text IS NOT NULL THEN
-            NULL
-        WHEN prior.checks_sha IS NOT DISTINCT FROM @checks_sha::text THEN
-            COALESCE(prior.mergeability_blank_since, @read_at::timestamptz)
-        ELSE
-            @read_at::timestamptz
-        END AS mergeability_blank_since,
-        COALESCE(sqlc.narg('review_decision')::text, prior.last_known_decision) AS last_known_decision,
-        @auto_merge::boolean AS auto_merge,
-        @auto_mergeable::boolean AS auto_mergeable
-    FROM
-        prior
-),
-written AS (
-    UPDATE
-        pull_requests p
-    SET
-        review_decision = next.review_decision,
-        checks = next.checks,
-        mergeability = next.mergeability,
-        checks_sha = next.checks_sha,
-        last_known_checks = next.last_known_checks,
-        last_known_checks_sha = next.last_known_checks_sha,
-        last_known_mergeability = next.last_known_mergeability,
-        last_known_mergeability_sha = next.last_known_mergeability_sha,
-        mergeability_blank_since = next.mergeability_blank_since,
-        last_known_decision = next.last_known_decision,
-        auto_merge = next.auto_merge,
-        auto_mergeable = next.auto_mergeable
-    FROM
-        NEXT
-    WHERE
-        p.id = next.id
-        AND (p.review_decision,
-            p.checks,
-            p.mergeability,
-            p.checks_sha,
-            p.last_known_checks,
-            p.last_known_checks_sha,
-            p.last_known_mergeability,
-            p.last_known_mergeability_sha,
-            p.mergeability_blank_since,
-            p.last_known_decision,
-            p.auto_merge,
-            p.auto_mergeable) IS DISTINCT FROM (next.review_decision,
-            next.checks,
-            next.mergeability,
-            next.checks_sha,
-            next.last_known_checks,
-            next.last_known_checks_sha,
-            next.last_known_mergeability,
-            next.last_known_mergeability_sha,
-            next.mergeability_blank_since,
-            next.last_known_decision,
-            next.auto_merge,
-            next.auto_mergeable)
-    RETURNING
-        p.last_known_checks,
-        p.last_known_checks_sha,
-        p.last_known_mergeability,
-        p.last_known_decision,
-        p.mergeability_blank_since,
-        p.auto_merge
-)
+-- name: GetPullRequestForUpdate :one
 SELECT
-    prior.last_known_checks AS old_checks,
-    prior.last_known_checks_sha AS old_checks_sha,
-    prior.last_known_mergeability AS old_mergeability,
-    prior.last_known_decision AS old_decision,
-    written.last_known_checks AS known_checks,
-    written.last_known_checks_sha AS known_checks_sha,
-    written.last_known_mergeability AS known_mergeability,
-    written.last_known_decision AS known_decision,
-    written.mergeability_blank_since AS blank_since,
-    prior.auto_merge AS old_auto_merge,
-    written.auto_merge AS known_auto_merge
+    *
 FROM
-    prior
-    JOIN written ON TRUE
-UNION ALL
-SELECT
-    prior.last_known_checks AS old_checks,
-    prior.last_known_checks_sha AS old_checks_sha,
-    prior.last_known_mergeability AS old_mergeability,
-    prior.last_known_decision AS old_decision,
-    prior.last_known_checks AS known_checks,
-    prior.last_known_checks_sha AS known_checks_sha,
-    prior.last_known_mergeability AS known_mergeability,
-    prior.last_known_decision AS known_decision,
-    prior.mergeability_blank_since AS blank_since,
-    prior.auto_merge AS old_auto_merge,
-    prior.auto_merge AS known_auto_merge
-FROM
-    prior
+    pull_requests
 WHERE
-    NOT EXISTS (
-        SELECT
-            1
-        FROM
-            written);
+    id = @id
+FOR UPDATE;
+
+-- name: WriteStanding :exec
+UPDATE
+    pull_requests
+SET
+    review_decision = sqlc.narg('review_decision')::text,
+    checks = sqlc.narg('checks')::text,
+    mergeability = sqlc.narg('mergeability')::text,
+    checks_sha = sqlc.narg('checks_sha')::text,
+    last_known_checks = sqlc.narg('last_known_checks')::text,
+    last_known_checks_sha = sqlc.narg('last_known_checks_sha')::text,
+    last_known_mergeability = sqlc.narg('last_known_mergeability')::text,
+    last_known_mergeability_sha = sqlc.narg('last_known_mergeability_sha')::text,
+    mergeability_blank_since = sqlc.narg('mergeability_blank_since')::timestamptz,
+    last_known_decision = sqlc.narg('last_known_decision')::text,
+    auto_merge = sqlc.narg('auto_merge')::boolean,
+    auto_mergeable = @auto_mergeable::boolean
+WHERE
+    id = @id
+    AND (review_decision,
+        checks,
+        mergeability,
+        checks_sha,
+        last_known_checks,
+        last_known_checks_sha,
+        last_known_mergeability,
+        last_known_mergeability_sha,
+        mergeability_blank_since,
+        last_known_decision,
+        auto_merge,
+        auto_mergeable) IS DISTINCT FROM (sqlc.narg('review_decision')::text,
+        sqlc.narg('checks')::text,
+        sqlc.narg('mergeability')::text,
+        sqlc.narg('checks_sha')::text,
+        sqlc.narg('last_known_checks')::text,
+        sqlc.narg('last_known_checks_sha')::text,
+        sqlc.narg('last_known_mergeability')::text,
+        sqlc.narg('last_known_mergeability_sha')::text,
+        sqlc.narg('mergeability_blank_since')::timestamptz,
+        sqlc.narg('last_known_decision')::text,
+        sqlc.narg('auto_merge')::boolean,
+        @auto_mergeable::boolean);
 
 -- name: ListWatchedPullRequests :many
 SELECT

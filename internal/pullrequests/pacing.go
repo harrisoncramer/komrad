@@ -179,8 +179,8 @@ func hotUntil(pullRequest forge.PullRequest, change *pullrequeststore.StandingCh
 	if pullRequest.Standing != nil && pullRequest.Standing.Checks == forge.ChecksPending {
 		until = pullRequest.UpdatedAt.Add(pendingHotWithin)
 	}
-	if change.BlankSince != nil {
-		if blank := change.BlankSince.Add(blankHotWithin); blank.After(until) {
+	if change.After.MergeabilityBlankSince != nil {
+		if blank := change.After.MergeabilityBlankSince.Add(blankHotWithin); blank.After(until) {
 			until = blank
 		}
 	}

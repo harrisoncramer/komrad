@@ -253,7 +253,11 @@ func TestLiveRepositoriesAndSyncTargets(t *testing.T) {
 	assert.Equal(t, []Target{
 		{RepositoryURL: komrad, Branch: "agent/x"},
 		{RepositoryURL: komrad, Branch: "agent/y"},
-		{RepositoryURL: komrad, Branch: "agent/y", HeadSHA: "abc"},
+		{
+			RepositoryURL: komrad,
+			Branch:        "agent/y",
+			HeadSHA:       "abc",
+		},
 		{RepositoryURL: fixture, Branch: "fixture/open"},
 	}, targets)
 }
@@ -268,74 +272,6 @@ func finishedPullRequest(providerID string, number int, branch string) UpsertPar
 	params.ChangedAt = mergedAt
 
 	return params
-}
-
-// TestSetStandingRoundTrip covers the standing round trip, none for the decision and the checks
-// clearing their columns, and an answer that says nothing new writing nothing while still
-// answering what is stored.
-func TestSetStandingRoundTrip(t *testing.T) {
-	h := open(t)
-	ctx := t.Context()
-	readAt := time.Date(2026, 9, 21, 12, 0, 0, 0, time.UTC)
-
-	written, err := h.Upsert(ctx, openPullRequest("PR_1", 1, "agent/x"))
-	require.NoError(t, err)
-
-	failing := forge.Standing{
-		Decision:     forge.ReviewDecisionChangesRequested,
-		Checks:       forge.ChecksFailing,
-		Mergeability: forge.MergeabilityUnstable,
-	}
-	_, err = h.SetStanding(ctx, SetStandingParams{
-		ID:       written.ID,
-		Standing: failing,
-		HeadSHA:  "abc",
-		ReadAt:   readAt,
-	})
-	require.NoError(t, err)
-	stored, err := h.GetByIdentity(ctx, "github.com", "PR_1")
-	require.NoError(t, err)
-	require.NotNil(t, stored.ReviewDecision)
-	assert.Equal(t, forge.ReviewDecisionChangesRequested, *stored.ReviewDecision)
-	require.NotNil(t, stored.Checks)
-	assert.Equal(t, forge.ChecksFailing, *stored.Checks)
-	require.NotNil(t, stored.Mergeability)
-	assert.Equal(t, forge.MergeabilityUnstable, *stored.Mergeability)
-	assert.Equal(t, "abc", stored.ChecksSHA)
-
-	version := func() string {
-		t.Helper()
-		var xmin string
-		require.NoError(t, h.pool.GetDB().QueryRow(ctx, "SELECT xmin::text FROM pull_requests WHERE id = $1", written.ID).Scan(&xmin))
-
-		return xmin
-	}
-	before := version()
-	change, err := h.SetStanding(ctx, SetStandingParams{
-		ID:       written.ID,
-		Standing: failing,
-		HeadSHA:  "abc",
-		ReadAt:   readAt.Add(time.Minute),
-	})
-	require.NoError(t, err)
-	assert.Equal(t, before, version(), "an answer that says nothing new writes nothing")
-	assert.Equal(t, change.OldChecks, change.KnownChecks)
-	require.NotNil(t, change.KnownChecks)
-	assert.Equal(t, string(forge.ChecksFailing), *change.KnownChecks)
-
-	_, err = h.SetStanding(ctx, SetStandingParams{
-		ID:       written.ID,
-		Standing: forge.Standing{},
-		HeadSHA:  "abc",
-		ReadAt:   readAt.Add(2 * time.Minute),
-	})
-	require.NoError(t, err)
-	stored, err = h.GetByIdentity(ctx, "github.com", "PR_1")
-	require.NoError(t, err)
-	assert.Nil(t, stored.ReviewDecision)
-	assert.Nil(t, stored.Checks)
-	assert.Nil(t, stored.Mergeability)
-	assert.Equal(t, "abc", stored.ChecksSHA)
 }
 
 // TestListPageOrdersCurrentFirst pins the page's order and its cursor: the unfinished first and
@@ -407,323 +343,6 @@ func TestListPageOrdersCurrentFirst(t *testing.T) {
 	assert.Empty(t, elsewhere)
 }
 
-// TestSetStandingKeepsTheLastKnownValue pins what each standing write reports as moved.
-func TestSetStandingKeepsTheLastKnownValue(t *testing.T) {
-	type step struct {
-		checks       forge.Checks
-		sha          string
-		wantOld      *string
-		wantKnown    *string
-		wantOldSHA   *string
-		wantKnownSHA *string
-	}
-	tests := []struct {
-		name  string
-		steps []step
-	}{
-		{
-			name: "the first reading replaces nothing",
-			steps: []step{
-				{
-					checks:       forge.ChecksFailing,
-					sha:          "abc",
-					wantKnown:    xptr.Ptr("failing"),
-					wantKnownSHA: xptr.Ptr("abc"),
-				},
-			},
-		},
-		{
-			name: "a blank reading leaves the last known value alone",
-			steps: []step{
-				{
-					checks:       forge.ChecksFailing,
-					sha:          "abc",
-					wantKnown:    xptr.Ptr("failing"),
-					wantKnownSHA: xptr.Ptr("abc"),
-				},
-				{
-					checks:       forge.ChecksNone,
-					sha:          "def",
-					wantOld:      xptr.Ptr("failing"),
-					wantKnown:    xptr.Ptr("failing"),
-					wantOldSHA:   xptr.Ptr("abc"),
-					wantKnownSHA: xptr.Ptr("abc"),
-				},
-				{
-					checks:       forge.ChecksFailing,
-					sha:          "abc",
-					wantOld:      xptr.Ptr("failing"),
-					wantKnown:    xptr.Ptr("failing"),
-					wantOldSHA:   xptr.Ptr("abc"),
-					wantKnownSHA: xptr.Ptr("abc"),
-				},
-			},
-		},
-		{
-			name: "a new value replaces the last known one",
-			steps: []step{
-				{
-					checks:       forge.ChecksPassing,
-					sha:          "abc",
-					wantKnown:    xptr.Ptr("passing"),
-					wantKnownSHA: xptr.Ptr("abc"),
-				},
-				{
-					checks:       forge.ChecksFailing,
-					sha:          "abc",
-					wantOld:      xptr.Ptr("passing"),
-					wantKnown:    xptr.Ptr("failing"),
-					wantOldSHA:   xptr.Ptr("abc"),
-					wantKnownSHA: xptr.Ptr("abc"),
-				},
-			},
-		},
-		{
-			name: "the same value on a new head replaces the last known head",
-			steps: []step{
-				{
-					checks:       forge.ChecksFailing,
-					sha:          "abc",
-					wantKnown:    xptr.Ptr("failing"),
-					wantKnownSHA: xptr.Ptr("abc"),
-				},
-				{
-					checks:       forge.ChecksFailing,
-					sha:          "def",
-					wantOld:      xptr.Ptr("failing"),
-					wantKnown:    xptr.Ptr("failing"),
-					wantOldSHA:   xptr.Ptr("abc"),
-					wantKnownSHA: xptr.Ptr("def"),
-				},
-			},
-		},
-		{
-			name: "a reading with no head leaves the last known head unknown",
-			steps: []step{
-				{checks: forge.ChecksFailing, wantKnown: xptr.Ptr("failing")},
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			h := open(t)
-			ctx := t.Context()
-			written, err := h.Upsert(ctx, openPullRequest("PR_1", 1, "agent/x"))
-			require.NoError(t, err)
-
-			for _, s := range tt.steps {
-				change, err := h.SetStanding(ctx, SetStandingParams{
-					ID:       written.ID,
-					Standing: forge.Standing{Checks: s.checks},
-					HeadSHA:  s.sha,
-					ReadAt:   time.Now(),
-				})
-				require.NoError(t, err)
-				assert.Equal(t, s.wantOld, change.OldChecks)
-				assert.Equal(t, s.wantKnown, change.KnownChecks)
-				assert.Equal(t, s.wantOldSHA, change.OldChecksSHA)
-				assert.Equal(t, s.wantKnownSHA, change.KnownChecksSHA)
-			}
-
-			stored, err := h.GetByID(ctx, written.ID)
-			require.NoError(t, err)
-			last := tt.steps[len(tt.steps)-1]
-			assert.Equal(t, *last.wantKnown, stored.LastKnownChecks)
-			if last.checks == forge.ChecksNone {
-				assert.Nil(t, stored.Checks, "the recorded column still keeps the forge's blank")
-			}
-		})
-	}
-}
-
-// TestSetStandingRemembersWhichHeadMergeabilityWasReadFor covers the head the last known
-// mergeability belongs to.
-func TestSetStandingRemembersWhichHeadMergeabilityWasReadFor(t *testing.T) {
-	type read struct {
-		standing forge.Standing
-		head     string
-	}
-	type testCase struct {
-		name             string
-		reads            []read
-		wantMergeability *forge.Mergeability
-		wantKnown        string
-		wantKnownSHA     string
-		wantChecks       *forge.Checks
-		wantChecksSHA    string
-	}
-	tests := []testCase{
-		{
-			name: "a blank read leaves the last known head alone",
-			reads: []read{
-				{
-					standing: forge.Standing{
-						Mergeability: forge.MergeabilityClean,
-					},
-					head: "abc",
-				},
-				{
-					head: "def",
-				},
-			},
-			wantMergeability: nil,
-			wantKnown:        "clean",
-			wantKnownSHA:     "abc",
-			wantChecks:       nil,
-			wantChecksSHA:    "def",
-		},
-		{
-			name: "an answer stamps the head it was read for",
-			reads: []read{
-				{
-					standing: forge.Standing{
-						Mergeability: forge.MergeabilityClean,
-					},
-					head: "abc",
-				},
-				{
-					standing: forge.Standing{
-						Checks:       forge.ChecksPassing,
-						Mergeability: forge.MergeabilityBehind,
-					},
-					head: "def",
-				},
-			},
-			wantMergeability: xptr.Ptr(forge.MergeabilityBehind),
-			wantKnown:        "behind",
-			wantKnownSHA:     "def",
-			wantChecks:       xptr.Ptr(forge.ChecksPassing),
-			wantChecksSHA:    "def",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			h := open(t)
-			ctx := t.Context()
-			written, err := h.Upsert(ctx, openPullRequest("PR_1", 1, "agent/x"))
-			require.NoError(t, err)
-
-			for _, r := range tt.reads {
-				_, err := h.SetStanding(ctx, SetStandingParams{
-					ID:       written.ID,
-					Standing: r.standing,
-					HeadSHA:  r.head,
-					ReadAt:   time.Now(),
-				})
-				require.NoError(t, err)
-			}
-
-			stored, err := h.GetByID(ctx, written.ID)
-			require.NoError(t, err)
-			assert.Equal(t, tt.wantMergeability, stored.Mergeability)
-			assert.Equal(t, tt.wantKnown, stored.LastKnownMergeability)
-			assert.Equal(t, tt.wantKnownSHA, stored.LastKnownMergeabilitySHA)
-			assert.Equal(t, tt.wantChecks, stored.Checks)
-			assert.Equal(t, tt.wantChecksSHA, stored.ChecksSHA)
-		})
-	}
-}
-
-// TestSetStandingAnswersWhenABlankBegan covers the blank mergeability's start holding through
-// later blanks on one head and starting again on a new head or clearing on an answer.
-func TestSetStandingAnswersWhenABlankBegan(t *testing.T) {
-	began := time.Date(2026, 9, 21, 12, 0, 0, 0, time.UTC)
-	later := began.Add(time.Minute)
-	type read struct {
-		standing forge.Standing
-		head     string
-		at       time.Time
-	}
-	type testCase struct {
-		name      string
-		reads     []read
-		wantSince *time.Time
-	}
-	tests := []testCase{
-		{
-			name: "an answer clears the blank",
-			reads: []read{
-				{
-					head: "abc",
-					at:   began,
-				},
-				{
-					standing: forge.Standing{
-						Mergeability: forge.MergeabilityClean,
-					},
-					head: "abc",
-					at:   later,
-				},
-			},
-			wantSince: nil,
-		},
-		{
-			name: "a blank on a new head begins again",
-			reads: []read{
-				{
-					head: "abc",
-					at:   began,
-				},
-				{
-					head: "def",
-					at:   later,
-				},
-			},
-			wantSince: &later,
-		},
-		{
-			name: "a blank that stays blank keeps when it began",
-			reads: []read{
-				{
-					standing: forge.Standing{
-						Mergeability: forge.MergeabilityClean,
-					},
-					head: "abc",
-					at:   began.Add(-time.Minute),
-				},
-				{
-					head: "abc",
-					at:   began,
-				},
-				{
-					head: "abc",
-					at:   later,
-				},
-			},
-			wantSince: &began,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			h := open(t)
-			ctx := t.Context()
-			written, err := h.Upsert(ctx, openPullRequest("PR_1", 1, "agent/x"))
-			require.NoError(t, err)
-
-			var change *StandingChange
-			for _, r := range tt.reads {
-				change, err = h.SetStanding(ctx, SetStandingParams{
-					ID:       written.ID,
-					Standing: r.standing,
-					HeadSHA:  r.head,
-					ReadAt:   r.at,
-				})
-				require.NoError(t, err)
-			}
-
-			if tt.wantSince == nil {
-				assert.Nil(t, change.BlankSince)
-				return
-			}
-			require.NotNil(t, change.BlankSince)
-			assert.True(t, tt.wantSince.Equal(*change.BlankSince), "began %s, want %s", *change.BlankSince, *tt.wantSince)
-		})
-	}
-}
-
 // TestSetStandingOnAMissingRowChangesNothing pins that a row gone since it was read reports no change.
 func TestSetStandingOnAMissingRowChangesNothing(t *testing.T) {
 	h := open(t)
@@ -769,56 +388,121 @@ func TestListRecipients(t *testing.T) {
 	assert.Equal(t, []string{onBranch}, recipients, "only the live parent on the branch is told")
 }
 
-// TestSetStandingRecordsAutoMerge covers auto-merge being recorded with the rest of a read, and the value before and after each write.
-func TestSetStandingRecordsAutoMerge(t *testing.T) {
-	type testCase struct {
-		name              string
-		autoMerge         forge.AutoMerge
-		wantOld           *bool
-		wantKnown         *bool
-		wantAutoMergeable bool
+// TestSetStandingRemembersWhatEveryReadLeaves covers the remembered standing reading back from the row as it was after each read.
+func TestSetStandingRemembersWhatEveryReadLeaves(t *testing.T) {
+	began := time.Date(2026, 9, 21, 12, 0, 0, 0, time.UTC)
+	failing := forge.Standing{
+		Decision:     forge.ReviewDecisionChangesRequested,
+		Checks:       forge.ChecksFailing,
+		Mergeability: forge.MergeabilityUnstable,
+		AutoMerge:    forge.AutoMerge{On: true, Allowed: true},
+	}
+	passing := forge.Standing{
+		Decision:     forge.ReviewDecisionApproved,
+		Checks:       forge.ChecksPassing,
+		Mergeability: forge.MergeabilityClean,
+		AutoMerge:    forge.AutoMerge{Allowed: true},
+	}
+	type read struct {
+		standing forge.Standing
+		head     string
 	}
 
-	tests := []testCase{
+	tests := []struct {
+		name  string
+		reads []read
+	}{
 		{
-			name:              "the first read of a pull request that may be queued",
-			autoMerge:         forge.AutoMerge{Allowed: true},
-			wantKnown:         xptr.Ptr(false),
-			wantAutoMergeable: true,
+			name:  "a read with no head",
+			reads: []read{{standing: failing}},
 		},
 		{
-			name:      "a read after it was queued",
-			autoMerge: forge.AutoMerge{On: true},
-			wantOld:   xptr.Ptr(false),
-			wantKnown: xptr.Ptr(true),
+			name: "blanks on the same head",
+			reads: []read{
+				{standing: failing, head: "abc"},
+				{head: "abc"},
+				{head: "abc"},
+			},
 		},
 		{
-			name:              "a read after it was withdrawn",
-			autoMerge:         forge.AutoMerge{Allowed: true},
-			wantOld:           xptr.Ptr(true),
-			wantKnown:         xptr.Ptr(false),
-			wantAutoMergeable: true,
+			name: "a blank on a new head",
+			reads: []read{
+				{standing: failing, head: "abc"},
+				{head: "def"},
+			},
+		},
+		{
+			name: "an answer after a blank",
+			reads: []read{
+				{standing: failing, head: "abc"},
+				{head: "abc"},
+				{standing: passing, head: "def"},
+			},
 		},
 	}
-
-	h := open(t)
-	written, err := h.Upsert(t.Context(), openPullRequest("PR_1", 1, "agent/x"))
-	require.NoError(t, err)
 
 	for _, tt := range tests {
-		change, err := h.SetStanding(t.Context(), SetStandingParams{
-			ID:       written.ID,
-			Standing: forge.Standing{AutoMerge: tt.autoMerge},
-			HeadSHA:  "abc",
-			ReadAt:   time.Now(),
-		})
-		require.NoError(t, err, tt.name)
-		assert.Equal(t, tt.wantOld, change.OldAutoMerge, tt.name)
-		assert.Equal(t, tt.wantKnown, change.KnownAutoMerge, tt.name)
+		t.Run(tt.name, func(t *testing.T) {
+			h := open(t)
+			ctx := t.Context()
+			written, err := h.Upsert(ctx, openPullRequest("PR_1", 1, "agent/x"))
+			require.NoError(t, err)
 
-		stored, err := h.GetByIdentity(t.Context(), "github.com", "PR_1")
-		require.NoError(t, err, tt.name)
-		assert.Equal(t, tt.wantKnown, stored.AutoMerge, tt.name)
-		assert.Equal(t, tt.wantAutoMergeable, stored.AutoMergeable, tt.name)
+			var want forge.RememberedStanding
+			for i, r := range tt.reads {
+				at := began.Add(time.Duration(i) * time.Minute)
+				change, err := h.SetStanding(ctx, SetStandingParams{
+					ID:       written.ID,
+					Standing: r.standing,
+					HeadSHA:  r.head,
+					ReadAt:   at,
+				})
+				require.NoError(t, err)
+				assert.Equal(t, want, inUTC(change.Before))
+
+				want = want.RememberRead(r.standing, r.head, at)
+				assert.Equal(t, want, inUTC(change.After))
+
+				stored, err := h.GetByID(ctx, written.ID)
+				require.NoError(t, err)
+				assert.Equal(t, want, inUTC(stored.Standing))
+			}
+		})
 	}
+}
+
+// TestSetStandingWritesNothingNew covers a read that leaves the remembered standing as it was writing nothing.
+func TestSetStandingWritesNothingNew(t *testing.T) {
+	h := open(t)
+	ctx := t.Context()
+	written, err := h.Upsert(ctx, openPullRequest("PR_1", 1, "agent/x"))
+	require.NoError(t, err)
+	version := func() string {
+		t.Helper()
+		var xmin string
+		require.NoError(t, h.pool.GetDB().QueryRow(ctx, "SELECT xmin::text FROM pull_requests WHERE id = $1", written.ID).Scan(&xmin))
+
+		return xmin
+	}
+	params := SetStandingParams{
+		ID:       written.ID,
+		Standing: forge.Standing{Checks: forge.ChecksFailing},
+		HeadSHA:  "abc",
+		ReadAt:   time.Now(),
+	}
+
+	_, err = h.SetStanding(ctx, params)
+	require.NoError(t, err)
+	before := version()
+	_, err = h.SetStanding(ctx, params)
+	require.NoError(t, err)
+	assert.Equal(t, before, version())
+}
+
+func inUTC(standing forge.RememberedStanding) forge.RememberedStanding {
+	if standing.MergeabilityBlankSince != nil {
+		standing.MergeabilityBlankSince = xptr.Ptr(standing.MergeabilityBlankSince.UTC())
+	}
+
+	return standing
 }
