@@ -152,7 +152,7 @@ func (a *agentsScreen) toggleHidden(m *model) {
 // seeFinished snoozes the agent's family when it waits only to be looked at and the tree draws the
 // agent, keeping the cursor on the agent's tree row.
 func (a *agentsScreen) seeFinished(m *model, item panel.AgentRow) {
-	treeKey := agentCopyKey(a.list().hovered(m))
+	treeKey := toTreeRowKey(a.list().hovered(m))
 	if rowIndexOfKey(a.rows(m), treeKey) < 0 {
 		return
 	}

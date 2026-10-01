@@ -435,14 +435,14 @@ func agentRowKey(id string) string {
 
 const triageRowPrefix = "triage:"
 
-// agentCopyKey is the key of the tree's copy of the agent row the key names.
-func agentCopyKey(key string) string {
+// toTreeRowKey is the key of the tree's row for the row the key names.
+func toTreeRowKey(key string) string {
 	return strings.TrimPrefix(key, triageRowPrefix)
 }
 
 // findLandingKey picks which copy of the agent row a landing goes to, preferring the hovered copy, then the tree's, then the zone's.
 func findLandingKey(rows []agentRow, hovered, key string) string {
-	if agentCopyKey(hovered) == key {
+	if toTreeRowKey(hovered) == key {
 		return hovered
 	}
 	if rowIndexOfKey(rows, key) >= 0 {
@@ -572,7 +572,7 @@ func (a *agentsScreen) apply(m *model, selected string) {
 		a.cursor = firstAgentRowIndex(rows)
 	default:
 		clamped := cursor.Clamp(a.cursor, len(rows))
-		if strings.HasPrefix(agentCopyKey(selected), "agent:") {
+		if strings.HasPrefix(toTreeRowKey(selected), "agent:") {
 			clamped = nearestAgentRowIndex(rows, clamped)
 		}
 
