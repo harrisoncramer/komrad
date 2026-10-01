@@ -296,11 +296,13 @@ func (s *PullRequestSyncer) syncHost(ctx context.Context, host *hostRead, branch
 			s.said.forget(saidMissing, repository.repositoryURL)
 		case s.settleHostError(ctx, host, err):
 		case errors.Is(err, forge.ErrNotFound):
+			s.pacing.fail(repository)
 			if s.said.first(saidMissing, repository.repositoryURL) {
 				logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "the forge has no such repository, so its pull requests are not read until it does",
 					append([]slog.Attr{slog.String(logging.RepositoryURL, repository.repositoryURL)}, logging.Err(err)...)...)
 			}
 		default:
+			s.pacing.fail(repository)
 			logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to sync the repository's pull requests",
 				append([]slog.Attr{slog.String(logging.RepositoryURL, repository.repositoryURL)}, logging.Err(err)...)...)
 		}

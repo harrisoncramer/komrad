@@ -135,6 +135,15 @@ func (p *pacing) read(params readParams) {
 	read.hotUntil = params.hotUntil
 }
 
+// fail records a repository whose read failed as read now and cold, so a repository the forge
+// will not answer is asked again a minute later rather than on every pass.
+func (p *pacing) fail(params dueParams) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	p.repositories[params.repositoryURL] = &pace{readAt: params.askedAt, fingerprint: params.fingerprint}
+}
+
 // heat keeps every repository on the host hot for a while from now.
 func (p *pacing) heat(host string, now time.Time) {
 	p.mu.Lock()

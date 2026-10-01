@@ -638,8 +638,8 @@ func TestSyncStopsWhenTheBudgetHeaderIsSpent(t *testing.T) {
 }
 
 // TestSyncSaysAMissingRepositoryOnce covers a repository the forge does not have: it is said
-// once as a warning rather than as an error every pass, asked about again each pass, and said
-// again only once it has been found and lost again.
+// once as a warning rather than as an error every pass, asked about again a minute later, and
+// said again only once it has been found and lost again.
 func TestSyncSaysAMissingRepositoryOnce(t *testing.T) {
 	f := newSyncFixture(t)
 	f.agentOn(t, "a", "agent/x")
@@ -647,24 +647,49 @@ func TestSyncSaysAMissingRepositoryOnce(t *testing.T) {
 	var logged bytes.Buffer
 	ctx := logging.WithLogger(t.Context(), slog.New(slog.NewTextHandler(&logged, nil)))
 
-	for i := range 3 {
-		f.now = syncNow.Add(time.Duration(i) * time.Second)
+	for _, at := range []time.Duration{0, 5 * time.Second, time.Minute} {
+		f.now = syncNow.Add(at)
 		require.NoError(t, f.syncer.Sync(ctx))
 	}
 
-	assert.Len(t, f.forge.requests, 3, "a repository never read is asked about each pass")
+	assert.Len(t, f.forge.requests, 2, "a repository the forge cannot find is asked about again a minute later")
 	assert.Equal(t, 1, strings.Count(logged.String(), "the forge has no such repository"))
 	assert.NotContains(t, logged.String(), "failed to sync the repository")
 	_, err := f.syncs.GetSync(t.Context(), syncRepository)
 	require.ErrorIs(t, err, store.ErrNotFound)
 
 	f.forge.refuse = nil
+	f.syncer.Wake()
 	require.NoError(t, f.syncer.Sync(ctx))
 	f.forge.refuse = fmt.Errorf("%w: gone again", forge.ErrNotFound)
 	f.syncer.Wake()
 	require.NoError(t, f.syncer.Sync(ctx))
 
 	assert.Equal(t, 2, strings.Count(logged.String(), "the forge has no such repository"), "a repository found and lost again is said again")
+}
+
+// TestSyncRetriesAFailedReadOnceAMinute covers a read the forge refuses: the repository waits out the
+// slow lane before it is asked again, even when its branches had just moved.
+func TestSyncRetriesAFailedReadOnceAMinute(t *testing.T) {
+	f := newSyncFixture(t)
+	agentID := f.agentOn(t, "a", "agent/x")
+	f.sync(t)
+
+	repository, branch, head := syncRepository, "agent/x", "def"
+	require.NoError(t, f.agents.SetCheckout(t.Context(), agentID, agentstore.SetCheckoutParams{
+		RepositoryURL: &repository,
+		Branch:        &branch,
+		HeadSHA:       &head,
+	}))
+	f.forge.refuse = errors.New("resource not accessible")
+	f.pass(t, syncNow.Add(time.Minute))
+	require.Len(t, f.forge.requests, 1)
+
+	f.pass(t, syncNow.Add(time.Minute+5*time.Second))
+	assert.Empty(t, f.forge.requests)
+
+	f.pass(t, syncNow.Add(2*time.Minute))
+	assert.Len(t, f.forge.requests, 1)
 }
 
 // TestSyncSaysARenamedRepositoryOnce covers a read answered under another name: the rows are
