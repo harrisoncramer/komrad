@@ -48,15 +48,6 @@ type scriptKey struct {
 	name    string
 }
 
-type prepareParams struct {
-	agent   agentstore.Agent
-	name    string
-	trigger string
-	// hook resolves the name against the hooks directory rather than the built-in scripts
-	// directory.
-	hook bool
-}
-
 // RunProvision runs the provisioner that owns an agent's directory before creating it.
 func (s *ScriptService) RunProvision(ctx context.Context, agent agentstore.Agent, name string) (string, error) {
 	return s.runAwaited(ctx, prepareParams{
@@ -280,6 +271,15 @@ func (s *ScriptService) release(key scriptKey) {
 	defer s.inFlightMu.Unlock()
 
 	delete(s.inFlight, key)
+}
+
+type prepareParams struct {
+	agent   agentstore.Agent
+	name    string
+	trigger string
+	// hook resolves the name against the hooks directory rather than the built-in scripts
+	// directory.
+	hook bool
 }
 
 func (s *ScriptService) prepare(ctx context.Context, params prepareParams) (scripts.Script, []string, error) {

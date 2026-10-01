@@ -59,18 +59,6 @@ func (r agentRow) paneItem() (panel.AgentRow, bool) {
 	return r.item, true
 }
 
-type treeRowsParams struct {
-	workflows []panel.Workflow
-	agents    []panel.AgentRow
-	// showHidden draws the agents a person has hidden alongside the rest.
-	showHidden bool
-	// foldOrchestrators draws a workflow's orchestrator on the workflow's own row rather than
-	// as a row of its own.
-	foldOrchestrators bool
-	// flat draws the families in the order given, with no header over them.
-	flat bool
-}
-
 // family is one agent and its children as rows, under the workflow the head belongs to.
 type family struct {
 	workflowID string
@@ -81,6 +69,18 @@ type family struct {
 // own.
 func isFolded(params treeRowsParams, it panel.AgentRow) bool {
 	return params.foldOrchestrators && it.Agent.Role == panel.RoleOrchestrator
+}
+
+type treeRowsParams struct {
+	workflows []panel.Workflow
+	agents    []panel.AgentRow
+	// showHidden draws the agents a person has hidden alongside the rest.
+	showHidden bool
+	// foldOrchestrators draws a workflow's orchestrator on the workflow's own row rather than
+	// as a row of its own.
+	foldOrchestrators bool
+	// flat draws the families in the order given, with no header over them.
+	flat bool
 }
 
 func treeRows(params treeRowsParams) []agentRow {

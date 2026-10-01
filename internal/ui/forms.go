@@ -116,6 +116,15 @@ func (m *model) openForm(f formState) tea.Cmd {
 	return tea.Batch(m.form.form.Init(), formResized())
 }
 
+// redrawnFormParams is what a redrawn form is opened from.
+type redrawnFormParams struct {
+	Kind     formKind
+	Build    func(*model) (*huh.Form, []string)
+	Reshaped func() bool
+	Editable []editableText
+	Submit   func(*model) tea.Cmd
+}
+
 // redrawnForm is a form the panel can draw again from one builder.
 func redrawnForm(params redrawnFormParams) formState {
 	return formState{
@@ -127,15 +136,6 @@ func redrawnForm(params redrawnFormParams) formState {
 		reshaped:       params.Reshaped,
 		editable:       params.Editable,
 	}
-}
-
-// redrawnFormParams is what a redrawn form is opened from.
-type redrawnFormParams struct {
-	Kind     formKind
-	Build    func(*model) (*huh.Form, []string)
-	Reshaped func() bool
-	Editable []editableText
-	Submit   func(*model) tea.Cmd
 }
 
 // formColumnFloor is the narrowest a form is worth drawing beside a list at, being a field's

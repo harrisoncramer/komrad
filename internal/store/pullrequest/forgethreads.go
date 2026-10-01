@@ -70,14 +70,6 @@ type ForgeComment struct {
 	EditedAt    *time.Time
 }
 
-// SetThreadsParams is what the forge answered for one pull request's threads, read as Viewer.
-type SetThreadsParams struct {
-	PullRequestID string
-	Viewer        string
-	Threads       []forge.ReviewThread
-	Prune         bool
-}
-
 // ForgeThreadStore holds the forge's copy of the review threads on the pull requests agents are linked to.
 type ForgeThreadStore struct {
 	queries *models.Queries
@@ -102,6 +94,14 @@ func (s *ForgeThreadStore) ListCommentSyncTargets(ctx context.Context) ([]Commen
 			Number:        int(row.Number),
 		}
 	}), nil
+}
+
+// SetThreadsParams is what the forge answered for one pull request's threads, read as Viewer.
+type SetThreadsParams struct {
+	PullRequestID string
+	Viewer        string
+	Threads       []forge.ReviewThread
+	Prune         bool
 }
 
 // SetThreads writes every thread and comment the forge answered on a pull request, and when Prune is set removes the ones it no longer holds.

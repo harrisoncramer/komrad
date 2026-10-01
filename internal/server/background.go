@@ -45,6 +45,15 @@ func (w *loopWaker) drain() {
 	}
 }
 
+// Loop is a function the server runs on an interval, and sooner when woken.
+type Loop struct {
+	name     string
+	interval time.Duration
+	floor    time.Duration
+	run      func(context.Context) error
+	waker    *loopWaker
+}
+
 // newLoopParams is what a loop is built from.
 type newLoopParams struct {
 	Name     string
@@ -54,15 +63,6 @@ type newLoopParams struct {
 	Run   func(context.Context) error
 	// Waker is what wakes the loop, one of its own when nil.
 	Waker *loopWaker
-}
-
-// Loop is a function the server runs on an interval, and sooner when woken.
-type Loop struct {
-	name     string
-	interval time.Duration
-	floor    time.Duration
-	run      func(context.Context) error
-	waker    *loopWaker
 }
 
 // newLoop builds a loop that runs on its interval and whenever its waker is woken.

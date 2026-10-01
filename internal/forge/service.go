@@ -56,20 +56,6 @@ var ErrNoInstallationCheck = fail.InvalidArgument("this forge cannot check an in
 // Builder makes the forge for one kind, reaching the API at api as auth.
 type Builder func(api string, auth Authenticator) Forge
 
-// ConnectParams is what a person supplies to connect a host.
-type ConnectParams struct {
-	// Host is what agents' remotes name.
-	Host string
-	// Kind is which forge it runs, worked out from the host when empty.
-	Kind string
-	// APIURL is where an enterprise host answers, empty for the public forge.
-	APIURL string
-	// Method is how the credential comes, MethodToken when empty.
-	Method string
-	// Token is the credential for MethodToken, and ignored for MethodGitHubApp.
-	Token Secret
-}
-
 // CheckResult is what a check found of one connection, and the connection as the check left it.
 type CheckResult struct {
 	Connection  forgestore.Connection
@@ -175,6 +161,20 @@ func HeaderFor(kind, method string) string {
 	}
 
 	return HeaderBearer
+}
+
+// ConnectParams is what a person supplies to connect a host.
+type ConnectParams struct {
+	// Host is what agents' remotes name.
+	Host string
+	// Kind is which forge it runs, worked out from the host when empty.
+	Kind string
+	// APIURL is where an enterprise host answers, empty for the public forge.
+	APIURL string
+	// Method is how the credential comes, MethodToken when empty.
+	Method string
+	// Token is the credential for MethodToken, and ignored for MethodGitHubApp.
+	Token Secret
 }
 
 // Connect proves a credential against the forge and records the connection, refusing a host

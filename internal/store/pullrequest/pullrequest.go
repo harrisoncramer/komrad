@@ -76,29 +76,6 @@ func (p PullRequest) IsFinished() bool {
 	return p.MergedAt != nil || p.ClosedAt != nil
 }
 
-// UpsertParams is a pull request as the forge describes it, which is every column but the id
-// and when komrad first saw it.
-type UpsertParams struct {
-	Host              string
-	Forge             string
-	ProviderID        string
-	URL               string
-	RepositoryURL     string
-	HeadRepositoryURL string
-	Number            int
-	Title             string
-	HeadBranch        string
-	HeadSHA           string
-	BaseBranch        string
-	BaseSHA           string
-	Draft             bool
-	State             string
-	OpenedAt          time.Time
-	ChangedAt         time.Time
-	MergedAt          *time.Time
-	ClosedAt          *time.Time
-}
-
 // Outcome is what an upsert did to the row.
 type Outcome struct {
 	ID string
@@ -144,6 +121,29 @@ type PullRequestStore struct {
 // NewPullRequestStore builds a pull request store over a pool or transaction.
 func NewPullRequestStore(db store.DBTX) *PullRequestStore {
 	return &PullRequestStore{queries: models.New(db)}
+}
+
+// UpsertParams is a pull request as the forge describes it, which is every column but the id
+// and when komrad first saw it.
+type UpsertParams struct {
+	Host              string
+	Forge             string
+	ProviderID        string
+	URL               string
+	RepositoryURL     string
+	HeadRepositoryURL string
+	Number            int
+	Title             string
+	HeadBranch        string
+	HeadSHA           string
+	BaseBranch        string
+	BaseSHA           string
+	Draft             bool
+	State             string
+	OpenedAt          time.Time
+	ChangedAt         time.Time
+	MergedAt          *time.Time
+	ClosedAt          *time.Time
 }
 
 // Upsert writes a pull request on its identity, leaving a row whose forge-owned columns already
