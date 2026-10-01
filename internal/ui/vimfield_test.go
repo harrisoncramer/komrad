@@ -181,6 +181,8 @@ func TestVimEditingBadge(t *testing.T) {
 		{name: "esc puts a form's text field in normal mode", vim: true, press: []string{"c", "esc"}, want: "EDIT:N"},
 		{name: "i puts it back in insert mode", vim: true, press: []string{"c", "esc", "i"}, want: "  EDIT  "},
 		{name: "the list's filter is in edit mode", press: []string{"/"}, want: "EDIT"},
+		{name: "the search line is in edit mode", press: []string{"tab", "/"}, want: "EDIT"},
+		{name: "a rename is in edit mode", press: []string{"j", "r"}, want: "EDIT"},
 	}
 
 	for _, tt := range tests {
@@ -194,6 +196,16 @@ func TestVimEditingBadge(t *testing.T) {
 			assert.Contains(t, harness.readFrame(), tt.want)
 		})
 	}
+
+	t.Run("the review comment box is in edit mode", func(t *testing.T) {
+		harness := openReviewAt(t, newReviewServer(t), panelHarnessParams{settings: ui.PanelSettings{VimMode: true}})
+
+		harness.press("c")
+		assert.Contains(t, harness.readFrame(), "  EDIT  ")
+
+		harness.press("esc")
+		assert.Contains(t, harness.readFrame(), "EDIT:N")
+	})
 }
 
 func openVimForms(t *testing.T) *panelHarness {
