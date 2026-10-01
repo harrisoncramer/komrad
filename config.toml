@@ -537,6 +537,8 @@ document          = ""
 reviewer_comments = ""
 # Beside the count of comments you left on the agent's work.
 person_comments   = ""
+# Beside the count of comments the forge holds on the agent's pull request.
+forge_comments    = ""
 # Beside the count of your comments holding a reply you have not read.
 unread            = ""
 

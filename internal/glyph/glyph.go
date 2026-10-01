@@ -37,6 +37,7 @@ const (
 	Document
 	ReviewerComments
 	PersonComments
+	ForgeComments
 	Unread
 	Workflow
 	Archive
@@ -85,6 +86,7 @@ var defined = [count]struct {
 	Document:         {"marks.document", ""},
 	ReviewerComments: {"marks.reviewer_comments", ""},
 	PersonComments:   {"marks.person_comments", ""},
+	ForgeComments:    {"marks.forge_comments", "\uf4ac"},
 	Unread:           {"marks.unread", "\uf49a"},
 	Workflow:         {"lists.workflow", ""},
 	Archive:          {"lists.archive", ""},

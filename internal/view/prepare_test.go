@@ -343,18 +343,14 @@ func TestPrepareComments(t *testing.T) {
 			want: []Cell{slot(glyph.PersonComments, "1", paint.ToneMuted)},
 		},
 		{
-			name: "offers from the forge follow the person's open count in their own tone",
+			name: "offers from the forge draw as their own count after the person's, in the forge's tone",
 			row: Row{
 				Kind:           KindAgent,
-				PersonComments: &Comments{External: 3},
+				PersonComments: &Comments{Open: 2, External: 3},
 			},
 			want: []Cell{
-				{Parts: []Cell{
-					{Glyph: glyph.PersonComments, Tone: paint.ToneMuted},
-					{Text: " "},
-					{Text: "0", Tone: paint.ToneMuted},
-					{Text: "+3", Tone: paint.ToneUserGithub},
-				}},
+				slot(glyph.PersonComments, "2", paint.ToneMuted),
+				slot(glyph.ForgeComments, "3", paint.ToneUserGithub),
 			},
 		},
 		{
