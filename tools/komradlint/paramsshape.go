@@ -156,27 +156,36 @@ func ownParams(function *ast.FuncDecl) string {
 func isPlaced(files []*ast.File, params string) bool {
 	for _, file := range files {
 		for index, decl := range file.Decls {
-			if !isTypeDecl(decl, params) || index+1 >= len(file.Decls) {
+			if !isTypeDecl(decl, params) {
 				continue
 			}
 
-			next, ok := file.Decls[index+1].(*ast.FuncDecl)
-			if ok && ownParams(next) == params {
+			if next := funcAt(file.Decls, index+1); next != nil && ownParams(next) == params {
 				return true
 			}
 
-			if index+2 >= len(file.Decls) {
-				continue
-			}
-
-			method, ok := file.Decls[index+2].(*ast.FuncDecl)
-			if ok && ownParams(method) == params && isTypeDecl(file.Decls[index+1], receiverName(method)) {
+			method := funcAt(file.Decls, index+2)
+			if method != nil && ownParams(method) == params && isTypeDecl(file.Decls[index+1], receiverName(method)) {
 				return true
 			}
 		}
 	}
 
 	return false
+}
+
+// funcAt is the function declared at that index, or nil when there is none.
+func funcAt(decls []ast.Decl, index int) *ast.FuncDecl {
+	if index >= len(decls) {
+		return nil
+	}
+
+	function, ok := decls[index].(*ast.FuncDecl)
+	if !ok {
+		return nil
+	}
+
+	return function
 }
 
 // receiverName is the name of the type a method is declared on, or empty for a free function.
