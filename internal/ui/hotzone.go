@@ -267,7 +267,7 @@ func hotRows(params snapshotParams) []view.Row {
 		reason := view.Cell{Text: r.hot.reason, Tone: r.hot.tone}
 		row.Note = view.Cell{Parts: []view.Cell{
 			{Text: r.workflow.Name, Tone: paint.ToneMuted},
-			{Text: " · ", Tone: paint.ToneMuted},
+			{Text: separated, Tone: paint.ToneMuted},
 			reason,
 		}}
 		if r.item.Agent.Role == panel.RoleOrchestrator {
