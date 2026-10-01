@@ -182,7 +182,7 @@ var triageRules = []triageRule{
 
 // triageZone is the agents waiting on a person, drawn ahead of the tree while it has room for any.
 type triageZone struct {
-	// capacity is how many agents the zone draws, and zero turns it off.
+	// capacity is how many families the zone draws, each head with its children under it, and zero turns it off.
 	capacity int
 	// entries are the agents in triage by id.
 	entries map[string]triageEntry
@@ -310,7 +310,7 @@ func findThinkingParents(agents []panel.AgentRow) map[string]bool {
 // agentsLayout is the agents list split into triage and the tree under it.
 type agentsLayout struct {
 	zone []agentRow
-	// waiting is how many agents in triage the zone has no room for.
+	// waiting is how many families in triage the zone has no room for.
 	waiting int
 	tree    []agentRow
 }
