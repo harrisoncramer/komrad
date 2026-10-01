@@ -46,7 +46,7 @@ func Generate(plugin *protogen.Plugin) error {
 	return nil
 }
 
-// generateFile writes the strict interface and adapter for every service in one proto file.
+// generateFile writes the strict interface, adapter and register function for every service in one proto file.
 func generateFile(plugin *protogen.Plugin, file *protogen.File) error {
 	for _, service := range file.Services {
 		for _, method := range service.Methods {
@@ -68,16 +68,16 @@ func generateFile(plugin *protogen.Plugin, file *protogen.File) error {
 	out.P("package ", pkg)
 	out.P()
 
-	connectImport := protogen.GoImportPath(path.Join(string(file.GoImportPath), string(file.GoPackageName)+"connect"))
+	handlerPackage := protogen.GoImportPath(path.Join(string(file.GoImportPath), string(file.GoPackageName)+"connect"))
 	for _, service := range file.Services {
-		generateService(out, service, connectImport)
+		generateService(out, service, handlerPackage)
 	}
 
 	return nil
 }
 
-// generateService writes one service's strict interface and the adapter that answers for it.
-func generateService(out *protogen.GeneratedFile, service *protogen.Service, connectImport protogen.GoImportPath) {
+// generateService writes one service's strict interface, the adapter that answers for it, and its register function.
+func generateService(out *protogen.GeneratedFile, service *protogen.Service, handlerPackage protogen.GoImportPath) {
 	name := service.GoName
 	context := out.QualifiedGoIdent(contextPackage.Ident("Context"))
 	failure := out.QualifiedGoIdent(failPackage.Ident("Error"))
@@ -155,7 +155,7 @@ func generateService(out *protogen.GeneratedFile, service *protogen.Service, con
 
 	mux := out.QualifiedGoIdent(httpPackage.Ident("ServeMux"))
 	option := out.QualifiedGoIdent(connectPackage.Ident("HandlerOption"))
-	newHandler := out.QualifiedGoIdent(connectImport.Ident("New" + name + "Handler"))
+	newHandler := out.QualifiedGoIdent(handlerPackage.Ident("New" + name + "Handler"))
 
 	out.P("// Register", name, " mounts the implementation on the mux behind its adapter.")
 	out.P("func Register", name, "(mux *", mux, ", impl ", name, "Impl, options ...", option, ") {")
