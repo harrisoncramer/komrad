@@ -126,7 +126,7 @@ func (d *documentsScreen) docRows(m *model, width int) []string {
 		return head
 	}
 
-	if !h.isDrawn(m.isDark) {
+	if !h.isDrawn(m.term.isDark) {
 		return append(head, h.changeRows(width)...)
 	}
 

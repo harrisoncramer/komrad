@@ -54,14 +54,14 @@ func (s screen) picksViews() bool {
 	return s != screenReview
 }
 
-func (m model) isViewsOpen() bool {
+func (m *model) isViewsOpen() bool {
 	return m.viewsOpen && m.screen.picksViews()
 }
 
 // viewsBar is the logo and the switcher drawn over a list, and under them the trail down to the
 // row or page the cursor is on.
-func (m model) viewsBar() string {
-	short := m.height > 0 && m.height < viewsBarFloor
+func (m *model) viewsBar() string {
+	short := m.term.height > 0 && m.term.height < viewsBarFloor
 
 	trail, _, opened := m.activeCrumbs()
 	if short {
@@ -80,7 +80,7 @@ func (m model) viewsBar() string {
 }
 
 // switcherLines is the logo and the row of views.
-func (m model) switcherLines(trail crumbs) []string {
+func (m *model) switcherLines(trail crumbs) []string {
 	entries := viewEntries()
 	row := stops{
 		labels: xslice.Map(entries, func(entry viewEntry) string { return entry.label }),
@@ -109,18 +109,16 @@ func (m model) switcherLines(trail crumbs) []string {
 }
 
 // viewIndex is where the screen that is up sits on the switcher, and noStop when it is not there.
-func (m model) viewIndex() int {
+func (m *model) viewIndex() int {
 	_, at, _ := m.activeCrumbs()
 
 	return slices.IndexFunc(viewEntries(), func(entry viewEntry) bool { return entry.screen == at })
 }
 
 // openViews hands the switcher the keys and opens the view delta along from the one that is up.
-func (m model) openViews(delta int) (model, tea.Cmd) {
+func (m *model) openViews(delta int) tea.Cmd {
 	m.pickView()
-	cmd := m.stepView(delta)
-
-	return m, cmd
+	return m.stepView(delta)
 }
 
 func (m *model) pickView() tea.Cmd {
@@ -145,7 +143,7 @@ func (m *model) stepView(delta int) tea.Cmd {
 }
 
 // viewsDelta is how far a press steps through the views, and zero for a press that steps none.
-func (m model) viewsDelta(pressed string) int {
+func (m *model) viewsDelta(pressed string) int {
 	switch {
 	case isBound(pressed, m.keys.Views.Next):
 		return 1
@@ -158,11 +156,11 @@ func (m model) viewsDelta(pressed string) int {
 
 // holdsViewsKey reports whether the open switcher answers a press, any other closing it and reaching
 // the view underneath.
-func (m model) holdsViewsKey(pressed string) bool {
+func (m *model) holdsViewsKey(pressed string) bool {
 	return pressed == tabNextKey || pressed == tabPrevKey || pressed == "esc" || m.viewsDelta(pressed) != 0
 }
 
-func (m model) updateViews(key tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+func (m *model) updateViews(key tea.KeyPressMsg) tea.Cmd {
 	cmd := m.pressStrip(key.String(), stripKeys{
 		step:  m.stepView,
 		close: m.closeViews,
@@ -175,7 +173,7 @@ func (m model) updateViews(key tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		},
 	})
 
-	return m, cmd
+	return cmd
 }
 
 func (m *model) enterView(entry viewEntry) tea.Cmd {
@@ -192,23 +190,23 @@ func (m *model) enterView(entry viewEntry) tea.Cmd {
 }
 
 // hoveredAgentID is the agent under the cursor on a screen that lists agents.
-func (m model) hoveredAgentID() string {
+func (m *model) hoveredAgentID() string {
 	switch m.screen {
 	case screenAgents:
-		return m.agents.hoveredAgentID(&m)
+		return m.agents.hoveredAgentID(m)
 	case screenArchive:
-		return m.archive.hoveredAgentID(&m)
+		return m.archive.hoveredAgentID(m)
 	case screenSchedules, screenSearch, screenReview, screenWorktrees, screenDocuments, screenLogs:
 	}
 
 	return ""
 }
 
-func (m model) viewsBinding() key.Binding {
+func (m *model) viewsBinding() key.Binding {
 	return binding(m.keys.Views.Next, "switch view")
 }
 
-func (m model) viewsHelp() keyMap {
+func (m *model) viewsHelp() keyMap {
 	bindings := []key.Binding{stopsMoveBinding("switch"), binding([]string{"esc"}, "done")}
 
 	return keyMap{short: bindings, full: bindings}

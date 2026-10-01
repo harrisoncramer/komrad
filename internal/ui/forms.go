@@ -27,19 +27,19 @@ type formState struct {
 	trailing func(width, height int) string
 
 	// back is what the back key does, nil for closing the form.
-	back func(model) (tea.Model, tea.Cmd)
+	back func(*model) tea.Cmd
 
 	// update is the form's own message handler, so the panel need not ask which form is up before
 	// handing it a message.
-	update func(model, tea.Msg) (tea.Model, tea.Cmd)
+	update func(*model, tea.Msg) tea.Cmd
 
 	// submit is what the answered form does, closed over the values huh writes through and whatever
 	// the form is about.
-	submit func(model) (tea.Model, tea.Cmd)
+	submit func(*model) tea.Cmd
 
 	// rebuild draws the form again around those same values, and lists the fields the cursor can
 	// reach in the order they are drawn.
-	rebuild func(model) (*huh.Form, []string)
+	rebuild func(*model) (*huh.Form, []string)
 
 	// reshaped reports whether an answer has changed which fields the form draws.
 	reshaped func() bool
@@ -110,7 +110,7 @@ func (m *model) openForm(f formState) tea.Cmd {
 	m.form.vim = newFieldVim(m.register)
 
 	if m.form.form == nil {
-		m.form.form, m.form.order = m.form.rebuild(*m)
+		m.form.form, m.form.order = m.form.rebuild(m)
 	}
 
 	return tea.Batch(m.form.form.Init(), formResized())
@@ -121,7 +121,7 @@ func redrawnForm(params redrawnFormParams) formState {
 	return formState{
 		kind:           params.Kind,
 		keepsOnRefusal: true,
-		update:         model.updateForm,
+		update:         (*model).updateForm,
 		submit:         params.Submit,
 		rebuild:        params.Build,
 		reshaped:       params.Reshaped,
@@ -132,10 +132,10 @@ func redrawnForm(params redrawnFormParams) formState {
 // redrawnFormParams is what a redrawn form is opened from.
 type redrawnFormParams struct {
 	Kind     formKind
-	Build    func(model) (*huh.Form, []string)
+	Build    func(*model) (*huh.Form, []string)
 	Reshaped func() bool
 	Editable []editableText
-	Submit   func(model) (tea.Model, tea.Cmd)
+	Submit   func(*model) tea.Cmd
 }
 
 // formColumnFloor is the narrowest a form is worth drawing beside a list at, being a field's
@@ -186,9 +186,9 @@ func (h heldWrite) owns(write int) bool {
 }
 
 // formBox is the room a form has on screen.
-func (m model) formBox() (width, height int) {
+func (m *model) formBox() (width, height int) {
 	held := 0
-	if m.held.active {
+	if m.writes.held.active {
 		held = submittingLines
 	}
 
@@ -203,20 +203,20 @@ func (m model) formBox() (width, height int) {
 		return max(split.column-used, floor), max(split.rows-formHelpLines-held, 1)
 	}
 
-	return max(m.width-used, floor), max(m.height-formHelpLines-held, 1)
+	return max(m.term.width-used, floor), max(m.term.height-formHelpLines-held, 1)
 }
 
 // formLeading is what the form draws to its left, and the columns that takes with its dividers.
-func (m model) formLeading() ([]string, int) {
+func (m *model) formLeading() ([]string, int) {
 	if m.form.leading == nil {
 		return nil, 0
 	}
 
-	room, rows := m.width, m.height-formHelpLines
+	room, rows := m.term.width, m.term.height-formHelpLines
 	if split, ok := m.columnGeometry(); ok {
 		room, rows = split.column, split.rows-formHelpLines
 	}
-	if m.held.active {
+	if m.writes.held.active {
 		rows -= submittingLines
 	}
 
@@ -231,18 +231,16 @@ func (m model) formLeading() ([]string, int) {
 }
 
 // holdSubmit answers a form by running what it asked for, holding it up while a write it began is in flight.
-func holdSubmit(write func(model) (model, tea.Cmd)) func(model) (tea.Model, tea.Cmd) {
-	return func(m model) (tea.Model, tea.Cmd) {
-		began := m.writes
-		written, writeCmd := write(m)
+func holdSubmit(write func(*model) tea.Cmd) func(*model) tea.Cmd {
+	return func(m *model) tea.Cmd {
+		began := m.writes.count
+		writeCmd := write(m)
 
-		if written.writes != began && written.form.isActive() {
-			return written, tea.Batch(writeCmd, written.holdForm())
+		if m.writes.count != began && m.form.isActive() {
+			return tea.Batch(writeCmd, m.holdForm())
 		}
 
-		next, back := written.closeForm()
-
-		return next, tea.Batch(writeCmd, back)
+		return tea.Batch(writeCmd, m.closeForm())
 	}
 }
 
@@ -322,9 +320,9 @@ func confirmFormStartingOn(confirmed bool, title, description, affirmative strin
 // holdForm keeps the form up while the write it was submitted for is in flight, so a refusal
 // lands back on the form that caused it.
 func (m *model) holdForm() tea.Cmd {
-	m.held = heldWrite{
+	m.writes.held = heldWrite{
 		active: true,
-		write:  m.writes,
+		write:  m.writes.count,
 	}
 
 	if !m.form.isActive() {
@@ -340,7 +338,7 @@ func (m *model) holdForm() tea.Cmd {
 // redrawOpenForm draws the form on screen again from the listing as it stands now, leaving the
 // cursor on the field it was on.
 func (m *model) redrawOpenForm() tea.Cmd {
-	if !m.form.isActive() || m.held.active {
+	if !m.form.isActive() || m.writes.held.active {
 		return nil
 	}
 
@@ -357,7 +355,7 @@ func (m *model) rebuildForm() tea.Cmd {
 		return nil
 	}
 
-	form, order := m.form.rebuild(*m)
+	form, order := m.form.rebuild(m)
 	m.form.form = form
 	m.form.order = order
 
@@ -366,14 +364,14 @@ func (m *model) rebuildForm() tea.Cmd {
 
 // detachForm gives the keyboard back while the write the form was held for runs on, and
 // remembers which write that was.
-func (m model) detachForm() (tea.Model, tea.Cmd) {
+func (m *model) detachForm() tea.Cmd {
 	m.warm.closesForm = false
 
-	if m.held.write != 0 {
-		if m.detached == nil {
-			m.detached = map[int]struct{}{}
+	if m.writes.held.write != 0 {
+		if m.writes.detached == nil {
+			m.writes.detached = map[int]struct{}{}
 		}
-		m.detached[m.held.write] = struct{}{}
+		m.writes.detached[m.writes.held.write] = struct{}{}
 	}
 
 	return m.closeForm()
@@ -382,32 +380,32 @@ func (m model) detachForm() (tea.Model, tea.Cmd) {
 // landHeld counts a write back in, and reports whether the form on screen was held for it.
 func (m *model) landHeld(write int) bool {
 	m.landWrite(write)
-	delete(m.detached, write)
+	delete(m.writes.detached, write)
 
-	if !m.held.owns(write) {
+	if !m.writes.held.owns(write) {
 		return false
 	}
 
-	m.held = heldWrite{}
+	m.writes.held = heldWrite{}
 
 	return true
 }
 
 // answerForm runs what the form on screen was filled in to do.
-func (m model) answerForm() (tea.Model, tea.Cmd) {
+func (m *model) answerForm() tea.Cmd {
 	return m.form.submit(m)
 }
 
 // updateForm hands a message to the form on screen, and answers it either when huh says it is
 // finished or on the submit key.
-func (m model) updateForm(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m *model) updateForm(msg tea.Msg) tea.Cmd {
 	if key, ok := msg.(tea.KeyPressMsg); ok && isBound(key.String(), formKeys().Submit) {
 		return m.answerForm()
 	}
 
 	if key, ok := msg.(tea.KeyPressMsg); ok {
-		if next, cmd, kept := m.updateFormVim(key); kept {
-			return next, cmd
+		if cmd, kept := m.updateFormVim(key); kept {
+			return cmd
 		}
 
 		if m.form.back != nil && isBound(key.String(), formKeys().Back) {
@@ -431,10 +429,10 @@ func (m model) updateForm(msg tea.Msg) (tea.Model, tea.Cmd) {
 			key = focused.GetKey()
 		}
 
-		return m, tea.Batch(cmd, m.redrawFormOn(key))
+		return tea.Batch(cmd, m.redrawFormOn(key))
 	}
 
-	return m, cmd
+	return cmd
 }
 
 // stepForm hands a message to huh, keeping the form as drawn before a key that may finish it.
@@ -453,7 +451,7 @@ func (m *model) stepForm(msg tea.Msg) tea.Cmd {
 
 // formSizeOf turns a resize into the room the form has rather than the room the panel has, and
 // leaves every other message alone.
-func (m model) formSizeOf(msg tea.Msg) tea.Msg {
+func (m *model) formSizeOf(msg tea.Msg) tea.Msg {
 	switch msg.(type) {
 	case formResizedMsg, tea.WindowSizeMsg:
 		width, height := m.formBox()
@@ -467,12 +465,12 @@ func (m model) formSizeOf(msg tea.Msg) tea.Msg {
 // leaveForm drops the form for an answer that goes on to another screen, which settles the window
 // itself, so the screen the form was drawn over is not drawn again on the way.
 func (m *model) leaveForm() {
-	m.held = heldWrite{}
+	m.writes.held = heldWrite{}
 	m.form = formState{}
 }
 
 // leaveFormBack does what the back key does on the form on screen.
-func (m model) leaveFormBack() (tea.Model, tea.Cmd) {
+func (m *model) leaveFormBack() tea.Cmd {
 	if m.form.back != nil {
 		return m.form.back(m)
 	}
@@ -481,13 +479,11 @@ func (m model) leaveFormBack() (tea.Model, tea.Cmd) {
 }
 
 // closeForm drops the form and comes back to the screen it was drawn over.
-func (m model) closeForm() (tea.Model, tea.Cmd) {
+func (m *model) closeForm() tea.Cmd {
 	m.leaveForm()
 	m.reconcileSolo()
 
-	cmd := m.enter(m.screen, screenTarget{})
-
-	return m, cmd
+	return m.enter(m.screen, screenTarget{})
 }
 
 const (

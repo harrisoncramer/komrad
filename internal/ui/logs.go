@@ -416,7 +416,7 @@ func (l *logsScreen) lines(m *model, pane listPane) []string {
 
 // block is the log drawn at the width and height of the block beside the sidebar, its lines
 // pinned to the prompt at its foot.
-func (l *logsScreen) block(m model, width int) []string {
+func (l *logsScreen) block(m *model, width int) []string {
 	split, ok := m.screenColumnSplit()
 	if !ok {
 		return nil
@@ -444,8 +444,8 @@ func (l *logsScreen) logFilterLine(glyphs glyph.Set) string {
 }
 
 // logRows is the lines of the log drawn in height rows, or what stands in for them.
-func (l *logsScreen) logRows(m model, width, height int) []string {
-	row, hovered := rowAt(l.rows(&m), l.rowCursor.cursor)
+func (l *logsScreen) logRows(m *model, width, height int) []string {
+	row, hovered := rowAt(l.rows(m), l.rowCursor.cursor)
 
 	switch {
 	case !hovered:
@@ -463,7 +463,7 @@ func (l *logsScreen) logRows(m model, width, height int) []string {
 	}
 
 	rows, cursor := l.viewer.Rows(width-len(blankCursor), height)
-	focused := l.isBlockFocused(&m)
+	focused := l.isBlockFocused(m)
 	for i, row := range rows {
 		prefix := blankCursor
 		if focused && i == cursor {
@@ -499,7 +499,7 @@ func (l *logsScreen) takesEveryKey() bool {
 func (l *logsScreen) column() columnSpec {
 	return columnSpec{
 		floor: columnFloor,
-		docRows: func(m model, width int) []string {
+		docRows: func(m *model, width int) []string {
 			return m.logs.block(m, width)
 		},
 	}

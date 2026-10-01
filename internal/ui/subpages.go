@@ -35,7 +35,7 @@ func agentMenu(m *model, from screen, item panel.AgentRow, own ...submenuEntry) 
 	pages := xslice.Map(agentSubpages(agent), func(page subpage) submenuEntry {
 		entry := subpageEntry(m, from, item, page)
 		if entry.opens == nil {
-			entry.open = func(m model) (tea.Model, tea.Cmd) { return m.enterSubpage(from, agentID, page) }
+			entry.open = func(m *model) tea.Cmd { return m.enterSubpage(from, agentID, page) }
 		}
 
 		return entry
@@ -111,7 +111,7 @@ func terminalRefusal(from screen, agent panel.Agent) error {
 
 // enterSubpage goes from the menu to the subpage picked, or closes it and says why the agent has
 // nothing there.
-func (m model) enterSubpage(from screen, agentID string, picked subpage) (tea.Model, tea.Cmd) {
+func (m *model) enterSubpage(from screen, agentID string, picked subpage) tea.Cmd {
 	item, ok := m.listing.anyAgent(agentID)
 	if !ok {
 		return m.refuseSubpage("Could not open the subpage", errAgentGone)
@@ -127,7 +127,7 @@ func (m model) enterSubpage(from screen, agentID string, picked subpage) (tea.Mo
 
 		m.leaveForm()
 
-		return m, m.enter(screenReview, screenTarget{agentID: agentID})
+		return m.enter(screenReview, screenTarget{agentID: agentID})
 	case subpageDocuments:
 		if item.Documents == 0 {
 			return m.refuseSubpage("Could not open the documents of "+name, errNoDocuments)
@@ -135,31 +135,26 @@ func (m model) enterSubpage(from screen, agentID string, picked subpage) (tea.Mo
 
 		m.leaveForm()
 
-		return m, m.enter(screenDocuments, screenTarget{agentID: agentID, from: from})
+		return m.enter(screenDocuments, screenTarget{agentID: agentID, from: from})
 	case subpageLogs:
 		m.leaveForm()
 
-		return m, m.enter(screenLogs, screenTarget{agentID: agentID, from: from})
+		return m.enter(screenLogs, screenTarget{agentID: agentID, from: from})
 	case subpageTerminal:
 		if err := terminalRefusal(from, item.Agent); err != nil {
 			return m.refuseSubpage("Could not open a terminal", err)
 		}
 
-		closed, back := m.closeForm()
-		next, _ := closed.(model)
-		opened, cmd := next.openTerminal(item.Agent)
-
-		return opened, tea.Batch(back, cmd)
+		return tea.Batch(m.closeForm(), m.openTerminal(item.Agent))
 	}
 
 	return m.closeForm()
 }
 
 // refuseSubpage closes the menu and says why the subpage picked did not open.
-func (m model) refuseSubpage(title string, err error) (tea.Model, tea.Cmd) {
-	closed, back := m.closeForm()
-	next, _ := closed.(model)
-	next.report(title, err)
+func (m *model) refuseSubpage(title string, err error) tea.Cmd {
+	back := m.closeForm()
+	m.report(title, err)
 
-	return next, back
+	return back
 }

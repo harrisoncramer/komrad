@@ -42,7 +42,7 @@ func openWorkflowConfigForm(m *model, values *workflowFormValues, target *panel.
 		NameTitle: title,
 		Values:    values,
 		Editing:   target != nil,
-		Submit: holdSubmit(func(m model) (model, tea.Cmd) {
+		Submit: holdSubmit(func(m *model) tea.Cmd {
 			var cmd tea.Cmd
 			if target == nil {
 				cmd = m.createWorkflowCmd(values.toConfig())
@@ -55,14 +55,14 @@ func openWorkflowConfigForm(m *model, values *workflowFormValues, target *panel.
 				)
 			}
 
-			return m, cmd
+			return cmd
 		}),
 	}).topState())
 }
 
 // getAvailableHooks is the hooks directory as the form offers it, a directory that is not there
 // reading as an empty list rather than an error.
-func (m model) getAvailableHooks() []string {
+func (m *model) getAvailableHooks() []string {
 	listed, err := m.api.listHooks()
 	if err != nil {
 		return nil
@@ -73,10 +73,10 @@ func (m model) getAvailableHooks() []string {
 	})
 }
 
-func (m model) archiveWorkflow(workflow panel.Workflow) (model, tea.Cmd) {
+func (m *model) archiveWorkflow(workflow panel.Workflow) tea.Cmd {
 	m.releasePanes(m.listing.agentsOf(workflow.ID))
 
-	return m, m.writeCmd(
+	return m.writeCmd(
 		"archiving "+workflow.Name,
 		fmt.Sprintf("Could not archive workflow %q", workflow.Name),
 		func(a api) error { return a.archiveWorkflow(workflow.ID) },

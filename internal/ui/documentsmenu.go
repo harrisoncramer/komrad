@@ -26,14 +26,14 @@ func documentsMenu(m *model, from screen, item panel.AgentRow) submenu {
 				label: "view documents",
 				keys:  m.keys.DocumentsMenu.View,
 				isOff: item.Documents == 0,
-				open: func(m model) (tea.Model, tea.Cmd) {
+				open: func(m *model) tea.Cmd {
 					return m.enterSubpage(from, agentID, subpageDocuments)
 				},
 			},
 			{
 				label: "new document",
 				keys:  m.keys.DocumentsMenu.New,
-				open: func(m model) (tea.Model, tea.Cmd) {
+				open: func(m *model) tea.Cmd {
 					return m.openNewDocument(agentID)
 				},
 			},
@@ -43,15 +43,14 @@ func documentsMenu(m *model, from screen, item panel.AgentRow) submenu {
 
 // openNewDocument leaves the menu for the form that writes an agent a document, or says why the
 // agent is not one to write for.
-func (m model) openNewDocument(agentID string) (tea.Model, tea.Cmd) {
+func (m *model) openNewDocument(agentID string) tea.Cmd {
 	if _, ok := m.listing.anyAgent(agentID); !ok {
 		return m.refuseSubpage("Could not write a document", errAgentGone)
 	}
 
 	m.leaveForm()
-	cmd := newDocumentForm(&m, agentID)
 
-	return m, cmd
+	return newDocumentForm(m, agentID)
 }
 
 // documentTypesMenu is every document type, the context of the one under the cursor drawn beside
@@ -176,11 +175,9 @@ func documentMenu(m *model, d *documentsScreen) submenu {
 		title: title,
 		entries: xslice.Map(entries, func(e documentEntry) submenuEntry {
 			entry, run := e.entry, e.run
-			entry.open = func(m model) (tea.Model, tea.Cmd) {
+			entry.open = func(m *model) tea.Cmd {
 				m.leaveForm()
-				cmd := run(&m.documents, &m)
-
-				return m, cmd
+				return run(&m.documents, m)
 			}
 
 			return entry

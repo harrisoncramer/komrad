@@ -620,10 +620,10 @@ func compareUrgency(a, b triageEntry) int {
 // settleTriage freezes the zone and holds the family the cursor is on while the agents list has the
 // cursor on the zone, whether the keys are in the panel or in that agent's pane, and thaws it the
 // moment the cursor leaves, putting the cursor back on the row it was on.
-func (m model) settleTriage() model {
+func (m *model) settleTriage() {
 	var zone []agentRow
 	if m.screen == screenAgents && len(m.agents.triage.entries) > 0 {
-		zone = m.agents.layout(&m).zone
+		zone = m.agents.layout(m).zone
 	}
 
 	reading := m.agents.cursor < len(zone)
@@ -636,12 +636,10 @@ func (m model) settleTriage() model {
 	case reading && m.agents.triage.frozen == nil:
 		m.agents.triage.frozen = xslice.Map(zoneHeads(zone), func(i int) string { return zone[i].item.Agent.ID })
 	case !reading && m.agents.triage.frozen != nil:
-		hovered := m.agents.list().hovered(&m)
+		hovered := m.agents.list().hovered(m)
 		m.agents.triage.frozen = nil
-		m.agents.apply(&m, hovered)
+		m.agents.apply(m, hovered)
 	}
-
-	return m
 }
 
 // findZoneHead is the head of the family the zone row at the index belongs to.

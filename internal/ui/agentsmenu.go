@@ -49,10 +49,10 @@ func (a *agentsScreen) agentEntries(m *model, item panel.AgentRow) []submenuEntr
 		entries = append(entries, submenuEntry{
 			label: label,
 			keys:  m.keys.Menu.Snooze,
-			write: func(m model) (model, tea.Cmd) {
-				m.agents.toggleSnooze(&m)
+			write: func(m *model) tea.Cmd {
+				m.agents.toggleSnooze(m)
 
-				return m, nil
+				return nil
 			},
 		})
 	}
@@ -70,10 +70,8 @@ func (a *agentsScreen) editEntries(m *model) []submenuEntry {
 	return []submenuEntry{{
 		label: a.editDesc(m),
 		keys:  m.keys.Menu.Edit,
-		write: func(m model) (model, tea.Cmd) {
-			cmd := m.agents.pressEdit(&m)
-
-			return m, cmd
+		write: func(m *model) tea.Cmd {
+			return m.agents.pressEdit(m)
 		},
 	}}
 }

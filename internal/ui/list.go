@@ -514,7 +514,7 @@ type listPane struct {
 }
 
 // listPane is the column a list is drawn in this frame and how its cursor stands.
-func (m model) listPane(width int) listPane {
+func (m *model) listPane(width int) listPane {
 	caret := m.caretOf(sectionList)
 	if m.isDocFocused() {
 		caret = view.CaretDrawn
@@ -527,24 +527,24 @@ func (m model) listPane(width int) listPane {
 	}
 }
 
-func (m model) columnListView(params screenListParams) string {
-	return m.columnView(func(m model) string { return m.screenListView(params) })
+func (m *model) columnListView(params screenListParams) string {
+	return m.columnView(func(m *model) string { return m.screenListView(params) })
 }
 
-func (m model) welcomeView(params screenListParams, text string) string {
-	if m.paneMeasure > 0 {
+func (m *model) welcomeView(params screenListParams, text string) string {
+	if m.term.paneMeasure > 0 {
 		return m.screenListView(params)
 	}
 
-	full := m.measuredAt(m.width)
+	full := m.measuredAt(m.term.width)
 	header, below := full.listChrome(params)
 	lines := full.listLines(header, below)
 	centered := lipgloss.NewStyle().Align(lipgloss.Center).Render(text)
 
-	return headedBlockView(header, lipgloss.Place(m.width, lines, lipgloss.Center, lipgloss.Center, centered), lines, below)
+	return headedBlockView(header, lipgloss.Place(m.term.width, lines, lipgloss.Center, lipgloss.Center, centered), lines, below)
 }
 
-func (m model) listChrome(params screenListParams) (string, string) {
+func (m *model) listChrome(params screenListParams) (string, string) {
 	header := m.tabbedHeader(params.title, params.tally)
 	help := m.renderHelp(m.listHelpOf(params), header)
 	record := m.drawRecord(header, help)
@@ -554,7 +554,7 @@ func (m model) listChrome(params screenListParams) (string, string) {
 
 // screenListView draws a screen's list under its header with its record and its legend under
 // it.
-func (m model) screenListView(params screenListParams) string {
+func (m *model) screenListView(params screenListParams) string {
 	header, below := m.listChrome(params)
 
 	if params.lines != nil {
@@ -580,12 +580,12 @@ func (m model) screenListView(params screenListParams) string {
 }
 
 // listHelpOf is a screen's legend as the root draws it under the list.
-func (m model) listHelpOf(params screenListParams) keyMap {
-	return m.listHelp(params.help(&m))
+func (m *model) listHelpOf(params screenListParams) keyMap {
+	return m.listHelp(params.help(m))
 }
 
 // listHelp is a list screen's legend: its own rows, then the bindings every list shares.
-func (m model) listHelp(own keyMap) keyMap {
+func (m *model) listHelp(own keyMap) keyMap {
 	// A disabled binding draws nothing but still takes a cell of the expanded legend.
 	var tabs []key.Binding
 	if b := m.tabsBinding(); b.Enabled() {
@@ -609,8 +609,8 @@ func (m model) listHelp(own keyMap) keyMap {
 const navPageStep = 10
 
 // listLines is the room the list has once the chrome around it has taken its share.
-func (m model) listLines(chrome ...string) int {
-	return fitLines(m.height, chrome...)
+func (m *model) listLines(chrome ...string) int {
+	return fitLines(m.term.height, chrome...)
 }
 
 // fitLines is the room a pane of height lines has once the chrome has taken its share.
@@ -623,8 +623,8 @@ func fitLines(height int, chrome ...string) int {
 }
 
 // spareLines is what the pane has left once the chrome has taken its share, unclamped.
-func (m model) spareLines(chrome ...string) int {
-	return spareLinesOf(m.height, chrome...)
+func (m *model) spareLines(chrome ...string) int {
+	return spareLinesOf(m.term.height, chrome...)
 }
 
 // spareLinesOf is what a pane of height lines has left once the chrome has taken its share.
@@ -676,11 +676,11 @@ func prepareList(glyphs glyph.Set, snapshot view.Snapshot) view.List {
 }
 
 // talliedHeader is a list's header with a muted tally after its title.
-func (m model) talliedHeader(title, tally string) string {
+func (m *model) talliedHeader(title, tally string) string {
 	return m.headerLines(title, tally, "")
 }
 
-func (m model) headerLines(title, tally, tabs string) string {
+func (m *model) headerLines(title, tally, tabs string) string {
 	header := title
 	switch {
 	case tally == "":
@@ -700,14 +700,14 @@ func (m model) headerLines(title, tally, tabs string) string {
 }
 
 // headedListView draws a list under its header, padded out to the record and the legend under it.
-func (m model) headedListView(header string, rows []string, cursor int, help string) string {
+func (m *model) headedListView(header string, rows []string, cursor int, help string) string {
 	lines := m.listLines(header, help)
 
 	return headedBlockView(header, paint.RenderList(rows, cursor, lines, dimStyle()), lines, help)
 }
 
 // emptyListLine is what a screen says over no rows.
-func (m model) emptyListLine(idle string) string {
+func (m *model) emptyListLine(idle string) string {
 	return emptyLineOf(m.filter, idle)
 }
 
@@ -764,7 +764,7 @@ func rowAt[T any](rows []T, cursor int) (T, bool) {
 }
 
 // navPageDelta is how far a page key moves the cursor, signed by which of the two it is.
-func (m model) navPageDelta(pressed string) int {
+func (m *model) navPageDelta(pressed string) int {
 	return navPageDeltaOf(m.keys, pressed)
 }
 

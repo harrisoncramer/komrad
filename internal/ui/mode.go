@@ -18,12 +18,12 @@ const (
 
 // drawInMode is the sidebar inside its gutters with label drawn in tone at the right end of the
 // sidebar's bottom row.
-func (m model) drawInMode(tone paint.Tone, label string) string {
+func (m *model) drawInMode(tone paint.Tone, label string) string {
 	lines := strings.Split(m.drawInset(m.insideView()), "\n")
 
 	bottom := len(lines) - 1
-	if m.height > 0 {
-		bottom = min(bottom, m.height-1)
+	if m.term.height > 0 {
+		bottom = min(bottom, m.term.height-1)
 	}
 
 	lines[bottom] = stampMode(lines[bottom], m.findModeEnd(), tone, label)
@@ -33,25 +33,25 @@ func (m model) drawInMode(tone paint.Tone, label string) string {
 
 // findModeEnd is the column of the pane the mode's label ends at, the last of the sidebar's own
 // cells short of a gutter, and never in the block drawn beside the sidebar.
-func (m model) findModeEnd() int {
+func (m *model) findModeEnd() int {
 	if m.frame.IsSidebarOnRight() {
-		return m.countInsetLeft() + m.width - gutter
+		return m.countInsetLeft() + m.term.width - gutter
 	}
 
 	if m.screen == screenAgents && m.listing.isEmpty() {
-		return m.countInsetLeft() + m.width
+		return m.countInsetLeft() + m.term.width
 	}
 
 	if split, ok := m.columnGeometry(); ok {
 		return m.countInsetLeft() + split.sidebar
 	}
 
-	return m.countInsetLeft() + m.width
+	return m.countInsetLeft() + m.term.width
 }
 
 // findMode is the tone and label of the mode the panel is in while it draws itself.
-func (m model) findMode() (paint.Tone, string) {
-	if m.paneCopying {
+func (m *model) findMode() (paint.Tone, string) {
+	if m.term.paneCopying {
 		return paint.ToneModeVisual, visualModeLabel
 	}
 
@@ -74,7 +74,7 @@ func stampMode(row string, end int, tone paint.Tone, label string) string {
 }
 
 // isEditing reports whether a text field holds the keys and is taking typed text.
-func (m model) isEditing() bool {
+func (m *model) isEditing() bool {
 	if m.form.isActive() {
 		focused := m.form.form.GetFocusedField()
 
@@ -98,7 +98,7 @@ type lineTyper interface {
 }
 
 // typedLine is the one-row field taking the keys, if one is.
-func (m model) typedLine() (lineInput, bool) {
+func (m *model) typedLine() (lineInput, bool) {
 	switch {
 	case m.filter.typing:
 		return m.filter.input, true

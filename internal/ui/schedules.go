@@ -193,7 +193,7 @@ func openScheduleForm(m *model, values *panel.ScheduleConfig, target *panel.Sche
 
 	return m.openForm(redrawnForm(redrawnFormParams{
 		Kind: formSchedule,
-		Build: func(m model) (*huh.Form, []string) {
+		Build: func(m *model) (*huh.Form, []string) {
 			drawnKind = values.Kind
 
 			return scheduleForm(scheduleFormParams{
@@ -205,7 +205,7 @@ func openScheduleForm(m *model, values *panel.ScheduleConfig, target *panel.Sche
 		},
 		Reshaped: func() bool { return values.Kind != drawnKind },
 		Editable: []editableText{{key: "prompt", value: &values.Prompt}},
-		Submit: holdSubmit(func(m model) (model, tea.Cmd) {
+		Submit: holdSubmit(func(m *model) tea.Cmd {
 			var cmd tea.Cmd
 			if target == nil {
 				cmd = m.writeCmd("creating schedule "+values.Name, "Could not create the schedule", func(a api) error { return a.createSchedule(*values) })
@@ -217,7 +217,7 @@ func openScheduleForm(m *model, values *panel.ScheduleConfig, target *panel.Sche
 				)
 			}
 
-			return m, cmd
+			return cmd
 		}),
 	}))
 }
@@ -256,8 +256,8 @@ func (l listing) liveOrchestrators() []panel.Agent {
 	return orchestrators
 }
 
-func (m model) archiveSchedule(schedule panel.Schedule) (model, tea.Cmd) {
-	return m, m.writeCmd(
+func (m *model) archiveSchedule(schedule panel.Schedule) tea.Cmd {
+	return m.writeCmd(
 		"archiving "+schedule.Name,
 		fmt.Sprintf("Could not archive schedule %q", schedule.Name),
 		func(a api) error { return a.archiveSchedule(schedule.ID) },
@@ -374,8 +374,8 @@ func (w *schedulesScreen) column() columnSpec {
 	return columnSpec{
 		floor: columnFloor,
 		read:  isAlwaysRead,
-		docRows: func(m model, width int) []string {
-			return m.schedules.docRows(&m, width)
+		docRows: func(m *model, width int) []string {
+			return m.schedules.docRows(m, width)
 		},
 	}
 }

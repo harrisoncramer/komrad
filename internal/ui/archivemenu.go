@@ -90,7 +90,7 @@ func archiveMenu(m *model, target archived) submenu {
 				label: "restore and open",
 				keys:  m.keys.ArchiveMenu.RestoreOpen,
 				isOff: err != nil,
-				write: func(m model) (model, tea.Cmd) { return m.restoreAndOpen(target) },
+				write: func(m *model) tea.Cmd { return m.restoreAndOpen(target) },
 			},
 			openEntry(remove, m.keys.ArchiveMenu.Delete, func(m *model) tea.Cmd {
 				return confirmDeleteArchivedRow(m, target)
@@ -100,17 +100,15 @@ func archiveMenu(m *model, target archived) submenu {
 }
 
 // restoreAndOpen restores the one agent and puts its conversation back in a pane, or says why it cannot.
-func (m model) restoreAndOpen(target archived) (model, tea.Cmd) {
+func (m *model) restoreAndOpen(target archived) tea.Cmd {
 	agent, err := target.opensAgent()
 	if err != nil {
 		m.report("Could not restore and open "+target.name(m.listing), err)
 
-		return m, nil
+		return nil
 	}
 
-	cmd := restoreAndResumeCmd(&m, *agent)
-
-	return m, cmd
+	return restoreAndResumeCmd(m, *agent)
 }
 
 func restoreArchived(m *model, target archived) tea.Cmd {
@@ -166,7 +164,7 @@ func agentsArchiveMenu(m *model, agents []panel.Agent, chosen bool) submenu {
 		submenuEntry{
 			label: archive,
 			keys:  m.keys.ArchiveMenu.Archive,
-			write: func(m model) (model, tea.Cmd) { return m.archiveAgents(agents) },
+			write: func(m *model) tea.Cmd { return m.archiveAgents(agents) },
 		},
 		openEntry(remove, m.keys.ArchiveMenu.Delete, func(m *model) tea.Cmd {
 			return confirmArchiveDeleteAgents(m, agents)
@@ -178,7 +176,7 @@ func workflowArchiveMenu(m *model, workflow panel.Workflow) submenu {
 	return liveArchiveMenu(submenuEntry{
 		label: "archive with its agents",
 		keys:  m.keys.ArchiveMenu.Archive,
-		write: func(m model) (model, tea.Cmd) { return m.archiveWorkflow(workflow) },
+		write: func(m *model) tea.Cmd { return m.archiveWorkflow(workflow) },
 	})
 }
 
@@ -186,7 +184,7 @@ func scheduleArchiveMenu(m *model, schedule panel.Schedule) submenu {
 	return liveArchiveMenu(submenuEntry{
 		label: "archive",
 		keys:  m.keys.ArchiveMenu.Archive,
-		write: func(m model) (model, tea.Cmd) { return m.archiveSchedule(schedule) },
+		write: func(m *model) tea.Cmd { return m.archiveSchedule(schedule) },
 	})
 }
 
@@ -197,10 +195,10 @@ func confirmArchiveDeleteAgents(m *model, agents []panel.Agent) tea.Cmd {
 	return m.openForm(formState{
 		kind:   formArchiveDelete,
 		form:   form,
-		update: model.updateForm,
-		submit: holdSubmit(func(m model) (model, tea.Cmd) {
+		update: (*model).updateForm,
+		submit: holdSubmit(func(m *model) tea.Cmd {
 			if !*confirmed {
-				return m, nil
+				return nil
 			}
 
 			return m.archiveAndDeleteAgents(agents)

@@ -42,11 +42,11 @@ func agentPrefill(workflow panel.Workflow) agentFormValues {
 func openAgentForm(m *model, workflow panel.Workflow, values *agentFormValues) tea.Cmd {
 	return m.openForm(redrawnForm(redrawnFormParams{
 		Kind: formAgent,
-		Build: func(m model) (*huh.Form, []string) {
+		Build: func(m *model) (*huh.Form, []string) {
 			return newAgentForm(formKeys(), values, workflow.Worktree.Enabled)
 		},
 		Editable: []editableText{{key: "prompt", value: &values.Prompt}},
-		Submit:   holdSubmit(func(m model) (model, tea.Cmd) { return m.submitAgent(workflow, *values) }),
+		Submit:   holdSubmit(func(m *model) tea.Cmd { return m.submitAgent(workflow, *values) }),
 	}))
 }
 
@@ -71,14 +71,14 @@ func childPrefill(parent panel.Agent) agentFormValues {
 func openChildForm(m *model, parent panel.Agent, values *agentFormValues) tea.Cmd {
 	return m.openForm(redrawnForm(redrawnFormParams{
 		Kind:     formChild,
-		Build:    func(m model) (*huh.Form, []string) { return childAgentForm(formKeys(), values, parent) },
+		Build:    func(m *model) (*huh.Form, []string) { return childAgentForm(formKeys(), values, parent) },
 		Editable: []editableText{{key: "prompt", value: &values.Prompt}},
-		Submit:   holdSubmit(func(m model) (model, tea.Cmd) { return m.submitChild(parent, *values) }),
+		Submit:   holdSubmit(func(m *model) tea.Cmd { return m.submitChild(parent, *values) }),
 	}))
 }
 
 // submitChild launches the child without a directory or a provisioner.
-func (m model) submitChild(parent panel.Agent, values agentFormValues) (model, tea.Cmd) {
+func (m *model) submitChild(parent panel.Agent, values agentFormValues) tea.Cmd {
 	cmd := m.createCmd(createAgentParams{
 		Prompt:        values.Prompt,
 		Title:         values.Title,
@@ -88,7 +88,7 @@ func (m model) submitChild(parent panel.Agent, values agentFormValues) (model, t
 		ParentAgentID: parent.ID,
 	})
 
-	return m, cmd
+	return cmd
 }
 
 func openRetryForm(m *model, agent panel.Agent) tea.Cmd {
@@ -100,16 +100,14 @@ func openRetryForm(m *model, agent panel.Agent) tea.Cmd {
 
 	return m.openForm(redrawnForm(redrawnFormParams{
 		Kind:     formAgentRetry,
-		Build:    func(m model) (*huh.Form, []string) { return retryAgentForm(formKeys(), &values) },
+		Build:    func(m *model) (*huh.Form, []string) { return retryAgentForm(formKeys(), &values) },
 		Editable: []editableText{{key: "prompt", value: &values.Prompt}},
-		Submit:   holdSubmit(func(m model) (model, tea.Cmd) { return m.submitRetry(agent, values) }),
+		Submit:   holdSubmit(func(m *model) tea.Cmd { return m.submitRetry(agent, values) }),
 	}))
 }
 
-func (m model) submitRetry(agent panel.Agent, values retryFormValues) (model, tea.Cmd) {
-	cmd := m.retryCmd(agent, values)
-
-	return m, cmd
+func (m *model) submitRetry(agent panel.Agent, values retryFormValues) tea.Cmd {
+	return m.retryCmd(agent, values)
 }
 
 func openAdopt(m *model, workflow *panel.Workflow) tea.Cmd {
@@ -132,13 +130,13 @@ func adoptPrefill(workflow panel.Workflow) adoptFormValues {
 func openAdoptForm(m *model, workflow panel.Workflow, values *adoptFormValues) tea.Cmd {
 	return m.openForm(redrawnForm(redrawnFormParams{
 		Kind:     formAdopt,
-		Build:    func(m model) (*huh.Form, []string) { return adoptAgentForm(formKeys(), values) },
+		Build:    func(m *model) (*huh.Form, []string) { return adoptAgentForm(formKeys(), values) },
 		Editable: []editableText{{key: "prompt", value: &values.Prompt}},
-		Submit:   holdSubmit(func(m model) (model, tea.Cmd) { return m.submitAdopt(workflow, *values) }),
+		Submit:   holdSubmit(func(m *model) tea.Cmd { return m.submitAdopt(workflow, *values) }),
 	}))
 }
 
-func (m model) submitAdopt(workflow panel.Workflow, values adoptFormValues) (model, tea.Cmd) {
+func (m *model) submitAdopt(workflow panel.Workflow, values adoptFormValues) tea.Cmd {
 	cmd := m.adoptCmd(adoptParams{
 		Ref:        values.Ref,
 		Prompt:     values.Prompt,
@@ -148,10 +146,10 @@ func (m model) submitAdopt(workflow panel.Workflow, values adoptFormValues) (mod
 		WorkflowID: workflow.ID,
 	})
 
-	return m, cmd
+	return cmd
 }
 
-func (m model) submitAgent(workflow panel.Workflow, values agentFormValues) (model, tea.Cmd) {
+func (m *model) submitAgent(workflow panel.Workflow, values agentFormValues) tea.Cmd {
 	cmd := m.createCmd(createAgentParams{
 		Prompt:           values.Prompt,
 		Title:            values.Title,
@@ -161,7 +159,7 @@ func (m model) submitAgent(workflow panel.Workflow, values agentFormValues) (mod
 		WorkflowID:       workflow.ID,
 	})
 
-	return m, cmd
+	return cmd
 }
 
 // worktreeOverride is what the form says about the agent's directory: nil to follow the
@@ -298,18 +296,18 @@ func confirmArchiveAgents(m *model, agents []panel.Agent) tea.Cmd {
 	return m.openForm(formState{
 		kind:   formAgentArchive,
 		form:   form,
-		update: model.updateForm,
-		submit: holdSubmit(func(m model) (model, tea.Cmd) {
+		update: (*model).updateForm,
+		submit: holdSubmit(func(m *model) tea.Cmd {
 			switch *answer {
 			case archiveChoiceArchive:
 				return m.archiveAgents(agents)
 			case archiveChoiceArchiveDelete:
 				return m.archiveAndDeleteAgents(agents)
 			case archiveChoiceCancel:
-				return m, nil
+				return nil
 			}
 
-			return m, nil
+			return nil
 		}),
 	})
 }

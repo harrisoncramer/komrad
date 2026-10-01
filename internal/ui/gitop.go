@@ -62,7 +62,7 @@ func (m *model) runGitCmd(op gitOp) tea.Cmd {
 }
 
 // applyGitPlanned opens the confirmation, or says why there is nothing to confirm.
-func (m model) applyGitPlanned(msg gitPlannedMsg) (tea.Model, tea.Cmd) {
+func (m *model) applyGitPlanned(msg gitPlannedMsg) tea.Cmd {
 	held := m.landHeld(msg.write)
 
 	if msg.err != nil {
@@ -72,44 +72,40 @@ func (m model) applyGitPlanned(msg gitPlannedMsg) (tea.Model, tea.Cmd) {
 			return m.closeForm()
 		}
 
-		return m, nil
+		return nil
 	}
 
 	return m.openGitConfirm(msg.op, msg.form)
 }
 
 // applyGitDone reports the outcome, and takes down the confirmation held for it.
-func (m model) applyGitDone(msg gitDoneMsg) (tea.Model, tea.Cmd) {
+func (m *model) applyGitDone(msg gitDoneMsg) tea.Cmd {
 	held := m.landHeld(msg.write)
 
-	reported := msg.report(&m)
+	reported := msg.report(m)
 
 	if !held {
-		return m, reported
+		return reported
 	}
 
-	next, back := m.closeForm()
-
-	return next, tea.Batch(reported, back)
+	return tea.Batch(reported, m.closeForm())
 }
 
-func (m model) openGitConfirm(op gitOp, buildForm gitConfirmForm) (tea.Model, tea.Cmd) {
+func (m *model) openGitConfirm(op gitOp, buildForm gitConfirmForm) tea.Cmd {
 	form, confirmed := buildForm(formKeys())
 
-	return m, m.openForm(formState{
+	return m.openForm(formState{
 		kind:   op.kind,
 		form:   form,
-		update: model.updateForm,
-		submit: holdSubmit(func(m model) (model, tea.Cmd) {
+		update: (*model).updateForm,
+		submit: holdSubmit(func(m *model) tea.Cmd {
 			if !*confirmed {
-				return m, nil
+				return nil
 			}
 
-			cmd := m.runGitCmd(op)
-
-			return m, cmd
+			return m.runGitCmd(op)
 		}),
-		rebuild: func(model) (*huh.Form, []string) {
+		rebuild: func(*model) (*huh.Form, []string) {
 			held, _ := buildForm(formKeys())
 
 			return held, nil

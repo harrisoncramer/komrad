@@ -44,7 +44,7 @@ func (p pulse) isLit() bool {
 }
 
 // isPulsing reports whether any of the panel's blinks is still running.
-func (m model) isPulsing() bool {
+func (m *model) isPulsing() bool {
 	return m.messages.pulse.isRunning()
 }
 

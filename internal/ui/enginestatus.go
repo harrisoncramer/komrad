@@ -47,7 +47,7 @@ type engineBuildMsg struct {
 }
 
 // engineTone is the colour of the dot beside the engine, green while its heartbeat arrives.
-func (m model) engineTone() paint.Tone {
+func (m *model) engineTone() paint.Tone {
 	switch {
 	case errors.Is(m.startupErr, errui.ErrEngineBuild), m.engineBuild.Stale != "":
 		return paint.ToneWarning
@@ -60,7 +60,7 @@ func (m model) engineTone() paint.Tone {
 }
 
 // engineLine is the engine drawn in at most width cells, dropping the commit before the name.
-func (m model) engineLine(width int) string {
+func (m *model) engineLine(width int) string {
 	muted := paint.Panel.Style(paint.ToneMuted)
 	line := paint.Panel.Style(m.engineTone()).Render(m.glyphs.Spell(glyph.Engine)) + " " + muted.Render(engineTitle(m.engineStatus.Name))
 
@@ -93,7 +93,7 @@ func (m model) engineLine(width int) string {
 // engineBuildWait bounds one read of what the engine runs.
 const engineBuildWait = 30 * time.Second
 
-func (m model) readEngineBuildCmd() tea.Cmd {
+func (m *model) readEngineBuildCmd() tea.Cmd {
 	read := m.engineStatus.ReadBuild
 	if read == nil {
 		return nil
@@ -114,7 +114,7 @@ func (m model) readEngineBuildCmd() tea.Cmd {
 
 // landEngineBuild takes what the server says it runs, warning once each time it stops agreeing
 // with the panel.
-func (m model) landEngineBuild(msg engineBuildMsg) model {
+func (m *model) landEngineBuild(msg engineBuildMsg) {
 	was := m.engineBuild.Stale
 	m.engineBuild = msg.build
 
@@ -125,6 +125,4 @@ func (m model) landEngineBuild(msg engineBuildMsg) model {
 			detail:  msg.build.Stale,
 		})
 	}
-
-	return m
 }

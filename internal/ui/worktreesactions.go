@@ -228,15 +228,15 @@ func confirmDeleteWorktrees(m *model, deletion worktreeDeletion) tea.Cmd {
 	return m.openForm(formState{
 		kind:   formWorktreesDelete,
 		form:   form,
-		update: model.updateForm,
-		submit: holdSubmit(func(m model) (model, tea.Cmd) {
+		update: (*model).updateForm,
+		submit: holdSubmit(func(m *model) tea.Cmd {
 			if !*confirmed {
-				return m, nil
+				return nil
 			}
 
 			m.releasePanes(deletion.live)
 
-			return m, deleteWorktreesCmd(&m, deletion)
+			return deleteWorktreesCmd(m, deletion)
 		}),
 	})
 }

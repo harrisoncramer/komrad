@@ -170,7 +170,7 @@ func (d *documentsScreen) isDiffDrawn(m *model) bool {
 		return false
 	}
 
-	return d.isSteppingHovered(m) && d.history.isDrawn(m.isDark)
+	return d.isSteppingHovered(m) && d.history.isDrawn(m.term.isDark)
 }
 
 // isDiffFocused reports whether the diff of the write stepped to holds the keys.

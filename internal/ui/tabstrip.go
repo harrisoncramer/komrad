@@ -234,19 +234,19 @@ func (m *model) activeTabs() (tabbed, bool) {
 	return t, ok
 }
 
-func (m model) isTabsDrawn() bool {
+func (m *model) isTabsDrawn() bool {
 	t, ok := m.activeTabs()
 
-	return ok && t.tabsFit(&m)
+	return ok && t.tabsFit(m)
 }
 
-func (m model) isTabsFocused() bool {
+func (m *model) isTabsFocused() bool {
 	t, ok := m.activeTabs()
 
-	return ok && t.tabsState().focused && t.tabsFit(&m)
+	return ok && t.tabsState().focused && t.tabsFit(m)
 }
 
-func (m model) tabbedHeader(title, tally string) string {
+func (m *model) tabbedHeader(title, tally string) string {
 	var strips string
 	if m.isTabsDrawn() {
 		strips += m.tabsLine()
@@ -261,7 +261,7 @@ func (m model) tabbedHeader(title, tally string) string {
 	return m.headerLines(title, tally, strips)
 }
 
-func (m model) tabsLine() string {
+func (m *model) tabsLine() string {
 	t, _ := m.activeTabs()
 
 	return t.tabs().view(*t.tabsState(), m.focusPalette(), m.paneWidth()) + "\n"
@@ -269,29 +269,30 @@ func (m model) tabsLine() string {
 
 // listFitsTabs is whether a list has the room to draw its strips, judged with the keys on the
 // list.
-func (m model) listFitsTabs(params screenListParams) bool {
-	t, tabbed := m.activeTabs()
-	k, kinded := m.activeKinds()
+func (m *model) listFitsTabs(params screenListParams) bool {
+	probe := *m
+	t, tabbed := probe.activeTabs()
+	k, kinded := probe.activeKinds()
 	if !tabbed && !kinded {
 		return false
 	}
 
-	if m.height <= 0 {
+	if probe.term.height <= 0 {
 		return true
 	}
 
-	m.details.focused, m.helpExpanded = false, false
+	probe.details.focused, probe.helpExpanded = false, false
 	var strips string
 	if tabbed {
 		t.tabsState().focused = false
-		strips += m.tabsLine()
+		strips += probe.tabsLine()
 	}
 	if kinded {
 		*k.kindsFocused() = false
-		strips += m.kindsLine()
+		strips += probe.kindsLine()
 	}
 
-	return m.spareLines(m.headerLines(params.title, params.tally, strips), m.renderHelp(m.listHelpOf(params))) >= 1
+	return probe.spareLines(probe.headerLines(params.title, params.tally, strips), probe.renderHelp(probe.listHelpOf(params))) >= 1
 }
 
 func (m *model) blurTabs() {
@@ -300,20 +301,18 @@ func (m *model) blurTabs() {
 	}
 }
 
-func (m model) focusTabs() model {
+func (m *model) focusTabs() {
 	t, ok := m.activeTabs()
-	if !ok || !t.tabsFit(&m) {
-		return m
+	if !ok || !t.tabsFit(m) {
+		return
 	}
 
 	m.blurKinds()
 	t.tabsState().focused = true
 	m.details.focused = false
-
-	return m
 }
 
-func (m model) updateTabs(key tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+func (m *model) updateTabs(key tea.KeyPressMsg) tea.Cmd {
 	t, _ := m.activeTabs()
 	strip, state := t.tabs(), t.tabsState()
 	hovered := m.hoveredFilterKey()
@@ -341,10 +340,10 @@ func (m model) updateTabs(key tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 
 	m.placeFilteredCursor(hovered)
 
-	return m, cmd
+	return cmd
 }
 
-func (m model) tabsBinding() key.Binding {
+func (m *model) tabsBinding() key.Binding {
 	t, ok := m.activeTabs()
 	if !ok {
 		return key.Binding{}
@@ -353,7 +352,7 @@ func (m model) tabsBinding() key.Binding {
 	return binding(m.keys.Tabs.Focus, t.tabs().legend)
 }
 
-func (m model) tabsHelp() keyMap {
+func (m *model) tabsHelp() keyMap {
 	column := stopsMoveBinding("move")
 	direction := binding(slices.Concat(m.keys.Nav.Down, m.keys.Nav.Up), "sort down/up, flip")
 	back := binding([]string{"esc"}, "back to the list")

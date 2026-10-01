@@ -146,7 +146,7 @@ func (f filterState) highlight(palette paint.Palette, name string, base lipgloss
 
 // filteredRows is every row the search can land on in the pane holding the keys, and false on a
 // screen that draws no filter.
-func (m model) filteredRows() ([]filterRow, bool) {
+func (m *model) filteredRows() ([]filterRow, bool) {
 	if m.isDetailsFocused() {
 		return m.detailsFilterRows(), true
 	}
@@ -156,7 +156,7 @@ func (m model) filteredRows() ([]filterRow, bool) {
 		return nil, false
 	}
 
-	return rows.filterRows(&m), true
+	return rows.filterRows(m), true
 }
 
 // beginFilter starts a search from nothing, keeping the cursor on the row it was on.
@@ -244,9 +244,9 @@ func (m *model) clearFilter() {
 	}
 }
 
-func (m model) updateFilterInput(key tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+func (m *model) updateFilterInput(key tea.KeyPressMsg) tea.Cmd {
 	if key.String() == "ctrl+c" {
-		return m, m.hide()
+		return m.hide()
 	}
 
 	// Typing lights what it has found and moves nothing; enter is what applies the search.
@@ -257,12 +257,12 @@ func (m model) updateFilterInput(key tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case "enter":
 		m.applyFilter()
 
-		return m, m.waitToStage()
+		return m.waitToStage()
 	default:
 		filter.takeKey(key, m.register)
 	}
 
-	return m, nil
+	return nil
 }
 
 // applyFilter closes the input and settles the cursor of the pane holding the keys: a search
@@ -283,7 +283,7 @@ func (m *model) applyFilter() {
 }
 
 // isFilterRowShown reports whether the pane holding the keys still draws a row.
-func (m model) isFilterRowShown(key string) bool {
+func (m *model) isFilterRowShown(key string) bool {
 	rows, _ := m.filteredRows()
 
 	return slices.ContainsFunc(rows, func(row filterRow) bool { return row.key == key })
@@ -291,20 +291,20 @@ func (m model) isFilterRowShown(key string) bool {
 
 // jumpIntoDetails gives the record the keys and lands them on its nearest match when a search is
 // up.
-func (m model) jumpIntoDetails() (tea.Model, tea.Cmd) {
-	next, cmd := m.focusDetails()
-	if !next.isDetailsFocused() {
-		return next, cmd
+func (m *model) jumpIntoDetails() tea.Cmd {
+	cmd := m.focusDetails()
+	if !m.isDetailsFocused() {
+		return cmd
 	}
 
-	if found, ok := next.matchAt(0); ok {
-		next.placeFilteredCursor(found)
+	if found, ok := m.matchAt(0); ok {
+		m.placeFilteredCursor(found)
 	}
 
-	return next, cmd
+	return cmd
 }
 
-func (m model) hoveredFilterKey() string {
+func (m *model) hoveredFilterKey() string {
 	if m.isDetailsFocused() {
 		return m.hoveredDetailsKey()
 	}
@@ -314,7 +314,7 @@ func (m model) hoveredFilterKey() string {
 		return ""
 	}
 
-	return rows.hoveredKey(&m)
+	return rows.hoveredKey(m)
 }
 
 func (m *model) placeFilteredCursor(hovered string) {
@@ -464,7 +464,7 @@ func (m *model) jumpToFilterMatch(pressed string) tea.Cmd {
 
 // matchAt is the row the search lands on in the pane holding the keys, counted from the hovered
 // row and wrapping at either end, the hovered row itself counting for a step of nothing.
-func (m model) matchAt(delta int) (string, bool) {
+func (m *model) matchAt(delta int) (string, bool) {
 	rows, ok := m.filteredRows()
 	if !ok || m.filter.pattern == nil || len(rows) == 0 {
 		return "", false
@@ -498,10 +498,10 @@ func (m model) matchAt(delta int) (string, bool) {
 }
 
 // filterDesc names the filter key by the search standing in the list.
-func (m model) filterDesc() string {
-	return filterDescOf(&m)
+func (m *model) filterDesc() string {
+	return filterDescOf(m)
 }
 
-func (m model) filterClearDesc() string {
-	return filterClearDescOf(&m)
+func (m *model) filterClearDesc() string {
+	return filterClearDescOf(m)
 }

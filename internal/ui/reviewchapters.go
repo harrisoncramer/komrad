@@ -177,7 +177,7 @@ func (d *reviewDiff) widen() {
 
 // doesFitBaseLegend reports whether the base key is worth a legend row.
 func (r reviewScreen) doesFitBaseLegend(m *model) bool {
-	if m.helpExpanded && m.height > 0 && m.height < reviewLegendFloor {
+	if m.helpExpanded && m.term.height > 0 && m.term.height < reviewLegendFloor {
 		return false
 	}
 

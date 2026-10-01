@@ -68,30 +68,30 @@ func (a *agentsScreen) stage(m *model) {
 	m.stageSelection()
 }
 
-func (m model) archiveAgents(agents []panel.Agent) (model, tea.Cmd) {
+func (m *model) archiveAgents(agents []panel.Agent) tea.Cmd {
 	if len(agents) == 0 {
-		return m, nil
+		return nil
 	}
 
 	m.releasePanes(agents)
 
-	return m, m.writeCmd(
+	return m.writeCmd(
 		"archiving "+describeAgents(agents),
 		fmt.Sprintf("Could not archive %s", describeAgents(agents)),
 		func(a api) error { return a.archiveAgents(panel.IDs(agents)) },
 	)
 }
 
-func (m model) archiveAndDeleteAgents(agents []panel.Agent) (model, tea.Cmd) {
+func (m *model) archiveAndDeleteAgents(agents []panel.Agent) tea.Cmd {
 	if len(agents) == 0 {
-		return m, nil
+		return nil
 	}
 
 	m.releasePanes(agents)
 
 	ids := panel.IDs(agents)
 
-	return m, m.writeCmd(
+	return m.writeCmd(
 		"archiving and deleting "+describeAgents(agents),
 		fmt.Sprintf("Could not archive and delete %s", describeAgents(agents)),
 		func(a api) error {
@@ -485,10 +485,10 @@ func (a *agentsScreen) column() columnSpec {
 	return columnSpec{
 		floor: columnFloor,
 		read:  isAlwaysRead,
-		docRows: func(m model, width int) []string {
-			return m.withLastScreen(paint.DocStyledRows(m.agents.doc(&m), max(width, 1), columnStyle()), width)
+		docRows: func(m *model, width int) []string {
+			return m.withLastScreen(paint.DocStyledRows(m.agents.doc(m), max(width, 1), columnStyle()), width)
 		},
-		holds: func(m model) bool { return !m.agents.isEditorOpen() && m.agents.hasNoAgentPane(&m) },
+		holds: func(m *model) bool { return !m.agents.isEditorOpen() && m.agents.hasNoAgentPane(m) },
 	}
 }
 

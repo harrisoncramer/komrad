@@ -587,8 +587,8 @@ func (w *worktreesScreen) column() columnSpec {
 	return columnSpec{
 		floor: columnFloor,
 		read:  isAlwaysRead,
-		docRows: func(m model, width int) []string {
-			return m.withLastScreen(paint.DocStyledRows(m.worktrees.doc(&m), max(width, 1), columnStyle()), width)
+		docRows: func(m *model, width int) []string {
+			return m.withLastScreen(paint.DocStyledRows(m.worktrees.doc(m), max(width, 1), columnStyle()), width)
 		},
 	}
 }

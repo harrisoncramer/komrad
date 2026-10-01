@@ -171,13 +171,13 @@ func confirmDeleteSchedule(m *model, schedule panel.Schedule) tea.Cmd {
 	return m.openForm(formState{
 		kind:   formArchiveDelete,
 		form:   form,
-		update: model.updateForm,
-		submit: holdSubmit(func(m model) (model, tea.Cmd) {
+		update: (*model).updateForm,
+		submit: holdSubmit(func(m *model) tea.Cmd {
 			if !*confirmed {
-				return m, nil
+				return nil
 			}
 
-			return m, m.writeCmd(
+			return m.writeCmd(
 				"deleting "+schedule.Name,
 				fmt.Sprintf("Could not delete schedule %q", schedule.Name),
 				func(c api) error { return c.deleteSchedule(schedule.ID) },
@@ -328,13 +328,13 @@ func confirmDeleteArchived(m *model, agents []panel.Agent) tea.Cmd {
 	return m.openForm(formState{
 		kind:   formArchiveDelete,
 		form:   form,
-		update: model.updateForm,
-		submit: holdSubmit(func(m model) (model, tea.Cmd) {
+		update: (*model).updateForm,
+		submit: holdSubmit(func(m *model) tea.Cmd {
 			if !*confirmed {
-				return m, nil
+				return nil
 			}
 
-			return m, m.writeCmd(
+			return m.writeCmd(
 				"deleting "+describeAgents(agents),
 				fmt.Sprintf("Could not delete %s", describeAgents(agents)),
 				func(a api) error { return a.deleteAgents(panel.IDs(agents)) },
@@ -350,13 +350,13 @@ func confirmDeleteWorkflow(m *model, workflow panel.Workflow) tea.Cmd {
 	return m.openForm(formState{
 		kind:   formArchiveDelete,
 		form:   form,
-		update: model.updateForm,
-		submit: holdSubmit(func(m model) (model, tea.Cmd) {
+		update: (*model).updateForm,
+		submit: holdSubmit(func(m *model) tea.Cmd {
 			if !*confirmed {
-				return m, nil
+				return nil
 			}
 
-			return m, m.writeCmd(
+			return m.writeCmd(
 				"deleting "+workflow.Name,
 				fmt.Sprintf("Could not delete workflow %q", workflow.Name),
 				func(a api) error { return a.deleteWorkflow(workflow.ID) },
@@ -581,8 +581,8 @@ func (a *archiveScreen) column() columnSpec {
 	return columnSpec{
 		floor: columnFloor,
 		read:  isAlwaysRead,
-		docRows: func(m model, width int) []string {
-			return m.withLastScreen(m.archive.docRows(&m, width), width)
+		docRows: func(m *model, width int) []string {
+			return m.withLastScreen(m.archive.docRows(m, width), width)
 		},
 	}
 }

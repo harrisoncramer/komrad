@@ -20,7 +20,7 @@ const (
 )
 
 // listStops lists the screen's stops in forward order, leaving out any it is not drawing.
-func (m model) listStops() []stop {
+func (m *model) listStops() []stop {
 	stops := []stop{stopList}
 
 	switch {
@@ -41,7 +41,7 @@ func (m model) listStops() []stop {
 	return stops
 }
 
-func (m model) enterStop(to stop) (tea.Model, tea.Cmd) {
+func (m *model) enterStop(to stop) tea.Cmd {
 	if to != stopList {
 		m.filter.typing = false
 	}
@@ -52,25 +52,29 @@ func (m model) enterStop(to stop) (tea.Model, tea.Cmd) {
 	case stopTerminal:
 		m.tmux.SelectPane(m.findTerminalPane())
 	case stopRecord:
-		return m.enterSidebar(to).jumpIntoDetails()
+		m.enterSidebar(to)
+
+		return m.jumpIntoDetails()
 	case stopBlock:
-		m = m.enterSidebar(to).blurDetails()
+		m.enterSidebar(to)
+		m.blurDetails()
 		if b, ok := m.active().(blocked); ok && m.isScreenBlockDrawn() {
-			b.focusBlock(&m)
+			b.focusBlock(m)
 		} else {
 			m.focusDoc()
 		}
 	case stopList:
-		m = m.enterSidebar(to).blurDetails()
+		m.enterSidebar(to)
+		m.blurDetails()
 	}
 
-	return m, nil
+	return nil
 }
 
-func (m model) enterSidebar(to stop) model {
-	if m.keysElsewhere {
+func (m *model) enterSidebar(to stop) {
+	if m.term.keysElsewhere {
 		m.tmux.SelectPane(m.settings.Pane)
-		m.keysElsewhere = false
+		m.term.keysElsewhere = false
 	}
 
 	m.blurTabs()
@@ -81,12 +85,10 @@ func (m model) enterSidebar(to stop) model {
 	if to != stopBlock {
 		m.reading.focused = false
 	}
-
-	return m
 }
 
 // atStop is the stop inside the panel that holds the keys.
-func (m model) atStop() stop {
+func (m *model) atStop() stop {
 	switch {
 	case m.isDetailsFocused():
 		return stopRecord
@@ -94,7 +96,7 @@ func (m model) atStop() stop {
 		return stopBlock
 	}
 
-	if b, ok := m.active().(blocked); ok && b.isBlockFocused(&m) {
+	if b, ok := m.active().(blocked); ok && b.isBlockFocused(m) {
 		return stopBlock
 	}
 
@@ -103,16 +105,14 @@ func (m model) atStop() stop {
 
 // toggleStop resumes the hovered dormant agent, or hands the keys back to the stop they last left,
 // or on to the next stop when there is none to go back to.
-func (m model) toggleStop() (tea.Model, tea.Cmd) {
-	if m.keysElsewhere {
-		return m, nil
+func (m *model) toggleStop() tea.Cmd {
+	if m.term.keysElsewhere {
+		return nil
 	}
 
 	at := m.atStop()
 	if at == stopList && m.isDormantHovered() {
-		cmd := m.agents.openHovered(&m)
-
-		return m, cmd
+		return m.agents.openHovered(m)
 	}
 
 	stops := m.listStops()
@@ -123,33 +123,33 @@ func (m model) toggleStop() (tea.Model, tea.Cmd) {
 	}
 
 	if to == at {
-		return m, nil
+		return nil
 	}
 
 	return m.enterStop(to)
 }
 
 // isDormantHovered reports whether the agents screen is drawing the saved screen of a dormant agent.
-func (m model) isDormantHovered() bool {
+func (m *model) isDormantHovered() bool {
 	if m.screen != screenAgents {
 		return false
 	}
 
-	item, ok := m.agents.hoveredResting(&m)
+	item, ok := m.agents.hoveredResting(m)
 
 	return ok && !item.Alive
 }
 
 // isScreenBlockDrawn reports whether the screen is drawing a block of its own beside the list.
-func (m model) isScreenBlockDrawn() bool {
+func (m *model) isScreenBlockDrawn() bool {
 	b, ok := m.active().(blocked)
 
-	return ok && b.isBlockDrawn(&m)
+	return ok && b.isBlockDrawn(m)
 }
 
 // findFocusPane finds the agent's pane the picker stops at, empty where the stage holds none or
 // the panel is drawn over it.
-func (m model) findFocusPane() string {
+func (m *model) findFocusPane() string {
 	if m.screen != screenAgents || m.frame.IsSolo() {
 		return ""
 	}

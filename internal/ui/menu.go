@@ -46,7 +46,7 @@ func panelMenu(m *model) submenu {
 			{
 				label: scratch,
 				keys:  m.keys.Menu.Scratch,
-				open:  model.openScratch,
+				open:  (*model).openScratch,
 			},
 			nestedEntry("document types", m.keys.Menu.DocumentTypes, documentTypesMenu(m)),
 		},
@@ -172,9 +172,7 @@ var (
 )
 
 // openScratch leaves the menu for the scratch, or closes the scratch when it is open.
-func (m model) openScratch() (tea.Model, tea.Cmd) {
+func (m *model) openScratch() tea.Cmd {
 	m.leaveForm()
-	cmd := m.toggleScratch()
-
-	return m, cmd
+	return m.toggleScratch()
 }

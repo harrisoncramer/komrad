@@ -257,7 +257,7 @@ type workflowFormParams struct {
 	Values    *workflowFormValues
 	// Editing says the workflow already exists and its base branch is required.
 	Editing bool
-	Submit  func(model) (tea.Model, tea.Cmd)
+	Submit  func(*model) tea.Cmd
 }
 
 func workflowForm(params workflowFormParams) sectionedForm {
@@ -272,7 +272,7 @@ func workflowForm(params workflowFormParams) sectionedForm {
 	return sectionedForm{
 		kind:  formWorkflow,
 		title: "Settings",
-		top: func(model) []huh.Field {
+		top: func(*model) []huh.Field {
 			drawnProvisioner = values.Provisioner
 
 			return workflowTopFields(params.NameTitle, values)
@@ -311,7 +311,7 @@ func workflowSections(values *workflowFormValues, editing bool) []formSection {
 		{
 			key:   workflowSectionAgents,
 			title: "agents",
-			fields: func(model) []huh.Field {
+			fields: func(*model) []huh.Field {
 				return workflowAgentFields(values)
 			},
 		},
@@ -319,7 +319,7 @@ func workflowSections(values *workflowFormValues, editing bool) []formSection {
 			key:   workflowSectionWorktree,
 			title: "worktree",
 			isOff: func() bool { return values.Provisioner != provisionerWorktree },
-			fields: func(model) []huh.Field {
+			fields: func(*model) []huh.Field {
 				return worktreeDetailFields(values, editing)
 			},
 			editable: []editableText{
@@ -331,14 +331,14 @@ func workflowSections(values *workflowFormValues, editing bool) []formSection {
 		{
 			key:   workflowSectionHooks,
 			title: "hooks",
-			fields: func(m model) []huh.Field {
+			fields: func(m *model) []huh.Field {
 				return hookFields(values, m.getAvailableHooks())
 			},
 		},
 		{
 			key:   workflowSectionEventPrompts,
 			title: "event prompts",
-			fields: func(model) []huh.Field {
+			fields: func(*model) []huh.Field {
 				return eventPromptFields(values, formKeys())
 			},
 			editable: eventPromptEditables(values),

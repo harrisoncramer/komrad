@@ -34,7 +34,7 @@ type loaderScreen interface {
 }
 
 func (m *model) isLoading() bool {
-	if len(m.inflight) > 0 {
+	if len(m.writes.inflight) > 0 {
 		return true
 	}
 
@@ -92,21 +92,21 @@ func (m *model) advanceLoader() tea.Cmd {
 }
 
 // heldWrite is the write the form on screen is held for.
-func (m model) heldWrite() (submitting.Write, bool) {
-	if !m.held.active {
+func (m *model) heldWrite() (submitting.Write, bool) {
+	if !m.writes.held.active {
 		return submitting.Write{}, false
 	}
 
-	write, ok := m.inflight[m.held.write]
+	write, ok := m.writes.inflight[m.writes.held.write]
 
 	return write, ok
 }
 
 // looseWrites are the writes in flight that no form on screen is held for.
-func (m model) looseWrites() []submitting.Write {
-	loose := make([]submitting.Write, 0, len(m.inflight))
-	for id, write := range m.inflight {
-		if m.held.owns(id) {
+func (m *model) looseWrites() []submitting.Write {
+	loose := make([]submitting.Write, 0, len(m.writes.inflight))
+	for id, write := range m.writes.inflight {
+		if m.writes.held.owns(id) {
 			continue
 		}
 
@@ -116,7 +116,7 @@ func (m model) looseWrites() []submitting.Write {
 	return loose
 }
 
-func (m model) submittingParams(width int) submitting.Params {
+func (m *model) submittingParams(width int) submitting.Params {
 	return submitting.Params{
 		Palette: paint.Panel,
 		Frame:   m.loading.frame(),

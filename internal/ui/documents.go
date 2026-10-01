@@ -455,11 +455,11 @@ func (d *documentsScreen) takesEveryKey() bool {
 func (d *documentsScreen) column() columnSpec {
 	return columnSpec{
 		floor: columnFloor,
-		docRows: func(m model, width int) []string {
-			return m.documents.docRows(&m, width)
+		docRows: func(m *model, width int) []string {
+			return m.documents.docRows(m, width)
 		},
-		holds: func(m model) bool { return m.documents.editing == nil },
-		read:  func(m model) bool { return !m.documents.isSteppingHovered(&m) },
+		holds: func(m *model) bool { return m.documents.editing == nil },
+		read:  func(m *model) bool { return !m.documents.isSteppingHovered(m) },
 	}
 }
 

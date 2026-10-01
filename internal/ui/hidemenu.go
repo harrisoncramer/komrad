@@ -21,7 +21,7 @@ func (a *agentsScreen) hideMenu(m *model, agent *panel.Agent) submenu {
 			{
 				label: a.showHiddenDesc(),
 				keys:  m.keys.HideMenu.ShowHidden,
-				open:  model.toggleHidden,
+				open:  (*model).toggleHidden,
 			},
 		},
 	}
@@ -43,10 +43,10 @@ func hideEntry(m *model, label string, agent *panel.Agent) submenuEntry {
 }
 
 // toggleHidden leaves the menu and shows the hidden agents, or puts them away.
-func (m model) toggleHidden() (tea.Model, tea.Cmd) {
+func (m *model) toggleHidden() tea.Cmd {
 	m.leaveForm()
 	m.reconcileSolo()
-	m.agents.toggleHidden(&m)
+	m.agents.toggleHidden(m)
 
-	return m, nil
+	return nil
 }

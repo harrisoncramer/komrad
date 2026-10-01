@@ -55,9 +55,9 @@ type submenuEntry struct {
 	// form is the form the entry opens to the right of its own menu.
 	form func() formState
 	// write is what the entry does, the menu held up while a write it began is in flight.
-	write func(m model) (model, tea.Cmd)
+	write func(m *model) tea.Cmd
 	// open leaves the menu for the form or screen the entry goes on to.
-	open func(m model) (tea.Model, tea.Cmd)
+	open func(m *model) tea.Cmd
 }
 
 // writeEntry is an entry whose write the root runs.
@@ -65,11 +65,7 @@ func writeEntry(label string, keys []string, run func(*model) tea.Cmd) submenuEn
 	return submenuEntry{
 		label: label,
 		keys:  keys,
-		write: func(m model) (model, tea.Cmd) {
-			cmd := run(&m)
-
-			return m, cmd
-		},
+		write: run,
 	}
 }
 
@@ -78,11 +74,9 @@ func openEntry(label string, keys []string, run func(*model) tea.Cmd) submenuEnt
 	return submenuEntry{
 		label: label,
 		keys:  keys,
-		open: func(m model) (tea.Model, tea.Cmd) {
+		open: func(m *model) tea.Cmd {
 			m.leaveForm()
-			cmd := run(&m)
-
-			return m, cmd
+			return run(m)
 		},
 	}
 }
@@ -129,10 +123,10 @@ func submenuState(parents []submenuLevel, level submenuLevel) formState {
 	state := formState{
 		kind:   level.menu.kind,
 		crumbs: append(xslice.Map(parents, func(p submenuLevel) string { return p.menu.title }), level.menu.title),
-		update: func(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
+		update: func(m *model, msg tea.Msg) tea.Cmd {
 			return m.updateSubmenu(msg, parents, level)
 		},
-		submit: func(m model) (tea.Model, tea.Cmd) {
+		submit: func(m *model) tea.Cmd {
 			stack := slices.Concat(parents, []submenuLevel{level})
 			if level.menu.isList() {
 				return m.openListActions(stack, level)
@@ -159,7 +153,7 @@ func submenuState(parents []submenuLevel, level submenuLevel) formState {
 
 			return m.closeForm()
 		},
-		rebuild: func(model) (*huh.Form, []string) {
+		rebuild: func(*model) (*huh.Form, []string) {
 			return submenuForm(level, len(parents) > 0, formKeys()), nil
 		},
 		leading: func(width, _ int) []string {
@@ -176,15 +170,13 @@ func submenuState(parents []submenuLevel, level submenuLevel) formState {
 }
 
 // pushSubmenu draws a menu to the right of the one it was opened from.
-func (m model) pushSubmenu(parents []submenuLevel, level submenuLevel) (tea.Model, tea.Cmd) {
-	cmd := m.openForm(submenuState(parents, level))
-
-	return m, cmd
+func (m *model) pushSubmenu(parents []submenuLevel, level submenuLevel) tea.Cmd {
+	return m.openForm(submenuState(parents, level))
 }
 
 // openListActions draws the menu on the entry under a list's cursor in place of what the list
 // previews.
-func (m model) openListActions(stack []submenuLevel, list submenuLevel) (tea.Model, tea.Cmd) {
+func (m *model) openListActions(stack []submenuLevel, list submenuLevel) tea.Cmd {
 	actions := list.menu.actions(*list.choice)
 	actions.inPlace = true
 
@@ -193,22 +185,20 @@ func (m model) openListActions(stack []submenuLevel, list submenuLevel) (tea.Mod
 
 // stackForm draws a form to the right of the menus drawn beside it, going back to the menus it
 // was opened from.
-func (m model) stackForm(drawn, from []submenuLevel, form formState) (tea.Model, tea.Cmd) {
+func (m *model) stackForm(drawn, from []submenuLevel, form formState) tea.Cmd {
 	form.crumbs = append(xslice.Map(from, func(l submenuLevel) string { return l.menu.title }), form.crumbs...)
 	form.leading = func(width, _ int) []string {
 		return frozenMenus(drawn, width-formColumnFloor)
 	}
-	form.back = func(m model) (tea.Model, tea.Cmd) {
+	form.back = func(m *model) tea.Cmd {
 		return m.backSubmenu(from)
 	}
 
-	cmd := m.openForm(form)
-
-	return m, cmd
+	return m.openForm(form)
 }
 
 // backSubmenu closes the menu on top, handing the keys to the one it was opened from.
-func (m model) backSubmenu(parents []submenuLevel) (tea.Model, tea.Cmd) {
+func (m *model) backSubmenu(parents []submenuLevel) tea.Cmd {
 	if len(parents) == 0 {
 		return m.closeForm()
 	}
@@ -368,7 +358,7 @@ func submenuKeyMap(keys config.FormKeys) *huh.KeyMap {
 
 // updateSubmenu answers an entry by its own key, goes back a menu on the back key, and hands huh
 // every other message.
-func (m model) updateSubmenu(msg tea.Msg, parents []submenuLevel, level submenuLevel) (tea.Model, tea.Cmd) {
+func (m *model) updateSubmenu(msg tea.Msg, parents []submenuLevel, level submenuLevel) tea.Cmd {
 	press, ok := msg.(tea.KeyPressMsg)
 	if !ok {
 		return m.updateForm(msg)
@@ -390,19 +380,12 @@ func (m model) updateSubmenu(msg tea.Msg, parents []submenuLevel, level submenuL
 		}
 	}
 
-	next, cmd := m.updateForm(msg)
+	cmd := m.updateForm(msg)
 	if !level.isOnDivider() {
-		return next, cmd
+		return cmd
 	}
 
-	moved, ok := next.(model)
-	if !ok {
-		return next, cmd
-	}
-
-	past, more := moved.updateForm(msg)
-
-	return past, tea.Batch(cmd, more)
+	return tea.Batch(cmd, m.updateForm(msg))
 }
 
 func (l submenuLevel) isOnDivider() bool {

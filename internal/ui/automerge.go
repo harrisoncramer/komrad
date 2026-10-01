@@ -57,11 +57,11 @@ func autoMergeRefusal(item panel.AgentRow) error {
 
 // toggleAutoMerge asks the forge to merge the agent's pull request once its checks and reviews
 // pass, or to stop waiting to, or says why it cannot.
-func (m model) toggleAutoMerge(item panel.AgentRow) (model, tea.Cmd) {
+func (m *model) toggleAutoMerge(item panel.AgentRow) tea.Cmd {
 	if err := autoMergeRefusal(item); err != nil {
 		m.report("Could not change auto-merge on the pull request of "+item.Agent.Name, err)
 
-		return m, nil
+		return nil
 	}
 
 	clients := m.api
@@ -74,7 +74,7 @@ func (m model) toggleAutoMerge(item panel.AgentRow) (model, tea.Cmd) {
 	}
 	autoMerged.write = m.beginWrite(autoMergingLabel(autoMerged))
 
-	return m, func() tea.Msg {
+	return func() tea.Msg {
 		autoMerged.err = clients.setPullRequestAutoMerge(standing.URL, standing.HeadSHA, autoMerged.on)
 
 		return autoMerged
@@ -82,7 +82,7 @@ func (m model) toggleAutoMerge(item panel.AgentRow) (model, tea.Cmd) {
 }
 
 // applyAutoMerged reports the auto-merge change and takes down the menu held for it.
-func (m model) applyAutoMerged(msg autoMergedMsg) (tea.Model, tea.Cmd) {
+func (m *model) applyAutoMerged(msg autoMergedMsg) tea.Cmd {
 	held := m.landHeld(msg.write)
 
 	switch {
@@ -103,7 +103,7 @@ func (m model) applyAutoMerged(msg autoMergedMsg) (tea.Model, tea.Cmd) {
 	}
 
 	if !held {
-		return m, nil
+		return nil
 	}
 
 	return m.closeForm()
