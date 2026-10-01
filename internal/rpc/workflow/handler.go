@@ -6,6 +6,7 @@ import (
 	"context"
 
 	"komrad/internal/agents"
+	"komrad/internal/eventprompts"
 	"komrad/internal/fail"
 	"komrad/internal/rpc/render"
 	"komrad/internal/rpcerr"
@@ -38,7 +39,6 @@ type workflowConfigGetter interface {
 	GetReviewerFlags() string
 	GetWorktree() *workflowv1.WorktreeConfig
 	GetHooks() []*workflowv1.WorkflowHook
-	GetEventPrompts() []*workflowv1.WorkflowEventPrompt
 }
 
 type NewHandlerParams struct {
@@ -96,7 +96,10 @@ func (s *Handler) GetWorkflow(ctx context.Context, req *workflowv1.GetWorkflowRe
 
 // CreateWorkflow adds a workflow and returns it as stored.
 func (s *Handler) CreateWorkflow(ctx context.Context, req *workflowv1.CreateWorkflowRequest) (*workflowv1.CreateWorkflowResponse, *fail.Error) {
-	created, err := s.workflows.NewWorkflow(ctx, buildConfigFromRequest(req))
+	cfg := buildConfigFromRequest(req)
+	cfg.EventPrompts = buildCreatedEventPrompts(req.GetEventPrompts())
+
+	created, err := s.workflows.NewWorkflow(ctx, cfg)
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to create workflow")
 	}
@@ -106,7 +109,10 @@ func (s *Handler) CreateWorkflow(ctx context.Context, req *workflowv1.CreateWork
 
 // UpdateWorkflow replaces a workflow's editable fields.
 func (s *Handler) UpdateWorkflow(ctx context.Context, req *workflowv1.UpdateWorkflowRequest) (*emptypb.Empty, *fail.Error) {
-	err := s.workflows.UpdateWorkflow(ctx, req.GetId(), buildConfigFromRequest(req))
+	cfg := buildConfigFromRequest(req)
+	cfg.EventPrompts = buildEventPromptsFromProto(req.GetEventPrompts())
+
+	err := s.workflows.UpdateWorkflow(ctx, req.GetId(), cfg)
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to update workflow")
 	}
@@ -154,7 +160,6 @@ func buildConfigFromRequest(req workflowConfigGetter) workflowstore.Config {
 		ReviewerFlags:   req.GetReviewerFlags(),
 		Worktree:        buildWorktreeConfigFromProto(req.GetWorktree()),
 		Hooks:           buildHooksFromProto(req.GetHooks()),
-		EventPrompts:    buildEventPromptsFromProto(req.GetEventPrompts()),
 	}
 }
 
@@ -162,6 +167,18 @@ func buildHooksFromProto(hooks []*workflowv1.WorkflowHook) []workflowstore.Hook 
 	return xslice.Map(hooks, func(hook *workflowv1.WorkflowHook) workflowstore.Hook {
 		return workflowstore.Hook{Event: hook.GetEvent(), Script: hook.GetScript()}
 	})
+}
+
+// buildCreatedEventPrompts is the prompts a new workflow starts with, each event's default when the
+// caller sent none.
+func buildCreatedEventPrompts(sent *workflowv1.WorkflowEventPrompts) []workflowstore.EventPrompt {
+	if sent == nil {
+		return xslice.Map(eventprompts.All(), func(event eventprompts.Event) workflowstore.EventPrompt {
+			return workflowstore.EventPrompt{Event: event.Name, Prompt: event.DefaultPrompt}
+		})
+	}
+
+	return buildEventPromptsFromProto(sent.GetPrompts())
 }
 
 func buildEventPromptsFromProto(prompts []*workflowv1.WorkflowEventPrompt) []workflowstore.EventPrompt {

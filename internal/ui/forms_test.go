@@ -1126,8 +1126,8 @@ func findLastFilled(lines []string) string {
 	return ""
 }
 
-func defaultEventPrompts() []*workflowv1.WorkflowEventPrompt {
-	return xslice.Map(eventprompts.All(), func(event eventprompts.Event) *workflowv1.WorkflowEventPrompt {
+func defaultEventPrompts() *workflowv1.WorkflowEventPrompts {
+	return &workflowv1.WorkflowEventPrompts{Prompts: xslice.Map(eventprompts.All(), func(event eventprompts.Event) *workflowv1.WorkflowEventPrompt {
 		return &workflowv1.WorkflowEventPrompt{Event: event.Name, Prompt: event.DefaultPrompt}
-	})
+	})}
 }

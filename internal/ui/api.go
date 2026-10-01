@@ -458,7 +458,7 @@ func (a api) createWorkflow(cfg panel.WorkflowConfig) (*workflowv1.Workflow, err
 			ReviewerFlags:   cfg.ReviewerFlags,
 			Worktree:        worktreeConfigToProto(cfg.Worktree),
 			Hooks:           hooksToProto(cfg.Hooks),
-			EventPrompts:    eventPromptsToProto(cfg.EventPrompts),
+			EventPrompts:    &workflowv1.WorkflowEventPrompts{Prompts: eventPromptsToProto(cfg.EventPrompts)},
 		}))
 		if err != nil {
 			return nil, err

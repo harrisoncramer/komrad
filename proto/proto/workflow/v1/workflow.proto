@@ -73,6 +73,22 @@ message WorkflowEventPrompt {
   }];
 }
 
+// Explainer: why CreateWorkflowRequest takes its prompts wrapped in a message.
+//
+// A repeated field in proto3 has no presence, so an empty list and a field the caller left out
+// look the same on the wire. Creating a workflow needs to tell them apart. A caller that says
+// nothing about prompts, such as an agent over MCP or komrad's own autosetup, should get komrad's
+// default prompt for each event. The panel's new-workflow form shows those defaults and lets a
+// person clear them, so it has to be able to save a workflow with none. A message field does
+// carry presence, so wrapping the list gives an unset field and an empty one different meanings.
+// UpdateWorkflowRequest replaces the whole list every time and has no default to fall back on,
+// so it keeps a plain repeated field.
+
+message WorkflowEventPrompts {
+  // One per event.
+  repeated WorkflowEventPrompt prompts = 1 [(buf.validate.field).repeated.max_items = 50];
+}
+
 message WorkflowHook {
   // Which moment fires it, such as pre-launch or post-archive.
   string event = 1 [(buf.validate.field).string = {
@@ -198,9 +214,9 @@ message CreateWorkflowRequest {
     max_len: 500
     [rules.v1.shell_safe]: true
   }];
-  // What its agents are asked to do when komrad mails them an event, komrad's defaults when none
-  // are given.
-  repeated WorkflowEventPrompt event_prompts = 13 [(buf.validate.field).repeated.max_items = 50];
+  // What its agents are asked to do when komrad mails them an event. Left unset, the workflow
+  // starts with komrad's default prompt for each event, and set with no prompts it starts with none.
+  WorkflowEventPrompts event_prompts = 13;
 }
 
 message CreateWorkflowResponse {

@@ -8275,13 +8275,13 @@
         },
         {
           "name": "event_prompts",
-          "type": "WorkflowEventPrompt",
-          "ref": "workflow.v1.WorkflowEventPrompt",
-          "repeated": true,
+          "type": "WorkflowEventPrompts",
+          "ref": "workflow.v1.WorkflowEventPrompts",
+          "repeated": false,
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "What its agents are asked to do when komrad mails them an event, komrad's defaults when none are given."
+          "description": "What its agents are asked to do when komrad mails them an event. Left unset, the workflow starts with komrad's default prompt for each event, and set with no prompts it starts with none."
         }
       ]
     },
@@ -8746,6 +8746,22 @@
             "at most 500 characters"
           ],
           "description": "The text added to the mail carrying that event."
+        }
+      ]
+    },
+    "workflow.v1.WorkflowEventPrompts": {
+      "name": "WorkflowEventPrompts",
+      "description": "",
+      "fields": [
+        {
+          "name": "prompts",
+          "type": "WorkflowEventPrompt",
+          "ref": "workflow.v1.WorkflowEventPrompt",
+          "repeated": true,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "One per event."
         }
       ]
     },
