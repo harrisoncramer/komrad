@@ -16,8 +16,8 @@ default_harness = "claude"
 # worktree for each agent and an orchestrator standing by, when no workflow covers that
 # directory yet.
 auto_setup      = false
-# Edit the panel's text fields the way vim does. A field opens in insert mode, esc goes to normal
-# mode, and a second esc closes the form.
+# Edit the panel's text fields the way vim does, the search and rename lines included. A field
+# opens in insert mode, esc goes to normal mode, and a second esc closes it.
 vim_mode        = false
 
 [harness.claude]
