@@ -214,18 +214,6 @@ func TestListingFocus(t *testing.T) {
 		assert.Empty(t, harness.panel.ReadSelectedPanes())
 	})
 
-	t.Run("a resume hands the keys to the pane it puts back", func(t *testing.T) {
-		t.Parallel()
-
-		harness := openAgents(t, newLiveWorkflow("w1", "api"), newDormant("old"))
-		answerResume(harness)
-
-		harness.press("j", "enter")
-
-		assert.Equal(t, "%9", harness.panel.ReadGuestPane())
-		assert.Equal(t, []string{"%9"}, harness.panel.ReadSelectedPanes())
-	})
-
 	t.Run("a create stages its pane and leaves the keys on the panel", func(t *testing.T) {
 		t.Parallel()
 
@@ -238,7 +226,20 @@ func TestListingFocus(t *testing.T) {
 		assert.Empty(t, harness.panel.ReadSelectedPanes())
 	})
 
-	t.Run("a resume waits for the harness to draw before handing over the keys", func(t *testing.T) {
+	t.Run("a resume leaves the keys on the panel", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openAgents(t, newLiveWorkflow("w1", "api"), newDormant("old"))
+		answerResume(harness)
+
+		harness.press("j", "enter")
+
+		assert.Empty(t, harness.panel.ReadGuestPane())
+		assert.Empty(t, harness.panel.ReadSelectedPanes())
+		assert.Contains(t, readOpenMessages(harness), "old is back up")
+	})
+
+	t.Run("a resume leaves the keys on the panel once the harness draws", func(t *testing.T) {
 		t.Parallel()
 
 		frames := &drawReporter{}
@@ -248,43 +249,42 @@ func TestListingFocus(t *testing.T) {
 		answerResume(harness)
 
 		harness.press("j", "enter")
-		require.Empty(t, harness.panel.ReadSelectedPanes(), "a pane still at its shell is not given the keys")
-
 		frames.isDrawn = true
 		harness.fireTimers()
 
-		assert.Equal(t, "%9", harness.panel.ReadGuestPane())
-		assert.Equal(t, []string{"%9"}, harness.panel.ReadSelectedPanes())
+		assert.Empty(t, harness.panel.ReadSelectedPanes())
 	})
 
-	t.Run("a resume tmux will not split for leaves the keys on the panel", func(t *testing.T) {
+	t.Run("the cursor moves freely while a resume is in flight", func(t *testing.T) {
 		t.Parallel()
 
-		harness := newPanelHarness(t, panelHarnessParams{refuseSplits: true})
-		answerWorktreeReads(harness)
-		harness.watch(buildSnapshot(newLiveWorkflow("w1", "api"), newDormant("old")))
+		other := newAgent("a2", "other", "w1")
+		harness := openAgents(t, newLiveWorkflow("w1", "api"), newDormant("old"), other)
 		answerResume(harness)
+		harness.hold(agentv1connect.AgentServiceResumeAgentProcedure)
 
-		harness.press("j", "enter")
+		harness.press("j", "j")
+		require.Equal(t, "  old", readHoveredRow(harness.readFrame()))
+		harness.press("enter", "k")
+		moved := readHoveredRow(harness.readFrame())
+		require.NotEqual(t, "  old", moved)
 
-		assert.Empty(t, harness.panel.ReadGuestPane())
-		assert.Empty(t, harness.panel.ReadSelectedPanes(), "the keys stay on the panel rather than moving to a pane nobody can see")
+		harness.release(agentv1connect.AgentServiceResumeAgentProcedure)
+
+		assert.Equal(t, moved, readHoveredRow(harness.readFrame()), "the landing leaves the cursor where it was moved")
 	})
 
-	t.Run("a resume tmux will not split for once the harness draws leaves the keys too", func(t *testing.T) {
+	t.Run("the open key again over an agent still resuming sends nothing", func(t *testing.T) {
 		t.Parallel()
 
-		frames := &drawReporter{}
-		harness := newPanelHarness(t, panelHarnessParams{harnessFrames: frames, refuseSplits: true})
-		answerWorktreeReads(harness)
-		harness.watch(buildSnapshot(newLiveWorkflow("w1", "api"), newDormant("old")))
+		harness := openAgents(t, newLiveWorkflow("w1", "api"), newDormant("old"))
 		answerResume(harness)
+		harness.hold(agentv1connect.AgentServiceResumeAgentProcedure)
 
-		harness.press("j", "enter")
-		frames.isDrawn = true
-		harness.fireTimers()
+		harness.press("j", "enter", "enter")
+		harness.release(agentv1connect.AgentServiceResumeAgentProcedure)
 
-		assert.Empty(t, harness.panel.ReadGuestPane())
+		assert.Len(t, harness.readSent(agentv1connect.AgentServiceResumeAgentProcedure), 1)
 		assert.Empty(t, harness.panel.ReadSelectedPanes())
 	})
 }
