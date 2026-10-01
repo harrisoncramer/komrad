@@ -19,11 +19,11 @@ import (
 	"komrad/lib/xptr"
 )
 
-// DefaultAPI is where github.com answers REST calls, with GraphQL beside it.
-const DefaultAPI = "https://api.github.com"
+// defaultAPI is where github.com answers REST calls, with GraphQL beside it.
+const defaultAPI = "https://api.github.com"
 
-// MaxPerPage is the most GitHub hands over in one page, above which it silently trims.
-const MaxPerPage = 100
+// maxPerPage is the most GitHub hands over in one page, above which it silently trims.
+const maxPerPage = 100
 
 // pullRequestFragment is every field of a pull request the record is built from.
 const pullRequestFragment = `fragment pullRequestFields on PullRequest {
@@ -100,7 +100,7 @@ var dialect = graphql.Dialect{
 // NewForgeParams says how the forge reaches the API and as whom.
 type NewForgeParams struct {
 	Auth forge.Authenticator
-	// API is the REST base, DefaultAPI when unset, beside which GraphQL is answered.
+	// API is the REST base, https://api.github.com when unset, beside which GraphQL is answered.
 	API string
 	// Next is the round tripper under the credential transport, the default when nil.
 	Next http.RoundTripper
@@ -119,7 +119,7 @@ type Forge struct {
 func NewForge(params NewForgeParams) *Forge {
 	api := params.API
 	if api == "" {
-		api = DefaultAPI
+		api = defaultAPI
 	}
 
 	return &Forge{client: graphql.NewClient(graphql.NewClientParams{
@@ -189,7 +189,7 @@ func (f *Forge) List(ctx context.Context, params forge.ListParams) (*forge.Page,
 	variables := map[string]any{
 		"owner":  owner,
 		"name":   name,
-		"first":  min(max(params.PerPage, 1), MaxPerPage),
+		"first":  min(max(params.PerPage, 1), maxPerPage),
 		"after":  graphql.CursorOf(params.Cursor),
 		"states": []string{"OPEN"},
 	}
@@ -198,7 +198,25 @@ func (f *Forge) List(ctx context.Context, params forge.ListParams) (*forge.Page,
 		variables["states"] = []string{"OPEN", "CLOSED", "MERGED"}
 	}
 
-	return f.listPullRequests(ctx, listQuery, variables)
+	var data struct {
+		Repository *struct {
+			PullRequests connection `json:"pullRequests"`
+		} `json:"repository"`
+	}
+	answer, err := f.client.Query(ctx, listQuery, variables, &data)
+	if err != nil {
+		return nil, err
+	}
+	if err := failureOf(answer); err != nil {
+		return nil, err
+	}
+	if data.Repository == nil {
+		return nil, noRepository(variables)
+	}
+
+	return graphql.PageOf(&data.Repository.PullRequests, answer.RateLimit, func(node pullRequestNode) forge.PullRequest {
+		return node.toPullRequest(false)
+	}), nil
 }
 
 // Get is one pull request by its web address.
@@ -488,30 +506,6 @@ func (f *Forge) readAutoMergeTarget(ctx context.Context, params readAutoMergeTar
 	target.method = data.Repository.ViewerDefaultMergeMethod
 
 	return target, nil
-}
-
-// listPullRequests reads one page of a repository's pullRequests connection, whichever query
-// shapes it.
-func (f *Forge) listPullRequests(ctx context.Context, operation string, variables map[string]any) (*forge.Page, error) {
-	var data struct {
-		Repository *struct {
-			PullRequests connection `json:"pullRequests"`
-		} `json:"repository"`
-	}
-	answer, err := f.client.Query(ctx, operation, variables, &data)
-	if err != nil {
-		return nil, err
-	}
-	if err := failureOf(answer); err != nil {
-		return nil, err
-	}
-	if data.Repository == nil {
-		return nil, noRepository(variables)
-	}
-
-	return graphql.PageOf(&data.Repository.PullRequests, answer.RateLimit, func(node pullRequestNode) forge.PullRequest {
-		return node.toPullRequest(false)
-	}), nil
 }
 
 // noRepository is GitHub answering null for the repository a query's variables name.
