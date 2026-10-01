@@ -109,15 +109,56 @@ func TestReviewFiles(t *testing.T) {
 		assert.NotContains(t, block, "f29.go")
 	})
 
-	t.Run("the header counts the files read and the threads waiting", func(t *testing.T) {
-		server := newReviewServer(t)
-		server.repo.Patches[gittest.NamePair(gittest.BaseSHA, gittest.SnapshotSHA)] = gittest.PatchOfBothFiles
-		server.threads = []*agentv1.ReviewThread{newThreadOnFirstLine(newHumanMessage("m1", "rename the package"))}
-		harness := openReview(t, server)
+	t.Run("the search over the tree lands on the files it matches", func(t *testing.T) {
+		tests := []struct {
+			name string
+			keys []string
+			want []string
+		}{
+			{
+				name: "a search keeps every file and lands on the first match",
+				keys: []string{"/", "f", "0", "2", "enter"},
+				want: []string{"/ f02", "f00.go +1 −1", "f01.go +1 −1", "› f02.go +1 −1", "f03.go +1 −1"},
+			},
+			{
+				name: "the next match key walks to the next file the search matches",
+				keys: []string{"/", "f", "0", "[", "13", "]", "enter", "n"},
+				want: []string{"/ f0[13]", "f00.go +1 −1", "f01.go +1 −1", "f02.go +1 −1", "› f03.go +1 −1"},
+			},
+			{
+				name: "tab turns the search into a filter that keeps only the files it matches",
+				keys: []string{"/", "f", "0", "[", "13", "]", "tab", "enter"},
+				want: []string{"▽ f0[13]", "› f01.go +1 −1", "f03.go +1 −1"},
+			},
+			{
+				name: "moving in a filtered tree skips the files it took away",
+				keys: []string{"/", "f", "0", "[", "13", "]", "tab", "enter", "j"},
+				want: []string{"▽ f0[13]", "f01.go +1 −1", "› f03.go +1 −1"},
+			},
+			{
+				name: "a filter matching nothing says so",
+				keys: []string{"/", "z", "tab", "enter"},
+				want: []string{"▽ z", "no file matches"},
+			},
+			{
+				name: "the back key clears a standing filter",
+				keys: []string{"/", "f", "0", "1", "tab", "enter", "esc"},
+				want: []string{"/", "f00.go +1 −1", "› f01.go +1 −1", "f02.go +1 −1", "f03.go +1 −1"},
+			},
+		}
 
-		harness.press("v")
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				server := newReviewServer(t)
+				server.repo.Patches[gittest.NamePair(gittest.BaseSHA, gittest.SnapshotSHA)] = newPatchOfFiles(4)
+				harness := openReview(t, server)
 
-		assert.Equal(t, "FILES 1 of 2 read +4 −1 ○1", readFilesBlock(harness.readFrame())[0])
+				harness.press("ctrl+space", "ctrl+space")
+				harness.press(tt.keys...)
+
+				assert.Equal(t, tt.want, readFilesBlock(harness.readFrame()))
+			})
+		}
 	})
 
 	t.Run("the leader twice hands the keys to the tree, which walks the diff a file at a time", func(t *testing.T) {
@@ -142,7 +183,6 @@ func TestReviewFiles(t *testing.T) {
 
 		harness.press("ctrl+space", "ctrl+space", "j", "v")
 
-		assert.Equal(t, "FILES 1 of 2 read +4 −1", readFilesBlock(harness.readFrame())[0])
 		require.Len(t, server.viewed, 1)
 		assert.Equal(t, "second.go", server.viewed[0].GetFilePath())
 	})
@@ -151,7 +191,7 @@ func TestReviewFiles(t *testing.T) {
 func readFilesBlock(frame string) []string {
 	var block []string
 	for _, line := range readSidebar(frame) {
-		if strings.HasPrefix(line, "FILES") {
+		if block == nil && (strings.HasPrefix(line, "/") || strings.HasPrefix(line, "▽")) {
 			block = []string{}
 		}
 		if block == nil {

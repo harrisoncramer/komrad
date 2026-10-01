@@ -642,6 +642,22 @@ func (v *View) JumpFile(y, direction int) int {
 	return y
 }
 
+// GetFileLanding is the first row of the file whose header is on y that the cursor can rest on.
+func (v *View) GetFileLanding(y int) int {
+	header, ok := v.getRow(y)
+	if !ok {
+		return y
+	}
+
+	for index := y; index < len(v.rows) && v.rows[index].file == header.file; index++ {
+		if v.isPinnable(index) {
+			return index
+		}
+	}
+
+	return y
+}
+
 // GetFileTopRow returns the row the file at y starts on, so a jump into it can put its header at
 // the top of the pane.
 func (v *View) GetFileTopRow(y int) int {

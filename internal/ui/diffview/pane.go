@@ -111,6 +111,22 @@ func (p *Pane) JumpFile(direction, height int) bool {
 	return true
 }
 
+// JumpToFile moves to the file whose header is on row and puts that header at the top of the pane.
+func (p *Pane) JumpToFile(row, height int) bool {
+	next := p.view.GetFileLanding(row)
+	if next == p.cursor {
+		return false
+	}
+
+	p.cursor = next
+	p.top = cursor.Clamp(row, p.view.Len())
+	p.pinTop = true
+	p.pinFloor = p.top
+	p.ScrollToCursor(height)
+
+	return true
+}
+
 // Search runs a pattern over the view and stands the reader on the first match at or after them.
 func (p *Pane) Search(pattern *regexp.Regexp, height int) {
 	if p.view.SetPattern(pattern) == 0 {
