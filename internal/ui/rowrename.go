@@ -95,7 +95,7 @@ func reconcileRename[T keyed](r *renameSlot, rows []T, hovered string, name func
 }
 
 func (r *renameSlot) updateRename(m *model, msg tea.Msg) tea.Cmd {
-	switch r.renaming.take(m, m.register, msg) {
+	switch r.renaming.take(m, msg) {
 	case nameEditHidden:
 		return m.hide()
 	case nameEditCancelled:

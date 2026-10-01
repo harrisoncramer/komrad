@@ -58,7 +58,7 @@ func (d *documentsScreen) reconcileRename(m *model) {
 }
 
 func (d *documentsScreen) updateRename(m *model, msg tea.Msg) tea.Cmd {
-	switch d.renaming.take(m, m.register, msg) {
+	switch d.renaming.take(m, msg) {
 	case nameEditHidden:
 		return m.hide()
 	case nameEditCancelled:
