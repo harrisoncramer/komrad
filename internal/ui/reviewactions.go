@@ -364,7 +364,7 @@ func (r *reviewScreen) filesActions() screenActionSpec {
 			},
 			{
 				of:   []actionID{actionFilterOpen},
-				desc: func(panelShared) string { return r.filesFilterDesc() },
+				desc: func(panelShared) string { return r.filesFilter.openDesc() },
 			},
 			{
 				of:   []actionID{actionFilterMatch},
@@ -372,7 +372,7 @@ func (r *reviewScreen) filesActions() screenActionSpec {
 			},
 			{
 				of:   []actionID{actionFilterClear},
-				desc: func(panelShared) string { return "clear " + r.filesFilter.mode.String() },
+				desc: func(panelShared) string { return r.filesFilter.clearDesc() },
 			},
 			{
 				of:   []actionID{actionReviewViewed},

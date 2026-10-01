@@ -69,6 +69,19 @@ func (f filterState) isStanding() bool {
 	return f.query() != ""
 }
 
+// openDesc names the key that opens the search by the pattern standing.
+func (f filterState) openDesc() string {
+	if f.isStanding() {
+		return f.mode.String() + ": " + f.query()
+	}
+
+	return "search"
+}
+
+func (f filterState) clearDesc() string {
+	return "clear " + f.mode.String()
+}
+
 // isNarrowing reports whether the pattern is taking rows off the screen.
 func (f filterState) isNarrowing() bool {
 	return f.mode == filterModeFilter && f.pattern != nil && !f.typing

@@ -408,12 +408,3 @@ func (r *reviewScreen) jumpFilesMatch(h navHost, s panelShared, direction int) t
 
 	return nil
 }
-
-// filesFilterDesc names the search key by the pattern standing over the tree.
-func (r *reviewScreen) filesFilterDesc() string {
-	if r.filesFilter.isStanding() {
-		return r.filesFilter.mode.String() + ": " + r.filesFilter.query()
-	}
-
-	return "search"
-}
