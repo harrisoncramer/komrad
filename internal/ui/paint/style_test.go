@@ -102,3 +102,75 @@ func TestPlainText(t *testing.T) {
 	assert.Equal(t, "a warm day", PlainText("\x1b[1ma \x1b[38;5;3mwarm\x1b[0m day"))
 	assert.Equal(t, "café ☕", PlainText("\x1b[1mcafé\x1b[0m ☕"))
 }
+
+// TestClipAround covers the cursor staying in view whichever side of it the text overflows.
+func TestClipAround(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		before     string
+		after      string
+		width      int
+		wantBefore string
+		wantAfter  string
+	}{
+		{
+			name:       "text that fits is left whole",
+			before:     "ab",
+			after:      "cd",
+			width:      4,
+			wantBefore: "ab",
+			wantAfter:  "cd",
+		},
+		{
+			name:       "a cursor near the end cuts the start",
+			before:     "abcdef",
+			after:      "g",
+			width:      4,
+			wantBefore: "…ef",
+			wantAfter:  "g",
+		},
+		{
+			name:       "a cursor near the start cuts the end",
+			before:     "a",
+			after:      "bcdefg",
+			width:      4,
+			wantBefore: "a",
+			wantAfter:  "bc…",
+		},
+		{
+			name:       "a cursor in the middle cuts both sides",
+			before:     "abcdef",
+			after:      "ghijkl",
+			width:      6,
+			wantBefore: "…ef",
+			wantAfter:  "gh…",
+		},
+		{
+			name:       "a tail wider than the column with text before the cursor",
+			before:     "a",
+			after:      "bcdefghij",
+			width:      1,
+			wantBefore: "a",
+			wantAfter:  "",
+		},
+		{
+			name:   "no room draws nothing",
+			before: "abc",
+			after:  "def",
+			width:  0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			before, after := ClipAround(tt.before, tt.after, tt.width)
+
+			assert.Equal(t, tt.wantBefore, before)
+			assert.Equal(t, tt.wantAfter, after)
+		})
+	}
+}

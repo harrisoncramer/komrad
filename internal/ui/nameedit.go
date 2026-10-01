@@ -174,14 +174,14 @@ type renamer interface {
 	isRenaming() bool
 }
 
-// drawnName is the typed name in a row's lettering, cut from its start to fit.
+// drawnName is the typed name in a row's lettering, cut to fit around the cursor.
 func drawnName(e *nameEdit, style lipgloss.Style) string {
 	if e.saving || e.landed {
 		return style.Render(paint.ClipStart(e.input.value(), nameWidth))
 	}
 
 	before, after := e.input.split()
-	before = paint.ClipStart(before, max(nameWidth-lipgloss.Width(after), 0))
+	before, after = paint.ClipAround(before, after, nameWidth)
 
 	return style.Render(before) + paint.Panel.Cursor().Render(glyph.TextCursor) + style.Render(after)
 }

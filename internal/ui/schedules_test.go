@@ -102,6 +102,12 @@ func TestSchedulesKeys(t *testing.T) {
 			wantDrawn: []string{"morning-ci-2▏", "enter/C-s save"},
 		},
 		{
+			name:      "rename on a long name keeps the cursor in view near its start",
+			rows:      []proto.Message{newLiveWorkflow("w1", "api"), newSchedule("s1", "abcdefghijklmnopqrstuvwxyz0123456789")},
+			press:     []string{"r", "home", "right"},
+			wantDrawn: []string{"a▏bcdefghijklmnopqrstuvwxyz012…"},
+		},
+		{
 			name:  "rename sends the typed name with the rest of the schedule as it was",
 			rows:  buildSchedules(),
 			press: slices.Concat([]string{"r"}, spellKeys("-2"), []string{"enter"}),
