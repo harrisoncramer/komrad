@@ -606,6 +606,8 @@ type ForgeReviewThread struct {
 	Quote string
 	// When the person dismissed the thread in their review, null while they never have. A dismissed thread is still drawn but no longer counted. The sync leaves it alone, and a comment written on the forge after it makes the thread active again.
 	DismissedAt pgtype.Timestamptz
+	// The review thread the person accepted this thread into, null while they never have. Deleting that review thread, as discarding an unsent review does, makes this an offer again.
+	AcceptedThreadID pgtype.UUID
 }
 
 // One piece of mail from one agent to another, held until the recipient claims it.
@@ -747,6 +749,12 @@ type ReviewMessage struct {
 	EngineID pgtype.UUID
 	// The round an agent's reply said answers the thread, taken of its worktree as it stood when it replied. Set only on a reply that resolves the thread; null on everything else.
 	RoundID pgtype.UUID
+	// The forge login of whoever wrote this on the forge, for a comment the person accepted from there, empty when the forge no longer knew them. Null for anything written in komrad.
+	ExternalLogin *string
+	// The forge comment this was copied from, null for anything written in komrad. It names no row once the forge deletes the comment, which is how the copy is known to be gone there.
+	ForgeCommentID pgtype.UUID
+	// When the forge comment had last been edited at the moment it was copied, null when it never had been. A later edit on the forge is told apart by this.
+	ForgeEditedAt pgtype.Timestamptz
 }
 
 // One frozen snapshot of what an agent has written. A review is always given against a round rather than against the working files.

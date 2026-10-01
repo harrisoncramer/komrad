@@ -11,17 +11,18 @@ import (
 // ForgeThread draws a forge review thread with its comments.
 func ForgeThread(stored pullrequeststore.ForgeThread) *pullrequestv1.ForgeThread {
 	return &pullrequestv1.ForgeThread{
-		Id:            stored.ID,
-		PullRequestId: stored.PullRequestID,
-		Path:          stored.Path,
-		Line:          int32(stored.Line),
-		OldSide:       stored.OldSide,
-		CommitSha:     stored.CommitSHA,
-		Quote:         stored.Quote,
-		Url:           stored.URL,
-		Resolved:      stored.Resolved,
-		WrittenAt:     dates.Stamp(stored.WrittenAt),
-		Dismissed:     stored.Dismissed,
+		Id:               stored.ID,
+		PullRequestId:    stored.PullRequestID,
+		Path:             stored.Path,
+		Line:             int32(stored.Line),
+		OldSide:          stored.OldSide,
+		CommitSha:        stored.CommitSHA,
+		Quote:            stored.Quote,
+		Url:              stored.URL,
+		Resolved:         stored.Resolved,
+		WrittenAt:        dates.Stamp(stored.WrittenAt),
+		Dismissed:        stored.Dismissed,
+		AcceptedThreadId: stored.AcceptedThreadID,
 		Comments: xslice.Map(stored.Comments, func(comment pullrequeststore.ForgeComment) *pullrequestv1.ForgeComment {
 			return &pullrequestv1.ForgeComment{
 				Id:          comment.ID,

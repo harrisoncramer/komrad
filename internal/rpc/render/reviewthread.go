@@ -68,6 +68,13 @@ func ReviewMessage(message reviewstore.Message) *agentv1.ReviewMessage {
 	if at := message.DeliveredAt; at != nil {
 		answered.DeliveredAt = dates.Stamp(*at)
 	}
+	if external := message.External; external != nil {
+		answered.Forge = &agentv1.ForgeOrigin{
+			Login:     external.Login,
+			CommentId: external.CommentID,
+			EditedAt:  dates.StampPtr(external.EditedAt),
+		}
+	}
 
 	return answered
 }

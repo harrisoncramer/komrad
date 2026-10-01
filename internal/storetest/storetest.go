@@ -6,8 +6,10 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	"komrad/internal/dbtest"
+	"komrad/internal/forge"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
 	documentstore "komrad/internal/store/document"
@@ -41,6 +43,7 @@ type Stores struct {
 	Screens          *screenstore.ScreenStore
 	PullRequests     *pullrequeststore.PullRequestStore
 	PullRequestSyncs *pullrequeststore.PullRequestSyncStore
+	ForgeThreads     *pullrequeststore.ForgeThreadStore
 }
 
 // Open builds the stores over a database of this test's own, closed when the
@@ -69,6 +72,7 @@ func Open(t *testing.T) *Stores {
 		Runs:             runstore.NewRunStore(pool.GetDB()),
 		Screens:          screenstore.NewScreenStore(pool.GetDB()),
 		PullRequests:     pullrequeststore.NewPullRequestStore(pool.GetDB()),
+		ForgeThreads:     pullrequeststore.NewForgeThreadStore(pool.GetDB()),
 		PullRequestSyncs: pullrequeststore.NewPullRequestSyncStore(pool.GetDB()),
 	}
 }
@@ -180,4 +184,50 @@ func (s *Stores) SeedSchedule(t *testing.T, cfg schedulestore.Config) *schedules
 	require.NotNil(t, created)
 
 	return created
+}
+
+// SeedForgeThreads opens a pull request on the agent's branch and stores the forge's threads on it, returning them as stored.
+func (s *Stores) SeedForgeThreads(t *testing.T, agentID string, threads ...forge.ReviewThread) []pullrequeststore.ForgeThread {
+	t.Helper()
+	ctx := t.Context()
+
+	repository, branch := "https://github.com/harrisoncramer/komrad", "agent/"+agentID
+	require.NoError(t, s.Agents.SetCheckout(ctx, agentID, agentstore.SetCheckoutParams{RepositoryURL: &repository, Branch: &branch}))
+
+	opened := time.Date(2026, time.September, 18, 12, 0, 0, 0, time.UTC)
+	providerID := "PR_" + agentID
+	_, err := s.PullRequests.Upsert(ctx, pullrequeststore.UpsertParams{
+		Host:              "github.com",
+		Forge:             "github",
+		ProviderID:        providerID,
+		URL:               "https://github.com/harrisoncramer/komrad/pull/1",
+		RepositoryURL:     repository,
+		HeadRepositoryURL: repository,
+		Number:            1,
+		Title:             "one",
+		HeadBranch:        branch,
+		HeadSHA:           "abc",
+		BaseBranch:        "main",
+		BaseSHA:           "def",
+		State:             "OPEN",
+		OpenedAt:          opened,
+		ChangedAt:         opened,
+	})
+	require.NoError(t, err)
+	_, err = s.PullRequests.Observe(ctx)
+	require.NoError(t, err)
+
+	pullRequest, err := s.PullRequests.GetByIdentity(ctx, "github.com", providerID)
+	require.NoError(t, err)
+
+	require.NoError(t, s.ForgeThreads.SetThreads(ctx, pullrequeststore.SetThreadsParams{
+		PullRequestID: pullRequest.ID,
+		Threads:       threads,
+		Prune:         true,
+	}))
+
+	stored, err := s.ForgeThreads.ListWatched(ctx, nil)
+	require.NoError(t, err)
+
+	return xslice.Filter(stored, func(thread pullrequeststore.ForgeThread) bool { return thread.PullRequestID == pullRequest.ID })
 }

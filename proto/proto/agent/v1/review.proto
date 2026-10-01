@@ -201,6 +201,18 @@ message ReviewMessage {
   optional string review_id = 12;
   // The round an addressed reply was taken of. Absent on every other message.
   optional string round_id = 13;
+  // The forge comment the person passed on as this message, absent for anything written in komrad.
+  optional ForgeOrigin forge = 14;
+}
+
+// ForgeOrigin is a forge comment as it stood when the person accepted it into their review.
+message ForgeOrigin {
+  // The forge login of whoever wrote it, empty when the forge no longer knew them.
+  string login = 1;
+  // The forge comment it was copied from, which is gone once the forge deletes that comment.
+  string comment_id = 2;
+  // When the forge comment had last been edited, in RFC 3339, unset while it never had been.
+  optional string edited_at = 3;
 }
 
 message ListReviewThreadsRequest {
@@ -250,6 +262,49 @@ message CreateReviewThreadRequest {
 
 message CreateReviewThreadResponse {
   // The thread as opened, private until the batch is released.
+  ReviewThread thread = 1;
+}
+
+message AcceptForgeThreadRequest {
+  // Whose diff the forge thread is on.
+  string agent_id = 1 [(buf.validate.field).string.min_len = 1];
+  // The forge thread to accept.
+  string forge_thread_id = 2 [(buf.validate.field).string.min_len = 1];
+  // Every comment of the thread the person read, as they read it. Refused when the forge has
+  // changed one since.
+  repeated SeenForgeComment seen = 3 [(buf.validate.field).repeated.min_items = 1];
+  // Which file the new thread is pinned to, relative to the checkout.
+  string file_path = 4 [(buf.validate.field).string.min_len = 1];
+  // The commit the old side of these line numbers was read against, empty for the round's own
+  // base.
+  string base_sha = 5;
+  // The commit the new side of these line numbers was read against.
+  string snapshot_sha = 6;
+  // Where the range begins on the old side of the diff, counting from one.
+  int32 old_start = 7;
+  // Where it ends on the old side, inclusive.
+  int32 old_end = 8;
+  // Where the range begins on the new side.
+  int32 new_start = 9;
+  // Where it ends on the new side, inclusive.
+  int32 new_end = 10;
+  // The diff lines the thread is pinned to, each keeping its leading marker.
+  repeated string quoted_lines = 11;
+  // What the person adds under the forge's comments, empty for nothing.
+  string note = 12 [(buf.validate.field).string.max_len = 1000];
+}
+
+// SeenForgeComment is one forge comment as the person read it.
+message SeenForgeComment {
+  // The handle komrad keys the comment by.
+  string id = 1 [(buf.validate.field).string.min_len = 1];
+  // When it had last been edited, in RFC 3339, unset while it never had been.
+  optional string edited_at = 2;
+}
+
+message AcceptForgeThreadResponse {
+  // The review thread the forge's comments were copied into, private until the review is
+  // released.
   ReviewThread thread = 1;
 }
 

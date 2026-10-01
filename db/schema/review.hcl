@@ -400,6 +400,21 @@ table "review_messages" {
     type    = uuid
     comment = "The round an agent's reply said answers the thread, taken of its worktree as it stood when it replied. Set only on a reply that resolves the thread; null on everything else."
   }
+  column "external_login" {
+    null    = true
+    type    = text
+    comment = "The forge login of whoever wrote this on the forge, for a comment the person accepted from there, empty when the forge no longer knew them. Null for anything written in komrad."
+  }
+  column "forge_comment_id" {
+    null    = true
+    type    = uuid
+    comment = "The forge comment this was copied from, null for anything written in komrad. It names no row once the forge deletes the comment, which is how the copy is known to be gone there."
+  }
+  column "forge_edited_at" {
+    null    = true
+    type    = timestamptz
+    comment = "When the forge comment had last been edited at the moment it was copied, null when it never had been. A later edit on the forge is told apart by this."
+  }
   column "engine_id" {
     null    = false
     type    = uuid

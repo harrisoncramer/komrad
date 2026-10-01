@@ -750,10 +750,17 @@
           "description": "The review screen, which draws an agent's diff in the stage and its review\nthreads in the sidebar.",
           "settings": [
             {
+              "key": "accept",
+              "path": "keybindings.review.accept",
+              "type": "array",
+              "description": "Accept the comment from the forge under the cursor into your review, as a thread of your\nown the agent reads with the rest of it, or bring in what changed on the forge since you did.",
+              "default": "[\"A\"]"
+            },
+            {
               "key": "answer",
               "path": "keybindings.review.answer",
               "type": "array",
-              "description": "Show the change that answered the comment under the cursor, from the work the\ncomment was written on to the work the agent's addressed reply carried, or go back\nto all changes from there.",
+              "description": "Show only the change that answered the comment under the cursor, from the work as\nit stood just before the agent's addressed reply to the work that reply carried, or\ngo back to all changes from there.",
               "default": "[\"a\"]"
             },
             {

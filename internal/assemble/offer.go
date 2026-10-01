@@ -30,10 +30,51 @@ func isBotOffer(thread *pullrequestv1.ForgeThread) bool {
 	return len(comments) > 0 && !slices.ContainsFunc(comments, func(comment *pullrequestv1.ForgeComment) bool { return !comment.GetBot() })
 }
 
-func isCountedOffer(thread *pullrequestv1.ForgeThread) bool {
+// OfferState is where a forge thread stands against the review thread the person accepted it into.
+type OfferState int
+
+const (
+	// OfferOpen is a forge thread the person never accepted, or accepted into a thread since discarded.
+	OfferOpen OfferState = iota
+	// OfferAccepted is a forge thread whose every comment is in the review thread as the forge holds it.
+	OfferAccepted
+	// OfferChanged is a forge thread with a comment written or edited since the person accepted it.
+	OfferChanged
+)
+
+// StateOfOffer is where a forge thread stands against the review thread it was accepted into.
+func StateOfOffer(threads map[string]*agentv1.ReviewThread, offer *pullrequestv1.ForgeThread) OfferState {
+	if offer.GetAcceptedThreadId() == "" {
+		return OfferOpen
+	}
+
+	accepted, ok := threads[offer.GetAcceptedThreadId()]
+	if !ok {
+		return OfferOpen
+	}
+
+	for _, comment := range offer.GetComments() {
+		if !isCopied(accepted, comment) {
+			return OfferChanged
+		}
+	}
+
+	return OfferAccepted
+}
+
+func isCopied(thread *agentv1.ReviewThread, comment *pullrequestv1.ForgeComment) bool {
+	return slices.ContainsFunc(thread.GetMessages(), func(message *agentv1.ReviewMessage) bool {
+		forge := message.GetForge()
+
+		return forge.GetCommentId() == comment.GetId() && forge.GetEditedAt() == comment.GetEditedAt()
+	})
+}
+
+func isCountedOffer(threads map[string]*agentv1.ReviewThread, thread *pullrequestv1.ForgeThread) bool {
 	comments := thread.GetComments()
 
-	return thread.GetPath() != "" && !thread.GetResolved() && !thread.GetDismissed() && len(comments) > 0 && !comments[0].GetYours() && !isBotOffer(thread)
+	return thread.GetPath() != "" && !thread.GetResolved() && !thread.GetDismissed() && len(comments) > 0 && !comments[0].GetYours() && !isBotOffer(thread) &&
+		StateOfOffer(threads, thread) != OfferAccepted
 }
 
 func getOpenPullRequest(pullRequests []*pullrequestv1.PullRequest) *pullrequestv1.PullRequest {
@@ -62,10 +103,10 @@ func groupOffersByPullRequest(threads map[string]*pullrequestv1.ForgeThread) map
 	return byPullRequest
 }
 
-func setOfferCounts(row *agentv1.AgentRow, offers []*pullrequestv1.ForgeThread) {
+func setOfferCounts(row *agentv1.AgentRow, threads map[string]*agentv1.ReviewThread, offers []*pullrequestv1.ForgeThread) {
 	external := 0
 	for _, offer := range offers {
-		if isCountedOffer(offer) {
+		if isCountedOffer(threads, offer) {
 			external++
 		}
 	}

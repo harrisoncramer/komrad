@@ -7,6 +7,7 @@ import (
 
 	"komrad/db"
 	"komrad/db/models"
+	"komrad/internal/fail"
 	"komrad/internal/forge"
 	"komrad/internal/store"
 	"komrad/internal/watch"
@@ -14,6 +15,9 @@ import (
 	"komrad/lib/xslice"
 	watchv1 "komrad/proto/gen/watch/v1"
 )
+
+// ErrAcceptedMoved is a forge thread accepted into another review thread since it was read.
+var ErrAcceptedMoved = fail.Precondition("the forge thread was accepted into another review thread since it was read")
 
 // WatchedForgeThreads declares the forge's review threads on watched pull requests to the watch.
 var WatchedForgeThreads = watch.Resource{
@@ -49,7 +53,9 @@ type ForgeThread struct {
 	Resolved      bool
 	WrittenAt     time.Time
 	Dismissed     bool
-	Comments      []ForgeComment
+	// AcceptedThreadID is the review thread the person copied this into, nil while they never have.
+	AcceptedThreadID *string
+	Comments         []ForgeComment
 }
 
 // ForgeComment is one comment in a forge review thread.
@@ -190,6 +196,32 @@ func (s *ForgeThreadStore) ListWatched(ctx context.Context, keys []string) ([]Fo
 		return nil, nil
 	}
 
+	return s.withComments(ctx, rows)
+}
+
+// GetForAgent is one forge thread on a pull request the agent is linked to, or ErrNotFound.
+func (s *ForgeThreadStore) GetForAgent(ctx context.Context, id, agentID string) (*ForgeThread, error) {
+	if !store.IsID(id) || !store.IsID(agentID) {
+		return nil, store.ErrNotFound.Saying("no forge thread %s on agent %s", id, agentID)
+	}
+
+	row, err := s.queries.GetForgeReviewThreadOfAgent(ctx, models.GetForgeReviewThreadOfAgentParams{ID: id, AgentID: agentID})
+	if db.IsNoRows(err) {
+		return nil, store.ErrNotFound.Saying("no forge thread %s on agent %s", id, agentID)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to read forge thread %s: %w", id, err)
+	}
+
+	threads, err := s.withComments(ctx, []*models.ForgeReviewThread{row})
+	if err != nil {
+		return nil, err
+	}
+
+	return &threads[0], nil
+}
+
+func (s *ForgeThreadStore) withComments(ctx context.Context, rows []*models.ForgeReviewThread) ([]ForgeThread, error) {
 	ids := xslice.Map(rows, func(row *models.ForgeReviewThread) string { return row.ID })
 
 	comments, err := s.queries.ListForgeReviewCommentsOfThreads(ctx, ids)
@@ -256,19 +288,20 @@ func toThreadUpsert(pullRequestID string, thread forge.ReviewThread) models.Upse
 
 func threadFromRow(row *models.ForgeReviewThread, comments []ForgeComment, stored time.Time) ForgeThread {
 	return ForgeThread{
-		ID:            row.ID,
-		PullRequestID: row.PullRequestID,
-		ProviderID:    row.ProviderID,
-		Path:          row.Path,
-		Line:          int(xptr.Deref(row.Line)),
-		OldSide:       row.OldSide,
-		CommitSHA:     row.CommitSha,
-		Quote:         row.Quote,
-		URL:           row.Url,
-		Resolved:      row.Resolved,
-		WrittenAt:     row.WrittenAt,
-		Dismissed:     row.DismissedAt != nil && !stored.After(*row.DismissedAt),
-		Comments:      comments,
+		ID:               row.ID,
+		PullRequestID:    row.PullRequestID,
+		ProviderID:       row.ProviderID,
+		Path:             row.Path,
+		Line:             int(xptr.Deref(row.Line)),
+		OldSide:          row.OldSide,
+		CommitSHA:        row.CommitSha,
+		Quote:            row.Quote,
+		URL:              row.Url,
+		Resolved:         row.Resolved,
+		WrittenAt:        row.WrittenAt,
+		Dismissed:        row.DismissedAt != nil && !stored.After(*row.DismissedAt),
+		AcceptedThreadID: row.AcceptedThreadID,
+		Comments:         comments,
 	}
 }
 
@@ -296,6 +329,39 @@ func (s *ForgeThreadStore) SetDismissed(ctx context.Context, id string, dismisse
 	}
 	if err != nil {
 		return fmt.Errorf("failed to set forge thread %s dismissed: %w", id, err)
+	}
+
+	return nil
+}
+
+// LockAccepted holds a forge thread still accepted into the thread named until the transaction ends.
+func (s *ForgeThreadStore) LockAccepted(ctx context.Context, id, threadID string) error {
+	_, err := s.queries.LockForgeReviewThreadAccepted(ctx, models.LockForgeReviewThreadAcceptedParams{
+		ID:       id,
+		ThreadID: &threadID,
+	})
+	if db.IsNoRows(err) {
+		return ErrAcceptedMoved
+	}
+	if err != nil {
+		return fmt.Errorf("failed to lock forge thread %s: %w", id, err)
+	}
+
+	return nil
+}
+
+// SetAccepted links a forge thread to the review thread it was accepted into and clears its dismissal.
+func (s *ForgeThreadStore) SetAccepted(ctx context.Context, id, threadID string, previousThreadID *string) error {
+	_, err := s.queries.SetForgeReviewThreadAccepted(ctx, models.SetForgeReviewThreadAcceptedParams{
+		ThreadID:         &threadID,
+		ID:               id,
+		PreviousThreadID: previousThreadID,
+	})
+	if db.IsNoRows(err) {
+		return ErrAcceptedMoved
+	}
+	if err != nil {
+		return fmt.Errorf("failed to accept forge thread %s: %w", id, err)
 	}
 
 	return nil
