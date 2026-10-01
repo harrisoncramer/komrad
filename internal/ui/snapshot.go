@@ -44,7 +44,6 @@ func agentsSnapshot(params snapshotParams) view.Snapshot {
 	rows := triageRows(params)
 	for _, r := range params.rows {
 		row := params.renaming.drawnOver(snapshotRow(r, params))
-		row.Faded = params.triage.focused
 		rows = append(rows, row)
 	}
 
