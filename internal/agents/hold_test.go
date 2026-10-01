@@ -62,8 +62,8 @@ func TestHoldWaitsForTheAgentToStop(t *testing.T) {
 	held, err := newHolder(st, channel, observer).Hold(t.Context(), HoldParams{AgentID: agent.ID})
 	require.NoError(t, err)
 
-	assert.NotNil(t, held.HeldAt, "the hold is written down only once the agent has stopped")
-	assert.True(t, held.HeldMidTurn, "and it says the turn it cut was still running")
+	assert.NotNil(t, held.Hold.At, "the hold is written down only once the agent has stopped")
+	assert.True(t, held.Hold.MidTurn, "and it says the turn it cut was still running")
 	assert.Equal(t, 1, channel.Interrupts)
 	assert.Equal(t, 3, observer.Reads, "the pane was read until it settled")
 }
@@ -78,11 +78,11 @@ func TestHoldRecordsTheAgentThatTookIt(t *testing.T) {
 
 	held, err := holder.Hold(t.Context(), HoldParams{AgentID: agent.ID, ByAgentID: orchestrator.ID})
 	require.NoError(t, err)
-	assert.Equal(t, &orchestrator.ID, held.HeldByAgentID)
+	assert.Equal(t, &orchestrator.ID, held.Hold.ByAgentID)
 
 	released, err := holder.Release(t.Context(), ReleaseParams{AgentID: agent.ID})
 	require.NoError(t, err)
-	assert.Nil(t, released.HeldByAgentID)
+	assert.Nil(t, released.Hold.ByAgentID)
 }
 
 // TestHoldRefusesAnAgentThatWillNotStop covers the interrupt that never lands, where claiming the
@@ -98,7 +98,7 @@ func TestHoldRefusesAnAgentThatWillNotStop(t *testing.T) {
 	assert.Contains(t, err.Error(), "had not stopped")
 
 	after := agentByID(t, st, agent.ID)
-	assert.Nil(t, after.HeldAt, "a refused hold claims nothing")
+	assert.Nil(t, after.Hold.At, "a refused hold claims nothing")
 }
 
 // TestHoldRefusesAPaneItCannotRead pins the state that means the reading failed rather than that
@@ -114,7 +114,7 @@ func TestHoldRefusesAPaneItCannotRead(t *testing.T) {
 	assert.Contains(t, err.Error(), "could not be read")
 
 	after := agentByID(t, st, agent.ID)
-	assert.Nil(t, after.HeldAt)
+	assert.Nil(t, after.Hold.At)
 }
 
 // TestHoldRefusesAFrameItCannotMatchWithoutTypingAtIt is the pair of the failed capture: a frame
@@ -137,7 +137,7 @@ func TestHoldRefusesAFrameItCannotMatchWithoutTypingAtIt(t *testing.T) {
 			assert.Equal(t, 1, observer.Reads, "and the refusal costs no settle")
 
 			after := agentByID(t, st, agent.ID)
-			assert.Nil(t, after.HeldAt, "a refused hold claims nothing")
+			assert.Nil(t, after.Hold.At, "a refused hold claims nothing")
 		})
 	}
 }
@@ -155,7 +155,7 @@ func TestHoldingAnIdleAgentTypesNothingAtIt(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Zero(t, channel.Interrupts, "there was no turn to cut")
-	assert.False(t, held.HeldMidTurn)
+	assert.False(t, held.Hold.MidTurn)
 }
 
 // TestReleasingATurnThatWasCutSaysWhatChanged is what makes an agent's next turn start from the
@@ -179,7 +179,7 @@ func TestReleasingATurnThatWasCutSaysWhatChanged(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	assert.Nil(t, released.HeldAt, "nobody is holding it now")
+	assert.Nil(t, released.Hold.At, "nobody is holding it now")
 	assert.Equal(t, []string{"I changed review.go while you were held"}, channel.Sent)
 }
 
@@ -201,7 +201,7 @@ func TestReleasingAnAgentThatHadFinishedTypesNothing(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	assert.Nil(t, released.HeldAt)
+	assert.Nil(t, released.Hold.At)
 	assert.Empty(t, channel.Sent, "there was no cut turn to carry on with")
 }
 
@@ -220,7 +220,7 @@ func TestHoldingAnAgentTwiceIsRefused(t *testing.T) {
 	require.ErrorIs(t, err, ErrAlreadyHeld)
 
 	after := agentByID(t, st, agent.ID)
-	assert.Equal(t, first.HeldAt.UTC(), after.HeldAt.UTC(), "the first hold stands")
+	assert.Equal(t, first.Hold.At.UTC(), after.Hold.At.UTC(), "the first hold stands")
 }
 
 // TestReleasingAnAgentNobodyHoldsIsRefused covers the key pressed on a row that is not held.
@@ -270,8 +270,8 @@ func TestHoldingAWaitingAgentWaitsForThePromptToGo(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, 1, channel.Interrupts, "a prompt holds a pending write, so it is interrupted")
-	assert.NotNil(t, held.HeldAt)
-	assert.True(t, held.HeldMidTurn)
+	assert.NotNil(t, held.Hold.At)
+	assert.True(t, held.Hold.MidTurn)
 	assert.Equal(t, 3, observer.Reads, "and the hold waits for a frame that is not the prompt")
 }
 
@@ -287,7 +287,7 @@ func TestHoldRefusesAPromptThatNeverClears(t *testing.T) {
 	require.ErrorIs(t, err, agenterr.ErrUnsettled)
 
 	after := agentByID(t, st, agent.ID)
-	assert.Nil(t, after.HeldAt, "the prompt is still there, so nobody has the tree")
+	assert.Nil(t, after.Hold.At, "the prompt is still there, so nobody has the tree")
 }
 
 // TestHoldReadsThePaneRatherThanTheRow pins both halves being decided now: a row that says idle
@@ -306,7 +306,7 @@ func TestHoldReadsThePaneRatherThanTheRow(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, 1, channel.Interrupts, "the pane said it was working, whatever the row said")
-	assert.True(t, held.HeldMidTurn, "so letting go has a turn to carry on with")
+	assert.True(t, held.Hold.MidTurn, "so letting go has a turn to carry on with")
 }
 
 // TestReleaseLetsGoWhenTheBoxRefuses covers the box that will not take the words.
@@ -328,7 +328,7 @@ func TestReleaseLetsGoWhenTheBoxRefuses(t *testing.T) {
 	released, err := holder.Release(t.Context(), ReleaseParams{AgentID: agent.ID, Said: "carry on"})
 	require.NoError(t, err)
 
-	assert.Nil(t, released.HeldAt, "a hold nobody can end would strand the agent")
+	assert.Nil(t, released.Hold.At, "a hold nobody can end would strand the agent")
 	assert.Empty(t, channel.Sent)
 }
 
@@ -345,11 +345,11 @@ func TestReleasingInSilenceLetsGoOfAnInterruptedAgent(t *testing.T) {
 
 	held, err := holder.Hold(t.Context(), HoldParams{AgentID: agent.ID})
 	require.NoError(t, err)
-	require.True(t, held.HeldMidTurn, "so the speaking path is the one being skipped")
+	require.True(t, held.Hold.MidTurn, "so the speaking path is the one being skipped")
 
 	released, err := holder.Release(t.Context(), ReleaseParams{AgentID: agent.ID})
 	require.NoError(t, err)
 
-	assert.Nil(t, released.HeldAt, "nobody is holding it now")
+	assert.Nil(t, released.Hold.At, "nobody is holding it now")
 	assert.Empty(t, channel.Sent)
 }

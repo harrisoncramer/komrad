@@ -947,7 +947,7 @@ func TestReconcileStampsTheTurnItSettled(t *testing.T) {
 	}
 
 	require.Equal(t, agentstore.StateIdle, stateOf(t, st, "agent"))
-	assert.NotNil(t, agentByID(t, st, agent.ID).TurnEndedAt, "the settled turn is stamped")
+	assert.NotNil(t, agentByID(t, st, agent.ID).Turn.EndedAt, "the settled turn is stamped")
 }
 
 // TestReconcileLeavesTheStampToTheHookWhenItReported pins that a boundary the CLI reported
@@ -973,7 +973,7 @@ func TestReconcileLeavesTheStampToTheHookWhenItReported(t *testing.T) {
 	require.NoError(t, rec.Reconcile(ctx))
 
 	require.Equal(t, agentstore.StateIdle, stateOf(t, st, "agent"))
-	assert.Nil(t, agentByID(t, st, agent.ID).TurnEndedAt, "the reconciler leaves this path to the hook")
+	assert.Nil(t, agentByID(t, st, agent.ID).Turn.EndedAt, "the reconciler leaves this path to the hook")
 }
 
 // TestReconcileUnrecognizedFrameTakesAnIdleAgentToUncertain pins the reading that used to be
@@ -1021,7 +1021,7 @@ func TestReconcileStampsNoTurnForAFrameItCouldNotRead(t *testing.T) {
 	}
 
 	require.Equal(t, agentstore.StateUncertain, stateOf(t, st, "agent"))
-	assert.Nil(t, agentByID(t, st, agent.ID).TurnEndedAt)
+	assert.Nil(t, agentByID(t, st, agent.ID).Turn.EndedAt)
 }
 
 // TestReconcileLeavesUncertainOnceTheFrameReadsAgain pins that uncertain is a reading rather
@@ -1065,7 +1065,7 @@ func TestReconcileStampsNoTurnForAPaneItForgot(t *testing.T) {
 	}
 
 	require.Equal(t, agentstore.StateIdle, stateOf(t, st, "agent"))
-	assert.Nil(t, agentByID(t, st, agent.ID).TurnEndedAt, "a lost pane is an interruption, not a turn end")
+	assert.Nil(t, agentByID(t, st, agent.ID).Turn.EndedAt, "a lost pane is an interruption, not a turn end")
 }
 
 // TestReconcileReportedReasonMovesNoState pins the whole of what a reported reason may do: it is
@@ -1176,7 +1176,7 @@ func TestReconcileMissesOnlyCountTowardsTheStateTheyWereEarnedFor(t *testing.T) 
 			require.NoError(t, rec.Reconcile(ctx))
 			assert.Equal(t, agentstore.StateThinking, stateOf(t, st, "agent"),
 				"one reading of its own is not the stretch a change is debounced behind")
-			assert.Nil(t, agentByID(t, st, agent.ID).TurnEndedAt,
+			assert.Nil(t, agentByID(t, st, agent.ID).Turn.EndedAt,
 				"and nothing has finished a turn on the strength of it either")
 			assert.Equal(t, 1, rec.tally.read(agent.ID).misses,
 				"the run restarts at one, since the reading counts towards its own destination")

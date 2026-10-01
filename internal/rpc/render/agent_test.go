@@ -66,11 +66,13 @@ func TestAgent(t *testing.T) {
 		{
 			name: "an agent whose last turn ended after one that failed",
 			stored: agentstore.Agent{
-				ID:           "a4",
-				Name:         "recovered",
-				TurnEndedAt:  xptr.Ptr(changed.Add(time.Minute)),
-				TurnFailedAt: xptr.Ptr(changed),
-				TurnError:    "Overloaded",
+				ID:   "a4",
+				Name: "recovered",
+				Turn: agentstore.Turn{
+					EndedAt:  xptr.Ptr(changed.Add(time.Minute)),
+					FailedAt: xptr.Ptr(changed),
+					Error:    "Overloaded",
+				},
 			},
 			want: &agentv1.Agent{
 				Id:    "a4",
@@ -81,12 +83,14 @@ func TestAgent(t *testing.T) {
 		{
 			name: "an agent whose last turn failed",
 			stored: agentstore.Agent{
-				ID:           "a5",
-				Name:         "failed",
-				State:        agentstore.StateErrored,
-				TurnEndedAt:  xptr.Ptr(changed),
-				TurnFailedAt: xptr.Ptr(changed),
-				TurnError:    "Overloaded",
+				ID:    "a5",
+				Name:  "failed",
+				State: agentstore.StateErrored,
+				Turn: agentstore.Turn{
+					EndedAt:  xptr.Ptr(changed),
+					FailedAt: xptr.Ptr(changed),
+					Error:    "Overloaded",
+				},
 			},
 			want: &agentv1.Agent{
 				Id:        "a5",

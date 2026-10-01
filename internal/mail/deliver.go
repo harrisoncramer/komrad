@@ -115,7 +115,7 @@ func (s *DeliveryService) Deliver(ctx context.Context, agentID string) (Delivery
 
 	// A held agent is one a person has stopped to take its worktree, so nothing may type at it
 	// until they let it go.
-	if agent.HeldAt != nil {
+	if agent.Hold.IsHeld() {
 		return DeliveryLater, nil
 	}
 
@@ -194,7 +194,7 @@ func didLastNudgeGoNowhere(agent agentstore.Agent) bool {
 		return false
 	}
 
-	return agent.TurnEndedAt == nil || !agent.TurnEndedAt.After(*agent.NudgeSentAt)
+	return agent.Turn.EndedAt == nil || !agent.Turn.EndedAt.After(*agent.NudgeSentAt)
 }
 
 func (s *DeliveryService) reportExpired(ctx context.Context, agent agentstore.Agent) {

@@ -262,11 +262,11 @@ func decideRestingState(agent agentstore.Agent) agentstore.State {
 
 // isTurnFailureStanding reports whether the failed turn on record is the one the pane came to rest from.
 func isTurnFailureStanding(agent agentstore.Agent) bool {
-	if !agent.IsLastTurnFailed() {
+	if !agent.Turn.IsFailed() {
 		return false
 	}
 
-	return !agent.State.IsTurnUnfinished() || !agent.TurnFailedAt.Before(agent.StateChangedAt)
+	return !agent.State.IsTurnUnfinished() || !agent.Turn.FailedAt.Before(agent.StateChangedAt)
 }
 
 // settle moves an agent to where a frame that has stopped moving lands, taking either the

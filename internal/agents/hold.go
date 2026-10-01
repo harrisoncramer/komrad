@@ -77,7 +77,7 @@ func (h *Holder) Hold(ctx context.Context, params HoldParams) (*agentstore.Agent
 		return nil, err
 	}
 
-	if agent.HeldAt != nil {
+	if agent.Hold.IsHeld() {
 		return nil, ErrAlreadyHeld.Saying("%q is already paused", agent.Name)
 	}
 
@@ -120,11 +120,11 @@ func (h *Holder) Release(ctx context.Context, params ReleaseParams) (*agentstore
 		return nil, err
 	}
 
-	if agent.HeldAt == nil {
+	if !agent.Hold.IsHeld() {
 		return nil, ErrNotHeld.Saying("nobody is holding %q", agent.Name)
 	}
 
-	if agent.HeldMidTurn && params.Said != "" && agent.Pane != "" {
+	if agent.Hold.MidTurn && params.Said != "" && agent.Pane != "" {
 		said, err := h.channel.Send(ctx, buildTarget(*agent), params.Said)
 		if err != nil || !said {
 			logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "released a held agent without telling it what changed",

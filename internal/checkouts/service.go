@@ -186,12 +186,8 @@ func (s *Service) read(ctx context.Context, agentID string) (*agentstore.Agent, 
 		return nil, err
 	}
 
-	if agent.ArchivedAt != nil {
-		return nil, fmt.Errorf("%w: %q", agenterr.ErrAgentArchived, agent.Name)
-	}
-
-	if agent.HeldAt != nil {
-		return nil, agenterr.ErrAgentHeld.Saying("%q is paused, unpause it first", agent.Name)
+	if err := agent.ValidateActionable(); err != nil {
+		return nil, err
 	}
 
 	return agent, nil

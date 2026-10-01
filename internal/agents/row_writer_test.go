@@ -199,8 +199,8 @@ func TestRecordReport(t *testing.T) {
 
 			row := agentByID(t, st, alpha.ID)
 			assert.Equal(t, tt.wantReason, row.ReportedReason)
-			assert.Equal(t, tt.wantTurnEnded, row.TurnEndedAt != nil)
-			assert.Equal(t, tt.wantTurnFailed, row.IsLastTurnFailed())
+			assert.Equal(t, tt.wantTurnEnded, row.Turn.EndedAt != nil)
+			assert.Equal(t, tt.wantTurnFailed, row.Turn.IsFailed())
 			assert.Equal(t, tt.wantWakes, fixture.cwdSync.Wakes)
 			assert.Equal(t, tt.wantWakes, fixture.transcriptSync.Wakes)
 		})
