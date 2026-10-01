@@ -63,6 +63,11 @@ func TestWrite(t *testing.T) {
 			wantBody: "# Relative",
 		},
 		{
+			name:     "an agent naming itself writes its own",
+			params:   documents.WriteDocumentParams{Name: "own", Body: "# Own", For: author.ID},
+			wantBody: "# Own",
+		},
+		{
 			name:    "a path that names nothing is refused",
 			params:  documents.WriteDocumentParams{Name: "missing", Path: "missing.md"},
 			wantErr: documents.ErrUnreadablePath,
@@ -96,6 +101,11 @@ func TestWrite(t *testing.T) {
 			name:    "a body that is not UTF-8 is refused",
 			params:  documents.WriteDocumentParams{Name: "binary", Path: writeFile("binary.md", "\xff\xfe")},
 			wantErr: documents.ErrNotUTF8,
+		},
+		{
+			name:    "an agent naming another agent it writes for is refused",
+			params:  documents.WriteDocumentParams{Name: "elsewhere", Body: "# Elsewhere", For: uuid.NewString()},
+			wantErr: documents.ErrAgentWritingForAnother,
 		},
 		{
 			name:    "neither a body nor a path is refused",

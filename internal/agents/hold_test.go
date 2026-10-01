@@ -85,6 +85,23 @@ func TestHoldRecordsTheAgentThatTookIt(t *testing.T) {
 	assert.Nil(t, released.Hold.ByAgentID)
 }
 
+// TestHoldRefusesAnAgentHoldingItself covers the hold nobody would know to let go.
+func TestHoldRefusesAnAgentHoldingItself(t *testing.T) {
+	st := newStore(t)
+	agent := seed(t, st, "telescope", "%1", agentstore.StateIdle)
+	channel := &harnesstest.Channel{}
+
+	_, err := newHolder(st, channel, harnesstest.NewActivityObserver(harness.ActivityIdle)).Hold(t.Context(), HoldParams{
+		AgentID:   agent.ID,
+		ByAgentID: agent.ID,
+	})
+	require.ErrorIs(t, err, ErrHoldSelf)
+	assert.Zero(t, channel.Interrupts, "the agent was never interrupted")
+
+	after := agentByID(t, st, agent.ID)
+	assert.Nil(t, after.Hold.At, "a refused hold claims nothing")
+}
+
 // TestHoldRefusesAnAgentThatWillNotStop covers the interrupt that never lands, where claiming the
 // worktree would put a person's editor on top of a writer.
 func TestHoldRefusesAnAgentThatWillNotStop(t *testing.T) {

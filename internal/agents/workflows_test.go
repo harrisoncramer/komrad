@@ -1032,7 +1032,7 @@ func TestRestoreOfAWorkflowUnderTheChildCeiling(t *testing.T) {
 
 	first, err := manager.launch.NewAgent(ctx, childOf(parent, "reviewer"))
 	require.NoError(t, err)
-	require.NoError(t, manager.lifecycle.ArchiveAgents(ctx, []string{first.ID}))
+	require.NoError(t, manager.lifecycle.ArchiveAgents(ctx, ArchiveAgentsParams{IDs: []string{first.ID}}))
 
 	second, err := manager.launch.NewAgent(ctx, childOf(parent, "second-reviewer"))
 	require.NoError(t, err)

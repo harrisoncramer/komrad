@@ -191,16 +191,6 @@ func TestLifecycleRefusalsMapToCodes(t *testing.T) {
 			wantCode: connect.CodeFailedPrecondition,
 		},
 		{
-			name: "an agent holding itself",
-			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
-				ctx = caller.With(ctx, caller.Caller{AgentID: alphaID})
-				_, err := svc.HoldAgent(ctx, connect.NewRequest(&agentv1.HoldAgentRequest{Id: alphaID}))
-
-				return err
-			},
-			wantCode: connect.CodeInvalidArgument,
-		},
-		{
 			name: "a hold on an agent that will not stop",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
 				_, err := svc.HoldAgent(ctx, connect.NewRequest(&agentv1.HoldAgentRequest{Id: alphaID}))
@@ -703,7 +693,19 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 				return "", err
 			},
 			check: func(t *testing.T, services *recordingAgentServices, ids []string) {
-				assert.Equal(t, ids, services.archived)
+				assert.Equal(t, []agents.ArchiveAgentsParams{{IDs: ids}}, services.archived)
+			},
+		},
+		{
+			name: "archiving from an agent says who asked",
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, ids []string) (string, error) {
+				ctx = caller.With(ctx, caller.Caller{AgentID: betaID})
+				_, err := svc.ArchiveAgents(ctx, connect.NewRequest(&agentv1.ArchiveAgentsRequest{Ids: ids}))
+
+				return "", err
+			},
+			check: func(t *testing.T, services *recordingAgentServices, ids []string) {
+				assert.Equal(t, []agents.ArchiveAgentsParams{{IDs: ids, ByAgentID: betaID}}, services.archived)
 			},
 		},
 		{
@@ -819,101 +821,6 @@ func TestAdoptAnswersWithTheAgentAlreadyOnTheBranch(t *testing.T) {
 
 	assert.True(t, adopted.Msg.GetExisting())
 	assert.Equal(t, "spawned", adopted.Msg.GetAgent().GetName())
-}
-
-// TestArchiveAgentsHoldsAnAgentToItselfAndItsOwnChildren leaves an orchestrator and the panel unrestricted.
-func TestArchiveAgentsHoldsAnAgentToItselfAndItsOwnChildren(t *testing.T) {
-	tests := []struct {
-		name     string
-		from     string
-		archive  []string
-		wantCode connect.Code
-	}{
-		{
-			name:     "an agent archiving a stranger",
-			from:     "parent",
-			archive:  []string{"stranger"},
-			wantCode: connect.CodePermissionDenied,
-		},
-		{
-			name:     "one stranger refuses the whole batch",
-			from:     "parent",
-			archive:  []string{"child", "stranger"},
-			wantCode: connect.CodePermissionDenied,
-		},
-		{
-			name:    "an agent archiving its own child",
-			from:    "parent",
-			archive: []string{"child"},
-		},
-		{
-			name:    "an agent archiving itself",
-			from:    "parent",
-			archive: []string{"parent"},
-		},
-		{
-			name:    "an agent archiving itself and its own child",
-			from:    "parent",
-			archive: []string{"parent", "child"},
-		},
-		{
-			name:     "a child archiving its parent",
-			from:     "child",
-			archive:  []string{"parent"},
-			wantCode: connect.CodePermissionDenied,
-		},
-		{
-			name:    "an orchestrator archiving anybody",
-			from:    "orchestrator",
-			archive: []string{"stranger"},
-		},
-		{
-			name:    "the panel archiving anybody",
-			archive: []string{"parent"},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			svc, services := newRecordedService(t)
-			parent := services.rows.seed(agentstore.Agent{
-				Name: "parent",
-				Role: agentstore.RoleImplementer,
-			})
-			seeded := map[string]string{
-				"parent": parent.ID,
-				"child": services.rows.seed(agentstore.Agent{
-					Name:          "child",
-					ParentAgentID: &parent.ID,
-					Role:          agentstore.RoleReviewer,
-				}).ID,
-				"stranger": services.rows.seed(agentstore.Agent{
-					Name: "stranger",
-					Role: agentstore.RoleImplementer,
-				}).ID,
-				"orchestrator": services.rows.seed(agentstore.Agent{
-					Name: "orchestrator",
-					Role: agentstore.RoleOrchestrator,
-				}).ID,
-			}
-			ids := xslice.Map(tt.archive, func(name string) string {
-				return seeded[name]
-			})
-
-			ctx := caller.With(t.Context(), caller.Caller{AgentID: seeded[tt.from]})
-			_, err := svc.ArchiveAgents(ctx, connect.NewRequest(&agentv1.ArchiveAgentsRequest{Ids: ids}))
-
-			if tt.wantCode != 0 {
-				assert.Equal(t, tt.wantCode, connect.CodeOf(err))
-				assert.Empty(t, services.archived)
-
-				return
-			}
-
-			require.NoError(t, err)
-			assert.Equal(t, ids, services.archived)
-		})
-	}
 }
 
 // TestListAgents pins what a listed row carries from the surroundings beside it, and what the
@@ -1263,7 +1170,7 @@ type recordingAgentServices struct {
 	pushed        []string
 	aborted       []string
 	deleted       []string
-	archived      []string
+	archived      []agents.ArchiveAgentsParams
 	restored      []string
 	runsRead      []string
 	renamed       map[string]string
@@ -1415,8 +1322,8 @@ func (f *recordingAgentServices) DeleteAgents(_ context.Context, ids []string) e
 	return f.err
 }
 
-func (f *recordingAgentServices) ArchiveAgents(_ context.Context, ids []string) error {
-	f.archived = append(f.archived, ids...)
+func (f *recordingAgentServices) ArchiveAgents(_ context.Context, params agents.ArchiveAgentsParams) error {
+	f.archived = append(f.archived, params)
 
 	return f.err
 }

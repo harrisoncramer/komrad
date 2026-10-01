@@ -11,6 +11,7 @@ import (
 
 	"komrad/config"
 	"komrad/internal/agenterr"
+	"komrad/internal/fail"
 	"komrad/internal/frames"
 	"komrad/internal/logging"
 	"komrad/internal/scripts"
@@ -25,6 +26,9 @@ import (
 	worktreestore "komrad/internal/store/worktree"
 )
 
+// ErrArchiveNotYours is an agent other than an orchestrator archiving an agent that is neither itself nor its child.
+var ErrArchiveNotYours = fail.Denied("an agent may archive only itself and its own children")
+
 // childLister reads the agents attached to a set of parents.
 type childLister interface {
 	ListChildren(ctx context.Context, parentIDs []string) ([]agentstore.Agent, error)
@@ -33,6 +37,7 @@ type childLister interface {
 // lifecycleAgentReadWriter is the slice of the agent store archiving, restoring and deleting
 // write to outside a transaction.
 type lifecycleAgentReadWriter interface {
+	agentGetter
 	agentFailWriter
 	childLister
 	ListByID(ctx context.Context, ids []string) ([]agentstore.Agent, error)
@@ -274,9 +279,25 @@ func (s *LifecycleService) cleanupEmptyWorkflows(ctx context.Context, removed []
 	}
 }
 
+// ArchiveAgentsParams is the agents to archive and the agent asking.
+type ArchiveAgentsParams struct {
+	IDs []string
+	// ByAgentID is the agent asking, empty for the panel.
+	ByAgentID string
+}
+
 // ArchiveAgents stops agents while preserving their records and workspaces.
-func (s *LifecycleService) ArchiveAgents(ctx context.Context, ids []string) error {
-	named, err := s.requireEveryAgent(ctx, ids)
+func (s *LifecycleService) ArchiveAgents(ctx context.Context, params ArchiveAgentsParams) error {
+	listed, err := s.agents.ListByID(ctx, params.IDs)
+	if err != nil {
+		return fmt.Errorf("failed to look up %d agents: %w", len(params.IDs), err)
+	}
+
+	if err := s.refuseArchivingOthers(ctx, params, listed); err != nil {
+		return err
+	}
+
+	named, err := requireListed(params.IDs, listed)
 	if err != nil {
 		return err
 	}
@@ -511,6 +532,11 @@ func (s *LifecycleService) requireEveryAgent(ctx context.Context, ids []string) 
 	if err != nil {
 		return nil, fmt.Errorf("failed to look up %d agents: %w", len(ids), err)
 	}
+
+	return requireListed(ids, agents)
+}
+
+func requireListed(ids []string, agents []agentstore.Agent) ([]agentstore.Agent, error) {
 	if len(agents) == len(ids) {
 		return agents, nil
 	}
@@ -524,6 +550,34 @@ func (s *LifecycleService) requireEveryAgent(ctx context.Context, ids []string) 
 	})
 
 	return nil, agenterr.ErrAgentNotFound.Saying("no agent with id %s", xstr.JoinSome(missing, namedMissing))
+}
+
+// refuseArchivingOthers holds an agent other than an orchestrator to itself and its own children.
+func (s *LifecycleService) refuseArchivingOthers(ctx context.Context, params ArchiveAgentsParams, listed []agentstore.Agent) error {
+	if params.ByAgentID == "" {
+		return nil
+	}
+
+	asker, err := s.agents.GetByID(ctx, params.ByAgentID)
+	if err != nil {
+		return fmt.Errorf("failed to get the agent archiving: %w", err)
+	}
+	if asker.Role == agentstore.RoleOrchestrator {
+		return nil
+	}
+
+	found := xslice.KeyBy(listed, func(agent agentstore.Agent) string { return agent.ID })
+	for _, id := range params.IDs {
+		target, ok := found[id]
+		if id == asker.ID || !ok {
+			continue
+		}
+		if target.ParentAgentID == nil || *target.ParentAgentID != asker.ID {
+			return ErrArchiveNotYours.Saying("%s is not a child of %s", target.Name, asker.Name)
+		}
+	}
+
+	return nil
 }
 
 func (s *LifecycleService) removeAgents(ctx context.Context, ids []string) error {

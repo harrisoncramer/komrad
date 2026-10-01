@@ -47,6 +47,15 @@ func TestWriteDocumentType(t *testing.T) {
 		wantErr error
 	}{
 		{
+			name: "an agent writing a type is refused",
+			params: documents.WriteDocumentTypeParams{
+				Name:      "incident",
+				Context:   "What broke.",
+				ByAgentID: uuid.NewString(),
+			},
+			wantErr: documents.ErrDocumentTypeByAgent,
+		},
+		{
 			name: "a rewrite with no version is refused",
 			params: documents.WriteDocumentTypeParams{
 				ID:      &created.ID,
@@ -115,4 +124,25 @@ func TestReadAnEarlierTypeWrite(t *testing.T) {
 	require.ErrorIs(t, err, store.ErrNotFound)
 	_, err = service.ListDocumentTypeVersions(ctx, uuid.NewString())
 	require.ErrorIs(t, err, store.ErrNotFound)
+}
+
+// TestDeleteDocumentTypeRefusesAnAgent pins that an agent's delete leaves the type in place.
+func TestDeleteDocumentTypeRefusesAnAgent(t *testing.T) {
+	stores := storetest.Open(t)
+	service := newService(stores, eventstest.NewQueue(t, stores, documents.NewEventHandler()))
+
+	created, err := service.WriteDocumentType(t.Context(), documents.WriteDocumentTypeParams{
+		Name:    "postmortem",
+		Context: "What broke and why.",
+	})
+	require.NoError(t, err)
+
+	err = service.DeleteDocumentType(t.Context(), documents.DeleteDocumentTypeParams{
+		ID:        created.ID,
+		ByAgentID: uuid.NewString(),
+	})
+	require.ErrorIs(t, err, documents.ErrDocumentTypeByAgent)
+
+	_, err = service.GetDocumentType(t.Context(), "postmortem", nil)
+	assert.NoError(t, err, "the type is still there")
 }

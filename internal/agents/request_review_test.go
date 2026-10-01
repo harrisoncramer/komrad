@@ -181,7 +181,7 @@ func TestRequestReviewKeepsOneReviewer(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, children, 1, "and no second reviewer was spawned")
 
-	require.NoError(t, manager.lifecycle.ArchiveAgents(ctx, []string{reviewer.ID}))
+	require.NoError(t, manager.lifecycle.ArchiveAgents(ctx, ArchiveAgentsParams{IDs: []string{reviewer.ID}}))
 
 	second, _, err := manager.launch.RequestReview(ctx, RequestReviewParams{AgentID: author.ID, Prompt: "read it"})
 	require.NoError(t, err, "an agent whose reviewer is gone may have another")

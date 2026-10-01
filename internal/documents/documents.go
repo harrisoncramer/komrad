@@ -42,6 +42,10 @@ var (
 	ErrNoTypeVersion = fail.InvalidArgument("a document type rewrite needs the version it replaces, as the last read or write returned it")
 	// ErrForAnother is a rewrite naming an agent other than the one whose document it is.
 	ErrForAnother = fail.InvalidArgument("the document belongs to another agent, so leave agent_id unset to rewrite it")
+	// ErrAgentWritingForAnother is an agent writing a document for an agent other than itself.
+	ErrAgentWritingForAnother = fail.InvalidArgument("an agent writes only its own documents, so leave agent_id unset")
+	// ErrDocumentTypeByAgent is an agent writing or deleting a document type.
+	ErrDocumentTypeByAgent = fail.Denied("only a person writes or deletes a document type")
 )
 
 type eventRecorder interface {
@@ -93,6 +97,10 @@ type WriteDocumentParams struct {
 
 // WriteDocument creates a document, or rewrites the one ID names.
 func (s *DocumentService) WriteDocument(ctx context.Context, params WriteDocumentParams) (*documentstore.Document, error) {
+	if params.AgentID != "" && params.For != "" && params.For != params.AgentID {
+		return nil, ErrAgentWritingForAnother
+	}
+
 	if params.ID != nil && params.Version == nil {
 		return nil, ErrNoVersion
 	}
