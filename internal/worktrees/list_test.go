@@ -494,7 +494,7 @@ func (f *worktreeFixture) newListerOver(shared string) *Lister {
 		},
 		Agents:    f.stores.Agents,
 		Workflows: f.stores.Workflows,
-		Sizes:     f.worktrees,
+		Worktrees: f.worktrees,
 	})
 }
 

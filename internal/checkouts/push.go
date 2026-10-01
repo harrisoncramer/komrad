@@ -89,7 +89,7 @@ func (s *Service) Push(ctx context.Context, agentID string) (*PushResult, error)
 	defer s.checkoutSync.Wake()
 	defer s.heat(*agent)
 
-	sha, err := s.pusher.Push(ctx, git.PushParams{
+	sha, err := s.git.Push(ctx, git.PushParams{
 		Dir:    agent.Cwd,
 		Branch: plan.Branch,
 		Force:  plan.Forced,
@@ -113,7 +113,7 @@ func (s *Service) Push(ctx context.Context, agentID string) (*PushResult, error)
 // planPush reads the checkout and says what a push of it would do, or why it may not have one.
 func (s *Service) planPush(ctx context.Context, target checkoutTarget) (*PushPlan, error) {
 	agent, flow := *target.agent, target.workflow
-	state, err := s.pusher.ReadTreeState(ctx, agent.Cwd)
+	state, err := s.git.ReadTreeState(ctx, agent.Cwd)
 	if err != nil {
 		return nil, err
 	}
@@ -141,7 +141,7 @@ func (s *Service) planPush(ctx context.Context, target checkoutTarget) (*PushPla
 		return nil, fmt.Errorf("%w: %s", ErrPushAdoptedForce, agent.AdoptedBranch)
 	}
 
-	changes, err := s.pusher.PeekChanges(ctx, agent.Cwd)
+	changes, err := s.git.PeekChanges(ctx, agent.Cwd)
 	if err != nil {
 		return nil, err
 	}
@@ -153,12 +153,12 @@ func (s *Service) planPush(ctx context.Context, target checkoutTarget) (*PushPla
 // countPush counts what goes up against origin's copy of the branch, or against the base when
 // origin has none, refusing a branch that holds nothing of its own or nothing origin lacks.
 func (s *Service) countPush(ctx context.Context, dir, branch, base string) (*PushPlan, error) {
-	ref, err := s.pusher.ResolveBase(ctx, dir, base)
+	ref, err := s.git.ResolveBase(ctx, dir, base)
 	if err != nil {
 		return nil, err
 	}
 
-	own, _, err := s.pusher.CountAheadBehind(ctx, dir, ref)
+	own, _, err := s.git.CountAheadBehind(ctx, dir, ref)
 	if err != nil {
 		return nil, err
 	}
@@ -166,7 +166,7 @@ func (s *Service) countPush(ctx context.Context, dir, branch, base string) (*Pus
 		return nil, fmt.Errorf("%w: %s", ErrPushNothing, branch)
 	}
 
-	remote, err := s.pusher.CountAgainstRemote(ctx, dir, branch)
+	remote, err := s.git.CountAgainstRemote(ctx, dir, branch)
 	if err != nil {
 		return nil, err
 	}

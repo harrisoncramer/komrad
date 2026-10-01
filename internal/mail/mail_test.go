@@ -978,10 +978,10 @@ func seedAddressBook(t *testing.T, st *storetest.Stores) addressBook {
 
 func newMailService(st *storetest.Stores, maxExchange int) *MailService {
 	return NewMailService(NewMailServiceParams{
-		MailReadWriter: st.Mail,
-		Agents:         st.Agents,
-		Workflows:      st.Workflows,
-		Config:         config.Mail{MaxExchange: maxExchange},
+		Mail:      st.Mail,
+		Agents:    st.Agents,
+		Workflows: st.Workflows,
+		Config:    config.Mail{MaxExchange: maxExchange},
 	})
 }
 

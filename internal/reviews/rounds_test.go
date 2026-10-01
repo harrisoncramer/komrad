@@ -445,9 +445,9 @@ func fillMailbox(t *testing.T, fx *reviewFixture) {
 	t.Helper()
 
 	mailer := mail.NewMailService(mail.NewMailServiceParams{
-		MailReadWriter: fx.stores.Mail,
-		Agents:         fx.stores.Agents,
-		Config:         config.Mail{},
+		Mail:   fx.stores.Mail,
+		Agents: fx.stores.Agents,
+		Config: config.Mail{},
 	})
 	for {
 		_, err := mailer.SendFromKomrad(t.Context(), mail.SendFromKomradParams{

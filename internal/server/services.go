@@ -81,10 +81,10 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 	gitClient := git.NewClient()
 
 	mailService := mail.NewMailService(mail.NewMailServiceParams{
-		MailReadWriter: st.mail,
-		Agents:         st.agents,
-		Workflows:      st.workflows,
-		Config:         mailConfig(loadConfig),
+		Mail:      st.mail,
+		Agents:    st.agents,
+		Workflows: st.workflows,
+		Config:    mailConfig(loadConfig),
 	})
 	stateDir := params.Env.StateDir
 	scheduleService := schedules.NewScheduleService(schedules.NewScheduleServiceParams{
@@ -158,10 +158,6 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 	}
 	queue := jobs.NewEnqueuer(inserter, st.pool.GetRawPool())
 	reviewService := reviews.NewReviewService(reviews.NewReviewServiceParams{
-		Threads:      st.review,
-		Messages:     st.review,
-		Viewed:       st.review,
-		Rounds:       st.review,
 		Reviews:      st.review,
 		Snapshots:    gitClient,
 		Workflows:    st.workflows,
@@ -255,9 +251,7 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 		Workflows:       st.workflows,
 		Settler:         settler,
 		Events:          queue,
-		Rebaser:         gitClient,
-		Pusher:          gitClient,
-		Aborter:         gitClient,
+		Git:             gitClient,
 		PullRequests:    st.pullRequests,
 		CheckoutSync:    wakers.cwdSync,
 		PullRequestSync: pullRequestSyncer,
@@ -288,7 +282,7 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 		},
 		Agents:    st.agents,
 		Workflows: st.workflows,
-		Sizes:     st.worktrees,
+		Worktrees: st.worktrees,
 	})
 
 	reconciler := agents.NewReconciler(agents.NewReconcilerParams{
@@ -398,10 +392,10 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 		}),
 		workflow: workflowService,
 		delivery: mail.NewDeliveryService(mail.NewDeliveryServiceParams{
-			MailboxReader: st.mail,
-			NudgeClaimer:  st.agents,
-			PaneReader:    paneLiveness,
-			Channel:       paneChannel,
+			Mail:         st.mail,
+			NudgeClaimer: st.agents,
+			PaneReader:   paneLiveness,
+			Channel:      paneChannel,
 		}),
 		reconciler: reconciler,
 	}, nil

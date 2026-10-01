@@ -11,31 +11,19 @@ import (
 	"komrad/lib/xslice"
 )
 
-type transcriptReadWriter interface {
-	OpenSession(ctx context.Context, params transcriptstore.OpenSessionParams) (transcriptstore.Session, error)
-	Advance(ctx context.Context, sessionID string, offset int64) error
-	AppendTurns(ctx context.Context, params transcriptstore.AppendTurnsParams) error
-	DeleteSessionTurns(ctx context.Context, sessionID string) error
-}
-
-type agentSessionReadWriter interface {
-	ListForTranscriptSync(ctx context.Context) ([]agentstore.Agent, error)
-	SetSessionID(ctx context.Context, id, sessionID string) error
-}
-
 type harnessGetter interface {
 	GetByID(id string) (harness.Harness, error)
 }
 
 type NewTranscriptSyncerParams struct {
-	Agents      agentSessionReadWriter
-	Transcripts transcriptReadWriter
+	Agents      *agentstore.AgentStore
+	Transcripts *transcriptstore.TranscriptStore
 	Harnesses   harnessGetter
 }
 
 type TranscriptSyncer struct {
-	agents    agentSessionReadWriter
-	store     transcriptReadWriter
+	agents    *agentstore.AgentStore
+	store     *transcriptstore.TranscriptStore
 	harnesses harnessGetter
 }
 

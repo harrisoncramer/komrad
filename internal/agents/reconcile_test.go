@@ -1306,10 +1306,10 @@ func TestDeliverToAnAgentNoPassCanRead(t *testing.T) {
 	require.NoError(t, err)
 
 	svc := mail.NewDeliveryService(mail.NewDeliveryServiceParams{
-		MailboxReader: st.Mail,
-		NudgeClaimer:  st.Agents,
-		PaneReader:    NewPaneLiveness(tmux),
-		Channel:       pane.NewPane(pane.NewPaneParams{Terminal: tmux, Harnesses: harnesses}),
+		Mail:         st.Mail,
+		NudgeClaimer: st.Agents,
+		PaneReader:   NewPaneLiveness(tmux),
+		Channel:      pane.NewPane(pane.NewPaneParams{Terminal: tmux, Harnesses: harnesses}),
 	})
 
 	got, err := svc.Deliver(ctx, agent.ID)

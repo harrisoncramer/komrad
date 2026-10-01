@@ -8,17 +8,13 @@ import (
 	pullrequeststore "komrad/internal/store/pullrequest"
 )
 
-type pageLister interface {
-	ListPage(ctx context.Context, params pullrequeststore.ListPageParams) ([]pullrequeststore.PullRequest, error)
-}
-
 type NewListerParams struct {
-	PullRequests pageLister
+	PullRequests *pullrequeststore.PullRequestStore
 }
 
 // Lister reads the stored pull requests of a repository.
 type Lister struct {
-	pullRequests pageLister
+	pullRequests *pullrequeststore.PullRequestStore
 }
 
 // NewLister builds a lister over the store.

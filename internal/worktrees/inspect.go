@@ -63,20 +63,11 @@ type gitReader interface {
 	DoesBaseHoldRemote(ctx context.Context, params git.DoesBaseHoldRemoteParams) (bool, error)
 }
 
-type workflowReader interface {
-	GetIncludingArchived(ctx context.Context, id string) (*workflowstore.Workflow, error)
-}
-
-type worktreeRecorder interface {
-	RecordSize(ctx context.Context, size worktreestore.Size) error
-	RecordStanding(ctx context.Context, standing worktreestore.Standing) error
-}
-
 type NewInspectorParams struct {
 	Lister    *Lister
 	Git       gitReader
-	Workflows workflowReader
-	Worktrees worktreeRecorder
+	Workflows *workflowstore.WorkflowStore
+	Worktrees *worktreestore.WorktreeStore
 	// Now is the clock, time.Now when unset.
 	Now func() time.Time
 }
@@ -85,8 +76,8 @@ type NewInspectorParams struct {
 type Inspector struct {
 	lister    *Lister
 	git       gitReader
-	workflows workflowReader
-	worktrees worktreeRecorder
+	workflows *workflowstore.WorkflowStore
+	worktrees *worktreestore.WorktreeStore
 	now       func() time.Time
 }
 

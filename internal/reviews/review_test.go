@@ -1043,10 +1043,6 @@ func newReviewFixture(t *testing.T) *reviewFixture {
 	})
 
 	service := NewReviewService(NewReviewServiceParams{
-		Threads:      reviews,
-		Messages:     reviews,
-		Viewed:       reviews,
-		Rounds:       reviews,
 		Reviews:      reviews,
 		Snapshots:    snapshots,
 		Workflows:    stores.Workflows,

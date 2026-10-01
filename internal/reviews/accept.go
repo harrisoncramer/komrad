@@ -24,10 +24,6 @@ var ErrForgeThreadMoved = fail.Precondition("the forge thread changed since you 
 // ErrForgeThreadNothingNew is answered when accepting a forge thread again would copy nothing and say nothing.
 var ErrForgeThreadNothingNew = fail.InvalidArgument("every comment you read is already in your review")
 
-type forgeThreadGetter interface {
-	GetForAgent(ctx context.Context, id, agentID string) (*pullrequeststore.ForgeThread, error)
-}
-
 // SeenForgeComment is one forge comment as the person read it.
 type SeenForgeComment struct {
 	ID       string
@@ -145,12 +141,12 @@ func (s *ReviewService) acceptAgain(
 	seen []pullrequeststore.ForgeComment,
 	params AcceptForgeThreadParams,
 ) (*ReviewThreadWithMessages, error) {
-	thread, err := s.threads.GetThread(ctx, *offer.AcceptedThreadID)
+	thread, err := s.reviews.GetThread(ctx, *offer.AcceptedThreadID)
 	if err != nil {
 		return nil, err
 	}
 
-	messages, err := s.messages.ListMessages(ctx, []string{thread.ID})
+	messages, err := s.reviews.ListMessages(ctx, []string{thread.ID})
 	if err != nil {
 		return nil, err
 	}
@@ -234,7 +230,7 @@ func addAccepted(ctx context.Context, reviews *reviewstore.ReviewStore, params a
 }
 
 func (s *ReviewService) withMessages(ctx context.Context, thread reviewstore.Thread) (*ReviewThreadWithMessages, error) {
-	messages, err := s.messages.ListMessages(ctx, []string{thread.ID})
+	messages, err := s.reviews.ListMessages(ctx, []string{thread.ID})
 	if err != nil {
 		return nil, err
 	}

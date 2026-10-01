@@ -114,10 +114,10 @@ func TestIntegrationExitedCLIStopsBeingANudgeTarget(t *testing.T) {
 
 	panes := tmuxtest.NewFake()
 	svc := mail.NewDeliveryService(mail.NewDeliveryServiceParams{
-		MailboxReader: st.Mail,
-		NudgeClaimer:  st.Agents,
-		PaneReader:    NewPaneLiveness(cli),
-		Channel:       pane.NewPane(pane.NewPaneParams{Terminal: panes, Harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}}}),
+		Mail:         st.Mail,
+		NudgeClaimer: st.Agents,
+		PaneReader:   NewPaneLiveness(cli),
+		Channel:      pane.NewPane(pane.NewPaneParams{Terminal: panes, Harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}}}),
 	})
 
 	got, err := svc.Deliver(ctx, agent.ID)

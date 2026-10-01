@@ -26,13 +26,6 @@ const baseFetchTimeout = 30 * time.Second
 // cwdLookWorkers is how many directories are looked at together.
 const cwdLookWorkers = 8
 
-type cwdSetter interface {
-	List(ctx context.Context) ([]agentstore.Agent, error)
-	SetCheckout(ctx context.Context, id string, params agentstore.SetCheckoutParams) error
-	SetMovedSinceRound(ctx context.Context, id, snapshotSHA string) error
-	SetDiffStat(ctx context.Context, id string, stat *agentstore.DiffStat) error
-}
-
 // headReader reads a checkout's HEAD.
 type headReader interface {
 	ReadHeadState(ctx context.Context, params git.ReadHeadStateParams) git.HeadState
@@ -47,38 +40,28 @@ type treeReader interface {
 	ReadDiffStat(ctx context.Context, params git.ReadDiffStatParams) (*git.DiffStat, error)
 }
 
-type workflowLister interface {
-	List(ctx context.Context) ([]workflowstore.Workflow, error)
-}
-
-type roundLister interface {
-	ListNewestRounds(ctx context.Context) ([]reviewstore.NewestRound, error)
-	ListUnlandedRounds(ctx context.Context) (map[string][]reviewstore.UnlandedRound, error)
-	MarkRoundsLanded(ctx context.Context, agentID string, ordinal int32) (int64, error)
-}
-
 type pullRequestObserver interface {
 	Observe(ctx context.Context) (int64, error)
 }
 
 // NewCwdSyncerParams is what a cwd syncer is built over.
 type NewCwdSyncerParams struct {
-	Agents       cwdSetter
+	Agents       *agentstore.AgentStore
 	Heads        headReader
 	Trees        treeReader
-	Rounds       roundLister
-	Workflows    workflowLister
+	Rounds       *reviewstore.ReviewStore
+	Workflows    *workflowstore.WorkflowStore
 	PullRequests pullRequestObserver
 }
 
 // CwdSyncer keeps what the panel shows of an agent's working directory in step with the
 // directory itself.
 type CwdSyncer struct {
-	agents       cwdSetter
+	agents       *agentstore.AgentStore
 	heads        headReader
 	trees        treeReader
-	rounds       roundLister
-	workflows    workflowLister
+	rounds       *reviewstore.ReviewStore
+	workflows    *workflowstore.WorkflowStore
 	pullRequests pullRequestObserver
 	// walkedMu guards walked and fetched.
 	walkedMu sync.Mutex

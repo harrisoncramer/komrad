@@ -32,10 +32,10 @@ func NewQueue(t *testing.T, stores *storetest.Stores, handlers ...events.Handler
 		stores: stores,
 		router: events.NewRouter(events.NewRouterParams{
 			Mailer: mail.NewMailService(mail.NewMailServiceParams{
-				MailReadWriter: stores.Mail,
-				Agents:         stores.Agents,
-				Workflows:      stores.Workflows,
-				Config:         config.Mail{},
+				Mail:      stores.Mail,
+				Agents:    stores.Agents,
+				Workflows: stores.Workflows,
+				Config:    config.Mail{},
 			}),
 			Handlers: handlers,
 		}),

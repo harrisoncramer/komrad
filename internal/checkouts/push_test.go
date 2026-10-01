@@ -21,7 +21,7 @@ func TestPushRefusals(t *testing.T) {
 	type testCase struct {
 		name    string
 		agent   agentstore.Agent
-		pusher  gittest.Pusher
+		pusher  gittest.Mover
 		landed  bool
 		wantErr error
 	}
@@ -30,38 +30,38 @@ func TestPushRefusals(t *testing.T) {
 		{
 			name:    "an agent whose tree something else is working in",
 			agent:   agentstore.Agent{Cwd: "/locked"},
-			pusher:  gittest.Pusher{State: git.TreeState{Branch: "agent/a1"}, Own: 1},
+			pusher:  gittest.Mover{State: git.TreeState{Branch: "agent/a1"}, Own: 1},
 			wantErr: ErrBusy,
 		},
 		{
 			name:    "a checkout part-way through a sequence",
-			pusher:  gittest.Pusher{State: git.TreeState{Branch: "agent/a1", InProgress: true}, Own: 1},
+			pusher:  gittest.Mover{State: git.TreeState{Branch: "agent/a1", InProgress: true}, Own: 1},
 			wantErr: ErrPushInProgress,
 		},
 		{
 			name:    "a detached checkout",
-			pusher:  gittest.Pusher{Own: 1},
+			pusher:  gittest.Mover{Own: 1},
 			wantErr: ErrPushDetached,
 		},
 		{
 			name:    "a checkout on the workflow's base branch",
-			pusher:  gittest.Pusher{State: git.TreeState{Branch: "main"}, Own: 1},
+			pusher:  gittest.Mover{State: git.TreeState{Branch: "main"}, Own: 1},
 			wantErr: ErrPushBase,
 		},
 		{
 			name:    "a branch whose pull request has merged",
-			pusher:  gittest.Pusher{State: git.TreeState{Branch: "agent/a1"}, Own: 1},
+			pusher:  gittest.Mover{State: git.TreeState{Branch: "agent/a1"}, Own: 1},
 			landed:  true,
 			wantErr: ErrPushFinished,
 		},
 		{
 			name:    "a branch holding nothing the base does not, as a rebase onto landed work leaves it",
-			pusher:  gittest.Pusher{State: git.TreeState{Branch: "agent/a1"}},
+			pusher:  gittest.Mover{State: git.TreeState{Branch: "agent/a1"}},
 			wantErr: ErrPushNothing,
 		},
 		{
 			name: "a branch origin already holds whole",
-			pusher: gittest.Pusher{
+			pusher: gittest.Mover{
 				State:  git.TreeState{Branch: "agent/a1"},
 				Own:    1,
 				Remote: git.RemoteStanding{Pushed: true},
@@ -70,7 +70,7 @@ func TestPushRefusals(t *testing.T) {
 		},
 		{
 			name: "a branch behind origin's copy, which only a pull would bring level",
-			pusher: gittest.Pusher{
+			pusher: gittest.Mover{
 				State:  git.TreeState{Branch: "agent/a1"},
 				Own:    1,
 				Remote: git.RemoteStanding{Pushed: true, Unpulled: 1},
@@ -80,7 +80,7 @@ func TestPushRefusals(t *testing.T) {
 		{
 			name:  "a branch a human made, whose copy on origin it would overwrite",
 			agent: agentstore.Agent{AdoptedBranch: "harry/spike"},
-			pusher: gittest.Pusher{
+			pusher: gittest.Mover{
 				State: git.TreeState{Branch: "harry/spike"},
 				Own:   1,
 				Remote: git.RemoteStanding{
@@ -105,7 +105,7 @@ func TestPushRefusals(t *testing.T) {
 			require.True(t, taken)
 			t.Cleanup(release)
 
-			_, err := fixture.newService(NewServiceParams{Pusher: &tt.pusher, Locks: locks}).Push(t.Context(), agent.ID)
+			_, err := fixture.newService(NewServiceParams{Git: &tt.pusher, Locks: locks}).Push(t.Context(), agent.ID)
 
 			require.ErrorIs(t, err, tt.wantErr)
 			assert.Empty(t, tt.pusher.Pushed)
@@ -119,7 +119,7 @@ func TestPushSendsTheBranch(t *testing.T) {
 	type testCase struct {
 		name       string
 		agent      agentstore.Agent
-		pusher     gittest.Pusher
+		pusher     gittest.Mover
 		wantPlan   PushPlan
 		wantMailed bool
 	}
@@ -127,7 +127,7 @@ func TestPushSendsTheBranch(t *testing.T) {
 	tests := []testCase{
 		{
 			name: "a rebased branch overwrites origin's copy and the agent is told the new commit",
-			pusher: gittest.Pusher{
+			pusher: gittest.Mover{
 				State: git.TreeState{Branch: "agent/a1"},
 				Own:   3,
 				Remote: git.RemoteStanding{
@@ -148,7 +148,7 @@ func TestPushSendsTheBranch(t *testing.T) {
 		},
 		{
 			name: "a branch origin never had is counted against the base",
-			pusher: gittest.Pusher{
+			pusher: gittest.Mover{
 				State: git.TreeState{Branch: "agent/a1"},
 				Own:   4,
 				SHA:   "abcdef1234567",
@@ -161,7 +161,7 @@ func TestPushSendsTheBranch(t *testing.T) {
 		{
 			name:  "a branch a human made goes up when origin's copy is behind it",
 			agent: agentstore.Agent{AdoptedBranch: "harry/spike"},
-			pusher: gittest.Pusher{
+			pusher: gittest.Mover{
 				State:  git.TreeState{Branch: "harry/spike"},
 				Own:    2,
 				Remote: git.RemoteStanding{Pushed: true, Unpushed: 1},
@@ -178,7 +178,7 @@ func TestPushSendsTheBranch(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			fixture := newRebaseFixture(t)
 			agent := fixture.seedPushable(t, tt.agent)
-			service := fixture.newService(NewServiceParams{Pusher: &tt.pusher})
+			service := fixture.newService(NewServiceParams{Git: &tt.pusher})
 
 			plan, err := service.PlanPush(t.Context(), agent.ID)
 			require.NoError(t, err)
@@ -212,7 +212,7 @@ func TestPushSendsTheBranch(t *testing.T) {
 func TestPushReportsWhatOriginSaid(t *testing.T) {
 	fixture := newRebaseFixture(t)
 	agent := fixture.seedPushable(t, agentstore.Agent{})
-	pusher := &gittest.Pusher{
+	pusher := &gittest.Mover{
 		State: git.TreeState{Branch: "agent/a1"},
 		Own:   1,
 		Remote: git.RemoteStanding{
@@ -223,7 +223,7 @@ func TestPushReportsWhatOriginSaid(t *testing.T) {
 		PushErr: git.ErrPushRejected,
 	}
 
-	_, err := fixture.newService(NewServiceParams{Pusher: pusher}).Push(t.Context(), agent.ID)
+	_, err := fixture.newService(NewServiceParams{Git: pusher}).Push(t.Context(), agent.ID)
 
 	require.ErrorIs(t, err, git.ErrPushRejected)
 	assert.Equal(t, 1, fixture.checkoutSync.Wakes, "origin may have been read afresh, so the counts are read back")

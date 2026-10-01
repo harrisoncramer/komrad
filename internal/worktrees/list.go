@@ -14,6 +14,7 @@ import (
 	"komrad/config"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
+	workflowstore "komrad/internal/store/workflow"
 	worktreestore "komrad/internal/store/worktree"
 	"komrad/lib/xslice"
 )
@@ -93,32 +94,20 @@ type Listing struct {
 	UnreadableDirs []string
 }
 
-type agentDirLister interface {
-	ListDirs(ctx context.Context) ([]agentstore.AgentDir, error)
-}
-
-type worktreeDirLister interface {
-	ListWorktreeDirs(ctx context.Context) ([]string, error)
-}
-
-type sizeLister interface {
-	ListSizes(ctx context.Context) ([]worktreestore.Size, error)
-}
-
 type NewListerParams struct {
 	// SharedDir reads the configured worktrees directory, resolved.
 	SharedDir func() (string, error)
-	Agents    agentDirLister
-	Workflows worktreeDirLister
-	Sizes     sizeLister
+	Agents    *agentstore.AgentStore
+	Workflows *workflowstore.WorkflowStore
+	Worktrees *worktreestore.WorktreeStore
 }
 
 // Lister reads the worktree directories and the rows that answer for them.
 type Lister struct {
 	shared    func() (string, error)
-	agents    agentDirLister
-	workflows worktreeDirLister
-	sizes     sizeLister
+	agents    *agentstore.AgentStore
+	workflows *workflowstore.WorkflowStore
+	worktrees *worktreestore.WorktreeStore
 }
 
 // NewLister builds a lister over the stores.
@@ -127,7 +116,7 @@ func NewLister(params NewListerParams) *Lister {
 		shared:    params.SharedDir,
 		agents:    params.Agents,
 		workflows: params.Workflows,
-		sizes:     params.Sizes,
+		worktrees: params.Worktrees,
 	}
 }
 
@@ -204,7 +193,7 @@ func (l *Lister) answerer(ctx context.Context) (func(dir string) Worktree, error
 		return nil, err
 	}
 
-	sizes, err := l.sizes.ListSizes(ctx)
+	sizes, err := l.worktrees.ListSizes(ctx)
 	if err != nil {
 		return nil, err
 	}

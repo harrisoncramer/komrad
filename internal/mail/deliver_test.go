@@ -300,10 +300,10 @@ func TestDeliverKeepsALandedNudgeWhenTheBookkeepingFails(t *testing.T) {
 
 	channel := &harnesstest.Channel{}
 	svc := NewDeliveryService(NewDeliveryServiceParams{
-		MailboxReader: st.Mail,
-		NudgeClaimer:  nudgeSentFailer{AgentStore: st.Agents},
-		PaneReader:    agents.NewPaneLiveness(terminal),
-		Channel:       channel,
+		Mail:         st.Mail,
+		NudgeClaimer: nudgeSentFailer{AgentStore: st.Agents},
+		PaneReader:   agents.NewPaneLiveness(terminal),
+		Channel:      channel,
 	})
 	ctx, records := newLoggedContext(t)
 
@@ -602,10 +602,10 @@ func TestDeliverLeavesTheClaimOnAChannelThatWasNeverReady(t *testing.T) {
 
 func newDeliveryService(st *storetest.Stores, terminal *tmuxtest.Fake, channel harness.Channel) *DeliveryService {
 	return NewDeliveryService(NewDeliveryServiceParams{
-		MailboxReader: st.Mail,
-		NudgeClaimer:  st.Agents,
-		PaneReader:    agents.NewPaneLiveness(terminal),
-		Channel:       channel,
+		Mail:         st.Mail,
+		NudgeClaimer: st.Agents,
+		PaneReader:   agents.NewPaneLiveness(terminal),
+		Channel:      channel,
 	})
 }
 

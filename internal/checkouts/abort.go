@@ -93,12 +93,12 @@ func (s *Service) abort(ctx context.Context, agent agentstore.Agent) (*AbortResu
 		ParkedRef: buildParkRef(parkAbort, agent.ID),
 		Ours:      ours,
 	}
-	if _, err := s.aborter.Park(ctx, agent.Cwd, result.ParkedRef); err != nil {
+	if _, err := s.git.Park(ctx, agent.Cwd, result.ParkedRef); err != nil {
 		return nil, err
 	}
 	defer s.checkoutSync.Wake()
 
-	err = s.aborter.AbortSequence(ctx, agent.Cwd, sequence)
+	err = s.git.AbortSequence(ctx, agent.Cwd, sequence)
 	if errors.Is(err, git.ErrIndexLocked) {
 		return nil, fmt.Errorf("%w: %w", ErrBusy, err)
 	}
@@ -108,7 +108,7 @@ func (s *Service) abort(ctx context.Context, agent agentstore.Agent) (*AbortResu
 
 	s.recordAborted(ctx, agent)
 
-	state, err := s.aborter.ReadTreeState(ctx, agent.Cwd)
+	state, err := s.git.ReadTreeState(ctx, agent.Cwd)
 	if err != nil {
 		return nil, err
 	}
@@ -119,7 +119,7 @@ func (s *Service) abort(ctx context.Context, agent agentstore.Agent) (*AbortResu
 
 // readSequence is what is part-way through the checkout, refusing one with nothing.
 func (s *Service) readSequence(ctx context.Context, agent agentstore.Agent) (git.Sequence, error) {
-	sequence, err := s.aborter.ReadSequence(ctx, agent.Cwd)
+	sequence, err := s.git.ReadSequence(ctx, agent.Cwd)
 	if err != nil {
 		return git.SequenceNone, err
 	}
@@ -153,7 +153,7 @@ func (s *Service) isOwnRebase(ctx context.Context, agent agentstore.Agent, seque
 		return false, nil
 	}
 
-	onto, err := s.aborter.ReadRebaseOnto(ctx, agent.Cwd)
+	onto, err := s.git.ReadRebaseOnto(ctx, agent.Cwd)
 	if err != nil {
 		return false, err
 	}
