@@ -54,8 +54,13 @@ func (s *WorkflowStore) Create(ctx context.Context, cfg Config) (*Workflow, erro
 		return nil, err
 	}
 
-	workflow := workflowFromRow(*row, *config, *provisioner, cfg.Hooks)
-	workflow.EventPrompts = cfg.EventPrompts
+	workflow := workflowFromRow(workflowFromRowParams{
+		Workflow:     *row,
+		Config:       *config,
+		Provisioner:  *provisioner,
+		Hooks:        cfg.Hooks,
+		EventPrompts: cfg.EventPrompts,
+	})
 
 	return &workflow, nil
 }

@@ -110,8 +110,13 @@ func (s *WorkflowStore) get(ctx context.Context, id string, includeArchived bool
 		return nil, err
 	}
 
-	workflow := workflowFromRow(row.Workflow, row.WorkflowConfig, row.WorkflowProvisionerConfig, hooks)
-	workflow.EventPrompts = prompts
+	workflow := workflowFromRow(workflowFromRowParams{
+		Workflow:     row.Workflow,
+		Config:       row.WorkflowConfig,
+		Provisioner:  row.WorkflowProvisionerConfig,
+		Hooks:        hooks,
+		EventPrompts: prompts,
+	})
 
 	return &workflow, nil
 }

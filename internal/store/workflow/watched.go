@@ -61,9 +61,12 @@ func (s *WorkflowStore) ListWatched(ctx context.Context, keys []string) ([]Workf
 	}
 
 	return xslice.Map(rows, func(row *models.ListWatchedWorkflowsRow) Workflow {
-		workflow := workflowFromRow(row.Workflow, row.WorkflowConfig, row.WorkflowProvisionerConfig, hooks[row.Workflow.ID])
-		workflow.EventPrompts = prompts[row.Workflow.ID]
-
-		return workflow
+		return workflowFromRow(workflowFromRowParams{
+			Workflow:     row.Workflow,
+			Config:       row.WorkflowConfig,
+			Provisioner:  row.WorkflowProvisionerConfig,
+			Hooks:        hooks[row.Workflow.ID],
+			EventPrompts: prompts[row.Workflow.ID],
+		})
 	}), nil
 }
