@@ -155,15 +155,6 @@ type SessionFinder interface {
 	FindSession(agentID string) (string, error)
 }
 
-// MintSessionID names a fresh launch's conversation, empty when the CLI names its own.
-func MintSessionID(hn Harness) string {
-	if hn.SessionNaming() == SessionDiscovered {
-		return ""
-	}
-
-	return uuid.NewString()
-}
-
 type Turn struct {
 	Role    string
 	Content string
@@ -196,4 +187,13 @@ type Harness interface {
 	LogPath(sessionID string) string
 
 	ReadLog(path string, offset int64) (LogRead, error)
+}
+
+// MintSessionID names a fresh launch's conversation, empty when the CLI names its own.
+func MintSessionID(hn Harness) string {
+	if hn.SessionNaming() == SessionDiscovered {
+		return ""
+	}
+
+	return uuid.NewString()
 }
