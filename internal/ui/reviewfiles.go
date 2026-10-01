@@ -376,8 +376,8 @@ func (r *reviewScreen) settleFilesFilter(h navHost, s panelShared) tea.Cmd {
 // wrapping at either end and leaving the cursor where it is when that file is the current one.
 func (r *reviewScreen) jumpFilesMatch(h navHost, s panelShared, direction int) tea.Cmd {
 	tree := r.readFilesTree()
-	n := len(tree.rows)
-	if r.filesFilter.pattern == nil || n == 0 {
+	count := len(tree.rows)
+	if r.filesFilter.pattern == nil || count == 0 {
 		return nil
 	}
 
@@ -387,11 +387,11 @@ func (r *reviewScreen) jumpFilesMatch(h navHost, s panelShared, direction int) t
 	case origin >= 0 && direction == 0:
 		first = 0
 	case origin < 0 && walk < 0:
-		origin = n
+		origin = count
 	}
 
-	for offset := first; offset <= n; offset++ {
-		at := ((origin+walk*offset)%n + n) % n
+	for offset := first; offset <= count; offset++ {
+		at := ((origin+walk*offset)%count + count) % count
 		row := tree.rows[at]
 		if row.Folder || !r.filesFilter.doesMatch(row.Name) {
 			continue
