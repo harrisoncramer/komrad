@@ -457,31 +457,14 @@ func (f *Forge) SetAutoMerge(ctx context.Context, params forge.SetAutoMergeParam
 		return err
 	}
 
-	var data struct {
-		Repository *struct {
-			ViewerDefaultMergeMethod string `json:"viewerDefaultMergeMethod"`
-			PullRequest              *struct {
-				ID               string    `json:"id"`
-				State            string    `json:"state"`
-				AutoMergeRequest *struct{} `json:"autoMergeRequest"`
-			} `json:"pullRequest"`
-		} `json:"repository"`
-	}
-	answer, err := f.client.Query(ctx, autoMergeTargetQuery, map[string]any{
-		"owner":  owner,
-		"name":   name,
-		"number": number,
-	}, &data)
+	target, err := f.readAutoMergeTarget(ctx, readAutoMergeTargetParams{
+		owner:  owner,
+		name:   name,
+		number: number,
+	})
 	if err != nil {
 		return err
 	}
-	if err := failureOf(answer, ""); err != nil {
-		return err
-	}
-	if data.Repository == nil || data.Repository.PullRequest == nil {
-		return noPullRequest(number, owner, name)
-	}
-	target := data.Repository.PullRequest
 	switch target.State {
 	case "MERGED":
 		return forge.ErrNoAutoMerge.Saying("github will not change #%d: it has already merged", number)
@@ -496,17 +479,53 @@ func (f *Forge) SetAutoMerge(ctx context.Context, params forge.SetAutoMergeParam
 	variables := map[string]any{"id": target.ID}
 	if params.On {
 		mutation = enableAutoMergeMutation
-		variables["method"] = data.Repository.ViewerDefaultMergeMethod
+		variables["method"] = target.method
 		variables["head"] = xptr.NonEmpty(params.HeadSHA)
 	}
 
 	var changed struct{}
-	answer, err = f.client.Query(ctx, mutation, variables, &changed)
+	answer, err := f.client.Query(ctx, mutation, variables, &changed)
 	if err != nil {
 		return err
 	}
 
 	return mutationRefusal{sentinel: forge.ErrNoAutoMerge, verb: "change auto-merge on"}.explain(answer, params.URL, number)
+}
+
+// readAutoMergeTargetParams names the pull request whose auto-merge is read.
+type readAutoMergeTargetParams struct {
+	owner  string
+	name   string
+	number int
+}
+
+// readAutoMergeTarget reads the pull request whose auto-merge is about to change.
+func (f *Forge) readAutoMergeTarget(ctx context.Context, params readAutoMergeTargetParams) (*autoMergeTarget, error) {
+	var data struct {
+		Repository *struct {
+			ViewerDefaultMergeMethod string           `json:"viewerDefaultMergeMethod"`
+			PullRequest              *autoMergeTarget `json:"pullRequest"`
+		} `json:"repository"`
+	}
+	answer, err := f.client.Query(ctx, autoMergeTargetQuery, map[string]any{
+		"owner":  params.owner,
+		"name":   params.name,
+		"number": params.number,
+	}, &data)
+	if err != nil {
+		return nil, err
+	}
+	if err := failureOf(answer, ""); err != nil {
+		return nil, err
+	}
+	if data.Repository == nil || data.Repository.PullRequest == nil {
+		return nil, noPullRequest(params.number, params.owner, params.name)
+	}
+
+	target := data.Repository.PullRequest
+	target.method = data.Repository.ViewerDefaultMergeMethod
+
+	return target, nil
 }
 
 // listPullRequests reads one page of a repository's pullRequests connection, whichever query
@@ -670,6 +689,15 @@ type pullRequestNode struct {
 
 type repositoryNode struct {
 	URL string `json:"url"`
+}
+
+// autoMergeTarget is a pull request whose auto-merge is about to change, with the method the
+// credential merges with by default.
+type autoMergeTarget struct {
+	ID               string    `json:"id"`
+	State            string    `json:"state"`
+	AutoMergeRequest *struct{} `json:"autoMergeRequest"`
+	method           string
 }
 
 // standingNode is what GitHub says about a pull request's reviews, the checks on its head and
