@@ -1402,6 +1402,13 @@
               "default": "\"\""
             },
             {
+              "key": "forge_comments",
+              "path": "glyphs.marks.forge_comments",
+              "type": "string",
+              "description": "Beside the count of open comments on the agent's pull request you have not taken up.",
+              "default": "\"\""
+            },
+            {
               "key": "unread",
               "path": "glyphs.marks.unread",
               "type": "string",

@@ -128,28 +128,27 @@ func RepoCell(row Row) Cell {
 	return Cell{Glyph: glyph.Worktree, Tone: paint.ToneMuted}
 }
 
-// buildCommentCells lays out what is outstanding on an agent's work against the right edge: the
-// open comments of reviewer agents, the open comments of the person with any the forge offers
-// them, and the replies the person has not read, each drawn only while it is above zero.
+// buildCommentCells lays out the counts outstanding on an agent's work against the right edge.
 func buildCommentCells(row Row) []Cell {
 	if !isOwn(row) {
 		return nil
 	}
 
-	reviewerOpen, personOpen, external, unread := 0, 0, 0, 0
+	reviewerOpen, personOpen, forgeOpen, unread := 0, 0, 0, 0
 	if row.ReviewerComments != nil {
 		reviewerOpen = row.ReviewerComments.Open
 	}
 	if row.PersonComments != nil {
 		personOpen = row.PersonComments.Open
-		external = row.PersonComments.External
+		forgeOpen = row.PersonComments.External
 		unread = row.PersonComments.Unread
 	}
 
 	var cells []Cell
 	for _, cell := range []Cell{
 		countCell(glyph.ReviewerComments, reviewerOpen, paint.ToneMuted),
-		personCell(personOpen, external),
+		countCell(glyph.PersonComments, personOpen, paint.ToneMuted),
+		countCell(glyph.ForgeComments, forgeOpen, paint.ToneUserGithub),
 		countCell(glyph.Unread, unread, paint.ToneWarning),
 	} {
 		if !cell.IsBlank() {
@@ -170,20 +169,6 @@ func countCell(mark glyph.Glyph, count int, tone paint.Tone) Cell {
 		{Glyph: mark, Tone: tone},
 		{Text: " "},
 		{Text: strconv.Itoa(count), Tone: tone},
-	}}
-}
-
-// personCell is the person's count, carrying the count the forge offers them after their own.
-func personCell(open, external int) Cell {
-	if external == 0 {
-		return countCell(glyph.PersonComments, open, paint.ToneMuted)
-	}
-
-	return Cell{Parts: []Cell{
-		{Glyph: glyph.PersonComments, Tone: paint.ToneMuted},
-		{Text: " "},
-		{Text: strconv.Itoa(open), Tone: paint.ToneMuted},
-		{Text: "+" + strconv.Itoa(external), Tone: paint.ToneUserGithub},
 	}}
 }
 
