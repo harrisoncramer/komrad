@@ -85,6 +85,11 @@ func (g *Checkout) CountAheadBehind(context.Context, string, string) (int, int, 
 	return g.Ahead, g.Behind, nil
 }
 
+// ReadBaseTip answers a fixed tip.
+func (g *Checkout) ReadBaseTip(context.Context, string, string) (string, error) {
+	return "abc", nil
+}
+
 // PredictRebase answers Prediction and PredictErr.
 func (g *Checkout) PredictRebase(context.Context, string, string) (git.Prediction, error) {
 	return g.Prediction, g.PredictErr

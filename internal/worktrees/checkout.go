@@ -3,6 +3,7 @@ package worktrees
 import (
 	"context"
 	"errors"
+	"sync"
 	"time"
 
 	"komrad/internal/git"
@@ -17,6 +18,7 @@ type checkoutGit interface {
 	ResolveBase(ctx context.Context, dir, base string) (string, error)
 	FetchBase(ctx context.Context, dir, base string) (ref, sha string, err error)
 	PredictRebase(ctx context.Context, dir, ref string) (git.Prediction, error)
+	ReadBaseTip(ctx context.Context, dir, base string) (string, error)
 	ReadDiffStat(ctx context.Context, params git.ReadDiffStatParams) (*git.DiffStat, error)
 }
 
@@ -37,6 +39,13 @@ type Checkout struct {
 	Unrelated bool
 }
 
+type prediction struct {
+	at        string
+	landed    int
+	unlanded  int
+	unrelated bool
+}
+
 type NewCheckoutReaderParams struct {
 	Git checkoutGit
 	// Now is the clock, time.Now when unset.
@@ -45,8 +54,10 @@ type NewCheckoutReaderParams struct {
 
 // CheckoutReader reads where a directory stands against its base.
 type CheckoutReader struct {
-	git checkoutGit
-	now func() time.Time
+	git         checkoutGit
+	now         func() time.Time
+	predictedMu sync.Mutex
+	predicted   map[string]prediction
 }
 
 // NewCheckoutReader builds a checkout reader over git.
@@ -57,8 +68,9 @@ func NewCheckoutReader(params NewCheckoutReaderParams) *CheckoutReader {
 	}
 
 	return &CheckoutReader{
-		git: params.Git,
-		now: now,
+		git:       params.Git,
+		now:       now,
+		predicted: map[string]prediction{},
 	}
 }
 
@@ -66,7 +78,8 @@ type ReadStandingParams struct {
 	Dir      string
 	Readable bool
 	// Base is the branch the directory is measured against.
-	Base string
+	Base    string
+	HeadSHA string
 }
 
 // ReadStanding reads where a directory stands against its base without asking origin or taking
@@ -78,9 +91,10 @@ func (r *CheckoutReader) ReadStanding(ctx context.Context, params ReadStandingPa
 	}
 	if params.Readable {
 		standing.Err = r.read(ctx, &standing.Checkout, readParams{
-			Dir:  params.Dir,
-			Base: params.Base,
-			Peek: true,
+			Dir:     params.Dir,
+			Base:    params.Base,
+			Peek:    true,
+			HeadSHA: params.HeadSHA,
 		})
 	}
 
@@ -118,7 +132,8 @@ type readParams struct {
 	Base  string
 	Fetch bool
 	// Peek reads the checkout without writing the index.
-	Peek bool
+	Peek    bool
+	HeadSHA string
 }
 
 // read names the base and reads the part of the standing a directory's delete turns on, leaving
@@ -143,18 +158,55 @@ func (r *CheckoutReader) read(ctx context.Context, checkout *Checkout, params re
 		return err
 	}
 
-	prediction, err := r.git.PredictRebase(ctx, params.Dir, ref)
-	if errors.Is(err, git.ErrBaseUnrelated) {
-		checkout.Unrelated = true
-
-		return nil
-	}
+	predicted, err := r.predict(ctx, params, ref)
 	if err != nil {
 		return err
 	}
-	checkout.Landed, checkout.Unlanded = prediction.Landed, prediction.Replay
+	checkout.Landed, checkout.Unlanded, checkout.Unrelated = predicted.landed, predicted.unlanded, predicted.unrelated
 
 	return nil
+}
+
+func (r *CheckoutReader) predict(ctx context.Context, params readParams, ref string) (prediction, error) {
+	at := r.stampPrediction(ctx, params)
+	r.predictedMu.Lock()
+	last, ok := r.predicted[params.Dir]
+	r.predictedMu.Unlock()
+	if at != "" && ok && last.at == at {
+		return last, nil
+	}
+
+	predicted := prediction{at: at}
+	rebase, err := r.git.PredictRebase(ctx, params.Dir, ref)
+	switch {
+	case errors.Is(err, git.ErrBaseUnrelated):
+		predicted.unrelated = true
+	case err != nil:
+		return prediction{}, err
+	default:
+		predicted.landed, predicted.unlanded = rebase.Landed, rebase.Replay
+	}
+
+	if at != "" {
+		r.predictedMu.Lock()
+		r.predicted[params.Dir] = predicted
+		r.predictedMu.Unlock()
+	}
+
+	return predicted, nil
+}
+
+func (r *CheckoutReader) stampPrediction(ctx context.Context, params readParams) string {
+	if params.HeadSHA == "" {
+		return ""
+	}
+
+	tip, err := r.git.ReadBaseTip(ctx, params.Dir, params.Base)
+	if err != nil {
+		return ""
+	}
+
+	return params.HeadSHA + ":" + tip
 }
 
 // nameBase is the ref the branch is measured against, fetched from origin first when asked.

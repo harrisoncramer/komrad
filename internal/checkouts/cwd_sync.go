@@ -582,6 +582,7 @@ func (cs *CwdSyncer) readStanding(ctx context.Context, look *cwdLook, base strin
 		Dir:      look.worktree.Dir,
 		Readable: look.worktree.Readable,
 		Base:     base,
+		HeadSHA:  look.head.SHA,
 	})
 	look.standing = &standing
 }

@@ -43,6 +43,7 @@ type Trees struct {
 	Changes git.Changes
 	// Prediction is what a rebase of every directory would do.
 	Prediction git.Prediction
+	Predicted  int
 }
 
 // ProbeTree records the root and answers what Probes holds for it, refusing when there are no
@@ -142,7 +143,11 @@ func (t *Trees) IsSequenceInProgress(context.Context, string) (bool, error) {
 	return false, nil
 }
 
-// PredictRebase answers Prediction.
+// PredictRebase counts the prediction and answers Prediction.
 func (t *Trees) PredictRebase(context.Context, string, string) (git.Prediction, error) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.Predicted++
+
 	return t.Prediction, nil
 }
