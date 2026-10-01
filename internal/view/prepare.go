@@ -128,9 +128,7 @@ func RepoCell(row Row) Cell {
 	return Cell{Glyph: glyph.Worktree, Tone: paint.ToneMuted}
 }
 
-// buildCommentCells lays out what is outstanding on an agent's work against the right edge: the
-// open comments of reviewer agents, the open comments of the person, the comments the forge
-// offers them, and the replies the person has not read, each drawn only while it is above zero.
+// buildCommentCells lays out the counts outstanding on an agent's work against the right edge.
 func buildCommentCells(row Row) []Cell {
 	if !isOwn(row) {
 		return nil
