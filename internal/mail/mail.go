@@ -5,11 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"slices"
 	"strings"
 	"time"
 	"unicode/utf8"
 
-	"komrad/internal/eventprompts"
 	"komrad/internal/fail"
 	"komrad/internal/logging"
 	"komrad/internal/store"
@@ -239,7 +239,7 @@ type SendFromKomradParams struct {
 	OnlyRewrite bool
 	// Events are the events this mail starts, whose workflow prompts it carries.
 	Events []string
-	// Holding are the events true of the subject now, and Events when left nil.
+	// Holding are the events true of the subject now, which keeps those an earlier unread mail started.
 	Holding []string
 }
 
@@ -281,8 +281,8 @@ func (s *MailService) SendFromKomrad(ctx context.Context, params SendFromKomradP
 		return nil, err
 	}
 
-	named := nameEvents(held, params)
-	prompts, err := s.eventPromptsFor(ctx, recipient.WorkflowID, named)
+	carried := carryEvents(held, params)
+	prompts, err := s.eventPromptsFor(ctx, recipient.WorkflowID, carried)
 	if err != nil {
 		return nil, err
 	}
@@ -293,7 +293,7 @@ func (s *MailService) SendFromKomrad(ctx context.Context, params SendFromKomradP
 		Body:      withEventPrompts(params.Body, prompts),
 		Kind:      params.Kind,
 		SubjectID: params.SubjectID,
-		Events:    named,
+		Events:    carried,
 		Deadline:  deadline,
 	})
 }
@@ -571,18 +571,18 @@ type eventPrompt struct {
 	prompt string
 }
 
-func nameEvents(held *mailstore.Mail, params SendFromKomradParams) []string {
-	holding := params.Holding
-	if holding == nil {
-		holding = params.Events
-	}
-
-	var started []string
+func carryEvents(held *mailstore.Mail, params SendFromKomradParams) []string {
+	var carried []string
 	if held != nil {
-		started = append(started, held.Events...)
+		carried = slices.DeleteFunc(slices.Clone(held.Events), func(event string) bool { return !slices.Contains(params.Holding, event) })
+	}
+	for _, event := range params.Events {
+		if !slices.Contains(carried, event) {
+			carried = append(carried, event)
+		}
 	}
 
-	return eventprompts.Named(append(started, params.Events...), holding)
+	return carried
 }
 
 func (s *MailService) eventPromptsFor(ctx context.Context, workflowID string, named []string) ([]eventPrompt, error) {

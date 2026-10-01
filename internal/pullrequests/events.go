@@ -52,7 +52,7 @@ func eventsOf(change Change, pullRequest pullrequeststore.PullRequest) ([]string
 		FieldMergeability: pullRequest.LastKnownMergeability,
 	}
 
-	holding := []string{}
+	var holding []string
 	for _, field := range fieldOrder {
 		if event, ok := eventOf[field][now[field]]; ok {
 			holding = append(holding, event)

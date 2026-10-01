@@ -32,12 +32,6 @@ func TestEventsOf(t *testing.T) {
 			wantHolding: []string{eventprompts.PullRequestBehind},
 		},
 		{
-			name:        "nothing holding is an empty list rather than none",
-			moves:       []Move{{Field: FieldDecision, From: "approved", To: "review_required"}},
-			pullRequest: pullrequeststore.PullRequest{State: "OPEN", LastKnownDecision: "review_required"},
-			wantHolding: []string{},
-		},
-		{
 			name: "a merge is the only event, whatever else moved",
 			moves: []Move{
 				{Field: FieldState, From: "OPEN", To: "MERGED"},

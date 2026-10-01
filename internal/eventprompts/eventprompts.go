@@ -72,15 +72,3 @@ func Names() []string {
 func Known(name string) bool {
 	return slices.Contains(Names(), name)
 }
-
-// Named is the events of names that also hold, in the order they were named and each once.
-func Named(names, holding []string) []string {
-	var named []string
-	for _, name := range names {
-		if slices.Contains(holding, name) && !slices.Contains(named, name) {
-			named = append(named, name)
-		}
-	}
-
-	return named
-}
