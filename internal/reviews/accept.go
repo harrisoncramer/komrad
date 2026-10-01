@@ -154,8 +154,8 @@ func (s *ReviewService) acceptAgain(
 	if err != nil {
 		return nil, err
 	}
-	if len(freshComments(messages, seen)) == 0 && params.Note == "" {
-		return nil, ErrForgeThreadNothingNew
+	if _, err := requireFresh(messages, seen, params.Note); err != nil {
+		return nil, err
 	}
 
 	open, err := s.openReviewFor(ctx, openReviewForParams{AgentID: thread.AgentID, Author: params.Author})
@@ -174,9 +174,9 @@ func (s *ReviewService) acceptAgain(
 			return nil, err
 		}
 
-		fresh := freshComments(messages, seen)
-		if len(fresh) == 0 && params.Note == "" {
-			return nil, ErrForgeThreadNothingNew
+		fresh, err := requireFresh(messages, seen, params.Note)
+		if err != nil {
+			return nil, err
 		}
 
 		if err := addAccepted(ctx, reviews, addAcceptedParams{
@@ -273,10 +273,16 @@ func seenComments(stored []pullrequeststore.ForgeComment, seen []SeenForgeCommen
 	return kept, nil
 }
 
-func freshComments(messages []reviewstore.Message, seen []pullrequeststore.ForgeComment) []pullrequeststore.ForgeComment {
-	return slices.DeleteFunc(slices.Clone(seen), func(comment pullrequeststore.ForgeComment) bool {
+// requireFresh is the comments read that the thread does not hold yet.
+func requireFresh(messages []reviewstore.Message, seen []pullrequeststore.ForgeComment, note string) ([]pullrequeststore.ForgeComment, error) {
+	fresh := slices.DeleteFunc(slices.Clone(seen), func(comment pullrequeststore.ForgeComment) bool {
 		return isCopied(messages, comment)
 	})
+	if len(fresh) == 0 && note == "" {
+		return nil, ErrForgeThreadNothingNew
+	}
+
+	return fresh, nil
 }
 
 func isCopied(messages []reviewstore.Message, comment pullrequeststore.ForgeComment) bool {
