@@ -335,9 +335,7 @@ func (m *model) routeGlobalKey(key tea.KeyPressMsg) (tea.Cmd, bool) {
 	}
 
 	if isBound(key.String(), m.keys.Menu.Open) {
-		cmd := m.openMenu()
-
-		return cmd, true
+		return m.openMenu(), true
 	}
 
 	if m.isDetailsScreen() && m.isDetailsFocused() {
@@ -403,9 +401,7 @@ func (m *model) routeAsyncMessage(msg tea.Msg) (tea.Cmd, bool) {
 	case warmupTickMsg:
 		return m.applyWarmupTick(), true
 	case stageTickMsg:
-		cmd := m.applyStageTick(msg)
-
-		return cmd, true
+		return m.applyStageTick(msg), true
 	case lastScreenMsg:
 		m.applyLastScreen(msg)
 
@@ -415,33 +411,21 @@ func (m *model) routeAsyncMessage(msg tea.Msg) (tea.Cmd, bool) {
 
 		return nil, true
 	case documentsListedMsg:
-		cmd := m.applyDocumentsListed(msg)
-
-		return cmd, true
+		return m.applyDocumentsListed(msg), true
 	case documentReadMsg:
 		m.applyDocumentRead(msg)
 
 		return nil, true
 	case logsSourcesMsg:
-		cmd := m.applyLogsSources(msg)
-
-		return cmd, true
+		return m.applyLogsSources(msg), true
 	case logsReadMsg:
-		cmd := m.applyLogsRead(msg)
-
-		return cmd, true
+		return m.applyLogsRead(msg), true
 	case logsTickMsg:
-		cmd := m.applyLogsTick(msg)
-
-		return cmd, true
+		return m.applyLogsTick(msg), true
 	case logsSettledMsg:
-		cmd := m.applyLogsSettled(msg)
-
-		return cmd, true
+		return m.applyLogsSettled(msg), true
 	case documentVersionsListedMsg:
-		cmd := m.applyDocumentVersionsListed(msg)
-
-		return cmd, true
+		return m.applyDocumentVersionsListed(msg), true
 	case documentVersionReadMsg:
 		m.applyDocumentVersionRead(msg)
 
@@ -451,9 +435,7 @@ func (m *model) routeAsyncMessage(msg tea.Msg) (tea.Cmd, bool) {
 
 		return nil, true
 	case client.WatchBatch:
-		cmd := m.applyWatch(msg)
-
-		return cmd, true
+		return m.applyWatch(msg), true
 	case watchLostMsg:
 		m.applyWatchLost(msg)
 
@@ -483,13 +465,9 @@ func (m *model) routeAsyncMessage(msg tea.Msg) (tea.Cmd, bool) {
 
 		return nil, true
 	case pulseMsg:
-		cmd := m.advancePulses()
-
-		return cmd, true
+		return m.advancePulses(), true
 	case loaderTickMsg:
-		cmd := m.advanceLoader()
-
-		return cmd, true
+		return m.advanceLoader(), true
 	case messagesFlashDoneMsg:
 		m.endMessagesFlash(msg)
 
