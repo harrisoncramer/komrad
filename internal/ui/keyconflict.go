@@ -140,6 +140,7 @@ func ValidateKeybindings(keys config.Keybindings) error {
 	if err := validateSubmenuKeys("merge menu", []submenuKeys{
 		{name: "merge", keys: keys.Merge.Merge},
 		{name: "merge_archive", keys: keys.Merge.MergeArchive},
+		{name: "auto_merge", keys: keys.Merge.AutoMerge},
 	}); err != nil {
 		return err
 	}

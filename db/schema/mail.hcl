@@ -1,6 +1,6 @@
 enum "mail_kind" {
   schema = schema.public
-  values = ["plain", "review_activity", "exchange_capped", "document_edited", "pull_request_changed", "worktree_rebased", "worktree_pushed", "worktree_aborted", "auto_merge_changed"]
+  values = ["plain", "review_activity", "exchange_capped", "document_edited", "pull_request_changed", "worktree_rebased", "worktree_pushed", "worktree_aborted"]
 }
 
 table "mail" {

@@ -198,6 +198,18 @@ func TestGitMenuRefusals(t *testing.T) {
 			wantRefusal: "its pull request has already merged",
 		},
 		{
+			name:        "the merge when ready of a draft",
+			rows:        append(buildGitAgent(), newQueueableDraft()),
+			press:       []string{"m", "u"},
+			wantRefusal: "its pull request is a draft, so mark it ready first",
+		},
+		{
+			name:        "the merge when ready of a pull request the forge will not queue",
+			rows:        append(buildGitAgent(), newOpenPullRequest()),
+			press:       []string{"m", "u"},
+			wantRefusal: "the forge will not queue it now",
+		},
+		{
 			name:        "the draft toggle of a pull request that has already merged",
 			rows:        append(buildGitAgent(), newCurrentMergedPullRequest()),
 			press:       []string{"d"},
@@ -283,6 +295,71 @@ func TestGitMenuMerges(t *testing.T) {
 	}
 }
 
+// TestGitMenuMergesWhenReady covers the merge menu entry naming which way it goes, asking the
+// forge to merge on its own at the head the panel holds, and stopping it again.
+func TestGitMenuMergesWhenReady(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		pullRequest *pullrequestv1.PullRequest
+		refuse      error
+		wantLabel   string
+		wantSent    proto.Message
+		wantMessage string
+	}{
+		{
+			name:        "a queue the forge refuses says why",
+			pullRequest: newQueueablePullRequest(),
+			refuse:      connect.NewError(connect.CodeFailedPrecondition, errors.New("github will not change auto-merge on #740: Head sha didn't match expected")),
+			wantLabel:   "merge when ready",
+			wantSent: &forgev1.SetForgePullRequestAutoMergeRequest{
+				Url:     pullRequestURL,
+				HeadSha: "new",
+				On:      true,
+			},
+			wantMessage: "Head sha didn't match expected",
+		},
+		{
+			name:        "a pull request the forge would queue is queued at the head the panel holds",
+			pullRequest: newQueueablePullRequest(),
+			wantLabel:   "merge when ready",
+			wantSent: &forgev1.SetForgePullRequestAutoMergeRequest{
+				Url:     pullRequestURL,
+				HeadSha: "new",
+				On:      true,
+			},
+			wantMessage: "api: #740 merges when ready",
+		},
+		{
+			name:        "a queued pull request stops waiting",
+			pullRequest: newAutoMergedPullRequest(),
+			wantLabel:   "cancel auto-merge",
+			wantSent:    &forgev1.SetForgePullRequestAutoMergeRequest{Url: pullRequestURL, HeadSha: "new"},
+			wantMessage: "api: #740 no longer merges on its own",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			harness := openGitMenu(t, append(buildGitAgent(), tt.pullRequest)...)
+			if tt.refuse != nil {
+				harness.refuse(forgev1connect.ForgeServiceSetForgePullRequestAutoMergeProcedure, tt.refuse)
+			}
+			harness.press("m")
+			require.Contains(t, harness.readFrame(), tt.wantLabel)
+
+			harness.press("u")
+
+			harness.assertSentTo(forgev1connect.ForgeServiceSetForgePullRequestAutoMergeProcedure, tt.wantSent)
+			assert.NotContains(t, harness.readFrame(), tt.wantLabel)
+			assert.Contains(t, readOpenMessages(harness), tt.wantMessage)
+		})
+	}
+}
+
 // TestGitMenuPushes covers the push entry asking first with what the push would do, then sending
 // the branch and saying what went up.
 func TestGitMenuPushes(t *testing.T) {
@@ -293,11 +370,13 @@ func TestGitMenuPushes(t *testing.T) {
 
 	tests := []struct {
 		name        string
+		pullRequest *pullrequestv1.PullRequest
 		planned     *agentv1.PlanPushResponse
 		refusePlan  error
 		refusePush  error
 		press       []string
 		wantButton  string
+		wantWarning string
 		wantPushes  []proto.Message
 		wantMessage string
 	}{
@@ -340,6 +419,19 @@ func TestGitMenuPushes(t *testing.T) {
 			wantMessage: "api: force-pushed agent/a1",
 		},
 		{
+			name:        "a branch queued to merge warns that what goes up may land",
+			pullRequest: newAutoMergedPullRequest(),
+			planned: &agentv1.PlanPushResponse{
+				Branch:  "agent/a1",
+				Commits: 2,
+			},
+			press:       []string{"y"},
+			wantButton:  "Push",
+			wantWarning: "Auto-merge is on",
+			wantPushes:  []proto.Message{push},
+			wantMessage: "api: pushed agent/a1",
+		},
+		{
 			name: "a branch is pushed",
 			planned: &agentv1.PlanPushResponse{
 				Branch:  "agent/a1",
@@ -356,7 +448,11 @@ func TestGitMenuPushes(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			harness := openGitMenu(t, buildGitAgent()...)
+			rows := buildGitAgent()
+			if tt.pullRequest != nil {
+				rows = append(rows, tt.pullRequest)
+			}
+			harness := openGitMenu(t, rows...)
 			if tt.refusePlan != nil {
 				harness.refuse(agentv1connect.AgentServicePlanPushProcedure, tt.refusePlan)
 			}
@@ -375,6 +471,9 @@ func TestGitMenuPushes(t *testing.T) {
 			harness.assertSentTo(agentv1connect.AgentServicePlanPushProcedure, plan)
 			if tt.wantButton != "" {
 				require.Contains(t, harness.readFrame(), tt.wantButton)
+			}
+			if tt.wantWarning != "" {
+				require.Contains(t, harness.readFrame(), tt.wantWarning)
 			}
 			harness.press(tt.press...)
 
@@ -665,4 +764,29 @@ func (h *panelHarness) answerPushed(planned *agentv1.PlanPushResponse) {
 			Sha:     "abcdef1234567",
 		}), nil
 	})
+}
+
+func newQueueablePullRequest() *pullrequestv1.PullRequest {
+	queueable := newOpenPullRequest()
+	queueable.State = pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHECKS_RUNNING
+	queueable.HeadSha = "new"
+	queueable.AutoMergeable = true
+
+	return queueable
+}
+
+func newAutoMergedPullRequest() *pullrequestv1.PullRequest {
+	queued := newQueueablePullRequest()
+	queued.AutoMerge = true
+	queued.AutoMergeable = false
+
+	return queued
+}
+
+func newQueueableDraft() *pullrequestv1.PullRequest {
+	draft := newQueueablePullRequest()
+	draft.State = pullrequestv1.PullRequestState_PULL_REQUEST_STATE_DRAFT
+	draft.Draft = true
+
+	return draft
 }

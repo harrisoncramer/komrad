@@ -32,6 +32,9 @@ var ErrNotMergeable = fail.Precondition("the forge will not merge the pull reque
 // ErrNotDraftable says the forge refused to change whether a pull request is a draft.
 var ErrNotDraftable = fail.Precondition("the forge will not change whether the pull request is a draft")
 
+// ErrNoAutoMerge says the forge refused to turn auto-merge on or off for a pull request.
+var ErrNoAutoMerge = fail.Precondition("the forge will not change auto-merge on the pull request")
+
 // ErrThrottled says the forge refused for its rate limit rather than for anything about the
 // request.
 var ErrThrottled = fail.Exhausted("the forge is rate limiting this credential")
@@ -134,6 +137,14 @@ type Standing struct {
 	Checks       Checks
 	Mergeability Mergeability
 	HeadSHA      string
+	AutoMerge    AutoMerge
+}
+
+// AutoMerge is whether a pull request will merge on its own once its checks and reviews pass,
+// and whether the forge would let the credential ask for that now.
+type AutoMerge struct {
+	On      bool
+	Allowed bool
 }
 
 // PullRequest is one pull request as every forge describes it.
@@ -168,6 +179,9 @@ type PullRequest struct {
 	// Mergeability is where the forge says it stands against its base and rules, nil when the
 	// call did not ask.
 	Mergeability *Mergeability
+	// AutoMerge is whether it will merge on its own and whether it may be asked to, nil when the
+	// call did not ask.
+	AutoMerge *AutoMerge
 }
 
 // IsFinished says whether the pull request has merged or closed.
@@ -200,6 +214,18 @@ type Forge interface {
 	Merge(ctx context.Context, url string) error
 	// SetDraft marks the pull request at the web address a draft, or ready for review.
 	SetDraft(ctx context.Context, url string, draft bool) error
+	// SetAutoMerge asks the forge to merge the pull request once its checks and reviews pass, or
+	// stops it from doing so.
+	SetAutoMerge(ctx context.Context, params SetAutoMergeParams) error
+}
+
+// SetAutoMergeParams is the pull request to change and which way.
+type SetAutoMergeParams struct {
+	URL string
+	// HeadSHA is the commit the person saw, which the forge refuses to queue when the branch has
+	// moved past it, empty to queue whatever the head is.
+	HeadSHA string
+	On      bool
 }
 
 // MaxStandings is the most pull requests one Standings call asks about.

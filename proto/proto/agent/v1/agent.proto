@@ -209,6 +209,15 @@ message PullRequestStanding {
   // Where the forge says the current pull request stands against its base and rules,
   // UNSPECIFIED for UNREAD and NONE.
   pullrequest.v1.Mergeability mergeability = 6;
+  // Whether the forge says the current pull request will merge on its own once its checks and
+  // reviews pass, false for UNREAD and NONE.
+  bool auto_merge = 7;
+  // Whether the forge would let komrad turn auto-merge on for the current pull request now,
+  // false for UNREAD and NONE.
+  bool auto_mergeable = 8;
+  // The commit the forge holds at the head of the current pull request, unset for UNREAD and
+  // NONE.
+  optional string head_sha = 9;
 }
 
 message ListAgentsRequest {

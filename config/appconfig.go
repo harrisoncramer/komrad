@@ -348,6 +348,9 @@ type MergeKeys struct {
 	Merge []string `mapstructure:"merge" default:"m"`
 	// Merge the pull request, then archive the agent once the forge has merged it.
 	MergeArchive []string `mapstructure:"merge_archive" default:"a"`
+	// Have the forge merge the pull request on its own once its checks and reviews pass, or stop it
+	// when it is already waiting to.
+	AutoMerge []string `mapstructure:"auto_merge" default:"u"`
 }
 
 // MenuKeys are the bindings for the menu, which lists the hovered row's entries over the

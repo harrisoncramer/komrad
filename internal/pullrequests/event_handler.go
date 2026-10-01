@@ -12,6 +12,7 @@ import (
 	"komrad/internal/store"
 	mailstore "komrad/internal/store/mail"
 	pullrequeststore "komrad/internal/store/pullrequest"
+	"komrad/lib/xptr"
 
 	"github.com/riverqueue/river"
 )
@@ -79,6 +80,7 @@ func render(pullRequest pullrequeststore.PullRequest) string {
 		FieldDecision:     pullRequest.LastKnownDecision,
 		FieldChecks:       pullRequest.LastKnownChecks,
 		FieldMergeability: pullRequest.LastKnownMergeability,
+		FieldAutoMerge:    xptr.Deref(autoMergeWord(pullRequest.AutoMerge)),
 	}
 
 	var body strings.Builder
@@ -97,6 +99,8 @@ func describe(field Field, value string, pullRequest pullrequeststore.PullReques
 		return strings.ToLower(value)
 	case field == FieldMergeability && (value == "conflicting" || value == "behind"):
 		return value + " with " + pullRequest.BaseBranch
+	case field == FieldAutoMerge && value == autoMergeOn:
+		return "on, so whatever is on the branch merges once its checks and reviews pass"
 	case value == "":
 		return "unknown"
 	default:

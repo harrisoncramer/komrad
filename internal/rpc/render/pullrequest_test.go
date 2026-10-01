@@ -211,6 +211,41 @@ func TestPullRequestDrawsTheLastKnownMergeabilityThroughABlank(t *testing.T) {
 	}
 }
 
+// TestPullRequestDrawsAutoMerge covers a row the forge has not been asked about drawn as off, and
+// the forge's word drawn as it was stored.
+func TestPullRequestDrawsAutoMerge(t *testing.T) {
+	tests := []struct {
+		name              string
+		pullRequest       pullrequeststore.PullRequest
+		wantAutoMerge     bool
+		wantAutoMergeable bool
+	}{
+		{
+			name:        "a pull request not read yet",
+			pullRequest: pullrequeststore.PullRequest{},
+		},
+		{
+			name:              "a pull request the forge would queue",
+			pullRequest:       pullrequeststore.PullRequest{AutoMerge: xptr.Ptr(false), AutoMergeable: true},
+			wantAutoMergeable: true,
+		},
+		{
+			name:          "a pull request the forge has queued",
+			pullRequest:   pullrequeststore.PullRequest{AutoMerge: xptr.Ptr(true)},
+			wantAutoMerge: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			drawn := PullRequest(tt.pullRequest)
+
+			assert.Equal(t, tt.wantAutoMerge, drawn.GetAutoMerge())
+			assert.Equal(t, tt.wantAutoMergeable, drawn.GetAutoMergeable())
+		})
+	}
+}
+
 // TestMergeabilityOf covers each stored word and a row the forge has not computed.
 func TestMergeabilityOf(t *testing.T) {
 	assert.Equal(t, pullrequestv1.Mergeability_MERGEABILITY_UNKNOWN, MergeabilityOf(nil))

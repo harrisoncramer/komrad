@@ -322,12 +322,15 @@ func calculatePullRequestStanding(agent *agentv1.Agent, repository *pullrequestv
 	}
 
 	return &agentv1.PullRequestStanding{
-		State:        current.GetState(),
-		Number:       xptr.Ptr(current.GetNumber()),
-		Url:          xptr.Ptr(current.GetUrl()),
-		Title:        xptr.Ptr(current.GetTitle()),
-		Checks:       current.GetChecks(),
-		Mergeability: current.GetMergeability(),
+		State:         current.GetState(),
+		Number:        xptr.Ptr(current.GetNumber()),
+		Url:           xptr.Ptr(current.GetUrl()),
+		Title:         xptr.Ptr(current.GetTitle()),
+		Checks:        current.GetChecks(),
+		Mergeability:  current.GetMergeability(),
+		AutoMerge:     current.GetAutoMerge(),
+		AutoMergeable: current.GetAutoMergeable(),
+		HeadSha:       xptr.NonEmpty(current.GetHeadSha()),
 	}
 }
 

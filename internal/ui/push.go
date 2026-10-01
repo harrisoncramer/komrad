@@ -8,6 +8,7 @@ import (
 	"komrad/config"
 	"komrad/internal/git"
 	"komrad/internal/ui/paint/label"
+	"komrad/internal/ui/panel"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/huh/v2"
@@ -25,6 +26,9 @@ type pushPlan struct {
 	// forced says origin's copy holds commits the branch does not, so the push overwrites it.
 	forced      bool
 	uncommitted int
+	// autoMerge says the forge merges the pull request on its own once its checks and reviews pass,
+	// so what goes up may land.
+	autoMerge bool
 }
 
 // pushPlannedMsg is a plan come back, or the reason there is none.
@@ -45,8 +49,9 @@ type pushedMsg struct {
 	write   int
 }
 
-// planPushCmd asks what a push would do.
-func (m *model) planPushCmd(agentID, name string) tea.Cmd {
+// planPushCmd asks what a push of the agent would do.
+func (m *model) planPushCmd(item panel.AgentRow) tea.Cmd {
+	agentID, name := item.Agent.ID, item.Agent.Name
 	clients := m.api
 	write := m.beginWrite("planning the push of " + name)
 
@@ -63,6 +68,7 @@ func (m *model) planPushCmd(agentID, name string) tea.Cmd {
 			commits:     int(plan.GetCommits()),
 			forced:      plan.GetForced(),
 			uncommitted: int(plan.GetUncommittedFiles()),
+			autoMerge:   item.PullRequest.AutoMerge,
 		}}
 	}
 }
@@ -189,6 +195,11 @@ func pushDescription(plan pushPlan) string {
 	if plan.forced {
 		lines = append(lines, "Origin's copy holds commits this branch no longer does, as a rebase leaves it, so it will be "+
 			"overwritten. The push is refused if origin has moved since komrad last read it.")
+	}
+
+	if plan.autoMerge {
+		lines = append(lines, "Auto-merge is on for its pull request, so what goes up merges by itself once its checks and "+
+			"reviews pass.")
 	}
 
 	if plan.uncommitted > 0 {

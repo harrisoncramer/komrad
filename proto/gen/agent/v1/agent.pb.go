@@ -847,7 +847,16 @@ type PullRequestStanding struct {
 	Checks v1.Checks `protobuf:"varint,5,opt,name=checks,proto3,enum=pullrequest.v1.Checks" json:"checks,omitempty"`
 	// Where the forge says the current pull request stands against its base and rules,
 	// UNSPECIFIED for UNREAD and NONE.
-	Mergeability  v1.Mergeability `protobuf:"varint,6,opt,name=mergeability,proto3,enum=pullrequest.v1.Mergeability" json:"mergeability,omitempty"`
+	Mergeability v1.Mergeability `protobuf:"varint,6,opt,name=mergeability,proto3,enum=pullrequest.v1.Mergeability" json:"mergeability,omitempty"`
+	// Whether the forge says the current pull request will merge on its own once its checks and
+	// reviews pass, false for UNREAD and NONE.
+	AutoMerge bool `protobuf:"varint,7,opt,name=auto_merge,json=autoMerge,proto3" json:"auto_merge,omitempty"`
+	// Whether the forge would let komrad turn auto-merge on for the current pull request now,
+	// false for UNREAD and NONE.
+	AutoMergeable bool `protobuf:"varint,8,opt,name=auto_mergeable,json=autoMergeable,proto3" json:"auto_mergeable,omitempty"`
+	// The commit the forge holds at the head of the current pull request, unset for UNREAD and
+	// NONE.
+	HeadSha       *string `protobuf:"bytes,9,opt,name=head_sha,json=headSha,proto3,oneof" json:"head_sha,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -922,6 +931,27 @@ func (x *PullRequestStanding) GetMergeability() v1.Mergeability {
 		return x.Mergeability
 	}
 	return v1.Mergeability(0)
+}
+
+func (x *PullRequestStanding) GetAutoMerge() bool {
+	if x != nil {
+		return x.AutoMerge
+	}
+	return false
+}
+
+func (x *PullRequestStanding) GetAutoMergeable() bool {
+	if x != nil {
+		return x.AutoMergeable
+	}
+	return false
+}
+
+func (x *PullRequestStanding) GetHeadSha() string {
+	if x != nil && x.HeadSha != nil {
+		return *x.HeadSha
+	}
+	return ""
 }
 
 type ListAgentsRequest struct {
@@ -3355,17 +3385,22 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x04open\x18\x01 \x01(\x05R\x04open\x12\x1a\n" +
 	"\bresolved\x18\x02 \x01(\x05R\bresolved\x12\x16\n" +
 	"\x06unread\x18\x03 \x01(\x05R\x06unread\x12\x1a\n" +
-	"\bexternal\x18\x04 \x01(\x05R\bexternal\"\xab\x02\n" +
+	"\bexternal\x18\x04 \x01(\x05R\bexternal\"\x9e\x03\n" +
 	"\x13PullRequestStanding\x126\n" +
 	"\x05state\x18\x01 \x01(\x0e2 .pullrequest.v1.PullRequestStateR\x05state\x12\x1b\n" +
 	"\x06number\x18\x02 \x01(\x05H\x00R\x06number\x88\x01\x01\x12\x15\n" +
 	"\x03url\x18\x03 \x01(\tH\x01R\x03url\x88\x01\x01\x12\x19\n" +
 	"\x05title\x18\x04 \x01(\tH\x02R\x05title\x88\x01\x01\x12.\n" +
 	"\x06checks\x18\x05 \x01(\x0e2\x16.pullrequest.v1.ChecksR\x06checks\x12@\n" +
-	"\fmergeability\x18\x06 \x01(\x0e2\x1c.pullrequest.v1.MergeabilityR\fmergeabilityB\t\n" +
+	"\fmergeability\x18\x06 \x01(\x0e2\x1c.pullrequest.v1.MergeabilityR\fmergeability\x12\x1d\n" +
+	"\n" +
+	"auto_merge\x18\a \x01(\bR\tautoMerge\x12%\n" +
+	"\x0eauto_mergeable\x18\b \x01(\bR\rautoMergeable\x12\x1e\n" +
+	"\bhead_sha\x18\t \x01(\tH\x03R\aheadSha\x88\x01\x01B\t\n" +
 	"\a_numberB\x06\n" +
 	"\x04_urlB\b\n" +
-	"\x06_title\"\xab\x01\n" +
+	"\x06_titleB\v\n" +
+	"\t_head_sha\"\xab\x01\n" +
 	"\x11ListAgentsRequest\x12>\n" +
 	"\n" +
 	"pagination\x18\x01 \x01(\v2\x19.pagination.v1.PaginationH\x00R\n" +

@@ -1449,6 +1449,22 @@
           "response": "google.protobuf.Empty"
         },
         {
+          "slug": "set-forge-pull-request-auto-merge",
+          "name": "SetForgePullRequestAutoMerge",
+          "path": "/forge.v1.ForgeService/SetForgePullRequestAutoMerge",
+          "command": "komrad rpc set-forge-pull-request-auto-merge",
+          "tool": "set_forge_pull_request_auto_merge",
+          "mcp": false,
+          "roles": [],
+          "summary": "Ask the forge to merge a pull request on its own once its checks and reviews pass, the way the repository merges by default, or stop it from doing so, through the forge connection for its host.",
+          "description": "Ask the forge to merge a pull request on its own once its checks and reviews pass, the way the repository merges by default, or stop it from doing so, through the forge connection for its host. A pull request already standing that way is left alone. One that has merged or closed, one the forge would merge at once, a draft and one whose branch has moved past head_sha are refused as failed_precondition with what the forge said.",
+          "readOnly": false,
+          "idempotent": true,
+          "destructive": true,
+          "request": "forge.v1.SetForgePullRequestAutoMergeRequest",
+          "response": "google.protobuf.Empty"
+        },
+        {
           "slug": "disconnect-forge",
           "name": "DisconnectForge",
           "path": "/forge.v1.ForgeService/DisconnectForge",
@@ -4213,6 +4229,36 @@
           "oneof": "",
           "rules": [],
           "description": "Where the forge says the current pull request stands against its base and rules, UNSPECIFIED for UNREAD and NONE."
+        },
+        {
+          "name": "auto_merge",
+          "type": "bool",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "Whether the forge says the current pull request will merge on its own once its checks and reviews pass, false for UNREAD and NONE."
+        },
+        {
+          "name": "auto_mergeable",
+          "type": "bool",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "Whether the forge would let komrad turn auto-merge on for the current pull request now, false for UNREAD and NONE."
+        },
+        {
+          "name": "head_sha",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The commit the forge holds at the head of the current pull request, unset for UNREAD and NONE."
         }
       ]
     },
@@ -6593,6 +6639,47 @@
         }
       ]
     },
+    "forge.v1.SetForgePullRequestAutoMergeRequest": {
+      "name": "SetForgePullRequestAutoMergeRequest",
+      "description": "",
+      "fields": [
+        {
+          "name": "url",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [
+            "required",
+            "at most 2048 characters"
+          ],
+          "description": "The pull request's web address, whose host picks the forge connection."
+        },
+        {
+          "name": "head_sha",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [
+            "at most 64 characters"
+          ],
+          "description": "The head commit the person saw, which the forge refuses to queue once the branch has moved past it. Empty queues whatever the head is."
+        },
+        {
+          "name": "on",
+          "type": "bool",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "Whether it should merge on its own once its checks and reviews pass, false to stop that."
+        }
+      ]
+    },
     "forge.v1.SetForgePullRequestDraftRequest": {
       "name": "SetForgePullRequestDraftRequest",
       "description": "",
@@ -7358,6 +7445,26 @@
           "oneof": "",
           "rules": [],
           "description": "True when mergeability is the last answer for this head rather than the latest read."
+        },
+        {
+          "name": "auto_merge",
+          "type": "bool",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "Whether the forge says it will merge on its own once its checks and reviews pass."
+        },
+        {
+          "name": "auto_mergeable",
+          "type": "bool",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "Whether the forge would let komrad turn auto-merge on now, which it will not for a draft, one with nothing left to wait for, or a repository that does not allow it."
         }
       ]
     },
@@ -9394,10 +9501,6 @@
         {
           "name": "MAIL_KIND_WORKTREE_ABORTED",
           "description": "Komrad telling an agent that the rebase, merge or pick part-way through its worktree was aborted."
-        },
-        {
-          "name": "MAIL_KIND_AUTO_MERGE_CHANGED",
-          "description": "Komrad telling an agent that auto-merge was turned on or off for its pull request."
         }
       ]
     },

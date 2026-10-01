@@ -199,7 +199,7 @@ func (m model) runGitChoice(from screen, agentID string, choice gitChoice) (mode
 			return m, nil
 		}
 
-		cmd := m.planPushCmd(agent.ID, agent.Name)
+		cmd := m.planPushCmd(item)
 
 		return m, cmd
 	case gitChoiceOpenPullRequest:

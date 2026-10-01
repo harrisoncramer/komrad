@@ -39,8 +39,6 @@ const (
 	KindWorktreePushed Kind = Kind(models.MailKindWorktreePushed)
 	// KindWorktreeAborted tells an agent that the rebase, merge or pick part-way through its worktree was aborted.
 	KindWorktreeAborted Kind = Kind(models.MailKindWorktreeAborted)
-	// KindAutoMergeChanged tells an agent that auto-merge was turned on or off for its pull request.
-	KindAutoMergeChanged Kind = Kind(models.MailKindAutoMergeChanged)
 )
 
 type Mail struct {

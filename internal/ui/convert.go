@@ -128,12 +128,15 @@ func agentRowFrom(row *agentv1.AgentRow) panel.AgentRow {
 // pullRequestStandingFrom is the standing as the wire carries it.
 func pullRequestStandingFrom(standing *agentv1.PullRequestStanding) panel.PullRequestStanding {
 	return panel.PullRequestStanding{
-		State:        standing.GetState(),
-		Checks:       standing.GetChecks(),
-		Mergeability: standing.GetMergeability(),
-		Number:       standing.GetNumber(),
-		URL:          standing.GetUrl(),
-		Title:        standing.GetTitle(),
+		State:         standing.GetState(),
+		Checks:        standing.GetChecks(),
+		Mergeability:  standing.GetMergeability(),
+		Number:        standing.GetNumber(),
+		URL:           standing.GetUrl(),
+		Title:         standing.GetTitle(),
+		HeadSHA:       standing.GetHeadSha(),
+		AutoMerge:     standing.GetAutoMerge(),
+		AutoMergeable: standing.GetAutoMergeable(),
 	}
 }
 

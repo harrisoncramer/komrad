@@ -190,6 +190,21 @@ func (a api) mergePullRequest(address string) error {
 	return err
 }
 
+// setPullRequestAutoMerge asks the forge to merge the pull request at the address on its own once
+// its checks and reviews pass, or to stop waiting to, refusing when its head has moved past
+// headSHA.
+func (a api) setPullRequestAutoMerge(address, headSHA string, on bool) error {
+	_, err := call(autoMergeTimeout, func(ctx context.Context) (any, error) {
+		return a.forges.SetForgePullRequestAutoMerge(ctx, connect.NewRequest(&forgev1.SetForgePullRequestAutoMergeRequest{
+			Url:     address,
+			HeadSha: headSHA,
+			On:      on,
+		}))
+	})
+
+	return err
+}
+
 // setPullRequestDraft asks the forge to mark the pull request at the address a draft or ready.
 func (a api) setPullRequestDraft(address string, draft bool) error {
 	_, err := call(draftTimeout, func(ctx context.Context) (any, error) {

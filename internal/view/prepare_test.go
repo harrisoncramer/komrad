@@ -497,6 +497,48 @@ func TestPrepareForgeColumn(t *testing.T) {
 	assert.Len(t, tests, int(ForgeEnd), "every state is pinned")
 }
 
+// TestPrepareForgeColumnMarksAutoMerge pins the merge a pull request is queued for drawn over a
+// state that is only waiting, and every state that wants the person left as it is.
+func TestPrepareForgeColumnMarksAutoMerge(t *testing.T) {
+	tests := []struct {
+		name  string
+		forge Forge
+		want  Cell
+	}{
+		{
+			name:  "failing checks still draw failing",
+			forge: ForgeFailing,
+			want:  Cell{Glyph: glyph.Failing, Tone: paint.ToneDanger},
+		},
+		{
+			name:  "checks running still draw the loader",
+			forge: ForgeChecksRunning,
+			want:  Cell{Text: "⠙", Tone: paint.ToneWarning},
+		},
+		{
+			name:  "a merged change still draws merged",
+			forge: ForgeMerged,
+			want:  Cell{Glyph: glyph.Merged, Tone: paint.ToneMerged},
+		},
+		{
+			name:  "an open pull request draws the merge greyed",
+			forge: ForgeOpen,
+			want:  Cell{Glyph: glyph.Merged, Tone: paint.ToneMuted},
+		},
+		{
+			name:  "an approval waiting on the forge draws the merge greyed",
+			forge: ForgeApprovedWaiting,
+			want:  Cell{Glyph: glyph.Merged, Tone: paint.ToneMuted},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, prepareOne(t, Row{Forge: tt.forge, AutoMerge: true, LoaderFrame: "⠙"}).Columns[1])
+		})
+	}
+}
+
 // TestPrepareWeight pins the structure a row carries in its lettering rather than in a glyph.
 func TestPrepareWeight(t *testing.T) {
 	tests := []struct {

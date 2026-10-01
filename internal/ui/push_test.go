@@ -23,7 +23,7 @@ func TestPushDescriptionSaysWhatWillHappen(t *testing.T) {
 				commits: 1,
 			},
 			want:     []string{"1 commit will go up to origin as agent/a1."},
-			wantNone: []string{"overwritten", "stay behind"},
+			wantNone: []string{"overwritten", "stay behind", "Auto-merge"},
 		},
 		{
 			name: "a forced push says origin's copy is overwritten",
@@ -42,6 +42,15 @@ func TestPushDescriptionSaysWhatWillHappen(t *testing.T) {
 				uncommitted: 4,
 			},
 			want: []string{"4 files nothing has committed will stay behind"},
+		},
+		{
+			name: "auto-merge on says what goes up may land",
+			plan: pushPlan{
+				branch:    "agent/a1",
+				commits:   1,
+				autoMerge: true,
+			},
+			want: []string{"Auto-merge is on", "merges by itself"},
 		},
 	}
 

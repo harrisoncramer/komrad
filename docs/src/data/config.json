@@ -664,6 +664,13 @@
               "type": "array",
               "description": "Merge the pull request, then archive the agent once the forge has merged it.",
               "default": "[\"a\"]"
+            },
+            {
+              "key": "auto_merge",
+              "path": "keybindings.merge.auto_merge",
+              "type": "array",
+              "description": "Have the forge merge the pull request on its own once its checks and reviews pass, or stop it\nwhen it is already waiting to.",
+              "default": "[\"u\"]"
             }
           ],
           "sections": []

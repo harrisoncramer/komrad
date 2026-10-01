@@ -15,12 +15,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// writingForge records each merge and draft change and answers err.
+// writingForge records each merge, draft change and auto-merge change and answers err.
 type writingForge struct {
 	forge.Forge
-	err     error
-	merged  []string
-	drafted []drafted
+	err        error
+	merged     []string
+	drafted    []drafted
+	autoMerged []forge.SetAutoMergeParams
 }
 
 type drafted struct {
@@ -36,6 +37,12 @@ func (f *writingForge) Merge(_ context.Context, address string) error {
 
 func (f *writingForge) SetDraft(_ context.Context, address string, draft bool) error {
 	f.drafted = append(f.drafted, drafted{address: address, draft: draft})
+
+	return f.err
+}
+
+func (f *writingForge) SetAutoMerge(_ context.Context, params forge.SetAutoMergeParams) error {
+	f.autoMerged = append(f.autoMerged, params)
 
 	return f.err
 }
@@ -190,6 +197,69 @@ func TestSetPullRequestDraft(t *testing.T) {
 				require.NoError(t, err)
 			}
 			assert.Equal(t, tt.wantDrafted, writing.drafted)
+			assert.Equal(t, tt.wantWakes, sync.Wakes)
+			assert.Equal(t, tt.wantDelayed, sync.Delayed)
+		})
+	}
+}
+
+// TestSetPullRequestAutoMerge covers the head the person saw reaching the forge and the pull
+// request sync being woken, now and every ten seconds for a minute, only once the forge has
+// changed auto-merge.
+func TestSetPullRequestAutoMerge(t *testing.T) {
+	const address = "https://github.com/harrisoncramer/komrad/pull/1"
+
+	tests := []struct {
+		name           string
+		params         forge.SetAutoMergeParams
+		autoMergeErr   error
+		wantErr        error
+		wantAutoMerged []forge.SetAutoMergeParams
+		wantWakes      int
+		wantDelayed    []time.Duration
+	}{
+		{
+			name:    "an address with no host",
+			params:  forge.SetAutoMergeParams{URL: "harrisoncramer/komrad#1", On: true},
+			wantErr: forge.ErrNotPullRequest,
+		},
+		{
+			name:           "a pull request the forge will not queue",
+			params:         forge.SetAutoMergeParams{URL: address, HeadSHA: "abc", On: true},
+			autoMergeErr:   forge.ErrNoAutoMerge,
+			wantErr:        forge.ErrNoAutoMerge,
+			wantAutoMerged: []forge.SetAutoMergeParams{{URL: address, HeadSHA: "abc", On: true}},
+		},
+		{
+			name:           "a pull request the forge queues",
+			params:         forge.SetAutoMergeParams{URL: address, HeadSHA: "abc", On: true},
+			wantAutoMerged: []forge.SetAutoMergeParams{{URL: address, HeadSHA: "abc", On: true}},
+			wantWakes:      1,
+			wantDelayed:    settleWakes,
+		},
+		{
+			name:           "a pull request the forge stops waiting on",
+			params:         forge.SetAutoMergeParams{URL: address},
+			wantAutoMerged: []forge.SetAutoMergeParams{{URL: address}},
+			wantWakes:      1,
+			wantDelayed:    settleWakes,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			writing := &writingForge{err: tt.autoMergeErr}
+			sync := &waketest.Counter{}
+			writer := newTestWriter(t, writing, sync)
+
+			err := writer.SetPullRequestAutoMerge(t.Context(), tt.params)
+
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+			} else {
+				require.NoError(t, err)
+			}
+			assert.Equal(t, tt.wantAutoMerged, writing.autoMerged)
 			assert.Equal(t, tt.wantWakes, sync.Wakes)
 			assert.Equal(t, tt.wantDelayed, sync.Delayed)
 		})

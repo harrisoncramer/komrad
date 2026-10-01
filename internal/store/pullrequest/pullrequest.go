@@ -69,6 +69,10 @@ type PullRequest struct {
 	LastKnownMergeabilitySHA string
 	// LastKnownDecision is the review decision as the forge last reported it, empty before it ever has.
 	LastKnownDecision string
+	// AutoMerge is whether the forge says it will merge on its own, nil while it has not been read.
+	AutoMerge *bool
+	// AutoMergeable is whether the forge would let komrad turn auto-merge on now.
+	AutoMergeable bool
 }
 
 // IsFinished says whether the pull request merged or closed.
@@ -123,7 +127,9 @@ type StandingChange struct {
 	KnownDecision     *string
 	// BlankSince is when the forge first answered a blank mergeability for this head, nil once it
 	// answers one.
-	BlankSince *time.Time
+	BlankSince     *time.Time
+	OldAutoMerge   *bool
+	KnownAutoMerge *bool
 }
 
 // Observation is one agent having been seen with one pull request.
@@ -277,6 +283,8 @@ func (s *PullRequestStore) SetStanding(ctx context.Context, params SetStandingPa
 		ChecksSha:      standing.HeadSHA,
 		ChecksReadAt:   params.ReadAt,
 		Answered:       !params.Unanswered,
+		AutoMerge:      standing.AutoMerge.On,
+		AutoMergeable:  standing.AutoMerge.Allowed,
 	})
 	if db.IsNoRows(err) {
 		return &StandingChange{}, nil
@@ -295,6 +303,8 @@ func (s *PullRequestStore) SetStanding(ctx context.Context, params SetStandingPa
 		KnownMergeability: row.KnownMergeability,
 		KnownDecision:     row.KnownDecision,
 		BlankSince:        row.BlankSince,
+		OldAutoMerge:      row.OldAutoMerge,
+		KnownAutoMerge:    row.KnownAutoMerge,
 	}, nil
 }
 
@@ -381,6 +391,8 @@ func fromRow(row *models.PullRequest) PullRequest {
 		LastKnownMergeability:    xptr.Deref(row.LastKnownMergeability),
 		LastKnownMergeabilitySHA: xptr.Deref(row.LastKnownMergeabilitySha),
 		LastKnownDecision:        xptr.Deref(row.LastKnownDecision),
+		AutoMerge:                row.AutoMerge,
+		AutoMergeable:            row.AutoMergeable,
 	}
 }
 

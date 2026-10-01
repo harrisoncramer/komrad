@@ -383,7 +383,8 @@ WITH prior AS (
         held.last_known_checks,
         held.last_known_checks_sha,
         held.last_known_mergeability,
-        held.last_known_decision
+        held.last_known_decision,
+        held.auto_merge
     FROM
         pull_requests held
     WHERE
@@ -423,7 +424,17 @@ SET
     ELSE
         @checks_read_at::timestamptz
     END,
-    last_known_decision = COALESCE(sqlc.narg('review_decision'), p.last_known_decision)
+    last_known_decision = COALESCE(sqlc.narg('review_decision'), p.last_known_decision),
+    auto_merge = CASE WHEN @answered::boolean THEN
+        @auto_merge::boolean
+    ELSE
+        p.auto_merge
+    END,
+    auto_mergeable = CASE WHEN @answered::boolean THEN
+        @auto_mergeable::boolean
+    ELSE
+        p.auto_mergeable
+    END
 FROM
     prior
 WHERE
@@ -437,7 +448,9 @@ RETURNING
     p.last_known_checks_sha AS known_checks_sha,
     p.last_known_mergeability AS known_mergeability,
     p.last_known_decision AS known_decision,
-    p.mergeability_blank_since AS blank_since;
+    p.mergeability_blank_since AS blank_since,
+    prior.auto_merge AS old_auto_merge,
+    p.auto_merge AS known_auto_merge;
 
 -- name: ListWatchedPullRequests :many
 SELECT

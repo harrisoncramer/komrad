@@ -62,6 +62,27 @@ func TestAPullRequestChangeTellsTheAgentsOnItsBranch(t *testing.T) {
 			},
 			wantLines: []string{"  checks: passing\n"},
 		},
+		{
+			name: "auto-merge turned on",
+			standings: []forge.Standing{{
+				Decision:  forge.ReviewDecisionPending,
+				Checks:    forge.ChecksPending,
+				AutoMerge: forge.AutoMerge{On: true},
+			}},
+			wantLines: []string{"  auto-merge: on, so whatever is on the branch merges once its checks and reviews pass\n"},
+		},
+		{
+			name: "auto-merge turned off again rewrites the mail",
+			standings: []forge.Standing{
+				{
+					Decision:  forge.ReviewDecisionPending,
+					Checks:    forge.ChecksPending,
+					AutoMerge: forge.AutoMerge{On: true},
+				},
+				pending,
+			},
+			wantLines: []string{"  auto-merge: off\n"},
+		},
 	}
 
 	for _, tt := range tests {

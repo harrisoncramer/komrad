@@ -159,7 +159,6 @@ const (
 	MailKindWorktreeRebased    MailKind = "worktree_rebased"
 	MailKindWorktreePushed     MailKind = "worktree_pushed"
 	MailKindWorktreeAborted    MailKind = "worktree_aborted"
-	MailKindAutoMergeChanged   MailKind = "auto_merge_changed"
 )
 
 func (e *MailKind) Scan(src interface{}) error {
@@ -703,6 +702,10 @@ type PullRequest struct {
 	LastKnownMergeabilitySha *string
 	// When the forge first answered a blank mergeability for checks_sha, which bounds how long a blank is read again quickly.
 	MergeabilityBlankSince pgtype.Timestamptz
+	// Whether the forge says the pull request will merge on its own once its checks and reviews pass, null until it has been read. Read with the checks and kept fresh the same way.
+	AutoMerge *bool
+	// Whether the forge would let komrad's credential turn auto-merge on now, which it will not for a draft, a pull request with nothing left to wait for or a repository that does not allow it.
+	AutoMergeable bool
 }
 
 // Where the pull request sync is for one repository: the high-water mark the changes have been read through, the first sweep in progress if one is, and what the last pass cost.

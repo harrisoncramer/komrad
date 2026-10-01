@@ -144,9 +144,12 @@ type Row struct {
 	Status Status
 	// Process says whether anything ever stood behind the row, which the bar leaves blank where
 	// nothing did and the weight greys once it has gone.
-	Process     Process
-	Repo        Repo
-	Forge       Forge
+	Process Process
+	Repo    Repo
+	Forge   Forge
+	// AutoMerge says the forge will merge the pull request on its own once its checks and reviews
+	// pass.
+	AutoMerge   bool
 	LoaderFrame string
 	// ReviewerComments counts the comments reviewer agents left, nil while there are none to show.
 	ReviewerComments *Comments

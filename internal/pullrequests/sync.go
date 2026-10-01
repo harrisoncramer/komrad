@@ -887,6 +887,9 @@ func (s *PullRequestSyncer) writePage(ctx context.Context, pullRequests []forge.
 				if pullRequest.Mergeability != nil {
 					standing.Mergeability = *pullRequest.Mergeability
 				}
+				if pullRequest.AutoMerge != nil {
+					standing.AutoMerge = *pullRequest.AutoMerge
+				}
 				change, err := st.SetStanding(ctx, pullrequeststore.SetStandingParams{
 					ID:       outcome.ID,
 					Standing: standing,
@@ -959,6 +962,7 @@ func standingMoves(change *pullrequeststore.StandingChange) []*Move {
 		Moved(FieldDecision, change.OldDecision, change.KnownDecision),
 		checksMoved(change),
 		Moved(FieldMergeability, change.OldMergeability, change.KnownMergeability),
+		Moved(FieldAutoMerge, autoMergeWord(change.OldAutoMerge), autoMergeWord(change.KnownAutoMerge)),
 	}
 }
 

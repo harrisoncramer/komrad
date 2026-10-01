@@ -18,6 +18,7 @@ type mergeChoice int
 const (
 	mergeChoiceMerge mergeChoice = iota
 	mergeChoiceMergeArchive
+	mergeChoiceAutoMerge
 )
 
 var (
@@ -62,6 +63,11 @@ func mergeMenu(s panelShared, from screen, item panel.AgentRow) submenu {
 				isOff: refused || from == screenArchive,
 				write: run(mergeChoiceMergeArchive),
 			},
+			{
+				label: autoMergeLabel(item),
+				keys:  s.keys.Merge.AutoMerge,
+				isOff: autoMergeRefusal(item) != nil,
+			},
 		},
 	}
 }
@@ -78,6 +84,10 @@ func (m model) runMerge(from screen, agentID string, choice mergeChoice) (model,
 		m.report("Could not act on the agent", errAgentGone)
 
 		return m, nil
+	}
+
+	if choice == mergeChoiceAutoMerge {
+		return m.toggleAutoMerge(item)
 	}
 
 	archive := choice == mergeChoiceMergeArchive

@@ -45,10 +45,10 @@ const mergeRequestFragment = `fragment mergeRequestFields on MergeRequest {
   sourceBranch targetBranch diffHeadSha sourceProject { webUrl } targetProject { webUrl } diffRefs { baseSha }
 }`
 
-// standingFields is what the decision, checks and mergeability of a merge request are folded
-// from: its approvals, its reviewers' states, the status of the pipeline on its head and its
-// detailed merge status.
-const standingFields = `approvalsRequired approvalsLeft approvedBy { count } reviewers { nodes { mergeRequestInteraction { reviewState } } } headPipeline { status } detailedMergeStatus`
+// standingFields is what the decision, checks, mergeability and auto-merge of a merge request
+// are folded from: its approvals, its reviewers' states, the status of the pipeline on its
+// head, its detailed merge status, whether it is set to merge on its own and how it could be.
+const standingFields = `approvalsRequired approvalsLeft approvedBy { count } reviewers { nodes { mergeRequestInteraction { reviewState } } } headPipeline { status } detailedMergeStatus autoMergeEnabled availableAutoMergeStrategies`
 
 const verifyQuery = `query Verify { currentUser { username } }`
 
@@ -59,6 +59,10 @@ const getQuery = `query Get($path: ID!, $iid: String!) {
 
 const setDraftMutation = `mutation SetDraft($path: ID!, $iid: String!, $draft: Boolean!) {
   mergeRequestSetDraft(input: {projectPath: $path, iid: $iid, draft: $draft}) { errors }
+}`
+
+const autoMergeTargetQuery = `query AutoMergeTarget($path: ID!, $iid: String!) {
+  project(fullPath: $path) { mergeRequest(iid: $iid) { state autoMergeEnabled availableAutoMergeStrategies } }
 }`
 
 const listQuery = `query List($path: ID!, $first: Int!, $after: String, $branches: [String!], $state: MergeRequestState) {
@@ -420,6 +424,83 @@ func (f *Forge) SetDraft(ctx context.Context, address string, draft bool) error 
 	return failureOf(answer)
 }
 
+// SetAutoMerge asks GitLab to merge the merge request once its pipeline passes, held to the head
+// the person saw, or cancels that, refusing one GitLab offers no strategy for since GitLab would
+// merge it at once.
+func (f *Forge) SetAutoMerge(ctx context.Context, params forge.SetAutoMergeParams) error {
+	path, number, err := parseMergeRequestURL(params.URL)
+	if err != nil {
+		return err
+	}
+
+	var data struct {
+		Project *struct {
+			MergeRequest *struct {
+				State                        string   `json:"state"`
+				AutoMergeEnabled             bool     `json:"autoMergeEnabled"`
+				AvailableAutoMergeStrategies []string `json:"availableAutoMergeStrategies"`
+			} `json:"mergeRequest"`
+		} `json:"project"`
+	}
+	answer, err := f.client.Query(ctx, autoMergeTargetQuery, map[string]any{"path": path, "iid": strconv.Itoa(number)}, &data)
+	if err != nil {
+		return err
+	}
+	if err := failureOf(answer); err != nil {
+		return err
+	}
+	if data.Project == nil || data.Project.MergeRequest == nil {
+		return fmt.Errorf("%w: gitlab has no merge request %d in %s, which is also its answer for a project the credential cannot see", forge.ErrNotFound, number, path)
+	}
+	target := data.Project.MergeRequest
+	switch {
+	case target.State == "merged":
+		return forge.ErrNoAutoMerge.Saying("gitlab will not change !%d: it has already merged", number)
+	case target.State == "closed":
+		return forge.ErrNoAutoMerge.Saying("gitlab will not change !%d: it was closed", number)
+	case target.AutoMergeEnabled == params.On:
+		return nil
+	case params.On && len(target.AvailableAutoMergeStrategies) == 0:
+		return forge.ErrNoAutoMerge.Saying("gitlab will not queue !%d: it has no running pipeline to wait for, or the credential cannot merge it", number)
+	}
+
+	endpoint := fmt.Sprintf("%s/projects/%s/merge_requests/%d", f.client.API(), url.PathEscape(path), number)
+	request := xhttp.JSONParams{
+		Method: http.MethodPost,
+		URL:    endpoint + "/cancel_merge_when_pipeline_succeeds",
+	}
+	if params.On {
+		body := map[string]any{
+			"auto_merge":                   true,
+			"merge_when_pipeline_succeeds": true,
+		}
+		if params.HeadSHA != "" {
+			body["sha"] = params.HeadSHA
+		}
+		request = xhttp.JSONParams{
+			Method: http.MethodPut,
+			URL:    endpoint + "/merge",
+			Body:   body,
+		}
+	}
+
+	sent, err := f.client.Send(ctx, request, nil)
+	if errors.Is(err, forge.ErrThrottled) {
+		return err
+	}
+
+	switch sent.Status {
+	case http.StatusNotFound:
+		return fmt.Errorf("%w: gitlab has no merge request %d in %s, which is also its answer for a project the credential cannot see", forge.ErrNotFound, number, path)
+	case http.StatusForbidden:
+		return forge.ErrUnauthorized.Saying("gitlab will not let the credential change auto-merge on %s: %v", params.URL, err)
+	case http.StatusMethodNotAllowed, http.StatusNotAcceptable, http.StatusConflict, http.StatusUnprocessableEntity:
+		return forge.ErrNoAutoMerge.Saying("gitlab will not change auto-merge on !%d: %s", number, graphql.MessageOf(sent.Body))
+	}
+
+	return err
+}
+
 // mergeRefusal is why GitLab says a merge request cannot merge, in a person's words.
 func (f *Forge) mergeRefusal(ctx context.Context, endpoint string, said string) string {
 	var standing struct {
@@ -691,7 +772,9 @@ type standingNode struct {
 	HeadPipeline *struct {
 		Status string `json:"status"`
 	} `json:"headPipeline"`
-	DetailedMergeStatus string `json:"detailedMergeStatus"`
+	DetailedMergeStatus          string   `json:"detailedMergeStatus"`
+	AutoMergeEnabled             bool     `json:"autoMergeEnabled"`
+	AvailableAutoMergeStrategies []string `json:"availableAutoMergeStrategies"`
 }
 
 // standing is the node's decision, checks and mergeability with the head they were read for.
@@ -701,6 +784,17 @@ func (n standingNode) standing() forge.Standing {
 		Checks:       n.checks(),
 		Mergeability: n.mergeability(),
 		HeadSHA:      n.DiffHeadSha,
+		AutoMerge:    n.autoMerge(),
+	}
+}
+
+// autoMerge is whether the merge request is set to merge on its own, and whether GitLab offers a
+// way to set it, which it does only while there is a pipeline to wait for and the credential
+// may merge.
+func (n standingNode) autoMerge() forge.AutoMerge {
+	return forge.AutoMerge{
+		On:      n.AutoMergeEnabled,
+		Allowed: len(n.AvailableAutoMergeStrategies) > 0,
 	}
 }
 
@@ -792,6 +886,7 @@ func (n mergeRequestNode) toPullRequest(withStanding bool) forge.PullRequest {
 		pullRequest.Decision = xptr.Ptr(n.decision())
 		pullRequest.Checks = xptr.Ptr(n.checks())
 		pullRequest.Mergeability = xptr.Ptr(n.mergeability())
+		pullRequest.AutoMerge = xptr.Ptr(n.autoMerge())
 	}
 
 	return pullRequest

@@ -42,9 +42,10 @@ const searchFailing = `{"data":{"search":{"issueCount":7,"pageInfo":{"hasNextPag
 const searchApproved = `{"data":{"search":{"issueCount":2,"pageInfo":{"hasNextPage":false,"endCursor":"Y3Vyc29yOjI="},"nodes":[{"id":"PR_kwDOIGmk9s8AAAABESZ58w","number":11158,"title":"Metrics production image update","url":"https://github.com/acme/deploy/pull/11158","state":"MERGED","isDraft":false,"reviewDecision":"APPROVED","createdAt":"2026-09-20T06:24:15Z","updatedAt":"2026-09-20T06:24:26Z","mergedAt":"2026-09-20T06:24:26Z","closedAt":"2026-09-20T06:24:26Z","headRefName":"update-metrics-images","headRefOid":"41fdd966bfbce0757b89b100efa46f8e28d02218","baseRefName":"main","baseRefOid":"94475aebe2d459bf41137bf67d767023dde7baa3","headRepository":{"url":"https://github.com/acme/deploy"},"baseRepository":{"url":"https://github.com/acme/deploy"}},{"id":"PR_kwDOIGmk9s8AAAABEQX0JA","number":11157,"title":"Admin production image update","url":"https://github.com/acme/deploy/pull/11157","state":"MERGED","isDraft":false,"reviewDecision":"APPROVED","createdAt":"2026-09-19T21:14:05Z","updatedAt":"2026-09-19T21:14:18Z","mergedAt":"2026-09-19T21:14:17Z","closedAt":"2026-09-19T21:14:17Z","headRefName":"update-admin-images","headRefOid":"583d259df0d2f141345f659491de89462a0de6cc","baseRefName":"main","baseRefOid":"24235336d21888966f294aea6434aa64a16cb004","headRepository":{"url":"https://github.com/acme/deploy"},"baseRepository":{"url":"https://github.com/acme/deploy"}}]}}}`
 
 // standingsBatch is the shape GitHub answers the aliased standings query with, the recorded
-// shape with the rows made up: a failing head, a pending one, an approved one whose checks
-// passed, one with no rollup, and a number GitHub does not have.
-const standingsBatch = `{"data":{"repository":{"p801":{"headRefOid":"1111111111111111111111111111111111111111","reviewDecision":"CHANGES_REQUESTED","mergeStateStatus":"UNSTABLE","commits":{"nodes":[{"commit":{"statusCheckRollup":{"state":"FAILURE"}}}]}},"p802":{"headRefOid":"2222222222222222222222222222222222222222","reviewDecision":"REVIEW_REQUIRED","mergeStateStatus":"BLOCKED","commits":{"nodes":[{"commit":{"statusCheckRollup":{"state":"PENDING"}}}]}},"p803":{"headRefOid":"3333333333333333333333333333333333333333","reviewDecision":"APPROVED","mergeStateStatus":"CLEAN","commits":{"nodes":[{"commit":{"statusCheckRollup":{"state":"SUCCESS"}}}]}},"p1":{"headRefOid":"c744e226f1248223edd7aa77a7874aba2eec3b16","reviewDecision":null,"mergeStateStatus":"UNKNOWN","commits":{"nodes":[{"commit":{"statusCheckRollup":null}}]}},"p9999999":null}},"errors":[{"type":"NOT_FOUND","path":["repository","p9999999"],"locations":[{"line":7,"column":5}],"message":"Could not resolve to a PullRequest with the number of 9999999."}]}`
+// shape with the rows made up: a failing head that may be queued to merge, a pending one already
+// queued, an approved one whose checks passed, one with no rollup, and a number GitHub does not
+// have.
+const standingsBatch = `{"data":{"repository":{"p801":{"headRefOid":"1111111111111111111111111111111111111111","reviewDecision":"CHANGES_REQUESTED","mergeStateStatus":"UNSTABLE","commits":{"nodes":[{"commit":{"statusCheckRollup":{"state":"FAILURE"}}}]},"autoMergeRequest":null,"viewerCanEnableAutoMerge":true},"p802":{"headRefOid":"2222222222222222222222222222222222222222","reviewDecision":"REVIEW_REQUIRED","mergeStateStatus":"BLOCKED","commits":{"nodes":[{"commit":{"statusCheckRollup":{"state":"PENDING"}}}]},"autoMergeRequest":{"enabledAt":"2026-09-20T11:00:00Z"},"viewerCanEnableAutoMerge":false},"p803":{"headRefOid":"3333333333333333333333333333333333333333","reviewDecision":"APPROVED","mergeStateStatus":"CLEAN","commits":{"nodes":[{"commit":{"statusCheckRollup":{"state":"SUCCESS"}}}]}},"p1":{"headRefOid":"c744e226f1248223edd7aa77a7874aba2eec3b16","reviewDecision":null,"mergeStateStatus":"UNKNOWN","commits":{"nodes":[{"commit":{"statusCheckRollup":null}}]}},"p9999999":null}},"errors":[{"type":"NOT_FOUND","path":["repository","p9999999"],"locations":[{"line":7,"column":5}],"message":"Could not resolve to a PullRequest with the number of 9999999."}]}`
 
 type fakeAuth struct {
 	token       string
@@ -528,6 +529,96 @@ func TestSetDraft(t *testing.T) {
 	}
 }
 
+// TestSetAutoMerge covers queueing a pull request held to the head the person saw, withdrawing
+// it, leaving one alone that already stands that way, and refusing a finished one before GitHub
+// is asked to change it.
+func TestSetAutoMerge(t *testing.T) {
+	t.Parallel()
+
+	const address = "https://github.com/harrisoncramer/komrad/pull/742"
+	target := func(state, request string) answer {
+		return answer{body: data(`{"repository":{"viewerDefaultMergeMethod":"SQUASH","pullRequest":{"id":"PR_742","state":"` + state + `","autoMergeRequest":` + request + `}}}`)}
+	}
+	queued := `{"enabledAt":"2026-09-20T12:00:00Z"}`
+
+	tests := []struct {
+		name          string
+		params        forge.SetAutoMergeParams
+		answers       map[string]answer
+		wantErr       error
+		wantOperation string
+		wantVariables map[string]any
+	}{
+		{
+			name:    "a pull request github does not have",
+			params:  forge.SetAutoMergeParams{URL: address, On: true},
+			answers: map[string]answer{"AutoMergeTarget": {body: data(`{"repository":{"pullRequest":null}}`)}},
+			wantErr: forge.ErrNotFound,
+		},
+		{
+			name:    "a merged pull request is refused before github is asked to change it",
+			params:  forge.SetAutoMergeParams{URL: address, On: true},
+			answers: map[string]answer{"AutoMergeTarget": target("MERGED", "null")},
+			wantErr: forge.ErrNoAutoMerge,
+		},
+		{
+			name:   "a pull request github will not queue",
+			params: forge.SetAutoMergeParams{URL: address, On: true},
+			answers: map[string]answer{
+				"AutoMergeTarget": target("OPEN", "null"),
+				"EnableAutoMerge": {body: `{"data":{"enablePullRequestAutoMerge":null},"errors":[{"type":"UNPROCESSABLE","path":["enablePullRequestAutoMerge"],"message":"Pull request is in clean status"}]}`},
+			},
+			wantErr: forge.ErrNoAutoMerge,
+		},
+		{
+			name:          "a queued pull request asked to be queued is left alone",
+			params:        forge.SetAutoMergeParams{URL: address, On: true},
+			answers:       map[string]answer{"AutoMergeTarget": target("OPEN", queued)},
+			wantOperation: "AutoMergeTarget",
+			wantVariables: map[string]any{"owner": "harrisoncramer", "name": "komrad", "number": float64(742)},
+		},
+		{
+			name:   "an open pull request is queued with the default method at the head the person saw",
+			params: forge.SetAutoMergeParams{URL: address, HeadSHA: "abc123", On: true},
+			answers: map[string]answer{
+				"AutoMergeTarget": target("OPEN", "null"),
+				"EnableAutoMerge": {body: data(`{"enablePullRequestAutoMerge":{"clientMutationId":null}}`)},
+			},
+			wantOperation: "EnableAutoMerge",
+			wantVariables: map[string]any{"id": "PR_742", "method": "SQUASH", "head": "abc123"},
+		},
+		{
+			name:   "a queued pull request is withdrawn",
+			params: forge.SetAutoMergeParams{URL: address},
+			answers: map[string]answer{
+				"AutoMergeTarget":  target("OPEN", queued),
+				"DisableAutoMerge": {body: data(`{"disablePullRequestAutoMerge":{"clientMutationId":null}}`)},
+			},
+			wantOperation: "DisableAutoMerge",
+			wantVariables: map[string]any{"id": "PR_742"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			f, _, fake := serve(t, tt.answers)
+
+			err := f.SetAutoMerge(t.Context(), tt.params)
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+
+				return
+			}
+			require.NoError(t, err)
+			seen := fake.last(t)
+			assert.Equal(t, tt.wantOperation, seen.Operation)
+			assert.Equal(t, tt.wantVariables, seen.Variables)
+		})
+	}
+}
+
 // TestGetRefusesWhatIsNotAPullRequest covers the addresses Get will not ask GitHub about.
 func TestGetRefusesWhatIsNotAPullRequest(t *testing.T) {
 	t.Parallel()
@@ -802,12 +893,14 @@ func TestStandings(t *testing.T) {
 			Checks:       forge.ChecksFailing,
 			Mergeability: forge.MergeabilityUnstable,
 			HeadSHA:      "1111111111111111111111111111111111111111",
+			AutoMerge:    forge.AutoMerge{Allowed: true},
 		},
 		802: {
 			Decision:     forge.ReviewDecisionPending,
 			Checks:       forge.ChecksPending,
 			Mergeability: forge.MergeabilityBlocked,
 			HeadSHA:      "2222222222222222222222222222222222222222",
+			AutoMerge:    forge.AutoMerge{On: true},
 		},
 		803: {
 			Decision:     forge.ReviewDecisionApproved,
@@ -826,7 +919,7 @@ func TestStandings(t *testing.T) {
 	seen := fake.last(t)
 	assert.Equal(t, "Standings", seen.Operation)
 	assert.Equal(t, map[string]any{"owner": "harrisoncramer", "name": "komrad"}, seen.Variables)
-	assert.Contains(t, seen.Query, `p801: pullRequest(number: 801) { headRefOid reviewDecision mergeStateStatus commits(last: 1) { nodes { commit { statusCheckRollup { state } } } } }`)
+	assert.Contains(t, seen.Query, `p801: pullRequest(number: 801) { headRefOid reviewDecision mergeStateStatus commits(last: 1) { nodes { commit { statusCheckRollup { state } } } } autoMergeRequest { enabledAt } viewerCanEnableAutoMerge }`)
 	assert.Contains(t, seen.Query, `p9999999: pullRequest(number: 9999999) { headRefOid `)
 	assert.Equal(t, 5, strings.Count(seen.Query, "pullRequest(number:"))
 }

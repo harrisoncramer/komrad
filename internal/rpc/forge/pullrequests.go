@@ -102,6 +102,21 @@ func (s *Handler) SetForgePullRequestDraft(ctx context.Context, req *forgev1.Set
 	return &emptypb.Empty{}, nil
 }
 
+// SetForgePullRequestAutoMerge asks the forge to merge a pull request once its checks and reviews
+// pass, or stops it, through the connection for its host.
+func (s *Handler) SetForgePullRequestAutoMerge(ctx context.Context, req *forgev1.SetForgePullRequestAutoMergeRequest) (*emptypb.Empty, *fail.Error) {
+	err := s.writer.SetPullRequestAutoMerge(ctx, forge.SetAutoMergeParams{
+		URL:     req.GetUrl(),
+		HeadSHA: req.GetHeadSha(),
+		On:      req.GetOn(),
+	})
+	if err != nil {
+		return nil, rpcerr.From(err, "failed to change auto-merge on the pull request")
+	}
+
+	return &emptypb.Empty{}, nil
+}
+
 func renderForgePullRequest(pullRequest forge.PullRequest) *forgev1.ForgePullRequest {
 	head := ""
 	if !pullRequest.Head.IsZero() {
