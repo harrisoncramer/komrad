@@ -352,13 +352,13 @@ func (s *LifecycleService) RestoreAgents(ctx context.Context, ids []string) ([]a
 	return s.agents.ListByID(ctx, agentstore.IDs(agents))
 }
 
-func (s *LifecycleService) archiveWorkflow(ctx context.Context, workflowID string, inside []agentstore.Agent) error {
+func (s *LifecycleService) archiveWorkflow(ctx context.Context, workflowID string, live []agentstore.Agent) error {
 	return archiveBatch(ctx, archiveBatchParams{
 		tmux:      s.tmux,
 		scripts:   s.scripts,
 		workflows: s.workflows,
-		live:      inside,
-		owned:     inside,
+		live:      live,
+		owned:     live,
 		screens:   s.screens,
 		archive: func(ctx context.Context) ([]agentstore.AgentPane, error) {
 			var taken []agentstore.AgentPane
