@@ -13,7 +13,6 @@ import (
 	"komrad/internal/forge"
 	"komrad/internal/git"
 	"komrad/internal/logging"
-	forgestore "komrad/internal/store/forge"
 	pullrequeststore "komrad/internal/store/pullrequest"
 	"komrad/lib/xptr"
 
@@ -28,13 +27,6 @@ type eventRecorder interface {
 // waker asks the sync's own loop to run before its next tick.
 type waker interface {
 	Wake()
-}
-
-// pullRequestForgeFinder is what the sync asks of the forge service.
-type pullRequestForgeFinder interface {
-	ConnectionFor(ctx context.Context, host string) (*forgestore.Connection, error)
-	ForConnection(connection forgestore.Connection) (forge.Forge, error)
-	SetThrottledUntil(ctx context.Context, id string, until *time.Time) error
 }
 
 // NewPullRequestSyncerParams is what a pull request syncer is built over.
