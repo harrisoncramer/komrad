@@ -66,7 +66,7 @@ func cutWindow(content string, cursor *transcriptstore.ContentCursor, requested 
 		return &Window{Content: window}, nil
 	}
 
-	// A limit landing inside the first rune would hand back a token asking the same question again.
+	// A limit landing inside the first rune would hand back a cursor asking the same question again.
 	if window == "" {
 		return nil, errWindowTooSmall.Saying("max_bytes of %d is too small to hold the next character", limit)
 	}
