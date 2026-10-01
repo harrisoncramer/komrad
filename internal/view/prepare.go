@@ -336,7 +336,7 @@ func indentFor(kind RowKind) int {
 // fitRow gives a row's width up in order: the workflow, the tally, the comment counts, the name,
 // and last the marks, which only a pane too narrow for the marks alone ever reaches.
 func fitRow(line Line, width int) Line {
-	if roomForName(line, width) <= 0 {
+	if roomForName(line, width) < len([]rune(line.Name)) {
 		line.Workflow = ""
 	}
 

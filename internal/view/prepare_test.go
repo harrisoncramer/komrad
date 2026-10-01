@@ -1032,6 +1032,39 @@ func TestPrepareHeldCell(t *testing.T) {
 	}
 }
 
+// TestPrepareGivesTheWorkflowUpBeforeTheName pins the workflow giving way before the name is cut.
+func TestPrepareGivesTheWorkflowUpBeforeTheName(t *testing.T) {
+	tests := []struct {
+		name         string
+		row          Row
+		wantName     string
+		wantWorkflow string
+	}{
+		{
+			name:         "a name with room for the workflow keeps both",
+			row:          Row{Kind: KindAgent, Name: "iss-582", Workflow: "backend"},
+			wantName:     "iss-582",
+			wantWorkflow: "backend",
+		},
+		{
+			name:         "a name that fits only alone drops the workflow",
+			row:          Row{Kind: KindAgent, Name: "fix-login-redi", Workflow: "backend"},
+			wantName:     "fix-login-redi",
+			wantWorkflow: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			list := Prepare(Snapshot{Rows: []Row{tt.row}, Pane: 25})
+			require.Len(t, list.Lines, 1)
+
+			assert.Equal(t, tt.wantName, list.Lines[0].Name)
+			assert.Equal(t, tt.wantWorkflow, list.Lines[0].Workflow)
+		})
+	}
+}
+
 // TestPrepareGivesTheTallyUpBeforeTheMarks pins what a row sheds as its pane narrows: the name
 // first, then the count of what is out of sight, and never a mark while the marks still fit.
 func TestPrepareGivesTheTallyUpBeforeTheMarks(t *testing.T) {
