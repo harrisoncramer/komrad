@@ -26,12 +26,13 @@ doesDrawFromListing says whether it draws the watch's listings, and takesEveryKe
 the screen is being typed at.
 A screen also returns a screenSpec from its spec method, which is the one place a screen says
 what else it does: detailed for a record under its list, filtered for a search over it, tabbed
-for a strip over it, column for a block beside it, stage for a row it puts on the stage, and the
-rest, with a nil field for whatever the screen lacks. The root holds the screens by value and
-m.active() is the switch from the screen enum to the spec of the one that is up; it carries no
-default, so the exhaustive check refuses a screen with no arm. Every method on a screen takes a
-pointer to the root, which it reads freely and writes only through the root's own methods; a
-screen changes screens through enter and never by writing into another screen. The root's own state is what routeAsyncMessage
+for a strip over it, column for a block beside it, stage for a row it puts on the stage, and one
+method for each question the panel asks of whichever screen is up. A field the screen leaves nil
+is one it lacks. The root holds the screens by value and m.active() is the switch from the
+screen enum to the spec of the one that is up; it carries no default, so the exhaustive check
+refuses a screen with no arm. Every method on a screen takes a pointer to the root, which it
+reads freely and writes only through the root's own methods; a screen changes screens through
+enter and never by writing into another screen. The root's own state is what routeAsyncMessage
 still switches on: the watch, the write result, the ticks, focus and blur, and the
 inspections.
 
