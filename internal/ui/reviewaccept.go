@@ -21,21 +21,20 @@ type reviewAccept struct {
 	place   reviewPlace
 }
 
-// acceptableOffer is the forge thread the accept key copies from where the cursor stands: one
-// changed since it was accepted into the thread under the cursor, or one with no thread in front
-// of it that is not already accepted as it stands.
+// acceptableOffer is the forge thread the accept key copies from at the cursor.
 func (r reviewScreen) acceptableOffer(s panelShared) (*pullrequestv1.ForgeThread, bool) {
 	threads := s.listing.world.ReviewThreads
 
 	if thread, ok := r.diff.threadAtCursor(); ok {
-		at := slices.IndexFunc(r.listOffers(s), func(offer *pullrequestv1.ForgeThread) bool {
+		offers := r.listOffers(s)
+		at := slices.IndexFunc(offers, func(offer *pullrequestv1.ForgeThread) bool {
 			return offer.GetAcceptedThreadId() == thread.GetId()
 		})
-		if at < 0 || assemble.StateOfOffer(threads, r.listOffers(s)[at]) != assemble.OfferChanged {
+		if at < 0 || assemble.StateOfOffer(threads, offers[at]) != assemble.OfferChanged {
 			return nil, false
 		}
 
-		return r.listOffers(s)[at], true
+		return offers[at], true
 	}
 
 	offer, ok := r.offerAtCursor(s)
