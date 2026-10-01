@@ -93,6 +93,48 @@ func TestDocumentTypesList(t *testing.T) {
 	})
 }
 
+// TestDocumentTypesNarrow covers the list and its forms in a panel with no room for the menu under them.
+func TestDocumentTypesNarrow(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		width    int
+		wantList bool
+	}{
+		{name: "a narrow panel draws the list beside the form while the form keeps its floor", width: 130, wantList: true},
+		{name: "a narrower panel draws the form alone", width: 100},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			harness := newPanelHarness(t, panelHarnessParams{width: tt.width})
+			answerWorktreeReads(harness)
+			harness.watch(buildSnapshot(buildDocumentAuthors()...))
+			answerDocumentTypes(harness)
+			harness.press("space", "T")
+
+			frame := harness.readFrame()
+			assert.Contains(t, frame, "RFC")
+			assert.Contains(t, frame, "How to write an explainer.")
+			assert.NotContains(t, frame, "edit worktree")
+
+			harness.press("space", "e")
+
+			frame = harness.readFrame()
+			assert.Contains(t, frame, "Edit document type")
+			if tt.wantList {
+				assert.Contains(t, frame, "RFC")
+
+				return
+			}
+			assert.NotContains(t, frame, "RFC")
+		})
+	}
+}
+
 // TestDocumentTypesWrite covers defining, editing and deleting a type from the menu on it.
 func TestDocumentTypesWrite(t *testing.T) {
 	t.Parallel()
