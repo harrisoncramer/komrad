@@ -465,7 +465,13 @@ func (f *Forge) RequestRereview(ctx context.Context, address string) error {
 		return noPullRequest(number, owner, name)
 	}
 	target := data.Repository.PullRequest
-	if err := refuseFinished(forge.ErrNoRereview, target.State, number); err != nil {
+	if _, err := forge.ShouldChange(forge.ShouldChangeParams{
+		Sentinel: forge.ErrNoRereview,
+		Forge:    forge.KindGitHub,
+		Ref:      "#" + strconv.Itoa(number),
+		Merged:   target.State == "MERGED",
+		Closed:   target.State == "CLOSED",
+	}); err != nil {
 		return err
 	}
 
