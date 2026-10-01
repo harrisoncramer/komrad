@@ -229,6 +229,28 @@ func TestWorktreesDelete(t *testing.T) {
 
 		assert.Contains(t, readFormProse(harness.readFrame()), "The directory nothing answers for is removed on its own")
 	})
+
+	t.Run("clear is gray and asks nothing when only live directories are listed", func(t *testing.T) {
+		t.Parallel()
+
+		live := newAgent("live", "treeview", "w1")
+		live.Cwd = "/trees/live"
+		live.Alive = xptr.Ptr(true)
+		harness := openWorktrees(t,
+			newLiveWorkflow("w1", "komrad"),
+			live,
+			&worktreev1.WatchedWorktree{Dir: "/trees/live", RepoDir: "/home/h/komrad", Branch: "agent/live", Readable: true},
+		)
+		moveToWorktree(t, harness, "treeview")
+
+		harness.press("space", "a")
+		assert.Regexp(t, readOffEntry("clear what can go", "c"), harness.readRawFrame())
+
+		harness.press("c", "y")
+
+		assert.NotContains(t, readFormProse(harness.readFrame()), "Delete")
+		harness.assertSentTo(worktreev1connect.WorktreeServiceDeleteWorktreesProcedure)
+	})
 }
 
 // TestWorktreesMenu covers the entry the archive menu offers for each kind of row.
