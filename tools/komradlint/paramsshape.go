@@ -34,22 +34,22 @@ func newParamsShape(settings config.ParamsShapeConfig) (*analysis.Analyzer, erro
 				return nil, nil
 			}
 
-			var sources, checked []*ast.File
+			var searched, linted []*ast.File
 			for _, file := range pass.Files {
 				if isTest(pass, file) {
 					continue
 				}
 
-				sources = append(sources, file)
+				searched = append(searched, file)
 				if isUnder(pass, file, excluded) {
 					continue
 				}
 
-				checked = append(checked, file)
+				linted = append(linted, file)
 				checkConstructors(pass, file)
 			}
 
-			checkParamsPlacement(pass, sources, checked)
+			checkParamsPlacement(pass, searched, linted)
 
 			return nil, nil
 		},
@@ -91,9 +91,9 @@ func checkConstructors(pass *analysis.Pass, file *ast.File) {
 
 // checkParamsPlacement reports every function taking its own params struct when that struct
 // sits directly above none of the functions named for it.
-func checkParamsPlacement(pass *analysis.Pass, sources, checked []*ast.File) {
+func checkParamsPlacement(pass *analysis.Pass, searched, linted []*ast.File) {
 	takers := map[string][]*ast.FuncDecl{}
-	for _, file := range checked {
+	for _, file := range linted {
 		for _, decl := range file.Decls {
 			function, ok := decl.(*ast.FuncDecl)
 			if !ok || isConstructor(function) {
@@ -110,7 +110,7 @@ func checkParamsPlacement(pass *analysis.Pass, sources, checked []*ast.File) {
 	}
 
 	for params, functions := range takers {
-		if isPlaced(sources, params) {
+		if isPlaced(searched, params) {
 			continue
 		}
 
