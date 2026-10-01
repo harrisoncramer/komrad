@@ -139,13 +139,13 @@ func (g *hostGate) backOff(ctx context.Context, host *forgeHost, retryAt time.Ti
 	return until
 }
 
-// release lets a refusal be said again once the host got through a pass unstopped.
-func (g *hostGate) release(host *forgeHost) {
+// forgetRefusal lets a refusal be said again once the host got through a pass unstopped.
+func (g *hostGate) forgetRefusal(host *forgeHost) {
 	if !host.throttled {
 		g.said.forget(saidRefused, host.host)
 	}
 }
 
-func (g *hostGate) reset(host string) {
-	delete(g.refusals, host)
+func (g *hostGate) resetBackOff(host *forgeHost) {
+	delete(g.refusals, host.host)
 }

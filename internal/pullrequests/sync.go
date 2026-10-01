@@ -233,7 +233,7 @@ func (s *PullRequestSyncer) syncHost(ctx context.Context, host *hostRead) bool {
 				append([]slog.Attr{slog.String(logging.RepositoryURL, repository.repositoryURL)}, logging.Err(err)...)...)
 		}
 	}
-	s.hosts.release(host.forgeHost)
+	s.hosts.forgetRefusal(host.forgeHost)
 
 	return read
 }
@@ -276,7 +276,7 @@ func (s *PullRequestSyncer) readRepository(ctx context.Context, host *hostRead, 
 // budget is spent, and keeps it in the slow lane until the reset once the budget runs low.
 func (s *PullRequestSyncer) noteRateLimit(ctx context.Context, host *hostRead, limit forge.RateLimit) {
 	if limit.Known {
-		s.hosts.reset(host.host)
+		s.hosts.resetBackOff(host.forgeHost)
 	}
 	if limit.IsExhausted() {
 		s.hosts.throttle(ctx, host.forgeHost, limit.ResetAt)

@@ -93,8 +93,8 @@ func (s *CommentSyncer) Sync(ctx context.Context) error {
 
 	for _, host := range hosts {
 		if host != nil && !host.throttled {
-			s.hosts.reset(host.host)
-			s.hosts.release(host.forgeHost)
+			s.hosts.resetBackOff(host.forgeHost)
+			s.hosts.forgetRefusal(host.forgeHost)
 		}
 	}
 
