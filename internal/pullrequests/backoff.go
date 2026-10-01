@@ -60,7 +60,7 @@ func (b *hostBackoff) openHost(ctx context.Context, hostname string) (host *forg
 		return nil, false
 	}
 
-	f, err := b.forges.ForConnection(*connection)
+	hostForge, err := b.forges.ForConnection(*connection)
 	if err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to build the forge",
 			append([]slog.Attr{slog.String(logging.ForgeHost, hostname)}, logging.Err(err)...)...)
@@ -71,7 +71,7 @@ func (b *hostBackoff) openHost(ctx context.Context, hostname string) (host *forg
 	return &forgeHost{
 		host:       hostname,
 		connection: connection,
-		forge:      f,
+		forge:      hostForge,
 	}, false
 }
 
