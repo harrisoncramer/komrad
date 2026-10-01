@@ -38,11 +38,6 @@ func (w *loopWaker) Wake() {
 	}
 }
 
-// WakeAfter asks the loop to run again once the wait is over.
-func (w *loopWaker) WakeAfter(wait time.Duration) {
-	time.AfterFunc(wait, w.Wake)
-}
-
 func (w *loopWaker) drain() {
 	select {
 	case <-w.wake:

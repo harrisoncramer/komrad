@@ -460,18 +460,6 @@ type AgentTranscriptSession struct {
 	EngineID pgtype.UUID
 }
 
-// A branch komrad has listed the pull requests of on purpose, once, which is what finds a pull request older than the sync's horizon on a branch an agent adopted.
-type BranchScan struct {
-	RepositoryUrl string
-	Branch        string
-	// Where the listing reads its next page from, empty for the first.
-	NextCursor string
-	// When the listing answered its last page, after which the branch is never scanned again.
-	CompletedAt pgtype.Timestamptz
-	// The engine that owns this row, stamped from the login that wrote it.
-	EngineID pgtype.UUID
-}
-
 // A markdown document an agent wrote for a person to read, kept after its worktree is gone.
 type Document struct {
 	ID      pgtype.UUID
@@ -680,15 +668,11 @@ type PullRequest struct {
 	FirstSeenAt pgtype.Timestamptz
 	// Where the forge says the reviews stand, in komrad's own words: pending, approved or changes_requested, null while it has said nothing.
 	ReviewDecision *string
-	// The changed_at the review decision was read for, stale once changed_at has moved past it.
-	DecisionChangedAt pgtype.Timestamptz
-	// Where the forge says the checks on the head commit stand, in komrad's own words: pending, passing or failing, null while it reports none. A check finishing does not move changed_at, so the checks are kept fresh by checks_sha and checks_read_at rather than by the change stamp.
+	// Where the forge says the checks on the head commit stand, in komrad's own words: pending, passing or failing, null while it reports none.
 	Checks *string
-	// The head commit the checks were read for, stale once head_sha has moved past it.
+	// The head commit the checks were read for.
 	ChecksSha *string
-	// When the checks and mergeability were last read, which is what paces every re-read.
-	ChecksReadAt pgtype.Timestamptz
-	// Where the forge says the pull request stands against its base and its branch rules, in komrad's own words: clean, unstable, blocked, behind or conflicting, null while the forge has not computed it. Read with the checks and kept fresh the same way.
+	// Where the forge says the pull request stands against its base and its branch rules, in komrad's own words: clean, unstable, blocked, behind or conflicting, null while the forge has not computed it. Read with the checks.
 	Mergeability *string
 	// The engine that owns this row, stamped from the login that wrote it.
 	EngineID pgtype.UUID
@@ -704,27 +688,15 @@ type PullRequest struct {
 	LastKnownMergeabilitySha *string
 	// When the forge first answered a blank mergeability for checks_sha, which bounds how long a blank is read again quickly.
 	MergeabilityBlankSince pgtype.Timestamptz
-	// Whether the forge says the pull request will merge on its own once its checks and reviews pass, null until it has been read. Read with the checks and kept fresh the same way.
+	// Whether the forge says the pull request will merge on its own once its checks and reviews pass, null until it has been read. Read with the checks.
 	AutoMerge *bool
 	// Whether the forge would let komrad's credential turn auto-merge on now, which it will not for a draft, a pull request with nothing left to wait for or a repository that does not allow it.
 	AutoMergeable bool
 }
 
-// Where the pull request sync is for one repository: the high-water mark the changes have been read through, the first sweep in progress if one is, and what the last pass cost.
+// A repository the pull request sync has read at least once, which is what turns its pull request state from unread to none when it has no pull requests.
 type PullRequestSync struct {
 	RepositoryUrl string
-	// The newest forge updated_at the changes have been read through, by the first sweep and then by every search since. Null until the first sweep has completed.
-	UpdatedThrough pgtype.Timestamptz
-	// The last time page one of the repository's own listing was read and written, which is the clock for the hourly listing behind the search.
-	ListedAt pgtype.Timestamptz
-	// Where the first sweep in progress reads its next page from, empty for page one and null between sweeps.
-	SweepCursor *string
-	// The moment the sweep in progress covers up to, when its page one was read or the newest row's stamp when the forge's clock is ahead, which becomes updated_through when it completes.
-	SweepNewest pgtype.Timestamptz
-	// The last time any request was made for this repository, whatever it answered.
-	ReadAt pgtype.Timestamptz
-	// How many requests the most recent pass made for this repository.
-	Calls int32
 	// The engine that owns this row, stamped from the login that wrote it.
 	EngineID pgtype.UUID
 }

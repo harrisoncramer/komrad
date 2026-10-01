@@ -81,8 +81,6 @@ message PullRequest {
 message Repository {
   // The canonical address of the repository.
   string url = 1;
-  // Whether the sync has read the repository's pull requests at least once.
-  bool read = 2;
 }
 
 message ListPullRequestsResponse {
@@ -99,9 +97,9 @@ message ListPullRequestsResponse {
 enum PullRequestState {
   // No state was decided.
   PULL_REQUEST_STATE_UNSPECIFIED = 0;
-  // The repository's first sweep has not completed, so nothing is known.
+  // The repository has not been read yet, so nothing is known.
   PULL_REQUEST_STATE_UNREAD = 1;
-  // The repository has been swept and nothing was opened from the branch.
+  // The repository has been read and nothing was opened from the branch.
   PULL_REQUEST_STATE_NONE = 2;
   // Open with no review decision that settles it.
   PULL_REQUEST_STATE_OPEN = 3;

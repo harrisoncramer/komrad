@@ -105,8 +105,6 @@ func TestIntegrationPullRequestsReachTheRowFromEachForge(t *testing.T) {
 			assert.Equal(t, onBranch[0].GetId(), pullRequests.Msg.GetPullRequests()[0].GetId())
 			assert.Equal(t, onBranch[1].GetId(), pullRequests.Msg.GetPullRequests()[1].GetId())
 
-			instance.SyncPullRequests()
-			assert.Equal(t, int32(1), fake.standings.Load(), "a standing read since the last change is not read again")
 			assert.True(t, standing.GetAutoMergeable())
 			assert.False(t, standing.GetAutoMerge())
 

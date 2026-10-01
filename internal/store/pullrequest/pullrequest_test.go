@@ -220,150 +220,42 @@ func TestObserveLinksArchivedAgents(t *testing.T) {
 	assert.Equal(t, int64(1), written)
 }
 
-// TestLiveRepositoriesAndUnscannedBranches covers the two listings the pass starts from: the
-// repositories live agents sit on, and the branches of one whose scan has not completed.
-func TestLiveRepositoriesAndUnscannedBranches(t *testing.T) {
+// TestLiveRepositoriesAndSyncTargets covers the two listings the pass starts from: the
+// repositories live agents sit on, and the branches they sit on away from the base branch, each
+// with its agent's head, archived agents left out of both.
+func TestLiveRepositoriesAndSyncTargets(t *testing.T) {
 	h := open(t)
 	ctx := t.Context()
 
 	workflow := h.createWorkflow(t)
 	h.createAgent(t, workflow, "a", komrad, "agent/x")
 	h.createAgent(t, workflow, "b", komrad, "agent/y")
-	h.createAgent(t, workflow, "c", fixture, "fixture/open")
-	archived := h.createAgent(t, workflow, "d", "https://github.com/harrisoncramer/gone", "agent/z")
+	h.createAgent(t, workflow, "c", komrad, "agent/y")
+	h.createAgent(t, workflow, "d", komrad, "main")
+	h.createAgent(t, workflow, "e", fixture, "fixture/open")
+	archived := h.createAgent(t, workflow, "f", "https://github.com/harrisoncramer/gone", "agent/z")
 	_, err := h.agents.Archive(ctx, []string{archived})
 	require.NoError(t, err)
+	headed := h.createAgent(t, workflow, "g", komrad, "agent/y")
+	repository, branch, head := komrad, "agent/y", "abc"
+	require.NoError(t, h.agents.SetCheckout(ctx, headed, agentstore.SetCheckoutParams{
+		RepositoryURL: &repository,
+		Branch:        &branch,
+		HeadSHA:       &head,
+	}))
 
 	repositories, err := h.ListLiveRepositories(ctx)
 	require.NoError(t, err)
 	assert.Equal(t, []string{komrad, fixture}, repositories)
 
-	branches, err := h.syncs.ListUnscannedBranches(ctx, komrad)
+	targets, err := h.syncs.ListTargets(ctx)
 	require.NoError(t, err)
-	assert.Equal(t, []string{"agent/x", "agent/y"}, branches)
-
-	require.NoError(t, h.syncs.SetBranchScanCursor(ctx, komrad, "agent/x", "c2"))
-	scan, err := h.syncs.GetBranchScan(ctx, komrad, "agent/x")
-	require.NoError(t, err)
-	assert.Equal(t, "c2", scan.NextCursor)
-	assert.Nil(t, scan.CompletedAt)
-
-	branches, err = h.syncs.ListUnscannedBranches(ctx, komrad)
-	require.NoError(t, err)
-	assert.Equal(t, []string{"agent/x", "agent/y"}, branches, "a scan in progress is still unscanned")
-
-	require.NoError(t, h.syncs.CompleteBranchScan(ctx, komrad, "agent/x", "c3"))
-	branches, err = h.syncs.ListUnscannedBranches(ctx, komrad)
-	require.NoError(t, err)
-	assert.Equal(t, []string{"agent/y"}, branches)
-
-	_, err = h.syncs.GetBranchScan(ctx, komrad, "agent/q")
-	require.ErrorIs(t, err, store.ErrNotFound)
-}
-
-// TestSyncRowRoundTrip covers the cursor row through a first sweep and the passes after it:
-// requests are counted as they are made, a sweep holds its cursor until it completes,
-// completion promotes the newest stamp and never regresses the mark, the search moves the mark
-// forward only, the listing clock moves only when asked, and a reset hands the repository back
-// to a first sweep.
-func TestSyncRowRoundTrip(t *testing.T) {
-	h := open(t)
-	ctx := t.Context()
-
-	_, err := h.syncs.GetSync(ctx, komrad)
-	require.ErrorIs(t, err, store.ErrNotFound)
-
-	require.NoError(t, h.syncs.EnsureSync(ctx, komrad))
-	require.NoError(t, h.syncs.EnsureSync(ctx, komrad))
-	sync, err := h.syncs.GetSync(ctx, komrad)
-	require.NoError(t, err)
-	assert.Nil(t, sync.UpdatedThrough)
-	assert.False(t, sync.IsSweeping())
-	assert.False(t, sync.IsSwept())
-	assert.Zero(t, sync.Calls)
-
-	require.NoError(t, h.syncs.RecordSyncRequest(ctx, komrad))
-	require.NoError(t, h.syncs.RecordSyncRequest(ctx, komrad))
-	sync, err = h.syncs.GetSync(ctx, komrad)
-	require.NoError(t, err)
-	assert.Equal(t, 2, sync.Calls)
-	assert.NotNil(t, sync.ReadAt)
-	assert.Nil(t, sync.ListedAt, "a request alone is not a listing")
-
-	newest := time.Date(2026, 9, 19, 10, 0, 0, 0, time.UTC)
-	listed := newest.Add(time.Minute)
-	require.NoError(t, h.syncs.StartSweep(ctx, StartSweepParams{
-		RepositoryURL: komrad,
-		Newest:        newest,
-		ListedAt:      listed,
-	}))
-	sync, err = h.syncs.GetSync(ctx, komrad)
-	require.NoError(t, err)
-	require.True(t, sync.IsSweeping())
-	assert.Empty(t, *sync.SweepCursor, "page one has no cursor")
-
-	require.NoError(t, h.syncs.AdvanceSweep(ctx, komrad, "c3"))
-	sync, err = h.syncs.GetSync(ctx, komrad)
-	require.NoError(t, err)
-	require.True(t, sync.IsSweeping())
-	assert.Equal(t, "c3", *sync.SweepCursor)
-	assert.True(t, sync.SweepNewest.Equal(newest))
-	require.NotNil(t, sync.ListedAt)
-	assert.True(t, sync.ListedAt.Equal(listed), "listed when the caller says, not when the database does")
-	assert.Nil(t, sync.UpdatedThrough, "the mark does not move until the sweep completes")
-
-	require.NoError(t, h.syncs.CompleteSweep(ctx, komrad))
-	sync, err = h.syncs.GetSync(ctx, komrad)
-	require.NoError(t, err)
-	assert.False(t, sync.IsSweeping())
-	assert.True(t, sync.IsSwept())
-	require.NotNil(t, sync.UpdatedThrough)
-	assert.True(t, sync.UpdatedThrough.Equal(newest))
-
-	older := newest.Add(-time.Hour)
-	require.NoError(t, h.syncs.StartSweep(ctx, StartSweepParams{
-		RepositoryURL: komrad,
-		Newest:        older,
-		ListedAt:      listed,
-	}))
-	require.NoError(t, h.syncs.CompleteSweep(ctx, komrad))
-	sync, err = h.syncs.GetSync(ctx, komrad)
-	require.NoError(t, err)
-	assert.True(t, sync.UpdatedThrough.Equal(newest), "an older page one never regresses the mark")
-
-	require.NoError(t, h.syncs.AdvanceMark(ctx, komrad, older))
-	sync, err = h.syncs.GetSync(ctx, komrad)
-	require.NoError(t, err)
-	assert.True(t, sync.UpdatedThrough.Equal(newest), "an older search never regresses the mark")
-
-	later := newest.Add(time.Hour)
-	require.NoError(t, h.syncs.AdvanceMark(ctx, komrad, later))
-	sync, err = h.syncs.GetSync(ctx, komrad)
-	require.NoError(t, err)
-	assert.True(t, sync.UpdatedThrough.Equal(later))
-
-	relisted := later.Add(time.Hour)
-	require.NoError(t, h.syncs.MarkListed(ctx, komrad, relisted))
-	sync, err = h.syncs.GetSync(ctx, komrad)
-	require.NoError(t, err)
-	assert.True(t, sync.ListedAt.Equal(relisted))
-	assert.True(t, sync.UpdatedThrough.Equal(later), "a listing does not move the mark")
-
-	require.NoError(t, h.syncs.ResetSyncCalls(ctx, komrad))
-	sync, err = h.syncs.GetSync(ctx, komrad)
-	require.NoError(t, err)
-	assert.Zero(t, sync.Calls)
-
-	require.NoError(t, h.syncs.EnsureSync(ctx, fixture))
-	require.NoError(t, h.syncs.AdvanceSweep(ctx, fixture, "c9"))
-	require.NoError(t, h.syncs.ResetSweeps(ctx, []string{komrad, fixture}))
-	for _, repository := range []string{komrad, fixture} {
-		sync, err = h.syncs.GetSync(ctx, repository)
-		require.NoError(t, err)
-		assert.False(t, sync.IsSwept(), "%s is back to a first sweep", repository)
-		assert.False(t, sync.IsSweeping())
-		assert.Nil(t, sync.SweepNewest)
-	}
+	assert.Equal(t, []Target{
+		{RepositoryURL: komrad, Branch: "agent/x"},
+		{RepositoryURL: komrad, Branch: "agent/y"},
+		{RepositoryURL: komrad, Branch: "agent/y", HeadSHA: "abc"},
+		{RepositoryURL: fixture, Branch: "fixture/open"},
+	}, targets)
 }
 
 // finishedPullRequest is openPullRequest merged an hour after it changed.
@@ -378,119 +270,10 @@ func finishedPullRequest(providerID string, number int, branch string) UpsertPar
 	return params
 }
 
-// TestListStaleStandingsAnswersOpenRowsOnAgentBranches covers which pull requests cost a
-// standing read: open and not draft, on a branch an agent sits on whether or not it is archived,
-// and never read, read before the last change, read for another head, or read as pending, as
-// no checks right after a change, as a mergeability not yet computed however old the change, or
-// as settled longer ago than the params trust.
-func TestListStaleStandingsAnswersOpenRowsOnAgentBranches(t *testing.T) {
-	h := open(t)
-	ctx := t.Context()
-
-	workflow := h.createWorkflow(t)
-	h.createAgent(t, workflow, "a", komrad, "agent/x")
-	archived := h.createAgent(t, workflow, "b", komrad, "agent/archived")
-	_, err := h.agents.Archive(ctx, []string{archived})
-	require.NoError(t, err)
-
-	unread := openPullRequest("PR_1", 1, "agent/x")
-	readSince := openPullRequest("PR_2", 2, "agent/x")
-	changedSince := openPullRequest("PR_3", 3, "agent/x")
-	draft := openPullRequest("PR_4", 4, "agent/x")
-	draft.Draft = true
-	merged := finishedPullRequest("PR_5", 5, "agent/x")
-	noAgent := openPullRequest("PR_6", 6, "agent/nobody")
-	onArchived := openPullRequest("PR_7", 7, "agent/archived")
-	fork := openPullRequest("PR_8", 8, "agent/x")
-	fork.HeadRepositoryURL = "https://github.com/someone/komrad"
-	pushed := openPullRequest("PR_9", 9, "agent/x")
-	pending := openPullRequest("PR_10", 10, "agent/x")
-	failing := openPullRequest("PR_11", 11, "agent/x")
-	now := time.Now()
-	settling := openPullRequest("PR_12", 12, "agent/x")
-	settling.ChangedAt = now
-	settled := openPullRequest("PR_13", 13, "agent/x")
-	blank := openPullRequest("PR_14", 14, "agent/x")
-	for _, params := range []UpsertParams{unread, readSince, changedSince, draft, merged, noAgent, onArchived, fork, pushed, pending, failing, settling, settled, blank} {
-		_, err := h.Upsert(ctx, params)
-		require.NoError(t, err)
-	}
-
-	set := func(providerID string, standing forge.Standing) {
-		t.Helper()
-		stored, err := h.GetByIdentity(ctx, "github.com", providerID)
-		require.NoError(t, err)
-		_, err = h.SetStanding(ctx, SetStandingParams{
-			ID:       stored.ID,
-			Standing: standing,
-			ReadAt:   now,
-		})
-		require.NoError(t, err)
-	}
-	set("PR_2", forge.Standing{
-		Decision:     forge.ReviewDecisionApproved,
-		Checks:       forge.ChecksPassing,
-		Mergeability: forge.MergeabilityClean,
-		HeadSHA:      "abc",
-	})
-	set("PR_3", forge.Standing{
-		Decision:     forge.ReviewDecisionApproved,
-		Checks:       forge.ChecksPassing,
-		Mergeability: forge.MergeabilityClean,
-		HeadSHA:      "abc",
-	})
-	set("PR_9", forge.Standing{
-		Checks:       forge.ChecksPassing,
-		Mergeability: forge.MergeabilityClean,
-		HeadSHA:      "before-the-push",
-	})
-	set("PR_10", forge.Standing{
-		Checks:       forge.ChecksPending,
-		Mergeability: forge.MergeabilityUnstable,
-		HeadSHA:      "abc",
-	})
-	set("PR_11", forge.Standing{
-		Checks:       forge.ChecksFailing,
-		Mergeability: forge.MergeabilityUnstable,
-		HeadSHA:      "abc",
-	})
-	set("PR_12", forge.Standing{Mergeability: forge.MergeabilityClean, HeadSHA: "abc"})
-	set("PR_13", forge.Standing{Mergeability: forge.MergeabilityClean, HeadSHA: "abc"})
-	set("PR_14", forge.Standing{Checks: forge.ChecksPassing, HeadSHA: "abc"})
-	changedSince.ChangedAt = changedSince.ChangedAt.Add(time.Hour)
-	_, err = h.Upsert(ctx, changedSince)
-	require.NoError(t, err)
-
-	list := func(now time.Time) []int {
-		t.Helper()
-		stale, err := h.syncs.ListStaleStandings(ctx, ListStaleStandingsParams{
-			RepositoryURL:           komrad,
-			Now:                     now,
-			PendingAfter:            time.Minute,
-			SettleWithin:            10 * time.Minute,
-			MergeabilityBlankAfter:  10 * time.Second,
-			MergeabilityBlankWithin: 2 * time.Minute,
-			SettledAfter:            10 * time.Minute,
-		})
-		require.NoError(t, err)
-
-		return xslice.Map(stale, func(pullRequest PullRequest) int {
-			return pullRequest.Number
-		})
-	}
-
-	assert.ElementsMatch(t, []int{1, 3, 7, 9}, list(now), "never read, changed since, and pushed since are stale the moment they are written, an archived agent's branch included")
-	assert.ElementsMatch(t, []int{1, 3, 7, 9}, list(now.Add(5*time.Second)), "a mergeability not yet computed waits out ten seconds")
-	assert.ElementsMatch(t, []int{1, 3, 7, 9, 14}, list(now.Add(11*time.Second)), "a mergeability not yet computed is read again after ten seconds however old the change")
-	assert.ElementsMatch(t, []int{1, 3, 7, 9, 10, 12}, list(now.Add(2*time.Minute)), "a pending run and a fresh change with no checks are read again after a minute, an old change with no checks is not, nor a blank that began two minutes ago")
-	assert.ElementsMatch(t, []int{1, 2, 3, 7, 9, 10, 11, 12, 13, 14}, list(now.Add(11*time.Minute)), "every row is read again after ten minutes")
-	assert.Equal(t, 3, list(now)[0], "newest change first")
-}
-
-// TestSetStandingStampsTheRead covers the standing round trip, none for the decision and the
-// checks clearing their columns while still counting as read, and the read stamp moving on
-// every write.
-func TestSetStandingStampsTheRead(t *testing.T) {
+// TestSetStandingRoundTrip covers the standing round trip, none for the decision and the checks
+// clearing their columns, and an answer that says nothing new writing nothing while still
+// answering what is stored.
+func TestSetStandingRoundTrip(t *testing.T) {
 	h := open(t)
 	ctx := t.Context()
 	readAt := time.Date(2026, 9, 21, 12, 0, 0, 0, time.UTC)
@@ -498,60 +281,59 @@ func TestSetStandingStampsTheRead(t *testing.T) {
 	written, err := h.Upsert(ctx, openPullRequest("PR_1", 1, "agent/x"))
 	require.NoError(t, err)
 
+	failing := forge.Standing{
+		Decision:     forge.ReviewDecisionChangesRequested,
+		Checks:       forge.ChecksFailing,
+		Mergeability: forge.MergeabilityUnstable,
+		HeadSHA:      "abc",
+	}
 	_, err = h.SetStanding(ctx, SetStandingParams{
-		ID: written.ID,
-		Standing: forge.Standing{
-			Decision:     forge.ReviewDecisionChangesRequested,
-			Checks:       forge.ChecksFailing,
-			Mergeability: forge.MergeabilityUnstable,
-			HeadSHA:      "abc",
-		},
-		ReadAt: readAt,
+		ID:       written.ID,
+		Standing: failing,
+		ReadAt:   readAt,
 	})
 	require.NoError(t, err)
 	stored, err := h.GetByIdentity(ctx, "github.com", "PR_1")
 	require.NoError(t, err)
 	require.NotNil(t, stored.ReviewDecision)
 	assert.Equal(t, forge.ReviewDecisionChangesRequested, *stored.ReviewDecision)
-	require.NotNil(t, stored.DecisionChangedAt)
-	assert.True(t, stored.DecisionChangedAt.Equal(stored.ChangedAt), "the read is stamped with the change it was for")
 	require.NotNil(t, stored.Checks)
 	assert.Equal(t, forge.ChecksFailing, *stored.Checks)
 	require.NotNil(t, stored.Mergeability)
 	assert.Equal(t, forge.MergeabilityUnstable, *stored.Mergeability)
 	assert.Equal(t, "abc", stored.ChecksSHA)
-	require.NotNil(t, stored.ChecksReadAt)
-	assert.True(t, stored.ChecksReadAt.Equal(readAt))
 
-	readAt = readAt.Add(time.Minute)
+	version := func() string {
+		t.Helper()
+		var xmin string
+		require.NoError(t, h.pool.GetDB().QueryRow(ctx, "SELECT xmin::text FROM pull_requests WHERE id = $1", written.ID).Scan(&xmin))
+
+		return xmin
+	}
+	before := version()
+	change, err := h.SetStanding(ctx, SetStandingParams{
+		ID:       written.ID,
+		Standing: failing,
+		ReadAt:   readAt.Add(time.Minute),
+	})
+	require.NoError(t, err)
+	assert.Equal(t, before, version(), "an answer that says nothing new writes nothing")
+	assert.Equal(t, change.OldChecks, change.KnownChecks)
+	require.NotNil(t, change.KnownChecks)
+	assert.Equal(t, string(forge.ChecksFailing), *change.KnownChecks)
+
 	_, err = h.SetStanding(ctx, SetStandingParams{
 		ID:       written.ID,
 		Standing: forge.Standing{HeadSHA: "abc"},
-		ReadAt:   readAt,
+		ReadAt:   readAt.Add(2 * time.Minute),
 	})
 	require.NoError(t, err)
 	stored, err = h.GetByIdentity(ctx, "github.com", "PR_1")
 	require.NoError(t, err)
 	assert.Nil(t, stored.ReviewDecision)
-	assert.NotNil(t, stored.DecisionChangedAt)
 	assert.Nil(t, stored.Checks)
 	assert.Nil(t, stored.Mergeability)
 	assert.Equal(t, "abc", stored.ChecksSHA)
-	assert.True(t, stored.ChecksReadAt.Equal(readAt), "the read stamp moves on a write that says nothing new")
-
-	changed := openPullRequest("PR_1", 1, "agent/x")
-	changed.ChangedAt = changed.ChangedAt.Add(time.Hour)
-	_, err = h.Upsert(ctx, changed)
-	require.NoError(t, err)
-	_, err = h.SetStanding(ctx, SetStandingParams{
-		ID:       written.ID,
-		Standing: forge.Standing{HeadSHA: "abc"},
-		ReadAt:   readAt,
-	})
-	require.NoError(t, err)
-	stored, err = h.GetByIdentity(ctx, "github.com", "PR_1")
-	require.NoError(t, err)
-	assert.True(t, stored.DecisionChangedAt.Equal(changed.ChangedAt), "the same decision for a later change is still a read")
 }
 
 // TestListPageOrdersCurrentFirst pins the page's order and its cursor: the unfinished first and
@@ -753,12 +535,10 @@ func TestSetStandingKeepsTheLastKnownValue(t *testing.T) {
 }
 
 // TestSetStandingRemembersWhichHeadMergeabilityWasReadFor covers the head the last known
-// mergeability belongs to, and a pull request the forge did not answer for keeping its
-// mergeability while its checks are cleared for the head.
+// mergeability belongs to.
 func TestSetStandingRemembersWhichHeadMergeabilityWasReadFor(t *testing.T) {
 	type read struct {
-		standing   forge.Standing
-		unanswered bool
+		standing forge.Standing
 	}
 	type testCase struct {
 		name             string
@@ -770,29 +550,6 @@ func TestSetStandingRemembersWhichHeadMergeabilityWasReadFor(t *testing.T) {
 		wantChecksSHA    string
 	}
 	tests := []testCase{
-		{
-			name: "an unanswered read keeps the mergeability and clears the checks for the head",
-			reads: []read{
-				{
-					standing: forge.Standing{
-						Checks:       forge.ChecksPassing,
-						Mergeability: forge.MergeabilityClean,
-						HeadSHA:      "abc",
-					},
-				},
-				{
-					standing: forge.Standing{
-						HeadSHA: "def",
-					},
-					unanswered: true,
-				},
-			},
-			wantMergeability: xptr.Ptr(forge.MergeabilityClean),
-			wantKnown:        "clean",
-			wantKnownSHA:     "abc",
-			wantChecks:       nil,
-			wantChecksSHA:    "def",
-		},
 		{
 			name: "a blank read leaves the last known head alone",
 			reads: []read{
@@ -848,10 +605,9 @@ func TestSetStandingRemembersWhichHeadMergeabilityWasReadFor(t *testing.T) {
 
 			for _, r := range tt.reads {
 				_, err := h.SetStanding(ctx, SetStandingParams{
-					ID:         written.ID,
-					Standing:   r.standing,
-					ReadAt:     time.Now(),
-					Unanswered: r.unanswered,
+					ID:       written.ID,
+					Standing: r.standing,
+					ReadAt:   time.Now(),
 				})
 				require.NoError(t, err)
 			}
@@ -873,9 +629,8 @@ func TestSetStandingAnswersWhenABlankBegan(t *testing.T) {
 	began := time.Date(2026, 9, 21, 12, 0, 0, 0, time.UTC)
 	later := began.Add(time.Minute)
 	type read struct {
-		standing   forge.Standing
-		unanswered bool
-		at         time.Time
+		standing forge.Standing
+		at       time.Time
 	}
 	type testCase struct {
 		name      string
@@ -915,21 +670,6 @@ func TestSetStandingAnswersWhenABlankBegan(t *testing.T) {
 			wantSince: &later,
 		},
 		{
-			name: "an unanswered read keeps when the blank began",
-			reads: []read{
-				{
-					standing: forge.Standing{HeadSHA: "abc"},
-					at:       began,
-				},
-				{
-					standing:   forge.Standing{HeadSHA: "abc"},
-					unanswered: true,
-					at:         later,
-				},
-			},
-			wantSince: &began,
-		},
-		{
 			name: "a blank that stays blank keeps when it began",
 			reads: []read{
 				{
@@ -962,10 +702,9 @@ func TestSetStandingAnswersWhenABlankBegan(t *testing.T) {
 			var change *StandingChange
 			for _, r := range tt.reads {
 				change, err = h.SetStanding(ctx, SetStandingParams{
-					ID:         written.ID,
-					Standing:   r.standing,
-					ReadAt:     r.at,
-					Unanswered: r.unanswered,
+					ID:       written.ID,
+					Standing: r.standing,
+					ReadAt:   r.at,
 				})
 				require.NoError(t, err)
 			}
@@ -1025,13 +764,11 @@ func TestListRecipients(t *testing.T) {
 	assert.Equal(t, []string{onBranch}, recipients, "only the live parent on the branch is told")
 }
 
-// TestSetStandingRecordsAutoMerge covers auto-merge being recorded with the rest of a read, an
-// unanswered read leaving it as it was, and the value before and after each write.
+// TestSetStandingRecordsAutoMerge covers auto-merge being recorded with the rest of a read, and the value before and after each write.
 func TestSetStandingRecordsAutoMerge(t *testing.T) {
 	type testCase struct {
 		name              string
 		autoMerge         forge.AutoMerge
-		unanswered        bool
 		wantOld           *bool
 		wantKnown         *bool
 		wantAutoMergeable bool
@@ -1051,12 +788,6 @@ func TestSetStandingRecordsAutoMerge(t *testing.T) {
 			wantKnown: xptr.Ptr(true),
 		},
 		{
-			name:       "a read the forge did not answer",
-			unanswered: true,
-			wantOld:    xptr.Ptr(true),
-			wantKnown:  xptr.Ptr(true),
-		},
-		{
 			name:              "a read after it was withdrawn",
 			autoMerge:         forge.AutoMerge{Allowed: true},
 			wantOld:           xptr.Ptr(true),
@@ -1071,10 +802,9 @@ func TestSetStandingRecordsAutoMerge(t *testing.T) {
 
 	for _, tt := range tests {
 		change, err := h.SetStanding(t.Context(), SetStandingParams{
-			ID:         written.ID,
-			Standing:   forge.Standing{HeadSHA: "abc", AutoMerge: tt.autoMerge},
-			ReadAt:     time.Now(),
-			Unanswered: tt.unanswered,
+			ID:       written.ID,
+			Standing: forge.Standing{HeadSHA: "abc", AutoMerge: tt.autoMerge},
+			ReadAt:   time.Now(),
 		})
 		require.NoError(t, err, tt.name)
 		assert.Equal(t, tt.wantOld, change.OldAutoMerge, tt.name)

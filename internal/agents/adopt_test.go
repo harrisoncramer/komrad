@@ -99,7 +99,6 @@ func TestAdoptPlacesTheAgent(t *testing.T) {
 			assert.Contains(t, stored.Prompt, "look at it", "and still asked to do what it was asked to do")
 			assert.Equal(t, xptr.Ptr("someones/work"), stored.Branch, "the branch is on the row before the cwd sync reads the checkout")
 			assert.Equal(t, xptr.Ptr("github.com/someone/repo"), stored.RepositoryURL, "and so is the repository it pushes to")
-			assert.Equal(t, 1, manager.prSync.Wakes, "the pull request sync is woken to find the branch's pull request")
 
 			if tt.wantOwnWorktree {
 				assert.Nil(t, stored.ProvisionEnabled, "the workflow's own worktree is the one it gets")
@@ -184,7 +183,6 @@ func TestAdoptAnswersWithTheAgentInTheDirectory(t *testing.T) {
 			require.NoError(t, err)
 
 			assert.True(t, adoption.Existing)
-			assert.Zero(t, manager.prSync.Wakes, "an agent already on the branch wakes nothing")
 			assert.Equal(t, "sitting", adoption.Agent.Name, "the adoption is answered with the agent already in the directory")
 		})
 	}

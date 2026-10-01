@@ -23,9 +23,6 @@ var ErrNotPullRequest = fail.InvalidArgument("not a pull request on this forge")
 // ErrUnauthorized says the forge refused the credential.
 var ErrUnauthorized = fail.Denied("the forge refused the credential")
 
-// ErrTooManyStandings says one Standings call asked about more pull requests than it may.
-var ErrTooManyStandings = fail.InvalidArgument("too many standings for one call")
-
 // ErrNotMergeable says the forge refused to merge a pull request.
 var ErrNotMergeable = fail.Precondition("the forge will not merge the pull request")
 
@@ -64,6 +61,8 @@ func (t *ThrottledError) Unwrap() error {
 type RateLimit struct {
 	Known     bool
 	Remaining int
+	// Limit is the whole budget the reset brings back, zero when the headers did not say.
+	Limit int
 	// ResetAt is when the budget comes back, zero when the headers did not say.
 	ResetAt time.Time
 }
@@ -71,6 +70,11 @@ type RateLimit struct {
 // IsExhausted says the budget is spent and ResetAt is when it comes back.
 func (r RateLimit) IsExhausted() bool {
 	return r.Known && r.Remaining == 0
+}
+
+// IsLow says less than a fifth of the budget is left.
+func (r RateLimit) IsLow() bool {
+	return r.Known && r.Limit > 0 && r.Remaining*5 < r.Limit
 }
 
 // KindGitHub is the kind a GitHub host records.
@@ -189,6 +193,11 @@ func (pr PullRequest) IsFinished() bool {
 	return pr.MergedAt != nil || pr.ClosedAt != nil
 }
 
+// IsFromItsOwnRepository says whether the branch lives in the repository the pull request targets.
+func (pr PullRequest) IsFromItsOwnRepository() bool {
+	return !pr.Head.IsZero() && pr.Head.Canonical() == pr.Repository.Canonical()
+}
+
 // Forge is one service pull requests live on, spoken to as one connection.
 type Forge interface {
 	Kind() string
@@ -197,17 +206,11 @@ type Forge interface {
 	// List is one page of the repository's pull requests: every one from the named branch,
 	// whatever its state, or the open ones when the branch is empty.
 	List(ctx context.Context, params ListParams) (*Page, error)
-	// ListUpdated is one page of every pull request in the repository, whatever its state,
-	// newest change first.
-	ListUpdated(ctx context.Context, params ListUpdatedParams) (*Page, error)
-	// ListChanged is one page of every pull request across the repositories changed at or
-	// after a moment, newest first, each carrying its review decision.
-	ListChanged(ctx context.Context, params ListChangedParams) (*Page, error)
 	// Get is one pull request by its web address.
 	Get(ctx context.Context, url string) (PullRequest, error)
-	// Standings is where the forge says the reviews, checks and mergeability of up to fifty
-	// pull requests stand, by number, leaving out any the forge does not have.
-	Standings(ctx context.Context, repo git.RemoteURL, numbers []int) (map[int]Standing, error)
+	// ReadBranches is the newest pull requests opened from each branch within the repository
+	// itself, each carrying its standing.
+	ReadBranches(ctx context.Context, repo git.RemoteURL, branches []string) (*Reading, error)
 	// ReviewThreads is the review threads on one pull request with the comments they hold.
 	ReviewThreads(ctx context.Context, repo git.RemoteURL, number int) (*Threads, error)
 	// Merge lands the pull request at the web address on its base.
@@ -227,9 +230,6 @@ type SetAutoMergeParams struct {
 	HeadSHA string
 	On      bool
 }
-
-// MaxStandings is the most pull requests one Standings call asks about.
-const MaxStandings = 50
 
 // ListParams says which pull requests to list and where in them to start.
 type ListParams struct {
@@ -252,22 +252,11 @@ type Page struct {
 	RateLimit RateLimit
 }
 
-// ListUpdatedParams says which page of a repository's pull requests by last change to read.
-type ListUpdatedParams struct {
-	Repo git.RemoteURL
-	// Cursor is where a previous page ended, empty for the first; the page size is the most
-	// the forge allows.
-	Cursor string
-}
-
-// ListChangedParams says which repositories to read the changes of, and since when.
-type ListChangedParams struct {
-	// Repos are the repositories, every one on the forge's own host.
-	Repos []git.RemoteURL
-	// Since is the moment at or after which a pull request must have changed to be answered.
-	Since time.Time
-	// Cursor is where a previous page ended, empty for the first.
-	Cursor string
+// Reading is what the forge said about a repository's branches, and its budget after the last
+// query.
+type Reading struct {
+	PullRequests []PullRequest
+	RateLimit    RateLimit
 }
 
 // InstallationVerifier is a forge that can say what an installation token reaches.

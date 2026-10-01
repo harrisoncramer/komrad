@@ -2,7 +2,6 @@ package pullrequest
 
 import (
 	"testing"
-	"time"
 
 	"komrad/lib/xslice"
 
@@ -55,36 +54,25 @@ func TestListWatchedIsTheLinkedSet(t *testing.T) {
 	assert.Empty(t, none)
 }
 
-// TestListWatchedRepositories pins that a repository reads as swept only once its first sweep completes.
+// TestListWatchedRepositories pins that a repository is carried once however often it has been
+// read, and one never read is a tombstone.
 func TestListWatchedRepositories(t *testing.T) {
 	ctx := t.Context()
 	h := open(t)
 
 	require.NoError(t, h.syncs.EnsureSync(ctx, fixture))
 	require.NoError(t, h.syncs.EnsureSync(ctx, komrad))
-	require.NoError(t, h.syncs.RecordSyncRequest(ctx, fixture))
-	listed := time.Date(2026, 9, 19, 10, 0, 0, 0, time.UTC)
-	require.NoError(t, h.syncs.StartSweep(ctx, StartSweepParams{
-		RepositoryURL: fixture,
-		Newest:        listed,
-		ListedAt:      listed,
-	}))
+	require.NoError(t, h.syncs.EnsureSync(ctx, komrad))
 
-	swept := func(syncs []Sync) map[string]bool {
-		read := map[string]bool{}
-		for _, sync := range syncs {
-			read[sync.RepositoryURL] = sync.IsSwept()
-		}
-
-		return read
+	urls := func(syncs []Sync) []string {
+		return xslice.Map(syncs, func(sync Sync) string { return sync.RepositoryURL })
 	}
 
 	snapshot, err := h.syncs.ListWatched(ctx, nil)
 	require.NoError(t, err)
-	assert.Equal(t, map[string]bool{fixture: false, komrad: false}, swept(snapshot), "a request alone, or a sweep in progress, is not a read")
+	assert.ElementsMatch(t, []string{fixture, komrad}, urls(snapshot))
 
-	require.NoError(t, h.syncs.CompleteSweep(ctx, fixture))
 	listedByKey, err := h.syncs.ListWatched(ctx, []string{fixture, "https://github.com/nobody/nothing"})
 	require.NoError(t, err)
-	assert.Equal(t, map[string]bool{fixture: true}, swept(listedByKey), "a repository with no sync is a tombstone")
+	assert.Equal(t, []string{fixture}, urls(listedByKey), "a repository with no sync is a tombstone")
 }

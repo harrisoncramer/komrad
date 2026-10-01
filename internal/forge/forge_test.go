@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"komrad/internal/git"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -150,4 +152,42 @@ func TestPullRequestIsFinished(t *testing.T) {
 	assert.False(t, PullRequest{}.IsFinished())
 	assert.True(t, PullRequest{ClosedAt: &now}.IsFinished())
 	assert.True(t, PullRequest{MergedAt: &now, ClosedAt: &now}.IsFinished())
+}
+
+// TestPullRequestIsFromItsOwnRepository covers a branch in the target, in a fork and in none.
+func TestPullRequestIsFromItsOwnRepository(t *testing.T) {
+	t.Parallel()
+
+	komrad := git.RemoteURL{Scheme: "https", Host: "github.com", Path: "harrisoncramer/komrad"}
+	overSSH := git.RemoteURL{Scheme: "ssh", Host: "github.com", Path: "harrisoncramer/komrad"}
+	fork := git.RemoteURL{Scheme: "https", Host: "github.com", Path: "someone/komrad"}
+
+	assert.True(t, PullRequest{Repository: komrad, Head: overSSH}.IsFromItsOwnRepository())
+	assert.False(t, PullRequest{Repository: komrad, Head: fork}.IsFromItsOwnRepository())
+	assert.False(t, PullRequest{Repository: komrad}.IsFromItsOwnRepository())
+}
+
+// TestRateLimitIsLow covers the fifth of the budget a reader slows down below.
+func TestRateLimitIsLow(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		limit RateLimit
+		want  bool
+	}{
+		{name: "unknown", limit: RateLimit{Remaining: 0, Limit: 5000}, want: false},
+		{name: "no limit said", limit: RateLimit{Known: true, Remaining: 0}, want: false},
+		{name: "plenty left", limit: RateLimit{Known: true, Remaining: 4321, Limit: 5000}, want: false},
+		{name: "exactly a fifth", limit: RateLimit{Known: true, Remaining: 1000, Limit: 5000}, want: false},
+		{name: "under a fifth", limit: RateLimit{Known: true, Remaining: 999, Limit: 5000}, want: true},
+		{name: "spent", limit: RateLimit{Known: true, Remaining: 0, Limit: 2000}, want: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			assert.Equal(t, tt.want, tt.limit.IsLow())
+		})
+	}
 }

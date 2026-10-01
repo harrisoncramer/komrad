@@ -59,15 +59,7 @@ func (f *fakeForge) VerifyInstallation(ctx context.Context) (int, error) {
 	return f.reaches, f.err
 }
 
-func (f *fakeForge) ListUpdated(context.Context, ListUpdatedParams) (*Page, error) {
-	return &Page{}, nil
-}
-
 func (f *fakeForge) List(context.Context, ListParams) (*Page, error) {
-	return &Page{}, nil
-}
-
-func (f *fakeForge) ListChanged(context.Context, ListChangedParams) (*Page, error) {
 	return &Page{}, nil
 }
 
@@ -79,8 +71,8 @@ func (f *fakeForge) SetDraft(context.Context, string, bool) error { return nil }
 
 func (f *fakeForge) SetAutoMerge(context.Context, SetAutoMergeParams) error { return nil }
 
-func (f *fakeForge) Standings(context.Context, git.RemoteURL, []int) (map[int]Standing, error) {
-	return map[int]Standing{}, nil
+func (f *fakeForge) ReadBranches(context.Context, git.RemoteURL, []string) (*Reading, error) {
+	return &Reading{}, nil
 }
 
 type fixture struct {

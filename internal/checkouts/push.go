@@ -8,6 +8,7 @@ import (
 	"komrad/internal/git"
 	agentstore "komrad/internal/store/agent"
 	pullrequeststore "komrad/internal/store/pullrequest"
+	"komrad/lib/xptr"
 )
 
 var (
@@ -86,7 +87,7 @@ func (s *Service) Push(ctx context.Context, agentID string) (*PushResult, error)
 	// whether or not whoever asked is still waiting.
 	ctx = context.WithoutCancel(ctx)
 	defer s.checkoutSync.Wake()
-	defer s.pullRequestSync.Wake()
+	defer s.heat(*agent)
 
 	sha, err := s.pusher.Push(ctx, git.PushParams{
 		Dir:    agent.Cwd,
@@ -214,4 +215,15 @@ func pushedMail(pushed Pushed) string {
 		"Origin's copy now matches your checkout at %s.\n\n"+
 		"Carry on from here and push as you normally would. Do not pull or reset to the copy origin held before.",
 		pushed.Branch, git.ShortSHA(pushed.SHA))
+}
+
+// heat keeps the pull request sync reading the host the agent's checkout pushes to often for a
+// while.
+func (s *Service) heat(agent agentstore.Agent) {
+	remote, err := git.ParseRemoteURL(xptr.Deref(agent.RepositoryURL))
+	if err != nil || remote.Host == "" {
+		return
+	}
+
+	s.pullRequestSync.Heat(remote.Host)
 }

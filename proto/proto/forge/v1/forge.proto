@@ -182,7 +182,7 @@ service ForgeService {
       cli: true
       mcp: true
       name: "list_forges"
-      description: "List the forges komrad is connected to, one per host, with who komrad acts as there and when the forge last confirmed it. The token itself is never returned. A connection is made by a person with komrad forge connect and is what the pull request sweep reads through."
+      description: "List the forges komrad is connected to, one per host, with who komrad acts as there and when the forge last confirmed it. The token itself is never returned. A connection is made by a person with komrad forge connect and is what the pull request sync reads through."
       roles: [ROLE_ORCHESTRATOR]
     };
   }

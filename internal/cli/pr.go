@@ -34,8 +34,8 @@ func prListCmd(state *app) *cobra.Command {
 		Long: `List a repository's pull requests through the forge its host is connected to.
 
 Give a remote as git spells it. With a branch, every pull request opened from it is
-listed whatever its state, which is the read the pull request sweep makes; without
-one, the repository's open pull requests are listed.
+listed whatever its state; without one, the repository's open pull requests are
+listed.
 
     komrad pr list git@github.com:harrisoncramer/komrad.git
     komrad pr list git@github.com:harrisoncramer/komrad.git agent/some-branch

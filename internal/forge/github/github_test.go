@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -20,8 +21,8 @@ import (
 
 // The fixtures carry the shape GitHub answered on 20 September 2026, with the rows from other
 // repositories made up: komrad-forge-fixture#1 open, komrad#742 merged, widgets#55 from a fork,
-// widgets#13 from a fork since deleted, widgets#81544 a draft, a search page over two
-// repositories, and a batch of standings with one number GitHub does not have.
+// widgets#13 from a fork since deleted, widgets#81544 a draft, and the standing fields GitHub
+// answers beside each on a read of branches.
 
 const openPull = `{"id":"PR_kwDOUgkrbM8AAAABEIdmHw","number":1,"title":"fixture: open","url":"https://github.com/harrisoncramer/komrad-forge-fixture/pull/1","state":"OPEN","isDraft":false,"createdAt":"2026-09-18T19:14:17Z","updatedAt":"2026-09-18T19:14:17Z","mergedAt":null,"closedAt":null,"headRefName":"fixture/open","headRefOid":"acc6d4fd6caf3511c998a673406e6fed2df7a28b","baseRefName":"main","baseRefOid":"8b32d7985e62febbf494e815545c22b446276b5d","headRepository":{"url":"https://github.com/harrisoncramer/komrad-forge-fixture"},"baseRepository":{"url":"https://github.com/harrisoncramer/komrad-forge-fixture"}}`
 
@@ -32,20 +33,6 @@ const forkPull = `{"id":"MDExOlB1bGxSZXF1ZXN0MDAwMDAwMDE=","number":55,"title":"
 const deletedForkPull = `{"id":"MDExOlB1bGxSZXF1ZXN0MDAwMDAwMDI=","number":13,"title":"client: add the service tests","url":"https://github.com/acme/widgets/pull/13","state":"CLOSED","isDraft":false,"createdAt":"2014-06-07T11:41:26Z","updatedAt":"2014-06-20T06:20:42Z","mergedAt":null,"closedAt":"2014-06-20T06:20:42Z","headRefName":"client-tests","headRefOid":"2c8de7699fd79407246011a82201718588a06a08","baseRefName":"master","baseRefOid":"ba7fe835ce990977997bfc6b6c914d235d9ae72f","headRepository":null,"baseRepository":{"url":"https://github.com/acme/widgets"}}`
 
 const draftPull = `{"id":"PR_kwDOAAAAAAAAAAABAAAAAA","number":81544,"title":"unicode: widen the pair members","url":"https://github.com/acme/widgets/pull/81544","state":"OPEN","isDraft":true,"createdAt":"2026-09-15T17:53:12Z","updatedAt":"2026-09-15T18:47:47Z","mergedAt":null,"closedAt":null,"headRefName":"widen-pairs","headRefOid":"695f59abb90db534d1ce005c6b2fc1779728d2b1","baseRefName":"master","baseRefOid":"d90cb4e010dbbf7f39b993db5e64e2904c74e4a4","headRepository":{"url":"https://github.com/someone/widgets"},"baseRepository":{"url":"https://github.com/acme/widgets"}}`
-
-const searchPage = `{"data":{"search":{"issueCount":159,"pageInfo":{"hasNextPage":true,"endCursor":"Y3Vyc29yOjM="},"nodes":[{"id":"PR_kwDOTgPfPc8AAAABEU9Z2Q","number":744,"title":"feat(ui): one row per directory on the worktrees screen","url":"https://github.com/harrisoncramer/komrad/pull/744","state":"MERGED","isDraft":false,"reviewDecision":null,"createdAt":"2026-09-20T18:14:43Z","updatedAt":"2026-09-20T18:17:01Z","mergedAt":"2026-09-20T18:17:01Z","closedAt":"2026-09-20T18:17:01Z","headRefName":"agent/01a0bff6-3c6d-7a9e-b497-e76334bd2ab6","headRefOid":"152131741f12434145b7c8df8652140c218ac0bc","baseRefName":"main","baseRefOid":"0710f696842e4640b08afad7ca4c70cccb8312e6","headRepository":{"url":"https://github.com/harrisoncramer/komrad"},"baseRepository":{"url":"https://github.com/harrisoncramer/komrad"}},{"id":"PR_kwDOTgPfPc8AAAABEU8L2A","number":743,"title":"perf(worktrees): measure a directory in parallel and by its blocks","url":"https://github.com/harrisoncramer/komrad/pull/743","state":"MERGED","isDraft":false,"reviewDecision":null,"createdAt":"2026-09-20T18:09:36Z","updatedAt":"2026-09-20T18:12:58Z","mergedAt":"2026-09-20T18:12:58Z","closedAt":"2026-09-20T18:12:58Z","headRefName":"agent/01a0bec8-14fa-7849-a8fa-f31b25f92847","headRefOid":"fa7b9bd985d17396ddbb416d6599efd5b0054e2f","baseRefName":"main","baseRefOid":"3ff2a452603547ebe7d438ea54ecff19550fb6fa","headRepository":{"url":"https://github.com/harrisoncramer/komrad"},"baseRepository":{"url":"https://github.com/harrisoncramer/komrad"}},{"id":"PR_kwDOTgPfPc8AAAABEU5L_Q","number":742,"title":"feat(pullrequest): draw pull request marks in the panel","url":"https://github.com/harrisoncramer/komrad/pull/742","state":"MERGED","isDraft":false,"reviewDecision":null,"createdAt":"2026-09-20T17:57:28Z","updatedAt":"2026-09-20T18:00:07Z","mergedAt":"2026-09-20T18:00:07Z","closedAt":"2026-09-20T18:00:07Z","headRefName":"agent/01a0bea9-02d2-7ce0-bbb4-1fbfc3e74198","headRefOid":"70b1d987cdd21940203ca3fbc5b3a7998a47c830","baseRefName":"main","baseRefOid":"79a1ad8fe89cca4494a40c5c5015f46458ddc121","headRepository":{"url":"https://github.com/harrisoncramer/komrad"},"baseRepository":{"url":"https://github.com/harrisoncramer/komrad"}}]}}}`
-
-// searchFailing is one search row as GitHub answers the standings fields on it, the recorded
-// shape with the row made up.
-const searchFailing = `{"data":{"search":{"issueCount":7,"pageInfo":{"hasNextPage":true,"endCursor":"Y3Vyc29yOjE="},"nodes":[{"id":"PR_kwDOTgPfPc8AAAABEU9Z9Z","number":804,"title":"feat(panel): a row for the checks","url":"https://github.com/harrisoncramer/komrad/pull/804","state":"OPEN","isDraft":false,"createdAt":"2026-09-17T22:22:25Z","updatedAt":"2026-09-18T21:44:51Z","mergedAt":null,"closedAt":null,"headRefName":"agent/01a0c3e6-8a93-7441-a4c4-32e36761bb27","headRefOid":"4444444444444444444444444444444444444444","baseRefName":"main","baseRefOid":"06cdb987a45779a11be2fc920da62a489c0c1b71","headRepository":{"url":"https://github.com/harrisoncramer/komrad"},"baseRepository":{"url":"https://github.com/harrisoncramer/komrad"},"reviewDecision":"REVIEW_REQUIRED","mergeStateStatus":"UNSTABLE","commits":{"nodes":[{"commit":{"statusCheckRollup":{"state":"FAILURE"}}}]}}]}}}`
-
-const searchApproved = `{"data":{"search":{"issueCount":2,"pageInfo":{"hasNextPage":false,"endCursor":"Y3Vyc29yOjI="},"nodes":[{"id":"PR_kwDOIGmk9s8AAAABESZ58w","number":11158,"title":"Metrics production image update","url":"https://github.com/acme/deploy/pull/11158","state":"MERGED","isDraft":false,"reviewDecision":"APPROVED","createdAt":"2026-09-20T06:24:15Z","updatedAt":"2026-09-20T06:24:26Z","mergedAt":"2026-09-20T06:24:26Z","closedAt":"2026-09-20T06:24:26Z","headRefName":"update-metrics-images","headRefOid":"41fdd966bfbce0757b89b100efa46f8e28d02218","baseRefName":"main","baseRefOid":"94475aebe2d459bf41137bf67d767023dde7baa3","headRepository":{"url":"https://github.com/acme/deploy"},"baseRepository":{"url":"https://github.com/acme/deploy"}},{"id":"PR_kwDOIGmk9s8AAAABEQX0JA","number":11157,"title":"Admin production image update","url":"https://github.com/acme/deploy/pull/11157","state":"MERGED","isDraft":false,"reviewDecision":"APPROVED","createdAt":"2026-09-19T21:14:05Z","updatedAt":"2026-09-19T21:14:18Z","mergedAt":"2026-09-19T21:14:17Z","closedAt":"2026-09-19T21:14:17Z","headRefName":"update-admin-images","headRefOid":"583d259df0d2f141345f659491de89462a0de6cc","baseRefName":"main","baseRefOid":"24235336d21888966f294aea6434aa64a16cb004","headRepository":{"url":"https://github.com/acme/deploy"},"baseRepository":{"url":"https://github.com/acme/deploy"}}]}}}`
-
-// standingsBatch is the shape GitHub answers the aliased standings query with, the recorded
-// shape with the rows made up: a failing head that may be queued to merge, a pending one already
-// queued, an approved one whose checks passed, one with no rollup, and a number GitHub does not
-// have.
-const standingsBatch = `{"data":{"repository":{"p801":{"headRefOid":"1111111111111111111111111111111111111111","reviewDecision":"CHANGES_REQUESTED","mergeStateStatus":"UNSTABLE","commits":{"nodes":[{"commit":{"statusCheckRollup":{"state":"FAILURE"}}}]},"autoMergeRequest":null,"viewerCanEnableAutoMerge":true},"p802":{"headRefOid":"2222222222222222222222222222222222222222","reviewDecision":"REVIEW_REQUIRED","mergeStateStatus":"BLOCKED","commits":{"nodes":[{"commit":{"statusCheckRollup":{"state":"PENDING"}}}]},"autoMergeRequest":{"enabledAt":"2026-09-20T11:00:00Z"},"viewerCanEnableAutoMerge":false},"p803":{"headRefOid":"3333333333333333333333333333333333333333","reviewDecision":"APPROVED","mergeStateStatus":"CLEAN","commits":{"nodes":[{"commit":{"statusCheckRollup":{"state":"SUCCESS"}}}]}},"p1":{"headRefOid":"c744e226f1248223edd7aa77a7874aba2eec3b16","reviewDecision":null,"mergeStateStatus":"UNKNOWN","commits":{"nodes":[{"commit":{"statusCheckRollup":null}}]}},"p9999999":null}},"errors":[{"type":"NOT_FOUND","path":["repository","p9999999"],"locations":[{"line":7,"column":5}],"message":"Could not resolve to a PullRequest with the number of 9999999."}]}`
 
 type fakeAuth struct {
 	token       string
@@ -281,86 +268,109 @@ func TestListReadsTheNextPage(t *testing.T) {
 	assert.Equal(t, "Y3Vyc29yOnYyOpK0", listed.Cursor)
 }
 
-// TestListUpdated covers the sweep's request: every state by last change, the largest page,
-// the cursor carried in and out, and the rate limit read off the headers.
-func TestListUpdated(t *testing.T) {
-	t.Parallel()
+// failingStanding and passingStanding are the standing fields GitHub answers beside a pull
+// request on a read of branches, the recorded shape with the values made up.
+const failingStanding = `"reviewDecision":"CHANGES_REQUESTED","mergeStateStatus":"UNSTABLE","commits":{"nodes":[{"commit":{"statusCheckRollup":{"state":"FAILURE"}}}]},"autoMergeRequest":null,"viewerCanEnableAutoMerge":true`
 
-	f, _, fake := serve(t, map[string]answer{"ListUpdated": {
-		header: map[string]string{"X-RateLimit-Remaining": "4321", "X-RateLimit-Reset": "1789900000"},
-		body:   listing(true, "Y3Vyc29yOnYyOpK0MjAyNi0wOS0yMFQxMjoxODozN1rPAAAAARE3rZU=", mergedPull, openPull),
-	}})
+const passingStanding = `"reviewDecision":"APPROVED","mergeStateStatus":"CLEAN","commits":{"nodes":[{"commit":{"statusCheckRollup":{"state":"SUCCESS"}}}]},"autoMergeRequest":{"enabledAt":"2026-09-20T11:00:00Z"},"viewerCanEnableAutoMerge":false`
 
-	listed, err := f.ListUpdated(t.Context(), forge.ListUpdatedParams{Repo: komrad, Cursor: "old"})
-	require.NoError(t, err)
-	seen := fake.last(t)
-	assert.Equal(t, "ListUpdated", seen.Operation)
-	assert.Equal(t, listUpdatedQuery, seen.Query)
-	assert.Equal(t, map[string]any{
-		"owner": "harrisoncramer",
-		"name":  "komrad",
-		"first": float64(100),
-		"after": "old",
-	}, seen.Variables)
-	assert.Len(t, listed.PullRequests, 2)
-	assert.True(t, listed.HasMore)
-	assert.Equal(t, "Y3Vyc29yOnYyOpK0MjAyNi0wOS0yMFQxMjoxODozN1rPAAAAARE3rZU=", listed.Cursor)
-	assert.True(t, listed.RateLimit.Known)
-	assert.Equal(t, 4321, listed.RateLimit.Remaining)
-	assert.Equal(t, time.Unix(1789900000, 0).UTC(), listed.RateLimit.ResetAt.UTC())
+const closedFixturePull = `{"id":"PR_kwDOUgkrbM8AAAABEIdmIA","number":2,"title":"fixture: closed","url":"https://github.com/harrisoncramer/komrad-forge-fixture/pull/2","state":"CLOSED","isDraft":false,"createdAt":"2026-09-17T10:00:00Z","updatedAt":"2026-09-17T11:00:00Z","mergedAt":null,"closedAt":"2026-09-17T11:00:00Z","headRefName":"fixture/closed","headRefOid":"5555555555555555555555555555555555555555","baseRefName":"main","baseRefOid":"8b32d7985e62febbf494e815545c22b446276b5d","headRepository":{"url":"https://github.com/harrisoncramer/komrad-forge-fixture"},"baseRepository":{"url":"https://github.com/harrisoncramer/komrad-forge-fixture"}}`
+
+// withStanding is a pull request node carrying the standing fields.
+func withStanding(node, standing string) string {
+	return strings.TrimSuffix(node, "}") + "," + standing + "}"
 }
 
-// TestListChanged covers the search: the query string over every repository since the
-// moment given, the page and cursor, and each row carrying its decision and checks.
-func TestListChanged(t *testing.T) {
+// branchesRead is GitHub answering a read of branches, one alias per branch.
+func branchesRead(aliases ...string) string {
+	fields := make([]string, len(aliases))
+	for i, nodes := range aliases {
+		fields[i] = `"b` + strconv.Itoa(i) + `":{"nodes":[` + nodes + `]}`
+	}
+
+	return data(`{"repository":{` + strings.Join(fields, ",") + `}}`)
+}
+
+// TestReadBranches covers the aliased query, each answer carrying its standing, the rate limit
+// off the headers, and only pull requests from the repository itself kept.
+func TestReadBranches(t *testing.T) {
 	t.Parallel()
 
-	f, _, fake := serve(t, map[string]answer{"ListChanged": {body: searchPage}})
+	f, _, fake := serve(t, map[string]answer{"ReadBranches": {
+		header: map[string]string{"X-RateLimit-Remaining": "4321", "X-RateLimit-Limit": "5000", "X-RateLimit-Reset": "1789900000"},
+		body: branchesRead(
+			withStanding(openPull, failingStanding)+","+withStanding(forkPull, failingStanding),
+			withStanding(deletedForkPull, passingStanding),
+			withStanding(closedFixturePull, passingStanding),
+		),
+	}})
 
-	since := time.Date(2026, 9, 18, 12, 0, 0, 0, time.UTC)
-	listed, err := f.ListChanged(t.Context(), forge.ListChangedParams{
-		Repos: []git.RemoteURL{{Host: "github.com", Path: "acme/widgets"}, komrad},
-		Since: since,
-	})
+	reading, err := f.ReadBranches(t.Context(), fixture, []string{"fixture/open", "client-tests", "fixture/closed"})
 	require.NoError(t, err)
+
+	require.Len(t, fake.calls, 1)
 	seen := fake.last(t)
-	assert.Equal(t, "ListChanged", seen.Operation)
-	assert.Equal(t, listChangedQuery, seen.Query)
+	assert.Equal(t, "ReadBranches", seen.Operation)
 	assert.Equal(t, map[string]any{
-		"query": "is:pr repo:acme/widgets repo:harrisoncramer/komrad updated:>=2026-09-18T12:00:00Z sort:updated-desc",
-		"first": float64(100),
-		"after": nil,
+		"owner": "harrisoncramer",
+		"name":  "komrad-forge-fixture",
+		"b0":    "fixture/open",
+		"b1":    "client-tests",
+		"b2":    "fixture/closed",
 	}, seen.Variables)
-	assert.True(t, listed.HasMore)
-	assert.Equal(t, "Y3Vyc29yOjM=", listed.Cursor)
-	require.Len(t, listed.PullRequests, 3)
-	assert.Equal(t, []int{744, 743, 742}, []int{listed.PullRequests[0].Number, listed.PullRequests[1].Number, listed.PullRequests[2].Number})
-	assert.Equal(t, xptr.Ptr(forge.ReviewDecisionNone), listed.PullRequests[0].Decision, "a null decision is still an answer")
-	assert.Equal(t, xptr.Ptr(forge.ChecksNone), listed.PullRequests[0].Checks, "a row with no commits carries none")
-	assert.Equal(t, "https://github.com/harrisoncramer/komrad", listed.PullRequests[0].Repository.Canonical())
+	assert.Contains(t, seen.Query, "query ReadBranches($owner: String!, $name: String!, $b0: String!, $b1: String!, $b2: String!)")
+	assert.Contains(t, seen.Query, "b0: pullRequests(headRefName: $b0, first: 5, orderBy: {field: CREATED_AT, direction: DESC}) { nodes { ...pullRequestFields "+standingFields+" } }")
+	assert.Contains(t, seen.Query, pullRequestFragment)
 
-	f, _, _ = serve(t, map[string]answer{"ListChanged": {body: searchFailing}})
-	listed, err = f.ListChanged(t.Context(), forge.ListChangedParams{
-		Repos: []git.RemoteURL{komrad},
-		Since: since,
-	})
-	require.NoError(t, err)
-	require.Len(t, listed.PullRequests, 1)
-	assert.Equal(t, xptr.Ptr(forge.ReviewDecisionPending), listed.PullRequests[0].Decision)
-	assert.Equal(t, xptr.Ptr(forge.ChecksFailing), listed.PullRequests[0].Checks)
-	assert.Equal(t, xptr.Ptr(forge.MergeabilityUnstable), listed.PullRequests[0].Mergeability)
+	assert.Equal(t, forge.RateLimit{Known: true, Remaining: 4321, Limit: 5000, ResetAt: time.Unix(1789900000, 0)}, reading.RateLimit)
 
-	f, _, fake = serve(t, map[string]answer{"ListChanged": {body: searchApproved}})
-	listed, err = f.ListChanged(t.Context(), forge.ListChangedParams{
-		Repos:  []git.RemoteURL{{Host: "github.com", Path: "acme/deploy"}},
-		Since:  since,
-		Cursor: "Y3Vyc29yOjM=",
-	})
+	require.Len(t, reading.PullRequests, 2, "the fork and the deleted fork are left out")
+	open, closed := reading.PullRequests[0], reading.PullRequests[1]
+	assert.Equal(t, 1, open.Number)
+	assert.Equal(t, xptr.Ptr(forge.ReviewDecisionChangesRequested), open.Decision)
+	assert.Equal(t, xptr.Ptr(forge.ChecksFailing), open.Checks)
+	assert.Equal(t, xptr.Ptr(forge.MergeabilityUnstable), open.Mergeability)
+	assert.Equal(t, &forge.AutoMerge{Allowed: true}, open.AutoMerge)
+	assert.Equal(t, 2, closed.Number)
+	assert.Equal(t, xptr.Ptr(forge.ReviewDecisionApproved), closed.Decision)
+	assert.Equal(t, xptr.Ptr(forge.ChecksPassing), closed.Checks)
+	assert.Equal(t, xptr.Ptr(forge.MergeabilityClean), closed.Mergeability)
+	assert.Equal(t, &forge.AutoMerge{On: true}, closed.AutoMerge)
+}
+
+// TestReadBranchesBatches covers more branches than one query takes going out as a second query.
+func TestReadBranchesBatches(t *testing.T) {
+	t.Parallel()
+
+	f, _, fake := serve(t, map[string]answer{"ReadBranches": {body: branchesRead(withStanding(openPull, failingStanding))}})
+
+	branches := make([]string, branchesPerQuery+1)
+	for i := range branches {
+		branches[i] = "branch-" + strconv.Itoa(i)
+	}
+	reading, err := f.ReadBranches(t.Context(), fixture, branches)
 	require.NoError(t, err)
-	assert.Equal(t, "Y3Vyc29yOjM=", fake.last(t).Variables["after"])
-	assert.False(t, listed.HasMore)
-	require.Len(t, listed.PullRequests, 2)
-	assert.Equal(t, xptr.Ptr(forge.ReviewDecisionApproved), listed.PullRequests[0].Decision)
+
+	require.Len(t, fake.calls, 2)
+	assert.Len(t, fake.calls[0].Variables, branchesPerQuery+2)
+	assert.Equal(t, "branch-49", fake.calls[0].Variables["b49"])
+	assert.Equal(t, map[string]any{"owner": "harrisoncramer", "name": "komrad-forge-fixture", "b0": "branch-50"}, fake.calls[1].Variables)
+	assert.Len(t, reading.PullRequests, 2)
+}
+
+// TestReadBranchesRefusals covers a repository GitHub does not have and a path it cannot
+// address, the last costing no request.
+func TestReadBranchesRefusals(t *testing.T) {
+	t.Parallel()
+
+	missing, _, _ := serve(t, map[string]answer{"ReadBranches": {body: `{"data":{"repository":null},"errors":[{"type":"NOT_FOUND","path":["repository"],"locations":[{"line":2,"column":3}],"message":"Could not resolve to a Repository with the name 'harrisoncramer/gone'."}]}`}})
+	_, err := missing.ReadBranches(t.Context(), git.RemoteURL{Host: "github.com", Path: "harrisoncramer/gone"}, []string{"main"})
+	require.ErrorIs(t, err, forge.ErrNotFound)
+
+	f, _, fake := serve(t, nil)
+	_, err = f.ReadBranches(t.Context(), git.RemoteURL{Host: "github.com", Path: "group/sub/repo"}, []string{"main"})
+	require.ErrorIs(t, err, forge.ErrNotRepository)
+	assert.Empty(t, fake.calls)
 }
 
 // TestGet covers reading one pull request by its web address.
@@ -659,7 +669,7 @@ func TestListRefusesANestedPath(t *testing.T) {
 
 	_, err := f.List(t.Context(), forge.ListParams{Repo: git.RemoteURL{Host: "github.com", Path: "group/sub/repo"}, Branch: "main"})
 	require.ErrorIs(t, err, forge.ErrNotRepository)
-	_, err = f.ListChanged(t.Context(), forge.ListChangedParams{Repos: []git.RemoteURL{komrad, {Host: "github.com", Path: "group/sub/repo"}}})
+	_, err = f.ReadBranches(t.Context(), git.RemoteURL{Host: "github.com", Path: "group/sub/repo"}, []string{"main"})
 	require.ErrorIs(t, err, forge.ErrNotRepository)
 	assert.Empty(t, fake.calls)
 }
@@ -727,7 +737,7 @@ func TestNotFound(t *testing.T) {
 			name: "a repository the listing cannot see",
 			body: `{"data":{"repository":null},"errors":[{"type":"NOT_FOUND","path":["repository"],"locations":[{"line":2,"column":3}],"message":"Could not resolve to a Repository with the name 'harrisoncramer/no-such-repository-xyz'."}]}`,
 			call: func(f *Forge) error {
-				_, err := f.ListUpdated(t.Context(), forge.ListUpdatedParams{Repo: komrad})
+				_, err := f.ReadBranches(t.Context(), komrad, []string{"main"})
 
 				return err
 			},
@@ -738,7 +748,7 @@ func TestNotFound(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			f, auth, _ := serve(t, map[string]answer{"Get": {body: tt.body}, "ListUpdated": {body: tt.body}})
+			f, auth, _ := serve(t, map[string]answer{"Get": {body: tt.body}, "ReadBranches": {body: tt.body}})
 			require.ErrorIs(t, tt.call(f), forge.ErrNotFound)
 			assert.Equal(t, 0, auth.invalidated)
 		})
@@ -857,13 +867,13 @@ func TestRateLimitRefusals(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			f, _, _ := serve(t, map[string]answer{"ListUpdated": {
+			f, _, _ := serve(t, map[string]answer{"ReadBranches": {
 				status: tt.status,
 				header: tt.header,
 				body:   tt.body,
 			}})
 
-			_, err := f.ListUpdated(t.Context(), forge.ListUpdatedParams{Repo: komrad})
+			_, err := f.ReadBranches(t.Context(), komrad, []string{"main"})
 			require.Error(t, err)
 
 			var throttled *forge.ThrottledError
@@ -879,53 +889,6 @@ func TestRateLimitRefusals(t *testing.T) {
 			assert.True(t, throttled.RetryAt.Equal(tt.wantRetryAt), "retry at %s, want %s", throttled.RetryAt, tt.wantRetryAt)
 		})
 	}
-}
-
-// TestStandings covers the batch: one query aliasing every number, each decision and rollup
-// GitHub answers in komrad's words with the head they were read for, a null decision and a
-// null rollup as none, and a number GitHub does not have left out rather than failing the rest.
-func TestStandings(t *testing.T) {
-	t.Parallel()
-
-	f, _, fake := serve(t, map[string]answer{"Standings": {body: standingsBatch}})
-
-	standings, err := f.Standings(t.Context(), komrad, []int{801, 802, 803, 1, 9999999})
-	require.NoError(t, err)
-	assert.Equal(t, map[int]forge.Standing{
-		801: {
-			Decision:     forge.ReviewDecisionChangesRequested,
-			Checks:       forge.ChecksFailing,
-			Mergeability: forge.MergeabilityUnstable,
-			HeadSHA:      "1111111111111111111111111111111111111111",
-			AutoMerge:    forge.AutoMerge{Allowed: true},
-		},
-		802: {
-			Decision:     forge.ReviewDecisionPending,
-			Checks:       forge.ChecksPending,
-			Mergeability: forge.MergeabilityBlocked,
-			HeadSHA:      "2222222222222222222222222222222222222222",
-			AutoMerge:    forge.AutoMerge{On: true},
-		},
-		803: {
-			Decision:     forge.ReviewDecisionApproved,
-			Checks:       forge.ChecksPassing,
-			Mergeability: forge.MergeabilityClean,
-			HeadSHA:      "3333333333333333333333333333333333333333",
-		},
-		1: {
-			Decision:     forge.ReviewDecisionNone,
-			Checks:       forge.ChecksNone,
-			Mergeability: forge.MergeabilityUnknown,
-			HeadSHA:      "c744e226f1248223edd7aa77a7874aba2eec3b16",
-		},
-	}, standings)
-
-	seen := fake.last(t)
-	assert.Equal(t, "Standings", seen.Operation)
-	assert.Equal(t, map[string]any{"owner": "harrisoncramer", "name": "komrad"}, seen.Variables)
-	assert.Contains(t, seen.Query, `p801: pullRequest(number: 801) { headRefOid reviewDecision mergeStateStatus commits(last: 1) { nodes { commit { statusCheckRollup { state } } } } autoMergeRequest { enabledAt } viewerCanEnableAutoMerge }`)
-	assert.Contains(t, seen.Query, `p9999999: pullRequest(number: 9999999) { headRefOid `)
-	assert.Equal(t, 5, strings.Count(seen.Query, "pullRequest(number:"))
 }
 
 // TestChecksOf covers every rollup state GitHub documents, and a rollup absent from the answer.
@@ -1007,28 +970,6 @@ func TestMergeabilityOf(t *testing.T) {
 			assert.Equal(t, tt.want, mergeabilityOf(tt.status))
 		})
 	}
-}
-
-// TestStandingsRefusals covers a repository GitHub does not have, a path it cannot address, and
-// more numbers than one call takes, the last two costing no request.
-func TestStandingsRefusals(t *testing.T) {
-	t.Parallel()
-
-	missing, _, _ := serve(t, map[string]answer{"Standings": {body: `{"data":{"repository":null},"errors":[{"type":"NOT_FOUND","path":["repository"],"locations":[{"line":2,"column":3}],"message":"Could not resolve to a Repository with the name 'harrisoncramer/gone'."}]}`}})
-	_, err := missing.Standings(t.Context(), git.RemoteURL{Host: "github.com", Path: "harrisoncramer/gone"}, []int{1})
-	require.ErrorIs(t, err, forge.ErrNotFound)
-
-	f, _, fake := serve(t, nil)
-	_, err = f.Standings(t.Context(), git.RemoteURL{Host: "github.com", Path: "group/sub/repo"}, []int{1})
-	require.ErrorIs(t, err, forge.ErrNotRepository)
-
-	numbers := make([]int, forge.MaxStandings+1)
-	for i := range numbers {
-		numbers[i] = i + 1
-	}
-	_, err = f.Standings(t.Context(), komrad, numbers)
-	require.Error(t, err)
-	assert.Empty(t, fake.calls)
 }
 
 // TestGraphQLURLSitsBesideTheRESTBase covers github.com and an enterprise host, whose GraphQL

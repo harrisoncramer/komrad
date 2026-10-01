@@ -45,31 +45,28 @@ type adoptAgentReadWriter interface {
 }
 
 type NewAdoptServiceParams struct {
-	Agents          adoptAgentReadWriter
-	Workflows       workflowReader
-	Launch          *LaunchService
-	Worktrees       checkoutReader
-	PullRequestSync loopWaker
+	Agents    adoptAgentReadWriter
+	Workflows workflowReader
+	Launch    *LaunchService
+	Worktrees checkoutReader
 }
 
 // AdoptService puts an agent on a branch somebody else made, working out which checkout is to
 // hold that branch before handing the launch over.
 type AdoptService struct {
-	agents          adoptAgentReadWriter
-	workflows       workflowReader
-	launch          *LaunchService
-	worktrees       checkoutReader
-	pullRequestSync loopWaker
+	agents    adoptAgentReadWriter
+	workflows workflowReader
+	launch    *LaunchService
+	worktrees checkoutReader
 }
 
 // NewAdoptService builds the service from its dependencies.
 func NewAdoptService(params NewAdoptServiceParams) *AdoptService {
 	return &AdoptService{
-		agents:          params.Agents,
-		workflows:       params.Workflows,
-		launch:          params.Launch,
-		worktrees:       params.Worktrees,
-		pullRequestSync: params.PullRequestSync,
+		agents:    params.Agents,
+		workflows: params.Workflows,
+		launch:    params.Launch,
+		worktrees: params.Worktrees,
 	}
 }
 
@@ -174,8 +171,6 @@ func (s *AdoptService) Adopt(ctx context.Context, params AdoptParams) (*Adoption
 	if err != nil {
 		return nil, err
 	}
-
-	s.pullRequestSync.Wake()
 
 	return &Adoption{Agent: created}, nil
 }

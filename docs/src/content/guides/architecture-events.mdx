@@ -56,7 +56,7 @@ In these cases, the service can "wake" a loop, which asks it to run now instead 
 
 The wake only says "look again". It never carries what changed, so all writes still flow through the same loop path.
 
-Example of this: a rebase wakes the loop that reads each checkout's branch and head, a merge wakes the pull request sync, and an agent ending its turn wakes both the checkout loop and the transcript sync.
+Example of this: a rebase wakes the loop that reads each checkout's branch and head, a merge has the pull request sync read its host often for a while, and an agent ending its turn wakes both the checkout loop and the transcript sync.
 
 ## River
 

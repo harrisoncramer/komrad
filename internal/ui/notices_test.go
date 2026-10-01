@@ -181,10 +181,7 @@ func newPullRequested(state pullrequestv1.PullRequestState) []proto.Message {
 
 	return []proto.Message{
 		agent,
-		&pullrequestv1.Repository{
-			Url:  repositoryURL,
-			Read: true,
-		},
+		&pullrequestv1.Repository{Url: repositoryURL},
 		&pullrequestv1.PullRequest{
 			Id:                "pr-1",
 			RepositoryUrl:     repositoryURL,

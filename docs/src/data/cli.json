@@ -857,7 +857,7 @@
     "usage": "komrad pr list \u003cremote-url\u003e [branch]",
     "aliases": [],
     "short": "List a repository's pull requests, or those opened from one branch",
-    "long": "List a repository's pull requests through the forge its host is connected to.\n\nGive a remote as git spells it. With a branch, every pull request opened from it is\nlisted whatever its state, which is the read the pull request sweep makes; without\none, the repository's open pull requests are listed.\n\n    komrad pr list git@github.com:harrisoncramer/komrad.git\n    komrad pr list git@github.com:harrisoncramer/komrad.git agent/some-branch\n\nThe forge hands them over a hundred at a time and this follows every page, so the\nlist is whole; to read one page at a time, call the endpoint through komrad rpc\nwith a limit and the cursor it answers.\n\nA repository the credential cannot see answers not found, which is how a token\nwithout access to a private repository shows up.",
+    "long": "List a repository's pull requests through the forge its host is connected to.\n\nGive a remote as git spells it. With a branch, every pull request opened from it is\nlisted whatever its state; without one, the repository's open pull requests are\nlisted.\n\n    komrad pr list git@github.com:harrisoncramer/komrad.git\n    komrad pr list git@github.com:harrisoncramer/komrad.git agent/some-branch\n\nThe forge hands them over a hundred at a time and this follows every page, so the\nlist is whole; to read one page at a time, call the endpoint through komrad rpc\nwith a limit and the cursor it answers.\n\nA repository the credential cannot see answers not found, which is how a token\nwithout access to a private repository shows up.",
     "example": "",
     "flags": [],
     "inherited": [

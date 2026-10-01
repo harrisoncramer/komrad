@@ -1373,7 +1373,7 @@
             "orchestrator"
           ],
           "summary": "List the forges komrad is connected to, one per host, with who komrad acts as there and when the forge last confirmed it.",
-          "description": "List the forges komrad is connected to, one per host, with who komrad acts as there and when the forge last confirmed it. The token itself is never returned. A connection is made by a person with komrad forge connect and is what the pull request sweep reads through.",
+          "description": "List the forges komrad is connected to, one per host, with who komrad acts as there and when the forge last confirmed it. The token itself is never returned. A connection is made by a person with komrad forge connect and is what the pull request sync reads through.",
           "readOnly": true,
           "idempotent": true,
           "destructive": false,
@@ -9705,11 +9705,11 @@
       "values": [
         {
           "name": "PULL_REQUEST_STATE_UNREAD",
-          "description": "The repository's first sweep has not completed, so nothing is known."
+          "description": "The repository has not been read yet, so nothing is known."
         },
         {
           "name": "PULL_REQUEST_STATE_NONE",
-          "description": "The repository has been swept and nothing was opened from the branch."
+          "description": "The repository has been read and nothing was opened from the branch."
         },
         {
           "name": "PULL_REQUEST_STATE_OPEN",

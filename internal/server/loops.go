@@ -15,8 +15,8 @@ const (
 	// transcriptSyncInterval is how often an agent's log is read for new turns.
 	transcriptSyncInterval = 15 * time.Second
 	cwdSyncInterval        = 15 * time.Second
-	// pullRequestSyncInterval is how often the forges are asked what changed.
-	pullRequestSyncInterval = time.Minute
+	// pullRequestSyncInterval is how often the pull request sync asks which repositories are due.
+	pullRequestSyncInterval = 5 * time.Second
 	// commentSyncInterval is how often the forges are asked whether review comments moved.
 	commentSyncInterval = time.Minute
 	// worktreeSizeInterval is how often a few worktree directories are walked for their size.
@@ -33,7 +33,7 @@ const cwdSyncFloor = 5 * time.Second
 
 // pullRequestSyncFloor is the least time between the starts of two pull request sync runs when
 // the second was woken.
-const pullRequestSyncFloor = 10 * time.Second
+const pullRequestSyncFloor = 5 * time.Second
 
 const (
 	scheduleReconcileLoop = "schedule reconcile"

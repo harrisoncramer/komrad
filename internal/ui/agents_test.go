@@ -2335,10 +2335,7 @@ func TestAgentsWatchedEdits(t *testing.T) {
 		harness := openAgents(t,
 			newLiveWorkflow("w1", "api"),
 			newBranchAgent("a1", "api", "agent/x"),
-			&pullrequestv1.Repository{
-				Url:  repositoryURL,
-				Read: true,
-			},
+			&pullrequestv1.Repository{Url: repositoryURL},
 		)
 		harness.press(widenListPresses...)
 

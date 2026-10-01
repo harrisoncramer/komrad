@@ -13,7 +13,6 @@ import (
 	"komrad/internal/forge"
 	"komrad/internal/mail"
 	mailstore "komrad/internal/store/mail"
-	pullrequeststore "komrad/internal/store/pullrequest"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -22,7 +21,7 @@ import (
 
 // TestAPullRequestChangeTellsTheAgentsOnItsBranch pins what the one unread mail about a pull request says after each pass.
 func TestAPullRequestChangeTellsTheAgentsOnItsBranch(t *testing.T) {
-	pending := forge.Standing{Decision: forge.ReviewDecisionPending, Checks: forge.ChecksPending}
+	pending := forge.Standing{Decision: forge.ReviewDecisionPending, Checks: forge.ChecksPending, Mergeability: forge.MergeabilityClean}
 
 	tests := []struct {
 		name       string
@@ -92,8 +91,7 @@ func TestAPullRequestChangeTellsTheAgentsOnItsBranch(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			f := newSyncFixture(t)
 			agentID := f.agentOn(t, "a", "agent/x")
-			f.forge.updated[""] = &forge.Page{PullRequests: []forge.PullRequest{pullRequestAt("PR_1", "agent/x", syncNow.Add(-time.Minute))}}
-			f.forge.standings[1] = pending
+			f.hold(standing(pullRequestAt("PR_1", "agent/x", syncNow.Add(-time.Minute)), pending))
 			f.sync(t)
 
 			for i, standing := range tt.standings {
@@ -167,8 +165,7 @@ func TestAPullRequestChangeAfterTheMailWasReadStartsAnother(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			f := newSyncFixture(t)
 			agentID := f.agentOn(t, "a", "agent/x")
-			f.forge.updated[""] = &forge.Page{PullRequests: []forge.PullRequest{pullRequestAt("PR_1", "agent/x", syncNow.Add(-time.Minute))}}
-			f.forge.standings[1] = forge.Standing{Decision: forge.ReviewDecisionPending, Checks: forge.ChecksPending}
+			f.hold(standing(pullRequestAt("PR_1", "agent/x", syncNow.Add(-time.Minute)), forge.Standing{Decision: forge.ReviewDecisionPending, Checks: forge.ChecksPending, Mergeability: forge.MergeabilityClean}))
 			f.sync(t)
 
 			f.setStanding(t, failingOnA, syncNow.Add(time.Minute))
@@ -203,19 +200,17 @@ func (f *syncFixture) listMail(t *testing.T, agentID string) []mailstore.Mail {
 	return listed
 }
 
-// setStanding records what the forge now says of PR_1.
-func (f *syncFixture) setStanding(t *testing.T, standing forge.Standing, readAt time.Time) {
+// setStanding has the forge say this of PR_1 and reads it then.
+func (f *syncFixture) setStanding(t *testing.T, said forge.Standing, readAt time.Time) {
 	t.Helper()
 
-	if standing.Mergeability == forge.MergeabilityUnknown {
-		standing.Mergeability = forge.MergeabilityClean
+	if said.Mergeability == forge.MergeabilityUnknown {
+		said.Mergeability = forge.MergeabilityClean
 	}
-	_, err := f.syncer.setStanding(t.Context(), pullrequeststore.SetStandingParams{
-		ID:       f.stored(t, "PR_1").ID,
-		Standing: standing,
-		ReadAt:   readAt,
-	})
-	require.NoError(t, err)
+	held := f.forge.pullRequests["harrisoncramer/komrad"]
+	held[0] = standing(held[0], said)
+	f.syncer.Wake()
+	f.pass(t, readAt)
 }
 
 // TestAPullRequestChangeRetriesAFullMailboxAlone pins one agent's full mailbox leaving the others on the branch told and its own mail retried once there is room.
@@ -223,8 +218,7 @@ func TestAPullRequestChangeRetriesAFullMailboxAlone(t *testing.T) {
 	f := newSyncFixture(t)
 	told := f.agentOn(t, "a", "agent/x")
 	full := f.agentOn(t, "b", "agent/x")
-	f.forge.updated[""] = &forge.Page{PullRequests: []forge.PullRequest{pullRequestAt("PR_1", "agent/x", syncNow.Add(-time.Minute))}}
-	f.forge.standings[1] = forge.Standing{Decision: forge.ReviewDecisionPending, Checks: forge.ChecksPending}
+	f.hold(standing(pullRequestAt("PR_1", "agent/x", syncNow.Add(-time.Minute)), forge.Standing{Decision: forge.ReviewDecisionPending, Checks: forge.ChecksPending, Mergeability: forge.MergeabilityClean}))
 	f.sync(t)
 	f.fillMailbox(t, full)
 

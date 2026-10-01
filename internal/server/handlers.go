@@ -179,7 +179,7 @@ func newMux(params newMuxParams) (*http.ServeMux, error) {
 			Impl: rpcloop.NewHandler(rpcloop.NewHandlerParams{
 				CwdSync:         params.Wakers.cwdSync,
 				TranscriptSync:  params.Wakers.transcriptSync,
-				PullRequestSync: params.Wakers.pullRequestSync,
+				PullRequestSync: params.Services.pullRequestSync,
 			}),
 		}, options...))
 	mux.Handle(doctorv1connect.NewDoctorServiceHandler(

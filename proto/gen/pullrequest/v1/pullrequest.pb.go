@@ -33,9 +33,9 @@ type PullRequestState int32
 const (
 	// No state was decided.
 	PullRequestState_PULL_REQUEST_STATE_UNSPECIFIED PullRequestState = 0
-	// The repository's first sweep has not completed, so nothing is known.
+	// The repository has not been read yet, so nothing is known.
 	PullRequestState_PULL_REQUEST_STATE_UNREAD PullRequestState = 1
-	// The repository has been swept and nothing was opened from the branch.
+	// The repository has been read and nothing was opened from the branch.
 	PullRequestState_PULL_REQUEST_STATE_NONE PullRequestState = 2
 	// Open with no review decision that settles it.
 	PullRequestState_PULL_REQUEST_STATE_OPEN PullRequestState = 3
@@ -638,9 +638,7 @@ func (x *PullRequest) GetAutoMergeable() bool {
 type Repository struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The canonical address of the repository.
-	Url string `protobuf:"bytes,1,opt,name=url,proto3" json:"url,omitempty"`
-	// Whether the sync has read the repository's pull requests at least once.
-	Read          bool `protobuf:"varint,2,opt,name=read,proto3" json:"read,omitempty"`
+	Url           string `protobuf:"bytes,1,opt,name=url,proto3" json:"url,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -680,13 +678,6 @@ func (x *Repository) GetUrl() string {
 		return x.Url
 	}
 	return ""
-}
-
-func (x *Repository) GetRead() bool {
-	if x != nil {
-		return x.Read
-	}
-	return false
 }
 
 type ListPullRequestsResponse struct {
@@ -1092,11 +1083,10 @@ const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"\n" +
 	"_merged_atB\f\n" +
 	"\n" +
-	"_closed_at\"2\n" +
+	"_closed_at\"\x1e\n" +
 	"\n" +
 	"Repository\x12\x10\n" +
-	"\x03url\x18\x01 \x01(\tR\x03url\x12\x12\n" +
-	"\x04read\x18\x02 \x01(\bR\x04read\"\x9d\x01\n" +
+	"\x03url\x18\x01 \x01(\tR\x03url\"\x9d\x01\n" +
 	"\x18ListPullRequestsResponse\x12@\n" +
 	"\rpull_requests\x18\x01 \x03(\v2\x1b.pullrequest.v1.PullRequestR\fpullRequests\x12+\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tH\x00R\rnextPageToken\x88\x01\x01B\x12\n" +

@@ -33,8 +33,10 @@ func newCommentFixture(t *testing.T) *commentFixture {
 	merged.ClosedAt = &mergedAt
 	merged.State = "MERGED"
 	elsewhere := pullRequestAt("PR_4", "agent/nobody", syncNow.Add(-4*time.Hour))
-	f.forge.updated[""] = &forge.Page{PullRequests: []forge.PullRequest{open, draft, merged, elsewhere}}
+	f.hold(open, draft, merged)
 	f.sync(t)
+	_, err := f.pullRequests.Upsert(t.Context(), toUpsert(elsewhere))
+	require.NoError(t, err)
 	f.forge.requests = nil
 	f.forge.threads = map[int]*forge.Threads{}
 
