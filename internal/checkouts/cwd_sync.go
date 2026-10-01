@@ -29,7 +29,6 @@ const baseFetchTimeout = 30 * time.Second
 // cwdLookWorkers is how many directories are looked at together.
 const cwdLookWorkers = 8
 
-// standingReadTimeout bounds each reading of where a worktree stands.
 const standingReadTimeout = 30 * time.Second
 
 // headReader reads a checkout's HEAD.
@@ -110,10 +109,8 @@ type cwdLook struct {
 	// diffStat is the lines the checkout adds and removes since its base, nil where there is none.
 	diffStat *agentstore.DiffStat
 	// tree is the worktree as the probe hashed it, empty when there was no round to probe against.
-	tree string
-	// worktree is the row of the directory the agent was cut, nil when the agent works elsewhere.
+	tree     string
 	worktree *worktreestore.Worktree
-	// standing is where the worktree stood when read, nil when it was not read.
 	standing *worktreestore.Standing
 	err      error
 }
@@ -221,7 +218,6 @@ func (cs *CwdSyncer) listWorktreeConfigs(ctx context.Context) (map[string]workfl
 	return configs, nil
 }
 
-// listOwnedWorktrees is the row of each directory cut for an agent, by agent id.
 func (cs *CwdSyncer) listOwnedWorktrees(ctx context.Context) (map[string]worktreestore.Worktree, error) {
 	stored, err := cs.worktrees.List(ctx)
 	if err != nil {
@@ -241,8 +237,7 @@ type lookAtAllParams struct {
 	Rounds    map[string]string
 	Unlanded  map[string][]reviewstore.UnlandedRound
 	Worktrees map[string]workflowstore.WorktreeConfig
-	// Owned is the row of each directory cut for an agent, by agent id.
-	Owned map[string]worktreestore.Worktree
+	Owned     map[string]worktreestore.Worktree
 }
 
 func (cs *CwdSyncer) lookAtAll(ctx context.Context, params lookAtAllParams) ([]cwdLook, error) {
@@ -409,8 +404,6 @@ func (cs *CwdSyncer) writeDiffStat(ctx context.Context, look cwdLook) error {
 	return nil
 }
 
-// writeStanding records where the look found the agent's worktree standing, when the row says
-// otherwise.
 func (cs *CwdSyncer) writeStanding(ctx context.Context, look cwdLook) error {
 	if look.standing == nil || isStandingUnchanged(look.worktree.Standing, *look.standing) {
 		return nil
@@ -578,7 +571,6 @@ type readStandingParams struct {
 	Base  string
 }
 
-// readStanding records on the look where the agent's worktree stands against its base.
 func (cs *CwdSyncer) readStanding(ctx context.Context, look *cwdLook, params readStandingParams) {
 	worktree, ok := params.Owned[look.agent.ID]
 	if !ok || look.removed || worktree.Dir != filepath.Clean(look.agent.Cwd) {
@@ -613,7 +605,6 @@ func sequenceOf(sequence git.Sequence) agentstore.Sequence {
 	return agentstore.Sequence(sequence)
 }
 
-// isStandingUnchanged is whether a reading says what the row already holds.
 func isStandingUnchanged(stored *worktreestore.Standing, read worktreestore.Standing) bool {
 	return stored != nil &&
 		stored.Dirty == read.Dirty &&
