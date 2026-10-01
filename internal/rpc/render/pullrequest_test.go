@@ -2,9 +2,9 @@ package render
 
 import (
 	"testing"
-	"time"
 
 	"komrad/internal/forge"
+	"komrad/internal/pullrequests"
 	pullrequeststore "komrad/internal/store/pullrequest"
 	"komrad/lib/xptr"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
@@ -12,219 +12,19 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestPullRequestStateOf pins each state against the one ranked just below it.
+// TestPullRequestStateOf covers each state a pull request can stand at.
 func TestPullRequestStateOf(t *testing.T) {
-	stamp := time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC)
-
-	tests := []struct {
-		name        string
-		pullRequest pullrequeststore.PullRequest
-		want        pullrequestv1.PullRequestState
-	}{
-		{
-			name: "merged beats closed",
-			pullRequest: pullrequeststore.PullRequest{
-				MergedAt: &stamp,
-				ClosedAt: &stamp,
-			},
-			want: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_MERGED,
-		},
-		{
-			name: "closed beats a draft",
-			pullRequest: pullrequeststore.PullRequest{
-				ClosedAt: &stamp,
-				Draft:    true,
-			},
-			want: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CLOSED,
-		},
-		{
-			name: "a draft beats failing checks",
-			pullRequest: pullrequeststore.PullRequest{
-				Draft:  true,
-				Checks: xptr.Ptr(forge.ChecksFailing),
-			},
-			want: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_DRAFT,
-		},
-		{
-			name: "failing checks beat a conflict",
-			pullRequest: pullrequeststore.PullRequest{
-				Checks:       xptr.Ptr(forge.ChecksFailing),
-				Mergeability: xptr.Ptr(forge.MergeabilityConflicting),
-			},
-			want: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_FAILING,
-		},
-		{
-			name: "a conflict beats a change request",
-			pullRequest: pullrequeststore.PullRequest{
-				ReviewDecision: xptr.Ptr(forge.ReviewDecisionChangesRequested),
-				Mergeability:   xptr.Ptr(forge.MergeabilityConflicting),
-			},
-			want: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CONFLICTING,
-		},
-		{
-			name: "a change request stands over a clean branch",
-			pullRequest: pullrequeststore.PullRequest{
-				ReviewDecision: xptr.Ptr(forge.ReviewDecisionChangesRequested),
-				Mergeability:   xptr.Ptr(forge.MergeabilityClean),
-			},
-			want: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHANGES_REQUESTED,
-		},
-		{
-			name: "a change request beats checks running",
-			pullRequest: pullrequeststore.PullRequest{
-				ReviewDecision: xptr.Ptr(forge.ReviewDecisionChangesRequested),
-				Checks:         xptr.Ptr(forge.ChecksPending),
-			},
-			want: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHANGES_REQUESTED,
-		},
-		{
-			name: "a re-review request beats checks running",
-			pullRequest: pullrequeststore.PullRequest{
-				ReviewDecision: xptr.Ptr(forge.ReviewDecisionRereviewRequested),
-				Checks:         xptr.Ptr(forge.ChecksPending),
-			},
-			want: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_REREVIEW_REQUESTED,
-		},
-		{
-			name: "failing checks beat a re-review request",
-			pullRequest: pullrequeststore.PullRequest{
-				ReviewDecision: xptr.Ptr(forge.ReviewDecisionRereviewRequested),
-				Checks:         xptr.Ptr(forge.ChecksFailing),
-			},
-			want: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_FAILING,
-		},
-		{
-			name: "checks running beat an approval on a clean branch",
-			pullRequest: pullrequeststore.PullRequest{
-				ReviewDecision: xptr.Ptr(forge.ReviewDecisionApproved),
-				Checks:         xptr.Ptr(forge.ChecksPending),
-				Mergeability:   xptr.Ptr(forge.MergeabilityClean),
-			},
-			want: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHECKS_RUNNING,
-		},
-		{
-			name: "clean beats an approval that would otherwise wait",
-			pullRequest: pullrequeststore.PullRequest{
-				ReviewDecision: xptr.Ptr(forge.ReviewDecisionApproved),
-				Mergeability:   xptr.Ptr(forge.MergeabilityClean),
-			},
-			want: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED,
-		},
-		{
-			name: "clean with no decision is ready, since the forge's rules asked for no review",
-			pullRequest: pullrequeststore.PullRequest{
-				Mergeability: xptr.Ptr(forge.MergeabilityClean),
-			},
-			want: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED,
-		},
-		{
-			name: "approved and behind is waiting though its checks pass",
-			pullRequest: pullrequeststore.PullRequest{
-				ReviewDecision: xptr.Ptr(forge.ReviewDecisionApproved),
-				Checks:         xptr.Ptr(forge.ChecksPassing),
-				Mergeability:   xptr.Ptr(forge.MergeabilityBehind),
-			},
-			want: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED_WAITING,
-		},
-		{
-			name:        "a pending review is open",
-			pullRequest: pullrequeststore.PullRequest{ReviewDecision: xptr.Ptr(forge.ReviewDecisionPending)},
-			want:        pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, PullRequestStateOf(tt.pullRequest))
-		})
-	}
-}
-
-// TestPullRequestDrawsTheLastKnownMergeabilityThroughABlank covers a mergeability the forge is
-// working out again, drawn from its last answer for the same head and marked unconfirmed, and
-// never from an answer for another head.
-func TestPullRequestDrawsTheLastKnownMergeabilityThroughABlank(t *testing.T) {
-	type testCase struct {
-		name             string
-		pullRequest      pullrequeststore.PullRequest
-		wantState        pullrequestv1.PullRequestState
-		wantMergeability pullrequestv1.Mergeability
-		wantUnconfirmed  bool
-	}
-	tests := []testCase{
-		{
-			name: "a last known clean for another head is not drawn",
-			pullRequest: pullrequeststore.PullRequest{
-				HeadSHA:                  "def",
-				Checks:                   xptr.Ptr(forge.ChecksPassing),
-				LastKnownMergeability:    "clean",
-				LastKnownMergeabilitySHA: "abc",
-			},
-			wantState:        pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN,
-			wantMergeability: pullrequestv1.Mergeability_MERGEABILITY_UNKNOWN,
-			wantUnconfirmed:  false,
-		},
-		{
-			name: "a last known conflict on the same head still conflicts",
-			pullRequest: pullrequeststore.PullRequest{
-				HeadSHA:                  "abc",
-				Checks:                   xptr.Ptr(forge.ChecksPassing),
-				LastKnownMergeability:    "conflicting",
-				LastKnownMergeabilitySHA: "abc",
-			},
-			wantState:        pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CONFLICTING,
-			wantMergeability: pullrequestv1.Mergeability_MERGEABILITY_CONFLICTING,
-			wantUnconfirmed:  true,
-		},
-		{
-			name: "a last known behind on the same head still waits",
-			pullRequest: pullrequeststore.PullRequest{
-				HeadSHA:                  "abc",
-				ReviewDecision:           xptr.Ptr(forge.ReviewDecisionApproved),
-				Checks:                   xptr.Ptr(forge.ChecksPassing),
-				LastKnownMergeability:    "behind",
-				LastKnownMergeabilitySHA: "abc",
-			},
-			wantState:        pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED_WAITING,
-			wantMergeability: pullrequestv1.Mergeability_MERGEABILITY_BEHIND,
-			wantUnconfirmed:  true,
-		},
-		{
-			name: "a latest read is drawn as confirmed",
-			pullRequest: pullrequeststore.PullRequest{
-				HeadSHA:                  "abc",
-				Checks:                   xptr.Ptr(forge.ChecksPassing),
-				Mergeability:             xptr.Ptr(forge.MergeabilityBlocked),
-				LastKnownMergeability:    "clean",
-				LastKnownMergeabilitySHA: "abc",
-			},
-			wantState:        pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN,
-			wantMergeability: pullrequestv1.Mergeability_MERGEABILITY_BLOCKED,
-			wantUnconfirmed:  false,
-		},
-		{
-			name: "a last known clean on the same head is ready",
-			pullRequest: pullrequeststore.PullRequest{
-				HeadSHA:                  "abc",
-				Checks:                   xptr.Ptr(forge.ChecksPassing),
-				LastKnownMergeability:    "clean",
-				LastKnownMergeabilitySHA: "abc",
-			},
-			wantState:        pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED,
-			wantMergeability: pullrequestv1.Mergeability_MERGEABILITY_CLEAN,
-			wantUnconfirmed:  true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			drawn := PullRequest(tt.pullRequest)
-
-			assert.Equal(t, tt.wantState, drawn.GetState())
-			assert.Equal(t, tt.wantMergeability, drawn.GetMergeability())
-			assert.Equal(t, tt.wantUnconfirmed, drawn.GetMergeabilityUnconfirmed())
-		})
-	}
+	assert.Equal(t, pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN, PullRequestStateOf(pullrequests.StateOpen))
+	assert.Equal(t, pullrequestv1.PullRequestState_PULL_REQUEST_STATE_DRAFT, PullRequestStateOf(pullrequests.StateDraft))
+	assert.Equal(t, pullrequestv1.PullRequestState_PULL_REQUEST_STATE_MERGED, PullRequestStateOf(pullrequests.StateMerged))
+	assert.Equal(t, pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CLOSED, PullRequestStateOf(pullrequests.StateClosed))
+	assert.Equal(t, pullrequestv1.PullRequestState_PULL_REQUEST_STATE_FAILING, PullRequestStateOf(pullrequests.StateFailing))
+	assert.Equal(t, pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CONFLICTING, PullRequestStateOf(pullrequests.StateConflicting))
+	assert.Equal(t, pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHANGES_REQUESTED, PullRequestStateOf(pullrequests.StateChangesRequested))
+	assert.Equal(t, pullrequestv1.PullRequestState_PULL_REQUEST_STATE_REREVIEW_REQUESTED, PullRequestStateOf(pullrequests.StateRereviewRequested))
+	assert.Equal(t, pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHECKS_RUNNING, PullRequestStateOf(pullrequests.StateChecksRunning))
+	assert.Equal(t, pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED, PullRequestStateOf(pullrequests.StateApproved))
+	assert.Equal(t, pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED_WAITING, PullRequestStateOf(pullrequests.StateApprovedWaiting))
 }
 
 // TestPullRequestDrawsAutoMerge covers a row the forge has not been asked about drawn as off, and
