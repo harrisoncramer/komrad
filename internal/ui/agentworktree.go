@@ -219,12 +219,12 @@ func countStyle(count int, style lipgloss.Style) lipgloss.Style {
 // hoveredRecordAgent is the agent the record under the agents list or the archive is about, and
 // none on any other screen or row.
 func (m *model) hoveredRecordAgent() (panel.AgentRow, bool) {
-	hoveredRecord := m.active().hoveredRecord
-	if hoveredRecord == nil {
+	hoveredRow := m.active().hoveredRow
+	if hoveredRow == nil {
 		return panel.AgentRow{}, false
 	}
 
-	row, ok := hoveredRecord(m)
+	row, ok := hoveredRow(m)
 	if !ok || row.header {
 		return panel.AgentRow{}, false
 	}
@@ -232,7 +232,7 @@ func (m *model) hoveredRecordAgent() (panel.AgentRow, bool) {
 	return row.item, true
 }
 
-func (a *archiveScreen) hoveredRecord(m *model) (agentRow, bool) {
+func (a *archiveScreen) hoveredRow(m *model) (agentRow, bool) {
 	if a.kind == archiveSchedules {
 		return agentRow{}, false
 	}

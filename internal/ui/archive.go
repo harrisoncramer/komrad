@@ -626,7 +626,7 @@ func (a *archiveScreen) spec() screenSpec {
 		isRenaming:      a.isRenaming,
 		stageResting:    a.stageResting,
 		hoveredAgentID:  a.hoveredAgentID,
-		hoveredRecord:   a.hoveredRecord,
+		hoveredRow:      a.hoveredRow,
 		screenedAgentID: a.screenedAgentID,
 		notice:          a.notice,
 		dispatches:      func(*model) []dispatching { return []dispatching{a.actions()} },

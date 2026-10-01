@@ -526,7 +526,7 @@ func (a *agentsScreen) spec() screenSpec {
 		stageResting:    a.stageResting,
 		reconcileEditor: a.reconcileEditor,
 		hoveredAgentID:  a.hoveredAgentID,
-		hoveredRecord:   a.hoveredRow,
+		hoveredRow:      a.hoveredRow,
 		screenedAgentID: a.screenedAgentID,
 		notice:          a.notice,
 		isPausing:       a.isPausing,

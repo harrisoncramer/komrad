@@ -160,7 +160,7 @@ type screenSpec struct {
 	stageResting    func(m *model) tea.Cmd
 	reconcileEditor func(m *model) tea.Cmd
 	hoveredAgentID  func(m *model) string
-	hoveredRecord   func(m *model) (agentRow, bool)
+	hoveredRow      func(m *model) (agentRow, bool)
 	screenedAgentID func(m *model) (string, bool)
 	notice          func(m *model) string
 	isPausing       func(agentID string) bool
