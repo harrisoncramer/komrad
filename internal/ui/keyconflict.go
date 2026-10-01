@@ -248,7 +248,9 @@ func validateArms(s screen, arms []dispatchArm) error {
 // the order it reads them.
 func globalArms(s screen, keys config.Keybindings) []dispatchArm {
 	arms := []dispatchArm{{describe: "the leader", keys: []string{leaderKey}}}
-	if s.picksViews() {
+	var zero model
+
+	if zero.screenOf(s).drawsSwitcher() {
 		arms = append(arms, dispatchArm{describe: "the view switcher", keys: slices.Concat(keys.Views.Next, keys.Views.Previous)})
 	}
 
@@ -258,8 +260,6 @@ func globalArms(s screen, keys config.Keybindings) []dispatchArm {
 		dispatchArm{describe: "the sidebar narrowing", keys: keys.Sidebar.Narrow},
 		dispatchArm{describe: "the sidebar widening", keys: keys.Sidebar.Widen},
 	)
-
-	var zero model
 
 	if _, ok := zero.screenOf(s).(tabSwitcher); ok {
 		arms = append(arms, dispatchArm{describe: "the tabs focus", keys: keys.Tabs.Focus})

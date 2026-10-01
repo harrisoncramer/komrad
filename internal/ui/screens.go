@@ -45,6 +45,10 @@ type screenModel interface {
 	// doesDrawFromListing reports whether the screen draws the watch's listings.
 	doesDrawFromListing() bool
 
+	// drawsSwitcher reports whether the screen draws the row of views and answers the keys that
+	// switch them.
+	drawsSwitcher() bool
+
 	// enter lands the cursor on the target where the target is on screen, and puts the stage
 	// right, once the root has put the screen up.
 	enter(m *model, target screenTarget) tea.Cmd

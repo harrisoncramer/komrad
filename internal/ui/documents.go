@@ -446,6 +446,10 @@ func (d *documentsScreen) stage(m *model) {
 	m.stageTerminal()
 }
 
+func (d *documentsScreen) drawsSwitcher() bool {
+	return true
+}
+
 func (d *documentsScreen) doesDrawFromListing() bool {
 	return true
 }

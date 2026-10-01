@@ -283,7 +283,7 @@ func (m *model) nudgeSidebar(delta int) {
 // routeGlobalKey answers the keys the panel owns whatever screen is up, reporting whether it
 // took the press so the screen underneath gets whatever it left alone.
 func (m *model) routeGlobalKey(key tea.KeyPressMsg) (tea.Cmd, bool) {
-	if m.screen.picksViews() && !m.isTabsFocused() && !m.isKindsFocused() {
+	if m.active().drawsSwitcher() && !m.isTabsFocused() && !m.isKindsFocused() {
 		if delta := m.viewsDelta(key.String()); delta != 0 {
 			return m.openViews(delta), true
 		}

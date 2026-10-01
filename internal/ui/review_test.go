@@ -1461,6 +1461,14 @@ func TestReviewLayout(t *testing.T) {
 		}
 	})
 
+	t.Run("the logo stands over the sidebar without the row of views", func(t *testing.T) {
+		harness := openReview(t, newReviewServer(t))
+
+		frame := harness.readFrame()
+		require.Contains(t, splitLines(frame)[0], "komrad")
+		assert.NotContains(t, frame, "agents  query  schedules")
+	})
+
 	t.Run("the switcher and the trail give way before the legend does", func(t *testing.T) {
 		harness := openReviewAt(t, newReviewServer(t), panelHarnessParams{height: 24})
 		require.Contains(t, splitLines(harness.readFrame())[0], "komrad")

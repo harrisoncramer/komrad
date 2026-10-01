@@ -516,6 +516,10 @@ var (
 	_ savedScreenDrawer    = (*archiveScreen)(nil)
 )
 
+func (a *archiveScreen) drawsSwitcher() bool {
+	return true
+}
+
 func (a *archiveScreen) doesDrawFromListing() bool {
 	return true
 }

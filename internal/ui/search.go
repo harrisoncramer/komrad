@@ -822,6 +822,10 @@ var (
 	_ listScroller  = (*searchScreen)(nil)
 )
 
+func (w *searchScreen) drawsSwitcher() bool {
+	return true
+}
+
 func (w *searchScreen) doesDrawFromListing() bool {
 	return false
 }

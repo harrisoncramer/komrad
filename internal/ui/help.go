@@ -236,7 +236,7 @@ func (m *model) menuBinding() key.Binding {
 }
 
 func (m *model) globalHelp() []key.Binding {
-	if !m.screen.picksViews() {
+	if !m.active().drawsSwitcher() {
 		return []key.Binding{m.menuBinding(), m.helpBinding()}
 	}
 
@@ -246,7 +246,7 @@ func (m *model) globalHelp() []key.Binding {
 // fullGlobalHelp is the expanded legend's share of the keys every screen answers.
 func (m *model) fullGlobalHelp() []key.Binding {
 	full := m.globalHelp()
-	if m.screen.picksViews() {
+	if m.active().drawsSwitcher() {
 		full = append(full, binding(m.keys.Views.Previous, "previous view"))
 	}
 

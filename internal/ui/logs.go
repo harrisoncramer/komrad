@@ -488,6 +488,10 @@ func (l *logsScreen) crumbs(m *model) crumbs {
 	return crumbs{trail: []string{name, "logs"}}
 }
 
+func (l *logsScreen) drawsSwitcher() bool {
+	return true
+}
+
 func (l *logsScreen) doesDrawFromListing() bool {
 	return true
 }

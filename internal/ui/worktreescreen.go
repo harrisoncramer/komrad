@@ -537,6 +537,10 @@ var (
 	_ savedScreenDrawer = (*worktreesScreen)(nil)
 )
 
+func (w *worktreesScreen) drawsSwitcher() bool {
+	return true
+}
+
 func (w *worktreesScreen) doesDrawFromListing() bool {
 	return true
 }
