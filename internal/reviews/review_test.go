@@ -13,6 +13,7 @@ import (
 	agentstore "komrad/internal/store/agent"
 	mailstore "komrad/internal/store/mail"
 	reviewstore "komrad/internal/store/review"
+	workflowstore "komrad/internal/store/workflow"
 	"komrad/internal/storetest"
 	"komrad/lib/xslice"
 
@@ -940,6 +941,7 @@ func TestAnsweringAReviewRingsTheReviewer(t *testing.T) {
 	tests := []struct {
 		name     string
 		author   func(fx *reviewFixture) ReviewAuthor
+		muted    bool
 		wantRung bool
 	}{
 		{
@@ -955,11 +957,25 @@ func TestAnsweringAReviewRingsTheReviewer(t *testing.T) {
 			},
 			wantRung: true,
 		},
+		{
+			name: "the agent under review answering when the workflow mutes answers",
+			author: func(fx *reviewFixture) ReviewAuthor {
+				return newAgentAuthor(fx.worker)
+			},
+			muted: true,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			fx := newReviewFixture(t)
+			if tt.muted {
+				workflow, err := fx.stores.Workflows.Get(t.Context(), fx.worker.WorkflowID)
+				require.NoError(t, err)
+				cfg := workflow.Config()
+				cfg.EventPrompts = []workflowstore.EventPrompt{{Event: eventprompts.ReviewAnswered, Muted: true}}
+				require.NoError(t, fx.stores.Workflows.Update(t.Context(), workflow.ID, cfg))
+			}
 			written := fx.writeComment(t, newAgentAuthor(fx.reviewer), "this needs a nil check")
 			fx.releaseReview(t, newAgentAuthor(fx.reviewer), reviewstore.VerdictChangesRequested)
 
