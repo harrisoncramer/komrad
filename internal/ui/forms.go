@@ -411,7 +411,7 @@ func (m model) updateForm(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		if m.form.back != nil && isBound(key.String(), formKeys().Back) {
-			return m.leaveFormBack()
+			return m.form.back(m)
 		}
 	}
 
