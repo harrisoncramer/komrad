@@ -57,6 +57,8 @@ type PullRequest struct {
 	Mergeability *forge.Mergeability
 	// ChecksSHA is the head the checks were read for, empty while they never have been.
 	ChecksSHA string
+	// LastKnownChecksSHA is the head LastKnownChecks was read for, empty before it ever has.
+	LastKnownChecksSHA string
 	// LastKnownChecks is the checks as the forge last reported them, empty before it ever has.
 	LastKnownChecks string
 	// LastKnownMergeability is the mergeability as the forge last reported it, empty before it ever has.
@@ -378,6 +380,7 @@ func fromRow(row *models.PullRequest) PullRequest {
 		Mergeability:             StoredMergeability(row.Mergeability),
 		ChecksSHA:                xptr.Deref(row.ChecksSha),
 		LastKnownChecks:          xptr.Deref(row.LastKnownChecks),
+		LastKnownChecksSHA:       xptr.Deref(row.LastKnownChecksSha),
 		LastKnownMergeability:    xptr.Deref(row.LastKnownMergeability),
 		LastKnownMergeabilitySHA: xptr.Deref(row.LastKnownMergeabilitySha),
 		LastKnownDecision:        xptr.Deref(row.LastKnownDecision),
