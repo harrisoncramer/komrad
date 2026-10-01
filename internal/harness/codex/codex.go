@@ -16,6 +16,7 @@ import (
 	"komrad/internal/harness"
 )
 
+// HarnessID is the id an agent running Codex is recorded under.
 const HarnessID = "codex"
 
 const originatorEnv = "CODEX_INTERNAL_ORIGINATOR_OVERRIDE"
