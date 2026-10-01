@@ -33,7 +33,7 @@ func StateOf(pullRequest pullrequeststore.PullRequest) State {
 	if pullRequest.Checks != nil {
 		checks = *pullRequest.Checks
 	}
-	mergeability, _ := CurrentMergeability(pullRequest)
+	mergeability, _ := ResolveMergeability(pullRequest)
 
 	switch {
 	case pullRequest.MergedAt != nil:
@@ -69,10 +69,10 @@ func StateOf(pullRequest pullrequeststore.PullRequest) State {
 	return StateOpen
 }
 
-// CurrentMergeability is the mergeability a pull request stands at and whether it is
+// ResolveMergeability returns the mergeability a pull request stands at and whether it is
 // unconfirmed: the latest read, or while the forge is working it out again the last answer it
 // gave for the same head.
-func CurrentMergeability(pullRequest pullrequeststore.PullRequest) (*forge.Mergeability, bool) {
+func ResolveMergeability(pullRequest pullrequeststore.PullRequest) (*forge.Mergeability, bool) {
 	if pullRequest.Mergeability != nil {
 		return pullRequest.Mergeability, false
 	}

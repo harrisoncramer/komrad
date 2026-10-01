@@ -139,9 +139,9 @@ func TestStateOf(t *testing.T) {
 	}
 }
 
-// TestCurrentMergeability covers a mergeability the forge is working out again, taken from its
+// TestResolveMergeability covers a mergeability the forge is working out again, taken from its
 // last answer for the same head and marked unconfirmed, and never from an answer for another head.
-func TestCurrentMergeability(t *testing.T) {
+func TestResolveMergeability(t *testing.T) {
 	type testCase struct {
 		name             string
 		pullRequest      pullrequeststore.PullRequest
@@ -216,7 +216,7 @@ func TestCurrentMergeability(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mergeability, unconfirmed := CurrentMergeability(tt.pullRequest)
+			mergeability, unconfirmed := ResolveMergeability(tt.pullRequest)
 
 			assert.Equal(t, tt.wantState, StateOf(tt.pullRequest))
 			assert.Equal(t, tt.wantMergeability, mergeability)

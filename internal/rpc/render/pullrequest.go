@@ -11,7 +11,7 @@ import (
 
 // PullRequest draws one stored pull request as the wire carries it.
 func PullRequest(stored pullrequeststore.PullRequest) *pullrequestv1.PullRequest {
-	mergeability, unconfirmed := pullrequests.CurrentMergeability(stored)
+	mergeability, unconfirmed := pullrequests.ResolveMergeability(stored)
 
 	return &pullrequestv1.PullRequest{
 		Id:                      stored.ID,
