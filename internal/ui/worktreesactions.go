@@ -142,7 +142,7 @@ func deleteWorktree(m *model, item worktreeItem) tea.Cmd {
 	switch item.fate {
 	case fateLive:
 		if live, ok := m.listing.liveAgent(item.agent.id); ok {
-			return confirmArchiveAgents(m, m.listing.liveAgents(), []panel.Agent{live.Agent})
+			return confirmArchiveAgents(m, []panel.Agent{live.Agent})
 		}
 	case fateArchived:
 		return confirmDeleteWorktrees(m, worktreeDeletion{agents: []worktreeItem{item}})

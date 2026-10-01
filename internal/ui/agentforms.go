@@ -288,12 +288,12 @@ func promptSubject(agents []panel.Agent, children int) string {
 
 // confirmArchiveAgents asks before archiving agents, counting the children they hold among the
 // live agents, and offers to delete them too.
-func confirmArchiveAgents(m *model, live []panel.Agent, agents []panel.Agent) tea.Cmd {
+func confirmArchiveAgents(m *model, agents []panel.Agent) tea.Cmd {
 	if len(agents) == 0 {
 		return nil
 	}
 
-	form, answer := archiveAgentsForm(agents, unnamedChildren(live, agents), formKeys())
+	form, answer := archiveAgentsForm(agents, unnamedChildren(m.listing.liveAgents(), agents), formKeys())
 
 	return m.openForm(formState{
 		kind:   formAgentArchive,

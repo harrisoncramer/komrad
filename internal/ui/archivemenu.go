@@ -169,7 +169,7 @@ func agentsArchiveMenu(m *model, agents []panel.Agent, chosen bool) submenu {
 			write: func(m model) (model, tea.Cmd) { return m.archiveAgents(agents) },
 		},
 		openEntry(remove, m.keys.ArchiveMenu.Delete, func(m *model) tea.Cmd {
-			return confirmArchiveDeleteAgents(m, m.listing.liveAgents(), agents)
+			return confirmArchiveDeleteAgents(m, agents)
 		}),
 	)
 }
@@ -191,8 +191,8 @@ func scheduleArchiveMenu(m *model, schedule panel.Schedule) submenu {
 }
 
 // confirmArchiveDeleteAgents asks before live agents are archived and then deleted for good.
-func confirmArchiveDeleteAgents(m *model, live []panel.Agent, agents []panel.Agent) tea.Cmd {
-	form, confirmed := deleteAgentsForm(agents, unnamedChildren(live, agents), formKeys())
+func confirmArchiveDeleteAgents(m *model, agents []panel.Agent) tea.Cmd {
+	form, confirmed := deleteAgentsForm(agents, unnamedChildren(m.listing.liveAgents(), agents), formKeys())
 
 	return m.openForm(formState{
 		kind:   formArchiveDelete,
