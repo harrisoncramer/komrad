@@ -57,10 +57,10 @@ type PullRequest struct {
 	Mergeability *forge.Mergeability
 	// ChecksSHA is the head the checks were read for, empty while they never have been.
 	ChecksSHA string
-	// LastKnownChecksSHA is the head LastKnownChecks was read for, empty before it ever has.
-	LastKnownChecksSHA string
 	// LastKnownChecks is the checks as the forge last reported them, empty before it ever has.
 	LastKnownChecks string
+	// LastKnownChecksSHA is the head LastKnownChecks was read for, empty before it ever has.
+	LastKnownChecksSHA string
 	// LastKnownMergeability is the mergeability as the forge last reported it, empty before it ever has.
 	LastKnownMergeability string
 	// LastKnownMergeabilitySHA is the head LastKnownMergeability was read for, empty before it ever has.
