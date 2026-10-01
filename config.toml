@@ -365,7 +365,10 @@ new    = ["c"]
 quit   = ["ctrl+c"]
 # Rename the schedule under the cursor, typed over its row.
 rename = ["r"]
-# Pause or resume the schedule under the cursor.
+
+# The menu on the hovered schedule.
+[keybindings.schedule_menu]
+# Pause the schedule, or resume it when it is paused.
 toggle = ["p"]
 
 # The keys that move the sidebar's edge, shared by every screen.

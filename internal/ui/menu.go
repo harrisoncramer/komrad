@@ -144,7 +144,25 @@ func (w *schedulesScreen) itemMenu(s panelShared) (submenu, bool) {
 		return submenu{}, false
 	}
 
-	return withArchive(rowMenu(item.schedule.Name), s, scheduleArchiveMenu(s, item.schedule)), true
+	return withArchive(scheduleMenu(s, item.schedule), s, scheduleArchiveMenu(s, item.schedule)), true
+}
+
+// scheduleMenu is the band on the hovered schedule.
+func scheduleMenu(s panelShared, schedule panel.Schedule) submenu {
+	toggle := "pause"
+	if !schedule.Enabled {
+		toggle = "resume"
+	}
+
+	return submenu{
+		kind:    formMenu,
+		title:   schedule.Name,
+		crumb:   schedule.Name,
+		entries: []submenuEntry{{label: toggle, keys: s.keys.ScheduleMenu.Toggle}},
+		answer: func(m model, _ int) (tea.Model, tea.Cmd) {
+			return m.submitMenu(func(h host) tea.Cmd { return toggleSchedule(h, schedule) })
+		},
+	}
 }
 
 // rowMenu is a band titled for a row that has no entries of its own.

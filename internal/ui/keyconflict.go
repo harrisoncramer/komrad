@@ -123,6 +123,15 @@ func ValidateKeybindings(keys config.Keybindings) error {
 		return err
 	}
 
+	if err := validateSubmenuKeys("schedule menu", []submenuKeys{
+		{name: "toggle", keys: keys.ScheduleMenu.Toggle},
+		{name: "archive", keys: keys.Menu.Archive},
+		{name: "scratch", keys: keys.Menu.Scratch},
+		{name: "document_types", keys: keys.Menu.DocumentTypes},
+	}); err != nil {
+		return err
+	}
+
 	if err := validateSubmenuKeys("merge menu", []submenuKeys{
 		{name: "merge", keys: keys.Merge.Merge},
 		{name: "merge_archive", keys: keys.Merge.MergeArchive},
