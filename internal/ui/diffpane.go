@@ -84,8 +84,7 @@ func (k diffKeys) table() []screenAction {
 			id:   actionFilterOpen,
 			keys: func(config.Keybindings) []string { return []string{filterOpenKey} },
 			nav: func(_ navHost, s panelShared, _ string) tea.Cmd {
-				k.filter.typing = true
-				k.filter.setQuery("")
+				k.filter.open()
 				k.search(s)
 
 				return nil

@@ -194,7 +194,11 @@ func detailsActions() actionSpec {
 				id:   actionFilterClear,
 				keys: func(config.Keybindings) []string { return []string{"esc"} },
 				when: standing,
-				run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.clearSearch() },
+				run: func(m model, _ string) (tea.Model, tea.Cmd) {
+					m.clearFilter()
+
+					return m, nil
+				},
 			},
 			{
 				id:   actionDetails,
@@ -230,7 +234,7 @@ func detailsActions() actionSpec {
 				id:   actionFilterMatch,
 				keys: func(k config.Keybindings) []string { return slices.Concat(k.Filter.NextMatch, k.Filter.PrevMatch) },
 				when: standing,
-				run:  model.jumpFilterMatch,
+				run:  func(m model, pressed string) (tea.Model, tea.Cmd) { return m, m.jumpToFilterMatch(pressed) },
 			},
 			{
 				id:   actionDetailsCopy,
