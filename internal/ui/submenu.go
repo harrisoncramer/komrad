@@ -117,12 +117,13 @@ func submenuState(parents []submenuLevel, level submenuLevel) formState {
 			}
 
 			entry := level.menu.entries[*level.choice]
+			stack := append(parents[:len(parents):len(parents)], level)
 
 			switch {
 			case entry.opens != nil:
-				return m.pushSubmenu(append(parents[:len(parents):len(parents)], level), newSubmenuLevel(*entry.opens))
+				return m.pushSubmenu(stack, newSubmenuLevel(*entry.opens))
 			case entry.form != nil:
-				return m.stackForm(append(parents[:len(parents):len(parents)], level), entry.form())
+				return m.stackForm(stack, entry.form())
 			case entry.write != nil:
 				return holdSubmit(entry.write)(m)
 			case entry.open != nil:
