@@ -203,6 +203,7 @@ var (
 	_ itemMenued = (*archiveScreen)(nil)
 	_ itemMenued = (*schedulesScreen)(nil)
 	_ itemMenued = (*documentsScreen)(nil)
+	_ itemMenued = (*worktreesScreen)(nil)
 )
 
 // openScratch leaves the menu for the scratch, or closes the scratch when it is open.
