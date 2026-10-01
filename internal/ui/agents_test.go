@@ -2135,18 +2135,18 @@ func TestAgentsChildren(t *testing.T) {
 	}{
 		{
 			name:  "one agent with nothing attached",
-			press: []string{"space", "a"},
-			want:  `Archive agent "fix-gutter"?`,
+			press: []string{"space", "a", "d"},
+			want:  `Permanently delete agent "fix-gutter"?`,
 		},
 		{
 			name:  "one agent with children",
-			press: []string{"j", "space", "a"},
-			want:  `Archive agent "author" and its 2 children?`,
+			press: []string{"j", "space", "a", "d"},
+			want:  `Permanently delete agent "author" and its 2 children?`,
 		},
 		{
 			name:  "a selection of agents counts every child that goes with it",
-			press: []string{"v", "j", "v", "space", "a"},
-			want:  "Archive 2 agents and 2 children?",
+			press: []string{"v", "j", "v", "space", "a", "d"},
+			want:  "Permanently delete 2 agents and 2 children?",
 		},
 	}
 
