@@ -267,6 +267,8 @@ func TestTriageFreeze(t *testing.T) {
 		press []string
 		blur  bool
 		want  []string
+		// hovered is the row the cursor is on once the zone has settled or held.
+		hovered string
 	}{
 		{
 			name:     "an agent that needs triage while the zone is read waits for a slot",
@@ -274,6 +276,7 @@ func TestTriageFreeze(t *testing.T) {
 			rows:     withoutThird(),
 			relisted: buildTriage(),
 			want:     []string{"asker", "broken", "+1 more waiting for a slot", "backend", "third", "quiet"},
+			hovered:  "asker",
 		},
 		{
 			name:     "a slot freed while the zone is read stays empty",
@@ -285,7 +288,8 @@ func TestTriageFreeze(t *testing.T) {
 
 				return rows
 			}(),
-			want: []string{"asker", "+1 more waiting for a slot", "backend", "third", "broken", "quiet"},
+			want:    []string{"asker", "+1 more waiting for a slot", "backend", "third", "broken", "quiet"},
+			hovered: "asker",
 		},
 		{
 			name:     "a family snoozed while the zone is read keeps its place",
@@ -293,6 +297,7 @@ func TestTriageFreeze(t *testing.T) {
 			rows:     buildTriage(),
 			press:    []string{"space", "z"},
 			want:     []string{"asker", "third", "broken", "backend", "quiet"},
+			hovered:  "asker",
 		},
 		{
 			name:     "the zone settles once the panel gives up the keys",
@@ -301,6 +306,7 @@ func TestTriageFreeze(t *testing.T) {
 			relisted: buildTriage(),
 			blur:     true,
 			want:     []string{"asker", "third", "broken", "backend", "quiet"},
+			hovered:  "asker",
 		},
 		{
 			name:     "the zone settles once the cursor leaves it",
@@ -309,6 +315,7 @@ func TestTriageFreeze(t *testing.T) {
 			relisted: buildTriage(),
 			press:    []string{"j", "j"},
 			want:     []string{"asker", "third", "broken", "backend", "quiet"},
+			hovered:  "backend",
 		},
 	}
 
@@ -325,7 +332,9 @@ func TestTriageFreeze(t *testing.T) {
 				harness.send(tea.BlurMsg{})
 			}
 
-			assert.Equal(t, tt.want, readTriageList(harness.readFrame()))
+			frame := harness.readFrame()
+			assert.Equal(t, tt.want, readTriageList(frame))
+			assert.Equal(t, tt.hovered, strings.TrimSpace(readHoveredRow(frame)))
 		})
 	}
 }

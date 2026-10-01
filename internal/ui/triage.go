@@ -9,8 +9,6 @@ import (
 	"komrad/internal/ui/panel"
 	"komrad/internal/view"
 	"komrad/lib/xslice"
-
-	tea "charm.land/bubbletea/v2"
 )
 
 const (
@@ -487,7 +485,7 @@ func compareUrgency(a, b triageEntry) int {
 
 // settleTriage freezes the zone while the panel has the keys and the cursor is on it, and thaws it
 // the moment either stops, putting the cursor back on the row it was on.
-func (m model) settleTriage() (model, tea.Cmd) {
+func (m model) settleTriage() model {
 	layout := m.agents.layout(m.shared())
 	reading := !m.blurred && m.agents.cursor < len(layout.zone)
 	switch {
@@ -499,12 +497,12 @@ func (m model) settleTriage() (model, tea.Cmd) {
 			}
 		}
 	case !reading && m.agents.triage.frozen != nil:
+		hovered := m.agents.list().hovered(m.shared())
 		m.agents.triage.frozen = nil
-
-		return m, m.withListing(func(*listing) {})
+		m.agents.apply(m.shared(), hovered)
 	}
 
-	return m, nil
+	return m
 }
 
 // jumpToTriage puts the cursor on the zone's first agent.
