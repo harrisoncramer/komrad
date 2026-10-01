@@ -60,7 +60,7 @@ type submenuEntry struct {
 	open func(m model) (tea.Model, tea.Cmd)
 }
 
-// writeEntry is an entry whose write is run through the host.
+// writeEntry is an entry whose write the root runs.
 func writeEntry(label string, keys []string, run func(*model) tea.Cmd) submenuEntry {
 	return submenuEntry{
 		label: label,
