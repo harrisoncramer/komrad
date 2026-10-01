@@ -171,3 +171,31 @@ WHERE
     t.id = @id
 RETURNING
     t.id;
+
+-- name: GetForgeReviewThreadOfAgent :one
+SELECT
+    t.*
+FROM
+    forge_review_threads t
+WHERE
+    t.id = @id
+    AND EXISTS (
+        SELECT
+            1
+        FROM
+            agent_pull_requests o
+        WHERE
+            o.pull_request_id = t.pull_request_id
+            AND o.agent_id = @agent_id);
+
+-- name: SetForgeReviewThreadAccepted :one
+UPDATE
+    forge_review_threads t
+SET
+    accepted_thread_id = @thread_id,
+    dismissed_at = NULL
+WHERE
+    t.id = @id
+    AND t.accepted_thread_id IS NOT DISTINCT FROM sqlc.narg('held_thread_id')::uuid
+RETURNING
+    t.id;

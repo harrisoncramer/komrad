@@ -12,6 +12,7 @@ import (
 	"komrad/internal/jobs/internaljobs"
 	agentstore "komrad/internal/store/agent"
 	mailstore "komrad/internal/store/mail"
+	pullrequeststore "komrad/internal/store/pullrequest"
 	reviewstore "komrad/internal/store/review"
 	"komrad/internal/storetest"
 	"komrad/lib/xslice"
@@ -40,6 +41,7 @@ type reviewFixture struct {
 	worker    *agentstore.Agent
 	reviewer  *agentstore.Agent
 	stranger  *agentstore.Agent
+	offerID   string
 }
 
 // TestReviewEntitlement pins who may make each review call on whose work.
@@ -1042,17 +1044,18 @@ func newReviewFixture(t *testing.T) *reviewFixture {
 	})
 
 	service := NewReviewService(NewReviewServiceParams{
-		Threads:     reviews,
-		Messages:    reviews,
-		Viewed:      reviews,
-		Rounds:      reviews,
-		Reviews:     reviews,
-		Snapshots:   snapshots,
-		Workflows:   stores.Workflows,
-		Agents:      stores.Agents,
-		Events:      events,
-		Interrupter: noInterrupter{},
-		StateDir:    t.TempDir(),
+		Threads:      reviews,
+		Messages:     reviews,
+		Viewed:       reviews,
+		Rounds:       reviews,
+		Reviews:      reviews,
+		Snapshots:    snapshots,
+		Workflows:    stores.Workflows,
+		Agents:       stores.Agents,
+		Events:       events,
+		Interrupter:  noInterrupter{},
+		ForgeThreads: pullrequeststore.NewForgeThreadStore(stores.Pool.GetDB()),
+		StateDir:     t.TempDir(),
 	})
 
 	_, err := service.OpenRound(t.Context(), worker.ID, personAuthor)

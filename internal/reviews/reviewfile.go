@@ -100,6 +100,12 @@ func writeThread(out *strings.Builder, params writeThreadParams) {
 	}
 
 	for _, message := range params.Thread.Messages {
+		if message.External != nil {
+			writeExternal(out, message)
+
+			continue
+		}
+
 		out.WriteString(strings.TrimSpace(message.Body))
 		out.WriteString("\n\n")
 
@@ -113,6 +119,21 @@ func writeThread(out *strings.Builder, params writeThreadParams) {
 			out.WriteString("```\n\n")
 		}
 	}
+}
+
+func writeExternal(out *strings.Builder, message reviewstore.Message) {
+	author := "Someone"
+	if message.External.Login != "" {
+		author = "@" + message.External.Login
+	}
+
+	fmt.Fprintf(out, "%s wrote this on the forge, and the person reviewing passed it on:\n\n", author)
+	for line := range strings.Lines(strings.TrimSpace(message.Body)) {
+		out.WriteString("    ")
+		out.WriteString(strings.TrimRight(line, "\n"))
+		out.WriteString("\n")
+	}
+	out.WriteString("\n")
 }
 
 // suggestionLead says how much weight the replacement lines carry.

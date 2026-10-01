@@ -505,6 +505,9 @@ type WorktreesKeys struct {
 // pattern typed, every other key is a character, so the keys that close those are fixed rather
 // than configured.
 type ReviewKeys struct {
+	// Accept the comment from the forge under the cursor into your review, as a thread of your
+	// own the agent reads with the rest of it, or bring in what changed on the forge since you did.
+	Accept []string `mapstructure:"accept" default:"A"`
 	// Show the change that answered the comment under the cursor, from the work the
 	// comment was written on to the work the agent's addressed reply carried, or go back
 	// to all changes from there.

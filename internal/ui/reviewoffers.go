@@ -40,17 +40,17 @@ func (r reviewScreen) doesStepOffers(s panelShared) bool {
 		return false
 	}
 
-	return slices.ContainsFunc(r.listOffers(s), isPlacedOffer)
+	return slices.ContainsFunc(r.listOffers(s), func(offer *pullrequestv1.ForgeThread) bool { return isPlacedOffer(s, offer) })
 }
 
-func isPlacedOffer(offer *pullrequestv1.ForgeThread) bool {
-	return offer.GetPath() != "" && !offer.GetDismissed()
+func isPlacedOffer(s panelShared, offer *pullrequestv1.ForgeThread) bool {
+	return offer.GetPath() != "" && !offer.GetDismissed() && assemble.StateOfOffer(s.listing.world.ReviewThreads, offer) != assemble.OfferAccepted
 }
 
 // stepOffer moves the cursor onto the next forge comment written on a line, and chooses it.
 func (r *reviewScreen) stepOffer(h navHost, s panelShared) tea.Cmd {
 	view := r.diff.View()
-	placed := slices.DeleteFunc(r.listOffers(s), func(offer *pullrequestv1.ForgeThread) bool { return !isPlacedOffer(offer) })
+	placed := slices.DeleteFunc(r.listOffers(s), func(offer *pullrequestv1.ForgeThread) bool { return !isPlacedOffer(s, offer) })
 	if len(placed) == 0 || view == nil {
 		return nil
 	}
@@ -80,7 +80,7 @@ func (r *reviewScreen) stepOffer(h navHost, s panelShared) tea.Cmd {
 
 // offerView is a forge thread's comments wrapped to the width given, oldest first, with where it
 // lives on the forge under them.
-func (r reviewScreen) offerView(offer *pullrequestv1.ForgeThread, width int) string {
+func (r reviewScreen) offerView(s panelShared, offer *pullrequestv1.ForgeThread, width int) string {
 	var out strings.Builder
 	for _, comment := range offer.GetComments() {
 		head := drawCommentHead(diffview.OfferTone, describeCommentAuthor(comment)+" on the forge", comment.GetWrittenAt())
@@ -97,6 +97,13 @@ func (r reviewScreen) offerView(offer *pullrequestv1.ForgeThread, width int) str
 	}
 	if offer.GetDismissed() {
 		foot = strings.TrimSpace("dismissed  " + foot)
+	}
+	switch assemble.StateOfOffer(s.listing.world.ReviewThreads, offer) {
+	case assemble.OfferAccepted:
+		foot = strings.TrimSpace("accepted  " + foot)
+	case assemble.OfferChanged:
+		foot = strings.TrimSpace("changed since you accepted it  " + foot)
+	case assemble.OfferOpen:
 	}
 	if foot != "" {
 		out.WriteString(dimStyle().Render(ansi.Hardwrap(foot, max(width, 1), false)) + "\n")

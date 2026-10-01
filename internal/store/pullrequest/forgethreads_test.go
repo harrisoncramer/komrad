@@ -35,16 +35,16 @@ func commentBy(providerID, login string) forge.ReviewComment {
 	}
 }
 
-func (h *harness) linkedPullRequest(t *testing.T, providerID string, number int, branch string) string {
+func (h *harness) linkedPullRequest(t *testing.T) string {
 	t.Helper()
 	ctx := t.Context()
 
-	_, err := h.Upsert(ctx, openPullRequest(providerID, number, branch))
+	_, err := h.Upsert(ctx, openPullRequest("PR_1", 1, "agent/x"))
 	require.NoError(t, err)
 	_, err = h.Observe(ctx)
 	require.NoError(t, err)
 
-	stored, err := h.GetByIdentity(ctx, "github.com", providerID)
+	stored, err := h.GetByIdentity(ctx, "github.com", "PR_1")
 	require.NoError(t, err)
 
 	return stored.ID
@@ -178,7 +178,7 @@ func TestSetThreads(t *testing.T) {
 			threads := NewForgeThreadStore(h.pool.GetDB())
 
 			h.createAgent(t, h.createWorkflow(t), "live", komrad, "agent/x")
-			pullRequestID := h.linkedPullRequest(t, "PR_1", 1, "agent/x")
+			pullRequestID := h.linkedPullRequest(t)
 
 			require.NoError(t, threads.SetThreads(ctx, SetThreadsParams{
 				PullRequestID: pullRequestID,
@@ -207,7 +207,7 @@ func TestSetDismissed(t *testing.T) {
 
 	h.createAgent(t, h.createWorkflow(t), "live", komrad, "agent/x")
 	written := SetThreadsParams{
-		PullRequestID: h.linkedPullRequest(t, "PR_1", 1, "agent/x"),
+		PullRequestID: h.linkedPullRequest(t),
 		Viewer:        "harrisoncramer",
 		Threads:       []forge.ReviewThread{threadOn("T_1", commentBy("C_1", "dana"))},
 		Prune:         true,
@@ -248,4 +248,52 @@ func TestSetDismissed(t *testing.T) {
 
 	require.ErrorIs(t, threads.SetDismissed(ctx, "01a0f025-00bd-7db3-90c0-a0198677e92e", true), store.ErrNotFound)
 	require.ErrorIs(t, threads.SetDismissed(ctx, "T_1", true), store.ErrNotFound)
+}
+
+// TestGetForAgent covers reading a forge thread through the agent whose pull request it is on.
+func TestGetForAgent(t *testing.T) {
+	h := open(t)
+	ctx := t.Context()
+	threads := NewForgeThreadStore(h.pool.GetDB())
+
+	workflow := h.createWorkflow(t)
+	owner := h.createAgent(t, workflow, "owner", komrad, "agent/x")
+	other := h.createAgent(t, workflow, "other", komrad, "agent/y")
+	require.NoError(t, threads.SetThreads(ctx, SetThreadsParams{
+		PullRequestID: h.linkedPullRequest(t),
+		Threads:       []forge.ReviewThread{threadOn("T_1", commentBy("C_1", "dana"), commentBy("C_2", "lee"))},
+		Prune:         true,
+	}))
+	stored, err := threads.ListWatched(ctx, nil)
+	require.NoError(t, err)
+	require.Len(t, stored, 1)
+
+	got, err := threads.GetForAgent(ctx, stored[0].ID, owner)
+	require.NoError(t, err)
+	assert.Equal(t, stored[0], *got)
+
+	_, err = threads.GetForAgent(ctx, stored[0].ID, other)
+	require.ErrorIs(t, err, store.ErrNotFound)
+	_, err = threads.GetForAgent(ctx, "T_1", owner)
+	require.ErrorIs(t, err, store.ErrNotFound)
+}
+
+// TestSetAcceptedRefusesALinkNoLongerHeld covers an accept racing another one on the same forge thread.
+func TestSetAcceptedRefusesALinkNoLongerHeld(t *testing.T) {
+	h := open(t)
+	ctx := t.Context()
+	threads := NewForgeThreadStore(h.pool.GetDB())
+
+	h.createAgent(t, h.createWorkflow(t), "owner", komrad, "agent/x")
+	require.NoError(t, threads.SetThreads(ctx, SetThreadsParams{
+		PullRequestID: h.linkedPullRequest(t),
+		Threads:       []forge.ReviewThread{threadOn("T_1", commentBy("C_1", "dana"))},
+		Prune:         true,
+	}))
+	stored, err := threads.ListWatched(ctx, nil)
+	require.NoError(t, err)
+	require.Len(t, stored, 1)
+
+	held := "01a0f025-00bd-7db3-90c0-a0198677e92e"
+	require.ErrorIs(t, threads.SetAccepted(ctx, stored[0].ID, held, &held), ErrAcceptedMoved)
 }

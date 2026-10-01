@@ -69,6 +69,7 @@ const (
 	actionReviewJump
 	actionReviewOffer
 	actionReviewDismiss
+	actionReviewAccept
 	actionReviewCompose
 	actionReviewSend
 )

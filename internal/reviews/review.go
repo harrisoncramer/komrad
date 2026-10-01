@@ -105,16 +105,17 @@ type ReviewThreadWithMessages struct {
 
 // NewReviewServiceParams is everything the review service reads and tells.
 type NewReviewServiceParams struct {
-	Threads     reviewThreadReadWriter
-	Messages    reviewMessageReadWriter
-	Viewed      reviewViewedFileReadWriter
-	Rounds      reviewRoundReadWriter
-	Reviews     reviewBatchReadWriter
-	Snapshots   reviewSnapshotter
-	Workflows   workflowGetter
-	Agents      agentGetter
-	Events      eventRecorder
-	Interrupter agentInterrupter
+	Threads      reviewThreadReadWriter
+	Messages     reviewMessageReadWriter
+	Viewed       reviewViewedFileReadWriter
+	Rounds       reviewRoundReadWriter
+	Reviews      reviewBatchReadWriter
+	Snapshots    reviewSnapshotter
+	Workflows    workflowGetter
+	Agents       agentGetter
+	Events       eventRecorder
+	Interrupter  agentInterrupter
+	ForgeThreads forgeThreadGetter
 	// StateDir is where komrad keeps its own files.
 	StateDir string
 }
@@ -122,35 +123,37 @@ type NewReviewServiceParams struct {
 // ReviewService owns the conversations pinned to the lines of an agent's diff, and holds the
 // only copy.
 type ReviewService struct {
-	threads     reviewThreadReadWriter
-	messages    reviewMessageReadWriter
-	viewed      reviewViewedFileReadWriter
-	rounds      reviewRoundReadWriter
-	reviews     reviewBatchReadWriter
-	snapshots   reviewSnapshotter
-	workflows   workflowGetter
-	agents      agentGetter
-	events      eventRecorder
-	interrupter agentInterrupter
-	stateDir    string
-	roundLocks  *agentLocks
+	threads      reviewThreadReadWriter
+	messages     reviewMessageReadWriter
+	viewed       reviewViewedFileReadWriter
+	rounds       reviewRoundReadWriter
+	reviews      reviewBatchReadWriter
+	snapshots    reviewSnapshotter
+	workflows    workflowGetter
+	agents       agentGetter
+	events       eventRecorder
+	interrupter  agentInterrupter
+	forgeThreads forgeThreadGetter
+	stateDir     string
+	roundLocks   *agentLocks
 }
 
 // NewReviewService builds the service over the review store and the things it tells.
 func NewReviewService(params NewReviewServiceParams) *ReviewService {
 	return &ReviewService{
-		threads:     params.Threads,
-		messages:    params.Messages,
-		viewed:      params.Viewed,
-		rounds:      params.Rounds,
-		reviews:     params.Reviews,
-		snapshots:   params.Snapshots,
-		workflows:   params.Workflows,
-		agents:      params.Agents,
-		events:      params.Events,
-		interrupter: params.Interrupter,
-		stateDir:    params.StateDir,
-		roundLocks:  newAgentLocks(),
+		threads:      params.Threads,
+		messages:     params.Messages,
+		viewed:       params.Viewed,
+		rounds:       params.Rounds,
+		reviews:      params.Reviews,
+		snapshots:    params.Snapshots,
+		workflows:    params.Workflows,
+		agents:       params.Agents,
+		events:       params.Events,
+		interrupter:  params.Interrupter,
+		forgeThreads: params.ForgeThreads,
+		stateDir:     params.StateDir,
+		roundLocks:   newAgentLocks(),
 	}
 }
 
@@ -281,6 +284,49 @@ func (s *ReviewService) CreateReviewThread(
 		return nil, ErrReviewWholeChangeAnchored
 	}
 
+	place, err := s.placeThread(ctx, params)
+	if err != nil {
+		return nil, err
+	}
+
+	thread, err := s.threads.CreateThread(ctx, reviewstore.CreateThreadParams{
+		AgentID:       params.AgentID,
+		ReviewID:      place.ReviewID,
+		RoundID:       place.RoundID,
+		BaseSHA:       place.BaseSHA,
+		Suggestion:    params.Suggestion,
+		FilePath:      params.FilePath,
+		OldStart:      params.OldStart,
+		OldEnd:        params.OldEnd,
+		NewStart:      params.NewStart,
+		NewEnd:        params.NewEnd,
+		QuotedLines:   params.QuotedLines,
+		Body:          params.Body,
+		AuthorKind:    params.Author.Kind,
+		AuthorAgentID: params.Author.AgentID,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	messages, err := s.messages.ListMessages(ctx, []string{thread.ID})
+	if err != nil {
+		return nil, err
+	}
+
+	return &ReviewThreadWithMessages{Thread: *thread, Messages: messages}, nil
+}
+
+// threadPlace is the review, round and base a new thread is filed under.
+type threadPlace struct {
+	ReviewID string
+	RoundID  string
+	BaseSHA  string
+}
+
+// placeThread finds the round a new thread's lines were measured in and the author's open review
+// on it, opening or carrying one forward when needed.
+func (s *ReviewService) placeThread(ctx context.Context, params CreateReviewThreadParams) (*threadPlace, error) {
 	if err := s.requireEntitled(ctx, params.AgentID, params.Author); err != nil {
 		return nil, err
 	}
@@ -311,32 +357,7 @@ func (s *ReviewService) CreateReviewThread(
 		baseSHA = round.BaseSHA
 	}
 
-	thread, err := s.threads.CreateThread(ctx, reviewstore.CreateThreadParams{
-		AgentID:       params.AgentID,
-		ReviewID:      open.ID,
-		RoundID:       round.ID,
-		BaseSHA:       baseSHA,
-		Suggestion:    params.Suggestion,
-		FilePath:      params.FilePath,
-		OldStart:      params.OldStart,
-		OldEnd:        params.OldEnd,
-		NewStart:      params.NewStart,
-		NewEnd:        params.NewEnd,
-		QuotedLines:   params.QuotedLines,
-		Body:          params.Body,
-		AuthorKind:    params.Author.Kind,
-		AuthorAgentID: params.Author.AgentID,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	messages, err := s.messages.ListMessages(ctx, []string{thread.ID})
-	if err != nil {
-		return nil, err
-	}
-
-	return &ReviewThreadWithMessages{Thread: *thread, Messages: messages}, nil
+	return &threadPlace{ReviewID: open.ID, RoundID: round.ID, BaseSHA: baseSHA}, nil
 }
 
 // carryOpenReview files a person's draft under the newest round they have commented on.

@@ -265,14 +265,20 @@ said AS (
         author_kind,
         author_agent_id,
         body,
-        suggestion)
+        suggestion,
+        external_login,
+        forge_comment_id,
+        forge_edited_at)
     SELECT
         o.id,
         @review_id,
         @author_kind::review_author_kind,
         sqlc.narg('author_agent_id'),
         @body,
-        @suggestion
+        @suggestion,
+        sqlc.narg('external_login')::text,
+        sqlc.narg('forge_comment_id')::uuid,
+        sqlc.narg('forge_edited_at')::timestamptz
     FROM
         opened o
     RETURNING
@@ -389,7 +395,10 @@ WITH written AS (
         author_kind,
         author_agent_id,
         body,
-        suggestion)
+        suggestion,
+        external_login,
+        forge_comment_id,
+        forge_edited_at)
     VALUES (
         @thread_id,
         sqlc.narg('review_id'),
@@ -397,7 +406,10 @@ WITH written AS (
         @author_kind,
         sqlc.narg('author_agent_id'),
         @body,
-        @suggestion)
+        @suggestion,
+        sqlc.narg('external_login'),
+        sqlc.narg('forge_comment_id'),
+        sqlc.narg('forge_edited_at'))
 RETURNING
     *
 ),

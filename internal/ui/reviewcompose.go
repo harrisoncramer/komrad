@@ -37,6 +37,7 @@ func (r *reviewScreen) compose(h host, s panelShared) tea.Cmd {
 
 	r.threads.composing = true
 	r.threads.retrying = nil
+	r.threads.accepting = nil
 
 	return r.openInput(s, newReviewInputParams{
 		Title:       reviewInputTitle(replying),
@@ -164,13 +165,14 @@ func (r *reviewScreen) applyMessageEdited(h host, s panelShared, msg messageEdit
 		return nil
 	}
 
-	said, key := "save", formKeys().Submit
+	title, said := r.threads.inputHead()
+	key := formKeys().Submit
 	if r.threads.releasing {
 		said = "send"
 	}
 
 	return r.openInput(s, newReviewInputParams{
-		Title:       reviewInputTitle(r.threads.editing != ""),
+		Title:       title,
 		Description: reviewInputHint(formKeys().Editor, key, said),
 		Body:        strings.TrimRight(msg.body, "\n"),
 	})
@@ -178,6 +180,12 @@ func (r *reviewScreen) applyMessageEdited(h host, s panelShared, msg messageEdit
 
 func (r *reviewScreen) saveMessage(h host, s panelShared) tea.Cmd {
 	body := strings.TrimSpace(r.threads.editor.value())
+	if accepting := r.threads.accepting; accepting != nil {
+		r.threads.cancelMessage()
+
+		return keepUnsent(reviewUnsent{body: body, accept: accepting}, r.acceptCmd(h, s, *accepting, body))
+	}
+
 	if body == "" {
 		r.threads.cancelMessage()
 
@@ -235,6 +243,8 @@ type reviewUnsent struct {
 	body    string
 	// place is where a new thread goes, nil for a reply.
 	place *reviewPlace
+	// accept is the forge thread the message went in with, nil for a message of the reader's own.
+	accept *reviewAccept
 }
 
 func (u *reviewUnsent) getPlace() *reviewPlace {
@@ -277,10 +287,13 @@ func (r *reviewScreen) restoreMessage(s panelShared, unsent reviewUnsent) tea.Cm
 	r.threads.editing = unsent.editing
 	r.threads.composing = true
 	r.threads.retrying = &unsent
+	r.threads.accepting = unsent.accept
+
+	title, said := r.threads.inputHead()
 
 	return r.openInput(s, newReviewInputParams{
-		Title:       reviewInputTitle(unsent.editing != ""),
-		Description: reviewInputHint(formKeys().Editor, formKeys().Submit, "save"),
+		Title:       title,
+		Description: reviewInputHint(formKeys().Editor, formKeys().Submit, said),
 		Body:        unsent.body,
 	})
 }
@@ -290,6 +303,7 @@ func (t *reviewThreads) cancelMessage() {
 	t.editor = reviewInput{}
 	t.composing = false
 	t.retrying = nil
+	t.accepting = nil
 }
 
 func (r reviewScreen) createThreadCmd(h host, s panelShared, place reviewPlace, body string) tea.Cmd {
@@ -522,4 +536,13 @@ func (r reviewScreen) writeMsgCmd(s panelShared, counted int, write func(context
 
 		return wrote
 	}
+}
+
+// inputHead is the composer's title and what its submit key is said to do.
+func (t reviewThreads) inputHead() (string, string) {
+	if t.accepting != nil {
+		return t.accepting.title, "accept"
+	}
+
+	return reviewInputTitle(t.editing != ""), "save"
 }

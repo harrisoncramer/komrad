@@ -45,6 +45,20 @@ func answeredByDana(thread *pullrequestv1.ForgeThread) {
 
 func dismissed(thread *pullrequestv1.ForgeThread) { thread.Dismissed = true }
 
+func acceptedInto(threadID string) func(*pullrequestv1.ForgeThread) {
+	return func(thread *pullrequestv1.ForgeThread) { thread.AcceptedThreadId = &threadID }
+}
+
+func copiesOf(threadID string, commentIDs ...string) *agentv1.ReviewThread {
+	return &agentv1.ReviewThread{
+		Id:      threadID,
+		AgentId: "elsewhere",
+		Messages: xslice.Map(commentIDs, func(id string) *agentv1.ReviewMessage {
+			return &agentv1.ReviewMessage{Forge: &agentv1.ForgeOrigin{CommentId: id}}
+		}),
+	}
+}
+
 func offers(threads ...*pullrequestv1.ForgeThread) map[string]*pullrequestv1.ForgeThread {
 	rows := map[string]*pullrequestv1.ForgeThread{}
 	for _, thread := range threads {
@@ -78,6 +92,7 @@ func TestAgentRowsOfferCounts(t *testing.T) {
 		name        string
 		pullRequest pullRequest
 		threads     []*pullrequestv1.ForgeThread
+		accepted    []*agentv1.ReviewThread
 		want        *agentv1.CommentCounts
 	}{
 		{
@@ -131,6 +146,29 @@ func TestAgentRowsOfferCounts(t *testing.T) {
 			want: &agentv1.CommentCounts{External: 1},
 		},
 		{
+			name:        "an offer accepted as the forge holds it is left out",
+			pullRequest: open,
+			threads: []*pullrequestv1.ForgeThread{
+				offer("f1", "p1", time.Hour, acceptedInto("r1")),
+				offer("f2", "p1", time.Hour),
+			},
+			accepted: []*agentv1.ReviewThread{copiesOf("r1", "f1-c")},
+			want:     &agentv1.CommentCounts{External: 1},
+		},
+		{
+			name:        "an offer answered on the forge since it was accepted counts again",
+			pullRequest: open,
+			threads:     []*pullrequestv1.ForgeThread{offer("f1", "p1", time.Hour, acceptedInto("r1"), answeredByDana)},
+			accepted:    []*agentv1.ReviewThread{copiesOf("r1", "f1-c")},
+			want:        &agentv1.CommentCounts{External: 1},
+		},
+		{
+			name:        "an offer accepted into a thread since discarded counts again",
+			pullRequest: open,
+			threads:     []*pullrequestv1.ForgeThread{offer("f1", "p1", time.Hour, acceptedInto("r1"))},
+			want:        &agentv1.CommentCounts{External: 1},
+		},
+		{
 			name:        "offers on a finished pull request are not counted",
 			pullRequest: merged,
 			threads:     []*pullrequestv1.ForgeThread{offer("f1", "p1", time.Hour)},
@@ -146,9 +184,10 @@ func TestAgentRowsOfferCounts(t *testing.T) {
 			t.Parallel()
 
 			world := assemble.World{
-				Agents:       map[string]*agentv1.Agent{newer: agent(newer)},
-				PullRequests: pullRequests(tt.pullRequest),
-				ForgeThreads: offers(tt.threads...),
+				Agents:        map[string]*agentv1.Agent{newer: agent(newer)},
+				PullRequests:  pullRequests(tt.pullRequest),
+				ForgeThreads:  offers(tt.threads...),
+				ReviewThreads: xslice.KeyBy(tt.accepted, func(thread *agentv1.ReviewThread) string { return thread.GetId() }),
 			}
 
 			rows := assemble.AgentRows(world, now)

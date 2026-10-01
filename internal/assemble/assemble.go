@@ -233,7 +233,7 @@ func AgentRows(w World, now time.Time) []*agentv1.AgentRow {
 		setLocalReview(row, reviewed[agent.GetId()])
 		setCommentCounts(row, reviewed[agent.GetId()], threaded[agent.GetId()])
 		if current := getOpenPullRequest(pullRequests); current != nil {
-			setOfferCounts(row, offered[current.GetId()])
+			setOfferCounts(row, w.ReviewThreads, offered[current.GetId()])
 		}
 
 		rows = append(rows, row)

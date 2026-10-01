@@ -2931,6 +2931,42 @@
         }
       ]
     },
+    "agent.v1.ForgeOrigin": {
+      "name": "ForgeOrigin",
+      "description": "ForgeOrigin is a forge comment as it stood when the person accepted it into their review.",
+      "fields": [
+        {
+          "name": "login",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The forge login of whoever wrote it, empty when the forge no longer knew them."
+        },
+        {
+          "name": "comment_id",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The forge comment it was copied from, which is gone once the forge deletes that comment."
+        },
+        {
+          "name": "edited_at",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "When the forge comment had last been edited, in RFC 3339, unset while it never had been."
+        }
+      ]
+    },
     "agent.v1.ForwardLastTurnsRequest": {
       "name": "ForwardLastTurnsRequest",
       "description": "",
@@ -5102,6 +5138,16 @@
           "oneof": "",
           "rules": [],
           "description": "The round an addressed reply was taken of. Absent on every other message."
+        },
+        {
+          "name": "forge",
+          "type": "ForgeOrigin",
+          "ref": "agent.v1.ForgeOrigin",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The forge comment the person passed on as this message, absent for anything written in komrad."
         }
       ]
     },

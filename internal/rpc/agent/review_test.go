@@ -33,6 +33,7 @@ type fakeReviewer struct {
 	viewed   *reviewstore.ViewedFile
 	listed   []reviews.ListReviewThreadsParams
 	released []reviews.ReleaseReviewParams
+	accepted []reviews.AcceptForgeThreadParams
 }
 
 // TestReviewRefusalsMapToCodes pins the code each refusal of the review service reaches the caller as.
@@ -73,6 +74,26 @@ func TestReviewRefusalsMapToCodes(t *testing.T) {
 			},
 			err:      reviews.ErrReviewNotCurrent,
 			wantCode: connect.CodeFailedPrecondition,
+		},
+		{
+			name: "accepting a forge thread edited since the person read it",
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
+				_, err := svc.AcceptForgeThread(ctx, connect.NewRequest(&agentv1.AcceptForgeThreadRequest{AgentId: betaID}))
+
+				return err
+			},
+			err:      reviews.ErrForgeThreadMoved,
+			wantCode: connect.CodeFailedPrecondition,
+		},
+		{
+			name: "an agent accepting a forge thread",
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
+				_, err := svc.AcceptForgeThread(ctx, connect.NewRequest(&agentv1.AcceptForgeThreadRequest{AgentId: betaID}))
+
+				return err
+			},
+			err:      reviews.ErrReviewHumanOnly,
+			wantCode: connect.CodePermissionDenied,
 		},
 		{
 			name: "a person releasing with a verdict",
@@ -608,6 +629,16 @@ func (f *fakeReviewer) CreateReviewThread(context.Context, reviews.CreateReviewT
 	return &reviews.ReviewThreadWithMessages{Thread: f.thread}, nil
 }
 
+// AcceptForgeThread records the accept and answers the thread it holds with the message it holds.
+func (f *fakeReviewer) AcceptForgeThread(_ context.Context, params reviews.AcceptForgeThreadParams) (*reviews.ReviewThreadWithMessages, error) {
+	f.accepted = append(f.accepted, params)
+	if f.err != nil {
+		return nil, f.err
+	}
+
+	return &reviews.ReviewThreadWithMessages{Thread: f.thread, Messages: []reviewstore.Message{f.message}}, nil
+}
+
 // AddReviewMessage answers the message it holds.
 func (f *fakeReviewer) AddReviewMessage(context.Context, reviews.AddReviewMessageParams) (*reviews.AddReviewMessageResult, error) {
 	if f.err != nil {
@@ -713,4 +744,57 @@ func (f *fakeReviewer) ListReviewViewedFiles(context.Context, reviews.ListReview
 	}
 
 	return nil, nil
+}
+
+// TestAcceptForgeThreadPassesWhatWasRead covers the comments and edits the panel read reaching the service.
+func TestAcceptForgeThreadPassesWhatWasRead(t *testing.T) {
+	edited := time.Date(2026, time.September, 30, 12, 0, 0, 0, time.UTC)
+	reviewer := &fakeReviewer{
+		thread: reviewstore.Thread{ID: "thread-1", AgentID: betaID, FilePath: "greet.go"},
+		message: reviewstore.Message{
+			ID:         "message-1",
+			ThreadID:   "thread-1",
+			AuthorKind: reviewstore.AuthorHuman,
+			Body:       "this leaks the handle",
+			External:   &reviewstore.External{Login: "dana", CommentID: "comment-1", EditedAt: &edited},
+		},
+	}
+	svc := newReviewHandler(reviewer)
+
+	got, err := svc.AcceptForgeThread(t.Context(), connect.NewRequest(&agentv1.AcceptForgeThreadRequest{
+		AgentId:       betaID,
+		ForgeThreadId: "forge-1",
+		Seen: []*agentv1.SeenForgeComment{
+			{Id: "comment-1", EditedAt: xptr.Ptr("2026-09-30T12:00:00Z")},
+			{Id: "comment-2"},
+		},
+		FilePath:    "greet.go",
+		SnapshotSha: "abc123",
+		NewStart:    4,
+		NewEnd:      4,
+		QuotedLines: []string{"+\topen()"},
+		Note:        "agreed, close it",
+	}))
+	require.NoError(t, err)
+
+	assert.Equal(t, []reviews.AcceptForgeThreadParams{{
+		AgentID:       betaID,
+		ForgeThreadID: "forge-1",
+		Seen: []reviews.SeenForgeComment{
+			{ID: "comment-1", EditedAt: &edited},
+			{ID: "comment-2"},
+		},
+		FilePath:    "greet.go",
+		SnapshotSHA: "abc123",
+		NewStart:    4,
+		NewEnd:      4,
+		QuotedLines: []string{"+\topen()"},
+		Note:        "agreed, close it",
+		Author:      reviews.ReviewAuthor{Kind: reviewstore.AuthorHuman},
+	}}, reviewer.accepted)
+	assert.Empty(t, cmp.Diff(&agentv1.ForgeOrigin{
+		Login:     "dana",
+		CommentId: "comment-1",
+		EditedAt:  xptr.Ptr("2026-09-30T12:00:00Z"),
+	}, got.Msg.GetThread().GetMessages()[0].GetForge(), protocmp.Transform()))
 }

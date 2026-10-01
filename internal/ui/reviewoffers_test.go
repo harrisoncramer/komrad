@@ -7,6 +7,8 @@ import (
 	"komrad/internal/gittest"
 	"komrad/internal/position"
 	"komrad/lib/xptr"
+	agentv1 "komrad/proto/gen/agent/v1"
+	"komrad/proto/gen/agent/v1/agentv1connect"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 	"komrad/proto/gen/pullrequest/v1/pullrequestv1connect"
 
@@ -230,9 +232,85 @@ func TestReviewOffers(t *testing.T) {
 		assert.Contains(t, harness.readFrame(), "gone.go:40 is not in this diff")
 	})
 
+	t.Run("A accepts the offer under the cursor with what was read and a note", func(t *testing.T) {
+		harness := openReviewAt(t, newOfferedReviewServer(t, newOffer("f1", "dana", "rename this", 1)), panelHarnessParams{height: 40})
+		harness.press("?")
+		require.Contains(t, readLegend(harness.readFrame()), "accept the forge comment")
+		harness.press("?")
+
+		harness.press("A")
+		frame := harness.readFrame()
+		assert.Contains(t, frame, "Accept @dana's comment")
+		assert.Contains(t, readPopupProse(frame), "rename this")
+		typeText(harness, "agreed")
+		harness.press("ctrl+s")
+
+		harness.assertSentTo(agentv1connect.AgentServiceAcceptForgeThreadProcedure, &agentv1.AcceptForgeThreadRequest{
+			AgentId:       "a1",
+			ForgeThreadId: "f1",
+			Seen:          []*agentv1.SeenForgeComment{{Id: "f1-c"}},
+			FilePath:      gittest.File,
+			OldStart:      1,
+			OldEnd:        1,
+			NewStart:      1,
+			NewEnd:        1,
+			QuotedLines:   []string{" package greet"},
+			BaseSha:       gittest.BaseSHA,
+			SnapshotSha:   gittest.SnapshotSHA,
+			Note:          "agreed",
+		})
+	})
+
+	t.Run("an accepted offer is drawn in the thread it went into and A is not offered", func(t *testing.T) {
+		offer := newOffer("f1", "dana", "rename this", 1)
+		offer.AcceptedThreadId = xptr.Ptr("t1")
+		server := newOfferedReviewServer(t, offer)
+		server.threads = []*agentv1.ReviewThread{newThreadOnFirstLine(newForgeMessage("m1", "f1-c", "dana", "rename this"))}
+		harness := openReviewAt(t, server, panelHarnessParams{height: 40})
+
+		frame := harness.readFrame()
+		assert.Contains(t, readPopupProse(frame), "@dana on the forge")
+		harness.press("?")
+		assert.NotContains(t, readLegend(harness.readFrame()), "accept")
+	})
+
+	t.Run("A on an accepted offer the forge has added to brings in what changed", func(t *testing.T) {
+		offer := newOffer("f1", "dana", "rename this", 1)
+		offer.AcceptedThreadId = xptr.Ptr("t1")
+		offer.Comments = append(offer.Comments, &pullrequestv1.ForgeComment{Id: "f1-d", AuthorLogin: "lee", Body: "and the test"})
+		server := newOfferedReviewServer(t, offer)
+		server.threads = []*agentv1.ReviewThread{newThreadOnFirstLine(newForgeMessage("m1", "f1-c", "dana", "rename this"))}
+		harness := openReviewAt(t, server, panelHarnessParams{height: 40})
+		harness.press("?")
+		require.Contains(t, readLegend(harness.readFrame()), "accept what changed")
+		harness.press("?")
+
+		harness.press("A")
+		harness.press("ctrl+s")
+
+		harness.assertSentTo(agentv1connect.AgentServiceAcceptForgeThreadProcedure, &agentv1.AcceptForgeThreadRequest{
+			AgentId:       "a1",
+			ForgeThreadId: "f1",
+			Seen:          []*agentv1.SeenForgeComment{{Id: "f1-c"}, {Id: "f1-d"}},
+			FilePath:      gittest.File,
+			OldStart:      1,
+			NewStart:      1,
+			QuotedLines:   []string{" package greet"},
+		})
+	})
+
 	t.Run("a review with no offers leaves J to the comment under the cursor", func(t *testing.T) {
 		harness := openReviewAt(t, newReviewServer(t), panelHarnessParams{height: 40})
 
 		assert.NotContains(t, readLegend(harness.readFrame()), "next comment from the forge")
 	})
+}
+
+func newForgeMessage(id, commentID, login, body string) *agentv1.ReviewMessage {
+	return &agentv1.ReviewMessage{
+		Id:         id,
+		AuthorKind: agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN,
+		Body:       body,
+		Forge:      &agentv1.ForgeOrigin{Login: login, CommentId: commentID},
+	}
 }

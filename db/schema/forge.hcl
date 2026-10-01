@@ -398,6 +398,11 @@ table "forge_review_threads" {
     type    = timestamptz
     comment = "When the person dismissed the thread in their review, null while they never have. A dismissed thread is still drawn but no longer counted. The sync leaves it alone, and a comment written on the forge after it makes the thread active again."
   }
+  column "accepted_thread_id" {
+    null    = true
+    type    = uuid
+    comment = "The review thread the person accepted this thread into, null while they never have. Deleting that review thread, as discarding an unsent review does, makes this an offer again."
+  }
   column "created_at" {
     null    = false
     type    = timestamptz
@@ -432,6 +437,12 @@ table "forge_review_threads" {
     columns     = [column.engine_id, column.pull_request_id]
     ref_columns = [table.pull_requests.column.engine_id, table.pull_requests.column.id]
     on_delete   = CASCADE
+    on_update   = NO_ACTION
+  }
+  foreign_key "forge_review_threads_accepted_thread_id_fkey" {
+    columns     = [column.engine_id, column.accepted_thread_id]
+    ref_columns = [table.review_threads.column.engine_id, table.review_threads.column.id]
+    on_delete   = SET_NULL
     on_update   = NO_ACTION
   }
   index "forge_review_threads_pull_request_id" {
