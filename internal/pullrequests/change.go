@@ -74,13 +74,7 @@ func Moved(field Field, from, to *string) *Move {
 }
 
 // NewChange is the change for the fields of a pull request that moved, nil when none did.
-func NewChange(id string, moved ...*Move) *Change {
-	var moves []Move
-	for _, move := range moved {
-		if move != nil {
-			moves = append(moves, *move)
-		}
-	}
+func NewChange(id string, moves []Move) *Change {
 	if len(moves) == 0 {
 		return nil
 	}

@@ -360,15 +360,17 @@ func (s *PullRequestSyncer) write(ctx context.Context, pullRequests []forge.Pull
 				result.hotUntil = until
 			}
 
-			standingMoved := standingMoves(change)
+			moves := standingMoves(change)
 			if upsert.State != "OPEN" {
-				standingMoved = slices.DeleteFunc(standingMoved, func(move *Move) bool {
-					return move != nil && move.From == ""
+				moves = slices.DeleteFunc(moves, func(move Move) bool {
+					return move.From == ""
 				})
 			}
-			moved := append([]*Move{Moved(FieldState, outcome.OldState, &upsert.State)}, standingMoved...)
+			if stateMove := Moved(FieldState, outcome.OldState, &upsert.State); stateMove != nil {
+				moves = append([]Move{*stateMove}, moves...)
+			}
 
-			if change := NewChange(outcome.ID, moved...); change != nil {
+			if change := NewChange(outcome.ID, moves); change != nil {
 				event, err := events.NewEvent(change)
 				if err != nil {
 					return nil, err
@@ -386,14 +388,14 @@ func (s *PullRequestSyncer) write(ctx context.Context, pullRequests []forge.Pull
 	return result, nil
 }
 
-func standingMoves(change *pullrequeststore.StandingChange) []*Move {
-	var moves []*Move
+func standingMoves(change *pullrequeststore.StandingChange) []Move {
+	var moves []Move
 	for _, move := range change.After.ListMovesSince(change.Before) {
 		field := Field(move.Field)
 		if move.From == "" && !slices.Contains(alarming[field], move.To) {
 			continue
 		}
-		moves = append(moves, &Move{
+		moves = append(moves, Move{
 			Field: field,
 			From:  move.From,
 			To:    move.To,
