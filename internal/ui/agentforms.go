@@ -35,7 +35,6 @@ func openNewAgent(h host, workflow *panel.Workflow) tea.Cmd {
 func agentPrefill(workflow panel.Workflow) agentFormValues {
 	return agentFormValues{
 		Harness:  workflow.Harness,
-		Dir:      workflow.Cwd,
 		Worktree: inheritWorktree,
 	}
 }
@@ -157,7 +156,6 @@ func (m model) submitAgent(workflow panel.Workflow, values agentFormValues) (mod
 		Prompt:           values.Prompt,
 		Title:            values.Title,
 		Harness:          values.Harness,
-		Dir:              m.currentDir(values.Dir),
 		Flags:            values.Flags,
 		ProvisionEnabled: worktreeOverride(values.Worktree),
 		WorkflowID:       workflow.ID,
@@ -213,7 +211,6 @@ type agentFormValues struct {
 	Prompt   string
 	Title    string
 	Harness  string
-	Dir      string
 	Flags    string
 	Worktree string
 }
@@ -228,16 +225,18 @@ const (
 // newAgentForm asks for the work, and asks about the worktree only in a workflow that makes
 // them.
 func newAgentForm(keys config.FormKeys, values *agentFormValues, worktree bool) (*huh.Form, []string) {
-	fields := append([]huh.Field{
+	fields := []huh.Field{
 		textField("prompt").Title("Initial prompt").Description(fmt.Sprintf("%s opens $EDITOR; %s submits", keyLabel(keys.Editor), keyLabel(keys.Submit))).Value(&values.Prompt),
 		huh.NewInput().Key("title").Title("Title").Value(&values.Title),
-	}, blueprintFields("", &values.Harness, &values.Dir, &values.Flags)...)
+		huh.NewInput().Key("harness").Title("Agent").Placeholder("claude").Value(&values.Harness),
+		huh.NewInput().Key("flags").Title("Flags").Placeholder("--model opus").Value(&values.Flags),
+	}
 
 	if worktree {
 		fields = append(fields, huh.NewSelect[string]().Key("worktree").Title("Worktree").
 			Options(
 				huh.NewOption("Same as workflow: its own worktree", inheritWorktree),
-				huh.NewOption("None: run in the directory above", withoutWorktree),
+				huh.NewOption("None: run in the workflow's directory", withoutWorktree),
 			).Value(&values.Worktree))
 	}
 

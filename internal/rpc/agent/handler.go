@@ -170,7 +170,6 @@ var errNoIDToFallBackOn = fail.InvalidArgument("no id given, and the caller has 
 func (s *Handler) CreateAgent(ctx context.Context, req *agentv1.CreateAgentRequest) (*agentv1.CreateAgentResponse, *fail.Error) {
 	created, err := s.creator.NewAgent(ctx, agents.NewAgentParams{
 		Title:            req.GetTitle(),
-		Dir:              req.GetDir(),
 		Flags:            req.GetFlags(),
 		ProvisionEnabled: req.ProvisionEnabled,
 		Prompt:           req.GetPrompt(),

@@ -40,26 +40,13 @@ func TestFormsSubmit(t *testing.T) {
 		want      proto.Message
 	}{
 		{
-			name:      "the new-agent form in a workflow with no directory sends the one tmux was invoked from",
-			workflow:  &workflowv1.Workflow{Id: "w1", Name: "api"},
-			hostPath:  "/work/from-tmux",
-			press:     slices.Concat([]string{"space", "c"}, spellKeys("check CI"), []string{"ctrl+s"}),
-			procedure: agentv1connect.AgentServiceCreateAgentProcedure,
-			want: &agentv1.CreateAgentRequest{
-				Prompt:     "check CI",
-				Dir:        "/work/from-tmux",
-				WorkflowId: "w1",
-			},
-		},
-		{
-			name:      "the new-agent form sends the workflow's directory and an overridden harness",
+			name:      "the new-agent form sends an overridden harness",
 			press:     slices.Concat([]string{"space", "c"}, spellKeys("check CI"), []string{"tab"}, spellKeys("ci"), []string{"tab", "ctrl+u"}, spellKeys("codex"), []string{"ctrl+s"}),
 			procedure: agentv1connect.AgentServiceCreateAgentProcedure,
 			want: &agentv1.CreateAgentRequest{
 				Prompt:     "check CI",
 				Title:      "ci",
 				Harness:    "codex",
-				Dir:        "/work/api",
 				WorkflowId: "w1",
 			},
 		},
