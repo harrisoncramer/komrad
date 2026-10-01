@@ -16,6 +16,7 @@ import (
 	reviewstore "komrad/internal/store/review"
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/internal/storetest"
+	"komrad/internal/worktrees"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
 
@@ -624,6 +625,9 @@ func (f *syncFixture) newSyncer(params NewCwdSyncerParams) *CwdSyncer {
 	}
 	if params.Trees == nil {
 		params.Trees = buildEmptyTrees()
+	}
+	if trees, ok := params.Trees.(*gittest.Trees); ok && params.Checkouts == nil {
+		params.Checkouts = worktrees.NewCheckoutReader(worktrees.NewCheckoutReaderParams{Git: trees})
 	}
 	if params.PullRequests == nil {
 		params.PullRequests = &countingPullRequestObserver{}

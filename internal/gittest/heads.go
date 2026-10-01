@@ -117,3 +117,28 @@ func (t *Trees) ReadDiffStat(_ context.Context, params git.ReadDiffStatParams) (
 
 	return &stat, nil
 }
+
+// ReadChanges answers that nothing is uncommitted.
+func (t *Trees) ReadChanges(context.Context, string) (git.Changes, error) {
+	return git.Changes{}, nil
+}
+
+// PeekChanges answers that nothing is uncommitted.
+func (t *Trees) PeekChanges(context.Context, string) (git.Changes, error) {
+	return git.Changes{}, nil
+}
+
+// ReadTreeState answers that nothing is part-way through.
+func (t *Trees) ReadTreeState(context.Context, string) (git.TreeState, error) {
+	return git.TreeState{}, nil
+}
+
+// IsSequenceInProgress answers that nothing is part-way through.
+func (t *Trees) IsSequenceInProgress(context.Context, string) (bool, error) {
+	return false, nil
+}
+
+// PredictRebase answers that every commit is still to land.
+func (t *Trees) PredictRebase(context.Context, string, string) (git.Prediction, error) {
+	return git.Prediction{}, nil
+}

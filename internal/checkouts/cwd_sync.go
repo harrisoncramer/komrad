@@ -12,6 +12,7 @@ import (
 	agentstore "komrad/internal/store/agent"
 	reviewstore "komrad/internal/store/review"
 	workflowstore "komrad/internal/store/workflow"
+	"komrad/internal/worktrees"
 	"komrad/lib/xptr"
 
 	"github.com/harrisoncramer/streamer"
@@ -36,8 +37,6 @@ type treeReader interface {
 	ReadBaseTip(ctx context.Context, dir, base string) (string, error)
 	HasLanded(ctx context.Context, params git.HasLandedParams) (bool, error)
 	FetchBase(ctx context.Context, dir, base string) (ref, sha string, err error)
-	ResolveBase(ctx context.Context, dir, base string) (string, error)
-	ReadDiffStat(ctx context.Context, params git.ReadDiffStatParams) (*git.DiffStat, error)
 }
 
 type pullRequestObserver interface {
@@ -49,6 +48,7 @@ type NewCwdSyncerParams struct {
 	Agents       *agentstore.AgentStore
 	Heads        headReader
 	Trees        treeReader
+	Checkouts    *worktrees.CheckoutReader
 	Rounds       *reviewstore.ReviewStore
 	Workflows    *workflowstore.WorkflowStore
 	PullRequests pullRequestObserver
@@ -60,6 +60,7 @@ type CwdSyncer struct {
 	agents       *agentstore.AgentStore
 	heads        headReader
 	trees        treeReader
+	checkouts    *worktrees.CheckoutReader
 	rounds       *reviewstore.ReviewStore
 	workflows    *workflowstore.WorkflowStore
 	pullRequests pullRequestObserver
@@ -78,6 +79,7 @@ func NewCwdSyncer(params NewCwdSyncerParams) *CwdSyncer {
 		agents:       params.Agents,
 		heads:        params.Heads,
 		trees:        params.Trees,
+		checkouts:    params.Checkouts,
 		rounds:       params.Rounds,
 		workflows:    params.Workflows,
 		pullRequests: params.PullRequests,
@@ -497,24 +499,13 @@ func (cs *CwdSyncer) measure(ctx context.Context, look *cwdLook, config workflow
 	ctx, cancel := context.WithTimeout(ctx, cwdLookTimeout)
 	defer cancel()
 
-	root := look.head.Root
-	ref, err := cs.trees.ResolveBase(ctx, root, config.BaseBranch)
-	if errors.Is(err, git.ErrBaseMissing) {
-		return
-	}
-	if err != nil {
-		look.keepDiffStat(err)
-
-		return
-	}
-
-	stat, err := cs.trees.ReadDiffStat(ctx, git.ReadDiffStatParams{
-		Dir:     root,
-		Ref:     ref,
+	stat, err := cs.checkouts.MeasureDiff(ctx, worktrees.MeasureDiffParams{
+		Dir:     look.head.Root,
+		Base:    config.BaseBranch,
 		Tree:    look.tree,
 		Exclude: config.DiffExclude,
 	})
-	if errors.Is(err, git.ErrBaseUnrelated) {
+	if errors.Is(err, git.ErrBaseMissing) || errors.Is(err, git.ErrBaseUnrelated) {
 		return
 	}
 	if err != nil {

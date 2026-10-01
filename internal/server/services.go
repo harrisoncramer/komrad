@@ -221,6 +221,7 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 				Agents:       st.agents,
 				Heads:        gitClient,
 				Trees:        gitClient,
+				Checkouts:    worktrees.NewCheckoutReader(worktrees.NewCheckoutReaderParams{Git: gitClient}),
 				Rounds:       st.review,
 				Workflows:    st.workflows,
 				PullRequests: st.pullRequests,
