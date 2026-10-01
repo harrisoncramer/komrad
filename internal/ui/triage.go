@@ -3,6 +3,7 @@ package ui
 import (
 	"cmp"
 	"fmt"
+	"maps"
 	"slices"
 	"time"
 
@@ -276,29 +277,29 @@ func (z *triageZone) refreeze(family triageFamily, agents []panel.AgentRow) {
 		return
 	}
 
-	all := findTriageFamilies(z.entries, agents)
-	families := xslice.KeyBy(all, func(f triageFamily) string { return f.head.Agent.ID })
+	families := z.familiesByHead(agents)
 	others := xslice.Filter(z.frozen, func(id string) bool { return id != headID })
-	at := slices.IndexFunc(others, func(id string) bool {
+	place := findInsertIndex(others, func(id string) bool {
 		other, ok := families[id]
 
 		return ok && z.compareFamilies(family, other) < 0
 	})
-	if at < 0 {
-		at = len(others)
-	}
+	frozen := slices.Insert(others, place, headID)
 
-	frozen := slices.Insert(others, at, headID)
-	waiting := xslice.Filter(all, func(f triageFamily) bool {
+	waiting := xslice.Filter(slices.Collect(maps.Values(families)), func(f triageFamily) bool {
 		return !z.isSnoozed(f.head.Agent.ID) && !slices.Contains(frozen, f.head.Agent.ID)
 	})
 	slices.SortFunc(waiting, z.compareFamilies)
-	firstSnoozed := slices.IndexFunc(frozen, z.isSnoozed)
-	if firstSnoozed < 0 {
-		firstSnoozed = len(frozen)
+	z.frozen = slices.Insert(frozen, findInsertIndex(frozen, z.isSnoozed), xslice.Map(waiting, func(f triageFamily) string { return f.head.Agent.ID })...)
+}
+
+// findInsertIndex is the index of the first id that goes after the one being inserted, or the end.
+func findInsertIndex(ids []string, before func(string) bool) int {
+	if at := slices.IndexFunc(ids, before); at >= 0 {
+		return at
 	}
 
-	z.frozen = slices.Insert(frozen, firstSnoozed, xslice.Map(waiting, func(f triageFamily) string { return f.head.Agent.ID })...)
+	return len(ids)
 }
 
 // seeFinished snoozes the agent's family when it waits only to be looked at.
