@@ -75,6 +75,9 @@ const (
 	reviewEmptyWord   = "nothing changed in this worktree"
 )
 
+// reviewNoFileWord is what the tree says when its search matches no file.
+const reviewNoFileWord = "no file matches"
+
 // diffNotice is what stands in the diff's own column before a patch does.
 func (r reviewScreen) diffNotice(s panelShared) string {
 	if r.loading {

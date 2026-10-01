@@ -101,7 +101,7 @@ func (r reviewScreen) filesView(s panelShared, lines int) string {
 	}
 
 	if len(rows) == 0 {
-		rows = append(rows, dimStyle().Render(strings.Repeat(" ", filesGutter)+"no file matches"))
+		rows = append(rows, dimStyle().Render(strings.Repeat(" ", filesGutter)+reviewNoFileWord))
 	}
 
 	header := ansi.Truncate(r.filesFilter.line(paint.Panel, s.glyphs), max(width, 0), "…") + "\n"
@@ -412,7 +412,7 @@ func (r *reviewScreen) jumpFilesMatch(h navHost, s panelShared, direction int) t
 		return r.landOnFile(h, s, row)
 	}
 
-	h.note(messageWarning, "no file matches")
+	h.note(messageWarning, reviewNoFileWord)
 
 	return nil
 }
