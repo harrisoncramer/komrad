@@ -18,9 +18,8 @@ const (
 
 const (
 	// AutoMergeOn is auto-merge turned on, in the words a move carries.
-	AutoMergeOn = "on"
-	// AutoMergeOff is auto-merge turned off, in the words a move carries.
-	AutoMergeOff = "off"
+	AutoMergeOn  = "on"
+	autoMergeOff = "off"
 )
 
 // StandingMove is one part of a pull request's standing going from one value to another.
@@ -109,7 +108,7 @@ func (rs RememberedStanding) ListMovesSince(before RememberedStanding) []Standin
 			To:    string(rs.Mergeability.Value),
 		})
 	}
-	if from, to := describeAutoMerge(before.AutoMerge), describeAutoMerge(rs.AutoMerge); from != to {
+	if from, to := DescribeAutoMerge(before.AutoMerge), DescribeAutoMerge(rs.AutoMerge); from != to {
 		moves = append(moves, StandingMove{
 			Field: StandingFieldAutoMerge,
 			From:  from,
@@ -125,15 +124,15 @@ func isOnNewHead(before, after RememberedAnswer[Checks]) bool {
 	return before.HeadSHA != "" && after.HeadSHA != "" && before.HeadSHA != after.HeadSHA
 }
 
-// describeAutoMerge says whether auto-merge is on in the words a move carries.
-func describeAutoMerge(autoMerge *AutoMerge) string {
+// DescribeAutoMerge says whether auto-merge is on in the words a move carries, empty before it was read.
+func DescribeAutoMerge(autoMerge *AutoMerge) string {
 	switch {
 	case autoMerge == nil:
 		return ""
 	case autoMerge.On:
 		return AutoMergeOn
 	default:
-		return AutoMergeOff
+		return autoMergeOff
 	}
 }
 

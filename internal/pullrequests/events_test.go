@@ -51,8 +51,8 @@ func TestEventsOf(t *testing.T) {
 			name: "turning auto-merge on starts it",
 			moves: []Move{{
 				Field: FieldAutoMerge,
-				From:  forge.AutoMergeOff,
-				To:    forge.AutoMergeOn,
+				From:  "off",
+				To:    "on",
 			}},
 			pullRequest: pullrequeststore.PullRequest{State: "OPEN"},
 			read:        forge.Standing{AutoMerge: forge.AutoMerge{On: true}},

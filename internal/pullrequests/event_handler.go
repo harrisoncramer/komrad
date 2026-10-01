@@ -94,17 +94,13 @@ func render(pullRequest pullrequeststore.PullRequest) string {
 // fieldValues is the value each field of the pull request stands at.
 func fieldValues(pullRequest pullrequeststore.PullRequest) map[Field]string {
 	displayed := pullRequest.Standing.DisplayForHead(pullRequest.HeadSHA)
-	autoMerge := forge.AutoMergeOff
-	if displayed.AutoMerge.On {
-		autoMerge = forge.AutoMergeOn
-	}
 
 	return map[Field]string{
 		FieldState:        pullRequest.State,
 		FieldDecision:     string(displayed.Decision.Value),
 		FieldChecks:       string(displayed.Checks.Value),
 		FieldMergeability: string(displayed.Mergeability.Value),
-		FieldAutoMerge:    autoMerge,
+		FieldAutoMerge:    forge.DescribeAutoMerge(pullRequest.Standing.AutoMerge),
 	}
 }
 
