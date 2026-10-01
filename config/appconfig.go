@@ -345,7 +345,8 @@ type MergeKeys struct {
 }
 
 // MenuKeys are the bindings for the menu, which lists the hovered row's entries over the
-// panel's own. The rows with entries are an agent, a workflow, a schedule, and every row of the archive.
+// panel's own. The rows with entries are an agent, a workflow, a schedule, a worktree, and every
+// row of the archive.
 type MenuKeys struct {
 	// Open the menu from any screen: the hovered row's entries, or the chosen agents', over the
 	// entries that act on the panel itself.
@@ -366,7 +367,8 @@ type MenuKeys struct {
 	// merging its pull request.
 	Git []string `mapstructure:"git" default:"g"`
 	// Open the archive menu to the right of this one, for archiving the hovered agent, workflow or
-	// schedule or every chosen agent, or for restoring or deleting a row of the archive.
+	// schedule or every chosen agent, for restoring or deleting a row of the archive, or for
+	// deleting worktrees.
 	Archive []string `mapstructure:"archive" default:"a"`
 	// Open the hide menu to the right of this one, for hiding the hovered agent or showing the
 	// hidden ones. The entry is only on the agents list.
@@ -496,14 +498,6 @@ type LogsKeys struct {
 type WorktreesKeys struct {
 	// Open the view switcher.
 	Back []string `mapstructure:"back" default:"esc"`
-	// Delete everything on the screen that can go: every directory whose agent is archived,
-	// through the agent delete and its hooks, and every directory no agent answers for. A
-	// directory with a live agent in it is never deleted.
-	Clear []string `mapstructure:"clear" default:"D"`
-	// Delete the directory under the cursor. One with an archived agent goes through the
-	// agent delete, which runs the workflow's hooks and the cleanup; one with a live agent
-	// offers to archive it first; one nothing answers for is removed on its own. It asks first.
-	Delete []string `mapstructure:"delete" default:"d"`
 	// Jump to the agent in the directory under the cursor, on the agents list or in the
 	// archive.
 	JumpToAgent []string `mapstructure:"jump_to_agent" default:"J"`
@@ -646,13 +640,19 @@ type ArchiveMenuKeys struct {
 	// Archive the agent, workflow or schedule, or every chosen agent.
 	Archive []string `mapstructure:"archive" default:"a"`
 	// Destroy the row for good, with its transcript or its run history, archiving a live agent
-	// first. Nothing undoes it, so it asks first.
+	// first. On the worktrees it deletes the directory, through the agent delete when an archived
+	// agent answers for it. Nothing undoes it, so it asks first.
 	Delete []string `mapstructure:"delete" default:"d"`
 	// Put the row back in the panel.
 	Restore []string `mapstructure:"restore" default:"r"`
 	// Put the agent back in the panel and open it, which relaunches its conversation in a pane
 	// and takes you to it. The entry is gray on an agent that never got as far as starting.
 	RestoreOpen []string `mapstructure:"restore_open" default:"o"`
+	// Delete every worktree that can go: every directory whose agent is archived, through the
+	// agent delete and its hooks, and every directory no agent answers for. A directory with a
+	// live agent in it is never deleted. The entry is only on the worktrees screen, and is gray
+	// when nothing there can go.
+	Clear []string `mapstructure:"clear" default:"c"`
 }
 
 // Hooks is where komrad finds the scripts a workflow hangs on a moment in its agents' lives.

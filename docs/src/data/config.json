@@ -284,7 +284,7 @@
               "key": "delete",
               "path": "keybindings.archive_menu.delete",
               "type": "array",
-              "description": "Destroy the row for good, with its transcript or its run history, archiving a live agent\nfirst. Nothing undoes it, so it asks first.",
+              "description": "Destroy the row for good, with its transcript or its run history, archiving a live agent\nfirst. On the worktrees it deletes the directory, through the agent delete when an archived\nagent answers for it. Nothing undoes it, so it asks first.",
               "default": "[\"d\"]"
             },
             {
@@ -300,6 +300,13 @@
               "type": "array",
               "description": "Put the agent back in the panel and open it, which relaunches its conversation in a pane\nand takes you to it. The entry is gray on an agent that never got as far as starting.",
               "default": "[\"o\"]"
+            },
+            {
+              "key": "clear",
+              "path": "keybindings.archive_menu.clear",
+              "type": "array",
+              "description": "Delete every worktree that can go: every directory whose agent is archived, through the\nagent delete and its hooks, and every directory no agent answers for. A directory with a\nlive agent in it is never deleted. The entry is only on the worktrees screen, and is gray\nwhen nothing there can go.",
+              "default": "[\"c\"]"
             }
           ],
           "sections": []
@@ -1047,7 +1054,7 @@
               "key": "archive",
               "path": "keybindings.menu.archive",
               "type": "array",
-              "description": "Open the archive menu to the right of this one, for archiving the hovered agent, workflow or\nschedule or every chosen agent, or for restoring or deleting a row of the archive.",
+              "description": "Open the archive menu to the right of this one, for archiving the hovered agent, workflow or\nschedule or every chosen agent, for restoring or deleting a row of the archive, or for\ndeleting worktrees.",
               "default": "[\"a\"]"
             },
             {
@@ -1196,20 +1203,6 @@
               "type": "array",
               "description": "Open the view switcher.",
               "default": "[\"esc\"]"
-            },
-            {
-              "key": "clear",
-              "path": "keybindings.worktrees.clear",
-              "type": "array",
-              "description": "Delete everything on the screen that can go: every directory whose agent is archived,\nthrough the agent delete and its hooks, and every directory no agent answers for. A\ndirectory with a live agent in it is never deleted.",
-              "default": "[\"D\"]"
-            },
-            {
-              "key": "delete",
-              "path": "keybindings.worktrees.delete",
-              "type": "array",
-              "description": "Delete the directory under the cursor. One with an archived agent goes through the\nagent delete, which runs the workflow's hooks and the cleanup; one with a live agent\noffers to archive it first; one nothing answers for is removed on its own. It asks first.",
-              "default": "[\"d\"]"
             },
             {
               "key": "jump_to_agent",

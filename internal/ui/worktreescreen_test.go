@@ -3,6 +3,7 @@ package ui_test
 import (
 	"errors"
 	"fmt"
+	"regexp"
 	"slices"
 	"strings"
 	"testing"
@@ -138,7 +139,7 @@ func TestWorktreesJump(t *testing.T) {
 	}
 }
 
-// TestWorktreesDelete covers what each delete key opens on the row under the cursor.
+// TestWorktreesDelete covers what each delete entry opens on the row under the cursor.
 func TestWorktreesDelete(t *testing.T) {
 	t.Parallel()
 
@@ -152,43 +153,43 @@ func TestWorktreesDelete(t *testing.T) {
 		{
 			name:       "a repository header opens nothing",
 			row:        "/home/h/komrad",
-			press:      []string{"d"},
+			press:      []string{"space", "a", "d"},
 			wantAbsent: "Delete",
 		},
 		{
 			name:      "a selection holding a live agent archives it first",
 			row:       "treeview",
-			press:     []string{"v", "j", "v", "d"},
+			press:     []string{"v", "j", "v", "space", "a", "d"},
 			wantDrawn: `Delete 2 worktrees? This first archives agent "treeview", closing any pane still open.`,
 		},
 		{
 			name:      "a live agent is offered the archive",
 			row:       "treeview",
-			press:     []string{"d"},
+			press:     []string{"space", "a", "a"},
 			wantDrawn: `Archive agent "treeview"?`,
 		},
 		{
 			name:      "an archived agent's directory is offered the delete, which keeps a branch nothing else holds",
 			row:       "reviewer",
-			press:     []string{"d"},
+			press:     []string{"space", "a", "d"},
 			wantDrawn: "Delete the worktree of reviewer? The directory goes through the agent delete",
 		},
 		{
 			name:      "a directory nothing answers for is offered the delete on its own",
 			row:       "broken",
-			press:     []string{"d"},
+			press:     []string{"space", "a", "d"},
 			wantDrawn: "Delete the worktree of broken? The directory nothing answers for is removed on its own",
 		},
 		{
 			name:      "a selection of an archived and two unowned directories counts them",
 			row:       "reviewer",
-			press:     []string{"v", "j", "j", "v", "j", "j", "v", "d"},
+			press:     []string{"v", "j", "j", "v", "j", "j", "v", "space", "a", "d"},
 			wantDrawn: "Delete 3 worktrees? The directory goes through the agent delete",
 		},
 		{
 			name:      "clear gathers everything but the live directory",
 			row:       "treeview",
-			press:     []string{"D"},
+			press:     []string{"space", "a", "c"},
 			wantDrawn: "Delete 4 worktrees?",
 		},
 	}
@@ -224,10 +225,65 @@ func TestWorktreesDelete(t *testing.T) {
 		)
 		moveToWorktree(t, harness, "stuck")
 
-		harness.press("d")
+		harness.press("space", "a", "d")
 
 		assert.Contains(t, readFormProse(harness.readFrame()), "The directory nothing answers for is removed on its own")
 	})
+
+	t.Run("clear is gray and asks nothing when only live directories are listed", func(t *testing.T) {
+		t.Parallel()
+
+		live := newAgent("live", "treeview", "w1")
+		live.Cwd = "/trees/live"
+		live.Alive = xptr.Ptr(true)
+		harness := openWorktrees(t,
+			newLiveWorkflow("w1", "komrad"),
+			live,
+			&worktreev1.WatchedWorktree{Dir: "/trees/live", RepoDir: "/home/h/komrad", Branch: "agent/live", Readable: true},
+		)
+		moveToWorktree(t, harness, "treeview")
+
+		harness.press("space", "a")
+		assert.Regexp(t, readOffEntry("clear what can go", "c"), harness.readRawFrame())
+
+		harness.press("c", "y")
+
+		assert.NotContains(t, readFormProse(harness.readFrame()), "Delete")
+		harness.assertSentTo(worktreev1connect.WorktreeServiceDeleteWorktreesProcedure)
+	})
+}
+
+// TestWorktreesMenu covers the entry the archive menu offers for each kind of row.
+func TestWorktreesMenu(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		row   string
+		press []string
+		label string
+		key   string
+	}{
+		{name: "a live agent's directory offers the archive", row: "treeview", label: "archive the agent", key: "a"},
+		{name: "an archived agent's directory offers the agent delete", row: "reviewer", label: "delete the agent", key: "d"},
+		{name: "a directory nothing answers for offers the remover", row: "broken", label: "remove", key: "d"},
+		{name: "a selection offers to delete it all", row: "treeview", press: []string{"v", "j", "v"}, label: "delete all", key: "d"},
+		{name: "a repository header offers only the clear", row: "/home/h/komrad", label: "clear what can go", key: "c"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			harness := openGroupedWorktrees(t)
+			moveToWorktree(t, harness, tt.row)
+
+			harness.press(append(tt.press, "space", "a")...)
+
+			entry := regexp.MustCompile(`(?m)› ` + regexp.QuoteMeta(tt.label) + ` +` + tt.key + `\s*$`)
+			assert.Regexp(t, entry, harness.readFrame())
+		})
+	}
 }
 
 // TestWorktreesDeleteBranch covers the delete prompt saying what happens to a single directory's branch.
@@ -263,14 +319,14 @@ func TestWorktreesDeleteBranch(t *testing.T) {
 			moveToWorktree(t, harness, "reviewer")
 			harness.fireTimers()
 
-			harness.press("d")
+			harness.press("space", "a", "d")
 
 			assert.Contains(t, readFormProse(harness.readFrame()), tt.want)
 		})
 	}
 }
 
-// TestWorktreesDeleteAnswer covers answering the prompt the clear key opens.
+// TestWorktreesDeleteAnswer covers answering the prompt the clear entry opens.
 func TestWorktreesDeleteAnswer(t *testing.T) {
 	t.Parallel()
 
@@ -311,7 +367,7 @@ func TestWorktreesDeleteAnswer(t *testing.T) {
 			}
 			harness.press(widenListPresses...)
 
-			harness.press("D", tt.answer)
+			harness.press("space", "a", "c", tt.answer)
 
 			harness.assertSentTo(worktreev1connect.WorktreeServiceDeleteWorktreesProcedure, tt.wantSent...)
 			frame := harness.readFrame()
@@ -371,7 +427,7 @@ func TestWorktreesDeleteAnswer(t *testing.T) {
 				}
 				moveToWorktree(t, harness, "treeview")
 
-				harness.press("v", "j", "v", "d", "y")
+				harness.press("v", "j", "v", "space", "a", "d", "y")
 
 				harness.assertSent(tt.wantSent...)
 			})

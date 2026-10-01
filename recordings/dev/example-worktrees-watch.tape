@@ -12,6 +12,8 @@ Wait+Screen@30s /zz-rec-probe/
 Type "/"
 Type "zz-rec-probe"
 Enter
+Type " "
+Type "a"
 Type "d"
 Wait+Screen@30s /Delete/
 Type "y"

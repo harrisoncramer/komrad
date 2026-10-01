@@ -61,7 +61,7 @@ func TestMessagesHeader(t *testing.T) {
 	t.Run("an info message leaves nothing once the flash is over", func(t *testing.T) {
 		harness := openWorktrees(t)
 
-		harness.press("D", "y")
+		harness.press("space", "a", "c", "y")
 		require.Contains(t, readEngineLine(harness.readFrame()), "·")
 		settleFlash(harness)
 

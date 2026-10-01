@@ -45,11 +45,8 @@ const (
 	actionScheduleBack
 	actionArchiveRename
 	actionArchiveBack
-	actionDeleteSelected
 	actionWorktreesBack
 	actionWorktreesJumpToAgent
-	actionWorktreesDelete
-	actionWorktreesClear
 	actionDocumentsBack
 	actionDocumentsOlder
 	actionDocumentsNewer
