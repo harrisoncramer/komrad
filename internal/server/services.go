@@ -178,24 +178,11 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 		Channel:  paneChannel,
 		Observer: paneChannel,
 	})
-	checkoutService := checkouts.NewService(checkouts.NewServiceParams{
-		Agents:          st.agents,
-		Workflows:       st.workflows,
-		Settler:         settler,
-		Events:          queue,
-		Rebaser:         gitClient,
-		Pusher:          gitClient,
-		Aborter:         gitClient,
-		PullRequests:    st.pullRequests,
-		CheckoutSync:    wakers.cwdSync,
-		PullRequestSync: wakers.pullRequestSync,
-	})
 	adoptService := agents.NewAdoptService(agents.NewAdoptServiceParams{
-		Agents:          st.agents,
-		Workflows:       st.workflows,
-		Launch:          launchService,
-		Worktrees:       gitClient,
-		PullRequestSync: wakers.pullRequestSync,
+		Agents:    st.agents,
+		Workflows: st.workflows,
+		Launch:    launchService,
+		Worktrees: gitClient,
 	})
 	agentDelete := jobs.NewAgentDelete(queue)
 
@@ -260,7 +247,19 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 		PullRequests: st.pullRequests,
 		Syncs:        st.pullRequestSyncs,
 		Events:       queue,
-		Recheck:      wakers.pullRequestSync,
+		Loop:         wakers.pullRequestSync,
+	})
+	checkoutService := checkouts.NewService(checkouts.NewServiceParams{
+		Agents:          st.agents,
+		Workflows:       st.workflows,
+		Settler:         settler,
+		Events:          queue,
+		Rebaser:         gitClient,
+		Pusher:          gitClient,
+		Aborter:         gitClient,
+		PullRequests:    st.pullRequests,
+		CheckoutSync:    wakers.cwdSync,
+		PullRequestSync: pullRequestSyncer,
 	})
 	cwdSyncer := checkouts.NewCwdSyncer(checkouts.NewCwdSyncerParams{
 		Agents:       st.agents,
@@ -341,7 +340,7 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 		dismisser:    pullrequests.NewDismisser(pullrequests.NewDismisserParams{Threads: st.forgeThreads}),
 		writer: pullrequests.NewWriter(pullrequests.NewWriterParams{
 			Forges: forgeService,
-			Sync:   wakers.pullRequestSync,
+			Sync:   pullRequestSyncer,
 		}),
 		worktreeLister: worktreeLister,
 		shells: shells.NewShellService(shells.NewShellServiceParams{

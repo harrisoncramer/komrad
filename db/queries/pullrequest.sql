@@ -193,65 +193,27 @@ WHERE
 ORDER BY
     repository_url;
 
--- name: ListUnscannedBranches :many
+-- name: ListSyncTargets :many
 SELECT DISTINCT
-    a.branch
+    a.repository_url::text AS repository_url,
+    a.branch::text AS branch,
+    COALESCE(a.head_sha, '')::text AS head_sha
 FROM
     agents a
-    LEFT JOIN branch_scans b ON b.repository_url = a.repository_url
-        AND b.branch = a.branch
+    JOIN workflows w ON w.id = a.workflow_id
+    LEFT JOIN workflow_provisioner_configs c ON c.id = w.provisioner_config_id
 WHERE
     a.archived_at IS NULL
-    AND a.repository_url = @repository_url
+    AND a.repository_url IS NOT NULL
+    AND a.repository_url <> ''
     AND a.branch IS NOT NULL
     AND a.branch <> ''
-    AND b.completed_at IS NULL
+    AND (c.worktree_base_branch IS NULL
+        OR a.branch <> c.worktree_base_branch)
 ORDER BY
-    a.branch;
-
--- name: GetBranchScan :one
-SELECT
-    *
-FROM
-    branch_scans
-WHERE
-    repository_url = @repository_url
-    AND branch = @branch;
-
--- name: SetBranchScanCursor :exec
-INSERT INTO branch_scans(
     repository_url,
     branch,
-    next_cursor)
-VALUES (
-    @repository_url,
-    @branch,
-    @next_cursor)
-ON CONFLICT (
-    engine_id,
-    repository_url,
-    branch)
-    DO UPDATE SET
-        next_cursor = EXCLUDED.next_cursor;
-
--- name: CompleteBranchScan :exec
-INSERT INTO branch_scans(
-    repository_url,
-    branch,
-    next_cursor,
-    completed_at)
-VALUES (
-    @repository_url,
-    @branch,
-    @next_cursor,
-    NOW())
-ON CONFLICT (
-    engine_id,
-    repository_url,
-    branch)
-    DO UPDATE SET
-        next_cursor = EXCLUDED.next_cursor,
-        completed_at = NOW();
+    head_sha;
 
 -- name: EnsurePullRequestSync :exec
 INSERT INTO pull_request_syncs(
@@ -271,186 +233,146 @@ FROM
 WHERE
     repository_url = @repository_url;
 
--- name: ResetPullRequestSyncCalls :exec
-UPDATE
-    pull_request_syncs
-SET
-    calls = 0
-WHERE
-    repository_url = @repository_url;
-
--- name: RecordPullRequestSyncRequest :exec
-UPDATE
-    pull_request_syncs
-SET
-    read_at = NOW(),
-    calls = calls + 1
-WHERE
-    repository_url = @repository_url;
-
--- name: StartPullRequestSweep :exec
-UPDATE
-    pull_request_syncs
-SET
-    sweep_cursor = '',
-    sweep_newest = @sweep_newest,
-    listed_at = @listed_at
-WHERE
-    repository_url = @repository_url;
-
--- name: AdvancePullRequestSweep :exec
-UPDATE
-    pull_request_syncs
-SET
-    sweep_cursor = @sweep_cursor
-WHERE
-    repository_url = @repository_url;
-
--- name: CompletePullRequestSweep :exec
-UPDATE
-    pull_request_syncs
-SET
-    updated_through = GREATEST(updated_through, sweep_newest),
-    sweep_cursor = NULL,
-    sweep_newest = NULL
-WHERE
-    repository_url = @repository_url;
-
--- name: ResetPullRequestSweep :exec
-UPDATE
-    pull_request_syncs
-SET
-    updated_through = NULL,
-    sweep_cursor = NULL,
-    sweep_newest = NULL
-WHERE
-    repository_url = ANY (@repository_urls::text[]);
-
--- name: AdvancePullRequestSyncMark :exec
-UPDATE
-    pull_request_syncs
-SET
-    updated_through = GREATEST(updated_through, @updated_through::timestamptz)
-WHERE
-    repository_url = @repository_url;
-
--- name: MarkPullRequestSyncListed :exec
-UPDATE
-    pull_request_syncs
-SET
-    listed_at = @listed_at
-WHERE
-    repository_url = @repository_url;
-
--- name: ListStaleStandings :many
-SELECT
-    p.*
-FROM
-    pull_requests p
-WHERE
-    p.repository_url = @repository_url
-    AND p.head_repository_url = p.repository_url
-    AND p.merged_at IS NULL
-    AND p.closed_at IS NULL
-    AND NOT p.draft
-    AND (p.decision_changed_at IS NULL
-        OR p.decision_changed_at < p.changed_at
-        OR p.checks_sha IS DISTINCT FROM p.head_sha
-        OR (p.checks = 'pending'
-            AND p.checks_read_at < @pending_before::timestamptz)
-        OR (p.checks IS NULL
-            AND p.changed_at > @changed_since::timestamptz
-            AND p.checks_read_at < @pending_before::timestamptz)
-        OR (p.mergeability IS NULL
-            AND p.mergeability_blank_since > @mergeability_blank_since::timestamptz
-            AND p.checks_read_at < @mergeability_blank_before::timestamptz)
-        OR (p.checks_read_at < @settled_before::timestamptz))
-    AND EXISTS (
-        SELECT
-            1
-        FROM
-            agents a
-        WHERE
-            a.repository_url = p.repository_url
-            AND a.branch = p.head_branch)
-ORDER BY
-    p.changed_at DESC;
-
 -- name: SetStanding :one
 WITH prior AS (
     SELECT
         held.id,
+        held.review_decision,
+        held.checks,
+        held.mergeability,
+        held.checks_sha,
         held.last_known_checks,
         held.last_known_checks_sha,
         held.last_known_mergeability,
+        held.last_known_mergeability_sha,
         held.last_known_decision,
-        held.auto_merge
+        held.mergeability_blank_since,
+        held.auto_merge,
+        held.auto_mergeable
     FROM
         pull_requests held
     WHERE
         held.id = @id
-    FOR UPDATE)
-UPDATE
-    pull_requests p
-SET
-    review_decision = sqlc.narg('review_decision'),
-    decision_changed_at = p.changed_at,
-    checks = sqlc.narg('checks'),
-    mergeability = CASE WHEN @answered::boolean THEN
-        sqlc.narg('mergeability')
-    ELSE
-        p.mergeability
-    END,
-    checks_sha = @checks_sha::text,
-    checks_read_at = @checks_read_at::timestamptz,
-    last_known_checks = COALESCE(sqlc.narg('checks'), p.last_known_checks),
-    last_known_checks_sha = CASE WHEN sqlc.narg('checks')::text IS NULL THEN
-        p.last_known_checks_sha
-    ELSE
-        NULLIF(@checks_sha::text, '')
-    END,
-    last_known_mergeability = COALESCE(sqlc.narg('mergeability'), p.last_known_mergeability),
-    last_known_mergeability_sha = CASE WHEN sqlc.narg('mergeability')::text IS NULL THEN
-        p.last_known_mergeability_sha
-    ELSE
-        NULLIF(@checks_sha::text, '')
-    END,
-    mergeability_blank_since = CASE WHEN NOT @answered::boolean THEN
-        p.mergeability_blank_since
-    WHEN sqlc.narg('mergeability')::text IS NOT NULL THEN
-        NULL
-    WHEN p.checks_sha IS NOT DISTINCT FROM @checks_sha::text THEN
-        COALESCE(p.mergeability_blank_since, @checks_read_at::timestamptz)
-    ELSE
-        @checks_read_at::timestamptz
-    END,
-    last_known_decision = COALESCE(sqlc.narg('review_decision'), p.last_known_decision),
-    auto_merge = CASE WHEN @answered::boolean THEN
-        @auto_merge::boolean
-    ELSE
+    FOR UPDATE),
+next AS (
+    SELECT
+        prior.id,
+        sqlc.narg('review_decision')::text AS review_decision,
+        sqlc.narg('checks')::text AS checks,
+        sqlc.narg('mergeability')::text AS mergeability,
+        @checks_sha::text AS checks_sha,
+        COALESCE(sqlc.narg('checks')::text, prior.last_known_checks) AS last_known_checks,
+        CASE WHEN sqlc.narg('checks')::text IS NULL THEN
+            prior.last_known_checks_sha
+        ELSE
+            NULLIF(@checks_sha::text, '')
+        END AS last_known_checks_sha,
+        COALESCE(sqlc.narg('mergeability')::text, prior.last_known_mergeability) AS last_known_mergeability,
+        CASE WHEN sqlc.narg('mergeability')::text IS NULL THEN
+            prior.last_known_mergeability_sha
+        ELSE
+            NULLIF(@checks_sha::text, '')
+        END AS last_known_mergeability_sha,
+        CASE WHEN sqlc.narg('mergeability')::text IS NOT NULL THEN
+            NULL
+        WHEN prior.checks_sha IS NOT DISTINCT FROM @checks_sha::text THEN
+            COALESCE(prior.mergeability_blank_since, @read_at::timestamptz)
+        ELSE
+            @read_at::timestamptz
+        END AS mergeability_blank_since,
+        COALESCE(sqlc.narg('review_decision')::text, prior.last_known_decision) AS last_known_decision,
+        @auto_merge::boolean AS auto_merge,
+        @auto_mergeable::boolean AS auto_mergeable
+    FROM
+        prior
+),
+written AS (
+    UPDATE
+        pull_requests p
+    SET
+        review_decision = next.review_decision,
+        checks = next.checks,
+        mergeability = next.mergeability,
+        checks_sha = next.checks_sha,
+        last_known_checks = next.last_known_checks,
+        last_known_checks_sha = next.last_known_checks_sha,
+        last_known_mergeability = next.last_known_mergeability,
+        last_known_mergeability_sha = next.last_known_mergeability_sha,
+        mergeability_blank_since = next.mergeability_blank_since,
+        last_known_decision = next.last_known_decision,
+        auto_merge = next.auto_merge,
+        auto_mergeable = next.auto_mergeable
+    FROM
+        next
+    WHERE
+        p.id = next.id
+        AND (p.review_decision,
+            p.checks,
+            p.mergeability,
+            p.checks_sha,
+            p.last_known_checks,
+            p.last_known_checks_sha,
+            p.last_known_mergeability,
+            p.last_known_mergeability_sha,
+            p.mergeability_blank_since,
+            p.last_known_decision,
+            p.auto_merge,
+            p.auto_mergeable) IS DISTINCT FROM (next.review_decision,
+            next.checks,
+            next.mergeability,
+            next.checks_sha,
+            next.last_known_checks,
+            next.last_known_checks_sha,
+            next.last_known_mergeability,
+            next.last_known_mergeability_sha,
+            next.mergeability_blank_since,
+            next.last_known_decision,
+            next.auto_merge,
+            next.auto_mergeable)
+    RETURNING
+        p.last_known_checks,
+        p.last_known_checks_sha,
+        p.last_known_mergeability,
+        p.last_known_decision,
+        p.mergeability_blank_since,
         p.auto_merge
-    END,
-    auto_mergeable = CASE WHEN @answered::boolean THEN
-        @auto_mergeable::boolean
-    ELSE
-        p.auto_mergeable
-    END
-FROM
-    prior
-WHERE
-    p.id = prior.id
-RETURNING
+)
+SELECT
     prior.last_known_checks AS old_checks,
     prior.last_known_checks_sha AS old_checks_sha,
     prior.last_known_mergeability AS old_mergeability,
     prior.last_known_decision AS old_decision,
-    p.last_known_checks AS known_checks,
-    p.last_known_checks_sha AS known_checks_sha,
-    p.last_known_mergeability AS known_mergeability,
-    p.last_known_decision AS known_decision,
-    p.mergeability_blank_since AS blank_since,
+    written.last_known_checks AS known_checks,
+    written.last_known_checks_sha AS known_checks_sha,
+    written.last_known_mergeability AS known_mergeability,
+    written.last_known_decision AS known_decision,
+    written.mergeability_blank_since AS blank_since,
     prior.auto_merge AS old_auto_merge,
-    p.auto_merge AS known_auto_merge;
+    written.auto_merge AS known_auto_merge
+FROM
+    prior
+    JOIN written ON TRUE
+UNION ALL
+SELECT
+    prior.last_known_checks AS old_checks,
+    prior.last_known_checks_sha AS old_checks_sha,
+    prior.last_known_mergeability AS old_mergeability,
+    prior.last_known_decision AS old_decision,
+    prior.last_known_checks AS known_checks,
+    prior.last_known_checks_sha AS known_checks_sha,
+    prior.last_known_mergeability AS known_mergeability,
+    prior.last_known_decision AS known_decision,
+    prior.mergeability_blank_since AS blank_since,
+    prior.auto_merge AS old_auto_merge,
+    prior.auto_merge AS known_auto_merge
+FROM
+    prior
+WHERE
+    NOT EXISTS (
+        SELECT
+            1
+        FROM
+            written);
 
 -- name: ListWatchedPullRequests :many
 SELECT

@@ -4,12 +4,10 @@ package gitlab
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
-	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -28,13 +26,12 @@ const DefaultAPI = "https://gitlab.com/api/v4"
 // MaxPerPage is the most GitLab hands over in one page, above which it silently trims.
 const MaxPerPage = 100
 
-// changedProjectsPerQuery is how many projects the first ListChanged query aliases, the
-// measured fit under GitLab's complexity limit at a hundred rows each.
-const changedProjectsPerQuery = 2
+// branchesPerQuery is how many branches the first ReadBranches query aliases, after which the
+// size follows what GitLab says each query cost.
+const branchesPerQuery = 2
 
-// standingsPerQuery is how many merge requests the first Standings query aliases, the
-// measured fit under GitLab's complexity limit.
-const standingsPerQuery = 10
+// mergeRequestsPerBranch is how many of a branch's newest merge requests ReadBranches reads.
+const mergeRequestsPerBranch = 5
 
 // reviewStateRequestedChanges is the reviewer state GitLab records when one asks for changes.
 const reviewStateRequestedChanges = "REQUESTED_CHANGES"
@@ -75,21 +72,8 @@ const listQuery = `query List($path: ID!, $first: Int!, $after: String, $branche
 }
 ` + mergeRequestFragment
 
-const listUpdatedQuery = `query ListUpdated($path: ID!, $first: Int!, $after: String) {
-  project(fullPath: $path) {
-    mergeRequests(sort: UPDATED_DESC, first: $first, after: $after) {
-      pageInfo { hasNextPage endCursor }
-      nodes { ...mergeRequestFields }
-    }
-  }
-}
-` + mergeRequestFragment
-
 // errTooComplex is GitLab refusing a query for its complexity.
 var errTooComplex = fail.Exhausted("gitlab refused the query for its complexity")
-
-// errNotCursor is a ListChanged cursor this forge did not hand out.
-var errNotCursor = fail.InvalidArgument("not a gitlab cursor")
 
 // dialect is what GitLab does differently on the wire.
 var dialect = graphql.Dialect{
@@ -179,147 +163,6 @@ func (f *Forge) List(ctx context.Context, params forge.ListParams) (*forge.Page,
 	}
 
 	return f.listMergeRequests(ctx, listQuery, variables)
-}
-
-// ListUpdated is one page of every merge request in the project, newest change first, and
-// where the next page starts.
-func (f *Forge) ListUpdated(ctx context.Context, params forge.ListUpdatedParams) (*forge.Page, error) {
-	path, err := projectPath(params.Repo.Path)
-	if err != nil {
-		return nil, err
-	}
-
-	return f.listMergeRequests(ctx, listUpdatedQuery, map[string]any{
-		"path":  path,
-		"first": MaxPerPage,
-		"after": graphql.CursorOf(params.Cursor),
-	})
-}
-
-// ListChanged is one page of every merge request across the projects changed at or after
-// Since, newest first per project, each with its decision, read with the projects aliased
-// into as few queries as GitLab's complexity limit allows.
-func (f *Forge) ListChanged(ctx context.Context, params forge.ListChangedParams) (*forge.Page, error) {
-	pending := map[string]string{}
-	if params.Cursor != "" {
-		if err := json.Unmarshal([]byte(params.Cursor), &pending); err != nil {
-			return nil, errNotCursor.Saying("%q is not a cursor this forge handed out", params.Cursor)
-		}
-	} else {
-		for _, repo := range params.Repos {
-			path, err := projectPath(repo.Path)
-			if err != nil {
-				return nil, err
-			}
-
-			pending[path] = ""
-		}
-	}
-
-	paths := make([]string, 0, len(pending))
-	for path := range pending {
-		paths = append(paths, path)
-	}
-	slices.Sort(paths)
-
-	result := &forge.Page{}
-	next := map[string]string{}
-	err := sendInBatches(ctx, paths, changedProjectsPerQuery, func(ctx context.Context, batch []string) (complexity, error) {
-		read, err := f.listChangedBatch(ctx, listChangedBatchParams{
-			paths: batch,
-			after: pending,
-			since: params.Since,
-		})
-		if err != nil {
-			return complexity{}, err
-		}
-
-		for i, path := range batch {
-			page := read.pages[i]
-			if page == nil {
-				continue
-			}
-
-			result.PullRequests = append(result.PullRequests, page.PullRequests...)
-			if page.HasMore {
-				next[path] = page.Cursor
-			}
-		}
-		result.RateLimit = read.rateLimit
-
-		return read.complexity, nil
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	if len(next) > 0 {
-		cursor, err := json.Marshal(next)
-		if err != nil {
-			return nil, fmt.Errorf("failed to encode the cursor: %w", err)
-		}
-
-		result.HasMore = true
-		result.Cursor = string(cursor)
-	}
-
-	return result, nil
-}
-
-// listChangedBatchParams says which projects one ListChanged query reads, each from its own cursor.
-type listChangedBatchParams struct {
-	paths []string
-	after map[string]string
-	since time.Time
-}
-
-// changedBatch is what one ListChanged query answered, a page per project asked about.
-type changedBatch struct {
-	pages      []*forge.Page
-	rateLimit  forge.RateLimit
-	complexity complexity
-}
-
-// listChangedBatch reads one page of changes from each project in one query, answering nil
-// for a project GitLab has nothing for.
-func (f *Forge) listChangedBatch(ctx context.Context, params listChangedBatchParams) (*changedBatch, error) {
-	var declared, fields strings.Builder
-	variables := map[string]any{"since": params.since.UTC().Format(time.RFC3339), "first": MaxPerPage}
-	for i, path := range params.paths {
-		fmt.Fprintf(&declared, ", $p%d: ID!, $a%d: String", i, i)
-		fmt.Fprintf(&fields, "\n  r%d: project(fullPath: $p%d) { mergeRequests(updatedAfter: $since, sort: UPDATED_DESC, first: $first, after: $a%d) { pageInfo { hasNextPage endCursor } nodes { ...mergeRequestFields "+standingFields+" } } }", i, i, i)
-		variables["p"+strconv.Itoa(i)] = path
-		variables["a"+strconv.Itoa(i)] = graphql.CursorOf(params.after[path])
-	}
-	operation := "query ListChanged($since: Time, $first: Int!" + declared.String() + ") {" + fields.String() + "\n  queryComplexity { score limit }\n}\n" + mergeRequestFragment
-
-	var data map[string]json.RawMessage
-	answer, err := f.client.Query(ctx, operation, variables, &data)
-	if err != nil {
-		return nil, err
-	}
-	if err := failureOf(answer); err != nil {
-		return nil, err
-	}
-
-	read := &changedBatch{
-		pages:      make([]*forge.Page, len(params.paths)),
-		rateLimit:  answer.RateLimit,
-		complexity: complexityOf(data),
-	}
-	for i, path := range params.paths {
-		var project *struct {
-			MergeRequests connection `json:"mergeRequests"`
-		}
-		if err := json.Unmarshal(data["r"+strconv.Itoa(i)], &project); err != nil {
-			return nil, fmt.Errorf("failed to decode gitlab's answer for %s: %w", path, err)
-		}
-		if project != nil {
-			read.pages[i] = pageOf(&project.MergeRequests, answer.RateLimit, true)
-		}
-	}
-
-	return read, nil
 }
 
 // Get is one merge request by its web address.
@@ -568,31 +411,33 @@ func (f *Forge) mergeRefusal(ctx context.Context, endpoint string, said string) 
 	return "its merge status is " + strings.ReplaceAll(standing.DetailedMergeStatus, "_", " ")
 }
 
-// Standings reads where the reviews and the head pipeline of up to fifty merge requests stand,
-// aliased into as few queries as GitLab's complexity limit allows, leaving out any GitLab does
-// not have.
-func (f *Forge) Standings(ctx context.Context, repo git.RemoteURL, numbers []int) (map[int]forge.Standing, error) {
+// ReadBranches reads the newest merge requests opened from each branch, with their standing,
+// aliased into as few queries as GitLab's complexity limit allows, keeping only those whose
+// source is the project itself.
+func (f *Forge) ReadBranches(ctx context.Context, repo git.RemoteURL, branches []string) (*forge.Reading, error) {
 	path, err := projectPath(repo.Path)
 	if err != nil {
 		return nil, err
 	}
-	if len(numbers) > forge.MaxStandings {
-		return nil, forge.ErrTooManyStandings.Saying("at most %d standings can be read in one call, not %d", forge.MaxStandings, len(numbers))
-	}
 
-	standings := make(map[int]forge.Standing, len(numbers))
-	err = sendInBatches(ctx, numbers, standingsPerQuery, func(ctx context.Context, batch []int) (complexity, error) {
-		var fields strings.Builder
-		for _, number := range batch {
-			fmt.Fprintf(&fields, "\n    m%d: mergeRequest(iid: \"%d\") { diffHeadSha %s }", number, number, standingFields)
+	reading := &forge.Reading{}
+	err = sendInBatches(ctx, branches, branchesPerQuery, func(ctx context.Context, batch []string) (complexity, error) {
+		variables := map[string]any{"path": path}
+		var declared, fields strings.Builder
+		for i, branch := range batch {
+			variables["b"+strconv.Itoa(i)] = []string{branch}
+			fmt.Fprintf(&declared, ", $b%d: [String!]", i)
+			fmt.Fprintf(&fields, "\n    b%d: mergeRequests(sourceBranches: $b%d, sort: CREATED_DESC, first: %d) { nodes { ...mergeRequestFields %s } }", i, i, mergeRequestsPerBranch, standingFields)
 		}
-		operation := "query Standings($path: ID!) {\n  project(fullPath: $path) {" + fields.String() + "\n  }\n  queryComplexity { score limit }\n}"
+		operation := "query ReadBranches($path: ID!" + declared.String() + ") {\n  project(fullPath: $path) {" + fields.String() + "\n  }\n  queryComplexity { score limit }\n}\n" + mergeRequestFragment
 
 		var data struct {
-			Project         map[string]*standingNode `json:"project"`
-			QueryComplexity complexity               `json:"queryComplexity"`
+			Project map[string]*struct {
+				Nodes []mergeRequestNode `json:"nodes"`
+			} `json:"project"`
+			QueryComplexity complexity `json:"queryComplexity"`
 		}
-		answer, err := f.client.Query(ctx, operation, map[string]any{"path": path}, &data)
+		answer, err := f.client.Query(ctx, operation, variables, &data)
 		if err != nil {
 			return complexity{}, err
 		}
@@ -603,13 +448,21 @@ func (f *Forge) Standings(ctx context.Context, repo git.RemoteURL, numbers []int
 			return complexity{}, fmt.Errorf("%w: gitlab has no project %s, which is also its answer for one the credential cannot see", forge.ErrNotFound, path)
 		}
 
-		for _, number := range batch {
-			node := data.Project["m"+strconv.Itoa(number)]
-			if node == nil {
+		reading.RateLimit = answer.RateLimit
+		for i := range batch {
+			answered := data.Project["b"+strconv.Itoa(i)]
+			if answered == nil {
 				continue
 			}
 
-			standings[number] = node.standing()
+			for _, node := range answered.Nodes {
+				pullRequest := node.toPullRequest(true)
+				if pullRequest.Head.IsZero() || pullRequest.Head.Canonical() != pullRequest.Repository.Canonical() {
+					continue
+				}
+
+				reading.PullRequests = append(reading.PullRequests, pullRequest)
+			}
 		}
 
 		return data.QueryComplexity, nil
@@ -618,7 +471,7 @@ func (f *Forge) Standings(ctx context.Context, repo git.RemoteURL, numbers []int
 		return nil, err
 	}
 
-	return standings, nil
+	return reading, nil
 }
 
 // listMergeRequests reads one page of a project's mergeRequests connection, whichever query
@@ -680,17 +533,6 @@ func sendInBatches[T any](ctx context.Context, items []T, size int, send func(co
 type complexity struct {
 	Score int `json:"score"`
 	Limit int `json:"limit"`
-}
-
-// complexityOf reads the queryComplexity field out of an answer's data, zero when it is not
-// there.
-func complexityOf(data map[string]json.RawMessage) complexity {
-	var measured complexity
-	if err := json.Unmarshal(data["queryComplexity"], &measured); err != nil {
-		return complexity{}
-	}
-
-	return measured
 }
 
 // failureOf is the first error the answer carries as komrad's, nil when it carries none.
@@ -809,17 +651,6 @@ type standingNode struct {
 	DetailedMergeStatus          string   `json:"detailedMergeStatus"`
 	AutoMergeEnabled             bool     `json:"autoMergeEnabled"`
 	AvailableAutoMergeStrategies []string `json:"availableAutoMergeStrategies"`
-}
-
-// standing is the node's decision, checks and mergeability with the head they were read for.
-func (n standingNode) standing() forge.Standing {
-	return forge.Standing{
-		Decision:     n.decision(),
-		Checks:       n.checks(),
-		Mergeability: n.mergeability(),
-		HeadSHA:      n.DiffHeadSha,
-		AutoMerge:    n.autoMerge(),
-	}
 }
 
 // autoMerge is whether the merge request is set to merge on its own, and whether GitLab offers a

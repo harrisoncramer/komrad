@@ -93,15 +93,9 @@ func TestIntegrationTheWatchAndTheStoresAgree(t *testing.T) {
 	_, err = st.Mail.Claim(ctx, quiet.ID, 10)
 	require.NoError(t, err)
 
-	// The repository has been swept, with two pull requests on api's branch, the older one
+	// The repository has been read, with two pull requests on api's branch, the older one
 	// merged, one on a branch no live agent is on, and one on the base branch itself.
 	require.NoError(t, st.PullRequestSyncs.EnsureSync(ctx, watchedRepository))
-	require.NoError(t, st.PullRequestSyncs.StartSweep(ctx, pullrequeststore.StartSweepParams{
-		RepositoryURL: watchedRepository,
-		Newest:        time.Date(2026, 9, 22, 12, 0, 0, 0, time.UTC),
-		ListedAt:      time.Date(2026, 9, 22, 12, 0, 0, 0, time.UTC),
-	}))
-	require.NoError(t, st.PullRequestSyncs.CompleteSweep(ctx, watchedRepository))
 	openPR := upsertPullRequest(t, st, 2, "agent/api", nil)
 	upsertPullRequest(t, st, 1, "agent/api", xptr.Ptr(time.Date(2026, 9, 21, 12, 0, 0, 0, time.UTC)))
 	upsertPullRequest(t, st, 3, "agent/nobody", nil)

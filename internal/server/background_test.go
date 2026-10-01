@@ -432,28 +432,6 @@ func TestLoopRunsWhenWoken(t *testing.T) {
 	})
 }
 
-// TestLoopRunsOnceADelayedWakeIsDue covers a wake asked for later running the loop when its wait
-// is over and not before.
-func TestLoopRunsOnceADelayedWakeIsDue(t *testing.T) {
-	synctest.Test(t, func(t *testing.T) {
-		starts := &runStarts{}
-		waker := newLoopWaker()
-		startLoop(t, buildRecordedLoop(starts, time.Hour, 0, waker))
-		synctest.Wait()
-		require.Equal(t, 1, starts.count())
-
-		waker.WakeAfter(10 * time.Second)
-		clock.Sleep(t.Context(), 9*time.Second)
-		synctest.Wait()
-		require.Equal(t, 1, starts.count())
-
-		clock.Sleep(t.Context(), time.Second)
-		synctest.Wait()
-
-		assert.Equal(t, 2, starts.count())
-	})
-}
-
 // TestLoopFoldsWakesDuringARun covers wakes that arrive while a run is under way costing one
 // more run between them.
 func TestLoopFoldsWakesDuringARun(t *testing.T) {

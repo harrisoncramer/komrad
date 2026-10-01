@@ -167,30 +167,20 @@ table "pull_requests" {
     type    = text
     comment = "Where the forge says the reviews stand, in komrad's own words: pending, approved or changes_requested, null while it has said nothing."
   }
-  column "decision_changed_at" {
-    null    = true
-    type    = timestamptz
-    comment = "The changed_at the review decision was read for, stale once changed_at has moved past it."
-  }
   column "checks" {
     null    = true
     type    = text
-    comment = "Where the forge says the checks on the head commit stand, in komrad's own words: pending, passing or failing, null while it reports none. A check finishing does not move changed_at, so the checks are kept fresh by checks_sha and checks_read_at rather than by the change stamp."
+    comment = "Where the forge says the checks on the head commit stand, in komrad's own words: pending, passing or failing, null while it reports none."
   }
   column "checks_sha" {
     null    = true
     type    = text
-    comment = "The head commit the checks were read for, stale once head_sha has moved past it."
-  }
-  column "checks_read_at" {
-    null    = true
-    type    = timestamptz
-    comment = "When the checks and mergeability were last read, which is what paces every re-read."
+    comment = "The head commit the checks were read for."
   }
   column "mergeability" {
     null    = true
     type    = text
-    comment = "Where the forge says the pull request stands against its base and its branch rules, in komrad's own words: clean, unstable, blocked, behind or conflicting, null while the forge has not computed it. Read with the checks and kept fresh the same way."
+    comment = "Where the forge says the pull request stands against its base and its branch rules, in komrad's own words: clean, unstable, blocked, behind or conflicting, null while the forge has not computed it. Read with the checks."
   }
   column "last_known_checks" {
     null    = true
@@ -205,7 +195,7 @@ table "pull_requests" {
   column "auto_merge" {
     null    = true
     type    = boolean
-    comment = "Whether the forge says the pull request will merge on its own once its checks and reviews pass, null until it has been read. Read with the checks and kept fresh the same way."
+    comment = "Whether the forge says the pull request will merge on its own once its checks and reviews pass, null until it has been read. Read with the checks."
   }
   column "auto_mergeable" {
     null    = false
@@ -320,41 +310,10 @@ table "agent_pull_requests" {
 
 table "pull_request_syncs" {
   schema  = schema.public
-  comment = "Where the pull request sync is for one repository: the high-water mark the changes have been read through, the first sweep in progress if one is, and what the last pass cost."
+  comment = "A repository the pull request sync has read at least once, which is what turns its pull request state from unread to none when it has no pull requests."
   column "repository_url" {
     null = false
     type = text
-  }
-  column "updated_through" {
-    null    = true
-    type    = timestamptz
-    comment = "The newest forge updated_at the changes have been read through, by the first sweep and then by every search since. Null until the first sweep has completed."
-  }
-  column "listed_at" {
-    null    = true
-    type    = timestamptz
-    comment = "The last time page one of the repository's own listing was read and written, which is the clock for the hourly listing behind the search."
-  }
-  column "sweep_cursor" {
-    null    = true
-    type    = text
-    comment = "Where the first sweep in progress reads its next page from, empty for page one and null between sweeps."
-  }
-  column "sweep_newest" {
-    null    = true
-    type    = timestamptz
-    comment = "The moment the sweep in progress covers up to, when its page one was read or the newest row's stamp when the forge's clock is ahead, which becomes updated_through when it completes."
-  }
-  column "read_at" {
-    null    = true
-    type    = timestamptz
-    comment = "The last time any request was made for this repository, whatever it answered."
-  }
-  column "calls" {
-    null    = false
-    type    = integer
-    default = 0
-    comment = "How many requests the most recent pass made for this repository."
   }
   column "engine_id" {
     null    = false
@@ -365,44 +324,6 @@ table "pull_request_syncs" {
     columns = [column.engine_id, column.repository_url]
   }
   foreign_key "pull_request_syncs_engine_id_fkey" {
-    columns     = [column.engine_id]
-    ref_columns = [table.engines.column.id]
-    on_delete   = RESTRICT
-    on_update   = NO_ACTION
-  }
-}
-
-table "branch_scans" {
-  schema  = schema.public
-  comment = "A branch komrad has listed the pull requests of on purpose, once, which is what finds a pull request older than the sync's horizon on a branch an agent adopted."
-  column "repository_url" {
-    null = false
-    type = text
-  }
-  column "branch" {
-    null = false
-    type = text
-  }
-  column "next_cursor" {
-    null    = false
-    type    = text
-    default = ""
-    comment = "Where the listing reads its next page from, empty for the first."
-  }
-  column "completed_at" {
-    null    = true
-    type    = timestamptz
-    comment = "When the listing answered its last page, after which the branch is never scanned again."
-  }
-  column "engine_id" {
-    null    = false
-    type    = uuid
-    comment = "The engine that owns this row, stamped from the login that wrote it."
-  }
-  primary_key {
-    columns = [column.engine_id, column.repository_url, column.branch]
-  }
-  foreign_key "branch_scans_engine_id_fkey" {
     columns     = [column.engine_id]
     ref_columns = [table.engines.column.id]
     on_delete   = RESTRICT

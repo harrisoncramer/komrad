@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net/url"
-	"time"
 
 	"komrad/internal/forge"
 	forgestore "komrad/internal/store/forge"
@@ -16,30 +15,24 @@ type writeForgeFinder interface {
 	ForConnection(connection forgestore.Connection) (forge.Forge, error)
 }
 
-// loopWaker asks a background loop to run before its next tick.
-type loopWaker interface {
-	Wake()
-	WakeAfter(wait time.Duration)
+// heater keeps a host's repositories in the pull request sync's fast lane for a while.
+type heater interface {
+	Heat(host string)
 }
-
-const (
-	writeSettleAfter  = 10 * time.Second
-	writeSettleWithin = time.Minute
-)
 
 // NewWriterParams is what a writer is built over.
 type NewWriterParams struct {
 	Forges writeForgeFinder
-	Sync   loopWaker
+	Sync   heater
 }
 
 // Writer changes pull requests through the connection for their host.
 type Writer struct {
 	forges writeForgeFinder
-	sync   loopWaker
+	sync   heater
 }
 
-// NewWriter builds a writer over the forge service and the waker of the pull request sync.
+// NewWriter builds a writer over the forge service and the pull request sync.
 func NewWriter(params NewWriterParams) *Writer {
 	return &Writer{
 		forges: params.Forges,
@@ -47,9 +40,10 @@ func NewWriter(params NewWriterParams) *Writer {
 	}
 }
 
-// MergePullRequest merges the pull request at the address and wakes the pull request sync.
+// MergePullRequest merges the pull request at the address and heats its host in the pull
+// request sync.
 func (w *Writer) MergePullRequest(ctx context.Context, address string) error {
-	f, err := w.forgeFor(ctx, address)
+	host, f, err := w.forgeFor(ctx, address)
 	if err != nil {
 		return err
 	}
@@ -58,15 +52,15 @@ func (w *Writer) MergePullRequest(ctx context.Context, address string) error {
 		return err
 	}
 
-	w.wakeUntilSettled()
+	w.sync.Heat(host)
 
 	return nil
 }
 
 // SetPullRequestDraft marks the pull request at the address a draft or ready for review and
-// wakes the pull request sync.
+// heats its host in the pull request sync.
 func (w *Writer) SetPullRequestDraft(ctx context.Context, address string, draft bool) error {
-	f, err := w.forgeFor(ctx, address)
+	host, f, err := w.forgeFor(ctx, address)
 	if err != nil {
 		return err
 	}
@@ -75,15 +69,15 @@ func (w *Writer) SetPullRequestDraft(ctx context.Context, address string, draft 
 		return err
 	}
 
-	w.wakeUntilSettled()
+	w.sync.Heat(host)
 
 	return nil
 }
 
 // SetPullRequestAutoMerge asks the forge to merge the pull request once its checks and reviews
-// pass, or stops it, and wakes the pull request sync.
+// pass, or stops it, and heats its host in the pull request sync.
 func (w *Writer) SetPullRequestAutoMerge(ctx context.Context, params forge.SetAutoMergeParams) error {
-	f, err := w.forgeFor(ctx, params.URL)
+	host, f, err := w.forgeFor(ctx, params.URL)
 	if err != nil {
 		return err
 	}
@@ -92,34 +86,28 @@ func (w *Writer) SetPullRequestAutoMerge(ctx context.Context, params forge.SetAu
 		return err
 	}
 
-	w.wakeUntilSettled()
+	w.sync.Heat(host)
 
 	return nil
 }
 
-// forgeFor is the forge connected for the pull request address's host.
-func (w *Writer) forgeFor(ctx context.Context, address string) (forge.Forge, error) {
+// forgeFor is the host of the pull request address and the forge connected for it.
+func (w *Writer) forgeFor(ctx context.Context, address string) (string, forge.Forge, error) {
 	parsed, err := url.Parse(address)
 	if err != nil || parsed.Hostname() == "" {
-		return nil, forge.ErrNotPullRequest.Saying("%q is not a pull request's address", address)
+		return "", nil, forge.ErrNotPullRequest.Saying("%q is not a pull request's address", address)
 	}
 
-	connection, err := w.forges.ConnectionFor(ctx, parsed.Hostname())
+	host := parsed.Hostname()
+	connection, err := w.forges.ConnectionFor(ctx, host)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find the forge for %s: %w", parsed.Hostname(), err)
+		return "", nil, fmt.Errorf("failed to find the forge for %s: %w", host, err)
 	}
 
 	f, err := w.forges.ForConnection(*connection)
 	if err != nil {
-		return nil, fmt.Errorf("failed to build the forge for %s: %w", parsed.Hostname(), err)
+		return "", nil, fmt.Errorf("failed to build the forge for %s: %w", host, err)
 	}
 
-	return f, nil
-}
-
-func (w *Writer) wakeUntilSettled() {
-	w.sync.Wake()
-	for wait := writeSettleAfter; wait < writeSettleWithin; wait += writeSettleAfter {
-		w.sync.WakeAfter(wait)
-	}
+	return host, f, nil
 }

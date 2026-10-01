@@ -22,8 +22,7 @@ import (
 
 // The fixtures are what gitlab.com answered anonymously on 20 September 2026 for
 // acme/widgets: !256538 open, !254619 a draft, !256531 merged, !256485 closed from a fork,
-// a batch of decisions with one iid GitLab does not have, and the refusal three projects at a
-// hundred rows each draw.
+// and the refusal a query too complex draws.
 
 const openMergeRequest = `{"id":"gid://gitlab/MergeRequest/535736457","iid":"256538","title":"Strip undeclared keys from the settings","webUrl":"https://gitlab.com/acme/widgets/-/merge_requests/256538","state":"opened","draft":false,"createdAt":"2026-09-20T08:58:11Z","updatedAt":"2026-09-20T17:54:15Z","mergedAt":null,"closedAt":null,"sourceBranch":"settings-cleanup","targetBranch":"master","diffHeadSha":"14a5732c18c7186fb0b34d469255b9609e4d11f2","sourceProject":{"webUrl":"https://gitlab.com/acme/widgets"},"targetProject":{"webUrl":"https://gitlab.com/acme/widgets"},"diffRefs":{"baseSha":"4aabd419a0202362695a5e4147df061fbf976c9f"},"approvalsRequired":4,"approvalsLeft":4,"approvedBy":{"count":0},"reviewers":{"nodes":[{"mergeRequestInteraction":{"reviewState":"REVIEWED"}},{"mergeRequestInteraction":{"reviewState":"UNREVIEWED"}}]}}`
 
@@ -32,13 +31,6 @@ const draftMergeRequest = `{"id":"gid://gitlab/MergeRequest/530185576","iid":"25
 const mergedMergeRequest = `{"id":"gid://gitlab/MergeRequest/535718519","iid":"256531","title":"Update the runtime data for the e2e tests","webUrl":"https://gitlab.com/acme/widgets/-/merge_requests/256531","state":"merged","draft":false,"createdAt":"2026-09-20T05:24:39Z","updatedAt":"2026-09-20T06:24:05Z","mergedAt":"2026-09-20T06:24:05Z","closedAt":null,"sourceBranch":"qa-report-update","targetBranch":"master","diffHeadSha":"f7ae81a86c306ee75b2703ea62137b787950f3f2","sourceProject":{"webUrl":"https://gitlab.com/acme/widgets"},"targetProject":{"webUrl":"https://gitlab.com/acme/widgets"},"diffRefs":{"baseSha":"fb3b0f26554913f30d92e12c39b1814eda5b9a63"}}`
 
 const forkMergeRequest = `{"id":"gid://gitlab/MergeRequest/535500829","iid":"256485","title":"Draft: feat(reports): one template for the blockers page","webUrl":"https://gitlab.com/acme/widgets/-/merge_requests/256485","state":"closed","draft":true,"createdAt":"2026-09-18T21:41:21Z","updatedAt":"2026-09-20T17:09:26Z","mergedAt":null,"closedAt":"2026-09-19T20:09:45Z","sourceBranch":"blockers-page-single-template","targetBranch":"master","diffHeadSha":"d636bcb279bab23588cf8973100bc7e6387e9b54","sourceProject":{"webUrl":"https://gitlab.com/acme-forks/acme/widgets"},"targetProject":{"webUrl":"https://gitlab.com/acme/widgets"},"diffRefs":{"baseSha":"859512950cbe65e422c71a10bdcbfd9c929769aa"}}`
-
-// standingsBatch is the shape GitLab answers the aliased standings query with, recorded on 21
-// September against acme/widgets with made-up auto-merge fields: a running pipeline set to merge
-// when it passes, an approved merge request whose pipeline passed with nothing left to wait for,
-// one asked for changes whose pipeline failed, a skipped pipeline, one with no pipeline, and an
-// iid GitLab does not have.
-const standingsBatch = `{"data":{"project":{"m256666":{"detailedMergeStatus":"NOT_APPROVED","autoMergeEnabled":true,"availableAutoMergeStrategies":["merge_when_checks_pass"],"diffHeadSha":"834a90786a4b4f6e35100f1f588c56df17a02887","approvalsRequired":0,"approvalsLeft":0,"approvedBy":{"count":0},"reviewers":{"nodes":[{"mergeRequestInteraction":{"reviewState":"REVIEW_STARTED"}}]},"headPipeline":{"status":"RUNNING"}},"m255110":{"detailedMergeStatus":"MERGEABLE","autoMergeEnabled":false,"availableAutoMergeStrategies":[],"diffHeadSha":"b90fb22355180c048573dec4dbdc0c82ef92e31b","approvalsRequired":2,"approvalsLeft":0,"approvedBy":{"count":3},"reviewers":{"nodes":[{"mergeRequestInteraction":{"reviewState":"APPROVED"}},{"mergeRequestInteraction":{"reviewState":"REVIEWED"}},{"mergeRequestInteraction":{"reviewState":"APPROVED"}}]},"headPipeline":{"status":"SUCCESS"}},"m252724":{"detailedMergeStatus":"CONFLICT","diffHeadSha":"2586500f614ad3dc5c9ee538eaaa0303aa8f076a","approvalsRequired":0,"approvalsLeft":0,"approvedBy":{"count":0},"reviewers":{"nodes":[{"mergeRequestInteraction":{"reviewState":"REVIEWED"}},{"mergeRequestInteraction":{"reviewState":"UNAPPROVED"}},{"mergeRequestInteraction":{"reviewState":"REQUESTED_CHANGES"}},{"mergeRequestInteraction":{"reviewState":"UNAPPROVED"}}]},"headPipeline":{"status":"FAILED"}},"m256649":{"detailedMergeStatus":"DRAFT_STATUS","diffHeadSha":"66fb1f0ba5fe77bb0932daa6c0f3f3f185cac41c","approvalsRequired":0,"approvalsLeft":0,"approvedBy":{"count":0},"reviewers":{"nodes":[]},"headPipeline":{"status":"SKIPPED"}},"m254626":{"detailedMergeStatus":"UNCHECKED","diffHeadSha":"0abc488fc8123613c802cac85f1f7d5c4f9d0725","approvalsRequired":4,"approvalsLeft":4,"approvedBy":{"count":1},"reviewers":{"nodes":[{"mergeRequestInteraction":{"reviewState":"REVIEWED"}},{"mergeRequestInteraction":{"reviewState":"APPROVED"}},{"mergeRequestInteraction":{"reviewState":"UNAPPROVED"}},{"mergeRequestInteraction":{"reviewState":"UNAPPROVED"}}]},"headPipeline":null},"m999999999":null},"queryComplexity":{"score":118,"limit":200}}}`
 
 const tooComplex = `{"errors":[{"message":"Query has complexity of 294, which exceeds max complexity of 200"}]}`
 
@@ -287,125 +279,83 @@ func TestListAddressesANestedGroup(t *testing.T) {
 	assert.Equal(t, "group/sub/repo", fake.last(t).Variables["path"])
 }
 
-// TestListUpdated covers the sweep's request: every state by last change, the largest page,
-// the cursor carried in and out, and the rate limit read off GitLab's headers.
-func TestListUpdated(t *testing.T) {
+// readBranchesAnswer is GitLab answering a read of branches, recorded on 21 September against
+// acme/widgets with made-up auto-merge fields: a running pipeline set to merge when it passes
+// beside a fork's merge request on the same branch, an approved merge request whose pipeline
+// passed.
+const readBranchesAnswer = `{"data":{"project":{` +
+	`"b0":{"nodes":[` + openMergeRequestRunning + `,` + forkMergeRequest + `]},` +
+	`"b1":{"nodes":[` + mergedMergeRequestPassed + `]}},` +
+	`"queryComplexity":{"score":118,"limit":200}}}`
+
+const openMergeRequestRunning = `{"id":"gid://gitlab/MergeRequest/535736457","iid":"256538","title":"Strip undeclared keys from the settings","webUrl":"https://gitlab.com/acme/widgets/-/merge_requests/256538","state":"opened","draft":false,"createdAt":"2026-09-20T08:58:11Z","updatedAt":"2026-09-20T17:54:15Z","mergedAt":null,"closedAt":null,"sourceBranch":"settings-cleanup","targetBranch":"master","diffHeadSha":"14a5732c18c7186fb0b34d469255b9609e4d11f2","sourceProject":{"webUrl":"https://gitlab.com/acme/widgets"},"targetProject":{"webUrl":"https://gitlab.com/acme/widgets"},"diffRefs":{"baseSha":"4aabd419a0202362695a5e4147df061fbf976c9f"},"approvalsRequired":0,"approvalsLeft":0,"approvedBy":{"count":0},"reviewers":{"nodes":[{"mergeRequestInteraction":{"reviewState":"REVIEW_STARTED"}}]},"headPipeline":{"status":"RUNNING"},"detailedMergeStatus":"NOT_APPROVED","autoMergeEnabled":true,"availableAutoMergeStrategies":["merge_when_checks_pass"]}`
+
+const mergedMergeRequestPassed = `{"id":"gid://gitlab/MergeRequest/535718519","iid":"256531","title":"Update the runtime data for the e2e tests","webUrl":"https://gitlab.com/acme/widgets/-/merge_requests/256531","state":"merged","draft":false,"createdAt":"2026-09-20T05:24:39Z","updatedAt":"2026-09-20T06:24:05Z","mergedAt":"2026-09-20T06:24:05Z","closedAt":null,"sourceBranch":"qa-report-update","targetBranch":"master","diffHeadSha":"f7ae81a86c306ee75b2703ea62137b787950f3f2","sourceProject":{"webUrl":"https://gitlab.com/acme/widgets"},"targetProject":{"webUrl":"https://gitlab.com/acme/widgets"},"diffRefs":{"baseSha":"fb3b0f26554913f30d92e12c39b1814eda5b9a63"},"approvalsRequired":2,"approvalsLeft":0,"approvedBy":{"count":3},"reviewers":{"nodes":[{"mergeRequestInteraction":{"reviewState":"APPROVED"}}]},"headPipeline":{"status":"SUCCESS"},"detailedMergeStatus":"MERGEABLE","autoMergeEnabled":false,"availableAutoMergeStrategies":[]}`
+
+// TestReadBranches covers the aliased query, each answer folded into komrad's words, the rate
+// limit off GitLab's headers, and a fork's merge request on the same branch left out.
+func TestReadBranches(t *testing.T) {
 	t.Parallel()
 
-	f, _, fake := serve(t, map[string]answer{"ListUpdated": {
-		header: map[string]string{"RateLimit-Remaining": "1999", "RateLimit-Reset": "1789900000"},
-		body:   listing(true, "eyJ1cGRhdGVk", openMergeRequest, mergedMergeRequest),
+	f, _, fake := serve(t, map[string]answer{"ReadBranches": {
+		header: map[string]string{"RateLimit-Remaining": "1999", "RateLimit-Limit": "2000", "RateLimit-Reset": "1789900000"},
+		body:   readBranchesAnswer,
 	}})
 
-	listed, err := f.ListUpdated(t.Context(), forge.ListUpdatedParams{Repo: komrad, Cursor: "old"})
+	reading, err := f.ReadBranches(t.Context(), gitlabOrg, []string{"settings-cleanup", "qa-report-update"})
 	require.NoError(t, err)
+
+	require.Len(t, fake.calls, 1)
 	seen := fake.last(t)
-	assert.Equal(t, "ListUpdated", seen.Operation)
-	assert.Equal(t, listUpdatedQuery, seen.Query)
+	assert.Equal(t, "ReadBranches", seen.Operation)
 	assert.Equal(t, map[string]any{
-		"path":  "harrisoncramer/komrad",
-		"first": float64(100),
-		"after": "old",
+		"path": "acme/widgets",
+		"b0":   []any{"settings-cleanup"},
+		"b1":   []any{"qa-report-update"},
 	}, seen.Variables)
-	assert.Len(t, listed.PullRequests, 2)
-	assert.True(t, listed.HasMore)
-	assert.Equal(t, "eyJ1cGRhdGVk", listed.Cursor)
-	assert.True(t, listed.RateLimit.Known)
-	assert.Equal(t, 1999, listed.RateLimit.Remaining)
-	assert.Equal(t, time.Unix(1789900000, 0).UTC(), listed.RateLimit.ResetAt.UTC())
-}
-
-// TestListChanged covers the aliased query: every project in one request with its own
-// cursor, the rows of each with their decisions, a project GitLab has nothing for skipped, and
-// the cursor carrying only the projects with a page left.
-func TestListChanged(t *testing.T) {
-	t.Parallel()
-
-	f, _, fake := serve(t, map[string]answer{"ListChanged": {body: `{"data":{` +
-		`"r0":{"mergeRequests":` + page(true, "eyJ1cGRhdGVk", openMergeRequest) + `},` +
-		`"r1":null,` +
-		`"queryComplexity":{"score":100,"limit":200}}}`}})
-
-	since := time.Date(2026, 9, 20, 17, 0, 0, 0, time.UTC)
-	listed, err := f.ListChanged(t.Context(), forge.ListChangedParams{
-		Repos: []git.RemoteURL{komrad, gitlabOrg},
-		Since: since,
-	})
-	require.NoError(t, err)
-	seen := fake.last(t)
-	assert.Equal(t, "ListChanged", seen.Operation)
-	assert.Equal(t, map[string]any{
-		"since": "2026-09-20T17:00:00Z",
-		"first": float64(100),
-		"p0":    "acme/widgets",
-		"a0":    nil,
-		"p1":    "harrisoncramer/komrad",
-		"a1":    nil,
-	}, seen.Variables)
-	assert.Contains(t, seen.Query, "r0: project(fullPath: $p0) { mergeRequests(updatedAfter: $since, sort: UPDATED_DESC, first: $first, after: $a0)")
+	assert.Contains(t, seen.Query, "query ReadBranches($path: ID!, $b0: [String!], $b1: [String!])")
+	assert.Contains(t, seen.Query, "b0: mergeRequests(sourceBranches: $b0, sort: CREATED_DESC, first: 5) { nodes { ...mergeRequestFields "+standingFields+" } }")
 	assert.Contains(t, seen.Query, "queryComplexity { score limit }")
-	assert.Contains(t, seen.Query, standingFields)
-	require.Len(t, listed.PullRequests, 1)
-	assert.Equal(t, 256538, listed.PullRequests[0].Number)
-	assert.Equal(t, xptr.Ptr(forge.ReviewDecisionPending), listed.PullRequests[0].Decision, "four approvals owed is pending")
-	assert.Equal(t, xptr.Ptr(forge.ChecksNone), listed.PullRequests[0].Checks, "a row with no pipeline carries none")
-	assert.True(t, listed.HasMore)
-	assert.JSONEq(t, `{"acme/widgets":"eyJ1cGRhdGVk"}`, listed.Cursor)
 
-	f, _, fake = serve(t, map[string]answer{"ListChanged": {body: `{"data":{"r0":{"mergeRequests":` + page(false, "", mergedMergeRequest) + `},"queryComplexity":{"score":52,"limit":200}}}`}})
-	listed, err = f.ListChanged(t.Context(), forge.ListChangedParams{
-		Repos:  []git.RemoteURL{komrad, gitlabOrg},
-		Since:  since,
-		Cursor: `{"acme/widgets":"eyJ1cGRhdGVk"}`,
-	})
-	require.NoError(t, err)
-	seen = fake.last(t)
-	assert.Equal(t, "acme/widgets", seen.Variables["p0"])
-	assert.Equal(t, "eyJ1cGRhdGVk", seen.Variables["a0"])
-	assert.NotContains(t, seen.Variables, "p1", "only the project with a page left is asked again")
-	assert.False(t, listed.HasMore)
-	assert.Empty(t, listed.Cursor)
-	require.Len(t, listed.PullRequests, 1)
-	assert.Equal(t, xptr.Ptr(forge.ReviewDecisionNone), listed.PullRequests[0].Decision)
+	assert.Equal(t, forge.RateLimit{Known: true, Remaining: 1999, Limit: 2000, ResetAt: time.Unix(1789900000, 0)}, reading.RateLimit)
+
+	require.Len(t, reading.PullRequests, 2, "the fork's merge request is left out")
+	running, merged := reading.PullRequests[0], reading.PullRequests[1]
+	assert.Equal(t, 256538, running.Number)
+	assert.Equal(t, xptr.Ptr(forge.ReviewDecisionNone), running.Decision)
+	assert.Equal(t, xptr.Ptr(forge.ChecksPending), running.Checks)
+	assert.Equal(t, xptr.Ptr(forge.MergeabilityBlocked), running.Mergeability)
+	assert.Equal(t, &forge.AutoMerge{On: true, Allowed: true}, running.AutoMerge)
+	assert.Equal(t, 256531, merged.Number)
+	assert.Equal(t, xptr.Ptr(forge.ReviewDecisionApproved), merged.Decision)
+	assert.Equal(t, xptr.Ptr(forge.ChecksPassing), merged.Checks)
+	assert.Equal(t, xptr.Ptr(forge.MergeabilityClean), merged.Mergeability)
+	assert.Equal(t, &forge.AutoMerge{}, merged.AutoMerge)
 }
 
-// TestListChangedSplitsOnComplexity covers GitLab refusing too many projects in one query: the
+// TestReadBranchesSplitsOnComplexity covers GitLab refusing too many branches in one query: the
 // batch is halved until it fits, and what fits sizes the batches after it.
-func TestListChangedSplitsOnComplexity(t *testing.T) {
+func TestReadBranchesSplitsOnComplexity(t *testing.T) {
 	t.Parallel()
 
 	f, _, fake := serve(t, nil)
 	fake.handle = func(seen call) (answer, bool) {
-		projects := strings.Count(seen.Query, "project(fullPath:")
-		if projects > 1 {
+		if strings.Count(seen.Query, "mergeRequests(sourceBranches:") > 1 {
 			return answer{body: tooComplex}, true
 		}
 
-		return answer{body: `{"data":{"r0":{"mergeRequests":` + page(false, "", openMergeRequest) + `},"queryComplexity":{"score":100,"limit":100}}}`}, true
+		return answer{body: `{"data":{"project":{"b0":{"nodes":[` + openMergeRequestRunning + `]}},"queryComplexity":{"score":100,"limit":100}}}`}, true
 	}
 
-	listed, err := f.ListChanged(t.Context(), forge.ListChangedParams{
-		Repos: []git.RemoteURL{{Host: "gitlab.com", Path: "a/one"}, {Host: "gitlab.com", Path: "a/two"}, {Host: "gitlab.com", Path: "a/three"}},
-		Since: time.Date(2026, 9, 20, 17, 0, 0, 0, time.UTC),
-	})
+	reading, err := f.ReadBranches(t.Context(), gitlabOrg, []string{"one", "two", "three"})
 	require.NoError(t, err)
-	assert.Len(t, listed.PullRequests, 3, "every project is read once the batch fits")
+	assert.Len(t, reading.PullRequests, 3, "every branch is read once the batch fits")
 
 	batches := xslice.Map(fake.calls, func(seen call) int {
-		return strings.Count(seen.Query, "project(fullPath:")
+		return strings.Count(seen.Query, "mergeRequests(sourceBranches:")
 	})
 	assert.Equal(t, []int{2, 1, 1, 1}, batches, "two are refused, then one at a time since one filled the limit")
-}
-
-// TestListChangedRefusesABadCursor covers a cursor this forge did not hand out.
-func TestListChangedRefusesABadCursor(t *testing.T) {
-	t.Parallel()
-
-	f, _, fake := serve(t, nil)
-
-	_, err := f.ListChanged(t.Context(), forge.ListChangedParams{Repos: []git.RemoteURL{komrad}, Cursor: "Y3Vyc29yOjM="})
-	require.Error(t, err)
-	assert.Empty(t, fake.calls)
+	assert.Equal(t, []any{"three"}, fake.last(t).Variables["b0"])
 }
 
 // TestGet covers one merge request by its web address.
@@ -780,7 +730,7 @@ func TestListRefusesABarePath(t *testing.T) {
 
 	_, err := f.List(t.Context(), forge.ListParams{Repo: git.RemoteURL{Host: "gitlab.com", Path: "repo"}, Branch: "main"})
 	require.ErrorIs(t, err, forge.ErrNotRepository)
-	_, err = f.ListChanged(t.Context(), forge.ListChangedParams{Repos: []git.RemoteURL{komrad, {Host: "gitlab.com", Path: "repo"}}})
+	_, err = f.ReadBranches(t.Context(), git.RemoteURL{Host: "gitlab.com", Path: "repo"}, []string{"main"})
 	require.ErrorIs(t, err, forge.ErrNotRepository)
 	assert.Empty(t, fake.calls)
 }
@@ -813,16 +763,16 @@ func TestNotFound(t *testing.T) {
 	t.Parallel()
 
 	f, auth, _ := serve(t, map[string]answer{
-		"Get":         {body: `{"data":{"project":null}}`},
-		"ListUpdated": {body: `{"data":{"project":null}}`},
-		"Standings":   {body: `{"data":{"project":null}}`},
+		"Get":          {body: `{"data":{"project":null}}`},
+		"List":         {body: `{"data":{"project":null}}`},
+		"ReadBranches": {body: `{"data":{"project":null}}`},
 	})
 
 	_, err := f.Get(t.Context(), "https://gitlab.com/acme/no-such-project-xyz/-/merge_requests/1")
 	require.ErrorIs(t, err, forge.ErrNotFound)
-	_, err = f.ListUpdated(t.Context(), forge.ListUpdatedParams{Repo: komrad})
+	_, err = f.List(t.Context(), forge.ListParams{Repo: komrad, Branch: "main"})
 	require.ErrorIs(t, err, forge.ErrNotFound)
-	_, err = f.Standings(t.Context(), komrad, []int{1})
+	_, err = f.ReadBranches(t.Context(), komrad, []string{"main"})
 	require.ErrorIs(t, err, forge.ErrNotFound)
 	assert.Equal(t, 0, auth.invalidated)
 
@@ -880,13 +830,13 @@ func TestRateLimitRefusals(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			f, _, _ := serve(t, map[string]answer{"ListUpdated": {
+			f, _, _ := serve(t, map[string]answer{"ReadBranches": {
 				status: tt.status,
 				header: tt.header,
 				body:   `{"message":"refused"}`,
 			}})
 
-			_, err := f.ListUpdated(t.Context(), forge.ListUpdatedParams{Repo: komrad})
+			_, err := f.ReadBranches(t.Context(), komrad, []string{"main"})
 			require.Error(t, err)
 
 			var throttled *forge.ThrottledError
@@ -900,59 +850,6 @@ func TestRateLimitRefusals(t *testing.T) {
 			assert.True(t, throttled.RetryAt.Equal(tt.wantRetryAt), "retry at %s, want %s", throttled.RetryAt, tt.wantRetryAt)
 		})
 	}
-}
-
-// TestStandings covers the batch: one query aliasing every iid, each folded into komrad's
-// words with the head it was read for, and an iid GitLab does not have left out rather than
-// failing the rest.
-func TestStandings(t *testing.T) {
-	t.Parallel()
-
-	f, _, fake := serve(t, map[string]answer{"Standings": {body: standingsBatch}})
-
-	numbers := []int{256666, 255110, 252724, 256649, 254626, 999999999}
-	standings, err := f.Standings(t.Context(), gitlabOrg, numbers)
-	require.NoError(t, err)
-	assert.Equal(t, map[int]forge.Standing{
-		256666: {
-			Decision:     forge.ReviewDecisionNone,
-			Checks:       forge.ChecksPending,
-			Mergeability: forge.MergeabilityBlocked,
-			HeadSHA:      "834a90786a4b4f6e35100f1f588c56df17a02887",
-			AutoMerge:    forge.AutoMerge{On: true, Allowed: true},
-		},
-		255110: {
-			Decision:     forge.ReviewDecisionApproved,
-			Checks:       forge.ChecksPassing,
-			Mergeability: forge.MergeabilityClean,
-			HeadSHA:      "b90fb22355180c048573dec4dbdc0c82ef92e31b",
-		},
-		252724: {
-			Decision:     forge.ReviewDecisionChangesRequested,
-			Checks:       forge.ChecksFailing,
-			Mergeability: forge.MergeabilityConflicting,
-			HeadSHA:      "2586500f614ad3dc5c9ee538eaaa0303aa8f076a",
-		},
-		256649: {
-			Decision:     forge.ReviewDecisionNone,
-			Checks:       forge.ChecksNone,
-			Mergeability: forge.MergeabilityBlocked,
-			HeadSHA:      "66fb1f0ba5fe77bb0932daa6c0f3f3f185cac41c",
-		},
-		254626: {
-			Decision:     forge.ReviewDecisionPending,
-			Checks:       forge.ChecksNone,
-			Mergeability: forge.MergeabilityUnknown,
-			HeadSHA:      "0abc488fc8123613c802cac85f1f7d5c4f9d0725",
-		},
-	}, standings)
-
-	seen := fake.last(t)
-	assert.Equal(t, "Standings", seen.Operation)
-	assert.Equal(t, map[string]any{"path": "acme/widgets"}, seen.Variables)
-	assert.Contains(t, seen.Query, `m256666: mergeRequest(iid: "256666") { diffHeadSha `+standingFields+` }`)
-	assert.Contains(t, seen.Query, "queryComplexity { score limit }")
-	assert.Equal(t, 6, strings.Count(seen.Query, "mergeRequest(iid:"))
 }
 
 // TestMergeabilityFolds covers the detailed merge statuses GitLab documents: one word each for
@@ -1029,63 +926,6 @@ func TestChecksFolds(t *testing.T) {
 	var node standingNode
 	require.NoError(t, json.Unmarshal([]byte(`{"headPipeline":null}`), &node))
 	assert.Equal(t, forge.ChecksNone, node.checks())
-}
-
-// TestStandingsSplitsOnComplexity covers more numbers than one query takes against a
-// GitLab whose limit is lower than the measured fit: a refused batch is halved and never asked
-// at that size again, and the score a batch answers sizes the next up to that ceiling.
-func TestStandingsSplitsOnComplexity(t *testing.T) {
-	t.Parallel()
-
-	f, _, fake := serve(t, nil)
-	fake.handle = func(seen call) (answer, bool) {
-		count := strings.Count(seen.Query, "mergeRequest(iid:")
-		if count > 8 {
-			return answer{body: tooComplex}, true
-		}
-
-		var fields []string
-		for _, line := range strings.Split(seen.Query, "\n") {
-			alias, _, ok := strings.Cut(strings.TrimSpace(line), ":")
-			if ok && strings.HasPrefix(alias, "m") {
-				fields = append(fields, `"`+alias+`":{"approvalsRequired":1,"approvalsLeft":0,"approvedBy":{"count":1},"reviewers":{"nodes":[]}}`)
-			}
-		}
-
-		return answer{body: `{"data":{"project":{` + strings.Join(fields, ",") + `},"queryComplexity":{"score":` + strconv.Itoa(15*count) + `,"limit":200}}}`}, true
-	}
-
-	numbers := make([]int, 0, forge.MaxStandings)
-	for i := range forge.MaxStandings {
-		numbers = append(numbers, i+1)
-	}
-	standings, err := f.Standings(t.Context(), gitlabOrg, numbers)
-	require.NoError(t, err)
-	assert.Len(t, standings, forge.MaxStandings)
-	assert.Equal(t, forge.ReviewDecisionApproved, standings[50].Decision)
-
-	batches := xslice.Map(fake.calls, func(seen call) int {
-		return strings.Count(seen.Query, "mergeRequest(iid:")
-	})
-	assert.Equal(t, []int{10, 5, 9, 4, 8, 8, 8, 8, 8, 1}, batches, "each refusal lowers the ceiling the score may grow the batch back to")
-}
-
-// TestStandingsRefusesTooMany covers more numbers than one call takes, and a path
-// GitLab cannot address, neither costing a request.
-func TestStandingsRefusesTooMany(t *testing.T) {
-	t.Parallel()
-
-	f, _, fake := serve(t, nil)
-
-	numbers := make([]int, forge.MaxStandings+1)
-	for i := range numbers {
-		numbers[i] = i + 1
-	}
-	_, err := f.Standings(t.Context(), komrad, numbers)
-	require.Error(t, err)
-	_, err = f.Standings(t.Context(), git.RemoteURL{Host: "gitlab.com", Path: "repo"}, []int{1})
-	require.ErrorIs(t, err, forge.ErrNotRepository)
-	assert.Empty(t, fake.calls)
 }
 
 // TestDecisionFolds covers how the approvals become komrad's word: a reviewer asking for

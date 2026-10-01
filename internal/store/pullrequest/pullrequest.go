@@ -1,5 +1,5 @@
 // Package pullrequest stores the pull requests komrad has read from its forges, the agents each
-// was seen with, and where the sync is for every repository and branch it has listed.
+// was seen with, and which repositories the sync has read.
 package pullrequest
 
 import (
@@ -50,8 +50,6 @@ type PullRequest struct {
 	FirstSeenAt time.Time
 	// ReviewDecision is where the forge says the reviews stand, nil while it has said nothing.
 	ReviewDecision *forge.ReviewDecision
-	// DecisionChangedAt is the ChangedAt the decision was read for, nil while it never has been.
-	DecisionChangedAt *time.Time
 	// Checks is where the forge says the checks on the head stand, nil while it reports none.
 	Checks *forge.Checks
 	// Mergeability is where the forge says it stands against its base and rules, nil while the
@@ -59,8 +57,6 @@ type PullRequest struct {
 	Mergeability *forge.Mergeability
 	// ChecksSHA is the head the checks were read for, empty while they never have been.
 	ChecksSHA string
-	// ChecksReadAt is when the checks were last read, nil while they never have been.
-	ChecksReadAt *time.Time
 	// LastKnownChecks is the checks as the forge last reported them, empty before it ever has.
 	LastKnownChecks string
 	// LastKnownMergeability is the mergeability as the forge last reported it, empty before it ever has.
@@ -252,14 +248,11 @@ type SetStandingParams struct {
 	ID       string
 	Standing forge.Standing
 	ReadAt   time.Time
-	// Unanswered says the forge returned nothing for the pull request, which keeps its
-	// mergeability as it was rather than recording a blank.
-	Unanswered bool
 }
 
 // SetStanding records where the forge said a pull request's reviews, checks and mergeability
-// stand, stamps the read whether or not anything moved, and answers the last known standing
-// before and after.
+// stand, writing nothing when the answer matches what is stored, and answers the last known
+// standing before and after.
 func (s *PullRequestStore) SetStanding(ctx context.Context, params SetStandingParams) (*StandingChange, error) {
 	id, standing := params.ID, params.Standing
 	var decision *string
@@ -281,8 +274,7 @@ func (s *PullRequestStore) SetStanding(ctx context.Context, params SetStandingPa
 		Checks:         checks,
 		Mergeability:   mergeability,
 		ChecksSha:      standing.HeadSHA,
-		ChecksReadAt:   params.ReadAt,
-		Answered:       !params.Unanswered,
+		ReadAt:         params.ReadAt,
 		AutoMerge:      standing.AutoMerge.On,
 		AutoMergeable:  standing.AutoMerge.Allowed,
 	})
@@ -382,11 +374,9 @@ func fromRow(row *models.PullRequest) PullRequest {
 		ClosedAt:                 row.ClosedAt,
 		FirstSeenAt:              row.FirstSeenAt,
 		ReviewDecision:           storedReviewDecision(row.ReviewDecision),
-		DecisionChangedAt:        row.DecisionChangedAt,
 		Checks:                   StoredChecks(row.Checks),
 		Mergeability:             StoredMergeability(row.Mergeability),
 		ChecksSHA:                xptr.Deref(row.ChecksSha),
-		ChecksReadAt:             row.ChecksReadAt,
 		LastKnownChecks:          xptr.Deref(row.LastKnownChecks),
 		LastKnownMergeability:    xptr.Deref(row.LastKnownMergeability),
 		LastKnownMergeabilitySHA: xptr.Deref(row.LastKnownMergeabilitySha),

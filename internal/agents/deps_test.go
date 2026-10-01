@@ -29,7 +29,6 @@ import (
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/internal/storetest"
 	"komrad/internal/tmuxtest"
-	"komrad/internal/waketest"
 	"komrad/lib/xptr"
 
 	"github.com/google/uuid"
@@ -135,7 +134,6 @@ type testAgents struct {
 	emptied      *EmptyWorkflowDeleter
 	orchestrator *OrchestratorService
 	snapshots    *gittest.Snapshots
-	prSync       *waketest.Counter
 }
 
 type agentServiceOptions struct {
@@ -189,12 +187,10 @@ func (s *testStore) agentService(options agentServiceOptions) *testAgents {
 	})
 
 	snapshots := &gittest.Snapshots{}
-	prSync := &waketest.Counter{}
 
 	built := &testAgents{
 		launch:    launch,
 		snapshots: snapshots,
-		prSync:    prSync,
 		resume: NewResumeService(NewResumeServiceParams{
 			Tmux:      options.tmux,
 			Agents:    agents,
@@ -204,11 +200,10 @@ func (s *testStore) agentService(options agentServiceOptions) *testAgents {
 			Scripts:   options.lifecycle,
 		}),
 		adopt: NewAdoptService(NewAdoptServiceParams{
-			Agents:          agents,
-			Workflows:       s.Workflows,
-			Launch:          launch,
-			Worktrees:       &gittest.Checkout{},
-			PullRequestSync: prSync,
+			Agents:    agents,
+			Workflows: s.Workflows,
+			Launch:    launch,
+			Worktrees: &gittest.Checkout{},
 		}),
 		lifecycle: NewLifecycleService(NewLifecycleServiceParams{
 			Tmux:           options.tmux,
@@ -245,11 +240,10 @@ func (s *testStore) agentService(options agentServiceOptions) *testAgents {
 // withWorktrees rebuilds the adopt service over a worktree listing of its own.
 func (a *testAgents) withWorktrees(worktrees checkoutReader) *testAgents {
 	a.adopt = NewAdoptService(NewAdoptServiceParams{
-		Agents:          a.adopt.agents,
-		Workflows:       a.adopt.workflows,
-		Launch:          a.adopt.launch,
-		Worktrees:       worktrees,
-		PullRequestSync: a.prSync,
+		Agents:    a.adopt.agents,
+		Workflows: a.adopt.workflows,
+		Launch:    a.adopt.launch,
+		Worktrees: worktrees,
 	})
 
 	return a

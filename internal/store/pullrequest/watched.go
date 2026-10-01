@@ -34,10 +34,9 @@ func (s *PullRequestStore) ListWatched(ctx context.Context, keys []string) ([]Pu
 
 // WatchedRepositories declares the repositories the sync reads to the watch.
 var WatchedRepositories = watch.Resource{
-	Enum:           watchv1.Resource_RESOURCE_REPOSITORY,
-	Table:          "pull_request_syncs",
-	KeyColumn:      "repository_url",
-	IgnoredColumns: []string{"calls", "listed_at", "read_at", "sweep_cursor", "sweep_newest"},
+	Enum:      watchv1.Resource_RESOURCE_REPOSITORY,
+	Table:     "pull_request_syncs",
+	KeyColumn: "repository_url",
 }
 
 // ListWatched returns the syncs of whichever repositories among keys have one, or of every repository when keys is nil.

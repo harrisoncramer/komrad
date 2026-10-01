@@ -16,7 +16,8 @@ enum Loop {
   LOOP_CWD_SYNC = 1;
   // Reads each agent's conversation log for new turns.
   LOOP_TRANSCRIPT_SYNC = 2;
-  // Asks the forges what changed on the pull requests opened from agents' branches.
+  // Reads the pull requests opened from agents' branches, every repository on a wake rather than
+  // only those due.
   LOOP_PULL_REQUEST_SYNC = 3;
 }
 

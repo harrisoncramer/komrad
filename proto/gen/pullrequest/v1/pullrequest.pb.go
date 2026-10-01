@@ -33,9 +33,9 @@ type PullRequestState int32
 const (
 	// No state was decided.
 	PullRequestState_PULL_REQUEST_STATE_UNSPECIFIED PullRequestState = 0
-	// The repository's first sweep has not completed, so nothing is known.
+	// The repository has not been read yet, so nothing is known.
 	PullRequestState_PULL_REQUEST_STATE_UNREAD PullRequestState = 1
-	// The repository has been swept and nothing was opened from the branch.
+	// The repository has been read and nothing was opened from the branch.
 	PullRequestState_PULL_REQUEST_STATE_NONE PullRequestState = 2
 	// Open with no review decision that settles it.
 	PullRequestState_PULL_REQUEST_STATE_OPEN PullRequestState = 3

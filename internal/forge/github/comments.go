@@ -54,7 +54,7 @@ func (f *Forge) ReviewThreads(ctx context.Context, repo git.RemoteURL, number in
 	if err != nil {
 		return nil, err
 	}
-	if err := failureOf(answer, ""); err != nil {
+	if err := failureOf(answer); err != nil {
 		return nil, err
 	}
 	if data.Repository == nil {

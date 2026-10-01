@@ -34,7 +34,7 @@ While an agent is live, komrad watches the pull requests in its repository. It n
   </video>
 </figure>
 
-Komrad asks the forge only what changed since it last looked, and backs off when the forge says it is being asked too often.
+Komrad reads the pull requests opened from each live agent's branch. A repository where something is likely to change soon, such as checks still running, a branch that just moved, or a pull request komrad just wrote to, is read every five seconds. Every other repository is read once a minute. When the forge says little of the hour's budget is left, every repository on that host drops to once a minute until the budget comes back.
 
 On GitHub, komrad also reads the review comments on each open pull request a live agent is linked to, drafts included, once a minute. They show up in the review screen and in the counts on the agent's row, and a new one from a person says so in the header. Komrad never hands them to an agent and never writes anything back to the forge.
 

@@ -112,6 +112,11 @@ type loopWaker interface {
 	Wake()
 }
 
+// pullRequestHeater keeps the pull request sync reading a forge host often for a while.
+type pullRequestHeater interface {
+	Heat(host string)
+}
+
 // NewServiceParams is what the service is built over.
 type NewServiceParams struct {
 	Agents          agentReadWriter
@@ -124,7 +129,7 @@ type NewServiceParams struct {
 	PullRequests    pullRequestLister
 	Locks           *TreeLocks
 	CheckoutSync    loopWaker
-	PullRequestSync loopWaker
+	PullRequestSync pullRequestHeater
 }
 
 // Service rebases, pushes and aborts in an agent's existing worktree on a person's say-so.
@@ -139,7 +144,7 @@ type Service struct {
 	pullRequests    pullRequestLister
 	locks           *TreeLocks
 	checkoutSync    loopWaker
-	pullRequestSync loopWaker
+	pullRequestSync pullRequestHeater
 }
 
 // NewService builds the service from its dependencies.

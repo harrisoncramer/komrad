@@ -51,6 +51,7 @@ import (
 	"komrad/proto/gen/git/v1/gitv1connect"
 	"komrad/proto/gen/hook/v1/hookv1connect"
 	"komrad/proto/gen/log/v1/logv1connect"
+	loopv1 "komrad/proto/gen/loop/v1"
 	"komrad/proto/gen/loop/v1/loopv1connect"
 	"komrad/proto/gen/pullrequest/v1/pullrequestv1connect"
 	"komrad/proto/gen/schedule/v1/schedulev1connect"
@@ -328,9 +329,12 @@ func (i *Instance) SyncCwds() {
 	i.runLoop(server.CwdSyncLoop)
 }
 
-// SyncPullRequests runs one pass of the loop that reads the forges' pull requests.
+// SyncPullRequests wakes the loop that reads the forges' pull requests and runs one pass of it,
+// which reads every repository whether or not it was due.
 func (i *Instance) SyncPullRequests() {
 	i.t.Helper()
+	_, err := i.Loops.WakeLoop(i.t.Context(), connect.NewRequest(&loopv1.WakeLoopRequest{Loop: loopv1.Loop_LOOP_PULL_REQUEST_SYNC}))
+	require.NoError(i.t, err)
 	i.runLoop(server.PullRequestSyncLoop)
 }
 

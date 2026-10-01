@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -79,24 +80,6 @@ const listQuery = `query List($owner: String!, $name: String!, $first: Int!, $af
 }
 ` + pullRequestFragment
 
-const listUpdatedQuery = `query ListUpdated($owner: String!, $name: String!, $first: Int!, $after: String) {
-  repository(owner: $owner, name: $name) {
-    pullRequests(first: $first, after: $after, orderBy: {field: UPDATED_AT, direction: DESC}) {
-      pageInfo { hasNextPage endCursor }
-      nodes { ...pullRequestFields }
-    }
-  }
-}
-` + pullRequestFragment
-
-const listChangedQuery = `query ListChanged($query: String!, $first: Int!, $after: String) {
-  search(type: ISSUE, query: $query, first: $first, after: $after) {
-    pageInfo { hasNextPage endCursor }
-    nodes { ... on PullRequest { ...pullRequestFields ` + standingFields + ` } }
-  }
-}
-` + pullRequestFragment
-
 // standingFields is what the reviews, checks, mergeability and auto-merge of a pull request
 // are read from: GitHub's computed review decision, the rollup of every check on the head
 // commit, its computed merge state, the auto-merge request on it and whether the credential
@@ -165,7 +148,7 @@ func (f *Forge) Verify(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if err := failureOf(answer, ""); err != nil {
+	if err := failureOf(answer); err != nil {
 		return "", err
 	}
 	if data.Viewer.Login == "" {
@@ -218,56 +201,6 @@ func (f *Forge) List(ctx context.Context, params forge.ListParams) (*forge.Page,
 	return f.listPullRequests(ctx, listQuery, variables)
 }
 
-// ListUpdated is one page of every pull request in the repository, newest change first, and
-// where the next page starts.
-func (f *Forge) ListUpdated(ctx context.Context, params forge.ListUpdatedParams) (*forge.Page, error) {
-	owner, name, err := ownerAndName(params.Repo.Path)
-	if err != nil {
-		return nil, err
-	}
-
-	return f.listPullRequests(ctx, listUpdatedQuery, map[string]any{
-		"owner": owner,
-		"name":  name,
-		"first": MaxPerPage,
-		"after": graphql.CursorOf(params.Cursor),
-	})
-}
-
-// ListChanged is one page of every pull request across the repositories changed at or after
-// Since, newest first, each with its review decision, read through GitHub's search.
-func (f *Forge) ListChanged(ctx context.Context, params forge.ListChangedParams) (*forge.Page, error) {
-	terms := []string{"is:pr"}
-	for _, repo := range params.Repos {
-		owner, name, err := ownerAndName(repo.Path)
-		if err != nil {
-			return nil, err
-		}
-
-		terms = append(terms, "repo:"+owner+"/"+name)
-	}
-	terms = append(terms, "updated:>="+params.Since.UTC().Format(time.RFC3339), "sort:updated-desc")
-
-	var data struct {
-		Search connection `json:"search"`
-	}
-	answer, err := f.client.Query(ctx, listChangedQuery, map[string]any{
-		"query": strings.Join(terms, " "),
-		"first": MaxPerPage,
-		"after": graphql.CursorOf(params.Cursor),
-	}, &data)
-	if err != nil {
-		return nil, err
-	}
-	if err := failureOf(answer, ""); err != nil {
-		return nil, err
-	}
-
-	return graphql.PageOf(&data.Search, answer.RateLimit, func(node pullRequestNode) forge.PullRequest {
-		return node.toPullRequest(true)
-	}), nil
-}
-
 // Get is one pull request by its web address.
 func (f *Forge) Get(ctx context.Context, address string) (forge.PullRequest, error) {
 	owner, name, number, err := parsePullURL(address)
@@ -288,7 +221,7 @@ func (f *Forge) Get(ctx context.Context, address string) (forge.PullRequest, err
 	if err != nil {
 		return forge.PullRequest{}, err
 	}
-	if err := failureOf(answer, ""); err != nil {
+	if err := failureOf(answer); err != nil {
 		return forge.PullRequest{}, err
 	}
 	if data.Repository == nil || data.Repository.PullRequest == nil {
@@ -298,49 +231,79 @@ func (f *Forge) Get(ctx context.Context, address string) (forge.PullRequest, err
 	return data.Repository.PullRequest.toPullRequest(false), nil
 }
 
-// Standings reads GitHub's computed reviewDecision and the check rollup of the head commit for
-// up to fifty pull requests in one query, by alias, leaving out any GitHub does not have.
-func (f *Forge) Standings(ctx context.Context, repo git.RemoteURL, numbers []int) (map[int]forge.Standing, error) {
+// branchesPerQuery is how many branches one ReadBranches query asks about, which GitHub
+// prices at a few points.
+const branchesPerQuery = 50
+
+// pullRequestsPerBranch is how many of a branch's newest pull requests ReadBranches reads.
+const pullRequestsPerBranch = 5
+
+// ReadBranches reads the newest pull requests opened from each branch, with their standing,
+// fifty branches to a query by alias, keeping only those whose head is the repository itself.
+func (f *Forge) ReadBranches(ctx context.Context, repo git.RemoteURL, branches []string) (*forge.Reading, error) {
 	owner, name, err := ownerAndName(repo.Path)
 	if err != nil {
 		return nil, err
 	}
-	if len(numbers) > forge.MaxStandings {
-		return nil, forge.ErrTooManyStandings.Saying("at most %d standings can be read in one call, not %d", forge.MaxStandings, len(numbers))
+
+	reading := &forge.Reading{}
+	for batch := range slices.Chunk(branches, branchesPerQuery) {
+		read, err := f.readBranches(ctx, owner, name, batch)
+		if err != nil {
+			return nil, err
+		}
+		reading.RateLimit = read.RateLimit
+		reading.PullRequests = append(reading.PullRequests, read.PullRequests...)
 	}
 
-	var fields strings.Builder
-	for _, number := range numbers {
-		fmt.Fprintf(&fields, "\n    p%d: pullRequest(number: %d) { headRefOid %s }", number, number, standingFields)
+	return reading, nil
+}
+
+// readBranches is what one query answers about a batch of branches.
+func (f *Forge) readBranches(ctx context.Context, owner, name string, branches []string) (*forge.Reading, error) {
+	variables := map[string]any{"owner": owner, "name": name}
+	var declared, fields strings.Builder
+	for i, branch := range branches {
+		variables["b"+strconv.Itoa(i)] = branch
+		fmt.Fprintf(&declared, ", $b%d: String!", i)
+		fmt.Fprintf(&fields, "\n    b%d: pullRequests(headRefName: $b%d, first: %d, orderBy: {field: CREATED_AT, direction: DESC}) { nodes { ...pullRequestFields %s } }", i, i, pullRequestsPerBranch, standingFields)
 	}
-	operation := "query Standings($owner: String!, $name: String!) {\n  repository(owner: $owner, name: $name) {" + fields.String() + "\n  }\n}"
+	operation := "query ReadBranches($owner: String!, $name: String!" + declared.String() + ") {\n  repository(owner: $owner, name: $name) {" + fields.String() + "\n  }\n}\n" + pullRequestFragment
 
 	var data struct {
-		Repository map[string]*standingNode `json:"repository"`
+		Repository map[string]*struct {
+			Nodes []pullRequestNode `json:"nodes"`
+		} `json:"repository"`
 	}
-	variables := map[string]any{"owner": owner, "name": name}
 	answer, err := f.client.Query(ctx, operation, variables, &data)
 	if err != nil {
 		return nil, err
 	}
-	if err := failureOf(answer, "repository"); err != nil {
+	if err := failureOf(answer); err != nil {
 		return nil, err
 	}
 	if data.Repository == nil {
 		return nil, noRepository(variables)
 	}
 
-	standings := make(map[int]forge.Standing, len(numbers))
-	for _, number := range numbers {
-		node := data.Repository["p"+strconv.Itoa(number)]
-		if node == nil {
+	reading := &forge.Reading{RateLimit: answer.RateLimit}
+	for i := range branches {
+		answered := data.Repository["b"+strconv.Itoa(i)]
+		if answered == nil {
 			continue
 		}
 
-		standings[number] = node.standing()
+		for _, node := range answered.Nodes {
+			pullRequest := node.toPullRequest(true)
+			if pullRequest.Head.IsZero() || pullRequest.Head.Canonical() != pullRequest.Repository.Canonical() {
+				continue
+			}
+
+			reading.PullRequests = append(reading.PullRequests, pullRequest)
+		}
 	}
 
-	return standings, nil
+	return reading, nil
 }
 
 // Merge lands the pull request with the method GitHub offers the credential by default.
@@ -367,7 +330,7 @@ func (f *Forge) Merge(ctx context.Context, address string) error {
 	if err != nil {
 		return err
 	}
-	if err := failureOf(answer, ""); err != nil {
+	if err := failureOf(answer); err != nil {
 		return err
 	}
 	if data.Repository == nil || data.Repository.PullRequest == nil {
@@ -417,7 +380,7 @@ func (f *Forge) SetDraft(ctx context.Context, address string, draft bool) error 
 	if err != nil {
 		return err
 	}
-	if err := failureOf(answer, ""); err != nil {
+	if err := failureOf(answer); err != nil {
 		return err
 	}
 	if data.Repository == nil || data.Repository.PullRequest == nil {
@@ -515,7 +478,7 @@ func (f *Forge) readAutoMergeTarget(ctx context.Context, params readAutoMergeTar
 	if err != nil {
 		return nil, err
 	}
-	if err := failureOf(answer, ""); err != nil {
+	if err := failureOf(answer); err != nil {
 		return nil, err
 	}
 	if data.Repository == nil || data.Repository.PullRequest == nil {
@@ -540,7 +503,7 @@ func (f *Forge) listPullRequests(ctx context.Context, operation string, variable
 	if err != nil {
 		return nil, err
 	}
-	if err := failureOf(answer, ""); err != nil {
+	if err := failureOf(answer); err != nil {
 		return nil, err
 	}
 	if data.Repository == nil {
@@ -576,25 +539,21 @@ func (r mutationRefusal) explain(answer *graphql.Answer, address string, number 
 		}
 	}
 
-	return failureOf(answer, "")
+	return failureOf(answer)
 }
 
-// failureOf is the first error the answer carries as komrad's, nil when it carries none, with a
-// NOT_FOUND under one alias of the named field forgiven.
-func failureOf(answer *graphql.Answer, field string) error {
-	for _, failure := range answer.Errors {
-		if failure.Type == "NOT_FOUND" {
-			if field != "" && len(failure.Path) == 2 && failure.Path[0] == field {
-				continue
-			}
-
-			return fmt.Errorf("%w: %s, which is also github's answer for a repository the credential cannot see", forge.ErrNotFound, failure.Message)
-		}
-
-		return fmt.Errorf("github refused the query: %s", failure.Message)
+// failureOf is the first error the answer carries as komrad's, nil when it carries none.
+func failureOf(answer *graphql.Answer) error {
+	if len(answer.Errors) == 0 {
+		return nil
 	}
 
-	return nil
+	failure := answer.Errors[0]
+	if failure.Type == "NOT_FOUND" {
+		return fmt.Errorf("%w: %s, which is also github's answer for a repository the credential cannot see", forge.ErrNotFound, failure.Message)
+	}
+
+	return fmt.Errorf("github refused the query: %s", failure.Message)
 }
 
 // checksOf is GitHub's statusCheckRollup state in komrad's words, none for a commit with no
@@ -719,17 +678,6 @@ type standingNode struct {
 
 type rollupNode struct {
 	State string `json:"state"`
-}
-
-// standing is the node's decision, checks and mergeability with the head they were read for.
-func (n standingNode) standing() forge.Standing {
-	return forge.Standing{
-		Decision:     reviewDecisionOf(n.ReviewDecision),
-		Checks:       n.checks(),
-		Mergeability: mergeabilityOf(n.MergeStateStatus),
-		HeadSHA:      n.HeadRefOid,
-		AutoMerge:    n.autoMerge(),
-	}
 }
 
 // autoMerge is whether the pull request carries an auto-merge request and whether the

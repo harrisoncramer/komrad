@@ -3,7 +3,6 @@ package pullrequests
 import (
 	"context"
 	"testing"
-	"time"
 
 	"komrad/internal/forge"
 	"komrad/internal/store"
@@ -76,21 +75,18 @@ func newTestWriter(t *testing.T, writing *writingForge, sync *waketest.Counter) 
 	})
 }
 
-var settleWakes = []time.Duration{10 * time.Second, 20 * time.Second, 30 * time.Second, 40 * time.Second, 50 * time.Second}
-
 // TestMergePullRequest covers which connection a merge goes through and the pull request sync
-// being woken, now and every ten seconds for a minute, only once the forge has merged.
+// heating the host only once the forge has merged.
 func TestMergePullRequest(t *testing.T) {
 	const address = "https://github.com/harrisoncramer/komrad/pull/1"
 
 	tests := []struct {
-		name        string
-		address     string
-		mergeErr    error
-		wantErr     error
-		wantMerged  []string
-		wantWakes   int
-		wantDelayed []time.Duration
+		name       string
+		address    string
+		mergeErr   error
+		wantErr    error
+		wantMerged []string
+		wantHeated []string
 	}{
 		{
 			name:    "an address with no host",
@@ -110,11 +106,10 @@ func TestMergePullRequest(t *testing.T) {
 			wantMerged: []string{address},
 		},
 		{
-			name:        "a pull request the forge merges",
-			address:     address,
-			wantMerged:  []string{address},
-			wantWakes:   1,
-			wantDelayed: settleWakes,
+			name:       "a pull request the forge merges",
+			address:    address,
+			wantMerged: []string{address},
+			wantHeated: []string{"github.com"},
 		},
 	}
 
@@ -132,14 +127,13 @@ func TestMergePullRequest(t *testing.T) {
 				require.NoError(t, err)
 			}
 			assert.Equal(t, tt.wantMerged, writing.merged)
-			assert.Equal(t, tt.wantWakes, sync.Wakes)
-			assert.Equal(t, tt.wantDelayed, sync.Delayed)
+			assert.Equal(t, tt.wantHeated, sync.Heated)
 		})
 	}
 }
 
-// TestSetPullRequestDraft covers the pull request sync being woken, now and every ten seconds
-// for a minute, only once the forge has changed the draft.
+// TestSetPullRequestDraft covers the pull request sync heating the host only once the forge has
+// changed the draft.
 func TestSetPullRequestDraft(t *testing.T) {
 	const address = "https://github.com/harrisoncramer/komrad/pull/1"
 
@@ -150,8 +144,7 @@ func TestSetPullRequestDraft(t *testing.T) {
 		draftErr    error
 		wantErr     error
 		wantDrafted []drafted
-		wantWakes   int
-		wantDelayed []time.Duration
+		wantHeated  []string
 	}{
 		{
 			name:    "an address with no host",
@@ -171,15 +164,13 @@ func TestSetPullRequestDraft(t *testing.T) {
 			address:     address,
 			draft:       true,
 			wantDrafted: []drafted{{address: address, draft: true}},
-			wantWakes:   1,
-			wantDelayed: settleWakes,
+			wantHeated:  []string{"github.com"},
 		},
 		{
 			name:        "a draft the forge marks ready",
 			address:     address,
 			wantDrafted: []drafted{{address: address, draft: false}},
-			wantWakes:   1,
-			wantDelayed: settleWakes,
+			wantHeated:  []string{"github.com"},
 		},
 	}
 
@@ -197,15 +188,13 @@ func TestSetPullRequestDraft(t *testing.T) {
 				require.NoError(t, err)
 			}
 			assert.Equal(t, tt.wantDrafted, writing.drafted)
-			assert.Equal(t, tt.wantWakes, sync.Wakes)
-			assert.Equal(t, tt.wantDelayed, sync.Delayed)
+			assert.Equal(t, tt.wantHeated, sync.Heated)
 		})
 	}
 }
 
 // TestSetPullRequestAutoMerge covers the head the person saw reaching the forge and the pull
-// request sync being woken, now and every ten seconds for a minute, only once the forge has
-// changed auto-merge.
+// request sync heating the host only once the forge has changed auto-merge.
 func TestSetPullRequestAutoMerge(t *testing.T) {
 	const address = "https://github.com/harrisoncramer/komrad/pull/1"
 
@@ -215,8 +204,7 @@ func TestSetPullRequestAutoMerge(t *testing.T) {
 		autoMergeErr   error
 		wantErr        error
 		wantAutoMerged []forge.SetAutoMergeParams
-		wantWakes      int
-		wantDelayed    []time.Duration
+		wantHeated     []string
 	}{
 		{
 			name:    "an address with no host",
@@ -250,15 +238,13 @@ func TestSetPullRequestAutoMerge(t *testing.T) {
 				HeadSHA: "abc",
 				On:      true,
 			}},
-			wantWakes:   1,
-			wantDelayed: settleWakes,
+			wantHeated: []string{"github.com"},
 		},
 		{
 			name:           "a pull request the forge stops waiting on",
 			params:         forge.SetAutoMergeParams{URL: address},
 			wantAutoMerged: []forge.SetAutoMergeParams{{URL: address}},
-			wantWakes:      1,
-			wantDelayed:    settleWakes,
+			wantHeated:     []string{"github.com"},
 		},
 	}
 
@@ -276,8 +262,7 @@ func TestSetPullRequestAutoMerge(t *testing.T) {
 				require.NoError(t, err)
 			}
 			assert.Equal(t, tt.wantAutoMerged, writing.autoMerged)
-			assert.Equal(t, tt.wantWakes, sync.Wakes)
-			assert.Equal(t, tt.wantDelayed, sync.Delayed)
+			assert.Equal(t, tt.wantHeated, sync.Heated)
 		})
 	}
 }

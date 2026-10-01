@@ -250,7 +250,7 @@ func TestALookupFeederSkipsAnArchivedResource(t *testing.T) {
 
 	l.exec(t, `INSERT INTO pull_request_syncs (repository_url) VALUES ($1)`, rows.repository)
 	l.exec(t, `UPDATE agents SET archived_at = NULL WHERE id = $1`, rows.agent)
-	l.exec(t, `UPDATE pull_request_syncs SET updated_through = now() WHERE repository_url = $1`, rows.repository)
+	l.exec(t, `DELETE FROM pull_request_syncs WHERE repository_url = $1`, rows.repository)
 
 	assert.Equal(t, []string{
 		"pull_request_syncs " + rows.repository,
@@ -260,20 +260,22 @@ func TestALookupFeederSkipsAnArchivedResource(t *testing.T) {
 	}, waitForPayloads(t, conn, 4))
 }
 
-// TestARepositorySyncNotifiesOnlyWhatIsDrawn pins that the sync's bookkeeping writes raise
-// nothing, and a completed sweep raises the repository under its URL.
+// TestARepositorySyncNotifiesOnlyWhatIsDrawn pins that the sync row raises the repository under
+// its URL when it is first written and when it goes.
 func TestARepositorySyncNotifiesOnlyWhatIsDrawn(t *testing.T) {
 	l := newPooled(t)
 	rows := l.seed(t)
-	l.exec(t, `INSERT INTO pull_request_syncs (repository_url) VALUES ($1)`, rows.repository)
 	conn := l.listenRaw(t)
 
-	l.exec(t, `UPDATE pull_request_syncs SET read_at = now(), calls = calls + 1 WHERE repository_url = $1`, rows.repository)
-	l.exec(t, `UPDATE pull_request_syncs SET sweep_cursor = '', sweep_newest = now(), listed_at = now() WHERE repository_url = $1`, rows.repository)
+	l.exec(t, `INSERT INTO pull_request_syncs (repository_url) VALUES ($1)`, rows.repository)
 	l.exec(t, `UPDATE agents SET name = 'renamed' WHERE id = $1`, rows.agent)
-	l.exec(t, `UPDATE pull_request_syncs SET updated_through = sweep_newest, sweep_cursor = NULL, sweep_newest = NULL WHERE repository_url = $1`, rows.repository)
+	l.exec(t, `DELETE FROM pull_request_syncs WHERE repository_url = $1`, rows.repository)
 
-	assert.Equal(t, []string{"agents " + rows.agent, "pull_request_syncs " + rows.repository}, waitForPayloads(t, conn, 2))
+	assert.Equal(t, []string{
+		"pull_request_syncs " + rows.repository,
+		"agents " + rows.agent,
+		"pull_request_syncs " + rows.repository,
+	}, waitForPayloads(t, conn, 3))
 }
 
 func (l *listened) exec(t *testing.T, sql string, args ...any) {

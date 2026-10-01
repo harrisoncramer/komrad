@@ -180,6 +180,9 @@ func (c *Client) readRateLimit(header http.Header) forge.RateLimit {
 	}
 
 	limit := forge.RateLimit{Known: true, Remaining: remaining}
+	if budget, err := strconv.Atoi(header.Get(c.dialect.RateLimitHeader + "-Limit")); err == nil {
+		limit.Limit = budget
+	}
 	if reset, err := strconv.ParseInt(header.Get(c.dialect.RateLimitHeader+"-Reset"), 10, 64); err == nil {
 		limit.ResetAt = time.Unix(reset, 0)
 	}
