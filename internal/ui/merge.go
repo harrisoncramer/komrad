@@ -102,7 +102,9 @@ func mergeOp(item panel.AgentRow, archive bool) gitOp {
 		run: func(clients api) gitReport {
 			err := clients.mergePullRequest(item.PullRequest.URL)
 
-			return func(m *model) tea.Cmd { return m.reportMerged(item, archive, err) }
+			return func(m *model) tea.Cmd {
+				return m.reportMerged(item, archive, err)
+			}
 		},
 	}
 }
