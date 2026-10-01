@@ -315,7 +315,7 @@ type model struct {
 }
 
 type writeTracker struct {
-	// count counts the writes sent, and a write's own count is what its landing answers to.
+	// count is the writes sent, and a write's own count is what its landing answers to.
 	count int
 	// inflight is the writes sent that have not landed, by their count.
 	inflight map[int]submitting.Write
