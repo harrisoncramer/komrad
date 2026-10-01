@@ -36,7 +36,7 @@ func (s *ScheduleService) ArmPeriodic(ctx context.Context, periodic periodicJobR
 
 	var failures []error
 	for _, schedule := range listed {
-		if err := s.applyRegistration(schedule.ID, &schedule); err != nil {
+		if err := s.applyRegistration(&schedule); err != nil {
 			failures = append(failures, err)
 		}
 	}
@@ -55,41 +55,43 @@ func (s *ScheduleService) SyncRegistration(ctx context.Context, id string) error
 
 	schedule, err := s.store.Get(ctx, id)
 	if errors.Is(err, store.ErrNotFound) {
-		return s.applyRegistration(id, nil)
+		s.disarm(id)
+
+		return nil
 	}
 	if err != nil {
 		return fmt.Errorf("failed to reread schedule %q to register it: %w", id, err)
 	}
 
-	return s.applyRegistration(id, schedule)
+	return s.applyRegistration(schedule)
 }
 
-func (s *ScheduleService) applyRegistration(id string, schedule *schedulestore.Schedule) error {
+func (s *ScheduleService) applyRegistration(schedule *schedulestore.Schedule) error {
 	if !isArmable(schedule) {
-		s.disarm(id)
+		s.disarm(schedule.ID)
 
 		return nil
 	}
 
 	cron, err := ParseCron(schedule.Cron, schedule.Timezone)
 	if err != nil {
-		s.disarm(id)
+		s.disarm(schedule.ID)
 
 		return nil
 	}
 
 	want := registration{cron: schedule.Cron, timezone: schedule.Timezone}
-	if have, registered := s.armed[id]; registered && have == want {
+	if have, registered := s.armed[schedule.ID]; registered && have == want {
 		return nil
 	}
 
-	s.disarm(id)
+	s.disarm(schedule.ID)
 
-	if err := s.periodic.Add(id, cron); err != nil {
-		return fmt.Errorf("failed to register schedule %q: %w", id, err)
+	if err := s.periodic.Add(schedule.ID, cron); err != nil {
+		return fmt.Errorf("failed to register schedule %q: %w", schedule.ID, err)
 	}
 
-	s.armed[id] = want
+	s.armed[schedule.ID] = want
 
 	return nil
 }
@@ -104,5 +106,5 @@ func (s *ScheduleService) disarm(id string) {
 }
 
 func isArmable(schedule *schedulestore.Schedule) bool {
-	return schedule != nil && schedule.Enabled && schedule.ArchivedAt == nil
+	return schedule.Enabled && schedule.ArchivedAt == nil
 }
