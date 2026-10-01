@@ -453,7 +453,7 @@ func splitTriage(z triageZone, s panelShared, showHidden bool) (zone []agentRow,
 		room -= len(rows)
 		snoozed := z.isSnoozed(head.Agent.ID)
 		for _, child := range children[head.Agent.ID] {
-			if child.Agent.Hidden {
+			if child.Agent.Hidden && !showHidden {
 				inZone[child.Agent.ID] = true
 			}
 		}

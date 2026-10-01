@@ -20,6 +20,8 @@ func TestTriageRows(t *testing.T) {
 		name     string
 		capacity int
 		rows     []proto.Message
+		// press are the keys pressed before the list is read.
+		press []string
 		want     []string
 	}{
 		{
@@ -115,11 +117,30 @@ func TestTriageRows(t *testing.T) {
 			rows:     buildTriageFamily()[:4],
 			want:     []string{"parent", "backend", "reviewer", "quiet"},
 		},
+		{
+			name:     "a hidden child shown with no room in the zone falls back to the tree",
+			capacity: 1,
+			rows: []proto.Message{
+				newLiveWorkflow("w1", "backend"),
+				newAgentAt("quiet", "w1", 1),
+				newTriageAgent("asker", agentv1.AgentState_AGENT_STATE_WAITING, 3),
+				func() *agentv1.Agent {
+					reviewer := newChild("reviewer", "reviewer", "asker")
+					reviewer.Hidden = true
+
+					return reviewer
+				}(),
+			},
+			press: []string{"space", "h", "H"},
+			want:  []string{"asker", "backend", "quiet", "reviewer \uf4c5"},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			harness := openTriage(t, tt.capacity, tt.rows...)
+
+			harness.press(tt.press...)
 
 			assert.Equal(t, tt.want, readTriageList(harness.readFrame()))
 		})
