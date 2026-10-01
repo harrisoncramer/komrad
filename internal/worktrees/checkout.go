@@ -85,12 +85,10 @@ type ReadStandingParams struct {
 // ReadStanding reads where a directory stands against its base without asking origin or taking
 // the index lock, or why git could not say.
 func (r *CheckoutReader) ReadStanding(ctx context.Context, params ReadStandingParams) worktreestore.Standing {
-	standing := standingOfParams{
-		Dir:      params.Dir,
-		Readable: params.Readable,
-	}
+	var checkout Checkout
+	var err error
 	if params.Readable {
-		standing.Err = r.read(ctx, &standing.Checkout, readParams{
+		err = r.read(ctx, &checkout, readParams{
 			Dir:     params.Dir,
 			Base:    params.Base,
 			Peek:    true,
@@ -98,7 +96,12 @@ func (r *CheckoutReader) ReadStanding(ctx context.Context, params ReadStandingPa
 		})
 	}
 
-	return r.standingOf(standing)
+	return r.standingOf(standingOfParams{
+		Dir:      params.Dir,
+		Readable: params.Readable,
+		Checkout: checkout,
+		Err:      err,
+	})
 }
 
 type MeasureDiffParams struct {
