@@ -70,7 +70,9 @@ func (a *agentsScreen) itemMenu(s panelShared) (submenu, bool) {
 			return submenu{}, false
 		}
 
-		return withNested(withNested(rowMenu(describeAgents(agents)), "hide", s.keys.Menu.Hide, a.hideMenu(s, nil)), "archive", s.keys.Menu.Archive, agentsArchiveMenu(s, agents, true)), true
+		menu := withNested(rowMenu(describeAgents(agents)), "hide", s.keys.Menu.Hide, a.hideMenu(s, nil))
+
+		return withNested(menu, "archive", s.keys.Menu.Archive, agentsArchiveMenu(s, agents, true)), true
 	}
 
 	if !a.isBrowsing(s) {
