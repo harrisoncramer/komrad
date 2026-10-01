@@ -471,8 +471,8 @@ func buildZone(z triageZone, m *model, showHidden bool) (zone []agentRow, waitin
 	families := xslice.Filter(findTriageFamilies(z.entries, m.listing.agents), func(f triageFamily) bool {
 		return (!f.head.Agent.Hidden || showHidden) && !z.isSnoozed(f.head.Agent.ID)
 	})
-	slotted := z.orderFamilies(families)
-	slotted = slotted[:min(len(slotted), z.capacity)]
+	ordered := z.orderFamilies(families)
+	slotted := ordered[:min(len(ordered), z.capacity)]
 	workflows := xslice.KeyBy(m.listing.workflows, func(w panel.Workflow) string { return w.ID })
 	for _, family := range slotted {
 		for _, row := range buildFamilyRows(family.head, children[family.head.Agent.ID], showHidden) {
