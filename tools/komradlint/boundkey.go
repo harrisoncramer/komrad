@@ -15,7 +15,10 @@ import (
 const boundKeyDoc = "Checks that a press is matched against an action key only in a screen's table, " +
 	"a menu entry or a declared input path, so an action cannot be bound straight on a screen."
 
-const concatPath = "slices.Concat"
+const (
+	concatPath    = "slices.Concat"
+	maxTraceDepth = 8
+)
 
 // boundKey is the rule's settings, read into sets once.
 type boundKey struct {
@@ -25,6 +28,20 @@ type boundKey struct {
 	navigation []string
 	sources    map[string]struct{}
 	paths      map[string]struct{}
+}
+
+// keyTracer follows key slices through one function body.
+type keyTracer struct {
+	rule    boundKey
+	pass    *analysis.Pass
+	defined map[types.Object]ast.Expr
+}
+
+// boundCall is one matcher call and the function it sits in.
+type boundCall struct {
+	matcher   string
+	enclosing string
+	strict    bool
 }
 
 // newBoundKey builds the rule that action keys are matched only where the menu or a declared path matches them.
@@ -86,14 +103,18 @@ func (b boundKey) reportFunc(pass *analysis.Pass, fn *ast.FuncDecl) {
 		return
 	}
 
-	defined := definitions(pass, fn.Body)
+	tracer := keyTracer{
+		rule:    b,
+		pass:    pass,
+		defined: collectDefinitions(pass, fn.Body),
+	}
 	ast.Inspect(fn.Body, func(node ast.Node) bool {
 		call, ok := node.(*ast.CallExpr)
 		if !ok {
 			return true
 		}
 
-		callee := calledFunc(pass, call)
+		callee := resolveCallee(pass, call)
 		if callee == nil {
 			return true
 		}
@@ -104,42 +125,39 @@ func (b boundKey) reportFunc(pass *analysis.Pass, fn *ast.FuncDecl) {
 			return true
 		}
 
+		bound := boundCall{
+			matcher:   callee.Name(),
+			enclosing: name,
+			strict:    strict,
+		}
 		for _, arg := range call.Args {
 			if !isStringSlice(pass.TypesInfo.TypeOf(arg)) {
 				continue
 			}
 
-			b.reportArg(pass, boundCall{matcher: callee.Name(), enclosing: name, defined: defined, strict: strict}, arg)
+			tracer.reportArg(bound, arg)
 		}
 
 		return true
 	})
 }
 
-// boundCall is one matcher call and the function it sits in.
-type boundCall struct {
-	matcher   string
-	enclosing string
-	defined   map[types.Object]ast.Expr
-	strict    bool
-}
-
 // reportArg reports a key slice handed to a matcher when it holds an action key, or when a strict matcher is handed one that cannot be traced.
-func (b boundKey) reportArg(pass *analysis.Pass, call boundCall, arg ast.Expr) {
-	keys, ok := b.trace(pass, arg, call.defined, 0)
+func (t keyTracer) reportArg(call boundCall, arg ast.Expr) {
+	keys, ok := t.trace(arg, 0)
 	if !ok && !call.strict {
 		return
 	}
 
 	if !ok {
-		pass.Reportf(arg.Pos(), "%s matches keys that cannot be traced to the keybindings: match them in a table or a menu entry, or declare %s an input", call.matcher, call.enclosing)
+		t.pass.Reportf(arg.Pos(), "%s matches keys that cannot be traced to the keybindings: match them in a table or a menu entry, or declare %s an input", call.matcher, call.enclosing)
 
 		return
 	}
 
 	for _, key := range keys {
-		if !b.isNavigation(key) {
-			pass.Reportf(arg.Pos(), "%s matches the action key %s outside a table or a menu entry: put it in the menu, or declare %s an input", call.matcher, key, call.enclosing)
+		if !t.rule.isNavigation(key) {
+			t.pass.Reportf(arg.Pos(), "%s matches the action key %s outside a table or a menu entry: put it in the menu, or declare %s an input", call.matcher, key, call.enclosing)
 
 			return
 		}
@@ -147,42 +165,42 @@ func (b boundKey) reportArg(pass *analysis.Pass, call boundCall, arg ast.Expr) {
 }
 
 // trace is the key paths an expression holds, or false when it holds something the rule cannot follow.
-func (b boundKey) trace(pass *analysis.Pass, expr ast.Expr, defined map[types.Object]ast.Expr, depth int) ([]string, bool) {
-	if depth > 8 {
+func (t keyTracer) trace(expr ast.Expr, depth int) ([]string, bool) {
+	if depth > maxTraceDepth {
 		return nil, false
 	}
 
 	switch expr := ast.Unparen(expr).(type) {
 	case *ast.SelectorExpr:
-		path, ok := b.field(pass, expr)
+		path, ok := t.traceField(expr)
 		if !ok {
 			return nil, false
 		}
 
 		return []string{path}, true
 	case *ast.Ident:
-		value, ok := defined[pass.TypesInfo.Uses[expr]]
+		value, ok := t.defined[t.pass.TypesInfo.Uses[expr]]
 		if !ok {
 			return nil, false
 		}
 
-		return b.trace(pass, value, defined, depth+1)
+		return t.trace(value, depth+1)
 	case *ast.CallExpr:
-		return b.traceCall(pass, expr, defined, depth)
+		return t.traceCall(expr, depth)
 	}
 
 	return nil, false
 }
 
 // traceCall is the key paths a call returns, for a concatenation of keys or a navigation source.
-func (b boundKey) traceCall(pass *analysis.Pass, call *ast.CallExpr, defined map[types.Object]ast.Expr, depth int) ([]string, bool) {
-	callee := calledFunc(pass, call)
+func (t keyTracer) traceCall(call *ast.CallExpr, depth int) ([]string, bool) {
+	callee := resolveCallee(t.pass, call)
 	if callee == nil {
 		return nil, false
 	}
 
 	path := funcPath(callee)
-	if _, ok := b.sources[path]; ok {
+	if _, ok := t.rule.sources[path]; ok {
 		return nil, true
 	}
 
@@ -192,7 +210,7 @@ func (b boundKey) traceCall(pass *analysis.Pass, call *ast.CallExpr, defined map
 
 	var keys []string
 	for _, arg := range call.Args {
-		traced, ok := b.trace(pass, arg, defined, depth+1)
+		traced, ok := t.trace(arg, depth+1)
 		if !ok {
 			return nil, false
 		}
@@ -203,10 +221,10 @@ func (b boundKey) traceCall(pass *analysis.Pass, call *ast.CallExpr, defined map
 	return keys, true
 }
 
-// field is a selector's path below the root type it was reached from.
-func (b boundKey) field(pass *analysis.Pass, sel *ast.SelectorExpr) (string, bool) {
-	if named := namedOf(pass.TypesInfo.TypeOf(sel.X)); named != nil {
-		if prefix, ok := b.roots[typePath(named)]; ok {
+// traceField is a selector's path below the root type it was reached from.
+func (t keyTracer) traceField(sel *ast.SelectorExpr) (string, bool) {
+	if named := namedOf(t.pass.TypesInfo.TypeOf(sel.X)); named != nil {
+		if prefix, ok := t.rule.roots[typePath(named)]; ok {
 			return joinPath(prefix, sel.Sel.Name), true
 		}
 	}
@@ -216,7 +234,7 @@ func (b boundKey) field(pass *analysis.Pass, sel *ast.SelectorExpr) (string, boo
 		return "", false
 	}
 
-	path, ok := b.field(pass, inner)
+	path, ok := t.traceField(inner)
 	if !ok {
 		return "", false
 	}
@@ -235,8 +253,8 @@ func (b boundKey) isNavigation(key string) bool {
 	return false
 }
 
-// definitions maps each variable a body declares with a value and never assigns again to that value.
-func definitions(pass *analysis.Pass, body *ast.BlockStmt) map[types.Object]ast.Expr {
+// collectDefinitions maps each variable a body declares with a value and never assigns again to that value.
+func collectDefinitions(pass *analysis.Pass, body *ast.BlockStmt) map[types.Object]ast.Expr {
 	defined := map[types.Object]ast.Expr{}
 	reassigned := map[types.Object]struct{}{}
 	ast.Inspect(body, func(node ast.Node) bool {
@@ -272,8 +290,8 @@ func definitions(pass *analysis.Pass, body *ast.BlockStmt) map[types.Object]ast.
 	return defined
 }
 
-// calledFunc is the function a call names, or nil for a call through a value.
-func calledFunc(pass *analysis.Pass, call *ast.CallExpr) *types.Func {
+// resolveCallee is the function a call names, or nil for a call through a value.
+func resolveCallee(pass *analysis.Pass, call *ast.CallExpr) *types.Func {
 	var ident *ast.Ident
 	switch fun := ast.Unparen(call.Fun).(type) {
 	case *ast.Ident:
