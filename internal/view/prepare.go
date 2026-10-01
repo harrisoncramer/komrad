@@ -340,7 +340,6 @@ func fitRow(line Line, width int) Line {
 		line.Workflow = ""
 	}
 
-	// A tally counts rows already out of sight, so it is what gives way next.
 	if roomForName(line, width) <= 0 {
 		line.Tally = 0
 	}
