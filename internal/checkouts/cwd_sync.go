@@ -252,10 +252,10 @@ func (cs *CwdSyncer) lookAtAll(ctx context.Context, params lookAtAllParams) ([]c
 		Work: func(ctx context.Context, agent agentstore.Agent) (cwdLook, error) {
 			look := cs.look(ctx, agent, params.Rounds[agent.ID])
 			config := params.Worktrees[agent.WorkflowID]
-			if worktree, ok := params.Owned[agent.ID]; ok && !look.removed && worktree.Dir == filepath.Clean(agent.Cwd) {
-				look.worktree = &worktree
-				cs.readStanding(ctx, &look, config.BaseBranch)
-			}
+			cs.readStanding(ctx, &look, readStandingParams{
+				Owned: params.Owned,
+				Base:  config.BaseBranch,
+			})
 			if look.removed || look.head.Root == "" {
 				return look, nil
 			}
@@ -573,17 +573,28 @@ func (cs *CwdSyncer) measure(ctx context.Context, look *cwdLook, config workflow
 	look.diffStat = &agentstore.DiffStat{Added: stat.Added, Removed: stat.Removed}
 }
 
+type readStandingParams struct {
+	Owned map[string]worktreestore.Worktree
+	Base  string
+}
+
 // readStanding records on the look where the agent's worktree stands against its base.
-func (cs *CwdSyncer) readStanding(ctx context.Context, look *cwdLook, base string) {
+func (cs *CwdSyncer) readStanding(ctx context.Context, look *cwdLook, params readStandingParams) {
+	worktree, ok := params.Owned[look.agent.ID]
+	if !ok || look.removed || worktree.Dir != filepath.Clean(look.agent.Cwd) {
+		return
+	}
+
 	ctx, cancel := context.WithTimeout(ctx, standingReadTimeout)
 	defer cancel()
 
 	standing := cs.checkouts.ReadStanding(ctx, worktrees.ReadStandingParams{
-		Dir:      look.worktree.Dir,
-		Readable: look.worktree.Readable,
-		Base:     base,
+		Dir:      worktree.Dir,
+		Readable: worktree.Readable,
+		Base:     params.Base,
 		HeadSHA:  look.head.SHA,
 	})
+	look.worktree = &worktree
 	look.standing = &standing
 }
 
