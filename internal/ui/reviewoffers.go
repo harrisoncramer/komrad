@@ -48,7 +48,7 @@ func isPlacedOffer(offer *pullrequestv1.ForgeThread) bool {
 }
 
 // stepOffer moves the cursor onto the next forge comment written on a line, and chooses it.
-func (r *reviewScreen) stepOffer(h host, s panelShared) tea.Cmd {
+func (r *reviewScreen) stepOffer(h navHost, s panelShared) tea.Cmd {
 	view := r.diff.View()
 	placed := slices.DeleteFunc(r.listOffers(s), func(offer *pullrequestv1.ForgeThread) bool { return !isPlacedOffer(offer) })
 	if len(placed) == 0 || view == nil {
@@ -75,7 +75,7 @@ func (r *reviewScreen) stepOffer(h host, s panelShared) tea.Cmd {
 		return nil
 	}
 
-	return r.moveCursor(s, row)
+	return r.moveCursor(h, s, row)
 }
 
 // offerView is a forge thread's comments wrapped to the width given, oldest first, with where it
@@ -325,7 +325,7 @@ func (r reviewScreen) dismissOfferCmd(h host, s panelShared) tea.Cmd {
 		return nil
 	}
 
-	pullRequests, id, restore := s.api.pullRequests, offer.GetId(), offer.GetDismissed()
+	pullRequests, id, restore := h.clients().pullRequests, offer.GetId(), offer.GetDismissed()
 	doing, said := "dismissing the comment", "dismissed the comment from the forge"
 	if restore {
 		doing, said = "restoring the comment", "restored the comment from the forge"

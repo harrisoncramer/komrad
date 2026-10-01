@@ -30,7 +30,7 @@ func (a *agentsScreen) modeActions() []screenAction {
 			id:   actionAgentTriage,
 			keys: func(k config.Keybindings) []string { return k.Agents.Triage },
 			when: a.isTriageReachable,
-			run: func(h host, s panelShared, _ string) tea.Cmd {
+			nav: func(h navHost, s panelShared, _ string) tea.Cmd {
 				a.toggleTriage(h, s)
 
 				return nil
@@ -40,7 +40,7 @@ func (a *agentsScreen) modeActions() []screenAction {
 			id:   actionAgentTriageBack,
 			keys: func(k config.Keybindings) []string { return k.Agents.Back },
 			when: func(s panelShared) bool { return a.triage.focused && list.isBrowsing(s) },
-			run: func(h host, s panelShared, _ string) tea.Cmd {
+			nav: func(h navHost, s panelShared, _ string) tea.Cmd {
 				a.toggleTriage(h, s)
 
 				return nil
@@ -50,13 +50,13 @@ func (a *agentsScreen) modeActions() []screenAction {
 			id:   actionAgentsBack,
 			keys: func(k config.Keybindings) []string { return k.Agents.Back },
 			when: list.isBrowsing,
-			run:  func(h host, _ panelShared, _ string) tea.Cmd { return h.pickView() },
+			nav:  func(h navHost, _ panelShared, _ string) tea.Cmd { return h.pickView() },
 		},
 		screenAction{
-			id:   actionWorkflowNew,
-			keys: func(k config.Keybindings) []string { return k.Workflows.New },
-			when: list.isBrowsing,
-			run:  func(h host, s panelShared, _ string) tea.Cmd { return newWorkflowForm(h, s) },
+			id:     actionWorkflowNew,
+			keys:   func(k config.Keybindings) []string { return k.Workflows.New },
+			when:   list.isBrowsing,
+			direct: directly(notInMenu, func(h host, s panelShared, _ string) tea.Cmd { return newWorkflowForm(h, s) }),
 		},
 	)
 }
@@ -71,61 +71,61 @@ func (a *agentsScreen) rowActions() []screenAction {
 			id:   actionAgentNew,
 			keys: func(k config.Keybindings) []string { return k.Agents.New },
 			when: list.isBrowsing,
-			run: func(h host, s panelShared, _ string) tea.Cmd {
+			direct: directly(notInMenu, func(h host, s panelShared, _ string) tea.Cmd {
 				if workflow, ok := a.hoveredWorkflow(s); ok {
 					return openNewAgent(h, &workflow)
 				}
 
 				return openNewAgent(h, a.enclosingWorkflow(s))
-			},
+			}),
 		},
 		{
-			id:   actionWorkflowAdopt,
-			keys: func(k config.Keybindings) []string { return k.Workflows.Adopt },
-			when: a.isHoveringWorkflow,
-			run:  a.onHoveredWorkflow(func(h host, workflow panel.Workflow) tea.Cmd { return openAdopt(h, &workflow) }),
+			id:     actionWorkflowAdopt,
+			keys:   func(k config.Keybindings) []string { return k.Workflows.Adopt },
+			when:   a.isHoveringWorkflow,
+			direct: directly(notInMenu, a.onHoveredWorkflow(func(h host, workflow panel.Workflow) tea.Cmd { return openAdopt(h, &workflow) })),
 		},
 		{
-			id:   actionWorkflowRename,
-			keys: func(k config.Keybindings) []string { return k.Workflows.Rename },
-			when: a.isHoveringWorkflow,
-			run:  func(_ host, s panelShared, _ string) tea.Cmd { return a.openRename(s) },
+			id:     actionWorkflowRename,
+			keys:   func(k config.Keybindings) []string { return k.Workflows.Rename },
+			when:   a.isHoveringWorkflow,
+			direct: directly(notInMenu, func(_ host, s panelShared, _ string) tea.Cmd { return a.openRename(s) }),
 		},
 		{
-			id:   actionWorkflowEdit,
-			keys: func(k config.Keybindings) []string { return k.Workflows.Edit },
-			when: func(s panelShared) bool { return a.editing == nil && a.isHoveringWorkflow(s) },
-			run:  a.onHoveredWorkflowIn(editWorkflowForm),
+			id:     actionWorkflowEdit,
+			keys:   func(k config.Keybindings) []string { return k.Workflows.Edit },
+			when:   func(s panelShared) bool { return a.editing == nil && a.isHoveringWorkflow(s) },
+			direct: directly(notInMenu, a.onHoveredWorkflowIn(editWorkflowForm)),
 		},
 		{
-			id:   actionAgentOpen,
-			keys: func(k config.Keybindings) []string { return k.Agents.Open },
-			when: list.isBrowsing,
-			run:  func(h host, s panelShared, _ string) tea.Cmd { return a.openHovered(h, s) },
+			id:     actionAgentOpen,
+			keys:   func(k config.Keybindings) []string { return k.Agents.Open },
+			when:   list.isBrowsing,
+			direct: directly("enter is how a person reaches an agent, and the resume is incidental to that", func(h host, s panelShared, _ string) tea.Cmd { return a.openHovered(h, s) }),
 		},
 		{
-			id:   actionAgentEdit,
-			keys: func(k config.Keybindings) []string { return k.Agents.Edit },
-			when: a.isEditable,
-			run:  func(h host, s panelShared, _ string) tea.Cmd { return a.pressEdit(h, s) },
+			id:     actionAgentEdit,
+			keys:   func(k config.Keybindings) []string { return k.Agents.Edit },
+			when:   a.isEditable,
+			direct: directly(notInMenu, func(h host, s panelShared, _ string) tea.Cmd { return a.pressEdit(h, s) }),
 		},
 		{
-			id:   actionAgentChild,
-			keys: func(k config.Keybindings) []string { return k.Agents.Child },
-			when: a.isHoveringAgent,
-			run:  a.onHoveredAgent(func(h host, item panel.AgentRow) tea.Cmd { return openNewChild(h, item.Agent) }),
+			id:     actionAgentChild,
+			keys:   func(k config.Keybindings) []string { return k.Agents.Child },
+			when:   a.isHoveringAgent,
+			direct: directly(notInMenu, a.onHoveredAgent(func(h host, item panel.AgentRow) tea.Cmd { return openNewChild(h, item.Agent) })),
 		},
 		{
-			id:   actionAgentRename,
-			keys: func(k config.Keybindings) []string { return k.Agents.Rename },
-			when: a.isHoveringAgent,
-			run:  func(_ host, s panelShared, _ string) tea.Cmd { return a.openRename(s) },
+			id:     actionAgentRename,
+			keys:   func(k config.Keybindings) []string { return k.Agents.Rename },
+			when:   a.isHoveringAgent,
+			direct: directly(notInMenu, func(_ host, s panelShared, _ string) tea.Cmd { return a.openRename(s) }),
 		},
 		{
-			id:   actionAgentRetry,
-			keys: func(k config.Keybindings) []string { return k.Agents.Retry },
-			when: a.isRetryableAgent,
-			run:  a.onHoveredAgent(func(h host, item panel.AgentRow) tea.Cmd { return openRetryForm(h, item.Agent) }),
+			id:     actionAgentRetry,
+			keys:   func(k config.Keybindings) []string { return k.Agents.Retry },
+			when:   a.isRetryableAgent,
+			direct: directly(notInMenu, a.onHoveredAgent(func(h host, item panel.AgentRow) tea.Cmd { return openRetryForm(h, item.Agent) })),
 		},
 	}
 }

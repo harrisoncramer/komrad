@@ -117,7 +117,7 @@ func (a *archiveScreen) list() screenList[agentRow] {
 		refs:   refsOf,
 		header: "folder",
 		placed: a.stage,
-		moved: func(h host, s panelShared) tea.Cmd {
+		moved: func(h navHost, s panelShared) tea.Cmd {
 			a.stage(h, s)
 
 			return h.waitToStage()
@@ -133,7 +133,7 @@ func (a *archiveScreen) scheduleList() screenList[scheduleItem] {
 		rows:   a.scheduleListRows,
 		name:   func(item scheduleItem) string { return item.schedule.Name },
 		placed: a.stage,
-		moved: func(h host, s panelShared) tea.Cmd {
+		moved: func(h navHost, s panelShared) tea.Cmd {
 			a.stage(h, s)
 
 			return h.waitToStage()
@@ -399,7 +399,7 @@ func (a *archiveScreen) details(s panelShared) details {
 }
 
 // stage keeps the info pane on the row the cursor is standing on.
-func (a *archiveScreen) stage(h host, _ panelShared) {
+func (a *archiveScreen) stage(h navHost, _ panelShared) {
 	h.stageTerminal()
 }
 

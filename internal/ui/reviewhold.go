@@ -85,12 +85,12 @@ func (r *reviewScreen) startHold(h host, s panelShared) tea.Cmd {
 
 	r.hold.pausing = true
 
-	return holdAgentCmd(h, s, r.agentID, r.agentName)
+	return holdAgentCmd(h, r.agentID, r.agentName)
 }
 
 // holdAgentCmd asks for the agent to stop and reports what came back.
-func holdAgentCmd(h host, s panelShared, agentID, name string) tea.Cmd {
-	agents, write := s.api.agents, h.beginWrite("pausing "+name)
+func holdAgentCmd(h host, agentID, name string) tea.Cmd {
+	agents, write := h.clients().agents, h.beginWrite("pausing "+name)
 
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), reviewTimeout)

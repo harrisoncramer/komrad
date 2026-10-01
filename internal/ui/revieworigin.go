@@ -25,7 +25,7 @@ type reviewOrigin struct {
 	place    *diffview.Place
 }
 
-func (r *reviewScreen) toggleJump(h host, s panelShared) tea.Cmd {
+func (r *reviewScreen) toggleJump(h navHost, s panelShared) tea.Cmd {
 	if r.diff.origin != nil {
 		return r.leaveOrigin(s)
 	}

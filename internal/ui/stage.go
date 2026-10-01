@@ -84,7 +84,11 @@ func (m *model) stageRestingRow() tea.Cmd {
 
 		return tea.Batch(m.search.landOnRow(m, m.shared()), m.inspectAgentWorktreeCmd(time.Now()))
 	case screenReview:
-		m.stageSelection()
+		if !m.review.hold.atEditor {
+			m.stageSelection()
+		}
+
+		return tea.Batch(m.review.markThreadReadCmd(m, m.shared()), m.inspectAgentWorktreeCmd(time.Now()))
 	}
 
 	return m.inspectAgentWorktreeCmd(time.Now())

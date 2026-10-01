@@ -330,11 +330,11 @@ func (r *reviewScreen) blurBlock() {
 
 // stepFile moves the diff to the next file in the tree, or the previous one for a negative
 // direction.
-func (r *reviewScreen) stepFile(s panelShared, direction int) tea.Cmd {
+func (r *reviewScreen) stepFile(h navHost, s panelShared, direction int) tea.Cmd {
 	keys := r.diffKeys()
 	if !keys.pane.JumpFile(direction, keys.height(s)) {
 		return nil
 	}
 
-	return keys.land(s)
+	return keys.land(h, s)
 }

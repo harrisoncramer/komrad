@@ -391,6 +391,11 @@ func (m *model) beginWrite(doing string) int {
 	return m.writes
 }
 
+// clients is the service a write that lands its own message is sent through.
+func (m *model) clients() api {
+	return m.api
+}
+
 // countedWrite is a message that lands a write begun with beginWrite.
 type countedWrite interface {
 	countedWrite() int

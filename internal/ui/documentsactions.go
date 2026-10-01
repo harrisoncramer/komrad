@@ -33,21 +33,21 @@ func (d *documentsScreen) table() []screenAction {
 		{
 			id:   actionDocumentsOlder,
 			keys: func(k config.Keybindings) []string { return d.shelf.keys(k).Older },
-			run: func(h host, s panelShared, _ string) tea.Cmd {
+			nav: func(h navHost, s panelShared, _ string) tea.Cmd {
 				return d.stepOlder(h, s)
 			},
 		},
 		{
 			id:   actionDocumentsNewer,
 			keys: func(k config.Keybindings) []string { return d.shelf.keys(k).Newer },
-			run: func(h host, s panelShared, _ string) tea.Cmd {
+			nav: func(h navHost, s panelShared, _ string) tea.Cmd {
 				return d.stepNewer(h, s)
 			},
 		},
 		{
 			id:   actionDocumentsBack,
 			keys: func(k config.Keybindings) []string { return d.shelf.keys(k).Back },
-			run: func(h host, s panelShared, _ string) tea.Cmd {
+			nav: func(h navHost, s panelShared, _ string) tea.Cmd {
 				return d.back(h, s)
 			},
 		},
@@ -105,7 +105,7 @@ func (d *documentsScreen) stepActions() screenActionSpec {
 			{
 				id:   actionDocumentsBack,
 				keys: func(k config.Keybindings) []string { return d.shelf.keys(k).Back },
-				run: func(host, panelShared, string) tea.Cmd {
+				nav: func(navHost, panelShared, string) tea.Cmd {
 					d.focus = false
 
 					return nil
@@ -114,17 +114,17 @@ func (d *documentsScreen) stepActions() screenActionSpec {
 			{
 				id:   actionQuit,
 				keys: func(k config.Keybindings) []string { return d.shelf.keys(k).Quit },
-				run:  func(h host, _ panelShared, _ string) tea.Cmd { return h.hide() },
+				nav:  func(h navHost, _ panelShared, _ string) tea.Cmd { return h.hide() },
 			},
 			{
 				id:   actionDocumentsOlder,
 				keys: func(k config.Keybindings) []string { return d.shelf.keys(k).Older },
-				run:  func(h host, s panelShared, _ string) tea.Cmd { return d.stepOlder(h, s) },
+				nav:  func(h navHost, s panelShared, _ string) tea.Cmd { return d.stepOlder(h, s) },
 			},
 			{
 				id:   actionDocumentsNewer,
 				keys: func(k config.Keybindings) []string { return d.shelf.keys(k).Newer },
-				run:  func(h host, s panelShared, _ string) tea.Cmd { return d.stepNewer(h, s) },
+				nav:  func(h navHost, s panelShared, _ string) tea.Cmd { return d.stepNewer(h, s) },
 			},
 		},
 		legend: []screenLegendRow{
@@ -206,8 +206,8 @@ func (d *documentsScreen) doesScrollColumn(s panelShared) bool {
 	return d.isBlockDrawn(s)
 }
 
-func (d *documentsScreen) scrollColumn(_ host, s panelShared, rows int) tea.Cmd {
-	return d.diffKeys().scrollColumn(s, rows)
+func (d *documentsScreen) scrollColumn(h host, s panelShared, rows int) tea.Cmd {
+	return d.diffKeys().scrollColumn(h, s, rows)
 }
 
 // docKeys steps through the writes from the document as it stands, handing the keys to the diff.
@@ -217,7 +217,7 @@ func (d *documentsScreen) docKeys() screenActionSpec {
 			{
 				id:   actionDocumentsOlder,
 				keys: func(k config.Keybindings) []string { return k.Documents.Older },
-				run: func(h host, s panelShared, _ string) tea.Cmd {
+				nav: func(h navHost, s panelShared, _ string) tea.Cmd {
 					d.focus = true
 
 					return d.stepOlder(h, s)
@@ -226,7 +226,7 @@ func (d *documentsScreen) docKeys() screenActionSpec {
 			{
 				id:   actionQuit,
 				keys: func(k config.Keybindings) []string { return k.Documents.Quit },
-				run:  func(h host, _ panelShared, _ string) tea.Cmd { return h.hide() },
+				nav:  func(h navHost, _ panelShared, _ string) tea.Cmd { return h.hide() },
 			},
 		},
 		legend: []screenLegendRow{

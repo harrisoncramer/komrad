@@ -189,7 +189,7 @@ func splitTriage(z triageZone, s panelShared) (zone []agentRow, waiting int, res
 }
 
 // toggleTriage moves the keyboard into the zone, or back out to where it was.
-func (a *agentsScreen) toggleTriage(h host, s panelShared) {
+func (a *agentsScreen) toggleTriage(h navHost, s panelShared) {
 	if a.triage.focused {
 		a.leaveTriage(s)
 		h.stageSelection()
@@ -224,7 +224,7 @@ func (a *agentsScreen) leaveTriage(s panelShared) {
 }
 
 // settleTriage gives the keyboard back to the tree once the zone holding it has emptied.
-func (a *agentsScreen) settleTriage(h host, s panelShared) {
+func (a *agentsScreen) settleTriage(h navHost, s panelShared) {
 	if !a.triage.focused || len(a.layout(s).zone) > 0 {
 		return
 	}

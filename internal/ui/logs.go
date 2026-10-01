@@ -113,7 +113,7 @@ func (l *logsScreen) listCmd(s panelShared) tea.Cmd {
 		return nil
 	}
 
-	agentID, generation, clients := l.agentID, l.generation, s.api
+	agentID, generation, clients := l.agentID, l.generation, s.reads
 
 	return func() tea.Msg {
 		sources, err := clients.listAgentLogSources(agentID)
@@ -138,7 +138,7 @@ func (l *logsScreen) readCmd(s panelShared) tea.Cmd {
 		Source:   l.reading,
 		Pattern:  l.pattern,
 	}
-	generation, clients := l.generation, s.api
+	generation, clients := l.generation, s.reads
 
 	return func() tea.Msg {
 		resp, err := clients.readAgentLogs(req)
@@ -342,7 +342,7 @@ func (l *logsScreen) list() screenList[logSourceRow] {
 		cursor: func() *rowCursor { return &l.rowCursor },
 		rows:   l.rows,
 		name:   logSourceRowName,
-		moved:  func(h host, _ panelShared) tea.Cmd { return h.waitToStage() },
+		moved:  func(h navHost, _ panelShared) tea.Cmd { return h.waitToStage() },
 		quit:   func(k config.Keybindings) []string { return k.Logs.Quit },
 		back:   func(k config.Keybindings) []string { return k.Logs.Back },
 	}

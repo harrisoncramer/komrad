@@ -54,3 +54,42 @@ func TestFitLines(t *testing.T) {
 		})
 	}
 }
+
+// TestActionKeysGoThroughTheMenu pins the arms that act straight off their key rather than from the menu.
+func TestActionKeysGoThroughTheMenu(t *testing.T) {
+	want := map[screen][]actionID{
+		screenAgents: {
+			actionWorkflowNew, actionAgentNew, actionWorkflowAdopt, actionWorkflowRename, actionWorkflowEdit,
+			actionAgentOpen, actionAgentEdit, actionAgentChild, actionAgentRename, actionAgentRetry,
+		},
+		screenSchedules: {actionScheduleNew, actionScheduleEdit, actionScheduleRename},
+		screenArchive:   {actionArchiveRename},
+		screenWorktrees: {actionDeleteSelected, actionWorktreesDelete, actionWorktreesClear},
+		screenReview: {
+			actionReviewBack, actionReviewDismiss, actionReviewEdit, actionReviewResolve, actionReviewViewed,
+			actionReviewCompose, actionReviewSend, actionReviewViewed,
+		},
+	}
+
+	for _, s := range []screen{screenAgents, screenSchedules, screenArchive, screenReview, screenWorktrees, screenDocuments, screenLogs, screenSearch, screenDocumentTypes} {
+		var direct []actionID
+
+		for _, table := range actionsOf(s) {
+			spec, ok := table.(screenActionSpec)
+			if !ok {
+				continue
+			}
+
+			for _, arm := range spec.table {
+				assert.NotEqual(t, arm.nav == nil, arm.direct == nil, "%s: an arm moves or acts directly, never both or neither", screenNames[s])
+
+				if arm.direct != nil {
+					assert.NotEmpty(t, arm.direct.reason, "%s: a direct arm says why", screenNames[s])
+					direct = append(direct, arm.id)
+				}
+			}
+		}
+
+		assert.Equal(t, want[s], direct, screenNames[s])
+	}
+}

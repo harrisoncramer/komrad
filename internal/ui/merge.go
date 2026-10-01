@@ -41,6 +41,9 @@ type mergedMsg struct {
 func mergeMenu(s panelShared, from screen, item panel.AgentRow) submenu {
 	agentID := item.Agent.ID
 	refused := openPullRequestRefusal(item) != nil
+	run := func(choice mergeChoice) func(model) (model, tea.Cmd) {
+		return func(m model) (model, tea.Cmd) { return m.runMerge(from, agentID, choice) }
+	}
 
 	return submenu{
 		kind:  formMerge,
@@ -51,15 +54,14 @@ func mergeMenu(s panelShared, from screen, item panel.AgentRow) submenu {
 				label: "merge",
 				keys:  s.keys.Merge.Merge,
 				isOff: refused,
+				write: run(mergeChoiceMerge),
 			},
 			{
 				label: "merge and archive",
 				keys:  s.keys.Merge.MergeArchive,
 				isOff: refused || from == screenArchive,
+				write: run(mergeChoiceMergeArchive),
 			},
-		},
-		answer: func(m model, choice int) (tea.Model, tea.Cmd) {
-			return holdSubmit(func(m model) (model, tea.Cmd) { return m.runMerge(from, agentID, mergeChoice(choice)) })(m)
 		},
 	}
 }
