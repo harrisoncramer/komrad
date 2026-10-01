@@ -463,6 +463,14 @@ func TestTriageFreeze(t *testing.T) {
 			hovered:  "done",
 		},
 		{
+			name:     "opening a finished agent the filter keeps out of the tree leaves it in the zone",
+			capacity: 3,
+			rows:     buildFinished(),
+			press:    []string{"/", "tab", "q", "u", "i", "enter", "t", "j", "enter"},
+			want:     []string{"asker", "done backend", "later backend", "backend", "quiet"},
+			hovered:  "done backend",
+		},
+		{
 			name:     "the last agent in triage archived lands the cursor in the tree",
 			capacity: 3,
 			rows:     buildTriage()[:3],

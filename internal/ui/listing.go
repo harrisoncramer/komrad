@@ -510,9 +510,10 @@ type landing struct {
 
 // landOn puts the cursor on the row a write made, or holds it for the watch to deliver.
 func (m *model) landOn(row written, now time.Time) {
-	if rowIndexOfKey(m.agents.rows(m), row.row) >= 0 {
+	rows := m.agents.rows(m)
+	if key := findLandingKey(rows, m.agents.list().hovered(m), row.row); rowIndexOfKey(rows, key) >= 0 {
 		m.writes.landing = landing{}
-		m.agents.apply(m, keepCopy(m.agents.list().hovered(m), row.row))
+		m.agents.apply(m, key)
 
 		return
 	}
@@ -534,11 +535,13 @@ func (m *model) landedRow(hovered string, now time.Time) string {
 		return hovered
 	}
 
-	if rowIndexOfKey(m.agents.rows(m), target.row) < 0 {
+	rows := m.agents.rows(m)
+	key := findLandingKey(rows, hovered, target.row)
+	if rowIndexOfKey(rows, key) < 0 {
 		return hovered
 	}
 
 	m.writes.landing = landing{}
 
-	return keepCopy(hovered, target.row)
+	return key
 }

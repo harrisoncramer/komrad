@@ -440,10 +440,14 @@ func agentCopyKey(key string) string {
 	return strings.TrimPrefix(key, triageRowPrefix)
 }
 
-// keepCopy is the hovered row's key when it is a copy of the row the key names, and the key otherwise.
-func keepCopy(hovered, key string) string {
+// findLandingKey is the copy of the agent row the key names that a landing goes to, the hovered one
+// first, then the tree's, then the zone's.
+func findLandingKey(rows []agentRow, hovered, key string) string {
 	if agentCopyKey(hovered) == key {
 		return hovered
+	}
+	if zoneKey := triageRowPrefix + key; rowIndexOfKey(rows, key) < 0 && rowIndexOfKey(rows, zoneKey) >= 0 {
+		return zoneKey
 	}
 
 	return key
@@ -627,8 +631,8 @@ func (l *listing) assemble(now time.Time) {
 	l.documentTypes = documentTypesFrom(l.world.DocumentTypes)
 }
 
-// revealAgent puts the cursor on an agent's tree row unless it is already on the agent, showing the
-// hidden rows when it is one of them.
+// revealAgent puts the cursor on an agent's tree row, or its zone row when the tree draws none, unless
+// it is already on the agent, showing the hidden rows when it is one of them.
 func (a *agentsScreen) revealAgent(m *model, id string) {
 	if a.hoveredAgentID(m) == id {
 		return
@@ -643,5 +647,10 @@ func (a *agentsScreen) revealAgent(m *model, id string) {
 	layout := a.layout(m)
 	if idx := rowIndexOfAgentID(layout.tree, id); idx >= 0 {
 		a.cursor = len(layout.zone) + idx
+
+		return
+	}
+	if idx := rowIndexOfAgentID(layout.zone, id); idx >= 0 {
+		a.cursor = idx
 	}
 }

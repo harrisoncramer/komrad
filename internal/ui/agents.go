@@ -149,19 +149,18 @@ func (a *agentsScreen) toggleHidden(m *model) {
 	a.stage(m)
 }
 
-// seeFinished snoozes the agent's family when it waits only to be looked at, keeping the cursor
-// on the agent and moving it to the tree's copy once the zone's has gone.
+// seeFinished snoozes the agent's family when it waits only to be looked at and the tree draws the
+// agent, keeping the cursor on the agent's tree row.
 func (a *agentsScreen) seeFinished(m *model, item panel.AgentRow) {
-	selected := a.list().hovered(m)
+	treeKey := agentCopyKey(a.list().hovered(m))
+	if rowIndexOfKey(a.rows(m), treeKey) < 0 {
+		return
+	}
+
 	a.triage.seeFinished(item, m.listing.agents)
 
 	rows := a.rows(m)
-	at := rowIndexOfKey(rows, selected)
-	if at < 0 {
-		at = rowIndexOfKey(rows, agentCopyKey(selected))
-	}
-
-	a.cursor = cursor.Place(at, a.cursor, len(rows))
+	a.cursor = cursor.Place(rowIndexOfKey(rows, treeKey), a.cursor, len(rows))
 }
 
 // toggleSnooze snoozes the hovered agent's family in triage, or the family of the orchestrator
