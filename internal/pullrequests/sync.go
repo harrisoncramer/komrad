@@ -3,6 +3,7 @@ package pullrequests
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"slices"
 	"strings"
@@ -316,7 +317,7 @@ func (s *PullRequestSyncer) readRepository(ctx context.Context, host *hostRead, 
 		var err error
 		reading, err = host.forge.ReadBranches(ctx, repository.remote, repository.branches)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to read the pull requests on %d branches: %w", len(repository.branches), err)
 		}
 		s.noteRename(ctx, repository.repositoryURL, reading.PullRequests)
 		s.noteRateLimit(ctx, host, reading.RateLimit)
