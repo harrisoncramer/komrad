@@ -237,27 +237,25 @@ type Deps struct {
 }
 
 type model struct {
-	session       *Session
-	api           api
-	tmux          uiTmux
-	git           ReviewGit
-	browser       browser.Opener
-	harnessFrames harnessFrameReader
-	binary        BinaryWatcher
-	frame         *layout.Frame
-	settings      PanelSettings
-	unreachable   error
-	engineStatus  EngineStatus
-	engineBuild   EngineBuild
-	writes        writeTracker
-	term          terminalState
-
+	session         *Session
+	api             api
+	tmux            uiTmux
+	git             ReviewGit
+	browser         browser.Opener
+	harnessFrames   harnessFrameReader
+	binary          BinaryWatcher
+	frame           *layout.Frame
+	settings        PanelSettings
+	unreachable     error
+	engineStatus    EngineStatus
+	engineBuild     EngineBuild
+	writes          writeTracker
+	term            terminalState
 	configErr       error
 	startupErr      error
 	startupFindings []errui.Finding
 	screen          screen
-
-	terminalDir string
+	terminalDir     string
 	// scratch is the scratch editor on the stage, nil while it is closed.
 	scratch       *scratchEditor
 	details       detailsState
