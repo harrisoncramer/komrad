@@ -10,6 +10,7 @@ import (
 	"komrad/internal/ui/panel"
 	"komrad/internal/view"
 	"komrad/lib/xslice"
+	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 )
 
 const (
@@ -399,9 +400,48 @@ func (r triageRule) startedAt(item panel.AgentRow, now time.Time) time.Time {
 	return now
 }
 
-// isAgentOnIt reports whether the agent is working, or holds mail that will set it working.
+// isAgentOnIt reports whether the agent is working, or is owed something that will set it working.
 func isAgentOnIt(item panel.AgentRow) bool {
-	return displayState(item) == panel.StateThinking || (item.Alive && item.UnreadMail)
+	//nolint:godox,fussy // follow-ups kept beside the rule they would change
+	// TODO(@harrisoncramer): A check that never finishes, like a required check that never
+	// reports, keeps the agent out of triage until something else on its pull request changes.
+	//
+	// TODO(@harrisoncramer): An agent that keeps failing its checks is mailed, pushes and waits
+	// again each time, so a person never sees it however many rounds it burns.
+	//
+	// TODO(@harrisoncramer): Mail the agent never reads keeps it out of triage for as long as it
+	// sits there unread.
+	if displayState(item) == panel.StateThinking {
+		return true
+	}
+
+	return item.Alive && (item.UnreadMail || isAwaitingChecks(item.PullRequest))
+}
+
+// isAwaitingChecks reports whether an open pull request has checks still running on its head.
+func isAwaitingChecks(pullRequest panel.PullRequestStanding) bool {
+	return pullRequest.Checks == pullrequestv1.Checks_CHECKS_PENDING && isPullRequestOpen(pullRequest.State)
+}
+
+func isPullRequestOpen(state pullrequestv1.PullRequestState) bool {
+	switch state {
+	case pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN,
+		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED,
+		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED_WAITING,
+		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHANGES_REQUESTED,
+		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_DRAFT,
+		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_FAILING,
+		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CONFLICTING,
+		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHECKS_RUNNING:
+		return true
+	case pullrequestv1.PullRequestState_PULL_REQUEST_STATE_UNSPECIFIED,
+		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_UNREAD,
+		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE,
+		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_MERGED,
+		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CLOSED:
+	}
+
+	return false
 }
 
 // isFinishedImplementer reports whether a top-level implementer has finished its turn with nothing
