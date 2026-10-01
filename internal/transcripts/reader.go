@@ -102,6 +102,14 @@ func (r *TranscriptReader) ReadTranscriptWindow(ctx context.Context, params Read
 	return cutWindow(content, params.Cursor, params.MaxBytes)
 }
 
+// Turn is one turn of a conversation, cut from the head to fit a window.
+type Turn struct {
+	Role      string
+	Seq       int32
+	Content   string
+	Truncated bool
+}
+
 type ListLastTurnsParams struct {
 	AgentID  string
 	Turns    int32

@@ -25,14 +25,6 @@ type Window struct {
 	Next    *transcriptstore.ContentCursor
 }
 
-// Turn is one turn of a conversation, cut from the head to fit a window.
-type Turn struct {
-	Role      string
-	Seq       int32
-	Content   string
-	Truncated bool
-}
-
 // clampWindow is the window a request asked for, bounded above by maxWindow.
 func clampWindow(requested int32) int {
 	if requested > 0 && int(requested) < maxWindow {
