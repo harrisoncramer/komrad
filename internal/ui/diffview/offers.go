@@ -59,31 +59,16 @@ func (v *View) offerRowOf(index lineIndex, offer Offer) (int, bool) {
 		return 0, false
 	}
 
-	if y, ok := v.offerRowByTrace(index, offer); ok {
+	if y, ok := v.offerTraced.rowFor(index, offer.ID); ok && !offer.OldSide {
 		return y, true
 	}
 
 	return v.offerRowByQuote(index, offer)
 }
 
-// offerPathOf is the file an offer is about in the snapshot on screen, which a rename moves.
+// offerPathOf is the file an offer is about in the snapshot on screen.
 func (v *View) offerPathOf(offer Offer) string {
-	if found, ok := v.offerTraced[offer.ID]; ok && found.FilePath != "" {
-		return found.FilePath
-	}
-
-	return offer.FilePath
-}
-
-func (v *View) offerRowByTrace(index lineIndex, offer Offer) (int, bool) {
-	found, ok := v.offerTraced[offer.ID]
-	if !ok || offer.OldSide || found.FileOnly || found.NewStart <= 0 {
-		return 0, false
-	}
-
-	y, ok := index.byNew[newKey{filePath: found.FilePath, newLine: found.NewStart}]
-
-	return y, ok
+	return v.offerTraced.pathOf(offer.ID, offer.FilePath)
 }
 
 // offerRowByQuote is the one row on the offer's side drawing the line it was written on.

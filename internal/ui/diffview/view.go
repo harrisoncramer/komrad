@@ -58,7 +58,7 @@ type Anchor struct {
 
 type View struct {
 	patch   *diff.Patch
-	traced  map[string]Traced
+	traced  tracedByID
 	rows    []row
 	sources []fileSource
 
@@ -94,7 +94,7 @@ type View struct {
 	// glyphs is what the marks on threads and files are drawn in.
 	glyphs      glyph.Set
 	offers      []Offer
-	offerTraced map[string]Traced
+	offerTraced tracedByID
 	offered     map[int][]Offer
 	offerRows   map[string]int
 }

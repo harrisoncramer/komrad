@@ -16,31 +16,23 @@ type Traced struct {
 	Exact bool
 }
 
-// SetTraced holds where each thread's lines went, keyed by thread id, and is read by the next
-// pinning pass rather than at once.
-func (v *View) SetTraced(traced map[string]Traced) {
-	v.traced = traced
-}
+// tracedByID is where git says each thread's or offer's lines went, keyed by its id.
+type tracedByID map[string]Traced
 
-// pathOf is the file a thread is about in the snapshot on screen, which only tracing knows
-// about once a rename has moved it.
-func (v *View) pathOf(thread *agentv1.ReviewThread) string {
-	found, ok := v.traced[thread.GetId()]
+// pathOf is the file an id is about in the snapshot on screen, which only tracing knows about
+// once a rename has moved it.
+func (t tracedByID) pathOf(id, written string) string {
+	found, ok := t[id]
 	if !ok || found.FilePath == "" {
-		return thread.GetFilePath()
+		return written
 	}
 
 	return found.FilePath
 }
 
-// isExact reports whether a thread's numbers were counted in the snapshot on screen.
-func (v *View) isExact(thread *agentv1.ReviewThread) bool {
-	return v.traced[thread.GetId()].Exact
-}
-
-// tracedRowFor is the row git says a thread's lines became, and whether it said anything.
-func (v *View) tracedRowFor(index lineIndex, thread *agentv1.ReviewThread) (int, bool) {
-	found, ok := v.traced[thread.GetId()]
+// rowFor is the row git says an id's lines became, and whether it said anything.
+func (t tracedByID) rowFor(index lineIndex, id string) (int, bool) {
+	found, ok := t[id]
 	if !ok || found.FileOnly || found.NewStart <= 0 {
 		return 0, false
 	}
@@ -48,4 +40,20 @@ func (v *View) tracedRowFor(index lineIndex, thread *agentv1.ReviewThread) (int,
 	y, ok := index.byNew[newKey{filePath: found.FilePath, newLine: found.NewStart}]
 
 	return y, ok
+}
+
+// SetTraced holds where each thread's lines went, keyed by thread id, and is read by the next
+// pinning pass rather than at once.
+func (v *View) SetTraced(traced map[string]Traced) {
+	v.traced = traced
+}
+
+// pathOf is the file a thread is about in the snapshot on screen.
+func (v *View) pathOf(thread *agentv1.ReviewThread) string {
+	return v.traced.pathOf(thread.GetId(), thread.GetFilePath())
+}
+
+// isExact reports whether a thread's numbers were counted in the snapshot on screen.
+func (v *View) isExact(thread *agentv1.ReviewThread) bool {
+	return v.traced[thread.GetId()].Exact
 }

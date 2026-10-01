@@ -2,6 +2,7 @@ package ui
 
 import (
 	"context"
+	"fmt"
 	"maps"
 	"time"
 
@@ -46,18 +47,18 @@ func traceThreads(ctx context.Context, params traceThreadsParams) map[string]dif
 
 	traced := maps.Clone(exact)
 	for from, threads := range byFrom {
-		mappings, err := params.Git.MapRanges(ctx, git.MapRangesParams{
+		found, err := traceAnchors(ctx, traceAnchorsParams{
+			Git:     params.Git,
 			Dir:     params.Dir,
 			FromSHA: from,
 			ToSHA:   params.ToSHA,
+			Anchors: xslice.Map(threads, anchorThread),
 		})
 		if err != nil {
 			return exact
 		}
 
-		for id, found := range traceOne(traceOneParams{Mappings: mappings, Threads: threads}) {
-			traced[id] = found
-		}
+		maps.Copy(traced, found)
 	}
 
 	return traced
@@ -79,11 +80,7 @@ func traceOnScreen(params traceThreadsParams) map[string]diffview.Traced {
 			continue
 		}
 
-		traced[thread.GetId()] = diffview.Traced{
-			FilePath: thread.GetFilePath(),
-			NewStart: thread.GetNewStart(),
-			Exact:    true,
-		}
+		traced[thread.GetId()] = tracedExactly(thread.GetFilePath(), thread.GetNewStart())
 	}
 
 	return traced
@@ -128,50 +125,71 @@ func groupBySnapshot(params traceThreadsParams) map[string][]*agentv1.ReviewThre
 	return byFrom
 }
 
-// traceOneParams is one pair of snapshots and the threads written against the earlier one.
-type traceOneParams struct {
-	Mappings []position.Mapping
-	Threads  []*agentv1.ReviewThread
+// traceAnchor is one place written against an earlier snapshot, under the id of the thread or forge
+// comment written there.
+type traceAnchor struct {
+	ID       string
+	Position position.Position
 }
 
-// traceOne moves every thread of one snapshot pair, keeping the file when the lines are gone so
-// a thread whose code was rewritten still says which file it was about.
-func traceOne(params traceOneParams) map[string]diffview.Traced {
-	return traceAnchors(traceAnchorsParams{
-		Mappings: params.Mappings,
-		IDs:      xslice.Map(params.Threads, (*agentv1.ReviewThread).GetId),
-		Positions: xslice.Map(params.Threads, func(thread *agentv1.ReviewThread) position.Position {
-			return position.Position{
-				Path:  thread.GetFilePath(),
-				Lines: threadRange(thread),
-			}
-		}),
-	})
+// anchorThread is a thread's new-side lines as a place to trace.
+func anchorThread(thread *agentv1.ReviewThread) traceAnchor {
+	return traceAnchor{
+		ID: thread.GetId(),
+		Position: position.Position{
+			Path:  thread.GetFilePath(),
+			Lines: threadRange(thread),
+		},
+	}
 }
 
-// traceAnchorsParams is one pair of snapshots and the places written against the earlier one,
-// each under its id.
+// anchorOfferLine is a forge comment's line as a place to trace.
+func anchorOfferLine(offer *pullrequestv1.ForgeThread) traceAnchor {
+	line := int(offer.GetLine())
+
+	return traceAnchor{
+		ID: offer.GetId(),
+		Position: position.Position{
+			Path:  offer.GetPath(),
+			Lines: position.Range{Start: line, End: line + 1},
+		},
+	}
+}
+
+// traceAnchorsParams is one pair of snapshots and the places written against the earlier one.
 type traceAnchorsParams struct {
-	Mappings  []position.Mapping
-	IDs       []string
-	Positions []position.Position
+	Git     ReviewGit
+	Dir     string
+	FromSHA string
+	ToSHA   string
+	Anchors []traceAnchor
 }
 
-// traceAnchors moves every place of one snapshot pair.
-func traceAnchors(params traceAnchorsParams) map[string]diffview.Traced {
+// traceAnchors moves every place of one snapshot pair, keeping the file when the lines are gone
+// so a comment whose code was rewritten still says which file it was about.
+func traceAnchors(ctx context.Context, params traceAnchorsParams) (map[string]diffview.Traced, error) {
+	mappings, err := params.Git.MapRanges(ctx, git.MapRangesParams{
+		Dir:     params.Dir,
+		FromSHA: params.FromSHA,
+		ToSHA:   params.ToSHA,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to map ranges %s..%s: %w", params.FromSHA, params.ToSHA, err)
+	}
+
 	results := position.Transform(position.TransformParams{
-		Positions: params.Positions,
-		Mappings:  params.Mappings,
+		Positions: xslice.Map(params.Anchors, func(place traceAnchor) position.Position { return place.Position }),
+		Mappings:  mappings,
 		Policy:    position.FileOnConflict,
 	})
 
 	traced := map[string]diffview.Traced{}
 	for _, result := range results {
-		if result.Index < 0 || result.Index >= len(params.IDs) {
+		if result.Index < 0 || result.Index >= len(params.Anchors) {
 			continue
 		}
 
-		id := params.IDs[result.Index]
+		id := params.Anchors[result.Index].ID
 
 		// A file copied to two paths answers twice, and the first answer is kept rather than
 		// drawing one comment against whichever copy came last.
@@ -182,7 +200,16 @@ func traceAnchors(params traceAnchorsParams) map[string]diffview.Traced {
 		traced[id] = tracedOf(result)
 	}
 
-	return traced
+	return traced, nil
+}
+
+// tracedExactly is a place whose numbers were counted in the snapshot on screen.
+func tracedExactly(filePath string, newStart int32) diffview.Traced {
+	return diffview.Traced{
+		FilePath: filePath,
+		NewStart: newStart,
+		Exact:    true,
+	}
 }
 
 // tracedOf reads one result the way the view needs it.
@@ -242,11 +269,7 @@ func traceOffers(ctx context.Context, params traceOffersParams) map[string]diffv
 		}
 
 		if from == params.ToSHA {
-			traced[offer.GetId()] = diffview.Traced{
-				FilePath: offer.GetPath(),
-				NewStart: offer.GetLine(),
-				Exact:    true,
-			}
+			traced[offer.GetId()] = tracedExactly(offer.GetPath(), offer.GetLine())
 
 			continue
 		}
@@ -255,24 +278,18 @@ func traceOffers(ctx context.Context, params traceOffersParams) map[string]diffv
 	}
 
 	for from, offers := range byFrom {
-		mappings, err := params.Git.MapRanges(ctx, git.MapRangesParams{
+		found, err := traceAnchors(ctx, traceAnchorsParams{
+			Git:     params.Git,
 			Dir:     params.Dir,
 			FromSHA: from,
 			ToSHA:   params.ToSHA,
+			Anchors: xslice.Map(offers, anchorOfferLine),
 		})
 		if err != nil {
 			continue
 		}
 
-		maps.Copy(traced, traceAnchors(traceAnchorsParams{
-			Mappings: mappings,
-			IDs:      xslice.Map(offers, (*pullrequestv1.ForgeThread).GetId),
-			Positions: xslice.Map(offers, func(offer *pullrequestv1.ForgeThread) position.Position {
-				line := int(offer.GetLine())
-
-				return position.Position{Path: offer.GetPath(), Lines: position.Range{Start: line, End: line + 1}}
-			}),
-		}))
+		maps.Copy(traced, found)
 	}
 
 	return traced

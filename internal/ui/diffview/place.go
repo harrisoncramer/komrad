@@ -159,7 +159,7 @@ func (v *View) placeByArm(
 
 // rowByTrace is the row git says the thread's lines became.
 func (v *View) rowByTrace(index lineIndex, thread *agentv1.ReviewThread) (int, placement, bool) {
-	y, ok := v.tracedRowFor(index, thread)
+	y, ok := v.traced.rowFor(index, thread.GetId())
 	if !ok {
 		return 0, adrift, false
 	}
