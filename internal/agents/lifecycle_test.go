@@ -974,6 +974,18 @@ func TestArchiveAgentsHoldsAnAgentToItselfAndItsOwnChildren(t *testing.T) {
 			wantErrIs: ErrArchiveNotYours,
 		},
 		{
+			name:      "a stranger is refused ahead of an id nobody holds",
+			from:      "parent",
+			archive:   []string{"stranger", "missing"},
+			wantErrIs: ErrArchiveNotYours,
+		},
+		{
+			name:      "an id nobody holds is skipped by the ownership check and then not found",
+			from:      "parent",
+			archive:   []string{"child", "missing"},
+			wantErrIs: agenterr.ErrAgentNotFound,
+		},
+		{
 			name:    "an agent archiving its own child",
 			from:    "parent",
 			archive: []string{"child"},
@@ -1012,6 +1024,7 @@ func TestArchiveAgentsHoldsAnAgentToItselfAndItsOwnChildren(t *testing.T) {
 				"child":        seedChild(t, st, tmux, parent).ID,
 				"stranger":     seedRunning(t, st, tmux, "stranger", "%2", agentstore.StateIdle).ID,
 				"orchestrator": seedOrchestrator(t, st, tmux).ID,
+				"missing":      uuid.NewString(),
 			}
 
 			err := manager.lifecycle.ArchiveAgents(ctx, ArchiveAgentsParams{
