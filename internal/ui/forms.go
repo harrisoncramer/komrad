@@ -20,8 +20,11 @@ type formState struct {
 	// crumbs are the steps the form adds to the trail while it is up.
 	crumbs []string
 
-	// leading draws what stands to the left of the form within its width, nil for nothing.
-	leading func(width int) []string
+	// leading draws what stands to the left of the form within its width and height, nil for nothing.
+	leading func(width, height int) []string
+
+	// back is what the back key does, nil for closing the form.
+	back func(model) (tea.Model, tea.Cmd)
 
 	// update is the form's own message handler, so the panel need not ask which form is up before
 	// handing it a message.
@@ -201,12 +204,15 @@ func (m model) formLeading() ([]string, int) {
 		return nil, 0
 	}
 
-	room := m.width
+	room, rows := m.width, m.height-formHelpLines
 	if split, ok := m.columnGeometry(); ok {
-		room = split.column
+		room, rows = split.column, split.rows-formHelpLines
+	}
+	if m.held.active {
+		rows -= submittingLines
 	}
 
-	views := m.form.leading(room)
+	views := m.form.leading(room, rows)
 
 	used := 0
 	for _, view := range views {
@@ -403,6 +409,10 @@ func (m model) updateForm(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if next, cmd, kept := m.updateFormVim(key); kept {
 			return next, cmd
 		}
+
+		if m.form.back != nil && isBound(key.String(), formKeys().Back) {
+			return m.leaveFormBack()
+		}
 	}
 
 	cmd := m.stepForm(msg)
@@ -459,6 +469,15 @@ func (m model) formSizeOf(msg tea.Msg) tea.Msg {
 func (m *model) leaveForm() {
 	m.held = heldWrite{}
 	m.form = formState{}
+}
+
+// leaveFormBack does what the back key does on the form on screen.
+func (m model) leaveFormBack() (tea.Model, tea.Cmd) {
+	if m.form.back != nil {
+		return m.form.back(m)
+	}
+
+	return m.closeForm()
 }
 
 // closeForm drops the form and comes back to the screen it was drawn over.

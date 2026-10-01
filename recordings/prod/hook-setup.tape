@@ -29,16 +29,8 @@ Enter
 Wait+Screen@30s /no shared context set/
 Sleep 1s
 Type "e"
-Enter
-Enter
-Enter
-Enter
-Enter
-Enter
-Enter
-Enter
-Enter
-Enter
+Tab 4
+Down 2
 Enter
 Wait+Screen@30s /ignore-revs/
 Down

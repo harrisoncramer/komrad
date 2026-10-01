@@ -8,10 +8,10 @@ import (
 
 	"komrad/config"
 	"komrad/internal/eventprompts"
-	"komrad/internal/glyph"
 	"komrad/internal/ui/panel"
 	"komrad/lib/xslice"
 
+	tea "charm.land/bubbletea/v2"
 	"charm.land/huh/v2"
 )
 
@@ -189,6 +189,14 @@ func splitLines(text string) []string {
 
 const provisionerKey = "provisioner"
 
+func provisionerLabel(provisioner string) string {
+	if provisioner == provisionerWorktree {
+		return "Worktree"
+	}
+
+	return "None"
+}
+
 func provisionerOptions() []huh.Option[string] {
 	return []huh.Option[string]{
 		huh.NewOption("None: agents keep the directory they are given", provisionerNone),
@@ -196,51 +204,120 @@ func provisionerOptions() []huh.Option[string] {
 	}
 }
 
-// workflowConfigParams is what the workflow form is drawn from: the values it edits, and the
-// hooks it offers.
-type workflowConfigParams struct {
+// workflowFormParams is what the workflow form is drawn from and what it does once answered.
+type workflowFormParams struct {
 	NameTitle string
 	Values    *workflowFormValues
-	Hooks     []hookChoice
-	Keys      config.FormKeys
 	// Editing says the workflow already exists and its base branch is required.
 	Editing bool
+	Submit  func(model) (tea.Model, tea.Cmd)
 }
 
-func workflowConfigForm(params workflowConfigParams) (form *huh.Form, order []string) {
-	values, keys := params.Values, params.Keys
+func workflowForm(params workflowFormParams) sectionedForm {
+	values := params.Values
 	if values.Provisioner == "" {
 		values.Provisioner = provisionerWorktree
 	}
 
-	fields := append([]huh.Field{
-		huh.NewInput().Key("name").Title(params.NameTitle).Value(&values.Name),
-		textField("context").Title("Context").
-			Description(fmt.Sprintf("shared notes for this workflow; %s opens $EDITOR", keyLabel(keys.Editor))).
-			Lines(2).Value(&values.Context),
-	}, blueprintFields("Default ", &values.Harness, &values.Cwd, &values.Flags)...)
+	drawnProvisioner := values.Provisioner
+	choice := workflowSectionAgents
 
-	fields = append(fields,
+	return sectionedForm{
+		kind:  formWorkflow,
+		title: "Settings",
+		top: func(model) []huh.Field {
+			drawnProvisioner = values.Provisioner
+
+			return workflowTopFields(params.NameTitle, values)
+		},
+		frozen: func() []frozenField {
+			return []frozenField{
+				{title: params.NameTitle, value: values.Name},
+				{title: "Context", value: values.Context},
+				{title: "Default Directory", value: values.Cwd},
+				{title: "Provisioner", value: provisionerLabel(values.Provisioner)},
+			}
+		},
+		topEditable: []editableText{{key: "context", value: &values.Context}},
+		reshaped:    func() bool { return values.Provisioner != drawnProvisioner },
+		sections:    workflowSections(values, params.Editing),
+		submit:      params.Submit,
+		choice:      &choice,
+	}
+}
+
+func workflowTopFields(nameTitle string, values *workflowFormValues) []huh.Field {
+	return []huh.Field{
+		huh.NewInput().Key("name").Title(nameTitle).Value(&values.Name),
+		textField("context").Title("Context").
+			Description(fmt.Sprintf("shared notes for this workflow; %s opens $EDITOR", keyLabel(formKeys().Editor))).
+			Lines(2).Value(&values.Context),
+		huh.NewInput().Key("dir").Title("Default Directory").
+			Description("where agents start, and the checkout worktrees are cut from").
+			Value(&values.Cwd),
+		huh.NewSelect[string]().Key(provisionerKey).Title("Provisioner").
+			Options(provisionerOptions()...).Value(&values.Provisioner),
+	}
+}
+
+const (
+	workflowSectionAgents       = "agents"
+	workflowSectionWorktree     = "worktree"
+	workflowSectionHooks        = "hooks"
+	workflowSectionEventPrompts = "event_prompts"
+)
+
+func workflowSections(values *workflowFormValues, editing bool) []formSection {
+	return []formSection{
+		{
+			key:   workflowSectionAgents,
+			title: "agents",
+			fields: func(model) []huh.Field {
+				return workflowAgentFields(values)
+			},
+		},
+		{
+			key:   workflowSectionWorktree,
+			title: "worktree",
+			isOff: func() bool { return values.Provisioner != provisionerWorktree },
+			fields: func(model) []huh.Field {
+				return worktreeDetailFields(values, editing)
+			},
+			editable: []editableText{
+				{key: "worktree_copy_paths", value: &values.WorktreeCopyPaths},
+				{key: "worktree_symlink_paths", value: &values.WorktreeSymlinkPaths},
+				{key: "worktree_diff_exclude", value: &values.WorktreeDiffExclude},
+			},
+		},
+		{
+			key:   workflowSectionHooks,
+			title: "hooks",
+			fields: func(m model) []huh.Field {
+				return hookFields(values, m.getAvailableHooks())
+			},
+		},
+		{
+			key:   workflowSectionEventPrompts,
+			title: "event prompts",
+			fields: func(model) []huh.Field {
+				return eventPromptFields(values, formKeys())
+			},
+			editable: eventPromptEditables(values),
+		},
+	}
+}
+
+func workflowAgentFields(values *workflowFormValues) []huh.Field {
+	return []huh.Field{
+		huh.NewInput().Key("harness").Title("Default Agent").Placeholder("claude").Value(&values.Harness),
+		huh.NewInput().Key("flags").Title("Default Flags").Placeholder("--model opus").Value(&values.Flags),
 		huh.NewInput().Key("reviewer_harness").Title("Reviewer agent").
 			Description("the CLI reviewers run").
 			Placeholder("the default agent").Value(&values.ReviewerHarness),
 		huh.NewInput().Key("reviewer_flags").Title("Reviewer flags").
 			Description("the flags reviewers launch with").
 			Placeholder("the default flags, when the agent is the same").Value(&values.ReviewerFlags),
-		huh.NewSelect[string]().Key(provisionerKey).Title("Provisioner").
-			Options(provisionerOptions()...).Value(&values.Provisioner),
-	)
-
-	if values.Provisioner == provisionerWorktree {
-		fields = append(fields, worktreeDetailFields(values, params.Editing)...)
 	}
-
-	fields = append(fields, hookFields(values, params.Hooks)...)
-	fields = append(fields, eventPromptFields(values, keys)...)
-
-	// The form is taller than most terminals now, so it takes its height from the resize the panel
-	// sends it and huh scrolls it around whichever field has the cursor.
-	return formOf(keys, fields...)
 }
 
 func worktreeDetailFields(values *workflowFormValues, editing bool) []huh.Field {
@@ -279,14 +356,6 @@ func baseBranchField(values *workflowFormValues, editing bool) huh.Field {
 			return nil
 		})
 }
-
-// hookOptionsShown bounds one moment's list, so five moments and everything above them still
-// leave the form scrollable.
-const hookOptionsShown = 4
-
-// hookFieldChrome is the title and description above a moment's options, which huh takes out of
-// the height it is given before sizing the list.
-const hookFieldChrome = 2
 
 // hookFields are the scripts hung on a moment rather than on the directory, one select each
 // since a moment holds one hook.
@@ -362,18 +431,13 @@ func hookFields(values *workflowFormValues, available []hookChoice) []huh.Field 
 	fields := make([]huh.Field, 0, len(moments))
 	for _, moment := range moments {
 		options := hookOptions(available, *moment.chosen)
-		scrolls := len(options) > hookOptionsShown
 
 		// Options comes before Value so huh reads the zero value and leaves the list scrolled to
 		// the top, which holds only while None, carrying the empty name, leads it.
 		field := huh.NewSelect[string]().Key(moment.key).Title(moment.title).
-			Description(hookFieldDescription(moment.description, available, scrolls)).
+			Description(hookFieldDescription(moment.description, available)).
 			Options(options...).
 			Value(moment.chosen)
-		// Only a list too long for the room gets a height.
-		if scrolls {
-			field = field.Height(hookOptionsShown + hookFieldChrome)
-		}
 
 		fields = append(fields, field)
 	}
@@ -399,13 +463,9 @@ func eventPromptFields(values *workflowFormValues, keys config.FormKeys) []huh.F
 }
 
 // hookFieldDescription leads with the empty case rather than appending it.
-func hookFieldDescription(description string, available []hookChoice, scrolls bool) string {
+func hookFieldDescription(description string, available []hookChoice) string {
 	if len(available) == 0 {
 		return "none found in your hooks directory; " + description
-	}
-
-	if scrolls {
-		return glyph.Up + "/" + glyph.Down + " for more; " + description
 	}
 
 	return description

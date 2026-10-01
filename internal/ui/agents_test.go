@@ -15,7 +15,6 @@ import (
 	"komrad/lib/xslice"
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
-	"komrad/proto/gen/hook/v1/hookv1connect"
 	loopv1 "komrad/proto/gen/loop/v1"
 	"komrad/proto/gen/loop/v1/loopv1connect"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
@@ -30,7 +29,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 const (
@@ -2201,10 +2199,6 @@ func TestAgentsOrchestrator(t *testing.T) {
 		harness.press("space", "w", "a", "p", "i", "ctrl+s")
 
 		harness.assertSentWith(ignoringEventPrompts,
-			request{
-				procedure: hookv1connect.HookServiceListHooksProcedure,
-				msg:       &emptypb.Empty{},
-			},
 			request{
 				procedure: workflowv1connect.WorkflowServiceCreateWorkflowProcedure,
 				msg: &workflowv1.CreateWorkflowRequest{

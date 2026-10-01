@@ -130,7 +130,7 @@ func submenuState(parents []submenuLevel, level submenuLevel) formState {
 		rebuild: func(model) (*huh.Form, []string) {
 			return submenuForm(level, len(parents) > 0, formKeys()), nil
 		},
-		leading: func(width int) []string {
+		leading: func(width, _ int) []string {
 			return submenuLeading(parents, level, width)
 		},
 	}
