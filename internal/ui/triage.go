@@ -383,16 +383,28 @@ func isAgentOnIt(item panel.AgentRow) bool {
 
 // isAwaitingChecks reports whether an open pull request has checks still running on its head.
 func isAwaitingChecks(pullRequest panel.PullRequestStanding) bool {
-	return pullRequest.Checks == pullrequestv1.Checks_CHECKS_PENDING &&
-		!slices.Contains(unopenedPullRequestStates, pullRequest.State)
+	return pullRequest.Checks == pullrequestv1.Checks_CHECKS_PENDING && isPullRequestOpen(pullRequest.State)
 }
 
-var unopenedPullRequestStates = []pullrequestv1.PullRequestState{
-	pullrequestv1.PullRequestState_PULL_REQUEST_STATE_UNSPECIFIED,
-	pullrequestv1.PullRequestState_PULL_REQUEST_STATE_UNREAD,
-	pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE,
-	pullrequestv1.PullRequestState_PULL_REQUEST_STATE_MERGED,
-	pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CLOSED,
+func isPullRequestOpen(state pullrequestv1.PullRequestState) bool {
+	switch state {
+	case pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN,
+		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED,
+		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED_WAITING,
+		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHANGES_REQUESTED,
+		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_DRAFT,
+		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_FAILING,
+		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CONFLICTING,
+		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHECKS_RUNNING:
+		return true
+	case pullrequestv1.PullRequestState_PULL_REQUEST_STATE_UNSPECIFIED,
+		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_UNREAD,
+		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE,
+		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_MERGED,
+		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CLOSED:
+	}
+
+	return false
 }
 
 // isFinishedImplementer reports whether a top-level implementer has finished its turn with nothing
