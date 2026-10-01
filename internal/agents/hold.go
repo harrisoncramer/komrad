@@ -25,15 +25,9 @@ var ErrAlreadyHeld = fail.AlreadyExists("this agent is already held")
 // ErrHoldSelf is an agent holding itself, which would stop it with nobody who knows to let it go.
 var ErrHoldSelf = fail.InvalidArgument("an agent cannot hold itself")
 
-type holdStore interface {
-	agentGetter
-	Hold(ctx context.Context, params agentstore.HoldParams) (bool, error)
-	Release(ctx context.Context, id string) (bool, error)
-}
-
 // NewHolderParams is what a holder is built over.
 type NewHolderParams struct {
-	Agents  holdStore
+	Agents  *agentstore.AgentStore
 	Channel harness.Channel
 	Settler *Settler
 	Clock   func() time.Time
@@ -41,7 +35,7 @@ type NewHolderParams struct {
 
 // Holder stops an agent on a person's behalf and lets it go again.
 type Holder struct {
-	agents  holdStore
+	agents  *agentstore.AgentStore
 	channel harness.Channel
 	settler *Settler
 	now     func() time.Time

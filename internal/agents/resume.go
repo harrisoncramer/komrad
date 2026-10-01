@@ -26,20 +26,10 @@ const interruptedPrompt = "Your last turn was cut off part-way through when your
 	"had actually finished and what you had not, and carry on from there. If the work was already done, " +
 	"say so rather than doing it again."
 
-// resumeAgentReadWriter is the slice of the agent store a resume writes to, being the row's
-// state and the pane it comes back in.
-type resumeAgentReadWriter interface {
-	agentGetter
-	MarkSettingUpIfLive(ctx context.Context, id string) (bool, error)
-	SetStateByID(ctx context.Context, id string, state agentstore.State) error
-	SetInterruptedAtByID(ctx context.Context, id string, at *time.Time) error
-	UpdateIfLive(ctx context.Context, agent agentstore.Agent) (bool, error)
-}
-
 type NewResumeServiceParams struct {
 	Tmux               paneController
-	Agents             resumeAgentReadWriter
-	Workflows          workflowReader
+	Agents             *agentstore.AgentStore
+	Workflows          *workflowstore.WorkflowStore
 	Launcher           *Launcher
 	Harnesses          harnessGetter
 	Scripts            agentScriptRunner
@@ -49,8 +39,8 @@ type NewResumeServiceParams struct {
 type ResumeService struct {
 	tmux               paneController
 	starter            *agentStarter
-	agents             resumeAgentReadWriter
-	workflows          workflowReader
+	agents             *agentstore.AgentStore
+	workflows          *workflowstore.WorkflowStore
 	harnesses          harnessGetter
 	fallbackResumeRoot string
 	// inFlight holds the agents this panel is part-way through resuming.

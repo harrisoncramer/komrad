@@ -207,15 +207,14 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 		Usage:          params.Usage,
 	})
 	workflowService := agents.NewWorkflowService(agents.NewWorkflowServiceParams{
-		Workflows:    st.workflows,
-		Pages:        st.workflows,
-		Agents:       st.agents,
-		AgentDeleter: agentDelete,
-		Emptied:      emptyWorkflows,
-		Schedules:    st.schedules,
-		Lifecycle:    lifecycleService,
-		Tx:           st.pool,
-		Hooks:        scriptService,
+		Workflows:      st.workflows,
+		Agents:         st.agents,
+		AgentDeleter:   agentDelete,
+		EmptyWorkflows: emptyWorkflows,
+		Schedules:      st.schedules,
+		Lifecycle:      lifecycleService,
+		Tx:             st.pool,
+		Hooks:          scriptService,
 	})
 
 	builders := params.ForgeBuilders

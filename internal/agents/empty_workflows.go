@@ -12,32 +12,18 @@ import (
 	workflowstore "komrad/internal/store/workflow"
 )
 
-type emptyWorkflowGetDeleter interface {
-	GetIncludingArchived(ctx context.Context, id string) (*workflowstore.Workflow, error)
-	Delete(ctx context.Context, id string) error
-}
-
-type workflowResidentLister interface {
-	ListArchivedInWorkflow(ctx context.Context, workflowID string) ([]agentstore.Agent, error)
-}
-
-type workflowScheduleListDeleter interface {
-	ListInWorkflow(ctx context.Context, workflowID string) ([]schedulestore.Schedule, error)
-	Delete(ctx context.Context, id string) error
-}
-
 type NewEmptyWorkflowDeleterParams struct {
-	Workflows emptyWorkflowGetDeleter
-	Agents    workflowResidentLister
-	Schedules workflowScheduleListDeleter
+	Workflows *workflowstore.WorkflowStore
+	Agents    *agentstore.AgentStore
+	Schedules *schedulestore.ScheduleStore
 }
 
 // EmptyWorkflowDeleter removes an archived workflow once nothing is left inside it, taking the
 // archived schedules pointing at it with the row and deleting no agents itself.
 type EmptyWorkflowDeleter struct {
-	workflows emptyWorkflowGetDeleter
-	agents    workflowResidentLister
-	schedules workflowScheduleListDeleter
+	workflows *workflowstore.WorkflowStore
+	agents    *agentstore.AgentStore
+	schedules *schedulestore.ScheduleStore
 }
 
 // NewEmptyWorkflowDeleter builds the deleter over the three stores a workflow's removal touches.

@@ -922,13 +922,13 @@ func TestDeleteWorkflowLeavesAStragglerAndItsWorkflowBehind(t *testing.T) {
 	lifecycle := &fakeLifecycle{deprovisionRunErr: errors.New("worktree is dirty")}
 	agentSvc := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: &harnesstest.Fake{}}, lifecycle)
 	workflows := NewWorkflowService(NewWorkflowServiceParams{
-		Workflows:    st.Workflows,
-		Agents:       st.Agents,
-		AgentDeleter: inlineDelete{lifecycle: agentSvc.lifecycle},
-		Emptied:      agentSvc.emptied,
-		Schedules:    st.Schedules,
-		Lifecycle:    agentSvc.lifecycle,
-		Tx:           st.Pool,
+		Workflows:      st.Workflows,
+		Agents:         st.Agents,
+		AgentDeleter:   inlineDelete{lifecycle: agentSvc.lifecycle},
+		EmptyWorkflows: agentSvc.emptied,
+		Schedules:      st.Schedules,
+		Lifecycle:      agentSvc.lifecycle,
+		Tx:             st.Pool,
 	})
 	ctx := t.Context()
 
@@ -973,13 +973,13 @@ func TestDeleteWorkflowClaimsTheWorkflowWhileItsAgentsGo(t *testing.T) {
 	lifecycle := &fakeLifecycle{}
 	agentSvc := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: &harnesstest.Fake{}}, lifecycle)
 	workflows := NewWorkflowService(NewWorkflowServiceParams{
-		Workflows:    st.Workflows,
-		Agents:       st.Agents,
-		AgentDeleter: claimOnly{agents: st.Agents},
-		Emptied:      agentSvc.emptied,
-		Schedules:    st.Schedules,
-		Lifecycle:    agentSvc.lifecycle,
-		Tx:           st.Pool,
+		Workflows:      st.Workflows,
+		Agents:         st.Agents,
+		AgentDeleter:   claimOnly{agents: st.Agents},
+		EmptyWorkflows: agentSvc.emptied,
+		Schedules:      st.Schedules,
+		Lifecycle:      agentSvc.lifecycle,
+		Tx:             st.Pool,
 	})
 	ctx := t.Context()
 
@@ -1050,10 +1050,7 @@ func TestRestoreOfAWorkflowUnderTheChildCeiling(t *testing.T) {
 // TestListWorkflows pins that a listing reads the live or the archived workflows as asked.
 func TestListWorkflows(t *testing.T) {
 	st := newStore(t)
-	workflows := NewWorkflowService(NewWorkflowServiceParams{
-		Workflows: st.Workflows,
-		Pages:     st.Workflows,
-	})
+	workflows := NewWorkflowService(NewWorkflowServiceParams{Workflows: st.Workflows})
 	st.SeedWorkflow(t, workflowstore.Config{Name: "backend"})
 	archived := st.SeedWorkflow(t, workflowstore.Config{Name: "frontend"})
 	require.NoError(t, st.Workflows.Archive(t.Context(), archived.ID))

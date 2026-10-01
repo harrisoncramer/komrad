@@ -62,7 +62,7 @@ func runPreHooks(ctx context.Context, params hookRunParams) error {
 
 type batchHooksParams struct {
 	scripts     agentScriptRunner
-	workflows   workflowReader
+	workflows   *workflowstore.WorkflowStore
 	agents      []agentstore.Agent
 	event       string
 	skipGoneDir bool
@@ -169,7 +169,7 @@ func startHooksFor(ctx context.Context, params batchHooksParams) {
 
 // agentHooks are the hooks a workflow lists for one of its agents, none for an agent working in
 // a directory somebody else prepared.
-func agentHooks(ctx context.Context, workflows workflowReader, agent agentstore.Agent) []workflowstore.Hook {
+func agentHooks(ctx context.Context, workflows *workflowstore.WorkflowStore, agent agentstore.Agent) []workflowstore.Hook {
 	if agent.ParentAgentID != nil || agent.IsProvisionerDisabled() {
 		return nil
 	}
@@ -187,7 +187,7 @@ func hooksFor(wf *workflowstore.Workflow, hasParent bool, provisionEnabled *bool
 	return wf.Hooks
 }
 
-func workflowFor(ctx context.Context, workflows workflowReader, agent agentstore.Agent) *workflowstore.Workflow {
+func workflowFor(ctx context.Context, workflows *workflowstore.WorkflowStore, agent agentstore.Agent) *workflowstore.Workflow {
 	wf, err := workflows.GetIncludingArchived(ctx, agent.WorkflowID)
 	if errors.Is(err, store.ErrNotFound) {
 		return nil

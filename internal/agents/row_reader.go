@@ -15,55 +15,34 @@ import (
 	workflowstore "komrad/internal/store/workflow"
 )
 
-type rowPageReader interface {
-	ListPage(ctx context.Context, page rowstore.Page) ([]rowstore.Row, error)
-	ListWatched(ctx context.Context, keys []string) ([]rowstore.Row, error)
-	Get(ctx context.Context, id string) (*rowstore.Row, error)
-}
-
 type watchedLister[R any] interface {
 	ListWatched(ctx context.Context, keys []string) ([]R, error)
 }
 
-type observedPullRequestLister interface {
-	watchedLister[pullrequeststore.PullRequest]
-	ListObservations(ctx context.Context, agentIDs []string) ([]pullrequeststore.Observation, error)
-}
-
-type agentWatchedLister[R any] interface {
-	watchedLister[R]
-	ListIDsOfAgents(ctx context.Context, agentIDs []string) ([]string, error)
-}
-
-type pullRequestForgeThreadLister interface {
-	watchedLister[pullrequeststore.ForgeThread]
-	ListIDsOfPullRequests(ctx context.Context, pullRequestIDs []string) ([]string, error)
-}
-
 // NewRowReaderParams is what a row reader is built over.
 type NewRowReaderParams struct {
-	Agents        agentGetter
-	Rows          rowPageReader
-	Mail          watchedLister[mailstore.Mail]
-	PullRequests  observedPullRequestLister
-	Repositories  watchedLister[pullrequeststore.Sync]
-	Reviews       agentWatchedLister[reviewstore.Review]
-	ReviewThreads agentWatchedLister[reviewstore.ThreadWithMessages]
-	ForgeThreads  pullRequestForgeThreadLister
-	Workflows     watchedLister[workflowstore.Workflow]
+	Agents        *agentstore.AgentStore
+	Rows          *rowstore.RowStore
+	Mail          *mailstore.MailStore
+	PullRequests  *pullrequeststore.PullRequestStore
+	Repositories  *pullrequeststore.PullRequestSyncStore
+	Reviews       *reviewstore.ReviewStore
+	ReviewThreads *reviewstore.ThreadStore
+	ForgeThreads  *pullrequeststore.ForgeThreadStore
+	Workflows     *workflowstore.WorkflowStore
 }
 
 // RowReader reads what an agent's row says and what is drawn beside it.
 type RowReader struct {
-	agents        agentGetter
-	rows          rowPageReader
-	mail          watchedLister[mailstore.Mail]
-	pullRequests  observedPullRequestLister
-	repositories  watchedLister[pullrequeststore.Sync]
-	reviews       agentWatchedLister[reviewstore.Review]
-	reviewThreads agentWatchedLister[reviewstore.ThreadWithMessages]
-	forgeThreads  pullRequestForgeThreadLister
-	workflows     watchedLister[workflowstore.Workflow]
+	agents        *agentstore.AgentStore
+	rows          *rowstore.RowStore
+	mail          *mailstore.MailStore
+	pullRequests  *pullrequeststore.PullRequestStore
+	repositories  *pullrequeststore.PullRequestSyncStore
+	reviews       *reviewstore.ReviewStore
+	reviewThreads *reviewstore.ThreadStore
+	forgeThreads  *pullrequeststore.ForgeThreadStore
+	workflows     *workflowstore.WorkflowStore
 }
 
 // NewRowReader builds the reader over the stores.

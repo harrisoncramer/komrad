@@ -12,6 +12,8 @@ import (
 	"komrad/internal/agenterr"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
+	transcriptstore "komrad/internal/store/transcript"
+	workflowstore "komrad/internal/store/workflow"
 )
 
 const orchestratorDirName = "orchestrators"
@@ -21,18 +23,10 @@ const orchestratorPrompt = `You are this workflow's orchestrator, and nobody has
 
 Have a look at the workflow you stand behind and at the agents already in it, then say what you see and wait. Do not spawn anything until somebody asks you to.`
 
-type orchestratorAgentReader interface {
-	GetWorkflowOrchestrator(ctx context.Context, workflowID string) (*agentstore.Agent, error)
-}
-
-type orchestratorTranscriptReader interface {
-	Get(ctx context.Context, agentID string) (string, error)
-}
-
 type NewOrchestratorServiceParams struct {
-	Agents      orchestratorAgentReader
-	Workflows   workflowReader
-	Transcripts orchestratorTranscriptReader
+	Agents      *agentstore.AgentStore
+	Workflows   *workflowstore.WorkflowStore
+	Transcripts *transcriptstore.TranscriptStore
 	Harnesses   harnessGetter
 	Launch      *LaunchService
 	Lifecycle   *LifecycleService
@@ -43,9 +37,9 @@ type NewOrchestratorServiceParams struct {
 // OrchestratorService brings a workflow's orchestrator back, or starts the one it has never
 // had.
 type OrchestratorService struct {
-	agents      orchestratorAgentReader
-	workflows   workflowReader
-	transcripts orchestratorTranscriptReader
+	agents      *agentstore.AgentStore
+	workflows   *workflowstore.WorkflowStore
+	transcripts *transcriptstore.TranscriptStore
 	harnesses   harnessGetter
 	launch      *LaunchService
 	lifecycle   *LifecycleService

@@ -16,6 +16,7 @@ import (
 	"komrad/internal/scripts"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
+	schedulestore "komrad/internal/store/schedule"
 	workflowstore "komrad/internal/store/workflow"
 )
 
@@ -36,16 +37,6 @@ var ErrUnknownHookScript = fail.InvalidArgument("a hook must name a script in th
 
 var ErrWorktreeNeedsBase = fail.InvalidArgument("a workflow's base branch cannot be blank")
 
-type workflowScheduleCounter interface {
-	CountLive(ctx context.Context, workflowID string) (int64, error)
-}
-
-type workflowAgentLister interface {
-	ListLiveInWorkflow(ctx context.Context, workflowID string) ([]agentstore.Agent, error)
-	ListArchivedInWorkflow(ctx context.Context, workflowID string) ([]agentstore.Agent, error)
-	ListRestorableInWorkflow(ctx context.Context, workflowID string) ([]agentstore.Agent, error)
-}
-
 type workflowAgentDeleter interface {
 	DeleteAgents(ctx context.Context, ids []string) error
 }
@@ -54,52 +45,45 @@ type workflowHookFinder interface {
 	FindHook(name string) (Script, error)
 }
 
-type workflowPageLister interface {
-	ListPage(ctx context.Context, limit int64, cursor *workflowstore.Cursor, archived bool) ([]workflowstore.Workflow, error)
-}
-
 type NewWorkflowServiceParams struct {
-	Workflows    workflowReader
-	Pages        workflowPageLister
-	Agents       workflowAgentLister
-	AgentDeleter workflowAgentDeleter
-	Emptied      *EmptyWorkflowDeleter
-	Schedules    workflowScheduleCounter
-	Lifecycle    *LifecycleService
-	Tx           txRunner
-	Hooks        workflowHookFinder
+	Workflows      *workflowstore.WorkflowStore
+	Agents         *agentstore.AgentStore
+	AgentDeleter   workflowAgentDeleter
+	EmptyWorkflows *EmptyWorkflowDeleter
+	Schedules      *schedulestore.ScheduleStore
+	Lifecycle      *LifecycleService
+	Tx             txRunner
+	Hooks          workflowHookFinder
 }
 
 type WorkflowService struct {
-	store        workflowReader
-	pages        workflowPageLister
-	agents       workflowAgentLister
-	agentDeleter workflowAgentDeleter
-	emptied      *EmptyWorkflowDeleter
-	schedules    workflowScheduleCounter
-	lifecycle    *LifecycleService
-	tx           txRunner
-	hooks        workflowHookFinder
+	workflows      *workflowstore.WorkflowStore
+	agents         *agentstore.AgentStore
+	agentDeleter   workflowAgentDeleter
+	emptyWorkflows *EmptyWorkflowDeleter
+	schedules      *schedulestore.ScheduleStore
+	lifecycle      *LifecycleService
+	tx             txRunner
+	hooks          workflowHookFinder
 }
 
 // NewWorkflowService builds the service from its dependencies.
 func NewWorkflowService(params NewWorkflowServiceParams) *WorkflowService {
 	return &WorkflowService{
-		store:        params.Workflows,
-		pages:        params.Pages,
-		agents:       params.Agents,
-		agentDeleter: params.AgentDeleter,
-		emptied:      params.Emptied,
-		schedules:    params.Schedules,
-		lifecycle:    params.Lifecycle,
-		tx:           params.Tx,
-		hooks:        params.Hooks,
+		workflows:      params.Workflows,
+		agents:         params.Agents,
+		agentDeleter:   params.AgentDeleter,
+		emptyWorkflows: params.EmptyWorkflows,
+		schedules:      params.Schedules,
+		lifecycle:      params.Lifecycle,
+		tx:             params.Tx,
+		hooks:          params.Hooks,
 	}
 }
 
 // GetWorkflow returns a workflow by id, or nil when none has that id.
 func (w *WorkflowService) GetWorkflow(ctx context.Context, id string) (*workflowstore.Workflow, error) {
-	found, err := w.store.Get(ctx, id)
+	found, err := w.workflows.Get(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get workflow %q: %w", id, err)
 	}
@@ -115,7 +99,7 @@ type ListWorkflowsParams struct {
 
 // ListWorkflows returns one page of the live or the archived workflows, by name.
 func (w *WorkflowService) ListWorkflows(ctx context.Context, params ListWorkflowsParams) ([]workflowstore.Workflow, error) {
-	listed, err := w.pages.ListPage(ctx, params.Limit, params.Cursor, params.Archived)
+	listed, err := w.workflows.ListPage(ctx, params.Limit, params.Cursor, params.Archived)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list workflows: %w", err)
 	}
@@ -287,7 +271,7 @@ func (w *WorkflowService) ArchiveWorkflow(ctx context.Context, id string) error 
 // RestoreWorkflow brings an archived workflow back with the agents its archive took, landing them
 // dormant so a folder of twelve does not start twelve CLIs.
 func (w *WorkflowService) RestoreWorkflow(ctx context.Context, id string) (*workflowstore.Workflow, error) {
-	existing, err := w.store.GetIncludingArchived(ctx, id)
+	existing, err := w.workflows.GetIncludingArchived(ctx, id)
 	if errors.Is(err, store.ErrNotFound) {
 		return nil, agenterr.ErrWorkflowNotFound.Saying("no archived workflow with id %q", id)
 	}
@@ -307,13 +291,13 @@ func (w *WorkflowService) RestoreWorkflow(ctx context.Context, id string) (*work
 		return nil, fmt.Errorf("failed to restore workflow %q: %w", existing.Name, err)
 	}
 
-	return w.store.Get(ctx, id)
+	return w.workflows.Get(ctx, id)
 }
 
 // DeleteWorkflow permanently removes an archived workflow along with whatever archived agents
 // and schedules are still inside it.
 func (w *WorkflowService) DeleteWorkflow(ctx context.Context, id string) error {
-	existing, err := w.store.GetIncludingArchived(ctx, id)
+	existing, err := w.workflows.GetIncludingArchived(ctx, id)
 	if errors.Is(err, store.ErrNotFound) {
 		return agenterr.ErrWorkflowNotFound.Saying("no archived workflow with id %q", id)
 	}
@@ -331,7 +315,7 @@ func (w *WorkflowService) DeleteWorkflow(ctx context.Context, id string) error {
 	if len(inside) == 0 {
 		// No agent delete runs to check an empty workflow, so this is the one case that removes
 		// the row here.
-		return w.emptied.deleteWithSchedules(ctx, existing)
+		return w.emptyWorkflows.deleteWithSchedules(ctx, existing)
 	}
 
 	// Deleting an agent checks the workflow it leaves behind for itself, and leaves behind any
@@ -339,15 +323,8 @@ func (w *WorkflowService) DeleteWorkflow(ctx context.Context, id string) error {
 	return w.agentDeleter.DeleteAgents(ctx, agentstore.IDs(inside))
 }
 
-type restoreSlotLocker interface {
-	agentSlotLocker
-	restoredChildSlotLocker
-	restoredSpawnedSlotLocker
-	nameChecker
-}
-
 type claimRoomToRestoreParams struct {
-	agents   restoreSlotLocker
+	agents   *agentstore.AgentStore
 	usage    config.Usage
 	archived []agentstore.Agent
 }
@@ -366,7 +343,7 @@ func claimRoomToRestore(ctx context.Context, params claimRoomToRestoreParams) er
 	return requireNamesFree(ctx, params.agents, params.archived)
 }
 
-func requireNamesFree(ctx context.Context, agents nameChecker, archived []agentstore.Agent) error {
+func requireNamesFree(ctx context.Context, agents *agentstore.AgentStore, archived []agentstore.Agent) error {
 	returning := make(map[agentName]int, len(archived))
 	for _, agent := range archived {
 		returning[agentName{workflowID: agent.WorkflowID, name: agent.Name}]++
