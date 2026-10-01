@@ -1771,7 +1771,7 @@
               "path": "palette.mode.edit",
               "type": "string",
               "description": "Typing into a text field.",
-              "default": "\"3\""
+              "default": "\"9\""
             }
           ],
           "sections": []

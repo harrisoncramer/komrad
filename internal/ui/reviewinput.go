@@ -153,16 +153,13 @@ func (i reviewInput) updateVim(key tea.KeyPressMsg) vim.Outcome {
 	return outcome
 }
 
-// modeLabel names the mode the field is in.
-func (i reviewInput) modeLabel() string {
+// isInserting reports whether the field takes typed text rather than vim commands.
+func (i reviewInput) isInserting() bool {
 	if i.form == nil {
-		return editModeLabel
+		return true
 	}
 
 	focused := i.form.GetFocusedField()
-	if focused == nil {
-		return editModeLabel
-	}
 
-	return i.vim.label(focused.GetKey())
+	return focused == nil || i.vim.isInserting(focused.GetKey())
 }

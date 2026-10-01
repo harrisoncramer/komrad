@@ -77,7 +77,7 @@ func Defaults() Colors {
 		Selection:    Pair{Light: "#dbeafe", Dark: "#1e3a5f"},
 		SelectionDim: Pair{Light: "#e5e7eb", Dark: "#2b3038"},
 		Match:        Pair{Light: "#fde68a", Dark: "#7c5c00"},
-		Mode:         Modes{Normal: "4", Visual: "5", Jump: "3", Edit: "3"},
+		Mode:         Modes{Normal: "4", Visual: "5", Jump: "3", Edit: "9"},
 	}
 }
 

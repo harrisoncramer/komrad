@@ -178,7 +178,7 @@ func TestVimEditingBadge(t *testing.T) {
 		{name: "the list is in normal mode", press: nil, want: "NORMAL"},
 		{name: "a form's text field is in edit mode with vim off", press: []string{"c"}, want: "EDIT"},
 		{name: "a form's text field opens in edit mode with vim on", vim: true, press: []string{"c"}, want: "  EDIT  "},
-		{name: "esc puts a form's text field in normal mode", vim: true, press: []string{"c", "esc"}, want: "EDIT:N"},
+		{name: "esc puts a form's text field in normal mode", vim: true, press: []string{"c", "esc"}, want: " NORMAL "},
 		{name: "i puts it back in insert mode", vim: true, press: []string{"c", "esc", "i"}, want: "  EDIT  "},
 		{name: "the list's filter is in edit mode", press: []string{"/"}, want: "EDIT"},
 		{name: "the search line is in edit mode", press: []string{"tab", "/"}, want: "EDIT"},
@@ -204,7 +204,7 @@ func TestVimEditingBadge(t *testing.T) {
 		assert.Contains(t, harness.readFrame(), "  EDIT  ")
 
 		harness.press("esc")
-		assert.Contains(t, harness.readFrame(), "EDIT:N")
+		assert.Contains(t, harness.readFrame(), " NORMAL ")
 	})
 }
 

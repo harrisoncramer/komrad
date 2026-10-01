@@ -13,11 +13,8 @@ import (
 	"charm.land/huh/v2"
 )
 
-// The labels naming a text field that holds the keys.
-const (
-	editModeLabel       = "  EDIT  "
-	editNormalModeLabel = " EDIT:N "
-)
+// editModeLabel names a text field taking typed text.
+const editModeLabel = "  EDIT  "
 
 // fieldVim is vim's state for the text fields of one form.
 type fieldVim struct {
@@ -95,17 +92,15 @@ func (v *fieldVim) arrive(field huh.Field) bool {
 	return true
 }
 
-// label names the mode of the field with the cursor.
-func (v *fieldVim) label(key string) string {
+// isInserting reports whether the field with the cursor takes typed text rather than vim commands.
+func (v *fieldVim) isInserting(key string) bool {
 	if v == nil || v.focused != key {
-		return editModeLabel
+		return true
 	}
 
-	if e, ok := v.engines[key]; ok && e.Mode() == vim.Normal {
-		return editNormalModeLabel
-	}
+	e, ok := v.engines[key]
 
-	return editModeLabel
+	return !ok || e.Mode() != vim.Normal
 }
 
 // isTextField reports whether a field is one the keys type into.
