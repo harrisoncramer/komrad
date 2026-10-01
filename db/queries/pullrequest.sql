@@ -245,8 +245,9 @@ WITH prior AS (
         pull_requests held
     WHERE
         held.id = @id
-    FOR UPDATE),
-next AS (
+    FOR UPDATE
+),
+NEXT AS (
     SELECT
         prior.id,
         sqlc.narg('review_decision')::text AS review_decision,
@@ -295,7 +296,7 @@ written AS (
         auto_merge = next.auto_merge,
         auto_mergeable = next.auto_mergeable
     FROM
-        next
+        NEXT
     WHERE
         p.id = next.id
         AND (p.review_decision,
