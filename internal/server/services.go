@@ -158,10 +158,6 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 	}
 	queue := jobs.NewEnqueuer(inserter, st.pool.GetRawPool())
 	reviewService := reviews.NewReviewService(reviews.NewReviewServiceParams{
-		Threads:      st.review,
-		Messages:     st.review,
-		Viewed:       st.review,
-		Rounds:       st.review,
 		Reviews:      st.review,
 		Snapshots:    gitClient,
 		Workflows:    st.workflows,
