@@ -108,7 +108,13 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 	loadConfig := func() (*config.Config, error) { return config.LoadStack(params.ConfigStack) }
 	gitClient := git.NewClient()
 
-	scriptService, err := buildScripts(params, st, loadConfig)
+	runLogsDir := params.Env.RunLogsDir()
+	scriptService, err := buildScripts(buildScriptsParams{
+		Server:     params,
+		Stores:     st,
+		LoadConfig: loadConfig,
+		RunLogsDir: runLogsDir,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -133,6 +139,7 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 		Scripts:    scriptService,
 		Panes:      paneChannel,
 		Settler:    settler,
+		RunLogsDir: runLogsDir,
 		LoadConfig: loadConfig,
 	})
 	pullRequestGroup := buildPullRequests(buildPullRequestsParams{
@@ -239,30 +246,38 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 	}, nil
 }
 
-func buildScripts(params NewServerParams, st *stores, loadConfig func() (*config.Config, error)) (*scriptrun.ScriptService, error) {
-	builtinScriptsDir := BuiltinScriptsDir(params.Env.CacheDir)
+type buildScriptsParams struct {
+	Server     NewServerParams
+	Stores     *stores
+	LoadConfig func() (*config.Config, error)
+	RunLogsDir string
+}
+
+func buildScripts(params buildScriptsParams) (*scriptrun.ScriptService, error) {
+	server, st := params.Server, params.Stores
+
+	builtinScriptsDir := BuiltinScriptsDir(server.Env.CacheDir)
 	if err := scripts.InstallBuiltins(builtinScriptsDir); err != nil {
 		return nil, err
 	}
 
-	runLogsDir := params.Env.RunLogsDir()
-	if err := os.MkdirAll(runLogsDir, 0o755); err != nil {
-		return nil, fmt.Errorf("failed to create %s: %w", runLogsDir, err)
+	if err := os.MkdirAll(params.RunLogsDir, 0o755); err != nil {
+		return nil, fmt.Errorf("failed to create %s: %w", params.RunLogsDir, err)
 	}
 
 	return scriptrun.NewScriptService(scriptrun.NewScriptServiceParams{
 		Agents:     st.agents,
 		Workflows:  st.workflows,
-		Tmux:       params.Tmux,
+		Tmux:       server.Tmux,
 		Runner:     scripts.NewRunner(),
 		Runs:       st.runs,
-		Load:       loadConfig,
-		Addr:       params.Addr,
-		Socket:     params.Env.TmuxSocket,
+		Load:       params.LoadConfig,
+		Addr:       server.Addr,
+		Socket:     server.Env.TmuxSocket,
 		BuiltinDir: builtinScriptsDir,
-		LogsDir:    runLogsDir,
-		Editor:     params.Env.Editor,
-		BinPath:    params.HookCommand,
+		LogsDir:    params.RunLogsDir,
+		Editor:     server.Env.Editor,
+		BinPath:    server.HookCommand,
 	}), nil
 }
 
@@ -275,6 +290,7 @@ type buildAgentsParams struct {
 	Scripts    *scriptrun.ScriptService
 	Panes      *pane.Pane
 	Settler    *agents.Settler
+	RunLogsDir string
 	LoadConfig func() (*config.Config, error)
 }
 
@@ -333,7 +349,7 @@ func buildAgents(params buildAgentsParams) agentServices {
 		Reviews:        st.review,
 		Snapshots:      params.Git,
 		Screens:        screenKeeper,
-		LogsDir:        server.Env.RunLogsDir(),
+		LogsDir:        params.RunLogsDir,
 		FramesDir:      server.Env.FramesDir(),
 		Usage:          server.Usage,
 	})
