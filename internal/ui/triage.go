@@ -511,10 +511,9 @@ func (m model) settleTriage() model {
 
 // findZoneHead is the head of the family the zone row at the index belongs to.
 func findZoneHead(zone []agentRow, idx int) agentRow {
-	heads := zoneHeads(zone)
-	for i := len(heads) - 1; i >= 0; i-- {
-		if heads[i] <= idx {
-			return zone[heads[i]]
+	for i := idx; i > 0; i-- {
+		if !zone[i].child {
+			return zone[i]
 		}
 	}
 
