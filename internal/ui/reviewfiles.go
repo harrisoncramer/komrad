@@ -334,6 +334,7 @@ func (r *reviewScreen) openFilesFilter() {
 	filter := &r.filesFilter
 	filter.typing = true
 	filter.mode = filterModeSearch
+	filter.openedIn = sectionList
 	filter.setQuery("")
 }
 
