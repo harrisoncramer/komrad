@@ -25,11 +25,6 @@ type ScheduleGetter interface {
 	Get(ctx context.Context, id string) (*schedulestore.Schedule, error)
 }
 
-// ScheduleLister reads every schedule.
-type ScheduleLister interface {
-	ListWatched(ctx context.Context, keys []string) ([]schedulestore.Schedule, error)
-}
-
 type AgentLauncher interface {
 	NewAgent(ctx context.Context, p agents.NewAgentParams) (*agentstore.Agent, error)
 }

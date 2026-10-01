@@ -4,14 +4,12 @@ import (
 	"time"
 
 	"komrad/internal/jobs"
-	"komrad/internal/jobs/internaljobs"
 	"komrad/internal/worktrees"
 )
 
 const (
-	reconcileInterval         = 2 * time.Second
-	scheduleReconcileInterval = 10 * time.Second
-	mailDeliveryInterval      = 2 * time.Second
+	reconcileInterval    = 2 * time.Second
+	mailDeliveryInterval = 2 * time.Second
 	// transcriptSyncInterval is how often an agent's log is read for new turns.
 	transcriptSyncInterval = 15 * time.Second
 	cwdSyncInterval        = 15 * time.Second
@@ -36,14 +34,13 @@ const cwdSyncFloor = 5 * time.Second
 const pullRequestSyncFloor = 5 * time.Second
 
 const (
-	scheduleReconcileLoop = "schedule reconcile"
-	ReconcileLoop         = "reconcile"
-	mailDeliveryLoop      = "mail delivery"
-	TranscriptSyncLoop    = "transcript sync"
-	CwdSyncLoop           = "cwd sync"
-	PullRequestSyncLoop   = "pull request sync"
-	CommentSyncLoop       = "review comment sync"
-	WorktreeSizeLoop      = "worktree sizes"
+	ReconcileLoop       = "reconcile"
+	mailDeliveryLoop    = "mail delivery"
+	TranscriptSyncLoop  = "transcript sync"
+	CwdSyncLoop         = "cwd sync"
+	PullRequestSyncLoop = "pull request sync"
+	CommentSyncLoop     = "review comment sync"
+	WorktreeSizeLoop    = "worktree sizes"
 )
 
 type loopWakers struct {
@@ -63,19 +60,12 @@ func newLoopWakers() *loopWakers {
 type buildLoopsParams struct {
 	Stores   *stores
 	Services *services
-	Periodic *jobs.RiverPeriodic
 	Claimed  *jobs.WorktreeDelete
 	Wakers   *loopWakers
 }
 
 func buildLoops(params buildLoopsParams) []*Loop {
 	return []*Loop{
-		newLoop(newLoopParams{
-			Name:     scheduleReconcileLoop,
-			Interval: scheduleReconcileInterval,
-			Floor:    localLoopFloor,
-			Run:      internaljobs.NewScheduler(params.Stores.schedules, params.Periodic).Reconcile,
-		}),
 		newLoop(newLoopParams{
 			Name:     ReconcileLoop,
 			Interval: reconcileInterval,

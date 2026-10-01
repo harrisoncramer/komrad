@@ -45,7 +45,7 @@ type NewClientParams struct {
 }
 
 // NewClient builds the River client with the workers registered, leaving the periodic jobs to
-// the reconciler that reads them out of the schedules table.
+// the schedule service.
 func NewClient(params NewClientParams) (*river.Client[pgx.Tx], error) {
 	workers := river.NewWorkers()
 	river.AddWorker(workers, internaljobs.NewLaunchAgentWorker(internaljobs.NewLaunchAgentWorkerParams{
