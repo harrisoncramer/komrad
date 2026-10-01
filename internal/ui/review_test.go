@@ -1465,7 +1465,7 @@ func TestReviewLayout(t *testing.T) {
 		harness := openReview(t, newReviewServer(t))
 
 		frame := harness.readFrame()
-		assert.Contains(t, splitLines(frame)[0], "komrad")
+		require.Contains(t, splitLines(frame)[0], "komrad")
 		assert.NotContains(t, frame, "agents  query  schedules")
 	})
 
