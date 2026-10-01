@@ -75,3 +75,22 @@ func (s Set) Drawn() []Named {
 
 	return append(drawn, Chrome()...)
 }
+
+// Drawing is one glyph the list draws, with the width the layout counts it as.
+type Drawing struct {
+	Name    string
+	Text    string
+	Columns int
+}
+
+// Drawings is every character the list draws with the set, and the width its layout assumes of
+// each.
+func (s Set) Drawings() []Drawing {
+	return xslice.Map(s.Drawn(), func(named Named) Drawing {
+		return Drawing{
+			Name:    named.Name,
+			Text:    named.Text,
+			Columns: Columns,
+		}
+	})
+}

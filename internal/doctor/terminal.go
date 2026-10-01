@@ -8,8 +8,8 @@ import (
 	"strconv"
 	"strings"
 
+	"komrad/internal/glyph"
 	"komrad/internal/ui/paint/label"
-	"komrad/internal/view"
 	"komrad/lib/xslice"
 )
 
@@ -68,7 +68,7 @@ var (
 )
 
 // calibration is characters of undisputed width, measured alongside the glyphs.
-var calibration = []view.Drawn{
+var calibration = []glyph.Drawing{
 	{
 		Name:    "latin x",
 		Text:    "x",
@@ -109,7 +109,7 @@ func newTerminalGlyphCheck() Check {
 				return skip("nothing is attached to a terminal to ask")
 			}
 
-			drawings := append(slices.Clone(calibration), view.Drawings(configuredGlyphs(env))...)
+			drawings := append(slices.Clone(calibration), configuredGlyphs(env).Drawings()...)
 
 			measured, err := env.MeasureColumns(ctx, xslice.Map(drawings, textOf))
 			if err != nil {
@@ -219,12 +219,12 @@ func newTerminalColorCheck() Check {
 	}
 }
 
-func textOf(drawn view.Drawn) string {
+func textOf(drawn glyph.Drawing) string {
 	return drawn.Text
 }
 
 // reportGlyphWidths is the reading turned into a finding.
-func reportGlyphWidths(drawings []view.Drawn, measured []int, insideTmux bool) Result {
+func reportGlyphWidths(drawings []glyph.Drawing, measured []int, insideTmux bool) Result {
 	caveat := ""
 	if insideTmux {
 		caveat = " (as tmux counts them)"
@@ -244,7 +244,7 @@ func reportGlyphWidths(drawings []view.Drawn, measured []int, insideTmux bool) R
 }
 
 // describeMismatch groups the glyphs the terminal and the layout disagree about.
-func describeMismatch(drawings []view.Drawn, measured []int) string {
+func describeMismatch(drawings []glyph.Drawing, measured []int) string {
 	type disagreement struct {
 		drew    int
 		counted int
@@ -266,7 +266,7 @@ func describeMismatch(drawings []view.Drawn, measured []int) string {
 }
 
 // describeWidths groups the glyphs by the width they drew in.
-func describeWidths(drawings []view.Drawn, measured []int) string {
+func describeWidths(drawings []glyph.Drawing, measured []int) string {
 	grouped := map[int][]string{}
 	for index, drawn := range drawings {
 		grouped[measured[index]] = append(grouped[measured[index]], drawn.Name)

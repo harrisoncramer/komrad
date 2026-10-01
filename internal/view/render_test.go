@@ -753,7 +753,7 @@ func wantNameColumn(kind RowKind) int {
 // TestEveryGlyphDrawsOneColumn pins the measurement the whole gutter rests on: an Octicon takes
 // one column, the same as the box-drawing rules beside it.
 func TestEveryGlyphDrawsOneColumn(t *testing.T) {
-	for _, drawing := range Drawings(glyph.Defaults()) {
+	for _, drawing := range glyph.Defaults().Drawings() {
 		assert.Equal(t, plainColumns, lipgloss.Width(drawing.Text), "%s %q", drawing.Name, drawing.Text)
 	}
 }
