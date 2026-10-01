@@ -26,7 +26,7 @@ type pullRequestForgeFinder interface {
 	SetThrottledUntil(ctx context.Context, id string, until *time.Time) error
 }
 
-type hostBackoff struct {
+type hostGate struct {
 	forges pullRequestForgeFinder
 	now    func() time.Time
 	// refusals counts rate limit refusals in a row per host that named no time to wait.
@@ -43,17 +43,17 @@ type forgeHost struct {
 	throttled bool
 }
 
-func newHostBackoff(forges pullRequestForgeFinder, now func() time.Time) *hostBackoff {
-	return &hostBackoff{
+func newHostGate(forges pullRequestForgeFinder, now func() time.Time) *hostGate {
+	return &hostGate{
 		forges:   forges,
 		now:      now,
 		refusals: map[string]int{},
 	}
 }
 
-// openHost is the host with its connection and forge, nil when it cannot be read this pass.
-func (b *hostBackoff) openHost(ctx context.Context, hostname string) (host *forgeHost, unconnected bool) {
-	connection, err := b.forges.ConnectionFor(ctx, hostname)
+// open is the host with its connection and forge, nil when it cannot be read this pass.
+func (g *hostGate) open(ctx context.Context, hostname string) (host *forgeHost, unconnected bool) {
+	connection, err := g.forges.ConnectionFor(ctx, hostname)
 	if errors.Is(err, store.ErrNotFound) {
 		return nil, true
 	}
@@ -63,11 +63,11 @@ func (b *hostBackoff) openHost(ctx context.Context, hostname string) (host *forg
 
 		return nil, false
 	}
-	if connection.ThrottledUntil != nil && connection.ThrottledUntil.After(b.now()) {
+	if connection.ThrottledUntil != nil && connection.ThrottledUntil.After(g.now()) {
 		return nil, false
 	}
 
-	hostForge, err := b.forges.ForConnection(*connection)
+	hostForge, err := g.forges.ForConnection(*connection)
 	if err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to build the forge",
 			append([]slog.Attr{slog.String(logging.ForgeHost, hostname)}, logging.Err(err)...)...)
@@ -83,19 +83,19 @@ func (b *hostBackoff) openHost(ctx context.Context, hostname string) (host *forg
 }
 
 // throttle stops the host for the pass and records when to try it again, answering that time or zero when the write failed.
-func (b *hostBackoff) throttle(ctx context.Context, host *forgeHost, retryAt time.Time) time.Time {
+func (g *hostGate) throttle(ctx context.Context, host *forgeHost, retryAt time.Time) time.Time {
 	host.throttled = true
 	until := retryAt
 	if until.IsZero() {
 		wait := pullRequestThrottleFloor
-		for range b.refusals[host.host] {
+		for range g.refusals[host.host] {
 			wait = min(wait*2, pullRequestThrottleCeiling)
 		}
-		b.refusals[host.host]++
-		until = b.now().Add(wait)
+		g.refusals[host.host]++
+		until = g.now().Add(wait)
 	}
 
-	if err := b.forges.SetThrottledUntil(ctx, host.connection.ID, &until); err != nil {
+	if err := g.forges.SetThrottledUntil(ctx, host.connection.ID, &until); err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to record the forge's rate limit", logging.Err(err)...)
 
 		return time.Time{}
@@ -104,6 +104,6 @@ func (b *hostBackoff) throttle(ctx context.Context, host *forgeHost, retryAt tim
 	return until
 }
 
-func (b *hostBackoff) reset(host string) {
-	delete(b.refusals, host)
+func (g *hostGate) reset(host string) {
+	delete(g.refusals, host)
 }

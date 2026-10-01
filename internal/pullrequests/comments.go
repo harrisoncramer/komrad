@@ -36,7 +36,7 @@ type NewCommentSyncerParams struct {
 type CommentSyncer struct {
 	threads *pullrequeststore.ForgeThreadStore
 	tx      transactor
-	backoff *hostBackoff
+	hosts   *hostGate
 	said    onceLog
 	next    int
 }
@@ -51,7 +51,7 @@ func NewCommentSyncer(params NewCommentSyncerParams) *CommentSyncer {
 	return &CommentSyncer{
 		threads: params.Threads,
 		tx:      params.Tx,
-		backoff: newHostBackoff(params.Forges, now),
+		hosts:   newHostGate(params.Forges, now),
 		said:    onceLog{},
 	}
 }
@@ -97,7 +97,7 @@ func (s *CommentSyncer) Sync(ctx context.Context) error {
 
 	for _, host := range hosts {
 		if host != nil && !host.throttled {
-			s.backoff.reset(host.host)
+			s.hosts.reset(host.host)
 			s.said.forget(saidRefused, host.host)
 		}
 	}
@@ -126,7 +126,7 @@ func (s *CommentSyncer) takeTurn(targets []pullrequeststore.CommentSyncTarget) [
 }
 
 func (s *CommentSyncer) openHost(ctx context.Context, hostname string) *commentHost {
-	opened, _ := s.backoff.openHost(ctx, hostname)
+	opened, _ := s.hosts.open(ctx, hostname)
 	if opened == nil {
 		return nil
 	}
@@ -171,9 +171,9 @@ func (s *CommentSyncer) settle(ctx context.Context, host *commentHost, remote gi
 	var throttled *forge.ThrottledError
 	switch {
 	case errors.As(err, &throttled):
-		s.backoff.throttle(ctx, host.forgeHost, throttled.RetryAt)
+		s.hosts.throttle(ctx, host.forgeHost, throttled.RetryAt)
 	case errors.Is(err, forge.ErrUnauthorized):
-		s.backoff.throttle(ctx, host.forgeHost, time.Time{})
+		s.hosts.throttle(ctx, host.forgeHost, time.Time{})
 		if s.said.first(saidRefused, host.host) {
 			logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "the forge refused the connection's credential, so review comments wait for it to be accepted again",
 				append([]slog.Attr{slog.String(logging.ForgeHost, host.host)}, logging.Err(err)...)...)

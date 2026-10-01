@@ -49,7 +49,7 @@ type PullRequestSyncer struct {
 	events       eventRecorder
 	loop         waker
 	now          func() time.Time
-	backoff      *hostBackoff
+	hosts        *hostGate
 	pacing       *pacing
 	said         onceLog
 }
@@ -67,7 +67,7 @@ func NewPullRequestSyncer(params NewPullRequestSyncerParams) *PullRequestSyncer 
 		events:       params.Events,
 		loop:         params.Loop,
 		now:          now,
-		backoff:      newHostBackoff(params.Forges, now),
+		hosts:        newHostGate(params.Forges, now),
 		pacing:       newPacing(),
 		said:         onceLog{},
 	}
@@ -197,7 +197,7 @@ func (s *PullRequestSyncer) groupByHost(ctx context.Context, repositories []cand
 
 // openHost is the host with its connection and forge, nil when it cannot be read this pass.
 func (s *PullRequestSyncer) openHost(ctx context.Context, hostname, repositoryURL string) *hostRead {
-	opened, unconnected := s.backoff.openHost(ctx, hostname)
+	opened, unconnected := s.hosts.open(ctx, hostname)
 	if unconnected && s.said.first(saidUnconnected, repositoryURL) {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelInfo, "no forge connection for the repository, so its pull requests are not read",
 			slog.String(logging.ForgeHost, hostname),
@@ -297,7 +297,7 @@ func (s *PullRequestSyncer) settleHostError(ctx context.Context, host *hostRead,
 // throttleHost stops a host for the pass after a rate limit refusal, records when to try it
 // again, and says so.
 func (s *PullRequestSyncer) throttleHost(ctx context.Context, host *hostRead, retryAt time.Time) {
-	until := s.backoff.throttle(ctx, host.forgeHost, retryAt)
+	until := s.hosts.throttle(ctx, host.forgeHost, retryAt)
 	if until.IsZero() {
 		return
 	}
@@ -310,7 +310,7 @@ func (s *PullRequestSyncer) throttleHost(ctx context.Context, host *hostRead, re
 // refuseHost stops a host for the pass after the forge refused its credential, backs off the
 // way a rate limit refusal that named no time does, and says so once per host.
 func (s *PullRequestSyncer) refuseHost(ctx context.Context, host *hostRead, err error) {
-	s.backoff.throttle(ctx, host.forgeHost, time.Time{})
+	s.hosts.throttle(ctx, host.forgeHost, time.Time{})
 	if !s.said.first(saidRefused, host.host) {
 		return
 	}
@@ -323,7 +323,7 @@ func (s *PullRequestSyncer) refuseHost(ctx context.Context, host *hostRead, err 
 // budget is spent, and keeps it in the slow lane until the reset once the budget runs low.
 func (s *PullRequestSyncer) noteRateLimit(ctx context.Context, host *hostRead, limit forge.RateLimit) {
 	if limit.Known {
-		s.backoff.reset(host.host)
+		s.hosts.reset(host.host)
 	}
 	if limit.IsExhausted() {
 		s.throttleHost(ctx, host, limit.ResetAt)
