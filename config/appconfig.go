@@ -940,8 +940,9 @@ type Config struct {
 	Layout Layout `mapstructure:"layout"`
 	// Panel keybindings, scoped to the screen each binding acts in.
 	Keybindings Keybindings `mapstructure:"keybindings"`
-	// Edit the panel's text fields the way vim does, the search and rename lines included. A field
-	// opens in insert mode, esc goes to normal mode, and a second esc closes it.
+	// Edit the panel's text fields the way vim does. A form's field opens in insert mode, esc goes
+	// to normal mode, and a second esc closes it. The filter, search and rename lines close on esc,
+	// and ctrl+f puts one in normal mode, after which esc works as it does in a form.
 	VimMode bool `mapstructure:"vim_mode"`
 	// The icons the panel draws, grouped by where each one is drawn. Every icon is one character
 	// from the approved set, the Nerd Fonts octicons and a few named characters. The chrome the

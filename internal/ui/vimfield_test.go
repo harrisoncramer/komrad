@@ -175,38 +175,48 @@ func TestVimLineEditing(t *testing.T) {
 		wantSearch string
 	}{
 		{
-			name:       "esc in the filter goes to normal mode and keeps the pattern",
+			name:       "esc gives the filter up with vim on",
 			press:      []string{"/", "a", "b", "esc"},
+			wantSearch: "/",
+		},
+		{
+			name:       "ctrl+f puts the filter in normal mode and keeps the pattern",
+			press:      []string{"/", "a", "b", "ctrl+f"},
 			wantSearch: "/ a[b]",
 		},
 		{
-			name:       "a second esc gives the filter up",
-			press:      []string{"/", "a", "b", "esc", "esc"},
+			name:       "esc in normal mode gives the filter up",
+			press:      []string{"/", "a", "b", "ctrl+f", "esc"},
 			wantSearch: "/",
 		},
 		{
 			name:       "a word changed in normal mode is the filter's pattern",
-			press:      slices.Concat([]string{"/"}, spellKeys("db api"), []string{"esc", "c", "i", "w"}, spellKeys("ui")),
+			press:      slices.Concat([]string{"/"}, spellKeys("db api"), []string{"ctrl+f", "c", "i", "w"}, spellKeys("ui")),
 			wantSearch: "/ db ui▏",
 		},
 		{
+			name:       "esc after a change in normal mode goes back to normal mode",
+			press:      slices.Concat([]string{"/"}, spellKeys("db api"), []string{"ctrl+f", "c", "i", "w"}, spellKeys("ui"), []string{"esc"}),
+			wantSearch: "/ db u[i]",
+		},
+		{
 			name:       "enter in normal mode applies the filter",
-			press:      []string{"/", "d", "b", "esc", "enter"},
+			press:      []string{"/", "d", "b", "ctrl+f", "enter"},
 			wantSearch: "/ db",
 		},
 		{
-			name:       "esc in the search line goes to normal mode",
-			press:      []string{"tab", "/", "f", "o", "o", "esc"},
+			name:       "ctrl+f puts the search line in normal mode",
+			press:      []string{"tab", "/", "f", "o", "o", "ctrl+f"},
 			wantSearch: "/ fo[o]",
 		},
 		{
 			name:       "the search line opened again types after its text",
-			press:      []string{"tab", "/", "f", "o", "o", "esc", "esc", "/", "d"},
+			press:      []string{"tab", "/", "f", "o", "o", "ctrl+f", "esc", "/", "d"},
 			wantSearch: "/ food▏",
 		},
 		{
 			name:       "a word deleted in normal mode leaves the search line",
-			press:      slices.Concat([]string{"tab", "/"}, spellKeys("foo bar"), []string{"esc", "0", "d", "w"}),
+			press:      slices.Concat([]string{"tab", "/"}, spellKeys("foo bar"), []string{"ctrl+f", "0", "d", "w"}),
 			wantSearch: "/ [b]ar",
 		},
 	}
@@ -224,15 +234,15 @@ func TestVimLineEditing(t *testing.T) {
 	t.Run("a name changed in normal mode is the name a rename sends", func(t *testing.T) {
 		harness := openVimForms(t)
 
-		harness.press("j", "r", "esc", "0", "~", "enter")
+		harness.press("j", "r", "ctrl+f", "0", "~", "enter")
 
 		harness.assertSentTo(agentv1connect.AgentServiceUpdateAgentProcedure, &agentv1.UpdateAgentRequest{Id: "a1", Name: "Author"})
 	})
 
-	t.Run("a second esc cancels a rename", func(t *testing.T) {
+	t.Run("esc cancels a rename with vim on", func(t *testing.T) {
 		harness := openVimForms(t)
 
-		harness.press("j", "r", "x", "esc", "esc", "enter")
+		harness.press("j", "r", "x", "esc", "enter")
 
 		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceUpdateAgentProcedure))
 	})
@@ -254,10 +264,10 @@ func TestVimEditingBadge(t *testing.T) {
 		{name: "the list's filter is in edit mode", press: []string{"/"}, want: "EDIT"},
 		{name: "the search line is in edit mode", press: []string{"tab", "/"}, want: "EDIT"},
 		{name: "a rename is in edit mode", press: []string{"j", "r"}, want: "EDIT"},
-		{name: "esc puts the filter in normal mode", vim: true, press: []string{"/", "a", "esc"}, want: " NORMAL "},
-		{name: "esc puts the search line in normal mode", vim: true, press: []string{"tab", "/", "a", "esc"}, want: " NORMAL "},
-		{name: "esc puts a rename in normal mode", vim: true, press: []string{"j", "r", "esc"}, want: " NORMAL "},
-		{name: "i puts the filter back in insert mode", vim: true, press: []string{"/", "a", "esc", "i"}, want: "  EDIT  "},
+		{name: "ctrl+f puts the filter in normal mode", vim: true, press: []string{"/", "a", "ctrl+f"}, want: " NORMAL "},
+		{name: "ctrl+f puts the search line in normal mode", vim: true, press: []string{"tab", "/", "a", "ctrl+f"}, want: " NORMAL "},
+		{name: "ctrl+f puts a rename in normal mode", vim: true, press: []string{"j", "r", "ctrl+f"}, want: " NORMAL "},
+		{name: "i puts the filter back in insert mode", vim: true, press: []string{"/", "a", "ctrl+f", "i"}, want: "  EDIT  "},
 	}
 
 	for _, tt := range tests {
