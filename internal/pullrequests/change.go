@@ -60,12 +60,8 @@ func (c Change) Opens() bool {
 	})
 }
 
-// Moved is the move between two values of a field, nil when they are the same or when either
-// is unknown and the new one does not alarm.
+// Moved is the move between two values of a field, nil when they are the same or either is unknown.
 func Moved(field Field, from, to *string) *Move {
-	if from == nil && to != nil && slices.Contains(alarming[field], *to) {
-		return &Move{Field: field, To: *to}
-	}
 	if from == nil || to == nil || *from == *to {
 		return nil
 	}
