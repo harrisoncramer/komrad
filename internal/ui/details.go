@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"komrad/config"
-	"komrad/internal/glyph"
 	"komrad/internal/ui/cursor"
 	"komrad/internal/ui/paint"
 	"komrad/internal/view"
@@ -494,25 +493,14 @@ func (m *model) detailsRule(title string, tags ...string) string {
 	}
 
 	tags = slices.DeleteFunc(slices.Clone(tags), func(tag string) bool { return tag == "" })
-	label := detailsRuleLabel(title, tags)
-	for len(tags) > 0 && lipgloss.Width(label)+6 > width {
-		tags = tags[1:]
-		label = detailsRuleLabel(title, tags)
-	}
-
-	return paint.Panel.TitledRule(label, width) + "\n"
-}
-
-func detailsRuleLabel(title string, tags []string) string {
 	label := dimStyle().Render(title)
-	if len(tags) == 0 {
-		return label
-	}
-	if title != "" {
-		label += dimStyle().Render(" " + strings.Repeat(glyph.Rule, 3) + " ")
+	tail := strings.Join(tags, dimStyle().Render(separated))
+	for len(tags) > 0 && !paint.TitledRuleFits(label, tail, width) {
+		tags = tags[1:]
+		tail = strings.Join(tags, dimStyle().Render(separated))
 	}
 
-	return label + strings.Join(tags, dimStyle().Render(separated))
+	return paint.Panel.TitledRule(label, tail, width) + "\n"
 }
 
 // detailsNotices are the lines the marks on the row take above the fields, giving up a notice

@@ -125,7 +125,7 @@ func drawLead(palette paint.Palette, lead string) string {
 
 // drawDivider is a rule across the pane titled by name.
 func drawDivider(palette paint.Palette, name string, width int) string {
-	return palette.TitledRule(palette.Style(paint.ToneMuted).Render(name), max(width-1, 1))
+	return palette.TitledRule(palette.Style(paint.ToneMuted).Render(name), "", max(width-1, 1))
 }
 
 // drawRule is the corner a child hangs off its parent by.

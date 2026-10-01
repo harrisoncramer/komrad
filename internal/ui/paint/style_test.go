@@ -175,34 +175,48 @@ func TestClipAround(t *testing.T) {
 	}
 }
 
-// TestTitledRule covers when a rule carries its label and when it falls back to a plain line.
+// TestTitledRule covers where a rule sets its labels and when it falls back to a plain line.
 func TestTitledRule(t *testing.T) {
 	tests := []struct {
 		name  string
-		label string
+		title string
+		tail  string
 		width int
 		want  string
 	}{
 		{
-			name:  "a wide rule sets its label in near the left",
-			label: "Info",
+			name:  "a title sits near the left end",
+			title: "Info",
 			width: 30,
 			want:  "─── Info ─────────────────────",
 		},
 		{
-			name:  "a rule narrower than the floor is a plain line",
-			label: "Info",
-			width: 20,
-			want:  "────────────────────",
+			name:  "a tail sits against the right end",
+			title: "Info",
+			tail:  "2 modified",
+			width: 30,
+			want:  "─── Info ──────── 2 modified ─",
 		},
 		{
-			name:  "a label too long for the rule gives way to a plain line",
-			label: strings.Repeat("x", 30),
+			name:  "a tail with no title still sits against the right end",
+			tail:  "2 modified",
+			width: 30,
+			want:  "───────────────── 2 modified ─",
+		},
+		{
+			name:  "a rule narrower than the floor is a plain line",
+			title: "Info",
+			width: 20,
+			want:  strings.Repeat("─", 20),
+		},
+		{
+			name:  "labels too long for the rule give way to a plain line",
+			title: strings.Repeat("x", 30),
 			width: 30,
 			want:  strings.Repeat("─", 30),
 		},
 		{
-			name:  "an empty label is a plain line",
+			name:  "no labels is a plain line",
 			width: 30,
 			want:  strings.Repeat("─", 30),
 		},
@@ -210,7 +224,7 @@ func TestTitledRule(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, ansi.Strip(Panel.TitledRule(tt.label, tt.width)))
+			assert.Equal(t, tt.want, ansi.Strip(Panel.TitledRule(tt.title, tt.tail, tt.width)))
 		})
 	}
 }

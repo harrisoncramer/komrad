@@ -274,20 +274,44 @@ func (p Palette) DrawTyped(before, after string, style lipgloss.Style) string {
 	return style.Render(before) + p.Cursor().Reverse(true).Render(string(under)) + style.Render(after[size:])
 }
 
-// titledRuleFloor is the narrowest width a rule carries its label at.
+// titledRuleFloor is the narrowest width a rule carries its labels at.
 const titledRuleFloor = 24
 
-// titledRuleLead is how many rule glyphs come before a rule's label.
+// titledRuleLead is how many rule glyphs come before a rule's title.
 const titledRuleLead = 3
 
-// TitledRule is a muted rule across width columns with label set in near its left end.
-func (p Palette) TitledRule(label string, width int) string {
+// TitledRuleFits reports whether a rule of width has room for title and tail.
+func TitledRuleFits(title, tail string, width int) bool {
+	return width >= titledRuleFloor && titledRuleRoom(title, tail) < width
+}
+
+func titledRuleRoom(title, tail string) int {
+	room := 0
+	if w := lipgloss.Width(title); w > 0 {
+		room += titledRuleLead + w + 2
+	}
+	if w := lipgloss.Width(tail); w > 0 {
+		room += w + 3
+	}
+
+	return room
+}
+
+// TitledRule is a muted rule across width columns with title set in near its left end and tail
+// against its right.
+func (p Palette) TitledRule(title, tail string, width int) string {
 	muted := p.Style(ToneMuted)
-	labelWidth := lipgloss.Width(label)
-	fill := width - titledRuleLead - labelWidth - 2
-	if labelWidth == 0 || width < titledRuleFloor || fill < 1 {
+	if titledRuleRoom(title, tail) == 0 || !TitledRuleFits(title, tail, width) {
 		return muted.Render(strings.Repeat(glyph.Rule, max(width, 0)))
 	}
 
-	return muted.Render(strings.Repeat(glyph.Rule, titledRuleLead)+" ") + label + muted.Render(" "+strings.Repeat(glyph.Rule, fill))
+	left, right := "", ""
+	if lipgloss.Width(title) > 0 {
+		left = muted.Render(strings.Repeat(glyph.Rule, titledRuleLead)+" ") + title + muted.Render(" ")
+	}
+	if lipgloss.Width(tail) > 0 {
+		right = muted.Render(" ") + tail + muted.Render(" "+glyph.Rule)
+	}
+
+	return left + muted.Render(strings.Repeat(glyph.Rule, width-titledRuleRoom(title, tail))) + right
 }
