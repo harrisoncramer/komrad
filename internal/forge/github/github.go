@@ -253,9 +253,7 @@ func (f *Forge) readBranches(ctx context.Context, owner, name string, branches [
 	operation := "query ReadBranches($owner: String!, $name: String!" + declared.String() + ") {\n  repository(owner: $owner, name: $name) {" + fields.String() + "\n  }\n}\n" + pullRequestFragment
 
 	var data struct {
-		Repository map[string]*struct {
-			Nodes []pullRequestNode `json:"nodes"`
-		} `json:"repository"`
+		Repository map[string]*graphql.Nodes[pullRequestNode] `json:"repository"`
 	}
 	answer, err := f.client.Query(ctx, operation, variables, &data)
 	if err != nil {
@@ -268,24 +266,12 @@ func (f *Forge) readBranches(ctx context.Context, owner, name string, branches [
 		return nil, noRepository(variables)
 	}
 
-	reading := &forge.Reading{RateLimit: answer.RateLimit}
-	for i := range branches {
-		answered := data.Repository["b"+strconv.Itoa(i)]
-		if answered == nil {
-			continue
-		}
-
-		for _, node := range answered.Nodes {
-			pullRequest := node.toPullRequest(true)
-			if !pullRequest.IsFromItsOwnRepository() {
-				continue
-			}
-
-			reading.PullRequests = append(reading.PullRequests, pullRequest)
-		}
-	}
-
-	return reading, nil
+	return &forge.Reading{
+		PullRequests: graphql.OwnPullRequestsOf(data.Repository, len(branches), func(node pullRequestNode) forge.PullRequest {
+			return node.toPullRequest(true)
+		}),
+		RateLimit: answer.RateLimit,
+	}, nil
 }
 
 // Merge lands the pull request with the method GitHub offers the credential by default.
@@ -369,11 +355,16 @@ func (f *Forge) SetDraft(ctx context.Context, address string, draft bool) error 
 		return noPullRequest(number, owner, name)
 	}
 	target := data.Repository.PullRequest
-	if err := refuseFinished(forge.ErrNotDraftable, target.State, number); err != nil {
+	shouldChange, err := forge.ShouldChange(forge.ShouldChangeParams{
+		Sentinel:  forge.ErrNotDraftable,
+		Forge:     forge.KindGitHub,
+		Ref:       "#" + strconv.Itoa(number),
+		Merged:    target.State == "MERGED",
+		Closed:    target.State == "CLOSED",
+		IsSettled: target.IsDraft == draft,
+	})
+	if err != nil || !shouldChange {
 		return err
-	}
-	if target.IsDraft == draft {
-		return nil
 	}
 
 	mutation := markReadyMutation
@@ -403,11 +394,16 @@ func (f *Forge) SetAutoMerge(ctx context.Context, params forge.SetAutoMergeParam
 	if err != nil {
 		return err
 	}
-	if err := refuseFinished(forge.ErrNoAutoMerge, target.State, number); err != nil {
+	shouldChange, err := forge.ShouldChange(forge.ShouldChangeParams{
+		Sentinel:  forge.ErrNoAutoMerge,
+		Forge:     forge.KindGitHub,
+		Ref:       "#" + strconv.Itoa(number),
+		Merged:    target.State == "MERGED",
+		Closed:    target.State == "CLOSED",
+		IsSettled: (target.AutoMergeRequest != nil) == params.On,
+	})
+	if err != nil || !shouldChange {
 		return err
-	}
-	if (target.AutoMergeRequest != nil) == params.On {
-		return nil
 	}
 
 	mutation := disableAutoMergeMutation
@@ -463,17 +459,6 @@ func noRepository(variables map[string]any) error {
 
 func noPullRequest(number int, owner, name string) error {
 	return fmt.Errorf("%w: github has no pull request %d in %s/%s", forge.ErrNotFound, number, owner, name)
-}
-
-func refuseFinished(sentinel *fail.Error, state string, number int) error {
-	switch state {
-	case "MERGED":
-		return sentinel.Saying("github will not change #%d: it has already merged", number)
-	case "CLOSED":
-		return sentinel.Saying("github will not change #%d: it was closed", number)
-	}
-
-	return nil
 }
 
 type mutationRefusal struct {
