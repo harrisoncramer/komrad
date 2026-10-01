@@ -63,5 +63,11 @@ func (s *Handler) world(ctx context.Context, rows []rowstore.Row, options render
 		Reviews: xslice.KeyBy(xslice.Map(surroundings.Reviews, render.WatchedReview), func(r *agentv1.WatchedReview) string {
 			return r.GetId()
 		}),
+		ReviewThreads: xslice.KeyBy(xslice.Map(surroundings.ReviewThreads, render.WatchedReviewThread), func(thread *agentv1.ReviewThread) string {
+			return thread.GetId()
+		}),
+		ForgeThreads: xslice.KeyBy(xslice.Map(surroundings.ForgeThreads, render.ForgeThread), func(thread *pullrequestv1.ForgeThread) string {
+			return thread.GetId()
+		}),
 	}, nil
 }
