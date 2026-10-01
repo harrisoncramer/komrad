@@ -112,9 +112,7 @@ func (m *model) route(msg tea.Msg) tea.Cmd {
 
 	if landed, ok := msg.(countedWrite); ok {
 		if m.landHeld(landed.countedWrite()) {
-			closing := m.closeForm()
-
-			return tea.Batch(closing, m.route(msg))
+			return tea.Batch(m.closeForm(), m.route(msg))
 		}
 	}
 

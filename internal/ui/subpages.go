@@ -145,9 +145,7 @@ func (m *model) enterSubpage(from screen, agentID string, picked subpage) tea.Cm
 			return m.refuseSubpage("Could not open a terminal", err)
 		}
 
-		back := m.closeForm()
-
-		return tea.Batch(back, m.openTerminal(item.Agent))
+		return tea.Batch(m.closeForm(), m.openTerminal(item.Agent))
 	}
 
 	return m.closeForm()
