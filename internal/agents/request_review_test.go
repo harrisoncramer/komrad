@@ -404,7 +404,7 @@ func TestRequestReviewLandsTheReviewerOnTheHarnessAsked(t *testing.T) {
 			tmux := tmuxtest.NewFake()
 			byID := map[string]*harnesstest.Fake{
 				harnesstest.FakeID: {Name: harnesstest.FakeID},
-				"codex":            {Name: "codex", NoSession: true},
+				"codex":            {Name: "codex", Naming: harness.SessionDiscovered},
 				"gemini":           {Name: "gemini"},
 			}
 			service := st.agentService(agentServiceOptions{

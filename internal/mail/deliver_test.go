@@ -612,7 +612,7 @@ func newDeliveryService(st *storetest.Stores, terminal *tmuxtest.Fake, channel h
 func newPaneChannel(terminal *tmuxtest.Fake) *pane.Pane {
 	return pane.NewPane(pane.NewPaneParams{
 		Terminal:  terminal,
-		Harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{NoSession: true}},
+		Harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{Naming: harness.SessionDiscovered}},
 	})
 }
 

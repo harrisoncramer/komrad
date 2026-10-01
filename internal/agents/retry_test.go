@@ -253,7 +253,7 @@ func TestRetryCreateOntoAnotherHarnessRemintsTheSession(t *testing.T) {
 		Workflows:          st.Workflows,
 		Tx:                 st.Pool,
 		Launcher:           NewLauncher(NewLauncherParams{Tmux: tmux}),
-		Harnesses:          harnesstest.Registry{Harness: &harnesstest.Fake{}, ByID: map[string]*harnesstest.Fake{"codex": {Name: "codex", NoSession: true}}},
+		Harnesses:          harnesstest.Registry{Harness: &harnesstest.Fake{}, ByID: map[string]*harnesstest.Fake{"codex": {Name: "codex", Naming: harness.SessionDiscovered}}},
 		UserDefaultHarness: harnesstest.FakeID,
 	})
 

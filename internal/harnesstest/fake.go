@@ -36,7 +36,7 @@ type Fake struct {
 	TrustErr   error
 	CommandErr error
 	Name       string
-	NoSession  bool
+	Naming     harness.SessionNaming
 	// InterruptWith is the keys an interrupt sends, Escape when nil.
 	InterruptWith []string
 	// Session is the id FindSession answers.
@@ -85,13 +85,9 @@ func (f *Fake) TrustDir(dir string) error {
 	return f.TrustErr
 }
 
-// SessionNaming is SessionDiscovered for a harness standing in for Codex, and SessionMinted otherwise.
+// SessionNaming is Naming.
 func (f *Fake) SessionNaming() harness.SessionNaming {
-	if f.NoSession {
-		return harness.SessionDiscovered
-	}
-
-	return harness.SessionMinted
+	return f.Naming
 }
 
 // InterruptKeys is InterruptWith, or Escape when the test gave none.
