@@ -146,7 +146,7 @@ func (a *agentsScreen) resume(m *model, agent panel.Agent) tea.Cmd {
 	}
 	a.resuming[agent.ID] = struct{}{}
 
-	return stampResume(m.queuedCmd(
+	return stampResume(m.announcedCmd(
 		"resuming "+agent.Name,
 		fmt.Sprintf("Could not resume agent %q", agent.Name),
 		message{

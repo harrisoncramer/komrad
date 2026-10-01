@@ -261,7 +261,7 @@ func deleteWorktreesCmd(m *model, deletion worktreeDeletion) tea.Cmd {
 	dirs := xslice.Map(slices.Concat(deletion.agents, deletion.unowned), func(item worktreeItem) string { return item.dir })
 	subject := label.Count(len(dirs), "worktree", "worktrees")
 
-	return m.queuedCmd(
+	return m.announcedCmd(
 		"deleting "+subject,
 		"Could not delete "+subject,
 		message{

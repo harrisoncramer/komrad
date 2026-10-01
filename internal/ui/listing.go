@@ -121,8 +121,8 @@ type writeResult struct {
 	write int
 	// released is the agent a landed release let go.
 	released *released
-	// queued is what to say once the write has landed.
-	queued *message
+	// announce is what to say once the write has landed.
+	announce *message
 	// renamed is the row a rename typed over it was written for.
 	renamed string
 	// resumed is the agent a resume was written for.
@@ -209,8 +209,8 @@ func (m *model) releaseCmd(summary string, agent panel.Agent, said string) tea.C
 	}), let)
 }
 
-// queuedCmd runs a write and says what it set going once it has landed.
-func (m *model) queuedCmd(doing, summary string, queued message, write func(api) error) tea.Cmd {
+// announcedCmd runs a write and says announce once it has landed.
+func (m *model) announcedCmd(doing, summary string, announce message, write func(api) error) tea.Cmd {
 	cmd := m.writeCmd(doing, summary, write)
 
 	return func() tea.Msg {
@@ -221,7 +221,7 @@ func (m *model) queuedCmd(doing, summary string, queued message, write func(api)
 			return msg
 		}
 
-		result.queued = &queued
+		result.announce = &announce
 
 		return result
 	}
@@ -422,8 +422,8 @@ func (m *model) applyWrite(result writeResult) tea.Cmd {
 		m.agents.settleResume(result.resumed)
 	}
 
-	if result.queued != nil && result.err == nil {
-		m.pushMessage(*result.queued)
+	if result.announce != nil && result.err == nil {
+		m.pushMessage(*result.announce)
 	}
 
 	if result.released != nil && result.err == nil {
