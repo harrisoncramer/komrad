@@ -5,6 +5,7 @@ import (
 
 	"komrad/internal/ui/panel"
 	"komrad/lib/xslice"
+	agentv1 "komrad/proto/gen/agent/v1"
 
 	tea "charm.land/bubbletea/v2"
 )
@@ -57,26 +58,53 @@ func documentTypesMenu(s panelShared, back menuPlace) submenu {
 		title: "document types",
 		crumb: "document types",
 		entries: []submenuEntry{
+			nestedEntry("list types", s.keys.DocumentTypesMenu.List, documentTypeListMenu(s, back)),
 			{
-				label: "list types",
-				keys:  s.keys.DocumentTypesMenu.List,
+				label: "new type",
+				keys:  s.keys.DocumentTypesMenu.New,
+				form:  newTypeForm,
+			},
+		},
+	}
+}
+
+// documentTypeListMenu is every document type, each opening the ways to act on it.
+func documentTypeListMenu(s panelShared, back menuPlace) submenu {
+	return submenu{
+		kind:  formDocumentTypesMenu,
+		title: "types",
+		crumb: "types",
+		entries: xslice.Map(s.listing.documentTypes, func(t *agentv1.DocumentType) submenuEntry {
+			item := documentTypeItem(t)
+
+			return nestedEntry(item.name, nil, documentTypeMenu(s, back, item))
+		}),
+	}
+}
+
+// documentTypeMenu is the actions on one document type picked from the list.
+func documentTypeMenu(s panelShared, back menuPlace, item documentItem) submenu {
+	return submenu{
+		kind:  formDocumentTypesMenu,
+		title: item.name,
+		crumb: item.name,
+		entries: []submenuEntry{
+			{
+				label: "open",
+				keys:  s.keys.DocumentTypesMenu.Open,
 				open: func(m model) (tea.Model, tea.Cmd) {
 					m.leaveForm()
 					cmd := m.enter(screenDocumentTypes, screenTarget{from: back.screen})
 					m.documentTypes.returning = back.target
+					m.documentTypes.placeAt(&m, m.shared(), documentRow{item: item}.key())
 
 					return m, cmd
 				},
 			},
 			{
-				label: "new type",
-				keys:  s.keys.DocumentTypesMenu.New,
-				open: func(m model) (tea.Model, tea.Cmd) {
-					m.leaveForm()
-					cmd := newTypeForm(&m)
-
-					return m, cmd
-				},
+				label: "delete",
+				keys:  s.keys.DocumentMenu.Delete,
+				form:  func() formState { return deleteTypeForm(item) },
 			},
 		},
 	}

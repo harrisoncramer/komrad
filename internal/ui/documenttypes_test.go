@@ -56,7 +56,8 @@ func TestDocumentTypesOpen(t *testing.T) {
 
 		harness := openSchedules(t, newLiveWorkflow("w1", "api"), newSchedule("s1", "morning-ci"))
 		answerDocumentTypes(harness)
-		harness.press("space", "T", "l")
+		harness.watch(buildPuts(newDocumentType("t1", "RFC")))
+		harness.press("space", "T", "l", "ctrl+s", "o")
 		harness.fireTimers()
 
 		assert.Equal(t, documentTypesScreen, harness.readScreen())
@@ -71,7 +72,7 @@ func TestDocumentTypesOpen(t *testing.T) {
 
 		harness, _ := openDocuments(t)
 		answerDocumentTypes(harness)
-		harness.press("space", "T", "l")
+		harness.press("space", "T", "l", "ctrl+s", "o")
 		harness.fireTimers()
 		harness.press("esc")
 		harness.fireTimers()
@@ -93,11 +94,12 @@ func TestDocumentTypesOpen(t *testing.T) {
 			rows:   buildSearchable(),
 		})
 		answerDocumentTypes(harness)
+		harness.watch(buildPuts(newDocumentType("t1", "RFC")))
 		harness.press("enter")
 		hits := readListRows(harness.readFrame())
 		require.NotEmpty(t, hits)
 
-		harness.press("space", "T", "l")
+		harness.press("space", "T", "l", "ctrl+s", "o")
 		harness.fireTimers()
 		require.Equal(t, documentTypesScreen, harness.readScreen())
 		harness.press("esc")
@@ -113,7 +115,8 @@ func TestDocumentTypesOpen(t *testing.T) {
 
 		harness := openReview(t, newReviewServer(t))
 		answerDocumentTypes(harness)
-		harness.press("space", "T", "l")
+		harness.watch(buildPuts(newDocumentType("t1", "RFC")))
+		harness.press("space", "T", "l", "ctrl+s", "o")
 		harness.fireTimers()
 		harness.watch(buildDeleted(watchv1.Resource_RESOURCE_AGENT, "a1"))
 		harness.press("esc")
@@ -144,6 +147,128 @@ func TestDocumentTypesNewFromTheMenu(t *testing.T) {
 	harness.assertSentTo(agentv1connect.AgentServiceWriteDocumentTypeProcedure, &agentv1.WriteDocumentTypeRequest{Name: "brief", Context: "Short"})
 }
 
+// TestDocumentTypesFromTheMenuStack covers the type list and the new type form opening to the right
+// of the menus they were picked from.
+func TestDocumentTypesFromTheMenuStack(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		presses   []string
+		procedure string
+		want      proto.Message
+	}{
+		{
+			name:      "a delete declined from the list deletes nothing",
+			presses:   []string{"space", "T", "l", "ctrl+s", "d", "n"},
+			procedure: agentv1connect.AgentServiceDeleteDocumentTypeProcedure,
+		},
+		{
+			name:      "a new type backed out of defines nothing",
+			presses:   []string{"space", "T", "c", "b", "esc", "esc", "esc", "esc"},
+			procedure: agentv1connect.AgentServiceWriteDocumentTypeProcedure,
+		},
+		{
+			name:      "a type deleted from the list is deleted",
+			presses:   []string{"space", "T", "l", "ctrl+s", "d", "y"},
+			procedure: agentv1connect.AgentServiceDeleteDocumentTypeProcedure,
+			want:      &agentv1.DeleteDocumentTypeRequest{Id: "t3"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			harness := openAgents(t, buildDocumentAuthors()...)
+			answerDocumentTypes(harness)
+			moveToAgentRow(t, harness, "author")
+			harness.press(tt.presses...)
+			harness.fireTimers()
+
+			assert.Equal(t, agentsScreen, harness.readScreen())
+			if tt.want == nil {
+				assert.Empty(t, harness.readSent(tt.procedure))
+
+				return
+			}
+			harness.assertSentTo(tt.procedure, tt.want)
+		})
+	}
+
+	t.Run("the list draws every type beside the menus it opened from", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openAgents(t, buildDocumentAuthors()...)
+		answerDocumentTypes(harness)
+		harness.press("space", "T", "l")
+
+		frame := harness.readFrame()
+		for _, name := range []string{"list types", "explainer", "notes", "report", "RFC"} {
+			assert.Contains(t, frame, name)
+		}
+	})
+
+	t.Run("the new type form draws beside the menus and back returns to them", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openAgents(t, buildDocumentAuthors()...)
+		answerDocumentTypes(harness)
+		harness.press("space", "T", "c")
+
+		frame := harness.readFrame()
+		assert.Contains(t, frame, "New document type")
+		assert.Contains(t, frame, "list types")
+
+		harness.press("esc")
+
+		frame = harness.readFrame()
+		assert.NotContains(t, frame, "New document type")
+		assert.Contains(t, frame, "list types")
+	})
+}
+
+// TestDocumentTypesRefused covers a type the form cannot define.
+func TestDocumentTypesRefused(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		presses []string
+		want    []string
+	}{
+		{
+			name:    "a type with no context is refused",
+			presses: []string{"space", "c", "b", "ctrl+s"},
+			want:    []string{`Could not define document type "b"`, "a document type needs the context an agent reads"},
+		},
+		{
+			name:    "a type with no name is refused without quoting one",
+			presses: []string{"space", "c", "ctrl+s"},
+			want:    []string{"Could not define a document type", "a document type needs a name"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			harness := openDocumentTypes(t, "author")
+			harness.press(tt.presses...)
+			harness.fireTimers()
+
+			assert.Contains(t, harness.readFrame(), "New document type", "the form stays up")
+
+			harness.press("ctrl+g")
+			frame := harness.readFrame()
+			for _, want := range append(tt.want, "fix and submit again") {
+				assert.Contains(t, frame, want)
+			}
+			assert.Empty(t, harness.readSent(agentv1connect.AgentServiceWriteDocumentTypeProcedure))
+		})
+	}
+}
+
 // TestDocumentTypesWrite covers defining, renaming and deleting a type from the screen.
 func TestDocumentTypesWrite(t *testing.T) {
 	t.Parallel()
@@ -159,11 +284,6 @@ func TestDocumentTypesWrite(t *testing.T) {
 			presses:   []string{"space", "c", "b", "r", "i", "e", "f", "tab", "S", "h", "o", "r", "t", "ctrl+s"},
 			procedure: agentv1connect.AgentServiceWriteDocumentTypeProcedure,
 			want:      &agentv1.WriteDocumentTypeRequest{Name: "brief", Context: "Short"},
-		},
-		{
-			name:      "a type with no context is not defined",
-			presses:   []string{"space", "c", "b", "ctrl+s"},
-			procedure: agentv1connect.AgentServiceWriteDocumentTypeProcedure,
 		},
 		{
 			name:      "a new name renames the type, keeping its context",
@@ -309,7 +429,7 @@ func openDocumentTypes(t *testing.T, name string) *panelHarness {
 	harness := openAgents(t, buildDocumentAuthors()...)
 	answerDocumentTypes(harness)
 	moveToAgentRow(t, harness, name)
-	harness.press("space", "T", "l")
+	harness.press("space", "T", "l", "ctrl+s", "o")
 	harness.fireTimers()
 
 	return harness

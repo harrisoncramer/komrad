@@ -434,11 +434,14 @@ type DocumentsMenuKeys struct {
 // DocumentTypesMenuKeys are the bindings for the document types menu, which opens from the
 // panel's own entries in the menu.
 type DocumentTypesMenuKeys struct {
-	// Open the document types, where a person defines the sorts of document agents write.
+	// List every document type in a menu of its own, each type opening the ways to act on it.
 	List []string `mapstructure:"list" default:"l"`
 	// Define a new document type, from a form asking its name and the context an agent reads
 	// before writing one.
 	New []string `mapstructure:"new" default:"c"`
+	// Open the document types on the type picked from the list, where it can be edited, renamed
+	// and stepped back through.
+	Open []string `mapstructure:"open" default:"o"`
 }
 
 // DocumentMenuKeys are the bindings for the menu on the hovered document or document type.

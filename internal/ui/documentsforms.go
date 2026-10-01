@@ -34,15 +34,21 @@ func newDocumentForm(h host, s panelShared, agentID string) tea.Cmd {
 		Kind:  formDocument,
 		Build: func(m model) (*huh.Form, []string) { return documentForm(values, m.listing.documentTypeNames()) },
 		Submit: holdSubmit(func(m model) (model, tea.Cmd) {
-			if checkDocumentName(values.Name) != nil {
-				return m, nil
-			}
-
 			name, typeName := strings.TrimSpace(values.Name), values.Type
+			doing := "writing a document"
+			if name != "" {
+				doing = "writing " + name
+			}
 			cmd := m.writeCmd(
-				"writing "+name,
+				doing,
 				fmt.Sprintf("Could not write a document for %s", owner),
-				func(a api) error { return a.createDocument(agentID, name, typeName, documentPlaceholder(typeName)) },
+				func(a api) error {
+					if err := checkDocumentName(name); err != nil {
+						return err
+					}
+
+					return a.createDocument(agentID, name, typeName, documentPlaceholder(typeName))
+				},
 			)
 
 			return m, cmd
