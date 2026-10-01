@@ -236,24 +236,26 @@ func (s *MailService) SendFromKomrad(ctx context.Context, params SendFromKomradP
 		return nil, fmt.Errorf("%w: %q", ErrAgentArchived, params.ToAgentID)
 	}
 
+	held, err := s.mail.GetUnreadAbout(ctx, recipient.ID, params.Kind, params.SubjectID)
+	if errors.Is(err, store.ErrNotFound) && params.OnlyRewrite {
+		return nil, ErrNothingUnread
+	}
+	if err != nil && !errors.Is(err, store.ErrNotFound) {
+		return nil, err
+	}
+
 	workflow, err := s.getWorkflow(ctx, recipient.WorkflowID)
 	if err != nil {
 		return nil, err
 	}
 
-	held, err := s.mail.GetUnreadAbout(ctx, recipient.ID, params.Kind, params.SubjectID)
-	if errors.Is(err, store.ErrNotFound) {
-		if params.OnlyRewrite {
-			return nil, ErrNothingUnread
-		}
+	if held == nil {
 		if isEveryEventMuted(workflow, params.Events) {
 			return nil, ErrNothingUnread
 		}
 		if err := s.requireRoom(ctx, *recipient); err != nil {
 			return nil, err
 		}
-	} else if err != nil {
-		return nil, err
 	}
 
 	deadline, err := s.config.GetDeliveryDeadline()
