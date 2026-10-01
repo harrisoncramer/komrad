@@ -206,7 +206,7 @@ func (m *model) detailsActions() screenActionSpec {
 				id:   actionDetails,
 				keys: func(config.Keybindings) []string { return []string{"esc"} },
 				nav: func(navHost, panelShared, string) tea.Cmd {
-					*m = m.blurDetails()
+					m.details.focused = false
 
 					return nil
 				},
