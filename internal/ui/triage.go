@@ -9,6 +9,8 @@ import (
 	"komrad/internal/ui/panel"
 	"komrad/internal/view"
 	"komrad/lib/xslice"
+
+	tea "charm.land/bubbletea/v2"
 )
 
 const (
@@ -125,6 +127,9 @@ type triageZone struct {
 	// snoozed are the families sunk to the bottom of the zone, by head id, until what they wait on
 	// changes.
 	snoozed map[string]triageSnooze
+	// frozen is the order of the heads drawn while a person reads the zone, which holds still until
+	// they leave it, and nil when it is free to move.
+	frozen []string
 }
 
 // triageEntry is why an agent needs triage and since when.
@@ -398,15 +403,7 @@ func splitTriage(z triageZone, s panelShared, showHidden bool) (zone []agentRow,
 	families := xslice.Filter(findTriageFamilies(z.entries, s.listing.agents), func(f triageFamily) bool {
 		return !f.head.Agent.Hidden || showHidden
 	})
-	slices.SortFunc(families, func(a, b triageFamily) int {
-		return cmp.Or(
-			compareBools(z.isSnoozed(a.head.Agent.ID), z.isSnoozed(b.head.Agent.ID)),
-			compareUrgency(a.entry, b.entry),
-			cmp.Compare(a.head.Agent.ID, b.head.Agent.ID),
-		)
-	})
-
-	slotted := families[:min(z.capacity, len(families))]
+	slotted := z.slotFamilies(families)
 	inZone := make(map[string]bool)
 	workflows := xslice.KeyBy(s.listing.workflows, func(w panel.Workflow) string { return w.ID })
 	for _, family := range slotted {
@@ -442,6 +439,35 @@ func splitTriage(z triageZone, s panelShared, showHidden bool) (zone []agentRow,
 	return zone, len(families) - len(slotted), rest
 }
 
+// slotFamilies is the families the zone draws, in the order it was frozen in while it is frozen.
+func (z triageZone) slotFamilies(families []triageFamily) []triageFamily {
+	if z.frozen != nil {
+		rank := make(map[string]int, len(z.frozen))
+		for i, headID := range z.frozen {
+			rank[headID] = i
+		}
+
+		slotted := xslice.Filter(families, func(f triageFamily) bool {
+			_, kept := rank[f.head.Agent.ID]
+
+			return kept
+		})
+		slices.SortFunc(slotted, func(a, b triageFamily) int { return cmp.Compare(rank[a.head.Agent.ID], rank[b.head.Agent.ID]) })
+
+		return slotted
+	}
+
+	slices.SortFunc(families, func(a, b triageFamily) int {
+		return cmp.Or(
+			compareBools(z.isSnoozed(a.head.Agent.ID), z.isSnoozed(b.head.Agent.ID)),
+			compareUrgency(a.entry, b.entry),
+			cmp.Compare(a.head.Agent.ID, b.head.Agent.ID),
+		)
+	})
+
+	return families[:min(z.capacity, len(families))]
+}
+
 // compareBools orders false ahead of true.
 func compareBools(a, b bool) int {
 	switch {
@@ -457,6 +483,28 @@ func compareBools(a, b bool) int {
 // compareUrgency orders two entries in triage, the more urgent first.
 func compareUrgency(a, b triageEntry) int {
 	return cmp.Or(cmp.Compare(a.rule.tier, b.rule.tier), a.since.Compare(b.since))
+}
+
+// settleTriage freezes the zone while the panel has the keys and the cursor is on it, and thaws it
+// the moment either stops, putting the cursor back on the row it was on.
+func (m model) settleTriage() (model, tea.Cmd) {
+	layout := m.agents.layout(m.shared())
+	reading := !m.blurred && m.agents.cursor < len(layout.zone)
+	switch {
+	case reading && m.agents.triage.frozen == nil:
+		m.agents.triage.frozen = []string{}
+		for _, row := range layout.zone {
+			if !row.child {
+				m.agents.triage.frozen = append(m.agents.triage.frozen, row.item.Agent.ID)
+			}
+		}
+	case !reading && m.agents.triage.frozen != nil:
+		m.agents.triage.frozen = nil
+
+		return m, m.withListing(func(*listing) {})
+	}
+
+	return m, nil
 }
 
 // jumpToTriage puts the cursor on the zone's first agent.

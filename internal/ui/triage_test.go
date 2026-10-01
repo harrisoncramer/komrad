@@ -8,6 +8,7 @@ import (
 	"komrad/lib/xptr"
 	agentv1 "komrad/proto/gen/agent/v1"
 
+	tea "charm.land/bubbletea/v2"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/proto"
 )
@@ -156,7 +157,7 @@ func TestTriageJump(t *testing.T) {
 }
 
 // TestTriageSnooze covers sinking a family to the bottom of the zone until what it waits on
-// changes.
+// changes, as the zone stands once the panel has given up the keys.
 func TestTriageSnooze(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -245,6 +246,83 @@ func TestTriageSnooze(t *testing.T) {
 			harness.press(tt.press...)
 			if tt.relisted != nil {
 				harness.watch(buildSnapshot(tt.relisted...))
+			}
+			harness.send(tea.BlurMsg{})
+
+			assert.Equal(t, tt.want, readTriageList(harness.readFrame()))
+		})
+	}
+}
+
+// TestTriageFreeze covers the zone holding still while a person reads it and settling once they
+// leave.
+func TestTriageFreeze(t *testing.T) {
+	withoutThird := func() []proto.Message { return buildTriage()[:4] }
+	tests := []struct {
+		name     string
+		capacity int
+		rows     []proto.Message
+		relisted []proto.Message
+		// press are the keys pressed once the listing has moved.
+		press []string
+		blur  bool
+		want  []string
+	}{
+		{
+			name:     "an agent that needs triage while the zone is read waits for a slot",
+			capacity: 3,
+			rows:     withoutThird(),
+			relisted: buildTriage(),
+			want:     []string{"asker", "broken", "+1 more waiting for a slot", "backend", "third", "quiet"},
+		},
+		{
+			name:     "a slot freed while the zone is read stays empty",
+			capacity: 2,
+			rows:     buildTriage(),
+			relisted: func() []proto.Message {
+				rows := buildTriage()
+				rows[4] = newTriageAgent("third", agentv1.AgentState_AGENT_STATE_THINKING, 4)
+
+				return rows
+			}(),
+			want: []string{"asker", "+1 more waiting for a slot", "backend", "third", "broken", "quiet"},
+		},
+		{
+			name:     "a family snoozed while the zone is read keeps its place",
+			capacity: 3,
+			rows:     buildTriage(),
+			press:    []string{"space", "z"},
+			want:     []string{"asker", "third", "broken", "backend", "quiet"},
+		},
+		{
+			name:     "the zone settles once the panel gives up the keys",
+			capacity: 3,
+			rows:     withoutThird(),
+			relisted: buildTriage(),
+			blur:     true,
+			want:     []string{"asker", "third", "broken", "backend", "quiet"},
+		},
+		{
+			name:     "the zone settles once the cursor leaves it",
+			capacity: 3,
+			rows:     withoutThird(),
+			relisted: buildTriage(),
+			press:    []string{"j", "j"},
+			want:     []string{"asker", "third", "broken", "backend", "quiet"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			harness := openTriage(t, tt.capacity, tt.rows...)
+
+			harness.press("t")
+			if tt.relisted != nil {
+				harness.watch(buildSnapshot(tt.relisted...))
+			}
+			harness.press(tt.press...)
+			if tt.blur {
+				harness.send(tea.BlurMsg{})
 			}
 
 			assert.Equal(t, tt.want, readTriageList(harness.readFrame()))

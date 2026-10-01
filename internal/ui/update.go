@@ -46,6 +46,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return next, cmd
 	}
 
+	routed, settled := routed.settleTriage()
 	routed, blink := routed.updateRowCursor(msg)
 	warming := routed.warm.poll()
 	spinning := routed.spinLoader()
@@ -56,7 +57,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		routed.leftStop = was
 	}
 
-	return routed, tea.Batch(cmd, blink, warming, spinning, pulse)
+	return routed, tea.Batch(cmd, settled, blink, warming, spinning, pulse)
 }
 
 func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
