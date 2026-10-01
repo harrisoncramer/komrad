@@ -30,8 +30,8 @@ for a strip over it, column for a block beside it, stage for a row it puts on th
 rest, with a nil field for whatever the screen lacks. The root holds the screens by value and
 m.active() is the switch from the screen enum to the spec of the one that is up; it carries no
 default, so the exhaustive check refuses a screen with no arm. Every method on a screen takes a
-pointer to the root, which it reads freely and writes only through the root's own methods; a screen changes screens through
-enter and never by writing into another screen. The root's own state is what routeAsyncMessage
+pointer to the root, which it reads freely and writes only through the root's own methods; a
+screen changes screens through enter and never by writing into another screen. The root's own state is what routeAsyncMessage
 still switches on: the watch, the write result, the ticks, focus and blur, and the
 inspections.
 
