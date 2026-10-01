@@ -11,6 +11,8 @@ import (
 	fail "komrad/internal/fail"
 	rpcerr "komrad/internal/rpcerr"
 	v1 "komrad/proto/gen/schedule/v1"
+	schedulev1connect "komrad/proto/gen/schedule/v1/schedulev1connect"
+	http "net/http"
 )
 
 // ScheduleServiceImpl is the half of ScheduleService a person writes, whose failures carry the kind
@@ -76,4 +78,9 @@ func (a ScheduleServiceAdapter) RestoreSchedule(ctx context.Context, req *connec
 // DeleteSchedule answers the request as connect serves it.
 func (a ScheduleServiceAdapter) DeleteSchedule(ctx context.Context, req *connect.Request[v1.DeleteScheduleRequest]) (*connect.Response[emptypb.Empty], error) {
 	return rpcerr.Answer(a.Impl.DeleteSchedule(ctx, req.Msg))
+}
+
+// RegisterScheduleService mounts the implementation on the mux behind its adapter.
+func RegisterScheduleService(mux *http.ServeMux, impl ScheduleServiceImpl, options ...connect.HandlerOption) {
+	mux.Handle(schedulev1connect.NewScheduleServiceHandler(ScheduleServiceAdapter{Impl: impl}, options...))
 }

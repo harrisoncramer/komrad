@@ -10,6 +10,8 @@ import (
 	fail "komrad/internal/fail"
 	rpcerr "komrad/internal/rpcerr"
 	v1 "komrad/proto/gen/terminal/v1"
+	terminalv1connect "komrad/proto/gen/terminal/v1/terminalv1connect"
+	http "net/http"
 )
 
 // TerminalServiceImpl is the half of TerminalService a person writes, whose failures carry the kind
@@ -33,4 +35,9 @@ func (a TerminalServiceAdapter) Shell(ctx context.Context, stream *connect.BidiS
 // Attach serves the stream as connect opens it.
 func (a TerminalServiceAdapter) Attach(ctx context.Context, stream *connect.BidiStream[v1.AttachRequest, v1.AttachResponse]) error {
 	return rpcerr.AnswerStream(a.Impl.Attach(ctx, stream))
+}
+
+// RegisterTerminalService mounts the implementation on the mux behind its adapter.
+func RegisterTerminalService(mux *http.ServeMux, impl TerminalServiceImpl, options ...connect.HandlerOption) {
+	mux.Handle(terminalv1connect.NewTerminalServiceHandler(TerminalServiceAdapter{Impl: impl}, options...))
 }

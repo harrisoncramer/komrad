@@ -11,6 +11,8 @@ import (
 	fail "komrad/internal/fail"
 	rpcerr "komrad/internal/rpcerr"
 	v1 "komrad/proto/gen/hook/v1"
+	hookv1connect "komrad/proto/gen/hook/v1/hookv1connect"
+	http "net/http"
 )
 
 // HookServiceImpl is the half of HookService a person writes, whose failures carry the kind
@@ -28,4 +30,9 @@ type HookServiceAdapter struct {
 // ListHooks answers the request as connect serves it.
 func (a HookServiceAdapter) ListHooks(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[v1.ListHooksResponse], error) {
 	return rpcerr.Answer(a.Impl.ListHooks(ctx, req.Msg))
+}
+
+// RegisterHookService mounts the implementation on the mux behind its adapter.
+func RegisterHookService(mux *http.ServeMux, impl HookServiceImpl, options ...connect.HandlerOption) {
+	mux.Handle(hookv1connect.NewHookServiceHandler(HookServiceAdapter{Impl: impl}, options...))
 }

@@ -11,6 +11,8 @@ import (
 	fail "komrad/internal/fail"
 	rpcerr "komrad/internal/rpcerr"
 	v1 "komrad/proto/gen/workflow/v1"
+	workflowv1connect "komrad/proto/gen/workflow/v1/workflowv1connect"
+	http "net/http"
 )
 
 // WorkflowServiceImpl is the half of WorkflowService a person writes, whose failures carry the kind
@@ -64,4 +66,9 @@ func (a WorkflowServiceAdapter) RestoreWorkflow(ctx context.Context, req *connec
 // DeleteWorkflow answers the request as connect serves it.
 func (a WorkflowServiceAdapter) DeleteWorkflow(ctx context.Context, req *connect.Request[v1.DeleteWorkflowRequest]) (*connect.Response[emptypb.Empty], error) {
 	return rpcerr.Answer(a.Impl.DeleteWorkflow(ctx, req.Msg))
+}
+
+// RegisterWorkflowService mounts the implementation on the mux behind its adapter.
+func RegisterWorkflowService(mux *http.ServeMux, impl WorkflowServiceImpl, options ...connect.HandlerOption) {
+	mux.Handle(workflowv1connect.NewWorkflowServiceHandler(WorkflowServiceAdapter{Impl: impl}, options...))
 }

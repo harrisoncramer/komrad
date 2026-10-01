@@ -11,6 +11,8 @@ import (
 	fail "komrad/internal/fail"
 	rpcerr "komrad/internal/rpcerr"
 	v1 "komrad/proto/gen/watch/v1"
+	watchv1connect "komrad/proto/gen/watch/v1/watchv1connect"
+	http "net/http"
 )
 
 // WatchServiceImpl is the half of WatchService a person writes, whose failures carry the kind
@@ -28,4 +30,9 @@ type WatchServiceAdapter struct {
 // Watch serves the stream as connect opens it.
 func (a WatchServiceAdapter) Watch(ctx context.Context, req *connect.Request[emptypb.Empty], stream *connect.ServerStream[v1.WatchEvent]) error {
 	return rpcerr.AnswerStream(a.Impl.Watch(ctx, req.Msg, stream))
+}
+
+// RegisterWatchService mounts the implementation on the mux behind its adapter.
+func RegisterWatchService(mux *http.ServeMux, impl WatchServiceImpl, options ...connect.HandlerOption) {
+	mux.Handle(watchv1connect.NewWatchServiceHandler(WatchServiceAdapter{Impl: impl}, options...))
 }

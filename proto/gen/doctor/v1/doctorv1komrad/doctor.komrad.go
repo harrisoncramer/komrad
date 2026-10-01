@@ -11,6 +11,8 @@ import (
 	fail "komrad/internal/fail"
 	rpcerr "komrad/internal/rpcerr"
 	v1 "komrad/proto/gen/doctor/v1"
+	doctorv1connect "komrad/proto/gen/doctor/v1/doctorv1connect"
+	http "net/http"
 )
 
 // DoctorServiceImpl is the half of DoctorService a person writes, whose failures carry the kind
@@ -28,4 +30,9 @@ type DoctorServiceAdapter struct {
 // RunDoctor answers the request as connect serves it.
 func (a DoctorServiceAdapter) RunDoctor(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[v1.RunDoctorResponse], error) {
 	return rpcerr.Answer(a.Impl.RunDoctor(ctx, req.Msg))
+}
+
+// RegisterDoctorService mounts the implementation on the mux behind its adapter.
+func RegisterDoctorService(mux *http.ServeMux, impl DoctorServiceImpl, options ...connect.HandlerOption) {
+	mux.Handle(doctorv1connect.NewDoctorServiceHandler(DoctorServiceAdapter{Impl: impl}, options...))
 }

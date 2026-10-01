@@ -11,6 +11,8 @@ import (
 	fail "komrad/internal/fail"
 	rpcerr "komrad/internal/rpcerr"
 	v1 "komrad/proto/gen/worktree/v1"
+	worktreev1connect "komrad/proto/gen/worktree/v1/worktreev1connect"
+	http "net/http"
 )
 
 // WorktreeServiceImpl is the half of WorktreeService a person writes, whose failures carry the kind
@@ -46,4 +48,9 @@ func (a WorktreeServiceAdapter) RemoveUnownedWorktrees(ctx context.Context, req 
 // DeleteWorktrees answers the request as connect serves it.
 func (a WorktreeServiceAdapter) DeleteWorktrees(ctx context.Context, req *connect.Request[v1.DeleteWorktreesRequest]) (*connect.Response[emptypb.Empty], error) {
 	return rpcerr.Answer(a.Impl.DeleteWorktrees(ctx, req.Msg))
+}
+
+// RegisterWorktreeService mounts the implementation on the mux behind its adapter.
+func RegisterWorktreeService(mux *http.ServeMux, impl WorktreeServiceImpl, options ...connect.HandlerOption) {
+	mux.Handle(worktreev1connect.NewWorktreeServiceHandler(WorktreeServiceAdapter{Impl: impl}, options...))
 }

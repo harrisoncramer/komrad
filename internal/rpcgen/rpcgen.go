@@ -23,6 +23,7 @@ const (
 	failPackage    = protogen.GoImportPath("komrad/internal/fail")
 	rpcerrPackage  = protogen.GoImportPath("komrad/internal/rpcerr")
 	contextPackage = protogen.GoImportPath("context")
+	httpPackage    = protogen.GoImportPath("net/http")
 )
 
 // Generate writes one file per proto file that declares a service.
@@ -67,15 +68,16 @@ func generateFile(plugin *protogen.Plugin, file *protogen.File) error {
 	out.P("package ", pkg)
 	out.P()
 
+	connectImport := protogen.GoImportPath(path.Join(string(file.GoImportPath), string(file.GoPackageName)+"connect"))
 	for _, service := range file.Services {
-		generateService(out, service)
+		generateService(out, service, connectImport)
 	}
 
 	return nil
 }
 
 // generateService writes one service's strict interface and the adapter that answers for it.
-func generateService(out *protogen.GeneratedFile, service *protogen.Service) {
+func generateService(out *protogen.GeneratedFile, service *protogen.Service, connectImport protogen.GoImportPath) {
 	name := service.GoName
 	context := out.QualifiedGoIdent(contextPackage.Ident("Context"))
 	failure := out.QualifiedGoIdent(failPackage.Ident("Error"))
@@ -150,4 +152,14 @@ func generateService(out *protogen.GeneratedFile, service *protogen.Service) {
 		out.P("}")
 		out.P()
 	}
+
+	mux := out.QualifiedGoIdent(httpPackage.Ident("ServeMux"))
+	option := out.QualifiedGoIdent(connectPackage.Ident("HandlerOption"))
+	newHandler := out.QualifiedGoIdent(connectImport.Ident("New" + name + "Handler"))
+
+	out.P("// Register", name, " mounts the implementation on the mux behind its adapter.")
+	out.P("func Register", name, "(mux *", mux, ", impl ", name, "Impl, options ...", option, ") {")
+	out.P("mux.Handle(", newHandler, "(", name, "Adapter{Impl: impl}, options...))")
+	out.P("}")
+	out.P()
 }
