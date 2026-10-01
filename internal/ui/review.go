@@ -33,10 +33,8 @@ type reviewScreen struct {
 	hold reviewHold
 
 	// offer is the forge thread J last chose, empty until it has chosen one.
-	offer string
-
-	offers reviewOffers
-
+	offer        string
+	offers       reviewOffers
 	filesFocused bool
 
 	// filesFilter is the pattern the file tree is searched or narrowed by.

@@ -1279,8 +1279,16 @@ func TestSyncRecordsWhatMovedOnAPullRequest(t *testing.T) {
 		merged,
 	}}
 	f.forge.standings[1] = forge.Standing{Decision: forge.ReviewDecisionPending, Checks: forge.ChecksPending}
-	f.forge.standings[2] = forge.Standing{Decision: forge.ReviewDecisionApproved, Checks: forge.ChecksPassing, Mergeability: forge.MergeabilityClean}
-	f.forge.standings[3] = forge.Standing{Decision: forge.ReviewDecisionChangesRequested, Checks: forge.ChecksFailing, Mergeability: forge.MergeabilityConflicting}
+	f.forge.standings[2] = forge.Standing{
+		Decision:     forge.ReviewDecisionApproved,
+		Checks:       forge.ChecksPassing,
+		Mergeability: forge.MergeabilityClean,
+	}
+	f.forge.standings[3] = forge.Standing{
+		Decision:     forge.ReviewDecisionChangesRequested,
+		Checks:       forge.ChecksFailing,
+		Mergeability: forge.MergeabilityConflicting,
+	}
 
 	f.sync(t)
 	badly := f.stored(t, "PR_3").ID

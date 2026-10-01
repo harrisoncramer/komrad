@@ -578,8 +578,12 @@ func TestSetAutoMerge(t *testing.T) {
 			wantVariables: map[string]any{"owner": "harrisoncramer", "name": "komrad", "number": float64(742)},
 		},
 		{
-			name:   "an open pull request is queued with the default method at the head the person saw",
-			params: forge.SetAutoMergeParams{URL: address, HeadSHA: "abc123", On: true},
+			name: "an open pull request is queued with the default method at the head the person saw",
+			params: forge.SetAutoMergeParams{
+				URL:     address,
+				HeadSHA: "abc123",
+				On:      true,
+			},
 			answers: map[string]answer{
 				"AutoMergeTarget": target("OPEN", "null"),
 				"EnableAutoMerge": {body: data(`{"enablePullRequestAutoMerge":{"clientMutationId":null}}`)},

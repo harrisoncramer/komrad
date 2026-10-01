@@ -105,7 +105,13 @@ func TestDocumentsRenameField(t *testing.T) {
 
 		harness, docs := openDocuments(t)
 		harness.hold(agentv1connect.AgentServiceGetDocumentProcedure)
-		docs.add(&agentv1.Document{Id: "d3", Name: "Notes", Type: "notes", Version: 1, UpdatedAt: "2026-09-20T12:00:00Z"})
+		docs.add(&agentv1.Document{
+			Id:        "d3",
+			Name:      "Notes",
+			Type:      "notes",
+			Version:   1,
+			UpdatedAt: "2026-09-20T12:00:00Z",
+		})
 		author := buildDocumentAuthors()[2].(*agentv1.Agent)
 		author.DocumentsUpdatedAt = xptr.Ptr("2026-09-26T12:00:00Z")
 		harness.watch(buildPuts(author))

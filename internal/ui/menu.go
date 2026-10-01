@@ -70,7 +70,11 @@ func panelMenu(s panelShared, scratchOpen bool, back menuPlace) submenu {
 		title: "komrad",
 		crumb: "komrad",
 		entries: []submenuEntry{
-			{label: scratch, keys: s.keys.Menu.Scratch, open: model.openScratch},
+			{
+				label: scratch,
+				keys:  s.keys.Menu.Scratch,
+				open:  model.openScratch,
+			},
 			nestedEntry("document types", s.keys.Menu.DocumentTypes, documentTypesMenu(s, back)),
 		},
 	}

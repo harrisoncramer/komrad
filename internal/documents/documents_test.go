@@ -103,8 +103,12 @@ func TestWrite(t *testing.T) {
 			wantErr: documents.ErrNoBody,
 		},
 		{
-			name:    "a type that does not exist is refused",
-			params:  documents.WriteDocumentParams{Name: "untyped", Type: "postmortem", Body: "# Untyped"},
+			name: "a type that does not exist is refused",
+			params: documents.WriteDocumentParams{
+				Name: "untyped",
+				Type: "postmortem",
+				Body: "# Untyped",
+			},
 			wantErr: documentstore.ErrUnknownType,
 		},
 		{

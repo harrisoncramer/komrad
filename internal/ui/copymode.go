@@ -83,7 +83,15 @@ func (m model) drawCopyLayout() panes.CopyStandIn {
 		}
 	}
 
-	standIn := panes.CopyStandIn{Rows: lines, Divider: -1, Rule: -1, RuleLeft: true, Focus: rect, Row: row, Col: col}
+	standIn := panes.CopyStandIn{
+		Rows:     lines,
+		Divider:  -1,
+		Rule:     -1,
+		RuleLeft: true,
+		Focus:    rect,
+		Row:      row,
+		Col:      col,
+	}
 
 	marked := m
 	marked.markingZones = true

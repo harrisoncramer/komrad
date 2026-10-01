@@ -193,7 +193,11 @@ func layOutTiles(spec *standInSpec) []copyTile {
 	if spec.Divider > 0 && spec.Divider < spec.Width-1 {
 		tiles = []copyTile{
 			{pane: "%0", rect: panes.Rect{Width: spec.Divider, Height: spec.Height}},
-			{pane: "%1", rect: panes.Rect{Left: spec.Divider + 1, Width: spec.Width - spec.Divider - 1, Height: spec.Height}},
+			{pane: "%1", rect: panes.Rect{
+				Left:   spec.Divider + 1,
+				Width:  spec.Width - spec.Divider - 1,
+				Height: spec.Height,
+			}},
 		}
 		if !spec.RuleLeft {
 			list = 1
@@ -205,7 +209,12 @@ func layOutTiles(spec *standInSpec) []copyTile {
 		tiles[list].rect.Height = spec.Rule
 		tiles = append(tiles, copyTile{
 			pane: "%" + strconv.Itoa(len(tiles)),
-			rect: panes.Rect{Left: above.Left, Top: spec.Rule + 1, Width: above.Width, Height: spec.Height - spec.Rule - 1},
+			rect: panes.Rect{
+				Left:   above.Left,
+				Top:    spec.Rule + 1,
+				Width:  above.Width,
+				Height: spec.Height - spec.Rule - 1,
+			},
 		})
 	}
 

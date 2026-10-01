@@ -92,8 +92,7 @@ type View struct {
 	// headless leaves out the row for the change as a whole and each file's header.
 	headless bool
 	// glyphs is what the marks on threads and files are drawn in.
-	glyphs glyph.Set
-
+	glyphs      glyph.Set
 	offers      []Offer
 	offerTraced map[string]Traced
 	offered     map[int][]Offer

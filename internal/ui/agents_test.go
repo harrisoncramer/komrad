@@ -1183,14 +1183,30 @@ func TestAgentsRecordWorktree(t *testing.T) {
 				want:     "+200 −100",
 			},
 			{
-				name:     "a directory with nothing waiting carries only the lines",
-				read:     &worktreev1.GetWorktreeResponse{Worktree: &worktreev1.Worktree{Dir: "/repo", Readable: true, Branch: "agent/x"}, BaseRef: "origin/main", Pushed: true},
+				name: "a directory with nothing waiting carries only the lines",
+				read: &worktreev1.GetWorktreeResponse{
+					Worktree: &worktreev1.Worktree{
+						Dir:      "/repo",
+						Readable: true,
+						Branch:   "agent/x",
+					},
+					BaseRef: "origin/main",
+					Pushed:  true,
+				},
 				diffStat: changed,
 				want:     "+200 −100",
 			},
 			{
-				name:     "a branch never pushed says so",
-				read:     &worktreev1.GetWorktreeResponse{Worktree: &worktreev1.Worktree{Dir: "/repo", Readable: true, Branch: "agent/x"}, BaseRef: "origin/main", Ahead: 1},
+				name: "a branch never pushed says so",
+				read: &worktreev1.GetWorktreeResponse{
+					Worktree: &worktreev1.Worktree{
+						Dir:      "/repo",
+						Readable: true,
+						Branch:   "agent/x",
+					},
+					BaseRef: "origin/main",
+					Ahead:   1,
+				},
 				diffStat: changed,
 				want:     "not pushed · +200 −100",
 			},
@@ -1221,8 +1237,19 @@ func TestAgentsRecordWorktree(t *testing.T) {
 				want:     "2 modified · 1 untracked · ↑2 unpushed · +200 −100",
 			},
 			{
-				name:     "a branch the base already holds whole has nothing to push",
-				read:     &worktreev1.GetWorktreeResponse{Worktree: &worktreev1.Worktree{Dir: "/repo", Readable: true, Branch: "agent/x"}, BaseRef: "origin/main", Pushed: true, Unpushed: 2, Unpulled: 1, UnpulledLanded: true},
+				name: "a branch the base already holds whole has nothing to push",
+				read: &worktreev1.GetWorktreeResponse{
+					Worktree: &worktreev1.Worktree{
+						Dir:      "/repo",
+						Readable: true,
+						Branch:   "agent/x",
+					},
+					BaseRef:        "origin/main",
+					Pushed:         true,
+					Unpushed:       2,
+					Unpulled:       1,
+					UnpulledLanded: true,
+				},
 				diffStat: changed,
 				want:     "+200 −100",
 			},

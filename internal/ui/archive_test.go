@@ -481,7 +481,11 @@ func TestArchiveRename(t *testing.T) {
 			rows:      live,
 			press:     slices.Concat([]string{"r"}, spellKeys("-2"), []string{"enter"}),
 			procedure: workflowv1connect.WorkflowServiceUpdateWorkflowProcedure,
-			want:      &workflowv1.UpdateWorkflowRequest{Id: "w1", Name: "backend-2", Worktree: &workflowv1.WorktreeConfig{}},
+			want: &workflowv1.UpdateWorkflowRequest{
+				Id:       "w1",
+				Name:     "backend-2",
+				Worktree: &workflowv1.WorktreeConfig{},
+			},
 		},
 		{
 			name:  "an archived workflow's folder takes no writes, so opens no field",

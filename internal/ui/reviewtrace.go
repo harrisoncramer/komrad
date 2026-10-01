@@ -242,7 +242,11 @@ func traceOffers(ctx context.Context, params traceOffersParams) map[string]diffv
 		}
 
 		if from == params.ToSHA {
-			traced[offer.GetId()] = diffview.Traced{FilePath: offer.GetPath(), NewStart: offer.GetLine(), Exact: true}
+			traced[offer.GetId()] = diffview.Traced{
+				FilePath: offer.GetPath(),
+				NewStart: offer.GetLine(),
+				Exact:    true,
+			}
 
 			continue
 		}

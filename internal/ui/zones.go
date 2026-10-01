@@ -59,7 +59,11 @@ func scanZones(frame string) map[zone]panes.Rect {
 					continue
 				}
 
-				starts[name] = opened{left: col, top: row, width: width}
+				starts[name] = opened{
+					left:  col,
+					top:   row,
+					width: width,
+				}
 
 				continue
 			}
@@ -74,7 +78,13 @@ func scanZones(frame string) map[zone]panes.Rect {
 				bottom--
 			}
 
-			found[name] = panes.Rect{Pane: string(name), Left: start.left, Top: start.top, Width: start.width, Height: bottom - start.top + 1}
+			found[name] = panes.Rect{
+				Pane:   string(name),
+				Left:   start.left,
+				Top:    start.top,
+				Width:  start.width,
+				Height: bottom - start.top + 1,
+			}
 		}
 	}
 
@@ -104,7 +114,12 @@ func (m model) findSidebarBlocks() []sidebarBlock {
 		height = details.Top
 	}
 
-	list := panes.Rect{Left: 0, Top: 0, Width: m.width, Height: height}
+	list := panes.Rect{
+		Left:   0,
+		Top:    0,
+		Width:  m.width,
+		Height: height,
+	}
 	column, hasColumn := zones[zoneColumn]
 	if hasColumn {
 		if !m.frame.IsSidebarOnRight() {
@@ -141,5 +156,11 @@ func clipRect(rect, bounds panes.Rect) (panes.Rect, bool) {
 		return panes.Rect{}, false
 	}
 
-	return panes.Rect{Pane: rect.Pane, Left: left, Top: top, Width: right - left, Height: bottom - top}, true
+	return panes.Rect{
+		Pane:   rect.Pane,
+		Left:   left,
+		Top:    top,
+		Width:  right - left,
+		Height: bottom - top,
+	}, true
 }

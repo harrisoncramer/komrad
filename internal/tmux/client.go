@@ -622,7 +622,13 @@ func (c *Client) GetShownPanes(pane string) []panes.Rect {
 			}
 		}
 
-		rect := panes.Rect{Pane: fields[0], Left: numbers[0], Top: numbers[1], Width: numbers[2], Height: numbers[3]}
+		rect := panes.Rect{
+			Pane:   fields[0],
+			Left:   numbers[0],
+			Top:    numbers[1],
+			Width:  numbers[2],
+			Height: numbers[3],
+		}
 		if fields[5] == "1" && fields[6] == "1" {
 			return []panes.Rect{rect}
 		}

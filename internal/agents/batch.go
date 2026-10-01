@@ -36,7 +36,11 @@ func archiveBatch(ctx context.Context, params archiveBatchParams) error {
 
 	// Killing what was read first keeps a failed write from hiding a live CLI, leaving the row
 	// for the reconciler to tidy.
-	captureOwnedScreens(ctx, captureOwnedScreensParams{tmux: params.tmux, screens: params.screens, agents: params.owned})
+	captureOwnedScreens(ctx, captureOwnedScreensParams{
+		tmux:    params.tmux,
+		screens: params.screens,
+		agents:  params.owned,
+	})
 	killOwnedPanes(ctx, params.tmux, params.owned)
 
 	taken, err := params.archive(ctx)

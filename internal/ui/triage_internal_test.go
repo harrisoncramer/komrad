@@ -21,7 +21,11 @@ func TestTriageRefresh(t *testing.T) {
 	seen := changed.Add(time.Hour)
 	live := func(state panel.State) panel.AgentRow {
 		return panel.AgentRow{
-			Agent: panel.Agent{ID: "a1", State: state, StateChangedAt: changed},
+			Agent: panel.Agent{
+				ID:             "a1",
+				State:          state,
+				StateChangedAt: changed,
+			},
 			Alive: true,
 		}
 	}
@@ -42,7 +46,11 @@ func TestTriageRefresh(t *testing.T) {
 	}
 	child := func(state panel.State) panel.AgentRow {
 		return panel.AgentRow{
-			Agent: panel.Agent{ID: "c1", State: state, ParentAgentID: xptr.Ptr("a1")},
+			Agent: panel.Agent{
+				ID:            "c1",
+				State:         state,
+				ParentAgentID: xptr.Ptr("a1"),
+			},
 			Alive: true,
 		}
 	}
@@ -215,8 +223,12 @@ func TestTriageRefresh(t *testing.T) {
 			since: seen,
 		},
 		{
-			name:  "a failed turn has errored",
-			item:  panel.AgentRow{Agent: panel.Agent{ID: "a1", State: panel.StateErrored, StateChangedAt: changed}},
+			name: "a failed turn has errored",
+			item: panel.AgentRow{Agent: panel.Agent{
+				ID:             "a1",
+				State:          panel.StateErrored,
+				StateChangedAt: changed,
+			}},
 			want:  "errored",
 			since: changed,
 		},

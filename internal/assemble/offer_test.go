@@ -58,8 +58,21 @@ func offers(threads ...*pullrequestv1.ForgeThread) map[string]*pullrequestv1.For
 func TestAgentRowsOfferCounts(t *testing.T) {
 	t.Parallel()
 
-	open := pullRequest{id: "p1", headRepo: repo, branch: "agent/" + newer, number: 1, openedAgo: time.Hour}
-	merged := pullRequest{id: "p1", headRepo: repo, branch: "agent/" + newer, number: 1, openedAgo: time.Hour, merged: true}
+	open := pullRequest{
+		id:        "p1",
+		headRepo:  repo,
+		branch:    "agent/" + newer,
+		number:    1,
+		openedAgo: time.Hour,
+	}
+	merged := pullRequest{
+		id:        "p1",
+		headRepo:  repo,
+		branch:    "agent/" + newer,
+		number:    1,
+		openedAgo: time.Hour,
+		merged:    true,
+	}
 
 	tests := []struct {
 		name        string
@@ -149,8 +162,21 @@ func TestAgentRowsOfferCounts(t *testing.T) {
 func TestOffers(t *testing.T) {
 	t.Parallel()
 
-	current := pullRequest{id: "p2", headRepo: repo, branch: "agent/" + newer, number: 2, openedAgo: time.Hour}
-	earlier := pullRequest{id: "p1", headRepo: repo, branch: "agent/" + newer, number: 1, openedAgo: 3 * time.Hour, closed: true}
+	current := pullRequest{
+		id:        "p2",
+		headRepo:  repo,
+		branch:    "agent/" + newer,
+		number:    2,
+		openedAgo: time.Hour,
+	}
+	earlier := pullRequest{
+		id:        "p1",
+		headRepo:  repo,
+		branch:    "agent/" + newer,
+		number:    1,
+		openedAgo: 3 * time.Hour,
+		closed:    true,
+	}
 	world := assemble.World{
 		Agents:       map[string]*agentv1.Agent{newer: agent(newer), older: agent(older)},
 		PullRequests: pullRequests(current, earlier),

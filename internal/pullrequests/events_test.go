@@ -20,21 +20,37 @@ func TestEventsOf(t *testing.T) {
 		wantHolding []string
 	}{
 		{
-			name:        "a move to an event-worthy value starts it",
-			moves:       []Move{{Field: FieldChecks, From: "pending", To: "failing"}},
+			name: "a move to an event-worthy value starts it",
+			moves: []Move{{
+				Field: FieldChecks,
+				From:  "pending",
+				To:    "failing",
+			}},
 			pullRequest: pullrequeststore.PullRequest{State: "OPEN", LastKnownChecks: "failing"},
 			wantStarted: []string{eventprompts.PullRequestChecksFailing},
 			wantHolding: []string{eventprompts.PullRequestChecksFailing},
 		},
 		{
-			name:        "a move away starts nothing and leaves what still holds",
-			moves:       []Move{{Field: FieldChecks, From: "failing", To: "passing"}},
-			pullRequest: pullrequeststore.PullRequest{State: "OPEN", LastKnownChecks: "passing", LastKnownMergeability: "behind"},
+			name: "a move away starts nothing and leaves what still holds",
+			moves: []Move{{
+				Field: FieldChecks,
+				From:  "failing",
+				To:    "passing",
+			}},
+			pullRequest: pullrequeststore.PullRequest{
+				State:                 "OPEN",
+				LastKnownChecks:       "passing",
+				LastKnownMergeability: "behind",
+			},
 			wantHolding: []string{eventprompts.PullRequestBehind},
 		},
 		{
-			name:        "turning auto-merge on starts it",
-			moves:       []Move{{Field: FieldAutoMerge, From: autoMergeOff, To: autoMergeOn}},
+			name: "turning auto-merge on starts it",
+			moves: []Move{{
+				Field: FieldAutoMerge,
+				From:  autoMergeOff,
+				To:    autoMergeOn,
+			}},
 			pullRequest: pullrequeststore.PullRequest{State: "OPEN", AutoMerge: xptr.Ptr(true)},
 			wantStarted: []string{eventprompts.PullRequestAutoMergeOn},
 			wantHolding: []string{eventprompts.PullRequestAutoMergeOn},
@@ -42,22 +58,42 @@ func TestEventsOf(t *testing.T) {
 		{
 			name: "a merge is the only event, whatever else moved",
 			moves: []Move{
-				{Field: FieldState, From: "OPEN", To: "MERGED"},
-				{Field: FieldDecision, From: "review_required", To: "approved"},
+				{
+					Field: FieldState,
+					From:  "OPEN",
+					To:    "MERGED",
+				},
+				{
+					Field: FieldDecision,
+					From:  "review_required",
+					To:    "approved",
+				},
 			},
-			pullRequest: pullrequeststore.PullRequest{State: "MERGED", LastKnownDecision: "approved", LastKnownChecks: "failing"},
+			pullRequest: pullrequeststore.PullRequest{
+				State:             "MERGED",
+				LastKnownDecision: "approved",
+				LastKnownChecks:   "failing",
+			},
 			wantStarted: []string{eventprompts.PullRequestMerged},
 			wantHolding: []string{eventprompts.PullRequestMerged},
 		},
 		{
-			name:        "a change after the merge starts nothing and keeps the merge alone",
-			moves:       []Move{{Field: FieldChecks, From: "passing", To: "failing"}},
+			name: "a change after the merge starts nothing and keeps the merge alone",
+			moves: []Move{{
+				Field: FieldChecks,
+				From:  "passing",
+				To:    "failing",
+			}},
 			pullRequest: pullrequeststore.PullRequest{State: "MERGED", LastKnownChecks: "failing"},
 			wantHolding: []string{eventprompts.PullRequestMerged},
 		},
 		{
-			name:        "and so is a close",
-			moves:       []Move{{Field: FieldState, From: "OPEN", To: "CLOSED"}},
+			name: "and so is a close",
+			moves: []Move{{
+				Field: FieldState,
+				From:  "OPEN",
+				To:    "CLOSED",
+			}},
 			pullRequest: pullrequeststore.PullRequest{State: "CLOSED", LastKnownMergeability: "conflicting"},
 			wantStarted: []string{eventprompts.PullRequestClosed},
 			wantHolding: []string{eventprompts.PullRequestClosed},

@@ -673,8 +673,12 @@ func TestSetAutoMerge(t *testing.T) {
 			wantErr: forge.ErrNoAutoMerge,
 		},
 		{
-			name:   "a merge request whose branch moved past the head the person saw",
-			params: forge.SetAutoMergeParams{URL: address, HeadSHA: "abc123", On: true},
+			name: "a merge request whose branch moved past the head the person saw",
+			params: forge.SetAutoMergeParams{
+				URL:     address,
+				HeadSHA: "abc123",
+				On:      true,
+			},
 			answers: map[string]answer{
 				"AutoMergeTarget": target("opened", false, waiting),
 				path + "/merge":   {status: http.StatusConflict, body: `{"message":"SHA does not match HEAD of source branch"}`},
@@ -687,8 +691,12 @@ func TestSetAutoMerge(t *testing.T) {
 			answers: map[string]answer{"AutoMergeTarget": target("opened", true, waiting)},
 		},
 		{
-			name:   "an open merge request is queued at the head the person saw",
-			params: forge.SetAutoMergeParams{URL: address, HeadSHA: "abc123", On: true},
+			name: "an open merge request is queued at the head the person saw",
+			params: forge.SetAutoMergeParams{
+				URL:     address,
+				HeadSHA: "abc123",
+				On:      true,
+			},
 			answers: map[string]answer{
 				"AutoMergeTarget": target("opened", false, waiting),
 				path + "/merge":   {body: `{"iid":7,"state":"opened","merge_when_pipeline_succeeds":true}`},

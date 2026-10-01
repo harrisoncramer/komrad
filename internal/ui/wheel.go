@@ -32,7 +32,11 @@ type wheelFilter struct {
 }
 
 func newWheelFilter(now func() time.Time, later func(tea.Msg)) *wheelFilter {
-	return &wheelFilter{now: now, later: later, flushed: true}
+	return &wheelFilter{
+		now:     now,
+		later:   later,
+		flushed: true,
+	}
 }
 
 func (f *wheelFilter) filter(_ tea.Model, msg tea.Msg) tea.Msg {
@@ -79,7 +83,11 @@ func (f *wheelFilter) release() tea.Msg {
 	rows := f.rows
 	f.rows = 0
 
-	return wheelMsg{x: f.x, y: f.y, rows: rows}
+	return wheelMsg{
+		x:    f.x,
+		y:    f.y,
+		rows: rows,
+	}
 }
 
 // wheelTurn is the row one turn of the wheel moves, zero for a turn that is not up or down.

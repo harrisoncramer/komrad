@@ -256,18 +256,73 @@ func TestVimEditingBadge(t *testing.T) {
 		press []string
 		want  string
 	}{
-		{name: "the list is in normal mode", press: nil, want: "NORMAL"},
-		{name: "a form's text field is in edit mode with vim off", press: []string{"space", "c"}, want: "EDIT"},
-		{name: "a form's text field opens in edit mode with vim on", vim: true, press: []string{"space", "c"}, want: "  EDIT  "},
-		{name: "esc puts a form's text field in normal mode", vim: true, press: []string{"space", "c", "esc"}, want: " NORMAL "},
-		{name: "i puts it back in insert mode", vim: true, press: []string{"space", "c", "esc", "i"}, want: "  EDIT  "},
-		{name: "the list's filter is in edit mode", press: []string{"/"}, want: "EDIT"},
-		{name: "the search line is in edit mode", press: []string{"tab", "/"}, want: "EDIT"},
-		{name: "a rename is in edit mode", press: []string{"j", "r"}, want: "EDIT"},
-		{name: "ctrl+f puts the filter in normal mode", vim: true, press: []string{"/", "a", "ctrl+f"}, want: " NORMAL "},
-		{name: "ctrl+f puts the search line in normal mode", vim: true, press: []string{"tab", "/", "a", "ctrl+f"}, want: " NORMAL "},
-		{name: "ctrl+f puts a rename in normal mode", vim: true, press: []string{"j", "r", "ctrl+f"}, want: " NORMAL "},
-		{name: "i puts the filter back in insert mode", vim: true, press: []string{"/", "a", "ctrl+f", "i"}, want: "  EDIT  "},
+		{
+			name:  "the list is in normal mode",
+			press: nil,
+			want:  "NORMAL",
+		},
+		{
+			name:  "a form's text field is in edit mode with vim off",
+			press: []string{"space", "c"},
+			want:  "EDIT",
+		},
+		{
+			name:  "a form's text field opens in edit mode with vim on",
+			vim:   true,
+			press: []string{"space", "c"},
+			want:  "  EDIT  ",
+		},
+		{
+			name:  "esc puts a form's text field in normal mode",
+			vim:   true,
+			press: []string{"space", "c", "esc"},
+			want:  " NORMAL ",
+		},
+		{
+			name:  "i puts it back in insert mode",
+			vim:   true,
+			press: []string{"space", "c", "esc", "i"},
+			want:  "  EDIT  ",
+		},
+		{
+			name:  "the list's filter is in edit mode",
+			press: []string{"/"},
+			want:  "EDIT",
+		},
+		{
+			name:  "the search line is in edit mode",
+			press: []string{"tab", "/"},
+			want:  "EDIT",
+		},
+		{
+			name:  "a rename is in edit mode",
+			press: []string{"j", "r"},
+			want:  "EDIT",
+		},
+		{
+			name:  "ctrl+f puts the filter in normal mode",
+			vim:   true,
+			press: []string{"/", "a", "ctrl+f"},
+			want:  " NORMAL ",
+		},
+		{
+			name:  "ctrl+f puts the search line in normal mode",
+			vim:   true,
+			press: []string{"tab", "/", "a", "ctrl+f"},
+			want:  " NORMAL ",
+		},
+		{
+			name:  "ctrl+f puts a rename in normal mode",
+			vim:   true,
+			press: []string{"j", "r", "ctrl+f"},
+			want:  " NORMAL ",
+		},
+		{
+			name:  "i puts the filter back in insert mode",
+			vim:   true,
+			press: []string{"/", "a", "ctrl+f", "i"},
+			want:  "  EDIT  ",
+		},
 	}
 
 	for _, tt := range tests {

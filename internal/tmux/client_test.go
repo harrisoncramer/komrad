@@ -790,14 +790,32 @@ func TestIntegrationShownPanesListsWhatTheWindowShows(t *testing.T) {
 	require.NotEmpty(t, second)
 
 	assert.Equal(t, []panes.Rect{
-		{Pane: first, Left: 0, Top: 0, Width: 49, Height: 30},
-		{Pane: second, Left: 50, Top: 0, Width: 50, Height: 30},
+		{
+			Pane:   first,
+			Left:   0,
+			Top:    0,
+			Width:  49,
+			Height: 30,
+		},
+		{
+			Pane:   second,
+			Left:   50,
+			Top:    0,
+			Width:  50,
+			Height: 30,
+		},
 	}, client.GetShownPanes(first), "a split window shows both panes")
 
 	_, err = client.query("resize-pane", "-Z", "-t", second)
 	require.NoError(t, err)
 
-	assert.Equal(t, []panes.Rect{{Pane: second, Left: 0, Top: 0, Width: 100, Height: 30}},
+	assert.Equal(t, []panes.Rect{{
+		Pane:   second,
+		Left:   0,
+		Top:    0,
+		Width:  100,
+		Height: 30,
+	}},
 		client.GetShownPanes(first), "a zoomed window shows only the zoomed pane")
 
 	assert.Empty(t, client.GetShownPanes(""))
