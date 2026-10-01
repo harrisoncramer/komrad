@@ -39,6 +39,11 @@ type Trees struct {
 	DiffStats map[string]git.DiffStat
 	DiffErr   error
 	Measured  []git.ReadDiffStatParams
+	// Changes is what every directory holds uncommitted.
+	Changes git.Changes
+	// Prediction is what a rebase of every directory would do.
+	Prediction git.Prediction
+	Predicted  int
 }
 
 // ProbeTree records the root and answers what Probes holds for it, refusing when there are no
@@ -116,4 +121,33 @@ func (t *Trees) ReadDiffStat(_ context.Context, params git.ReadDiffStatParams) (
 	}
 
 	return &stat, nil
+}
+
+// ReadChanges answers Changes.
+func (t *Trees) ReadChanges(context.Context, string) (git.Changes, error) {
+	return t.Changes, nil
+}
+
+// PeekChanges answers Changes.
+func (t *Trees) PeekChanges(context.Context, string) (git.Changes, error) {
+	return t.Changes, nil
+}
+
+// ReadTreeState answers that nothing is part-way through.
+func (t *Trees) ReadTreeState(context.Context, string) (git.TreeState, error) {
+	return git.TreeState{}, nil
+}
+
+// IsSequenceInProgress answers that nothing is part-way through.
+func (t *Trees) IsSequenceInProgress(context.Context, string) (bool, error) {
+	return false, nil
+}
+
+// PredictRebase counts the prediction and answers Prediction.
+func (t *Trees) PredictRebase(context.Context, string, string) (git.Prediction, error) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.Predicted++
+
+	return t.Prediction, nil
 }

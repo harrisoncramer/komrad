@@ -17,6 +17,7 @@ type Checkout struct {
 	Behind       int
 	Prediction   git.Prediction
 	PredictErr   error
+	BaseTip      string
 	Held         bool
 	Unresolved   bool
 	Commits      []git.Commit
@@ -83,6 +84,11 @@ func (g *Checkout) FetchBase(_ context.Context, _, base string) (string, string,
 // CountAheadBehind answers Ahead and Behind.
 func (g *Checkout) CountAheadBehind(context.Context, string, string) (int, int, error) {
 	return g.Ahead, g.Behind, nil
+}
+
+// ReadBaseTip answers BaseTip.
+func (g *Checkout) ReadBaseTip(context.Context, string, string) (string, error) {
+	return g.BaseTip, nil
 }
 
 // PredictRebase answers Prediction and PredictErr.

@@ -89,6 +89,7 @@ type checkoutServices struct {
 
 type worktreeServices struct {
 	lister    *worktrees.Lister
+	checkouts *worktrees.CheckoutReader
 	inspector *worktrees.Inspector
 	remover   *worktrees.Remover
 }
@@ -149,6 +150,7 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 		Wakers:     wakers,
 		LoadConfig: loadConfig,
 	})
+	worktreeGroup := buildWorktrees(st, gitClient, loadConfig)
 
 	return &services{
 		loadConfig: loadConfig,
@@ -221,12 +223,14 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 				Agents:       st.agents,
 				Heads:        gitClient,
 				Trees:        gitClient,
+				Checkouts:    worktreeGroup.checkouts,
 				Rounds:       st.review,
 				Workflows:    st.workflows,
 				PullRequests: st.pullRequests,
+				Worktrees:    st.worktrees,
 			}),
 		},
-		worktrees: buildWorktrees(st, gitClient, loadConfig),
+		worktrees: worktreeGroup,
 		terminal: terminalServices{
 			shells: shells.NewShellService(shells.NewShellServiceParams{
 				Agents: st.agents,
@@ -488,11 +492,15 @@ func buildWorktrees(st *stores, gitClient *git.Client, loadConfig func() (*confi
 		Worktrees: st.worktrees,
 	})
 
+	checkouts := worktrees.NewCheckoutReader(worktrees.NewCheckoutReaderParams{Git: gitClient})
+
 	return worktreeServices{
-		lister: lister,
+		lister:    lister,
+		checkouts: checkouts,
 		inspector: worktrees.NewInspector(worktrees.NewInspectorParams{
 			Lister:    lister,
 			Git:       gitClient,
+			Checkouts: checkouts,
 			Workflows: st.workflows,
 			Worktrees: st.worktrees,
 		}),

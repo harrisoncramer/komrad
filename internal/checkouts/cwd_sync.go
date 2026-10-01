@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -12,6 +13,8 @@ import (
 	agentstore "komrad/internal/store/agent"
 	reviewstore "komrad/internal/store/review"
 	workflowstore "komrad/internal/store/workflow"
+	worktreestore "komrad/internal/store/worktree"
+	"komrad/internal/worktrees"
 	"komrad/lib/xptr"
 
 	"github.com/harrisoncramer/streamer"
@@ -26,6 +29,8 @@ const baseFetchTimeout = 30 * time.Second
 // cwdLookWorkers is how many directories are looked at together.
 const cwdLookWorkers = 8
 
+const standingReadTimeout = 30 * time.Second
+
 // headReader reads a checkout's HEAD.
 type headReader interface {
 	ReadHeadState(ctx context.Context, params git.ReadHeadStateParams) git.HeadState
@@ -36,8 +41,6 @@ type treeReader interface {
 	ReadBaseTip(ctx context.Context, dir, base string) (string, error)
 	HasLanded(ctx context.Context, params git.HasLandedParams) (bool, error)
 	FetchBase(ctx context.Context, dir, base string) (ref, sha string, err error)
-	ResolveBase(ctx context.Context, dir, base string) (string, error)
-	ReadDiffStat(ctx context.Context, params git.ReadDiffStatParams) (*git.DiffStat, error)
 }
 
 type pullRequestObserver interface {
@@ -49,8 +52,10 @@ type NewCwdSyncerParams struct {
 	Agents       *agentstore.AgentStore
 	Heads        headReader
 	Trees        treeReader
+	Checkouts    *worktrees.CheckoutReader
 	Rounds       *reviewstore.ReviewStore
 	Workflows    *workflowstore.WorkflowStore
+	Worktrees    *worktreestore.WorktreeStore
 	PullRequests pullRequestObserver
 }
 
@@ -60,8 +65,10 @@ type CwdSyncer struct {
 	agents       *agentstore.AgentStore
 	heads        headReader
 	trees        treeReader
+	checkouts    *worktrees.CheckoutReader
 	rounds       *reviewstore.ReviewStore
 	workflows    *workflowstore.WorkflowStore
+	worktrees    *worktreestore.WorktreeStore
 	pullRequests pullRequestObserver
 	// walkedMu guards walked and fetched.
 	walkedMu sync.Mutex
@@ -78,8 +85,10 @@ func NewCwdSyncer(params NewCwdSyncerParams) *CwdSyncer {
 		agents:       params.Agents,
 		heads:        params.Heads,
 		trees:        params.Trees,
+		checkouts:    params.Checkouts,
 		rounds:       params.Rounds,
 		workflows:    params.Workflows,
+		worktrees:    params.Worktrees,
 		pullRequests: params.PullRequests,
 		walked:       map[string]string{},
 		fetched:      map[string]time.Time{},
@@ -100,8 +109,10 @@ type cwdLook struct {
 	// diffStat is the lines the checkout adds and removes since its base, nil where there is none.
 	diffStat *agentstore.DiffStat
 	// tree is the worktree as the probe hashed it, empty when there was no round to probe against.
-	tree string
-	err  error
+	tree     string
+	worktree *worktreestore.Worktree
+	standing *worktreestore.Standing
+	err      error
 }
 
 // Sync looks at every live agent's cwd once and writes what changed, clearing the branch and
@@ -128,11 +139,17 @@ func (cs *CwdSyncer) Sync(ctx context.Context) error {
 		return fmt.Errorf("failed to list the unlanded review rounds for cwd sync: %w", err)
 	}
 
+	owned, err := cs.listOwnedWorktrees(ctx)
+	if err != nil {
+		return err
+	}
+
 	looks, err := cs.lookAtAll(ctx, lookAtAllParams{
 		Agents:    agents,
 		Rounds:    rounds,
 		Unlanded:  unlanded,
 		Worktrees: worktrees,
+		Owned:     owned,
 	})
 	if err != nil {
 		return err
@@ -155,6 +172,9 @@ func (cs *CwdSyncer) Sync(ctx context.Context) error {
 			failures = append(failures, err)
 		}
 		if err := cs.writeDiffStat(ctx, look); err != nil {
+			failures = append(failures, err)
+		}
+		if err := cs.writeStanding(ctx, look); err != nil {
 			failures = append(failures, err)
 		}
 	}
@@ -198,11 +218,26 @@ func (cs *CwdSyncer) listWorktreeConfigs(ctx context.Context) (map[string]workfl
 	return configs, nil
 }
 
+func (cs *CwdSyncer) listOwnedWorktrees(ctx context.Context) (map[string]worktreestore.Worktree, error) {
+	stored, err := cs.worktrees.List(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list the worktrees for cwd sync: %w", err)
+	}
+
+	owned := map[string]worktreestore.Worktree{}
+	for _, worktree := range stored {
+		owned[filepath.Base(worktree.Dir)] = worktree
+	}
+
+	return owned, nil
+}
+
 type lookAtAllParams struct {
 	Agents    []agentstore.Agent
 	Rounds    map[string]string
 	Unlanded  map[string][]reviewstore.UnlandedRound
 	Worktrees map[string]workflowstore.WorktreeConfig
+	Owned     map[string]worktreestore.Worktree
 }
 
 func (cs *CwdSyncer) lookAtAll(ctx context.Context, params lookAtAllParams) ([]cwdLook, error) {
@@ -211,11 +246,15 @@ func (cs *CwdSyncer) lookAtAll(ctx context.Context, params lookAtAllParams) ([]c
 		WorkerCount: cwdLookWorkers,
 		Work: func(ctx context.Context, agent agentstore.Agent) (cwdLook, error) {
 			look := cs.look(ctx, agent, params.Rounds[agent.ID])
+			config := params.Worktrees[agent.WorkflowID]
+			cs.readStanding(ctx, &look, readStandingParams{
+				Owned: params.Owned,
+				Base:  config.BaseBranch,
+			})
 			if look.removed || look.head.Root == "" {
 				return look, nil
 			}
 
-			config := params.Worktrees[agent.WorkflowID]
 			landed, walkedAt, err := cs.walkLanding(ctx, walkLandingParams{
 				Agent:  agent,
 				Rounds: params.Unlanded[agent.ID],
@@ -365,6 +404,18 @@ func (cs *CwdSyncer) writeDiffStat(ctx context.Context, look cwdLook) error {
 	return nil
 }
 
+func (cs *CwdSyncer) writeStanding(ctx context.Context, look cwdLook) error {
+	if look.standing == nil || isStandingUnchanged(look.worktree.Standing, *look.standing) {
+		return nil
+	}
+
+	if err := cs.worktrees.RecordStanding(ctx, *look.standing); err != nil {
+		return fmt.Errorf("failed to record where the worktree of %q stands: %w", look.agent.Name, err)
+	}
+
+	return nil
+}
+
 type walkLandingParams struct {
 	Agent  agentstore.Agent
 	Rounds []reviewstore.UnlandedRound
@@ -497,24 +548,13 @@ func (cs *CwdSyncer) measure(ctx context.Context, look *cwdLook, config workflow
 	ctx, cancel := context.WithTimeout(ctx, cwdLookTimeout)
 	defer cancel()
 
-	root := look.head.Root
-	ref, err := cs.trees.ResolveBase(ctx, root, config.BaseBranch)
-	if errors.Is(err, git.ErrBaseMissing) {
-		return
-	}
-	if err != nil {
-		look.keepDiffStat(err)
-
-		return
-	}
-
-	stat, err := cs.trees.ReadDiffStat(ctx, git.ReadDiffStatParams{
-		Dir:     root,
-		Ref:     ref,
+	stat, err := cs.checkouts.MeasureDiff(ctx, worktrees.MeasureDiffParams{
+		Dir:     look.head.Root,
+		Base:    config.BaseBranch,
 		Tree:    look.tree,
 		Exclude: config.DiffExclude,
 	})
-	if errors.Is(err, git.ErrBaseUnrelated) {
+	if errors.Is(err, git.ErrBaseMissing) || errors.Is(err, git.ErrBaseUnrelated) {
 		return
 	}
 	if err != nil {
@@ -524,6 +564,30 @@ func (cs *CwdSyncer) measure(ctx context.Context, look *cwdLook, config workflow
 	}
 
 	look.diffStat = &agentstore.DiffStat{Added: stat.Added, Removed: stat.Removed}
+}
+
+type readStandingParams struct {
+	Owned map[string]worktreestore.Worktree
+	Base  string
+}
+
+func (cs *CwdSyncer) readStanding(ctx context.Context, look *cwdLook, params readStandingParams) {
+	worktree, ok := params.Owned[look.agent.ID]
+	if !ok || look.removed || worktree.Dir != filepath.Clean(look.agent.Cwd) {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, standingReadTimeout)
+	defer cancel()
+
+	standing := cs.checkouts.ReadStanding(ctx, worktrees.ReadStandingParams{
+		Dir:      worktree.Dir,
+		Readable: worktree.Readable,
+		Base:     params.Base,
+		HeadSHA:  look.head.SHA,
+	})
+	look.worktree = &worktree
+	look.standing = &standing
 }
 
 // keepDiffStat leaves the row's diff stat standing when git could not measure the checkout.
@@ -539,4 +603,12 @@ func sequenceOf(sequence git.Sequence) agentstore.Sequence {
 	}
 
 	return agentstore.Sequence(sequence)
+}
+
+func isStandingUnchanged(stored *worktreestore.Standing, read worktreestore.Standing) bool {
+	return stored != nil &&
+		stored.Dirty == read.Dirty &&
+		stored.Sequencing == read.Sequencing &&
+		stored.Unlanded == read.Unlanded &&
+		stored.Error == read.Error
 }

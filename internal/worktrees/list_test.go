@@ -599,8 +599,14 @@ func (f *worktreeFixture) readStanding(t *testing.T, dir string) worktreestore.S
 
 func (f *worktreeFixture) newInspector() *Inspector {
 	return NewInspector(NewInspectorParams{
-		Lister:    f.lister,
-		Git:       f.git,
+		Lister: f.lister,
+		Git:    f.git,
+		Checkouts: NewCheckoutReader(NewCheckoutReaderParams{
+			Git: f.git,
+			Now: func() time.Time {
+				return f.now
+			},
+		}),
 		Workflows: f.stores.Workflows,
 		Worktrees: f.worktrees,
 		Now: func() time.Time {
