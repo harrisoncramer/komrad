@@ -81,7 +81,7 @@ func (s *Service) PlanRebase(ctx context.Context, agentID string) (*RebasePlan, 
 		return nil, err
 	}
 
-	return s.plan(ctx, *target)
+	return s.planRebase(ctx, *target)
 }
 
 // rebaseEligible answers the agent when a rebase is its to have, which a branch komrad did not
@@ -99,8 +99,8 @@ func (s *Service) rebaseEligible(ctx context.Context, agentID string) (*checkout
 	return target, nil
 }
 
-// readTreeState reads the checkout and refuses one a rebase may not start on.
-func (s *Service) readTreeState(ctx context.Context, agent agentstore.Agent) (git.TreeState, error) {
+// readRebaseTreeState reads the checkout and refuses one a rebase may not start on.
+func (s *Service) readRebaseTreeState(ctx context.Context, agent agentstore.Agent) (git.TreeState, error) {
 	state, err := s.rebaser.ReadTreeState(ctx, agent.Cwd)
 	if err != nil {
 		return git.TreeState{}, err
@@ -112,10 +112,10 @@ func (s *Service) readTreeState(ctx context.Context, agent agentstore.Agent) (gi
 	return state, nil
 }
 
-// plan reads the checkout and the base and says what a rebase would do to them.
-func (s *Service) plan(ctx context.Context, target checkoutTarget) (*RebasePlan, error) {
+// planRebase reads the checkout and the base and says what a rebase would do to them.
+func (s *Service) planRebase(ctx context.Context, target checkoutTarget) (*RebasePlan, error) {
 	agent, flow := *target.agent, target.workflow
-	state, err := s.readTreeState(ctx, agent)
+	state, err := s.readRebaseTreeState(ctx, agent)
 	if err != nil {
 		return nil, err
 	}
@@ -163,7 +163,7 @@ func (s *Service) Rebase(ctx context.Context, agentID string) (*RebaseResult, er
 	}
 	defer unlock()
 
-	plan, err := s.plan(ctx, *target)
+	plan, err := s.planRebase(ctx, *target)
 	if err != nil {
 		return nil, err
 	}
@@ -179,14 +179,14 @@ func (s *Service) Rebase(ctx context.Context, agentID string) (*RebaseResult, er
 	result, err := s.rebase(ctx, *target)
 	if err != nil {
 		if interrupted {
-			s.tellCut(ctx, *agent, err)
+			s.tellRebaseCut(ctx, *agent, err)
 		}
 
 		return nil, err
 	}
 	result.Interrupted = interrupted
 
-	s.tell(ctx, *agent, *result)
+	s.tellRebased(ctx, *agent, *result)
 
 	return result, nil
 }
@@ -198,7 +198,7 @@ func (s *Service) rebase(ctx context.Context, target checkoutTarget) (*RebaseRes
 		return nil, err
 	}
 
-	plan, err := s.plan(ctx, target)
+	plan, err := s.planRebase(ctx, target)
 	if err != nil {
 		return nil, err
 	}
@@ -211,14 +211,14 @@ func (s *Service) rebase(ctx context.Context, target checkoutTarget) (*RebaseRes
 	}
 	defer s.checkoutSync.Wake()
 
-	if err := s.move(ctx, agent.Cwd, result); err != nil {
+	if err := s.moveRebase(ctx, agent.Cwd, result); err != nil {
 		return nil, err
 	}
 
 	s.releaseOlderParks(ctx, agent, result.ParkedRef)
 
 	if result.Conflicted {
-		s.recordStopped(ctx, agent)
+		s.recordRebaseStopped(ctx, agent)
 	}
 
 	return result, nil
@@ -233,9 +233,9 @@ func (s *Service) releaseOlderParks(ctx context.Context, agent agentstore.Agent,
 	}
 }
 
-// move brings the branch onto the base, replaying its commits from the cutoff when the base
+// moveRebase brings the branch onto the base, replaying its commits from the cutoff when the base
 // already holds some of them.
-func (s *Service) move(ctx context.Context, dir string, result *RebaseResult) error {
+func (s *Service) moveRebase(ctx context.Context, dir string, result *RebaseResult) error {
 	replay := func() error { return s.rebaser.Rebase(ctx, dir, result.BaseRef) }
 	if result.Cutoff != "" {
 		replay = func() error { return s.rebaser.RebaseOnto(ctx, dir, result.BaseRef, result.Cutoff) }
@@ -254,25 +254,25 @@ func (s *Service) move(ctx context.Context, dir string, result *RebaseResult) er
 	return nil
 }
 
-// recordStopped puts the stopped rebase on the agent's row.
-func (s *Service) recordStopped(ctx context.Context, agent agentstore.Agent) {
+// recordRebaseStopped puts the stopped rebase on the agent's row.
+func (s *Service) recordRebaseStopped(ctx context.Context, agent agentstore.Agent) {
 	if err := s.agents.SetSequenceByID(ctx, agent.ID, agentstore.SequenceRebase); err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to record that an agent's rebase stopped part-way",
 			append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
 	}
 }
 
-// tell says what happened in the agent's mailbox.
-func (s *Service) tell(ctx context.Context, agent agentstore.Agent, result RebaseResult) {
-	if err := s.record(ctx, agent.ID, rebaseOutcome{Result: &result}); err != nil {
+// tellRebased says what happened in the agent's mailbox.
+func (s *Service) tellRebased(ctx context.Context, agent agentstore.Agent, result RebaseResult) {
+	if err := s.recordRebase(ctx, agent.ID, rebaseOutcome{Result: &result}); err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to tell an agent its worktree was rebased",
 			append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
 	}
 }
 
-// tellCut says in the agent's mailbox that its turn was cut for a rebase that then failed.
-func (s *Service) tellCut(ctx context.Context, agent agentstore.Agent, failure error) {
-	if err := s.record(ctx, agent.ID, rebaseOutcome{Failure: failure.Error()}); err != nil {
+// tellRebaseCut says in the agent's mailbox that its turn was cut for a rebase that then failed.
+func (s *Service) tellRebaseCut(ctx context.Context, agent agentstore.Agent, failure error) {
+	if err := s.recordRebase(ctx, agent.ID, rebaseOutcome{Failure: failure.Error()}); err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to tell an agent its turn was cut for nothing",
 			append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
 	}
@@ -408,7 +408,7 @@ func refuseTreeState(state git.TreeState) error {
 	return nil
 }
 
-func (s *Service) record(ctx context.Context, agentID string, outcome rebaseOutcome) error {
+func (s *Service) recordRebase(ctx context.Context, agentID string, outcome rebaseOutcome) error {
 	raw, err := json.Marshal(outcome)
 	if err != nil {
 		return fmt.Errorf("failed to encode the rebase of agent %q: %w", agentID, err)

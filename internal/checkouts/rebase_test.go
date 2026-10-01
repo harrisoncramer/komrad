@@ -772,8 +772,8 @@ func TestALateRebaseRetryTellsTheLatestRebase(t *testing.T) {
 	queue := fixture.events
 	service := fixture.newService(NewServiceParams{})
 
-	require.NoError(t, service.record(t.Context(), agent.ID, rebaseOutcome{Failure: "the older rebase failed"}))
-	require.NoError(t, service.record(t.Context(), agent.ID, rebaseOutcome{Result: &RebaseResult{RebasePlan: RebasePlan{Landed: 2}, Moved: true}}))
+	require.NoError(t, service.recordRebase(t.Context(), agent.ID, rebaseOutcome{Failure: "the older rebase failed"}))
+	require.NoError(t, service.recordRebase(t.Context(), agent.ID, rebaseOutcome{Result: &RebaseResult{RebasePlan: RebasePlan{Landed: 2}, Moved: true}}))
 	stale := queue.ListEvents()[0]
 	require.NoError(t, queue.InsertTx(t.Context(), stale))
 
