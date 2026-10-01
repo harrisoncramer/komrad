@@ -39,7 +39,7 @@ func TestVimEditing(t *testing.T) {
 	t.Run("with vim on the second esc in a section goes back to the top form", func(t *testing.T) {
 		harness := openVimForms(t)
 
-		harness.press(slices.Concat([]string{"space", "w"}, spellKeys("web"), workflowSection(0), spellKeys("codex"), []string{"esc", "esc"})...)
+		harness.press(slices.Concat([]string{"space", "w"}, spellKeys("web"), openWorkflowSectionKeys(0), spellKeys("codex"), []string{"esc", "esc"})...)
 
 		frame := harness.readFrame()
 		assert.NotContains(t, frame, "Default Agent")

@@ -117,7 +117,7 @@ func TestFormsSubmit(t *testing.T) {
 		},
 		{
 			name: "the new-workflow form with worktrees sends each path list without its blank lines",
-			press: slices.Concat([]string{"space", "w"}, spellKeys("web"), workflowSection(1),
+			press: slices.Concat([]string{"space", "w"}, spellKeys("web"), openWorkflowSectionKeys(1),
 				spellKeys("develop"), []string{"tab", "tab"}, spellKeys(".env"), []string{"ctrl+j", "ctrl+j"}, spellKeys("config/local.json"),
 				[]string{"tab"}, spellKeys("node_modules"), []string{"ctrl+s"}),
 			procedure: workflowv1connect.WorkflowServiceCreateWorkflowProcedure,
@@ -610,7 +610,7 @@ func TestFormsWorkflowSections(t *testing.T) {
 	t.Run("a section opens beside the top form", func(t *testing.T) {
 		harness := openForms(t, newFormWorkflow(), newFormAuthor())
 
-		harness.press(slices.Concat([]string{"space", "w"}, spellKeys("web"), workflowSection(0))...)
+		harness.press(slices.Concat([]string{"space", "w"}, spellKeys("web"), openWorkflowSectionKeys(0))...)
 
 		frame := harness.readFrame()
 		assert.Contains(t, frame, "Default Agent")
@@ -623,7 +623,7 @@ func TestFormsWorkflowSections(t *testing.T) {
 		answerWorktreeReads(harness)
 		harness.watch(buildSnapshot(newFormWorkflow()))
 
-		harness.press(slices.Concat([]string{"space", "w"}, spellKeys("web"), workflowSection(0))...)
+		harness.press(slices.Concat([]string{"space", "w"}, spellKeys("web"), openWorkflowSectionKeys(0))...)
 
 		frame := harness.readFrame()
 		assert.Contains(t, frame, "Default Agent")
@@ -633,7 +633,7 @@ func TestFormsWorkflowSections(t *testing.T) {
 	t.Run("back keeps what the section was given and lands on the list of sections", func(t *testing.T) {
 		harness := openForms(t, newFormWorkflow(), newFormAuthor())
 
-		harness.press(slices.Concat([]string{"space", "w"}, spellKeys("web"), workflowSection(0), spellKeys("codex"), []string{"esc"})...)
+		harness.press(slices.Concat([]string{"space", "w"}, spellKeys("web"), openWorkflowSectionKeys(0), spellKeys("codex"), []string{"esc"})...)
 		assert.NotContains(t, harness.readFrame(), "Default Agent", "the section closed")
 
 		harness.press("enter")
@@ -687,7 +687,7 @@ func TestFormsWorkflowHooks(t *testing.T) {
 			return connect.NewResponse(&hookv1.ListHooksResponse{Hooks: []*hookv1.Hook{{Name: "unrunnable"}}}), nil
 		})
 
-		harness.press(append([]string{"space", "E"}, workflowSection(2)...)...)
+		harness.press(append([]string{"space", "E"}, openWorkflowSectionKeys(2)...)...)
 
 		assert.Contains(t, harness.readFrame(), "unrunnable")
 	})
@@ -757,7 +757,7 @@ func TestFormsWorkflowEventPrompts(t *testing.T) {
 	t.Run("a prompt typed under its event is sent with it", func(t *testing.T) {
 		harness := openForms(t, newFormWorkflow(), newFormAuthor())
 
-		harness.press(append([]string{"space", "E"}, workflowSection(3)...)...)
+		harness.press(append([]string{"space", "E"}, openWorkflowSectionKeys(3)...)...)
 		frame := harness.readFrame()
 		assert.Contains(t, frame, "when checks on the head are failing")
 
@@ -821,7 +821,7 @@ func TestFormsFieldEditor(t *testing.T) {
 		},
 		{
 			name:  "a list field of a workflow that makes worktrees",
-			press: slices.Concat([]string{"space", "w"}, spellKeys("web"), workflowSection(1), []string{"tab", "tab"}),
+			press: slices.Concat([]string{"space", "w"}, spellKeys("web"), openWorkflowSectionKeys(1), []string{"tab", "tab"}),
 			field: "worktree_copy_paths",
 			want: &workflowv1.CreateWorkflowRequest{
 				Name: "web",
@@ -1116,13 +1116,15 @@ func openHookForm(t *testing.T, hooks []*workflowv1.WorkflowHook, available ...s
 		})}), nil
 	})
 
-	harness.press(append([]string{"space", "E"}, workflowSection(2)...)...)
+	harness.press(append([]string{"space", "E"}, openWorkflowSectionKeys(2)...)...)
 
 	return harness
 }
 
-func workflowSection(index int) []string {
-	return slices.Concat(slices.Repeat([]string{"tab"}, 4), slices.Repeat([]string{"down"}, index), []string{"enter"})
+const workflowTopFieldCount = 4
+
+func openWorkflowSectionKeys(index int) []string {
+	return slices.Concat(slices.Repeat([]string{"tab"}, workflowTopFieldCount), slices.Repeat([]string{"down"}, index), []string{"enter"})
 }
 
 func assertSentHooks(t *testing.T, harness *panelHarness, want []*workflowv1.WorkflowHook) {
