@@ -707,7 +707,7 @@ type Layout struct {
 	InfoHeight float64 `mapstructure:"info_height"`
 	// How many lines the details under the list draw, either a share of the sidebar's height below one or a whole number of lines. The marks the hovered row is carrying are spelled out in that same room, ahead of the fields. The chrome around them is added on top, and the two together never take more than half the sidebar's height. Once the details hold the keys they grow past this to show the whole record, as far as the sidebar allows.
 	DetailsHeight float64 `mapstructure:"details_height"`
-	// How many rows of agents the triage zone at the top of the agents list draws, the agents most in need of you, the most urgent first. An agent comes with its parent and its children, and the zone keeps this height whether it is full or empty. Zero turns the zone off.
+	// How many families of agents the triage zone at the top of the agents list draws, the agents most in need of you, the most urgent first. A family is an agent with all of its children, and the zone never draws fewer rows than it has slots. Zero turns the zone off.
 	TriageRows int `mapstructure:"triage_rows"`
 }
 
@@ -1068,7 +1068,7 @@ func validateLayout(layout Layout) error {
 		return fmt.Errorf("layout.sidebar_width: %d is not a width", layout.SidebarWidth)
 	}
 	if layout.TriageRows < 0 {
-		return fmt.Errorf("layout.triage_rows: %d is not a number of rows", layout.TriageRows)
+		return fmt.Errorf("layout.triage_rows: %d is not a number of families", layout.TriageRows)
 	}
 	if err := validatePaneSize("layout.info_height", layout.InfoHeight); err != nil {
 		return err

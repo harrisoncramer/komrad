@@ -115,37 +115,24 @@ func TestTriageRows(t *testing.T) {
 			want:     []string{"asker", "third", "broken", "backend", "third", "asker", "broken", "quiet"},
 		},
 		{
-			name:     "a family with no room for the child asking waits for a slot",
+			name:     "a family with a child asking takes one slot",
 			capacity: 2,
 			rows:     append(buildTriage()[:3], buildTriageFamily()[2:4]...),
-			want:     []string{"asker", "+1 more waiting for a slot", "backend", "asker", "parent", "└ reviewer", "quiet"},
+			want:     []string{"asker", "parent", "└ reviewer", "backend", "asker", "parent", "└ reviewer", "quiet"},
 		},
 		{
-			name:     "a family keeps the child asking and leaves the rest out of the zone",
+			name:     "three families come whole with their children and a fourth waits for a slot",
 			capacity: 3,
-			rows:     append(buildTriage(), buildTriageFamily()[2], buildTriageFamily()[3], newChild("tester", "tester", "parent")),
-			want:     []string{"asker", "parent", "└ reviewer", "+2 more waiting for a slot", "backend", "third", "asker", "parent", "└ reviewer", "└ tester", "broken", "quiet"},
+			rows: append(buildTriage(),
+				newChild("tester", "tester", "asker"),
+				buildTriageFamily()[2],
+				buildTriageFamily()[3],
+				newChild("helper", "helper", "third"),
+			),
+			want: []string{"asker", "└ tester", "parent", "└ reviewer", "third", "└ helper", "+1 more waiting for a slot", "backend", "third", "└ helper", "asker", "└ tester", "parent", "└ reviewer", "broken", "quiet"},
 		},
 		{
-			name:     "every family gets a row before a child not in triage does",
-			capacity: 2,
-			rows:     append(buildTriage()[:3], buildTriage()[4], newChild("tester", "tester", "third")),
-			want:     []string{"asker", "third", "backend", "third", "└ tester", "asker", "quiet"},
-		},
-		{
-			name:     "the rows left go to the children in triage first",
-			capacity: 2,
-			rows:     []proto.Message{newLiveWorkflow("w1", "backend"), newAgentAt("quiet", "w1", 1), buildTriageFamily()[2], newChild("tester", "tester", "parent"), buildTriageFamily()[3]},
-			want:     []string{"parent", "└ reviewer", "backend", "parent", "└ reviewer", "└ tester", "quiet"},
-		},
-		{
-			name:     "a family taller than the zone leaves out the children it has no room for",
-			capacity: 1,
-			rows:     buildTriageFamily()[:4],
-			want:     []string{"parent", "backend", "parent", "└ reviewer", "quiet"},
-		},
-		{
-			name:     "a hidden child shown with no room in the zone is drawn only in the tree",
+			name:     "a hidden child shown comes into the zone with its family",
 			capacity: 1,
 			rows: []proto.Message{
 				newLiveWorkflow("w1", "backend"),
@@ -159,7 +146,7 @@ func TestTriageRows(t *testing.T) {
 				}(),
 			},
 			press: []string{"space", "h", "H"},
-			want:  []string{"asker", "backend", "asker", "└ reviewer \uf4c5", "quiet"},
+			want:  []string{"asker", "└ reviewer \uf4c5", "backend", "asker", "└ reviewer \uf4c5", "quiet"},
 		},
 	}
 
@@ -174,13 +161,13 @@ func TestTriageRows(t *testing.T) {
 	}
 }
 
-// TestTriageHeight covers the zone keeping one height however many families it holds.
+// TestTriageHeight covers the zone keeping a row for every slot however many families it holds.
 func TestTriageHeight(t *testing.T) {
 	tests := []struct {
 		name string
 		rows []proto.Message
 	}{
-		{name: "full", rows: append(buildTriage(), buildTriageFamily()[2:4]...)},
+		{name: "full", rows: append(buildTriage(), newTriageAgent("fourth", agentv1.AgentState_AGENT_STATE_WAITING, 5))},
 		{name: "part full", rows: buildTriage()[:3]},
 	}
 
