@@ -334,6 +334,11 @@ func (p *Panel) NewFieldEdited(key, text string) tea.Msg {
 	}
 }
 
+// NewMessageEdited is what the editor hands back for the review comment being written once it quits.
+func NewMessageEdited(agentID, body string) tea.Msg {
+	return messageEditedMsg{agentID: agentID, body: body}
+}
+
 // ReadScreen is the name of the screen that is up.
 func (p *Panel) ReadScreen() string {
 	return screenNames[p.model.screen]

@@ -183,6 +183,27 @@ func TestVimEditing(t *testing.T) {
 
 		assert.NotContains(t, harness.readFrame(), "here")
 	})
+
+	t.Run("a comment brought back from the editor still takes vim keys", func(t *testing.T) {
+		harness := openReviewAt(t, newReviewServer(t), panelHarnessParams{settings: ui.PanelSettings{VimMode: true}})
+
+		harness.press("c")
+		harness.send(ui.NewMessageEdited("a1", "still here\n"))
+		harness.press("esc", "b", "d", "w", "ctrl+s")
+
+		harness.assertSentTo(agentv1connect.AgentServiceCreateReviewThreadProcedure, &agentv1.CreateReviewThreadRequest{
+			AgentId:     "a1",
+			FilePath:    gittest.File,
+			OldStart:    1,
+			OldEnd:      1,
+			NewStart:    1,
+			NewEnd:      1,
+			QuotedLines: []string{" package greet"},
+			Body:        "still",
+			BaseSha:     gittest.BaseSHA,
+			SnapshotSha: gittest.SnapshotSHA,
+		})
+	})
 }
 
 // TestVimLineEditing covers vim_mode in the one-row fields: the filter, the search line and a rename.

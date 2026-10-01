@@ -175,6 +175,7 @@ func (r *reviewScreen) applyMessageEdited(h host, s panelShared, msg messageEdit
 		Body:        strings.TrimRight(msg.body, "\n"),
 		Width:       reviewInputWidth(r.measurePopupInner(s)),
 		Keys:        formKeys(),
+		Register:    s.register,
 	})
 	r.threads.editor = input
 }
