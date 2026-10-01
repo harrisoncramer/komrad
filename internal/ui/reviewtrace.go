@@ -177,9 +177,11 @@ func traceAnchors(ctx context.Context, params traceAnchorsParams) (map[string]di
 	}
 
 	results := position.Transform(position.TransformParams{
-		Positions: xslice.Map(params.Anchors, func(place traceAnchor) position.Position { return place.Position }),
-		Mappings:  mappings,
-		Policy:    position.FileOnConflict,
+		Positions: xslice.Map(params.Anchors, func(anchor traceAnchor) position.Position {
+			return anchor.Position
+		}),
+		Mappings: mappings,
+		Policy:   position.FileOnConflict,
 	})
 
 	traced := map[string]diffview.Traced{}
