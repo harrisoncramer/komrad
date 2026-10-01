@@ -147,8 +147,7 @@ func TestTriageRows(t *testing.T) {
 	}
 }
 
-// TestTriageHeight covers the zone keeping one height however many families it holds, so the tree
-// under it stays put.
+// TestTriageHeight covers the zone keeping one height however many families it holds.
 func TestTriageHeight(t *testing.T) {
 	listings := map[string][]proto.Message{
 		"full":      append(buildTriage(), buildTriageFamily()[2:4]...),
