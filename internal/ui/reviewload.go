@@ -181,7 +181,7 @@ func loadReviewCmd(m *model, params loadReviewCmdParams) tea.Cmd {
 			return reviewLoadedMsg{agentID: agentID, err: err}
 		}
 
-		settled, err := settleReviewRound(ctx, settleReviewRoundParams{
+		picked, err := pickReviewRound(ctx, pickReviewRoundParams{
 			Agents:  agents,
 			AgentID: agentID,
 			Record:  record,
@@ -191,7 +191,7 @@ func loadReviewCmd(m *model, params loadReviewCmdParams) tea.Cmd {
 			return reviewLoadedMsg{agentID: agentID, err: err}
 		}
 
-		round, rounds := settled.round, settled.rounds
+		round, rounds := picked.round, picked.rounds
 
 		loaded, err := loadRoundPatch(ctx, loadRoundPatchParams{
 			Git:     repo,
@@ -235,7 +235,7 @@ func loadReviewCmd(m *model, params loadReviewCmdParams) tea.Cmd {
 			viewed:         viewed,
 			earlier:        earlier,
 			earlierAt:      releasedAtOf(record.reviews, round),
-			pinned:         settled.pinned,
+			pinned:         picked.pinned,
 			chapters:       chapters,
 			rounds:         rounds,
 			replayed:       loaded.replayed,
@@ -245,7 +245,7 @@ func loadReviewCmd(m *model, params loadReviewCmdParams) tea.Cmd {
 			originBase:     loaded.origin.base,
 			originHead:     loaded.origin.head,
 			originFellBack: loaded.origin.fellBack,
-			notice:         settled.notice,
+			notice:         picked.notice,
 			since: changedSinceLastReview(ctx, changedSinceLastReviewParams{
 				Git:         repo,
 				Dir:         dir,
@@ -345,45 +345,45 @@ func resolveReviewRange(rounds []*agentv1.ReviewRound, spec diffSpec) (*reviewRa
 	return span, nil
 }
 
-type settledRound struct {
+type pickedRound struct {
 	round  *agentv1.ReviewRound
 	rounds []*agentv1.ReviewRound
 	pinned bool
 	notice string
 }
 
-type settleReviewRoundParams struct {
+type pickReviewRoundParams struct {
 	Agents  agentReads
 	AgentID string
 	Record  *reviewRecord
 	Fresh   bool
 }
 
-func settleReviewRound(ctx context.Context, params settleReviewRoundParams) (*settledRound, error) {
-	settled := &settledRound{rounds: params.Record.rounds}
+func pickReviewRound(ctx context.Context, params pickReviewRoundParams) (*pickedRound, error) {
+	picked := &pickedRound{rounds: params.Record.rounds}
 	if !params.Fresh {
-		settled.round, settled.pinned = findPendingRound(settled.rounds, params.Record.openBatch)
+		picked.round, picked.pinned = findPendingRound(picked.rounds, params.Record.openBatch)
 	}
 
-	if settled.round != nil {
-		return settled, nil
+	if picked.round != nil {
+		return picked, nil
 	}
 
 	opened, err := params.Agents.OpenReviewRound(ctx, connect.NewRequest(&agentv1.OpenReviewRoundRequest{
 		AgentId: params.AgentID,
 	}))
 	switch {
-	case connect.CodeOf(err) == connect.CodeFailedPrecondition && len(settled.rounds) > 0:
-		settled.round = settled.rounds[len(settled.rounds)-1]
-		settled.notice = "a rebase or merge is part way through, so this is the work as it stood before it"
+	case connect.CodeOf(err) == connect.CodeFailedPrecondition && len(picked.rounds) > 0:
+		picked.round = picked.rounds[len(picked.rounds)-1]
+		picked.notice = "a rebase or merge is part way through, so this is the work as it stood before it"
 	case err != nil:
 		return nil, err
 	default:
-		settled.round = opened.Msg.GetRound()
-		settled.rounds = withRound(settled.rounds, settled.round)
+		picked.round = opened.Msg.GetRound()
+		picked.rounds = withRound(picked.rounds, picked.round)
 	}
 
-	return settled, nil
+	return picked, nil
 }
 
 type roundPatch struct {
