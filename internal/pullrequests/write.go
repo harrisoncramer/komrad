@@ -2,7 +2,6 @@ package pullrequests
 
 import (
 	"context"
-	"fmt"
 	"net/url"
 
 	"komrad/internal/forge"
@@ -105,14 +104,9 @@ func (w *Writer) forgeFor(ctx context.Context, address string) (string, forge.Fo
 	}
 
 	host := parsed.Hostname()
-	connection, err := w.forges.ConnectionFor(ctx, host)
+	_, f, err := w.forges.Open(ctx, host)
 	if err != nil {
-		return "", nil, fmt.Errorf("failed to find the forge for %s: %w", host, err)
-	}
-
-	f, err := w.forges.ForConnection(*connection)
-	if err != nil {
-		return "", nil, fmt.Errorf("failed to build the forge for %s: %w", host, err)
+		return "", nil, err
 	}
 
 	return host, f, nil

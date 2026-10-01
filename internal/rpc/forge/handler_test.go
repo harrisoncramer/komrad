@@ -77,19 +77,14 @@ func (f *fakeConnector) SetVerifiedAt(_ context.Context, _ string, at *time.Time
 	return nil
 }
 
-// ConnectionFor records the host and answers the first connection unless err refuses it.
-func (f *fakeConnector) ConnectionFor(_ context.Context, host string) (*forgestore.Connection, error) {
+// Open records the host and answers the first connection and forge unless err refuses it.
+func (f *fakeConnector) Open(_ context.Context, host string) (*forgestore.Connection, forge.Forge, error) {
 	f.hosts = append(f.hosts, host)
 	if f.err != nil {
-		return nil, f.err
+		return nil, nil, f.err
 	}
 
-	return &f.connections[0], nil
-}
-
-// ForConnection answers forge.
-func (f *fakeConnector) ForConnection(forgestore.Connection) (forge.Forge, error) {
-	return f.forge, nil
+	return &f.connections[0], f.forge, nil
 }
 
 // TestForgeRefusalsMapToCodes pins the code each refusal reaches the caller as.
