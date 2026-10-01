@@ -108,6 +108,25 @@ func TestVimEditing(t *testing.T) {
 		assert.Equal(t, "g", create.GetPrompt())
 	})
 
+	t.Run("j above only fields that are not text stays on the field", func(t *testing.T) {
+		harness := newPanelHarness(t, panelHarnessParams{settings: ui.PanelSettings{VimMode: true}})
+		answerWorktreeReads(harness)
+		harness.watch(buildSnapshot(newConfiguredWorkflow(), newFormAuthor()))
+		harness.press("g", "g")
+
+		harness.press(slices.Concat([]string{"c"}, spellKeys("go"), slices.Repeat([]string{"tab"}, 4), spellKeys("ab"), []string{"esc", "j"})...)
+		require.Empty(t, harness.readSent(agentv1connect.AgentServiceCreateAgentProcedure))
+		assert.Contains(t, harness.readFrame(), "Worktree")
+
+		harness.press("x", "ctrl+s")
+
+		sent := harness.readSent(agentv1connect.AgentServiceCreateAgentProcedure)
+		require.Len(t, sent, 1)
+		create, ok := sent[0].(*agentv1.CreateAgentRequest)
+		require.True(t, ok)
+		assert.Equal(t, "a", create.GetFlags())
+	})
+
 	t.Run("u takes back what the editor wrote into the field", func(t *testing.T) {
 		harness := newPanelHarness(t, panelHarnessParams{settings: ui.PanelSettings{Editor: "true", VimMode: true}})
 		answerWorktreeReads(harness)
