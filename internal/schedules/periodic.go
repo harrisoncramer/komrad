@@ -66,6 +66,11 @@ func (s *ScheduleService) SyncRegistration(ctx context.Context, id string) error
 	return s.applyRegistration(schedule)
 }
 
+// syncAfterWrite registers a committed write even when the caller has gone.
+func (s *ScheduleService) syncAfterWrite(ctx context.Context, id string) error {
+	return s.SyncRegistration(context.WithoutCancel(ctx), id)
+}
+
 func (s *ScheduleService) applyRegistration(schedule *schedulestore.Schedule) error {
 	if !isArmable(schedule) {
 		s.disarm(schedule.ID)
