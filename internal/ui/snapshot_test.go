@@ -305,6 +305,11 @@ func TestSnapshotForge(t *testing.T) {
 			want:  view.ForgeChangesRequested,
 		},
 		{
+			name:  "re-review requested",
+			state: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_REREVIEW_REQUESTED,
+			want:  view.ForgeRereviewRequested,
+		},
+		{
 			name:  "draft",
 			state: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_DRAFT,
 			want:  view.ForgeDraft,

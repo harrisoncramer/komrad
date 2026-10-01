@@ -429,6 +429,7 @@ func isPullRequestOpen(state pullrequestv1.PullRequestState) bool {
 		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED,
 		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED_WAITING,
 		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHANGES_REQUESTED,
+		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_REREVIEW_REQUESTED,
 		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_DRAFT,
 		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_FAILING,
 		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CONFLICTING,
@@ -445,7 +446,7 @@ func isPullRequestOpen(state pullrequestv1.PullRequestState) bool {
 }
 
 // isFinishedImplementer reports whether a top-level implementer has finished its turn with nothing
-// under it still working.
+// under it still working and no reviewer asked to look again.
 func isFinishedImplementer(s triageSubject) bool {
 	agent := s.item.Agent
 
@@ -453,7 +454,8 @@ func isFinishedImplementer(s triageSubject) bool {
 		displayState(s.item) == panel.StateIdle &&
 		agent.Role == panel.RoleImplementer &&
 		agent.ParentAgentID == nil &&
-		!s.hasThinkingChild
+		!s.hasThinkingChild &&
+		s.item.PullRequest.State != pullrequestv1.PullRequestState_PULL_REQUEST_STATE_REREVIEW_REQUESTED
 }
 
 // findThinkingParents is the ids of the agents with a child at work.

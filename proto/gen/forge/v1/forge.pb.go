@@ -825,6 +825,51 @@ func (x *SetForgePullRequestDraftRequest) GetDraft() bool {
 	return false
 }
 
+type RequestForgePullRequestRereviewRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The pull request's web address, whose host picks the forge connection.
+	Url           string `protobuf:"bytes,1,opt,name=url,proto3" json:"url,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RequestForgePullRequestRereviewRequest) Reset() {
+	*x = RequestForgePullRequestRereviewRequest{}
+	mi := &file_forge_v1_forge_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RequestForgePullRequestRereviewRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RequestForgePullRequestRereviewRequest) ProtoMessage() {}
+
+func (x *RequestForgePullRequestRereviewRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_forge_v1_forge_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RequestForgePullRequestRereviewRequest.ProtoReflect.Descriptor instead.
+func (*RequestForgePullRequestRereviewRequest) Descriptor() ([]byte, []int) {
+	return file_forge_v1_forge_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *RequestForgePullRequestRereviewRequest) GetUrl() string {
+	if x != nil {
+		return x.Url
+	}
+	return ""
+}
+
 type SetForgePullRequestAutoMergeRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The pull request's web address, whose host picks the forge connection.
@@ -840,7 +885,7 @@ type SetForgePullRequestAutoMergeRequest struct {
 
 func (x *SetForgePullRequestAutoMergeRequest) Reset() {
 	*x = SetForgePullRequestAutoMergeRequest{}
-	mi := &file_forge_v1_forge_proto_msgTypes[11]
+	mi := &file_forge_v1_forge_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -852,7 +897,7 @@ func (x *SetForgePullRequestAutoMergeRequest) String() string {
 func (*SetForgePullRequestAutoMergeRequest) ProtoMessage() {}
 
 func (x *SetForgePullRequestAutoMergeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_forge_v1_forge_proto_msgTypes[11]
+	mi := &file_forge_v1_forge_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -865,7 +910,7 @@ func (x *SetForgePullRequestAutoMergeRequest) ProtoReflect() protoreflect.Messag
 
 // Deprecated: Use SetForgePullRequestAutoMergeRequest.ProtoReflect.Descriptor instead.
 func (*SetForgePullRequestAutoMergeRequest) Descriptor() ([]byte, []int) {
-	return file_forge_v1_forge_proto_rawDescGZIP(), []int{11}
+	return file_forge_v1_forge_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *SetForgePullRequestAutoMergeRequest) GetUrl() string {
@@ -901,7 +946,7 @@ type ListForgePullRequestsResponse struct {
 
 func (x *ListForgePullRequestsResponse) Reset() {
 	*x = ListForgePullRequestsResponse{}
-	mi := &file_forge_v1_forge_proto_msgTypes[12]
+	mi := &file_forge_v1_forge_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -913,7 +958,7 @@ func (x *ListForgePullRequestsResponse) String() string {
 func (*ListForgePullRequestsResponse) ProtoMessage() {}
 
 func (x *ListForgePullRequestsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_forge_v1_forge_proto_msgTypes[12]
+	mi := &file_forge_v1_forge_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -926,7 +971,7 @@ func (x *ListForgePullRequestsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListForgePullRequestsResponse.ProtoReflect.Descriptor instead.
 func (*ListForgePullRequestsResponse) Descriptor() ([]byte, []int) {
-	return file_forge_v1_forge_proto_rawDescGZIP(), []int{12}
+	return file_forge_v1_forge_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *ListForgePullRequestsResponse) GetPullRequests() []*ForgePullRequest {
@@ -1023,7 +1068,10 @@ const file_forge_v1_forge_proto_rawDesc = "" +
 	"\x1fSetForgePullRequestDraftRequest\x12\x1c\n" +
 	"\x03url\x18\x01 \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\x80\x10R\x03url\x12\x14\n" +
-	"\x05draft\x18\x02 \x01(\bR\x05draft\"w\n" +
+	"\x05draft\x18\x02 \x01(\bR\x05draft\"F\n" +
+	"&RequestForgePullRequestRereviewRequest\x12\x1c\n" +
+	"\x03url\x18\x01 \x01(\tB\n" +
+	"\xbaH\ar\x05\x10\x01\x18\x80\x10R\x03url\"w\n" +
 	"#SetForgePullRequestAutoMergeRequest\x12\x1c\n" +
 	"\x03url\x18\x01 \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\x80\x10R\x03url\x12\"\n" +
@@ -1032,7 +1080,7 @@ const file_forge_v1_forge_proto_rawDesc = "" +
 	"\x1dListForgePullRequestsResponse\x12?\n" +
 	"\rpull_requests\x18\x01 \x03(\v2\x1a.forge.v1.ForgePullRequestR\fpullRequests\x12+\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tH\x00R\rnextPageToken\x88\x01\x01B\x12\n" +
-	"\x10_next_page_token2\xad\x1b\n" +
+	"\x10_next_page_token2\x9b\x1f\n" +
 	"\fForgeService\x12\xd7\x02\n" +
 	"\fConnectForge\x12\x1d.forge.v1.ConnectForgeRequest\x1a\x1e.forge.v1.ConnectForgeResponse\"\x87\x02\x9a\xb5\x18\x82\x02:\xff\x01komrad forge connect is the one caller, reading the token from stdin or a file. A generated command would take it as an argument, which every process on the machine can read, and a model handed one would be holding a credential it has no business holding.\x12\xed\x02\n" +
 	"\n" +
@@ -1041,7 +1089,8 @@ const file_forge_v1_forge_proto_rawDesc = "" +
 	"\x15ListForgePullRequests\x12&.forge.v1.ListForgePullRequestsRequest\x1a'.forge.v1.ListForgePullRequestsResponse\"\xc0\x04\x9a\xb5\x18\xb8\x04\b\x01\x10\x01\x1a\x18list_forge_pull_requests\"\x94\x04List a repository's pull requests through the forge connection for its host, a page at a time: every one opened from a branch when one is named, whatever its state, or the open ones when none is. Give the repository as a git remote spells it, and pass the next_page_token back as pagination.cursor for the next page. A repository the connection's credential cannot see is answered as not found, which is also what a repository that does not exist answers. This asks the forge itself; list_pull_requests reads what komrad has stored.B\x01\x03\x90\x02\x01\x12\xc5\x03\n" +
 	"\x15MergeForgePullRequest\x12&.forge.v1.MergeForgePullRequestRequest\x1a\x16.google.protobuf.Empty\"\xeb\x02\x9a\xb5\x18\xe6\x02\b\x01\x1a\x18merge_forge_pull_request\"\x92\x02Merge a pull request through the forge connection for its host, the way the repository merges by default. A pull request the forge will not merge, because of its checks, its reviews, its branch rules or a conflict, is refused as failed_precondition with what the forge said.:3Landing work on the base is for a person to decide.\x12\xaa\x03\n" +
 	"\x18SetForgePullRequestDraft\x12).forge.v1.SetForgePullRequestDraftRequest\x1a\x16.google.protobuf.Empty\"\xca\x02\x9a\xb5\x18\xc2\x02\b\x01\x1a\x1cset_forge_pull_request_draft\"\xd9\x01Mark a pull request a draft, or ready for review, through the forge connection for its host. A pull request already standing that way is left alone, and one that has merged or closed is refused as failed_precondition.:DSaying a pull request is ready for review is for a person to decide.\x90\x02\x02\x12\x96\x05\n" +
-	"\x1cSetForgePullRequestAutoMerge\x12-.forge.v1.SetForgePullRequestAutoMergeRequest\x1a\x16.google.protobuf.Empty\"\xae\x04\x9a\xb5\x18\xa6\x04\b\x01\x1a!set_forge_pull_request_auto_merge\"\xad\x03Ask the forge to merge a pull request on its own once its checks and reviews pass, the way the repository merges by default, or stop it from doing so, through the forge connection for its host. A pull request already standing that way is left alone. One that has merged or closed, one the forge would merge at once, a draft and one whose branch has moved past head_sha are refused as failed_precondition with what the forge said.:OLetting work land on the base without a person there is for a person to decide.\x90\x02\x02\x12\xdf\x01\n" +
+	"\x1cSetForgePullRequestAutoMerge\x12-.forge.v1.SetForgePullRequestAutoMergeRequest\x1a\x16.google.protobuf.Empty\"\xae\x04\x9a\xb5\x18\xa6\x04\b\x01\x1a!set_forge_pull_request_auto_merge\"\xad\x03Ask the forge to merge a pull request on its own once its checks and reviews pass, the way the repository merges by default, or stop it from doing so, through the forge connection for its host. A pull request already standing that way is left alone. One that has merged or closed, one the forge would merge at once, a draft and one whose branch has moved past head_sha are refused as failed_precondition with what the forge said.:OLetting work land on the base without a person there is for a person to decide.\x90\x02\x02\x12\xeb\x03\n" +
+	"\x1fRequestForgePullRequestRereview\x120.forge.v1.RequestForgePullRequestRereviewRequest\x1a\x16.google.protobuf.Empty\"\xfd\x02\x9a\xb5\x18\xf8\x02\b\x01\x1a#request_forge_pull_request_rereview\"\xfd\x01Ask every reviewer whose latest review of a pull request asks for changes to review it again, through the forge connection for its host. A pull request nobody has asked for changes on, or one that has merged or closed, is refused as failed_precondition.:OTelling a colleague the work is ready for them again is for a person to decide.\x12\xdf\x01\n" +
 	"\x0fDisconnectForge\x12 .forge.v1.DisconnectForgeRequest\x1a\x16.google.protobuf.Empty\"\x91\x01\x9a\xb5\x18\x8c\x01\b\x01\x1a\x10disconnect_forge\"8Forget a forge and the credential it was connected with.:<A person gave the credential and is the one to take it away.B#Z!komrad/proto/gen/forge/v1;forgev1b\x06proto3"
 
 var (
@@ -1056,49 +1105,52 @@ func file_forge_v1_forge_proto_rawDescGZIP() []byte {
 	return file_forge_v1_forge_proto_rawDescData
 }
 
-var file_forge_v1_forge_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
+var file_forge_v1_forge_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
 var file_forge_v1_forge_proto_goTypes = []any{
-	(*Forge)(nil),                               // 0: forge.v1.Forge
-	(*ConnectForgeRequest)(nil),                 // 1: forge.v1.ConnectForgeRequest
-	(*ConnectForgeResponse)(nil),                // 2: forge.v1.ConnectForgeResponse
-	(*ListForgesResponse)(nil),                  // 3: forge.v1.ListForgesResponse
-	(*DisconnectForgeRequest)(nil),              // 4: forge.v1.DisconnectForgeRequest
-	(*CheckForgesResponse)(nil),                 // 5: forge.v1.CheckForgesResponse
-	(*ForgeCheck)(nil),                          // 6: forge.v1.ForgeCheck
-	(*ListForgePullRequestsRequest)(nil),        // 7: forge.v1.ListForgePullRequestsRequest
-	(*ForgePullRequest)(nil),                    // 8: forge.v1.ForgePullRequest
-	(*MergeForgePullRequestRequest)(nil),        // 9: forge.v1.MergeForgePullRequestRequest
-	(*SetForgePullRequestDraftRequest)(nil),     // 10: forge.v1.SetForgePullRequestDraftRequest
-	(*SetForgePullRequestAutoMergeRequest)(nil), // 11: forge.v1.SetForgePullRequestAutoMergeRequest
-	(*ListForgePullRequestsResponse)(nil),       // 12: forge.v1.ListForgePullRequestsResponse
-	(*v1.Pagination)(nil),                       // 13: pagination.v1.Pagination
-	(*emptypb.Empty)(nil),                       // 14: google.protobuf.Empty
+	(*Forge)(nil),                                  // 0: forge.v1.Forge
+	(*ConnectForgeRequest)(nil),                    // 1: forge.v1.ConnectForgeRequest
+	(*ConnectForgeResponse)(nil),                   // 2: forge.v1.ConnectForgeResponse
+	(*ListForgesResponse)(nil),                     // 3: forge.v1.ListForgesResponse
+	(*DisconnectForgeRequest)(nil),                 // 4: forge.v1.DisconnectForgeRequest
+	(*CheckForgesResponse)(nil),                    // 5: forge.v1.CheckForgesResponse
+	(*ForgeCheck)(nil),                             // 6: forge.v1.ForgeCheck
+	(*ListForgePullRequestsRequest)(nil),           // 7: forge.v1.ListForgePullRequestsRequest
+	(*ForgePullRequest)(nil),                       // 8: forge.v1.ForgePullRequest
+	(*MergeForgePullRequestRequest)(nil),           // 9: forge.v1.MergeForgePullRequestRequest
+	(*SetForgePullRequestDraftRequest)(nil),        // 10: forge.v1.SetForgePullRequestDraftRequest
+	(*RequestForgePullRequestRereviewRequest)(nil), // 11: forge.v1.RequestForgePullRequestRereviewRequest
+	(*SetForgePullRequestAutoMergeRequest)(nil),    // 12: forge.v1.SetForgePullRequestAutoMergeRequest
+	(*ListForgePullRequestsResponse)(nil),          // 13: forge.v1.ListForgePullRequestsResponse
+	(*v1.Pagination)(nil),                          // 14: pagination.v1.Pagination
+	(*emptypb.Empty)(nil),                          // 15: google.protobuf.Empty
 }
 var file_forge_v1_forge_proto_depIdxs = []int32{
 	0,  // 0: forge.v1.ConnectForgeResponse.forge:type_name -> forge.v1.Forge
 	0,  // 1: forge.v1.ListForgesResponse.forges:type_name -> forge.v1.Forge
 	6,  // 2: forge.v1.CheckForgesResponse.checks:type_name -> forge.v1.ForgeCheck
 	0,  // 3: forge.v1.ForgeCheck.forge:type_name -> forge.v1.Forge
-	13, // 4: forge.v1.ListForgePullRequestsRequest.pagination:type_name -> pagination.v1.Pagination
+	14, // 4: forge.v1.ListForgePullRequestsRequest.pagination:type_name -> pagination.v1.Pagination
 	8,  // 5: forge.v1.ListForgePullRequestsResponse.pull_requests:type_name -> forge.v1.ForgePullRequest
 	1,  // 6: forge.v1.ForgeService.ConnectForge:input_type -> forge.v1.ConnectForgeRequest
-	14, // 7: forge.v1.ForgeService.ListForges:input_type -> google.protobuf.Empty
-	14, // 8: forge.v1.ForgeService.CheckForges:input_type -> google.protobuf.Empty
+	15, // 7: forge.v1.ForgeService.ListForges:input_type -> google.protobuf.Empty
+	15, // 8: forge.v1.ForgeService.CheckForges:input_type -> google.protobuf.Empty
 	7,  // 9: forge.v1.ForgeService.ListForgePullRequests:input_type -> forge.v1.ListForgePullRequestsRequest
 	9,  // 10: forge.v1.ForgeService.MergeForgePullRequest:input_type -> forge.v1.MergeForgePullRequestRequest
 	10, // 11: forge.v1.ForgeService.SetForgePullRequestDraft:input_type -> forge.v1.SetForgePullRequestDraftRequest
-	11, // 12: forge.v1.ForgeService.SetForgePullRequestAutoMerge:input_type -> forge.v1.SetForgePullRequestAutoMergeRequest
-	4,  // 13: forge.v1.ForgeService.DisconnectForge:input_type -> forge.v1.DisconnectForgeRequest
-	2,  // 14: forge.v1.ForgeService.ConnectForge:output_type -> forge.v1.ConnectForgeResponse
-	3,  // 15: forge.v1.ForgeService.ListForges:output_type -> forge.v1.ListForgesResponse
-	5,  // 16: forge.v1.ForgeService.CheckForges:output_type -> forge.v1.CheckForgesResponse
-	12, // 17: forge.v1.ForgeService.ListForgePullRequests:output_type -> forge.v1.ListForgePullRequestsResponse
-	14, // 18: forge.v1.ForgeService.MergeForgePullRequest:output_type -> google.protobuf.Empty
-	14, // 19: forge.v1.ForgeService.SetForgePullRequestDraft:output_type -> google.protobuf.Empty
-	14, // 20: forge.v1.ForgeService.SetForgePullRequestAutoMerge:output_type -> google.protobuf.Empty
-	14, // 21: forge.v1.ForgeService.DisconnectForge:output_type -> google.protobuf.Empty
-	14, // [14:22] is the sub-list for method output_type
-	6,  // [6:14] is the sub-list for method input_type
+	12, // 12: forge.v1.ForgeService.SetForgePullRequestAutoMerge:input_type -> forge.v1.SetForgePullRequestAutoMergeRequest
+	11, // 13: forge.v1.ForgeService.RequestForgePullRequestRereview:input_type -> forge.v1.RequestForgePullRequestRereviewRequest
+	4,  // 14: forge.v1.ForgeService.DisconnectForge:input_type -> forge.v1.DisconnectForgeRequest
+	2,  // 15: forge.v1.ForgeService.ConnectForge:output_type -> forge.v1.ConnectForgeResponse
+	3,  // 16: forge.v1.ForgeService.ListForges:output_type -> forge.v1.ListForgesResponse
+	5,  // 17: forge.v1.ForgeService.CheckForges:output_type -> forge.v1.CheckForgesResponse
+	13, // 18: forge.v1.ForgeService.ListForgePullRequests:output_type -> forge.v1.ListForgePullRequestsResponse
+	15, // 19: forge.v1.ForgeService.MergeForgePullRequest:output_type -> google.protobuf.Empty
+	15, // 20: forge.v1.ForgeService.SetForgePullRequestDraft:output_type -> google.protobuf.Empty
+	15, // 21: forge.v1.ForgeService.SetForgePullRequestAutoMerge:output_type -> google.protobuf.Empty
+	15, // 22: forge.v1.ForgeService.RequestForgePullRequestRereview:output_type -> google.protobuf.Empty
+	15, // 23: forge.v1.ForgeService.DisconnectForge:output_type -> google.protobuf.Empty
+	15, // [15:24] is the sub-list for method output_type
+	6,  // [6:15] is the sub-list for method input_type
 	6,  // [6:6] is the sub-list for extension type_name
 	6,  // [6:6] is the sub-list for extension extendee
 	0,  // [0:6] is the sub-list for field type_name
@@ -1112,14 +1164,14 @@ func file_forge_v1_forge_proto_init() {
 	file_forge_v1_forge_proto_msgTypes[0].OneofWrappers = []any{}
 	file_forge_v1_forge_proto_msgTypes[7].OneofWrappers = []any{}
 	file_forge_v1_forge_proto_msgTypes[8].OneofWrappers = []any{}
-	file_forge_v1_forge_proto_msgTypes[12].OneofWrappers = []any{}
+	file_forge_v1_forge_proto_msgTypes[13].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_forge_v1_forge_proto_rawDesc), len(file_forge_v1_forge_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   13,
+			NumMessages:   14,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

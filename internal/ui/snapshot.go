@@ -264,6 +264,8 @@ func snapshotForge(item panel.AgentRow) view.Forge {
 		return view.ForgeApprovedWaiting
 	case pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHANGES_REQUESTED:
 		return view.ForgeChangesRequested
+	case pullrequestv1.PullRequestState_PULL_REQUEST_STATE_REREVIEW_REQUESTED:
+		return view.ForgeRereviewRequested
 	case pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHECKS_RUNNING:
 		return view.ForgeChecksRunning
 	case pullrequestv1.PullRequestState_PULL_REQUEST_STATE_DRAFT:

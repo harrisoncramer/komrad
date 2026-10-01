@@ -579,6 +579,84 @@ func TestSetDraft(t *testing.T) {
 	}
 }
 
+// TestRequestRereview covers asking each reviewer who requested changes to review again, and
+// refusing a finished merge request or one nobody asked changes of.
+func TestRequestRereview(t *testing.T) {
+	t.Parallel()
+
+	const address = "https://gitlab.com/harrisoncramer/komrad/-/merge_requests/7"
+
+	target := func(state, reviewers string) answer {
+		return answer{body: `{"data":{"project":{"mergeRequest":{"state":"` + state + `","reviewers":{"nodes":[` + reviewers + `]}}}}}`}
+	}
+	const reviewers = `{"id":"gid://gitlab/User/1","mergeRequestInteraction":{"reviewState":"REQUESTED_CHANGES"}},{"id":"gid://gitlab/User/2","mergeRequestInteraction":{"reviewState":"REVIEWED"}},{"id":"gid://gitlab/User/3","mergeRequestInteraction":{"reviewState":"REQUESTED_CHANGES"}}`
+	rereviewed := answer{body: `{"data":{"mergeRequestReviewerRereview":{"errors":[]}}}`}
+
+	tests := []struct {
+		name      string
+		answers   map[string]answer
+		wantErr   error
+		wantUsers []any
+	}{
+		{
+			name:      "every reviewer asking for changes is asked again",
+			answers:   map[string]answer{"RereviewTarget": target("opened", reviewers), "Rereview": rereviewed},
+			wantUsers: []any{"gid://gitlab/User/1", "gid://gitlab/User/3"},
+		},
+		{
+			name:    "a merged merge request is refused",
+			answers: map[string]answer{"RereviewTarget": target("merged", reviewers)},
+			wantErr: forge.ErrNoRereview,
+		},
+		{
+			name:    "a closed merge request is refused",
+			answers: map[string]answer{"RereviewTarget": target("closed", reviewers)},
+			wantErr: forge.ErrNoRereview,
+		},
+		{
+			name:    "a merge request nobody asked changes of is refused",
+			answers: map[string]answer{"RereviewTarget": target("opened", `{"id":"gid://gitlab/User/2","mergeRequestInteraction":{"reviewState":"REVIEWED"}}`)},
+			wantErr: forge.ErrNoRereview,
+		},
+		{
+			name: "a review request gitlab will not make",
+			answers: map[string]answer{
+				"RereviewTarget": target("opened", reviewers),
+				"Rereview":       {body: `{"data":{"mergeRequestReviewerRereview":{"errors":["You don't have permission to request a review"]}}}`},
+			},
+			wantErr:   forge.ErrNoRereview,
+			wantUsers: []any{"gid://gitlab/User/1"},
+		},
+		{
+			name:    "a merge request gitlab does not have",
+			answers: map[string]answer{"RereviewTarget": {body: `{"data":{"project":{"mergeRequest":null}}}`}},
+			wantErr: forge.ErrNotFound,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			f, _, fake := serve(t, tt.answers)
+
+			err := f.RequestRereview(t.Context(), address)
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+			} else {
+				require.NoError(t, err)
+			}
+			var users []any
+			for _, sent := range xslice.Filter(fake.calls, func(c call) bool { return c.Operation == "Rereview" }) {
+				assert.Equal(t, "harrisoncramer/komrad", sent.Variables["path"])
+				assert.Equal(t, "7", sent.Variables["iid"])
+				users = append(users, sent.Variables["user"])
+			}
+			assert.Equal(t, tt.wantUsers, users)
+		})
+	}
+}
+
 // TestSetAutoMerge covers queueing a merge request held to the head the person saw, cancelling
 // it, leaving one alone that already stands that way, and refusing one GitLab would merge at once
 // or that has finished before GitLab is asked to change it.

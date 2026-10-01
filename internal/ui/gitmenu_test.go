@@ -626,6 +626,69 @@ func TestGitMenuTogglesDraft(t *testing.T) {
 	}
 }
 
+// TestGitMenuRequestsRereview covers the entry asking the reviewers who requested changes to look
+// again, and doing nothing on a pull request nobody asked changes of.
+func TestGitMenuRequestsRereview(t *testing.T) {
+	t.Parallel()
+
+	changesRequested := newOpenPullRequest()
+	changesRequested.State = pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHANGES_REQUESTED
+	rereviewRequested := newOpenPullRequest()
+	rereviewRequested.State = pullrequestv1.PullRequestState_PULL_REQUEST_STATE_REREVIEW_REQUESTED
+
+	tests := []struct {
+		name        string
+		pullRequest *pullrequestv1.PullRequest
+		refuse      error
+		wantSent    []proto.Message
+		wantMessage string
+	}{
+		{
+			name:        "a pull request with changes requested is sent back to its reviewers",
+			pullRequest: changesRequested,
+			wantSent:    []proto.Message{&forgev1.RequestForgePullRequestRereviewRequest{Url: pullRequestURL}},
+			wantMessage: "api: #740 is waiting on another review",
+		},
+		{
+			name:        "a pull request already waiting on another review is asked again",
+			pullRequest: rereviewRequested,
+			wantSent:    []proto.Message{&forgev1.RequestForgePullRequestRereviewRequest{Url: pullRequestURL}},
+			wantMessage: "api: #740 is waiting on another review",
+		},
+		{
+			name:        "a request the forge refuses says why",
+			pullRequest: changesRequested,
+			refuse:      connect.NewError(connect.CodeFailedPrecondition, errors.New("nobody has asked for changes on #740")),
+			wantSent:    []proto.Message{&forgev1.RequestForgePullRequestRereviewRequest{Url: pullRequestURL}},
+			wantMessage: "nobody has asked for changes on #740",
+		},
+		{
+			name:        "a pull request nobody asked changes of sends nothing",
+			pullRequest: newOpenPullRequest(),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			harness := openGitMenu(t, append(buildGitAgent(), tt.pullRequest)...)
+			if tt.refuse != nil {
+				harness.refuse(forgev1connect.ForgeServiceRequestForgePullRequestRereviewProcedure, tt.refuse)
+			}
+			require.Contains(t, harness.readFrame(), "re-request review")
+
+			harness.press("v")
+
+			harness.assertSentTo(forgev1connect.ForgeServiceRequestForgePullRequestRereviewProcedure, tt.wantSent...)
+			if tt.wantMessage != "" {
+				assert.NotContains(t, harness.readFrame(), gitMenuEntry)
+				assert.Contains(t, readOpenMessages(harness), tt.wantMessage)
+			}
+		})
+	}
+}
+
 // TestGitMenuOpensThePullRequest covers the entry handing the browser the current pull request.
 func TestGitMenuOpensThePullRequest(t *testing.T) {
 	t.Parallel()

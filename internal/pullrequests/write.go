@@ -91,6 +91,23 @@ func (w *Writer) SetPullRequestAutoMerge(ctx context.Context, params forge.SetAu
 	return nil
 }
 
+// RequestPullRequestRereview asks everyone who requested changes on the pull request at the
+// address to review it again and heats its host in the pull request sync.
+func (w *Writer) RequestPullRequestRereview(ctx context.Context, address string) error {
+	host, f, err := w.forgeFor(ctx, address)
+	if err != nil {
+		return err
+	}
+
+	if err := f.RequestRereview(ctx, address); err != nil {
+		return err
+	}
+
+	w.sync.Heat(host)
+
+	return nil
+}
+
 // forgeFor is the host of the pull request address and the forge connected for it.
 func (w *Writer) forgeFor(ctx context.Context, address string) (string, forge.Forge, error) {
 	parsed, err := url.Parse(address)

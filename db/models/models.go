@@ -665,7 +665,7 @@ type PullRequest struct {
 	ClosedAt  *time.Time
 	// When komrad first inserted the row.
 	FirstSeenAt time.Time
-	// Where the forge says the reviews stand, in komrad's own words: pending, approved or changes_requested, null while it has said nothing.
+	// Where the forge says the reviews stand, in komrad's own words: pending, approved, changes_requested or rereview_requested, null while it has said nothing.
 	ReviewDecision *string
 	// Where the forge says the checks on the head commit stand, in komrad's own words: pending, passing or failing, null while it reports none.
 	Checks *string

@@ -39,12 +39,13 @@ func (f *fakeForge) List(_ context.Context, params forge.ListParams) (*forge.Pag
 	}, nil
 }
 
-// fakeWriter records each merge, draft change and auto-merge change and answers err.
+// fakeWriter records each merge, draft change, auto-merge change and re-review and answers err.
 type fakeWriter struct {
 	err        error
 	merged     []string
 	drafted    []bool
 	autoMerged []forge.SetAutoMergeParams
+	rereviewed []string
 }
 
 func (f *fakeWriter) MergePullRequest(_ context.Context, address string) error {
@@ -61,6 +62,12 @@ func (f *fakeWriter) SetPullRequestDraft(_ context.Context, _ string, draft bool
 
 func (f *fakeWriter) SetPullRequestAutoMerge(_ context.Context, params forge.SetAutoMergeParams) error {
 	f.autoMerged = append(f.autoMerged, params)
+
+	return f.err
+}
+
+func (f *fakeWriter) RequestPullRequestRereview(_ context.Context, address string) error {
+	f.rereviewed = append(f.rereviewed, address)
 
 	return f.err
 }
@@ -219,6 +226,45 @@ func TestSetForgePullRequestDraft(t *testing.T) {
 			_, err := service.SetForgePullRequestDraft(t.Context(), connect.NewRequest(&forgev1.SetForgePullRequestDraftRequest{Url: address, Draft: true}))
 
 			assert.Equal(t, []bool{true}, writer.drafted)
+			if tt.wantCode != 0 {
+				require.Error(t, err)
+				assert.Equal(t, tt.wantCode, connect.CodeOf(err))
+
+				return
+			}
+			require.NoError(t, err)
+		})
+	}
+}
+
+// TestRequestForgePullRequestRereview covers the address reaching the writer and a forge's
+// refusal coming back as failed_precondition.
+func TestRequestForgePullRequestRereview(t *testing.T) {
+	const address = "https://github.com/harrisoncramer/komrad/pull/1"
+
+	tests := []struct {
+		name     string
+		refuse   error
+		wantCode connect.Code
+	}{
+		{
+			name:     "a pull request nobody asked changes of",
+			refuse:   forge.ErrNoRereview.Saying("nobody has asked for changes on #1"),
+			wantCode: connect.CodeFailedPrecondition,
+		},
+		{
+			name: "a pull request the forge asks for another review of",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			writer := &fakeWriter{err: tt.refuse}
+			service := forgev1komrad.ForgeServiceAdapter{Impl: NewHandler(&fakeConnector{}, writer)}
+
+			_, err := service.RequestForgePullRequestRereview(t.Context(), connect.NewRequest(&forgev1.RequestForgePullRequestRereviewRequest{Url: address}))
+
+			assert.Equal(t, []string{address}, writer.rereviewed)
 			if tt.wantCode != 0 {
 				require.Error(t, err)
 				assert.Equal(t, tt.wantCode, connect.CodeOf(err))

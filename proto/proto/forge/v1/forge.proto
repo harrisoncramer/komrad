@@ -147,6 +147,14 @@ message SetForgePullRequestDraftRequest {
   bool draft = 2;
 }
 
+message RequestForgePullRequestRereviewRequest {
+  // The pull request's web address, whose host picks the forge connection.
+  string url = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 2048
+  }];
+}
+
 message SetForgePullRequestAutoMergeRequest {
   // The pull request's web address, whose host picks the forge connection.
   string url = 1 [(buf.validate.field).string = {
@@ -233,6 +241,15 @@ service ForgeService {
       name: "set_forge_pull_request_auto_merge"
       description: "Ask the forge to merge a pull request on its own once its checks and reviews pass, the way the repository merges by default, or stop it from doing so, through the forge connection for its host. A pull request already standing that way is left alone. One that has merged or closed, one the forge would merge at once, a draft and one whose branch has moved past head_sha are refused as failed_precondition with what the forge said."
       reason: "Letting work land on the base without a person there is for a person to decide."
+    };
+  }
+  rpc RequestForgePullRequestRereview(RequestForgePullRequestRereviewRequest) returns (google.protobuf.Empty) {
+    option (annotation.v1.surfaces) = {
+      cli: true
+      mcp: false
+      name: "request_forge_pull_request_rereview"
+      description: "Ask every reviewer whose latest review of a pull request asks for changes to review it again, through the forge connection for its host. A pull request nobody has asked for changes on, or one that has merged or closed, is refused as failed_precondition."
+      reason: "Telling a colleague the work is ready for them again is for a person to decide."
     };
   }
   rpc DisconnectForge(DisconnectForgeRequest) returns (google.protobuf.Empty) {

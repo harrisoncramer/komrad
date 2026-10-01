@@ -328,6 +328,8 @@ type GitKeys struct {
 	// Bring the hovered agent's worktree up to date on the latest base, which asks first and
 	// says what it would do to the branch and to the files.
 	Rebase []string `mapstructure:"rebase" default:"r"`
+	// Ask everyone who requested changes on the hovered agent's pull request to review it again.
+	RequestRereview []string `mapstructure:"request_rereview" default:"v"`
 	// Mark the hovered agent's pull request a draft, or ready for review when it is one.
 	ToggleDraft []string `mapstructure:"toggle_draft" default:"d"`
 }

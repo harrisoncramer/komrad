@@ -165,7 +165,7 @@ table "pull_requests" {
   column "review_decision" {
     null    = true
     type    = text
-    comment = "Where the forge says the reviews stand, in komrad's own words: pending, approved or changes_requested, null while it has said nothing."
+    comment = "Where the forge says the reviews stand, in komrad's own words: pending, approved, changes_requested or rereview_requested, null while it has said nothing."
   }
   column "checks" {
     null    = true

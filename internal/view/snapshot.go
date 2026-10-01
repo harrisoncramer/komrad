@@ -62,6 +62,7 @@ const (
 	ForgeApproved
 	ForgeApprovedWaiting
 	ForgeChangesRequested
+	ForgeRereviewRequested
 	ForgeChecksRunning
 	ForgeDraft
 	ForgeFailing

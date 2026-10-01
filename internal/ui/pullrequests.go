@@ -69,6 +69,7 @@ func pullRequestWords(pullRequest panel.PullRequest) string {
 		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED,
 		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED_WAITING,
 		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHANGES_REQUESTED,
+		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_REREVIEW_REQUESTED,
 		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_DRAFT:
 	case pullrequestv1.PullRequestState_PULL_REQUEST_STATE_UNSPECIFIED,
 		pullrequestv1.PullRequestState_PULL_REQUEST_STATE_UNREAD,
@@ -114,6 +115,8 @@ func pullRequestStateWord(state pullrequestv1.PullRequestState) string {
 		return "ready to merge"
 	case pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHANGES_REQUESTED:
 		return "changes requested"
+	case pullrequestv1.PullRequestState_PULL_REQUEST_STATE_REREVIEW_REQUESTED:
+		return "re-review requested"
 	case pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHECKS_RUNNING:
 		return "checks running"
 	case pullrequestv1.PullRequestState_PULL_REQUEST_STATE_DRAFT:
