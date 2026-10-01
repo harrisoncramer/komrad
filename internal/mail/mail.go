@@ -237,15 +237,25 @@ func (s *MailService) SendFromKomrad(ctx context.Context, params SendFromKomradP
 	}
 
 	held, err := s.mail.GetUnreadAbout(ctx, recipient.ID, params.Kind, params.SubjectID)
-	if errors.Is(err, store.ErrNotFound) {
-		if params.OnlyRewrite {
+	if errors.Is(err, store.ErrNotFound) && params.OnlyRewrite {
+		return nil, ErrNothingUnread
+	}
+	if err != nil && !errors.Is(err, store.ErrNotFound) {
+		return nil, err
+	}
+
+	workflow, err := s.getWorkflow(ctx, recipient.WorkflowID)
+	if err != nil {
+		return nil, err
+	}
+
+	if held == nil {
+		if isEveryEventMuted(workflow, params.Events) {
 			return nil, ErrNothingUnread
 		}
 		if err := s.requireRoom(ctx, *recipient); err != nil {
 			return nil, err
 		}
-	} else if err != nil {
-		return nil, err
 	}
 
 	deadline, err := s.config.GetDeliveryDeadline()
@@ -254,10 +264,7 @@ func (s *MailService) SendFromKomrad(ctx context.Context, params SendFromKomradP
 	}
 
 	carried := carryEvents(held, params)
-	prompts, err := s.listEventPrompts(ctx, recipient.WorkflowID, carried)
-	if err != nil {
-		return nil, err
-	}
+	prompts := listEventPrompts(workflow, carried)
 
 	return s.mail.UpsertFromKomrad(ctx, mailstore.UpsertFromKomradParams{
 		FromName:  KomradSenderName,
@@ -557,27 +564,35 @@ func carryEvents(held *mailstore.Mail, params SendFromKomradParams) []string {
 	return carried
 }
 
-func (s *MailService) listEventPrompts(ctx context.Context, workflowID string, events []string) ([]eventPrompt, error) {
-	if len(events) == 0 {
-		return nil, nil
-	}
-
+func (s *MailService) getWorkflow(ctx context.Context, workflowID string) (*workflowstore.Workflow, error) {
 	workflow, err := s.workflows.Get(ctx, workflowID)
 	if errors.Is(err, store.ErrNotFound) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
+		return &workflowstore.Workflow{}, nil
 	}
 
+	return workflow, err
+}
+
+func isEveryEventMuted(workflow *workflowstore.Workflow, events []string) bool {
+	if len(events) == 0 {
+		return false
+	}
+
+	return !slices.ContainsFunc(events, func(event string) bool { return !workflow.IsMuted(event) })
+}
+
+func listEventPrompts(workflow *workflowstore.Workflow, events []string) []eventPrompt {
 	var prompts []eventPrompt
 	for _, event := range events {
+		if workflow.IsMuted(event) {
+			continue
+		}
 		if prompt := workflow.GetEventPrompt(event); prompt != "" {
 			prompts = append(prompts, eventPrompt{event: event, prompt: prompt})
 		}
 	}
 
-	return prompts, nil
+	return prompts
 }
 
 func appendEventPrompts(body string, prompts []eventPrompt) string {

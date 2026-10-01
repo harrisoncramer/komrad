@@ -174,7 +174,7 @@ func workflowFrom(w *workflowv1.Workflow) panel.Workflow {
 			return panel.Hook{Event: hook.GetEvent(), Script: hook.GetScript()}
 		}),
 		EventPrompts: xslice.Map(w.GetEventPrompts(), func(prompt *workflowv1.WorkflowEventPrompt) panel.EventPrompt {
-			return panel.EventPrompt{Event: prompt.GetEvent(), Prompt: prompt.GetPrompt()}
+			return panel.EventPrompt{Event: prompt.GetEvent(), Prompt: prompt.GetPrompt(), Muted: prompt.GetMuted()}
 		}),
 		ArchivedAt: dates.ParsePtr(w.GetArchivedAt()),
 	}

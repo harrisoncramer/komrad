@@ -37,6 +37,8 @@ type workflowFormValues struct {
 	WorktreeDir          string
 	// EventPrompts are the workflow's prompts keyed by event.
 	EventPrompts map[string]*string
+	// EventMutes are whether each event is kept from opening mail, keyed by event.
+	EventMutes map[string]*bool
 }
 
 func workflowFormValuesFrom(cfg panel.WorkflowConfig) workflowFormValues {
@@ -61,6 +63,7 @@ func workflowFormValuesFrom(cfg panel.WorkflowConfig) workflowFormValues {
 		WorktreeDiffExclude:  strings.Join(cfg.Worktree.DiffExclude, "\n"),
 		WorktreeDir:          cfg.Worktree.Dir,
 		EventPrompts:         eventPromptsByEvent(cfg.EventPrompts),
+		EventMutes:           eventMutesByEvent(cfg.EventPrompts),
 	}
 }
 
@@ -203,6 +206,16 @@ func eventPromptsByEvent(prompts []panel.EventPrompt) map[string]*string {
 	return byEvent
 }
 
+// eventMutesByEvent is whether each event is muted, false for an event the workflow does not mute.
+func eventMutesByEvent(prompts []panel.EventPrompt) map[string]*bool {
+	byEvent := make(map[string]*bool, len(prompts))
+	for _, prompt := range prompts {
+		byEvent[prompt.Event] = &prompt.Muted
+	}
+
+	return byEvent
+}
+
 // eventPromptFor is where the form holds one event's prompt.
 func (v *workflowFormValues) eventPromptFor(event string) *string {
 	if v.EventPrompts == nil {
@@ -215,17 +228,33 @@ func (v *workflowFormValues) eventPromptFor(event string) *string {
 	return v.EventPrompts[event]
 }
 
+// eventMuteFor is where the form holds whether one event is muted.
+func (v *workflowFormValues) eventMuteFor(event string) *bool {
+	if v.EventMutes == nil {
+		v.EventMutes = make(map[string]*bool)
+	}
+	if v.EventMutes[event] == nil {
+		v.EventMutes[event] = new(bool)
+	}
+
+	return v.EventMutes[event]
+}
+
 // eventPromptList is the prompts as the wire takes them, in the order the events are listed and
-// leaving out the blank ones.
+// leaving out the events that neither prompt nor mute.
 func (v workflowFormValues) eventPromptList() []panel.EventPrompt {
 	var prompts []panel.EventPrompt
 	for _, event := range eventprompts.All() {
-		prompt, ok := v.EventPrompts[event.Name]
-		if !ok || strings.TrimSpace(*prompt) == "" {
+		var prompt string
+		if text, ok := v.EventPrompts[event.Name]; ok {
+			prompt = strings.TrimSpace(*text)
+		}
+		muted := v.EventMutes[event.Name] != nil && *v.EventMutes[event.Name]
+		if prompt == "" && !muted {
 			continue
 		}
 
-		prompts = append(prompts, panel.EventPrompt{Event: event.Name, Prompt: strings.TrimSpace(*prompt)})
+		prompts = append(prompts, panel.EventPrompt{Event: event.Name, Prompt: prompt, Muted: muted})
 	}
 
 	return prompts
@@ -422,16 +451,30 @@ func eventPromptKey(event string) string {
 	return "event_prompt." + event
 }
 
+// eventMuteKey is the form key of whether one event is muted.
+func eventMuteKey(event string) string {
+	return "event_mute." + event
+}
+
 // eventPromptFields are what the workflow asks of its agents on each event, under a heading of their own.
 func eventPromptFields(values *workflowFormValues, keys config.FormKeys) []huh.Field {
 	heading := huh.NewNote().Title("Event prompts").
 		Description(fmt.Sprintf("added to the mail komrad sends an agent on each event, and followed over what komrad says; %s opens $EDITOR", keyLabel(keys.Editor)))
 
-	return append([]huh.Field{heading}, xslice.Map(eventprompts.All(), func(event eventprompts.Event) huh.Field {
-		return textField(eventPromptKey(event.Name)).Title(event.Title).
-			Description("when " + event.Description).
-			CharLimit(eventprompts.MaxPrompt).Lines(2).Value(values.eventPromptFor(event.Name))
-	})...)
+	fields := []huh.Field{heading}
+	for _, event := range eventprompts.All() {
+		fields = append(fields,
+			textField(eventPromptKey(event.Name)).Title(event.Title).
+				Description("when "+event.Description).
+				CharLimit(eventprompts.MaxPrompt).Lines(2).Value(values.eventPromptFor(event.Name)),
+			huh.NewSelect[bool]().Key(eventMuteKey(event.Name)).Title(event.Title+" mail").
+				Description("muted, it never opens mail of its own, only rewrites mail the agent still holds").
+				Options(huh.NewOption("Tell the agent", false), huh.NewOption("Muted", true)).
+				Value(values.eventMuteFor(event.Name)),
+		)
+	}
+
+	return fields
 }
 
 // hookFieldDescription leads with the empty case rather than appending it.

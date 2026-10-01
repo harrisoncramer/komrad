@@ -23,6 +23,7 @@ var ErrPromptTooLong = fail.InvalidArgument(fmt.Sprintf("a prompt runs to at mos
 type EventPrompt struct {
 	Event  string
 	Prompt string
+	Muted  bool
 }
 
 // GetEventPrompt is the prompt the workflow attaches to an event, and the empty string when it attaches none.
@@ -36,14 +37,19 @@ func (w Workflow) GetEventPrompt(event string) string {
 	return ""
 }
 
-// NormalizeEventPrompts trims what a caller sent, drops the blank entries, and refuses an event komrad
-// does not send or one named twice.
+// IsMuted says whether the workflow keeps an event from opening mail of its own.
+func (w Workflow) IsMuted(event string) bool {
+	return slices.ContainsFunc(w.EventPrompts, func(prompt EventPrompt) bool { return prompt.Event == event && prompt.Muted })
+}
+
+// NormalizeEventPrompts trims what a caller sent, drops the entries that neither prompt nor mute, and
+// refuses an event komrad does not send or one named twice.
 func (c *Config) NormalizeEventPrompts() error {
 	kept := make([]EventPrompt, 0, len(c.EventPrompts))
 	for _, prompt := range c.EventPrompts {
 		prompt.Event = strings.TrimSpace(prompt.Event)
 		prompt.Prompt = strings.TrimSpace(prompt.Prompt)
-		if prompt.Prompt == "" {
+		if prompt.Prompt == "" && !prompt.Muted {
 			continue
 		}
 		if !eventprompts.IsKnown(prompt.Event) {
@@ -74,6 +80,7 @@ func (s *WorkflowStore) setEventPrompts(ctx context.Context, workflowID string, 
 			Event:      prompt.Event,
 			Prompt:     prompt.Prompt,
 			Position:   int32(position),
+			Muted:      prompt.Muted,
 		}); err != nil {
 			return fmt.Errorf("failed to add the %s prompt to workflow %q: %w", prompt.Event, workflowID, err)
 		}
@@ -89,7 +96,7 @@ func (s *WorkflowStore) eventPromptsFor(ctx context.Context, workflowID string) 
 	}
 
 	return xslice.Map(rows, func(row *models.ListEventPromptsForWorkflowRow) EventPrompt {
-		return EventPrompt{Event: row.Event, Prompt: row.Prompt}
+		return EventPrompt{Event: row.Event, Prompt: row.Prompt, Muted: row.Muted}
 	}), nil
 }
 
@@ -105,7 +112,7 @@ func (s *WorkflowStore) eventPromptsForWorkflows(ctx context.Context, ids []stri
 
 	prompts := make(map[string][]EventPrompt)
 	for _, row := range rows {
-		prompts[row.WorkflowID] = append(prompts[row.WorkflowID], EventPrompt{Event: row.Event, Prompt: row.Prompt})
+		prompts[row.WorkflowID] = append(prompts[row.WorkflowID], EventPrompt{Event: row.Event, Prompt: row.Prompt, Muted: row.Muted})
 	}
 
 	return prompts, nil

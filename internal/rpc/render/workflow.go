@@ -50,7 +50,7 @@ func Workflow(w workflowstore.Workflow, options WorkflowOptions) *workflowv1.Wor
 			return &workflowv1.WorkflowHook{Event: hook.Event, Script: hook.Script}
 		}),
 		EventPrompts: xslice.Map(w.EventPrompts, func(prompt workflowstore.EventPrompt) *workflowv1.WorkflowEventPrompt {
-			return &workflowv1.WorkflowEventPrompt{Event: prompt.Event, Prompt: prompt.Prompt}
+			return &workflowv1.WorkflowEventPrompt{Event: prompt.Event, Prompt: prompt.Prompt, Muted: prompt.Muted}
 		}),
 	}
 }

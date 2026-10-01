@@ -104,14 +104,14 @@ func handleAnswered(ctx context.Context, tx store.DBTX, mailer *mail.MailService
 		return nil, err
 	}
 
-	_, err = events.Send(ctx, mailer, mail.SendFromKomradParams{
+	sent, err := events.Send(ctx, mailer, mail.SendFromKomradParams{
 		ToAgentID: reading.ReviewerID,
 		Kind:      mailstore.KindReviewActivity,
 		SubjectID: author.ID,
 		Body:      answerMail(author.Name),
 		Events:    []string{eventprompts.ReviewAnswered},
 	})
-	if err != nil {
+	if err != nil || sent == nil {
 		return nil, err
 	}
 

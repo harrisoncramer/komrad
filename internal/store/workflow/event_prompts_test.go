@@ -15,6 +15,7 @@ func TestEventPromptsComeBackWithEveryReader(t *testing.T) {
 	prompts := []EventPrompt{
 		{Event: "pull_request.checks_failing", Prompt: "fix the checks"},
 		{Event: "review.approved", Prompt: "mark the pull request ready"},
+		{Event: "pull_request.behind", Muted: true},
 	}
 
 	created, err := st.Create(ctx, Config{

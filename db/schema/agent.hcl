@@ -220,6 +220,12 @@ table "workflow_event_prompts" {
     null = false
     type = text
   }
+  column "muted" {
+    null    = false
+    type    = boolean
+    default = false
+    comment = "Whether the event is kept from opening mail of its own."
+  }
   column "position" {
     null = false
     type = integer

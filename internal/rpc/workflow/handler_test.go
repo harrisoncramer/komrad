@@ -288,7 +288,7 @@ func TestWorkflowWritesPassDown(t *testing.T) {
 				Script: "warm-cache",
 			},
 		},
-		EventPrompts: []workflowstore.EventPrompt{{Event: "review.approved", Prompt: "open the pull request"}},
+		EventPrompts: []workflowstore.EventPrompt{{Event: "review.approved", Prompt: "open the pull request"}, {Event: "pull_request.behind", Muted: true}},
 	}
 	worktree := &workflowv1.WorktreeConfig{
 		Enabled:      true,
@@ -304,7 +304,7 @@ func TestWorkflowWritesPassDown(t *testing.T) {
 			Script: "warm-cache",
 		},
 	}
-	prompts := []*workflowv1.WorkflowEventPrompt{{Event: "review.approved", Prompt: "open the pull request"}}
+	prompts := []*workflowv1.WorkflowEventPrompt{{Event: "review.approved", Prompt: "open the pull request"}, {Event: "pull_request.behind", Muted: true}}
 
 	tests := []struct {
 		name string

@@ -179,7 +179,7 @@ func buildCreatedEventPrompts(sent *workflowv1.WorkflowEventPrompts) []workflows
 
 func buildEventPromptsFromProto(prompts []*workflowv1.WorkflowEventPrompt) []workflowstore.EventPrompt {
 	return xslice.Map(prompts, func(prompt *workflowv1.WorkflowEventPrompt) workflowstore.EventPrompt {
-		return workflowstore.EventPrompt{Event: prompt.GetEvent(), Prompt: prompt.GetPrompt()}
+		return workflowstore.EventPrompt{Event: prompt.GetEvent(), Prompt: prompt.GetPrompt(), Muted: prompt.GetMuted()}
 	})
 }
 

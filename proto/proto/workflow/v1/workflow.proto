@@ -66,11 +66,11 @@ message WorkflowEventPrompt {
       "review.answered"
     ]
   }];
-  // The text added to the mail carrying that event.
-  string prompt = 2 [(buf.validate.field).string = {
-    min_len: 1
-    max_len: 500
-  }];
+  // The text added to the mail carrying that event, blank to add nothing.
+  string prompt = 2 [(buf.validate.field).string.max_len = 500];
+  // Whether the event is kept from opening mail of its own. It still rewrites mail the agent
+  // holds unread, and its prompt is left out.
+  bool muted = 3;
 }
 
 // Explainer: why CreateWorkflowRequest takes its prompts wrapped in a message.

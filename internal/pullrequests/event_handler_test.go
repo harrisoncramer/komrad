@@ -269,9 +269,10 @@ func (f *syncFixture) fillMailbox(t *testing.T, agentID string) {
 	t.Helper()
 
 	mailer := mail.NewMailService(mail.NewMailServiceParams{
-		Mail:   f.stores.Mail,
-		Agents: f.stores.Agents,
-		Config: config.Mail{},
+		Mail:      f.stores.Mail,
+		Agents:    f.stores.Agents,
+		Workflows: f.stores.Workflows,
+		Config:    config.Mail{},
 	})
 	for {
 		_, err := mailer.SendFromKomrad(t.Context(), mail.SendFromKomradParams{
