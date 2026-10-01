@@ -15,18 +15,13 @@ import (
 // sectionsKey is the form key of the list of sections on a sectioned form's top form.
 const sectionsKey = "sections"
 
-// topSummaryCols is how wide the top form is drawn beside an open section.
-const topSummaryCols = 26
-
 // sectionedForm is a form whose top fields are always drawn and whose other fields are kept in
 // sections, each opened from the top form on its own.
 type sectionedForm struct {
 	kind  formKind
 	title string
 	// top is the fields drawn above the list of sections.
-	top func(m model) []huh.Field
-	// topSummary is the top fields as they are drawn gray beside an open section.
-	topSummary  func() []summaryField
+	top         func(m model) []huh.Field
 	topEditable []editableText
 	// reshaped reports whether an answer on the top form has changed which sections are off.
 	reshaped func() bool
@@ -44,12 +39,6 @@ type formSection struct {
 	isOff    func() bool
 	fields   func(m model) []huh.Field
 	editable []editableText
-}
-
-// summaryField is one top field as the gray top form draws it.
-type summaryField struct {
-	title string
-	value string
 }
 
 func (s sectionedForm) topState() formState {
@@ -100,12 +89,12 @@ func (s sectionedForm) updateTop(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	cmd := m.openForm(s.sectionState(s.sections[index]))
+	cmd := m.openForm(s.sectionState(s.sections[index], drawnGray(m.form.form)))
 
 	return m, cmd
 }
 
-func (s sectionedForm) sectionState(section formSection) formState {
+func (s sectionedForm) sectionState(section formSection, top []string) formState {
 	return formState{
 		kind:           s.kind,
 		keepsOnRefusal: true,
@@ -115,8 +104,10 @@ func (s sectionedForm) sectionState(section formSection) formState {
 			return formOf(formKeys(), section.fields(m)...)
 		},
 		editable: section.editable,
-		leading:  s.drawTopSummary,
-		back:     s.backToTop,
+		leading: func(_, height int) []string {
+			return []string{strings.Join(top[:min(len(top), max(height, 0))], "\n")}
+		},
+		back: s.backToTop,
 	}
 }
 
@@ -127,38 +118,22 @@ func (s sectionedForm) backToTop(m model) (tea.Model, tea.Cmd) {
 	return m, tea.Batch(append([]tea.Cmd{cmd}, m.focusFieldCmds(sectionsKey)...)...)
 }
 
-// drawTopSummary is the top form drawn gray to the left of an open section, or nothing when the
-// section would be left too narrow.
-func (s sectionedForm) drawTopSummary(width, height int) []string {
-	if width-topSummaryCols-dividerCols < formColumnFloor {
-		return nil
-	}
-
-	var lines []string
-	for _, field := range s.topSummary() {
-		value, _, _ := strings.Cut(field.value, "\n")
-		lines = append(lines, field.title, "  "+value, "")
-	}
-
-	lines = append(lines, s.title)
-	for _, section := range s.sections {
-		marker := "  "
-		if section.key == *s.choice {
-			marker = "> "
-		}
-		lines = append(lines, marker+section.title+nestedMark)
-	}
-
-	lines = lines[:min(len(lines), max(height, 0))]
-
-	muted := paint.Panel.Style(paint.ToneMuted)
-	painted := xslice.Map(lines, func(line string) string {
-		return muted.Render(ansi.Truncate(line, topSummaryCols, "…"))
-	})
-
-	return []string{strings.Join(painted, "\n")}
-}
-
 func (f formSection) off() bool {
 	return f.isOff != nil && f.isOff()
+}
+
+// drawnGray is a form's lines as it stands, without its help, drawn gray.
+func drawnGray(form *huh.Form) []string {
+	view := form.WithShowHelp(false).View()
+
+	lines := xslice.Map(strings.Split(ansi.Strip(view), "\n"), func(line string) string {
+		return strings.TrimRight(line, " ")
+	})
+	for len(lines) > 0 && lines[len(lines)-1] == "" {
+		lines = lines[:len(lines)-1]
+	}
+
+	muted := paint.Panel.Style(paint.ToneMuted)
+
+	return xslice.Map(lines, func(line string) string { return muted.Render(line) })
 }

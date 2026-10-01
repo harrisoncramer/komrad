@@ -191,11 +191,16 @@ func (m model) formBox() (width, height int) {
 
 	_, used := m.formLeading()
 
-	if split, ok := m.columnGeometry(); ok {
-		return max(split.column-used, 1), max(split.rows-formHelpLines-held, 1)
+	floor := 1
+	if used > 0 {
+		floor = formColumnFloor
 	}
 
-	return max(m.width-used, 1), max(m.height-formHelpLines-held, 1)
+	if split, ok := m.columnGeometry(); ok {
+		return max(split.column-used, floor), max(split.rows-formHelpLines-held, 1)
+	}
+
+	return max(m.width-used, floor), max(m.height-formHelpLines-held, 1)
 }
 
 // formLeading is what the form draws to its left, and the columns that takes with its dividers.

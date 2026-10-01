@@ -594,27 +594,15 @@ func TestFormsWorkflowProvisioner(t *testing.T) {
 
 // TestFormsWorkflowSections covers drilling into a section of the workflow form and coming back.
 func TestFormsWorkflowSections(t *testing.T) {
-	t.Run("a section opens beside the top form", func(t *testing.T) {
-		harness := openForms(t, newFormWorkflow(), newFormAuthor())
+	t.Run("a section opens beside the top form drawn whole", func(t *testing.T) {
+		harness := openWideForms(t, newFormWorkflow(), newFormAuthor())
 
 		harness.press(slices.Concat([]string{"space", "w"}, spellKeys("web"), openWorkflowSectionKeys(0))...)
 
 		frame := harness.readFrame()
 		assert.Contains(t, frame, "Default Agent")
-		assert.Contains(t, frame, "New workflow name", "the top form is still drawn")
-		assert.Contains(t, frame, "> agents ›", "with the section that is open marked")
-	})
-
-	t.Run("a window too narrow for both draws the section alone", func(t *testing.T) {
-		harness := newPanelHarness(t, panelHarnessParams{width: 60})
-		answerWorktreeReads(harness)
-		harness.watch(buildSnapshot(newFormWorkflow()))
-
-		harness.press(slices.Concat([]string{"space", "w"}, spellKeys("web"), openWorkflowSectionKeys(0))...)
-
-		frame := harness.readFrame()
-		assert.Contains(t, frame, "Default Agent")
-		assert.NotContains(t, frame, "New workflow name")
+		assert.Contains(t, frame, "where agents start, and the checkout worktrees are cut from", "the top form keeps its width")
+		assert.Contains(t, frame, "› agents ›", "with the section that is open marked")
 	})
 
 	t.Run("back keeps what the section was given and lands on the list of sections", func(t *testing.T) {
@@ -742,7 +730,7 @@ func TestFormsWorkflowEventPrompts(t *testing.T) {
 	})
 
 	t.Run("a prompt typed under its event is sent with it", func(t *testing.T) {
-		harness := openForms(t, newFormWorkflow(), newFormAuthor())
+		harness := openWideForms(t, newFormWorkflow(), newFormAuthor())
 
 		harness.press(append([]string{"space", "E"}, openWorkflowSectionKeys(3)...)...)
 		frame := harness.readFrame()
@@ -1075,6 +1063,17 @@ func openForms(t *testing.T, workflow *workflowv1.Workflow, author *agentv1.Agen
 	return harness
 }
 
+func openWideForms(t *testing.T, workflow *workflowv1.Workflow, author *agentv1.Agent) *panelHarness {
+	t.Helper()
+
+	harness := newPanelHarness(t, panelHarnessParams{width: 220})
+	answerWorktreeReads(harness)
+	harness.watch(buildSnapshot(workflow, author))
+	harness.press("g", "g")
+
+	return harness
+}
+
 func openFieldEditor(t *testing.T) *panelHarness {
 	t.Helper()
 
@@ -1096,7 +1095,7 @@ func openHookForm(t *testing.T, hooks []*workflowv1.WorkflowHook, available ...s
 
 	workflow := newFormWorkflow()
 	workflow.Hooks = hooks
-	harness := openForms(t, workflow, newFormAuthor())
+	harness := openWideForms(t, workflow, newFormAuthor())
 	harness.answer(hookv1connect.HookServiceListHooksProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
 		return connect.NewResponse(&hookv1.ListHooksResponse{Hooks: xslice.Map(available, func(name string) *hookv1.Hook {
 			return &hookv1.Hook{Name: name, Executable: true}

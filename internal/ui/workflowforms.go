@@ -189,14 +189,6 @@ func splitLines(text string) []string {
 
 const provisionerKey = "provisioner"
 
-func provisionerLabel(provisioner string) string {
-	if provisioner == provisionerWorktree {
-		return "Worktree"
-	}
-
-	return "None"
-}
-
 func provisionerOptions() []huh.Option[string] {
 	return []huh.Option[string]{
 		huh.NewOption("None: agents keep the directory they are given", provisionerNone),
@@ -229,14 +221,6 @@ func workflowForm(params workflowFormParams) sectionedForm {
 			drawnProvisioner = values.Provisioner
 
 			return workflowTopFields(params.NameTitle, values)
-		},
-		topSummary: func() []summaryField {
-			return []summaryField{
-				{title: params.NameTitle, value: values.Name},
-				{title: "Context", value: values.Context},
-				{title: "Default Directory", value: values.Cwd},
-				{title: "Provisioner", value: provisionerLabel(values.Provisioner)},
-			}
 		},
 		topEditable: []editableText{{key: "context", value: &values.Context}},
 		reshaped:    func() bool { return values.Provisioner != drawnProvisioner },
