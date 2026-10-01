@@ -181,7 +181,9 @@ func (r *RowReader) ListSurroundings(ctx context.Context, rows []rowstore.Row) (
 		return nil, fmt.Errorf("failed to list the review threads: %w", err)
 	}
 
-	forgeThreadIDs, err := r.forgeThreads.ListIDsOfPullRequests(ctx, xslice.Map(pullRequests, func(p pullrequeststore.PullRequest) string { return p.ID }))
+	forgeThreadIDs, err := r.forgeThreads.ListIDsOfPullRequests(ctx, xslice.Map(pullRequests, func(pullRequest pullrequeststore.PullRequest) string {
+		return pullRequest.ID
+	}))
 	if err != nil {
 		return nil, fmt.Errorf("failed to list the forge threads of the pull requests: %w", err)
 	}
