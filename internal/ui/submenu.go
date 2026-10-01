@@ -284,8 +284,10 @@ func frozenMenus(levels []submenuLevel, room int) []string {
 			break
 		}
 
-		drawn = append([]string{view}, drawn...)
+		drawn = append(drawn, view)
 	}
+
+	slices.Reverse(drawn)
 
 	return drawn
 }
