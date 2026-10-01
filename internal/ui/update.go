@@ -255,15 +255,13 @@ func (m *model) applySizeRead(msg sizeReadMsg) tea.Cmd {
 	})
 }
 
-// applySizeFallback hands the renderer a read-back size the terminal never reported.
+// applySizeFallback asks the terminal for its size when a read-back size was never reported.
 func (m model) applySizeFallback(msg sizeFallbackMsg) tea.Cmd {
 	if msg.size.Width == m.paneCols && msg.size.Height == m.height {
 		return nil
 	}
 
-	return func() tea.Msg {
-		return msg.size
-	}
+	return tea.RequestWindowSize
 }
 
 // relayout sizes everything drawn off the split again, once the split has moved.
