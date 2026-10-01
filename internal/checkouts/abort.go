@@ -38,9 +38,9 @@ func (s *Service) Abort(ctx context.Context, agentID string) (*AbortResult, erro
 		return nil, err
 	}
 
-	unlock, taken := s.locks.TryLock(agent.Cwd)
-	if !taken {
-		return nil, fmt.Errorf("%w: %s", ErrBusy, agent.Cwd)
+	unlock, err := s.lockTree(agent.Cwd)
+	if err != nil {
+		return nil, err
 	}
 	defer unlock()
 
