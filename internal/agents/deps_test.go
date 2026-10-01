@@ -404,14 +404,14 @@ func (s *testStore) workflowService(options workflowServiceOptions) *WorkflowSer
 	}
 
 	return NewWorkflowService(NewWorkflowServiceParams{
-		Workflows:    s.Workflows,
-		Agents:       s.Agents,
-		AgentDeleter: inlineDelete{lifecycle: agentSvc.lifecycle},
-		Emptied:      agentSvc.emptied,
-		Schedules:    s.Schedules,
-		Lifecycle:    agentSvc.lifecycle,
-		Tx:           s.Pool,
-		Hooks:        hooks,
+		Workflows:      s.Workflows,
+		Agents:         s.Agents,
+		AgentDeleter:   inlineDelete{lifecycle: agentSvc.lifecycle},
+		EmptyWorkflows: agentSvc.emptied,
+		Schedules:      s.Schedules,
+		Lifecycle:      agentSvc.lifecycle,
+		Tx:             s.Pool,
+		Hooks:          hooks,
 	})
 }
 

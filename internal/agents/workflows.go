@@ -46,38 +46,38 @@ type workflowHookFinder interface {
 }
 
 type NewWorkflowServiceParams struct {
-	Workflows    *workflowstore.WorkflowStore
-	Agents       *agentstore.AgentStore
-	AgentDeleter workflowAgentDeleter
-	Emptied      *EmptyWorkflowDeleter
-	Schedules    *schedulestore.ScheduleStore
-	Lifecycle    *LifecycleService
-	Tx           txRunner
-	Hooks        workflowHookFinder
+	Workflows      *workflowstore.WorkflowStore
+	Agents         *agentstore.AgentStore
+	AgentDeleter   workflowAgentDeleter
+	EmptyWorkflows *EmptyWorkflowDeleter
+	Schedules      *schedulestore.ScheduleStore
+	Lifecycle      *LifecycleService
+	Tx             txRunner
+	Hooks          workflowHookFinder
 }
 
 type WorkflowService struct {
-	workflows    *workflowstore.WorkflowStore
-	agents       *agentstore.AgentStore
-	agentDeleter workflowAgentDeleter
-	emptied      *EmptyWorkflowDeleter
-	schedules    *schedulestore.ScheduleStore
-	lifecycle    *LifecycleService
-	tx           txRunner
-	hooks        workflowHookFinder
+	workflows      *workflowstore.WorkflowStore
+	agents         *agentstore.AgentStore
+	agentDeleter   workflowAgentDeleter
+	emptyWorkflows *EmptyWorkflowDeleter
+	schedules      *schedulestore.ScheduleStore
+	lifecycle      *LifecycleService
+	tx             txRunner
+	hooks          workflowHookFinder
 }
 
 // NewWorkflowService builds the service from its dependencies.
 func NewWorkflowService(params NewWorkflowServiceParams) *WorkflowService {
 	return &WorkflowService{
-		workflows:    params.Workflows,
-		agents:       params.Agents,
-		agentDeleter: params.AgentDeleter,
-		emptied:      params.Emptied,
-		schedules:    params.Schedules,
-		lifecycle:    params.Lifecycle,
-		tx:           params.Tx,
-		hooks:        params.Hooks,
+		workflows:      params.Workflows,
+		agents:         params.Agents,
+		agentDeleter:   params.AgentDeleter,
+		emptyWorkflows: params.EmptyWorkflows,
+		schedules:      params.Schedules,
+		lifecycle:      params.Lifecycle,
+		tx:             params.Tx,
+		hooks:          params.Hooks,
 	}
 }
 
@@ -315,7 +315,7 @@ func (w *WorkflowService) DeleteWorkflow(ctx context.Context, id string) error {
 	if len(inside) == 0 {
 		// No agent delete runs to check an empty workflow, so this is the one case that removes
 		// the row here.
-		return w.emptied.deleteWithSchedules(ctx, existing)
+		return w.emptyWorkflows.deleteWithSchedules(ctx, existing)
 	}
 
 	// Deleting an agent checks the workflow it leaves behind for itself, and leaves behind any

@@ -922,13 +922,13 @@ func TestDeleteWorkflowLeavesAStragglerAndItsWorkflowBehind(t *testing.T) {
 	lifecycle := &fakeLifecycle{deprovisionRunErr: errors.New("worktree is dirty")}
 	agentSvc := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: &harnesstest.Fake{}}, lifecycle)
 	workflows := NewWorkflowService(NewWorkflowServiceParams{
-		Workflows:    st.Workflows,
-		Agents:       st.Agents,
-		AgentDeleter: inlineDelete{lifecycle: agentSvc.lifecycle},
-		Emptied:      agentSvc.emptied,
-		Schedules:    st.Schedules,
-		Lifecycle:    agentSvc.lifecycle,
-		Tx:           st.Pool,
+		Workflows:      st.Workflows,
+		Agents:         st.Agents,
+		AgentDeleter:   inlineDelete{lifecycle: agentSvc.lifecycle},
+		EmptyWorkflows: agentSvc.emptied,
+		Schedules:      st.Schedules,
+		Lifecycle:      agentSvc.lifecycle,
+		Tx:             st.Pool,
 	})
 	ctx := t.Context()
 
@@ -973,13 +973,13 @@ func TestDeleteWorkflowClaimsTheWorkflowWhileItsAgentsGo(t *testing.T) {
 	lifecycle := &fakeLifecycle{}
 	agentSvc := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: &harnesstest.Fake{}}, lifecycle)
 	workflows := NewWorkflowService(NewWorkflowServiceParams{
-		Workflows:    st.Workflows,
-		Agents:       st.Agents,
-		AgentDeleter: claimOnly{agents: st.Agents},
-		Emptied:      agentSvc.emptied,
-		Schedules:    st.Schedules,
-		Lifecycle:    agentSvc.lifecycle,
-		Tx:           st.Pool,
+		Workflows:      st.Workflows,
+		Agents:         st.Agents,
+		AgentDeleter:   claimOnly{agents: st.Agents},
+		EmptyWorkflows: agentSvc.emptied,
+		Schedules:      st.Schedules,
+		Lifecycle:      agentSvc.lifecycle,
+		Tx:             st.Pool,
 	})
 	ctx := t.Context()
 
