@@ -69,6 +69,7 @@ func prepareLine(params prepareLineParams) Line {
 		Alert:    AlertCell(row),
 		Tally:    row.HiddenCount,
 		Schedule: markCell(row.Scheduled, glyph.Schedule, paint.ToneMuted),
+		Workflow: row.Workflow,
 		Comments: buildCommentCells(row),
 		Selected: row.Selected,
 		Divider:  row.Kind == KindDivider,
@@ -332,10 +333,14 @@ func indentFor(kind RowKind) int {
 	return indentColumns
 }
 
-// fitRow gives a row's width up in order: the tally, then the comment counts, then the name, and
-// last the marks, which only a pane too narrow for the marks alone ever reaches.
+// fitRow gives a row's width up in order: the workflow, the tally, the comment counts, the name,
+// and last the marks, which only a pane too narrow for the marks alone ever reaches.
 func fitRow(line Line, width int) Line {
-	// A tally counts rows already out of sight, so it is what gives way first.
+	if roomForName(line, width) <= 0 {
+		line.Workflow = ""
+	}
+
+	// A tally counts rows already out of sight, so it is what gives way next.
 	if roomForName(line, width) <= 0 {
 		line.Tally = 0
 	}

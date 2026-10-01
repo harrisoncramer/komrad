@@ -753,6 +753,9 @@ func triageRows(params snapshotParams) []view.Row {
 		if r.item.Agent.Role == panel.RoleOrchestrator {
 			row.Name = r.workflow.Name
 		}
+		if !r.child && r.item.Agent.Role == panel.RoleImplementer {
+			row.Workflow = r.workflow.Name
+		}
 		row.Faded = r.snoozed
 		rows = append(rows, row)
 	}

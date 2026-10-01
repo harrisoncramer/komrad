@@ -51,6 +51,12 @@ func TestTriageRows(t *testing.T) {
 			want: []string{"backend", "backend"},
 		},
 		{
+			name:     "an implementer is followed by its workflow",
+			capacity: 2,
+			rows:     []proto.Message{newLiveWorkflow("w1", "backend"), newFinishedAgent("done", 5)},
+			want:     []string{"done backend", "backend"},
+		},
+		{
 			name:     "a parent in triage brings its children with it",
 			capacity: 2,
 			rows: []proto.Message{
@@ -297,7 +303,7 @@ func TestTriageSnooze(t *testing.T) {
 			capacity: 3,
 			rows:     buildFinished(),
 			press:    []string{"t", "enter"},
-			want:     []string{"asker", "done", "later", "backend", "quiet"},
+			want:     []string{"asker", "done backend", "later backend", "backend", "quiet"},
 		},
 		{
 			name:     "waking a snoozed family puts it back in its place",
@@ -326,7 +332,7 @@ func TestTriageSnooze(t *testing.T) {
 			capacity: 3,
 			rows:     buildFinished(),
 			press:    []string{"t", "j", "enter"},
-			want:     []string{"asker", "later", "done", "backend", "quiet"},
+			want:     []string{"asker", "later backend", "done backend", "backend", "quiet"},
 		},
 		{
 			name:     "a snoozed family sinks below the rest",
