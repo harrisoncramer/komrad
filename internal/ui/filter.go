@@ -414,24 +414,20 @@ func (f filterState) line(palette paint.Palette, glyphs glyph.Set) string {
 		text = palette.Broken()
 	}
 
-	line := slashStyle(palette, f.typing, f.isStanding()).Render(f.mode.glyph(glyphs)) + " "
+	slash := palette.Cursor()
+	switch {
+	case !f.typing && !f.isStanding():
+		slash = dimStyle()
+	case !f.typing:
+		slash = palette.Blinking(false).Cursor()
+	}
+
+	line := slash.Render(f.mode.glyph(glyphs)) + " "
 	if !f.typing {
 		return line + text.Render(before+after)
 	}
 
 	return line + palette.DrawTyped(before, after, text)
-}
-
-// slashStyle is how a search line draws its slash.
-func slashStyle(palette paint.Palette, typing, standing bool) lipgloss.Style {
-	switch {
-	case !typing && !standing:
-		return dimStyle()
-	case !typing:
-		return palette.Blinking(false).Cursor()
-	}
-
-	return palette.Cursor()
 }
 
 // head is the rows over a block the filter searches: the search, what the last key said, and a

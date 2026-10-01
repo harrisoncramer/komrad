@@ -23,7 +23,6 @@ import (
 
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
-	"charm.land/lipgloss/v2"
 	"connectrpc.com/connect"
 )
 
@@ -744,15 +743,10 @@ func (w *searchScreen) sidebarView(s panelShared) string {
 		palette = s.draw.focusPalette()
 	}
 
-	before, after := w.input.split()
-	typed := before + after
-	if w.typing {
-		typed = palette.DrawTyped(before, after, lipgloss.NewStyle())
-	}
-	blank := strings.TrimSpace(w.query()) == ""
-	query := slashStyle(palette, w.typing, !blank).Render("/") + " " + typed
+	query := filterState{typing: w.typing, input: w.input}.line(palette, s.glyphs)
 	header := s.draw.viewsBar() + query + "\n\n"
 
+	blank := strings.TrimSpace(w.query()) == ""
 	var qualifiers string
 	if blank || s.chrome.helpExpanded {
 		qualifiers = qualifierLegend(s.pane)
