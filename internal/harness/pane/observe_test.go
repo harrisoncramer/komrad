@@ -65,7 +65,7 @@ func TestObserveRefusesAHarnessItCannotLookUp(t *testing.T) {
 	require.Error(t, err)
 }
 
-// TestDoesFrameShowHarness pins which frames read as a harness that has drawn.
+// TestDoesFrameShowHarness covers a pane still at its shell against one its harness has drawn.
 func TestDoesFrameShowHarness(t *testing.T) {
 	tests := []struct {
 		name      string
