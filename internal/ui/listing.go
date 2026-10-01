@@ -99,8 +99,7 @@ func (m *model) withListing(change func(*listing)) tea.Cmd {
 	return tea.Batch(preview, redrawn, m.afterListing())
 }
 
-// heldHotRow is the row the hot zone keeps while the keyboard is in the pane beside it, so an
-// answer typed there does not move the cursor until the panel has the keyboard back.
+// heldHotRow is the row the hot zone keeps while the keyboard is in the pane beside it.
 func (m *model) heldHotRow(hovered string) string {
 	if !m.blurred || !m.agents.hot.focused {
 		return ""
