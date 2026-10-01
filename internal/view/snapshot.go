@@ -142,7 +142,9 @@ type Row struct {
 	// nothing did and the weight greys once it has gone.
 	Process Process
 	Repo    Repo
-	Forge   Forge
+	// InWorkflowDir says the agent works in its workflow's own directory rather than a worktree.
+	InWorkflowDir bool
+	Forge         Forge
 	// AutoMerge says the forge will merge the pull request on its own once its checks and reviews
 	// pass.
 	AutoMerge   bool

@@ -11,8 +11,6 @@ import (
 	"cmp"
 	"context"
 	"fmt"
-	"os"
-	"strings"
 	"sync"
 	"time"
 
@@ -429,17 +427,4 @@ func newModel(deps Deps, isDark bool, post *postbox) model {
 	m.shell = deps.Tmux.GetDefaultShell()
 
 	return m
-}
-
-func (m model) currentDir(dir string) string {
-	if trimmed := strings.TrimSpace(dir); trimmed != "" {
-		return trimmed
-	}
-	if path := m.tmux.GetHostPath(); path != "" {
-		return path
-	}
-
-	home, _ := os.UserHomeDir()
-
-	return home
 }

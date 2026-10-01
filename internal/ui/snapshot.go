@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"path/filepath"
 	"regexp"
 
 	"komrad/internal/ui/panel"
@@ -29,6 +30,8 @@ type snapshotParams struct {
 	matcher *regexp.Regexp
 	// scheduled are the workflows at least one schedule launches into, keyed by workflow id.
 	scheduled map[string]bool
+	// workflowDirs is the directory each workflow launches its agents in, keyed by workflow id.
+	workflowDirs map[string]string
 	// showHidden says the hidden rows are drawn alongside the rest, so none is stood in for.
 	showHidden bool
 	// flat says no workflow header is drawn over the rows.
@@ -94,6 +97,7 @@ func snapshotRow(r agentRow, params snapshotParams) view.Row {
 	row.Name = item.Agent.Name
 	row.Matches = matchesIn(params.matcher, item.Agent.Name)
 	row.Repo = snapshotRepo(item.Agent)
+	row.InWorkflowDir = isInWorkflowDir(item.Agent, params.workflowDirs)
 	row.ReviewerComments, row.PersonComments = readSnapshotComments(item)
 	row.Forge = snapshotForge(item)
 	row.AutoMerge = item.PullRequest.AutoMerge
@@ -219,6 +223,13 @@ func snapshotRepo(agent panel.Agent) view.Repo {
 	}
 
 	return view.RepoClean
+}
+
+// isInWorkflowDir reports whether an agent works in its workflow's own directory rather than a worktree.
+func isInWorkflowDir(agent panel.Agent, dirs map[string]string) bool {
+	dir, ok := dirs[agent.WorkflowID]
+
+	return ok && agent.Cwd != "" && filepath.Clean(agent.Cwd) == filepath.Clean(dir)
 }
 
 // readSnapshotComments reads how the comments on an agent's work stand, reviewer agents then the person.

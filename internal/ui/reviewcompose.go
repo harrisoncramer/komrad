@@ -153,15 +153,15 @@ func messageDraftPath(agentID string) string {
 }
 
 // applyMessageEdited puts what the editor wrote back into the composer.
-func (r *reviewScreen) applyMessageEdited(h host, s panelShared, msg messageEditedMsg) {
+func (r *reviewScreen) applyMessageEdited(h host, s panelShared, msg messageEditedMsg) tea.Cmd {
 	if msg.agentID != r.agentID || (!r.threads.composing && !r.threads.releasing) {
-		return
+		return nil
 	}
 
 	if msg.err != nil {
 		h.report("What you wrote in your editor could not be read back", msg.err)
 
-		return
+		return nil
 	}
 
 	said, key := "save", formKeys().Submit
@@ -169,14 +169,11 @@ func (r *reviewScreen) applyMessageEdited(h host, s panelShared, msg messageEdit
 		said = "send"
 	}
 
-	input, _ := newReviewInput(newReviewInputParams{
+	return r.openInput(s, newReviewInputParams{
 		Title:       reviewInputTitle(r.threads.editing != ""),
 		Description: reviewInputHint(formKeys().Editor, key, said),
 		Body:        strings.TrimRight(msg.body, "\n"),
-		Width:       reviewInputWidth(r.measurePopupInner(s)),
-		Keys:        formKeys(),
 	})
-	r.threads.editor = input
 }
 
 func (r *reviewScreen) saveMessage(h host, s panelShared) tea.Cmd {

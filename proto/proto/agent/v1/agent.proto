@@ -252,11 +252,6 @@ message CreateAgentRequest {
       expression: "!this.matches('[\\x00-\\x1f\\x7f]')"
     }
   ];
-  // Where to start it, absolute or ~-prefixed, blank to take the workflow's own.
-  string dir = 3 [(buf.validate.field).string = {
-    max_len: 4096
-    [rules.v1.absolute_path_or_blank]: true
-  }];
   // Flags for its CLI, blank to take the workflow's own.
   string flags = 4 [(buf.validate.field).string = {
     max_len: 500
@@ -720,7 +715,7 @@ service AgentService {
       cli: true
       mcp: true
       name: "create_agent"
-      description: "Launch a new agent with an opening prompt. The prompt is everything the agent has to go on, so it should say what the work is and where to start. The agent runs in a tmux window of its own and, when its workflow provisions worktrees, in a fresh worktree cut from the workflow's directory. Leave dir blank to take the workflow's directory, and set provision_enabled to false when the agent should work in an existing checkout rather than a new worktree. To attach the new agent to one already running, pass that agent's id as parent_agent_id. A child shares its parent's directory, may only mail its parent and its siblings, and is archived and deleted along with the parent. Use a child for an agent that reads a tree, such as a test runner, and a standalone agent for one that writes work of its own. There is a limit on how many agents may exist at once, and a call past it is refused as resource_exhausted, which means there is no room rather than that something is broken."
+      description: "Launch a new agent with an opening prompt. The prompt is everything the agent has to go on, so it should say what the work is and where to start. The agent runs in a tmux window of its own and, when its workflow provisions worktrees, in a fresh worktree cut from the workflow's directory. Set provision_enabled to false to keep it in the workflow's own directory rather than a new worktree. To attach the new agent to one already running, pass that agent's id as parent_agent_id. A child shares its parent's directory, may only mail its parent and its siblings, and is archived and deleted along with the parent. Use a child for an agent that reads a tree, such as a test runner, and a standalone agent for one that writes work of its own. There is a limit on how many agents may exist at once, and a call past it is refused as resource_exhausted, which means there is no room rather than that something is broken."
       destructive: false
       roles: [
         ROLE_IMPLEMENTER,

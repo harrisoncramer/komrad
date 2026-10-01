@@ -126,6 +126,7 @@ func (a *agentsScreen) openAgent(h host, s panelShared) tea.Cmd {
 
 	if item.Alive {
 		if item.Agent.HeldAt == nil {
+			a.seeFinished(s, item)
 			h.selectGuest(item.Agent.Pane)
 		}
 
@@ -145,6 +146,34 @@ func (a *agentsScreen) toggleHidden(h host, s panelShared) {
 	rows := a.rows(s)
 	a.cursor = cursor.Place(rowIndexOfKey(rows, selected), a.cursor, len(rows))
 	a.selected = a.selected.pruned(refsOf(a.rows(s)))
+	a.stage(h, s)
+}
+
+// seeFinished snoozes the agent's family when it waits only to be looked at, keeping the cursor
+// on the agent as its family moves.
+func (a *agentsScreen) seeFinished(s panelShared, item panel.AgentRow) {
+	selected := a.list().hovered(s)
+	a.triage.seeFinished(item, s.listing.agents)
+
+	rows := a.rows(s)
+	a.cursor = cursor.Place(rowIndexOfKey(rows, selected), a.cursor, len(rows))
+}
+
+// toggleSnooze snoozes the hovered agent's family in triage, or wakes it, keeping the cursor on
+// the agent as its family moves.
+func (a *agentsScreen) toggleSnooze(h host, s panelShared) {
+	item, ok := a.selectedAgent(s)
+	if !ok {
+		return
+	}
+
+	selected := a.list().hovered(s)
+	if !a.triage.toggleSnooze(item, s.listing.agents) {
+		return
+	}
+
+	rows := a.rows(s)
+	a.cursor = cursor.Place(rowIndexOfKey(rows, selected), a.cursor, len(rows))
 	a.stage(h, s)
 }
 
@@ -329,17 +358,18 @@ func (a *agentsScreen) snapshot(s panelShared, pane listPane) view.Snapshot {
 			zone:    layout.zone,
 			waiting: layout.waiting,
 		},
-		selected:    a.selected,
-		scheduled:   s.listing.scheduledWorkflows(),
-		focused:     rowKeyAt(layout.cursorRows(), a.cursor),
-		caret:       pane.caret,
-		blinkedOut:  pane.blinkedOut,
-		loaderFrame: s.loaderFrame,
-		matcher:     s.chrome.filter.pattern,
-		renaming:    a.renamingField(),
-		showHidden:  a.showHidden,
-		flat:        a.sort.flat,
-		pane:        pane.width,
+		selected:     a.selected,
+		scheduled:    s.listing.scheduledWorkflows(),
+		workflowDirs: s.listing.workflowDirs(),
+		focused:      rowKeyAt(layout.cursorRows(), a.cursor),
+		caret:        pane.caret,
+		blinkedOut:   pane.blinkedOut,
+		loaderFrame:  s.loaderFrame,
+		matcher:      s.chrome.filter.pattern,
+		renaming:     a.renamingField(),
+		showHidden:   a.showHidden,
+		flat:         a.sort.flat,
+		pane:         pane.width,
 	})
 }
 
@@ -351,6 +381,16 @@ func (l listing) scheduledWorkflows() map[string]bool {
 	}
 
 	return scheduled
+}
+
+// workflowDirs is the directory each workflow launches its agents in, keyed by workflow id.
+func (l listing) workflowDirs() map[string]string {
+	dirs := make(map[string]string, len(l.workflows))
+	for _, w := range l.workflows {
+		dirs[w.ID] = w.Cwd
+	}
+
+	return dirs
 }
 
 // startOrchestrator brings the workflow's orchestrator back and puts the keyboard in its pane.

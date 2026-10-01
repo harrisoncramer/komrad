@@ -263,14 +263,6 @@ func textField(key string) *huh.Text {
 	return huh.NewText().Key(key).ExternalEditor(false)
 }
 
-func blueprintFields(harness, dir, flags *string) []huh.Field {
-	return []huh.Field{
-		huh.NewInput().Key("harness").Title("Agent").Placeholder("claude").Value(harness),
-		huh.NewInput().Key("dir").Title("Directory").Value(dir),
-		huh.NewInput().Key("flags").Title("Flags").Placeholder("--model opus").Value(flags),
-	}
-}
-
 func formKeyMap(keys config.FormKeys) *huh.KeyMap {
 	quit := append(append([]string{}, keys.Back...), keys.Quit...)
 

@@ -168,6 +168,50 @@ func TestSnapshotRepo(t *testing.T) {
 	}
 }
 
+// TestSnapshotInWorkflowDir pins an agent sitting in its workflow's own directory rather than a worktree.
+func TestSnapshotInWorkflowDir(t *testing.T) {
+	dirs := map[string]string{"wf": "/repo"}
+	tests := []struct {
+		name  string
+		agent panel.Agent
+		want  bool
+	}{
+		{
+			name:  "the workflow's own directory",
+			agent: panel.Agent{WorkflowID: "wf", Cwd: "/repo"},
+			want:  true,
+		},
+		{
+			name:  "the workflow's own directory spelled with a trailing slash",
+			agent: panel.Agent{WorkflowID: "wf", Cwd: "/repo/"},
+			want:  true,
+		},
+		{
+			name:  "a worktree",
+			agent: panel.Agent{WorkflowID: "wf", Cwd: "/trees/abc"},
+		},
+		{
+			name:  "no directory yet",
+			agent: panel.Agent{WorkflowID: "wf"},
+		},
+		{
+			name:  "a workflow the listing does not hold",
+			agent: panel.Agent{WorkflowID: "gone", Cwd: "/repo"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			row := snapshotRowOf(t, snapshotParams{
+				rows:         []agentRow{{item: panel.AgentRow{Agent: tt.agent}}},
+				workflowDirs: dirs,
+			})
+
+			assert.Equal(t, tt.want, row.InWorkflowDir)
+		})
+	}
+}
+
 // TestSnapshotComments pins each side's counts reaching the row as the listing carried them,
 // an archived agent's included.
 func TestSnapshotComments(t *testing.T) {

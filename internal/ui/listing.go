@@ -66,6 +66,7 @@ func (m *model) unreachableHint() string {
 // withListing changes the listing the screens draw from and puts each cursor back where it was.
 func (m *model) withListing(change func(*listing)) tea.Cmd {
 	treeRow := m.agents.list().hovered(m.shared())
+	triageSlot := m.agents.findZoneSlot(m.shared())
 	scheduleRow := m.schedules.list().hovered(m.shared())
 	archiveRow := m.archive.list().hovered(m.shared())
 	archiveScheduleRow := m.archive.scheduleList().hovered(m.shared())
@@ -79,7 +80,9 @@ func (m *model) withListing(change func(*listing)) tea.Cmd {
 
 	now := time.Now()
 	m.agents.triage.refresh(m.listing.agents, now)
-	m.agents.apply(m.shared(), m.landedRow(treeRow, now))
+	selected := m.landedRow(treeRow, now)
+	m.agents.apply(m.shared(), selected)
+	m.agents.landInTriage(m.shared(), selected, triageSlot)
 	m.schedules.apply(m, m.shared(), scheduleRow)
 	m.archive.place(m.shared(), archiveRow)
 	m.archive.placeSchedule(m.shared(), archiveScheduleRow)

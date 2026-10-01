@@ -111,7 +111,7 @@ func TestVimEditing(t *testing.T) {
 		harness.watch(buildSnapshot(newConfiguredWorkflow(), newFormAuthor()))
 		harness.press("g", "g")
 
-		harness.press(slices.Concat([]string{"space", "c"}, spellKeys("go"), slices.Repeat([]string{"tab"}, 4), spellKeys("ab"), []string{"esc", "j"})...)
+		harness.press(slices.Concat([]string{"space", "c"}, spellKeys("go"), slices.Repeat([]string{"tab"}, 3), spellKeys("ab"), []string{"esc", "j"})...)
 		require.Empty(t, harness.readSent(agentv1connect.AgentServiceCreateAgentProcedure))
 		assert.Contains(t, harness.readFrame(), "Worktree")
 
@@ -147,6 +147,49 @@ func TestVimEditing(t *testing.T) {
 
 		harness.press("c")
 		typeText(harness, "still here")
+		harness.press("esc", "b", "d", "w", "ctrl+s")
+
+		harness.assertSentTo(agentv1connect.AgentServiceCreateReviewThreadProcedure, &agentv1.CreateReviewThreadRequest{
+			AgentId:     "a1",
+			FilePath:    gittest.File,
+			OldStart:    1,
+			OldEnd:      1,
+			NewStart:    1,
+			NewEnd:      1,
+			QuotedLines: []string{" package greet"},
+			Body:        "still",
+			BaseSha:     gittest.BaseSHA,
+			SnapshotSha: gittest.SnapshotSHA,
+		})
+	})
+
+	t.Run("a normal-mode edit in the review box is drawn at once", func(t *testing.T) {
+		harness := openReviewAt(t, newReviewServer(t), panelHarnessParams{settings: ui.PanelSettings{VimMode: true}})
+
+		harness.press("c")
+		typeText(harness, "still here")
+		harness.press("esc", "b", "d", "w")
+
+		frame := harness.readFrame()
+		assert.Contains(t, frame, "still")
+		assert.NotContains(t, frame, "still here")
+	})
+
+	t.Run("a normal-mode edit in a form is drawn at once", func(t *testing.T) {
+		harness := openVimForms(t)
+
+		harness.press(slices.Concat([]string{"space", "c"}, spellKeys("still here"), []string{"esc", "b", "d", "w"})...)
+
+		frame := harness.readFrame()
+		assert.Contains(t, frame, "still")
+		assert.NotContains(t, frame, "still here")
+	})
+
+	t.Run("a comment brought back from the editor still takes vim keys", func(t *testing.T) {
+		harness := openReviewAt(t, newReviewServer(t), panelHarnessParams{settings: ui.PanelSettings{VimMode: true}})
+
+		harness.press("c")
+		harness.send(ui.NewMessageEdited("a1", "still here\n"))
 		harness.press("esc", "b", "d", "w", "ctrl+s")
 
 		harness.assertSentTo(agentv1connect.AgentServiceCreateReviewThreadProcedure, &agentv1.CreateReviewThreadRequest{
