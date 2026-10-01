@@ -78,8 +78,8 @@ func TestIntegrationPanel(t *testing.T) {
 		require.NotEqual(t, configured, dragged, "the drag moved the divider off the configured width")
 
 		served.harness.press("k", "space", "a")
-		require.Contains(t, served.harness.readFrame(), "Archive workflow")
-		served.harness.press("ctrl+s")
+		require.Contains(t, served.harness.readFrame(), "backend › archive")
+		served.harness.press("a")
 		relist(t, served.instance, served.harness)
 
 		assert.Empty(t, served.harness.panel.ReadGuestPane(), "the archived agent's pane is not left standing in the panel")
