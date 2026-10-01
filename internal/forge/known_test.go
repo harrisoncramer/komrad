@@ -297,8 +297,8 @@ func TestKnownAt(t *testing.T) {
 			head:  "aaa",
 			want: View{
 				Decision:     Shown[ReviewDecision]{Value: ReviewDecisionApproved},
-				Checks:       Shown[Checks]{Value: ChecksFailing, SHA: "aaa"},
-				Mergeability: Shown[Mergeability]{Value: MergeabilityBehind, SHA: "aaa"},
+				Checks:       Shown[Checks]{Value: ChecksFailing},
+				Mergeability: Shown[Mergeability]{Value: MergeabilityBehind},
 				AutoMerge:    AutoMerge{On: true, Allowed: true},
 			},
 		},
@@ -311,21 +311,19 @@ func TestKnownAt(t *testing.T) {
 			head: "aaa",
 			want: View{
 				Decision:     Shown[ReviewDecision]{Value: ReviewDecisionApproved, Unconfirmed: true},
-				Checks:       Shown[Checks]{Value: ChecksFailing, SHA: "aaa", Unconfirmed: true},
-				Mergeability: Shown[Mergeability]{Value: MergeabilityBehind, SHA: "aaa", Unconfirmed: true},
+				Checks:       Shown[Checks]{Value: ChecksFailing, Unconfirmed: true},
+				Mergeability: Shown[Mergeability]{Value: MergeabilityBehind, Unconfirmed: true},
 			},
 		},
 		{
-			name: "checks and mergeability from an older head are stale while the decision holds",
+			name: "checks and mergeability from an older head show blank while the decision holds",
 			reads: []read{
 				{standing: failing, head: "aaa", at: at},
 				{head: "bbb", at: at},
 			},
 			head: "bbb",
 			want: View{
-				Decision:     Shown[ReviewDecision]{Value: ReviewDecisionApproved, Unconfirmed: true},
-				Checks:       Shown[Checks]{Value: ChecksFailing, SHA: "aaa", Stale: true},
-				Mergeability: Shown[Mergeability]{Value: MergeabilityBehind, SHA: "aaa", Stale: true},
+				Decision: Shown[ReviewDecision]{Value: ReviewDecisionApproved, Unconfirmed: true},
 			},
 		},
 	}
@@ -338,13 +336,4 @@ func TestKnownAt(t *testing.T) {
 			assert.Equal(t, tt.want, known.At(tt.head))
 		})
 	}
-}
-
-// TestShownNow covers a stale answer showing as blank.
-func TestShownNow(t *testing.T) {
-	t.Parallel()
-
-	assert.Equal(t, ChecksFailing, Shown[Checks]{Value: ChecksFailing, SHA: "aaa"}.Now())
-	assert.Equal(t, ChecksFailing, Shown[Checks]{Value: ChecksFailing, SHA: "aaa", Unconfirmed: true}.Now())
-	assert.Equal(t, ChecksNone, Shown[Checks]{Value: ChecksFailing, SHA: "aaa", Stale: true}.Now())
 }

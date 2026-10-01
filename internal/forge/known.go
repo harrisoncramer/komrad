@@ -121,25 +121,10 @@ func autoMergeWord(autoMerge *AutoMerge) string {
 
 // Shown is one part of a pull request's standing as komrad shows it for a head.
 type Shown[T comparable] struct {
-	// Value is the last answer the forge gave that was not blank.
+	// Value is the answer to show for the head.
 	Value T
-	// SHA is the head Value was read for, empty for a part that belongs to the whole pull request.
-	SHA string
-	// Stale says Value was read for another head.
-	Stale bool
 	// Unconfirmed says Value is shown through a blank read.
 	Unconfirmed bool
-}
-
-// Now is the value that holds for the head, blank when the last answer was for another.
-func (s Shown[T]) Now() T {
-	if s.Stale {
-		var blank T
-
-		return blank
-	}
-
-	return s.Value
 }
 
 // View is a pull request's standing as komrad shows it for one head.
@@ -166,16 +151,9 @@ func (k Known) At(head string) View {
 
 func shown[T comparable](last Last[T], head string) Shown[T] {
 	var blank T
-	if last.Value == blank {
+	if last.Value == blank || head != "" && last.SHA != head {
 		return Shown[T]{}
 	}
 
-	stale := head != "" && last.SHA != head
-
-	return Shown[T]{
-		Value:       last.Value,
-		SHA:         last.SHA,
-		Stale:       stale,
-		Unconfirmed: last.Blank && !stale,
-	}
+	return Shown[T]{Value: last.Value, Unconfirmed: last.Blank}
 }
