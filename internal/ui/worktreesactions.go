@@ -35,12 +35,6 @@ func (w *worktreesScreen) table() []screenAction {
 			when: w.canRowOpen,
 			nav:  func(h navHost, s panelShared, _ string) tea.Cmd { return w.jumpToAgent(h, s) },
 		},
-		screenAction{
-			id:     actionWorktreesClear,
-			keys:   func(k config.Keybindings) []string { return k.Worktrees.Clear },
-			when:   list.isBrowsing,
-			direct: directly(notInMenu, func(h host, s panelShared, _ string) tea.Cmd { return w.clearConfirm(h, s) }),
-		},
 	)
 }
 
@@ -57,11 +51,6 @@ func (w *worktreesScreen) legend() []screenLegendRow {
 		{
 			of:   []actionID{actionSelectToggle},
 			desc: list.toggleDesc,
-			show: w.holdsARow,
-		},
-		{
-			of:   []actionID{actionWorktreesClear},
-			desc: func(panelShared) string { return "clear what can go" },
 			show: w.holdsARow,
 		},
 		{
@@ -189,8 +178,8 @@ func (w *worktreesScreen) chosenDeletion(s panelShared) worktreeDeletion {
 	return deletion
 }
 
-// clearConfirm offers everything on the screen that can go without stopping an agent.
-func (w *worktreesScreen) clearConfirm(h host, s panelShared) tea.Cmd {
+// clearDeletion is everything on the screen that can go without stopping an agent.
+func (w *worktreesScreen) clearDeletion(s panelShared) worktreeDeletion {
 	deletion := worktreeDeletion{}
 	for _, row := range w.rows(s) {
 		if row.header {
@@ -206,7 +195,7 @@ func (w *worktreesScreen) clearConfirm(h host, s panelShared) tea.Cmd {
 		}
 	}
 
-	return confirmDeleteWorktrees(h, s, deletion)
+	return deletion
 }
 
 // worktreeDeletion is what one delete takes: the directories that go through their agent, and
@@ -304,17 +293,28 @@ func (w *worktreesScreen) itemMenu(s panelShared) (submenu, bool) {
 		}))), true
 	}
 
-	row, ok := w.hovered(s)
+	row, ok := rowAt(w.rows(s), w.cursor)
 	if !ok {
 		return submenu{}, false
 	}
 
-	keys := s.keys.ArchiveMenu.Delete
-	if row.item.fate == fateLive {
-		keys = s.keys.ArchiveMenu.Archive
+	var entries []submenuEntry
+	if !row.header {
+		keys := s.keys.ArchiveMenu.Delete
+		if row.item.fate == fateLive {
+			keys = s.keys.ArchiveMenu.Archive
+		}
+
+		entries = append(entries, openEntry(row.item.fate.deleteDesc(), keys, func(h host, s panelShared) tea.Cmd {
+			return deleteWorktree(h, s, row.item)
+		}))
 	}
 
-	return withArchive(rowMenu(row.name()), s, liveArchiveMenu(openEntry(row.item.fate.deleteDesc(), keys, func(h host, s panelShared) tea.Cmd {
-		return deleteWorktree(h, s, row.item)
-	}))), true
+	clearable := w.clearDeletion(s)
+	clearAll := openEntry("clear what can go", s.keys.ArchiveMenu.Clear, func(h host, s panelShared) tea.Cmd {
+		return confirmDeleteWorktrees(h, s, clearable)
+	})
+	clearAll.isOff = clearable.isEmpty()
+
+	return withArchive(rowMenu(row.name()), s, liveArchiveMenu(append(entries, clearAll)...)), true
 }

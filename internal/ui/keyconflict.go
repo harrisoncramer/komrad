@@ -87,6 +87,7 @@ func ValidateKeybindings(keys config.Keybindings) error {
 		{name: "restore", keys: keys.ArchiveMenu.Restore},
 		{name: "restore_open", keys: keys.ArchiveMenu.RestoreOpen},
 		{name: "delete", keys: keys.ArchiveMenu.Delete},
+		{name: "clear", keys: keys.ArchiveMenu.Clear},
 	}); err != nil {
 		return err
 	}

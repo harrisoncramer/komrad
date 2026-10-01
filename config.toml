@@ -125,6 +125,10 @@ restore      = ["r"]
 # Put the agent back in the panel and open it, which relaunches its conversation in a pane
 # and takes you to it. The entry is gray on an agent that never got as far as starting.
 restore_open = ["o"]
+# Delete every worktree that can go: every directory whose agent is archived, through the
+# agent delete and its hooks, and every directory no agent answers for. A directory with a
+# live agent in it is never deleted. The entry is only on the worktrees.
+clear        = ["c"]
 
 # The details under whichever list is on screen: the key that hands them the
 # cursor, and the key that copies the field it lands on.
@@ -403,7 +407,7 @@ terminal       = ["t"]
 git            = ["g"]
 # Open the archive menu to the right of this one, for archiving the hovered agent, workflow or
 # schedule or every chosen agent, for restoring or deleting a row of the archive, or for
-# deleting the hovered or chosen worktrees.
+# deleting worktrees.
 archive        = ["a"]
 # Open the hide menu to the right of this one, for hiding the hovered agent or showing the
 # hidden ones. The entry is only on the agents list.
@@ -463,10 +467,6 @@ rename = ["r"]
 [keybindings.worktrees]
 # Open the view switcher.
 back          = ["esc"]
-# Delete everything on the screen that can go: every directory whose agent is archived,
-# through the agent delete and its hooks, and every directory no agent answers for. A
-# directory with a live agent in it is never deleted.
-clear         = ["D"]
 # Jump to the agent in the directory under the cursor, on the agents list or in the
 # archive.
 jump_to_agent = ["J"]

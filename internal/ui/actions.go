@@ -47,7 +47,6 @@ const (
 	actionArchiveBack
 	actionWorktreesBack
 	actionWorktreesJumpToAgent
-	actionWorktreesClear
 	actionDocumentsBack
 	actionDocumentsOlder
 	actionDocumentsNewer

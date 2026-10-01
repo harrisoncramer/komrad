@@ -368,7 +368,7 @@ type MenuKeys struct {
 	Git []string `mapstructure:"git" default:"g"`
 	// Open the archive menu to the right of this one, for archiving the hovered agent, workflow or
 	// schedule or every chosen agent, for restoring or deleting a row of the archive, or for
-	// deleting the hovered or chosen worktrees.
+	// deleting worktrees.
 	Archive []string `mapstructure:"archive" default:"a"`
 	// Open the hide menu to the right of this one, for hiding the hovered agent or showing the
 	// hidden ones. The entry is only on the agents list.
@@ -498,10 +498,6 @@ type LogsKeys struct {
 type WorktreesKeys struct {
 	// Open the view switcher.
 	Back []string `mapstructure:"back" default:"esc"`
-	// Delete everything on the screen that can go: every directory whose agent is archived,
-	// through the agent delete and its hooks, and every directory no agent answers for. A
-	// directory with a live agent in it is never deleted.
-	Clear []string `mapstructure:"clear" default:"D"`
 	// Jump to the agent in the directory under the cursor, on the agents list or in the
 	// archive.
 	JumpToAgent []string `mapstructure:"jump_to_agent" default:"J"`
@@ -652,6 +648,10 @@ type ArchiveMenuKeys struct {
 	// Put the agent back in the panel and open it, which relaunches its conversation in a pane
 	// and takes you to it. The entry is gray on an agent that never got as far as starting.
 	RestoreOpen []string `mapstructure:"restore_open" default:"o"`
+	// Delete every worktree that can go: every directory whose agent is archived, through the
+	// agent delete and its hooks, and every directory no agent answers for. A directory with a
+	// live agent in it is never deleted. The entry is only on the worktrees.
+	Clear []string `mapstructure:"clear" default:"c"`
 }
 
 // Hooks is where komrad finds the scripts a workflow hangs on a moment in its agents' lives.

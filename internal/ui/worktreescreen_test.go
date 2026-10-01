@@ -189,7 +189,7 @@ func TestWorktreesDelete(t *testing.T) {
 		{
 			name:      "clear gathers everything but the live directory",
 			row:       "treeview",
-			press:     []string{"D"},
+			press:     []string{"space", "a", "c"},
 			wantDrawn: "Delete 4 worktrees?",
 		},
 	}
@@ -246,6 +246,7 @@ func TestWorktreesMenu(t *testing.T) {
 		{name: "an archived agent's directory offers the agent delete", row: "reviewer", label: "delete the agent", key: "d"},
 		{name: "a directory nothing answers for offers the remover", row: "broken", label: "remove", key: "d"},
 		{name: "a selection offers to delete it all", row: "treeview", press: []string{"v", "j", "v"}, label: "delete all", key: "d"},
+		{name: "a repository header offers only the clear", row: "/home/h/komrad", label: "clear what can go", key: "c"},
 	}
 
 	for _, tt := range tests {
@@ -303,7 +304,7 @@ func TestWorktreesDeleteBranch(t *testing.T) {
 	}
 }
 
-// TestWorktreesDeleteAnswer covers answering the prompt the clear key opens.
+// TestWorktreesDeleteAnswer covers answering the prompt the clear entry opens.
 func TestWorktreesDeleteAnswer(t *testing.T) {
 	t.Parallel()
 
@@ -344,7 +345,7 @@ func TestWorktreesDeleteAnswer(t *testing.T) {
 			}
 			harness.press(widenListPresses...)
 
-			harness.press("D", tt.answer)
+			harness.press("space", "a", "c", tt.answer)
 
 			harness.assertSentTo(worktreev1connect.WorktreeServiceDeleteWorktreesProcedure, tt.wantSent...)
 			frame := harness.readFrame()
