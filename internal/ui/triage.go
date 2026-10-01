@@ -223,8 +223,8 @@ func (z *triageZone) isHeld(item panel.AgentRow) bool {
 
 // pruneSnoozes ends every snooze whose family has left triage or now waits on something else.
 func (z *triageZone) pruneSnoozes(agents []panel.AgentRow) {
-	byID := xslice.KeyBy(agents, func(item panel.AgentRow) string { return item.Agent.ID })
-	families := xslice.KeyBy(findTriageFamilies(z.entries, agents), func(f triageFamily) string { return f.head.Agent.ID })
+	byID := keyAgentsByID(agents)
+	families := z.familiesByHead(agents)
 	for headID, snooze := range z.snoozed {
 		if byID[headID].Agent.Hidden {
 			continue
@@ -239,7 +239,13 @@ func (z *triageZone) pruneSnoozes(agents []panel.AgentRow) {
 
 // isFor reports whether the snooze still stands for what the family waits on.
 func (s triageSnooze) isFor(entry triageEntry) bool {
-	return s.rule == entry.rule.name && s.began.Equal(entry.began)
+	want := snoozeFor(entry)
+
+	return s.rule == want.rule && s.began.Equal(want.began)
+}
+
+func snoozeFor(entry triageEntry) triageSnooze {
+	return triageSnooze{rule: entry.rule.name, began: entry.began}
 }
 
 // isSnoozed reports whether the family under the head is snoozed.
@@ -282,21 +288,24 @@ func (z *triageZone) snooze(family triageFamily) {
 		z.snoozed = make(map[string]triageSnooze)
 	}
 
-	z.snoozed[family.head.Agent.ID] = triageSnooze{rule: family.entry.rule.name, began: family.entry.began}
+	z.snoozed[family.head.Agent.ID] = snoozeFor(family.entry)
 }
 
 // findFamily is the family in triage the agent belongs to.
 func (z *triageZone) findFamily(item panel.AgentRow, agents []panel.AgentRow) (triageFamily, bool) {
-	head := findTriageHead(item, xslice.KeyBy(agents, func(it panel.AgentRow) string { return it.Agent.ID }))
-	families := xslice.KeyBy(findTriageFamilies(z.entries, agents), func(f triageFamily) string { return f.head.Agent.ID })
-	family, ok := families[head.Agent.ID]
+	head := findTriageHead(item, keyAgentsByID(agents))
+	family, ok := z.familiesByHead(agents)[head.Agent.ID]
 
 	return family, ok
 }
 
+func (z *triageZone) familiesByHead(agents []panel.AgentRow) map[string]triageFamily {
+	return xslice.KeyBy(findTriageFamilies(z.entries, agents), func(f triageFamily) string { return f.head.Agent.ID })
+}
+
 // findTriageFamilies groups the agents in triage under their heads, in the listing's order.
 func findTriageFamilies(entries map[string]triageEntry, agents []panel.AgentRow) []triageFamily {
-	byID := xslice.KeyBy(agents, func(item panel.AgentRow) string { return item.Agent.ID })
+	byID := keyAgentsByID(agents)
 	at := make(map[string]int)
 	var families []triageFamily
 	for _, item := range agents {
@@ -407,13 +416,7 @@ func (l agentsLayout) cursorRows() []agentRow {
 // splitTriage takes the most urgent families in triage the zone has room for out of the listing,
 // each head with its children under it and the snoozed families last.
 func splitTriage(z triageZone, s panelShared, showHidden bool) (zone []agentRow, waiting int, rest []panel.AgentRow) {
-	children := make(map[string][]panel.AgentRow)
-	for _, item := range s.listing.agents {
-		if parentID := item.Agent.ParentAgentID; parentID != nil {
-			children[*parentID] = append(children[*parentID], item)
-		}
-	}
-
+	children := childrenByParent(s.listing.agents)
 	families := xslice.Filter(findTriageFamilies(z.entries, s.listing.agents), func(f triageFamily) bool {
 		return !f.head.Agent.Hidden || showHidden
 	})
@@ -424,27 +427,13 @@ func splitTriage(z triageZone, s panelShared, showHidden bool) (zone []agentRow,
 		head := family.head
 		snoozed := z.isSnoozed(head.Agent.ID)
 		inZone[head.Agent.ID] = true
-		zone = append(zone, agentRow{
-			item:     head,
-			workflow: workflows[head.Agent.WorkflowID],
-			snoozed:  snoozed,
-		})
-		headRow := len(zone) - 1
 		for _, child := range children[head.Agent.ID] {
 			inZone[child.Agent.ID] = true
-			if child.Agent.Hidden {
-				zone[headRow].hiddenCount++
-				if !showHidden {
-					continue
-				}
-			}
-
-			zone = append(zone, agentRow{
-				item:     child,
-				workflow: workflows[child.Agent.WorkflowID],
-				child:    true,
-				snoozed:  snoozed,
-			})
+		}
+		for _, row := range buildFamilyRows(head, children[head.Agent.ID], showHidden) {
+			row.workflow = workflows[row.item.Agent.WorkflowID]
+			row.snoozed = snoozed
+			zone = append(zone, row)
 		}
 	}
 
@@ -516,12 +505,7 @@ func (m model) settleTriage() model {
 
 	switch {
 	case reading && m.agents.triage.frozen == nil:
-		m.agents.triage.frozen = []string{}
-		for _, row := range zone {
-			if !row.child {
-				m.agents.triage.frozen = append(m.agents.triage.frozen, row.item.Agent.ID)
-			}
-		}
+		m.agents.triage.frozen = xslice.Map(zoneHeads(zone), func(i int) string { return zone[i].item.Agent.ID })
 	case !reading && m.agents.triage.frozen != nil:
 		hovered := m.agents.list().hovered(m.shared())
 		m.agents.triage.frozen = nil
@@ -533,28 +517,43 @@ func (m model) settleTriage() model {
 
 // findZoneHead is the head of the family the zone row at the index belongs to.
 func findZoneHead(zone []agentRow, idx int) agentRow {
-	for i := idx; i > 0; i-- {
-		if !zone[i].child {
-			return zone[i]
+	heads := zoneHeads(zone)
+	for i := len(heads) - 1; i >= 0; i-- {
+		if heads[i] <= idx {
+			return zone[heads[i]]
 		}
 	}
 
 	return zone[0]
 }
 
-// findZoneSlot is which family in the zone the cursor is on, counting from the top, or -1 off the zone.
-func (a *agentsScreen) findZoneSlot(s panelShared) int {
-	slot := -1
-	for i, row := range a.layout(s).zone {
+func zoneHeads(zone []agentRow) []int {
+	var heads []int
+	for i, row := range zone {
 		if !row.child {
-			slot++
-		}
-		if i == a.cursor {
-			return slot
+			heads = append(heads, i)
 		}
 	}
 
-	return -1
+	return heads
+}
+
+// findZoneSlot is which family in the zone the cursor is on, counting from the top, or -1 off the zone.
+func (a *agentsScreen) findZoneSlot(s panelShared) int {
+	zone := a.layout(s).zone
+	if a.cursor < 0 || a.cursor >= len(zone) {
+		return -1
+	}
+
+	slot := -1
+	for _, head := range zoneHeads(zone) {
+		if head > a.cursor {
+			break
+		}
+		slot++
+	}
+
+	return slot
 }
 
 // landInTriage moves the cursor off a zone row that has left the list onto the family now in its
@@ -565,13 +564,7 @@ func (a *agentsScreen) landInTriage(s panelShared, selected string, slot int) {
 		return
 	}
 
-	var heads []int
-	for i, row := range a.layout(s).zone {
-		if !row.child {
-			heads = append(heads, i)
-		}
-	}
-
+	heads := zoneHeads(a.layout(s).zone)
 	if len(heads) == 0 {
 		a.cursor = firstAgentRowIndex(rows)
 
