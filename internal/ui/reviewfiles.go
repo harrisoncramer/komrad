@@ -387,10 +387,16 @@ func (r *reviewScreen) jumpFilesMatch(h navHost, s panelShared, direction int) t
 		return nil
 	}
 
-	start, step, walk := max(tree.current, 0), 1, direction
-	if direction == 0 {
+	start, step, walk := tree.current, 1, direction
+	switch {
+	case direction == 0:
 		step, walk = 0, 1
+	case start < 0 && direction > 0:
+		start, step = 0, 0
+	case start < 0:
+		start, step = len(tree.rows)-1, 0
 	}
+	start = max(start, 0)
 
 	for ; step <= len(tree.rows); step++ {
 		row := tree.rows[((start+walk*step)%len(tree.rows)+len(tree.rows))%len(tree.rows)]
