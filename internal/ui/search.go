@@ -549,11 +549,12 @@ func (w *searchScreen) updateInput(h host, s panelShared, key tea.KeyPressMsg) t
 		return h.hide()
 	}
 
-	switch step, k := w.input.take(key, s.register), key.String(); {
-	case step == lineLeft || (step == lineIgnored && (k == "esc" || k == "enter")):
+	switch w.input.take(key, s.register) {
+	case lineLeft, lineEntered:
 		w.typing = false
-	case step == lineChanged:
+	case lineChanged:
 		return debounceSearchCmd(w.query())
+	case lineIgnored, lineKept:
 	}
 
 	return nil
@@ -697,7 +698,7 @@ func archivedSearchRow(row view.Row, id string, archived map[string]panel.AgentR
 
 // snapshot is the rows the search found, as the list draws them.
 func (w *searchScreen) snapshot(s panelShared, rows []searchRow, pane listPane) view.Snapshot {
-	archived := archivedByID(s.listing.archivedAgents)
+	archived := keyAgentsByID(s.listing.archivedAgents)
 	caret := pane.caret
 	if w.isBlockFocused(s) {
 		caret = view.CaretDrawn

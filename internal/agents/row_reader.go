@@ -30,53 +30,66 @@ type observedPullRequestLister interface {
 	ListObservations(ctx context.Context, agentIDs []string) ([]pullrequeststore.Observation, error)
 }
 
-type agentReviewLister interface {
-	watchedLister[reviewstore.Review]
+type agentWatchedLister[R any] interface {
+	watchedLister[R]
 	ListIDsOfAgents(ctx context.Context, agentIDs []string) ([]string, error)
+}
+
+type pullRequestForgeThreadLister interface {
+	watchedLister[pullrequeststore.ForgeThread]
+	ListIDsOfPullRequests(ctx context.Context, pullRequestIDs []string) ([]string, error)
 }
 
 // NewRowReaderParams is what a row reader is built over.
 type NewRowReaderParams struct {
-	Agents       agentGetter
-	Rows         rowPageReader
-	Mail         watchedLister[mailstore.Mail]
-	PullRequests observedPullRequestLister
-	Repositories watchedLister[pullrequeststore.Sync]
-	Reviews      agentReviewLister
-	Workflows    watchedLister[workflowstore.Workflow]
+	Agents        agentGetter
+	Rows          rowPageReader
+	Mail          watchedLister[mailstore.Mail]
+	PullRequests  observedPullRequestLister
+	Repositories  watchedLister[pullrequeststore.Sync]
+	Reviews       agentWatchedLister[reviewstore.Review]
+	ReviewThreads agentWatchedLister[reviewstore.ThreadWithMessages]
+	ForgeThreads  pullRequestForgeThreadLister
+	Workflows     watchedLister[workflowstore.Workflow]
 }
 
 // RowReader reads what an agent's row says and what is drawn beside it.
 type RowReader struct {
-	agents       agentGetter
-	rows         rowPageReader
-	mail         watchedLister[mailstore.Mail]
-	pullRequests observedPullRequestLister
-	repositories watchedLister[pullrequeststore.Sync]
-	reviews      agentReviewLister
-	workflows    watchedLister[workflowstore.Workflow]
+	agents        agentGetter
+	rows          rowPageReader
+	mail          watchedLister[mailstore.Mail]
+	pullRequests  observedPullRequestLister
+	repositories  watchedLister[pullrequeststore.Sync]
+	reviews       agentWatchedLister[reviewstore.Review]
+	reviewThreads agentWatchedLister[reviewstore.ThreadWithMessages]
+	forgeThreads  pullRequestForgeThreadLister
+	workflows     watchedLister[workflowstore.Workflow]
 }
 
 // NewRowReader builds the reader over the stores.
 func NewRowReader(params NewRowReaderParams) *RowReader {
 	return &RowReader{
-		agents:       params.Agents,
-		rows:         params.Rows,
-		mail:         params.Mail,
-		pullRequests: params.PullRequests,
-		repositories: params.Repositories,
-		reviews:      params.Reviews,
-		workflows:    params.Workflows,
+		agents:        params.Agents,
+		rows:          params.Rows,
+		mail:          params.Mail,
+		pullRequests:  params.PullRequests,
+		repositories:  params.Repositories,
+		reviews:       params.Reviews,
+		reviewThreads: params.ReviewThreads,
+		forgeThreads:  params.ForgeThreads,
+		workflows:     params.Workflows,
 	}
 }
 
 // Surroundings are the watched rows a page of agents is drawn beside, the same ones the watch streams.
 type Surroundings struct {
-	Mail         []mailstore.Mail
-	PullRequests []pullrequeststore.PullRequest
-	Repositories []pullrequeststore.Sync
-	Reviews      []reviewstore.Review
-	Workflows    []workflowstore.Workflow
+	Mail          []mailstore.Mail
+	PullRequests  []pullrequeststore.PullRequest
+	Repositories  []pullrequeststore.Sync
+	Reviews       []reviewstore.Review
+	ReviewThreads []reviewstore.ThreadWithMessages
+	ForgeThreads  []pullrequeststore.ForgeThread
+	Workflows     []workflowstore.Workflow
 }
 
 // GetAgent returns one agent by id, archived or not.
@@ -119,8 +132,8 @@ func (r *RowReader) GetRow(ctx context.Context, id string) (*rowstore.Row, error
 	return row, nil
 }
 
-// ListSurroundings reads every unclaimed mail, and the pull requests, repositories, reviews and
-// workflows of the agents on the rows.
+// ListSurroundings reads every unclaimed mail, and the pull requests, repositories, reviews, review
+// threads, forge threads and workflows of the agents on the rows.
 func (r *RowReader) ListSurroundings(ctx context.Context, rows []rowstore.Row) (*Surroundings, error) {
 	agentIDs := xslice.Map(rows, func(row rowstore.Row) string { return row.ID })
 
@@ -158,17 +171,41 @@ func (r *RowReader) ListSurroundings(ctx context.Context, rows []rowstore.Row) (
 		return nil, fmt.Errorf("failed to list the reviews: %w", err)
 	}
 
+	reviewThreadIDs, err := r.reviewThreads.ListIDsOfAgents(ctx, agentIDs)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list the review threads of the agents: %w", err)
+	}
+
+	reviewThreads, err := listWatchedByKey(ctx, r.reviewThreads, reviewThreadIDs)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list the review threads: %w", err)
+	}
+
+	forgeThreadIDs, err := r.forgeThreads.ListIDsOfPullRequests(ctx, xslice.Map(pullRequests, func(pullRequest pullrequeststore.PullRequest) string {
+		return pullRequest.ID
+	}))
+	if err != nil {
+		return nil, fmt.Errorf("failed to list the forge threads of the pull requests: %w", err)
+	}
+
+	forgeThreads, err := listWatchedByKey(ctx, r.forgeThreads, forgeThreadIDs)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list the forge threads: %w", err)
+	}
+
 	workflows, err := listWatchedByKey(ctx, r.workflows, xslice.Map(rows, func(row rowstore.Row) string { return row.WorkflowID }))
 	if err != nil {
 		return nil, fmt.Errorf("failed to list the workflows: %w", err)
 	}
 
 	return &Surroundings{
-		Mail:         mail,
-		PullRequests: pullRequests,
-		Repositories: repositories,
-		Reviews:      reviews,
-		Workflows:    workflows,
+		Mail:          mail,
+		PullRequests:  pullRequests,
+		Repositories:  repositories,
+		Reviews:       reviews,
+		ReviewThreads: reviewThreads,
+		ForgeThreads:  forgeThreads,
+		Workflows:     workflows,
 	}, nil
 }
 

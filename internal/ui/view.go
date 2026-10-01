@@ -194,8 +194,18 @@ func (m model) heldFormView() string {
 	}
 
 	leading, _ := m.formLeading()
+	if m.form.trailing == nil {
+		return joinLeading(leading, view)
+	}
 
-	return joinLeading(leading, view)
+	lines := xslice.Map(strings.Split(strings.TrimRight(view, "\n"), "\n"), func(line string) string {
+		return strings.TrimRight(line, " ")
+	})
+	view = strings.Join(lines, "\n")
+
+	width, height := m.formBox()
+
+	return joinLeading(append(leading, view), m.form.trailing(max(width-lipgloss.Width(view)-dividerCols, 1), height))
 }
 
 // joinLeading draws blocks side by side ahead of the form, a divider between each.

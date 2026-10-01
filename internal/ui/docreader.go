@@ -310,8 +310,7 @@ func docActions() actionSpec {
 				keys: func(config.Keybindings) []string { return []string{filterOpenKey} },
 				run: func(m model, _ string) (tea.Model, tea.Cmd) {
 					m.settleTail()
-					m.reading.filter.typing = true
-					m.reading.filter.setQuery("")
+					m.reading.filter.open()
 					m.reading.origin = m.reading.Line
 
 					return m, nil

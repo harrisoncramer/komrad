@@ -132,13 +132,11 @@ type Keybindings struct {
 	Diff DiffKeys `mapstructure:"diff"`
 	// The documents screen, which reads what the hovered agent has written for a person.
 	Documents DocumentsKeys `mapstructure:"documents"`
-	// The menu on the hovered document or document type, over the panel's own entries.
+	// The menu on the hovered document, over the panel's own entries.
 	DocumentMenu DocumentMenuKeys `mapstructure:"document_menu"`
 	// The documents menu, nested under the menu on the hovered agent.
 	DocumentsMenu DocumentsMenuKeys `mapstructure:"documents_menu"`
-	// The document types screen, where a person defines the sorts of document agents write.
-	DocumentTypes DocumentTypesKeys `mapstructure:"document_types"`
-	// The document types menu, nested under the panel's own entries in the menu.
+	// The menu on the document type under the cursor of the document types list.
 	DocumentTypesMenu DocumentTypesMenuKeys `mapstructure:"document_types_menu"`
 	// The filter over whichever list is on screen, shared by every screen that
 	// draws one. The key that opens it is "/" and is not configured.
@@ -409,8 +407,8 @@ type MenuKeys struct {
 	// close it when it is already open. Each engine keeps its own file under komrad's state
 	// directory.
 	Scratch []string `mapstructure:"scratch" default:"s"`
-	// Open the document types menu to the right of this one, for listing the sorts of document
-	// agents write or defining a new one.
+	// List the sorts of document agents write to the right of this one, the context of the type
+	// under the cursor drawn beside it.
 	DocumentTypes []string `mapstructure:"document_types" default:"T"`
 }
 
@@ -431,33 +429,27 @@ type DocumentsMenuKeys struct {
 	New []string `mapstructure:"new" default:"c"`
 }
 
-// DocumentTypesMenuKeys are the bindings for the document types menu, which opens from the
-// panel's own entries in the menu.
+// DocumentTypesMenuKeys are the bindings for the menu on the document type under the cursor of
+// the document types list, which the menu key opens over it.
 type DocumentTypesMenuKeys struct {
-	// List every document type in a menu of its own, each type opening the ways to act on it.
-	List []string `mapstructure:"list" default:"l"`
+	// Edit the type's name and context, from a form holding them as they stand.
+	Edit []string `mapstructure:"edit" default:"e"`
 	// Define a new document type, from a form asking its name and the context an agent reads
 	// before writing one.
 	New []string `mapstructure:"new" default:"c"`
-	// Open the document types on the type picked from the list, where it can be edited, renamed
-	// and stepped back through.
-	Open []string `mapstructure:"open" default:"o"`
+	// Delete the type, once you confirm.
+	Delete []string `mapstructure:"delete" default:"d"`
 }
 
-// DocumentMenuKeys are the bindings for the menu on the hovered document or document type.
+// DocumentMenuKeys are the bindings for the menu on the hovered document.
 type DocumentMenuKeys struct {
-	// Open the document or type in your editor, in place of the text drawn beside the list.
-	// Quitting the editor, or picking the entry again to close it, saves what it has written.
+	// Open the document in your editor, in place of the text drawn beside the list. Quitting the
+	// editor, or picking the entry again to close it, saves what it has written.
 	Edit []string `mapstructure:"edit" default:"e"`
-	// Rename the document or type, typing over its name in the list. Every document written as a
-	// type is renamed with it.
+	// Rename the document, typing over its name in the list.
 	Rename []string `mapstructure:"rename" default:"r"`
-	// Write a new document for the agent whose documents are listed, or define a new type, from a
-	// form.
+	// Write a new document for the agent whose documents are listed, from a form.
 	New []string `mapstructure:"new" default:"c"`
-	// Delete the type, which is refused while documents are written as it. The entry is only on
-	// the document types.
-	Delete []string `mapstructure:"delete" default:"d"`
 }
 
 // DocumentsKeys are the bindings for the documents screen, which lists the documents one
@@ -470,20 +462,6 @@ type DocumentsKeys struct {
 	// changed.
 	Older []string `mapstructure:"older" default:"<"`
 	// Step forward to a later write, and past the newest back to the document as it stands.
-	Newer []string `mapstructure:"newer" default:">"`
-	// Quit the panel.
-	Quit []string `mapstructure:"quit" default:"ctrl+c"`
-}
-
-// DocumentTypesKeys are the bindings for the document types screen, which lists the sorts of
-// document agents write and draws the context of the one under the cursor beside the list.
-// Editing, renaming, defining and deleting a type are in the menu on the hovered type.
-type DocumentTypesKeys struct {
-	// Leave the document types for the screen they were opened from.
-	Back []string `mapstructure:"back" default:"esc"`
-	// Step back to an earlier write of the type under the cursor, drawing what that write changed.
-	Older []string `mapstructure:"older" default:"<"`
-	// Step forward to a later write, and past the newest back to the type as it stands.
 	Newer []string `mapstructure:"newer" default:">"`
 	// Quit the panel.
 	Quit []string `mapstructure:"quit" default:"ctrl+c"`
@@ -725,7 +703,7 @@ type Layout struct {
 	InfoHeight float64 `mapstructure:"info_height"`
 	// How many lines the details under the list draw, either a share of the sidebar's height below one or a whole number of lines. The marks the hovered row is carrying are spelled out in that same room, ahead of the fields. The chrome around them is added on top, and the two together never take more than half the sidebar's height. Once the details hold the keys they grow past this to show the whole record, as far as the sidebar allows.
 	DetailsHeight float64 `mapstructure:"details_height"`
-	// How many families the triage zone at the top of the agents list holds, the agents most in need of you, the most urgent first. An agent comes with its parent and its children, so the zone can draw more rows than this. Zero turns the zone off.
+	// How many rows of agents the triage zone at the top of the agents list draws, the agents most in need of you, the most urgent first. An agent comes with its parent and its children, and the zone keeps this height whether it is full or empty. Zero turns the zone off.
 	TriageRows int `mapstructure:"triage_rows"`
 }
 

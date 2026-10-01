@@ -13,6 +13,7 @@ import (
 
 	"komrad/internal/assemble"
 	"komrad/internal/client"
+	"komrad/internal/forge"
 	"komrad/internal/komradtest"
 	"komrad/internal/rpc/render"
 	"komrad/internal/storetest"
@@ -153,6 +154,30 @@ func TestIntegrationTheWatchAndTheStoresAgree(t *testing.T) {
 			},
 		},
 		{
+			name: "a person on the forge opens a thread on an agent's open pull request",
+			write: func(t *testing.T) {
+				require.NoError(t, pullrequeststore.NewForgeThreadStore(st.Pool.GetDB()).SetThreads(ctx, pullrequeststore.SetThreadsParams{
+					PullRequestID: openPR,
+					Viewer:        "harrisoncramer",
+					Threads: []forge.ReviewThread{{
+						ProviderID: "T_1",
+						Path:       "main.go",
+						Line:       3,
+						CommitSHA:  "head2",
+						Comments: []forge.ReviewComment{{
+							ProviderID: "C_1",
+							Login:      "dana",
+							Body:       "rename this",
+							WrittenAt:  time.Date(2026, 9, 22, 12, 0, 0, 0, time.UTC),
+						}},
+					}},
+				}))
+			},
+			took: func(t *testing.T, stores view) {
+				assert.Equal(t, int32(1), stores.agents[api.ID].GetPersonComments().GetExternal())
+			},
+		},
+		{
 			name: "a pull request is deleted",
 			write: func(t *testing.T) {
 				_, err := st.Pool.GetRawPool().Exec(ctx, "DELETE FROM pull_requests WHERE id = $1", openPR)
@@ -188,6 +213,48 @@ func TestIntegrationTheWatchAndTheStoresAgree(t *testing.T) {
 			},
 			took: func(t *testing.T, stores view) {
 				assert.Equal(t, int32(1), stores.agents[api.ID].GetLocalReviewRounds())
+			},
+		},
+		{
+			name: "a reviewer agent's comment on an agent's work is released",
+			write: func(t *testing.T) {
+				reviews := reviewstore.NewReviewStore(st.Pool.GetDB())
+				round, err := reviews.CreateRound(ctx, reviewstore.CreateRoundParams{
+					AgentID:     base.ID,
+					BaseSHA:     "base",
+					SnapshotSHA: "snapshot",
+				})
+				require.NoError(t, err)
+				review, err := reviews.OpenReview(ctx, reviewstore.OpenReviewParams{
+					AgentID:       base.ID,
+					RoundID:       round.ID,
+					AuthorKind:    reviewstore.AuthorAgent,
+					AuthorAgentID: &api.ID,
+				})
+				require.NoError(t, err)
+				_, err = reviews.CreateThread(ctx, reviewstore.CreateThreadParams{
+					AgentID:       base.ID,
+					ReviewID:      review.ID,
+					RoundID:       round.ID,
+					BaseSHA:       "base",
+					FilePath:      "main.go",
+					NewStart:      3,
+					NewEnd:        3,
+					QuotedLines:   []string{"func rename() {}"},
+					Body:          "rename this",
+					AuthorKind:    reviewstore.AuthorAgent,
+					AuthorAgentID: &api.ID,
+				})
+				require.NoError(t, err)
+				_, err = reviews.ReleaseReview(ctx, reviewstore.ReleaseReviewParams{
+					ID:      review.ID,
+					Verdict: reviewstore.VerdictChangesRequested,
+					Path:    "/tmp/review.md",
+				})
+				require.NoError(t, err)
+			},
+			took: func(t *testing.T, stores view) {
+				assert.Equal(t, int32(1), stores.agents[base.ID].GetReviewerComments().GetOpen())
 			},
 		},
 		{
@@ -281,10 +348,7 @@ func viewFromGets(t *testing.T, instance *komradtest.Instance, listed view) view
 	return got
 }
 
-// worldFromStores reads the watched set the way the agent handler reads a page: the live and
-// archived rows, the unclaimed mail, the pull requests an agent was seen with,
-// the repositories they sit on, the reviews of their work and their workflows, with the live
-// schedules beside them.
+// worldFromStores reads the watched set the way the agent handler reads a page.
 func worldFromStores(t *testing.T, st *storetest.Stores) assemble.World {
 	t.Helper()
 	ctx := t.Context()
@@ -309,6 +373,12 @@ func worldFromStores(t *testing.T, st *storetest.Stores) assemble.World {
 	reviewIDs, err := reviewStore.ListIDsOfAgents(ctx, agentIDs)
 	require.NoError(t, err)
 	reviews, err := reviewStore.ListWatched(ctx, reviewIDs)
+	require.NoError(t, err)
+
+	reviewThreads, err := reviewstore.NewThreadStore(st.Pool.GetDB()).ListWatched(ctx, nil)
+	require.NoError(t, err)
+
+	forgeThreads, err := pullrequeststore.NewForgeThreadStore(st.Pool.GetDB()).ListWatched(ctx, nil)
 	require.NoError(t, err)
 
 	workflows, err := st.Workflows.ListWatched(ctx, xslice.Map(rows, func(row rowstore.Row) string { return row.WorkflowID }))
@@ -338,6 +408,12 @@ func worldFromStores(t *testing.T, st *storetest.Stores) assemble.World {
 		}),
 		Reviews: xslice.KeyBy(xslice.Map(reviews, render.WatchedReview), func(r *agentv1.WatchedReview) string {
 			return r.GetId()
+		}),
+		ReviewThreads: xslice.KeyBy(xslice.Map(reviewThreads, render.WatchedReviewThread), func(r *agentv1.ReviewThread) string {
+			return r.GetId()
+		}),
+		ForgeThreads: xslice.KeyBy(xslice.Map(forgeThreads, render.ForgeThread), func(f *pullrequestv1.ForgeThread) string {
+			return f.GetId()
 		}),
 	}
 }

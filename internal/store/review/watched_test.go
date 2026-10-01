@@ -80,4 +80,12 @@ func TestListWatchedThreads(t *testing.T) {
 	listed, err := threads.ListWatched(ctx, []string{gone.ID, "not-a-uuid"})
 	require.NoError(t, err)
 	assert.Empty(t, listed, "a key on an archived agent is gone")
+
+	ofWorker, err := threads.ListIDsOfAgents(ctx, []string{worker, "not-an-id"})
+	require.NoError(t, err)
+	assert.Equal(t, []string{thread.ID}, ofWorker)
+
+	ofNobody, err := threads.ListIDsOfAgents(ctx, nil)
+	require.NoError(t, err)
+	assert.Empty(t, ofNobody, "no agents is no threads rather than every thread")
 }

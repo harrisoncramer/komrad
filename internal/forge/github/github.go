@@ -19,11 +19,11 @@ import (
 	"komrad/lib/xptr"
 )
 
-// DefaultAPI is where github.com answers REST calls, with GraphQL beside it.
-const DefaultAPI = "https://api.github.com"
+// defaultAPI is where github.com answers REST calls, with GraphQL beside it.
+const defaultAPI = "https://api.github.com"
 
-// MaxPerPage is the most GitHub hands over in one page, above which it silently trims.
-const MaxPerPage = 100
+// maxPerPage is the most GitHub hands over in one page, above which it silently trims.
+const maxPerPage = 100
 
 // pullRequestFragment is every field of a pull request the record is built from.
 const pullRequestFragment = `fragment pullRequestFields on PullRequest {
@@ -100,7 +100,7 @@ var dialect = graphql.Dialect{
 // NewForgeParams says how the forge reaches the API and as whom.
 type NewForgeParams struct {
 	Auth forge.Authenticator
-	// API is the REST base, DefaultAPI when unset, beside which GraphQL is answered.
+	// API is the REST base, https://api.github.com when unset, beside which GraphQL is answered.
 	API string
 	// Next is the round tripper under the credential transport, the default when nil.
 	Next http.RoundTripper
@@ -119,7 +119,7 @@ type Forge struct {
 func NewForge(params NewForgeParams) *Forge {
 	api := params.API
 	if api == "" {
-		api = DefaultAPI
+		api = defaultAPI
 	}
 
 	return &Forge{client: graphql.NewClient(graphql.NewClientParams{
@@ -189,7 +189,7 @@ func (f *Forge) List(ctx context.Context, params forge.ListParams) (*forge.Page,
 	variables := map[string]any{
 		"owner":  owner,
 		"name":   name,
-		"first":  min(max(params.PerPage, 1), MaxPerPage),
+		"first":  min(max(params.PerPage, 1), maxPerPage),
 		"after":  graphql.CursorOf(params.Cursor),
 		"states": []string{"OPEN"},
 	}
@@ -198,7 +198,25 @@ func (f *Forge) List(ctx context.Context, params forge.ListParams) (*forge.Page,
 		variables["states"] = []string{"OPEN", "CLOSED", "MERGED"}
 	}
 
-	return f.listPullRequests(ctx, listQuery, variables)
+	var data struct {
+		Repository *struct {
+			PullRequests connection `json:"pullRequests"`
+		} `json:"repository"`
+	}
+	answer, err := f.client.Query(ctx, listQuery, variables, &data)
+	if err != nil {
+		return nil, err
+	}
+	if err := failureOf(answer); err != nil {
+		return nil, err
+	}
+	if data.Repository == nil {
+		return nil, noRepository(variables)
+	}
+
+	return graphql.PageOf(&data.Repository.PullRequests, answer.RateLimit, func(node pullRequestNode) forge.PullRequest {
+		return node.toPullRequest(false)
+	}), nil
 }
 
 // Get is one pull request by its web address.
@@ -386,11 +404,8 @@ func (f *Forge) SetDraft(ctx context.Context, address string, draft bool) error 
 		return noPullRequest(number, owner, name)
 	}
 	target := data.Repository.PullRequest
-	switch target.State {
-	case "MERGED":
-		return forge.ErrNotDraftable.Saying("github will not change #%d: it has already merged", number)
-	case "CLOSED":
-		return forge.ErrNotDraftable.Saying("github will not change #%d: it was closed", number)
+	if err := refuseFinished(forge.ErrNotDraftable, target.State, number); err != nil {
+		return err
 	}
 	if target.IsDraft == draft {
 		return nil
@@ -419,19 +434,12 @@ func (f *Forge) SetAutoMerge(ctx context.Context, params forge.SetAutoMergeParam
 		return err
 	}
 
-	target, err := f.readAutoMergeTarget(ctx, readAutoMergeTargetParams{
-		owner:  owner,
-		name:   name,
-		number: number,
-	})
+	target, err := f.readAutoMergeTarget(ctx, owner, name, number)
 	if err != nil {
 		return err
 	}
-	switch target.State {
-	case "MERGED":
-		return forge.ErrNoAutoMerge.Saying("github will not change #%d: it has already merged", number)
-	case "CLOSED":
-		return forge.ErrNoAutoMerge.Saying("github will not change #%d: it was closed", number)
+	if err := refuseFinished(forge.ErrNoAutoMerge, target.State, number); err != nil {
+		return err
 	}
 	if (target.AutoMergeRequest != nil) == params.On {
 		return nil
@@ -454,15 +462,8 @@ func (f *Forge) SetAutoMerge(ctx context.Context, params forge.SetAutoMergeParam
 	return mutationRefusal{sentinel: forge.ErrNoAutoMerge, verb: "change auto-merge on"}.explain(answer, params.URL, number)
 }
 
-// readAutoMergeTargetParams names the pull request whose auto-merge is read.
-type readAutoMergeTargetParams struct {
-	owner  string
-	name   string
-	number int
-}
-
 // readAutoMergeTarget reads the pull request whose auto-merge is about to change.
-func (f *Forge) readAutoMergeTarget(ctx context.Context, params readAutoMergeTargetParams) (*autoMergeTarget, error) {
+func (f *Forge) readAutoMergeTarget(ctx context.Context, owner, name string, number int) (*autoMergeTarget, error) {
 	var data struct {
 		Repository *struct {
 			ViewerDefaultMergeMethod string           `json:"viewerDefaultMergeMethod"`
@@ -470,9 +471,9 @@ func (f *Forge) readAutoMergeTarget(ctx context.Context, params readAutoMergeTar
 		} `json:"repository"`
 	}
 	answer, err := f.client.Query(ctx, autoMergeTargetQuery, map[string]any{
-		"owner":  params.owner,
-		"name":   params.name,
-		"number": params.number,
+		"owner":  owner,
+		"name":   name,
+		"number": number,
 	}, &data)
 	if err != nil {
 		return nil, err
@@ -481,37 +482,13 @@ func (f *Forge) readAutoMergeTarget(ctx context.Context, params readAutoMergeTar
 		return nil, err
 	}
 	if data.Repository == nil || data.Repository.PullRequest == nil {
-		return nil, noPullRequest(params.number, params.owner, params.name)
+		return nil, noPullRequest(number, owner, name)
 	}
 
 	target := data.Repository.PullRequest
 	target.method = data.Repository.ViewerDefaultMergeMethod
 
 	return target, nil
-}
-
-// listPullRequests reads one page of a repository's pullRequests connection, whichever query
-// shapes it.
-func (f *Forge) listPullRequests(ctx context.Context, operation string, variables map[string]any) (*forge.Page, error) {
-	var data struct {
-		Repository *struct {
-			PullRequests connection `json:"pullRequests"`
-		} `json:"repository"`
-	}
-	answer, err := f.client.Query(ctx, operation, variables, &data)
-	if err != nil {
-		return nil, err
-	}
-	if err := failureOf(answer); err != nil {
-		return nil, err
-	}
-	if data.Repository == nil {
-		return nil, noRepository(variables)
-	}
-
-	return graphql.PageOf(&data.Repository.PullRequests, answer.RateLimit, func(node pullRequestNode) forge.PullRequest {
-		return node.toPullRequest(false)
-	}), nil
 }
 
 // noRepository is GitHub answering null for the repository a query's variables name.
@@ -521,6 +498,17 @@ func noRepository(variables map[string]any) error {
 
 func noPullRequest(number int, owner, name string) error {
 	return fmt.Errorf("%w: github has no pull request %d in %s/%s", forge.ErrNotFound, number, owner, name)
+}
+
+func refuseFinished(sentinel *fail.Error, state string, number int) error {
+	switch state {
+	case "MERGED":
+		return sentinel.Saying("github will not change #%d: it has already merged", number)
+	case "CLOSED":
+		return sentinel.Saying("github will not change #%d: it was closed", number)
+	}
+
+	return nil
 }
 
 type mutationRefusal struct {

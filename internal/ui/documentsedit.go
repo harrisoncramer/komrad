@@ -36,7 +36,7 @@ func (d *documentsScreen) pressEdit(h host, s panelShared) tea.Cmd {
 		return nil
 	}
 
-	read, asked := d.bodyOf(s, item.id)
+	read, asked := d.bodies[item.id]
 	if !asked || read.err != nil || read.body == "" || read.pending || read.updatedAt.Before(item.updatedAt) {
 		h.reportBrief("could not edit "+item.name, "its text has not been read yet")
 
@@ -77,7 +77,6 @@ func (d *documentsScreen) closeEdit(h host) tea.Cmd {
 	}
 
 	edit := *d.editing
-	shelf := d.shelf
 	d.editing = nil
 	h.unstageEditor()
 
@@ -103,7 +102,7 @@ func (d *documentsScreen) closeEdit(h host) tea.Cmd {
 	}
 
 	return h.writeCmd("saving "+edit.item.name, summary, func(a api) error {
-		if err := shelf.save(a, edit.item, edit.version, body); err != nil {
+		if err := a.writeDocument(edit.item, edit.version, body); err != nil {
 			return fmt.Errorf("failed to save, so your copy is left at %s: %w", edit.path, err)
 		}
 

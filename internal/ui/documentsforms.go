@@ -91,3 +91,12 @@ func defaultDocumentType(types []string) string {
 
 	return types[0]
 }
+
+// pressNew puts up the form for a new document.
+func (d *documentsScreen) pressNew(h host, s panelShared) tea.Cmd {
+	if d.editing != nil {
+		return nil
+	}
+
+	return newDocumentForm(h, s, d.agentID)
+}

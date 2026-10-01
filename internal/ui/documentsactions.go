@@ -32,21 +32,21 @@ func (d *documentsScreen) table() []screenAction {
 	return slices.Concat(d.list().actions(), []screenAction{
 		{
 			id:   actionDocumentsOlder,
-			keys: func(k config.Keybindings) []string { return d.shelf.keys(k).Older },
+			keys: func(k config.Keybindings) []string { return k.Documents.Older },
 			nav: func(h navHost, s panelShared, _ string) tea.Cmd {
 				return d.stepOlder(h, s)
 			},
 		},
 		{
 			id:   actionDocumentsNewer,
-			keys: func(k config.Keybindings) []string { return d.shelf.keys(k).Newer },
+			keys: func(k config.Keybindings) []string { return k.Documents.Newer },
 			nav: func(h navHost, s panelShared, _ string) tea.Cmd {
 				return d.stepNewer(h, s)
 			},
 		},
 		{
 			id:   actionDocumentsBack,
-			keys: func(k config.Keybindings) []string { return d.shelf.keys(k).Back },
+			keys: func(k config.Keybindings) []string { return k.Documents.Back },
 			nav: func(h navHost, s panelShared, _ string) tea.Cmd {
 				return d.back(h, s)
 			},
@@ -104,7 +104,7 @@ func (d *documentsScreen) stepActions() screenActionSpec {
 		table: []screenAction{
 			{
 				id:   actionDocumentsBack,
-				keys: func(k config.Keybindings) []string { return d.shelf.keys(k).Back },
+				keys: func(k config.Keybindings) []string { return k.Documents.Back },
 				nav: func(navHost, panelShared, string) tea.Cmd {
 					d.focus = false
 
@@ -113,17 +113,17 @@ func (d *documentsScreen) stepActions() screenActionSpec {
 			},
 			{
 				id:   actionQuit,
-				keys: func(k config.Keybindings) []string { return d.shelf.keys(k).Quit },
+				keys: func(k config.Keybindings) []string { return k.Documents.Quit },
 				nav:  func(h navHost, _ panelShared, _ string) tea.Cmd { return h.hide() },
 			},
 			{
 				id:   actionDocumentsOlder,
-				keys: func(k config.Keybindings) []string { return d.shelf.keys(k).Older },
+				keys: func(k config.Keybindings) []string { return k.Documents.Older },
 				nav:  func(h navHost, s panelShared, _ string) tea.Cmd { return d.stepOlder(h, s) },
 			},
 			{
 				id:   actionDocumentsNewer,
-				keys: func(k config.Keybindings) []string { return d.shelf.keys(k).Newer },
+				keys: func(k config.Keybindings) []string { return k.Documents.Newer },
 				nav:  func(h navHost, s panelShared, _ string) tea.Cmd { return d.stepNewer(h, s) },
 			},
 		},

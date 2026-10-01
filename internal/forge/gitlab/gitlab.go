@@ -20,11 +20,11 @@ import (
 	"komrad/lib/xptr"
 )
 
-// DefaultAPI is where gitlab.com answers REST calls, with GraphQL beside it.
-const DefaultAPI = "https://gitlab.com/api/v4"
+// defaultAPI is where gitlab.com answers REST calls, with GraphQL beside it.
+const defaultAPI = "https://gitlab.com/api/v4"
 
-// MaxPerPage is the most GitLab hands over in one page, above which it silently trims.
-const MaxPerPage = 100
+// maxPerPage is the most GitLab hands over in one page, above which it silently trims.
+const maxPerPage = 100
 
 // branchesPerQuery is how many branches the first ReadBranches query aliases.
 const branchesPerQuery = 2
@@ -84,7 +84,7 @@ var dialect = graphql.Dialect{
 // NewForgeParams says how the forge reaches the API and as whom.
 type NewForgeParams struct {
 	Auth forge.Authenticator
-	// API is the REST base, DefaultAPI when unset, beside which GraphQL is answered.
+	// API is the REST base, https://gitlab.com/api/v4 when unset, beside which GraphQL is answered.
 	API string
 	// Next is the round tripper under the credential transport, the default when nil.
 	Next http.RoundTripper
@@ -103,7 +103,7 @@ type Forge struct {
 func NewForge(params NewForgeParams) *Forge {
 	api := params.API
 	if api == "" {
-		api = DefaultAPI
+		api = defaultAPI
 	}
 
 	return &Forge{client: graphql.NewClient(graphql.NewClientParams{
@@ -152,7 +152,7 @@ func (f *Forge) List(ctx context.Context, params forge.ListParams) (*forge.Page,
 
 	variables := map[string]any{
 		"path":  path,
-		"first": min(max(params.PerPage, 1), MaxPerPage),
+		"first": min(max(params.PerPage, 1), maxPerPage),
 		"after": graphql.CursorOf(params.Cursor),
 		"state": "opened",
 	}
@@ -161,7 +161,25 @@ func (f *Forge) List(ctx context.Context, params forge.ListParams) (*forge.Page,
 		delete(variables, "state")
 	}
 
-	return f.listMergeRequests(ctx, listQuery, variables)
+	var data struct {
+		Project *struct {
+			MergeRequests connection `json:"mergeRequests"`
+		} `json:"project"`
+	}
+	answer, err := f.client.Query(ctx, listQuery, variables, &data)
+	if err != nil {
+		return nil, err
+	}
+	if err := failureOf(answer); err != nil {
+		return nil, err
+	}
+	if data.Project == nil {
+		return nil, noProject(path)
+	}
+
+	return graphql.PageOf(&data.Project.MergeRequests, answer.RateLimit, func(node mergeRequestNode) forge.PullRequest {
+		return node.toPullRequest(false)
+	}), nil
 }
 
 // Get is one merge request by its web address.
@@ -420,7 +438,7 @@ func (f *Forge) ReadBranches(ctx context.Context, repo git.RemoteURL, branches [
 	}
 
 	reading := &forge.Reading{}
-	err = sendInBatches(ctx, branches, branchesPerQuery, func(ctx context.Context, batch []string) (complexity, error) {
+	err = sendInBatches(ctx, branches, func(ctx context.Context, batch []string) (complexity, error) {
 		variables := map[string]any{"path": path}
 		var declared, fields strings.Builder
 		for i, branch := range batch {
@@ -444,7 +462,7 @@ func (f *Forge) ReadBranches(ctx context.Context, repo git.RemoteURL, branches [
 			return complexity{}, err
 		}
 		if data.Project == nil {
-			return complexity{}, fmt.Errorf("%w: gitlab has no project %s, which is also its answer for one the credential cannot see", forge.ErrNotFound, path)
+			return complexity{}, noProject(path)
 		}
 
 		reading.RateLimit = answer.RateLimit
@@ -473,33 +491,10 @@ func (f *Forge) ReadBranches(ctx context.Context, repo git.RemoteURL, branches [
 	return reading, nil
 }
 
-// listMergeRequests reads one page of a project's mergeRequests connection, whichever query
-// shapes it.
-func (f *Forge) listMergeRequests(ctx context.Context, operation string, variables map[string]any) (*forge.Page, error) {
-	var data struct {
-		Project *struct {
-			MergeRequests connection `json:"mergeRequests"`
-		} `json:"project"`
-	}
-	answer, err := f.client.Query(ctx, operation, variables, &data)
-	if err != nil {
-		return nil, err
-	}
-	if err := failureOf(answer); err != nil {
-		return nil, err
-	}
-	if data.Project == nil {
-		return nil, fmt.Errorf("%w: gitlab has no project %s, which is also its answer for one the credential cannot see", forge.ErrNotFound, variables["path"])
-	}
-
-	return graphql.PageOf(&data.Project.MergeRequests, answer.RateLimit, func(node mergeRequestNode) forge.PullRequest {
-		return node.toPullRequest(false)
-	}), nil
-}
-
 // sendInBatches sends one query per batch of branches, sized from what GitLab last said about its
 // complexity budget, halved when it refuses a batch for exceeding it and never again as large.
-func sendInBatches(ctx context.Context, branches []string, size int, send func(context.Context, []string) (complexity, error)) error {
+func sendInBatches(ctx context.Context, branches []string, send func(context.Context, []string) (complexity, error)) error {
+	size := branchesPerQuery
 	ceiling := len(branches)
 	for len(branches) > 0 {
 		count := min(size, ceiling, len(branches))
@@ -571,6 +566,10 @@ func parseMergeRequestURL(address string) (path string, number int, err error) {
 	}
 
 	return before, number, nil
+}
+
+func noProject(path string) error {
+	return fmt.Errorf("%w: gitlab has no project %s, which is also its answer for one the credential cannot see", forge.ErrNotFound, path)
 }
 
 // noMergeRequest says GitLab has no such merge request, which is also its answer for a project the credential cannot see.

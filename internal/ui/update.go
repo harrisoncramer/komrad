@@ -479,28 +479,12 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 		}
 
 		return m, m.releaseAbandonedPause(msg), true
-	case rebasePlannedMsg:
-		next, cmd := m.applyRebasePlanned(msg)
+	case gitPlannedMsg:
+		next, cmd := m.applyGitPlanned(msg)
 
 		return next, cmd, true
-	case rebasedMsg:
-		next, cmd := m.applyRebased(msg)
-
-		return next, cmd, true
-	case pushPlannedMsg:
-		next, cmd := m.applyPushPlanned(msg)
-
-		return next, cmd, true
-	case pushedMsg:
-		next, cmd := m.applyPushed(msg)
-
-		return next, cmd, true
-	case abortedMsg:
-		next, cmd := m.applyAborted(msg)
-
-		return next, cmd, true
-	case mergedMsg:
-		next, cmd := m.applyMerged(msg)
+	case gitDoneMsg:
+		next, cmd := m.applyGitDone(msg)
 
 		return next, cmd, true
 	case draftedMsg:
@@ -552,8 +536,8 @@ func (m *model) reconcileEditor() tea.Cmd {
 	switch m.screen {
 	case screenReview:
 		return m.review.reconcileEditor(m, m.shared())
-	case screenDocuments, screenDocumentTypes:
-		return m.documentsOn(m.screen).reconcileEditor(m)
+	case screenDocuments:
+		return m.documents.reconcileEditor(m)
 	case screenAgents:
 		return m.agents.reconcileEditor(m)
 	case screenSchedules, screenArchive, screenSearch, screenWorktrees, screenLogs:

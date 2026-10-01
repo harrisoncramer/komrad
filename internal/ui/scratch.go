@@ -56,7 +56,7 @@ func (m *model) toggleScratch() tea.Cmd {
 // isEditorHeld reports whether another editor holds the stage or is waiting on an agent to stop
 // before it does.
 func (m *model) isEditorHeld() bool {
-	return m.agents.editing != nil || m.documents.editing != nil || m.documentTypes.editing != nil ||
+	return m.agents.editing != nil || m.documents.editing != nil ||
 		(m.screen == screenReview && (m.review.hold.pausing || m.review.hold.atEditor))
 }
 

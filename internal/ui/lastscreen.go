@@ -62,7 +62,7 @@ func (m model) screenedAgentID() (string, bool) {
 		}
 
 		return row.item.agent.id, true
-	case screenSchedules, screenSearch, screenReview, screenDocuments, screenLogs, screenDocumentTypes:
+	case screenSchedules, screenSearch, screenReview, screenDocuments, screenLogs:
 	}
 
 	return "", false
@@ -195,7 +195,7 @@ func (m model) screenNotice() string {
 		return "dormant" + separated + "press " + keyLabel(m.keys.Agents.Open) + " to restore"
 	case screenWorktrees:
 		return "not running"
-	case screenSchedules, screenSearch, screenReview, screenDocuments, screenLogs, screenDocumentTypes:
+	case screenSchedules, screenSearch, screenReview, screenDocuments, screenLogs:
 	}
 
 	return ""

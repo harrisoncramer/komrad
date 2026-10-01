@@ -174,31 +174,6 @@ func worktreeOverride(selected string) *bool {
 	return nil
 }
 
-// openRebaseConfirm asks before bringing a worktree up to date.
-func (m model) openRebaseConfirm(plan rebasePlan) (tea.Model, tea.Cmd) {
-	form, confirmed := rebaseForm(plan, formKeys())
-
-	return m, m.openForm(formState{
-		kind:   formAgentRebase,
-		form:   form,
-		update: model.updateForm,
-		submit: holdSubmit(func(m model) (model, tea.Cmd) {
-			if !*confirmed {
-				return m, nil
-			}
-
-			cmd := m.rebaseCmd(plan.agentID, plan.name)
-
-			return m, cmd
-		}),
-		rebuild: func(model) (*huh.Form, []string) {
-			held, _ := rebaseForm(plan, formKeys())
-
-			return held, nil
-		},
-	})
-}
-
 type adoptFormValues struct {
 	Ref     string
 	Prompt  string
@@ -362,13 +337,15 @@ func archiveAgentsForm(agents []panel.Agent, children int, keys config.FormKeys)
 
 // rebaseForm asks before a worktree is brought up to date, saying what will happen to the
 // branch and to the files.
-func rebaseForm(plan rebasePlan, keys config.FormKeys) (*huh.Form, *bool) {
-	return confirmForm(
-		"Bring the worktree of "+plan.name+" up to date?",
-		rebaseDescription(plan),
-		rebaseAffirmative(plan),
-		keys,
-	)
+func rebaseForm(plan rebasePlan) gitConfirmForm {
+	return func(keys config.FormKeys) (*huh.Form, *bool) {
+		return confirmForm(
+			"Bring the worktree of "+plan.name+" up to date?",
+			rebaseDescription(plan),
+			rebaseAffirmative(plan),
+			keys,
+		)
+	}
 }
 
 // rebaseDescription says what the operation will do, in the order somebody deciding needs it:
