@@ -200,6 +200,42 @@ func TestSetThreads(t *testing.T) {
 	}
 }
 
+// TestListIDsOfPullRequests covers which forge threads a page of pull requests reads.
+func TestListIDsOfPullRequests(t *testing.T) {
+	h := open(t)
+	ctx := t.Context()
+	threads := NewForgeThreadStore(h.pool.GetDB())
+
+	workflow := h.createWorkflow(t)
+	h.createAgent(t, workflow, "live", komrad, "agent/x")
+	h.createAgent(t, workflow, "other", komrad, "agent/y")
+	linked := h.linkedPullRequest(t, "PR_1", 1, "agent/x")
+	elsewhere := h.linkedPullRequest(t, "PR_2", 2, "agent/y")
+
+	require.NoError(t, threads.SetThreads(ctx, SetThreadsParams{
+		PullRequestID: linked,
+		Viewer:        "harrisoncramer",
+		Threads:       []forge.ReviewThread{threadOn("T_1", commentBy("C_1", "dana"))},
+	}))
+	require.NoError(t, threads.SetThreads(ctx, SetThreadsParams{
+		PullRequestID: elsewhere,
+		Viewer:        "harrisoncramer",
+		Threads:       []forge.ReviewThread{threadOn("T_2", commentBy("C_2", "lee"))},
+	}))
+
+	stored, err := threads.ListWatched(ctx, nil)
+	require.NoError(t, err)
+	byProvider := xslice.KeyBy(stored, func(thread ForgeThread) string { return thread.ProviderID })
+
+	ofLinked, err := threads.ListIDsOfPullRequests(ctx, []string{linked, "not-an-id"})
+	require.NoError(t, err)
+	assert.Equal(t, []string{byProvider["T_1"].ID}, ofLinked)
+
+	ofNone, err := threads.ListIDsOfPullRequests(ctx, nil)
+	require.NoError(t, err)
+	assert.Empty(t, ofNone, "no pull requests is no threads rather than every thread")
+}
+
 // TestSetDismissed covers a dismissal outlasting the sync until a new comment is stored on the thread or the person clears it.
 func TestSetDismissed(t *testing.T) {
 	h := open(t)

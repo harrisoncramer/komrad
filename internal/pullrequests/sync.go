@@ -13,8 +13,6 @@ import (
 	"komrad/internal/forge"
 	"komrad/internal/git"
 	"komrad/internal/logging"
-	"komrad/internal/store"
-	forgestore "komrad/internal/store/forge"
 	pullrequeststore "komrad/internal/store/pullrequest"
 	"komrad/lib/xptr"
 
@@ -31,41 +29,6 @@ type waker interface {
 	Wake()
 }
 
-// pullRequestForgeFinder is what the sync asks of the forge service.
-type pullRequestForgeFinder interface {
-	ConnectionFor(ctx context.Context, host string) (*forgestore.Connection, error)
-	ForConnection(connection forgestore.Connection) (forge.Forge, error)
-	SetThrottledUntil(ctx context.Context, id string, until *time.Time) error
-}
-
-// onceLog remembers what has been said once already, by what kind of thing it was about and
-// which one.
-type onceLog map[string]bool
-
-// first says whether nothing has been said about the key yet, and remembers that it has now.
-func (l onceLog) first(kind, key string) bool {
-	if l[kind+":"+key] {
-		return false
-	}
-
-	l[kind+":"+key] = true
-
-	return true
-}
-
-// forget lets the key be said about again.
-func (l onceLog) forget(kind, key string) {
-	delete(l, kind+":"+key)
-}
-
-// The kinds of thing the syncer says once.
-const (
-	saidUnconnected = "unconnected"
-	saidMissing     = "missing"
-	saidRefused     = "refused"
-	saidRenamed     = "renamed"
-)
-
 // NewPullRequestSyncerParams is what a pull request syncer is built over.
 type NewPullRequestSyncerParams struct {
 	Forges       pullRequestForgeFinder
@@ -81,13 +44,12 @@ type NewPullRequestSyncerParams struct {
 // PullRequestSyncer keeps the pull requests on the branches live agents sit on in step with the
 // forges, reading each repository again soon when something in it is likely to change.
 type PullRequestSyncer struct {
-	forges       pullRequestForgeFinder
 	pullRequests *pullrequeststore.PullRequestStore
 	syncs        *pullrequeststore.PullRequestSyncStore
 	events       eventRecorder
 	loop         waker
 	now          func() time.Time
-	backoff      *hostBackoff
+	hosts        *hostGate
 	pacing       *pacing
 	said         onceLog
 }
@@ -100,13 +62,12 @@ func NewPullRequestSyncer(params NewPullRequestSyncerParams) *PullRequestSyncer 
 	}
 
 	return &PullRequestSyncer{
-		forges:       params.Forges,
 		pullRequests: params.PullRequests,
 		syncs:        params.Syncs,
 		events:       params.Events,
 		loop:         params.Loop,
 		now:          now,
-		backoff:      newHostBackoff(params.Forges, now),
+		hosts:        newHostGate(params.Forges, now),
 		pacing:       newPacing(),
 		said:         onceLog{},
 	}
@@ -198,15 +159,10 @@ func candidatesOf(repositories []string, targets []pullrequeststore.Target) []ca
 	return candidates
 }
 
-// hostRead is one forge host being read in a pass, with the connection and forge it is read
-// through and its due repositories.
+// hostRead is one forge host being read in a pass, with its due repositories.
 type hostRead struct {
-	host         string
-	connection   *forgestore.Connection
-	forge        forge.Forge
+	*forgeHost
 	repositories []candidate
-	// throttled says nothing more is asked of the host this pass.
-	throttled bool
 }
 
 // groupByHost resolves the connection and forge for each host the repositories live on,
@@ -241,38 +197,17 @@ func (s *PullRequestSyncer) groupByHost(ctx context.Context, repositories []cand
 
 // openHost is the host with its connection and forge, nil when it cannot be read this pass.
 func (s *PullRequestSyncer) openHost(ctx context.Context, hostname, repositoryURL string) *hostRead {
-	logger := logging.From(ctx).With(slog.String(logging.ForgeHost, hostname))
-
-	connection, err := s.forges.ConnectionFor(ctx, hostname)
-	if errors.Is(err, store.ErrNotFound) {
-		if s.said.first(saidUnconnected, repositoryURL) {
-			logger.LogAttrs(ctx, slog.LevelInfo, "no forge connection for the repository, so its pull requests are not read",
-				slog.String(logging.RepositoryURL, repositoryURL))
-		}
-
-		return nil
+	opened, unconnected := s.hosts.open(ctx, hostname)
+	if unconnected && s.said.first(saidUnconnected, repositoryURL) {
+		logging.From(ctx).LogAttrs(ctx, slog.LevelInfo, "no forge connection for the repository, so its pull requests are not read",
+			slog.String(logging.ForgeHost, hostname),
+			slog.String(logging.RepositoryURL, repositoryURL))
 	}
-	if err != nil {
-		logger.LogAttrs(ctx, slog.LevelError, "failed to find the forge connection", logging.Err(err)...)
-
-		return nil
-	}
-	if connection.ThrottledUntil != nil && connection.ThrottledUntil.After(s.now()) {
+	if opened == nil {
 		return nil
 	}
 
-	f, err := s.forges.ForConnection(*connection)
-	if err != nil {
-		logger.LogAttrs(ctx, slog.LevelError, "failed to build the forge", logging.Err(err)...)
-
-		return nil
-	}
-
-	return &hostRead{
-		host:       hostname,
-		connection: connection,
-		forge:      f,
-	}
+	return &hostRead{forgeHost: opened}
 }
 
 // syncHost reads each of the host's due repositories until the host's rate limit or credential
@@ -362,8 +297,7 @@ func (s *PullRequestSyncer) settleHostError(ctx context.Context, host *hostRead,
 // throttleHost stops a host for the pass after a rate limit refusal, records when to try it
 // again, and says so.
 func (s *PullRequestSyncer) throttleHost(ctx context.Context, host *hostRead, retryAt time.Time) {
-	host.throttled = true
-	until := s.backoff.record(ctx, host.host, host.connection.ID, retryAt)
+	until := s.hosts.throttle(ctx, host.forgeHost, retryAt)
 	if until.IsZero() {
 		return
 	}
@@ -376,8 +310,7 @@ func (s *PullRequestSyncer) throttleHost(ctx context.Context, host *hostRead, re
 // refuseHost stops a host for the pass after the forge refused its credential, backs off the
 // way a rate limit refusal that named no time does, and says so once per host.
 func (s *PullRequestSyncer) refuseHost(ctx context.Context, host *hostRead, err error) {
-	host.throttled = true
-	s.backoff.record(ctx, host.host, host.connection.ID, time.Time{})
+	s.hosts.throttle(ctx, host.forgeHost, time.Time{})
 	if !s.said.first(saidRefused, host.host) {
 		return
 	}
@@ -390,7 +323,7 @@ func (s *PullRequestSyncer) refuseHost(ctx context.Context, host *hostRead, err 
 // budget is spent, and keeps it in the slow lane until the reset once the budget runs low.
 func (s *PullRequestSyncer) noteRateLimit(ctx context.Context, host *hostRead, limit forge.RateLimit) {
 	if limit.Known {
-		s.backoff.reset(host.host)
+		s.hosts.reset(host.host)
 	}
 	if limit.IsExhausted() {
 		s.throttleHost(ctx, host, limit.ResetAt)

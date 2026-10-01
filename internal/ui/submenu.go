@@ -11,6 +11,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/huh/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 )
 
@@ -25,7 +26,6 @@ const nestedMark = " " + glyph.Crumb
 type submenu struct {
 	kind    formKind
 	title   string
-	crumb   string
 	entries []submenuEntry
 	// actions is the menu the menu key opens on the entry under a list's cursor, nil for a menu
 	// whose entries act on their own.
@@ -103,6 +103,14 @@ func nestedEntry(label string, keys []string, menu submenu) submenuEntry {
 	}
 }
 
+// withNested is a band with a nested menu at its foot.
+func withNested(menu submenu, label string, keys []string, nested submenu) submenu {
+	at := len(menu.entries)
+	menu.entries = append(menu.entries[:at:at], nestedEntry(label, keys, nested))
+
+	return menu
+}
+
 var dividerEntry = submenuEntry{isOff: true, isDivider: true}
 
 // openSubmenu draws a submenu, its cursor on the first entry that would do something.
@@ -120,7 +128,7 @@ func newSubmenuLevel(menu submenu) submenuLevel {
 func submenuState(parents []submenuLevel, level submenuLevel) formState {
 	state := formState{
 		kind:   level.menu.kind,
-		crumbs: append(xslice.Map(parents, func(p submenuLevel) string { return p.menu.crumb }), level.menu.crumb),
+		crumbs: append(xslice.Map(parents, func(p submenuLevel) string { return p.menu.title }), level.menu.title),
 		update: func(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.updateSubmenu(msg, parents, level)
 		},
@@ -154,8 +162,8 @@ func submenuState(parents []submenuLevel, level submenuLevel) formState {
 		rebuild: func(model) (*huh.Form, []string) {
 			return submenuForm(level, len(parents) > 0, formKeys()), nil
 		},
-		leading: func(int, int) []string {
-			return frozenMenus(parents)
+		leading: func(width, _ int) []string {
+			return submenuLeading(parents, level, width)
 		},
 	}
 	if level.menu.preview != nil {
@@ -186,9 +194,9 @@ func (m model) openListActions(stack []submenuLevel, list submenuLevel) (tea.Mod
 // stackForm draws a form to the right of the menus drawn beside it, going back to the menus it
 // was opened from.
 func (m model) stackForm(drawn, from []submenuLevel, form formState) (tea.Model, tea.Cmd) {
-	form.crumbs = append(xslice.Map(from, func(l submenuLevel) string { return l.menu.crumb }), form.crumbs...)
-	form.leading = func(int, int) []string {
-		return frozenMenus(drawn)
+	form.crumbs = append(xslice.Map(from, func(l submenuLevel) string { return l.menu.title }), form.crumbs...)
+	form.leading = func(width, _ int) []string {
+		return frozenMenus(drawn, width-formColumnFloor)
 	}
 	form.back = func(m model) (tea.Model, tea.Cmd) {
 		return m.backSubmenu(from)
@@ -261,12 +269,32 @@ func submenuOptions(menu submenu, nested bool) []huh.Option[int] {
 	return append(options, huh.NewOption(last, submenuCancel))
 }
 
-// frozenMenus is a stack of menus drawn gray.
-func frozenMenus(levels []submenuLevel) []string {
-	drawn := make([]string, 0, len(levels))
-	for i, level := range levels {
-		drawn = append(drawn, frozenSubmenu(level, i > 0))
+// submenuLeading is the menus under the one on top drawn gray, as many as fit beside it and its preview.
+func submenuLeading(parents []submenuLevel, top submenuLevel, width int) []string {
+	room := width - lipgloss.Width(frozenSubmenu(top, len(parents) > 0))
+	if top.menu.preview != nil {
+		room -= columnFloor + dividerCols
 	}
+
+	return frozenMenus(parents, room)
+}
+
+// frozenMenus is a stack of menus drawn gray, as many of the nearest as fit in room.
+func frozenMenus(levels []submenuLevel, room int) []string {
+	var drawn []string
+
+	for i := len(levels) - 1; i >= 0; i-- {
+		view := frozenSubmenu(levels[i], i > 0)
+
+		room -= lipgloss.Width(view) + dividerCols
+		if room < 0 {
+			break
+		}
+
+		drawn = append(drawn, view)
+	}
+
+	slices.Reverse(drawn)
 
 	return drawn
 }

@@ -44,7 +44,6 @@ func agentMenu(s panelShared, from screen, item panel.AgentRow, own ...submenuEn
 	return submenu{
 		kind:    formMenu,
 		title:   s.listing.agentName(agent),
-		crumb:   s.listing.agentName(agent),
 		entries: slices.Concat(pages, own, []submenuEntry{nestedEntry("git", s.keys.Menu.Git, gitMenu(s, from, item))}),
 	}
 }

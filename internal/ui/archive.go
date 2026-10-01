@@ -247,10 +247,6 @@ func archiveHeaders(l listing) []panel.Workflow {
 	return headers
 }
 
-func archivedByID(items []panel.AgentRow) map[string]panel.AgentRow {
-	return xslice.KeyBy(items, func(item panel.AgentRow) string { return item.Agent.ID })
-}
-
 // archivedAgentsOf is the archive listing as bare rows.
 func archivedAgentsOf(l listing) []panel.Agent {
 	return xslice.Map(l.archivedAgents, func(item panel.AgentRow) panel.Agent { return item.Agent })

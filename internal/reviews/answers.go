@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	"komrad/internal/fail"
-	"komrad/internal/git"
 	reviewstore "komrad/internal/store/review"
 )
 
@@ -61,12 +60,7 @@ func (s *ReviewService) findReplyHint(ctx context.Context, thread reviewstore.Th
 		return ""
 	}
 
-	base := ""
-	if flow, err := s.workflows.Get(ctx, agent.WorkflowID); err == nil {
-		base = flow.Worktree.BaseBranch
-	}
-
-	now, err := s.snapshots.TakeSnapshot(ctx, git.TakeSnapshotParams{Dir: agent.Cwd, Base: base})
+	now, err := s.takeSnapshot(ctx, agent)
 	if err != nil || now.SHA == written.SnapshotSHA {
 		return ""
 	}

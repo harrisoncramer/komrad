@@ -84,7 +84,6 @@ func archiveMenu(s panelShared, target archived) submenu {
 	return submenu{
 		kind:  formArchiveMenu,
 		title: "archive",
-		crumb: "archive",
 		entries: []submenuEntry{
 			writeEntry(restore, s.keys.ArchiveMenu.Restore, func(h host) tea.Cmd { return restoreArchived(h, target) }),
 			{
@@ -93,16 +92,9 @@ func archiveMenu(s panelShared, target archived) submenu {
 				isOff: err != nil,
 				write: func(m model) (model, tea.Cmd) { return m.restoreAndOpen(target) },
 			},
-			{
-				label: remove,
-				keys:  s.keys.ArchiveMenu.Delete,
-				open: func(m model) (tea.Model, tea.Cmd) {
-					m.leaveForm()
-					cmd := confirmDeleteArchivedRow(&m, m.shared(), target)
-
-					return m, cmd
-				},
-			},
+			openEntry(remove, s.keys.ArchiveMenu.Delete, func(h host, s panelShared) tea.Cmd {
+				return confirmDeleteArchivedRow(h, s, target)
+			}),
 		},
 	}
 }
@@ -160,7 +152,6 @@ func liveArchiveMenu(entries ...submenuEntry) submenu {
 	return submenu{
 		kind:    formArchiveMenu,
 		title:   "archive",
-		crumb:   "archive",
 		entries: entries,
 	}
 }
@@ -177,16 +168,9 @@ func agentsArchiveMenu(s panelShared, agents []panel.Agent, chosen bool) submenu
 			keys:  s.keys.ArchiveMenu.Archive,
 			write: func(m model) (model, tea.Cmd) { return m.archiveAgents(agents) },
 		},
-		submenuEntry{
-			label: remove,
-			keys:  s.keys.ArchiveMenu.Delete,
-			open: func(m model) (tea.Model, tea.Cmd) {
-				m.leaveForm()
-				cmd := confirmArchiveDeleteAgents(&m, m.listing.liveAgents(), agents)
-
-				return m, cmd
-			},
-		},
+		openEntry(remove, s.keys.ArchiveMenu.Delete, func(h host, s panelShared) tea.Cmd {
+			return confirmArchiveDeleteAgents(h, s.listing.liveAgents(), agents)
+		}),
 	)
 }
 

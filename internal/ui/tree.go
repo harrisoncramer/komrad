@@ -86,14 +86,11 @@ func isFolded(params treeRowsParams, it panel.AgentRow) bool {
 func treeRows(params treeRowsParams) []agentRow {
 	workflows, agents := params.workflows, params.agents
 
-	children := make(map[string][]panel.AgentRow)
+	children := childrenByParent(agents)
 	drawsRow := make(map[string]bool, len(agents))
 	orchestrators := make(map[string]panel.AgentRow)
 	for _, it := range agents {
 		drawsRow[it.Agent.ID] = !isFolded(params, it)
-		if it.Agent.ParentAgentID != nil {
-			children[*it.Agent.ParentAgentID] = append(children[*it.Agent.ParentAgentID], it)
-		}
 		if isFolded(params, it) {
 			orchestrators[it.Agent.WorkflowID] = it
 		}
@@ -115,35 +112,19 @@ func treeRows(params treeRowsParams) []agentRow {
 		}
 
 		workflowID := it.Agent.WorkflowID
-		members := append([]panel.AgentRow{it}, children[it.Agent.ID]...)
 		if it.Agent.Hidden {
 			// Hiding the head takes the rows under it too, so the whole family stands in the
 			// workflow's own count.
-			hiddenCounts[workflowID] += len(members)
+			hiddenCounts[workflowID] += 1 + len(children[it.Agent.ID])
 			if !params.showHidden {
 				continue
 			}
 		}
 
-		var rows []agentRow
-		for _, member := range members {
-			// A hidden child leaves its count on the parent drawn above it rather than on the
-			// workflow.
-			if member.Agent.Hidden && member.Agent.ID != it.Agent.ID {
-				rows[0].hiddenCount++
-				if !params.showHidden {
-					continue
-				}
-			}
-
-			rows = append(rows, agentRow{
-				item: member,
-				// The indent says which row a child hangs off, so one standing at the head of
-				// its own family hangs off nothing.
-				child: member.Agent.ID != it.Agent.ID,
-			})
-		}
-		families = append(families, family{workflowID: workflowID, rows: rows})
+		families = append(families, family{
+			workflowID: workflowID,
+			rows:       buildFamilyRows(it, children[it.Agent.ID], params.showHidden),
+		})
 	}
 
 	if params.flat {
@@ -181,6 +162,39 @@ func treeRows(params treeRowsParams) []agentRow {
 				rows = append(rows, row)
 			}
 		}
+	}
+
+	return rows
+}
+
+func keyAgentsByID(agents []panel.AgentRow) map[string]panel.AgentRow {
+	return xslice.KeyBy(agents, func(item panel.AgentRow) string { return item.Agent.ID })
+}
+
+func childrenByParent(agents []panel.AgentRow) map[string][]panel.AgentRow {
+	children := make(map[string][]panel.AgentRow)
+	for _, item := range agents {
+		if parentID := item.Agent.ParentAgentID; parentID != nil {
+			children[*parentID] = append(children[*parentID], item)
+		}
+	}
+
+	return children
+}
+
+func buildFamilyRows(head panel.AgentRow, children []panel.AgentRow, showHidden bool) []agentRow {
+	rows := []agentRow{{item: head}}
+	for _, child := range children {
+		// A hidden child leaves its count on the parent drawn above it rather than on the
+		// workflow.
+		if child.Agent.Hidden {
+			rows[0].hiddenCount++
+			if !showHidden {
+				continue
+			}
+		}
+
+		rows = append(rows, agentRow{item: child, child: true})
 	}
 
 	return rows

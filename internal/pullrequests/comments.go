@@ -16,8 +16,6 @@ import (
 	pullrequeststore "komrad/internal/store/pullrequest"
 )
 
-const saidTruncated = "truncated"
-
 // commentReadsPerPass is the most pull requests one pass reads, so the comments never spend the
 // rate limit the pull request sync shares with them.
 const commentReadsPerPass = 5
@@ -36,11 +34,9 @@ type NewCommentSyncerParams struct {
 
 // CommentSyncer keeps the forge's review threads in step on the open pull requests live agents are linked to.
 type CommentSyncer struct {
-	forges  pullRequestForgeFinder
 	threads *pullrequeststore.ForgeThreadStore
 	tx      transactor
-	now     func() time.Time
-	backoff *hostBackoff
+	hosts   *hostGate
 	said    onceLog
 	next    int
 }
@@ -53,21 +49,16 @@ func NewCommentSyncer(params NewCommentSyncerParams) *CommentSyncer {
 	}
 
 	return &CommentSyncer{
-		forges:  params.Forges,
 		threads: params.Threads,
 		tx:      params.Tx,
-		now:     now,
-		backoff: newHostBackoff(params.Forges, now),
+		hosts:   newHostGate(params.Forges, now),
 		said:    onceLog{},
 	}
 }
 
 type commentHost struct {
-	host         string
-	connectionID string
-	login        string
-	forge        forge.Forge
-	throttled    bool
+	*forgeHost
+	login string
 }
 
 // Sync rereads the review threads of the next few open pull requests live agents are linked to.
@@ -106,7 +97,7 @@ func (s *CommentSyncer) Sync(ctx context.Context) error {
 
 	for _, host := range hosts {
 		if host != nil && !host.throttled {
-			s.backoff.reset(host.host)
+			s.hosts.reset(host.host)
 			s.said.forget(saidRefused, host.host)
 		}
 	}
@@ -135,33 +126,14 @@ func (s *CommentSyncer) takeTurn(targets []pullrequeststore.CommentSyncTarget) [
 }
 
 func (s *CommentSyncer) openHost(ctx context.Context, hostname string) *commentHost {
-	connection, err := s.forges.ConnectionFor(ctx, hostname)
-	if errors.Is(err, store.ErrNotFound) {
-		return nil
-	}
-	if err != nil {
-		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to find the forge connection",
-			append([]slog.Attr{slog.String(logging.ForgeHost, hostname)}, logging.Err(err)...)...)
-
-		return nil
-	}
-	if connection.ThrottledUntil != nil && connection.ThrottledUntil.After(s.now()) {
-		return nil
-	}
-
-	f, err := s.forges.ForConnection(*connection)
-	if err != nil {
-		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to build the forge",
-			append([]slog.Attr{slog.String(logging.ForgeHost, hostname)}, logging.Err(err)...)...)
-
+	opened, _ := s.hosts.open(ctx, hostname)
+	if opened == nil {
 		return nil
 	}
 
 	return &commentHost{
-		host:         hostname,
-		connectionID: connection.ID,
-		login:        viewerOf(*connection),
-		forge:        f,
+		forgeHost: opened,
+		login:     viewerOf(*opened.connection),
 	}
 }
 
@@ -199,11 +171,9 @@ func (s *CommentSyncer) settle(ctx context.Context, host *commentHost, remote gi
 	var throttled *forge.ThrottledError
 	switch {
 	case errors.As(err, &throttled):
-		host.throttled = true
-		s.backoff.record(ctx, host.host, host.connectionID, throttled.RetryAt)
+		s.hosts.throttle(ctx, host.forgeHost, throttled.RetryAt)
 	case errors.Is(err, forge.ErrUnauthorized):
-		host.throttled = true
-		s.backoff.record(ctx, host.host, host.connectionID, time.Time{})
+		s.hosts.throttle(ctx, host.forgeHost, time.Time{})
 		if s.said.first(saidRefused, host.host) {
 			logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "the forge refused the connection's credential, so review comments wait for it to be accepted again",
 				append([]slog.Attr{slog.String(logging.ForgeHost, host.host)}, logging.Err(err)...)...)

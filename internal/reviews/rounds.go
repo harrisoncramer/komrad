@@ -108,12 +108,7 @@ func (s *ReviewService) OpenRound(ctx context.Context, agentID string, author Re
 	unlock := s.roundLocks.lock(agentID)
 	defer unlock()
 
-	base := ""
-	if flow, err := s.workflows.Get(ctx, agent.WorkflowID); err == nil {
-		base = flow.Worktree.BaseBranch
-	}
-
-	snapshot, err := s.snapshots.TakeSnapshot(ctx, git.TakeSnapshotParams{Dir: agent.Cwd, Base: base})
+	snapshot, err := s.takeSnapshot(ctx, agent)
 	if err != nil {
 		return nil, err
 	}
@@ -863,4 +858,14 @@ func (s *ReviewService) getLiveAgent(ctx context.Context, agentID string) (*agen
 	}
 
 	return agent, nil
+}
+
+// takeSnapshot freezes an agent's worktree against the base branch its workflow cuts from.
+func (s *ReviewService) takeSnapshot(ctx context.Context, agent *agentstore.Agent) (*git.Snapshot, error) {
+	base := ""
+	if flow, err := s.workflows.Get(ctx, agent.WorkflowID); err == nil {
+		base = flow.Worktree.BaseBranch
+	}
+
+	return s.snapshots.TakeSnapshot(ctx, git.TakeSnapshotParams{Dir: agent.Cwd, Base: base})
 }

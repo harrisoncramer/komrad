@@ -159,6 +159,16 @@ WHERE
 ORDER BY
     v.id;
 
+-- name: ListReviewThreadIDsOfAgents :many
+SELECT
+    t.id
+FROM
+    review_threads t
+WHERE
+    t.agent_id = ANY (@agent_ids::uuid[])
+ORDER BY
+    t.id;
+
 -- name: CountOpenReviewComments :one
 SELECT
     COUNT(*)

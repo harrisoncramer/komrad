@@ -250,6 +250,21 @@ func (s *ForgeThreadStore) withComments(ctx context.Context, rows []*models.Forg
 	}), nil
 }
 
+// ListIDsOfPullRequests returns the ids of every forge thread on the given pull requests.
+func (s *ForgeThreadStore) ListIDsOfPullRequests(ctx context.Context, pullRequestIDs []string) ([]string, error) {
+	storable := store.KeepIDs(pullRequestIDs)
+	if len(storable) == 0 {
+		return nil, nil
+	}
+
+	ids, err := s.queries.ListForgeReviewThreadIDsOfPullRequests(ctx, storable)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list the forge threads of %d pull requests: %w", len(storable), err)
+	}
+
+	return ids, nil
+}
+
 func toThreadUpsert(pullRequestID string, thread forge.ReviewThread) models.UpsertForgeReviewThreadParams {
 	params := models.UpsertForgeReviewThreadParams{
 		PullRequestID: pullRequestID,

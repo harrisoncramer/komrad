@@ -62,10 +62,10 @@ func (e *nameEdit) take(h host, register *vim.Register, msg tea.Msg) nameEditSte
 			return nameEditHidden
 		}
 
-		switch step, k := e.input.take(msg, register), msg.String(); {
-		case step == lineLeft || (step == lineIgnored && k == "esc"):
+		switch step := e.input.take(msg, register); {
+		case step == lineLeft:
 			return nameEditCancelled
-		case step == lineIgnored && (k == "enter" || isBound(k, formKeys().Submit)):
+		case step == lineEntered || (step == lineIgnored && isBound(msg.String(), formKeys().Submit)):
 			return nameEditSubmitted
 		}
 	}
