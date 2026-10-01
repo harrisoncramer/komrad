@@ -26,8 +26,8 @@ type agentsScreen struct {
 	drawn   *agentsLayout
 	triage  triageZone
 	editing *agentEdit
-	// resuming is the write waking each agent the open key resumed, by agent id.
-	resuming map[string]int
+	// resuming is the agents a resume is in flight for.
+	resuming map[string]struct{}
 	renameSlot
 }
 

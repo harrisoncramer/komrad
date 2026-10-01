@@ -125,6 +125,8 @@ type writeResult struct {
 	queued *message
 	// renamed is the row a rename typed over it was written for.
 	renamed string
+	// resumed is the agent a resume was written for.
+	resumed string
 }
 
 type released struct {
@@ -416,7 +418,9 @@ func (m *model) applyWrite(result writeResult) tea.Cmd {
 		m.schedules.settleRename(m, result.renamed, result.err)
 	}
 
-	m.agents.settleResume(result.write)
+	if result.resumed != "" {
+		m.agents.settleResume(result.resumed)
+	}
 
 	if result.queued != nil && result.err == nil {
 		m.pushMessage(*result.queued)

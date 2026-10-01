@@ -141,7 +141,12 @@ func (a *agentsScreen) openAgent(m *model) tea.Cmd {
 
 // resume wakes a dormant agent in the background.
 func (a *agentsScreen) resume(m *model, agent panel.Agent) tea.Cmd {
-	cmd := m.queuedCmd(
+	if a.resuming == nil {
+		a.resuming = map[string]struct{}{}
+	}
+	a.resuming[agent.ID] = struct{}{}
+
+	return stampResume(m.queuedCmd(
 		"resuming "+agent.Name,
 		fmt.Sprintf("Could not resume agent %q", agent.Name),
 		message{
@@ -154,23 +159,27 @@ func (a *agentsScreen) resume(m *model, agent panel.Agent) tea.Cmd {
 
 			return err
 		},
-	)
-
-	if a.resuming == nil {
-		a.resuming = map[string]int{}
-	}
-	a.resuming[agent.ID] = m.writes.count
-
-	return cmd
+	), agent.ID)
 }
 
-// settleResume forgets the agent a landed resume was waking.
-func (a *agentsScreen) settleResume(write int) {
-	for id, resuming := range a.resuming {
-		if resuming == write {
-			delete(a.resuming, id)
+// stampResume says on a write's result which agent it resumed.
+func stampResume(cmd tea.Cmd, id string) tea.Cmd {
+	return func() tea.Msg {
+		msg := cmd()
+
+		result, ok := msg.(writeResult)
+		if !ok {
+			return msg
 		}
+
+		result.resumed = id
+
+		return result
 	}
+}
+
+func (a *agentsScreen) settleResume(id string) {
+	delete(a.resuming, id)
 }
 
 func (a *agentsScreen) toggleHidden(m *model) {
