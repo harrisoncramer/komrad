@@ -3,6 +3,7 @@ package internaljobs
 import (
 	"errors"
 	"path/filepath"
+	"slices"
 	"testing"
 	"time"
 
@@ -50,13 +51,15 @@ func TestLaunchAgentWorker(t *testing.T) {
 		wantRuns     []schedulestore.RunState
 		wantLaunched bool
 		wantHidden   bool
+		wantDisarmed bool
 	}{
 		{
-			name:       "a schedule deleted since the job was queued cancels",
-			deleted:    true,
-			wantCancel: true,
-			wantReason: "no longer exists",
-			wantRuns:   []schedulestore.RunState{},
+			name:         "a schedule deleted since the job was queued cancels",
+			deleted:      true,
+			wantCancel:   true,
+			wantReason:   "no longer exists",
+			wantRuns:     []schedulestore.RunState{},
+			wantDisarmed: true,
 		},
 		{
 			name:       "a schedule paused since the job was queued cancels",
@@ -137,6 +140,9 @@ func TestLaunchAgentWorker(t *testing.T) {
 				HideAgents: tt.hideAgents,
 				WorkflowID: workflow.ID,
 			})
+			registrations := schedules.NewScheduleService(schedules.NewScheduleServiceParams{Schedules: stores.Schedules, Workflows: stores.Workflows})
+			periodic := &removalRecorder{}
+			require.NoError(t, registrations.ArmPeriodic(ctx, periodic))
 			if tt.deleted {
 				require.NoError(t, stores.Schedules.Delete(ctx, schedule.ID))
 			}
@@ -165,7 +171,8 @@ func TestLaunchAgentWorker(t *testing.T) {
 					terminal:  terminal,
 					maxAgents: maxAgents,
 				}),
-				Running: stores.Agents,
+				Running:       stores.Agents,
+				Registrations: registrations,
 			})
 
 			err := worker.Work(ctx, &river.Job[LaunchAgentArgs]{
@@ -198,6 +205,7 @@ func TestLaunchAgentWorker(t *testing.T) {
 			assert.Equal(t, tt.wantRuns, xslice.Map(runs, func(run schedulestore.Run) schedulestore.RunState {
 				return run.State
 			}))
+			assert.Equal(t, tt.wantDisarmed, slices.Contains(periodic.removed, schedule.ID), "a firing of a deleted schedule takes its registration off")
 			if len(runs) > 0 && tt.wantReason != "" {
 				assert.Contains(t, runs[0].Message, tt.wantReason, "the run records why")
 				assert.NotContains(t, runs[0].Message, "JobCancelError", "in the worker's own words")
@@ -465,4 +473,16 @@ func isCancel(err error) bool {
 	var cancel *river.JobCancelError
 
 	return errors.As(err, &cancel)
+}
+
+type removalRecorder struct {
+	removed []string
+}
+
+func (r *removalRecorder) Add(_ string, _ river.PeriodicSchedule) error {
+	return nil
+}
+
+func (r *removalRecorder) Remove(id string) {
+	r.removed = append(r.removed, id)
 }

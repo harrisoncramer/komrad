@@ -37,6 +37,7 @@ type NewClientParams struct {
 	Running       internaljobs.RunningAgentCounter
 	Orchestrators internaljobs.OrchestratorResolver
 	Mailer        internaljobs.ScheduledMailer
+	Registrations internaljobs.RegistrationSyncer
 	Worktrees     internaljobs.WorktreeLister
 	Remover       internaljobs.WorktreeRemover
 	Resumer       internaljobs.AgentResumer
@@ -55,6 +56,7 @@ func NewClient(params NewClientParams) (*river.Client[pgx.Tx], error) {
 		Running:       params.Running,
 		Orchestrators: params.Orchestrators,
 		Mailer:        params.Mailer,
+		Registrations: params.Registrations,
 	}))
 	river.AddWorker(workers, internaljobs.NewDeleteAgentWorker(params.Deleter))
 	river.AddWorker(workers, internaljobs.NewDeleteWorktreesWorker(internaljobs.NewDeleteWorktreesWorkerParams{

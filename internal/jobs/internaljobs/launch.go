@@ -52,6 +52,7 @@ type NewLaunchAgentWorkerParams struct {
 	Running       RunningAgentCounter
 	Orchestrators OrchestratorResolver
 	Mailer        ScheduledMailer
+	Registrations RegistrationSyncer
 }
 
 type LaunchAgentWorker struct {
@@ -62,6 +63,7 @@ type LaunchAgentWorker struct {
 	running       RunningAgentCounter
 	orchestrators OrchestratorResolver
 	mailer        ScheduledMailer
+	registrations RegistrationSyncer
 }
 
 // NewLaunchAgentWorker builds the worker over the schedules it reads, the service that launches
@@ -74,6 +76,7 @@ func NewLaunchAgentWorker(params NewLaunchAgentWorkerParams) *LaunchAgentWorker 
 		running:       params.Running,
 		orchestrators: params.Orchestrators,
 		mailer:        params.Mailer,
+		registrations: params.Registrations,
 	}
 }
 
@@ -82,6 +85,10 @@ func NewLaunchAgentWorker(params NewLaunchAgentWorkerParams) *LaunchAgentWorker 
 func (w *LaunchAgentWorker) Work(ctx context.Context, job *river.Job[LaunchAgentArgs]) error {
 	schedule, err := w.schedules.Get(ctx, job.Args.ScheduleID)
 	if errors.Is(err, store.ErrNotFound) {
+		if err := w.registrations.SyncRegistration(ctx, job.Args.ScheduleID); err != nil {
+			return fmt.Errorf("failed to take deleted schedule %q off River: %w", job.Args.ScheduleID, err)
+		}
+
 		return river.JobCancel(fmt.Errorf("schedule %q no longer exists", job.Args.ScheduleID))
 	}
 	if err != nil {

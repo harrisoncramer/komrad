@@ -29,6 +29,11 @@ type AgentLauncher interface {
 	NewAgent(ctx context.Context, p agents.NewAgentParams) (*agentstore.Agent, error)
 }
 
+// RegistrationSyncer makes a schedule's River registration match its row.
+type RegistrationSyncer interface {
+	SyncRegistration(ctx context.Context, id string) error
+}
+
 // OrchestratorResolver answers the live orchestrator an orchestrator schedule mails.
 type OrchestratorResolver interface {
 	RequireOrchestrator(ctx context.Context, id string) (*agentstore.Agent, error)
