@@ -81,10 +81,10 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 	gitClient := git.NewClient()
 
 	mailService := mail.NewMailService(mail.NewMailServiceParams{
-		MailReadWriter: st.mail,
-		Agents:         st.agents,
-		Workflows:      st.workflows,
-		Config:         mailConfig(loadConfig),
+		Mail:      st.mail,
+		Agents:    st.agents,
+		Workflows: st.workflows,
+		Config:    mailConfig(loadConfig),
 	})
 	stateDir := params.Env.StateDir
 	scheduleService := schedules.NewScheduleService(schedules.NewScheduleServiceParams{
@@ -392,10 +392,10 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 		}),
 		workflow: workflowService,
 		delivery: mail.NewDeliveryService(mail.NewDeliveryServiceParams{
-			MailboxReader: st.mail,
-			NudgeClaimer:  st.agents,
-			PaneReader:    paneLiveness,
-			Channel:       paneChannel,
+			Mail:         st.mail,
+			NudgeClaimer: st.agents,
+			PaneReader:   paneLiveness,
+			Channel:      paneChannel,
 		}),
 		reconciler: reconciler,
 	}, nil

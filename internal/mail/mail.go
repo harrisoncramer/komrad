@@ -61,61 +61,33 @@ const KomradSenderName = "komrad"
 
 const namedMissing = 5
 
-type agentGetter interface {
-	GetByID(ctx context.Context, id string) (*agentstore.Agent, error)
-}
-
-type workflowGetter interface {
-	Get(ctx context.Context, id string) (*workflowstore.Workflow, error)
-}
-
-type mailReadWriter interface {
-	Send(ctx context.Context, params mailstore.SendParams) (*mailstore.Mail, error)
-	GetByID(ctx context.Context, id string) (*mailstore.Mail, error)
-	GetByIdempotencyKey(ctx context.Context, key string) (*mailstore.Mail, error)
-	Claim(ctx context.Context, toAgentID string, limit int32) ([]mailstore.Mail, error)
-	CountPending(ctx context.Context, toAgentID string) (int64, error)
-	UpsertFromKomrad(ctx context.Context, params mailstore.UpsertFromKomradParams) (*mailstore.Mail, error)
-	GetUnreadAbout(ctx context.Context, toAgentID string, kind mailstore.Kind, subjectID string) (*mailstore.Mail, error)
-	ListPage(ctx context.Context, toAgentID string, limit int32, cursor *mailstore.Cursor) ([]mailstore.Mail, error)
-	ListSentPage(ctx context.Context, fromAgentID string, limit int32, cursor *mailstore.Cursor) ([]mailstore.Mail, error)
-	ListByID(ctx context.Context, ids []string) ([]mailstore.Mail, error)
-	Delete(ctx context.Context, ids []string) error
-	CountExchanged(ctx context.Context, one, other string) (int64, error)
-}
-
-type mailAgentReadWriter interface {
-	agentGetter
-	ListLiveNamed(ctx context.Context, name string) ([]agentstore.Agent, error)
-}
-
 type mailConfigReader interface {
 	GetDeliveryDeadline() (time.Duration, error)
 	GetMaxExchange() (int, error)
 }
 
 type NewMailServiceParams struct {
-	MailReadWriter mailReadWriter
-	Agents         mailAgentReadWriter
-	Workflows      workflowGetter
-	Config         mailConfigReader
+	Mail      *mailstore.MailStore
+	Agents    *agentstore.AgentStore
+	Workflows *workflowstore.WorkflowStore
+	Config    mailConfigReader
 }
 
 type MailService struct {
-	mailReadWriter mailReadWriter
-	agents         mailAgentReadWriter
-	workflows      workflowGetter
-	config         mailConfigReader
+	mail      *mailstore.MailStore
+	agents    *agentstore.AgentStore
+	workflows *workflowstore.WorkflowStore
+	config    mailConfigReader
 }
 
 // NewMailService builds the service that sends, claims and lists the mail agents leave for
 // each other.
 func NewMailService(params NewMailServiceParams) *MailService {
 	return &MailService{
-		mailReadWriter: params.MailReadWriter,
-		agents:         params.Agents,
-		workflows:      params.Workflows,
-		config:         params.Config,
+		mail:      params.Mail,
+		agents:    params.Agents,
+		workflows: params.Workflows,
+		config:    params.Config,
 	}
 }
 
@@ -208,7 +180,7 @@ type SendScheduledMailParams struct {
 
 // SendScheduledMail sends a schedule's prompt on behalf of the person who wrote the schedule.
 func (s *MailService) SendScheduledMail(ctx context.Context, params SendScheduledMailParams) (*mailstore.Mail, error) {
-	sent, err := s.mailReadWriter.GetByIdempotencyKey(ctx, params.IdempotencyKey)
+	sent, err := s.mail.GetByIdempotencyKey(ctx, params.IdempotencyKey)
 	if err == nil {
 		return sent, fmt.Errorf("%w: %q", ErrAlreadySent, params.IdempotencyKey)
 	}
@@ -264,7 +236,7 @@ func (s *MailService) SendFromKomrad(ctx context.Context, params SendFromKomradP
 		return nil, fmt.Errorf("%w: %q", ErrAgentArchived, params.ToAgentID)
 	}
 
-	held, err := s.mailReadWriter.GetUnreadAbout(ctx, recipient.ID, params.Kind, params.SubjectID)
+	held, err := s.mail.GetUnreadAbout(ctx, recipient.ID, params.Kind, params.SubjectID)
 	if errors.Is(err, store.ErrNotFound) {
 		if params.OnlyRewrite {
 			return nil, ErrNothingUnread
@@ -287,7 +259,7 @@ func (s *MailService) SendFromKomrad(ctx context.Context, params SendFromKomradP
 		return nil, err
 	}
 
-	return s.mailReadWriter.UpsertFromKomrad(ctx, mailstore.UpsertFromKomradParams{
+	return s.mail.UpsertFromKomrad(ctx, mailstore.UpsertFromKomradParams{
 		FromName:  KomradSenderName,
 		ToAgentID: recipient.ID,
 		Body:      appendEventPrompts(params.Body, prompts),
@@ -301,14 +273,14 @@ func (s *MailService) SendFromKomrad(ctx context.Context, params SendFromKomradP
 // InTx is this service writing mail through a transaction.
 func (s *MailService) InTx(db store.DBTX) *MailService {
 	bound := *s
-	bound.mailReadWriter = mailstore.NewMailStore(db)
+	bound.mail = mailstore.NewMailStore(db)
 	bound.workflows = workflowstore.NewWorkflowStore(db)
 
 	return &bound
 }
 
 func (s *MailService) requireRoom(ctx context.Context, recipient agentstore.Agent) error {
-	pending, err := s.mailReadWriter.CountPending(ctx, recipient.ID)
+	pending, err := s.mail.CountPending(ctx, recipient.ID)
 	if err != nil {
 		return err
 	}
@@ -395,7 +367,7 @@ func (s *MailService) send(ctx context.Context, params sendParams) (*mailstore.M
 	}
 
 	if params.ReplyTo != nil {
-		if _, err := s.mailReadWriter.GetByID(ctx, *params.ReplyTo); errors.Is(err, store.ErrNotFound) {
+		if _, err := s.mail.GetByID(ctx, *params.ReplyTo); errors.Is(err, store.ErrNotFound) {
 			return nil, fmt.Errorf("%w: %q", ErrReplyToNotFound, *params.ReplyTo)
 		} else if err != nil {
 			return nil, err
@@ -425,7 +397,7 @@ func (s *MailService) send(ctx context.Context, params sendParams) (*mailstore.M
 		send.FromName = params.SenderName
 	}
 
-	sent, err := s.mailReadWriter.Send(ctx, send)
+	sent, err := s.mail.Send(ctx, send)
 	if err != nil {
 		return nil, err
 	}
@@ -441,7 +413,7 @@ func (s *MailService) holdToTheExchangeCap(ctx context.Context, sender, recipien
 		return err
 	}
 
-	exchanged, err := s.mailReadWriter.CountExchanged(ctx, sender.ID, recipient.ID)
+	exchanged, err := s.mail.CountExchanged(ctx, sender.ID, recipient.ID)
 	if err != nil {
 		return err
 	}
@@ -484,7 +456,7 @@ func (s *MailService) ClaimMail(ctx context.Context, agentID string) ([]mailstor
 		return nil, err
 	}
 
-	claimed, err := s.mailReadWriter.Claim(ctx, agent.ID, maxClaimedMail)
+	claimed, err := s.mail.Claim(ctx, agent.ID, maxClaimedMail)
 	if err != nil {
 		return nil, err
 	}
@@ -511,9 +483,9 @@ func (s *MailService) ListMail(ctx context.Context, params ListMailParams) ([]ma
 		return nil, err
 	}
 
-	read := s.mailReadWriter.ListPage
+	read := s.mail.ListPage
 	if params.Sent {
-		read = s.mailReadWriter.ListSentPage
+		read = s.mail.ListSentPage
 	}
 
 	listed, err := read(ctx, agent.ID, params.Limit, params.Cursor)
@@ -527,7 +499,7 @@ func (s *MailService) ListMail(ctx context.Context, params ListMailParams) ([]ma
 // DeleteMail permanently removes a batch of mail by id, deleting nothing at all unless every
 // id holds mail.
 func (s *MailService) DeleteMail(ctx context.Context, ids []string) error {
-	found, err := s.mailReadWriter.ListByID(ctx, ids)
+	found, err := s.mail.ListByID(ctx, ids)
 	if err != nil {
 		return fmt.Errorf("failed to look up %d mail: %w", len(ids), err)
 	}
@@ -543,7 +515,7 @@ func (s *MailService) DeleteMail(ctx context.Context, ids []string) error {
 		return fmt.Errorf("%w: %s", ErrMailNotFound, xstr.JoinSome(missing, namedMissing))
 	}
 
-	if err := s.mailReadWriter.Delete(ctx, ids); err != nil {
+	if err := s.mail.Delete(ctx, ids); err != nil {
 		return fmt.Errorf("failed to delete %d mail: %w", len(ids), err)
 	}
 

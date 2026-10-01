@@ -371,10 +371,10 @@ func TestLaunchAgentWorkerMailsAnOrchestrator(t *testing.T) {
 					Agents:    stores.Agents,
 				}),
 				Mailer: mail.NewMailService(mail.NewMailServiceParams{
-					MailReadWriter: stores.Mail,
-					Agents:         stores.Agents,
-					Workflows:      stores.Workflows,
-					Config:         config.Mail{MaxExchange: config.DefaultMaxExchange},
+					Mail:      stores.Mail,
+					Agents:    stores.Agents,
+					Workflows: stores.Workflows,
+					Config:    config.Mail{MaxExchange: config.DefaultMaxExchange},
 				}),
 			})
 

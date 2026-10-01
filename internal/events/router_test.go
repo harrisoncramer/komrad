@@ -43,9 +43,9 @@ func TestRouterHandsEachEventToItsTopic(t *testing.T) {
 	})
 	router := events.NewRouter(events.NewRouterParams{
 		Mailer: mail.NewMailService(mail.NewMailServiceParams{
-			MailReadWriter: stores.Mail,
-			Agents:         stores.Agents,
-			Config:         config.Mail{},
+			Mail:   stores.Mail,
+			Agents: stores.Agents,
+			Config: config.Mail{},
 		}),
 		Handlers: []events.Handler{handler},
 	})
