@@ -6,6 +6,7 @@ import (
 
 	"komrad/internal/git"
 	"komrad/internal/ui/paint/label"
+	agentv1 "komrad/proto/gen/agent/v1"
 
 	tea "charm.land/bubbletea/v2"
 )
@@ -14,7 +15,6 @@ const rebaseTimeout = 30 * time.Second
 
 // rebasePlan is what a rebase would do, carried from the server to the picker.
 type rebasePlan struct {
-	agentID string
 	name    string
 	baseRef string
 	baseSHA string
@@ -29,136 +29,70 @@ type rebasePlan struct {
 	conflictPaths []string
 }
 
-// rebasePlannedMsg is a plan come back, or the reason there is none.
-type rebasePlannedMsg struct {
-	plan  rebasePlan
-	err   error
-	write int
-}
-
-// rebasedMsg is a finished rebase, conflicted when it stopped and is waiting for the agent.
-type rebasedMsg struct {
-	name    string
-	baseRef string
-	baseSHA string
-	// landed is how many of its commits the base already held, and replay how many moved.
-	landed     int
-	replay     int
-	conflicted bool
-	// moved says the branch reached the base without replaying anything.
-	moved bool
-	err   error
-	write int
-}
-
-// planRebaseCmd asks what a rebase would do.
-func (m *model) planRebaseCmd(agentID, name string) tea.Cmd {
-	clients := m.api
-	write := m.beginWrite("planning the rebase of " + name)
-
-	return func() tea.Msg {
-		plan, err := clients.planRebase(agentID)
-		if err != nil {
-			return rebasePlannedMsg{err: err, write: write}
-		}
-
-		return rebasePlannedMsg{write: write, plan: rebasePlan{
-			agentID:       agentID,
-			name:          name,
-			baseRef:       plan.GetBaseRef(),
-			baseSHA:       plan.GetBaseSha(),
-			commits:       int(plan.GetCommits()),
-			landed:        int(plan.GetLandedCommits()),
-			replay:        int(plan.GetReplayCommits()),
-			merges:        int(plan.GetMerges()),
-			conflictPaths: plan.GetConflictPaths(),
-		}}
-	}
-}
-
-// rebaseCmd runs the rebase and reports what it did.
-func (m *model) rebaseCmd(agentID, name string) tea.Cmd {
-	clients := m.api
-	write := m.beginWrite("rebasing " + name)
-
-	return func() tea.Msg {
-		result, err := clients.rebaseWorktree(agentID)
-		if err != nil {
-			return rebasedMsg{
-				name:  name,
-				err:   err,
-				write: write,
+func rebaseOp(agentID, name string) gitOp {
+	return gitOp{
+		kind:       formAgentRebase,
+		planning:   "planning the rebase of " + name,
+		planFailed: "Could not work out what a rebase would do",
+		plan: func(clients api) (gitConfirmForm, error) {
+			plan, err := clients.planRebase(agentID)
+			if err != nil {
+				return nil, err
 			}
-		}
 
-		return rebasedMsg{
-			write:      write,
-			name:       name,
-			baseRef:    result.GetBaseRef(),
-			baseSHA:    result.GetBaseSha(),
-			landed:     int(result.GetLandedCommits()),
-			replay:     int(result.GetReplayCommits()),
-			conflicted: result.GetConflicted(),
-			moved:      result.GetMoved(),
-		}
+			planned := rebasePlan{
+				name:          name,
+				baseRef:       plan.GetBaseRef(),
+				baseSHA:       plan.GetBaseSha(),
+				commits:       int(plan.GetCommits()),
+				landed:        int(plan.GetLandedCommits()),
+				replay:        int(plan.GetReplayCommits()),
+				merges:        int(plan.GetMerges()),
+				conflictPaths: plan.GetConflictPaths(),
+			}
+
+			return rebaseForm(planned), nil
+		},
+		running: "rebasing " + name,
+		run: func(clients api) gitReport {
+			result, err := clients.rebaseWorktree(agentID)
+
+			return func(m *model) tea.Cmd {
+				m.reportRebased(name, result, err)
+
+				return nil
+			}
+		},
 	}
 }
 
-// applyRebasePlanned opens the confirmation, or says why there is nothing to confirm.
-func (m *model) applyRebasePlanned(msg rebasePlannedMsg) (tea.Model, tea.Cmd) {
-	held := m.landHeld(msg.write)
-
-	if msg.err != nil {
-		m.report("Could not work out what a rebase would do", msg.err)
-
-		if held {
-			return m.closeForm()
-		}
-
-		return m, nil
-	}
-
-	return m.openRebaseConfirm(msg.plan)
-}
-
-// applyRebased reports the outcome, and takes down the confirmation held for it.
-func (m *model) applyRebased(msg rebasedMsg) (tea.Model, tea.Cmd) {
-	held := m.landHeld(msg.write)
-
-	m.reportRebased(msg)
-
-	if held {
-		return m.closeForm()
-	}
-
-	return m, nil
-}
-
-func (m *model) reportRebased(msg rebasedMsg) {
-	if msg.err != nil {
-		m.report("Could not rebase the worktree of "+msg.name, msg.err)
+func (m *model) reportRebased(name string, result *agentv1.RebaseWorktreeResponse, err error) {
+	if err != nil {
+		m.report("Could not rebase the worktree of "+name, err)
 
 		return
 	}
 
+	baseRef, baseSHA := result.GetBaseRef(), result.GetBaseSha()
+
 	// Neither a success nor a failure: the work is intact and the agent has something to do.
-	if msg.conflicted {
+	if result.GetConflicted() {
 		m.pushMessage(message{
 			kind:    messageError,
-			summary: msg.name + ": the rebase stopped on conflicts",
+			summary: name + ": the rebase stopped on conflicts",
 			detail: fmt.Sprintf("onto %s (%s). The rebase is still in progress in that worktree. %s has been told to settle it.",
-				msg.baseRef, git.ShortSHA(msg.baseSHA), msg.name),
+				baseRef, git.ShortSHA(baseSHA), name),
 		})
 
 		return
 	}
 
-	if msg.moved {
+	if result.GetMoved() {
 		m.pushMessage(message{
 			kind:    messageInfo,
-			summary: msg.name + ": moved onto " + msg.baseRef,
+			summary: name + ": moved onto " + baseRef,
 			detail: fmt.Sprintf("%s. The base already had its work, so %s were dropped instead of replayed.",
-				git.ShortSHA(msg.baseSHA), label.Count(msg.landed, "commit", "commits")),
+				git.ShortSHA(baseSHA), label.Count(int(result.GetLandedCommits()), "commit", "commits")),
 		})
 
 		return
@@ -166,8 +100,8 @@ func (m *model) reportRebased(msg rebasedMsg) {
 
 	m.pushMessage(message{
 		kind:    messageInfo,
-		summary: msg.name + ": rebased onto " + msg.baseRef,
+		summary: name + ": rebased onto " + baseRef,
 		detail: fmt.Sprintf("%s. %s replayed.",
-			git.ShortSHA(msg.baseSHA), label.Count(msg.replay, "commit", "commits")),
+			git.ShortSHA(baseSHA), label.Count(int(result.GetReplayCommits()), "commit", "commits")),
 	})
 }
