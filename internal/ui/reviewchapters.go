@@ -329,33 +329,31 @@ func findLaterStamp(thread *agentv1.ReviewThread, rounds []*agentv1.ReviewRound)
 
 // isBefore reports whether one stamp came before another, parsed rather than compared as text.
 func isBefore(stamp, mark string) bool {
-	at, err := time.Parse(time.RFC3339, stamp)
-	if err != nil {
-		return false
-	}
+	before, err := compareStamps(stamp, mark)
 
-	against, err := time.Parse(time.RFC3339, mark)
-	if err != nil {
-		return false
-	}
-
-	return at.Before(against)
+	return err == nil && before
 }
 
 // doesPredate reports whether something was said before a mark, and says yes for a stamp it
 // cannot read.
 func doesPredate(stamp, mark string) bool {
+	before, err := compareStamps(stamp, mark)
+
+	return err != nil || before
+}
+
+func compareStamps(stamp, mark string) (bool, error) {
 	at, err := time.Parse(time.RFC3339, stamp)
 	if err != nil {
-		return true
+		return false, err
 	}
 
 	against, err := time.Parse(time.RFC3339, mark)
 	if err != nil {
-		return true
+		return false, err
 	}
 
-	return at.Before(against)
+	return at.Before(against), nil
 }
 
 // laterStamp is the stamp a thread's later replies are split at, empty while the diff on screen
