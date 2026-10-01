@@ -16,6 +16,7 @@ import (
 const (
 	triageMoreKey    = "triage:more"
 	triagePadKey     = "triage:pad:"
+	triageHeaderKey  = "triage:header"
 	triageDividerKey = "triage:divider"
 )
 
@@ -771,9 +772,11 @@ func triageRows(params snapshotParams) []view.Row {
 		status = fmt.Sprintf("+%d more waiting for a slot", queue.waiting)
 	}
 
-	return append(rows,
+	header := view.Row{Key: triageHeaderKey, Kind: view.KindDivider, Name: "Triage"}
+
+	return append(append([]view.Row{header}, rows...),
 		newTriageNote(triageMoreKey, status),
-		view.Row{Key: triageDividerKey, Kind: view.KindDivider},
+		view.Row{Key: triageDividerKey, Kind: view.KindDivider, Name: "All Agents"},
 	)
 }
 

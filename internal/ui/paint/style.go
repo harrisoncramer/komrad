@@ -273,3 +273,21 @@ func (p Palette) DrawTyped(before, after string, style lipgloss.Style) string {
 
 	return style.Render(before) + p.Cursor().Reverse(true).Render(string(under)) + style.Render(after[size:])
 }
+
+// titledRuleFloor is the narrowest width a rule carries its label at.
+const titledRuleFloor = 24
+
+// titledRuleLead is how many rule glyphs come before a rule's label.
+const titledRuleLead = 3
+
+// TitledRule is a muted rule across width columns with label set in near its left end.
+func (p Palette) TitledRule(label string, width int) string {
+	muted := p.Style(ToneMuted)
+	labelWidth := lipgloss.Width(label)
+	fill := width - titledRuleLead - labelWidth - 2
+	if labelWidth == 0 || width < titledRuleFloor || fill < 1 {
+		return muted.Render(strings.Repeat(glyph.Rule, max(width, 0)))
+	}
+
+	return muted.Render(strings.Repeat(glyph.Rule, titledRuleLead)+" ") + label + muted.Render(" "+strings.Repeat(glyph.Rule, fill))
+}

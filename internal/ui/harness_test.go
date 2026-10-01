@@ -61,7 +61,7 @@ const (
 
 var reviewCursorLine = regexp.MustCompile(`^[^ ]+:\d+`)
 
-var taggedRule = regexp.MustCompile(`^─+ [^─│┤┼]+ ─`)
+var taggedRule = regexp.MustCompile(`^─+ [^│┤┼]*[^─│┤┼ ] ─`)
 
 var listBars = []string{"│ ", "┃ "}
 
