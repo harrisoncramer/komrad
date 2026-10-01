@@ -120,13 +120,13 @@ func (d *documentsScreen) reconcileEditor(h host) tea.Cmd {
 	return d.closeEdit(h)
 }
 
-// editDesc says what the edit key would do.
-func (d *documentsScreen) editDesc() string {
+// editLabel says what the edit entry would do.
+func (d *documentsScreen) editLabel() string {
 	if d.editing != nil {
-		return "close the editor, keeping what it wrote"
+		return "close editor"
 	}
 
-	return "edit in your editor"
+	return "edit"
 }
 
 func writeDocumentCopy(dir, body string) (string, error) {

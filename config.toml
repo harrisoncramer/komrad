@@ -161,23 +161,29 @@ prev_match = ["N"]
 # The documents screen, which reads what the hovered agent has written for a person.
 [keybindings.documents]
 # Leave the documents screen for the view it was opened from.
-back   = ["esc"]
-# Open the document under the cursor in your editor, in place of the document drawn
-# beside the list. Quitting the editor, or pressing the key again to close it, saves what it
-# has written to the file.
-edit   = ["e"]
+back  = ["esc"]
 # Step back to an earlier write of the document under the cursor, drawing what that write
 # changed.
-older  = ["<"]
+older = ["<"]
 # Step forward to a later write, and past the newest back to the document as it stands.
-newer  = [">"]
-# Write a new document for the agent whose documents are listed, from a form asking its name
-# and type. It starts with a line saying it is empty, for you to edit.
-new    = ["c"]
-# Rename the document under the cursor, typing over its name in the list.
-rename = ["r"]
+newer = [">"]
 # Quit the panel.
-quit   = ["ctrl+c"]
+quit  = ["ctrl+c"]
+
+# The menu on the hovered document or document type, over the panel's own entries.
+[keybindings.document_menu]
+# Open the document or type in your editor, in place of the text drawn beside the list.
+# Quitting the editor, or picking the entry again to close it, saves what it has written.
+edit   = ["e"]
+# Rename the document or type, typing over its name in the list. Every document written as a
+# type is renamed with it.
+rename = ["r"]
+# Write a new document for the agent whose documents are listed, or define a new type, from a
+# form.
+new    = ["c"]
+# Delete the type, which is refused while documents are written as it. The entry is only on
+# the document types.
+delete = ["d"]
 
 # The documents menu, nested under the menu on the hovered agent.
 [keybindings.documents_menu]
@@ -191,23 +197,13 @@ new  = ["c"]
 # The document types screen, where a person defines the sorts of document agents write.
 [keybindings.document_types]
 # Leave the document types for the screen they were opened from.
-back   = ["esc"]
-# Open the context of the type under the cursor in your editor. Quitting the editor, or
-# pressing the key again to close it, saves what it has written.
-edit   = ["e"]
+back  = ["esc"]
 # Step back to an earlier write of the type under the cursor, drawing what that write changed.
-older  = ["<"]
+older = ["<"]
 # Step forward to a later write, and past the newest back to the type as it stands.
-newer  = [">"]
-# Define a new type, from a form asking its name and its context.
-new    = ["c"]
-# Rename the type under the cursor, typing over its name in the list. Every document written
-# as it is renamed with it.
-rename = ["r"]
-# Delete the type under the cursor, which is refused while documents are written as it.
-delete = ["d"]
+newer = [">"]
 # Quit the panel.
-quit   = ["ctrl+c"]
+quit  = ["ctrl+c"]
 
 # The document types menu, nested under the panel's own entries in the menu.
 [keybindings.document_types_menu]

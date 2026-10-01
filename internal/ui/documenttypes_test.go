@@ -156,18 +156,18 @@ func TestDocumentTypesWrite(t *testing.T) {
 	}{
 		{
 			name:      "a name and a context define a type",
-			presses:   []string{"c", "b", "r", "i", "e", "f", "tab", "S", "h", "o", "r", "t", "ctrl+s"},
+			presses:   []string{"space", "c", "b", "r", "i", "e", "f", "tab", "S", "h", "o", "r", "t", "ctrl+s"},
 			procedure: agentv1connect.AgentServiceWriteDocumentTypeProcedure,
 			want:      &agentv1.WriteDocumentTypeRequest{Name: "brief", Context: "Short"},
 		},
 		{
 			name:      "a type with no context is not defined",
-			presses:   []string{"c", "b", "ctrl+s"},
+			presses:   []string{"space", "c", "b", "ctrl+s"},
 			procedure: agentv1connect.AgentServiceWriteDocumentTypeProcedure,
 		},
 		{
 			name:      "a new name renames the type, keeping its context",
-			presses:   []string{"r", "s", "ctrl+s"},
+			presses:   []string{"space", "r", "s", "ctrl+s"},
 			procedure: agentv1connect.AgentServiceWriteDocumentTypeProcedure,
 			want: &agentv1.WriteDocumentTypeRequest{
 				Id:      xptr.Ptr("t3"),
@@ -178,7 +178,7 @@ func TestDocumentTypesWrite(t *testing.T) {
 		},
 		{
 			name:      "enter saves the name typed over the type",
-			presses:   []string{"r", "s", "enter"},
+			presses:   []string{"space", "r", "s", "enter"},
 			procedure: agentv1connect.AgentServiceWriteDocumentTypeProcedure,
 			want: &agentv1.WriteDocumentTypeRequest{
 				Id:      xptr.Ptr("t3"),
@@ -189,18 +189,18 @@ func TestDocumentTypesWrite(t *testing.T) {
 		},
 		{
 			name:      "the same name renames nothing",
-			presses:   []string{"r", "ctrl+s"},
+			presses:   []string{"space", "r", "ctrl+s"},
 			procedure: agentv1connect.AgentServiceWriteDocumentTypeProcedure,
 		},
 		{
 			name:      "confirming the delete deletes the type",
-			presses:   []string{"d", "y"},
+			presses:   []string{"space", "d", "y"},
 			procedure: agentv1connect.AgentServiceDeleteDocumentTypeProcedure,
 			want:      &agentv1.DeleteDocumentTypeRequest{Id: "t3"},
 		},
 		{
 			name:      "declining the delete deletes nothing",
-			presses:   []string{"d", "n"},
+			presses:   []string{"space", "d", "n"},
 			procedure: agentv1connect.AgentServiceDeleteDocumentTypeProcedure,
 		},
 	}
@@ -231,13 +231,13 @@ func TestDocumentTypesEdit(t *testing.T) {
 	t.Parallel()
 
 	harness := openDocumentTypes(t, "author")
-	harness.press("e")
+	harness.press("space", "e")
 
 	respawns := harness.panel.ReadRespawns()
 	require.NotEmpty(t, respawns)
 	path := readEditedPath(t, respawns[len(respawns)-1])
 	require.NoError(t, os.WriteFile(path, []byte("Explain it plainly."), 0o600))
-	harness.press("e")
+	harness.press("space", "e")
 
 	harness.assertSentTo(agentv1connect.AgentServiceWriteDocumentTypeProcedure, &agentv1.WriteDocumentTypeRequest{
 		Id:      xptr.Ptr("t3"),

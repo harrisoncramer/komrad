@@ -13,6 +13,7 @@ Space
 Type "d"
 Wait+Screen@10s /RFC: vim\.text/
 Sleep 2s
+Space
 Type "e"
 Wait+Screen@10s /komrad-document-/
 Type "/wide characters"
