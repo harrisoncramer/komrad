@@ -81,6 +81,9 @@ type Engine struct {
 	recording *change
 	repeat    *change
 	lastFind  *find
+	// column is the column j and k aim for while held is set.
+	column int
+	held   bool
 }
 
 // New is an engine for one field, starting in insert mode on b, that hands passes on to the field in normal mode.
@@ -146,6 +149,9 @@ func (e *Engine) Key(key string, b Buffer) Result {
 
 	if b.Text != e.last.Text {
 		e.record(e.last)
+	}
+	if b != e.last {
+		e.held = false
 	}
 
 	if isEsc(key) {
@@ -224,6 +230,10 @@ func (e *Engine) record(b Buffer) {
 }
 
 func (e *Engine) run(c command, b Buffer) Result {
+	if c.name != "j" && c.name != "k" && c.name != "$" {
+		e.held = false
+	}
+
 	switch c.name {
 	case "u":
 		for range c.times() {
@@ -296,6 +306,7 @@ func step(from, to *[]Buffer, b Buffer) Buffer {
 
 func (e *Engine) startInsert(before, at Buffer, recording *change) {
 	e.mode = Insert
+	e.held = false
 	e.before, e.typedFrom = before, at
 	e.recording = recording
 }

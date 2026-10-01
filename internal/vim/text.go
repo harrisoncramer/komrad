@@ -62,7 +62,7 @@ func onLine(r []rune, line, col int) int {
 	start := lineStartOf(r, line)
 	end := lineEnd(r, start)
 
-	return min(start+col, max(end-1, start))
+	return start + min(col, max(end-1-start, 0))
 }
 
 func isBlank(c rune) bool {

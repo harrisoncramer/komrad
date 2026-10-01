@@ -1,5 +1,7 @@
 package vim
 
+import "math"
+
 // reach is how far a motion's range runs past its target.
 type reach int
 
@@ -45,7 +47,11 @@ func (e *Engine) motion(r []rune, p int, c command) (int, reach, bool) {
 			return firstNonBlank(r, lineStartOf(r, target)), linewise, true
 		}
 
-		return onLine(r, target, p-start), linewise, true
+		if !e.held {
+			e.column, e.held = p-start, true
+		}
+
+		return onLine(r, target, e.column), linewise, true
 	case "w", "W":
 		return e.wordMotion(r, p, c)
 	case "e", "E":
@@ -66,6 +72,7 @@ func (e *Engine) motion(r []rune, p int, c command) (int, reach, bool) {
 		return firstNonBlank(r, p), exclusive, true
 	case "$":
 		line := min(lineOf(r, p)+count-1, lastLine(r))
+		e.column, e.held = math.MaxInt, true
 		end = lineEnd(r, lineStartOf(r, line))
 		if c.op != "" {
 			return end, exclusive, true
