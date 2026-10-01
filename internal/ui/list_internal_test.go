@@ -59,8 +59,8 @@ func TestFitLines(t *testing.T) {
 func TestActionKeysGoThroughTheMenu(t *testing.T) {
 	want := map[screen][]actionID{
 		screenAgents: {
-			actionWorkflowNew, actionAgentNew, actionWorkflowAdopt, actionWorkflowRename, actionWorkflowEdit,
-			actionAgentOpen, actionAgentEdit, actionAgentChild, actionAgentRename, actionAgentRetry,
+			actionWorkflowRename,
+			actionAgentOpen, actionAgentRename,
 		},
 		screenSchedules: {actionScheduleNew, actionScheduleEdit, actionScheduleRename},
 		screenArchive:   {actionArchiveRename},

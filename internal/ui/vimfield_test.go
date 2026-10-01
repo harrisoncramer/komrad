@@ -21,7 +21,7 @@ func TestVimEditing(t *testing.T) {
 	t.Run("with vim off one esc closes the form", func(t *testing.T) {
 		harness := openForms(t, newFormWorkflow(), newFormAuthor())
 
-		harness.press(slices.Concat([]string{"c"}, spellKeys("go"), []string{"esc"})...)
+		harness.press(slices.Concat([]string{"space", "c"}, spellKeys("go"), []string{"esc"})...)
 
 		assert.NotContains(t, harness.readFrame(), "Initial prompt")
 	})
@@ -29,7 +29,7 @@ func TestVimEditing(t *testing.T) {
 	t.Run("with vim on the first esc goes to normal mode and the second closes the form", func(t *testing.T) {
 		harness := openVimForms(t)
 
-		harness.press(slices.Concat([]string{"c"}, spellKeys("go"), []string{"esc"})...)
+		harness.press(slices.Concat([]string{"space", "c"}, spellKeys("go"), []string{"esc"})...)
 		assert.Contains(t, harness.readFrame(), "Initial prompt")
 
 		harness.press("esc")
@@ -39,7 +39,7 @@ func TestVimEditing(t *testing.T) {
 	t.Run("ctrl+[ counts as esc in a form", func(t *testing.T) {
 		harness := openVimForms(t)
 
-		harness.press(slices.Concat([]string{"c"}, spellKeys("go"), []string{"ctrl+["})...)
+		harness.press(slices.Concat([]string{"space", "c"}, spellKeys("go"), []string{"ctrl+["})...)
 		assert.Contains(t, harness.readFrame(), "Initial prompt")
 
 		harness.press("ctrl+[")
@@ -61,7 +61,7 @@ func TestVimEditing(t *testing.T) {
 	t.Run("an edit made in normal mode is what the form sends", func(t *testing.T) {
 		harness := openVimForms(t)
 
-		harness.press(slices.Concat([]string{"c"}, spellKeys("check CI"), []string{"esc", "c", "i", "w"}, spellKeys("it"),
+		harness.press(slices.Concat([]string{"space", "c"}, spellKeys("check CI"), []string{"esc", "c", "i", "w"}, spellKeys("it"),
 			[]string{"esc", "0", "~", "ctrl+s"})...)
 
 		sent := harness.readSent(agentv1connect.AgentServiceCreateAgentProcedure)
@@ -74,7 +74,7 @@ func TestVimEditing(t *testing.T) {
 	t.Run("the field's own editing keys do nothing in normal mode", func(t *testing.T) {
 		harness := openVimForms(t)
 
-		harness.press(slices.Concat([]string{"c"}, spellKeys("go far"), []string{"esc", "ctrl+w", "ctrl+u", "ctrl+s"})...)
+		harness.press(slices.Concat([]string{"space", "c"}, spellKeys("go far"), []string{"esc", "ctrl+w", "ctrl+u", "ctrl+s"})...)
 
 		sent := harness.readSent(agentv1connect.AgentServiceCreateAgentProcedure)
 		require.Len(t, sent, 1)
@@ -86,7 +86,7 @@ func TestVimEditing(t *testing.T) {
 	t.Run("j in normal mode steps over a field that is not text and arrives in normal mode", func(t *testing.T) {
 		harness := openVimForms(t)
 
-		harness.press(slices.Concat([]string{"w"}, spellKeys("web"), slices.Repeat([]string{"tab"}, 6), []string{"esc", "j", "i"},
+		harness.press(slices.Concat([]string{"space", "w"}, spellKeys("web"), slices.Repeat([]string{"tab"}, 6), []string{"esc", "j", "i"},
 			spellKeys("main"), []string{"esc", "ctrl+s"})...)
 
 		sent := harness.readSent(workflowv1connect.WorkflowServiceCreateWorkflowProcedure)
@@ -99,7 +99,7 @@ func TestVimEditing(t *testing.T) {
 	t.Run("k on the first field stays on it", func(t *testing.T) {
 		harness := openVimForms(t)
 
-		harness.press(slices.Concat([]string{"c"}, spellKeys("go"), []string{"esc", "k", "x", "ctrl+s"})...)
+		harness.press(slices.Concat([]string{"space", "c"}, spellKeys("go"), []string{"esc", "k", "x", "ctrl+s"})...)
 
 		sent := harness.readSent(agentv1connect.AgentServiceCreateAgentProcedure)
 		require.Len(t, sent, 1)
@@ -114,7 +114,7 @@ func TestVimEditing(t *testing.T) {
 		harness.watch(buildSnapshot(newConfiguredWorkflow(), newFormAuthor()))
 		harness.press("g", "g")
 
-		harness.press(slices.Concat([]string{"c"}, spellKeys("go"), slices.Repeat([]string{"tab"}, 4), spellKeys("ab"), []string{"esc", "j"})...)
+		harness.press(slices.Concat([]string{"space", "c"}, spellKeys("go"), slices.Repeat([]string{"tab"}, 4), spellKeys("ab"), []string{"esc", "j"})...)
 		require.Empty(t, harness.readSent(agentv1connect.AgentServiceCreateAgentProcedure))
 		assert.Contains(t, harness.readFrame(), "Worktree")
 
@@ -134,7 +134,7 @@ func TestVimEditing(t *testing.T) {
 		harness.press("g", "g")
 		t.Cleanup(func() { _ = os.Remove(ui.FormFieldDraftPath("context")) })
 
-		harness.press("e", "tab", "esc", "ctrl+e")
+		harness.press("space", "E", "tab", "esc", "ctrl+e")
 		harness.send(harness.panel.NewFieldEdited("context", "what the editor wrote\n"))
 		harness.press("u", "ctrl+s")
 
@@ -176,10 +176,10 @@ func TestVimEditingBadge(t *testing.T) {
 		want  string
 	}{
 		{name: "the list is in normal mode", press: nil, want: "NORMAL"},
-		{name: "a form's text field is in edit mode with vim off", press: []string{"c"}, want: "EDIT"},
-		{name: "a form's text field opens in edit mode with vim on", vim: true, press: []string{"c"}, want: "  EDIT  "},
-		{name: "esc puts a form's text field in normal mode", vim: true, press: []string{"c", "esc"}, want: " NORMAL "},
-		{name: "i puts it back in insert mode", vim: true, press: []string{"c", "esc", "i"}, want: "  EDIT  "},
+		{name: "a form's text field is in edit mode with vim off", press: []string{"space", "c"}, want: "EDIT"},
+		{name: "a form's text field opens in edit mode with vim on", vim: true, press: []string{"space", "c"}, want: "  EDIT  "},
+		{name: "esc puts a form's text field in normal mode", vim: true, press: []string{"space", "c", "esc"}, want: " NORMAL "},
+		{name: "i puts it back in insert mode", vim: true, press: []string{"space", "c", "esc", "i"}, want: "  EDIT  "},
 		{name: "the list's filter is in edit mode", press: []string{"/"}, want: "EDIT"},
 		{name: "the search line is in edit mode", press: []string{"tab", "/"}, want: "EDIT"},
 		{name: "a rename is in edit mode", press: []string{"j", "r"}, want: "EDIT"},

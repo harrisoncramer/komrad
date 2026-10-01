@@ -126,7 +126,7 @@ func TestLoaderSpinsWhileAWriteIsInFlight(t *testing.T) {
 	answerWorktreeReads(harness)
 	harness.watch(buildSnapshot(newFormWorkflow()))
 	harness.hold(create)
-	harness.press(slices.Concat([]string{"w"}, spellKeys("web"), []string{"ctrl+s"})...)
+	harness.press(slices.Concat([]string{"space", "w"}, spellKeys("web"), []string{"ctrl+s"})...)
 
 	var drawn []string
 	for range 3 {

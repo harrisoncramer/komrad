@@ -298,17 +298,8 @@ func FixedFormKeys() FormKeys {
 type AgentsKeys struct {
 	// Step out of a workflow scope, or open the view switcher at the root.
 	Back []string `mapstructure:"back" default:"esc"`
-	// Open your editor on the hovered agent's worktree, in place of its pane beside the list. The
-	// agent is paused while the editor is open, and quitting the editor, pressing the key again or
-	// leaving the agents list closes it and unpauses the agent.
-	Edit []string `mapstructure:"edit" default:"e"`
 	// Move the keyboard into the triage zone at the top of the list, or back out of it into the tree.
 	Triage []string `mapstructure:"triage" default:"t"`
-	// Start a new agent.
-	New []string `mapstructure:"new" default:"c"`
-	// Attach a child agent to the hovered agent, which runs in that agent's own checkout
-	// with no worktree of its own and is archived along with it.
-	Child []string `mapstructure:"child" default:"C"`
 	// Attach to the hovered agent, or to the workflow's own orchestrator when the cursor is on a
 	// workflow. Either one is started first if it is not running.
 	Open []string `mapstructure:"open" default:"enter"`
@@ -316,9 +307,6 @@ type AgentsKeys struct {
 	Quit []string `mapstructure:"quit" default:"ctrl+c"`
 	// Rename the hovered agent.
 	Rename []string `mapstructure:"rename" default:"r"`
-	// Retry the launch of an agent that failed to create, opening a form where the flags can be
-	// corrected before confirming.
-	Retry []string `mapstructure:"retry" default:"R"`
 }
 
 // GitKeys are the bindings for the git menu, which opens from the menu on the hovered agent and
@@ -383,6 +371,25 @@ type MenuKeys struct {
 	// Open the hide menu to the right of this one, for hiding the hovered agent or showing the
 	// hidden ones. The entry is only on the agents list.
 	Hide []string `mapstructure:"hide" default:"h"`
+	// Open your editor on the hovered agent's worktree, in place of its pane beside the list. The
+	// agent is paused while the editor is open, and quitting the editor, picking the entry again
+	// or leaving the agents list closes it and unpauses the agent. The entry is only on the agents
+	// list.
+	Edit []string `mapstructure:"edit" default:"e"`
+	// Attach a child agent to the hovered agent, which runs in that agent's own checkout with no
+	// worktree of its own and is archived along with it. The entry is only on the agents list.
+	Child []string `mapstructure:"child" default:"C"`
+	// Retry the launch of an agent that failed to create, opening a form where the flags can be
+	// corrected before confirming. The entry is only on such an agent.
+	Retry []string `mapstructure:"retry" default:"R"`
+	// Edit the hovered workflow.
+	EditWorkflow []string `mapstructure:"edit_workflow" default:"E"`
+	// Put an agent on a branch that already exists, in the hovered workflow.
+	Adopt []string `mapstructure:"adopt" default:"A"`
+	// Start a new agent, in the workflow the cursor is in. The entry is only on the agents list.
+	NewAgent []string `mapstructure:"new_agent" default:"c"`
+	// Create a workflow. The entry is only on the agents list.
+	NewWorkflow []string `mapstructure:"new_workflow" default:"w"`
 	// Open this engine's scratch file in your editor in place of the pane beside the list, or
 	// close it when it is already open. Each engine keeps its own file under komrad's state
 	// directory.
@@ -394,13 +401,6 @@ type MenuKeys struct {
 
 // WorkflowsKeys are the bindings that act on a workflow.
 type WorkflowsKeys struct {
-	// Put an agent on a branch that already exists, in the workflow under the
-	// cursor.
-	Adopt []string `mapstructure:"adopt" default:"a"`
-	// Edit the workflow under the cursor.
-	Edit []string `mapstructure:"edit" default:"e"`
-	// Create a workflow. Works from anywhere in the list.
-	New []string `mapstructure:"new" default:"w"`
 	// Rename the workflow under the cursor.
 	Rename []string `mapstructure:"rename" default:"r"`
 }

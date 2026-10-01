@@ -2,6 +2,7 @@ package ui
 
 import (
 	"errors"
+	"slices"
 
 	"komrad/internal/ui/panel"
 	"komrad/lib/xslice"
@@ -27,27 +28,24 @@ var (
 	errTerminalHere     = errors.New("a terminal opens from the agents list")
 )
 
-// agentMenu is the band of the menu that acts on an agent.
-func agentMenu(s panelShared, from screen, item panel.AgentRow) submenu {
+// agentMenu is the band of the menu that acts on an agent, with the entries a screen adds of its own before git.
+func agentMenu(s panelShared, from screen, item panel.AgentRow, own ...submenuEntry) submenu {
 	agent := item.Agent
 	agentID := agent.ID
-	pages := agentSubpages(agent)
+	pages := xslice.Map(agentSubpages(agent), func(page subpage) submenuEntry {
+		entry := subpageEntry(s, from, item, page)
+		if entry.opens == nil {
+			entry.open = func(m model) (tea.Model, tea.Cmd) { return m.enterSubpage(from, agentID, page) }
+		}
+
+		return entry
+	})
 
 	return submenu{
-		kind:  formMenu,
-		title: s.listing.agentName(agent),
-		crumb: s.listing.agentName(agent),
-		entries: append(
-			xslice.Map(pages, func(page subpage) submenuEntry {
-				entry := subpageEntry(s, from, item, page)
-				if entry.opens == nil {
-					entry.open = func(m model) (tea.Model, tea.Cmd) { return m.enterSubpage(from, agentID, page) }
-				}
-
-				return entry
-			}),
-			nestedEntry("git", s.keys.Menu.Git, gitMenu(s, from, item)),
-		),
+		kind:    formMenu,
+		title:   s.listing.agentName(agent),
+		crumb:   s.listing.agentName(agent),
+		entries: slices.Concat(pages, own, []submenuEntry{nestedEntry("git", s.keys.Menu.Git, gitMenu(s, from, item))}),
 	}
 }
 

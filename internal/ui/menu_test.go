@@ -3,6 +3,7 @@ package ui_test
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 
 	"komrad/internal/panes"
@@ -37,7 +38,7 @@ func TestMenu(t *testing.T) {
 		require.Contains(t, harness.readFrame(), "› documents")
 		require.Contains(t, harness.readFrame(), "───")
 
-		harness.press("down", "down", "down", "down", "down", "down")
+		harness.press(slices.Repeat([]string{"down"}, 10)...)
 
 		assert.Contains(t, harness.readFrame(), "› scratch")
 	})
@@ -182,7 +183,7 @@ func TestScratch(t *testing.T) {
 		answerAgentCreate(harness, "%9")
 		harness.press("j", "space", "s")
 
-		harness.press("c", "h", "i", "ctrl+s")
+		harness.press("space", "c", "h", "i", "ctrl+s")
 		harness.press("space")
 
 		assert.Equal(t, "%9", harness.panel.ReadGuestPane())
@@ -201,12 +202,12 @@ func TestScratch(t *testing.T) {
 			{
 				name:  "the worktree editor over it",
 				first: []string{"space", "s"},
-				then:  []string{"e"},
+				then:  []string{"space", "e"},
 				want:  "could not open the editor",
 			},
 			{
 				name:  "it over the worktree editor",
-				first: []string{"e"},
+				first: []string{"space", "e"},
 				then:  []string{"space", "s"},
 				want:  "could not open the scratch file",
 			},

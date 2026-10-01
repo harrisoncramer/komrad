@@ -129,13 +129,13 @@ func TestRenameField(t *testing.T) {
 		harness.press(slices.Concat([]string{"j", "r"}, spellKeys("-v2"))...)
 
 		harness.watch(buildSnapshot(newFormWorkflow()))
-		harness.press("c", "enter")
+		harness.press("space", "c", "enter")
 
 		assert.NotContains(t, harness.readFrame(), "C-s submit", "no action ran on the row the cursor landed on")
 		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceUpdateAgentProcedure))
 		assert.Contains(t, readOpenMessages(harness), `"author" is gone`)
 
-		harness.press("esc", "c")
+		harness.press("esc", "space", "c")
 		assert.Contains(t, harness.readFrame(), "C-s submit", "the keys are the list's again")
 	})
 

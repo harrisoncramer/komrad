@@ -108,7 +108,16 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	if landed, ok := msg.(countedWrite); ok {
-		m.landWrite(landed.countedWrite())
+		if m.landHeld(landed.countedWrite()) {
+			closed, closing := m.closeForm()
+			if next, ok := closed.(model); ok {
+				m = next
+			}
+
+			next, cmd := m.route(msg)
+
+			return next, tea.Batch(closing, cmd)
+		}
 	}
 
 	if next, cmd, handled := m.routeAsyncMessage(msg); handled {

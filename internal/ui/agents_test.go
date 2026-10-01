@@ -189,7 +189,7 @@ func TestAgentsRows(t *testing.T) {
 		frame := harness.readFrame()
 		assert.Equal(t, agentsScreen, harness.readScreen())
 		assert.Contains(t, frame, "Welcome, komrad!")
-		assert.Contains(t, frame, "Press 'w' to set up your first workflow")
+		assert.Contains(t, frame, "Press 'space' then 'w' to set up your first workflow")
 		assert.Empty(t, readListRows(frame))
 		ui.RequireGolden(t, "agents-welcome", harness.readRawFrame())
 	})
@@ -1826,7 +1826,7 @@ func TestAgentsEdit(t *testing.T) {
 	t.Run("the edit key stops the agent and opens its worktree beside the list", func(t *testing.T) {
 		harness := openAgents(t, newLiveWorkflow("w1", "backend"), newEditable(""))
 
-		harness.press("e")
+		harness.press("space", "e")
 
 		harness.assertSentTo(agentv1connect.AgentServiceHoldAgentProcedure, &agentv1.HoldAgentRequest{Id: "a1"})
 		require.NotEmpty(t, harness.panel.ReadRespawns())
@@ -1841,7 +1841,7 @@ func TestAgentsEdit(t *testing.T) {
 		}{
 			{
 				name:  "the key again",
-				close: func(h *panelHarness) { h.press("e") },
+				close: func(h *panelHarness) { h.press("space", "e") },
 			},
 			{
 				name: "the editor quitting",
@@ -1861,7 +1861,7 @@ func TestAgentsEdit(t *testing.T) {
 			t.Run(tt.name, func(t *testing.T) {
 				harness := openAgents(t, newLiveWorkflow("w1", "backend"), newEditable(""))
 				said := recordRelease(harness)
-				harness.press("e")
+				harness.press("space", "e")
 				require.Empty(t, *said)
 
 				tt.close(harness)
@@ -1876,11 +1876,11 @@ func TestAgentsEdit(t *testing.T) {
 	t.Run("a snapshot leaves alone the pause the editor holds", func(t *testing.T) {
 		harness := openAgents(t, newLiveWorkflow("w1", "backend"), newEditable(""))
 		said := recordRelease(harness)
-		harness.press("e")
+		harness.press("space", "e")
 		harness.watch(buildSnapshot(newLiveWorkflow("w1", "backend"), newEditable(heldAt)))
 		require.Empty(t, *said)
 
-		harness.press("e")
+		harness.press("space", "e")
 		require.Len(t, *said, 1)
 		assert.Contains(t, (*said)[0].GetSaid(), "while I had your worktree open")
 	})
@@ -1890,7 +1890,7 @@ func TestAgentsEdit(t *testing.T) {
 		other.Id, other.Name, other.PaneId = "a2", "comet", "%10"
 		harness := openAgents(t, newLiveWorkflow("w1", "backend"), newEditable(""), other)
 		moveToAgentRow(t, harness, "telescope")
-		harness.press("e")
+		harness.press("space", "e")
 		respawns, swaps := harness.panel.CountRespawns(), harness.panel.CountSwaps()
 
 		harness.press("j")
@@ -1904,7 +1904,7 @@ func TestAgentsEdit(t *testing.T) {
 	t.Run("an agent paused by somebody else opens no editor", func(t *testing.T) {
 		harness := openAgents(t, newLiveWorkflow("w1", "backend"), newEditable(heldAt))
 
-		harness.press("e")
+		harness.press("space", "e")
 
 		assert.Empty(t, harness.panel.ReadRespawns())
 		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceHoldAgentProcedure))
@@ -1916,9 +1916,9 @@ func TestAgentsEdit(t *testing.T) {
 		agent.Alive = xptr.Ptr(false)
 		harness := openAgents(t, newLiveWorkflow("w1", "backend"), agent)
 
-		harness.press("e")
+		harness.press("space", "e")
 		require.NotEmpty(t, harness.panel.ReadRespawns())
-		harness.press("e")
+		harness.press("space", "e")
 
 		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceHoldAgentProcedure))
 		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceReleaseAgentProcedure))
@@ -1930,7 +1930,7 @@ func TestAgentsEdit(t *testing.T) {
 			return nil, errors.New("the agent did not stop")
 		})
 
-		harness.press("e")
+		harness.press("space", "e")
 
 		assert.Empty(t, harness.panel.ReadRespawns())
 	})
@@ -1940,7 +1940,7 @@ func TestAgentsEdit(t *testing.T) {
 		agent.State = agentv1.AgentState_AGENT_STATE_UNCERTAIN
 		harness := openAgents(t, newLiveWorkflow("w1", "backend"), agent)
 
-		harness.press("e")
+		harness.press("space", "e")
 
 		assert.Empty(t, harness.panel.ReadRespawns())
 		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceHoldAgentProcedure))
@@ -1950,9 +1950,9 @@ func TestAgentsEdit(t *testing.T) {
 		harness := openAgents(t, newLiveWorkflow("w1", "backend"), newEditable(""))
 		said := recordRelease(harness)
 		harness.hold(agentv1connect.AgentServiceHoldAgentProcedure)
-		harness.press("e")
+		harness.press("space", "e")
 
-		harness.press("shift+tab", "shift+tab")
+		harness.press("esc", "shift+tab", "shift+tab")
 		harness.release(agentv1connect.AgentServiceHoldAgentProcedure)
 
 		assert.Empty(t, harness.panel.ReadRespawns())
@@ -2171,7 +2171,7 @@ func TestAgentsOrchestrator(t *testing.T) {
 		harness := openAgents(t, newLiveWorkflow("w1", "backend"))
 		answerWorkflowCreate(harness, "w2")
 
-		harness.press("w", "a", "p", "i", "ctrl+s")
+		harness.press("space", "w", "a", "p", "i", "ctrl+s")
 
 		harness.assertSent(
 			request{
@@ -2197,7 +2197,7 @@ func TestAgentsOrchestrator(t *testing.T) {
 		answerWorkflowCreate(harness, "w2")
 		harness.refuse(agentv1connect.AgentServiceStartOrchestratorProcedure, connect.NewError(connect.CodePermissionDenied, errors.New("the person refused the directory")))
 
-		harness.press("w", "a", "p", "i", "ctrl+s")
+		harness.press("space", "w", "a", "p", "i", "ctrl+s")
 		harness.watch(buildSnapshot(newLiveWorkflow("w1", "backend"), newLiveWorkflow("w2", "api")))
 
 		frame := harness.readFrame()
@@ -2255,7 +2255,7 @@ func TestAgentsChildren(t *testing.T) {
 	t.Run("the child key on a child says why rather than opening a form", func(t *testing.T) {
 		harness := openAgents(t, buildFamily()...)
 
-		harness.press(append([]string{"G", "C"}, widenListPresses...)...)
+		harness.press(append([]string{"G", "space", "C"}, widenListPresses...)...)
 
 		assert.NotContains(t, harness.readFrame(), "C-s submit")
 		assert.Contains(t, readOpenMessages(harness), "may not have children")

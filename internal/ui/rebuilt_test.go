@@ -76,7 +76,7 @@ func TestRebuilt(t *testing.T) {
 			{
 				name: "an open form",
 				busy: func(harness *panelHarness) {
-					harness.press("c")
+					harness.press("space", "c")
 				},
 			},
 		}
