@@ -11,8 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestSessionNaming pins that Codex takes no session id on the command line, so the panel has
-// to adopt the conversation Codex chose.
+// TestSessionNaming pins that Codex takes no session id on the command line.
 func TestSessionNaming(t *testing.T) {
 	assert.Equal(t, harness.SessionDiscovered, NewHarness(NewHarnessParams{Home: t.TempDir()}).SessionNaming())
 }
