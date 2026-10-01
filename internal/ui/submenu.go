@@ -147,8 +147,7 @@ func (m model) pushSubmenu(parents []submenuLevel, level submenuLevel) (tea.Mode
 	return m, cmd
 }
 
-// stackForm draws a form to the right of the menus it was opened from, the back key returning to
-// the nearest of them.
+// stackForm draws a form to the right of the menus it was opened from.
 func (m model) stackForm(menus []submenuLevel, form formState) (tea.Model, tea.Cmd) {
 	form.crumbs = append(xslice.Map(menus, func(l submenuLevel) string { return l.menu.crumb }), form.crumbs...)
 	form.leading = func(width, _ int) []string {
