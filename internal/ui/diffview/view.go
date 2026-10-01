@@ -631,12 +631,16 @@ func (v *View) JumpFile(y, direction int) int {
 		return y
 	}
 
-	// The first row of the file the cursor can rest on: its first line, or its header alone
-	// when the file has been read and folded away.
 	for index, candidate := range v.rows {
-		if candidate.file == target && v.isPinnable(index) {
-			return index
+		if candidate.file != target {
+			continue
 		}
+
+		if landing := v.GetFileLanding(index); v.isPinnable(landing) {
+			return landing
+		}
+
+		break
 	}
 
 	return y
