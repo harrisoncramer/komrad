@@ -485,22 +485,18 @@ type createStart struct {
 }
 
 func (c *createStart) runSetUp(ctx context.Context, agent agentstore.Agent) (string, error) {
-	named, err := c.runProvision(ctx, agent)
-	if err != nil {
-		return "", err
-	}
-	c.provisioned = c.resolved.provisioner != ""
-
-	return named, nil
-}
-
-func (c *createStart) runProvision(ctx context.Context, agent agentstore.Agent) (string, error) {
 	runner := c.service.starter.scripts
 	if runner == nil || c.resolved.provisioner == "" {
 		return "", nil
 	}
 
-	return runner.RunProvision(ctx, agent, c.resolved.provisioner)
+	named, err := runner.RunProvision(ctx, agent, c.resolved.provisioner)
+	if err != nil {
+		return "", err
+	}
+	c.provisioned = true
+
+	return named, nil
 }
 
 func (c *createStart) getDefaultDir(agentstore.Agent) string {
