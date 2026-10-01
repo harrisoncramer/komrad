@@ -108,18 +108,27 @@ func (r reviewScreen) offerView(s panelShared, offer *pullrequestv1.ForgeThread,
 	if offer.GetDismissed() {
 		foot = strings.TrimSpace("dismissed  " + foot)
 	}
-	switch assemble.StateOfOffer(s.listing.world.ReviewThreads, offer) {
-	case assemble.OfferAccepted:
-		foot = strings.TrimSpace("accepted  " + foot)
-	case assemble.OfferChanged:
-		foot = strings.TrimSpace("changed since you accepted it  " + foot)
-	case assemble.OfferOpen:
+	if label := describeOfferState(assemble.StateOfOffer(s.listing.world.ReviewThreads, offer)); label != "" {
+		foot = strings.TrimSpace(label + "  " + foot)
 	}
 	if foot != "" {
 		out.WriteString(dimStyle().Render(ansi.Hardwrap(foot, max(width, 1), false)) + "\n")
 	}
 
 	return out.String()
+}
+
+func describeOfferState(state assemble.OfferState) string {
+	switch state {
+	case assemble.OfferAccepted:
+		return "accepted"
+	case assemble.OfferChanged:
+		return "changed since you accepted it"
+	case assemble.OfferOpen:
+		return ""
+	}
+
+	return ""
 }
 
 func describeCommentAuthor(comment *pullrequestv1.ForgeComment) string {
