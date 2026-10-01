@@ -179,14 +179,14 @@ func TestWrapKeepsTheMappedCodeBesideAnUnmappedSentinel(t *testing.T) {
 	assert.Equal(t, connect.CodeFailedPrecondition, connect.CodeOf(err))
 }
 
-// TestRefuse pins the code an interceptor's refusal is answered with for each kind.
-func TestRefuse(t *testing.T) {
-	type refuseCase struct {
+// TestNew pins the code an interceptor's refusal is answered with for each kind.
+func TestNew(t *testing.T) {
+	type newCase struct {
 		kind fail.Kind
 		want connect.Code
 	}
 
-	tests := []refuseCase{
+	tests := []newCase{
 		{
 			kind: fail.Kind(99),
 			want: connect.CodeInternal,
@@ -223,7 +223,7 @@ func TestRefuse(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.want.String(), func(t *testing.T) {
-			assert.Equal(t, tt.want, connect.CodeOf(rpcerr.Refuse(tt.kind, errors.New("refused"))))
+			assert.Equal(t, tt.want, connect.CodeOf(rpcerr.New(tt.kind, errors.New("refused"))))
 		})
 	}
 }

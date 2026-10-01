@@ -89,7 +89,7 @@ func (r *rolesInterceptor) authorize(ctx context.Context, procedure string) erro
 
 	role, err := r.roleOf(ctx, agentID)
 	if errors.Is(err, rpcapi.ErrUnknownCaller) {
-		return rpcerr.Refuse(fail.KindDenied, err)
+		return rpcerr.New(fail.KindDenied, err)
 	}
 	if err != nil {
 		return rpcerr.Unavailable(err)
@@ -98,7 +98,7 @@ func (r *rolesInterceptor) authorize(ctx context.Context, procedure string) erro
 		return nil
 	}
 
-	return rpcerr.Refuse(fail.KindDenied,
+	return rpcerr.New(fail.KindDenied,
 		fmt.Errorf("%s is not open to an agent in the %s role", surfaces.GetName(), roleName(role)))
 }
 

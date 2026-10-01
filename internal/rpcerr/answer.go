@@ -69,12 +69,12 @@ func From(err error, failure string) *fail.Error {
 	return fail.Because(err, fmt.Sprintf("%s: %s", failure, err))
 }
 
-// Refuse answers a request turned away before its handler ran with the code for its kind.
-func Refuse(kind fail.Kind, err error) error {
+// New is a connect error carrying the code for kind.
+func New(kind fail.Kind, err error) error {
 	return connect.NewError(codeOf(kind), err)
 }
 
-// Unavailable answers a request the server could not judge.
+// Unavailable is a connect error for a failure the caller may retry.
 func Unavailable(err error) error {
 	return connect.NewError(connect.CodeUnavailable, err)
 }

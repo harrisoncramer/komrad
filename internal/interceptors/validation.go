@@ -34,7 +34,7 @@ func (v *validationInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryF
 		}
 
 		if err := v.validator.Validate(msg); err != nil {
-			return nil, rpcerr.Refuse(fail.KindInvalidArgument, err)
+			return nil, rpcerr.New(fail.KindInvalidArgument, err)
 		}
 
 		return next(ctx, req)
@@ -70,7 +70,7 @@ func (c *validatingConn) Receive(msg any) error {
 	}
 
 	if err := c.validator.Validate(message); err != nil {
-		return rpcerr.Refuse(fail.KindInvalidArgument, err)
+		return rpcerr.New(fail.KindInvalidArgument, err)
 	}
 
 	return nil

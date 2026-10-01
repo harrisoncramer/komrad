@@ -25,7 +25,7 @@ func NewRecovery() connect.HandlerOption {
 func recoverRPC(ctx context.Context, recovered any) error {
 	logging.LogPanic(ctx, recovered)
 
-	return rpcerr.Refuse(fail.KindInternal, errPanicked)
+	return rpcerr.New(fail.KindInternal, errPanicked)
 }
 
 func serveAndRecover(recorder *statusRecorder, r *http.Request, next http.Handler) {
