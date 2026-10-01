@@ -165,8 +165,9 @@ func (e *Engine) Key(key string, b Buffer) Result {
 	}
 
 	if !e.owns(key) {
+		waiting := awaitsChar(e.pending)
 		e.pending = nil
-		if slices.Contains(e.passes, key) {
+		if !waiting && slices.Contains(e.passes, key) {
 			return e.done(Pass, b)
 		}
 
@@ -391,7 +392,7 @@ func (e *Engine) replay(c command, b Buffer) Result {
 func (e *Engine) settle(b Buffer) Buffer {
 	b = clamp(b)
 	r := []rune(b.Text)
-	if b.Cursor >= len(r) {
+	if b.Cursor >= len(r) && (len(r) == 0 || r[len(r)-1] != '\n') {
 		b.Cursor = max(len(r)-1, 0)
 	}
 	if b.Cursor < len(r) && r[b.Cursor] == '\n' && b.Cursor > lineStart(r, b.Cursor) {
@@ -564,8 +565,8 @@ func (e *Engine) join(c command, r []rune, p int) (Buffer, bool, bool) {
 // operate runs d, c or y over the range a motion or text object covers from p.
 func (e *Engine) operate(c command, r []rune, p int) (Buffer, bool, bool) {
 	var (
-		from, to int
-		lines    bool
+		from, to, land int
+		lines          bool
 	)
 
 	switch {
@@ -573,12 +574,14 @@ func (e *Engine) operate(c command, r []rune, p int) (Buffer, bool, bool) {
 		line := lineOf(r, p)
 		last := min(line+c.times()-1, lastLine(r))
 		from, to, lines = lineStartOf(r, line), lineEnd(r, lineStartOf(r, last)), true
+		land = p
 	case c.object:
 		start, end, ok := object(r, p, c.name)
 		if !ok {
 			return Buffer{}, false, false
 		}
 		from, to = start, end
+		land = start
 	default:
 		target, reach, ok := e.motion(r, p, c)
 		if !ok {
@@ -586,6 +589,7 @@ func (e *Engine) operate(c command, r []rune, p int) (Buffer, bool, bool) {
 		}
 
 		from, to = min(p, target), max(p, target)
+		land = from
 		switch reach {
 		case inclusive:
 			to = min(to+1, len(r))
@@ -607,12 +611,7 @@ func (e *Engine) operate(c command, r []rune, p int) (Buffer, bool, bool) {
 
 	switch c.op {
 	case "y":
-		cursor := from
-		if lines && from == lineStart(r, p) {
-			cursor = p
-		}
-
-		return Buffer{Text: string(r), Cursor: cursor}, false, true
+		return Buffer{Text: string(r), Cursor: land}, false, true
 	case "c":
 		r = splice(r, from, to, nil)
 

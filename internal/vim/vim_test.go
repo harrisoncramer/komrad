@@ -144,6 +144,8 @@ func TestMotions(t *testing.T) {
 		{name: "the arrow keys move like hjkl", start: "a|bc", keys: "<right><left><left>", want: "|abc", mode: Normal},
 		{name: "space moves right", start: "|abc", keys: "<space>", want: "a|bc", mode: Normal},
 		{name: "w stops on an empty line", start: "|ab\n\ncd", keys: "w", want: "ab\n|\ncd", mode: Normal},
+		{name: "j reaches a trailing empty line", start: "|ab\n", keys: "j", want: "ab\n|", mode: Normal},
+		{name: "G reaches a trailing empty line", start: "a|b\n", keys: "G", want: "ab\n|", mode: Normal},
 		{name: "w leaves an empty line for the next word", start: "ab\n|\ncd", keys: "w", want: "ab\n\n|cd", mode: Normal},
 		{name: "b stops on an empty line", start: "ab\n\n|cd", keys: "b", want: "ab\n|\ncd", mode: Normal},
 		{name: "j keeps the column", start: "ab|c\ndef", keys: "j", want: "abc\nde|f", mode: Normal},
@@ -245,6 +247,9 @@ func TestOperators(t *testing.T) {
 		{name: "yy then P puts the line above", start: "ab\n|cd", keys: "yyP", want: "ab\n|cd\ncd", mode: Normal},
 		{name: "yy then p on the last line puts a line after it", start: "ab\n|cd", keys: "yyp", want: "ab\ncd\n|cd", mode: Normal},
 		{name: "y leaves the text and moves to the start", start: "foo |bar", keys: "yb", want: "|foo bar", mode: Normal},
+		{name: "yk lands on the line above", start: "ab\nc|d", keys: "yk", want: "a|b\ncd", mode: Normal},
+		{name: "ygg lands on the first non-blank", start: " ab\nc|d", keys: "ygg", want: " |ab\ncd", mode: Normal},
+		{name: "a count past the cap runs the cap", start: "|ab", keys: "yl99999999999p", want: strings.Repeat("a", 9999) + "|ab", mode: Normal},
 		{name: "dd then p moves a line down", start: "|a\nb", keys: "ddp", want: "b\n|a", mode: Normal},
 		{name: "x deletes the character", start: "a|bc", keys: "x", want: "a|c", mode: Normal},
 		{name: "x on the last character moves back", start: "ab|c", keys: "x", want: "a|b", mode: Normal},
@@ -270,6 +275,7 @@ func TestOperators(t *testing.T) {
 		{name: "I inserts at the first non-blank", start: "  ab|c", keys: "Ix<esc>", want: "  |xabc", mode: Normal},
 		{name: "A appends to the line", start: "|ab\ncd", keys: "Ax<esc>", want: "ab|x\ncd", mode: Normal},
 		{name: "o opens a line below", start: "|ab\ncd", keys: "ox<esc>", want: "ab\n|x\ncd", mode: Normal},
+		{name: "o on the last line stays on the empty line it opened", start: "|ab", keys: "o<esc>ix<esc>", want: "ab\n|x", mode: Normal},
 		{name: "O opens a line above", start: "ab\n|cd", keys: "Ox<esc>", want: "ab\n|x\ncd", mode: Normal},
 		{name: "enter in insert types a new line", start: "a|b", keys: "i<cr><esc>", want: "a\n|b", mode: Normal},
 	}, false)
@@ -395,6 +401,7 @@ func TestModes(t *testing.T) {
 		{name: "k on a one-line field is an edge", start: "a|b", single: true, keys: "k", want: "a|b", outcome: EdgeUp, mode: Normal},
 		{name: "the down arrow is an edge too", start: "a|b", single: true, keys: "<down>", want: "a|b", outcome: EdgeDown, mode: Normal},
 		{name: "j on the last line is an edge", start: "a\n|b", keys: "j", want: "a\n|b", outcome: EdgeDown, mode: Normal},
+		{name: "j on a trailing empty line is an edge", start: "ab\n|", keys: "j", want: "ab\n|", outcome: EdgeDown, mode: Normal},
 		{name: "k on the first line is an edge", start: "|a\nb", keys: "k", want: "|a\nb", outcome: EdgeUp, mode: Normal},
 		{name: "j with lines below moves", start: "|a\nb", keys: "j", want: "a\n|b", outcome: Consumed, mode: Normal},
 		{name: "tab passes to the field", start: "a|b", keys: "<tab>", want: "a|b", outcome: Pass, mode: Normal},
@@ -471,6 +478,8 @@ func TestSwallowed(t *testing.T) {
 	}{
 		{name: "a field's own editing key is kept from it", key: "<c-w>", want: Consumed},
 		{name: "a key the caller asked for is passed", key: "<tab>", want: Pass},
+		{name: "a key the caller asked for is kept while f waits for a character", key: "f<tab>", want: Consumed},
+		{name: "enter is kept while r waits for a character", key: "r<cr>", want: Consumed},
 	}
 
 	for _, tt := range tests {

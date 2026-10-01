@@ -5,6 +5,8 @@ import (
 	"unicode/utf8"
 )
 
+const maxCount = 9999
+
 // command is one complete normal-mode command.
 type command struct {
 	count   int
@@ -18,7 +20,7 @@ type command struct {
 
 // times is the count the command runs with, one when none was typed.
 func (c command) times() int {
-	return max(c.count, 1) * max(c.opCount, 1)
+	return min(max(c.count, 1)*max(c.opCount, 1), maxCount)
 }
 
 // given is the count typed for the command, zero when none was.
@@ -158,7 +160,7 @@ func readCount(keys []string, i int) (int, int) {
 		if len(k) != 1 || k[0] < '0' || k[0] > '9' || (n == 0 && k[0] == '0') {
 			break
 		}
-		n = n*10 + int(k[0]-'0')
+		n = min(n*10+int(k[0]-'0'), maxCount)
 		i++
 	}
 
