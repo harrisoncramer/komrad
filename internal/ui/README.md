@@ -25,9 +25,9 @@ message the root did not claim, view draws the screen, enter lands it on a targe
 doesDrawFromListing says whether it draws the watch's listings, takesEveryKey says whether the
 screen is being typed at, column names the block beside its list, stageResting stages the row
 its cursor rests on, and dispatches is its tables of keys. Whatever only some screens do is a
-small interface beside screenModel in screens.go, recordDrawer for a record under the list,
-listFilterer for a search over it, tabSwitcher for a strip over it and the rest, which the root
-asks of the screen that is up by type assertion, and each screen's file asserts the ones it
+small interface beside screenModel in screens.go, such as recordDrawer for a record under the
+list, listFilterer for a search over it, or tabSwitcher for a strip over it. The caller asks the
+screen that is up for one with a type assertion, and each screen's file asserts the ones it
 implements. The root holds the screens by value and m.active() is the switch from the screen
 enum to a pointer into the one that is up; it carries no default, so the exhaustive check
 refuses a screen with no arm. Every method on a screen takes a pointer to the root, which it
