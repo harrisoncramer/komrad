@@ -59,7 +59,7 @@ func (v *View) offerRowOf(index lineIndex, offer Offer) (int, bool) {
 		return 0, false
 	}
 
-	if y, ok := v.offerTraced.rowFor(index, offer.ID); ok && !offer.OldSide {
+	if y, ok := v.offerTraced.rowFor(index, offer.ID); !offer.OldSide && ok {
 		return y, true
 	}
 
