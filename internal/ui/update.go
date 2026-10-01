@@ -443,7 +443,7 @@ func (m *model) routeAsyncMessage(msg tea.Msg) (tea.Cmd, bool) {
 	case writeResult:
 		return m.applyWrite(msg), true
 	case reviewPausedMsg:
-		if m.isPassing(msg.agentID) {
+		if m.isPausing(msg.agentID) {
 			return nil, false
 		}
 

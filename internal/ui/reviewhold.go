@@ -126,7 +126,7 @@ func (r *reviewScreen) applyPaused(m *model, msg reviewPausedMsg) tea.Cmd {
 	return r.editFile(m)
 }
 
-func (m *model) isPassing(agentID string) bool {
+func (m *model) isPausing(agentID string) bool {
 	isPausing := m.active().isPausing
 
 	return isPausing != nil && isPausing(agentID)
