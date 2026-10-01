@@ -43,15 +43,10 @@ func ReviewThread(thread reviewstore.Thread, messages []reviewstore.Message) *ag
 
 // ReviewMessage draws one thing said in a thread.
 func ReviewMessage(message reviewstore.Message) *agentv1.ReviewMessage {
-	kind := agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN
-	if message.AuthorKind == reviewstore.AuthorAgent {
-		kind = agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT
-	}
-
 	answered := &agentv1.ReviewMessage{
 		Id:            message.ID,
 		ThreadId:      message.ThreadID,
-		AuthorKind:    kind,
+		AuthorKind:    reviewAuthorKindOf(message.AuthorKind),
 		AuthorAgentId: message.AuthorAgentID,
 		ReviewId:      message.ReviewID,
 		RoundId:       message.RoundID,

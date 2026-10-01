@@ -13,6 +13,13 @@ import (
 	forgestore "komrad/internal/store/forge"
 )
 
+// The kinds of trouble a check reports.
+const (
+	ProblemRefused      = "refused"
+	ProblemNoCredential = "no_credential"
+	ProblemUnreachable  = "unreachable"
+)
+
 // ErrUnknownKind says no forge of that kind is compiled in.
 var ErrUnknownKind = fail.InvalidArgument("no forge of that kind")
 
@@ -61,6 +68,13 @@ type ConnectParams struct {
 	Method string
 	// Token is the credential for MethodToken, and ignored for MethodGitHubApp.
 	Token Secret
+}
+
+// CheckResult is what a check found of one connection, and the connection as the check left it.
+type CheckResult struct {
+	Connection  forgestore.Connection
+	Problem     error
+	ProblemKind string
 }
 
 // NewServiceParams says what the service writes to and which forges it can build.
@@ -346,6 +360,35 @@ func (s *Service) Check(ctx context.Context, connection forgestore.Connection) (
 	return connection.Login, nil
 }
 
+// RecheckConnection checks a connection and records the forge's answer on its verified stamp.
+func (s *Service) RecheckConnection(ctx context.Context, connection forgestore.Connection) (*CheckResult, error) {
+	if _, err := s.Check(ctx, connection); err != nil {
+		kind := problemKind(err)
+		if kind != ProblemUnreachable {
+			if err := s.connections.SetVerifiedAt(ctx, connection.ID, nil); err != nil {
+				return nil, err
+			}
+
+			connection.VerifiedAt = nil
+		}
+
+		return &CheckResult{
+			Connection:  connection,
+			Problem:     err,
+			ProblemKind: kind,
+		}, nil
+	}
+
+	at := s.now()
+	if err := s.connections.SetVerifiedAt(ctx, connection.ID, &at); err != nil {
+		return nil, err
+	}
+
+	connection.VerifiedAt = &at
+
+	return &CheckResult{Connection: connection}, nil
+}
+
 // ConnectionFor is the connection a host has, or ErrNotFound.
 func (s *Service) ConnectionFor(ctx context.Context, host string) (*forgestore.Connection, error) {
 	return s.connections.GetByHost(ctx, strings.ToLower(host))
@@ -364,11 +407,6 @@ func (s *Service) ForHost(ctx context.Context, host string) (Forge, error) {
 	}
 
 	return hostForge, nil
-}
-
-// SetVerifiedAt records when a forge last confirmed a connection, or clears it.
-func (s *Service) SetVerifiedAt(ctx context.Context, id string, at *time.Time) error {
-	return s.connections.SetVerifiedAt(ctx, id, at)
 }
 
 // HasCredential says whether a connection still has what it needs to speak, which for an App
@@ -421,6 +459,18 @@ func (s *Service) ForConnection(connection forgestore.Connection) (Forge, error)
 	}
 
 	return build(connection.APIURL, auth), nil
+}
+
+// problemKind says which kind of trouble a connection is in.
+func problemKind(err error) string {
+	switch {
+	case errors.Is(err, ErrNoCredential):
+		return ProblemNoCredential
+	case errors.Is(err, ErrUnauthorized), errors.Is(err, ErrAppReachesNothing):
+		return ProblemRefused
+	default:
+		return ProblemUnreachable
+	}
 }
 
 // staticCredential is a token held in memory for the one call that proves it.

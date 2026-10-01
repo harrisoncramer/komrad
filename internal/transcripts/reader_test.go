@@ -35,7 +35,7 @@ func TestTranscriptReaderRefusesAnAgentNobodyHolds(t *testing.T) {
 		{
 			name: "reading its transcript",
 			read: func(t *testing.T, reader *TranscriptReader) error {
-				_, err := reader.ReadTranscript(t.Context(), missingAgentID)
+				_, err := reader.ReadTranscriptWindow(t.Context(), ReadTranscriptWindowParams{AgentID: missingAgentID})
 
 				return err
 			},
@@ -57,7 +57,7 @@ func TestTranscriptReaderRefusesAnAgentNobodyHolds(t *testing.T) {
 	}
 }
 
-// TestListLastTurns pins that a listing counts the agent's own turns, one when none is asked for.
+// TestListLastTurns pins that a listing counts the agent's own turns, one when none is asked for, and that a window keeps the end of each turn.
 func TestListLastTurns(t *testing.T) {
 	st := storetest.Open(t)
 	reader := newTranscriptReader(st)
@@ -84,29 +84,75 @@ func TestListLastTurns(t *testing.T) {
 	tests := []struct {
 		name     string
 		turns    int32
-		wantSeqs []int32
+		maxBytes int32
+		want     []Turn
 	}{
 		{
-			name:     "no count reads the last turn the agent wrote",
-			wantSeqs: []int32{3},
+			name: "no count reads the last turn the agent wrote",
+			want: []Turn{
+				{
+					Role:    "assistant",
+					Seq:     3,
+					Content: "the conclusion",
+				},
+			},
 		},
 		{
-			name:     "two of its own turns come with the prompt between them",
+			name:  "two of its own turns come with the prompt between them",
+			turns: 2,
+			want: []Turn{
+				{
+					Role:    "assistant",
+					Seq:     1,
+					Content: "a first reading",
+				},
+				{
+					Role:    "user",
+					Seq:     2,
+					Content: "a nudge",
+				},
+				{
+					Role:    "assistant",
+					Seq:     3,
+					Content: "the conclusion",
+				},
+			},
+		},
+		{
+			name:     "a window cuts the head of a longer turn and says so, leaving one that fits whole",
 			turns:    2,
-			wantSeqs: []int32{1, 2, 3},
+			maxBytes: 7,
+			want: []Turn{
+				{
+					Role:      "assistant",
+					Seq:       1,
+					Content:   "reading",
+					Truncated: true,
+				},
+				{
+					Role:    "user",
+					Seq:     2,
+					Content: "a nudge",
+				},
+				{
+					Role:      "assistant",
+					Seq:       3,
+					Content:   "clusion",
+					Truncated: true,
+				},
+			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			turns, err := reader.ListLastTurns(t.Context(), ListLastTurnsParams{
-				AgentID: alpha.ID,
-				Turns:   tt.turns,
+				AgentID:  alpha.ID,
+				Turns:    tt.turns,
+				MaxBytes: tt.maxBytes,
 			})
 			require.NoError(t, err)
-			assert.Equal(t, tt.wantSeqs, xslice.Map(turns, func(turn transcriptstore.StoredTurn) int32 {
-				return turn.Seq
-			}))
+			assert.Equal(t, tt.want, turns)
 		})
 	}
 }
