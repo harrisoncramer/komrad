@@ -3,6 +3,7 @@ package pullrequests
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"slices"
 	"time"
@@ -177,7 +178,7 @@ func viewerOf(connection forgestore.Connection) string {
 func (s *CommentSyncer) readThreads(ctx context.Context, host *commentHost, remote git.RemoteURL, target pullrequeststore.CommentSyncTarget) error {
 	answer, err := host.forge.ReviewThreads(ctx, remote, target.Number)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to read the review threads of pull request %d: %w", target.Number, err)
 	}
 	if answer.Truncated && s.said.first(saidTruncated, target.ID) {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "the pull request holds more review comments than one read returns, so none are removed until it holds fewer",
