@@ -217,7 +217,7 @@ func (z *triageZone) isOn() bool {
 	return z.capacity > 0
 }
 
-// refresh reads which agents need triage from the listing as it stands at now.
+// refresh reads which agents need triage from the listing, timing new waits from now.
 func (z *triageZone) refresh(agents []panel.AgentRow, now time.Time) {
 	if !z.isOn() {
 		z.entries = nil
