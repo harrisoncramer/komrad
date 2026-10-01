@@ -321,6 +321,8 @@ func (e *Engine) leaveInsert(b Buffer) Result {
 
 	if e.recording != nil {
 		e.recording.inserted = typed(e.typedFrom.Text, b.Text)
+		cmd := e.recording.cmd
+		b = insertCopies(b, []rune(e.recording.inserted), repeats(cmd), opensLine(cmd))
 		e.repeat = e.recording
 		e.recording = nil
 	}
@@ -366,14 +368,13 @@ func (e *Engine) replay(c command, b Buffer) Result {
 	}
 
 	if inserts {
-		r := []rune(next.Text)
 		text := []rune(e.repeat.inserted)
 		if e.singleLine {
 			text = []rune(strings.ReplaceAll(string(text), "\n", " "))
 		}
-		r = splice(r, next.Cursor, next.Cursor, text)
-		next = Buffer{Text: string(r), Cursor: next.Cursor + len(text)}
-		if next.Cursor > lineStart(r, next.Cursor) {
+		next = insertCopies(next, text, 1, false)
+		next = insertCopies(next, text, repeats(cmd), opensLine(cmd))
+		if next.Cursor > lineStart([]rune(next.Text), next.Cursor) {
 			next.Cursor--
 		}
 	}
@@ -633,4 +634,35 @@ func (e *Engine) operate(c command, r []rune, p int) (Buffer, bool, bool) {
 	r = splice(r, from, to, nil)
 
 	return Buffer{Text: string(r), Cursor: firstNonBlank(r, min(from, len(r)))}, false, true
+}
+
+// repeats is how many more times an insert's count asks for what was typed.
+func repeats(c command) int {
+	switch c.name {
+	case "i", "a", "I", "A", "o", "O":
+		return c.times() - 1
+	}
+
+	return 0
+}
+
+func opensLine(c command) bool {
+	return c.name == "o" || c.name == "O"
+}
+
+// insertCopies types text times more at the cursor, each on a line of its own when lines is set.
+func insertCopies(b Buffer, text []rune, times int, lines bool) Buffer {
+	r := []rune(b.Text)
+	p := b.Cursor
+	for range times {
+		copied := text
+		if lines {
+			p = lineEnd(r, p)
+			copied = append([]rune{'\n'}, text...)
+		}
+		r = splice(r, p, p, copied)
+		p += len(copied)
+	}
+
+	return Buffer{Text: string(r), Cursor: p}
 }
