@@ -68,7 +68,7 @@ func drawName(palette paint.Palette, line Line) string {
 	r := []rune(line.Name)
 	at := max(len(r)-line.Behind, 0)
 
-	return style.Render(string(r[:at])) + palette.Cursor().Render(glyph.TextCursor) + style.Render(string(r[at:]))
+	return palette.DrawTyped(string(r[:at]), string(r[at:]), style)
 }
 
 // drawer spells cells out in a palette and a set of glyphs.

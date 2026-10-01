@@ -3,6 +3,9 @@ package paint
 import (
 	"image/color"
 	"strings"
+	"unicode/utf8"
+
+	"komrad/internal/glyph"
 
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
@@ -256,4 +259,17 @@ func ClipAround(before, after string, width int) (string, string) {
 	kept := min(head, max(width/2, 1))
 
 	return ClipStart(before, kept), Clip(after, width-kept)
+}
+
+// DrawTyped is text being typed with its cursor in it: a bar after the text while the cursor is at
+// its end, and otherwise the character under the cursor drawn in reverse, so the cursor takes no
+// column of its own.
+func (p Palette) DrawTyped(before, after string, style lipgloss.Style) string {
+	if after == "" {
+		return style.Render(before) + p.Cursor().Render(glyph.TextCursor)
+	}
+
+	under, size := utf8.DecodeRuneInString(after)
+
+	return style.Render(before) + p.Cursor().Reverse(true).Render(string(under)) + style.Render(after[size:])
 }

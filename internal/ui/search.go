@@ -11,7 +11,6 @@ import (
 	"komrad/config"
 	"komrad/internal/client"
 	"komrad/internal/errui"
-	"komrad/internal/glyph"
 	"komrad/internal/searchsyntax"
 	"komrad/internal/ui/cursor"
 	"komrad/internal/ui/paint"
@@ -24,6 +23,7 @@ import (
 
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"connectrpc.com/connect"
 )
 
@@ -745,11 +745,11 @@ func (w *searchScreen) sidebarView(s panelShared) string {
 	}
 
 	before, after := w.input.split()
-	query := palette.Cursor().Render("/") + " " + before
+	typed := before + after
 	if w.typing {
-		query += palette.Cursor().Render(glyph.TextCursor)
+		typed = palette.DrawTyped(before, after, lipgloss.NewStyle())
 	}
-	query += after
+	query := palette.Cursor().Render("/") + " " + typed
 	header := s.draw.viewsBar() + query + "\n\n"
 
 	blank := strings.TrimSpace(w.query()) == ""

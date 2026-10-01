@@ -409,8 +409,9 @@ func (f filterState) view(palette paint.Palette, glyphs glyph.Set) string {
 
 func (f filterState) line(palette paint.Palette, glyphs glyph.Set) string {
 	before, after := f.input.split()
+	text := lipgloss.NewStyle()
 	if f.broken {
-		before, after = palette.Broken().Render(before), palette.Broken().Render(after)
+		text = palette.Broken()
 	}
 
 	slash := palette.Cursor()
@@ -421,12 +422,12 @@ func (f filterState) line(palette paint.Palette, glyphs glyph.Set) string {
 		slash = palette.Blinking(false).Cursor()
 	}
 
-	line := slash.Render(f.mode.glyph(glyphs)) + " " + before
-	if f.typing {
-		line += palette.Cursor().Render(glyph.TextCursor)
+	line := slash.Render(f.mode.glyph(glyphs)) + " "
+	if !f.typing {
+		return line + text.Render(before+after)
 	}
 
-	return line + after
+	return line + palette.DrawTyped(before, after, text)
 }
 
 // head is the rows over a block the filter searches: the search, what the last key said, and a

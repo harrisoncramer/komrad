@@ -177,7 +177,7 @@ func TestVimLineEditing(t *testing.T) {
 		{
 			name:       "esc in the filter goes to normal mode and keeps the pattern",
 			press:      []string{"/", "a", "b", "esc"},
-			wantSearch: "/ a▏b",
+			wantSearch: "/ a[b]",
 		},
 		{
 			name:       "a second esc gives the filter up",
@@ -197,7 +197,7 @@ func TestVimLineEditing(t *testing.T) {
 		{
 			name:       "esc in the search line goes to normal mode",
 			press:      []string{"tab", "/", "f", "o", "o", "esc"},
-			wantSearch: "/ fo▏o",
+			wantSearch: "/ fo[o]",
 		},
 		{
 			name:       "the search line opened again types after its text",
@@ -207,7 +207,7 @@ func TestVimLineEditing(t *testing.T) {
 		{
 			name:       "a word deleted in normal mode leaves the search line",
 			press:      slices.Concat([]string{"tab", "/"}, spellKeys("foo bar"), []string{"esc", "0", "d", "w"}),
-			wantSearch: "/ ▏bar",
+			wantSearch: "/ [b]ar",
 		},
 	}
 
@@ -217,7 +217,7 @@ func TestVimLineEditing(t *testing.T) {
 
 			harness.press(tt.press...)
 
-			assert.Equal(t, tt.wantSearch, readSearch(harness.readFrame()))
+			assert.Equal(t, tt.wantSearch, readSearch(harness.readTypedFrame()))
 		})
 	}
 

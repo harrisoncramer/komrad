@@ -99,7 +99,7 @@ func TestFilterSearch(t *testing.T) {
 			from:        "backend",
 			press:       []string{"/", "a", "c", "left", "b"},
 			wantHovered: "backend",
-			wantSearch:  "/ ab▏c",
+			wantSearch:  "/ ab[c]",
 		},
 		{
 			name:        "ctrl+w takes the last word back",
@@ -137,7 +137,7 @@ func TestFilterSearch(t *testing.T) {
 
 			harness.press(tt.press...)
 
-			frame := harness.readFrame()
+			frame := harness.readTypedFrame()
 			assert.Equal(t, filterableRows, readListRows(frame), "a search never takes a row off the screen")
 			assert.Equal(t, tt.wantHovered, readHoveredRow(frame))
 			assert.Equal(t, tt.wantSearch, readSearch(frame))

@@ -5,7 +5,6 @@ import (
 	"slices"
 	"strings"
 
-	"komrad/internal/glyph"
 	"komrad/internal/ui/paint"
 	"komrad/internal/view"
 	"komrad/internal/vim"
@@ -184,5 +183,5 @@ func drawnName(e *nameEdit, style lipgloss.Style) string {
 	before, after := e.input.split()
 	before, after = paint.ClipAround(before, after, nameWidth)
 
-	return style.Render(before) + paint.Panel.Cursor().Render(glyph.TextCursor) + style.Render(after)
+	return paint.Panel.DrawTyped(before, after, style)
 }

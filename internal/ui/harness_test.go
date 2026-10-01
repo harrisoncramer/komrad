@@ -355,6 +355,11 @@ func (h *panelHarness) readFrame() string {
 	return ansi.Strip(h.readRawFrame())
 }
 
+// readTypedFrame is the frame with the character a text cursor stands on written as [c].
+func (h *panelHarness) readTypedFrame() string {
+	return ansi.Strip(typedCursor.ReplaceAllString(h.readRawFrame(), "[$1]"))
+}
+
 func (h *panelHarness) readScreen() string {
 	return h.panel.ReadScreen()
 }
@@ -788,6 +793,9 @@ func isRecordDrawn(frame string) bool {
 }
 
 var emptyStyle = regexp.MustCompile(`(\x1b\[[0-9;]+m\x1b\[m)+$`)
+
+// typedCursor is a character drawn in reverse, which is how a text cursor stands on one.
+var typedCursor = regexp.MustCompile(`\x1b\[(?:[0-9]+;)*7(?:;[0-9]+)*m(.)\x1b\[m`)
 
 func cutStyled(line string, width int) string {
 	return emptyStyle.ReplaceAllString(ansi.Truncate(line, width, ""), "")

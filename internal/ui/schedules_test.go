@@ -105,7 +105,7 @@ func TestSchedulesKeys(t *testing.T) {
 			name:      "rename on a long name keeps the cursor in view near its start",
 			rows:      []proto.Message{newLiveWorkflow("w1", "api"), newSchedule("s1", "abcdefghijklmnopqrstuvwxyz0123456789")},
 			press:     []string{"r", "home", "right"},
-			wantDrawn: []string{"a▏bcdefghijklmnopqrstuvwxyz012…"},
+			wantDrawn: []string{"a[b]cdefghijklmnopqrstuvwxyz012…"},
 		},
 		{
 			name:  "rename sends the typed name with the rest of the schedule as it was",
@@ -161,7 +161,7 @@ func TestSchedulesKeys(t *testing.T) {
 			if tt.wantScreen != "" {
 				assert.Equal(t, tt.wantScreen, harness.readScreen())
 			}
-			frame := harness.readFrame()
+			frame := harness.readTypedFrame()
 			for _, drawn := range tt.wantDrawn {
 				assert.Contains(t, frame, drawn)
 			}
