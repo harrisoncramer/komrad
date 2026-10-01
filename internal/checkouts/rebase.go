@@ -56,7 +56,7 @@ var (
 // rebaseAgentReadWriter is the slice of the agent store a rebase reads and writes.
 type rebaseAgentReadWriter interface {
 	GetByID(ctx context.Context, id string) (*agentstore.Agent, error)
-	SetSequenceInProgressByID(ctx context.Context, id string, inProgress bool) error
+	SetSequenceByID(ctx context.Context, id string, sequence agentstore.Sequence) error
 }
 
 // workflowReader reads the workflow an agent belongs to.
@@ -350,7 +350,7 @@ func (s *RebaseService) move(ctx context.Context, dir string, result *RebaseResu
 
 // recordStopped puts the stopped rebase on the agent's row.
 func (s *RebaseService) recordStopped(ctx context.Context, agent agentstore.Agent) {
-	if err := s.agents.SetSequenceInProgressByID(ctx, agent.ID, true); err != nil {
+	if err := s.agents.SetSequenceByID(ctx, agent.ID, agentstore.SequenceRebase); err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to record that an agent's rebase stopped part-way",
 			append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
 	}

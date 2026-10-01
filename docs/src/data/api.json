@@ -1945,14 +1945,14 @@
           "description": "Whether its checkout has been taken away, which leaves the record and the transcript."
         },
         {
-          "name": "sequence_in_progress",
-          "type": "bool",
-          "ref": "",
+          "name": "sequence",
+          "type": "Sequence",
+          "ref": "agent.v1.Sequence",
           "repeated": false,
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whether a merge, a rebase or a cherry-pick is part-way through its checkout, waiting on somebody to settle it."
+          "description": "What git has part-way through its checkout, waiting on somebody to settle it."
         },
         {
           "name": "failed_run",
@@ -9196,6 +9196,36 @@
         {
           "name": "REVIEW_VERDICT_COMMENTED",
           "description": "Notes without a conclusion either way."
+        }
+      ]
+    },
+    "agent.v1.Sequence": {
+      "name": "Sequence",
+      "description": "Sequence is what git has part-way through an agent's checkout and waiting on somebody.",
+      "values": [
+        {
+          "name": "SEQUENCE_NONE",
+          "description": "Nothing is part-way through."
+        },
+        {
+          "name": "SEQUENCE_REBASE",
+          "description": "A rebase stopped on a commit it could not replay."
+        },
+        {
+          "name": "SEQUENCE_AM",
+          "description": "An am stopped on a patch it could not apply."
+        },
+        {
+          "name": "SEQUENCE_MERGE",
+          "description": "A merge stopped on conflicts."
+        },
+        {
+          "name": "SEQUENCE_CHERRY_PICK",
+          "description": "A cherry-pick stopped on conflicts or resting between its picks."
+        },
+        {
+          "name": "SEQUENCE_REVERT",
+          "description": "A revert stopped on conflicts or resting between its picks."
         }
       ]
     },

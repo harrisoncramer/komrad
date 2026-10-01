@@ -313,17 +313,17 @@ func (cl cwdLook) hasMovedBranch() bool {
 func (cs *CwdSyncer) write(ctx context.Context, look cwdLook) error {
 	agent, head := look.agent, look.head
 	checkout := agentstore.SetCheckoutParams{
-		Branch:             xptr.NonEmpty(head.Branch),
-		RepositoryURL:      xptr.NonEmpty(head.RepositoryURL),
-		HeadSHA:            xptr.NonEmpty(head.SHA),
-		WorktreeRemoved:    look.removed,
-		SequenceInProgress: head.SequenceInProgress,
+		Branch:          xptr.NonEmpty(head.Branch),
+		RepositoryURL:   xptr.NonEmpty(head.RepositoryURL),
+		HeadSHA:         xptr.NonEmpty(head.SHA),
+		WorktreeRemoved: look.removed,
+		Sequence:        sequenceOf(head),
 	}
 	unchanged := xptr.Equal(agent.Branch, checkout.Branch) &&
 		xptr.Equal(agent.RepositoryURL, checkout.RepositoryURL) &&
 		xptr.Equal(agent.HeadSHA, checkout.HeadSHA) &&
 		agent.WorktreeRemoved == checkout.WorktreeRemoved &&
-		agent.SequenceInProgress == checkout.SequenceInProgress
+		agent.Sequence == checkout.Sequence
 	if unchanged {
 		return nil
 	}
@@ -547,4 +547,13 @@ func (cs *CwdSyncer) measure(ctx context.Context, look *cwdLook, config workflow
 func (cl *cwdLook) keepDiffStat(err error) {
 	cl.diffStat = cl.agent.DiffStat
 	cl.err = errors.Join(cl.err, fmt.Errorf("failed to measure the checkout of %q: %w", cl.agent.Name, err))
+}
+
+// sequenceOf is what the look found part-way through, none for a checkout git would not read.
+func sequenceOf(head git.HeadState) agentstore.Sequence {
+	if !head.Sequence.IsInProgress() {
+		return agentstore.SequenceNone
+	}
+
+	return agentstore.Sequence(head.Sequence)
 }

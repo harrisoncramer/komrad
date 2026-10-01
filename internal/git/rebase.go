@@ -16,9 +16,6 @@ var ErrRebaseConflicted = fail.Precondition("the rebase stopped on conflicts")
 // ErrBaseUnrelated says the base shares no history with the branch, so nothing relates them.
 var ErrBaseUnrelated = fail.Precondition("the base shares no history with this branch")
 
-// sequenceMarkers are the paths git keeps while something else owns the index.
-var sequenceMarkers = []string{"MERGE_HEAD", "CHERRY_PICK_HEAD", "REVERT_HEAD", "rebase-merge", "rebase-apply"}
-
 // TreeState is what a checkout holds that decides whether a rebase may start.
 type TreeState struct {
 	// Branch is the branch the checkout stands on, empty for a detached head.

@@ -271,7 +271,7 @@ func TestRebaseMovesTheBranch(t *testing.T) {
 
 			stored, err := fixture.stores.Agents.GetByID(t.Context(), agent.ID)
 			require.NoError(t, err)
-			assert.Equal(t, tt.wantStopped, stored.SequenceInProgress)
+			assert.Equal(t, tt.wantStopped, stored.Sequence.IsInProgress())
 			assert.Equal(t, 1, fixture.checkoutSync.Wakes)
 		})
 	}

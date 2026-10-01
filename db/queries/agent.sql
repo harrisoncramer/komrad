@@ -715,15 +715,15 @@ SET
     repository_url = sqlc.narg('repository_url'),
     head_sha = sqlc.narg('head_sha'),
     worktree_removed = @worktree_removed,
-    sequence_in_progress = @sequence_in_progress
+    sequence = @sequence
 WHERE
     id = @id;
 
--- name: SetAgentSequenceInProgressByID :exec
+-- name: SetAgentSequenceByID :exec
 UPDATE
     agents
 SET
-    sequence_in_progress = @sequence_in_progress
+    sequence = @sequence
 WHERE
     id = @id;
 

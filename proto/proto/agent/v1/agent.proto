@@ -51,6 +51,24 @@ enum AgentRole {
   AGENT_ROLE_ORCHESTRATOR = 3;
 }
 
+// Sequence is what git has part-way through an agent's checkout and waiting on somebody.
+enum Sequence {
+  // Nothing was recorded, which no stored agent answers with.
+  SEQUENCE_UNSPECIFIED = 0;
+  // Nothing is part-way through.
+  SEQUENCE_NONE = 1;
+  // A rebase stopped on a commit it could not replay.
+  SEQUENCE_REBASE = 2;
+  // An am stopped on a patch it could not apply.
+  SEQUENCE_AM = 3;
+  // A merge stopped on conflicts.
+  SEQUENCE_MERGE = 4;
+  // A cherry-pick stopped on conflicts or resting between its picks.
+  SEQUENCE_CHERRY_PICK = 5;
+  // A revert stopped on conflicts or resting between its picks.
+  SEQUENCE_REVERT = 6;
+}
+
 // DiffStat is how many lines a checkout adds and removes, committed and uncommitted alike.
 message DiffStat {
   // The lines it adds.
@@ -106,9 +124,8 @@ message Agent {
   optional string head_sha = 41;
   // Whether its checkout has been taken away, which leaves the record and the transcript.
   bool worktree_removed = 23;
-  // Whether a merge, a rebase or a cherry-pick is part-way through its checkout, waiting on
-  // somebody to settle it.
-  bool sequence_in_progress = 36;
+  // What git has part-way through its checkout, waiting on somebody to settle it.
+  Sequence sequence = 36;
   // Whether a script komrad fired for the agent failed and nobody has looked at it since.
   bool failed_run = 27;
   // The run log that failure was written to, which is the run the panel opens on.

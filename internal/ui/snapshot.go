@@ -213,7 +213,7 @@ func snapshotRepo(agent panel.Agent) view.Repo {
 	switch {
 	case agent.WorktreeRemoved:
 		return view.RepoGone
-	case agent.SequenceInProgress:
+	case agent.Sequence.IsInProgress():
 		return view.RepoRebasing
 	}
 

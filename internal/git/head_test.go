@@ -23,7 +23,7 @@ func TestIntegrationReadHeadStateReadsASettledCheckout(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "main", head.Branch)
 	assert.Equal(t, sha, head.SHA)
-	assert.False(t, head.SequenceInProgress)
+	assert.Equal(t, git.SequenceNone, head.Sequence)
 	assert.Empty(t, head.RepositoryURL)
 }
 
@@ -133,7 +133,7 @@ func TestIntegrationReadHeadStateNamesTheBranchAStoppedRebaseBelongsTo(t *testin
 
 	assert.Equal(t, "topic", head.Branch)
 	assert.Equal(t, sha, head.SHA)
-	assert.True(t, head.SequenceInProgress)
+	assert.Equal(t, git.SequenceRebase, head.Sequence)
 }
 
 // TestIntegrationReadHeadStateCarriesNoBranchForARebaseOffADetachedHead covers what git writes into head-name
@@ -146,7 +146,7 @@ func TestIntegrationReadHeadStateCarriesNoBranchForARebaseOffADetachedHead(t *te
 	head := client.ReadHeadState(t.Context(), git.ReadHeadStateParams{Dir: dir})
 
 	assert.Empty(t, head.Branch)
-	assert.True(t, head.SequenceInProgress)
+	assert.Equal(t, git.SequenceRebase, head.Sequence)
 }
 
 // TestIntegrationReadHeadStateReadsAStoppedMerge covers a sequence that holds the index without detaching.
@@ -159,7 +159,7 @@ func TestIntegrationReadHeadStateReadsAStoppedMerge(t *testing.T) {
 	head := client.ReadHeadState(t.Context(), git.ReadHeadStateParams{Dir: dir})
 
 	assert.Equal(t, "main", head.Branch)
-	assert.True(t, head.SequenceInProgress)
+	assert.Equal(t, git.SequenceMerge, head.Sequence)
 }
 
 // TestIntegrationReadHeadStateClearsItselfWhenTheRebaseIsSettled covers the recovery nobody tells komrad about.
@@ -172,7 +172,7 @@ func TestIntegrationReadHeadStateClearsItselfWhenTheRebaseIsSettled(t *testing.T
 	head := client.ReadHeadState(t.Context(), git.ReadHeadStateParams{Dir: dir})
 
 	assert.Equal(t, "topic", head.Branch)
-	assert.False(t, head.SequenceInProgress)
+	assert.Equal(t, git.SequenceNone, head.Sequence)
 }
 
 // TestIntegrationReadHeadStateAnswersEmptyForSomewhereGitWillNotSpeakFor covers a directory that is no
@@ -184,7 +184,7 @@ func TestIntegrationReadHeadStateAnswersEmptyForSomewhereGitWillNotSpeakFor(t *t
 
 	assert.Empty(t, head.Branch)
 	assert.Empty(t, head.SHA)
-	assert.False(t, head.SequenceInProgress)
+	assert.False(t, head.Sequence.IsInProgress())
 }
 
 // stoppedRebase leaves a checkout part-way through a rebase of topic that it cannot settle,

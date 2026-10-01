@@ -16,30 +16,30 @@ import (
 
 func agentFrom(s *agentv1.Agent) panel.Agent {
 	return panel.Agent{
-		ID:                 s.GetId(),
-		Name:               s.GetName(),
-		Pane:               s.GetPaneId(),
-		Cwd:                s.GetCwd(),
-		Flags:              s.GetFlags(),
-		Prompt:             s.GetPrompt(),
-		State:              stateFrom(s.GetState()),
-		Role:               roleFrom(s.GetRole()),
-		FailureReason:      s.GetFailureReason(),
-		TurnError:          s.GetTurnError(),
-		Harness:            s.GetHarness(),
-		SessionID:          s.GetSessionId(),
-		WorkflowID:         s.GetWorkflowId(),
-		ScheduleID:         s.ScheduleId,
-		CreatedAt:          dates.Parse(s.GetCreatedAt()),
-		StateChangedAt:     dates.Parse(s.GetStateChangedAt()),
-		ArchivedAt:         dates.ParsePtr(s.GetArchivedAt()),
-		Hidden:             s.GetHidden(),
-		Branch:             s.Branch,
-		WorktreeRemoved:    s.GetWorktreeRemoved(),
-		SequenceInProgress: s.GetSequenceInProgress(),
-		ParentAgentID:      s.ParentAgentId,
-		HeldAt:             dates.ParsePtr(s.GetHeldAt()),
-		HeldByAgentID:      s.GetHeldByAgentId(),
+		ID:              s.GetId(),
+		Name:            s.GetName(),
+		Pane:            s.GetPaneId(),
+		Cwd:             s.GetCwd(),
+		Flags:           s.GetFlags(),
+		Prompt:          s.GetPrompt(),
+		State:           stateFrom(s.GetState()),
+		Role:            roleFrom(s.GetRole()),
+		FailureReason:   s.GetFailureReason(),
+		TurnError:       s.GetTurnError(),
+		Harness:         s.GetHarness(),
+		SessionID:       s.GetSessionId(),
+		WorkflowID:      s.GetWorkflowId(),
+		ScheduleID:      s.ScheduleId,
+		CreatedAt:       dates.Parse(s.GetCreatedAt()),
+		StateChangedAt:  dates.Parse(s.GetStateChangedAt()),
+		ArchivedAt:      dates.ParsePtr(s.GetArchivedAt()),
+		Hidden:          s.GetHidden(),
+		Branch:          s.Branch,
+		WorktreeRemoved: s.GetWorktreeRemoved(),
+		Sequence:        sequenceFrom(s.GetSequence()),
+		ParentAgentID:   s.ParentAgentId,
+		HeldAt:          dates.ParsePtr(s.GetHeldAt()),
+		HeldByAgentID:   s.GetHeldByAgentId(),
 	}
 }
 
@@ -79,6 +79,25 @@ func roleFrom(role agentv1.AgentRole) panel.Role {
 	}
 
 	return ""
+}
+
+// sequenceFrom is a wire sequence as the panel keeps it.
+func sequenceFrom(sequence agentv1.Sequence) panel.Sequence {
+	switch sequence {
+	case agentv1.Sequence_SEQUENCE_REBASE:
+		return panel.SequenceRebase
+	case agentv1.Sequence_SEQUENCE_AM:
+		return panel.SequenceApply
+	case agentv1.Sequence_SEQUENCE_MERGE:
+		return panel.SequenceMerge
+	case agentv1.Sequence_SEQUENCE_CHERRY_PICK:
+		return panel.SequenceCherryPick
+	case agentv1.Sequence_SEQUENCE_REVERT:
+		return panel.SequenceRevert
+	case agentv1.Sequence_SEQUENCE_UNSPECIFIED, agentv1.Sequence_SEQUENCE_NONE:
+	}
+
+	return panel.SequenceNone
 }
 
 // agentRowsFrom is a listing of assembled rows as the panel keeps them.

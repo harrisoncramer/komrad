@@ -136,7 +136,7 @@ func TestSnapshotRepo(t *testing.T) {
 	}{
 		{
 			name:  "a directory that has gone beats a rebase left in it",
-			agent: panel.Agent{WorktreeRemoved: true, SequenceInProgress: true},
+			agent: panel.Agent{WorktreeRemoved: true, Sequence: panel.SequenceRebase},
 			want:  view.RepoGone,
 		},
 		{
@@ -151,7 +151,7 @@ func TestSnapshotRepo(t *testing.T) {
 		},
 		{
 			name:  "a rebase left part way through says so",
-			agent: panel.Agent{SequenceInProgress: true},
+			agent: panel.Agent{Sequence: panel.SequenceRebase},
 			want:  view.RepoRebasing,
 		},
 		{

@@ -219,7 +219,7 @@ func newHeld(agent *agentv1.Agent) *agentv1.Agent {
 
 func newRebasing() *agentv1.Agent {
 	agent := newNoticed()
-	agent.SequenceInProgress = true
+	agent.Sequence = agentv1.Sequence_SEQUENCE_REBASE
 
 	return agent
 }

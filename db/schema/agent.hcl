@@ -11,6 +11,11 @@ enum "agent_role" {
   values = ["implementer", "reviewer", "orchestrator"]
 }
 
+enum "agent_sequence" {
+  schema = schema.public
+  values = ["none", "rebase", "am", "merge", "cherry_pick", "revert"]
+}
+
 table "workflow_configs" {
   schema  = schema.public
   comment = "The harness, working directory and flags a workflow gives each new agent it creates."
@@ -734,11 +739,11 @@ table "agents" {
     null = true
     type = timestamptz
   }
-  column "sequence_in_progress" {
+  column "sequence" {
     null    = false
-    type    = boolean
-    default = false
-    comment = "Whether a merge, a rebase or a cherry-pick is part-way through the agent's checkout and waiting on somebody. Komrad reads the checkout every few seconds and writes what it found here, so settling the sequence by hand clears this on its own."
+    type    = enum.agent_sequence
+    default = "none"
+    comment = "What git has part-way through the agent's checkout and waiting on somebody: a rebase, an am, a merge, a cherry-pick or a revert, or none. Komrad reads the checkout every few seconds and writes what it found here, so settling the sequence by hand clears this on its own."
   }
   column "last_rebase" {
     null    = true

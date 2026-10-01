@@ -48,6 +48,23 @@ const (
 	RoleOrchestrator Role = "orchestrator"
 )
 
+// Sequence is what git has part-way through an agent's checkout, named as git's own command is.
+type Sequence string
+
+const (
+	SequenceNone       Sequence = ""
+	SequenceRebase     Sequence = "rebase"
+	SequenceApply      Sequence = "am"
+	SequenceMerge      Sequence = "merge"
+	SequenceCherryPick Sequence = "cherry-pick"
+	SequenceRevert     Sequence = "revert"
+)
+
+// IsInProgress reports whether anything is part-way through.
+func (s Sequence) IsInProgress() bool {
+	return s != SequenceNone
+}
+
 // Agent is one agent as the service listed it.
 type Agent struct {
 	ID             string
@@ -73,9 +90,8 @@ type Agent struct {
 	// follows.
 	ParentAgentID   *string
 	WorktreeRemoved bool
-	// SequenceInProgress is whether a merge, a rebase or a cherry-pick is part-way through the
-	// agent's checkout and waiting on somebody.
-	SequenceInProgress bool
+	// Sequence is what git has part-way through the agent's checkout and waiting on somebody.
+	Sequence Sequence
 	// HeldAt is when a person stopped this agent and took its worktree, nil while nobody holds it.
 	HeldAt *time.Time
 	// HeldByAgentID is the agent that took the hold, empty when the panel took it.
