@@ -186,8 +186,11 @@ type WorkflowEventPrompt struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Which event it answers, such as pull_request.checks_failing or review.approved.
 	Event string `protobuf:"bytes,1,opt,name=event,proto3" json:"event,omitempty"`
-	// The text added to the mail carrying that event.
-	Prompt        string `protobuf:"bytes,2,opt,name=prompt,proto3" json:"prompt,omitempty"`
+	// The text added to the mail carrying that event, blank to add nothing.
+	Prompt string `protobuf:"bytes,2,opt,name=prompt,proto3" json:"prompt,omitempty"`
+	// Whether the event is kept from opening mail of its own. It still rewrites mail the agent
+	// holds unread, and its prompt is left out.
+	Muted         bool `protobuf:"varint,3,opt,name=muted,proto3" json:"muted,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -234,6 +237,13 @@ func (x *WorkflowEventPrompt) GetPrompt() string {
 		return x.Prompt
 	}
 	return ""
+}
+
+func (x *WorkflowEventPrompt) GetMuted() bool {
+	if x != nil {
+		return x.Muted
+	}
+	return false
 }
 
 type WorkflowEventPrompts struct {
@@ -1143,11 +1153,11 @@ const file_workflow_v1_workflow_proto_rawDesc = "" +
 	"\x10reviewer_harness\x18\x0f \x01(\tR\x0freviewerHarness\x12%\n" +
 	"\x0ereviewer_flags\x18\x10 \x01(\tR\rreviewerFlags\x12E\n" +
 	"\revent_prompts\x18\x11 \x03(\v2 .workflow.v1.WorkflowEventPromptR\feventPromptsB\x0e\n" +
-	"\f_archived_at\"\x80\x04\n" +
+	"\f_archived_at\"\x94\x04\n" +
 	"\x13WorkflowEventPrompt\x12\xc4\x03\n" +
-	"\x05event\x18\x01 \x01(\tB\xad\x03\xbaH\xa9\x03r\xa6\x03R\x1bpull_request.checks_failingR\x1epull_request.changes_requestedR\x15pull_request.approvedR\x18pull_request.conflictingR\x13pull_request.behindR\x13pull_request.mergedR\x13pull_request.closedR\x1apull_request.auto_merge_onR\x10worktree.rebasedR\x0fworktree.landedR\x1aworktree.rebase_conflictedR\x16worktree.rebase_failedR\x1adocument.written_by_personR\x0freview.approvedR\x18review.changes_requestedR\x10review.commentedR\x1areview.commented_by_personR\x0freview.answeredR\x05event\x12\"\n" +
-	"\x06prompt\x18\x02 \x01(\tB\n" +
-	"\xbaH\ar\x05\x10\x01\x18\xf4\x03R\x06prompt\"\\\n" +
+	"\x05event\x18\x01 \x01(\tB\xad\x03\xbaH\xa9\x03r\xa6\x03R\x1bpull_request.checks_failingR\x1epull_request.changes_requestedR\x15pull_request.approvedR\x18pull_request.conflictingR\x13pull_request.behindR\x13pull_request.mergedR\x13pull_request.closedR\x1apull_request.auto_merge_onR\x10worktree.rebasedR\x0fworktree.landedR\x1aworktree.rebase_conflictedR\x16worktree.rebase_failedR\x1adocument.written_by_personR\x0freview.approvedR\x18review.changes_requestedR\x10review.commentedR\x1areview.commented_by_personR\x0freview.answeredR\x05event\x12 \n" +
+	"\x06prompt\x18\x02 \x01(\tB\b\xbaH\x05r\x03\x18\xf4\x03R\x06prompt\x12\x14\n" +
+	"\x05muted\x18\x03 \x01(\bR\x05muted\"\\\n" +
 	"\x14WorkflowEventPrompts\x12D\n" +
 	"\aprompts\x18\x01 \x03(\v2 .workflow.v1.WorkflowEventPromptB\b\xbaH\x05\x92\x01\x02\x102R\aprompts\"W\n" +
 	"\fWorkflowHook\x12\x1f\n" +

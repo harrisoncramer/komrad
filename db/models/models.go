@@ -898,6 +898,8 @@ type WorkflowEventPrompt struct {
 	Position int32
 	// The engine that owns this row, stamped from the login that wrote it.
 	EngineID string
+	// Whether the event is kept from opening mail of its own.
+	Muted bool
 }
 
 // Scripts a workflow runs at one point in an agent's life, in position order.

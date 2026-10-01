@@ -508,9 +508,10 @@ func TestSendFromKomradRewritesTheUnreadOne(t *testing.T) {
 // TestSendFromKomradCarriesTheWorkflowsEventPrompts pins which of the workflow's prompts mail from komrad carries as its events start and stop holding.
 func TestSendFromKomradCarriesTheWorkflowsEventPrompts(t *testing.T) {
 	const (
-		failing  = "pull_request.checks_failing"
-		behind   = "pull_request.behind"
-		approved = "pull_request.approved"
+		failing     = "pull_request.checks_failing"
+		behind      = "pull_request.behind"
+		approved    = "pull_request.approved"
+		conflicting = "pull_request.conflicting"
 	)
 
 	heading := "\n\n" + promptsHeading + "\n\n"
@@ -526,6 +527,7 @@ func TestSendFromKomradCarriesTheWorkflowsEventPrompts(t *testing.T) {
 		archived bool
 		sends    []send
 		wantBody string
+		wantNone bool
 	}{
 		{
 			name:     "an event with a prompt carries it after the body",
@@ -562,6 +564,24 @@ func TestSendFromKomradCarriesTheWorkflowsEventPrompts(t *testing.T) {
 			wantBody: "changed",
 		},
 		{
+			name:     "a muted event opens no mail",
+			sends:    []send{{events: []string{conflicting}}},
+			wantNone: true,
+		},
+		{
+			name: "a muted event rewrites held mail and leaves its prompt out",
+			sends: []send{
+				{events: []string{failing}},
+				{events: []string{conflicting}, holding: []string{failing, conflicting}},
+			},
+			wantBody: "changed" + heading + failing + ": fix the checks",
+		},
+		{
+			name:     "a muted event alongside one that is not opens mail without the muted prompt",
+			sends:    []send{{events: []string{failing, conflicting}}},
+			wantBody: "changed" + heading + failing + ": fix the checks",
+		},
+		{
 			name:     "an archived workflow's prompts are not carried",
 			archived: true,
 			sends:    []send{{events: []string{failing}}},
@@ -579,6 +599,7 @@ func TestSendFromKomradCarriesTheWorkflowsEventPrompts(t *testing.T) {
 				EventPrompts: []workflowstore.EventPrompt{
 					{Event: failing, Prompt: "fix the checks"},
 					{Event: behind, Prompt: "rebase onto main"},
+					{Event: conflicting, Prompt: "settle the conflict", Muted: true},
 				},
 			})
 			recipient := st.SeedAgent(t, agentstore.Agent{Name: "author", WorkflowID: workflow.ID})
@@ -603,6 +624,12 @@ func TestSendFromKomradCarriesTheWorkflowsEventPrompts(t *testing.T) {
 					Events:    s.events,
 					Holding:   s.holding,
 				})
+				if tt.wantNone {
+					require.ErrorIs(t, err, ErrNothingUnread)
+					assert.Nil(t, sent)
+
+					return
+				}
 				require.NoError(t, err)
 			}
 

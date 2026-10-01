@@ -1102,6 +1102,13 @@ func TestWorkflowEventPromptsAreCleanedOrRefused(t *testing.T) {
 			want: []workflowstore.EventPrompt{{Event: "review.approved", Prompt: "open the pull request"}},
 		},
 		{
+			name: "a muted event is kept with no prompt",
+			prompts: []workflowstore.EventPrompt{
+				{Event: "pull_request.behind", Prompt: "   ", Muted: true},
+			},
+			want: []workflowstore.EventPrompt{{Event: "pull_request.behind", Muted: true}},
+		},
+		{
 			name:    "an event komrad does not send",
 			prompts: []workflowstore.EventPrompt{{Event: "review.aproved", Prompt: "open the pull request"}},
 			wantErr: workflowstore.ErrUnknownEventPrompt,

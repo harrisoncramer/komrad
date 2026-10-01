@@ -89,6 +89,7 @@ type Hook struct {
 type EventPrompt struct {
 	Event  string
 	Prompt string
+	Muted  bool
 }
 
 // ByName orders workflows by name, ignoring case, and by id between two of one name.

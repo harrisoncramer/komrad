@@ -743,6 +743,34 @@ func TestFormsWorkflowEventPrompts(t *testing.T) {
 		}, sentEventPrompts(t, harness), protocmp.Transform()))
 	})
 
+	t.Run("a muted event with no prompt comes back muted", func(t *testing.T) {
+		workflow := newFormWorkflow()
+		workflow.EventPrompts = []*workflowv1.WorkflowEventPrompt{
+			{Event: "pull_request.checks_failing", Prompt: "fix the checks"},
+			{Event: "pull_request.behind", Muted: true},
+		}
+		harness := openForms(t, workflow, newFormAuthor())
+
+		harness.press("space", "E", "ctrl+s")
+
+		assert.Empty(t, cmp.Diff(workflow.EventPrompts, sentEventPrompts(t, harness), protocmp.Transform()))
+	})
+
+	t.Run("muting an event under its prompt sends it muted", func(t *testing.T) {
+		harness := openWideForms(t, newFormWorkflow(), newFormAuthor())
+
+		harness.press(append([]string{"space", "E"}, openWorkflowSectionKeys(3)...)...)
+		harness.press(slices.Concat(spellKeys("fix the checks"), []string{"tab"})...)
+		frame := harness.readFrame()
+		assert.Contains(t, frame, "only rewrites mail the agent still holds")
+
+		harness.press("down", "ctrl+s")
+
+		assert.Empty(t, cmp.Diff([]*workflowv1.WorkflowEventPrompt{
+			{Event: "pull_request.checks_failing", Prompt: "fix the checks", Muted: true},
+		}, sentEventPrompts(t, harness), protocmp.Transform()))
+	})
+
 	t.Run("a new workflow starts with each event's default", func(t *testing.T) {
 		harness := openForms(t, newFormWorkflow(), newFormAuthor())
 

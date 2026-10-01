@@ -8811,10 +8811,19 @@
           "map": false,
           "oneof": "",
           "rules": [
-            "required",
             "at most 500 characters"
           ],
-          "description": "The text added to the mail carrying that event."
+          "description": "The text added to the mail carrying that event, blank to add nothing."
+        },
+        {
+          "name": "muted",
+          "type": "bool",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "Whether the event is kept from opening mail of its own. It still rewrites mail the agent holds unread, and its prompt is left out."
         }
       ]
     },

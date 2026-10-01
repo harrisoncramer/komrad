@@ -264,7 +264,8 @@ WHERE
 SELECT
     workflow_id,
     event,
-    prompt
+    prompt,
+    muted
 FROM
     workflow_event_prompts
 WHERE
@@ -276,7 +277,8 @@ ORDER BY
 -- name: ListEventPromptsForWorkflow :many
 SELECT
     event,
-    prompt
+    prompt,
+    muted
 FROM
     workflow_event_prompts
 WHERE
@@ -293,9 +295,11 @@ INSERT INTO workflow_event_prompts(
     workflow_id,
     event,
     prompt,
-    position)
+    position,
+    muted)
 VALUES (
     @workflow_id,
     @event,
     @prompt,
-    @position);
+    @position,
+    @muted);

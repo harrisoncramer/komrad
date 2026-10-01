@@ -283,12 +283,14 @@ INSERT INTO workflow_event_prompts(
     workflow_id,
     event,
     prompt,
-    position)
+    position,
+    muted)
 VALUES (
     $1,
     $2,
     $3,
-    $4)
+    $4,
+    $5)
 `
 
 type InsertWorkflowPromptParams struct {
@@ -296,6 +298,7 @@ type InsertWorkflowPromptParams struct {
 	Event      string
 	Prompt     string
 	Position   int32
+	Muted      bool
 }
 
 func (q *Queries) InsertWorkflowPrompt(ctx context.Context, arg InsertWorkflowPromptParams) error {
@@ -304,6 +307,7 @@ func (q *Queries) InsertWorkflowPrompt(ctx context.Context, arg InsertWorkflowPr
 		arg.Event,
 		arg.Prompt,
 		arg.Position,
+		arg.Muted,
 	)
 	return err
 }
@@ -364,7 +368,8 @@ func (q *Queries) InsertWorkflowProvisionerConfig(ctx context.Context, arg Inser
 const listEventPromptsForWorkflow = `-- name: ListEventPromptsForWorkflow :many
 SELECT
     event,
-    prompt
+    prompt,
+    muted
 FROM
     workflow_event_prompts
 WHERE
@@ -376,6 +381,7 @@ ORDER BY
 type ListEventPromptsForWorkflowRow struct {
 	Event  string
 	Prompt string
+	Muted  bool
 }
 
 func (q *Queries) ListEventPromptsForWorkflow(ctx context.Context, workflowID string) ([]*ListEventPromptsForWorkflowRow, error) {
@@ -387,7 +393,7 @@ func (q *Queries) ListEventPromptsForWorkflow(ctx context.Context, workflowID st
 	var items []*ListEventPromptsForWorkflowRow
 	for rows.Next() {
 		var i ListEventPromptsForWorkflowRow
-		if err := rows.Scan(&i.Event, &i.Prompt); err != nil {
+		if err := rows.Scan(&i.Event, &i.Prompt, &i.Muted); err != nil {
 			return nil, err
 		}
 		items = append(items, &i)
@@ -402,7 +408,8 @@ const listEventPromptsForWorkflows = `-- name: ListEventPromptsForWorkflows :man
 SELECT
     workflow_id,
     event,
-    prompt
+    prompt,
+    muted
 FROM
     workflow_event_prompts
 WHERE
@@ -416,6 +423,7 @@ type ListEventPromptsForWorkflowsRow struct {
 	WorkflowID string
 	Event      string
 	Prompt     string
+	Muted      bool
 }
 
 func (q *Queries) ListEventPromptsForWorkflows(ctx context.Context, workflowIds []string) ([]*ListEventPromptsForWorkflowsRow, error) {
@@ -427,7 +435,12 @@ func (q *Queries) ListEventPromptsForWorkflows(ctx context.Context, workflowIds 
 	var items []*ListEventPromptsForWorkflowsRow
 	for rows.Next() {
 		var i ListEventPromptsForWorkflowsRow
-		if err := rows.Scan(&i.WorkflowID, &i.Event, &i.Prompt); err != nil {
+		if err := rows.Scan(
+			&i.WorkflowID,
+			&i.Event,
+			&i.Prompt,
+			&i.Muted,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, &i)
