@@ -82,7 +82,7 @@ func TestIntegrationMCPTools(t *testing.T) {
 		})
 
 		assert.True(t, failed)
-		assert.Contains(t, answer, "not_found")
+		assert.Contains(t, answer, "error: not_found: ")
 	})
 
 	t.Run("a query reads the database", func(t *testing.T) {

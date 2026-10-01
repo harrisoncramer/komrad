@@ -9,7 +9,7 @@ import (
 	"komrad/internal/mail"
 	"komrad/internal/rpc/render"
 	"komrad/internal/rpcerr"
-	"komrad/lib/pagination"
+	"komrad/internal/rpcpage"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
 	agentv1 "komrad/proto/gen/agent/v1"
@@ -92,30 +92,25 @@ func (s *Handler) ListMail(ctx context.Context, req *agentv1.ListMailRequest) (*
 
 	logCrossAgentRead(ctx, id, "agent listed another agent's mail")
 
-	paginator, err := pagination.New[mailstore.Cursor, mailPage](req.GetPagination())
-	if err != nil {
-		return nil, rpcerr.From(err, "failed to read the pagination")
-	}
+	page, failure := rpcpage.List(req.GetPagination(), func(limit int64, cursor *mailstore.Cursor) ([]mailPage, *fail.Error) {
+		listed, err := s.mail.ListMail(ctx, mail.ListMailParams{
+			AgentID: id,
+			Sent:    req.GetDirection() == agentv1.MailDirection_MAIL_DIRECTION_SENT,
+			Limit:   int32(limit),
+			Cursor:  cursor,
+		})
+		if err != nil {
+			return nil, rpcerr.From(err, "failed to list the mail")
+		}
 
-	listed, err := s.mail.ListMail(ctx, mail.ListMailParams{
-		AgentID: id,
-		Sent:    req.GetDirection() == agentv1.MailDirection_MAIL_DIRECTION_SENT,
-		Limit:   int32(paginator.Limit()),
-		Cursor:  paginator.Cursor(),
+		return xslice.Map(listed, renderMailPage), nil
 	})
-	if err != nil {
-		return nil, rpcerr.From(err, "failed to list the mail")
+	if failure != nil {
+		return nil, failure
 	}
 
-	resources := xslice.Map(listed, renderMailPage)
-
-	next, err := paginator.NextToken(resources)
-	if err != nil {
-		return nil, rpcerr.From(err, "failed to build the next page token")
-	}
-
-	response := &agentv1.ListMailResponse{NextPageToken: next}
-	response.Mail = xslice.Map(resources, func(resource mailPage) *agentv1.Mail { return resource.Mail })
+	response := &agentv1.ListMailResponse{NextPageToken: page.Next}
+	response.Mail = xslice.Map(page.Resources, func(resource mailPage) *agentv1.Mail { return resource.Mail })
 
 	return response, nil
 }

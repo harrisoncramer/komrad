@@ -4,6 +4,9 @@ import (
 	"context"
 	"fmt"
 
+	"komrad/internal/fail"
+	"komrad/internal/rpcerr"
+
 	"buf.build/go/protovalidate"
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/proto"
@@ -31,7 +34,7 @@ func (v *validationInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryF
 		}
 
 		if err := v.validator.Validate(msg); err != nil {
-			return nil, connect.NewError(connect.CodeInvalidArgument, err)
+			return nil, rpcerr.New(fail.KindInvalidArgument, err)
 		}
 
 		return next(ctx, req)
@@ -67,7 +70,7 @@ func (c *validatingConn) Receive(msg any) error {
 	}
 
 	if err := c.validator.Validate(message); err != nil {
-		return connect.NewError(connect.CodeInvalidArgument, err)
+		return rpcerr.New(fail.KindInvalidArgument, err)
 	}
 
 	return nil

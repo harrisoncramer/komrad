@@ -216,3 +216,41 @@ func TestInputSchema(t *testing.T) {
 		})
 	}
 }
+
+// TestDecodeFailure covers the text an agent is handed when a call fails.
+func TestDecodeFailure(t *testing.T) {
+	type decodeFailureCase struct {
+		name    string
+		payload string
+		want    string
+	}
+
+	tests := []decodeFailureCase{
+		{
+			name:    "a body that is not json comes back as it was",
+			payload: "upstream connect error\n",
+			want:    "upstream connect error",
+		},
+		{
+			name:    "json without a code comes back as it was",
+			payload: `{"message":"no code"}`,
+			want:    `{"message":"no code"}`,
+		},
+		{
+			name:    "an envelope without a message names its code",
+			payload: `{"code":"internal"}`,
+			want:    "internal",
+		},
+		{
+			name:    "an envelope names its code and message",
+			payload: `{"code":"not_found","message":"no agent named \"nobody\""}`,
+			want:    `not_found: no agent named "nobody"`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.EqualError(t, decodeFailure([]byte(tt.payload)), tt.want)
+		})
+	}
+}

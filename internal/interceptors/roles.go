@@ -10,7 +10,9 @@ import (
 	annotationv1 "komrad/proto/gen/annotation/v1"
 
 	"komrad/internal/caller"
+	"komrad/internal/fail"
 	"komrad/internal/rpcapi"
+	"komrad/internal/rpcerr"
 
 	"connectrpc.com/connect"
 )
@@ -87,16 +89,16 @@ func (r *rolesInterceptor) authorize(ctx context.Context, procedure string) erro
 
 	role, err := r.roleOf(ctx, agentID)
 	if errors.Is(err, rpcapi.ErrUnknownCaller) {
-		return connect.NewError(connect.CodePermissionDenied, err)
+		return rpcerr.New(fail.KindDenied, err)
 	}
 	if err != nil {
-		return connect.NewError(connect.CodeUnavailable, err)
+		return rpcerr.Unavailable(err)
 	}
 	if rpcapi.ServesRole(surfaces, role) {
 		return nil
 	}
 
-	return connect.NewError(connect.CodePermissionDenied,
+	return rpcerr.New(fail.KindDenied,
 		fmt.Errorf("%s is not open to an agent in the %s role", surfaces.GetName(), roleName(role)))
 }
 

@@ -9,8 +9,8 @@ import (
 	"komrad/internal/pullrequests"
 	"komrad/internal/rpc/render"
 	"komrad/internal/rpcerr"
+	"komrad/internal/rpcpage"
 	pullrequeststore "komrad/internal/store/pullrequest"
-	"komrad/lib/pagination"
 	"komrad/lib/xslice"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 
@@ -61,31 +61,26 @@ func (s *Handler) DismissForgeThread(ctx context.Context, req *pullrequestv1.Dis
 // ListPullRequests is one page of a repository's stored pull requests, the unfinished ones
 // first and each group newest opened first.
 func (s *Handler) ListPullRequests(ctx context.Context, req *pullrequestv1.ListPullRequestsRequest) (*pullrequestv1.ListPullRequestsResponse, *fail.Error) {
-	paginator, err := pagination.New[pullrequeststore.Cursor, pullRequestPage](req.GetPagination())
-	if err != nil {
-		return nil, rpcerr.From(err, "failed to read the pagination")
-	}
+	page, failure := rpcpage.List(req.GetPagination(), func(limit int64, cursor *pullrequeststore.Cursor) ([]pullRequestPage, *fail.Error) {
+		listed, err := s.pullRequests.ListPullRequests(ctx, pullrequests.ListPullRequestsParams{
+			RepositoryURL: req.GetRepositoryUrl(),
+			HeadBranch:    req.GetHeadBranch(),
+			Limit:         int32(limit),
+			Cursor:        cursor,
+		})
+		if err != nil {
+			return nil, rpcerr.From(err, "failed to list the pull requests")
+		}
 
-	listed, err := s.pullRequests.ListPullRequests(ctx, pullrequests.ListPullRequestsParams{
-		RepositoryURL: req.GetRepositoryUrl(),
-		HeadBranch:    req.GetHeadBranch(),
-		Limit:         int32(paginator.Limit()),
-		Cursor:        paginator.Cursor(),
+		return xslice.Map(listed, renderPullRequestPage), nil
 	})
-	if err != nil {
-		return nil, rpcerr.From(err, "failed to list the pull requests")
-	}
-
-	resources := xslice.Map(listed, renderPullRequestPage)
-
-	next, err := paginator.NextToken(resources)
-	if err != nil {
-		return nil, rpcerr.From(err, "failed to build the next page token")
+	if failure != nil {
+		return nil, failure
 	}
 
 	return &pullrequestv1.ListPullRequestsResponse{
-		PullRequests:  xslice.Map(resources, func(resource pullRequestPage) *pullrequestv1.PullRequest { return resource.PullRequest }),
-		NextPageToken: next,
+		PullRequests:  xslice.Map(page.Resources, func(resource pullRequestPage) *pullrequestv1.PullRequest { return resource.PullRequest }),
+		NextPageToken: page.Next,
 	}, nil
 }
 

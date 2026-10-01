@@ -15,8 +15,8 @@ import (
 	"komrad/internal/logging"
 	"komrad/internal/rpc/render"
 	"komrad/internal/rpcerr"
+	"komrad/internal/rpcpage"
 	"komrad/internal/store"
-	"komrad/lib/pagination"
 	"komrad/lib/xslice"
 	agentv1 "komrad/proto/gen/agent/v1"
 
@@ -251,32 +251,24 @@ func (s *Handler) Adopt(ctx context.Context, req *agentv1.AdoptRequest) (*agentv
 // ListAgents returns one page of stored agents, newest first, each assembled with what is
 // drawn beside it.
 func (s *Handler) ListAgents(ctx context.Context, req *agentv1.ListAgentsRequest) (*agentv1.ListAgentsResponse, *fail.Error) {
-	paginator, err := pagination.New[agentstore.Cursor, agentRow](req.GetPagination())
-	if err != nil {
-		return nil, rpcerr.From(err, "failed to read the pagination")
-	}
+	page, failure := rpcpage.List(req.GetPagination(), func(limit int64, cursor *agentstore.Cursor) ([]agentRow, *fail.Error) {
+		rows, err := s.rows.ListRows(ctx, rowstore.Page{
+			Limit:    limit,
+			Cursor:   cursor,
+			Archived: req.GetArchived(),
+		})
+		if err != nil {
+			return nil, rpcerr.From(err, "failed to list agents")
+		}
 
-	rows, err := s.rows.ListRows(ctx, rowstore.Page{
-		Limit:    paginator.Limit(),
-		Cursor:   paginator.Cursor(),
-		Archived: req.GetArchived(),
+		return s.assembleRows(ctx, rows, agentViewOptions(req.GetView()))
 	})
-	if err != nil {
-		return nil, rpcerr.From(err, "failed to list agents")
-	}
-
-	resources, failure := s.assembleRows(ctx, rows, agentViewOptions(req.GetView()))
 	if failure != nil {
 		return nil, failure
 	}
 
-	next, err := paginator.NextToken(resources)
-	if err != nil {
-		return nil, rpcerr.From(err, "failed to build the next page token")
-	}
-
-	response := &agentv1.ListAgentsResponse{NextPageToken: next}
-	response.Agents = xslice.Map(resources, func(resource agentRow) *agentv1.AgentRow { return resource.AgentRow })
+	response := &agentv1.ListAgentsResponse{NextPageToken: page.Next}
+	response.Agents = xslice.Map(page.Resources, func(resource agentRow) *agentv1.AgentRow { return resource.AgentRow })
 
 	return response, nil
 }
