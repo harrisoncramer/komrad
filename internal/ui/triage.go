@@ -501,13 +501,13 @@ func splitTriage(z triageZone, s panelShared, showHidden bool) (zone []agentRow,
 		used += 1 + asking
 	}
 
-	room := z.capacity - used
+	spare := z.capacity - used
 	inZone := make(map[string]bool)
 	workflows := xslice.KeyBy(s.listing.workflows, func(w panel.Workflow) string { return w.ID })
 	for _, slot := range slotted {
 		head := slot.family.head
-		drawn := z.pickChildren(slot.rows[1:], slot.asking+room)
-		room -= len(drawn) - slot.asking
+		drawn := z.pickChildren(slot.rows[1:], slot.asking+spare)
+		spare -= len(drawn) - slot.asking
 		snoozed := z.isSnoozed(head.Agent.ID)
 		for _, child := range children[head.Agent.ID] {
 			if child.Agent.Hidden && !showHidden {
