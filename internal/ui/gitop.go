@@ -93,8 +93,8 @@ func (m model) applyGitDone(msg gitDoneMsg) (tea.Model, tea.Cmd) {
 	return next, tea.Batch(reported, back)
 }
 
-func (m model) openGitConfirm(op gitOp, confirmForm gitConfirmForm) (tea.Model, tea.Cmd) {
-	form, confirmed := confirmForm(formKeys())
+func (m model) openGitConfirm(op gitOp, buildForm gitConfirmForm) (tea.Model, tea.Cmd) {
+	form, confirmed := buildForm(formKeys())
 
 	return m, m.openForm(formState{
 		kind:   op.kind,
@@ -110,7 +110,7 @@ func (m model) openGitConfirm(op gitOp, confirmForm gitConfirmForm) (tea.Model, 
 			return m, cmd
 		}),
 		rebuild: func(model) (*huh.Form, []string) {
-			held, _ := confirmForm(formKeys())
+			held, _ := buildForm(formKeys())
 
 			return held, nil
 		},
