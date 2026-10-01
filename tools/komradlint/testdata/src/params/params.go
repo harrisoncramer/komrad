@@ -129,3 +129,23 @@ var (
 	_ unit
 	_ format
 )
+
+type GetParams struct {
+	Key string
+}
+
+type Cache[T any] struct{}
+
+func (c *Cache[T]) Get(params GetParams) string {
+	return params.Key
+}
+
+type LookupParams struct {
+	Key string
+}
+
+type Index[K comparable, V any] struct{}
+
+func (i Index[K, V]) Lookup(params LookupParams) string {
+	return params.Key
+}
