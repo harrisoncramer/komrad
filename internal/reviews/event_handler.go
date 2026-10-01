@@ -56,15 +56,15 @@ func NewReleasedHandler() events.HandlerFor[Released] {
 
 // handleReleased tells the agent under review and stamps the review with the mail that told it.
 func handleReleased(ctx context.Context, tx store.DBTX, mailer *mail.MailService, released Released) ([]river.JobArgs, error) {
-	sent, err := mailer.SendFromKomrad(ctx, mail.SendFromKomradParams{
+	sent, err := events.Send(ctx, mailer, mail.SendFromKomradParams{
 		ToAgentID: released.AgentID,
 		Body:      releaseMail(released),
 		Kind:      mailstore.KindReviewActivity,
 		SubjectID: released.ReviewID,
 		Events:    []string{released.event()},
 	})
-	if err != nil {
-		return nil, events.DropUnreachable(ctx, released.AgentID, err)
+	if err != nil || sent == nil {
+		return nil, err
 	}
 
 	return nil, reviewstore.NewReviewStore(tx).SetDoorbell(ctx, released.ReviewID, sent.ID)
@@ -104,7 +104,7 @@ func handleAnswered(ctx context.Context, tx store.DBTX, mailer *mail.MailService
 		return nil, err
 	}
 
-	err = events.Send(ctx, mailer, mail.SendFromKomradParams{
+	_, err = events.Send(ctx, mailer, mail.SendFromKomradParams{
 		ToAgentID: reading.ReviewerID,
 		Kind:      mailstore.KindReviewActivity,
 		SubjectID: author.ID,

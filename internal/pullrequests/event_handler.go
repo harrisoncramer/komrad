@@ -46,7 +46,7 @@ func handleChange(ctx context.Context, tx store.DBTX, mailer *mail.MailService, 
 	body := render(*pullRequest)
 	started, holding := eventsOf(change, *pullRequest)
 	for _, recipient := range recipients {
-		err := events.Send(ctx, mailer, mail.SendFromKomradParams{
+		_, err := events.Send(ctx, mailer, mail.SendFromKomradParams{
 			ToAgentID:   recipient,
 			Kind:        mailstore.KindPullRequestChanged,
 			SubjectID:   pullRequest.ID,

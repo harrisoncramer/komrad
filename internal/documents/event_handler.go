@@ -59,13 +59,15 @@ func handlePersonWrote(ctx context.Context, tx store.DBTX, mailer *mail.MailServ
 		body = buildCreateMail(*document)
 	}
 
-	return nil, events.Send(ctx, mailer, mail.SendFromKomradParams{
+	_, err = events.Send(ctx, mailer, mail.SendFromKomradParams{
 		ToAgentID: document.AgentID,
 		Kind:      mailstore.KindDocumentEdited,
 		SubjectID: document.ID,
 		Body:      body,
 		Events:    []string{eventprompts.DocumentWrittenByPerson},
 	})
+
+	return nil, err
 }
 
 func buildCreateMail(created documentstore.Document) string {

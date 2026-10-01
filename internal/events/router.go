@@ -56,8 +56,8 @@ func (r *Router) Route(ctx context.Context, tx store.DBTX, event Event) ([]river
 	return handler.Handle(ctx, tx, r.mailer.InTx(tx), event.Payload)
 }
 
-// DropUnreachable is err unless it says the recipient is archived or gone.
-func DropUnreachable(ctx context.Context, recipient string, err error) error {
+// dropUnreachable is err unless it says the recipient is archived or gone.
+func dropUnreachable(ctx context.Context, recipient string, err error) error {
 	if !errors.Is(err, mail.ErrAgentArchived) && !errors.Is(err, mail.ErrRecipientNotFound) {
 		return err
 	}
