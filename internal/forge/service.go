@@ -351,19 +351,19 @@ func (s *Service) ConnectionFor(ctx context.Context, host string) (*forgestore.C
 	return s.connections.GetByHost(ctx, strings.ToLower(host))
 }
 
-// Open is the connection a host has and the forge to speak to through it.
-func (s *Service) Open(ctx context.Context, host string) (*forgestore.Connection, Forge, error) {
+// ForHost is the forge for a host's connection.
+func (s *Service) ForHost(ctx context.Context, host string) (Forge, error) {
 	connection, err := s.ConnectionFor(ctx, host)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to find the forge for %s: %w", host, err)
+		return nil, fmt.Errorf("failed to find the forge for %s: %w", host, err)
 	}
 
 	hostForge, err := s.ForConnection(*connection)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to build the forge for %s: %w", host, err)
+		return nil, fmt.Errorf("failed to build the forge for %s: %w", host, err)
 	}
 
-	return connection, hostForge, nil
+	return hostForge, nil
 }
 
 // SetVerifiedAt records when a forge last confirmed a connection, or clears it.

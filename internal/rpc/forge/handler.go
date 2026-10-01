@@ -26,7 +26,7 @@ type connector interface {
 	Check(ctx context.Context, connection forgestore.Connection) (string, error)
 	HasCredential(ctx context.Context, connection forgestore.Connection) (bool, error)
 	SetVerifiedAt(ctx context.Context, id string, at *time.Time) error
-	Open(ctx context.Context, host string) (*forgestore.Connection, forge.Forge, error)
+	ForHost(ctx context.Context, host string) (forge.Forge, error)
 }
 
 // pullRequestWriter changes a pull request through the connection for its host.

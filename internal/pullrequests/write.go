@@ -104,7 +104,7 @@ func (w *Writer) forgeFor(ctx context.Context, address string) (string, forge.Fo
 	}
 
 	host := parsed.Hostname()
-	_, f, err := w.forges.Open(ctx, host)
+	f, err := w.forges.ForHost(ctx, host)
 	if err != nil {
 		return "", nil, err
 	}

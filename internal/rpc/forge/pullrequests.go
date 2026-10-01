@@ -50,7 +50,7 @@ func (s *Handler) ListForgePullRequests(ctx context.Context, req *forgev1.ListFo
 		window = *cursor
 	}
 
-	_, f, err := s.forges.Open(ctx, repo.Host)
+	f, err := s.forges.ForHost(ctx, repo.Host)
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to open the forge for the remote")
 	}
