@@ -65,7 +65,7 @@ func reviewColumn() columnSpec {
 		rows: func(m model, split columnSplit) int {
 			// The band stands on the diff's own rows rather than the window's, so what is left is
 			// what the patch is drawn in and what the cursor is scrolled against.
-			return split.rows - strings.Count(m.review.bandView(m.shared(), split.column), "\n")
+			return split.rows - strings.Count(m.review.bandView(&m, split.column), "\n")
 		},
 	}
 }
@@ -80,9 +80,9 @@ const (
 const reviewNoFileWord = "no file matches"
 
 // diffNotice is what stands in the diff's own column before a patch does.
-func (r reviewScreen) diffNotice(s panelShared) string {
+func (r reviewScreen) diffNotice(m *model) string {
 	if r.loading {
-		return s.loaderFrame + " _" + reviewLoadingWord + "_"
+		return m.loading.frame() + " _" + reviewLoadingWord + "_"
 	}
 
 	return "_" + reviewEmptyWord + "_"
@@ -90,17 +90,17 @@ func (r reviewScreen) diffNotice(s panelShared) string {
 
 // diffView is the screenful of the patch beside the sidebar, starting at top, with the cursor's
 // own row dim while the keys are on the record rather than on the diff.
-func (r reviewScreen) diffView(s panelShared, split columnSplit) string {
+func (r reviewScreen) diffView(m *model, split columnSplit) string {
 	view := r.diff.View()
 	if view == nil || view.Len() == 0 {
 		// This is the larger half of the window, so it says what is being waited on rather than
 		// standing empty under a band, and stands rather than collapsing so the frame does not
 		// shift under the reader when the patch lands.
-		return docWindow{rows: paint.DocStyledRows(r.diffNotice(s), split.column, reviewColumnStyle())}.view(split.rows)
+		return docWindow{rows: paint.DocStyledRows(r.diffNotice(m), split.column, reviewColumnStyle())}.view(split.rows)
 	}
 
 	held := diffview.LiveCursor
-	if !r.isDiffFocused(s) {
+	if !r.isDiffFocused(m) {
 		held = diffview.DimCursor
 	}
 

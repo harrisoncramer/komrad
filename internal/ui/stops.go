@@ -56,7 +56,7 @@ func (m model) enterStop(to stop) (tea.Model, tea.Cmd) {
 	case stopBlock:
 		m = m.enterSidebar(to).blurDetails()
 		if b, ok := m.active().(blocked); ok && m.isScreenBlockDrawn() {
-			b.focusBlock(m.shared())
+			b.focusBlock(&m)
 		} else {
 			m.focusDoc()
 		}
@@ -94,7 +94,7 @@ func (m model) atStop() stop {
 		return stopBlock
 	}
 
-	if b, ok := m.active().(blocked); ok && b.isBlockFocused(m.shared()) {
+	if b, ok := m.active().(blocked); ok && b.isBlockFocused(&m) {
 		return stopBlock
 	}
 
@@ -110,7 +110,7 @@ func (m model) toggleStop() (tea.Model, tea.Cmd) {
 
 	at := m.atStop()
 	if at == stopList && m.isDormantHovered() {
-		cmd := m.agents.openHovered(&m, m.shared())
+		cmd := m.agents.openHovered(&m)
 
 		return m, cmd
 	}
@@ -135,7 +135,7 @@ func (m model) isDormantHovered() bool {
 		return false
 	}
 
-	item, ok := m.agents.hoveredResting(m.shared())
+	item, ok := m.agents.hoveredResting(&m)
 
 	return ok && !item.Alive
 }
@@ -144,7 +144,7 @@ func (m model) isDormantHovered() bool {
 func (m model) isScreenBlockDrawn() bool {
 	b, ok := m.active().(blocked)
 
-	return ok && b.isBlockDrawn(m.shared())
+	return ok && b.isBlockDrawn(&m)
 }
 
 // findFocusPane finds the agent's pane the picker stops at, empty where the stage holds none or

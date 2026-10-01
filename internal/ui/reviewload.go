@@ -78,8 +78,8 @@ type reviewWroteMsg struct {
 }
 
 // open puts the review on an agent's diff and reads it.
-func (r *reviewScreen) open(s panelShared, agent panel.Agent) tea.Cmd {
-	worktree := s.listing.worktreeFor(agent)
+func (r *reviewScreen) open(m *model, agent panel.Agent) tea.Cmd {
+	worktree := m.listing.worktreeFor(agent)
 
 	*r = reviewScreen{
 		agentID:      agent.ID,
@@ -93,35 +93,35 @@ func (r *reviewScreen) open(s panelShared, agent panel.Agent) tea.Cmd {
 		diff: reviewDiff{chapter: -1},
 	}
 
-	return r.loadWholeCmd(s)
+	return r.loadWholeCmd(m)
 }
 
 // refuse backs out to the listing, for a worktree that turned out to hold nothing.
-func (r *reviewScreen) refuse(h host, s panelShared, err error) tea.Cmd {
+func (r *reviewScreen) refuse(m *model, err error) tea.Cmd {
 	name := r.agentName
-	letGo := r.drop(h, s)
-	h.reportBrief(describeRefusedReview(name, err), err.Error())
+	letGo := r.drop(m)
+	m.reportBrief(describeRefusedReview(name, err), err.Error())
 
 	return letGo
 }
 
 // abandon backs out to the listing for a diff that could not be read at all.
-func (r *reviewScreen) abandon(h host, s panelShared, err error) tea.Cmd {
+func (r *reviewScreen) abandon(m *model, err error) tea.Cmd {
 	name := r.agentName
-	letGo := r.drop(h, s)
-	h.report("Could not read the diff of "+name, err)
+	letGo := r.drop(m)
+	m.report("Could not read the diff of "+name, err)
 
 	return letGo
 }
 
 // drop puts the reader back on the row they opened the review from, letting go of an agent
 // stopped for the editor.
-func (r *reviewScreen) drop(h host, s panelShared) tea.Cmd {
-	letGo := r.endHold(h, s, abandonedSaid)
+func (r *reviewScreen) drop(m *model) tea.Cmd {
+	letGo := r.endHold(m, abandonedSaid)
 
 	*r = reviewScreen{}
 
-	return tea.Batch(h.enter(screenAgents, screenTarget{}), letGo)
+	return tea.Batch(m.enter(screenAgents, screenTarget{}), letGo)
 }
 
 // describeRefusedReview says which of the two empty diffs this is: an agent that has written
@@ -135,8 +135,8 @@ func describeRefusedReview(name string, err error) string {
 }
 
 // loadWholeCmd reads the whole change of the agent on screen.
-func (r reviewScreen) loadWholeCmd(s panelShared) tea.Cmd {
-	return loadReviewCmd(s, loadReviewCmdParams{
+func (r reviewScreen) loadWholeCmd(m *model) tea.Cmd {
+	return loadReviewCmd(m, loadReviewCmdParams{
 		AgentID: r.agentID,
 		Dir:     r.dir,
 		Exclude: r.exclude,
@@ -161,12 +161,12 @@ type loadReviewCmdParams struct {
 
 // loadReviewCmd opens a round of the agent and reads that rather than the worktree, a tree that
 // has not moved giving back the round already taken of it.
-func loadReviewCmd(s panelShared, params loadReviewCmdParams) tea.Cmd {
-	agents := s.reads.agents
+func loadReviewCmd(m *model, params loadReviewCmdParams) tea.Cmd {
+	agents := m.api.reads().agents
 	agentID, dir, exclude := params.AgentID, params.Dir, params.Exclude
-	repo := s.git
-	_, live := s.listing.liveAgent(agentID)
-	held := assemble.ReviewThreads(s.listing.world, agentID)
+	repo := m.git
+	_, live := m.listing.liveAgent(agentID)
+	held := assemble.ReviewThreads(m.listing.world, agentID)
 
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), reviewTimeout)
@@ -393,7 +393,7 @@ func changedSinceLastReview(ctx context.Context, params changedSinceLastReviewPa
 	return label.Counted(changed, "file") + " changed since you last reviewed"
 }
 
-func (r *reviewScreen) applyLoaded(h host, s panelShared, msg reviewLoadedMsg) tea.Cmd {
+func (r *reviewScreen) applyLoaded(m *model, msg reviewLoadedMsg) tea.Cmd {
 	if msg.agentID != r.agentID {
 		return nil
 	}
@@ -401,9 +401,9 @@ func (r *reviewScreen) applyLoaded(h host, s panelShared, msg reviewLoadedMsg) t
 	var apart *roundsApartError
 	if errors.As(msg.err, &apart) || errors.Is(msg.err, errAnswerGone) || errors.Is(msg.err, errCommentRoundGone) {
 		r.diff.widen()
-		h.note(messageWarning, msg.err.Error())
+		m.note(messageWarning, msg.err.Error())
 
-		return r.loadWholeCmd(s)
+		return r.loadWholeCmd(m)
 	}
 
 	drewNothing := errors.Is(msg.err, diff.ErrNoChanges) || errors.Is(msg.err, diff.ErrAllExcluded)
@@ -417,30 +417,30 @@ func (r *reviewScreen) applyLoaded(h host, s panelShared, msg reviewLoadedMsg) t
 		}
 
 		r.diff.widen()
-		h.note(messageWarning, said)
+		m.note(messageWarning, said)
 
-		return r.loadWholeCmd(s)
+		return r.loadWholeCmd(m)
 	}
 
 	// Both draw nothing, so both back out rather than leaving the reader in an empty viewer.
 	if drewNothing {
-		return r.refuse(h, s, msg.err)
+		return r.refuse(m, msg.err)
 	}
 
 	if msg.patch == nil && r.diff.origin != nil {
 		r.diff.widen()
-		h.note(messageWarning, "could not draw where this comment was written: "+msg.err.Error())
+		m.note(messageWarning, "could not draw where this comment was written: "+msg.err.Error())
 
-		return r.loadWholeCmd(s)
+		return r.loadWholeCmd(m)
 	}
 
 	if msg.patch == nil {
-		return r.abandon(h, s, msg.err)
+		return r.abandon(m, msg.err)
 	}
 
 	r.loading = false
 	if msg.err != nil {
-		h.report("Could not read the whole review of "+r.agentName, msg.err)
+		m.report("Could not read the whole review of "+r.agentName, msg.err)
 	}
 
 	if r.diff.chapter >= len(msg.chapters) {
@@ -450,17 +450,17 @@ func (r *reviewScreen) applyLoaded(h host, s panelShared, msg reviewLoadedMsg) t
 		r.diff.drop()
 		r.loading = true
 
-		return r.loadWholeCmd(s)
+		return r.loadWholeCmd(m)
 	}
 
 	r.notice = msg.notice
 
 	r.root = msg.patch.Root
 	r.round = msg.round
-	r.diff.load(msg, s.isDark, s.glyphs)
+	r.diff.load(msg, m.isDark, m.glyphs)
 	r.threads.set(msg.threads)
 
-	r.scrollToCursor(s)
+	r.scrollToCursor(m)
 
 	return nil
 }
@@ -546,38 +546,38 @@ func indexViewedFiles(viewed []*agentv1.ReviewViewedFile, patch *diff.Patch) map
 	return held
 }
 
-func (r *reviewScreen) applyWrote(h host, s panelShared, msg reviewWroteMsg) tea.Cmd {
+func (r *reviewScreen) applyWrote(m *model, msg reviewWroteMsg) tea.Cmd {
 	if msg.agentID != r.agentID || r.diff.View() == nil {
 		return nil
 	}
 
 	if msg.err != nil {
-		h.report("Could not write on "+r.agentName, msg.err)
+		m.report("Could not write on "+r.agentName, msg.err)
 
 		if msg.unsent != nil {
-			return r.restoreMessage(s, *msg.unsent)
+			return r.restoreMessage(m, *msg.unsent)
 		}
 
 		return nil
 	}
 
 	if msg.notice != "" {
-		h.note(messageSuccess, msg.notice)
+		m.note(messageSuccess, msg.notice)
 	}
 
 	switch {
 	case !msg.readBack:
 	case msg.readErr != nil:
-		h.report("Could not read the review of "+r.agentName+" back", msg.readErr)
+		m.report("Could not read the review of "+r.agentName+" back", msg.readErr)
 	default:
-		r.applyThreads(s, msg.threads)
+		r.applyThreads(m, msg.threads)
 	}
 
 	return nil
 }
 
 // applyThreads draws the review as it now stands, keeping the reader where they were.
-func (r *reviewScreen) applyThreads(s panelShared, threads []*agentv1.ReviewThread) {
+func (r *reviewScreen) applyThreads(m *model, threads []*agentv1.ReviewThread) {
 	r.threads.set(threads)
 
 	drawn := r.diff.threadsOnScreen(threads)
@@ -588,22 +588,22 @@ func (r *reviewScreen) applyThreads(s panelShared, threads []*agentv1.ReviewThre
 	r.diff.View().PinThreads(drawn)
 	r.diff.Keep(place, ok)
 
-	r.scrollToCursor(s)
+	r.scrollToCursor(m)
 }
 
 // reload reads the worktree again, holding the place the cursor is standing so the diff comes
 // back under it.
-func (r *reviewScreen) reload(s panelShared) tea.Cmd {
-	return r.load(s, false)
+func (r *reviewScreen) reload(m *model) tea.Cmd {
+	return r.load(m, false)
 }
 
 // reloadFresh reads the worktree as it stands, even where unsent comments hold the diff to the
 // round they were written on.
-func (r *reviewScreen) reloadFresh(s panelShared) tea.Cmd {
-	return r.load(s, true)
+func (r *reviewScreen) reloadFresh(m *model) tea.Cmd {
+	return r.load(m, true)
 }
 
-func (r *reviewScreen) load(s panelShared, fresh bool) tea.Cmd {
+func (r *reviewScreen) load(m *model, fresh bool) tea.Cmd {
 	if r.diff.View() == nil {
 		return nil
 	}
@@ -612,9 +612,9 @@ func (r *reviewScreen) load(s panelShared, fresh bool) tea.Cmd {
 		r.diff.restore = &place
 	}
 
-	r.diff.followedMove = r.findMovedRound(s)
+	r.diff.followedMove = r.findMovedRound(m)
 
-	return loadReviewCmd(s, loadReviewCmdParams{
+	return loadReviewCmd(m, loadReviewCmdParams{
 		AgentID: r.agentID,
 		Dir:     r.dir,
 		Exclude: r.exclude,
@@ -626,23 +626,23 @@ func (r *reviewScreen) load(s panelShared, fresh bool) tea.Cmd {
 	})
 }
 
-func (r *reviewScreen) back(h host, s panelShared) tea.Cmd {
+func (r *reviewScreen) back(m *model) tea.Cmd {
 	if r.hold.atEditor {
-		return r.closeEdit(h, s)
+		return r.closeEdit(m)
 	}
 
 	// The drop is the one way off this screen, and it puts the reader back on the row they came
 	// from.
-	return r.drop(h, s)
+	return r.drop(m)
 }
 
 // backFromDiff hands the keys to the file tree, or leaves the screen where no tree is drawn.
-func (r *reviewScreen) backFromDiff(h host, s panelShared) tea.Cmd {
-	if r.hold.isHeld() || !r.isBlockDrawn(s) {
-		return r.back(h, s)
+func (r *reviewScreen) backFromDiff(m *model) tea.Cmd {
+	if r.hold.isHeld() || !r.isBlockDrawn(m) {
+		return r.back(m)
 	}
 
-	r.focusBlock(s)
+	r.focusBlock(m)
 
 	return nil
 }

@@ -270,10 +270,10 @@ func (m model) relayout(rewrap bool) model {
 
 	// A field open in the review's sidebar is drawn in a column of this window rather than in the
 	// form's, so the size is rewritten here too.
-	m.review.threads.editor.resize(reviewInputWidth(m.review.measurePopupInner(m.shared())))
+	m.review.threads.editor.resize(reviewInputWidth(m.review.measurePopupInner(&m)))
 
 	if rewrap {
-		m.search.drawPreview(m.shared())
+		m.search.drawPreview(&m)
 	}
 
 	return m
@@ -359,7 +359,7 @@ func (m model) routeGlobalKey(key tea.KeyPressMsg) (tea.Model, tea.Cmd, bool) {
 
 // routeScreenMessage hands a message to the screen that is up.
 func (m model) routeScreenMessage(msg tea.Msg) (tea.Model, tea.Cmd) {
-	cmd := m.active().update(&m, m.shared(), msg)
+	cmd := m.active().update(&m, msg)
 
 	return m, cmd
 }
@@ -537,7 +537,7 @@ func (m *model) reconcileEditor() tea.Cmd {
 
 	switch m.screen {
 	case screenReview:
-		return m.review.reconcileEditor(m, m.shared())
+		return m.review.reconcileEditor(m)
 	case screenDocuments:
 		return m.documents.reconcileEditor(m)
 	case screenAgents:
@@ -560,13 +560,13 @@ func (m model) isTyping() bool {
 
 // columnScroller is a screen that scrolls its own block beside the list while it says it does.
 type columnScroller interface {
-	doesScrollColumn(s panelShared) bool
-	scrollColumn(h host, s panelShared, rows int) tea.Cmd
+	doesScrollColumn(m *model) bool
+	scrollColumn(m *model, rows int) tea.Cmd
 }
 
 // listScroller is a screen whose scroll key does not move its list.
 type listScroller interface {
-	scrollList(h host, s panelShared, rows int) tea.Cmd
+	scrollList(m *model, rows int) tea.Cmd
 }
 
 // columnWheelStep is how many rows one turn of the wheel moves the block beside the list.

@@ -243,23 +243,23 @@ func sortedAgents(items []panel.AgentRow, columns []sortColumn[panel.AgentRow], 
 }
 
 // rows are the rows the keyboard can reach.
-func (a *agentsScreen) rows(s panelShared) []agentRow {
-	return a.layout(s).cursorRows()
+func (a *agentsScreen) rows(m *model) []agentRow {
+	return a.layout(m).cursorRows()
 }
 
 // layout is the list as drawn, or as it would be drawn when nothing has cached it.
-func (a *agentsScreen) layout(s panelShared) agentsLayout {
+func (a *agentsScreen) layout(m *model) agentsLayout {
 	if a.drawn != nil {
 		return *a.drawn
 	}
 
-	return a.buildLayout(s)
+	return a.buildLayout(m)
 }
 
-func (a *agentsScreen) buildLayout(s panelShared) agentsLayout {
-	zone, waiting, rest := splitTriage(a.triage, s, a.showHidden)
+func (a *agentsScreen) buildLayout(m *model) agentsLayout {
+	zone, waiting, rest := splitTriage(a.triage, m, a.showHidden)
 	tree := treeRows(treeRowsParams{
-		workflows:         s.listing.workflows,
+		workflows:         m.listing.workflows,
 		agents:            sortedAgents(rest, agentSorts, agentsTabs().order(a.sort)),
 		showHidden:        a.showHidden,
 		foldOrchestrators: true,
@@ -269,7 +269,7 @@ func (a *agentsScreen) buildLayout(s panelShared) agentsLayout {
 	return agentsLayout{
 		zone:    zone,
 		waiting: waiting,
-		tree:    narrowedAgentRows(s.chrome.filter, tree),
+		tree:    narrowedAgentRows(m.filter, tree),
 	}
 }
 
@@ -281,13 +281,13 @@ func narrowedAgentRows(filter filterState, rows []agentRow) []agentRow {
 	})
 }
 
-func (a *agentsScreen) hoveredRow(s panelShared) (agentRow, bool) {
-	return rowAt(a.rows(s), a.cursor)
+func (a *agentsScreen) hoveredRow(m *model) (agentRow, bool) {
+	return rowAt(a.rows(m), a.cursor)
 }
 
 // selectedAgent is the agent the cursor is on, and none on a workflow.
-func (a *agentsScreen) selectedAgent(s panelShared) (panel.AgentRow, bool) {
-	row, ok := a.hoveredRow(s)
+func (a *agentsScreen) selectedAgent(m *model) (panel.AgentRow, bool) {
+	row, ok := a.hoveredRow(m)
 	if !ok || row.header {
 		return panel.AgentRow{}, false
 	}
@@ -295,14 +295,14 @@ func (a *agentsScreen) selectedAgent(s panelShared) (panel.AgentRow, bool) {
 	return row.item, true
 }
 
-func (a *agentsScreen) hoveredWorkflow(s panelShared) (panel.Workflow, bool) {
-	return hoveredHeader(a.rows(s), a.cursor)
+func (a *agentsScreen) hoveredWorkflow(m *model) (panel.Workflow, bool) {
+	return hoveredHeader(a.rows(m), a.cursor)
 }
 
 // hoveredPane is the agent whose pane the row under the cursor shows, and none where that row
 // has no pane worth putting in the window.
-func (a *agentsScreen) hoveredPane(s panelShared) (panel.AgentRow, bool) {
-	r, ok := a.hoveredRow(s)
+func (a *agentsScreen) hoveredPane(m *model) (panel.AgentRow, bool) {
+	r, ok := a.hoveredRow(m)
 	if !ok {
 		return panel.AgentRow{}, false
 	}
@@ -316,8 +316,8 @@ func (a *agentsScreen) hoveredPane(s panelShared) (panel.AgentRow, bool) {
 }
 
 // hoveredResting is the agent the row under the cursor stands for when it is dormant or paused.
-func (a *agentsScreen) hoveredResting(s panelShared) (panel.AgentRow, bool) {
-	r, ok := a.hoveredRow(s)
+func (a *agentsScreen) hoveredResting(m *model) (panel.AgentRow, bool) {
+	r, ok := a.hoveredRow(m)
 	if !ok {
 		return panel.AgentRow{}, false
 	}
@@ -331,15 +331,15 @@ func (a *agentsScreen) hoveredResting(s panelShared) (panel.AgentRow, bool) {
 }
 
 // hasNoAgentPane reports whether the row the cursor is on has no pane of its own.
-func (a *agentsScreen) hasNoAgentPane(s panelShared) bool {
-	_, ok := a.hoveredPane(s)
+func (a *agentsScreen) hasNoAgentPane(m *model) bool {
+	_, ok := a.hoveredPane(m)
 
 	return !ok
 }
 
 // hoveredAgentID is the agent under the cursor, or the orchestrator behind a hovered workflow.
-func (a *agentsScreen) hoveredAgentID(s panelShared) string {
-	item, ok := a.hoveredPaneItem(s)
+func (a *agentsScreen) hoveredAgentID(m *model) string {
+	item, ok := a.hoveredPaneItem(m)
 	if !ok {
 		return ""
 	}
@@ -348,8 +348,8 @@ func (a *agentsScreen) hoveredAgentID(s panelShared) string {
 }
 
 // hoveredPaneItem is the agent under the cursor, or the orchestrator of the workflow under it.
-func (a *agentsScreen) hoveredPaneItem(s panelShared) (panel.AgentRow, bool) {
-	row, ok := a.hoveredRow(s)
+func (a *agentsScreen) hoveredPaneItem(m *model) (panel.AgentRow, bool) {
+	row, ok := a.hoveredRow(m)
 	if !ok {
 		return panel.AgentRow{}, false
 	}
@@ -366,8 +366,8 @@ func hoveredHeader(rows []agentRow, cursor int) (panel.Workflow, bool) {
 	return row.workflow, true
 }
 
-func (a *agentsScreen) enclosingWorkflow(s panelShared) *panel.Workflow {
-	row, ok := a.hoveredRow(s)
+func (a *agentsScreen) enclosingWorkflow(m *model) *panel.Workflow {
+	row, ok := a.hoveredRow(m)
 	if !ok {
 		return nil
 	}
@@ -532,13 +532,13 @@ func (l listing) workflowName(id string) string {
 }
 
 // apply takes a fresh listing, keeping the cursor on the row named.
-func (a *agentsScreen) apply(s panelShared, selected string) {
+func (a *agentsScreen) apply(m *model, selected string) {
 	placed := a.placed
 	if !placed {
 		selected = ""
 	}
 
-	rows := a.rows(s)
+	rows := a.rows(m)
 
 	switch idx := rowIndexOfKey(rows, selected); {
 	case idx >= 0:
@@ -555,8 +555,8 @@ func (a *agentsScreen) apply(s panelShared, selected string) {
 	}
 
 	a.placed = true
-	a.selected = a.selected.pruned(refsOf(a.rows(s)))
-	a.reconcileRename(s)
+	a.selected = a.selected.pruned(refsOf(a.rows(m)))
+	a.reconcileRename(m)
 }
 
 // listing is what the screens draw: the resources the watch has delivered, and the live and
@@ -609,14 +609,14 @@ func (l *listing) assemble(now time.Time) {
 }
 
 // revealAgent puts the cursor on an agent, showing the hidden rows when it is one of them.
-func (a *agentsScreen) revealAgent(s panelShared, id string) {
-	for _, item := range s.listing.agents {
+func (a *agentsScreen) revealAgent(m *model, id string) {
+	for _, item := range m.listing.agents {
 		if item.Agent.ID == id && item.Agent.Hidden {
 			a.showHidden = true
 		}
 	}
 
-	if idx := rowIndexOfAgentID(a.rows(s), id); idx >= 0 {
+	if idx := rowIndexOfAgentID(a.rows(m), id); idx >= 0 {
 		a.cursor = idx
 	}
 }

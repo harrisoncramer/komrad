@@ -72,25 +72,25 @@ type reviewPausedMsg struct {
 }
 
 // startHold stops the agent and opens the editor once it has.
-func (r *reviewScreen) startHold(h host, s panelShared) tea.Cmd {
-	if _, dead := r.isReadOnly(s); dead {
-		return r.editFile(h, s)
+func (r *reviewScreen) startHold(m *model) tea.Cmd {
+	if _, dead := r.isReadOnly(m); dead {
+		return r.editFile(m)
 	}
 
-	if item, ok := r.agentRow(s); ok && item.Agent.HeldAt != nil {
-		h.reportBrief("could not edit "+r.agentName, stillPaused)
+	if item, ok := r.agentRow(m); ok && item.Agent.HeldAt != nil {
+		m.reportBrief("could not edit "+r.agentName, stillPaused)
 
 		return nil
 	}
 
 	r.hold.pausing = true
 
-	return holdAgentCmd(h, r.agentID, r.agentName)
+	return holdAgentCmd(m, r.agentID, r.agentName)
 }
 
 // holdAgentCmd asks for the agent to stop and reports what came back.
-func holdAgentCmd(h host, agentID, name string) tea.Cmd {
-	agents, write := h.clients().agents, h.beginWrite("pausing "+name)
+func holdAgentCmd(m *model, agentID, name string) tea.Cmd {
+	agents, write := m.clients().agents, m.beginWrite("pausing "+name)
 
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), reviewTimeout)
@@ -107,7 +107,7 @@ func holdAgentCmd(h host, agentID, name string) tea.Cmd {
 }
 
 // applyPaused opens the editor, or gives it up when the agent would not stop.
-func (r *reviewScreen) applyPaused(h host, s panelShared, msg reviewPausedMsg) tea.Cmd {
+func (r *reviewScreen) applyPaused(m *model, msg reviewPausedMsg) tea.Cmd {
 	if msg.agentID != r.agentID {
 		return nil
 	}
@@ -115,7 +115,7 @@ func (r *reviewScreen) applyPaused(h host, s panelShared, msg reviewPausedMsg) t
 	r.hold.pausing = false
 
 	if msg.err != nil {
-		h.report("Could not pause "+r.agentName, msg.err)
+		m.report("Could not pause "+r.agentName, msg.err)
 
 		return nil
 	}
@@ -123,7 +123,7 @@ func (r *reviewScreen) applyPaused(h host, s panelShared, msg reviewPausedMsg) t
 	r.hold.paused = true
 	r.hold.ourPause = true
 
-	return r.editFile(h, s)
+	return r.editFile(m)
 }
 
 func (m model) isPassing(agentID string) bool {
@@ -152,24 +152,24 @@ func (m *model) releaseAbandonedPause(msg reviewPausedMsg) tea.Cmd {
 }
 
 // endHold lets the agent go, telling it which files the reader opened while it was stopped.
-func (r *reviewScreen) endHold(h host, s panelShared, said string) tea.Cmd {
+func (r *reviewScreen) endHold(m *model, said string) tea.Cmd {
 	agentID := r.agentID
 	ours, touched := r.hold.end()
 
-	h.noteEdited(agentID, touched)
+	m.noteEdited(agentID, touched)
 
 	if !ours {
 		return nil
 	}
 
-	item, ok := r.agentRow(s)
+	item, ok := r.agentRow(m)
 	if !ok {
 		return nil
 	}
 
 	agent, name := item.Agent, r.agentName
 
-	return h.releaseCmd("Could not let "+name+" go", agent, said)
+	return m.releaseCmd("Could not let "+name+" go", agent, said)
 }
 
 // touchedSaid names the files the reader opened an editor on.

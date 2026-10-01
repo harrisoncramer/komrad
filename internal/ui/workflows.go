@@ -11,34 +11,34 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-func newWorkflowForm(h host, s panelShared) tea.Cmd {
+func newWorkflowForm(m *model) tea.Cmd {
 	values := workflowFormValues{
 		EventPrompts: eventPromptsByEvent(xslice.Map(eventprompts.All(), func(event eventprompts.Event) panel.EventPrompt {
 			return panel.EventPrompt{Event: event.Name, Prompt: event.DefaultPrompt}
 		})),
 	}
-	if len(s.listing.workflows) == 0 {
-		values.Cwd = h.getHostPath()
+	if len(m.listing.workflows) == 0 {
+		values.Cwd = m.getHostPath()
 	}
 
-	return openWorkflowConfigForm(h, &values, nil)
+	return openWorkflowConfigForm(m, &values, nil)
 }
 
-func editWorkflowForm(h host, _ panelShared, workflow panel.Workflow) tea.Cmd {
+func editWorkflowForm(m *model, workflow panel.Workflow) tea.Cmd {
 	values := workflowFormValuesFrom(workflow.Config())
 
-	return openWorkflowConfigForm(h, &values, &workflow)
+	return openWorkflowConfigForm(m, &values, &workflow)
 }
 
 // openWorkflowConfigForm puts up the form for a workflow's whole configuration, creating one
 // when target is nil and saving over the workflow it names otherwise.
-func openWorkflowConfigForm(h host, values *workflowFormValues, target *panel.Workflow) tea.Cmd {
+func openWorkflowConfigForm(m *model, values *workflowFormValues, target *panel.Workflow) tea.Cmd {
 	title := "New workflow name"
 	if target != nil {
 		title = "Workflow name"
 	}
 
-	return h.openForm(workflowForm(workflowFormParams{
+	return m.openForm(workflowForm(workflowFormParams{
 		NameTitle: title,
 		Values:    values,
 		Editing:   target != nil,

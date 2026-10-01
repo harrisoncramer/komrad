@@ -20,13 +20,13 @@ func (m *model) activeKinds() (kinded, bool) {
 func (m model) isKindsDrawn() bool {
 	k, ok := m.activeKinds()
 
-	return ok && k.kindsFit(m.shared())
+	return ok && k.kindsFit(&m)
 }
 
 func (m model) isKindsFocused() bool {
 	k, ok := m.activeKinds()
 
-	return ok && *k.kindsFocused() && k.kindsFit(m.shared())
+	return ok && *k.kindsFocused() && k.kindsFit(&m)
 }
 
 func (m model) kindsLine() string {
@@ -52,7 +52,7 @@ func (m *model) blurKinds() {
 
 func (m model) focusKinds() model {
 	k, ok := m.activeKinds()
-	if !ok || !k.kindsFit(m.shared()) || !k.kindsSwitch(m.shared()) {
+	if !ok || !k.kindsFit(&m) || !k.kindsSwitch(&m) {
 		return m
 	}
 
@@ -67,7 +67,7 @@ func (m model) updateKinds(press tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	k, _ := m.activeKinds()
 
 	cmd := m.pressStrip(press.String(), stripKeys{
-		step:  func(delta int) tea.Cmd { return k.stepKind(&m, m.shared(), delta) },
+		step:  func(delta int) tea.Cmd { return k.stepKind(&m, delta) },
 		close: func() { *k.kindsFocused() = false },
 	})
 
@@ -75,7 +75,7 @@ func (m model) updateKinds(press tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) kindsBinding() key.Binding {
-	if k, ok := m.activeKinds(); !ok || !k.kindsSwitch(m.shared()) {
+	if k, ok := m.activeKinds(); !ok || !k.kindsSwitch(&m) {
 		return key.Binding{}
 	}
 

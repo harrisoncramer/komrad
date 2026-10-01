@@ -46,7 +46,7 @@ func (r reviewScreen) parent() screen {
 }
 
 // crumbs runs through the agent whose work is under review.
-func (r reviewScreen) crumbs(panelShared) crumbs {
+func (r reviewScreen) crumbs(*model) crumbs {
 	return crumbs{trail: []string{r.agentName, "review"}}
 }
 
@@ -67,40 +67,40 @@ func (r reviewScreen) isBusy() bool {
 }
 
 // isDiffFocused is whether the patch holds the keys.
-func (r reviewScreen) isDiffFocused(s panelShared) bool {
-	return s.draw.isListFocused() && !r.isWriting() && !r.isBlockFocused(s)
+func (r reviewScreen) isDiffFocused(m *model) bool {
+	return m.isListFocused() && !r.isWriting() && !r.isBlockFocused(m)
 }
 
 // update takes the review's own answers and, once nothing in the sidebar has them, the keys.
-func (r *reviewScreen) update(h host, s panelShared, msg tea.Msg) tea.Cmd {
-	cmd := r.route(h, s, msg)
+func (r *reviewScreen) update(m *model, msg tea.Msg) tea.Cmd {
+	cmd := r.route(m, msg)
 
-	return tea.Batch(cmd, r.followWorld(s))
+	return tea.Batch(cmd, r.followWorld(m))
 }
 
-func (r *reviewScreen) route(h host, s panelShared, msg tea.Msg) tea.Cmd {
+func (r *reviewScreen) route(m *model, msg tea.Msg) tea.Cmd {
 	switch msg := msg.(type) {
 	case reviewLoadedMsg:
-		return r.applyLoaded(h, s, msg)
+		return r.applyLoaded(m, msg)
 	case reviewPausedMsg:
-		return r.applyPaused(h, s, msg)
+		return r.applyPaused(m, msg)
 	case reviewWroteMsg:
-		return r.applyWrote(h, s, msg)
+		return r.applyWrote(m, msg)
 	case reviewOffersTracedMsg:
 		r.applyOffersTraced(msg)
 
 		return nil
 	case messageEditedMsg:
-		return r.applyMessageEdited(h, s, msg)
+		return r.applyMessageEdited(m, msg)
 	case tea.KeyPressMsg:
-		return r.updateKey(h, s, msg)
+		return r.updateKey(m, msg)
 	}
 
 	return nil
 }
 
 // enter leaves the review as it stands.
-func (r *reviewScreen) enter(host, panelShared, screenTarget) tea.Cmd {
+func (r *reviewScreen) enter(*model, screenTarget) tea.Cmd {
 	return nil
 }
 
@@ -113,7 +113,7 @@ func (m *model) enterReview(agent panel.Agent) tea.Cmd {
 
 	left := m.enterScreen(screenReview)
 
-	return tea.Batch(left, m.review.open(m.shared(), agent))
+	return tea.Batch(left, m.review.open(m, agent))
 }
 
 var (

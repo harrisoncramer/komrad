@@ -7,7 +7,6 @@ import (
 
 	"komrad/internal/ui/paint"
 	"komrad/internal/view"
-	"komrad/internal/vim"
 
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
@@ -46,23 +45,23 @@ func openNameEdit(key, name string) *nameEdit {
 	}
 }
 
-func (e *nameEdit) take(h host, register *vim.Register, msg tea.Msg) nameEditStep {
+func (e *nameEdit) take(m *model, msg tea.Msg) nameEditStep {
 	if e.saving || e.landed {
 		return nameEditTyping
 	}
 	if e.gone {
-		return e.takeGone(h, msg)
+		return e.takeGone(m, msg)
 	}
 
 	switch msg := msg.(type) {
 	case tea.PasteMsg:
-		e.input.take(msg, register)
+		e.input.take(msg, m.register)
 	case tea.KeyPressMsg:
 		if msg.String() == "ctrl+c" {
 			return nameEditHidden
 		}
 
-		switch step := e.input.take(msg, register); {
+		switch step := e.input.take(msg, m.register); {
 		case step == lineLeft:
 			return nameEditCancelled
 		case step == lineEntered || (step == lineIgnored && isBound(msg.String(), formKeys().Submit)):
@@ -74,7 +73,7 @@ func (e *nameEdit) take(h host, register *vim.Register, msg tea.Msg) nameEditSte
 }
 
 // takeGone holds the keys of a field whose row is gone until it is let go.
-func (e *nameEdit) takeGone(h host, msg tea.Msg) nameEditStep {
+func (e *nameEdit) takeGone(m *model, msg tea.Msg) nameEditStep {
 	key, ok := msg.(tea.KeyPressMsg)
 	if !ok {
 		return nameEditTyping
@@ -89,7 +88,7 @@ func (e *nameEdit) takeGone(h host, msg tea.Msg) nameEditStep {
 
 	if !e.noted {
 		e.noted = true
-		h.note(messageWarning, fmt.Sprintf("%q is gone, so there is nothing to rename; esc to stop", e.was))
+		m.note(messageWarning, fmt.Sprintf("%q is gone, so there is nothing to rename; esc to stop", e.was))
 	}
 
 	return nameEditTyping

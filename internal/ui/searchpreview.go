@@ -45,7 +45,7 @@ type holdPreviewParams struct {
 
 // holdPreview takes the transcript an agent was fetched for and draws it at the width it will be
 // read in, opening it on the match asked for.
-func (w *searchScreen) holdPreview(s panelShared, params holdPreviewParams) {
+func (w *searchScreen) holdPreview(m *model, params holdPreviewParams) {
 	conversation, spans := params.conversation, params.spans
 	if strings.TrimSpace(conversation) == "" {
 		conversation, spans = noTranscriptMarkdown, nil
@@ -57,23 +57,23 @@ func (w *searchScreen) holdPreview(s panelShared, params holdPreviewParams) {
 		spans:        spans,
 		open:         params.open,
 	}
-	w.drawPreview(s)
+	w.drawPreview(m)
 }
 
-func (w *searchScreen) openPreviewOn(s panelShared, open int) {
+func (w *searchScreen) openPreviewOn(m *model, open int) {
 	w.preview.open = open
-	w.drawPreview(s)
+	w.drawPreview(m)
 }
 
 // drawPreview wraps the transcript into the column it is drawn in and puts the window back on
 // the match, where a rewrap has moved it.
-func (w *searchScreen) drawPreview(s panelShared) {
+func (w *searchScreen) drawPreview(m *model) {
 	preview := &w.preview
 	if preview.conversation == "" {
 		return
 	}
 
-	split, ok := s.draw.screenColumnSplit()
+	split, ok := m.screenColumnSplit()
 	if !ok {
 		preview.doc = docWindow{}
 
@@ -98,16 +98,16 @@ func (w *searchScreen) drawPreview(s panelShared) {
 }
 
 // scrollPreview moves the transcript beside the list, stopping at either end.
-func (w *searchScreen) scrollPreview(s panelShared, pressed string) tea.Cmd {
-	if isBound(pressed, s.keys.Column.ScrollUp) {
-		return w.scrollPreviewBy(s, -previewWheelStep)
+func (w *searchScreen) scrollPreview(m *model, pressed string) tea.Cmd {
+	if isBound(pressed, m.keys.Column.ScrollUp) {
+		return w.scrollPreviewBy(m, -previewWheelStep)
 	}
 
-	return w.scrollPreviewBy(s, previewWheelStep)
+	return w.scrollPreviewBy(m, previewWheelStep)
 }
 
-func (w *searchScreen) scrollPreviewBy(s panelShared, rows int) tea.Cmd {
-	split, ok := s.draw.screenColumnSplit()
+func (w *searchScreen) scrollPreviewBy(m *model, rows int) tea.Cmd {
+	split, ok := m.screenColumnSplit()
 	if !ok {
 		return nil
 	}
@@ -118,27 +118,27 @@ func (w *searchScreen) scrollPreviewBy(s panelShared, rows int) tea.Cmd {
 	return nil
 }
 
-func (w *searchScreen) doesScrollColumn(panelShared) bool {
+func (w *searchScreen) doesScrollColumn(*model) bool {
 	return true
 }
 
-func (w *searchScreen) scrollColumn(_ host, s panelShared, rows int) tea.Cmd {
-	return w.scrollPreviewBy(s, rows)
+func (w *searchScreen) scrollColumn(m *model, rows int) tea.Cmd {
+	return w.scrollPreviewBy(m, rows)
 }
 
-func (w *searchScreen) scrollList(h host, s panelShared, rows int) tea.Cmd {
-	return w.list().move(h, s, rows)
+func (w *searchScreen) scrollList(m *model, rows int) tea.Cmd {
+	return w.list().move(m, rows)
 }
 
 // previewView is the screenful of the transcript beside the list, drawn without the markers the
 // archive's document carries.
-func (w *searchScreen) previewView(s panelShared, split columnSplit) string {
+func (w *searchScreen) previewView(m *model, split columnSplit) string {
 	doc := w.preview.doc
 	if len(doc.rows) == 0 {
-		doc = docWindow{rows: paint.Panel.DocRows(w.previewNotice(s), split.column)}
+		doc = docWindow{rows: paint.Panel.DocRows(w.previewNotice(m), split.column)}
 	}
 
-	if w.isBlockFocused(s) {
+	if w.isBlockFocused(m) {
 		line := w.previewLine(split.rows)
 		doc.rows = slices.Clone(doc.rows)
 		doc.rows[line] = paint.Panel.PaintRow(doc.rows[line], split.column)
@@ -148,34 +148,34 @@ func (w *searchScreen) previewView(s panelShared, split columnSplit) string {
 }
 
 // previewNotice is what stands in the column before a transcript does.
-func (w *searchScreen) previewNotice(s panelShared) string {
+func (w *searchScreen) previewNotice(m *model) string {
 	switch {
 	case strings.TrimSpace(w.query()) == "":
 		return searchWaitingMarkdown
-	case len(w.rows(s)) == 0:
+	case len(w.rows(m)) == 0:
 		return noSearchHitsMarkdown
 	default:
 		return searchLoadingMarkdown
 	}
 }
 
-func (w *searchScreen) isBlockDrawn(s panelShared) bool {
-	if _, ok := s.draw.screenColumnSplit(); !ok {
+func (w *searchScreen) isBlockDrawn(m *model) bool {
+	if _, ok := m.screenColumnSplit(); !ok {
 		return false
 	}
 
 	return w.preview.conversation != "" && len(w.preview.doc.rows) > 0
 }
 
-func (w *searchScreen) isBlockFocused(s panelShared) bool {
-	return w.previewFocused && s.draw.isListFocused() && !w.typing && w.isBlockDrawn(s)
+func (w *searchScreen) isBlockFocused(m *model) bool {
+	return w.previewFocused && m.isListFocused() && !w.typing && w.isBlockDrawn(m)
 }
 
-func (w *searchScreen) focusBlock(s panelShared) {
+func (w *searchScreen) focusBlock(m *model) {
 	w.previewFocused = true
 	w.preview.row = 0
 
-	split, ok := s.draw.screenColumnSplit()
+	split, ok := m.screenColumnSplit()
 	if !ok {
 		return
 	}
@@ -191,8 +191,8 @@ func (w *searchScreen) blurBlock() {
 
 // movePreview puts the cursor a number of rows down the transcript, or up it for a negative
 // count, and brings the window round to it.
-func (w *searchScreen) movePreview(s panelShared, delta int) tea.Cmd {
-	split, ok := s.draw.screenColumnSplit()
+func (w *searchScreen) movePreview(m *model, delta int) tea.Cmd {
+	split, ok := m.screenColumnSplit()
 	if !ok {
 		return nil
 	}
@@ -212,40 +212,40 @@ func (w *searchScreen) previewActions() screenActionSpec {
 			{
 				id:   actionMove,
 				keys: func(k config.Keybindings) []string { return slices.Concat(k.Nav.Up, k.Nav.Down) },
-				nav: func(_ navHost, s panelShared, pressed string) tea.Cmd {
-					return w.movePreview(s, directionOf(pressed, s.keys.Nav.Up))
+				nav: func(m *model, pressed string) tea.Cmd {
+					return w.movePreview(m, directionOf(pressed, m.keys.Nav.Up))
 				},
 			},
 			{
 				id:   actionNavPage,
 				keys: func(k config.Keybindings) []string { return slices.Concat(k.Nav.PageUp, k.Nav.PageDown) },
-				nav: func(_ navHost, s panelShared, pressed string) tea.Cmd {
-					return w.movePreview(s, directionOf(pressed, s.keys.Nav.PageUp)*navPageStep)
+				nav: func(m *model, pressed string) tea.Cmd {
+					return w.movePreview(m, directionOf(pressed, m.keys.Nav.PageUp)*navPageStep)
 				},
 			},
 			{
 				id:   actionColumnScroll,
 				keys: func(k config.Keybindings) []string { return slices.Concat(k.Column.ScrollDown, k.Column.ScrollUp) },
-				nav: func(_ navHost, s panelShared, pressed string) tea.Cmd {
-					return w.movePreview(s, directionOf(pressed, s.keys.Column.ScrollUp)*previewWheelStep)
+				nav: func(m *model, pressed string) tea.Cmd {
+					return w.movePreview(m, directionOf(pressed, m.keys.Column.ScrollUp)*previewWheelStep)
 				},
 			},
 			{
 				id:   actionJump,
 				keys: func(k config.Keybindings) []string { return slices.Concat(k.Nav.Top, k.Nav.Bottom) },
-				nav: func(_ navHost, s panelShared, pressed string) tea.Cmd {
-					return w.movePreview(s, directionOf(pressed, s.keys.Nav.Top)*len(w.preview.doc.rows))
+				nav: func(m *model, pressed string) tea.Cmd {
+					return w.movePreview(m, directionOf(pressed, m.keys.Nav.Top)*len(w.preview.doc.rows))
 				},
 			},
 			{
 				id:   actionSearchOpen,
 				keys: func(config.Keybindings) []string { return []string{"enter"} },
-				nav:  func(h navHost, s panelShared, _ string) tea.Cmd { return w.jumpToAgent(h, s) },
+				nav:  func(m *model, _ string) tea.Cmd { return w.jumpToAgent(m) },
 			},
 			{
 				id:   actionSearchBack,
 				keys: func(config.Keybindings) []string { return []string{"esc"} },
-				nav: func(navHost, panelShared, string) tea.Cmd {
+				nav: func(*model, string) tea.Cmd {
 					w.blurBlock()
 
 					return nil
@@ -254,7 +254,7 @@ func (w *searchScreen) previewActions() screenActionSpec {
 			{
 				id:   actionQuit,
 				keys: func(config.Keybindings) []string { return []string{"ctrl+c"} },
-				nav:  func(h navHost, _ panelShared, _ string) tea.Cmd { return h.hide() },
+				nav:  func(m *model, _ string) tea.Cmd { return m.hide() },
 			},
 		},
 		legend: []screenLegendRow{
@@ -263,12 +263,12 @@ func (w *searchScreen) previewActions() screenActionSpec {
 			diffJumpRow(),
 			{
 				of:    []actionID{actionSearchOpen},
-				desc:  func(panelShared) string { return "go to it" },
+				desc:  func(*model) string { return "go to it" },
 				strip: true,
 			},
 			{
 				of:    []actionID{actionSearchBack},
-				desc:  func(panelShared) string { return "back to the list" },
+				desc:  func(*model) string { return "back to the list" },
 				strip: true,
 			},
 		},

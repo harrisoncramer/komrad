@@ -49,7 +49,7 @@ type api struct {
 	loops        loopv1connect.LoopServiceClient
 }
 
-// reads is the half of the service a screen reaches without the host.
+// reads is the half of the service a screen reads through.
 type reads struct {
 	agents agentReads
 	logs   logv1connect.LogServiceClient
@@ -66,7 +66,7 @@ type agentReads interface {
 	ListReviewViewedFiles(ctx context.Context, req *connect.Request[agentv1.ListReviewViewedFilesRequest]) (*connect.Response[agentv1.ListReviewViewedFilesResponse], error)
 }
 
-// reads is the half of the service a screen reaches without the host.
+// reads is the half of the service a screen reads through.
 func (a api) reads() reads {
 	return reads{agents: a.agents, logs: a.logs}
 }

@@ -20,40 +20,40 @@ type documentEdit struct {
 }
 
 // pressEdit opens the document under the cursor in your editor, or saves and closes the one open.
-func (d *documentsScreen) pressEdit(h host, s panelShared) tea.Cmd {
+func (d *documentsScreen) pressEdit(m *model) tea.Cmd {
 	if d.editing != nil {
-		return d.closeEdit(h)
+		return d.closeEdit(m)
 	}
 
-	if h.isScratchOpen() {
-		h.reportBrief("could not open the editor", "close the scratch file first")
+	if m.isScratchOpen() {
+		m.reportBrief("could not open the editor", "close the scratch file first")
 
 		return nil
 	}
 
-	item, ok := d.hovered(s)
+	item, ok := d.hovered(m)
 	if !ok {
 		return nil
 	}
 
 	read, asked := d.bodies[item.id]
 	if !asked || read.err != nil || read.body == "" || read.pending || read.updatedAt.Before(item.updatedAt) {
-		h.reportBrief("could not edit "+item.name, "its text has not been read yet")
+		m.reportBrief("could not edit "+item.name, "its text has not been read yet")
 
 		return nil
 	}
 
-	path, err := writeDocumentCopy(s.draftDir, read.body)
+	path, err := writeDocumentCopy(m.settings.DraftDir, read.body)
 	if err != nil {
-		h.report("could not edit "+item.name, err)
+		m.report("could not edit "+item.name, err)
 
 		return nil
 	}
 
-	pane := h.stageEditor(editorContent(s.editor, filepath.Dir(path), path, 1))
+	pane := m.stageEditor(editorContent(m.settings.Editor, filepath.Dir(path), path, 1))
 	if pane == "" {
-		h.report("could not edit "+item.name, removeDocumentCopy(path))
-		h.reportBrief("could not edit "+item.name, "there is no room beside the sidebar for an editor")
+		m.report("could not edit "+item.name, removeDocumentCopy(path))
+		m.reportBrief("could not edit "+item.name, "there is no room beside the sidebar for an editor")
 
 		return nil
 	}
@@ -71,37 +71,37 @@ func (d *documentsScreen) pressEdit(h host, s panelShared) tea.Cmd {
 }
 
 // closeEdit takes the editor down and writes back what changed in the copy.
-func (d *documentsScreen) closeEdit(h host) tea.Cmd {
+func (d *documentsScreen) closeEdit(m *model) tea.Cmd {
 	if d.editing == nil {
 		return nil
 	}
 
 	edit := *d.editing
 	d.editing = nil
-	h.unstageEditor()
+	m.unstageEditor()
 
 	summary := "could not save " + edit.item.name
 	content, err := os.ReadFile(edit.path)
 	if err != nil {
-		h.report(summary, fmt.Errorf("failed to read your copy at %s: %w", edit.path, err))
+		m.report(summary, fmt.Errorf("failed to read your copy at %s: %w", edit.path, err))
 
 		return nil
 	}
 
 	body := string(content)
 	if strings.TrimSpace(body) == "" {
-		h.reportBrief(summary, "an empty document is not saved, so your copy is left at "+edit.path)
+		m.reportBrief(summary, "an empty document is not saved, so your copy is left at "+edit.path)
 
 		return nil
 	}
 
 	if body == edit.body {
-		h.report(summary, removeDocumentCopy(edit.path))
+		m.report(summary, removeDocumentCopy(edit.path))
 
 		return nil
 	}
 
-	return h.writeCmd("saving "+edit.item.name, summary, func(a api) error {
+	return m.writeCmd("saving "+edit.item.name, summary, func(a api) error {
 		if err := a.writeDocument(edit.item, edit.version, body); err != nil {
 			return fmt.Errorf("failed to save, so your copy is left at %s: %w", edit.path, err)
 		}
@@ -111,12 +111,12 @@ func (d *documentsScreen) closeEdit(h host) tea.Cmd {
 }
 
 // reconcileEditor catches the editor pane going away on its own and saves what it wrote.
-func (d *documentsScreen) reconcileEditor(h host) tea.Cmd {
-	if d.editing == nil || h.isPaneAlive(d.editing.pane) {
+func (d *documentsScreen) reconcileEditor(m *model) tea.Cmd {
+	if d.editing == nil || m.isPaneAlive(d.editing.pane) {
 		return nil
 	}
 
-	return d.closeEdit(h)
+	return d.closeEdit(m)
 }
 
 // editLabel says what the edit entry would do.

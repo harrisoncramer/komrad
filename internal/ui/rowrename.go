@@ -33,7 +33,7 @@ func renameScheduleRow(item scheduleItem) *rowRename {
 }
 
 // save sends the typed name, or says there is nothing to send.
-func (r *rowRename) save(h host) (tea.Cmd, bool) {
+func (r *rowRename) save(m *model) (tea.Cmd, bool) {
 	name, ok := r.submit()
 	if !ok {
 		return nil, false
@@ -45,7 +45,7 @@ func (r *rowRename) save(h host) (tea.Cmd, bool) {
 		renamed.Name = name
 		id := r.schedule.ID
 
-		return stampRename(h.writeCmd(
+		return stampRename(m.writeCmd(
 			"renaming "+r.was,
 			fmt.Sprintf("Could not rename schedule %q", r.was),
 			func(a api) error { return a.updateSchedule(id, renamed) },
@@ -54,7 +54,7 @@ func (r *rowRename) save(h host) (tea.Cmd, bool) {
 		renamed := *r.workflow
 		renamed.Name = name
 
-		return stampRename(h.writeCmd(
+		return stampRename(m.writeCmd(
 			"renaming "+r.was,
 			fmt.Sprintf("Could not rename workflow %q", r.was),
 			func(a api) error { return a.updateWorkflow(renamed) },
@@ -63,7 +63,7 @@ func (r *rowRename) save(h host) (tea.Cmd, bool) {
 
 	agent := r.agent
 
-	return stampRename(h.writeCmd(
+	return stampRename(m.writeCmd(
 		"renaming "+r.was,
 		fmt.Sprintf("Could not rename agent %q", r.was),
 		func(a api) error { return a.renameAgent(agent, name) },
@@ -94,14 +94,14 @@ func reconcileRename[T keyed](r *renameSlot, rows []T, hovered string, name func
 	}
 }
 
-func (r *renameSlot) updateRename(h host, s panelShared, msg tea.Msg) tea.Cmd {
-	switch r.renaming.take(h, s.register, msg) {
+func (r *renameSlot) updateRename(m *model, msg tea.Msg) tea.Cmd {
+	switch r.renaming.take(m, msg) {
 	case nameEditHidden:
-		return h.hide()
+		return m.hide()
 	case nameEditCancelled:
 		r.renaming = nil
 	case nameEditSubmitted:
-		cmd, ok := r.renaming.save(h)
+		cmd, ok := r.renaming.save(m)
 		if !ok {
 			r.renaming = nil
 		}

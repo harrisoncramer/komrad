@@ -46,39 +46,39 @@ type reviewChapter struct {
 
 // stepBase walks back a round, from the whole change to the newest round and on into the older
 // ones, and stops on the oldest.
-func (r *reviewScreen) stepBase(s panelShared) tea.Cmd {
+func (r *reviewScreen) stepBase(m *model) tea.Cmd {
 	if r.diff.origin != nil {
-		return r.leaveOrigin(s)
+		return r.leaveOrigin(m)
 	}
 
 	if r.diff.chapter < 0 {
-		return r.showChapter(s, len(r.diff.chapters)-1)
+		return r.showChapter(m, len(r.diff.chapters)-1)
 	}
 
-	return r.showChapter(s, r.diff.chapter-1)
+	return r.showChapter(m, r.diff.chapter-1)
 }
 
 // stepBaseForward walks the other way, and stops on the whole change.
-func (r *reviewScreen) stepBaseForward(s panelShared) tea.Cmd {
+func (r *reviewScreen) stepBaseForward(m *model) tea.Cmd {
 	if r.diff.origin != nil {
-		return r.leaveOrigin(s)
+		return r.leaveOrigin(m)
 	}
 
 	if r.diff.chapter < 0 {
 		return nil
 	}
 
-	return r.showChapter(s, r.diff.chapter+1)
+	return r.showChapter(m, r.diff.chapter+1)
 }
 
 // showChapter puts one round of the review on screen, or the whole change past the newest
 // round, and reads the diff again once the walk has moved.
-func (r *reviewScreen) showChapter(s panelShared, at int) tea.Cmd {
+func (r *reviewScreen) showChapter(m *model, at int) tea.Cmd {
 	if !r.diff.showChapter(at) {
 		return nil
 	}
 
-	return r.reload(s)
+	return r.reload(m)
 }
 
 // showChapter narrows the diff to one round, or widens it to the whole change past the newest
@@ -187,8 +187,8 @@ func (d *reviewDiff) widen() {
 }
 
 // doesFitBaseLegend reports whether the base key is worth a legend row.
-func (r reviewScreen) doesFitBaseLegend(s panelShared) bool {
-	if s.chrome.helpExpanded && s.height > 0 && s.height < reviewLegendFloor {
+func (r reviewScreen) doesFitBaseLegend(m *model) bool {
+	if m.helpExpanded && m.height > 0 && m.height < reviewLegendFloor {
 		return false
 	}
 

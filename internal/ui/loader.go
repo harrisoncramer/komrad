@@ -30,7 +30,7 @@ func (l loadingState) frame() string {
 }
 
 type loaderScreen interface {
-	isLoading(s panelShared) bool
+	isLoading(m *model) bool
 }
 
 func (m *model) isLoading() bool {
@@ -40,23 +40,23 @@ func (m *model) isLoading() bool {
 
 	screen, ok := m.active().(loaderScreen)
 
-	return ok && screen.isLoading(m.shared())
+	return ok && screen.isLoading(m)
 }
 
-func (a *agentsScreen) isLoading(s panelShared) bool {
-	return slices.ContainsFunc(a.rows(s), isRowLoading)
+func (a *agentsScreen) isLoading(m *model) bool {
+	return slices.ContainsFunc(a.rows(m), isRowLoading)
 }
 
-func (a *archiveScreen) isLoading(s panelShared) bool {
-	return a.kind == archiveAgents && slices.ContainsFunc(a.listRows(s), isRowLoading)
+func (a *archiveScreen) isLoading(m *model) bool {
+	return a.kind == archiveAgents && slices.ContainsFunc(a.listRows(m), isRowLoading)
 }
 
-func (r reviewScreen) isLoading(s panelShared) bool {
+func (r reviewScreen) isLoading(m *model) bool {
 	if r.loading {
 		return true
 	}
 
-	item, ok := s.listing.liveAgent(r.agentID)
+	item, ok := m.listing.liveAgent(r.agentID)
 
 	return ok && isChecksRunning(item)
 }

@@ -45,6 +45,6 @@ func (m *model) restageScreen() {
 	}
 
 	if s, ok := m.active().(staged); ok {
-		s.stage(m, m.shared())
+		s.stage(m)
 	}
 }

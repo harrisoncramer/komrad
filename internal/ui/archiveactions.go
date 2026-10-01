@@ -25,10 +25,10 @@ func (a *archiveScreen) table() []screenAction {
 }
 
 // guarded narrows each action to answer only while when holds.
-func guarded(when func(panelShared) bool, actions []screenAction) []screenAction {
+func guarded(when func(*model) bool, actions []screenAction) []screenAction {
 	return xslice.Map(actions, func(action screenAction) screenAction {
 		inner := action.when
-		action.when = func(s panelShared) bool { return when(s) && (inner == nil || inner(s)) }
+		action.when = func(m *model) bool { return when(m) && (inner == nil || inner(m)) }
 
 		return action
 	})
@@ -41,7 +41,7 @@ func (a *archiveScreen) scheduleTable() []screenAction {
 		screenAction{
 			id:   actionArchiveBack,
 			keys: func(k config.Keybindings) []string { return k.Archive.Back },
-			nav:  func(h navHost, _ panelShared, _ string) tea.Cmd { return h.pickView() },
+			nav:  func(m *model, _ string) tea.Cmd { return m.pickView() },
 		},
 	)
 }
@@ -54,13 +54,13 @@ func (a *archiveScreen) agentTable() []screenAction {
 			id:   actionArchiveBack,
 			keys: func(k config.Keybindings) []string { return k.Archive.Back },
 			when: list.isBrowsing,
-			nav:  func(h navHost, _ panelShared, _ string) tea.Cmd { return h.pickView() },
+			nav:  func(m *model, _ string) tea.Cmd { return m.pickView() },
 		},
 		screenAction{
 			id:     actionArchiveRename,
 			keys:   func(k config.Keybindings) []string { return k.Archive.Rename },
 			when:   list.isBrowsing,
-			direct: directly(notInMenu, func(_ host, s panelShared, _ string) tea.Cmd { return a.openRename(s) }),
+			direct: directly(notInMenu, func(m *model, _ string) tea.Cmd { return a.openRename(m) }),
 		},
 	)
 }
@@ -71,7 +71,7 @@ func (a *archiveScreen) legend() []screenLegendRow {
 	return slices.Concat(list.selectionLegend(), []screenLegendRow{
 		{
 			of:    []actionID{actionArchiveRename},
-			desc:  func(panelShared) string { return "rename" },
+			desc:  func(*model) string { return "rename" },
 			show:  a.holdsARenameable,
 			strip: true,
 		},
@@ -87,7 +87,7 @@ func (a *archiveScreen) legend() []screenLegendRow {
 	}, screenNavLegend(), []screenLegendRow{
 		{
 			of:   []actionID{actionArchiveBack},
-			desc: func(panelShared) string { return "back" },
+			desc: func(*model) string { return "back" },
 		},
 		{
 			of:    []actionID{actionFilterClear},
@@ -96,45 +96,45 @@ func (a *archiveScreen) legend() []screenLegendRow {
 		},
 		{
 			of:    []actionID{actionFilterMatch},
-			desc:  func(panelShared) string { return "next/prev match" },
+			desc:  func(*model) string { return "next/prev match" },
 			strip: true,
 		},
 	})
 }
 
 // holdsAChoosable reports whether the cursor is on an agents row while no selection is active.
-func (a *archiveScreen) holdsAChoosable(s panelShared) bool {
-	if a.onSchedules(s) || a.selected.isActive() {
+func (a *archiveScreen) holdsAChoosable(m *model) bool {
+	if a.onSchedules(m) || a.selected.isActive() {
 		return false
 	}
 
-	_, ok := rowAt(a.listRows(s), a.cursor)
+	_, ok := rowAt(a.listRows(m), a.cursor)
 
 	return ok
 }
 
 // holdsARenameable reports whether the cursor is on a row that can be renamed.
-func (a *archiveScreen) holdsARenameable(s panelShared) bool {
-	_, ok := a.renameable(s)
+func (a *archiveScreen) holdsARenameable(m *model) bool {
+	_, ok := a.renameable(m)
 
 	return ok
 }
 
 // holdsAnAgent reports whether the cursor is on an archived agent rather than on the folder
 // holding one.
-func (a *archiveScreen) holdsAnAgent(s panelShared) bool {
-	if a.onSchedules(s) || a.selected.isActive() {
+func (a *archiveScreen) holdsAnAgent(m *model) bool {
+	if a.onSchedules(m) || a.selected.isActive() {
 		return false
 	}
 
-	_, ok := a.hoveredAgent(s)
+	_, ok := a.hoveredAgent(m)
 
 	return ok
 }
 
 // hoveredAgentID is the archived agent under the cursor, empty on a folder.
-func (a *archiveScreen) hoveredAgentID(s panelShared) string {
-	agent, ok := a.hoveredAgent(s)
+func (a *archiveScreen) hoveredAgentID(m *model) string {
+	agent, ok := a.hoveredAgent(m)
 	if !ok {
 		return ""
 	}

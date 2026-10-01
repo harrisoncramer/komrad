@@ -67,8 +67,8 @@ func documentTypeItem(t *agentv1.DocumentType) documentItem {
 }
 
 // keepCursor puts the cursor back on the row it was on once the rows have moved under it.
-func (d *documentsScreen) keepCursor(s panelShared, hovered string) {
-	rows := d.rows(s)
+func (d *documentsScreen) keepCursor(m *model, hovered string) {
+	rows := d.rows(m)
 	d.cursor = cursor.Place(rowIndexOfKey(rows, hovered), d.cursor, len(rows))
-	d.reconcileRename(s)
+	d.reconcileRename(m)
 }

@@ -51,8 +51,8 @@ type versionRead struct {
 }
 
 // stepOlder steps back to the write before the one drawn, starting from the newest.
-func (d *documentsScreen) stepOlder(h navHost, s panelShared) tea.Cmd {
-	item, ok := d.hovered(s)
+func (d *documentsScreen) stepOlder(m *model) tea.Cmd {
+	item, ok := d.hovered(m)
 	if !ok || d.editing != nil {
 		return nil
 	}
@@ -60,7 +60,7 @@ func (d *documentsScreen) stepOlder(h navHost, s panelShared) tea.Cmd {
 	if d.history == nil || d.history.item.id != item.id || d.history.err != nil {
 		d.history = &documentHistory{item: item}
 
-		return h.waitToStage()
+		return m.waitToStage()
 	}
 
 	d.history.forgetFailedReads()
@@ -69,13 +69,13 @@ func (d *documentsScreen) stepOlder(h navHost, s panelShared) tea.Cmd {
 		d.history.pane.Drop()
 	}
 
-	return h.waitToStage()
+	return m.waitToStage()
 }
 
 // stepNewer steps forward to the write after the one drawn, and past the newest back to the
 // document as it stands.
-func (d *documentsScreen) stepNewer(h navHost, s panelShared) tea.Cmd {
-	if !d.isSteppingHovered(s) {
+func (d *documentsScreen) stepNewer(m *model) tea.Cmd {
+	if !d.isSteppingHovered(m) {
 		return nil
 	}
 
@@ -83,7 +83,7 @@ func (d *documentsScreen) stepNewer(h navHost, s panelShared) tea.Cmd {
 		d.history = nil
 		if d.focus {
 			d.focus = false
-			h.focusDoc()
+			m.focusDoc()
 		}
 
 		return nil
@@ -93,7 +93,7 @@ func (d *documentsScreen) stepNewer(h navHost, s panelShared) tea.Cmd {
 	d.history.at--
 	d.history.pane.Drop()
 
-	return h.waitToStage()
+	return m.waitToStage()
 }
 
 // forgetFailedReads drops the writes that could not be read, so the next step reads them again.
@@ -106,36 +106,36 @@ func (h *documentHistory) forgetFailedReads() {
 }
 
 // isSteppingHovered reports whether the document under the cursor is being stepped through.
-func (d *documentsScreen) isSteppingHovered(s panelShared) bool {
-	item, ok := d.hovered(s)
+func (d *documentsScreen) isSteppingHovered(m *model) bool {
+	item, ok := d.hovered(m)
 
 	return ok && d.history != nil && d.history.item.id == item.id
 }
 
 // docRows is the document drawn beside the list at a width: the write stepped to and what it
 // changed, or the document as it stands.
-func (d *documentsScreen) docRows(s panelShared, width int) []string {
-	item, ok := d.hovered(s)
-	if !ok || !d.isSteppingHovered(s) {
-		return paint.DocStyledRows(d.doc(s), max(width, 1), columnStyle())
+func (d *documentsScreen) docRows(m *model, width int) []string {
+	item, ok := d.hovered(m)
+	if !ok || !d.isSteppingHovered(m) {
+		return paint.DocStyledRows(d.doc(m), max(width, 1), columnStyle())
 	}
 
 	h := d.history
-	head := h.head(item, width, s.glyphs)
+	head := h.head(item, width, m.glyphs)
 	if h.err != nil || h.versions == nil {
 		return head
 	}
 
-	if !h.isDrawn(s.isDark) {
+	if !h.isDrawn(m.isDark) {
 		return append(head, h.changeRows(width)...)
 	}
 
 	held := diffview.DimCursor
-	if d.isDiffFocused(s) {
+	if d.isDiffFocused(m) {
 		held = diffview.LiveCursor
 	}
 
-	return append(head, h.pane.Render(width, d.diffHeight(s), held)...)
+	return append(head, h.pane.Render(width, d.diffHeight(m), held)...)
 }
 
 // head is the rows over the change: which write it is and the search.
@@ -159,14 +159,14 @@ func (h *documentHistory) head(item documentItem, width int, glyphs glyph.Set) [
 }
 
 // diffHeight is the rows the diff is drawn in, under the rows over it.
-func (d *documentsScreen) diffHeight(s panelShared) int {
-	split, ok := s.draw.screenColumnSplit()
-	item, hovered := d.hovered(s)
+func (d *documentsScreen) diffHeight(m *model) int {
+	split, ok := m.screenColumnSplit()
+	item, hovered := d.hovered(m)
 	if !ok || !hovered || d.history == nil {
 		return 1
 	}
 
-	return max(split.rows-len(d.history.head(item, split.column, s.glyphs)), 1)
+	return max(split.rows-len(d.history.head(item, split.column, m.glyphs)), 1)
 }
 
 // notice names the write stepped to, who made it and how long ago.
@@ -296,7 +296,7 @@ type documentVersionReadMsg struct {
 // the one stood on and the one before it.
 func (m *model) readHistoryCmd() tea.Cmd {
 	d := &m.documents
-	if !d.isSteppingHovered(m.shared()) {
+	if !d.isSteppingHovered(m) {
 		return nil
 	}
 

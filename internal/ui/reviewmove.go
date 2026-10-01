@@ -8,29 +8,29 @@ import (
 
 // followMove reads the diff again when the watch says the worktree has moved past the round on
 // screen.
-func (r *reviewScreen) followMove(s panelShared) tea.Cmd {
-	moved := r.findMovedRound(s)
+func (r *reviewScreen) followMove(m *model) tea.Cmd {
+	moved := r.findMovedRound(m)
 	if moved == "" {
 		r.diff.followedMove = ""
 
 		return nil
 	}
 
-	if moved == r.diff.followedMove || r.takesEveryKey() || !r.doesFollowLive(s) {
+	if moved == r.diff.followedMove || r.takesEveryKey() || !r.doesFollowLive(m) {
 		return nil
 	}
 
-	return r.reload(s)
+	return r.reload(m)
 }
 
 // isWorktreeMoved reports whether the agent has written since the round on screen was taken.
-func (r reviewScreen) isWorktreeMoved(s panelShared) bool {
-	return r.findMovedRound(s) != ""
+func (r reviewScreen) isWorktreeMoved(m *model) bool {
+	return r.findMovedRound(m) != ""
 }
 
 // findMovedRound is the snapshot on screen when the agent has moved past it, empty otherwise.
-func (r reviewScreen) findMovedRound(s panelShared) string {
-	item, ok := r.agentRow(s)
+func (r reviewScreen) findMovedRound(m *model) string {
+	item, ok := r.agentRow(m)
 	if !ok || item.MovedSinceRound == "" || item.MovedSinceRound != r.round.GetSnapshotSha() {
 		return ""
 	}
@@ -39,12 +39,12 @@ func (r reviewScreen) findMovedRound(s panelShared) string {
 }
 
 // doesFollowLive reports whether the diff on screen is meant to keep up with the agent.
-func (r reviewScreen) doesFollowLive(s panelShared) bool {
+func (r reviewScreen) doesFollowLive(m *model) bool {
 	if r.hold.isHeld() || r.diff.View() == nil || r.loading {
 		return false
 	}
 
-	if r.isAgentWriting(s) {
+	if r.isAgentWriting(m) {
 		return false
 	}
 
@@ -53,8 +53,8 @@ func (r reviewScreen) doesFollowLive(s panelShared) bool {
 
 // isAgentWriting reports whether the agent whose diff is on screen is putting words in its
 // worktree.
-func (r reviewScreen) isAgentWriting(s panelShared) bool {
-	item, ok := r.agentRow(s)
+func (r reviewScreen) isAgentWriting(m *model) bool {
+	item, ok := r.agentRow(m)
 
 	return ok && item.Alive && item.Agent.State == panel.StateThinking
 }

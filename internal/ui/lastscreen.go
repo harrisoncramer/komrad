@@ -36,28 +36,26 @@ type lastScreenMsg struct {
 
 // screenedAgentID is the agent whose saved screen the column draws.
 func (m model) screenedAgentID() (string, bool) {
-	s := m.shared()
-
 	switch m.screen {
 	case screenArchive:
 		if m.archive.kind != archiveAgents {
 			return "", false
 		}
 
-		agent, ok := m.archive.hoveredAgent(s)
+		agent, ok := m.archive.hoveredAgent(&m)
 
 		return agent.ID, ok
 	case screenAgents:
-		item, ok := m.agents.hoveredResting(s)
+		item, ok := m.agents.hoveredResting(&m)
 
 		return item.Agent.ID, ok
 	case screenWorktrees:
-		row, ok := m.worktrees.hovered(s)
+		row, ok := m.worktrees.hovered(&m)
 		if !ok || row.item.agent == nil {
 			return "", false
 		}
 
-		if live, ok := s.listing.liveAgent(row.item.agent.id); ok && live.Alive {
+		if live, ok := m.listing.liveAgent(row.item.agent.id); ok && live.Alive {
 			return "", false
 		}
 
@@ -174,12 +172,10 @@ func noticeRows(notice string, width int) []string {
 }
 
 func (m model) screenNotice() string {
-	s := m.shared()
-
 	switch m.screen {
 	case screenArchive:
 		restore := m.keys.ArchiveMenu.Restore
-		if target, ok := m.archive.menuTarget(s); ok {
+		if target, ok := m.archive.menuTarget(&m); ok {
 			if _, err := target.opensAgent(); err == nil {
 				restore = m.keys.ArchiveMenu.RestoreOpen
 			}
@@ -187,7 +183,7 @@ func (m model) screenNotice() string {
 
 		return "archived" + separated + "press " + keyLabel(m.keys.Menu.Open) + " " + keyLabel(m.keys.Menu.Archive) + " " + keyLabel(restore) + " to restore"
 	case screenAgents:
-		item, ok := m.agents.hoveredResting(s)
+		item, ok := m.agents.hoveredResting(&m)
 		if ok && item.Agent.HeldAt != nil {
 			return "paused"
 		}

@@ -29,11 +29,11 @@ var (
 )
 
 // agentMenu is the band of the menu that acts on an agent, with the entries a screen adds of its own before git.
-func agentMenu(s panelShared, from screen, item panel.AgentRow, own ...submenuEntry) submenu {
+func agentMenu(m *model, from screen, item panel.AgentRow, own ...submenuEntry) submenu {
 	agent := item.Agent
 	agentID := agent.ID
 	pages := xslice.Map(agentSubpages(agent), func(page subpage) submenuEntry {
-		entry := subpageEntry(s, from, item, page)
+		entry := subpageEntry(m, from, item, page)
 		if entry.opens == nil {
 			entry.open = func(m model) (tea.Model, tea.Cmd) { return m.enterSubpage(from, agentID, page) }
 		}
@@ -43,8 +43,8 @@ func agentMenu(s panelShared, from screen, item panel.AgentRow, own ...submenuEn
 
 	return submenu{
 		kind:    formMenu,
-		title:   s.listing.agentName(agent),
-		entries: slices.Concat(pages, own, []submenuEntry{nestedEntry("git", s.keys.Menu.Git, gitMenu(s, from, item))}),
+		title:   m.listing.agentName(agent),
+		entries: slices.Concat(pages, own, []submenuEntry{nestedEntry("git", m.keys.Menu.Git, gitMenu(m, from, item))}),
 	}
 }
 
@@ -58,22 +58,22 @@ func agentSubpages(agent panel.Agent) []subpage {
 }
 
 // subpageEntry is how a subpage is drawn in an agent's menu.
-func subpageEntry(s panelShared, from screen, item panel.AgentRow, page subpage) submenuEntry {
+func subpageEntry(m *model, from screen, item panel.AgentRow, page subpage) submenuEntry {
 	switch page {
 	case subpageReview:
 		return submenuEntry{
 			label: "review",
-			keys:  s.keys.Menu.Review,
+			keys:  m.keys.Menu.Review,
 			isOff: reviewRefusal(from, item.Agent) != nil,
 		}
 	case subpageDocuments:
-		return nestedEntry("documents", s.keys.Menu.Documents, documentsMenu(s, from, item))
+		return nestedEntry("documents", m.keys.Menu.Documents, documentsMenu(m, from, item))
 	case subpageLogs:
-		return submenuEntry{label: "logs", keys: s.keys.Menu.Logs}
+		return submenuEntry{label: "logs", keys: m.keys.Menu.Logs}
 	case subpageTerminal:
 		return submenuEntry{
 			label: "terminal",
-			keys:  s.keys.Menu.Terminal,
+			keys:  m.keys.Menu.Terminal,
 			isOff: terminalRefusal(from, item.Agent) != nil,
 		}
 	}

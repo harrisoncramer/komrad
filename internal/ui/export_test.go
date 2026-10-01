@@ -433,26 +433,26 @@ func (p *Panel) ReadGlobalArmKeys() []string {
 
 // ReadLegendKeys is every key the legend of the screen that is up names.
 func (p *Panel) ReadLegendKeys() []string {
-	shared := p.model.shared()
+	m := &p.model
 
 	var legend keyMap
 	switch p.model.screen {
 	case screenAgents:
-		legend = p.model.listHelp(p.model.agents.help(shared))
+		legend = p.model.listHelp(p.model.agents.help(m))
 	case screenSchedules:
-		legend = p.model.listHelpOf(p.model.schedules.listParams(shared))
+		legend = p.model.listHelpOf(p.model.schedules.listParams(m))
 	case screenArchive:
-		legend = p.model.listHelpOf(p.model.archive.listParams(shared))
+		legend = p.model.listHelpOf(p.model.archive.listParams(m))
 	case screenSearch:
-		legend = p.model.search.help(shared)
+		legend = p.model.search.help(m)
 	case screenReview:
-		legend = p.model.review.help(shared)
+		legend = p.model.review.help(m)
 	case screenWorktrees:
-		legend = p.model.listHelpOf(p.model.worktrees.listParams(shared))
+		legend = p.model.listHelpOf(p.model.worktrees.listParams(m))
 	case screenDocuments:
-		legend = p.model.listHelpOf(p.model.documents.listParams(shared))
+		legend = p.model.listHelpOf(p.model.documents.listParams(m))
 	case screenLogs:
-		legend = p.model.listHelp(p.model.logs.help(shared))
+		legend = p.model.listHelp(p.model.logs.help(m))
 	}
 
 	var keys []string

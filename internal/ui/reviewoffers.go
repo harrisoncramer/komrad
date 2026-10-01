@@ -19,8 +19,8 @@ import (
 
 // listOffers is the forge's threads on the agent's open pull request, the ones on a line first in
 // the order a reader meets them, then the ones on the change as a whole.
-func (r reviewScreen) listOffers(s panelShared) []*pullrequestv1.ForgeThread {
-	offers := slices.Clone(assemble.Offers(s.listing.world, r.agentID))
+func (r reviewScreen) listOffers(m *model) []*pullrequestv1.ForgeThread {
+	offers := slices.Clone(assemble.Offers(m.listing.world, r.agentID))
 	slices.SortStableFunc(offers, func(a, b *pullrequestv1.ForgeThread) int {
 		return cmp.Or(
 			compareFirst(a.GetPath() != "", b.GetPath() != ""),
@@ -33,8 +33,8 @@ func (r reviewScreen) listOffers(s panelShared) []*pullrequestv1.ForgeThread {
 	return offers
 }
 
-func (r reviewScreen) findOffer(s panelShared, offerID string) (*pullrequestv1.ForgeThread, bool) {
-	offers := r.listOffers(s)
+func (r reviewScreen) findOffer(m *model, offerID string) (*pullrequestv1.ForgeThread, bool) {
+	offers := r.listOffers(m)
 	at := slices.IndexFunc(offers, func(offer *pullrequestv1.ForgeThread) bool { return offer.GetId() == offerID })
 	if at < 0 {
 		return nil, false
@@ -45,22 +45,22 @@ func (r reviewScreen) findOffer(s panelShared, offerID string) (*pullrequestv1.F
 
 // doesStepOffers reports whether J walks the forge's comments rather than jumping to where a
 // comment of the reader's was written.
-func (r reviewScreen) doesStepOffers(s panelShared) bool {
+func (r reviewScreen) doesStepOffers(m *model) bool {
 	if r.doesOfferJump() {
 		return false
 	}
 
-	return slices.ContainsFunc(r.listOffers(s), func(offer *pullrequestv1.ForgeThread) bool { return isPlacedOffer(s, offer) })
+	return slices.ContainsFunc(r.listOffers(m), func(offer *pullrequestv1.ForgeThread) bool { return isPlacedOffer(m, offer) })
 }
 
-func isPlacedOffer(s panelShared, offer *pullrequestv1.ForgeThread) bool {
-	return offer.GetPath() != "" && !offer.GetDismissed() && assemble.StateOfOffer(s.listing.world.ReviewThreads, offer) != assemble.OfferAccepted
+func isPlacedOffer(m *model, offer *pullrequestv1.ForgeThread) bool {
+	return offer.GetPath() != "" && !offer.GetDismissed() && assemble.StateOfOffer(m.listing.world.ReviewThreads, offer) != assemble.OfferAccepted
 }
 
 // stepOffer moves the cursor onto the next forge comment written on a line, and chooses it.
-func (r *reviewScreen) stepOffer(h navHost, s panelShared) tea.Cmd {
+func (r *reviewScreen) stepOffer(m *model) tea.Cmd {
 	view := r.diff.View()
-	placed := slices.DeleteFunc(r.listOffers(s), func(offer *pullrequestv1.ForgeThread) bool { return !isPlacedOffer(s, offer) })
+	placed := slices.DeleteFunc(r.listOffers(m), func(offer *pullrequestv1.ForgeThread) bool { return !isPlacedOffer(m, offer) })
 	if len(placed) == 0 || view == nil {
 		return nil
 	}
@@ -80,17 +80,17 @@ func (r *reviewScreen) stepOffer(h navHost, s panelShared) tea.Cmd {
 
 	row, ok := view.GetOfferRow(r.offer)
 	if !ok {
-		h.note(messageWarning, describeOfferPlace(placed[next])+" is not in this diff")
+		m.note(messageWarning, describeOfferPlace(placed[next])+" is not in this diff")
 
 		return nil
 	}
 
-	return r.moveCursor(h, s, row)
+	return r.moveCursor(m, row)
 }
 
 // offerView is a forge thread's comments wrapped to the width given, oldest first, with where it
 // lives on the forge under them.
-func (r reviewScreen) offerView(s panelShared, offer *pullrequestv1.ForgeThread, width int) string {
+func (r reviewScreen) offerView(m *model, offer *pullrequestv1.ForgeThread, width int) string {
 	var out strings.Builder
 	for _, comment := range offer.GetComments() {
 		head := drawCommentHead(diffview.OfferTone, describeCommentAuthor(comment)+" on the forge", comment.GetWrittenAt())
@@ -108,7 +108,7 @@ func (r reviewScreen) offerView(s panelShared, offer *pullrequestv1.ForgeThread,
 	if offer.GetDismissed() {
 		foot = strings.TrimSpace("dismissed  " + foot)
 	}
-	if label := describeOfferState(assemble.StateOfOffer(s.listing.world.ReviewThreads, offer)); label != "" {
+	if label := describeOfferState(assemble.StateOfOffer(m.listing.world.ReviewThreads, offer)); label != "" {
 		foot = strings.TrimSpace(label + "  " + foot)
 	}
 	if foot != "" {
@@ -195,7 +195,7 @@ func compareFirst(a, b bool) int {
 
 // offerAtCursor is the forge thread the cursor stands on: the one J last chose when it is there,
 // or else the first on the row.
-func (r reviewScreen) offerAtCursor(s panelShared) (*pullrequestv1.ForgeThread, bool) {
+func (r reviewScreen) offerAtCursor(m *model) (*pullrequestv1.ForgeThread, bool) {
 	view := r.diff.View()
 	if view == nil {
 		return nil, false
@@ -211,7 +211,7 @@ func (r reviewScreen) offerAtCursor(s panelShared) (*pullrequestv1.ForgeThread, 
 		id = r.offer
 	}
 
-	offers := r.listOffers(s)
+	offers := r.listOffers(m)
 	at := slices.IndexFunc(offers, func(offer *pullrequestv1.ForgeThread) bool { return offer.GetId() == id })
 	if at < 0 {
 		return nil, false
@@ -239,13 +239,13 @@ type reviewOffers struct {
 
 // followOffers pins the forge's comments to a diff drawn afresh, and asks git where their lines
 // went whenever the comments or the snapshot under them change.
-func (r *reviewScreen) followOffers(s panelShared) tea.Cmd {
+func (r *reviewScreen) followOffers(m *model) tea.Cmd {
 	view := r.diff.View()
 	if view == nil {
 		return nil
 	}
 
-	offers := r.listOffers(s)
+	offers := r.listOffers(m)
 	key := keyOffers(view.GetSnapshotSHA(), offers)
 	if key == r.offers.key && view == r.offers.view {
 		return nil
@@ -260,12 +260,12 @@ func (r *reviewScreen) followOffers(s panelShared) tea.Cmd {
 	r.offers.anchors = xslice.Map(offers, anchorOffer)
 	r.pinOffers()
 
-	if !fresh || s.git == nil {
+	if !fresh || m.git == nil {
 		return nil
 	}
 
 	return traceOffersCmd(r.agentID, key, traceOffersParams{
-		Git:    s.git,
+		Git:    m.git,
 		Dir:    r.dir,
 		ToSHA:  view.GetSnapshotSHA(),
 		Offers: offers,
@@ -325,19 +325,19 @@ func anchorOffer(offer *pullrequestv1.ForgeThread) diffview.Offer {
 
 // doesDismissOffer reports whether the cursor stands on a forge comment, with no thread of the
 // reader's in front of it.
-func (r reviewScreen) doesDismissOffer(s panelShared) bool {
+func (r reviewScreen) doesDismissOffer(m *model) bool {
 	if _, ok := r.diff.threadAtCursor(); ok {
 		return false
 	}
 
-	_, ok := r.offerAtCursor(s)
+	_, ok := r.offerAtCursor(m)
 
 	return ok
 }
 
 // dismissOfferDesc names what the dismiss key does to the forge comment under the cursor.
-func (r reviewScreen) dismissOfferDesc(s panelShared) string {
-	if offer, ok := r.offerAtCursor(s); ok && offer.GetDismissed() {
+func (r reviewScreen) dismissOfferDesc(m *model) string {
+	if offer, ok := r.offerAtCursor(m); ok && offer.GetDismissed() {
 		return "restore the forge comment"
 	}
 
@@ -345,19 +345,19 @@ func (r reviewScreen) dismissOfferDesc(s panelShared) string {
 }
 
 // dismissOfferCmd marks the forge comment under the cursor dismissed, or active again when it was.
-func (r reviewScreen) dismissOfferCmd(h host, s panelShared) tea.Cmd {
-	offer, ok := r.offerAtCursor(s)
+func (r reviewScreen) dismissOfferCmd(m *model) tea.Cmd {
+	offer, ok := r.offerAtCursor(m)
 	if !ok {
 		return nil
 	}
 
-	pullRequests, id, restore := h.clients().pullRequests, offer.GetId(), offer.GetDismissed()
+	pullRequests, id, restore := m.clients().pullRequests, offer.GetId(), offer.GetDismissed()
 	doing, said := "dismissing the comment", "dismissed the comment from the forge"
 	if restore {
 		doing, said = "restoring the comment", "restored the comment from the forge"
 	}
 
-	return r.writeCmd(s, h.beginWrite(doing), said, func(ctx context.Context) error {
+	return r.writeCmd(m, m.beginWrite(doing), said, func(ctx context.Context) error {
 		_, err := pullRequests.DismissForgeThread(ctx, connect.NewRequest(&pullrequestv1.DismissForgeThreadRequest{Id: id, Restore: restore}))
 
 		return err

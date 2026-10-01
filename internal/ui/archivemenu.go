@@ -50,30 +50,30 @@ func (t archived) opensAgent() (*panel.Agent, error) {
 }
 
 // menuTarget is what the archive menu would act on, and none on the folder of a live workflow.
-func (a *archiveScreen) menuTarget(s panelShared) (archived, bool) {
-	if a.onSchedules(s) {
-		schedule, ok := a.hoveredSchedule(s)
+func (a *archiveScreen) menuTarget(m *model) (archived, bool) {
+	if a.onSchedules(m) {
+		schedule, ok := a.hoveredSchedule(m)
 
 		return archived{schedule: &schedule}, ok
 	}
 
 	if a.selected.isActive() {
-		agents := chosenAgents(a.selected, a.listRows(s))
+		agents := chosenAgents(a.selected, a.listRows(m))
 
 		return archived{agents: agents, chosen: true}, len(agents) > 0
 	}
 
-	if workflow, ok := a.hoveredWorkflow(s); ok {
+	if workflow, ok := a.hoveredWorkflow(m); ok {
 		return archived{workflow: &workflow}, true
 	}
 
-	agent, ok := a.hoveredAgent(s)
+	agent, ok := a.hoveredAgent(m)
 
 	return archived{agents: []panel.Agent{agent}}, ok
 }
 
 // archiveMenu is the archive's actions on a row, opened from its menu.
-func archiveMenu(s panelShared, target archived) submenu {
+func archiveMenu(m *model, target archived) submenu {
 	restore, remove := "restore", "delete for good"
 	if target.chosen {
 		restore, remove = "restore all", "delete all for good"
@@ -85,15 +85,15 @@ func archiveMenu(s panelShared, target archived) submenu {
 		kind:  formArchiveMenu,
 		title: "archive",
 		entries: []submenuEntry{
-			writeEntry(restore, s.keys.ArchiveMenu.Restore, func(h host) tea.Cmd { return restoreArchived(h, target) }),
+			writeEntry(restore, m.keys.ArchiveMenu.Restore, func(m *model) tea.Cmd { return restoreArchived(m, target) }),
 			{
 				label: "restore and open",
-				keys:  s.keys.ArchiveMenu.RestoreOpen,
+				keys:  m.keys.ArchiveMenu.RestoreOpen,
 				isOff: err != nil,
 				write: func(m model) (model, tea.Cmd) { return m.restoreAndOpen(target) },
 			},
-			openEntry(remove, s.keys.ArchiveMenu.Delete, func(h host, s panelShared) tea.Cmd {
-				return confirmDeleteArchivedRow(h, s, target)
+			openEntry(remove, m.keys.ArchiveMenu.Delete, func(m *model) tea.Cmd {
+				return confirmDeleteArchivedRow(m, target)
 			}),
 		},
 	}
@@ -113,12 +113,12 @@ func (m model) restoreAndOpen(target archived) (model, tea.Cmd) {
 	return m, cmd
 }
 
-func restoreArchived(h host, target archived) tea.Cmd {
+func restoreArchived(m *model, target archived) tea.Cmd {
 	switch {
 	case target.schedule != nil:
 		schedule := *target.schedule
 
-		return h.writeCmd(
+		return m.writeCmd(
 			"restoring "+schedule.Name,
 			fmt.Sprintf("Could not restore schedule %q", schedule.Name),
 			func(c api) error { return c.restoreSchedule(schedule.ID) },
@@ -126,25 +126,25 @@ func restoreArchived(h host, target archived) tea.Cmd {
 	case target.workflow != nil:
 		workflow := *target.workflow
 
-		return h.writeCmd(
+		return m.writeCmd(
 			"restoring "+workflow.Name,
 			fmt.Sprintf("Could not restore workflow %q", workflow.Name),
 			func(c api) error { return c.restoreWorkflow(workflow.ID) },
 		)
 	}
 
-	return restoreAgentsCmd(h, target.agents)
+	return restoreAgentsCmd(m, target.agents)
 }
 
-func confirmDeleteArchivedRow(h host, s panelShared, target archived) tea.Cmd {
+func confirmDeleteArchivedRow(m *model, target archived) tea.Cmd {
 	switch {
 	case target.schedule != nil:
-		return confirmDeleteSchedule(h, *target.schedule)
+		return confirmDeleteSchedule(m, *target.schedule)
 	case target.workflow != nil:
-		return confirmDeleteWorkflow(h, s, *target.workflow)
+		return confirmDeleteWorkflow(m, *target.workflow)
 	}
 
-	return confirmDeleteArchived(h, s, target.agents)
+	return confirmDeleteArchived(m, target.agents)
 }
 
 // liveArchiveMenu is the archive menu on a row that is not archived yet.
@@ -156,7 +156,7 @@ func liveArchiveMenu(entries ...submenuEntry) submenu {
 	}
 }
 
-func agentsArchiveMenu(s panelShared, agents []panel.Agent, chosen bool) submenu {
+func agentsArchiveMenu(m *model, agents []panel.Agent, chosen bool) submenu {
 	archive, remove := "archive", "archive and delete for good"
 	if chosen {
 		archive, remove = "archive all", "archive and delete all for good"
@@ -165,36 +165,36 @@ func agentsArchiveMenu(s panelShared, agents []panel.Agent, chosen bool) submenu
 	return liveArchiveMenu(
 		submenuEntry{
 			label: archive,
-			keys:  s.keys.ArchiveMenu.Archive,
+			keys:  m.keys.ArchiveMenu.Archive,
 			write: func(m model) (model, tea.Cmd) { return m.archiveAgents(agents) },
 		},
-		openEntry(remove, s.keys.ArchiveMenu.Delete, func(h host, s panelShared) tea.Cmd {
-			return confirmArchiveDeleteAgents(h, s.listing.liveAgents(), agents)
+		openEntry(remove, m.keys.ArchiveMenu.Delete, func(m *model) tea.Cmd {
+			return confirmArchiveDeleteAgents(m, agents)
 		}),
 	)
 }
 
-func workflowArchiveMenu(s panelShared, workflow panel.Workflow) submenu {
+func workflowArchiveMenu(m *model, workflow panel.Workflow) submenu {
 	return liveArchiveMenu(submenuEntry{
 		label: "archive with its agents",
-		keys:  s.keys.ArchiveMenu.Archive,
+		keys:  m.keys.ArchiveMenu.Archive,
 		write: func(m model) (model, tea.Cmd) { return m.archiveWorkflow(workflow) },
 	})
 }
 
-func scheduleArchiveMenu(s panelShared, schedule panel.Schedule) submenu {
+func scheduleArchiveMenu(m *model, schedule panel.Schedule) submenu {
 	return liveArchiveMenu(submenuEntry{
 		label: "archive",
-		keys:  s.keys.ArchiveMenu.Archive,
+		keys:  m.keys.ArchiveMenu.Archive,
 		write: func(m model) (model, tea.Cmd) { return m.archiveSchedule(schedule) },
 	})
 }
 
 // confirmArchiveDeleteAgents asks before live agents are archived and then deleted for good.
-func confirmArchiveDeleteAgents(h host, live []panel.Agent, agents []panel.Agent) tea.Cmd {
-	form, confirmed := deleteAgentsForm(agents, unnamedChildren(live, agents), formKeys())
+func confirmArchiveDeleteAgents(m *model, agents []panel.Agent) tea.Cmd {
+	form, confirmed := deleteAgentsForm(agents, unnamedChildren(m.listing.liveAgents(), agents), formKeys())
 
-	return h.openForm(formState{
+	return m.openForm(formState{
 		kind:   formArchiveDelete,
 		form:   form,
 		update: model.updateForm,

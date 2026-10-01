@@ -38,15 +38,15 @@ func (e *roundsApartError) Error() string {
 
 // toggleAnswer puts the answer to the comment under the cursor on screen, or goes back to the
 // whole change from one already there.
-func (r *reviewScreen) toggleAnswer(s panelShared) tea.Cmd {
+func (r *reviewScreen) toggleAnswer(m *model) tea.Cmd {
 	if r.diff.origin != nil {
-		return r.leaveOrigin(s)
+		return r.leaveOrigin(m)
 	}
 
 	if r.diff.answer != nil {
 		thread := r.diff.answer.ThreadID
 		r.diff.widen()
-		cmd := r.reload(s)
+		cmd := r.reload(m)
 		r.diff.landOn = thread
 
 		return cmd
@@ -70,7 +70,7 @@ func (r *reviewScreen) toggleAnswer(s panelShared) tea.Cmd {
 		ToRound:   answer,
 	}
 
-	return r.reload(s)
+	return r.reload(m)
 }
 
 // doesOfferAnswer reports whether the answer key has anything to do where the cursor stands.

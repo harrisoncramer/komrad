@@ -23,14 +23,14 @@ type documentFormValues struct {
 }
 
 // newDocumentForm puts up the form for a document written for an agent.
-func newDocumentForm(h host, s panelShared, agentID string) tea.Cmd {
-	owner, types := agentID, s.listing.documentTypeNames()
-	if item, ok := s.listing.anyAgent(agentID); ok {
+func newDocumentForm(m *model, agentID string) tea.Cmd {
+	owner, types := agentID, m.listing.documentTypeNames()
+	if item, ok := m.listing.anyAgent(agentID); ok {
 		owner = item.Agent.Name
 	}
 	values := &documentFormValues{Type: defaultDocumentType(types)}
 
-	return h.openForm(redrawnForm(redrawnFormParams{
+	return m.openForm(redrawnForm(redrawnFormParams{
 		Kind:  formDocument,
 		Build: func(m model) (*huh.Form, []string) { return documentForm(values, m.listing.documentTypeNames()) },
 		Submit: holdSubmit(func(m model) (model, tea.Cmd) {
@@ -93,10 +93,10 @@ func defaultDocumentType(types []string) string {
 }
 
 // pressNew puts up the form for a new document.
-func (d *documentsScreen) pressNew(h host, s panelShared) tea.Cmd {
+func (d *documentsScreen) pressNew(m *model) tea.Cmd {
 	if d.editing != nil {
 		return nil
 	}
 
-	return newDocumentForm(h, s, d.agentID)
+	return newDocumentForm(m, d.agentID)
 }

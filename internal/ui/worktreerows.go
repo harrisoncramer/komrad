@@ -154,16 +154,16 @@ func sortWorktreeItems(items []worktreeItem, order sortOrder) {
 }
 
 // rows is the list as the frame draws it, built once per frame and read from that build after.
-func (w *worktreesScreen) rows(s panelShared) []worktreeRow {
+func (w *worktreesScreen) rows(m *model) []worktreeRow {
 	if w.drawn != nil {
 		return w.drawn
 	}
 
-	return w.buildRows(s)
+	return w.buildRows(m)
 }
 
-func (w *worktreesScreen) buildRows(s panelShared) []worktreeRow {
-	return narrowed(s.chrome.filter, narrowedParams[worktreeRow]{
+func (w *worktreesScreen) buildRows(m *model) []worktreeRow {
+	return narrowed(m.filter, narrowedParams[worktreeRow]{
 		rows: worktreeRows(worktreeRowsParams{
 			items: w.shown(),
 			order: worktreesTabs().order(w.sort),

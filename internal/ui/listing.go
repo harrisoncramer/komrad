@@ -65,13 +65,13 @@ func (m *model) unreachableHint() string {
 
 // withListing changes the listing the screens draw from and puts each cursor back where it was.
 func (m *model) withListing(change func(*listing)) tea.Cmd {
-	treeRow := m.agents.list().hovered(m.shared())
-	triageSlot := m.agents.findZoneSlot(m.shared())
-	scheduleRow := m.schedules.list().hovered(m.shared())
-	archiveRow := m.archive.list().hovered(m.shared())
-	archiveScheduleRow := m.archive.scheduleList().hovered(m.shared())
-	worktreeRow := m.worktrees.list().hovered(m.shared())
-	searchRow := m.search.list().hovered(m.shared())
+	treeRow := m.agents.list().hovered(m)
+	triageSlot := m.agents.findZoneSlot(m)
+	scheduleRow := m.schedules.list().hovered(m)
+	archiveRow := m.archive.list().hovered(m)
+	archiveScheduleRow := m.archive.scheduleList().hovered(m)
+	worktreeRow := m.worktrees.list().hovered(m)
+	searchRow := m.search.list().hovered(m)
 
 	before := slices.Clone(m.listing.workflows)
 	beforeTypes := m.listing.documentTypeNames()
@@ -80,15 +80,15 @@ func (m *model) withListing(change func(*listing)) tea.Cmd {
 	now := time.Now()
 	m.agents.triage.refresh(m.listing.agents, now)
 	selected := m.landedRow(treeRow, now)
-	m.agents.apply(m.shared(), selected)
-	m.agents.landInTriage(m.shared(), selected, triageSlot)
-	m.schedules.apply(m, m.shared(), scheduleRow)
-	m.archive.place(m.shared(), archiveRow)
-	m.archive.placeSchedule(m.shared(), archiveScheduleRow)
+	m.agents.apply(m, selected)
+	m.agents.landInTriage(m, selected, triageSlot)
+	m.schedules.apply(m, scheduleRow)
+	m.archive.place(m, archiveRow)
+	m.archive.placeSchedule(m, archiveScheduleRow)
 	m.applyWorktrees(m.listing.worktrees, worktreeRow)
 	m.sizeAgentWindows()
 
-	preview := m.search.place(m.shared(), searchRow)
+	preview := m.search.place(m, searchRow)
 
 	// A form draws its options from the listing it was built over, so it is drawn again when
 	// that listing moves under it.
@@ -107,7 +107,7 @@ func (m *model) afterListing() tea.Cmd {
 	// A screen that draws what it holds beside its own list stages nothing at all.
 	active := m.active()
 	if s, ok := active.(staged); ok && active.doesDrawFromListing() && !m.form.isActive() {
-		s.stage(m, m.shared())
+		s.stage(m)
 	}
 
 	return inspect
@@ -410,10 +410,10 @@ func (m model) applyWrite(result writeResult) (tea.Model, tea.Cmd) {
 	m.report(result.summary, result.err)
 
 	if result.renamed != "" {
-		m.agents.settleRename(m.shared(), result.renamed, result.err)
-		m.documents.settleRename(m.shared(), result.renamed, result.err)
-		m.archive.settleRename(m.shared(), result.renamed, result.err)
-		m.schedules.settleRename(m.shared(), result.renamed, result.err)
+		m.agents.settleRename(&m, result.renamed, result.err)
+		m.documents.settleRename(&m, result.renamed, result.err)
+		m.archive.settleRename(&m, result.renamed, result.err)
+		m.schedules.settleRename(&m, result.renamed, result.err)
 	}
 
 	if result.queued != nil && result.err == nil {
@@ -515,9 +515,9 @@ type landing struct {
 
 // landOn puts the cursor on the row a write made, or holds it for the watch to deliver.
 func (m *model) landOn(row written, now time.Time) {
-	if rowIndexOfKey(m.agents.rows(m.shared()), row.row) >= 0 {
+	if rowIndexOfKey(m.agents.rows(m), row.row) >= 0 {
 		m.landing = landing{}
-		m.agents.apply(m.shared(), row.row)
+		m.agents.apply(m, row.row)
 
 		return
 	}
@@ -539,7 +539,7 @@ func (m *model) landedRow(hovered string, now time.Time) string {
 		return hovered
 	}
 
-	if rowIndexOfKey(m.agents.rows(m.shared()), target.row) < 0 {
+	if rowIndexOfKey(m.agents.rows(m), target.row) < 0 {
 		return hovered
 	}
 

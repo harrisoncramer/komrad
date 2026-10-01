@@ -59,7 +59,7 @@ func (m model) hoveredDetails() details {
 		return details{}
 	}
 
-	return d.details(m.shared())
+	return d.details(&m)
 }
 
 func (m model) isDetailsScreen() bool {
@@ -110,7 +110,7 @@ func (m model) isDetailsDrawn(held details) bool {
 		return true
 	}
 
-	return d.detailsFit(m.shared())
+	return d.detailsFit(&m)
 }
 
 // listFitsDetails is whether the record's share fits under a list, judged with the keys on the
@@ -182,13 +182,13 @@ func (m model) updateDetails(key tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, m.hide()
 	}
 
-	cmd := m.detailsActions().dispatch(&m, m.shared(), k)
+	cmd := m.detailsActions().dispatch(&m, k)
 
 	return m, cmd
 }
 
 func (m *model) detailsActions() screenActionSpec {
-	standing := func(panelShared) bool { return m.filter.isStanding() }
+	standing := func(*model) bool { return m.filter.isStanding() }
 
 	return screenActionSpec{
 		table: []screenAction{
@@ -196,7 +196,7 @@ func (m *model) detailsActions() screenActionSpec {
 				id:   actionFilterClear,
 				keys: func(config.Keybindings) []string { return []string{"esc"} },
 				when: standing,
-				nav: func(navHost, panelShared, string) tea.Cmd {
+				nav: func(*model, string) tea.Cmd {
 					m.clearFilter()
 
 					return nil
@@ -205,7 +205,7 @@ func (m *model) detailsActions() screenActionSpec {
 			{
 				id:   actionDetails,
 				keys: func(config.Keybindings) []string { return []string{"esc"} },
-				nav: func(navHost, panelShared, string) tea.Cmd {
+				nav: func(*model, string) tea.Cmd {
 					m.details.focused = false
 
 					return nil
@@ -214,7 +214,7 @@ func (m *model) detailsActions() screenActionSpec {
 			{
 				id:   actionMove,
 				keys: func(k config.Keybindings) []string { return slices.Concat(k.Nav.Up, k.Nav.Down) },
-				nav: func(_ navHost, _ panelShared, pressed string) tea.Cmd {
+				nav: func(_ *model, pressed string) tea.Cmd {
 					m.moveDetailsCursor(pressed)
 
 					return nil
@@ -223,7 +223,7 @@ func (m *model) detailsActions() screenActionSpec {
 			{
 				id:   actionJump,
 				keys: func(k config.Keybindings) []string { return slices.Concat(k.Nav.Top, k.Nav.Bottom) },
-				nav: func(_ navHost, _ panelShared, pressed string) tea.Cmd {
+				nav: func(_ *model, pressed string) tea.Cmd {
 					m.jumpDetailsCursor(pressed)
 
 					return nil
@@ -232,7 +232,7 @@ func (m *model) detailsActions() screenActionSpec {
 			{
 				id:   actionNavPage,
 				keys: func(k config.Keybindings) []string { return slices.Concat(k.Nav.PageUp, k.Nav.PageDown) },
-				nav: func(_ navHost, _ panelShared, pressed string) tea.Cmd {
+				nav: func(_ *model, pressed string) tea.Cmd {
 					m.pageDetailsCursor(pressed)
 
 					return nil
@@ -241,7 +241,7 @@ func (m *model) detailsActions() screenActionSpec {
 			{
 				id:   actionColumnScroll,
 				keys: func(k config.Keybindings) []string { return slices.Concat(k.Column.ScrollDown, k.Column.ScrollUp) },
-				nav: func(_ navHost, _ panelShared, pressed string) tea.Cmd {
+				nav: func(_ *model, pressed string) tea.Cmd {
 					m.moveDetailsCursor(pressed)
 
 					return nil
@@ -250,7 +250,7 @@ func (m *model) detailsActions() screenActionSpec {
 			{
 				id:   actionFilterOpen,
 				keys: func(config.Keybindings) []string { return []string{filterOpenKey} },
-				nav: func(navHost, panelShared, string) tea.Cmd {
+				nav: func(*model, string) tea.Cmd {
 					m.beginFilter()
 
 					return nil
@@ -260,55 +260,55 @@ func (m *model) detailsActions() screenActionSpec {
 				id:   actionFilterMatch,
 				keys: func(k config.Keybindings) []string { return slices.Concat(k.Filter.NextMatch, k.Filter.PrevMatch) },
 				when: standing,
-				nav:  func(_ navHost, _ panelShared, pressed string) tea.Cmd { return m.jumpToFilterMatch(pressed) },
+				nav:  func(_ *model, pressed string) tea.Cmd { return m.jumpToFilterMatch(pressed) },
 			},
 			{
 				id:   actionDetailsCopy,
 				keys: func(k config.Keybindings) []string { return k.Details.Copy },
-				nav:  func(navHost, panelShared, string) tea.Cmd { return m.copyDetailsField() },
+				nav:  func(*model, string) tea.Cmd { return m.copyDetailsField() },
 			},
 		},
 		legend: []screenLegendRow{
 			{
 				of:    []actionID{actionDetailsCopy},
-				desc:  func(panelShared) string { return "copy field" },
+				desc:  func(*model) string { return "copy field" },
 				strip: true,
 			},
 			{
 				of:    []actionID{actionDetails},
-				desc:  func(panelShared) string { return "back to the list" },
+				desc:  func(*model) string { return "back to the list" },
 				strip: true,
 			},
 			{
 				of:   []actionID{actionFilterOpen},
-				desc: func(panelShared) string { return m.filterDesc() },
+				desc: func(*model) string { return m.filterDesc() },
 			},
 			{
 				of:   []actionID{actionFilterMatch},
-				desc: func(panelShared) string { return "next/prev match" },
+				desc: func(*model) string { return "next/prev match" },
 			},
 			{
 				of:   []actionID{actionFilterClear},
-				desc: func(panelShared) string { return m.filterClearDesc() },
+				desc: func(*model) string { return m.filterClearDesc() },
 			},
 			{
 				of:    []actionID{actionMove},
-				desc:  func(panelShared) string { return "move" },
+				desc:  func(*model) string { return "move" },
 				label: func(k config.Keybindings) string { return keyLabel(k.Nav.Up) + "/" + keyLabel(k.Nav.Down) },
 			},
 			{
 				of:    []actionID{actionJump},
-				desc:  func(panelShared) string { return "top/bottom" },
+				desc:  func(*model) string { return "top/bottom" },
 				label: func(k config.Keybindings) string { return keyLabel(k.Nav.Top) + "/" + keyLabel(k.Nav.Bottom) },
 			},
 			{
 				of:    []actionID{actionNavPage},
-				desc:  func(panelShared) string { return "page" },
+				desc:  func(*model) string { return "page" },
 				label: navPageLabel,
 			},
 			{
 				of:    []actionID{actionColumnScroll},
-				desc:  func(panelShared) string { return "scroll" },
+				desc:  func(*model) string { return "scroll" },
 				label: columnScrollLabel,
 			},
 		},
@@ -316,7 +316,7 @@ func (m *model) detailsActions() screenActionSpec {
 }
 
 func (m model) detailsHelp() keyMap {
-	own := m.detailsActions().help(m.shared())
+	own := m.detailsActions().help(&m)
 
 	return keyMap{
 		short: slices.Concat(own.short, m.globalHelp()),
@@ -427,7 +427,7 @@ func (m model) grownDetailsLines(held details) int {
 		return lines
 	}
 
-	return max(min(lines, d.detailsRoom(m.shared())-detailsChromeLines-1), 0)
+	return max(min(lines, d.detailsRoom(&m)-detailsChromeLines-1), 0)
 }
 
 // detailsWanted is the lines the whole record takes: its notices, a blank under them, and every

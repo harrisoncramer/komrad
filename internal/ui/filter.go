@@ -156,7 +156,7 @@ func (m model) filteredRows() ([]filterRow, bool) {
 		return nil, false
 	}
 
-	return rows.filterRows(m.shared()), true
+	return rows.filterRows(&m), true
 }
 
 // beginFilter starts a search from nothing, keeping the cursor on the row it was on.
@@ -314,7 +314,7 @@ func (m model) hoveredFilterKey() string {
 		return ""
 	}
 
-	return rows.hoveredKey(m.shared())
+	return rows.hoveredKey(&m)
 }
 
 func (m *model) placeFilteredCursor(hovered string) {
@@ -325,7 +325,7 @@ func (m *model) placeFilteredCursor(hovered string) {
 	}
 
 	if rows, ok := m.active().(filtered); ok {
-		rows.placeAt(m, m.shared(), hovered)
+		rows.placeAt(m, hovered)
 	}
 }
 
@@ -499,9 +499,9 @@ func (m model) matchAt(delta int) (string, bool) {
 
 // filterDesc names the filter key by the search standing in the list.
 func (m model) filterDesc() string {
-	return filterDescOf(m.shared())
+	return filterDescOf(&m)
 }
 
 func (m model) filterClearDesc() string {
-	return filterClearDescOf(m.shared())
+	return filterClearDescOf(&m)
 }

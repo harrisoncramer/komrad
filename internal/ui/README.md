@@ -29,10 +29,9 @@ list, filtered for a search over it, tabbed for a strip over it, columned for a 
 and staged for a row it puts on the stage. The root holds the six screens by value and
 m.active() is the switch from the screen enum to a pointer into the one that is up; it carries
 no default, so the exhaustive check refuses a screen with no arm, and screens_test.go pins
-which facets each implements. Every method on a screen takes host, the short interface of what
-a screen may ask the root to do, and panelShared, the read-only value of what the root holds;
-a screen changes screens through host.enter and never by writing into another screen, and a
-value of panelShared is dead after any host call. The root's own state is what routeAsyncMessage
+which facets each implements. Every method on a screen takes a pointer to the root, which it reads
+freely and writes only through the root's own methods; a screen changes screens through
+enter and never by writing into another screen. The root's own state is what routeAsyncMessage
 still switches on: the watch, the write result, the ticks, focus and blur, and the
 inspections.
 
@@ -40,7 +39,7 @@ The agents screen is the root's twin, and the line between them is drawn by who 
 state. The stage, the warm-up and the write result's landing are the root's, since a pane on
 the stage is a panel concern and is shown on the schedules screen as well; each asks the
 agents screen for the row its cursor is on through a named method, hoveredPane, selectedAgent
-and focusOn, and the screen asks the root to stage that row through host.stageSelection.
+and focusOn, and the screen asks the root to stage that row through stageSelection.
 
 Everything else in the package is one of those three for one screen.
 
@@ -160,9 +159,9 @@ archiveforms.go, with forms.go holding only the machinery they share. Each scree
 a screenActionSpec in a file of their own, agentsactions.go and the rest, except search, whose
 keys sit in search.go. list.go is the list the four list screens share: screenList, the cursor
 and the keys every list answers, screenListParams, what a list screen hands the root to draw,
-and drawer, the bridge through which a screen reaches the root's drawing of the header, the
-record, the messages and the legend. The review composes its own frame through the same bridge,
-and the editor it opens on the stage goes through host.
+and the root's drawing of the header, the record, the messages and the legend that a screen
+calls. The review composes its own frame from the same pieces, and the editor it opens on the
+stage goes through the root.
 
 Shared concerns: api.go, actions.go, column.go, details.go, document.go, filter.go, forms.go,
 help.go, info.go, logs.go, listing.go, keys.go, clipboard.go, report.go, convert.go.

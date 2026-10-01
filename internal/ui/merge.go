@@ -28,7 +28,7 @@ var (
 )
 
 // mergeMenu is the ways to merge an agent's pull request, opened from the git menu.
-func mergeMenu(s panelShared, from screen, item panel.AgentRow) submenu {
+func mergeMenu(m *model, from screen, item panel.AgentRow) submenu {
 	agentID := item.Agent.ID
 	refused := openPullRequestRefusal(item) != nil
 	run := func(choice mergeChoice) func(model) (model, tea.Cmd) {
@@ -41,19 +41,19 @@ func mergeMenu(s panelShared, from screen, item panel.AgentRow) submenu {
 		entries: []submenuEntry{
 			{
 				label: "merge",
-				keys:  s.keys.Merge.Merge,
+				keys:  m.keys.Merge.Merge,
 				isOff: refused,
 				write: run(mergeChoiceMerge),
 			},
 			{
 				label: "merge and archive",
-				keys:  s.keys.Merge.MergeArchive,
+				keys:  m.keys.Merge.MergeArchive,
 				isOff: refused || from == screenArchive,
 				write: run(mergeChoiceMergeArchive),
 			},
 			{
 				label: autoMergeLabel(item),
-				keys:  s.keys.Merge.AutoMerge,
+				keys:  m.keys.Merge.AutoMerge,
 				isOff: autoMergeRefusal(item) != nil,
 				write: run(mergeChoiceAutoMerge),
 			},

@@ -237,13 +237,13 @@ func (m *model) activeTabs() (tabbed, bool) {
 func (m model) isTabsDrawn() bool {
 	t, ok := m.activeTabs()
 
-	return ok && t.tabsFit(m.shared())
+	return ok && t.tabsFit(&m)
 }
 
 func (m model) isTabsFocused() bool {
 	t, ok := m.activeTabs()
 
-	return ok && t.tabsState().focused && t.tabsFit(m.shared())
+	return ok && t.tabsState().focused && t.tabsFit(&m)
 }
 
 func (m model) tabbedHeader(title, tally string) string {
@@ -302,7 +302,7 @@ func (m *model) blurTabs() {
 
 func (m model) focusTabs() model {
 	t, ok := m.activeTabs()
-	if !ok || !t.tabsFit(m.shared()) {
+	if !ok || !t.tabsFit(&m) {
 		return m
 	}
 

@@ -23,8 +23,8 @@ func (d *documentsScreen) renamingField() *nameEdit {
 }
 
 // openRename types over the name of the item under the cursor once its text has been read.
-func (d *documentsScreen) openRename(h host, s panelShared) tea.Cmd {
-	item, ok := d.hovered(s)
+func (d *documentsScreen) openRename(m *model) tea.Cmd {
+	item, ok := d.hovered(m)
 	if !ok || d.editing != nil {
 		return nil
 	}
@@ -32,11 +32,11 @@ func (d *documentsScreen) openRename(h host, s panelShared) tea.Cmd {
 	read, asked := d.bodies[item.id]
 	switch {
 	case asked && read.err != nil:
-		h.note(messageWarning, fmt.Sprintf("%q could not be read, so it cannot be renamed", item.name))
+		m.note(messageWarning, fmt.Sprintf("%q could not be read, so it cannot be renamed", item.name))
 
 		return nil
 	case !asked || read.version == 0:
-		h.note(messageWarning, fmt.Sprintf("%q has not been read yet, so it cannot be renamed", item.name))
+		m.note(messageWarning, fmt.Sprintf("%q has not been read yet, so it cannot be renamed", item.name))
 
 		return nil
 	}
@@ -51,27 +51,27 @@ func (d *documentsScreen) openRename(h host, s panelShared) tea.Cmd {
 }
 
 // reconcileRename drops an open rename once the cursor leaves its row.
-func (d *documentsScreen) reconcileRename(s panelShared) {
-	if d.renaming != nil && !reconcileNameEdit(d.renaming.nameEdit, d.rows(s), d.hoveredKey(s), func(r documentRow) string { return r.item.name }) {
+func (d *documentsScreen) reconcileRename(m *model) {
+	if d.renaming != nil && !reconcileNameEdit(d.renaming.nameEdit, d.rows(m), d.hoveredKey(m), func(r documentRow) string { return r.item.name }) {
 		d.renaming = nil
 	}
 }
 
-func (d *documentsScreen) updateRename(h host, s panelShared, msg tea.Msg) tea.Cmd {
-	switch d.renaming.take(h, s.register, msg) {
+func (d *documentsScreen) updateRename(m *model, msg tea.Msg) tea.Cmd {
+	switch d.renaming.take(m, msg) {
 	case nameEditHidden:
-		return h.hide()
+		return m.hide()
 	case nameEditCancelled:
 		d.renaming = nil
 	case nameEditSubmitted:
-		return d.saveRename(h)
+		return d.saveRename(m)
 	case nameEditTyping:
 	}
 
 	return nil
 }
 
-func (d *documentsScreen) saveRename(h host) tea.Cmd {
+func (d *documentsScreen) saveRename(m *model) tea.Cmd {
 	rename := d.renaming
 	name, ok := rename.submit()
 	if !ok {
@@ -89,7 +89,7 @@ func (d *documentsScreen) saveRename(h host) tea.Cmd {
 	}
 	item.name = name
 
-	return stampRename(h.writeCmd(
+	return stampRename(m.writeCmd(
 		"renaming "+rename.was,
 		fmt.Sprintf("Could not rename document %q", rename.was),
 		func(a api) error { return a.writeDocument(item, read.version, read.body) },
@@ -98,13 +98,13 @@ func (d *documentsScreen) saveRename(h host) tea.Cmd {
 
 // settleRename marks the field saved once its write has landed, or open for another try when it
 // failed.
-func (d *documentsScreen) settleRename(s panelShared, row string, err error) {
+func (d *documentsScreen) settleRename(m *model, row string, err error) {
 	if d.renaming == nil {
 		return
 	}
 	d.renaming.settle(row, err)
 
-	d.reconcileRename(s)
+	d.reconcileRename(m)
 }
 
 func (d *documentsScreen) isRenaming() bool {

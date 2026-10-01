@@ -15,7 +15,7 @@ import (
 )
 
 // documentsMenu is the ways into an agent's documents, opened from its menu.
-func documentsMenu(s panelShared, from screen, item panel.AgentRow) submenu {
+func documentsMenu(m *model, from screen, item panel.AgentRow) submenu {
 	agentID := item.Agent.ID
 
 	return submenu{
@@ -24,7 +24,7 @@ func documentsMenu(s panelShared, from screen, item panel.AgentRow) submenu {
 		entries: []submenuEntry{
 			{
 				label: "view documents",
-				keys:  s.keys.DocumentsMenu.View,
+				keys:  m.keys.DocumentsMenu.View,
 				isOff: item.Documents == 0,
 				open: func(m model) (tea.Model, tea.Cmd) {
 					return m.enterSubpage(from, agentID, subpageDocuments)
@@ -32,7 +32,7 @@ func documentsMenu(s panelShared, from screen, item panel.AgentRow) submenu {
 			},
 			{
 				label: "new document",
-				keys:  s.keys.DocumentsMenu.New,
+				keys:  m.keys.DocumentsMenu.New,
 				open: func(m model) (tea.Model, tea.Cmd) {
 					return m.openNewDocument(agentID)
 				},
@@ -49,15 +49,15 @@ func (m model) openNewDocument(agentID string) (tea.Model, tea.Cmd) {
 	}
 
 	m.leaveForm()
-	cmd := newDocumentForm(&m, m.shared(), agentID)
+	cmd := newDocumentForm(&m, agentID)
 
 	return m, cmd
 }
 
 // documentTypesMenu is every document type, the context of the one under the cursor drawn beside
 // the list and the menu key opening the ways to act on it.
-func documentTypesMenu(s panelShared) submenu {
-	types := s.listing.documentTypes
+func documentTypesMenu(m *model) submenu {
+	types := m.listing.documentTypes
 
 	return submenu{
 		kind:  formDocumentTypesMenu,
@@ -67,7 +67,7 @@ func documentTypesMenu(s panelShared) submenu {
 			return submenuEntry{label: t.GetName()}
 		}),
 		actions: func(choice int) submenu {
-			return documentTypeMenu(s, typeAt(types, choice))
+			return documentTypeMenu(m, typeAt(types, choice))
 		},
 		preview: func(choice, width, height int) string {
 			return documentTypePreview(typeAt(types, choice), width, height)
@@ -97,9 +97,9 @@ func documentTypePreview(t *agentv1.DocumentType, width, height int) string {
 }
 
 // documentTypeMenu is the actions on the document type under the list's cursor, nil for none.
-func documentTypeMenu(s panelShared, t *agentv1.DocumentType) submenu {
-	edit := submenuEntry{label: "edit", keys: s.keys.DocumentTypesMenu.Edit, isOff: true}
-	remove := submenuEntry{label: "delete", keys: s.keys.DocumentTypesMenu.Delete, isOff: true}
+func documentTypeMenu(m *model, t *agentv1.DocumentType) submenu {
+	edit := submenuEntry{label: "edit", keys: m.keys.DocumentTypesMenu.Edit, isOff: true}
+	remove := submenuEntry{label: "delete", keys: m.keys.DocumentTypesMenu.Delete, isOff: true}
 	title := "document types"
 	if t != nil {
 		title = t.GetName()
@@ -114,7 +114,7 @@ func documentTypeMenu(s panelShared, t *agentv1.DocumentType) submenu {
 			edit,
 			{
 				label: "new type",
-				keys:  s.keys.DocumentTypesMenu.New,
+				keys:  m.keys.DocumentTypesMenu.New,
 				form:  newTypeForm,
 			},
 			remove,
@@ -125,21 +125,21 @@ func documentTypeMenu(s panelShared, t *agentv1.DocumentType) submenu {
 // documentEntry is one entry of the menu on a document.
 type documentEntry struct {
 	entry submenuEntry
-	run   func(d *documentsScreen, h host, s panelShared) tea.Cmd
+	run   func(d *documentsScreen, m *model) tea.Cmd
 }
 
-func (d *documentsScreen) itemMenu(s panelShared) (submenu, bool) {
-	if d.isDiffFocused(s) {
+func (d *documentsScreen) itemMenu(m *model) (submenu, bool) {
+	if d.isDiffFocused(m) {
 		return submenu{}, false
 	}
 
-	return documentMenu(s, d), true
+	return documentMenu(m, d), true
 }
 
 // documentMenu is the actions on the hovered document, and on the documents it is listed among.
-func documentMenu(s panelShared, d *documentsScreen) submenu {
-	item, hovered := d.hovered(s)
-	title := strings.Join(d.crumbRoot(s), " ")
+func documentMenu(m *model, d *documentsScreen) submenu {
+	item, hovered := d.hovered(m)
+	title := strings.Join(d.crumbRoot(m), " ")
 	if hovered {
 		title = item.name
 	}
@@ -148,7 +148,7 @@ func documentMenu(s panelShared, d *documentsScreen) submenu {
 		{
 			entry: submenuEntry{
 				label: d.editLabel(),
-				keys:  s.keys.DocumentMenu.Edit,
+				keys:  m.keys.DocumentMenu.Edit,
 				isOff: !hovered && d.editing == nil,
 			},
 			run: (*documentsScreen).pressEdit,
@@ -156,7 +156,7 @@ func documentMenu(s panelShared, d *documentsScreen) submenu {
 		{
 			entry: submenuEntry{
 				label: "rename",
-				keys:  s.keys.DocumentMenu.Rename,
+				keys:  m.keys.DocumentMenu.Rename,
 				isOff: !hovered || d.editing != nil,
 			},
 			run: (*documentsScreen).openRename,
@@ -164,7 +164,7 @@ func documentMenu(s panelShared, d *documentsScreen) submenu {
 		{
 			entry: submenuEntry{
 				label: "new document",
-				keys:  s.keys.DocumentMenu.New,
+				keys:  m.keys.DocumentMenu.New,
 				isOff: d.editing != nil,
 			},
 			run: (*documentsScreen).pressNew,
@@ -178,7 +178,7 @@ func documentMenu(s panelShared, d *documentsScreen) submenu {
 			entry, run := e.entry, e.run
 			entry.open = func(m model) (tea.Model, tea.Cmd) {
 				m.leaveForm()
-				cmd := run(&m.documents, &m, m.shared())
+				cmd := run(&m.documents, &m)
 
 				return m, cmd
 			}
