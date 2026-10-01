@@ -115,6 +115,13 @@ func ValidateKeybindings(keys config.Keybindings) error {
 		return err
 	}
 
+	if err := validateSubmenuKeys("document type menu", []submenuKeys{
+		{name: "open", keys: keys.DocumentTypesMenu.Open},
+		{name: "delete", keys: keys.DocumentMenu.Delete},
+	}); err != nil {
+		return err
+	}
+
 	if err := validateSubmenuKeys("document menu", []submenuKeys{
 		{name: "edit", keys: keys.DocumentMenu.Edit},
 		{name: "rename", keys: keys.DocumentMenu.Rename},

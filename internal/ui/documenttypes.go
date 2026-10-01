@@ -57,27 +57,34 @@ func (d *documentsScreen) pressNew(h host, s panelShared) tea.Cmd {
 
 // newTypeForm puts up the form for a document type, asking its name and its context.
 func newTypeForm(h host) tea.Cmd {
+	return h.openForm(newTypeFormState())
+}
+
+// newTypeFormState is the form that defines a document type.
+func newTypeFormState() formState {
 	values := &documentTypeFormValues{}
 
-	return h.openForm(redrawnForm(redrawnFormParams{
+	return redrawnForm(redrawnFormParams{
 		Kind:     formDocumentType,
 		Build:    func(model) (*huh.Form, []string) { return documentTypeForm(values, formKeys()) },
 		Editable: []editableText{{key: "context", value: &values.Context}},
 		Submit: holdSubmit(func(m model) (model, tea.Cmd) {
-			if checkDocumentTypeName(values.Name) != nil || checkDocumentTypeContext(values.Context) != nil {
-				return m, nil
-			}
-
 			name, typeContext := strings.TrimSpace(values.Name), values.Context
 			cmd := m.writeCmd(
 				"defining "+name,
 				fmt.Sprintf("Could not define document type %q", name),
-				func(a api) error { return a.createDocumentType(name, typeContext) },
+				func(a api) error {
+					if err := errors.Join(checkDocumentTypeName(name), checkDocumentTypeContext(typeContext)); err != nil {
+						return err
+					}
+
+					return a.createDocumentType(name, typeContext)
+				},
 			)
 
 			return m, cmd
 		}),
-	}))
+	})
 }
 
 func documentTypeForm(values *documentTypeFormValues, keys config.FormKeys) (*huh.Form, []string) {
@@ -96,6 +103,11 @@ func (d *documentsScreen) confirmDeleteType(h host, s panelShared) tea.Cmd {
 		return nil
 	}
 
+	return h.openForm(deleteTypeForm(item))
+}
+
+// deleteTypeForm asks before a document type is deleted.
+func deleteTypeForm(item documentItem) formState {
 	form, confirmed := confirmForm(
 		fmt.Sprintf("Delete document type %q?", item.name),
 		"Agents can no longer write documents of this type. A type documents are still written as is not deleted.",
@@ -103,7 +115,7 @@ func (d *documentsScreen) confirmDeleteType(h host, s panelShared) tea.Cmd {
 		formKeys(),
 	)
 
-	return h.openForm(formState{
+	return formState{
 		kind:   formDocumentTypeDelete,
 		form:   form,
 		update: model.updateForm,
@@ -118,7 +130,7 @@ func (d *documentsScreen) confirmDeleteType(h host, s panelShared) tea.Cmd {
 				func(a api) error { return a.deleteDocumentType(item.id) },
 			)
 		}),
-	})
+	}
 }
 
 func checkDocumentTypeName(name string) error {

@@ -39,6 +39,8 @@ type submenuEntry struct {
 	isDivider bool
 	// opens is the menu the entry opens to the right of its own.
 	opens *submenu
+	// form is the form the entry opens to the right of its own menu.
+	form func() formState
 	// write is what the entry does, the menu held up while a write it began is in flight.
 	write func(m model) (model, tea.Cmd)
 	// open leaves the menu for the form or screen the entry goes on to.
@@ -119,6 +121,8 @@ func submenuState(parents []submenuLevel, level submenuLevel) formState {
 			switch {
 			case entry.opens != nil:
 				return m.pushSubmenu(append(parents[:len(parents):len(parents)], level), newSubmenuLevel(*entry.opens))
+			case entry.form != nil:
+				return m.stackForm(append(parents[:len(parents):len(parents)], level), entry.form())
 			case entry.write != nil:
 				return holdSubmit(entry.write)(m)
 			case entry.open != nil:
@@ -139,6 +143,22 @@ func submenuState(parents []submenuLevel, level submenuLevel) formState {
 // pushSubmenu draws a menu to the right of the one it was opened from.
 func (m model) pushSubmenu(parents []submenuLevel, level submenuLevel) (tea.Model, tea.Cmd) {
 	cmd := m.openForm(submenuState(parents, level))
+
+	return m, cmd
+}
+
+// stackForm draws a form to the right of the menus it was opened from, the back key returning to
+// the nearest of them.
+func (m model) stackForm(menus []submenuLevel, form formState) (tea.Model, tea.Cmd) {
+	form.crumbs = append(xslice.Map(menus, func(l submenuLevel) string { return l.menu.crumb }), form.crumbs...)
+	form.leading = func(width, _ int) []string {
+		return frozenMenus(menus, width-formColumnFloor)
+	}
+	form.back = func(m model) (tea.Model, tea.Cmd) {
+		return m.backSubmenu(menus)
+	}
+
+	cmd := m.openForm(form)
 
 	return m, cmd
 }
@@ -193,12 +213,15 @@ func submenuForm(level submenuLevel, nested bool, keys config.FormKeys) *huh.For
 // submenuLeading is the menus under the one on top drawn gray, as many of the nearest as leave the
 // top its own width.
 func submenuLeading(parents []submenuLevel, top submenuLevel, width int) []string {
-	room := width - lipgloss.Width(frozenSubmenu(top, len(parents) > 0))
+	return frozenMenus(parents, width-lipgloss.Width(frozenSubmenu(top, len(parents) > 0)))
+}
 
+// frozenMenus is a stack of menus drawn gray, as many of the nearest as fit in room.
+func frozenMenus(levels []submenuLevel, room int) []string {
 	var drawn []string
 
-	for i := len(parents) - 1; i >= 0; i-- {
-		view := frozenSubmenu(parents[i], i > 0)
+	for i := len(levels) - 1; i >= 0; i-- {
+		view := frozenSubmenu(levels[i], i > 0)
 
 		room -= lipgloss.Width(view) + dividerCols
 		if room < 0 {

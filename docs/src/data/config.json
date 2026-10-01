@@ -522,7 +522,7 @@
               "key": "list",
               "path": "keybindings.document_types_menu.list",
               "type": "array",
-              "description": "Open the document types, where a person defines the sorts of document agents write.",
+              "description": "List every document type in a menu of its own, each type opening the ways to act on it.",
               "default": "[\"l\"]"
             },
             {
@@ -531,6 +531,13 @@
               "type": "array",
               "description": "Define a new document type, from a form asking its name and the context an agent reads\nbefore writing one.",
               "default": "[\"c\"]"
+            },
+            {
+              "key": "open",
+              "path": "keybindings.document_types_menu.open",
+              "type": "array",
+              "description": "Open the document types on the type picked from the list, where it can be edited, renamed\nand stepped back through.",
+              "default": "[\"o\"]"
             }
           ],
           "sections": []
