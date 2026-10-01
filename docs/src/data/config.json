@@ -188,7 +188,7 @@
           "key": "triage_rows",
           "path": "layout.triage_rows",
           "type": "integer",
-          "description": "How many agents the triage zone at the top of the agents list holds, the agents that are waiting on you or have hit an error. Zero turns the zone off.",
+          "description": "How many agents the triage zone at the top of the agents list holds, the agents most in need of you, the most urgent first. Zero turns the zone off.",
           "default": "0"
         }
       ],
@@ -214,7 +214,7 @@
               "key": "triage",
               "path": "keybindings.agents.triage",
               "type": "array",
-              "description": "Move the keyboard into the triage zone at the top of the list, or back out of it into the tree.",
+              "description": "Jump to the first agent in the triage zone at the top of the list.",
               "default": "[\"t\"]"
             },
             {

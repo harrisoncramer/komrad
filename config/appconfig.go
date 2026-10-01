@@ -298,7 +298,7 @@ func FixedFormKeys() FormKeys {
 type AgentsKeys struct {
 	// Step out of a workflow scope, or open the view switcher at the root.
 	Back []string `mapstructure:"back" default:"esc"`
-	// Move the keyboard into the triage zone at the top of the list, or back out of it into the tree.
+	// Jump to the first agent in the triage zone at the top of the list.
 	Triage []string `mapstructure:"triage" default:"t"`
 	// Attach to the hovered agent, or to the workflow's own orchestrator when the cursor is on a
 	// workflow. Either one is started first if it is not running.
@@ -709,7 +709,7 @@ type Layout struct {
 	InfoHeight float64 `mapstructure:"info_height"`
 	// How many lines the details under the list draw, either a share of the sidebar's height below one or a whole number of lines. The marks the hovered row is carrying are spelled out in that same room, ahead of the fields. The chrome around them is added on top, and the two together never take more than half the sidebar's height. Once the details hold the keys they grow past this to show the whole record, as far as the sidebar allows.
 	DetailsHeight float64 `mapstructure:"details_height"`
-	// How many agents the triage zone at the top of the agents list holds, the agents that are waiting on you or have hit an error. Zero turns the zone off.
+	// How many agents the triage zone at the top of the agents list holds, the agents most in need of you, the most urgent first. Zero turns the zone off.
 	TriageRows int `mapstructure:"triage_rows"`
 }
 

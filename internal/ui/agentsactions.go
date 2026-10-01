@@ -31,17 +31,7 @@ func (a *agentsScreen) modeActions() []screenAction {
 			keys: func(k config.Keybindings) []string { return k.Agents.Triage },
 			when: a.isTriageReachable,
 			nav: func(h navHost, s panelShared, _ string) tea.Cmd {
-				a.toggleTriage(h, s)
-
-				return nil
-			},
-		},
-		screenAction{
-			id:   actionAgentTriageBack,
-			keys: func(k config.Keybindings) []string { return k.Agents.Back },
-			when: func(s panelShared) bool { return a.triage.focused && list.isBrowsing(s) },
-			nav: func(h navHost, s panelShared, _ string) tea.Cmd {
-				a.toggleTriage(h, s)
+				a.jumpToTriage(h, s)
 
 				return nil
 			},
@@ -86,7 +76,7 @@ func (a *agentsScreen) isBrowsing(s panelShared) bool {
 	return a.list().isBrowsing(s)
 }
 
-// isTriageReachable reports whether the triage key has a zone to move into.
+// isTriageReachable reports whether the triage key has a zone to jump to.
 func (a *agentsScreen) isTriageReachable(s panelShared) bool {
 	return a.triage.isOn() && a.isBrowsing(s)
 }
@@ -129,7 +119,7 @@ func (a *agentsScreen) browsingLegend() []screenLegendRow {
 		},
 		{
 			of:   []actionID{actionAgentTriage},
-			desc: a.triageDesc,
+			desc: func(panelShared) string { return "triage" },
 			show: a.isTriageReachable,
 		},
 		{
@@ -155,14 +145,6 @@ func (a *agentsScreen) browsingLegend() []screenLegendRow {
 			desc: filterClearDescOf,
 		},
 	}, screenNavLegend())
-}
-
-func (a *agentsScreen) triageDesc(panelShared) string {
-	if a.triage.focused {
-		return "leave triage"
-	}
-
-	return "triage"
 }
 
 func (a *agentsScreen) showHiddenDesc() string {

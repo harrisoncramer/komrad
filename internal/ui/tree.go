@@ -230,7 +230,7 @@ func sortedAgents(items []panel.AgentRow, columns []sortColumn[panel.AgentRow], 
 
 // rows are the rows the keyboard can reach.
 func (a *agentsScreen) rows(s panelShared) []agentRow {
-	return a.layout(s).cursorRows(a.triage)
+	return a.layout(s).cursorRows()
 }
 
 // layout is the list as drawn, or as it would be drawn when nothing has cached it.

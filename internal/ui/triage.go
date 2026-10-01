@@ -10,6 +10,7 @@ import (
 	"komrad/internal/ui/panel"
 	"komrad/internal/view"
 	"komrad/lib/xslice"
+	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 )
 
 const (
@@ -18,46 +19,182 @@ const (
 	triageDividerKey = "triage:divider"
 )
 
+// triageTier is how urgently an agent wants a person, the most urgent first.
+type triageTier int
+
+const (
+	tierBlocked triageTier = iota + 1
+	tierBroken
+	tierReady
+	tierYourMove
+)
+
+// triageKind says who can clear what a rule holds on.
+type triageKind int
+
+const (
+	// kindPerson holds whatever the agent is doing.
+	kindPerson triageKind = iota
+	// kindAgent holds only once the agent has been told and is not working on it.
+	kindAgent
+)
+
+// triageClock says where the wait behind a rule starts.
+type triageClock int
+
+const (
+	// clockState starts when the agent's state last changed.
+	clockState triageClock = iota
+	// clockSeen starts when the panel first saw the rule hold.
+	clockSeen
+)
+
 // triageRule is one reason an agent is waiting on a person.
 type triageRule struct {
-	reason string
-	tone   paint.Tone
-	is     func(panel.AgentRow) bool
+	name  string
+	tier  triageTier
+	kind  triageKind
+	clock triageClock
+	tone  paint.Tone
+	is    func(triageSubject) bool
 }
 
-// triageRules are the reasons an agent needs triage, the first that holds naming it.
+// triageSubject is an agent as the rules read it.
+type triageSubject struct {
+	item             panel.AgentRow
+	hasThinkingChild bool
+}
+
+// triageRules are the reasons an agent needs triage, grouped by tier, the first that holds in the
+// most urgent tier naming it.
 var triageRules = []triageRule{
 	{
-		reason: "asking",
-		tone:   paint.ToneWarning,
-		is:     func(item panel.AgentRow) bool { return displayState(item) == panel.StateWaiting },
+		name:  "asking",
+		tier:  tierBlocked,
+		kind:  kindPerson,
+		clock: clockState,
+		tone:  paint.ToneWarning,
+		is:    func(s triageSubject) bool { return displayState(s.item) == panel.StateWaiting },
 	},
 	{
-		reason: "errored",
-		tone:   paint.ToneDanger,
-		is:     func(item panel.AgentRow) bool { return displayState(item) == panel.StateErrored },
-	},
-	{
-		reason: "launch failed",
-		tone:   paint.ToneDanger,
-		is:     func(item panel.AgentRow) bool { return item.Agent.State == panel.StateFailedToCreate },
-	},
-	{
-		reason: "cleanup failed",
-		tone:   paint.ToneDanger,
-		is:     func(item panel.AgentRow) bool { return item.Agent.State == panel.StateFailedToCleanup },
-	},
-	{
-		reason: "script failed",
-		tone:   paint.ToneDanger,
-		is:     func(item panel.AgentRow) bool { return item.FailedRun },
-	},
-	{
-		reason: "conflict",
-		tone:   paint.ToneWarning,
-		is: func(item panel.AgentRow) bool {
-			return item.Agent.SequenceInProgress && displayState(item) != panel.StateThinking
+		name:  "checkout conflict",
+		tier:  tierBlocked,
+		kind:  kindAgent,
+		clock: clockSeen,
+		tone:  paint.ToneWarning,
+		is: func(s triageSubject) bool {
+			return s.item.Agent.SequenceInProgress && s.item.Agent.ParentAgentID == nil
 		},
+	},
+	{
+		name:  "errored",
+		tier:  tierBroken,
+		kind:  kindAgent,
+		clock: clockState,
+		tone:  paint.ToneDanger,
+		is:    func(s triageSubject) bool { return displayState(s.item) == panel.StateErrored },
+	},
+	{
+		name:  "launch failed",
+		tier:  tierBroken,
+		kind:  kindPerson,
+		clock: clockState,
+		tone:  paint.ToneDanger,
+		is:    func(s triageSubject) bool { return s.item.Agent.State == panel.StateFailedToCreate },
+	},
+	{
+		name:  "cleanup failed",
+		tier:  tierBroken,
+		kind:  kindPerson,
+		clock: clockState,
+		tone:  paint.ToneDanger,
+		is:    func(s triageSubject) bool { return s.item.Agent.State == panel.StateFailedToCleanup },
+	},
+	{
+		name:  "script failed",
+		tier:  tierBroken,
+		kind:  kindPerson,
+		clock: clockSeen,
+		tone:  paint.ToneDanger,
+		is:    func(s triageSubject) bool { return s.item.FailedRun },
+	},
+	{
+		name:  "ci failing",
+		tier:  tierBroken,
+		kind:  kindAgent,
+		clock: clockSeen,
+		tone:  paint.ToneDanger,
+		is:    hasPullRequestIn(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_FAILING),
+	},
+	{
+		name:  "pr conflict",
+		tier:  tierBroken,
+		kind:  kindAgent,
+		clock: clockSeen,
+		tone:  paint.ToneDanger,
+		is:    hasPullRequestIn(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CONFLICTING),
+	},
+	{
+		name:  "ready to merge",
+		tier:  tierReady,
+		kind:  kindPerson,
+		clock: clockSeen,
+		tone:  paint.ToneSuccess,
+		is:    hasPullRequestIn(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED),
+	},
+	{
+		name:  "ready for review",
+		tier:  tierReady,
+		kind:  kindPerson,
+		clock: clockSeen,
+		tone:  paint.ToneSuccess,
+		is: func(s triageSubject) bool {
+			return hasPullRequestIn(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN)(s) &&
+				s.item.PullRequest.Checks == pullrequestv1.Checks_CHECKS_PASSING
+		},
+	},
+	{
+		name:  "approved, behind",
+		tier:  tierReady,
+		kind:  kindAgent,
+		clock: clockSeen,
+		tone:  paint.ToneSuccess,
+		is:    hasPullRequestIn(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED_WAITING),
+	},
+	{
+		name:  "changes requested",
+		tier:  tierReady,
+		kind:  kindAgent,
+		clock: clockSeen,
+		tone:  paint.ToneWarning,
+		is:    hasPullRequestIn(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHANGES_REQUESTED),
+	},
+	{
+		name:  "unanswered comments",
+		tier:  tierReady,
+		kind:  kindAgent,
+		clock: clockSeen,
+		tone:  paint.ToneWarning,
+		is:    func(s triageSubject) bool { return s.item.PersonComments.GetOpen() > 0 },
+	},
+	{
+		name:  "done",
+		tier:  tierYourMove,
+		kind:  kindAgent,
+		clock: clockSeen,
+		tone:  paint.ToneMuted,
+		is: hasPullRequestIn(
+			pullrequestv1.PullRequestState_PULL_REQUEST_STATE_MERGED,
+			pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CLOSED,
+		),
+	},
+	{
+		name:  "idle",
+		tier:  tierYourMove,
+		kind:  kindAgent,
+		clock: clockState,
+		tone:  paint.ToneMuted,
+		is:    isIdleImplementer,
 	},
 }
 
@@ -67,10 +204,6 @@ type triageZone struct {
 	capacity int
 	// entries are the agents in triage by id.
 	entries map[string]triageEntry
-	// focused says the keyboard is inside the zone.
-	focused bool
-	// returnTo is the row the cursor stood on when the zone took the keyboard.
-	returnTo string
 }
 
 // triageEntry is why an agent needs triage and since when.
@@ -84,15 +217,15 @@ func (z *triageZone) isOn() bool {
 	return z.capacity > 0
 }
 
-// refresh reads which agents need triage from the listing as it stands now, keeping the agent behind
-// the row named where it was.
-func (z *triageZone) refresh(agents []panel.AgentRow, keep string) {
+// refresh reads which agents need triage from the listing as it stands at now.
+func (z *triageZone) refresh(agents []panel.AgentRow, now time.Time) {
 	if !z.isOn() {
 		z.entries = nil
 
 		return
 	}
 
+	thinkingParents := findThinkingParents(agents)
 	entries := make(map[string]triageEntry)
 	for _, item := range agents {
 		id := item.Agent.ID
@@ -101,12 +234,6 @@ func (z *triageZone) refresh(agents []panel.AgentRow, keep string) {
 		}
 
 		was, wasQueued := z.entries[id]
-		if wasQueued && agentRowKey(id) == keep {
-			entries[id] = was
-
-			continue
-		}
-
 		// An agent komrad cannot read stays where it was.
 		if displayState(item) == panel.StateUncertain {
 			if wasQueued {
@@ -116,13 +243,13 @@ func (z *triageZone) refresh(agents []panel.AgentRow, keep string) {
 			continue
 		}
 
-		rule, ok := findTriageRule(item)
+		rule, ok := findTriageRule(triageSubject{item: item, hasThinkingChild: thinkingParents[id]})
 		if !ok {
 			continue
 		}
 
-		since := item.Agent.StateChangedAt
-		if wasQueued {
+		since := rule.startedAt(item, now)
+		if wasQueued && was.rule.tier == rule.tier {
 			since = was.since
 		}
 
@@ -132,15 +259,76 @@ func (z *triageZone) refresh(agents []panel.AgentRow, keep string) {
 	z.entries = entries
 }
 
-// findTriageRule is the first rule an agent meets.
-func findTriageRule(item panel.AgentRow) (triageRule, bool) {
-	for _, rule := range triageRules {
-		if rule.is(item) {
-			return rule, true
+// findTriageRule is the first rule an agent meets in the most urgent tier it meets any.
+func findTriageRule(subject triageSubject) (triageRule, bool) {
+	var found *triageRule
+	for i := range triageRules {
+		rule := &triageRules[i]
+		if (found == nil || rule.tier < found.tier) && rule.holds(subject) {
+			found = rule
 		}
 	}
 
-	return triageRule{}, false
+	if found == nil {
+		return triageRule{}, false
+	}
+
+	return *found, true
+}
+
+// holds reports whether the rule puts the agent in triage.
+func (r triageRule) holds(subject triageSubject) bool {
+	if r.kind == kindAgent && isAgentOnIt(subject.item) {
+		return false
+	}
+
+	return r.is(subject)
+}
+
+// startedAt is when the wait behind the rule began for the agent.
+func (r triageRule) startedAt(item panel.AgentRow, now time.Time) time.Time {
+	if r.clock == clockState {
+		return item.Agent.StateChangedAt
+	}
+
+	return now
+}
+
+// isAgentOnIt reports whether the agent is working, or holds mail that will set it working.
+func isAgentOnIt(item panel.AgentRow) bool {
+	return displayState(item) == panel.StateThinking || (item.Alive && item.UnreadMail)
+}
+
+// isIdleImplementer reports whether a top-level implementer has finished its turn with nothing
+// under it still working.
+func isIdleImplementer(s triageSubject) bool {
+	agent := s.item.Agent
+
+	return s.item.Alive &&
+		displayState(s.item) == panel.StateIdle &&
+		agent.Role == panel.RoleImplementer &&
+		agent.ParentAgentID == nil &&
+		!s.hasThinkingChild
+}
+
+// hasPullRequestIn is a rule that holds while a top-level agent's pull request stands in one of
+// the states.
+func hasPullRequestIn(states ...pullrequestv1.PullRequestState) func(triageSubject) bool {
+	return func(s triageSubject) bool {
+		return s.item.Agent.ParentAgentID == nil && slices.Contains(states, s.item.PullRequest.State)
+	}
+}
+
+// findThinkingParents is the ids of the agents with a child at work.
+func findThinkingParents(agents []panel.AgentRow) map[string]bool {
+	parents := make(map[string]bool)
+	for _, item := range agents {
+		if item.Agent.ParentAgentID != nil && displayState(item) == panel.StateThinking {
+			parents[*item.Agent.ParentAgentID] = true
+		}
+	}
+
+	return parents
 }
 
 // agentsLayout is the agents list split into triage and the tree under it.
@@ -151,16 +339,12 @@ type agentsLayout struct {
 	tree    []agentRow
 }
 
-// cursorRows are the rows the keyboard can reach, only the zone's while it holds the keyboard.
-func (l agentsLayout) cursorRows(z triageZone) []agentRow {
-	if z.focused {
-		return l.zone
-	}
-
+// cursorRows are the rows the keyboard can reach.
+func (l agentsLayout) cursorRows() []agentRow {
 	return slices.Concat(l.zone, l.tree)
 }
 
-// splitTriage takes the oldest agents in triage the zone has room for out of the listing.
+// splitTriage takes the most urgent agents in triage the zone has room for out of the listing.
 func splitTriage(z triageZone, s panelShared) (zone []agentRow, waiting int, rest []panel.AgentRow) {
 	queued := xslice.Filter(s.listing.agents, func(item panel.AgentRow) bool {
 		_, ok := z.entries[item.Agent.ID]
@@ -168,7 +352,13 @@ func splitTriage(z triageZone, s panelShared) (zone []agentRow, waiting int, res
 		return ok
 	})
 	slices.SortFunc(queued, func(a, b panel.AgentRow) int {
-		return cmp.Or(z.entries[a.Agent.ID].since.Compare(z.entries[b.Agent.ID].since), cmp.Compare(a.Agent.ID, b.Agent.ID))
+		left, right := z.entries[a.Agent.ID], z.entries[b.Agent.ID]
+
+		return cmp.Or(
+			cmp.Compare(left.rule.tier, right.rule.tier),
+			left.since.Compare(right.since),
+			cmp.Compare(a.Agent.ID, b.Agent.ID),
+		)
 	})
 
 	slotted := queued[:min(z.capacity, len(queued))]
@@ -188,49 +378,16 @@ func splitTriage(z triageZone, s panelShared) (zone []agentRow, waiting int, res
 	return zone, len(queued) - len(slotted), rest
 }
 
-// toggleTriage moves the keyboard into the zone, or back out to where it was.
-func (a *agentsScreen) toggleTriage(h navHost, s panelShared) {
-	if a.triage.focused {
-		a.leaveTriage(s)
-		h.stageSelection()
-
-		return
-	}
-
-	layout := a.layout(s)
-	if len(layout.zone) == 0 {
+// jumpToTriage puts the cursor on the zone's first agent.
+func (a *agentsScreen) jumpToTriage(h navHost, s panelShared) {
+	if len(a.layout(s).zone) == 0 {
 		h.note(messageInfo, "nothing to triage")
 
 		return
 	}
 
-	a.triage.returnTo = rowKeyAt(layout.cursorRows(a.triage), a.cursor)
-	a.triage.focused = true
 	a.cursor = 0
 	h.stageSelection()
-}
-
-// leaveTriage gives the keyboard back to the tree, on the row it was taken from.
-func (a *agentsScreen) leaveTriage(s panelShared) {
-	a.triage.focused = false
-
-	rows := a.rows(s)
-	idx := rowIndexOfKey(rows, a.triage.returnTo)
-	if idx < 0 {
-		idx = firstAgentRowIndex(rows)
-	}
-
-	a.cursor = idx
-}
-
-// settleTriage gives the keyboard back to the tree once the zone holding it has emptied.
-func (a *agentsScreen) settleTriage(h navHost, s panelShared) {
-	if !a.triage.focused || len(a.layout(s).zone) > 0 {
-		return
-	}
-
-	a.leaveTriage(s)
-	h.note(messageInfo, "triage clear")
 }
 
 // triageSnapshot is the zone as the agents list draws it.
@@ -238,7 +395,6 @@ type triageSnapshot struct {
 	zone     []agentRow
 	waiting  int
 	capacity int
-	focused  bool
 }
 
 // triageRows are the lines the zone draws ahead of the tree, none while it is empty.
@@ -248,23 +404,18 @@ func triageRows(params snapshotParams) []view.Row {
 		return nil
 	}
 
-	note := []view.Cell{{Text: fmt.Sprintf("%d/%d", len(queue.zone), queue.capacity), Tone: paint.ToneMuted}}
-	if queue.focused {
-		note = append(note, view.Cell{Text: "  focused", Tone: paint.ToneWarning})
-	}
-
 	rows := []view.Row{{
 		Key:    triageHeaderKey,
 		Kind:   view.KindTriageHeader,
 		Name:   "triage",
 		Status: view.StatusWaiting,
-		Note:   view.Cell{Parts: note},
+		Note:   view.Cell{Text: fmt.Sprintf("%d/%d", len(queue.zone), queue.capacity), Tone: paint.ToneMuted},
 	}}
 
 	for _, r := range queue.zone {
 		row := params.renaming.drawnOver(snapshotRow(r, params))
 		row.Kind = view.KindTriage
-		reason := view.Cell{Text: r.triage.reason, Tone: r.triage.tone}
+		reason := view.Cell{Text: r.triage.name, Tone: r.triage.tone}
 		row.Note = view.Cell{Parts: []view.Cell{
 			{Text: r.workflow.Name, Tone: paint.ToneMuted},
 			{Text: separated, Tone: paint.ToneMuted},
@@ -288,22 +439,4 @@ func triageRows(params snapshotParams) []view.Row {
 	}
 
 	return append(rows, view.Row{Key: triageDividerKey, Kind: view.KindDivider})
-}
-
-// releaseTriageRow lets go of the row the triage zone kept while the keyboard was in the pane, moving
-// the cursor on when its agent no longer needs a person.
-func (m *model) releaseTriageRow() {
-	if !m.agents.triage.focused {
-		return
-	}
-
-	s := m.shared()
-	hovered := m.agents.list().hovered(s)
-	m.agents.triage.refresh(m.listing.agents, "")
-	m.agents.apply(s, hovered)
-	m.agents.settleTriage(m, m.shared())
-
-	if m.agents.list().hovered(m.shared()) != hovered && m.screen == screenAgents {
-		m.stageSelection()
-	}
 }

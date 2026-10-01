@@ -8,7 +8,6 @@ import (
 	"komrad/lib/xptr"
 	agentv1 "komrad/proto/gen/agent/v1"
 
-	tea "charm.land/bubbletea/v2"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/proto"
 )
@@ -48,10 +47,16 @@ func TestTriageRows(t *testing.T) {
 			want: []string{"triage 1/2", "backend asking", "backend"},
 		},
 		{
-			name:     "the oldest agents in triage take the slots and the rest wait in the tree",
+			name:     "the most urgent tier takes the slots and the rest wait in the tree",
 			capacity: 2,
 			rows:     buildTriage(),
-			want:     []string{"triage 2/2", "broken backend · errored", "asker backend · asking", "+1 more waiting for a slot", "backend", "third", "quiet"},
+			want:     []string{"triage 2/2", "asker backend · asking", "third backend · asking", "+1 more waiting for a slot", "backend", "broken", "quiet"},
+		},
+		{
+			name:     "within a tier the agent waiting longest comes first",
+			capacity: 3,
+			rows:     buildTriage(),
+			want:     []string{"triage 3/3", "asker backend · asking", "third backend · asking", "broken backend · errored", "backend", "quiet"},
 		},
 	}
 
@@ -64,8 +69,8 @@ func TestTriageRows(t *testing.T) {
 	}
 }
 
-// TestTriageFocus covers the triage key moving the keyboard into the zone and back out.
-func TestTriageFocus(t *testing.T) {
+// TestTriageJump covers the triage key putting the cursor on the zone's first agent.
+func TestTriageJump(t *testing.T) {
 	tests := []struct {
 		name  string
 		rows  []proto.Message
@@ -81,28 +86,16 @@ func TestTriageFocus(t *testing.T) {
 			note:  "nothing to triage",
 		},
 		{
-			name:  "the key puts the cursor on the oldest agent in triage",
+			name:  "the key puts the cursor on the first agent in triage",
 			rows:  buildTriage(),
 			press: []string{"G", "t"},
-			want:  "broken",
-		},
-		{
-			name:  "the cursor stays inside the zone",
-			rows:  buildTriage(),
-			press: []string{"t", "G"},
 			want:  "asker",
 		},
 		{
-			name:  "the key again goes back to where it was pressed",
+			name:  "the cursor moves on out of the zone into the tree",
 			rows:  buildTriage(),
-			press: []string{"G", "t", "j", "t"},
-			want:  "quiet",
-		},
-		{
-			name:  "esc goes back to where it was pressed",
-			rows:  buildTriage(),
-			press: []string{"G", "t", "esc"},
-			want:  "quiet",
+			press: []string{"t", "j", "j"},
+			want:  "backend",
 		},
 	}
 
@@ -119,62 +112,6 @@ func TestTriageFocus(t *testing.T) {
 	}
 }
 
-// TestTriageAdvance covers the cursor moving on once the agent it stood on no longer needs a
-// person.
-func TestTriageAdvance(t *testing.T) {
-	answered := func(name string, state agentv1.AgentState) []proto.Message {
-		rows := buildTriage()
-		for _, row := range rows {
-			if agent, ok := row.(*agentv1.Agent); ok && agent.GetName() == name {
-				agent.State = state
-			}
-		}
-
-		return rows
-	}
-
-	t.Run("an answer moves the cursor to the next agent in triage", func(t *testing.T) {
-		harness := openTriage(t, 2, buildTriage()...)
-		harness.press("t")
-
-		harness.watch(buildSnapshot(answered("broken", agentv1.AgentState_AGENT_STATE_THINKING)...))
-
-		assert.Equal(t, "asker", strings.TrimSpace(readHoveredRow(harness.readFrame())))
-	})
-
-	t.Run("an answer typed in the pane holds the cursor until the panel has the keyboard back", func(t *testing.T) {
-		harness := openTriage(t, 2, buildTriage()...)
-		harness.press("t")
-		harness.send(tea.BlurMsg{})
-
-		harness.watch(buildSnapshot(answered("broken", agentv1.AgentState_AGENT_STATE_THINKING)...))
-		assert.Equal(t, "broken", strings.TrimSpace(readHoveredRow(harness.readFrame())))
-
-		harness.send(tea.FocusMsg{})
-		assert.Equal(t, "asker", strings.TrimSpace(readHoveredRow(harness.readFrame())))
-	})
-
-	t.Run("answering the last agent in triage goes back to where the key was pressed", func(t *testing.T) {
-		harness := openTriage(t, 2,
-			newLiveWorkflow("w1", "backend"),
-			newAgentAt("quiet", "w1", 1),
-			newTriageAgent("asker", agentv1.AgentState_AGENT_STATE_WAITING, 3),
-		)
-		harness.press("G", "t")
-
-		harness.watch(buildSnapshot(
-			newLiveWorkflow("w1", "backend"),
-			newAgentAt("quiet", "w1", 1),
-			newTriageAgent("asker", agentv1.AgentState_AGENT_STATE_THINKING, 3),
-		))
-
-		frame := harness.readFrame()
-		assert.Equal(t, "quiet", strings.TrimSpace(readHoveredRow(frame)))
-		assert.Contains(t, frame, "triage clear")
-		assert.NotContains(t, readTriageList(frame), "triage 0/2")
-	})
-}
-
 func openTriage(t *testing.T, capacity int, rows ...proto.Message) *panelHarness {
 	t.Helper()
 
@@ -186,7 +123,7 @@ func openTriage(t *testing.T, capacity int, rows ...proto.Message) *panelHarness
 }
 
 // buildTriage is a workflow with three agents waiting on a person and one that is not, broken the
-// longest.
+// longest but in a tier below the others.
 func buildTriage() []proto.Message {
 	return []proto.Message{
 		newLiveWorkflow("w1", "backend"),

@@ -31,7 +31,6 @@ const (
 	actionQuit
 	actionAgentsBack
 	actionAgentTriage
-	actionAgentTriageBack
 	actionAgentOpen
 	actionAgentRename
 	actionSearchOpen
