@@ -51,6 +51,8 @@ func NewHarness(params NewHarnessParams) *Harness {
 
 var _ harness.Harness = (*Harness)(nil)
 
+var _ harness.SessionFinder = (*Harness)(nil)
+
 // ID is the name an agent running Codex is recorded under.
 func (h *Harness) ID() string {
 	return HarnessID

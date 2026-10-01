@@ -27,6 +27,8 @@ var (
 	_ harness.Observer = (*Observer)(nil)
 )
 
+var _ harness.SessionFinder = (*Fake)(nil)
+
 // Fake is a harness that reads the frames above and records every launch it renders.
 type Fake struct {
 	mu         sync.Mutex
