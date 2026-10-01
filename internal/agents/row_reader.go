@@ -30,13 +30,8 @@ type observedPullRequestLister interface {
 	ListObservations(ctx context.Context, agentIDs []string) ([]pullrequeststore.Observation, error)
 }
 
-type agentReviewLister interface {
-	watchedLister[reviewstore.Review]
-	ListIDsOfAgents(ctx context.Context, agentIDs []string) ([]string, error)
-}
-
-type agentReviewThreadLister interface {
-	watchedLister[reviewstore.ThreadWithMessages]
+type agentWatchedLister[R any] interface {
+	watchedLister[R]
 	ListIDsOfAgents(ctx context.Context, agentIDs []string) ([]string, error)
 }
 
@@ -52,8 +47,8 @@ type NewRowReaderParams struct {
 	Mail          watchedLister[mailstore.Mail]
 	PullRequests  observedPullRequestLister
 	Repositories  watchedLister[pullrequeststore.Sync]
-	Reviews       agentReviewLister
-	ReviewThreads agentReviewThreadLister
+	Reviews       agentWatchedLister[reviewstore.Review]
+	ReviewThreads agentWatchedLister[reviewstore.ThreadWithMessages]
 	ForgeThreads  pullRequestForgeThreadLister
 	Workflows     watchedLister[workflowstore.Workflow]
 }
@@ -65,8 +60,8 @@ type RowReader struct {
 	mail          watchedLister[mailstore.Mail]
 	pullRequests  observedPullRequestLister
 	repositories  watchedLister[pullrequeststore.Sync]
-	reviews       agentReviewLister
-	reviewThreads agentReviewThreadLister
+	reviews       agentWatchedLister[reviewstore.Review]
+	reviewThreads agentWatchedLister[reviewstore.ThreadWithMessages]
 	forgeThreads  pullRequestForgeThreadLister
 	workflows     watchedLister[workflowstore.Workflow]
 }
