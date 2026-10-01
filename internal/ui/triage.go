@@ -488,23 +488,33 @@ func splitTriage(z triageZone, s panelShared, showHidden bool) (zone []agentRow,
 	families := xslice.Filter(findTriageFamilies(z.entries, s.listing.agents), func(f triageFamily) bool {
 		return !f.head.Agent.Hidden || showHidden
 	})
-	slotted := z.orderFamilies(families)
-	slotted = slotted[:min(len(slotted), z.capacity)]
-	room := z.capacity - len(slotted)
+	var slotted []triageSlot
+	used := 0
+	for _, family := range z.orderFamilies(families) {
+		rows := buildFamilyRows(family.head, children[family.head.Agent.ID], showHidden)
+		asking := z.countAsking(rows[1:])
+		if used >= z.capacity || (len(slotted) > 0 && used+1+asking > z.capacity) {
+			break
+		}
+
+		slotted = append(slotted, triageSlot{family: family, rows: rows, asking: asking})
+		used += 1 + asking
+	}
+
+	room := z.capacity - used
 	inZone := make(map[string]bool)
 	workflows := xslice.KeyBy(s.listing.workflows, func(w panel.Workflow) string { return w.ID })
-	for _, family := range slotted {
-		head := family.head
-		rows := buildFamilyRows(head, children[head.Agent.ID], showHidden)
-		drawn := z.pickChildren(rows[1:], room)
-		room -= len(drawn)
+	for _, slot := range slotted {
+		head := slot.family.head
+		drawn := z.pickChildren(slot.rows[1:], slot.asking+room)
+		room -= len(drawn) - slot.asking
 		snoozed := z.isSnoozed(head.Agent.ID)
 		for _, child := range children[head.Agent.ID] {
 			if child.Agent.Hidden && !showHidden {
 				inZone[child.Agent.ID] = true
 			}
 		}
-		for _, row := range rows {
+		for _, row := range slot.rows {
 			if row.child && !drawn[row.item.Agent.ID] {
 				continue
 			}
@@ -519,6 +529,22 @@ func splitTriage(z triageZone, s panelShared, showHidden bool) (zone []agentRow,
 	rest = xslice.Filter(s.listing.agents, func(item panel.AgentRow) bool { return !inZone[item.Agent.ID] })
 
 	return zone, len(families) - len(slotted), rest
+}
+
+// triageSlot is a family the zone draws, with its rows and how many of its children are in triage.
+type triageSlot struct {
+	family triageFamily
+	rows   []agentRow
+	asking int
+}
+
+// countAsking is how many of a family's child rows are in triage.
+func (z triageZone) countAsking(rows []agentRow) int {
+	return len(xslice.Filter(rows, func(row agentRow) bool {
+		_, waits := z.entries[row.item.Agent.ID]
+
+		return waits
+	}))
 }
 
 // pickChildren is the ids of as many of a family's child rows as fit in room, those in triage first.

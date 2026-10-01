@@ -106,16 +106,22 @@ func TestTriageRows(t *testing.T) {
 			want:     []string{"asker", "third", "broken", "backend", "quiet"},
 		},
 		{
-			name:     "a family with no room for its children keeps its head in the zone",
+			name:     "a family with no room for the child asking waits for a slot",
 			capacity: 2,
 			rows:     append(buildTriage()[:3], buildTriageFamily()[2:4]...),
-			want:     []string{"asker", "parent", "backend", "reviewer", "quiet"},
+			want:     []string{"asker", "+1 more waiting for a slot", "backend", "parent", "└ reviewer", "quiet"},
 		},
 		{
-			name:     "every family gets a row before any child does",
+			name:     "a family keeps the child asking and leaves the rest to the tree",
 			capacity: 3,
 			rows:     append(buildTriage(), buildTriageFamily()[2], buildTriageFamily()[3], newChild("tester", "tester", "parent")),
-			want:     []string{"asker", "parent", "third", "+1 more waiting for a slot", "backend", "reviewer", "broken", "quiet", "tester"},
+			want:     []string{"asker", "parent", "└ reviewer", "+2 more waiting for a slot", "backend", "third", "broken", "quiet", "tester"},
+		},
+		{
+			name:     "every family gets a row before a child not in triage does",
+			capacity: 2,
+			rows:     append(buildTriage()[:3], buildTriage()[4], newChild("tester", "tester", "third")),
+			want:     []string{"asker", "third", "backend", "quiet", "tester"},
 		},
 		{
 			name:     "the rows left go to the children in triage first",
