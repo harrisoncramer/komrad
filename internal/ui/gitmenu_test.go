@@ -377,6 +377,7 @@ func TestGitMenuPushes(t *testing.T) {
 		press       []string
 		wantButton  string
 		wantWarning string
+		wantUnsaid  string
 		wantPushes  []proto.Message
 		wantMessage string
 	}{
@@ -415,6 +416,7 @@ func TestGitMenuPushes(t *testing.T) {
 			},
 			press:       []string{"y"},
 			wantButton:  "Force push",
+			wantWarning: "will be overwritten",
 			wantPushes:  []proto.Message{push},
 			wantMessage: "api: force-pushed agent/a1",
 		},
@@ -432,6 +434,19 @@ func TestGitMenuPushes(t *testing.T) {
 			wantMessage: "api: pushed agent/a1",
 		},
 		{
+			name: "files nothing has committed are named as staying behind",
+			planned: &agentv1.PlanPushResponse{
+				Branch:           "agent/a1",
+				Commits:          2,
+				UncommittedFiles: 4,
+			},
+			press:       []string{"y"},
+			wantButton:  "Push",
+			wantWarning: "4 files nothing has committed",
+			wantPushes:  []proto.Message{push},
+			wantMessage: "api: pushed agent/a1",
+		},
+		{
 			name: "a branch is pushed",
 			planned: &agentv1.PlanPushResponse{
 				Branch:  "agent/a1",
@@ -439,6 +454,8 @@ func TestGitMenuPushes(t *testing.T) {
 			},
 			press:       []string{"y"},
 			wantButton:  "Push",
+			wantWarning: "2 commits will go up",
+			wantUnsaid:  "overwritten",
 			wantPushes:  []proto.Message{push},
 			wantMessage: "api: pushed agent/a1",
 		},
@@ -474,6 +491,9 @@ func TestGitMenuPushes(t *testing.T) {
 			}
 			if tt.wantWarning != "" {
 				require.Contains(t, harness.readFrame(), tt.wantWarning)
+			}
+			if tt.wantUnsaid != "" {
+				require.NotContains(t, harness.readFrame(), tt.wantUnsaid)
 			}
 			harness.press(tt.press...)
 
@@ -515,7 +535,7 @@ func TestGitMenuAborts(t *testing.T) {
 			name:        "an abort says where the branch stands and where the copy is",
 			press:       []string{"y"},
 			wantAborts:  []proto.Message{abort},
-			wantMessage: "api: aborted the rebase agent/a1 is back where it stood before. A copy of the worktree from before the abort is kept at refs/komrad/prerefresh/a1/1.",
+			wantMessage: "api: aborted the rebase agent/a1 is back where it stood before. A copy of the worktree from before the abort is kept at refs/komrad/aborted/a1/1.",
 		},
 	}
 
@@ -528,7 +548,7 @@ func TestGitMenuAborts(t *testing.T) {
 				return connect.NewResponse(&agentv1.AbortSequenceResponse{
 					Sequence:  agentv1.Sequence_SEQUENCE_REBASE,
 					Branch:    "agent/a1",
-					ParkedRef: "refs/komrad/prerefresh/a1/1",
+					ParkedRef: "refs/komrad/aborted/a1/1",
 				}), nil
 			})
 			if tt.refuse != nil {

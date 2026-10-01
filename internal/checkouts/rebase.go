@@ -19,7 +19,6 @@ import (
 )
 
 var (
-
 	// ErrRebaseAdopted says the branch belongs to whoever made it.
 	ErrRebaseAdopted = fail.Precondition("this agent is on a branch komrad did not cut, so its history is not komrad's to rewrite")
 
@@ -208,7 +207,7 @@ func (s *Service) rebase(ctx context.Context, agent agentstore.Agent) (*RebaseRe
 
 	result := &RebaseResult{RebasePlan: *plan}
 
-	result.ParkedRef = buildParkRef(agent.ID)
+	result.ParkedRef = buildParkRef(parkRebase, agent.ID)
 	if _, err := s.rebaser.Park(ctx, agent.Cwd, result.ParkedRef); err != nil {
 		return nil, err
 	}
@@ -229,7 +228,7 @@ func (s *Service) rebase(ctx context.Context, agent agentstore.Agent) (*RebaseRe
 
 // releaseOlderParks drops the parks this agent left behind before this one.
 func (s *Service) releaseOlderParks(ctx context.Context, agent agentstore.Agent, keep string) {
-	prefix := fmt.Sprintf("refs/komrad/prerefresh/%s/", agent.ID)
+	prefix := fmt.Sprintf("refs/komrad/%s/%s/", parkRebase, agent.ID)
 	if err := s.rebaser.ReleaseRefsUnder(ctx, agent.Cwd, prefix, keep); err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to release the older parks of a rebased agent",
 			append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)

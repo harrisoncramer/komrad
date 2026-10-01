@@ -32,6 +32,9 @@ var (
 	// ErrPushNothing says the branch holds nothing the base does not.
 	ErrPushNothing = fail.Precondition("the branch holds nothing the base does not, so pushing it would leave its pull request empty")
 
+	// ErrPushInSync says origin's copy of the branch already holds every commit on it.
+	ErrPushInSync = fail.Precondition("origin already holds every commit on this branch, so there is nothing to push")
+
 	// ErrPushAdoptedForce says a branch komrad did not cut would have origin's copy overwritten.
 	ErrPushAdoptedForce = fail.Precondition("origin's copy of this branch has moved apart from it, and komrad never overwrites a branch it did not cut")
 )
@@ -151,7 +154,7 @@ func (s *Service) planPush(ctx context.Context, agent agentstore.Agent) (*PushPl
 }
 
 // countPush counts what goes up against origin's copy of the branch, or against the base when
-// origin has none, refusing a branch that holds nothing of its own.
+// origin has none, refusing a branch that holds nothing of its own or nothing origin lacks.
 func (s *Service) countPush(ctx context.Context, dir, branch, base string) (*PushPlan, error) {
 	ref, err := s.pusher.ResolveBase(ctx, dir, base)
 	if err != nil {
@@ -172,6 +175,12 @@ func (s *Service) countPush(ctx context.Context, dir, branch, base string) (*Pus
 	}
 	if !remote.Pushed {
 		return &PushPlan{Branch: branch, Commits: own}, nil
+	}
+	if remote.Unpushed == 0 && remote.Unpulled > 0 {
+		return nil, fmt.Errorf("%w: %s", git.ErrPushRejected, branch)
+	}
+	if remote.Unpushed == 0 {
+		return nil, fmt.Errorf("%w: %s", ErrPushInSync, branch)
 	}
 
 	return &PushPlan{

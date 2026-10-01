@@ -680,7 +680,7 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 
 				return fmt.Sprintf("%s on %s, parked at %s, interrupted %t", aborted.Msg.GetSequence(), aborted.Msg.GetBranch(), aborted.Msg.GetParkedRef(), aborted.Msg.GetInterrupted()), nil
 			},
-			wantAnswer: "SEQUENCE_CHERRY_PICK on agent/alpha, parked at refs/komrad/prerefresh/alpha/1, interrupted true",
+			wantAnswer: "SEQUENCE_CHERRY_PICK on agent/alpha, parked at refs/komrad/aborted/alpha/1, interrupted true",
 			check: func(t *testing.T, services *recordingAgentServices, ids []string) {
 				assert.Equal(t, ids[:1], services.aborted)
 			},
@@ -1749,7 +1749,7 @@ func (f *recordingAgentServices) Abort(_ context.Context, agentID string) (*chec
 	return &checkouts.AbortResult{
 		Sequence:    git.SequenceCherryPick,
 		Branch:      "agent/alpha",
-		ParkedRef:   "refs/komrad/prerefresh/alpha/1",
+		ParkedRef:   "refs/komrad/aborted/alpha/1",
 		Interrupted: true,
 	}, nil
 }

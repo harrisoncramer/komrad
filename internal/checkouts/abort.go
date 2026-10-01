@@ -90,7 +90,7 @@ func (s *Service) abort(ctx context.Context, agent agentstore.Agent) (*AbortResu
 
 	result := &AbortResult{
 		Sequence:  sequence,
-		ParkedRef: buildParkRef(agent.ID),
+		ParkedRef: buildParkRef(parkAbort, agent.ID),
 		Ours:      ours,
 	}
 	if _, err := s.aborter.Park(ctx, agent.Cwd, result.ParkedRef); err != nil {

@@ -151,7 +151,7 @@ func TestAbortUndoesTheSequence(t *testing.T) {
 			assert.Equal(t, tt.wantOurs, result.Ours)
 			assert.Equal(t, []string{"park", "abort " + string(sequence)}, tt.aborter.Calls)
 			assert.Equal(t, []string{result.ParkedRef}, tt.aborter.Parked)
-			assert.Contains(t, result.ParkedRef, "refs/komrad/prerefresh/"+agent.ID+"/")
+			assert.Contains(t, result.ParkedRef, "refs/komrad/aborted/"+agent.ID+"/")
 			assert.Equal(t, 1, fixture.checkoutSync.Wakes)
 
 			stored, err := fixture.stores.Agents.GetByID(t.Context(), agent.ID)

@@ -60,6 +60,24 @@ func TestPushRefusals(t *testing.T) {
 			wantErr: ErrPushNothing,
 		},
 		{
+			name: "a branch origin already holds whole",
+			pusher: gittest.Pusher{
+				State:  git.TreeState{Branch: "agent/a1"},
+				Own:    1,
+				Remote: git.RemoteStanding{Pushed: true},
+			},
+			wantErr: ErrPushInSync,
+		},
+		{
+			name: "a branch behind origin's copy, which only a pull would bring level",
+			pusher: gittest.Pusher{
+				State:  git.TreeState{Branch: "agent/a1"},
+				Own:    1,
+				Remote: git.RemoteStanding{Pushed: true, Unpulled: 1},
+			},
+			wantErr: git.ErrPushRejected,
+		},
+		{
 			name:  "a branch a human made, whose copy on origin it would overwrite",
 			agent: agentstore.Agent{AdoptedBranch: "harry/spike"},
 			pusher: gittest.Pusher{

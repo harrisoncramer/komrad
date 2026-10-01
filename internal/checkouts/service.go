@@ -21,6 +21,11 @@ import (
 	"github.com/riverqueue/river"
 )
 
+const (
+	parkRebase parkSpace = "prerefresh"
+	parkAbort  parkSpace = "aborted"
+)
+
 var (
 	// ErrNoWorktree says the agent sits in a directory komrad did not cut.
 	ErrNoWorktree = fail.Precondition("this agent has no worktree of its own for komrad to act on")
@@ -31,6 +36,10 @@ var (
 	// ErrSelf says an agent asked komrad to act on the checkout it is working in.
 	ErrSelf = fail.InvalidArgument("an agent cannot rebase, push or abort in the checkout it is working in")
 )
+
+// parkSpace is the ref namespace a park sits under, kept apart so a rebase releasing its older
+// parks never takes an abort's.
+type parkSpace string
 
 // agentReadWriter is the slice of the agent store a move of a checkout reads and writes.
 type agentReadWriter interface {
@@ -156,9 +165,9 @@ func (s *Service) settle(ctx context.Context, agent agentstore.Agent) (bool, err
 	return s.settler.Settle(ctx, agent)
 }
 
-// buildParkRef names where a checkout is held before it is moved.
-func buildParkRef(agentID string) string {
-	return fmt.Sprintf("refs/komrad/prerefresh/%s/%d", agentID, time.Now().UnixNano())
+// buildParkRef names where a checkout is held before it is moved, under the space for that kind of move.
+func buildParkRef(space parkSpace, agentID string) string {
+	return fmt.Sprintf("refs/komrad/%s/%s/%d", space, agentID, time.Now().UnixNano())
 }
 
 // eligible answers the agent when its worktree is komrad's to act on, or the reason it is not.
