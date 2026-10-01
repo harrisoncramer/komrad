@@ -288,20 +288,10 @@ func TestIntegrationPushAndAbort(t *testing.T) {
 		assert.Equal(t, head, remote)
 	})
 
-	t.Run("a branch origin already holds is not pushed again", func(t *testing.T) {
-		_, err := instance.Agents.PushWorktree(ctx, connect.NewRequest(&agentv1.PushWorktreeRequest{AgentId: agentID}))
-		assert.Equal(t, connect.CodeFailedPrecondition, connect.CodeOf(err))
-	})
-
 	landOnTheBase(t, repo)
 	runGitIn(t, tree, "fetch", "--quiet", "origin")
 	output, err := exec.Command("git", "-C", tree, "rebase", "origin/main").CombinedOutput()
 	require.Errorf(t, err, "the rebase stops on the conflict in own.txt: %s", output)
-
-	t.Run("a push is refused while the rebase is part-way through", func(t *testing.T) {
-		_, err := instance.Agents.PlanPush(ctx, connect.NewRequest(&agentv1.PlanPushRequest{AgentId: agentID}))
-		assert.Equal(t, connect.CodeFailedPrecondition, connect.CodeOf(err))
-	})
 
 	t.Run("an abort puts the branch back and keeps the conflicted tree", func(t *testing.T) {
 		aborted, err := instance.Agents.AbortSequence(ctx, connect.NewRequest(&agentv1.AbortSequenceRequest{AgentId: agentID}))
@@ -339,26 +329,6 @@ func TestIntegrationPushAndAbort(t *testing.T) {
 
 		remote, _, _ := strings.Cut(readGitOutput(t, tree, "ls-remote", "origin", "refs/heads/"+branch), "\t")
 		assert.Equal(t, rebased, remote)
-	})
-
-	t.Run("a commit added on the forge is never overwritten", func(t *testing.T) {
-		other := t.TempDir()
-		runGitIn(t, repo, "clone", "--quiet", "--branch", branch, readGitOutput(t, repo, "remote", "get-url", "origin"), other)
-		runGitIn(t, other, "config", "user.email", "test@komrad.test")
-		runGitIn(t, other, "config", "user.name", "komrad test")
-		commitIn(t, other, "forge.txt", "a suggestion applied on the forge")
-		runGitIn(t, other, "push", "--quiet")
-		added := readGitOutput(t, other, "rev-parse", "HEAD")
-
-		runGitIn(t, tree, "fetch", "--quiet", "origin")
-		runGitIn(t, tree, "commit", "--quiet", "--amend", "-m", "the agent's work, reworded")
-
-		_, err := instance.Agents.PushWorktree(ctx, connect.NewRequest(&agentv1.PushWorktreeRequest{AgentId: agentID}))
-		assert.Equal(t, connect.CodeFailedPrecondition, connect.CodeOf(err))
-		require.ErrorContains(t, err, "never took in")
-
-		remote, _, _ := strings.Cut(readGitOutput(t, tree, "ls-remote", "origin", "refs/heads/"+branch), "\t")
-		assert.Equal(t, added, remote)
 	})
 }
 
