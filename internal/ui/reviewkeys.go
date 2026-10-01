@@ -112,7 +112,7 @@ func (r *reviewScreen) diffHeight(s panelShared) int {
 }
 
 // jumpOpenThread moves to the next comment nobody has settled, stopping at the ends.
-func (r *reviewScreen) jumpOpenThread(h host, s panelShared, direction int) tea.Cmd {
+func (r *reviewScreen) jumpOpenThread(h navHost, s panelShared, direction int) tea.Cmd {
 	next, ok := r.diff.View().JumpOpenThread(r.diff.Cursor(), direction)
 	if !ok || next == r.diff.Cursor() {
 		h.note(messageWarning, r.diff.noOpenThreadSaid())

@@ -65,7 +65,7 @@ func (w *schedulesScreen) list() screenList[scheduleItem] {
 		cursor: func() *rowCursor { return &w.rowCursor },
 		rows:   w.listRows,
 		name:   scheduleItemName,
-		moved:  func(h host, _ panelShared) tea.Cmd { return h.waitToStage() },
+		moved:  func(h navHost, _ panelShared) tea.Cmd { return h.waitToStage() },
 		quit:   func(k config.Keybindings) []string { return k.Schedules.Quit },
 		back:   func(k config.Keybindings) []string { return k.Schedules.Back },
 	}

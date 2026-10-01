@@ -24,34 +24,34 @@ func (w *worktreesScreen) table() []screenAction {
 
 	return append(list.actions(),
 		screenAction{
-			id:   actionDeleteSelected,
-			keys: func(k config.Keybindings) []string { return k.Worktrees.Delete },
-			when: list.isSelecting,
-			run:  w.deleteChosen,
+			id:     actionDeleteSelected,
+			keys:   func(k config.Keybindings) []string { return k.Worktrees.Delete },
+			when:   list.isSelecting,
+			direct: directly(notInMenu, w.deleteChosen),
 		},
 		screenAction{
 			id:   actionWorktreesBack,
 			keys: func(k config.Keybindings) []string { return k.Worktrees.Back },
 			when: list.isBrowsing,
-			run:  func(h host, _ panelShared, _ string) tea.Cmd { return h.pickView() },
+			nav:  func(h navHost, _ panelShared, _ string) tea.Cmd { return h.pickView() },
 		},
 		screenAction{
 			id:   actionWorktreesJumpToAgent,
 			keys: func(k config.Keybindings) []string { return k.Worktrees.JumpToAgent },
 			when: w.canRowOpen,
-			run:  func(h host, s panelShared, _ string) tea.Cmd { return w.jumpToAgent(h, s) },
+			nav:  func(h navHost, s panelShared, _ string) tea.Cmd { return w.jumpToAgent(h, s) },
 		},
 		screenAction{
-			id:   actionWorktreesDelete,
-			keys: func(k config.Keybindings) []string { return k.Worktrees.Delete },
-			when: list.isBrowsing,
-			run:  w.deleteHovered,
+			id:     actionWorktreesDelete,
+			keys:   func(k config.Keybindings) []string { return k.Worktrees.Delete },
+			when:   list.isBrowsing,
+			direct: directly(notInMenu, w.deleteHovered),
 		},
 		screenAction{
-			id:   actionWorktreesClear,
-			keys: func(k config.Keybindings) []string { return k.Worktrees.Clear },
-			when: list.isBrowsing,
-			run:  func(h host, s panelShared, _ string) tea.Cmd { return w.clearConfirm(h, s) },
+			id:     actionWorktreesClear,
+			keys:   func(k config.Keybindings) []string { return k.Worktrees.Clear },
+			when:   list.isBrowsing,
+			direct: directly(notInMenu, func(h host, s panelShared, _ string) tea.Cmd { return w.clearConfirm(h, s) }),
 		},
 	)
 }
@@ -173,7 +173,7 @@ const (
 )
 
 // jumpToAgent lands the agents list or the archive on the hovered row's agent.
-func (w *worktreesScreen) jumpToAgent(h host, s panelShared) tea.Cmd {
+func (w *worktreesScreen) jumpToAgent(h navHost, s panelShared) tea.Cmd {
 	row, ok := w.hovered(s)
 	if !ok || row.item.agent == nil {
 		return nil

@@ -18,12 +18,19 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
-// screenAction is one arm of a screen's dispatch, closed over the screen it belongs to.
+// screenAction is one arm of a screen's dispatch, which moves through nav or acts as a declared direct exception.
 type screenAction struct {
-	id   actionID
-	keys func(config.Keybindings) []string
-	when func(panelShared) bool
-	run  func(host, panelShared, string) tea.Cmd
+	id     actionID
+	keys   func(config.Keybindings) []string
+	when   func(panelShared) bool
+	nav    func(navHost, panelShared, string) tea.Cmd
+	direct *directAction
+}
+
+// directAction is an arm that acts straight off its key rather than from the menu, and why.
+type directAction struct {
+	reason string
+	run    func(host, panelShared, string) tea.Cmd
 }
 
 // screenLegendRow is one row of a screen's legend.
@@ -53,7 +60,11 @@ func (s screenActionSpec) dispatch(h host, shared panelShared, pressed string) t
 			continue
 		}
 
-		return a.run(h, shared, pressed)
+		if a.direct != nil {
+			return a.direct.run(h, shared, pressed)
+		}
+
+		return a.nav(h, shared, pressed)
 	}
 
 	return nil
@@ -161,9 +172,9 @@ type screenList[T keyed] struct {
 	// header is what the toggle key names a header row as.
 	header string
 	// placed follows the cursor onto a row at once, when set.
-	placed func(host, panelShared)
+	placed func(navHost, panelShared)
 	// moved follows the cursor onto a row a key put it on, and is placed when nil.
-	moved func(host, panelShared) tea.Cmd
+	moved func(navHost, panelShared) tea.Cmd
 	quit  func(config.Keybindings) []string
 	back  func(config.Keybindings) []string
 }
@@ -191,7 +202,7 @@ func (l screenList[T]) hoveredName(s panelShared) string {
 }
 
 // place puts the cursor back on a row by key, or as near to where it was as the list allows.
-func (l screenList[T]) place(h host, s panelShared, hovered string) {
+func (l screenList[T]) place(h navHost, s panelShared, hovered string) {
 	rows := l.rows(s)
 	c := l.cursor()
 	c.cursor = cursor.Place(rowIndexOfKey(rows, hovered), c.cursor, len(rows))
@@ -206,7 +217,7 @@ func (l screenList[T]) filterRows(s panelShared) []filterRow {
 	})
 }
 
-func (l screenList[T]) landed(h host, s panelShared) tea.Cmd {
+func (l screenList[T]) landed(h navHost, s panelShared) tea.Cmd {
 	if l.moved != nil {
 		return l.moved(h, s)
 	}
@@ -218,7 +229,7 @@ func (l screenList[T]) landed(h host, s panelShared) tea.Cmd {
 	return nil
 }
 
-func (l screenList[T]) move(h host, s panelShared, delta int) tea.Cmd {
+func (l screenList[T]) move(h navHost, s panelShared, delta int) tea.Cmd {
 	next, ok := l.cursor().move(delta, len(l.rows(s)))
 	if !ok {
 		return nil
@@ -229,7 +240,7 @@ func (l screenList[T]) move(h host, s panelShared, delta int) tea.Cmd {
 	return l.landed(h, s)
 }
 
-func (l screenList[T]) jump(h host, s panelShared, idx int) tea.Cmd {
+func (l screenList[T]) jump(h navHost, s panelShared, idx int) tea.Cmd {
 	next, ok := l.cursor().jump(idx, len(l.rows(s)))
 	if !ok {
 		return nil
@@ -260,7 +271,7 @@ func (l screenList[T]) actions() []screenAction {
 		{
 			id:   actionJump,
 			keys: func(k config.Keybindings) []string { return slices.Concat(k.Nav.Top, k.Nav.Bottom) },
-			run:  l.jumpPressed,
+			nav:  l.jumpPressed,
 		},
 	}
 	if l.refs != nil {
@@ -270,22 +281,22 @@ func (l screenList[T]) actions() []screenAction {
 		screenAction{
 			id:   actionQuit,
 			keys: l.quit,
-			run:  func(h host, _ panelShared, _ string) tea.Cmd { return h.hide() },
+			nav:  func(h navHost, _ panelShared, _ string) tea.Cmd { return h.hide() },
 		},
 		screenAction{
 			id:   actionMove,
 			keys: func(k config.Keybindings) []string { return slices.Concat(k.Nav.Up, k.Nav.Down) },
-			run:  l.movePressed,
+			nav:  l.movePressed,
 		},
 		screenAction{
 			id:   actionNavPage,
 			keys: func(k config.Keybindings) []string { return slices.Concat(k.Nav.PageUp, k.Nav.PageDown) },
-			run:  l.pagePressed,
+			nav:  l.pagePressed,
 		},
 		screenAction{
 			id:   actionColumnScroll,
 			keys: func(k config.Keybindings) []string { return slices.Concat(k.Column.ScrollDown, k.Column.ScrollUp) },
-			run:  l.scrollPressed,
+			nav:  l.scrollPressed,
 		},
 	)
 	if l.name != nil {
@@ -301,17 +312,17 @@ func (l screenList[T]) selectionActions() []screenAction {
 			id:   actionSelectClear,
 			keys: func(k config.Keybindings) []string { return k.Selection.Clear },
 			when: l.isSelecting,
-			run:  l.clearSelection,
+			nav:  l.clearSelection,
 		},
 		{
 			id:   actionSelectToggle,
 			keys: func(k config.Keybindings) []string { return k.Selection.Toggle },
-			run:  l.toggleSelection,
+			nav:  l.toggleSelection,
 		},
 		{
 			id:   actionSelectRange,
 			keys: func(k config.Keybindings) []string { return k.Selection.Range },
-			run:  l.extendSelection,
+			nav:  l.extendSelection,
 		},
 	}
 }
@@ -324,7 +335,7 @@ func (l screenList[T]) filterActions() []screenAction {
 			id:   actionFilterOpen,
 			keys: func(config.Keybindings) []string { return []string{filterOpenKey} },
 			when: l.isBrowsing,
-			run: func(h host, _ panelShared, _ string) tea.Cmd {
+			nav: func(h navHost, _ panelShared, _ string) tea.Cmd {
 				h.beginFilter()
 
 				return nil
@@ -334,13 +345,13 @@ func (l screenList[T]) filterActions() []screenAction {
 			id:   actionFilterMatch,
 			keys: func(k config.Keybindings) []string { return slices.Concat(k.Filter.NextMatch, k.Filter.PrevMatch) },
 			when: standing,
-			run:  func(h host, _ panelShared, pressed string) tea.Cmd { return h.jumpToFilterMatch(pressed) },
+			nav:  func(h navHost, _ panelShared, pressed string) tea.Cmd { return h.jumpToFilterMatch(pressed) },
 		},
 		{
 			id:   actionFilterClear,
 			keys: l.back,
 			when: standing,
-			run: func(h host, _ panelShared, _ string) tea.Cmd {
+			nav: func(h navHost, _ panelShared, _ string) tea.Cmd {
 				h.clearFilter()
 
 				return h.waitToStage()
@@ -350,7 +361,7 @@ func (l screenList[T]) filterActions() []screenAction {
 }
 
 // jumpPressed answers the bottom key.
-func (l screenList[T]) jumpPressed(h host, s panelShared, pressed string) tea.Cmd {
+func (l screenList[T]) jumpPressed(h navHost, s panelShared, pressed string) tea.Cmd {
 	if isBound(pressed, s.keys.Nav.Bottom) {
 		return l.jump(h, s, len(l.rows(s))-1)
 	}
@@ -358,11 +369,11 @@ func (l screenList[T]) jumpPressed(h host, s panelShared, pressed string) tea.Cm
 	return nil
 }
 
-func (l screenList[T]) pagePressed(h host, s panelShared, pressed string) tea.Cmd {
+func (l screenList[T]) pagePressed(h navHost, s panelShared, pressed string) tea.Cmd {
 	return l.jump(h, s, l.cursor().cursor+navPageDeltaOf(s.keys, pressed))
 }
 
-func (l screenList[T]) movePressed(h host, s panelShared, pressed string) tea.Cmd {
+func (l screenList[T]) movePressed(h navHost, s panelShared, pressed string) tea.Cmd {
 	if isBound(pressed, s.keys.Nav.Down) {
 		return l.move(h, s, 1)
 	}
@@ -370,7 +381,7 @@ func (l screenList[T]) movePressed(h host, s panelShared, pressed string) tea.Cm
 	return l.move(h, s, -1)
 }
 
-func (l screenList[T]) scrollPressed(h host, s panelShared, pressed string) tea.Cmd {
+func (l screenList[T]) scrollPressed(h navHost, s panelShared, pressed string) tea.Cmd {
 	if isBound(pressed, s.keys.Column.ScrollDown) {
 		return l.move(h, s, 1)
 	}
@@ -378,20 +389,20 @@ func (l screenList[T]) scrollPressed(h host, s panelShared, pressed string) tea.
 	return l.move(h, s, -1)
 }
 
-func (l screenList[T]) clearSelection(host, panelShared, string) tea.Cmd {
+func (l screenList[T]) clearSelection(navHost, panelShared, string) tea.Cmd {
 	l.cursor().selected = selection{}
 
 	return nil
 }
 
-func (l screenList[T]) toggleSelection(_ host, s panelShared, _ string) tea.Cmd {
+func (l screenList[T]) toggleSelection(_ navHost, s panelShared, _ string) tea.Cmd {
 	c := l.cursor()
 	c.selected = c.selected.toggle(l.refs(l.rows(s)), c.cursor)
 
 	return nil
 }
 
-func (l screenList[T]) extendSelection(h host, s panelShared, pressed string) tea.Cmd {
+func (l screenList[T]) extendSelection(h navHost, s panelShared, pressed string) tea.Cmd {
 	if !l.isSelecting(s) {
 		return l.toggleSelection(h, s, pressed)
 	}
@@ -802,3 +813,11 @@ func navPageDeltaOf(keys config.Keybindings, pressed string) int {
 
 	return navPageStep
 }
+
+// directly declares an arm that acts straight off its key, and why it is not in the menu.
+func directly(reason string, run func(host, panelShared, string) tea.Cmd) *directAction {
+	return &directAction{reason: reason, run: run}
+}
+
+// notInMenu is the reason on an action arm that has not moved into the menu yet.
+const notInMenu = "not yet moved into the menu"

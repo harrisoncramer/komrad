@@ -41,7 +41,7 @@ func (a *archiveScreen) scheduleTable() []screenAction {
 		screenAction{
 			id:   actionArchiveBack,
 			keys: func(k config.Keybindings) []string { return k.Archive.Back },
-			run:  func(h host, _ panelShared, _ string) tea.Cmd { return h.pickView() },
+			nav:  func(h navHost, _ panelShared, _ string) tea.Cmd { return h.pickView() },
 		},
 	)
 }
@@ -54,13 +54,13 @@ func (a *archiveScreen) agentTable() []screenAction {
 			id:   actionArchiveBack,
 			keys: func(k config.Keybindings) []string { return k.Archive.Back },
 			when: list.isBrowsing,
-			run:  func(h host, _ panelShared, _ string) tea.Cmd { return h.pickView() },
+			nav:  func(h navHost, _ panelShared, _ string) tea.Cmd { return h.pickView() },
 		},
 		screenAction{
-			id:   actionArchiveRename,
-			keys: func(k config.Keybindings) []string { return k.Archive.Rename },
-			when: list.isBrowsing,
-			run:  func(_ host, s panelShared, _ string) tea.Cmd { return a.openRename(s) },
+			id:     actionArchiveRename,
+			keys:   func(k config.Keybindings) []string { return k.Archive.Rename },
+			when:   list.isBrowsing,
+			direct: directly(notInMenu, func(_ host, s panelShared, _ string) tea.Cmd { return a.openRename(s) }),
 		},
 	)
 }

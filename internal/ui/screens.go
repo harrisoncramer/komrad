@@ -156,7 +156,7 @@ type leaving interface {
 
 // staged is a screen that puts the row the cursor is on into the stage pane.
 type staged interface {
-	stage(h host, s panelShared)
+	stage(h navHost, s panelShared)
 }
 
 // active is the screen that is up.
@@ -202,14 +202,30 @@ type host interface {
 	// A write that lands a message of its own is counted out here.
 	beginWrite(doing string) int
 
+	navHost
+
+	// The form is the root's.
+	openForm(f formState) tea.Cmd
+
+	// The files a reader opened over a stopped agent are the root's, noted by the review and
+	// carried by a release from the review or the agents screen.
+	noteEdited(agentID string, touched []string)
+	releaseCmd(summary string, agent panel.Agent, said string) tea.Cmd
+
+	// The review and the documents put an editor on the stage.
+	stageEditor(content layout.Content) string
+	unstageEditor()
+}
+
+// navHost is what a key that moves, opens a view or reads asks of the root, and nothing that writes.
+type navHost interface {
 	// A failure lands in the messages region.
 	report(summary string, err error)
 	reportBrief(summary, detail string)
 	// A note answers a keypress in the messages region.
 	note(kind messageKind, summary string)
 
-	// The form, the popup, the screen that is up and the archive and worktree listings are the root's.
-	openForm(f formState) tea.Cmd
+	// The popup, the screen that is up and the archive and worktree listings are the root's.
 	enter(next screen, target screenTarget) tea.Cmd
 	hide() tea.Cmd
 	pickView() tea.Cmd
@@ -221,14 +237,6 @@ type host interface {
 	// The info pane is the root's, and the archive and worktrees screens put it on the stage.
 	stageTerminal()
 
-	// The files a reader opened over a stopped agent are the root's, noted by the review and
-	// carried by a release from the review or the agents screen.
-	noteEdited(agentID string, touched []string)
-	releaseCmd(summary string, agent panel.Agent, said string) tea.Cmd
-
-	// The review and the documents put an editor on the stage.
-	stageEditor(content layout.Content) string
-	unstageEditor()
 	isScratchOpen() bool
 	isPaneAlive(pane string) bool
 

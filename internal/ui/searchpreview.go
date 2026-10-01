@@ -212,40 +212,40 @@ func (w *searchScreen) previewActions() screenActionSpec {
 			{
 				id:   actionMove,
 				keys: func(k config.Keybindings) []string { return slices.Concat(k.Nav.Up, k.Nav.Down) },
-				run: func(_ host, s panelShared, pressed string) tea.Cmd {
+				nav: func(_ navHost, s panelShared, pressed string) tea.Cmd {
 					return w.movePreview(s, directionOf(pressed, s.keys.Nav.Up))
 				},
 			},
 			{
 				id:   actionNavPage,
 				keys: func(k config.Keybindings) []string { return slices.Concat(k.Nav.PageUp, k.Nav.PageDown) },
-				run: func(_ host, s panelShared, pressed string) tea.Cmd {
+				nav: func(_ navHost, s panelShared, pressed string) tea.Cmd {
 					return w.movePreview(s, directionOf(pressed, s.keys.Nav.PageUp)*navPageStep)
 				},
 			},
 			{
 				id:   actionColumnScroll,
 				keys: func(k config.Keybindings) []string { return slices.Concat(k.Column.ScrollDown, k.Column.ScrollUp) },
-				run: func(_ host, s panelShared, pressed string) tea.Cmd {
+				nav: func(_ navHost, s panelShared, pressed string) tea.Cmd {
 					return w.movePreview(s, directionOf(pressed, s.keys.Column.ScrollUp)*previewWheelStep)
 				},
 			},
 			{
 				id:   actionJump,
 				keys: func(k config.Keybindings) []string { return slices.Concat(k.Nav.Top, k.Nav.Bottom) },
-				run: func(_ host, s panelShared, pressed string) tea.Cmd {
+				nav: func(_ navHost, s panelShared, pressed string) tea.Cmd {
 					return w.movePreview(s, directionOf(pressed, s.keys.Nav.Top)*len(w.preview.doc.rows))
 				},
 			},
 			{
 				id:   actionSearchOpen,
 				keys: func(config.Keybindings) []string { return []string{"enter"} },
-				run:  func(h host, s panelShared, _ string) tea.Cmd { return w.jumpToAgent(h, s) },
+				nav:  func(h navHost, s panelShared, _ string) tea.Cmd { return w.jumpToAgent(h, s) },
 			},
 			{
 				id:   actionSearchBack,
 				keys: func(config.Keybindings) []string { return []string{"esc"} },
-				run: func(host, panelShared, string) tea.Cmd {
+				nav: func(navHost, panelShared, string) tea.Cmd {
 					w.blurBlock()
 
 					return nil
@@ -254,7 +254,7 @@ func (w *searchScreen) previewActions() screenActionSpec {
 			{
 				id:   actionQuit,
 				keys: func(config.Keybindings) []string { return []string{"ctrl+c"} },
-				run:  func(h host, _ panelShared, _ string) tea.Cmd { return h.hide() },
+				nav:  func(h navHost, _ panelShared, _ string) tea.Cmd { return h.hide() },
 			},
 		},
 		legend: []screenLegendRow{

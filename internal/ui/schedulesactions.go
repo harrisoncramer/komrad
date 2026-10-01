@@ -19,7 +19,7 @@ func (w *schedulesScreen) actions() screenActionSpec {
 			{
 				id:   actionFilterOpen,
 				keys: func(config.Keybindings) []string { return []string{filterOpenKey} },
-				run: func(h host, _ panelShared, _ string) tea.Cmd {
+				nav: func(h navHost, _ panelShared, _ string) tea.Cmd {
 					h.beginFilter()
 
 					return nil
@@ -28,19 +28,19 @@ func (w *schedulesScreen) actions() screenActionSpec {
 			{
 				id:   actionQuit,
 				keys: list.quit,
-				run:  func(h host, _ panelShared, _ string) tea.Cmd { return h.hide() },
+				nav:  func(h navHost, _ panelShared, _ string) tea.Cmd { return h.hide() },
 			},
 			{
 				id:   actionFilterMatch,
 				keys: func(k config.Keybindings) []string { return slices.Concat(k.Filter.NextMatch, k.Filter.PrevMatch) },
 				when: standing,
-				run:  func(h host, _ panelShared, pressed string) tea.Cmd { return h.jumpToFilterMatch(pressed) },
+				nav:  func(h navHost, _ panelShared, pressed string) tea.Cmd { return h.jumpToFilterMatch(pressed) },
 			},
 			{
 				id:   actionFilterClear,
 				keys: list.back,
 				when: standing,
-				run: func(h host, _ panelShared, _ string) tea.Cmd {
+				nav: func(h navHost, _ panelShared, _ string) tea.Cmd {
 					h.clearFilter()
 
 					return h.waitToStage()
@@ -49,37 +49,37 @@ func (w *schedulesScreen) actions() screenActionSpec {
 			{
 				id:   actionScheduleBack,
 				keys: list.back,
-				run:  func(h host, _ panelShared, _ string) tea.Cmd { return h.pickView() },
+				nav:  func(h navHost, _ panelShared, _ string) tea.Cmd { return h.pickView() },
 			},
 			{
 				id:   actionMove,
 				keys: func(k config.Keybindings) []string { return slices.Concat(k.Nav.Up, k.Nav.Down) },
-				run:  list.movePressed,
+				nav:  list.movePressed,
 			},
 			{
 				id:   actionNavPage,
 				keys: func(k config.Keybindings) []string { return slices.Concat(k.Nav.PageUp, k.Nav.PageDown) },
-				run:  list.pagePressed,
+				nav:  list.pagePressed,
 			},
 			{
 				id:   actionColumnScroll,
 				keys: func(k config.Keybindings) []string { return slices.Concat(k.Column.ScrollDown, k.Column.ScrollUp) },
-				run:  list.scrollPressed,
+				nav:  list.scrollPressed,
 			},
 			{
-				id:   actionScheduleNew,
-				keys: func(k config.Keybindings) []string { return k.Schedules.New },
-				run:  func(h host, s panelShared, _ string) tea.Cmd { return w.newForm(h, s) },
+				id:     actionScheduleNew,
+				keys:   func(k config.Keybindings) []string { return k.Schedules.New },
+				direct: directly(notInMenu, func(h host, s panelShared, _ string) tea.Cmd { return w.newForm(h, s) }),
 			},
 			{
-				id:   actionScheduleEdit,
-				keys: func(k config.Keybindings) []string { return k.Schedules.Edit },
-				run:  func(h host, s panelShared, _ string) tea.Cmd { return w.editForm(h, s) },
+				id:     actionScheduleEdit,
+				keys:   func(k config.Keybindings) []string { return k.Schedules.Edit },
+				direct: directly(notInMenu, func(h host, s panelShared, _ string) tea.Cmd { return w.editForm(h, s) }),
 			},
 			{
-				id:   actionScheduleRename,
-				keys: func(k config.Keybindings) []string { return k.Schedules.Rename },
-				run:  func(_ host, s panelShared, _ string) tea.Cmd { return w.openRename(s) },
+				id:     actionScheduleRename,
+				keys:   func(k config.Keybindings) []string { return k.Schedules.Rename },
+				direct: directly(notInMenu, func(_ host, s panelShared, _ string) tea.Cmd { return w.openRename(s) }),
 			},
 		},
 		legend: []screenLegendRow{

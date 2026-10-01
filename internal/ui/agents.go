@@ -57,14 +57,14 @@ func (a *agentsScreen) list() screenList[agentRow] {
 		refs:   refsOf,
 		header: "folder",
 		placed: a.stage,
-		moved:  func(h host, _ panelShared) tea.Cmd { return h.waitToStage() },
+		moved:  func(h navHost, _ panelShared) tea.Cmd { return h.waitToStage() },
 		quit:   func(k config.Keybindings) []string { return k.Agents.Quit },
 		back:   func(k config.Keybindings) []string { return k.Agents.Back },
 	}
 }
 
 // stage puts the pane of whatever the cursor is standing on beside the list.
-func (a *agentsScreen) stage(h host, _ panelShared) {
+func (a *agentsScreen) stage(h navHost, _ panelShared) {
 	h.stageSelection()
 }
 

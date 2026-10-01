@@ -30,7 +30,7 @@ func (l *logsScreen) table() []screenAction {
 		screenAction{
 			id:   actionLogsBack,
 			keys: func(k config.Keybindings) []string { return k.Logs.Back },
-			run: func(h host, _ panelShared, _ string) tea.Cmd {
+			nav: func(h navHost, _ panelShared, _ string) tea.Cmd {
 				return h.enter(l.from, screenTarget{agentID: l.agentID})
 			},
 		},
@@ -68,28 +68,28 @@ func (l *logsScreen) logActions() screenActionSpec {
 			{
 				id:   actionMove,
 				keys: func(b config.Keybindings) []string { return slices.Concat(b.Nav.Up, b.Nav.Down) },
-				run: func(_ host, s panelShared, pressed string) tea.Cmd {
+				nav: func(_ navHost, s panelShared, pressed string) tea.Cmd {
 					return l.move(directionOf(pressed, s.keys.Nav.Up))
 				},
 			},
 			{
 				id:   actionNavPage,
 				keys: func(b config.Keybindings) []string { return slices.Concat(b.Nav.PageUp, b.Nav.PageDown) },
-				run: func(_ host, s panelShared, pressed string) tea.Cmd {
+				nav: func(_ navHost, s panelShared, pressed string) tea.Cmd {
 					return l.move(directionOf(pressed, s.keys.Nav.PageUp) * navPageStep)
 				},
 			},
 			{
 				id:   actionColumnScroll,
 				keys: func(b config.Keybindings) []string { return slices.Concat(b.Column.ScrollDown, b.Column.ScrollUp) },
-				run: func(_ host, s panelShared, pressed string) tea.Cmd {
+				nav: func(_ navHost, s panelShared, pressed string) tea.Cmd {
 					return l.move(directionOf(pressed, s.keys.Column.ScrollUp) * columnWheelStep)
 				},
 			},
 			{
 				id:   actionJump,
 				keys: func(b config.Keybindings) []string { return slices.Concat(b.Nav.Top, b.Nav.Bottom) },
-				run: func(_ host, s panelShared, pressed string) tea.Cmd {
+				nav: func(_ navHost, s panelShared, pressed string) tea.Cmd {
 					if isBound(pressed, s.keys.Nav.Bottom) {
 						return l.move(l.viewer.Len())
 					}
@@ -100,7 +100,7 @@ func (l *logsScreen) logActions() screenActionSpec {
 			{
 				id:   actionLogsCopy,
 				keys: func(k config.Keybindings) []string { return k.Logs.Copy },
-				run: func(h host, _ panelShared, _ string) tea.Cmd {
+				nav: func(h navHost, _ panelShared, _ string) tea.Cmd {
 					line, ok := l.viewer.Current()
 					if !ok {
 						return nil
@@ -112,7 +112,7 @@ func (l *logsScreen) logActions() screenActionSpec {
 			{
 				id:   actionFilterOpen,
 				keys: func(config.Keybindings) []string { return []string{filterOpenKey} },
-				run: func(host, panelShared, string) tea.Cmd {
+				nav: func(navHost, panelShared, string) tea.Cmd {
 					l.openLogFilter()
 
 					return nil
@@ -121,7 +121,7 @@ func (l *logsScreen) logActions() screenActionSpec {
 			{
 				id:   actionLogsBack,
 				keys: func(k config.Keybindings) []string { return k.Logs.Back },
-				run: func(_ host, s panelShared, _ string) tea.Cmd {
+				nav: func(_ navHost, s panelShared, _ string) tea.Cmd {
 					if l.logFilter.isStanding() {
 						return l.clearLogFilter(s)
 					}
@@ -134,7 +134,7 @@ func (l *logsScreen) logActions() screenActionSpec {
 			{
 				id:   actionQuit,
 				keys: func(k config.Keybindings) []string { return k.Logs.Quit },
-				run:  func(h host, _ panelShared, _ string) tea.Cmd { return h.hide() },
+				nav:  func(h navHost, _ panelShared, _ string) tea.Cmd { return h.hide() },
 			},
 		},
 		legend: []screenLegendRow{

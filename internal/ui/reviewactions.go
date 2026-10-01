@@ -34,97 +34,97 @@ func (r *reviewScreen) table() []screenAction {
 func (r *reviewScreen) ownTable() []screenAction {
 	return []screenAction{
 		{
-			id:   actionReviewBack,
-			keys: func(k config.Keybindings) []string { return k.Review.Back },
-			run:  func(h host, s panelShared, _ string) tea.Cmd { return r.back(h, s) },
+			id:     actionReviewBack,
+			keys:   func(k config.Keybindings) []string { return k.Review.Back },
+			direct: directly(editorRelease, func(h host, s panelShared, _ string) tea.Cmd { return r.back(h, s) }),
 		},
 		{
 			id:   actionQuit,
 			keys: func(k config.Keybindings) []string { return k.Review.Quit },
-			run:  func(h host, _ panelShared, _ string) tea.Cmd { return h.hide() },
+			nav:  func(h navHost, _ panelShared, _ string) tea.Cmd { return h.hide() },
 		},
 		{
 			id:   actionReviewThread,
 			keys: func(k config.Keybindings) []string { return slices.Concat(k.Review.NextThread, k.Review.PrevThread) },
-			run:  r.stepThread,
+			nav:  r.stepThread,
 		},
 		{
 			id: actionReviewOpenThread,
 			keys: func(k config.Keybindings) []string {
 				return slices.Concat(k.Review.NextOpenThread, k.Review.PrevOpenThread)
 			},
-			run: r.stepOpenThread,
+			nav: r.stepOpenThread,
 		},
 		{
 			id:   actionReviewBase,
 			keys: func(k config.Keybindings) []string { return k.Review.Base },
 			when: func(panelShared) bool { return r.doesWalk() },
-			run:  func(_ host, s panelShared, _ string) tea.Cmd { return r.stepBase(s) },
+			nav:  func(_ navHost, s panelShared, _ string) tea.Cmd { return r.stepBase(s) },
 		},
 		{
 			id:   actionReviewBaseForward,
 			keys: func(k config.Keybindings) []string { return k.Review.BaseForward },
 			when: func(panelShared) bool { return r.doesWalk() },
-			run:  func(_ host, s panelShared, _ string) tea.Cmd { return r.stepBaseForward(s) },
+			nav:  func(_ navHost, s panelShared, _ string) tea.Cmd { return r.stepBaseForward(s) },
 		},
 		{
 			id:   actionReviewAnswer,
 			keys: func(k config.Keybindings) []string { return k.Review.Answer },
 			when: func(panelShared) bool { return r.doesOfferAnswer() },
-			run:  func(_ host, s panelShared, _ string) tea.Cmd { return r.toggleAnswer(s) },
+			nav:  func(_ navHost, s panelShared, _ string) tea.Cmd { return r.toggleAnswer(s) },
 		},
 		{
 			id:   actionReviewJump,
 			keys: func(k config.Keybindings) []string { return k.Review.Jump },
 			when: func(panelShared) bool { return r.doesOfferJump() },
-			run:  func(h host, s panelShared, _ string) tea.Cmd { return r.toggleJump(h, s) },
+			nav:  func(h navHost, s panelShared, _ string) tea.Cmd { return r.toggleJump(h, s) },
 		},
 		{
 			id:   actionReviewOffer,
 			keys: func(k config.Keybindings) []string { return k.Review.Jump },
 			when: r.doesStepOffers,
-			run:  func(h host, s panelShared, _ string) tea.Cmd { return r.stepOffer(h, s) },
+			nav:  func(h navHost, s panelShared, _ string) tea.Cmd { return r.stepOffer(h, s) },
 		},
 		{
-			id:   actionReviewDismiss,
-			keys: func(k config.Keybindings) []string { return k.Review.Dismiss },
-			when: r.doesDismissOffer,
-			run:  func(h host, s panelShared, _ string) tea.Cmd { return r.dismissOfferCmd(h, s) },
+			id:     actionReviewDismiss,
+			keys:   func(k config.Keybindings) []string { return k.Review.Dismiss },
+			when:   r.doesDismissOffer,
+			direct: directly(notInMenu, func(h host, s panelShared, _ string) tea.Cmd { return r.dismissOfferCmd(h, s) }),
 		},
 		{
 			id:   actionReviewReload,
 			keys: func(k config.Keybindings) []string { return k.Review.Reload },
-			run:  func(_ host, s panelShared, _ string) tea.Cmd { return r.reloadFresh(s) },
+			nav:  func(_ navHost, s panelShared, _ string) tea.Cmd { return r.reloadFresh(s) },
 		},
 		{
 			id:   actionReviewEdit,
 			keys: func(k config.Keybindings) []string { return k.Review.EditFile },
 			// Editing writes to the worktree rather than to the agent, so it is offered whether or
 			// not there is anybody there to read a comment.
-			run: func(h host, s panelShared, _ string) tea.Cmd { return r.pressEdit(h, s) },
+			direct: directly(notInMenu, func(h host, s panelShared, _ string) tea.Cmd { return r.pressEdit(h, s) }),
 		},
 		{
-			id:   actionReviewResolve,
-			keys: func(k config.Keybindings) []string { return k.Review.Resolve },
-			run:  func(h host, s panelShared, _ string) tea.Cmd { return r.resolveThread(h, s) },
+			id:     actionReviewResolve,
+			keys:   func(k config.Keybindings) []string { return k.Review.Resolve },
+			direct: directly(notInMenu, func(h host, s panelShared, _ string) tea.Cmd { return r.resolveThread(h, s) }),
 		},
 		{
-			id:   actionReviewViewed,
-			keys: func(k config.Keybindings) []string { return k.Review.ToggleViewed },
-			run:  func(h host, s panelShared, _ string) tea.Cmd { return r.toggleViewed(h, s) },
+			id:     actionReviewViewed,
+			keys:   func(k config.Keybindings) []string { return k.Review.ToggleViewed },
+			direct: directly(viewedIsLocal, func(h host, s panelShared, _ string) tea.Cmd { return r.toggleViewed(h, s) }),
 		},
 		// The two keys that write are taken whether or not anybody is there to read.
 		{
-			id:   actionReviewCompose,
-			keys: func(k config.Keybindings) []string { return k.Review.Compose },
-			run:  r.orRefuseComment(func(h host, s panelShared) tea.Cmd { return r.compose(h, s) }),
+			id:     actionReviewCompose,
+			keys:   func(k config.Keybindings) []string { return k.Review.Compose },
+			direct: directly(composerSurface, r.orRefuseComment(func(h host, s panelShared) tea.Cmd { return r.compose(h, s) })),
 		},
 		{
 			id: actionReviewSend,
 			// Comments wait in a batch until sent, so this is offered while reading as well as
 			// while writing.
-			keys: func(config.Keybindings) []string { return formKeys().Submit },
-			run:  r.orRefuseWrite(func(_ host, s panelShared) tea.Cmd { return r.openRelease(s) }),
+			keys:   func(config.Keybindings) []string { return formKeys().Submit },
+			direct: directly(composerSurface, r.orRefuseWrite(func(_ host, s panelShared) tea.Cmd { return r.openRelease(s) })),
 		},
 	}
 }
@@ -277,7 +277,7 @@ func (r *reviewScreen) legend() []screenLegendRow {
 }
 
 // stepOpenThread walks the comments nobody has settled.
-func (r *reviewScreen) stepOpenThread(h host, s panelShared, pressed string) tea.Cmd {
+func (r *reviewScreen) stepOpenThread(h navHost, s panelShared, pressed string) tea.Cmd {
 	if isBound(pressed, s.keys.Review.PrevOpenThread) {
 		return r.jumpOpenThread(h, s, -1)
 	}
@@ -285,7 +285,7 @@ func (r *reviewScreen) stepOpenThread(h host, s panelShared, pressed string) tea
 	return r.jumpOpenThread(h, s, 1)
 }
 
-func (r *reviewScreen) stepThread(_ host, s panelShared, pressed string) tea.Cmd {
+func (r *reviewScreen) stepThread(_ navHost, s panelShared, pressed string) tea.Cmd {
 	if isBound(pressed, s.keys.Review.PrevThread) {
 		return r.moveCursor(s, r.diff.View().JumpThread(r.diff.Cursor(), -1))
 	}
@@ -302,14 +302,14 @@ func (r *reviewScreen) filesActions() screenActionSpec {
 				keys: func(k config.Keybindings) []string {
 					return slices.Concat(k.Nav.Up, k.Nav.Down, k.Diff.NextFile, k.Diff.PrevFile)
 				},
-				run: func(_ host, s panelShared, pressed string) tea.Cmd {
+				nav: func(_ navHost, s panelShared, pressed string) tea.Cmd {
 					return r.stepFile(s, directionOf(pressed, slices.Concat(s.keys.Nav.Up, s.keys.Diff.PrevFile)))
 				},
 			},
 			{
 				id:   actionReviewBack,
 				keys: func(k config.Keybindings) []string { return k.Review.Back },
-				run: func(host, panelShared, string) tea.Cmd {
+				nav: func(navHost, panelShared, string) tea.Cmd {
 					r.blurBlock()
 
 					return nil
@@ -318,12 +318,12 @@ func (r *reviewScreen) filesActions() screenActionSpec {
 			{
 				id:   actionQuit,
 				keys: func(k config.Keybindings) []string { return k.Review.Quit },
-				run:  func(h host, _ panelShared, _ string) tea.Cmd { return h.hide() },
+				nav:  func(h navHost, _ panelShared, _ string) tea.Cmd { return h.hide() },
 			},
 			{
-				id:   actionReviewViewed,
-				keys: func(k config.Keybindings) []string { return k.Review.ToggleViewed },
-				run:  func(h host, s panelShared, _ string) tea.Cmd { return r.toggleViewed(h, s) },
+				id:     actionReviewViewed,
+				keys:   func(k config.Keybindings) []string { return k.Review.ToggleViewed },
+				direct: directly(viewedIsLocal, func(h host, s panelShared, _ string) tea.Cmd { return r.toggleViewed(h, s) }),
 			},
 		},
 		legend: []screenLegendRow{
@@ -346,3 +346,10 @@ func (r *reviewScreen) filesActions() screenActionSpec {
 		},
 	}
 }
+
+// The review's own reasons for an arm that acts straight off its key.
+const (
+	viewedIsLocal   = "the fold is local and immediate, and holding a reading key on its echo would slow it"
+	editorRelease   = "leaving the editor releases the agent whichever key leaves it"
+	composerSurface = "the composer and the release panel are the review's own surface with their own submit"
+)

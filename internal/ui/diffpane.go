@@ -40,14 +40,14 @@ func (k diffKeys) table() []screenAction {
 		{
 			id:   actionMove,
 			keys: func(b config.Keybindings) []string { return slices.Concat(b.Nav.Up, b.Nav.Down) },
-			run: func(_ host, s panelShared, pressed string) tea.Cmd {
+			nav: func(_ navHost, s panelShared, pressed string) tea.Cmd {
 				return k.step(s, directionOf(pressed, s.keys.Nav.Up), 1)
 			},
 		},
 		{
 			id:   actionJump,
 			keys: func(b config.Keybindings) []string { return slices.Concat(b.Nav.Top, b.Nav.Bottom) },
-			run: func(_ host, s panelShared, pressed string) tea.Cmd {
+			nav: func(_ navHost, s panelShared, pressed string) tea.Cmd {
 				if isBound(pressed, s.keys.Nav.Bottom) {
 					return k.moveTo(s, k.pane.View().GetLastRow())
 				}
@@ -58,21 +58,21 @@ func (k diffKeys) table() []screenAction {
 		{
 			id:   actionNavPage,
 			keys: func(b config.Keybindings) []string { return slices.Concat(b.Nav.PageUp, b.Nav.PageDown) },
-			run: func(_ host, s panelShared, pressed string) tea.Cmd {
+			nav: func(_ navHost, s panelShared, pressed string) tea.Cmd {
 				return k.step(s, directionOf(pressed, s.keys.Nav.PageUp), navPageStep)
 			},
 		},
 		{
 			id:   actionColumnScroll,
 			keys: func(b config.Keybindings) []string { return slices.Concat(b.Column.ScrollDown, b.Column.ScrollUp) },
-			run: func(_ host, s panelShared, pressed string) tea.Cmd {
+			nav: func(_ navHost, s panelShared, pressed string) tea.Cmd {
 				return k.step(s, directionOf(pressed, s.keys.Column.ScrollUp), diffWheelStep)
 			},
 		},
 		{
 			id:   actionDiffFile,
 			keys: func(b config.Keybindings) []string { return slices.Concat(b.Diff.NextFile, b.Diff.PrevFile) },
-			run: func(_ host, s panelShared, pressed string) tea.Cmd {
+			nav: func(_ navHost, s panelShared, pressed string) tea.Cmd {
 				if !k.pane.JumpFile(directionOf(pressed, s.keys.Diff.PrevFile), k.height(s)) {
 					return nil
 				}
@@ -83,7 +83,7 @@ func (k diffKeys) table() []screenAction {
 		{
 			id:   actionFilterOpen,
 			keys: func(config.Keybindings) []string { return []string{filterOpenKey} },
-			run: func(_ host, s panelShared, _ string) tea.Cmd {
+			nav: func(_ navHost, s panelShared, _ string) tea.Cmd {
 				k.filter.typing = true
 				k.filter.setQuery("")
 				k.search(s)
@@ -94,14 +94,14 @@ func (k diffKeys) table() []screenAction {
 		{
 			id:   actionDiffMatch,
 			keys: func(b config.Keybindings) []string { return slices.Concat(b.Diff.NextMatch, b.Diff.PrevMatch) },
-			run: func(h host, s panelShared, pressed string) tea.Cmd {
+			nav: func(h navHost, s panelShared, pressed string) tea.Cmd {
 				return k.jumpMatch(h, s, directionOf(pressed, s.keys.Diff.PrevMatch))
 			},
 		},
 		{
 			id:   actionDiffPan,
 			keys: func(b config.Keybindings) []string { return slices.Concat(b.Diff.PanLeft, b.Diff.PanRight) },
-			run: func(_ host, s panelShared, pressed string) tea.Cmd {
+			nav: func(_ navHost, s panelShared, pressed string) tea.Cmd {
 				k.pane.PanBy(directionOf(pressed, s.keys.Diff.PanLeft) * panStep(s))
 
 				return nil
@@ -110,7 +110,7 @@ func (k diffKeys) table() []screenAction {
 		{
 			id:   actionDiffPanReset,
 			keys: func(b config.Keybindings) []string { return b.Diff.PanReset },
-			run: func(host, panelShared, string) tea.Cmd {
+			nav: func(navHost, panelShared, string) tea.Cmd {
 				k.pane.PanBy(-k.pane.Pan())
 
 				return nil
@@ -119,7 +119,7 @@ func (k diffKeys) table() []screenAction {
 		{
 			id:   actionDiffExpand,
 			keys: func(b config.Keybindings) []string { return b.Diff.Expand },
-			run:  func(h host, s panelShared, _ string) tea.Cmd { return k.toggleExpanded(h, s) },
+			nav:  func(h navHost, s panelShared, _ string) tea.Cmd { return k.toggleExpanded(h, s) },
 		},
 	}
 }
@@ -251,7 +251,7 @@ func (k diffKeys) search(s panelShared) {
 }
 
 // jumpMatch steps to the next or previous line the search found, wrapping at the ends.
-func (k diffKeys) jumpMatch(h host, s panelShared, direction int) tea.Cmd {
+func (k diffKeys) jumpMatch(h navHost, s panelShared, direction int) tea.Cmd {
 	moved, found := k.pane.JumpMatch(direction, k.height(s))
 	if !found {
 		said := "nothing to search for yet"
@@ -272,7 +272,7 @@ func (k diffKeys) jumpMatch(h host, s panelShared, direction int) tea.Cmd {
 
 // toggleExpanded draws the whole of the file the cursor is in, or gives back the changed lines
 // and the few around them.
-func (k diffKeys) toggleExpanded(h host, s panelShared) tea.Cmd {
+func (k diffKeys) toggleExpanded(h navHost, s panelShared) tea.Cmd {
 	if k.refuseExpand != nil {
 		if refused := k.refuseExpand(s); refused != "" {
 			h.note(messageWarning, refused)

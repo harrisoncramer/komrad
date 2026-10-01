@@ -47,7 +47,7 @@ func (w *worktreesScreen) list() screenList[worktreeRow] {
 		refs:   worktreeRefs,
 		header: "repository",
 		placed: w.stage,
-		moved: func(h host, _ panelShared) tea.Cmd {
+		moved: func(h navHost, _ panelShared) tea.Cmd {
 			return h.waitToStage()
 		},
 		quit: func(k config.Keybindings) []string { return k.Worktrees.Quit },
@@ -64,7 +64,7 @@ func (w *worktreesScreen) hovered(s panelShared) (worktreeRow, bool) {
 	return row, true
 }
 
-func (w *worktreesScreen) stage(h host, _ panelShared) {
+func (w *worktreesScreen) stage(h navHost, _ panelShared) {
 	h.stageTerminal()
 }
 

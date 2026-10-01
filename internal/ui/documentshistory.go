@@ -51,7 +51,7 @@ type versionRead struct {
 }
 
 // stepOlder steps back to the write before the one drawn, starting from the newest.
-func (d *documentsScreen) stepOlder(h host, s panelShared) tea.Cmd {
+func (d *documentsScreen) stepOlder(h navHost, s panelShared) tea.Cmd {
 	item, ok := d.hovered(s)
 	if !ok || d.editing != nil {
 		return nil
@@ -74,7 +74,7 @@ func (d *documentsScreen) stepOlder(h host, s panelShared) tea.Cmd {
 
 // stepNewer steps forward to the write after the one drawn, and past the newest back to the
 // document as it stands.
-func (d *documentsScreen) stepNewer(h host, s panelShared) tea.Cmd {
+func (d *documentsScreen) stepNewer(h navHost, s panelShared) tea.Cmd {
 	if !d.isSteppingHovered(s) {
 		return nil
 	}

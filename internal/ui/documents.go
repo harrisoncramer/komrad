@@ -111,8 +111,8 @@ func (d *documentsScreen) list() screenList[documentRow] {
 		cursor: func() *rowCursor { return &d.rowCursor },
 		rows:   d.rows,
 		name:   documentRowName,
-		placed: func(h host, _ panelShared) { h.stageTerminal() },
-		moved: func(h host, _ panelShared) tea.Cmd {
+		placed: func(h navHost, _ panelShared) { h.stageTerminal() },
+		moved: func(h navHost, _ panelShared) tea.Cmd {
 			d.history, d.focus = nil, false
 
 			return h.waitToStage()
@@ -456,7 +456,7 @@ var (
 	_ renamer        = (*documentsScreen)(nil)
 )
 
-func (d *documentsScreen) stage(h host, _ panelShared) {
+func (d *documentsScreen) stage(h navHost, _ panelShared) {
 	h.stageTerminal()
 }
 

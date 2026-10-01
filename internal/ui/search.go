@@ -50,7 +50,7 @@ func (w *searchScreen) list() screenList[searchRow] {
 	return screenList[searchRow]{
 		cursor: func() *rowCursor { return &w.rowCursor },
 		rows:   w.rows,
-		moved:  func(h host, _ panelShared) tea.Cmd { return h.waitToStage() },
+		moved:  func(h navHost, _ panelShared) tea.Cmd { return h.waitToStage() },
 		quit:   func(config.Keybindings) []string { return []string{"ctrl+c"} },
 	}
 }
@@ -95,12 +95,12 @@ func (w *searchScreen) listActions() screenActionSpec {
 			screenAction{
 				id:   actionColumnScroll,
 				keys: func(k config.Keybindings) []string { return slices.Concat(k.Column.ScrollDown, k.Column.ScrollUp) },
-				run:  func(_ host, s panelShared, pressed string) tea.Cmd { return w.scrollPreview(s, pressed) },
+				nav:  func(_ navHost, s panelShared, pressed string) tea.Cmd { return w.scrollPreview(s, pressed) },
 			},
 			screenAction{
 				id:   actionSearchEdit,
 				keys: func(config.Keybindings) []string { return []string{filterOpenKey} },
-				run: func(host, panelShared, string) tea.Cmd {
+				nav: func(navHost, panelShared, string) tea.Cmd {
 					w.typing = true
 
 					return nil
@@ -109,12 +109,12 @@ func (w *searchScreen) listActions() screenActionSpec {
 			screenAction{
 				id:   actionSearchBack,
 				keys: func(config.Keybindings) []string { return []string{"esc"} },
-				run:  func(h host, _ panelShared, _ string) tea.Cmd { return h.pickView() },
+				nav:  func(h navHost, _ panelShared, _ string) tea.Cmd { return h.pickView() },
 			},
 			screenAction{
 				id:   actionSearchOpen,
 				keys: func(config.Keybindings) []string { return []string{"enter"} },
-				run:  func(h host, s panelShared, _ string) tea.Cmd { return w.jumpToAgent(h, s) },
+				nav:  func(h navHost, s panelShared, _ string) tea.Cmd { return w.jumpToAgent(h, s) },
 			},
 		),
 		legend: slices.Concat([]screenLegendRow{
@@ -596,7 +596,7 @@ func (w *searchScreen) hoveredAgent(s panelShared) (searchAgent, bool) {
 }
 
 // jumpToAgent lands the agents list or the archive on the hovered row's agent.
-func (w *searchScreen) jumpToAgent(h host, s panelShared) tea.Cmd {
+func (w *searchScreen) jumpToAgent(h navHost, s panelShared) tea.Cmd {
 	agent, ok := w.hoveredAgent(s)
 	if !ok {
 		return nil
