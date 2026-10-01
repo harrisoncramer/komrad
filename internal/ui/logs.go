@@ -260,6 +260,7 @@ func (l *logsScreen) reread(s panelShared) tea.Cmd {
 // openLogFilter hands the keys to the prompt at the foot of the log.
 func (l *logsScreen) openLogFilter() {
 	l.logFilter.typing = true
+	l.logFilter.input.insert()
 	l.logFilter.mode = filterModeFilter
 }
 
@@ -270,7 +271,7 @@ func (l *logsScreen) updateLogFilter(h host, s panelShared, key tea.KeyPressMsg)
 		return h.hide()
 	}
 
-	if !l.logFilter.takeKey(key) {
+	if !l.logFilter.takeKey(key, s.register) {
 		return nil
 	}
 	l.logFilter.mode = filterModeFilter
@@ -572,4 +573,8 @@ func (l *logsScreen) placeAt(h host, s panelShared, key string) {
 
 func (l *logsScreen) filterRows(s panelShared) []filterRow {
 	return l.list().filterRows(s)
+}
+
+func (l *logsScreen) typedLine() (lineInput, bool) {
+	return l.logFilter.input, l.logFilter.typing
 }

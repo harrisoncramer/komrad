@@ -7,6 +7,7 @@ import (
 
 	"komrad/internal/glyph"
 	"komrad/internal/ui/paint"
+	"komrad/internal/vim"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
@@ -195,17 +196,17 @@ func (m *model) leaveScreen() tea.Cmd {
 	return nil
 }
 
-// takeKey applies one keypress to a search being typed at, and reports whether it was one of
-// the search's.
-func (f *filterState) takeKey(key tea.KeyPressMsg) bool {
-	switch k := key.String(); {
-	case k == "esc":
+// takeKey applies one keypress to a search being typed at, with vim reading it first when
+// register is set, and reports whether it was one of the search's.
+func (f *filterState) takeKey(key tea.KeyPressMsg, register *vim.Register) bool {
+	switch step, k := f.input.take(key, register), key.String(); {
+	case step == lineLeft || (step == lineIgnored && k == "esc"):
 		f.abandon()
-	case k == "enter":
+	case step == lineIgnored && k == "enter":
 		f.typing = false
-	case f.input.take(key):
+	case step == lineChanged:
 		f.compile()
-	default:
+	case step == lineIgnored:
 		return false
 	}
 
@@ -251,7 +252,7 @@ func (m model) updateFilterInput(key tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.applyFilter()
 
 		return m, m.waitToStage()
-	case !filter.takeKey(key):
+	case !filter.takeKey(key, m.register):
 		return m, nil
 	}
 

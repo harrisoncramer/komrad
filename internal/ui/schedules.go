@@ -44,7 +44,7 @@ func (w *schedulesScreen) enter(h host, s panelShared, _ screenTarget) tea.Cmd {
 
 func (w *schedulesScreen) update(h host, s panelShared, msg tea.Msg) tea.Cmd {
 	if _, ok := msg.(tea.PasteMsg); ok && w.isRenaming() {
-		return w.updateRename(h, msg)
+		return w.updateRename(h, s, msg)
 	}
 
 	key, ok := msg.(tea.KeyPressMsg)
@@ -54,7 +54,7 @@ func (w *schedulesScreen) update(h host, s panelShared, msg tea.Msg) tea.Cmd {
 
 	w.reconcileRename(s)
 	if w.isRenaming() {
-		return w.updateRename(h, msg)
+		return w.updateRename(h, s, msg)
 	}
 
 	return w.actions().dispatch(h, s, key.String())
