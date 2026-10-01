@@ -8,7 +8,6 @@ import (
 
 	"komrad/internal/ui/panel"
 	"komrad/lib/xptr"
-	agentv1 "komrad/proto/gen/agent/v1"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 
 	"github.com/stretchr/testify/assert"
@@ -34,9 +33,6 @@ func TestTriageRefresh(t *testing.T) {
 		change(&item)
 
 		return item
-	}
-	pullRequest := func(state pullrequestv1.PullRequestState) panel.AgentRow {
-		return idle(func(item *panel.AgentRow) { item.PullRequest.State = state })
 	}
 	implementer := func(change func(*panel.AgentRow)) panel.AgentRow {
 		return idle(func(item *panel.AgentRow) {
@@ -126,26 +122,7 @@ func TestTriageRefresh(t *testing.T) {
 		},
 		{
 			name: "an agent holding mail is not in triage for what it can fix",
-			item: idle(func(item *panel.AgentRow) {
-				item.PullRequest.State = pullrequestv1.PullRequestState_PULL_REQUEST_STATE_FAILING
-				item.UnreadMail = true
-			}),
-			want: "",
-		},
-		{
-			name: "a pull request opened with its checks still running is not in triage",
-			item: idle(func(item *panel.AgentRow) {
-				item.PullRequest.State = pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN
-				item.PullRequest.Checks = pullrequestv1.Checks_CHECKS_PENDING
-			}),
-			want: "",
-		},
-		{
-			name: "a child's pull request is not in triage",
-			item: idle(func(item *panel.AgentRow) {
-				item.PullRequest.State = pullrequestv1.PullRequestState_PULL_REQUEST_STATE_FAILING
-				item.Agent.ParentAgentID = xptr.Ptr("p1")
-			}),
+			item: implementer(func(item *panel.AgentRow) { item.UnreadMail = true }),
 			want: "",
 		},
 		{
@@ -194,7 +171,7 @@ func TestTriageRefresh(t *testing.T) {
 			name: "the most urgent tier names the agent",
 			item: func() panel.AgentRow {
 				item := live(panel.StateWaiting)
-				item.PullRequest.State = pullrequestv1.PullRequestState_PULL_REQUEST_STATE_FAILING
+				item.FailedRun = true
 
 				return item
 			}(),
@@ -251,61 +228,18 @@ func TestTriageRefresh(t *testing.T) {
 			since: seen,
 		},
 		{
-			name:  "a pull request failing its checks",
-			item:  pullRequest(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_FAILING),
-			want:  "ci failing",
-			since: seen,
-		},
-		{
-			name:  "a pull request in conflict",
-			item:  pullRequest(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CONFLICTING),
-			want:  "pr conflict",
-			since: seen,
-		},
-		{
-			name:  "a pull request ready to merge",
-			item:  pullRequest(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED),
-			want:  "ready to merge",
-			since: seen,
-		},
-		{
-			name: "a pull request passing its checks is ready for review",
-			item: idle(func(item *panel.AgentRow) {
-				item.PullRequest.State = pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN
-				item.PullRequest.Checks = pullrequestv1.Checks_CHECKS_PASSING
+			name: "an implementer that stopped on a failing pull request is finished",
+			item: implementer(func(item *panel.AgentRow) {
+				item.PullRequest.State = pullrequestv1.PullRequestState_PULL_REQUEST_STATE_FAILING
 			}),
-			want:  "ready for review",
-			since: seen,
+			want:  "finished",
+			since: changed,
 		},
 		{
-			name:  "an approved pull request behind its base",
-			item:  pullRequest(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED_WAITING),
-			want:  "approved, behind",
-			since: seen,
-		},
-		{
-			name:  "a pull request with changes requested",
-			item:  pullRequest(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHANGES_REQUESTED),
-			want:  "changes requested",
-			since: seen,
-		},
-		{
-			name:  "comments a person left that are still open",
-			item:  idle(func(item *panel.AgentRow) { item.PersonComments = &agentv1.CommentCounts{Open: 2} }),
-			want:  "unanswered comments",
-			since: seen,
-		},
-		{
-			name:  "a merged pull request is done",
-			item:  pullRequest(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_MERGED),
-			want:  "done",
-			since: seen,
-		},
-		{
-			name:   "an implementer that finished its turn is idle",
+			name:   "an implementer that finished its turn is finished",
 			item:   implementer(func(*panel.AgentRow) {}),
 			others: []panel.AgentRow{child(panel.StateIdle)},
-			want:   "idle",
+			want:   "finished",
 			since:  changed,
 		},
 	}

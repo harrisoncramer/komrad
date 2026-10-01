@@ -46,6 +46,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return next, cmd
 	}
 
+	routed = routed.settleTriage()
 	routed, blink := routed.updateRowCursor(msg)
 	warming := routed.warm.poll()
 	spinning := routed.spinLoader()

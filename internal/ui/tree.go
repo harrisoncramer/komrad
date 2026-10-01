@@ -39,6 +39,8 @@ type agentRow struct {
 	// child says the row is drawn under the one above it rather than under the workflow, which is
 	// an indent and nothing else.
 	child bool
+	// snoozed says the row's family is sunk to the bottom of the triage zone, which draws it faded.
+	snoozed bool
 	// orchestrator is the agent a workflow header stands in for, unset on every other row.
 	orchestrator *panel.AgentRow
 }

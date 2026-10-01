@@ -41,6 +41,23 @@ func (a *agentsScreen) agentEntries(s panelShared, item panel.AgentRow) []submen
 		}))
 	}
 
+	if family, ok := a.triage.findFamily(item, s.listing.agents); ok {
+		label := "snooze"
+		if a.triage.isSnoozed(family.head.Agent.ID) {
+			label = "wake"
+		}
+
+		entries = append(entries, submenuEntry{
+			label: label,
+			keys:  s.keys.Menu.Snooze,
+			write: func(m model) (model, tea.Cmd) {
+				m.agents.toggleSnooze(&m, m.shared())
+
+				return m, nil
+			},
+		})
+	}
+
 	return entries
 }
 
