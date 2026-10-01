@@ -69,7 +69,7 @@ type Line struct {
 	// Tally is how many rows this one stands in for, drawn as a number.
 	Tally    int
 	Schedule Cell
-	// Workflow is the workflow's name, drawn greyed after everything else that follows the name.
+	// Workflow is the workflow's name, drawn greyed after the marks.
 	Workflow string
 	// Comments are the comment counts, drawn against the right edge of the pane.
 	Comments []Cell
