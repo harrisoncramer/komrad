@@ -67,8 +67,7 @@ func (r *reviewScreen) leaveOrigin(m *model) tea.Cmd {
 	}
 
 	if origin.answer != nil {
-		r.diff.spec.answer = origin.answer
-		r.diff.spec.label = "the answer to this comment"
+		r.diff.spec = answerSpec(origin.answer)
 	}
 
 	cmd := r.reload(m)

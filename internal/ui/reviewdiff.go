@@ -9,6 +9,8 @@ import (
 	agentv1 "komrad/proto/gen/agent/v1"
 )
 
+const answerLabel = "the answer to this comment"
+
 // reviewDiff is the patch on screen and where the reader is standing in it.
 type reviewDiff struct {
 	diffview.Pane
@@ -65,7 +67,7 @@ func wholeChange() diffSpec {
 
 func answerSpec(answer *reviewAnswer) diffSpec {
 	return diffSpec{
-		label:   "the answer to this comment",
+		label:   answerLabel,
 		chapter: -1,
 		answer:  answer,
 	}
@@ -112,7 +114,7 @@ func (d diffSpec) historySaid(chapters []reviewChapter) string {
 func (d *diffSpec) settle(msg reviewLoadedMsg) {
 	if d.answer != nil {
 		d.base, d.head = msg.answerBase, msg.answerHead
-		d.label = "the answer to this comment"
+		d.label = answerLabel
 		if msg.replayed {
 			d.label += ", replayed across the rebase"
 		}
