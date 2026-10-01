@@ -66,12 +66,16 @@ func (ts *TranscriptSyncer) adoptSessions(ctx context.Context, agents []agentsto
 			continue
 		}
 
-		harness, err := ts.harnesses.GetByID(agent.Harness)
+		hn, err := ts.harnesses.GetByID(agent.Harness)
 		if err != nil {
 			continue
 		}
+		finder, ok := hn.(harness.SessionFinder)
+		if !ok {
+			continue
+		}
 
-		found, err := harness.FindSession(agent.ID)
+		found, err := finder.FindSession(agent.ID)
 		if err != nil || found == "" {
 			continue
 		}

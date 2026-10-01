@@ -9,8 +9,6 @@ import (
 
 	"komrad/internal/harness"
 	"komrad/lib/xslice"
-
-	"github.com/google/uuid"
 )
 
 const FakeID = "claude"
@@ -24,9 +22,10 @@ const (
 )
 
 var (
-	_ harness.Harness  = (*Fake)(nil)
-	_ harness.Channel  = (*Channel)(nil)
-	_ harness.Observer = (*Observer)(nil)
+	_ harness.Harness       = (*Fake)(nil)
+	_ harness.SessionFinder = (*Fake)(nil)
+	_ harness.Channel       = (*Channel)(nil)
+	_ harness.Observer      = (*Observer)(nil)
 )
 
 // Fake is a harness that reads the frames above and records every launch it renders.
@@ -37,7 +36,7 @@ type Fake struct {
 	TrustErr   error
 	CommandErr error
 	Name       string
-	NoSession  bool
+	Naming     harness.SessionNaming
 	// InterruptWith is the keys an interrupt sends, Escape when nil.
 	InterruptWith []string
 	// Session is the id FindSession answers.
@@ -86,13 +85,9 @@ func (f *Fake) TrustDir(dir string) error {
 	return f.TrustErr
 }
 
-// MintSessionID is a fresh id, or nothing for a harness standing in for Codex.
-func (f *Fake) MintSessionID() string {
-	if f.NoSession {
-		return ""
-	}
-
-	return uuid.NewString()
+// SessionNaming is Naming.
+func (f *Fake) SessionNaming() harness.SessionNaming {
+	return f.Naming
 }
 
 // InterruptKeys is InterruptWith, or Escape when the test gave none.

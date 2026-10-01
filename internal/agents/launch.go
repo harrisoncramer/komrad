@@ -434,7 +434,7 @@ func (s *LaunchService) launchAgent(ctx context.Context, params NewAgentParams, 
 	if err != nil {
 		return nil, err
 	}
-	sessionID := plan.harness.MintSessionID()
+	sessionID := harness.MintSessionID(plan.harness)
 	agent := plan.agent(params, id, sessionID, plan.dir, "", spawner)
 	agent.State = agentstore.StateSettingUp
 

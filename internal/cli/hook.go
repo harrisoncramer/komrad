@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -11,6 +12,7 @@ import (
 	"komrad/internal/caller"
 	"komrad/internal/harness"
 	"komrad/internal/harness/claude"
+	"komrad/internal/harness/codex"
 	"komrad/internal/mail"
 	"komrad/internal/rpcapi"
 	"komrad/lib/xslice"
@@ -152,13 +154,6 @@ func payloadHookCmd(state *app, hook payloadHook) *cobra.Command {
 	return cmd
 }
 
-// turnEndPayload is codex's notify argument, of which only the type is read.
-type turnEndPayload struct {
-	Type string `json:"type"`
-}
-
-const turnCompleteType = "agent-turn-complete"
-
 func turnEndHookCmd(state *app) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "turn-end",
@@ -177,20 +172,12 @@ nobody has read. Anything but a completed turn is ignored.`,
 		if state.env.AgentID == "" {
 			return nil
 		}
-		// Any arity is taken.
+		var payload []byte
 		if len(args) > 0 {
-			var payload turnEndPayload
-			if err := json.Unmarshal([]byte(args[0]), &payload); err != nil {
-				reportHookProblem(cmd, "komrad could not parse the notify payload, so no turn end was recorded", err)
-
-				return nil
-			}
-			if payload.Type != turnCompleteType {
-				return nil
-			}
+			payload = []byte(args[0])
 		}
 
-		recordReport(cmd.Context(), state, harness.Report{TurnEnded: true})
+		reportHookEvent(cmd, state, codex.HarnessID, codex.EventNotify, payload)
 
 		return nil
 	}
@@ -291,6 +278,9 @@ func reportHookEvent(cmd *cobra.Command, state *app, harnessID string, event har
 	}
 
 	report, err := hn.ReadReport(event, payload)
+	if errors.Is(err, harness.ErrNoReport) {
+		return
+	}
 	if err != nil {
 		reportHookProblem(cmd, "komrad could not read the hook payload, so nothing was recorded", err)
 

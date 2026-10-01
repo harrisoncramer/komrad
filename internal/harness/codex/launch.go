@@ -11,7 +11,7 @@ import (
 // BuildCommand renders the command line that puts Codex up, quoting everything interpolated
 // since it is written to a script and parsed by the shell komrad starts the pane with.
 func (h *Harness) BuildCommand(launch harness.Launch) (string, error) {
-	command := harness.EnvPrefix(launch) + h.homePrefix() + originatorPrefix(launch.AgentID) + binary
+	command := harness.EnvPrefix(launch) + h.homePrefix() + originatorPrefix(launch.AgentID) + HarnessID
 
 	resuming := launch.Resume && launch.SessionID != ""
 	if resuming {

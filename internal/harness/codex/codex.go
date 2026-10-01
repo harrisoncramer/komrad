@@ -16,7 +16,8 @@ import (
 	"komrad/internal/harness"
 )
 
-const binary = "codex"
+// HarnessID is the id an agent running Codex is recorded under.
+const HarnessID = "codex"
 
 const originatorEnv = "CODEX_INTERNAL_ORIGINATOR_OVERRIDE"
 
@@ -51,14 +52,16 @@ func NewHarness(params NewHarnessParams) *Harness {
 
 var _ harness.Harness = (*Harness)(nil)
 
+var _ harness.SessionFinder = (*Harness)(nil)
+
 // ID is the name an agent running Codex is recorded under.
 func (h *Harness) ID() string {
-	return binary
+	return HarnessID
 }
 
 // Binary is the CLI a pane's shell has to resolve to start an agent.
 func (h *Harness) Binary() string {
-	return binary
+	return HarnessID
 }
 
 // InterruptKeys stops Codex where it stands.
@@ -66,10 +69,9 @@ func (h *Harness) InterruptKeys() []string {
 	return []string{"Escape"}
 }
 
-// MintSessionID returns empty, Codex taking no session id on the command line and naming the
-// conversation itself.
-func (h *Harness) MintSessionID() string {
-	return ""
+// SessionNaming is SessionDiscovered.
+func (h *Harness) SessionNaming() harness.SessionNaming {
+	return harness.SessionDiscovered
 }
 
 // NamedHome reads the directory the environment names in place of ~/.codex, empty when it

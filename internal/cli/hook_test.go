@@ -405,31 +405,28 @@ func TestIntegrationTurnEndHookRecordsTheBoundary(t *testing.T) {
 		agentID      string
 		args         []string
 		wantBoundary bool
+		wantProblem  bool
 	}{
+		{
+			name: "a caller that is not an agent has nothing to stamp",
+			args: []string{`{"type":"agent-turn-complete"}`},
+		},
+		{
+			name:        "a payload that will not parse is reported and records nothing",
+			agentID:     "agent-a",
+			args:        []string{`{`},
+			wantProblem: true,
+		},
+		{
+			name:    "a payload carrying nothing to record stays silent",
+			agentID: "agent-a",
+			args:    []string{`{"type":"agent-something-else"}`},
+		},
 		{
 			name:         "a completed turn is recorded",
 			agentID:      "agent-a",
 			args:         []string{`{"type":"agent-turn-complete","turn-id":"t1"}`},
 			wantBoundary: true,
-		},
-		{
-			name:    "anything else codex notifies about is not a turn ending",
-			agentID: "agent-a",
-			args:    []string{`{"type":"agent-something-else"}`},
-		},
-		{
-			name:    "a payload that will not parse records nothing rather than guessing",
-			agentID: "agent-a",
-			args:    []string{`{`},
-		},
-		{
-			name:         "a bare call with no payload is taken at its word",
-			agentID:      "agent-a",
-			wantBoundary: true,
-		},
-		{
-			name: "a caller that is not an agent has nothing to stamp",
-			args: []string{`{"type":"agent-turn-complete"}`},
 		},
 	}
 
@@ -461,6 +458,7 @@ func TestIntegrationTurnEndHookRecordsTheBoundary(t *testing.T) {
 				assert.Equal(t, recordedReport{agentID: tt.agentID, turnEnded: true}, reports[0])
 			}
 			assert.Empty(t, out.String(), "notify reads nothing back, so nothing is printed")
+			assert.Equal(t, tt.wantProblem, errs.Len() > 0, errs.String())
 		})
 	}
 }

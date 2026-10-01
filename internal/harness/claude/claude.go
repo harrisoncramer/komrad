@@ -10,8 +10,6 @@ import (
 
 	"komrad/config"
 	"komrad/internal/harness"
-
-	"github.com/google/uuid"
 )
 
 // HarnessID is the id an agent running Claude Code is recorded under.
@@ -54,15 +52,9 @@ func (h *Harness) InterruptKeys() []string {
 	return []string{"Escape", "Escape"}
 }
 
-// MintSessionID names the conversation a fresh launch will hold, which Claude takes on the
-// command line and every later resume keys on.
-func (h *Harness) MintSessionID() string {
-	return uuid.NewString()
-}
-
-// FindSession has nothing to find, Claude being told the id of every conversation it starts.
-func (h *Harness) FindSession(string) (string, error) {
-	return "", nil
+// SessionNaming is SessionMinted.
+func (h *Harness) SessionNaming() harness.SessionNaming {
+	return harness.SessionMinted
 }
 
 // NamedConfigDir reads the directory the environment names in place of ~/.claude, empty when

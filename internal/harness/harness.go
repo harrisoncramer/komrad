@@ -11,6 +11,10 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"komrad/internal/fail"
+
+	"github.com/google/uuid"
 )
 
 const AgentIDEnv = "KOMRAD_AGENT_ID"
@@ -138,6 +142,19 @@ type Report struct {
 	TurnError string
 }
 
+var ErrNoReport = fail.NotFound("the hook payload carries nothing to record")
+
+type SessionNaming int
+
+const (
+	SessionMinted SessionNaming = iota
+	SessionDiscovered
+)
+
+type SessionFinder interface {
+	FindSession(agentID string) (string, error)
+}
+
 type Turn struct {
 	Role    string
 	Content string
@@ -159,9 +176,7 @@ type Harness interface {
 
 	TrustDir(dir string) error
 
-	MintSessionID() string
-
-	FindSession(agentID string) (string, error)
+	SessionNaming() SessionNaming
 
 	ReadInput(frame string) Input
 
@@ -172,4 +187,13 @@ type Harness interface {
 	LogPath(sessionID string) string
 
 	ReadLog(path string, offset int64) (LogRead, error)
+}
+
+// MintSessionID names a fresh launch's conversation, empty when the CLI names its own.
+func MintSessionID(hn Harness) string {
+	if hn.SessionNaming() == SessionDiscovered {
+		return ""
+	}
+
+	return uuid.NewString()
 }
