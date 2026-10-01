@@ -11,9 +11,9 @@ import (
 	"unicode/utf8"
 
 	"komrad/config"
+	"komrad/internal/eventprompts"
 	"komrad/internal/fail"
 	"komrad/internal/git"
-	"komrad/internal/notices"
 	"komrad/internal/scripts"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
@@ -37,11 +37,11 @@ var ErrUnknownHookEvent = fail.InvalidArgument("a hook must name a moment komrad
 
 var ErrUnknownHookScript = fail.InvalidArgument("a hook must name a script in the hooks directory")
 
-var ErrUnknownPromptNotice = fail.InvalidArgument("a prompt must name a notice komrad sends")
+var ErrUnknownEventPrompt = fail.InvalidArgument("a prompt must name an event komrad sends")
 
-var ErrDuplicatePromptNotice = fail.InvalidArgument("a workflow holds one prompt per notice")
+var ErrDuplicateEventPrompt = fail.InvalidArgument("a workflow holds one prompt per event")
 
-var ErrPromptTooLong = fail.InvalidArgument(fmt.Sprintf("a prompt runs to at most %d characters", notices.MaxPrompt))
+var ErrPromptTooLong = fail.InvalidArgument(fmt.Sprintf("a prompt runs to at most %d characters", eventprompts.MaxPrompt))
 
 var ErrWorktreeNeedsBase = fail.InvalidArgument("a workflow's base branch cannot be blank")
 
@@ -169,11 +169,11 @@ func (w *WorkflowService) NewWorkflow(ctx context.Context, cfg workflowstore.Con
 	}
 	cfg.Hooks = hooks
 
-	prompts, err := normalizePrompts(cfg.Prompts)
+	prompts, err := normalizeEventPrompts(cfg.EventPrompts)
 	if err != nil {
 		return nil, err
 	}
-	cfg.Prompts = prompts
+	cfg.EventPrompts = prompts
 
 	if cfg.Worktree.Enabled {
 		if err := requireWorktreeRepo(cfg); err != nil {
@@ -232,11 +232,11 @@ func (w *WorkflowService) UpdateWorkflow(ctx context.Context, id string, cfg wor
 	}
 	cfg.Hooks = hooks
 
-	prompts, promptsErr := normalizePrompts(cfg.Prompts)
+	prompts, promptsErr := normalizeEventPrompts(cfg.EventPrompts)
 	if promptsErr != nil {
 		return promptsErr
 	}
-	cfg.Prompts = prompts
+	cfg.EventPrompts = prompts
 
 	if cfg.Worktree.Enabled {
 		if err := requireWorktreeRepo(cfg); err != nil {
@@ -279,24 +279,24 @@ func (w *WorkflowService) normalizeHooks(hooks []workflowstore.Hook) ([]workflow
 	return kept, nil
 }
 
-// normalizePrompts trims what a caller sent, drops the blank entries, and refuses a notice komrad
+// normalizeEventPrompts trims what a caller sent, drops the blank entries, and refuses an event komrad
 // does not send or one named twice.
-func normalizePrompts(prompts []workflowstore.Prompt) ([]workflowstore.Prompt, error) {
-	kept := make([]workflowstore.Prompt, 0, len(prompts))
+func normalizeEventPrompts(prompts []workflowstore.EventPrompt) ([]workflowstore.EventPrompt, error) {
+	kept := make([]workflowstore.EventPrompt, 0, len(prompts))
 	for _, prompt := range prompts {
-		prompt.Notice = strings.TrimSpace(prompt.Notice)
+		prompt.Event = strings.TrimSpace(prompt.Event)
 		prompt.Prompt = strings.TrimSpace(prompt.Prompt)
 		if prompt.Prompt == "" {
 			continue
 		}
-		if !notices.Known(prompt.Notice) {
-			return nil, fmt.Errorf("%w: %q is not one of %s", ErrUnknownPromptNotice, prompt.Notice, strings.Join(notices.Names(), ", "))
+		if !eventprompts.Known(prompt.Event) {
+			return nil, fmt.Errorf("%w: %q is not one of %s", ErrUnknownEventPrompt, prompt.Event, strings.Join(eventprompts.Names(), ", "))
 		}
-		if slices.ContainsFunc(kept, func(k workflowstore.Prompt) bool { return k.Notice == prompt.Notice }) {
-			return nil, fmt.Errorf("%w: %s", ErrDuplicatePromptNotice, prompt.Notice)
+		if slices.ContainsFunc(kept, func(k workflowstore.EventPrompt) bool { return k.Event == prompt.Event }) {
+			return nil, fmt.Errorf("%w: %s", ErrDuplicateEventPrompt, prompt.Event)
 		}
-		if utf8.RuneCountInString(prompt.Prompt) > notices.MaxPrompt {
-			return nil, fmt.Errorf("%w: %s runs to %d characters", ErrPromptTooLong, prompt.Notice, utf8.RuneCountInString(prompt.Prompt))
+		if utf8.RuneCountInString(prompt.Prompt) > eventprompts.MaxPrompt {
+			return nil, fmt.Errorf("%w: %s runs to %d characters", ErrPromptTooLong, prompt.Event, utf8.RuneCountInString(prompt.Prompt))
 		}
 
 		kept = append(kept, prompt)

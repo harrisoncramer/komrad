@@ -20,7 +20,7 @@ type Workflow struct {
 	ReviewerFlags   string
 	Worktree        WorktreeConfig
 	Hooks           []Hook
-	Prompts         []Prompt
+	EventPrompts    []EventPrompt
 	ArchivedAt      *time.Time
 	DeletingAt      *time.Time
 	UpdatedAt       time.Time
@@ -36,7 +36,7 @@ type Config struct {
 	ReviewerFlags   string
 	Worktree        WorktreeConfig
 	Hooks           []Hook
-	Prompts         []Prompt
+	EventPrompts    []EventPrompt
 }
 
 // Config is what an update writes, being every field of a workflow but its id.
@@ -51,7 +51,7 @@ func (w Workflow) Config() Config {
 		ReviewerFlags:   w.ReviewerFlags,
 		Worktree:        w.Worktree,
 		Hooks:           w.Hooks,
-		Prompts:         w.Prompts,
+		EventPrompts:    w.EventPrompts,
 	}
 }
 
@@ -68,7 +68,7 @@ func (c Config) Workflow(id string) Workflow {
 		ReviewerFlags:   c.ReviewerFlags,
 		Worktree:        c.Worktree,
 		Hooks:           c.Hooks,
-		Prompts:         c.Prompts,
+		EventPrompts:    c.EventPrompts,
 	}
 }
 

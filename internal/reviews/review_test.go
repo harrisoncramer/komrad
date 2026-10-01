@@ -6,10 +6,10 @@ import (
 	"testing"
 
 	"komrad/internal/agents"
+	"komrad/internal/eventprompts"
 	"komrad/internal/events/eventstest"
 	"komrad/internal/gittest"
 	"komrad/internal/jobs/internaljobs"
-	"komrad/internal/notices"
 	agentstore "komrad/internal/store/agent"
 	mailstore "komrad/internal/store/mail"
 	reviewstore "komrad/internal/store/review"
@@ -983,7 +983,7 @@ func TestAnsweringAReviewRingsTheReviewer(t *testing.T) {
 			assert.Equal(t, mailstore.KindReviewActivity, rung[0].Kind)
 			assert.Equal(t, &fx.worker.ID, rung[0].SubjectID)
 			assert.Contains(t, rung[0].Body, "list_review_threads", "the doorbell says where to look rather than what was said")
-			assert.Equal(t, []string{notices.ReviewAnswered}, rung[0].Notices)
+			assert.Equal(t, []string{eventprompts.ReviewAnswered}, rung[0].Events)
 		})
 	}
 }

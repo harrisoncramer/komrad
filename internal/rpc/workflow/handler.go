@@ -38,7 +38,7 @@ type workflowConfigGetter interface {
 	GetReviewerFlags() string
 	GetWorktree() *workflowv1.WorktreeConfig
 	GetHooks() []*workflowv1.WorkflowHook
-	GetPrompts() []*workflowv1.WorkflowPrompt
+	GetEventPrompts() []*workflowv1.WorkflowEventPrompt
 }
 
 type NewHandlerParams struct {
@@ -154,7 +154,7 @@ func buildConfigFromRequest(req workflowConfigGetter) workflowstore.Config {
 		ReviewerFlags:   req.GetReviewerFlags(),
 		Worktree:        buildWorktreeConfigFromProto(req.GetWorktree()),
 		Hooks:           buildHooksFromProto(req.GetHooks()),
-		Prompts:         buildPromptsFromProto(req.GetPrompts()),
+		EventPrompts:    buildEventPromptsFromProto(req.GetEventPrompts()),
 	}
 }
 
@@ -164,9 +164,9 @@ func buildHooksFromProto(hooks []*workflowv1.WorkflowHook) []workflowstore.Hook 
 	})
 }
 
-func buildPromptsFromProto(prompts []*workflowv1.WorkflowPrompt) []workflowstore.Prompt {
-	return xslice.Map(prompts, func(prompt *workflowv1.WorkflowPrompt) workflowstore.Prompt {
-		return workflowstore.Prompt{Notice: prompt.GetNotice(), Prompt: prompt.GetPrompt()}
+func buildEventPromptsFromProto(prompts []*workflowv1.WorkflowEventPrompt) []workflowstore.EventPrompt {
+	return xslice.Map(prompts, func(prompt *workflowv1.WorkflowEventPrompt) workflowstore.EventPrompt {
+		return workflowstore.EventPrompt{Event: prompt.GetEvent(), Prompt: prompt.GetPrompt()}
 	})
 }
 

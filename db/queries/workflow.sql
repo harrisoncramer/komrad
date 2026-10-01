@@ -260,42 +260,42 @@ FROM
 WHERE
     BTRIM(provisioners.worktree_dir) <> '';
 
--- name: ListPromptsForWorkflows :many
+-- name: ListEventPromptsForWorkflows :many
 SELECT
     workflow_id,
-    notice,
+    event,
     prompt
 FROM
-    workflow_prompts
+    workflow_event_prompts
 WHERE
     workflow_id = ANY (@workflow_ids::uuid[])
 ORDER BY
     workflow_id,
     position;
 
--- name: ListPromptsForWorkflow :many
+-- name: ListEventPromptsForWorkflow :many
 SELECT
-    notice,
+    event,
     prompt
 FROM
-    workflow_prompts
+    workflow_event_prompts
 WHERE
     workflow_id = @workflow_id
 ORDER BY
     position;
 
--- name: DeleteWorkflowPrompts :exec
-DELETE FROM workflow_prompts
+-- name: DeleteWorkflowEventPrompts :exec
+DELETE FROM workflow_event_prompts
 WHERE workflow_id = @workflow_id;
 
 -- name: InsertWorkflowPrompt :exec
-INSERT INTO workflow_prompts(
+INSERT INTO workflow_event_prompts(
     workflow_id,
-    notice,
+    event,
     prompt,
     position)
 VALUES (
     @workflow_id,
-    @notice,
+    @event,
     @prompt,
     @position);

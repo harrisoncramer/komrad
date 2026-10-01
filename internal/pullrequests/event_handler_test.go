@@ -8,10 +8,10 @@ import (
 	"time"
 
 	"komrad/config"
+	"komrad/internal/eventprompts"
 	"komrad/internal/events"
 	"komrad/internal/forge"
 	"komrad/internal/mail"
-	"komrad/internal/notices"
 	mailstore "komrad/internal/store/mail"
 	pullrequeststore "komrad/internal/store/pullrequest"
 
@@ -25,22 +25,22 @@ func TestAPullRequestChangeTellsTheAgentsOnItsBranch(t *testing.T) {
 	pending := forge.Standing{Decision: forge.ReviewDecisionPending, Checks: forge.ChecksPending}
 
 	tests := []struct {
-		name        string
-		standings   []forge.Standing
-		wantLines   []string
-		wantNotices []string
+		name       string
+		standings  []forge.Standing
+		wantLines  []string
+		wantEvents []string
 	}{
 		{
-			name:        "checks failing",
-			standings:   []forge.Standing{{Decision: forge.ReviewDecisionPending, Checks: forge.ChecksFailing}},
-			wantLines:   []string{"  checks: failing\n"},
-			wantNotices: []string{notices.PullRequestChecksFailing},
+			name:       "checks failing",
+			standings:  []forge.Standing{{Decision: forge.ReviewDecisionPending, Checks: forge.ChecksFailing}},
+			wantLines:  []string{"  checks: failing\n"},
+			wantEvents: []string{eventprompts.PullRequestChecksFailing},
 		},
 		{
-			name:        "an approval",
-			standings:   []forge.Standing{{Decision: forge.ReviewDecisionApproved, Checks: forge.ChecksPending}},
-			wantLines:   []string{"  review: approved\n", "do not fetch them from the forge"},
-			wantNotices: []string{notices.PullRequestApproved},
+			name:       "an approval",
+			standings:  []forge.Standing{{Decision: forge.ReviewDecisionApproved, Checks: forge.ChecksPending}},
+			wantLines:  []string{"  review: approved\n", "do not fetch them from the forge"},
+			wantEvents: []string{eventprompts.PullRequestApproved},
 		},
 		{
 			name:      "checks passing is not news on its own",
@@ -56,8 +56,8 @@ func TestAPullRequestChangeTellsTheAgentsOnItsBranch(t *testing.T) {
 					Mergeability: forge.MergeabilityConflicting,
 				},
 			},
-			wantLines:   []string{"  checks: failing\n", "  mergeability: conflicting with main\n"},
-			wantNotices: []string{notices.PullRequestChecksFailing, notices.PullRequestConflicting},
+			wantLines:  []string{"  checks: failing\n", "  mergeability: conflicting with main\n"},
+			wantEvents: []string{eventprompts.PullRequestChecksFailing, eventprompts.PullRequestConflicting},
 		},
 		{
 			name: "a later change rewrites the mail to where things stand",
@@ -65,8 +65,8 @@ func TestAPullRequestChangeTellsTheAgentsOnItsBranch(t *testing.T) {
 				{Decision: forge.ReviewDecisionPending, Checks: forge.ChecksFailing},
 				{Decision: forge.ReviewDecisionPending, Checks: forge.ChecksPassing},
 			},
-			wantLines:   []string{"  checks: passing\n"},
-			wantNotices: []string{},
+			wantLines:  []string{"  checks: passing\n"},
+			wantEvents: []string{},
 		},
 		{
 			name: "auto-merge turned on",
@@ -114,7 +114,7 @@ func TestAPullRequestChangeTellsTheAgentsOnItsBranch(t *testing.T) {
 			for _, line := range tt.wantLines {
 				assert.Contains(t, told[0].Body, line)
 			}
-			assert.Equal(t, tt.wantNotices, told[0].Notices)
+			assert.Equal(t, tt.wantEvents, told[0].Events)
 		})
 	}
 }

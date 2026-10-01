@@ -7,8 +7,8 @@ import (
 	"strings"
 
 	"komrad/config"
+	"komrad/internal/eventprompts"
 	"komrad/internal/glyph"
-	"komrad/internal/notices"
 	"komrad/internal/ui/panel"
 	"komrad/lib/xslice"
 
@@ -44,8 +44,8 @@ type workflowFormValues struct {
 	WorktreeSymlinkPaths string
 	WorktreeDiffExclude  string
 	WorktreeDir          string
-	// Prompts are the workflow's prompts keyed by notice.
-	Prompts map[string]*string
+	// EventPrompts are the workflow's prompts keyed by event.
+	EventPrompts map[string]*string
 }
 
 func workflowFormValuesFrom(cfg panel.WorkflowConfig) workflowFormValues {
@@ -78,7 +78,7 @@ func workflowFormValuesFrom(cfg panel.WorkflowConfig) workflowFormValues {
 		WorktreeSymlinkPaths: strings.Join(cfg.Worktree.SymlinkPaths, "\n"),
 		WorktreeDiffExclude:  strings.Join(cfg.Worktree.DiffExclude, "\n"),
 		WorktreeDir:          cfg.Worktree.Dir,
-		Prompts:              promptsByNotice(cfg.Prompts),
+		EventPrompts:         eventPromptsByEvent(cfg.EventPrompts),
 	}
 }
 
@@ -111,7 +111,7 @@ func (v workflowFormValues) toConfig() panel.WorkflowConfig {
 			hookOn(v.PreDeleteHook, config.HookPreDelete),
 			hookOn(v.PostDeleteHook, config.HookPostDelete),
 		),
-		Prompts: v.promptList(),
+		EventPrompts: v.eventPromptList(),
 	}
 
 	return cfg
@@ -138,39 +138,39 @@ func hookOn(name, event string) []panel.Hook {
 	return []panel.Hook{{Event: event, Script: name}}
 }
 
-// promptsByNotice is every notice's prompt, blank for a notice the workflow attaches none to.
-func promptsByNotice(prompts []panel.Prompt) map[string]*string {
-	byNotice := make(map[string]*string, len(prompts))
+// eventPromptsByEvent is every event's prompt, blank for an event the workflow attaches none to.
+func eventPromptsByEvent(prompts []panel.EventPrompt) map[string]*string {
+	byEvent := make(map[string]*string, len(prompts))
 	for _, prompt := range prompts {
-		byNotice[prompt.Notice] = &prompt.Prompt
+		byEvent[prompt.Event] = &prompt.Prompt
 	}
 
-	return byNotice
+	return byEvent
 }
 
-// promptFor is where the form holds one notice's prompt.
-func (v *workflowFormValues) promptFor(notice string) *string {
-	if v.Prompts == nil {
-		v.Prompts = make(map[string]*string)
+// eventPromptFor is where the form holds one event's prompt.
+func (v *workflowFormValues) eventPromptFor(event string) *string {
+	if v.EventPrompts == nil {
+		v.EventPrompts = make(map[string]*string)
 	}
-	if v.Prompts[notice] == nil {
-		v.Prompts[notice] = new(string)
+	if v.EventPrompts[event] == nil {
+		v.EventPrompts[event] = new(string)
 	}
 
-	return v.Prompts[notice]
+	return v.EventPrompts[event]
 }
 
-// promptList is the prompts as the wire takes them, in the order the notices are listed and
+// eventPromptList is the prompts as the wire takes them, in the order the events are listed and
 // leaving out the blank ones.
-func (v workflowFormValues) promptList() []panel.Prompt {
-	var prompts []panel.Prompt
-	for _, notice := range notices.All() {
-		prompt, ok := v.Prompts[notice.Name]
+func (v workflowFormValues) eventPromptList() []panel.EventPrompt {
+	var prompts []panel.EventPrompt
+	for _, event := range eventprompts.All() {
+		prompt, ok := v.EventPrompts[event.Name]
 		if !ok || strings.TrimSpace(*prompt) == "" {
 			continue
 		}
 
-		prompts = append(prompts, panel.Prompt{Notice: notice.Name, Prompt: strings.TrimSpace(*prompt)})
+		prompts = append(prompts, panel.EventPrompt{Event: event.Name, Prompt: strings.TrimSpace(*prompt)})
 	}
 
 	return prompts
@@ -236,7 +236,7 @@ func workflowConfigForm(params workflowConfigParams) (form *huh.Form, order []st
 	}
 
 	fields = append(fields, hookFields(values, params.Hooks)...)
-	fields = append(fields, promptFields(values, keys)...)
+	fields = append(fields, eventPromptFields(values, keys)...)
 
 	// The form is taller than most terminals now, so it takes its height from the resize the panel
 	// sends it and huh scrolls it around whichever field has the cursor.
@@ -381,20 +381,20 @@ func hookFields(values *workflowFormValues, available []hookChoice) []huh.Field 
 	return fields
 }
 
-// promptKey is the form key of one notice's prompt.
-func promptKey(notice string) string {
-	return "prompt." + notice
+// eventPromptKey is the form key of one event's prompt.
+func eventPromptKey(event string) string {
+	return "event_prompt." + event
 }
 
-// promptFields are what the workflow asks of its agents on each notice, under a heading of their own.
-func promptFields(values *workflowFormValues, keys config.FormKeys) []huh.Field {
-	heading := huh.NewNote().Title("Notice prompts").
-		Description(fmt.Sprintf("added to the mail komrad sends an agent on each notice, and followed over what komrad says; %s opens $EDITOR", keyLabel(keys.Editor)))
+// eventPromptFields are what the workflow asks of its agents on each event, under a heading of their own.
+func eventPromptFields(values *workflowFormValues, keys config.FormKeys) []huh.Field {
+	heading := huh.NewNote().Title("Event prompts").
+		Description(fmt.Sprintf("added to the mail komrad sends an agent on each event, and followed over what komrad says; %s opens $EDITOR", keyLabel(keys.Editor)))
 
-	return append([]huh.Field{heading}, xslice.Map(notices.All(), func(notice notices.Notice) huh.Field {
-		return textField(promptKey(notice.Name)).Title(notice.Title).
-			Description("when " + notice.Description).
-			CharLimit(notices.MaxPrompt).Lines(2).Value(values.promptFor(notice.Name))
+	return append([]huh.Field{heading}, xslice.Map(eventprompts.All(), func(event eventprompts.Event) huh.Field {
+		return textField(eventPromptKey(event.Name)).Title(event.Title).
+			Description("when " + event.Description).
+			CharLimit(eventprompts.MaxPrompt).Lines(2).Value(values.eventPromptFor(event.Name))
 	})...)
 }
 

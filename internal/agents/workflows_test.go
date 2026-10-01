@@ -1084,38 +1084,38 @@ func TestListWorkflows(t *testing.T) {
 	}
 }
 
-// TestWorkflowPromptsAreCleanedOrRefused pins that prompts are trimmed and blank ones dropped, and an unknown, repeated or overlong one refused.
-func TestWorkflowPromptsAreCleanedOrRefused(t *testing.T) {
+// TestWorkflowEventPromptsAreCleanedOrRefused pins that prompts are trimmed and blank ones dropped, and an unknown, repeated or overlong one refused.
+func TestWorkflowEventPromptsAreCleanedOrRefused(t *testing.T) {
 	tests := []struct {
 		name    string
-		prompts []workflowstore.Prompt
-		want    []workflowstore.Prompt
+		prompts []workflowstore.EventPrompt
+		want    []workflowstore.EventPrompt
 		wantErr error
 	}{
 		{
 			name: "prompts are trimmed and blank ones dropped",
-			prompts: []workflowstore.Prompt{
-				{Notice: " review.approved ", Prompt: "  open the pull request \n"},
-				{Notice: "pull_request.behind", Prompt: "   "},
+			prompts: []workflowstore.EventPrompt{
+				{Event: " review.approved ", Prompt: "  open the pull request \n"},
+				{Event: "pull_request.behind", Prompt: "   "},
 			},
-			want: []workflowstore.Prompt{{Notice: "review.approved", Prompt: "open the pull request"}},
+			want: []workflowstore.EventPrompt{{Event: "review.approved", Prompt: "open the pull request"}},
 		},
 		{
-			name:    "a notice komrad does not send",
-			prompts: []workflowstore.Prompt{{Notice: "review.aproved", Prompt: "open the pull request"}},
-			wantErr: ErrUnknownPromptNotice,
+			name:    "an event komrad does not send",
+			prompts: []workflowstore.EventPrompt{{Event: "review.aproved", Prompt: "open the pull request"}},
+			wantErr: ErrUnknownEventPrompt,
 		},
 		{
-			name: "a notice named twice",
-			prompts: []workflowstore.Prompt{
-				{Notice: "review.approved", Prompt: "open the pull request"},
-				{Notice: "review.approved", Prompt: "mark it ready"},
+			name: "an event named twice",
+			prompts: []workflowstore.EventPrompt{
+				{Event: "review.approved", Prompt: "open the pull request"},
+				{Event: "review.approved", Prompt: "mark it ready"},
 			},
-			wantErr: ErrDuplicatePromptNotice,
+			wantErr: ErrDuplicateEventPrompt,
 		},
 		{
 			name:    "a prompt past the limit",
-			prompts: []workflowstore.Prompt{{Notice: "review.approved", Prompt: strings.Repeat("é", 501)}},
+			prompts: []workflowstore.EventPrompt{{Event: "review.approved", Prompt: strings.Repeat("é", 501)}},
 			wantErr: ErrPromptTooLong,
 		},
 	}
@@ -1126,9 +1126,9 @@ func TestWorkflowPromptsAreCleanedOrRefused(t *testing.T) {
 			workflows := newWorkflowService(st, tmuxtest.NewFake())
 
 			created, err := workflows.NewWorkflow(t.Context(), workflowstore.Config{
-				Name:     "backend",
-				Worktree: workflowstore.WorktreeConfig{BaseBranch: "main"},
-				Prompts:  tt.prompts,
+				Name:         "backend",
+				Worktree:     workflowstore.WorktreeConfig{BaseBranch: "main"},
+				EventPrompts: tt.prompts,
 			})
 			if tt.wantErr != nil {
 				require.ErrorIs(t, err, tt.wantErr)
@@ -1140,27 +1140,27 @@ func TestWorkflowPromptsAreCleanedOrRefused(t *testing.T) {
 				require.NoError(t, err)
 
 				err = workflows.UpdateWorkflow(t.Context(), created.ID, workflowstore.Config{
-					Name:     "backend",
-					Worktree: workflowstore.WorktreeConfig{BaseBranch: "main"},
-					Prompts:  tt.prompts,
+					Name:         "backend",
+					Worktree:     workflowstore.WorktreeConfig{BaseBranch: "main"},
+					EventPrompts: tt.prompts,
 				})
 				require.ErrorIs(t, err, tt.wantErr, "an update is refused the same")
 
 				return
 			}
 			require.NoError(t, err)
-			assert.Equal(t, tt.want, created.Prompts)
+			assert.Equal(t, tt.want, created.EventPrompts)
 
 			err = workflows.UpdateWorkflow(t.Context(), created.ID, workflowstore.Config{
-				Name:     "backend",
-				Worktree: workflowstore.WorktreeConfig{BaseBranch: "main"},
-				Prompts:  tt.prompts,
+				Name:         "backend",
+				Worktree:     workflowstore.WorktreeConfig{BaseBranch: "main"},
+				EventPrompts: tt.prompts,
 			})
 			require.NoError(t, err)
 
 			stored, err := st.GetWorkflow(t.Context(), created.ID)
 			require.NoError(t, err)
-			assert.Equal(t, tt.want, stored.Prompts, "an update cleans them the same")
+			assert.Equal(t, tt.want, stored.EventPrompts, "an update cleans them the same")
 		})
 	}
 }

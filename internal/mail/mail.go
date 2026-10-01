@@ -9,9 +9,9 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"komrad/internal/eventprompts"
 	"komrad/internal/fail"
 	"komrad/internal/logging"
-	"komrad/internal/notices"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
 	mailstore "komrad/internal/store/mail"
@@ -237,9 +237,9 @@ type SendFromKomradParams struct {
 	SubjectID string
 	// OnlyRewrite writes nothing when the recipient holds no unread mail of this kind about this subject.
 	OnlyRewrite bool
-	// Notices are the notices this mail starts, whose workflow prompts it carries.
-	Notices []string
-	// Holding are the notices true of the subject now, and Notices when left nil.
+	// Events are the events this mail starts, whose workflow prompts it carries.
+	Events []string
+	// Holding are the events true of the subject now, and Events when left nil.
 	Holding []string
 }
 
@@ -281,8 +281,8 @@ func (s *MailService) SendFromKomrad(ctx context.Context, params SendFromKomradP
 		return nil, err
 	}
 
-	named := nameNotices(held, params)
-	prompts, err := s.promptsFor(ctx, recipient.WorkflowID, named)
+	named := nameEvents(held, params)
+	prompts, err := s.eventPromptsFor(ctx, recipient.WorkflowID, named)
 	if err != nil {
 		return nil, err
 	}
@@ -290,10 +290,10 @@ func (s *MailService) SendFromKomrad(ctx context.Context, params SendFromKomradP
 	return s.mailReadWriter.UpsertFromKomrad(ctx, mailstore.UpsertFromKomradParams{
 		FromName:  KomradSenderName,
 		ToAgentID: recipient.ID,
-		Body:      withPrompts(params.Body, prompts),
+		Body:      withEventPrompts(params.Body, prompts),
 		Kind:      params.Kind,
 		SubjectID: params.SubjectID,
-		Notices:   named,
+		Events:    named,
 		Deadline:  deadline,
 	})
 }
@@ -566,26 +566,26 @@ const promptsHeading = "Your workflow asks the following. Where it differs from 
 
 const promptsCut = "\n[the rest of your workflow's prompts did not fit]"
 
-type notedPrompt struct {
-	notice string
+type eventPrompt struct {
+	event  string
 	prompt string
 }
 
-func nameNotices(held *mailstore.Mail, params SendFromKomradParams) []string {
+func nameEvents(held *mailstore.Mail, params SendFromKomradParams) []string {
 	holding := params.Holding
 	if holding == nil {
-		holding = params.Notices
+		holding = params.Events
 	}
 
 	var started []string
 	if held != nil {
-		started = append(started, held.Notices...)
+		started = append(started, held.Events...)
 	}
 
-	return notices.Named(append(started, params.Notices...), holding)
+	return eventprompts.Named(append(started, params.Events...), holding)
 }
 
-func (s *MailService) promptsFor(ctx context.Context, workflowID string, named []string) ([]notedPrompt, error) {
+func (s *MailService) eventPromptsFor(ctx context.Context, workflowID string, named []string) ([]eventPrompt, error) {
 	if len(named) == 0 {
 		return nil, nil
 	}
@@ -598,22 +598,22 @@ func (s *MailService) promptsFor(ctx context.Context, workflowID string, named [
 		return nil, err
 	}
 
-	var prompts []notedPrompt
-	for _, notice := range named {
-		if prompt := workflow.GetPrompt(notice); prompt != "" {
-			prompts = append(prompts, notedPrompt{notice: notice, prompt: prompt})
+	var prompts []eventPrompt
+	for _, event := range named {
+		if prompt := workflow.GetEventPrompt(event); prompt != "" {
+			prompts = append(prompts, eventPrompt{event: event, prompt: prompt})
 		}
 	}
 
 	return prompts, nil
 }
 
-func withPrompts(body string, prompts []notedPrompt) string {
+func withEventPrompts(body string, prompts []eventPrompt) string {
 	if len(prompts) == 0 {
 		return body
 	}
 
-	lines := xslice.Map(prompts, func(p notedPrompt) string { return p.notice + ": " + p.prompt })
+	lines := xslice.Map(prompts, func(p eventPrompt) string { return p.event + ": " + p.prompt })
 	section := "\n\n" + promptsHeading + "\n\n" + strings.Join(lines, "\n\n")
 
 	room := MaxMailBody - utf8.RuneCountInString(body)

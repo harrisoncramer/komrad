@@ -44,7 +44,7 @@ func handleChange(ctx context.Context, tx store.DBTX, mailer *mail.MailService, 
 
 	var followUps []river.JobArgs
 	body := render(*pullRequest)
-	started, holding := noticesOf(change, *pullRequest)
+	started, holding := eventsOf(change, *pullRequest)
 	for _, recipient := range recipients {
 		err := events.Send(ctx, mailer, mail.SendFromKomradParams{
 			ToAgentID:   recipient,
@@ -52,7 +52,7 @@ func handleChange(ctx context.Context, tx store.DBTX, mailer *mail.MailService, 
 			SubjectID:   pullRequest.ID,
 			Body:        body,
 			OnlyRewrite: !change.Opens(),
-			Notices:     started,
+			Events:      started,
 			Holding:     holding,
 		})
 		if errors.Is(err, mail.ErrMailboxFull) && change.Recipient == "" {

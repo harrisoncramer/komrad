@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"slices"
 
-	"komrad/internal/notices"
+	"komrad/internal/eventprompts"
 	"komrad/internal/ui/panel"
 	"komrad/lib/xslice"
 	hookv1 "komrad/proto/gen/hook/v1"
@@ -57,7 +57,7 @@ func openWorkflowConfigForm(h host, values *workflowFormValues, target *panel.Wo
 			{key: "worktree_copy_paths", value: &values.WorktreeCopyPaths},
 			{key: "worktree_symlink_paths", value: &values.WorktreeSymlinkPaths},
 			{key: "worktree_diff_exclude", value: &values.WorktreeDiffExclude},
-		}, promptEditables(values)...),
+		}, eventPromptEditables(values)...),
 		submit: holdSubmit(func(m model) (model, tea.Cmd) {
 			var cmd tea.Cmd
 			if target == nil {
@@ -163,9 +163,9 @@ func (m model) updateWorkflowForm(msg tea.Msg, values *workflowFormValues, build
 	return m, cmd
 }
 
-// promptEditables are the notice prompts the panel's editor key can open.
-func promptEditables(values *workflowFormValues) []editableText {
-	return xslice.Map(notices.All(), func(notice notices.Notice) editableText {
-		return editableText{key: promptKey(notice.Name), value: values.promptFor(notice.Name)}
+// eventPromptEditables are the event prompts the panel's editor key can open.
+func eventPromptEditables(values *workflowFormValues) []editableText {
+	return xslice.Map(eventprompts.All(), func(event eventprompts.Event) editableText {
+		return editableText{key: eventPromptKey(event.Name), value: values.eventPromptFor(event.Name)}
 	})
 }

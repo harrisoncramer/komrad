@@ -21,7 +21,7 @@ var WatchedWorkflows = watch.Resource{
 			Column: "workflow_id",
 		},
 		{
-			Table:  "workflow_prompts",
+			Table:  "workflow_event_prompts",
 			Column: "workflow_id",
 		},
 		{
@@ -55,14 +55,14 @@ func (s *WorkflowStore) ListWatched(ctx context.Context, keys []string) ([]Workf
 		return nil, err
 	}
 
-	prompts, err := s.promptsForWorkflows(ctx, ids)
+	prompts, err := s.eventPromptsForWorkflows(ctx, ids)
 	if err != nil {
 		return nil, err
 	}
 
 	return xslice.Map(rows, func(row *models.ListWatchedWorkflowsRow) Workflow {
 		workflow := workflowFromRow(row.Workflow, row.WorkflowConfig, row.WorkflowProvisionerConfig, hooks[row.Workflow.ID])
-		workflow.Prompts = prompts[row.Workflow.ID]
+		workflow.EventPrompts = prompts[row.Workflow.ID]
 
 		return workflow
 	}), nil

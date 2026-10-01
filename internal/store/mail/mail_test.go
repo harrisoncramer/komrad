@@ -987,14 +987,14 @@ func TestExistsReadAboutCountsOnlyReadMail(t *testing.T) {
 	assert.False(t, read, "mail about another subject is not about this")
 }
 
-// TestUpsertFromKomradRewritesTheNotices pins that a rewrite replaces the notices mail names.
-func TestUpsertFromKomradRewritesTheNotices(t *testing.T) {
+// TestUpsertFromKomradRewritesTheEvents pins that a rewrite replaces the events mail names.
+func TestUpsertFromKomradRewritesTheEvents(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
 	recipient := seedAgent(t, st, "recipient")
 	subject := uuid.NewString()
 
-	upsert := func(notices []string) *Mail {
+	upsert := func(events []string) *Mail {
 		t.Helper()
 		written, err := st.UpsertFromKomrad(ctx, UpsertFromKomradParams{
 			FromName:  "komrad",
@@ -1002,7 +1002,7 @@ func TestUpsertFromKomradRewritesTheNotices(t *testing.T) {
 			Body:      "pull request changed",
 			Kind:      KindPullRequestChanged,
 			SubjectID: subject,
-			Notices:   notices,
+			Events:    events,
 			Deadline:  time.Hour,
 		})
 		require.NoError(t, err)
@@ -1010,15 +1010,15 @@ func TestUpsertFromKomradRewritesTheNotices(t *testing.T) {
 		return written
 	}
 
-	assert.Empty(t, upsert(nil).Notices, "mail naming no notice stores none")
+	assert.Empty(t, upsert(nil).Events, "mail naming no event stores none")
 
 	upsert([]string{"pull_request.checks_failing", "pull_request.behind"})
 	found, err := st.GetUnreadAbout(ctx, recipient, KindPullRequestChanged, subject)
 	require.NoError(t, err)
-	assert.Equal(t, []string{"pull_request.checks_failing", "pull_request.behind"}, found.Notices)
+	assert.Equal(t, []string{"pull_request.checks_failing", "pull_request.behind"}, found.Events)
 
 	upsert([]string{"pull_request.behind"})
 	found, err = st.GetUnreadAbout(ctx, recipient, KindPullRequestChanged, subject)
 	require.NoError(t, err)
-	assert.Equal(t, []string{"pull_request.behind"}, found.Notices, "a rewrite replaces the notices rather than adding to them")
+	assert.Equal(t, []string{"pull_request.behind"}, found.Events, "a rewrite replaces the events rather than adding to them")
 }

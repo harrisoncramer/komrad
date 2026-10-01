@@ -50,12 +50,12 @@ func (s *WorkflowStore) Create(ctx context.Context, cfg Config) (*Workflow, erro
 		return nil, err
 	}
 
-	if err := s.setPrompts(ctx, row.ID, cfg.Prompts); err != nil {
+	if err := s.setEventPrompts(ctx, row.ID, cfg.EventPrompts); err != nil {
 		return nil, err
 	}
 
 	workflow := workflowFromRow(*row, *config, *provisioner, cfg.Hooks)
-	workflow.Prompts = cfg.Prompts
+	workflow.EventPrompts = cfg.EventPrompts
 
 	return &workflow, nil
 }
@@ -115,7 +115,7 @@ func (s *WorkflowStore) Update(ctx context.Context, id string, cfg Config) error
 		return err
 	}
 
-	return s.setPrompts(ctx, id, cfg.Prompts)
+	return s.setEventPrompts(ctx, id, cfg.EventPrompts)
 }
 
 // Delete permanently removes a workflow row along with the config rows it alone owns, and is

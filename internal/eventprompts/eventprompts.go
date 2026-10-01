@@ -1,12 +1,12 @@
-// Package notices names the things komrad tells an agent, which a workflow can attach a prompt to.
-package notices
+// Package eventprompts names the events komrad mails an agent about, which a workflow can attach a prompt to.
+package eventprompts
 
 import "slices"
 
 // MaxPrompt is the most characters one workflow prompt carries.
 const MaxPrompt = 500
 
-// The notices komrad sends.
+// The events komrad sends.
 const (
 	PullRequestChecksFailing    = "pull_request.checks_failing"
 	PullRequestChangesRequested = "pull_request.changes_requested"
@@ -27,16 +27,16 @@ const (
 	ReviewAnswered              = "review.answered"
 )
 
-// Notice is one notice as the panel offers it.
-type Notice struct {
+// Event is one event as the panel offers it.
+type Event struct {
 	Name        string
 	Title       string
 	Description string
 }
 
-// All is every notice, in the order the panel lists them.
-func All() []Notice {
-	return []Notice{
+// All is every event, in the order the panel lists them.
+func All() []Event {
+	return []Event{
 		{Name: PullRequestChecksFailing, Title: "Checks failing", Description: "checks on the head are failing"},
 		{Name: PullRequestChangesRequested, Title: "Changes requested on the forge", Description: "the forge review decision asks for changes"},
 		{Name: PullRequestApproved, Title: "Approved on the forge", Description: "the forge review decision is approved"},
@@ -57,23 +57,23 @@ func All() []Notice {
 	}
 }
 
-// Names is the name of every notice, in the order All lists them.
+// Names is the name of every event, in the order All lists them.
 func Names() []string {
 	all := All()
 	names := make([]string, len(all))
-	for i, notice := range all {
-		names[i] = notice.Name
+	for i, event := range all {
+		names[i] = event.Name
 	}
 
 	return names
 }
 
-// Known says whether name is a notice komrad sends.
+// Known says whether name is an event komrad sends.
 func Known(name string) bool {
 	return slices.Contains(Names(), name)
 }
 
-// Named is the notices of names that also hold, in the order they were named and each once.
+// Named is the events of names that also hold, in the order they were named and each once.
 func Named(names, holding []string) []string {
 	var named []string
 	for _, name := range names {

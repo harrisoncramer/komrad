@@ -3,32 +3,32 @@ package pullrequests
 import (
 	"slices"
 
-	"komrad/internal/notices"
+	"komrad/internal/eventprompts"
 	pullrequeststore "komrad/internal/store/pullrequest"
 )
 
-var noticeOf = map[Field]map[string]string{
+var eventOf = map[Field]map[string]string{
 	FieldState: {
-		"MERGED": notices.PullRequestMerged,
-		"CLOSED": notices.PullRequestClosed,
+		"MERGED": eventprompts.PullRequestMerged,
+		"CLOSED": eventprompts.PullRequestClosed,
 	},
 	FieldDecision: {
-		"approved":          notices.PullRequestApproved,
-		"changes_requested": notices.PullRequestChangesRequested,
+		"approved":          eventprompts.PullRequestApproved,
+		"changes_requested": eventprompts.PullRequestChangesRequested,
 	},
 	FieldChecks: {
-		"failing": notices.PullRequestChecksFailing,
+		"failing": eventprompts.PullRequestChecksFailing,
 	},
 	FieldMergeability: {
-		"conflicting": notices.PullRequestConflicting,
-		"behind":      notices.PullRequestBehind,
+		"conflicting": eventprompts.PullRequestConflicting,
+		"behind":      eventprompts.PullRequestBehind,
 	},
 }
 
-// noticesOf is the notices a change starts and the notices the pull request holds now, an
+// eventsOf is the events a change starts and the events the pull request holds now, an
 // ended pull request holding only its ending and starting it only on the move that ended it.
-func noticesOf(change Change, pullRequest pullrequeststore.PullRequest) ([]string, []string) {
-	if ended, ok := noticeOf[FieldState][pullRequest.State]; ok {
+func eventsOf(change Change, pullRequest pullrequeststore.PullRequest) ([]string, []string) {
+	if ended, ok := eventOf[FieldState][pullRequest.State]; ok {
 		endedNow := slices.ContainsFunc(change.Moves, func(move Move) bool {
 			return move.Field == FieldState && move.To == pullRequest.State
 		})
@@ -41,8 +41,8 @@ func noticesOf(change Change, pullRequest pullrequeststore.PullRequest) ([]strin
 
 	var started []string
 	for _, move := range change.Moves {
-		if notice, ok := noticeOf[move.Field][move.To]; ok {
-			started = append(started, notice)
+		if event, ok := eventOf[move.Field][move.To]; ok {
+			started = append(started, event)
 		}
 	}
 
@@ -54,8 +54,8 @@ func noticesOf(change Change, pullRequest pullrequeststore.PullRequest) ([]strin
 
 	holding := []string{}
 	for _, field := range fieldOrder {
-		if notice, ok := noticeOf[field][now[field]]; ok {
-			holding = append(holding, notice)
+		if event, ok := eventOf[field][now[field]]; ok {
+			holding = append(holding, event)
 		}
 	}
 

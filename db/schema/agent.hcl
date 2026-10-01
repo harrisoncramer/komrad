@@ -204,17 +204,17 @@ table "workflow_hooks" {
   }
 }
 
-table "workflow_prompts" {
+table "workflow_event_prompts" {
   schema  = schema.public
-  comment = "What a workflow asks of its agents when komrad sends them a notice, appended to that mail."
+  comment = "What a workflow asks of its agents when komrad sends them an event, appended to that mail."
   column "workflow_id" {
     null = false
     type = uuid
   }
-  column "notice" {
+  column "event" {
     null    = false
     type    = text
-    comment = "The notice the prompt rides on, such as pull_request.checks_failing."
+    comment = "The event the prompt rides on, such as pull_request.checks_failing."
   }
   column "prompt" {
     null = false
@@ -230,15 +230,15 @@ table "workflow_prompts" {
     comment = "The engine that owns this row, stamped from the login that wrote it."
   }
   primary_key {
-    columns = [column.workflow_id, column.notice]
+    columns = [column.workflow_id, column.event]
   }
-  foreign_key "workflow_prompts_engine_id_fkey" {
+  foreign_key "workflow_event_prompts_engine_id_fkey" {
     columns     = [column.engine_id]
     ref_columns = [table.engines.column.id]
     on_delete   = RESTRICT
     on_update   = NO_ACTION
   }
-  foreign_key "workflow_prompts_workflow_id_fkey" {
+  foreign_key "workflow_event_prompts_workflow_id_fkey" {
     columns     = [column.engine_id, column.workflow_id]
     ref_columns = [table.workflows.column.engine_id, table.workflows.column.id]
     on_delete   = CASCADE

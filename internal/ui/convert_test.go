@@ -72,7 +72,7 @@ func TestWorkflowsFromCarriesTheWholeWorkflow(t *testing.T) {
 			{Event: "pre-launch", Script: "install-deps"},
 			{Event: "post-launch", Script: "announce"},
 		},
-		Prompts: []*workflowv1.WorkflowPrompt{{Notice: "review.approved", Prompt: "open the pull request"}},
+		EventPrompts: []*workflowv1.WorkflowEventPrompt{{Event: "review.approved", Prompt: "open the pull request"}},
 	}})
 
 	require.Len(t, got, 1)
@@ -89,7 +89,7 @@ func TestWorkflowsFromCarriesTheWholeWorkflow(t *testing.T) {
 			{Event: "pre-launch", Script: "install-deps"},
 			{Event: "post-launch", Script: "announce"},
 		},
-		Prompts: []panel.Prompt{{Notice: "review.approved", Prompt: "open the pull request"}},
+		EventPrompts: []panel.EventPrompt{{Event: "review.approved", Prompt: "open the pull request"}},
 		Worktree: panel.WorktreeConfig{
 			Enabled:      true,
 			BaseBranch:   "develop",

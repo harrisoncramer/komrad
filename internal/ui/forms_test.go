@@ -680,9 +680,9 @@ func TestFormsWorkflowHooks(t *testing.T) {
 	})
 }
 
-// TestFormsWorkflowPrompts pins the workflow form carrying a prompt for each notice.
-func TestFormsWorkflowPrompts(t *testing.T) {
-	sentPrompts := func(t *testing.T, harness *panelHarness) []*workflowv1.WorkflowPrompt {
+// TestFormsWorkflowEventPrompts pins the workflow form carrying a prompt for each event.
+func TestFormsWorkflowEventPrompts(t *testing.T) {
+	sentEventPrompts := func(t *testing.T, harness *panelHarness) []*workflowv1.WorkflowEventPrompt {
 		t.Helper()
 
 		sent := harness.readSent(workflowv1connect.WorkflowServiceUpdateWorkflowProcedure)
@@ -690,26 +690,26 @@ func TestFormsWorkflowPrompts(t *testing.T) {
 		update, ok := sent[0].(*workflowv1.UpdateWorkflowRequest)
 		require.True(t, ok)
 
-		return update.GetPrompts()
+		return update.GetEventPrompts()
 	}
 
-	t.Run("the prompts come back in the order the notices are listed", func(t *testing.T) {
+	t.Run("the prompts come back in the order the events are listed", func(t *testing.T) {
 		workflow := newFormWorkflow()
-		workflow.Prompts = []*workflowv1.WorkflowPrompt{
-			{Notice: "review.approved", Prompt: "open the pull request"},
-			{Notice: "pull_request.checks_failing", Prompt: "fix the checks"},
+		workflow.EventPrompts = []*workflowv1.WorkflowEventPrompt{
+			{Event: "review.approved", Prompt: "open the pull request"},
+			{Event: "pull_request.checks_failing", Prompt: "fix the checks"},
 		}
 		harness := openForms(t, workflow, newFormAuthor())
 
 		harness.press("e", "ctrl+s")
 
-		assert.Empty(t, cmp.Diff([]*workflowv1.WorkflowPrompt{
-			{Notice: "pull_request.checks_failing", Prompt: "fix the checks"},
-			{Notice: "review.approved", Prompt: "open the pull request"},
-		}, sentPrompts(t, harness), protocmp.Transform()))
+		assert.Empty(t, cmp.Diff([]*workflowv1.WorkflowEventPrompt{
+			{Event: "pull_request.checks_failing", Prompt: "fix the checks"},
+			{Event: "review.approved", Prompt: "open the pull request"},
+		}, sentEventPrompts(t, harness), protocmp.Transform()))
 	})
 
-	t.Run("a prompt typed under its notice is sent with it", func(t *testing.T) {
+	t.Run("a prompt typed under its event is sent with it", func(t *testing.T) {
 		harness := openHookForm(t, nil)
 
 		harness.press(slices.Repeat([]string{"tab"}, 18)...)
@@ -718,9 +718,9 @@ func TestFormsWorkflowPrompts(t *testing.T) {
 
 		harness.press(slices.Concat(spellKeys("fix the checks"), []string{"ctrl+s"})...)
 
-		assert.Empty(t, cmp.Diff([]*workflowv1.WorkflowPrompt{
-			{Notice: "pull_request.checks_failing", Prompt: "fix the checks"},
-		}, sentPrompts(t, harness), protocmp.Transform()))
+		assert.Empty(t, cmp.Diff([]*workflowv1.WorkflowEventPrompt{
+			{Event: "pull_request.checks_failing", Prompt: "fix the checks"},
+		}, sentEventPrompts(t, harness), protocmp.Transform()))
 	})
 }
 

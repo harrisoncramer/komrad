@@ -89,7 +89,7 @@ CREATE TRIGGER watch_subresource_agents AFTER INSERT OR UPDATE OR DELETE ON agen
 CREATE TRIGGER watch_subresource_agents AFTER INSERT OR UPDATE OR DELETE ON documents FOR EACH ROW EXECUTE FUNCTION watch_subresource('agents', 'agent_id');
 CREATE TRIGGER watch_notify AFTER INSERT OR UPDATE OR DELETE ON workflows FOR EACH ROW EXECUTE FUNCTION watch_notify('id');
 CREATE TRIGGER watch_subresource_workflows AFTER INSERT OR UPDATE OR DELETE ON workflow_hooks FOR EACH ROW EXECUTE FUNCTION watch_subresource('workflows', 'workflow_id');
-CREATE TRIGGER watch_subresource_workflows AFTER INSERT OR UPDATE OR DELETE ON workflow_prompts FOR EACH ROW EXECUTE FUNCTION watch_subresource('workflows', 'workflow_id');
+CREATE TRIGGER watch_subresource_workflows AFTER INSERT OR UPDATE OR DELETE ON workflow_event_prompts FOR EACH ROW EXECUTE FUNCTION watch_subresource('workflows', 'workflow_id');
 CREATE TRIGGER watch_subresource_workflows AFTER INSERT OR UPDATE OR DELETE ON workflow_configs FOR EACH ROW EXECUTE FUNCTION watch_subresource_lookup('workflows', 'id', 'workflow_config_id', 'id', '', '');
 CREATE TRIGGER watch_subresource_workflows AFTER INSERT OR UPDATE OR DELETE ON workflow_provisioner_configs FOR EACH ROW EXECUTE FUNCTION watch_subresource_lookup('workflows', 'id', 'provisioner_config_id', 'id', '', '');
 CREATE TRIGGER watch_notify AFTER INSERT OR UPDATE OR DELETE ON schedules FOR EACH ROW EXECUTE FUNCTION watch_notify('id');

@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"komrad/internal/agents"
-	"komrad/internal/notices"
+	"komrad/internal/eventprompts"
 	"komrad/internal/rpc/render"
 	"komrad/internal/store"
 	"komrad/lib/xptr"
@@ -287,7 +287,7 @@ func TestWorkflowWritesPassDown(t *testing.T) {
 				Script: "warm-cache",
 			},
 		},
-		Prompts: []workflowstore.Prompt{{Notice: "review.approved", Prompt: "open the pull request"}},
+		EventPrompts: []workflowstore.EventPrompt{{Event: "review.approved", Prompt: "open the pull request"}},
 	}
 	worktree := &workflowv1.WorktreeConfig{
 		Enabled:      true,
@@ -303,7 +303,7 @@ func TestWorkflowWritesPassDown(t *testing.T) {
 			Script: "warm-cache",
 		},
 	}
-	prompts := []*workflowv1.WorkflowPrompt{{Notice: "review.approved", Prompt: "open the pull request"}}
+	prompts := []*workflowv1.WorkflowEventPrompt{{Event: "review.approved", Prompt: "open the pull request"}}
 
 	tests := []struct {
 		name string
@@ -323,7 +323,7 @@ func TestWorkflowWritesPassDown(t *testing.T) {
 					ReviewerFlags:   cfg.ReviewerFlags,
 					Worktree:        worktree,
 					Hooks:           hooks,
-					Prompts:         prompts,
+					EventPrompts:    prompts,
 				}))
 
 				return err
@@ -344,7 +344,7 @@ func TestWorkflowWritesPassDown(t *testing.T) {
 					ReviewerFlags:   cfg.ReviewerFlags,
 					Worktree:        worktree,
 					Hooks:           hooks,
-					Prompts:         prompts,
+					EventPrompts:    prompts,
 				}))
 
 				return err
@@ -386,13 +386,13 @@ func TestWorkflowWritesPassDown(t *testing.T) {
 	}
 }
 
-// TestPromptNoticesAreTheNoticesKomradSends pins the notices the wire accepts to the ones komrad sends.
-func TestPromptNoticesAreTheNoticesKomradSends(t *testing.T) {
-	field := (&workflowv1.WorkflowPrompt{}).ProtoReflect().Descriptor().Fields().ByName("notice")
+// TestEventPromptEventsAreTheEventsKomradSends pins the events the wire accepts to the ones komrad sends.
+func TestEventPromptEventsAreTheEventsKomradSends(t *testing.T) {
+	field := (&workflowv1.WorkflowEventPrompt{}).ProtoReflect().Descriptor().Fields().ByName("event")
 	rules, ok := proto.GetExtension(field.Options(), validate.E_Field).(*validate.FieldRules)
 	require.True(t, ok)
 
-	assert.Equal(t, notices.Names(), rules.GetString().GetIn())
+	assert.Equal(t, eventprompts.Names(), rules.GetString().GetIn())
 }
 
 // TestWorkflowReadsRender pins that every read answers with the workflow the service handed back, context whole.
