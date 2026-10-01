@@ -26,7 +26,6 @@ const nestedMark = " " + glyph.Crumb
 type submenu struct {
 	kind    formKind
 	title   string
-	crumb   string
 	entries []submenuEntry
 	// actions is the menu the menu key opens on the entry under a list's cursor, nil for a menu
 	// whose entries act on their own.
@@ -104,6 +103,14 @@ func nestedEntry(label string, keys []string, menu submenu) submenuEntry {
 	}
 }
 
+// withNested is a band with a nested menu at its foot.
+func withNested(menu submenu, label string, keys []string, nested submenu) submenu {
+	at := len(menu.entries)
+	menu.entries = append(menu.entries[:at:at], nestedEntry(label, keys, nested))
+
+	return menu
+}
+
 var dividerEntry = submenuEntry{isOff: true, isDivider: true}
 
 // openSubmenu draws a submenu, its cursor on the first entry that would do something.
@@ -121,7 +128,7 @@ func newSubmenuLevel(menu submenu) submenuLevel {
 func submenuState(parents []submenuLevel, level submenuLevel) formState {
 	state := formState{
 		kind:   level.menu.kind,
-		crumbs: append(xslice.Map(parents, func(p submenuLevel) string { return p.menu.crumb }), level.menu.crumb),
+		crumbs: append(xslice.Map(parents, func(p submenuLevel) string { return p.menu.title }), level.menu.title),
 		update: func(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.updateSubmenu(msg, parents, level)
 		},
@@ -187,7 +194,7 @@ func (m model) openListActions(stack []submenuLevel, list submenuLevel) (tea.Mod
 // stackForm draws a form to the right of the menus drawn beside it, going back to the menus it
 // was opened from.
 func (m model) stackForm(drawn, from []submenuLevel, form formState) (tea.Model, tea.Cmd) {
-	form.crumbs = append(xslice.Map(from, func(l submenuLevel) string { return l.menu.crumb }), form.crumbs...)
+	form.crumbs = append(xslice.Map(from, func(l submenuLevel) string { return l.menu.title }), form.crumbs...)
 	form.leading = func(width, _ int) []string {
 		return frozenMenus(drawn, width-formColumnFloor)
 	}

@@ -288,7 +288,7 @@ func (w *worktreesScreen) itemMenu(s panelShared) (submenu, bool) {
 			return submenu{}, false
 		}
 
-		return withArchive(rowMenu(label.Count(deletion.count(), "worktree", "worktrees")), s, liveArchiveMenu(openEntry("delete all", s.keys.ArchiveMenu.Delete, func(h host, s panelShared) tea.Cmd {
+		return withNested(rowMenu(label.Count(deletion.count(), "worktree", "worktrees")), "archive", s.keys.Menu.Archive, liveArchiveMenu(openEntry("delete all", s.keys.ArchiveMenu.Delete, func(h host, s panelShared) tea.Cmd {
 			return confirmDeleteWorktrees(h, s, deletion)
 		}))), true
 	}
@@ -316,5 +316,5 @@ func (w *worktreesScreen) itemMenu(s panelShared) (submenu, bool) {
 	})
 	clearAll.isOff = clearable.isEmpty()
 
-	return withArchive(rowMenu(row.name()), s, liveArchiveMenu(append(entries, clearAll)...)), true
+	return withNested(rowMenu(row.name()), "archive", s.keys.Menu.Archive, liveArchiveMenu(append(entries, clearAll)...)), true
 }

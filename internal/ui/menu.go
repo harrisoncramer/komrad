@@ -43,7 +43,6 @@ func panelMenu(s panelShared, scratchOpen bool) submenu {
 	return submenu{
 		kind:  formMenu,
 		title: "komrad",
-		crumb: "komrad",
 		entries: []submenuEntry{
 			{
 				label: scratch,
@@ -60,7 +59,6 @@ func joinMenus(top, bottom submenu) submenu {
 	return submenu{
 		kind:    top.kind,
 		title:   top.title,
-		crumb:   top.crumb,
 		entries: slices.Concat(top.entries, []submenuEntry{dividerEntry}, bottom.entries),
 	}
 }
@@ -72,7 +70,9 @@ func (a *agentsScreen) itemMenu(s panelShared) (submenu, bool) {
 			return submenu{}, false
 		}
 
-		return withArchive(withHide(rowMenu(describeAgents(agents)), s, a.hideMenu(s, nil)), s, agentsArchiveMenu(s, agents, true)), true
+		menu := withNested(rowMenu(describeAgents(agents)), "hide", s.keys.Menu.Hide, a.hideMenu(s, nil))
+
+		return withNested(menu, "archive", s.keys.Menu.Archive, agentsArchiveMenu(s, agents, true)), true
 	}
 
 	if !a.isBrowsing(s) {
@@ -88,14 +88,18 @@ func (a *agentsScreen) itemMenu(s panelShared) (submenu, bool) {
 		}
 		menu.entries = append(menu.entries, workflowEntries(s, workflow)...)
 
-		return withArchive(withHide(menu, s, a.hideMenu(s, nil)), s, workflowArchiveMenu(s, workflow)), true
+		menu = withNested(menu, "hide", s.keys.Menu.Hide, a.hideMenu(s, nil))
+
+		return withNested(menu, "archive", s.keys.Menu.Archive, workflowArchiveMenu(s, workflow)), true
 	}
 
 	if !hasAgent {
 		return submenu{}, false
 	}
 
-	return withArchive(withHide(agentMenu(s, screenAgents, item, a.agentEntries(s, item)...), s, a.hideMenu(s, &item.Agent)), s, agentsArchiveMenu(s, []panel.Agent{item.Agent}, false)), true
+	menu := withNested(agentMenu(s, screenAgents, item, a.agentEntries(s, item)...), "hide", s.keys.Menu.Hide, a.hideMenu(s, &item.Agent))
+
+	return withNested(menu, "archive", s.keys.Menu.Archive, agentsArchiveMenu(s, []panel.Agent{item.Agent}, false)), true
 }
 
 func (w *schedulesScreen) itemMenu(s panelShared) (submenu, bool) {
@@ -104,7 +108,7 @@ func (w *schedulesScreen) itemMenu(s panelShared) (submenu, bool) {
 		return submenu{}, false
 	}
 
-	return withArchive(scheduleMenu(s, item.schedule), s, scheduleArchiveMenu(s, item.schedule)), true
+	return withNested(scheduleMenu(s, item.schedule), "archive", s.keys.Menu.Archive, scheduleArchiveMenu(s, item.schedule)), true
 }
 
 // screenMenu is the schedules screen's own band, for writing a new schedule.
@@ -112,7 +116,6 @@ func (w *schedulesScreen) screenMenu(s panelShared) (submenu, bool) {
 	return submenu{
 		kind:  formMenu,
 		title: "schedules",
-		crumb: "schedules",
 		entries: []submenuEntry{
 			openEntry("new schedule", s.keys.ScheduleMenu.New, newScheduleForm),
 		},
@@ -131,7 +134,6 @@ func scheduleMenu(s panelShared, schedule panel.Schedule) submenu {
 	return submenu{
 		kind:  formMenu,
 		title: schedule.Name,
-		crumb: schedule.Name,
 		entries: []submenuEntry{
 			openEntry("edit", s.keys.ScheduleMenu.Edit, func(h host, _ panelShared) tea.Cmd { return editScheduleForm(h, schedule) }),
 			writeEntry(toggle, s.keys.ScheduleMenu.Toggle, func(h host) tea.Cmd { return toggleSchedule(h, schedule) }),
@@ -144,16 +146,7 @@ func rowMenu(name string) submenu {
 	return submenu{
 		kind:  formMenu,
 		title: name,
-		crumb: name,
 	}
-}
-
-// withArchive is a band with the archive menu at its foot.
-func withArchive(menu submenu, s panelShared, archive submenu) submenu {
-	at := len(menu.entries)
-	menu.entries = append(menu.entries[:at:at], nestedEntry("archive", s.keys.Menu.Archive, archive))
-
-	return menu
 }
 
 func (a *archiveScreen) itemMenu(s panelShared) (submenu, bool) {
@@ -162,19 +155,13 @@ func (a *archiveScreen) itemMenu(s panelShared) (submenu, bool) {
 		return submenu{}, false
 	}
 
-	entry := nestedEntry("archive", s.keys.Menu.Archive, archiveMenu(s, target))
+	archive := archiveMenu(s, target)
 
 	if row, ok := rowAt(a.listRows(s), a.cursor); ok && a.holdsAnAgent(s) && !row.header {
-		menu := agentMenu(s, screenArchive, row.item)
-		menu.entries = append(menu.entries, entry)
-
-		return menu, true
+		return withNested(agentMenu(s, screenArchive, row.item), "archive", s.keys.Menu.Archive, archive), true
 	}
 
-	menu := rowMenu(target.name(s.listing))
-	menu.entries = []submenuEntry{entry}
-
-	return menu, true
+	return withNested(rowMenu(target.name(s.listing)), "archive", s.keys.Menu.Archive, archive), true
 }
 
 var (
