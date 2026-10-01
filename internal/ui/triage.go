@@ -6,7 +6,6 @@ import (
 	"slices"
 	"time"
 
-	"komrad/internal/ui/paint"
 	"komrad/internal/ui/panel"
 	"komrad/internal/view"
 	"komrad/lib/xslice"
@@ -14,7 +13,6 @@ import (
 )
 
 const (
-	triageHeaderKey  = "triage:header"
 	triageMoreKey    = "triage:more"
 	triageDividerKey = "triage:divider"
 )
@@ -55,7 +53,6 @@ type triageRule struct {
 	tier  triageTier
 	kind  triageKind
 	clock triageClock
-	tone  paint.Tone
 	is    func(triageSubject) bool
 }
 
@@ -73,7 +70,6 @@ var triageRules = []triageRule{
 		tier:  tierBlocked,
 		kind:  kindPerson,
 		clock: clockState,
-		tone:  paint.ToneWarning,
 		is:    func(s triageSubject) bool { return displayState(s.item) == panel.StateWaiting },
 	},
 	{
@@ -81,7 +77,6 @@ var triageRules = []triageRule{
 		tier:  tierBlocked,
 		kind:  kindAgent,
 		clock: clockSeen,
-		tone:  paint.ToneWarning,
 		is: func(s triageSubject) bool {
 			return s.item.Agent.SequenceInProgress && s.item.Agent.ParentAgentID == nil
 		},
@@ -91,7 +86,6 @@ var triageRules = []triageRule{
 		tier:  tierBroken,
 		kind:  kindAgent,
 		clock: clockState,
-		tone:  paint.ToneDanger,
 		is:    func(s triageSubject) bool { return displayState(s.item) == panel.StateErrored },
 	},
 	{
@@ -99,7 +93,6 @@ var triageRules = []triageRule{
 		tier:  tierBroken,
 		kind:  kindPerson,
 		clock: clockState,
-		tone:  paint.ToneDanger,
 		is:    func(s triageSubject) bool { return s.item.Agent.State == panel.StateFailedToCreate },
 	},
 	{
@@ -107,7 +100,6 @@ var triageRules = []triageRule{
 		tier:  tierBroken,
 		kind:  kindPerson,
 		clock: clockState,
-		tone:  paint.ToneDanger,
 		is:    func(s triageSubject) bool { return s.item.Agent.State == panel.StateFailedToCleanup },
 	},
 	{
@@ -115,7 +107,6 @@ var triageRules = []triageRule{
 		tier:  tierBroken,
 		kind:  kindPerson,
 		clock: clockSeen,
-		tone:  paint.ToneDanger,
 		is:    func(s triageSubject) bool { return s.item.FailedRun },
 	},
 	{
@@ -123,7 +114,6 @@ var triageRules = []triageRule{
 		tier:  tierBroken,
 		kind:  kindAgent,
 		clock: clockSeen,
-		tone:  paint.ToneDanger,
 		is:    hasPullRequestIn(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_FAILING),
 	},
 	{
@@ -131,7 +121,6 @@ var triageRules = []triageRule{
 		tier:  tierBroken,
 		kind:  kindAgent,
 		clock: clockSeen,
-		tone:  paint.ToneDanger,
 		is:    hasPullRequestIn(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CONFLICTING),
 	},
 	{
@@ -139,7 +128,6 @@ var triageRules = []triageRule{
 		tier:  tierReady,
 		kind:  kindPerson,
 		clock: clockSeen,
-		tone:  paint.ToneSuccess,
 		is:    hasPullRequestIn(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED),
 	},
 	{
@@ -147,7 +135,6 @@ var triageRules = []triageRule{
 		tier:  tierReady,
 		kind:  kindPerson,
 		clock: clockSeen,
-		tone:  paint.ToneSuccess,
 		is: func(s triageSubject) bool {
 			return hasPullRequestIn(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN)(s) &&
 				s.item.PullRequest.Checks == pullrequestv1.Checks_CHECKS_PASSING
@@ -158,7 +145,6 @@ var triageRules = []triageRule{
 		tier:  tierReady,
 		kind:  kindAgent,
 		clock: clockSeen,
-		tone:  paint.ToneSuccess,
 		is:    hasPullRequestIn(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED_WAITING),
 	},
 	{
@@ -166,7 +152,6 @@ var triageRules = []triageRule{
 		tier:  tierReady,
 		kind:  kindAgent,
 		clock: clockSeen,
-		tone:  paint.ToneWarning,
 		is:    hasPullRequestIn(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHANGES_REQUESTED),
 	},
 	{
@@ -174,7 +159,6 @@ var triageRules = []triageRule{
 		tier:  tierReady,
 		kind:  kindAgent,
 		clock: clockSeen,
-		tone:  paint.ToneWarning,
 		is:    func(s triageSubject) bool { return s.item.PersonComments.GetOpen() > 0 },
 	},
 	{
@@ -182,7 +166,6 @@ var triageRules = []triageRule{
 		tier:  tierYourMove,
 		kind:  kindAgent,
 		clock: clockSeen,
-		tone:  paint.ToneMuted,
 		is: hasPullRequestIn(
 			pullrequestv1.PullRequestState_PULL_REQUEST_STATE_MERGED,
 			pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CLOSED,
@@ -193,7 +176,6 @@ var triageRules = []triageRule{
 		tier:  tierYourMove,
 		kind:  kindAgent,
 		clock: clockState,
-		tone:  paint.ToneMuted,
 		is:    isIdleImplementer,
 	},
 }
@@ -386,9 +368,8 @@ func (a *agentsScreen) jumpToTriage(h navHost, s panelShared) {
 
 // triageSnapshot is the zone as the agents list draws it.
 type triageSnapshot struct {
-	zone     []agentRow
-	waiting  int
-	capacity int
+	zone    []agentRow
+	waiting int
 }
 
 // triageRows are the lines the zone draws ahead of the tree, none while it is empty.
@@ -398,26 +379,12 @@ func triageRows(params snapshotParams) []view.Row {
 		return nil
 	}
 
-	rows := []view.Row{{
-		Key:    triageHeaderKey,
-		Kind:   view.KindTriageHeader,
-		Name:   "triage",
-		Status: view.StatusWaiting,
-		Note:   view.Cell{Text: fmt.Sprintf("%d/%d", len(queue.zone), queue.capacity), Tone: paint.ToneMuted},
-	}}
-
+	var rows []view.Row
 	for _, r := range queue.zone {
 		row := params.renaming.drawnOver(snapshotRow(r, params))
-		row.Kind = view.KindTriage
-		reason := view.Cell{Text: r.triage.name, Tone: r.triage.tone}
-		row.Note = view.Cell{Parts: []view.Cell{
-			{Text: r.workflow.Name, Tone: paint.ToneMuted},
-			{Text: separated, Tone: paint.ToneMuted},
-			reason,
-		}}
+		row.Kind = view.KindAgent
 		if r.item.Agent.Role == panel.RoleOrchestrator {
 			row.Name = r.workflow.Name
-			row.Note = reason
 		}
 		rows = append(rows, row)
 	}

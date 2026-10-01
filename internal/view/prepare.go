@@ -106,7 +106,7 @@ func isFocused(row Row, focused string) bool {
 
 // isOwn reports whether a row is an agent's own rather than a header's or a child's.
 func isOwn(row Row) bool {
-	return row.Kind == KindAgent || row.Kind == KindResult || row.Kind == KindTriage
+	return row.Kind == KindAgent || row.Kind == KindResult
 }
 
 // RepoCell is where the directory an agent sits in stands, greyed while nothing has happened to
@@ -128,21 +128,10 @@ func RepoCell(row Row) Cell {
 	return Cell{Glyph: glyph.Worktree, Tone: paint.ToneMuted}
 }
 
-// buildCommentCells lays out what is drawn against the right edge: the comment counts, then the
-// row's note.
+// buildCommentCells lays out what is outstanding on an agent's work against the right edge: the
+// open comments of reviewer agents, the open comments of the person with any the forge offers
+// them, and the replies the person has not read, each drawn only while it is above zero.
 func buildCommentCells(row Row) []Cell {
-	cells := buildCountCells(row)
-	if !row.Note.IsBlank() {
-		cells = append(cells, row.Note)
-	}
-
-	return cells
-}
-
-// buildCountCells lays out what is outstanding on an agent's work: the open comments of reviewer
-// agents, the open comments of the person with any the forge offers them, and the replies the
-// person has not read, each drawn only while it is above zero.
-func buildCountCells(row Row) []Cell {
 	if !isOwn(row) {
 		return nil
 	}
@@ -319,7 +308,7 @@ func textCell(text string, tone paint.Tone) Cell {
 // weightFor is the lettering a row's place in the tree is carried by, spending no glyph on it.
 func weightFor(kind RowKind) Weight {
 	switch kind {
-	case KindWorkflow, KindTriageHeader:
+	case KindWorkflow:
 		return WeightBold
 	case KindAgent:
 		return WeightRegular
@@ -329,7 +318,7 @@ func weightFor(kind RowKind) Weight {
 		return WeightRegular
 	case KindHit:
 		return WeightRegular
-	case KindTriage, KindTriageMore, KindDivider:
+	case KindTriageMore, KindDivider:
 		return WeightRegular
 	}
 
@@ -339,7 +328,7 @@ func weightFor(kind RowKind) Weight {
 // indentFor is how far a row's name is set in from the gutter, an agent under its workflow and
 // a child under its agent.
 func indentFor(kind RowKind) int {
-	if kind == KindWorkflow || kind == KindResult || kind == KindTriageHeader || kind == KindDivider {
+	if kind == KindWorkflow || kind == KindResult || kind == KindDivider {
 		return 0
 	}
 
