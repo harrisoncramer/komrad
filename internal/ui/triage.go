@@ -599,6 +599,22 @@ func (a *agentsScreen) findZoneSlot(s panelShared) int {
 	return slot
 }
 
+// moveToAwake puts the cursor on the first family awake from the zone's slot down, or from its top.
+func (a *agentsScreen) moveToAwake(h navHost, s panelShared, slot int) {
+	zone := a.layout(s).zone
+	heads := zoneHeads(zone)
+	slot = min(slot, len(heads))
+	rotated := slices.Concat(heads[slot:], heads[:slot])
+	at := slices.IndexFunc(rotated, func(i int) bool { return !zone[i].snoozed })
+	if at < 0 {
+		h.note(messageInfo, "nothing left to triage")
+
+		return
+	}
+
+	a.cursor = rotated[at]
+}
+
 // landInTriage moves the cursor off a zone row that has left the list onto the family now in its
 // slot, or into the tree once the zone is empty.
 func (a *agentsScreen) landInTriage(s panelShared, selected string, slot int) {
