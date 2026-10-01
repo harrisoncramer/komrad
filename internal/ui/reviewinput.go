@@ -145,7 +145,7 @@ func (i reviewInput) updateVim(key tea.KeyPressMsg) vim.Outcome {
 		return vim.Pass
 	}
 
-	outcome, ok := i.vim.press(focused, key.String())
+	outcome, ok := i.vim.press(i.form, focused, key.String())
 	if !ok {
 		return vim.Pass
 	}

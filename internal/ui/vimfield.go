@@ -64,7 +64,7 @@ func vimPasses() []string {
 
 // press hands a key to the engine of the field with the cursor, and reports whether it was a
 // text field.
-func (v *fieldVim) press(field huh.Field, key string) (vim.Outcome, bool) {
+func (v *fieldVim) press(form *huh.Form, field huh.Field, key string) (vim.Outcome, bool) {
 	b, singleLine, ok := readField(field)
 	if !ok {
 		return vim.Pass, false
@@ -73,13 +73,15 @@ func (v *fieldVim) press(field huh.Field, key string) (vim.Outcome, bool) {
 	result := v.engine(field.GetKey(), b, singleLine).Key(key, b)
 	if result.Outcome == vim.Consumed {
 		writeField(field, result.Buffer)
+		redrawForm(form)
 	}
 
 	return result.Outcome, true
 }
 
 // arrive puts the field the cursor was moved to by j or k in normal mode.
-func (v *fieldVim) arrive(field huh.Field) bool {
+func (v *fieldVim) arrive(form *huh.Form) bool {
+	field := form.GetFocusedField()
 	b, singleLine, ok := readField(field)
 	if !ok {
 		return false
@@ -88,8 +90,17 @@ func (v *fieldVim) arrive(field huh.Field) bool {
 	key := field.GetKey()
 	v.focused = key
 	writeField(field, v.engineFor(key, b, singleLine).Normal(b))
+	redrawForm(form)
 
 	return true
+}
+
+// redrawMsg asks a form to draw its fields again.
+type redrawMsg struct{}
+
+// redrawForm draws a form's fields again after vim wrote to one of them.
+func redrawForm(form *huh.Form) {
+	_, _ = form.Update(redrawMsg{})
 }
 
 // isInserting reports whether the field with the cursor takes typed text rather than vim commands.
@@ -203,7 +214,7 @@ func (m model) updateFormVim(key tea.KeyPressMsg) (tea.Model, tea.Cmd, bool) {
 		return m, nil, false
 	}
 
-	outcome, ok := m.form.vim.press(focused, key.String())
+	outcome, ok := m.form.vim.press(m.form.form, focused, key.String())
 	if !ok {
 		return m, nil, false
 	}
@@ -240,7 +251,7 @@ func (m *model) stepVimField(from string, down bool) tea.Cmd {
 	for range room {
 		cmds = append(cmds, step())
 
-		if m.form.vim.arrive(m.form.form.GetFocusedField()) {
+		if m.form.vim.arrive(m.form.form) {
 			return tea.Batch(cmds...)
 		}
 	}

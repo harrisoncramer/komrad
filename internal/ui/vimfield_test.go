@@ -165,6 +165,24 @@ func TestVimEditing(t *testing.T) {
 			SnapshotSha: gittest.SnapshotSHA,
 		})
 	})
+
+	t.Run("a normal-mode edit in the review box is drawn at once", func(t *testing.T) {
+		harness := openReviewAt(t, newReviewServer(t), panelHarnessParams{settings: ui.PanelSettings{VimMode: true}})
+
+		harness.press("c")
+		typeText(harness, "still here")
+		harness.press("esc", "b", "d", "w")
+
+		assert.NotContains(t, harness.readFrame(), "here")
+	})
+
+	t.Run("a normal-mode edit in a form is drawn at once", func(t *testing.T) {
+		harness := openVimForms(t)
+
+		harness.press(slices.Concat([]string{"space", "c"}, spellKeys("still here"), []string{"esc", "b", "d", "w"})...)
+
+		assert.NotContains(t, harness.readFrame(), "here")
+	})
 }
 
 // TestVimLineEditing covers vim_mode in the one-row fields: the filter, the search line and a rename.
