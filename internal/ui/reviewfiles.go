@@ -296,7 +296,7 @@ func (r *reviewScreen) blurBlock() {
 // direction.
 func (r *reviewScreen) stepFile(h navHost, s panelShared, direction int) tea.Cmd {
 	keys := r.diffKeys()
-	if !r.filesFilter.doesNarrow(sectionList) {
+	if !r.filesFilter.isNarrowing() {
 		if !keys.pane.JumpFile(direction, keys.height(s)) {
 			return nil
 		}
