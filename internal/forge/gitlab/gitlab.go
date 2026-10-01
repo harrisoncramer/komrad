@@ -248,13 +248,16 @@ func (f *Forge) SetDraft(ctx context.Context, address string, draft bool) error 
 	if err != nil {
 		return err
 	}
-	switch {
-	case target.MergedAt != nil:
-		return forge.ErrNotDraftable.Saying("gitlab will not change !%d: it has already merged", number)
-	case target.ClosedAt != nil:
-		return forge.ErrNotDraftable.Saying("gitlab will not change !%d: it was closed", number)
-	case target.Draft == draft:
-		return nil
+	shouldChange, err := forge.ShouldChange(forge.ShouldChangeParams{
+		Sentinel:  forge.ErrNotDraftable,
+		Forge:     forge.KindGitLab,
+		Ref:       "!" + strconv.Itoa(number),
+		Merged:    target.MergedAt != nil,
+		Closed:    target.ClosedAt != nil,
+		IsSettled: target.Draft == draft,
+	})
+	if err != nil || !shouldChange {
+		return err
 	}
 
 	var data struct {
@@ -297,14 +300,18 @@ func (f *Forge) SetAutoMerge(ctx context.Context, params forge.SetAutoMergeParam
 	if err != nil {
 		return err
 	}
-	switch {
-	case target.State == "merged":
-		return forge.ErrNoAutoMerge.Saying("gitlab will not change !%d: it has already merged", number)
-	case target.State == "closed":
-		return forge.ErrNoAutoMerge.Saying("gitlab will not change !%d: it was closed", number)
-	case target.AutoMergeEnabled == params.On:
-		return nil
-	case params.On && len(target.AvailableAutoMergeStrategies) == 0:
+	shouldChange, err := forge.ShouldChange(forge.ShouldChangeParams{
+		Sentinel:  forge.ErrNoAutoMerge,
+		Forge:     forge.KindGitLab,
+		Ref:       "!" + strconv.Itoa(number),
+		Merged:    target.State == "merged",
+		Closed:    target.State == "closed",
+		IsSettled: target.AutoMergeEnabled == params.On,
+	})
+	if err != nil || !shouldChange {
+		return err
+	}
+	if params.On && len(target.AvailableAutoMergeStrategies) == 0 {
 		return forge.ErrNoAutoMerge.Saying("gitlab will not queue !%d: it has no running pipeline to wait for, or the credential cannot merge it", number)
 	}
 
@@ -449,10 +456,8 @@ func (f *Forge) ReadBranches(ctx context.Context, repo git.RemoteURL, branches [
 		operation := "query ReadBranches($path: ID!" + declared.String() + ") {\n  project(fullPath: $path) {" + fields.String() + "\n  }\n  queryComplexity { score limit }\n}\n" + mergeRequestFragment
 
 		var data struct {
-			Project map[string]*struct {
-				Nodes []mergeRequestNode `json:"nodes"`
-			} `json:"project"`
-			QueryComplexity complexity `json:"queryComplexity"`
+			Project         map[string]*graphql.Nodes[mergeRequestNode] `json:"project"`
+			QueryComplexity complexity                                  `json:"queryComplexity"`
 		}
 		answer, err := f.client.Query(ctx, operation, variables, &data)
 		if err != nil {
@@ -466,21 +471,9 @@ func (f *Forge) ReadBranches(ctx context.Context, repo git.RemoteURL, branches [
 		}
 
 		reading.RateLimit = answer.RateLimit
-		for i := range batch {
-			answered := data.Project["b"+strconv.Itoa(i)]
-			if answered == nil {
-				continue
-			}
-
-			for _, node := range answered.Nodes {
-				pullRequest := node.toPullRequest(true)
-				if !pullRequest.IsFromItsOwnRepository() {
-					continue
-				}
-
-				reading.PullRequests = append(reading.PullRequests, pullRequest)
-			}
-		}
+		reading.PullRequests = append(reading.PullRequests, graphql.OwnPullRequestsOf(data.Project, len(batch), func(node mergeRequestNode) forge.PullRequest {
+			return node.toPullRequest(true)
+		})...)
 
 		return data.QueryComplexity, nil
 	})

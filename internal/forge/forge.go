@@ -198,6 +198,31 @@ func (pr PullRequest) IsFromItsOwnRepository() bool {
 	return !pr.Head.IsZero() && pr.Head.Canonical() == pr.Repository.Canonical()
 }
 
+// ShouldChangeParams is what a forge read about a pull request it is about to change.
+type ShouldChangeParams struct {
+	Sentinel *fail.Error
+	// Forge names the forge in a refusal, such as github.
+	Forge string
+	// Ref names the pull request in a refusal, such as #12 or !12.
+	Ref    string
+	Merged bool
+	Closed bool
+	// IsSettled says the pull request already stands the way the change asks.
+	IsSettled bool
+}
+
+// ShouldChange refuses a change to a finished pull request and says whether one still open needs it.
+func ShouldChange(params ShouldChangeParams) (bool, error) {
+	switch {
+	case params.Merged:
+		return false, params.Sentinel.Saying("%s will not change %s: it has already merged", params.Forge, params.Ref)
+	case params.Closed:
+		return false, params.Sentinel.Saying("%s will not change %s: it was closed", params.Forge, params.Ref)
+	}
+
+	return !params.IsSettled, nil
+}
+
 // Forge is one service pull requests live on, spoken to as one connection.
 type Forge interface {
 	Kind() string

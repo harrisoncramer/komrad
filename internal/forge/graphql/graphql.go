@@ -314,3 +314,30 @@ func PageOf[N any](c *Connection[N], limit forge.RateLimit, toPullRequest func(N
 		RateLimit:    limit,
 	}
 }
+
+// Nodes is the nodes one alias of a batched query answered.
+type Nodes[N any] struct {
+	Nodes []N `json:"nodes"`
+}
+
+// OwnPullRequestsOf is the pull requests under aliases b0 to b(count-1) whose branch lives in the repository they target.
+func OwnPullRequestsOf[N any](aliased map[string]*Nodes[N], count int, toPullRequest func(N) forge.PullRequest) []forge.PullRequest {
+	var pullRequests []forge.PullRequest
+	for i := range count {
+		answered := aliased["b"+strconv.Itoa(i)]
+		if answered == nil {
+			continue
+		}
+
+		for _, node := range answered.Nodes {
+			pullRequest := toPullRequest(node)
+			if !pullRequest.IsFromItsOwnRepository() {
+				continue
+			}
+
+			pullRequests = append(pullRequests, pullRequest)
+		}
+	}
+
+	return pullRequests
+}
