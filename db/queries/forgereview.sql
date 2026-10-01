@@ -188,6 +188,16 @@ WHERE
             o.pull_request_id = t.pull_request_id
             AND o.agent_id = @agent_id);
 
+-- name: LockForgeReviewThreadAccepted :one
+SELECT
+    t.id
+FROM
+    forge_review_threads t
+WHERE
+    t.id = @id
+    AND t.accepted_thread_id = @thread_id
+FOR UPDATE;
+
 -- name: SetForgeReviewThreadAccepted :one
 UPDATE
     forge_review_threads t

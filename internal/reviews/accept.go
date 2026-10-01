@@ -154,11 +154,7 @@ func (s *ReviewService) acceptAgain(
 	if err != nil {
 		return nil, err
 	}
-
-	fresh := slices.DeleteFunc(seen, func(comment pullrequeststore.ForgeComment) bool {
-		return isCopied(messages, comment)
-	})
-	if len(fresh) == 0 && params.Note == "" {
+	if len(freshComments(messages, seen)) == 0 && params.Note == "" {
 		return nil, ErrForgeThreadNothingNew
 	}
 
@@ -168,7 +164,22 @@ func (s *ReviewService) acceptAgain(
 	}
 
 	err = s.events.InsertManyTx(ctx, func(tx pgx.Tx) ([]river.JobArgs, error) {
-		if err := addAccepted(ctx, reviewstore.NewReviewStore(tx), addAcceptedParams{
+		forgeThreads, reviews := pullrequeststore.NewForgeThreadStore(tx), reviewstore.NewReviewStore(tx)
+		if err := forgeThreads.LockAccepted(ctx, offer.ID, thread.ID); err != nil {
+			return nil, err
+		}
+
+		messages, err := reviews.ListMessages(ctx, []string{thread.ID})
+		if err != nil {
+			return nil, err
+		}
+
+		fresh := freshComments(messages, seen)
+		if len(fresh) == 0 && params.Note == "" {
+			return nil, ErrForgeThreadNothingNew
+		}
+
+		if err := addAccepted(ctx, reviews, addAcceptedParams{
 			ThreadID: thread.ID,
 			ReviewID: open.ID,
 			Comments: fresh,
@@ -178,7 +189,7 @@ func (s *ReviewService) acceptAgain(
 			return nil, err
 		}
 
-		return nil, pullrequeststore.NewForgeThreadStore(tx).SetAccepted(ctx, offer.ID, thread.ID, &thread.ID)
+		return nil, forgeThreads.SetAccepted(ctx, offer.ID, thread.ID, &thread.ID)
 	})
 	if err != nil {
 		return nil, err
@@ -260,6 +271,12 @@ func seenComments(stored []pullrequeststore.ForgeComment, seen []SeenForgeCommen
 	}
 
 	return kept, nil
+}
+
+func freshComments(messages []reviewstore.Message, seen []pullrequeststore.ForgeComment) []pullrequeststore.ForgeComment {
+	return slices.DeleteFunc(slices.Clone(seen), func(comment pullrequeststore.ForgeComment) bool {
+		return isCopied(messages, comment)
+	})
 }
 
 func isCopied(messages []reviewstore.Message, comment pullrequeststore.ForgeComment) bool {

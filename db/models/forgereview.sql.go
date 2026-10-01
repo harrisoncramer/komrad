@@ -279,6 +279,29 @@ func (q *Queries) ListWatchedForgeReviewThreads(ctx context.Context, keys []stri
 	return items, nil
 }
 
+const lockForgeReviewThreadAccepted = `-- name: LockForgeReviewThreadAccepted :one
+SELECT
+    t.id
+FROM
+    forge_review_threads t
+WHERE
+    t.id = $1
+    AND t.accepted_thread_id = $2
+FOR UPDATE
+`
+
+type LockForgeReviewThreadAcceptedParams struct {
+	ID       string
+	ThreadID *string
+}
+
+func (q *Queries) LockForgeReviewThreadAccepted(ctx context.Context, arg LockForgeReviewThreadAcceptedParams) (string, error) {
+	row := q.db.QueryRow(ctx, lockForgeReviewThreadAccepted, arg.ID, arg.ThreadID)
+	var id string
+	err := row.Scan(&id)
+	return id, err
+}
+
 const setForgeReviewThreadAccepted = `-- name: SetForgeReviewThreadAccepted :one
 UPDATE
     forge_review_threads t

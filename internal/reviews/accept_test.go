@@ -194,6 +194,45 @@ func TestAcceptForgeThreadAgain(t *testing.T) {
 	}, describeMessages(again.Messages))
 }
 
+// TestAcceptForgeThreadAgainWaitsForOneInFlight covers a second accept of the same forge comment finding it copied by the first.
+func TestAcceptForgeThreadAgainWaitsForOneInFlight(t *testing.T) {
+	fx := newReviewFixture(t)
+	fx.seedOffer(t, forgeComment("C_1", "dana", "this leaks the handle"))
+	accepted, err := fx.accept(t, fx.offer(t), seenAll(fx.offer(t)), "")
+	require.NoError(t, err)
+	fx.seedOffer(t, forgeComment("C_1", "dana", "this leaks the handle"), forgeComment("C_2", "lee", "and the socket"))
+	offer := fx.offer(t)
+
+	tx, err := fx.stores.Pool.GetRawPool().Begin(t.Context())
+	require.NoError(t, err)
+	defer func() { _ = tx.Rollback(t.Context()) }()
+	require.NoError(t, pullrequeststore.NewForgeThreadStore(tx).LockAccepted(t.Context(), offer.ID, accepted.Thread.ID))
+
+	second := make(chan error, 1)
+	go func() {
+		_, err := fx.accept(t, offer, seenAll(offer), "")
+		second <- err
+	}()
+	require.Eventually(t, func() bool {
+		var waiting int
+		require.NoError(t, fx.stores.Pool.GetRawPool().QueryRow(t.Context(), "SELECT count(*) FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock'").Scan(&waiting))
+
+		return waiting > 0
+	}, 5*time.Second, 10*time.Millisecond)
+
+	_, err = reviewstore.NewReviewStore(tx).CreateMessage(t.Context(), reviewstore.CreateMessageParams{
+		ThreadID:   accepted.Thread.ID,
+		ReviewID:   &accepted.Thread.ReviewID,
+		AuthorKind: personAuthor.Kind,
+		Body:       offer.Comments[1].Body,
+		External:   externalOf(offer.Comments[1]),
+	})
+	require.NoError(t, err)
+	require.NoError(t, tx.Commit(t.Context()))
+
+	require.ErrorIs(t, <-second, ErrForgeThreadNothingNew)
+}
+
 // TestDiscardingAnAcceptedThreadOffersItAgain covers the forge thread coming back once the review it was accepted into is gone.
 func TestDiscardingAnAcceptedThreadOffersItAgain(t *testing.T) {
 	fx := newReviewFixture(t)
