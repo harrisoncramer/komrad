@@ -5,18 +5,8 @@ import (
 	"fmt"
 
 	"komrad/internal/ui/panel"
-	"komrad/lib/xslice"
 
 	tea "charm.land/bubbletea/v2"
-)
-
-// archiveMenuChoice is one entry of the archive menu.
-type archiveMenuChoice int
-
-const (
-	archiveMenuRestore archiveMenuChoice = iota
-	archiveMenuRestoreOpen
-	archiveMenuDelete
 )
 
 var (
@@ -96,36 +86,39 @@ func archiveMenu(s panelShared, target archived) submenu {
 		title: "archive",
 		crumb: "archive",
 		entries: []submenuEntry{
-			{label: restore, keys: s.keys.ArchiveMenu.Restore},
-			{label: "restore and open", keys: s.keys.ArchiveMenu.RestoreOpen, isOff: err != nil},
-			{label: remove, keys: s.keys.ArchiveMenu.Delete},
-		},
-		answer: func(m model, choice int) (tea.Model, tea.Cmd) {
-			return m.runArchiveChoice(target, archiveMenuChoice(choice))
+			writeEntry(restore, s.keys.ArchiveMenu.Restore, func(h host) tea.Cmd { return restoreArchived(h, target) }),
+			{
+				label: "restore and open",
+				keys:  s.keys.ArchiveMenu.RestoreOpen,
+				isOff: err != nil,
+				write: func(m model) (model, tea.Cmd) { return m.restoreAndOpen(target) },
+			},
+			{
+				label: remove,
+				keys:  s.keys.ArchiveMenu.Delete,
+				open: func(m model) (tea.Model, tea.Cmd) {
+					m.leaveForm()
+					cmd := confirmDeleteArchivedRow(&m, m.shared(), target)
+
+					return m, cmd
+				},
+			},
 		},
 	}
 }
 
-// runArchiveChoice does what the entry asked for, or says why the row is not one to ask it of.
-func (m model) runArchiveChoice(target archived, choice archiveMenuChoice) (tea.Model, tea.Cmd) {
-	switch choice {
-	case archiveMenuRestore:
-		return m.submitMenu(func(h host) tea.Cmd { return restoreArchived(h, target) })
-	case archiveMenuRestoreOpen:
-		agent, err := target.opensAgent()
-		if err != nil {
-			return m.refuseSubpage("Could not restore and open "+target.name(m.listing), err)
-		}
+// restoreAndOpen restores the one agent and puts its conversation back in a pane, or says why it cannot.
+func (m model) restoreAndOpen(target archived) (model, tea.Cmd) {
+	agent, err := target.opensAgent()
+	if err != nil {
+		m.report("Could not restore and open "+target.name(m.listing), err)
 
-		return m.submitMenu(func(h host) tea.Cmd { return restoreAndResumeCmd(h, *agent) })
-	case archiveMenuDelete:
-		m.leaveForm()
-		cmd := confirmDeleteArchivedRow(&m, m.shared(), target)
-
-		return m, cmd
+		return m, nil
 	}
 
-	return m.closeForm()
+	cmd := restoreAndResumeCmd(&m, *agent)
+
+	return m, cmd
 }
 
 func restoreArchived(h host, target archived) tea.Cmd {
@@ -162,34 +155,13 @@ func confirmDeleteArchivedRow(h host, s panelShared, target archived) tea.Cmd {
 	return confirmDeleteArchived(h, s, target.agents)
 }
 
-// submitMenu runs what was picked, holding the menu up while a write it began is in flight.
-func (m model) submitMenu(run func(host) tea.Cmd) (tea.Model, tea.Cmd) {
-	return holdSubmit(func(m model) (model, tea.Cmd) {
-		cmd := run(&m)
-
-		return m, cmd
-	})(m)
-}
-
-// liveArchive is one entry of the archive menu on a row that is not archived yet.
-type liveArchive struct {
-	label string
-	keys  []string
-	run   func(m model) (tea.Model, tea.Cmd)
-}
-
 // liveArchiveMenu is the archive menu on a row that is not archived yet.
-func liveArchiveMenu(entries ...liveArchive) submenu {
+func liveArchiveMenu(entries ...submenuEntry) submenu {
 	return submenu{
-		kind:  formArchiveMenu,
-		title: "archive",
-		crumb: "archive",
-		entries: xslice.Map(entries, func(entry liveArchive) submenuEntry {
-			return submenuEntry{label: entry.label, keys: entry.keys}
-		}),
-		answer: func(m model, choice int) (tea.Model, tea.Cmd) {
-			return entries[choice].run(m)
-		},
+		kind:    formArchiveMenu,
+		title:   "archive",
+		crumb:   "archive",
+		entries: entries,
 	}
 }
 
@@ -200,17 +172,15 @@ func agentsArchiveMenu(s panelShared, agents []panel.Agent, chosen bool) submenu
 	}
 
 	return liveArchiveMenu(
-		liveArchive{
+		submenuEntry{
 			label: archive,
 			keys:  s.keys.ArchiveMenu.Archive,
-			run: func(m model) (tea.Model, tea.Cmd) {
-				return holdSubmit(func(next model) (model, tea.Cmd) { return next.archiveAgents(agents) })(m)
-			},
+			write: func(m model) (model, tea.Cmd) { return m.archiveAgents(agents) },
 		},
-		liveArchive{
+		submenuEntry{
 			label: remove,
 			keys:  s.keys.ArchiveMenu.Delete,
-			run: func(m model) (tea.Model, tea.Cmd) {
+			open: func(m model) (tea.Model, tea.Cmd) {
 				m.leaveForm()
 				cmd := confirmArchiveDeleteAgents(&m, m.listing.liveAgents(), agents)
 
@@ -221,22 +191,18 @@ func agentsArchiveMenu(s panelShared, agents []panel.Agent, chosen bool) submenu
 }
 
 func workflowArchiveMenu(s panelShared, workflow panel.Workflow) submenu {
-	return liveArchiveMenu(liveArchive{
+	return liveArchiveMenu(submenuEntry{
 		label: "archive with its agents",
 		keys:  s.keys.ArchiveMenu.Archive,
-		run: func(m model) (tea.Model, tea.Cmd) {
-			return holdSubmit(func(next model) (model, tea.Cmd) { return next.archiveWorkflow(workflow) })(m)
-		},
+		write: func(m model) (model, tea.Cmd) { return m.archiveWorkflow(workflow) },
 	})
 }
 
 func scheduleArchiveMenu(s panelShared, schedule panel.Schedule) submenu {
-	return liveArchiveMenu(liveArchive{
+	return liveArchiveMenu(submenuEntry{
 		label: "archive",
 		keys:  s.keys.ArchiveMenu.Archive,
-		run: func(m model) (tea.Model, tea.Cmd) {
-			return holdSubmit(func(next model) (model, tea.Cmd) { return next.archiveSchedule(schedule) })(m)
-		},
+		write: func(m model) (model, tea.Cmd) { return m.archiveSchedule(schedule) },
 	})
 }
 

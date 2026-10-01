@@ -6,14 +6,6 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-// hideChoice is one entry of the hide menu.
-type hideChoice int
-
-const (
-	hideChoiceHide hideChoice = iota
-	hideChoiceShowHidden
-)
-
 // hideMenu is the agents list's hide menu.
 func (a *agentsScreen) hideMenu(s panelShared, agent *panel.Agent) submenu {
 	hide := "hide"
@@ -26,19 +18,8 @@ func (a *agentsScreen) hideMenu(s panelShared, agent *panel.Agent) submenu {
 		title: "hide",
 		crumb: "hide",
 		entries: []submenuEntry{
-			{label: hide, keys: s.keys.HideMenu.Hide, isOff: agent == nil},
-			{label: a.showHiddenDesc(), keys: s.keys.HideMenu.ShowHidden},
-		},
-		answer: func(m model, choice int) (tea.Model, tea.Cmd) {
-			if hideChoice(choice) == hideChoiceHide && agent != nil {
-				return m.submitMenu(func(h host) tea.Cmd { return hideAgent(h, *agent) })
-			}
-
-			m.leaveForm()
-			m.reconcileSolo()
-			m.agents.toggleHidden(&m, m.shared())
-
-			return m, nil
+			hideEntry(s, hide, agent),
+			{label: a.showHiddenDesc(), keys: s.keys.HideMenu.ShowHidden, open: model.toggleHidden},
 		},
 	}
 }
@@ -49,4 +30,24 @@ func withHide(menu submenu, s panelShared, hide submenu) submenu {
 	menu.entries = append(menu.entries[:at:at], nestedEntry("hide", s.keys.Menu.Hide, hide))
 
 	return menu
+}
+
+// hideEntry hides or unhides the agent, and is gray on a row that is not one agent.
+func hideEntry(s panelShared, label string, agent *panel.Agent) submenuEntry {
+	if agent == nil {
+		return submenuEntry{label: label, keys: s.keys.HideMenu.Hide, isOff: true}
+	}
+
+	hidden := *agent
+
+	return writeEntry(label, s.keys.HideMenu.Hide, func(h host) tea.Cmd { return hideAgent(h, hidden) })
+}
+
+// toggleHidden leaves the menu and shows the hidden agents, or puts them away.
+func (m model) toggleHidden() (tea.Model, tea.Cmd) {
+	m.leaveForm()
+	m.reconcileSolo()
+	m.agents.toggleHidden(&m, m.shared())
+
+	return m, nil
 }

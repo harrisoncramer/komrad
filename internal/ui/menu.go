@@ -8,13 +8,6 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-// panelChoice is one entry of the panel's own band of the menu.
-type panelChoice int
-
-const (
-	panelChoiceScratch panelChoice = iota
-)
-
 // itemMenued is a screen whose hovered row has a band of its own in the menu.
 type itemMenued interface {
 	itemMenu(s panelShared) (submenu, bool)
@@ -71,38 +64,19 @@ func panelMenu(s panelShared, scratchOpen bool, back menuPlace) submenu {
 		title: "komrad",
 		crumb: "komrad",
 		entries: []submenuEntry{
-			{label: scratch, keys: s.keys.Menu.Scratch},
+			{label: scratch, keys: s.keys.Menu.Scratch, open: model.openScratch},
 			nestedEntry("document types", s.keys.Menu.DocumentTypes, documentTypesMenu(s, back)),
-		},
-		answer: func(m model, choice int) (tea.Model, tea.Cmd) {
-			if panelChoice(choice) == panelChoiceScratch {
-				m.leaveForm()
-				cmd := m.toggleScratch()
-
-				return m, cmd
-			}
-
-			return m.closeForm()
 		},
 	}
 }
 
 // joinMenus draws one band over another with a rule between them, under the top band's title.
 func joinMenus(top, bottom submenu) submenu {
-	offset := len(top.entries) + 1
-
 	return submenu{
 		kind:    top.kind,
 		title:   top.title,
 		crumb:   top.crumb,
 		entries: slices.Concat(top.entries, []submenuEntry{dividerEntry}, bottom.entries),
-		answer: func(m model, choice int) (tea.Model, tea.Cmd) {
-			if choice < len(top.entries) {
-				return top.answer(m, choice)
-			}
-
-			return bottom.answer(m, choice-offset)
-		},
 	}
 }
 
@@ -155,12 +129,11 @@ func scheduleMenu(s panelShared, schedule panel.Schedule) submenu {
 	}
 
 	return submenu{
-		kind:    formMenu,
-		title:   schedule.Name,
-		crumb:   schedule.Name,
-		entries: []submenuEntry{{label: toggle, keys: s.keys.ScheduleMenu.Toggle}},
-		answer: func(m model, _ int) (tea.Model, tea.Cmd) {
-			return m.submitMenu(func(h host) tea.Cmd { return toggleSchedule(h, schedule) })
+		kind:  formMenu,
+		title: schedule.Name,
+		crumb: schedule.Name,
+		entries: []submenuEntry{
+			writeEntry(toggle, s.keys.ScheduleMenu.Toggle, func(h host) tea.Cmd { return toggleSchedule(h, schedule) }),
 		},
 	}
 }
@@ -168,10 +141,9 @@ func scheduleMenu(s panelShared, schedule panel.Schedule) submenu {
 // rowMenu is a band titled for a row that has no entries of its own.
 func rowMenu(name string) submenu {
 	return submenu{
-		kind:   formMenu,
-		title:  name,
-		crumb:  name,
-		answer: func(m model, _ int) (tea.Model, tea.Cmd) { return m.closeForm() },
+		kind:  formMenu,
+		title: name,
+		crumb: name,
 	}
 }
 
@@ -210,3 +182,11 @@ var (
 	_ itemMenued = (*schedulesScreen)(nil)
 	_ itemMenued = (*documentsScreen)(nil)
 )
+
+// openScratch leaves the menu for the scratch, or closes the scratch when it is open.
+func (m model) openScratch() (tea.Model, tea.Cmd) {
+	m.leaveForm()
+	cmd := m.toggleScratch()
+
+	return m, cmd
+}

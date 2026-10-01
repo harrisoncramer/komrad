@@ -38,12 +38,16 @@ func agentMenu(s panelShared, from screen, item panel.AgentRow) submenu {
 		title: s.listing.agentName(agent),
 		crumb: s.listing.agentName(agent),
 		entries: append(
-			xslice.Map(pages, func(page subpage) submenuEntry { return subpageEntry(s, from, item, page) }),
+			xslice.Map(pages, func(page subpage) submenuEntry {
+				entry := subpageEntry(s, from, item, page)
+				if entry.opens == nil {
+					entry.open = func(m model) (tea.Model, tea.Cmd) { return m.enterSubpage(from, agentID, page) }
+				}
+
+				return entry
+			}),
 			nestedEntry("git", s.keys.Menu.Git, gitMenu(s, from, item)),
 		),
-		answer: func(m model, choice int) (tea.Model, tea.Cmd) {
-			return m.enterSubpage(from, agentID, pages[choice])
-		},
 	}
 }
 

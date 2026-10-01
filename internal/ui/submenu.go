@@ -27,9 +27,6 @@ type submenu struct {
 	title   string
 	crumb   string
 	entries []submenuEntry
-	// answer runs the entry picked, by its index, and is never handed the cancel entry or an entry
-	// that opens a menu.
-	answer func(m model, choice int) (tea.Model, tea.Cmd)
 }
 
 // submenuEntry is one row of a submenu.
@@ -42,6 +39,23 @@ type submenuEntry struct {
 	isDivider bool
 	// opens is the menu the entry opens to the right of its own.
 	opens *submenu
+	// write is what the entry does, the menu held up while a write it began is in flight.
+	write func(m model) (model, tea.Cmd)
+	// open leaves the menu for the form or screen the entry goes on to.
+	open func(m model) (tea.Model, tea.Cmd)
+}
+
+// writeEntry is an entry whose write is run through the host.
+func writeEntry(label string, keys []string, run func(host) tea.Cmd) submenuEntry {
+	return submenuEntry{
+		label: label,
+		keys:  keys,
+		write: func(m model) (model, tea.Cmd) {
+			cmd := run(&m)
+
+			return m, cmd
+		},
+	}
 }
 
 // submenuLevel is one menu of an open stack, and where its cursor sits.
@@ -86,11 +100,18 @@ func submenuState(parents []submenuLevel, level submenuLevel) formState {
 				return m.backSubmenu(parents)
 			}
 
-			if child := level.menu.entries[*level.choice].opens; child != nil {
-				return m.pushSubmenu(append(parents[:len(parents):len(parents)], level), newSubmenuLevel(*child))
+			entry := level.menu.entries[*level.choice]
+
+			switch {
+			case entry.opens != nil:
+				return m.pushSubmenu(append(parents[:len(parents):len(parents)], level), newSubmenuLevel(*entry.opens))
+			case entry.write != nil:
+				return holdSubmit(entry.write)(m)
+			case entry.open != nil:
+				return entry.open(m)
 			}
 
-			return level.menu.answer(m, *level.choice)
+			return m.closeForm()
 		},
 		rebuild: func(model) (*huh.Form, []string) {
 			return submenuForm(level, len(parents) > 0, formKeys()), nil

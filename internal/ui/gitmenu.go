@@ -33,6 +33,9 @@ var (
 func gitMenu(s panelShared, from screen, item panel.AgentRow) submenu {
 	agent := item.Agent
 	agentID := agent.ID
+	run := func(choice gitChoice) func(model) (model, tea.Cmd) {
+		return func(m model) (model, tea.Cmd) { return m.runGitChoice(from, agentID, choice) }
+	}
 
 	return submenu{
 		kind:  formGit,
@@ -43,26 +46,27 @@ func gitMenu(s panelShared, from screen, item panel.AgentRow) submenu {
 				label: "rebase with base",
 				keys:  s.keys.Git.Rebase,
 				isOff: rebaseRefusal(s.listing, from, agent) != nil,
+				write: run(gitChoiceRebase),
 			},
 			{
 				label: "open pr",
 				keys:  s.keys.Git.OpenPullRequest,
 				isOff: item.PullRequest.URL == "",
+				write: run(gitChoiceOpenPullRequest),
 			},
 			{
 				label: "copy pr url",
 				keys:  s.keys.Git.CopyPullRequestURL,
 				isOff: item.PullRequest.URL == "",
+				write: run(gitChoiceCopyPullRequestURL),
 			},
 			{
 				label: draftLabel(item),
 				keys:  s.keys.Git.ToggleDraft,
 				isOff: openPullRequestRefusal(item) != nil,
+				write: run(gitChoiceToggleDraft),
 			},
 			nestedEntry("merge pr", s.keys.Git.Merge, mergeMenu(s, from, item)),
-		},
-		answer: func(m model, choice int) (tea.Model, tea.Cmd) {
-			return holdSubmit(func(m model) (model, tea.Cmd) { return m.runGitChoice(from, agentID, gitChoice(choice)) })(m)
 		},
 	}
 }
