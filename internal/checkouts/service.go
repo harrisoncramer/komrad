@@ -49,6 +49,11 @@ type checkoutTarget struct {
 	workflow *workflowstore.Workflow
 }
 
+// agentSettler brings an agent to rest, reporting whether a turn was cut to do it.
+type agentSettler interface {
+	Settle(ctx context.Context, agent agentstore.Agent) (bool, error)
+}
+
 // eventRecorder queues the event that tells an agent what became of its worktree.
 type eventRecorder interface {
 	InsertManyTx(ctx context.Context, build func(tx pgx.Tx) ([]river.JobArgs, error)) error
@@ -78,7 +83,7 @@ type branchMover interface {
 type NewServiceParams struct {
 	Agents          *agentstore.AgentStore
 	Workflows       *workflowstore.WorkflowStore
-	Settler         *agents.Settler
+	Settler         agentSettler
 	Events          eventRecorder
 	Git             branchMover
 	PullRequests    *pullrequeststore.PullRequestStore
@@ -91,7 +96,7 @@ type NewServiceParams struct {
 type Service struct {
 	agents          *agentstore.AgentStore
 	workflows       *workflowstore.WorkflowStore
-	settler         *agents.Settler
+	settler         agentSettler
 	events          eventRecorder
 	git             branchMover
 	pullRequests    *pullrequeststore.PullRequestStore
