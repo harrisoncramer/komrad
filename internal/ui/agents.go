@@ -326,9 +326,8 @@ func (a *agentsScreen) snapshot(s panelShared, pane listPane) view.Snapshot {
 	return agentsSnapshot(snapshotParams{
 		rows: layout.tree,
 		triage: triageSnapshot{
-			zone:     layout.zone,
-			waiting:  layout.waiting,
-			capacity: a.triage.capacity,
+			zone:    layout.zone,
+			waiting: layout.waiting,
 		},
 		selected:    a.selected,
 		scheduled:   s.listing.scheduledWorkflows(),

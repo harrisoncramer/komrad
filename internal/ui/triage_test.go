@@ -33,7 +33,7 @@ func TestTriageRows(t *testing.T) {
 			want:     []string{"backend", "quiet"},
 		},
 		{
-			name:     "an orchestrator is named for its workflow once",
+			name:     "an orchestrator is named for its workflow",
 			capacity: 2,
 			rows: []proto.Message{
 				newLiveWorkflow("w1", "backend"),
@@ -44,19 +44,62 @@ func TestTriageRows(t *testing.T) {
 					return orchestrator
 				}(),
 			},
-			want: []string{"triage 1/2", "backend asking", "backend"},
+			want: []string{"backend", "backend"},
+		},
+		{
+			name:     "a parent in triage brings its children with it",
+			capacity: 2,
+			rows: []proto.Message{
+				newLiveWorkflow("w1", "backend"),
+				newAgentAt("quiet", "w1", 1),
+				newTriageAgent("asker", agentv1.AgentState_AGENT_STATE_WAITING, 3),
+				newChild("reviewer", "reviewer", "asker"),
+			},
+			want: []string{"asker", "└ reviewer", "backend", "quiet"},
+		},
+		{
+			name:     "a hidden child counts on its parent in triage",
+			capacity: 2,
+			rows: []proto.Message{
+				newLiveWorkflow("w1", "backend"),
+				newAgentAt("quiet", "w1", 1),
+				newTriageAgent("asker", agentv1.AgentState_AGENT_STATE_WAITING, 3),
+				func() *agentv1.Agent {
+					reviewer := newChild("reviewer", "reviewer", "asker")
+					reviewer.Hidden = true
+
+					return reviewer
+				}(),
+			},
+			want: []string{"asker +1", "backend", "quiet"},
+		},
+		{
+			name:     "a child in triage brings its parent with it",
+			capacity: 2,
+			rows: []proto.Message{
+				newLiveWorkflow("w1", "backend"),
+				newAgentAt("quiet", "w1", 1),
+				newTriageAgent("parent", agentv1.AgentState_AGENT_STATE_IDLE, 2),
+				func() *agentv1.Agent {
+					reviewer := newTriageAgent("reviewer", agentv1.AgentState_AGENT_STATE_WAITING, 3)
+					reviewer.ParentAgentId = xptr.Ptr("parent")
+
+					return reviewer
+				}(),
+			},
+			want: []string{"parent", "└ reviewer", "backend", "quiet"},
 		},
 		{
 			name:     "the most urgent tier takes the slots and the rest wait in the tree",
 			capacity: 2,
 			rows:     buildTriage(),
-			want:     []string{"triage 2/2", "asker backend · asking", "third backend · asking", "+1 more waiting for a slot", "backend", "broken", "quiet"},
+			want:     []string{"asker", "third", "+1 more waiting for a slot", "backend", "broken", "quiet"},
 		},
 		{
 			name:     "within a tier the agent waiting longest comes first",
 			capacity: 3,
 			rows:     buildTriage(),
-			want:     []string{"triage 3/3", "asker backend · asking", "third backend · asking", "broken backend · errored", "backend", "quiet"},
+			want:     []string{"asker", "third", "broken", "backend", "quiet"},
 		},
 	}
 
@@ -143,8 +186,8 @@ func newTriageAgent(name string, state agentv1.AgentState, minute int) *agentv1.
 	return agent
 }
 
-// readTriageList is the list's rows down to the record under it, notes and all, with every run of
-// spaces cut to one.
+// readTriageList is the list's rows down to the record under it, with every run of spaces cut
+// to one.
 func readTriageList(frame string) []string {
 	var rows []string
 	for _, line := range splitLines(frame) {

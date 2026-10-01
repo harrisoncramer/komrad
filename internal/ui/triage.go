@@ -6,7 +6,6 @@ import (
 	"slices"
 	"time"
 
-	"komrad/internal/ui/paint"
 	"komrad/internal/ui/panel"
 	"komrad/internal/view"
 	"komrad/lib/xslice"
@@ -14,7 +13,6 @@ import (
 )
 
 const (
-	triageHeaderKey  = "triage:header"
 	triageMoreKey    = "triage:more"
 	triageDividerKey = "triage:divider"
 )
@@ -55,7 +53,6 @@ type triageRule struct {
 	tier  triageTier
 	kind  triageKind
 	clock triageClock
-	tone  paint.Tone
 	is    func(triageSubject) bool
 }
 
@@ -73,7 +70,6 @@ var triageRules = []triageRule{
 		tier:  tierBlocked,
 		kind:  kindPerson,
 		clock: clockState,
-		tone:  paint.ToneWarning,
 		is:    func(s triageSubject) bool { return displayState(s.item) == panel.StateWaiting },
 	},
 	{
@@ -81,7 +77,6 @@ var triageRules = []triageRule{
 		tier:  tierBlocked,
 		kind:  kindAgent,
 		clock: clockSeen,
-		tone:  paint.ToneWarning,
 		is: func(s triageSubject) bool {
 			return s.item.Agent.SequenceInProgress && s.item.Agent.ParentAgentID == nil
 		},
@@ -91,7 +86,6 @@ var triageRules = []triageRule{
 		tier:  tierBroken,
 		kind:  kindAgent,
 		clock: clockState,
-		tone:  paint.ToneDanger,
 		is:    func(s triageSubject) bool { return displayState(s.item) == panel.StateErrored },
 	},
 	{
@@ -99,7 +93,6 @@ var triageRules = []triageRule{
 		tier:  tierBroken,
 		kind:  kindPerson,
 		clock: clockState,
-		tone:  paint.ToneDanger,
 		is:    func(s triageSubject) bool { return s.item.Agent.State == panel.StateFailedToCreate },
 	},
 	{
@@ -107,7 +100,6 @@ var triageRules = []triageRule{
 		tier:  tierBroken,
 		kind:  kindPerson,
 		clock: clockState,
-		tone:  paint.ToneDanger,
 		is:    func(s triageSubject) bool { return s.item.Agent.State == panel.StateFailedToCleanup },
 	},
 	{
@@ -115,7 +107,6 @@ var triageRules = []triageRule{
 		tier:  tierBroken,
 		kind:  kindPerson,
 		clock: clockSeen,
-		tone:  paint.ToneDanger,
 		is:    func(s triageSubject) bool { return s.item.FailedRun },
 	},
 	{
@@ -123,7 +114,6 @@ var triageRules = []triageRule{
 		tier:  tierBroken,
 		kind:  kindAgent,
 		clock: clockSeen,
-		tone:  paint.ToneDanger,
 		is:    hasPullRequestIn(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_FAILING),
 	},
 	{
@@ -131,7 +121,6 @@ var triageRules = []triageRule{
 		tier:  tierBroken,
 		kind:  kindAgent,
 		clock: clockSeen,
-		tone:  paint.ToneDanger,
 		is:    hasPullRequestIn(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CONFLICTING),
 	},
 	{
@@ -139,7 +128,6 @@ var triageRules = []triageRule{
 		tier:  tierReady,
 		kind:  kindPerson,
 		clock: clockSeen,
-		tone:  paint.ToneSuccess,
 		is:    hasPullRequestIn(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED),
 	},
 	{
@@ -147,7 +135,6 @@ var triageRules = []triageRule{
 		tier:  tierReady,
 		kind:  kindPerson,
 		clock: clockSeen,
-		tone:  paint.ToneSuccess,
 		is: func(s triageSubject) bool {
 			return hasPullRequestIn(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN)(s) &&
 				s.item.PullRequest.Checks == pullrequestv1.Checks_CHECKS_PASSING
@@ -158,7 +145,6 @@ var triageRules = []triageRule{
 		tier:  tierReady,
 		kind:  kindAgent,
 		clock: clockSeen,
-		tone:  paint.ToneSuccess,
 		is:    hasPullRequestIn(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED_WAITING),
 	},
 	{
@@ -166,7 +152,6 @@ var triageRules = []triageRule{
 		tier:  tierReady,
 		kind:  kindAgent,
 		clock: clockSeen,
-		tone:  paint.ToneWarning,
 		is:    hasPullRequestIn(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHANGES_REQUESTED),
 	},
 	{
@@ -174,7 +159,6 @@ var triageRules = []triageRule{
 		tier:  tierReady,
 		kind:  kindAgent,
 		clock: clockSeen,
-		tone:  paint.ToneWarning,
 		is:    func(s triageSubject) bool { return s.item.PersonComments.GetOpen() > 0 },
 	},
 	{
@@ -182,7 +166,6 @@ var triageRules = []triageRule{
 		tier:  tierYourMove,
 		kind:  kindAgent,
 		clock: clockSeen,
-		tone:  paint.ToneMuted,
 		is: hasPullRequestIn(
 			pullrequestv1.PullRequestState_PULL_REQUEST_STATE_MERGED,
 			pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CLOSED,
@@ -193,14 +176,13 @@ var triageRules = []triageRule{
 		tier:  tierYourMove,
 		kind:  kindAgent,
 		clock: clockState,
-		tone:  paint.ToneMuted,
 		is:    isIdleImplementer,
 	},
 }
 
 // triageZone is the agents waiting on a person, drawn ahead of the tree while it has room for any.
 type triageZone struct {
-	// capacity is how many agents the zone draws, and zero turns it off.
+	// capacity is how many families the zone draws, each head with its children under it, and zero turns it off.
 	capacity int
 	// entries are the agents in triage by id.
 	entries map[string]triageEntry
@@ -328,7 +310,7 @@ func findThinkingParents(agents []panel.AgentRow) map[string]bool {
 // agentsLayout is the agents list split into triage and the tree under it.
 type agentsLayout struct {
 	zone []agentRow
-	// waiting is how many agents in triage the zone has no room for.
+	// waiting is how many families in triage the zone has no room for.
 	waiting int
 	tree    []agentRow
 }
@@ -338,38 +320,78 @@ func (l agentsLayout) cursorRows() []agentRow {
 	return slices.Concat(l.zone, l.tree)
 }
 
-// splitTriage takes the most urgent agents in triage the zone has room for out of the listing.
-func splitTriage(z triageZone, s panelShared) (zone []agentRow, waiting int, rest []panel.AgentRow) {
-	queued := xslice.Filter(s.listing.agents, func(item panel.AgentRow) bool {
-		_, ok := z.entries[item.Agent.ID]
-
-		return ok
-	})
-	slices.SortFunc(queued, func(a, b panel.AgentRow) int {
-		left, right := z.entries[a.Agent.ID], z.entries[b.Agent.ID]
-
-		return cmp.Or(
-			cmp.Compare(left.rule.tier, right.rule.tier),
-			left.since.Compare(right.since),
-			cmp.Compare(a.Agent.ID, b.Agent.ID),
-		)
-	})
-
-	slotted := queued[:min(z.capacity, len(queued))]
-	byID := xslice.KeyBy(s.listing.workflows, func(w panel.Workflow) string { return w.ID })
-	zone = xslice.Map(slotted, func(item panel.AgentRow) agentRow {
-		rule := z.entries[item.Agent.ID].rule
-
-		return agentRow{item: item, workflow: byID[item.Agent.WorkflowID], triage: &rule}
-	})
-
-	inZone := make(map[string]bool, len(slotted))
-	for _, item := range slotted {
-		inZone[item.Agent.ID] = true
+// splitTriage takes the most urgent families in triage the zone has room for out of the listing,
+// each head with its children under it.
+func splitTriage(z triageZone, s panelShared, showHidden bool) (zone []agentRow, waiting int, rest []panel.AgentRow) {
+	byID := xslice.KeyBy(s.listing.agents, func(item panel.AgentRow) string { return item.Agent.ID })
+	children := make(map[string][]panel.AgentRow)
+	for _, item := range s.listing.agents {
+		if parentID := item.Agent.ParentAgentID; parentID != nil {
+			children[*parentID] = append(children[*parentID], item)
+		}
 	}
+	headOf := func(item panel.AgentRow) panel.AgentRow {
+		if parentID := item.Agent.ParentAgentID; parentID != nil {
+			if parent, ok := byID[*parentID]; ok {
+				return parent
+			}
+		}
+
+		return item
+	}
+
+	families := make(map[string]triageEntry)
+	var heads []panel.AgentRow
+	for _, item := range s.listing.agents {
+		entry, ok := z.entries[item.Agent.ID]
+		head := headOf(item)
+		if !ok || (head.Agent.Hidden && !showHidden) {
+			continue
+		}
+
+		best, seen := families[head.Agent.ID]
+		if !seen {
+			heads = append(heads, head)
+		}
+		if !seen || compareUrgency(entry, best) < 0 {
+			families[head.Agent.ID] = entry
+		}
+	}
+
+	slices.SortFunc(heads, func(a, b panel.AgentRow) int {
+		left, right := families[a.Agent.ID], families[b.Agent.ID]
+
+		return cmp.Or(compareUrgency(left, right), cmp.Compare(a.Agent.ID, b.Agent.ID))
+	})
+
+	slotted := heads[:min(z.capacity, len(heads))]
+	inZone := make(map[string]bool)
+	workflows := xslice.KeyBy(s.listing.workflows, func(w panel.Workflow) string { return w.ID })
+	for _, head := range slotted {
+		inZone[head.Agent.ID] = true
+		zone = append(zone, agentRow{item: head, workflow: workflows[head.Agent.WorkflowID]})
+		headRow := len(zone) - 1
+		for _, child := range children[head.Agent.ID] {
+			inZone[child.Agent.ID] = true
+			if child.Agent.Hidden {
+				zone[headRow].hiddenCount++
+				if !showHidden {
+					continue
+				}
+			}
+
+			zone = append(zone, agentRow{item: child, workflow: workflows[child.Agent.WorkflowID], child: true})
+		}
+	}
+
 	rest = xslice.Filter(s.listing.agents, func(item panel.AgentRow) bool { return !inZone[item.Agent.ID] })
 
-	return zone, len(queued) - len(slotted), rest
+	return zone, len(heads) - len(slotted), rest
+}
+
+// compareUrgency orders two entries in triage, the more urgent first.
+func compareUrgency(a, b triageEntry) int {
+	return cmp.Or(cmp.Compare(a.rule.tier, b.rule.tier), a.since.Compare(b.since))
 }
 
 // jumpToTriage puts the cursor on the zone's first agent.
@@ -386,9 +408,8 @@ func (a *agentsScreen) jumpToTriage(h navHost, s panelShared) {
 
 // triageSnapshot is the zone as the agents list draws it.
 type triageSnapshot struct {
-	zone     []agentRow
-	waiting  int
-	capacity int
+	zone    []agentRow
+	waiting int
 }
 
 // triageRows are the lines the zone draws ahead of the tree, none while it is empty.
@@ -398,26 +419,14 @@ func triageRows(params snapshotParams) []view.Row {
 		return nil
 	}
 
-	rows := []view.Row{{
-		Key:    triageHeaderKey,
-		Kind:   view.KindTriageHeader,
-		Name:   "triage",
-		Status: view.StatusWaiting,
-		Note:   view.Cell{Text: fmt.Sprintf("%d/%d", len(queue.zone), queue.capacity), Tone: paint.ToneMuted},
-	}}
-
+	var rows []view.Row
 	for _, r := range queue.zone {
 		row := params.renaming.drawnOver(snapshotRow(r, params))
-		row.Kind = view.KindTriage
-		reason := view.Cell{Text: r.triage.name, Tone: r.triage.tone}
-		row.Note = view.Cell{Parts: []view.Cell{
-			{Text: r.workflow.Name, Tone: paint.ToneMuted},
-			{Text: separated, Tone: paint.ToneMuted},
-			reason,
-		}}
+		if !r.child {
+			row.Kind = view.KindAgent
+		}
 		if r.item.Agent.Role == panel.RoleOrchestrator {
 			row.Name = r.workflow.Name
-			row.Note = reason
 		}
 		rows = append(rows, row)
 	}

@@ -188,7 +188,7 @@
           "key": "triage_rows",
           "path": "layout.triage_rows",
           "type": "integer",
-          "description": "How many agents the triage zone at the top of the agents list holds, the agents most in need of you, the most urgent first. Zero turns the zone off.",
+          "description": "How many families the triage zone at the top of the agents list holds, the agents most in need of you, the most urgent first. An agent comes with its parent and its children, so the zone can draw more rows than this. Zero turns the zone off.",
           "default": "0"
         }
       ],

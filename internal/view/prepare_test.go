@@ -385,27 +385,6 @@ func TestPrepareComments(t *testing.T) {
 			},
 			want: []Cell{slot(glyph.Unread, "1", paint.ToneWarning)},
 		},
-		{
-			name: "a row in triage draws its counts and then its note",
-			row: Row{
-				Kind:           KindTriage,
-				PersonComments: &Comments{Open: 1},
-				Note:           Cell{Text: "asking", Tone: paint.ToneWarning},
-			},
-			want: []Cell{
-				slot(glyph.PersonComments, "1", paint.ToneMuted),
-				{Text: "asking", Tone: paint.ToneWarning},
-			},
-		},
-		{
-			name: "a header draws its note and no counts",
-			row: Row{
-				Kind:           KindTriageHeader,
-				PersonComments: &Comments{Open: 1},
-				Note:           Cell{Text: "2/4", Tone: paint.ToneMuted},
-			},
-			want: []Cell{{Text: "2/4", Tone: paint.ToneMuted}},
-		},
 	}
 
 	for _, tt := range tests {
@@ -520,12 +499,6 @@ func TestPrepareWeight(t *testing.T) {
 		{
 			name:     "a workflow is bold",
 			kind:     KindWorkflow,
-			want:     WeightBold,
-			wantRule: false,
-		},
-		{
-			name:     "the triage header is bold",
-			kind:     KindTriageHeader,
 			want:     WeightBold,
 			wantRule: false,
 		},
