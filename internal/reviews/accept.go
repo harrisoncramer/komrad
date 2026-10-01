@@ -68,7 +68,7 @@ func (s *ReviewService) AcceptForgeThread(
 		return nil, err
 	}
 
-	seen, err := seenComments(offer.Comments, params.Seen)
+	seen, err := requireSeenUnchanged(offer.Comments, params.Seen)
 	if err != nil {
 		return nil, err
 	}
@@ -242,8 +242,8 @@ func (s *ReviewService) withMessages(ctx context.Context, thread reviewstore.Thr
 	return &ReviewThreadWithMessages{Thread: thread, Messages: messages}, nil
 }
 
-// seenComments is the stored comments the person read, oldest first, refused when one is gone or edited since.
-func seenComments(stored []pullrequeststore.ForgeComment, seen []SeenForgeComment) ([]pullrequeststore.ForgeComment, error) {
+// requireSeenUnchanged is the stored comments the person read, oldest first.
+func requireSeenUnchanged(stored []pullrequeststore.ForgeComment, seen []SeenForgeComment) ([]pullrequeststore.ForgeComment, error) {
 	read := make(map[string]SeenForgeComment, len(seen))
 	for _, comment := range seen {
 		read[comment.ID] = comment
