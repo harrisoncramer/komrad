@@ -15,6 +15,7 @@ import (
 	"komrad/internal/engine"
 	"komrad/internal/errui"
 	"komrad/internal/git"
+	"komrad/internal/harness/pane"
 	"komrad/internal/logging"
 	"komrad/internal/ui"
 	"komrad/internal/version"
@@ -145,7 +146,7 @@ Use ` + "`komrad open`" + ` to bring the panel up.`,
 				Tmux:            state.tmux,
 				Git:             reviewGit(remote, gitv1connect.NewGitServiceClient(httpClient, base)),
 				Browser:         browser.NewDesktop(),
-				HarnessFrames:   paneFrameReader{panes: state.tmux, harnesses: state.harnesses},
+				HarnessFrames:   pane.NewPane(pane.NewPaneParams{Terminal: state.tmux, Harnesses: state.harnesses}),
 				Agents:          agentClient,
 				Workflows:       workflowClient,
 				Schedules:       scheduleClient,

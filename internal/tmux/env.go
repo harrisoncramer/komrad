@@ -1,7 +1,10 @@
 package tmux
 
 import (
+	"os"
 	"strings"
+
+	"komrad/lib/xslice"
 )
 
 const tmuxEnvFields = 3
@@ -14,4 +17,8 @@ func SocketFromEnv(value string) string {
 	}
 
 	return fields[0]
+}
+
+func environWithoutTmux() []string {
+	return xslice.Filter(os.Environ(), func(entry string) bool { return !strings.HasPrefix(entry, "TMUX=") })
 }

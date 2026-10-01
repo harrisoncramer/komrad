@@ -5,9 +5,6 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"os/exec"
-	"strings"
-	"syscall"
 
 	"komrad/internal/agents"
 	"komrad/internal/git"
@@ -15,7 +12,6 @@ import (
 	"komrad/internal/tmux"
 	"komrad/internal/version"
 	"komrad/lib/xhttp"
-	"komrad/lib/xslice"
 	"komrad/proto/gen/agent/v1/agentv1connect"
 	"komrad/proto/gen/workflow/v1/workflowv1connect"
 
@@ -99,21 +95,11 @@ func openHere(ctx context.Context, state *app, detach, headless bool) error {
 
 // attachManagerSession replaces this process with the tmux client.
 func attachManagerSession(state *app) error {
-	path, err := exec.LookPath("tmux")
-	if err != nil {
-		return fmt.Errorf("failed to find tmux: %w", err)
-	}
-
-	args := []string{"tmux", "-L", state.env.TmuxSocket, "attach-session", "-t", agents.ManagerSession}
-	if err := syscall.Exec(path, args, envWithoutTmux()); err != nil {
-		return fmt.Errorf("failed to attach the panel: %w", err)
-	}
-
-	return nil
+	return state.tmux.ExecAttachSession(agents.ManagerSession)
 }
 
 func isManagerSessionRunning(ctx context.Context, state *app) bool {
-	return state.tmuxCommand(ctx, "has-session", "-t", agents.ManagerSession).Run() == nil
+	return state.tmux.HasSession(ctx, agents.ManagerSession)
 }
 
 // isPanelRunning reports whether a panel is drawing in the manager session.
@@ -180,10 +166,7 @@ func silenceManagerPrefix(state *app) {
 }
 
 func runTmux(ctx context.Context, state *app, summary string, args []string) error {
-	cmd := state.tmuxCommand(ctx, args...)
-	cmd.Stderr = os.Stderr
-
-	if err := cmd.Run(); err != nil {
+	if err := state.tmux.RunToStderr(ctx, args...); err != nil {
 		return fmt.Errorf("failed to %s: %w", summary, err)
 	}
 
@@ -229,17 +212,6 @@ func panelCommandArgs(state *app, self string) []string {
 	args := append(sessionEnvArgs(state), "--", self, "panel")
 
 	return append(args, configArgs(state.configStack)...)
-}
-
-func (a *app) tmuxCommand(ctx context.Context, args ...string) *exec.Cmd {
-	cmd := exec.CommandContext(ctx, "tmux", append([]string{"-L", a.env.TmuxSocket}, args...)...)
-	cmd.Env = envWithoutTmux()
-
-	return cmd
-}
-
-func envWithoutTmux() []string {
-	return xslice.Filter(os.Environ(), func(entry string) bool { return !strings.HasPrefix(entry, "TMUX=") })
 }
 
 // hostPath asks the user's own server where its client is sitting, which only a command running
