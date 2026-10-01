@@ -29,7 +29,7 @@ func (d *documentsScreen) openRename(h host, s panelShared) tea.Cmd {
 		return nil
 	}
 
-	read, asked := d.bodyOf(s, item.id)
+	read, asked := d.bodies[item.id]
 	switch {
 	case asked && read.err != nil:
 		h.note(messageWarning, fmt.Sprintf("%q could not be read, so it cannot be renamed", item.name))
@@ -64,14 +64,14 @@ func (d *documentsScreen) updateRename(h host, s panelShared, msg tea.Msg) tea.C
 	case nameEditCancelled:
 		d.renaming = nil
 	case nameEditSubmitted:
-		return d.saveRename(h, s)
+		return d.saveRename(h)
 	case nameEditTyping:
 	}
 
 	return nil
 }
 
-func (d *documentsScreen) saveRename(h host, s panelShared) tea.Cmd {
+func (d *documentsScreen) saveRename(h host) tea.Cmd {
 	rename := d.renaming
 	name, ok := rename.submit()
 	if !ok {
@@ -81,20 +81,12 @@ func (d *documentsScreen) saveRename(h host, s panelShared) tea.Cmd {
 	}
 
 	item, read := rename.item, rename.read
-	if i := slices.IndexFunc(d.itemsOf(s), func(i documentItem) bool { return i.id == item.id }); i >= 0 {
-		item = d.itemsOf(s)[i]
+	if i := slices.IndexFunc(d.items, func(i documentItem) bool { return i.id == item.id }); i >= 0 {
+		item = d.items[i]
 	}
-	if fresh, asked := d.bodyOf(s, item.id); asked && !fresh.pending && fresh.err == nil {
+	if fresh, asked := d.bodies[item.id]; asked && !fresh.pending && fresh.err == nil {
 		read = fresh
 	}
-	if d.shelf == shelfDocumentTypes {
-		return stampRename(h.writeCmd(
-			"renaming "+rename.was,
-			fmt.Sprintf("Could not rename document type %q", rename.was),
-			func(a api) error { return a.writeDocumentType(item, read.version, name, read.body) },
-		), rename.key)
-	}
-
 	item.name = name
 
 	return stampRename(h.writeCmd(

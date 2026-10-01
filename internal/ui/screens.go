@@ -22,7 +22,6 @@ const (
 	screenWorktrees
 	screenDocuments
 	screenLogs
-	screenDocumentTypes
 )
 
 // opensTerminal reports whether the key that opens a shell beside the panel acts on a screen.
@@ -30,7 +29,7 @@ func (s screen) opensTerminal() bool {
 	switch s {
 	case screenAgents, screenSchedules:
 		return true
-	case screenArchive, screenSearch, screenReview, screenWorktrees, screenDocuments, screenLogs, screenDocumentTypes:
+	case screenArchive, screenSearch, screenReview, screenWorktrees, screenDocuments, screenLogs:
 		return false
 	}
 
@@ -183,8 +182,6 @@ func (m *model) screenOf(s screen) screenModel {
 		return &m.documents
 	case screenLogs:
 		return &m.logs
-	case screenDocumentTypes:
-		return &m.documentTypes
 	}
 
 	// The switch carries every screen and no default, so this is what a screen added without an

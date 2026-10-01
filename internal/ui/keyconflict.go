@@ -11,15 +11,14 @@ import (
 
 // screenNames are the screens as an error names them.
 var screenNames = map[screen]string{
-	screenAgents:        "the agents list",
-	screenSchedules:     "the schedules",
-	screenArchive:       "the archive",
-	screenReview:        "the review",
-	screenSearch:        "the search",
-	screenWorktrees:     "the worktrees",
-	screenDocuments:     "the documents",
-	screenLogs:          "the logs",
-	screenDocumentTypes: "the document types",
+	screenAgents:    "the agents list",
+	screenSchedules: "the schedules",
+	screenArchive:   "the archive",
+	screenReview:    "the review",
+	screenSearch:    "the search",
+	screenWorktrees: "the worktrees",
+	screenDocuments: "the documents",
+	screenLogs:      "the logs",
 }
 
 // dispatchArm is one arm of the order a press is offered to, described for the error it would be
@@ -53,10 +52,6 @@ func actionsOf(s screen) []dispatching {
 		return []dispatching{(&documentsScreen{}).listActions(), (&documentsScreen{}).diffActions(), docActions(), (&documentsScreen{}).docKeys()}
 	case screenLogs:
 		return []dispatching{(&logsScreen{}).listActions(), (&logsScreen{}).logActions()}
-	case screenDocumentTypes:
-		types := &documentsScreen{shelf: shelfDocumentTypes}
-
-		return []dispatching{types.listActions(), types.diffActions(), docActions(), types.docKeys()}
 	case screenSearch:
 		return []dispatching{(&searchScreen{}).listActions(), (&searchScreen{}).previewActions()}
 	}
@@ -66,7 +61,7 @@ func actionsOf(s screen) []dispatching {
 
 // ValidateKeybindings rejects the bindings a screen could not dispatch.
 func ValidateKeybindings(keys config.Keybindings) error {
-	for _, s := range []screen{screenAgents, screenSchedules, screenArchive, screenReview, screenWorktrees, screenDocuments, screenLogs, screenSearch, screenDocumentTypes} {
+	for _, s := range []screen{screenAgents, screenSchedules, screenArchive, screenReview, screenWorktrees, screenDocuments, screenLogs, screenSearch} {
 		if err := validateScreenKeys(s, keys); err != nil {
 			return err
 		}
@@ -109,15 +104,9 @@ func ValidateKeybindings(keys config.Keybindings) error {
 	}
 
 	if err := validateSubmenuKeys("document types menu", []submenuKeys{
-		{name: "list", keys: keys.DocumentTypesMenu.List},
+		{name: "edit", keys: keys.DocumentTypesMenu.Edit},
 		{name: "new", keys: keys.DocumentTypesMenu.New},
-	}); err != nil {
-		return err
-	}
-
-	if err := validateSubmenuKeys("document type menu", []submenuKeys{
-		{name: "open", keys: keys.DocumentTypesMenu.Open},
-		{name: "delete", keys: keys.DocumentMenu.Delete},
+		{name: "delete", keys: keys.DocumentTypesMenu.Delete},
 	}); err != nil {
 		return err
 	}
@@ -126,7 +115,6 @@ func ValidateKeybindings(keys config.Keybindings) error {
 		{name: "edit", keys: keys.DocumentMenu.Edit},
 		{name: "rename", keys: keys.DocumentMenu.Rename},
 		{name: "new", keys: keys.DocumentMenu.New},
-		{name: "delete", keys: keys.DocumentMenu.Delete},
 		{name: "scratch", keys: keys.Menu.Scratch},
 		{name: "document_types", keys: keys.Menu.DocumentTypes},
 	}); err != nil {
