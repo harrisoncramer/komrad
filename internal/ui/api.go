@@ -111,7 +111,6 @@ type createAgentParams struct {
 	Prompt           string
 	Title            string
 	Harness          string
-	Dir              string
 	Flags            string
 	ProvisionEnabled *bool
 	WorkflowID       string
@@ -134,7 +133,6 @@ func (a api) createAgent(params createAgentParams) (*agentv1.Agent, error) {
 			Prompt:           params.Prompt,
 			Title:            params.Title,
 			Harness:          params.Harness,
-			Dir:              params.Dir,
 			Flags:            params.Flags,
 			ProvisionEnabled: params.ProvisionEnabled,
 			WorkflowId:       params.WorkflowID,

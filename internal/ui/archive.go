@@ -479,18 +479,19 @@ func (a *archiveScreen) snapshot(s panelShared, pane listPane) view.Snapshot {
 	rows := a.listRows(s)
 
 	return agentsSnapshot(snapshotParams{
-		rows:        rows,
-		selected:    a.selected,
-		scheduled:   s.listing.scheduledWorkflows(),
-		focused:     rowKeyAt(rows, a.cursor),
-		caret:       pane.caret,
-		blinkedOut:  pane.blinkedOut,
-		loaderFrame: s.loaderFrame,
-		matcher:     s.chrome.filter.pattern,
-		renaming:    a.renamingField(),
-		showHidden:  true,
-		flat:        a.sort.flat,
-		pane:        pane.width,
+		rows:         rows,
+		selected:     a.selected,
+		scheduled:    s.listing.scheduledWorkflows(),
+		workflowDirs: s.listing.workflowDirs(),
+		focused:      rowKeyAt(rows, a.cursor),
+		caret:        pane.caret,
+		blinkedOut:   pane.blinkedOut,
+		loaderFrame:  s.loaderFrame,
+		matcher:      s.chrome.filter.pattern,
+		renaming:     a.renamingField(),
+		showHidden:   true,
+		flat:         a.sort.flat,
+		pane:         pane.width,
 	})
 }
 

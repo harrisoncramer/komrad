@@ -414,7 +414,6 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 				created, err := svc.CreateAgent(ctx, connect.NewRequest(&agentv1.CreateAgentRequest{
 					Prompt:           "audit the migrations",
 					Title:            "audit",
-					Dir:              "/repo",
 					Flags:            "--model opus",
 					ProvisionEnabled: xptr.Ptr(false),
 					WorkflowId:       "wf-1",
@@ -432,7 +431,6 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 			check: func(t *testing.T, services *recordingAgentServices, ids []string) {
 				assert.Equal(t, agents.NewAgentParams{
 					Title:            "audit",
-					Dir:              "/repo",
 					Flags:            "--model opus",
 					ProvisionEnabled: xptr.Ptr(false),
 					Prompt:           "audit the migrations",
@@ -1523,49 +1521,23 @@ func TestCreateAgentValidation(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "a prompt, a workflow, and an absolute directory are enough",
-			req: &agentv1.CreateAgentRequest{
-				Prompt:     "audit the migrations",
-				Dir:        "/repo",
-				WorkflowId: "wf-1",
-			},
-		},
-		{
-			name: "a home-relative directory is allowed, since the manager expands it",
-			req: &agentv1.CreateAgentRequest{
-				Prompt:     "go",
-				Dir:        "~/repo",
-				WorkflowId: "wf-1",
-			},
-		},
-		{
-			name: "no directory is allowed, since the workflow has one",
+			name: "a prompt and a workflow are enough",
 			req:  &agentv1.CreateAgentRequest{Prompt: "go", WorkflowId: "wf-1"},
 		},
 		{
 			name:    "no prompt",
-			req:     &agentv1.CreateAgentRequest{Dir: "/repo", WorkflowId: "wf-1"},
+			req:     &agentv1.CreateAgentRequest{WorkflowId: "wf-1"},
 			wantErr: true,
 		},
 		{
 			name:    "no workflow, which every agent needs",
-			req:     &agentv1.CreateAgentRequest{Prompt: "go", Dir: "/repo"},
-			wantErr: true,
-		},
-		{
-			name: "a relative directory would be read against whichever pane is current",
-			req: &agentv1.CreateAgentRequest{
-				Prompt:     "go",
-				Dir:        "repo",
-				WorkflowId: "wf-1",
-			},
+			req:     &agentv1.CreateAgentRequest{Prompt: "go"},
 			wantErr: true,
 		},
 		{
 			name: "flags carrying a shell metacharacter are refused rather than quoted and run",
 			req: &agentv1.CreateAgentRequest{
 				Prompt:     "go",
-				Dir:        "/repo",
 				WorkflowId: "wf-1",
 				Flags:      "--model opus; rm -rf /",
 			},

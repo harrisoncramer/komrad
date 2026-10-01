@@ -1078,8 +1078,6 @@ type CreateAgentRequest struct {
 	Prompt string `protobuf:"bytes,1,opt,name=prompt,proto3" json:"prompt,omitempty"`
 	// What to call it in the panel, blank to have komrad name it.
 	Title string `protobuf:"bytes,2,opt,name=title,proto3" json:"title,omitempty"`
-	// Where to start it, absolute or ~-prefixed, blank to take the workflow's own.
-	Dir string `protobuf:"bytes,3,opt,name=dir,proto3" json:"dir,omitempty"`
 	// Flags for its CLI, blank to take the workflow's own.
 	Flags string `protobuf:"bytes,4,opt,name=flags,proto3" json:"flags,omitempty"`
 	// Which workflow to launch it into, whose cwd, flags and context it inherits.
@@ -1140,13 +1138,6 @@ func (x *CreateAgentRequest) GetPrompt() string {
 func (x *CreateAgentRequest) GetTitle() string {
 	if x != nil {
 		return x.Title
-	}
-	return ""
-}
-
-func (x *CreateAgentRequest) GetDir() string {
-	if x != nil {
-		return x.Dir
 	}
 	return ""
 }
@@ -3411,12 +3402,11 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x12ListAgentsResponse\x12*\n" +
 	"\x06agents\x18\x01 \x03(\v2\x12.agent.v1.AgentRowR\x06agents\x12+\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tH\x00R\rnextPageToken\x88\x01\x01B\x12\n" +
-	"\x10_next_page_token\"\xb9\x04\n" +
+	"\x10_next_page_token\"\x99\x04\n" +
 	"\x12CreateAgentRequest\x12#\n" +
 	"\x06prompt\x18\x01 \x01(\tB\v\xbaH\br\x06\x10\x01\x18І\x03R\x06prompt\x12\x7f\n" +
 	"\x05title\x18\x02 \x01(\tBi\xbaHf\xba\x01^\n" +
-	"\x0ftitle.printable\x12)title must not contain control characters\x1a !this.matches('[\\x00-\\x1f\\x7f]')r\x03\x18\xc8\x01R\x05title\x12\x1e\n" +
-	"\x03dir\x18\x03 \x01(\tB\f\xbaH\tr\a\xb0\xbb\x18\x01\x18\x80 R\x03dir\x12\"\n" +
+	"\x0ftitle.printable\x12)title must not contain control characters\x1a !this.matches('[\\x00-\\x1f\\x7f]')r\x03\x18\xc8\x01R\x05title\x12\"\n" +
 	"\x05flags\x18\x04 \x01(\tB\f\xbaH\tr\a\xa0\xbb\x18\x01\x18\xf4\x03R\x05flags\x12(\n" +
 	"\vworkflow_id\x18\x05 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\n" +
 	"workflowId\x12/\n" +
@@ -3604,12 +3594,12 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\vSEQUENCE_AM\x10\x03\x12\x12\n" +
 	"\x0eSEQUENCE_MERGE\x10\x04\x12\x18\n" +
 	"\x14SEQUENCE_CHERRY_PICK\x10\x05\x12\x13\n" +
-	"\x0fSEQUENCE_REVERT\x10\x062\x9e\xe5\x01\n" +
+	"\x0fSEQUENCE_REVERT\x10\x062\xe0\xe4\x01\n" +
 	"\fAgentService\x12\x81\x04\n" +
 	"\n" +
 	"ListAgents\x12\x1b.agent.v1.ListAgentsRequest\x1a\x1c.agent.v1.ListAgentsResponse\"\xb7\x03\x9a\xb5\x18\xaf\x03\b\x01\x10\x01\x1a\vlist_agents\"\x96\x03List the agents komrad is tracking. Start here when you need an agent's id or name for another call. Agents come back a page at a time, most recently updated first. Each carries its name, state, working directory, flags and workflow, plus the opening of its prompt. To read a prompt in full, fetch that agent with get_agent. Archived agents are left out unless archived is set, which then lists only those.B\x03\x01\x02\x03\x90\x02\x01\x12\xd0\x01\n" +
-	"\bGetAgent\x12\x19.agent.v1.GetAgentRequest\x1a\x1a.agent.v1.GetAgentResponse\"\x8c\x01\x9a\xb5\x18\x84\x01\b\x01\x10\x01\x1a\tget_agent\"nFetch one agent by id, with its full prompt and what the panel draws beside it. Archived agents are found too.B\x03\x01\x02\x03\x90\x02\x01\x12\xbe\b\n" +
-	"\vCreateAgent\x12\x1c.agent.v1.CreateAgentRequest\x1a\x1d.agent.v1.CreateAgentResponse\"\xf1\a\x9a\xb5\x18\xec\a\b\x01\x10\x01\x1a\fcreate_agent\"\xd0\aLaunch a new agent with an opening prompt. The prompt is everything the agent has to go on, so it should say what the work is and where to start. The agent runs in a tmux window of its own and, when its workflow provisions worktrees, in a fresh worktree cut from the workflow's directory. Leave dir blank to take the workflow's directory, and set provision_enabled to false when the agent should work in an existing checkout rather than a new worktree. To attach the new agent to one already running, pass that agent's id as parent_agent_id. A child shares its parent's directory, may only mail its parent and its siblings, and is archived and deleted along with the parent. Use a child for an agent that reads a tree, such as a test runner, and a standalone agent for one that writes work of its own. There is a limit on how many agents may exist at once, and a call past it is refused as resource_exhausted, which means there is no room rather than that something is broken.(\x00B\x03\x01\x02\x03\x12\xc6\x06\n" +
+	"\bGetAgent\x12\x19.agent.v1.GetAgentRequest\x1a\x1a.agent.v1.GetAgentResponse\"\x8c\x01\x9a\xb5\x18\x84\x01\b\x01\x10\x01\x1a\tget_agent\"nFetch one agent by id, with its full prompt and what the panel draws beside it. Archived agents are found too.B\x03\x01\x02\x03\x90\x02\x01\x12\x80\b\n" +
+	"\vCreateAgent\x12\x1c.agent.v1.CreateAgentRequest\x1a\x1d.agent.v1.CreateAgentResponse\"\xb3\a\x9a\xb5\x18\xae\a\b\x01\x10\x01\x1a\fcreate_agent\"\x92\aLaunch a new agent with an opening prompt. The prompt is everything the agent has to go on, so it should say what the work is and where to start. The agent runs in a tmux window of its own and, when its workflow provisions worktrees, in a fresh worktree cut from the workflow's directory. Set provision_enabled to false to keep it in the workflow's own directory rather than a new worktree. To attach the new agent to one already running, pass that agent's id as parent_agent_id. A child shares its parent's directory, may only mail its parent and its siblings, and is archived and deleted along with the parent. Use a child for an agent that reads a tree, such as a test runner, and a standalone agent for one that writes work of its own. There is a limit on how many agents may exist at once, and a call past it is refused as resource_exhausted, which means there is no room rather than that something is broken.(\x00B\x03\x01\x02\x03\x12\xc6\x06\n" +
 	"\rRequestReview\x12\x1e.agent.v1.RequestReviewRequest\x1a\x1f.agent.v1.RequestReviewResponse\"\xf3\x05\x9a\xb5\x18\xee\x05\b\x01\x10\x01\x1a\x0erequest_review\"\xd2\x05Ask for a review of an agent's work, usually your own. Commit first: the review is given against a snapshot of the checkout as it stands. This spawns a reviewer as a child of the agent being read, running in that agent's checkout and briefed to read rather than write. The prompt is the reviewer's whole briefing, so say what the change is meant to do and where you are unsure of it. One reviewer follows a change through every round, so call this once per change. Answering its threads with add_review_message is what tells it there is more to read, and asking again while it still owes an answer is refused as already_exists. Once the reviewer has approved it is finished, and the next change gets a reviewer of its own.(\x00B\x01\x01\x12\xc2\x04\n" +
 	"\x05Adopt\x12\x16.agent.v1.AdoptRequest\x1a\x17.agent.v1.AdoptResponse\"\x87\x04\x9a\xb5\x18\x82\x04\b\x01\x10\x01\x1a\x05adopt\"\xef\x03Start an agent on a branch that already exists, such as one a person pushed by hand. Name the branch, not a pull request. The workflow decides the repository and must be one that provisions worktrees. Komrad puts the agent in a worktree on that branch, or in the checkout already holding it when one exists on disk. The branch stays the person's own: nothing here creates, resets or deletes it. A branch that already has an agent on it launches nothing and answers with that agent, existing set.(\x00B\x01\x03\x12\xe5\x02\n" +
 	"\tSetHidden\x12\x1a.agent.v1.SetHiddenRequest\x1a\x16.google.protobuf.Empty\"\xa3\x02\x9a\xb5\x18\x9b\x02\b\x01\x10\x01\x1a\x10set_agent_hidden\"\xfd\x01Hide an agent's row from the panel, or show it again with hidden false. The agent itself is untouched: it keeps running and every other call still returns it. What the person watching the panel sees is theirs to decide, so hide an agent only when asked.(\x00B\x01\x03\x90\x02\x02\x12\xf2\x02\n" +

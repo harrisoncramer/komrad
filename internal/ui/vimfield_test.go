@@ -114,7 +114,7 @@ func TestVimEditing(t *testing.T) {
 		harness.watch(buildSnapshot(newConfiguredWorkflow(), newFormAuthor()))
 		harness.press("g", "g")
 
-		harness.press(slices.Concat([]string{"space", "c"}, spellKeys("go"), slices.Repeat([]string{"tab"}, 4), spellKeys("ab"), []string{"esc", "j"})...)
+		harness.press(slices.Concat([]string{"space", "c"}, spellKeys("go"), slices.Repeat([]string{"tab"}, 3), spellKeys("ab"), []string{"esc", "j"})...)
 		require.Empty(t, harness.readSent(agentv1connect.AgentServiceCreateAgentProcedure))
 		assert.Contains(t, harness.readFrame(), "Worktree")
 
